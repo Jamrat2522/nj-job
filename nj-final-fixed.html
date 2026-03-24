@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NJ LOGISTIC - Import Timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0f172a;font-family:'Sarabun',sans-serif;color:#e2e8f4}
+button,input,textarea,select{font-family:'Sarabun',sans-serif!important}
+.wrap{max-width:100%;margin:0 auto;min-height:100vh}
+@media(min-width:900px){
+  body{padding:0 20px}
+  .wrap{max-width:1200px;width:100%}
+  .mode-bar{margin:0 0 14px}
+  .fix-bar{max-width:1200px}
+}
+.hdr{padding:22px 16px 46px;position:relative;overflow:hidden}
+.blob{position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.07)}
+.hdr-inner{position:relative;display:flex;align-items:center;gap:12px}
+.card{background:#1a2235;border:1px solid #2a3a54;border-radius:14px;padding:14px;margin-bottom:10px}
+.btn-green{width:100%;background:#06C755;border:none;border-radius:14px;padding:15px;color:white;font-size:15px;font-weight:800;cursor:pointer}
+.btn-outline{width:100%;background:transparent;border:1.5px solid #2a3a54;border-radius:14px;padding:13px;color:#64748b;font-size:14px;cursor:pointer;margin-top:10px}
+.inp{width:100%;background:#0f172a;border:1.5px solid #2a3a54;border-radius:10px;padding:11px 12px;color:#e2e8f4;font-size:14px;outline:none}
+.inp:focus{border-color:#06C755}
+textarea.inp{resize:none;min-height:80px}
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #2a3a54;color:#e2e8f4;padding:12px 22px;border-radius:100px;font-size:14px;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:999;max-width:90vw;overflow:hidden;text-overflow:ellipsis;display:none}
+.fix-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:#0f172a;border-top:1px solid #2a3a54;padding:10px 13px 28px;z-index:100}
+@media(max-width:900px){.fix-bar{max-width:100%}}
+.mode-bar{display:flex;margin:0 13px 14px;background:#212d42;border-radius:12px;border:1px solid #2a3a54;overflow:hidden}
+.mode-btn{flex:1;padding:10px 2px;border:none;background:transparent;color:#64748b;font-size:12px;font-weight:800;cursor:pointer}
+.mode-btn.active{color:white}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px}
+.filter-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid #2a3a54;background:#212d42;color:#64748b;font-size:12px;font-weight:700;cursor:pointer}
+.filter-btn.active{background:rgba(6,199,85,.11);color:#06C755;border-color:#06C755}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(6px)}
+.modal-box{background:#1a2235;width:100%;border-radius:22px 22px 0 0;padding:22px 18px 44px;border-top:1px solid #2a3a54}
+.timeline-dot{width:10px;height:10px;border-radius:50%;border:2px solid #0f172a;flex-shrink:0}
+.status-btn{background:#212d42;border:1.5px solid #2a3a54;border-radius:12px;padding:11px 10px;cursor:pointer;font-size:12px;color:#94a3b8;font-weight:500;text-align:left;line-height:1.4}
+.status-btn.sel-normal{background:rgba(6,199,85,.11);border-color:#06C755;color:#06C755;font-weight:700}
+.status-btn.sel-delay{background:rgba(245,158,11,.1);border-color:#f59e0b;color:#f59e0b;font-weight:700}
+.tab-btn{flex:1;padding:9px 6px;border-radius:10px;border:1.5px solid #2a3a54;background:#212d42;color:#64748b;font-size:13px;font-weight:700;cursor:pointer}
+.tab-btn.active-normal{background:rgba(6,199,85,.11);border-color:#06C755;color:#06C755}
+.tab-btn.active-delay{background:rgba(245,158,11,.1);border-color:#f59e0b;color:#f59e0b}
+.copy-btn{flex:1;background:#1a2235;border-radius:12px;padding:11px 4px;font-size:13px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+.copy-btn span{font-size:18px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div style="color:#64748b;text-align:center;padding:50px">⏳ กำลังโหลด...</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────
+const SEA_N=["รับเอกสารจากลูกค้าเรียบร้อย","ตัดภาษีเรียบร้อย","ชิปปิ้งดำเนินพิธีการตรวจปล่อยศุลกากร","ตรวจปล่อยสินค้าเรียบร้อย","ชำระค่าภาระ / ค่าโกดังเรียบร้อย","นำการ์ดใส่กล่องเรียบร้อย","รถเข้าท่าเพื่อเตรียมรับสินค้า","รถขึ้นสินค้าเรียบร้อย พร้อมตรวจสอบ Check List และยืนยันว่าสภาพสินค้าปกติตามรูปภาพ","รถขึ้นสินค้าตรวจพบความเสียหายของสินค้า (เช่น กล่องบุบ ยุบ ฉีก หรือขาด) ตามรูปภาพประกอบ","รถออกจากคลังเรียบร้อย"];
+const SEA_D=["รอคิวชำระค่าภาระ","รอคิวตรวจปล่อยศุลกากร","เจ้าหน้าที่ศุลกากรร้องขอเปิดตรวจสินค้า","ต่อคิวตรวจปล่อยกับเจ้าหน้าที่","รอทะเบียนรถจากลูกค้า","รอขึ้นสินค้า","รถต่อคิวเข้ารับสินค้า","ฝนตก ส่งผลให้การดำเนินงานล่าช้า","ระบบศุลกากรขัดข้อง","พบสินค้าชำรุด","คลังหนาแน่น ทำให้การปฏิบัติงานล่าช้า","เอกสารตรวจปล่อยไม่ครบถ้วน","รอการยืนยันค่าแรงงานจากลูกค้า","รอเอกสาร D/O จากสายเรือ","รอใบอนุญาตจากหน่วยงานที่เกี่ยวข้อง","รอข้อมูลสเปคสินค้าจากลูกค้า","รอรถเข้ารับตู้เพื่อเปิดตรวจ","อยู่ระหว่างการชักตัวอย่างสินค้า","รอการคัดแยกสินค้า","คัดแยกสินค้าเรียบร้อย","อยู่ระหว่างดำเนินการผ่าน อย.","อยู่ระหว่างดำเนินการผ่านด่านตรวจพืช"];
+const AIR_N=["รับเอกสารจากลูกค้าเรียบร้อย","ตัดภาษีเรียบร้อย","ดำเนินพิธีการตรวจปล่อยศุลกากร","ตรวจปล่อยสินค้าเรียบร้อย","ชำระค่าภาระ / ค่าโกดังเรียบร้อย","รถเข้าคลังเพื่อเตรียมรับสินค้า","เบิกสินค้าออกจากคลังเรียบร้อย อยู่ระหว่างรอรถเข้ารับสินค้า","รถขึ้นสินค้าเรียบร้อย พร้อมตรวจสอบ Check List และยืนยันว่าสภาพสินค้าปกติ","รถขึ้นสินค้าเรียบร้อยและตรวจพบความเสียหายของสินค้า (เช่น บุบ ยุบ ฉีก หรือขาด) ได้ดำเนินการแจ้งทำ DMC เรียบร้อยตามรูปภาพประกอบ","รถออกจากคลังเรียบร้อย พร้อมอัปเดตรูปภาพ"];
+const AIR_D=["รอเอกสาร D/O","รอคิวชำระค่าภาระ Terminal","รอคิวตรวจปล่อยศุลกากร / ต่อคิวเจ้าหน้าที่","รอตรวจปล่อยกับเจ้าหน้าที่กรมศุลกากร","รอสินค้า Check-in เข้าระบบคลัง","รอสินค้า Break Down (BD) เข้า Location","สินค้ายังไม่พบ Location ภายในคลัง (อยู่ระหว่างรอระบบขึ้นโลเคชั่น)","พบ Location สินค้าเรียบร้อย","ขณะนี้รถยังไม่ถึงสนามบิน หากรถถึงแล้วจะประสานงานกับทีมชิปปิ้งทันที","รอทะเบียนรถจากลูกค้า","รอขึ้นสินค้า","รถต่อคิวเข้ารับสินค้า","ระบบศุลกากรขัดข้อง","พบสินค้าชำรุด และได้แจ้งทำ DMC เรียบร้อยตามรูปภาพ","คลังหนาแน่น ส่งผลให้การดำเนินงานล่าช้า","เอกสารตรวจปล่อยไม่ครบถ้วน","รอการยืนยันค่าแรงงานจากลูกค้า","รอเอกสารเพิ่มเติมจากลูกค้า"];
+const EXP_N=["รับเอกสารเพื่อตรวจปล่อย","ดำเนินการเดินพิธีการศุลกากร","ได้รายละเอียดรถและประสานรถเรียบร้อย","ดำเนินพิธีการศุลกากรเรียบร้อย พร้อมส่งใบกำกับให้คนขับ","ชั่งน้ำหนักสินค้า (Gross Weight) และตรวจสอบขนาด (Measurement) ก่อนส่งเข้าคลัง","จัดเตรียมและส่งเอกสารให้สายการบิน (AWB / Invoice / Packing List)"];
+const EXP_D=["น้ำหนักหรือขนาดสินค้าไม่ตรงกับที่แจ้ง","เอกสารไม่ครบถ้วน หรือข้อมูลไม่ถูกต้อง","รอลูกค้าแจ้งข้อมูลทะเบียนรถ","อยู่ระหว่างดำเนินพิธีการตรวจปล่อยศุลกากร","คลังหนาแน่น ทำให้การดำเนินงานล่าช้า","ระบบศุลกากรขัดข้อง"];
+const SEBKK_N=["รับเอกสารเพื่อตรวจปล่อย","ดำเนินการเดินพิธีการศุลกากร","ได้รายละเอียดรถและประสานรถเรียบร้อย","ดำเนินพิธีการศุลกากรเรียบร้อย","ติดต่อรถโหลดสินค้าลงเรียบร้อย"];
+const SEBKK_D=["เอกสารไม่ครบถ้วน หรือข้อมูลไม่ถูกต้อง","รอลูกค้าแจ้งข้อมูลทะเบียนรถ","อยู่ระหว่างดำเนินพิธีการตรวจปล่อยศุลกากร","ระบบศุลกากรขัดข้อง","รอ Confirm ค่าแรงงาน","รอ Confirm คัดแยกสินค้า"];
+
+const MODES={
+  sea:{label:"SEA IMPORT",icon:"🚢",color:"#06C755",gl:"rgba(6,199,85,.11)",grad:"linear-gradient(135deg,#06C755,#037a34)",bl:"B/L",N:SEA_N,D:SEA_D},
+  air:{label:"AIR IMPORT",icon:"✈️",color:"#0ea5e9",gl:"rgba(14,165,233,.11)",grad:"linear-gradient(135deg,#0284c7,#0369a1)",bl:"HAWB",N:AIR_N,D:AIR_D},
+  exp:{label:"EXPORT AIR",icon:"📤",color:"#a855f7",gl:"rgba(168,85,247,.11)",grad:"linear-gradient(135deg,#7c3aed,#6d28d9)",bl:"HAWB",N:EXP_N,D:EXP_D},
+  sebkk:{label:"SEA EXPORT BKK",icon:"🚤",color:"#f97316",gl:"rgba(249,115,22,.11)",grad:"linear-gradient(135deg,#ea580c,#c2410c)",bl:"B/L",N:SEBKK_N,D:SEBKK_D}
+};
+
+// ── STATE ─────────────────────────────────────────────────
+// ── SUPABASE ──────────────────────────────────────────────
+const SUPA_URL="https://sytgqjglcnsabcszbngg.supabase.co";
+const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5dGdxamdsY25zYWJjc3pibmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNjYwNDgsImV4cCI6MjA4OTc0MjA0OH0.mBXShyx6YSKxwWgFfwprg_tbAg-LZ3ODZtQ3V2qIF3g";
+const SH={"Content-Type":"application/json","apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Prefer":"return=representation","Accept":"application/json"};
+const API=SUPA_URL+"/rest/v1";
+
+async function sbGet(table,q=""){
+  try{const r=await fetch(API+"/"+table+(q?"?"+q:""),{headers:SH});return r.ok?r.json():[];}catch(e){return[];}
+}
+async function sbInsert(table,data){
+  try{const r=await fetch(API+"/"+table,{method:"POST",headers:SH,body:JSON.stringify(data)});return r.ok;}catch(e){return false;}
+}
+async function sbUpdate(table,id,data){
+  try{const r=await fetch(API+"/"+table+"?id=eq."+id,{method:"PATCH",headers:SH,body:JSON.stringify(data)});return r.ok;}catch(e){return false;}
+}
+async function sbDelete(table,id){
+  try{const r=await fetch(API+"/"+table+"?id=eq."+id,{method:"DELETE",headers:SH});return r.ok;}catch(e){return false;}
+}
+
+// ── LOCAL USER STORE ──────────────────────────────────────
+const USER_KEY="nj_users_v2";
+function getLocalUsers(){
+  try{
+    const s=JSON.parse(localStorage.getItem(USER_KEY)||"[]");
+    if(!s.length){
+      const def=[{id:"admin-001",username:"Jamrat",password:"Jam497522",role:"superadmin",status:"approved"}];
+      localStorage.setItem(USER_KEY,JSON.stringify(def));return def;
+    }
+    // Fix Jamrat to superadmin
+    const fixed=s.map(u=>u.username==="Jamrat"?{...u,role:"superadmin",status:"approved"}:u);
+    if(JSON.stringify(fixed)!==JSON.stringify(s))localStorage.setItem(USER_KEY,JSON.stringify(fixed));
+    return fixed;
+  }catch(e){return[{id:"admin-001",username:"Jamrat",password:"Jam497522",role:"superadmin",status:"approved"}];}
+}
+function saveLocalUsers(u){localStorage.setItem(USER_KEY,JSON.stringify(u));}
+
+function saveJobs(j){localStorage.setItem("nj_v10",JSON.stringify(j));}
+
+let CURRENT_USER=null;
+try{CURRENT_USER=JSON.parse(localStorage.getItem("nj_cu"))||null;}catch(e){}
+
+let STATE={
+  mode:"sea",
+  page:"list",
+  jobs:[],
+  aid:null,
+  filter:"all",
+  search:"",
+  tab:"normal",
+  sel:null,
+  custom:"",
+  eNote:"",
+  eTime:"",
+  dupWarn:false,
+  editEId:null,
+  editTime:"",
+  delId:null,
+  showPrev:false,
+  showExp:false,
+  expDate:todayStr(),
+  nCust:"",nBl:"",nDate:todayStr(),nWarehouse:"",nCustoms:"",
+  loading:false,
+  // login
+  loginUser:"",loginPass:"",loginErr:"",showLoginPass:false,
+  // register
+  page2:"login",regUser:"",regPass:"",regPass2:"",regErr:"",regOk:false,showRegPass:false,
+  // user manager
+  showUserMgr:false,newUName:"",newUPass:"",newURole:"user",userList:[],userMgrErr:"",editUserId:null,editUserPass:""
+};
+
+function setState(obj){Object.assign(STATE,obj);render();}
+
+async function loadJobsFromDB(){
+  if(!CURRENT_USER)return;
+  STATE.loading=true;render();
+  const role=CURRENT_USER.role;
+  const canSeeAll=(role==="admin"||role==="superadmin");
+  const q=canSeeAll
+    ?"mode=eq."+STATE.mode+"&order=created_at.desc&select=*,entries(*)"
+    :"mode=eq."+STATE.mode+"&owner_id=eq."+CURRENT_USER.id+"&order=created_at.desc&select=*,entries(*)";
+  const jobs=await sbGet("jobs",q);
+  STATE.jobs=jobs||[];
+  STATE.loading=false;
+  render();
+}
+
+// Auto refresh every 10 seconds
+setInterval(function(){if(CURRENT_USER&&STATE.page==="list")loadJobsFromDB();},10000);
+
+// ── HELPERS ───────────────────────────────────────────────
+function todayStr(){const d=new Date();return pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear();}
+function nowTime(){const d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes());}
+function pad(n){return String(n).padStart(2,"0");}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+function showToast(m){
+  const t=document.getElementById("toast");
+  t.textContent=m;t.style.display="block";
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",2800);
+}
+
+function buildMsg(job,mk){
+  const m=MODES[mk];const L=[];
+  const icon=mk==="air"?"✈️":mk==="exp"?"📤":mk==="sebkk"?"🚤":"📦";
+  L.push(icon+" อัปเดตสถานะงาน : "+m.label);
+  L.push("ลูกค้า : "+job.customer);
+  const bls=job.bl.split("\n").map(h=>h.trim()).filter(h=>h);
+  if(bls.length===1)L.push(m.bl+": "+bls[0]);
+  else bls.forEach((h,i)=>L.push(m.bl+" "+(i+1)+": "+h));
+  if(job.customs)L.push("เลขใบขน : "+job.customs);
+  if(job.warehouse)L.push("โกดัง : "+job.warehouse);
+  L.push("");L.push("⏱ Timeline การดำเนินงาน");L.push("วันที่ : "+job.date);L.push("");
+  [...(job.entries||[])].sort((a,b)=>a.time.localeCompare(b.time)).forEach(e=>{
+    L.push("• ⏰ "+e.time.replace(":",".") +"  "+e.status+(e.note?" ("+e.note+")":""));
+  });
+  if(job.foot_note)L.push("\n📝 หมายเหตุ : "+job.foot_note);
+  return L.join("\n");
+}
+
+function doCopy(text,type){
+  const doIt=()=>{
+    const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);
+    showToast("📋 Copy "+type+" สำเร็จ!");
+  };
+  if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>showToast("📋 Copy "+type+" สำเร็จ!")).catch(doIt);
+  else doIt();
+}
+
+// ── ACTIONS ───────────────────────────────────────────────
+function createJob(){
+  const {nCust,nBl,nDate,nWarehouse,nCustoms,mode}=STATE;
+  if(!nCust.trim()){showToast("⚠️ กรุณาระบุชื่อลูกค้า");return;}
+  if(!nBl.trim()){showToast("⚠️ กรุณาระบุ "+MODES[mode].bl);return;}
+  const j={id:uid(),mode,customer:nCust.trim(),bl:nBl.trim(),customs:nCustoms.trim(),date:nDate||todayStr(),warehouse:nWarehouse.trim(),foot_note:"",done:false,entries:[]};
+  setState({jobs:[j,...STATE.jobs],page:"job",aid:j.id,sel:null,custom:"",eTime:"",eNote:"",tab:"normal",dupWarn:false,editEId:null,nCust:"",nBl:"",nDate:todayStr(),nWarehouse:"",nCustoms:""});
+  showToast("✅ เปิดงานใหม่แล้ว");
+}
+
+async function addEntry(){
+  let status=STATE.sel;
+  if(!status){showToast("⚠️ กรุณาเลือกสถานะก่อน");return;}
+  if(status==="__custom__"){if(!STATE.custom.trim()){showToast("⚠️ กรุณาพิมพ์สถานะ");return;}status=STATE.custom.trim();}
+  const time=STATE.eTime||nowTime();
+  const active=STATE.jobs.find(j=>j.id===STATE.aid);
+  const isDup=active&&(active.entries||[]).some(e=>e.status===status);
+  if(isDup&&!STATE.dupWarn){setState({dupWarn:true});showToast("⚠️ สถานะนี้เคยเพิ่มไปแล้ว!");return;}
+  const entry={id:uid(),job_id:STATE.aid,time,status,note:STATE.eNote.trim(),type:STATE.tab};
+  await sbInsert("entries",entry);
+  const jobs=STATE.jobs.map(j=>{
+    if(j.id===STATE.aid)return{...j,entries:[...(j.entries||[]),entry]};
+    return j;
+  });
+  setState({jobs,sel:null,custom:"",eTime:"",eNote:"",dupWarn:false});
+  showToast("✅ เพิ่ม "+time+" น. เรียบร้อย");
+}
+
+async function removeEntry(eid){
+  await sbDelete("entries",eid);
+  const jobs=STATE.jobs.map(j=>{
+    if(j.id===STATE.aid)return{...j,entries:(j.entries||[]).filter(e=>e.id!==eid)};
+    return j;
+  });
+  setState({jobs});
+}
+
+async function updateEntryTime(eid,newTime){
+  await sbUpdate("entries",eid,{time:newTime});
+  const jobs=STATE.jobs.map(j=>{
+    if(j.id===STATE.aid)return{...j,entries:(j.entries||[]).map(e=>e.id===eid?{...e,time:newTime}:e)};
+    return j;
+  });
+  setState({jobs,editEId:null,editTime:""});
+  showToast("✅ แก้ไขเวลาแล้ว");
+}
+
+async function toggleDone(id){
+  const job=STATE.jobs.find(j=>j.id===id);
+  await sbUpdate("jobs",id,{done:!job.done});
+  const jobs=STATE.jobs.map(j=>j.id===id?{...j,done:!j.done}:j);
+  setState({jobs});
+  showToast(job&&job.done?"🔄 กำลังดำเนินการ":"✅ มาร์กจบงานแล้ว");
+}
+
+async function deleteJob(id){
+  await sbDelete("jobs",id);
+  const jobs=STATE.jobs.filter(j=>j.id!==id);
+  const extra=STATE.aid===id?{page:"list",aid:null}:{};
+  setState({jobs,delId:null,...extra});
+  showToast("🗑 ลบงานเรียบร้อย");
+}
+
+function exportCSV(){
+  const{expDate,mode}=STATE;const m=MODES[mode];
+  const list=STATE.jobs.filter(j=>j.mode===mode&&j.date===expDate.trim());
+  if(!list.length){showToast("⚠️ ไม่พบงานในวันที่ "+expDate);return;}
+  const eq=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const rows=[[" วันที่","ลูกค้า",m.bl,"เลขใบขน","โกดัง","สถานะงาน","เวลา","สถานะ","หมายเหตุ","หมายเหตุท้าย"].map(eq).join(",")];
+  list.forEach(job=>{
+    const s=job.done?"จบงาน":"กำลังดำเนินการ";
+    const blD=job.bl.split("\n").filter(h=>h.trim()).map(h=>h.trim()).join(", ");
+    const se=[...(job.entries||[])].sort((a,b)=>a.time.localeCompare(b.time));
+    if(!se.length){rows.push([job.date,job.customer,blD,job.customs||"",job.warehouse||"",s,"","(ยังไม่มี)","",job.foot_note||""].map(eq).join(","));}
+    else se.forEach((e,i)=>rows.push([job.date,job.customer,blD,job.customs||"",job.warehouse||"",s,e.time.replace(":","."),e.status,e.note||"",i===0?(job.foot_note||""):""].map(eq).join(",")));
+  });
+  const csv="\uFEFF"+rows.join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=mode.toUpperCase()+"-"+expDate.replace(/\//g,"-")+".csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  setState({showExp:false});showToast("✅ Export สำเร็จ "+list.length+" งาน");
+}
+
+// ── RENDER ────────────────────────────────────────────────
+// ── LOGIN / USER FUNCTIONS ────────────────────────────────
+async function doLogin(){
+  const u=STATE.loginUser.trim();
+  const p=STATE.loginPass.trim();
+  if(!u||!p){setState({loginErr:"กรุณากรอกให้ครบ"});return;}
+  setState({loginErr:"⏳ กำลังตรวจสอบ..."});
+  
+  let found=null;
+  // 1. Check Supabase FIRST (source of truth ข้ามเครื่องได้)
+  try{
+    const all=await sbGet("users","select=*");
+    if(all&&all.length>0){
+      const sbFound=all.find(x=>x.username===u&&x.password===p);
+      if(sbFound)found={...sbFound,_fromSupabase:true};
+    }
+  }catch(e){}
+  
+  // 2. Fallback to localStorage (กรณี offline หรือ Supabase fail)
+  if(!found){
+    const localUsers=getLocalUsers();
+    found=localUsers.find(x=>x.username===u&&x.password===p);
+    // ถ้าเจอใน localStorage แต่ไม่มีใน Supabase → sync ขึ้น Supabase
+    if(found){
+      try{
+        const sbCheck=await sbGet("users","id=eq."+found.id+"&select=id");
+        if(!sbCheck||sbCheck.length===0){
+          await sbInsert("users",found);
+        }
+      }catch(e){}
+    }
+  }
+  
+  if(found){
+    if(found.status==="pending"){
+      setState({loginErr:"⏳ รอ Admin อนุมัติบัญชีของคุณก่อนครับ"});return;
+    }
+    CURRENT_USER=found;
+    localStorage.setItem("nj_cu",JSON.stringify(found));
+    setState({loginErr:""});
+    loadJobsFromDB();
+  } else {
+    setState({loginErr:"Username หรือ Password ไม่ถูกต้อง"});
+  }
+}
+
+async function doRegister(){
+  const{regUser,regPass,regPass2}=STATE;
+  if(!regUser.trim()||!regPass.trim()){setState({regErr:"กรุณากรอกให้ครบ"});return;}
+  if(regPass!==regPass2){setState({regErr:"Password ไม่ตรงกัน"});return;}
+  if(regPass.length<4){setState({regErr:"Password ต้องมีอย่างน้อย 4 ตัว"});return;}
+  setState({regErr:"⏳ กำลังตรวจสอบ..."});
+  // Check duplicate in Supabase (source of truth)
+  try{
+    const all=await sbGet("users","username=eq."+encodeURIComponent(regUser.trim())+"&select=id");
+    if(all&&all.length>0){setState({regErr:"Username นี้มีอยู่แล้ว"});return;}
+  }catch(e){}
+  // Check duplicate in localStorage
+  const localUsers=getLocalUsers();
+  if(localUsers.find(u=>u.username===regUser.trim())){setState({regErr:"Username นี้มีอยู่แล้ว"});return;}
+  const newU={id:uid(),username:regUser.trim(),password:regPass.trim(),role:"user",status:"pending"};
+  // Save to Supabase FIRST (RLS is now open)
+  const ok=await sbInsert("users",newU);
+  // Also save to localStorage as backup
+  localUsers.push(newU);
+  saveLocalUsers(localUsers);
+  if(ok){setState({regOk:true,regErr:""});}
+  else{setState({regErr:"เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"});}
+}
+
+function doLogout(){
+  CURRENT_USER=null;
+  localStorage.removeItem("nj_cu");
+  STATE.jobs=[];STATE.page="list";STATE.aid=null;
+  render();
+}
+
+
+
+async function createUser(){
+  const{newUName,newUPass,newURole}=STATE;
+  if(!newUName.trim()||!newUPass.trim()){setState({userMgrErr:"กรุณากรอกให้ครบ"});return;}
+  const newU={id:uid(),username:newUName.trim(),password:newUPass.trim(),role:newURole};
+  
+  // Save to Supabase
+  const ok=await sbInsert("users",newU);
+  
+  // Also save to localStorage as backup
+  const users=getLocalUsers();
+  if(users.find(u=>u.username===newUName.trim())){setState({userMgrErr:"Username นี้มีอยู่แล้ว"});return;}
+  users.push(newU);
+  saveLocalUsers(users);
+  
+  setState({newUName:"",newUPass:"",newURole:"user",userMgrErr:""});
+  await loadUserList();
+  showToast("✅ สร้าง User แล้ว");
+}
+
+async function loadUserList(){
+  let users=[];
+  try{
+    const sbUsers=await sbGet("users","order=created_at.asc&select=*");
+    const localUsers=getLocalUsers();
+    if(sbUsers&&sbUsers.length>0){
+      // Merge: ใช้ Supabase เป็นหลัก แต่เพิ่ม user จาก localStorage ที่ยังไม่มีใน Supabase
+      const sbIds=new Set(sbUsers.map(u=>u.id));
+      const sbNames=new Set(sbUsers.map(u=>u.username));
+      const localOnly=localUsers.filter(u=>!sbIds.has(u.id)&&!sbNames.has(u.username));
+      users=[...sbUsers,...localOnly];
+    } else {
+      users=localUsers;
+    }
+  }catch(e){users=getLocalUsers();}
+  setState({userList:users});
+}
+
+async function approveUser(id){
+  const localUsers=getLocalUsers();
+  const targetUser=localUsers.find(u=>u.id===id);
+  // If user exists in localStorage but not yet in Supabase, insert first
+  if(targetUser){
+    try{
+      const sbCheck=await sbGet("users","id=eq."+id+"&select=id");
+      if(!sbCheck||sbCheck.length===0){
+        await sbInsert("users",{...targetUser,status:"approved"});
+      } else {
+        await sbUpdate("users",id,{status:"approved"});
+      }
+    }catch(e){}
+  } else {
+    await sbUpdate("users",id,{status:"approved"});
+  }
+  const updatedLocal=localUsers.map(u=>u.id===id?{...u,status:"approved"}:u);
+  saveLocalUsers(updatedLocal);
+  await loadUserList();
+  showToast("✅ อนุมัติแล้ว");
+}
+
+async function rejectUser(id){
+  await sbDelete("users",id);
+  const localUsers=getLocalUsers().filter(u=>u.id!==id);
+  saveLocalUsers(localUsers);
+  await loadUserList();
+  showToast("❌ ปฏิเสธแล้ว");
+}
+
+async function editUserPassword(id,newPass){
+  if(!newPass.trim()){showToast("⚠️ กรุณากรอก Password ใหม่");return;}
+  await sbUpdate("users",id,{password:newPass.trim()});
+  const localUsers=getLocalUsers().map(u=>u.id===id?{...u,password:newPass.trim()}:u);
+  saveLocalUsers(localUsers);
+  setState({editUserId:null,editUserPass:""});
+  await loadUserList();
+  showToast("✅ แก้ไข Password แล้ว");
+}
+
+async function changeUserRole(id,newRole){
+  await sbUpdate("users",id,{role:newRole});
+  const localUsers=getLocalUsers().map(u=>u.id===id?{...u,role:newRole}:u);
+  saveLocalUsers(localUsers);
+  await loadUserList();
+  showToast("✅ เปลี่ยน Role เป็น "+newRole+" แล้ว");
+}
+
+async function deleteUser(id){
+  await sbDelete("users",id);
+  const users=getLocalUsers().filter(u=>u.id!==id);
+  saveLocalUsers(users);
+  await loadUserList();
+  showToast("🗑 ลบ User แล้ว");
+}
+
+// update foot_note
+async function updateFootNote(val){
+  await sbUpdate("jobs",STATE.aid,{foot_note:val});
+  const jobs=STATE.jobs.map(j=>j.id===STATE.aid?{...j,foot_note:val}:j);
+  STATE.jobs=jobs;
+}
+
+function render(){
+  const{mode,page,jobs,aid,filter,search,tab,sel,custom,eNote,eTime,dupWarn,editEId,editTime,delId,showPrev,showExp,expDate,nCust,nBl,nDate,nWarehouse,nCustoms,loading,loginUser,loginPass,loginErr,showLoginPass,showUserMgr,newUName,newUPass,newURole,userList,userMgrErr}=STATE;
+  const CU=CURRENT_USER||{};
+  const isSuperAdmin=CU.role==="superadmin";
+  const isAdmin=CU.role==="admin"||isSuperAdmin;
+
+  // LOGIN PAGE
+  if(!CURRENT_USER){
+    const{page2,regUser,regPass,regPass2,regErr,regOk,showRegPass}=STATE;
+    document.getElementById("app").innerHTML=`
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="width:100%;max-width:360px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:50px;margin-bottom:10px">🚢✈️📤</div>
+          <div style="font-size:22px;font-weight:800">NJ LOGISTIC</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px">Import Timeline System</div>
+        </div>
+        <div style="display:flex;background:#1a2235;border-radius:12px;border:1px solid #2a3a54;overflow:hidden;margin-bottom:16px">
+          <button onclick="setState({page2:'login',regErr:'',regOk:false})" style="flex:1;padding:11px;border:none;background:${page2==="login"?"#06C755":"transparent"};color:${page2==="login"?"white":"#64748b"};font-size:14px;font-weight:800;cursor:pointer">🔐 เข้าสู่ระบบ</button>
+          <button onclick="setState({page2:'register',loginErr:''})" style="flex:1;padding:11px;border:none;background:${page2==="register"?"#0ea5e9":"transparent"};color:${page2==="register"?"white":"#64748b"};font-size:14px;font-weight:800;cursor:pointer">📝 สมัครใช้งาน</button>
+        </div>
+
+        ${page2==="login"?`
+        <div style="background:#1a2235;border:1px solid #2a3a54;border-radius:20px;padding:24px">
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">Username</div>
+            <input class="inp" value="${esc(loginUser)}" oninput="STATE.loginUser=this.value" placeholder="กรอก Username" onkeydown="if(event.key==='Enter')doLogin()"/>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">Password</div>
+            <div style="position:relative">
+              <input class="inp" type="${showLoginPass?"text":"password"}" style="padding-right:44px" value="${esc(loginPass)}" oninput="STATE.loginPass=this.value" placeholder="กรอก Password" onkeydown="if(event.key==='Enter')doLogin()"/>
+              <button onclick="setState({showLoginPass:!STATE.showLoginPass})" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#64748b;font-size:18px;cursor:pointer">${showLoginPass?"🙈":"👁"}</button>
+            </div>
+          </div>
+          ${loginErr?`<div style="font-size:12px;color:${loginErr.includes("⏳")?"#f59e0b":"#ef4444"};margin-bottom:12px;text-align:center">${esc(loginErr)}</div>`:""}
+          <button onclick="doLogin()" style="width:100%;background:#06C755;border:none;border-radius:12px;padding:15px;color:white;font-size:16px;font-weight:800;cursor:pointer">เข้าสู่ระบบ →</button>
+        </div>`:`
+        <div style="background:#1a2235;border:1px solid #2a3a54;border-radius:20px;padding:24px">
+          ${regOk?`
+          <div style="text-align:center;padding:20px 0">
+            <div style="font-size:40px;margin-bottom:12px">✅</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:8px">สมัครสำเร็จแล้ว!</div>
+            <div style="font-size:13px;color:#64748b;line-height:1.8">รอ Admin อนุมัติบัญชีของคุณ<br/>แล้วค่อยกลับมา Login ครับ</div>
+            <button onclick="setState({page2:'login',regOk:false,regUser:'',regPass:'',regPass2:''})" style="margin-top:16px;background:#0ea5e9;border:none;border-radius:12px;padding:12px 24px;color:white;font-size:14px;font-weight:700;cursor:pointer">← กลับไป Login</button>
+          </div>`:`
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">Username *</div>
+            <input class="inp" value="${esc(regUser)}" oninput="STATE.regUser=this.value" placeholder="ตั้ง Username"/>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">Password *</div>
+            <input class="inp" type="password" value="${esc(regPass)}" oninput="STATE.regPass=this.value" placeholder="ตั้ง Password (อย่างน้อย 4 ตัว)"/>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">ยืนยัน Password *</div>
+            <input class="inp" type="password" value="${esc(regPass2)}" oninput="STATE.regPass2=this.value" placeholder="กรอก Password อีกครั้ง" onkeydown="if(event.key==='Enter')doRegister()"/>
+          </div>
+          ${regErr?`<div style="font-size:12px;color:${regErr.includes("⏳")?"#f59e0b":"#ef4444"};margin-bottom:12px;text-align:center">${esc(regErr)}</div>`:""}
+          <button onclick="doRegister()" style="width:100%;background:#0ea5e9;border:none;border-radius:12px;padding:15px;color:white;font-size:16px;font-weight:800;cursor:pointer">📝 สมัครใช้งาน</button>
+          `}
+        </div>`}
+      </div>
+    </div>`;
+    return;
+  }
+
+  // USER MANAGER PAGE
+  if(showUserMgr&&isSuperAdmin){
+    document.getElementById("app").innerHTML=`
+    <div class="wrap">
+      <div class="hdr" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+        <div class="blob"></div>
+        <div class="hdr-inner">
+          <button onclick="setState({showUserMgr:false})" style="background:rgba(255,255,255,.2);border:none;border-radius:9px;padding:7px 12px;color:white;font-size:13px;font-weight:700;cursor:pointer">← กลับ</button>
+          <div style="font-size:18px;font-weight:800;color:white">👑 จัดการ User</div>
+        </div>
+      </div>
+      <div style="padding:16px 13px">
+        <div style="background:#1a2235;border:1px solid #2a3a54;border-radius:16px;padding:16px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px">➕ สร้าง User ใหม่</div>
+          <input class="inp" style="margin-bottom:8px" value="${esc(newUName)}" oninput="STATE.newUName=this.value" placeholder="Username"/>
+          <input class="inp" style="margin-bottom:8px" value="${esc(newUPass)}" oninput="STATE.newUPass=this.value" placeholder="Password"/>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button onclick="setState({newURole:'user'})" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid ${newURole==="user"?"#a855f7":"#2a3a54"};background:${newURole==="user"?"rgba(168,85,247,.15)":"#212d42"};color:${newURole==="user"?"#a855f7":"#64748b"};font-size:13px;font-weight:700;cursor:pointer">👤 User</button>
+            <button onclick="setState({newURole:'admin'})" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid ${newURole==="admin"?"#a855f7":"#2a3a54"};background:${newURole==="admin"?"rgba(168,85,247,.15)":"#212d42"};color:${newURole==="admin"?"#a855f7":"#64748b"};font-size:13px;font-weight:700;cursor:pointer">🔑 Admin</button>
+          </div>
+          ${userMgrErr?`<div style="font-size:12px;color:#ef4444;margin-bottom:8px">⚠️ ${esc(userMgrErr)}</div>`:""}
+          <button onclick="createUser()" style="width:100%;background:#a855f7;border:none;border-radius:12px;padding:13px;color:white;font-size:14px;font-weight:800;cursor:pointer">✅ สร้าง User</button>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">รายชื่อ User ทั้งหมด</div>
+        ${userList.filter(u=>u.status==="pending").length>0?`<div style="font-size:12px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⏳ รออนุมัติ</div>`:""}
+        ${userList.filter(u=>u.status==="pending").map(u=>`
+        <div style="background:rgba(245,158,11,.08);border:1px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px">👤 ${esc(u.username)}</div>
+          <div style="display:flex;gap:8px">
+            <button onclick="approveUser('${u.id}')" style="flex:1;background:rgba(6,199,85,.15);border:1px solid #06C755;border-radius:8px;padding:8px;color:#06C755;font-size:13px;font-weight:700;cursor:pointer">✅ อนุมัติ</button>
+            <button onclick="rejectUser('${u.id}')" style="flex:1;background:rgba(239,68,68,.1);border:1px solid #ef4444;border-radius:8px;padding:8px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer">❌ ปฏิเสธ</button>
+          </div>
+        </div>`).join("")}
+        <div style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin:12px 0 8px">✅ อนุมัติแล้ว</div>
+        ${userList.filter(u=>u.status!=="pending").map(u=>`
+        <div style="background:#1a2235;border:1px solid #2a3a54;border-radius:12px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:14px">${u.role==="admin"?"👑 ":"👤 "}${esc(u.username)}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px;display:flex;align-items:center;gap:6px">
+                <span>🔑</span>
+                <span style="font-family:monospace">${STATE.showPassId===u.id?esc(u.password):"••••••••"}</span>
+                <button onclick="setState({showPassId:STATE.showPassId==='${u.id}'?null:'${u.id}'})" style="background:none;border:none;color:#64748b;font-size:13px;cursor:pointer">${STATE.showPassId===u.id?"🙈":"👁"}</button>
+              </div>
+              <div style="font-size:11px;margin-top:4px">
+                <span style="background:${u.role==="admin"?"rgba(168,85,247,.2)":"rgba(14,165,233,.15)"};color:${u.role==="admin"?"#a855f7":"#0ea5e9"};border-radius:20px;padding:2px 8px;font-weight:700">${u.role==="admin"?"👑 Admin":"👤 User"}</span>
+              </div>
+            </div>
+            ${u.id!=="admin-001"?`
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button onclick="setState({editUserId:STATE.editUserId==='${u.id}'?null:'${u.id}',editUserPass:''})" style="background:rgba(14,165,233,.15);border:1px solid #0ea5e9;border-radius:8px;padding:5px 10px;color:#0ea5e9;font-size:11px;cursor:pointer">✏️ Pass</button>
+              <button onclick="changeUserRole('${u.id}','${u.role==="admin"?"user":"admin"}')" style="background:rgba(168,85,247,.15);border:1px solid #a855f7;border-radius:8px;padding:5px 10px;color:#a855f7;font-size:11px;cursor:pointer">${u.role==="admin"?"👤 เป็น User":"👑 เป็น Admin"}</button>
+              <button onclick="deleteUser('${u.id}')" style="background:rgba(239,68,68,.1);border:1px solid #ef4444;border-radius:8px;padding:5px 10px;color:#ef4444;font-size:11px;cursor:pointer">🗑 ลบ</button>
+            </div>`:""}
+          </div>
+          ${STATE.editUserId===u.id?`
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid #2a3a54;display:flex;gap:8px">
+            <input class="inp" style="flex:1" type="text" value="${esc(STATE.editUserPass||'')}" oninput="STATE.editUserPass=this.value" placeholder="Password ใหม่"/>
+            <button onclick="editUserPassword('${u.id}',STATE.editUserPass)" style="background:#0ea5e9;border:none;border-radius:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;cursor:pointer">✓ บันทึก</button>
+          </div>`:""}
+        </div>`).join("")}
+        ${userList.length===0?`<div style="text-align:center;color:#64748b;padding:20px 0">กด "สร้าง User" ด้านบน</div>`:""}
+      </div>
+    </div>`;
+    return;
+  }
+  const m=MODES[mode];
+  const G=m.color;const GL=m.gl;
+  const modeJobs=jobs.filter(j=>j.mode===mode);
+  const active=modeJobs.find(j=>j.id===aid);
+  const sortedE=active?[...(active.entries||[])].sort((a,b)=>a.time.localeCompare(b.time)):[];
+  const ongoing=modeJobs.filter(j=>!j.done).length;
+  const done=modeJobs.filter(j=>j.done).length;
+  const filtered=modeJobs.filter(j=>{
+    const ok=filter==="done"?j.done:filter==="ongoing"?!j.done:true;
+    if(!ok)return false;
+    if(!search.trim())return true;
+    const q=search.trim().toLowerCase();
+    return j.bl.toLowerCase().includes(q)||j.customer.toLowerCase().includes(q);
+  });
+
+  const modeBtns=Object.keys(MODES).map(k=>{
+    const mc=MODES[k];
+    const labels={sea:"🚢 SeaIm",air:"✈️ AirIm",exp:"📤 AirEx",sebkk:"🚤 SeaEx"};
+    return `<button class="mode-btn${mode===k?" active":""}" style="${mode===k?"background:"+mc.color+";":""}background${mode===k?"":":transparent"}" onclick="setState({mode:'${k}',filter:'all',search:'',page:'list',aid:null,jobs:[]});loadJobsFromDB()">${labels[k]}</button>`;
+  }).join("");
+
+  let html="";
+
+  if(page==="list"){
+    const delJob=delId?jobs.find(j=>j.id===delId):null;
+    html=`
+    ${delId?`<div class="modal-overlay" onclick="if(event.target===this)setState({delId:null})">
+      <div class="modal-box">
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">🗑 ลบงานนี้?</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:20px;line-height:1.8">
+          <b style="color:#e2e8f4">${esc(delJob?delJob.customer:"")}</b><br/>
+          <span style="color:#ef4444">ข้อมูล Timeline จะถูกลบถาวร</span>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-outline" style="margin-top:0" onclick="setState({delId:null})">ยกเลิก</button>
+          <button style="flex:2;background:#ef4444;border:none;border-radius:12px;padding:13px;color:white;font-size:15px;font-weight:700;cursor:pointer" onclick="deleteJob('${delId}')">🗑 ยืนยัน ลบ</button>
+        </div>
+      </div>
+    </div>`:""}
+    <div class="hdr" style="background:${m.grad}">
+      <div class="blob"></div>
+      <div class="hdr-inner">
+        <div style="width:42px;height:42px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">${m.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:20px;font-weight:800;color:white">${m.label}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.72);margin-top:3px">🔄 ${ongoing} · ✅ ${done} · ${isSuperAdmin?"👑":isAdmin?"🔑":"👤"} ${CU.username||""}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:2px">v2.5 · อัปเดต 23/03/2026</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">
+          ${isSuperAdmin?`<button onclick="setState({showUserMgr:true});loadUserList()" style="background:rgba(168,85,247,.4);border:none;border-radius:9px;padding:5px 9px;color:white;font-size:10px;font-weight:700;cursor:pointer">⚙️ User</button>`:""}
+          <button onclick="doLogout()" style="background:rgba(239,68,68,.3);border:none;border-radius:9px;padding:5px 9px;color:white;font-size:10px;font-weight:700;cursor:pointer">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 13px 0">
+      <div class="mode-bar">${modeBtns}</div>
+      <button class="btn-green" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;background:${GL};border:1.5px solid ${G};color:${G}" onclick="setState({page:'new'})">
+        <span style="font-size:22px;line-height:1">+</span><span>เปิดงานใหม่</span>
+      </button>
+      ${loading?`<div style="text-align:center;color:#64748b;padding:30px 0;font-size:14px">⏳ กำลังโหลด...</div>`:""}
+      ${modeJobs.length>0?`
+      <div class="filter-bar">
+        <button class="filter-btn${filter==="all"?" active":""}" style="${filter==="all"?"background:"+GL+";color:"+G+";border-color:"+G+";":""}" onclick="setState({filter:'all'})">ทั้งหมด</button>
+        <button class="filter-btn${filter==="ongoing"?" active":""}" style="${filter==="ongoing"?"background:"+GL+";color:"+G+";border-color:"+G+";":""}" onclick="setState({filter:'ongoing'})">🔄 ดำเนินการ</button>
+        <button class="filter-btn${filter==="done"?" active":""}" style="${filter==="done"?"background:"+GL+";color:"+G+";border-color:"+G+";":""}" onclick="setState({filter:'done'})">✅ จบแล้ว</button>
+      </div>
+      <div style="position:relative;margin-bottom:12px">
+        <input class="inp" value="${esc(search)}" oninput="setState({search:this.value})" placeholder="🔍 ค้นหา ${m.bl} หรือชื่อลูกค้า..."/>
+        ${search?`<button onclick="setState({search:''})" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#64748b;font-size:16px;cursor:pointer">✕</button>`:""}
+      </div>`:""}
+      <button onclick="setState({showExp:!STATE.showExp})" style="width:100%;background:#212d42;border:1px solid #2a3a54;border-radius:12px;padding:10px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">
+        📊 ${showExp?"▲ ซ่อน":"▼ Export Excel ตามวันที่"}
+      </button>
+      ${showExp?`<div style="background:#1a2235;border:1px solid #2a3a54;border-radius:14px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;font-weight:600">เลือกวันที่ (DD/MM/YYYY)</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" class="inp" style="flex:1;color-scheme:dark" value="${expDate.split("/").length===3?expDate.split("/")[2]+"-"+expDate.split("/")[1]+"-"+expDate.split("/")[0]:""}" onchange="var p=this.value.split('-');if(p.length===3)setState({expDate:p[2]+'/'+p[1]+'/'+p[0]})"/>
+          <button onclick="exportCSV()" style="background:${G};border:none;border-radius:10px;padding:11px 16px;color:white;font-size:13px;font-weight:800;cursor:pointer;flex-shrink:0">📥 Export</button>
+        </div>
+      </div>`:""}
+      ${filtered.length===0?`<div style="text-align:center;color:#64748b;padding:40px 0;font-size:14px;line-height:2">
+        <div style="font-size:40px;margin-bottom:10px">${m.icon}</div>
+        ${modeJobs.length===0?"ยังไม่มีงาน<br/>กด + เปิดงานใหม่":"ไม่มีงานในหมวดนี้"}
+      </div>`:""}
+      ${filtered.map(job=>{
+        const lastE=[...(job.entries||[])].sort((a,b)=>b.time.localeCompare(a.time))[0];
+        const bls=job.bl.split("\n").filter(h=>h.trim()).map(h=>`<div>${esc(m.bl+": "+h.trim())}</div>`).join("");
+        return `<div class="card" style="${job.done?"opacity:.82":""}">
+          <div onclick="setState({page:'job',aid:'${job.id}',sel:null,custom:'',eTime:'',eNote:'',tab:'normal',dupWarn:false,editEId:null})" style="cursor:pointer">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div style="flex:1">
+                <div style="font-weight:800;font-size:16px;color:${job.done?"#64748b":"#e2e8f4"};margin-bottom:4px;text-decoration:${job.done?"line-through":"none"}">${esc(job.customer)}</div>
+                <div style="font-size:12px;color:#64748b">${bls}</div>
+                ${job.customs?`<div style="font-size:12px;color:#64748b;margin-top:2px">📄 ใบขน: ${esc(job.customs)}</div>`:""}
+                ${job.warehouse?`<div style="font-size:12px;color:#64748b;margin-top:2px">🏭 ${esc(job.warehouse)}</div>`:""}
+                <div style="font-size:12px;color:#64748b;margin-top:2px">📅 ${job.date}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+                <span style="background:${job.done?"rgba(100,116,139,.15)":GL};color:${job.done?"#64748b":G};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${job.done?"✅ จบงาน":"🔄 ดำเนินการ"}</span>
+                <span style="background:rgba(100,116,139,.1);color:#64748b;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:600">${(job.entries||[]).length} สถานะ</span>
+              </div>
+            </div>
+            ${lastE?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #2a3a54;font-size:12px;color:#94a3b8;font-family:monospace">⏰ ${lastE.time.replace(":",".").padEnd(5)}  ${esc(lastE.status)}</div>`:""}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #2a3a54">
+            <button onclick="setState({page:'job',aid:'${job.id}',sel:null,custom:'',eTime:'',eNote:'',tab:'normal',dupWarn:false,editEId:null})" style="flex:1;background:#212d42;border:1px solid #2a3a54;border-radius:10px;padding:9px 8px;color:#94a3b8;font-size:12px;font-weight:600;cursor:pointer">✏️ อัปเดต</button>
+            <button onclick="toggleDone('${job.id}')" style="flex:1.4;background:${job.done?"rgba(245,158,11,.1)":GL};border:1px solid ${job.done?"#f59e0b":G};border-radius:10px;padding:9px 8px;color:${job.done?"#f59e0b":G};font-size:12px;font-weight:700;cursor:pointer">${job.done?"🔄 ยังไม่จบ":"✅ จบงาน"}</button>
+            <button onclick="setState({delId:'${job.id}'})" style="width:40px;background:rgba(239,68,68,.1);border:1px solid #ef4444;border-radius:10px;color:#ef4444;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  else if(page==="new"){
+    html=`
+    <div class="hdr" style="background:${m.grad}">
+      <div class="blob"></div>
+      <div class="hdr-inner">
+        <button onclick="setState({page:'list'});if(STATE.mode)loadJobsFromDB()" style="background:rgba(255,255,255,.2);border:none;border-radius:9px;padding:7px 12px;color:white;font-size:13px;font-weight:700;cursor:pointer">← กลับ</button>
+        <div style="width:40px;height:40px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📋</div>
+        <div style="font-size:19px;font-weight:800;color:white">เปิดงานใหม่ · ${m.icon} ${mode.toUpperCase()}</div>
+      </div>
+    </div>
+    <div style="background:#1a2235;border:1px solid #2a3a54;border-radius:18px;padding:18px;margin:-24px 13px 0;position:relative;z-index:10;box-shadow:0 12px 40px rgba(0,0,0,.45)">
+      <div style="margin-bottom:11px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">ชื่อลูกค้า *</div>
+        <input class="inp" value="${esc(nCust)}" oninput="STATE.nCust=this.value" placeholder="เช่น ECCO" autofocus/>
+      </div>
+      <div style="margin-bottom:11px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">${m.bl} No. * (ใส่ได้หลายเลข กด Enter คั่น)</div>
+        <textarea class="inp" oninput="STATE.nBl=this.value" placeholder="${mode==="sea"||mode==="sebkk"?"ABCD1234567":"02350795216"}">${esc(nBl)}</textarea>
+      </div>
+      <div style="margin-bottom:11px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">เลขใบขน</div>
+        <input class="inp" value="${esc(nCustoms)}" oninput="STATE.nCustoms=this.value" placeholder="เช่น 1101-67-000001"/>
+      </div>
+      <div style="margin-bottom:11px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">โกดัง</div>
+        <input class="inp" value="${esc(nWarehouse)}" oninput="STATE.nWarehouse=this.value" placeholder="เช่น แหลมฉบัง"/>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600">วันที่ดำเนินการ</div>
+        <input class="inp" value="${esc(nDate)}" oninput="STATE.nDate=this.value" placeholder="22/03/2026"/>
+      </div>
+    </div>
+    <div style="padding:14px 13px 0">
+      <button class="btn-green" style="background:${G};box-shadow:0 4px 22px ${GL}" onclick="createJob()">${m.icon} เปิดงาน</button>
+      <button class="btn-outline" onclick="setState({page:'list'});if(STATE.mode)loadJobsFromDB()">← กลับ</button>
+    </div>`;
+  }
+
+  else if(page==="job"&&active){
+    const isDone=active.done;
+    const normalList=m.N;const delayList=m.D;
+    const curList=tab==="normal"?normalList:delayList;
+    const ac=tab==="delay"?"#f59e0b":G;
+    const ab=tab==="delay"?"rgba(245,158,11,.1)":GL;
+
+    html=`
+    <div class="hdr" style="background:${isDone?"linear-gradient(135deg,#334155,#1e293b)":m.grad}">
+      <div class="blob"></div>
+      <div style="position:relative;display:flex;align-items:center;gap:10px">
+        <button onclick="setState({page:'list'})" style="background:rgba(255,255,255,.2);border:none;border-radius:9px;padding:7px 12px;color:white;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">← กลับ</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.icon} ${esc(active.customer)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.72);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(active.bl.split("\n").filter(h=>h.trim()).join(" / "))}${active.customs?" · 📄 "+esc(active.customs):""}${active.date?" · "+active.date:""}</div>
+        </div>
+        ${(isSuperAdmin||(active&&active.owner_id===CU.id))?`<button onclick="toggleDone('${aid}')" style="background:${isDone?"rgba(245,158,11,.3)":"rgba(255,255,255,.2)"};border:1px solid ${isDone?"rgba(245,158,11,.6)":"rgba(255,255,255,.4)"};border-radius:9px;padding:7px 10px;color:white;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">
+          ${isDone?"🔄 ยังไม่จบ":"✅ จบงาน"}
+        </button>`:""}
+      </div>
+    </div>
+    ${isDone?`<div style="background:rgba(245,158,11,.1);border:1px solid #f59e0b;border-radius:12px;margin:12px 13px 0;padding:11px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">✅</span>
+      <div><div style="font-size:13px;font-weight:700;color:#f59e0b">งานนี้จบแล้ว</div><div style="font-size:12px;color:#64748b">กด "🔄 ยังไม่จบ" เพื่อเปิดอัปเดตต่อ</div></div>
+    </div>`:""}
+    ${!isDone?`<div style="background:#1a2235;border:1px solid #2a3a54;border-radius:18px;padding:16px;margin:-26px 13px 0;position:relative;z-index:10;box-shadow:0 12px 40px rgba(0,0,0,.45)">
+      <div style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">➕ เพิ่มสถานะ</div>
+      <div style="display:flex;gap:10px;margin-bottom:13px;align-items:center">
+        <div style="background:#0f172a;border:1.5px solid #2a3a54;border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span>⏰</span>
+          <span style="font-family:monospace;font-size:16px;font-weight:600;color:${eTime?G:"#64748b"};letter-spacing:1px">${eTime||"--:--"}</span>
+        </div>
+        <input class="inp" style="flex:1" value="${esc(eNote)}" oninput="STATE.eNote=this.value" placeholder="หมายเหตุ (ถ้ามี)"/>
+      </div>
+      ${sel&&eTime&&!dupWarn?`<div style="background:${GL};border:1px solid ${G};border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:${G};font-weight:600">✓ จับเวลา ${eTime} น. · ${sel==="__custom__"?"สถานะกำหนดเอง":esc(sel)}</div>`:""}
+      ${dupWarn?`<div style="background:rgba(239,68,68,.1);border:1.5px solid #ef4444;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:13px;color:#ef4444;font-weight:700;margin-bottom:4px">⚠️ สถานะนี้เคยเพิ่มไปแล้ว!</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">ต้องการเพิ่มซ้ำ หรือเลือกสถานะใหม่?</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="setState({sel:null,eTime:'',dupWarn:false})" style="flex:1;background:#212d42;border:1px solid #2a3a54;border-radius:8px;padding:9px;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer">🔄 เลือกใหม่</button>
+          <button onclick="var s=STATE.sel==='__custom__'?STATE.custom.trim():STATE.sel;var t=STATE.eTime||nowTime();var entry={id:uid(),time:t,status:s,note:STATE.eNote.trim(),type:STATE.tab};var jobs=STATE.jobs.map(j=>j.id===STATE.aid?{...j,entries:[...(j.entries||[]),entry]}:j);setState({jobs,sel:null,custom:'',eTime:'',eNote:'',dupWarn:false});showToast('✅ เพิ่ม '+t+' น. เรียบร้อย')" style="flex:1;background:rgba(239,68,68,.1);border:1px solid #ef4444;border-radius:8px;padding:9px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer">⚠️ เพิ่มซ้ำได้</button>
+        </div>
+      </div>`:""}
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="tab-btn${tab==="normal"?" active-normal":""}" onclick="setState({tab:'normal',sel:null,custom:'',dupWarn:false})">✅ สถานะปกติ</button>
+        <button class="tab-btn${tab==="delay"?" active-delay":""}" onclick="setState({tab:'delay',sel:null,custom:'',dupWarn:false})">⚠️ ล่าช้า/ปัญหา</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${curList.map(s=>{
+          const on=sel===s;
+          return `<button class="status-btn${on?" sel-"+tab:""}" onclick="setState({sel:'${s.replace(/'/g,"\\'")}',custom:'',eTime:nowTime(),dupWarn:false})">${esc(s)}</button>`;
+        }).join("")}
+        <button class="status-btn${sel==="__custom__"?" sel-"+tab:""}" style="grid-column:span 2;text-align:center" onclick="setState({sel:'__custom__',eTime:nowTime(),dupWarn:false})">✏️ อื่นๆ (พิมพ์เอง)</button>
+      </div>
+      ${sel==="__custom__"?`<input class="inp" style="margin-top:10px;border-color:${G}" value="${esc(custom)}" oninput="STATE.custom=this.value" placeholder="พิมพ์สถานะ..." autofocus/>`:""}
+      <button onclick="addEntry()" style="width:100%;margin-top:12px;background:${GL};border:1.5px solid ${G};border-radius:12px;padding:13px;color:${G};font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span style="font-size:20px;line-height:1">+</span><span>เพิ่มลงใน Timeline</span>
+      </button>
+    </div>`:""}
+    <div style="padding:0 13px;margin-top:18px">
+      <div style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        ⏱ Timeline<span style="background:${GL};color:${G};border-radius:20px;padding:1px 10px;font-size:10px;margin-left:4px">${sortedE.length} รายการ</span>
+      </div>
+      ${sortedE.length===0?`<div style="text-align:center;color:#64748b;font-size:13px;padding:18px 0;line-height:1.8">ยังไม่มีรายการ<br/>เลือกสถานะและกด + เพิ่ม</div>`:""}
+      ${sortedE.map((ent,i)=>{
+        const isEditing=editEId===ent.id;
+        const dotColor=ent.type==="delay"?"#f59e0b":G;
+        const timeColor=ent.type==="delay"?"#f59e0b":G;
+        return `<div style="display:flex;position:relative">
+          ${i<sortedE.length-1?`<div style="position:absolute;left:15px;top:30px;bottom:0;width:2px;background:#2a3a54;z-index:0"></div>`:""}
+          <div style="width:30px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:8px;z-index:1">
+            <div class="timeline-dot" style="background:${dotColor}"></div>
+          </div>
+          <div style="flex:1;background:#1e2a3d;border:1px solid #2a3a54;border-radius:12px;padding:10px 12px;margin-bottom:10px;position:relative">
+            ${isEditing?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <input type="time" value="${ent.time}" onchange="STATE.editTime=this.value" style="background:#0f172a;border:1.5px solid ${G};border-radius:8px;padding:6px 10px;color:#e2e8f4;font-size:14px;outline:none;font-family:monospace;flex:1;color-scheme:dark"/>
+              <button onclick="updateEntryTime('${ent.id}',STATE.editTime||'${ent.time}')" style="background:${G};border:none;border-radius:8px;padding:6px 12px;color:white;font-size:12px;font-weight:700;cursor:pointer">✓ บันทึก</button>
+              <button onclick="setState({editEId:null,editTime:''})" style="background:#212d42;border:1px solid #2a3a54;border-radius:8px;padding:6px 10px;color:#64748b;font-size:12px;cursor:pointer">✕</button>
+            </div>`:`<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+              <div style="font-family:monospace;font-size:11px;color:${timeColor};font-weight:600">⏰ ${ent.time.replace(":",".") }</div>
+              ${(!isDone&&isSuperAdmin)?`<button onclick="setState({editEId:'${ent.id}',editTime:'${ent.time}'})" style="background:rgba(100,116,139,.15);border:1px solid #2a3a54;border-radius:6px;padding:3px 8px;color:#64748b;font-size:11px;cursor:pointer">✏️ แก้เวลา</button>`:""}
+            </div>`}
+            <div style="font-size:13px;font-weight:600;color:#e2e8f4;line-height:1.4;padding-right:${!isDone&&!isEditing?"36px":"0"}">${esc(ent.status)}</div>
+            ${ent.note?`<div style="font-size:12px;color:#64748b;margin-top:3px">📌 ${esc(ent.note)}</div>`:""}
+            ${(!isDone&&isSuperAdmin)?`<button onclick="removeEntry('${ent.id}')" style="position:absolute;top:8px;right:8px;background:rgba(239,68,68,.1);border:none;border-radius:6px;padding:3px 8px;color:#ef4444;font-size:11px;cursor:pointer">✕</button>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+    <div style="padding:0 13px;margin-top:4px">
+      <div style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">📝 หมายเหตุท้ายรายงาน</div>
+      <textarea class="inp" style="min-height:60px" ${isDone?"readonly":""}  onblur="updateFootNote(this.value)" placeholder="เช่น ติดต่อสอบถาม 081-xxx-xxxx">${esc(active.foot_note||"")}</textarea>
+    </div>
+    <div style="padding:12px 13px 0">
+      <button onclick="setState({showPrev:!STATE.showPrev})" style="width:100%;background:#212d42;border:1px solid #2a3a54;border-radius:12px;padding:11px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer">
+        ${showPrev?"▲ ซ่อนตัวอย่าง":"▼ ดูตัวอย่างข้อความ"}
+      </button>
+      ${showPrev?`<div style="margin-top:10px;background:#1a2235;border:1px solid #2a3a54;border-radius:12px;padding:14px;font-family:monospace;font-size:11.5px;line-height:2;color:#e2e8f4;white-space:pre-wrap">${esc(buildMsg(active,mode))}</div>`:""}
+    </div>
+    <div style="height:130px"></div>
+    <div class="fix-bar">
+      <div style="font-size:10px;color:#64748b;text-align:center;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px">เลือกรูปแบบ Copy</div>
+      <div style="display:flex;gap:8px">
+        <button class="copy-btn" style="border:1.5px solid ${G};color:${G}" onclick="doCopy(buildMsg(STATE.jobs.find(j=>j.id===STATE.aid),STATE.mode),'LINE')">
+          <span>💚</span><span style="font-size:13px">LINE</span>
+        </button>
+        <button class="copy-btn" style="border:1.5px solid #3b82f6;color:#3b82f6" onclick="var job=STATE.jobs.find(j=>j.id===STATE.aid);var m=MODES[STATE.mode];var L=[]; L.push('อัปเดตสถานะงาน : '+m.label);L.push('ลูกค้า : '+job.customer);var bls=job.bl.split('\n').map(h=>h.trim()).filter(h=>h);if(bls.length===1)L.push(m.bl+': '+bls[0]);else bls.forEach((h,i)=>L.push(m.bl+' '+(i+1)+': '+h));if(job.customs)L.push('เลขใบขน : '+job.customs);if(job.warehouse)L.push('โกดัง : '+job.warehouse);L.push('');L.push('Timeline การดำเนินงาน');L.push('วันที่ : '+job.date);L.push('');[...(job.entries||[])].sort((a,b)=>a.time.localeCompare(b.time)).forEach(e=>{L.push('  '+e.time.replace(':','.')+' '+e.status+(e.note?' ('+e.note+')':''))});if(job.foot_note)L.push('\nหมายเหตุ : '+job.foot_note);doCopy(L.join('\n'),'Word')">
+          <span>📝</span><span style="font-size:13px">Word</span>
+        </button>
+        <button class="copy-btn" style="border:1.5px solid #a855f7;color:#a855f7" onclick="var job=STATE.jobs.find(j=>j.id===STATE.aid);var m=MODES[STATE.mode];var bls=job.bl.split('\n').map(h=>h.trim()).filter(h=>h);var L=[];L.push('Subject: อัปเดตสถานะงาน '+m.label+' | '+job.customer+' | '+m.bl+': '+bls.join(', '));L.push('');L.push('เรียน ทีมงาน / ลูกค้า');L.push('');L.push('ขอแจ้งอัปเดตสถานะงาน ดังนี้');L.push('');L.push('ลูกค้า       : '+job.customer);if(bls.length===1)L.push(m.bl+'          : '+bls[0]);else bls.forEach((h,i)=>L.push(m.bl+' '+(i+1)+'       : '+h));if(job.customs)L.push('เลขใบขน     : '+job.customs);if(job.warehouse)L.push('โกดัง       : '+job.warehouse);L.push('วันที่       : '+job.date);L.push('');L.push('Timeline การดำเนินงาน');L.push('─────────────────────────');[...(job.entries||[])].sort((a,b)=>a.time.localeCompare(b.time)).forEach(e=>{L.push('  '+e.time.replace(':','.')+' น.   '+e.status+(e.note?' ('+e.note+')':''))});L.push('─────────────────────────');if(job.foot_note){L.push('');L.push('หมายเหตุ : '+job.foot_note)}L.push('');L.push('ขอแสดงความนับถือ');doCopy(L.join('\n'),'Email')">
+          <span>📧</span><span style="font-size:13px">Email</span>
+        </button>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById("app").innerHTML=html;
+}
+
+if(CURRENT_USER){
+  loadJobsFromDB();
+} else {
+  render();
+}
+</script>
+</body>
+</html>
