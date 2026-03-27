@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>ระบบสั่งงานแมส</title>
+<meta name="theme-color" content="#0f172a"/>
+<meta http-equiv="Cache-Control" content="max-age=3600"/>
+<meta name="description" content="ระบบสั่งงานแมสเซ็นเจอร์ NJ Shipping"/>
+<!-- preconnect -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co"/>
+<!-- Font non-blocking -->
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/></noscript>
+<!-- App CSS (แยกไฟล์) -->
+<link rel="stylesheet" href="app.css"/>
+<!-- Chart.js defer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<!-- Leaflet: lazy load ตอนเปิดแผนที่เท่านั้น -->
+</head>
+<body>
+<div class="wrap" id="app">
+  <!-- Zones: อัปเดตเฉพาะส่วนที่เปลี่ยน -->
+  <div id="zone-hdr"></div>
+  <div id="zone-sidebar" class="sidebar" style="display:none"></div>
+  <div id="zone-main" class="main-col"></div>
+  <div id="zone-modal"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="clock-modal-bg" id="clock-bg" onclick="if(event.target===this)closeClock()">
+  <div class="clock-box">
+    <div class="clock-title" id="clock-title">เลือกเวลา</div>
+    <div class="clock-disp" id="clock-disp">--:--</div>
+    <div class="clock-hint" id="clock-hint">เลือก ชั่วโมง</div>
+    <div class="clock-face" id="clock-face">
+      <div class="clock-center-dot"></div>
+    </div>
+    <div class="clock-btns">
+      <button class="clock-cancel" onclick="closeClock()">ยกเลิก</button>
+      <button class="clock-ok" onclick="confirmClock()">✓ ตกลง</button>
+    </div>
+  </div>
+</div>
+<!-- App JS (แยกไฟล์) -->
+<script src="app.js"></script>
+</body>
+</html>
