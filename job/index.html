@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JOB DASHBOARD</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#0a0c10;--surface:#111318;--surface2:#181c24;--border:#22283a;--accent:#00e5ff;--red:#ff4b6e;--green:#00e676;--yellow:#ffea00;--orange:#ff9100;--purple:#7b61ff;--text:#e8eaf2;--text2:#8892a4;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:rgba(10,12,16,.95);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200;flex-wrap:wrap;gap:8px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;color:#000;font-size:13px;}
+.logo-text{font-size:17px;font-weight:700;}.logo-text span{color:var(--accent);}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);}
+.local-badge{display:none;align-items:center;gap:6px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;cursor:pointer;}
+.file-info{display:flex;align-items:center;gap:7px;padding:5px 11px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:8px;font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;}
+
+/* UPLOAD */
+.upload-zone{margin:18px 28px 0;border:2px dashed var(--border);border-radius:14px;padding:20px 24px;display:flex;align-items:center;gap:18px;cursor:pointer;transition:all .25s;background:var(--surface);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(0,229,255,.04);}
+.upload-icon{width:44px;height:44px;background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;}
+.upload-text h3{font-size:14px;font-weight:600;margin-bottom:3px;}
+.upload-text p{font-size:12px;color:var(--text2);}
+.upload-text p strong{color:var(--accent);}
+.upload-btn{margin-left:auto;display:flex;align-items:center;gap:7px;padding:9px 18px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:'IBM Plex Sans Thai',sans-serif;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;transition:all .2s;}
+.upload-btn:hover{background:#00b8d4;}
+#fileInput{display:none;}
+
+main{padding:18px 28px;max-width:1600px;margin:0 auto;}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 17px;position:relative;overflow:hidden;cursor:pointer;transition:all .2s;}
+.stat-card:hover{transform:translateY(-2px);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.c-all::before{background:var(--accent);}
+.stat-card.c-im::before{background:var(--green);}
+.stat-card.c-ex::before{background:var(--yellow);}
+.stat-card.c-gdim::before{background:var(--orange);}
+.stat-card.c-other::before{background:var(--text2);}
+.stat-card.active{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,229,255,.3);}
+.stat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-family:'JetBrains Mono',monospace;}
+.stat-value{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:3px;}
+.stat-card.c-all .stat-value{color:var(--accent);}
+.stat-card.c-im .stat-value{color:var(--green);}
+.stat-card.c-ex .stat-value{color:var(--yellow);}
+.stat-card.c-gdim .stat-value{color:var(--orange);}
+.stat-card.c-other .stat-value{color:var(--text2);}
+.stat-sub{font-size:11px;color:var(--text2);}
+
+.toolbar{display:flex;gap:9px;margin-bottom:13px;align-items:center;flex-wrap:wrap;}
+.search-wrap{flex:1;min-width:200px;position:relative;}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text2);}
+input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px 9px 36px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s;}
+input[type=text]:focus{border-color:var(--accent);}
+input[type=text]::placeholder{color:var(--text2);}
+select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 28px 9px 11px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:12px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .2s;}
+select:focus{border-color:var(--accent);}
+.btn{display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:8px;border:none;font-family:'IBM Plex Sans Thai',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-danger{background:rgba(255,75,110,.12);color:var(--red);border:1px solid rgba(255,75,110,.3);}
+.btn-danger:hover:not(:disabled){background:rgba(255,75,110,.25);border-color:var(--red);}
+.btn-danger:disabled{opacity:.35;cursor:not-allowed;}
+.btn-export{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.3);}
+.btn-export:hover:not(:disabled){background:rgba(0,230,118,.25);border-color:var(--green);}
+.btn-export:disabled{opacity:.35;cursor:not-allowed;}
+.btn-inv-dup{background:rgba(255,145,0,.12);color:var(--orange);border:1px solid rgba(255,145,0,.3);}
+.btn-inv-dup:hover:not(:disabled){background:rgba(255,145,0,.25);border-color:var(--orange);}
+.btn-inv-dup:disabled{opacity:.35;cursor:not-allowed;}
+.sel-info{font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;white-space:nowrap;}
+.sel-info span{color:var(--accent);}
+
+/* DUP BANNER */
+.dup-banner{display:none;align-items:center;gap:10px;padding:9px 16px;background:rgba(255,75,110,.08);border:1px solid rgba(255,75,110,.3);border-radius:10px;margin-bottom:12px;font-size:13px;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.table-scroll{overflow-x:auto;max-height:55vh;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;min-width:1200px;}
+thead th{padding:10px 12px;text-align:left;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border);background:var(--surface2);position:sticky;top:0;z-index:10;cursor:pointer;white-space:nowrap;user-select:none;}
+thead th:hover{color:var(--accent);}
+thead th.ns{cursor:default;}thead th.ns:hover{color:var(--text2);}
+tbody tr{border-bottom:1px solid rgba(34,40,58,.6);transition:background .12s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(0,229,255,.03);}
+tbody tr.selected{background:rgba(0,229,255,.06);}
+tbody tr.row-dup td{background:rgba(255,75,110,.06)!important;}
+tbody tr.row-dup{border-left:3px solid var(--red)!important;}
+td{padding:8px 12px;font-size:12px;vertical-align:middle;white-space:nowrap;}
+td.jid{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:600;font-size:11px;}
+td.tr{max-width:170px;overflow:hidden;text-overflow:ellipsis;}
+td.sm{color:var(--text2);font-size:11px;font-family:'JetBrains Mono',monospace;}
+.tbadge{display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.t-IM{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.25);}
+.t-EX{background:rgba(255,234,0,.1);color:var(--yellow);border:1px solid rgba(255,234,0,.25);}
+.t-GDIM{background:rgba(255,145,0,.1);color:var(--orange);border:1px solid rgba(255,145,0,.25);}
+.t-GDEX{background:rgba(123,97,255,.1);color:var(--purple);border:1px solid rgba(123,97,255,.25);}
+.t-FORM{background:rgba(0,229,255,.1);color:var(--accent);border:1px solid rgba(0,229,255,.25);}
+.dup-badge{display:inline-flex;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;background:rgba(255,75,110,.15);color:var(--red);border:1px solid rgba(255,75,110,.3);margin-left:5px;cursor:pointer;}
+.row-act{display:flex;gap:5px;opacity:0;transition:opacity .15s;}
+tr:hover .row-act{opacity:1;}
+.btn-icon{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .2s;color:var(--text2);}
+.btn-icon.edit:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.1);}
+.btn-icon.del:hover{border-color:var(--red);color:var(--red);background:rgba(255,75,110,.1);}
+.col-s-val{color:var(--text);font-size:12px;}
+.col-s-empty{color:var(--text2);font-size:11px;font-style:italic;}
+.col-u-remark{font-size:10px;color:var(--red);font-family:'JetBrains Mono',monospace;line-height:1.5;max-width:220px;white-space:normal;}
+.col-u-remark .rf{display:inline-block;background:rgba(255,75,110,.12);border:1px solid rgba(255,75,110,.25);border-radius:4px;padding:1px 5px;margin:1px 2px 1px 0;font-size:10px;}
+.col-u-ok{font-size:11px;color:var(--text2);font-style:italic;}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;font-family:'IBM Plex Sans Thai',sans-serif;cursor:pointer;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .15s;user-select:none;line-height:1;}
+.chip:hover{border-color:var(--purple);color:var(--purple);background:rgba(123,97,255,.08);}
+.chip.on{background:rgba(123,97,255,.18);border-color:var(--purple);color:var(--purple);box-shadow:0 0 0 1px rgba(123,97,255,.3);}
+.chip .ck{width:13px;height:13px;flex-shrink:0;display:none;}
+.chip.on .ck{display:block;}
+.chip .plus{width:13px;height:13px;flex-shrink:0;}
+.other-wrap{display:none;margin-top:8px;}
+.other-wrap.show{display:block;}
+.other-inp{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+.other-inp:focus{border-color:var(--purple);}
+.other-inp::placeholder{color:var(--text2);}
+.chip-hint{font-size:12px;color:var(--accent);margin-top:8px;font-family:'JetBrains Mono',monospace;min-height:18px;}
+.col-u-val{color:var(--purple);font-size:12px;}
+.col-u-empty{color:var(--text2);font-size:11px;font-style:italic;}
+
+input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;}
+.empty-state{text-align:center;padding:50px 20px;color:var(--text2);}
+.empty-state h3{font-size:15px;margin:12px 0 6px;color:var(--text);}
+.no-data{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;gap:14px;}
+.no-data svg{opacity:.2;}.no-data h3{font-size:16px;color:var(--text);}
+.no-data p{font-size:13px;color:var(--text2);line-height:1.6;}
+.table-footer{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);font-family:'JetBrains Mono',monospace;background:var(--surface2);}
+.table-footer span{color:var(--accent);}
+
+/* DUP DETAIL MODAL */
+.dup-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;}
+.dup-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.dup-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.dup-item-job{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);}
+.dup-section-title{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.dup-match-badge{display:inline-flex;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(255,75,110,.15);color:var(--red);border:1px solid rgba(255,75,110,.3);font-family:'JetBrains Mono',monospace;}
+
+/* MODALS */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.show{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px;width:460px;max-width:92vw;transform:scale(.95);transition:transform .2s;}
+.modal-overlay.show .modal{transform:scale(1);}
+.modal-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.modal-icon.danger{background:rgba(255,75,110,.12);border:1px solid rgba(255,75,110,.3);color:var(--red);}
+.modal-icon.edit{background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.3);color:var(--accent);}
+.modal h3{font-size:16px;margin-bottom:8px;}
+.modal p{color:var(--text2);font-size:13px;line-height:1.5;margin-bottom:18px;}
+.modal p strong{color:var(--accent);}
+.edit-info{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;}
+.edit-info .row{display:flex;justify-content:space-between;margin-bottom:5px;}
+.edit-info .row:last-child{margin-bottom:0;}
+.edit-info .lbl{color:var(--text2);}
+.edit-info .val{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:600;}
+.edit-info .val.acc{color:var(--accent);}
+.field-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+.field-label span{color:var(--accent);}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:13px;outline:none;resize:vertical;min-height:72px;transition:border-color .2s;line-height:1.5;}
+textarea:focus{border-color:var(--accent);}
+textarea::placeholder{color:var(--text2);}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.btn-cancel{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:9px 16px;}
+.btn-cancel:hover{border-color:var(--text2);}
+.btn-save{background:var(--accent);color:#000;border:none;padding:9px 16px;font-weight:700;}
+.btn-save:hover{background:#00b8d4;}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;}
+.toast{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideIn .3s ease;min-width:240px;}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--accent);}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes spin360{to{transform:rotate(360deg)}}
+@keyframes slideOut{to{transform:translateX(110%);opacity:0}}
+.toast.hide{animation:slideOut .3s ease forwards;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">JB</div>
+    <div class="logo-text">JOB <span>DASHBOARD</span></div>
+  </div>
+  <div class="hdr-right">
+    <div id="localBadge" class="local-badge" onclick="confirmClearLocal()" title="คลิกเพื่อล้างข้อมูลที่บันทึกไว้"></div>
+    <div id="fileInfo" style="display:none" class="file-info">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span id="fileName">-</span>
+    </div>
+    <button onclick="reloadLocal()" title="โหลดข้อมูลล่าสุดจากเครื่อง" style="display:flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:20px;font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(0,229,255,.18)'" onmouseout="this.style.background='rgba(0,229,255,.08)'">
+      <svg id="reloadIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      รีเฟรช
+    </button>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div id="clock"></div>
+  </div>
+</header>
+
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+  <div class="upload-icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+  </div>
+  <div class="upload-text">
+    <h3>อัปโหลดไฟล์ Excel</h3>
+    <p>ลากวาง หรือคลิกเลือก <strong>.xlsx / .xls</strong></p>
+  </div>
+  <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    เลือกไฟล์
+  </button>
+  <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)">
+</div>
+
+<main>
+  <div class="stats-grid">
+    <div class="stat-card c-all active" onclick="filterType('')"><div class="stat-label">Total Jobs</div><div class="stat-value" id="s-all">—</div><div class="stat-sub">ทั้งหมด</div></div>
+    <div class="stat-card c-im" onclick="filterType('IM')"><div class="stat-label">Import (IM)</div><div class="stat-value" id="s-im">—</div><div class="stat-sub">นำเข้า</div></div>
+    <div class="stat-card c-ex" onclick="filterType('EX')"><div class="stat-label">Export (EX)</div><div class="stat-value" id="s-ex">—</div><div class="stat-sub">ส่งออก</div></div>
+    <div class="stat-card c-gdim" onclick="filterType('GDIM')"><div class="stat-label">GDIM</div><div class="stat-value" id="s-gdim">—</div><div class="stat-sub">GD นำเข้า</div></div>
+    <div class="stat-card c-other" onclick="filterType('OTHER')"><div class="stat-label">อื่นๆ</div><div class="stat-value" id="s-other">—</div><div class="stat-sub">GDEX / FORM</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="ค้นหา Job No., Invoice, Customer, CS...">
+    </div>
+    <select id="csFilter"><option value="">CS ทั้งหมด</option></select>
+    <select id="typeFilter"><option value="">Data Type ทั้งหมด</option></select>
+    <select id="customerFilter" style="max-width:180px"><option value="">Customer ทั้งหมด</option></select>
+    <select id="companyFilter" style="max-width:180px"><option value="">Company Invoice ทั้งหมด</option></select>
+    <div class="sel-info">เลือก: <span id="selCount">0</span></div>
+    <button class="btn btn-inv-dup" id="exportInvDupBtn" disabled onclick="exportInvoiceDupExcel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export เลขที่ใบขนฯ ซ้ำ
+    </button>
+    <button class="btn btn-export" id="exportBtn" disabled onclick="exportExcel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span id="exportBtnLabel">Export ทั้งหมด</span>
+    </button>
+    <button class="btn btn-danger" id="delSelBtn" disabled onclick="confirmDelSel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      ลบที่เลือก
+    </button>
+  </div>
+
+  <!-- DUP BANNER -->
+  <div class="dup-banner" id="dupBanner">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span style="color:var(--red);font-weight:600">พบข้อมูลซ้ำ <span id="dupN">0</span> รายการ</span>
+    <span style="color:var(--text2);font-size:12px">— เลขที่ใบขนฯ / House / Master ซ้ำกัน</span>
+    <button onclick="openDupSummary()" style="margin-left:auto;display:flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(255,75,110,.15);border:1px solid rgba(255,75,110,.3);border-radius:7px;color:var(--red);font-size:11px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      ดูรายละเอียดซ้ำทั้งหมด
+    </button>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th class="ns" style="width:38px"><input type="checkbox" id="selectAll" onchange="toggleAll()"></th>
+          <th onclick="sortBy('item')"># ↕</th>
+          <th onclick="sortBy('jobNo')">Job No. ↕</th>
+          <th onclick="sortBy('refDate')">Ref Date ↕</th>
+          <th onclick="sortBy('customer')">Customer ↕</th>
+          <th onclick="sortBy('companyInvoice')">Company Invoice ↕</th>
+          <th onclick="sortBy('invoiceNo')">เลขที่ใบขนฯ ↕</th>
+          <th onclick="sortBy('house')">House ↕</th>
+          <th onclick="sortBy('dataType')">Type ↕</th>
+          <th onclick="sortBy('eta')">ETA ↕</th>
+          <th onclick="sortBy('etd')">ETD ↕</th>
+          <th onclick="sortBy('clearance')">Clearance ↕</th>
+          <th onclick="sortBy('delivery')">Delivery ↕</th>
+          <th onclick="sortBy('cs')">CS ↕</th>
+          <th onclick="sortBy('recipient')" style="min-width:160px">คอลัมน์ S (รับวางบิล) ↕</th>
+          <th class="ns" style="min-width:180px;color:var(--red)">คอลัมน์ T — REMARK ซ้ำ</th>
+          <th onclick="sortBy('remark')" style="min-width:180px;color:var(--purple)">คอลัมน์ U — หมายเหตุ ↕</th>
+          <th class="ns" style="min-width:80px">จัดการ</th>
+        </tr></thead>
+        <tbody id="tbody">
+          <tr><td colspan="18">
+            <div class="no-data">
+              <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <h3>ยังไม่มีข้อมูล</h3>
+              <p>กรุณาอัปโหลดไฟล์ Excel (.xlsx) ด้านบน</p>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <div>แสดง <span id="showN">—</span> จาก <span id="totalN">—</span> รายการ • แก้ไขแล้ว <span id="editedN">0</span> รายการ • ซ้ำ <span id="dupN2">0</span> รายการ</div>
+      <div style="color:var(--text2)">ดับเบิลคลิก คอลัมน์ S เพื่อกรอก</div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- MODAL MERGE -->
+<div class="modal-overlay" id="modalMerge">
+  <div class="modal" style="width:480px">
+    <div class="modal-icon" style="background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.3);color:var(--accent);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-3"/><rect x="8" y="2" width="8" height="6" rx="1"/><path d="M12 12v4M10 14h4"/></svg>
+    </div>
+    <h3>พบข้อมูลอยู่แล้ว — จะทำอะไรกับไฟล์ใหม่?</h3>
+    <p>ปัจจุบันมีข้อมูล <strong id="mergeCurrentCount">0</strong> รายการในระบบ</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 0;">
+      <div onclick="doMerge('append')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .2s;background:var(--surface2);" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:6px;">➕</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:var(--green)">เพิ่ม Job ใหม่</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.5">
+          Job ซ้ำ → <strong style="color:var(--accent)">คงเก่าไว้ ไม่แตะ</strong><br>
+          Job ใหม่ → เพิ่มเข้ามา<br>
+          <span style="color:var(--green)">✓ S / U ที่กรอกไว้ปลอดภัย</span>
+        </div>
+      </div>
+      <div onclick="doMerge('replace')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .2s;background:var(--surface2);" onmouseover="this.style.borderColor='var(--red)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:6px;">🔄</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:var(--red)">แทนที่ทั้งหมด</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.5">ล้างข้อมูลเก่า โหลดใหม่แทน<br><span style="color:var(--red)">⚠ คอลัมน์ S จะหายทั้งหมด</span></div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn btn-cancel" onclick="closeModal('modalMerge');pendingFile=null;">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT S -->
+<div class="modal-overlay" id="modalEdit">
+  <div class="modal">
+    <div class="modal-icon edit">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    </div>
+    <h3>กรอกข้อมูล คอลัมน์ S</h3>
+    <div class="edit-info" id="editInfo"></div>
+    <div class="field-label">ชื่อคนรับวางบิล <span>(คอลัมน์ S)</span></div>
+    <textarea id="editVal" placeholder="กรอกชื่อคนรับวางบิล..."></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('modalEdit')">ยกเลิก</button>
+      <button class="btn btn-save" onclick="saveEdit()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        บันทึก
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL EDIT U หมายเหตุ -->
+<div class="modal-overlay" id="modalEditU">
+  <div class="modal" style="width:500px;max-width:95vw">
+    <div class="modal-icon" style="background:rgba(123,97,255,.12);border:1px solid rgba(123,97,255,.3);color:var(--purple);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    </div>
+    <h3>กรอกข้อมูล คอลัมน์ U — หมายเหตุ</h3>
+    <div class="edit-info" id="editInfoU"></div>
+    <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:'JetBrains Mono',monospace;">เลือกประเภท <span style="color:var(--purple)">(เลือกได้หลายรายการ)</span></div>
+    <div class="chip-row" id="chipRow">
+      <div class="chip" data-val="0409" onclick="toggleChip(this)"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>0409</div>
+      <div class="chip" data-val="COVER" onclick="toggleChip(this)"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>COVER</div>
+      <div class="chip" data-val="หน้า mail" onclick="toggleChip(this)"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>หน้า mail</div>
+      <div class="chip" data-val="ค่าธรรมเนียม" onclick="toggleChip(this)"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>ค่าธรรมเนียม</div>
+      <div class="chip" data-val="FZ" onclick="toggleChip(this)"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>FZ</div>
+      <div class="chip" data-val="__other__" onclick="toggleChip(this)" style="border-style:dashed"><svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>อื่นๆ</div>
+    </div>
+    <div class="other-wrap" id="otherWrap">
+      <input class="other-inp" id="otherInp" placeholder="กรอกข้อความอื่นๆ..." oninput="syncChips()">
+    </div>
+    <div class="chip-hint" id="chipHint"></div>
+    <div style="margin-top:12px;">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">กรอกข้อความอิสระ <span style="color:var(--purple)">(ไม่บังคับ)</span></div>
+      <textarea id="freeTextU" placeholder="กรอกข้อความเพิ่มเติมได้เลย..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:13px;outline:none;resize:vertical;min-height:64px;transition:border-color .2s;line-height:1.5;" onfocus="this.style.borderColor='var(--purple)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('modalEditU')">ยกเลิก</button>
+      <button class="btn" style="background:var(--purple);color:#fff;border:none;padding:9px 16px;font-weight:700;" onclick="saveEditU()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        บันทึก
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DELETE -->
+<div class="modal-overlay" id="modalDel">
+  <div class="modal">
+    <div class="modal-icon danger"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+    <h3 id="dTitle">ยืนยันการลบ</h3>
+    <p id="dDesc"></p>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal('modalDel')">ยกเลิก</button>
+      <button class="btn btn-danger" id="dConfirm">ยืนยันลบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DUP DETAIL -->
+<div class="modal-overlay" id="modalDup">
+  <div class="modal" style="width:560px;max-width:95vw;">
+    <div class="modal-icon danger">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 id="dupModalTitle">รายละเอียดซ้ำ</h3>
+    <p id="dupModalDesc" style="margin-bottom:14px;"></p>
+    <div class="dup-list" id="dupModalList"></div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn btn-cancel" onclick="closeModal('modalDup')">ปิด</button>
+      <button class="btn btn-inv-dup" id="dupExportBtn" style="display:none" onclick="exportInvoiceDupExcel()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export เลขที่ใบขนฯ ซ้ำ
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ════ STATE ═══════════════════════════════════════════════════════════════════
+let jobs = [], selected = new Set(), sortKey = 'item', sortAsc = true, activeType = '';
+let editingJobNo = null, pendingFile = null;
+const LS_KEY = 'jobDash_v2', LS_META = 'jobDashMeta_v2';
+
+// ════ COL MAP ════════════════════════════════════════════════════════════════
+const COL_MAP = {
+  item:['Item','ลำดับ','No','NO','#'],
+  jobNo:['Job No.','JobNo','Job No','JOB NO','job_no'],
+  refDate:['Reference Date','Ref Date','RefDate','วันที่','DATE'],
+  customer:['Customer','ลูกค้า','CUSTOMER'],
+  companyInvoice:['Company Invoice','Company','Invoice Company','บริษัท'],
+  invoiceNo:['เลขที่ใบขนฯ','เลขที่ใบขน','Invoice No','InvoiceNo'],
+  house:['Houes','House','HOUSE','H/BL','HBL'],
+  master:['Master','MBL','M/BL'],
+  customerJob:['Customer Job','CustJob'],
+  invoiceStatus:['Invoice Status','InvStatus','Status'],
+  invoice:['Invoice','NJ'],
+  dataType:['Data Type','DataType','Type','ประเภท','TYPE'],
+  eta:['ETA','Eta'],
+  etd:['ETD','Etd'],
+  clearance:['CLEARANCE','Clearance'],
+  delivery:['DELIVERY','Delivery'],
+  cs:['CS','Cs','เจ้าหน้าที่'],
+  recipient:['ชื่อคนรับวางบิล','รับวางบิล','Recipient'],
+  remark:['หมายเหตุ','Remark','REMARK_U','Note'],
+};
+function findCol(headers, keys) {
+  for (const k of keys) {
+    const i = headers.findIndex(h => h && h.toString().trim().toLowerCase() === k.toLowerCase());
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+// ════ LOCAL STORAGE ══════════════════════════════════════════════════════════
+function saveToLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(jobs));
+    localStorage.setItem(LS_META, JSON.stringify({savedAt:new Date().toISOString(),count:jobs.length,fileName:document.getElementById('fileName').textContent||''}));
+    updateLocalBadge();
+  } catch(e){}
+}
+function loadFromLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    const meta = JSON.parse(localStorage.getItem(LS_META)||'{}');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed||!parsed.length) return false;
+    jobs = parsed;
+    if (meta.fileName) { document.getElementById('fileName').textContent=meta.fileName+' (จาก Local)'; document.getElementById('fileInfo').style.display='flex'; }
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('exportInvDupBtn').disabled = false;
+    rebuildFilters(); render();
+    const d = meta.savedAt ? new Date(meta.savedAt).toLocaleString('th-TH') : '?';
+    showToast(`โหลด ${parsed.length.toLocaleString()} รายการจากเครื่อง (${d})`,'info');
+    return true;
+  } catch(e){ return false; }
+}
+function clearLocal() { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_META); updateLocalBadge(); showToast('ล้างข้อมูลในเครื่องแล้ว','info'); }
+function updateLocalBadge() {
+  try {
+    const meta = JSON.parse(localStorage.getItem(LS_META)||'{}');
+    const b = document.getElementById('localBadge');
+    if (meta.count) { const d=meta.savedAt?new Date(meta.savedAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):''; b.textContent=`💾 ${meta.count.toLocaleString()} · ${d}`; b.style.display='flex'; }
+    else b.style.display='none';
+  } catch(e){}
+}
+function confirmClearLocal() { if(confirm('ล้างข้อมูลที่บันทึกไว้ในเครื่องนี้ใช่ไหม?')) clearLocal(); }
+
+// ════ UPLOAD ═════════════════════════════════════════════════════════════════
+function loadFile(input) {
+  const f = input.files[0]; if(!f) return;
+  if (jobs.length > 0) { pendingFile=f; document.getElementById('mergeCurrentCount').textContent=jobs.length.toLocaleString(); openModal('modalMerge'); }
+  else readExcel(f,'replace');
+  input.value='';
+}
+function doMerge(mode) { closeModal('modalMerge'); if(pendingFile){readExcel(pendingFile,mode);pendingFile=null;} }
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault();zone.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f&&(f.name.endsWith('.xlsx')||f.name.endsWith('.xls'))){if(jobs.length>0){pendingFile=f;document.getElementById('mergeCurrentCount').textContent=jobs.length.toLocaleString();openModal('modalMerge');}else readExcel(f,'replace');}
+  else showToast('ใช้ .xlsx หรือ .xls เท่านั้น','error');
+});
+
+function readExcel(file, mode='replace') {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result,{type:'array',cellDates:false});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if (!raw.length){showToast('ไฟล์ว่างเปล่า','error');return;}
+      const headers = raw[0].map(h=>h?h.toString().trim():'');
+      const ci={};
+      for(const[f,keys] of Object.entries(COL_MAP)) ci[f]=findCol(headers,keys);
+      const parsed=[];
+      for(let i=1;i<raw.length;i++){
+        const row=raw[i]; if(row.every(c=>!c&&c!==0)) continue;
+        const g=f=>ci[f]>=0?(row[ci[f]]??'').toString().trim():'';
+        parsed.push({item:g('item')||String(i),jobNo:g('jobNo'),refDate:g('refDate'),customer:g('customer'),companyInvoice:g('companyInvoice'),invoiceNo:g('invoiceNo'),house:g('house'),master:g('master'),customerJob:g('customerJob'),invoiceStatus:g('invoiceStatus'),invoice:g('invoice'),dataType:g('dataType'),eta:g('eta'),etd:g('etd'),clearance:g('clearance'),delivery:g('delivery'),cs:g('cs'),recipient:g('recipient'),remark:g('remark'),_edited:false});
+      }
+      let added=0,updated=0;
+      if(mode==='replace'){ jobs=parsed; selected.clear(); activeType=''; showToast(`โหลด ${parsed.length.toLocaleString()} รายการสำเร็จ`,'success'); }
+      else {
+        const existMap=new Map(jobs.map(j=>[j.jobNo,j]));
+        let skipped=0;
+        for(const nj of parsed){
+          if(!nj.jobNo) continue;
+          if(existMap.has(nj.jobNo)){
+            // Job ซ้ำ → คงข้อมูลเก่าไว้ทั้งหมด ไม่อัปเดต
+            skipped++;
+          } else {
+            // Job ใหม่ → เพิ่มเข้ามา
+            jobs.push(nj); added++;
+          }
+        }
+        jobs.forEach((j,i)=>{if(!j.item||j.item==='-')j.item=String(i+1);});
+        showToast(`เพิ่มใหม่ ${added} • ข้ามซ้ำ ${skipped} รายการ`,'success');
+      }
+      document.getElementById('fileName').textContent=file.name;
+      document.getElementById('fileInfo').style.display='flex';
+      document.getElementById('exportBtn').disabled=false;
+      document.getElementById('exportInvDupBtn').disabled=false;
+      rebuildFilters(); render(); saveToLocal();
+    } catch(err){showToast('อ่านไฟล์ไม่ได้: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ════ FILTERS ════════════════════════════════════════════════════════════════
+function rebuildFilters() {
+  const csEl=document.getElementById('csFilter'),tpEl=document.getElementById('typeFilter');
+  csEl.innerHTML='<option value="">CS ทั้งหมด</option>';
+  tpEl.innerHTML='<option value="">Data Type ทั้งหมด</option>';
+  [...new Set(jobs.map(j=>j.cs).filter(Boolean))].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;csEl.appendChild(o);});
+  [...new Set(jobs.map(j=>j.dataType).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tpEl.appendChild(o);});
+  const custEl=document.getElementById('customerFilter');
+  const compEl=document.getElementById('companyFilter');
+  if(custEl){custEl.innerHTML='<option value="">Customer ทั้งหมด</option>';[...new Set(jobs.map(j=>j.customer).filter(Boolean))].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c.length>35?c.slice(0,35)+'…':c;custEl.appendChild(o);});}
+  if(compEl){compEl.innerHTML='<option value="">Company Invoice ทั้งหมด</option>';[...new Set(jobs.map(j=>j.companyInvoice).filter(Boolean))].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c.length>35?c.slice(0,35)+'…':c;compEl.appendChild(o);});}
+  document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active'));
+  document.querySelector('.stat-card.c-all').classList.add('active');
+}
+function filterType(t) {
+  activeType=activeType===t?'':t;
+  document.getElementById('typeFilter').value='';
+  document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active'));
+  const map={'':'c-all','IM':'c-im','EX':'c-ex','GDIM':'c-gdim','OTHER':'c-other'};
+  document.querySelector('.stat-card.'+(map[activeType]||'c-all'))?.classList.add('active');
+  render(); updateExportLabel();
+}
+function getFiltered() {
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const cs=document.getElementById('csFilter').value;
+  const tp=document.getElementById('typeFilter').value||activeType;
+  const cust=document.getElementById('customerFilter')?document.getElementById('customerFilter').value:'';
+  const comp=document.getElementById('companyFilter')?document.getElementById('companyFilter').value:'';
+  return jobs.filter(j=>{
+    const mQ=!q||[j.jobNo,j.invoice,j.invoiceNo,j.customer,j.companyInvoice,j.house,j.cs,j.master,j.recipient,j.remark].some(v=>v&&v.toLowerCase().includes(q));
+    const mCS=!cs||j.cs===cs;
+    const mT=!tp||(tp==='OTHER'?!['IM','EX','GDIM'].includes(j.dataType):j.dataType===tp);
+    const mCust=!cust||j.customer===cust;
+    const mComp=!comp||j.companyInvoice===comp;
+    return mQ&&mCS&&mT&&mCust&&mComp;
+  }).sort((a,b)=>{
+    let va=a[sortKey]||'',vb=b[sortKey]||'';
+    if(sortKey==='item'){va=+va||0;vb=+vb||0;}
+    if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;
+  });
+}
+
+// ════ DUP MAP ════════════════════════════════════════════════════════════════
+const FIELD_LABEL={invoiceNo:'เลขที่ใบขนฯ',house:'House',master:'Master'};
+function invKey(v){ const s=(v||'').trim(); if(s.toUpperCase().startsWith('A')) return ''; return s.slice(0,14); } // 14 หลักแรก, ข้าม A
+function buildDupValMap() {
+  const dvm={invoiceNo:new Map()};
+  jobs.forEach(j=>{
+    const iv=invKey(j.invoiceNo); if(iv&&iv!=='-'){ if(!dvm.invoiceNo.has(iv))dvm.invoiceNo.set(iv,[]); dvm.invoiceNo.get(iv).push(j.jobNo); }
+  });
+  for(const[v,a]of dvm.invoiceNo) if(a.length<2) dvm.invoiceNo.delete(v);
+  return dvm;
+}
+function getJobRemark(j,dvm) {
+  const parts=[];
+  const ik=invKey(j.invoiceNo); if(ik&&ik!=='-'&&dvm.invoiceNo.has(ik)){const others=dvm.invoiceNo.get(ik).filter(id=>id!==j.jobNo);if(others.length)parts.push({field:'invoiceNo',val:ik,others});}
+  return parts;
+}
+
+// ════ RENDER ═════════════════════════════════════════════════════════════════
+function render() {
+  if(!jobs.length) return;
+  const filtered=getFiltered();
+  const editedCount=jobs.filter(j=>j._edited).length;
+  document.getElementById('s-all').textContent=jobs.length.toLocaleString();
+  document.getElementById('s-im').textContent=jobs.filter(j=>j.dataType==='IM').length.toLocaleString();
+  document.getElementById('s-ex').textContent=jobs.filter(j=>j.dataType==='EX').length.toLocaleString();
+  document.getElementById('s-gdim').textContent=jobs.filter(j=>j.dataType==='GDIM').length.toLocaleString();
+  document.getElementById('s-other').textContent=jobs.filter(j=>!['IM','EX','GDIM'].includes(j.dataType)).length.toLocaleString();
+  document.getElementById('showN').textContent=filtered.length.toLocaleString();
+  document.getElementById('totalN').textContent=jobs.length.toLocaleString();
+  document.getElementById('editedN').textContent=editedCount;
+  document.getElementById('selCount').textContent=selected.size;
+  document.getElementById('delSelBtn').disabled=selected.size===0;
+  updateExportLabel();
+
+  const dvm=buildDupValMap();
+  const dupJobNos=new Set();
+  dvm.invoiceNo.forEach(arr=>arr.forEach(id=>dupJobNos.add(id)));
+  const dupCount=dupJobNos.size;
+  document.getElementById('dupN').textContent=dupCount;
+  document.getElementById('dupN2').textContent=dupCount;
+  document.getElementById('dupBanner').style.display=dupCount>0?'flex':'none';
+
+  const tbody=document.getElementById('tbody');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="18"><div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>ไม่พบข้อมูล</h3><p>ลองเปลี่ยนคำค้นหา</p></div></td></tr>';return;}
+
+  tbody.innerHTML=filtered.map(j=>{
+    const tc=j.dataType?`t-${j.dataType}`:'';
+    const sId=j.jobNo.replace(/[^a-z0-9]/gi,'_');
+    const isDup=dupJobNos.has(j.jobNo);
+    const dupMark=isDup?`<span class="dup-badge" onclick="event.stopPropagation();openDupDetail('${esc(j.jobNo)}')" title="คลิกดูรายละเอียด">&#9888; ซ้ำ</span>`:'';
+    const hiInv=isDup?' style="color:var(--red);font-weight:700"':'';
+
+    const sCell=j.recipient?`<span class="col-s-val">${escHtml(j.recipient)}</span>`:`<span class="col-s-empty">— คลิกเพื่อกรอก —</span>`;
+
+    // คอลัมน์ T = REMARK ซ้ำ (เฉพาะเลขที่ใบขนฯ)
+    const remarks=getJobRemark(j,dvm);
+    const invRemark=remarks.find(r=>r.field==='invoiceNo');
+    let tCell='';
+    if(invRemark){
+      const withStr=invRemark.others.slice(0,3).map(id=>`<span style="color:var(--accent);font-weight:700">${escHtml(id)}</span>`).join(', ')+(invRemark.others.length>3?` <span style="color:var(--text2)">+${invRemark.others.length-3}</span>`:'');
+      tCell=`<div class="col-u-remark"><span class="rf">เลขที่ใบขนฯ</span> ซ้ำกับ ${withStr}</div>`;
+    }
+
+    const rowCls=[selected.has(j.jobNo)?'selected':'',isDup?'row-dup':''].filter(Boolean).join(' ');
+    return `<tr class="${rowCls}" id="row-${sId}">
+      <td><input type="checkbox" ${selected.has(j.jobNo)?'checked':''} onchange="toggleRow('${esc(j.jobNo)}')"></td>
+      <td class="sm">${j.item}</td>
+      <td class="jid">${escHtml(j.jobNo)||'-'}${dupMark}</td>
+      <td class="sm">${j.refDate||'-'}</td>
+      <td class="tr" title="${escHtml(j.customer)}">${escHtml(j.customer)||'-'}</td>
+      <td class="tr" title="${escHtml(j.companyInvoice)}">${escHtml(j.companyInvoice)||'-'}</td>
+      <td class="sm"${hiInv}>${j.invoiceNo||'-'}</td>
+      <td class="sm">${j.house||'-'}</td>
+      <td>${j.dataType?`<span class="tbadge ${tc}">${j.dataType}</span>`:'-'}</td>
+      <td class="sm">${j.eta||'-'}</td>
+      <td class="sm">${j.etd||'-'}</td>
+      <td class="sm">${j.clearance||'-'}</td>
+      <td class="sm">${j.delivery||'-'}</td>
+      <td class="sm">${j.cs||'-'}</td>
+      <td ondblclick="openEdit('${esc(j.jobNo)}')" style="cursor:pointer">${sCell}</td>
+      <td>${tCell}</td>
+      <td ondblclick="openEditU('${esc(j.jobNo)}')" style="cursor:pointer">${j.remark?`<span class="col-u-val">${escHtml(j.remark.replace(/\|/g,'·'))}</span>`:`<span class="col-u-empty">— คลิกเพื่อกรอก —</span>`}</td>
+      <td><div class="row-act">
+        <button class="btn-icon edit" title="แก้ไข คอลัมน์ S" onclick="openEdit('${esc(j.jobNo)}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-icon" title="แก้ไข หมายเหตุ (U)" onclick="openEditU('${esc(j.jobNo)}')" style="color:var(--purple)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button class="btn-icon del" title="ลบ" onclick="confirmDelOne('${esc(j.jobNo)}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s){return s.replace(/'/g,"\\'")}
+function escHtml(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+
+// ════ SORT & SELECT ══════════════════════════════════════════════════════════
+function sortBy(k){if(sortKey===k)sortAsc=!sortAsc;else{sortKey=k;sortAsc=true;}render();}
+function toggleRow(id){if(selected.has(id))selected.delete(id);else selected.add(id);render();}
+function toggleAll(){const all=document.getElementById('selectAll').checked;getFiltered().forEach(j=>all?selected.add(j.jobNo):selected.delete(j.jobNo));render();}
+
+
+// ════ EDIT U หมายเหตุ ════════════════════════════════════════════════════════
+const U_PRESETS = ['0409','COVER','หน้า mail','ค่าธรรมเนียม','FZ'];
+let editingU = null;
+
+function openEditU(jobNo) {
+  const j=jobs.find(x=>x.jobNo===jobNo); if(!j)return;
+  editingU=jobNo;
+  document.getElementById('editInfoU').innerHTML=`
+    <div class="row"><span class="lbl">Job No.</span><span class="val acc">${escHtml(j.jobNo)}</span></div>
+    <div class="row"><span class="lbl">Customer</span><span class="val">${escHtml(j.customer)||'-'}</span></div>
+    <div class="row"><span class="lbl">CS</span><span class="val">${j.cs||'-'}</span></div>`;
+  // parse: chipVals | freeText
+  const raw = j.remark || '';
+  const pipeIdx = raw.indexOf('|');
+  const chipPart = pipeIdx >= 0 ? raw.slice(0, pipeIdx).trim() : raw.trim();
+  const freePart = pipeIdx >= 0 ? raw.slice(pipeIdx+1).trim() : '';
+
+  const cur = chipPart ? chipPart.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const otherParts = cur.filter(p=>!U_PRESETS.includes(p));
+
+  document.querySelectorAll('#chipRow .chip').forEach(c=>{
+    const v=c.dataset.val;
+    c.classList.toggle('on', v==='__other__' ? otherParts.length>0 : cur.includes(v));
+  });
+  const ow=document.getElementById('otherWrap'), oi=document.getElementById('otherInp');
+  ow.classList.toggle('show', otherParts.length>0);
+  oi.value = otherParts.join(', ');
+  document.getElementById('freeTextU').value = freePart;
+  updateChipHint();
+  openModal('modalEditU');
+  setTimeout(()=>document.getElementById('freeTextU').focus(), 200);
+}
+
+function toggleChip(el) {
+  el.classList.toggle('on');
+  const ow=document.getElementById('otherWrap');
+  if(el.dataset.val==='__other__'){
+    ow.classList.toggle('show',el.classList.contains('on'));
+    if(el.classList.contains('on')) setTimeout(()=>document.getElementById('otherInp').focus(),100);
+    else document.getElementById('otherInp').value='';
+  }
+  syncChips();
+}
+
+function syncChips() {
+  const vals=[];
+  document.querySelectorAll('#chipRow .chip.on').forEach(c=>{ if(c.dataset.val!=='__other__') vals.push(c.dataset.val); });
+  const oc=document.querySelector('#chipRow .chip[data-val="__other__"]');
+  if(oc&&oc.classList.contains('on')){const ov=document.getElementById('otherInp').value.trim();if(ov)vals.push(ov);}
+  const ft = document.getElementById('freeTextU') ? document.getElementById('freeTextU').value.trim() : '';
+  let hint = '';
+  if (vals.length && ft) hint = `"${vals.join(', ')} | ${ft}"`;
+  else if (vals.length) hint = `"${vals.join(', ')}"`;
+  else if (ft) hint = `"${ft}"`;
+  else hint = 'ยังไม่ได้กรอก';
+  document.getElementById('chipHint').textContent = hint ? `จะบันทึก: ${hint}` : '';
+}
+
+function saveEditU() {
+  const j=jobs.find(x=>x.jobNo===editingU); if(!j)return;
+  // chip values
+  const vals=[];
+  document.querySelectorAll('#chipRow .chip.on').forEach(c=>{ if(c.dataset.val!=='__other__') vals.push(c.dataset.val); });
+  const oc=document.querySelector('#chipRow .chip[data-val="__other__"]');
+  if(oc&&oc.classList.contains('on')){const ov=document.getElementById('otherInp').value.trim();if(ov)vals.push(ov);}
+  const chipStr = vals.join(', ');
+  // free text
+  const freeStr = document.getElementById('freeTextU').value.trim();
+  // รวมกัน: "0409, COVER | ข้อความอิสระ"
+  if (chipStr && freeStr) j.remark = chipStr + ' | ' + freeStr;
+  else if (chipStr) j.remark = chipStr;
+  else if (freeStr) j.remark = freeStr;
+  else j.remark = '';
+  j._edited=true;
+  closeModal('modalEditU');
+  render(); saveToLocal();
+  showToast(`บันทึกหมายเหตุ Job ${editingU} เรียบร้อย`,'success');
+}
+
+function updateChipHint(){ syncChips(); }
+
+// ════ EDIT S ═════════════════════════════════════════════════════════════════
+function openEdit(jobNo) {
+  const j=jobs.find(x=>x.jobNo===jobNo);if(!j)return;
+  editingJobNo=jobNo;
+  document.getElementById('editInfo').innerHTML=`
+    <div class="row"><span class="lbl">Job No.</span><span class="val acc">${escHtml(j.jobNo)}</span></div>
+    <div class="row"><span class="lbl">Customer</span><span class="val">${escHtml(j.customer)||'-'}</span></div>
+    <div class="row"><span class="lbl">Data Type</span><span class="val">${j.dataType||'-'}</span></div>
+    <div class="row"><span class="lbl">CS</span><span class="val">${j.cs||'-'}</span></div>`;
+  document.getElementById('editVal').value=j.recipient||'';
+  openModal('modalEdit');
+  setTimeout(()=>document.getElementById('editVal').focus(),200);
+}
+function saveEdit() {
+  const j=jobs.find(x=>x.jobNo===editingJobNo);if(!j)return;
+  j.recipient=document.getElementById('editVal').value.trim();
+  j._edited=true;
+  closeModal('modalEdit');
+  render();saveToLocal();
+  showToast(`บันทึก Job ${editingJobNo} เรียบร้อย`,'success');
+}
+
+// ════ DELETE ═════════════════════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+['modalEdit','modalDel','modalMerge','modalDup','modalEditU'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal(id);});
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')['modalEdit','modalDel','modalMerge','modalDup','modalEditU'].forEach(closeModal);});
+document.getElementById('editVal').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))saveEdit();});
+
+function confirmDelOne(id){
+  document.getElementById('dTitle').textContent='ยืนยันการลบ Job';
+  document.getElementById('dDesc').innerHTML=`ต้องการลบ <strong>${id}</strong> ใช่ไหม?`;
+  document.getElementById('dConfirm').onclick=()=>{closeModal('modalDel');deleteJobs([id]);};
+  openModal('modalDel');
+}
+function confirmDelSel(){
+  const ids=[...selected];
+  document.getElementById('dTitle').textContent=`ยืนยันลบ ${ids.length} รายการ`;
+  document.getElementById('dDesc').innerHTML=`ต้องการลบ Job ที่เลือก <strong>${ids.length} รายการ</strong> ใช่ไหม?`;
+  document.getElementById('dConfirm').onclick=()=>{closeModal('modalDel');deleteJobs(ids);};
+  openModal('modalDel');
+}
+function deleteJobs(ids){
+  ids.forEach(id=>selected.delete(id));
+  jobs=jobs.filter(j=>!ids.includes(j.jobNo));
+  render();saveToLocal();
+  showToast(`ลบ ${ids.length} Job เรียบร้อย`,'success');
+}
+
+// ════ DUP DETAIL POPUP ═══════════════════════════════════════════════════════
+function openDupDetail(jobNo) {
+  const j=jobs.find(x=>x.jobNo===jobNo);if(!j)return;
+  const dvm=buildDupValMap();
+  const remarks=getJobRemark(j,dvm);
+  if(!remarks.length){showToast('ไม่พบซ้ำสำหรับ Job นี้','info');return;}
+  document.getElementById('dupModalTitle').textContent=`ข้อมูลซ้ำของ ${jobNo}`;
+  document.getElementById('dupModalDesc').innerHTML=`Job ต้นทาง <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700">${escHtml(j.jobNo)}</span>`;
+  document.getElementById('dupExportBtn').style.display='none';
+  let html='';
+  remarks.forEach(({field,val,others})=>{
+    html+=`<div style="margin-bottom:12px"><div class="dup-section-title">ซ้ำที่ <span style="color:var(--red)">${FIELD_LABEL[field]}</span> = <span style="color:var(--red);font-family:'JetBrains Mono',monospace;font-weight:700">${escHtml(val)}</span></div>`;
+    html+=`<div style="display:grid;grid-template-columns:180px 1fr 80px;gap:0;padding:5px 10px;background:var(--surface2);border-radius:6px 6px 0 0;border:1px solid var(--border);">
+      <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">Job No.</span>
+      <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">เลขที่ใบขนฯ</span>
+      <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">CS</span></div>`;
+    // แถว job ต้นทาง
+    html+=`<div style="display:grid;grid-template-columns:180px 1fr 80px;gap:0;padding:7px 10px;background:rgba(0,229,255,.05);border:1px solid var(--border);border-top:none;">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent)">${escHtml(j.jobNo)}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);font-weight:700">${escHtml(j.invoiceNo)||'-'}</span>
+      <span style="font-size:11px;color:var(--text2)">${j.cs||'-'}</span>
+    </div>`;
+    others.forEach((oid,idx)=>{
+      const oj=jobs.find(x=>x.jobNo===oid);if(!oj)return;
+      const isLast=idx===others.length-1;
+      html+=`<div style="display:grid;grid-template-columns:160px 1fr 1fr 1fr;gap:0;padding:7px 10px;background:rgba(255,75,110,.05);border:1px solid var(--border);border-top:none;${isLast?'border-radius:0 0 6px 6px':''}">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--red)">${escHtml(oj.jobNo)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${field==='invoiceNo'?'var(--red)':'var(--text2)'};font-weight:${field==='invoiceNo'?700:400}">${escHtml(oj.invoiceNo)||'-'}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${field==='house'?'var(--red)':'var(--text2)'};font-weight:${field==='house'?700:400}">${escHtml(oj.house)||'-'}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${field==='master'?'var(--red)':'var(--text2)'};font-weight:${field==='master'?700:400}">${escHtml(oj.master)||'-'}</span>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  document.getElementById('dupModalList').innerHTML=html;
+  openModal('modalDup');
+}
+
+function openDupSummary() {
+  const dvm=buildDupValMap();
+  const groups=dvm.invoiceNo.size;
+  if(!groups){showToast('ไม่พบเลขที่ใบขนฯ ซ้ำ','info');return;}
+  const dupSet=new Set();
+  dvm.invoiceNo.forEach(ids=>ids.forEach(id=>dupSet.add(id)));
+  document.getElementById('dupModalTitle').textContent='สรุปเลขที่ใบขนฯ ซ้ำ';
+  document.getElementById('dupModalDesc').innerHTML=`พบซ้ำ <strong style="color:var(--red)">${groups} กลุ่ม</strong> | รายการซ้ำทั้งหมด <strong style="color:var(--red)">${dupSet.size} Job</strong>`;
+  document.getElementById('dupExportBtn').style.display='flex';
+  let html='';
+  for(const[val,jobNos] of dvm.invoiceNo){
+    html+=`<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);font-weight:700">${escHtml(val)}</span>
+        <span class="dup-match-badge">ซ้ำ ${jobNos.length} Job</span>
+      </div>
+      <div style="display:grid;grid-template-columns:180px 1fr 80px;gap:0;padding:5px 10px;background:var(--surface2);border-radius:6px 6px 0 0;border:1px solid var(--border);">
+        <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">Job No.</span>
+        <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">เลขที่ใบขนฯ</span>
+        <span style="font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;text-transform:uppercase">CS</span>
+      </div>`;
+    jobNos.forEach((jid,idx)=>{
+      const jj=jobs.find(x=>x.jobNo===jid);if(!jj)return;
+      const isLast=idx===jobNos.length-1;
+      html+=`<div style="display:grid;grid-template-columns:180px 1fr 80px;gap:0;padding:7px 10px;background:rgba(255,75,110,.04);border:1px solid var(--border);border-top:none;${isLast?'border-radius:0 0 6px 6px':''}">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent)">${escHtml(jj.jobNo)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);font-weight:700">${escHtml(jj.invoiceNo)||'-'}</span>
+        <span style="font-size:11px;color:var(--text2)">${jj.cs||'-'}</span>
+      </div>`;
+    });
+    html+='</div>';
+  }
+  document.getElementById('dupModalList').innerHTML=html;
+  openModal('modalDup');
+}
+
+// ════ EXPORT ═════════════════════════════════════════════════════════════════
+
+function updateExportLabel() {
+  if (!document.getElementById('exportBtn')) return;
+  const q = document.getElementById('searchInput').value.trim();
+  const cs = document.getElementById('csFilter').value;
+  const tp = document.getElementById('typeFilter').value || activeType;
+  const filtered = getFiltered();
+  const isFiltered = q || cs || tp;
+  const lbl = document.getElementById('exportBtnLabel');
+  if (!lbl) return;
+  if (isFiltered) {
+    const parts = [];
+    if (cs) parts.push(`CS: ${cs}`);
+    if (tp) parts.push(tp);
+    if (q) parts.push(`"${q}"`);
+    lbl.textContent = `Export ${filtered.length.toLocaleString()} รายการ (${parts.join(', ')})`;
+  } else {
+    lbl.textContent = `Export ทั้งหมด (${filtered.length.toLocaleString()})`;
+  }
+}
+
+function exportExcel() {
+  if(!jobs.length)return;
+  const exportData = getFiltered(); // ใช้ข้อมูลที่กรองอยู่
+  if(!exportData.length){showToast('ไม่มีข้อมูลที่จะ Export','error');return;}
+  const dvm=buildDupValMap();
+  function buildRemark(j){
+    const ik=invKey(j.invoiceNo); if(!ik||ik==='-'||!dvm.invoiceNo.has(ik)) return '';
+    const others=dvm.invoiceNo.get(ik).filter(id=>id!==j.jobNo);
+    return others.length?`เลขที่ใบขนฯ ซ้ำกับ ${others.join(', ')}` : '';
+  }
+  // ชื่อไฟล์สะท้อนตัวกรอง
+  const cs = document.getElementById('csFilter').value;
+  const tp = document.getElementById('typeFilter').value || activeType;
+  const q = document.getElementById('searchInput').value.trim();
+  const cust = document.getElementById('customerFilter')?document.getElementById('customerFilter').value:'';
+  const comp = document.getElementById('companyFilter')?document.getElementById('companyFilter').value:'';
+  const parts = [];
+  if (cs) parts.push(cs);
+  if (tp) parts.push(tp);
+  if (cust) parts.push(cust.slice(0,20));
+  if (comp) parts.push(comp.slice(0,20));
+  if (q) parts.push(q.replace(/[^a-zA-Z0-9ก-๙]/g,'_').slice(0,20));
+  const suffix = parts.length ? '-' + parts.join('_') : '';
+  const ts = new Date().toISOString().slice(0,10);
+
+  const headers=['Item','Job No.','Reference Date','Customer','Company Invoice','เลขที่ใบขนฯ','Houes','Master','Customer Job','Invoice Status','Invoice','Data Type','ETA','ETD','CLEARANCE','DELIVERY','CS','ชื่อคนรับวางบิล','หมายเหตุ','REMARK (ซ้ำ)'];
+  const rows=[headers];
+  exportData.forEach(j=>rows.push([j.item,j.jobNo,j.refDate,j.customer,j.companyInvoice,j.invoiceNo,j.house,j.master,j.customerJob,j.invoiceStatus,j.invoice,j.dataType,j.eta,j.etd,j.clearance,j.delivery,j.cs,j.recipient,j.remark||'',buildRemark(j)]));
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[6,18,14,28,28,18,16,16,14,14,16,10,12,12,12,12,14,22,22,45].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Jobs');
+  XLSX.writeFile(wb,`job-export${suffix}-${ts}.xlsx`);
+  showToast(`Export ${exportData.length.toLocaleString()} รายการ`,'info');
+}
+
+function exportInvoiceDupExcel() {
+  // เฉพาะ Job ที่ เลขที่ใบขนฯ ซ้ำ เท่านั้น
+  const dvm=buildDupValMap();
+  const invDupIds=new Set();
+  dvm.invoiceNo.forEach(arr=>arr.forEach(id=>invDupIds.add(id)));
+  if(!invDupIds.size){showToast('ไม่พบเลขที่ใบขนฯ ซ้ำ','info');return;}
+  const dupJobs=[...invDupIds].map(id=>jobs.find(j=>j.jobNo===id)).filter(Boolean);
+  // เรียงตาม invoiceNo เพื่อให้เห็นกลุ่มซ้ำชัดเจน
+  dupJobs.sort((a,b)=>(a.invoiceNo||'').localeCompare(b.invoiceNo||''));
+
+  const headers=['Job No.','เลขที่ใบขนฯ','ซ้ำกับ Job'];
+  const rows=[headers];
+  dupJobs.forEach(j=>{
+    const v=invKey(j.invoiceNo);
+    const others=dvm.invoiceNo.has(v)?dvm.invoiceNo.get(v).filter(id=>id!==j.jobNo):[];
+    rows.push([j.jobNo, j.invoiceNo||'', others.join(', ')]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[22,22,55].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'InvoiceDuplicates');
+  XLSX.writeFile(wb,`invoice-dup-${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast(`Export เลขที่ใบขนฯ ซ้ำ ${dupJobs.length} รายการ`,'success');
+  closeModal('modalDup');
+}
+
+// ════ TOAST & CLOCK ══════════════════════════════════════════════════════════
+function showToast(msg,type='success'){
+  const c=document.getElementById('toasts'),t=document.createElement('div');
+  t.className=`toast ${type}`;
+  const icons={success:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,error:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,info:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`};
+  t.innerHTML=`${icons[type]||icons.info}<span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.classList.add('hide');setTimeout(()=>t.remove(),300);},3500);
+}
+
+function reloadLocal() {
+  const icon = document.getElementById('reloadIcon');
+  if (icon) icon.style.animation = 'spin360 .6s linear';
+  setTimeout(() => { if(icon) icon.style.animation=''; }, 700);
+  const ok = loadFromLocal();
+  if (!ok) showToast('ไม่มีข้อมูลใน Local หรือข้อมูลหาย','error');
+}
+
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+setInterval(tick,1000);tick();
+
+// ════ INIT ═══════════════════════════════════════════════════════════════════
+updateLocalBadge();
+loadFromLocal();
+
+document.getElementById('searchInput').addEventListener('input',()=>{render();updateExportLabel();});
+document.getElementById('customerFilter').addEventListener('change',()=>{render();updateExportLabel();});
+document.getElementById('companyFilter').addEventListener('change',()=>{render();updateExportLabel();});
+document.getElementById('csFilter').addEventListener('change',render);
+document.getElementById('typeFilter').addEventListener('change',()=>{activeType='';document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active'));document.querySelector('.stat-card.c-all').classList.add('active');render();});
+</script>
+</body>
+</html>
