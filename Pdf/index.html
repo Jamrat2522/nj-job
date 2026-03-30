@@ -1,0 +1,2923 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>N.J. Logistics — Invoice System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5f6fa;display:flex;min-height:100vh;color:#1a1a2e}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;background:#1a1a2e;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;z-index:100}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid #ffffff15}
+.sidebar-logo .brand{display:flex;align-items:center;gap:10px}
+.sidebar-logo .icon{width:36px;height:36px;background:#f59e0b;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.sidebar-logo .icon svg{width:20px;height:20px;stroke:#fff;fill:none}
+.sidebar-logo .name{font-size:14px;font-weight:700;color:#fff;line-height:1.2}
+.sidebar-logo .sub{font-size:11px;color:#94a3b8}
+.sidebar-user{padding:16px 20px;border-bottom:1px solid #ffffff15;display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;background:#f59e0b;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.user-info .name{font-size:13px;font-weight:600;color:#fff}
+.user-info .role{font-size:11px;color:#f59e0b;background:#f59e0b22;padding:1px 8px;border-radius:99px;display:inline-block;margin-top:2px}
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-label{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:8px;margin-top:16px}
+.nav-label:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s;color:#94a3b8;font-size:13px;font-weight:500;text-decoration:none;margin-bottom:2px}
+.nav-item:hover{background:#ffffff10;color:#fff}
+.nav-item.active{background:#f59e0b22;color:#f59e0b}
+.nav-item svg{width:17px;height:17px;stroke:currentColor;fill:none;flex-shrink:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:#fff;border-bottom:1.5px solid #e8e8f0;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar h1{font-size:18px;font-weight:700;color:#1a1a2e}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-date{font-size:12px;color:#64748b}
+
+.content{padding:28px 32px;flex:1}
+
+/* ── CUSTOMER BAR ── */
+.customer-bar{background:#fff;border-radius:14px;padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 6px #0001;margin-bottom:24px;flex-wrap:wrap}
+.customer-bar .icon{color:#64748b}
+.customer-label{font-size:12px;font-weight:600;color:#64748b;white-space:nowrap}
+.customer-select{border:1.5px solid #fed7aa;border-radius:99px;padding:7px 18px;font-size:13px;font-weight:700;color:#f97316;background:#fff7ed;outline:none;cursor:pointer;min-width:220px}
+.customer-select:focus{border-color:#f97316}
+.mode-badge{margin-left:auto;display:flex;align-items:center;gap:6px;background:#f59e0b22;color:#f59e0b;padding:6px 14px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:.2s}
+.mode-badge:hover{background:#f59e0b33}
+
+/* ── TWO PANELS ── */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.panels{grid-template-columns:1fr}}
+.panel{background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 6px #0001}
+.panel-title{font-size:14px;font-weight:700;color:#1a1a2e;display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.panel-title svg{width:18px;height:18px;stroke:#f59e0b;fill:none}
+
+/* ── MODE TABS ── */
+.mode-tabs{display:flex;background:#f8fafc;border-radius:12px;padding:4px;gap:4px;margin-bottom:20px}
+.mode-tab{flex:1;padding:9px 16px;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:#64748b;background:transparent;display:flex;align-items:center;justify-content:center;gap:6px}
+.mode-tab.active{background:#fff;color:#f97316;box-shadow:0 1px 4px #0001}
+
+/* ── DROPZONE ── */
+.dropzone{border:2px dashed #fed7aa;border-radius:14px;padding:48px 20px;text-align:center;cursor:pointer;transition:.2s;background:#fff7ed55;position:relative;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.dropzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dropzone:hover,.dropzone.over{border-color:#f97316;background:#fff7ed}
+.dropzone.has-file{border-color:#22c55e;border-style:solid;background:#f0fdf4}
+.dz-icon{width:52px;height:52px;background:#fff;border-radius:14px;border:1.5px solid #fed7aa;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px #f9731622}
+.dz-icon svg{width:26px;height:26px;stroke:#f97316;fill:none}
+.has-file .dz-icon{border-color:#86efac;background:#f0fdf4}
+.has-file .dz-icon svg{stroke:#16a34a}
+.dz-title{font-size:14px;font-weight:600;color:#64748b}
+.has-file .dz-title{color:#16a34a}
+.dz-sub{font-size:12px;color:#94a3b8}
+.dz-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#475569;cursor:pointer;margin-top:4px;transition:.15s;z-index:1;position:relative}
+.dz-btn:hover{border-color:#f97316;color:#f97316}
+
+/* ── PROCESS BTN ── */
+.process-btn{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s;letter-spacing:.02em}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px #f9731644}
+.process-btn:disabled{background:#e2e8f0;color:#94a3b8;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ── RESULT PANEL ── */
+.result-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;color:#94a3b8;gap:12px;text-align:center}
+.result-empty svg{width:48px;height:48px;stroke:#e2e8f0;fill:none}
+.result-empty p{font-size:13px}
+.result-empty .link{color:#f97316;font-weight:600;cursor:pointer}
+.result-count{background:#f0fdf4;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;color:#16a34a;margin-bottom:16px;display:none;align-items:center;gap:8px}
+.result-count.show{display:flex}
+.result-table-wrap{overflow:auto;max-height:360px;border-radius:10px;border:1px solid #f1f5f9}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f8fafc;padding:9px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;border-bottom:2px solid #e2e8f0;white-space:nowrap;position:sticky;top:0}
+td{padding:8px 12px;border-bottom:1px solid #f8fafc;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#fff7ed}
+.export-btn{width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px;display:none;align-items:center;justify-content:center;gap:8px;transition:.2s}
+.export-btn.show{display:flex}
+.export-btn:hover{background:#15803d}
+.alert{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-top:12px;display:none}
+.alert.show{display:block}
+.alert-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.alert-success{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+.alert-warn{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
+.progress-wrap{display:none;margin-top:14px}
+.progress-bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#f97316);border-radius:99px;transition:.3s;width:0%}
+.progress-label{font-size:11px;color:#94a3b8;margin-top:5px}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dl-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:.15s}
+.dl-btn:hover{background:#dcfce7}
+
+/* ── AUTH ── */
+.auth-bg{position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
+.auth-card{background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px #0006}
+.auth-logo{text-align:center;margin-bottom:28px}
+.auth-logo .icon{width:56px;height:56px;background:#f59e0b;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
+.auth-logo .icon svg{width:28px;height:28px;stroke:#fff;fill:none}
+.auth-logo h2{font-size:20px;font-weight:800;color:#1a1a2e}
+.auth-logo p{font-size:13px;color:#64748b;margin-top:4px}
+.auth-tabs{display:flex;background:#f8fafc;border-radius:10px;padding:3px;margin-bottom:24px}
+.auth-tab{flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:#64748b;background:transparent}
+.auth-tab.active{background:#fff;color:#f97316;box-shadow:0 1px 4px #0001}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.auth-field input{width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:14px;outline:none;transition:.15s;color:#1a1a2e}
+.auth-field input:focus{border-color:#f97316}
+.auth-btn{width:100%;padding:13px;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px}
+.auth-btn:hover{opacity:.9;transform:translateY(-1px)}
+.auth-err{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;display:none}
+.auth-err.show{display:block}
+.auth-ok{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;display:none}
+.auth-ok.show{display:block}
+/* Pending badge in sidebar */
+.pending-badge{background:#ef4444;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:auto}
+/* User management modal */
+.modal-overlay{position:fixed;inset:0;background:#00000066;z-index:8000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:600px;max-height:80vh;overflow:auto;box-shadow:0 20px 60px #0004}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{border:none;background:none;font-size:20px;cursor:pointer;color:#94a3b8}
+.modal-close:hover{color:#1a1a2e}
+.approve-btn{background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.reject-btn{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:4px}
+</style>
+</head>
+<body>
+
+
+<!-- LOGIN PAGE -->
+<div id="auth-page" class="auth-bg">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="icon"><svg viewBox="0 0 24 24" stroke-width="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+      <h2>N.J. Logistics</h2>
+      <p>Invoice System</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">เข้าสู่ระบบ</button>
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">สมัครสมาชิก</button>
+    </div>
+    <!-- Login -->
+    <div id="form-login">
+      <div class="auth-err" id="login-err"></div>
+      <div class="auth-field"><label>Username</label><input type="text" id="login-user" placeholder="กรอก username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div class="auth-field">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="login-pass" placeholder="กรอก password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 42px 11px 14px;font-size:14px;outline:none;color:#1a1a2e"/>
+          <button type="button" onclick="togglePass('login-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;display:flex">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="auth-btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <!-- Register -->
+    <div id="form-register" style="display:none">
+      <div class="auth-err" id="reg-err"></div>
+      <div class="auth-ok" id="reg-ok"></div>
+      <div class="auth-field"><label>ชื่อ-นามสกุล</label><input type="text" id="reg-fullname" placeholder="ชื่อจริง นามสกุล"/></div>
+      <div class="auth-field"><label>Username</label><input type="text" id="reg-user" placeholder="ตั้ง username"/></div>
+      <div class="auth-field">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="reg-pass" placeholder="ตั้ง password" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 42px 11px 14px;font-size:14px;outline:none;color:#1a1a2e"/>
+          <button type="button" onclick="togglePass('reg-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;display:flex">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label>ยืนยัน Password</label>
+        <div style="position:relative">
+          <input type="password" id="reg-pass2" placeholder="พิมพ์ password อีกครั้ง" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 42px 11px 14px;font-size:14px;outline:none;color:#1a1a2e"/>
+          <button type="button" onclick="togglePass('reg-pass2',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;display:flex">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="auth-btn" onclick="doRegister()">ส่งคำขอสมัคร</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER MANAGEMENT MODAL -->
+<div class="modal-overlay" id="modal-users">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span>👥 จัดการผู้ใช้</span>
+      <button class="modal-close" onclick="closeUserModal()">✕</button>
+    </div>
+    <div id="modal-users-content"></div>
+  </div>
+</div>
+
+<div id="app-page" style="display:none;width:100%;min-height:100vh">
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">
+      <div class="icon"><svg viewBox="0 0 24 24" stroke-width="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+      <div><div class="name">N.J. Logistics</div><div class="sub">Invoice System</div></div>
+    </div>
+  </div>
+  <div class="sidebar-user">
+    <div class="user-avatar">J</div>
+    <div class="user-info"><div class="name" id="current-username">Jamrat</div><div class="role">Super Admin</div></div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-label">เมนูหลัก</div>
+    <a class="nav-item active" href="#" data-page="main" onclick="showPage('main');return false">
+      <svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      นำเข้า PDF
+    </a>
+    <a class="nav-item" href="#" data-page="history" onclick="showPage('history');return false">
+      <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ประวัติ Invoice
+    </a>
+    <a class="nav-item" id="nav-settings" href="#" data-page="settings" onclick="showPage('settings');return false" style="display:none">
+      <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      ตั้งค่าระบบ
+      <span id="pending-nav-badge" style="margin-left:auto;background:#ef4444;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 6px;display:none"></span>
+    </a>
+    <a class="nav-item" href="#" onclick="doLogout();return false" style="margin-top:auto;color:#ef4444">
+      <svg viewBox="0 0 24 24" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      ออกจากระบบ
+    </a>
+  </div>
+</div>
+
+
+<div id="page-main" style="margin-left:220px;display:none;flex-direction:column;min-height:100vh">
+
+<div class="main">
+  <div class="topbar">
+    <h1>นำเข้า PDF Invoice</h1>
+    <div class="topbar-right">
+      <span class="topbar-date" id="topbar-date"></span>
+      <button onclick="doLogout()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#64748b;cursor:pointer">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        ออกจากระบบ
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Customer Bar -->
+    <div class="customer-bar">
+      <!-- Export / Import / AI Toggle -->
+      <div style="display:flex;background:#f1f5f9;border-radius:99px;padding:3px;gap:2px;flex-shrink:0">
+        <button id="btn-mode-export" onclick="setDocMode('export')"
+          style="padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;transition:.2s">
+          📤 Export
+        </button>
+        <button id="btn-mode-import" onclick="setDocMode('import')"
+          style="padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:.2s">
+          📥 Import
+        </button>
+        <button id="btn-mode-ai" onclick="setDocMode('ai')"
+          style="padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:.2s">
+          🤖 AI
+        </button>
+      </div>
+
+      <!-- AI API Key (hidden until AI mode) -->
+      <div id="ai-key-box" style="display:none;align-items:center;gap:8px;background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:6px 12px">
+        <svg width="14" height="14" fill="none" stroke="#7c3aed" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <input type="password" id="ai-api-key" placeholder="Anthropic API Key" 
+          style="border:none;background:transparent;font-size:12px;color:#7c3aed;outline:none;width:220px;font-family:monospace"/>
+        <button onclick="togglePass('ai-api-key',this)" style="background:none;border:none;cursor:pointer;color:#7c3aed;padding:0;display:flex">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+
+      <svg width="18" height="18" fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="customer-label">ลูกค้า</span>
+      <select class="customer-select" id="customer-select" onchange="onSelectCustomer(this.value)">
+        <option value="HI-TECH APPAREL" selected>HI-TECH APPAREL</option>
+        <option value="WORD">WORD</option>
+        <option value="HOXIN">HOXIN</option>
+      </select>
+      <button class="mode-badge" onclick="toggleModeBadge()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span id="mode-badge-label">โหมดเร็ว</span>
+      </button>
+    </div>
+
+    <!-- Panels -->
+    <div class="panels">
+      <!-- Left: Upload -->
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          วาง PDF ที่นี่
+        </div>
+
+        <!-- Mode tabs -->
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tab-single" onclick="setMode('single')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            โหมดเร็ว — 1 ใบ
+          </button>
+          <button class="mode-tab" id="tab-batch" onclick="setMode('batch')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+            โหมดหลายใบ
+          </button>
+        </div>
+
+        <!-- Dropzone -->
+        <div class="dropzone" id="dropzone"
+             ondragover="event.preventDefault();this.classList.add('over')"
+             ondragleave="this.classList.remove('over')"
+             ondrop="onDrop(event)">
+          <input type="file" id="file-input" accept="application/pdf" onchange="onFileChange(event)"/>
+          <div class="dz-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="dz-title" id="dz-title">วาง PDF 1 ไฟล์ที่นี่</div>
+          <div class="dz-sub" id="dz-sub">หรือคลิกเพื่อเลือกไฟล์</div>
+          <button class="dz-btn" onclick="document.getElementById('file-input').click();event.stopPropagation()">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+            เลือกไฟล์ PDF
+          </button>
+        </div>
+
+        <div class="alert" id="alert-main"></div>
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-label" id="progress-label"></div>
+        </div>
+
+        <!-- THAI XM: Packing List dropzone (shown only for THAI XM) -->
+        <div id="pl-zone-wrap" style="display:none;margin-top:16px">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" fill="none" stroke="#f97316" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            แนบ Packing List PDF (เพื่อดึง NW/GW)
+          </div>
+          <div class="dropzone" id="dropzone-pl" style="padding:20px;min-height:80px"
+               ondragover="event.preventDefault();this.classList.add('over')"
+               ondragleave="this.classList.remove('over')"
+               ondrop="onDropPL(event)">
+            <input type="file" id="file-input-pl" accept="application/pdf" onchange="onFileChangePL(event)"/>
+            <div class="dz-title" id="dz-pl-title" style="font-size:13px">วาง Packing List PDF ที่นี่</div>
+            <div class="dz-sub" id="dz-pl-sub">หรือคลิกเพื่อเลือก</div>
+          </div>
+        </div>
+
+        <button class="process-btn" id="btn-process" onclick="processFiles()" disabled>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          Preview ข้อมูล
+        </button>
+      </div>
+
+      <!-- Right: Results -->
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          ผลลัพธ์ — <span id="result-count-label">0 รายการ</span>
+        </div>
+
+        <div class="result-count" id="result-count-bar">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="result-count-text"></span>
+        </div>
+
+        <div class="result-empty" id="result-empty">
+          <svg viewBox="0 0 24 24" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <p>ยังไม่มีข้อมูล<br>อัปโหลด PDF แล้วกด <span class="link" onclick="processFiles()">Preview ข้อมูล</span></p>
+        </div>
+
+        <div id="result-table-wrap" style="display:none">
+          <div class="result-table-wrap" id="result-table"></div>
+          <button class="export-btn" id="btn-export" onclick="exportExcel()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            บันทึก Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase ──
+const SUPABASE_URL = 'https://sytgqjglcnsabcszbngg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Auth / Users ──
+let USERS = [];
+let CURRENT_USER = JSON.parse(localStorage.getItem('nj_current_user')||'null');
+
+// ── Supabase: Load users ──
+async function loadUsers(){
+  try {
+    const {data,error} = await sb.from('nj_users').select('*');
+    if(error){ console.error('loadUsers:', error); return []; }
+    return data||[];
+  } catch(e){ console.error('loadUsers exception:', e); return []; }
+}
+async function saveUser(user){
+  const {error} = await sb.from('nj_users').upsert(user, {onConflict:'id'});
+  if(error) console.error('saveUser:', error);
+}
+async function deleteUser(id){
+  const {error} = await sb.from('nj_users').delete().eq('id',id);
+  if(error) console.error('deleteUser:', error);
+}
+async function loadHistory(){
+  const {data,error} = await sb.from('nj_history').select('*').order('created_at',{ascending:false});
+  if(error){ console.error('loadHistory:', error); return []; }
+  return data||[];
+}
+async function saveHistory(rec){
+  const {error} = await sb.from('nj_history').insert(rec);
+  if(error) console.error('saveHistory:', error);
+}
+async function deleteHistory(id){
+  const {error} = await sb.from('nj_history').delete().eq('id',id);
+  if(error) console.error('deleteHistory:', error);
+}
+
+// ── Init Auth ──
+function togglePass(inputId, btn){
+  const inp = document.getElementById(inputId);
+  const isPass = inp.type === 'password';
+  inp.type = isPass ? 'text' : 'password';
+  btn.style.color = isPass ? '#f97316' : '#94a3b8';
+}
+
+async function initAuth(){
+  // Load users from Supabase
+  USERS = await loadUsers();
+  // Create default admin if no users
+  if(!USERS.length){
+    const admin = {id:'1', username:'Jamrat', password:'Jam497522', role:'Super Admin', status:'active'};
+    await saveUser(admin);
+    USERS = [admin];
+  }
+  const authPage = document.getElementById('auth-page');
+  const appPage  = document.getElementById('app-page');
+  if(CURRENT_USER){
+    // Re-validate against latest user data
+    const fresh = USERS.find(u=>u.id===CURRENT_USER.id);
+    if(fresh){ CURRENT_USER = fresh; localStorage.setItem('nj_current_user', JSON.stringify(fresh)); }
+    // Block if still pending
+    if(CURRENT_USER.status==='pending'){
+      CURRENT_USER = null;
+      localStorage.removeItem('nj_current_user');
+      authPage.style.display='flex';
+      appPage.style.display='none';
+      return;
+    }
+    authPage.style.display='none';
+    appPage.style.display='block';
+    // Hide all pages, show only main
+    ['main','history','settings'].forEach(p=>{
+      const el=document.getElementById('page-'+p);
+      if(el) el.style.display=p==='main'?'block':'none';
+    });
+    document.getElementById('current-username').textContent = CURRENT_USER.username;
+    document.querySelector('.user-avatar').textContent = CURRENT_USER.username[0].toUpperCase();
+    document.querySelector('.user-info .role').textContent = CURRENT_USER.role||'User';
+    // Show settings nav + pending badge if admin/super
+    const navSettings = document.getElementById('nav-settings');
+    if(navSettings && CURRENT_USER.role!=='User'){
+      // Always show settings nav for Admin/Super Admin
+      navSettings.style.display = 'flex';
+      await updateNavSettingsBadge();
+    }
+  } else {
+    authPage.style.display='flex';
+    appPage.style.display='none';
+  }
+}
+
+// Poll for new pending members every 10 seconds
+setInterval(async ()=>{
+  if(!CURRENT_USER || CURRENT_USER.role==='User') return;
+  await updateNavSettingsBadge();
+}, 10000);
+
+function switchAuthTab(tab){
+  document.getElementById('form-login').style.display    = tab==='login'    ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab==='register' ? 'block' : 'none';
+  document.getElementById('tab-login').classList.toggle('active',    tab==='login');
+  document.getElementById('tab-register').classList.toggle('active', tab==='register');
+}
+
+async function doLogin(){
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err  = document.getElementById('login-err');
+  err.style.display='none';
+  if(!user||!pass){ err.textContent='กรุณากรอก Username และ Password'; err.style.display='block'; return; }
+  // Load users from Supabase
+  USERS = await loadUsers();
+  if(!USERS.length){
+    const admin = {id:'1',username:'Jamrat',password:'Jam497522',role:'Super Admin',status:'active'};
+    await saveUser(admin); USERS=[admin];
+  }
+  const found = USERS.find(u => u.username===user && u.password===pass);
+  if(!found){ 
+    err.textContent='Username หรือ Password ไม่ถูกต้อง'; 
+    err.style.display='block'; 
+    return; 
+  }
+  if(found.status==='pending'){
+    err.textContent='⏳ บัญชีของคุณรอการอนุมัติจาก Admin';
+    err.style.display='block';
+    return;
+  }
+  err.style.display='none';
+  CURRENT_USER = found;
+  localStorage.setItem('nj_current_user', JSON.stringify(found));
+  await initAuth();
+}
+
+async function doRegister(){
+  const user = document.getElementById('reg-user').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const pass2= document.getElementById('reg-pass2').value;
+  const err  = document.getElementById('reg-err');
+  if(!user||!pass){ err.textContent='กรุณากรอกข้อมูลให้ครบ'; err.style.display='block'; return; }
+  if(pass!==pass2){ err.textContent='รหัสผ่านไม่ตรงกัน'; err.style.display='block'; return; }
+  if(USERS.find(u=>u.username===user)){ err.textContent='Username นี้มีอยู่แล้ว'; err.style.display='block'; return; }
+  const fullname = document.getElementById('reg-fullname').value.trim();
+  const newUser = {id:Date.now()+'',username:user,password:pass,fullname:fullname,role:'User',status:'pending'};
+  await saveUser(newUser);
+  USERS.push(newUser);
+  err.style.display='none';
+  // Show pending message — do NOT auto login
+  document.getElementById('reg-ok').textContent='✅ ส่งคำขอแล้ว รอ Admin อนุมัติก่อนเข้าใช้งาน';
+  document.getElementById('reg-ok').style.display='block';
+  document.getElementById('reg-fullname').value='';
+  document.getElementById('reg-user').value='';
+  document.getElementById('reg-pass').value='';
+  document.getElementById('reg-pass2').value='';
+  // Notify admin badge immediately (same browser session)
+  updateNavSettingsBadge();
+}
+
+async function doLogout(){
+  CURRENT_USER = null;
+  localStorage.removeItem('nj_current_user');
+  await initAuth();
+}
+
+// Allow Enter key in login form
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    const fl = document.getElementById('form-login');
+    if(fl && fl.style.display!=='none') doLogin();
+  }
+});
+
+// ── State ──
+let DOC_MODE = 'export';
+let plFile = null; // Packing List PDF for THAI XM // 'export' | 'import'
+let CUSTOMER = 'HI-TECH APPAREL';
+
+const EXPORT_CUSTOMERS = ['HI-TECH APPAREL','HI-TECH APPAREL (2)','WORD','HOXIN','THAI XM'];
+const IMPORT_CUSTOMERS = ['SCHAEFFLER TECHNO','SCHAEFFLER AUTOMOTIVE','SCHAEFFLER INDIA'];
+const AI_CUSTOMERS     = ['SCHAEFFLER TECHNO','SCHAEFFLER AUTOMOTIVE','SCHAEFFLER INDIA','HI-TECH APPAREL','WORD','HOXIN'];
+
+function setDocMode(mode){
+  DOC_MODE = mode;
+  const sel   = document.getElementById('customer-select');
+  const btnEx = document.getElementById('btn-mode-export');
+  const btnIm = document.getElementById('btn-mode-import');
+  const btnAI = document.getElementById('btn-mode-ai');
+  const aiBox = document.getElementById('ai-key-box');
+
+  const activeStyle   = 'padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;transition:.2s';
+  const aiActiveStyle = 'padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;transition:.2s';
+  const inactiveStyle = 'padding:6px 16px;border:none;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:.2s';
+
+  btnEx.style.cssText = mode==='export' ? activeStyle   : inactiveStyle;
+  btnIm.style.cssText = mode==='import' ? activeStyle   : inactiveStyle;
+  btnAI.style.cssText = mode==='ai'     ? aiActiveStyle : inactiveStyle;
+
+  // Show/hide API key input
+  if(aiBox) aiBox.style.display = mode==='ai' ? 'flex' : 'none';
+
+  // Update dropdown
+  const list = mode==='export' ? EXPORT_CUSTOMERS : mode==='import' ? IMPORT_CUSTOMERS : AI_CUSTOMERS;
+  sel.innerHTML = list.map((n,i)=>`<option value="${n}" ${i===0?'selected':''}>${n}</option>`).join('');
+  CUSTOMER = list[0];
+  clearFiles();
+  const plWrap = document.getElementById('pl-zone-wrap');
+  if(plWrap) plWrap.style.display = CUSTOMER==='THAI XM' ? 'block' : 'none';
+}
+let MODE = 'single';
+let fileList = [];
+let allResults = [];
+let history_records = [];
+
+// ── Init ──
+(async()=>{
+  // Test Supabase connection
+  try {
+    const test = await sb.from('nj_users').select('count').limit(1);
+    if(test.error) console.warn('Supabase connection issue:', test.error.message);
+    else console.log('✅ Supabase connected');
+  } catch(e){ console.warn('Supabase error:', e.message); }
+  await initAuth();
+})();
+document.getElementById('topbar-date').textContent =
+  new Date().toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+// ── Customer ──
+function onSelectCustomer(val){
+  CUSTOMER = val;
+  clearFiles();
+  document.getElementById('pl-zone-wrap').style.display = val==='THAI XM' ? 'block' : 'none';
+}
+
+// ── Mode ──
+function setMode(m){
+  MODE = m;
+  document.getElementById('file-input').multiple = (m==='batch');
+  document.getElementById('tab-single').classList.toggle('active', m==='single');
+  document.getElementById('tab-batch').classList.toggle('active',  m==='batch');
+  document.getElementById('dz-title').textContent = m==='single' ? 'วาง PDF 1 ไฟล์ที่นี่' : 'วาง PDF หลายไฟล์ที่นี่';
+  document.getElementById('mode-badge-label').textContent = m==='single' ? 'โหมดเร็ว' : 'โหมดหลายใบ';
+  clearFiles();
+}
+function toggleModeBadge(){
+  setMode(MODE==='single' ? 'batch' : 'single');
+}
+
+// ── File Handling ──
+function onFileChangePL(e){
+  const f = [...e.target.files].find(f=>f.type==='application/pdf');
+  if(f) setPLFile(f);
+}
+function onDropPL(e){
+  e.preventDefault();
+  document.getElementById('dropzone-pl').classList.remove('over');
+  const f = [...e.dataTransfer.files].find(f=>f.type==='application/pdf');
+  if(f) setPLFile(f);
+}
+function setPLFile(f){
+  plFile = f;
+  document.getElementById('dropzone-pl').classList.add('has-file');
+  document.getElementById('dz-pl-title').textContent = f.name;
+  document.getElementById('dz-pl-sub').textContent = (f.size/1024).toFixed(0)+' KB';
+}
+
+function onFileChange(e){
+  const files = [...e.target.files].filter(f=>f.type==='application/pdf');
+  if(files.length) setFiles(files);
+}
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('over');
+  const files = [...e.dataTransfer.files].filter(f=>f.type==='application/pdf');
+  if(files.length) setFiles(files);
+}
+function setFiles(files){
+  fileList = MODE==='single' ? [files[0]] : files;
+  const dz = document.getElementById('dropzone');
+  dz.classList.add('has-file');
+  document.getElementById('dz-title').textContent =
+    fileList.length===1 ? fileList[0].name : fileList.length+' ไฟล์ที่เลือก';
+  document.getElementById('dz-sub').textContent =
+    fileList.length===1
+      ? (fileList[0].size/1024).toFixed(0)+' KB'
+      : fileList.map(f=>f.name).join(', ').slice(0,80);
+  document.getElementById('btn-process').disabled = false;
+  resetResult();
+  showAlert('','');
+}
+function clearFiles(){
+  plFile=null;
+  const plDz = document.getElementById('dropzone-pl');
+  if(plDz){ plDz.classList.remove('has-file'); }
+  const plTitle = document.getElementById('dz-pl-title');
+  if(plTitle) plTitle.textContent='วาง Packing List PDF ที่นี่';
+  const plSub = document.getElementById('dz-pl-sub');
+  if(plSub) plSub.textContent='หรือคลิกเพื่อเลือก';
+  document.getElementById('file-input-pl') && (document.getElementById('file-input-pl').value='');
+  fileList=[];
+  const dz = document.getElementById('dropzone');
+  dz.classList.remove('has-file');
+  document.getElementById('dz-title').textContent = MODE==='single'?'วาง PDF 1 ไฟล์ที่นี่':'วาง PDF หลายไฟล์ที่นี่';
+  document.getElementById('dz-sub').textContent = 'หรือคลิกเพื่อเลือกไฟล์';
+  document.getElementById('file-input').value='';
+  document.getElementById('btn-process').disabled=true;
+  resetResult();
+  showAlert('','');
+}
+function resetResult(){
+  allResults=[];
+  document.getElementById('result-empty').style.display='flex';
+  document.getElementById('result-table-wrap').style.display='none';
+  document.getElementById('result-count-bar').classList.remove('show');
+  document.getElementById('result-count-label').textContent='0 รายการ';
+  const eb=document.getElementById('btn-export');
+  eb.classList.remove('show');
+}
+
+// ── Alert / Progress ──
+function showAlert(type, msg){
+  const el = document.getElementById('alert-main');
+  if(!type){ el.className='alert'; el.textContent=''; return; }
+  el.className='alert show alert-'+type;
+  el.textContent=msg;
+}
+function setProgress(pct, label){
+  const w=document.getElementById('progress-wrap');
+  w.style.display = pct===null?'none':'block';
+  if(pct!==null){
+    document.getElementById('progress-fill').style.width=pct+'%';
+    document.getElementById('progress-label').textContent=label||'';
+  }
+}
+
+// ── PDF ──
+async function loadPdf(file){
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  const ab = await file.arrayBuffer();
+  return pdfjsLib.getDocument({data:ab,verbosity:0}).promise;
+}
+async function readPdfPage(pdf, pageNum){
+  const page = await pdf.getPage(pageNum);
+  const tc   = await page.getTextContent();
+  const rows = {};
+  tc.items.forEach(it=>{
+    const y=Math.round(it.transform[5]);
+    if(!rows[y]) rows[y]=[];
+    rows[y].push({x:it.transform[4],str:it.str});
+  });
+  return Object.keys(rows).sort((a,b)=>b-a)
+    .map(y=>rows[y].sort((a,b)=>a.x-b.x).map(it=>it.str).join(' ').trim())
+    .filter(Boolean);
+}
+async function readAllPages(pdf){
+  const lines=[];
+  for(let p=1;p<=pdf.numPages;p++) lines.push(...(await readPdfPage(pdf,p)));
+  return lines;
+}
+
+// ═══════════════════════════════════
+// PARSERS
+// ═══════════════════════════════════
+function extractShippingMark(lines){
+  let location = "";
+  let city = "";
+  let country = "";
+  let origin = "";
+
+  const NOISE_RE   = /^(Line:|FEDERATIONS|Purchase\s*Doc|Booking\s*Number|Standard\s*Desc|AFS|Gender|Desc\.|SU\d|Material|Invoice|PO|Reference|Qty|Unit|Price|Amount|Total|Packing|BOI|Brand|HSCode)/i;
+  const CITY_RE    = /,/;
+  const COUNTRY_RE = /^[A-Za-z][A-Za-z ]+$/;
+
+  const cleanLines = lines
+    .map(x => String(x || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  console.log("LINES:", cleanLines);
+
+  for (let i = 0; i < cleanLines.length; i++) {
+    const line = cleanLines[i];
+
+    // 1) หา location จาก "Plant: 1060"
+    const plantMatch = line.match(/Plant:\s*(\d{3,5})/i);
+    if (!location && plantMatch) {
+      location = plantMatch[1];
+    }
+
+    // 2) หา location จากบรรทัดเดี่ยว "1060"
+    if (!location && /^\d{3,5}$/.test(line)) {
+      location = line;
+      // city = บรรทัดถัดไปที่มี comma และไม่ใช่ noise
+      for (let j = i + 1; j < Math.min(i + 8, cleanLines.length); j++) {
+        if (NOISE_RE.test(cleanLines[j])) continue;
+        if (CITY_RE.test(cleanLines[j])) { city = cleanLines[j]; break; }
+      }
+      // country = บรรทัดถัดจาก city ที่เป็นตัวอักษรล้วน ไม่ใช่ noise
+      if (city) {
+        const cityIdx = cleanLines.indexOf(city, i);
+        for (let j = cityIdx + 1; j < Math.min(cityIdx + 6, cleanLines.length); j++) {
+          if (NOISE_RE.test(cleanLines[j])) continue;
+          if (COUNTRY_RE.test(cleanLines[j]) && !/Country Of Origin/i.test(cleanLines[j])) {
+            country = cleanLines[j]; break;
+          }
+        }
+      }
+    }
+
+    // 3) หา Country Of Origin + origin (ข้าม noise และไม่ซ้ำกับ country)
+    if (/^Country Of Origin:?$/i.test(line)) {
+      for (let j = i + 1; j < Math.min(i + 10, cleanLines.length); j++) {
+        if (NOISE_RE.test(cleanLines[j])) continue;
+        if (COUNTRY_RE.test(cleanLines[j]) && cleanLines[j] !== country) {
+          origin = cleanLines[j]; break;
+        }
+      }
+    }
+  }
+
+  // fallback: ถ้าเจอ location จาก Plant แต่ยังไม่มี city/country
+  if (location && (!city || !country)) {
+    for (let i = 0; i < cleanLines.length; i++) {
+      if (cleanLines[i] === location) {
+        for (let j = i + 1; j < Math.min(i + 8, cleanLines.length); j++) {
+          if (NOISE_RE.test(cleanLines[j])) continue;
+          if (!city && CITY_RE.test(cleanLines[j])) { city = cleanLines[j]; continue; }
+          if (!country && city && COUNTRY_RE.test(cleanLines[j]) && !/Country Of Origin/i.test(cleanLines[j])) {
+            country = cleanLines[j]; break;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  const result = (!location || !city || !country || !origin)
+    ? ""
+    : `${location} IN DIAMOND ${city} ${country} Country Of Origin: ${origin}`.replace(/\s+/g, " ").trim();
+
+  console.log("SM:", result);
+  return result;
+}
+
+
+function parseLinesHiTech(lines){
+  const fullText = lines.join('\n');
+
+  // ── DOCUMENT FILTER ──────────────────────────────────
+  if(!/Factory\s*Commercial\s*Invoice/i.test(fullText)){
+    return {invoice_number:'',type:'factory_commercial_invoice',items:[],
+            error:'ไม่พบ Factory Commercial Invoice'};
+  }
+
+  // ── IGNORE PATTERNS ──────────────────────────────────
+  const IGNORE_RE = /^(Total|Sub.?total|Net\s*Weight|Gross\s*Weight|Packing\s*List)/i;
+
+  // ── InvoiceNo ─────────────────────────────────────────
+  let invoice_number = '';
+  for(const line of lines){
+    const m = line.match(/Invoice\s*(?:No\.?|Number)[:\s]+([A-Z0-9\-\/]+)/i);
+    if(m){ invoice_number = m[1].trim(); break; }
+  }
+
+  // ── InvoiceDate → DD/MM/YYYY ──────────────────────────
+  let invoice_date = '';
+  const MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  function parseToDateStr(raw){
+    raw = raw.trim();
+    // DD/MM/YYYY or DD-MM-YYYY
+    let m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m) return m[1].padStart(2,'0') + '/' + m[2].padStart(2,'0') + '/' + m[3];
+    // DD MMM YYYY  e.g. 11 Feb 2026
+    m = raw.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+    if(m){
+      const mo = MONTHS[m[2].slice(0,3).toLowerCase()];
+      if(mo) return m[1].padStart(2,'0') + '/' + String(mo).padStart(2,'0') + '/' + m[3];
+    }
+    // MMM DD, YYYY  e.g. Feb 11, 2026
+    m = raw.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})$/);
+    if(m){
+      const mo = MONTHS[m[1].slice(0,3).toLowerCase()];
+      if(mo) return m[2].padStart(2,'0') + '/' + String(mo).padStart(2,'0') + '/' + m[3];
+    }
+    // fallback: try new Date()
+    try{
+      const d = new Date(raw);
+      if(!isNaN(d)){
+        return String(d.getDate()).padStart(2,'0') + '/' +
+               String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+      }
+    }catch(_){}
+    return raw;
+  }
+
+  for(const line of lines){
+    // จับวันที่หลัง "Invoice Date" หรือ "Date:"
+    const m = line.match(/(?:Invoice\s*Date|Date)[:\s]+(.+)/i);
+    if(m){
+      const raw = m[1].trim().split(/\s{2,}/)[0]; // ตัด text ต่อท้ายออก
+      invoice_date = parseToDateStr(raw);
+      if(invoice_date) break;
+    }
+  }
+
+  // ── Shipping Mark — call extractShippingMark
+  const pdfText   = lines.join('\n');
+  const textLines = pdfText.split('\n');
+  const shippingMark = extractShippingMark(textLines);
+  console.log('[SM] shippingMark:', shippingMark);
+
+  // ── ตัด lines ให้เหลือเฉพาะ Factory Commercial Invoice ──
+  // หยุดที่ "Trading Company Commercial Invoice" หรือ "Factory Packing List"
+  const STOP_DOC_RE = /Trading\s*Company\s*Commercial\s*Invoice|Factory\s*Packing\s*List/i;
+  let stopLineIdx = lines.length;
+  for(let si = 0; si < lines.length; si++){
+    if(STOP_DOC_RE.test(lines[si])){ stopLineIdx = si; break; }
+  }
+  const factoryLines = lines.slice(0, stopLineIdx);
+
+  // ── ITEM DETECTION: ใช้ Material# เป็น anchor ──────────
+  const LABEL_SKIP = /^(Line:|AFS\s*Category|Booking\s*Number|Invoice|Date|Shipping|Total|Net|Gross|Packing)/i;
+  const items = [];
+  let itemNo  = 1;
+
+  const matIdxList = [];
+  const MAT_LINE_RE = /Material\s*#\s*[:\s]*[A-Z0-9]/i;
+  factoryLines.forEach((line, idx) => {
+    if(MAT_LINE_RE.test(line) && !IGNORE_RE.test(line))
+      matIdxList.push(idx);
+  });
+  if(!matIdxList.length){
+    const MAT_ALT_RE = /^Material\s*[:\s]/i;
+    lines.forEach((line, idx) => {
+      if(MAT_ALT_RE.test(line) && !IGNORE_RE.test(line))
+        matIdxList.push(idx);
+    });
+  }
+  console.log('[HI-TECH] Material# lines found:', matIdxList.length, matIdxList.map(i=>lines[i]));
+
+  matIdxList.forEach((mIdx, pi) => {
+    const blockEnd = pi+1 < matIdxList.length ? matIdxList[pi+1] : lines.length;
+    const block    = factoryLines.slice(mIdx, blockEnd);
+    const blockTxt = block.join('\n');
+
+    const matLineMatch = lines[mIdx].match(/Material\s*#\s*[:\s]*([A-Z0-9][A-Z0-9\-]+)/i)
+                      || lines[mIdx].match(/Material\s*[:\s]+([A-Z0-9][A-Z0-9\-]+)/i);
+    if(!matLineMatch) return;
+    const matFull      = matLineMatch[1].trim();
+    const product_code = matFull.split('-')[0];
+    const eng3_material = 'Material NO.' + product_code;
+
+    // ENG1 = ค่าบนบรรทัดเดียวกับ "Material Content:" หรือบรรทัดถัดไป
+    let eng1 = '';
+    let mcIdx = block.findIndex(l => /Material\s*Content/i.test(l));
+    if(mcIdx >= 0){
+      const mcInline = block[mcIdx].replace(/Material\s*Content\s*:?\s*/i,'').trim();
+      if(mcInline){
+        eng1 = mcInline;
+      } else {
+        for(let ei=mcIdx+1;ei<block.length;ei++){
+          const bl=block[ei].trim();
+          if(!bl) continue;
+          if(/^(Material#|Reference|PO#|Qty|Unit|Price|Amount|Total|Shipping|Net|Gross)/i.test(bl)) break;
+          eng1=bl; break;
+        }
+      }
+    }
+
+    // ENG2 = บรรทัดถัดจาก Material Content label
+    let eng2 = '';
+    if(mcIdx >= 0){
+      for(let ei=mcIdx+1;ei<block.length;ei++){
+        const bl=block[ei].trim();
+        if(!bl) continue;
+        if(/^(Material#|Reference|PO#|Qty|Unit|Price|Amount|Total|Shipping|Net|Gross)/i.test(bl)) break;
+        eng2=bl; break;
+      }
+    }
+
+    // Reference PO
+    let eng3_po = '';
+    const refPoMatch = blockTxt.match(/Reference\s*PO#?[:\s]+([\d\s\/\-]+)/i);
+    const poMatch    = blockTxt.match(/\bPO#?[:\s]+([\d\s\/\-]+)/i);
+    const poRaw = refPoMatch || poMatch;
+    if(poRaw){
+      const nums = poRaw[1].replace(/[^\d]/g,' ').trim().replace(/\s+/g,'-');
+      if(nums) eng3_po = 'PO.NO.' + nums;
+    }
+
+    // Qty / Unit Price / Amount
+    let qty=0,unit_price=0,amount=0;
+    for(const bl of block){
+      if(IGNORE_RE.test(bl)) continue;
+      const nums=bl.match(/([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/);
+      if(nums && !qty){
+        const pn=s=>parseFloat(s.replace(/,/g,''))||0;
+        qty=pn(nums[1]); unit_price=pn(nums[2]); amount=pn(nums[3]);
+      }
+    }
+
+    // CTN / NW / GW — ไม่ดึงข้อมูล (ปล่อยว่าง)
+    const ctn='', nw='', gw='';
+
+    const calcAmount = Math.round(qty*unit_price*100)/100;
+    const amountOk   = amount===0 || Math.abs(calcAmount-amount)<0.02;
+    if(!eng2 && qty===0) return;
+
+    items.push({
+      item:         itemNo++,
+      product_code,
+      eng1:         eng1 || '',
+      eng2:         eng2 || 'ตรวจไม่ได้',
+      eng3_po:      eng3_po || '',
+      eng3_material,
+      qty,
+      unit_price,
+      amount,
+      ctn,
+      nw,
+      gw,
+      amount_check: amountOk,
+      invoice_date,
+      s: '4709/2547 (6-3027/ว./2542)',
+      t: '',
+      u: 'C0101000000667',
+      v: '11-01447',
+      // ── เพิ่ม field ใหม่เท่านั้น ──
+      shipping_mark: shippingMark || ''
+    });
+  });
+
+  return { invoice_number, invoice_date, type:'factory_commercial_invoice', items };
+}
+
+function parseLinesHiTech2(lines){
+  // Run base parser first
+  const base = parseLinesHiTech(lines);
+  if(!base.items.length) return base;
+
+  const fullText = lines.join('\n');
+  // Stop at Trading Company or Packing List
+  const STOP_RE = /Trading\s*Company\s*Commercial\s*Invoice|Factory\s*Packing\s*List/i;
+  let stopIdx = lines.length;
+  for(let i=0;i<lines.length;i++){ if(STOP_RE.test(lines[i])){ stopIdx=i; break; } }
+  const factoryLines = lines.slice(0, stopIdx);
+
+  const expandedItems = [];
+
+  base.items.forEach(baseItem => {
+    // Find block for this material code
+    const code = baseItem.product_code;
+    const MAT_RE = new RegExp('Material\\s*#\\s*[:\\s]*' + code, 'i');
+    const mIdx = factoryLines.findIndex(l => MAT_RE.test(l));
+    if(mIdx < 0){ expandedItems.push(baseItem); return; }
+
+    // Block ends at next Material# or stop
+    let blockEnd = factoryLines.length;
+    for(let j=mIdx+1; j<factoryLines.length; j++){
+      if(/Material\s*#\s*[:\s]*[A-Z0-9]/i.test(factoryLines[j]) && j>mIdx+2){
+        blockEnd=j; break;
+      }
+    }
+    const block = factoryLines.slice(mIdx, blockEnd);
+    const IGNORE_RE = /^(Total|Sub.?total|Net\s*Weight|Gross\s*Weight|Packing\s*List)/i;
+
+    // Find all qty/price/amount rows in block
+    // Pattern: anything + NUMBER  NUMBER  NUMBER (3 numbers at end of line)
+    const priceRows = [];
+    for(const bl of block){
+      if(IGNORE_RE.test(bl.trim())) continue;
+      // Match 3 numbers: qty  unit_price  amount
+      const m = bl.match(/([\d,]+)\s+([\d,.]+)\s+([\d,]+\.\d{2})\s*$/);
+      if(!m) continue;
+      const qty  = parseInt(m[1].replace(/,/g,''));
+      const up   = parseFloat(m[2].replace(/,/g,''));
+      const amt  = parseFloat(m[3].replace(/,/g,''));
+      if(qty>0 && up>0 && amt>0 && Math.abs(qty*up-amt)/amt < 0.1){
+        priceRows.push({qty, unit_price:up, amount:amt});
+      }
+    }
+
+    if(priceRows.length <= 1){
+      // Only one price row — use base item
+      expandedItems.push({...baseItem, item: expandedItems.length+1});
+    } else {
+      // Multiple price rows — one item per row, copy base except qty/price/amount
+      priceRows.forEach(pr => {
+        expandedItems.push({
+          ...baseItem,
+          item:       expandedItems.length+1,
+          qty:        pr.qty,
+          unit_price: pr.unit_price,
+          amount:     pr.amount
+        });
+      });
+    }
+  });
+
+  return {...base, items: expandedItems};
+}
+
+
+function parseLinesWORD(lines){
+  const pn = s => parseFloat(String(s||'').replace(/[฿$,\s]/g,''))||0;
+  const fullText = lines.join(' ');
+
+  if(!/invoice/i.test(fullText))
+    return {invoice_number:'',invoice_date:'',type:'word_invoice',items:[],error:'ไม่พบ Invoice'};
+
+  // ── Clean lines: strip ฿ $ symbols ──
+  const cleanLines = lines.map(l => l.replace(/[฿$]/g,'').trim()).filter(Boolean);
+
+  console.log('[WORD] total lines:', cleanLines.length);
+  console.log('[WORD] all lines:', cleanLines);
+
+  // ── Invoice Number ──
+  let invoice_number = '';
+  for(const line of cleanLines){
+    const m = line.match(/Invoice\s*(?:No\.?|Number|#)[:\s]+([A-Z0-9\-\/]+)/i);
+    if(m && m[1].length > 2){ invoice_number = m[1].trim(); break; }
+  }
+
+  // ── Invoice Date → DD-MM-YYYY ──
+  let invoice_date = '';
+  const MONTHS = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                  jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+  function toDateStr(raw){
+    raw = (raw||'').trim().split(/\s{2,}/)[0];
+    let m;
+    m = raw.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3,9})[-\/\s](\d{4})/);
+    if(m){ const mo=MONTHS[m[2].slice(0,3).toLowerCase()]||'00'; return m[1].padStart(2,'0')+'-'+mo+'-'+m[3]; }
+    m = raw.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})/);
+    if(m){ const mo=MONTHS[m[1].slice(0,3).toLowerCase()]||'00'; return m[2].padStart(2,'0')+'-'+mo+'-'+m[3]; }
+    m = raw.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if(m){ return m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0')+'-'+m[3]; }
+    try{ const d=new Date(raw); if(!isNaN(d)) return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear(); }catch(_){}
+    return raw;
+  }
+  for(const line of cleanLines){
+    const m = line.match(/(?:Invoice\s*Date|Date\s*of\s*Invoice)[:\s]+(.+)/i);
+    if(m){ invoice_date = toDateStr(m[1]); if(invoice_date) break; }
+  }
+
+  // ── Split Invoice vs Packing List ──
+  let packIdx = cleanLines.findIndex(l => /PACKING\s*LIST/i.test(l));
+  const invoiceLines = packIdx > 0 ? cleanLines.slice(0, packIdx) : cleanLines;
+  const packingLines = packIdx > 0 ? cleanLines.slice(packIdx)    : [];
+
+  // ── กฎ Item No.: เลข 5-9 หลัก ที่ไม่ใช่ปี ไม่ใช่ postal code ทั่วไป ──
+  // Blacklist: 13210 (postal), ปี 20xx
+  const BLACKLIST = new Set(['13210','08060']);
+  const isItemNo = t => /^\d{5,9}$/.test(t) && !BLACKLIST.has(t) && !/^20[12]\d$/.test(t);
+
+  // ── Parse Invoice: รวมทุก line แล้วหา item nos ──
+  // Strategy: scan ทุก token, เมื่อเจอ item no → เก็บ window ของ tokens รอบๆ
+  // เพราะ pdf.js อาจแยกแต่ละ cell เป็น token หรือบรรทัดต่างกัน
+
+  // หา table start (หลัง "Item No." header)
+  let tableStartIdx = 0;
+  for(let i=0; i<invoiceLines.length; i++){
+    if(/Item[\.\s]*No\.?/i.test(invoiceLines[i])){ tableStartIdx = i+1; break; }
+  }
+
+  const SKIP_INV = /^(Total|Sub\s*total|Grand|Payment|ETD|COMPANY|ADDRESS|Bank|Swift|Account|MANAGEMENT|FROM\s*$|TO\s*$|INVOICE\s*$)/i;
+  const UNITS_RE = /^(PCS|C62|PC|EA|KG|SET|CBM|THB)$/i;
+
+  const invoiceItems = [];
+  const seenInvItems = new Set();
+
+  // Flatten tokens จาก invoice lines หลัง table header
+  const tableLines = invoiceLines.slice(tableStartIdx).filter(l => !SKIP_INV.test(l));
+
+  // หา item no ในแต่ละบรรทัด แบบ line-by-line
+  // แต่ถ้าไม่ครบ → รวมหลายบรรทัดเข้าด้วยกัน
+  let i = 0;
+  while(i < tableLines.length){
+    const line = tableLines[i];
+    const tokens = line.split(/\s+/).filter(Boolean);
+
+    // หา item no ใน tokens
+    const inoIdx = tokens.findIndex(t => isItemNo(t));
+    if(inoIdx === -1){ i++; continue; }
+
+    const item_no = tokens[inoIdx];
+    if(seenInvItems.has(item_no)){ i++; continue; }
+    seenInvItems.add(item_no);
+
+    // รวม tokens จากบรรทัดนี้และบรรทัดถัดไปสูงสุด 4 บรรทัด (จนกว่าจะเจอ item ใหม่หรือ SKIP)
+    let allTokens = [...tokens];
+    let j = i + 1;
+    while(j < tableLines.length && j < i + 5){
+      const nxtLine = tableLines[j];
+      if(SKIP_INV.test(nxtLine)) break;
+      const nxtTokens = nxtLine.split(/\s+/).filter(Boolean);
+      // ถ้า next line มี item no ใหม่ → หยุด
+      if(nxtTokens.some(t => isItemNo(t) && t !== item_no)) break;
+      allTokens = allTokens.concat(nxtTokens);
+      j++;
+    }
+
+    // แยก: textTokens (description, unit) vs numTokens (qty, price, amount)
+    const numTokens = allTokens.filter(t => /^[\d,]+\.?\d*$/.test(t) && !isItemNo(t));
+    const textTokens = allTokens.filter(t => /^[A-Za-z][A-Za-z\s&\/.-]*$/.test(t) && t.length >= 2);
+
+    const unitToken = textTokens.find(t => UNITS_RE.test(t));
+    const unit = unitToken ? (unitToken.toUpperCase()==='PCS'?'C62':unitToken.toUpperCase()) : 'C62';
+    // กรอง address/company text ออกจาก description
+    const ADDR_RE = /^(AUTHORIZATION|MANAGEMENT|COMPANY|ADDRESS|BANK|WORLD|INDUSTRY|THAILAND|TAMBON|AMPHOE|NAKHON|AYUTTHAYA|IKEA|DRIVE|WESTAMPTON|UNITED|STATES|AMERICA|SIAM|COMMERCIAL|PUBLIC|LIMITED|LTD|THE|SI|SICOTHBK|SWIFT|ACCOUNT|PAYMENT|TERM|FROM|TO|INVOICE|PACKING|NONGNAMSOM|UTHAI|PHRA|NONGSAENG|MUANG|DISTRICT|PROVINCE|ROAD|MOO|SOI|SAMUT|CHONBURI|BANGNA|BANGPLEE|BANGPAKONG|PATHUMTHANI|RAYONG|CHACHOENGSAO|PRACHINBURI|SARABURI|LOPBURI|SINGBURI|ANGTHONG|SUPHANBURI|KANCHANABURI|RATCHABURI|SAMUTSAKON|SAMUTPRAKARN|NONTHABURI|PATHUM)$/i;
+    const descTokens = textTokens.filter(t => !UNITS_RE.test(t) && !ADDR_RE.test(t) && t.length <= 20);
+    const description = descTokens.length ? descTokens.join(' ') : 'ว่าง';
+
+    // ตัวเลข: qty (เล็ก, integer), unit_price, amount
+    let qty=0, unit_price=0, amount=0;
+    if(numTokens.length >= 3){
+      // หา qty: integer ที่เล็กที่สุดและ < 10000
+      const intNums = numTokens.filter(t => !t.includes('.')).map(pn);
+      const decNums = numTokens.filter(t => t.includes('.')).map(pn);
+      qty = intNums.length ? intNums[0] : pn(numTokens[0]);
+      unit_price = decNums.length >= 1 ? decNums[0] : pn(numTokens[1]);
+      amount     = decNums.length >= 2 ? decNums[1] : pn(numTokens[2]);
+      // ถ้า qty×price ≈ amount ถือว่า ok
+      // ถ้าไม่ ok ลอง reorder
+      if(qty && unit_price && Math.abs(qty*unit_price - amount) > 1){
+        // ลอง numTokens[0]=qty, [1]=up, [2]=amount
+        const a=pn(numTokens[0]),b=pn(numTokens[1]),c_=pn(numTokens[2]);
+        if(Math.abs(a*b-c_)<1){ qty=a; unit_price=b; amount=c_; }
+      }
+    } else if(numTokens.length === 2){
+      unit_price = pn(numTokens[0]); amount = pn(numTokens[1]);
+    } else if(numTokens.length === 1){
+      amount = pn(numTokens[0]);
+    }
+
+    invoiceItems.push({ item_no, description, qty, unit, unit_price, amount });
+    i = j; // ข้าม lines ที่ใช้ไปแล้ว
+  }
+
+  console.log('[WORD] invoiceItems found:', invoiceItems.length);
+  console.log('[WORD] item_nos found:', invoiceItems.map(x=>x.item_no));
+
+  // ── Parse Packing List ──
+  const packMap = {};
+  let packTableStart = packingLines.findIndex(l => /ITEM\s*NO/i.test(l));
+  if(packTableStart < 0) packTableStart = 0;
+  const SKIP_PACK = /^(Total|NUMBER|NET\s*WEIGHT|GROSS|MEASUREMENT|MANAGEMENT|PACKING\s*LIST|ITEM\s*NO|DESCRIPTION)/i;
+
+  for(const line of packingLines.slice(packTableStart+1)){
+    const t = line.trim();
+    if(!t || SKIP_PACK.test(t)) continue;
+    const tokens2 = t.split(/\s+/).filter(Boolean);
+    const inoT = tokens2.find(tok => isItemNo(tok));
+    if(!inoT || packMap[inoT]) continue;
+
+    // Format: ItemNo Desc PKG Qty Unit NW GW [...]
+    const numTokens2 = tokens2.filter(tok => /^[\d,]+\.?\d*$/.test(tok) && tok !== inoT);
+    // integer = PKG, Qty; decimal = NW, GW
+    const decimals2 = numTokens2.filter(tok => tok.includes('.'));
+    const integers2 = numTokens2.filter(tok => !tok.includes('.'));
+    const pkg = integers2.length ? pn(integers2[0]) : 0;
+    const nw  = decimals2.length >= 1 ? pn(decimals2[0]) : 0;
+    const gw  = decimals2.length >= 2 ? pn(decimals2[1]) : 0;
+    packMap[inoT] = { nw, gw, pkgs: pkg };
+  }
+
+  // ── Merge ──
+  let itemNo = 1;
+  const items = invoiceItems.map(inv => {
+    const pk = packMap[inv.item_no] || {};
+    return {
+      item:           itemNo++,
+      item_no:        inv.item_no,
+      invoice_date,
+      description:    inv.description,
+      qty:            inv.qty,
+      unit:           inv.unit,
+      unit_price:     inv.unit_price,
+      amount:         inv.amount,
+      net_weight:     pk.nw    !== undefined && pk.nw    !== 0 ? pk.nw    : 'ว่าง',
+      gross_weight:   pk.gw    !== undefined && pk.gw    !== 0 ? pk.gw    : 'ว่าง',
+      number_of_pkgs: pk.pkgs  !== undefined && pk.pkgs  !== 0 ? pk.pkgs  : 'ว่าง'
+    };
+  });
+
+  return { invoice_number, invoice_date, type:'word_invoice', items };
+}
+
+
+function parseLinesHOXIN(clean, fullText){
+  const pn = s => parseFloat(String(s || '').replace(/,/g, '').trim()) || 0;
+
+  const invoice_number =
+    (fullText.match(/No\.\s*([A-Z0-9-]+)/i) || ['', ''])[1].trim();
+
+  const dateRaw =
+    (fullText.match(/Date[:\s]*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/i) || ['', ''])[1];
+
+  let invoice_date = '';
+  if (dateRaw) {
+    const [y, m, d] = dateRaw.split('/');
+    invoice_date = `${parseInt(d, 10)}/${parseInt(m, 10)}/${y}`;
+  }
+
+  const currency =
+    (fullText.match(/\b(USD|THB|EUR|JPY|SGD)\b/i) || ['', 'USD'])[1].toUpperCase();
+
+  let purchase_country = 'US';
+  const toM = fullText.match(/\bTO[:\s]+([A-Za-z]+)/i);
+  if (toM) {
+    const d = toM[1].toLowerCase();
+    if (d.includes('america') || d.includes('united')) purchase_country = 'US';
+    else if (d.includes('japan')) purchase_country = 'JP';
+    else if (d.includes('china')) purchase_country = 'CN';
+    else if (d.includes('singapore')) purchase_country = 'SG';
+  }
+
+  let shipping_mark = '';
+  for (const line of clean) {
+    const m = line.match(/^MARKS?[.:\s]+(.+)/i);
+    if (m) {
+      shipping_mark = m[1].trim();
+      break;
+    }
+  }
+
+  // split invoice / packing
+  let packIdx = clean.findIndex(l => /^PACKING\s*LIST$/i.test(l));
+  if (packIdx < 0) packIdx = clean.findIndex(l => /PACKING\s*LIST/i.test(l));
+
+  const invLines  = packIdx > 0 ? clean.slice(0, packIdx) : clean;
+  const packLines = packIdx > 0 ? clean.slice(packIdx)    : [];
+
+  // Part No.
+  const PART_RE = /\b(\d{3}-\d{6}-\d{3})\b/g;
+  const partNos = [...new Set([...fullText.matchAll(PART_RE)].map(m => m[1]))];
+
+  if (!partNos.length) {
+    return {
+      invoice_number,
+      invoice_date,
+      type: 'hoxin_invoice',
+      items: [],
+      error: 'ไม่พบ Part No.'
+    };
+  }
+
+  const invoiceItems = [];
+
+  for (const part_no of partNos) {
+    const lineIdx = invLines.findIndex(l => l.includes(part_no));
+
+    // ===== Description =====
+    // รวมข้อความทั้งหน้า
+    const invJ = invLines.join(' ').replace(/\s+/g, ' ').trim();
+    let description = '';
+    // 1. หา phrase เต็มก่อน (สำคัญสุด)
+    const fullPhrase =
+      invJ.match(new RegExp(`${part_no}\\s+Data\\s+center\\s+equipment\\s+cabinet`, 'i')) ||
+      invJ.match(/Data\s+center\s+equipment\s+cabinet/i);
+    if (fullPhrase) {
+      description = fullPhrase[0]
+        .replace(new RegExp(`^${part_no}\\s+`, 'i'), '')
+        .replace(/\b[A-Z]{3,}\d{6,}\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    // 2. fallback ถ้ายังไม่เจอ
+    if (!description) {
+      const shortPhrase = invJ.match(/Data\s+center\s+equipment/i);
+      if (shortPhrase) description = shortPhrase[0].trim();
+    }
+    // 3. FIX บังคับ
+    if (/^Data center equipment$/i.test(description)) {
+      description = 'Data center equipment cabinet';
+    }
+    // 4. กันว่าง
+    if (!description) description = 'ตรวจไม่ได้';
+    // FIX HOXIN GLOBAL: ล็อก description ไม่ให้เพี้ยน
+    if (/Data center equipment/i.test(description) && !/cabinet/i.test(description)) {
+      description = 'Data center equipment cabinet';
+    }
+
+    // ===== Qty / Unit Price / Amount =====
+    let qty = 0, unit_price = 0, amount = 0;
+
+    if (lineIdx >= 0) {
+      const invWindow = invLines
+        .slice(Math.max(0, lineIdx - 2), Math.min(invLines.length, lineIdx + 6))
+        .join(' ');
+
+      const usVals = [...invWindow.matchAll(/US\s*\$?\s*([\d,]+\.\d{2})/gi)]
+        .map(m => pn(m[1]))
+        .filter(n => n > 0);
+
+      if (usVals.length >= 2) {
+        unit_price = usVals[0];
+        amount = usVals[usVals.length - 1];
+      } else if (usVals.length === 1) {
+        unit_price = usVals[0];
+      }
+
+      const qtyMatch =
+        invWindow.match(new RegExp(`${part_no}[\\s\\S]{0,120}?(\\d{1,4})\\.00\\s+US\\$`, 'i')) ||
+        invWindow.match(/(\d{1,4})\.00\s*(?:PCS|EA)/i);
+
+      if (qtyMatch) qty = parseInt(qtyMatch[1], 10) || 0;
+
+      if (!amount && qty && unit_price) {
+        amount = +(qty * unit_price).toFixed(2);
+      }
+
+      if (!qty && unit_price && amount) {
+        const qc = Math.round(amount / unit_price);
+        if (Math.abs(qc * unit_price - amount) < 0.05) qty = qc;
+      }
+    }
+
+    // ===== Packing =====
+    let number_of_pkgs = '';
+    let net_weight = '';
+    let gross_weight = '';
+    const pkLineIdx = packLines.findIndex(l => l.includes(part_no));
+    if (pkLineIdx >= 0) {
+      const pkWindowLines = packLines.slice(
+        Math.max(0, pkLineIdx - 3),
+        Math.min(packLines.length, pkLineIdx + 12)
+      );
+      const pkWin = pkWindowLines.join(' ').replace(/\s+/g, ' ');
+      // 1) หา PKGS จาก Packaging information ก่อน
+      const pkgM = pkWin.match(/Packaging information:\s*(\d+)\s*PKGS/i);
+      if (pkgM) number_of_pkgs = pn(pkgM[1]);
+      // 2) หาแถวตัวเลขจริง หลัง part_no
+      let weightLine = '';
+      for (let j = pkLineIdx; j < Math.min(pkLineIdx + 12, packLines.length); j++) {
+        const t = (packLines[j] || '').replace(/\s+/g, ' ').trim();
+        if (/^\d+(?:\.\d+)?\s+PCS\s+\d+(?:\.\d+)?\s+\d{1,3}(?:,\d{3})*(?:\.\d+)?$/i.test(t)) {
+          weightLine = t;
+          break;
+        }
+      }
+      // 3) ถ้าเจอ line เต็ม ให้แยกค่าออกมา
+      if (weightLine) {
+        const wm = weightLine.match(
+          /^(\d+(?:\.\d+)?)\s+PCS\s+(\d+(?:\.\d+)?)\s+(\d{1,3}(?:,\d{3})*(?:\.\d+)?)$/i
+        );
+        if (wm) {
+          if (!number_of_pkgs) number_of_pkgs = pn(wm[1]);
+          net_weight = pn(wm[2]);
+          gross_weight = pn(wm[3]);
+        }
+      }
+      // 4) fallback เผื่อถูก join แล้วติดกันในสตริงเดียว
+      if (!net_weight || !gross_weight) {
+        const m2 = pkWin.match(
+          new RegExp(`${part_no}[\\s\\S]{0,120}?(\\d+(?:\\.\\d+)?)\\s+PCS\\s+(\\d+(?:\\.\\d+)?)\\s+(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?)`, 'i')
+        );
+        if (m2) {
+          if (!number_of_pkgs) number_of_pkgs = pn(m2[1]);
+          net_weight = pn(m2[2]);
+          gross_weight = pn(m2[3]);
+        }
+      }
+    }
+
+    // เช็ค Output ก่อน push (กัน export ข้อมูลไม่ครบ)
+    if (!description || description === 'ตรวจไม่ได้' || !net_weight || !gross_weight) {
+      console.warn('❌ ข้อมูลไม่ครบสำหรับ', part_no, '| desc:', description, '| nw:', net_weight, '| gw:', gross_weight);
+    }
+    invoiceItems.push({
+      item: invoiceItems.length + 1,
+      invoice_date,
+      part_no,
+      description,
+      en2: description,
+      en1: `${part_no} ${description}`.replace(/\s+/g, ' ').trim(),
+      qty,
+      unit_price,
+      amount,
+      currency,
+      number_of_pkgs,
+      net_weight,
+      gross_weight,
+      shipping_mark,
+      purchase_country,
+      product_year: invoice_date ? invoice_date.split('/').pop() : '2026'
+    });
+  }
+
+  // ต้องมีจำนวน item เท่ากับจำนวน part_no ที่เจอ
+  if (invoiceItems.length !== partNos.length) {
+    console.warn('❌ Item ไม่ครบ: ได้', invoiceItems.length, 'จาก', partNos.length, 'part_no');
+  }
+
+  return {
+    invoice_number,
+    invoice_date,
+    type: 'hoxin_invoice',
+    items: invoiceItems
+  };
+}
+
+
+function buildSheetHiTech(r){
+  // Header row ตรงตาม format ตัวอย่าง
+  const HEADERS = [
+    'No','InvoiceNo','InvoiceDate','Material PRODUCT CODE',
+    'Material Content Description ENG1','Description ENG2',
+    'Reference PO Description ENG3','Material Description ENG3',
+    'Description THAI','Qty','Unit Price','Amount',
+    'CTN','NW','GW','Brand','HSCode',
+    'Shipping Mark','BOI License No','Remark',
+    'Import Tax Incentives ID','รหัสผู้ขอชดเชย'
+  ];
+  // Group items by product_code to add subtotal per group
+  const allItems = r.items||[];
+  const rows = [];
+  const groups = [];
+  let curCode='', curGroup=[];
+  allItems.forEach(it=>{
+    if(it.product_code !== curCode){
+      if(curGroup.length) groups.push({code:curCode, items:curGroup});
+      curCode=it.product_code; curGroup=[];
+    }
+    curGroup.push(it);
+  });
+  if(curGroup.length) groups.push({code:curCode, items:curGroup});
+
+  groups.forEach(g=>{
+    // Data rows for this group
+    g.items.forEach(it=>{
+      rows.push([
+        it.item,
+        r.invoice_number || '',
+        it.invoice_date  || r.invoice_date || '',
+        it.product_code  || '',
+        it.eng1          || '',
+        it.eng2          || '',
+        it.eng3_po       || '',
+        it.eng3_material || '',
+        '',
+        it.qty       || '',
+        it.unit_price|| '',
+        it.amount    || '',
+        it.ctn       || '',
+        it.nw        || '',
+        it.gw        || '',
+        '', '',
+        it.shipping_mark || '',
+        it.s || '4709/2547 (6-3027/ว./2542)',
+        it.t || '',
+        it.u || 'C0101000000667',
+        it.v || '11-01447'
+      ]);
+    });
+    // Subtotal row per group
+    if(g.items.length > 1){
+      const subQty = g.items.reduce((s,it)=>s+(typeof it.qty==='number'?it.qty:0),0);
+      const subAmt = Math.round(g.items.reduce((s,it)=>s+(typeof it.amount==='number'?it.amount:0),0)*100)/100;
+      const subRow = new Array(22).fill('');
+      subRow[1]  = 'Sub Total';
+      subRow[9]  = subQty;
+      subRow[11] = subAmt;
+      rows.push(subRow);
+    }
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  // Column widths
+  ws['!cols'] = [
+    {wch:5},{wch:14},{wch:13},{wch:22},{wch:26},{wch:22},
+    {wch:22},{wch:20},{wch:18},{wch:8},{wch:11},{wch:12},
+    {wch:7},{wch:10},{wch:10},{wch:10},{wch:10},
+    {wch:50},{wch:28},{wch:10},{wch:20},{wch:14}
+  ];
+  // Header bold + bg color
+  const headerFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const headerFont = {bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci) => {
+    const cell = ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell){ cell.s = {fill:headerFill, font:headerFont, alignment:{horizontal:'center',wrapText:true}}; }
+  });
+  // TOTAL + Sub Total row styling
+  rows.forEach((row, ri)=>{
+    const label = row[1];
+    if(label==='TOTAL' || label==='Sub Total'){
+      const fill = label==='TOTAL'
+        ? {type:'pattern',pattern:'solid',fgColor:{rgb:'FFF2CC'}}
+        : {type:'pattern',pattern:'solid',fgColor:{rgb:'E2EFDA'}};
+      HEADERS.forEach((_h,ci)=>{
+        const cell = ws[XLSX.utils.encode_cell({r:ri+1,c:ci})];
+        if(cell){ cell.s = {fill, font:{bold:true,name:'Arial',sz:10}, alignment:{horizontal:ci===1?'left':'center'}}; }
+      });
+    }
+  });
+
+  // Data rows — alternating fill
+  rows.forEach((_, ri) => {
+    const fill = ri%2===0
+      ? {type:'pattern',pattern:'solid',fgColor:{rgb:'DCE6F1'}}
+      : {type:'pattern',pattern:'solid',fgColor:{rgb:'FFFFFF'}};
+    HEADERS.forEach((_h,ci) => {
+      const cell = ws[XLSX.utils.encode_cell({r:ri+1,c:ci})];
+      if(cell){ cell.s = {fill, font:{name:'Arial',sz:10}, alignment:{wrapText:true,vertical:'top'}}; }
+    });
+  });
+  return ws;
+}
+
+
+function buildSheetWORD(allResults){
+  const HEADERS = [
+    'No.','Invoice Number','Date of Invoice','Item No.','Description',
+    'Qty','Unit','Unit Price','Amount',
+    'NET WEIGHT','GROSS WEIGHT','NUMBER OF PKGS'
+  ];
+
+  const rows = [];
+  let totalQty=0, totalAmt=0, totalNW=0, totalGW=0, totalPkgs=0;
+  let globalNo = 1; // No. ต่อเนื่องข้ามทุก invoice
+
+  allResults.forEach(r => {
+    (r.items||[]).forEach(it => {
+      const nw   = typeof it.net_weight     === 'number' ? it.net_weight     : 'ว่าง';
+      const gw   = typeof it.gross_weight   === 'number' ? it.gross_weight   : 'ว่าง';
+      const pkgs = typeof it.number_of_pkgs === 'number' ? it.number_of_pkgs : 'ว่าง';
+      rows.push([
+        globalNo++,
+        r.invoice_number || '',
+        it.invoice_date  || r.invoice_date || '',
+        it.item_no       || '',
+        it.description   || '',
+        it.qty           || '',
+        it.unit          || '',
+        it.unit_price    || '',
+        it.amount        || '',
+        nw, gw, pkgs
+      ]);
+      totalQty  += it.qty    || 0;
+      totalAmt  += it.amount || 0;
+      if(typeof nw   === 'number') totalNW   += nw;
+      if(typeof gw   === 'number') totalGW   += gw;
+      if(typeof pkgs === 'number') totalPkgs += pkgs;
+    });
+  });
+
+  // Total row
+  rows.push(['','Total','','','',totalQty,'','',totalAmt,
+    totalNW||'ว่าง', totalGW||'ว่าง', totalPkgs||'ว่าง']);
+
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  ws['!cols'] = [
+    {wch:5},{wch:18},{wch:16},{wch:10},{wch:40},{wch:8},{wch:7},
+    {wch:12},{wch:12},{wch:12},{wch:14},{wch:14}
+  ];
+  // Header style
+  const hFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont = {bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci) => {
+    const cell = ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s = {fill:hFill,font:hFont,alignment:{horizontal:'center',wrapText:true}};
+  });
+  // Total row style
+  const totalRowIdx = rows.length;
+  HEADERS.forEach((_,ci) => {
+    const cell = ws[XLSX.utils.encode_cell({r:totalRowIdx,c:ci})];
+    if(cell) cell.s = {fill:{type:'pattern',pattern:'solid',fgColor:{rgb:'D9E1F2'}},
+      font:{bold:true,name:'Arial',sz:10}};
+  });
+  return ws;
+}
+
+
+function buildSheetHOXIN(allResults){
+  const HEADERS = [
+    'INVOICE','INVOICE DATE','ITEMS','Product code',
+    'EN Description 1','EN Description 2 / ไม่นำเข้า',
+    'Qty. Inv+Qty ใบขน','หน่วย Qty. Inv+ใบขน','Unit price','Amont','Currency',
+    'หีบห่อ','หน่วยหีบห่อ','NET WEIGHT','GROSS WEIGHT',
+    'Shippimg mark','Purchase Country','COO / fix','Product Year / fix'
+  ];
+
+  const rows = [];
+  let totalQty=0, totalAmt=0, totalNW=0, totalGW=0, totalPkgs=0;
+
+  allResults.forEach(r => {
+    (r.items||[]).forEach(it => {
+      rows.push([
+        r.invoice_number || '',           // INVOICE
+        it.invoice_date  || r.invoice_date || '', // INVOICE DATE
+        it.item,                          // ITEMS (ลำดับ)
+        it.part_no       || '',           // Product code
+        it.en1           || '',           // EN Description 1 (code + desc)
+        it.en2           || '',           // EN Description 2 / ไม่นำเข้า
+        (it.qty ? Math.round(it.qty) : ''), // Qty. Inv+Qty ใบขน
+        'C62',                            // หน่วย FIX
+        it.unit_price    || '',           // Unit price
+        it.amount        || '',           // Amont
+        it.currency      || 'USD',        // Currency
+        it.number_of_pkgs|| '',           // หีบห่อ
+        'PK',                             // หน่วยหีบห่อ FIX
+        (typeof it.net_weight==='number' ? (it.net_weight%1===0 ? it.net_weight : it.net_weight) : ''), // NET WEIGHT
+        (typeof it.gross_weight==='number' ? (it.gross_weight%1===0 ? it.gross_weight : it.gross_weight) : ''), // GROSS WEIGHT
+        it.shipping_mark || '',           // Shippimg mark
+        it.purchase_country || '',        // Purchase Country
+        'TH',                             // COO / fix FIX
+        it.product_year  || '2026'        // Product Year / fix FIX
+      ]);
+      totalQty  += Number(it.qty)    || 0;
+      totalAmt  += Number(it.amount) || 0;
+      totalNW   += Number(it.net_weight)     || 0;
+      totalGW   += Number(it.gross_weight)   || 0;
+      totalPkgs += Number(it.number_of_pkgs) || 0;
+    });
+  });
+
+  // No Total row for HOXIN
+
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  ws['!cols'] = [
+    {wch:16},{wch:14},{wch:6},{wch:16},{wch:40},{wch:30},
+    {wch:10},{wch:10},{wch:12},{wch:14},{wch:10},
+    {wch:8},{wch:10},{wch:13},{wch:14},
+    {wch:40},{wch:16},{wch:10},{wch:16}
+  ];
+  const hFill={type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s={fill:hFill,font:hFont,alignment:{horizontal:'center',wrapText:true}};
+  });
+  const totalRowIdx = rows.length;
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:totalRowIdx,c:ci})];
+    if(cell) cell.s={fill:{type:'pattern',pattern:'solid',fgColor:{rgb:'D9E1F2'}},
+      font:{bold:true,name:'Arial',sz:10}};
+  });
+  return ws;
+}
+
+
+// ═══════════════════════════════════
+// SCHAEFFLER TECHNO PARSER
+// ═══════════════════════════════════
+function matchFirst(text, patterns){
+  for(const p of patterns){
+    const m = text.match(p);
+    if(m && m[1]) return m[1].trim();
+  }
+  return '';
+}
+function matchAllVals(text, pattern, groupIndex=0){
+  const out=[];
+  for(const m of text.matchAll(pattern)){
+    const v=(m[groupIndex]||m[0]||'').trim();
+    if(v) out.push(v);
+  }
+  return [...new Set(out)];
+}
+function parseSchaefflerTechno(lines){
+  const text = lines.join(' ');
+  const invoiceNo = matchFirst(text,[
+    /invoice\s*no\.?\s*[:\-]?\s*([A-Z0-9\-\/]+)/i,
+    /invoice\s*number\s*[:\-]?\s*([A-Z0-9\-\/]+)/i
+  ]);
+  const productCodes = matchAllVals(text, /\b\d{9}\b/g);
+  const quantities   = matchAllVals(text, /qty\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const countryOfOrigin = matchFirst(text,[
+    /country\s*of\s*origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i,
+    /origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i
+  ]);
+  const netWeight   = matchFirst(text,[/net\s*weight\s*[:\-]?\s*([\d,\.]+)/i]);
+  const grossWeight = matchFirst(text,[/gross\s*weight\s*[:\-]?\s*([\d,\.]+)/i]);
+
+  const items = productCodes.map((code,i)=>({
+    item: i+1,
+    product_code: code,
+    quantity: quantities[i]||'',
+    country_of_origin: countryOfOrigin,
+    net_weight: netWeight,
+    gross_weight: grossWeight
+  }));
+  return { invoice_number:invoiceNo, type:'schaeffler_techno', items };
+}
+function buildSheetSchaeffler(allResults){
+  const HEADERS=['Invoice No.','Product Code','Qty','Country of Origin','Net Weight','Gross Weight'];
+  const rows=[];
+  allResults.forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      rows.push([
+        r.invoice_number||'',
+        it.product_code||'',
+        it.quantity||'',
+        it.country_of_origin||'',
+        it.net_weight||'',
+        it.gross_weight||''
+      ]);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet([HEADERS,...rows]);
+  ws['!cols']=[{wch:16},{wch:14},{wch:10},{wch:20},{wch:13},{wch:14}];
+  const hFill={type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s={fill:hFill,font:hFont,alignment:{horizontal:'center'}};
+  });
+  return ws;
+}
+
+// ═══════════════════════════════════
+// THAI XM PARSER (Rule-based)
+// ═══════════════════════════════════
+function parseLinesThaiXM(lines, plLines=[]){
+  const fullTxt = lines.join(' ');
+  const text    = lines.join('\n');
+
+  // ── Invoice Number ──
+  // pdf.js อาจแยก "Invoice No.:" และ "TXMIN-..." เป็น 2 บรรทัด
+  let invoice_number = '';
+  for(let i=0; i<lines.length; i++){
+    const line = lines[i];
+    // Same line: "Invoice No.: TXMIN-20260320003"
+    const m1 = line.match(/Invoice\s*No\.?\s*[:\s]+([A-Z][A-Z0-9\-\/]+)/i);
+    if(m1){ invoice_number = m1[1].trim(); break; }
+    // Split lines: "Invoice No.:" on line i, code on line i+1
+    if(/Invoice\s*No\.?\s*[:\s]*$/i.test(line.trim())){
+      const next = (lines[i+1]||'').trim();
+      if(next && /^[A-Z][A-Z0-9\-\/]+$/.test(next)){
+        invoice_number = next; break;
+      }
+    }
+  }
+  if(!invoice_number){
+    // fallback: find TXMIN- pattern anywhere
+    const txM = fullTxt.match(/\b(TXMIN-[A-Z0-9\-]+)\b/i);
+    if(txM) invoice_number = txM[1].trim();
+  }
+
+  // ── Invoice Date → DD/MM/YYYY ──
+  // pdf.js อาจอ่านวันที่ไปต่อท้าย Invoice No. แทน Invoice Date
+  // ให้ค้นหา M/D/YYYY pattern ทั่ว document
+  let invoice_date = '';
+  const allDates = fullTxt.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)||[];
+  // กรองเอาเฉพาะวันที่จริง (ไม่ใช่ item number เช่น "1/2")
+  const realDate = allDates.find(d=>{
+    const parts = d.split('/');
+    return parts[2] && parts[2].length===4 && parseInt(parts[2])>2000;
+  });
+  if(realDate){
+    const [m,d,y] = realDate.split('/');
+    invoice_date = d.padStart(2,'0')+'/'+m.padStart(2,'0')+'/'+y;
+  }
+
+  // ── Currency ──
+  const curM = fullTxt.match(/\b(USD|THB|EUR|JPY|SGD)\b/);
+  const currency = curM ? curM[1] : 'USD';
+
+  // ── Purchase Country (Bill to) ──
+  let purchase_country = 'SG';
+  const billM = text.match(/Bill\s*to:[\s\S]{0,300}?(Singapore|Thailand|Japan|Korea|Taiwan|Australia|USA|United States)/i);
+  if(billM){
+    const bt = billM[1].toLowerCase();
+    if(bt.includes('singapore'))    purchase_country='SG';
+    else if(bt.includes('japan'))   purchase_country='JP';
+    else if(bt.includes('korea'))   purchase_country='KR';
+    else if(bt.includes('taiwan'))  purchase_country='TW';
+    else if(bt.includes('austral')) purchase_country='AU';
+    else if(bt.includes('thai'))    purchase_country='TH';
+    else                            purchase_country='US';
+  }
+
+  // ── Shipping Mark ──
+  const smM = fullTxt.match(/Shipping\s*Mark[:\s]+(.+?)(?=Email:|$)/i);
+  const shipping_mark = smM ? smM[1].trim() : 'Made in Thailand';
+
+  // ── Parse Items ──
+  // pdf.js may split "1 / 2 2079656-00-D 5 800 15.58 12464.00" OR keep on one line
+  // Strategy: find all product codes (format: NNNNNN-NN-X) then collect numbers nearby
+  const PROD_RE = /\b([A-Z0-9]{7,}-[0-9]{2}-[A-Z])\b/g;
+  const allCodes = [...new Set([...fullTxt.matchAll(PROD_RE)].map(m=>m[1]))];
+
+  const items = [];
+  allCodes.forEach(code=>{
+    // Find line index containing this code
+    const lIdx = lines.findIndex(l=>l.includes(code));
+    if(lIdx<0) return;
+
+    // Use ONLY the line containing the product code
+    const itemLine = lines[lIdx];
+    // Pattern on same line: CODE  PKG  QTY  UNITPRICE  AMOUNT
+    // e.g. "1 / 2 2079656-00-D 5 800 15.58 12464.00"
+    const afterCode = itemLine.substring(itemLine.indexOf(code)+code.length).trim();
+    const lineNums = [...afterCode.matchAll(/([\d,]+\.?\d*)/g)]
+      .map(m=>parseFloat(m[1].replace(/,/g,'')))
+      .filter(n=>n>0);
+
+    let packages=0, qty=0, unit_price=0, amount=0;
+    if(lineNums.length>=4){
+      // PKG  QTY  UNITPRICE  AMOUNT
+      packages   = Math.floor(lineNums[0]);
+      qty        = Math.floor(lineNums[1]);
+      unit_price = lineNums[2];
+      amount     = lineNums[3];
+    } else if(lineNums.length===3){
+      packages   = Math.floor(lineNums[0]);
+      qty        = Math.floor(lineNums[1]);
+      unit_price = lineNums[2];
+      amount     = Math.round(qty*unit_price*100)/100;
+    } else if(lineNums.length===2){
+      qty        = Math.floor(lineNums[0]);
+      unit_price = lineNums[1];
+      amount     = Math.round(qty*unit_price*100)/100;
+    }
+
+    // Check for $amount pattern in same line
+    const dollarM = itemLine.match(/\$\s*([\d,]+\.?\d*)/);
+    if(dollarM) amount = parseFloat(dollarM[1].replace(/,/g,''));
+
+    // Description: next non-empty line after code line
+    let description = '';
+    for(let j=lIdx+1; j<Math.min(lIdx+4, lines.length); j++){
+      const nl = lines[j].trim();
+      if(nl && !/^\d+\s*\/\s*\d+/.test(nl) && !/^TOTAL/i.test(nl) && !/^\d+$/.test(nl)){
+        description = nl;
+        break;
+      }
+    }
+
+    items.push({
+      item: items.length+1,
+      product_code: code,
+      description,
+      qty,
+      unit: 'C62',
+      unit_price,
+      amount,
+      packages,
+      pkg_unit: 'PK',
+      net_weight: '',
+      gross_weight: '',
+      coo: 'TH'
+    });
+  });
+
+  // ── Totals ──
+  const totalQty = items.reduce((s,it)=>s+(it.qty||0),0);
+  const totalAmt = Math.round(items.reduce((s,it)=>s+(it.amount||0),0)*100)/100;
+  const totalPkg = items.reduce((s,it)=>s+(it.packages||0),0);
+
+  // ── Parse Packing List for NW / GW ──
+  if(plLines.length > 0){
+    const plFull = plLines.join(' ');
+
+    // Extract TOTAL NW / GW from TOTAL row
+    const totMatch = plFull.match(/TOTAL\s+[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+    const totalNW = totMatch ? parseFloat(totMatch[1]) : 0;
+    const totalGW = totMatch ? parseFloat(totMatch[2]) : 0;
+
+    // Pass 1: find NW/GW for each item using QTY as anchor
+    let sumNW = 0, sumGW = 0;
+    items.forEach(it=>{
+      const codeIdx = plFull.indexOf(it.product_code);
+      if(codeIdx < 0) return;
+      const afterCode = plFull.substring(codeIdx + it.product_code.length);
+      const rawNums = (afterCode.match(/[0-9]+(?:[.][0-9]+)?/g)||[]).map(s=>parseFloat(s)).filter(n=>n>0&&n<1000000);
+      const qty = it.qty;
+      if(qty > 0){
+        const qtyPos = rawNums.findIndex(n=>Math.abs(n-qty)<1);
+        if(qtyPos >= 0 && qtyPos+2 < rawNums.length){
+          const nw = rawNums[qtyPos+1];
+          const gw = rawNums[qtyPos+2];
+          // Validate: NW/GW should be > QTY (usually), and integer
+          if(nw > qty && gw > qty && Number.isInteger(nw) && Number.isInteger(gw)){
+            it.net_weight   = nw;
+            it.gross_weight = gw;
+            sumNW += nw;
+            sumGW += gw;
+          }
+        }
+      }
+    });
+
+    // Pass 2: fill remaining items by subtracting known values from total
+    if(totalNW > 0 && totalGW > 0){
+      items.forEach(it=>{
+        if(!it.net_weight && !it.gross_weight){
+          it.net_weight   = Math.round((totalNW - sumNW)*100)/100;
+          it.gross_weight = Math.round((totalGW - sumGW)*100)/100;
+        }
+      });
+    }
+  }
+
+  const finalNW = Math.round(items.reduce((s,it)=>s+(typeof it.net_weight==='number'?it.net_weight:0),0)*100)/100;
+  const finalGW = Math.round(items.reduce((s,it)=>s+(typeof it.gross_weight==='number'?it.gross_weight:0),0)*100)/100;
+
+  return {
+    invoice_number, invoice_date, currency, purchase_country, shipping_mark,
+    type: 'thai_xm', items,
+    _aiParsed:{
+      invoice_number, invoice_date, currency, purchase_country, shipping_mark,
+      total:{ qty:totalQty, amount:totalAmt, net_weight:finalNW||'', gross_weight:finalGW||'', packages:totalPkg }
+    }
+  };
+}
+
+// ═══════════════════════════════════
+// THAI XM BUILDER
+// ═══════════════════════════════════
+function buildSheetThaiXM(allResults){
+  const HEADERS = [
+    'INVOICE','INVOICE DATE','ITEMS','Product code','EN Description',
+    'Qty','UNIT','UNIT PRICE','AMOUNT','CURRENCY',
+    'หีบห่อ','หน่วยหีบห่อ','NET WEIGHT','GROSS WEIGHT','Shipping mark',
+    'Purchase Country','COO','Product Year','BOI','BOI License',
+    'เลขที่ใบอนุญาต','Agency','Issue Date','Preview'
+  ];
+  const rows = [];
+  allResults.forEach(r=>{
+    const parsed = r._aiParsed || {};
+    const items  = r.items || [];
+    const invDate = r.invoice_date || parsed.invoice_date || '';
+    items.forEach((it,i)=>{
+      const pkg = it.packages;
+      rows.push([
+        r.invoice_number||'',          // A INVOICE
+        invDate,                       // B INVOICE DATE
+        i+1,                          // C ITEMS
+        it.product_code||'',          // D Product code
+        it.description||'',           // E EN Description
+        it.qty||'',                   // F Qty
+        'C62',                        // G UNIT (FIX)
+        it.unit_price||'',            // H UNIT PRICE
+        it.amount||'',                // I AMOUNT
+        r.currency||parsed.currency||'USD', // J CURRENCY
+        (typeof pkg==='number')?Math.floor(pkg):(pkg||''), // K หีบห่อ (int)
+        'PK',                         // L หน่วยหีบห่อ (FIX PK)
+        it.net_weight||'',            // M NET WEIGHT
+        it.gross_weight||'',          // N GROSS WEIGHT
+        r.shipping_mark||parsed.shipping_mark||'Made in Thailand', // O Shipping mark
+        r.purchase_country||parsed.purchase_country||'SG',  // P Purchase Country
+        'TH',                         // Q COO (FIX)
+        2026,                         // R Product Year (FIX)
+        'Y',                          // S BOI (FIX)
+        '66-1443-2-00-0-0',           // T BOI License (FIX)
+        'BOI0255566000973',           // U License No (FIX)
+        '0994000740964',              // V Agency (FIX)
+        '00/00/2026',                 // W Issue Date (FIX)
+        '02'                          // X Preview (FIX)
+      ]);
+    });
+    // TOTAL row
+    const tot = parsed.total || {};
+    const totalQty = tot.qty  || items.reduce((s,it)=>s+(it.qty||0),0);
+    const totalAmt = tot.amount || Math.round(items.reduce((s,it)=>s+(it.amount||0),0)*100)/100;
+    const totalPkg = tot.packages || items.reduce((s,it)=>s+(typeof it.packages==='number'?Math.floor(it.packages):0),0);
+    const totalNW  = tot.net_weight   !== undefined && tot.net_weight   !== ''
+      ? tot.net_weight
+      : Math.round(items.reduce((s,it)=>s+(typeof it.net_weight==='number'?it.net_weight:0),0)*100)/100;
+    const totalGW  = tot.gross_weight !== undefined && tot.gross_weight !== ''
+      ? tot.gross_weight
+      : Math.round(items.reduce((s,it)=>s+(typeof it.gross_weight==='number'?it.gross_weight:0),0)*100)/100;
+    const totRow = new Array(24).fill('');
+    totRow[2] = 'TOTAL';
+    totRow[5] = totalQty;
+    totRow[8] = totalAmt;
+    totRow[10]= totalPkg;
+    totRow[12]= totalNW || '';
+    totRow[13]= totalGW || '';
+    rows.push(totRow);
+  });
+
+  // TOTAL row for HI-TECH APPAREL (2)
+  if(CUSTOMER==='HI-TECH APPAREL (2)'){
+    const totalQty = rows.reduce((s,r)=>s+(typeof r[9]==='number'?r[9]:0),0);
+    const totalAmt = Math.round(rows.reduce((s,r)=>s+(typeof r[11]==='number'?r[11]:0),0)*100)/100;
+    const totRow = new Array(HEADERS.length).fill('');
+    totRow[0]  = 'TOTAL';
+    totRow[9]  = totalQty;
+    totRow[11] = totalAmt;
+    rows.push(totRow);
+  }
+  // ── TOTAL row — sum only data rows (skip subtotal rows) ──
+  const totalQty    = rows.filter(row=>row[1]!=='TOTAL'&&row[1]!=='Sub Total').reduce((s,row)=>s+(typeof row[9]==='number'?row[9]:0),0);
+  const totalAmount = Math.round(rows.filter(row=>row[1]!=='TOTAL'&&row[1]!=='Sub Total').reduce((s,row)=>s+(typeof row[11]==='number'?row[11]:0),0)*100)/100;
+  const totalRow = new Array(HEADERS.length).fill('');
+  totalRow[1] = 'TOTAL';
+  totalRow[9] = totalQty;
+  totalRow[11]= totalAmount;
+  rows.push(totalRow);
+
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS,...rows]);
+  ws['!cols'] = [
+    {wch:18},{wch:13},{wch:6},{wch:16},{wch:40},{wch:8},{wch:7},
+    {wch:12},{wch:12},{wch:10},{wch:8},{wch:10},{wch:13},{wch:14},
+    {wch:30},{wch:16},{wch:6},{wch:12},{wch:5},{wch:18},{wch:22},{wch:13},{wch:12},{wch:12}
+  ];
+  const hFill={type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s={fill:hFill,font:hFont,alignment:{horizontal:'center',wrapText:true}};
+  });
+  return ws;
+}
+
+// ═══════════════════════════════════
+// SCHAEFFLER INDIA PARSER
+// ═══════════════════════════════════
+function parseSchaefflerIndia(lines){
+  const text = lines.join(' ');
+  const invoiceNo = matchFirst(text,[
+    /invoice\s*no\.?\s*[:\-]?\s*([A-Z0-9\-\/]+)/i,
+    /invoice\s*number\s*[:\-]?\s*([A-Z0-9\-\/]+)/i
+  ]);
+  const productCodes    = matchAllVals(text, /\b\d{9}\b/g);
+  const srNos           = matchAllVals(text, /sr\.?\s*no\.?\s*[:\-]?\s*(\d+)/gi, 1);
+  const quantities      = matchAllVals(text, /qty\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const rates           = matchAllVals(text, /rate\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const values          = matchAllVals(text, /value\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const countryOfOrigin = matchFirst(text,[
+    /country\s*of\s*origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i,
+    /origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i
+  ]);
+  const items = productCodes.map((code,i)=>({
+    item: i+1,
+    sr_no: srNos[i]||'',
+    product_code: code,
+    quantity: quantities[i]||'',
+    rate: rates[i]||'',
+    value: values[i]||'',
+    country_of_origin: countryOfOrigin
+  }));
+  return { invoice_number:invoiceNo, type:'schaeffler_india', items };
+}
+function buildSheetIndia(allResults){
+  const HEADERS=['Invoice No.','Sr. No.','Product Code','Qty','Rate','Value','Country of Origin'];
+  const rows=[];
+  allResults.forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      rows.push([
+        r.invoice_number||'',
+        it.sr_no||'',
+        it.product_code||'',
+        it.quantity||'',
+        it.rate||'',
+        it.value||'',
+        it.country_of_origin||''
+      ]);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet([HEADERS,...rows]);
+  ws['!cols']=[{wch:16},{wch:8},{wch:14},{wch:8},{wch:12},{wch:12},{wch:20}];
+  const hFill={type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s={fill:hFill,font:hFont,alignment:{horizontal:'center'}};
+  });
+  return ws;
+}
+
+// ═══════════════════════════════════
+// SCHAEFFLER AUTOMOTIVE PARSER
+// ═══════════════════════════════════
+function parseSchaefflerAutomotive(lines){
+  const text = lines.join(' ');
+  const invoiceNo = matchFirst(text,[
+    /invoice\s*number\s*[:\-]?\s*([A-Z0-9\-\/]+)/i,
+    /invoice\s*no\.?\s*[:\-]?\s*([A-Z0-9\-\/]+)/i
+  ]);
+  const productCodes    = matchAllVals(text, /\b\d{9}\b/g);
+  const lineNumbers     = matchAllVals(text, /line\s*[:\-]?\s*(\d+)/gi, 1);
+  const quantities      = matchAllVals(text, /quantity\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const unitPrices      = matchAllVals(text, /price\s*[:\-]?\s*([\d,\.]+)/gi, 1);
+  const countryOfOrigin = matchFirst(text,[
+    /country\s*of\s*origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i,
+    /origin\s*[:\-]?\s*([A-Z][A-Z\s]+)/i
+  ]);
+  const items = productCodes.map((code,i)=>({
+    item: i+1,
+    line_number: lineNumbers[i]||'',
+    product_code: code,
+    quantity: quantities[i]||'',
+    unit_price: unitPrices[i]||'',
+    country_of_origin: countryOfOrigin
+  }));
+  return { invoice_number:invoiceNo, type:'schaeffler_automotive', items };
+}
+function buildSheetAutomotive(allResults){
+  const HEADERS=['Invoice No.','Line No.','Product Code','Qty','Unit Price','Country of Origin'];
+  const rows=[];
+  allResults.forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      rows.push([
+        r.invoice_number||'',
+        it.line_number||'',
+        it.product_code||'',
+        it.quantity||'',
+        it.unit_price||'',
+        it.country_of_origin||''
+      ]);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet([HEADERS,...rows]);
+  ws['!cols']=[{wch:16},{wch:10},{wch:14},{wch:10},{wch:12},{wch:20}];
+  const hFill={type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+  const hFont={bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+  HEADERS.forEach((_,ci)=>{
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:ci})];
+    if(cell) cell.s={fill:hFill,font:hFont,alignment:{horizontal:'center'}};
+  });
+  return ws;
+}
+
+const THAI_XM_PROMPT = `คุณคือ AI PROFESSIONAL INVOICE, PACKING LIST EXTRACTOR
+
+อ่านเฉพาะเอกสารที่มีหัวว่า INVOICE หรือ PACKING LIST
+อ่านทุกหน้า ดึงสินค้าทุกรายการ 1 รายการ = 1 แถว ห้ามเดา อ่านไม่ได้ใส่ "ตรวจไม่ได้"
+
+FIELD RULE:
+1. INVOICE - ดึงจาก Invoice No
+2. INVOICE DATE - แปลงเป็น DD/MM/YYYY
+3. Product code - บรรทัดแรก
+4. EN Description - บรรทัดที่สอง
+5. Qty - จาก QUANTITY
+6. UNIT - PCS → C62 (FIX)
+7. UNIT PRICE, AMOUNT, CURRENCY - ข้อมูลรายการเดียวกัน
+8. Purchase Country - ดึงจาก Bill to → SG/TH/JP/KR/TW/AU
+9. หีบห่อ(K) - PACKAGES (จำนวนเต็มเท่านั้น 54.00→54)
+10. หน่วยหีบห่อ(L) - PX หรือ CTN
+11. NET WEIGHT(M) - NET W.
+12. GROSS WEIGHT(N) - GROSS W.
+13. Shipping mark(O) - Shipping Mark
+14. COO - Made in Thailand → TH
+
+FIX VALUES:
+- Product Year: 2026
+- BOI: Y
+- BOI License: 66-1443-2-00-0-0
+- เลขที่ใบอนุญาต: BOI0255566000973
+- วันที่ออก: = Invoice Date
+
+AUTO TOTAL ROW (แถวสุดท้าย):
+- C = TOTAL, F = รวม Qty, I = รวม Amount, K = รวมหีบห่อ, M = รวม NW, N = รวม GW
+
+ERROR CHECK ก่อน export:
+- Amount = Qty × Unit Price (ถ้าไม่ตรง = ERROR)
+- Total ตรงกับเอกสาร
+- Invoice No ทุกแถวตรงกัน
+- Currency = USD, Unit = C62
+- ห้ามว่าง: Invoice, Qty, Amount, Country
+ถ้าพบ ERROR ห้าม export ให้แจ้ง ERROR ก่อน
+
+ตอบเป็น JSON เท่านั้น:
+{
+  "invoice_number": "",
+  "invoice_date": "",
+  "currency": "USD",
+  "purchase_country": "",
+  "shipping_mark": "",
+  "errors": [],
+  "items": [
+    {
+      "item": 1,
+      "product_code": "",
+      "description": "",
+      "qty": 0,
+      "unit": "C62",
+      "unit_price": 0,
+      "amount": 0,
+      "net_weight": 0,
+      "gross_weight": 0,
+      "packages": 0,
+      "pkg_unit": "CTN",
+      "coo": "TH"
+    }
+  ],
+  "total": {
+    "qty": 0,
+    "amount": 0,
+    "net_weight": 0,
+    "gross_weight": 0,
+    "packages": 0
+  }
+}`;
+
+// ═══════════════════════════════════
+// AI PROCESSING
+// ═══════════════════════════════════
+async function processWithAI(lines, filename, customPrompt=null){
+  const apiKey = document.getElementById('ai-api-key')?.value?.trim();
+  if(!apiKey){ throw new Error('กรุณากรอก Anthropic API Key'); }
+  const text = lines.join('\n').slice(0, 8000);
+  const prompt = customPrompt || `คุณคือผู้เชี่ยวชาญอ่าน Invoice PDF
+ลูกค้า: ${CUSTOMER}
+ไฟล์: ${filename}
+
+ข้อความจาก PDF:
+${text}
+
+ดึงข้อมูลต่อไปนี้แล้วตอบเป็น JSON เท่านั้น:
+{
+  "invoice_number": "เลข Invoice",
+  "invoice_date": "วันที่",
+  "items": [
+    {
+      "item": 1,
+      "product_code": "รหัสสินค้า",
+      "description": "คำอธิบาย",
+      "quantity": "จำนวน",
+      "unit_price": "ราคาต่อหน่วย",
+      "amount": "ราคารวม",
+      "country_of_origin": "ประเทศต้นกำเนิด"
+    }
+  ]
+}`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model:'claude-haiku-4-5-20251001',
+      max_tokens:2000,
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  if(!resp.ok) throw new Error('AI API Error: '+resp.status);
+  const data = await resp.json();
+  const raw = data.content?.[0]?.text||'{}';
+  const clean = raw.replace(/```json|```/g,'').trim();
+  try{
+    const parsed = JSON.parse(clean);
+    // Check errors from Thai XM
+    if(parsed.errors && parsed.errors.length > 0){
+      throw new Error('❌ ERROR CHECK:\n' + parsed.errors.join('\n'));
+    }
+    return {
+      invoice_number: parsed.invoice_number||'',
+      invoice_date:   parsed.invoice_date||'',
+      type: 'ai_result',
+      _aiParsed: parsed,
+      items: (parsed.items||[]).map((it,i)=>({...it, item:i+1}))
+    };
+  } catch(e){
+    throw new Error('AI ตอบผิดรูปแบบ JSON');
+  }
+}
+
+// ═══════════════════════════════════
+// PROCESS
+// ═══════════════════════════════════
+async function processFiles(){
+  if(!fileList.length){ showAlert('error','กรุณาเลือกไฟล์ PDF ก่อน'); return; }
+  if(typeof pdfjsLib==='undefined'){ showAlert('error','โหลด PDF.js ไม่สำเร็จ กรุณาเชื่อมต่ออินเทอร์เน็ต'); return; }
+
+  const btn = document.getElementById('btn-process');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin">⟳</span> กำลังประมวลผล...';
+  allResults=[];
+  resetResult();
+  showAlert('','');
+  setProgress(0,'เริ่มต้น...');
+
+  try{
+    for(let fi=0;fi<fileList.length;fi++){
+      const file=fileList[fi];
+      setProgress(Math.round((fi/fileList.length)*90),`ประมวลผล ${fi+1}/${fileList.length}: ${file.name}`);
+      const pdf   = await loadPdf(file);
+      const lines = await readAllPages(pdf);
+      let result;
+      if(DOC_MODE==='ai'){
+        result = await processWithAI(lines, file.name);
+      } else if(CUSTOMER==='HI-TECH APPAREL'||CUSTOMER==='HI-TECH APPAREL (2)'){
+        result = (CUSTOMER==='HI-TECH APPAREL (2)') ? parseLinesHiTech2(lines) : parseLinesHiTech(lines);
+      } else if(CUSTOMER==='WORD'){
+        result = parseLinesWORD(lines);
+      } else if(CUSTOMER==='HOXIN'){
+        result = parseLinesHOXIN(lines, lines.join(' '));
+      } else if(CUSTOMER==='SCHAEFFLER TECHNO'){
+        result = parseSchaefflerTechno(lines);
+      } else if(CUSTOMER==='SCHAEFFLER AUTOMOTIVE'){
+        result = parseSchaefflerAutomotive(lines);
+      } else if(CUSTOMER==='SCHAEFFLER INDIA'){
+        result = parseSchaefflerIndia(lines);
+      } else if(CUSTOMER==='THAI XM'){
+        // Read PL file if provided
+        let plLines = [];
+        if(plFile){
+          const plPdf = await loadPdf(plFile);
+          for(let p=1;p<=plPdf.numPages;p++) plLines.push(...(await readPdfPage(plPdf,p)));
+        }
+        result = parseLinesThaiXM(lines, plLines);
+      }
+      if(result) allResults.push({...result, file, invoice_number:result.invoice_number||file.name});
+    }
+    setProgress(100,'เสร็จสิ้น');
+    setTimeout(()=>setProgress(null,''),800);
+    renderResults();
+  } catch(e){
+    console.error(e);
+    showAlert('error','เกิดข้อผิดพลาด: '+e.message);
+    setProgress(null,'');
+  }
+
+  btn.disabled=false;
+  btn.innerHTML='<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg> Preview ข้อมูล';
+}
+
+// ── Render ──
+function renderResults(){
+  const total=allResults.reduce((s,r)=>s+(r.items?.length||0),0);
+  document.getElementById('result-count-label').textContent=total+' รายการ';
+
+  if(!total){
+    showAlert('warn','ไม่พบข้อมูล — ตรวจสอบว่า PDF ถูกต้องสำหรับลูกค้า '+CUSTOMER);
+    return;
+  }
+
+  const countBar=document.getElementById('result-count-bar');
+  countBar.classList.add('show');
+  document.getElementById('result-count-text').textContent=
+    `✅ พบ ${total} รายการ จาก ${allResults.length} ไฟล์`;
+
+  document.getElementById('result-empty').style.display='none';
+  document.getElementById('result-table-wrap').style.display='block';
+  document.getElementById('btn-export').classList.add('show');
+
+  let html='<table>';
+  if(CUSTOMER==='HI-TECH APPAREL'||CUSTOMER==='HI-TECH APPAREL (2)'){
+    html+='<tr><th>Invoice</th><th>Code</th><th>ENG1</th><th>ENG2</th><th>Qty</th><th>NW</th><th>GW</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.product_code||''}</td><td title="${it.eng1||''}">${it.eng1||''}</td><td title="${it.eng2||''}">${it.eng2||''}</td><td>${it.qty||''}</td><td>${it.nw||''}</td><td>${it.gw||''}</td></tr>`;
+    }));
+  } else if(CUSTOMER==='WORD'){
+    html+='<tr><th>Invoice</th><th>Item No.</th><th>Description</th><th>Qty</th><th>Unit</th><th>NW</th><th>GW</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.item_no||''}</td><td title="${it.description||''}">${it.description||''}</td><td>${it.qty||''}</td><td>${it.unit||''}</td><td>${it.net_weight||''}</td><td>${it.gross_weight||''}</td></tr>`;
+    }));
+  } else if(CUSTOMER==='HOXIN'){
+    html+='<tr><th>Invoice</th><th>Part No.</th><th>Description</th><th>Qty</th><th>NW</th><th>GW</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.part_no||''}</td><td title="${it.description||''}">${it.description||''}</td><td>${it.qty||''}</td><td>${it.net_weight||''}</td><td>${it.gross_weight||''}</td></tr>`;
+    }));
+  }
+  else if(CUSTOMER==='THAI XM'){
+    html+='<tr><th>Invoice</th><th>Date</th><th>Product Code</th><th>Description</th><th>Qty</th><th>Amount</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${r.invoice_date||''}</td><td>${it.product_code||''}</td><td title="${it.description||''}">${it.description||''}</td><td>${it.qty||''}</td><td>${it.amount||''}</td></tr>`;
+    }));
+  } else if(CUSTOMER==='SCHAEFFLER INDIA'){
+    html+='<tr><th>Invoice</th><th>Sr.No</th><th>Product Code</th><th>Qty</th><th>Rate</th><th>Value</th><th>Country</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.sr_no}</td><td>${it.product_code}</td><td>${it.quantity}</td><td>${it.rate}</td><td>${it.value}</td><td>${it.country_of_origin}</td></tr>`;
+    }));
+  } else if(CUSTOMER==='SCHAEFFLER AUTOMOTIVE'){
+    html+='<tr><th>Invoice</th><th>Line</th><th>Product Code</th><th>Qty</th><th>Price</th><th>Country</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.line_number}</td><td>${it.product_code}</td><td>${it.quantity}</td><td>${it.unit_price}</td><td>${it.country_of_origin}</td></tr>`;
+    }));
+  } else if(CUSTOMER==='SCHAEFFLER TECHNO'){
+    html+='<tr><th>Invoice</th><th>Product Code</th><th>Qty</th><th>Country</th><th>NW</th><th>GW</th></tr>';
+    allResults.forEach(r=>(r.items||[]).forEach(it=>{
+      html+=`<tr><td>${r.invoice_number}</td><td>${it.product_code}</td><td>${it.quantity}</td><td>${it.country_of_origin}</td><td>${it.net_weight}</td><td>${it.gross_weight}</td></tr>`;
+    }));
+  }
+  html+='</table>';
+  document.getElementById('result-table').innerHTML=html;
+}
+
+// ── Export ──
+async function exportExcel(){
+  if(!allResults.length||typeof XLSX==='undefined') return;
+  try{
+    const dateStr=new Date().toISOString().slice(0,10).replace(/-/g,'');
+    if(CUSTOMER==='HOXIN'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,buildSheetHOXIN([r]),'THAI XM');
+        XLSX.writeFile(wb,`${r.invoice_number||'HOXIN'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    } else if(CUSTOMER==='WORD'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,buildSheetWORD([r]),'Invoice Extract');
+        XLSX.writeFile(wb,`${r.invoice_number||'WORD'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    } else if(CUSTOMER==='HI-TECH APPAREL'){
+      const allItems=allResults.flatMap(r=>(r.items||[]).map(it=>({...it,invoice_number:r.invoice_number,invoice_date:it.invoice_date||r.invoice_date})));
+      const fake={invoice_number:allResults[0]?.invoice_number||'',invoice_date:allResults[0]?.invoice_date||'',items:allItems.map((it,i)=>({...it,item:i+1}))};
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,buildSheetHiTech(fake),'Extract');
+      XLSX.writeFile(wb,`${allResults[0]?.invoice_number||'HiTech_Invoice_'+dateStr}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึกแล้ว (${allItems.length} รายการ)`);
+    } else if(CUSTOMER==='HI-TECH APPAREL (2)'){
+      const allItems=allResults.flatMap(r=>(r.items||[]).map(it=>({...it,invoice_number:r.invoice_number,invoice_date:it.invoice_date||r.invoice_date})));
+      const fake={invoice_number:allResults[0]?.invoice_number||'',invoice_date:allResults[0]?.invoice_date||'',items:allItems.map((it,i)=>({...it,item:i+1}))};
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,buildSheetHiTech(fake),'Extract');
+      XLSX.writeFile(wb,`${allResults[0]?.invoice_number||'HiTech2_Invoice_'+dateStr}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึกแล้ว (${allItems.length} รายการ)`);
+    }
+    else if(CUSTOMER==='THAI XM'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        const ws=buildSheetThaiXM([r]);
+        XLSX.utils.book_append_sheet(wb,ws,'THAI XM');
+        const fname = r.invoice_number || (r.file?.name||'THAI_XM').replace(/\.pdf$/i,'');
+        XLSX.writeFile(wb,`${fname}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      await saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    }
+    else if(CUSTOMER==='SCHAEFFLER TECHNO'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,buildSheetSchaeffler([r]),'Schaeffler_Techno');
+        XLSX.writeFile(wb,`${r.invoice_number||'Schaeffler_Techno'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      await saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    }
+    else if(CUSTOMER==='SCHAEFFLER AUTOMOTIVE'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,buildSheetAutomotive([r]),'Schaeffler_Automotive');
+        XLSX.writeFile(wb,`${r.invoice_number||'Schaeffler_Automotive'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      await saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    }
+    else if(CUSTOMER==='SCHAEFFLER INDIA'){
+      allResults.forEach(r=>{
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,buildSheetIndia([r]),'SCHAEFFLER_INDIA');
+        XLSX.writeFile(wb,`${r.invoice_number||'Schaeffler_India'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      });
+      await saveToHistory(allResults, CUSTOMER);
+      flash(`✅ บันทึก ${allResults.length} ไฟล์`);
+    }
+    else if(DOC_MODE==='ai'){
+      const wb=XLSX.utils.book_new();
+      const headers=['Invoice No.','Invoice Date','Item','Product Code','Description','Qty','Unit Price','Amount','Country'];
+      const rows=[];
+      allResults.forEach(r=>{
+        (r.items||[]).forEach(it=>{
+          rows.push([r.invoice_number||'',r.invoice_date||'',it.item||'',it.product_code||'',it.description||'',it.quantity||'',it.unit_price||'',it.amount||'',it.country_of_origin||'']);
+        });
+      });
+      const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+      ws['!cols']=[{wch:16},{wch:13},{wch:6},{wch:14},{wch:40},{wch:8},{wch:12},{wch:12},{wch:18}];
+      XLSX.utils.book_append_sheet(wb,ws,'AI_Extract');
+      const dateStr=new Date().toISOString().slice(0,10).replace(/-/g,'');
+      XLSX.writeFile(wb,`${allResults[0]?.invoice_number||'AI_Invoice'}_${dateStr}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+      saveToHistory(allResults, CUSTOMER+' (AI)');
+      flash(`✅ AI บันทึกแล้ว (${allResults.reduce((s,r)=>s+(r.items?.length||0),0)} รายการ)`);
+    }
+  } catch(e){ alert('Export ไม่สำเร็จ: '+e.message); }
+}
+// ── Navigation ──
+function showPage(page){
+  // Only admin/super can access settings
+  if(page==='settings' && CURRENT_USER && CURRENT_USER.role==='User'){
+    alert('คุณไม่มีสิทธิ์เข้าหน้าตั้งค่าระบบ'); return;
+  }
+  ['main','history','settings'].forEach(p=>{
+    const el = document.getElementById('page-'+p);
+    if(el) el.style.display = p===page ? 'block' : 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.page===page);
+  });
+  if(page==='history')  renderHistory();
+  if(page==='settings') renderSettings();
+}
+
+async function renderSettings(){
+  USERS = await loadUsers();
+  updateNavSettingsBadge();
+  const pending = USERS.filter(u=>u.status==='pending');
+  const active  = USERS.filter(u=>u.status!=='pending');
+
+  // Pending count badge
+  const badge = document.getElementById('pending-count');
+  badge.textContent = pending.length ? pending.length+' รายการ' : 'ไม่มี';
+  badge.style.background = pending.length ? '#fef3c7' : '#f0fdf4';
+  badge.style.color = pending.length ? '#d97706' : '#16a34a';
+
+  // Pending table
+  const pendEl = document.getElementById('pending-table');
+  const pempty = document.getElementById('pending-empty');
+  if(!pending.length){
+    pempty.style.display='block'; pendEl.innerHTML='';
+  } else {
+    pempty.style.display='none';
+    let html='<table><tr><th>#</th><th>Username / ชื่อ</th><th>Role</th><th>อนุมัติ</th><th>ปฏิเสธ</th></tr>';
+    pending.forEach((u,i)=>{
+      html+=`<tr>
+        <td style="color:#94a3b8;text-align:center">${i+1}</td>
+        <td>
+          <div style="font-weight:700">${u.username}</div>
+          ${u.fullname?`<div style="font-size:11px;color:#64748b">${u.fullname}</div>`:''}
+        </td>
+        <td><select onchange="changeRole('${u.id}',this.value)" style="border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px">
+          <option value="User" ${u.role==='User'?'selected':''}>User</option>
+          <option value="Admin" ${u.role==='Admin'?'selected':''}>Admin</option>
+        </select></td>
+        <td><button onclick="approveUser('${u.id}')" style="padding:5px 14px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✅ อนุมัติ</button></td>
+        <td><button onclick="rejectUser('${u.id}')" style="padding:5px 14px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">❌ ปฏิเสธ</button></td>
+      </tr>`;
+    });
+    html+='</table>';
+    pendEl.innerHTML=html;
+  }
+
+  // All members table
+  const allEl = document.getElementById('all-members-table');
+  const roleColor = {
+    'Super Admin':'#7c3aed','Admin':'#2563eb','User':'#16a34a'
+  };
+  let html2='<table><tr><th>#</th><th>Username</th><th>Role</th><th>สถานะ</th><th>ลบ</th></tr>';
+  active.forEach((u,i)=>{
+    const rc = roleColor[u.role]||'#64748b';
+    const isSelf = CURRENT_USER && u.id===CURRENT_USER.id;
+    html2+=`<tr>
+      <td style="color:#94a3b8;text-align:center">${i+1}</td>
+      <td>
+        <div><b>${u.username}</b>${isSelf?' <span style="font-size:10px;color:#f97316">(คุณ)</span>':''}</div>
+        ${u.fullname?`<div style="font-size:11px;color:#64748b">${u.fullname}</div>`:''}
+      </td>
+      <td><span style="background:${rc}22;color:${rc};padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700">${u.role}</span></td>
+      <td><span style="color:#16a34a;font-size:12px">● Active</span></td>
+      <td>${(!isSelf && CURRENT_USER?.role==='Super Admin') ? 
+        `<button onclick="removeUser('${u.id}')" style="padding:4px 10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">ลบ</button>` 
+        : '<span style="color:#cbd5e1">—</span>'}</td>
+    </tr>`;
+  });
+  html2+='</table>';
+  allEl.innerHTML=html2;
+}
+
+async function updateNavSettingsBadge(){
+  const navSettings = document.getElementById('nav-settings');
+  const badge = document.getElementById('pending-nav-badge');
+  if(!navSettings || !CURRENT_USER || CURRENT_USER.role==='User') return;
+  USERS = await loadUsers();
+  const pending = USERS.filter(u=>u.status==='pending').length;
+  // Always show nav for Admin/Super
+  navSettings.style.display = 'flex';
+  if(badge){ badge.textContent=pending; badge.style.display=pending?'inline':'none'; }
+}
+
+async function resetAllUsers(){
+  if(!confirm('ล้างข้อมูล User ทั้งหมดและเริ่มใหม่?\n(เหลือแค่บัญชี Jamrat Super Admin)')) return;
+  const allUsers = await loadUsers();
+  for(const u of allUsers){ if(u.id!=='1') await deleteUser(u.id); }
+  const admin = {id:'1',username:'Jamrat',password:'Jam497522',role:'Super Admin',status:'active'};
+  await saveUser(admin);
+  USERS = [admin];
+  updateNavSettingsBadge();
+  renderSettings();
+  alert('✅ ล้างข้อมูลแล้ว เหลือแค่ Jamrat Super Admin');
+}
+
+async function approveUser(id){
+  USERS = await loadUsers();
+  const u = USERS.find(u=>u.id===id);
+  if(u){ u.status='active'; await saveUser(u); }
+  updateNavSettingsBadge();
+  renderSettings();
+}
+function rejectUser(id){
+  if(!confirm('ปฏิเสธและลบบัญชีนี้?')) return;
+  USERS = USERS.filter(u=>u.id!==id);
+  localStorage.setItem('nj_users', JSON.stringify(USERS));
+  updateNavSettingsBadge();
+  renderSettings();
+}
+async function removeUser(id){
+  if(!confirm('ลบสมาชิกนี้?')) return;
+  await deleteUser(id);
+  USERS = USERS.filter(u=>u.id!==id);
+  renderSettings();
+}
+async function changeRole(id, role){
+  USERS = await loadUsers();
+  const u = USERS.find(u=>u.id===id);
+  if(u){ u.role=role; await saveUser(u); }
+}
+
+// ── Save to history after export ──
+async function saveToHistory(results, customer){
+  const dateStr = new Date().toISOString();
+  for(const r of results){
+    if(!r.items?.length) continue;
+    const rec = {
+      id: Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      username: document.getElementById('current-username')?.textContent || 'Jamrat',
+      customer,
+      invoice_number: r.invoice_number||'',
+      date: dateStr,
+      items_count: r.items.length,
+      result: r
+    };
+    history_records.unshift(rec);
+    await saveHistory(rec);
+  }
+}
+
+async function clearHistory(){
+  if(!confirm('ล้างประวัติทั้งหมด?')) return;
+  for(const r of history_records){ await deleteHistory(r.id); }
+  history_records=[];
+  renderHistory();
+}
+
+async function deleteRecord(id){
+  if(!CURRENT_USER || CURRENT_USER.role==='User'){
+    alert('คุณไม่มีสิทธิ์ลบรายการ');
+    return;
+  }
+  if(!confirm('ลบรายการนี้?')) return;
+  await deleteHistory(id);
+  history_records = history_records.filter(r=>r.id!==id);
+  renderHistory();
+}
+
+function filterHistory(){
+  const cust = (document.getElementById('search-customer')?.value||'').toLowerCase();
+  const inv  = (document.getElementById('search-invoice')?.value||'').toLowerCase();
+  const filtered = history_records.filter(r=>{
+    const matchCust = !cust || (r.customer||'').toLowerCase().includes(cust);
+    const matchInv  = !inv  || (r.invoice_number||'').toLowerCase().includes(inv);
+    return matchCust && matchInv;
+  });
+  renderHistoryRows(filtered);
+}
+
+async function renderHistory(){
+  history_records = await loadHistory();
+  filterHistory();
+}
+
+function renderHistoryRows(records){
+  const el = document.getElementById('history-table');
+  const empty = document.getElementById('history-empty');
+  if(!records.length){ empty.style.display='block'; el.innerHTML=''; return; }
+  empty.style.display='none';
+  let html=`<table>
+    <tr>
+      <th>#</th>
+      <th>วันที่</th>
+      <th>ผู้ใช้งาน</th>
+      <th>ลูกค้า</th>
+      <th>Invoice No.</th>
+      <th>รายการ</th>
+      <th>Download</th>
+      <th>ลบ</th>
+    </tr>`;
+  records.forEach((rec,i)=>{
+    const d = new Date(rec.date).toLocaleString('th-TH',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    html+=`<tr>
+      <td style="color:#94a3b8;text-align:center">${i+1}</td>
+      <td style="white-space:nowrap">${d}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <div style="width:28px;height:28px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${(rec.username||'J')[0].toUpperCase()}</div>
+          <span style="font-size:12px;font-weight:600;color:#374151">${rec.username||'Jamrat'}</span>
+        </div>
+      </td>
+      <td><b>${rec.customer}</b></td>
+      <td style="font-family:monospace;font-weight:700;color:#1a1a2e">${rec.invoice_number}</td>
+      <td><span style="background:#eff6ff;color:#3b82f6;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">${rec.items_count} รายการ</span></td>
+      <td>
+        <button class="dl-btn" onclick="reDownload('${rec.id}')">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+      </td>
+      <td>
+        ${(CURRENT_USER && CURRENT_USER.role!=='User') ? `<button onclick="deleteRecord('${rec.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          ลบ
+        </button>` : '<span style="color:#cbd5e1;font-size:11px">—</span>'}
+      </td>
+    </tr>`;
+  });
+  html+='</table>';
+  el.innerHTML=html;
+}
+
+function reDownload(id){
+  const rec = history_records.find(r=>r.id===id);
+  if(!rec) return;
+  try{
+    const r = rec.result;
+    const customer = rec.customer;
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    if(customer==='HOXIN'){
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,buildSheetHOXIN([r]),'THAI XM');
+      XLSX.writeFile(wb,`${r.invoice_number||'HOXIN'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+    } else if(customer==='WORD'){
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,buildSheetWORD([r]),'Invoice Extract');
+      XLSX.writeFile(wb,`${r.invoice_number||'WORD'}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+    } else if(customer==='HI-TECH APPAREL'||customer==='HI-TECH APPAREL (2)'){
+      const allItems=(r.items||[]).map((it,i)=>({...it,item:i+1}));
+      const fake={invoice_number:r.invoice_number||'',invoice_date:r.invoice_date||'',items:allItems};
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,buildSheetHiTech(fake),'Extract');
+      XLSX.writeFile(wb,`${r.invoice_number||'HiTech_Invoice_'+dateStr}.xlsx`,{bookSST:false,type:'binary',cellStyles:true});
+    }
+  } catch(e){ alert('Download ไม่สำเร็จ: '+e.message); }
+}
+
+function flash(msg){
+  const btn=document.getElementById('btn-export');
+  const orig=btn.innerHTML;
+  btn.innerHTML=msg;
+  btn.style.background='#15803d';
+  setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},2500);
+}
+</script>
+
+</div>
+
+<!-- HISTORY PAGE -->
+<div id="page-history" style="display:none;margin-left:220px;min-height:100vh">
+<div class="main">
+    <div class="topbar">
+      <h1>ประวัติ Invoice</h1>
+      <div class="topbar-right"><span class="topbar-date" id="topbar-date2"></span></div>
+    </div>
+    <div class="content">
+      <div class="panel" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <div class="panel-title" style="margin-bottom:0">
+            <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            รายการ Invoice ทั้งหมด
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="position:relative">
+              <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="search-customer" placeholder="ค้นหาลูกค้า..."
+                oninput="filterHistory()"
+                style="padding:7px 12px 7px 32px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;width:160px"/>
+            </div>
+            <div style="position:relative">
+              <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24" style="position:absolute;left:10px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="search-invoice" placeholder="ค้นหา Invoice No...."
+                oninput="filterHistory()"
+                style="padding:7px 12px 7px 32px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;width:170px"/>
+            </div>
+            <button onclick="clearHistory()" style="border:1.5px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer">🗑 ล้างประวัติ</button>
+          </div>
+        </div>
+        <div id="history-empty" style="text-align:center;padding:48px;color:#94a3b8;display:none">
+          <svg width="48" height="48" fill="none" stroke="#e2e8f0" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <p style="font-size:13px">ยังไม่มีประวัติ</p>
+        </div>
+        <div class="result-table-wrap" id="history-table" style="max-height:600px"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+</div><!-- /history main -->
+<div id="page-settings" style="margin-left:220px;display:none;flex-direction:column;min-height:100vh">
+<div class="main">
+  <div class="topbar">
+    <h1>ตั้งค่าระบบ</h1>
+  </div>
+  <div class="content">
+      <!-- Pending Members -->
+      <div class="panel" style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <div class="panel-title" style="margin-bottom:0">
+            <svg viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            คำขอสมัครสมาชิก (รออนุมัติ)
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="pending-count" style="background:#fef3c7;color:#d97706;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700"></span>
+            <button onclick="resetAllUsers()" style="border:1.5px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">🔄 ล้างข้อมูล User ทั้งหมด</button>
+          </div>
+        </div>
+        <div id="pending-empty" style="text-align:center;padding:32px;color:#94a3b8;font-size:13px;display:none">ไม่มีคำขอรออนุมัติ ✅</div>
+        <div class="result-table-wrap" id="pending-table"></div>
+      </div>
+      <!-- All Members -->
+      <div class="panel">
+        <div class="panel-title" style="margin-bottom:18px">
+          <svg viewBox="0 0 24 24" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          สมาชิกทั้งหมด
+        </div>
+        <div class="result-table-wrap" id="all-members-table"></div>
+      </div>
+    </div>
+</div>
+
+</div><!-- /app-page -->
+
+
+
+</body>
+</html>
