@@ -109,6 +109,42 @@ tr:hover .row-act{opacity:1;}
 .btn-icon.edit:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.1);}
 .btn-icon.del:hover{border-color:var(--red);color:var(--red);background:rgba(255,75,110,.1);}
 .col-s-val{color:var(--text);font-size:12px;}
+/* DEPT CHART แนวนอน */
+.dept-section{display:none;margin-bottom:18px;}
+.dept-section.show{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dept-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.dept-card{cursor:pointer;transition:border-color .2s,box-shadow .2s;}
+.dept-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.dept-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.dept-type-pills{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.dept-type-pill{font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s;user-select:none;}
+.dept-type-pill.on{border-color:var(--accent);background:rgba(0,229,255,.15);color:var(--accent);}
+.dept-selected-badge{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--accent);padding:2px 8px;border:1px solid rgba(0,229,255,.3);border-radius:10px;background:rgba(0,229,255,.08);}
+
+.dept-card h4{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.dept-subtitle{font-size:10px;color:var(--text2);margin-bottom:12px;font-family:'JetBrains Mono',monospace;}
+.hbar-list{display:flex;flex-direction:column;gap:5px;}
+.hbar-item{display:flex;align-items:center;gap:6px;}
+.hbar-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text2);min-width:110px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hbar-track{flex:1;background:var(--surface2);border-radius:3px;height:14px;overflow:visible;position:relative;}
+.hbar-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:5px;transition:width .4s ease;}
+.hbar-val{display:none;}
+.hbar-val-out{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-left:4px;color:var(--text2);}
+.dept-total{font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:700;margin-left:auto;}
+.dept-proj{font-size:10px;color:var(--yellow);font-family:'IBM Plex Sans Thai',sans-serif;margin-bottom:4px;margin-top:8px;padding:2px 0;border-bottom:1px solid var(--border);}
+
+.dept-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.dept-tab{padding:5px 13px;border-radius:20px;font-size:11px;font-family:'IBM Plex Sans Thai',sans-serif;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;user-select:none;}
+.dept-tab:hover{border-color:var(--accent);color:var(--accent);}
+.dept-tab.on{background:rgba(0,229,255,.15);border-color:var(--accent);color:var(--accent);}
+.dept-tab.all{border-color:var(--green);color:var(--green);}
+.dept-tab.all.on{background:rgba(0,230,118,.15);border-color:var(--green);color:var(--green);}
+
+.dept-search{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;margin-bottom:10px;transition:border-color .2s;}
+.dept-search:focus{border-color:var(--accent);}
+.dept-search::placeholder{color:var(--text2);}
+.hbar-zero{opacity:.45;}
+
 /* COLUMN CHART แนวตั้ง */
 .chart-section.show{grid-template-columns:1fr 1fr 1fr;}
 .col-chart{display:flex;flex-direction:column;gap:0;width:100%;}
@@ -284,11 +320,27 @@ textarea::placeholder{color:var(--text2);}
 </div>
 
 <main>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+    <button class="chart-toggle" id="deptToggleBtn" onclick="toggleDeptChart()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      กราฟแผนก
+    </button>
     <button class="chart-toggle" id="chartToggleBtn" onclick="toggleCharts()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="5" height="18" rx="1"/><rect x="9.5" y="8" width="5" height="13" rx="1"/><rect x="17" y="13" width="5" height="8" rx="1"/></svg>
       แสดงกราฟ
     </button>
+  </div>
+
+  <!-- DEPT CHART SECTION -->
+  <div style="display:none;margin-bottom:8px;" id="deptSearchWrap">
+    <div class="dept-tabs" id="deptTabs"></div>
+    <div style="position:relative;max-width:300px;">
+      <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text2);" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="deptSearchInput" placeholder="ค้นหาชื่อพนักงาน..." style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px 8px 30px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" oninput="renderDeptCharts()">
+    </div>
+  </div>
+  <div class="dept-section" id="deptSection">
+    <!-- กราฟแผนกจะถูก render โดย JS -->
   </div>
 
   <!-- CHART SECTION -->
@@ -771,6 +823,7 @@ function render() {
   document.getElementById('delSelBtn').disabled=selected.size===0;
   updateExportLabel();
   renderCharts();
+  renderDeptCharts();
 
   const dvm=buildDupValMap();
   const dupJobNos=new Set();
@@ -837,6 +890,189 @@ function render() {
 
 function esc(s){return s.replace(/'/g,"\\'")}
 function escHtml(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+
+
+
+
+
+// ════ DEPT SELECTION & PER-DEPT TYPE FILTER ══════════════════════════════════
+let selectedDeptId = null; // dept id ที่เลือกอยู่
+const deptTypeFilter = {}; // {deptId: Set of types}
+
+
+function buildDeptTabs() {
+  const allMapped2 = new Set(Object.values(DEPT_MAP).flat());
+  const csCountTmp = {};
+  jobs.forEach(j => { if(j.cs) csCountTmp[j.cs]=(csCountTmp[j.cs]||0)+1; });
+  const hasOther = Object.keys(csCountTmp).some(cs=>!allMapped2.has(cs));
+  const depts = Object.keys(DEPT_MAP);
+  if (hasOther) depts.push('🗂️ แผนกอื่น');
+
+  const tabs = document.getElementById('deptTabs');
+  if (!tabs) return;
+  const allBtn = `<div class="dept-tab all${selectedDeptFilter===null?' on':''}" onclick="setDeptFilter(null)">ทั้งหมด</div>`;
+  const deptBtns = depts.map(d=>`<div class="dept-tab${selectedDeptFilter===d?' on':''}" onclick="setDeptFilter('${d.replace(/'/g,"\'")}')">${d}</div>`).join('');
+  tabs.innerHTML = allBtn + deptBtns;
+}
+
+function setDeptFilter(deptName) {
+  selectedDeptFilter = deptName;
+  buildDeptTabs();
+  renderDeptCharts();
+}
+
+function toggleDeptSelect(deptId) {
+  selectedDeptId = selectedDeptId === deptId ? null : deptId;
+  renderDeptCharts();
+}
+
+function toggleDeptTypePill(deptId, tp, el) {
+  if (!deptTypeFilter[deptId]) deptTypeFilter[deptId] = new Set();
+  const s = deptTypeFilter[deptId];
+  if (s.has(tp)) s.delete(tp); else s.add(tp);
+  renderDeptCharts();
+}
+
+function getDeptTypes() {
+  return [...new Set(jobs.map(j=>j.dataType).filter(Boolean))].sort();
+}
+
+function filterDeptCard(deptId, q) {
+  const list = document.getElementById(deptId);
+  if (!list) return;
+  const qq = q.toLowerCase();
+  list.querySelectorAll('.hbar-item').forEach(item => {
+    const lbl = item.querySelector('.hbar-label');
+    const name = lbl ? lbl.textContent.toLowerCase() : '';
+    item.style.display = (!qq || name.includes(qq)) ? '' : 'none';
+  });
+}
+
+// ════ DEPT CHART ═════════════════════════════════════════════════════════════
+const DEPT_MAP = {
+  '📁 APL — Maersk': ['PAKAPORN.P','NAPASSON','JIDAPA','PAWARISA','THITIMA','TUNWARAT','KANOKWAN.S'],
+  '📁 APL — APL+KN': ['MANUSSANAN','KAMOLWAN','THANWARAT','ANUTIDA'],
+  '📦 แผนกต้น': ['CHATCHADA','KANYA','KANYARAT.P','KOTCHAKORN.M','NAPASORN','NILLADA.T','PAKAWADEE','PRONJARAT','SIWAPORN.W','SUNIMIT.P','TICHILA','VATINEE','SUKANDA','NATTHIDA','NIRACHA'],
+  '📦 ทีมกวาง': ['KANYARAT','SUDARAT','KAYYASIT','THANANYA','KESSUDA','MAYWITRA','PRIYANUT.P'],
+  '📦 ทีมขาออกปอน': ['NANTHAPHON.N','CHOMPOONIK','ALISA','THITIWORDAD'],
+  '📦 ทีมนุ้ย': ['SUPAPORN.P','KAWALEE','WIPAVEE','NATTAWADEE','PAKAPORN.S'],
+  '📄 FORM': ['KANJANA','WANITA'],
+};
+const DEPT_COLORS = ['#00e5ff','#00e676','#ffea00','#ff9100','#7b61ff'];
+
+let deptVisible = false;
+let selectedDeptFilter = null; // null = ทั้งหมด, หรือ dept name
+
+function toggleDeptChart() {
+  deptVisible = !deptVisible;
+  const sec = document.getElementById('deptSection');
+  const btn = document.getElementById('deptToggleBtn');
+  sec.classList.toggle('show', deptVisible);
+  document.getElementById('deptSearchWrap').style.display = deptVisible ? 'block' : 'none';
+  btn.classList.toggle('active', deptVisible);
+  btn.innerHTML = deptVisible
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg> ซ่อนกราฟแผนก'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg> กราฟแผนก';
+  if (deptVisible) { buildDeptTabs(); renderDeptCharts(); }
+}
+
+function renderDeptCharts() {
+  if (!deptVisible || !jobs.length) return;
+  const sec = document.getElementById('deptSection');
+  const allTypes = getDeptTypes();
+
+  const dvm = buildDupValMap();
+  const dupIds = new Set();
+  dvm.invoiceNo.forEach(arr => arr.forEach(id => dupIds.add(id)));
+
+  // นับ Job ทุก CS สำหรับ globalMax และหาคนที่ไม่ได้อยู่แผนก
+  const csCountAll = {};
+  jobs.forEach(j => { if (j.cs) csCountAll[j.cs] = (csCountAll[j.cs]||0) + 1; });
+  const allMapped = new Set(Object.values(DEPT_MAP).flat());
+  const othersMembers = Object.keys(csCountAll).filter(cs => !allMapped.has(cs)).sort();
+
+  const deptEntries = [...Object.entries(DEPT_MAP)];
+  if (othersMembers.length > 0) deptEntries.push(['🗂️ แผนกอื่น', othersMembers]);
+
+  // globalMax จากทุก CS ทุก Job (ไม่ filter type) เพื่อ scale เดียวกัน
+  const globalMax = Math.max(...Object.values(csCountAll), 1);
+
+  const deptQ = (document.getElementById('deptSearchInput')?.value||'').toLowerCase();
+
+  // กรองตาม selectedDeptFilter
+  const filteredEntries = selectedDeptFilter
+    ? deptEntries.filter(([d]) => d === selectedDeptFilter)
+    : deptEntries;
+
+  sec.innerHTML = filteredEntries.map(([dept, members], di) => {
+    const diOrig = deptEntries.findIndex(([d])=>d===dept);
+    const deptId = 'dept_' + diOrig;
+    const color = DEPT_COLORS[diOrig % DEPT_COLORS.length];
+    const isSelected = selectedDeptId === deptId;
+    const deptTypes = deptTypeFilter[deptId] || new Set();
+
+    // นับ Job แยกตาม per-dept type filter
+    const csCount = {}, csDup = {};
+    jobs.forEach(j => {
+      if (!j.cs || !members.includes(j.cs)) return;
+      // ใช้ per-dept type filter เท่านั้น ไม่ขึ้นกับ global
+      if (deptTypes.size > 0 && !deptTypes.has(j.dataType)) return;
+      csCount[j.cs] = (csCount[j.cs]||0) + 1;
+      if (dupIds.has(j.jobNo)) csDup[j.cs] = (csDup[j.cs]||0) + 1;
+    });
+
+    const deptTotal = members.reduce((s,m) => s+(csCount[m]||0), 0);
+
+    // type pills
+    const pills = allTypes.map(tp => {
+      const on = deptTypes.has(tp);
+      return `<span class="dept-type-pill${on?' on':''}"
+        onclick="event.stopPropagation();toggleDeptTypePill('${deptId}','${tp}')">${tp}</span>`;
+    }).join('');
+
+    // bars
+    const bars = members
+      .filter(m => !deptQ || m.toLowerCase().includes(deptQ))
+      .map(m => {
+        const v = csCount[m]||0;
+        const dup = csDup[m]||0;
+        const pct = Math.round((v/globalMax)*100);
+        const isZero = v === 0;
+        return `<div class="hbar-item${isZero?' hbar-zero':''}">
+          <div class="hbar-label" title="${m}" style="${isZero?'color:var(--text2)':''}">${m}</div>
+          <div class="hbar-track">
+            ${isZero
+              ? `<div style="width:2px;height:100%;background:var(--border);border-radius:3px;"></div>`
+              : `<div class="hbar-fill" style="width:${pct}%;background:${color};border-radius:3px;position:relative;min-width:4px;">
+                  ${dup>0?`<div style="position:absolute;right:0;top:0;height:100%;width:${Math.round((dup/v)*100)}%;background:#ff4b6e;border-radius:0 3px 3px 0;opacity:.85"></div>`:''}
+                </div>`}
+          </div>
+          <span style="font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${isZero?'var(--text2)':'var(--text)'};min-width:22px;flex-shrink:0;">${v}</span>
+          ${dup>0?`<span style="font-size:9px;color:var(--red);font-family:'JetBrains Mono',monospace;">ซ้ำ ${dup}</span>`:''}
+        </div>`;
+      }).join('');
+
+    return `<div class="dept-card${isSelected?' selected':''}" onclick="toggleDeptSelect('${deptId}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <h4 style="margin-bottom:0;display:flex;align-items:center;gap:6px;">
+          <span>${dept}</span>
+          ${isSelected?'<span class="dept-selected-badge">● เลือก</span>':''}
+        </h4>
+        <span class="dept-total">${deptTotal} Job</span>
+      </div>
+      <div class="dept-subtitle" style="margin-bottom:6px;">${members.length} คน
+        ${deptTypes.size>0?`<span style="color:var(--accent);margin-left:4px;">[${[...deptTypes].join('/')}]</span>`:''}
+        &nbsp;■ <span style="color:${color}">Job</span> &nbsp;■ <span style="color:#ff4b6e">ซ้ำ</span>
+      </div>
+      <div class="dept-type-pills" onclick="event.stopPropagation()">${pills}</div>
+      <input type="text" placeholder="🔍 ค้นชื่อ..." onclick="event.stopPropagation()"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 9px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;margin-bottom:8px;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        oninput="event.stopPropagation();filterDeptCard('${deptId}',this.value)">
+      <div class="hbar-list" id="${deptId}">${bars||'<div style="color:var(--text2);font-size:11px">ไม่มีข้อมูล</div>'}</div>
+    </div>`;
+  }).join('');
+}
 
 
 // ════ CHARTS ═════════════════════════════════════════════════════════════════
@@ -1039,7 +1275,7 @@ function selectAllChartType() {
   else types.forEach(t=>selectedChartType.add(t));
   renderChartTypeDDItems(types);
   updateChartTypeDDLabel();
-  renderCSChart(); renderTypeChart(); renderMonthChart();
+  renderCSChart(); renderTypeChart(); renderMonthChart(); renderDeptCharts();
 }
 
 function updateChartTypeDDLabel() {
