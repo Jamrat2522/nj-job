@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>N.J. Logistics — Mapping Excel</title>
+<script>
+// EARLY AUTH - runs before any CDN loads
+function doLogin(){
+  var u=(document.getElementById('u')||{value:''}).value.trim();
+  var p=(document.getElementById('p')||{value:''}).value.trim();
+  var err=document.getElementById('login-err');
+  if(u==='Jamrat' && p==='Jam497522'){
+    if(err)err.style.display='none';
+    var lw=document.getElementById('login-wrap');
+    lw.style.transition='opacity .3s';lw.style.opacity='0';
+    setTimeout(function(){
+      lw.style.display='none';
+      var app=document.getElementById('app');
+      app.style.display='flex';
+      if(typeof initApp==='function')initApp();
+    },300);
+  } else {
+    if(err){err.textContent='❌ User: Jamrat  Pass: Jam497522';err.style.display='block';}
+    var pe=document.getElementById('p');if(pe)pe.value='';
+  }
+}
+function showTab(t){
+  var fi=document.getElementById('form-in');
+  var fr=document.getElementById('form-reg');
+  var ti=document.getElementById('tab-in');
+  var tr_=document.getElementById('tab-reg');
+  if(fi)fi.style.display=t==='in'?'':'none';
+  if(fr)fr.style.display=t==='reg'?'':'none';
+  if(ti)ti.className='login-tab '+(t==='in'?'on':'off');
+  if(tr_)tr_.className='login-tab '+(t==='reg'?'on':'off');
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>window.XLSX_READY=false;document.addEventListener("DOMContentLoaded",function(){if(typeof XLSX!=="undefined")window.XLSX_READY=true;});</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--sidebar:#0a0d12;--card:#13181f;--card2:#181e27;
+  --border:#1e2736;--border2:#252f3f;--orange:#f97316;
+  --text:#e2e8f0;--text2:#7a8fa8;--text3:#3d5068;
+  --green:#22c55e;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:#1e2736;border-radius:10px}
+
+/* ── LOGIN ── */
+#login-wrap{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{width:100%;max-width:400px;padding:32px 28px;background:var(--card);border:1px solid var(--border2);border-radius:20px;margin:20px}
+.login-tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:24px}
+.login-tab{padding:11px;border:none;border-radius:8px;font-family:'Sarabun',sans-serif;font-size:14px;cursor:pointer;transition:all .2s}
+.login-tab.on{background:var(--orange);color:#fff;font-weight:700}
+.login-tab.off{background:transparent;color:var(--text3)}
+.inp{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:9px;padding:13px 14px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:14px;outline:none;transition:border .2s}
+.inp:focus{border-color:var(--orange)}
+.btn-login{width:100%;padding:14px;background:var(--orange);border:none;border-radius:11px;font-family:'Sarabun',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;margin-top:20px}
+.btn-login:hover{background:#ea6c0e}
+.login-err{display:none;background:#3d0a0a;border:1px solid #7f1d1d;border-radius:7px;padding:10px 14px;color:#fca5a5;font-size:12px;margin-top:14px}
+
+/* ── APP ── */
+#app{display:none;height:100vh;overflow:hidden;flex-direction:row}
+.sidebar{width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+.sb-logo-row{display:flex;align-items:center;gap:10px}
+.sb-logo-icon{width:34px;height:34px;background:var(--orange);border-radius:8px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.sb-logo-name{font-size:13px;font-weight:700}
+.sb-logo-ver{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
+.sb-user{padding:14px 16px 12px;border-bottom:1px solid var(--border)}
+.sb-user-row{display:flex;align-items:center;gap:10px}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:var(--orange);display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.sb-user-name{font-size:13px;font-weight:600}
+.sb-user-role{font-size:10px;color:var(--orange);font-weight:600;letter-spacing:.5px}
+.sb-nav{padding:16px 10px;flex:1}
+.sb-section{font-size:9px;letter-spacing:2px;color:var(--text3);padding:0 8px;margin-bottom:8px;font-family:'IBM Plex Mono',monospace;font-weight:600}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s}
+.sb-item:hover{background:var(--card2);color:var(--text)}
+.sb-item.active{background:#f9731620;color:var(--orange)}
+.sb-badge{margin-left:auto;background:var(--orange);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:14px;flex-shrink:0;background:var(--sidebar)}
+.topbar-title{font-size:16px;font-weight:700}
+.topbar-badge{background:var(--orange);color:#fff;font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;letter-spacing:1px}
+.content{flex:1;display:flex;overflow:hidden}
+.center{flex:1;overflow-y:auto;padding:24px}
+.section-heading{font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-heading::before{content:'↑';color:var(--orange);font-size:16px}
+
+/* ── UPLOAD BOXES ── */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.upload-box{background:var(--card);border:2px dashed var(--border2);border-radius:12px;padding:20px;transition:border-color .2s}
+.upload-box.drag{border-color:var(--orange);background:#f9731608}
+.upload-box.done{border-color:var(--green);border-style:solid;background:#03120a}
+.upload-box-title{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--orange);margin-bottom:4px}
+.upload-box-cols{font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6}
+.file-btn{display:inline-block;padding:9px 20px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;color:#fff}
+.file-btn-inv{background:var(--orange)}
+.file-btn-pack{background:var(--blue)}
+.file-name{font-size:11px;color:var(--green);margin-top:8px;word-break:break-all}
+.file-btn-clr{background:none;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:10px;padding:3px 8px;cursor:pointer;margin-left:8px;font-family:'Sarabun',sans-serif}
+.file-btn-clr:hover{border-color:var(--red);color:var(--red)}
+
+/* ── FIXED GRID ── */
+.fv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fv-item{background:var(--card2);border:1px solid var(--border);border-radius:7px;padding:8px 12px}
+.fv-lbl{font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:3px;font-family:'IBM Plex Mono',monospace}
+.fv-val{font-size:10px;color:var(--text2)}
+
+/* ── BUTTONS ── */
+.btn-gen{width:100%;padding:14px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:'Sarabun',sans-serif;color:var(--text3);margin-bottom:12px;transition:all .2s}
+.btn-gen.ready{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 0 20px #f9731630}
+.btn-gen.ready:hover{background:#ea6c0e}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat-item{background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:12px 14px}
+.stat-lbl{font-size:9px;letter-spacing:1.5px;color:var(--text3);margin-bottom:5px;font-family:'IBM Plex Mono',monospace}
+.stat-num{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1}
+
+/* ── RIGHT ── */
+.right{width:300px;border-left:1px solid var(--border);background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0}
+.right-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.right-dot{width:8px;height:8px;border-radius:50%;background:var(--text3)}
+.right-dot.on{background:var(--green)}
+.right-body{flex:1;overflow-y:auto;padding:12px}
+.row-card{background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--border2)}
+.row-card.ok{border-left-color:var(--green)}
+.row-card.nm{border-left-color:var(--red)}
+.row-card.dup{border-left-color:var(--amber)}
+.rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rc-num{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
+.rc-vin{font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-bottom:3px}
+.rc-desc{font-size:11px;color:var(--text3)}
+.badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;letter-spacing:.5px}
+.badge-ok{background:#14532d50;color:#4ade80}
+.badge-nm{background:#7f1d1d50;color:#f87171}
+.badge-dup{background:#78350f50;color:#fbbf24}
+.badge-eng{background:#1d4ed850;color:#93c5fd}
+.btn-export{display:none;width:calc(100% - 24px);margin:12px;padding:11px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn-export.show{display:block}
+.btn-export:hover{background:var(--green);border-color:var(--green);color:#fff}
+.right-empty{text-align:center;padding:40px 16px;color:var(--text3)}
+.right-empty-icon{font-size:32px;margin-bottom:10px;opacity:.4}
+.right-empty-text{font-size:12px;line-height:1.8}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:#00000090;z-index:100;display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:16px;width:92%;max-width:1100px;max-height:88vh;display:flex;flex-direction:column}
+.modal-hd{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-hd-title{font-size:14px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.modal-close:hover{color:var(--red)}
+.modal-body{flex:1;overflow:auto}
+.modal-ft{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+.btn-sm{padding:9px 20px;border-radius:8px;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none}
+.btn-cancel{background:var(--card2);color:var(--text2)}
+.btn-dl{background:var(--green);color:#fff}
+
+/* ── TABLE ── */
+.mtbl-wrap{font-size:10px}
+table.mtbl{border-collapse:collapse;min-width:max-content;width:100%}
+table.mtbl thead th{padding:9px 10px;background:#0d1117;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);font-size:8px;letter-spacing:.5px;color:var(--text3);position:sticky;top:0;z-index:2;font-family:'IBM Plex Mono',monospace;font-weight:600}
+table.mtbl thead th.scol{position:sticky;left:0;z-index:3;background:#0d1117;border-right:1px solid var(--border)}
+table.mtbl tbody tr{border-bottom:1px solid var(--border)}
+table.mtbl tbody tr:hover{background:#131820}
+table.mtbl tbody tr.row-nm{background:#200808}
+table.mtbl tbody tr.row-dup{background:#1a0e00}
+table.mtbl tbody td{padding:0;border-left:1px solid var(--border)}
+table.mtbl tbody td.scol{position:sticky;left:0;z-index:1;padding:7px 10px;white-space:nowrap;border-right:1px solid var(--border);background:var(--bg)}
+table.mtbl tbody tr.row-nm td.scol{background:#200808}
+table.mtbl tbody tr.row-dup td.scol{background:#1a0e00}
+.cv{padding:7px 8px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;font-size:10px;line-height:1.5;cursor:text}
+.cv.wide{white-space:pre-wrap;max-height:60px;max-width:240px}
+.cv.empty{color:var(--text3)}
+.cedita{width:100%;background:#0f141a;border:1px solid var(--orange);color:var(--text);padding:5px 7px;font-family:'Sarabun',sans-serif;font-size:10px;outline:none;resize:vertical}
+.errbox{background:#3d0a0a;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;color:#fca5a5;font-size:12px;margin-bottom:14px;display:none}
+
+/* ── ADD TEMPLATE MODAL ── */
+.add-tmpl-modal{display:none;position:fixed;inset:0;background:#00000090;z-index:200;align-items:center;justify-content:center}
+.add-tmpl-modal.open{display:flex}
+.at-box{background:var(--card);border:1px solid var(--border2);border-radius:16px;width:90%;max-width:680px;max-height:90vh;display:flex;flex-direction:column}
+.at-grid{overflow-y:auto;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.at-inp{width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:7px;padding:8px 12px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;outline:none}
+.at-lbl{font-size:10px;color:var(--text3);letter-spacing:1px;display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ LOGIN ════════════════════ -->
+<div id="login-wrap">
+  <div class="login-box">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
+      <div style="width:46px;height:46px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🚚</div>
+      <div>
+        <div style="font-size:17px;font-weight:700">N.J. Logistics</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Mapping & Invoice System v2.0</div>
+      </div>
+    </div>
+    <div class="login-tabs">
+      <button class="login-tab on" id="tab-in" onclick="showTab('in')">เข้าสู่ระบบ</button>
+      <button class="login-tab off" id="tab-reg" onclick="showTab('reg')">สมัครสมาชิก</button>
+    </div>
+    <div id="form-in">
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">ชื่อผู้ใช้</div>
+        <input class="inp" id="u" placeholder="กรอก Username" autocomplete="off">
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">รหัสผ่าน</div>
+        <div style="position:relative">
+          <input class="inp" id="p" type="password" placeholder="กรอก Password" autocomplete="off"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <span onclick="var x=document.getElementById('p');x.type=x.type==='password'?'text':'password'"
+            style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text3);user-select:none">👁</span>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:8px;font-size:11px;color:var(--text3)">ลืมรหัสผ่าน? ติดต่อ Admin</div>
+      <div class="login-err" id="login-err"></div>
+      <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="form-reg" style="display:none;text-align:center;padding:30px 0;color:var(--text3);font-size:13px;line-height:2">
+      กรุณาติดต่อ Admin เพื่อสมัครสมาชิก<br>
+      <span style="font-size:11px">admin@njlogistics.co.th</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ APP ════════════════════ -->
+<div id="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-row">
+        <div class="sb-logo-icon">🚚</div>
+        <div>
+          <div class="sb-logo-name">N.J. Logistics</div>
+          <div class="sb-logo-ver">v2.0 · Mapping & Invoice</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-user-row">
+        <div class="sb-avatar" id="sb-avatar">J</div>
+        <div>
+          <div class="sb-user-name" id="sb-name">Jamrat</div>
+          <div class="sb-user-role" id="sb-role">Super Admin</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">MAPPING EXCEL</div>
+      <div class="sb-item active"><span>📋</span><span>Mapping</span><span class="sb-badge">NEW</span></div>
+      <div class="sb-item"><span>👥</span><span>จัดการสมาชิก</span></div>
+      <div style="margin-top:20px">
+        <div class="sb-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:4px">
+          <span>TEMPLATES</span>
+          <span style="font-size:8px;color:var(--text3);cursor:pointer" onclick="loadTemplates()" title="Sync">⟳</span>
+        </div>
+        <div id="tmpl-list">
+          <div class="sb-item active" id="tmpl-triumph" onclick="selectTemplate('triumph')">
+            <span>🏍</span><span>Triumph</span>
+          </div>
+        </div>
+        <div style="padding:8px 10px">
+          <button onclick="document.getElementById('add-tmpl-modal').classList.add('open')"
+            style="width:100%;background:var(--card2);border:1px solid var(--border);border-radius:7px;padding:7px;font-family:'Sarabun',sans-serif;font-size:11px;color:var(--text3);cursor:pointer">
+            + เพิ่ม Template
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Mapping Excel</div>
+      <div class="topbar-badge" id="active-badge">TRIUMPH</div>
+    </div>
+    <div class="content">
+      <!-- Center -->
+      <div class="center">
+        <div class="section-heading">อัพโหลดไฟล์ — TRIUMPH (THAILAND)</div>
+
+        <!-- Upload boxes -->
+        <div class="upload-grid" id="upload-grid">
+
+          <!-- Invoice -->
+          <div class="upload-box" id="box-inv"
+            ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')"
+            ondrop="event.preventDefault();this.classList.remove('drag');pickFile('inv',event.dataTransfer.files[0])">
+            <div class="upload-box-title">① INVOICE FILE</div>
+            <div class="upload-box-cols">Product · Description · VIN Number · Engine · Engine Capacity · Commodity Code · Net WT · Grs WT · Qty · Unit Price · Total (THB)</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="file" id="finv" accept=".xlsx,.xls,.csv"
+                style="font-size:12px;font-family:'Sarabun',sans-serif;color:var(--text2);background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;cursor:pointer;width:100%"
+                onchange="if(this.files[0])pickFile('inv',this.files[0])">
+            </div>
+            <div id="inv-name" class="file-name"></div>
+          </div>
+
+          <!-- Packing -->
+          <div class="upload-box" id="box-pack"
+            ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')"
+            ondrop="event.preventDefault();this.classList.remove('drag');pickFile('pack',event.dataTransfer.files[0])">
+            <div class="upload-box-title">② PACKING FILE</div>
+            <div class="upload-box-cols">VIN Number · Engine · Year · Fuel Type · CoO · Net WT · Gross WT</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="file" id="fpack" accept=".xlsx,.xls,.csv"
+                style="font-size:12px;font-family:'Sarabun',sans-serif;color:var(--text2);background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;cursor:pointer;width:100%"
+                onchange="if(this.files[0])pickFile('pack',this.files[0])">
+            </div>
+            <div id="pack-name" class="file-name"></div>
+          </div>
+
+        </div>
+
+        <div class="errbox" id="errbox"></div>
+
+        <button class="btn-gen" id="btn-gen" onclick="generate()">
+          ⚡ สร้าง Mapping อัตโนมัติ
+        </button>
+
+        <div class="stats-grid" id="stats-grid" style="display:none">
+          <div class="stat-item"><div class="stat-lbl">TOTAL</div><div class="stat-num" style="color:var(--orange)" id="s-total">0</div></div>
+          <div class="stat-item"><div class="stat-lbl">MATCHED</div><div class="stat-num" style="color:var(--green)" id="s-ok">0</div></div>
+          <div class="stat-item"><div class="stat-lbl">NOT MATCH</div><div class="stat-num" style="color:var(--red)" id="s-nm">0</div></div>
+        </div>
+
+        <div id="fv-section" style="margin-top:16px;display:none">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:2px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace">TRIUMPH FIXED VALUES</div>
+          <div class="fv-grid" id="fv-grid"></div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="right">
+        <div class="right-header">
+          <div class="right-dot" id="result-dot"></div>
+          <div style="font-size:13px;font-weight:700">ผลลัพธ์</div>
+          <div style="margin-left:auto;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="result-count"></div>
+        </div>
+        <div class="right-body" id="right-body">
+          <div class="right-empty">
+            <div class="right-empty-icon">📄</div>
+            <div class="right-empty-text">ยังไม่มีข้อมูล<br>อัพโหลดไฟล์ครบแล้ว<br>กด Generate Mapping</div>
+          </div>
+        </div>
+        <button class="btn-export" id="btn-export" onclick="openModal()">⬇ ดูตาราง & Export Excel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ TABLE MODAL ════════════════════ -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-hd-title">📋 ตาราง Mapping</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font-size:10px;color:var(--text3)">💡 คลิก cell เพื่อแก้ไข</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body"><div class="mtbl-wrap" id="modal-tbl"></div></div>
+    <div class="modal-ft">
+      <button class="btn-sm btn-cancel" onclick="closeModal()">ปิด</button>
+      <button class="btn-sm btn-dl" onclick="doExport()">⬇ Export Excel (.xlsx)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ ADD TEMPLATE MODAL ════════════════════ -->
+<div class="add-tmpl-modal" id="add-tmpl-modal">
+  <div class="at-box">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="font-size:14px;font-weight:700">➕ เพิ่ม Customer Template</div>
+      <button onclick="document.getElementById('add-tmpl-modal').classList.remove('open')" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div class="at-grid" id="at-grid"></div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0">
+      <button class="btn-sm btn-cancel" onclick="document.getElementById('add-tmpl-modal').classList.remove('open')">ยกเลิก</button>
+      <button class="btn-sm btn-dl" id="at-save-btn" onclick="saveTemplate()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// AUTH handled by early script above
+
+// ════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════
+const OUT_COLS=[
+  'InvoiceNo','Invdate','INV ITEM','ProductCode','Desc1(Eng)',
+  'Customs Product Code','productYear','NetWeight','GrossWeight',
+  'Quantity','Currency','Price','PriceForeign','packageAmount',
+  'packageUnit','shippingMark','QTY2','Product Attribute1',
+  'Product Attribute2','TariffCode','Country of purchase',
+  'Country of origin','Permit no.','Issue date','issue by (TAX ID)',
+  'permitPosition','permitPosition/','FREE ZONE','Import Tax Incentives ID',
+  'Desc3(Thai)','TariffSeq','TariffStat','ImportTariff','PrivilegeCode','Brand name'
+];
+const WIDE=new Set(['Desc1(Eng)','Permit no.','Import Tax Incentives ID','issue by (TAX ID)']);
+const FIXED={
+  Currency:'THB',packageAmount:'1',packageUnit:'CR',shippingMark:'TRIUMPH',QTY2:'',
+  'Country of purchase':'GB','Permit no.':'กศก.185 ที่ 5/2569','Issue date':'14/01/2026',
+  'issue by (TAX ID)':'0994000163011',permitPosition:'0','permitPosition/':'Y',
+  'FREE ZONE':'Y','Import Tax Incentives ID':'F5302028870002',
+  'Desc3(Thai)':'รถจักรยานยนต์',TariffSeq:'50001',TariffStat:'000',
+  ImportTariff:'9PART3',PrivilegeCode:'003','Brand name':'TRIUMPH BRAND'
+};
+const FV_SHOW=[
+  ['Currency','Currency'],['Pkg Unit','packageUnit'],['Shipping Mark','shippingMark'],
+  ['Country Purch.','Country of purchase'],['FREE ZONE','FREE ZONE'],['Permit No.','Permit no.'],
+  ['Import Tax ID','Import Tax Incentives ID'],['Issue Date','Issue date'],
+  ['Issued By','issue by (TAX ID)'],['Brand Name','Brand name'],
+  ['Desc3(Thai)','Desc3(Thai)'],['TariffSeq','TariffSeq'],
+];
+const AT_FIELDS=[
+  ['at-name','ชื่อ Template *','','1/-1'],
+  ['at-currency','Currency','THB',''],['at-pkg-amount','Package Amount','1',''],
+  ['at-pkg-unit','Package Unit','CR',''],['at-shipping-mark','Shipping Mark','TRIUMPH',''],
+  ['at-country-purch','Country of Purchase','GB',''],
+  ['at-permit-no','Permit No.','กศก.185 ที่ 5/2569','1/-1'],
+  ['at-issue-date','Issue Date','14/01/2026',''],['at-issued-by','Issued By (TAX ID)','0994000163011',''],
+  ['at-permit-pos','Permit Position','0',''],['at-permit-pos-slash','Permit Position/','Y',''],
+  ['at-free-zone','FREE ZONE','Y',''],
+  ['at-import-tax-id','Import Tax Incentives ID','F5302028870002','1/-1'],
+  ['at-desc3-thai','Desc3 (Thai)','รถจักรยานยนต์',''],['at-tariff-seq','TariffSeq','50001',''],
+  ['at-tariff-stat','TariffStat','000',''],['at-import-tariff','ImportTariff','9PART3',''],
+  ['at-privilege-code','PrivilegeCode','003',''],
+  ['at-brand-name','Brand Name','TRIUMPH BRAND','1/-1'],
+];
+
+// ════════════════════════════════════════════════════════════
+// SUPABASE
+// ════════════════════════════════════════════════════════════
+const SUPA_URL='https://sytgqjglcnsabcszbngg.supabase.co';
+const SUPA_KEY='sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
+var supa=null;
+try{ supa=window.supabase.createClient(SUPA_URL,SUPA_KEY); }catch(e){}
+
+async function loadTemplates(){
+  if(!supa)return;
+  try{
+    var res=await supa.from('customer_templates').select('*').order('name');
+    if(res.error)throw res.error;
+    var list=document.getElementById('tmpl-list');
+    var html='<div class="sb-item active" id="tmpl-triumph" onclick="selectTemplate(\'triumph\')"><span>🏍</span><span>Triumph</span></div>';
+    (res.data||[]).forEach(function(r){
+      html+='<div class="sb-item" onclick="selectTemplate(\''+r.id+'\',\''+r.name+'\','+JSON.stringify(r)+')"><span>🏢</span><span style="font-size:12px">'+r.name+'</span></div>';
+    });
+    list.innerHTML=html;
+  }catch(e){}
+}
+
+function selectTemplate(id,name,dbRow){
+  document.querySelectorAll('#tmpl-list .sb-item').forEach(function(el){el.classList.remove('active');});
+  var el=document.getElementById('tmpl-'+id);
+  if(el)el.classList.add('active');
+  if(id==='triumph'){
+    Object.assign(FIXED,{
+      Currency:'THB',packageAmount:'1',packageUnit:'CR',shippingMark:'TRIUMPH',
+      'Country of purchase':'GB','Permit no.':'กศก.185 ที่ 5/2569','Issue date':'14/01/2026',
+      'issue by (TAX ID)':'0994000163011',permitPosition:'0','permitPosition/':'Y',
+      'FREE ZONE':'Y','Import Tax Incentives ID':'F5302028870002',
+      'Desc3(Thai)':'รถจักรยานยนต์',TariffSeq:'50001',TariffStat:'000',
+      ImportTariff:'9PART3',PrivilegeCode:'003','Brand name':'TRIUMPH BRAND'
+    });
+    document.getElementById('active-badge').textContent='TRIUMPH';
+  } else if(dbRow){
+    var d=typeof dbRow==='string'?JSON.parse(dbRow):dbRow;
+    Object.assign(FIXED,{
+      Currency:d.currency||'THB',packageAmount:d.package_amount||'1',packageUnit:d.package_unit||'CR',
+      shippingMark:d.shipping_mark||'',QTY2:'',
+      'Country of purchase':d.country_of_purchase||'GB','Permit no.':d.permit_no||'',
+      'Issue date':d.issue_date||'','issue by (TAX ID)':d.issued_by_tax_id||'',
+      permitPosition:d.permit_position||'0','permitPosition/':d.permit_position_slash||'Y',
+      'FREE ZONE':d.free_zone||'Y','Import Tax Incentives ID':d.import_tax_id||'',
+      'Desc3(Thai)':d.desc3_thai||'',TariffSeq:d.tariff_seq||'',TariffStat:d.tariff_stat||'',
+      ImportTariff:d.import_tariff||'',PrivilegeCode:d.privilege_code||'','Brand name':d.brand_name||''
+    });
+    document.getElementById('active-badge').textContent=(name||'CUSTOM').toUpperCase();
+  }
+  renderFV();
+}
+
+async function saveTemplate(){
+  if(!supa){alert('Supabase ไม่ได้เชื่อมต่อ');return;}
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  var row={
+    name:g('at-name'),currency:g('at-currency'),package_amount:g('at-pkg-amount'),
+    package_unit:g('at-pkg-unit'),shipping_mark:g('at-shipping-mark'),
+    country_of_purchase:g('at-country-purch'),permit_no:g('at-permit-no'),
+    issue_date:g('at-issue-date'),issued_by_tax_id:g('at-issued-by'),
+    permit_position:g('at-permit-pos'),permit_position_slash:g('at-permit-pos-slash'),
+    free_zone:g('at-free-zone'),import_tax_id:g('at-import-tax-id'),
+    desc3_thai:g('at-desc3-thai'),tariff_seq:g('at-tariff-seq'),
+    tariff_stat:g('at-tariff-stat'),import_tariff:g('at-import-tariff'),
+    privilege_code:g('at-privilege-code'),brand_name:g('at-brand-name')
+  };
+  if(!row.name){alert('กรุณาใส่ชื่อ Template');return;}
+  var btn=document.getElementById('at-save-btn');
+  btn.textContent='กำลังบันทึก...';btn.disabled=true;
+  var res=await supa.from('customer_templates').insert([row]);
+  btn.textContent='บันทึก';btn.disabled=false;
+  if(res.error){alert('Error: '+res.error.message);return;}
+  document.getElementById('add-tmpl-modal').classList.remove('open');
+  loadTemplates();
+}
+
+// ════════════════════════════════════════════════════════════
+// STATE & FILE HANDLING
+// ════════════════════════════════════════════════════════════
+var ST={invFile:null,packFile:null,rows:[],editing:null};
+
+function pickFile(which,f){
+  if(!f)return;
+  if(which==='inv')ST.invFile=f;
+  else ST.packFile=f;
+  var box=document.getElementById('box-'+which);
+  var nm=document.getElementById(which+'-name');
+  if(box)box.classList.add('done');
+  if(nm)nm.innerHTML='<span style="color:#22c55e;font-weight:700">✅ '+f.name+'</span>';
+  updateGenBtn();
+}
+
+function clearFile(which){
+  if(which==='inv')ST.invFile=null;
+  else ST.packFile=null;
+  document.getElementById('box-'+which).classList.remove('done');
+  document.getElementById(which+'-name').innerHTML='';
+  updateGenBtn();
+}
+
+function updateGenBtn(){
+  var btn=document.getElementById('btn-gen');
+  var ready=ST.invFile&&ST.packFile;
+  btn.className='btn-gen'+(ready?' ready':'');
+}
+
+// ════════════════════════════════════════════════════════════
+// PARSER
+// ════════════════════════════════════════════════════════════
+function readBuf(f){return new Promise(function(ok,fail){var r=new FileReader();r.onload=function(e){ok(e.target.result);};r.onerror=fail;r.readAsArrayBuffer(f);});}
+function nk(s){return String(s||'').toLowerCase().replace(/[\s\-_.()\\/&#]/g,'');}
+function tr(v){return String(v==null?'':v).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();}
+function gv(row){
+  var keys=[].slice.call(arguments,1);
+  var n={};
+  Object.keys(row).forEach(function(k){n[nk(k)]=row[k];});
+  for(var i=0;i<keys.length;i++){var v=n[nk(keys[i])];if(v!=null&&String(v).trim())return tr(v);}
+  return '';
+}
+function parseWt(v){var n=parseFloat(String(v||'').replace(/[kKgGlLbB,\s]/g,''));return isNaN(n)?tr(v):String(parseFloat(n.toFixed(3)));}
+function tariff(c){var s=String(c||'').replace(/\D/g,'');if(s==='8711500000')return '87115090';if(s==='8711400000')return '87114090';return s?s.slice(0,8):'';}
+function parseFN(name){
+  var s=name.replace(/\.[^.]+$/,'');
+  var dm=s.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/);
+  var date=dm?dm[1]+'/'+dm[2]+'/'+dm[3]:'';
+  var no='';
+  var parts=s.replace(/^INV\s*/i,'').split(/[\s\-_]+/);
+  for(var i=0;i<parts.length;i++){if(parts[i].length>=5&&/[A-Za-z]/.test(parts[i])&&/\d/.test(parts[i])&&!/^UK\d+$/i.test(parts[i])){no=parts[i];break;}}
+  return {no:no,date:date};
+}
+function parseXL(buf){
+  var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:false});
+  var ws=wb.Sheets[wb.SheetNames[0]];
+  var raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  var hNo='',hDate='';
+  for(var i=0;i<Math.min(15,raw.length);i++){
+    var line=raw[i].map(function(c){return String(c||'');}).join(' ');
+    if(!hNo){var m=line.match(/(?:Invoice|Inv)[^0-9A-Z]*([A-Z0-9]{5,20})/i);if(m)hNo=m[1];}
+    if(!hDate){var m2=line.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/);if(m2)hDate=m2[1]+'/'+m2[2]+'/'+m2[3];}
+  }
+  var rows=XLSX.utils.sheet_to_json(ws,{raw:false,defval:''})
+    .map(function(r){var o={};Object.keys(r).forEach(function(k){o[tr(k)]=tr(r[k]);});return o;})
+    .filter(function(r){
+      return Object.values(r).filter(function(v){return String(v).trim();}).length>=3
+        &&!/^(total|grand total|subtotal|รวม)$/i.test(String(Object.values(r)[0]||'').trim());
+    });
+  return {rows:rows,hNo:hNo,hDate:hDate};
+}
+
+// ════════════════════════════════════════════════════════════
+// GENERATE
+// ════════════════════════════════════════════════════════════
+async function generate(){
+  var errbox=document.getElementById('errbox');
+  errbox.style.display='none';
+  if(!ST.invFile||!ST.packFile){
+    errbox.textContent='❌ กรุณาเลือกไฟล์ให้ครบทั้ง Invoice และ Packing';
+    errbox.style.display='block';
+    return;
+  }
+  if(typeof XLSX==='undefined'){
+    errbox.textContent='❌ XLSX library ยังโหลดไม่เสร็จ กรุณารอสักครู่แล้วลองใหม่';
+    errbox.style.display='block';
+    return;
+  }
+  var btn=document.getElementById('btn-gen');
+  btn.textContent='⏳ กำลังประมวลผล...';
+  btn.className='btn-gen';
+  try{
+    var bufs=await Promise.all([readBuf(ST.invFile),readBuf(ST.packFile)]);
+    var inv=parseXL(bufs[0]),pack=parseXL(bufs[1]);
+    if(!inv.rows.length)throw new Error('Invoice ไม่มีข้อมูล');
+    if(!pack.rows.length)throw new Error('Packing ไม่มีข้อมูล');
+
+    var byVin={},byEng={};
+    pack.rows.forEach(function(r){
+      var vin=gv(r,'VIN Number','VIN','Vin Number').toUpperCase();
+      var eng=gv(r,'Engine','Engine No','Engine Number').toUpperCase();
+      if(vin){byVin[vin]=byVin[vin]||[];byVin[vin].push(r);}
+      if(eng){byEng[eng]=byEng[eng]||[];byEng[eng].push(r);}
+    });
+
+    var fn=parseFN(ST.invFile.name);
+    var rNo=inv.hNo||fn.no, rDate=inv.hDate||fn.date;
+
+    ST.rows=inv.rows.map(function(row,i){
+      var product=gv(row,'Product','ProductCode','Product Code');
+      var desc   =gv(row,'Description','Model Description','Model','Desc');
+      var vin    =gv(row,'VIN Number','VIN','Vin Number').toUpperCase();
+      var eng    =gv(row,'Engine','Engine No','Engine Number').toUpperCase();
+      var cc     =gv(row,'Engine Capacity','Engine CC','CC','Capacity');
+      var comm   =gv(row,'Commodity Code','Commodity','HS Code');
+      var qty    =gv(row,'Qty','QTY','Quantity','Qty.');
+      var total  =gv(row,'Total (THB)','Total THB','Amount (THB)','Total','Amount');
+      var invNo  =gv(row,'InvoiceNo','Invoice No','Invoice Number','Inv No')||rNo;
+      var invDate=gv(row,'Date','Invoice Date','Inv Date','Invdate')||rDate;
+
+      var pk=null,st='NOT MATCH';
+      if(vin&&byVin[vin]){pk=byVin[vin][0];st=byVin[vin].length>1?'DUPLICATE':'OK';}
+      else if(eng&&byEng[eng]){pk=byEng[eng][0];st=byEng[eng].length>1?'DUPLICATE (Engine)':'OK (Engine)';}
+
+      var fuel=pk?gv(pk,'Fuel Type','Fuel','FuelType'):'';
+      var year=pk?gv(pk,'Year','Model Year'):'';
+      var coo =pk?gv(pk,'CoO','Country of Origin','COO','Origin'):'';
+      var pNwt=pk?parseWt(gv(pk,'Net WT','Net Weight','NetWT')):parseWt(gv(row,'Net WT','Net Weight'));
+      var pGwt=pk?parseWt(gv(pk,'Gross WT','Gross Weight','GrossWT')):parseWt(gv(row,'Grs WT','Gross WT','Gross Weight'));
+
+      var r={_st:st};
+      r['InvoiceNo']=invNo;r['Invdate']=invDate;r['INV ITEM']=String(i+1);
+      r['ProductCode']=product;
+      r['Desc1(Eng)']=product+' Model '+desc+'\\r\\nVIN NO. '+vin+' Engine NO. '+eng+' Engine Capacity '+cc+' CC';
+      r['Customs Product Code']=fuel;r['productYear']=year;
+      r['NetWeight']=pNwt;r['GrossWeight']=pGwt;
+      r['Quantity']=qty;r['Currency']=FIXED.Currency;
+      r['Price']=total;r['PriceForeign']=total;
+      r['packageAmount']=FIXED.packageAmount;r['packageUnit']=FIXED.packageUnit;
+      r['shippingMark']=FIXED.shippingMark;r['QTY2']=FIXED.QTY2;
+      r['Product Attribute1']=vin;r['Product Attribute2']=eng;
+      r['TariffCode']=tariff(comm);
+      r['Country of purchase']=FIXED['Country of purchase'];
+      r['Country of origin']=coo;
+      r['Permit no.']=FIXED['Permit no.'];r['Issue date']=FIXED['Issue date'];
+      r['issue by (TAX ID)']=FIXED['issue by (TAX ID)'];
+      r['permitPosition']=FIXED.permitPosition;r['permitPosition/']=FIXED['permitPosition/'];
+      r['FREE ZONE']=FIXED['FREE ZONE'];r['Import Tax Incentives ID']=FIXED['Import Tax Incentives ID'];
+      r['Desc3(Thai)']=FIXED['Desc3(Thai)'];r['TariffSeq']=FIXED.TariffSeq;
+      r['TariffStat']=FIXED.TariffStat;r['ImportTariff']=FIXED.ImportTariff;
+      r['PrivilegeCode']=FIXED.PrivilegeCode;r['Brand name']=FIXED['Brand name'];
+      return r;
+    });
+
+    doExport();
+    renderRight();
+    var ok=ST.rows.filter(function(r){return r._st==='OK'||r._st==='OK (Engine)';}).length;
+    var nm=ST.rows.filter(function(r){return r._st==='NOT MATCH';}).length;
+    document.getElementById('s-total').textContent=ST.rows.length;
+    document.getElementById('s-ok').textContent=ok;
+    document.getElementById('s-nm').textContent=nm;
+    document.getElementById('stats-grid').style.display='grid';
+    document.getElementById('fv-section').style.display='';
+
+  }catch(e){
+    errbox.textContent='❌ '+(e.message||String(e));
+    errbox.style.display='block';
+  }
+  btn.textContent='⚡ สร้าง Mapping อัตโนมัติ';
+  updateGenBtn();
+}
+
+// ════════════════════════════════════════════════════════════
+// RIGHT PANEL
+// ════════════════════════════════════════════════════════════
+function renderRight(){
+  document.getElementById('result-dot').classList.add('on');
+  document.getElementById('result-count').textContent=ST.rows.length+' rows';
+  var html='';
+  ST.rows.forEach(function(row,i){
+    var st=row._st;
+    var cls=st==='NOT MATCH'?'nm':(st.includes('DUPLICATE')?'dup':'ok');
+    var badge=st==='OK'?'<span class="badge badge-ok">✓ MATCHED</span>':
+               st==='OK (Engine)'?'<span class="badge badge-eng">✓ ENGINE</span>':
+               st==='NOT MATCH'?'<span class="badge badge-nm">✗ NOT MATCH</span>':
+               '<span class="badge badge-dup">⚠ DUPLICATE</span>';
+    html+='<div class="row-card '+cls+'" onclick="openModal()">';
+    html+='<div class="rc-top"><span class="rc-num">INV ITEM '+row['INV ITEM']+'</span>'+badge+'</div>';
+    html+='<div class="rc-vin">VIN: '+(row['Product Attribute1']||'—')+'</div>';
+    html+='<div class="rc-desc">'+(row['ProductCode']||'')+'</div>';
+    html+='</div>';
+  });
+  document.getElementById('right-body').innerHTML=html;
+  var exp=document.getElementById('btn-export');
+  exp.classList.add('show');
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL TABLE
+// ════════════════════════════════════════════════════════════
+function openModal(){
+  buildTable();
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){
+  if(ST.editing)commitEdit();
+  document.getElementById('modal-bg').classList.remove('open');
+}
+function buildTable(){
+  var html='<table class="mtbl"><thead><tr><th class="scol">STATUS</th>';
+  OUT_COLS.forEach(function(c){html+='<th style="'+(WIDE.has(c)?'min-width:200px':'')+'">'+(c)+'</th>';});
+  html+='</tr></thead><tbody>';
+  ST.rows.forEach(function(row,ri){
+    var st=row._st;
+    var cls=st==='NOT MATCH'?'row-nm':(st.includes('DUPLICATE')?'row-dup':'');
+    var badge=st==='OK'?'<span class="badge badge-ok">✓ MATCHED</span>':
+               st==='OK (Engine)'?'<span class="badge badge-eng">✓ ENGINE</span>':
+               st==='NOT MATCH'?'<span class="badge badge-nm">✗ NOT MATCH</span>':
+               '<span class="badge badge-dup">⚠ DUP</span>';
+    html+='<tr class="'+cls+'"><td class="scol">'+badge+'</td>';
+    OUT_COLS.forEach(function(col){
+      var val=String(row[col]||'');
+      var w=WIDE.has(col);
+      var dcls='cv'+(w?' wide':'')+(val?'':' empty');
+      var dcontent=val?esc(val):'&mdash;';
+      html+='<td><div class="'+dcls+'" data-ri="'+ri+'" data-col="'+encodeCol(col)+'" onclick="cellClick(this)">'+dcontent+'</div></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('modal-tbl').innerHTML=html;
+}
+function startEdit(ri,col,div){
+  if(ST.editing)commitEdit();
+  var val=String(ST.rows[ri][col]||'');
+  var w=WIDE.has(col);
+  var ta=document.createElement('textarea');
+  ta.className='cedita';ta.value=val;ta.rows=w?3:2;
+  ST.editing={ri:ri,col:col,div:div};
+  div.innerHTML='';div.appendChild(ta);ta.focus();ta.select();
+  ta.addEventListener('blur',commitEdit);
+  ta.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitEdit();}
+    if(e.key==='Escape'){ST.editing=null;div.innerHTML=val?esc(val):'—';}
+  });
+}
+function commitEdit(){
+  if(!ST.editing)return;
+  var ta=ST.editing.div.querySelector('textarea');
+  if(ta){var nv=ta.value;ST.rows[ST.editing.ri][ST.editing.col]=nv;ST.editing.div.innerHTML=nv?esc(nv):'—';}
+  ST.editing=null;
+}
+
+// ════════════════════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════════════════════
+function doExport(){
+  if(!ST.rows.length)return;
+  var data=ST.rows.map(function(row){
+    var o={};OUT_COLS.forEach(function(c){o[c]=row[c]||'';});return o;
+  });
+  var ws=XLSX.utils.json_to_sheet(data,{header:OUT_COLS});
+  ws['!cols']=OUT_COLS.map(function(c){return{wch:Math.min(Math.max(c.length+4,14),50)};});
+  var d1c=OUT_COLS.indexOf('Desc1(Eng)');
+  ST.rows.forEach(function(row,ri){
+    var addr=XLSX.utils.encode_cell({r:ri+1,c:d1c});
+    ws[addr]={t:'s',v:String(row['Desc1(Eng)']||'')};
+  });
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'MAPPING');
+  var today=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  var fn=parseFN(ST.invFile?ST.invFile.name:'');
+  XLSX.writeFile(wb,'MAPPING_'+(fn.no||today)+'_'+today+'.xlsx');
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+function renderFV(){
+  var g=document.getElementById('fv-grid');g.innerHTML='';
+  FV_SHOW.forEach(function(pair){
+    g.innerHTML+='<div class="fv-item"><div class="fv-lbl">'+pair[0]+'</div><div class="fv-val">'+(FIXED[pair[1]]||'')+'</div></div>';
+  });
+}
+
+function buildATGrid(){
+  var g=document.getElementById('at-grid');g.innerHTML='';
+  AT_FIELDS.forEach(function(f){
+    var col=f[3]?'grid-column:'+f[3]+';':'';
+    g.innerHTML+='<div style="'+col+'"><label class="at-lbl">'+f[1]+'</label><input id="'+f[0]+'" class="at-inp" value="'+f[2]+'" placeholder="'+f[1]+'"></div>';
+  });
+}
+
+function initApp(){
+  renderFV();
+  buildATGrid();
+  try{loadTemplates();}catch(e){}
+}
+
+function encodeCol(col){return col.replace(/&/g,'__A__').replace(/"/g,'__Q__');}
+function decodeCol(col){return col.replace(/__A__/g,'&').replace(/__Q__/g,'"');}
+function cellClick(div){
+  var ri=parseInt(div.getAttribute('data-ri'));
+  var col=decodeCol(div.getAttribute('data-col'));
+  startEdit(ri,col,div);
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
