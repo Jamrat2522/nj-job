@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NJ Logistics — Invoice System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --navy:    #0b1929;
+  --navy2:   #122035;
+  --navy3:   #1a3055;
+  --teal:    #00b4cc;
+  --teal2:   #7de0ec;
+  --gold:    #f5a623;
+  --white:   #ffffff;
+  --light:   #f0f6fb;
+  --border:  #d0e2ef;
+  --text:    #1a2a3a;
+  --muted:   #6a8aaa;
+  --success: #22c55e;
+  --danger:  #ef4444;
+  --warn:    #f59e0b;
+  --card:    #ffffff;
+  --sidebar: #0f2640;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sarabun',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--navy2)}
+::-webkit-scrollbar-thumb{background:var(--navy3);border-radius:3px}
+
+/* ═══════════════════════ LOGIN PAGE ═══════════════════════ */
+#loginPage {
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: radial-gradient(ellipse at 30% 50%, #0e2a4a 0%, #0b1929 60%);
+  position:relative; overflow:hidden;
+}
+.login-bg-lines {
+  position:absolute; inset:0; pointer-events:none; overflow:hidden;
+}
+.login-bg-lines::before, .login-bg-lines::after {
+  content:''; position:absolute; border-radius:50%;
+  border:1px solid rgba(0,180,204,.08);
+}
+.login-bg-lines::before{ width:600px;height:600px;top:-100px;left:-200px; }
+.login-bg-lines::after { width:400px;height:400px;bottom:-80px;right:-100px; }
+
+.login-card {
+  background: rgba(18,32,53,.95);
+  border:1px solid rgba(0,180,204,.2);
+  border-radius:20px;
+  padding:48px 44px;
+  width:100%; max-width:420px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(0,180,204,.05);
+  position:relative; z-index:1;
+  animation: fadeUp .5s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.login-logo {
+  display:flex; align-items:center; gap:14px; margin-bottom:36px;
+}
+.login-logo-icon {
+  width:52px;height:52px;
+  background:linear-gradient(135deg,var(--navy3),var(--teal));
+  border-radius:14px; display:flex; align-items:center; justify-content:center;
+  font-size:24px; box-shadow:0 4px 16px rgba(0,180,204,.3);
+}
+.login-logo-text h1{ color:var(--white); font-size:1.1rem; font-weight:700; letter-spacing:.3px; }
+.login-logo-text p { color:var(--teal2); font-size:.75rem; margin-top:2px; }
+
+.login-title { color:var(--white); font-size:1.5rem; font-weight:700; margin-bottom:6px; }
+.login-sub   { color:var(--muted); font-size:.85rem; margin-bottom:32px; }
+
+.form-group { margin-bottom:18px; }
+.form-group label { display:block; color:var(--teal2); font-size:.78rem; font-weight:600; margin-bottom:7px; letter-spacing:.4px; text-transform:uppercase; }
+.form-group input {
+  width:100%; padding:13px 16px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(0,180,204,.2);
+  border-radius:10px; color:var(--white);
+  font-size:.95rem; font-family:'Sarabun',sans-serif;
+  transition:all .2s; outline:none;
+}
+.form-group input::placeholder{ color:rgba(255,255,255,.25); }
+.form-group input:focus{ border-color:var(--teal); background:rgba(0,180,204,.07); box-shadow:0 0 0 3px rgba(0,180,204,.1); }
+
+.login-btn {
+  width:100%; padding:14px;
+  background:linear-gradient(135deg,var(--navy3) 0%,var(--teal) 100%);
+  color:white; border:none; border-radius:10px;
+  font-size:1rem; font-weight:600; font-family:'Sarabun',sans-serif;
+  cursor:pointer; transition:all .2s; margin-top:8px;
+  letter-spacing:.3px;
+}
+.login-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,180,204,.35); }
+.login-btn:active{ transform:translateY(0); }
+.login-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+.login-error {
+  background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);
+  border-radius:8px; padding:10px 14px; color:#fca5a5;
+  font-size:.83rem; margin-top:14px; display:none;
+}
+
+/* ═══════════════════════ APP LAYOUT ═══════════════════════ */
+#appPage { display:none; min-height:100vh; }
+
+/* Sidebar */
+.sidebar {
+  width:240px; position:fixed; top:0; left:0; bottom:0;
+  background:var(--sidebar);
+  border-right:1px solid rgba(0,180,204,.12);
+  display:flex; flex-direction:column; z-index:100;
+}
+.sidebar-logo {
+  padding:22px 20px 18px;
+  border-bottom:1px solid rgba(0,180,204,.1);
+  display:flex; align-items:center; gap:12px;
+}
+.sidebar-logo-icon {
+  width:38px;height:38px;
+  background:linear-gradient(135deg,var(--navy3),var(--teal));
+  border-radius:10px; display:flex; align-items:center; justify-content:center;
+  font-size:18px; flex-shrink:0;
+}
+.sidebar-logo-text h2{ color:var(--white); font-size:.9rem; font-weight:700; }
+.sidebar-logo-text p { color:var(--teal2); font-size:.68rem; margin-top:1px; }
+
+.sidebar-user {
+  padding:14px 16px;
+  margin:12px;
+  background:rgba(0,180,204,.07);
+  border-radius:10px;
+  border:1px solid rgba(0,180,204,.12);
+}
+.sidebar-user-name { color:var(--white); font-size:.85rem; font-weight:600; }
+.sidebar-user-role {
+  display:inline-block; margin-top:4px; padding:2px 8px;
+  border-radius:4px; font-size:.7rem; font-weight:600;
+}
+.role-admin { background:rgba(245,166,35,.15); color:var(--gold); }
+.role-user  { background:rgba(0,180,204,.15);  color:var(--teal2); }
+
+.sidebar-nav { flex:1; padding:8px 10px; overflow-y:auto; }
+.nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:11px 14px; border-radius:8px; cursor:pointer;
+  color:rgba(255,255,255,.55); font-size:.875rem; font-weight:500;
+  transition:all .15s; margin-bottom:2px; user-select:none;
+}
+.nav-item:hover { background:rgba(0,180,204,.08); color:rgba(255,255,255,.9); }
+.nav-item.active { background:rgba(0,180,204,.15); color:var(--teal2); }
+.nav-item .nav-icon { width:18px; text-align:center; font-size:16px; flex-shrink:0; }
+.nav-badge {
+  margin-left:auto; background:var(--teal); color:var(--navy);
+  border-radius:10px; padding:1px 7px; font-size:.67rem; font-weight:700;
+}
+
+.sidebar-footer {
+  padding:14px; border-top:1px solid rgba(0,180,204,.1);
+}
+.logout-btn {
+  width:100%; padding:10px; background:rgba(239,68,68,.1);
+  border:1px solid rgba(239,68,68,.2); color:#fca5a5;
+  border-radius:8px; cursor:pointer; font-size:.83rem;
+  font-family:'Sarabun',sans-serif; font-weight:500; transition:all .2s;
+}
+.logout-btn:hover{ background:rgba(239,68,68,.2); }
+
+/* Main content */
+.main-content {
+  margin-left:240px; min-height:100vh;
+  background: #f5f7fb;
+}
+.topbar {
+  background:white; padding:16px 32px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:12px;
+  position:sticky; top:0; z-index:50;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.topbar h2 { font-size:1.1rem; font-weight:700; color:var(--navy2); flex:1; }
+.topbar-time { font-size:.78rem; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+
+.content-area { padding:28px 32px; }
+
+/* ─── CARDS ─── */
+.card {
+  background:white; border-radius:14px; padding:24px 28px;
+  box-shadow:0 2px 12px rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.05);
+  margin-bottom:20px;
+}
+.card-title {
+  font-size:.95rem; font-weight:700; color:var(--navy2);
+  margin-bottom:18px; display:flex; align-items:center; gap:8px;
+}
+.card-title span { font-size:1.1rem; }
+
+/* ─── STAT CARDS ─── */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+.stat-card {
+  background:white; border-radius:12px; padding:20px 22px;
+  box-shadow:0 2px 8px rgba(0,0,0,.05); border:1px solid rgba(0,0,0,.05);
+  border-left:4px solid var(--accent,var(--teal));
+}
+.stat-label { font-size:.75rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.stat-val   { font-size:1.7rem; font-weight:700; color:var(--navy2); margin:6px 0 2px; font-family:'IBM Plex Mono',monospace; }
+.stat-sub   { font-size:.75rem; color:var(--muted); }
+
+/* ─── UPLOAD AREA ─── */
+.upload-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+.dropzone {
+  border:2px dashed var(--border); border-radius:12px;
+  padding:30px 20px; text-align:center; cursor:pointer;
+  transition:all .2s; background:var(--light); position:relative;
+}
+.dropzone:hover,.dropzone.drag-over{ border-color:var(--teal); background:#e5f8fb; }
+.dropzone.has-file{ border-color:var(--success); background:#f0fdf4; }
+.dropzone input{ position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }
+.dz-icon{ font-size:2.2rem; margin-bottom:10px; }
+.dz-title{ font-size:.9rem; font-weight:600; color:var(--navy2); margin-bottom:4px; }
+.dz-sub{ font-size:.75rem; color:var(--muted); }
+.dz-file{ margin-top:10px; font-size:.75rem; color:var(--success); font-weight:600; font-family:'IBM Plex Mono',monospace; }
+
+/* ─── PROCESS BTN ─── */
+.process-btn {
+  width:100%; padding:15px;
+  background:linear-gradient(135deg,var(--navy3),var(--teal));
+  color:white; border:none; border-radius:11px;
+  font-size:1rem; font-weight:600; font-family:'Sarabun',sans-serif;
+  cursor:pointer; transition:all .2s; letter-spacing:.3px;
+}
+.process-btn:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,180,204,.3); }
+.process-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+/* ─── PROGRESS ─── */
+.progress-steps{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.p-step{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; border-radius:8px; background:#f8fafc;
+  font-size:.85rem; color:#94a3b8; transition:all .3s;
+}
+.p-step.active{ background:#e0f7fa; color:var(--navy2); font-weight:500; }
+.p-step.done  { background:#f0fdf4; color:#15803d; }
+.p-step.error { background:#fef2f2; color:var(--danger); }
+.p-icon{ width:22px;text-align:center;font-size:1rem;flex-shrink:0; }
+.spinner{ width:16px;height:16px;border:2px solid #b2ebf2;border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0; }
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── RESULT ─── */
+.result-fields{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
+.rf{
+  background:var(--light); border-radius:9px; padding:11px 13px;
+  border-left:3px solid var(--teal);
+}
+.rf-label{ font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
+.rf-val{ font-size:.88rem; font-weight:700; color:var(--navy2); font-family:'IBM Plex Mono',monospace; }
+
+/* ─── TABLES ─── */
+.data-table{ width:100%; border-collapse:collapse; font-size:.83rem; }
+.data-table th{
+  background:var(--navy2); color:white;
+  padding:10px 12px; text-align:left; font-weight:500; font-size:.78rem;
+  letter-spacing:.2px;
+}
+.data-table th:first-child{ border-radius:8px 0 0 0; }
+.data-table th:last-child { border-radius:0 8px 0 0; }
+.data-table td{ padding:9px 12px; border-bottom:1px solid #edf2f7; color:var(--text); }
+.data-table tr:hover td{ background:#f8fafc; }
+.data-table tr:last-child td{ border-bottom:none; }
+
+.tag{
+  display:inline-block; padding:2px 8px; border-radius:5px;
+  font-size:.7rem; font-weight:600;
+}
+.tag-svc{ background:#dbeeff; color:#1a5dad; }
+.tag-adv{ background:#fff3d6; color:#9a5c00; }
+.tag-admin{ background:rgba(245,166,35,.15); color:#b45309; }
+.tag-user { background:rgba(0,180,204,.15); color:#0369a1; }
+
+/* ─── TOTALS ─── */
+.totals-strip{
+  display:flex; border-radius:10px; overflow:hidden;
+  border:1px solid var(--border); margin:16px 0;
+}
+.tot{ flex:1; padding:12px 8px; text-align:center; background:white; border-right:1px solid var(--border); }
+.tot:last-child{ border-right:none; }
+.tot.grand{ background:var(--navy2); }
+.tot-label{ font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; }
+.tot.grand .tot-label{ color:var(--teal2); }
+.tot-val{ font-size:.92rem; font-weight:700; color:var(--navy2); font-family:'IBM Plex Mono',monospace; margin-top:3px; }
+.tot.grand .tot-val{ color:var(--gold); }
+
+/* ─── DOWNLOAD BTN ─── */
+.dl-btn{
+  width:100%; padding:18px; background:var(--success);
+  color:white; border:none; border-radius:14px;
+  font-size:1.15rem; font-weight:700; font-family:'Sarabun',sans-serif;
+  cursor:pointer; transition:all .2s;
+  box-shadow:0 6px 24px rgba(34,197,94,.35);
+  animation: pulse-green 2s infinite;
+}
+.dl-btn:hover{ background:#16a34a; transform:translateY(-2px); box-shadow:0 10px 30px rgba(34,197,94,.45); }
+@keyframes pulse-green {
+  0%,100%{ box-shadow:0 6px 24px rgba(34,197,94,.35); }
+  50%    { box-shadow:0 6px 32px rgba(34,197,94,.6); }
+}
+
+/* ─── HISTORY TABLE ─── */
+.history-actions{ display:flex; gap:10px; margin-bottom:16px; align-items:center; }
+.search-input{
+  flex:1; padding:9px 14px;
+  border:1px solid var(--border); border-radius:8px;
+  font-size:.875rem; font-family:'Sarabun',sans-serif;
+  outline:none; transition:all .2s;
+}
+.search-input:focus{ border-color:var(--teal); box-shadow:0 0 0 3px rgba(0,180,204,.1); }
+.btn-sm{
+  padding:9px 16px; border-radius:8px; font-size:.8rem; font-weight:600;
+  cursor:pointer; border:none; font-family:'Sarabun',sans-serif; transition:all .2s;
+}
+.btn-outline{ background:white; border:1px solid var(--border); color:var(--navy2); }
+.btn-outline:hover{ border-color:var(--teal); color:var(--teal); }
+.btn-primary{ background:var(--navy2); color:white; }
+.btn-primary:hover{ background:var(--navy3); }
+
+/* ─── USER MANAGEMENT ─── */
+.user-form-grid{ display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:12px; align-items:end; margin-bottom:20px; }
+.form-field label{ display:block; font-size:.75rem; color:var(--muted); font-weight:600; margin-bottom:5px; text-transform:uppercase; letter-spacing:.3px; }
+.form-field input, .form-field select{
+  width:100%; padding:9px 12px;
+  border:1px solid var(--border); border-radius:8px;
+  font-size:.875rem; font-family:'Sarabun',sans-serif;
+  outline:none; transition:all .2s;
+}
+.form-field input:focus, .form-field select:focus{ border-color:var(--teal); box-shadow:0 0 0 3px rgba(0,180,204,.1); }
+
+.btn-danger{ background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2); color:var(--danger); }
+.btn-danger:hover{ background:rgba(239,68,68,.2); }
+
+/* ─── EMPTY STATE ─── */
+.empty-state{ text-align:center; padding:48px 20px; color:var(--muted); }
+.empty-state .icon{ font-size:3rem; margin-bottom:12px; opacity:.5; }
+.empty-state p{ font-size:.9rem; }
+
+/* ─── TOAST ─── */
+#toast{
+  position:fixed; bottom:24px; right:24px; z-index:999;
+  background:var(--navy2); color:white; padding:12px 20px;
+  border-radius:10px; font-size:.85rem; font-weight:500;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);
+  transform:translateY(80px); opacity:0;
+  transition:all .3s; pointer-events:none;
+  border-left:4px solid var(--teal);
+}
+#toast.show{ transform:translateY(0); opacity:1; }
+#toast.error{ border-left-color:var(--danger); }
+#toast.success{ border-left-color:var(--success); }
+
+.hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN PAGE ══════════════ -->
+<div id="loginPage">
+  <div class="login-bg-lines"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">📦</div>
+      <div class="login-logo-text">
+        <h1>N.J. LOGISTICS</h1>
+        <p>Invoice Management System</p>
+      </div>
+    </div>
+    <div class="login-title">เข้าสู่ระบบ</div>
+    <div class="login-sub">กรอกชื่อผู้ใช้และรหัสผ่านเพื่อดำเนินการต่อ</div>
+    <div class="form-group">
+      <label>ชื่อผู้ใช้ (Username)</label>
+      <input type="text" id="loginUser" placeholder="กรอก username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>รหัสผ่าน (Password)</label>
+      <div style="position:relative">
+        <input type="password" id="loginPass" placeholder="กรอก password" autocomplete="current-password" style="padding-right:44px">
+        <button type="button" onclick="togglePass('loginPass','eyeLogin')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,.4);font-size:1.1rem;padding:4px;transition:color .2s" onmouseover="this.style.color='rgba(255,255,255,.8)'" onmouseout="this.style.color='rgba(255,255,255,.4)'" id="eyeLogin">👁️</button>
+      </div>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ══════════════ APP PAGE ══════════════ -->
+<div id="appPage">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">📦</div>
+      <div class="sidebar-logo-text">
+        <h2>N.J. Logistics</h2>
+        <p>Invoice System</p>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebarUsername">-</div>
+      <span class="sidebar-user-role" id="sidebarRole">-</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item" onclick="showPage('upload')" id="nav-upload">
+        <span class="nav-icon">📤</span> นำเข้า PDF
+      </div>
+      <div class="nav-item" onclick="showPage('history')" id="nav-history">
+        <span class="nav-icon">📋</span> ประวัติ Invoice
+        <span class="nav-badge" id="historyBadge">0</span>
+      </div>
+      <div class="nav-item hidden" onclick="showPage('users')" id="nav-users">
+        <span class="nav-icon">👥</span> จัดการ Users
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" onclick="doLogout()">🚪 ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <h2 id="pageTitle">Dashboard</h2>
+      <span class="topbar-time" id="topbarTime"></span>
+    </div>
+    <div class="content-area">
+
+      <!-- ── DASHBOARD ── -->
+      <div id="page-dashboard">
+        <div class="stats-row" id="statsRow">
+          <div class="stat-card" style="--accent:#00b4cc">
+            <div class="stat-label">Invoice ทั้งหมด</div>
+            <div class="stat-val" id="statTotal">0</div>
+            <div class="stat-sub">รายการที่บันทึกแล้ว</div>
+          </div>
+          <div class="stat-card" style="--accent:#22c55e">
+            <div class="stat-label">ยอดรวม (บาท)</div>
+            <div class="stat-val" id="statAmount">0</div>
+            <div class="stat-sub">Grand Total ทั้งหมด</div>
+          </div>
+          <div class="stat-card" style="--accent:#f5a623">
+            <div class="stat-label">เดือนนี้</div>
+            <div class="stat-val" id="statMonth">0</div>
+            <div class="stat-sub">Invoice เดือนนี้</div>
+          </div>
+          <div class="stat-card" style="--accent:#8b5cf6">
+            <div class="stat-label">Advance</div>
+            <div class="stat-val" id="statAdvance">0</div>
+            <div class="stat-sub">ยอด Advance รวม</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span>📋</span> Invoice ล่าสุด</div>
+          <div id="recentTable"></div>
+        </div>
+      </div>
+
+      <!-- ── UPLOAD ── -->
+      <div id="page-upload" class="hidden">
+        <div class="card">
+          <div class="card-title"><span>📤</span> อัปโหลดไฟล์</div>
+          <div class="upload-grid">
+            <div class="dropzone" id="pdfZone">
+              <input type="file" accept=".pdf" id="pdfInput" multiple>
+              <div class="dz-icon">📄</div>
+              <div class="dz-title">PDF Invoice <span style="font-size:.72rem;color:#94a3b8;font-weight:400">(เลือกได้หลายใบ)</span></div>
+              <div class="dz-sub">ลากวางหรือคลิกเลือก .pdf หลายไฟล์พร้อมกัน</div>
+              <div class="dz-file" id="pdfName"></div>
+            </div>
+            <div class="dropzone" id="xlsxZone">
+              <input type="file" accept=".xlsx,.xls" id="xlsxInput">
+              <div class="dz-icon">📊</div>
+              <div class="dz-title">Excel Template</div>
+              <div class="dz-sub">ลากวางหรือคลิกเลือก .xlsx</div>
+              <div class="dz-file" id="xlsxName"></div>
+            </div>
+          </div>
+          <button class="process-btn" id="processBtn" disabled onclick="processFiles()">⚡ ดึงข้อมูล PDF → Excel</button>
+          <div id="progressWrap" class="hidden">
+            <div class="progress-steps">
+              <div class="p-step" id="ps1"><span class="p-icon">📄</span> อ่านไฟล์ PDF…</div>
+              <div class="p-step" id="ps2"><span class="p-icon">🔍</span> วิเคราะห์ข้อมูล Invoice…</div>
+              <div class="p-step" id="ps3"><span class="p-icon">📊</span> โหลด Excel Template…</div>
+              <div class="p-step" id="ps4"><span class="p-icon">✏️</span> กรอกข้อมูลลง Excel…</div>
+              <div class="p-step" id="ps5"><span class="p-icon">💾</span> บันทึกลง Supabase…</div>
+              <div class="p-step" id="ps6"><span class="p-icon">✅</span> เสร็จสิ้น</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="card hidden" id="resultCard">
+          <div class="card-title"><span>✅</span> ข้อมูลที่ดึงได้</div>
+          <div class="result-fields" id="resultFields"></div>
+          <table class="data-table" style="margin-bottom:12px">
+            <thead>
+              <tr><th>#</th><th>รายการ</th><th>ประเภท</th><th style="text-align:right">จำนวนเงิน (฿)</th></tr>
+            </thead>
+            <tbody id="resultItems"></tbody>
+          </table>
+          <div class="totals-strip" id="resultTotals"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="dl-btn" onclick="downloadExcel()" id="dlBtn" style="padding:18px;font-size:1.15rem;border-radius:14px;box-shadow:0 6px 24px rgba(34,197,94,.35);letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:10px;flex:1">
+              <span style="font-size:1.4rem">⬇️</span>
+              <span>ดาวน์โหลด Excel ที่กรอกแล้ว</span>
+            </button>
+            <button onclick="exportPdfAll()" id="pdfBtn" style="padding:18px;font-size:1.15rem;border-radius:14px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 24px rgba(239,68,68,.35);letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:10px;flex:1">
+              <span style="font-size:1.4rem">📄</span>
+              <span>Export PDF แยกแต่ละ Sheet</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HISTORY ── -->
+      <div id="page-history" class="hidden">
+        <div class="card">
+          <div class="card-title"><span>📋</span> ประวัติ Invoice</div>
+          <div class="history-actions">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 ค้นหา Invoice No, Customer…" oninput="filterHistory()">
+            <button class="btn-sm btn-outline" onclick="loadHistory()">🔄 รีเฟรช</button>
+          </div>
+          <div id="historyTable"></div>
+        </div>
+      </div>
+
+      <!-- ── USERS (Admin only) ── -->
+      <div id="page-users" class="hidden">
+        <div class="card">
+          <div class="card-title"><span>👤</span> เพิ่ม User ใหม่</div>
+          <div class="user-form-grid">
+            <div class="form-field">
+              <label>Username</label>
+              <input type="text" id="newUsername" placeholder="เช่น somchai">
+            </div>
+            <div class="form-field">
+              <label>Password</label>
+            <div style="position:relative">
+                <input type="password" id="newPassword" placeholder="รหัสผ่าน" style="padding-right:40px">
+                <button type="button" onclick="togglePass('newPassword','eyeNew')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1rem;padding:4px" id="eyeNew">👁️</button>
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Role</label>
+              <select id="newRole">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>&nbsp;</label>
+              <button class="btn-sm btn-primary" style="width:100%;padding:9px" onclick="addUser()">➕ เพิ่ม</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span>👥</span> รายชื่อ Users ทั้งหมด</div>
+          <div id="usersTable"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const SB_URL = 'https://sytgqjglcnsabcszbngg.supabase.co';
+const SB_KEY = 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
+
+const headers = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Prefer': 'return=representation'
+};
+
+// ── LOCAL USERS (ไม่ต้องต่อ Supabase) ──
+const LOCAL_USERS = [
+  { username:'Jamrat', password:'Jam497522', role:'admin',  status:'active' },
+  { username:'AC1',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC2',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC3',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC4',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC5',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC6',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC7',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC9',    password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC10',   password:'Ac12345',   role:'user',   status:'active' },
+  { username:'AC11',   password:'Ac12345',   role:'user',   status:'active' },
+  { username:'NJ1',    password:'NJ12345',   role:'user',   status:'active' },
+  { username:'NJ2',    password:'NJ12345',   role:'user',   status:'active' },
+  { username:'NJ3',    password:'NJ12345',   role:'user',   status:'active' },
+  { username:'NJ4',    password:'NJ12345',   role:'user',   status:'active' },
+  { username:'NJ5',    password:'NJ12345',   role:'user',   status:'active' }
+];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let currentUser = null;
+let pdfFiles = [], xlsxFile = null;
+let extractedData = null, filledWorkbook = null, filledBlob = null, allExtracted = [];
+let historyData = [];
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+window.onload = () => {
+  updateClock();
+  setInterval(updateClock, 1000);
+  const saved = sessionStorage.getItem('nj_user');
+  if (saved) {
+    currentUser = JSON.parse(saved);
+    showApp();
+  }
+  setupDropzones();
+  document.getElementById('loginUser').addEventListener('keydown', e => e.key==='Enter' && doLogin());
+  document.getElementById('loginPass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
+};
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('topbarTime').textContent =
+    now.toLocaleDateString('th-TH',{weekday:'short',year:'numeric',month:'short',day:'numeric'}) +
+    ' ' + now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ══════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════
+function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) return showLoginError('กรุณากรอก Username และ Password');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ…';
+
+  const user = LOCAL_USERS.find(u =>
+    u.username.toLowerCase() === username.toLowerCase() &&
+    u.password === password &&
+    u.status === 'active'
+  );
+
+  if (!user) {
+    showLoginError('Username หรือ Password ไม่ถูกต้อง');
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+    return;
+  }
+
+  currentUser = { id: user.username, username: user.username, role: user.role, status: user.status };
+  sessionStorage.setItem('nj_user', JSON.stringify(currentUser));
+  showApp();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+function doLogout() {
+  sessionStorage.removeItem('nj_user');
+  currentUser = null;
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtn').textContent = 'เข้าสู่ระบบ';
+}
+
+function showApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'block';
+  document.getElementById('sidebarUsername').textContent = currentUser.username;
+  const roleEl = document.getElementById('sidebarRole');
+  roleEl.textContent = currentUser.role === 'admin' ? '👑 Admin' : '👤 User';
+  roleEl.className = 'sidebar-user-role ' + (currentUser.role === 'admin' ? 'role-admin' : 'role-user');
+  if (currentUser.role === 'admin') {
+    document.getElementById('nav-users').classList.remove('hidden');
+  }
+  showPage('upload');
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+const pageTitles = {
+  dashboard: '📊 Dashboard',
+  upload:    '📤 นำเข้า PDF Invoice',
+  history:   '📋 ประวัติ Invoice',
+  users:     '👥 จัดการ Users'
+};
+
+function showPage(name) {
+  ['dashboard','upload','history','users'].forEach(p => {
+    document.getElementById('page-' + p).classList.toggle('hidden', p !== name);
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.toggle('active', p === name);
+  });
+  document.getElementById('pageTitle').textContent = pageTitles[name] || name;
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'history')   loadHistory();
+  if (name === 'users')     loadUsers();
+}
+
+// ══════════════════════════════════════════
+// SUPABASE HELPERS
+// ══════════════════════════════════════════
+async function sbGet(table, query='') {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}&order=created_at.desc`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function sbInsert(table, data) {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=representation' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function sbDelete(table, id) {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, { method: 'DELETE', headers });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const query = currentUser.role === 'admin' ? '' : `cs=eq.${currentUser.username}`;
+    const data = await sbGet('finance', query);
+    historyData = data;
+
+    document.getElementById('statTotal').textContent = data.length;
+    const total = data.reduce((s, r) => s + (r.total_amount || 0), 0);
+    const adv   = data.reduce((s, r) => s + (r.advance || 0), 0);
+    document.getElementById('statAmount').textContent = fmt(total);
+    document.getElementById('statAdvance').textContent = fmt(adv);
+
+    const now = new Date();
+    const thisMonth = data.filter(r => {
+      const d = new Date(r.created_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    document.getElementById('statMonth').textContent = thisMonth.length;
+    document.getElementById('historyBadge').textContent = data.length;
+
+    // Recent table
+    const recent = data.slice(0, 8);
+    document.getElementById('recentTable').innerHTML = recent.length
+      ? `<table class="data-table">
+          <thead><tr>
+            <th>Invoice No</th><th>วันที่</th><th>Job No</th>
+            ${currentUser.role==='admin' ? '<th>โดย</th>' : ''}
+            <th style="text-align:right">Total Amount (฿)</th>
+          </tr></thead>
+          <tbody>${recent.map(r => `
+            <tr>
+              <td style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:#1a3055">${r.invoice_no||'-'}</td>
+              <td>${r.date||'-'}</td>
+              <td style="font-family:'IBM Plex Mono',monospace">${r.customer_job||'-'}</td>
+              ${currentUser.role==='admin' ? `<td><span class="tag tag-user">${r.cs||'-'}</span></td>` : ''}
+              <td style="text-align:right;font-weight:700;color:#1a3055;font-family:'IBM Plex Mono',monospace">${fmt(r.total_amount)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`
+      : `<div class="empty-state"><div class="icon">📭</div><p>ยังไม่มีข้อมูล Invoice</p></div>`;
+  } catch(e) {
+    showToast('โหลด Dashboard ไม่ได้: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════
+async function loadHistory() {
+  try {
+    const query = currentUser.role === 'admin' ? '' : `cs=eq.${currentUser.username}`;
+    historyData = await sbGet('finance', query);
+    document.getElementById('historyBadge').textContent = historyData.length;
+    renderHistory(historyData);
+  } catch(e) {
+    showToast('โหลดประวัติไม่ได้: ' + e.message, 'error');
+  }
+}
+
+function filterHistory() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = historyData.filter(r =>
+    (r.invoice_no||'').toLowerCase().includes(q) ||
+    (r.customer_job||'').toLowerCase().includes(q) ||
+    (r.master||'').toLowerCase().includes(q) ||
+    (r.cs||'').toLowerCase().includes(q) ||
+    (r.company_invoice||'').toLowerCase().includes(q)
+  );
+  renderHistory(filtered);
+}
+
+function renderHistory(data) {
+  const isAdmin = currentUser.role === 'admin';
+  document.getElementById('historyTable').innerHTML = data.length
+    ? `<table class="data-table">
+        <thead><tr>
+          <th>Invoice No</th><th>วันที่</th><th>Job No</th>
+          <th>Master/Container</th><th>Company Invoice</th>
+          ${isAdmin ? '<th>บันทึกโดย</th>' : ''}
+          <th style="text-align:right">Total Amount (฿)</th>
+          <th>บันทึกเมื่อ</th>
+          ${isAdmin ? '<th></th>' : ''}
+        </tr></thead>
+        <tbody>${data.map(r => `
+          <tr>
+            <td style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:#1a3055">${r.invoice_no||'-'}</td>
+            <td>${r.date||'-'}</td>
+            <td style="font-family:'IBM Plex Mono',monospace">${r.customer_job||'-'}</td>
+            <td style="font-family:'IBM Plex Mono',monospace">${r.master||'-'}</td>
+            <td>${r.company_invoice||'-'}</td>
+            ${isAdmin ? `<td><span class="tag tag-user">${r.cs||'-'}</span></td>` : ''}
+            <td style="text-align:right;font-weight:700;color:#1a3055;font-family:'IBM Plex Mono',monospace">${fmt(r.total_amount)}</td>
+            <td style="font-size:.75rem;color:#94a3b8">${new Date(r.created_at).toLocaleDateString('th-TH')}</td>
+            ${isAdmin ? `<td><button class="btn-sm btn-danger" onclick="deleteInvoice('${r.id}')">🗑️</button></td>` : ''}
+          </tr>`).join('')}
+        </tbody>
+      </table>`
+    : `<div class="empty-state"><div class="icon">📭</div><p>ไม่พบข้อมูล</p></div>`;
+}
+
+async function deleteInvoice(id) {
+  if (!confirm('ลบ Invoice นี้?')) return;
+  try {
+    await sbDelete('finance', id);
+    showToast('ลบแล้ว', 'success');
+    loadHistory();
+  } catch(e) { showToast('ลบไม่ได้: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// USERS (Admin)
+// ══════════════════════════════════════════
+async function loadUsers() {
+  try {
+    const data = await sbGet('users', 'select=id,username,role,status,created_at');
+    document.getElementById('usersTable').innerHTML = data.length
+      ? `<table class="data-table">
+          <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>สร้างเมื่อ</th><th></th></tr></thead>
+          <tbody>${data.map(u => `
+            <tr>
+              <td style="font-weight:600">${u.username}</td>
+              <td><span class="tag ${u.role==='admin'?'tag-admin':'tag-user'}">${u.role==='admin'?'👑 Admin':'👤 User'}</span></td>
+              <td><span class="tag" style="${u.status==='inactive'?'background:#fee2e2;color:#b91c1c':'background:#dcfce7;color:#15803d'}">${u.status||'active'}</span></td>
+              <td style="font-size:.78rem;color:#94a3b8">${new Date(u.created_at).toLocaleDateString('th-TH')}</td>
+              <td>${u.id !== currentUser.id ? `<button class="btn-sm btn-danger" onclick="deleteUser('${u.id}')">🗑️</button>` : '<span style="color:#94a3b8;font-size:.75rem">(ตัวเอง)</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`
+      : '<div class="empty-state"><div class="icon">👥</div><p>ยังไม่มี User</p></div>';
+  } catch(e) { showToast('โหลด Users ไม่ได้: ' + e.message, 'error'); }
+}
+
+async function addUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role     = document.getElementById('newRole').value;
+  if (!username || !password) return showToast('กรอกข้อมูลให้ครบ', 'error');
+  try {
+    await sbInsert('users', { username, password, role, status: 'active' });
+    showToast(`เพิ่ม User "${username}" แล้ว`, 'success');
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newPassword').value = '';
+    loadUsers();
+  } catch(e) { showToast('เพิ่ม User ไม่ได้: ' + e.message, 'error'); }
+}
+
+async function deleteUser(id) {
+  if (!confirm('ลบ User นี้?')) return;
+  try {
+    await sbDelete('users', id);
+    showToast('ลบ User แล้ว', 'success');
+    loadUsers();
+  } catch(e) { showToast('ลบไม่ได้: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// FILE DROP
+// ══════════════════════════════════════════
+function setupDropzones() {
+  setupDropMulti('pdfZone', 'pdfInput', 'pdfName', files => { pdfFiles = files; checkReady(); });
+  setupDrop('xlsxZone', 'xlsxInput', 'xlsxName', f => { xlsxFile = f; checkReady(); });
+}
+function setupDrop(zoneId, inputId, nameId, setter) {
+  const zone = document.getElementById(zoneId);
+  const inp  = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  inp.addEventListener('change', e => { const f = e.target.files[0]; if(f) pick(f); });
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',      e => { e.preventDefault(); zone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if(f) pick(f); });
+  function pick(f) { setter(f); nameEl.textContent = '✅ ' + f.name; zone.classList.add('has-file'); }
+}
+
+function setupDropMulti(zoneId, inputId, nameId, setter) {
+  const zone = document.getElementById(zoneId);
+  const inp  = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  inp.addEventListener('change', e => {
+    const files = [...e.target.files];
+    if(files.length) pick(files);
+  });
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.pdf'));
+    if(files.length) pick(files);
+  });
+  function pick(files) {
+    setter(files);
+    nameEl.textContent = files.length === 1
+      ? '✅ ' + files[0].name
+      : `✅ ${files.length} ไฟล์: ${files.map(f=>f.name.replace('.pdf','')).join(', ')}`;
+    zone.classList.add('has-file');
+  }
+}
+function checkReady() {
+  document.getElementById('processBtn').disabled = !(pdfFiles.length > 0 && xlsxFile);
+}
+
+// ══════════════════════════════════════════
+// PROCESS
+// ══════════════════════════════════════════
+async function processFiles() {
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('progressWrap').classList.remove('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  extractedData = null; filledWorkbook = null; filledBlob = null; allExtracted = [];
+
+  const totalPDFs = pdfFiles.length;
+
+  try {
+    // Step 1: อ่าน PDF ทั้งหมด
+    setStep(1,'active');
+    const allB64 = [];
+    for (const f of pdfFiles) {
+      allB64.push(await readB64(f));
+    }
+    setStep(1,'done');
+
+    // Step 2: วิเคราะห์ PDF ทีละใบ
+    setStep(2,'active');
+    for (let i = 0; i < allB64.length; i++) {
+      const data = await callClaude(allB64[i]);
+      allExtracted.push({ data, file: pdfFiles[i] });
+      console.log(`PDF ${i+1}/${totalPDFs}: ${data.invoice_no}`);
+    }
+    extractedData = allExtracted[allExtracted.length - 1]?.data;
+    setStep(2,'done');
+
+    // Step 3: โหลด Template
+    setStep(3,'active');
+    const xlsxBuf = await readBuf(xlsxFile);
+    setStep(3,'done');
+
+    // Step 4: สร้าง Excel รวม (หลาย Sheet)
+    setStep(4,'active');
+    filledBlob = await fillExcelMulti(xlsxBuf, allExtracted);
+    filledWorkbook = true;
+    setStep(4,'done');
+
+    // Step 5: บันทึกลง Supabase
+    setStep(5,'active');
+    for (const { data } of allExtracted) {
+      await sbInsert('finance', {
+        cs:              currentUser.username,
+        invoice_no:      data.invoice_no      || '',
+        date:            data.date             || '',
+        customer_job:    data.job_no           || '',
+        dcl_inv:         data.decl_no          || '',
+        master:          data.master           || '',
+        house:           data.house            || '',
+        company_invoice: data.company_invoice  || '',
+        item:            (data.items||[]).map(i=>i.description).join(' | '),
+        data_type:       'IMPORT',
+        service_charge:  data.subtotal_vat     || 0,
+        advance:         data.advance          || 0,
+        vat:             data.vat_7            || 0,
+        amount:          data.total            || 0,
+        total_amount:    data.grand_total      || 0,
+        remark:          `Invoice: ${data.invoice_no||''}`
+      });
+    }
+    setStep(5,'done');
+    setStep(6,'done');
+
+    renderResult(extractedData);
+    const msg = totalPDFs > 1
+      ? `บันทึก ${totalPDFs} Invoice รวมเป็น ${totalPDFs} Sheet สำเร็จ!`
+      : 'บันทึกข้อมูลสำเร็จ!';
+    showToast(msg, 'success');
+    document.getElementById('historyBadge').textContent =
+      parseInt(document.getElementById('historyBadge').textContent||0) + totalPDFs;
+
+  } catch(e) {
+    for(let i=1;i<=6;i++){
+      if(document.getElementById('ps'+i).classList.contains('active')){ setStep(i,'error'); break; }
+    }
+    showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+    document.getElementById('processBtn').disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════
+// CLAUDE API
+// ══════════════════════════════════════════
+async function callClaude(pdfB64) {
+  const binary = atob(pdfB64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  if (!window.pdfjsLib) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  let allWords = [];
+  let fullText = '';
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    // เก็บ words พร้อม position
+    for (const item of content.items) {
+      if (item.str && item.str.trim()) {
+        allWords.push({
+          str: item.str.trim(),
+          x: item.transform ? item.transform[4] : 0,
+          y: item.transform ? item.transform[5] : 0
+        });
+      }
+    }
+
+    // สร้าง text จาก Y coordinate (ต้อง sort ก่อน เพราะ pdf.js ไม่ได้เรียงตาม Y)
+    const sortedItems = [...content.items].sort((a, b) => {
+      const yA = a.transform ? a.transform[5] : 0;
+      const yB = b.transform ? b.transform[5] : 0;
+      const xA = a.transform ? a.transform[4] : 0;
+      const xB = b.transform ? b.transform[4] : 0;
+      // Y จาก bottom → เรียงจากมากไปน้อย (บนลงล่าง), X จากน้อยไปมาก
+      if (Math.abs(yA - yB) > 3) return yB - yA;
+      return xA - xB;
+    });
+    let lastY = null, lines = [], curLine = '';
+    for (const item of sortedItems) {
+      const y = item.transform ? Math.round(item.transform[5]) : 0;
+      if (lastY !== null && Math.abs(y - lastY) > 3) {
+        if (curLine.trim()) lines.push(curLine.trim());
+        curLine = item.str;
+      } else {
+        curLine += (curLine ? ' ' : '') + item.str;
+      }
+      lastY = y;
+    }
+    if (curLine.trim()) lines.push(curLine.trim());
+    fullText += lines.join('\n') + '\n';
+  }
+
+  // ── ดึง Container และ House จาก fullText ──
+  let container = '', house = '';
+
+  // หา Master ใน fullText แล้วดึง context 3 บรรทัดรอบข้าง
+  const allLines = fullText.split('\n');
+  for (let li = 0; li < allLines.length; li++) {
+    if (!/master/i.test(allLines[li])) continue;
+
+    // รวม 3 บรรทัดรอบ Master
+    const ctx = allLines.slice(Math.max(0, li-1), li+3).join('\n');
+    const mPos = ctx.search(/master/i);
+    const before = ctx.substring(0, mPos);
+    const after  = ctx.substring(mPos + 6);
+
+    // Container: หา [A-Z]{3,4}\d{7} ก่อน Master (cBefore) หรือหลัง (cAfter)
+    const cB = before.match(/\b([A-Z]{3,4}\d{7})\b/i);
+    const cA = after.match(/[A-Z]+\/([A-Z0-9]+)|\b([A-Z]{3,4}\d{7})\b/i);
+    if (cB) {
+      container = cB[1].toUpperCase();
+    } else if (cA) {
+      container = (cA[1] || cA[2] || '').toUpperCase();
+    }
+
+    // House: หลัง "use" + ":" หรือ ":" + code
+    const hMatch = ctx.match(/use\s*[:\s]+([A-Z]{2,}\d{4,})/i) ||
+                   ctx.match(/:([A-Z]{2,}\d{4,})/i);
+    if (hMatch) {
+      house = hMatch[1].toUpperCase();
+    } else {
+      const hTokens = (before.match(/\b[A-Z]{2,}\d{4,}\b/gi) || [])
+        .filter(t => t.toUpperCase() !== container);
+      if (hTokens.length) house = hTokens[hTokens.length-1].toUpperCase();
+    }
+    break;
+  }
+
+  console.log('fullText-based: container=', container, 'house=', house);
+
+  // parse ข้อมูลอื่นๆ จาก text
+  const cleanText = fullText.replace(/[^\x09\x0a\x0d\x20-\x7e\u0e00-\u0e7f]/g, '');
+  const data = parsePdfText(cleanText);
+
+  // override ด้วยค่าจาก position-based extraction
+  if (container) data.container = container;
+  if (house)     data.house_no  = house;
+
+  return data;
+}
+
+function parsePdfText(text) {
+  const lines = text.split(/\n/);
+  function get(rx) { const m = text.match(rx); return m ? m[1].trim() : ''; }
+  function getNum(rx) { const m = text.match(rx); return m ? parseFloat(m[1].replace(/,/g,'')) : 0; }
+
+  const invoice_no = get(/(NJ\d{4}-\d{5})/);
+  let date = '';
+  for (const line of lines) {
+    if (/date/i.test(line) && !/printed/i.test(line)) {
+      const dm = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (dm) { date = dm[1]; break; }
+    }
+  }
+  if (!date) {
+    const allDates = [...text.matchAll(/(\d{2}\/\d{2}\/20\d{2})/g)];
+    if (allDates.length) date = allDates[0][1];
+  }
+
+  const job_no         = get(/J\s*[o0]\s*b\s*N\s*\.?\s*:?\s*(JOB[\w-]+)/i);
+  const decl_no        = get(/Decl\s*N\s*\.?\s*:?\s*([A-Z0-9]+)/i);
+  const customer_po    = get(/Cust\s*m?er\s*PO\s*:?\s*([A-Z0-9]+)/i);
+  const master         = get(/M\s*a\s*s\s*t\s*e\s*r\s*[:\s]([^\n]+)/i);
+  const house          = get(/H\s*u\s*s\s*e\s*[:\s]([A-Z]{2,}[\w]*)/i);
+  const company_invoice = get(/C\s*m?\s*p\s*a\s*n\s*y\s*I\s*n\s*v\s*i?\s*c\s*e\s*:?\s*(.+?)(?:GRAND|Withholding|\n|$)/i);
+
+  const subtotal_vat = getNum(/SubTotal\s*7\s*%\s*([\d,]+\.?\d*)/i);
+  const vat_7        = getNum(/VAT\s*7\s*%\s*([\d,]+\.?\d*)/i);
+  const total        = getNum(/\bTotal\b\s*([\d,]+\.?\d*)/i);
+  const advance      = getNum(/Advance\s*Re-?imburs\w*\s*([\d,]+\.?\d*)/i);
+  const grand_total  = getNum(/GRAND\s*TOTAL\s*([\d,]+\.?\d*)/i);
+
+  // parse items
+  const items = [];
+  const itemRx = /^(\d+)\s+((?:SERVICE|ADVANCE)[^\n]+?)\s+([\d,]+\.\d{2})(?:\s+([\d,]+\.\d{2}))?$/gim;
+  let m;
+  while ((m = itemRx.exec(text)) !== null && items.length < 9) {
+    const svc = parseFloat((m[3]||'0').replace(/,/g,''));
+    const adv = parseFloat((m[4]||'0').replace(/,/g,''));
+    const isAdv = /advance/i.test(m[2]);
+    items.push({
+      no: parseInt(m[1]),
+      description: m[2].trim(),
+      service_charge: isAdv ? 0 : svc,
+      advance_amount: isAdv ? (adv||svc) : 0
+    });
+  }
+
+  return { invoice_no, date, job_no, decl_no, customer_po, master, house,
+           container: '', house_no: '',
+           company_invoice: company_invoice.trim(),
+           subtotal_non_vat: 0, subtotal_vat, vat_7, total, advance, grand_total, items };
+}
+
+async function fillExcel(xlsxArrayBuffer, data) {
+  // โหลด JSZip
+  if (!window.JSZip) {
+    await new Promise((res,rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const zip = await JSZip.loadAsync(xlsxArrayBuffer);
+  let ssRaw    = await zip.file('xl/sharedStrings.xml').async('string');
+  let sheetRaw = await zip.file('xl/worksheets/sheet1.xml').async('string');
+
+  console.log('fillExcel: XML loaded, sheetRaw length:', sheetRaw.length);
+  console.log('fillExcel: data.date=', data.date, 'items=', data.items?.length, 'invoice_no=', data.invoice_no);
+
+  // ── Shared Strings ──
+  const ssList = [];
+  const siRx = /<si>([\s\S]*?)<\/si>/g;
+  let sm;
+  while ((sm = siRx.exec(ssRaw)) !== null) {
+    const t2 = /<t[^>]*>([^<]*)<\/t>/g; let tm; const parts = [];
+    while ((tm = t2.exec(sm[1])) !== null) parts.push(tm[1]);
+    ssList.push(parts.join(''));
+  }
+  console.log('fillExcel: shared strings count:', ssList.length);
+
+  function addSS(val) {
+    const s = String(val);
+    let idx = ssList.indexOf(s);
+    if (idx !== -1) return idx;
+    idx = ssList.length;
+    ssList.push(s);
+    const esc = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    ssRaw = ssRaw.replace('</sst>', `<si><t xml:space="preserve">${esc}</t></si></sst>`);
+    return idx;
+  }
+
+  // ── setCellVal ใช้ indexOf — แม่นยำ 100% ──
+  function setCellVal(addr, type, val) {
+    const tag1 = `<c r="${addr}"`;
+    const idx1 = sheetRaw.indexOf(tag1);
+    if (idx1 === -1) {
+      console.warn('setCellVal: cell not found:', addr);
+      return;
+    }
+    const tagEnd = sheetRaw.indexOf('>', idx1);
+    if (tagEnd === -1) return;
+
+    const openTag = sheetRaw.substring(idx1, tagEnd + 1);
+    const sm2 = openTag.match(/s="(\d+)"/);
+    const style = sm2 ? ` s="${sm2[1]}"` : '';
+
+    let newCell;
+    if (type === 's') {
+      const si = addSS(val);
+      newCell = `<c r="${addr}"${style} t="s"><v>${si}</v></c>`;
+    } else {
+      newCell = `<c r="${addr}"${style}><v>${val}</v></c>`;
+    }
+
+    if (sheetRaw[tagEnd - 1] === '/') {
+      // self-closing: <c r="X" s="Y"/>
+      sheetRaw = sheetRaw.substring(0, idx1) + newCell + sheetRaw.substring(tagEnd + 1);
+    } else {
+      // มี content: หา </c>
+      const closeIdx = sheetRaw.indexOf('</c>', tagEnd);
+      if (closeIdx === -1) return;
+      sheetRaw = sheetRaw.substring(0, idx1) + newCell + sheetRaw.substring(closeIdx + 4);
+    }
+  }
+
+  // ── Date serial ──
+  function ds(s) {
+    if (!s) return null;
+    const p = s.split('/');
+    if (p.length !== 3) return null;
+    const dt = new Date(+p[2], +p[1]-1, +p[0]);
+    return Math.floor((dt - new Date(1899,11,30)) / 86400000);
+  }
+
+  // ── ล้าง cached value ใน formula cells ──
+  function clearFormulaCache() {
+    // ลบ <v>...</v> จาก cell ที่มี formula ทั้ง normal และ self-closing
+    // case 1: <f>...</f><v>0</v> → normal formula
+    sheetRaw = sheetRaw.replace(/(<c[^>]*>)(<f[^>]*>[^<]*<\/f>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
+    // case 2: <f .../><v>0</v> → self-closing formula (shared formula)
+    sheetRaw = sheetRaw.replace(/(<c[^>]*>)(<f[^>]*\/>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
+  }
+
+  // ════ กรอกข้อมูล ════
+  const container = data.container || (data.master || '').replace(/^[A-Z]+\//, '');
+  const custShort = (data.company_invoice || 'IKANO').match(/\w+/)?.[0] || 'IKANO';
+  const dateNum   = ds(data.date);
+
+  console.log('fillExcel: container=', container, 'custShort=', custShort, 'dateNum=', dateNum);
+
+  setCellVal('R5', 's', data.invoice_no || '');
+  if (dateNum) setCellVal('R6', 'n', dateNum);
+  setCellVal('R8', 's', 'N/A');
+
+  const items = data.items || [];
+  console.log('fillExcel: filling', items.length, 'items');
+
+  for (let i = 0; i < Math.min(items.length, 9); i++) {
+    const r    = 13 + i;
+    const item = items[i];
+    console.log(`  item[${i}]: row=${r} no=${item.no} desc=${item.description} svc=${item.service_charge} adv=${item.advance_amount}`);
+    setCellVal(`A${r}`, 'n', item.no);
+    if (dateNum) setCellVal(`B${r}`, 'n', dateNum);
+    setCellVal(`C${r}`, 's', custShort);
+    setCellVal(`D${r}`, 's', item.description);
+    setCellVal(`E${r}`, 's', data.house_no || data.house || '');
+    setCellVal(`G${r}`, 's', container);
+    setCellVal(`H${r}`, 'n', 40);
+    setCellVal(`I${r}`, 'n', 1);
+    if (item.service_charge > 0) setCellVal(`N${r}`, 'n', item.service_charge);
+    if (item.advance_amount  > 0) setCellVal(`R${r}`, 'n', item.advance_amount);
+  }
+
+  // ล้าง cached values ของ formula เพื่อให้ Excel คำนวณใหม่
+  clearFormulaCache();
+
+  // อัปเดต shared strings count
+  ssRaw = ssRaw
+    .replace(/count="\d+"/, `count="${ssList.length}"`)
+    .replace(/uniqueCount="\d+"/, `uniqueCount="${ssList.length}"`);
+
+  console.log('fillExcel: saving... ssCount=', ssList.length);
+
+  zip.file('xl/sharedStrings.xml',     ssRaw);
+  zip.file('xl/worksheets/sheet1.xml', sheetRaw);
+
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    compression: 'DEFLATE'
+  });
+  console.log('fillExcel: done! blob size=', blob.size);
+  return blob;
+}
+
+// ── หลาย PDF → หลาย Sheet ──
+async function fillExcelMulti(xlsxTemplateBuf, allExtracted) {
+  if (allExtracted.length === 1) {
+    return await fillExcel(xlsxTemplateBuf, allExtracted[0].data);
+  }
+
+  if (!window.JSZip) {
+    await new Promise((res,rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const templateZip = await JSZip.loadAsync(xlsxTemplateBuf);
+
+  // อ่านไฟล์หลัก
+  let templateSh   = await templateZip.file('xl/worksheets/sheet1.xml').async('string');
+  let templateSs   = await templateZip.file('xl/sharedStrings.xml').async('string');
+  let templateWb   = await templateZip.file('xl/workbook.xml').async('string');
+  let templateRels = await templateZip.file('xl/_rels/workbook.xml.rels').async('string');
+  let templateCt   = await templateZip.file('[Content_Types].xml').async('string');
+
+  // Build shared strings list (สะสมทุก sheet)
+  const ssList = [];
+  let ssXml = templateSs;
+  const siRx = /<si>([\s\S]*?)<\/si>/g;
+  let siM;
+  while ((siM = siRx.exec(ssXml)) !== null) {
+    const t2 = /<t[^>]*>([^<]*)<\/t>/g; let tm; const parts = [];
+    while ((tm = t2.exec(siM[1])) !== null) parts.push(tm[1]);
+    ssList.push(parts.join(''));
+  }
+
+  function addSS(val) {
+    const s = String(val);
+    let idx = ssList.indexOf(s);
+    if (idx !== -1) return idx;
+    idx = ssList.length; ssList.push(s);
+    const esc = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    ssXml = ssXml.replace('</sst>', `<si><t xml:space="preserve">${esc}</t></si></sst>`);
+    return idx;
+  }
+
+  function setCellInSheet(sh, addr, type, val) {
+    const tag1 = `<c r="${addr}"`;
+    const idx1 = sh.indexOf(tag1);
+    if (idx1 === -1) return sh;
+    const tagEnd = sh.indexOf('>', idx1);
+    if (tagEnd === -1) return sh;
+    const openTag = sh.substring(idx1, tagEnd + 1);
+    const sm2 = openTag.match(/s="(\d+)"/);
+    const style = sm2 ? ` s="${sm2[1]}"` : '';
+    let newCell;
+    if (type === 's') {
+      const si = addSS(val);
+      newCell = `<c r="${addr}"${style} t="s"><v>${si}</v></c>`;
+    } else {
+      newCell = `<c r="${addr}"${style}><v>${val}</v></c>`;
+    }
+    if (sh[tagEnd - 1] === '/') {
+      return sh.substring(0, idx1) + newCell + sh.substring(tagEnd + 1);
+    }
+    const closeIdx = sh.indexOf('</c>', tagEnd);
+    if (closeIdx === -1) return sh;
+    return sh.substring(0, idx1) + newCell + sh.substring(closeIdx + 4);
+  }
+
+  function ds(s) {
+    if (!s) return null;
+    const p = s.split('/');
+    if (p.length !== 3) return null;
+    const dt = new Date(+p[2], +p[1]-1, +p[0]);
+    return Math.floor((dt - new Date(1899,11,30)) / 86400000);
+  }
+
+  // สร้าง sheet XMLs
+  const sheetXmls  = [];
+  const sheetNames = [];
+  const n = allExtracted.length;
+
+  for (let i = 0; i < n; i++) {
+    const { data } = allExtracted[i];
+    const sheetName = (data.invoice_no || `Sheet${i+1}`).substring(0, 31);
+    let sh = templateSh; // เริ่มจาก template ทุกครั้ง
+
+    const container = data.container || (data.master || '').replace(/^[A-Z]+\//, '');
+    const custShort = (data.company_invoice || 'IKANO').match(/\w+/)?.[0] || 'IKANO';
+    const dateNum   = ds(data.date);
+
+    sh = setCellInSheet(sh, 'R5', 's', data.invoice_no || '');
+    if (dateNum) sh = setCellInSheet(sh, 'R6', 'n', dateNum);
+    sh = setCellInSheet(sh, 'R8', 's', 'N/A');
+
+    const items = data.items || [];
+    for (let j = 0; j < Math.min(items.length, 9); j++) {
+      const r    = 13 + j;
+      const item = items[j];
+      sh = setCellInSheet(sh, `A${r}`, 'n', item.no);
+      if (dateNum) sh = setCellInSheet(sh, `B${r}`, 'n', dateNum);
+      sh = setCellInSheet(sh, `C${r}`, 's', custShort);
+      sh = setCellInSheet(sh, `D${r}`, 's', item.description);
+      sh = setCellInSheet(sh, `E${r}`, 's', data.house_no || data.house || '');
+      sh = setCellInSheet(sh, `G${r}`, 's', container);
+      sh = setCellInSheet(sh, `H${r}`, 'n', 40);
+      sh = setCellInSheet(sh, `I${r}`, 'n', 1);
+      if (item.service_charge > 0) sh = setCellInSheet(sh, `N${r}`, 'n', item.service_charge);
+      if (item.advance_amount  > 0) sh = setCellInSheet(sh, `R${r}`, 'n', item.advance_amount);
+    }
+
+    // clear formula cache
+    sh = sh.replace(/(<c[^>]*>)(<f[^>]*>[^<]*<\/f>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
+    sh = sh.replace(/(<c[^>]*>)(<f[^>]*\/>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
+
+    sheetXmls.push(sh);
+    sheetNames.push(sheetName);
+  }
+
+  // อัปเดต sharedStrings count
+  ssXml = ssXml
+    .replace(/count="\d+"/, `count="${ssList.length}"`)
+    .replace(/uniqueCount="\d+"/, `uniqueCount="${ssList.length}"`);
+
+  // อัปเดต workbook.xml — sheets section
+  const newSheetsXml = '<sheets>' +
+    sheetNames.map((name, i) => `<sheet name="${name}" sheetId="${i+1}" r:id="rId${i+10}"/>`).join('') +
+    '</sheets>';
+  const finalWb = templateWb.replace(/<sheets>[\s\S]*?<\/sheets>/, newSheetsXml);
+
+  // อัปเดต workbook.xml.rels — ลบ sheet rels เดิม เพิ่มใหม่
+  const existingNonSheet = templateRels.replace(/<Relationship[^>]*worksheets\/sheet[^>]*\/>/g, '');
+  const newSheetRels = sheetNames.map((_, i) =>
+    `<Relationship Id="rId${i+10}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`
+  ).join('');
+  const finalRels = existingNonSheet.replace('</Relationships>', newSheetRels + '</Relationships>');
+
+  // อัปเดต [Content_Types].xml — ลบ sheet ct เดิม เพิ่มใหม่
+  const existingNonSheetCt = templateCt.replace(/<Override[^>]*worksheets\/sheet\d+[^>]*\/>/g, '');
+  const newSheetCt = sheetNames.map((_, i) =>
+    `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  ).join('');
+  const finalCt = existingNonSheetCt.replace('</Types>', newSheetCt + '</Types>');
+
+  // สร้าง output ZIP
+  const outZip = new JSZip();
+  const skipFiles = new Set([
+    'xl/worksheets/sheet1.xml','xl/sharedStrings.xml',
+    'xl/workbook.xml','xl/_rels/workbook.xml.rels',
+    '[Content_Types].xml','xl/calcChain.xml'
+  ]);
+
+  for (const [fname, file] of Object.entries(templateZip.files)) {
+    if (!file.dir && !skipFiles.has(fname)) {
+      outZip.file(fname, await file.async('uint8array'));
+    }
+  }
+
+  // ใส่ sheets ใหม่
+  for (let i = 0; i < n; i++) {
+    outZip.file(`xl/worksheets/sheet${i+1}.xml`, sheetXmls[i]);
+  }
+  outZip.file('xl/sharedStrings.xml',     ssXml);
+  outZip.file('xl/workbook.xml',           finalWb);
+  outZip.file('xl/_rels/workbook.xml.rels', finalRels);
+  outZip.file('[Content_Types].xml',       finalCt);
+
+  return await outZip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    compression: 'DEFLATE'
+  });
+}
+
+function downloadExcel() {
+  if (!filledBlob) { showToast('ไม่ได้อัปโหลด Excel Template ครับ','error'); return; }
+  const url = URL.createObjectURL(filledBlob);
+  const a   = document.createElement('a');
+  a.href    = url;
+  const names = pdfFiles.map(f => f.name.replace('.pdf','')).join('_');
+  a.download = (pdfFiles.length > 1 ? 'NJ_Invoice_Combined' : names) + '_filled.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportPdfAll() {
+  if (!filledBlob) { showToast('กรุณาดึงข้อมูลก่อนครับ','error'); return; }
+
+  if (!window.XLSX) {
+    await new Promise((res,rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+
+  const arrayBuf = await filledBlob.arrayBuffer();
+  const wb = XLSX.read(arrayBuf, { type: 'array', cellDates: true });
+
+  function cv(ws, addr) {
+    const c = ws[addr];
+    if (!c) return '';
+    if (c.t === 'd' || c.v instanceof Date) {
+      const d = c.v instanceof Date ? c.v : new Date((c.v-25569)*86400000);
+      return `${String(d.getDate()).padStart(2,'0')}-${d.toLocaleString('en',{month:'short'})}-${String(d.getFullYear()).slice(2)}`;
+    }
+    return c.v ?? '';
+  }
+
+  function num(v) {
+    if (!v && v !== 0) return '';
+    const n = parseFloat(v);
+    if (isNaN(n) || n === 0) return '';
+    return n.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  let allHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{background:#fff}
+.page{width:277mm;padding:6mm 8mm;page-break-after:always;background:#fff}
+.page:last-child{page-break-after:auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm}
+.co-name{font-size:10pt;font-weight:bold}
+.co-sub{font-size:7pt;margin-top:1mm;line-height:1.4}
+.inv-box{border:2px solid #000;padding:2mm 6mm;font-size:12pt;font-weight:bold;text-align:center}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #000;margin-bottom:2mm}
+.info-left,.info-right{padding:1.5mm 2mm}
+.info-row{display:flex;gap:2mm;font-size:7pt;margin-bottom:1mm}
+.lbl{color:#555;min-width:20mm}
+.val{font-weight:bold}
+.inv-no{font-size:9pt;font-weight:bold}
+table{width:100%;border-collapse:collapse}
+th{background:#1e40af;color:#fff;font-size:6pt;padding:1.5mm 1mm;text-align:center;border:0.5px solid #4b6cb7;line-height:1.3}
+td{font-size:6.5pt;padding:1.5mm 1mm;border:0.5px solid #ccc;text-align:center;height:7mm}
+td.desc{text-align:left}
+td.num{text-align:right}
+td.svc{background:#fffbeb}
+td.adv{background:#eff6ff}
+.totals{display:flex;justify-content:flex-end;margin-top:2mm}
+.tot-table td{border:none;font-size:7.5pt;padding:0.8mm 2mm}
+.tot-label{text-align:right;min-width:45mm}
+.tot-val{text-align:right;min-width:25mm;border-bottom:0.5px solid #999}
+.tot-grand td{font-weight:bold;font-size:8pt}
+.footer{display:flex;justify-content:space-between;margin-top:6mm;font-size:7pt}
+.f-box{width:30%;text-align:center}
+.f-title{font-weight:bold;margin-bottom:2mm}
+.f-sig{border-top:1px solid #000;margin-top:10mm;padding-top:1mm}
+.f-who{font-size:6.5pt;margin-top:1mm}
+.remark{font-size:7pt;margin-top:3mm}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{page-break-after:always;margin:0}
+  .no-print{display:none!important}
+}
+</style></head><body>`;
+
+  allHtml += `<div class="no-print" style="position:fixed;top:8px;right:8px;z-index:9999;display:flex;gap:8px">
+<button onclick="window.print()" style="padding:10px 18px;background:#1e40af;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3)">🖨️ Print / Save PDF</button>
+<button onclick="window.close()" style="padding:10px 18px;background:#64748b;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">✕ ปิด</button>
+</div>`;
+
+  for (const sn of wb.SheetNames) {
+    const ws = wb.Sheets[sn];
+    const c = (addr) => cv(ws, addr);
+
+    // Items
+    let itemRows = '';
+    let itemCount = 0;
+    for (let r = 13; r <= 21; r++) {
+      const no = c(`A${r}`); if (!no) continue;
+      itemCount++;
+      const svc = parseFloat(ws[`N${r}`]?.v || 0);
+      const adv = parseFloat(ws[`R${r}`]?.v || 0);
+      const tot = svc + adv;
+      itemRows += `<tr>
+        <td>${no}</td>
+        <td>${c(`B${r}`)}</td>
+        <td>${c(`C${r}`)}</td>
+        <td class="desc">${c(`D${r}`)}</td>
+        <td>${c(`E${r}`)}</td>
+        <td></td>
+        <td>${c(`G${r}`)}</td>
+        <td>${c(`H${r}`)}</td>
+        <td>${c(`I${r}`)}</td>
+        <td class="num"></td><td class="num"></td><td class="num"></td>
+        <td class="num adv">${num(adv>0 ? adv : '')}</td>
+        <td class="num svc">${num(svc>0 ? svc : '')}</td>
+        <td class="num"></td><td class="num"></td><td class="num"></td>
+        <td class="num adv">${num(adv>0 ? adv : '')}</td>
+        <td class="num" style="font-weight:bold">${num(tot > 0 ? tot : '')}</td>
+      </tr>`;
+    }
+    // empty rows to fill
+    for (let i = itemCount; i < 9; i++) {
+      itemRows += `<tr>${'<td></td>'.repeat(19)}</tr>`;
+    }
+
+    allHtml += `<div class="page">
+<div class="top">
+  <div>
+    <div class="co-name">${c('A1')}</div>
+    <div class="co-sub">${(c('A2')||'').replace(/\n/g,'<br>')}</div>
+    <div class="co-sub">${c('A3')}</div>
+  </div>
+  <div style="text-align:right">
+    <div class="inv-box">INVOICE</div>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-left">
+    <div class="info-row"><span class="lbl">Customer :</span><span class="val">${c('C5')}</span></div>
+    <div class="info-row"><span class="lbl">Address :</span><span>${c('C6')}</span></div>
+    <div class="info-row"><span class="lbl">Tel :</span><span>${c('C7')}</span></div>
+    <div class="info-row"><span class="lbl">Tax ID :</span><span>${c('C8')}</span></div>
+  </div>
+  <div class="info-right">
+    <div class="info-row"><span class="lbl">Invoice no. :</span><span class="inv-no">${c('R5')}</span></div>
+    <div class="info-row"><span class="lbl">Invoice Date :</span><span class="val">${c('R6')}</span></div>
+    <div class="info-row"><span class="lbl">Due Date :</span><span></span></div>
+    <div class="info-row"><span class="lbl">Kewill / PO No. :</span><span>${c('R8')}</span></div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="3" style="width:6mm">ลำดับที่</th>
+      <th rowspan="3" style="width:15mm">วันที่ทำงาน</th>
+      <th rowspan="3" style="width:14mm">ชื่อลูกค้า</th>
+      <th rowspan="3" style="width:52mm">รายการ</th>
+      <th rowspan="3" style="width:22mm">เลขที่ใบจอง</th>
+      <th rowspan="3" style="width:12mm">เส้นทาง</th>
+      <th rowspan="3" style="width:22mm">หมายเลขตู้</th>
+      <th rowspan="3" style="width:9mm">ขนาดตู้</th>
+      <th rowspan="3" style="width:9mm">จำนวน</th>
+      <th colspan="5">ใบเสร็จชื่อ Maersk Logistics</th>
+      <th colspan="5">ใบเสร็จชื่อลูกค้า</th>
+      <th rowspan="3">ยอดรวม</th>
+    </tr>
+    <tr>
+      <th>ค่าขนส่ง</th><th>ค่ายกตู้</th><th>ค่าใช้จ่ายอื่น</th><th>ค่าใช้จ่ายอื่น</th><th style="background:#b45309">ค่าบริการ</th>
+      <th>ค่ายกตู้</th><th>ค่าใช้จ่ายอื่น</th><th style="background:#1d4ed8">ค่าใช้จ่ายอื่น</th><th>ค่าแรงงาน</th><th>?</th>
+    </tr>
+    <tr>
+      <th>Transport</th><th>LOLO/GATE</th><th>Other-VAT</th><th>Other-NON VAT</th><th style="background:#b45309">Service Charge</th>
+      <th>LOLO/GATE</th><th>Other-VAT</th><th style="background:#1d4ed8">Other-NON VAT</th><th>Labor Charge</th><th>Total Amount</th>
+    </tr>
+  </thead>
+  <tbody>${itemRows}</tbody>
+</table>
+
+<div class="remark">REMARK :</div>
+
+<div class="totals">
+  <table class="tot-table">
+    <tr><td class="tot-label">Total (Before Vat)</td><td class="tot-val"></td></tr>
+    <tr><td class="tot-label">VAT 7%</td><td class="tot-val"></td></tr>
+    <tr class="tot-grand"><td class="tot-label">Total (After VAT)</td><td class="tot-val"></td></tr>
+    <tr><td class="tot-label">WHT 1%</td><td class="tot-val"></td></tr>
+    <tr><td class="tot-label">WHT Code</td><td class="tot-val"></td></tr>
+    <tr class="tot-grand"><td class="tot-label">Total (After WHT)</td><td class="tot-val"></td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  <div class="f-box">
+    <div class="f-title">Withholding Tax Detail</div>
+    <div style="font-size:6.5pt;margin-top:2mm">1% Transportation : ___________</div>
+    <div style="font-size:6.5pt;margin-top:1mm">3% Service : ___________</div>
+  </div>
+  <div class="f-box">
+    <div class="f-title">For The Customer</div>
+    <div class="f-sig">ผู้วางบิล</div>
+    <div class="f-who">ลงชื่อ ________________________</div>
+    <div class="f-who">วันที่ ________________________</div>
+  </div>
+  <div class="f-box">
+    <div class="f-title">For The N.J. LOGISTICS & FRUITS CO.,LTD</div>
+    <div class="f-sig">ผู้รับวางบิล</div>
+    <div class="f-who">ลงชื่อ DARUNEE.T</div>
+    <div class="f-who">วันที่ ________________________</div>
+  </div>
+</div>
+</div>`;
+  }
+
+  allHtml += '</body></html>';
+  const win = window.open('', '_blank');
+  win.document.write(allHtml);
+  win.document.close();
+}
+
+function renderResult(data) {
+  const fields = [
+    {l:'Invoice No',v:data.invoice_no},{l:'วันที่',v:data.date},{l:'Job No',v:data.job_no},
+    {l:'Decl No',v:data.decl_no},{l:'Customer PO',v:data.customer_po},{l:'House',v:data.house}
+  ];
+  document.getElementById('resultFields').innerHTML = fields.map(f=>
+    `<div class="rf"><div class="rf-label">${f.l}</div><div class="rf-val">${f.v||'-'}</div></div>`
+  ).join('');
+  document.getElementById('resultItems').innerHTML = (data.items||[]).map(it=>
+    `<tr>
+      <td>${it.no}</td>
+      <td>${it.description}</td>
+      <td><span class="tag ${it.type==='advance'?'tag-adv':'tag-svc'}">${it.type==='advance'?'Advance':'Service'}</span></td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600">
+        ${fmt(it.type==='advance'?it.advance_amount:it.service_charge)}
+      </td>
+    </tr>`).join('');
+  const tots=[
+    {l:'SubTotal (VAT)',v:data.subtotal_vat},{l:'VAT 7%',v:data.vat_7},
+    {l:'Total',v:data.total},{l:'Advance',v:data.advance},{l:'GRAND TOTAL',v:data.grand_total,g:true}
+  ];
+  document.getElementById('resultTotals').innerHTML = tots.map(t=>
+    `<div class="tot${t.g?' grand':''}"><div class="tot-label">${t.l}</div><div class="tot-val">${fmt(t.v)}</div></div>`
+  ).join('');
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('dlBtn').style.display = 'block';
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function readB64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(file); }); }
+function readBuf(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsArrayBuffer(file); }); }
+
+function setStep(n,state) {
+  const el=document.getElementById('ps'+n);
+  el.classList.remove('active','done','error');
+  el.classList.add(state);
+  const spin=el.querySelector('.spinner');
+  if(spin) spin.remove();
+  const icon=el.querySelector('.p-icon');
+  if(state==='active'){ const s=document.createElement('div'); s.className='spinner'; el.insertBefore(s,icon); icon.style.display='none'; }
+  else { if(icon) icon.style.display=''; if(state==='done') icon.textContent='✅'; if(state==='error') icon.textContent='❌'; }
+}
+
+function fmt(v){ return typeof v==='number' ? v.toLocaleString('th-TH',{minimumFractionDigits:2}) : (v||'0.00'); }
+
+let toastTimer;
+function showToast(msg, type='') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=''; el.classList.add('show');
+  if(type) el.classList.add(type);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+function togglePass(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
+</script>
+</body>
+</html>
