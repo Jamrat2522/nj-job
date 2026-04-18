@@ -1,0 +1,2364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BILLING PDF MANAGER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+/* ============================================================ */
+/* VARIABLES                                                    */
+/* ============================================================ */
+:root {
+  --bg0:#07090d;--bg1:#0d1018;--bg2:#131720;--bg3:#181e28;--bg4:#1f2635;
+  --gold:#f0a500;--gold2:#ffbf2e;--gold-bg:rgba(240,165,0,0.1);--gold-bd:rgba(240,165,0,0.25);
+  --txt0:#edf0f8;--txt1:#98a6b8;--txt2:#5a6a7e;--txt3:#2e3a4a;
+  --bd0:#131820;--bd1:#1e2838;
+  --grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--org:#f59e0b;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;
+  --r:6px;--r2:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg0);color:var(--txt0);font-size:14px;line-height:1.5}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--gold-bd)}
+
+/* ============================================================ */
+/* LOGIN                                                        */
+/* ============================================================ */
+#screen-login{
+  position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--bg0);z-index:1000;gap:0;
+}
+#screen-login::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 900px 700px at 15% 60%,rgba(240,165,0,0.05) 0%,transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 49px,rgba(255,255,255,0.012) 49px,rgba(255,255,255,0.012) 50px),
+    repeating-linear-gradient(90deg,transparent,transparent 49px,rgba(255,255,255,0.012) 49px,rgba(255,255,255,0.012) 50px);
+  pointer-events:none;
+}
+.login-box{
+  position:relative;width:320px;
+  background:var(--bg2);border:1px solid var(--bd1);
+  border-top:3px solid var(--gold);border-radius:var(--r2);
+  padding:40px;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(240,165,0,0.06);
+}
+.login-logo{text-align:center;margin-bottom:32px}
+.logo-mark{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono)}
+.logo-icon{
+  width:38px;height:38px;background:var(--gold);border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:var(--bg0);font-weight:800;
+}
+.logo-text{font-size:17px;font-weight:700;color:var(--txt0);letter-spacing:3px}
+.logo-sub{font-size:10px;color:var(--txt2);letter-spacing:3px;text-transform:uppercase;margin-top:6px;font-family:var(--mono)}
+.login-headline{font-size:11px;color:var(--txt2);text-align:center;margin-bottom:28px;font-family:var(--mono);letter-spacing:2px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:10px;color:var(--txt2);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--mono)}
+.form-input{
+  width:100%;padding:10px 14px;
+  background:var(--bg1);border:1px solid var(--bd1);
+  border-radius:var(--r);color:var(--txt0);font-size:14px;
+  font-family:var(--mono);outline:none;transition:border-color 0.2s;
+}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:var(--txt3)}
+select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6a7e'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;appearance:none;padding-right:32px}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border:none;border-radius:var(--r);font-size:13px;font-weight:600;letter-spacing:0.5px;transition:all 0.15s;white-space:nowrap}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:var(--gold);color:var(--bg0)}
+.btn-primary:not(:disabled):hover{background:var(--gold2)}
+.btn-secondary{background:var(--bg3);color:var(--txt1);border:1px solid var(--bd1)}
+.btn-secondary:not(:disabled):hover{background:var(--bg4);color:var(--txt0)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.btn-danger:not(:disabled):hover{background:rgba(239,68,68,.22)}
+.btn-success{background:rgba(34,197,94,.12);color:var(--grn);border:1px solid rgba(34,197,94,.2)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-full{width:100%;justify-content:center}
+.login-error{
+  margin-top:12px;padding:10px 14px;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
+  border-radius:var(--r);color:var(--red);font-size:12px;
+  font-family:var(--mono);display:none;
+}
+.login-footer{margin-top:22px;text-align:center;font-size:10px;color:var(--txt3);font-family:var(--mono);line-height:2}
+
+/* ============================================================ */
+/* APP LAYOUT                                                   */
+/* ============================================================ */
+#screen-app{display:none;height:100vh;flex-direction:column}
+#screen-app.active{display:flex}
+
+/* TOP BAR */
+#topbar{
+  height:48px;flex-shrink:0;
+  background:var(--bg1);border-bottom:1px solid var(--bd0);
+  display:flex;align-items:center;padding:0 18px;gap:14px;
+  position:relative;z-index:100;
+}
+.tb-logo{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:700;color:var(--txt0);letter-spacing:2px;font-size:13px;flex-shrink:0}
+.tb-logo-icon{width:24px;height:24px;background:var(--gold);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--bg0);font-weight:900}
+.tb-div{width:1px;height:18px;background:var(--bd1);flex-shrink:0}
+.tb-mode{font-size:11px;color:var(--txt2);font-family:var(--mono)}
+.tb-spacer{flex:1}
+.tb-status{display:flex;align-items:center;gap:14px}
+.status-ind{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt2);font-family:var(--mono)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:pdot 2s infinite}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+.user-chip{display:flex;align-items:center;gap:7px;padding:3px 10px;background:var(--bg2);border:1px solid var(--bd1);border-radius:20px;font-size:12px}
+.uc-name{color:var(--txt0);font-family:var(--mono);font-weight:700}
+.uc-role{padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.role-admin{background:rgba(240,165,0,.18);color:var(--gold)}
+.role-user{background:rgba(59,130,246,.18);color:var(--blu)}
+#btn-logout{padding:4px 12px;background:transparent;border:1px solid var(--bd1);border-radius:var(--r);color:var(--txt2);font-size:11px;font-family:var(--mono);letter-spacing:1px;transition:all .15s}
+#btn-logout:hover{border-color:var(--red);color:var(--red)}
+
+/* BODY */
+.app-body{flex:1;display:flex;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:210px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--bd0);display:flex;flex-direction:column;overflow-y:auto}
+.sb-section{padding:16px 0}
+.sb-section+.sb-section{border-top:1px solid var(--bd0)}
+.sb-label{padding:0 14px;margin-bottom:6px;font-size:10px;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 14px;font-size:13px;color:var(--txt1);cursor:pointer;transition:all .12s;border-left:2px solid transparent;user-select:none}
+.nav-item:hover{background:var(--bg2);color:var(--txt0)}
+.nav-item.active{background:var(--gold-bg);border-left-color:var(--gold);color:var(--gold)}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sb-footer{margin-top:auto;padding:14px;border-top:1px solid var(--bd0)}
+.idle-txt{font-size:10px;color:var(--txt3);font-family:var(--mono);text-align:center}
+.idle-txt span{color:var(--txt2)}
+
+/* MAIN CONTENT */
+#main-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.view{display:none;flex:1;overflow-y:auto;padding:22px;flex-direction:column}
+.view.active{display:flex}
+
+/* ============================================================ */
+/* PAGE COMPONENTS                                             */
+/* ============================================================ */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.page-title{font-size:19px;font-weight:700;color:var(--txt0)}
+.page-title span{color:var(--gold);font-family:var(--mono)}
+.page-desc{font-size:11px;color:var(--txt2);margin-top:2px;font-family:var(--mono)}
+
+.card{background:var(--bg2);border:1px solid var(--bd0);border-radius:var(--r2);padding:18px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:var(--txt0)}
+.card-badge{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:3px;background:var(--bg3);color:var(--txt2)}
+
+/* UPLOAD ZONES */
+.upload-zone{
+  border:2px dashed var(--bd1);border-radius:var(--r2);
+  padding:36px 20px;text-align:center;cursor:pointer;
+  transition:all .18s;position:relative;
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:var(--gold-bg)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uz-icon{font-size:30px;margin-bottom:10px}
+.uz-label{font-size:14px;color:var(--txt1);margin-bottom:4px}
+.uz-sub{font-size:11px;color:var(--txt2);font-family:var(--mono)}
+.file-loaded{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--r)}
+.fl-icon{font-size:22px}
+.fl-name{font-family:var(--mono);font-size:12px;color:var(--txt0);font-weight:600}
+.fl-size{font-size:10px;color:var(--txt2);font-family:var(--mono)}
+.fl-clear{margin-left:auto;padding:4px 8px;background:transparent;border:none;color:var(--txt2);font-size:16px;cursor:pointer;transition:color .15s}
+.fl-clear:hover{color:var(--red)}
+
+/* FORMS */
+.form-grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.fname-preview{padding:11px 14px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--r);font-family:var(--mono);font-size:12px;color:var(--gold);word-break:break-all;min-height:40px}
+.fname-preview.empty{color:var(--txt3)}
+
+/* PAGE GRID */
+.pgrid-wrap{border:1px solid var(--bd0);border-radius:var(--r2);overflow:hidden}
+.pgrid-hdr{background:var(--bg3);padding:9px 14px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--txt2);font-family:var(--mono)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;padding:14px;background:var(--bg2);max-height:380px;overflow-y:auto}
+.pthumb{position:relative;cursor:pointer;border-radius:var(--r);overflow:hidden;border:2px solid var(--bd1);transition:all .15s;aspect-ratio:3/4;background:var(--bg3)}
+.pthumb:hover{border-color:var(--gold-bd)}
+.pthumb.selected{border-color:var(--red);box-shadow:0 0 0 2px rgba(239,68,68,.18)}
+.pthumb canvas{width:100%;height:100%;display:block;object-fit:contain}
+.pthumb-lbl{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:3px 6px;font-size:10px;font-family:var(--mono);text-align:center;color:var(--txt1)}
+.pthumb.selected .pthumb-lbl{background:rgba(239,68,68,.8);color:#fff}
+.pthumb-del{position:absolute;top:4px;right:4px;width:18px;height:18px;background:var(--red);border-radius:50%;display:none;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.pthumb.selected .pthumb-del{display:flex}
+.pthumb-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--txt3);font-size:10px;font-family:var(--mono)}
+
+/* MODE 2 ACTIONS */
+.action-sel{display:flex;gap:8px}
+.action-btn{flex:1;padding:14px 10px;background:var(--bg3);border:1px solid var(--bd1);border-radius:var(--r);color:var(--txt1);font-size:12px;text-align:center;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.action-btn:hover{border-color:var(--gold-bd);color:var(--txt0)}
+.action-btn.active{border-color:var(--gold);background:var(--gold-bg);color:var(--gold);font-weight:700}
+.act-icon{font-size:22px;margin-bottom:5px}
+.act-label{font-size:10px;color:inherit;opacity:.7}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--bg2);border:1px solid var(--bd0);border-radius:var(--r2);padding:18px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-card.gold::before{background:var(--gold)}
+.stat-card.grn::before{background:var(--grn)}
+.stat-card.blu::before{background:var(--blu)}
+.stat-card.red::before{background:var(--red)}
+.stat-label{font-size:10px;color:var(--txt2);letter-spacing:2px;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px}
+.stat-value{font-size:30px;font-weight:800;color:var(--txt0);font-family:var(--mono);line-height:1}
+.stat-sub{font-size:10px;color:var(--txt2);margin-top:5px;font-family:var(--mono)}
+
+/* TABLES */
+.dt-wrap{background:var(--bg2);border:1px solid var(--bd0);border-radius:var(--r2);overflow:hidden}
+.dt-toolbar{padding:11px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bd0)}
+.tbl-search{flex:1;padding:6px 12px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--r);color:var(--txt0);font-size:12px;font-family:var(--mono);outline:none}
+.tbl-search:focus{border-color:var(--gold)}
+.data-tbl{width:100%;border-collapse:collapse}
+.data-tbl th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;font-family:var(--mono);background:var(--bg3);border-bottom:1px solid var(--bd0)}
+.data-tbl td{padding:9px 14px;font-size:12px;color:var(--txt1);border-bottom:1px solid rgba(255,255,255,.025);font-family:var(--mono)}
+.data-tbl tr:hover td{background:var(--bg3)}
+.data-tbl tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.5px}
+.b-grn{background:rgba(34,197,94,.13);color:var(--grn)}
+.b-red{background:rgba(239,68,68,.13);color:var(--red)}
+.b-gold{background:rgba(240,165,0,.13);color:var(--gold)}
+.b-blu{background:rgba(59,130,246,.13);color:var(--blu)}
+.b-gray{background:var(--bg3);color:var(--txt2)}
+
+/* TOGGLE */
+.toggle{position:relative;width:34px;height:19px;display:inline-block}
+.toggle input{opacity:0;width:0;height:0}
+.tog-sl{position:absolute;inset:0;background:var(--bg4);border-radius:9px;cursor:pointer;transition:.18s}
+.tog-sl::before{content:'';position:absolute;left:3px;top:3px;width:13px;height:13px;background:var(--txt2);border-radius:50%;transition:.18s}
+.toggle input:checked+.tog-sl{background:var(--grn)}
+.toggle input:checked+.tog-sl::before{transform:translateX(15px);background:#fff}
+.toggle input:disabled+.tog-sl{opacity:.4;cursor:not-allowed}
+
+/* PNUM INPUT */
+.pnum{width:75px;padding:6px 10px;background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--r);color:var(--txt0);font-family:var(--mono);font-size:13px;outline:none}
+.pnum:focus{border-color:var(--gold)}
+
+/* MISC UTILS */
+.row{display:flex;gap:14px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:14px}
+.f1{flex:1}
+.flex-row{display:flex;align-items:center;gap:8px}
+.flex-btw{display:flex;align-items:center;justify-content:space-between}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mt20{margin-top:20px}
+.gap8{gap:8px}.gap12{gap:12px}
+.w-full{width:100%}
+.hidden{display:none!important}
+.text-center{text-align:center}
+.text-right{text-align:right}
+.text-mono{font-family:var(--mono)}
+.text-gold{color:var(--gold)}
+.text-grn{color:var(--grn)}
+.text-red{color:var(--red)}
+.text-muted{color:var(--txt2)}
+.text-sm{font-size:12px}
+.text-xs{font-size:11px}
+.divider{height:1px;background:var(--bd0);margin:16px 0}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:50px 20px;color:var(--txt3);font-family:var(--mono);font-size:12px}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+/* CONFIG BANNER */
+#cfg-banner{background:rgba(239,68,68,.1);border-bottom:1px solid rgba(239,68,68,.2);padding:7px 20px;font-size:11px;color:var(--red);font-family:var(--mono);text-align:center;display:none}
+
+/* DELETE WARNING */
+.del-warn{padding:9px 14px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);border-radius:var(--r);font-size:12px;color:var(--red);font-family:var(--mono)}
+
+/* SPINNER */
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .5s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOAST */
+#toast-ct{position:fixed;top:56px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{padding:11px 15px;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);font-size:12px;color:var(--txt0);font-family:var(--mono);box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:320px;animation:tin .25s ease;pointer-events:all;display:flex;align-items:center;gap:9px}
+.toast.success{border-left:3px solid var(--grn)}
+.toast.error{border-left:3px solid var(--red)}
+.toast.info{border-left:3px solid var(--blu)}
+.toast.warning{border-left:3px solid var(--org)}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* MODAL */
+#modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center}
+#modal-ov.active{display:flex}
+.modal-box{background:var(--bg2);border:1px solid var(--bd1);border-top:2px solid var(--gold);border-radius:var(--r2);padding:28px;max-width:480px;width:90%;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.modal-title{font-size:15px;font-weight:700;color:var(--txt0);margin-bottom:8px}
+.modal-body{color:var(--txt1);font-size:13px;line-height:1.7}
+.modal-footer{margin-top:22px;display:flex;gap:10px;justify-content:flex-end}
+
+/* Progress */
+.prog-wrap{background:var(--bg3);border-radius:3px;height:3px;overflow:hidden;margin-top:8px}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:3px;transition:width .3s}
+
+/* Scrollable table wrapper */
+.tbl-scroll{overflow-x:auto;max-height:440px;overflow-y:auto}
+
+/* Password toggle */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:40px}
+.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2,#5a6a7e);padding:4px;display:flex;align-items:center;transition:color .15s}
+.pw-eye:hover{color:var(--txt1,#98a6b8)}
+
+/* ── NEW LOGIN STYLE ── */
+#s-login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0d14;z-index:9999}
+#s-login::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 700px 500px at 30% 60%,rgba(249,115,22,.07) 0%,transparent 60%),radial-gradient(ellipse 500px 400px at 75% 20%,rgba(249,115,22,.04) 0%,transparent 60%),repeating-linear-gradient(0deg,transparent,transparent 49px,rgba(255,255,255,.012) 49px,rgba(255,255,255,.012) 50px),repeating-linear-gradient(90deg,transparent,transparent 49px,rgba(255,255,255,.012) 49px,rgba(255,255,255,.012) 50px)}
+.lbox2{position:relative;width:460px;background:#0f1520;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)}
+.lhead{display:flex;border-bottom:1px solid rgba(255,255,255,.08)}
+.ltab{flex:1;height:52px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#4d6278;cursor:default;transition:all .15s;font-family:var(--sans)}
+.ltab.active{color:#fff;background:linear-gradient(180deg,rgba(249,115,22,.18) 0%,transparent 100%);border-bottom:2px solid #f97316}
+.ltab.disabled{color:#2a3a4d}
+.lbody{padding:28px 32px 32px}
+.lf2{margin-bottom:16px}
+.lf2 label{display:block;font-size:13px;font-weight:600;color:#8fa1b6;margin-bottom:7px}
+.lf2 input{width:100%;height:48px;background:#060a10;border:1.5px solid #1e2c40;border-radius:10px;padding:0 14px;color:#edf0f8;font-size:14px;transition:border-color .15s}
+.lf2 input:focus{border-color:rgba(249,115,22,.6);outline:none}
+.lf2 input::placeholder{color:#2a3a4d}
+.pw-wrap2{position:relative}
+.pw-wrap2 input{padding-right:46px;width:100%}
+.pw-eye2{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#4d6278;padding:4px;display:flex;line-height:0;transition:color .15s}
+.pw-eye2:hover{color:#f97316}
+.lbtn2{width:100%;height:50px;background:linear-gradient(135deg,#f97316 0%,#ea6e0e 100%);color:#fff;font-size:15px;font-weight:700;border-radius:10px;border:none;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.02em;box-shadow:0 4px 20px rgba(249,115,22,.35)}
+.lbtn2:hover{background:linear-gradient(135deg,#fb923c 0%,#f97316 100%);box-shadow:0 6px 24px rgba(249,115,22,.5);transform:translateY(-1px)}
+.lbtn2:active{transform:translateY(0)}
+.lbtn2:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ── NEW SIDEBAR STYLE ── */
+#sidebar{width:230px;min-width:230px;flex-shrink:0;background:#0d111a;border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;overflow-y:auto}
+.sb-header{display:flex;align-items:center;gap:10px;padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#f97316,#ea6e0e);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.sb-app-name{font-size:13px;font-weight:700;color:#edf0f8;line-height:1.2}
+.sb-app-sub{font-size:10px;color:#4d6278;letter-spacing:.04em}
+.sb-user-card{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03)}
+.sb-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ea6e0e);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;font-family:var(--mono)}
+.sb-user-name{font-size:13px;font-weight:600;color:#edf0f8;line-height:1.2}
+.sb-user-role{font-size:10px;color:#f97316;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:var(--mono)}
+.sb-section{padding:10px 0 4px}
+.sb-label{padding:4px 14px 6px;font-size:9px;color:#2e3f54;letter-spacing:.15em;text-transform:uppercase;font-family:var(--mono);font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:all .12s;border-left:2px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.04);border-left-color:rgba(255,255,255,.1)}
+.nav-item.active{background:rgba(255,255,255,.06);border-left-color:#f97316}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.nav-texts{min-width:0}
+.nav-title{font-size:12px;font-weight:600;color:#c8d4e0;line-height:1.3}
+.nav-item.active .nav-title{color:#edf0f8}
+.nav-sub{font-size:10px;color:#3a4f63;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-item.active .nav-sub{color:#5a7082}
+.sb-gap{flex:1}
+.sb-footer2{padding:10px 14px 14px;border-top:1px solid rgba(255,255,255,.06)}
+.sb-online{font-size:10px;color:#4d6278;font-family:var(--mono);display:flex;align-items:center;gap:5px;margin-bottom:8px}
+.sb-dot-grn{width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 6px #22c55e}
+.sb-logout-btn{width:100%;height:36px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.sb-logout-btn:hover{background:rgba(239,68,68,.25)}
+</style>
+</head>
+<body>
+
+<!-- Config Banner -->
+<div id="cfg-banner">⚠ Supabase ยังไม่ได้ตั้งค่า — กรุณากรอก SUPABASE_URL และ SUPABASE_ANON_KEY ในโค้ด JS</div>
+
+<!-- ============================================================ -->
+<!-- LOGIN SCREEN                                                 -->
+<!-- ============================================================ -->
+<div id="screen-login">
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="width:46px;height:46px;background:linear-gradient(145deg,#f97316,#ea6e0e);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 24px rgba(249,115,22,.4);margin-bottom:8px">🚛</div>
+    <div style="font-size:15px;font-weight:700;color:#edf0f8">N.J. Logistics</div>
+    <div style="font-size:11px;color:#f97316;letter-spacing:.12em;font-family:var(--mono);margin-top:2px">BILLING</div>
+  </div>
+  <div class="login-box" style="background:#0f1520;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:0;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.7)">
+    <div style="height:48px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(249,115,22,.15) 0%,transparent 100%);border-bottom:1px solid rgba(249,115,22,.25);font-size:15px;font-weight:600;color:#fff">เข้าสู่ระบบ</div>
+    <div style="padding:18px 22px 22px">
+      <div class="form-group">
+        <label class="form-label" style="color:#8fa1b6">ชื่อผู้ใช้</label>
+        <input type="text" class="form-input" id="inp-user" placeholder="กรอก Username"
+               autocomplete="username" autocapitalize="none" spellcheck="false"
+               style="height:40px;background:#060a10;border:1.5px solid #1e2c40;border-radius:8px;font-size:13px">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:#8fa1b6">รหัสผ่าน</label>
+        <div style="position:relative">
+          <input type="password" class="form-input" id="inp-pass" placeholder="กรอก Password"
+                 autocomplete="current-password"
+                 style="height:40px;background:#060a10;border:1.5px solid #1e2c40;border-radius:8px;font-size:13px;padding-right:40px;width:100%">
+          <button type="button" id="toggle-pass" onclick="togglePassword()"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:4px;color:#4d6278;transition:color .15s"
+            onmouseover="this.style.color='#f97316'" onmouseout="this.style.color='#4d6278'">👁</button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-bottom:18px;margin-top:-4px">
+        <span style="font-size:12px;color:#f97316;cursor:default">ลืมรหัสผ่าน? ติดต่อ Admin</span>
+      </div>
+      <button style="width:100%;height:40px;background:linear-gradient(135deg,#f97316,#ea6e0e);color:#fff;font-size:15px;font-weight:700;border-radius:10px;border:none;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 20px rgba(249,115,22,.35)" id="btn-login" onclick="handleLogin()"
+             onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+        <span id="login-txt">เข้าสู่ระบบ</span>
+        <span id="login-spin" class="spinner hidden"></span>
+      </button>
+      <div class="login-error" id="login-err" style="margin-top:12px"></div>
+      <div style="margin-top:16px;font-size:10px;color:#2a3a4d;text-align:center;font-family:var(--mono)">INTERNAL SYSTEM · DESKTOP ONLY</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MAIN APP                                                     -->
+<!-- ============================================================ -->
+<div id="screen-app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="tb-logo">
+      <div class="tb-logo-icon">B</div>
+      BILLING PDF
+    </div>
+    <div class="tb-div"></div>
+    <div class="tb-mode" id="tb-mode">—</div>
+    <div class="tb-spacer"></div>
+    <div class="tb-status">
+      <div class="status-ind">
+        <div class="status-dot"></div>
+        <span id="idle-disp">ACTIVE</span>
+      </div>
+      <div class="user-chip">
+        <span class="uc-name" id="tb-uname">—</span>
+        <span class="uc-role" id="tb-role">—</span>
+      </div>
+      <button id="btn-logout" onclick="handleLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <!-- App Header -->
+      <div class="sb-header">
+        <div class="sb-logo-icon">🚛</div>
+        <div>
+          <div class="sb-app-name">N.J. Logistics</div>
+          <div class="sb-app-sub">Billing PDF Manager</div>
+        </div>
+      </div>
+
+      <!-- User Card -->
+      <div class="sb-user-card">
+        <div class="sb-avatar" id="sb-avatar">JA</div>
+        <div>
+          <div class="sb-user-name" id="sb-uname2">—</div>
+          <div class="sb-user-role" id="sb-role2">—</div>
+        </div>
+      </div>
+
+      <!-- PDF Tools -->
+      <div class="sb-section">
+        <div class="sb-label">จัดการไฟล์ PDF</div>
+        <div class="nav-item active" id="nav-mode3" onclick="switchView('mode3')">
+          <span class="nav-dot" style="background:#a78bfa"></span>
+          <div class="nav-texts">
+            <div class="nav-title">เปลี่ยนชื่อไฟล์</div>
+            <div class="nav-sub">Rename Only · สูงสุด 15 ไฟล์</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Admin -->
+      <div class="sb-section hidden" id="admin-nav">
+        <div class="sb-label">Admin</div>
+        <div class="nav-item" id="nav-users" onclick="switchView('users')">
+          <span class="nav-dot" style="background:#34d399"></span>
+          <div class="nav-texts">
+            <div class="nav-title">User Management</div>
+            <div class="nav-sub">จัดการบัญชีผู้ใช้</div>
+          </div>
+        </div>
+        <div class="nav-item" id="nav-logs" onclick="switchView('logs')">
+          <span class="nav-dot" style="background:#fb7185"></span>
+          <div class="nav-texts">
+            <div class="nav-title">Audit Logs</div>
+            <div class="nav-sub">บันทึกการใช้งาน</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sb-gap"></div>
+
+      <!-- Footer -->
+      <div class="sb-footer2">
+        <div class="sb-online"><span class="sb-dot-grn"></span>Online · <span id="idle-cd">60:00</span></div>
+        <button class="sb-logout-btn" onclick="handleLogout()">🚪 ออกจากระบบ</button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main-content">
+
+      <!-- ================================================ -->
+      <!-- VIEW: MODE 1 — Rename + Delete Pages             -->
+      <!-- ================================================ -->
+      <!-- ================================================ -->
+      <!-- VIEW: MODE 3 — เปลี่ยนชื่อไฟล์อย่างเดียว        -->
+      <!-- ================================================ -->
+      <div class="view active" id="view-mode3">
+        <div class="page-header">
+          <div>
+            <div class="page-title">เปลี่ยนชื่อไฟล์</div>
+            <div class="page-desc">Upload สูงสุด 15 ไฟล์ → Auto parse → Export PDF ชื่อใหม่ (เนื้อหาไม่เปลี่ยน)</div>
+          </div>
+          <div class="flex-row gap8">
+            <button class="btn btn-secondary btn-sm" onclick="clearMode3()" id="btn-m3-clear" style="display:none">✕ ล้างทั้งหมด</button>
+            <button class="btn btn-primary" id="btn-ex3" onclick="exportMode3()" disabled>⬇ Export</button>
+          </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="card">
+          <div id="m3-zone" class="upload-zone" style="padding:18px 20px"
+               ondragover="doDragOver(event,'m3-zone')"
+               ondragleave="doDragLeave('m3-zone')"
+               ondrop="doDrop3(event)">
+            <input type="file" accept=".pdf" multiple id="m3-file-input" onchange="doFile3(this)">
+            <div class="uz-icon" style="font-size:20px;margin-bottom:6px">🔴</div>
+            <div class="uz-label" style="font-size:13px">Drag &amp; Drop PDF หรือ คลิกเลือก</div>
+            <div class="uz-sub">Rename Only · สูงสุด 15 ไฟล์ · เนื้อหา PDF ไม่เปลี่ยน</div>
+          </div>
+          <div id="m3-queue-summary" style="display:none;margin-top:10px;font-size:12px;color:var(--txt2);font-family:var(--mono)"></div>
+        </div>
+
+        <!-- File Cards -->
+        <div id="m3-files-container"></div>
+      </div>
+
+
+
+      <!-- ================================================ -->
+      <!-- VIEW: ADMIN DASHBOARD                            -->
+      <!-- ================================================ -->
+      <div class="view" id="view-users">
+        <div class="page-header">
+          <div>
+            <div class="page-title"><span>USER MANAGEMENT</span></div>
+            <div class="page-desc">จัดการบัญชีผู้ใช้งานทั้งหมด</div>
+          </div>
+          <button class="btn btn-secondary" onclick="loadUsers()">🔄 Refresh</button>
+        </div>
+
+        <div class="dt-wrap">
+          <div class="dt-toolbar">
+            <input type="text" class="tbl-search" id="user-srch" placeholder="ค้นหา username..." oninput="filterUsers(this.value)">
+          </div>
+          <div class="tbl-scroll">
+            <table class="data-tbl">
+              <thead>
+                <tr>
+                  <th>Username</th><th>Display Name</th><th>Role</th>
+                  <th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody">
+                <tr><td colspan="7" class="text-center text-muted" style="padding:28px">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ -->
+      <!-- VIEW: AUDIT LOGS                                 -->
+      <!-- ================================================ -->
+      <div class="view" id="view-logs">
+        <div class="page-header">
+          <div>
+            <div class="page-title"><span>AUDIT LOGS</span></div>
+            <div class="page-desc">บันทึกการใช้งานทั้งหมด (500 รายการล่าสุด)</div>
+          </div>
+          <div class="flex-row gap8">
+            <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+            <button class="btn btn-secondary" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <div class="dt-wrap">
+          <div class="dt-toolbar">
+            <input type="text" class="tbl-search" id="log-srch" placeholder="ค้นหา user / action / file..." oninput="filterLogs()">
+            <select id="log-act-sel" class="form-input" style="width:170px;padding:6px 10px;font-size:12px" onchange="filterLogs()">
+              <option value="">ทุก Action</option>
+              <option value="login">Login</option>
+              <option value="logout">Logout</option>
+              <option value="upload_pdf">Upload</option>
+              <option value="rename_pdf">Rename PDF</option>
+              <option value="delete_pages">Delete Pages</option>
+              <option value="replace_page">Replace Page</option>
+              <option value="enable_user">Enable User</option>
+              <option value="disable_user">Disable User</option>
+            </select>
+          </div>
+          <div class="tbl-scroll">
+            <table class="data-tbl">
+              <thead>
+                <tr>
+                  <th>Timestamp</th><th>User</th><th>Action</th>
+                  <th>File</th><th>Output</th><th>Machine</th><th>Status</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="logs-tbody">
+                <tr><td colspan="8" class="text-center text-muted" style="padding:28px">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /app-body -->
+</div><!-- /screen-app -->
+
+<!-- Toast Container -->
+<div id="toast-ct"></div>
+
+<!-- Modal Overlay -->
+<div id="modal-ov">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Confirm</div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT                                                   -->
+<!-- ============================================================ -->
+<script>
+/* ============================================================
+   🔧 CONFIGURATION — แก้ไขตรงนี้ก่อนใช้งาน
+   ============================================================ */
+const SUPABASE_URL     = 'https://sytgqjglcnsabcszbngg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
+const EMAIL_DOMAIN     = '@billing.sys';       // Internal email domain สำหรับ Supabase Auth
+const IDLE_MS          = 60 * 60 * 1000;       // 60 minutes
+const BATCH            = 5;                    // pages per render batch
+
+/* ============================================================
+   PDF.js Worker
+   ============================================================ */
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+/* ============================================================
+   GLOBAL STATE
+   ============================================================ */
+let sb = null;                   // Supabase client
+let CU = null;                   // currentUser profile
+let CR = null;                   // currentRole
+let idleTimer = null;
+let idleCdInt = null;
+let idleLeft   = IDLE_MS;
+
+// Mode 1
+let m1File = null, m1LibDoc = null, m1JsDoc = null;
+let m1StoredFname = null, m1FnameLocked = false, m1SelPages = new Set(), m1TotalPg = 0;
+
+// Mode 2
+let m2SrcFile = null, m2DstFile = null;
+let m2SrcLib = null, m2DstLib = null;
+let m2SrcJs = null,  m2DstJs = null;
+let m2StoredFname = null, m2Action = 'replace';
+let m2SrcPgs = 0, m2DstPgs = 0;
+
+// Admin data cache
+let allUsers = [], allLogs = [];
+
+/* ============================================================
+   INIT
+   ============================================================ */
+/* ── LOCAL USERS (ไม่ใช้ Supabase Auth) ── */
+const LOCAL_USERS = [
+  { username:'Jamrat', password:'Jam497522',  role:'super_admin', status:'active' },
+  { username:'AC1',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC2',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC3',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC4',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC5',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC6',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC7',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC9',    password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC10',   password:'Ac12345',    role:'user',        status:'active' },
+  { username:'AC11',   password:'Ac12345',    role:'user',        status:'active' },
+  { username:'NJ1',    password:'NJ12345',    role:'user',        status:'active' },
+  { username:'NJ2',    password:'NJ12345',    role:'user',        status:'active' },
+  { username:'NJ3',    password:'NJ12345',    role:'user',        status:'active' },
+  { username:'NJ4',    password:'NJ12345',    role:'user',        status:'active' },
+  { username:'NJ5',    password:'NJ12345',    role:'user',        status:'active' }
+];
+
+async function initApp() {
+  // Restore session from sessionStorage
+  const saved = sessionStorage.getItem('nj_session');
+  if (saved) {
+    try {
+      const u = JSON.parse(saved);
+      CU = u; CR = u.role;
+      showApp();
+      return;
+    } catch(_) { sessionStorage.removeItem('nj_session'); }
+  }
+  showLogin();
+}
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+
+function togglePw() {
+  const inp = document.getElementById('inp-pass');
+  const show = document.getElementById('eye-show');
+  const hide = document.getElementById('eye-hide');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    show.style.display = 'none';
+    hide.style.display = 'block';
+  } else {
+    inp.type = 'password';
+    show.style.display = 'block';
+    hide.style.display = 'none';
+  }
+}
+
+function togglePassword() {
+  const input = document.getElementById('inp-pass');
+  const btn   = document.getElementById('toggle-pass');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+function handleLogin() {
+  const username = (qs('#inp-user').value || '').trim();
+  const password = (qs('#inp-pass').value || '');
+  if (!username || !password) { loginErr('กรุณากรอก Username และ Password'); return; }
+  setLoginLoading(true);
+  clearLoginErr();
+  const user = LOCAL_USERS.find(u =>
+    u.username.toLowerCase() === username.toLowerCase() &&
+    u.password === password &&
+    u.status === 'active'
+  );
+  if (!user) {
+    loginErr('Username หรือ Password ไม่ถูกต้อง');
+    setLoginLoading(false);
+    return;
+  }
+  CU = { username: user.username, full_name: user.username, role: user.role };
+  CR = user.role;
+  sessionStorage.setItem('nj_session', JSON.stringify(CU));
+  showApp();
+}
+
+// loadProfile ถูกแทนที่ด้วย local auth แล้ว
+
+function handleLogout() {
+  clearTimers();
+  sessionStorage.removeItem('nj_session');
+  CU = null; CR = null;
+  showLogin();
+  toast('ออกจากระบบแล้ว', 'info');
+}
+
+/* ============================================================
+   UI TRANSITIONS
+   ============================================================ */
+function showApp() {
+  qs('#screen-login').style.display = 'none';
+  qs('#screen-app').classList.add('active');
+  qs('#tb-uname').textContent = CU.full_name || CU.username;
+  // New sidebar user card
+  const uname2 = document.getElementById('sb-uname2');
+  const role2  = document.getElementById('sb-role2');
+  const avatar = document.getElementById('sb-avatar');
+  if (uname2) uname2.textContent = CU.full_name || CU.username;
+  if (role2)  role2.textContent  = CR === 'super_admin' ? 'Super Admin' : 'User';
+  if (avatar) avatar.textContent = (CU.username||'?').slice(0,2).toUpperCase();
+  const roleEl = qs('#tb-role');
+  if (CR === 'super_admin') {
+    roleEl.textContent = 'ADMIN'; roleEl.className = 'uc-role role-admin';
+    qs('#admin-nav').classList.remove('hidden');
+  } else {
+    roleEl.textContent = 'USER'; roleEl.className = 'uc-role role-user';
+    qs('#admin-nav').classList.add('hidden');
+  }
+  setupIdle();
+  switchView('mode3');
+  setLoginLoading(false);
+}
+
+function showLogin() {
+  qs('#screen-app').classList.remove('active');
+  qs('#screen-login').style.display = 'flex';
+  qs('#inp-user').value = ''; qs('#inp-pass').value = '';
+  CU = null; CR = null;
+  clearMode1(); clearSrc(); clearDst();
+}
+
+function setLoginLoading(on) {
+  const btn = qs('#btn-login'), txt = qs('#login-txt'), spin = qs('#login-spin');
+  btn.disabled = on;
+  txt.textContent = on ? 'SIGNING IN...' : 'SIGN IN';
+  spin.classList.toggle('hidden', !on);
+}
+function loginErr(msg) { const e=qs('#login-err'); e.textContent=msg; e.style.display='block'; }
+function clearLoginErr() { const e=qs('#login-err'); e.style.display='none'; e.textContent=''; }
+
+/* ============================================================
+   VIEW ROUTER
+   ============================================================ */
+const viewMeta = {
+  mode3:     { label:'MODE 3 — เปลี่ยนชื่อไฟล์',        admin:false },
+  users:     { label:'USER MANAGEMENT',               admin:true  },
+  logs:      { label:'AUDIT LOGS',                    admin:true  },
+};
+
+function switchView(v) {
+  if (viewMeta[v]?.admin && CR !== 'super_admin') {
+    toast('ไม่มีสิทธิ์เข้าถึง', 'error'); return;
+  }
+  Object.keys(viewMeta).forEach(k => {
+    qs('#view-'+k)?.classList.remove('active');
+    qs('#nav-'+k)?.classList.remove('active');
+  });
+  qs('#view-'+v)?.classList.add('active');
+  qs('#nav-'+v)?.classList.add('active');
+  qs('#tb-mode').textContent = viewMeta[v]?.label || '—';
+  if (v==='dashboard') loadDashboard();
+  if (v==='users')     loadUsers();
+  if (v==='logs')      loadLogs();
+}
+
+/* ============================================================
+   IDLE TIMER
+   ============================================================ */
+function setupIdle() {
+  resetIdle();
+  ['mousemove','keydown','click','scroll','wheel'].forEach(ev =>
+    window.addEventListener(ev, resetIdle, { passive:true }));
+}
+
+function resetIdle() {
+  idleLeft = IDLE_MS;
+  clearTimeout(idleTimer);
+  clearInterval(idleCdInt);
+  idleTimer = setTimeout(async () => {
+    toast('Session หมดอายุ (Idle Timeout)', 'warning');
+    await logAudit('logout', null, null, true, 'Auto logout - idle');
+    await sb.auth.signOut();
+    showLogin();
+  }, IDLE_MS);
+  idleCdInt = setInterval(() => {
+    idleLeft = Math.max(0, idleLeft - 1000);
+    updateIdleDisplay();
+    if (idleLeft <= 0) clearInterval(idleCdInt);
+  }, 1000);
+}
+
+function clearTimers() {
+  clearTimeout(idleTimer); clearInterval(idleCdInt);
+}
+
+function updateIdleDisplay() {
+  const m = Math.floor(idleLeft/60000), s = Math.floor((idleLeft%60000)/1000);
+  const str = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  qs('#idle-cd').textContent = str;
+  qs('#idle-cd').style.color = idleLeft < 5*60000 ? 'var(--red)' : '';
+  qs('#idle-disp').textContent = idleLeft < 5*60000 ? '⚠ LOW' : 'ACTIVE';
+}
+
+/* ============================================================
+   DRAG & DROP HELPERS
+   ============================================================ */
+function doDragOver(e, id) { e.preventDefault(); qs('#'+id)?.classList.add('drag'); }
+function doDragLeave(id)   { qs('#'+id)?.classList.remove('drag'); }
+
+/* ============================================================
+   MODE 1 — RENAME + DELETE PAGES
+   ============================================================ */
+/* ============================================================
+   MODE 1 — MULTI-FILE (up to 5)
+   ============================================================ */
+
+// Queue: [{id, file, storedName, locked, selPages, totalPg, status}]
+let m1Queue = [];
+let m1Processing = false;
+
+function doDrop1Multi(e) {
+  e.preventDefault(); doDragLeave('m1-zone');
+  const files = [...(e.dataTransfer?.files||[])].filter(f=>f.type==='application/pdf');
+  if (!files.length) { toast('กรุณาเลือกไฟล์ PDF', 'error'); return; }
+  m1AddFiles(files);
+}
+function doFile1Multi(inp) {
+  const files = [...inp.files].filter(f=>f.type==='application/pdf');
+  m1AddFiles(files);
+  inp.value = '';
+}
+// Legacy single-file compat
+function doDrop1(e) { doDrop1Multi(e); }
+function doFile1(inp) { doFile1Multi(inp); }
+
+function m1AddFiles(files) {
+  if (files.length > 15) {
+    toast('MODE 1 รองรับสูงสุด 15 ไฟล์เท่านั้น — กรุณาเลือกใหม่', 'error');
+    return;
+  }
+  files.forEach(f => {
+    const id = 'm1f_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    m1Queue.push({ id, file:f, storedName:null, locked:false, selPages:new Set(), totalPg:0, status:'queued' });
+    m1CreateCard(m1Queue[m1Queue.length-1]);
+  });
+  m1UpdateSummary();
+  m1ProcessQueue();
+}
+
+function m1CreateCard(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card'; wrap.id = 'card_'+item.id;
+  wrap.style.marginBottom = '12px';
+  wrap.innerHTML = `
+    <div class="card-hdr" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+        <span style="font-size:16px">📄</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--txt0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.file.name}">${item.file.name}</div>
+          <div style="font-size:11px;color:var(--txt2)">${fmtBytes(item.file.size)}</div>
+        </div>
+        <span class="card-badge" id="status_${item.id}">⏳ รอ</span>
+      </div>
+      <button class="fl-clear" onclick="m1RemoveItem('${item.id}')" title="ลบไฟล์นี้">✕</button>
+    </div>
+    <div id="parsebox_${item.id}" style="display:none;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:11px">
+        <span style="color:var(--txt2);font-family:var(--mono)">Invoice No.</span><span id="pi_${item.id}" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>
+        <span style="color:var(--txt2);font-family:var(--mono)">Declaration No.</span><span id="pd_${item.id}" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>
+        <span style="color:var(--txt2);font-family:var(--mono)">House No.</span><span id="pj_${item.id}" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>
+        <span style="color:var(--txt2);font-family:var(--mono)">Customer</span><span id="pc_${item.id}" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--txt2);font-family:var(--mono)">ชื่อไฟล์ Export:</div>
+      <div id="pfname_${item.id}" style="font-family:var(--mono);font-size:12px;color:var(--gold);font-weight:600;word-break:break-all">—</div>
+      <div id="pstatus_${item.id}" style="font-size:10px;color:var(--txt3);font-family:var(--mono);margin-top:3px"></div>
+    </div>
+    <div id="pgrid_${item.id}" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--txt1)">เลือกหน้าที่ต้องการ <span style="color:var(--red)">ลบ</span></span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="selcnt_${item.id}" style="font-size:11px;color:var(--txt2)">ไม่มีที่เลือก</span>
+          <button class="btn btn-sm btn-secondary" onclick="m1ClearSel('${item.id}')">ล้าง</button>
+        </div>
+      </div>
+      <div class="pgrid" id="thumbs_${item.id}" style="max-height:260px;overflow-y:auto"></div>
+      <div style="margin-top:10px">
+        <button class="btn btn-primary btn-sm" id="expbtn_${item.id}" data-expid="${item.id}"
+          style="background:var(--red);border-color:var(--red)">
+          🗑 ลบหน้าที่เลือก &amp; Export PDF
+        </button>
+      </div>
+    </div>`;
+  document.getElementById('m1-files-container').appendChild(wrap);
+  document.getElementById('btn-m1-clear').style.display = '';
+  // Bind per-card export button
+  wrap.querySelector('[data-expid]').addEventListener('click', function() {
+    m1ExportOne(this.dataset.expid);
+  });
+}
+
+function m1RemoveItem(id) {
+  m1Queue = m1Queue.filter(x => x.id !== id);
+  const card = document.getElementById('card_'+id);
+  if (card) card.remove();
+  m1UpdateSummary();
+  m1UpdateExportBtn();
+  if (!m1Queue.length) document.getElementById('btn-m1-clear').style.display = 'none';
+}
+
+async function m1ProcessQueue() {
+  if (m1Processing) return;
+  m1Processing = true;
+  for (const item of m1Queue) {
+    if (item.status !== 'queued') continue;
+    item.status = 'processing';
+    m1SetStatus(item.id, '⚙ กำลังอ่าน...', 'var(--orange)');
+    await m1ProcessOne(item);
+  }
+  m1Processing = false;
+  m1UpdateExportBtn();
+}
+
+async function m1ProcessOne(item) {
+  try {
+    const ab = await item.file.arrayBuffer();
+    const jsDoc = await pdfjsLib.getDocument({ data: ab.slice(0) }).promise;
+    item.totalPg = jsDoc.numPages;
+
+    // 1) Parse BEFORE any edit (lock filename)
+    const fname = await autoParseAndBuildFnameFor(jsDoc, item);
+    item.storedName = fname;
+    item.locked = true;
+
+    // 2) Show parse result
+    document.getElementById('parsebox_'+item.id).style.display = '';
+    document.getElementById('pfname_'+item.id).textContent = fname;
+
+    // 3) Render thumbnails (batched)
+    document.getElementById('pgrid_'+item.id).style.display = '';
+    const grid = document.getElementById('thumbs_'+item.id);
+    for (let i = 0; i < item.totalPg; i += BATCH) {
+      const batch = [];
+      for (let p = i; p < Math.min(i+BATCH, item.totalPg); p++) batch.push(p);
+      await Promise.all(batch.map(p => m1MakeThumb(p, grid, jsDoc, item)));
+      await tick();
+    }
+
+    // 4) Release large PDF data — only keep File reference for export
+    jsDoc.destroy().catch(()=>{});
+
+    // Update sel count (page 0 auto-selected)
+    const cntEl = document.getElementById('selcnt_'+item.id);
+    if (cntEl) cntEl.textContent = 'เลือก 1 หน้า (หน้าแรก)';
+
+    item.status = 'ready';
+    m1SetStatus(item.id, '✅ พร้อม Export', 'var(--green)');
+  } catch(e) {
+    item.status = 'error';
+    m1SetStatus(item.id, '❌ '+e.message, 'var(--red)');
+  }
+}
+
+
+/* ============================================================
+   PARSE HELPERS — shared by Mode 1, 2, 3
+   ============================================================ */
+
+async function extractAllText(jsDoc, maxPages) {
+  let text = '';
+  const pages = Math.min(jsDoc.numPages, maxPages || 1);
+  for (let i = 1; i <= pages; i++) {
+    try {
+      const pg = await jsDoc.getPage(i);
+      const ct = await pg.getTextContent();
+      const line = ct.items.map(x => x.str).join(' ');
+      text += line + '\n';
+      console.log('[PARSE] p'+i+':', line.slice(0,300));
+    } catch(_) {}
+  }
+  return text;
+}
+
+function parseInvoiceNo(text) {
+  // NJ internal format: NJ1234-56789
+  const mNJ = text.match(/\bNJ\d{4}-\d{5}\b/i);
+  if (mNJ) return mNJ[0].toUpperCase();
+  // INV# prefix: INV# 5SH027522 or INV# 26HT06236
+  const mInv = text.match(/INV#?\s*:?\s*([A-Z0-9]{4,20})/i);
+  if (mInv) return mInv[1].toUpperCase();
+  // บัญชีราคาสินค้า JSEX315:09/04/2026 → จับ code หลัง label
+  const mBan = text.match(/บัญชีราคาสินค้า\s+([A-Z][A-Z0-9]{3,19})(?:[\s:]|$)/);
+  if (mBan) return mBan[1].toUpperCase();
+  // Fallback: LETTERS+DIGITS ตามด้วย :dd/mm/yyyy เช่น JSEX315:09/04/2026
+  const mCode = text.match(/\b([A-Z]{2,6}\d{2,10}):\d{2}\/\d{2}\/\d{4}/);
+  if (mCode) return mCode[1].toUpperCase();
+  return '';
+}
+
+function parseDeclarationNo(text) {
+  // Format with dashes from red box: A013-1-6903-06586 → A0131690306586
+  const mDash = text.match(/\b(A\d{3}-\d{1,2}-\d{4}-\d{5})\b/);
+  if (mDash) return mDash[1].replace(/-/g, '');
+  // Format without dashes: A0131690306586
+  const m = text.match(/\bA0?\d{12,13}\b/);
+  if (m) return m[0];
+  const m2 = text.match(/Decl[^\n]{0,20}?\s([A-Z]\d{12,13})/i);
+  return m2 ? m2[1] : '';
+}
+
+function parseJobNo(text) {
+  // House No. field — format varies by shipping line:
+  // Maersk:    IK0109107      (IK + digits)
+  // Evergreen: EGLV149308016335 (EGLV + digits)
+  // Others:    any UPPERCASE + digits combo
+  // Use ANCHOR only: look for "House" or "Huse" label then grab next token
+
+  // Try anchor patterns (OCR variants of "House :")
+  const anchors = [
+    /H(?:ouse|use|ous)\s*[:\s]+([A-Z]{2,6}\d{5,20})/i,
+    /H\s*u\s*s\s*e\s*[:\s]+([A-Z]{2,6}\d{5,20})/i,
+  ];
+  for (const pat of anchors) {
+    const m = text.match(pat);
+    if (m) {
+      console.log('[PARSE] House anchor:', m[1]);
+      return m[1];
+    }
+  }
+  // Fallback: known prefixes IK / EGLV / MBLM / COSU / HLCU anywhere in text
+  const known = text.match(/\b(EGLV|IK|MBLM|COSU|HLCU|OOLU|YMLU|MSCU)\d{5,20}\b/);
+  if (known) { console.log('[PARSE] House fallback prefix:', known[0]); return known[0]; }
+
+  console.log('[PARSE] House No: NOT FOUND');
+  return '';
+}
+
+function parseCustomerPO(text) {
+  // Customer PO: VIBKK0076790 (VIB + 2 letters + 7 digits)
+  // Anchor: near "Customer PO" or "Custmer PO" label
+  const anchor = text.match(/Cust(?:omer|mer)\s*PO\s*[:\s]+([A-Z]{3,}\d{5,10})/i);
+  if (anchor) return anchor[1];
+  const m = text.match(/\bVIB[A-Z]{2}\d{7}\b/);
+  return m ? m[0] : '';
+}
+
+function parseCustomerName(text) {
+  // Normalize common OCR splits
+  const t = text
+    .replace(/C\s+mpany/gi, 'Company').replace(/Inv\s+ice/gi, 'Invoice')
+    .replace(/Invoi\s+ce/gi, 'Invoice').replace(/Cust\s+omer/gi, 'Customer');
+
+  // PRIMARY: Company Invoice label
+  const ciPatterns = [
+    /Company\s*Invoi?c[ae]e?\s*[:\s]+([A-Z][^\n\r]{2,60})/i,
+    /Cmpany\s*Invic?e?\s*[:\s]+([A-Z][^\n\r]{2,60})/i,
+    /Comp\.?\s*Inv\.?\s*[:\s]+([A-Z][^\n\r]{2,60})/i,
+  ];
+  for (const pat of ciPatterns) {
+    const m = t.match(pat);
+    if (m) { console.log('[PARSE] Company Invoice:', m[1]); return cleanCompanyName(m[1].trim()); }
+  }
+  // SECONDARY: Customer Name label
+  const custPatterns = [
+    /Customer\s*Name\s*[:\s]+([A-Z][^\n\r]{2,60})/i,
+    /ช(?:ื่อ|อ)\s*ล[ูu]กค[้a]\s*[:\s]+([A-Z][^\n\r]{2,60})/i,
+  ];
+  for (const pat of custPatterns) {
+    const m = t.match(pat);
+    if (m) { console.log('[PARSE] Customer Name:', m[1]); return cleanCompanyName(m[1].trim()); }
+  }
+  // TERTIARY: keyword scan
+  const KW = [
+    [/\bIKANO\b/i,'IKANO'],[/\bMAERSK\b/i,'MAERSK'],[/\bESSILOR\b/i,'ESSILOR'],
+    [/\bKUEHNE\b|\bNAGEL\b/i,'KN'],[/\bDHL\b/i,'DHL'],[/\bSCHENKER\b/i,'SCHENKER'],
+    [/\bPANALPINA\b/i,'PANALPINA'],[/\bEXPEDITORS\b/i,'EXPEDITORS'],
+    [/\bCEVA\b/i,'CEVA'],[/\bBOLLORE\b/i,'BOLLORE'],[/\bGEODIS\b/i,'GEODIS'],
+    [/\bNIPPON\b/i,'NIPPON'],[/\bHELLMANN\b/i,'HELLMANN'],[/\bSINOTRANS\b/i,'SINOTRANS'],
+    [/\bAGILITY\b/i,'AGILITY'],[/\bTOLL\b/i,'TOLL'],[/\bUTI\b/i,'UTI'],
+  ];
+  for (const [re,name] of KW) {
+    if (re.test(t)) { console.log('[PARSE] keyword:', name); return name; }
+  }
+  console.log('[PARSE] customer: NOT FOUND. sample:', t.slice(0,200));
+  return '';
+}
+
+function cleanCompanyName(raw) {
+  let s = raw
+    .replace(/\s*\(THAILAND\).*$/i,'').replace(/\s*\(THAI\).*$/i,'')
+    .replace(/\s*\(HEAD\s*OFFICE\).*$/i,'').replace(/\bCO\.?,?\s*LTD\.?$/i,'')
+    .replace(/\bLIMITED$/i,'').replace(/\bCOMPANY$/i,'')
+    .replace(/\bCORP\.?$/i,'').replace(/\bINC\.?$/i,'').trim();
+  const words = s.split(/\s+/).filter(Boolean);
+  return (words.length > 2 ? words.slice(0,2).join(' ') : s).slice(0,25);
+}
+
+function sanitizeFname(s) {
+  return s.replace(/[\\/:*?"<>|]/g,'_').replace(/,{2,}/g,',').replace(/^,|,$/g,'').trim();
+}
+
+async function autoParseAndBuildFnameFor(jsDoc, item) {
+  const text = await extractAllText(jsDoc, 1);
+  const inv   = parseInvoiceNo(text);
+  const dec   = parseDeclarationNo(text);
+  const job   = parseJobNo(text);       // House No.
+  const cpo   = parseCustomerPO(text);  // Customer PO
+  const cust  = parseCustomerName(text);
+
+  // Update UI
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val||'(ไม่พบ)'; };
+  set('pi_'+item.id, inv);  set('pd_'+item.id, dec);
+  set('pj_'+item.id, job);  set('pc_'+item.id, cust);
+  // Show CPO in status line
+  const stEl = document.getElementById('pstatus_'+item.id);
+  if (stEl && cpo) { const cur=stEl.textContent; stEl.textContent = (cur||'') + ' | PO:'+cpo; }
+
+  const parts = [inv,dec,job,cpo,cust].filter(Boolean);
+  const fname = parts.length ? sanitizeFname(parts.join(','))+'.pdf' : sanitizeFname(item.file.name.replace(/\.pdf$/i,''))+'.pdf';
+
+  const missing = [inv?'':'Invoice',dec?'':'Decl',job?'':'House',cpo?'':'CustPO',cust?'':'Customer'].filter(Boolean);
+  const statusEl = document.getElementById('pstatus_'+item.id);
+  if (statusEl) {
+    if (!parts.length) { statusEl.textContent='⚠ ไม่พบข้อมูล — ใช้ชื่อเดิม'; statusEl.style.color='var(--orange)'; }
+    else if (missing.length) { statusEl.textContent='⚠ ไม่พบ: '+missing.join(', '); statusEl.style.color='var(--orange)'; }
+    else { statusEl.textContent='✅ Auto parsed สำเร็จ'; statusEl.style.color='var(--green)'; }
+  }
+  return fname;
+}
+
+async function m1MakeThumb(idx, grid, jsDoc, item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pthumb'; wrap.dataset.pg = idx;
+
+  const lbl = document.createElement('div');
+  lbl.className = 'pthumb-lbl';
+  lbl.textContent = 'P.'+(idx+1);
+
+  // Page 0 = auto-selected for deletion (always)
+  if (idx === 0) {
+    item.selPages.add(0);
+    wrap.classList.add('selected');
+    // Red "ลบ" badge
+    const badge = document.createElement('div');
+    badge.style.cssText = 'position:absolute;top:4px;left:4px;background:var(--red);color:#fff;font-size:9px;font-family:var(--mono);font-weight:700;padding:2px 5px;border-radius:3px;pointer-events:none;z-index:2';
+    badge.textContent = 'ลบ';
+    wrap.appendChild(badge);
+  } else {
+    // Remaining pages: clickable toggle
+    wrap.onclick = () => m1ToggleSel(item, idx, wrap);
+  }
+
+  wrap.appendChild(lbl);
+  grid.appendChild(wrap);
+
+  try {
+    const pg = await jsDoc.getPage(idx+1);
+    const vp = pg.getViewport({ scale:0.28 });
+    const cvs = document.createElement('canvas');
+    cvs.width=vp.width; cvs.height=vp.height;
+    await pg.render({ canvasContext:cvs.getContext('2d'), viewport:vp }).promise;
+    wrap.insertBefore(cvs, idx === 0 ? wrap.firstChild : lbl);
+    pg.cleanup();
+  } catch(_) { lbl.textContent='ERR'; }
+}
+
+function m1ToggleSel(item, idx, wrap) {
+  if (item.selPages.has(idx)) {
+    item.selPages.delete(idx); wrap.classList.remove('selected');
+  } else {
+    if (item.selPages.size >= item.totalPg - 1) { toast('ต้องเหลืออย่างน้อย 1 หน้า','warning'); return; }
+    item.selPages.add(idx); wrap.classList.add('selected');
+  }
+  const cnt = item.selPages.size;
+  const el = document.getElementById('selcnt_'+item.id);
+  if (el) el.textContent = cnt ? `เลือก ${cnt} หน้า` : 'ไม่มีที่เลือก';
+}
+
+function m1ClearSel(id) {
+  const item = m1Queue.find(x=>x.id===id); if(!item) return;
+  item.selPages.clear();
+  const grid = document.getElementById('thumbs_'+id);
+  if (grid) grid.querySelectorAll('.pthumb.selected').forEach(el=>el.classList.remove('selected'));
+  const el = document.getElementById('selcnt_'+id);
+  if (el) el.textContent = 'ไม่มีที่เลือก';
+}
+
+function m1SetStatus(id, text, color) {
+  const el = document.getElementById('status_'+id);
+  if (el) { el.textContent=text; el.style.color=color||''; }
+}
+
+function m1UpdateSummary() {
+  const n = m1Queue.length;
+  const sumEl = document.getElementById('m1-queue-summary');
+  if (!n) { sumEl.style.display='none'; return; }
+  sumEl.style.display = '';
+  sumEl.textContent = `📋 ${n} ไฟล์ในคิว`;
+}
+
+function m1UpdateExportBtn() {
+  const ready = m1Queue.filter(x=>x.status==='ready'&&x.storedName);
+  qs('#btn-ex1').disabled = ready.length === 0;
+  qs('#btn-ex1').textContent = ready.length > 1 ? `⬇ Export ZIP (${ready.length} ไฟล์)` : '⬇ Export PDF';
+}
+
+async function m1ExportOne(id) {
+  const item = m1Queue.find(x=>x.id===id);
+  if (!item || !item.storedName) { toast('ไฟล์ยังไม่พร้อม','warning'); return; }
+  const btn = document.getElementById('expbtn_'+id);
+  if (btn) { btn.disabled=true; btn.textContent='⏳ กำลัง Export...'; }
+  try {
+    const bytes = await buildExportedPdf(item);
+    dlBlob(new Blob([bytes],{type:'application/pdf'}), item.storedName);
+    toast('✅ Export: '+item.storedName,'success');
+    logAudit('delete_pages', item.file.name, item.storedName, true,
+      'Deleted pages: '+[...item.selPages].map(p=>p+1).join(','));
+  } catch(e) {
+    toast('Export ล้มเหลว: '+e.message,'error');
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='🗑 ลบหน้าที่เลือก & Export PDF'; }
+  }
+}
+
+async function exportMode1() {
+  const ready = m1Queue.filter(x=>x.status==='ready'&&x.locked&&x.storedName);
+  if (!ready.length) { toast('ยังไม่มีไฟล์พร้อม Export','error'); return; }
+  const btn = qs('#btn-ex1');
+  btn.disabled=true; btn.textContent='⏳ กำลัง Export...';
+  try {
+    if (ready.length === 1) {
+      // Single file — direct download
+      const item = ready[0];
+      const bytes = await buildExportedPdf(item);
+      dlBlob(new Blob([bytes],{type:'application/pdf'}), item.storedName);
+      toast('✅ Export: '+item.storedName,'success');
+    } else {
+      // Multiple — ZIP
+      const JSZip = window.JSZip;
+      if (!JSZip) { toast('กรุณาโหลดหน้าใหม่ (JSZip ไม่พร้อม)','error'); return; }
+      const zip = new JSZip();
+      for (const item of ready) {
+        const bytes = await buildExportedPdf(item);
+        zip.file(item.storedName, bytes);
+        await tick();
+      }
+      const blob = await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+      dlBlob(blob, 'RENAMED_MODE1_FILES.zip');
+      toast(`✅ Export ZIP สำเร็จ (${ready.length} ไฟล์)`,'success');
+    }
+  } catch(e) {
+    toast('Export ล้มเหลว: '+e.message,'error');
+  } finally {
+    btn.disabled=false; m1UpdateExportBtn();
+  }
+}
+
+async function buildExportedPdf(item) {
+  const ab = await item.file.arrayBuffer();
+  const doc = await PDFLib.PDFDocument.load(ab);
+  if (item.selPages.size > 0) {
+    const toRm = [...item.selPages].sort((a,b)=>b-a);
+    toRm.forEach(i=>doc.removePage(i));
+  }
+  return doc.save();
+}
+
+function clearMode1() {
+  m1Queue = []; m1Processing = false;
+  document.getElementById('m1-files-container').innerHTML = '';
+  document.getElementById('m1-queue-summary').style.display = 'none';
+  document.getElementById('btn-m1-clear').style.display = 'none';
+  // Reset hidden compat inputs
+  ['m1-inv','m1-dec','m1-job','m1-cust'].forEach(id=>{const el=qs('#'+id);if(el)el.value='';});
+  m1UpdateExportBtn();
+  toast('ล้างไฟล์ทั้งหมดแล้ว','info');
+}
+
+// compat stubs (keep for any remaining references)
+function updateFname1() {}
+function updateEx1Btn() { m1UpdateExportBtn(); }
+function updateSelUI()  {}
+function clearSel()     {}
+
+/* ============================================================
+   MODE 2 — REPLACE / INSERT
+   ============================================================ */
+function setAction(a) {
+  m2Action = a;
+  ['replace','ins-before','ins-after'].forEach(k => qs('#act-'+k)?.classList.remove('active'));
+  qs('#act-'+a)?.classList.add('active');
+  const lbl = qs('#m2-dst-pg-lbl');
+  if (lbl) {
+    if (a==='replace')    lbl.textContent = 'หน้าปลายทางที่จะ Replace';
+    else if (a==='ins-before') lbl.textContent = 'แทรกก่อนหน้าที่เลือก';
+    else                  lbl.textContent = 'แทรกหลังหน้าที่เลือก';
+  }
+  updateEx2Btn();
+}
+
+function doDropSrc(e) {
+  e.preventDefault(); doDragLeave('m2-src-zone');
+  const f = e.dataTransfer?.files[0];
+  if (f?.type==='application/pdf') processM2Src(f);
+  else toast('กรุณาเลือกไฟล์ PDF', 'error');
+}
+function doFileSrc(inp) { if (inp.files[0]) processM2Src(inp.files[0]); }
+
+async function processM2Src(file) {
+  try {
+    m2SrcFile = file;
+    const ab = await file.arrayBuffer();
+    m2SrcLib = await PDFLib.PDFDocument.load(ab);
+    m2SrcJs  = await pdfjsLib.getDocument({ data:ab.slice(0) }).promise;
+    m2SrcPgs = m2SrcLib.getPageCount();
+    hide('m2-src-zone'); show('m2-src-info');
+    qs('#m2-sname').textContent = file.name;
+    qs('#m2-ssize').textContent = fmtBytes(file.size) + ' · ' + m2SrcPgs + ' หน้า';
+    qs('#m2-src-pg').textContent = m2SrcPgs + ' หน้า';
+    show('m2-src-pgwrap');
+    qs('#m2-spg').max = m2SrcPgs;
+    qs('#m2-spg-max').textContent = '/ ' + m2SrcPgs + ' หน้า';
+    toast('Source โหลดแล้ว: ' + m2SrcPgs + ' หน้า', 'success');
+    updateEx2Btn();
+  } catch(e) { toast('โหลด Source ล้มเหลว: ' + e.message, 'error'); }
+}
+
+function doDropDst(e) {
+  e.preventDefault(); doDragLeave('m2-dst-zone');
+  const f = e.dataTransfer?.files[0];
+  if (f?.type==='application/pdf') processM2Dst(f);
+  else toast('กรุณาเลือกไฟล์ PDF', 'error');
+}
+function doFileDst(inp) { if (inp.files[0]) processM2Dst(inp.files[0]); }
+
+async function processM2Dst(file) {
+  try {
+    m2DstFile = file;
+    const ab = await file.arrayBuffer();
+    m2DstLib = await PDFLib.PDFDocument.load(ab);
+    m2DstJs  = await pdfjsLib.getDocument({ data:ab.slice(0) }).promise;
+    m2DstPgs = m2DstLib.getPageCount();
+    // Parse filename from destination BEFORE any modification (same rule as Mode 1/3)
+    hide('m2-dst-zone'); show('m2-dst-info');
+    qs('#m2-dname').textContent = file.name;
+    qs('#m2-dsize').textContent = fmtBytes(file.size) + ' · ' + m2DstPgs + ' หน้า';
+    qs('#m2-dst-pg').textContent = m2DstPgs + ' หน้า';
+    show('m2-dst-pgwrap');
+    qs('#m2-dpg').max = m2DstPgs;
+    qs('#m2-dpg-max').textContent = '/ ' + m2DstPgs + ' หน้า';
+    // Auto-parse filename from destination PDF
+    try {
+      const text = await extractAllText(m2DstJs, 1);
+      const inv  = parseInvoiceNo(text);
+      const dec  = parseDeclarationNo(text);
+      const job  = parseJobNo(text);
+      const cpo  = parseCustomerPO(text);
+      const cust = parseCustomerName(text);
+      const parts = [inv,dec,job,cpo,cust].filter(Boolean);
+      m2StoredFname = parts.length
+        ? sanitizeFname(parts.join(',')) + '.pdf'
+        : file.name; // fallback: original filename
+      const missing = [inv?'':'Invoice',dec?'':'Decl',job?'':'Job',cust?'':'Customer'].filter(Boolean);
+      let statusMsg = parts.length
+        ? (missing.length ? '⚠ ไม่พบ: '+missing.join(', ') : '✅ Auto parsed สำเร็จ')
+        : '⚠ ไม่พบข้อมูล — ใช้ชื่อเดิม';
+      const prev = qs('#m2-preview');
+      prev.textContent = m2StoredFname;
+      prev.className = 'fname-preview';
+      // Show status under preview
+      let statEl = document.getElementById('m2-parse-status');
+      if (!statEl) {
+        statEl = document.createElement('div');
+        statEl.id = 'm2-parse-status';
+        statEl.style.cssText = 'font-size:10px;font-family:var(--mono);margin-top:4px';
+        prev.parentNode.insertBefore(statEl, prev.nextSibling);
+      }
+      statEl.textContent = statusMsg;
+      statEl.style.color = missing.length || !parts.length ? 'var(--orange)' : 'var(--green)';
+    } catch(_) {
+      m2StoredFname = sanitizeFname(file.name.replace(/\.pdf$/i,''))+'.pdf'; // sanitized fallback
+    }
+    toast('Destination โหลดแล้ว: ' + m2DstPgs + ' หน้า · ชื่อ: ' + m2StoredFname, 'success');
+    updateEx2Btn();
+  } catch(e) { toast('โหลด Destination ล้มเหลว: ' + e.message, 'error'); }
+}
+
+function validatePgNums() {
+  clampInput('#m2-spg', 1, m2SrcPgs);
+  clampInput('#m2-dpg', 1, m2DstPgs);
+  updateEx2Btn();
+}
+function clampInput(sel, mn, mx) {
+  const el = qs(sel); if (!el || !mx) return;
+  let v = parseInt(el.value)||mn;
+  el.value = Math.max(mn, Math.min(mx, v));
+}
+
+function updateEx2Btn() {
+  qs('#btn-ex2').disabled = !m2SrcFile || !m2DstFile || !m2StoredFname;
+}
+
+async function exportMode2() {
+  if (!m2SrcFile || !m2DstFile || !m2DstLib || !m2SrcLib) {
+    toast('กรุณา Upload ทั้ง Source และ Destination', 'error'); return;
+  }
+  const btn = qs('#btn-ex2');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Exporting...';
+  try {
+    const fname   = m2StoredFname;  // STORED filename from destination only
+    const srcPgNum = parseInt(qs('#m2-spg').value) || 1;
+    const dstPgNum = parseInt(qs('#m2-dpg').value) || 1;
+
+    // Load fresh copies
+    const srcAb = await m2SrcFile.arrayBuffer();
+    const dstAb = await m2DstFile.arrayBuffer();
+    const srcDoc = await PDFLib.PDFDocument.load(srcAb);
+    const dstDoc = await PDFLib.PDFDocument.load(dstAb);
+
+    const [cpPg] = await dstDoc.copyPages(srcDoc, [srcPgNum - 1]);
+    const dstIdx = dstPgNum - 1;
+
+    if (m2Action === 'replace') {
+      dstDoc.removePage(dstIdx);
+      dstDoc.insertPage(dstIdx, cpPg);
+    } else if (m2Action === 'ins-before') {
+      dstDoc.insertPage(dstIdx, cpPg);
+    } else { // ins-after
+      dstDoc.insertPage(dstIdx + 1, cpPg);
+    }
+
+    const bytes = await dstDoc.save();
+    dlBlob(new Blob([bytes], {type:'application/pdf'}), fname);
+    toast('✅ Export สำเร็จ: ' + fname, 'success');
+    await logAudit('replace_page', m2DstFile.name, fname, true,
+      `Action:${m2Action}, Src p.${srcPgNum}, Dst p.${dstPgNum}`);
+  } catch(e) {
+    toast('Export ล้มเหลว: ' + e.message, 'error');
+    await logAudit('replace_page', m2DstFile?.name, m2StoredFname, false, e.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⬇ Export PDF';
+    updateEx2Btn();
+  }
+}
+
+function clearSrc() {
+  m2SrcFile=null; m2SrcLib=null; m2SrcJs=null; m2SrcPgs=0;
+  show('m2-src-zone'); hide('m2-src-info'); hide('m2-src-pgwrap');
+  qs('#m2-src-pg').textContent = '0 หน้า';
+  updateEx2Btn();
+}
+function clearDst() {
+  m2DstFile=null; m2DstLib=null; m2DstJs=null; m2DstPgs=0; m2StoredFname=null;
+  show('m2-dst-zone'); hide('m2-dst-info'); hide('m2-dst-pgwrap');
+  qs('#m2-dst-pg').textContent = '0 หน้า';
+  const prev = qs('#m2-preview');
+  prev.textContent = 'รอ Upload Destination PDF...';
+  prev.className = 'fname-preview empty';
+  updateEx2Btn();
+}
+
+/* ============================================================
+   ADMIN DASHBOARD
+   ============================================================ */
+function loadDashboard() {
+  if (CR !== 'super_admin') return;
+  try { qs('#dash-time').textContent = 'Last updated: ' + new Date().toLocaleString('th-TH'); } catch(_){}
+  try { qs('#s-users').textContent  = runtimeUsers.filter(u=>u.is_active).length; } catch(_){}
+  try { qs('#s-logins').textContent = localAuditLog.filter(l=>l.action_type==='login').length; } catch(_){}
+  try { qs('#s-pdfs').textContent   = localAuditLog.filter(l=>['rename_pdf','replace_page','delete_pages'].includes(l.action_type)&&l.success).length; } catch(_){}
+  try { qs('#s-fail').textContent   = localAuditLog.filter(l=>!l.success).length; } catch(_){}
+  try { renderDashLogs(localAuditLog.slice(0,100)); } catch(_){}
+}
+
+function renderDashLogs(logs) {
+  const tb = qs('#dash-tbody');
+  if (!logs.length) { tb.innerHTML = emptyRow(6); return; }
+  tb.innerHTML = logs.map(l => `
+    <tr>
+      <td>${fmtDate(l.timestamp)}</td>
+      <td><strong>${esc(l.username)}</strong></td>
+      <td><span class="badge ${actBadge(l.action_type)}">${esc(l.action_type)}</span></td>
+      <td class="text-xs" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.file_name||'—')}</td>
+      <td class="text-xs" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.output_name||'—')}</td>
+      <td><span class="badge ${l.success?'b-grn':'b-red'}">${l.success?'OK':'FAIL'}</span></td>
+    </tr>`).join('');
+}
+
+/* ============================================================
+   USER MANAGEMENT
+   ============================================================ */
+/* local in-memory audit log */
+const localAuditLog = [];
+
+function logAudit(actionType, fileName, outputName, success, notes) {
+  if (!CU) return;
+  localAuditLog.unshift({
+    timestamp:   new Date().toISOString(),
+    username:    CU.username,
+    action_type: actionType,
+    file_name:   fileName   || null,
+    output_name: outputName || null,
+    machine_name: window.location.hostname || 'desktop',
+    success:     success !== false,
+    notes:       notes || null
+  });
+  if (localAuditLog.length > 500) localAuditLog.pop();
+}
+
+/* ============================================================
+   USER MANAGEMENT — local
+   ============================================================ */
+// Runtime user list (mirrors LOCAL_USERS, adds is_active + last_login)
+const runtimeUsers = LOCAL_USERS.map(u => ({
+  ...u, is_active: u.status==='active', last_login: null, created_at: null
+}));
+
+function loadUsers() {
+  if (CR !== 'super_admin') return;
+  allUsers = [...runtimeUsers];
+  renderUsers(allUsers);
+}
+
+function renderUsers(users) {
+  const tb = qs('#users-tbody');
+  if (!users.length) { tb.innerHTML = emptyRow(7); return; }
+  tb.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${esc(u.username)}</strong></td>
+      <td>${esc(u.username)}</td>
+      <td><span class="badge ${u.role==='super_admin'?'b-gold':'b-blu'}">${esc(u.role)}</span></td>
+      <td><span class="badge ${u.is_active?'b-grn':'b-red'}">${u.is_active?'Active':'Disabled'}</span></td>
+      <td>${u.last_login ? fmtDate(u.last_login) : '—'}</td>
+      <td>—</td>
+      <td>
+        ${u.username !== CU?.username
+          ? `<button class="btn btn-sm btn-secondary" onclick="toggleUserLocal('${esc(u.username)}')">${u.is_active?'Disable':'Enable'}</button>`
+          : '<span class="text-muted text-xs">— ตัวเอง —</span>'}
+      </td>
+    </tr>`).join('');
+}
+
+function toggleUserLocal(uname) {
+  const u = runtimeUsers.find(x => x.username === uname);
+  if (!u) return;
+  u.is_active = !u.is_active;
+  u.status = u.is_active ? 'active' : 'inactive';
+  // Also update LOCAL_USERS so login respects it
+  const lu = LOCAL_USERS.find(x => x.username === uname);
+  if (lu) lu.status = u.status;
+  toast(uname + ': ' + (u.is_active?'เปิดใช้งาน':'ระงับ') + ' แล้ว', 'success');
+  logAudit(u.is_active?'enable_user':'disable_user', uname, null, true);
+  renderUsers(runtimeUsers);
+}
+
+function toggleUser(id, active, uname) { toggleUserLocal(uname); }
+
+function filterUsers(q) {
+  const lq = q.toLowerCase();
+  renderUsers(runtimeUsers.filter(u =>
+    (u.username||'').toLowerCase().includes(lq) ||
+    (u.role||'').toLowerCase().includes(lq)
+  ));
+}
+
+function promptResetPW(uname) {
+  toast('Reset Password: แก้ไขใน LOCAL_USERS array ในไฟล์ HTML', 'info');
+}
+
+/* ============================================================
+   AUDIT LOGS — local in-memory
+   ============================================================ */
+function loadLogs() {
+  if (CR !== 'super_admin') return;
+  allLogs = [...localAuditLog];
+  renderLogs(allLogs);
+}
+
+function renderLogs(logs) {
+  const tb = qs('#logs-tbody');
+  if (!logs.length) {
+    tb.innerHTML = '<tr><td colspan="8" style="padding:28px;text-align:center;color:var(--txt3)">ยังไม่มี Log ในเซสชันนี้</td></tr>';
+    return;
+  }
+  tb.innerHTML = logs.map(l => `
+    <tr>
+      <td>${fmtDate(l.timestamp)}</td>
+      <td><strong>${esc(l.username||'—')}</strong></td>
+      <td><span class="badge ${actBadge(l.action_type)}">${esc(l.action_type||'—')}</span></td>
+      <td class="text-xs" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.file_name||'—')}</td>
+      <td class="text-xs" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.output_name||'—')}</td>
+      <td class="text-xs">${esc(l.machine_name||'—')}</td>
+      <td><span class="badge ${l.success?'b-grn':'b-red'}">${l.success?'OK':'FAIL'}</span></td>
+      <td class="text-xs text-muted">${esc(l.notes||'—')}</td>
+    </tr>`).join('');
+}
+
+function filterLogs() {
+  const q  = (qs('#log-srch').value||'').toLowerCase();
+  const af = qs('#log-act-sel').value;
+  renderLogs(localAuditLog.filter(l =>
+    (!q || (l.username||'').toLowerCase().includes(q) ||
+            (l.action_type||'').toLowerCase().includes(q) ||
+            (l.file_name||'').toLowerCase().includes(q)) &&
+    (!af || l.action_type === af)
+  ));
+}
+
+function exportCSV() {
+  const logs = localAuditLog;
+  if (!logs.length) { toast('ยังไม่มี Log', 'warning'); return; }
+  const hdr = ['timestamp','username','action_type','file_name','output_name','machine_name','success','notes'];
+  const rows = logs.map(l => hdr.map(h => '"' + String(l[h]??'').replace(/"/g,'""') + '"').join(','));
+  const csv = [hdr.join(','), ...rows].join('\r\n');
+  const dt = new Date().toISOString().slice(0,10);
+  dlBlob(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'}), 'audit_logs_'+dt+'.csv');
+  toast('Export CSV สำเร็จ', 'success');
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function showModal(title, body, buttons) {
+  qs('#modal-title').textContent = title;
+  qs('#modal-body').innerHTML = body;
+  qs('#modal-footer').innerHTML = (buttons||[]).map(b =>
+    `<button class="btn ${b.cls}" onclick="${b.action}">${b.label}</button>`
+  ).join('');
+  qs('#modal-ov').classList.add('active');
+}
+function closeModal() { qs('#modal-ov').classList.remove('active'); }
+qs('#modal-ov')?.addEventListener('click', e => { if (e.target===qs('#modal-ov')) closeModal(); });
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function qs(sel)    { return document.querySelector(sel); }
+function qsa(sel)   { return document.querySelectorAll(sel); }
+function show(id)   { const e=document.getElementById(id); if(e){e.style.display='';e.classList?.remove('hidden');} }
+function hide(id)   { const e=document.getElementById(id); if(e){e.style.display='none';e.classList?.add('hidden');} }
+function showEl(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function tick()     { return new Promise(r => setTimeout(r, 0)); }
+
+function dlBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function fmtBytes(b) {
+  if (b<1024) return b+' B';
+  if (b<1048576) return (b/1024).toFixed(1)+' KB';
+  return (b/1048576).toFixed(1)+' MB';
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleString('th-TH',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  catch { return d; }
+}
+
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function actBadge(a) {
+  if (!a) return 'b-gray';
+  if (a==='login')       return 'b-grn';
+  if (a==='logout')      return 'b-blu';
+  if (a==='rename_pdf'||a==='replace_page') return 'b-gold';
+  if (a==='delete_pages'||a==='disable_user') return 'b-red';
+  if (a==='enable_user') return 'b-grn';
+  if (a==='upload_pdf')  return 'b-blu';
+  return 'b-gray';
+}
+
+function emptyRow(cols) {
+  return `<tr><td colspan="${cols}" class="text-center text-muted" style="padding:32px;font-family:var(--mono)">ไม่มีข้อมูล</td></tr>`;
+}
+
+function toast(msg, type='info') {
+  const icons = {success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  const ct = qs('#toast-ct');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${esc(msg)}</span>`;
+  ct.appendChild(el);
+  setTimeout(()=>{
+    el.style.opacity='0'; el.style.transform='translateX(16px)';
+    el.style.transition='all .25s';
+    setTimeout(()=>el.remove(), 280);
+  }, 3200);
+}
+
+/* ============================================================
+   KEYBOARD SHORTCUTS
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  qs('#inp-pass')?.addEventListener('keypress', e => { if(e.key==='Enter') handleLogin(); });
+  qs('#inp-user')?.addEventListener('keypress', e => { if(e.key==='Enter') qs('#inp-pass').focus(); });
+  initApp();
+});
+
+/* ============================================================
+   MODE 3 — RENAME ONLY
+   ============================================================ */
+let m3Queue = [];
+let m3Processing = false;
+
+function doDrop3(e) {
+  e.preventDefault(); doDragLeave('m3-zone');
+  const files = [...(e.dataTransfer?.files||[])].filter(f=>f.type==='application/pdf');
+  if (!files.length) { toast('กรุณาเลือกไฟล์ PDF','error'); return; }
+  m3AddFiles(files);
+}
+function doFile3(inp) {
+  const files = [...inp.files].filter(f=>f.type==='application/pdf');
+  m3AddFiles(files); inp.value='';
+}
+
+function m3AddFiles(files) {
+  if (files.length > 15) {
+    toast('MODE 3 รองรับสูงสุด 15 ไฟล์เท่านั้น — กรุณาเลือกใหม่', 'error');
+    return;
+  }
+  files.forEach(f => {
+    const id = 'm3f_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    m3Queue.push({ id, file:f, storedName:null, locked:false, status:'queued' });
+    m3CreateCard(m3Queue[m3Queue.length-1]);
+  });
+  m3UpdateSummary();
+  m3ProcessQueue();
+}
+
+function m3CreateCard(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card'; wrap.id = 'card3_'+item.id;
+  wrap.style.marginBottom = '10px';
+  const eid = item.id;
+  wrap.innerHTML =
+    '<div class="card-hdr" style="margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">'+
+        '<span style="font-size:16px">📄</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:12px;font-weight:600;color:var(--txt0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.file.name+'</div>'+
+          '<div style="font-size:11px;color:var(--txt2)">'+fmtBytes(item.file.size)+'</div>'+
+        '</div>'+
+        '<span id="s3_'+eid+'" class="card-badge">⏳ รอ</span>'+
+      '</div>'+
+      '<button class="fl-clear" data-rmid="'+eid+'" title="ลบ">✕</button>'+
+    '</div>'+
+    '<div id="pb3_'+eid+'" style="display:none;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px 12px">'+
+      '<div style="display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:11px;margin-bottom:8px">'+
+        '<span style="color:var(--txt2);font-family:var(--mono)">Invoice No.</span><span id="p3i_'+eid+'" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>'+
+        '<span style="color:var(--txt2);font-family:var(--mono)">Declaration No.</span><span id="p3d_'+eid+'" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>'+
+        '<span style="color:var(--txt2);font-family:var(--mono)">House No.</span><span id="p3j_'+eid+'" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>'+
+        '<span style="color:var(--txt2);font-family:var(--mono)">Customer</span><span id="p3c_'+eid+'" style="font-family:var(--mono);font-weight:600;color:var(--txt0)">—</span>'+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--txt2);font-family:var(--mono)">ชื่อไฟล์ใหม่:</div>'+
+      '<div id="p3f_'+eid+'" style="font-family:var(--mono);font-size:13px;color:var(--gold);font-weight:700;word-break:break-all;margin-top:2px">—</div>'+
+      '<div id="p3s_'+eid+'" style="font-size:10px;font-family:var(--mono);margin-top:4px"></div>'+
+    '</div>';
+  document.getElementById('m3-files-container').appendChild(wrap);
+  // Bind remove button via data attribute to avoid quote issues
+  wrap.querySelector('[data-rmid]').addEventListener('click', function(){ m3RemoveItem(this.dataset.rmid); });
+  document.getElementById('btn-m3-clear').style.display='';
+}
+
+function m3RemoveItem(id) {
+  m3Queue = m3Queue.filter(x=>x.id!==id);
+  const el=document.getElementById('card3_'+id); if(el) el.remove();
+  m3UpdateSummary(); m3UpdateExportBtn();
+  if (!m3Queue.length) document.getElementById('btn-m3-clear').style.display='none';
+}
+
+async function m3ProcessQueue() {
+  if (m3Processing) return;
+  m3Processing = true;
+  for (const item of m3Queue) {
+    if (item.status!=='queued') continue;
+    item.status='processing';
+    m3SetStatus(item.id,'⚙ กำลังอ่าน...','var(--orange)');
+    await m3ProcessOne(item);
+  }
+  m3Processing=false; m3UpdateExportBtn();
+}
+
+async function m3ProcessOne(item) {
+  try {
+    const ab = await item.file.arrayBuffer();
+    const jsDoc = await pdfjsLib.getDocument({ data: ab.slice(0) }).promise;
+    const text = await extractAllText(jsDoc, 1);
+    jsDoc.destroy().catch(()=>{});
+
+    const inv  = parseInvoiceNo(text);
+    const dec  = parseDeclarationNo(text);
+    const job  = parseJobNo(text);
+    const cpo  = parseCustomerPO(text);
+    const cust = parseCustomerName(text);
+
+    const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v||'(ไม่พบ)'; };
+    s('p3i_'+item.id,inv); s('p3d_'+item.id,dec);
+    s('p3j_'+item.id,job); s('p3c_'+item.id,cust);
+
+    // ตรวจบริษัท → เลือกสูตรชื่อไฟล์
+    const isTRIUMPH   = /TRIUMPH\s+MOTORCYCLES/i.test(text);
+    const isHITECH    = /HI[\s\-]?TECH\s+APPAREL/i.test(text);
+    const isDAIKIN    = /DAIKIN\s+INDUSTRIES/i.test(text);
+    const isNICE      = /NICE\s+APPAREL/i.test(text);
+    const isYIDA      = /YIDA\s+NEW\s+MATERIAL/i.test(text);
+    const isWORLD     = /WORLD\s+INDUSTRY.*THAILAND/i.test(text);
+    const isKOHLER    = /KOHLER.*THAILAND/i.test(text);
+
+    // กลุ่ม INV# เท่านั้น
+    const invOnly  = isHITECH || isDAIKIN || isNICE || isYIDA || isWORLD;
+    // กลุ่ม DeclarationNo เท่านั้น
+    const decOnly  = isKOHLER;
+    // กลุ่ม DeclarationNo_INV#
+    const decInv   = isTRIUMPH;
+
+    let base;
+    if (invOnly) {
+      // INV# เท่านั้น
+      base = inv ? sanitizeFname(inv) : sanitizeFname(item.file.name.replace(/\.pdf$/i,''));
+    } else if (decOnly) {
+      // DeclarationNo เท่านั้น
+      base = dec ? sanitizeFname(dec) : sanitizeFname(item.file.name.replace(/\.pdf$/i,''));
+    } else {
+      // TRIUMPH & Default → DeclarationNo_INV#
+      if (dec && inv)      base = sanitizeFname(dec + '_' + inv);
+      else if (dec)        base = sanitizeFname(dec);
+      else if (inv)        base = sanitizeFname(inv);
+      else                 base = sanitizeFname(item.file.name.replace(/\.pdf$/i,''));
+    }
+    const parts = [dec, inv].filter(Boolean);
+
+    // Deduplicate within batch
+    const usedNames = new Set(m3Queue.filter(x=>x.storedName).map(x=>x.storedName));
+    let fname = base+'.pdf';
+    if (usedNames.has(fname)) {
+      let n=1; while(usedNames.has(base+'('+n+').pdf')) n++;
+      fname = base+'('+n+').pdf';
+    }
+
+    item.storedName = fname;
+    item.locked = true;
+    document.getElementById('pb3_'+item.id).style.display='';
+    document.getElementById('p3f_'+item.id).textContent=fname;
+
+    const missing=[dec?'':'Declaration No',inv?'':'INV#'].filter(Boolean);
+    const stEl=document.getElementById('p3s_'+item.id);
+    if (stEl) {
+      let co;
+      if      (isTRIUMPH) co = '🏍 TRIUMPH → DeclarationNo_INV#';
+      else if (isHITECH)  co = '👕 HI-TECH APPAREL → INV#';
+      else if (isDAIKIN)  co = '❄️ DAIKIN → INV#';
+      else if (isNICE)    co = '👔 NICE APPAREL → INV#';
+      else if (isYIDA)    co = '🏭 YIDA → INV#';
+      else if (isWORLD)   co = '🏗 WORLD INDUSTRY → INV#';
+      else if (isKOHLER)  co = '🚿 KOHLER → DeclarationNo';
+      else                co = '📄 Default → DeclarationNo_INV#';
+      if (!base || base === item.file.name.replace(/\.pdf$/i,'')) {
+        stEl.textContent='⚠ ไม่พบข้อมูล — ใช้ชื่อเดิม'; stEl.style.color='var(--orange)';
+      } else {
+        stEl.textContent='✅ '+co; stEl.style.color='var(--green)';
+      }
+    }
+    item.status='ready'; m3SetStatus(item.id,'✅ พร้อม','var(--green)');
+  } catch(e) {
+    item.status='error'; m3SetStatus(item.id,'❌ '+e.message.slice(0,40),'var(--red)');
+  }
+}
+
+async function exportMode3() {
+  const ready=m3Queue.filter(x=>x.status==='ready'&&x.locked&&x.storedName);
+  if (!ready.length) { toast('ยังไม่มีไฟล์พร้อม Export','error'); return; }
+  const btn=document.getElementById('btn-ex3');
+  btn.disabled=true; btn.textContent='⏳ กำลัง Export...';
+  try {
+    if (ready.length===1) {
+      const item=ready[0];
+      const ab=await item.file.arrayBuffer();
+      // Rename only — content 100% unchanged
+      dlBlob(new Blob([ab],{type:'application/pdf'}),item.storedName);
+      toast('✅ Export: '+item.storedName,'success');
+    } else {
+      const zip=new JSZip();
+      for (const item of ready) {
+        const ab=await item.file.arrayBuffer();
+        zip.file(item.storedName,ab);
+        await tick();
+      }
+      const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
+      dlBlob(blob, 'RENAMED_MODE3_FILES.zip');
+      toast('✅ Export ZIP ('+ready.length+' ไฟล์)','success');
+    }
+  } catch(e) { toast('Export ล้มเหลว: '+e.message,'error'); }
+  finally { btn.disabled=false; m3UpdateExportBtn(); }
+}
+
+function clearMode3() {
+  m3Queue=[]; m3Processing=false;
+  document.getElementById('m3-files-container').innerHTML='';
+  document.getElementById('m3-queue-summary').style.display='none';
+  document.getElementById('btn-m3-clear').style.display='none';
+  m3UpdateExportBtn(); toast('ล้างไฟล์ทั้งหมดแล้ว','info');
+}
+function m3SetStatus(id,text,color) { const el=document.getElementById('s3_'+id); if(el){el.textContent=text;el.style.color=color||'';} }
+function m3UpdateSummary() { const n=m3Queue.length; const el=document.getElementById('m3-queue-summary'); if(!n){el.style.display='none';return;} el.style.display=''; el.textContent='📋 '+n+' ไฟล์ในคิว'; }
+function m3UpdateExportBtn() { const ready=m3Queue.filter(x=>x.status==='ready'); const btn=document.getElementById('btn-ex3'); if(!btn)return; btn.disabled=ready.length===0; btn.textContent=ready.length>1?'⬇ Export ZIP ('+ready.length+' ไฟล์)':'⬇ Export PDF'; }
+
+
+/* ============================================================
+   MODE 2 — MULTI-PAIR (Source + Destination per row)
+   ============================================================ */
+let m2Pairs = [];   // [{id, srcFile, dstFile, srcLib, dstLib, srcPgs, dstPgs, storedName, srcPg, dstPg}]
+
+function m2InitView() {
+  if (m2Pairs.length === 0) m2AddPair();
+}
+
+function m2AddPair() {
+  if (m2Pairs.length >= 5) { toast('รองรับสูงสุด 5 คู่ไฟล์เท่านั้น','error'); return; }
+  const id = 'm2p_'+Date.now();
+  m2Pairs.push({ id, srcFile:null, dstFile:null, srcLib:null, dstLib:null,
+                 srcPgs:0, dstPgs:0, storedName:null, srcPg:1, dstPg:1 });
+  m2RenderPair(m2Pairs[m2Pairs.length-1]);
+  m2UpdateExportBtn();
+}
+
+function m2RenderPair(pair) {
+  const n = m2Pairs.indexOf(pair)+1;
+  const div = document.createElement('div');
+  div.id = 'pair_'+pair.id;
+  div.style.cssText = 'margin-bottom:6px';
+  div.innerHTML = `
+  <div style="background:var(--bg1);border:1px solid var(--bd0);border-radius:var(--r2);padding:10px 14px">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <!-- label -->
+      <div style="font-size:11px;font-family:var(--mono);color:var(--txt3);min-width:36px;padding-top:4px">คู่ ${n}</div>
+
+      <!-- SOURCE -->
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--txt3);font-family:var(--mono);letter-spacing:.08em;margin-bottom:4px">📄 SOURCE</div>
+        <div id="sz_${pair.id}" style="border:1.5px dashed var(--bd1);border-radius:var(--r);cursor:pointer;background:var(--bg2);position:relative;transition:all .15s;overflow:hidden"
+             ondragover="doDragOver(event,'sz_${pair.id}')" ondragleave="doDragLeave('sz_${pair.id}')"
+             ondrop="m2DropSrc(event,'${pair.id}')">
+          <input type="file" accept=".pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:3" onchange="m2LoadSrc(this,'${pair.id}');this.value=''">
+          <!-- Placeholder -->
+          <div id="sph_${pair.id}" style="padding:20px;text-align:center;color:var(--txt3)">
+            <div style="font-size:24px;margin-bottom:4px">📄</div>
+            <div style="font-size:10px">คลิกหรือลากไฟล์</div>
+          </div>
+          <!-- Thumbnail + info (hidden until loaded) -->
+          <div id="sprev_${pair.id}" style="display:none;padding:8px;display:none">
+            <canvas id="scvs_${pair.id}" style="width:100%;border-radius:3px;display:block"></canvas>
+            <div style="margin-top:6px">
+              <div id="sname_${pair.id}" style="font-size:10px;font-family:var(--mono);color:var(--txt0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <span style="font-size:10px;color:var(--txt3)">หน้า:</span>
+                <input type="number" min="1" value="1" id="spg_${pair.id}" onclick="event.stopPropagation()"
+                  style="width:44px;height:22px;background:var(--bg0);border:1px solid var(--bd0);border-radius:3px;padding:0 4px;color:var(--txt0);font-size:10px;z-index:4;position:relative"
+                  oninput="m2Pairs.find(x=>x.id==='${pair.id}').srcPg=+this.value||1">
+                <span id="spgmax_${pair.id}" style="font-size:10px;color:var(--txt3)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:16px;color:var(--txt3);padding-top:30px">→</div>
+
+      <!-- DESTINATION -->
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--txt3);font-family:var(--mono);letter-spacing:.08em;margin-bottom:4px">📂 DESTINATION</div>
+        <div id="dz_${pair.id}" style="border:1.5px dashed var(--bd1);border-radius:var(--r);cursor:pointer;background:var(--bg2);position:relative;transition:all .15s;overflow:hidden"
+             ondragover="doDragOver(event,'dz_${pair.id}')" ondragleave="doDragLeave('dz_${pair.id}')"
+             ondrop="m2DropDst(event,'${pair.id}')">
+          <input type="file" accept=".pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:3" onchange="m2LoadDst(this,'${pair.id}');this.value=''">
+          <!-- Placeholder -->
+          <div id="dph_${pair.id}" style="padding:20px;text-align:center;color:var(--txt3)">
+            <div style="font-size:24px;margin-bottom:4px">📂</div>
+            <div style="font-size:10px">คลิกหรือลากไฟล์</div>
+          </div>
+          <!-- Thumbnail + info -->
+          <div id="dprev_${pair.id}" style="display:none;padding:8px">
+            <canvas id="dcvs_${pair.id}" style="width:100%;border-radius:3px;display:block"></canvas>
+            <div style="margin-top:6px">
+              <div id="dname_${pair.id}" style="font-size:10px;font-family:var(--mono);color:var(--txt0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+              <div id="dfname_${pair.id}" style="font-size:10px;font-family:var(--mono);color:var(--gold);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px"></div>
+              <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+                <span style="font-size:10px;color:var(--txt3)">หน้า:</span>
+                <input type="number" min="1" value="1" id="dpg_${pair.id}" onclick="event.stopPropagation()"
+                  style="width:44px;height:22px;background:var(--bg0);border:1px solid var(--bd0);border-radius:3px;padding:0 4px;color:var(--txt0);font-size:10px;z-index:4;position:relative"
+                  oninput="m2Pairs.find(x=>x.id==='${pair.id}').dstPg=+this.value||1">
+                <span id="dpgmax_${pair.id}" style="font-size:10px;color:var(--txt3)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remove -->
+      <button data-rmid="${pair.id}" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:16px;padding:2px 4px;flex-shrink:0;padding-top:30px" title="ลบ">✕</button>
+    </div>
+  </div>`;
+  document.getElementById('m2-pairs-container').appendChild(div);
+  div.querySelector('[data-rmid]').addEventListener('click', function() { m2RemovePair(this.dataset.rmid); });
+}
+
+function m2RemovePair(id) {
+  m2Pairs = m2Pairs.filter(x=>x.id!==id);
+  const el = document.getElementById('pair_'+id); if(el) el.remove();
+  // Re-number
+  m2Pairs.forEach((p,i) => {
+    const tEl = document.querySelector('#pair_'+p.id+' .card-title');
+    if (tEl) tEl.textContent = 'คู่ที่ '+(i+1);
+  });
+  m2UpdateExportBtn();
+}
+
+function m2ClearAll() {
+  m2Pairs = [];
+  document.getElementById('m2-pairs-container').innerHTML = '';
+  m2AddPair();
+  m2UpdateExportBtn();
+}
+
+function m2DropSrc(e, id) { e.preventDefault(); doDragLeave('sz_'+id); const f=e.dataTransfer?.files[0]; if(f?.type==='application/pdf') m2LoadSrcFile(f,id); }
+function m2DropDst(e, id) { e.preventDefault(); doDragLeave('dz_'+id); const f=e.dataTransfer?.files[0]; if(f?.type==='application/pdf') m2LoadDstFile(f,id); }
+function m2LoadSrc(inp, id) { if(inp.files[0]) m2LoadSrcFile(inp.files[0], id); }
+function m2LoadDst(inp, id) { if(inp.files[0]) m2LoadDstFile(inp.files[0], id); }
+
+async function m2LoadSrcFile(file, id) {
+  const pair = m2Pairs.find(x=>x.id===id); if(!pair) return;
+  try {
+    const ab = await file.arrayBuffer();
+    pair.srcLib = await PDFLib.PDFDocument.load(ab);
+    pair.srcPgs = pair.srcLib.getPageCount();
+    pair.srcFile = file;
+    const nm = document.getElementById('sname_'+id);
+    if (nm) nm.textContent = file.name;
+    const mx = document.getElementById('spgmax_'+id);
+    if (mx) mx.textContent = '/ '+pair.srcPgs;
+    const sp = document.getElementById('spg_'+id); if(sp) sp.max = pair.srcPgs;
+    const sz = document.getElementById('sz_'+id);
+    if (sz) { sz.style.borderColor='var(--gold)'; sz.style.background='rgba(240,165,0,.04)'; }
+    // Show thumbnail
+    const sph = document.getElementById('sph_'+id); if(sph) sph.style.display='none';
+    const sprev = document.getElementById('sprev_'+id); if(sprev) sprev.style.display='';
+    try {
+      const jsDoc2 = await pdfjsLib.getDocument({data:ab.slice(0)}).promise;
+      const pg = await jsDoc2.getPage(1);
+      const vp = pg.getViewport({scale:0.5});
+      const cvs = document.getElementById('scvs_'+id);
+      if (cvs) { cvs.width=vp.width; cvs.height=vp.height; await pg.render({canvasContext:cvs.getContext('2d'),viewport:vp}).promise; }
+      jsDoc2.destroy().catch(()=>{});
+    } catch(_){}
+    toast('✅ Source คู่ที่ '+(m2Pairs.indexOf(pair)+1)+': '+file.name+' ('+pair.srcPgs+' หน้า)', 'success');
+    m2UpdateExportBtn();
+  } catch(e) { toast('โหลด Source ล้มเหลว: '+e.message,'error'); }
+}
+
+async function m2LoadDstFile(file, id) {
+  const pair = m2Pairs.find(x=>x.id===id); if(!pair) return;
+  try {
+    const ab = await file.arrayBuffer();
+    pair.dstLib = await PDFLib.PDFDocument.load(ab);
+    pair.dstJs  = await pdfjsLib.getDocument({data:ab.slice(0)}).promise;
+    pair.dstPgs = pair.dstLib.getPageCount();
+    pair.dstFile = file;
+    const text = await extractAllText(pair.dstJs, 1);
+    pair.dstJs.destroy().catch(()=>{});
+    const parts=[parseInvoiceNo(text),parseDeclarationNo(text),parseJobNo(text),parseCustomerPO(text),parseCustomerName(text)].filter(Boolean);
+    pair.storedName = parts.length ? sanitizeFname(parts.join(','))+'.pdf' : sanitizeFname(file.name.replace(/\.pdf$/i,''))+'.pdf';
+    const nm = document.getElementById('dname_'+id); if(nm) nm.textContent = file.name;
+    const mx = document.getElementById('dpgmax_'+id); if(mx) mx.textContent = '/ '+pair.dstPgs;
+    const dp = document.getElementById('dpg_'+id); if(dp) dp.max = pair.dstPgs;
+    const fn = document.getElementById('dfname_'+id); if(fn) fn.textContent = '📁 '+pair.storedName;
+    const dz = document.getElementById('dz_'+id);
+    if (dz) { dz.style.borderColor='var(--gold)'; dz.style.background='rgba(240,165,0,.04)'; }
+    // Show thumbnail
+    const dph = document.getElementById('dph_'+id); if(dph) dph.style.display='none';
+    const dprev = document.getElementById('dprev_'+id); if(dprev) dprev.style.display='';
+    try {
+      const jsDoc3 = await pdfjsLib.getDocument({data:ab.slice(0)}).promise;
+      const pg3 = await jsDoc3.getPage(1);
+      const vp3 = pg3.getViewport({scale:0.5});
+      const cvs3 = document.getElementById('dcvs_'+id);
+      if (cvs3) { cvs3.width=vp3.width; cvs3.height=vp3.height; await pg3.render({canvasContext:cvs3.getContext('2d'),viewport:vp3}).promise; }
+      jsDoc3.destroy().catch(()=>{});
+    } catch(_){}
+    toast('✅ Destination คู่ที่ '+(m2Pairs.indexOf(pair)+1)+': '+pair.storedName, 'success');
+    m2UpdateExportBtn();
+  } catch(e) { toast('โหลด Destination ล้มเหลว: '+e.message,'error'); }
+}
+
+function m2UpdateExportBtn() {
+  const ready = m2Pairs.filter(p=>p.srcFile&&p.dstFile&&p.storedName);
+  const btn = document.getElementById('btn-ex2');
+  if (!btn) return;
+  btn.disabled = ready.length === 0;
+  btn.textContent = ready.length > 1 ? '⬇ Export ZIP ('+ready.length+' คู่)' : ready.length===1 ? '⬇ Export PDF' : '⬇ Export';
+}
+
+async function exportMode2() {
+  const ready = m2Pairs.filter(p=>p.srcFile&&p.dstFile&&p.storedName);
+  if (!ready.length) { toast('ยังไม่มีคู่ไฟล์พร้อม','warning'); return; }
+  const btn = document.getElementById('btn-ex2');
+  btn.disabled=true; btn.textContent='⏳ กำลัง Export...';
+  try {
+    if (ready.length === 1) {
+      const p = ready[0];
+      const srcAb = await p.srcFile.arrayBuffer();
+      const dstAb = await p.dstFile.arrayBuffer();
+      const srcDoc = await PDFLib.PDFDocument.load(srcAb);
+      const dstDoc = await PDFLib.PDFDocument.load(dstAb);
+      const [cpPg] = await dstDoc.copyPages(srcDoc, [(p.srcPg||1)-1]);
+      const dstIdx = (p.dstPg||1)-1;
+      dstDoc.removePage(dstIdx); dstDoc.insertPage(dstIdx, cpPg);
+      const bytes = await dstDoc.save();
+      dlBlob(new Blob([bytes],{type:'application/pdf'}), p.storedName);
+      toast('✅ Export: '+p.storedName,'success');
+    } else {
+      const zip = new JSZip();
+      for (const p of ready) {
+        const srcAb = await p.srcFile.arrayBuffer();
+        const dstAb = await p.dstFile.arrayBuffer();
+        const srcDoc = await PDFLib.PDFDocument.load(srcAb);
+        const dstDoc = await PDFLib.PDFDocument.load(dstAb);
+        const [cpPg] = await dstDoc.copyPages(srcDoc, [(p.srcPg||1)-1]);
+        const dstIdx = (p.dstPg||1)-1;
+        dstDoc.removePage(dstIdx); dstDoc.insertPage(dstIdx, cpPg);
+        const bytes = await dstDoc.save();
+        zip.file(p.storedName, bytes);
+        await tick();
+      }
+      const blob = await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+      dlBlob(blob,'MODE2_REPLACE_FILES.zip');
+      toast('✅ Export ZIP ('+ready.length+' คู่)','success');
+    }
+  } catch(e) { toast('Export ล้มเหลว: '+e.message,'error'); }
+  finally { m2UpdateExportBtn(); }
+}
+
+</script>
+
+<!--
+=============================================================================
+📋 SUPABASE SETUP GUIDE
+=============================================================================
+
+STEP 1: สร้าง Supabase Project ที่ https://supabase.com
+
+STEP 2: รัน SQL ต่อไปนี้ใน Supabase SQL Editor:
+
+--------------------------------------------------------------------------------
+
+-- ===========================
+-- TABLE: app_users
+-- ===========================
+CREATE TABLE app_users (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  username     TEXT UNIQUE NOT NULL,
+  role         TEXT NOT NULL CHECK (role IN ('super_admin', 'user')),
+  display_name TEXT,
+  is_active    BOOLEAN DEFAULT TRUE,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  last_login   TIMESTAMPTZ
+);
+
+-- ===========================
+-- TABLE: audit_logs
+-- ===========================
+CREATE TABLE audit_logs (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  username     TEXT,
+  action_type  TEXT,
+  file_name    TEXT,
+  output_name  TEXT,
+  timestamp    TIMESTAMPTZ DEFAULT NOW(),
+  machine_name TEXT,
+  success      BOOLEAN DEFAULT TRUE,
+  notes        TEXT
+);
+
+-- ===========================
+-- ROW LEVEL SECURITY
+-- ===========================
+ALTER TABLE app_users   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs  ENABLE ROW LEVEL SECURITY;
+
+-- app_users: Authenticated users can read all (for profile lookup)
+CREATE POLICY "auth_read_users" ON app_users FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+-- app_users: Update only by authenticated (admin check done in app)
+CREATE POLICY "auth_update_users" ON app_users FOR UPDATE
+  USING (auth.uid() IS NOT NULL);
+
+-- audit_logs: Insert own logs
+CREATE POLICY "auth_insert_logs" ON audit_logs FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- audit_logs: Read all (admin only enforced in app layer)
+CREATE POLICY "auth_read_logs" ON audit_logs FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+-- ===========================
+-- SEED: app_users table
+-- ===========================
+INSERT INTO app_users (username, role, display_name, is_active) VALUES
+  ('Jamrat', 'super_admin', 'Jamrat (Super Admin)', TRUE),
+  ('AC1',    'user',        'AC1',  TRUE),
+  ('AC2',    'user',        'AC2',  TRUE),
+  ('AC3',    'user',        'AC3',  TRUE),
+  ('AC4',    'user',        'AC4',  TRUE),
+  ('AC5',    'user',        'AC5',  TRUE),
+  ('AC6',    'user',        'AC6',  TRUE),
+  ('AC9',    'user',        'AC9',  TRUE),
+  ('AC10',   'user',        'AC10', TRUE),
+  ('AC11',   'user',        'AC11', TRUE);
+
+--------------------------------------------------------------------------------
+
+STEP 3: สร้าง Auth Users ใน Supabase Dashboard > Authentication > Users > Add User:
+
+  jamrat@billing.sys   → Jam497522
+  ac1@billing.sys      → Ac12345
+  ac2@billing.sys      → Ac12345
+  ac3@billing.sys      → Ac12345
+  ac4@billing.sys      → Ac12345
+  ac5@billing.sys      → Ac12345
+  ac6@billing.sys      → Ac12345
+  ac7@billing.sys      → Ac12345
+  ac9@billing.sys      → Ac12345
+  ac10@billing.sys     → Ac12345
+  ac11@billing.sys     → Ac12345
+
+  ⚠ ปิด Email Confirmation: Authentication > Settings > Email Auth > ปิด "Confirm email"
+
+  ⚠ หลังสร้าง Auth Users ต้อง Insert app_users ด้วยตนเอง (ถ้า trigger ไม่ทำงาน):
+
+  INSERT INTO public.app_users (id, username, role, display_name) VALUES
+    ((SELECT id FROM auth.users WHERE email='jamrat@billing.sys'), 'Jamrat', 'super_admin', 'Jamrat'),
+    ((SELECT id FROM auth.users WHERE email='ac1@billing.sys'),    'AC1', 'user', 'AC1'),
+    ((SELECT id FROM auth.users WHERE email='ac2@billing.sys'),    'AC2', 'user', 'AC2'),
+    ((SELECT id FROM auth.users WHERE email='ac3@billing.sys'),    'AC3', 'user', 'AC3'),
+    ((SELECT id FROM auth.users WHERE email='ac4@billing.sys'),    'AC4', 'user', 'AC4'),
+    ((SELECT id FROM auth.users WHERE email='ac5@billing.sys'),    'AC5', 'user', 'AC5'),
+    ((SELECT id FROM auth.users WHERE email='ac6@billing.sys'),    'AC6', 'user', 'AC6'),
+    ((SELECT id FROM auth.users WHERE email='ac7@billing.sys'),    'AC7', 'user', 'AC7'),
+    ((SELECT id FROM auth.users WHERE email='ac9@billing.sys'),    'AC9', 'user', 'AC9'),
+    ((SELECT id FROM auth.users WHERE email='ac10@billing.sys'),   'AC10', 'user', 'AC10'),
+    ((SELECT id FROM auth.users WHERE email='ac11@billing.sys'),   'AC11', 'user', 'AC11');
+
+  ⚠ หาก log_action RPC ไม่ผ่าน RLS ให้เพิ่ม Policy นี้:
+  CREATE POLICY "audit_insert_all" ON public.audit_logs
+  FOR INSERT TO authenticated WITH CHECK (true);
+
+STEP 4: แก้ไขค่าในโค้ด JavaScript ด้านบน:
+  const SUPABASE_URL      = 'https://sytgqjglcnsabcszbngg.supabase.co'; // ✅ ตั้งค่าแล้ว
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+
+STEP 5: เปิดไฟล์ HTML ในเบราว์เซอร์ Chrome / Edge บน Desktop
+
+=============================================================================
+-->
+
+</body>
+</html>
