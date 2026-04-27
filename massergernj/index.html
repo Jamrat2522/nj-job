@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>ระบบสั่งงานแมส</title>
+<meta name="theme-color" content="#0f172a"/>
+<meta http-equiv="Cache-Control" content="max-age=3600"/>
+<meta name="description" content="ระบบสั่งงานแมสเซ็นเจอร์ NJ Shipping"/>
+<!-- preconnect -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co"/>
+<link rel="dns-prefetch" href="https://sytgqjglcnsabcszbngg.supabase.co"/>
+<!-- Font non-blocking -->
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet"/></noscript>
+<!-- App CSS (แยกไฟล์) -->
+<link rel="stylesheet" href="app.css"/>
+<!-- Chart.js: lazy-loaded เฉพาะตอนเข้าหน้า dashboard เท่านั้น -->
+</head>
+<body>
+<div class="wrap" id="app">
+  <!-- Zones: อัปเดตเฉพาะส่วนที่เปลี่ยน -->
+  <div id="zone-hdr"></div>
+  <div id="zone-sidebar"></div>
+  <div id="zone-main" class="main-col"></div>
+  <div id="zone-modal"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="clock-modal-bg" id="clock-bg" onclick="if(event.target===this)closeClock()">
+  <div class="clock-box">
+    <div class="clock-title" id="clock-title">เลือกเวลา</div>
+    <div class="clock-disp" id="clock-disp">--:--</div>
+    <div class="clock-hint" id="clock-hint">เลือก ชั่วโมง</div>
+    <div class="clock-face" id="clock-face">
+      <div class="clock-center-dot"></div>
+    </div>
+    <div class="clock-btns">
+      <button class="clock-cancel" onclick="closeClock()">ยกเลิก</button>
+      <button class="clock-ok" onclick="confirmClock()">✓ ตกลง</button>
+    </div>
+  </div>
+</div>
+<!-- App JS (แยกไฟล์) -->
+<script src="app.js" defer></script>
+<script>
+// Service Worker: versioned cache + update detection
+// Use relative paths — works whether deployed at root OR subpath (e.g. /messenger/)
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'})
+      .then(reg=>{
+        // Check for updates every 60 minutes
+        setInterval(()=>reg.update(),60*60*1000);
+        reg.addEventListener('updatefound',()=>{
+          const nw=reg.installing;
+          nw?.addEventListener('statechange',()=>{
+            if(nw.state==='installed'&&navigator.serviceWorker.controller){
+              console.info('[SW] New version available');
+            }
+          });
+        });
+      }).catch(()=>{});
+    // ── SW broadcast: reload เฉพาะเมื่อ user idle ≥ 5 วิ (ไม่ขัดจังหวะ) ──
+    let _lastAct=Date.now();
+    ['click','keydown','touchstart','scroll'].forEach(ev=>
+      document.addEventListener(ev,()=>{_lastAct=Date.now();},{passive:true,capture:true})
+    );
+    navigator.serviceWorker.addEventListener('message',(e)=>{
+      if(e.data?.type==='SW_UPDATED'){
+        const tryReload=()=>{
+          if(Date.now()-_lastAct>=5000){location.reload();}
+          else setTimeout(tryReload,2000);
+        };
+        setTimeout(tryReload,3000); // delay 3s แรก แล้วค่อยเช็ค idle
+      }
+    });
+  });
+}
+</script>
+</body>
+</html>
