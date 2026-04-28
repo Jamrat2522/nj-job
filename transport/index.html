@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NJ Transport — ระบบน้ำมันรถ</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--bg4:#252525;
+  --border:#2a2a2a;--border2:#333;
+  --accent:#f5a623;--accent2:#e8881a;--accent3:#fff3d6;
+  --text:#ffffff;--text2:#aaa;--muted:#666;
+  --green:#3dba74;--red:#e05252;--blue:#4a9eff;--purple:#a855f7;
+  --shadow:0 4px 24px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+
+/* ══ LOGIN ══ */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 55% 40%,#1f1100 0%,#0d0d0d 65%);}
+.lb{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;
+  padding:52px 44px;width:400px;box-shadow:0 16px 60px rgba(0,0,0,.6);}
+.lb-logo{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;
+  color:var(--accent);letter-spacing:4px;margin-bottom:4px;}
+.lb-sub{color:var(--muted);font-size:13px;margin-bottom:40px;letter-spacing:.5px;}
+.lb label{display:block;font-size:11px;font-weight:700;color:var(--text2);
+  letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;}
+.lb input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  padding:12px 14px;border-radius:10px;font-family:'Sarabun',sans-serif;font-size:15px;
+  margin-bottom:20px;transition:border-color .2s;}
+.lb input:focus{outline:none;border-color:var(--accent);background:var(--bg4);}
+.lb-btn{width:100%;background:var(--accent);color:#000;border:none;padding:14px;
+  border-radius:10px;font-family:'Sarabun',sans-serif;font-size:15px;font-weight:700;
+  cursor:pointer;transition:all .2s;letter-spacing:.5px;}
+.lb-btn:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,166,35,.3);}
+.lb-err{color:var(--red);font-size:13px;margin-top:14px;text-align:center;display:none;}
+
+/* ══ TOPBAR ══ */
+#appScreen{display:none;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 28px;display:flex;align-items:center;justify-content:space-between;
+  height:58px;position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);}
+.tb-brand{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;
+  color:var(--accent);letter-spacing:3px;display:flex;align-items:center;gap:10px;}
+.tb-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;
+  animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tb-right{display:flex;align-items:center;gap:14px;}
+.ub{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
+.rpill{background:var(--accent);color:#000;font-size:10px;font-weight:700;
+  padding:3px 10px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;}
+.rpill.emp{background:var(--bg4);color:var(--muted);border:1px solid var(--border2);}
+.out-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);
+  padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'Sarabun',sans-serif;
+  font-size:13px;transition:all .2s;}
+.out-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* ══ LAYOUT ══ */
+.main{padding:24px 28px;max-width:1500px;margin:0 auto;}
+
+/* ══ TABS ══ */
+.tabs{display:flex;gap:3px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:12px;padding:4px;margin-bottom:24px;width:fit-content;}
+.tab-btn{background:transparent;border:none;color:var(--muted);padding:9px 24px;
+  border-radius:9px;cursor:pointer;font-family:'Sarabun',sans-serif;font-size:14px;
+  font-weight:600;transition:all .2s;white-space:nowrap;}
+.tab-btn:hover{color:var(--text2);}
+.tab-btn.active{background:var(--accent);color:#000;}
+.tab-panel{display:none;animation:fadeIn .25s ease;}
+.tab-panel.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.tab-users-btn{display:none;}
+body.is-admin .tab-users-btn{display:inline-block;}
+
+/* ══ CARD ══ */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:24px;margin-bottom:20px;transition:border-color .2s;}
+.card:hover{border-color:var(--border2);}
+.ctitle{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+.ctitle::before{content:'';width:3px;height:16px;background:var(--accent);
+  border-radius:2px;flex-shrink:0;}
+.ctitle span{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:.5px;text-transform:none;}
+
+/* ══ FORM ══ */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+.fg label{display:block;font-size:10px;font-weight:700;color:var(--muted);
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text);padding:6px 10px;border-radius:8px;font-family:'Sarabun',sans-serif;
+  font-size:13px;transition:all .2s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{
+  outline:none;border-color:var(--accent);background:var(--bg4);}
+.fg select option{background:var(--bg3);}
+.fg textarea{resize:vertical;}
+.fc{grid-column:1/-1;}
+
+/* ══ BUTTONS ══ */
+.br{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.btn{padding:10px 20px;border-radius:9px;border:none;cursor:pointer;font-family:'Sarabun',sans-serif;
+  font-size:14px;font-weight:600;transition:all .15s;white-space:nowrap;display:inline-flex;
+  align-items:center;gap:6px;}
+.btn-p{background:var(--accent);color:#000;}
+.btn-p:hover{background:var(--accent2);transform:translateY(-1px);}
+.btn-g{background:transparent;border:1px solid var(--border2);color:var(--text2);}
+.btn-g:hover{border-color:var(--text);color:var(--text);}
+.btn-grn{background:var(--green);color:#000;}
+.btn-grn:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-blue{background:transparent;border:1px solid var(--blue);color:var(--blue);}
+.btn-blue:hover{background:var(--blue);color:#fff;}
+.ie{padding:6px 14px;font-size:12px;border-radius:7px;cursor:pointer;
+  font-family:'Sarabun',sans-serif;font-weight:700;border:none;
+  display:inline-flex;align-items:center;gap:5px;transition:all .15s;
+  white-space:nowrap;letter-spacing:.3px;}
+.ie-e{background:rgba(74,158,255,.18);color:#74baff;border:1px solid rgba(74,158,255,.4);}
+.ie-e:hover{background:var(--blue);color:#fff;border-color:var(--blue);transform:translateY(-1px);}
+.ie-d{background:rgba(224,82,82,.18);color:#ff8a8a;border:1px solid rgba(224,82,82,.4);}
+.ie-d:hover{background:var(--red);color:#fff;border-color:var(--red);transform:translateY(-1px);}
+
+/* ══ STATS ══ */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:8px;margin-bottom:14px;}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;transition:all .2s;cursor:default;}
+.sc:hover{border-color:var(--accent);transform:translateY(-1px);}
+.sc-label{font-size:9px;color:var(--muted);letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:4px;}
+.sc-val{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;
+  color:var(--accent);line-height:1.2;}
+.sc-unit{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ══ CHART SECTION ══ */
+.chart-wrap{position:relative;}
+.chart-controls{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+.chart-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.ctoggle{display:flex;gap:3px;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:9px;padding:3px;}
+.ctoggle button{background:transparent;border:none;color:var(--muted);
+  padding:7px 16px;border-radius:7px;cursor:pointer;font-family:'Sarabun',sans-serif;
+  font-size:13px;font-weight:600;transition:all .2s;}
+.ctoggle button.active{background:var(--accent);color:#000;}
+.chart-plate-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  padding:7px 12px;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:13px;
+  min-width:140px;cursor:pointer;transition:border-color .2s;}
+.chart-plate-select:focus{outline:none;border-color:var(--accent);}
+.chart-plate-select option{background:var(--bg3);}
+.chart-metric-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  padding:7px 12px;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:13px;
+  min-width:160px;cursor:pointer;transition:border-color .2s;}
+.chart-metric-select:focus{outline:none;border-color:var(--accent);}
+.chart-metric-select option{background:var(--bg3);}
+.chart-right{display:flex;gap:8px;}
+.canvas-container{position:relative;background:var(--bg3);border-radius:10px;
+  padding:10px;border:1px solid var(--border);}
+
+/* ══ TABLE ══ */
+.tw{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:var(--bg3);color:var(--muted);font-size:10px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;padding:11px 13px;text-align:left;
+  white-space:nowrap;border-bottom:1px solid var(--border);}
+td{padding:10px 13px;border-bottom:1px solid #1a1a1a;white-space:nowrap;
+  vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(245,166,35,.035);}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);}
+.ac{display:flex;gap:6px;align-items:center;min-width:140px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-a{background:rgba(245,166,35,.15);color:var(--accent);}
+.badge-e{background:var(--bg4);color:var(--muted);}
+
+/* ══ MODAL ══ */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;
+  align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.mo.open{display:flex;}
+.md{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  padding:18px 22px;width:100%;max-width:760px;
+  box-shadow:0 24px 80px rgba(0,0,0,.8);margin:auto;overscroll-behavior:contain;}
+.md-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
+  padding-bottom:12px;border-bottom:1px solid var(--border);}
+.md-title{font-size:14px;font-weight:700;color:var(--accent);}
+.md-x{background:transparent;border:none;color:var(--muted);font-size:22px;
+  cursor:pointer;line-height:1;transition:color .2s;}
+.md-x:hover{color:var(--red);}
+
+/* ══ DIVIDER ══ */
+.divider{height:1px;background:var(--border);margin:20px 0;}
+
+/* ══ TOAST ══ */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--bg2);
+  border:1px solid var(--border2);border-radius:12px;padding:14px 22px;
+  font-size:14px;z-index:9999;transform:translateY(20px);opacity:0;
+  transition:all .3s;pointer-events:none;max-width:340px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:var(--green);color:var(--green);}
+.toast.err{border-color:var(--red);color:var(--red);}
+
+/* ══ DATALIST STYLE ══ */
+input[list]::-webkit-calendar-picker-indicator{ opacity:0.4; cursor:pointer; filter:invert(1); }
+
+/* ══ ADMIN ONLY ══ */
+.admin-only{display:none;}
+body.is-admin .admin-only{display:block;}
+
+/* ══ EMPTY STATE ══ */
+.empty{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4;}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:680px){
+  .main{padding:14px;}
+  .lb{width:95%;padding:32px 22px;}
+  .topbar{padding:0 14px;}
+  .tb-brand{font-size:12px;letter-spacing:2px;}
+  .sgrid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="lb">
+    <div class="lb-logo">NJ TRANSPORT</div>
+    <div class="lb-sub">ระบบบันทึกต้นทุนน้ำมันรถ</div>
+    <label>ชื่อผู้ใช้</label>
+    <input type="text" id="lUser" placeholder="Username" autocomplete="off" spellcheck="false"/>
+    <label>รหัสผ่าน</label>
+    <input type="password" id="lPass" placeholder="Password" autocomplete="new-password"/>
+    <button class="lb-btn" id="lBtn">เข้าสู่ระบบ</button>
+    <div class="lb-err" id="lErr"></div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="appScreen">
+  <div class="topbar">
+    <div class="tb-brand">
+      <div class="tb-dot"></div>
+      NJ TRANSPORT
+    </div>
+    <div class="tb-right">
+      <div class="ub">
+        <span id="uName">-</span>
+        <span class="rpill" id="uRole">-</span>
+      </div>
+      <button class="out-btn" id="outBtn">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+      <div class="tabs">
+        <button class="tab-btn active" data-t="report">📊 รายงาน</button>
+        <button class="tab-btn tab-users-btn" data-t="users">👤 ผู้ใช้งาน</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-g" id="calcBtn" style="padding:10px 20px;font-size:14px;border-color:var(--accent);color:var(--accent);">
+          ⛽ คำนวณน้ำมัน
+        </button>
+        <button class="btn btn-p" id="openEntryBtn" style="padding:10px 22px;font-size:14px;box-shadow:0 4px 16px rgba(245,166,35,.25);">
+          ➕ บันทึกข้อมูลน้ำมัน
+        </button>
+      </div>
+    </div>
+
+    <!-- ── REPORT TAB ── -->
+    <div class="tab-panel active" id="tab-report">
+
+      <!-- filter -->
+      <div class="card">
+        <div class="ctitle">ตัวกรองข้อมูล <span>— เลือกช่วงเวลาและทะเบียนรถ</span></div>
+        <div class="fgrid" style="grid-template-columns:repeat(auto-fill,minmax(165px,1fr));">
+          <div class="fg"><label>ทะเบียนรถ (ตาราง)</label><select id="fp_plate"></select></div>
+          <div class="fg"><label>วันที่เริ่มต้น</label><input type="date" id="fp_start"/></div>
+          <div class="fg"><label>วันที่สิ้นสุด</label><input type="date" id="fp_end"/></div>
+        </div>
+        <div class="br">
+          <button class="btn btn-grn" id="xlBtn">📊 Export Excel</button>
+        </div>
+      </div>
+
+      <!-- stats -->
+      <div class="sgrid">
+        <div class="sc"><div class="sc-label">ต้นทุนเฉลี่ย</div><div class="sc-val" id="s_cpk">—</div><div class="sc-unit">บาท / กม.</div></div>
+        <div class="sc"><div class="sc-label">ราคาน้ำมันเฉลี่ย</div><div class="sc-val" id="s_ppl">—</div><div class="sc-unit">บาท / ลิตร</div></div>
+        <div class="sc"><div class="sc-label">อัตราสิ้นเปลือง</div><div class="sc-val" id="s_kpl">—</div><div class="sc-unit">กม. / ลิตร</div></div>
+        <div class="sc"><div class="sc-label">ระยะทางรวม</div><div class="sc-val" id="s_dist">—</div><div class="sc-unit">กิโลเมตร</div></div>
+        <div class="sc"><div class="sc-label">ลิตรรวม</div><div class="sc-val" id="s_lt">—</div><div class="sc-unit">ลิตร</div></div>
+        <div class="sc"><div class="sc-label">ค่าใช้จ่ายรวม</div><div class="sc-val" id="s_tc">—</div><div class="sc-unit">บาท</div></div>
+      </div>
+
+      <!-- chart -->
+      <div class="card" style="padding:0;">
+        <!-- chart toggle header — plate selector always visible -->
+        <div style="display:flex;align-items:center;padding:10px 16px;gap:10px;flex-wrap:wrap;"
+          id="chartToggleBar">
+          <span style="width:3px;height:14px;background:var(--accent);border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;">กราฟเปรียบเทียบ</span>
+          <!-- multi-plate checkbox dropdown -->
+          <div style="position:relative;display:inline-block;" onclick="event.stopPropagation()">
+            <button type="button" id="cpPlateBtn"
+              style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+                font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;
+                border-radius:8px;cursor:pointer;min-width:160px;text-align:left;
+                display:flex;align-items:center;justify-content:space-between;gap:8px;
+                transition:border-color .2s;"
+              onclick="window._togglePlateDropdown(event)">
+              <span id="cpPlateLabel">📊 รวมทุกทะเบียน</span>
+              <span style="color:var(--muted);font-size:10px;">▼</span>
+            </button>
+            <div id="cpPlateDropdown"
+              style="display:none;position:fixed;
+                background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+                min-width:210px;padding:8px;z-index:9000;box-shadow:0 12px 40px rgba(0,0,0,.8);">
+              <div id="cpPlateList"></div>
+            </div>
+          </div>
+          <span id="chartToggleHint"
+            style="font-size:11px;font-weight:700;color:var(--accent);
+              border:1px solid var(--accent);border-radius:6px;
+              padding:3px 10px;letter-spacing:.5px;white-space:nowrap;
+              cursor:pointer;transition:all .2s;">
+            📊 แสดงกราฟ
+          </span>
+        </div>
+
+        <!-- chart body (hidden by default) -->
+        <div id="chartBody" style="display:none;padding:0 16px 16px;">
+          <div class="chart-controls" style="margin-bottom:12px;margin-top:12px;">
+            <div class="chart-left">
+              <select class="chart-metric-select" id="cp_metric">
+                <option value="km_per_liter">กม./ลิตร</option>
+                <option value="cost_per_km">บาท/กม.</option>
+                <option value="distance_km">ระยะทางรวม (กม.)</option>
+                <option value="total_cost">ต้นทุนน้ำมันรวม (บาท)</option>
+                <option value="liters">ลิตรรวม</option>
+                <option value="selling_price">ราคาขายรวม (บาท)</option>
+                <option value="net_profit">กำไร/ขาดทุนสุทธิ (บาท)</option>
+              </select>
+              <div class="ctoggle">
+                <button type="button" id="cVert" class="active">▐ แนวตั้ง</button>
+                <button type="button" id="cHorz">━ แนวนอน</button>
+              </div>
+            </div>
+            <div class="chart-right">
+              <button type="button" class="btn btn-g" id="expChart" style="padding:6px 12px;font-size:12px;">⬇ บันทึกกราฟ</button>
+            </div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="mainChart" style="max-height:180px;"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- table -->
+      <div class="card">
+        <div class="ctitle" id="tableTitle">ตารางข้อมูล <span id="rowCount"></span></div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th>#</th><th>วันที่</th><th>ทะเบียน</th><th>ผู้ขับ</th>
+              <th>สถานที่</th><th>Job/BL</th><th>ไมล์ก่อน</th><th>ไมล์หลัง</th>
+              <th>ระยะ(กม.)</th><th>ลิตร</th><th>บาท/ลิตร</th><th>รวม(บาท)</th>
+              <th>กม./ลิตร</th><th>บาท/กม.</th><th>หมายเหตุ</th><th style="min-width:140px;">จัดการ</th>
+            </tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS TAB ── -->
+    <div class="tab-panel" id="tab-users">
+      <div class="card admin-only">
+        <div class="ctitle">เพิ่มผู้ใช้ใหม่</div>
+        <div class="fgrid" style="max-width:700px;">
+          <div class="fg"><label>ชื่อผู้ใช้</label><input type="text" id="nu_user" placeholder="username"/></div>
+          <div class="fg"><label>รหัสผ่าน</label><input type="password" id="nu_pass" placeholder="password"/></div>
+          <div class="fg"><label>ชื่อที่แสดง</label><input type="text" id="nu_disp" placeholder="ชื่อจริง (full_name)"/></div>
+          <div class="fg"><label>สิทธิ์</label>
+            <select id="nu_role"><option value="user">พนักงาน</option><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select>
+          </div>
+        </div>
+        <div class="br"><button class="btn btn-p" id="addUBtn">➕ เพิ่มผู้ใช้</button></div>
+        <div class="divider"></div>
+        <div class="ctitle">รายชื่อผู้ใช้งาน</div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อที่แสดง</th><th>สิทธิ์</th><th>สร้างเมื่อ</th><th>ลบ</th></tr></thead>
+            <tbody id="utb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ENTRY MODAL ══ -->
+<div class="mo" id="entryMo">
+  <div class="md">
+    <div class="md-hd" style="margin-bottom:10px;padding-bottom:10px;">
+      <div class="md-title">⛽ บันทึกข้อมูลน้ำมัน</div>
+      <button class="md-x" type="button" id="entryMdX">&times;</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="fg"><label>ทะเบียนรถ</label><select id="f_plate"></select></div>
+      <div class="fg"><label>ผู้ขับ</label><input type="text" id="f_driver" readonly style="opacity:.55;cursor:default;"/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr 1.5fr;gap:10px;margin-top:10px;">
+      <div class="fg"><label>วันที่</label><input type="date" id="f_date"/></div>
+      <div class="fg">
+        <label>สถานที่วิ่ง</label>
+        <input type="text" id="f_route" list="routeList" placeholder="พิมพ์หรือเลือกสถานที่..." autocomplete="off"/>
+        <datalist id="routeList"></datalist>
+      </div>
+      <div class="fg"><label>Job / BL</label><input type="text" id="f_job" placeholder="เลข Job หรือ BL"/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+      <div class="fg"><label>ไมล์ก่อนเติม</label><input type="number" id="f_mb" placeholder="0"/></div>
+      <div class="fg"><label>ไมล์หลังเติม</label><input type="number" id="f_ma" placeholder="0"/></div>
+      <div class="fg">
+        <label>ระยะทาง (กม.) <span style="color:var(--accent);font-size:11px;">⚡ อัตโนมัติ</span></label>
+        <input type="text" id="f_dist" readonly placeholder="—"
+          style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-weight:700;cursor:default;text-align:center;"/>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+      <div class="fg"><label>ราคารวมน้ำมัน (บาท)</label><input type="number" step="0.01" id="f_tc" placeholder="0.00"/></div>
+      <div class="fg"><label>ราคาต่อลิตร (บาท)</label><input type="number" step="0.01" id="f_ppl" placeholder="0.00"/></div>
+      <div class="fg">
+        <label>จำนวนลิตร <span style="color:var(--accent);font-size:11px;">⚡ อัตโนมัติ</span></label>
+        <input type="number" step="0.01" id="f_lt" placeholder="0.00" readonly
+          style="background:var(--bg4);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-weight:600;opacity:.85;cursor:default;"/>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+      <div class="fg"><label>ราคาขาย (บาท)</label><input type="number" step="0.01" id="f_sell" placeholder="0.00"/></div>
+      <div class="fg"><label>ค่าใช้จ่ายอื่น (บาท)</label><input type="number" step="0.01" id="f_other" placeholder="0.00"/></div>
+      <div class="fg"></div>
+    </div>
+    <input type="hidden" id="f_cost_total"/>
+    <div style="margin-top:8px;padding:10px 14px;background:rgba(61,186,116,.06);border:1px solid rgba(61,186,116,.2);border-radius:10px;min-height:62px;">
+      <div class="fg">
+        <label id="f_net_label" style="color:var(--green);font-size:13px;font-weight:700;letter-spacing:1px;">⚡ ยอดสุทธิ (บาท)</label>
+        <input type="text" id="f_net" readonly
+          style="background:transparent;border:none;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:22px;cursor:default;text-align:center;padding:4px 0;width:100%;" placeholder="—"/>
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <div class="fg"><label>หมายเหตุ</label><textarea id="f_note" rows="1"></textarea></div>
+    </div>
+    <div id="entryErrMsg" style="display:none;background:rgba(224,82,82,.12);border:1px solid rgba(224,82,82,.4);
+      border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px;margin-bottom:8px;"></div>
+    <div class="br">
+      <button class="btn btn-p" type="button" id="saveBtn">💾 บันทึกข้อมูล</button>
+      <button class="btn btn-g" type="button" id="clrBtn">🗑 ล้างฟอร์ม</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="mo" id="editMo">
+  <div class="md">
+    <div class="md-hd">
+      <div class="md-title">✏️ แก้ไขข้อมูลน้ำมัน</div>
+      <button class="md-x" type="button" id="mdX">&times;</button>
+    </div>
+    <div>
+      <input type="hidden" id="e_id"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="fg"><label>ทะเบียนรถ</label><select id="e_plate"></select></div>
+        <div class="fg"><label>ผู้ขับ</label><input type="text" id="e_driver" readonly style="opacity:.55;cursor:default;"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 2fr 1.5fr;gap:10px;margin-top:8px;">
+        <div class="fg"><label>วันที่</label><input type="date" id="e_date"/></div>
+        <div class="fg">
+          <label>สถานที่วิ่ง</label>
+          <input type="text" id="e_route" list="routeList" placeholder="พิมพ์หรือเลือกสถานที่..." autocomplete="off"/>
+        </div>
+        <div class="fg"><label>Job / BL</label><input type="text" id="e_job"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+        <div class="fg"><label>ไมล์ก่อนเติม</label><input type="number" id="e_mb"/></div>
+        <div class="fg"><label>ไมล์หลังเติม</label><input type="number" id="e_ma"/></div>
+        <div class="fg">
+          <label>ระยะทาง (กม.) <span style="color:var(--accent);font-size:11px;">⚡ อัตโนมัติ</span></label>
+          <input type="text" id="e_dist" readonly placeholder="—"
+            style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-weight:700;cursor:default;text-align:center;"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+        <div class="fg"><label>ราคารวมน้ำมัน (บาท)</label><input type="number" step="0.01" id="e_tc"/></div>
+        <div class="fg"><label>ราคาต่อลิตร (บาท)</label><input type="number" step="0.01" id="e_ppl"/></div>
+        <div class="fg">
+          <label>จำนวนลิตร <span style="color:var(--accent);font-size:11px;">⚡ อัตโนมัติ</span></label>
+          <input type="number" step="0.01" id="e_lt" readonly
+            style="background:var(--bg4);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-weight:600;opacity:.85;cursor:default;"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
+        <div class="fg"><label>ราคาขาย (บาท)</label><input type="number" step="0.01" id="e_sell" placeholder="0.00"/></div>
+        <div class="fg"><label>ค่าใช้จ่ายอื่น (บาท)</label><input type="number" step="0.01" id="e_other" placeholder="0.00"/></div>
+        <div class="fg"></div>
+      </div>
+      <input type="hidden" id="e_cost_total"/>
+      <div style="margin-top:8px;padding:10px 14px;background:rgba(61,186,116,.06);border:1px solid rgba(61,186,116,.2);border-radius:10px;min-height:62px;">
+        <div class="fg">
+          <label id="e_net_label" style="color:var(--green);font-size:13px;font-weight:700;letter-spacing:1px;">⚡ ยอดสุทธิ (บาท)</label>
+          <input type="text" id="e_net" readonly
+            style="background:transparent;border:none;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:22px;cursor:default;text-align:center;padding:4px 0;width:100%;" placeholder="—"/>
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <div class="fg"><label>หมายเหตุ</label><textarea id="e_note" rows="1"></textarea></div>
+      </div>
+    </div>
+    <div class="br">
+      <button class="btn btn-p" type="button" id="saveEBtn">💾 บันทึกการแก้ไข</button>
+      <button class="btn btn-g" type="button" id="cancelEBtn">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Register datalabels plugin globally
+if(typeof ChartDataLabels !== 'undefined'){
+  Chart.register(ChartDataLabels);
+}
+
+const sb = createClient(
+  'https://sytgqjglcnsabcszbngg.supabase.co',
+  'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp'
+);
+
+const VEHICLES = [
+  {plate:'74-3116',driver:'มนตรี'},
+  {plate:'74-2273',driver:'ชัยวัตร'},
+  {plate:'74-3114',driver:'สมบูรณ์'},
+  {plate:'74-2271',driver:'เจนชัย'},
+  {plate:'74-2275',driver:'น้อย'}
+];
+
+const PALETTE = ['#f5a623','#4a9eff','#3dba74','#e05252','#a855f7','#ff6b6b','#00d4aa'];
+const MNAMES = {
+  km_per_liter:'กม./ลิตร',
+  cost_per_km:'บาท/กม.',
+  distance_km:'ระยะทางรวม (กม.)',
+  total_cost:'ต้นทุนน้ำมันรวม (บาท)',
+  liters:'ลิตรรวม',
+  selling_price:'ราคาขายรวม (บาท)',
+  net_profit:'กำไร/ขาดทุนสุทธิ (บาท)'
+};
+
+let CU = null;           // current user
+let RECS = [];           // all loaded records
+let chartInst = null;
+let chartDir = 'x';      // 'x' = vertical column, 'y' = horizontal bar
+
+// ─── UTILS ───────────────────────────────
+const fmt = (v,d=2) => Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:d,maximumFractionDigits:d});
+const gd  = p => (VEHICLES.find(v=>v.plate===p)||{}).driver||'';
+
+function toast(msg, type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast show ${type}`;
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.className='toast', 3200);
+}
+
+// ─── LOGIN ───────────────────────────────
+let _loginAttempts = 0;
+async function doLogin(){
+  const u=document.getElementById('lUser').value.trim();
+  const p=document.getElementById('lPass').value;
+  const errEl = document.getElementById('lErr');
+  errEl.style.display='none';
+
+  if(!u||!p){
+    errEl.textContent='⚠ กรุณากรอกชื่อผู้ใช้และรหัสผ่าน';
+    errEl.style.display='block';
+    return;
+  }
+
+  const {data,error}=await sb.from('app_users').select('*').eq('username',u).eq('password',p).single();
+  if(error||!data){
+    _loginAttempts++;
+    document.getElementById('lPass').value=''; // clear password always
+    errEl.textContent=`⚠ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง (ครั้งที่ ${_loginAttempts})`;
+    errEl.style.display='block';
+    document.getElementById('lPass').focus();
+    return;
+  }
+  _loginAttempts=0;
+  CU=data;
+  document.getElementById('lErr').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  document.getElementById('uName').textContent=data.full_name||data.username;
+  const rp=document.getElementById('uRole');
+  if(data.role==='super_admin'||data.role==='admin'){
+    rp.textContent=data.role==='super_admin'?'Super Admin':'Admin';
+    rp.className='rpill'; document.body.classList.add('is-admin');
+  } else { rp.textContent='พนักงาน'; rp.className='rpill emp'; }
+  initDropdowns();
+  renderAll();
+}
+function doLogout(){
+  CU=null; RECS=[];
+  document.body.classList.remove('is-admin');
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  // clear all fields
+  document.getElementById('lUser').value='';
+  document.getElementById('lPass').value='';
+  document.getElementById('lErr').style.display='none';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  const firstTab=document.querySelector('.tab-btn');
+  const firstPanel=document.querySelector('.tab-panel');
+  if(firstTab) firstTab.classList.add('active');
+  if(firstPanel) firstPanel.classList.add('active');
+  // focus username field
+  setTimeout(()=>document.getElementById('lUser').focus(), 100);
+}
+
+// Force logout when tab/window is closed or hidden (no session persistence)
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden' && CU){
+    doLogout();
+  }
+});
+document.getElementById('lBtn').addEventListener('click', doLogin);
+document.getElementById('lPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('outBtn').addEventListener('click', doLogout);
+
+// ─── TABS ────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const t=btn.dataset.t;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+t).classList.add('active');
+    if(t==='users') loadUsers();
+    if(t==='report') renderAll();
+  });
+});
+
+// open/close entry modal
+function openEntryModal(){
+  // set today's date if empty
+  if(!document.getElementById('f_date').value){
+    document.getElementById('f_date').value = new Date().toISOString().slice(0,10);
+  }
+  loadRouteSuggestions();
+  const eEl=document.getElementById('entryErrMsg'); if(eEl) eEl.style.display='none';
+  document.getElementById('entryMo').classList.add('open');
+}
+function closeEntryModal(){ document.getElementById('entryMo').classList.remove('open'); }
+document.getElementById('openEntryBtn').addEventListener('click', openEntryModal);
+
+// Prevent Enter key from submitting inside modal — stops page jump
+document.getElementById('entryMo').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target.tagName!=='TEXTAREA'){
+    e.preventDefault();
+  }
+});
+document.getElementById('editMo').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target.tagName!=='TEXTAREA'){
+    e.preventDefault();
+  }
+});
+document.getElementById('entryMdX').addEventListener('click', closeEntryModal);
+document.getElementById('entryMo').addEventListener('click', e=>{
+  if(e.target===document.getElementById('entryMo')) closeEntryModal();
+});
+
+// ─── DROPDOWNS ───────────────────────────
+function buildPlateOptions(el, includeAll=false, includeAllLabel='รวมทั้งหมด'){
+  el.innerHTML='';
+  if(includeAll) el.innerHTML=`<option value="ALL">${includeAllLabel}</option>`;
+  else el.innerHTML='<option value="">-- เลือกทะเบียน --</option>';
+  VEHICLES.forEach(v=> el.innerHTML+=`<option value="${v.plate}">${v.plate} (${v.driver})</option>`);
+}
+function initDropdowns(){
+  buildPlateOptions(document.getElementById('f_plate'), false);
+  buildPlateOptions(document.getElementById('fp_plate'), true);
+  buildChartPlateCheckboxes();
+  buildPlateOptions(document.getElementById('e_plate'), false);
+
+  document.getElementById('f_plate').addEventListener('change', e=>{
+    document.getElementById('f_driver').value = gd(e.target.value);
+  });
+  document.getElementById('e_plate').addEventListener('change', e=>{
+    document.getElementById('e_driver').value = gd(e.target.value);
+  });
+  ['fp_plate','fp_start','fp_end'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderAll);
+  });
+  // cp_plate change handled via window._chartPlateChanged
+  document.getElementById('cp_metric').addEventListener('change', ()=> buildChart(RECS));
+}
+
+// ─── ROUTE SUGGESTIONS ───────────────────
+async function loadRouteSuggestions(){
+  const {data} = await sb.from('fuel_logs')
+    .select('route_location')
+    .not('route_location','is',null)
+    .neq('route_location','');
+  if(!data) return;
+  const unique = [...new Set(data.map(r=>r.route_location).filter(Boolean))].sort();
+  const dl = document.getElementById('routeList');
+  if(!dl) return;
+  dl.innerHTML = unique.map(v=>`<option value="${v.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+
+// ─── CLEAR FORM ──────────────────────────
+function clearForm(){
+  ['f_date','f_plate','f_driver','f_route','f_job','f_mb','f_ma','f_lt','f_ppl','f_tc','f_sell','f_other','f_note']
+    .forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('f_net').value='';
+}
+document.getElementById('clrBtn').addEventListener('click', clearForm);
+
+// ── AUTO-CALC: Entry Form ──
+function recalcEntry(){
+  const mb   = Number(document.getElementById('f_mb').value);
+  const ma   = Number(document.getElementById('f_ma').value);
+  const tc   = Number(document.getElementById('f_tc').value);
+  const ppl  = Number(document.getElementById('f_ppl').value);
+  const sell = Number(document.getElementById('f_sell').value);
+  const oth  = Number(document.getElementById('f_other').value);
+
+  // ระยะทาง
+  if(ma > mb){ document.getElementById('f_dist').value = (ma-mb).toFixed(2); }
+  else { document.getElementById('f_dist').value = ''; }
+
+  // จำนวนลิตร = ราคารวม ÷ ราคาต่อลิตร (อัตโนมัติ)
+  if(tc > 0 && ppl > 0){ document.getElementById('f_lt').value = (tc/ppl).toFixed(2); }
+  else { document.getElementById('f_lt').value = ''; }
+
+  // ต้นทุนรวม = ราคารวมน้ำมัน (อัตโนมัติ) + ค่าใช้จ่ายอื่น — กรอกเองได้
+  const costTotal = tc + oth;
+  document.getElementById('f_cost_total').value = costTotal > 0 ? costTotal.toFixed(2) : '';
+
+  // ยอดสุทธิ = ราคาขาย - ต้นทุนรวม
+  if(sell > 0 || costTotal > 0){
+    const net = sell - costTotal;
+    const el = document.getElementById('f_net');
+    const lb = document.getElementById('f_net_label');
+    el.value = net.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(net >= 0){
+      el.style.cssText = el.style.cssText.replace(/color:[^;]+/,'color:var(--green)');
+      el.style.background = 'rgba(61,186,116,.08)';
+      el.style.borderColor = 'rgba(61,186,116,.3)';
+      el.style.color = 'var(--green)';
+      if(lb) lb.style.color = 'var(--green)';
+    } else {
+      el.style.background = 'rgba(224,82,82,.08)';
+      el.style.borderColor = 'rgba(224,82,82,.3)';
+      el.style.color = 'var(--red)';
+      if(lb) lb.style.color = 'var(--red)';
+    }
+  } else {
+    document.getElementById('f_net').value = '';
+  }
+}
+['f_mb','f_ma','f_tc','f_ppl','f_sell','f_other'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', recalcEntry);
+});
+
+// ── AUTO-CALC: Edit Modal ──
+function recalcEdit(){
+  const tc  = Number(document.getElementById('e_tc').value);
+  const ppl = Number(document.getElementById('e_ppl').value);
+  const mb  = Number(document.getElementById('e_mb').value);
+  const ma  = Number(document.getElementById('e_ma').value);
+  const sell= Number(document.getElementById('e_sell').value);
+  const oth = Number(document.getElementById('e_other').value);
+  if(ma > mb){ document.getElementById('e_dist').value = (ma-mb).toFixed(2); }
+  else { document.getElementById('e_dist').value = ''; }
+  if(tc > 0 && ppl > 0){ document.getElementById('e_lt').value = (tc/ppl).toFixed(2); }
+  else { document.getElementById('e_lt').value = ''; }
+  const costTotal = tc + oth;
+  document.getElementById('e_cost_total').value = costTotal > 0 ? costTotal.toFixed(2) : '';
+  if(sell > 0 || costTotal > 0){
+    const net = sell - costTotal;
+    const el = document.getElementById('e_net');
+    const lb2 = document.getElementById('e_net_label');
+    el.value = net.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(net >= 0){
+      el.style.background='rgba(61,186,116,.08)';el.style.borderColor='rgba(61,186,116,.3)';
+      el.style.color='var(--green)'; if(lb2) lb2.style.color='var(--green)';
+    } else {
+      el.style.background='rgba(224,82,82,.08)';el.style.borderColor='rgba(224,82,82,.3)';
+      el.style.color='var(--red)'; if(lb2) lb2.style.color='var(--red)';
+    }
+  }
+}
+['e_mb','e_ma','e_tc','e_ppl','e_sell','e_other'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', recalcEdit);
+});
+
+// ─── SAVE ────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click', async ()=>{
+  const v = {
+    fuel_date:   document.getElementById('f_date').value,
+    plate_no:    document.getElementById('f_plate').value,
+    driver_name: document.getElementById('f_driver').value,
+    route_location: document.getElementById('f_route').value.trim(),
+    job_bl:      document.getElementById('f_job').value.trim(),
+    mileage_before: Number(document.getElementById('f_mb').value),
+    mileage_after:  Number(document.getElementById('f_ma').value),
+    liters:      Number(document.getElementById('f_lt').value),
+    price_per_liter: Number(document.getElementById('f_ppl').value),
+    total_cost:  Number(document.getElementById('f_tc').value),
+    selling_price: Number(document.getElementById('f_sell').value)||0,
+    other_expenses: Number(document.getElementById('f_other').value)||0,
+    note:        document.getElementById('f_note').value.trim(),
+  };
+  const errEl = document.getElementById('entryErrMsg');
+  errEl.style.display='none';
+  if(!v.fuel_date||!v.plate_no||!v.driver_name){
+    errEl.textContent='⚠ กรุณากรอกวันที่ ทะเบียน และผู้ขับ'; errEl.style.display='block'; return;
+  }
+  if(v.mileage_after<=v.mileage_before){
+    errEl.textContent='⚠ ไมล์หลังต้องมากกว่าไมล์ก่อนเติม'; errEl.style.display='block'; return;
+  }
+  if(v.liters<=0||v.price_per_liter<=0||v.total_cost<=0){
+    errEl.textContent='⚠ กรุณากรอกราคารวมน้ำมัน และราคาต่อลิตรให้ถูกต้อง'; errEl.style.display='block'; return;
+  }
+  const dist = v.mileage_after - v.mileage_before;
+  v.distance_km  = dist;
+  v.km_per_liter = dist / v.liters;
+  v.cost_per_km  = v.total_cost / dist;
+  v.net_profit   = v.selling_price - (v.total_cost + v.other_expenses);
+  const {error} = await sb.from('fuel_logs').insert([v]);
+  if(error){
+    const errEl2 = document.getElementById('entryErrMsg');
+    errEl2.textContent = '⚠ บันทึกไม่สำเร็จ: '+error.message;
+    errEl2.style.display = 'block';
+    return;
+  }
+  clearForm();
+  closeEntryModal();
+  toast('บันทึกเรียบร้อย ✓');
+  await renderAll();
+  loadRouteSuggestions();
+});
+
+// ─── FETCH ───────────────────────────────
+async function fetchRecs(){
+  const plate = document.getElementById('fp_plate')?.value;
+  const start = document.getElementById('fp_start')?.value;
+  const end   = document.getElementById('fp_end')?.value;
+  let q = sb.from('fuel_logs').select('*')
+    .order('fuel_date',{ascending:false}).order('id',{ascending:false});
+  if(plate&&plate!=='ALL') q=q.eq('plate_no',plate);
+  if(start) q=q.gte('fuel_date',start);
+  if(end)   q=q.lte('fuel_date',end);
+  const {data,error}=await q;
+  if(error){ toast('โหลดข้อมูลไม่สำเร็จ','err'); return []; }
+  return data||[];
+}
+
+// ─── SUMMARY ─────────────────────────────
+function updateStats(recs){
+  const dist = recs.reduce((s,r)=>s+Number(r.distance_km||0),0);
+  const lt   = recs.reduce((s,r)=>s+Number(r.liters||0),0);
+  const cost = recs.reduce((s,r)=>s+Number(r.total_cost||0),0);
+  document.getElementById('s_cpk').textContent  = fmt(dist>0?cost/dist:0);
+  document.getElementById('s_ppl').textContent  = fmt(lt>0?cost/lt:0);
+  document.getElementById('s_kpl').textContent  = fmt(lt>0?dist/lt:0);
+  document.getElementById('s_dist').textContent = fmt(dist,0);
+  document.getElementById('s_lt').textContent   = fmt(lt);
+  document.getElementById('s_tc').textContent   = fmt(cost,0);
+}
+
+// ─── TABLE ───────────────────────────────
+function renderTable(recs){
+  const tb = document.getElementById('tb');
+  tb.innerHTML='';
+  document.getElementById('rowCount').textContent = recs.length ? `(${recs.length} รายการ)` : '';
+  const isAdmin = CU?.role==='admin' || CU?.role==='super_admin';
+
+  if(!recs.length){
+    tb.innerHTML=`<tr><td colspan="16">
+      <div class="empty"><div class="empty-icon">📋</div>ไม่พบข้อมูลในช่วงเวลาที่เลือก</div>
+    </td></tr>`;
+    return;
+  }
+
+  recs.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="mono" style="color:var(--muted);">${i+1}</td>
+      <td>${r.fuel_date||''}</td>
+      <td><span class="badge badge-a">${r.plate_no||''}</span></td>
+      <td>${r.driver_name||''}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${r.route_location||'—'}</td>
+      <td>${r.job_bl||'—'}</td>
+      <td class="mono">${fmt(r.mileage_before,0)}</td>
+      <td class="mono">${fmt(r.mileage_after,0)}</td>
+      <td class="mono" style="color:var(--accent);">${fmt(r.distance_km)}</td>
+      <td class="mono">${fmt(r.liters)}</td>
+      <td class="mono">${fmt(r.price_per_liter)}</td>
+      <td class="mono" style="color:var(--green);">${fmt(r.total_cost,0)}</td>
+      <td class="mono">${fmt(r.km_per_liter)}</td>
+      <td class="mono">${fmt(r.cost_per_km)}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);">${r.note||'—'}</td>
+      <td>
+        <div class="ac">
+          <button class="ie ie-e" data-eid="${r.id}">✏ แก้ไข</button>
+          ${isAdmin ? `<button class="ie ie-d" data-did="${r.id}">✕ ลบ</button>` : ''}
+        </div>
+      </td>`;
+    tb.appendChild(tr);
+  });
+
+  // edit
+  tb.querySelectorAll('[data-eid]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const r=RECS.find(x=>x.id===Number(btn.dataset.eid));
+      if(r) openEdit(r);
+    });
+  });
+  // delete
+  tb.querySelectorAll('[data-did]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const {error}=await sb.from('fuel_logs').delete().eq('id',Number(btn.dataset.did));
+      if(error){ toast('ลบไม่สำเร็จ: '+error.message,'err'); return; }
+      toast('ลบข้อมูลแล้ว');
+      renderAll();
+    });
+  });
+}
+
+// ─── CHART ───────────────────────────────
+function groupByPlate(recs){
+  const map={};
+  recs.forEach(r=>{
+    const k=r.plate_no;
+    if(!map[k]) map[k]={plate:k,driver:r.driver_name,d:0,l:0,c:0,s:0,n:0,trips:0};
+    map[k].d+=Number(r.distance_km||0);
+    map[k].l+=Number(r.liters||0);
+    map[k].c+=Number(r.total_cost||0);
+    map[k].s+=Number(r.selling_price||0);
+    map[k].n+=Number(r.net_profit||0);
+    map[k].trips++;
+  });
+  return Object.values(map).map(x=>({
+    label:`${x.plate}`,
+    sublabel:x.driver,
+    trips:x.trips,
+    km_per_liter: x.l>0 ? x.d/x.l : 0,
+    cost_per_km:  x.d>0 ? x.c/x.d : 0,
+    distance_km:  x.d,
+    total_cost:   x.c,
+    liters:       x.l,
+    selling_price: x.s,
+    net_profit:   x.n,
+  }));
+}
+
+function buildChart(recs){
+  const metric = document.getElementById('cp_metric').value;
+
+  // get selected plates from checkboxes
+  const checkedBoxes = document.querySelectorAll('#cpPlateList input[type=checkbox]:checked');
+  const selPlates = [...checkedBoxes].map(cb=>cb.value);
+  const isAll = selPlates.length===0 || selPlates.includes('ALL');
+  const filtered = isAll ? recs : recs.filter(r=>selPlates.includes(r.plate_no));
+
+  // group existing data
+  const groupMap = {};
+  groupByPlate(filtered).forEach(g=>{ groupMap[g.label]=g; });
+
+  // build final groups — ensure ALL selected plates appear (even with 0)
+  let finalGroups;
+  if(isAll){
+    finalGroups = Object.values(groupMap);
+  } else {
+    // show all selected plates in order, 0 if no data
+    finalGroups = selPlates.map(plate=>{
+      const v = VEHICLES.find(v=>v.plate===plate);
+      return groupMap[plate] || {
+        label: plate,
+        sublabel: v ? v.driver : '',
+        trips: 0,
+        km_per_liter:0, cost_per_km:0, distance_km:0,
+        total_cost:0, liters:0, selling_price:0, net_profit:0
+      };
+    });
+  }
+
+  const labels = finalGroups.map(g=>g.label);
+  const vals   = finalGroups.map(g=>+Number(g[metric]||0).toFixed(2));
+  const title  = MNAMES[metric]||metric;
+
+  // color: net_profit = green/red, single = accent, multi = palette
+  let bgColors;
+  if(metric === 'net_profit'){
+    bgColors = vals.map(v => v >= 0 ? 'rgba(61,186,116,.85)' : 'rgba(224,82,82,.85)');
+  } else if(labels.length===1){
+    bgColors = ['#f5a623'];
+  } else {
+    bgColors = labels.map((_,i)=>PALETTE[i%PALETTE.length]);
+  }
+
+  if(!chartOpen) return; // don't render when collapsed
+  if(chartInst) chartInst.destroy();
+  const ctx=document.getElementById('mainChart').getContext('2d');
+
+  chartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label: title,
+        data: vals,
+        backgroundColor: bgColors,
+        borderRadius: 8,
+        borderSkipped: false,
+        borderWidth: 0,
+        maxBarThickness: 32,
+      }]
+    },
+    options:{
+      indexAxis: chartDir,
+      responsive: true,
+      layout:{ padding:{ top:20, right:12 } },
+      maintainAspectRatio: true,
+      aspectRatio: chartDir==='x' ? 4.5 : 2.8,
+      plugins:{
+        legend:{ display:false },
+        datalabels:{
+          anchor: chartDir==='x' ? 'end' : 'end',
+          align:  chartDir==='x' ? 'top'  : 'right',
+          color: '#ffffff',
+          font:{ family:"'IBM Plex Mono',monospace", size:10, weight:'600' },
+          formatter: (value) => {
+            if(!value && value!==0) return '';
+            return Number(value).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+          },
+          padding:{ left:4, right:4, top:2, bottom:2 },
+        },
+        tooltip:{
+          backgroundColor:'rgba(20,20,20,.95)',
+          titleColor:'#f5a623',
+          bodyColor:'#ccc',
+          borderColor:'#333',
+          borderWidth:1,
+          padding:12,
+          callbacks:{
+            title: items => items[0].label,
+            label: item => {
+              const g=finalGroups[item.dataIndex];
+              return [
+                ` ${title}: ${fmt(item.raw)}`,
+                ` ผู้ขับ: ${g?g.sublabel:''}`,
+                ` เติมแล้ว ${g?g.trips:0} ครั้ง`
+              ];
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{ color:'#aaa', font:{family:"'Sarabun',sans-serif",size:10}, maxRotation:0},
+          grid:{ color:'rgba(255,255,255,.04)'},
+        },
+        y:{
+          beginAtZero:true,
+          ticks:{ color:'#aaa', font:{family:"'Sarabun',sans-serif",size:10}},
+          grid:{ color:'rgba(255,255,255,.04)'},
+        }
+      }
+    }
+  });
+}
+
+// chart toggle
+document.getElementById('cVert').addEventListener('click',()=>{
+  chartDir='x';
+  document.getElementById('cVert').classList.add('active');
+  document.getElementById('cHorz').classList.remove('active');
+  buildChart(RECS);
+});
+document.getElementById('cHorz').addEventListener('click',()=>{
+  chartDir='y';
+  document.getElementById('cHorz').classList.add('active');
+  document.getElementById('cVert').classList.remove('active');
+  buildChart(RECS);
+});
+
+// ── CHART COLLAPSE TOGGLE ──
+let chartOpen = false;
+
+function toggleChart(){
+  chartOpen = !chartOpen;
+  const body = document.getElementById('chartBody');
+  const hint = document.getElementById('chartToggleHint');
+  if(chartOpen){
+    body.style.display = 'block';
+    hint.textContent = '✕ ซ่อนกราฟ';
+    hint.style.background = 'rgba(245,166,35,.12)';
+    buildChart(RECS);
+  } else {
+    body.style.display = 'none';
+    hint.textContent = '📊 แสดงกราฟ';
+    hint.style.background = 'transparent';
+  }
+}
+
+// click only on the hint button — not the whole bar
+document.getElementById('chartToggleHint').addEventListener('click', toggleChart);
+
+// plate changed from header — rebuild chart if open
+window._chartPlateChanged = function(){
+  if(chartOpen) buildChart(RECS);
+};
+
+// build checkbox list for chart plate multi-select
+function buildChartPlateCheckboxes(){
+  const list = document.getElementById('cpPlateList');
+  if(!list) return;
+  list.innerHTML='';
+
+  // ALL option
+  const allRow = document.createElement('label');
+  allRow.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);margin-bottom:4px;';
+  allRow.innerHTML=`<input type="checkbox" value="ALL" checked style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;"> <span>📊 รวมทุกทะเบียน</span>`;
+  list.appendChild(allRow);
+
+  VEHICLES.forEach(v=>{
+    const row = document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px;cursor:pointer;font-size:13px;transition:background .15s;';
+    row.onmouseover=()=>row.style.background='rgba(245,166,35,.08)';
+    row.onmouseout=()=>row.style.background='transparent';
+    row.innerHTML=`<input type="checkbox" value="${v.plate}" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;"> <span>${v.plate} — ${v.driver}</span>`;
+    list.appendChild(row);
+  });
+
+  // when ALL checked → uncheck others; when individual checked → uncheck ALL
+  list.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.value==='ALL' && cb.checked){
+        list.querySelectorAll('input[type=checkbox]').forEach(x=>{ if(x.value!=='ALL') x.checked=false; });
+      } else if(cb.value!=='ALL' && cb.checked){
+        const allCb = list.querySelector('input[value="ALL"]');
+        if(allCb) allCb.checked=false;
+      }
+      // update label
+      updateCpPlateLabel();
+      if(chartOpen) buildChart(RECS);
+    });
+  });
+}
+
+function updateCpPlateLabel(){
+  const checked = [...document.querySelectorAll('#cpPlateList input:checked')];
+  const lbl = document.getElementById('cpPlateLabel');
+  if(!lbl) return;
+  if(checked.length===0 || checked.some(c=>c.value==='ALL')){
+    lbl.textContent='📊 รวมทุกทะเบียน';
+  } else if(checked.length===1){
+    lbl.textContent=checked[0].value;
+  } else {
+    lbl.textContent=`${checked.length} ทะเบียน`;
+  }
+}
+
+window._togglePlateDropdown = function(e){
+  e.stopPropagation();
+  const dd  = document.getElementById('cpPlateDropdown');
+  const btn = document.getElementById('cpPlateBtn');
+  if(dd.style.display==='none'){
+    const r = btn.getBoundingClientRect();
+    dd.style.top  = (r.bottom + 6) + 'px';
+    dd.style.left = r.left + 'px';
+    dd.style.display = 'block';
+  } else {
+    dd.style.display = 'none';
+  }
+};
+
+// close dropdown when clicking outside
+document.addEventListener('click', ()=>{
+  const dd = document.getElementById('cpPlateDropdown');
+  if(dd) dd.style.display='none';
+});
+
+// export chart
+document.getElementById('expChart').addEventListener('click',()=>{
+  if(!chartInst){ toast('ไม่มีกราฟให้บันทึก','err'); return; }
+  const a=document.createElement('a');
+  a.download=`nj-chart-${new Date().toISOString().slice(0,10)}.png`;
+  a.href=document.getElementById('mainChart').toDataURL('image/png');
+  a.click();
+  toast('บันทึกกราฟสำเร็จ ✓');
+});
+
+// ─── EXCEL ───────────────────────────────
+document.getElementById('xlBtn').addEventListener('click',()=>{
+  if(!RECS.length){ toast('ไม่มีข้อมูลสำหรับ Export','err'); return; }
+
+  const detail = RECS.map(r=>({
+    'วันที่':r.fuel_date, 'ทะเบียนรถ':r.plate_no, 'ผู้ขับ':r.driver_name,
+    'สถานที่วิ่ง':r.route_location||'', 'Job/BL':r.job_bl||'',
+    'ไมล์ก่อนเติม':+r.mileage_before, 'ไมล์หลังเติม':+r.mileage_after,
+    'ระยะทาง(กม.)':+Number(r.distance_km).toFixed(2),
+    'จำนวนลิตร':+Number(r.liters).toFixed(2),
+    'ราคาต่อลิตร':+Number(r.price_per_liter).toFixed(2),
+    'ราคารวม(บาท)':+Number(r.total_cost).toFixed(2),
+    'กม./ลิตร':+Number(r.km_per_liter).toFixed(2),
+    'บาท/กม.':+Number(r.cost_per_km).toFixed(2),
+    'หมายเหตุ':r.note||''
+  }));
+
+  const sm={};
+  RECS.forEach(r=>{
+    const k=r.plate_no;
+    if(!sm[k]) sm[k]={plate:r.plate_no,driver:r.driver_name,trips:0,d:0,l:0,c:0};
+    sm[k].trips++; sm[k].d+=Number(r.distance_km); sm[k].l+=Number(r.liters); sm[k].c+=Number(r.total_cost);
+  });
+  const summary = Object.values(sm).map(x=>({
+    'ทะเบียนรถ':x.plate,'ผู้ขับ':x.driver,'จำนวนครั้ง':x.trips,
+    'ระยะทางรวม(กม.)':+x.d.toFixed(2),'ลิตรรวม':+x.l.toFixed(2),
+    'ค่าใช้จ่ายรวม(บาท)':+x.c.toFixed(2),
+    'เฉลี่ย กม./ลิตร':+(x.l>0?x.d/x.l:0).toFixed(2),
+    'เฉลี่ย บาท/กม.':+(x.d>0?x.c/x.d:0).toFixed(2)
+  }));
+
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.json_to_sheet(detail);
+  const ws2=XLSX.utils.json_to_sheet(summary);
+  ws1['!cols']=[{wch:12},{wch:10},{wch:10},{wch:22},{wch:14},{wch:12},{wch:12},{wch:14},{wch:11},{wch:12},{wch:14},{wch:11},{wch:11},{wch:18}];
+  ws2['!cols']=[{wch:10},{wch:10},{wch:11},{wch:16},{wch:11},{wch:18},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Fuel Logs');
+  XLSX.utils.book_append_sheet(wb,ws2,'Summary');
+  XLSX.writeFile(wb,`NJ-Fuel-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Export Excel สำเร็จ ✓');
+});
+
+// ─── EDIT MODAL ──────────────────────────
+function openEdit(r){
+  document.getElementById('e_id').value=r.id;
+  document.getElementById('e_date').value=r.fuel_date;
+  document.getElementById('e_plate').value=r.plate_no;
+  document.getElementById('e_driver').value=r.driver_name;
+  document.getElementById('e_route').value=r.route_location||'';
+  document.getElementById('e_job').value=r.job_bl||'';
+  document.getElementById('e_mb').value=r.mileage_before;
+  document.getElementById('e_ma').value=r.mileage_after;
+  document.getElementById('e_lt').value=r.liters;
+  // recalc liters from stored values
+  { const _tc=Number(r.total_cost), _ppl=Number(r.price_per_liter); if(_tc>0&&_ppl>0) document.getElementById('e_lt').value=(_tc/_ppl).toFixed(2); }
+  document.getElementById('e_ppl').value=r.price_per_liter;
+  document.getElementById('e_tc').value=r.total_cost;
+  document.getElementById('e_sell').value=r.selling_price||'';
+  document.getElementById('e_other').value=r.other_expenses||'';
+  document.getElementById('e_note').value=r.note||'';
+  // trigger recalc
+  const distV = Number(r.mileage_after)-Number(r.mileage_before);
+  document.getElementById('e_dist').value = distV > 0 ? distV.toFixed(2) : '—';
+  const ct = Number(r.total_cost)+Number(r.other_expenses||0);
+  document.getElementById('e_cost_total').value = ct > 0 ? ct.toFixed(2) : '';
+  const net = Number(r.selling_price||0) - ct;
+  const nel = document.getElementById('e_net');
+  nel.value = ct > 0 || r.selling_price ? net.toFixed(2)+' บาท' : '';
+  nel.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+  loadRouteSuggestions();
+  document.getElementById('editMo').classList.add('open');
+}
+function closeEdit(){ document.getElementById('editMo').classList.remove('open'); }
+document.getElementById('mdX').addEventListener('click', closeEdit);
+document.getElementById('cancelEBtn').addEventListener('click', closeEdit);
+document.getElementById('editMo').addEventListener('click', e=>{ if(e.target===document.getElementById('editMo')) closeEdit(); });
+
+document.getElementById('saveEBtn').addEventListener('click', async()=>{
+  const id = document.getElementById('e_id').value;
+  const mb = Number(document.getElementById('e_mb').value);
+  const ma = Number(document.getElementById('e_ma').value);
+  const lt = Number(document.getElementById('e_lt').value);
+  const tc = Number(document.getElementById('e_tc').value);
+  const ppl= Number(document.getElementById('e_ppl').value);
+  if(ma<=mb){ toast('ไมล์หลังต้องมากกว่าไมล์ก่อน','err'); return; }
+  if(lt<=0||tc<=0){ toast('กรุณากรอกค่าน้ำมันให้ถูกต้อง','err'); return; }
+  const dist=ma-mb;
+  const sell2 = Number(document.getElementById('e_sell').value)||0;
+  const oth2  = Number(document.getElementById('e_other').value)||0;
+  const {error}=await sb.from('fuel_logs').update({
+    fuel_date:document.getElementById('e_date').value,
+    plate_no:document.getElementById('e_plate').value,
+    driver_name:document.getElementById('e_driver').value,
+    route_location:document.getElementById('e_route').value,
+    job_bl:document.getElementById('e_job').value,
+    mileage_before:mb, mileage_after:ma, distance_km:dist,
+    liters:lt, price_per_liter:ppl, total_cost:tc,
+    km_per_liter:dist/lt, cost_per_km:tc/dist,
+    selling_price:sell2, other_expenses:oth2,
+    net_profit: sell2 - (Number(document.getElementById('e_cost_total').value)||tc+oth2),
+    note:document.getElementById('e_note').value
+  }).eq('id',id);
+  if(error){ toast('แก้ไขไม่สำเร็จ: '+error.message,'err'); return; }
+  closeEdit(); toast('แก้ไขข้อมูลแล้ว ✓'); renderAll();
+});
+
+// ─── USERS ───────────────────────────────
+async function loadUsers(){
+  if(CU?.role!=='admin' && CU?.role!=='super_admin') return;
+  const {data}=await sb.from('app_users').select('*').order('id');
+  const tb=document.getElementById('utb');
+  tb.innerHTML='';
+  (data||[]).forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="mono">${u.username}</td>
+      <td>${u.full_name||'—'}</td>
+      <td><span class="badge ${u.role==='super_admin'||u.role==='admin'?'badge-a':'badge-e'}">${u.role==='super_admin'?'Super Admin':u.role==='admin'?'Admin':'พนักงาน'}</span></td>
+      <td class="mono" style="font-size:11px;color:var(--muted);">${(u.created_at||'').slice(0,10)}</td>
+      <td>${(u.username==='Jamrat'||u.role==='super_admin')?'<span style="color:var(--muted);font-size:11px;">ปกป้อง</span>':`<button class="ie ie-d" data-uid="${u.id}">✕ ลบ</button>`}</td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('[data-uid]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const {error}=await sb.from('app_users').delete().eq('id',btn.dataset.uid);
+      if(error){ toast('ลบไม่สำเร็จ','err'); return; }
+      toast('ลบผู้ใช้แล้ว'); loadUsers();
+    });
+  });
+}
+document.getElementById('addUBtn').addEventListener('click', async()=>{
+  const u=document.getElementById('nu_user').value.trim();
+  const p=document.getElementById('nu_pass').value;
+  const d=document.getElementById('nu_disp').value.trim();
+  const r=document.getElementById('nu_role').value;
+  if(!u||!p){ toast('กรุณากรอก username และ password','err'); return; }
+  const {error}=await sb.from('app_users').insert([{username:u,password:p,full_name:d,role:r,is_active:true}]);
+  if(error){ toast('เพิ่มไม่สำเร็จ: '+error.message,'err'); return; }
+  ['nu_user','nu_pass','nu_disp'].forEach(id=>{ document.getElementById(id).value=''; });
+  toast('เพิ่มผู้ใช้แล้ว ✓'); loadUsers();
+});
+
+// ─── RENDER ALL ──────────────────────────
+async function renderAll(){
+  RECS = await fetchRecs();
+  updateStats(RECS);
+  renderTable(RECS);
+  buildChart(RECS);
+}
+
+// ─── FUEL CALCULATOR ─────────────────────
+function calcFuel(){
+  const dist  = Number(document.getElementById('c_dist').value)||0;
+  const kpl   = Number(document.getElementById('c_kpl').value)||0;
+  const price = Number(document.getElementById('c_price').value)||0;
+  const fmtN  = (v,d=2) => Number(v).toLocaleString('th-TH',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  if(dist>0 && kpl>0){
+    const liters = dist/kpl;
+    document.getElementById('c_res_lt').textContent   = fmtN(liters);
+    document.getElementById('c_res_cost').textContent = price>0 ? fmtN(liters*price) : '—';
+    document.getElementById('c_res_cpk').textContent  = price>0 ? fmtN(price/kpl)    : '—';
+  } else {
+    ['c_res_lt','c_res_cost','c_res_cpk'].forEach(id=>{
+      document.getElementById(id).textContent='—';
+    });
+  }
+}
+['c_dist','c_kpl','c_price'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', calcFuel);
+});
+document.getElementById('calcBtn').addEventListener('click',()=>{
+  document.getElementById('calcMo').classList.add('open');
+  setTimeout(()=>document.getElementById('c_dist').focus(),100);
+});
+document.getElementById('calcMdX').addEventListener('click',()=>{
+  document.getElementById('calcMo').classList.remove('open');
+});
+document.getElementById('calcMo').addEventListener('click',e=>{
+  if(e.target===document.getElementById('calcMo'))
+    document.getElementById('calcMo').classList.remove('open');
+});
+document.getElementById('calcClearBtn').addEventListener('click',()=>{
+  ['c_dist','c_kpl','c_price'].forEach(id=>{ document.getElementById(id).value=''; });
+  ['c_res_lt','c_res_cost','c_res_cpk'].forEach(id=>{ document.getElementById(id).textContent='—'; });
+  document.getElementById('c_dist').focus();
+});
+</script>
+
+<!-- ══ FUEL CALCULATOR MODAL ══ -->
+<div class="mo" id="calcMo">
+  <div class="md" style="max-width:540px;">
+    <div class="md-hd">
+      <div class="md-title">⛽ เครื่องคำนวณน้ำมัน</div>
+      <button class="md-x" type="button" id="calcMdX">&times;</button>
+    </div>
+
+    <!-- inputs -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="fg">
+        <label>ระยะทาง (กม.)</label>
+        <input type="number" step="0.1" id="c_dist" placeholder="เช่น 200"/>
+      </div>
+      <div class="fg">
+        <label>กม. ต่อลิตร</label>
+        <input type="number" step="0.1" id="c_kpl" placeholder="เช่น 5.5"/>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <div class="fg">
+        <label>ราคาน้ำมัน (บาท/ลิตร)</label>
+        <input type="number" step="0.01" id="c_price" placeholder="เช่น 29.50"/>
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:22px 0;"></div>
+
+    <!-- results -->
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">ผลลัพธ์</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:14px;padding:18px 12px;text-align:center;">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">ลิตรที่ใช้</div>
+        <div id="c_res_lt" style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--accent);line-height:1;">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">ลิตร</div>
+      </div>
+      <div style="background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25);border-radius:14px;padding:18px 12px;text-align:center;">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">ค่าน้ำมัน</div>
+        <div id="c_res_cost" style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--blue);line-height:1;">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">บาท</div>
+      </div>
+      <div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:14px;padding:18px 12px;text-align:center;">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">ต้นทุน/กม.</div>
+        <div id="c_res_cpk" style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--purple);line-height:1;">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">บาท/กม.</div>
+      </div>
+    </div>
+
+    <!-- formula box -->
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:2;">
+      <div style="color:var(--text2);font-weight:700;margin-bottom:4px;">📐 สูตรคำนวณ</div>
+      <div>ลิตรที่ใช้&nbsp;&nbsp;&nbsp;&nbsp;= ระยะทาง ÷ กม.ต่อลิตร</div>
+      <div>ค่าน้ำมัน&nbsp;&nbsp;= ลิตรที่ใช้ × ราคาต่อลิตร</div>
+      <div>ต้นทุน/กม. = ราคาต่อลิตร ÷ กม.ต่อลิตร</div>
+    </div>
+
+    <div class="br" style="justify-content:flex-end;margin-top:18px;">
+      <button class="btn btn-g" type="button" id="calcClearBtn">🗑 ล้างค่า</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
