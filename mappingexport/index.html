@@ -201,6 +201,23 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .slot.purple .slot-keybadge{background:rgba(139,92,246,.12);color:var(--purple);border:1px solid rgba(139,92,246,.25)}
 .slot.cyan   .slot-keybadge{background:rgba(6,182,212,.12);color:var(--cyan2);border:1px solid rgba(6,182,212,.25)}
 .slot-cols{font-size:10.5px;color:var(--text3);font-family:'IBM Plex Mono',monospace;line-height:1.45;padding:0 2px;word-break:break-word}
+
+/* ── HOXIN mode: hide internal slot cues per spec ── */
+body.hoxin-mode .slot-cols,
+body.hoxin-mode .slot-keybadge{display:none !important}
+
+/* ── HOXIN mode: stack page-header vertically so long subtitle fits within viewport ── */
+body.hoxin-mode .page-header{
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+}
+body.hoxin-mode #page-sub{
+  white-space:normal;
+  word-break:break-word;
+  max-width:100%;
+  margin-top:4px;
+}
 .slot-hint{font-size:10.5px;color:var(--text3);border:1px dashed var(--border2);padding:5px 8px;border-radius:6px;width:100%;font-family:'IBM Plex Mono',monospace;margin-top:auto}
 .slot.done .slot-hint{border-style:solid;font-weight:600}
 .slot.amber.done  .slot-hint{border-color:rgba(245,158,11,.35);color:var(--amber2);background:rgba(245,158,11,.05)}
@@ -287,6 +304,65 @@ body.wide-3col .content-area{padding:22px 36px}
 }
 @media(max-width:700px){
   body.wide-3col .upload-grid{grid-template-columns:1fr !important}
+}
+
+/* ── HOXIN mode: 2-column full-width upload area + shorter slots
+ *    (override wide-3col defaults — HOXIN มีแค่ 2 slots: PDF + MASTER)
+ *    ต้องอยู่หลัง wide-3col block เพราะ specificity เท่ากัน → ใช้ rule order ── */
+body.hoxin-mode .upload-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:18px;
+}
+body.hoxin-mode .up-card{
+  min-height:0 !important;
+}
+body.hoxin-mode .slot{
+  min-height:120px !important;
+  padding:10px 10px;
+  gap:5px;
+}
+body.hoxin-mode .slot-ic{
+  width:34px;height:34px;font-size:18px;
+}
+@media(max-width:700px){
+  body.hoxin-mode .upload-grid{grid-template-columns:1fr !important}
+}
+
+/* ── THAI XM mode: hide internal slot cues + 3-col upload layout
+ *    (3 slots: PDF + PACKING + MASTER · ไม่มี Invoice slot) ── */
+body.thaixm-mode .slot-cols,
+body.thaixm-mode .slot-keybadge{display:none !important}
+body.thaixm-mode .upload-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:16px;
+}
+body.thaixm-mode .up-card{
+  min-height:0 !important;
+}
+body.thaixm-mode .slot{
+  min-height:130px !important;
+  padding:10px 10px;
+  gap:5px;
+}
+body.thaixm-mode .slot-ic{
+  width:36px;height:36px;font-size:18px;
+}
+body.thaixm-mode .page-header{
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+}
+body.thaixm-mode #page-sub{
+  white-space:normal;
+  word-break:break-word;
+  max-width:100%;
+  margin-top:4px;
+}
+@media(max-width:1100px){
+  body.thaixm-mode .upload-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr)) !important}
+}
+@media(max-width:700px){
+  body.thaixm-mode .upload-grid{grid-template-columns:1fr !important}
 }
 
 .content-area::-webkit-scrollbar,.preview-body::-webkit-scrollbar,.sb-nav::-webkit-scrollbar{width:8px}
@@ -643,6 +719,16 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-primary" id="btn-export" onclick="doExport()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:12px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 3px 12px rgba(59,130,246,.4)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span id="btn-export-label">Export MAPPING_CELESTICA.xlsx</span>
+      </button>
+      <!-- HOXIN-only: Export Mapping button (PDF + Master → MAPPING_HOXIN.xlsx) -->
+      <button class="btn" id="btn-hoxin-mapping" onclick="doMappingHOXIN()" style="display:none;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;padding:12px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 3px 12px rgba(139,92,246,.4)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/><polyline points="14 2 14 8 20 8"/><path d="M14 2H8a2 2 0 0 0-2 2v6"/></svg>
+        <span>📊 Export Mapping</span>
+      </button>
+      <!-- THAI XM-only: Export Mapping button (PDF + PACKING + Master → MAPPING_THAI_XM.xlsx · 28 columns) -->
+      <button class="btn" id="btn-thaixm-mapping" onclick="doMappingTHAIXM()" style="display:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:12px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 3px 12px rgba(245,158,11,.4)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/><polyline points="14 2 14 8 20 8"/><path d="M14 2H8a2 2 0 0 0-2 2v6"/></svg>
+        <span>📊 Export Mapping</span>
       </button>
       <button class="btn btn-success" id="btn-preview" onclick="doPreview()" style="background:#10b981;color:#fff;padding:12px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
@@ -1248,13 +1334,16 @@ const CUSTOMERS = {
   thaixm: {
     name:'THAI XM', badge:'THAI XM',
     title:'Thai XM',
-    subtitle:'วาง PDF + Packing List PDF + Invoice + Master ในหน้าเดียว → Export MAPPING_THAI_XM.xlsx',
+    subtitle:'วาง PDF Invoice + Packing PDF + Master → Export Mapping (.xlsx)',
     exportName:'MAPPING_THAI_XM.xlsx',
     showPoInput:false,
     debugLabels:{
-      pdf:'PDF files', plpdf:'Packing List PDF', invoice:'Invoice rows', master:'Master rows',
-      matchedMaster:'Invoice ↔ Master matched',
-      unmatchedMaster:'Invoice ไม่พบใน Master',
+      pdf:'PDF rows',
+      plpdf:'PACKING rows',
+      invoice:'xmRows (merged)',
+      master:'Master rows',
+      matchedMaster:'Matched',
+      unmatchedMaster:'Not found',
     },
     slots:[
       {key:'PDF', type:'pdf', color:'amber', icon:'📄',
@@ -1263,40 +1352,32 @@ const CUSTOMERS = {
       {key:'PLPDF', type:'pdf', color:'cyan', icon:'📋',
         title:'แนบ Packing List PDF', keyBadge:'PL PDF',
         cols:'เพื่อดึง NW/GW · รองรับหลายไฟล์'},
-      {key:'INVOICE', type:'excel', color:'blue', icon:'📊',
-        title:'Invoice (.xlsx)', keyBadge:'Key: Product code',
-        cols:'INVOICE, DATE, Qty, UNIT PRICE, AMOUNT, NET/GROSS WEIGHT',
-        joinKeys:['Product code','Product Code','PRODUCT CODE','Part No','Item No']},
       {key:'MASTER', type:'excel', color:'purple', icon:'⚙️',
         title:'Master (.xlsx)', keyBadge:'Key: Product code',
         cols:'Thai Desc · พิกัด · Stat · Brand · COO · BOI',
-        joinKeys:['Product code','Product Code','PRODUCT CODE','Part No']},
+        joinKeys:['Product code','Product Code','PRODUCT CODE','Part No','PART NO','productCode']},
     ]
   },
 
   hoxin: {
     name:'HOXIN', badge:'HOXIN',
     title:'Hoxin',
-    subtitle:'วาง PDF + Invoice + Master ในหน้าเดียว → Export MAPPING_HOXIN.xlsx',
+    subtitle:'วาง PDF HOXIN + Master → Export Excel (Invoice) / Export Mapping (MAPPING_HOXIN.xlsx)',
     exportName:'MAPPING_HOXIN.xlsx',
     showPoInput:false,
     debugLabels:{
-      pdf:'PDF files', invoice:'Invoice rows', master:'Master rows',
-      matchedMaster:'Invoice ↔ Master matched',
-      unmatchedMaster:'Invoice ไม่พบใน Master',
+      pdf:'invoiceRows', master:'Master rows',
+      matchedMaster:'matched',
+      unmatchedMaster:'not found',
     },
     slots:[
       {key:'PDF', type:'pdf', color:'amber', icon:'📄',
         title:'วาง PDF ที่นี่', keyBadge:'PDF Invoice',
         cols:'รองรับหลายไฟล์ · parser เดิมของ HOXIN'},
-      {key:'INVOICE', type:'excel', color:'blue', icon:'📊',
-        title:'Invoice (.xlsx)', keyBadge:'Key: Product code',
-        cols:'INVOICE, DATE, Qty Inv+ใบขน, Unit price, NET/GROSS WEIGHT',
-        joinKeys:['Product code','Product Code','Part No','part_no','PRODUCT CODE']},
       {key:'MASTER', type:'excel', color:'purple', icon:'⚙️',
-        title:'Master (.xlsx)', keyBadge:'Key: Product code',
-        cols:'Thai Desc · พิกัด · Stat · Shipping mark · COO',
-        joinKeys:['Product code','Product Code','Part No','PRODUCT CODE']},
+        title:'Master (.xlsx)', keyBadge:'Key: EN Description 1',
+        cols:'EN Desc · TH Desc · พิกัด · Stat · Brand',
+        joinKeys:['EN Description 1','EN Description','English Description','EnDescription','EN Desc']},
     ]
   },
 
@@ -1387,6 +1468,11 @@ Object.keys(CUSTOMERS).forEach(c=>{
   slotData[c] = {PDF:[], PLPDF:[], INVOICE:null, NWGW:null, MASTER:null};
   poInputData[c] = '';
 });
+
+/* ═══ HOXIN-only: cached invoiceRows from Export Excel
+ *    Export Mapping must use this cache — NOT re-parse PDF
+ *    Cleared whenever PDFs change (added/removed/cleared) ═══ */
+slotData.hoxin._exportedInvoiceRows = null;
 
 /* ═══ MASTER persistence — localStorage สำหรับลูกค้า 6 รายในหน้า unified
  *    ให้ข้อมูล Master ที่อัพโหลดไม่หาย (จนกว่าจะกด Delete)  ═══ */
@@ -1506,6 +1592,11 @@ function switchCustomer(key){
   const WIDE_3COL_MODES = ['hoxin','word','hitech','hitech2'];
   document.body.classList.toggle('wide-3col', WIDE_3COL_MODES.includes(key));
 
+  // HOXIN-specific body class — ซ่อน slot-cols / slot-keybadge และโชว์ปุ่มพิเศษ
+  document.body.classList.toggle('hoxin-mode', key === 'hoxin');
+  // THAI XM-specific body class — ซ่อน slot-cols / slot-keybadge และโชว์ปุ่ม Mapping
+  document.body.classList.toggle('thaixm-mode', key === 'thaixm');
+
   // Auto-load saved MASTER จาก localStorage (6 ลูกค้า unified)
   if(MASTER_PERSIST_CUSTOMERS.includes(key) && !slotData[key].MASTER){
     const saved = loadSavedMaster(key);
@@ -1520,7 +1611,12 @@ function switchCustomer(key){
   badge.className = 'company-badge ' + key;
   document.getElementById('page-h1').textContent = cfg.title;
   document.getElementById('page-sub').textContent = cfg.subtitle;
-  document.getElementById('btn-export-label').textContent = 'Export ' + cfg.exportName;
+  // HOXIN: ปุ่ม Export Excel (Invoice จาก PDF) — ส่วนปุ่ม Export Mapping แยกต่างหาก
+  // THAI XM: ปุ่ม Export Excel (Invoice กลาง) — ส่วนปุ่ม Export Mapping แยกต่างหาก
+  document.getElementById('btn-export-label').textContent =
+    (key === 'hoxin')  ? '📥 Export Excel (Invoice)'
+    : (key === 'thaixm') ? '📥 Export Excel (Invoice)'
+    : ('Export ' + cfg.exportName);
 
   document.getElementById('po-card').style.display = cfg.showPoInput ? 'flex' : 'none';
   const po = document.getElementById('po-input');
@@ -1665,18 +1761,41 @@ function renderDebugGrid(){
   const L = cfg.debugLabels;
   const hasNW = !!cfg.slots.find(s=>s.key==='NWGW');
   const hasPL = !!cfg.slots.find(s=>s.key==='PLPDF');
-  const items = [
-    {id:'dbg-pdf', label:L.pdf, cls:''},
-    hasPL  && {id:'dbg-plpdf', label:L.plpdf || 'Packing List PDF', cls:''},
-    {id:'dbg-inv', label:L.invoice, cls:''},
-    hasNW && {id:'dbg-nw',  label:L.nwgw, cls:''},
-    {id:'dbg-ms', label:L.master, cls:''},
-    hasNW && {id:'dbg-mi',  label:L.matchedInv, cls:'ok'},
-    {id:'dbg-mm', label:L.matchedMaster, cls:'ok'},
-    hasNW && {id:'dbg-ui',  label:L.unmatchedInv, cls:'err'},
-    {id:'dbg-um', label:L.unmatchedMaster, cls:'err'},
-    cfg.showPoInput && {id:'dbg-po-source', label:L.poSource||'PO source', cls:''},
-  ].filter(Boolean);
+
+  // HOXIN: schema เฉพาะ — PDF rows / Master rows / matched / not-found
+  let items;
+  if(activeCustomer === 'hoxin'){
+    items = [
+      {id:'dbg-pdf', label:L.pdf, cls:''},                         // PDF rows
+      {id:'dbg-ms',  label:L.master, cls:''},                      // Master rows
+      {id:'dbg-mm',  label:L.matchedMaster, cls:'ok'},             // PDF ↔ Master matched
+      {id:'dbg-um',  label:L.unmatchedMaster, cls:'err'},          // PDF ไม่พบใน Master
+    ];
+  } else if(activeCustomer === 'thaixm'){
+    // Thai XM: schema เฉพาะ — PDF rows / PACKING rows / xmRows / Master rows / Matched / Not found
+    items = [
+      {id:'dbg-pdf',   label:L.pdf, cls:''},                       // 1. PDF rows
+      {id:'dbg-plpdf', label:L.plpdf, cls:''},                     // 2. PACKING rows
+      {id:'dbg-inv',   label:L.invoice, cls:''},                   // 3. xmRows (merged)
+      {id:'dbg-ms',    label:L.master, cls:''},                    // 4. Master rows
+      {id:'dbg-mm',    label:L.matchedMaster, cls:'ok'},           // 5. Matched
+      {id:'dbg-um',    label:L.unmatchedMaster, cls:'err'},        // 6. Not found
+    ];
+  } else {
+    items = [
+      {id:'dbg-pdf', label:L.pdf, cls:''},
+      hasPL  && {id:'dbg-plpdf', label:L.plpdf || 'Packing List PDF', cls:''},
+      {id:'dbg-inv', label:L.invoice, cls:''},
+      hasNW && {id:'dbg-nw',  label:L.nwgw, cls:''},
+      {id:'dbg-ms', label:L.master, cls:''},
+      hasNW && {id:'dbg-mi',  label:L.matchedInv, cls:'ok'},
+      {id:'dbg-mm', label:L.matchedMaster, cls:'ok'},
+      hasNW && {id:'dbg-ui',  label:L.unmatchedInv, cls:'err'},
+      {id:'dbg-um', label:L.unmatchedMaster, cls:'err'},
+      cfg.showPoInput && {id:'dbg-po-source', label:L.poSource||'PO source', cls:''},
+    ].filter(Boolean);
+  }
+
   document.getElementById('debug-grid').innerHTML = items.map(it =>
     `<div class="dbg-item">
        <span class="dbg-lbl">${it.label}:</span>
@@ -2268,6 +2387,74 @@ function computeStats(){
     stats.matchedMaster = ok; stats.unmatchedMaster = ng;
   }
 
+  // ── HOXIN: match invoice rows กับ Master โดยใช้ EN Description 1 (ตาม Master schema ใหม่)
+  //   ใช้ invoiceRows ที่ cache ไว้แล้ว (auto-fill หรือ Export Excel) — ไม่ re-parse PDF
+  if(activeCustomer === 'hoxin' && slotMS && d.INVOICE && d.INVOICE.rows && d.INVOICE.rows.length && d.MASTER){
+    // Master key column = EN Description 1
+    const msSampleH = d.MASTER.rows[0] || {};
+    const msKeyColH = findColumn(msSampleH, ['EN Description 1','EN Description','English Description','EnDescription','EN Desc']);
+    if(msKeyColH){
+      const idx = new Map();
+      d.MASTER.rows.forEach(r => {
+        const k = (typeof _hoxinNormDesc === 'function') ? _hoxinNormDesc(r[msKeyColH]) : '';
+        if(k && !idx.has(k)) idx.set(k, r);
+      });
+      // Invoice EN Description column
+      const ivSampleH = d.INVOICE.rows[0] || {};
+      const ivEnCol = findColumn(ivSampleH, ['EN Description 1','EN Description','English Description']);
+      let ok=0, ng=0;
+      d.INVOICE.rows.forEach(r=>{
+        const v = ivEnCol ? r[ivEnCol] : '';
+        const k = (typeof _hoxinNormDesc === 'function') ? _hoxinNormDesc(v) : '';
+        if(k && idx.has(k)) ok++; else ng++;
+      });
+      stats.matchedMaster = ok; stats.unmatchedMaster = ng;
+    } else {
+      // Fallback: legacy Master schema with Product code
+      const idx = buildIndex(d.MASTER.rows, slotMS.joinKeys);
+      let ok=0, ng=0;
+      d.INVOICE.rows.forEach(r=>{
+        const k = getRowKey(r, ['Product code','Product Code','Part No','PRODUCT CODE','part_no','PART NO.']);
+        if(k && idx.has(k)) ok++; else ng++;
+      });
+      stats.matchedMaster = ok; stats.unmatchedMaster = ng;
+    }
+  }
+
+  // ── Thai XM: stats เฉพาะ — เน้น invoice rows (จาก auto-fill) + PDF+PACKING matched + Final matched
+  if(activeCustomer === 'thaixm'){
+    // ใช้ invoice rows ที่ถูก auto-fill จาก PDF+PACKING แทน file count
+    if(d.INVOICE){
+      stats.pdfCount = d.INVOICE.rows.length;   // PDF rows = item count from PDF
+      // PDF+PACKING matched: นับแถวที่มี NET WEIGHT (ดึงสำเร็จจาก Packing)
+      if(d.PLPDF && d.PLPDF.length > 0){
+        const nwCol = findColumn(d.INVOICE.rows[0] || {}, ['NET WEIGHT','Net Weight','NW']);
+        if(nwCol){
+          const okMatch = d.INVOICE.rows.filter(r => {
+            const v = r[nwCol]; return v != null && v !== '' && parseFloat(String(v).replace(/,/g,'')) > 0;
+          }).length;
+          stats.matchedInv = okMatch;
+        } else { stats.matchedInv = 0; }
+      } else { stats.matchedInv = 0; }
+    } else {
+      stats.pdfCount = 0;
+      stats.matchedInv = null;
+    }
+    // PACKING rows count — ใช้ file/page count (Packing PDF บางครั้งไม่มี structured rows)
+    stats.plpdfCount = (d.PLPDF || []).length;
+
+    // Final matched: invoice rows ↔ Master
+    if(slotMS && d.INVOICE && d.MASTER){
+      const idx = buildIndex(d.MASTER.rows, slotMS.joinKeys);
+      let ok=0, ng=0;
+      d.INVOICE.rows.forEach(r=>{
+        const k = getRowKey(r, ['Product code','Product Code','PRODUCT CODE','Part No','part_no']);
+        if(k && idx.has(k)) ok++; else ng++;
+      });
+      stats.matchedMaster = ok; stats.unmatchedMaster = ng;
+    }
+  }
+
   if(cfg.showPoInput){
     let hasExcel = false;
     if(d.NWGW){
@@ -2283,8 +2470,34 @@ function computeStats(){
 function refreshDebug(){
   const s = computeStats();
   const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent = (v==null?'—':v); };
-  set('dbg-pdf', s.pdfCount ? `${s.pdfCount} ไฟล์ · ${s.pdfPages} หน้า` : '—');
-  set('dbg-plpdf', s.plpdfCount ? `${s.plpdfCount} ไฟล์ · ${s.plpdfPages} หน้า` : '—');
+
+  // HOXIN: dbg-pdf = invoiceRows count (cache จาก auto-fill หรือ Export Excel)
+  if(activeCustomer === 'hoxin'){
+    const inv = slotData.hoxin.INVOICE;
+    if(inv && inv.rows && inv.rows.length){
+      const tag = inv._exported ? '✓ exported' : 'auto-filled';
+      set('dbg-pdf', `${inv.rows.length} (${tag})`);
+    } else if(slotData.hoxin.PDF.length){
+      set('dbg-pdf', `${slotData.hoxin.PDF.length} PDF (parser กำลังทำงาน...)`);
+    } else {
+      set('dbg-pdf', '—');
+    }
+  } else if(activeCustomer === 'thaixm'){
+    // Thai XM:
+    //   dbg-pdf   = PDF rows (จำนวน item ที่ extract จาก PDF)
+    //   dbg-plpdf = PACKING rows (จำนวนไฟล์ PACKING + page count — ไม่ structured rows)
+    //   dbg-inv   = xmRows (จำนวน row หลัง merge PDF + PACKING)
+    const inv = slotData.thaixm.INVOICE;
+    set('dbg-pdf', inv ? inv.rows.length : (slotData.thaixm.PDF.length ? `${slotData.thaixm.PDF.length} ไฟล์ · ยังไม่ได้ parse` : '—'));
+    const plpdfs = slotData.thaixm.PLPDF || [];
+    set('dbg-plpdf', plpdfs.length ? `${plpdfs.length} ไฟล์ · ${plpdfs.reduce((a,f)=>a+f.pages,0)} หน้า` : '—');
+    // xmRows = invoiceRows after merge with PACKING (same source as dbg-pdf since parser already merges)
+    set('dbg-inv', inv ? `${inv.rows.length} (merged)` : '—');
+  } else {
+    set('dbg-pdf', s.pdfCount ? `${s.pdfCount} ไฟล์ · ${s.pdfPages} หน้า` : '—');
+    set('dbg-plpdf', s.plpdfCount ? `${s.plpdfCount} ไฟล์ · ${s.plpdfPages} หน้า` : '—');
+  }
+
   set('dbg-inv', s.invRows);
   set('dbg-nw',  s.nwRows);
   set('dbg-ms',  s.msRows);
@@ -2301,10 +2514,65 @@ function refreshButtons(){
   const btnExp  = document.getElementById('btn-export');
   const btnPrev = document.getElementById('btn-preview');
   const topRow  = document.getElementById('top-actions-row');
+  const btnHoxinMap  = document.getElementById('btn-hoxin-mapping');
+  const btnThaixmMap = document.getElementById('btn-thaixm-mapping');
 
   // ปุ่มบน: แสดงเฉพาะ Celestica + กดได้ตลอด
   if(topRow){
     topRow.style.display = (activeCustomer === 'celestica') ? 'flex' : 'none';
+  }
+
+  // HOXIN: แสดงปุ่ม Export Mapping เฉพาะโหมดนี้
+  //   กดได้เมื่อมี PDF + MASTER + invoiceRows (parser auto-fill หรือ Export Excel ก็ได้)
+  //   หมายเหตุ: doMappingHOXIN ใช้ d.INVOICE.rows ที่ถูก cache ไว้แล้ว — ไม่มีการ re-parse PDF
+  if(btnHoxinMap){
+    if(activeCustomer === 'hoxin'){
+      btnHoxinMap.style.display = 'inline-flex';
+      const hasInvRows = !!(d.INVOICE && d.INVOICE.rows && d.INVOICE.rows.length);
+      const ready = d.PDF.length > 0 && d.MASTER && hasInvRows;
+      btnHoxinMap.disabled = !ready;
+      const missing = [];
+      if(d.PDF.length === 0) missing.push('PDF');
+      if(!d.MASTER)          missing.push('Master');
+      if(d.PDF.length > 0 && !hasInvRows) missing.push('Invoice rows (parser ยังไม่เสร็จ)');
+      btnHoxinMap.title = ready
+        ? 'พร้อม Export Mapping' + (d.INVOICE._exported ? ' (cached จาก Export Excel)' : ' (auto-filled จาก PDF)')
+        : `ต้องอัพโหลด: ${missing.join(', ')}`;
+    } else {
+      btnHoxinMap.style.display = 'none';
+    }
+  }
+
+  // THAI XM: แสดงปุ่ม Export Mapping เฉพาะโหมดนี้ + กดได้เมื่อมีครบ 3 ไฟล์ (PDF + PACKING + MASTER)
+  //          (per spec: "Disable ปุ่ม ถ้ายังไม่ครบ 3 ไฟล์")
+  if(btnThaixmMap){
+    if(activeCustomer === 'thaixm'){
+      btnThaixmMap.style.display = 'inline-flex';
+      const hasPdf  = d.PDF.length > 0;
+      const hasPack = (d.PLPDF && d.PLPDF.length > 0);
+      const hasMs   = !!d.MASTER;
+      const ready = hasPdf && hasPack && hasMs;
+      btnThaixmMap.disabled = !ready;
+      const missing = [];
+      if(!hasPdf)  missing.push('PDF Invoice');
+      if(!hasPack) missing.push('PACKING PDF');
+      if(!hasMs)   missing.push('MASTER');
+      btnThaixmMap.title = ready
+        ? 'พร้อม Export Mapping (PDF + PACKING + MASTER ครบ)'
+        : `ต้องอัพโหลด: ${missing.join(', ')}`;
+    } else {
+      btnThaixmMap.style.display = 'none';
+    }
+  }
+
+  // THAI XM ใช้ปุ่ม Export Mapping เพียงปุ่มเดียว (per spec) — ซ่อนปุ่ม Export Excel มาตรฐาน
+  if(activeCustomer === 'thaixm'){
+    if(btnExp) btnExp.style.display = 'none';
+  } else if(btnExp && btnExp.style.display === 'none' && activeCustomer !== 'celestica'){
+    // ถ้า user กลับมาโหมดอื่น คืนการแสดงผล (Celestica มี logic top-row แยก)
+    btnExp.style.display = '';
+  } else if(btnExp && activeCustomer !== 'thaixm'){
+    btnExp.style.display = '';
   }
 
   // Celestica: ปุ่ม Export กดได้ตลอด (doExport จะเช็คเอาเอง)
@@ -3602,12 +3870,46 @@ function parseLinesHOXIN(clean, fullText){
   }
 
   let shipping_mark = '';
+  // ── Pattern 1: บรรทัดที่ขึ้นต้นด้วย MARKS (กรณีที่ PDF.js แยกบรรทัดได้) ──
   for (const line of clean) {
-    const m = line.match(/^MARKS?[.:\s]+(.+)/i);
+    const m = line.match(/^MARKS?\s*[:.]?\s*(.+)/i);
     if (m) {
-      shipping_mark = m[1].trim();
-      break;
+      shipping_mark = m[1]
+        .trim()
+        // ตัดส่วนถัดมาที่ไม่ใช่ MARKS (Packaging / Total / signature / dimension / qty PCS)
+        .replace(/\s+(?:Packaging\s+information|Total:|HOXIN\s+PRECISION|Dimension).*$/i, '')
+        .replace(/\s+\d+(?:\.\d+)?\s+PCS\b.*$/i, '')
+        .trim();
+      if (shipping_mark) break;
     }
+  }
+  // ── Pattern 2: PDF.js join ทั้งหน้าเป็น line เดียว → ค้น MARKS ภายใน fullText ──
+  if (!shipping_mark) {
+    const m = fullText.match(
+      /MARKS?\s*[:.]\s*(.+?)(?=\s+(?:Packaging\s+information|Total:|HOXIN\s+PRECISION|Dimension)|\s+\d+(?:\.\d+)?\s+PCS\b|$)/i
+    );
+    if (m) shipping_mark = m[1].trim();
+  }
+  // ── Pattern 3 (fallback): ภายใน clean lines ที่ไม่ขึ้นต้นด้วย MARKS แต่มี MARKS อยู่ตรงกลาง ──
+  if (!shipping_mark) {
+    for (const line of clean) {
+      const m = line.match(
+        /MARKS?\s*[:.]\s*(.+?)(?=\s+(?:Packaging\s+information|Total:|HOXIN\s+PRECISION|Dimension)|\s+\d+(?:\.\d+)?\s+PCS\b|$)/i
+      );
+      if (m) {
+        shipping_mark = m[1].trim();
+        if (shipping_mark) break;
+      }
+    }
+  }
+  // ── Cleanup: ลบ qty/weight ที่หลุดมาท้ายข้อความ (เช่น "MADE IN THAILAND 30.00" → "MADE IN THAILAND")
+  //    PDF.js extract ลำดับ text items ไม่ตรงตาม visual layout เสมอ → qty อาจแทรกหลัง MARKS
+  //    HOXIN MARKS รูปแบบมาตรฐานจบด้วย "MADE IN <COUNTRY>" — ตัวเลขท้ายไม่ใช่ส่วนของ MARKS ──
+  if (shipping_mark) {
+    shipping_mark = shipping_mark
+      .replace(/(?:\s+[\d,]+(?:\.\d+)?)+\s*$/g, '')   // ตัด trailing numbers (รองรับหลายตัวติดกัน)
+      .replace(/\s+/g, ' ')                            // ยุบ space ซ้ำ
+      .trim();
   }
 
   // split invoice / packing
@@ -4060,7 +4362,7 @@ function buildSheetWORD(allResults, masterRows){
 function buildSheetHOXIN(allResults){
   const HEADERS = [
     'INVOICE','INVOICE DATE','ITEMS','Product code',
-    'EN Description 1','EN Description 2 / ไม่นำเข้า',
+    'EN Description 1',
     'Qty. Inv+Qty ใบขน','หน่วย Qty. Inv+ใบขน','Unit price','Amont','Currency',
     'หีบห่อ','หน่วยหีบห่อ','NET WEIGHT','GROSS WEIGHT',
     'Shippimg mark','Purchase Country','COO / fix','Product Year / fix'
@@ -4077,7 +4379,6 @@ function buildSheetHOXIN(allResults){
         it.item,                          // ITEMS (ลำดับ)
         it.part_no       || '',           // Product code
         it.en1           || '',           // EN Description 1 (code + desc)
-        it.en2           || '',           // EN Description 2 / ไม่นำเข้า
         (it.qty ? Math.round(it.qty) : ''), // Qty. Inv+Qty ใบขน
         'C62',                            // หน่วย FIX
         it.unit_price    || '',           // Unit price
@@ -4104,7 +4405,7 @@ function buildSheetHOXIN(allResults){
 
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
   ws['!cols'] = [
-    {wch:16},{wch:14},{wch:6},{wch:16},{wch:40},{wch:30},
+    {wch:16},{wch:14},{wch:6},{wch:16},{wch:40},
     {wch:10},{wch:10},{wch:12},{wch:14},{wch:10},
     {wch:8},{wch:10},{wch:13},{wch:14},
     {wch:40},{wch:16},{wch:10},{wch:16}
@@ -5234,11 +5535,36 @@ async function doExportHOXIN(){
     files.push({ name: fname, wb });
   }
 
+  // ── Helper: cache invoiceRows เป็น global state สำหรับ Mapping (ห้าม regenerate ภายหลัง) ──
+  //    Mapping ต้องใช้ rows ที่ตรงกับ Excel ที่ถูก export ออกไปเป๊ะๆ
+  const _cacheInvoiceRows = () => {
+    try {
+      // Build sheet จาก allResults ทั้งหมด → JSON rows (เหมือนกับเนื้อหาใน Excel ที่ถูก save)
+      const ws = buildSheetHOXIN(allResults);
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+      const srcName = d.PDF.length === 1
+        ? d.PDF[0].name.replace(/\.pdf$/i, '.xlsx')
+        : `auto_from_${d.PDF.length}_PDFs.xlsx`;
+      slotData.hoxin.INVOICE = {
+        name: srcName,
+        rows: rows,
+        _exported: true,                          // ✅ ปุ่ม Mapping ใช้ flag นี้เป็น gatekeeper
+        _exportedAt: new Date().toISOString(),
+        _autoFilledFromPDF: true                   // กัน clearSlot logic เดิม (ลบเมื่อล้าง PDF)
+      };
+      console.log('[HOXIN] invoiceRows cached after Export Excel:', rows.length, 'rows');
+      try { refreshButtons(); refreshDebug(); } catch(_){}
+    } catch(e){
+      console.error('[HOXIN] cache invoiceRows failed:', e);
+    }
+  };
+
   // ── ไฟล์เดียว → save ตรง ──
   if(files.length === 1){
     XLSX.writeFile(files[0].wb, files[0].name, {bookSST:false, type:'binary', cellStyles:true});
     const itemCount = allResults[0].items?.length || 0;
-    toast(`✓ Export: ${files[0].name} (${itemCount} items)`, 'ok');
+    _cacheInvoiceRows();
+    toast(`✓ Export: ${files[0].name} (${itemCount} items) · พร้อม Export Mapping`, 'ok');
     return;
   }
 
@@ -5246,6 +5572,7 @@ async function doExportHOXIN(){
   if(typeof JSZip === 'undefined'){
     toast('ไม่พบ JSZip — export เป็นไฟล์แรกแทน', 'warn');
     XLSX.writeFile(files[0].wb, files[0].name, {bookSST:false, type:'binary', cellStyles:true});
+    _cacheInvoiceRows();
     return;
   }
 
@@ -5269,10 +5596,243 @@ async function doExportHOXIN(){
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 100);
 
     const totalItems = allResults.reduce((s,r) => s + (r.items?.length||0), 0);
-    toast(`✓ Export ZIP: ${zipName} (${files.length} invoices · ${totalItems} items)`, 'ok');
+    _cacheInvoiceRows();
+    toast(`✓ Export ZIP: ${zipName} (${files.length} invoices · ${totalItems} items) · พร้อม Export Mapping`, 'ok');
   } catch(e){
     console.error('HOXIN ZIP export error:', e);
     toast('ZIP export ผิดพลาด: ' + e.message, 'err');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  HOXIN — Export Mapping (22 columns)
+ *  Flow: PDF (parseLinesHOXIN) → invoiceRows (memory) + MASTER → MAPPING_HOXIN.xlsx
+ *  Match key: Part No (normalize: trim/upper/no spaces/no hidden chars/no dashes)
+ *  ══════════════════════════════════════════════════════════════════════════ */
+function _hoxinNormKey(v){
+  return String(v == null ? '' : v)
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '') // ลบ zero-width / nbsp / hidden chars
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')                          // ลบ space ทั้งหมด
+    .replace(/[\u2010-\u2015\u2212-]+/g, '');     // ลบ dash ทุกแบบ (hyphen, en/em dash, minus, soft hyphen) — กัน dash inconsistency
+}
+
+/* ── EN Description 1 matcher — ใช้ join PDF.en1 กับ Master.en_description_1 ──
+ *    Description มี text หลายคำ + part_no นำหน้า เช่น
+ *    "504-006055-001 Data center equipment cabinet"
+ *    Normalize: trim + lowercase + collapse multiple whitespace → single space
+ *    (เก็บ dash ไว้เพราะเป็น part of part_no prefix)                    */
+function _hoxinNormDesc(v){
+  return String(v == null ? '' : v)
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')   // hidden chars
+    .toLowerCase()
+    .replace(/\s+/g, ' ')                          // collapse whitespace
+    .trim();
+}
+
+/* ── statisticalCode formatter — pad numeric values to 3 digits ──
+ *    Master cell บางครั้งเก็บเป็น number 0 แต่ output ต้องเป็น "000"
+ *    เลข <= 3 หลัก → pad zero-left ; ตัวอักษรหรือยาวกว่า → คงเดิม                */
+function _hoxinFormatStat(v){
+  if(v == null) return '';
+  const s = String(v).trim();
+  if(!s) return '';
+  if(/^\d{1,3}$/.test(s)) return s.padStart(3, '0');
+  return s;
+}
+
+async function doMappingHOXIN(){
+  console.log('[HOXIN] doMappingHOXIN started');
+  try {
+    const d = slotData.hoxin;
+
+    // ── GATE: ต้องมี PDF + Master + invoiceRows (cached จาก auto-fill หรือ Export Excel) ──
+    //    invoiceRows ถูกสร้างครั้งเดียวตอน upload PDF (autoFillHoxinInvoice) หรือกด Export Excel
+    //    ห้าม re-parse PDF ในขั้นนี้ — ใช้ d.INVOICE.rows ที่ cache ไว้แล้ว
+    if(!d.PDF.length){ toast('ต้องอัพโหลด PDF อย่างน้อย 1 ไฟล์', 'warn'); return; }
+    if(!d.MASTER){    toast('ต้องอัพโหลด MASTER (.xlsx)', 'warn'); return; }
+    if(!d.INVOICE || !d.INVOICE.rows || !d.INVOICE.rows.length){
+      toast('Invoice rows ว่าง · ลอง re-upload PDF ใหม่', 'err'); return;
+    }
+    const invoiceRows = d.INVOICE.rows;
+    const sourceTag = d.INVOICE._exported ? 'cached จาก Export Excel' : 'auto-filled จาก PDF';
+    console.log(`[HOXIN] using invoiceRows (${sourceTag}):`, invoiceRows.length, 'rows');
+    if(d.INVOICE._exportedAt) console.log('[HOXIN] exported at:', d.INVOICE._exportedAt);
+
+    // ── Master index — match key คือ "EN Description 1" (ตาม Master schema ใหม่) ──
+    //    Master schema: EN Description 1 / TH Description 1 / tariffCode / statisticalCode / brandName
+    //    (ไม่มี Product code · ใช้ EN Description 1 ของ invoice ชนกับ EN Description 1 ของ master)
+    const MASTER_KEYS = ['EN Description 1','EN Description','English Description','EnDescription','EN Desc'];
+    const msSample = d.MASTER.rows[0] || {};
+    const msKeyCol = findColumn(msSample, MASTER_KEYS);
+    if(!msKeyCol){
+      const msHeaders = Object.keys(msSample).slice(0,8).join(', ');
+      console.error('[HOXIN] Master columns:', Object.keys(msSample));
+      toast(`Master ไม่พบคอลัมน์ "EN Description 1" · headers: ${msHeaders}`, 'err');
+      return;
+    }
+    console.log('[HOXIN] msKeyCol =', msKeyCol);
+
+    const msIdx = new Map();
+    d.MASTER.rows.forEach(r => {
+      const k = _hoxinNormDesc(r[msKeyCol]);
+      if(k && !msIdx.has(k)) msIdx.set(k, r);
+    });
+    console.log('[HOXIN] msIdx size =', msIdx.size);
+
+    // Master columns
+    const colThaiDesc = findColumn(msSample, ['TH Description 1','Thai Description','Thai Desc','Description TH','คำอธิบายไทย','รายละเอียดสินค้า (TH)']);
+    const colTariff   = findColumn(msSample, ['tariffCode','Tariff Code','HS Code','พิกัด','Tariff','HS']);
+    const colStat     = findColumn(msSample, ['statisticalCode','Statistical Code','Stat Code','STAT','Stat','รหัสสถิติ']);
+    const colBrand    = findColumn(msSample, ['brandName','Brand Name','Brand','ยี่ห้อ','ชื่อยี่ห้อ']);
+    console.log('[HOXIN] master cols:', {colThaiDesc, colTariff, colStat, colBrand});
+
+    // ── Invoice columns (จาก buildSheetHOXIN headers) ──
+    const ivSample = invoiceRows[0] || {};
+    const fIv = (cands) => findColumn(ivSample, cands);
+    const colInv      = fIv(['INVOICE']);
+    const colDate     = fIv(['INVOICE DATE']);
+    const colItems    = fIv(['ITEMS']);
+    const colProdCode = fIv(['Product code','Product Code']);
+    const colEN       = fIv(['EN Description 1','EN Description']);
+    const colQty      = fIv(['Qty. Inv+Qty ใบขน','Qty Inv','Qty']);
+    const colUnitPrice= fIv(['Unit price','Unit Price']);
+    const colAmount   = fIv(['Amont','Amount']);
+    const colCurrency = fIv(['Currency']);
+    const colPkg      = fIv(['หีบห่อ']);
+    const colNW       = fIv(['NET WEIGHT','NW']);
+    const colGW       = fIv(['GROSS WEIGHT','GW']);
+    const colMark     = fIv(['Shippimg mark','Shipping mark','Marks']);
+    const colYr       = fIv(['Product Year / fix','Product Year','ProductYear']);
+
+    const get = (row, col) => col ? (row[col] != null ? row[col] : '') : '';
+
+    // ── Build mapping rows (22 columns EXACT per spec) ──
+    const HEADERS = [
+      'INVOICE','INVOICE DATE','ITEMS','Product code',
+      'EN Description 1','TH Description 1',
+      'Qty. Inv+Qty ใบขน','หน่วย Qty. Inv+ใบขน /FIX','Unit price','Amont','Currency',
+      'หีบห่อ','หน่วยหีบห่อ','NET WEIGHT','GROSS WEIGHT',
+      'Shippimg mark','Purchase Country','COO','Product Year',
+      'tariffCode','statisticalCode','brandName'
+    ];
+    if(HEADERS.length !== 22){
+      throw new Error(`Internal error: HEADERS ต้องมี 22 columns เท่านั้น (พบ ${HEADERS.length})`);
+    }
+
+    const rows = [];
+    const unmatchedRowIdxs = [];
+    let matched = 0, notFound = 0;
+    const notFoundParts = [];
+
+    invoiceRows.forEach((iv, idx) => {
+      const partNo  = String(get(iv, colProdCode) || '').trim();
+      const enDesc  = String(get(iv, colEN)       || '').trim();
+      // ── Match by EN Description 1 (Master ใหม่ใช้ EN Description 1 เป็น key) ──
+      const descKey = _hoxinNormDesc(enDesc);
+      const msRow = descKey ? msIdx.get(descKey) : null;
+
+      if(msRow){
+        matched++;
+      } else {
+        notFound++;
+        if(enDesc) notFoundParts.push(enDesc);
+        unmatchedRowIdxs.push(rows.length + 1);   // +1 เพราะ row 0 = HEADERS
+      }
+
+      // Product Year — ใช้ค่าจาก invoice row ก่อน, fallback คำนวณจาก INVOICE DATE
+      const invDate = String(get(iv, colDate) || '');
+      const yrFromRow = String(get(iv, colYr) || '').trim();
+      const yrMatch = invDate.match(/(\d{4})\s*$/);
+      const productYear = yrFromRow || (yrMatch ? yrMatch[1] : String(new Date().getFullYear()));
+
+      // brandName: ว่าง → "NO BRAND"
+      const rawBrand = msRow && colBrand ? String(msRow[colBrand] || '').trim() : '';
+      const brandName = rawBrand || 'NO BRAND';
+
+      const thDesc = msRow && colThaiDesc ? String(msRow[colThaiDesc]||'').trim() : '';
+      const tariff = msRow && colTariff   ? String(msRow[colTariff]  ||'').trim() : '';
+      // statisticalCode: pad numeric to 3 digits (เช่น 0 → "000", 90 → "090")
+      const statRaw = msRow && colStat ? msRow[colStat] : '';
+      const stat    = msRow ? _hoxinFormatStat(statRaw) : '';
+
+      rows.push([
+        get(iv, colInv) || '',                                   // 1. INVOICE
+        invDate,                                                 // 2. INVOICE DATE
+        get(iv, colItems) || (idx + 1),                          // 3. ITEMS
+        partNo,                                                  // 4. Product code
+        get(iv, colEN) || '',                                    // 5. EN Description 1
+        msRow ? thDesc : '❌ ไม่พบใน Master',                    // 6. TH Description 1
+        get(iv, colQty) || '',                                   // 7. Qty
+        'C62',                                                   // 8. /FIX
+        get(iv, colUnitPrice) || '',                             // 9. Unit price
+        get(iv, colAmount) || '',                                // 10. Amont
+        get(iv, colCurrency) || 'USD',                           // 11. Currency
+        get(iv, colPkg) || '',                                   // 12. หีบห่อ
+        'PK',                                                    // 13. /FIX
+        get(iv, colNW) || '',                                    // 14. NET WEIGHT
+        get(iv, colGW) || '',                                    // 15. GROSS WEIGHT
+        get(iv, colMark) || '',                                  // 16. Shippimg mark
+        'US',                                                    // 17. /FIX
+        'TH',                                                    // 18. /FIX
+        productYear,                                             // 19. Product Year
+        msRow ? tariff : '❌',                                   // 20. tariffCode
+        msRow ? stat   : '❌',                                   // 21. statisticalCode
+        brandName                                                // 22. brandName
+      ]);
+    });
+    console.log('[HOXIN] built', rows.length, 'rows · matched', matched, '· notFound', notFound);
+    if(notFoundParts.length) console.warn('[HOXIN] Part No ไม่พบใน Master:', notFoundParts);
+
+    // ── Build worksheet (NO TOTAL ROW) ──
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+    if((ws['!ref'] || '').length){
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      const colCount = range.e.c - range.s.c + 1;
+      if(colCount !== 22){
+        throw new Error(`Output columns ผิด: ${colCount} (ต้อง 22)`);
+      }
+    }
+
+    ws['!cols'] = [
+      {wch:16},{wch:14},{wch:6},{wch:16},
+      {wch:40},{wch:32},
+      {wch:12},{wch:14},{wch:12},{wch:14},{wch:10},
+      {wch:8},{wch:10},{wch:13},{wch:14},
+      {wch:36},{wch:14},{wch:8},{wch:12},
+      {wch:14},{wch:14},{wch:14}
+    ];
+
+    const hFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+    const hFont = {bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+    HEADERS.forEach((_,ci)=>{
+      const cell = ws[XLSX.utils.encode_cell({r:0,c:ci})];
+      if(cell) cell.s = {fill:hFill,font:hFont,alignment:{horizontal:'center',wrapText:true}};
+    });
+
+    const errFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'FFC7CE'}};
+    const errFont = {color:{rgb:'9C0006'},bold:true};
+    unmatchedRowIdxs.forEach(rIdx => {
+      for(let ci = 0; ci < HEADERS.length; ci++){
+        const cell = ws[XLSX.utils.encode_cell({r:rIdx, c:ci})];
+        if(cell) cell.s = {fill:errFill, font:errFont};
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'MAPPING');
+    XLSX.writeFile(wb, 'MAPPING_HOXIN.xlsx', {bookSST:false, type:'binary', cellStyles:true});
+
+    let msg = `✓ Export: MAPPING_HOXIN.xlsx · ${rows.length} invoiceRows · ✅ matched ${matched}`;
+    if(notFound > 0){
+      msg += ` · ❌ not-found ${notFound} (highlight แดง)`;
+    }
+    toast(msg, notFound > 0 ? 'warn' : 'ok');
+    console.log('[HOXIN] doMappingHOXIN completed (used cached invoiceRows, no PDF re-parse)');
+  } catch(err){
+    console.error('[HOXIN] doMappingHOXIN error:', err);
+    toast(`Export Mapping ผิดพลาด: ${err.message || err}`, 'err');
   }
 }
 
@@ -5350,6 +5910,359 @@ async function doExportTHAIXM(){
   } catch(e){
     console.error('THAI XM ZIP export error:', e);
     toast('ZIP export ผิดพลาด: ' + e.message, 'err');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  THAI XM — Export Mapping (28 columns EXACT)
+ *  Flow per spec:
+ *    PDF Invoice + PACKING PDF → merge เป็น xmRows (key: ITEM LINE)
+ *    xmRows + MASTER → buildMappingThaiXM(xmRows, masterRows) → Mapping Excel
+ *
+ *  ⛔ ห้าม: ใช้ PDF/PACKING/MASTER อย่างเดียว · ห้ามใช้ Invoice file
+ *  ✅ require ครบ 3 ไฟล์ก่อน export · sort output by ITEM LINE asc
+ *  ✅ ITEM LINE ซ้ำ → merge QTY · PART NO mismatch → flag NOT FOUND
+ *  ✅ Match key: Product code normalize (trim/upper/no space/no hidden/no dash)
+ *  ══════════════════════════════════════════════════════════════════════════ */
+function _thaixmNormKey(v){
+  return String(v == null ? '' : v)
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')   // zero-width / nbsp / hidden chars
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')                            // ลบ space ทั้งหมด
+    .replace(/[\u2010-\u2015\u2212-]+/g, '');       // ลบ dash ทุกแบบ — กัน dash inconsistency
+}
+
+/* ── Thai XM EN Description extractor (post-process; NOT modifying parseLinesThaiXM) ──
+ *   PDF.js join text items ในหน้าเดียวกันเป็น line เดียว → parser หา description ในบรรทัด
+ *   ถัดไป "หาไม่เจอ" (เพราะไม่มีบรรทัดถัดไป) → description = ''
+ *
+ *   วิธีแก้: ใช้ fullText (lines.join(' ')) + regex หา description หลังตัวเลข qty/price/amount
+ *   หยุดเมื่อเจอ next item marker (N/N PartNo) หรือ "TOTAL"/"REMARK"/"Shipping Mark"/end          */
+function _thaixmExtractDesc(partNo, fullText){
+  if(!partNo || !fullText) return '';
+  const escaped = partNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Pattern: PartNo + 4 numbers (pkg qty unitPrice amount) + DESCRIPTION + boundary
+  const re = new RegExp(
+    `${escaped}\\s+\\d+\\s+\\d+\\s+[\\d,.]+\\s+[\\d,.]+\\s+(.+?)` +
+    `(?=\\s+\\d{1,3}\\s*\\/\\s*\\d{1,3}\\s+[A-Z0-9]{6,}-\\d{2}-[A-Z]\\b` +
+    `|\\s+TOTAL\\b|\\s+REMARK\\b|\\s+Shipping\\s+Mark\\b|$)`,
+    'i'
+  );
+  const m = fullText.match(re);
+  return m && m[1] ? m[1].trim() : '';
+}
+
+function _thaixmFixDescriptions(parsedResult, fullText){
+  if(!parsedResult || !Array.isArray(parsedResult.items)) return;
+  parsedResult.items.forEach(it => {
+    const cur = String(it.description || '').trim();
+    // ถ้า description ว่างหรือสั้นเกินไป → พยายามดึงจาก fullText
+    if(cur.length < 3){
+      const ext = _thaixmExtractDesc(it.product_code, fullText);
+      if(ext) it.description = ext;
+    }
+  });
+}
+
+/* Pure mapping builder per spec — takes (xmRows, masterRows) only, no side effects on PDF/PACKING.
+ * mappingRows[i] = { fields, _matched: bool, _notFoundReason?: string }                          */
+function buildMappingThaiXM(xmRows, masterRows){
+  // Build master index by Product code
+  const MASTER_KEYS = ['Product code','Product Code','PRODUCT CODE','productCode','Part No','PART NO','PART NO.','part_no'];
+  const msSample = masterRows[0] || {};
+  const msKeyCol = findColumn(msSample, MASTER_KEYS);
+  const msIdx = new Map();
+  if(msKeyCol){
+    masterRows.forEach(r => {
+      const k = _thaixmNormKey(r[msKeyCol]);
+      if(k && !msIdx.has(k)) msIdx.set(k, r);
+    });
+  }
+
+  // Master columns (look up once)
+  const colThaiDesc = findColumn(msSample, ['TH Description 1','Thai Description','Thai Desc','Description TH','คำอธิบายไทย','รายละเอียดสินค้า (TH)']);
+  const colTariff   = findColumn(msSample, ['tariffCode','Tariff Code','HS Code','พิกัด','Tariff','HS']);
+  const colStat     = findColumn(msSample, ['statisticalCode','Statistical Code','Stat Code','STAT','Stat','รหัสสถิติ']);
+  const colBrand    = findColumn(msSample, ['brandName','Brand Name','Brand','ยี่ห้อ','ชื่อยี่ห้อ']);
+
+  // Loop xmRows → produce annotated mapping rows
+  return xmRows.map(xm => {
+    const partKey = _thaixmNormKey(xm.product_code);
+    const msRow = partKey ? msIdx.get(partKey) : null;
+
+    const rawBrand = msRow && colBrand ? String(msRow[colBrand] || '').trim() : '';
+    const brandName = rawBrand || 'NO BRAND';
+    const thDesc = msRow && colThaiDesc ? String(msRow[colThaiDesc]||'').trim() : '';
+    const tariff = msRow && colTariff   ? String(msRow[colTariff]  ||'').trim() : '';
+    const stat   = msRow && colStat     ? String(msRow[colStat]    ||'').trim() : '';
+
+    return {
+      _matched: !!msRow,
+      _notFoundReason: msRow ? null : (partKey ? 'PART NO ไม่พบใน Master' : 'ไม่มี Product code'),
+      // PDF + PACKING (merged) data
+      invoice_number: xm.invoice_number,
+      invoice_date:   xm.invoice_date,
+      item_line:      xm.item_line,
+      product_code:   xm.product_code,
+      description:    xm.description,
+      qty:            xm.qty,
+      unit_price:     xm.unit_price,
+      packages:       xm.packages,
+      net_weight:     xm.net_weight,
+      gross_weight:   xm.gross_weight,
+      currency:       xm.currency,
+      shipping_mark:  xm.shipping_mark,
+      total_amount:   xm.total_amount,
+      product_year:   xm.product_year,
+      // Master fields (or marker if not matched)
+      th_description: msRow ? thDesc : '❌ ไม่พบใน Master',
+      tariff_code:    msRow ? tariff : '❌',
+      statistical:    msRow ? stat   : '❌',
+      brand_name:     brandName
+    };
+  });
+}
+
+async function doMappingTHAIXM(){
+  console.log('[THAI XM] doMappingTHAIXM started');
+  try {
+    const d = slotData.thaixm;
+
+    // ── STRICT GATE per spec: ต้องมี 3 ไฟล์ครบ — PDF + PACKING + MASTER ──
+    const missing = [];
+    if(!d.PDF.length)                            missing.push('PDF Invoice');
+    if(!(d.PLPDF && d.PLPDF.length > 0))         missing.push('PACKING PDF');
+    if(!d.MASTER)                                missing.push('MASTER');
+    if(missing.length){
+      toast(`ต้องอัพโหลดให้ครบ 3 ไฟล์ก่อน · ขาด: ${missing.join(', ')}`, 'warn');
+      return;
+    }
+
+    // ── STEP 1: PARSE PDF + PACKING → merge เป็น xmRows ตาม ITEM LINE ──
+    //
+    // ใช้ parseLinesThaiXM ที่รับ (lines, plLines) อยู่แล้ว — internal merge by product_code
+    // จากนั้น flatten ออกเป็น xmRows (1 row = 1 item พร้อม invoice context)
+    const plLines = [];
+    for(const pl of d.PLPDF){
+      plLines.push(..._pdfToLines(pl));
+    }
+    console.log('[THAI XM] PACKING lines:', plLines.length);
+
+    const allResults = [];
+    for(const pdf of d.PDF){
+      try{
+        const lines = _pdfToLines(pdf);
+        const fullText = lines.join(' ');                  // PDF.js merged text สำหรับ desc extraction
+        const r = parseLinesThaiXM(lines, plLines);
+        if(r){
+          // Post-process: เติม EN Description ที่ parser หาไม่เจอ (PDF.js layout issue)
+          _thaixmFixDescriptions(r, fullText);
+          allResults.push(r);
+        }
+      } catch(e){
+        console.error('[THAI XM] parseLinesThaiXM error', pdf.name, e);
+        toast(`Parse PDF ผิดพลาด (${pdf.name}): ${e.message}`, 'err');
+      }
+    }
+    if(!allResults.length){ toast('ไม่ได้ข้อมูลจาก PDF', 'err'); return; }
+
+    // ── Build xmRows: flatten + dedup by (invoice, item_line) + merge QTY ตามสเปค ──
+    const xmRowsRaw = [];
+    let pdfRowCount = 0;
+    allResults.forEach(r => {
+      // ─ Amont = TOTAL INVOICE (per spec จาก doMappingTHAIXM เดิม — keep) ─
+      const totalAmount = (r._aiParsed && r._aiParsed.total && typeof r._aiParsed.total.amount === 'number')
+        ? r._aiParsed.total.amount
+        : Math.round((r.items||[]).reduce((s,it) => s + (Number(it.amount)||0), 0) * 100) / 100;
+
+      const invDate = r.invoice_date || '';
+      const yrMatch = invDate.match(/(\d{4})\s*$/);
+      const productYear = yrMatch ? yrMatch[1] : String(new Date().getFullYear());
+
+      (r.items || []).forEach(it => {
+        pdfRowCount++;
+        xmRowsRaw.push({
+          invoice_number: r.invoice_number || '',
+          invoice_date:   invDate,
+          item_line:      Number(it.item) || 0,
+          product_code:   it.product_code || '',
+          description:    it.description || '',
+          qty:            (typeof it.qty === 'number' && it.qty > 0) ? it.qty : 0,
+          unit_price:     (typeof it.unit_price === 'number') ? it.unit_price : 0,
+          packages:       (typeof it.packages === 'number') ? it.packages : 0,
+          net_weight:     (typeof it.net_weight   === 'number') ? it.net_weight   : '',
+          gross_weight:   (typeof it.gross_weight === 'number') ? it.gross_weight : '',
+          currency:       r.currency || 'USD',
+          shipping_mark:  r.shipping_mark || '',
+          total_amount:   totalAmount,
+          product_year:   productYear
+        });
+      });
+    });
+    console.log('[THAI XM] PDF rows (raw):', pdfRowCount);
+
+    // ── Dedup ITEM LINE ซ้ำ → merge QTY (per spec rule 2) ──
+    //    Key: invoice_number + item_line (เพราะ item_line อาจซ้ำข้าม invoice ได้)
+    const xmMap = new Map();
+    for(const row of xmRowsRaw){
+      const dedupKey = `${row.invoice_number}|${row.item_line}|${_thaixmNormKey(row.product_code)}`;
+      if(xmMap.has(dedupKey)){
+        // duplicate ITEM LINE + same product → merge QTY
+        const existing = xmMap.get(dedupKey);
+        existing.qty = (Number(existing.qty)||0) + (Number(row.qty)||0);
+        existing.packages = (Number(existing.packages)||0) + (Number(row.packages)||0);
+        console.log('[THAI XM] merged duplicate ITEM LINE', row.item_line, '→ qty', existing.qty);
+      } else {
+        xmMap.set(dedupKey, {...row});
+      }
+    }
+    let xmRows = [...xmMap.values()];
+
+    // ── Sort by ITEM LINE ascending (per spec STEP 4) ──
+    xmRows.sort((a,b) => {
+      // Primary: invoice_number; Secondary: item_line
+      const cmp = String(a.invoice_number).localeCompare(String(b.invoice_number));
+      if(cmp !== 0) return cmp;
+      return (a.item_line || 0) - (b.item_line || 0);
+    });
+    console.log('[THAI XM] xmRows after merge + sort:', xmRows.length);
+
+    // ── STEP 2: MASTER reference ──
+    const masterRows = d.MASTER.rows || [];
+    const msSampleCheck = masterRows[0] || {};
+    const msKeyColCheck = findColumn(msSampleCheck, ['Product code','Product Code','PRODUCT CODE','productCode','Part No','PART NO','PART NO.','part_no']);
+    if(!msKeyColCheck){
+      const msHeaders = Object.keys(msSampleCheck).slice(0,8).join(', ');
+      console.error('[THAI XM] Master columns:', Object.keys(msSampleCheck));
+      toast(`Master ไม่พบคอลัมน์ Product code/Part No · headers: ${msHeaders}`, 'err');
+      return;
+    }
+    console.log('[THAI XM] master rows:', masterRows.length);
+
+    // ── STEP 3: BUILD MAPPING (xmRows × masterRows) ──
+    const mappingRows = buildMappingThaiXM(xmRows, masterRows);
+
+    let matched = 0, notFound = 0;
+    const notFoundParts = [];
+    const unmatchedRowIdxs = [];
+    mappingRows.forEach((mr, idx) => {
+      if(mr._matched){ matched++; }
+      else {
+        notFound++;
+        if(mr.product_code) notFoundParts.push(mr.product_code);
+        unmatchedRowIdxs.push(idx + 1);   // +1 = HEADERS row offset
+      }
+    });
+    console.log('[THAI XM] mapping built:', mappingRows.length, '· matched', matched, '· notFound', notFound);
+    if(notFoundParts.length) console.warn('[THAI XM] NOT FOUND parts:', notFoundParts);
+
+    // ── STEP 4: EXPORT (28 cols + sorted by ITEM LINE asc) ──
+    const HEADERS = [
+      'INVOICE','INVOICE DATE','ITEMS','Product code',
+      'EN Description','TH Description 1',
+      'Qty. Inv+Qty ใบขน','หน่วย Qty. Inv+ใบขน /FIX','Unit price','Amont','Currency',
+      'หีบห่อ','หน่วยหีบห่อ','NET WEIGHT','GROSS WEIGHT',
+      'Shippimg mark','Purchase Country','COO','Product Year',
+      'tariffCode','statisticalCode','brandName',
+      'สิทธิประโยชน์ BOI/ fix','BOI License No : fix','เลขที่ใบอนุญาต/ fix',
+      'หน่วยงาน/ fix','วันที่ ออก/ fix','พีวิวโชว์/ fix'
+    ];
+    if(HEADERS.length !== 28){
+      throw new Error(`Internal error: HEADERS ต้องมี 28 columns เท่านั้น (พบ ${HEADERS.length})`);
+    }
+
+    // BOI FIX values (ทุกแถว · ตามสเปค)
+    const BOI = {
+      privilege:   'Y',
+      license_no:  '66-1443-2-00-0-0',
+      permit_no:   'BOI0255566000973',
+      agency:      '0994000740964',
+      issue_date:  '00-00-2026',
+      preview:     '01'
+    };
+
+    const rows = mappingRows.map(mr => [
+      mr.invoice_number || '',                                       // 1. INVOICE
+      mr.invoice_date   || '',                                       // 2. INVOICE DATE
+      mr.item_line || '',                                            // 3. ITEMS (ITEM LINE จาก PDF — sorted asc)
+      mr.product_code || '',                                         // 4. Product code
+      mr.description || '',                                          // 5. EN Description
+      mr.th_description,                                             // 6. TH Description 1 (or marker)
+      mr.qty > 0 ? mr.qty : '',                                      // 7. Qty (PDF + PACKING merged)
+      'C62',                                                         // 8. หน่วย Qty /FIX
+      mr.unit_price > 0 ? mr.unit_price : '',                        // 9. Unit price
+      mr.total_amount,                                               // 10. Amont = TOTAL INVOICE
+      mr.currency || 'USD',                                          // 11. Currency
+      mr.packages > 0 ? mr.packages : '',                            // 12. หีบห่อ
+      'PX',                                                          // 13. หน่วยหีบห่อ /FIX
+      typeof mr.net_weight   === 'number' ? mr.net_weight   : '',    // 14. NET WEIGHT
+      typeof mr.gross_weight === 'number' ? mr.gross_weight : '',    // 15. GROSS WEIGHT
+      mr.shipping_mark || '',                                        // 16. Shippimg mark
+      'SG',                                                          // 17. Purchase Country /FIX
+      'TH',                                                          // 18. COO /FIX
+      mr.product_year || '',                                         // 19. Product Year
+      mr.tariff_code,                                                // 20. tariffCode
+      mr.statistical,                                                // 21. statisticalCode
+      mr.brand_name,                                                 // 22. brandName
+      BOI.privilege,                                                 // 23. สิทธิประโยชน์ BOI/ fix
+      BOI.license_no,                                                // 24. BOI License No
+      BOI.permit_no,                                                 // 25. เลขที่ใบอนุญาต
+      BOI.agency,                                                    // 26. หน่วยงาน
+      BOI.issue_date,                                                // 27. วันที่ออก
+      BOI.preview                                                    // 28. พีวิวโชว์
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+    if((ws['!ref'] || '').length){
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      const colCount = range.e.c - range.s.c + 1;
+      if(colCount !== 28){
+        throw new Error(`Output columns ผิด: ${colCount} (ต้อง 28)`);
+      }
+    }
+
+    ws['!cols'] = [
+      {wch:18},{wch:14},{wch:6},{wch:18},
+      {wch:30},{wch:30},
+      {wch:12},{wch:14},{wch:12},{wch:14},{wch:10},
+      {wch:8},{wch:10},{wch:13},{wch:14},
+      {wch:36},{wch:14},{wch:8},{wch:12},
+      {wch:14},{wch:14},{wch:14},
+      {wch:18},{wch:18},{wch:18},
+      {wch:14},{wch:12},{wch:10}
+    ];
+
+    const hFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
+    const hFont = {bold:true,color:{rgb:'FFFFFF'},name:'Arial',sz:10};
+    HEADERS.forEach((_,ci)=>{
+      const cell = ws[XLSX.utils.encode_cell({r:0,c:ci})];
+      if(cell) cell.s = {fill:hFill,font:hFont,alignment:{horizontal:'center',wrapText:true}};
+    });
+
+    // Highlight unmatched rows (red)
+    const errFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'FFC7CE'}};
+    const errFont = {color:{rgb:'9C0006'},bold:true};
+    unmatchedRowIdxs.forEach(rIdx => {
+      for(let ci = 0; ci < HEADERS.length; ci++){
+        const cell = ws[XLSX.utils.encode_cell({r:rIdx, c:ci})];
+        if(cell) cell.s = {fill:errFill, font:errFont};
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'MAPPING');
+    XLSX.writeFile(wb, 'MAPPING_THAI_XM.xlsx', {bookSST:false, type:'binary', cellStyles:true});
+
+    let msg = `✓ Export: MAPPING_THAI_XM.xlsx · ${rows.length} rows · ✅ matched ${matched}`;
+    if(notFound > 0){
+      msg += ` · ❌ not-found ${notFound} (highlight สีแดง)`;
+    }
+    toast(msg, notFound > 0 ? 'warn' : 'ok');
+    console.log('[THAI XM] doMappingTHAIXM completed successfully');
+  } catch(err){
+    console.error('[THAI XM] doMappingTHAIXM error:', err);
+    toast(`Export Mapping ผิดพลาด: ${err.message || err}`, 'err');
   }
 }
 
