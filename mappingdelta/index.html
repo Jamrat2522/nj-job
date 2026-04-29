@@ -4536,6 +4536,12 @@ function deltaParseInvoice(lines){
     m = full.match(/(SWITCHING\s+POWER\s+SUPPLY[^\n]*)/i);
     if(m) r.description = m[1].trim();
   }
+  // Multi-strategy product code extraction — original regex was too strict
+  // (required all 5 fields on one line, only PCE/PCS/EA/SET/KIT/BOX units)
+  const UNIT_RE = '(?:PCE|PCS|EA|SET|KIT|BOX|UNIT|PC|EACH|NOS|MTR|KGM?)';
+  const PCODE_RE = '([A-Z0-9][A-Z0-9.\\-\\/]{6,}[A-Z0-9])';  // 8+ chars, allow . - / in middle
+
+  // Strategy 1: Original strict pattern (all 5 fields on one line, PCE/PCS only)
   for(const ln of lines){
     const pm = ln.match(/^([A-Z0-9]{8,})\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
     if(pm){
@@ -4545,6 +4551,52 @@ function deltaParseInvoice(lines){
       r.amount = parseFloat(pm[5].replace(/,/g,'')) || 0;
       break;
     }
+  }
+
+  // Strategy 2: Looser one-line pattern — allow hyphens/dots in product code,
+  // wider unit list, allow optional columns between fields
+  if(!r.productCode){
+    const re2 = new RegExp('^\\s*' + PCODE_RE + '\\s+(?:[\\w\\-\\/]+\\s+)?([\\d,]+)\\s+' + UNIT_RE + '\\s+([\\d,]+\\.\\d+)\\s+([\\d,]+\\.\\d+)', 'i');
+    for(const ln of lines){
+      const pm = ln.match(re2);
+      if(pm){
+        r.productCode = pm[1];
+        r.qty = parseInt(pm[2].replace(/,/g,''), 10) || 0;
+        r.unitPrice = parseFloat(pm[3].replace(/,/g,'')) || 0;
+        r.amount = parseFloat(pm[4].replace(/,/g,'')) || 0;
+        break;
+      }
+    }
+  }
+
+  // Strategy 3: Product code on its own line, qty+unit+price on the next 1-3 lines
+  // (PDF text extraction sometimes splits table rows across lines)
+  if(!r.productCode){
+    for(let i=0; i<lines.length; i++){
+      const ln = (lines[i]||'').trim();
+      const pm = ln.match(new RegExp('^' + PCODE_RE + '\\s*$', 'i'));
+      if(!pm) continue;
+      // candidate code; verify by looking ahead for qty + unit nearby
+      const candidate = pm[1];
+      // Filter out common non-product strings
+      if(/^(INVOICE|PACKING|DELTA|TOTAL|GRAND|SHIPPER|CONSIGNEE|NOTIFY|VESSEL|VOYAGE|PORT|FROM|TO)$/i.test(candidate)) continue;
+      const ahead = lines.slice(i+1, Math.min(i+5, lines.length)).join(' ');
+      const qm = ahead.match(new RegExp('([\\d,]+)\\s+' + UNIT_RE + '\\s+([\\d,]+\\.\\d+)\\s+([\\d,]+\\.\\d+)', 'i'));
+      if(qm){
+        r.productCode = candidate;
+        r.qty = parseInt(qm[1].replace(/,/g,''), 10) || 0;
+        r.unitPrice = parseFloat(qm[2].replace(/,/g,'')) || 0;
+        r.amount = parseFloat(qm[3].replace(/,/g,'')) || 0;
+        break;
+      }
+    }
+  }
+
+  // Strategy 4: Look for explicit "Material #" / "Part No" / "Product Code" labels
+  if(!r.productCode){
+    const labelRe = /(?:Material\s*#?|Part\s*No\.?|Product\s*Code|Item\s*Code|Model)\s*:?\s*([A-Z0-9][A-Z0-9.\-\/]{5,}[A-Z0-9])/i;
+    const lm = full.match(labelRe);
+    if(lm) r.productCode = lm[1];
   }
   if(!r.amount){
     m = full.match(/GRAND\s+TOTAL\s+[\d,]+(?:PCE|PCS)?\s+([\d,]+\.\d+)/i);
@@ -4575,26 +4627,8 @@ function deltaParsePacking(lines){
       }
     }
   }
-  const PATTERNS = [
-    ['SCHENKER',   /^SCHENKER\b/i,         s => 'SCHENKER'],
-    ['CONSIGNEE',  /^MEXICO\b/i,           s => 'MEXICO'],
-    ['PNO',        /^P\/NO\s*:/i,          s => { const m = s.match(/^(P\/NO\s*:\s*\S+)/i); return m ? m[1] : s; }],
-    ['MADE_IN',    /^MADE\s+IN\b/i,        s => { const m = s.match(/^(MADE\s+IN\s+\w+)/i); return m ? m[1] : s; }],
-    ['INV',        /^INV#\d+/i,            s => { const m = s.match(/^(INV#\d+)/i); return m ? m[1] : s; }]
-  ];
-  const seen = new Set();
-  for(const ln of lines){
-    const s = ln.trim();
-    if(!s) continue;
-    for(const [key, re, clean] of PATTERNS){
-      if(re.test(s) && !seen.has(key)){
-        seen.add(key);
-        r.shippingMarks.push(clean(s));
-        break;
-      }
-    }
-    if(r.shippingMarks.length >= 5) break;
-  }
+  // Anchor-based shipping marks extraction (works for any country/forwarder)
+  r.shippingMarks = deltaExtractShippingMarks(lines);
   return r;
 }
 
@@ -4616,6 +4650,123 @@ function deltaPdfExtractInvNo(lines){
   const m = lines.join('\n').match(/Invoice\s*No\.?\s*:?\s*(\d{6,})/i);
   return m ? m[1] : null;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Extract Shipping Marks from PACKING LIST PDF lines.
+ * Used by Delta Ieat 002, Delta BOI 003, Delta BOI 006.
+ *
+ * Strategy: anchor on the "SHIPPING MARKS:" header line, then collect
+ * the next ~5 non-empty content lines (typically: forwarder, country,
+ * P/NO, MADE IN, INV#). Strips right-column suffixes like
+ * "AUTHORIZED SIGNATURE" and ".................." that PDF text
+ * extraction may merge onto the left column's lines.
+ *
+ * Previously hardcoded MEXICO pattern → missed CZECH, USA, JAPAN, etc.
+ * ────────────────────────────────────────────────────────────────────── */
+function deltaExtractShippingMarks(lines){
+  // Find the line containing "SHIPPING MARKS:" anchor
+  let anchorIdx = -1;
+  for(let i = 0; i < lines.length; i++){
+    if(/SHIPPING\s*MARKS\s*:/i.test(lines[i] || '')){ anchorIdx = i; break; }
+  }
+  if(anchorIdx < 0) return [];
+
+  const marks = [];
+  const seen = new Set();
+  // Scan up to 25 lines after the anchor
+  for(let i = anchorIdx + 1; i < Math.min(anchorIdx + 25, lines.length); i++){
+    let s = (lines[i] || '').trim();
+    if(!s) continue;
+
+    // Strip right-column suffixes that may merge onto the line:
+    //   "<mark>     AUTHORIZED SIGNATURE"
+    //   "<mark>     .........................."
+    //   "<mark>     DELTA ELECTRONICS (THAILAND)..."
+    s = s.replace(/\s{2,}AUTHORIZED\s+SIGNATURE.*$/i, '').trim();
+    s = s.replace(/\s+AUTHORIZED\s+SIGNATURE.*$/i, '').trim();
+    s = s.replace(/\s{2,}\.{4,}.*$/, '').trim();
+    s = s.replace(/\s+\.{4,}\s*$/, '').trim();
+    s = s.replace(/\s{2,}DELTA\s+ELECTRONICS.*$/i, '').trim();
+    if(!s) continue;
+
+    // Stop sentinels — beyond these lines, we've left the shipping marks block
+    if(/^(?:Sales\s*:|Plant\s*:|E\.&\.O\.E\.|Page\s+\d|Tel\s*:|Tax\s*ID)/i.test(s)) break;
+
+    // Skip pure separators / dotted / blank-ish lines
+    if(/^[\s_\-=]+$/.test(s)) continue;
+    if(/^\.{4,}$/.test(s)) continue;
+
+    // Skip standalone DELTA ELECTRONICS branding lines
+    if(/^DELTA\s+ELECTRONICS/i.test(s)) continue;
+
+    // Skip company-address lines (street / postal patterns)
+    if(/^\d{2,}\s*(?:SOI|MOO|RD|RD\.|ROAD)/i.test(s)) continue;
+
+    // Sanity check: a real shipping mark line is short (typically < 60 chars)
+    if(s.length > 70) continue;
+    if(seen.has(s)) continue;
+    seen.add(s);
+
+    marks.push(s);
+    if(marks.length >= 5) break;
+  }
+  return marks;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Split a PDF that may contain MULTIPLE invoices into per-invoice sections.
+ * Used by Delta Ieat 002, Delta BOI 003, Delta BOI 006.
+ *
+ * Strategy: scan all "INV#NNNNN" and "Invoice No.: NNNNN" mentions,
+ * group by unique invoice number (in first-seen order), and use the
+ * LAST mention of each as the section's end boundary. This works because
+ * each invoice's data layout is:
+ *    [items table] → [INV#NNN tag] → [boilerplate] → [Invoice No.: NNN] (1+ times)
+ *    → [next invoice's items table] → [INV# of next] → ...
+ *
+ * Returns: [{ invNo, lines }, ...] — one section per unique invoice
+ * If only one invoice is found, returns a single-section array.
+ * ────────────────────────────────────────────────────────────────────── */
+function deltaSplitInvoices(lines){
+  // Find all mentions of invoice numbers (both INV#NNN and Invoice No.: NNN)
+  const mentions = [];
+  for(let i = 0; i < lines.length; i++){
+    const ln = lines[i] || '';
+    let m = ln.match(/INV#\s*(\d{6,})/i);
+    if(m){ mentions.push({ invNo: m[1], idx: i }); continue; }
+    m = ln.match(/Invoice\s*No\.?\s*:?\s*(\d{6,})/i);
+    if(m){ mentions.push({ invNo: m[1], idx: i }); }
+  }
+  if(!mentions.length) return [];
+
+  // Get unique invoice numbers in first-seen order; track each one's last mention
+  const uniqueNos = [];
+  const seenSet = new Set();
+  const lastMention = new Map();
+  for(const m of mentions){
+    if(!seenSet.has(m.invNo)){ seenSet.add(m.invNo); uniqueNos.push(m.invNo); }
+    lastMention.set(m.invNo, m.idx);
+  }
+
+  // Single invoice — no split needed
+  if(uniqueNos.length === 1){
+    return [{ invNo: uniqueNos[0], lines: lines.slice() }];
+  }
+
+  // Multiple invoices — split using lastMention boundaries.
+  // Section k spans from previous boundary to (lastMention[k] + 1).
+  const sections = [];
+  let startIdx = 0;
+  for(let k = 0; k < uniqueNos.length; k++){
+    const invNo = uniqueNos[k];
+    const endIdx = (k + 1 < uniqueNos.length)
+      ? lastMention.get(invNo) + 1
+      : lines.length;
+    sections.push({ invNo, lines: lines.slice(startIdx, endIdx) });
+    startIdx = endIdx;
+  }
+  return sections;
+}
 async function deltaAnalyze(){
   const btn = document.getElementById('delta-btn-analyze');
   btn.disabled = true;
@@ -4630,10 +4781,19 @@ async function deltaAnalyze(){
       deltaSetStatus('กำลังอ่าน: '+f.name+'…');
       const lines = await deltaPdfLines(f);
       const type  = await deltaPdfDetectType(lines);
-      const invNo = deltaPdfExtractInvNo(lines);
-      if(!invNo){ console.warn('[DELTA] ไม่พบ Invoice No ใน:', f.name); continue; }
-      if(type === 'pac') pacMap.set(invNo, { file:f, lines });
-      else               invMap.set(invNo, { file:f, lines });
+      // Split multi-invoice PDFs into per-invoice sections
+      const sections = deltaSplitInvoices(lines);
+      if(!sections.length){
+        console.warn('[DELTA] ไม่พบ Invoice No ใน:', f.name);
+        continue;
+      }
+      if(sections.length > 1){
+        console.log('[DELTA] '+f.name+' contains '+sections.length+' invoices: '+sections.map(s=>s.invNo).join(', '));
+      }
+      for(const sec of sections){
+        if(type === 'pac') pacMap.set(sec.invNo, { file: f, lines: sec.lines });
+        else               invMap.set(sec.invNo, { file: f, lines: sec.lines });
+      }
     }
     const invoiceNos = [...new Set([...invMap.keys(), ...pacMap.keys()])].sort();
 
@@ -4650,7 +4810,12 @@ async function deltaAnalyze(){
         const inv = deltaParseInvoice(invLines);
         const pac = deltaParsePacking(pacLines);
         if(!inv.invoiceNo)   inv.invoiceNo   = invNo;
-        if(!inv.productCode) throw new Error('ไม่พบ Product Code');
+        if(!inv.productCode){
+          // Log first ~30 non-empty lines to console for diagnostics
+          const sample = invLines.filter(s => s && s.trim()).slice(0, 30);
+          console.warn('[DELTA Ieat 002] '+invNo+' — ไม่พบ Product Code. First 30 lines:', sample);
+          throw new Error('ไม่พบ Product Code (ดู console สำหรับเนื้อหา PDF เพื่อ debug)');
+        }
         const row = {
           invoiceNo:   inv.invoiceNo,
           invoiceDate: inv.invoiceDate,
@@ -4743,7 +4908,8 @@ function deltaToDate(s){
   return (d && !isNaN(d)) ? d : s;
 }
 
-function deltaBuildWorkbookMain(r){
+function deltaBuildWorkbookMain(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   const HEADERS = [
     'Invoice No. :','Invoice No.Date','Item No.','Product Code','Desc.','DescTH',
     'Qty.','Net Weight','Gross Weight','Curr.','U/P','Amount','Tariff','Stat',
@@ -4751,20 +4917,23 @@ function deltaBuildWorkbookMain(r){
     'Import Tax Incentives ID','PermitNo1','IssueDate1','PermitIssueAuthority1',
     'Shipping mark'
   ];
-  const marks = r.shippingMarks || [];
-  const marksText = marks.join('\n');
   const aoa = [HEADERS];
-  aoa.push([
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    deltaToDate(r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    r.exportTaxID, r.importTaxID, r.permitNo,
-    deltaToDate(r.issueDate), r.authority,
-    marksText,
-  ]);
+  const rowHeights = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const marks = r.shippingMarks || [];
+    aoa.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      deltaToDate(r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      r.exportTaxID, r.importTaxID, r.permitNo,
+      deltaToDate(r.issueDate), r.authority,
+      marks.join(' '),
+    ]);
+    rowHeights.push({ hpt: 16 });
+  }
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
@@ -4772,11 +4941,19 @@ function deltaBuildWorkbookMain(r){
     {wch:14},{wch:12},{wch:12},{wch:20},{wch:20},{wch:20},{wch:12},{wch:18},
     {wch:26}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:22 });
-    if(ws[a]){ ws[a].s = ws[a].s || {}; ws[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws[a] && ws[a].v instanceof Date){ ws[a].t='d'; ws[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:20 }); if(ws[a] && ws[a].v instanceof Date){ ws[a].t='d'; ws[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;  // row 0 is header
+    // Shipping mark wrap text (col 22)
+    const wrapA = XLSX.utils.encode_cell({ r: rowIdx, c: 22 });
+    if(ws[wrapA]){ ws[wrapA].s = ws[wrapA].s || {}; ws[wrapA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    // Invoice Date (col 1) format yyyy-mm-dd
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws[dA] && ws[dA].v instanceof Date){ ws[dA].t='d'; ws[dA].z='yyyy-mm-dd'; }
+    // IssueDate1 (col 20) format d/m/yyyy
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 20 });
+    if(ws[dB] && ws[dB].v instanceof Date){ ws[dB].t='d'; ws[dB].z='d/m/yyyy'; }
+  }
+  ws['!rows'] = rowHeights;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'sheet 1');
   return wb;
@@ -4785,26 +4962,12 @@ function deltaBuildWorkbookMain(r){
 function deltaDownload(){
   if(!deltaState.results || !deltaState.results.length) return;
   const rows = deltaState.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = deltaBuildWorkbookMain(r);
-    XLSX.writeFile(wb, r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = deltaBuildWorkbookMain(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file(r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = deltaBuildWorkbookMain(rows);
+  const fn = rows.length === 1
+    ? rows[0].invoiceNo + '.xlsx'
+    : 'DELTA_TRUCK_IEAT002_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 
 function deltaReset(){
@@ -4818,33 +4981,41 @@ function deltaReset(){
   deltaCheckReady();
 }
 
-function deltaBuildWorkbookTest(r){
+function deltaBuildWorkbookTest(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   const toDate2 = deltaToDate;
-  const marks = r.shippingMarks || [];
   const HDR1 = [
     'Invoice No. :','INVOICE DATE','Item No.','Product Code','Desc.','DescTH',
     'Qty.','Net Weight','Gross Weight','Curr.','Amount','Tariff','Stat',
     'Package Amount','Package Unit','Brand Name','Export Tax Incentives ID',
     'Import Tax Incentives ID','PermitNo1','IssueDate1','PermitIssueAuthority1'
   ];
-  const rows1 = [[
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    toDate2(r.exFactoryDate || r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    r.exportTaxID, r.importTaxID, r.permitNo,
-    toDate2(r.issueDate), r.authority,
-  ]];
-  const ws1 = XLSX.utils.aoa_to_sheet([HDR1, ...rows1]);
+  const aoa1 = [HDR1];
+  for(const r of rowsArr){
+    aoa1.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      toDate2(r.exFactoryDate || r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      r.exportTaxID, r.importTaxID, r.permitNo,
+      toDate2(r.issueDate), r.authority,
+    ]);
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(aoa1);
   ws1['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
     {wch:8},{wch:12},{wch:12},{wch:6},{wch:14},{wch:14},{wch:6},
     {wch:14},{wch:12},{wch:12},{wch:20},{wch:20},{wch:20},{wch:12},{wch:18}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:19 }); if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws1[dA] && ws1[dA].v instanceof Date){ ws1[dA].t='d'; ws1[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 19 });
+    if(ws1[dB] && ws1[dB].v instanceof Date){ ws1[dB].t='d'; ws1[dB].z='d/m/yyyy'; }
+  }
 
   const HDR2 = [
     'invoice no.','Item No.','invoice date.',
@@ -4856,8 +5027,11 @@ function deltaBuildWorkbookTest(r){
     'วันที่ออกใบอนุญาต','เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\n(Preview)\t',
     'Shippping mark'
   ];
-  const rows2 = [];
-  rows2.push([
+  const aoa2 = [HDR2];
+  const rowHeights2 = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const marks = r.shippingMarks || [];
+    aoa2.push([
       r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
       1,
       toDate2(r.exFactoryDate || r.invoiceDate),
@@ -4866,20 +5040,27 @@ function deltaBuildWorkbookTest(r){
       r.productCode, r.description, 'ตัวแปลงและจ่ายกระแสไฟฟ้า',
       r.tariff, r.stat, r.brand, String(r.pkgAmt),
       '', '', 'Y', r.importTaxID, r.permitNo,
-      toDate2(r.issueDate), r.authority, '01', marks.join('\n'),
+      toDate2(r.issueDate), r.authority, '01', marks.join(' '),
     ]);
-  const ws2 = XLSX.utils.aoa_to_sheet([HDR2, ...rows2]);
+    rowHeights2.push({ hpt: 16 });
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
   ws2['!cols'] = [
     {wch:14},{wch:8},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},
     {wch:10},{wch:14},{wch:8},{wch:14},{wch:14},{wch:38},{wch:32},
     {wch:14},{wch:6},{wch:12},{wch:6},{wch:8},{wch:8},{wch:12},
     {wch:20},{wch:20},{wch:14},{wch:18},{wch:10},{wch:26}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:26 });
-    if(ws2[a]){ ws2[a].s = ws2[a].s || {}; ws2[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws2['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:2 });  if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:23 }); if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const wA = XLSX.utils.encode_cell({ r: rowIdx, c: 26 });
+    if(ws2[wA]){ ws2[wA].s = ws2[wA].s || {}; ws2[wA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 2 });
+    if(ws2[dA] && ws2[dA].v instanceof Date){ ws2[dA].t='d'; ws2[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 23 });
+    if(ws2[dB] && ws2[dB].v instanceof Date){ ws2[dB].t='d'; ws2[dB].z='d/m/yyyy'; }
+  }
+  ws2['!rows'] = rowHeights2;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'excel ลูกค้า.');
   XLSX.utils.book_append_sheet(wb, ws2, 'MAPPING');
@@ -4889,26 +5070,12 @@ function deltaBuildWorkbookTest(r){
 function deltaDownloadTest(){
   if(!deltaState.results || !deltaState.results.length) return;
   const rows = deltaState.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = deltaBuildWorkbookTest(r);
-    XLSX.writeFile(wb, 'MAPPING_DELTA_TRUCK_TEST_'+r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = deltaBuildWorkbookTest(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file('MAPPING_DELTA_TRUCK_TEST_'+r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'MAPPING_DELTA_TRUCK_TEST_'+rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = deltaBuildWorkbookTest(rows);
+  const fn = rows.length === 1
+    ? 'MAPPING_DELTA_TRUCK_TEST_' + rows[0].invoiceNo + '.xlsx'
+    : 'MAPPING_DELTA_TRUCK_TEST_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 /* ══ END DELTA TRUCK ══ */
 
@@ -5231,29 +5398,8 @@ function delta003ParsePacking(lines){
       }
     }
   }
-  // BOI 003: order = SCHENKER → P/NO → MEXICO → MADE IN → INV#
-  const PATTERNS = [
-    ['SCHENKER',   /^SCHENKER\b/i,         s => 'SCHENKER'],
-    ['PNO',        /^P\/NO\s*:/i,          s => { const m = s.match(/^(P\/NO\s*:\s*\S+)/i); return m ? m[1] : s; }],
-    ['CONSIGNEE',  /^MEXICO\b/i,           s => 'MEXICO'],
-    ['MADE_IN',    /^MADE\s+IN\b/i,        s => { const m = s.match(/^(MADE\s+IN\s+\w+)/i); return m ? m[1] : s; }],
-    ['INV',        /^INV#\d+/i,            s => { const m = s.match(/^(INV#\d+)/i); return m ? m[1] : s; }]
-  ];
-  // เก็บ found values ไว้ใน map · แล้ว output ตามลำดับ PATTERNS (ไม่ใช่ตาม PDF line order)
-  const foundMap = new Map();
-  for(const ln of lines){
-    const s = ln.trim();
-    if(!s) continue;
-    for(const [key, re, clean] of PATTERNS){
-      if(re.test(s) && !foundMap.has(key)){
-        foundMap.set(key, clean(s));
-        break;
-      }
-    }
-  }
-  for(const [key] of PATTERNS){
-    if(foundMap.has(key)) r.shippingMarks.push(foundMap.get(key));
-  }
+  // Anchor-based shipping marks extraction (works for any country/forwarder)
+  r.shippingMarks = deltaExtractShippingMarks(lines);
   return r;
 }
 
@@ -5276,10 +5422,19 @@ async function delta003Analyze(){
       delta003SetStatus('กำลังอ่าน: '+f.name+'…');
       const lines = await delta003PdfLines(f);
       const type  = await deltaPdfDetectType(lines);
-      const invNo = deltaPdfExtractInvNo(lines);
-      if(!invNo){ console.warn('[DELTA003] ไม่พบ Invoice No ใน:', f.name); continue; }
-      if(type === 'pac') pacMap.set(invNo, { file:f, lines });
-      else               invMap.set(invNo, { file:f, lines });
+      // Split multi-invoice PDFs into per-invoice sections
+      const sections = deltaSplitInvoices(lines);
+      if(!sections.length){
+        console.warn('[DELTA003] ไม่พบ Invoice No ใน:', f.name);
+        continue;
+      }
+      if(sections.length > 1){
+        console.log('[DELTA003] '+f.name+' contains '+sections.length+' invoices: '+sections.map(s=>s.invNo).join(', '));
+      }
+      for(const sec of sections){
+        if(type === 'pac') pacMap.set(sec.invNo, { file: f, lines: sec.lines });
+        else               invMap.set(sec.invNo, { file: f, lines: sec.lines });
+      }
     }
     const invoiceNos = [...new Set([...invMap.keys(), ...pacMap.keys()])].sort();
 
@@ -5390,7 +5545,8 @@ function delta003ToDate(s){
   return (d && !isNaN(d)) ? d : s;
 }
 
-function delta003BuildWorkbookMain(r){
+function delta003BuildWorkbookMain(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   // BOI 003 headers (28 cols):
   //   R=สิทธิ BOI · S=เลขบัตรส่งเสริม · T=PermitNo1 · U=IssueDate1 · V=PermitIssueAuthority1
   //   W=priview · X=PermitNo2 · Y=IssueDate2 · Z=PermitIssueAuthority · AA=priview · AB=Shipping mark
@@ -5409,31 +5565,33 @@ function delta003BuildWorkbookMain(r){
   const BOI003_ISSUE_DATE  = '00-00-2026';
   const BOI003_AUTHORITY   = '0994000740964';
   const BOI003_PRIVIEW     = '01';
-  // Master lookup override (เฉพาะ S = เลขบัตรส่งเสริม · X (PermitNo2) ใช้ค่า constant เดิม)
-  const cardNoForS = r.masterCardNo || BOI003_CARD_NO;
 
-  const marks = r.shippingMarks || [];
-  const marksText = marks.join('\n');
   const aoa = [HEADERS];
-  aoa.push([
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    delta003ToDate(r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    BOI003_BENEFIT,         // R: สิทธิ BOI
-    cardNoForS,             // S: เลขบัตรส่งเสริม (master override → fallback BOI003_CARD_NO)
-    BOI003_PERMIT_NO,       // T: PermitNo1
-    BOI003_ISSUE_DATE,      // U: IssueDate1
-    BOI003_AUTHORITY,       // V: PermitIssueAuthority1
-    BOI003_PRIVIEW,         // W: priview
-    cardNoForS,             // X: PermitNo2 = ค่าเดียวกับ S (mirror เลขบัตรส่งเสริม)
-    new Date(2021, 11, 1),  // Y: IssueDate2 = 1/12/2021
-    BOI003_AUTHORITY,       // Z: PermitIssueAuthority
-    BOI003_PRIVIEW,         // AA: priview
-    marksText,              // AB: Shipping mark
-  ]);
+  const rowHeights = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const cardNoForS = r.masterCardNo || BOI003_CARD_NO;
+    const marks = r.shippingMarks || [];
+    aoa.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      delta003ToDate(r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      BOI003_BENEFIT,
+      cardNoForS,
+      BOI003_PERMIT_NO,
+      BOI003_ISSUE_DATE,
+      BOI003_AUTHORITY,
+      BOI003_PRIVIEW,
+      cardNoForS,
+      new Date(2021, 11, 1),
+      BOI003_AUTHORITY,
+      BOI003_PRIVIEW,
+      marks.join(' '),
+    ]);
+    rowHeights.push({ hpt: 16 });
+  }
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
@@ -5442,13 +5600,19 @@ function delta003BuildWorkbookMain(r){
     {wch:10},{wch:22},{wch:14},{wch:18},{wch:10},
     {wch:26}
   ];
-  // Wrap text on Shipping mark (col AB = index 27)
-  { const a = XLSX.utils.encode_cell({ r:1, c:27 });
-    if(ws[a]){ ws[a].s = ws[a].s || {}; ws[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws[a] && ws[a].v instanceof Date){ ws[a].t='d'; ws[a].z='yyyy-mm-dd'; } }
-  // IssueDate2 (col Y = index 24) — format d/m/yyyy
-  { const a = XLSX.utils.encode_cell({ r:1, c:24 }); if(ws[a] && ws[a].v instanceof Date){ ws[a].t='d'; ws[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    // Wrap text on Shipping mark (col AB = index 27)
+    const wA = XLSX.utils.encode_cell({ r: rowIdx, c: 27 });
+    if(ws[wA]){ ws[wA].s = ws[wA].s || {}; ws[wA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    // Invoice Date (col 1) yyyy-mm-dd
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws[dA] && ws[dA].v instanceof Date){ ws[dA].t='d'; ws[dA].z='yyyy-mm-dd'; }
+    // IssueDate2 (col Y = index 24) d/m/yyyy
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 24 });
+    if(ws[dB] && ws[dB].v instanceof Date){ ws[dB].t='d'; ws[dB].z='d/m/yyyy'; }
+  }
+  ws['!rows'] = rowHeights;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'sheet 1');
   return wb;
@@ -5457,26 +5621,12 @@ function delta003BuildWorkbookMain(r){
 function delta003Download(){
   if(!delta003State.results || !delta003State.results.length) return;
   const rows = delta003State.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = delta003BuildWorkbookMain(r);
-    XLSX.writeFile(wb, r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = delta003BuildWorkbookMain(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file(r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = delta003BuildWorkbookMain(rows);
+  const fn = rows.length === 1
+    ? rows[0].invoiceNo + '.xlsx'
+    : 'DELTA_TRUCK_BOI003_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 
 function delta003Reset(){
@@ -5490,33 +5640,41 @@ function delta003Reset(){
   delta003CheckReady();
 }
 
-function delta003BuildWorkbookTest(r){
+function delta003BuildWorkbookTest(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   const toDate2 = delta003ToDate;
-  const marks = r.shippingMarks || [];
   const HDR1 = [
     'Invoice No. :','INVOICE DATE','Item No.','Product Code','Desc.','DescTH',
     'Qty.','Net Weight','Gross Weight','Curr.','Amount','Tariff','Stat',
     'Package Amount','Package Unit','Brand Name','Export Tax Incentives ID',
     'Import Tax Incentives ID','PermitNo1','IssueDate1','PermitIssueAuthority1'
   ];
-  const rows1 = [[
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    toDate2(r.exFactoryDate || r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    r.exportTaxID, r.importTaxID, r.permitNo,
-    toDate2(r.issueDate), r.authority,
-  ]];
-  const ws1 = XLSX.utils.aoa_to_sheet([HDR1, ...rows1]);
+  const aoa1 = [HDR1];
+  for(const r of rowsArr){
+    aoa1.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      toDate2(r.exFactoryDate || r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      r.exportTaxID, r.importTaxID, r.permitNo,
+      toDate2(r.issueDate), r.authority,
+    ]);
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(aoa1);
   ws1['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
     {wch:8},{wch:12},{wch:12},{wch:6},{wch:14},{wch:14},{wch:6},
     {wch:14},{wch:12},{wch:12},{wch:20},{wch:20},{wch:20},{wch:12},{wch:18}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:19 }); if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws1[dA] && ws1[dA].v instanceof Date){ ws1[dA].t='d'; ws1[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 19 });
+    if(ws1[dB] && ws1[dB].v instanceof Date){ ws1[dB].t='d'; ws1[dB].z='d/m/yyyy'; }
+  }
 
   const HDR2 = [
     'invoice no.','Item No.','invoice date.',
@@ -5528,8 +5686,11 @@ function delta003BuildWorkbookTest(r){
     'วันที่ออกใบอนุญาต','เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\n(Preview)\t',
     'Shippping mark'
   ];
-  const rows2 = [];
-  rows2.push([
+  const aoa2 = [HDR2];
+  const rowHeights2 = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const marks = r.shippingMarks || [];
+    aoa2.push([
       r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
       1,
       toDate2(r.exFactoryDate || r.invoiceDate),
@@ -5538,20 +5699,27 @@ function delta003BuildWorkbookTest(r){
       r.productCode, r.description, 'ตัวแปลงและจ่ายกระแสไฟฟ้า',
       r.tariff, r.stat, r.brand, String(r.pkgAmt),
       '', '', 'Y', r.importTaxID, r.permitNo,
-      toDate2(r.issueDate), r.authority, '01', marks.join('\n'),
+      toDate2(r.issueDate), r.authority, '01', marks.join(' '),
     ]);
-  const ws2 = XLSX.utils.aoa_to_sheet([HDR2, ...rows2]);
+    rowHeights2.push({ hpt: 16 });
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
   ws2['!cols'] = [
     {wch:14},{wch:8},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},
     {wch:10},{wch:14},{wch:8},{wch:14},{wch:14},{wch:38},{wch:32},
     {wch:14},{wch:6},{wch:12},{wch:6},{wch:8},{wch:8},{wch:12},
     {wch:20},{wch:20},{wch:14},{wch:18},{wch:10},{wch:26}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:26 });
-    if(ws2[a]){ ws2[a].s = ws2[a].s || {}; ws2[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws2['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:2 });  if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:23 }); if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const wA = XLSX.utils.encode_cell({ r: rowIdx, c: 26 });
+    if(ws2[wA]){ ws2[wA].s = ws2[wA].s || {}; ws2[wA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 2 });
+    if(ws2[dA] && ws2[dA].v instanceof Date){ ws2[dA].t='d'; ws2[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 23 });
+    if(ws2[dB] && ws2[dB].v instanceof Date){ ws2[dB].t='d'; ws2[dB].z='d/m/yyyy'; }
+  }
+  ws2['!rows'] = rowHeights2;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'excel ลูกค้า.');
   XLSX.utils.book_append_sheet(wb, ws2, 'MAPPING');
@@ -5561,26 +5729,12 @@ function delta003BuildWorkbookTest(r){
 function delta003DownloadTest(){
   if(!delta003State.results || !delta003State.results.length) return;
   const rows = delta003State.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = delta003BuildWorkbookTest(r);
-    XLSX.writeFile(wb, 'MAPPING_DELTA_TRUCK_IEAT003_TEST_'+r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = delta003BuildWorkbookTest(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file('MAPPING_DELTA_TRUCK_IEAT003_TEST_'+r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'MAPPING_DELTA_TRUCK_IEAT003_TEST_'+rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = delta003BuildWorkbookTest(rows);
+  const fn = rows.length === 1
+    ? 'MAPPING_DELTA_TRUCK_IEAT003_TEST_' + rows[0].invoiceNo + '.xlsx'
+    : 'MAPPING_DELTA_TRUCK_IEAT003_TEST_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 /* ══ END DELTA TRUCK BOI 003 ══ */
 
@@ -5945,28 +6099,8 @@ function delta005ParsePacking(lines){
       }
     }
   }
-  // BOI 006: order = SCHENKER → P/NO → MEXICO → MADE IN → INV#
-  const PATTERNS = [
-    ['SCHENKER',   /^SCHENKER\b/i,         s => 'SCHENKER'],
-    ['PNO',        /^P\/NO\s*:/i,          s => { const m = s.match(/^(P\/NO\s*:\s*\S+)/i); return m ? m[1] : s; }],
-    ['CONSIGNEE',  /^MEXICO\b/i,           s => 'MEXICO'],
-    ['MADE_IN',    /^MADE\s+IN\b/i,        s => { const m = s.match(/^(MADE\s+IN\s+\w+)/i); return m ? m[1] : s; }],
-    ['INV',        /^INV#\d+/i,            s => { const m = s.match(/^(INV#\d+)/i); return m ? m[1] : s; }]
-  ];
-  const foundMap = new Map();
-  for(const ln of lines){
-    const s = ln.trim();
-    if(!s) continue;
-    for(const [key, re, clean] of PATTERNS){
-      if(re.test(s) && !foundMap.has(key)){
-        foundMap.set(key, clean(s));
-        break;
-      }
-    }
-  }
-  for(const [key] of PATTERNS){
-    if(foundMap.has(key)) r.shippingMarks.push(foundMap.get(key));
-  }
+  // Anchor-based shipping marks extraction (works for any country/forwarder)
+  r.shippingMarks = deltaExtractShippingMarks(lines);
   return r;
 }
 
@@ -5990,19 +6124,25 @@ async function delta005Analyze(){
     for(const f of delta005State.allFiles){
       delta005SetStatus(`กำลังอ่าน: ${f.name}…`);
       const detected = await delta005DetectPdfType(f);
-      const invNo = delta005ExtractInvoiceNoFromLines(detected.lines);
-      if(!invNo){
+      // Split multi-invoice PDFs into per-invoice sections
+      const sections = deltaSplitInvoices(detected.lines);
+      if(!sections.length){
         console.warn('[DELTA005] ไม่พบ Invoice No ใน:', f.name, '(type:', detected.type+')');
         continue;
       }
-      if(detected.type === 'inv'){
-        invMap.set(invNo, { file: f, lines: detected.lines });
-      } else if(detected.type === 'pac'){
-        pacMap.set(invNo, { file: f, lines: detected.lines });
-      } else {
-        // Unknown — ลองทั้งสอง parser
-        console.warn('[DELTA005] Unknown type:', f.name, '— ลอง Invoice parser');
-        invMap.set(invNo, { file: f, lines: detected.lines });
+      if(sections.length > 1){
+        console.log('[DELTA005] '+f.name+' contains '+sections.length+' invoices: '+sections.map(s=>s.invNo).join(', '));
+      }
+      for(const sec of sections){
+        if(detected.type === 'inv'){
+          invMap.set(sec.invNo, { file: f, lines: sec.lines });
+        } else if(detected.type === 'pac'){
+          pacMap.set(sec.invNo, { file: f, lines: sec.lines });
+        } else {
+          // Unknown — ลองทั้งสอง parser
+          console.warn('[DELTA005] Unknown type:', f.name, '— ลอง Invoice parser');
+          invMap.set(sec.invNo, { file: f, lines: sec.lines });
+        }
       }
     }
 
@@ -6113,7 +6253,8 @@ function delta005ToDate(s){
   return (d && !isNaN(d)) ? d : s;
 }
 
-function delta005BuildWorkbookMain(r){
+function delta005BuildWorkbookMain(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   // BOI 006 headers (23 cols):
   //   R=สิทธิ · S=เลขบัตรส่งเสริม · T=PermitNo1 · U=IssueDate1 · V=PermitIssueAuthority1 · W=Shipping mark
   const HEADERS = [
@@ -6129,26 +6270,28 @@ function delta005BuildWorkbookMain(r){
   const BOI006_PERMIT_NO   = 'BOI0107537002559';
   const BOI006_ISSUE_DATE  = '00-00-2026';
   const BOI006_AUTHORITY   = '0994000740964';
-  // Master lookup override (ถ้ามี)
-  const cardNo = r.masterCardNo || BOI006_CARD_NO;
 
-  const marks = r.shippingMarks || [];
-  const marksText = marks.join('\n');
   const aoa = [HEADERS];
-  aoa.push([
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    delta005ToDate(r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    BOI006_BENEFIT,         // R: สิทธิ
-    cardNo,                 // S: เลขบัตรส่งเสริม (master override → fallback BOI006_CARD_NO)
-    BOI006_PERMIT_NO,       // T: PermitNo1
-    BOI006_ISSUE_DATE,      // U: IssueDate1
-    BOI006_AUTHORITY,       // V: PermitIssueAuthority1
-    marksText,              // W: Shipping mark
-  ]);
+  const rowHeights = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const cardNo = r.masterCardNo || BOI006_CARD_NO;
+    const marks = r.shippingMarks || [];
+    aoa.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      delta005ToDate(r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, (r.unitPrice || 0), r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      BOI006_BENEFIT,
+      cardNo,
+      BOI006_PERMIT_NO,
+      BOI006_ISSUE_DATE,
+      BOI006_AUTHORITY,
+      marks.join(' '),
+    ]);
+    rowHeights.push({ hpt: 16 });
+  }
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
@@ -6156,11 +6299,15 @@ function delta005BuildWorkbookMain(r){
     {wch:14},{wch:12},{wch:12},{wch:10},{wch:20},{wch:22},{wch:14},{wch:18},
     {wch:26}
   ];
-  // Wrap text on Shipping mark (col W = index 22)
-  { const a = XLSX.utils.encode_cell({ r:1, c:22 });
-    if(ws[a]){ ws[a].s = ws[a].s || {}; ws[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws[a] && ws[a].v instanceof Date){ ws[a].t='d'; ws[a].z='yyyy-mm-dd'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    // Wrap text on Shipping mark (col W = index 22)
+    const wA = XLSX.utils.encode_cell({ r: rowIdx, c: 22 });
+    if(ws[wA]){ ws[wA].s = ws[wA].s || {}; ws[wA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws[dA] && ws[dA].v instanceof Date){ ws[dA].t='d'; ws[dA].z='yyyy-mm-dd'; }
+  }
+  ws['!rows'] = rowHeights;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'sheet 1');
   return wb;
@@ -6169,26 +6316,12 @@ function delta005BuildWorkbookMain(r){
 function delta005Download(){
   if(!delta005State.results || !delta005State.results.length) return;
   const rows = delta005State.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = delta005BuildWorkbookMain(r);
-    XLSX.writeFile(wb, r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = delta005BuildWorkbookMain(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file(r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = delta005BuildWorkbookMain(rows);
+  const fn = rows.length === 1
+    ? rows[0].invoiceNo + '.xlsx'
+    : 'DELTA_TRUCK_BOI006_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 
 function delta005Reset(){
@@ -6202,33 +6335,41 @@ function delta005Reset(){
   delta005CheckReady();
 }
 
-function delta005BuildWorkbookTest(r){
+function delta005BuildWorkbookTest(rOrRows){
+  const rowsArr = Array.isArray(rOrRows) ? rOrRows : [rOrRows];
   const toDate2 = delta005ToDate;
-  const marks = r.shippingMarks || [];
   const HDR1 = [
     'Invoice No. :','INVOICE DATE','Item No.','Product Code','Desc.','DescTH',
     'Qty.','Net Weight','Gross Weight','Curr.','Amount','Tariff','Stat',
     'Package Amount','Package Unit','Brand Name','Export Tax Incentives ID',
     'Import Tax Incentives ID','PermitNo1','IssueDate1','PermitIssueAuthority1'
   ];
-  const rows1 = [[
-    r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
-    toDate2(r.exFactoryDate || r.invoiceDate),
-    r.itemNo, r.productCode, r.description, r.descTH,
-    String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
-    r.currency, r.amount.toFixed(2), r.tariff, r.stat,
-    r.pkgAmt, r.pkgUnit, r.brand,
-    r.exportTaxID, r.importTaxID, r.permitNo,
-    toDate2(r.issueDate), r.authority,
-  ]];
-  const ws1 = XLSX.utils.aoa_to_sheet([HDR1, ...rows1]);
+  const aoa1 = [HDR1];
+  for(const r of rowsArr){
+    aoa1.push([
+      r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
+      toDate2(r.exFactoryDate || r.invoiceDate),
+      r.itemNo, r.productCode, r.description, r.descTH,
+      String(r.qty), r.netWeight.toFixed(3), r.grossWeight.toFixed(3),
+      r.currency, r.amount.toFixed(2), r.tariff, r.stat,
+      r.pkgAmt, r.pkgUnit, r.brand,
+      r.exportTaxID, r.importTaxID, r.permitNo,
+      toDate2(r.issueDate), r.authority,
+    ]);
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(aoa1);
   ws1['!cols'] = [
     {wch:14},{wch:14},{wch:8},{wch:14},{wch:38},{wch:10},
     {wch:8},{wch:12},{wch:12},{wch:6},{wch:14},{wch:14},{wch:6},
     {wch:14},{wch:12},{wch:12},{wch:20},{wch:20},{wch:20},{wch:12},{wch:18}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:1 });  if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:19 }); if(ws1[a] && ws1[a].v instanceof Date){ ws1[a].t='d'; ws1[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 1 });
+    if(ws1[dA] && ws1[dA].v instanceof Date){ ws1[dA].t='d'; ws1[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 19 });
+    if(ws1[dB] && ws1[dB].v instanceof Date){ ws1[dB].t='d'; ws1[dB].z='d/m/yyyy'; }
+  }
 
   const HDR2 = [
     'invoice no.','Item No.','invoice date.',
@@ -6240,8 +6381,11 @@ function delta005BuildWorkbookTest(r){
     'วันที่ออกใบอนุญาต','เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\n(Preview)\t',
     'Shippping mark'
   ];
-  const rows2 = [];
-  rows2.push([
+  const aoa2 = [HDR2];
+  const rowHeights2 = [{ hpt: 16 }];
+  for(const r of rowsArr){
+    const marks = r.shippingMarks || [];
+    aoa2.push([
       r.invoiceNo ? parseInt(r.invoiceNo,10) || r.invoiceNo : '',
       1,
       toDate2(r.exFactoryDate || r.invoiceDate),
@@ -6250,20 +6394,27 @@ function delta005BuildWorkbookTest(r){
       r.productCode, r.description, 'ตัวแปลงและจ่ายกระแสไฟฟ้า',
       r.tariff, r.stat, r.brand, String(r.pkgAmt),
       '', '', 'Y', r.importTaxID, r.permitNo,
-      toDate2(r.issueDate), r.authority, '01', marks.join('\n'),
+      toDate2(r.issueDate), r.authority, '01', marks.join(' '),
     ]);
-  const ws2 = XLSX.utils.aoa_to_sheet([HDR2, ...rows2]);
+    rowHeights2.push({ hpt: 16 });
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
   ws2['!cols'] = [
     {wch:14},{wch:8},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},
     {wch:10},{wch:14},{wch:8},{wch:14},{wch:14},{wch:38},{wch:32},
     {wch:14},{wch:6},{wch:12},{wch:6},{wch:8},{wch:8},{wch:12},
     {wch:20},{wch:20},{wch:14},{wch:18},{wch:10},{wch:26}
   ];
-  { const a = XLSX.utils.encode_cell({ r:1, c:26 });
-    if(ws2[a]){ ws2[a].s = ws2[a].s || {}; ws2[a].s.alignment = { wrapText: true, vertical: 'top' }; } }
-  ws2['!rows'] = [{ hpt: 16 }, { hpt: Math.max(16, marks.length * 15) }];
-  { const a = XLSX.utils.encode_cell({ r:1, c:2 });  if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='yyyy-mm-dd'; } }
-  { const a = XLSX.utils.encode_cell({ r:1, c:23 }); if(ws2[a] && ws2[a].v instanceof Date){ ws2[a].t='d'; ws2[a].z='d/m/yyyy'; } }
+  for(let i = 0; i < rowsArr.length; i++){
+    const rowIdx = i + 1;
+    const wA = XLSX.utils.encode_cell({ r: rowIdx, c: 26 });
+    if(ws2[wA]){ ws2[wA].s = ws2[wA].s || {}; ws2[wA].s.alignment = { wrapText: true, vertical: 'top' }; }
+    const dA = XLSX.utils.encode_cell({ r: rowIdx, c: 2 });
+    if(ws2[dA] && ws2[dA].v instanceof Date){ ws2[dA].t='d'; ws2[dA].z='yyyy-mm-dd'; }
+    const dB = XLSX.utils.encode_cell({ r: rowIdx, c: 23 });
+    if(ws2[dB] && ws2[dB].v instanceof Date){ ws2[dB].t='d'; ws2[dB].z='d/m/yyyy'; }
+  }
+  ws2['!rows'] = rowHeights2;
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'excel ลูกค้า.');
   XLSX.utils.book_append_sheet(wb, ws2, 'MAPPING');
@@ -6273,26 +6424,12 @@ function delta005BuildWorkbookTest(r){
 function delta005DownloadTest(){
   if(!delta005State.results || !delta005State.results.length) return;
   const rows = delta005State.results;
-  if(rows.length === 1){
-    const r = rows[0];
-    const wb = delta005BuildWorkbookTest(r);
-    XLSX.writeFile(wb, 'MAPPING_DELTA_TRUCK_IEAT005_TEST_'+r.invoiceNo+'.xlsx');
-    return;
-  }
-  if(typeof JSZip === 'undefined'){ alert('JSZip library ไม่พร้อม — โปรดรีเฟรชหน้า'); return; }
-  const zip = new JSZip();
-  for(const r of rows){
-    const wb = delta005BuildWorkbookTest(r);
-    const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
-    zip.file('MAPPING_DELTA_TRUCK_IEAT005_TEST_'+r.invoiceNo+'.xlsx', buf);
-  }
-  zip.generateAsync({ type:'blob' }).then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'MAPPING_DELTA_TRUCK_IEAT005_TEST_'+rows.length+'_invoices.zip';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  });
+  // All invoices combined into a single Excel file (no ZIP, no per-invoice split)
+  const wb = delta005BuildWorkbookTest(rows);
+  const fn = rows.length === 1
+    ? 'MAPPING_DELTA_TRUCK_IEAT005_TEST_' + rows[0].invoiceNo + '.xlsx'
+    : 'MAPPING_DELTA_TRUCK_IEAT005_TEST_' + rows.length + '_invoices.xlsx';
+  XLSX.writeFile(wb, fn);
 }
 /* ══ END DELTA TRUCK BOI 005 ══ */
 
