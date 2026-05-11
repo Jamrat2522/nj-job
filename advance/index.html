@@ -7697,6 +7697,167 @@ select {
     margin-bottom: 11px;
     gap: 10px;
   }
+
+  /* 🆕 APPROVED + No Slip — card glow + banner เด่น */
+  .m-card.m-card-timeline-mode.approved-no-slip {
+    border: 1.5px solid rgba(74,222,128,.5) !important;
+    box-shadow: 0 0 0 2px rgba(74,222,128,.18), 0 6px 20px rgba(74,222,128,.18);
+    background: linear-gradient(135deg, rgba(74,222,128,.04), rgba(10,18,28,.6));
+  }
+  .m-card.m-card-timeline-mode.approved-no-slip::before {
+    background: linear-gradient(180deg, #4ade80 0%, #ffc107 100%) !important;
+  }
+  .status-pill.status-approved-warn {
+    background: linear-gradient(135deg, #4ade80, #22c55e) !important;
+    color: #052e16 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 2px 8px rgba(74,222,128,.4) !important;
+    border: none !important;
+  }
+  .m-slip-badge.slip-no-warn {
+    background: rgba(255,193,7,.18) !important;
+    color: #ffc107 !important;
+    border: 1px solid rgba(255,193,7,.5) !important;
+    font-weight: 800 !important;
+    animation: warnPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes warnPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,193,7,.5); }
+    50% { box-shadow: 0 0 0 4px rgba(255,193,7,0); }
+  }
+  /* Banner: อนุมัติแล้ว — ยังไม่แนบสลิป (tap-to-attach) */
+  .m-approved-no-slip-banner {
+    margin: 10px 0 12px;
+    padding: 13px 14px;
+    background: linear-gradient(135deg, rgba(255,193,7,.18), rgba(255,193,7,.06));
+    border: 1.5px dashed rgba(255,193,7,.55);
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s, background .18s;
+    animation: bannerGlow 2s ease-in-out infinite;
+  }
+  .m-approved-no-slip-banner:active {
+    transform: scale(.98);
+    background: linear-gradient(135deg, rgba(255,193,7,.28), rgba(255,193,7,.12));
+  }
+  .m-approved-no-slip-banner .m-bnr-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffc107, #f59e0b);
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    font-weight: 900;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(255,193,7,.4);
+  }
+  .m-approved-no-slip-banner .m-bnr-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .m-approved-no-slip-banner .m-bnr-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #ffc107;
+    letter-spacing: .2px;
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+  .m-approved-no-slip-banner .m-bnr-sub {
+    font-size: 10.5px;
+    color: #c4a868;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .m-approved-no-slip-banner .m-bnr-arrow {
+    flex-shrink: 0;
+    font-size: 22px;
+    opacity: .85;
+  }
+  @keyframes bannerGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,193,7,.3); }
+    50% { box-shadow: 0 0 0 6px rgba(255,193,7,0); }
+  }
+
+  /* 🆕 Account Copy Block — เลขบัญชี + Copy เด่น (อ้างอิงระบบ HSBC) */
+  .m-card.m-card-timeline-mode .m-acct-copy-block {
+    margin: 10px 0 12px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(74,158,255,.08), rgba(74,158,255,.02));
+    border: 1.5px dashed rgba(74,158,255,.45);
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .m-card.m-card-timeline-mode .m-acct-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .m-card.m-card-timeline-mode .m-acct-bank-name {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #9ec5ff;
+    letter-spacing: .3px;
+    margin-bottom: 2px;
+  }
+  .m-card.m-card-timeline-mode .m-acct-holder {
+    font-size: 10.5px;
+    color: #8a99b3;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .m-card.m-card-timeline-mode .m-acct-no {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 17px;
+    font-weight: 900;
+    color: #f0f4fa;
+    letter-spacing: .8px;
+    word-break: break-all;
+    line-height: 1.2;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .m-card.m-card-timeline-mode .m-acct-copy-btn {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #4a9eff, #2a7ad9);
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(74,158,255,.4);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s, box-shadow .12s;
+    min-width: 64px;
+  }
+  .m-card.m-card-timeline-mode .m-acct-copy-btn:active {
+    transform: scale(.95);
+    box-shadow: 0 2px 6px rgba(74,158,255,.3);
+  }
+  .m-card.m-card-timeline-mode .m-acct-copy-btn .ic {
+    font-size: 15px;
+    line-height: 1;
+  }
+  .m-card.m-card-timeline-mode .m-acct-copy-btn .lbl {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    line-height: 1;
+  }
   .m-card.m-card-timeline-mode .m-amt {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 17px;
@@ -7819,6 +7980,19 @@ select {
     border-color: rgba(168,85,247,.30);
   }
   .m-card.m-card-timeline-mode .m-qb-slip .m-qb-lbl { color: #cf9bff; }
+  .m-card.m-card-timeline-mode .m-qb-upload {
+    background: linear-gradient(135deg, rgba(245,166,35,.18), rgba(245,166,35,.08));
+    border-color: rgba(245,166,35,.45);
+    box-shadow: 0 2px 8px rgba(245,166,35,.18);
+  }
+  .m-card.m-card-timeline-mode .m-qb-upload .m-qb-ic { font-size: 18px; }
+  .m-card.m-card-timeline-mode .m-qb-upload .m-qb-lbl {
+    color: #fbbf24;
+    font-weight: 800;
+  }
+  .m-card.m-card-timeline-mode .m-qb-upload:active {
+    transform: scale(.96);
+  }
   .m-card.m-card-timeline-mode .m-qb-detail {
     background: linear-gradient(135deg, rgba(74,158,255,.14), rgba(74,158,255,.06));
     border-color: rgba(74,158,255,.30);
@@ -14784,9 +14958,14 @@ async function renderMobileApprovalCards(allRecs){
     } catch(e){ console.warn('[mobile cards] batch payments load', e); }
   }
 
-  // Counts per status
-  const cntPending  = allFiltered.filter(r => anWorkflowStatus(r) === 'OPEN_PENDING_APPROVAL').length;
-  const cntApproved = allFiltered.filter(r => anWorkflowStatus(r) === 'APPROVED').length;
+  // Counts per status — APPROVED + no slip = นับเป็น "รออนุมัติ" ด้วย (ต้องแนบสลิป)
+  const cntPending  = allFiltered.filter(r => {
+    const st = anWorkflowStatus(r);
+    if(st === 'OPEN_PENDING_APPROVAL') return true;
+    if(st === 'APPROVED' && !r.slip_path) return true;  // ✅ approved ยังไม่แนบ slip
+    return false;
+  }).length;
+  const cntApproved = allFiltered.filter(r => anWorkflowStatus(r) === 'APPROVED' && !!r.slip_path).length;  // มี slip ถึงนับ
   const cntRejected = allFiltered.filter(r => anWorkflowStatus(r) === 'REJECTED').length;
 
   // Mobile header — premium chip filter bar (active filter persists)
@@ -14818,17 +14997,19 @@ async function renderMobileApprovalCards(allRecs){
   if(activeFilter !== 'ALL'){
     displayRecs = recs.filter(r => {
       const st = anWorkflowStatus(r);
-      // 🆕 ระบบ pinning: รายการที่เพิ่งอนุมัติแต่ยังไม่แนบสลิป
-      // → ยังคงอยู่ใน chip "รออนุมัติ" จนกว่าจะแนบสลิป
+      // 🆕 PERSISTENT — APPROVED แต่ยังไม่มีสลิป → ถือว่า "ยังไม่จบ" จนกว่าจะแนบสลิป
+      // → ยังอยู่ใน chip "รออนุมัติ" ไม่ย้ายไป "อนุมัติแล้ว"
+      const approvedNoSlip = (st === 'APPROVED' && !r.slip_path);
+      if(approvedNoSlip){
+        return activeFilter === 'OPEN_PENDING_APPROVAL';
+      }
+      // 🆕 In-memory pinning (เผื่อ slip_path ยังไม่ sync จาก DB)
       const pinned = window._pendingSlipUpload instanceof Set && window._pendingSlipUpload.has(r.id);
       if(pinned){
-        // ถ้าเพิ่งอนุมัติ + ยังไม่มีสลิป → อยู่ใน "OPEN_PENDING_APPROVAL"
-        // ถ้ามีสลิปแล้ว → ลบ pin ออก แล้วใช้ status จริง
         if(r.slip_path){
           window._pendingSlipUpload.delete(r.id);
           return st === activeFilter;
         }
-        // pinned → ขึ้นเฉพาะใน OPEN_PENDING_APPROVAL chip
         return activeFilter === 'OPEN_PENDING_APPROVAL';
       }
       return st === activeFilter;
@@ -14864,6 +15045,8 @@ async function renderMobileApprovalCards(allRecs){
     const showApproveReject = isPending && isAdmin;
     // Slip download ถ้ามี slip_path
     const hasSlip = !!r.slip_path;
+    // 🆕 อนุมัติแล้วแต่ยังไม่แนบสลิป (state เด่น)
+    const approvedNoSlip = (isApproved && !hasSlip);
     // canApp = ใช้สิทธิ์ canApprove เดียวกับ desktop
     const canApp = isAdmin;
 
@@ -14909,16 +15092,55 @@ async function renderMobileApprovalCards(allRecs){
         </div>`;
     }
 
+    // ─── 🆕 Bank summary OUTSIDE — single primary account + Copy button ─────
+    let primaryAcct = '';
+    let primaryBank = '';
+    let primaryAcctName = '';
+    if(pmItems.length > 0){
+      primaryBank = pmItems[0].bank_name || '';
+      primaryAcct = pmItems[0].account_no || '';
+      primaryAcctName = lookupNm(primaryBank, primaryAcct) || pmItems[0].agent || '';
+    } else if(r.bank_name || r.account_no){
+      primaryBank = r.bank_name || '';
+      primaryAcct = r.account_no || '';
+      primaryAcctName = r.agent || '';
+    }
+    const acctCopyBlock = primaryAcct ? `
+      <div class="m-acct-copy-block" data-action="true">
+        <div class="m-acct-info">
+          <div class="m-acct-bank-name">🏦 ${escapeHtml(primaryBank || 'ธนาคาร')}</div>
+          ${primaryAcctName ? `<div class="m-acct-holder">👤 ${escapeHtml(primaryAcctName)}</div>` : ''}
+          <div class="m-acct-no" data-mc-act="copy-acct-tap" data-acct="${escapeHtml(primaryAcct)}" data-action="true">${escapeHtml(primaryAcct)}</div>
+        </div>
+        <button type="button" class="m-acct-copy-btn" data-mc-act="copy-acct" data-acct="${escapeHtml(primaryAcct)}" data-action="true">
+          <span class="ic">📋</span><span class="lbl">Copy</span>
+        </button>
+      </div>
+    ` : '';
+
     html += `
-      <div class="m-card m-card-timeline-mode" data-rec-id="${r.id}" data-status="${code}">
+      <div class="m-card m-card-timeline-mode ${approvedNoSlip ? 'approved-no-slip' : ''}" data-rec-id="${r.id}" data-status="${approvedNoSlip ? 'APPROVED_NO_SLIP' : code}">
         <!-- TOP ROW: Status pill + JOB # -->
         <div class="m-card-hd">
-          <span class="status-pill ${meta.cssClass}">${meta.emoji} ${meta.label}</span>
+          ${approvedNoSlip
+            ? `<span class="status-pill status-approved-warn">✅ อนุมัติแล้ว</span>`
+            : `<span class="status-pill ${meta.cssClass}">${meta.emoji} ${meta.label}</span>`}
           ${hasSlip
             ? `<span class="m-slip-badge slip-yes">📎 มีสลิป</span>`
-            : `<span class="m-slip-badge slip-no">📎 ยังไม่มี</span>`}
+            : `<span class="m-slip-badge slip-no slip-no-warn">⚠ ยังไม่แนบสลิป</span>`}
           <span class="m-card-num">#${escapeHtml(String(r.item_no || '—'))}</span>
         </div>
+        ${approvedNoSlip ? `
+        <!-- Banner: อนุมัติแล้ว แต่ต้องแนบสลิป (เด่นชัด) -->
+        <div class="m-approved-no-slip-banner" data-mc-act="slip-trigger" data-action="true">
+          <div class="m-bnr-icon">⚠</div>
+          <div class="m-bnr-text">
+            <div class="m-bnr-title">อนุมัติแล้ว — แต่ยังไม่แนบสลิป</div>
+            <div class="m-bnr-sub">รายการจะย้ายไป "อนุมัติแล้ว" หลังแนบสลิป · กดเพื่อแนบ</div>
+          </div>
+          <div class="m-bnr-arrow">📎</div>
+        </div>
+        ` : ''}
         <!-- JOB NJ — เด่นกลาง -->
         <div class="m-job-no">${escapeHtml(r.invoice_no || '—')}</div>
         <!-- Company / House B/L — กลาง -->
@@ -14931,6 +15153,7 @@ async function renderMobileApprovalCards(allRecs){
           <div class="m-amt">${fmt(total,2)} <span class="m-amt-unit">บาท</span></div>
           <div class="m-updated">${escapeHtml(dateStr)}</div>
         </div>
+        ${acctCopyBlock}
         ${noteFull ? `
         <!-- Timeline preview — แสดง note/timeline สั้นๆ (tap → ขยาย) -->
         <div class="m-timeline-box" data-mc-tl-toggle data-action="true">
@@ -14945,7 +15168,7 @@ async function renderMobileApprovalCards(allRecs){
         <!-- Hidden file picker (image + pdf) -->
         <input id="mobileSlipInput-${r.id}" type="file" accept="image/*,application/pdf"
           data-mc-act="slip-hidden" style="position:absolute;left:-9999px;width:0;height:0;opacity:0;" />
-        <!-- Quick action grid: LINE / Download / Detail / History -->
+        <!-- Quick action grid: LINE / Download / แนบสลิป / Detail / History -->
         <div class="m-quick-grid">
           <button type="button" class="m-quick-btn m-qb-line" data-mc-act="share-line" data-action="true">
             <span class="m-qb-ic">💬</span><span class="m-qb-lbl">LINE</span>
@@ -14954,17 +15177,16 @@ async function renderMobileApprovalCards(allRecs){
           <button type="button" class="m-quick-btn m-qb-download" data-mc-act="download-slip" data-action="true">
             <span class="m-qb-ic">📥</span><span class="m-qb-lbl">Download</span>
           </button>
-          ` : `
+          ` : ''}
           ${(isApproved || isPending) && canApp ? `
-          <button type="button" class="m-quick-btn m-qb-slip" data-mc-act="slip-trigger" data-action="true">
-            <span class="m-qb-ic">📎</span><span class="m-qb-lbl">แนบสลิป</span>
+          <button type="button" class="m-quick-btn m-qb-upload" data-mc-act="slip-trigger" data-action="true">
+            <span class="m-qb-ic">${hasSlip ? '📤' : '📎'}</span><span class="m-qb-lbl">${hasSlip ? 'อัปโหลดใหม่' : 'แนบสลิป'}</span>
           </button>
-          ` : `
+          ` : (!hasSlip ? `
           <button type="button" class="m-quick-btn m-qb-slip" disabled style="opacity:.35;cursor:not-allowed;">
             <span class="m-qb-ic">📎</span><span class="m-qb-lbl">ยังไม่มี</span>
           </button>
-          `}
-          `}
+          ` : '')}
           <button type="button" class="m-quick-btn m-qb-detail" data-mc-act="detail" data-action="true">
             <span class="m-qb-ic">👁</span><span class="m-qb-lbl">รายละเอียด</span>
           </button>
@@ -15217,7 +15439,7 @@ async function renderMobileApprovalCards(allRecs){
             openMobileDetailAN(r);
           }
         });
-      } else if(act === 'copy-acct'){
+      } else if(act === 'copy-acct' || act === 'copy-acct-tap'){
         el.addEventListener('click', async e => {
           e.stopPropagation();
           const acct = el.dataset.acct || '';
