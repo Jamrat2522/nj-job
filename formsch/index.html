@@ -105,6 +105,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
 .sav{display:none;align-items:center;gap:4px;font-size:11px;color:var(--t2);}
 .sav.on{display:flex;}
 .content{padding:20px;flex:1;overflow-y:auto;}
+.content:has(#page-report.on){overflow:hidden;}   /* หน้า REPORT: ห้าม scroll ชั้นนอก */
+.content.report-lock-scroll{overflow:hidden;}      /* fallback เผื่อ browser ไม่รองรับ :has() */
 
 /* PAGE VIEWS */
 .pview{display:none;}
@@ -531,7 +533,7 @@ input[type=file]{display:none}
 /* ════════════ REPORT FORMSCH (ใช้ธีมเดิมของระบบ · brown เฉพาะหัวตาราง) ════════════ */
 /* สีหัวตาราง: คอลัมน์ = น้ำตาลอ่อน, กลุ่ม(2 ชั้น) = น้ำตาลเข้มกว่าเล็กน้อย (ข้อยกเว้นเดียว) */
 :root{ --rpt-th:#c9a66b; --rpt-th-grp:#b8924f; }
-#page-report.on{display:flex;flex-direction:column;height:calc(100vh - 52px - 40px);min-height:480px;}
+#page-report.on{display:flex;flex-direction:column;height:calc(100vh - 52px - 40px);min-height:0;overflow:hidden;}
 .rpt-hd{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 0 13px;flex-shrink:0;}
 .rpt-hd-l{display:flex;align-items:center;gap:12px;}
 .rpt-hd-l h2{font-size:16px;font-weight:700;color:var(--t1);letter-spacing:.3px;}
@@ -563,6 +565,11 @@ input[type=file]{display:none}
 .rpt-hero-r .rpt-btn{height:42px;border-radius:10px;font-size:13px;padding:0 16px;}
 .rpt-hero-r #rpt-search{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;width:230px;}
 .rpt-hero-r #rpt-search:focus{border-color:#5a6a7e;}
+.rpt-hero-r #rpt-status-filter{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;color:var(--t1);padding:0 12px;font-size:12px;font-family:var(--font);outline:none;cursor:pointer;}
+.rpt-hero-r #rpt-status-filter:focus{border-color:#5a6a7e;}
+.rpt-hero-r #rpt-ref-filter{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;color:var(--t1);padding:0 12px;font-size:12px;font-family:var(--font);outline:none;width:180px;}
+.rpt-hero-r #rpt-ref-filter:focus{border-color:#5a6a7e;}
+.rpt-hero-r #rpt-ref-filter::placeholder{color:var(--t3);}
 .rpt-btn.primary{background:linear-gradient(180deg,#28A745 0%,#1F8E3D 100%);border:none;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(31,142,61,.3);}
 .rpt-btn.primary:hover{background:linear-gradient(180deg,#2fb850 0%,#1F8E3D 100%);color:#fff;}
 .rpt-btn.gold{background:linear-gradient(180deg,#C8A45A 0%,#A67C28 100%);border:none;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(166,124,40,.3);}
@@ -587,18 +594,23 @@ input[type=file]{display:none}
 .rpt-card.c-purple .rpt-card-num{color:#bd93f8;}
 
 /* ── ตาราง (การ์ดเดียวกับระบบ) ── */
-#rpt-scroll{flex:1;min-height:0;overflow:auto;border:1px solid var(--bd);border-radius:10px;background:var(--s1);}
-.rpt-table{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:100%;font-size:12px;color:var(--t1);font-family:var(--font);}
+.rpt-table-wrap{flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:10px;background:var(--s1);overflow:hidden;}
+.rpt-head-wrap{flex-shrink:0;overflow:hidden;padding-right:0;}
+#rpt-scroll{flex:1;min-height:0;overflow:auto;contain:layout paint;overflow-anchor:none;overscroll-behavior:contain;}
+.rpt-table{border-collapse:collapse;table-layout:fixed;width:var(--rpt-table-w, max-content);min-width:var(--rpt-table-w, 100%);font-size:12px;color:var(--t1);font-family:var(--font);}
+.rpt-table thead th{position:static !important;}
+.rpt-frow th{position:static !important;}
 .rpt-table th,.rpt-table td{border:1px solid var(--bd);padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* ══ หัวตาราง Enterprise (Corporate ERP) ══ */
 .rpt-table thead th{position:sticky;background:linear-gradient(180deg,#8C6827 0%,#6F4F18 100%);color:#FFFFFF;font-family:'Segoe UI',var(--font);text-align:center;vertical-align:middle;white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:visible;text-overflow:clip;line-height:1.25;border:1px solid rgba(255,255,255,.12);z-index:3;transition:filter .15s ease;}
-.rpt-table thead tr:nth-child(1) th{top:0;height:48px;padding:14px 10px;font-size:15px;font-weight:700;letter-spacing:.3px;}
+.rpt-table thead tr:nth-child(1) th{top:0;height:48px;padding:14px 4px;font-size:15px;font-weight:700;letter-spacing:0;}
 .rpt-table thead tr:nth-child(2) th{top:var(--rpt-h1,48px);height:42px;padding:10px 4px;font-size:12px;font-weight:600;letter-spacing:0;white-space:nowrap;}
-/* กลุ่มเอกสารลูกค้า = น้ำเงินเข้ม · NJ = เขียวเข้ม (หัวกลุ่ม row1 + หัวย่อย row2) */
-.rpt-table thead tr:nth-child(1) th:nth-child(10){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
-.rpt-table thead tr:nth-child(1) th:nth-child(11){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
+/* กลุ่มเอกสารลูกค้า = เขียว · NJ = น้ำเงิน (หัวกลุ่ม row1) — +1 หลังเพิ่มคอลัมน์ "อัปเดตสถานะ" */
+.rpt-table thead tr:nth-child(1) th:nth-child(11){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
+/* หัวข้อกลุ่ม "✓ เอกสารที่ลูกค้าส่งมา" (row1) = เขียว */
+.rpt-table thead tr:nth-child(1) th:nth-child(10){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
 .rpt-table thead tr:nth-child(2) th:nth-child(-n+7){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
-.rpt-table thead tr:nth-child(2) th:nth-child(n+8){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
+.rpt-table thead tr:nth-child(2) th:nth-child(n+8){background:linear-gradient(180deg,#8C6827 0%,#6F4F18 100%);color:#fff;}
 /* เส้นแบ่งกลุ่ม = เส้นจาง (ไม่ใช้เส้นดำเข้ม) */
 .rpt-table thead tr:nth-child(1) th:nth-child(11),
 .rpt-table thead tr:nth-child(2) th:nth-child(8){border-left:1px solid rgba(255,255,255,.24);}
@@ -619,7 +631,7 @@ input[type=file]{display:none}
 .rpt-cc{text-align:center;padding:2px;}
 .rpt-chk{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-size:16px;color:var(--t3);cursor:pointer;border-radius:5px;user-select:none;transition:.1s;}
 .rpt-chk:hover{background:var(--bd);}
-.rpt-chk.on{color:var(--gm);font-weight:700;}
+.rpt-chk.on{color:#f85149;font-weight:700;}
 .rpt-empty{text-align:center;color:var(--t2);padding:30px;font-size:13px;}
 .rpt-spacer td{border:none;padding:0;background:transparent;}
 .rpt-grpsep td{border:none;padding:0;background:rgba(0,0,0,.22);box-shadow:inset 0 1px 0 var(--bd),inset 0 -1px 0 var(--bd);}
@@ -650,8 +662,31 @@ input[type=file]{display:none}
 .rpt-mf{display:flex;flex-direction:column;gap:4px;}
 .rpt-mf-full{grid-column:1/-1;}
 .rpt-mf label{font-size:11.5px;font-weight:500;color:var(--t2);}
-.rpt-mf input,.rpt-mf textarea{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none;font-family:var(--font);resize:vertical;transition:border .15s;}
-.rpt-mf input:focus,.rpt-mf textarea:focus{border-color:var(--g);}
+.rpt-mf input,.rpt-mf textarea,.rpt-mf select{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none;font-family:var(--font);resize:vertical;transition:border .15s;}
+.rpt-mf input:focus,.rpt-mf textarea:focus,.rpt-mf select:focus{border-color:var(--g);}
+.rpt-appr{display:flex;gap:16px;margin-top:6px;align-items:flex-start;}
+.rpt-appr-card{flex:1;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;min-height:0;padding:10px 16px;border-radius:12px;border:2px solid var(--bd);background:var(--s2);cursor:pointer;transition:all .18s;text-align:center;box-sizing:border-box;}
+.rpt-appr-card > input[type="radio"]{display:none;}
+.rpt-appr-circle{width:22px;height:22px;border-radius:50%;border:3px solid;box-sizing:border-box;transition:all .18s;flex:none;}
+.rpt-appr-card.green .rpt-appr-circle{border-color:#3FB950;}
+.rpt-appr-card.red   .rpt-appr-circle{border-color:#F85149;}
+.rpt-appr-txt{font-size:15px;font-weight:700;color:var(--t1);margin-top:0;}
+.rpt-appr-card.green:hover{border-color:#3FB950;}
+.rpt-appr-card.red:hover{border-color:#F85149;}
+.rpt-appr-card.sel{border-width:3px;}
+.rpt-appr-card.green.sel{background:rgba(46,160,67,.20);border-color:#3FB950;}
+.rpt-appr-card.red.sel{background:rgba(201,55,44,.22);border-color:#F85149;}
+.rpt-appr-card.sel .rpt-appr-txt{color:#fff;}
+.rpt-appr-card.green.sel .rpt-appr-circle{background:#3FB950;box-shadow:0 0 8px 1px rgba(63,185,80,.45);}
+.rpt-appr-card.red.sel   .rpt-appr-circle{background:#F85149;box-shadow:0 0 8px 1px rgba(248,81,73,.45);}
+.rpt-reject-wrap{display:none;flex-basis:100%;width:100%;max-width:100%;margin-top:10px;}
+.rpt-reject-wrap textarea{width:100%;max-width:100%;min-height:70px;max-height:none;resize:vertical;box-sizing:border-box;background:rgba(246,176,74,.25);border:1px solid #C77B1A;border-radius:10px;padding:10px 12px;font-size:13px;color:#fff;font-family:var(--font);outline:none;line-height:1.4;transition:box-shadow .15s,border-color .15s;}
+.rpt-reject-wrap textarea::placeholder{color:rgba(255,255,255,.7);}
+.rpt-reject-wrap textarea:focus{border-color:#F6B04A;box-shadow:0 0 0 3px rgba(246,176,74,.35);}
+.rpt-apprdate-wrap{display:none;flex-basis:100%;width:100%;max-width:100%;margin-top:10px;text-align:left;}
+.rpt-apprdate-wrap label{display:block;font-size:11px;color:rgba(255,255,255,.85);margin-bottom:4px;font-weight:600;}
+.rpt-apprdate-wrap input{width:100%;box-sizing:border-box;background:rgba(63,185,80,.18);border:1px solid #2ea043;border-radius:8px;padding:8px 10px;font-size:13px;color:#fff;font-family:var(--font);outline:none;transition:box-shadow .15s,border-color .15s;color-scheme:dark;}
+.rpt-apprdate-wrap input:focus{border-color:#3FB950;box-shadow:0 0 0 3px rgba(63,185,80,.3);}
 .rpt-mchk{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;}
 .rpt-mcb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);background:var(--s2);transition:.12s;}
 .rpt-mcb:hover{border-color:var(--g);}
@@ -1586,6 +1621,8 @@ input[type=file]{display:none}
           </div>
           <div class="rpt-hero-r">
             <div class="rpt-search-wrap"><span>🔍</span><input id="rpt-search" type="text" placeholder="ค้นหาทุกคอลัมน์…"></div>
+            <select id="rpt-status-filter"><option value="">ทุกสถานะ</option><option value="APPROVED">🟢 อนุมัติจากระบบ</option><option value="REJECTED">🔴 ไม่อนุมัติ</option></select>
+            <input id="rpt-ref-filter" type="text" placeholder="REF : กรมการค้า" title="ค้นหา REF : กรมการค้า (contains)" autocomplete="off">
             <button class="rpt-btn" id="rpt-btn-filter">🔽 ตัวกรอง</button>
             <button class="rpt-btn primary" id="rpt-btn-add">➕ เปิดงาน</button>
             <button class="rpt-btn gold" id="rpt-btn-export">📤 Export Excel</button>
@@ -1610,12 +1647,19 @@ input[type=file]{display:none}
             <div class="rpt-card-tx"><div class="rpt-card-lbl">อัปเดตล่าสุด</div><div class="rpt-card-num sm" id="rpt-st-updated">-</div></div>
           </div>
         </div>
-        <div id="rpt-scroll">
-          <table class="rpt-table" id="rpt-table">
-            <colgroup id="rpt-colgroup"></colgroup>
-            <thead id="rpt-thead"></thead>
-            <tbody id="rpt-tbody"></tbody>
-          </table>
+        <div class="rpt-table-wrap">
+          <div class="rpt-head-wrap">
+            <table class="rpt-table" id="rpt-table-head">
+              <colgroup id="rpt-colgroup-h"></colgroup>
+              <thead id="rpt-thead"></thead>
+            </table>
+          </div>
+          <div id="rpt-scroll">
+            <table class="rpt-table" id="rpt-table">
+              <colgroup id="rpt-colgroup"></colgroup>
+              <tbody id="rpt-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -2182,6 +2226,7 @@ function navTo(page){
     document.getElementById('page-'+p)?.classList.toggle('on',p===page);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
+  document.querySelector('.content')?.classList.toggle('report-lock-scroll', page==='report');   // ล็อก scroll ชั้นนอกเฉพาะหน้า REPORT
   const titles={
     mapping:'Mapping Excel',members:'จัดการสมาชิก',merge:'รวมไฟล์ Excel',
     'sc-mapping':'Form Schaeffler — Mapping','sc-highlight':'Form Schaeffler — PDF Highlight',
@@ -8290,21 +8335,24 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   /* ── นิยามคอลัมน์ (อ้างอิง Excel ต้นฉบับ 100%) ────────────── */
   // กลุ่ม 1: ข้อมูลหลัก (14)  type: text|date|area
   const RPT_MAIN = [
-    {k:'rm',                   h:'RM',                         t:'text', w:70 },
-    {k:'customer_name',        h:'ชื่อลูกค้า',                  t:'text', w:150},
+    {k:'rm',                   h:'RM',                         t:'text', w:175},
+    {k:'customer_name',        h:'ชื่อลูกค้า',                  t:'text', w:130},
     {k:'mail_received_date',   h:'วันที่ได้รับเมล์',            t:'date', w:120, hT:1},
-    {k:'form_status',          h:'FORM',                       t:'text', w:80 },
-    {k:'pack_status',          h:'PACK',                       t:'text', w:90 },
+    {k:'form_status',          h:'FORM',                       t:'text', w:56 },
+    {k:'pack_status',          h:'PACK',                       t:'text', w:56 },
     {k:'nj_full_docs_date',    h:'วันที่ NJ ส่งเอกสารครบชุด',    t:'date', w:175, hT:1},
     {k:'nj_draft_form_date',   h:'วันที่ NJ ส่ง Draft FORM',     t:'date', w:175, hT:1},
     {k:'kn_confirm_form_date', h:'วันที่ KN Confirm FORM',       t:'date', w:170, hT:1},
-    {k:'trade_ref',            h:'REF : กรมการค้า',             t:'text', w:130},
+    {k:'trade_ref',            h:'REF : กรมการค้า',             t:'text', w:110},
     {k:'nj_submit_system_date',h:'วันที่ NJ ส่งข้อมูลเข้าระบบ',  t:'date', w:170, hT:1},
-    {k:'reject_reason',        h:'เหตุผลตีกลับจากกรมการค้า',     t:'area', w:200},
+    {k:'reject_reason',        h:'เหตุผลตีกลับจากกรมการค้า',     t:'area', w:200, hT:1},
     {k:'system_approve_date',  h:'วันที่อนุมัติในระบบ',          t:'date', w:140, hT:1},
     {k:'original_form_sent_date',h:'วันที่ส่งฟอร์มตัวจริง',      t:'date', w:150, hT:1},
     {k:'account_sent_date',    h:'วันที่ส่งเข้าบัญชี',           t:'date', w:150, hT:1},
-    {k:'remark',               h:'หมายเหตุ',                    t:'area', w:150}
+    {k:'job_nj_name',          h:'ชื่อJOB NJ',                  t:'text', w:150, hT:1},
+    {k:'job_kn_name',          h:'ชื่อJOB KN',                  t:'text', w:150, hT:1},
+    {k:'update_status',        h:'อัปเดตสถานะ',                 t:'select', w:190, opts:['รอดำเนินการ','คีย์ข้อมูล','รอ Confirm Draft','รอเอกสารลายเซ็นจากลูกค้า','ส่งข้อมูลเข้าระบบรอเจ้าหน้าที่ตรวจสอบ','ไม่อนุมัติติดปัญหา','อนุมัติแล้ว']},
+    {k:'remark',               h:'หมายเหตุ',                    t:'area', w:400}
   ];
   // คอลัมน์ที่แสดงในตาราง (ซ่อนวันที่ 7 คอลัมน์ — เฉพาะการแสดงผล ไม่กระทบ modal/export/db)
   const RPT_MAIN_VIS = RPT_MAIN.filter(c=>!c.hT);
@@ -8324,15 +8372,14 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     {k:'nj_bl',         h:'BL',                w:64},
     {k:'nj_inv',        h:'INV',               w:80},
     {k:'nj_pkl',        h:'PKL',               w:80},
-    {k:'nj_excel_ex',   h:'EXCEL EX',          w:100},
     {k:'nj_import_pdf', h:'ใบขนขาเข้า PDF',    w:120},
-    {k:'nj_excel_im',   h:'ใบขนขาเข้า EXCEL',  w:120},
     {k:'nj_letter',     h:'จดหมาย',            w:80}
   ];
   const RPT_CHK = RPT_CUST.concat(RPT_NJ);                 // ทุกช่อง checkbox
   const RPT_ALL = RPT_MAIN.concat(RPT_CHK);               // 26 คอลัมน์
   // ป้ายชื่อที่แสดงผล — ใช้เฉพาะ Table + Modal (เปิดงาน/แก้ไข) · ไม่กระทบ field/DB/Export
   const RPT_HDR_OVR = { trade_ref:'REF : กรม', reject_reason:'เหตุผลยื่นไม่ผ่าน' };
+  const RPT_MODAL_LBL = { job_nj_name:'JOB NJ', job_kn_name:'JOB KN' };   // ชื่อ label เฉพาะใน Modal (ไม่กระทบหัวตาราง/Export)
   const _hdr = c => (RPT_HDR_OVR[c.k] || c.h);
   const G2_TITLE = '✓ เอกสารที่ลูกค้าส่งมา';
   const G3_TITLE = '✓ เอกสารที่ NJ ได้รับเซ็นแล้ว';
@@ -8346,6 +8393,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   let rptBound = false;
   let rptSort  = {k:null, dir:1};
   let rptSearch= '';
+  let rptStatusFilter = '';   // '' ทั้งหมด | 'APPROVED' | 'REJECTED' — กรองสถานะจาก toolbar
+  let rptRefFilter = '';      // ค้นหา REF : กรมการค้า (trade_ref) แบบ contains จาก toolbar
   let rptFilters = {};      // {colKey: value}  (checkbox: '', 'y', 'n')
   let rptFilterOn = false;
   let rptSelId = null;
@@ -8444,6 +8493,13 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         return String(r[c.k]==null?'':r[c.k]).toLowerCase().includes(q);
       }));
     }
+    if(rptStatusFilter){                                   // กรองสถานะจาก toolbar (อนุมัติ/ไม่อนุมัติ)
+      v=v.filter(r=>r.system_approval_status===rptStatusFilter);
+    }
+    if(rptRefFilter){                                      // ค้นหา REF : กรมการค้า (trade_ref) แบบ contains — ทำงานร่วมกับตัวกรองอื่น (AND)
+      const q=rptRefFilter.toLowerCase();
+      v=v.filter(r=>String(r.trade_ref==null?'':r.trade_ref).toLowerCase().includes(q));
+    }
     if(rptFilterOn){
       for(const key in rptFilters){
         const fv=rptFilters[key]; if(fv==='' || fv==null) continue;
@@ -8480,26 +8536,49 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
 
   /* ── สร้าง colgroup (กำหนดความกว้างคงที่ของ 26 คอลัมน์) ──── */
   function _rptBuildCols(){
-    const cg=document.getElementById('rpt-colgroup'); if(!cg) return;
-    const mainCols=RPT_MAIN_VIS.map(c=>`<col style="width:${c.w}px">`).join('');
-    const stAct='<col style="width:104px"><col style="width:164px">';   // สถานะ + จัดการ (4 ปุ่ม: คัดลอก/แก้ไข/ปิดงาน/ลบ)
-    const chkCols=RPT_CHK.map(c=>`<col style="width:${c.w}px">`).join('');
-    cg.innerHTML=mainCols+stAct+chkCols;
+    const widths = [
+      ...RPT_MAIN_VIS.map(c=>c.w),
+      100,
+      150,
+      ...RPT_CHK.map(c=>c.w)
+    ];
+    const html = widths.map(w=>`<col style="width:${w}px">`).join('');
+    const totalW = widths.reduce((a,b)=>a+b,0);
+    ['rpt-colgroup','rpt-colgroup-h'].forEach(id=>{
+      const cg=document.getElementById(id);
+      if(cg) cg.innerHTML=html;
+    });
+    ['rpt-table','rpt-table-head'].forEach(id=>{
+      const t=document.getElementById(id);
+      if(t){
+        t.style.setProperty('--rpt-table-w', totalW+'px');
+        t.style.width = totalW+'px';
+        t.style.minWidth = totalW+'px';
+      }
+    });
+  }
+  // ชดเชยความกว้าง scrollbar ของ tbody ให้หัวตารางไม่เหลื่อมขอบขวา
+  function _rptSyncHeadPad(){
+    const sc=document.getElementById('rpt-scroll');
+    const hw=document.querySelector('.rpt-head-wrap');
+    if(!sc || !hw) return;
+    const sbw = Math.max(0, sc.offsetWidth - sc.clientWidth);
+    hw.style.paddingRight = sbw + 'px';
+    hw.scrollLeft = sc.scrollLeft;
   }
 
   /* ── สร้าง THEAD (header 2 ชั้น) ─────────────────────────── */
   function _rptBuildHead(){
     const thead=document.getElementById('rpt-thead'); if(!thead) return;
-    const arrow=k=> rptSort.k===k ? (rptSort.dir>0?' ▲':' ▼') : '';
     let r1='<tr>';
-    RPT_MAIN_VIS.forEach(c=>{ r1+=`<th rowspan="2" class="rpt-main rpt-sort" data-k="${c.k}">${_esc(_hdr(c))}<span class="rpt-ar">${arrow(c.k)}</span></th>`; });
+    RPT_MAIN_VIS.forEach(c=>{ r1+=`<th rowspan="2" class="rpt-main" data-k="${c.k}">${_esc(_hdr(c))}</th>`; });
     r1+=`<th rowspan="2" class="rpt-main rpt-col-status">สถานะ</th>`;
     r1+=`<th rowspan="2" class="rpt-main rpt-col-actions">จัดการ</th>`;
     r1+=`<th colspan="${RPT_CUST.length}" class="rpt-grp">${_esc(G2_TITLE)}</th>`;
     r1+=`<th colspan="${RPT_NJ.length}" class="rpt-grp">${_esc(G3_TITLE)}</th>`;
     r1+='</tr>';
     let r2='<tr>';
-    RPT_CHK.forEach(c=>{ r2+=`<th class="rpt-sub rpt-sort" data-k="${c.k}">${_esc(c.h)}<span class="rpt-ar">${arrow(c.k)}</span></th>`; });
+    RPT_CHK.forEach(c=>{ r2+=`<th class="rpt-sub" data-k="${c.k}">${_esc(c.h)}</th>`; });
     r2+='</tr>';
     // แถวตัวกรอง (toggle)
     let r3='';
@@ -8528,16 +8607,19 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
 
   /* ── virtual render TBODY ───────────────────────────────── */
-  function _rptRender(){
-    _rptBuildHead();
+  function _rptRender(){ _rptBuildHead(); _rptBuildCols(); _rptRenderBody(true); _rptSyncHeadPad(); }   // load/sort/filter/เปลี่ยน column → build head + body + sync
+  let _rptLastStart=-1,_rptLastEnd=-1,_rptLastN=-1,_rptLastScrollTop=-1;
+  function _rptRenderBody(force){                                    // scroll → เฉพาะ tbody เท่านั้น
     const sc=document.getElementById('rpt-scroll'), tb=document.getElementById('rpt-tbody');
     if(!sc||!tb) return;
     const n=RPT_VIEW.length;
     const NCOL=RPT_MAIN_VIS.length+RPT_CHK.length+2;   // +สถานะ +จัดการ
-    if(n===0){ tb.innerHTML='<tr><td colspan="'+NCOL+'" class="rpt-empty">— ไม่มีข้อมูล —</td></tr>'; return; }
+    if(n===0){ tb.innerHTML='<tr><td colspan="'+NCOL+'" class="rpt-empty">— ไม่มีข้อมูล —</td></tr>'; _rptLastStart=_rptLastEnd=-1; _rptLastN=0; return; }
     const vh=sc.clientHeight||600;
     let start=Math.floor(sc.scrollTop/ROWH)-BUF; if(start<0) start=0;
     let end=Math.ceil((sc.scrollTop+vh)/ROWH)+BUF; if(end>n) end=n;
+    if(!force && sc.scrollTop===_rptLastScrollTop && start===_rptLastStart && end===_rptLastEnd && n===_rptLastN) return;  // ตำแหน่ง/ช่วงเดิม → ไม่เขียน tbody ใหม่
+    _rptLastStart=start; _rptLastEnd=end; _rptLastN=n; _rptLastScrollTop=sc.scrollTop;
     const topH=start*ROWH, botH=(n-end)*ROWH;
     let html='';
     if(topH>0) html+=`<tr class="rpt-spacer" style="height:${topH}px"><td colspan="${NCOL}"></td></tr>`;
@@ -8552,11 +8634,14 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         html+=`<td class="rpt-td" style="text-align:${align}" title="${_esc(disp)}">${_esc(disp)}</td>`;
       });
       const done=(r.status==='DONE');
-      html+=`<td class="rpt-td rpt-stcell"><span class="rpt-badge ${done?'done':'pending'}">${done?'DONE':'PENDING'}</span></td>`;
+      let _stCls,_stTxt;                                    // priority: ผลการยื่นระบบ → fallback r.status
+      if(r.system_approval_status==='APPROVED'){ _stCls='done'; _stTxt='อนุมัติแล้ว'; }
+      else if(r.system_approval_status==='REJECTED'){ _stCls='pending'; _stTxt='ไม่อนุมัติ'; }
+      else { _stCls=done?'done':'pending'; _stTxt=done?'DONE':'PENDING'; }
+      html+=`<td class="rpt-td rpt-stcell"><span class="rpt-badge ${_stCls}">${_stTxt}</span></td>`;
       html+=`<td class="rpt-td rpt-actcell">`
         +`<button class="rpt-act copy"  data-act="copy"  data-id="${_esc(r.id)}" title="คัดลอกเป็นงานใหม่">📄</button>`
         +`<button class="rpt-act edit"  data-act="edit"  data-id="${_esc(r.id)}" title="แก้ไข">✏</button>`
-        +`<button class="rpt-act close" data-act="close" data-id="${_esc(r.id)}" title="ปิดงาน"${done?' disabled':''}>✅</button>`
         +`<button class="rpt-act del"   data-act="del"   data-id="${_esc(r.id)}" title="ลบ">🗑</button>`
         +`</td>`;
       RPT_CHK.forEach(c=>{
@@ -8590,11 +8675,17 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const box=document.getElementById('rpt-mfields'); if(!box) return;
     let h='<div class="rpt-msec">ข้อมูลหลัก</div><div class="rpt-mgrid">';
     RPT_MAIN.forEach(c=>{
+      if(c.k==='reject_reason'){ return; }                 // ผลการยื่นระบบ → ย้ายไปท้ายฟอร์ม (render หลัง checkbox NJ)
       if(c.t==='area'){
         h+=`<div class="rpt-mf rpt-mf-full"><label>${_esc(_hdr(c))}</label><textarea id="mf-${c.k}" rows="2"></textarea></div>`;
+      }else if(c.t==='select'){
+        const opts=(c.opts||[]).map(o=>`<option value="${_esc(o)}">${_esc(o)}</option>`).join('');
+        h+=`<div class="rpt-mf"><label>${_esc(RPT_MODAL_LBL[c.k]||_hdr(c))}</label><select id="mf-${c.k}">${opts}</select></div>`;
       }else{
         const it=(c.t==='date')?'date':'text';
-        h+=`<div class="rpt-mf"><label>${_esc(_hdr(c))}</label><input id="mf-${c.k}" type="${it}"></div>`;
+        const ro=(c.k==='system_approve_date')?' readonly':'';   // วันที่อนุมัติในระบบ รับค่าจาก date picker ในกรอบอนุมัติเท่านั้น
+        const ity=(c.k==='system_approve_date')?'text':it;        // แสดงเป็นข้อความ DD/MM/YYYY
+        h+=`<div class="rpt-mf"><label>${_esc(RPT_MODAL_LBL[c.k]||_hdr(c))}</label><input id="mf-${c.k}" type="${ity}"${ro}></div>`;
       }
     });
     h+='</div>';
@@ -8604,7 +8695,55 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     h+=`<div class="rpt-msec">${_esc(G3_TITLE)}</div><div class="rpt-mchk">`;
     RPT_NJ.forEach(c=>{ h+=`<label class="rpt-mcb"><input type="checkbox" id="mf-${c.k}"><span>${_esc(c.h)}</span></label>`; });
     h+='</div>';
+    // ── ผลการยื่นระบบ (ท้ายฟอร์ม): การ์ดอนุมัติ(เขียว)/ไม่อนุมัติ(แดง) ──
+    h+=`<div class="rpt-msec">ผลการยื่นระบบ</div>`
+      +`<div class="rpt-appr">`
+      +`<label class="rpt-appr-card green"><input type="radio" name="rpt-appr" value="APPROVED"><span class="rpt-appr-circle"></span><span class="rpt-appr-txt">อนุมัติจากระบบ</span>`
+      +`<div id="mf-appr-date-wrap" class="rpt-apprdate-wrap"><label>วันที่อนุมัติจากระบบ</label><input type="date" id="mf-appr-date"></div>`
+      +`</label>`
+      +`<label class="rpt-appr-card red"><input type="radio" name="rpt-appr" value="REJECTED"><span class="rpt-appr-circle"></span><span class="rpt-appr-txt">ไม่อนุมัติ</span>`
+      +`<div id="mf-reject-wrap" class="rpt-reject-wrap"><textarea id="mf-reject_reason" placeholder="พิมพ์เหตุผลไม่อนุมัติ..."></textarea></div>`
+      +`</label>`
+      +`</div>`;
     box.innerHTML=h;
+    box.querySelectorAll('input[name="rpt-appr"]').forEach(r=>r.addEventListener('change',()=>{ _rptApprToggle(true); _rptApprDate(); }));
+    document.getElementById('mf-reject_reason')?.addEventListener('input',()=>{   // ไม่อนุมัติ: พิมพ์เหตุผล → หมายเหตุตามทันที (real-time)
+      const rmk=document.getElementById('mf-remark'), ta=document.getElementById('mf-reject_reason');
+      if(rmk && document.querySelector('input[name="rpt-appr"]:checked')?.value==='REJECTED') rmk.value=ta.value;
+    });
+  }
+  // วันที่ปัจจุบันแบบ ISO (YYYY-MM-DD) สำหรับ <input type="date"> — ตารางแสดง DD/MM/YYYY เอง (ระบบเดิม)
+  function _rptTodayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  // กดอนุมัติจากระบบ → เด้งวันที่ปัจจุบันเข้าช่อง "วันที่อนุมัติในระบบ" / ไม่อนุมัติ → ล้าง (เรียกเฉพาะตอนผู้ใช้กด ไม่ใช่ตอน fill)
+  // อนุมัติ → แสดง date picker (default วันนี้เมื่อว่าง) / ไม่อนุมัติ → ซ่อน+ล้าง picker — ไม่เชื่อม/ไม่เด้งไปฟิลด์ "วันที่อนุมัติในระบบ"
+  function _rptApprDate(){
+    const val=document.querySelector('input[name="rpt-appr"]:checked')?.value;
+    const approved=(val==='APPROVED');
+    const wrap=document.getElementById('mf-appr-date-wrap');
+    const pk=document.getElementById('mf-appr-date');
+    if(wrap) wrap.style.display=approved?'block':'none';
+    if(approved){
+      if(pk && !pk.value) pk.value=_rptTodayISO();   // default วันนี้เมื่อว่าง
+    }else{
+      if(pk) pk.value='';                            // ไม่อนุมัติ → ล้าง picker เท่านั้น
+    }
+  }
+  // เลือกการ์ด → พื้นหลังตามสถานะ (.sel) + แสดง textarea ในการ์ดแดง + focus เมื่อเลือกไม่อนุมัติ
+  function _rptApprToggle(focus){
+    const val=document.querySelector('input[name="rpt-appr"]:checked')?.value;
+    document.querySelectorAll('.rpt-appr-card').forEach(cd=>cd.classList.toggle('sel', cd.querySelector('input')?.value===val));
+    const rej=(val==='REJECTED');
+    const wrap=document.getElementById('mf-reject-wrap');
+    if(wrap) wrap.style.display=rej?'block':'none';
+    const ta=document.getElementById('mf-reject_reason');
+    if(!rej && ta) ta.value='';                             // อนุมัติ/ยังไม่เลือก → ล้างเหตุผล (reject_reason='')
+    if(rej && focus && ta) setTimeout(()=>ta.focus(),0);
+    // ── ผลการยื่นระบบ → หมายเหตุ (ใช้ field remark เดิม, เขียนทับเสมอ) ──
+    const rmk=document.getElementById('mf-remark');
+    if(rmk){
+      if(val==='APPROVED') rmk.value='อนุมัติเรียบร้อย';
+      else if(val==='REJECTED') rmk.value=(ta?ta.value:'');   // ตามเหตุผลที่กรอก (real-time เพิ่มใน listener)
+    }
   }
   // เติมค่าทุกช่องใน Modal จากข้อมูลรายการ (text/date/checkbox)
   function _rptFillModal(src){
@@ -8613,6 +8752,31 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       if(RPT_CHK.includes(c)) el.checked=src?!!src[c.k]:false;
       else el.value=src?(src[c.k]==null?'':src[c.k]):'';
     });
+    const _us=document.getElementById('mf-update_status'); if(_us && !_us.value) _us.value='รอดำเนินการ';   // ค่าเริ่มต้น: เปิดงานใหม่ / แถวเก่าที่ยังไม่มีค่า
+    // ผลการยื่นระบบ — legacy-safe: ไม่มี status แต่มีเหตุผลเดิม → ถือว่าไม่อนุมัติ (กันข้อมูลหาย)
+    const st=src?src.system_approval_status:null;
+    const approved=(st==='APPROVED')?true:(st==='REJECTED')?false:!(src&&src.reject_reason);
+    const rb=document.querySelector('input[name="rpt-appr"][value="'+(approved?'APPROVED':'REJECTED')+'"]');
+    if(rb) rb.checked=true;
+    _rptApprToggle();
+    const pk=document.getElementById('mf-appr-date');
+    if(pk) pk.value = (approved && src) ? (src.system_approve_date||'') : '';   // picker = ISO เดิม (แก้ไข/คัดลอก)
+    const _dEl=document.getElementById('mf-system_approve_date');
+    if(_dEl) _dEl.value=_rptDate(src?(src.system_approve_date||''):'');          // ฟิลด์ "วันที่อนุมัติในระบบ" แสดง DD/MM/YYYY จากข้อมูลเดิม (ไม่เกี่ยว picker)
+    _rptApprDate();   // แสดง/ซ่อน date picker (default วันนี้ถ้าว่าง) — ไม่ยุ่งกับฟิลด์วันที่อนุมัติในระบบ
+    // ➕ เปิดงานใหม่ (src=null): ซ่อน 2 วันที่ที่ยังไม่มีข้อมูลจริง (label+input+spacing) / ✏แก้ไข+📄คัดลอก แสดงตามเดิม
+    ['nj_submit_system_date','system_approve_date'].forEach(k=>{
+      const el=document.getElementById('mf-'+k), wrap=el&&el.closest('.rpt-mf');
+      if(wrap) wrap.style.display = src ? '' : 'none';
+    });
+    if(!src){   // ➕ เปิดงานใหม่ เท่านั้น: สลับตำแหน่ง Layout วันที่ได้รับเมล์ ↔ REF:กรม (ไม่แตะ id/value/logic)
+      const a=document.getElementById('mf-mail_received_date')?.closest('.rpt-mf');
+      const b=document.getElementById('mf-trade_ref')?.closest('.rpt-mf');
+      if(a && b && a.parentNode===b.parentNode){
+        const p=a.parentNode, m=document.createComment('');
+        p.replaceChild(m,a); p.replaceChild(a,b); p.replaceChild(b,m);   // สลับ a↔b
+      }
+    }
   }
   async function _rptOpenModal(mode, srcId){
     _rptBuildModalFields();
@@ -8642,6 +8806,18 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       const el=document.getElementById('mf-'+c.k); if(!el) return;
       rec[c.k]=RPT_CHK.includes(c)?el.checked:(el.value||null);
     });
+    // ── ผลการยื่นระบบ: อนุมัติ→APPROVED(reject_reason=null) / ไม่อนุมัติ→REJECTED(ต้องมีเหตุผล) ──
+    const _apprEl=document.querySelector('input[name="rpt-appr"]:checked');
+    if(_apprEl && _apprEl.value==='REJECTED'){
+      const _rsn=(document.getElementById('mf-reject_reason')?.value||'').trim();
+      if(!_rsn){ toast('กรุณากรอกเหตุผลไม่อนุมัติ','error'); return; }   // ห้ามบันทึก
+      rec.system_approval_status='REJECTED'; rec.reject_reason=_rsn;   // เก็บเฉพาะ reject_reason (ไม่ทับหมายเหตุ)
+      rec.system_approve_date='';                                       // ไม่อนุมัติ → ล้างวันที่อนุมัติในระบบ
+    }else{
+      rec.system_approval_status='APPROVED'; rec.reject_reason='';      // อนุมัติ → ล้างเหตุผล (ไม่แตะ remark เดิม)
+      const _pk=document.getElementById('mf-appr-date');
+      rec.system_approve_date = _pk ? (_pk.value||'') : '';             // เก็บ ISO จาก date picker (export แปลง DD/MM/YYYY เอง)
+    }
     const btn=document.getElementById('rpt-msave'); if(btn) btn.disabled=true;
     try{
       if(rptEditId!=null){
@@ -8746,67 +8922,74 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
   async function _rptExport(){
     if(typeof ExcelJS==='undefined'){ toast('ExcelJS ยังโหลดไม่เสร็จ','error'); return; }
-    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('EXPORT FORM');
-    const nMain=RPT_MAIN.length, nCust=RPT_CUST.length, nNj=RPT_NJ.length;
-    const total=nMain+nCust+nNj;
-    // ความกว้าง: คอลัมน์หลัก = อ้างอิงต้นฉบับ · คอลัมน์ checkbox/สถานะ = auto-fit ตามหัวข้อ (ไทย-aware, ไม่ทับกัน)
-    const mainW=[8,19.1,14,8,13,28.4,29.1,25.9,16,26.4,31.2,16,24.3,24.3,18];
-    const chkW =RPT_CHK.map(c=> Math.min(Math.max(_fullW(c.h)+4, 7), 26));
-    const stW  =Math.max(_fullW('PENDING')+4, 11);
-    ws.columns=[...mainW, ...chkW, stW].map(w=>({width:w}));
-    // แถว 1-2 header
-    const r1=ws.getRow(1), r2=ws.getRow(2); r1.height=28.05; r2.height=34.05;
-    // กลุ่มหลัก A..N : merge แนวตั้ง 1:2
-    RPT_MAIN.forEach((c,i)=>{
-      const col=i+1; ws.mergeCells(1,col,2,col);
-      const cell=ws.getCell(1,col); cell.value=c.h;
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:C_MAIN}};
-      cell.font={name:'Calibri',size:10,bold:true,color:{argb:'FF1F1813'}};
-      cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
-    });
-    // กลุ่ม 2/3 header รวม (แถว 1) + sub (แถว 2)
-    let col=nMain+1;
-    const grpStartCust=col;  ws.mergeCells(1,grpStartCust,1,grpStartCust+nCust-1);
-    let gc=ws.getCell(1,grpStartCust); gc.value=G2_TITLE;
-    gc.fill={type:'pattern',pattern:'solid',fgColor:{argb:C_CUSTH}};
-    gc.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}}; gc.alignment={horizontal:'center',vertical:'center'};
-    col+=nCust;
-    const grpStartNj=col; ws.mergeCells(1,grpStartNj,1,grpStartNj+nNj-1);
-    let gn=ws.getCell(1,grpStartNj); gn.value=G3_TITLE;
-    gn.fill={type:'pattern',pattern:'solid',fgColor:{argb:C_NJH}};
-    gn.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}}; gn.alignment={horizontal:'center',vertical:'center'};
-    // sub header (แถว 2) สำหรับทุก checkbox
-    RPT_CHK.forEach((c,i)=>{
-      const cc=nMain+1+i; const cell=ws.getCell(2,cc); cell.value=c.h;
-      const isCust=i<nCust;
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:isCust?C_CUSTS:C_NJS}};
-      cell.font={name:'Calibri',size:10,bold:true,color:{argb:'FF000000'}};
-      cell.alignment={horizontal:'center',vertical:'center',wrapText:true};
-    });
-    // คอลัมน์ "สถานะ" (ท้ายสุด) — Export มีสถานะ แต่ไม่มีคอลัมน์ "จัดการ"
-    const stCol=total+1;
-    ws.mergeCells(1,stCol,2,stCol);
-    const stc=ws.getCell(1,stCol); stc.value='สถานะ';
-    stc.fill={type:'pattern',pattern:'solid',fgColor:{argb:C_MAIN}};
-    stc.font={name:'Calibri',size:10,bold:true,color:{argb:'FF1F1813'}};
-    stc.alignment={horizontal:'center',vertical:'center',wrapText:true};
-    // ข้อมูล (เรียง RM→PACK + เว้นแถวคั่นกลุ่ม เหมือนหน้าต่างรายการ 100%)
+    // ── รูปแบบอ้างอิงไฟล์ตัวอย่าง 100% · ตัดคอลัมน์ "เหตุผลตีกลับจากกรมการค้า" (reject_reason) ออกเฉพาะไฟล์ Export · ไม่กระทบ table/modal/DB ──
+    const GOLD='FFFFC000', GREEN='FF92D050', CYAN='FF00B0F0', BLK='FF000000', SEP='FFDDEBF7';
+    const FONT={name:'Calibri',size:11};
+    const _fl=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
+    // คอลัมน์หลัก — ไม่มี reject_reason · 4 คอลัมน์ (ส่งฟอร์มตัวจริง/ส่งเข้าบัญชี/JOB NJ/JOB KN) ย้ายไปท้ายสุด → EXP_TAIL
+    const EXP_MAIN=[
+      {k:'rm',                    h:'RM',                         t:'text'},
+      {k:'customer_name',         h:'ชื่อลูกค้า',                  t:'text'},
+      {k:'mail_received_date',    h:'วันที่ได้รับเมล์',            t:'date'},
+      {k:'form_status',           h:'FORM',                       t:'text'},
+      {k:'pack_status',           h:'PACK',                       t:'pack'},
+      {k:'nj_full_docs_date',     h:'วันที่ NJ ส่งเอกสารครบชุด',   t:'date'},
+      {k:'nj_draft_form_date',    h:'วันที่ NJ ส่ง Draft FORM',    t:'date'},
+      {k:'kn_confirm_form_date',  h:'วันที่ KN Confirm FORM',      t:'date'},
+      {k:'trade_ref',             h:'REF : กรมการค้า',             t:'text'},
+      {k:'nj_submit_system_date', h:'วันที่ NJ ส่งข้อมูลเข้าระบบ', t:'date'},
+      {k:'system_approve_date',   h:'วันที่อนุมัติในระบบ',         t:'date'},
+      {k:'update_status',         h:'อัปเดตสถานะ',                 t:'text'},
+      {k:'remark',                h:'หมายเหตุ',                    t:'text'},
+      {k:'__status',              h:'สถานะ',                      t:'status'}
+    ];
+    // คอลัมน์ท้ายสุด (ย้ายมาไว้หลังกลุ่ม NJ) — สไตล์เดียวกับหัวหลัก (ทอง)
+    const EXP_TAIL=[
+      {k:'original_form_sent_date',h:'วันที่ส่งฟอร์มตัวจริง',      t:'date'},
+      {k:'account_sent_date',     h:'วันที่ส่งเข้าบัญชี',          t:'date'},
+      {k:'job_nj_name',           h:'JOB NJ',                     t:'text'},
+      {k:'job_kn_name',           h:'JOB KN',                     t:'text'}
+    ];
+    const CUST=RPT_CUST, NJ=RPT_NJ;
+    const nMain=EXP_MAIN.length, nCust=CUST.length, nNj=NJ.length, nTail=EXP_TAIL.length, TOTAL=nMain+nCust+nNj+nTail; // 30
+    const tailStart=nMain+nCust+nNj;   // คอลัมน์ท้ายเริ่มที่ tailStart+1
+    // ความกว้างคอลัมน์ (Excel units) — main(13) + ลูกค้า(7) + NJ(6) + ท้าย(4) · แต่ละคอลัมน์คงความกว้างเดิม
+    const WID=[21.5703125,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,32,117.42578125,9.140625,3.85546875,3.5703125,4.28515625,4.140625,8.7109375,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
+    ws.columns=WID.map(w=>({width:w}));
+    // ── แถว 1: หัวหลัก (ทอง) + หัวกลุ่ม merge (เขียว/ฟ้า) ──
+    for(let i=0;i<nMain;i++){ const c=ws.getCell(1,i+1); c.value=EXP_MAIN[i].h; c.fill=_fl(GOLD); c.font=FONT; c.alignment={horizontal:'center'}; }
+    ws.mergeCells(1,nMain+1,1,nMain+nCust); const gc=ws.getCell(1,nMain+1); gc.value=G2_TITLE; gc.fill=_fl(GREEN); gc.font=FONT; gc.alignment={horizontal:'center'};
+    ws.mergeCells(1,nMain+nCust+1,1,nMain+nCust+nNj); const gn=ws.getCell(1,nMain+nCust+1); gn.value=G3_TITLE; gn.fill=_fl(CYAN); gn.font=FONT; gn.alignment={horizontal:'center'};
+    for(let i=0;i<nTail;i++){ const c=ws.getCell(1,tailStart+1+i); c.value=EXP_TAIL[i].h; c.fill=_fl(GOLD); c.font=FONT; c.alignment={horizontal:'center'}; }
+    // ── แถว 2: หัวหลักเว้นว่าง (ทอง) + หัวย่อย checkbox (เขียว/ฟ้า) ──
+    for(let i=0;i<nMain;i++){ const c=ws.getCell(2,i+1); c.fill=_fl(GOLD); c.font=FONT; if(i<nMain-1) c.alignment={horizontal:'center'}; }
+    for(let i=0;i<nCust;i++){ const c=ws.getCell(2,nMain+1+i); c.value=CUST[i].h; c.fill=_fl(GREEN); c.font=FONT; }
+    for(let i=0;i<nNj;i++){ const c=ws.getCell(2,nMain+nCust+1+i); c.value=NJ[i].h; c.fill=_fl(CYAN); c.font=FONT; }
+    for(let i=0;i<nTail;i++){ const c=ws.getCell(2,tailStart+1+i); c.fill=_fl(GOLD); c.font=FONT; c.alignment={horizontal:'center'}; }
+    // ── ข้อมูล (เรียง RM→PACK + แถวคั่นกลุ่ม เหมือนหน้าต่างรายการ 100%) ──
     const disp = RPT_DISP.length ? RPT_DISP : _rptDisplayList(_rptGroupSort(RPT_VIEW.length?RPT_VIEW:RPT_DATA));
+    let rr=3;
     disp.forEach(r=>{
-      if(r.__sep){ ws.addRow([]); return; }                  // แถวว่าง 1 แถวคั่นกลุ่ม
-      const arr=[];
-      RPT_MAIN.forEach(c=> arr.push(c.t==='date'?_rptDate(r[c.k]):(r[c.k]==null?'':r[c.k])) );
-      RPT_CHK.forEach(c=> arr.push(r[c.k]?'☑':'☐') );
-      arr.push(r.status==='DONE'?'DONE':'PENDING');         // คอลัมน์ สถานะ
-      const row=ws.addRow(arr);
-      row.eachCell({includeEmpty:true},(cell,ci)=>{
-        cell.font={name:'Calibri',size:11};
-        const isArea=(ci<=nMain) && RPT_MAIN[ci-1] && RPT_MAIN[ci-1].t==='area';
-        cell.alignment={horizontal:isArea?'left':'center',vertical:'center',wrapText:isArea};
-      });
+      if(r.__sep){ for(let c=1;c<=TOTAL;c++){ const cell=ws.getCell(rr,c); cell.fill=_fl(SEP); cell.font=FONT; if(c===5) cell.alignment={horizontal:'center'}; } rr++; return; }
+      for(let i=0;i<nMain;i++){ const m=EXP_MAIN[i]; let v;
+        if(m.t==='date') v=_rptDate(r[m.k]);
+        else if(m.t==='status') v=(r.system_approval_status==='APPROVED'?'DONE':(r.system_approval_status==='REJECTED'?'PENDING':(r.status||'')));
+        else v=(r[m.k]==null?'':r[m.k]);
+        const cell=ws.getCell(rr,i+1); cell.value=(v===''||v==null)?null:v; cell.font=FONT; if(i+1===5) cell.alignment={horizontal:'center'}; }
+      for(let i=0;i<nCust;i++){ const cell=ws.getCell(rr,nMain+1+i); cell.value=r[CUST[i].k]?'✓':null; cell.font=FONT; cell.alignment={horizontal:'center',vertical:'middle'}; }
+      for(let i=0;i<nNj;i++){ const cell=ws.getCell(rr,nMain+nCust+1+i); cell.value=r[NJ[i].k]?'✓':null; cell.font=FONT; cell.alignment={horizontal:'center',vertical:'middle'}; }
+      for(let i=0;i<nTail;i++){ const m=EXP_TAIL[i]; let v=(m.t==='date')?_rptDate(r[m.k]):(r[m.k]==null?'':r[m.k]);
+        const cell=ws.getCell(rr,tailStart+1+i); cell.value=(v===''||v==null)?null:v; cell.font=FONT; }
+      rr++;
     });
-    _rptXlBorders(ws,total+1,nMain,nCust);
-    ws.views=[{state:'frozen',ySplit:2}];
+    // ── เส้นขอบ thin เต็มกริด · หัวหลัก (คอลัมน์ 1..17) รวมแถว 1-2 ไม่มีเส้นคั่นกลาง (เหมือนตัวอย่าง) ──
+    const last=rr-1; const thin={style:'thin',color:{argb:BLK}};
+    for(let r=1;r<=last;r++) for(let c=1;c<=TOTAL;c++){
+      const b={top:thin,left:thin,bottom:thin,right:thin};
+      if(c<=nMain || c>tailStart){ if(r===1) delete b.bottom; if(r===2) delete b.top; }
+      ws.getCell(r,c).border=b;
+    }
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -8832,28 +9015,39 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     });
     const si=document.getElementById('rpt-search');
     if(si){ let t; si.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{ rptSearch=si.value.trim(); _rptApplyView(); _rptRender(); },180); }); }
+    document.getElementById('rpt-status-filter')?.addEventListener('change',e=>{ rptStatusFilter=e.target.value; _rptApplyView(); _rptRender(); });
+    { let _rt; document.getElementById('rpt-ref-filter')?.addEventListener('input',e=>{ clearTimeout(_rt); _rt=setTimeout(()=>{ rptRefFilter=e.target.value.trim(); _rptApplyView(); _rptRender(); },180); }); }
 
     // modal
     document.getElementById('rpt-msave') ?.addEventListener('click',_rptSave);
     document.getElementById('rpt-mcancel')?.addEventListener('click',_rptCloseModal);
-    document.getElementById('rpt-modal')  ?.addEventListener('click',e=>{ if(e.target.id==='rpt-modal') _rptCloseModal(); });
+    /* ปิด Modal ได้เฉพาะปุ่ม ✕ / ยกเลิก / บันทึก เท่านั้น — ยกเลิกการปิดเมื่อคลิกพื้นหลัง (กันเด้งปิดตอนลากเลือก/Ctrl+C/คลิกขวา Copy ข้อความ) */
     // confirm
     document.getElementById('rpt-cfm-yes')?.addEventListener('click',()=>{ document.getElementById('rpt-cfm').classList.remove('on'); if(_rptConfirmCb) _rptConfirmCb(); _rptConfirmCb=null; });
     document.getElementById('rpt-cfm-no') ?.addEventListener('click',()=>{ document.getElementById('rpt-cfm').classList.remove('on'); _rptConfirmCb=null; });
 
     // virtual scroll (throttle ด้วย rAF)
     const sc=document.getElementById('rpt-scroll');
-    if(sc){ let tick=false; sc.addEventListener('scroll',()=>{ if(tick) return; tick=true; requestAnimationFrame(()=>{ _rptRender(); tick=false; }); }); }
+    if(sc){
+      let tick=false;
+      sc.addEventListener('scroll',()=>{
+        const hw=document.querySelector('.rpt-head-wrap');
+        if(hw) hw.scrollLeft=sc.scrollLeft;
+        if(tick) return;
+        tick=true;
+        requestAnimationFrame(()=>{
+          if(hw) hw.scrollLeft=sc.scrollLeft;
+          _rptRenderBody();
+          tick=false;
+        });
+      }, {passive:true});
+    }
+    // sticky header คำนวณใหม่เฉพาะตอน resize window (ไม่แตะตอน scroll) — _rptFixSticky no-op ถ้ายังไม่มี header
+    let _rptRz; window.addEventListener('resize',()=>{ clearTimeout(_rptRz); _rptRz=setTimeout(()=>{ _rptFixSticky(); _rptSyncHeadPad(); },150); });
 
     const thead=document.getElementById('rpt-thead');
     if(thead){
-      // sort เมื่อคลิกหัวคอลัมน์
-      thead.addEventListener('click',e=>{
-        const th=e.target.closest('.rpt-sort'); if(!th) return;
-        const k=th.dataset.k; if(!k) return;
-        if(rptSort.k===k) rptSort.dir=-rptSort.dir; else { rptSort.k=k; rptSort.dir=1; }
-        _rptApplyView(); _rptRender();
-      });
+      // (ยกเลิก sort เมื่อคลิกหัวคอลัมน์ — หัวตารางเป็นข้อความธรรมดา ไม่เรียงเมื่อคลิก)
       // ตัวกรองต่อคอลัมน์
       thead.addEventListener('input',e=>{
         const fi=e.target.closest('.rpt-fi'); if(!fi) return;
@@ -8879,7 +9073,6 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         const id=act.dataset.id;
         if(act.dataset.act==='copy')       _rptOpenModal('copy', id);
         else if(act.dataset.act==='edit')  _rptOpenModal('edit', id);
-        else if(act.dataset.act==='close') _rptCloseJob(id);
         else if(act.dataset.act==='del')   _rptDelete(id);
       });
       // ปิด Double Click และ Right Click ทั้งหมด (ห้ามเปิด Modal / เมนูคลิกขวา)
