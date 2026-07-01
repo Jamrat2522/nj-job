@@ -605,17 +605,17 @@ input[type=file]{display:none}
 .rpt-table thead th{position:sticky;background:linear-gradient(180deg,#8C6827 0%,#6F4F18 100%);color:#FFFFFF;font-family:'Segoe UI',var(--font);text-align:center;vertical-align:middle;white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:visible;text-overflow:clip;line-height:1.25;border:1px solid rgba(255,255,255,.12);z-index:3;transition:filter .15s ease;}
 .rpt-table thead tr:nth-child(1) th{top:0;height:48px;padding:14px 4px;font-size:15px;font-weight:700;letter-spacing:0;}
 .rpt-table thead tr:nth-child(2) th{top:var(--rpt-h1,48px);height:42px;padding:10px 4px;font-size:12px;font-weight:600;letter-spacing:0;white-space:nowrap;}
-/* กลุ่มเอกสารลูกค้า = เขียว · NJ = น้ำเงิน (หัวกลุ่ม row1) — +1 หลังเพิ่มคอลัมน์ "อัปเดตสถานะ" */
-.rpt-table thead tr:nth-child(1) th:nth-child(11){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
+/* กลุ่มเอกสารลูกค้า = เขียว · NJ = น้ำเงิน (หัวกลุ่ม row1) — +1 หลังเพิ่มคอลัมน์ "อัปเดตสถานะ" + "เลข INVOICE" */
+.rpt-table thead tr:nth-child(1) th:nth-child(12){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
 /* หัวข้อกลุ่ม "✓ เอกสารที่ลูกค้าส่งมา" (row1) = เขียว */
-.rpt-table thead tr:nth-child(1) th:nth-child(10){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
+.rpt-table thead tr:nth-child(1) th:nth-child(11){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
 .rpt-table thead tr:nth-child(2) th:nth-child(-n+7){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
 .rpt-table thead tr:nth-child(2) th:nth-child(n+8){background:linear-gradient(180deg,#8C6827 0%,#6F4F18 100%);color:#fff;}
 /* เส้นแบ่งกลุ่ม = เส้นจาง (ไม่ใช้เส้นดำเข้ม) */
-.rpt-table thead tr:nth-child(1) th:nth-child(11),
+.rpt-table thead tr:nth-child(1) th:nth-child(12),
 .rpt-table thead tr:nth-child(2) th:nth-child(8){border-left:1px solid rgba(255,255,255,.24);}
-.rpt-table tbody td:nth-child(17),
-.rpt-table thead tr.rpt-frow th:nth-child(17){border-left:1px solid rgba(255,255,255,.10);}
+.rpt-table tbody td:nth-child(18),
+.rpt-table thead tr.rpt-frow th:nth-child(18){border-left:1px solid rgba(255,255,255,.10);}
 /* sort arrow + hover (อ่อนขึ้น ~5%) */
 .rpt-table thead th .rpt-ar{color:inherit;opacity:.7;font-size:10px;}
 .rpt-table thead th.rpt-sort{cursor:pointer;user-select:none;}
@@ -8336,6 +8336,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   // กลุ่ม 1: ข้อมูลหลัก (14)  type: text|date|area
   const RPT_MAIN = [
     {k:'rm',                   h:'RM',                         t:'text', w:175},
+    {k:'invoice_no',           h:'เลข INVOICE',                 t:'text', w:130},
     {k:'customer_name',        h:'ชื่อลูกค้า',                  t:'text', w:130},
     {k:'mail_received_date',   h:'วันที่ได้รับเมล์',            t:'date', w:120, hT:1},
     {k:'form_status',          h:'FORM',                       t:'text', w:56 },
@@ -8929,6 +8930,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     // คอลัมน์หลัก — ไม่มี reject_reason · 4 คอลัมน์ (ส่งฟอร์มตัวจริง/ส่งเข้าบัญชี/JOB NJ/JOB KN) ย้ายไปท้ายสุด → EXP_TAIL
     const EXP_MAIN=[
       {k:'rm',                    h:'RM',                         t:'text'},
+      {k:'invoice_no',            h:'เลข INVOICE',                 t:'text'},
       {k:'customer_name',         h:'ชื่อลูกค้า',                  t:'text'},
       {k:'mail_received_date',    h:'วันที่ได้รับเมล์',            t:'date'},
       {k:'form_status',           h:'FORM',                       t:'text'},
@@ -8954,7 +8956,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const nMain=EXP_MAIN.length, nCust=CUST.length, nNj=NJ.length, nTail=EXP_TAIL.length, TOTAL=nMain+nCust+nNj+nTail; // 30
     const tailStart=nMain+nCust+nNj;   // คอลัมน์ท้ายเริ่มที่ tailStart+1
     // ความกว้างคอลัมน์ (Excel units) — main(13) + ลูกค้า(7) + NJ(6) + ท้าย(4) · แต่ละคอลัมน์คงความกว้างเดิม
-    const WID=[21.5703125,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,32,117.42578125,9.140625,3.85546875,3.5703125,4.28515625,4.140625,8.7109375,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    const WID=[21.5703125,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,32,117.42578125,9.140625,3.85546875,3.5703125,4.28515625,4.140625,8.7109375,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
     ws.columns=WID.map(w=>({width:w}));
     // ── แถว 1: หัวหลัก (ทอง) + หัวกลุ่ม merge (เขียว/ฟ้า) ──
