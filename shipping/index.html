@@ -14926,9 +14926,27 @@ function _docStatusMobileHTML_bkklkb(id){
     <input type="file" id="doc-sp-hidden" multiple accept="image/*" style="display:none" onchange="_docSpFileChosen()">
     <input type="file" id="cp-att-file" multiple accept="image/*" style="display:none" onchange="_docSpCpFileChosen()">`;
 }
+// V.SP2SEC (MOBILE): body 2 หมวดสำหรับมือถือ/แท็บเล็ต — เหมือนเดสก์ท็อปเป๊ะ (📋 สถานะระหว่างทาง พิมพ์เอง+แนบรูป · 🟢 ตรวจปล่อยเสร็จ 3 การ์ด บังคับรูป + อื่นๆ inline) · reuse handler เดิมทั้งหมด (save/upload/complete/timeline logic เดิม)
+function _docStatusMobileHTML_2sec(id){
+  const _cpIco = ['🚚','📦','🏢'];
+  const cpRows = DOC_STATUS_PICK.complete.map((o,i)=>
+    `<div class="cp-row"><div class="cp-left"><span class="cp-ico">${_cpIco[i]||'📄'}</span><span class="cp-name">${esc(_docNormalizeCardStatus(o.text))}</span></div><div class="cp-acts"><button type="button" class="cp-attach" id="cp-att-${i}" onclick="_docSpCpAttach('${id}',${i})">📷 แนบรูป</button><button type="button" class="cp-done" id="cp-done-${i}" disabled onclick="_docSpCpDone('${id}',${i})">🟢 จบงาน</button></div></div>`).join('')
+    + `<div class="cp-row" style="flex-direction:column;align-items:stretch;gap:8px"><div class="cp-left"><span class="cp-ico">📝</span><span class="cp-name">อื่นๆ</span></div><textarea id="doc-sp-other-custom" class="textarea" rows="2" placeholder="พิมพ์รายละเอียดการตรวจปล่อยเสร็จ... เช่น ส่งมอบเอกสารเรียบร้อย, ส่งมอบให้ลูกค้าแล้ว"></textarea><div class="cp-acts" style="justify-content:space-between"><button type="button" class="cp-attach" onclick="_docSpOtherAttach('${id}')">📷 แนบรูป</button><button type="button" class="cp-done cp-other" onclick="_docSpOtherDone('${id}')">🟢 จบงาน</button></div></div>`;
+  return `
+    <div class="doc-sp-sec">📋 สถานะระหว่างทาง</div>
+    <div class="doc-sp-row">
+      <input id="doc-sp-custom" class="input doc-sp-input" placeholder="พิมพ์สถานะเอง เช่น รอ D/O, รอรถ, รอภาษี, รอเอกสาร, รอตรวจปล่อย" onkeydown="if(event.key==='Enter')_docSpSaveCustom('${id}')">
+      <button class="doc-sp-act act-cam" onclick="_docSpCustomAttach('${id}')">📷 แนบรูป</button>
+      <button class="doc-sp-act act-upd" onclick="_docSpSaveCustom('${id}')">อัปเดต</button>
+    </div>
+    <div class="doc-sp-sec" style="margin-top:16px;color:#6EE7B7">🟢 ตรวจปล่อยเสร็จ</div>
+    <div class="cp-list">${cpRows}</div>
+    <input type="file" id="doc-sp-hidden" multiple accept="image/*" style="display:none" onchange="_docSpFileChosen()">
+    <input type="file" id="cp-att-file" multiple accept="image/*" style="display:none" onchange="_docSpCpFileChosen()">`;
+}
 function _docStatusOpenMobile(id, d){
   DOC._cpFiles={}; DOC._fdaFiles=[]; DOC._spFiles=[]; DOC._cpAttachKey=null;   // V.CPGATE: reset photo-gate state ทุกครั้งที่เปิด modal
-  const _spBody = (window.innerWidth <= 1023 && _docIsBkkLkbMobile(d)) ? _docStatusMobileHTML_bkklkb(id) : _docStatusMobileHTML(id);   // V.BKKLKB5: BKK/LKB มือถือ → 5 รายการ · ประเภทงานอื่น (LCB/FZ/ต่อเร้น/งานแก้ไข) = เดิม
+  const _spBody = _docStatusMobileHTML_2sec(id);   // V.SP2SEC (MOBILE): มือถือ/แท็บเล็ต → 2 หมวดเหมือนเดสก์ท็อป (ทั้งงานทั่วไป + BKK/LKB)
   document.body.insertAdjacentHTML('beforeend', `
     <div id="doc-status-pop" class="modal-back show" style="z-index:150">
       <div class="modal sp-mob-modal" style="max-width:580px">
@@ -15038,42 +15056,27 @@ function openDocStatusUpdate(id){
   DOC._spSel = null; DOC._spFile = null;
   DOC._cpFiles={}; DOC._fdaFiles=[]; DOC._spFiles=[]; DOC._cpAttachKey=null;   // V.CPGATE: reset photo-gate state (ทั้งมือถือ/เดสก์ท็อป)
   if(window.innerWidth <= 1023){ _docStatusOpenMobile(id, d); return; }   // V.22: มือถือ/แท็บเล็ต → chip UI · เดสก์ท็อปใช้รูปแบบเดิมด้านล่าง
-  const onRows = DOC_STATUS_PICK.ongoing.map((o,i)=>{
-    const btn = o.img
-      ? `<button class="doc-sp-act act-cam" onclick="_docSpTrigger('${id}',${i},false)">📷 แนบรูป</button>`
-      : `<button class="doc-sp-act act-upd" onclick="_docSpApply('${id}',${i},false,null,null)">อัปเดต</button>`;
-    return `<div class="doc-sp-row"><span class="doc-sp-label">${esc(o.text)}</span>${btn}</div>`;
-  }).join('');
   const _cpIco = ['🚚','📦','🏢'];
   const cpRows = DOC_STATUS_PICK.complete.map((o,i)=>
     `<div class="cp-row"><div class="cp-left"><span class="cp-ico">${_cpIco[i]||'📄'}</span><span class="cp-name">${esc(_docNormalizeCardStatus(o.text))}</span></div><div class="cp-acts"><button type="button" class="cp-attach" id="cp-att-${i}" onclick="_docSpCpAttach('${id}',${i})">📷 แนบรูป</button><button type="button" class="cp-done" id="cp-done-${i}" disabled onclick="_docSpCpDone('${id}',${i})">🟢 จบงาน</button></div></div>`).join('')
-    + `<div class="cp-row"><div class="cp-left"><span class="cp-ico">📝</span><span class="cp-name">อื่นๆ</span></div><div class="cp-acts"><button type="button" class="cp-done cp-other" onclick="_docSpOther('${id}')">🟢 จบงาน</button></div></div>`;
+    + `<div class="cp-row" style="flex-direction:column;align-items:stretch;gap:8px"><div class="cp-left"><span class="cp-ico">📝</span><span class="cp-name">อื่นๆ</span></div><textarea id="doc-sp-other-custom" class="textarea" rows="2" placeholder="พิมพ์รายละเอียดการตรวจปล่อยเสร็จ... เช่น ส่งมอบเอกสารเรียบร้อย, ส่งมอบให้ลูกค้าแล้ว"></textarea><div class="cp-acts" style="justify-content:space-between"><button type="button" class="cp-attach" onclick="_docSpOtherAttach('${id}')">📷 แนบรูป</button><button type="button" class="cp-done cp-other" onclick="_docSpOtherDone('${id}')">🟢 จบงาน</button></div></div>`;
+  // V.SP2SEC (DESKTOP): popup อัปเดตสถานะ — เหลือ 2 หมวด: 📋 สถานะระหว่างทาง (พิมพ์เอง + แนบรูป ไม่บังคับ) · 🟢 ตรวจปล่อยเสร็จ (3 การ์ด บังคับแนบรูป + อื่นๆ) · ซ่อน preset 17/เลื่อน/FDA (UI เท่านั้น · save/upload/complete/status logic เดิม)
   document.body.insertAdjacentHTML('beforeend', `
     <div id="doc-status-pop" class="modal-back show" style="z-index:150">
       <div class="modal" style="max-width:520px">
         <div class="modal-head"><h2>📋 อัปเดตสถานะเอกสาร</h2><button class="x" onclick="document.getElementById('doc-status-pop').remove()"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
           <p style="color:var(--muted);font-size:13px;margin:0 0 12px">JOB NO: <b style="color:#10B981">${esc(d.source_job_no||d.doc_no||'—')}</b> · กดสถานะเพื่อบันทึกทันที</p>
-          <div class="doc-sp-sec">อัปเดตสถานะ (ระหว่างทาง)</div>
-          <div class="doc-sp-grid">${onRows}<div class="doc-sp-row"><span class="doc-sp-label">ตรวจปล่อยเสร็จ</span><button class="doc-sp-act act-done" onclick="document.getElementById('doc-status-pop').remove(); openDocClearedPopupReq('${id}')">📷 แนบรูปการ์ด</button></div></div>
-          <div class="doc-sp-sec" style="margin-top:16px">อัปเดตอื่น ๆ</div>
+          <div class="doc-sp-sec">📋 สถานะระหว่างทาง</div>
           <div class="doc-sp-row">
-            <input id="doc-sp-custom" class="input doc-sp-input" placeholder="พิมพ์สถานะอื่น ๆ ที่ต้องการอัปเดต" onkeydown="if(event.key==='Enter')_docSpSaveCustom('${id}')">
+            <input id="doc-sp-custom" class="input doc-sp-input" placeholder="พิมพ์สถานะเอง เช่น รอ D/O, รอรถ, รอภาษี, รอเอกสาร, รอตรวจปล่อย" onkeydown="if(event.key==='Enter')_docSpSaveCustom('${id}')">
+            <button class="doc-sp-act act-cam" onclick="_docSpCustomAttach('${id}')">📷 แนบรูป</button>
             <button class="doc-sp-act act-upd" onclick="_docSpSaveCustom('${id}')">อัปเดต</button>
           </div>
-          <div class="doc-sp-sec" style="margin-top:16px">เพิ่มเติม</div>
-          <div class="doc-sp-grid">
-            <div class="doc-sp-row"><span class="doc-sp-label">⏳ เลื่อนตรวจปล่อย</span><button class="doc-sp-act act-upd" onclick="document.getElementById('doc-status-pop').remove(); openDocPostponePopup('${id}')">เลือกเหตุผล</button></div>
-          </div>
-          <!-- V.CPGATE (DESKTOP): ผ่าน อย. — บังคับแนบรูปก่อนบันทึก · ไม่แตะ _docSpPassFDA · doc_status คงเดิม -->
-          <div class="cp-list" style="margin-top:8px">
-            <div class="cp-row"><div class="cp-left"><span class="cp-ico">☑️</span><span class="cp-name">ผ่าน อย. เรียบร้อย</span></div><div class="cp-acts"><button type="button" class="cp-attach" id="fda-att" onclick="_docSpFdaAttach('${id}')">📷 แนบรูป</button><button type="button" class="cp-done cp-save" id="fda-save" disabled onclick="_docSpFdaSave('${id}')">💾 บันทึก</button></div></div>
-          </div>
-          <div class="doc-sp-sec" style="margin-top:16px;color:#6EE7B7">จบงาน → ย้ายไป "งานเสร็จแล้ว"</div>
+          <div class="doc-sp-sec" style="margin-top:16px;color:#6EE7B7">🟢 ตรวจปล่อยเสร็จ</div>
           <div class="cp-list">${cpRows}</div>
           <input type="file" id="doc-sp-hidden" multiple accept="image/*" style="display:none" onchange="_docSpFileChosen()">
           <input type="file" id="cp-att-file" multiple accept="image/*" style="display:none" onchange="_docSpCpFileChosen()">
-          <input type="file" id="fda-att-file" multiple accept="image/*" style="display:none" onchange="_docSpFdaFileChosen()">
         </div>
       </div>
     </div>`);
@@ -15162,6 +15165,28 @@ function _docSpSaveCustom(id){
   const text = (inp && inp.value || '').trim();
   if(!text){ toast('กรุณาพิมพ์สถานะ','error'); if(inp) inp.focus(); return; }
   _docSpApply(id, null, false, null, text);
+}
+// V.SP2SEC: แนบรูปให้ "สถานะระหว่างทาง" (พิมพ์เอง) — reuse flow เดิมทั้งหมด (pending._custom → picker → preview → _docSpApply(files)) · ไม่แตะ save/upload logic
+function _docSpCustomAttach(id){
+  const inp = document.getElementById('doc-sp-custom');
+  const text = (inp && inp.value || '').trim();
+  if(!text){ toast('กรุณาพิมพ์สถานะก่อนแนบรูป','error'); if(inp) inp.focus(); return; }
+  DOC._spPending = { id, idx:null, isComplete:false, _custom:text }; DOC._spFiles = [];   // เหมือน _docSpMobPick (needImg) เป๊ะ
+  const f = document.getElementById('doc-sp-hidden'); if(f){ f.value=''; f.click(); }
+}
+// V.SP2SEC: 📝 อื่นๆ (ตรวจปล่อยเสร็จ) inline — พิมพ์เอง + แนบรูป (ไม่บังคับ) + จบงาน · reuse _docSpApply(COMPLETED) + preview เดิม · ไม่แตะ 3 การ์ด / _docSpOther (มือถือยังใช้)
+function _docSpOtherAttach(id){
+  const inp = document.getElementById('doc-sp-other-custom');
+  const text = (inp && inp.value || '').trim();
+  if(!text){ toast('กรุณาพิมพ์รายละเอียดก่อนแนบรูป','error'); if(inp) inp.focus(); return; }
+  DOC._spPending = { id, idx:null, isComplete:true, _custom:text }; DOC._spFiles = [];   // แนบรูป → preview (ลบ/เพิ่มได้) → ยืนยันจบงาน = _docSpApply(COMPLETED + text + รูป)
+  const f = document.getElementById('doc-sp-hidden'); if(f){ f.value=''; f.click(); }
+}
+function _docSpOtherDone(id){
+  const inp = document.getElementById('doc-sp-other-custom');
+  const text = (inp && inp.value || '').trim();
+  if(!text){ toast('กรุณาพิมพ์รายละเอียด','error'); if(inp) inp.focus(); return; }
+  _docSpApply(id, null, true, null, text);   // จบงานข้อความล้วน (ไม่แนบรูป) — logic เดิม · ถ้าต้องแนบรูปใช้ปุ่ม 📷
 }
 // ═══ V.CPGATE (MOBILE เท่านั้น): จบงาน/บันทึก ต้องแนบรูปก่อน — reuse แกนเดิม · ไม่แตะ desktop / _docSpPassFDA / DB schema / status / permission / timeline เดิม ═══
 function _docSpCpAttach(id, idx){
