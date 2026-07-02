@@ -2144,6 +2144,74 @@ function _kpiFiltersActive(f){
    • Total Amount = SUM(total_amount) ตรง (ไม่บวกเอง เพราะจริงมี −WHT 3%)
    • token (_filteredKpiReqId) กัน request เก่าทับใหม่
    • viewMode/filter ส่งไป RPC = WHERE เดียวกับตาราง (open ไม่นับ CLOSE · closed นับเฉพาะ CLOSE) */
+/* paint การ์ด KPI ตาม filter — ใช้ร่วมกันทั้ง RPC path และ fallback path
+   ─ AC: k-pending = sumTotal (SUM(total_amount)) ตรง
+   ─ SC: การ์ดที่ 6 = SUM(advance) · k-pending = SC+ADV+VAT − 3%SC (component sum) */
+function _paintFilteredKpi(prefix, r){
+  _paintKpiCards(prefix, {
+    totalJob:  Number(r.totalJob)||0,
+    sumCharge: Number(r.sumCharge)||0,    /* SC=SUM(service_charge) · AC=SUM(advance) */
+    sumVat:    Number(r.sumVat)||0,
+    sumTotal:  Number(r.sumTotal)||0,     /* Total Amount = SUM(total_amount) ตรง */
+    overDue:   Number(r.overDue)||0
+  });
+  if(prefix === 'sc'){
+    const adv = Number(r.sumAdvance)||0;
+    const advEl = document.getElementById('sc-k-advance-total');  /* ช่องที่ 6 = SUM(advance) */
+    if(advEl) advEl.textContent = Math.round(adv).toLocaleString('th-TH');
+    /* Total Amount = Service Charge + Advance + VAT − (3% ของ Service Charge)
+       ─ WHT 3% หักจาก Service Charge อย่างเดียว · ไม่ใช้ sumTotal/wht column · ไม่แตะ DB/ตาราง/Export */
+    const sc = Number(r.sumCharge)||0;
+    const pndEl = document.getElementById('sc-k-pending');
+    if(pndEl) pndEl.textContent = Math.round(sc + adv + (Number(r.sumVat)||0) - sc*0.03).toLocaleString('th-TH');
+  }
+}
+
+/* ── FALLBACK: aggregate ฝั่ง client ตาม filter ปัจจุบัน (ใช้เมื่อ RPC kpi_filtered_* ไม่พร้อม/error/null)
+   ─ ใช้ applyFiltersToQuery ตัวเดียวกับตาราง → customer normalize เป๊ะ (.eq('customer_name', f.customer))
+   ─ กันการ์ดค้างเลขรวมทั้งหมด และกันยอด 0 ทั้งที่มีรายการ (เช่น APL)
+   ─ token guard เดิม (_filteredKpiReqId) กัน request เก่าทับใหม่ */
+async function _filteredKpiFallback(prefix, f, sb, myReq){
+  const tbl       = prefix === 'sc' ? SC_TBL : AC_TBL;
+  const N         = prefix === 'sc' ? 60 : 10;               /* due days: SC+60 · AC+10 */
+  const chargeCol = prefix === 'sc' ? 'service_charge' : 'advance';
+  const cols      = prefix === 'sc'
+    ? 'service_charge,advance,vat,total_amount,status,date'   /* SC ต้องมี advance ด้วย (การ์ด 6 + Total Amount) */
+    : 'advance,vat,total_amount,status,date';
+  const PAGE = 1000, HARD_LIMIT = 20000;
+  let from = 0;
+  let totalJob = 0, sumCharge = 0, sumAdvance = 0, sumVat = 0, sumTotal = 0, overDue = 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+  while(from < HARD_LIMIT){
+    let q = sb.from(tbl).select(cols).range(from, from + PAGE - 1);
+    q = applyFiltersToQuery(q, f, prefix);                    /* ← WHERE เดียวกับตาราง (customer/status/cs/due/date/viewMode) */
+    const {data, error} = await q;
+    if(error) throw error;
+    if(myReq !== _filteredKpiReqId[prefix]) return;           /* stale → ทิ้ง */
+    if(!data || !data.length) break;
+    data.forEach(r => {
+      totalJob++;
+      sumCharge += Number(r[chargeCol] || 0);
+      if(prefix === 'sc') sumAdvance += Number(r.advance || 0);
+      sumVat   += Number(r.vat || 0);
+      sumTotal += Number(r.total_amount || 0);
+      const stx = String(r.status || '').toUpperCase().trim();
+      if(stx !== 'CLOSE' && stx !== 'CLOSED' && stx !== 'CANCELED' && r.date){
+        const [y,m,d] = String(r.date).split('-').map(Number);
+        const dt = new Date(y, (m||1)-1, d||1);
+        dt.setDate(dt.getDate() + N);
+        if(dt < today) overDue++;
+      }
+    });
+    if(data.length < PAGE) break;
+    from += PAGE;
+    await new Promise(rs => setTimeout(rs, 0));               /* yield UI thread */
+    if(myReq !== _filteredKpiReqId[prefix]) return;
+  }
+  if(myReq !== _filteredKpiReqId[prefix]) return;
+  _paintFilteredKpi(prefix, {totalJob, sumCharge, sumAdvance, sumVat, sumTotal, overDue});
+}
+
 async function loadFilteredKPI(prefix){
   const st = PageState[prefix]; if(!st) return;
   const f  = st.filters || {};
@@ -2155,30 +2223,33 @@ async function loadFilteredKPI(prefix){
       p_due:f.dueFilter||'', p_viewmode:st.viewMode||'open', p_date_from:f.dateFrom||'', p_date_to:f.dateTo||''
     });
     if(myReq !== _filteredKpiReqId[prefix]) return;                 /* ทิ้ง request เก่า */
-    if(error){ console.warn('kpi_filtered_'+prefix+' RPC error:', error.message); return; }
-    if(data == null) return;
-    const r = (typeof data==='string') ? JSON.parse(data) : data;
-    _paintKpiCards(prefix, {
-      totalJob:  Number(r.totalJob)||0,
-      sumCharge: Number(r.sumCharge)||0,    /* SC=SUM(service_charge) · AC=SUM(advance) */
-      sumVat:    Number(r.sumVat)||0,
-      sumTotal:  Number(r.sumTotal)||0,     /* Total Amount = SUM(total_amount) ตรง */
-      overDue:   Number(r.overDue)||0
-    });
-    if(prefix === 'sc'){
-      const adv = Number(r.sumAdvance)||0;
-      const advEl = document.getElementById('sc-k-advance-total');  /* ช่องที่ 6 = SUM(advance) จาก RPC เดียวกัน */
-      if(advEl) advEl.textContent = Math.round(adv).toLocaleString('th-TH');
-      /* Total Amount = Service Charge + Advance + VAT − (3% ของ Service Charge)
-         ─ WHT 3% หักจาก Service Charge อย่างเดียว (ตามที่กำหนด)
-         ─ คำนวณจาก component sum จริง · ไม่ใช้ sumTotal/wht column · ไม่แตะ DB/ตาราง/Export */
-      const sc = Number(r.sumCharge)||0;
-      const pndEl = document.getElementById('sc-k-pending');
-      if(pndEl) pndEl.textContent = Math.round(sc + adv + (Number(r.sumVat)||0) - sc*0.03).toLocaleString('th-TH');
+    if(error){
+      /* RPC ไม่พร้อม/พัง → fallback query (ห้ามปล่อยการ์ดค้างเลขรวมเดิม) */
+      console.warn('kpi_filtered_'+prefix+' RPC error → fallback:', error.message);
+      return await _filteredKpiFallback(prefix, f, sb, myReq);
     }
+    if(data == null){
+      /* RPC คืน null → fallback (กันยอด 0 ทั้งที่มีรายการ) */
+      return await _filteredKpiFallback(prefix, f, sb, myReq);
+    }
+    const r = (typeof data==='string') ? JSON.parse(data) : data;
+    /* ── RPC sanity check ──
+       มีงาน (totalJob>0) แต่ยอดเงินเป็น 0 ทั้งหมด = RPC aggregate เพี้ยน (SUM null→0 / คอลัมน์ผิดฝั่ง server)
+       → บังคับ fallback query อ่าน advance/vat/total_amount ตรงจากตาราง (ค่าที่ตารางแสดงถูกอยู่แล้ว)
+       ── ปลอดภัยเสมอ: ถ้าเงินเป็น 0 จริง fallback ก็คืน 0 เท่ากัน ── */
+    const _tj = Number(r.totalJob)||0;
+    const _money = (Number(r.sumCharge)||0) + (Number(r.sumVat)||0) + (Number(r.sumTotal)||0) + (Number(r.sumAdvance)||0);
+    if(_tj > 0 && _money === 0){
+      console.warn('kpi_filtered_'+prefix+' RPC money=0 while jobs>0 → fallback query');
+      return await _filteredKpiFallback(prefix, f, sb, myReq);
+    }
+    _paintFilteredKpi(prefix, r);
   }catch(e){
     if(myReq !== _filteredKpiReqId[prefix]) return;
-    console.warn('loadFilteredKPI error:', e && e.message);
+    console.warn('loadFilteredKPI error → fallback:', e && e.message);
+    /* exception (network/parse) → พยายาม fallback อีกชั้น */
+    try{ await _filteredKpiFallback(prefix, f, sb, myReq); }
+    catch(e2){ console.warn('loadFilteredKPI fallback error:', e2 && e2.message); }
   }
 }
 
@@ -4416,9 +4487,22 @@ async function fetchAllFilteredRows(prefix){
     toast('กรุณาเลือกช่วงวันที่ก่อน Export เพื่อป้องกันระบบช้า','warn');
     _exportHandledMsg = true; return [];
   }
-  /* ── 2) Validate ≤ 31 days (ถ้ามีเลือกช่วงวันที่; ว่าง = ผ่าน) ── */
-  if(!validateDateRange(prefix)){
-    _exportHandledMsg = true; return [];        /* toast แสดงโดย validateDateRange แล้ว */
+  /* ── 2) Validate ช่วงวันที่ Export ──
+        ─ SC (Service Charge): ลิมิต 62 วัน (รวมวันต้น-วันปลาย) · เกิน = แจ้งเตือน+ยกเลิก · ย้อนกลับ = ยกเลิก
+          เช็ค inline เฉพาะ SC export → ไม่แตะ DATE_RANGE_MAX_DAYS(31) / validateDateRange / ตาราง / setFilter / AC
+        ─ AC (Advance Charge): ไม่จำกัดจำนวนวัน → ข้ามทั้งหมด (คงเงื่อนไขเดิม)
+        (ยังบังคับเลือก dateFrom/dateTo ด้านบน · ยังใช้ applyExportDateRange · ยัง Export ตาม filter ปัจจุบันทั้งหมด) ── */
+  if(prefix === 'sc'){
+    const SC_EXPORT_MAX_DAYS = 62;
+    const _days = ymdDiffDays(f.dateFrom, f.dateTo);   /* inclusive: รวมวันต้น-วันปลาย */
+    if(_days < 1){
+      toast('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด','warn');
+      _exportHandledMsg = true; return [];
+    }
+    if(_days > SC_EXPORT_MAX_DAYS){
+      toast('Service Charge เลือกได้สูงสุด '+SC_EXPORT_MAX_DAYS+' วันแบบรวมวันต้นและวันปลาย (ขณะนี้เลือก '+_days+' วัน · เกิน '+(_days-SC_EXPORT_MAX_DAYS)+' วัน)','warn');
+      _exportHandledMsg = true; return [];
+    }
   }
 
   showProgress('กำลังนับ rows ตาม Date Range…');
