@@ -196,6 +196,22 @@
   .pgbar>i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--green),var(--green2))}
   .pgbar>i.low{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
   .pgtxt{font-size:11.5px;color:var(--mut);white-space:nowrap;font-weight:600}
+  .deptlist{margin-top:6px;display:flex;flex-direction:column;gap:2px}
+  .deptrow{font-size:11px;color:var(--mut2);white-space:nowrap;line-height:1.5}
+  .deptrow b{color:var(--ink);font-weight:700}
+  .drpt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:var(--bg2);cursor:pointer;transition:border-color .15s,background .15s}
+  .drpt-row:hover{border-color:var(--pri2);background:var(--panel)}
+  .drpt-name{font-weight:700;font-size:14px;color:var(--txt)}
+  .drpt-cnt{font-size:12.5px;color:var(--mut);margin-top:3px}
+  .drpt-cnt b{font-size:14px;color:var(--txt)} .drpt-cnt b.ok{color:var(--green2)} .drpt-cnt b.lo{color:var(--red)}
+  .drpt-r{font-size:12px;color:var(--pri2);white-space:nowrap;font-weight:600}
+  .drpt-sec{margin-bottom:16px}
+  .drpt-h{font-weight:700;font-size:13.5px;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+  .drpt-h.ok{color:var(--green2)} .drpt-h.no{color:var(--red)}
+  .drpt-emp{padding:7px 9px;font-size:13.5px;border-radius:8px;color:var(--txt)}
+  .drpt-emp:nth-child(even){background:var(--bg2)}
+  .drpt-sum{margin-top:8px;padding:11px 12px;border-radius:10px;background:var(--bg2);font-size:13px;text-align:center;color:var(--mut)}
+  .drpt-sum b{color:var(--txt);font-size:15px;margin:0 5px}
   .acticons{display:inline-flex;gap:6px}
   .act-ic{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--mut);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
   .act-ic:hover{color:var(--txt);border-color:var(--green);background:rgba(16,185,129,.1)}
@@ -486,12 +502,13 @@
     /* สัดส่วนคอลัมน์ รวม 100% — หัวข้อประกาศได้พื้นที่มากที่สุด */
     #annList th:nth-child(1){ width:12%; }   /* เลขที่ */
     #annList th:nth-child(2){ width:8%;  }   /* ประเภท */
-    #annList th:nth-child(3){ width:28%; }   /* หัวข้อประกาศ */
+    #annList th:nth-child(3){ width:22%; }   /* หัวข้อประกาศ */
     #annList th:nth-child(4){ width:8%;  }   /* ประกาศโดย */
     #annList th:nth-child(5){ width:8%;  }   /* วันที่ */
-    #annList th:nth-child(6){ width:12%; }   /* จำนวนคน */
+    #annList th:nth-child(6){ width:18%; }   /* จำนวนคน (ทั้งบริษัท + รายแผนก) */
     #annList th:nth-child(7){ width:8%;  }   /* สถานะ */
     #annList th:nth-child(8){ width:16%; }   /* การจัดการ (ปุ่มรายละเอียด + ⋮) */
+    #annList td:nth-child(6){ white-space:normal; overflow:visible; text-overflow:unset; vertical-align:top; }
     #annList td:nth-child(7),
     #annList td:nth-child(8){
       overflow: visible;
@@ -1002,7 +1019,7 @@ async function annRefresh(){
     ]);
     myAnnReadSet=new Set((mr.data||[]).map(r=>r.announcement_id));
     annReadTally=tally;
-    annUCount=us.length||0;
+    if(!isSuperAdmin()) annUCount=annUserTotal(us);   // SUPER ใช้ค่าจาก loadAnnReadCounts (แหล่งหน้า 👥)
     annPaint();   // รีเฟรชแท็บ(ทั้งหมด/ยังไม่รับทราบ/รับทราบแล้ว) + ตาราง + badge ทุกตัว — อ่าน search/แท็บที่เปิดอยู่เดิม จึงไม่ล้าง/ไม่เปลี่ยน
   }catch(e){}
   const wait=Math.max(0, 350-(Date.now()-t0));   // โชว์ loading ~300–500ms
@@ -1021,9 +1038,15 @@ async function loadAnn(force){
   if(!force && CACHE.ann.length && Date.now()-_annAt<LIST_TTL) return CACHE.ann;
   const base='id,title,body,category,status,created_at,created_by,created_name,pinned,require_sign,closed_at,app_code,file_url,file_name,file_size';
   const ord=q=>q.eq('app_code',CFG.APP_CODE).order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(300);
-  let r=await ord(sb.from('announcement').select(base+',pdf_file_url,pdf_file_name,pdf_file_size'));
-  if(r.error) r=await ord(sb.from('announcement').select(base));   // ยังไม่มีคอลัมน์ pdf_* → fallback (Word/รายการยังทำงาน)
-  CACHE.ann=r.data||[]; _annAt=Date.now(); return CACHE.ann;
+  let r=await ord(sb.from('announcement').select(base+',target_departments,pdf_file_url,pdf_file_name,pdf_file_size'));
+  if(r.error) r=await ord(sb.from('announcement').select(base+',pdf_file_url,pdf_file_name,pdf_file_size'));   // ยังไม่มีคอลัมน์ target_departments → fallback
+  if(r.error) r=await ord(sb.from('announcement').select(base));                                              // ยังไม่มีคอลัมน์ pdf_* → fallback
+  let rows=r.data||[];
+  if(!isSuperAdmin()){   // USER/ADMIN เห็นเฉพาะประกาศ "ทุกแผนก" หรือที่กำหนดแผนกของตนเอง (targeting) — ถ้าไม่มีเป้าหมาย = เห็นได้ (fail-open)
+    const myd=annDeptOf(ME).toLowerCase();
+    rows=rows.filter(a=>{ const t=annTargetDepts(a); return !t || t.some(x=>String(x).toLowerCase()===myd); });
+  }
+  CACHE.ann=rows; _annAt=Date.now(); return CACHE.ann;
 }
 async function loadReads(annId){
   const {data}=await sb.from('announcement_read').select('announcement_id,username,employee_code,full_name,department,read_at,password_confirmed,read_duration_seconds,announcement_version_snapshot,ip_address').eq('announcement_id',annId).order('read_at',{ascending:true});
@@ -1055,11 +1078,17 @@ function rtRefresh(tables){
   if(tables.indexOf('employee_voice')>=0) _voiceAt=0;
   _rtTimer=setTimeout(async()=>{
     try{
-      if(tables.indexOf('announcement')>=0){
+      const annChg=tables.indexOf('announcement')>=0, readChg=tables.indexOf('announcement_read')>=0;
+      if(annChg){
         if(NAV==='ann'){ await loadAnn(true); annReadTally=await loadAnnReadCounts(); annPaint(); }   // วาดเฉพาะ #annList ไม่ rebuild page/nav
         else if(NAV==='dash'){ render_dash($('#main')); }
         refreshNotifBadge();   // 📢 badge อัปเดต realtime ทุกหน้า
+      } else if(readChg){   // USER กดรับทราบ → อัปเดตยอด/รายงาน (ไม่ต้อง refetch ประกาศ)
+        if(NAV==='ann'){ annReadTally=await loadAnnReadCounts(); annPaint(); }
+        else if(NAV==='dash'){ render_dash($('#main')); }
+        refreshNotifBadge();
       }
+      if(annChg||readChg){ if($('#drptBody')){ try{ await annDeptReportLoad(); }catch(e){} } }   // รายงานรายแผนกที่เปิดอยู่ → live-update
       if(tables.indexOf('employee_voice')>=0){
         if(NAV==='voice'){ await loadVoice(true); voicePaint(); }   // วาดเฉพาะ #vList
         else if(NAV==='dash'){ render_dash($('#main')); }
@@ -1072,6 +1101,7 @@ function setupRT(){
   teardownRT();
   const ch=sb.channel('eva_rt')
     .on('postgres_changes',{event:'*',schema:'public',table:'announcement'},()=>rtRefresh(['announcement']))
+    .on('postgres_changes',{event:'*',schema:'public',table:'announcement_read'},()=>rtRefresh(['announcement_read']))
     .on('postgres_changes',{event:'*',schema:'public',table:'employee_voice'},()=>rtRefresh(['employee_voice']))
     .subscribe();
   RT.push(ch);
@@ -1216,7 +1246,7 @@ async function render_dash(m){
       <td><span class="tag ${a.category==='ความปลอดภัย'||a.category==='ระเบียบบริษัท'?'r':a.category==='นโยบาย'?'b':a.category==='ประชาสัมพันธ์'||a.category==='ข่าวสาร'?'g':'a'}">${esc(a.category)}</span></td>
       <td class="muted">${esc(a.created_name||a.created_by||'-')}</td>
       <td class="muted tiny">${fmt(a.created_at)}</td>
-      <td><div class="pgwrap"><span class="pgtxt">${pct}% (${rc}/${uCount||'?'})</span><div class="pgbar"><i class="${pct<60?'low':''}" style="width:${pct}%"></i></div></div></td>
+      <td><div class="pgwrap"><span class="pgtxt">${pct}% (${rc}/${uCount||0})</span><div class="pgbar"><i class="${pct<60?'low':''}" style="width:${pct}%"></i></div></div></td>
       <td class="act"><span class="acticons"><button class="act-ic" title="เปิด" onclick="event.stopPropagation();openAnn('${a.id}')">👁</button>${isSuperAdmin()?`<button class="act-ic" title="ผู้รับทราบ" onclick="event.stopPropagation();annReaders('${a.id}')">📊</button>`:''}</span></td></tr>`;
   }).join('');
   annCard.innerHTML=`<div class="panel-h" style="padding:16px 18px 0"><h3>📢 ประกาศล่าสุด</h3><button class="lnk" onclick="go('ann')">ดูทั้งหมด</button></div>
@@ -1271,6 +1301,33 @@ function pagerHTML(id,page,pages,total){ return `<div class="pager"><span>ทั
   <button ${page>=pages?'disabled':''} onclick="${id}(${page+1})">ถัดไป ›</button></div>`; }
 
 let annReadTally={}, annUCount=0;
+// ตัวส่วน = จำนวนผู้ใช้ role=USER ที่ยัง active เท่านั้น (ไม่นับ SUPER_ADMIN/ADMIN/ADMIN_MID/อื่น ๆ) — blank role ถือเป็น USER (ตรงกับตอน login)
+function annUserTotal(us){ return (us||[]).filter(IS_COUNTABLE).length||0; }
+// SUPER เท่านั้น: สรุปรายแผนก (เฉพาะ role=USER active) — ตัวส่วน/ตัวเศษต่อแผนก, รีเฟรชใน loadAnnReadCounts
+let annDeptTotals={}, annDeptTally={};
+function annDeptOf(u){ return (String((u&&u.department)||'').trim())||'ไม่ระบุแผนก'; }
+// ประกาศเลือกเฉพาะแผนก: อ่านจากฟิลด์ถ้ามี (target_departments/departments/target_dept/audience_departments) — schema ปัจจุบันยังไม่มี → คืน null = ทั้งบริษัท
+function annTargetDepts(a){
+  let raw=a && (a.target_departments||a.departments||a.target_dept||a.audience_departments);
+  if(!raw) return null;
+  if(Array.isArray(raw)){ const arr=raw.map(s=>String(s).trim()).filter(Boolean); return arr.length?arr:null; }
+  const s=String(raw).trim(); if(!s || s==='__ALL__') return null;
+  if(s[0]==='['){ try{ const a2=JSON.parse(s); if(Array.isArray(a2)){ const arr=a2.map(x=>String(x).trim()).filter(Boolean); return arr.length?arr:null; } }catch(_){} }
+  const arr=s.split(',').map(x=>x.trim()).filter(Boolean);
+  return arr.length?arr:null;
+}
+// ยอด/ตัวส่วนของประกาศ: targeted → รวมทุกคน active ในแผนกเป้าหมาย (ตรงกับ Popup รายงาน) ; ทั้งบริษัท → พนักงานทั่วไป (annUCount)
+function annAckStat(a){
+  const dmap=annDeptTally[a.id]||{}; const target=annTargetDepts(a);
+  if(target){
+    const tset=new Set(target.map(t=>String(t).trim().toLowerCase()));   // normalize: trim + case-insensitive
+    let numer=0, denom=0, matched=0;
+    Object.keys(annDeptTotals).forEach(d=>{ if(tset.has(String(d).trim().toLowerCase())){ matched++; denom+=annDeptTotals[d]||0; numer+=dmap[d]||0; } });
+    if(!matched) console.warn('[ann] target department(s) not found in eva_users:', target, '| available:', Object.keys(annDeptTotals));
+    return {numer, denom, target:true};   // denom เป็นตัวเลขจริงเสมอ (อาจ 0 ได้ แต่ไม่ใช่ "?")
+  }
+  return {numer:annReadTally[a.id]||0, denom:annUCount, target:false};
+}
 /* ปุ่ม 👁 ดูรายละเอียด — วงกลม 42px gradient + SVG eye (ใช้ร่วมทุกเมนู) */
 function eyeBtn(jsCall){
   return `<button class="detail-btn" title="ดูรายละเอียด" onclick="event.stopPropagation();${jsCall}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg><span>รายละเอียด</span></button>`;
@@ -1298,7 +1355,7 @@ async function render_ann(m){
     loadAnnReadCounts(), loadUsersAll()]);
   myAnnReadSet=new Set((mr.data||[]).map(r=>r.announcement_id));
   annReadTally=tally;
-  annUCount=us.length||0;
+  if(!isSuperAdmin()) annUCount=annUserTotal(us);   // SUPER ใช้ค่าจาก loadAnnReadCounts (แหล่งหน้า 👥)
   annPaint();
 }
 function annBaseList(){
@@ -1308,7 +1365,7 @@ function annBaseList(){
   const done=(NAV==='anndone');
   const list=CACHE.ann.slice();
   if(isSuperAdmin()){
-    const complete=a=>(annUCount>0 && (annReadTally[a.id]||0)>=annUCount);
+    const complete=a=>{ const st=annAckStat(a); return st.denom>0 && st.numer>=st.denom; };   // ครบ 100% ของกลุ่มเป้าหมาย (targeted) หรือทั้งบริษัท
     return done ? list.filter(complete) : list.filter(a=>!complete(a));
   }
   return done ? list.filter(a=>myAnnReadSet.has(a.id))
@@ -1353,9 +1410,13 @@ function annPaint(){
   const {slice,pages,page}=paginate(list,annPage); annPage=page;
   const badge=a=>`<span class="tag ${a.status==='OPEN'?'g':'mut'}">${a.status==='OPEN'?'เปิด':'ปิด'}</span>`;
   const annNo=a=>annNoFmt(a);
-  const prog=a=>{const rc=annReadTally[a.id]||0;const pct=annUCount?Math.round(rc/annUCount*100):0;
-    return `<div class="pgwrap"><span class="pgtxt">${rc}/${annUCount||'?'}</span><div class="pgbar"><i class="${pct<60?'low':''}" style="width:${pct}%"></i></div></div>`;};
-  const annStatusTag=a=>{const rc=annReadTally[a.id]||0; return (annUCount>0 && rc>=annUCount)?'<span class="tag g">✅ ครบ</span>':'<span class="tag a">⏳ ยังไม่ครบ</span>';};
+  const prog=a=>{
+    if(!isSuperAdmin()) return '<span class="muted tiny">–</span>';   // จำนวนผู้รับทราบ = SUPER_ADMIN เท่านั้น (ตามสเปก)
+    const st=annAckStat(a);
+    const headLabel=st.target?'👥 กลุ่มเป้าหมาย':'👥 ทั้งบริษัท';
+    const pct=st.denom?Math.round(st.numer/st.denom*100):0;
+    return `<div class="pgwrap"><span class="pgtxt">${headLabel} ${st.numer}/${st.denom} คน</span><div class="pgbar"><i class="${pct<60?'low':''}" style="width:${pct}%"></i></div></div>`;};
+  const annStatusTag=a=>{const st=annAckStat(a); return (st.denom>0 && st.numer>=st.denom)?'<span class="tag g">✅ ครบ</span>':'<span class="tag a">⏳ ยังไม่ครบ</span>';};
   const read=a=>myAnnReadSet.has(a.id)?'<span class="tag g">✓ รับทราบ</span>':(a.status==='OPEN'?'<span class="tag a">รอรับทราบ</span>':'<span class="tag mut">-</span>');
   // ปุ่มจัดการตามสิทธิ์: ✏️ แก้ไข / 📄 Export Word / 🗑 ลบ
   const actions=a=>{
@@ -1801,8 +1862,33 @@ function annMenuItems(id){
 async function annCopyText(id){
   if(!isSuperAdmin()){ toast('Permission Denied (403)','bad'); return; }   // SUPER_ADMIN เท่านั้น
   const a=CACHE.ann.find(x=>x.id===id)||{};
-  const url=location.origin+location.pathname+'#/ann/'+id;   // ไม่ hardcode — รองรับ prod/test/localhost อัตโนมัติ
-  const message='📢 ประกาศบริษัท\n\nหัวข้อ:\n'+(a.title||'')+'\n\nกรุณากดลิงก์ด้านล่างเพื่ออ่านและกดรับทราบ\n\n'+url;
+  const cleanPath=(location.pathname||'/').replace(/[?#].*$/,'');   // ตัด query/token/hash เก่าออกทั้งหมด — เหลือเฉพาะ path
+  const url=location.origin+cleanPath+'#/ann/'+id;                  // Clean URL: origin + pathname + #/ann/<id> (ไม่มี key/token/query/session)
+  let notAckBlock='';
+  try{
+    const [reads,allActive]=await Promise.all([loadReads(id),annActiveUsers()]);   // ดึงสด (ไม่ใช้ cache) — ผู้รับทราบ + ผู้ใช้จริง
+    const readSet=new Set(reads.map(r=>(r.username||'').toLowerCase()));
+    const target=annTargetDepts(a);
+    const tset=target?new Set(target.map(t=>String(t).trim().toLowerCase())):null;
+    let audience=allActive.filter(IS_COUNTABLE);   // Role=USER + active (ไม่นับ SUPER_ADMIN/ADMIN/ADMIN_MID/SHIPPING/MESSENGER)
+    if(tset) audience=audience.filter(u=>tset.has(annDeptOf(u).trim().toLowerCase()));   // ประกาศเลือกแผนก → เฉพาะแผนกเป้าหมาย
+    const notAcked=audience.filter(u=>!readSet.has((u.username||'').toLowerCase()));
+    if(!notAcked.length){
+      notAckBlock='\n\n━━━━━━━━━━━━━━━━━━\n✅ ทุกคนรับทราบประกาศนี้ครบแล้ว';
+    }else{
+      const byDept={}, seen=new Set();
+      notAcked.forEach(u=>{ const k=String(u.username||u.id||'').toLowerCase(); if(k){ if(seen.has(k)) return; seen.add(k); }   // กันซ้ำด้วย key เอกลักษณ์ (username/id) — ไม่ใช้ชื่อเป็น key
+        const d=annDeptOf(u); (byDept[d]=byDept[d]||[]).push(u.full_name||u.username||'-'); });
+      const total=Object.values(byDept).reduce((s,a2)=>s+a2.length,0);
+      const depts=Object.keys(byDept).sort((x,y)=> byDept[y].length-byDept[x].length || x.localeCompare(y,'th'));   // มาก→น้อย, เท่ากัน→ชื่อแผนก
+      let block='\n\n━━━━━━━━━━━━━━━━━━\n📋 สรุปผู้ที่ยังไม่รับทราบ\n\n👥 คงเหลือทั้งหมด '+total+' คน\n\n🏢 จำนวน '+depts.length+' แผนก';
+      depts.forEach(d=>{ const names=byDept[d].sort((m,n)=>m.localeCompare(n,'th'));
+        block+='\n\n━━━━━━━━━━━━━━━━━━\n🏢 '+d+' ('+names.length+' คน)\n\n'+names.map((n,i)=>(i+1)+'. '+n).join('\n'); });
+      block+='\n\n━━━━━━━━━━━━━━━━━━\n⚠️ ขอความร่วมมือพนักงานที่มีรายชื่อข้างต้น\n\nกรุณาเข้าระบบเพื่ออ่านและกด "รับทราบ"\n\nขอบคุณครับ';
+      notAckBlock=block;
+    }
+  }catch(e){ if(window.console&&console.debug) console.debug('copy notAcked unavailable:',e&&e.message); }   // ดึงรายชื่อไม่ได้ → คัดลอกเฉพาะหัวข้อ+ลิงก์
+  const message='📢 ประกาศบริษัท\n\nหัวข้อ:\n'+(a.title||'')+'\n\nกรุณากดลิงก์ด้านล่างเพื่ออ่านและกดรับทราบ\n\n'+url+notAckBlock;
   if(navigator.clipboard && navigator.clipboard.writeText){
     try{ await navigator.clipboard.writeText(message); toast('✅ คัดลอกข้อความแล้ว','ok'); return; }
     catch(e){ /* เบราว์เซอร์บล็อก clipboard → ใช้ modal fallback */ }
@@ -1816,7 +1902,7 @@ function annCopyFallback(message){
     `<button class="btn pri sm" style="width:auto" onclick="closeModal()">ปิด</button>`,'lg');
   setTimeout(()=>{ const ta=document.getElementById('annCopyTa'); if(ta){ ta.focus(); ta.select(); } },50);
 }
-function annDeskMenu(ev,id){ openDropdown(ev, annMenuItems(id)); }
+function annDeskMenu(ev,id){ const items=annMenuItems(id); if(isSuperAdmin()) items.splice(1,0,{ic:'🏢',label:'รายงานรายแผนก',fn:`annDeptReport('${id}')`}); openDropdown(ev, items); }
 function voiceRowMenu(ev,id){ const r=roleU(); if(r==='MESSENGER'||r==='SHIPPING')return;
   openDropdown(ev,[{ic:'👁',label:'ดูรายละเอียด',fn:`openVoice('${id}')`}]); }
 
@@ -1829,6 +1915,49 @@ function annRowMenu(id){
 }
 let ANN_SHEET=[];
 function annSheetRun(i){ const fn=ANN_SHEET[i]; if(fn){ try{ new Function(fn)(); }catch(e){} } }
+/* ===== รายงานการรับทราบรายแผนก (Drill-down) — SUPER_ADMIN เท่านั้น ===== */
+let ANN_DRPT={id:null,ann:null,byDept:{},openDept:null};
+async function annDeptReport(id){
+  if(!isSuperAdmin()){ toast('Permission Denied (403)','bad'); return; }
+  const a=CACHE.ann.find(x=>x.id===id); if(!a) return;
+  ANN_DRPT={id,ann:a,byDept:{},openDept:null};
+  openModal('📢 รายงานการรับทราบรายแผนก',`<div id="drptBody"><div class="empty"><div class="e-ic">⏳</div>กำลังโหลด...</div></div>`,'','lg');
+  await annDeptReportLoad();
+}
+async function annDeptReportLoad(){
+  if(!ANN_DRPT.id) return;
+  try{
+    const [reads,allActive]=await Promise.all([loadReads(ANN_DRPT.id),annActiveUsers()]);
+    const readSet=new Set(reads.map(r=>(r.username||'').toLowerCase()));
+    const byDept={};
+    // นับ "ทุกคนในแผนก" ตามหน้า 👥 ผู้ใช้งาน (active ทุก role) — ตัวส่วน=ทั้งแผนก, ตัวเศษ=คนในแผนกที่กดรับทราบ (ไม่กรองด้วย role)
+    allActive.forEach(u=>{ const d=annDeptOf(u); const nm=u.full_name||u.username||'-';
+      const g=byDept[d]||(byDept[d]={total:0,acked:[],notAcked:[]}); g.total++;
+      (readSet.has((u.username||'').toLowerCase())?g.acked:g.notAcked).push(nm); });
+    Object.values(byDept).forEach(g=>{ g.acked.sort((x,y)=>x.localeCompare(y,'th')); g.notAcked.sort((x,y)=>x.localeCompare(y,'th')); });
+    ANN_DRPT.byDept=byDept;
+    annDeptReportPaint();
+    if(ANN_DRPT.openDept && $('#modal2Root') && $('#modal2Root').innerHTML.trim()) annDeptDrillPaint();
+  }catch(e){ const b=$('#drptBody'); if(b) b.innerHTML='<div class="muted small" style="padding:12px">โหลดข้อมูลไม่สำเร็จ</div>'; }
+}
+function annDeptReportPaint(){
+  const b=$('#drptBody'); if(!b) return;
+  const depts=Object.keys(ANN_DRPT.byDept).sort((x,y)=>x.localeCompare(y,'th'));
+  if(!depts.length){ b.innerHTML='<div class="muted small" style="padding:12px">ยังไม่มีผู้ใช้ (Role = USER) ในระบบ</div>'; return; }
+  b.innerHTML=depts.map(d=>{ const g=ANN_DRPT.byDept[d]; const ack=g.acked.length,tot=g.total; const cls=tot===0?'':(ack>=tot?'ok':((tot&&ack/tot<0.6)?'lo':''));
+    return `<button class="drpt-row" onclick="annDeptDrill('${encodeURIComponent(d)}')">
+      <div><div class="drpt-name">🏢 ${esc(d)}</div><div class="drpt-cnt"><b class="${cls}">${ack}/${tot}</b> คน</div></div>
+      <div class="drpt-r">▶ คลิกดูรายละเอียด</div></button>`;}).join('');
+}
+function annDeptDrill(enc){ ANN_DRPT.openDept=decodeURIComponent(enc); annDeptDrillPaint(); }
+function annDeptDrillPaint(){
+  const d=ANN_DRPT.openDept; const g=ANN_DRPT.byDept[d]; if(!g) return;
+  const rows=(arr,mk)=>arr.length?arr.map(n=>`<div class="drpt-emp">${mk} ${esc(n)}</div>`).join(''):'<div class="muted small" style="padding:6px 8px">— ไม่มี —</div>';
+  const body=`<div class="drpt-sec"><div class="drpt-h ok">✅ รับทราบแล้ว (${g.acked.length})</div>${rows(g.acked,'✅')}</div>
+    <div class="drpt-sec"><div class="drpt-h no">❌ ยังไม่รับทราบ (${g.notAcked.length})</div>${rows(g.notAcked,'❌')}</div>
+    <div class="drpt-sum">รับทราบแล้ว <b>${g.acked.length}</b> คน • ยังไม่รับทราบ <b>${g.notAcked.length}</b> คน • รวม <b>${g.total}</b> คน</div>`;
+  openModal2('🏢 '+d,body,'','lg');
+}
 let RDR={id:null,tab:'ACK',q:'',page:1,acked:[],notAcked:[],ann:null,total:0};
 async function annReaders(id){
   const a=CACHE.ann.find(x=>x.id===id); if(!a)return;
@@ -1919,14 +2048,25 @@ async function annRenderDocx(url){
     box.innerHTML='<div class="muted small">ไม่สามารถแสดงตัวอย่างเอกสารได้ — <a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--pri2)">เปิด/ดาวน์โหลด Word</a></div>';
   }
 }
-function annEdit(id){
+async function annEdit(id){
   const a=id?CACHE.ann.find(x=>x.id===id):null;
   ANN_DOCX=null; ANN_PDF=null;   // reset ไฟล์ที่เลือกไว้
   const cats=CATES.map(c=>`<div class="chip ${a&&a.category===c?'on':(!a&&c==='ข่าวสาร'?'on':'')}" onclick="pickChip(this);annDocxToggle()" data-v="${c}">${c}</div>`).join('');
   const showDocx=(a&&a.category==='ระเบียบบริษัท');
+  // แผนกผู้รับประกาศ (targeting) — รายชื่อแผนกจาก USER จริง (role=USER active)
+  let deptChips=`<div class="chip on" data-v="__ALL__" onclick="annDeptPick(this)">ทุกแผนก</div>`;
+  try{
+    const us=await annActiveUsers();
+    const depts=[...new Set((us||[]).map(u=>annDeptOf(u)))].sort((x,y)=>x.localeCompare(y,'th'));
+    const sel=new Set((annTargetDepts(a)||[]).map(s=>String(s).toLowerCase()));
+    const allOn=!sel.size;
+    deptChips=`<div class="chip ${allOn?'on':''}" data-v="__ALL__" onclick="annDeptPick(this)">ทุกแผนก</div>`+
+      depts.map(d=>`<div class="chip ${sel.has(d.toLowerCase())?'on':''}" data-v="${esc(d)}" onclick="annDeptPick(this)">${esc(d)}</div>`).join('');
+  }catch(e){}
   const body=`
     <div class="fld"><label>หัวข้อประกาศ *</label><input id="aTitle" class="ipt" value="${a?esc(a.title):''}"></div>
     <div class="fld"><label>หมวดหมู่</label><div class="chips" id="aCate">${cats}</div></div>
+    <div class="fld"><label>📢 แผนกผู้รับประกาศ <span class="muted tiny">(“ทุกแผนก” = USER ทุกคนเห็น • เลือกแผนก = เฉพาะแผนกนั้นเห็น)</span></label><div class="chips" id="aDept">${deptChips}</div></div>
     <div class="fld" id="aDocxFld" style="display:${showDocx?'block':'none'}">
       <label>📄 แนบไฟล์ Word ระเบียบบริษัท (.docx)</label>
       <input type="file" id="aDocxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" onchange="annDocxPick(this)">
@@ -1948,6 +2088,12 @@ function annEdit(id){
      <button class="btn pri sm" style="width:auto" onclick="annSave('${id||''}')">บันทึก</button>`,'lg');
 }
 function pickChip(elm){ [...elm.parentNode.children].forEach(c=>c.classList.remove('on')); elm.classList.add('on'); }
+function annDeptPick(elm){
+  const box=elm.parentNode; const all=box.querySelector('[data-v="__ALL__"]');
+  if(elm.dataset.v==='__ALL__'){ [...box.children].forEach(c=>c.classList.remove('on')); elm.classList.add('on'); return; }
+  elm.classList.toggle('on'); if(all) all.classList.remove('on');
+  if(![...box.children].some(c=>c.dataset.v!=='__ALL__'&&c.classList.contains('on')) && all) all.classList.add('on');   // ไม่เลือกแผนกใดเลย → กลับเป็นทุกแผนก
+}
 async function annSave(id){
   if(!isSuperAdmin()){ toast('Permission Denied (403)','bad'); return; }
   const title=$('#aTitle').value.trim();
@@ -1957,6 +2103,12 @@ async function annSave(id){
     app_code:CFG.APP_CODE,title,category:cat,body:$('#aBody').value,
     pinned:$('#aPin').checked
   };
+  const deptBox=$('#aDept'); let _target=null;
+  if(deptBox && !deptBox.querySelector('[data-v="__ALL__"]')?.classList.contains('on')){
+    const ds=[...deptBox.querySelectorAll('.chip.on')].map(c=>c.dataset.v).filter(v=>v && v!=='__ALL__');
+    if(ds.length) _target=ds.join(',');
+  }
+  payload.target_departments=_target;   // null = ทุกแผนก (USER ทุกคนเห็น)
   if(cat==='ระเบียบบริษัท' && (ANN_DOCX||ANN_PDF)){   // อัปโหลด Word/PDF แยกกัน — bucket regulation, path คนละโฟลเดอร์ ไม่ทับกัน
     const pp=n=>String(n).padStart(2,'0'); const dd=new Date(); const ymd=`${dd.getFullYear()}${pp(dd.getMonth()+1)}${pp(dd.getDate())}`;
     const isBkErr=m=>/bucket.*not.*found|not.*found.*bucket|no.*such.*bucket/i.test(m);
@@ -1975,14 +2127,29 @@ async function annSave(id){
       }catch(e){ const m=(e&&e.message)||String(e); toast(isBkErr(m)?"ไม่พบ Storage Bucket 'regulation' กรุณาสร้าง Bucket ก่อน":'อัปโหลดไฟล์ PDF ไม่สำเร็จ: '+m,'bad'); return; }
     }
   }
+  const arrErr=m=>/malformed array|invalid input syntax.*array|expected.*array|array literal/i.test(m||'');
+  const colErr=m=>/does not exist|schema cache|could not find|target_departments/i.test(m||'');
+  async function annWrite(op){
+    let res=await op(payload);
+    if(res.error && arrErr(res.error.message) && _target){                         // คอลัมน์เป็น text[] → ส่งเป็น array
+      res=await op({...payload,target_departments:_target.split(',').map(s=>s.trim()).filter(Boolean)});
+    }
+    if(res.error && colErr(res.error.message)){                                     // ยังไม่มีคอลัมน์ target_departments → บันทึกโดยไม่มีแผนก
+      const {target_departments,...p2}=payload; res=await op(p2);
+      if(!res.error) toast('บันทึกแล้ว — แต่ยังไม่มีคอลัมน์ target_departments กรุณาเพิ่มคอลัมน์เพื่อบันทึกแผนก','bad');
+    }
+    return res;
+  }
   let annId=id;
-  if(id){ await sb.from('announcement').update(payload).eq('id',id);
+  if(id){
+    const up=await annWrite(p=>sb.from('announcement').update(p).eq('id',id));
+    if(up.error){ toast(up.error.message,'bad'); return; }
     await sb.from('announcement_timeline').insert({announcement_id:id,action:'EDIT',actor:ME.username});
   }else{
     payload.created_by=ME.username; payload.created_name=ME.full_name;
-    const {data,error}=await sb.from('announcement').insert(payload).select('id').single();
-    if(error){toast(error.message,'bad');return;}
-    annId=data.id;
+    const ins=await annWrite(p=>sb.from('announcement').insert(p).select('id').single());
+    if(ins.error){ toast(ins.error.message,'bad'); return; }
+    annId=ins.data.id;
     await sb.from('announcement_timeline').insert({announcement_id:annId,action:'CREATE',actor:ME.username});
   }
   toast('บันทึกประกาศแล้ว ✅','ok'); closeModal(); await loadAnn(true); annPaint();
@@ -3250,8 +3417,50 @@ async function loadUsersAll(force){
   _usersCache=evaFilterActive(data); _usersCacheAt=Date.now();
   return _usersCache;
 }
+/* รายชื่อสำหรับ "รายแผนก" — แหล่งเดียวกับหน้า 👥 ผู้ใช้งาน (eva_users) อ่านแผนกจาก field department
+   คืน user ที่ active ทุก role (กันซ้ำ username) เพื่อให้ "รายชื่อแผนก" ครบตรงหน้า 👥 ; การนับจำนวนจะกรอง role=USER ทีหลัง */
+async function annActiveUsers(){
+  const {data,error}=await sb.from('eva_users').select('id,username,full_name,department,role,status');
+  if(error||!data) return [];
+  const seen=new Set(), out=[];
+  data.forEach(u=>{
+    if(String(u.status||'active').toLowerCase()!=='active') return;           // เฉพาะ Active (ไม่นับ Deleted/Inactive)
+    const k=(u.username||'').trim().toLowerCase();
+    if(k){ if(seen.has(k)) return; seen.add(k); }                            // กันซ้ำ username
+    out.push(u);
+  });
+  return out;
+}
+// นับพนักงานจริง = ทุก role ที่ "ไม่ใช่ผู้ดูแล/ระบบ" ตามสเปก (ยกเว้น SUPER_ADMIN/ADMIN/ADMIN_MID/SHIPPING/MESSENGER) — role อื่น (USER/MANAGER/HR/EXECUTIVE/…) นับหมด
+const ANN_NONSTAFF_ROLES=new Set(['SUPER_ADMIN','ADMIN','ADMIN_MID','SHIPPING','MESSENGER']);
+const IS_COUNTABLE=u=>!ANN_NONSTAFF_ROLES.has(String((u&&u.role)||'USER').toUpperCase());
 async function loadAnnReadCounts(){
-  // นับจำนวนผู้รับทราบต่อประกาศฝั่งเซิร์ฟเวอร์ (เลิกดึงทุกแถวมานับที่ client)
+  // นับจำนวนผู้รับทราบต่อประกาศ
+  // SUPER_ADMIN: นับเฉพาะ role=USER (active) ที่รับทราบ — ไม่นับ SUPER/ADMIN/ADMIN_MID/อื่น ๆ (ตามสเปก) เพื่อให้ X/Y และการย้ายเข้า 📚 ตรง 100% ของ USER จริง
+  if(isSuperAdmin()){
+    try{
+      let annIds=(CACHE.ann||[]).map(a=>a.id);
+      if(!annIds.length){ try{ const {data:al}=await sb.from('announcement').select('id').eq('app_code',CFG.APP_CODE).limit(300); annIds=(al||[]).map(x=>x.id); }catch(_){} }   // CACHE.ann ยังไม่พร้อม (โหลดขนาน) → ดึง id เอง กัน race
+      const allActive=await annActiveUsers();   // active ทุก role (แหล่ง=หน้า 👥)
+      // รายแผนก = ทุกคน active ในแผนก (ตรงกับ Popup รายงานรายแผนก + ใช้กับประกาศเลือกแผนก)
+      const deptTotals={}, deptOfUser={};
+      allActive.forEach(u=>{ const un=(u.username||'').toLowerCase(); const d=annDeptOf(u); deptOfUser[un]=d; deptTotals[d]=(deptTotals[d]||0)+1; });
+      // ยอดทั้งบริษัท = พนักงานทั่วไป (ไม่รวมผู้ดูแล) — คงพฤติกรรมประกาศทั้งบริษัทเดิม
+      const countableSet=new Set(allActive.filter(IS_COUNTABLE).map(u=>(u.username||'').toLowerCase()));
+      annDeptTotals=deptTotals; annDeptTally={}; annUCount=countableSet.size;
+      if(!annIds.length) return {};
+      const {data,error}=await sb.from('announcement_read').select('announcement_id,username').in('announcement_id',annIds);
+      if(error) throw error;
+      const t={}, dt={};
+      (data||[]).forEach(r=>{ const un=(r.username||'').toLowerCase(); const id=r.announcement_id;
+        if(countableSet.has(un)) t[id]=(t[id]||0)+1;                                    // ตัวเศษบริษัท (พนักงานทั่วไป)
+        const d=deptOfUser[un]; if(d!==undefined){ (dt[id]=dt[id]||{})[d]=((dt[id]||{})[d]||0)+1; }   // ตัวเศษรายแผนก (ทุกคน active)
+      });
+      annDeptTally=dt;
+      return t;
+    }catch(e){ if(window.console&&console.debug) console.debug('user-only tally fallback → RPC:',e&&e.message); /* คง annDeptTotals ไว้ (ตัวส่วนรายแผนกยังแสดงได้) */ }
+  } else { annDeptTotals={}; annDeptTally={}; }
+  // อื่น ๆ / fallback: ใช้ RPC เดิม (เบา) — non-super ไม่ได้ใช้ tally ในเมนู
   try{
     const {data,error}=await sb.rpc('eva_ann_read_counts',{p_app:CFG.APP_CODE});
     if(error) throw error;
