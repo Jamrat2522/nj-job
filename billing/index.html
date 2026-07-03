@@ -12,7 +12,7 @@
 <!-- ── PERF: preload Supabase SDK — เริ่มดาวน์โหลดเร็วกว่าเจอ <script> เซฟ ~50-200ms ── -->
 <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin>
 <!-- Supabase: needed immediately for initial data load -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin defer></script>
 <!-- XLSX / ExcelJS / JSZip: lazy-loaded only when Import/Export/Backup is used (see loadScriptOnce) -->
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -123,9 +123,9 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 
 .pv-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
 
-.pv-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pv-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:2px}
 #page-sc .pv-kpis{grid-template-columns:repeat(6,1fr)}   /* SC: เพิ่มช่อง Advance = 6 ช่อง (AC ยังคง 5) */
-.pv-kpi{border-radius:8px;padding:7px 12px;color:#fff;position:relative;overflow:hidden;min-height:66px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:default}
+.pv-kpi{border-radius:8px;padding:6px 10px;color:#fff;position:relative;overflow:hidden;min-height:66px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:default}
 /* KPI: display only — ไม่ clickable, ไม่ hover, ไม่ active, ไม่ animation */
 .pv-kpi.kpi-teal{background:linear-gradient(135deg,#065f46,#10b981)}
 .pv-kpi.kpi-blue{background:linear-gradient(135deg,#1e3a8a,#2563eb)}
@@ -138,19 +138,20 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .pv-kpi .kpi-val{font-size:16px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1.1;letter-spacing:-.01em;position:relative;z-index:1}
 .pv-kpi .kpi-sub{font-size:9.5px;opacity:.85;font-family:'IBM Plex Mono',monospace;margin-top:1px}
 
-.pv-search{flex:1;min-width:200px;max-width:340px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:11.5px;outline:none}
+.pv-search{flex:1;min-width:230px;max-width:410px;height:38px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 13px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:14px;outline:none}
 .pv-search:focus{border-color:var(--cyan2)}
-.pv-select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:11.5px;outline:none;cursor:pointer;min-width:135px}
-.pv-date{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:11px;outline:none;cursor:pointer;color-scheme:dark}
+.pv-select{height:38px;background-color:var(--surface2);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;background-size:18px 18px;-webkit-appearance:none;-moz-appearance:none;appearance:none;border:1px solid var(--border);border-radius:8px;padding:0 38px 0 13px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:14px;font-weight:500;outline:none;cursor:pointer;min-width:135px}
+.pv-date{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 10px;color:var(--text);font-family:'IBM Plex Sans Thai',sans-serif;font-size:13.5px;outline:none;cursor:pointer;color-scheme:dark}
 .pv-date:focus{border-color:var(--cyan2)}
-.pv-date::-webkit-calendar-picker-indicator{filter:invert(.7);cursor:pointer}
-.date-range{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
-.date-range > span{color:var(--text3);font-size:10.5px}
-.date-range .pv-date{background:transparent;border:none;padding:3px 3px;min-width:114px}
+.pv-date::-webkit-calendar-picker-indicator{filter:invert(.7);cursor:pointer;width:16px;height:16px}
+.date-range{display:inline-flex;align-items:center;gap:6px;height:38px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 9px}
+.date-range > span{color:var(--text3);font-size:13px}
+.date-range .pv-date{background:transparent;border:none;padding:0 2px;min-width:100px;height:36px;font-size:13.5px}
 .date-range .pv-date:focus{outline:none}
-.date-range-icon{color:var(--text2);font-size:12px;margin-right:2px}
+.date-range-icon{color:var(--text2);font-size:16px;margin-right:2px}
 .pv-select:focus{border-color:var(--cyan2)}
-.pv-info{font-size:10.5px;color:var(--text2);font-family:'IBM Plex Mono',monospace;padding:5px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;white-space:nowrap}
+.date-range > button{font-size:16px !important;line-height:1;padding:4px 6px !important;border-radius:6px !important}
+.pv-info{font-size:10.5px;color:var(--text2);font-family:'IBM Plex Mono',monospace;height:38px;display:inline-flex;align-items:center;padding:0 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;white-space:nowrap}
 .pv-info b{color:var(--cyan2)}
 
 /* Quick close — input wrapper เป็น "กรอบแดง" เด่นชัดบน toolbar
@@ -251,7 +252,7 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .inline-status .is-close:hover{color:var(--text)}
 .inline-status .is-time{color:var(--text3);font-size:10.5px;margin-top:4px}
 .inline-status .is-spin{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px}
-.status-bar{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 12px}
+.status-bar{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 2px}
 .status-bar:empty{display:none}
 
 /* ─── FIXED COLUMN WIDTHS (15 cols: Status | Remaining | Date | Invoice | Customer | Job | SC/Adv | VAT | Amount | WHT | Total | APL | Due Date | NOTE | จัดการ) ─── */
@@ -564,11 +565,11 @@ textarea.note-box:focus{border-color:var(--cyan2)}
 /* ─── PAGINATION BAR (server-side pagination) ─── */
 .pv-pagination{
   display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding-top:10px;margin-top:10px;
+  padding-top:6px;margin-top:0;
   border-top:1px solid var(--border);
   font-size:12px;color:var(--text2);
 }
-.pv-pagination .pg-info{color:var(--text2);font-size:12px}
+.pv-pagination .pg-info{display:none}
 .pv-pagination .pg-info b{color:var(--text);font-family:'IBM Plex Mono',monospace}
 .pv-pagination .pg-controls{display:flex;align-items:center;gap:6px}
 .pv-pagination .pg-btn{
@@ -903,10 +904,6 @@ html, body { min-width: 1280px; }
     <div class="pv active sc-page" id="page-sc">
 
       <div class="pv-head">
-        <div>
-          <div class="pv-title">Service Charge</div>
-          <div class="pv-sub">โหลดจาก <code>service_charge_records</code> · Search · Filter · จบงาน · ถอยสถานะ · Export</div>
-        </div>
         <div class="pv-actions">
           <input type="file" id="sc-import-file" accept=".xlsx,.xls,.csv" onchange="billingImport(this,'sc')" style="display:none">
           <button class="pv-btn pv-btn-primary sc-bg" data-action="import-sc" onclick="document.getElementById('sc-import-file').click()" title="Upload SERVICCE 7.xlsx → import service_charge_records (upsert by invoice_no + customer_job)">
@@ -936,7 +933,7 @@ html, body { min-width: 1280px; }
         <div class="pv-kpi kpi-red"><div><div class="kpi-lbl">🔴 Total Amount</div><div class="kpi-val" id="sc-k-pending">0</div></div><div class="kpi-sub">บาท</div></div>
       </div>
 
-      <div class="pv-card" style="padding:12px 14px">
+      <div class="pv-card" style="padding:10px 12px 6px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input type="search" id="sc-search" class="pv-search" placeholder="🔍 ค้นหา · Invoice, Job, Customer, CS, NOTE … (600ms debounce)" oninput="onSearchInput('sc',this.value)">
           <select id="sc-fc" class="pv-select" onchange="setFilter('sc','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
@@ -1069,10 +1066,6 @@ html, body { min-width: 1280px; }
     <div class="pv ac-page" id="page-ac">
 
       <div class="pv-head">
-        <div>
-          <div class="pv-title">Advance Charge</div>
-          <div class="pv-sub">โหลดจาก <code>advance_charge_records</code> · Search · Filter · จบงาน · ถอยสถานะ · Export</div>
-        </div>
         <div class="pv-actions">
           <input type="file" id="ac-import-file" accept=".xlsx,.xls,.csv" onchange="billingImport(this,'ac')" style="display:none">
           <button class="pv-btn pv-btn-primary ac-bg" data-action="import-ac" onclick="document.getElementById('ac-import-file').click()" title="Upload ADVANCE 7.xlsx → import advance_charge_records (upsert by invoice_no + customer_job)">
@@ -1122,7 +1115,7 @@ html, body { min-width: 1280px; }
         <div class="pv-kpi kpi-purple"><div><div class="kpi-lbl">🟣 Total Over Due</div><div class="kpi-val" id="ac-k-cs">0</div></div><div class="kpi-sub">งานค้าง</div></div>
       </div>
 
-      <div class="pv-card" style="padding:12px 14px">
+      <div class="pv-card" style="padding:10px 12px 6px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input type="search" id="ac-search" class="pv-search" placeholder="🔍 ค้นหา · Invoice, Job, Customer, CS, NOTE … (600ms debounce)" oninput="onSearchInput('ac',this.value)">
           <select id="ac-fc" class="pv-select" onchange="setFilter('ac','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
@@ -1626,6 +1619,33 @@ function initSupabase(){
 }
 
 /* ── Page switching ──────────────────────────────────── */
+/* ── PERF: background refresh หลังสลับหน้า (stale-while-revalidate) ──
+   ─ แสดง cache ไปก่อน (ไม่ขึ้น spinner) · ไม่โหลด dropdown · reqId กัน request เก่าทับใหม่
+   ─ ตาราง refresh ก่อน → KPI + count เบื้องหลัง (ไม่ block UI) · loadPage มี st.reqId กัน race ในตัวอยู่แล้ว */
+let _switchReqId = {sc:0, ac:0};
+async function _bgRefreshPage(prefix, tRender){
+  const myReq = ++_switchReqId[prefix];
+  const st = PageState[prefix];
+  let tTable=0, tKpi=0, tCount=0;
+  try{
+    const t1 = performance.now();
+    await loadPage(prefix);                         /* refresh หน้าปัจจุบัน (silent) */
+    tTable = Math.round(performance.now()-t1);
+    if(myReq !== _switchReqId[prefix]) return;       /* สลับไปหน้าอื่นแล้ว → ทิ้ง */
+    if(currentPage === prefix){
+      if(prefix==='sc') renderSC(); else renderAC();
+      setMeta('rows: '+st.total.toLocaleString('th-TH')+' · '+new Date().toLocaleTimeString('th-TH'));
+    }
+    const t2 = performance.now();
+    await Promise.all([
+      Promise.resolve(loadFilteredKPI(prefix)).then(()=>{ tKpi = Math.round(performance.now()-t2); }).catch(()=>{}),
+      Promise.resolve(loadCounts(prefix)).then(()=>{ tCount = Math.round(performance.now()-t2); }).catch(()=>{})
+    ]);
+    if(myReq !== _switchReqId[prefix]) return;
+    console.log('[PERF] switchPage render='+tRender+'ms table='+tTable+'ms kpi='+tKpi+'ms count='+tCount+'ms');
+  }catch(e){ console.warn('[PERF] switchPage bg refresh:', e && e.message); }
+}
+
 function switchPage(name){
   /* ── CLOSE JOB views: ใช้หน้า SC/AC เดิม แต่ flip viewMode → query ดึงเฉพาะ CLOSE ── */
   const isClosedView = (name === 'sc-closed' || name === 'ac-closed');
@@ -1665,13 +1685,17 @@ function switchPage(name){
     $('tb-page-badge').textContent = isClosedView ? 'AC · CLOSED' : 'AC';
     setMeta('rows: '+PageState.ac.total.toLocaleString('th-TH'));
   }
-  /* โหลดใหม่ทุกครั้งที่สลับ view (viewMode เปลี่ยน = dataset เปลี่ยน)
-     ─ ถ้าเปลี่ยน mode จริง: reload เต็ม
-     ─ ถ้า mode เดิม + page เพิ่งโหลดแล้ว: ใช้ cached                  */
-  if(prevMode !== PageState[basePrefix].viewMode){
+  /* ── PERF สลับหน้า ──
+     ─ mode เปลี่ยน หรือ ยังไม่เคยโหลด → reloadAll (staggered · มี spinner เพราะไม่มี cache ให้แสดง)
+     ─ สลับหน้าธรรมดา (mode เดิม + เคยโหลดแล้ว) → render cache ทันที (UI ขึ้นเลย) + refresh เบื้องหลัง
+       · ไม่ขึ้น "กำลังโหลด..." · ไม่โหลด Dropdown Customer (lazy คงเดิม) · reqId กัน request เก่า */
+  const _st = PageState[basePrefix];
+  if(prevMode !== _st.viewMode || !_st.loaded){
     reloadAll(basePrefix);
-  } else if(!PageState[basePrefix].loaded){
-    reloadAll(basePrefix);
+  } else {
+    const _tR = performance.now();
+    if(basePrefix==='sc') renderSC(); else renderAC();     /* 1) render UI/ตารางทันทีจาก cache */
+    _bgRefreshPage(basePrefix, Math.round(performance.now()-_tR));   /* 2) table→KPI→count เบื้องหลัง */
   }
 }
 
@@ -2411,6 +2435,50 @@ async function loadFilterOptions(prefix, force){
   if(fcs && !fcs.value) fcs.innerHTML = '<option value="">CS ทั้งหมด</option><option value="" disabled>— กำลังโหลด… —</option>';
 
   try{
+    /* ══ AC: โหลด customer/cs ครบทุกแถวด้วย range loop — แก้ dropdown ได้แค่ 22 ราย ══
+       ─ เฉพาะ prefix==='ac' · ไม่แตะ SC / Import / Export / KPI / ตารางหลัก
+       ─ ไม่ลบ RPC เดิม: เรียกลองก่อน (log/เทียบ) · ถ้าคืนน้อยผิดปกติ/ไม่พร้อม → range scan ครบทุกแถว (authoritative)
+       ─ ไม่ใช้ limit(1000) · distinct + sort · paint + PageState + cache เดิม */
+    if(prefix === 'ac'){
+      let rpcCustN = -1;
+      try{
+        const {data:rd, error:re} = await sb.rpc('distinct_filter_options_ac');
+        if(!re && rd){
+          const r = (typeof rd === 'string') ? JSON.parse(rd) : rd;
+          if(Array.isArray(r.customers)) rpcCustN = r.customers.length;   /* เก็บไว้ log/เทียบ — ไม่ใช้เป็นผลลัพธ์ */
+        } else if(re){
+          console.warn('distinct_filter_options_ac RPC ไม่พร้อม → range scan:', re.message);
+        }
+      }catch(re){ console.warn('distinct_filter_options_ac RPC error → range scan:', re && re.message); }
+
+      /* range loop ทีละ 1000 จนครบทุกแถว → distinct ครบจริง (ไม่ตกหล่นที่ 1000) */
+      const custSet = new Set(), csSet = new Set();
+      const PAGE = 1000, HARD_LIMIT = 200000;
+      let from = 0, rows = 0;
+      while(from < HARD_LIMIT){
+        const {data, error} = await sb.from(AC_TBL).select('customer_name,cs').range(from, from + PAGE - 1);
+        if(error) throw error;
+        if(!data || !data.length) break;
+        rows += data.length;
+        data.forEach(r=>{
+          const c = String(r.customer_name||'').trim(); if(c) custSet.add(c);   /* customer_name ไม่ว่าง */
+          const x = String(r.cs||'').trim();            if(x) csSet.add(x);     /* cs ไม่ว่าง */
+        });
+        if(data.length < PAGE) break;
+        from += PAGE;
+        await new Promise(rs=>setTimeout(rs,0));   /* yield UI thread */
+      }
+      const customerList = [...custSet].sort();
+      const csList       = [...csSet].sort();
+      st.customerOptions = customerList;
+      st.csOptions       = csList;
+      _paintFilterDropdowns('ac', customerList, csList);
+      _optionsCache['ac'].loaded = true;
+      _writeFilterOptionsLS('ac', customerList, csList);
+      console.log('[FilterOptions AC] customers='+customerList.length+' cs='+csList.length+' rows='+rows + (rpcCustN>=0 ? ' (rpc='+rpcCustN+')' : ' (rpc=n/a)'));
+      return;
+    }
+
     /* ── PERF ④ : ลอง RPC distinct ก่อน — ได้ customer/cs ครบทั้งตาราง ไม่ตกหล่นที่ 1000 ── */
     try{
       const {data:rd, error:re} = await sb.rpc('distinct_filter_options_'+prefix);
@@ -3152,6 +3220,31 @@ function applyRoleUI(){
   /* re-render current page to refresh delete-button visibility */
   if(typeof renderSC==='function' && currentPage==='sc' && PageState.sc.loaded) renderSC();
   if(typeof renderAC==='function' && currentPage==='ac' && PageState.ac.loaded) renderAC();
+  applyUserVisibility();   /* ── USER: ซ่อน KPI การเงิน / Close Sidebar / 🛠 Tools (ตาม role เดิม) ── */
+}
+
+/* ── USER-only UI visibility (ใช้ role เดิมของระบบ · ไม่สร้าง permission ใหม่) ──
+   ─ เฉพาะ role 'user' เท่านั้น → ลบ element ออกจาก DOM จริง (ไม่ใช้ display:none/visibility/disabled)
+   ─ admin (SUPER ADMIN) / admin_mid (ADMIN) → คงเดิม 100%
+   ─ ปลอดภัย: KPI writer / badge set() / switchPage / export-cnt ล้วน guard if(el) แล้ว
+   ─ idempotent: เรียกซ้ำได้ (element ที่ลบแล้วไม่มีผล)                                     */
+function applyUserVisibility(){
+  if(typeof getRole!=='function' || getRole()!=='user') return;
+  /* 1) KPI การเงิน (Service Charge / Advance Charge / VAT 7% / Total Amount) — เก็บ Total Job + Total Over Due */
+  ['sc-k-amt','sc-k-advance-total','sc-k-close','sc-k-pending','ac-k-amt','ac-k-close','ac-k-pending'].forEach(function(id){
+    var v=document.getElementById(id);
+    var card=(v&&v.closest)?v.closest('.pv-kpi'):null;
+    if(card&&card.parentNode) card.parentNode.removeChild(card);
+  });
+  /* 2) Sidebar: 🔴 Close Service / 🔴 Close Advance */
+  ['nav-sc-closed','nav-ac-closed'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el&&el.parentNode) el.parentNode.removeChild(el);
+  });
+  /* 3) 🛠 Tools (เผื่อ login เป็น USER หลังโหลด — reorg เคยสร้างตอนเป็น admin) */
+  Array.prototype.forEach.call(document.querySelectorAll('.bt-dd[data-menu="tools"]'), function(d){
+    if(d.parentNode) d.parentNode.removeChild(d);
+  });
 }
 
 /* ── Login ── */
@@ -3730,7 +3823,7 @@ function renderSC(){
   const showTo   = rows.length ? (st.page * st.pageSize + rows.length) : 0;
   $('sc-show').textContent  = showFrom + '–' + showTo;
   $('sc-total').textContent = st.total.toLocaleString('th-TH');
-  $('sc-export-cnt').textContent = st.total.toLocaleString('th-TH');
+  { const _ec=$('sc-export-cnt'); if(_ec) _ec.textContent = st.total.toLocaleString('th-TH'); }
 
   /* Pagination UI */
   renderPaginationUI('sc');
@@ -3850,7 +3943,7 @@ function renderAC(){
   const showTo   = rows.length ? (st.page * st.pageSize + rows.length) : 0;
   $('ac-show').textContent  = showFrom + '–' + showTo;
   $('ac-total').textContent = st.total.toLocaleString('th-TH');
-  $('ac-export-cnt').textContent = st.total.toLocaleString('th-TH');
+  { const _ec=$('ac-export-cnt'); if(_ec) _ec.textContent = st.total.toLocaleString('th-TH'); }
 
   renderPaginationUI('ac');
 
@@ -5890,6 +5983,13 @@ async function billingImport(input, prefix){
      'master','house_bl_no','data_type','company_invoice','dcl_inv','credit_term','item']
       .forEach(k => { if(ci[k] == null) ci[k] = -1; });
 
+    /* ── SC ONLY: field ที่ "มี header จริงใน Excel" (ci[field] >= 0) ──
+       ใช้จำกัด UPDATE/INSERT ให้แตะเฉพาะคอลัมน์ที่ไฟล์มีจริง → field อื่นคงค่าเดิมใน DB 100%
+       ─ ไม่ใช้กับ AC (AC ใช้ logic เดิมทุกอย่าง) */
+    const fieldsFromExcel = new Set();
+    Object.keys(ci).forEach(k => { if(ci[k] >= 0) fieldsFromExcel.add(k); });
+    if(prefix==='sc') console.log('[SC Import fields]', [...fieldsFromExcel]);
+
     dlog('[Import] Header row index:', hi, '— headers:', rawHeaders);
     dlog('[Import] Column map (EXACT):', ci);
 
@@ -5926,6 +6026,19 @@ async function billingImport(input, prefix){
       };
       if(prefix==='sc') obj.service_charge = parseNum(get('service_charge'));
       else              obj.advance        = parseNum(get('advance'));
+      /* ── SAFEGUARD (AC เท่านั้น): บางวันต้นทางปล่อยคอลัมน์ "Advance"/"Amount" ว่าง
+           ใส่ยอดมาแค่ "Total Amout" (พบเฉพาะลูกค้า APL) → advance เข้า DB เป็น 0
+           กฎธุรกิจยืนยันจากไฟล์จริง: advance == amount == total_amount, vat=0, wht=0 เสมอ
+           ─ เงื่อนไขแคบ: เฉพาะเมื่อ vat==0 && wht==0 && total>0 และ advance ยังว่าง/0
+             → derive advance = total_amount (และ amount ถ้าว่าง) ให้ตรง invariant
+           ─ แถวที่มี advance อยู่แล้ว (ลูกค้าอื่นทุกราย) ไม่ถูกแตะ
+           ─ แถวที่มี vat/wht (total≠advance) ไม่ถูกแตะ — กันเดา
+           ─ ไม่ยุ่ง SC / total_amount / คอลัมน์อื่น / DB schema                          */
+      if(prefix==='ac' && (!obj.advance || obj.advance===0)
+         && obj.vat===0 && obj.wht===0 && obj.total_amount>0){
+        obj.advance = obj.total_amount;
+        if(!obj.amount || obj.amount===0) obj.amount = obj.total_amount;
+      }
       /* ── ฟิลด์เสริม ── ใส่เฉพาะถ้ามีค่าจริง เพื่อไม่ให้ insert fail ตอน DB ยังไม่ ALTER TABLE
          ถ้า DB มีคอลัมน์ → บันทึก
          ถ้า DB ไม่มี → catch แล้ว retry ทิ้งฟิลด์เสริม (ดูส่วน insert ด้านล่าง)            */
@@ -5944,7 +6057,19 @@ async function billingImport(input, prefix){
         const sc = parseNum(get('service_charge'));
         if(sc) obj.service_charge = sc;
       }
-      parsed.push(obj);
+      if(prefix==='sc'){
+        /* ── SC: เก็บเฉพาะ invoice_no (ใช้ match) + field ที่ Excel มี header จริง ──
+           field ที่ไม่มีใน Excel จะ "ไม่อยู่ใน obj" → UPDATE ไม่ทับ / INSERT ไม่ใส่ ''/0
+           (customer_name / note / i_billing_apl / total_amount / cs / status ฯลฯ คงค่าเดิมถ้าไฟล์ไม่มีหัวข้อ) */
+        const scObj = { invoice_no: obj.invoice_no };
+        Object.keys(obj).forEach(k=>{
+          if(k==='invoice_no') return;
+          if(fieldsFromExcel.has(k)) scObj[k] = obj[k];
+        });
+        parsed.push(scObj);
+      } else {
+        parsed.push(obj);      /* AC: logic เดิมทุกอย่าง (full obj) */
+      }
     }
 
     if(!parsed.length){
@@ -6004,6 +6129,8 @@ async function billingImport(input, prefix){
       if(existingIdByInv.has(invKey)){
         toUpdate.push({ id: existingIdByInv.get(invKey), data: p });
       } else {
+        /* SC: record ใหม่ที่ Excel ไม่มีหัวข้อ status → default PENDING (เฉพาะ record ใหม่เท่านั้น) */
+        if(prefix==='sc' && !('status' in p)) p.status = 'PENDING';
         toInsert.push(p);
       }
     });
@@ -6167,6 +6294,10 @@ async function billingImport(input, prefix){
       delete p.id;
       delete p.invoice_no;          /* key — ไม่ต้อง update */
       delete p.created_at;          /* ห้ามแตะ created timestamp ของ record เดิม */
+      if(prefix==='sc'){
+        /* SC: update เฉพาะ field ที่ Excel มี header จริง → field อื่นคงค่าเดิมใน DB 100% */
+        Object.keys(p).forEach(k => { if(!fieldsFromExcel.has(k)) delete p[k]; });
+      }
       return p;
     }
 
@@ -6178,6 +6309,7 @@ async function billingImport(input, prefix){
         await Promise.all(slice.map(async u => {
           const payload = buildUpdatePayload(u.data);
           stripped.forEach(fld => delete payload[fld]);   /* DB ไม่มี column นี้ */
+          if(prefix==='sc') console.log('[SC Update Payload]', u.data.invoice_no, payload);
           if(Object.keys(payload).length === 0){ okU++; return; }   /* ไม่มีอะไรต้อง update */
           let {error} = await sb.from(tbl).update(payload).eq('id', u.id);
           if(error && isSchemaErr(error)){
@@ -6875,6 +7007,281 @@ if(typeof window !== 'undefined'){
   window.cancelAC       = cancelAC;
   window.openNoteEditor = openNoteEditor;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Export Excel CASE (เมนู 🚢 MAERSK) — ฟังก์ชัน "ใหม่" แยกอิสระจาก Export เดิมทั้งหมด
+   ─ ไม่แตะ Export Excel เดิม / Export SOA / Bulk Case / ETD / Query / DB / Workflow
+   ─ Export เฉพาะแถวที่ผ่าน Filter ปัจจุบัน (Search/Customer/Status/CS/Due/Date Range) + เรียงตามหน้าจอ
+     (ใช้ applyFiltersToQuery / applySortToQuery แบบ read-only เท่านั้น)
+   ─ Mapping: Item(รันเลข 1..n) · Customer name←company_invoice · Case no←case_no
+     · CM Send Date←etd · Supplier Inv No.←invoice_no · Execution Date←etd
+     · Booking no./Job no.←house_bl_no · Kewill no←customer_job · Remark←ว่าง
+   ─ ว่าง = ว่าง (ห้าม N/A / - / NULL) · ไม่มีข้อมูล → แจ้ง "ไม่มีข้อมูลสำหรับ Export"
+   ══════════════════════════════════════════════════════════════════════ */
+async function exportExcelCase(prefix){
+  try{
+    const sb = initSupabase(); if(!sb){ toast('Supabase ไม่พร้อม','err'); return; }
+    const st  = PageState[prefix];
+    const tbl = prefix === 'sc' ? SC_TBL : AC_TBL;
+    toast('⏳ กำลังเตรียม Export Excel CASE…');
+
+    /* ดึงทุกแถวที่ผ่าน filter ปัจจุบัน (range loop) — select เฉพาะคอลัมน์ที่ใช้ (house_bl_no ต้องระบุเอง) */
+    const cols = 'company_invoice,case_no,etd,invoice_no,house_bl_no,customer_job';
+    const PAGE = 1000, HARD = 100000;
+    let from = 0, rows = [];
+    while(from < HARD){
+      let q = sb.from(tbl).select(cols).range(from, from + PAGE - 1);
+      q = applySortToQuery(q, prefix);                 /* ลำดับตรงกับหน้าจอ */
+      q = applyFiltersToQuery(q, st.filters, prefix);  /* filter/viewMode เดียวกับหน้าจอ */
+      const { data, error } = await q;
+      if(error) throw error;
+      if(!data || !data.length) break;
+      rows = rows.concat(data);
+      if(data.length < PAGE) break;
+      from += PAGE;
+      await new Promise(rs=>setTimeout(rs,0));
+    }
+    /* ── เงื่อนไขเฉพาะ Export CASE: เอาเฉพาะแถวที่ Customer Job No. (customer_job) = 'N/A' หรือ ว่าง (NULL/''/whitespace) ──
+       ─ ถ้ามีข้อมูลอื่น (เช่น IA26060042 / KW-12345) → ไม่ export แถวนั้น
+       ─ กรองฝั่ง client หลัง fetch → Item รันเลขใหม่ 1..n บนชุดที่เหลือ (ไม่ยุ่ง query/mapping เดิม) */
+    const _jobEmptyOrNA = v => {
+      if(v === null || v === undefined) return true;
+      const s = String(v).trim();
+      return s === '' || s.toUpperCase() === 'N/A';
+    };
+    rows = rows.filter(r => _jobEmptyOrNA(r.customer_job));
+    if(!rows.length){ toast('ไม่มีข้อมูลสำหรับ Export','warn'); return; }
+
+    await ensureExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('CASE');
+    const headers = ['Item','Customer name','Case no','CM Send Date','Supplier Inv No.','Execution Date','Booking no./Job no.','Kewill no','Remark'];
+    ws.addRow(headers);
+    const V = v => (v === null || v === undefined) ? '' : v;   /* ว่าง = ว่าง */
+    /* แปลง ETD → dd/MM/yyyy (ค.ศ.) · ปี ≥ 2500 = พ.ศ. → ลบ 543 เป็น ค.ศ. · ว่าง=ว่าง · ไม่ใช่วันที่=คืนค่าดิบ */
+    const fmtDate = v => {
+      if(v === null || v === undefined || v === '') return '';
+      const s = String(v).trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if(!m) return s;
+      let y = parseInt(m[1],10); if(y >= 2500) y -= 543;
+      return m[3] + '/' + m[2] + '/' + y;
+    };
+    rows.forEach((r,i)=>{
+      ws.addRow([
+        i + 1,                  /* Item — รันเลข 1,2,3,... เริ่มใหม่ทุกครั้ง */
+        V(r.company_invoice),   /* Customer name */
+        V(r.case_no),           /* Case no */
+        fmtDate(r.etd),         /* CM Send Date ← ETD (dd/MM/yyyy ค.ศ.) */
+        V(r.invoice_no),        /* Supplier Inv No. */
+        fmtDate(r.etd),         /* Execution Date ← ETD (dd/MM/yyyy ค.ศ.) */
+        V(r.house_bl_no),       /* Booking no./Job no. */
+        V(r.customer_job),      /* Kewill no */
+        ''                      /* Remark — เว้นว่าง */
+      ]);
+    });
+    /* Header ตัวหนา + พื้นหลัง + Freeze + Auto Filter */
+    const hdr = ws.getRow(1);
+    hdr.font = { bold:true };
+    hdr.eachCell(c=>{ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC000'}}; c.alignment={vertical:'middle',horizontal:'center'}; });
+    ws.views = [{ state:'frozen', ySplit:1 }];
+    ws.autoFilter = { from:{row:1,column:1}, to:{row:1,column:headers.length} };
+    /* Auto width ทุกคอลัมน์ */
+    ws.columns.forEach((col,idx)=>{
+      let max = headers[idx].length;
+      col.eachCell({includeEmpty:false}, c=>{ const l = String(c.value==null?'':c.value).length; if(l > max) max = l; });
+      col.width = Math.min(Math.max(max + 2, 8), 45);
+    });
+    /* All Borders — ตีกรอบทุกเซลล์ (Header + Data · แนวตั้ง+แนวนอน) เส้นบาง */
+    const _bd = {style:'thin', color:{argb:'FF000000'}};
+    const _rc = ws.rowCount;
+    for(let rr=1; rr<=_rc; rr++){
+      for(let cc=1; cc<=headers.length; cc++){
+        ws.getCell(rr, cc).border = {top:_bd, left:_bd, bottom:_bd, right:_bd};
+      }
+    }
+
+    const ts = new Date().toISOString().slice(0,10);
+    await downloadExcelJSWorkbook(wb, 'ExportCase_'+prefix.toUpperCase()+'_'+ts+'.xlsx');
+    toast('✅ Export Excel CASE · '+rows.length.toLocaleString('th-TH')+' รายการ','ok');
+  }catch(e){
+    console.error('exportExcelCase:', e);
+    toast('Export CASE ล้มเหลว: '+(e && e.message || e),'err');
+  }
+}
+window.exportExcelCase = exportExcelCase;
+
+/* ════════════════════════════════════════════════════════════════════
+   UI-ONLY — Billing Toolbar: แถวเดียว (ชื่อสั้น + tooltip เต็ม) + เมนู 🛠 Tools (SC + AC)
+   ─ ย้าย DOM node เดิมด้วย appendChild → onclick / id / class / data-action / function / permission คงเดิม 100%
+   ─ เปลี่ยนเฉพาะ "ข้อความปุ่ม (label)" + "title (tooltip)" · คงไอคอน SVG เดิม · ไม่แตะ attribute อื่น/ไม่ลบปุ่ม
+   ─ ปุ่มที่เหลือทั้งหมด (รวม ตัดจบงาน Upload, ช่องจบงาน quick close) → เข้าเมนู 🛠 Tools
+   ─ กันปุ่มหาย: ถ้าปุ่มหลักไม่ครบ → ยกเลิกการจัดใหม่ทั้งหน้า · Dropdown: คลิกเปิด/ปิดนอก · hover · keyboard nav
+   ════════════════════════════════════════════════════════════════════ */
+(function(){
+  var CSS = ""
+    + ".bt-head{flex-wrap:wrap}"
+    + ".bt-head .bt-toolbar{width:100%;margin-top:10px;display:flex;flex-wrap:wrap;gap:9px;align-items:center;justify-content:flex-end}"
+    + ".bt-toolbar .bt-btn{height:40px;min-height:40px;padding:0 15px;font-size:14px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:8px;border-radius:8px;white-space:nowrap;transition:background .18s ease,filter .18s ease}"
+    + ".bt-toolbar .bt-btn svg{width:18px;height:18px;flex:0 0 auto}"
+    + ".bt-toolbar .bt-c-green{background:rgba(16,185,129,.14)!important;border:1px solid rgba(16,185,129,.30)!important;color:#6ee7b7!important}"
+    + ".bt-toolbar .bt-c-grey{background:rgba(148,163,184,.12)!important;border:1px solid rgba(148,163,184,.28)!important;color:#cbd5e1!important}"
+    + ".bt-toolbar .bt-c-blue{background:rgba(59,130,246,.14)!important;border:1px solid rgba(59,130,246,.30)!important;color:#93c5fd!important}"
+    + ".bt-toolbar .bt-c-purple{background:rgba(168,85,247,.14)!important;border:1px solid rgba(168,85,247,.30)!important;color:#d8b4fe!important}"
+    + ".bt-toolbar .bt-c-orange{background:rgba(249,115,22,.13)!important;border:1px solid rgba(249,115,22,.28)!important;color:#fdba74!important}"
+    + ".bt-toolbar .bt-c-dark{background:rgba(30,41,59,.92)!important;border:1px solid rgba(148,163,184,.28)!important;color:#e2e8f0!important}"
+    + ".bt-toolbar .bt-btn:hover{filter:brightness(1.14)}"
+    + ".bt-toolbar .bt-refresh{margin-right:auto}"
+    + ".bt-toolbar .bt-btn:focus-visible{outline:2px solid rgba(148,163,184,.55);outline-offset:1px}"
+    + ".bt-toolbar .bt-btn.is-locked{opacity:.55}"
+    + ".bt-dd{position:relative;display:inline-flex}"
+    + ".bt-dd-menu{position:absolute;top:calc(100% + 6px);right:0;width:max-content;min-width:212px;max-width:300px;background:#0f172a;border:1px solid rgba(148,163,184,.18);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.5);padding:4px;display:flex;flex-direction:column;gap:0;z-index:60;overflow:hidden;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}"
+    + ".bt-dd.open .bt-dd-menu{opacity:1;transform:translateY(0);pointer-events:auto}"
+    + ".bt-dd-menu .bt-dd-item{display:flex!important;align-items:center;gap:10px;width:100%;height:40px;min-height:40px;padding:0 12px!important;margin:0!important;background:transparent!important;border:none!important;border-radius:6px!important;box-shadow:none!important;color:#e2e8f0!important;font-size:12.5px!important;font-weight:500!important;justify-content:flex-start!important;text-align:left;cursor:pointer;transition:background .12s ease}"
+    + ".bt-dd-menu .bt-dd-item:not(:first-child){border-top:1px solid rgba(148,163,184,.09)!important;border-radius:0!important}"
+    + ".bt-dd-menu .bt-dd-item:hover,.bt-dd-menu .bt-dd-item:focus{background:rgba(148,163,184,.13)!important;color:#fff!important;outline:none}"
+    + ".bt-dd-menu .bt-mi-ico{flex:0 0 20px;width:20px;text-align:center;font-size:14px;line-height:1}"
+    + ".bt-dd-menu .bt-mi-txt{flex:1;text-align:left;white-space:nowrap}"
+    + ".bt-dd-quick{display:flex;width:100%;margin-top:4px;padding-top:6px;border-top:1px solid rgba(148,163,184,.14)}"
+    + ".bt-dd-quick .pv-quick-input{flex:1 1 auto;min-width:0}"
+    + ".bt-caret{font-size:10px;opacity:.8;margin-left:2px}"
+    + "@media(max-width:640px){.bt-dd-menu{right:auto;left:0}.bt-head .bt-toolbar{gap:6px}}";
+  function injectCSS(){ if(document.getElementById('bt-toolbar-css'))return; var s=document.createElement('style'); s.id='bt-toolbar-css'; s.textContent=CSS; (document.head||document.documentElement).appendChild(s); }
+
+  /* เปลี่ยนเฉพาะ label + title — คงไอคอน SVG เดิม + เก็บ element ที่มี id ไว้ · ไม่แตะ onclick/id/class/data-action */
+  function relabel(btn, word, tip){
+    if(!btn) return;
+    var svg = btn.querySelector('svg');
+    /* เก็บ element ที่มี id (ถูกอ้างอิงจากที่อื่น เช่น renderSC) — ห้ามทำลาย */
+    var keep = Array.prototype.slice.call(btn.querySelectorAll('[id]')).filter(function(n){ return n!==svg; });
+    while(btn.firstChild) btn.removeChild(btn.firstChild);
+    if(svg) btn.appendChild(svg);
+    var sp = document.createElement('span'); sp.className='bt-lbl'; sp.textContent = word;
+    keep.forEach(function(k){ sp.appendChild(document.createTextNode(' ')); sp.appendChild(k); });
+    btn.appendChild(sp);
+    if(tip) btn.setAttribute('title', tip);
+  }
+
+  /* เมนูรายการ: icon ซ้าย + ข้อความขวา (professional menu list) + เก็บ element ที่มี id ไว้ · ไม่แตะ onclick/id/data-action */
+  function relabelItem(btn, ico, txt, tip){
+    if(!btn) return;
+    /* เก็บ element ที่มี id เช่น #sc-export-cnt / #ac-export-cnt (renderSC/renderAC set .textContent) — ห้ามลบ */
+    var keep = Array.prototype.slice.call(btn.querySelectorAll('[id]'));
+    while(btn.firstChild) btn.removeChild(btn.firstChild);
+    var i=document.createElement('span'); i.className='bt-mi-ico'; i.textContent=ico;
+    var t=document.createElement('span'); t.className='bt-mi-txt'; t.textContent=txt;
+    keep.forEach(function(k){ t.appendChild(document.createTextNode(' ')); t.appendChild(k); });
+    btn.appendChild(i); btn.appendChild(t);
+    if(tip) btn.setAttribute('title', tip);
+  }
+
+  /* สร้าง Dropdown มาตรฐาน (ใช้ซ้ำได้ทั้ง 🚢 MAERSK / 🛠 Tools / เมนูลูกค้าในอนาคต)
+     ─ toggle + menu list + keyboard nav + คลิกนอกปิด + เปิดตัวใหม่ปิดเมนูพี่น้อง */
+  function makeDropdown(actions, iconChar, labelText, tipText, items, quickEl, menuKey, toggleCls){
+    var wrap=document.createElement('div'); wrap.className='bt-dd'; if(menuKey) wrap.setAttribute('data-menu',menuKey);
+    var tg=document.createElement('button'); tg.type='button'; tg.className='pv-btn bt-btn '+(toggleCls||'bt-c-dark')+' bt-dd-toggle';
+    tg.setAttribute('title',tipText); tg.setAttribute('aria-haspopup','true'); tg.setAttribute('aria-expanded','false');
+    tg.appendChild(document.createTextNode(iconChar+' '));
+    var lb=document.createElement('span'); lb.className='bt-lbl'; lb.textContent=labelText; tg.appendChild(lb);
+    tg.appendChild(document.createTextNode(' '));
+    var cr=document.createElement('span'); cr.className='bt-caret'; cr.textContent='▾'; tg.appendChild(cr);
+    var menu=document.createElement('div'); menu.className='bt-dd-menu'; menu.setAttribute('role','menu');
+    items.forEach(function(x){ if(x.el){ x.el.classList.add('bt-dd-item'); relabelItem(x.el,x.ico,x.word,x.tip); menu.appendChild(x.el); } });
+    if(quickEl){ quickEl.classList.add('bt-dd-quick'); menu.appendChild(quickEl); }
+    function focusables(){ return Array.prototype.slice.call(menu.querySelectorAll('button,input,textarea,select')); }
+    function setOpen(o){ wrap.classList.toggle('open',o); tg.setAttribute('aria-expanded',o?'true':'false'); }
+    tg.addEventListener('click',function(ev){ ev.stopPropagation(); var willOpen=!wrap.classList.contains('open'); Array.prototype.forEach.call(actions.querySelectorAll('.bt-dd'),function(d){ if(d!==wrap) d.classList.remove('open'); }); setOpen(willOpen); if(willOpen){ var f=focusables()[0]; if(f) setTimeout(function(){ try{f.focus();}catch(e){} },0); } });
+    tg.addEventListener('keydown',function(ev){ if(ev.key==='ArrowDown'||ev.key==='Down'){ ev.preventDefault(); setOpen(true); var f=focusables()[0]; if(f) f.focus(); } });
+    menu.addEventListener('click',function(ev){ var b=ev.target.closest('button'); if(b && !ev.target.closest('.bt-dd-quick')) setOpen(false); });
+    menu.addEventListener('keydown',function(ev){
+      if(ev.key==='Escape'||ev.key==='Esc'){ setOpen(false); tg.focus(); return; }
+      if(ev.key==='ArrowDown'||ev.key==='Down'||ev.key==='ArrowUp'||ev.key==='Up'){
+        ev.preventDefault(); var f=focusables(); if(!f.length) return;
+        var i=f.indexOf(document.activeElement);
+        if(ev.key==='ArrowUp'||ev.key==='Up') i=(i<=0?f.length-1:i-1); else i=(i<0||i>=f.length-1?0:i+1);
+        f[i].focus();
+      }
+    });
+    wrap.appendChild(tg); wrap.appendChild(menu);
+    document.addEventListener('click',function(ev){ if(!wrap.contains(ev.target)) setOpen(false); });
+    return wrap;
+  }
+
+  function reorg(p){
+    var P=p.toUpperCase();
+    var root=document.getElementById('page-'+p);
+    if(!root) return;
+    var actions=root.querySelector('.pv-actions');
+    if(!actions || actions.getAttribute('data-bt')) return;
+    var pick=function(sel){ try{return root.querySelector(sel);}catch(e){return null;} };
+    var q="'";
+    /* แถวเดียว: [selector, สี, ชื่อสั้น, tooltip] — Upload · Refresh · Excel · จบงาน · APL Billing */
+    var mainDefs=[
+      ['button[onclick="load'+P+'()"]','bt-c-dark','Refresh','Refresh'],
+      ['[data-action="import-'+p+'"]','bt-c-green','Upload','เลือกไฟล์ (Upload)'],
+      ['button[onclick="export'+P+'('+q+'visible'+q+')"]','bt-c-blue','Excel','Export Excel'],
+      ['button[onclick^="openPasteModal("]','bt-c-purple','จบงาน','Paste จบงาน'],
+      ['[data-action="apl-'+p+'"]','bt-c-green','APL Billing','Upload APL Billing (เฉพาะลูกค้า APL)']
+    ];
+    /* เมนู 🚢 MAERSK: ฟังก์ชันเฉพาะลูกค้า MAERSK [selector, icon, ชื่อสั้น, tooltip] */
+    var maerskDefs=[
+      ['[data-action="exportsoa-'+p+'"]','📄','SOA','Export SOA'],
+      ['button[onclick^="openCaseModal("]','🏷','Bulk Case','Bulk Case'],
+      ['button[onclick^="openETDModal("]','🚢','ETD','เติม ETD'],
+      ['button[onclick*="'+p+'-contact-file"]','📇','Contact List','Contact List']
+    ];
+    /* เมนู 🛠 Tools: เครื่องมือทั่วไป (+ ปุ่มที่เหลือ) */
+    var toolDefs=[
+      ['button[onclick="export'+P+'('+q+'all'+q+')"]','📦','Export ทั้งหมด','Export ทั้งหมด'],
+      ['button[onclick="export'+P+'('+q+'customer'+q+')"]','👥','Export Customer','Export Customer'],
+      ['[data-action="fastcsv-'+p+'"]','⚡','Fast CSV','Export Fast CSV'],
+      ['#'+p+'-sumbtn','📊','Summary','คำนวณยอดรวม'],
+      ['[data-action="up19-'+p+'"]','⬆','Upload 1.9','Upload Version 1.9'],
+      ['[data-action="bulk-'+p+'"]','✂️','ตัดจบงาน','ตัดจบงาน (Upload Excel)']   /* remaining — ห้ามลบ */
+    ];
+    var toObj=function(d){return {el:pick(d[0]),ico:d[1],word:d[2],tip:d[3]};};
+    var mainEls=mainDefs.map(function(d){return {el:pick(d[0]),cls:d[1],word:d[2],tip:d[3]};});
+    var maerskEls=maerskDefs.map(toObj);
+    /* เมนูใหม่ 📄 Export Excel CASE (แรกสุดใน MAERSK) — สร้าง element ใหม่ · ไม่แตะปุ่ม/ฟังก์ชันเดิม */
+    var caseBtn=document.createElement('button');
+    caseBtn.type='button'; caseBtn.className='pv-btn';
+    caseBtn.setAttribute('onclick', "exportExcelCase('"+p+"')");
+    maerskEls.unshift({el:caseBtn, ico:'📄', word:'Export Excel CASE', tip:'Export Excel CASE (ตาม Filter ปัจจุบัน)'});
+    var toolEls=toolDefs.map(toObj);
+    var quick=pick('.quick-close-group');   /* AC มี · SC ไม่มี */
+    /* กันปุ่มหาย: ปุ่มหลัก 4 ตัวแรกต้องมีจริง ไม่งั้นไม่จัดใหม่ (คงของเดิม) */
+    if(mainEls.slice(0,4).some(function(x){return !x.el;})) return;
+
+    var row2=(pick('button[onclick^="openPasteModal("]')||{}).parentNode||null;
+
+    actions.setAttribute('data-bt','1');
+    actions.classList.add('bt-toolbar');
+    var head=actions.closest('.pv-head'); if(head) head.classList.add('bt-head');
+
+    mainEls.forEach(function(x,idx){ if(x.el){ x.el.classList.add('bt-btn',x.cls); if(idx===0) x.el.classList.add('bt-refresh'); relabel(x.el,x.word,x.tip); actions.appendChild(x.el); } });   /* Refresh (idx 0) = Page Action group แยกไปซ้าย */
+
+    /* เมนูแบบ dropdown (ใช้ helper เดียวกัน) — เพิ่มเมนูลูกค้าใหม่ในอนาคตได้ง่ายด้วย makeDropdown อีกชุด */
+    actions.appendChild(makeDropdown(actions,'🚢','MAERSK','เมนูเครื่องมือเฉพาะลูกค้า MAERSK', maerskEls, null, 'maersk', 'bt-c-blue'));
+
+    /* 🛠 Tools: เฉพาะ role ที่ไม่ใช่ USER (USER = ไม่สร้าง element เลย ตาม permission)
+       ─ ใช้ role เดิมของระบบ (getRole) · admin/admin_mid เห็นเหมือนเดิม */
+    var isUser = (typeof getRole==='function') && getRole()==='user';
+    if(!isUser){
+      actions.appendChild(makeDropdown(actions,'🛠','Tools','เครื่องมือเพิ่มเติม', toolEls, quick, 'tools', 'bt-c-dark'));
+    } else {
+      /* USER: ไม่ render ปุ่มเครื่องมือ — ลบออกจาก DOM (ไม่ใช่ display:none) */
+      toolEls.forEach(function(x){ if(x.el) x.el.remove(); });
+      if(quick) quick.remove();
+    }
+
+    /* ซ่อนแถวปุ่มเดิม (แถว 2) ถ้าไม่มีปุ่ม/quick เหลือแล้ว — hidden file input ยังอยู่ (input.click() ทำงานแม้ parent display:none) */
+    if(row2 && !row2.querySelector('button, .quick-close-group')) row2.style.display='none';
+  }
+
+  function run(){ injectCSS(); ['sc','ac'].forEach(reorg); if(typeof applyUserVisibility==='function') applyUserVisibility(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run);
+  else run();
+})();
 
 </script>
 
