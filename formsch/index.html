@@ -571,6 +571,17 @@ input[type=file]{display:none}
 .rpt-hero-r #rpt-search:focus{border-color:#5a6a7e;}
 .rpt-hero-r #rpt-status-filter,.rpt-hero-r #rpt-customer-filter{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;color:var(--t1);padding:0 12px;font-size:12px;font-family:var(--font);outline:none;cursor:pointer;}
 .rpt-hero-r #rpt-status-filter:focus,.rpt-hero-r #rpt-customer-filter:focus{border-color:#5a6a7e;}
+/* Multi-select ลูกค้า (ติ๊กหลายราย) */
+.rpt-ms{position:relative;display:inline-block;}
+.rpt-ms-btn{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;color:var(--t1);padding:0 12px;font-size:12px;font-family:var(--font);outline:none;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.rpt-ms-btn:hover,.rpt-ms.open .rpt-ms-btn{border-color:#5a6a7e;}
+.rpt-ms-caret{font-size:10px;opacity:.75;}
+.rpt-ms-panel{display:none;position:absolute;top:46px;left:0;min-width:200px;max-height:280px;overflow-y:auto;background:#232B36;border:1px solid #3C4654;border-radius:10px;padding:6px;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.45);}
+.rpt-ms.open .rpt-ms-panel{display:block;}
+.rpt-ms-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--t1);white-space:nowrap;}
+.rpt-ms-row:hover{background:#2C3440;}
+.rpt-ms-row input{cursor:pointer;width:15px;height:15px;accent-color:#388bfd;flex:none;}
+.rpt-ms-all{border-bottom:1px solid #3C4654;margin-bottom:4px;font-weight:600;}
 .rpt-hero-r #rpt-ref-filter{height:42px;border-radius:10px;background:#2C3440;border:1px solid #3C4654;color:var(--t1);padding:0 12px;font-size:12px;font-family:var(--font);outline:none;cursor:pointer;}
 .rpt-hero-r #rpt-ref-filter:focus{border-color:#5a6a7e;}
 .rpt-hero-r #rpt-ref-filter::placeholder{color:var(--t3);}
@@ -1875,7 +1886,7 @@ input[type=file]{display:none}
           </div>
           <div class="rpt-hero-r">
             <div class="rpt-search-wrap"><span>🔍</span><input id="rpt-search" type="text" placeholder="ค้นหาทุกคอลัมน์…"></div>
-            <select id="rpt-customer-filter" title="กรองตามลูกค้า"><option value="">👥 ลูกค้าทั้งหมด</option></select>
+            <div id="rpt-cust-ms" class="rpt-ms" title="กรองตามลูกค้า"><button type="button" id="rpt-cust-btn" class="rpt-ms-btn">👥 ลูกค้าทั้งหมด <span class="rpt-ms-caret">▾</span></button><div id="rpt-cust-panel" class="rpt-ms-panel"></div></div>
             <select id="rpt-ref-filter" title="กรองตามสถานะ (ผลการยื่นระบบ)"><option value="">📋 ทั้งหมด</option><option value="WAIT_SUBMIT">🔵 รอส่งข้อมูล</option><option value="WAIT_APPROVAL">🟡 รออนุมัติ</option><option value="APPROVED">🟢 อนุมัติจากระบบ</option><option value="REJECTED">🔴 ไม่อนุมัติ</option><option value="CANCELLED">🟣 ยกเลิก</option></select>
             <button class="rpt-btn" id="rpt-btn-refresh" title="รีเฟรชข้อมูลจากฐานข้อมูล">🔄 รีเฟรช</button>
             <button class="rpt-btn" id="rpt-btn-filter">🔽 ตัวกรอง</button>
@@ -8887,7 +8898,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     {k:'invoice_no',           h:'INVOICE',                     t:'text', w:130},
     {k:'customer',             h:'ลูกค้า',                       t:'text', w:130},
     {k:'customer_name',        h:'ชื่อลูกค้า',                  t:'text', w:130},
-    {k:'mail_received_date',   h:'วันที่ได้รับเมล์',            t:'date', w:120, hT:1},
+    {k:'mail_received_date',   h:'วันที่ลูกค้าส่งเอกสาร',        t:'date', w:120, hT:1},
     {k:'form_status',          h:'FORM',                       t:'text', w:56 },
     {k:'pack_status',          h:'PACK',                       t:'text', w:56 },
     {k:'nj_full_docs_date',    h:'วันที่ NJ ส่งเอกสารครบชุด',    t:'date', w:175, hT:1},
@@ -8907,22 +8918,23 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   const _rptRemarkCol = RPT_MAIN.find(c=>c.k==='remark');   // สถานะติดปัญหา (remark) — render แยกหลังคอลัมน์ "สถานะ"
   const RPT_MAIN_VIS = (()=>{
     const vis = RPT_MAIN.filter(c=>!c.hT && c.k!=='remark');   // remark ย้ายไป render หลัง "สถานะ"
-    // ➕ คอลัมน์แสดงผลอย่างเดียว "วันที่ได้รับเอกสารครบ" — reuse field เดิม nj_full_docs_date
-    //    วางหลัง REF:กรม (trade_ref) · dash:แสดง "-" ถ้าว่าง · nf:ไม่มีช่องกรอง (ไม่กระทบ Filter/Export/DB/Modal)
-    const col = {k:'nj_full_docs_date', h:'วันที่ได้รับเอกสารครบ', t:'date', w:150, dash:1, nf:1};
+    // ➕ คอลัมน์แสดงผลอย่างเดียว (reuse field เดิม) วางหลัง REF:กรม (trade_ref):
+    //    วันที่ได้รับเมล์ (mail_received_date) → วันที่ได้รับเอกสารครบ (nj_full_docs_date)
+    //    dash:แสดง "-" ถ้าว่าง · nf:ไม่มีช่องกรอง (ไม่กระทบ Filter/Export/DB/Modal)
+    const mailCol = {k:'mail_received_date', h:'วันที่ลูกค้าส่งเอกสาร',    t:'date', w:120, dash:1, nf:1};
+    const docCol  = {k:'nj_full_docs_date',  h:'วันที่ลูกค้าส่งเอกสารครบ', t:'date', w:150, dash:1, nf:1};
     const i = vis.findIndex(c=>c.k==='trade_ref');
-    if(i>=0) vis.splice(i+1,0,col); else vis.push(col);
+    if(i>=0) vis.splice(i+1,0,mailCol,docCol); else vis.push(mailCol,docCol);
     return vis;
   })();
   // กลุ่ม 2: เอกสารที่ลูกค้าส่งมา (5)  checkbox
   const RPT_CUST = [
-    {k:'customer_rm',         h:'RM',                w:64},
+    {k:'customer_rm',         h:'RM EXCEL',          w:64},
     {k:'customer_bl',         h:'BL',                w:64},
     {k:'customer_inv',        h:'INV',               w:80},
     {k:'customer_pkl',        h:'PKL',               w:80},
-    {k:'customer_excel_ex',   h:'EXCEL EX',          w:100},
     {k:'customer_import_pdf', h:'ใบขนขาเข้า PDF',    w:120},
-    {k:'customer_excel_im',   h:'ใบขนขาเข้า EXCEL',  w:120}
+    {k:'customer_excel_im',   h:'ใบขนออก EXCEL',     w:120}
   ];
   // กลุ่ม 3: เอกสารที่ NJ ได้รับเซ็นแล้ว (7)  checkbox
   const RPT_NJ = [
@@ -8937,7 +8949,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   const RPT_ALL = RPT_MAIN.concat(RPT_CHK);               // 26 คอลัมน์
   // ป้ายชื่อที่แสดงผล — ใช้เฉพาะ Table + Modal (เปิดงาน/แก้ไข) · ไม่กระทบ field/DB/Export
   const RPT_HDR_OVR = { trade_ref:'REF : กรม', reject_reason:'เหตุผลยื่นไม่ผ่าน', remark:'สถานะติดปัญหา' };
-  const RPT_MODAL_LBL = { job_nj_name:'JOB NJ', job_kn_name:'JOB KN', nj_full_docs_date:'วันที่ได้รับเอกสารครบ' };   // ชื่อ label เฉพาะใน Modal (ไม่กระทบหัวตาราง/Export)
+  const RPT_MODAL_LBL = { job_nj_name:'JOB NJ', job_kn_name:'JOB KN', nj_full_docs_date:'วันที่ลูกค้าส่งเอกสารครบ' };   // ชื่อ label เฉพาะใน Modal (ไม่กระทบหัวตาราง/Export)
   // Display-only: ข้อความที่แสดงของ Dropdown "อัปเดตสถานะ" — value ภายใน/DB เดิมทั้งหมด (เปลี่ยนแค่ที่ผู้ใช้เห็น)
   // ── สถานะงาน (update_status) ชุดใหม่ที่ผู้ใช้เห็น + map ค่าเดิม→ใหม่ (value/DB/logic คงเดิม เปลี่ยนเฉพาะที่แสดง) ──
   const RPT_ST_NEW = [                 // 4 สถานะจริง (Dropdown/Badge/Card/Filter) — ลำดับตายตัว
@@ -8990,7 +9002,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   let rptSearch= '';
   let rptStatusFilter = '';   // '' ทั้งหมด | 'APPROVED' | 'REJECTED' — กรองสถานะจาก toolbar
   let rptRefFilter = '';      // ค้นหาสถานะจากข้อความในคอลัมน์สถานะ (ผลการยื่นระบบ) แบบ contains จาก toolbar
-  let rptCustomerFilter = ''; // กรองลูกค้า (customer) แบบ exact จาก dropdown
+  let rptCustomerSet = new Set(); // กรองลูกค้า (customer) แบบ multi-select — ว่าง = ทั้งหมด
   let rptFilters = {};      // {colKey: value}  (checkbox: '', 'y', 'n')
   let rptFilterOn = false;
   let rptSelId = null;
@@ -9095,15 +9107,35 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
 
   /* ── สร้าง/รีเฟรช dropdown ลูกค้าจาก RPT_DATA (ไม่ซ้ำ, ตัดว่าง, เรียง ก-ฮ/A-Z, คงค่าที่เลือก) ── */
+  let _rptCustSig='';
+  function _rptCustLabel(){                                 // ข้อความบนปุ่ม: 0=ทั้งหมด · 1=ชื่อ · 2=ชื่อ,ชื่อ · >2=เลือก N ลูกค้า
+    const btn=document.getElementById('rpt-cust-btn'); if(!btn) return;
+    const arr=Array.from(rptCustomerSet).sort((a,b)=>a.localeCompare(b,'th'));
+    let txt;
+    if(arr.length===0) txt='👥 ลูกค้าทั้งหมด';
+    else if(arr.length===1) txt='👥 '+arr[0];
+    else if(arr.length===2) txt='👥 '+arr[0]+', '+arr[1];
+    else txt='👥 เลือก '+arr.length+' ลูกค้า';
+    btn.innerHTML=_esc(txt)+' <span class="rpt-ms-caret">▾</span>';
+  }
   function _rptFillCustomerFilter(){
-    const sel=document.getElementById('rpt-customer-filter'); if(!sel) return;
-    const cur=sel.value;
+    const panel=document.getElementById('rpt-cust-panel'); if(!panel) return;
     const set=new Set();
     RPT_DATA.forEach(r=>{ const c=(r.customer==null?'':String(r.customer)).trim(); if(c) set.add(c); });
     const list=Array.from(set).sort((a,b)=>a.localeCompare(b,'th'));
-    sel.innerHTML='<option value="">👥 ลูกค้าทั้งหมด</option>'+list.map(c=>`<option value="${_esc(c)}">${_esc(c)}</option>`).join('');
-    if(cur && set.has(cur)) sel.value=cur;                  // คงค่าที่เลือกไว้
-    else if(cur){ sel.value=''; rptCustomerFilter=''; }     // ลูกค้าที่เลือกหายไป → กลับเป็นทั้งหมด
+    rptCustomerSet.forEach(c=>{ if(!set.has(c)) rptCustomerSet.delete(c); });   // ลูกค้าที่หายไป → ตัดออก (ว่าง = ทั้งหมด)
+    const sig=list.join('\u0001');
+    const allOn=list.length>0 && list.every(c=>rptCustomerSet.has(c));
+    if(sig!==_rptCustSig){                                  // รายชื่อเปลี่ยน → สร้าง panel ใหม่
+      _rptCustSig=sig;
+      let h=`<label class="rpt-ms-row rpt-ms-all"><input type="checkbox" class="rpt-ms-allcb"${allOn?' checked':''}><span>เลือกทั้งหมด</span></label>`;
+      h+=list.map(c=>`<label class="rpt-ms-row"><input type="checkbox" class="rpt-ms-cb" value="${_esc(c)}"${rptCustomerSet.has(c)?' checked':''}><span>${_esc(c)}</span></label>`).join('');
+      panel.innerHTML=h;
+    }else{                                                 // รายชื่อเดิม → sync เฉพาะสถานะติ๊ก (คง DOM/เปิดค้างไว้)
+      panel.querySelectorAll('.rpt-ms-cb').forEach(cb=>{ cb.checked=rptCustomerSet.has(cb.value); });
+      const acb=panel.querySelector('.rpt-ms-allcb'); if(acb) acb.checked=allOn;
+    }
+    _rptCustLabel();
   }
 
   /* ── search + filter + sort → RPT_VIEW ──────────────────── */
@@ -9120,8 +9152,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     if(rptRefFilter){                                      // กรองตามสถานะ (ผลการยื่นระบบ) แบบ exact — AND กับตัวกรองอื่น
       v=v.filter(r=>_rptSS(r)===rptRefFilter);
     }
-    if(rptCustomerFilter){                                 // กรองลูกค้า (customer) แบบ exact — AND กับตัวกรองอื่น
-      v=v.filter(r=>String(r.customer==null?'':r.customer)===rptCustomerFilter);
+    if(rptCustomerSet.size){                               // กรองลูกค้า (multi-select) — ตรงรายใดรายหนึ่ง · AND กับตัวกรองอื่น
+      v=v.filter(r=>rptCustomerSet.has((r.customer==null?'':String(r.customer)).trim()));
     }
     if(rptFilterOn){
       for(const key in rptFilters){
@@ -9431,14 +9463,6 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       const el=document.getElementById('mf-'+k), wrap=el&&el.closest('.rpt-mf');
       if(wrap) wrap.style.display = src ? '' : 'none';
     });
-    if(!src){   // ➕ เปิดงานใหม่ เท่านั้น: สลับตำแหน่ง Layout วันที่ได้รับเมล์ ↔ REF:กรม (ไม่แตะ id/value/logic)
-      const a=document.getElementById('mf-mail_received_date')?.closest('.rpt-mf');
-      const b=document.getElementById('mf-trade_ref')?.closest('.rpt-mf');
-      if(a && b && a.parentNode===b.parentNode){
-        const p=a.parentNode, m=document.createComment('');
-        p.replaceChild(m,a); p.replaceChild(a,b); p.replaceChild(b,m);   // สลับ a↔b
-      }
-    }
   }
   async function _rptOpenModal(mode, srcId){
     _rptBuildModalFields();
@@ -9602,10 +9626,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       {k:'invoice_no',            h:'INVOICE',                     t:'text'},
       {k:'customer',              h:'ลูกค้า',                       t:'text'},
       {k:'customer_name',         h:'ชื่อลูกค้า',                  t:'text'},
-      {k:'mail_received_date',    h:'วันที่ได้รับเมล์',            t:'date'},
+      {k:'mail_received_date',    h:'วันที่ลูกค้าส่งเอกสาร',        t:'date'},
       {k:'form_status',           h:'FORM',                       t:'text'},
       {k:'pack_status',           h:'PACK',                       t:'pack'},
-      {k:'nj_full_docs_date',     h:'วันที่ NJ ส่งเอกสารครบชุด',   t:'date'},
+      {k:'nj_full_docs_date',     h:'วันที่ลูกค้าส่งเอกสารครบ',     t:'date'},
       {k:'nj_draft_form_date',    h:'วันที่ NJ ส่ง Draft FORM',    t:'date'},
       {k:'kn_confirm_form_date',  h:'วันที่ KN Confirm FORM',      t:'date'},
       {k:'trade_ref',             h:'REF : กรมการค้า',             t:'text'},
@@ -9625,7 +9649,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const nMain=EXP_MAIN.length, nCust=CUST.length, nNj=NJ.length, nTail=EXP_TAIL.length, TOTAL=nMain+nCust+nNj+nTail; // 30
     const tailStart=nMain+nCust+nNj;   // คอลัมน์ท้ายเริ่มที่ tailStart+1
     // ความกว้างคอลัมน์ (Excel units) — main(13) + ลูกค้า(7) + NJ(6) + ท้าย(4) · แต่ละคอลัมน์คงความกว้างเดิม
-    const WID=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,9.140625,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,8.7109375,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    const WID=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,22,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
     ws.columns=WID.map(w=>({width:w}));
     // ── แถว 1: หัวหลัก (ทอง) + หัวกลุ่ม merge (เขียว/ฟ้า) ──
@@ -9640,14 +9664,22 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     for(let i=0;i<nTail;i++){ const c=ws.getCell(2,tailStart+1+i); c.fill=_fl(GOLD); c.font=FONT; c.alignment={horizontal:'center'}; }
     // ── ข้อมูล (เรียง RM→PACK + แถวคั่นกลุ่ม เหมือนหน้าต่างรายการ 100%) ──
     const disp = RPT_DISP.length ? RPT_DISP : _rptDisplayList(_rptGroupSort(RPT_VIEW.length?RPT_VIEW:RPT_DATA));
+    const EXP_SS_LBL=Object.create(null); RPT_KPI.forEach(k=>{ EXP_SS_LBL[k.v]=k.lbl.replace(/^\S+\s+/,''); });   // ผลการยื่นระบบ → ข้อความล้วน (ตัด emoji/icon นำหน้า เฉพาะ Export)
     let rr=3;
     disp.forEach(r=>{
       if(r.__sep){ for(let c=1;c<=TOTAL;c++){ const cell=ws.getCell(rr,c); cell.fill=_fl(SEP); cell.font=FONT; if(c===5) cell.alignment={horizontal:'center'}; } rr++; return; }
       for(let i=0;i<nMain;i++){ const m=EXP_MAIN[i]; let v;
         if(m.t==='date') v=_rptDate(r[m.k]);
-        else if(m.t==='status') v=(r.system_approval_status==='APPROVED'?'DONE':(r.system_approval_status==='REJECTED'?'PENDING':(r.status||'')));
+        else if(m.t==='status'){   // สถานะ = ผลการยื่นระบบจริง (เหมือนหน้าจอ) + รองรับข้อมูลเก่า DONE/PENDING
+          const _sv=r.system_approval_status;
+          const _canon=(_sv==='WAIT_SUBMIT'||_sv==='WAIT_APPROVAL'||_sv==='APPROVED'||_sv==='REJECTED'||_sv==='CANCELLED');
+          if(_canon) v=EXP_SS_LBL[_sv]||'';
+          else if(_sv==='DONE'||r.status==='DONE') v=EXP_SS_LBL['APPROVED'];        // legacy DONE → อนุมัติจากระบบ
+          else if(_sv==='PENDING'||r.status==='PENDING') v=EXP_SS_LBL['WAIT_SUBMIT']; // legacy PENDING → รอส่งข้อมูล
+          else v=EXP_SS_LBL[_rptSS(r)]||'';                                          // null/reject_reason → canonical เดิม
+        }
         else v=(r[m.k]==null?'':r[m.k]);
-        const cell=ws.getCell(rr,i+1); cell.value=(v===''||v==null)?null:v; cell.font=FONT; if(i+1===5) cell.alignment={horizontal:'center'}; }
+        const cell=ws.getCell(rr,i+1); cell.value=(v===''||v==null)?null:v; cell.font=FONT; if(i+1===5) cell.alignment={horizontal:'center'}; else if(m.t==='status') cell.alignment={horizontal:'center',vertical:'middle',wrapText:false}; }
       for(let i=0;i<nCust;i++){ const cell=ws.getCell(rr,nMain+1+i); cell.value=r[CUST[i].k]?'✓':null; cell.font=FONT; cell.alignment={horizontal:'center',vertical:'middle'}; }
       for(let i=0;i<nNj;i++){ const cell=ws.getCell(rr,nMain+nCust+1+i); cell.value=r[NJ[i].k]?'✓':null; cell.font=FONT; cell.alignment={horizontal:'center',vertical:'middle'}; }
       for(let i=0;i<nTail;i++){ const m=EXP_TAIL[i]; let v=(m.t==='date')?_rptDate(r[m.k]):(r[m.k]==null?'':r[m.k]);
@@ -9664,8 +9696,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-    const _cf=(document.getElementById('rpt-customer-filter')?.value||'').trim();
-    const _cfName=_cf ? _cf.replace(/[\/\\?%*:|"<>\[\]]/g,'').trim() : 'ALL';
+    const _csel=Array.from(rptCustomerSet);
+    const _cfName=_csel.length===0 ? 'ALL' : (_csel.length===1 ? (_csel[0].replace(/[\/\\?%*:|"<>\[\]]/g,'').trim()||'ALL') : 'MULTI');
     const _ymd=new Date().toISOString().slice(0,10).replace(/-/g,'');
     a.download='REPORT_FORMSCH_'+(_cfName||'ALL')+'_'+_ymd+'.xlsx';
     document.body.appendChild(a); a.click();
@@ -9694,7 +9726,23 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     });
     const si=document.getElementById('rpt-search');
     if(si){ let t; si.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{ rptSearch=si.value.trim(); _rptApplyView(); _rptRender(); },180); }); }
-    document.getElementById('rpt-customer-filter')?.addEventListener('change',e=>{ rptCustomerFilter=e.target.value; _rptApplyView(); _rptRender(); });
+    (()=>{   // Multi-select ลูกค้า: เปิด/ปิด panel · ติ๊กหลายราย · เลือกทั้งหมด · ปิดเมื่อคลิกนอกกรอบ
+      const wrap=document.getElementById('rpt-cust-ms'), btn=document.getElementById('rpt-cust-btn'), panel=document.getElementById('rpt-cust-panel');
+      if(!wrap||!btn||!panel) return;
+      btn.addEventListener('click',e=>{ e.stopPropagation(); wrap.classList.toggle('open'); });
+      panel.addEventListener('click',e=>e.stopPropagation());
+      panel.addEventListener('change',e=>{
+        const t=e.target;
+        if(t.classList.contains('rpt-ms-allcb')){
+          const cbs=Array.from(panel.querySelectorAll('.rpt-ms-cb'));
+          if(t.checked) cbs.forEach(cb=>rptCustomerSet.add(cb.value)); else rptCustomerSet.clear();
+        }else if(t.classList.contains('rpt-ms-cb')){
+          if(t.checked) rptCustomerSet.add(t.value); else rptCustomerSet.delete(t.value);
+        }else return;
+        _rptApplyView(); _rptRender();
+      });
+      document.addEventListener('click',()=>wrap.classList.remove('open'));
+    })();
     document.getElementById('rpt-ref-filter')?.addEventListener('change',e=>{ rptRefFilter=e.target.value; _rptApplyView(); _rptRender(); });
 
     // modal
