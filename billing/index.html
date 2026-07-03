@@ -257,6 +257,10 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 
 /* ─── FIXED COLUMN WIDTHS (15 cols: Status | Remaining | Date | Invoice | Customer | Job | SC/Adv | VAT | Amount | WHT | Total | APL | Due Date | NOTE | จัดการ) ─── */
 .pv-tbl th:nth-child(1),  .pv-tbl td:nth-child(1) { width:100px }   /* Status (sticky left) */
+/* ── HIDE Status column (UI only) — ซ่อน Header "Status" + badge สถานะทุกแถว · คอลัมน์ที่เหลือขยับซ้ายอัตโนมัติ
+     ─ แถว colspan (กำลังโหลด/ไม่พบข้อมูล/error) ไม่โดนซ่อน (:not([colspan])) ─ ไม่แตะข้อมูล/ค่า status/sort/filter/export ── */
+.pv-tbl thead th:first-child,
+.pv-tbl tbody td:first-child:not([colspan]){display:none}
 .pv-tbl th:nth-child(2),  .pv-tbl td:nth-child(2) { width:135px;text-align:center }   /* Remaining (badge — กระพริบ/ตีกรอบ) */
 .pv-tbl th:nth-child(3),  .pv-tbl td:nth-child(3) { width:110px }   /* Date */
 .pv-tbl th:nth-child(4),  .pv-tbl td:nth-child(4) { width:150px }   /* Invoice No. */
@@ -303,19 +307,20 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
    ─ scope #page-ac เท่านั้น → ไม่กระทบ SC · ID override ชนะกฎ shared .pv-tbl nth-child(7-15) ทั้งหมด (รวม special col15 bg/center) */
 #page-ac .pv-tbl{ min-width:2700px }
 #page-ac .pv-tbl th:nth-child(7),  #page-ac .pv-tbl td:nth-child(7) { width:175px }                     /* Company Invoice */
-#page-ac .pv-tbl th:nth-child(8),  #page-ac .pv-tbl td:nth-child(8) { width:120px }                     /* Case */
-#page-ac .pv-tbl th:nth-child(9),  #page-ac .pv-tbl td:nth-child(9) { width:150px;text-align:left }      /* Contact */
-#page-ac .pv-tbl th:nth-child(10), #page-ac .pv-tbl td:nth-child(10){ width:110px;text-align:center }    /* ETA */
-#page-ac .pv-tbl th:nth-child(11), #page-ac .pv-tbl td:nth-child(11){ width:110px;text-align:center }    /* ETD */
-#page-ac .pv-tbl th:nth-child(12), #page-ac .pv-tbl td:nth-child(12),
+#page-ac .pv-tbl th:nth-child(8),  #page-ac .pv-tbl td:nth-child(8) { width:150px }                     /* House B/L No. (ใหม่) */
+#page-ac .pv-tbl th:nth-child(9),  #page-ac .pv-tbl td:nth-child(9) { width:120px }                     /* Case */
+#page-ac .pv-tbl th:nth-child(10), #page-ac .pv-tbl td:nth-child(10){ width:150px;text-align:left }      /* Contact */
+#page-ac .pv-tbl th:nth-child(11), #page-ac .pv-tbl td:nth-child(11){ width:110px;text-align:center }    /* ETA */
+#page-ac .pv-tbl th:nth-child(12), #page-ac .pv-tbl td:nth-child(12){ width:110px;text-align:center }    /* ETD */
 #page-ac .pv-tbl th:nth-child(13), #page-ac .pv-tbl td:nth-child(13),
 #page-ac .pv-tbl th:nth-child(14), #page-ac .pv-tbl td:nth-child(14),
 #page-ac .pv-tbl th:nth-child(15), #page-ac .pv-tbl td:nth-child(15),
-#page-ac .pv-tbl th:nth-child(16), #page-ac .pv-tbl td:nth-child(16){ width:115px;text-align:right;background:transparent }  /* Advance/VAT/Amount/WHT/Total — ล้าง special bg/center ของ col15 เดิม + บังคับ right */
-#page-ac .pv-tbl th:nth-child(17), #page-ac .pv-tbl td:nth-child(17){ width:130px }                     /* I BILLING APL */
-#page-ac .pv-tbl th:nth-child(18), #page-ac .pv-tbl td:nth-child(18){ width:105px;text-align:center }    /* Due Date */
-#page-ac .pv-tbl th:nth-child(19), #page-ac .pv-tbl td:nth-child(19){ width:220px }                     /* NOTE */
-#page-ac .pv-tbl th:nth-child(20), #page-ac .pv-tbl td:nth-child(20){ width:145px;text-align:center }    /* จัดการ (ปุ่ม) */
+#page-ac .pv-tbl th:nth-child(16), #page-ac .pv-tbl td:nth-child(16),
+#page-ac .pv-tbl th:nth-child(17), #page-ac .pv-tbl td:nth-child(17){ width:115px;text-align:right;background:transparent }  /* Advance/VAT/Amount/WHT/Total */
+#page-ac .pv-tbl th:nth-child(18), #page-ac .pv-tbl td:nth-child(18){ width:130px }                     /* I BILLING APL */
+#page-ac .pv-tbl th:nth-child(19), #page-ac .pv-tbl td:nth-child(19){ width:105px;text-align:center }    /* Due Date */
+#page-ac .pv-tbl th:nth-child(20), #page-ac .pv-tbl td:nth-child(20){ width:220px }                     /* NOTE */
+#page-ac .pv-tbl th:nth-child(21), #page-ac .pv-tbl td:nth-child(21){ width:145px;text-align:center }    /* จัดการ (ปุ่ม) */
 
 /* ─── STICKY: Status (col 1) เป็นตัวเดียวที่ sticky-left  /  ─── */
 .pv-tbl th:nth-child(1), .pv-tbl td:nth-child(1){
@@ -935,7 +940,7 @@ html, body { min-width: 1280px; }
 
       <div class="pv-card" style="padding:10px 12px 6px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="search" id="sc-search" class="pv-search" placeholder="🔍 ค้นหา · Invoice, Job, Customer, CS, NOTE … (600ms debounce)" oninput="onSearchInput('sc',this.value)">
+          <input type="search" id="sc-search" class="pv-search" placeholder="🔍 ค้นหา : Invoice No., Master, House B/L No., Customer Job No., DCL INV." oninput="onSearchInput('sc',this.value)">
           <select id="sc-fc" class="pv-select" onchange="setFilter('sc','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
           <select id="sc-fs" class="pv-select" onchange="setFilter('sc','status',this.value)">
             <option value="">Status ทั้งหมด</option>
@@ -1042,7 +1047,9 @@ html, body { min-width: 1280px; }
               <th>Customer name</th>
               <th>Customer Job No.</th>
               <th>Company Invoice</th>
+              <th style="width:150px">House B/L No.</th>
               <th class="r">Service charge</th>
+              <th class="r" style="width:115px">Advance</th>
               <th class="r">VAT 7%</th>
               <th class="r">Amount</th>
               <th class="r">WHT 3%</th>
@@ -1056,7 +1063,7 @@ html, body { min-width: 1280px; }
               <th>NOTE</th>
               <th style="text-align:center;min-width:145px">จัดการ</th>
             </tr></thead>
-            <tbody id="sc-tbody"><tr><td colspan="20"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr></tbody>
+            <tbody id="sc-tbody"><tr><td colspan="22"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1117,7 +1124,7 @@ html, body { min-width: 1280px; }
 
       <div class="pv-card" style="padding:10px 12px 6px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="search" id="ac-search" class="pv-search" placeholder="🔍 ค้นหา · Invoice, Job, Customer, CS, NOTE … (600ms debounce)" oninput="onSearchInput('ac',this.value)">
+          <input type="search" id="ac-search" class="pv-search" placeholder="🔍 ค้นหา : Invoice No., Master, House B/L No., Customer Job No., DCL INV." oninput="onSearchInput('ac',this.value)">
           <select id="ac-fc" class="pv-select" onchange="setFilter('ac','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
           <select id="ac-fs" class="pv-select" onchange="setFilter('ac','status',this.value)">
             <option value="">Status ทั้งหมด</option>
@@ -1208,6 +1215,7 @@ html, body { min-width: 1280px; }
               <th>Customer name</th>
               <th>Customer Job No.</th>
               <th>Company Invoice</th>
+              <th style="width:150px">House B/L No.</th>
               <th>Case</th>
               <th>Contact</th>
               <th>ETA</th>
@@ -1222,7 +1230,7 @@ html, body { min-width: 1280px; }
               <th>NOTE</th>
               <th style="text-align:center;min-width:145px">จัดการ</th>
             </tr></thead>
-            <tbody id="ac-tbody"><tr><td colspan="20"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr></tbody>
+            <tbody id="ac-tbody"><tr><td colspan="21"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1354,8 +1362,8 @@ const DEFAULT_PAGE_SIZE = 20;     /* ค่าเริ่มต้น = 20 (เ
    ─ ถ้าคอลัมน์ใดไม่มีใน DB → loadPage จะ fallback select('*') อัตโนมัติ      */
 function listCols(prefix){
   return prefix === 'sc'
-    ? 'id,date,invoice_no,customer_name,customer_job,company_invoice,service_charge,vat,amount,wht,total_amount,i_billing_apl,case_no,eta,etd,status,note,cs'
-    : 'id,date,invoice_no,customer_name,customer_job,company_invoice,advance,vat,amount,wht,total_amount,i_billing_apl,case_no,eta,etd,status,note,cs';
+    ? 'id,date,invoice_no,customer_name,customer_job,company_invoice,house_bl_no,service_charge,advance,vat,amount,wht,total_amount,i_billing_apl,case_no,eta,etd,status,note,cs'
+    : 'id,date,invoice_no,customer_name,customer_job,company_invoice,house_bl_no,advance,vat,amount,wht,total_amount,i_billing_apl,case_no,eta,etd,status,note,cs';
 }
 
 /* ── localStorage helpers (กันพังถ้า browser block storage) ── */
@@ -1734,11 +1742,10 @@ function applyFiltersToQuery(q, f, prefix, opts){
     const term = '%' + escIlike(f.q) + '%';
     q = q.or(
       'invoice_no.ilike.'+term+
-      ',customer_name.ilike.'+term+
+      ',master.ilike.'+term+
+      ',house_bl_no.ilike.'+term+
       ',customer_job.ilike.'+term+
-      ',cs.ilike.'+term+
-      ',i_billing_apl.ilike.'+term+
-      ',note.ilike.'+term
+      ',dcl_inv.ilike.'+term
     );
   }
   /* Status (UI: PENDING/CLOSE/CANCELED — DB might have variants) */
@@ -2564,7 +2571,7 @@ function attachLazyFilterListeners(prefix){
 async function reloadAll(prefix, forceOptions){
   const st = PageState[prefix];
   const tb = $(prefix+'-tbody');
-  if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?16:15)+'"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr>';
+  if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?18:16)+'"><div class="loading-box"><div class="spinner"></div>กำลังโหลด…</div></td></tr>';
   /* Reset due popup flag → refresh = popup เด้งใหม่ได้ */
   window['_duePopupShown'+prefix.toUpperCase()] = false;
   if(forceOptions){
@@ -2601,7 +2608,7 @@ async function reloadAll(prefix, forceOptions){
   } catch(e){
     console.error(e);
     setConn('err','offline');
-    if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?16:15)+'"><div class="pv-empty">❌ โหลดล้มเหลว: '+esc(e.message||e)+'</div></td></tr>';
+    if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?18:16)+'"><div class="pv-empty">❌ โหลดล้มเหลว: '+esc(e.message||e)+'</div></td></tr>';
     toast('โหลดล้มเหลว: '+(e.message||e),'err');
   }
 }
@@ -2612,7 +2619,7 @@ async function reloadPageOnly(prefix, opts){
   opts = opts || {};
   const st = PageState[prefix];
   const tb = $(prefix+'-tbody');
-  if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?16:15)+'"><div class="loading-box"><div class="spinner"></div>กำลังกรอง…</div></td></tr>';
+  if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?18:16)+'"><div class="loading-box"><div class="spinner"></div>กำลังกรอง…</div></td></tr>';
   try{
     const jobs = [loadPage(prefix)];
     if(!opts.skipCounts) jobs.push(loadCounts(prefix));   /* PERF: เปลี่ยนหน้าไม่ยิง count */
@@ -2623,7 +2630,7 @@ async function reloadPageOnly(prefix, opts){
     /* PERF item3: ไม่เรียก sum aggregate อัตโนมัติแล้ว */
   } catch(e){
     console.error(e);
-    if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?16:15)+'"><div class="pv-empty">❌ โหลดล้มเหลว: '+esc(e.message||e)+'</div></td></tr>';
+    if(tb) tb.innerHTML = '<tr><td colspan="'+(prefix==="sc"?18:16)+'"><div class="pv-empty">❌ โหลดล้มเหลว: '+esc(e.message||e)+'</div></td></tr>';
     toast('โหลดล้มเหลว: '+(e.message||e),'err');
   }
 }
@@ -3830,7 +3837,7 @@ function renderSC(){
 
   const tb = $('sc-tbody');
   if(!rows.length){
-    tb.innerHTML = '<tr><td colspan="16"><div class="pv-empty">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="22"><div class="pv-empty">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
     return;
   }
   /* ── PERF C3: cache escape ผลลัพธ์ใน r._esc / r._cache ต่อ row ── */
@@ -3850,7 +3857,9 @@ function renderSC(){
         jobR: esc(r.customer_job||''),
         ci:   esc((r.company_invoice||'').length > 10 ? r.company_invoice.slice(0,10)+'…' : (r.company_invoice||'-')),
         ciR:  esc(r.company_invoice||''),
+        hbl:  esc(r.house_bl_no || '-'),
         sc:   fmt(r.service_charge),
+        adv:  (r.advance === null || r.advance === undefined || r.advance === '') ? '-' : fmt(r.advance),
         vat:  fmt(r.vat),
         amt:  fmt(r.amount),
         wht:  fmt(r.wht),
@@ -3905,7 +3914,9 @@ function renderSC(){
       +'<td'+tCust+'>'+e.cust+'</td>'
       +'<td'+tJob+'>'+e.job+'</td>'
       +'<td'+tCi+'>'+e.ci+'</td>'
+      +'<td>'+e.hbl+'</td>'
       +'<td class="r">'+e.sc+'</td>'
+      +'<td class="r">'+e.adv+'</td>'
       +'<td class="r">'+e.vat+'</td>'
       +'<td class="r">'+e.amt+'</td>'
       +'<td class="r neg">'+e.wht+'</td>'
@@ -3949,7 +3960,7 @@ function renderAC(){
 
   const tb = $('ac-tbody');
   if(!rows.length){
-    tb.innerHTML = '<tr><td colspan="20"><div class="pv-empty">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="21"><div class="pv-empty">ไม่พบรายการตามเงื่อนไข</div></td></tr>';
     return;
   }
   /* ── PERF C3: cache escape ผลลัพธ์ใน r._esc / r._cache ต่อ row ── */
@@ -3968,6 +3979,7 @@ function renderAC(){
         jobR: esc(r.customer_job||''),
         ci:   esc((r.company_invoice||'').length > 10 ? r.company_invoice.slice(0,10)+'…' : (r.company_invoice||'-')),
         ciR:  esc(r.company_invoice||''),
+        hbl:  esc(r.house_bl_no || '-'),
         cs:   esc(r.case||r.case_no||'-'),
         csR:  esc(r.case||r.case_no||''),
         contact: esc(contactFor(r.company_invoice)),
@@ -4022,6 +4034,7 @@ function renderAC(){
       +'<td'+tCust+'>'+e.cust+'</td>'
       +'<td'+tJob+'>'+e.job+'</td>'
       +'<td'+tCi+'>'+e.ci+'</td>'
+      +'<td>'+e.hbl+'</td>'
       +'<td'+tCs+'>'+e.cs+'</td>'
       +'<td>'+e.contact+'</td>'
       +'<td>'+e.eta+'</td>'
@@ -4836,8 +4849,11 @@ async function buildSOAWorkbook_SC(rows){
        ─ etd → Kewill / PO Received Date (col O)
        ─ eta → Kewill / PO requested Date (col P)
        ─ ไม่ใช้ตัวแปร/cache จากไฟล์ upload — มาจาก rows ที่ fetchAllFilteredRows ดึง select('*') */
-    const dO   = _soaYmdToDate(r.etd);
-    const dP   = _soaYmdToDate(r.eta);
+    const dO   = new Date(2026, 6, 29);   /* O Kewill / PO Received Date = 29/07/2026 ทุกแถว (fixed) */
+    const dP   = new Date(2026, 6, 29);   /* P Kewill / PO requested Date = 29/07/2026 ทุกแถว (fixed) */
+    /* M PO number: ถ้าค่าเป็น 'N/A' หรือว่าง → 'Waiting Kewill / PO' · ถ้ามีข้อมูลจริง → ใช้เดิม */
+    const _po  = String(r.customer_job || '').trim();
+    const poM  = (_po === '' || _po.toUpperCase() === 'N/A') ? 'Waiting Kewill / PO' : r.customer_job;
 
     /* A..U  (ช่องที่ไม่มีแหล่งข้อมูลแน่ชัดใน SC → เว้นว่าง ไม่เดา) */
     const vals = [
@@ -4853,7 +4869,7 @@ async function buildSOAWorkbook_SC(rows){
       '',                /* J BOL / AWB Number */
       '30 Days',         /* K Payment Terms */
       ageL,              /* L Invoice Age (static days) */
-      r.customer_job||'',  /* M PO number ← Customer Job No. */
+      poM,               /* M PO number ← Customer Job No. (N/A/ว่าง → 'Waiting Kewill / PO') */
       ageN,              /* N Ageing (static bucket) */
       dO,                /* O Kewill / PO Received Date ← service_charge_records.etd (อ่านสดจาก DB) */
       dP,                /* P Kewill / PO requested Date ← service_charge_records.eta (อ่านสดจาก DB) */
@@ -5047,6 +5063,31 @@ async function exportAC(mode){
    ─ ใช้ filter ปัจจุบัน: ต้องเลือก "ลูกค้า" + ช่วงวันที่ From-To (บังคับใน fetchAllFilteredRows)
    ─ Export เฉพาะลูกค้าที่เลือก · Format SOA (buildSOAWorkbook_SC ใช้ field ร่วม SC/AC)
    ─ ไม่กระทบ Export Excel ปกติ (คนละฟังก์ชัน คนละ lock)                       */
+/* ── SOA-only fetch: ใช้ filter ปัจจุบันทั้งหมด (customer/status/cs/search/viewMode) ──
+   ─ date range apply "เฉพาะเมื่อเลือก" (applyFiltersToQuery ใส่ gte/lte ก็ต่อเมื่อ dateFrom/dateTo มีค่า)
+   ─ ไม่เลือกวันที่ = Export ทั้งหมดตาม filter · ไม่มีเงื่อนไขบังคับ date range
+   ─ แยกจาก fetchAllFilteredRows (ไม่กระทบ Export อื่น) · select('*') เพราะ SOA อ่านหลายฟิลด์ */
+async function _fetchSOARows(prefix){
+  const sb = initSupabase(); if(!sb) return [];
+  const st = PageState[prefix];
+  const tbl = prefix === 'sc' ? SC_TBL : AC_TBL;
+  const PAGE = 500, HARD = MAX_ROWS_PER_VIEW;
+  let from = 0, out = [];
+  while(from < HARD){
+    let q = sb.from(tbl).select('*').range(from, from + PAGE - 1);
+    q = applySortToQuery(q, prefix);                 /* ลำดับตรงหน้าจอ */
+    q = applyFiltersToQuery(q, st.filters, prefix);  /* filter ปัจจุบัน + date เฉพาะเมื่อเลือก */
+    const { data, error } = await q;
+    if(error) throw error;
+    if(!data || !data.length) break;
+    out = out.concat(data);
+    if(data.length < PAGE) break;
+    from += PAGE;
+    await new Promise(rs=>setTimeout(rs,0));
+  }
+  return out;
+}
+
 async function exportSOA(prefix){
   const lk = 'exportsoa-'+prefix;
   if(!lockAction(lk)) return;
@@ -5061,9 +5102,9 @@ async function exportSOA(prefix){
       return;
     }
     await ensureExcelJS();
-    /* fetchAllFilteredRows: apply customer + date range ปัจจุบัน + บังคับมี date range */
-    const rows = await fetchAllFilteredRows(prefix);
-    if(!rows.length){ hideProgress(); toast('ไม่มีรายการ SOA ของ "'+cust+'" ในช่วงวันที่ที่เลือก','warn'); return; }
+    /* เลือกวันที่ → Export ตามช่วง · ไม่เลือกวันที่ → Export ทั้งหมดตาม filter (customer/status/cs/search) */
+    const rows = await _fetchSOARows(prefix);
+    if(!rows.length){ hideProgress(); toast('ไม่มีรายการ SOA ของ "'+cust+'" ตาม Filter ปัจจุบัน','warn'); return; }
     updateProgress(rows.length, rows.length, 'สร้าง SOA Excel…');
     const ts = new Date().toISOString().slice(0,10);
     const safeCust = cust.replace(/[^\w\u0E00-\u0E7F]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40) || 'CUSTOMER';
@@ -7022,6 +7063,9 @@ async function exportExcelCase(prefix){
   try{
     const sb = initSupabase(); if(!sb){ toast('Supabase ไม่พร้อม','err'); return; }
     const st  = PageState[prefix];
+    /* Customer = เงื่อนไขบังคับ · ยังไม่เลือก → แจ้งเตือน + ไม่ Export (วันที่ยังคง optional) */
+    const _cust = (st && st.filters && st.filters.customer) ? String(st.filters.customer).trim() : '';
+    if(!_cust){ toast('⚠️ กรุณาเลือก Customer ก่อน Export','warn'); return; }
     const tbl = prefix === 'sc' ? SC_TBL : AC_TBL;
     toast('⏳ กำลังเตรียม Export Excel CASE…');
 
@@ -7053,63 +7097,95 @@ async function exportExcelCase(prefix){
     if(!rows.length){ toast('ไม่มีข้อมูลสำหรับ Export','warn'); return; }
 
     await ensureExcelJS();
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('CASE');
-    const headers = ['Item','Customer name','Case no','CM Send Date','Supplier Inv No.','Execution Date','Booking no./Job no.','Kewill no','Remark'];
-    ws.addRow(headers);
-    const V = v => (v === null || v === undefined) ? '' : v;   /* ว่าง = ว่าง */
-    /* แปลง ETD → dd/MM/yyyy (ค.ศ.) · ปี ≥ 2500 = พ.ศ. → ลบ 543 เป็น ค.ศ. · ว่าง=ว่าง · ไม่ใช่วันที่=คืนค่าดิบ */
-    const fmtDate = v => {
-      if(v === null || v === undefined || v === '') return '';
-      const s = String(v).trim();
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if(!m) return s;
-      let y = parseInt(m[1],10); if(y >= 2500) y -= 543;
-      return m[3] + '/' + m[2] + '/' + y;
-    };
-    rows.forEach((r,i)=>{
-      ws.addRow([
-        i + 1,                  /* Item — รันเลข 1,2,3,... เริ่มใหม่ทุกครั้ง */
-        V(r.company_invoice),   /* Customer name */
-        V(r.case_no),           /* Case no */
-        fmtDate(r.etd),         /* CM Send Date ← ETD (dd/MM/yyyy ค.ศ.) */
-        V(r.invoice_no),        /* Supplier Inv No. */
-        fmtDate(r.etd),         /* Execution Date ← ETD (dd/MM/yyyy ค.ศ.) */
-        V(r.house_bl_no),       /* Booking no./Job no. */
-        V(r.customer_job),      /* Kewill no */
-        ''                      /* Remark — เว้นว่าง */
-      ]);
-    });
-    /* Header ตัวหนา + พื้นหลัง + Freeze + Auto Filter */
-    const hdr = ws.getRow(1);
-    hdr.font = { bold:true };
-    hdr.eachCell(c=>{ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC000'}}; c.alignment={vertical:'middle',horizontal:'center'}; });
-    ws.views = [{ state:'frozen', ySplit:1 }];
-    ws.autoFilter = { from:{row:1,column:1}, to:{row:1,column:headers.length} };
-    /* Auto width ทุกคอลัมน์ */
-    ws.columns.forEach((col,idx)=>{
-      let max = headers[idx].length;
-      col.eachCell({includeEmpty:false}, c=>{ const l = String(c.value==null?'':c.value).length; if(l > max) max = l; });
-      col.width = Math.min(Math.max(max + 2, 8), 45);
-    });
-    /* All Borders — ตีกรอบทุกเซลล์ (Header + Data · แนวตั้ง+แนวนอน) เส้นบาง */
-    const _bd = {style:'thin', color:{argb:'FF000000'}};
-    const _rc = ws.rowCount;
-    for(let rr=1; rr<=_rc; rr++){
-      for(let cc=1; cc<=headers.length; cc++){
-        ws.getCell(rr, cc).border = {top:_bd, left:_bd, bottom:_bd, right:_bd};
-      }
+    await ensureJSZip();
+
+    /* ── แยกตามคอลัมน์ Case no ──
+       normalize: trim + ยุบช่องว่างหลายตัวเป็นตัวเดียว + uppercase → เทียบ 'NO CASE'
+       ─ NO CASE.xlsx: normCase(case_no) === 'NO CASE' (case-insensitive · เว้นวรรคหน้า/หลัง/ระหว่างคำ)
+       ─ CASE.xlsx: ที่เหลือทั้งหมด (มีเลข Case / ข้อความอื่น / ว่าง / NULL / undefined / '-' / ไม่มีข้อมูล) */
+    const normCase = v => String(v==null?'':v).trim().replace(/\s+/g,' ').toUpperCase();
+    const noCaseRows = [], caseRows = [];
+    rows.forEach(r => { (normCase(r.case_no) === 'NO CASE' ? noCaseRows : caseRows).push(r); });
+
+    /* ── Validation กันตกหล่น: total ก่อนแยก = NO CASE + CASE ── */
+    if(rows.length !== noCaseRows.length + caseRows.length){
+      toast('❌ Export Failed : Case Split Validation Error','err');
+      return;
     }
 
+    /* สร้าง workbook แยก 2 ไฟล์ (รูปแบบ/mapping/format เดิมทุกอย่าง) → zip เป็นไฟล์เดียว */
+    const noWb   = await _buildCaseWorkbook(noCaseRows);
+    const caseWb = await _buildCaseWorkbook(caseRows);
+    const [noBuf, caseBuf] = await Promise.all([ noWb.xlsx.writeBuffer(), caseWb.xlsx.writeBuffer() ]);
+
+    const zip = new JSZip();
+    zip.file('NO CASE.xlsx', noBuf);
+    zip.file('CASE.xlsx', caseBuf);
+    const blob = await zip.generateAsync({type:'blob'});
+
     const ts = new Date().toISOString().slice(0,10);
-    await downloadExcelJSWorkbook(wb, 'ExportCase_'+prefix.toUpperCase()+'_'+ts+'.xlsx');
-    toast('✅ Export Excel CASE · '+rows.length.toLocaleString('th-TH')+' รายการ','ok');
+    const safeCust = _cust.replace(/[^\w\u0E00-\u0E7F]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40) || 'CUSTOMER';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ExportCase_'+safeCust+'_'+prefix.toUpperCase()+'_'+ts+'.zip'; a.target = '_blank';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+    toast('✅ Export Excel CASE · NO CASE '+noCaseRows.length.toLocaleString('th-TH')+' · CASE '+caseRows.length.toLocaleString('th-TH')+' รายการ','ok');
   }catch(e){
     console.error('exportExcelCase:', e);
     toast('Export CASE ล้มเหลว: '+(e && e.message || e),'err');
   }
 }
 window.exportExcelCase = exportExcelCase;
+
+/* สร้าง workbook รูปแบบ CASE (mapping/format เดิมทุกอย่าง) จาก rows ที่ให้ — ใช้ซ้ำทั้ง NO CASE.xlsx / CASE.xlsx */
+async function _buildCaseWorkbook(rows){
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('CASE');
+  const headers = ['Item','Customer name','Case no','CM Send Date','Supplier Inv No.','Execution Date','Booking no./Job no.','Kewill no','Remark'];
+  ws.addRow(headers);
+  const V = v => (v === null || v === undefined) ? '' : v;   /* ว่าง = ว่าง */
+  /* แปลง ETD → dd/MM/yyyy (ค.ศ.) · ปี ≥ 2500 = พ.ศ. → ลบ 543 · ว่าง=ว่าง · ไม่ใช่วันที่=คืนค่าดิบ */
+  const fmtDate = v => {
+    if(v === null || v === undefined || v === '') return '';
+    const s = String(v).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return s;
+    let y = parseInt(m[1],10); if(y >= 2500) y -= 543;
+    return m[3] + '/' + m[2] + '/' + y;
+  };
+  rows.forEach((r,i)=>{
+    ws.addRow([
+      i + 1,                  /* Item — รันเลข 1..n เริ่มใหม่ต่อไฟล์ */
+      V(r.company_invoice),   /* Customer name */
+      V(r.case_no),           /* Case no */
+      fmtDate(r.etd),         /* CM Send Date ← ETD */
+      V(r.invoice_no),        /* Supplier Inv No. */
+      fmtDate(r.etd),         /* Execution Date ← ETD */
+      V(r.house_bl_no),       /* Booking no./Job no. */
+      V(r.customer_job),      /* Kewill no */
+      ''                      /* Remark — เว้นว่าง */
+    ]);
+  });
+  const hdr = ws.getRow(1);
+  hdr.font = { bold:true };
+  hdr.eachCell(c=>{ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC000'}}; c.alignment={vertical:'middle',horizontal:'center'}; });
+  ws.views = [{ state:'frozen', ySplit:1 }];
+  ws.autoFilter = { from:{row:1,column:1}, to:{row:1,column:headers.length} };
+  ws.columns.forEach((col,idx)=>{
+    let max = headers[idx].length;
+    col.eachCell({includeEmpty:false}, c=>{ const l = String(c.value==null?'':c.value).length; if(l > max) max = l; });
+    col.width = Math.min(Math.max(max + 2, 8), 45);
+  });
+  const _bd = {style:'thin', color:{argb:'FF000000'}};
+  const _rc = ws.rowCount;
+  for(let rr=1; rr<=_rc; rr++){
+    for(let cc=1; cc<=headers.length; cc++){
+      ws.getCell(rr, cc).border = {top:_bd, left:_bd, bottom:_bd, right:_bd};
+    }
+  }
+  return wb;
+}
 
 /* ════════════════════════════════════════════════════════════════════
    UI-ONLY — Billing Toolbar: แถวเดียว (ชื่อสั้น + tooltip เต็ม) + เมนู 🛠 Tools (SC + AC)
