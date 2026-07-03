@@ -75,7 +75,7 @@
 
   .layout{display:flex;max-width:2080px;margin:0}
   .side{width:262px;flex:none;background:var(--sidebar);border-right:1px solid var(--line);min-height:calc(100vh - 62px);position:sticky;top:62px;height:calc(100vh - 62px);overflow:auto;display:flex;flex-direction:column}
-  .side-user{margin:16px 14px 6px;padding:13px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(160deg,var(--sidebar2),rgba(28,36,51,.5));display:flex;align-items:center;gap:11px}
+  .side-user{margin:16px 14px 6px;padding:13px;border:none;border-radius:14px;background:linear-gradient(160deg,var(--sidebar2),rgba(28,36,51,.5));display:flex;align-items:center;gap:11px;box-shadow:0 8px 24px rgba(0,0,0,.20)}
   .side-user .ava{width:42px;height:42px;position:relative}
   .side-user .ava .online{position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:var(--green);border:2px solid var(--sidebar)}
   .side-user .su-meta{min-width:0}.side-user .su-meta b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -195,6 +195,11 @@
   .pgbar{flex:1;height:7px;border-radius:7px;background:var(--bg2);overflow:hidden;border:1px solid var(--line)}
   .pgbar>i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--green),var(--green2))}
   .pgbar>i.low{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .annkpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}
+  .annkpi .k{background:linear-gradient(160deg,var(--card),rgba(20,29,43,.7));border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+  .annkpi .k .kl{font-size:12.5px;color:var(--mut);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .annkpi .k .kv{font-size:26px;font-weight:800;color:var(--txt);margin-top:6px;line-height:1.1}
+  @media (max-width:760px){ .annkpi{grid-template-columns:repeat(2,1fr);gap:10px} .annkpi .k .kv{font-size:22px} }
   .pgtxt{font-size:11.5px;color:var(--mut);white-space:nowrap;font-weight:600}
   .deptlist{margin-top:6px;display:flex;flex-direction:column;gap:2px}
   .deptrow{font-size:11px;color:var(--mut2);white-space:nowrap;line-height:1.5}
@@ -407,6 +412,11 @@
   .eye-btn:active{transform:translateY(0)}
   .eye-btn svg{width:20px;height:20px;display:block}
   .detail-btn{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #10B981;background:rgba(16,185,129,.08);color:#34D399;border-radius:11px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;vertical-align:middle;white-space:nowrap;transition:background .15s,border-color .15s}
+  .word-btn{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;background:#2B579A;color:#fff;border:none;border-radius:11px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(43,87,154,.35);transition:transform .15s,box-shadow .15s,background .15s}
+  .word-btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(43,87,154,.5);background:#2f61ab}
+  .word-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(43,87,154,.35)}
+  .word-btn .wic{font-size:14px;line-height:1}
+  @media (max-width:760px){ .word-btn{padding:8px 11px} .word-btn .wl{display:none} }
   .detail-btn:hover{background:rgba(16,185,129,.16);border-color:#34D399}
   .detail-btn:active{transform:translateY(1px)}
   .detail-btn svg{flex:none}
@@ -1317,16 +1327,22 @@ function annTargetDepts(a){
   return arr.length?arr:null;
 }
 // ยอด/ตัวส่วนของประกาศ: targeted → รวมทุกคน active ในแผนกเป้าหมาย (ตรงกับ Popup รายงาน) ; ทั้งบริษัท → พนักงานทั่วไป (annUCount)
+let _ackStatCache=new Map();   // memoize ต่อรอบ paint (ล้างใน annPaint) — กัน annAckStat วนซ้ำหลายรอบต่อประกาศ
 function annAckStat(a){
+  if(!a||!a.id) return {numer:0, denom:annUCount||0, target:false};
+  const hit=_ackStatCache.get(a.id); if(hit) return hit;
   const dmap=annDeptTally[a.id]||{}; const target=annTargetDepts(a);
+  let st;
   if(target){
     const tset=new Set(target.map(t=>String(t).trim().toLowerCase()));   // normalize: trim + case-insensitive
     let numer=0, denom=0, matched=0;
     Object.keys(annDeptTotals).forEach(d=>{ if(tset.has(String(d).trim().toLowerCase())){ matched++; denom+=annDeptTotals[d]||0; numer+=dmap[d]||0; } });
     if(!matched) console.warn('[ann] target department(s) not found in eva_users:', target, '| available:', Object.keys(annDeptTotals));
-    return {numer, denom, target:true};   // denom เป็นตัวเลขจริงเสมอ (อาจ 0 ได้ แต่ไม่ใช่ "?")
+    st={numer, denom, target:true};   // denom เป็นตัวเลขจริงเสมอ (อาจ 0 ได้ แต่ไม่ใช่ "?")
+  } else {
+    st={numer:annReadTally[a.id]||0, denom:annUCount, target:false};
   }
-  return {numer:annReadTally[a.id]||0, denom:annUCount, target:false};
+  _ackStatCache.set(a.id, st); return st;
 }
 /* ปุ่ม 👁 ดูรายละเอียด — วงกลม 42px gradient + SVG eye (ใช้ร่วมทุกเมนู) */
 function eyeBtn(jsCall){
@@ -1348,6 +1364,7 @@ async function render_ann(m){
   const done=(NAV==='anndone');
   m.innerHTML=`<div class="page-h"><h2>${done?'📚 ประกาศที่รับทราบแล้ว':'📢 ประกาศบริษัท'}</h2><p class="muted small">${done?(isSuperAdmin()?'ประกาศที่พนักงานรับทราบครบ 100%':'ประกาศที่คุณรับทราบแล้ว'):'อ่าน รับทราบ และดูย้อนหลังได้ตลอดเวลา'}</p>
     <div class="spacer"></div><input class="ipt" id="annSearch" placeholder="🔍 ค้นหาหัวข้อ" style="width:420px;max-width:36vw" oninput="annPage=1;debPaint('ann',annPaint)"><button class="btn" id="annRefreshBtn" style="width:auto" onclick="annRefresh()">🔄 รีเฟรช</button>${(isAdmin()&&!done)?'<button class="btn pri" style="width:auto" onclick="annEdit()">+ สร้างประกาศ</button>':''}</div>
+    <div id="annKpi"></div>
     <div class="pills" id="annPills" style="margin-bottom:14px"></div>
     <div id="annList"><div class="empty"><div class="e-ic">⏳</div>กำลังโหลดประกาศ...</div></div>`;
   const [_,mr,tally,us]=await Promise.all([loadAnn(),
@@ -1392,9 +1409,28 @@ function annDash(){
     ${card('❌','ยังไม่รับทราบ',notN,'#ef4444')}
     ${card('📊','คิดเป็น',pct+'%','#8B7CF8')}</div>`;
 }
+function annKpiPaint(){
+  const box=$('#annKpi'); if(!box) return;
+  if(!isSuperAdmin()){ box.innerHTML=''; return; }   // KPI ภาพรวมการรับทราบ = SUPER_ADMIN เท่านั้น
+  const all=CACHE.ann||[]; const total=all.length;
+  let done=0, sum=0, cnt=0;
+  all.forEach(a=>{ const st=annAckStat(a);
+    if(st.numer>=st.denom) done++;                       // ครบ (numer>=denom ; denom=0 ถือว่าครบ)
+    if(st.denom>0){ sum+=st.numer/st.denom; cnt++; }     // เฉลี่ย: ข้ามประกาศที่ denom=0
+  });
+  const pending=total-done, avg=cnt?Math.round(sum/cnt*100):0;
+  box.innerHTML=`<div class="annkpi">
+    <div class="k"><div class="kl">📢 ประกาศทั้งหมด</div><div class="kv">${total}</div></div>
+    <div class="k"><div class="kl">⏳ ยังรับทราบไม่ครบ</div><div class="kv" style="color:var(--amber,#f59e0b)">${pending}</div></div>
+    <div class="k"><div class="kl">✅ รับทราบครบแล้ว</div><div class="kv" style="color:var(--green2)">${done}</div></div>
+    <div class="k"><div class="kl">👥 อัตราการรับทราบเฉลี่ย</div><div class="kv">${avg}%</div></div>
+  </div>`;
+}
 function annPaint(){
+  _ackStatCache.clear();   // ล้าง memo ของ annAckStat ทุกรอบ paint (ตัวเลขล่าสุดเสมอ)
   const q=($('#annSearch')?.value||'').trim().toLowerCase();
   const done=(NAV==='anndone');
+  annKpiPaint();   // KPI ภาพรวม (ทุกประกาศใน CACHE.ann — ไม่ขึ้นกับ search/หน้า)
   const p=$('#annPills'); if(p) p.innerHTML='';   // เมนู 📢/📚 แยกสถานะตาม role แล้ว — ไม่ใช้ pill (desktop+mobile)
   let list=annBaseList();
   if(q){
@@ -1438,7 +1474,7 @@ function annPaint(){
     <td class="muted tiny">${fmtD(a.created_at)}</td>
     <td>${prog(a)}</td>
     <td style="text-align:center">${annStatusTag(a)}</td>
-    <td class="act" style="text-align:center;white-space:nowrap">${eyeBtn(`openAnn('${a.id}',${done?true:canEdit()})`)}${(annHasMenu&&!done)?`<button class="rowmenu-btn" title="เมนู" style="vertical-align:middle;margin-left:4px" onclick="event.stopPropagation();annDeskMenu(event,'${a.id}')">⋮</button>`:''}</td></tr>`).join('');
+    <td class="act" style="text-align:center;white-space:nowrap">${eyeBtn(`openAnn('${a.id}',${done?true:canEdit()})`)}${(done&&isSuperAdmin())?`<button class="word-btn" title="Export Word" style="margin-left:6px" onclick="event.stopPropagation();repAnnWord('${a.id}')"><span class="wic">📄</span><span class="wl">Export Word</span></button>`:''}${(annHasMenu&&!done)?`<button class="rowmenu-btn" title="เมนู" style="vertical-align:middle;margin-left:4px" onclick="event.stopPropagation();annDeskMenu(event,'${a.id}')">⋮</button>`:''}</td></tr>`).join('');
   const table=`<div class="dtable only-desktop"><div class="scroll"><table>
     <thead><tr><th>เลขที่</th><th>ประเภท</th><th>หัวข้อประกาศ</th><th>ประกาศโดย</th><th>วันที่</th><th>จำนวนคน</th><th style="text-align:center">สถานะ</th><th style="text-align:center">การจัดการ</th></tr></thead>
     <tbody>${rows}</tbody></table></div>${pagerHTML('annGoPage',page,pages,list.length)}</div>`;
@@ -1452,7 +1488,7 @@ function annPaint(){
         <div class="ac-title">${a.pinned?'📌 ':''}${esc(a.title)}</div>
         <div class="ac-meta"><span class="tag b">${esc(a.category)}</span><span class="pubname">${esc(firstNameOnly(a.created_name||a.created_by)||'-')}</span><span>·</span><span>${fmtD(a.created_at)}</span></div>
         <div class="ac-ack" style="display:flex;align-items:center;gap:9px;margin-top:9px;flex-wrap:wrap">${read(a)}${prog(a)}${annStatusTag(a)}</div>
-        <div style="margin-top:10px;text-align:right">${eyeBtn(`openAnn('${a.id}',${done?true:canEdit()})`)}</div>
+        <div style="margin-top:10px;text-align:right">${eyeBtn(`openAnn('${a.id}',${done?true:canEdit()})`)}${(done&&isSuperAdmin())?`<button class="word-btn" title="Export Word" style="margin-left:8px" onclick="event.stopPropagation();repAnnWord('${a.id}')"><span class="wic">📄</span><span class="wl">Export Word</span></button>`:''}</div>
       </div>
       ${(annHasMenu && !done)?`<button class="ac-bk" title="เมนู" onclick="event.stopPropagation();annRowMenu('${a.id}')">⋮</button>`:''}
     </div>`;}).join('')+pagerHTML('annGoPage',page,pages,list.length)+'</div>';
@@ -1631,6 +1667,7 @@ async function openAnn(id,preview){
     .eva-ann2 .ev-foot{margin:18px 0 0;display:flex;gap:11px;align-items:flex-start;padding:15px 17px;border-radius:12px;background:#f8fafc;border:1px solid var(--bd);color:#475569;font-size:13px;line-height:1.65}
     .eva-ann2 .ev-foot .ev-fi{width:24px;height:24px;flex:none;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;font-style:italic}
     @media(max-width:760px){
+      .eva-ann2 #annBodyScroll{max-height:calc(100vh - 360px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
       .eva-ann2 .ev-pad{padding:22px 16px 16px}
       .eva-ann2 .ev-head{gap:12px}
       .eva-ann2 .ev-hic{width:48px;height:48px;font-size:24px}
@@ -1866,7 +1903,7 @@ async function annCopyText(id){
   const url=location.origin+cleanPath+'#/ann/'+id;                  // Clean URL: origin + pathname + #/ann/<id> (ไม่มี key/token/query/session)
   let notAckBlock='';
   try{
-    const [reads,allActive]=await Promise.all([loadReads(id),annActiveUsers()]);   // ดึงสด (ไม่ใช้ cache) — ผู้รับทราบ + ผู้ใช้จริง
+    const [reads,allActive]=await Promise.all([loadReads(id),annActiveUsers(true)]);   // ดึงสด (ไม่ใช้ cache) — ผู้รับทราบ + ผู้ใช้จริง
     const readSet=new Set(reads.map(r=>(r.username||'').toLowerCase()));
     const target=annTargetDepts(a);
     const tset=target?new Set(target.map(t=>String(t).trim().toLowerCase())):null;
@@ -1927,7 +1964,7 @@ async function annDeptReport(id){
 async function annDeptReportLoad(){
   if(!ANN_DRPT.id) return;
   try{
-    const [reads,allActive]=await Promise.all([loadReads(ANN_DRPT.id),annActiveUsers()]);
+    const [reads,allActive]=await Promise.all([loadReads(ANN_DRPT.id),annActiveUsers(true)]);
     const readSet=new Set(reads.map(r=>(r.username||'').toLowerCase()));
     const byDept={};
     // นับ "ทุกคนในแผนก" ตามหน้า 👥 ผู้ใช้งาน (active ทุก role) — ตัวส่วน=ทั้งแผนก, ตัวเศษ=คนในแผนกที่กดรับทราบ (ไม่กรองด้วย role)
@@ -2592,6 +2629,15 @@ async function render_train(m){
   await loadTrainMeta();
   trainPaint();
 }
+async function courseDelete(id){
+  if(!isSuperAdmin()){ toast('ไม่มีสิทธิ์ลบ','bad'); return; }   // SUPER_ADMIN เท่านั้น
+  const c=(CACHE.course||[]).find(x=>x.id===id);
+  const label=c?(c.title||''):'';
+  if(!confirm('ยืนยันลบหลักสูตร "'+label+'" ?\nการลบจะลบรอบอบรมและรายการลงทะเบียนที่เกี่ยวข้องด้วย หากฐานข้อมูลตั้ง cascade ไว้')) return;
+  const {error}=await sb.from('training_course').delete().eq('id',id);
+  if(error){ toast(error.message,'bad'); return; }
+  toast('ลบหลักสูตรแล้ว','ok'); closeModal(); _courseAt=0; await loadCourses(true); await loadTrainMeta(); trainPaint();
+}
 function trainPaint(){
   const box=$('#trList'); if(!box)return;
   const q=($('#trSearch')?.value||'').trim().toLowerCase();
@@ -2617,7 +2663,7 @@ function trainPaint(){
       <td class="muted tiny">${st.enrolled} คน</td>
       <td class="muted tiny">${fmtD(c.created_at)}</td>
       <td style="text-align:center">${stTag(c)}</td>
-      <td class="act" style="text-align:center;white-space:nowrap">${eyeBtn(`openCourse('${c.id}')`)}</td>
+      <td class="act" style="text-align:center;white-space:nowrap">${eyeBtn(`openCourse('${c.id}')`)}${isSuperAdmin()?`<button class="act-ic" title="ลบ" style="vertical-align:middle;margin-left:6px" onclick="event.stopPropagation();courseDelete('${c.id}')">🗑</button>`:''}</td>
     </tr>`;
   }).join('');
   const table=`<div class="dtable only-desktop"><div class="scroll"><table>
@@ -2630,7 +2676,7 @@ function trainPaint(){
       <div class="it-top"><h4>${esc(c.title)}</h4>${stTag(c)}</div>
       <div class="it-body">${esc(c.description||'ไม่มีรายละเอียดย่อ')}</div>
       <div class="trc-meta"><span>📅 ${st.rounds} รอบ</span><span>👥 ${st.enrolled} ลงทะเบียน</span><span>📆 ${fmtD(c.created_at)}</span></div>
-      <div style="margin-top:10px">${eyeBtn(`openCourse('${c.id}')`)}</div>
+      <div style="margin-top:10px">${eyeBtn(`openCourse('${c.id}')`)}${isSuperAdmin()?`<button class="act-ic" title="ลบ" style="margin-left:8px" onclick="event.stopPropagation();courseDelete('${c.id}')">🗑</button>`:''}</div>
     </div>`;
   }).join('')+pagerHTML('trainGoPage',page,pages,list.length)+'</div>';
   box.innerHTML = mobView()? cards : table;
@@ -3419,9 +3465,11 @@ async function loadUsersAll(force){
 }
 /* รายชื่อสำหรับ "รายแผนก" — แหล่งเดียวกับหน้า 👥 ผู้ใช้งาน (eva_users) อ่านแผนกจาก field department
    คืน user ที่ active ทุก role (กันซ้ำ username) เพื่อให้ "รายชื่อแผนก" ครบตรงหน้า 👥 ; การนับจำนวนจะกรอง role=USER ทีหลัง */
-async function annActiveUsers(){
+let _annUsersCache=null, _annUsersAt=0;
+async function annActiveUsers(force){
+  if(!force && _annUsersCache && (Date.now()-_annUsersAt)<USERS_TTL) return _annUsersCache;   // cache กัน fetch eva_users ซ้ำทุกการนับ
   const {data,error}=await sb.from('eva_users').select('id,username,full_name,department,role,status');
-  if(error||!data) return [];
+  if(error||!data) return _annUsersCache||[];
   const seen=new Set(), out=[];
   data.forEach(u=>{
     if(String(u.status||'active').toLowerCase()!=='active') return;           // เฉพาะ Active (ไม่นับ Deleted/Inactive)
@@ -3429,6 +3477,7 @@ async function annActiveUsers(){
     if(k){ if(seen.has(k)) return; seen.add(k); }                            // กันซ้ำ username
     out.push(u);
   });
+  _annUsersCache=out; _annUsersAt=Date.now();
   return out;
 }
 // นับพนักงานจริง = ทุก role ที่ "ไม่ใช่ผู้ดูแล/ระบบ" ตามสเปก (ยกเว้น SUPER_ADMIN/ADMIN/ADMIN_MID/SHIPPING/MESSENGER) — role อื่น (USER/MANAGER/HR/EXECUTIVE/…) นับหมด
@@ -3440,25 +3489,33 @@ async function loadAnnReadCounts(){
   if(isSuperAdmin()){
     try{
       let annIds=(CACHE.ann||[]).map(a=>a.id);
-      if(!annIds.length){ try{ const {data:al}=await sb.from('announcement').select('id').eq('app_code',CFG.APP_CODE).limit(300); annIds=(al||[]).map(x=>x.id); }catch(_){} }   // CACHE.ann ยังไม่พร้อม (โหลดขนาน) → ดึง id เอง กัน race
+      if(!annIds.length){ await loadAnn(); annIds=(CACHE.ann||[]).map(a=>a.id); }   // CACHE ยังไม่พร้อม (โหลดขนาน) → โหลดประกาศให้เสร็จด้วย loader เดิม (ผ่าน RLS/app_code แน่นอน) กัน race ที่ทำให้ตัวเศษเป็น 0
       const allActive=await annActiveUsers();   // active ทุก role (แหล่ง=หน้า 👥)
       // รายแผนก = ทุกคน active ในแผนก (ตรงกับ Popup รายงานรายแผนก + ใช้กับประกาศเลือกแผนก)
       const deptTotals={}, deptOfUser={};
       allActive.forEach(u=>{ const un=(u.username||'').toLowerCase(); const d=annDeptOf(u); deptOfUser[un]=d; deptTotals[d]=(deptTotals[d]||0)+1; });
-      // ยอดทั้งบริษัท = พนักงานทั่วไป (ไม่รวมผู้ดูแล) — คงพฤติกรรมประกาศทั้งบริษัทเดิม
-      const countableSet=new Set(allActive.filter(IS_COUNTABLE).map(u=>(u.username||'').toLowerCase()));
+      // ยอดทั้งบริษัท = ทุกคน active "ยกเว้น SUPER_ADMIN เท่านั้น" (นับ ADMIN/ADMIN_MID/MANAGER/SHIPPING/MESSENGER/USER ด้วย)
+      const countableSet=new Set(allActive.filter(u=>String((u&&u.role)||'USER').toUpperCase()!=='SUPER_ADMIN').map(u=>(u.username||'').toLowerCase()));
       annDeptTotals=deptTotals; annDeptTally={}; annUCount=countableSet.size;
-      if(!annIds.length) return {};
-      const {data,error}=await sb.from('announcement_read').select('announcement_id,username').in('announcement_id',annIds);
-      if(error) throw error;
-      const t={}, dt={};
-      (data||[]).forEach(r=>{ const un=(r.username||'').toLowerCase(); const id=r.announcement_id;
-        if(countableSet.has(un)) t[id]=(t[id]||0)+1;                                    // ตัวเศษบริษัท (พนักงานทั่วไป)
-        const d=deptOfUser[un]; if(d!==undefined){ (dt[id]=dt[id]||{})[d]=((dt[id]||{})[d]||0)+1; }   // ตัวเศษรายแผนก (ทุกคน active)
+      if(!annIds.length){ console.warn('%c[annTally]','color:#f59e0b','annIds ว่าง (โหลดประกาศไม่ได้) → ตัวเศษเป็น 0 ทั้งหมด'); return {}; }
+      // ดึงผู้รับทราบ "ครั้งเดียว" (เฉพาะ 2 คอลัมน์) + วนหน้ากัน default limit 1000 แถวของ Supabase — เร็วกว่ายิงราย id หลายเท่า
+      const rows=[]; const RPAGE=1000;
+      for(let from=0; from<100000; from+=RPAGE){
+        const {data,error}=await sb.from('announcement_read').select('announcement_id,username').in('announcement_id',annIds).range(from,from+RPAGE-1);
+        if(error) throw error;
+        const batch=data||[]; for(let i=0;i<batch.length;i++) rows.push(batch[i]);
+        if(batch.length<RPAGE) break;   // หน้าสุดท้าย
+      }
+      const t={}, dt={}, seen=new Set();
+      rows.forEach(r=>{ const un=(r.username||'').toLowerCase(); const id=r.announcement_id; const k=id+'|'+un;
+        if(!un || seen.has(k)) return; seen.add(k);                                      // นับ 1 คนต่อประกาศ (distinct)
+        if(countableSet.has(un)) t[id]=(t[id]||0)+1;                                     // ตัวเศษบริษัท = คนกดรับทราบจริง
+        const d=deptOfUser[un]; if(d!==undefined){ (dt[id]=dt[id]||{})[d]=((dt[id]||{})[d]||0)+1; }   // ตัวเศษรายแผนก
       });
       annDeptTally=dt;
+      console.log('%c[annTally]','color:#10B981','annIds='+annIds.length+' rows='+rows.length+' countable='+countableSet.size+' numerKeys='+Object.keys(t).length);
       return t;
-    }catch(e){ if(window.console&&console.debug) console.debug('user-only tally fallback → RPC:',e&&e.message); /* คง annDeptTotals ไว้ (ตัวส่วนรายแผนกยังแสดงได้) */ }
+    }catch(e){ console.warn('%c[annTally]','color:#ef4444','อ่าน announcement_read ไม่สำเร็จ → RPC fallback:', e&&e.message); /* คง annDeptTotals ไว้ (ตัวส่วนรายแผนกยังแสดงได้) */ }
   } else { annDeptTotals={}; annDeptTally={}; }
   // อื่น ๆ / fallback: ใช้ RPC เดิม (เบา) — non-super ไม่ได้ใช้ tally ในเมนู
   try{
@@ -3591,7 +3648,10 @@ async function repAnnWord(idArg){
   };
 
   // ---------- ดึงข้อมูลจริงจาก Supabase ----------
-  const [reads,usersAll]=await Promise.all([ loadReads(id), loadUsersAll() ]);
+  const [reads,usersAll]=await Promise.all([
+    sb.from('announcement_read').select('announcement_id,username,employee_code,full_name,department,read_at,read_duration_seconds,announcement_version_snapshot,ip_address,device').eq('announcement_id',id).order('read_at',{ascending:true}).then(x=>x.data||[]),
+    loadUsersAll() ]);
+  const fromDone=(NAV==='anndone');   // Export จากหน้า 📚 → แสดงเฉพาะรายชื่อผู้รับทราบแล้ว (ตัด table2)
   const uMap={}; usersAll.forEach(u=>{ uMap[(u.username||'').toLowerCase()]=u; });
   const posOf=u=> (u&&(u.position||u.job_title||u.role))||'-';
   // prefetch ลายเซ็น
@@ -3668,8 +3728,8 @@ async function repAnnWord(idArg){
       infoRow('เลขที่ประกาศ',annNo),
       infoRow('ประเภทประกาศ',a.category),
       infoRow('ผู้ประกาศ',publisher),
-      infoRow('วันที่ประกาศ',thDate(a.created_at)+' '+thTime(a.created_at)+' น.'),
-      infoRow('วันที่ออกรายงาน',thDate(now)+' '+thTime(now)+' น.'),
+      infoRow('วันที่ประกาศ',thDate(a.created_at)),
+      infoRow('วันที่ออกรายงาน',thDate(now)),
       infoRow('สถานะประกาศ',statusTxt,{color:a.status==='OPEN'?'15803D':'7A7A7A',bold:true}),
     ]});
 
@@ -3709,10 +3769,11 @@ async function repAnnWord(idArg){
       'admin':'👤 ผู้ดูแลระบบ','administrator':'👤 ผู้ดูแลระบบ','superadmin':'👤 ผู้ดูแลระบบ',
       'import':'📥 Import','imported':'📥 Import','csv':'📥 Import'};
     return L[key] || r.ack_channel || r.channel || r.read_channel || r.source || r.device || '-'; };
+  const th1=(txt)=>tc(noBrk(txt),{head:true,size:24});   // หัวตาราง table1 บรรทัดเดียว: noBrk กันตัดคำ + ฟอนต์ 12pt ให้พอดีคอลัมน์
   const t1head=new TableRow({tableHeader:true,cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[
-    tc('ลำดับ',{head:true}),tc('รหัสพนักงาน',{head:true}),tc('ชื่อ-นามสกุล',{head:true}),
-    tc('แผนก',{head:true}),tc('ช่องทางรับทราบ',{head:true}),
-    tc('วันที่รับทราบ',{head:true}),tc('เวลารับทราบ',{head:true}),tc('สถานะ',{head:true})
+    th1('ลำดับ'),th1('รหัสพนักงาน'),th1('ชื่อ-นามสกุล'),
+    th1('แผนก'),th1('ช่องทางรับทราบ'),
+    th1('วันที่รับทราบ'),th1('สถานะ')
   ]});
   const t1rows=readData.map((d,i)=>{
     const r=d.r, u=uMap[(r.username||'').toLowerCase()];
@@ -3723,29 +3784,28 @@ async function repAnnWord(idArg){
       tc(r.department||(u&&u.department)||'-'),
       tc(ackChannel(r)),
       tc(thDate(r.read_at)),
-      tc(thTime(r.read_at)),
       tc('✅ '+noBrk('รับทราบ')+ZWSP+noBrk('แล้ว'),{color:'15803D'})
     ]});
   });
-  if(!t1rows.length) t1rows.push(new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('ยังไม่มีผู้รับทราบ',{span:8,color:'888888'})]}));
-  const COLW1=[1000,1960,1880,2350,2500,1920,1960,2404]; // 8 คอลัมน์ landscape 15974 (margin 0.3in)
+  if(!t1rows.length) t1rows.push(new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('ยังไม่มีผู้รับทราบ',{span:7,color:'888888'})]}));
+  const COLW1=[1000,2000,2700,2500,2700,2274,2800]; // 7 คอลัมน์ landscape 15974 (ตัดคอลัมน์เวลาออก)
   const table1=new Table({width:{size:100,type:WidthType.PCT},layout:TableLayoutType.FIXED,columnWidths:COLW1,borders:TBL_BD,rows:[t1head,...t1rows]});
 
   // ---------- ตาราง 2 : ยังไม่รับทราบ ----------
   const t2head=new TableRow({tableHeader:true,cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[
     tc('ลำดับ',{head:true}),tc('รหัสพนักงาน',{head:true}),tc('ชื่อ-นามสกุล',{head:true}),
     tc('แผนก',{head:true}),tc('ช่องทางรับทราบ',{head:true}),
-    tc('วันที่รับทราบ',{head:true}),tc('เวลารับทราบ',{head:true}),tc('สถานะ',{head:true})
+    tc('วันที่รับทราบ',{head:true}),tc('สถานะ',{head:true})
   ]});
   let t2rows=notRead.map((u,i)=>new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[
     tc(i+1),tc(u.employee_code||'-'),tc(nameWrap(u.full_name||u.display_user||u.username),{align:AlignmentType.LEFT}),
     tc(u.department||'-'),
-    tc('-'),tc('-'),tc('-'),
+    tc('-'),tc('-'),
     tc('❌ '+noBrk('ยังไม่')+ZWSP+noBrk('รับทราบ'),{bold:true,color:RED})
   ]}));
-  if(!usersAll.length) t2rows=[new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('ไม่สามารถอ่านรายชื่อพนักงานทั้งหมด (ตรวจสิทธิ์อ่านตาราง users)',{span:8,color:'888888'})]})];
-  else if(!t2rows.length) t2rows=[new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('พนักงานรับทราบครบทุกคน',{span:8,color:'2E7D32'})]})];
-  const COLW2=[1000,1960,1880,2350,2500,1920,1960,2404]; // 8 คอลัมน์ เหมือน COLW1 เป๊ะ
+  if(!usersAll.length) t2rows=[new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('ไม่สามารถอ่านรายชื่อพนักงานทั้งหมด (ตรวจสิทธิ์อ่านตาราง users)',{span:7,color:'888888'})]})];
+  else if(!t2rows.length) t2rows=[new TableRow({cantSplit:true,height:{value:605,rule:HeightRule.ATLEAST},children:[tc('พนักงานรับทราบครบทุกคน',{span:7,color:'2E7D32'})]})];
+  const COLW2=[1000,2000,2700,2500,2700,2274,2800]; // 7 คอลัมน์ เหมือน COLW1 (ตัดเวลา)
   const table2=new Table({width:{size:100,type:WidthType.PCT},layout:TableLayoutType.FIXED,columnWidths:COLW2,borders:TBL_BD,rows:[t2head,...t2rows]});
 
   // ---------- EXECUTIVE SUMMARY (ตาราง 2×2 เส้นบาง ตัวเลขใหญ่) ----------
@@ -3784,12 +3844,11 @@ async function repAnnWord(idArg){
       verticalAlign:VerticalAlign.CENTER,
       margins:{top:300,bottom:300,left:320,right:320},
       children:[
-        sgP(R('ฝ่ายบริหาร',{size:36,bold:true}),{spacing:{after:210}}),
-        sgP(R(SDOT,{size:30,color:'555555'}),{spacing:{after:120}}),
+        sgP(R('ฝ่ายบริหาร',{size:36,bold:true}),{spacing:{after:320}}),
         sgP(R('( นายจำรัส ผาเทพ )',{size:32,bold:true}),{spacing:{after:75}}),
         sgP(R('Managing Director',{size:32}),{spacing:{after:75}}),
         sgP(R(COMPANY.name,{size:32}),{spacing:{after:75}}),
-        sgP(R('วันที่ : '+thDate(now)+'   เวลา '+thTime(now)+' น.',{size:32}),{spacing:{after:0}}),
+        sgP(R('วันที่ : '+thDate(now),{size:32}),{spacing:{after:0}}),
       ]
     })]})]
   });
@@ -3823,8 +3882,7 @@ async function repAnnWord(idArg){
         children:[
           sectionH('1. รายชื่อพนักงานที่รับทราบประกาศ', BLUE),
           table1,
-          sectionH('2. รายชื่อพนักงานที่ยังไม่รับทราบประกาศ', BLUE),
-          table2,
+          ...(fromDone ? [] : [ sectionH('2. รายชื่อพนักงานที่ยังไม่รับทราบประกาศ', BLUE), table2 ]),
           ...signerBlock
         ]
       }
