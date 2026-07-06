@@ -197,6 +197,10 @@ def parse_summary(excel_bytes: bytes, filename: str) -> dict:
     # access them by the spec-defined names.
     # Both REQUIRED_COLS and OPTIONAL_COLS get renamed (so "Total GW" → "Total GW.")
     canonical_by_norm = {_norm(c): c for c in (REQUIRED_COLS + OPTIONAL_COLS)}
+    # Aliases: some SUMMARY files name the gross-weight column differently
+    # ("Total Gross Weight", "Gross Weight" ...) — treat them all as "Total GW."
+    for _gw_alias in ("Total Gross Weight", "Total Gross Wt", "Gross Weight", "Total G.W.", "Total G W"):
+        canonical_by_norm.setdefault(_norm(_gw_alias), "Total GW.")
     rename_map = {}
     for col in df.columns:
         n = _norm(col)
@@ -616,6 +620,17 @@ def inject_table_rows(doc: Document, country_rows: list, total_row: dict):
     col_nw      = _get_col_index(header_row, "N.W.")
     col_gw      = _get_col_index(header_row, "G.W.")
     col_fob     = _get_col_index(header_row, "FOB USD")
+
+    # หัวตาราง QTY → QTY/PCS (เฉพาะข้อความหัว · คงฟอร์แมตเดิม · ข้ามถ้าเป็น QTY/PCS อยู่แล้ว)
+    if col_qty >= 0:
+        _qcell = header_row.cells[col_qty]
+        if "".join(_qcell.text.split()).upper() == "QTY":
+            for _qp in _qcell.paragraphs:
+                if _qp.runs:
+                    _qp.runs[0].text = "QTY/PCS"
+                    for _qr in _qp.runs[1:]:
+                        _qr.text = ""
+                    break
 
     # Keep template (first data row) for formatting reference, then delete all data rows
     template_row = table.rows[1] if len(table.rows) > 1 else None
