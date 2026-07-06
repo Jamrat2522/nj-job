@@ -977,7 +977,7 @@ input[type=file]{display:none}
 
             <!-- ───── ZONE 2: RM File ───── -->
             <div style="display:flex;flex-direction:column;">
-              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📦 EXPORT RM ไม่มีเลขอ้างอิง</div>
+              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📦 RM ไม่มีเลขอ้างอิง</div>
               <div id="mappingRmDropzone"
                    style="border:2px dashed rgba(63,185,80,.35);border-radius:8px;padding:18px 14px;min-height:104px;cursor:pointer;margin-bottom:10px;text-align:center;background:rgba(63,185,80,.04);transition:.15s;flex:1;display:flex;flex-direction:column;justify-content:center;"
                    onclick="document.getElementById('mappingRmInput').click()"
@@ -8705,8 +8705,8 @@ async function exportMappingCombined(){
     const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
     const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
           rrQty=rrFind(['billing qty in sku','invoiced quantity','invoiced qty']),
-          rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no']);
-    if(rrBill<0||rrItem<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM ต้องมีคอลัมน์ Billing Document, Item, Import entry no., Item no.'); return; }
+          rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no','รายการ']);
+    if(rrBill<0||rrItem<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง ต้องมีคอลัมน์ • Billing Document • Item • Import Entry (Import entry no. หรือ Import Entry) • Item No. (Item no. หรือ รายการ)'); return; }
     // Composite Key = Billing Document + Item + Qty (qty ตรงกันทุกไฟล์) · Lookup เติม entry/itemNo เฉพาะเมื่อ match ได้ 1 แถว
     const _rrKey=(b,it,q)=>_rmNorm(b)+'|'+_rmNorm(it)+'|'+String(_rmNormNum(q));
     const rmRefMap=new Map(); let _rmRefRows=0, _rmMultiKeys=0;
