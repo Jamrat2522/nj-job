@@ -8381,7 +8381,7 @@ async function exportRmFinal(){
 //    📋 Import Entry (DWAK)→ Qty./Net Weight/Gross Weight/FOB THB. ONLY
 //                           (join: Billing + Product Code, SUM all rows)
 //  Country split = RM Country of Origin only (A-Z). Split a sheet when it
-//  would exceed 4 Billing Documents OR Desc ALL total > 1000 chars.
+//  would exceed 4 Billing Documents OR Desc ALL total > 800 chars.
 //  Output one workbook: SUMMARY · Country Sheets · RM FINAL · UNMATCHED
 // ══════════════════════════════════════════════════════════════════
 
@@ -8704,19 +8704,28 @@ async function exportMappingCombined(){
     const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
     const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
     const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
+          rrQty=rrFind(['billing qty in sku','invoiced quantity','invoiced qty']),
           rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no']);
     if(rrBill<0||rrItem<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM ต้องมีคอลัมน์ Billing Document, Item, Import entry no., Item no.'); return; }
-    const rmRefMap=new Map(); const _dupKeys=[]; let _rmRefRows=0;
+    // Composite Key = Billing Document + Item + Qty (qty ตรงกันทุกไฟล์) · Lookup เติม entry/itemNo เฉพาะเมื่อ match ได้ 1 แถว
+    const _rrKey=(b,it,q)=>_rmNorm(b)+'|'+_rmNorm(it)+'|'+String(_rmNormNum(q));
+    const rmRefMap=new Map(); let _rmRefRows=0, _rmMultiKeys=0;
     for(let r=1;r<rmRefAoa.length;r++){
       const row=rmRefAoa[r]||[]; const b=_rmNorm(row[rrBill]), it=_rmNorm(row[rrItem]);
       if(b==='' && it==='') continue; _rmRefRows++;
-      const key=b+'|'+it;
-      if(rmRefMap.has(key)){ if(_dupKeys.indexOf(key)===-1) _dupKeys.push(key); continue; }
-      rmRefMap.set(key,{entry:_rmNorm(row[rrEntry]), itemNo:_rmNorm(row[rrItemNo])});
+      const key=_rrKey(row[rrBill],row[rrItem],rrQty>=0?row[rrQty]:'');
+      const ent=_rmNorm(row[rrEntry]), ino=_rmNorm(row[rrItemNo]);
+      if(rmRefMap.has(key)) rmRefMap.get(key).push({entry:ent, itemNo:ino});
+      else rmRefMap.set(key,[{entry:ent, itemNo:ino}]);
     }
-    if(_dupKeys.length){ _rrEnd('พบ Key ซ้ำในไฟล์ RM (Billing Document + Item) '+_dupKeys.length+' รายการ: '+_dupKeys.slice(0,3).join(' , ')+(_dupKeys.length>3?' …':'')+' — หยุด Export'); return; }
-    const _rrLookup=(billing,item)=>rmRefMap.get(_rmNorm(billing)+'|'+_rmNorm(item))||null;
-    let _rrMatched=0, _rrNotFound=0, _rrSheets=0;   // สถิติสำหรับรายงาน
+    rmRefMap.forEach(v=>{ if(v.length>1) _rmMultiKeys++; });   // key ที่ match หลายแถว → เว้นว่าง (ไม่ join)
+    const _rrLookup=(billing,item,qty)=>{
+      const arr=rmRefMap.get(_rrKey(billing,item,qty));
+      if(!arr)         return {status:'none',  entry:'', itemNo:''};   // ไม่พบ → เว้นว่าง
+      if(arr.length>1) return {status:'multi', entry:'', itemNo:''};   // หลายแถว → เว้นว่าง (ห้าม join / ห้ามเดา)
+      return {status:'one', entry:arr[0].entry, itemNo:arr[0].itemNo}; // 1 แถว → เติม
+    };
+    let _rrMatched=0, _rrNotFound=0, _rrMultiHit=0, _rrSheets=0;   // สถิติสำหรับรายงาน
     OUT_HDR.push('Import entry no.','Item no.');     // เพิ่มท้ายคอลัมน์ของทุก Country Sheet
 
     // ════ STEP 5: assemble workbook — SUMMARY, country sheets, RM FINAL, UNMATCHED ════
@@ -8731,11 +8740,11 @@ async function exportMappingCombined(){
     const sheetOrder = [];   // country sheet names in final order
     countries.forEach(ctr=>{
       const rowsAll = outByCountry[ctr];
-      // split: >4 distinct billing docs OR Desc ALL total >1000 chars
+      // split: >4 distinct billing docs OR Desc ALL total >800 chars
       const chunks=[]; let cur=[], curBills=new Set(), curChars=0;
       for(const ro of rowsAll){
         const wouldBills = curBills.has(ro.billing) ? curBills.size : curBills.size+1;
-        if(cur.length && (wouldBills>4 || (curChars + ro.descAll.length) > 1000)){
+        if(cur.length && (wouldBills>4 || (curChars + ro.descAll.length) > 800)){
           chunks.push(cur); cur=[]; curBills=new Set(); curChars=0;
         }
         cur.push(ro); curBills.add(ro.billing); curChars += ro.descAll.length;
@@ -8748,10 +8757,10 @@ async function exportMappingCombined(){
         const aoa = [OUT_HDR.slice()];
         let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
         chunk.forEach(ro=>{
-          const _rh=_rrLookup(ro.billing, ro.item);
+          const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
           aoa.push([ ro.billing, ro.bdate, ro.matTrim, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
                      _mapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
-                     numOrBlank(ro.fob), ro.descAll, ro.descOut, (_rh?_rh.entry:''), (_rh?_rh.itemNo:'') ]);
+                     numOrBlank(ro.fob), ro.descAll, ro.descOut, _rh.entry, _rh.itemNo ]);
           tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
           tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
         });
@@ -8809,10 +8818,15 @@ async function exportMappingCombined(){
       for(let r=headerRow+1;r<=rng.e.r;r++){
         const b=_rmNorm(getV(r,cBilling)), it=_rmNorm(getV(r,cItem));
         if(b==='' && it==='') continue;
-        const hit=_rrLookup(getV(r,cBilling), getV(r,cItem));
-        if(hit) _rrMatched++; else _rrNotFound++;
-        setStr(r,cEntryF,  hit?hit.entry :'');
-        setStr(r,cItemNoF, hit?hit.itemNo:'');
+        const _rh=_rrLookup(getV(r,cBilling), getV(r,cItem), cQty>=0?getV(r,cQty):'');
+        if(_rh.status==='one') _rrMatched++;
+        else {   // ไม่ unique → เว้นว่าง + เพิ่มลง UNMATCHED (No Match / Multiple Match)
+          const _mt=(cMatTrim>=0?_rmNorm(getV(r,cMatTrim)):(cMaterial>=0?_rmNorm(getV(r,cMaterial)):''));
+          if(_rh.status==='multi'){ _rrMultiHit++; rmUnmatched.push({billing:b,item:it,matTrim:_mt,reason:'Multiple Match (RM Reference)'}); }
+          else { _rrNotFound++; rmUnmatched.push({billing:b,item:it,matTrim:_mt,reason:'No Match (RM Reference)'}); }
+        }
+        setStr(r,cEntryF,  _rh.entry);
+        setStr(r,cItemNoF, _rh.itemNo);
       }
       rmWs['!ref']=XLSX.utils.encode_range(rng);
       _rrSheets++;   // RM FINAL เติมคอลัมน์แล้ว
@@ -8864,13 +8878,13 @@ async function exportMappingCombined(){
       toast('EXPORT รวมไฟล์สำเร็จ — '+countries.length+' ประเทศ · PDF matched '+matched+'/'+allPdfEntries.length+
             (totalUn?(' · unmatched '+totalUn):''),'success');
       // รายงานการเติม Import entry no. / Item no. จากไฟล์ RM
-      setTimeout(()=>toast('เติม RM (Import entry no. + Item no.) ท้ายคอลัมน์ '+_rrSheets+' Sheet · RM '+_rmRefRows+' แถว · Match '+_rrMatched+' · ไม่พบ Key '+_rrNotFound+' · Key ซ้ำ 0','success'), 900);
+      setTimeout(()=>toast('เติม RM (Import entry no. + Item no.) '+_rrSheets+' Sheet · RM '+_rmRefRows+' แถว · Match(1แถว) '+_rrMatched+' · ไม่พบ '+_rrNotFound+' · หลายแถว→เว้นว่าง '+_rrMultiHit,'success'), 900);
     }
     console.log('[MAPPING COMBINED] countries:',countries.length,'| sheets:',sheetOrder.length,
                 '| RM rows:',rmStatus.length,'| PDF items:',allPdfEntries.length,
                 '| IE keys:',ieAgg.size,'| RM unmatched:',rmUnmatched.length,'| PDF unmatched:',pdfUnmatched.length);
     console.log('[MAPPING RM ENRICH] Import entry no./Item no. เพิ่มท้ายคอลัมน์ทุก Sheet ที่มี Billing+Item เรียบร้อย →',
-                'RM rows:',_rmRefRows,'| matched:',_rrMatched,'| not-found:',_rrNotFound,'| dup keys: 0 | sheets filled:',_rrSheets,'(Country Sheets + RM FINAL · ไม่แตะ SUMMARY/UNMATCHED)');
+                'RM rows:',_rmRefRows,'| matched(1):',_rrMatched,'| no-match:',_rrNotFound,'| multi(blank):',_rrMultiHit,'| sheets filled:',_rrSheets,'(Country Sheets + RM FINAL · ไม่แตะ SUMMARY)');
   } catch(err){
     console.error('[MAPPING COMBINED] error',err);
     if(typeof toast==='function') toast('เกิดข้อผิดพลาด: '+err.message,'error'); else alert('เกิดข้อผิดพลาด: '+err.message);
