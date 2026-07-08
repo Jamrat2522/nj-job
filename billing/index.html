@@ -3179,7 +3179,7 @@ function getRole(){
   if(r === 'super_admin' || r === 'superadmin' || r === 'super-admin' || r === 'super admin') r = 'admin';
   return r;
 }
-function isSuperAdmin(){ return getRole() === 'admin'; }
+function isSuperAdmin(){ return getRole() === 'admin' || getRole() === 'admin_mid'; }   /* admin-level gate: SUPER_ADMIN + ADMIN (ทุกฟังก์ชัน ยกเว้น delete ซึ่งกันไว้ที่ canDelete) · USER=false เหมือนเดิม */
 
 /* ── Role helpers (3-level: user < admin_mid < admin/super_admin) ──
    ─ DB values: 'user' | 'admin_mid' | 'admin' (เดิม admin = SUPER ADMIN)
@@ -3197,7 +3197,7 @@ function roleLabel(raw){
   if(r === 'admin_mid') return 'ADMIN';
   return 'USER';
 }
-function canDelete(){    return isSuperAdmin(); }
+function canDelete(){    return getRole() === 'admin'; }   /* 🗑 ลบข้อมูล = SUPER_ADMIN เท่านั้น (ADMIN ลบไม่ได้) */
 function guardDelete(){
   if(!canDelete()){
     toast('🚫 สิทธิ์ USER ไม่สามารถลบข้อมูลได้','err');
@@ -3625,9 +3625,16 @@ async function saveUserEdit(id){
     break;
   }
   if(error){
-    console.error('saveUserEdit error:', error);
-    if(/duplicate|unique/i.test(error.message||'')) toast('Username "'+username+'" ถูกใช้ใน app billing แล้ว','warn');
-    else toast('แก้ไขไม่สำเร็จ: '+(error.message||'')+(error.hint?(' | hint: '+error.hint):''),'err');
+    console.error('saveUserEdit error → code:', error.code, '| message:', error.message, '| details:', error.details, '| hint:', error.hint);
+    const _emsg = (error.message||'')+' '+(error.details||'')+' '+(error.hint||'');
+    if(/duplicate|unique/i.test(error.message||'')){
+      toast('Username "'+username+'" ถูกใช้ใน app billing แล้ว','warn');
+    } else if((error.code==='22P02' || error.code==='23514' || /invalid input value for enum|violates check constraint/i.test(_emsg)) && /role/i.test(_emsg)){
+      /* role ที่เลือก (เช่น admin_mid) ไม่ถูกอนุญาตในคอลัมน์ role ของ DB (enum/CHECK) — เป็นเรื่องฝั่ง DB ไม่ใช่โค้ด */
+      toast('บันทึกไม่ได้: ค่า role "'+role+'" ไม่ถูกอนุญาตในคอลัมน์ role ของ app_users (enum/CHECK) — ต้องเพิ่มค่านี้ใน DB ก่อน','err');
+    } else {
+      toast('แก้ไขไม่สำเร็จ: '+(error.message||'')+(error.code?(' ['+error.code+']'):'')+(error.hint?(' | hint: '+error.hint):''),'err');
+    }
     return;
   }
   if(_skipped.length) toast('✓ บันทึกแล้ว (ข้ามคอลัมน์ที่ DB ยังไม่มี: '+_skipped.join(', ')+')','warn');
@@ -4599,7 +4606,7 @@ async function fetchAllFilteredRows(prefix){
         ─ AC (Advance Charge): ไม่จำกัดจำนวนวัน → ข้ามทั้งหมด (คงเงื่อนไขเดิม)
         (ยังบังคับเลือก dateFrom/dateTo ด้านบน · ยังใช้ applyExportDateRange · ยัง Export ตาม filter ปัจจุบันทั้งหมด) ── */
   if(prefix === 'sc'){
-    const SC_EXPORT_MAX_DAYS = 62;
+    const SC_EXPORT_MAX_DAYS = 93;
     const _days = ymdDiffDays(f.dateFrom, f.dateTo);   /* inclusive: รวมวันต้น-วันปลาย */
     if(_days < 1){
       toast('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด','warn');
@@ -6957,7 +6964,7 @@ async function billingUpload19(input, prefix){
    ─ MAX: 31 วัน — ถ้าเกิน → reject + toast
    ─ ใช้กับทุก reload/refresh/filter เพื่อกันการ scan ทั้ง table          */
 const DATE_RANGE_DEFAULT_DAYS = 31;
-const DATE_RANGE_MAX_DAYS = 31;
+const DATE_RANGE_MAX_DAYS = 93;   /* Service Charge เท่านั้น (Advance Charge = ไม่จำกัด) */
 
 function ymdAddDays(base, n){
   const dt = new Date(base);
@@ -6987,15 +6994,18 @@ function validateDateRange(prefix){
   const f = PageState[prefix].filters;
   if(!f.dateFrom || !f.dateTo) return true;   /* empty OK */
   const days = ymdDiffDays(f.dateFrom, f.dateTo);
-  if(days > DATE_RANGE_MAX_DAYS){
-    /* UX: ไม่ล้าง dateTo — คงค่าไว้ให้ user เห็น/ปรับเอง + แจ้งว่าเกินกี่วัน (นับรวมวันต้น-วันปลาย) */
-    toast('เลือกได้สูงสุด '+DATE_RANGE_MAX_DAYS+' วันแบบรวมวันต้นและวันปลาย เช่น 01/05 ถึง 31/05 เท่านั้น (ขณะนี้เลือก '+days+' วัน · เกิน '+(days-DATE_RANGE_MAX_DAYS)+' วัน)','warn');
-    return false;
-  }
   if(days < 1){
     toast('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด','warn');
     f.dateTo = '';
     const tEl = document.getElementById(prefix+'-date-to'); if(tEl) tEl.value = '';
+    return false;
+  }
+  /* Advance Charge: ไม่จำกัดจำนวนวัน → From/To ถูกต้องแล้วผ่านทันที */
+  if(prefix === 'ac') return true;
+  /* Service Charge: จำกัด 62 วัน (รวมวันต้น-วันปลาย) */
+  if(days > DATE_RANGE_MAX_DAYS){
+    /* UX: ไม่ล้าง dateTo — คงค่าไว้ให้ user เห็น/ปรับเอง */
+    toast('Service Charge เลือกได้สูงสุด '+DATE_RANGE_MAX_DAYS+' วันแบบรวมวันต้นและวันปลาย (ขณะนี้เลือก '+days+' วัน · เกิน '+(days-DATE_RANGE_MAX_DAYS)+' วัน)','warn');
     return false;
   }
   return true;
