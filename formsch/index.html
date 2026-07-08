@@ -4866,7 +4866,7 @@ function xpdfParseExcel(){
       if (wb.SheetNames.length >= 2) {
         for (const sn of wb.SheetNames) {
           const up = String(sn).trim().toUpperCase();
-          if (up === 'SUMMARY' || up === 'RM FINAL') continue;
+          if (up === 'SUMMARY' || up === 'RM FINAL' || up === 'UNMATCHED') continue;
           let saoa;
           try { saoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:''}); } catch(e){ continue; }
           if (!saoa || !saoa.length) continue;
@@ -5870,6 +5870,13 @@ async function xpdfRunBySheet(){
     const { PDFDocument, rgb } = PDFLib;
     const RED = rgb(0.88,0.08,0.08);
     const zip = new JSZip();
+    // ── ชื่อ ZIP ใหญ่ = ชื่อไฟล์ RM ที่อัปโหลด (เปลี่ยนนามสกุลเป็น .zip) · RMno = เลขหลัง RM ในชื่อไฟล์ (prefix ZIP ย่อย) ──
+    const _xlsName = (_xpdfExcel && _xpdfExcel.name) ? _xpdfExcel.name : 'RM.xlsx';
+    const _rmMatch = _xlsName.match(/RM[._\s]*([0-9]+)/i);
+    const _xpdfRmNo   = _rmMatch ? _rmMatch[1] : (_xlsName.replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_') || 'RM');
+    const _bigZipName = _xlsName.replace(/\.(xlsx|xlsm|xls)$/i,'') + '.zip';
+    // ชื่อไฟล์จากชื่อชีตจริง — คง -2/-3 (ลบเฉพาะอักขระต้องห้ามในชื่อไฟล์) · ห้าม normalize เป็นชื่อประเทศหลัก
+    const _xpdfSheetFileName = n => (String(n||'').trim().replace(/[\\/:*?"<>|]/g,'_') || 'sheet');
     const sheetResults = [];
     const usedNames = new Map();
     let totalUnits=0; _xpdfSheetPlans.forEach(sp=>{ sp.order.forEach(st=>{ if(_xpdfPdfs.has(st)) totalUnits++; }); });
@@ -5902,15 +5909,23 @@ async function xpdfRunBySheet(){
         }
         doneUnits++;
       }
-      // ชื่อไฟล์ตามชื่อชีต (normalize: space→_ , hyphen→_ , ลบ \/:*?"<>|) + กันชน
-      const base = _xpdfNormSheetName(sheetName);
-      let fname = base + '.pdf';
-      if (usedNames.has(base)) { const n=usedNames.get(base)+1; usedNames.set(base,n); fname = base+'_'+n+'.pdf'; }
-      else usedNames.set(base,1);
+      // ชื่อ PDF = ชื่อชีตจริง (คง -2/-3) · แต่ละชีต → 1 ZIP ย่อย ({RMno}_{ชื่อชีต}.zip) ที่มี PDF ไฟล์เดียว
+      const safe = _xpdfSheetFileName(sheetName);
+      let fname = safe + '.pdf';
+      if (usedNames.has(safe)) { const n=usedNames.get(safe)+1; usedNames.set(safe,n); fname = safe+'_'+n+'.pdf'; }
+      else usedNames.set(safe,1);
       const pageCount = mergedDoc.getPageCount();
+      let subZipName = '(ข้าม)';
       if (pageCount === 0) { warnParts.push('ไม่มีหน้าที่ตีกรอบ — ข้ามไฟล์'); }
-      else { const bytes = await mergedDoc.save(); zip.file(fname, bytes); }
-      sheetResults.push({ sheetName, fname: pageCount?fname:'(ข้าม)', entries: sp.entries, items: itemTotal,
+      else {
+        const bytes = await mergedDoc.save();
+        const subZip = new JSZip();
+        subZip.file(fname, bytes);                                  // PDF ของชีตนี้เท่านั้น (ไฟล์เดียว)
+        const subBlob = await subZip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+        subZipName = _xpdfRmNo + '_' + safe + '.zip';
+        zip.file(subZipName, subBlob);                              // ใส่ ZIP ย่อยลง ZIP ใหญ่
+      }
+      sheetResults.push({ sheetName, fname: pageCount?(subZipName+' → '+fname):'(ข้าม)', entries: sp.entries, items: itemTotal,
         pdfFound, pdfNotFound, itemsNotFound, boxed, pages: pageCount,
         warning: warnParts.length ? warnParts.join(' • ') : null });
     }
@@ -5918,9 +5933,10 @@ async function xpdfRunBySheet(){
     xpdfSetProg(94,'กำลังสร้าง ZIP (By Sheet)…');
     const zipBlob = await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
     window._xpdfBySheetZip = zipBlob;
+    window._xpdfBigZipName = _bigZipName;
     const url=URL.createObjectURL(zipBlob);
     const a=document.createElement('a'); a.href=url;
-    a.download='PDF_Highlighted_BySheet_'+new Date().toISOString().slice(0,10)+'.zip';
+    a.download=_bigZipName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url),2000);
 
@@ -5980,7 +5996,7 @@ function _xpdfRenderBySheetResult(rows){
 function xpdfDownloadBySheet(){
   if(!window._xpdfBySheetZip){ if(typeof toast==='function') toast('ไฟล์ ZIP ยังไม่พร้อม — กรุณารัน Export ใหม่','error'); return; }
   const url=URL.createObjectURL(window._xpdfBySheetZip);
-  const a=document.createElement('a'); a.href=url; a.download='PDF_Highlighted_BySheet_'+new Date().toISOString().slice(0,10)+'.zip';
+  const a=document.createElement('a'); a.href=url; a.download=(window._xpdfBigZipName || ('PDF_Highlighted_BySheet_'+new Date().toISOString().slice(0,10)+'.zip'));
   document.body.appendChild(a);a.click();document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
