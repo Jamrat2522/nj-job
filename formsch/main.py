@@ -63,6 +63,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -97,7 +98,7 @@ def fmt_qty(v) -> str:
 
 def fmt_weight(v) -> str:
     try:
-        return f"{float(v):.3f}"
+        return f"{float(v):,.3f}"
     except Exception:
         return str(v)
 
@@ -882,13 +883,28 @@ def generate_letter(
     # no spaces — so the regex stops at the first "real" word like น้ำหนัก.
     if invoice_no or invoice_date:
         VALCHR = r"[A-Za-z0-9/.,\-_]"
+        # แยกหลายรายการด้วย , (comma) แล้วจับคู่ Invoice No. ↔ Invoice Date ตามลำดับ
+        _inv_nos   = [x.strip() for x in str(invoice_no).split(",")   if x.strip()] if invoice_no   else []
+        _inv_dates = [x.strip() for x in str(invoice_date).split(",") if x.strip()] if invoice_date else []
+        _inv_cnt   = max(len(_inv_nos), len(_inv_dates))
         def _inv_repl(m):
-            inv_part  = f"เลขที่อินวอยซ์ {invoice_no}" if invoice_no else "เลขที่อินวอยซ์"
-            date_part = f"วันที่ {invoice_date}" if invoice_date else "วันที่"
-            return f"{inv_part} {date_part} "
+            if _inv_cnt <= 1:
+                # 1 รายการ (หรือไม่มี) → บรรทัดเดียวเหมือนเดิม
+                no = _inv_nos[0]   if _inv_nos   else ""
+                dt = _inv_dates[0] if _inv_dates else ""
+                inv_part  = f"เลขที่อินวอยซ์ {no}" if no else "เลขที่อินวอยซ์"
+                date_part = f"วันที่ {dt}" if dt else "วันที่"
+                return f"{inv_part} {date_part} "
+            # หลายรายการ → "เลขที่อินวอยซ์" ขึ้นบรรทัดแรก แล้วแต่ละคู่คนละบรรทัด (\n → <w:br/>)
+            lines = []
+            for i in range(_inv_cnt):
+                no = _inv_nos[i]   if i < len(_inv_nos)   else ""
+                dt = _inv_dates[i] if i < len(_inv_dates) else ""
+                lines.append(f"{no} วันที่ {dt}".strip())
+            return "เลขที่อินวอยซ์\n" + "\n".join(lines) + " "
         replacements.append((
             re.compile(
-                rf"เลขที่อินวอยซ์[ \t\u00A0]+(?:{VALCHR}+[ \t\u00A0]+)?วันที่[ \t\u00A0]+(?:{VALCHR}+[ \t\u00A0]+)?",
+                rf"เลขที่อินวอยซ์[ \t\u00A0]*(?:{VALCHR}+[ \t\u00A0]*)?วันที่[ \t\u00A0]*(?:{VALCHR}+[ \t\u00A0]*)?",
                 re.UNICODE
             ),
             _inv_repl
@@ -991,55 +1007,58 @@ async def generate_zip(
     if not master_file.filename.lower().endswith(".docx"):
         raise HTTPException(400, "Master file ต้องเป็น .docx")
 
-    zip_buf = io.BytesIO()
+    results = []   # (out_name, docx_bytes) ที่สร้างสำเร็จ
     errors  = []
-    success = 0
 
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for i, mf in enumerate(merged_files, start=1):
-            excel_bytes = await mf.read()
-            stem = mf.filename.rsplit(".", 1)[0]
-            # Output filename = the "RM.<number>" part only.
-            #   "MERGED_DWAK220001157_EXPORT_RM.89540132 (1).xlsx"
-            #     → "RM.89540132.docx"
-            # Strip a trailing " (n)" copy marker, then take the segment after
-            # the last "EXPORT_". Fall back to the cleaned stem if the pattern
-            # is absent so a name is always produced.
-            base = re.sub(r"\s*\(\d+\)\s*$", "", stem).strip()
-            mexp = re.search(r"EXPORT[_\-\s]+(.+)$", base, re.IGNORECASE)
-            short = (mexp.group(1) if mexp else base).strip()
-            short = re.sub(r'[\\/:*?"<>|]', "_", short) or f"letter_{i:03d}"
-            out_name = f"{short}.docx"
+    for i, mf in enumerate(merged_files, start=1):
+        excel_bytes = await mf.read()
+        stem = mf.filename.rsplit(".", 1)[0]
+        # Output filename = the "RM.<number>" part only (naming เดิม · นามสกุล .docx)
+        #   "MERGED_DWAK220001157_EXPORT_RM.89540132 (1).xlsx" → "RM.89540132.docx"
+        base = re.sub(r"\s*\(\d+\)\s*$", "", stem).strip()
+        mexp = re.search(r"EXPORT[_\-\s]+(.+)$", base, re.IGNORECASE)
+        short = (mexp.group(1) if mexp else base).strip()
+        short = re.sub(r'[\\/:*?"<>|]', "_", short) or f"letter_{i:03d}"
+        out_name = f"{short}.docx"
 
-            try:
-                docx_bytes = generate_letter(
-                    excel_bytes=excel_bytes,
-                    master_bytes=master_bytes,
-                    filename=mf.filename,
-                    letter_date=letter_date,
-                    invoice_no=invoice_no,
-                    invoice_date=invoice_date,
-                    destination_country=destination_country,
-                    signer_name=signer_name,
-                    signer_position=signer_position,
-                )
-                zf.writestr(out_name, docx_bytes)
-                success += 1
-            except ValueError as e:
-                errors.append(f"{mf.filename}: {e}")
-            except Exception as e:
-                errors.append(f"{mf.filename}: unexpected error — {e}")
+        try:
+            docx_bytes = generate_letter(
+                excel_bytes=excel_bytes,
+                master_bytes=master_bytes,
+                filename=mf.filename,
+                letter_date=letter_date,
+                invoice_no=invoice_no,
+                invoice_date=invoice_date,
+                destination_country=destination_country,
+                signer_name=signer_name,
+                signer_position=signer_position,
+            )
+            results.append((out_name, docx_bytes))
+        except ValueError as e:
+            errors.append(f"{mf.filename}: {e}")
+        except Exception as e:
+            errors.append(f"{mf.filename}: unexpected error — {e}")
 
-    if success == 0:
+    if not results:
         detail = "ไม่มีไฟล์ที่สำเร็จ\n" + "\n".join(errors)
         raise HTTPException(422, detail=detail)
 
-    # If some failed, add an error log inside the ZIP
-    if errors:
-        err_text = "ERRORS:\n" + "\n".join(errors)
-        with zipfile.ZipFile(zip_buf, "a") as zf:
-            zf.writestr("ERRORS.txt", err_text)
+    # ─ 1 ไฟล์ + ไม่มี error → ดาวน์โหลด .docx โดยตรง (ไม่บีบอัดเป็น ZIP) ─
+    if len(results) == 1 and not errors:
+        out_name, docx_bytes = results[0]
+        return StreamingResponse(
+            io.BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{out_name}"'},
+        )
 
+    # ─ หลายไฟล์ หรือมีบางไฟล์ error → รวมเป็น ZIP (พร้อม log) ─
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for out_name, docx_bytes in results:
+            zf.writestr(out_name, docx_bytes)
+        if errors:
+            zf.writestr("ERRORS.txt", "ERRORS:\n" + "\n".join(errors))
     zip_buf.seek(0)
     return StreamingResponse(
         zip_buf,
