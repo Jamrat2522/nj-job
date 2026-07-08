@@ -599,6 +599,8 @@ input[type=file]{display:none}
   background:linear-gradient(135deg,#1A1F28 0%,#232B36 100%);border:1px solid rgba(255,255,255,.06);box-shadow:0 8px 30px rgba(0,0,0,.30);
   transition:transform .2s ease,box-shadow .2s ease;}
 .rpt-card:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(0,0,0,.42);}
+.rpt-card{cursor:pointer;}
+.rpt-card.active{border-color:rgba(255,255,255,.85);box-shadow:0 0 0 2px rgba(255,255,255,.55),0 12px 36px rgba(0,0,0,.42);}
 .rpt-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;}
 .rpt-card-ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 .rpt-card-tx{min-width:0;}
@@ -6602,26 +6604,43 @@ async function letterGenerate() {
     const blob    = await resp.blob();
     const url     = URL.createObjectURL(blob);
     const resEl   = document.getElementById('letter-result');
-    const zipName = 'CO_REQUEST_BATCH.zip';
+    // ชื่อไฟล์จาก backend (Content-Disposition) — เผื่ออ่านไม่ได้ (CORS) มี fallback
+    let dlName = '';
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const cdm = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i);
+    if (cdm) { try { dlName = decodeURIComponent(cdm[1].replace(/["']/g,'')); } catch { dlName = cdm[1].replace(/["']/g,''); } }
+    const isZip = blob.type.includes('zip') || dlName.toLowerCase().endsWith('.zip');
+    if (!dlName) {
+      if (!isZip && _letterMergedFiles.length === 1) {                 // 1 ไฟล์ → .docx (naming เดิม)
+        const stem = _letterMergedFiles[0].name.replace(/\.[^.]+$/, '');
+        const base = stem.replace(/\s*\(\d+\)\s*$/, '').trim();
+        const mx = base.match(/EXPORT[_\-\s]+(.+)$/i);
+        dlName = ((mx ? mx[1] : base).trim().replace(/[\\/:*?"<>|]/g,'_') || 'letter') + '.docx';
+      } else {
+        dlName = 'CO_REQUEST_BATCH.zip';
+      }
+    }
+    const oneDoc  = dlName.toLowerCase().endsWith('.docx');
+    const kindTxt = oneDoc ? 'Word (.docx)' : 'ZIP';
 
     if (resEl) {
       resEl.innerHTML = `
         <div style="background:rgba(0,150,64,.07);border:1px solid rgba(0,150,64,.3);border-radius:var(--rl);padding:14px 16px;margin-top:4px;display:flex;align-items:center;gap:14px">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">สร้าง ZIP สำเร็จ!</div>
-            <div style="font-size:11px;color:var(--t2)">${_letterMergedFiles.length} ไฟล์ Word ถูกรวมใน <strong>${zipName}</strong></div>
+            <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px">สร้าง ${kindTxt} สำเร็จ!</div>
+            <div style="font-size:11px;color:var(--t2)">ไฟล์: <strong>${dlName}</strong></div>
           </div>
           <button onclick="document.getElementById('letter-dl-link').click()"
             style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;
                    background:#2ea043;color:white;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download ZIP
+            Download ${oneDoc ? 'Word' : 'ZIP'}
           </button>
-          <a id="letter-dl-link" href="${url}" download="${zipName}" style="display:none"></a>
+          <a id="letter-dl-link" href="${url}" download="${dlName}" style="display:none"></a>
         </div>`;
     }
-    toast(`สร้าง ZIP สำเร็จ — ${_letterMergedFiles.length} ไฟล์`, 'success');
+    toast(`สร้าง ${kindTxt} สำเร็จ`, 'success');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (err) {
     console.error(err);
@@ -9187,9 +9206,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
 
   /* ── search + filter + sort → RPT_VIEW ──────────────────── */
-  function _rptApplyView(){
-    _rptFillCustomerFilter();                               // sync dropdown ลูกค้าจากข้อมูลล่าสุด (คงค่าที่เลือก)
-    let v=RPT_DATA;
+  // กรองทุกอย่างยกเว้นสถานะ (search + ลูกค้า + คอลัมน์) — ใช้ทั้งกรองตาราง และนับ KPI ให้ตรงกับตัวกรองปัจจุบัน
+  function _rptFilterNoStatus(v){
     if(rptSearch){
       const q=rptSearch.toLowerCase();
       v=v.filter(r=>RPT_ALL.some(c=>{
@@ -9197,10 +9215,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         return String(r[c.k]==null?'':r[c.k]).toLowerCase().includes(q);
       }) || _rptEditText(r).toLowerCase().includes(q));   // ค้นหาตามข้อความ "แก้ไขแล้ว ..." ได้ด้วย
     }
-    if(!rptStatusAll && rptStatusSet.size){                // ทั้งหมด = ไม่กรอง · อื่น ๆ = ตรงสถานะใดสถานะหนึ่ง (OR) · AND กับตัวกรองอื่น
-      v=v.filter(r=>rptStatusSet.has(_rptSS(r)));
-    }
-    if(rptCustomerSet.size){                               // กรองลูกค้า (multi-select) — ตรงรายใดรายหนึ่ง · AND กับตัวกรองอื่น
+    if(rptCustomerSet.size){                               // กรองลูกค้า (multi-select) — ตรงรายใดรายหนึ่ง
       v=v.filter(r=>rptCustomerSet.has((r.customer==null?'':String(r.customer)).trim()));
     }
     if(rptFilterOn){
@@ -9214,6 +9229,14 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
           v=v.filter(r=>String(r[key]==null?'':r[key]).toLowerCase().includes(q));
         }
       }
+    }
+    return v;
+  }
+  function _rptApplyView(){
+    _rptFillCustomerFilter();                               // sync dropdown ลูกค้าจากข้อมูลล่าสุด (คงค่าที่เลือก)
+    let v=_rptFilterNoStatus(RPT_DATA);                     // base: search + ลูกค้า + คอลัมน์
+    if(!rptStatusAll && rptStatusSet.size){                // สถานะ (KPI/filter) — AND ทับ base
+      v=v.filter(r=>rptStatusSet.has(_rptSS(r)));
     }
     v=_rptGroupSort(v);                  // เรียง RM → PACK เสมอ (จัดกลุ่ม)
     RPT_VIEW=v;
@@ -9233,12 +9256,15 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   ];
   function _rptStats(){
     const wrap=document.getElementById('rpt-kpi-wrap'); if(!wrap) return;
+    const base=_rptFilterNoStatus(RPT_DATA);                     // นับตาม search/ลูกค้า/คอลัมน์ ที่เลือกอยู่ (ไม่รวมสถานะ) → ตรงกับตารางเมื่อคลิก KPI
     const counts=Object.create(null); let total=0;               // นับรอบเดียว O(n) ตามสถานะจริง
-    RPT_DATA.forEach(r=>{ total++; const s=_rptSS(r); counts[s]=(counts[s]||0)+1; });
-    let h=`<div class="rpt-card c-blue"><div class="rpt-card-tx"><div class="rpt-card-lbl">📋 📋 ทั้งหมด</div><div class="rpt-card-num">${total.toLocaleString()}</div></div></div>`;
+    base.forEach(r=>{ total++; const s=_rptSS(r); counts[s]=(counts[s]||0)+1; });
+    const _allAct = rptStatusAll ? ' active' : '';
+    let h=`<div class="rpt-card c-blue${_allAct}" data-st="ALL"><div class="rpt-card-tx"><div class="rpt-card-lbl">📋 📋 ทั้งหมด</div><div class="rpt-card-num">${total.toLocaleString()}</div></div></div>`;
     RPT_KPI.forEach(s=>{                                          // 5 สถานะ เรียงตามลำดับตายตัว
       const n=counts[s.v]||0;
-      h+=`<div class="rpt-card ${s.cls}">`
+      const _act = (!rptStatusAll && rptStatusSet.size===1 && rptStatusSet.has(s.v)) ? ' active' : '';   // active = เลือก KPI นั้นเดี่ยว ๆ
+      h+=`<div class="rpt-card ${s.cls}${_act}" data-st="${s.v}">`
         +`<div class="rpt-card-tx"><div class="rpt-card-lbl">📋 ${_esc(s.lbl)}</div><div class="rpt-card-num">${n.toLocaleString()}</div></div></div>`;
     });
     wrap.innerHTML=h;
@@ -9249,6 +9275,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const widths = [
       ...RPT_MAIN_VIS.map(c=>c.w),
       165,
+      150,
       _rptRemarkCol.w,
       200,
       150,
@@ -9285,6 +9312,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     let r1='<tr>';
     RPT_MAIN_VIS.forEach(c=>{ r1+=`<th rowspan="2" class="rpt-main" data-k="${c.k}">${_esc(_hdr(c))}</th>`; });
     r1+=`<th rowspan="2" class="rpt-main rpt-col-status">สถานะ</th>`;
+    r1+=`<th rowspan="2" class="rpt-main" data-k="nj_submit_system_date">วันที่ NJ ส่งข้อมูลเข้าระบบ</th>`;
     r1+=`<th rowspan="2" class="rpt-main" data-k="remark">${_esc(_hdr(_rptRemarkCol))}</th>`;
     const _eArr = rptSort.k==='updated_at' ? (rptSort.dir<0?' ▼':' ▲') : '';
     r1+=`<th rowspan="2" class="rpt-main rpt-col-edit" id="rpt-th-edit" style="cursor:pointer" title="คลิกเพื่อเรียงตามวันเวลาแก้ไขล่าสุด">✏️ แก้ไขล่าสุด${_eArr}</th>`;
@@ -9301,6 +9329,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       r3='<tr class="rpt-frow">';
       RPT_MAIN_VIS.forEach(c=>{ r3+= c.nf ? '<th></th>' : `<th><input class="rpt-fi" data-k="${c.k}" value="${_esc(rptFilters[c.k]||'')}" placeholder="กรอง"></th>`; });
       r3+='<th></th>';   // สถานะ (ไม่มีตัวกรอง)
+      r3+='<th></th>';   // วันที่ NJ ส่งข้อมูลเข้าระบบ (ไม่มีตัวกรอง)
       r3+=`<th><input class="rpt-fi" data-k="remark" value="${_esc(rptFilters['remark']||'')}" placeholder="กรอง"></th>`;   // สถานะติดปัญหา
       r3+='<th></th>';   // ✏️ แก้ไขล่าสุด (ใช้ global search)
       r3+='<th></th>';   // จัดการ (ไม่มีตัวกรอง)
@@ -9331,7 +9360,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const sc=document.getElementById('rpt-scroll'), tb=document.getElementById('rpt-tbody');
     if(!sc||!tb) return;
     const n=RPT_VIEW.length;
-    const NCOL=RPT_MAIN_VIS.length+RPT_CHK.length+4;   // +สถานะ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ
+    const NCOL=RPT_MAIN_VIS.length+RPT_CHK.length+5;   // +สถานะ +วันที่ NJ ส่งข้อมูลเข้าระบบ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ
     if(n===0){ tb.innerHTML='<tr><td colspan="'+NCOL+'" class="rpt-empty">— ไม่มีข้อมูล —</td></tr>'; _rptLastStart=_rptLastEnd=-1; _rptLastN=0; return; }
     const vh=sc.clientHeight||600;
     let start=Math.floor(sc.scrollTop/ROWH)-BUF; if(start<0) start=0;
@@ -9353,6 +9382,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       });
       const _ssM=RPT_SS[_rptSS(r)];                        // ผลการยื่นระบบ 4 สถานะ (แทน DONE/PENDING)
       html+=`<td class="rpt-td rpt-stcell"><span class="rpt-badge ${_ssM.cls}">${_esc(_ssM.lbl)}</span></td>`;
+      const _njs=r.nj_submit_system_date;                  // วันที่ NJ ส่งข้อมูลเข้าระบบ
+      html+=`<td class="rpt-td" style="text-align:center;white-space:nowrap">${_njs?_esc(_rptDate(_njs)):'-'}</td>`;
       const _rmk=r.remark==null?'':r.remark;                // สถานะติดปัญหา (remark)
       html+=`<td class="rpt-td" style="text-align:left" title="${_esc(_rmk)}">${_esc(_rmk)}</td>`;
       const _et=_rptEdited(r) ? _rptEditFmt(r.updated_at) : '';   // ✏️ แก้ไขล่าสุด — แสดงเฉพาะ วันที่/เวลา (ตัด "แก้ไขแล้ว" ออก)
@@ -9427,7 +9458,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       +`<div id="mf-wait-wrap" class="rpt-reject-wrap rpt-wait-wrap"><textarea id="mf-wait_note" placeholder="พิมพ์หมายเหตุรอส่งข้อมูล..."></textarea></div>`
       +`<div id="mf-cancel-wrap" class="rpt-reject-wrap rpt-cancel-wrap"><textarea id="mf-cancel_note" placeholder="พิมพ์เหตุผลยกเลิก..."></textarea></div>`;
     box.innerHTML=h;
-    box.querySelectorAll('input[name="rpt-appr"]').forEach(r=>r.addEventListener('change',()=>{ _rptApprToggle(true); _rptApprDate(); }));
+    box.querySelectorAll('input[name="rpt-appr"]').forEach(r=>r.addEventListener('change',()=>{ _rptApprToggle(true); _rptApprDate(); _rptAutoSubmitDate(); _rptClearFullDocsIfRejected(); _rptAutoApproveDate(); }));
     document.getElementById('mf-reject_reason')?.addEventListener('input',()=>{   // ไม่อนุมัติ: พิมพ์เหตุผล → หมายเหตุตามทันที (real-time)
       const rmk=document.getElementById('mf-remark'), ta=document.getElementById('mf-reject_reason');
       if(rmk && document.querySelector('input[name="rpt-appr"]:checked')?.value==='REJECTED') rmk.value=ta.value;
@@ -9456,6 +9487,30 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     }else{
       if(pk) pk.value='';                            // ไม่อนุมัติ → ล้าง picker เท่านั้น
     }
+  }
+  // แก้ไขรายการ + เปลี่ยนเป็น "รออนุมัติ" (user action) → กรอก "วันที่ NJ ส่งข้อมูลเข้าระบบ" = วันนี้ (ทับค่าเดิม)
+  function _rptAutoSubmitDate(){
+    if(rptEditId==null) return;                                              // เฉพาะโหมดแก้ไข (เปิดใหม่/คัดลอก → ข้าม)
+    if(document.querySelector('input[name="rpt-appr"]:checked')?.value!=='WAIT_APPROVAL') return;   // เฉพาะรออนุมัติ
+    const el=document.getElementById('mf-nj_submit_system_date');
+    if(el) el.value=_rptTodayISO();                                          // วันนี้ (บันทึกตอนกดบันทึกตามปกติ)
+  }
+  // แก้ไขรายการ + สถานะ "ไม่อนุมัติ" (REJECTED) → ล้าง "วันที่ลูกค้าส่งเอกสารครบ" (nj_full_docs_date) ทันที · save = NULL (el.value||null)
+  function _rptClearFullDocsIfRejected(){
+    if(rptEditId==null) return;                                              // เฉพาะโหมดแก้ไข (เปิดใหม่/คัดลอก → ข้าม)
+    if(document.querySelector('input[name="rpt-appr"]:checked')?.value!=='REJECTED') return;   // เฉพาะไม่อนุมัติ
+    const el=document.getElementById('mf-nj_full_docs_date');
+    if(el) el.value='';
+  }
+  // แก้ไขรายการ + สถานะ "อนุมัติจากระบบ" (APPROVED) → กรอก "วันที่อนุมัติในระบบ" = วันนี้ (ทับค่าเดิม) · save อ่านจาก picker
+  function _rptAutoApproveDate(){
+    if(rptEditId==null) return;                                              // เฉพาะโหมดแก้ไข (เปิดใหม่/คัดลอก → ข้าม)
+    if(document.querySelector('input[name="rpt-appr"]:checked')?.value!=='APPROVED') return;   // เฉพาะอนุมัติจากระบบ
+    const iso=_rptTodayISO();
+    const pk=document.getElementById('mf-appr-date');            // picker (ค่าที่บันทึกลง system_approve_date)
+    if(pk) pk.value=iso;
+    const dEl=document.getElementById('mf-system_approve_date'); // ฟิลด์ "วันที่อนุมัติในระบบ" แสดง DD/MM/YYYY
+    if(dEl) dEl.value=_rptDate(iso);
   }
   // เลือกการ์ด → พื้นหลังตามสถานะ (.sel) + แสดง textarea ในการ์ดแดง + focus เมื่อเลือกไม่อนุมัติ
   function _rptApprToggle(focus){
@@ -9517,6 +9572,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       const el=document.getElementById('mf-'+k), wrap=el&&el.closest('.rpt-mf');
       if(wrap) wrap.style.display = src ? '' : 'none';
     });
+    _rptClearFullDocsIfRejected();   // เปิดแก้ไขรายการที่สถานะ "ไม่อนุมัติ" → ล้างวันที่ลูกค้าส่งเอกสารครบทันที
+    _rptAutoApproveDate();           // เปิดแก้ไขรายการที่สถานะ "อนุมัติจากระบบ" → กรอกวันที่อนุมัติในระบบ = วันนี้ทันที
   }
   async function _rptOpenModal(mode, srcId){
     _rptBuildModalFields();
@@ -9684,10 +9741,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       {k:'form_status',           h:'FORM',                       t:'text'},
       {k:'pack_status',           h:'PACK',                       t:'pack'},
       {k:'nj_full_docs_date',     h:'วันที่ลูกค้าส่งเอกสารครบ',     t:'date'},
-      {k:'nj_draft_form_date',    h:'วันที่ NJ ส่ง Draft FORM',    t:'date'},
+      {k:'nj_draft_form_date',    h:'วันที่ NJ ส่ง Draft FORM(+2 Day)',    t:'date'},
       {k:'kn_confirm_form_date',  h:'วันที่ KN Confirm FORM',      t:'date'},
       {k:'trade_ref',             h:'REF : กรมการค้า',             t:'text'},
-      {k:'nj_submit_system_date', h:'วันที่ NJ ส่งข้อมูลเข้าระบบ', t:'date'},
+      {k:'nj_submit_system_date', h:'วันที่ NJ ส่งข้อมูลเข้าระบบ (+2 Day)', t:'date'},
       {k:'system_approve_date',   h:'วันที่อนุมัติในระบบ',         t:'date'},
       {k:'__status',              h:'สถานะ',                      t:'status'},
       {k:'remark',                h:'สถานะติดปัญหา',               t:'text'}
@@ -9763,6 +9820,15 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   function _rptBind(){
     if(rptBound){ _rptLoad(); return; }
     rptBound=true;
+
+    // คลิก KPI → กรองตามสถานะจริง (DB) ทันที · ทำงานร่วมกับ search/customer/form (AND) · sync ตัวกรองสถานะ + export
+    document.getElementById('rpt-kpi-wrap')?.addEventListener('click',e=>{
+      const card=e.target.closest('.rpt-card'); if(!card) return;
+      const st=card.dataset.st;
+      if(st==='ALL'){ rptStatusAll=true; rptStatusSet.clear(); }                 // 📋 ทั้งหมด → แสดงทุกสถานะ
+      else { rptStatusAll=false; rptStatusSet=new Set([st]); }                   // สถานะเดียว → กรองเฉพาะสถานะนั้น
+      _rptSfSync(); _rptStats(); _rptApplyView(); _rptRender();
+    });
 
     // ปุ่มหัวเพจ
     document.getElementById('rpt-btn-add')   ?.addEventListener('click',()=>_rptOpenModal('add'));
