@@ -908,6 +908,10 @@ input[type=file]{display:none}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
         REPORT FORMSCH
       </button>
+      <button class="sbi" id="nav-report-form" onclick="navTo('report-form')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+        REPORT FORM
+      </button>
     </div>
 
     <div class="sb-bot">
@@ -2408,8 +2412,10 @@ function _applyReportMenuPerm(user){
   user = user || me;
   const show = _isReportAllowed(user);
   const el = document.getElementById('nav-report');
+  const el2 = document.getElementById('nav-report-form');
   const sec = document.getElementById('sec-report');
   if(el)  el.style.display  = show ? 'flex' : 'none';
+  if(el2) el2.style.display = show ? 'flex' : 'none';
   if(sec) sec.style.display = show ? 'block' : 'none';
 }
 // เปิด/ปิดสิทธิ์ REPORT FORMSCH ของผู้ใช้ (แก้ไขได้จากหน้าจัดการผู้ใช้)
@@ -2474,15 +2480,18 @@ function saveUserModal(){
 // ── Nav ───────────────────────────────────────────
 function navTo(page){
   // สิทธิ์ REPORT FORMSCH — บล็อกการเข้าถึงถ้าไม่มีสิทธิ์ (กันเข้าผ่าน URL/เรียกตรง)
-  if(page==='report' && !_isReportAllowed(me)){
+  if((page==='report'||page==='report-form') && !_isReportAllowed(me)){
     if(typeof toast==='function') toast('คุณไม่มีสิทธิ์เข้าใช้งาน REPORT FORMSCH','error');
     return;
   }
+  const shownPage = (page==='report-form') ? 'report' : page;   // REPORT FORM = ใช้หน้า/ข้อมูล (page-report · RPT_DATA · report_formsch) ชุดเดียวกับ REPORT FORMSCH — ไม่แยกระบบ/ตาราง/state
+  window.rptFormMode = (page==='report-form');                  // REPORT FORM: ซ่อนลูกค้า SCH ทุกจุด (แสดงผลเท่านั้น) · REPORT FORMSCH: แสดงครบ
   ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','report'].forEach(p=>{
-    document.getElementById('page-'+p)?.classList.toggle('on',p===page);
+    document.getElementById('page-'+p)?.classList.toggle('on',p===shownPage);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
-  document.querySelector('.content')?.classList.toggle('report-lock-scroll', page==='report');   // ล็อก scroll ชั้นนอกเฉพาะหน้า REPORT
+  document.getElementById('nav-report-form')?.classList.toggle('act', page==='report-form');   // ปุ่ม REPORT FORM (ใช้ page-report ร่วมกัน)
+  document.querySelector('.content')?.classList.toggle('report-lock-scroll', shownPage==='report');   // ล็อก scroll ชั้นนอกเฉพาะหน้า REPORT
   const titles={
     mapping:'Mapping Excel',members:'จัดการสมาชิก',merge:'รวมไฟล์ Excel',
     'sc-mapping':'Form Schaeffler — Mapping','sc-highlight':'Form Schaeffler — PDF Highlight',
@@ -2491,18 +2500,19 @@ function navTo(page){
     'prename':'เปลี่ยนชื่อ PDF',
     'pdf2img':'PDF → Image',
     'thaiglico':'🇹🇭 Thai Glico',
-    'report':'REPORT FORMSCH MANAGEMENT'
+    'report':'REPORT FORMSCH MANAGEMENT',
+    'report-form':'REPORT FORM'
   };
-  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','report':'REPORT'};
+  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','report':'REPORT','report-form':'REPORT'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   const tagEl=document.getElementById('tb-tag');
-  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='report'?'#8a6d3b':'';}
+  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':(page==='report'||page==='report-form')?'#8a6d3b':'';}
   if(page==='pmerge' && typeof _pmBind==='function') _pmBind();
   if(page==='mci' && typeof _mciBind==='function') _mciBind();
   if(page==='prename' && typeof _prBind==='function') _prBind();
   if(page==='pdf2img' && typeof _p2iBind==='function') _p2iBind();
   if(page==='thaiglico' && typeof _tgBind==='function') _tgBind();
-  if(page==='report' && typeof _rptBind==='function') _rptBind();
+  if((page==='report'||page==='report-form') && typeof _rptBind==='function') _rptBind();
   if(page==='members'){
     syncMembersFromSupabase();   // pull latest from Supabase before render
     renderMembers();
@@ -9204,7 +9214,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   function _rptFillCustomerFilter(){
     const panel=document.getElementById('rpt-cust-panel'); if(!panel) return;
     const set=new Set();
-    RPT_DATA.forEach(r=>{ const c=(r.customer==null?'':String(r.customer)).trim(); if(c) set.add(c); });
+    RPT_DATA.forEach(r=>{ const c=(r.customer==null?'':String(r.customer)).trim(); if(!c) return; const isSCH=c.toUpperCase()==='SCH'; if(window.rptFormMode ? isSCH : !isSCH) return; set.add(c); });
     const list=Array.from(set).sort((a,b)=>a.localeCompare(b,'th'));
     rptCustomerSet.forEach(c=>{ if(!set.has(c)) rptCustomerSet.delete(c); });   // ลูกค้าที่หายไป → ตัดออก (ว่าง = ทั้งหมด)
     const sig=list.join('\u0001');
@@ -9224,6 +9234,11 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   /* ── search + filter + sort → RPT_VIEW ──────────────────── */
   // กรองทุกอย่างยกเว้นสถานะ (search + ลูกค้า + คอลัมน์) — ใช้ทั้งกรองตาราง และนับ KPI ให้ตรงกับตัวกรองปัจจุบัน
   function _rptFilterNoStatus(v){
+    if(window.rptFormMode){                                // โหมด 📊 REPORT FORM: ซ่อนลูกค้า SCH (แสดงเฉพาะรายอื่น)
+      v=v.filter(r=>String(r.customer==null?'':r.customer).trim().toUpperCase()!=='SCH');
+    }else{                                                 // โหมด 📊 REPORT FORMSCH MANAGEMENT: แสดงเฉพาะลูกค้า SCH เท่านั้น (แสดงผลเท่านั้น · ไม่แตะ DB/REPORT FORM)
+      v=v.filter(r=>String(r.customer==null?'':r.customer).trim().toUpperCase()==='SCH');
+    }
     if(rptSearch){
       const q=rptSearch.toLowerCase();
       v=v.filter(r=>RPT_ALL.some(c=>{
@@ -9295,7 +9310,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       _rptRemarkCol.w,
       200,
       150,
-      ...RPT_CHK.map(c=>c.w)
+      ...(window.rptFormMode?[]:RPT_CHK).map(c=>c.w)
     ];
     const html = widths.map(w=>`<col style="width:${w}px">`).join('');
     const totalW = widths.reduce((a,b)=>a+b,0);
@@ -9325,20 +9340,26 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   /* ── สร้าง THEAD (header 2 ชั้น) ─────────────────────────── */
   function _rptBuildHead(){
     const thead=document.getElementById('rpt-thead'); if(!thead) return;
+    // โหมด 📊 REPORT FORM: ซ่อนกลุ่มคอลัมน์เอกสาร (RPT_CUST/RPT_NJ) → header ชั้นเดียว · REPORT FORMSCH: ครบเหมือนเดิม
+    const CUST=window.rptFormMode?[]:RPT_CUST, NJ=window.rptFormMode?[]:RPT_NJ, CHK=window.rptFormMode?[]:RPT_CHK;
+    const has2=CHK.length>0, rs=has2?' rowspan="2"':'';
     let r1='<tr>';
-    RPT_MAIN_VIS.forEach(c=>{ r1+=`<th rowspan="2" class="rpt-main" data-k="${c.k}">${_esc(_hdr(c))}</th>`; });
-    r1+=`<th rowspan="2" class="rpt-main rpt-col-status">สถานะ</th>`;
-    r1+=`<th rowspan="2" class="rpt-main" data-k="nj_submit_system_date">วันที่ NJ ส่งข้อมูลเข้าระบบ</th>`;
-    r1+=`<th rowspan="2" class="rpt-main" data-k="remark">${_esc(_hdr(_rptRemarkCol))}</th>`;
+    RPT_MAIN_VIS.forEach(c=>{ r1+=`<th${rs} class="rpt-main" data-k="${c.k}">${_esc(_hdr(c))}</th>`; });
+    r1+=`<th${rs} class="rpt-main rpt-col-status">สถานะ</th>`;
+    r1+=`<th${rs} class="rpt-main" data-k="nj_submit_system_date">วันที่ NJ ส่งข้อมูลเข้าระบบ</th>`;
+    r1+=`<th${rs} class="rpt-main" data-k="remark">${_esc(_hdr(_rptRemarkCol))}</th>`;
     const _eArr = rptSort.k==='updated_at' ? (rptSort.dir<0?' ▼':' ▲') : '';
-    r1+=`<th rowspan="2" class="rpt-main rpt-col-edit" id="rpt-th-edit" style="cursor:pointer" title="คลิกเพื่อเรียงตามวันเวลาแก้ไขล่าสุด">✏️ แก้ไขล่าสุด${_eArr}</th>`;
-    r1+=`<th rowspan="2" class="rpt-main rpt-col-actions">จัดการ</th>`;
-    r1+=`<th colspan="${RPT_CUST.length}" class="rpt-grp">${_esc(G2_TITLE)}</th>`;
-    r1+=`<th colspan="${RPT_NJ.length}" class="rpt-grp">${_esc(G3_TITLE)}</th>`;
+    r1+=`<th${rs} class="rpt-main rpt-col-edit" id="rpt-th-edit" style="cursor:pointer" title="คลิกเพื่อเรียงตามวันเวลาแก้ไขล่าสุด">✏️ แก้ไขล่าสุด${_eArr}</th>`;
+    r1+=`<th${rs} class="rpt-main rpt-col-actions">จัดการ</th>`;
+    if(CUST.length) r1+=`<th colspan="${CUST.length}" class="rpt-grp">${_esc(G2_TITLE)}</th>`;
+    if(NJ.length)   r1+=`<th colspan="${NJ.length}" class="rpt-grp">${_esc(G3_TITLE)}</th>`;
     r1+='</tr>';
-    let r2='<tr>';
-    RPT_CHK.forEach(c=>{ r2+=`<th class="rpt-sub" data-k="${c.k}">${_esc(c.h)}</th>`; });
-    r2+='</tr>';
+    let r2='';
+    if(has2){
+      r2='<tr>';
+      CHK.forEach(c=>{ r2+=`<th class="rpt-sub" data-k="${c.k}">${_esc(c.h)}</th>`; });
+      r2+='</tr>';
+    }
     // แถวตัวกรอง (toggle)
     let r3='';
     if(rptFilterOn){
@@ -9349,7 +9370,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       r3+=`<th><input class="rpt-fi" data-k="remark" value="${_esc(rptFilters['remark']||'')}" placeholder="กรอง"></th>`;   // สถานะติดปัญหา
       r3+='<th></th>';   // ✏️ แก้ไขล่าสุด (ใช้ global search)
       r3+='<th></th>';   // จัดการ (ไม่มีตัวกรอง)
-      RPT_CHK.forEach(c=>{
+      CHK.forEach(c=>{
         const val=rptFilters[c.k]||'';
         r3+=`<th><select class="rpt-fs" data-k="${c.k}"><option value=""${val===''?' selected':''}>ทั้งหมด</option><option value="y"${val==='y'?' selected':''}>✓</option><option value="n"${val==='n'?' selected':''}>✗</option></select></th>`;
       });
@@ -9376,7 +9397,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const sc=document.getElementById('rpt-scroll'), tb=document.getElementById('rpt-tbody');
     if(!sc||!tb) return;
     const n=RPT_VIEW.length;
-    const NCOL=RPT_MAIN_VIS.length+RPT_CHK.length+5;   // +สถานะ +วันที่ NJ ส่งข้อมูลเข้าระบบ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ
+    const NCOL=RPT_MAIN_VIS.length+(window.rptFormMode?0:RPT_CHK.length)+5;   // +สถานะ +วันที่ NJ ส่งข้อมูลเข้าระบบ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ (FORM: ไม่มี checkbox)
     if(n===0){ tb.innerHTML='<tr><td colspan="'+NCOL+'" class="rpt-empty">— ไม่มีข้อมูล —</td></tr>'; _rptLastStart=_rptLastEnd=-1; _rptLastN=0; return; }
     const vh=sc.clientHeight||600;
     let start=Math.floor(sc.scrollTop/ROWH)-BUF; if(start<0) start=0;
@@ -9409,7 +9430,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         +`<button class="rpt-act edit"  data-act="edit"  data-id="${_esc(r.id)}" title="แก้ไข">✏</button>`
         +`<button class="rpt-act del"   data-act="del"   data-id="${_esc(r.id)}" title="ลบ">🗑</button>`
         +`</td>`;
-      RPT_CHK.forEach(c=>{
+      (window.rptFormMode?[]:RPT_CHK).forEach(c=>{
         const on=!!r[c.k];
         html+=`<td class="rpt-td rpt-cc"><span class="rpt-chk${on?' on':''}" data-id="${_esc(r.id)}" data-k="${c.k}">${on?'☑':'☐'}</span></td>`;
       });
@@ -9772,11 +9793,13 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       {k:'job_nj_name',           h:'JOB NJ',                     t:'text'},
       {k:'job_kn_name',           h:'JOB KN',                     t:'text'}
     ];
-    const CUST=RPT_CUST, NJ=RPT_NJ;
+    const CUST=window.rptFormMode?[]:RPT_CUST, NJ=window.rptFormMode?[]:RPT_NJ;   // FORM: ไม่ export กลุ่มเอกสาร
     const nMain=EXP_MAIN.length, nCust=CUST.length, nNj=NJ.length, nTail=EXP_TAIL.length, TOTAL=nMain+nCust+nNj+nTail; // 30
     const tailStart=nMain+nCust+nNj;   // คอลัมน์ท้ายเริ่มที่ tailStart+1
     // ความกว้างคอลัมน์ (Excel units) — main(13) + ลูกค้า(7) + NJ(6) + ท้าย(4) · แต่ละคอลัมน์คงความกว้างเดิม
-    const WID=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,22,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    const WID_ALL=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,22,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    // FORM: ตัดความกว้างของกลุ่ม cust/nj (ตำแหน่ง nMain .. nMain+RPT_CUST+RPT_NJ) ออก → เหลือ main+tail (ไม่มีคอลัมน์ว่าง)
+    const WID = window.rptFormMode ? WID_ALL.slice(0,EXP_MAIN.length).concat(WID_ALL.slice(EXP_MAIN.length+RPT_CUST.length+RPT_NJ.length)) : WID_ALL;
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
     ws.columns=WID.map(w=>({width:w}));
     // ── แถว 1: หัวเดียวต่อเนื่อง (1 แถว · ไม่ merge · ไม่มีหัวกลุ่ม/หัวย่อย) — checkbox ใส่ prefix กลุ่มให้ไม่กำกวม ──
