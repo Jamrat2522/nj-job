@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Mapping FORM & VN — N.J. Logistics</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -153,6 +153,23 @@ function nk(v){return nt(v).toUpperCase()}
 function normVinKey(v){return nk(v).replace(/[^A-Z0-9]/g,'');}
 function toN(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='number')return v;const n=Number(String(v).replace(/,/g,'').trim());return Number.isFinite(n)?n:null}
 function pick(o,ks){for(const k of ks)if(o?.[k]!==undefined&&o?.[k]!==null&&o?.[k]!=='')return o[k];return''}
+// ── pickCI: case-insensitive header pick (trim + ยุบช่องว่าง/ขึ้นบรรทัดใหม่) — ใช้เฉพาะ AU extractSS ──
+function pickCI(o,ks){
+  if(!o)return'';
+  let map=o.__ci;
+  if(!map){
+    map={};
+    for(const k in o){if(k==='__ci'||!Object.prototype.hasOwnProperty.call(o,k))continue;
+      map[String(k).toLowerCase().replace(/\s+/g,' ').trim()]=k;}
+    try{Object.defineProperty(o,'__ci',{value:map,enumerable:false,configurable:true});}catch(e){o.__ci=map;}
+  }
+  for(const key of ks){
+    const nk=String(key).toLowerCase().replace(/\s+/g,' ').trim();
+    const real=map[nk];
+    if(real!==undefined){const v=o[real];if(v!==undefined&&v!==null&&v!=='')return v;}
+  }
+  return'';
+}
 function safeSheet(n,used){let b=String(n||'Sheet').replace(/[\\/*?:\[\]]/g,'_').slice(0,31)||'Sheet';let c=b;let i=1;while(used.has(c)){const s=`_${i}`;c=`${b.slice(0,31-s.length)}${s}`;i++;}used.add(c);return c}
 async function readWB(file){return XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true})}
 
@@ -191,25 +208,33 @@ function wbToRows(wb){
   return rows;
 }
 
+// ── extractSS (FORM AU): Strict Spreadsheet Mapping — อ่านเฉพาะ 8 คอลัมน์มาตรฐานตาม Mapping AU ──
+//    ห้าม pick หลายชื่อ / ห้ามเดา / ใช้ Header ตรงตัวเท่านั้น · Header ไม่ครบ → หยุด Import + แจ้งคอลัมน์ที่หาย
+const SS_AU_REQUIRED = ['VIN','BoL Number','Proforma Invoice Number','Port of Discharge Code','QAD Description1','Vista Entity Code','HTS Code','Weight in KGs','Total - Vehicle Invoice'];
 function extractSS(rows){
-  return rows.map(r=>({
-    vin:             normVinKey(pick(r,['VIN','VIN 3RD'])),
-    bolNumber:       pick(r,['BoL Number','BOL Number','Bol Number']),
-    portCode:        pick(r,['Port of Discharge Code']),
-    vistaEntityCode: pick(r,['VISTA Entity Code']),
-    qad1:            pick(r,['QAD Description1']),
-    htsCode:         toHtsNum(pick(r,['HTS code','HTS cod'])),
-    engineSN:        pick(r,['Engine Serial Number']),
-    colorDesc:       pick(r,['Color Description']),
-    weightKg:        toN(pick(r,['Weight in KGs'])),
-    lenM:            toN(pick(r,['Length in Meters'])),
-    widM:            toN(pick(r,['Width in Meters'])),
-    htM:             toN(pick(r,['Height in Meters'])),
-    volM3:           toN(pick(r,['Volume in Cubic Meters'])),
-    amt3AUD:         toN(pick(r,['Total - Vehicle Invoice','Amount 3RD(AUD)','Amount 3RD ( AUD )'])),
-    drive:           pick(r,['Drive']),
-    driveDesc:       pick(r,['Drive Description']),
-    proforma:        pick(r,['FTC Invoice Number','Proforma Invoice','Proforma Invoice Number']),
+  // ตรวจ Header ให้ครบก่อนเริ่มอ่านข้อมูล
+  const present = new Set();
+  (rows||[]).forEach(r=>Object.keys(r).forEach(k=>present.add(k)));
+  const missing = SS_AU_REQUIRED.filter(h=>!present.has(h));
+  if(missing.length){
+    const err = new Error('❌ Spreadsheet Mapping ไม่ถูกต้อง — ไม่พบคอลัมน์: '+missing.join(', '));
+    err.code = 'SS_MAPPING_INVALID';
+    err.missing = missing;
+    throw err;
+  }
+  // Header ครบ → อ่านเฉพาะ 9 คอลัมน์นี้ (ตรงตัว ไม่ pick หลายชื่อ)
+  return (rows||[]).map(r=>({
+    vin:             normVinKey(r['VIN'] ?? ''),
+    bolNumber:       r['BoL Number'] ?? '',
+    proforma:        r['Proforma Invoice Number'] ?? '',
+    portCode:        r['Port of Discharge Code'] ?? '',   // ⭐ ดึงจริงจาก Spreadsheet
+    qad1:            r['QAD Description1'] ?? '',
+    vistaEntityCode: r['Vista Entity Code'] ?? '',
+    htsCode:         toHtsNum(r['HTS Code']),
+    weightKg:        toN(r['Weight in KGs']),
+    amt3AUD:         toN(r['Total - Vehicle Invoice']),
+    // นอกเหนือ 9 คอลัมน์มาตรฐาน = display columns เท่านั้น → ปล่อยว่าง
+    engineSN:'', colorDesc:'', lenM:0, widM:0, htM:0, volM3:0, drive:'', driveDesc:'',
   })).filter(r=>r.vin)
 }
 
@@ -378,26 +403,55 @@ function toHtsNum(v){
   return Number.isFinite(n)?n:'';
 }
 
+// ── FORM AU: Strict Master match ตามสเปก ──
+//   Step1: VISTA Entity Code = MPV Code (Representative) หลังตัด prefix (mpvToVista)
+//   Step2: ถ้า VISTA ซ้ำ → ใช้ QAD Description1 = Description (FORM) (Trim + Case-insensitive)
+//   ไม่พบ = notfound (ปล่อยว่าง) · เหลือ >1 = duplicate (ไม่เลือกเอง, ปล่อยว่าง)
+function normDescAU(s){ return String(s||'').replace(/\s+/g,' ').trim().toUpperCase(); }
+function lookupMasterAU(vista, qad){
+  const v = String(vista||'').trim().toUpperCase();
+  if(!v) return {status:'notfound'};
+  const cand = (S.masterRows||[]).filter(r => mpvToVista(r.mpvRep) === v);
+  if(cand.length === 0) return {status:'notfound'};
+  let sel = cand;
+  if(cand.length > 1){                         // VISTA ซ้ำ → ตัดด้วย Description (FORM) = QAD
+    const q = normDescAU(qad);
+    const f = cand.filter(r => normDescAU(r.descForm) === q);
+    if(f.length) sel = f;
+  }
+  if(sel.length === 1) return {status:'ok', row:sel[0]};
+  // ⭐ ยังเหลือ >1 (VISTA+Description เดียวกัน หลาย Cost Structure) → เลือก Date Approval ล่าสุด
+  const toTime=x=>{const dd=(x instanceof Date)?x:new Date(x);const t=dd&&dd.getTime?dd.getTime():NaN;return isNaN(t)?-Infinity:t;};
+  const best=sel.reduce((a,b)=>toTime(b.dateApp)>toTime(a.dateApp)?b:a);
+  return {status:'ok', row:best, multi:true};
+}
+
 function makeBOL(rep,cIdx,masterCsnIdx,sortByQAD=false){
   const byB=new Map();
   rep.filter(r=>r['BoL Number']&&r['BoL Number']!=='NO_BOL')
     .forEach(r=>{const b=r['BoL Number'];if(!byB.has(b))byB.set(b,[]);byB.get(b).push(r)});
   const sheets={};
+  const _mWarn={nf:new Set(),dup:new Set()};   // เก็บ Warning: Master Not Found / Duplicate Master
   byB.forEach((rows,bol)=>{
     const gm=new Map();
     rows.forEach(r=>{
-      // ── AU Master lookup: VISTA + Description (FORM) match + sheet-order tie-break ──
+      // ── AU strict Master match: VISTA → ถ้าซ้ำใช้ Description (FORM) ──
       const vista = String(r['VISTA Entity Code']||'').trim().toUpperCase();
-      const cr=lookupCostAU(cIdx, vista, r['QAD Description1']);
+      const _m = lookupMasterAU(vista, r['QAD Description1']);
+      if(_m.status==='duplicate') _mWarn.dup.add(vista);
+      else if(_m.status==='notfound' && vista) _mWarn.nf.add(vista);
+      const cr = _m.status==='ok' ? _m.row : null;
 
-      const mkt      = cr?.mkt      || '';
+      // ช่องที่มาจาก Master → ปล่อยว่างถ้าไม่พบ/ซ้ำ (ตามสเปก)
+      // Market / Privilege = Destination Country ('AANZ') ถ้ามี, ไม่งั้นใช้คอลัมน์ Market/Privilege
+      const mkt      = (cr?.dest ?? '') !== '' ? cr.dest : (cr?.mkt || '');
       const rvc      = cr?.rvc      ?? '';
       const csn      = cr?.csn      || '';
       const dateApp  = cr?.dateApp  || '';
-      const tariffCO = cr?.tariff   || '';          // 10-digit HTS e.g. 8703320000
-      const descForm = cr?.descForm || r['QAD Description1'] || '';
-      const prodEng  = cr?.prodEng  || r['QAD Description1'] || '';
-      // HTS cod = 6-digit numeric from SS, fallback from Master tariff
+      const tariffCO = cr?.tariff   || '';          // 10-digit HTS
+      const descForm = cr?.descForm || '';   // Master field → ว่างถ้าไม่พบ
+      const prodEng  = cr?.prodEng  || '';   // Master field → ว่างถ้าไม่พบ
+      // HTS cod = 6-digit จาก Spreadsheet, fallback Master tariff เฉพาะเมื่อ SS ไม่มี HTS
       const hts = r['HTS code'] || toHtsNum(tariffCO) || '';
 
       const gk=[vista,r['QAD Description1'],hts,r['INVOICE NO TH'],r['Invoice Date']].join('||');
@@ -426,7 +480,8 @@ function makeBOL(rep,cIdx,masterCsnIdx,sortByQAD=false){
       bolRows.sort((a,b)=>{
         const qa=String(a['QAD Description1']||'').trim().toUpperCase();
         const qb=String(b['QAD Description1']||'').trim().toUpperCase();
-        const q=qa.localeCompare(qb,'th',{sensitivity:'base'});
+        // ⭐ ordinal compare (ไม่ใช้ localeCompare) — ให้ non-breaking space (\u00a0) เรียงตามไฟล์ตรวจ
+        const q = qa<qb?-1:(qa>qb?1:0);
         if(q!==0)return q;
         const ia=String(a['INVOICE NO TH']||'').localeCompare(String(b['INVOICE NO TH']||''));
         if(ia!==0)return ia;
@@ -446,6 +501,7 @@ function makeBOL(rep,cIdx,masterCsnIdx,sortByQAD=false){
     bolRows=bolRows.map((x,i)=>({...x,ITEM:i+1}));
     if(bolRows.length)sheets[bol]=bolRows;
   });
+  S._auMasterWarn={nf:[..._mWarn.nf],dup:[..._mWarn.dup]};   // ⭐ แจ้งตอน export
   return sheets;
 }
 // ── makeTotalRow: สร้าง TOTAL row สำหรับ BOL sheet ──────────────
@@ -466,10 +522,18 @@ function makeBolTotalRow(bolCols, rows){
   });
 }
 
+function auMasterWarnToast(){
+  const w=S._auMasterWarn;if(!w)return;
+  const parts=[];
+  if(w.dup&&w.dup.length) parts.push('⚠️ Duplicate Master: '+w.dup.join(', '));
+  if(w.nf&&w.nf.length)   parts.push('⚠️ Master Not Found: '+w.nf.join(', '));
+  if(parts.length){try{toast(parts.join('\n'),'error');}catch(e){}}
+}
 function doExportXLSX(rep,bols,usd,aud){
   if(!Number(usd)||!Number(aud)){
     toast('กรุณากรอก USD / AUD Rate ก่อน Export','error');return;
   }
+  auMasterWarnToast();
   // ⭐ AU Invoice Date formatter: YYYYMMDD / Date / "10.04.2026" → "10.04.2026" (DD.MM.YYYY)
   const fmtInvDateAU = v => {
     if(!v && v !== 0) return '';
@@ -526,29 +590,93 @@ function doExportXLSX(rep,bols,usd,aud){
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r1Aoa),safeSheet('Report 1',used));
 
-  // BOL sheets — 20 columns
-  const bolCols=['BoL Number','INVOICE NO TH','Invoice Date','VISTA Entity Code','ITEM',
-    'QAD Description1','HTS cod','ผลรวม ของ QTY','ผลรวม ของ Weight in KGs',
-    'ผลรวม ของ Amount TH ( THB )','ผลรวม ของ Amount 3RD ( AUD )',
-    'ผลรวม ของ FOB TH','ผลรวม ของ FOB 3RD','Market / Privilege',
-    'Tariff on \nC/O','RVC (%)','Cost Structure No.','Date Approval',
-    'Description (FORM)','Product Eng Name'];
+  // BOL sheets — 20 columns (header ตามไฟล์ตรวจ | key = ชื่อ field ใน makeBOL row)
+  const bolMap=[
+    ['BoL Number','BoL Number'],
+    ['INVOICE NO TH','INVOICE NO TH'],
+    ['Invoice Date','Invoice Date'],
+    ['Vista Entity Code','VISTA Entity Code'],
+    ['ITEM','ITEM'],
+    ['QAD Description1','QAD Description1'],
+    ['HTS Cod','HTS cod'],
+    ['ผลรวม ของ QTY','ผลรวม ของ QTY'],
+    ['ผลรวม ของ Weight in KGs','ผลรวม ของ Weight in KGs'],
+    ['ผลรวม ของ Total - Vehicle Invoice','ผลรวม ของ Amount 3RD ( AUD )'],  // col10 = AUD sum
+    ['ผลรวม ของ Amount TH','ผลรวม ของ Amount TH ( THB )'],                 // col11 = THB sum
+    ['ผลรวม ของ FOB TH','ผลรวม ของ FOB TH'],
+    ['ผลรวม ของ FOB 3RD','ผลรวม ของ FOB 3RD'],
+    ['Market / Privilege','Market / Privilege'],
+    ['Tariff on \nC/O','Tariff on \nC/O'],
+    ['RVC (%)','RVC (%)'],
+    ['Cost Structure No.','Cost Structure No.'],
+    ['Date Approval','Date Approval'],
+    ['Description (FORM)','Description (FORM)'],
+    ['Product Eng Name','Product Eng Name'],
+  ];
+  const bolHeaders=bolMap.map(x=>x[0]);
+  const bolKeys=bolMap.map(x=>x[1]);
+  // คอลัมน์ตัวเลขที่ใส่ comma + ทศนิยม 2 ตำแหน่ง (#,##0.00)
+  const NUMFMT_KEYS=['ผลรวม ของ QTY','ผลรวม ของ Weight in KGs','ผลรวม ของ Amount 3RD ( AUD )','ผลรวม ของ Amount TH ( THB )','ผลรวม ของ FOB TH','ผลรวม ของ FOB 3RD','RVC (%)'];
+  const NUMFMT_COLS=new Set(bolKeys.map((k,i)=>NUMFMT_KEYS.includes(k)?i:-1).filter(i=>i>=0));
   Object.entries(bols).forEach(([b,rows])=>{
-    const dataRows=rows.map(r=>bolCols.map(c=>{
-      if(c==='Date Approval')return fmtDateBOL(r[c]);
-      if(c==='Invoice Date')return fmtInvDateAU(r[c]);   // ⭐ DD.MM.YYYY
-      return r[c]??'';
+    const dataRows=rows.map(r=>bolKeys.map(k=>{
+      if(k==='Invoice Date')return fmtInvDateAU(r[k]);   // ⭐ DD.MM.YYYY (string ตามไฟล์ตรวจ)
+      if(k==='RVC (%)'){                                  // ⭐ RVC → เปอร์เซ็นต์ 47.03 (×100)
+        const v=r[k]; if(v===''||v==null)return '';
+        const n=Number(v); return isNaN(n)?v:n*100;
+      }
+      if(k==='Date Approval'){
+        // ⭐ ต้องเป็น date cell ตามไฟล์ตรวจ — แปลง "DD-Mon-YY" / string → Date
+        const dv=r[k];
+        if(dv instanceof Date)return dv;
+        if(typeof dv==='string' && dv.trim()){
+          const m=dv.trim().match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+          if(m){
+            const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+            const mo=MON[m[2].toLowerCase()];
+            if(mo!==undefined){let y=+m[3];if(y<100)y+=2000;return new Date(y,mo,+m[1]);}
+          }
+          const p=new Date(dv);if(!isNaN(p))return p;
+        }
+        return dv??'';
+      }
+      return r[k]??'';
     }));
-    const totalRow=makeBolTotalRow(bolCols,rows);
-    const aoa=[bolCols,...dataRows,totalRow];
+    const totalRow=makeBolTotalRow(bolKeys,rows);
+    const aoa=[bolHeaders,...dataRows,totalRow];
     const ws2=XLSX.utils.aoa_to_sheet(aoa);
-    // Style total row: bold + yellow background
+    const nRows=aoa.length, nCols=bolHeaders.length;
     const totalRowIdx=dataRows.length+1;
-    bolCols.forEach((_,ci)=>{
-      const cellRef=XLSX.utils.encode_cell({r:totalRowIdx,c:ci});
-      if(!ws2[cellRef])ws2[cellRef]={v:'',t:'s'};
-      ws2[cellRef].s={font:{bold:true},fill:{fgColor:{rgb:'FFF9C4'}},border:{top:{style:'thin',color:{rgb:'F97316'}}}};
-    });
+    const BC={rgb:'404040'};                    // สีเส้นกรอบ เข้มพอให้เห็นชัด
+    // ── ตีกรอบทุกเซลล์ (เส้นในบาง + กรอบนอกหนา) + หัวข้อสีเหลือง + total row ──
+    for(let R=0;R<nRows;R++){
+      for(let C=0;C<nCols;C++){
+        const ref=XLSX.utils.encode_cell({r:R,c:C});
+        if(!ws2[ref])ws2[ref]={v:'',t:'s'};
+        const isHeader=(R===0), isTotal=(R===totalRowIdx);
+        const border={
+          top:   {style:R===0        ?'medium':'thin', color:BC},
+          bottom:{style:R===nRows-1  ?'medium':'thin', color:BC},
+          left:  {style:C===0        ?'medium':'thin', color:BC},
+          right: {style:C===nCols-1  ?'medium':'thin', color:BC},
+        };
+        ws2[ref].s={
+          border,
+          alignment:{vertical:'center',horizontal:isHeader?'center':'left',wrapText:isHeader},
+          font:{bold:isHeader||isTotal, sz:isHeader?11:10, color:{rgb:'1F2937'}},
+          ...(isHeader?{fill:{patternType:'solid',fgColor:{rgb:'FFEB3B'}}}:{}),   // ⭐ หัวข้อสีเหลือง
+          ...(isTotal ?{fill:{patternType:'solid',fgColor:{rgb:'FFF6B0'}}}:{}),   // total row เหลืองอ่อน
+        };
+        // ⭐ คอลัมน์ตัวเลข → comma + ทศนิยม 2 ตำแหน่ง (ข้อมูล/แถวรวม ไม่ใช่หัวข้อ)
+        if(!isHeader && NUMFMT_COLS.has(C) && typeof ws2[ref].v==='number'){
+          ws2[ref].s.numFmt='#,##0.00';
+        }
+      }
+    }
+    // ความกว้างคอลัมน์ให้พอดี (ไม่ให้เลขถูกตัด)
+    const widths=[16,15,12,16,6,34,10,10,13,17,17,13,13,15,12,9,16,13,36,42];
+    ws2['!cols']=bolHeaders.map((_,i)=>({wch:widths[i]||14}));
+    ws2['!rows']=[{hpt:28}];        // หัวข้อสูงขึ้นเล็กน้อย
     XLSX.utils.book_append_sheet(wb,ws2,safeSheet(b,used));
   });
 
@@ -813,6 +941,7 @@ function exportFormAU(bolSheets, report1){
   }
   if(!Object.keys(bolSheets).length&&!S.formAuExRows.length){toast('ยังไม่มีข้อมูล — กรุณาอัปโหลดไฟล์ก่อน','error');return}
   if(typeof JSZip==='undefined'){toast('JSZip library ไม่พร้อมใช้งาน','error');return;}
+  auMasterWarnToast();
 
   // ⭐ Merge BOL rows อัตโนมัติ — รวม rows ที่ 5 fields ตรงกัน:
   // INVOICE NO TH, QAD Description1, VISTA Entity Code, RVC (%), Cost Structure No.
@@ -1135,7 +1264,7 @@ function buildCostIdxAU(masterRows){
     if(!vista) return;
     const isAJ = String(r.mpvRep || '').trim().toUpperCase().startsWith('AJ_');
     const val = {
-      mkt: r.mkt, tariff: r.tariff, rvc: r.rvc, csn: r.csn,
+      mkt: r.mkt, dest: r.dest, tariff: r.tariff, rvc: r.rvc, csn: r.csn,
       dateApp: r.dateApp, descForm: r.descForm, prodEng: r.prodEng,
       _src: 'master', _isAJ: isAJ,
       _sheetIdx: typeof r._sheetIdx === 'number' ? r._sheetIdx : 999,
@@ -3097,7 +3226,7 @@ function sidebar(){
   // ── VN nav item ──
   const vnBtn=document.createElement('button');vnBtn.className='nav-btn'+(S.nav==='mapping_vn'?' active':'');
   if(S.nav==='mapping_vn')Object.assign(vnBtn.style,{background:'rgba(34,211,238,0.12)',borderColor:'rgba(34,211,238,0.3)',color:'#22d3ee'});
-  vnBtn.innerHTML='<span style="font-size:14px">🇻🇳</span><span style="flex:1">FORM VN</span><span class="badge-vn">VN</span>';
+  vnBtn.innerHTML='<span style="font-size:14px">📋</span><span style="flex:1">FORM VN</span><span class="badge-vn">VN</span>';
   vnBtn.onclick=()=>{S.nav='mapping_vn';R()};nav.appendChild(vnBtn);
   // ── Section: PHILIPPINES ──
   const nlPH=d('',[], {color:'#f59e0b',fontSize:'10px',fontWeight:'700',letterSpacing:'.08em',padding:'10px 8px 4px',textTransform:'uppercase',opacity:'.7'});
@@ -3105,7 +3234,7 @@ function sidebar(){
   // ── PH nav item ──
   const phBtn=document.createElement('button');phBtn.className='nav-btn'+(S.nav==='mapping_ph'?' active':'');
   if(S.nav==='mapping_ph')Object.assign(phBtn.style,{background:'rgba(245,158,11,0.12)',borderColor:'rgba(245,158,11,0.3)',color:'#f59e0b'});
-  phBtn.innerHTML='<span style="font-size:14px">🇵🇭</span><span style="flex:1">FORM PH</span><span class="badge-ph">PH</span>';
+  phBtn.innerHTML='<span style="font-size:14px">📋</span><span style="flex:1">FORM PH</span><span class="badge-ph">PH</span>';
   phBtn.onclick=()=>{S.nav='mapping_ph';R()};nav.appendChild(phBtn);
   // ── Section: MALAYSIA ──
   const nlMY=d('',[], {color:'#10b981',fontSize:'10px',fontWeight:'700',letterSpacing:'.08em',padding:'10px 8px 4px',textTransform:'uppercase',opacity:'.7'});
@@ -3113,7 +3242,7 @@ function sidebar(){
   // ── MY nav item ──
   const myBtn=document.createElement('button');myBtn.className='nav-btn'+(S.nav==='mapping_my'?' active':'');
   if(S.nav==='mapping_my')Object.assign(myBtn.style,{background:'rgba(16,185,129,0.12)',borderColor:'rgba(16,185,129,0.3)',color:'#10b981'});
-  myBtn.innerHTML='<span style="font-size:14px">🇲🇾</span><span style="flex:1;white-space:nowrap">FORM MY</span><span class="badge-my">MY</span>';
+  myBtn.innerHTML='<span style="font-size:14px">📋</span><span style="flex:1;white-space:nowrap">FORM MY</span><span class="badge-my">MY</span>';
   myBtn.onclick=()=>{S.nav='mapping_my';R()};nav.appendChild(myBtn);
   // ── Members (Super Admin) ──
   if(S.user?.role==='Super Admin'){
@@ -3139,61 +3268,48 @@ function mappingDash(){
   // Header
   const hdr=d('',[], {marginBottom:'20px'});
   hdr.appendChild(el('h1',{style:{color:'#f1f5f9',fontSize:'20px',fontWeight:'700',marginBottom:'4px'}},['FORM AU']));
-  hdr.appendChild(t('อัปโหลดไฟล์ → สร้าง Report 1 → แยกชีตตาม BoL Number อัตโนมัติ',{color:'#64748b',fontSize:'12px'}));
+  // hdr.appendChild(t('อัปโหลดไฟล์ → สร้าง Report 1 → แยกชีตตาม BoL Number อัตโนมัติ',{color:'#64748b',fontSize:'12px'}));
   wrap.appendChild(hdr);
   // Stat grid
-  const sg=d('',[], {display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'14px',marginBottom:'20px'});
-  function mkStat(icon,label,val,editable,setter,storageKey,defaultVal){
-    const c=d('stat-card');
-    const top=d('',[], {display:'flex',alignItems:'center',gap:'7px',marginBottom:'8px'});
-    top.appendChild(t(icon,{fontSize:'16px'}));top.appendChild(t(label,{color:'#64748b',fontSize:'11px'}));c.appendChild(top);
-    if(editable){
-      const i=document.createElement('input');i.value=val;i.className='stat-input';
-      // Save / ลบ buttons (เฉพาะถ้า storageKey มี)
-      if(storageKey){
-        const btnRow=d('',[], {display:'flex',gap:'4px',marginTop:'6px'});
-        const sBtn=document.createElement('button');
-        Object.assign(sBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        // ⭐ Update Save button state — ถ้า saved value ตรงกับ input → ✓ Saved
-        const updateSaveBtn=()=>{
-          let saved=null;try{saved=localStorage.getItem(storageKey);}catch{}
-          if(saved!==null && String(saved)===String(i.value)){
-            sBtn.textContent='✓ Saved';
-            sBtn.style.background='rgba(34,197,94,0.25)';
-            sBtn.style.borderColor='rgba(34,197,94,0.7)';
-          } else {
-            sBtn.textContent='💾 Save';
-            sBtn.style.background='rgba(34,197,94,0.1)';
-            sBtn.style.borderColor='rgba(34,197,94,0.4)';
-          }
-        };
-        updateSaveBtn();   // initial state
-        sBtn.onclick=()=>{if(saveRate(storageKey,i.value)){toast('บันทึกแล้ว 💾','success');updateSaveBtn();}else{toast('บันทึกไม่สำเร็จ','error');}};
-        i.oninput=e=>{setter(e.target.value);recompute();updateSaveBtn();};   // ⭐ ไม่ R() ตอนพิมพ์
-        i.onblur=()=>R();
-        const dBtn=document.createElement('button');dBtn.textContent='🗑 ลบ';
-        Object.assign(dBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        dBtn.onclick=()=>{deleteRate(storageKey);setter(defaultVal);i.value=defaultVal;recompute();updateSaveBtn();toast('ลบค่าที่บันทึก คืนค่าเริ่มต้น','info');R();};
-        btnRow.appendChild(sBtn);btnRow.appendChild(dBtn);
-        c.appendChild(i);
-        c.appendChild(btnRow);
-      } else {
-        i.oninput=e=>{setter(e.target.value);recompute();};
-        i.onblur=()=>R();
-        c.appendChild(i);
-      }
-    }
-    else c.appendChild(t(String(val),{color:'#f1f5f9',fontSize:'26px',fontWeight:'700',display:'block'}));
-    return c;
+  // ── Exchange Rate Premium Bar ──
+  const rateBar=d('',[], {display:'flex',alignItems:'center',flexWrap:'wrap',background:'rgba(255,255,255,0.045)',border:'1px solid rgba(249,115,22,0.35)',borderRadius:'10px',boxShadow:'0 8px 20px rgba(0,0,0,.16)',padding:'8px 20px',minHeight:'48px',width:'fit-content',maxWidth:'100%',margin:'0 0 20px'});
+  function mkRateAU(code,label,val,setter,storageKey,isFirst){
+    const FLAG={us:'🇺🇸',au:'🇦🇺',th:'🇹🇭'};
+    const seg=d('',[], {display:'inline-flex',alignItems:'center',padding:'0 15px',borderLeft:isFirst?'none':'1px solid rgba(255,255,255,0.08)'});
+    const flagImg=document.createElement('img');
+    flagImg.src='https://flagcdn.com/w40/'+code+'.png';flagImg.alt=code;flagImg.loading='lazy';
+    Object.assign(flagImg.style,{width:'22px',height:'16px',borderRadius:'3px',objectFit:'cover',flexShrink:'0',boxShadow:'0 1px 3px rgba(0,0,0,.3)',marginRight:'6px'});
+    flagImg.onerror=()=>{try{flagImg.replaceWith(t(FLAG[code]||'',{fontSize:'20px',flexShrink:'0'}));}catch(e){}};
+    seg.appendChild(flagImg);
+    seg.appendChild(t(label,{color:'#CBD5E1',fontSize:'14px',fontWeight:'500',whiteSpace:'nowrap',marginRight:'10px'}));
+    // แสดงทศนิยม 4 ตำแหน่งเสมอ (display เท่านั้น — ไม่แตะ logic/save)
+    const fmt4=v=>{const n=Number(v);return (v===''||v==null||!Number.isFinite(n))?(v??''):n.toFixed(4);};
+    const i=document.createElement('input');i.value=fmt4(val);i.type='text';i.inputMode='decimal';
+    Object.assign(i.style,{background:'transparent',border:'none',borderBottom:'1px solid transparent',outline:'none',color:'#F97316',fontSize:'18px',fontWeight:'700',letterSpacing:'0.2px',fontVariantNumeric:'tabular-nums',fontFeatureSettings:'"tnum"',width:'100px',minWidth:'100px',textAlign:'left',padding:'2px 6px',marginRight:'6px',cursor:'text',transition:'border-color .15s',flexShrink:'0',whiteSpace:'nowrap',overflow:'visible',textOverflow:'clip'});
+    const pencil=t('✎',{color:'#94A3B8',fontSize:'13px',flexShrink:'0',cursor:'pointer',transition:'opacity .15s',opacity:'.7'});
+    i.onmouseenter=()=>{if(document.activeElement!==i)i.style.borderBottomColor='#F97316';pencil.style.opacity='1';};
+    i.onmouseleave=()=>{if(document.activeElement!==i){i.style.borderBottomColor='transparent';pencil.style.opacity='.7';}};
+    i.onfocus=()=>{i.style.borderBottomColor='#F97316';pencil.style.opacity='1';};
+    pencil.onclick=()=>i.focus();
+    i.oninput=e=>{setter(e.target.value);recompute();};
+    const commit=()=>{
+      i.style.borderBottomColor='transparent';pencil.style.opacity='.7';
+      if(String(i.value).trim()===''){ setter('');recompute();R();return; }   // ว่างไว้ ไม่ใส่ default
+      setter(i.value);recompute();
+      if(storageKey){try{saveRate(storageKey,i.value);}catch(e){}}
+      toast('✓ Exchange Rate Updated','success');R();
+    };
+    i.onblur=commit;
+    i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.blur();}};
+    seg.appendChild(i);seg.appendChild(pencil);
+    return seg;
   }
-  sg.appendChild(mkStat('💵','USD อัตราแลกเปลี่ยน',S.usd,true,v=>S.usd=v,'nj.au.usd','30.9979'));
-  sg.appendChild(mkStat('🇦🇺','AUD อัตราแลกเปลี่ยน',S.aud,true,v=>S.aud=v,'nj.au.aud','20.5426'));
-  sg.appendChild(mkStat('🇹🇭','THB อัตราแลกเปลี่ยน',S.thb,true,v=>S.thb=v,'nj.au.thb','1.0000'));
-  sg.appendChild(mkStat('📋','ใบขน',S.baikhonFiles.length,false));
-  sg.appendChild(mkStat('🗂️','จำนวน BOL',Object.keys(S.bolSheets).length,false));
-  wrap.appendChild(sg);
+  rateBar.appendChild(mkRateAU('us','USD',S.usd,v=>S.usd=v,'nj.au.usd',true));
+  rateBar.appendChild(mkRateAU('au','AUD',S.aud,v=>S.aud=v,'nj.au.aud',false));
+  rateBar.appendChild(mkRateAU('th','THB',S.thb,v=>S.thb=v,'nj.au.thb',false));
+  wrap.appendChild(rateBar);
   // Tabs
-  const tabBar=d('tab-bar',[], {marginBottom:'20px'});
+  const tabBar=d('tab-bar',[], {marginBottom:'20px',display:'none'});
   [['upload','📤 Upload'],['report','📊 Report 1'],['bol','🗂️ BOL Sheets']].forEach(([id,label])=>{
     const b=document.createElement('button');b.textContent=label;b.className='tab-pill';
     Object.assign(b.style,{background:S.tab===id?'linear-gradient(135deg,#f97316,#ea580c)':'transparent',color:S.tab===id?'#fff':'#94a3b8',fontWeight:S.tab===id?'600':'400',border:'none'});
@@ -3203,6 +3319,21 @@ function mappingDash(){
   if(S.tab==='upload')wrap.appendChild(uploadTab());
   else if(S.tab==='report')wrap.appendChild(reportTab());
   else wrap.appendChild(bolTab());
+  // ── Export buttons (ล่างสุด) ──
+  (function(){
+    const expRow=d('',[], {display:'flex',gap:'12px',flexWrap:'wrap',marginTop:'20px'});
+    const _mkExp=(label,isPrimary,onClick)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/></svg>${label}`;
+      Object.assign(b.style,{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',padding:'11px 22px',borderRadius:'10px',border:isPrimary?'none':'1px solid rgba(249,115,22,0.4)',background:isPrimary?'linear-gradient(135deg,#f97316,#ea580c)':'rgba(249,115,22,0.15)',color:isPrimary?'#fff':'#f97316',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:isPrimary?'0 3px 12px rgba(249,115,22,0.28)':'none',transition:'all .18s'});
+      b.onmouseenter=()=>b.style.opacity='.88';b.onmouseleave=()=>b.style.opacity='1';
+      b.onclick=onClick;expRow.appendChild(b);
+    };
+    const ready=S.report.length>0;
+    _mkExp('Export BOL Excel',true,()=>{ if(!ready){toast('⚠️ อัปโหลดไฟล์ให้ครบก่อน','error');return;} showExportBOLModal(); });
+    _mkExp('Export Form AU',false,()=>{ if(!ready){toast('⚠️ อัปโหลดไฟล์ให้ครบก่อน','error');return;} showExportAUModal(); });
+    wrap.appendChild(expRow);
+  })();
   return wrap;
 }
 
@@ -3285,7 +3416,7 @@ function uploadTab(){
   function removeSimpleFile(type,idx){
     if(type==='spreadsheet'){
       S.ssFiles=S.ssFiles.filter((_,i)=>i!==idx);
-      if(S.ssFiles.length){Promise.all(S.ssFiles.map(readWB)).then(b=>{S.ssRows=extractSS(b.flatMap(wbToRows));recompute();R()}).catch(()=>{S.ssRows=[];recompute();R()})}
+      if(S.ssFiles.length){Promise.all(S.ssFiles.map(readWB)).then(b=>{S.ssRows=extractSS(b.flatMap(wbToRows));recompute();R()}).catch(e=>{if(e&&e.code==='SS_MAPPING_INVALID')toast('❌ Spreadsheet Mapping ไม่ถูกต้อง — ไม่พบ: '+e.missing.join(', '),'error');S.ssRows=[];recompute();R()})}
       else{S.ssRows=[];recompute();R();}
     }else if(type==='cost'){
       S.cFiles=S.cFiles.filter((_,i)=>i!==idx);
@@ -3384,70 +3515,7 @@ function uploadTab(){
   if(S.mapLoading){const ld=d('',[], {display:'flex',alignItems:'center',gap:'8px',padding:'10px 4px'});ld.appendChild(d('',[], {width:'16px',height:'16px',border:'2px solid rgba(249,115,22,0.3)',borderTopColor:'#f97316',borderRadius:'50%',animation:'spin .7s linear infinite',flexShrink:'0'}));ld.appendChild(t('กำลังอ่านไฟล์...',{color:'#94a3b8',fontSize:'13px'}));wrap.appendChild(ld)}
   if(S.mapErr)wrap.appendChild(d('alert-danger',[S.mapErr],{marginTop:'12px'}));
 
-  // ── EXPORT COMPACT BUTTON ROW ────────────────
-  const exportCard=d('',[], {
-    background:'rgba(255,255,255,0.04)',borderRadius:'16px',
-    border:'1px solid rgba(255,255,255,0.09)',
-    padding:'16px 20px',marginTop:'16px',
-  });
-
-  // stats row
-  const statsRow=d('',[], {display:'flex',gap:'16px',marginBottom:'14px',flexWrap:'wrap'});
-  [[S.baikhonFiles.length,'📋','ใบขน'],[S.ssFiles.length,'📊','Spreadsheet'],[S.cFiles.length,'💰','ต้นทุน'],[S.report.length,'📄','Report rows'],[Object.keys(S.bolSheets).length,'🗂️','BOL']].forEach(([n,icon,label])=>{
-    const itm=d('',[], {display:'flex',alignItems:'center',gap:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'8px',padding:'6px 10px'});
-    itm.appendChild(t(icon,{fontSize:'13px'}));
-    const txt=d('');
-    txt.appendChild(t(String(n),{color:n>0?'#f97316':'#64748b',fontWeight:'700',fontSize:'14px',display:'block',lineHeight:'1.1'}));
-    txt.appendChild(t(label,{color:'#64748b',fontSize:'10px',display:'block'}));
-    itm.appendChild(txt);statsRow.appendChild(itm);
-  });
-  exportCard.appendChild(statsRow);
-
-  // divider
-  exportCard.appendChild(d('',[], {height:'1px',background:'rgba(255,255,255,0.07)',marginBottom:'14px'}));
-
-  // compact button row — like the image
-  const btnRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'});
-
-  const ready=S.report.length>0;
-
-  function mkCompactBtn(icon, label, color, shadowColor, onClick){
-    const btn=document.createElement('button');
-    const isGreen = color==='green';
-    Object.assign(btn.style,{
-      display:'inline-flex',alignItems:'center',gap:'7px',
-      padding:'9px 16px',borderRadius:'10px',border:isGreen?'none':'1px solid rgba(255,255,255,0.13)',
-      background:ready
-        ?(isGreen?'linear-gradient(135deg,#22c55e,#16a34a)':'rgba(255,255,255,0.07)')
-        :'rgba(255,255,255,0.04)',
-      color:ready?(isGreen?'#fff':'#cbd5e1'):'#475569',
-      fontWeight:'600',fontSize:'13px',
-      cursor:ready?'pointer':'not-allowed',
-      opacity:ready?'1':'0.45',
-      boxShadow:ready&&isGreen?`0 3px 12px ${shadowColor}`:'none',
-      transition:'all .18s',whiteSpace:'nowrap',
-    });
-    // download SVG icon
-    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${label}`;
-    if(ready){
-      btn.onclick=onClick;
-      btn.onmouseenter=()=>Object.assign(btn.style,{opacity:'.82',background:isGreen?'linear-gradient(135deg,#16a34a,#15803d)':'rgba(255,255,255,0.12)'});
-      btn.onmouseleave=()=>Object.assign(btn.style,{opacity:'1',background:ready?(isGreen?'linear-gradient(135deg,#22c55e,#16a34a)':'rgba(255,255,255,0.07)'):'rgba(255,255,255,0.04)'});
-    }
-    return btn;
-  }
-
-  btnRow.appendChild(mkCompactBtn('↓','Export BOL Excel','green','rgba(34,197,94,0.28)',()=>showExportBOLModal()));
-  btnRow.appendChild(mkCompactBtn('↓','Export Form AU','dark','',()=>showExportAUModal()));
-
-  if(!ready){
-    const hint=d('',[], {marginLeft:'8px'});
-    hint.appendChild(t('⚠️ อัปโหลดไฟล์ให้ครบก่อน',{color:'#64748b',fontSize:'12px'}));
-    btnRow.appendChild(hint);
-  }
-
-  exportCard.appendChild(btnRow);
-  wrap.appendChild(exportCard);
+  // (Export ย้ายไปอยู่แถว Rate Card แล้ว)
   return wrap;
 }
 
@@ -3479,13 +3547,24 @@ async function procFiles(files, type, append=false){
       // *** extract Thai rows from ใบขน for VIN matching ***
       S.baikhonThaiRows=extractThai(S.baikhonRows);
     }
-    if(type==='spreadsheet'){S.ssFiles=files;S.ssRows=extractSS(rows)}
+    if(type==='spreadsheet'){
+      let parsedSS;
+      try{ parsedSS=extractSS(rows); }
+      catch(e){
+        if(e && e.code==='SS_MAPPING_INVALID'){
+          toast('❌ Spreadsheet Mapping ไม่ถูกต้อง\nไม่พบคอลัมน์:\n'+e.missing.map(x=>'• '+x).join('\n')+'\nกรุณาใช้ไฟล์ Spreadsheet Mapping มาตรฐานของระบบ','error');
+          S.mapErr=e.message; S.mapLoading=false; R();
+          return;   // ⭐ หยุด Import ทันที — ไม่รับไฟล์, ไม่อ่านข้อมูลต่อ
+        }
+        throw e;
+      }
+      S.ssFiles=files; S.ssRows=parsedSS;
+    }
     if(type==='cost'){
-      // ต้นทุน = Master file (Update COO Q1 → Previous MASTER COO)
-      S.cFiles=files;
+      // ต้นทุน = Master file (Update COO Q1 → Q2 → Q3 → Previous MASTER COO)
       const allMasterRows=[];
       const today=new Date();
-
+      try{
       for(const wb2 of await Promise.all(files.map(readWB))){
         const PRIORITY=['Update COO Q1','Update COO Q2','Update COO Q3','Previous MASTER COO'];
         const ordered=[
@@ -3499,66 +3578,63 @@ async function procFiles(files, type, append=false){
           if(!ws)continue;
 
           // ── AOA approach: 100% immune to column name variations ──
-          const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+          // ⭐ raw:true — เก็บค่าดิบ: RVC=0.47033(float), Tariff=int, Date Approval=Date (ตรงไฟล์ตรวจ)
+          const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,cellDates:true});
           if(aoa.length<2)continue;
 
           // Normalize header row: collapse all whitespace/newlines → single space
           const hdr=aoa[0].map(v=>String(v||'').replace(/[\n\r]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase());
 
-          // Find column by fuzzy match (2-pass: strict → alphanumeric fallback)
-          // ⭐ Pass 2 รองรับ header style "Update COO Q2" ที่ไม่มีเว้นวรรค
-          //    เช่น "MPVCode(Representative)", "Description(FORM)", "Tariffon C/O"
-          const findCol=(...terms)=>{
-            // Pass 1: strict (รักษา behavior เดิม)
-            for(const t of terms){
-              const tu=t.toUpperCase().replace(/\s+/g,' ').trim();
-              const idx=hdr.findIndex(h=>h===tu||h.includes(tu)||tu.includes(h));
-              if(idx>=0)return idx;
-            }
-            // Pass 2: alphanumeric-only fallback — ลบทุก non-alphanumeric ก่อน compare
-            const norm=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-            const hdrAN=hdr.map(norm);
-            for(const t of terms){
-              const tu=norm(t);
-              if(tu.length<3)continue;       // กันคำสั้นเกินไป
-              const idx=hdrAN.findIndex(h=>h&&(h===tu||h.includes(tu)||tu.includes(h)));
-              if(idx>=0)return idx;
-            }
-            return -1;
-          };
-
+          // ── EXACT header match เท่านั้น (ห้ามเดา / ห้าม fallback / ห้ามชื่อคล้าย) ──
+          //    อ่านเฉพาะ 9 หัวข้อที่ FIX ไว้ · ถ้าไม่ตรง = Missing Header → หยุด Import
+          const rawHdr=aoa[0].map(v=>String(v??'').trim());
+          const colExact=name=>rawHdr.indexOf(name);
+          // Destination Country = optional (แหล่งของ Market/Privilege = 'AANZ') — จับแบบ trim/normalize
+          const hdrN=rawHdr.map(h=>String(h||'').replace(/[\n\r]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase());
           const ci={
-            mpvRep:  findCol('MPV CODE (REPRESENTATIVE)','MPV CODE REPRESENTATIVE'),
-            mkt:     findCol('MARKET / PRIVILEGE','MARKET/PRIVILEGE'),
-            tariff:  findCol('TARIFF ON C/O','TARIFF ON C/O'),
-            rvc:     findCol('RVC (%)','RVC'),
-            csn:     findCol('COST STRUCTURE NO.','COST STRUCTURE NO','COST STRUCTURE NUMBER'),
-            dateApp: findCol('DATE APPROVAL','APPROVAL DATE'),
-            expDate: findCol('EXPIRED DATE','EXPIRY DATE','EXPIRE DATE'),
-            descForm:findCol('DESCRIPTION (FORM)','DESCRIPTION FORM'),
-            prodEng: findCol('PRODUCT ENG NAME','PRODUCT ENG','ENG NAME'),
+            mpvRep:  colExact('MPV Code (Representative)'),
+            mkt:     colExact('Market / Privilege'),
+            dest:    hdrN.findIndex(h=>h==='DESTINATION COUNTRY'||h==='DESTINATION'),
+            tariff:  colExact('Tariff on C/O'),
+            rvc:     colExact('RVC (%)'),
+            csn:     colExact('Cost Structure No.'),
+            dateApp: colExact('Date Approval'),
+            expDate: colExact('Expired Date'),
+            descForm:colExact('Description (FORM)'),
+            prodEng: colExact('Product Eng Name'),
           };
 
-          // Skip if no MPV Code or CSN column found
-          if(ci.mpvRep<0||ci.csn<0)continue;
+          // ── Validation: ต้องมีครบ 9 คอลัมน์มาตรฐาน — ถ้าขาด หยุด Import + แจ้งคอลัมน์ที่หาย ──
+          const REQ_MASTER=[
+            ['mpvRep','MPV Code (Representative)'],['mkt','Market / Privilege'],
+            ['tariff','Tariff on C/O'],['rvc','RVC (%)'],['csn','Cost Structure No.'],
+            ['dateApp','Date Approval'],['expDate','Expired Date'],
+            ['descForm','Description (FORM)'],['prodEng','Product Eng Name'],
+          ];
+          const missingCols=REQ_MASTER.filter(([k])=>ci[k]<0).map(([,n])=>n);
+          if(missingCols.length){
+            const err=new Error('❌ Master Mapping ไม่ถูกต้อง — ไม่พบคอลัมน์: '+missingCols.join(', '));
+            err.code='MASTER_MAPPING_INVALID'; err.missing=missingCols; err.sheet=shName;
+            throw err;
+          }
 
           for(let i=1;i<aoa.length;i++){
             const row=aoa[i];
             if(!row||!row.length)continue;
             const mpv=String(row[ci.mpvRep]||'').trim();
             const csn=String(row[ci.csn]||'').trim();
-            if(!mpv||!csn)continue;
+            if(!mpv||!csn)continue;                 // Cost Structure No. ว่าง = ห้ามใช้แถวนี้
 
-            // Check expiry
-            let valid=true;
-            if(ci.expDate>=0&&row[ci.expDate]){
-              try{valid=new Date(row[ci.expDate])>=today}catch{}
+            // ⭐ Expired Date: หมดอายุ = ห้ามใช้แถวนั้น · ว่าง = ถือว่ายังใช้ได้ (ตามสเปก)
+            if(ci.expDate>=0 && row[ci.expDate]){
+              let ok=true; try{ ok = new Date(row[ci.expDate]) >= today; }catch{}
+              if(!ok) continue;
             }
-            if(!valid)continue;
 
             allMasterRows.push({
               mpvRep:  mpv,
               mkt:     ci.mkt>=0    ?String(row[ci.mkt]||'')   :'',
+              dest:    ci.dest>=0   ?String(row[ci.dest]||'')  :'',
               tariff:  ci.tariff>=0  ?row[ci.tariff]             :'',
               rvc:     ci.rvc>=0     ?row[ci.rvc]                :'',
               csn:     csn,
@@ -3567,12 +3643,21 @@ async function procFiles(files, type, append=false){
               descForm:ci.descForm>=0?String(row[ci.descForm]||''):'',
               prodEng: ci.prodEng>=0 ?String(row[ci.prodEng]||'') :'',
               _sheet:    shName,
-              _sheetIdx: shIdx,           // ⭐ ลำดับชีต — ใช้สำหรับ tie-breaker ใน lookupCostAU
+              _sheetIdx: shIdx,
             });
           }
         }
       }
+      }catch(e){
+        if(e&&e.code==='MASTER_MAPPING_INVALID'){
+          toast('❌ Master Mapping ไม่ถูกต้อง\nชีต "'+e.sheet+'" ไม่พบคอลัมน์:\n'+e.missing.map(x=>'• '+x).join('\n')+'\nกรุณาใช้ไฟล์ Master มาตรฐาน 9 คอลัมน์','error');
+          S.mapErr=e.message; S.mapLoading=false; R();
+          return;   // ⭐ หยุด Import ทันที — ไม่รับไฟล์ ไม่อ่านข้อมูลต่อ
+        }
+        throw e;
+      }
 
+      S.cFiles=files;   // ผ่าน validation 9 คอลัมน์แล้วจึงรับไฟล์
       S.masterRows=allMasterRows;
       S.masterSaved=false;
       if(!allMasterRows.length){
@@ -3704,64 +3789,47 @@ function mappingDashVN(){
   const hdr=d('',[], {marginBottom:'20px'});
   const htitle=el('h1',{style:{color:'#22d3ee',fontSize:'20px',fontWeight:'700',marginBottom:'4px'}},['FORM VN']);
   hdr.appendChild(htitle);
-  hdr.appendChild(t('Vietnam Spreadsheet → BOL แยกตาม Port (HAIPHONG / HO CHI MINH)',{color:'#64748b',fontSize:'12px'}));
+  // hdr.appendChild(t('Vietnam Spreadsheet → BOL แยกตาม Port (HAIPHONG / HO CHI MINH)',{color:'#64748b',fontSize:'12px'}));
   wrap.appendChild(hdr);
 
   // ── Stat grid ──
-  const sg=d('',[], {display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'20px'});
-  function mkStatVN(icon,label,val,editable,setter,storageKey,defaultVal){
-    const c=d('stat-card',[], {border:'1px solid rgba(34,211,238,0.2)'});
-    const top=d('',[], {display:'flex',alignItems:'center',gap:'7px',marginBottom:'8px'});
-    top.appendChild(t(icon,{fontSize:'16px'}));top.appendChild(t(label,{color:'#64748b',fontSize:'11px'}));c.appendChild(top);
-    if(editable){
-      const i=document.createElement('input');i.value=val;i.className='stat-input';
-      Object.assign(i.style,{borderColor:'rgba(34,211,238,0.4)',color:'#22d3ee'});
-      if(storageKey){
-        const btnRow=d('',[], {display:'flex',gap:'4px',marginTop:'6px'});
-        const sBtn=document.createElement('button');
-        Object.assign(sBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        const updateSaveBtn=()=>{
-          let saved=null;try{saved=localStorage.getItem(storageKey);}catch{}
-          if(saved!==null && String(saved)===String(i.value)){
-            sBtn.textContent='✓ Saved';
-            sBtn.style.background='rgba(34,197,94,0.25)';
-            sBtn.style.borderColor='rgba(34,197,94,0.7)';
-          } else {
-            sBtn.textContent='💾 Save';
-            sBtn.style.background='rgba(34,197,94,0.1)';
-            sBtn.style.borderColor='rgba(34,197,94,0.4)';
-          }
-        };
-        updateSaveBtn();
-        sBtn.onclick=()=>{if(saveRate(storageKey,i.value)){toast('บันทึกแล้ว 💾','success');updateSaveBtn();}else{toast('บันทึกไม่สำเร็จ','error');}};
-        i.oninput=e=>{setter(e.target.value);recompute_VN();updateSaveBtn();};
-        i.onblur=()=>R();
-        const dBtn=document.createElement('button');dBtn.textContent='🗑 ลบ';
-        Object.assign(dBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        dBtn.onclick=()=>{deleteRate(storageKey);setter(defaultVal);i.value=defaultVal;recompute_VN();updateSaveBtn();toast('ลบค่าที่บันทึก คืนค่าเริ่มต้น','info');R();};
-        btnRow.appendChild(sBtn);btnRow.appendChild(dBtn);
-        c.appendChild(i);
-        c.appendChild(btnRow);
-      } else {
-        i.oninput=e=>{setter(e.target.value);recompute_VN();};
-        i.onblur=()=>R();
-        c.appendChild(i);
-      }
-    }
-    else c.appendChild(t(String(val),{color:'#22d3ee',fontSize:'26px',fontWeight:'700',display:'block'}));
-    return c;
+  // ── Exchange Rate Premium Bar ──
+  const rateBar=d('',[], {display:'flex',alignItems:'center',flexWrap:'wrap',background:'rgba(255,255,255,0.045)',border:'1px solid rgba(34,211,238,0.35)',borderRadius:'10px',boxShadow:'0 8px 20px rgba(0,0,0,.16)',padding:'8px 20px',minHeight:'48px',width:'fit-content',maxWidth:'100%',margin:'0 0 20px'});
+  function mkRateVN(code,label,val,setter,storageKey,isFirst){
+    const FLAG={us:'🇺🇸',au:'🇦🇺',th:'🇹🇭'};
+    const seg=d('',[], {display:'inline-flex',alignItems:'center',padding:'0 15px',borderLeft:isFirst?'none':'1px solid rgba(255,255,255,0.08)'});
+    const flagImg=document.createElement('img');
+    flagImg.src='https://flagcdn.com/w40/'+code+'.png';flagImg.alt=code;flagImg.loading='lazy';
+    Object.assign(flagImg.style,{width:'22px',height:'16px',borderRadius:'3px',objectFit:'cover',flexShrink:'0',boxShadow:'0 1px 3px rgba(0,0,0,.3)',marginRight:'6px'});
+    flagImg.onerror=()=>{try{flagImg.replaceWith(t(FLAG[code]||'',{fontSize:'20px',flexShrink:'0'}));}catch(e){}};
+    seg.appendChild(flagImg);
+    seg.appendChild(t(label,{color:'#CBD5E1',fontSize:'14px',fontWeight:'500',whiteSpace:'nowrap',marginRight:'10px'}));
+    const i=document.createElement('input');i.value=val;i.type='text';
+    Object.assign(i.style,{background:'transparent',border:'none',borderBottom:'1px solid transparent',outline:'none',color:'#22D3EE',fontSize:'20px',fontWeight:'700',width:'66px',textAlign:'left',padding:'2px 2px',marginRight:'6px',cursor:'text',transition:'border-color .15s',flexShrink:'0'});
+    const pencil=t('✎',{color:'#94A3B8',fontSize:'13px',flexShrink:'0',cursor:'pointer',transition:'opacity .15s',opacity:'.7'});
+    i.onmouseenter=()=>{if(document.activeElement!==i)i.style.borderBottomColor='#22D3EE';pencil.style.opacity='1';};
+    i.onmouseleave=()=>{if(document.activeElement!==i){i.style.borderBottomColor='transparent';pencil.style.opacity='.7';}};
+    i.onfocus=()=>{i.style.borderBottomColor='#22D3EE';pencil.style.opacity='1';};
+    pencil.onclick=()=>i.focus();
+    i.oninput=e=>{setter(e.target.value);recompute_VN();};
+    const commit=()=>{
+      i.style.borderBottomColor='transparent';pencil.style.opacity='.7';
+      if(String(i.value).trim()===''){ setter('');recompute_VN();R();return; }   // ว่างไว้ ไม่ใส่ default
+      setter(i.value);recompute_VN();
+      if(storageKey){try{saveRate(storageKey,i.value);}catch(e){}}
+      toast('✓ Exchange Rate Updated','success');R();
+    };
+    i.onblur=commit;
+    i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.blur();}};
+    seg.appendChild(i);seg.appendChild(pencil);
+    return seg;
   }
-  sg.appendChild(mkStatVN('💵','USD Rate',SVN.usd,true,v=>SVN.usd=v,'nj.vn.usd','30.9979'));
-  // ⭐ AUD Rate ลบทิ้ง — สูตรไม่ใช้ AUD แล้ว (FOB 3RD = amt/USD)
-  // auto-clear localStorage cache เก่าครั้งเดียว
-  try{localStorage.removeItem('nj.vn.aud')}catch{}
-  sg.appendChild(mkStatVN('🇹🇭','THB Rate',SVN.thb,true,v=>SVN.thb=v,'nj.vn.thb','1.0000'));
-  sg.appendChild(mkStatVN('📋','ใบขน',SVN.baikhonFiles.length,false));
-  sg.appendChild(mkStatVN('🗂️','BOL Ports',Object.keys(SVN.bolSheets).length,false));
-  wrap.appendChild(sg);
+  rateBar.appendChild(mkRateVN('us','USD',SVN.usd,v=>SVN.usd=v,'nj.vn.usd',true));
+  rateBar.appendChild(mkRateVN('th','THB',SVN.thb,v=>SVN.thb=v,'nj.vn.thb',false));
+  wrap.appendChild(rateBar);
 
   // ── Tabs ──
-  const tabBar=d('tab-bar',[], {marginBottom:'20px'});
+  const tabBar=d('tab-bar',[], {marginBottom:'20px',display:'none'});
   [['upload','📤 Upload'],['report','📊 Report 1'],['bol','🗂️ BOL Ports']].forEach(([id,label])=>{
     const b=document.createElement('button');b.textContent=label;b.className='tab-pill';
     const active=SVN.tab===id;
@@ -3773,6 +3841,21 @@ function mappingDashVN(){
   if(SVN.tab==='upload')wrap.appendChild(uploadTabVN());
   else if(SVN.tab==='report')wrap.appendChild(reportTabVN());
   else wrap.appendChild(bolTabVN());
+  // ── Export buttons (ล่างสุด) ──
+  (function(){
+    const expRow=d('',[], {display:'flex',gap:'12px',flexWrap:'wrap',marginTop:'20px'});
+    const _mkExp=(label,isPrimary,onClick)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/></svg>${label}`;
+      Object.assign(b.style,{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',padding:'11px 22px',borderRadius:'10px',border:isPrimary?'none':'1px solid rgba(34,211,238,0.35)',background:isPrimary?'linear-gradient(135deg,#06b6d4,#0891b2)':'rgba(34,211,238,0.1)',color:isPrimary?'#fff':'#22d3ee',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:isPrimary?'0 3px 12px rgba(6,182,212,0.28)':'none',transition:'all .18s'});
+      b.onmouseenter=()=>b.style.opacity='.88';b.onmouseleave=()=>b.style.opacity='1';
+      b.onclick=onClick;expRow.appendChild(b);
+    };
+    const ready=SVN.report.length>0;
+    _mkExp('Export BOL VN',true,()=>{ if(!ready){toast('⚠️ อัปโหลดไฟล์ให้ครบก่อน','error');return;} if(!Number(SVN.usd)){toast('กรุณากรอก USD Rate','error');return;} doExportXLSX_VN(); });
+    _mkExp('Export Form AU VN',false,()=>{ if(!ready){toast('⚠️ อัปโหลดไฟล์ให้ครบก่อน','error');return;} if(!Number(SVN.usd)){toast('กรุณากรอก USD Rate','error');return;} exportFormAU_VN(); });
+    wrap.appendChild(expRow);
+  })();
   return wrap;
 }
 
@@ -3881,48 +3964,14 @@ function uploadTabVN(){
   if(SVN.mapErr)wrap.appendChild(d('alert-danger',[SVN.mapErr],{marginTop:'12px'}));
 
   // ── Export card ──
-  const exportCard=d('',[], {background:'rgba(34,211,238,0.04)',borderRadius:'16px',border:'1px solid rgba(34,211,238,0.15)',padding:'16px 20px',marginTop:'16px'});
-  const statsRow=d('',[], {display:'flex',gap:'16px',marginBottom:'14px',flexWrap:'wrap'});
-  [[SVN.baikhonFiles.length,'📋','ใบขน'],[SVN.ssFiles.length,'📊','Spreadsheet'],[SVN.cFiles.length,'💰','ต้นทุน'],[SVN.report.length,'📄','Report rows'],[Object.keys(SVN.bolSheets).length,'🗂️','BOL Ports']].forEach(([n,icon,label])=>{
-    const itm=d('',[], {display:'flex',alignItems:'center',gap:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'8px',padding:'6px 10px'});
-    itm.appendChild(t(icon,{fontSize:'13px'}));
-    const txt=d('');txt.appendChild(t(String(n),{color:n>0?'#22d3ee':'#64748b',fontWeight:'700',fontSize:'14px',display:'block',lineHeight:'1.1'}));txt.appendChild(t(label,{color:'#64748b',fontSize:'10px',display:'block'}));
-    itm.appendChild(txt);statsRow.appendChild(itm);
-  });
-  exportCard.appendChild(statsRow);
-  exportCard.appendChild(d('',[], {height:'1px',background:'rgba(34,211,238,0.1)',marginBottom:'14px'}));
-  const ready=SVN.report.length>0;
-  const btnRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'});
-
-  function mkVNBtn(label, color, onClick){
-    const btn=document.createElement('button');
-    const isMain=color==='main';
-    Object.assign(btn.style,{display:'inline-flex',alignItems:'center',gap:'7px',padding:'9px 16px',borderRadius:'10px',border:isMain?'none':'1px solid rgba(34,211,238,0.25)',background:ready?(isMain?'linear-gradient(135deg,#06b6d4,#0891b2)':'rgba(34,211,238,0.08)'):'rgba(255,255,255,0.04)',color:ready?(isMain?'#fff':'#22d3ee'):'#475569',fontWeight:'600',fontSize:'13px',cursor:ready?'pointer':'not-allowed',opacity:ready?'1':'0.45',whiteSpace:'nowrap',boxShadow:ready&&isMain?'0 3px 12px rgba(6,182,212,0.28)':'none',transition:'all .18s'});
-    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${label}`;
-    if(ready)btn.onclick=onClick;
-    return btn;
-  }
-
-  btnRow.appendChild(mkVNBtn('Export BOL VN','main',()=>{
-    if(!Number(SVN.usd)){toast('กรุณากรอก USD Rate','error');return;}
-    doExportXLSX_VN();
-  }));
-  btnRow.appendChild(mkVNBtn('Export Form AU VN','sec',()=>{
-    if(!Number(SVN.usd)){toast('กรุณากรอก USD Rate','error');return;}
-    exportFormAU_VN();
-  }));
-
-  // Form AU existing merge zone
+  // (Export ย้ายไปอยู่แถว Rate Card แล้ว) — คง Form AU เดิม (upload) ไว้
   const auHas=SVN.formAuFiles.length>0;
-  const auZone=d('upload-zone',[], {padding:'7px 10px',display:'inline-flex',alignItems:'center',gap:'8px',borderRadius:'10px',borderColor:auHas?'rgba(34,211,238,0.4)':'rgba(255,255,255,0.15)',marginLeft:'4px'});
+  const auZone=d('upload-zone',[], {padding:'7px 10px',display:'inline-flex',alignItems:'center',gap:'8px',borderRadius:'10px',borderColor:auHas?'rgba(34,211,238,0.4)':'rgba(255,255,255,0.15)',marginTop:'16px'});
   auZone.innerHTML=`<span style="font-size:14px">${auHas?'✅':'📎'}</span><span style="color:${auHas?'#22d3ee':'#64748b'};font-size:11px;font-weight:600">${auHas?SVN.formAuExRows.length+' rows เดิม':'Form AU เดิม (optional)'}</span>`;
   const auInp=document.createElement('input');auInp.type='file';auInp.accept='.xlsx,.xls';auInp.multiple=true;auInp.style.display='none';
   auInp.onchange=e=>procFiles_VN(Array.from(e.target.files),'formau_vn');
-  auZone.onclick=()=>auInp.click();auZone.appendChild(auInp);btnRow.appendChild(auZone);
-
-  if(!ready)btnRow.appendChild(t('⚠️ อัปโหลดไฟล์ให้ครบก่อน',{color:'#64748b',fontSize:'12px',marginLeft:'8px'}));
-  exportCard.appendChild(btnRow);
-  wrap.appendChild(exportCard);
+  auZone.onclick=()=>auInp.click();auZone.appendChild(auInp);
+  // wrap.appendChild(auZone);   // ซ่อน Form AU เดิม (optional) — logic ยังอยู่
   return wrap;
 }
 
@@ -3988,60 +4037,45 @@ function mappingDashPH(){
   // ── Header ──
   const hdr=d('',[], {marginBottom:'20px'});
   hdr.appendChild(el('h1',{style:{color:'#f59e0b',fontSize:'20px',fontWeight:'700',marginBottom:'4px'}},['FORM PH']));
-  hdr.appendChild(t('Philippines Spreadsheet → BOL แยกตาม BL (1 BL = 1 sheet)',{color:'#64748b',fontSize:'12px'}));
+  // hdr.appendChild(t('Philippines Spreadsheet → BOL แยกตาม BL (1 BL = 1 sheet)',{color:'#64748b',fontSize:'12px'}));
   wrap.appendChild(hdr);
   // ── Stat grid ──
-  const sg=d('',[], {display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'14px',marginBottom:'20px'});
-  function mkStatPH(icon,label,val,editable,setter,storageKey,defaultVal){
-    const c=d('stat-card',[], {border:'1px solid rgba(245,158,11,0.25)'});
-    const top=d('',[], {display:'flex',alignItems:'center',gap:'7px',marginBottom:'8px'});
-    top.appendChild(t(icon,{fontSize:'16px'}));top.appendChild(t(label,{color:'#64748b',fontSize:'11px'}));c.appendChild(top);
-    if(editable){
-      const i=document.createElement('input');i.value=val;i.className='stat-input';
-      Object.assign(i.style,{borderColor:'rgba(245,158,11,0.4)',color:'#f59e0b'});
-      if(storageKey){
-        const btnRow=d('',[], {display:'flex',gap:'4px',marginTop:'6px'});
-        const sBtn=document.createElement('button');
-        Object.assign(sBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        const updateSaveBtn=()=>{
-          let saved=null;try{saved=localStorage.getItem(storageKey);}catch{}
-          if(saved!==null && String(saved)===String(i.value)){
-            sBtn.textContent='✓ Saved';
-            sBtn.style.background='rgba(34,197,94,0.25)';
-            sBtn.style.borderColor='rgba(34,197,94,0.7)';
-          } else {
-            sBtn.textContent='💾 Save';
-            sBtn.style.background='rgba(34,197,94,0.1)';
-            sBtn.style.borderColor='rgba(34,197,94,0.4)';
-          }
-        };
-        updateSaveBtn();
-        sBtn.onclick=()=>{if(saveRate(storageKey,i.value)){toast('บันทึกแล้ว 💾','success');updateSaveBtn();}else{toast('บันทึกไม่สำเร็จ','error');}};
-        i.oninput=e=>{setter(e.target.value);recompute_PH();updateSaveBtn();};
-        i.onblur=()=>R();
-        const dBtn=document.createElement('button');dBtn.textContent='🗑 ลบ';
-        Object.assign(dBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        dBtn.onclick=()=>{deleteRate(storageKey);setter(defaultVal);i.value=defaultVal;recompute_PH();updateSaveBtn();toast('ลบค่าที่บันทึก คืนค่าเริ่มต้น','info');R();};
-        btnRow.appendChild(sBtn);btnRow.appendChild(dBtn);
-        c.appendChild(i);
-        c.appendChild(btnRow);
-      } else {
-        i.oninput=e=>{setter(e.target.value);recompute_PH();};
-        i.onblur=()=>R();
-        c.appendChild(i);
-      }
-    }
-    else c.appendChild(t(String(val),{color:'#f59e0b',fontSize:'26px',fontWeight:'700',display:'block'}));
-    return c;
+  // ── Exchange Rate Premium Bar ──
+  const rateBar=d('',[], {display:'flex',alignItems:'center',flexWrap:'wrap',background:'rgba(255,255,255,0.045)',border:'1px solid rgba(245,158,11,0.35)',borderRadius:'10px',boxShadow:'0 8px 20px rgba(0,0,0,.16)',padding:'8px 20px',minHeight:'48px',width:'fit-content',maxWidth:'100%',margin:'0 0 20px'});
+  function mkRatePH(code,label,val,setter,storageKey,isFirst){
+    const FLAG={us:'🇺🇸',au:'🇦🇺',th:'🇹🇭'};
+    const seg=d('',[], {display:'inline-flex',alignItems:'center',padding:'0 15px',borderLeft:isFirst?'none':'1px solid rgba(255,255,255,0.08)'});
+    const flagImg=document.createElement('img');
+    flagImg.src='https://flagcdn.com/w40/'+code+'.png';flagImg.alt=code;flagImg.loading='lazy';
+    Object.assign(flagImg.style,{width:'22px',height:'16px',borderRadius:'3px',objectFit:'cover',flexShrink:'0',boxShadow:'0 1px 3px rgba(0,0,0,.3)',marginRight:'6px'});
+    flagImg.onerror=()=>{try{flagImg.replaceWith(t(FLAG[code]||'',{fontSize:'20px',flexShrink:'0'}));}catch(e){}};
+    seg.appendChild(flagImg);
+    seg.appendChild(t(label,{color:'#CBD5E1',fontSize:'14px',fontWeight:'500',whiteSpace:'nowrap',marginRight:'10px'}));
+    const i=document.createElement('input');i.value=val;i.type='text';
+    Object.assign(i.style,{background:'transparent',border:'none',borderBottom:'1px solid transparent',outline:'none',color:'#F59E0B',fontSize:'20px',fontWeight:'700',width:'66px',textAlign:'left',padding:'2px 2px',marginRight:'6px',cursor:'text',transition:'border-color .15s',flexShrink:'0'});
+    const pencil=t('✎',{color:'#94A3B8',fontSize:'13px',flexShrink:'0',cursor:'pointer',transition:'opacity .15s',opacity:'.7'});
+    i.onmouseenter=()=>{if(document.activeElement!==i)i.style.borderBottomColor='#F59E0B';pencil.style.opacity='1';};
+    i.onmouseleave=()=>{if(document.activeElement!==i){i.style.borderBottomColor='transparent';pencil.style.opacity='.7';}};
+    i.onfocus=()=>{i.style.borderBottomColor='#F59E0B';pencil.style.opacity='1';};
+    pencil.onclick=()=>i.focus();
+    i.oninput=e=>{setter(e.target.value);recompute_PH();};
+    const commit=()=>{
+      i.style.borderBottomColor='transparent';pencil.style.opacity='.7';
+      if(String(i.value).trim()===''){ setter('');recompute_PH();R();return; }   // ว่างไว้ ไม่ใส่ default
+      setter(i.value);recompute_PH();
+      if(storageKey){try{saveRate(storageKey,i.value);}catch(e){}}
+      toast('✓ Exchange Rate Updated','success');R();
+    };
+    i.onblur=commit;
+    i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.blur();}};
+    seg.appendChild(i);seg.appendChild(pencil);
+    return seg;
   }
-  sg.appendChild(mkStatPH('💵','USD Rate',SPH.usd,true,v=>SPH.usd=v,'nj.ph.usd','30.9979'));
-  sg.appendChild(mkStatPH('🇹🇭','THB Rate',SPH.thb,true,v=>SPH.thb=v,'nj.ph.thb','1.0000'));
-  sg.appendChild(mkStatPH('📋','ใบขน',SPH.baikhonFiles.length,false));
-  sg.appendChild(mkStatPH('📊','VINs',SPH.ssRows.length,false));
-  sg.appendChild(mkStatPH('🗂️','BL Sheets',Object.keys(SPH.bolSheets).length,false));
-  wrap.appendChild(sg);
+  rateBar.appendChild(mkRatePH('us','USD',SPH.usd,v=>SPH.usd=v,'nj.ph.usd',true));
+  rateBar.appendChild(mkRatePH('th','THB',SPH.thb,v=>SPH.thb=v,'nj.ph.thb',false));
+  wrap.appendChild(rateBar);
   // ── Tabs ──
-  const tabBar=d('tab-bar',[], {marginBottom:'20px'});
+  const tabBar=d('tab-bar',[], {marginBottom:'20px',display:'none'});
   [['upload','📤 Upload'],['report','📊 Report 1'],['bol','🗂️ BOL Sheets']].forEach(([id,label])=>{
     const b=document.createElement('button');b.textContent=label;b.className='tab-pill';
     const active=SPH.tab===id;
@@ -4052,6 +4086,21 @@ function mappingDashPH(){
   if(SPH.tab==='upload')wrap.appendChild(uploadTabPH());
   else if(SPH.tab==='report')wrap.appendChild(reportTabPH());
   else wrap.appendChild(bolTabPH());
+  // ── Export buttons (ล่างสุด) ──
+  (function(){
+    const expRow=d('',[], {display:'flex',gap:'12px',flexWrap:'wrap',marginTop:'20px'});
+    const _mkExp=(label,isPrimary,onClick)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/></svg>${label}`;
+      Object.assign(b.style,{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',padding:'11px 22px',borderRadius:'10px',border:isPrimary?'none':'1px solid rgba(245,158,11,0.4)',background:isPrimary?'linear-gradient(135deg,#f59e0b,#d97706)':'rgba(245,158,11,0.15)',color:isPrimary?'#fff':'#f59e0b',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:isPrimary?'0 3px 12px rgba(245,158,11,0.28)':'none',transition:'all .18s'});
+      b.onmouseenter=()=>b.style.opacity='.88';b.onmouseleave=()=>b.style.opacity='1';
+      b.onclick=onClick;expRow.appendChild(b);
+    };
+    const ready=SPH.report.length>0;
+    _mkExp('Export BOL PH',true,()=>{ if(!Number(SPH.usd)){toast('กรุณากรอก USD Rate','error');return;} doExportXLSX_PH(); });
+    _mkExp('Export Form PH',false,()=>{ showExportPHModal(); });
+    wrap.appendChild(expRow);
+  })();
   return wrap;
 }
 
@@ -4151,33 +4200,7 @@ function uploadTabPH(){
   if(SPH.mapLoading){const ld=d('',[], {display:'flex',alignItems:'center',gap:'8px',padding:'10px 4px'});ld.appendChild(d('',[], {width:'16px',height:'16px',border:'2px solid rgba(245,158,11,0.3)',borderTopColor:'#f59e0b',borderRadius:'50%',animation:'spin .7s linear infinite',flexShrink:'0'}));ld.appendChild(t('กำลังอ่านไฟล์...',{color:'#94a3b8',fontSize:'13px'}));wrap.appendChild(ld);}
   if(SPH.mapErr)wrap.appendChild(d('alert-danger',[SPH.mapErr],{marginTop:'12px'}));
   // ── Export card ──
-  const exportCard=d('',[], {background:'rgba(245,158,11,0.04)',borderRadius:'16px',border:'1px solid rgba(245,158,11,0.15)',padding:'16px 20px',marginTop:'16px'});
-  const statsRow=d('',[], {display:'flex',gap:'16px',marginBottom:'14px',flexWrap:'wrap'});
-  [[SPH.baikhonFiles.length,'📋','ใบขน'],[SPH.ssFiles.length,'📊','Spreadsheet'],[SPH.cFiles.length,'💰','ต้นทุน'],[SPH.report.length,'📄','Report rows'],[Object.keys(SPH.bolSheets).length,'🗂️','BL Sheets']].forEach(([n,icon,label])=>{
-    const itm=d('',[], {display:'flex',alignItems:'center',gap:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'8px',padding:'6px 10px'});
-    itm.appendChild(t(icon,{fontSize:'13px'}));
-    const txt=d('');txt.appendChild(t(String(n),{color:n>0?'#f59e0b':'#64748b',fontWeight:'700',fontSize:'14px',display:'block',lineHeight:'1.1'}));txt.appendChild(t(label,{color:'#64748b',fontSize:'10px',display:'block'}));
-    itm.appendChild(txt);statsRow.appendChild(itm);
-  });
-  exportCard.appendChild(statsRow);
-  exportCard.appendChild(d('',[], {height:'1px',background:'rgba(245,158,11,0.1)',marginBottom:'14px'}));
-  const ready=SPH.report.length>0;
-  const btnRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'});
-  // Export BOL PH — กดได้เสมอ ตรวจข้อมูลใน doExportXLSX_PH
-  const btn=document.createElement('button');
-  Object.assign(btn.style,{display:'inline-flex',alignItems:'center',gap:'7px',padding:'9px 16px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#fff',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:'0 3px 12px rgba(245,158,11,0.28)',transition:'all .18s'});
-  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export BOL PH';
-  btn.onclick=()=>{if(!Number(SPH.usd)){toast('กรุณากรอก USD Rate','error');return;}doExportXLSX_PH();};
-  btnRow.appendChild(btn);
-  // 🇵🇭 Form PH button (Form AU-style) — กดได้เสมอ ตรวจข้อมูลใน modal
-  const formBtnPH=document.createElement('button');
-  Object.assign(formBtnPH.style,{display:'inline-flex',alignItems:'center',gap:'7px',padding:'9px 16px',borderRadius:'10px',border:'1px solid rgba(245,158,11,0.4)',background:'rgba(245,158,11,0.15)',color:'#f59e0b',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',transition:'all .18s'});
-  formBtnPH.innerHTML='🇵🇭 Form PH';
-  formBtnPH.onclick=()=>showExportPHModal();
-  btnRow.appendChild(formBtnPH);
-  if(!ready)btnRow.appendChild(t('⚠️ อัปโหลดไฟล์ให้ครบก่อน',{color:'#64748b',fontSize:'12px',marginLeft:'8px'}));
-  exportCard.appendChild(btnRow);
-  wrap.appendChild(exportCard);
+  // (Export ย้ายไปอยู่แถว Rate Card แล้ว)
   return wrap;
 }
 
@@ -4238,60 +4261,45 @@ function mappingDashMY(){
   // ── Header ──
   const hdr=d('',[], {marginBottom:'20px'});
   hdr.appendChild(el('h1',{style:{color:'#10b981',fontSize:'20px',fontWeight:'700',marginBottom:'4px'}},['FORM MY']));
-  hdr.appendChild(t('Malaysia Spreadsheet → BOL แยกตาม BoLNumber (1 BoL = 1 sheet)',{color:'#64748b',fontSize:'12px'}));
+  // hdr.appendChild(t('Malaysia Spreadsheet → BOL แยกตาม BoLNumber (1 BoL = 1 sheet)',{color:'#64748b',fontSize:'12px'}));
   wrap.appendChild(hdr);
   // ── Stat grid ──
-  const sg=d('',[], {display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'14px',marginBottom:'20px'});
-  function mkStatMY(icon,label,val,editable,setter,storageKey,defaultVal){
-    const c=d('stat-card',[], {border:'1px solid rgba(16,185,129,0.25)'});
-    const top=d('',[], {display:'flex',alignItems:'center',gap:'7px',marginBottom:'8px'});
-    top.appendChild(t(icon,{fontSize:'16px'}));top.appendChild(t(label,{color:'#64748b',fontSize:'11px'}));c.appendChild(top);
-    if(editable){
-      const i=document.createElement('input');i.value=val;i.className='stat-input';
-      Object.assign(i.style,{borderColor:'rgba(16,185,129,0.4)',color:'#10b981'});
-      if(storageKey){
-        const btnRow=d('',[], {display:'flex',gap:'4px',marginTop:'6px'});
-        const sBtn=document.createElement('button');
-        Object.assign(sBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        const updateSaveBtn=()=>{
-          let saved=null;try{saved=localStorage.getItem(storageKey);}catch{}
-          if(saved!==null && String(saved)===String(i.value)){
-            sBtn.textContent='✓ Saved';
-            sBtn.style.background='rgba(34,197,94,0.25)';
-            sBtn.style.borderColor='rgba(34,197,94,0.7)';
-          } else {
-            sBtn.textContent='💾 Save';
-            sBtn.style.background='rgba(34,197,94,0.1)';
-            sBtn.style.borderColor='rgba(34,197,94,0.4)';
-          }
-        };
-        updateSaveBtn();
-        sBtn.onclick=()=>{if(saveRate(storageKey,i.value)){toast('บันทึกแล้ว 💾','success');updateSaveBtn();}else{toast('บันทึกไม่สำเร็จ','error');}};
-        i.oninput=e=>{setter(e.target.value);recompute_MY();updateSaveBtn();};
-        i.onblur=()=>R();
-        const dBtn=document.createElement('button');dBtn.textContent='🗑 ลบ';
-        Object.assign(dBtn.style,{flex:'1',padding:'4px 6px',fontSize:'10px',border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',borderRadius:'5px',cursor:'pointer',fontWeight:'600'});
-        dBtn.onclick=()=>{deleteRate(storageKey);setter(defaultVal);i.value=defaultVal;recompute_MY();updateSaveBtn();toast('ลบค่าที่บันทึก คืนค่าเริ่มต้น','info');R();};
-        btnRow.appendChild(sBtn);btnRow.appendChild(dBtn);
-        c.appendChild(i);
-        c.appendChild(btnRow);
-      } else {
-        i.oninput=e=>{setter(e.target.value);recompute_MY();};
-        i.onblur=()=>R();
-        c.appendChild(i);
-      }
-    }
-    else c.appendChild(t(String(val),{color:'#10b981',fontSize:'26px',fontWeight:'700',display:'block'}));
-    return c;
+  // ── Exchange Rate Premium Bar ──
+  const rateBar=d('',[], {display:'flex',alignItems:'center',flexWrap:'wrap',background:'rgba(255,255,255,0.045)',border:'1px solid rgba(16,185,129,0.35)',borderRadius:'10px',boxShadow:'0 8px 20px rgba(0,0,0,.16)',padding:'8px 20px',minHeight:'48px',width:'fit-content',maxWidth:'100%',margin:'0 0 20px'});
+  function mkRateMY(code,label,val,setter,storageKey,isFirst){
+    const FLAG={us:'🇺🇸',au:'🇦🇺',th:'🇹🇭'};
+    const seg=d('',[], {display:'inline-flex',alignItems:'center',padding:'0 15px',borderLeft:isFirst?'none':'1px solid rgba(255,255,255,0.08)'});
+    const flagImg=document.createElement('img');
+    flagImg.src='https://flagcdn.com/w40/'+code+'.png';flagImg.alt=code;flagImg.loading='lazy';
+    Object.assign(flagImg.style,{width:'22px',height:'16px',borderRadius:'3px',objectFit:'cover',flexShrink:'0',boxShadow:'0 1px 3px rgba(0,0,0,.3)',marginRight:'6px'});
+    flagImg.onerror=()=>{try{flagImg.replaceWith(t(FLAG[code]||'',{fontSize:'20px',flexShrink:'0'}));}catch(e){}};
+    seg.appendChild(flagImg);
+    seg.appendChild(t(label,{color:'#CBD5E1',fontSize:'14px',fontWeight:'500',whiteSpace:'nowrap',marginRight:'10px'}));
+    const i=document.createElement('input');i.value=val;i.type='text';
+    Object.assign(i.style,{background:'transparent',border:'none',borderBottom:'1px solid transparent',outline:'none',color:'#10B981',fontSize:'20px',fontWeight:'700',width:'66px',textAlign:'left',padding:'2px 2px',marginRight:'6px',cursor:'text',transition:'border-color .15s',flexShrink:'0'});
+    const pencil=t('✎',{color:'#94A3B8',fontSize:'13px',flexShrink:'0',cursor:'pointer',transition:'opacity .15s',opacity:'.7'});
+    i.onmouseenter=()=>{if(document.activeElement!==i)i.style.borderBottomColor='#10B981';pencil.style.opacity='1';};
+    i.onmouseleave=()=>{if(document.activeElement!==i){i.style.borderBottomColor='transparent';pencil.style.opacity='.7';}};
+    i.onfocus=()=>{i.style.borderBottomColor='#10B981';pencil.style.opacity='1';};
+    pencil.onclick=()=>i.focus();
+    i.oninput=e=>{setter(e.target.value);recompute_MY();};
+    const commit=()=>{
+      i.style.borderBottomColor='transparent';pencil.style.opacity='.7';
+      if(String(i.value).trim()===''){ setter('');recompute_MY();R();return; }   // ว่างไว้ ไม่ใส่ default
+      setter(i.value);recompute_MY();
+      if(storageKey){try{saveRate(storageKey,i.value);}catch(e){}}
+      toast('✓ Exchange Rate Updated','success');R();
+    };
+    i.onblur=commit;
+    i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.blur();}};
+    seg.appendChild(i);seg.appendChild(pencil);
+    return seg;
   }
-  sg.appendChild(mkStatMY('💵','USD Rate',SMY.usd,true,v=>SMY.usd=v,'nj.my.usd','30.9979'));
-  sg.appendChild(mkStatMY('🇹🇭','THB Rate',SMY.thb,true,v=>SMY.thb=v,'nj.my.thb','1.0000'));
-  sg.appendChild(mkStatMY('📋','ใบขน',SMY.baikhonFiles.length,false));
-  sg.appendChild(mkStatMY('📊','VINs',SMY.ssRows.length,false));
-  sg.appendChild(mkStatMY('🗂️','BoL Sheets',Object.keys(SMY.bolSheets).length,false));
-  wrap.appendChild(sg);
+  rateBar.appendChild(mkRateMY('us','USD',SMY.usd,v=>SMY.usd=v,'nj.my.usd',true));
+  rateBar.appendChild(mkRateMY('th','THB',SMY.thb,v=>SMY.thb=v,'nj.my.thb',false));
+  wrap.appendChild(rateBar);
   // ── Tabs ──
-  const tabBar=d('tab-bar',[], {marginBottom:'20px'});
+  const tabBar=d('tab-bar',[], {marginBottom:'20px',display:'none'});
   [['upload','📤 Upload'],['report','📊 Report 1'],['bol','🗂️ BoL Sheets']].forEach(([id,label])=>{
     const b=document.createElement('button');b.textContent=label;b.className='tab-pill';
     const active=SMY.tab===id;
@@ -4302,6 +4310,21 @@ function mappingDashMY(){
   if(SMY.tab==='upload')wrap.appendChild(uploadTabMY());
   else if(SMY.tab==='report')wrap.appendChild(reportTabMY());
   else wrap.appendChild(bolTabMY());
+  // ── Export buttons (ล่างสุด) ──
+  (function(){
+    const expRow=d('',[], {display:'flex',gap:'12px',flexWrap:'wrap',marginTop:'20px'});
+    const _mkExp=(label,isPrimary,onClick)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/></svg>${label}`;
+      Object.assign(b.style,{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',padding:'11px 22px',borderRadius:'10px',border:isPrimary?'none':'1px solid rgba(16,185,129,0.4)',background:isPrimary?'linear-gradient(135deg,#10b981,#059669)':'rgba(16,185,129,0.15)',color:isPrimary?'#fff':'#10b981',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:isPrimary?'0 3px 12px rgba(16,185,129,0.28)':'none',transition:'all .18s'});
+      b.onmouseenter=()=>b.style.opacity='.88';b.onmouseleave=()=>b.style.opacity='1';
+      b.onclick=onClick;expRow.appendChild(b);
+    };
+    const ready=SMY.report.length>0;
+    _mkExp('Export BOL MY',true,()=>{ if(!Number(SMY.usd)){toast('กรุณากรอก USD Rate','error');return;} doExportXLSX_MY(); });
+    _mkExp('Export Form MY',false,()=>{ showExportMYModal(); });
+    wrap.appendChild(expRow);
+  })();
   return wrap;
 }
 
@@ -4407,33 +4430,7 @@ function uploadTabMY(){
   if(SMY.mapLoading){const ld=d('',[], {display:'flex',alignItems:'center',gap:'8px',padding:'10px 4px'});ld.appendChild(d('',[], {width:'16px',height:'16px',border:'2px solid rgba(16,185,129,0.3)',borderTopColor:'#10b981',borderRadius:'50%',animation:'spin .7s linear infinite',flexShrink:'0'}));ld.appendChild(t('กำลังอ่านไฟล์...',{color:'#94a3b8',fontSize:'13px'}));wrap.appendChild(ld);}
   if(SMY.mapErr)wrap.appendChild(d('alert-danger',[SMY.mapErr],{marginTop:'12px'}));
   // ── Export card ──
-  const exportCard=d('',[], {background:'rgba(16,185,129,0.04)',borderRadius:'16px',border:'1px solid rgba(16,185,129,0.15)',padding:'16px 20px',marginTop:'16px'});
-  const statsRow=d('',[], {display:'flex',gap:'16px',marginBottom:'14px',flexWrap:'wrap'});
-  [[SMY.ssFiles.length,'📊','Spreadsheet'],[SMY.baikhonFiles.length,'📋','ใบขน'],[SMY.cFiles.length,'💰','ต้นทุน'],[SMY.report.length,'📄','Report rows'],[Object.keys(SMY.bolSheets).length,'🗂️','BoL Sheets']].forEach(([n,icon,label])=>{
-    const itm=d('',[], {display:'flex',alignItems:'center',gap:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'8px',padding:'6px 10px'});
-    itm.appendChild(t(icon,{fontSize:'13px'}));
-    const txt=d('');txt.appendChild(t(String(n),{color:n>0?'#10b981':'#64748b',fontWeight:'700',fontSize:'14px',display:'block',lineHeight:'1.1'}));txt.appendChild(t(label,{color:'#64748b',fontSize:'10px',display:'block'}));
-    itm.appendChild(txt);statsRow.appendChild(itm);
-  });
-  exportCard.appendChild(statsRow);
-  exportCard.appendChild(d('',[], {height:'1px',background:'rgba(16,185,129,0.1)',marginBottom:'14px'}));
-  const ready=SMY.report.length>0;
-  const btnRow=d('',[], {display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'});
-  // Export BOL MY — กดได้เสมอ ตรวจข้อมูลใน doExportXLSX_MY
-  const btn=document.createElement('button');
-  Object.assign(btn.style,{display:'inline-flex',alignItems:'center',gap:'7px',padding:'9px 16px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#10b981,#059669)',color:'#fff',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',boxShadow:'0 3px 12px rgba(16,185,129,0.28)',transition:'all .18s'});
-  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export BOL MY';
-  btn.onclick=()=>{if(!Number(SMY.usd)){toast('กรุณากรอก USD Rate','error');return;}doExportXLSX_MY();};
-  btnRow.appendChild(btn);
-  // 🇲🇾 Form MY button (Form AU-style) — กดได้เสมอ ตรวจข้อมูลใน modal
-  const formBtnMY=document.createElement('button');
-  Object.assign(formBtnMY.style,{display:'inline-flex',alignItems:'center',gap:'7px',padding:'9px 16px',borderRadius:'10px',border:'1px solid rgba(16,185,129,0.4)',background:'rgba(16,185,129,0.15)',color:'#10b981',fontWeight:'600',fontSize:'13px',cursor:'pointer',whiteSpace:'nowrap',transition:'all .18s'});
-  formBtnMY.innerHTML='🇲🇾 Form MY';
-  formBtnMY.onclick=()=>showExportMYModal();
-  btnRow.appendChild(formBtnMY);
-  if(!ready)btnRow.appendChild(t('⚠️ ต้องมี Spreadsheet MY + ใบขน (VIN ต้อง match)',{color:'#64748b',fontSize:'12px',marginLeft:'8px'}));
-  exportCard.appendChild(btnRow);
-  wrap.appendChild(exportCard);
+  // (Export ย้ายไปอยู่แถว Rate Card แล้ว)
   return wrap;
 }
 
