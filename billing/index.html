@@ -153,6 +153,7 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .date-range > button{font-size:16px !important;line-height:1;padding:4px 6px !important;border-radius:6px !important}
 .pv-info{font-size:10.5px;color:var(--text2);font-family:'IBM Plex Mono',monospace;height:38px;display:inline-flex;align-items:center;padding:0 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;white-space:nowrap}
 .pv-info b{color:var(--cyan2)}
+.pv-info{display:none !important}   /* ซ่อน "แสดง N–N / total" (มี Pagination อยู่แล้ว) — sc-show/sc-total ยังอยู่ใน DOM, JS เขียนค่าได้ปกติ */
 
 /* Quick close — input wrapper เป็น "กรอบแดง" เด่นชัดบน toolbar
    ── สื่อสารทันทีว่านี่คือ action จบงาน (สำคัญ ต้องดูง่าย) ── */
@@ -459,6 +460,115 @@ textarea.note-box:focus{border-color:var(--cyan2)}
 /* Whoami in sidebar foot */
 .sb-whoami{font-size:11px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px;line-height:1.4;word-break:break-word}
 .sb-whoami b{color:var(--text)}
+
+/* ══ Sidebar fit desktop (override · CSS only · ไม่แตะ flow/สิทธิ์/เมนู/หน้าหลัก) ══
+   ─ สูงพอดี 100vh · ไม่มี scrollbar · พื้นหลังสีเดียวทั้ง sidebar · spacing กระชับ
+   ─ active menu เดิม (.active.sc/.ac specificity สูงกว่า) ยังเด่นชัดเหมือนเดิม */
+.sidebar{ height:100vh; overflow:hidden; background:var(--surface) }
+.sb-brand{ padding:14px 18px 12px; background:var(--surface); border-bottom:1px solid rgba(255,255,255,.05) }
+.sb-user{ padding:12px 18px; background:var(--surface); border-bottom:1px solid rgba(255,255,255,.05) }
+.sb-nav{ flex:1; overflow:hidden; padding:8px 0 6px; background:var(--surface) }
+.sb-section{ padding:10px 18px 6px; margin:0; font-size:10.5px; line-height:1.1 }
+.sb-section.tools{ margin-top:8px }
+.sb-item{ padding:8px 18px; min-height:38px; gap:9px; background:transparent }
+.sb-item.active{ background:rgba(16,185,129,.10) }
+.sb-foot{ padding:10px 18px; background:var(--surface); border-top:1px solid rgba(255,255,255,.05); flex-shrink:0 }
+.sb-whoami{ padding:4px 0 6px; margin-bottom:2px; border-bottom:none }
+.sidebar *{ scrollbar-width:none }
+.sidebar *::-webkit-scrollbar{ display:none }
+/* ซ่อนกล่องผู้ใช้ด้านบน (Admin / SUPER ADMIN) — CSS only · ไม่แตะ login/role/permission/user ด้านล่าง */
+.sb-user{ display:none !important }
+
+/* ══ Sidebar Enterprise Redesign (CSS · single surface · minimal · premium) ══
+   ─ พื้นสีเดียว · ไม่มีกรอบซ้อน · เงาเบา · เมนู ~40px มุมโค้ง · active เขียวอ่อน ไม่มีเส้นขวา
+   ─ badge เล็ก modern · section muted · footer กระชับ (user/online/logout) · hover นุ่ม 180ms */
+.sidebar{ box-shadow:none }
+.sb-brand{ border-bottom:none; padding:14px 16px 8px }
+.sb-nav{ padding:4px 0 }
+/* section: muted solid (เอา gradient ออก → emoji ไม่โปร่งใส + minimal) */
+.sb-section,.sb-section.sc,.sb-section.ac,.sb-section.tools{
+  background:none !important; -webkit-text-fill-color:currentColor; color:var(--text3);
+  font-size:10px; font-weight:800; letter-spacing:.09em; padding:12px 18px 4px; margin:0;
+}
+.sb-section.tools{ margin-top:6px }
+/* items: มุมโค้ง ลอย ~40px · hover นุ่ม */
+.sb-item{ height:40px; min-height:40px; padding:0 12px; gap:10px; margin:1px 8px; border-radius:9px;
+  transition:background .18s ease, color .18s ease; font-size:13px }
+.sb-item > span:not(.sb-badge){ font-size:13px }
+.sb-item svg{ width:16px; height:16px; opacity:.85 }
+.sb-item:hover{ background:rgba(255,255,255,.05); color:var(--text) }
+/* Active = เขียวอ่อน · ไม่มีเส้นเขียวด้านขวา (override .active.sc/.ac เดิม) */
+.sb-item.active,.sb-item.active.sc,.sb-item.active.ac{ background:rgba(16,185,129,.12); color:#34d399; border-right:none }
+.sb-item.active svg{ opacity:1 }
+/* Badge เล็ก modern (neutral pill) */
+.sb-item .sb-badge{ min-width:0; height:18px; padding:0 7px; font-size:10px; border-radius:9px;
+  background:rgba(148,163,184,.14); color:#cbd5e1; border:1px solid rgba(148,163,184,.22) }
+.sb-item.active .sb-badge{ background:rgba(16,185,129,.18); color:#6ee7b7; border-color:rgba(16,185,129,.35) }
+/* Footer: พื้นเดียว ไม่มีเส้นบน · user + online + logout */
+.sb-foot{ flex-direction:column; align-items:stretch; gap:3px; border-top:none; padding:6px 8px 8px }
+.sb-foot .sb-foot-conn{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text3);
+  font-family:'IBM Plex Mono',monospace; padding:2px 10px }
+.sb-whoami{ padding:2px 10px 4px; margin-bottom:0; border-bottom:none; font-size:11px }
+.sb-logout{ height:38px; min-height:38px; margin:2px 0 0; color:#fca5a5 }
+.sb-logout:hover{ background:rgba(239,68,68,.10); color:#f87171 }
+
+/* ══ Footer redesign: 👤 user (ซ้าย) · 🟢 online (ขวา) บรรทัดเดียว → เส้นแบ่ง → 🚪 logout ปุ่มเดียว ══
+   ─ ซ่อน SUPER ADMIN + "ออก" (CSS · role ยังใช้ตรวจสิทธิ์เดิม) · logout สีเมนู hover แดงอ่อน · ไม่แตะ JS */
+.sb-foot{ padding:8px 10px 10px; gap:0 }
+.sb-foot-top{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:2px 8px 8px; border-bottom:1px solid rgba(255,255,255,.06) }
+.sb-whoami{ flex:1; min-width:0; font-size:0; padding:0; margin:0; border:none;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.sb-whoami::before{ content:"👤 "; font-size:12px }          /* คงไอคอน · ตัด "·"/ช่องว่างด้วย font-size:0 */
+.sb-whoami b{ font-size:12px; color:var(--text); font-weight:600 }
+.sb-whoami .role-pill{ display:none !important }              /* ซ่อน SUPER ADMIN */
+.sb-whoami .whoami-link{ display:none !important }            /* ลบข้อความ "ออก" (ใช้ปุ่มล่างแทน) */
+.sb-foot-conn{ flex-shrink:0; padding:0; margin:0; display:flex; align-items:center; gap:6px;
+  font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace }
+.sb-logout{ height:38px; min-height:38px; margin:8px 0 0; color:var(--text2) }   /* สีเดียวกับเมนู */
+.sb-logout:hover{ background:rgba(239,68,68,.10); color:#f87171 }                /* hover แดงอ่อน */
+
+/* ══════════ Premium Enterprise Sidebar — Visual Proportion (CSS only · โครงสร้าง/logic เดิม 100%) ══════════
+   ─ กว้างขึ้น 310px + เลื่อน .main ตาม (กันทับเนื้อหา) · header/menu/icon/badge ใหญ่ · single-accent เขียว/แดง
+   ─ ref: Linear / Stripe / Supabase Studio · hover นุ่ม 180ms · scrollbar ซ่อน (กันตกหล่นจอเตี้ย) */
+.sidebar{ width:310px }
+.main{ margin-left:310px; max-width:calc(100vw - 310px) }
+/* Header เด่น */
+.sb-brand{ padding:24px 22px 16px }
+.sb-logo{ gap:14px }
+.sb-icon{ width:52px; height:52px; border-radius:14px; box-shadow:0 6px 16px rgba(245,158,11,.28) }
+.sb-icon svg{ width:26px; height:26px }
+.sb-title{ font-size:22px; font-weight:700; letter-spacing:-.01em }
+.sb-sub{ font-size:12px; margin-top:3px; letter-spacing:.04em }
+/* Nav spacing */
+.sb-nav{ padding:8px 0; overflow-y:auto; overflow-x:hidden }
+/* Section header อ่านง่าย */
+.sb-section,.sb-section.sc,.sb-section.ac,.sb-section.tools{
+  background:none !important; -webkit-text-fill-color:currentColor; color:var(--text3);
+  font-size:12px; font-weight:600; letter-spacing:.08em; padding:8px 22px 6px; margin:16px 0 0 }
+.sb-section:first-child{ margin-top:4px }
+.sb-section.tools{ margin-top:18px }
+/* Menu ใหญ่ · แนวเดียวกัน */
+.sb-item{ height:50px; min-height:50px; padding:0 18px; gap:12px; margin:3px 12px; border-radius:12px;
+  font-size:15px; font-weight:600; transition:background .18s ease, color .18s ease }
+.sb-item > span:not(.sb-badge){ font-size:15px }
+.sb-item svg{ width:22px; height:22px; stroke:currentColor; opacity:.8 }   /* icon สไตล์/ขนาดเดียวกัน */
+.sb-item:hover{ background:rgba(255,255,255,.05); color:var(--text) }
+/* Active = เขียวอ่อน · radius 12 · ไม่มีเส้นขวา/glow */
+.sb-item.active,.sb-item.active.sc,.sb-item.active.ac{ background:rgba(16,185,129,.13); color:#34d399; border-right:none; box-shadow:none }
+.sb-item.active svg{ opacity:1 }
+/* Badge ใหญ่ modern (ขนาดเท่ากันทุกอัน · ชิดขวา) */
+.sb-item .sb-badge{ margin-left:auto; min-width:60px; height:28px; padding:0 12px; border-radius:999px;
+  font-size:13px; font-weight:700; background:rgba(148,163,184,.14); color:#cbd5e1; border:1px solid rgba(148,163,184,.20) }
+.sb-item.active .sb-badge{ background:rgba(16,185,129,.16); color:#6ee7b7; border-color:rgba(16,185,129,.32) }
+/* Footer กระชับ ไม่ลอย */
+.sb-foot{ padding:12px 14px 14px }
+.sb-foot-top{ padding:2px 8px 10px }
+.sb-whoami::before{ content:"👤 "; font-size:13px }
+.sb-whoami b{ font-size:13px }
+.sb-foot-conn{ font-size:12px }
+.sb-logout{ height:44px; min-height:44px; font-size:15px; font-weight:600; border-radius:12px; margin:10px 0 0 }
+.sb-logout svg{ width:22px; height:22px }
 .whoami-link{color:var(--cyan2);text-decoration:none;font-weight:600}
 .whoami-link:hover{text-decoration:underline}
 .role-pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em;vertical-align:middle}
@@ -841,47 +951,49 @@ html, body { min-width: 1280px; }
   </div>
 
   <nav class="sb-nav">
-    <div class="sb-section sc">SERVICE CHARGE</div>
+    <div class="sb-section sc">📄 SERVICE CHARGE</div>
     <button class="sb-item active sc" id="nav-sc" onclick="switchPage('sc')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-      <span>🟢 Service Charge</span><span class="sb-badge" id="sb-count-sc"></span>
+      <span>🟢 Service</span><span class="sb-badge" id="sb-count-sc"></span>
     </button>
     <button class="sb-item sc" id="nav-sc-closed" onclick="switchPage('sc-closed')" title="งานที่จบแล้ว — Service Charge">
       <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
-      <span>🔴 CLOSE SER</span><span class="sb-badge" id="sb-count-sc-closed"></span>
+      <span>🔴 Close</span><span class="sb-badge" id="sb-count-sc-closed"></span>
     </button>
 
-    <div class="sb-section ac">ADVANCE CHARGE</div>
+    <div class="sb-section ac">💰 ADVANCE CHARGE</div>
     <button class="sb-item ac" id="nav-ac" onclick="switchPage('ac')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-      <span>🟢 Advance Charge</span><span class="sb-badge" id="sb-count-ac"></span>
+      <span>🟢 Advance</span><span class="sb-badge" id="sb-count-ac"></span>
     </button>
     <button class="sb-item ac" id="nav-ac-closed" onclick="switchPage('ac-closed')" title="งานที่จบแล้ว — Advance Charge">
       <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
-      <span>🔴 CLOSE ADV</span><span class="sb-badge" id="sb-count-ac-closed"></span>
+      <span>🔴 Close</span><span class="sb-badge" id="sb-count-ac-closed"></span>
     </button>
 
-    <div class="sb-section tools">⚙ เครื่องมือ</div>
+    <div class="sb-section tools">⚙ SYSTEM</div>
     <button class="sb-item tools" data-action="backup" onclick="openBackupModal()" title="สำรองข้อมูล (SC + AC) ออกเป็นไฟล์ Excel">
       <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      <span>Backup ระบบ</span>
+      <span>📦 Backup</span>
     </button>
     <button id="nav-users" class="sb-item tools" onclick="openUserModal()" title="จัดการผู้ใช้งาน">
       <svg viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>ผู้ใช้งาน</span>
-    </button>
-    <button class="sb-item tools" onclick="logout()" title="ออกจากระบบ — กลับไปหน้า login">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      <span>🚪 ออกจากระบบ</span>
+      <span>👥 ผู้ใช้งาน</span>
     </button>
   </nav>
 
   <div class="sb-foot">
-    <div id="whoami" class="sb-whoami"></div>
-    <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-      <span class="dot" id="conn-dot"></span>
-      <span id="conn-txt">connecting…</span>
+    <div class="sb-foot-top">
+      <div id="whoami" class="sb-whoami"></div>
+      <div class="sb-foot-conn">
+        <span class="dot" id="conn-dot"></span>
+        <span id="conn-txt">connecting…</span>
+      </div>
     </div>
+    <button class="sb-item tools sb-logout" onclick="logout()" title="ออกจากระบบ — กลับไปหน้า login">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>🚪 ออกจากระบบ</span>
+    </button>
   </div>
 </aside>
 
@@ -2378,12 +2490,53 @@ const _optionsCache = {sc:{loaded:false}, ac:{loaded:false}};
 const _FILTER_OPTIONS_LS_PREFIX = 'billing_filter_opts_';
 const _FILTER_OPTIONS_TTL_MS    = 10 * 60 * 1000;    /* 10 นาที */
 
-function _readFilterOptionsLS(prefix){
+/* ── AC filter options: Background scan (Option A) ──
+   ─ สแกน customer/cs ครบทุกแถวเบื้องหลัง (ไม่ block dropdown) → repaint เมื่อเสร็จ
+   ─ _paintFilterDropdowns รักษาค่าที่เลือกไว้ (curV) จึง repaint แล้ว selection ไม่หาย
+   ─ กันสแกนซ้อนด้วย _acOptScanning */
+let _acOptScanning = false;
+async function _bgScanAcOptions(){
+  if(_acOptScanning) return;
+  _acOptScanning = true;
+  const sb = initSupabase();
+  if(!sb){ _acOptScanning = false; return; }
+  try{
+    const custSet = new Set(), csSet = new Set();
+    const PAGE = 1000, HARD_LIMIT = 200000;
+    let from = 0, rows = 0;
+    while(from < HARD_LIMIT){
+      const {data, error} = await sb.from(AC_TBL).select('customer_name,cs').range(from, from + PAGE - 1);
+      if(error) throw error;
+      if(!data || !data.length) break;
+      rows += data.length;
+      data.forEach(r=>{
+        const c = String(r.customer_name||'').trim(); if(c) custSet.add(c);
+        const x = String(r.cs||'').trim();            if(x) csSet.add(x);
+      });
+      if(data.length < PAGE) break;
+      from += PAGE;
+      await new Promise(rs=>setTimeout(rs,0));   /* yield UI thread */
+    }
+    const customerList = [...custSet].sort();
+    const csList       = [...csSet].sort();
+    const st = PageState.ac;
+    st.customerOptions = customerList;
+    st.csOptions       = csList;
+    _paintFilterDropdowns('ac', customerList, csList);   /* อัปเดตเมื่อสแกนเสร็จ (คง selection) */
+    _optionsCache.ac.loaded = true;
+    _writeFilterOptionsLS('ac', customerList, csList);
+    console.log('[FilterOptions AC bg] customers='+customerList.length+' cs='+csList.length+' rows='+rows);
+  }catch(e){ console.warn('_bgScanAcOptions:', e && e.message); }
+  finally{ _acOptScanning = false; }
+}
+
+function _readFilterOptionsLS(prefix, ignoreTTL){
   try{
     const raw = localStorage.getItem(_FILTER_OPTIONS_LS_PREFIX + prefix);
     if(!raw) return null;
     const obj = JSON.parse(raw);
-    if(!obj || !obj.ts || (Date.now() - obj.ts) > _FILTER_OPTIONS_TTL_MS) return null;
+    if(!obj) return null;
+    if(!ignoreTTL && (!obj.ts || (Date.now() - obj.ts) > _FILTER_OPTIONS_TTL_MS)) return null;
     return obj;
   } catch(e){ return null; }
 }
@@ -2442,47 +2595,42 @@ async function loadFilterOptions(prefix, force){
   if(fcs && !fcs.value) fcs.innerHTML = '<option value="">CS ทั้งหมด</option><option value="" disabled>— กำลังโหลด… —</option>';
 
   try{
-    /* ══ AC: โหลด customer/cs ครบทุกแถวด้วย range loop — แก้ dropdown ได้แค่ 22 ราย ══
-       ─ เฉพาะ prefix==='ac' · ไม่แตะ SC / Import / Export / KPI / ตารางหลัก
-       ─ ไม่ลบ RPC เดิม: เรียกลองก่อน (log/เทียบ) · ถ้าคืนน้อยผิดปกติ/ไม่พร้อม → range scan ครบทุกแถว (authoritative)
-       ─ ไม่ใช้ limit(1000) · distinct + sort · paint + PageState + cache เดิม */
+    /* ══ AC (Option A): Background scan — เปิด dropdown ทันทีด้วย cache (แม้หมดอายุ) + สแกนเบื้องหลัง ══
+       ─ ไม่ block: ถ้ามี cache เก่า → โชว์ทันที · แล้วสแกนครบทุกแถวเบื้องหลัง อัปเดตเมื่อเสร็จ
+       ─ ถ้าไม่มี cache เลย → โชว์ "กำลังโหลด…" (placeholder ด้านบน) + สแกนเบื้องหลังเติมให้ */
     if(prefix === 'ac'){
-      let rpcCustN = -1;
+      const stale = _readFilterOptionsLS('ac', true);   /* ignore TTL → cache เก่าก็เอามาโชว์ก่อน */
+      const staleN = (stale && Array.isArray(stale.customer)) ? stale.customer.length : 0;
+      if(stale && Array.isArray(stale.customer) && Array.isArray(stale.cs)){
+        st.customerOptions = stale.customer;
+        st.csOptions       = stale.cs;
+        _paintFilterDropdowns('ac', stale.customer, stale.cs);   /* dropdown ใช้ได้ทันที */
+        _optionsCache.ac.loaded = true;
+      }
+      /* ── ลอง RPC ก่อน (O(1) query เดียว เร็วสุด) ── */
       try{
         const {data:rd, error:re} = await sb.rpc('distinct_filter_options_ac');
         if(!re && rd){
           const r = (typeof rd === 'string') ? JSON.parse(rd) : rd;
-          if(Array.isArray(r.customers)) rpcCustN = r.customers.length;   /* เก็บไว้ log/เทียบ — ไม่ใช้เป็นผลลัพธ์ */
+          const customerList = Array.isArray(r.customers) ? r.customers.slice().sort() : [];
+          const csList       = Array.isArray(r.cs)        ? r.cs.slice().sort()        : [];
+          /* เชื่อ RPC เมื่อ "ไม่ว่าง" และ "ไม่น้อยกว่า cache เดิม" (กัน RPC เก่าที่พังคืนน้อยผิดปกติ เช่น 22) */
+          if(customerList.length && customerList.length >= staleN){
+            st.customerOptions = customerList;
+            st.csOptions       = csList;
+            _paintFilterDropdowns('ac', customerList, csList);
+            _optionsCache.ac.loaded = true;
+            _writeFilterOptionsLS('ac', customerList, csList);
+            console.log('[FilterOptions AC] via RPC · customers='+customerList.length+' cs='+csList.length);
+            return;
+          }
+          console.warn('distinct_filter_options_ac RPC คืนน้อย/ว่าง ('+customerList.length+' < cache '+staleN+') → fallback bg scan');
         } else if(re){
-          console.warn('distinct_filter_options_ac RPC ไม่พร้อม → range scan:', re.message);
+          console.warn('distinct_filter_options_ac RPC ไม่พร้อม → fallback bg scan:', re.message);
         }
-      }catch(re){ console.warn('distinct_filter_options_ac RPC error → range scan:', re && re.message); }
-
-      /* range loop ทีละ 1000 จนครบทุกแถว → distinct ครบจริง (ไม่ตกหล่นที่ 1000) */
-      const custSet = new Set(), csSet = new Set();
-      const PAGE = 1000, HARD_LIMIT = 200000;
-      let from = 0, rows = 0;
-      while(from < HARD_LIMIT){
-        const {data, error} = await sb.from(AC_TBL).select('customer_name,cs').range(from, from + PAGE - 1);
-        if(error) throw error;
-        if(!data || !data.length) break;
-        rows += data.length;
-        data.forEach(r=>{
-          const c = String(r.customer_name||'').trim(); if(c) custSet.add(c);   /* customer_name ไม่ว่าง */
-          const x = String(r.cs||'').trim();            if(x) csSet.add(x);     /* cs ไม่ว่าง */
-        });
-        if(data.length < PAGE) break;
-        from += PAGE;
-        await new Promise(rs=>setTimeout(rs,0));   /* yield UI thread */
-      }
-      const customerList = [...custSet].sort();
-      const csList       = [...csSet].sort();
-      st.customerOptions = customerList;
-      st.csOptions       = csList;
-      _paintFilterDropdowns('ac', customerList, csList);
-      _optionsCache['ac'].loaded = true;
-      _writeFilterOptionsLS('ac', customerList, csList);
-      console.log('[FilterOptions AC] customers='+customerList.length+' cs='+csList.length+' rows='+rows + (rpcCustN>=0 ? ' (rpc='+rpcCustN+')' : ' (rpc=n/a)'));
+      }catch(re){ console.warn('distinct_filter_options_ac RPC error → fallback bg scan:', re && re.message); }
+      /* RPC พัง/ว่าง/น้อยผิดปกติ → background scan เดิม (ไม่ block · ตาข่ายกันตกหล่น) */
+      _bgScanAcOptions();
       return;
     }
 
