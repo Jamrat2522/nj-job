@@ -351,6 +351,12 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .sa-rowmenu button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:#E2E8F0;font-size:14px;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer}
 .sa-rowmenu button:hover{background:rgba(255,255,255,.07)}
 .sa-rowmenu button .ic{font-size:16px;width:20px;text-align:center}
+/* ✚ ข้อมูล Lead Time + ประเภท ด้านบนเมนู ⋮ (desktop RECEIVED) — อ่านง่าย · ไม่คลิกได้ */
+.sa-rowmenu .sa-rm-info{padding:8px 12px 9px;margin:0 0 4px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sa-rowmenu .sa-rm-info .sa-rm-line{font-size:12.5px;color:#94A3B8;line-height:1.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sa-rowmenu .sa-rm-info b{color:#E2E8F0;font-weight:700}
+.sa-rowmenu .sa-rm-info b.lt-over{color:#F87171}
+.sa-rowmenu .sa-rm-info b.lt-ok{color:#34D399}
 /* custom dropdown: ผู้รับผิดชอบ (ชิปปิ้ง) ใน modal แก้ไขข้อมูลเอกสาร */
 .de-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer}
 .de-trigger #de-assign-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -424,6 +430,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 }
 
 .st-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.st-sys{display:none;font-size:12.6px}   /* สถานะเอกสารจากระบบ — default ซ่อน · เปิดเฉพาะ desktop RECEIVED */
 .lt-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;line-height:1.2}
 .lt-ok{background:rgba(16,185,129,.12);color:#6EE7B7;border:1px solid rgba(16,185,129,.4)}
 .lt-over{background:rgba(239,68,68,.14);color:#FCA5A5;border:1px solid rgba(239,68,68,.45)}
@@ -657,6 +664,7 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc tbody td.m-extra{order:50}   /* เลขใบขน / USER เปิดงาน — อยู่เหนือปุ่มการจัดการ */
   .tbl-doc tbody td.col-jdesc{display:none}   /* 📝 รายละเอียดงาน = เฉพาะ Desktop · ไม่แสดงในการ์ดมือถือ */
   .tbl-doc tbody td.col-jobno{display:none}   /* 📄 เลขใบขน = เฉพาะ Desktop · มือถือใช้ m-extra เดิม */
+  .tbl-doc tbody td.col-jobstatus{display:none}   /* 🚢 สถานะงาน = เฉพาะ Desktop · มือถือคงรูปแบบเดิม ไม่เพิ่มคอลัมน์ */
   .tbl-doc tbody td .tcol-desk{display:none}   /* มือถือ: ไม่แตะคอลัมน์เวลา → คงค่า received_at เดิม (tcol-mob) */
   .tbl-doc tbody td .ucol-desk{display:none}   /* มือถือ: ไม่แตะ USER → คงค่า USER เดิม 1 บรรทัด (ucol-mob) + ผู้สั่งงาน คงคอลัมน์เดิม */
   .tbl-doc tbody td.td-actions::before{display:none}
@@ -700,22 +708,31 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc td .ucol-desk{display:block;line-height:1.35}
   .tbl-doc td .u-ordby{display:block;color:#94a3b8;font-size:11px;font-weight:400;margin-top:1px}
   /* RECEIVED: "ผู้สั่งงาน" หลัง USER + มี รายละเอียดงาน(5) → 13 คอลัมน์ (เลื่อน 9-13) */
-  .tbl-doc.tbl-recv{min-width:1136px}   /* 🔵 ดำเนินตรวจปล่อย: ย่อพอดีจอ เห็นปุ่มครบ ไม่ต้องเลื่อนแนวนอน */
+  .tbl-doc.tbl-recv{min-width:1136px}   /* 🔵 ดำเนินตรวจปล่อย: ย้าย ประเภท+LEAD TIME+เวลา เข้าเมนู ⋮ · ขยายสถานะเอกสาร/สถานะงาน (2 บรรทัด) · ลด บริษัท/รายละเอียด/ชิปปิ้ง */
+  .tbl-doc.tbl-recv .col-cat{display:none}    /* 📦 ประเภท = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
+  .tbl-doc.tbl-recv .col-lead{display:none}   /* ⏱️ LEAD TIME = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
+  .tbl-doc.tbl-recv .col-time{display:none}   /* 🕒 เวลา = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
+  /* สถานะเอกสาร (desktop RECEIVED): แสดง Timeline ระบบล่าสุด เป็น plain text (⏰ HH:mm ข้อความ) · ซ่อน Badge · มือถือคง Badge/Pill เดิม */
+  .tbl-doc.tbl-recv td.status-cell .st-badge{display:none}
+  .tbl-doc.tbl-recv td.status-cell{vertical-align:top}
+  .tbl-doc.tbl-recv td.col-jobstatus{vertical-align:top}
+  .tbl-doc.tbl-recv td.status-cell .st-sys,.tbl-doc.tbl-recv td.col-jobstatus .js-txt{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;max-width:100%;text-align:left;line-height:1.45;word-break:break-word;color:var(--text)}   /* ⏰ เวลา+ข้อความ เริ่มบรรทัดเดียวกัน · สูงสุด 2 บรรทัด + ... */
   .tbl-doc.tbl-recv th:nth-child(1),.tbl-doc.tbl-recv td:nth-child(1){width:52px}   /* JOB NO */
   .tbl-doc.tbl-recv th:nth-child(2),.tbl-doc.tbl-recv td:nth-child(2){width:62px}   /* เร่งด่วน */
-  .tbl-doc.tbl-recv th:nth-child(3),.tbl-doc.tbl-recv td:nth-child(3){width:98px}   /* บริษัท */
+  .tbl-doc.tbl-recv th:nth-child(3),.tbl-doc.tbl-recv td:nth-child(3){width:86px}   /* บริษัท */
   .tbl-doc.tbl-recv th:nth-child(4),.tbl-doc.tbl-recv td:nth-child(4){width:72px}   /* ประเภทงาน */
   /* แยกคอลัมน์: รายละเอียด/ท่านำเข้า(5) + 📄 เลขใบขน(6) · ซ่อน ท่านำเข้า(col-term 7) + ผู้สั่งงาน(col-ordby 10) เฉพาะ desktop (มือถือคงเดิม) */
-  .tbl-doc.tbl-recv th:nth-child(5),.tbl-doc.tbl-recv td:nth-child(5){width:156px} /* 📝 รายละเอียดงาน / ท่านำเข้า */
+  .tbl-doc.tbl-recv th:nth-child(5),.tbl-doc.tbl-recv td:nth-child(5){width:128px} /* 📝 รายละเอียดงาน / ท่านำเข้า */
   .tbl-doc.tbl-recv th:nth-child(6),.tbl-doc.tbl-recv td:nth-child(6){width:104px} /* 📄 เลขใบขน */
   .tbl-doc.tbl-recv .col-term{display:none}
   .tbl-doc.tbl-recv th:nth-child(8),.tbl-doc.tbl-recv td:nth-child(8){width:42px}   /* จำนวน */
-  .tbl-doc.tbl-recv th:nth-child(9),.tbl-doc.tbl-recv td:nth-child(9){width:106px}  /* ชิปปิ้ง /ผู้สั่งงาน */
+  .tbl-doc.tbl-recv th:nth-child(9),.tbl-doc.tbl-recv td:nth-child(9){width:96px}  /* ชิปปิ้ง /ผู้สั่งงาน */
   .tbl-doc.tbl-recv .col-ordby{display:none}
   .tbl-doc.tbl-recv th:nth-child(11),.tbl-doc.tbl-recv td:nth-child(11){width:76px}  /* เวลา */
-  .tbl-doc.tbl-recv th:nth-child(12),.tbl-doc.tbl-recv td:nth-child(12){width:94px} /* สถานะเอกสาร */
-  .tbl-doc.tbl-recv th:nth-child(13),.tbl-doc.tbl-recv td:nth-child(13){width:78px;padding-left:8px;padding-right:8px}  /* LEAD TIME */
-  .tbl-doc.tbl-recv th:nth-child(14),.tbl-doc.tbl-recv td:nth-child(14){width:196px} /* การจัดการ */
+  .tbl-doc.tbl-recv th:nth-child(12),.tbl-doc.tbl-recv td:nth-child(12){width:185px} /* สถานะเอกสาร (⏰ ระบบ · 2 บรรทัด) */
+  .tbl-doc.tbl-recv th:nth-child(13),.tbl-doc.tbl-recv td:nth-child(13){width:185px} /* 🚢 สถานะงาน (⏰ งาน · 2 บรรทัด) */
+  .tbl-doc.tbl-recv th:nth-child(14),.tbl-doc.tbl-recv td:nth-child(14){width:78px;padding-left:8px;padding-right:8px}  /* LEAD TIME */
+  .tbl-doc.tbl-recv th:nth-child(15),.tbl-doc.tbl-recv td:nth-child(15){width:196px} /* การจัดการ */
   /* 🟡 รอรับงาน (NEW): รวม รายละเอียดงาน + สถานที่รับ/ส่ง เป็นช่องเดียว (col-jdesc) 2 บรรทัด → ขยาย col-jdesc(5) — เฉพาะ NEW desktop */
   .tbl-doc.tbl-new{min-width:1132px}   /* 🟡 รอรับงาน: +คอลัมน์ 📄 เลขใบขน */
   .tbl-doc.tbl-new th:nth-child(1),.tbl-doc.tbl-new td:nth-child(1){width:52px}    /* JOB NO */
@@ -735,6 +752,8 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc td.col-jdesc.jd-merged .jd-pickup{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;color:#94a3b8;font-size:11px;margin-top:1px}
   .tbl-doc td.td-actions .row-act{flex-shrink:0}
   .tbl-doc td.td-actions{white-space:normal;display:flex;flex-wrap:wrap;justify-content:flex-end;align-content:center;gap:5px;padding-top:8px;padding-bottom:8px;padding-left:2px;padding-right:2px}
+  .tbl-doc.tbl-recv td.td-actions{display:flex !important;flex-wrap:wrap !important;justify-content:flex-start !important;align-items:center !important;align-content:center !important;gap:8px !important;padding-left:4px !important;padding-right:6px !important;text-align:left !important}   /* 🔵 ดำเนินตรวจปล่อย: ปุ่มการจัดการชิดซ้ายสุด (self-contained !important) · เว้นซ้าย 4px · gap 8px · กึ่งกลางแนวตั้ง */
+  .tbl-doc.tbl-recv td.td-actions .row-act{margin-left:0 !important;margin-right:0 !important}   /* กันปุ่มถูก margin เดิมดันตำแหน่ง */
   .tbl-doc td.td-actions .row-act{margin-left:0}
 @media (prefers-reduced-motion:reduce){ *{animation-duration:.001s !important;transition-duration:.001s !important} }
 </style>
@@ -789,7 +808,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver">SHIPPING AIR · v.10</div>
+    <div class="sidebar-ver">SHIPPING AIR · v.11</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -841,7 +860,9 @@ const S = {
   page: 1,
   pageSize: 50,
   _rt: null,
-  _searchTimer: null
+  _searchTimer: null,
+  jobStatus: {},   // docId → ข้อความ Timeline การดำเนินงานล่าสุด (สถานะงาน) · '' = ยังไม่มี timeline
+  sysStatus: {}    // docId → {t,m} Timeline ระบบล่าสุด (สถานะเอกสาร · desktop RECEIVED) · null = ไม่มี
 };
 
 /* ---------------- helpers ---------------- */
@@ -1140,6 +1161,7 @@ async function logDoc(documentId, action, doc_status, note){
       app_code: WORK_APP_CODE, document_id: documentId, action, doc_status,
       user_id: (S.user&&S.user.id)||null, user_name: uname(), note: note||null
     });
+    if(documentId && action!=='status' && action!=='doc_status') delete S.sysStatus[documentId];   // ✚ invalidate สถานะเอกสาร → renderDocView(RECEIVED) ดึงล่าสุดใหม่ (ทันที ไม่ต้อง refresh)
   }catch(e){ console.warn('[log]', e); }
 }
 function subscribeRealtime(){
@@ -1502,7 +1524,7 @@ function docRow(d){
     <td data-l="JOB NO" title="${esc(d.doc_no||'')}${d.job_nj?`\nNJ: ${esc(d.job_nj)}`:''}"><div class="job-no">${esc((d.doc_no||'—').split('-').pop())}</div></td>
     <td data-l="เร่งด่วน"><span class="prio prio-${prio}">${esc(prioLabel(prio))}</span></td>
     <td data-l="บริษัท" class="company-cell"><span class="company" title="${esc(d.company||'')}">${esc(d.company||'—')}</span></td>
-    <td data-l="ประเภทงาน"><span class="cat-cell">${esc(d.category||'—')}</span></td>
+    <td data-l="ประเภทงาน" class="col-cat"><span class="cat-cell">${esc(d.category||'—')}</span></td>
     ${S.view!=='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc${S.view==='RECEIVED'?' jd-merged':''}" title="${esc(d.description||'')}${(S.view==='RECEIVED'&&d.import_terminal)?' / '+esc(termLabel(d.import_terminal)):''}">${S.view==='RECEIVED'
       ? `<span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.import_terminal?`<span class="jd-pickup">${esc(termLabel(d.import_terminal))}</span>`:''}`
       : `${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}`}</td>`:''}
@@ -1518,12 +1540,13 @@ function docRow(d){
       ? `<span class="ucol-desk">${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}<span class="u-ordby">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</span></span><span class="ucol-mob">${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}</span>`
       : `${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}`}</td>
     ${S.view==='RECEIVED'?`<td data-l="ผู้สั่งงาน" class="col-ordby">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</td>`:''}
-    ${S.view!=='NEW'?`<td data-l="เวลา">${(S.view==='NEW'||S.view==='RECEIVED')
+    ${S.view!=='NEW'?`<td data-l="เวลา" class="col-time">${(S.view==='NEW'||S.view==='RECEIVED')
       ? `<span class="tcol-desk">${d.shipping_date?esc(fmtDate(d.shipping_date)):'<span style="color:var(--muted)">—</span>'}${d.pickup_time?`<br><span class="tcol-t">${esc(d.pickup_time)}</span>`:''}</span><span class="tcol-mob">${d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>'}</span>`
       : (d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>')}</td>`:''}
-    <td data-l="สถานะ" class="status-cell"><span class="st-badge" title="${esc(statusTxt)}" style="background:${m.color}1f;color:${m.color};border:1px solid ${m.color}55"><span class="st-txt">${esc(statusTxt)}</span></span></td>
+    <td data-l="สถานะ" class="status-cell">${S.view==='RECEIVED'?`<span class="st-sys" title="${esc(_sysStatusOf(d))}">${_stCellHTML(S.sysStatus[d.id])}</span>`:''}<span class="st-badge" title="${esc(statusTxt)}" style="background:${m.color}1f;color:${m.color};border:1px solid ${m.color}55"><span class="st-txt">${esc(statusTxt)}</span></span></td>
+    ${S.view==='RECEIVED'?`<td data-l="สถานะงาน" class="col-jobstatus" title="${esc(_jobStatusOf(d))}"><span class="js-txt">${_stCellHTML(S.jobStatus[d.id])}</span></td>`:''}
     <td data-l="LEAD TIME" class="col-lead">${(()=>{ const lt=_docLeadtime(d); return lt?`<span class="lt-badge ${lt.over?'lt-over':'lt-ok'}">${lt.over?'🔴':'🟢'} ${esc(lt.text)}</span>`:'<span style="color:var(--muted)">—</span>'; })()}</td>
-    <td class="td-actions">${acts}</td>
+    <td class="td-actions"${(S.view==='RECEIVED'&&!_vpMobile())?' style="display:flex;justify-content:flex-start;align-items:center;gap:8px;padding-left:4px;padding-right:6px"':''}>${acts}</td>
     ${d.job_nj?`<td data-l="เลขใบขน" class="m-extra" title="${esc(d.job_nj||'')}">${esc(_bolDisp(d.job_nj))}</td>`:''}
     <td data-l="USER เปิดงาน" class="m-extra">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</td>
   </tr>`;
@@ -1585,8 +1608,8 @@ function renderDocView(){
       <div class="panel" style="overflow-x:auto">
         <table class="tbl tbl-doc${S.view==='all'?' tbl-allview':''}${S.view==='RECEIVED'?' tbl-recv':''}${(S.view==='NEW'||S.view==='COMPLETED_TODAY'||S.view==='POSTPONED')?' tbl-nolead':''}${S.view==='NEW'?' tbl-new':''}">
           <thead><tr>
-            <th>JOB NO</th><th>เร่งด่วน</th><th>บริษัท</th><th>ประเภทงาน</th>
-            ${S.view!=='NEW'?`<th class="col-jdesc">${S.view==='RECEIVED'?'📝 รายละเอียดงาน / ท่านำเข้า':'📝 รายละเอียดงาน'}</th>`:''}${S.view==='RECEIVED'?'<th class="col-jobno">📄 เลขใบขน</th>':''}<th class="col-term">ท่านำเข้า</th><th>จำนวน</th>${S.view==='NEW'?'<th class="col-jdesc">📝 รายละเอียด / สถานที่</th>':''}${S.view==='NEW'?'<th class="col-jobno">📄 เลขใบขน</th>':''}${S.view==='NEW'?'<th>เวลา</th>':''}<th>${S.view==='RECEIVED'?'ชิปปิ้ง /ผู้สั่งงาน':'USER'}</th>${S.view==='RECEIVED'?'<th class="col-ordby">ผู้สั่งงาน</th>':''}${S.view!=='NEW'?'<th>เวลา</th>':''}<th>สถานะเอกสาร</th><th class="col-lead">LEAD TIME</th><th class="th-actions">การจัดการ</th>
+            <th>JOB NO</th><th>เร่งด่วน</th><th>บริษัท</th><th class="col-cat">ประเภทงาน</th>
+            ${S.view!=='NEW'?`<th class="col-jdesc">${S.view==='RECEIVED'?'📝 รายละเอียดงาน / ท่านำเข้า':'📝 รายละเอียดงาน'}</th>`:''}${S.view==='RECEIVED'?'<th class="col-jobno">📄 เลขใบขน</th>':''}<th class="col-term">ท่านำเข้า</th><th>จำนวน</th>${S.view==='NEW'?'<th class="col-jdesc">📝 รายละเอียด / สถานที่</th>':''}${S.view==='NEW'?'<th class="col-jobno">📄 เลขใบขน</th>':''}${S.view==='NEW'?'<th>เวลา</th>':''}<th>${S.view==='RECEIVED'?'ชิปปิ้ง /ผู้สั่งงาน':'USER'}</th>${S.view==='RECEIVED'?'<th class="col-ordby">ผู้สั่งงาน</th>':''}${S.view!=='NEW'?'<th class="col-time">เวลา</th>':''}<th>${S.view==='RECEIVED'?'🚢 สถานะชิปปิ้ง':'สถานะเอกสาร'}</th>${S.view==='RECEIVED'?'<th class="col-jobstatus">👤 สถานะลูกค้า</th>':''}<th class="col-lead">LEAD TIME</th><th class="th-actions">การจัดการ</th>
           </tr></thead>
           <tbody>${rows.length===0
             ? `<tr><td colspan="${S.view==='RECEIVED'?13:12}"><div class="empty"><div class="icon-lg"><i data-lucide="inbox"></i></div><div>ไม่มีเอกสารในมุมมองนี้</div></div></td></tr>`
@@ -1602,6 +1625,12 @@ function renderDocView(){
     </div>`;
   // apply status pill filter for 'all'
   refreshIcons($('view-root'));   // scoped: สแกนไอคอนเฉพาะ view-root ไม่ต้อง scan ทั้งหน้า
+  // ✚ สถานะงาน (📋 งาน) + สถานะเอกสาร (🖥 ระบบ): โหลด Timeline ล่าสุดของ RECEIVED ที่ยังไม่ cache แล้ว re-render body (async · ไม่บล็อก)
+  if(S.view==='RECEIVED'){
+    const _all=(list||[]).map(x=>x.id);
+    const _nj=_all.filter(id=>!(id in S.jobStatus)), _ns=_all.filter(id=>!(id in S.sysStatus));
+    if(_nj.length || _ns.length) Promise.all([_loadJobStatus(_nj), _loadSysStatus(_ns)]).then(()=>{ if(S.view==='RECEIVED' && $('view-root')) _renderDocBody(); });
+  }
 }
 // อัปเดตเฉพาะ tbody + paginator + ตัวเลขสรุป (ไม่ rebuild ทั้ง view-root) — ใช้ตอนค้นหา/เปลี่ยนหน้า/เปลี่ยนจำนวนแสดง
 // pills (ท่านำเข้า/สถานะ/ทั้งหมด) นับจาก base ที่ไม่รวม search/terminal → คงที่ ไม่ต้องอัปเดต
@@ -1637,6 +1666,80 @@ function docGoto(p){ S.page=Math.max(1,p); _renderDocBody(); window.scrollTo(0,0
 // ✚ ตัวกรอง Customer / CS / ช่วงวันที่ — client-side ล้วน · re-render เฉพาะ body (ไม่ query Supabase · ไม่ render ทั้งหน้า)
 function _customerList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.company) s.add(d.company); }); return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b),'th')); }
 function _csList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.creator_name) s.add(d.creator_name); }); return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b),'th')); }
+/* ✚ สถานะงาน (คอลัมน์ RECEIVED) — ดึงจาก Timeline การดำเนินงานล่าสุด (action='status' · ไม่ SYSTEM · ไม่ใช่ entry รูป) เท่านั้น · ไม่แตะ doc_status/สถานะเอกสาร */
+function _jobStatusText(msg){ return String(msg||'').split('\n').map(s=>s.trim()).filter(s=>s && !extractImageUrls(s).length && !/^รูปภาพประกอบ\s*:?\s*$/.test(s)).join(' '); }
+function _jobStatusOf(d){ const v = d && S.jobStatus[d.id]; return (v && v.m) ? ('⏰ '+(v.t?v.t+' ':'')+v.m) : ''; }   // รูปแบบ: ⏰ HH:mm ข้อความสถานะ (ไม่มีวันที่/ผู้บันทึก)
+// HTML: ⏰ เวลา + ข้อความ เริ่มบรรทัดเดียวกัน · wrap สูงสุด 2 บรรทัด (clamp ที่ container) — display-only · ไม่แตะ logic/sort/search
+function _stCellHTML(v){ return (v && v.m) ? ('⏰ '+esc((v.t?v.t+' ':'')+v.m)) : '<span style="color:var(--muted)">—</span>'; }
+/* ✚ สถานะเอกสาร (desktop RECEIVED) — ดึงจาก Timeline ระบบล่าสุด (🖥 ระบบ = action ∉ {status, doc_status}) เท่านั้น · mirror msg แบบเดียวกับ _saSysTimeline */
+const _SYS_LABELS = { created:'สร้างงานใหม่', received:'รับงาน', postponed:'เลื่อนตรวจปล่อย', reopened:'กลับมาดำเนินตรวจปล่อย', cleared:'ตรวจปล่อยเสร็จ', completed:'งานเสร็จแล้ว', doc_completed:'งานเสร็จแล้ว', edited:'แก้ไขข้อมูลงาน', reassign:'มอบหมายงาน' };
+function _sysMsg(l){
+  const note=String(l.note||'');
+  const imgUrls=extractImageUrls(note);
+  if(imgUrls.length && note){   // มีรูปแนบ → ใช้ note จริง (ตัดบรรทัด URL/label) เหมือนหน้าต่าง Timeline ระบบ
+    const clean=note.split('\n').map(s=>s.trim()).filter(x=>x && !imgUrls.some(u=>x.includes(u)) && !/^รูปภาพประกอบ\s*:?\s*$/.test(x)).join(' ');
+    if(clean) return clean;
+  }
+  return _SYS_LABELS[l.action] || note || l.action || '—';
+}
+function _sysStatusOf(d){ const v = d && S.sysStatus[d.id]; return (v && v.m) ? ('⏰ '+(v.t?v.t+' ':'')+v.m) : ''; }
+/* ✚ กรอง Timeline ระบบ เฉพาะผู้บันทึก Role = SHIPPING (map ชื่อผู้บันทึก → users) */
+function _userIsShipping(u){
+  if(!u) return false;
+  const role=String(u.role||'').toUpperCase().trim();
+  if(role==='ADMIN'||role==='ADMIN_MID'||role==='SUPER_ADMIN') return false;   // admin ไม่นับเป็น shipping (mirror isShippingStaff)
+  return [u.role,u.department,u.dept,u.position,u.team].some(x=>String(x||'').toUpperCase().includes('SHIPPING'));
+}
+let _shipNamesCache=null;
+async function _shipNames(){   // Set ชื่อ (full_name/username/display_user) ของ user SHIPPING · ดึงเฉพาะฟิลด์จำเป็น (ไม่ดึงรหัสผ่าน) · cache ต่อ session
+  if(_shipNamesCache) return _shipNamesCache;
+  let src = (S.users&&S.users.length) ? S.users : null;
+  if(!src){ try{ const { data } = await sb.from('users').select('username,full_name,display_user,department,role').eq('app_code',LOGIN_APP_CODE); src=data||[]; }catch(e){ console.warn('[shipNames]', e); src=[]; } }
+  const s=new Set();
+  src.forEach(u=>{ if(_userIsShipping(u)){ [u.full_name,u.username,u.display_user].forEach(n=>{ const t=String(n||'').trim(); if(t) s.add(t); }); } });
+  _shipNamesCache=s; return s;
+}
+async function _loadSysStatus(ids){
+  const need=[...new Set((ids||[]).filter(Boolean))].filter(id=>!(id in S.sysStatus));
+  if(!need.length) return;
+  const ship=await _shipNames();                          // ใช้ชุด SHIPPING เดียวกับหน้าต่าง 🔄 Timeline ระบบ
+  for(let i=0;i<need.length;i+=200){
+    const chunk=need.slice(i,i+200);
+    try{
+      const { data } = await sb.from(LOG_TABLE).select('document_id,action,note,user_name,created_at')
+        .eq('app_code',WORK_APP_CODE).in('document_id',chunk)
+        .neq('action','status').neq('action','doc_status')   // 🔄 Timeline ระบบ = ยกเว้น status(งาน) + doc_status(สถานะเอกสาร-ปุ่ม) — เหมือนหน้าต่าง
+        .order('created_at',{ascending:false});               // ล่าสุดก่อน → entry แรกที่ผ่าน filter = แถวล่างสุดที่หน้าต่างแสดง
+      const seen={};
+      (data||[]).forEach(l=>{ const did=l.document_id; if(!did || seen[did]) return;
+        const nm=String(l.user_name||'').trim();
+        if(!nm || nm==='SYSTEM' || !ship.has(nm)) return;    // filter เดียวกับหน้าต่าง (เฉพาะผู้บันทึก SHIPPING) → คอลัมน์ = รายการสุดท้ายที่แสดงจริง
+        seen[did]=1; S.sysStatus[did]={ t:fmtTime(l.created_at), m:_sysMsg(l) };   // _sysMsg = ข้อความที่หน้าต่างแสดงเป๊ะ
+      });
+    }catch(e){ console.warn('[sysStatus]', e); }
+    chunk.forEach(id=>{ if(!(id in S.sysStatus)) S.sysStatus[id]=null; });
+  }
+}
+async function _loadJobStatus(ids){
+  const need=[...new Set((ids||[]).filter(Boolean))].filter(id=>!(id in S.jobStatus));
+  if(!need.length) return;
+  for(let i=0;i<need.length;i+=200){
+    const chunk=need.slice(i,i+200);
+    try{
+      const { data } = await sb.from(LOG_TABLE).select('document_id,note,user_name,created_at')
+        .eq('app_code',WORK_APP_CODE).eq('action','status').in('document_id',chunk)
+        .order('created_at',{ascending:false});   // ล่าสุดก่อน → entry ที่ผ่านเงื่อนไขตัวแรกของแต่ละงาน = ล่าสุด
+      const seen={};
+      (data||[]).forEach(l=>{ const did=l.document_id; if(seen[did]) return;
+        if(String(l.user_name||'')==='SYSTEM') return;          // ห้าม Timeline ระบบ
+        if(extractImageUrls(l.note).length) return;             // ห้าม entry รูป (= Document timeline)
+        const txt=_jobStatusText(l.note); if(!txt) return;
+        seen[did]=1; S.jobStatus[did]={ t:fmtTime(l.created_at), m:txt };   // เก็บ เวลา(HH:mm) + ข้อความ ของ Timeline ล่าสุด
+      });
+    }catch(e){ console.warn('[jobStatus]', e); }
+    chunk.forEach(id=>{ if(!(id in S.jobStatus)) S.jobStatus[id]=null; });   // งานที่ไม่มี timeline → null (แสดง —)
+  }
+}
 function docSetCustomer(v){ S.filters.customer=v||''; S.page=1; _renderDocBody(); }
 function docSetCS(v){ S.filters.cs=v||''; S.page=1; _renderDocBody(); }
 function docSetDateFrom(v){ S.filters.dateFrom=v||''; S.page=1; _renderDocBody(); }
@@ -1646,7 +1749,7 @@ function docClearDates(){
   const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
   _renderDocBody();
 }
-async function docRefresh(){ await loadDocuments(); renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
+async function docRefresh(){ await loadDocuments(); S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
 /* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
 const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
 function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
@@ -1756,7 +1859,7 @@ async function exportExcel(){
     const toX = v => { if(!v) return null; const d=(v instanceof Date)?v:new Date(v); if(isNaN(d.getTime())) return null; const l=new Date(d.getTime()-d.getTimezoneOffset()*60000); return (l.getTime()-_epoch)/86400000; };
     const dOnlyX = s => { if(!s) return null; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return (Date.UTC(+m[1],+m[2]-1,+m[3])-_epoch)/86400000; };
 
-    const HEADERS = ['ลำดับ','JOB NO','เลขใบขน','บริษัท','ประเภทงาน','รายละเอียด','ท่านำเข้า','จำนวน','ความเร่งด่วน','สถานที่รับ / ส่ง','วันที่ รับ/ส่ง','เวลา','สร้างเมื่อ','รับงานเมื่อ','ตรวจปล่อยเสร็จ','ปิดงานเมื่อ','สถานะเอกสาร','สถานะล่าสุด','ผู้รับผิดชอบ','ผู้สร้าง'];
+    const HEADERS = ['ลำดับ','JOB NO','เลขใบขน','บริษัท','ประเภทงาน','รายละเอียด','ท่านำเข้า','จำนวน','ความเร่งด่วน','สถานที่รับ / ส่ง','วันที่ รับ/ส่ง','เวลา','สร้างเมื่อ','รับงานเมื่อ','ตรวจปล่อยเสร็จ','ปิดงานเมื่อ','สถานะเอกสาร','สถานะงาน','สถานะล่าสุด','ผู้รับผิดชอบ','ผู้สร้าง'];
     const YELLOW_HEADER = new Set([10,11,12,13,14,15]);   // คอลัมน์วันที่/เวลา = header เหลือง
     const DATETIME_COLS = new Set([12,13,14,15]);          // dd/mm/yyyy hh:mm
     const DATEONLY_COLS = new Set([10]);                   // dd/mm/yyyy
@@ -1771,9 +1874,10 @@ async function exportExcel(){
     const sText  = { font:{ name:FONT, sz:FS, color:{rgb:'FF111827'} }, fill:{ patternType:'solid', fgColor:{rgb:'FFF9FAFB'} }, alignment:{ horizontal:'center', vertical:'center' }, border };
     const sDate  = { font:{ name:FONT, sz:FS, color:{rgb:'FF111827'} }, fill:{ patternType:'solid', fgColor:{rgb:'FFF9FAFB'} }, alignment:{ horizontal:'center', vertical:'center' }, numFmt:'dd/mm/yyyy hh:mm', border };
     const sDay   = { font:{ name:FONT, sz:FS, color:{rgb:'FF111827'} }, fill:{ patternType:'solid', fgColor:{rgb:'FFF9FAFB'} }, alignment:{ horizontal:'center', vertical:'center' }, numFmt:'dd/mm/yyyy', border };
-    const COL_W = [{wch:6},{wch:16},{wch:20},{wch:26},{wch:13},{wch:20},{wch:16},{wch:9},{wch:12},{wch:20},{wch:14},{wch:9},{wch:19},{wch:19},{wch:19},{wch:19},{wch:16},{wch:30},{wch:16},{wch:16}];
+    const COL_W = [{wch:6},{wch:16},{wch:20},{wch:26},{wch:13},{wch:20},{wch:16},{wch:9},{wch:12},{wch:20},{wch:14},{wch:9},{wch:19},{wch:19},{wch:19},{wch:19},{wch:16},{wch:30},{wch:30},{wch:16},{wch:16}];
 
     const data = [HEADERS];
+    await _loadJobStatus(list.map(d=>d.id));   // ✚ สถานะงาน (Timeline การดำเนินงานล่าสุด) สำหรับ export
     let item = 1;
     for(const d of list){
       data.push([
@@ -1794,6 +1898,7 @@ async function exportExcel(){
         toX(d.cleared_at),
         toX(d.completed_at),
         stMeta(d.doc_status).label,
+        (S.jobStatus[d.id] && S.jobStatus[d.id].m) || '',
         d.card_status || '',
         d.assigned_name || '',
         d.creator_name || ''
@@ -2728,6 +2833,7 @@ async function _saAddSave(){
     document.getElementById('sa-v2-status')?.remove();
     toast('บันทึกสถานะลง Timeline แล้ว ✅','success');
     _saLoadTimeline(id);
+    S.jobStatus[id] = { t:fmtTime(createdAt), m:_jobStatusText(note) };   // ✚ อัปเดตคอลัมน์สถานะงานทันที (⏰ เวลา + ข้อความ · entry ที่เพิ่ง add = ล่าสุด)
     _saRefreshList();
   }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||e),'error'); }
 }
@@ -2870,6 +2976,7 @@ async function _saSaveStatusWithImage({ id, text, files, complete }){
       user_id:(S.user&&S.user.id)||null, user_name: uname(), note, created_at: now
     });
     if(logErr) throw logErr;
+    if(complete) delete S.sysStatus[id];   // ✚ doc_completed อยู่ใน Timeline ระบบ → invalidate สถานะเอกสาร (อัปเดตทันที)
     const update = { card_status: text, note, updated_at: now };
     if(complete){ update.doc_status=completeStatus; update.completed_at=now; }
     const { error: docErr } = await sb.from(DOC_TABLE).update(update).eq('app_code',WORK_APP_CODE).eq('id',id);
@@ -2942,6 +3049,7 @@ async function _saEditSave(){
     document.getElementById('sa-v2-edit')?.remove();
     toast('แก้ไข Timeline แล้ว ✅','success');
     if(_sa.docId){ if(_sa.tlMode==='doc') _saLoadDocTimeline(_sa.docId); else _saLoadTimeline(_sa.docId); }
+    if(_sa.docId) delete S.jobStatus[_sa.docId];   // ✚ invalidate → renderDocView(RECEIVED) จะดึงรายการล่าสุดที่เหลือใหม่
     _saRefreshList();
   }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||e),'error'); }
 }
@@ -2955,6 +3063,7 @@ async function _saDeleteEntry(logId){
     if(error) throw error;
     toast('ลบรายการแล้ว','success');
     if(_sa.docId){ if(_sa.tlMode==='doc') _saLoadDocTimeline(_sa.docId); else _saLoadTimeline(_sa.docId); }
+    if(_sa.docId) delete S.jobStatus[_sa.docId];   // ✚ invalidate → ดึงรายการล่าสุดที่ยังเหลือใหม่
     _saRefreshList();
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||e),'error'); }
 }
@@ -3024,7 +3133,7 @@ function _saGenericMenu(ev, id){
   if(canDeleteDoc(d)) items.push(['🗑','ลบ',`docDelete('${id}')`]);
   _saPopupMenu(ev, items);
 }
-function _saPopupMenu(ev, items){
+function _saPopupMenu(ev, items, header){
   try{ ev.stopPropagation(); }catch(_){}
   document.getElementById('sa-rowmenu')?.remove();
   const menu=document.createElement('div'); menu.id='sa-rowmenu'; menu.className='sa-rowmenu';
@@ -3032,7 +3141,7 @@ function _saPopupMenu(ev, items){
   let top=r?r.bottom+4:((ev&&ev.clientY)||140), left=r?Math.min(r.left, window.innerWidth-220):Math.max(8,((ev&&ev.clientX)||100)-105);
   left=Math.max(8, Math.min(left, window.innerWidth-220));
   menu.style.top=top+'px'; menu.style.left=left+'px';
-  menu.innerHTML=items.map(it=>`<button onclick="document.getElementById('sa-rowmenu')?.remove();${it[2]}"><span class="ic">${it[0]}</span>${it[1]}</button>`).join('');
+  menu.innerHTML=(header||'') + items.map(it=>`<button onclick="document.getElementById('sa-rowmenu')?.remove();${it[2]}"><span class="ic">${it[0]}</span>${it[1]}</button>`).join('');
   document.body.appendChild(menu);
   setTimeout(()=>{ const close=e=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('click',close); } }; document.addEventListener('click',close); },10);
 }
@@ -3047,13 +3156,21 @@ function _saRowMenu(ev, id){
 }
 // คอมเท่านั้น: RECEIVED ⋮ ที่ย้าย "📋 อัปเดตสถานะเอกสาร" เข้ามาเป็นรายการแรก (onclick/permission เดิม)
 function _saRowMenuDesktop(ev, id){
+  const d=S.docs.find(x=>x.id===id);
   const items=[
     ['✏️','แก้ไขท่านำเข้า',`openDocEdit('${id}')`],
     ['⏳','เลื่อนตรวจปล่อย',`openPostponePrompt('${id}')`]
   ];
   items.unshift(['📋','อัปเดตสถานะเอกสาร',`openDocStatusUpdate('${id}')`]);   // 📋 อัปเดตสถานะเอกสาร = รายการแรกของ ⋮ ทุก role (function เดิม)
-  if(canDeleteDoc(S.docs.find(x=>x.id===id))) items.push(['🗑','ลบ',`docDelete('${id}')`]);
-  _saPopupMenu(ev, items);
+  if(canDeleteDoc(d)) items.push(['🗑','ลบ',`docDelete('${id}')`]);
+  // ✚ ข้อมูล Lead Time + ประเภท + เวลา ด้านบนเมนู ⋮ (desktop RECEIVED) — คำนวณตอนเปิดเมนู = ค่าปัจจุบัน/realtime เสมอ
+  const lt=_docLeadtime(d);
+  const ltTxt = lt ? (lt.over?'เกินกำหนด':'ไม่เกิน') : '—';
+  const catTxt = (d&&d.category)?d.category:'—';
+  const _tp=[]; if(d&&d.shipping_date) _tp.push(fmtDate(d.shipping_date)); if(d&&d.pickup_time) _tp.push(d.pickup_time);
+  const timeTxt = _tp.length ? _tp.join(' ') : '—';
+  const header=`<div class="sa-rm-info"><div class="sa-rm-line">🕒 เวลา : <b>${esc(timeTxt)}</b></div><div class="sa-rm-line">⏱️ Lead Time : <b class="${lt&&lt.over?'lt-over':'lt-ok'}">${esc(ltTxt)}</b></div><div class="sa-rm-line">📦 ประเภท : <b>${esc(catTxt)}</b></div></div>`;
+  _saPopupMenu(ev, items, header);
 }
 /* NEW (รอรับงาน) → [✓ รับงาน] + ⋮(แก้ไข·ดูรายละเอียด·สร้างงานซ้ำ·ลบ) — ตรงตาม MASSENGER */
 function _saNewActions(d){
@@ -3094,12 +3211,15 @@ async function _saSysTimeline(id){
   el.addEventListener('click',(e)=>{ if(e.target===el) el.remove(); });
   document.body.appendChild(el);
   const wrap=document.getElementById('sa-v2-systl');
-  const labels={ created:'สร้างงานใหม่', received:'รับงาน', postponed:'เลื่อนตรวจปล่อย', reopened:'กลับมาดำเนินตรวจปล่อย', cleared:'ตรวจปล่อยเสร็จ', completed:'งานเสร็จแล้ว', doc_completed:'งานเสร็จแล้ว', edited:'แก้ไขข้อมูลงาน', reassign:'มอบหมายงาน' };
+  const labels=_SYS_LABELS;
   try{
+    const ship=await _shipNames();                 // ต้องมี users เพื่อรู้ว่าใครเป็น SHIPPING
     const { data } = await sb.from(LOG_TABLE).select('id,action,note,user_name,created_at')
       .eq('app_code',WORK_APP_CODE).eq('document_id',id).neq('action','status').neq('action','doc_status').order('created_at',{ascending:true});
-    const items=(data||[]).map(l=>({ id:l.id, when:l.created_at, msg:(labels[l.action]||l.note||l.action||'—'), note:l.note||'', who:l.user_name }));
-    if(!items.length){ if(wrap) wrap.innerHTML='<div style="color:#94A3B8">ยังไม่มีประวัติระบบ</div>'; return; }
+    const items=(data||[])
+      .filter(l=>{ const nm=String(l.user_name||'').trim(); return nm && nm!=='SYSTEM' && ship.has(nm); })   // เฉพาะผู้บันทึก Role = SHIPPING
+      .map(l=>({ id:l.id, when:l.created_at, msg:(labels[l.action]||l.note||l.action||'—'), note:l.note||'', who:l.user_name }));
+    if(!items.length){ if(wrap) wrap.innerHTML='<div style="color:#94A3B8">— ไม่มี Timeline จาก SHIPPING —</div>'; return; }
     const p=n=>String(n).padStart(2,'0'); let html='', cur='';
     items.forEach(it=>{ const dt=new Date(it.when); const dS=`${p(dt.getDate())}/${p(dt.getMonth()+1)}/${dt.getFullYear()}`; const tS=`${p(dt.getHours())}:${p(dt.getMinutes())}`;
       if(dS!==cur){ cur=dS; html+=`<div style="font-size:13px;font-weight:800;color:#60A5FA;margin:14px 0 6px">📅 วันที่ : ${dS}</div>`; }
