@@ -206,6 +206,75 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .search-bar .input{padding-left:40px}
 @media (max-width:768px){ .search-wrap-cat{margin-left:0;width:100%;flex-basis:100%} }
 
+/* ✚ ตัวกรอง Customer / CS / ช่วงวันที่ — หน้าตา (appearance) parent-agnostic ใช้ได้ทั้งแถวมือถือ .sa-filters และแถวรวม desktop .sa-toolbar · token เดียวกับ .select/.input เดิม */
+.sa-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.sa-fl-sel{width:auto;min-width:190px;max-width:100%;cursor:pointer;padding-top:6px;padding-bottom:6px}
+.sa-fl-date{display:flex;align-items:center;gap:6px;background:#0d1320;border:1px solid var(--border);border-radius:12px;padding:0 10px;color:var(--text);font-size:14px;line-height:1.5;box-sizing:border-box;transition:border .15s,box-shadow .15s}
+.sa-fl-date:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,166,114,.15)}
+.sa-fl-cal{font-size:14px;line-height:1;pointer-events:none}
+.sa-fl-arrow{color:var(--muted);font-size:13px;pointer-events:none}
+.sa-fl-d{width:auto;min-width:132px;background:transparent;border:none;border-radius:0;padding:6px 2px;margin:0;color:var(--text);font-size:14px;font-family:inherit;line-height:1.5;outline:none;box-sizing:border-box;color-scheme:dark;cursor:pointer}
+.sa-fl-d:focus{box-shadow:none;border:none}
+.sa-fl-x{background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px 7px;border-radius:8px;line-height:1;display:flex;align-items:center}
+.sa-fl-x:hover{color:var(--text);background:#1a2230}
+/* date filter: แสดงไอคอนปฏิทินของ native input (override opacity:0 ทั่วแอป) ให้คลิกเปิด picker ได้ */
+.sa-fl-d::-webkit-calendar-picker-indicator{opacity:.65;cursor:pointer}
+.sa-fl-d::-webkit-calendar-picker-indicator:hover{opacity:1}
+/* ✚ Custom dropdown (Filter Customer / CS) — trigger + panel */
+.sa-fl-dd{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#0d1320;border:1px solid var(--border);border-radius:12px;padding:6px 14px;color:var(--text);font-size:14px;font-family:inherit;line-height:1.5;box-sizing:border-box;cursor:pointer;text-align:left;min-height:35px}
+.sa-fl-dd:hover,.sa-fl-dd.open{border-color:var(--brand)}
+.sa-fl-dd.open{box-shadow:0 0 0 3px rgba(14,166,114,.15)}
+.sa-fl-dd .sa-fl-dd-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sa-fl-dd .sa-fl-dd-caret{flex-shrink:0;color:var(--muted);font-size:11px;line-height:1}
+.fldd-back{position:fixed;inset:0;z-index:10000;background:transparent}
+.fldd-panel{position:fixed;z-index:10001;background:#141B28;border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04);padding:0;max-height:320px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#2a3343 transparent}
+.fldd-panel::-webkit-scrollbar{width:6px}
+.fldd-panel::-webkit-scrollbar-track{background:transparent}
+.fldd-panel::-webkit-scrollbar-thumb{background:#2a3343;border-radius:3px}
+.fldd-panel::-webkit-scrollbar-thumb:hover{background:#3a4456}
+.fldd-item{width:100%;display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border:none;background:none;border-radius:9px;color:var(--text);font-size:14px;line-height:1.4;cursor:pointer;text-align:left}
+.fldd-item .fldd-check{flex-shrink:0;width:16px;text-align:center;color:transparent;font-weight:800}
+.fldd-item .fldd-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fldd-item:hover{background:rgba(14,166,114,.18)}
+.fldd-item.sel{background:var(--brand);color:#fff}
+.fldd-item.sel .fldd-check{color:#fff}
+/* combobox: ช่องค้นหา sticky (40px) + list + keyboard highlight + content-visibility (ลื่นแม้รายการเยอะ) */
+.fldd-search{position:sticky;top:0;z-index:2;background:#141B28;padding:6px 6px 5px}
+.fldd-input{width:100%;height:40px;box-sizing:border-box;background:#0d1320;border:1px solid var(--border);border-radius:9px;padding:0 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none}
+.fldd-input::placeholder{color:var(--muted2)}
+.fldd-input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,166,114,.15)}
+.fldd-items{padding:0 6px 6px}
+.fldd-empty{padding:16px 14px;text-align:center;color:var(--muted);font-size:13px}
+.fldd-item{content-visibility:auto;contain-intrinsic-size:auto 42px}
+.fldd-item.hi:not(.sel){background:rgba(14,166,114,.28)}
+/* ▼ ลดความสูงแถบ Filter ~30% — เฉพาะ padding บน-ล่าง (คง font/สี/radius/กว้าง/gap) · ทุกช่องสูงเท่ากัน ~35px */
+.sa-toolbar .sa-tb-search .input{padding-top:6px;padding-bottom:6px}
+.sa-tb-show .select{padding-top:6px;padding-bottom:6px}
+.sa-toolbar .sa-tb-search .search-bar svg{top:50%;transform:translateY(-50%)}   /* 🔍 กึ่งกลางแนวตั้งหลังลดความสูง */
+
+/* ✚ Desktop: รวมทุก Filter ในแถวเดียว — 🔍 ค้นหา · Customer · CS · ช่วงวันที่ · แสดง (สูงเท่ากัน · กึ่งกลางแนวตั้ง · gap 12) */
+.sa-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sa-toolbar .sa-tb-search{flex:1 1 260px;display:flex;align-items:center;min-width:220px;margin-left:0}
+.sa-toolbar .sa-tb-search .search-bar{width:100%}
+.sa-toolbar .sa-tb-cust{flex:1 1 200px;min-width:180px}
+.sa-toolbar .sa-tb-cs{flex:1 1 170px;min-width:150px}
+.sa-toolbar .sa-tb-date{flex:1 1 320px;min-width:300px}
+.sa-toolbar .sa-tb-date .sa-fl-d{flex:1 1 auto;min-width:112px;padding-left:0;padding-right:0}
+.sa-toolbar .sa-tb-show{flex:0 0 auto;min-width:110px}
+@media (min-width:1200px){                 /* Desktop: บรรทัดเดียว · ห้ามขึ้นบรรทัดใหม่ · ขนาดตามสเปก */
+  .sa-toolbar{flex-wrap:nowrap}
+  .sa-toolbar .sa-tb-search{flex:1 1 auto;min-width:420px}
+  .sa-toolbar .sa-tb-cust{flex:0 0 220px;width:220px;min-width:220px}
+  .sa-toolbar .sa-tb-cs{flex:0 0 180px;width:180px;min-width:180px}
+  .sa-toolbar .sa-tb-date{flex:0 0 340px;width:340px;min-width:340px}
+  .sa-toolbar .sa-tb-show{flex:0 0 110px;min-width:110px}
+}
+@media (max-width:768px){                   /* Mobile: เรียงลง 1 ช่อง/แถว เหมือนเดิม */
+  .sa-filters .sa-fl-sel{flex:1 1 100%;min-width:0}
+  .sa-filters .sa-fl-date{flex:1 1 100%;justify-content:space-between}
+  .sa-filters .sa-fl-d{flex:1;min-width:0}
+}
+
 /* ============ TABLES ============ */
 .panel{background:var(--panel);border:1px solid var(--border-soft);border-radius:14px;overflow:hidden}
 .tbl{width:100%;border-collapse:separate;border-spacing:0}
@@ -581,7 +650,7 @@ body:has(.modal-back.show){overflow:hidden}
   .detail-actionbar .da-btn.da-green{background:#059669;border-color:#34D399}
   /* card layout for document table on mobile */
   .tbl-doc thead{display:none}
-  .tbl-doc tbody tr{display:flex;flex-direction:column;background:#0F172A;border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:12px;padding:12px 14px;content-visibility:auto;contain-intrinsic-size:180px}
+  .tbl-doc tbody tr{display:flex;flex-direction:column;background:#0F172A;border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:12px;padding:12px 14px;content-visibility:auto;contain-intrinsic-size:auto 180px}
   .tbl-doc tbody td{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border:none;font-size:13.5px;align-items:center}
   .tbl-doc tbody td::before{content:attr(data-l);color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
   .tbl-doc tbody td.td-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;padding-top:12px;order:99}
@@ -746,8 +815,8 @@ body:has(.modal-back.show){overflow:hidden}
 
 <div id="toast-wrap" class="toast-wrap"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
 'use strict';
 /* ============================================================
@@ -768,7 +837,7 @@ const S = {
   docs: [],
   users: [],
   loaded: false,
-  filters: { search:'', terminal:'', category:'', priority:'' },
+  filters: { search:'', terminal:'', category:'', priority:'', customer:'', cs:'', dateFrom:'', dateTo:'' },
   page: 1,
   pageSize: 50,
   _rt: null,
@@ -778,7 +847,17 @@ const S = {
 /* ---------------- helpers ---------------- */
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function refreshIcons(){ try{ window.lucide && lucide.createIcons(); }catch(_){} }
+function refreshIcons(root){
+  try{
+    if(!window.lucide || !lucide.createIcons) return;
+    if(root && root.querySelectorAll){                 // scoped: สแกนเฉพาะส่วนที่ render ใหม่
+      if(!root.querySelector('[data-lucide]')) return; // ไม่มีไอคอนค้าง → ข้าม ไม่ต้องแตะ DOM
+      lucide.createIcons({ root });
+    } else {
+      lucide.createIcons();                            // ไม่ระบุ scope → ทั้งหน้า (backward-compatible)
+    }
+  }catch(_){}
+}
 function showScreen(id){ ['loading','screen-auth','screen-app'].forEach(s=>{ const el=$(s); if(el) el.classList.toggle('hidden', s!==id); }); }
 function toast(msg, type){
   const w = $('toast-wrap'); if(!w) return;
@@ -802,6 +881,8 @@ function tomorrowYMD(){ const d=new Date(); d.setDate(d.getDate()+1); return ymd
 function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
 function fmtTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
+// ตัดข้อความ "เลขใบขน" เฉพาะการแสดงผลในตารางรายการ (≤10 ตัว = เต็ม · >10 ตัว = 10 ตัวแรก + ...) · ไม่แตะข้อมูลจริง/export/search/detail/edit
+function _bolDisp(s){ s=String(s==null?'':s); if(s.length<=10) return s; return s.replace(/\s*\n\s*/g,' ').slice(0,10)+'...'; }
 function isAdmin(){ const r=String(S.user&&S.user.role||'').toUpperCase(); return r==='ADMIN'||r==='ADMIN_MID'||r==='SUPER_ADMIN'; }
 function isSuper(){ return String(S.user&&S.user.role||'').toUpperCase()==='SUPER_ADMIN'; }
 function isShippingStaff(){ if(isAdmin()) return false; const u=S.user||{}; return [u.role,u.department,u.dept,u.position,u.team].some(x=>String(x||'').toUpperCase().includes('SHIPPING')); }
@@ -821,7 +902,9 @@ const PERM_VIEWS = {
   SHIPPING: ['NEW','RECEIVED','COMPLETED_TODAY','POSTPONED','EDIT'],
   MESSENGER: []
 };
-function canView(key){ const v=PERM_VIEWS[_permRole()]; return v==='ALL' ? true : (v||[]).includes(key); }
+// เมนู PENDING — แสดง/เข้าถึงได้ทุก role (การมองเห็นเมนู + route เท่านั้น) · ข้อมูลยังกรองตาม _visibleDocs()/VIEWS.test เดิม · สิทธิ์รับงาน/แก้ไข/ลบ/จบงาน/สถานะ/Export/Dashboard/Users ไม่เปลี่ยน
+const MENU_ALWAYS_VIEW = ['TOMORROW','ADVANCE','EDIT'];
+function canView(key){ if(MENU_ALWAYS_VIEW.includes(key)) return true; const v=PERM_VIEWS[_permRole()]; return v==='ALL' ? true : (v||[]).includes(key); }
 function isOwnOnly(){ const r=_permRole(); return r!=='ADMIN' && r!=='SUPER_ADMIN'; }
 function _firstAllowedView(){ const v=PERM_VIEWS[_permRole()]; if(v==='ALL') return 'all'; return (v&&v[0])||null; }
 // เอกสารที่ "มองเห็นได้" ตามสิทธิ์ — own-only เห็นเฉพาะงานตนเอง (assigned/creator) + งานใหม่ที่ยังไม่มีผู้รับ (ไว้กดรับงาน)
@@ -1013,13 +1096,9 @@ async function loadDocuments(){
     S.docs = data || [];
     S.loaded = true;
     // คืนค่า POSTPONED ที่ข้ามวัน → NEW (รอชิปปิ้งรับ) · เฉพาะ flow เอกสาร SHIPPING นี้เท่านั้น
-    if(await resetExpiredPostponedDocuments()){
-      let r = await sb.from(DOC_TABLE).select(DOC_COLS).eq('app_code', WORK_APP_CODE).order('created_at',{ ascending:false }).limit(1000);
-      if(r.error && /freight_paid/i.test(r.error.message||'')){
-        r = await sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code', WORK_APP_CODE).order('created_at',{ ascending:false }).limit(1000);
-      }
-      if(!r.error) S.docs = r.data || [];
-    }
+    // resetExpiredPostponedDocuments() patch S.docs local ให้แล้ว (เฉพาะแถวที่คืนค่าสำเร็จ)
+    // → #4 ไม่ต้อง refetch 1000 แถวซ้ำ (realtime จะ reconcile ให้อีกชั้น)
+    await resetExpiredPostponedDocuments();
   }catch(e){ console.error(e); }
 }
 // คืนค่าเอกสารที่เลื่อน (POSTPONED) ข้ามวันกลับเป็น NEW อัตโนมัติหลังเที่ยงคืน · ไม่แตะ CLEARED/COMPLETED · ไม่ลบ Timeline
@@ -1036,6 +1115,10 @@ async function resetExpiredPostponedDocuments(){
         ({ error } = await sb.from(DOC_TABLE).update(p).eq('id', d.id).eq('app_code', WORK_APP_CODE));
       }
       if(!error){
+        // #4 patch local S.docs ทันที (mirror ค่าที่เขียน DB) — แทนการ refetch 1000 แถว
+        //     ใช้เฉพาะฟิลด์ที่อยู่ใน DOC_COLS (delivery_status ไม่ได้ถูก select จึงไม่ตั้งใน local)
+        const _li=(S.docs||[]).findIndex(x=>x.id===d.id);
+        if(_li>=0){ S.docs[_li]={ ...S.docs[_li], doc_status:'NEW', received_at:null, assigned_user:null, assigned_name:null }; }
         // 🔄 Timeline อัตโนมัติ · บันทึกเป็น SYSTEM (ไม่ใช่ user ปัจจุบัน) · created_at = วันที่/เวลา
         try{
           await sb.from(LOG_TABLE).insert({
@@ -1186,6 +1269,8 @@ function _scheduleMidnightReset(){
 }
 async function enterApp(){
   showScreen('screen-app');
+  // #5 default pageSize ตามอุปกรณ์ — มือถือ 25 แถว (ลด DOM/ให้ scroll ลื่น) · desktop 50 แถว
+  S.pageSize = _vpMobile() ? 25 : 50;
   // header user
   $('sb-avatar').textContent = avatarText(uname());
   $('sb-name').textContent = uname();
@@ -1275,7 +1360,7 @@ function closeSidebar(){ $('sidebar').classList.remove('open'); $('sb-overlay').
 
 function setView(v){
   if(!canView(v)){ const fb=_firstAllowedView(); if(!fb){ v='__noaccess'; } else { v=fb; } }
-  S.view = v; S.page = 1; S.filters = { search:'', terminal:'', category:'', priority:'' };
+  S.view = v; S.page = 1; S.filters = { search:'', terminal:'', category:'', priority:'', customer:'', cs:'', dateFrom:'', dateTo:'' };
   closeSidebar();
   renderSidebar(); renderMobileTabbar();
   routeRender();
@@ -1306,6 +1391,10 @@ function computeRows(){
   if(f.terminal) list = list.filter(d=>(d.import_terminal||'')===f.terminal);
   if(f.category) list = list.filter(d=>(d.category||'')===f.category);
   if(f.priority) list = list.filter(d=>(d.priority||'normal')===f.priority);
+  if(f.customer) list = list.filter(d=>(d.company||'')===f.customer);        // ✚ Customer
+  if(f.cs)       list = list.filter(d=>(d.creator_name||'')===f.cs);          // ✚ CS (ผู้เปิดงาน)
+  if(f.dateFrom) list = list.filter(d=> d.created_at && ymd(d.created_at) >= f.dateFrom);  // ✚ ช่วงวันที่ (created_at)
+  if(f.dateTo)   list = list.filter(d=> d.created_at && ymd(d.created_at) <= f.dateTo);
   if(f.search){
     const q = f.search.toLowerCase();
     list = list.filter(d=> [d.doc_no,d.company,d.import_terminal,d.assigned_name,d.creator_name,d.job_nj,d.description,d.category]
@@ -1417,11 +1506,11 @@ function docRow(d){
     ${S.view!=='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc${S.view==='RECEIVED'?' jd-merged':''}" title="${esc(d.description||'')}${(S.view==='RECEIVED'&&d.import_terminal)?' / '+esc(termLabel(d.import_terminal)):''}">${S.view==='RECEIVED'
       ? `<span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.import_terminal?`<span class="jd-pickup">${esc(termLabel(d.import_terminal))}</span>`:''}`
       : `${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}`}</td>`:''}
-    ${S.view==='RECEIVED'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?esc(d.job_nj):'<span style="color:var(--muted)">—</span>'}</td>`:''}
+    ${S.view==='RECEIVED'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?esc(_bolDisp(d.job_nj)):'<span style="color:var(--muted)">—</span>'}</td>`:''}
     <td data-l="ท่านำเข้า" class="col-term">${esc(termLabel(d.import_terminal))}</td>
     <td data-l="จำนวน">${(d.quantity!=null&&d.quantity!=='')?esc(d.quantity):'—'}</td>
     ${S.view==='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc jd-merged" title="${esc(d.description||'')}${d.pickup_location?' / '+esc(d.pickup_location):''}"><span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.pickup_location?`<span class="jd-pickup">${esc(d.pickup_location)}</span>`:''}</td>`:''}
-    ${S.view==='NEW'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?esc(d.job_nj):'<span style="color:var(--muted)">—</span>'}</td>`:''}
+    ${S.view==='NEW'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?esc(_bolDisp(d.job_nj)):'<span style="color:var(--muted)">—</span>'}</td>`:''}
     ${S.view==='NEW'?`<td data-l="เวลา">${(S.view==='NEW'||S.view==='RECEIVED')
       ? `<span class="tcol-desk">${d.shipping_date?esc(fmtDate(d.shipping_date)):'<span style="color:var(--muted)">—</span>'}${d.pickup_time?`<br><span class="tcol-t">${esc(d.pickup_time)}</span>`:''}</span><span class="tcol-mob">${d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>'}</span>`
       : (d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>')}</td>`:''}
@@ -1435,7 +1524,7 @@ function docRow(d){
     <td data-l="สถานะ" class="status-cell"><span class="st-badge" title="${esc(statusTxt)}" style="background:${m.color}1f;color:${m.color};border:1px solid ${m.color}55"><span class="st-txt">${esc(statusTxt)}</span></span></td>
     <td data-l="LEAD TIME" class="col-lead">${(()=>{ const lt=_docLeadtime(d); return lt?`<span class="lt-badge ${lt.over?'lt-over':'lt-ok'}">${lt.over?'🔴':'🟢'} ${esc(lt.text)}</span>`:'<span style="color:var(--muted)">—</span>'; })()}</td>
     <td class="td-actions">${acts}</td>
-    ${d.job_nj?`<td data-l="เลขใบขน" class="m-extra">${esc(d.job_nj)}</td>`:''}
+    ${d.job_nj?`<td data-l="เลขใบขน" class="m-extra" title="${esc(d.job_nj||'')}">${esc(_bolDisp(d.job_nj))}</td>`:''}
     <td data-l="USER เปิดงาน" class="m-extra">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</td>
   </tr>`;
 }
@@ -1469,19 +1558,29 @@ function renderDocView(){
   const _titleH = `<h1>${esc(def.title)}${S.filters.terminal?` · ${esc(S.filters.terminal)}`:''}</h1>`;
   const _subTxt = `รวม ${total} รายการ${S.filters.search?` · ค้นหา "${esc(S.filters.search)}"`:''}`;
   const _refreshBtn = `<button class="btn btn-ghost btn-icon" onclick="docRefresh()" title="รีเฟรช"><i data-lucide="refresh-cw"></i></button>`;
-  const _pageSizeSel = `<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">แสดง</label><select class="select" style="width:auto;min-width:80px" onchange="docSetPageSize(this.value)">${[20,50,100,200].map(n=>`<option value="${n}" ${S.pageSize===n?'selected':''}>${n}</option>`).join('')}</select></div>`;
+  const _pageSizeSel = `<div class="sa-tb-show" style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--muted)">แสดง</label><select class="select" style="width:auto;min-width:80px" onchange="docSetPageSize(this.value)">${[20,25,50,100,200].map(n=>`<option value="${n}" ${S.pageSize===n?'selected':''}>${n}</option>`).join('')}</select></div>`;
   const _headerBlock = _dm
     ? `<div class="topbar topbar-m">${_titleH}${_refreshBtn}</div>`
     : `<div class="topbar"><div>${_titleH}<p class="sub">${_subTxt}</p></div><div class="topbar-actions"><button class="btn btn-primary" onclick="openCreate()"><i data-lucide="plus"></i> สร้างเอกสาร</button>${isAdmin()?`<button class="btn btn-secondary" onclick="exportExcel()"><i data-lucide="download"></i> Export Excel</button>`:''}${_refreshBtn}</div></div>`;
+  // ✚ ตัวควบคุมตัวกรอง (reusable) — options มาจากข้อมูลที่โหลดแล้ว (client-side) · selected อ่านจาก S.filters · onclick/onchange/id/icon/value คงเดิมทุกตัว
+  const _searchCtl = `<div class="sa-tb-search"><div class="search-bar"><i data-lucide="search"></i><input id="doc-search" class="input" placeholder="ค้นหา JOB NO / บริษัท / ท่านำเข้า / ผู้รับผิดชอบ..." value="${esc(S.filters.search)}" oninput="docSetSearch(this.value)"></div></div>`;
+  const _custCtl   = `<button type="button" class="sa-fl-sel sa-fl-dd sa-tb-cust" onclick="_flddToggle(this,'customer')"><span class="sa-fl-dd-lbl" title="${esc(S.filters.customer||'Customer ทั้งหมด')}">${esc(S.filters.customer||'Customer ทั้งหมด')}</span><span class="sa-fl-dd-caret">▾</span></button>`;
+  const _csCtl     = `<button type="button" class="sa-fl-sel sa-fl-dd sa-tb-cs" onclick="_flddToggle(this,'cs')"><span class="sa-fl-dd-lbl" title="${esc(S.filters.cs||'CS ทั้งหมด')}">${esc(S.filters.cs||'CS ทั้งหมด')}</span><span class="sa-fl-dd-caret">▾</span></button>`;
+  const _dateCtl   = `<div class="sa-fl-date sa-tb-date"><span class="sa-fl-cal" aria-hidden="true">📅</span><input type="date" class="sa-fl-d" value="${esc(S.filters.dateFrom||'')}" onchange="docSetDateFrom(this.value)" onclick="try{this.showPicker()}catch(_){}" aria-label="วันที่เริ่มต้น"><span class="sa-fl-arrow" aria-hidden="true">→</span><input type="date" class="sa-fl-d" value="${esc(S.filters.dateTo||'')}" onchange="docSetDateTo(this.value)" onclick="try{this.showPicker()}catch(_){}" aria-label="วันที่สิ้นสุด"><button type="button" class="sa-fl-x" onclick="docClearDates()" title="ล้างวันที่" aria-label="ล้างวันที่">✕</button></div>`;
+  // Desktop: รวมทุก Filter ในแถวเดียว (search + Customer + CS + วันที่ + แสดง) · Mobile: filterbar-m เดิม + แถว .sa-filters เรียงลง
   const _toolsBlock = _dm
     ? `<div class="filterbar-m"><span class="sub">${_subTxt}</span>${_pageSizeSel}</div>`
-    : `<div class="pill-row pr-tools"><div class="search-wrap-cat" style="flex:1"><div class="search-bar"><i data-lucide="search"></i><input id="doc-search" class="input" placeholder="ค้นหา JOB NO / บริษัท / ท่านำเข้า / ผู้รับผิดชอบ..." value="${esc(S.filters.search)}" oninput="docSetSearch(this.value)"></div></div>${_pageSizeSel}</div>`;
+    : `<div class="sa-toolbar">${_searchCtl}${_custCtl}${_csCtl}${_dateCtl}${_pageSizeSel}</div>`;
+  const _filtersBlock = _dm
+    ? `<div class="sa-filters">${_custCtl}${_csCtl}${_dateCtl}</div>`
+    : '';
   $('view-root').innerHTML = `
     ${_headerBlock}
     <div class="content">
       ${_dm ? '' : statusPills}
       ${_dm ? '' : termBar}
       ${_toolsBlock}
+      ${_filtersBlock}
       ${allFilterM}
       <div class="panel" style="overflow-x:auto">
         <table class="tbl tbl-doc${S.view==='all'?' tbl-allview':''}${S.view==='RECEIVED'?' tbl-recv':''}${(S.view==='NEW'||S.view==='COMPLETED_TODAY'||S.view==='POSTPONED')?' tbl-nolead':''}${S.view==='NEW'?' tbl-new':''}">
@@ -1502,7 +1601,7 @@ function renderDocView(){
       </div>
     </div>`;
   // apply status pill filter for 'all'
-  refreshIcons();
+  refreshIcons($('view-root'));   // scoped: สแกนไอคอนเฉพาะ view-root ไม่ต้อง scan ทั้งหน้า
 }
 // อัปเดตเฉพาะ tbody + paginator + ตัวเลขสรุป (ไม่ rebuild ทั้ง view-root) — ใช้ตอนค้นหา/เปลี่ยนหน้า/เปลี่ยนจำนวนแสดง
 // pills (ท่านำเข้า/สถานะ/ทั้งหมด) นับจาก base ที่ไม่รวม search/terminal → คงที่ ไม่ต้องอัปเดต
@@ -1524,7 +1623,7 @@ function _renderDocBody(){
           <button class="pg-btn" ${S.page>=totalPages?'disabled':''} onclick="docGoto(${totalPages})">»</button>`:'';
   const sub = root.querySelector('.sub');
   if(sub) sub.textContent = `รวม ${total} รายการ` + (S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
-  if(empty) refreshIcons();   // ไอคอน inbox มีเฉพาะตอนว่าง · แถวปกติใช้ emoji ไม่ต้องสแกน lucide
+  if(empty) refreshIcons(root);   // ไอคอน inbox มีเฉพาะตอนว่าง (scoped view-root) · แถวปกติใช้ emoji ไม่ต้องสแกน lucide
 }
 function docSetSearch(v){
   S.filters.search=v; S.page=1;
@@ -1535,7 +1634,96 @@ function docSetTerminal(t){ S.filters.terminal=t; S.page=1; renderDocView(); }
 function docSetStatusF(st){ S.filters.statusF=st; S.page=1; renderDocView(); }
 function docSetPageSize(n){ S.pageSize=parseInt(n,10)||50; S.page=1; _renderDocBody(); }
 function docGoto(p){ S.page=Math.max(1,p); _renderDocBody(); window.scrollTo(0,0); }
+// ✚ ตัวกรอง Customer / CS / ช่วงวันที่ — client-side ล้วน · re-render เฉพาะ body (ไม่ query Supabase · ไม่ render ทั้งหน้า)
+function _customerList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.company) s.add(d.company); }); return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b),'th')); }
+function _csList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.creator_name) s.add(d.creator_name); }); return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b),'th')); }
+function docSetCustomer(v){ S.filters.customer=v||''; S.page=1; _renderDocBody(); }
+function docSetCS(v){ S.filters.cs=v||''; S.page=1; _renderDocBody(); }
+function docSetDateFrom(v){ S.filters.dateFrom=v||''; S.page=1; _renderDocBody(); }
+function docSetDateTo(v){ S.filters.dateTo=v||''; S.page=1; _renderDocBody(); }
+function docClearDates(){
+  S.filters.dateFrom=''; S.filters.dateTo=''; S.page=1;
+  const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
+  _renderDocBody();
+}
 async function docRefresh(){ await loadDocuments(); renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
+/* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
+const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
+function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
+function _flddCur(kind){ return kind==='customer' ? (S.filters.customer||'') : (S.filters.cs||''); }
+function _flddAll(kind){ return kind==='customer' ? 'Customer ทั้งหมด' : 'CS ทั้งหมด'; }
+function _flddLabel(kind,v){ return v==='' ? _flddAll(kind) : v; }
+function _flddClose(){
+  if(!_FLDD.open) return;
+  window.removeEventListener('scroll', _flddOnScroll, true);
+  clearTimeout(_FLDD.timer);
+  try{ _FLDD.trigger.classList.remove('open'); }catch(_){}
+  try{ _FLDD.open.panel.remove(); }catch(_){}
+  try{ _FLDD.open.back.remove(); }catch(_){}
+  _FLDD.open=null; _FLDD.data=[]; _FLDD.filtered=[]; _FLDD.hi=-1; _FLDD.q='';
+}
+function _flddOnScroll(e){ if(!_FLDD.open) return; if(Date.now()-_FLDD.openAt < 400) return; if(_FLDD.open.panel.contains(e.target)) return; _flddClose(); }
+function _flddApply(trigger, kind, val){
+  const lbl = (val==='') ? _flddAll(kind) : val;
+  const el = trigger.querySelector('.sa-fl-dd-lbl'); if(el){ el.textContent=lbl; el.title=lbl; }
+  if(kind==='customer') docSetCustomer(val); else docSetCS(val);   // ← handler เดิม (re-render body-only)
+}
+function _flddPick(v){ const t=_FLDD.trigger, k=_FLDD.kind; _flddApply(t,k,v); _flddClose(); }
+function _flddRender(){
+  if(!_FLDD.open) return;
+  const q=(_FLDD.q||'').trim().toLowerCase();
+  const cur=_flddCur(_FLDD.kind);
+  const all=[''].concat(_FLDD.data);
+  const filtered = q ? all.filter(v=> _flddLabel(_FLDD.kind,v).toLowerCase().includes(q)) : all;   // case-insensitive · substring ทุกตำแหน่ง
+  _FLDD.filtered=filtered;
+  _FLDD.hi = filtered.indexOf(cur); if(_FLDD.hi<0) _FLDD.hi = filtered.length?0:-1;
+  const box=_FLDD.open.items;
+  box.innerHTML = filtered.length
+    ? filtered.map((v,i)=>{ const label=_flddLabel(_FLDD.kind,v), sel=(v===cur), hi=(i===_FLDD.hi);
+        return `<button type="button" class="fldd-item${sel?' sel':''}${hi?' hi':''}" title="${esc(label)}" data-v="${esc(v)}"><span class="fldd-check">${sel?'✓':''}</span><span class="fldd-name">${esc(label)}</span></button>`; }).join('')
+    : `<div class="fldd-empty">ไม่พบรายการ</div>`;
+  box.querySelectorAll('.fldd-item').forEach(it=>{ it.onclick=()=>_flddPick(it.getAttribute('data-v')||''); });
+  const hiEl=box.querySelector('.fldd-item.hi'); if(hiEl) hiEl.scrollIntoView({block:'nearest'});
+}
+function _flddHi(){
+  const box=_FLDD.open&&_FLDD.open.items; if(!box) return;
+  box.querySelectorAll('.fldd-item').forEach((it,i)=>{ const on=(i===_FLDD.hi); it.classList.toggle('hi', on); if(on) it.scrollIntoView({block:'nearest'}); });
+}
+function _flddKey(e){
+  const n=_FLDD.filtered?_FLDD.filtered.length:0;
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(n){ _FLDD.hi=(_FLDD.hi+1)%n; _flddHi(); } }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); if(n){ _FLDD.hi=(_FLDD.hi-1+n)%n; _flddHi(); } }
+  else if(e.key==='Enter'){ e.preventDefault(); if(n && _FLDD.hi>=0) _flddPick(_FLDD.filtered[_FLDD.hi]); }
+  else if(e.key==='Escape'){ e.preventDefault(); const t=_FLDD.trigger; _flddClose(); if(t&&t.focus) t.focus(); }
+}
+function _flddToggle(trigger, kind){
+  if(_FLDD.open && _FLDD.trigger===trigger){ _flddClose(); return; }
+  _flddClose();
+  _FLDD.kind=kind; _FLDD.trigger=trigger; _FLDD.data=_flddList(kind); _FLDD.q='';
+  _FLDD.w=window.innerWidth; _FLDD.openAt=Date.now();   // สำหรับกัน keyboard มือถือ (resize สูง/scroll transient ไม่ปิด)
+  const back=document.createElement('div'); back.className='fldd-back'; back.onclick=_flddClose;
+  const panel=document.createElement('div'); panel.className='fldd-panel';
+  panel.innerHTML=`<div class="fldd-search"><input type="text" class="fldd-input" placeholder="🔍 ค้นหา..." autocomplete="off" spellcheck="false" enterkeyhint="done"></div><div class="fldd-items"></div>`;
+  document.body.appendChild(back); document.body.appendChild(panel);
+  const input=panel.querySelector('.fldd-input'), items=panel.querySelector('.fldd-items');
+  _FLDD.open={panel,back,items};
+  input.oninput=()=>{ _FLDD.q=input.value; clearTimeout(_FLDD.timer); _FLDD.timer=setTimeout(_flddRender,170); };   // debounce ~170ms
+  input.onkeydown=_flddKey;
+  _flddRender();
+  // ตำแหน่ง + auto flip · anchor top(ลงล่าง)/bottom(ขึ้นบน) → พิมพ์ค้นหาแล้ว panel ไม่เลื่อนหลุด
+  const r=trigger.getBoundingClientRect();
+  panel.style.minWidth=r.width+'px';
+  let left=Math.min(r.left, window.innerWidth-Math.max(r.width,240)-8); left=Math.max(8,left);
+  panel.style.left=left+'px';
+  const ph=panel.offsetHeight, below=window.innerHeight-r.bottom-8, above=r.top-8;
+  if(below<ph && above>below){ panel.style.bottom=(window.innerHeight-r.top+6)+'px'; panel.style.top='auto'; }
+  else { panel.style.top=(r.bottom+6)+'px'; panel.style.bottom='auto'; }
+  trigger.classList.add('open');
+  window.addEventListener('scroll', _flddOnScroll, {passive:true, capture:true});
+  try{ input.focus({preventScroll:true}); }catch(_){ try{ input.focus(); }catch(__){} }   // มือถือ: keyboard เปิดทันที (อยู่ใน user gesture ของการแตะ)
+}
+function _flddOnResize(){ if(_FLDD.open && window.innerWidth!==_FLDD.w) _flddClose(); }   // ปิดเฉพาะ resize จริง (กว้างเปลี่ยน) · keyboard มือถือ (สูงเปลี่ยน) ไม่ปิด
+window.addEventListener('resize', _flddOnResize, {passive:true});
 
 /* ---------------- Export Excel (lazy-load xlsx-js-style · clone จาก MASSENGER) ---------------- */
 const _lazyScripts = new Map();
@@ -2095,7 +2283,7 @@ function _acHighlight(dir){
   items.forEach((it,i)=>{ if(i===_acState.selected){ it.style.background='rgba(14,166,114,.25)'; it.scrollIntoView({block:'nearest'}); } else { it.style.background=''; } });
 }
 document.addEventListener('click', e=>{ if(!_acState.dropdown) return; if(e.target===_acState.input) return; if(_acState.dropdown.contains(e.target)) return; _acClose(); });
-window.addEventListener('scroll', _acClose, { passive:true, capture:true });
+window.addEventListener('scroll', ()=>{ if(_acState.dropdown && _acState.dropdown.style.display!=='none') _acClose(); }, { passive:true, capture:true });
 window.addEventListener('resize', _acClose, { passive:true });
 async function saveForm(editId){
   const company = $('f-company').value.trim();
@@ -3308,6 +3496,18 @@ async function deleteUserConfirm(id){
 
 /* ---------------- boot ---------------- */
 async function boot(){
+  // #1 boot รอ DOM + library (Supabase) พร้อมก่อน createClient — กัน defer/network race
+  //    (ปกติ deferred scripts รันเสร็จก่อน DOMContentLoaded อยู่แล้ว · loop นี้เป็น safety net)
+  const _libT0 = Date.now();
+  while(!(window.supabase && window.supabase.createClient)){
+    if(Date.now()-_libT0 > 8000){
+      console.error('[boot] supabase library not ready');
+      showScreen('screen-auth');
+      authAlert('โหลดไลบรารีไม่สำเร็จ กรุณารีเฟรชหน้าใหม่','error');
+      return;
+    }
+    await new Promise(r=>setTimeout(r,30));
+  }
   try{
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth:{ persistSession:false, autoRefreshToken:false }
