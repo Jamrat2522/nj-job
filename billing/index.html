@@ -155,6 +155,28 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .pv-info b{color:var(--cyan2)}
 .pv-info{display:none !important}   /* ซ่อน "แสดง N–N / total" (มี Pagination อยู่แล้ว) — sc-show/sc-total ยังอยู่ใน DOM, JS เขียนค่าได้ปกติ */
 
+/* ── Filter toolbar: บรรทัดเดียว (CSS Grid · ไม่ wrap · ไม่ scroll · Desktop 1366px+) ──
+   สัดส่วนตามสเปก: Search 2fr · Customer 1fr · Status .8fr · CS .9fr · Due 1fr · Date Range 1.8fr
+   min ปรับให้พอดี 1366 (sidebar 310px) → Search ย่อก่อน · Date Range ไม่ตกบรรทัด · ไม่ลดสูง/ฟอนต์ */
+.filter-grid{
+  display:grid;
+  grid-template-columns:
+    minmax(100px, 2fr)      /* Search */
+    minmax(120px, 1fr)      /* Customer */
+    minmax(100px, 0.8fr)    /* Status */
+    minmax(100px, 0.9fr)    /* CS */
+    minmax(120px, 1fr)      /* Due Date */
+    minmax(290px, 1.8fr);   /* Date Range (ป้องกันตกบรรทัด) */
+  gap:8px; align-items:center;
+}
+/* ให้ grid คุมความกว้าง (ล้าง min/max-width เดิมของ control · fill cell · คงความสูง 38px เดิม) */
+.filter-grid > .pv-search,
+.filter-grid > .pv-select,
+.filter-grid > .date-range{ width:auto; min-width:0 !important; max-width:none !important }
+.filter-grid > .pv-info{ display:none !important }
+/* จอแคบกว่า desktop (mobile/tablet) → 2 คอลัมน์ กันล้นจอ (ไม่กระทบ 1366px+) */
+@media (max-width:1000px){ .filter-grid{ grid-template-columns:1fr 1fr } }
+
 /* Quick close — input wrapper เป็น "กรอบแดง" เด่นชัดบน toolbar
    ── สื่อสารทันทีว่านี่คือ action จบงาน (สำคัญ ต้องดูง่าย) ── */
 .quick-close-group{
@@ -276,21 +298,18 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .pv-tbl th:nth-child(13), .pv-tbl td:nth-child(13){ width:105px;text-align:center }   /* Due Date */
 .pv-tbl th:nth-child(14), .pv-tbl td:nth-child(14){ width:220px }   /* NOTE (280→220, wrap-text) */
 
-/* ─── ซ่อนคอลัมน์ Due Date — Service Charge เท่านั้น ───
-   ─ ซ่อนเฉพาะการแสดงผลในตาราง (col 14 ของ SC = Due Date)
-   ─ ไม่กระทบ: filter Due Date (#sc-fdue) / calcDueDate / Remaining / Export / DB
-   ─ ไม่กระทบ Advance Charge (ใช้ .ac-page แยก container)                       */
-.pv.sc-page .pv-tbl th:nth-child(18),
-.pv.sc-page .pv-tbl td:nth-child(18){ display:none }
+/* (ลบ rule เก่า: .pv.sc-page nth-child(18){display:none} — เดิมซ่อน Due Date ตอนอยู่ตำแหน่ง 18
+   หลังเพิ่มคอลัมน์ House B/L / Advance / ETD → ตำแหน่ง 18 กลายเป็น ETD ทำให้ ETD หาย
+   Due Date ย้ายไปตำแหน่ง 21 แสดงปกติ จึงไม่ต้องซ่อนอีก) */
 
 /* ─── CLOSE JOB view: ซ่อนคอลัมน์ NOTE — เฉพาะตอน viewMode='closed' ───
-   ─ SC: NOTE = col 15  /  AC: NOTE = col 14
+   ─ ตำแหน่งจริงหลังเพิ่มคอลัมน์: SC NOTE = col 21  /  AC NOTE = col 20
    ─ ผูกกับ class .closed-view ที่ switchPage() toggle ให้
    ─ ไม่กระทบหน้าหลัก (open) ทั้ง SC และ AC                                */
-#page-sc.closed-view .pv-tbl th:nth-child(19),
-#page-sc.closed-view .pv-tbl td:nth-child(19),
-#page-ac.closed-view .pv-tbl th:nth-child(19),
-#page-ac.closed-view .pv-tbl td:nth-child(19){ display:none }
+#page-sc.closed-view .pv-tbl th:nth-child(21),
+#page-sc.closed-view .pv-tbl td:nth-child(21){ display:none }
+#page-ac.closed-view .pv-tbl th:nth-child(20),
+#page-ac.closed-view .pv-tbl td:nth-child(20){ display:none }
 
 /* ─── Company Invoice (SC col 7) + ปรับความกว้างคอลัมน์ท้าย ให้ปุ่มจัดการไม่ถูกบีบ ───
    ─ scope #page-sc เท่านั้น → ไม่กระทบ AC · table scroll ใน .pv-tbl-wrap → ปุ่ม toolbar ไม่ถูกดัน
@@ -299,10 +318,13 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 #page-sc .pv-tbl{ min-width:2710px }
 #page-sc .pv-tbl th:nth-child(7),  #page-sc .pv-tbl td:nth-child(7) { width:175px }                    /* Company Invoice */
 #page-sc .pv-tbl th:nth-child(15), #page-sc .pv-tbl td:nth-child(15){ width:150px;text-align:left;background:transparent }  /* Contact (override shared AC-จัดการ rule) */
-#page-sc .pv-tbl th:nth-child(16), #page-sc .pv-tbl td:nth-child(16){ width:110px;text-align:center }  /* ETA */
-#page-sc .pv-tbl th:nth-child(17), #page-sc .pv-tbl td:nth-child(17){ width:110px;text-align:center }  /* ETD */
-#page-sc .pv-tbl th:nth-child(19), #page-sc .pv-tbl td:nth-child(19){ width:210px }                    /* NOTE */
-#page-sc .pv-tbl th:nth-child(20), #page-sc .pv-tbl td:nth-child(20){ width:160px;text-align:center }  /* จัดการ (ปุ่ม) */
+#page-sc .pv-tbl th:nth-child(16), #page-sc .pv-tbl td:nth-child(16){ width:130px }                    /* Case */
+#page-sc .pv-tbl th:nth-child(17), #page-sc .pv-tbl td:nth-child(17){ width:130px }                    /* Contact */
+#page-sc .pv-tbl th:nth-child(18), #page-sc .pv-tbl td:nth-child(18){ width:110px;text-align:center }  /* ETD */
+#page-sc .pv-tbl th:nth-child(19), #page-sc .pv-tbl td:nth-child(19){ width:110px;text-align:center }  /* ETA */
+#page-sc .pv-tbl th:nth-child(20), #page-sc .pv-tbl td:nth-child(20){ width:105px;text-align:center }  /* Due Date */
+#page-sc .pv-tbl th:nth-child(21), #page-sc .pv-tbl td:nth-child(21){ width:210px }                    /* NOTE */
+#page-sc .pv-tbl th:nth-child(22), #page-sc .pv-tbl td:nth-child(22){ width:160px;text-align:center }  /* จัดการ (ปุ่ม) */
 
 /* ════════ Advance Charge — 20 คอลัมน์ (ลำดับ: ...JobNo, CompanyInvoice, Case, Contact, ETA, ETD, Advance, VAT, Amount, WHT, Total, APL, Due, NOTE, จัดการ) ════════
    ─ scope #page-ac เท่านั้น → ไม่กระทบ SC · ID override ชนะกฎ shared .pv-tbl nth-child(7-15) ทั้งหมด (รวม special col15 bg/center) */
@@ -531,8 +553,8 @@ textarea.note-box:focus{border-color:var(--cyan2)}
 /* ══════════ Premium Enterprise Sidebar — Visual Proportion (CSS only · โครงสร้าง/logic เดิม 100%) ══════════
    ─ กว้างขึ้น 310px + เลื่อน .main ตาม (กันทับเนื้อหา) · header/menu/icon/badge ใหญ่ · single-accent เขียว/แดง
    ─ ref: Linear / Stripe / Supabase Studio · hover นุ่ม 180ms · scrollbar ซ่อน (กันตกหล่นจอเตี้ย) */
-.sidebar{ width:310px }
-.main{ margin-left:310px; max-width:calc(100vw - 310px) }
+.sidebar{ width:250px }
+.main{ margin-left:250px; max-width:calc(100vw - 250px) }
 /* Header เด่น */
 .sb-brand{ padding:24px 22px 16px }
 .sb-logo{ gap:14px }
@@ -569,6 +591,19 @@ textarea.note-box:focus{border-color:var(--cyan2)}
 .sb-foot-conn{ font-size:12px }
 .sb-logout{ height:44px; min-height:44px; font-size:15px; font-weight:600; border-radius:12px; margin:10px 0 0 }
 .sb-logout svg{ width:22px; height:22px }
+
+/* ══ Sidebar 250px fit — ย่อ header/spacing ให้พอดีความกว้างใหม่ · ข้อความไม่ตก/ไม่ถูกตัด · badge ครบ ══ */
+.sb-brand{ padding:20px 16px 12px }
+.sb-icon{ width:44px; height:44px; border-radius:12px }
+.sb-icon svg{ width:22px; height:22px }
+.sb-title{ font-size:18px }
+.sb-sub{ font-size:11px }
+.sb-section,.sb-section.sc,.sb-section.ac,.sb-section.tools{ padding:8px 16px 4px }
+.sb-item{ padding:0 14px; gap:10px; margin:2px 8px }
+.sb-item > span:not(.sb-badge){ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.sb-item .sb-badge{ flex-shrink:0 }
+.sb-foot{ padding:10px 10px 12px }
+.sb-foot-top{ padding:2px 6px 8px }
 .whoami-link{color:var(--cyan2);text-decoration:none;font-weight:600}
 .whoami-link:hover{text-decoration:underline}
 .role-pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em;vertical-align:middle}
@@ -937,7 +972,7 @@ html, body { min-width: 1280px; }
       </div>
       <div>
         <div class="sb-title">Billing System</div>
-        <div class="sb-sub">CLEAN BUILD · v1.0</div>
+        <div class="sb-sub">CLEAN BUILD · v1.1 · ETD✓</div>
       </div>
     </div>
   </div>
@@ -1051,7 +1086,7 @@ html, body { min-width: 1280px; }
       </div>
 
       <div class="pv-card" style="padding:10px 12px 6px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="filter-grid">
           <input type="search" id="sc-search" class="pv-search" placeholder="🔍 ค้นหา : Invoice No., Master, House B/L No., Customer Job No., DCL INV." oninput="onSearchInput('sc',this.value)">
           <select id="sc-fc" class="pv-select" onchange="setFilter('sc','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
           <select id="sc-fs" class="pv-select" onchange="setFilter('sc','status',this.value)">
@@ -1169,8 +1204,8 @@ html, body { min-width: 1280px; }
               <th>I BILLING APL</th>
               <th>Case</th>
               <th>Contact</th>
-              <th>ETA</th>
               <th>ETD</th>
+              <th>ETA</th>
               <th>Due Date</th>
               <th>NOTE</th>
               <th style="text-align:center;min-width:145px">จัดการ</th>
@@ -1235,7 +1270,7 @@ html, body { min-width: 1280px; }
       </div>
 
       <div class="pv-card" style="padding:10px 12px 6px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="filter-grid">
           <input type="search" id="ac-search" class="pv-search" placeholder="🔍 ค้นหา : Invoice No., Master, House B/L No., Customer Job No., DCL INV." oninput="onSearchInput('ac',this.value)">
           <select id="ac-fc" class="pv-select" onchange="setFilter('ac','customer',this.value)"><option value="">Customer ทั้งหมด</option></select>
           <select id="ac-fs" class="pv-select" onchange="setFilter('ac','status',this.value)">
@@ -1330,8 +1365,8 @@ html, body { min-width: 1280px; }
               <th style="width:150px">House B/L No.</th>
               <th>Case</th>
               <th>Contact</th>
-              <th>ETA</th>
               <th>ETD</th>
+              <th>ETA</th>
               <th class="r">Advance</th>
               <th class="r">VAT 7%</th>
               <th class="r">Amount</th>
@@ -1564,6 +1599,26 @@ function naturalCompareInvoice(a, b){
 
 /* Apply JS sort หลังจาก fetch — ใช้สำหรับ invoice_no natural sort
    (สำหรับ date sort ไม่ต้องเรียก เพราะ DB เรียงถูกแล้ว) */
+/* ── Export sort (in-memory · ก่อนสร้าง Workbook · ไม่แตะ query/DB/screen sort) ──
+   1) Date ↑ (เก่า→ใหม่ · น้อยอยู่บนสุด · เทียบค่า Date จริง ไม่ใช่ข้อความ)
+   2) ภายในวันเดียวกัน: Invoice No. ↑ natural (localeCompare numeric) */
+function _toDateVal(v){
+  if(v===null || v===undefined || v==='') return 0;
+  const s = String(v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return (+m[1])*10000 + (+m[2])*100 + (+m[3]);   /* YYYYMMDD → chronological (era เดียวกันจึงเรียงถูก) */
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
+}
+function _sortExportRows(rows){
+  if(!Array.isArray(rows)) return rows;
+  return rows.slice().sort((a,b)=>{
+    const d = _toDateVal(a.date) - _toDateVal(b.date);   /* 1) Date ↑ (เก่าสุดอยู่บน) */
+    if(d !== 0) return d;
+    return String(a.invoice_no||'').localeCompare(String(b.invoice_no||''), undefined, {numeric:true, sensitivity:'base'});   /* 2) Invoice ↑ natural */
+  });
+}
+
 function applyJSSort(rows, prefix){
   const st = PageState[prefix];
   if(st.sortBy === 'invoice_no'){
@@ -4024,8 +4079,8 @@ function renderSC(){
         cs:   esc(r.case||r.case_no||'-'),
         csR:  esc(r.case||r.case_no||''),
         contact: esc(contactFor(r.company_invoice)),
-        eta:  esc(fmtDateExport(r.eta)),
-        etd:  esc(fmtDateExport(r.etd)),
+        eta:  esc(fmtDateExport(r.eta) || '-'),
+        etd:  esc(fmtDateExport(r.etd) || '-'),
         due:  esc(fmtDateDisplay(calcDueDate(r.date, 60))),
         note: esc(r.note||'(ไม่มี NOTE)'),
         noteR:esc(r.note||'(ไม่มี NOTE — คลิกเพื่อเพิ่ม)'),
@@ -4079,8 +4134,8 @@ function renderSC(){
       +'<td'+tApl+'>'+e.apl+'</td>'
       +'<td'+tCs+'>'+e.cs+'</td>'
       +'<td>'+e.contact+'</td>'
-      +'<td>'+e.eta+'</td>'
       +'<td>'+e.etd+'</td>'
+      +'<td>'+e.eta+'</td>'
       +'<td><span class="due-date">'+e.due+'</span></td>'
       +'<td class="pv-note-cell" onclick="openNoteEditor(\'sc\','+r.id+')" title="'+e.noteR+'"><div class="pv-note-text '+(e.hasNote?'':'pv-note-empty')+'">'+e.note+'</div></td>'
       +'<td><div class="row-actions">'+action+'</div></td>'
@@ -4138,8 +4193,8 @@ function renderAC(){
         cs:   esc(r.case||r.case_no||'-'),
         csR:  esc(r.case||r.case_no||''),
         contact: esc(contactFor(r.company_invoice)),
-        eta:  esc(fmtDateExport(r.eta)),
-        etd:  esc(fmtDateExport(r.etd)),
+        eta:  esc(fmtDateExport(r.eta) || '-'),
+        etd:  esc(fmtDateExport(r.etd) || '-'),
         adv:  fmt(r.advance),
         vat:  fmt(r.vat),
         amt:  fmt(r.amount),
@@ -4192,8 +4247,8 @@ function renderAC(){
       +'<td>'+e.hbl+'</td>'
       +'<td'+tCs+'>'+e.cs+'</td>'
       +'<td>'+e.contact+'</td>'
-      +'<td>'+e.eta+'</td>'
       +'<td>'+e.etd+'</td>'
+      +'<td>'+e.eta+'</td>'
       +'<td class="r">'+e.adv+'</td>'
       +'<td class="r">'+e.vat+'</td>'
       +'<td class="r">'+e.amt+'</td>'
@@ -4826,7 +4881,7 @@ async function fetchAllFilteredRows(prefix){
   }
   /* ── JS sort หลัง fetch ทั้งหมด: natural numeric สำหรับ invoice_no ── */
   applyJSSort(all, prefix);
-  return all;
+  return _sortExportRows(all);   /* ลำดับ Export คงที่: Date ↑ (เก่าสุดบน) → Invoice ↑ natural */
 }
 
 async function exportCustomerZip(rows, prefix){
@@ -4890,7 +4945,7 @@ function _soaYmdToDate(ymd){
   if(!ymd) return null;
   const m = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if(!m) return null;
-  return new Date(+m[1], +m[2]-1, +m[3]);
+  return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));   /* UTC midnight → ExcelJS ไม่เพี้ยนเวลา (ไม่มี HH:mm:ss) */
 }
 function _soaAgeing(absDays){
   const a = Math.abs(absDays);
@@ -4992,9 +5047,9 @@ async function buildSOAWorkbook_SC(rows){
   for(let i=0;i<total;i++){
     const r = rows[i];
     const ymd  = dateToYMD(r.date);                 /* robust parse (ใช้ helper เดิม) */
-    const dC   = _soaYmdToDate(ymd);                /* JOB COMPLETED DATE */
-    const dE   = _soaYmdToDate(ymd);                /* Invoice Date (SC มี date เดียว) */
-    const dF   = _soaYmdToDate(calcDueDate(r.date, 30));  /* Due Date = +30 (ตรงตัวอย่าง) */
+    const dC   = _soaYmdToDate(ymd) || '-';                /* JOB COMPLETED DATE (ว่าง → "-") */
+    const dE   = _soaYmdToDate(ymd) || '-';                /* Invoice Date (SC มี date เดียว · ว่าง → "-") */
+    const dF   = _soaYmdToDate(calcDueDate(r.date, 30)) || '-';  /* Due Date = +30 (ว่าง → "-") */
     let ageL = '';
     if(dE){ ageL = Math.round((todayMid - dE) / 86400000); }
     const ageN = (ageL==='') ? '' : _soaAgeing(ageL);
@@ -5004,8 +5059,16 @@ async function buildSOAWorkbook_SC(rows){
        ─ etd → Kewill / PO Received Date (col O)
        ─ eta → Kewill / PO requested Date (col P)
        ─ ไม่ใช้ตัวแปร/cache จากไฟล์ upload — มาจาก rows ที่ fetchAllFilteredRows ดึง select('*') */
-    const dO   = new Date(2026, 6, 29);   /* O Kewill / PO Received Date = 29/07/2026 ทุกแถว (fixed) */
-    const dP   = new Date(2026, 6, 29);   /* P Kewill / PO requested Date = 29/07/2026 ทุกแถว (fixed) */
+    const _fmtSOADate = v => {
+      if(v===null || v===undefined || v==='') return '-';       /* ไม่มีข้อมูล → "-" */
+      const s = String(v).trim();
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if(!m) return '-';                                        /* ไม่ใช่รูปแบบวันที่ (เช่น "6") → "-" */
+      let y = +m[1]; if(y >= 2500) y -= 543;                     /* พ.ศ. → ค.ศ. (ถ้ามี) */
+      return new Date(Date.UTC(y, (+m[2])-1, +m[3]));           /* Date UTC midnight → numFmt mm/dd/yy · ไม่มีเวลา · Excel sort/filter ได้ */
+    };
+    const dO   = _fmtSOADate(r.etd);   /* O Kewill / PO Received Date ← ETD */
+    const dP   = _fmtSOADate(r.eta);   /* P Kewill / PO requested Date ← ETA */
     /* M PO number: ถ้าค่าเป็น 'N/A' หรือว่าง → 'Waiting Kewill / PO' · ถ้ามีข้อมูลจริง → ใช้เดิม */
     const _po  = String(r.customer_job || '').trim();
     const poM  = (_po === '' || _po.toUpperCase() === 'N/A') ? 'Waiting Kewill / PO' : r.customer_job;
@@ -5240,7 +5303,7 @@ async function _fetchSOARows(prefix){
     from += PAGE;
     await new Promise(rs=>setTimeout(rs,0));
   }
-  return out;
+  return _sortExportRows(out);   /* Export SOA: Date ↑ (เก่าสุดบน) → Invoice ↑ natural */
 }
 
 async function exportSOA(prefix){
@@ -7252,6 +7315,7 @@ async function exportExcelCase(prefix){
       return s === '' || s.toUpperCase() === 'N/A';
     };
     rows = rows.filter(r => _jobEmptyOrNA(r.customer_job));
+    rows = _sortExportRows(rows);   /* Export CASE/ZIP: Date ↑ (เก่าสุดบน) → Invoice ↑ natural (ก่อนแยกไฟล์ + รันเลข Item) */
     if(!rows.length){ toast('ไม่มีข้อมูลสำหรับ Export','warn'); return; }
 
     await ensureExcelJS();
