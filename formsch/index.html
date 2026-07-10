@@ -727,6 +727,18 @@ input[type=file]{display:none}
 .rpt-reject-wrap textarea:focus{border-color:#F6B04A;box-shadow:0 0 0 3px rgba(246,176,74,.35);}
 .rpt-wait-wrap textarea{background:rgba(33,150,243,.18);border-color:#2196F3;}
 .rpt-wait-wrap textarea:focus{border-color:#42A5F5;box-shadow:0 0 0 3px rgba(33,150,243,.35);}
+.rpt-wait-preset{width:100%;max-width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none;font-family:var(--font);cursor:pointer;transition:border .15s;color-scheme:dark;}
+.rpt-wait-preset:focus{border-color:var(--g);}
+.rpt-wait-preset option{background:var(--s2);color:var(--t1);max-height:280px;}
+.rpt-exp-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
+.rpt-exp-box{background:var(--s1);border:1px solid var(--bd);border-radius:16px;width:420px;max-width:100%;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.5);font-family:var(--font);}
+.rpt-exp-title{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:14px;text-align:center;}
+.rpt-exp-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;box-sizing:border-box;text-align:left;padding:12px 16px;margin-bottom:10px;border:1.5px solid var(--bd);border-radius:12px;background:var(--s2);color:var(--t1);font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .15s;}
+.rpt-exp-opt span{font-size:11px;font-weight:400;color:var(--t3);}
+.rpt-exp-opt:hover{border-color:var(--g);background:rgba(255,255,255,.04);}
+.rpt-exp-opt.green:hover{border-color:#3FB950;}
+.rpt-exp-cancel{width:100%;box-sizing:border-box;padding:9px;margin-top:4px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--t2);font-size:13px;font-family:var(--font);cursor:pointer;}
+.rpt-exp-cancel:hover{background:rgba(255,255,255,.05);}
 .rpt-cancel-wrap textarea{background:rgba(163,113,247,.18);border-color:#a371f7;}
 .rpt-cancel-wrap textarea:focus{border-color:#bd93f8;box-shadow:0 0 0 3px rgba(163,113,247,.35);}
 .rpt-apprdate-wrap{display:none;flex-basis:100%;width:100%;max-width:100%;margin-top:10px;text-align:left;}
@@ -9482,6 +9494,12 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     RPT_NJ.forEach(c=>{ h+=`<label class="rpt-mcb"><input type="checkbox" id="mf-${c.k}"><span>${_esc(c.h)}</span></label>`; });
     h+='</div>';
     // ── ผลการยื่นระบบ (ท้ายฟอร์ม): 4 สถานะ ⚪รอส่งข้อมูล / 🟡รออนุมัติ / 🟢อนุมัติ / 🔴ไม่อนุมัติ ──
+    const RPT_WAIT_PRESETS=[
+      {label:'📄 เอกสารไม่ครบ', text:'เอกสารไม่ครบ'},
+      {label:'📝 รอดร๊าฟฟอร์ม', text:'รอดร๊าฟฟอร์ม + จัดเอกสารส่งเซ็นประทับตราเซ็นชื่อเพื่อยื่นเข้าระบบ'},
+      {label:'📩 ส่ง Confirm', text:'ส่ง Confirm + รอเอกสารจากลูกค้าประทับตรายางเพื่อยื่นเข้าระบบ'},
+      {label:'🏢 เตรียมส่งกรมการค้า', text:'เตรียมเอกสารส่งข้อมูลเข้าระบบกรมการค้าเพื่อขอฟอร์มอนุมัติ'}
+    ];
     h+=`<div class="rpt-msec">ผลการยื่นระบบ</div>`
       +`<div class="rpt-appr">`
       +`<label class="rpt-appr-card grey"><input type="radio" name="rpt-appr" value="WAIT_SUBMIT"><span class="rpt-appr-circle"></span><span class="rpt-appr-txt">รอส่งข้อมูล</span></label>`
@@ -9492,10 +9510,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       +`</div>`
       +`<div id="mf-appr-date-wrap" class="rpt-apprdate-wrap"><label>วันที่อนุมัติจากระบบ</label><input type="date" id="mf-appr-date"></div>`
       +`<div id="mf-reject-wrap" class="rpt-reject-wrap"><textarea id="mf-reject_reason" placeholder="พิมพ์เหตุผลไม่อนุมัติ..."></textarea></div>`
-      +`<div id="mf-wait-wrap" class="rpt-reject-wrap rpt-wait-wrap"><textarea id="mf-wait_note" placeholder="พิมพ์หมายเหตุรอส่งข้อมูล..."></textarea></div>`
+      +`<div id="mf-wait-wrap" class="rpt-reject-wrap rpt-wait-wrap"><select id="mf-wait-preset" class="rpt-wait-preset"><option value="">— เลือกสถานะรอส่งข้อมูล —</option>${RPT_WAIT_PRESETS.map((p,i)=>`<option value="${i}">${_esc(p.label)}</option>`).join('')}</select><textarea id="mf-wait_note" placeholder="พิมพ์หมายเหตุรอส่งข้อมูล..."></textarea></div>`
       +`<div id="mf-cancel-wrap" class="rpt-reject-wrap rpt-cancel-wrap"><textarea id="mf-cancel_note" placeholder="พิมพ์เหตุผลยกเลิก..."></textarea></div>`;
     box.innerHTML=h;
-    box.querySelectorAll('input[name="rpt-appr"]').forEach(r=>r.addEventListener('change',()=>{ _rptApprToggle(true); _rptApprDate(); _rptAutoSubmitDate(); _rptClearFullDocsIfRejected(); _rptAutoApproveDate(); }));
+    box.querySelectorAll('input[name="rpt-appr"]').forEach(r=>r.addEventListener('change',()=>{ _rptApprToggle(true); _rptApprDate(); _rptAutoSubmitDate(); _rptClearFullDocsIfRejected(); _rptAutoApproveDate(); _rptAutoCheckDocs(); }));
     document.getElementById('mf-reject_reason')?.addEventListener('input',()=>{   // ไม่อนุมัติ: พิมพ์เหตุผล → หมายเหตุตามทันที (real-time)
       const rmk=document.getElementById('mf-remark'), ta=document.getElementById('mf-reject_reason');
       if(rmk && document.querySelector('input[name="rpt-appr"]:checked')?.value==='REJECTED') rmk.value=ta.value;
@@ -9503,6 +9521,12 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     document.getElementById('mf-wait_note')?.addEventListener('input',()=>{   // 🔵 รอส่งข้อมูล: พิมพ์หมายเหตุ → หมายเหตุตามทันที (real-time)
       const rmk=document.getElementById('mf-remark'), ta=document.getElementById('mf-wait_note');
       if(rmk && document.querySelector('input[name="rpt-appr"]:checked')?.value==='WAIT_SUBMIT') rmk.value=ta.value;
+    });
+    document.getElementById('mf-wait-preset')?.addEventListener('change',function(){   // เลือกรายการ → ใส่ข้อความเต็มในช่องหมายเหตุทันที → พิมพ์แก้ไข/ต่อท้ายได้ (ไม่บังคับ · ไม่ล้างที่พิมพ์เอง)
+      const p=RPT_WAIT_PRESETS[this.value]; if(!p) return;
+      const ta=document.getElementById('mf-wait_note');
+      if(ta){ ta.value=p.text; ta.dispatchEvent(new Event('input')); ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
+      this.value='';   // reset dropdown (เป็นตัวแทรกข้อความ ไม่ผูกค่า)
     });
     document.getElementById('mf-cancel_note')?.addEventListener('input',()=>{   // 🟣 ยกเลิก: พิมพ์เหตุผล → สถานะติดปัญหา(remark) ตามทันที (real-time)
       const rmk=document.getElementById('mf-remark'), ta=document.getElementById('mf-cancel_note');
@@ -9533,11 +9557,14 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     if(el) el.value=_rptTodayISO();                                          // วันนี้ (บันทึกตอนกดบันทึกตามปกติ)
   }
   // แก้ไขรายการ + สถานะ "ไม่อนุมัติ" (REJECTED) → ล้าง "วันที่ลูกค้าส่งเอกสารครบ" (nj_full_docs_date) ทันที · save = NULL (el.value||null)
+  // แก้ไขรายการ + สถานะ "ไม่อนุมัติ" (REJECTED) → ล้าง 2 วันที่ทันที + บันทึกเป็น NULL (el.value||null) · ไม่ดึงค่าเก่า/ไม่ตั้งวันนี้
   function _rptClearFullDocsIfRejected(){
     if(rptEditId==null) return;                                              // เฉพาะโหมดแก้ไข (เปิดใหม่/คัดลอก → ข้าม)
     if(document.querySelector('input[name="rpt-appr"]:checked')?.value!=='REJECTED') return;   // เฉพาะไม่อนุมัติ
-    const el=document.getElementById('mf-nj_full_docs_date');
+    const el=document.getElementById('mf-nj_full_docs_date');        // 1. วันที่ลูกค้าส่งเอกสารครบ
     if(el) el.value='';
+    const el2=document.getElementById('mf-nj_submit_system_date');   // 2. วันที่ NJ ส่งข้อมูลเข้าระบบ
+    if(el2) el2.value='';
   }
   // แก้ไขรายการ + สถานะ "อนุมัติจากระบบ" (APPROVED) → กรอก "วันที่อนุมัติในระบบ" = วันนี้ (ทับค่าเดิม) · save อ่านจาก picker
   function _rptAutoApproveDate(){
@@ -9548,6 +9575,12 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     if(pk) pk.value=iso;
     const dEl=document.getElementById('mf-system_approve_date'); // ฟิลด์ "วันที่อนุมัติในระบบ" แสดง DD/MM/YYYY
     if(dEl) dEl.value=_rptDate(iso);
+  }
+  // เลือก 🟡 รออนุมัติ / 🟢 อนุมัติ → ติ๊กเอกสารครบทุกช่องทันที (RPT_CUST + RPT_NJ = true) · save อ่าน el.checked เดิม · เปลี่ยนสถานะอื่นไม่ล้าง
+  function _rptAutoCheckDocs(){
+    const val=document.querySelector('input[name="rpt-appr"]:checked')?.value;
+    if(val!=='WAIT_APPROVAL' && val!=='APPROVED') return;   // เฉพาะ 2 สถานะนี้ · สถานะอื่น = ไม่แตะค่าติ๊ก
+    RPT_CHK.forEach(c=>{ const el=document.getElementById('mf-'+c.k); if(el) el.checked=true; });
   }
   // เลือกการ์ด → พื้นหลังตามสถานะ (.sel) + แสดง textarea ในการ์ดแดง + focus เมื่อเลือกไม่อนุมัติ
   function _rptApprToggle(focus){
@@ -9762,7 +9795,22 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       }
     }
   }
-  async function _rptExport(){
+  // เลือกรูปแบบก่อน Export (Desktop + Mobile) — ทั้งหมด / 2 วันล่าสุด
+  function _rptExportChoose(){
+    document.getElementById('rpt-exp-ov')?.remove();
+    const ov=document.createElement('div'); ov.id='rpt-exp-ov'; ov.className='rpt-exp-ov';
+    ov.innerHTML=`<div class="rpt-exp-box">`
+      +`<div class="rpt-exp-title">เลือกรูปแบบ Export Excel</div>`
+      +`<button type="button" class="rpt-exp-opt" data-m="all">📊 Export ทั้งหมด<span>ทุกสถานะ · ไม่จำกัดวันที่</span></button>`
+      +`<button type="button" class="rpt-exp-opt green" data-m="recent2">🟢 Export ข้อมูล 2 วันล่าสุด<span>อนุมัติจากระบบ: เฉพาะวันที่อนุมัติ = วันนี้/เมื่อวาน · สถานะอื่นครบ</span></button>`
+      +`<button type="button" class="rpt-exp-cancel">ยกเลิก</button>`
+      +`</div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+    ov.querySelector('.rpt-exp-cancel')?.addEventListener('click',()=>ov.remove());
+    ov.querySelectorAll('.rpt-exp-opt').forEach(b=>b.addEventListener('click',()=>{ const m=b.dataset.m; ov.remove(); _rptExport(m); }));
+  }
+  async function _rptExport(mode){
     if(typeof ExcelJS==='undefined'){ toast('ExcelJS ยังโหลดไม่เสร็จ','error'); return; }
     // ── รูปแบบอ้างอิงไฟล์ตัวอย่าง 100% · ตัดคอลัมน์ "เหตุผลตีกลับจากกรมการค้า" (reject_reason) ออกเฉพาะไฟล์ Export · ไม่กระทบ table/modal/DB ──
     const GOLD='FFFFC000', GREEN='FF92D050', CYAN='FF00B0F0', BLK='FF000000', SEP='FFDDEBF7';
@@ -9816,7 +9864,19 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     // เรียงตามสถานะ (เฉพาะไฟล์ Export): รอส่งข้อมูล→รออนุมัติ→ไม่อนุมัติ→อนุมัติจากระบบ→ยกเลิก
     // stable sort → ภายในแต่ละสถานะคงลำดับเดิมของระบบ · filter สร้าง array ใหม่ (ไม่ mutate RPT_DISP/หน้าจอ)
     const EXP_SS_RANK={WAIT_SUBMIT:0,WAIT_APPROVAL:1,REJECTED:2,APPROVED:3,CANCELLED:4};
-    const rows = disp.filter(r=>!r.__sep);
+    let rows = disp.filter(r=>!r.__sep);
+    if(mode==='recent2'){
+      // 🟢 Export ข้อมูล 2 วันล่าสุด: เฉพาะ APPROVED ที่ "วันที่อนุมัติในระบบ" (system_approve_date) = วันนี้ หรือ เมื่อวาน (นับจากวันปัจจุบันจริง) · เก่ากว่านั้น/ไม่มีวันที่ = ตัด · สถานะอื่นครบ
+      const _today=_rptTodayISO();
+      const _yd=new Date(); _yd.setDate(_yd.getDate()-1);
+      const _yst=_yd.getFullYear()+'-'+String(_yd.getMonth()+1).padStart(2,'0')+'-'+String(_yd.getDate()).padStart(2,'0');
+      const _keep2=new Set([_today,_yst]);
+      rows = rows.filter(r=>{
+        if(_rptSS(r)!=='APPROVED') return true;                        // สถานะอื่น = ไม่กรองวันที่
+        const d=r.system_approve_date ? String(r.system_approve_date).slice(0,10) : '';
+        return d!=='' && _keep2.has(d);                                // APPROVED: ต้องมีวันที่ + เป็นวันนี้/เมื่อวาน
+      });
+    }
     rows.sort((a,b)=>{ const pa=(EXP_SS_RANK[_rptSS(a)]??9), pb=(EXP_SS_RANK[_rptSS(b)]??9); return pa-pb; });
     let rr=2;   // ข้อมูลต่อจากหัว 1 แถว
     rows.forEach(r=>{
@@ -9876,7 +9936,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       try{ await _rptLoad(); toast('รีเฟรชข้อมูลแล้ว','success'); }
       finally{ if(b){ b.disabled=false; b.classList.remove('rpt-spin'); } }
     });
-    document.getElementById('rpt-btn-export')?.addEventListener('click',_rptExport);
+    document.getElementById('rpt-btn-export')?.addEventListener('click',_rptExportChoose);
     document.getElementById('rpt-btn-filter')?.addEventListener('click',()=>{
       rptFilterOn=!rptFilterOn;
       document.getElementById('rpt-btn-filter').classList.toggle('on',rptFilterOn);
