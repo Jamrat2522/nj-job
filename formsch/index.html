@@ -8980,6 +8980,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     {k:'nj_full_docs_date',    h:'วันที่ NJ ส่งเอกสารครบชุด',    t:'date', w:175, hT:1},
     {k:'nj_draft_form_date',   h:'วันที่ NJ ส่ง Draft FORM',     t:'date', w:175, hT:1},
     {k:'kn_confirm_form_date', h:'วันที่ KN Confirm FORM',       t:'date', w:170, hT:1},
+    {k:'customer_signed_docs_date', h:'วันที่ได้รับเอกสารลงนามจากลูกค้า', t:'date', w:210, hT:1},
     {k:'trade_ref',            h:'REF : กรมการค้า',             t:'text', w:110},
     {k:'nj_submit_system_date',h:'วันที่ NJ ส่งข้อมูลเข้าระบบ',  t:'date', w:170, hT:1},
     {k:'reject_reason',        h:'เหตุผลตีกลับจากกรมการค้า',     t:'area', w:200, hT:1},
@@ -9498,7 +9499,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       {label:'📄 เอกสารไม่ครบ', text:'เอกสารไม่ครบ'},
       {label:'📝 รอดร๊าฟฟอร์ม', text:'รอดร๊าฟฟอร์ม + จัดเอกสารส่งเซ็นประทับตราเซ็นชื่อเพื่อยื่นเข้าระบบ'},
       {label:'📩 ส่ง Confirm', text:'ส่ง Confirm + รอเอกสารจากลูกค้าประทับตรายางเพื่อยื่นเข้าระบบ'},
-      {label:'🏢 เตรียมส่งกรมการค้า', text:'เตรียมเอกสารส่งข้อมูลเข้าระบบกรมการค้าเพื่อขอฟอร์มอนุมัติ'}
+      {label:'🏢 เตรียมส่งกรมการค้า', text:'เตรียมเอกสารส่งข้อมูลเข้าระบบกรมการค้าเพื่อขอฟอร์มอนุมัติ', fillSigned:true}
     ];
     h+=`<div class="rpt-msec">ผลการยื่นระบบ</div>`
       +`<div class="rpt-appr">`
@@ -9526,6 +9527,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       const p=RPT_WAIT_PRESETS[this.value]; if(!p) return;
       const ta=document.getElementById('mf-wait_note');
       if(ta){ ta.value=p.text; ta.dispatchEvent(new Event('input')); ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
+      if(p.fillSigned){   // 🏢 เตรียมส่งกรมการค้า → เติม "วันที่ได้รับเอกสารลงนามจากลูกค้า" = วันนี้ เฉพาะเมื่อยังว่าง (ห้ามทับค่าเดิม) · แก้/ล้างเองได้
+        const sd=document.getElementById('mf-customer_signed_docs_date');
+        if(sd && !sd.value) sd.value=_rptTodayISO();
+      }
       this.value='';   // reset dropdown (เป็นตัวแทรกข้อความ ไม่ผูกค่า)
     });
     document.getElementById('mf-cancel_note')?.addEventListener('input',()=>{   // 🟣 ยกเลิก: พิมพ์เหตุผล → สถานะติดปัญหา(remark) ตามทันที (real-time)
@@ -9828,6 +9833,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       {k:'nj_full_docs_date',     h:'วันที่ลูกค้าส่งเอกสารครบ',     t:'date'},
       {k:'nj_draft_form_date',    h:'วันที่ NJ ส่ง Draft FORM(+2 Day)',    t:'date'},
       {k:'kn_confirm_form_date',  h:'วันที่ KN Confirm FORM',      t:'date'},
+      {k:'customer_signed_docs_date', h:'วันที่ได้รับเอกสารลงนามจากลูกค้า', t:'date'},
       {k:'trade_ref',             h:'REF : กรมการค้า',             t:'text'},
       {k:'nj_submit_system_date', h:'วันที่ NJ ส่งข้อมูลเข้าระบบ (+2 Day)', t:'date'},
       {k:'system_approve_date',   h:'วันที่อนุมัติในระบบ',         t:'date'},
@@ -9845,7 +9851,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const nMain=EXP_MAIN.length, nCust=CUST.length, nNj=NJ.length, nTail=EXP_TAIL.length, TOTAL=nMain+nCust+nNj+nTail; // 30
     const tailStart=nMain+nCust+nNj;   // คอลัมน์ท้ายเริ่มที่ tailStart+1
     // ความกว้างคอลัมน์ (Excel units) — main(13) + ลูกค้า(7) + NJ(6) + ท้าย(4) · แต่ละคอลัมน์คงความกว้างเดิม
-    const WID_ALL=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,14.7109375,23.28515625,16.85546875,22,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
+    const WID_ALL=[21.5703125,15,15,8.42578125,12.7109375,9.140625,9.140625,23.140625,21.42578125,21.7109375,30,14.7109375,23.28515625,16.85546875,22,117.42578125,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,17.0,3.85546875,3.5703125,4.28515625,4.140625,15.28515625,8.42578125,17.5703125,14.5703125,9.42578125,9.85546875];
     // FORM: ตัดความกว้างของกลุ่ม cust/nj (ตำแหน่ง nMain .. nMain+RPT_CUST+RPT_NJ) ออก → เหลือ main+tail (ไม่มีคอลัมน์ว่าง)
     const WID = window.rptFormMode ? WID_ALL.slice(0,EXP_MAIN.length).concat(WID_ALL.slice(EXP_MAIN.length+RPT_CUST.length+RPT_NJ.length)) : WID_ALL;
     const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
