@@ -662,6 +662,10 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc tbody td::before{content:attr(data-l);color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
   .tbl-doc tbody td.td-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;padding-top:12px;order:99}
   .tbl-doc tbody td.m-extra{order:50}   /* เลขใบขน / USER เปิดงาน — อยู่เหนือปุ่มการจัดการ */
+  /* เลขใบขน (การ์ดมือถือ): แสดงเต็ม · หลายเลขคนละบรรทัด · แถวสูงตามจำนวนอัตโนมัติ · ห้ามตัด */
+  .tbl-doc tbody td.m-bol{align-items:flex-start}
+  .tbl-doc tbody td.m-bol .bol-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0;text-align:right}
+  .tbl-doc tbody td.m-bol .bol-line{display:block;white-space:pre-wrap;overflow:visible;text-overflow:clip;word-break:break-word;overflow-wrap:anywhere;-webkit-line-clamp:unset;max-width:none;max-height:none;line-height:1.5}
   .tbl-doc tbody td.col-jdesc{display:none}   /* 📝 รายละเอียดงาน = เฉพาะ Desktop · ไม่แสดงในการ์ดมือถือ */
   .tbl-doc tbody td.col-jobno{display:none}   /* 📄 เลขใบขน = เฉพาะ Desktop · มือถือใช้ m-extra เดิม */
   .tbl-doc tbody td.col-jobstatus{display:none}   /* 🚢 สถานะงาน = เฉพาะ Desktop · มือถือคงรูปแบบเดิม ไม่เพิ่มคอลัมน์ */
@@ -808,7 +812,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver">SHIPPING AIR · v.11</div>
+    <div class="sidebar-ver">SHIPPING AIR · v.14</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -904,6 +908,8 @@ function fmtTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) retu
 function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
 // ตัดข้อความ "เลขใบขน" เฉพาะการแสดงผลในตารางรายการ (≤10 ตัว = เต็ม · >10 ตัว = 10 ตัวแรก + ...) · ไม่แตะข้อมูลจริง/export/search/detail/edit
 function _bolDisp(s){ s=String(s==null?'':s); if(s.length<=10) return s; return s.replace(/\s*\n\s*/g,' ').slice(0,10)+'...'; }
+// เลขใบขน (การ์ดมือถือ) — ค่าเต็ม · แยกหลายเลข (ขึ้นบรรทัด/comma/เว้นวรรค) เป็นคนละบรรทัด · ไม่ตัด/ไม่ slice
+function _bolLines(s){ s=String(s==null?'':s).trim(); if(!s) return '<span style="color:var(--muted)">—</span>'; return s.split(/[\s,]+/).filter(Boolean).map(p=>`<span class="bol-line">${esc(p)}</span>`).join(''); }
 function isAdmin(){ const r=String(S.user&&S.user.role||'').toUpperCase(); return r==='ADMIN'||r==='ADMIN_MID'||r==='SUPER_ADMIN'; }
 function isSuper(){ return String(S.user&&S.user.role||'').toUpperCase()==='SUPER_ADMIN'; }
 function isShippingStaff(){ if(isAdmin()) return false; const u=S.user||{}; return [u.role,u.department,u.dept,u.position,u.team].some(x=>String(x||'').toUpperCase().includes('SHIPPING')); }
@@ -1547,7 +1553,7 @@ function docRow(d){
     ${S.view==='RECEIVED'?`<td data-l="สถานะงาน" class="col-jobstatus" title="${esc(_jobStatusOf(d))}"><span class="js-txt">${_stCellHTML(S.jobStatus[d.id])}</span></td>`:''}
     <td data-l="LEAD TIME" class="col-lead">${(()=>{ const lt=_docLeadtime(d); return lt?`<span class="lt-badge ${lt.over?'lt-over':'lt-ok'}">${lt.over?'🔴':'🟢'} ${esc(lt.text)}</span>`:'<span style="color:var(--muted)">—</span>'; })()}</td>
     <td class="td-actions"${(S.view==='RECEIVED'&&!_vpMobile())?' style="display:flex;justify-content:flex-start;align-items:center;gap:8px;padding-left:4px;padding-right:6px"':''}>${acts}</td>
-    ${d.job_nj?`<td data-l="เลขใบขน" class="m-extra" title="${esc(d.job_nj||'')}">${esc(_bolDisp(d.job_nj))}</td>`:''}
+    ${d.job_nj?`<td data-l="เลขใบขน" class="m-extra m-bol"><span class="bol-wrap">${_bolLines(d.job_nj)}</span></td>`:''}
     <td data-l="USER เปิดงาน" class="m-extra">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</td>
   </tr>`;
 }
@@ -1670,7 +1676,11 @@ function _csList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.creator_na
 function _jobStatusText(msg){ return String(msg||'').split('\n').map(s=>s.trim()).filter(s=>s && !extractImageUrls(s).length && !/^รูปภาพประกอบ\s*:?\s*$/.test(s)).join(' '); }
 function _jobStatusOf(d){ const v = d && S.jobStatus[d.id]; return (v && v.m) ? ('⏰ '+(v.t?v.t+' ':'')+v.m) : ''; }   // รูปแบบ: ⏰ HH:mm ข้อความสถานะ (ไม่มีวันที่/ผู้บันทึก)
 // HTML: ⏰ เวลา + ข้อความ เริ่มบรรทัดเดียวกัน · wrap สูงสุด 2 บรรทัด (clamp ที่ container) — display-only · ไม่แตะ logic/sort/search
-function _stCellHTML(v){ return (v && v.m) ? ('⏰ '+esc((v.t?v.t+' ':'')+v.m)) : '<span style="color:var(--muted)">—</span>'; }
+function _stCellHTML(v){
+  if(!(v && v.m)) return '<span style="color:var(--muted)">—</span>';
+  const full = '⏰ '+(v.t?v.t+' ':'')+v.m;                 // ข้อความเต็ม (tooltip อ่านจาก _sysStatusOf/_jobStatusOf)
+  return esc(full.length > 40 ? full.slice(0,40)+'...' : full);   // แสดง ≤ 40 ตัวอักษร · เกินตัด ... (ทั้ง Desktop/Mobile)
+}
 /* ✚ สถานะเอกสาร (desktop RECEIVED) — ดึงจาก Timeline ระบบล่าสุด (🖥 ระบบ = action ∉ {status, doc_status}) เท่านั้น · mirror msg แบบเดียวกับ _saSysTimeline */
 const _SYS_LABELS = { created:'สร้างงานใหม่', received:'รับงาน', postponed:'เลื่อนตรวจปล่อย', reopened:'กลับมาดำเนินตรวจปล่อย', cleared:'ตรวจปล่อยเสร็จ', completed:'งานเสร็จแล้ว', doc_completed:'งานเสร็จแล้ว', edited:'แก้ไขข้อมูลงาน', reassign:'มอบหมายงาน' };
 function _sysMsg(l){
@@ -1699,21 +1709,34 @@ async function _shipNames(){   // Set ชื่อ (full_name/username/display_u
   src.forEach(u=>{ if(_userIsShipping(u)){ [u.full_name,u.username,u.display_user].forEach(n=>{ const t=String(n||'').trim(); if(t) s.add(t); }); } });
   _shipNamesCache=s; return s;
 }
+/* ✚ Timeline ระบบ (หน้าต่าง) — match SHIPPING ด้วย user_id + ชื่อ (ทนกว่า name อย่างเดียว) · รวมรายการระบบ auto */
+let _shipSetsCache=null;
+async function _shipSets(){
+  if(_shipSetsCache) return _shipSetsCache;
+  let src = (S.users&&S.users.length) ? S.users : null;
+  if(!src){ try{ const { data } = await sb.from('users').select('id,username,full_name,display_user,department,role').eq('app_code',LOGIN_APP_CODE); src=data||[]; }catch(e){ console.warn('[shipSets]', e); src=[]; } }
+  const ids=new Set(), names=new Set();
+  const isShip=u=>{ if(!u) return false; const r=String(u.role||'').toUpperCase().trim(), d=String(u.department||'').toUpperCase().trim(); if(r==='ADMIN'||r==='ADMIN_MID'||r==='SUPER_ADMIN') return false; return r.includes('SHIPPING')||d.includes('SHIPPING'); };
+  (src||[]).forEach(u=>{ if(isShip(u)){ if(u.id!=null) ids.add(String(u.id)); [u.full_name,u.username,u.display_user].forEach(n=>{ const t=String(n||'').trim(); if(t) names.add(t); }); } });
+  _shipSetsCache={ids,names}; return _shipSetsCache;
+}
+function _isShipLog(l, sets){ const nm=String(l.user_name||'').trim(); if(!nm || nm==='SYSTEM') return false; const uid=(l.user_id!=null)?String(l.user_id):''; return (uid && sets.ids.has(uid)) || sets.names.has(nm); }
+function _isSysAutoLog(l){ return String(l.user_name||'').trim()==='SYSTEM'; }
+function _sysAutoMsg(note){ let s=String(note||''); const a=s.indexOf('→'); if(a>=0) s=s.slice(a+1); s=s.replace(/\s*\([^)]*\)\s*$/,'').trim(); return s || '🆕 กลับเข้าคิวเอกสารใหม่'; }
 async function _loadSysStatus(ids){
   const need=[...new Set((ids||[]).filter(Boolean))].filter(id=>!(id in S.sysStatus));
   if(!need.length) return;
-  const ship=await _shipNames();                          // ใช้ชุด SHIPPING เดียวกับหน้าต่าง 🔄 Timeline ระบบ
+  const sets=await _shipSets();                          // match SHIPPING ด้วย user_id + ชื่อ (เหมือนหน้าต่าง · ทน name mismatch)
   for(let i=0;i<need.length;i+=200){
     const chunk=need.slice(i,i+200);
     try{
-      const { data } = await sb.from(LOG_TABLE).select('document_id,action,note,user_name,created_at')
+      const { data } = await sb.from(LOG_TABLE).select('document_id,action,note,user_name,user_id,created_at')
         .eq('app_code',WORK_APP_CODE).in('document_id',chunk)
-        .neq('action','status').neq('action','doc_status')   // 🔄 Timeline ระบบ = ยกเว้น status(งาน) + doc_status(สถานะเอกสาร-ปุ่ม) — เหมือนหน้าต่าง
-        .order('created_at',{ascending:false});               // ล่าสุดก่อน → entry แรกที่ผ่าน filter = แถวล่างสุดที่หน้าต่างแสดง
+        .neq('action','status')   // ตัด status(=สถานะลูกค้า) · รวม doc_status(SHIPPING+รูป) เหมือนหน้าต่าง · role filter คัด SHIPPING
+        .order('created_at',{ascending:false});               // ล่าสุดก่อน → entry SHIPPING แรกที่ผ่าน filter = แถวล่างสุดที่หน้าต่างแสดง
       const seen={};
       (data||[]).forEach(l=>{ const did=l.document_id; if(!did || seen[did]) return;
-        const nm=String(l.user_name||'').trim();
-        if(!nm || nm==='SYSTEM' || !ship.has(nm)) return;    // filter เดียวกับหน้าต่าง (เฉพาะผู้บันทึก SHIPPING) → คอลัมน์ = รายการสุดท้ายที่แสดงจริง
+        if(!_isShipLog(l, sets)) return;    // เฉพาะผู้บันทึก SHIPPING (id/name) · ตัด SYSTEM/role อื่น → คอลัมน์ = SHIPPING ล่าสุด
         seen[did]=1; S.sysStatus[did]={ t:fmtTime(l.created_at), m:_sysMsg(l) };   // _sysMsg = ข้อความที่หน้าต่างแสดงเป๊ะ
       });
     }catch(e){ console.warn('[sysStatus]', e); }
@@ -1749,7 +1772,7 @@ function docClearDates(){
   const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
   _renderDocBody();
 }
-async function docRefresh(){ await loadDocuments(); S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
+async function docRefresh(){ await loadDocuments(); S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; _shipSetsCache=null; renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
 /* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
 const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
 function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
@@ -3213,12 +3236,17 @@ async function _saSysTimeline(id){
   const wrap=document.getElementById('sa-v2-systl');
   const labels=_SYS_LABELS;
   try{
-    const ship=await _shipNames();                 // ต้องมี users เพื่อรู้ว่าใครเป็น SHIPPING
-    const { data } = await sb.from(LOG_TABLE).select('id,action,note,user_name,created_at')
-      .eq('app_code',WORK_APP_CODE).eq('document_id',id).neq('action','status').neq('action','doc_status').order('created_at',{ascending:true});
+    const sets=await _shipSets();                 // SHIPPING (id + ชื่อ)
+    const { data } = await sb.from(LOG_TABLE).select('id,action,note,user_name,user_id,created_at')
+      .eq('app_code',WORK_APP_CODE).eq('document_id',id).neq('action','status').order('created_at',{ascending:true});   // ตัด status(=สถานะลูกค้า) · รวม doc_status(SHIPPING อัปเดต+รูป) · role filter ด้านล่างเป็นตัวคัด
     const items=(data||[])
-      .filter(l=>{ const nm=String(l.user_name||'').trim(); return nm && nm!=='SYSTEM' && ship.has(nm); })   // เฉพาะผู้บันทึก Role = SHIPPING
-      .map(l=>({ id:l.id, when:l.created_at, msg:(labels[l.action]||l.note||l.action||'—'), note:l.note||'', who:l.user_name }));
+      .filter(l=> _isSysAutoLog(l) || _isShipLog(l, sets))   // เฉพาะ SHIPPING (id/name) + รายการระบบ auto · ตัด USER/MESSENGER/ADMIN/อื่น
+      .map(l=>{ const sys=_isSysAutoLog(l);
+        return { id:l.id, when:l.created_at,
+          msg: sys ? _sysAutoMsg(l.note) : (labels[l.action]||l.note||l.action||'—'),   // ระบบ auto → ข้อความสั้น
+          note: sys ? '' : (l.note||''),   // auto → ไม่มีรูป/ไม่ประมวลผล note
+          who: sys ? '' : l.user_name };   // auto → ไม่แสดงชื่อ (ระบบ)
+      });
     if(!items.length){ if(wrap) wrap.innerHTML='<div style="color:#94A3B8">— ไม่มี Timeline จาก SHIPPING —</div>'; return; }
     const p=n=>String(n).padStart(2,'0'); let html='', cur='';
     items.forEach(it=>{ const dt=new Date(it.when); const dS=`${p(dt.getDate())}/${p(dt.getMonth()+1)}/${dt.getFullYear()}`; const tS=`${p(dt.getHours())}:${p(dt.getMinutes())}`;
