@@ -183,6 +183,15 @@ body.doa-active .content-area{display:none!important}
 #inventec-view .doa-drop .dlabel,#qmb-view .doa-drop .dlabel{font-size:22px;font-weight:700}
 #inventec-view .doa-drop .dhint,#qmb-view .doa-drop .dhint{font-size:13px}
 #inventec-view .doa-row-actions,#qmb-view .doa-row-actions{margin-top:20px;justify-content:flex-start}
+/* ── Inventec เท่านั้น: ลดความสูงกรอบ drop 40% (220→132px) คงความกว้างเดิม + จัดกึ่งกลาง ── */
+#inventec-view .doa-drop{min-height:132px;padding:19px 32px;gap:6px}
+/* ── Schaeffler FZ: 2 กรอบอัปโหลดเท่ากัน เต็มความกว้าง Container (Desktop) → 1 คอลัมน์ (Mobile) ── */
+#fz-view .doa-uploads.fz-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;width:100%;max-width:none;margin:0}
+#fz-view .doa-drop{width:100%;max-width:none;min-height:200px;padding:28px;border-radius:14px;gap:10px}
+#fz-view .doa-drop .dico{font-size:44px}
+#fz-view .doa-drop .dlabel{font-size:16px;font-weight:700}
+#fz-view .doa-drop .dhint{font-size:12px}
+@media (max-width:768px){#fz-view .doa-uploads.fz-upload-grid{grid-template-columns:1fr;gap:16px}}
 .doa-drop input[type=file]{display:none}
 .doa-file-list{margin-top:8px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;text-align:left;width:100%}
 .doa-file-entry{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:5px;font-size:11px}
@@ -939,7 +948,7 @@ body.legacy-active .content-area { display: none !important; }
   <!-- Upload -->
   <div class="doa-panel">
     <h2>📄 1. อัปโหลดไฟล์ Schaeffler FZ</h2>
-    <div class="doa-uploads" style="grid-template-columns:repeat(2,1fr);max-width:760px;margin:0 auto">
+    <div class="doa-uploads fz-upload-grid">
       <label class="doa-drop" id="fz-inv-drop">
         <div class="dico">📊</div>
         <div class="dlabel">INVOICE CLC (.xlsx)</div>
@@ -7943,7 +7952,7 @@ const BOI_TH_MONTH_FULL_TO_SHORT = {
 
 /* Transform BOI License text:
    "58-2528-0-00-1-0\nลงวันที่  26 พฤศจิกายน 2558"
- → "58-2528-0-00-1-0 ลว. 26 พ.ย. 2558" */
+ → "58-2528-0-00-1-0 ลว.26 พ.ย. 2558" */
 function boiTransformLicense(raw){
   if(!raw) return '';
   const s = String(raw).replace(/\s+/g, ' ').trim();
@@ -7955,7 +7964,7 @@ function boiTransformLicense(raw){
     const month = m[3];
     const year = m[4];
     const monShort = BOI_TH_MONTH_FULL_TO_SHORT[month] || month;
-    return lic + ' ลว. ' + day + ' ' + monShort + ' ' + year;
+    return lic + ' ลว.' + day + ' ' + monShort + ' ' + year;
   }
   return s;
 }
@@ -8200,7 +8209,7 @@ function boiDownload(){
     r.billing, r.item, boiDateCell(r.billdt), r.qty, r.amt,
     r.currency, r.incoterm, r.netwt, '',
     parseInt(r.hsShort, 10) || r.hsShort || '', r.stat, r.country,
-    '58-2528-0-00-1-0 ลว.26 พ.ย. 2558',  // ← BOI License No (fixed ตามคำสั่ง user)
+    r.license || '',                     // ← BOI License No (จาก INVOICE คอลัมน์ "BOI License" แปลงรูปแบบแล้ว · ว่างถ้าไม่มี)
     r.prodcode, r.endesc, r.thdesc, r.brand,
     boiDateCell(r.billdt),           // วันที่ออกใบอนุญาต = Invoice Date (ใช้วันเดียวกับ invoice date)
     'BOI0215554002828',              // เลขที่ใบอนุญาต (fixed)
@@ -8375,20 +8384,22 @@ async function fzReadInvoice(file){
     const material = String(r[col.material]||'').trim();
     if(!material) continue;
 
-    // แยก HS และ STAT จาก Comm./imp. code (รูปแบบ "84099949090" → HS=84099949, STAT=90)
+    // แยก HS (Tariff) จาก Comm./imp. code no. — คงตรรกะเดิม (first 8 digits)
     const hsRaw = String(r[col.hs]||'').trim();
     const hsDigits = hsRaw.replace(/\D/g,'');
-    let hsShort = hsRaw, stat = 0;
+    let hsShort = hsRaw;
     if(hsDigits.length >= 11){
       hsShort = hsDigits.slice(0, 8);
-      stat = parseInt(hsDigits.slice(-3), 10) || 0;
     } else if(hsDigits.length >= 8){
       hsShort = hsDigits.slice(0, 8);
-      stat = hsDigits.length > 8 ? (parseInt(hsDigits.slice(8), 10) || 0) : 0;
     } else {
       hsShort = hsDigits || hsRaw;
-      stat = 0;
     }
+    // ★ Stat = 3 หลักสุดท้ายของ Comm./imp. code no. (INVOICE CLC เท่านั้น)
+    //   เก็บเป็น string รักษา leading zero — "87089390000" → "000"
+    //   ยาว > 3 → ใช้ 3 ตัวท้าย ; <= 3 → ใช้ทั้งหมด ; ไม่มี digit → ''
+    const stat = hsDigits.length > 3 ? hsDigits.slice(-3)
+               : (hsDigits.length > 0 ? hsDigits : '');
 
     rows.push({
       billing,
@@ -8557,6 +8568,7 @@ async function fzAnalyze(){
           thdesc:   src.thdesc,
           currency: src.currency,
           hsShort:  src.hsShort,
+          stat:     src.stat,                         // ★ Stat = 3 หลักท้าย Comm./imp. code no. (จาก INVOICE CLC)
           origin:   src.origin,
           brand:    src.brand,
           incoterm: src.incoterm,
@@ -8579,7 +8591,7 @@ async function fzAnalyze(){
           prodcode: rm.part,                       // PRODUCT CODE = RM Part No.(Part SCH) (fallback)
           endesc: '', thdesc: '',
           currency: '',
-          hsShort: '', origin: '', brand: '', incoterm: '',
+          hsShort: '', stat: '', origin: '', brand: '', incoterm: '',  // ไม่มี invoice → Stat blank
           qty: rmQty,
           refent, refitem,
           netwt: '', gross: '', amt: '', unitPrice: ''
@@ -8676,7 +8688,7 @@ function fzRenderPreview(rows){
       '<td>'+_fmt(r.amt)+'</td>' +
       '<td>'+(r.currency||'')+'</td>' +
       '<td>'+(r.hsShort||'')+'</td>' +
-      '<td>90</td>' +                              /* Stat = FIX 90 */
+      '<td>'+(r.stat||'')+'</td>' +                /* Stat = 3 หลักท้าย Comm./imp. code no. */
       '<td>'+(r.origin||'')+'</td>' +
       '<td>'+(r.refent||'')+'</td>' +
       '<td>'+(r.refitem||'')+'</td>';
@@ -8698,7 +8710,7 @@ function fzDownload(){
   // FIX FIELDS (mapping sheet) — hardcode ทุก row · ห้ามดึงจาก Invoice/RM
   // ════════════════════════════════════════════════════════════════════
   const FZ_FIX_QTY_UNIT       = 'C62';                  // col 8  qty.inv.(หน่วย) + col 10 qty.ใบขน(หน่วย)
-  const FZ_FIX_STAT           = 90;                     // col 18 Stat
+  // col 18 Stat — ไม่ใช่ FIX แล้ว: ดึง 3 หลักท้าย Comm./imp. code no. จาก INVOICE CLC (r.stat)
   const FZ_FIX_IEAT           = 'Y';                    // col 25 สิทธิประโยชน์ IEAT
   const FZ_FIX_TAX_INCENTIVE  = 'F5302081000002';       // col 26 import Tax incentive
   const FZ_FIX_PERMIT_NO      = '119/2567';             // col 27 Permit No.
@@ -8742,7 +8754,7 @@ function fzDownload(){
     r.currency,                   // col 15 Ccy                (จาก Invoice)
     r.thdesc,                     // col 16 Thai Description   (จาก Invoice)
     parseInt(r.hsShort,10) || r.hsShort || '',  // col 17 Tariff Code (จาก Invoice HS)
-    FZ_FIX_STAT,                  // col 18 Stat               ★ FIX FIELD
+    (r.stat != null ? r.stat : ''),  // col 18 Stat  ★ 3 หลักท้าย Comm./imp. code no. (INVOICE CLC, string คง leading zero เช่น "000")
     r.brand, r.origin,            // col 19,20 Brand / Origin  (จาก Invoice)
     '', '',                       // col 21,22 Package / Package (หน่วย)
     r.refent || '',               // col 23 เลขที่ใบขนอ้าง   ★ จาก RM (split: ก่อน X)
