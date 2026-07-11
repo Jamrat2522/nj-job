@@ -8612,6 +8612,7 @@ async function exportMappingCombined(){
     const cieNW   = ieFind(['net weight','netweight','net weight.']);
     const cieGW   = ieFind(['gross weight','grossweight','gross weight.']);
     const cieFOB  = ieFind(['fob thb.','fob thb']);
+    const cieDesc = ieFind(['desc.','desc','description']);   // ใบขน: Desc. → Eng Description (จับคู่ Invoice+Product Code)
     if(cieProd<0 || cieQty<0){
       if(typeof toast==='function') toast('ไฟล์นี้ไม่ใช่ Import Entry / ใบขน (ไม่พบ Product Code/Qty.)','error'); return;
     }
@@ -8626,7 +8627,8 @@ async function exportMappingCombined(){
       if(!prod) continue;
       const key = _mapKeyIE(ieCurBilling, prod);
       let o = ieAgg.get(key);
-      if(!o){ o={qty:0,nw:0,gw:0,fob:0,count:0,billing:ieCurBilling,prod:prod}; ieAgg.set(key,o); }
+      if(!o){ o={qty:0,nw:0,gw:0,fob:0,count:0,billing:ieCurBilling,prod:prod,desc:''}; ieAgg.set(key,o); }
+      if(!o.desc && cieDesc>=0){ const d=String(row[cieDesc]==null?'':row[cieDesc]).trim(); if(d) o.desc=d; }   // Desc. แรกที่ไม่ว่างของ (Invoice+Product Code)
       o.qty += _mapNum(row[cieQty]);
       o.nw  += cieNW>=0 ? _mapNum(row[cieNW]) : 0;
       o.gw  += cieGW>=0 ? _mapNum(row[cieGW]) : 0;
@@ -8648,6 +8650,7 @@ async function exportMappingCombined(){
     const cMaterial= rmFind(['material']);                          // full material (Import Entry join)
     const cDesc    = rmFind(['description']);                       // CLC: the #N code (may be absent)
     const cMatTrim = rmFind(['material - trim','material (trim)','material trim']); // EXPORT_RM: pre-trimmed (may be absent)
+    const cMatName2= rmFind(['material name 2','material name2','materialname2']);  // fallback สำหรับ Material (Trim) เมื่อ Description ว่าง
     const cEngRm   = rmFind(['eng description','eng description.']); // EXPORT_RM: Eng filled in RM (fallback only)
     const cQty     = rmFind(['invoiced quantity','billing qty in sku','invoiced qty']);
     const cNetVal  = rmFind(['net value']);
@@ -8690,14 +8693,14 @@ async function exportMappingCombined(){
       const rmMatFull = String(getV(r,cMaterial)).trim();
       const rmDescRaw = (cDesc>=0) ? String(getV(r,cDesc)).trim() : '';
       const rmMatTrimCol = (cMatTrim>=0) ? String(getV(r,cMatTrim)).trim() : '';
-      let matTrim, descOut;
-      if(rmDescRaw){                       // CLC schema: Description holds the #N code
-        matTrim=_mapBaseMat(rmDescRaw); descOut=_mapEnsureHashN(rmDescRaw);
-      } else if(rmMatTrimCol){             // EXPORT_RM schema: pre-trimmed Material - Trim
-        matTrim=rmMatTrimCol; descOut=_mapEnsureHashN(rmMatTrimCol);
-      } else {                             // last resort: derive from Material
-        matTrim=_materialTrim(rmMatFull); descOut=_mapEnsureHashN(matTrim);
-      }
+      const rmMatName2 = (cMatName2>=0) ? String(getV(r,cMatName2)).trim() : '';
+      // Description (คอลัมน์) — คง logic เดิมทุกประการ (ห้ามกระทบ)
+      let descOut;
+      if(rmDescRaw){ descOut=_mapEnsureHashN(rmDescRaw); }
+      else if(rmMatTrimCol){ descOut=_mapEnsureHashN(rmMatTrimCol); }
+      else { descOut=_mapEnsureHashN(_materialTrim(rmMatFull)); }
+      // Material (Trim) — (1) Description ตัดตั้งแต่ # → (2) Material name 2 → (3) Material - Trim (สำหรับ RM แบบ EXPORT_RM ที่ไม่มี Description) → (4) ว่าง
+      const matTrim = (rmDescRaw ? rmDescRaw.replace(/#.*$/s,'').trim() : '') || rmMatName2 || rmMatTrimCol || '';
       const invQty = getV(r,cQty);
       const netVal = getV(r,cNetVal);
       let   country = String(getV(r,cCtry)).trim().toUpperCase() || 'XX';
@@ -8706,11 +8709,11 @@ async function exportMappingCombined(){
       // ── PDF match: Billing + Material(Trim) (+ Qty for duplicates) → Eng Description ──
       // Net Value is NOT used. PDF country is NOT used to block the fill
       // (Country always comes from RM). Fill C whenever PDF has the Eng.
+      // ── PDF match — เก็บไว้เพื่อ diagnostics เท่านั้น · ไม่ใช้เป็น Eng Description อีกต่อไป (ห้ามใช้ข้อมูลจาก PDF) ──
       const pdfHit = _takeEng(billing, matTrim, invQty);
-      let eng='', pdfStatus='No PDF Match', pdfSrc='', mBill='', mQty='', mNet='';
+      let pdfStatus='No PDF Match', pdfSrc='', mBill='', mQty='', mNet='';
       if(pdfHit){
-        eng = pdfHit.eng || '';
-        pdfStatus = eng ? 'MATCHED' : 'Missing Eng Description';
+        pdfStatus = pdfHit.eng ? 'MATCHED' : 'Missing Eng Description';
         pdfSrc=pdfHit.srcFile; mBill=pdfHit.billing; mQty=pdfHit.qty; mNet=pdfHit.netVal;
       }
       rmStatus.push({status:pdfStatus,src:pdfSrc,mBill:String(mBill),mQty:String(mQty),mNet:String(mNet)});
@@ -8732,8 +8735,11 @@ async function exportMappingCombined(){
       const ieGW  = ie ? ie.gw *ieShare : '';
       const ieFOB = ie ? ie.fob*ieShare : '';
 
-      // ── Desc ALL = Description / UPPER(Eng).Qty PCS. ──
-      const descAll = descOut.replace(/#N(?=$|[^0-9A-Za-z])/,'') + ' / ' + String(eng||'').toUpperCase() + '.' + (invQty===''?'':_mapNum(invQty)) + ' PCS.';
+      // ── Eng Description = Desc. จากไฟล์ใบขน (Billing+Material ↔ Invoice+Product Code) — ไม่ใช้ PDF · แปลงเป็นตัวพิมพ์ใหญ่ทั้งหมดเสมอ ──
+      const eng = (ie ? String(ie.desc||'').trim() : '').toUpperCase();
+      // ── Desc ALL = Description(ตัดตั้งแต่ # ออกทั้งหมด) / UPPER(Eng).Qty PCS. · ไม่พบ Eng → เฉพาะ Description ก่อน # ──
+      const _descCut = descOut.replace(/#.*$/s,'').trim();
+      const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + (invQty===''?'':_mapNum(invQty)) + ' PCS.') : _descCut;
 
       // ── Billing Document Date (from PDF header, join by Billing Document only) ──
       const bdate = _dateFor(billing);
@@ -8748,7 +8754,7 @@ async function exportMappingCombined(){
 
       // ── UNMATCHED diagnostics for this RM row ──
       const reasons=[];
-      if(eng==='') reasons.push('Missing Eng Description');
+      if(eng==='') reasons.push('Missing Desc. from Export Declaration Excel');
       if(bdate==='') reasons.push('Missing Billing Document Date');
       if(!ie){ reasons.push('Missing Qty','Missing Net Weight','Missing Gross Weight','Missing FOB THB'); }
       if(reasons.length) rmUnmatched.push({billing, item:itemNo, matTrim, reason:reasons.join(', ')});
@@ -8765,6 +8771,8 @@ async function exportMappingCombined(){
     const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
           rrQty=rrFind(['billing qty in sku','invoiced quantity','invoiced qty']),
           rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no','รายการ']);
+    // Material (Trim) source ในไฟล์ RM มีเลขอ้างอิง — Description(ตัด #) → Material name 2 · ใช้เติม Material (Trim) เมื่อ master (RM ไม่มีเลขอ้างอิง) ไม่มีค่า (optional · ไม่บังคับ)
+    const rrDesc=rrFind(['description']), rrMatName2=rrFind(['material name 2','material name2','materialname2']);
     if(rrBill<0||rrItem<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง ต้องมีคอลัมน์ • Billing Document • Item • Import Entry (Import entry no. หรือ Import Entry) • Item No. (Item no. หรือ รายการ)'); return; }
     // Composite Key = Billing Document + Item + Qty (qty ตรงกันทุกไฟล์) · Lookup เติม entry/itemNo เฉพาะเมื่อ match ได้ 1 แถว
     const _rrKey=(b,it,q)=>_rmNorm(b)+'|'+_rmNorm(it)+'|'+String(_rmNormNum(q));
@@ -8774,15 +8782,18 @@ async function exportMappingCombined(){
       if(b==='' && it==='') continue; _rmRefRows++;
       const key=_rrKey(row[rrBill],row[rrItem],rrQty>=0?row[rrQty]:'');
       const ent=_rmNorm(row[rrEntry]), ino=_rmNorm(row[rrItemNo]);
-      if(rmRefMap.has(key)) rmRefMap.get(key).push({entry:ent, itemNo:ino});
-      else rmRefMap.set(key,[{entry:ent, itemNo:ino}]);
+      // Material (Trim) จาก RM มีเลขอ้างอิง: (1) Description ตัดตั้งแต่ # → (2) Material name 2 → (3) ว่าง (ไม่เติม #N)
+      const _rdesc=rrDesc>=0?_rmNorm(row[rrDesc]):'', _rmn2=rrMatName2>=0?_rmNorm(row[rrMatName2]):'';
+      const _rmt=(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'';
+      if(rmRefMap.has(key)) rmRefMap.get(key).push({entry:ent, itemNo:ino, matTrim:_rmt});
+      else rmRefMap.set(key,[{entry:ent, itemNo:ino, matTrim:_rmt}]);
     }
     rmRefMap.forEach(v=>{ if(v.length>1) _rmMultiKeys++; });   // key ที่ match หลายแถว → เว้นว่าง (ไม่ join)
     const _rrLookup=(billing,item,qty)=>{
       const arr=rmRefMap.get(_rrKey(billing,item,qty));
-      if(!arr)         return {status:'none',  entry:'', itemNo:''};   // ไม่พบ → เว้นว่าง
-      if(arr.length>1) return {status:'multi', entry:'', itemNo:''};   // หลายแถว → เว้นว่าง (ห้าม join / ห้ามเดา)
-      return {status:'one', entry:arr[0].entry, itemNo:arr[0].itemNo}; // 1 แถว → เติม
+      if(!arr)         return {status:'none',  entry:'', itemNo:'', matTrim:''};   // ไม่พบ → เว้นว่าง
+      if(arr.length>1) return {status:'multi', entry:'', itemNo:'', matTrim:''};   // หลายแถว → เว้นว่าง (ห้าม join / ห้ามเดา)
+      return {status:'one', entry:arr[0].entry, itemNo:arr[0].itemNo, matTrim:arr[0].matTrim}; // 1 แถว → เติม
     };
     let _rrMatched=0, _rrNotFound=0, _rrMultiHit=0, _rrSheets=0;   // สถิติสำหรับรายงาน
     OUT_HDR.push('Import entry no.','Item no.');     // เพิ่มท้ายคอลัมน์ของทุก Country Sheet
@@ -8817,9 +8828,10 @@ async function exportMappingCombined(){
         let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
         chunk.forEach(ro=>{
           const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
-          aoa.push([ ro.billing, ro.bdate, ro.matTrim, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
+          const _mt = _rh.matTrim || '';   // Material (Trim): ดึงจาก 📦 RM มีเลขอ้างอิง เท่านั้น (Description ตัด # → Material name 2 → ว่าง) · ไม่ดึงจากไฟล์อื่น
+          aoa.push([ ro.billing, ro.bdate, _mt, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
                      _mapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
-                     numOrBlank(ro.fob), ro.descAll, ro.descOut, _rh.entry, _rh.itemNo ]);
+                     numOrBlank(ro.fob), ro.descAll, _mt, _rh.entry, _rh.itemNo ]);
           tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
           tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
         });
