@@ -1,50 +1,116 @@
-# MASSENGER V3 — DEPENDENCY MAP (Phase 1)
+# Document Dependency Map — MASSENGER V3
+> วิเคราะห์จากไฟล์ Production จริง (`app.js` 559KB · doc functions **140 ตัว ~152KB**) · ไม่แก้โค้ด/ไม่ย้าย/ไม่แตะ production
 
-> วิเคราะห์จากไฟล์จริงหลังแก้ · classic scripts (ไม่ใช่ ES module) · อ้าง global scope ร่วมกัน
+## ⚠️ ข้อสรุปชี้ขาด (อ่านก่อน)
+**Document เป็น "หน้าแรกหลัง Login" ของ role SHIPPING** → **ห้ามนับ 152KB เป็นการลด Initial แบบเต็มจำนวน** · แยกทั้งก้อนไม่ได้ (มี Startup + Cross-feature dependency)
 
-## 1. index.html โหลดอะไร (ลำดับจริง หลัง Phase 2)
+---
+
+## 1. Document เป็นหน้าแรกหลัง Login หรือไม่
+**ใช่ — สำหรับ SHIPPING**
+```js
+function _defaultLandingView(){ return _isShippingOnly() ? "doc-new" : canSeeAdminDashboard() ? "jobs" : "wait" }
 ```
-<head>
-  preconnect: supabase.co, fonts.googleapis, fonts.gstatic
-  preload as=script: supabase-js@2, lucide@0.460.0
-  <link rel="stylesheet" href="css/app.css?v=3.1.0">
-<body> ... markup ...
-  <script defer src="…supabase-js@2" onerror=…>
-  <script defer src="…lucide@0.460.0" onerror=…>
-  <script defer src="config/runtime-config.js?v=3.1.0">
-  <script defer src="js/utils/format.js?v=3.1.0">
-  <script defer src="js/core/runtime.js?v=3.1.0">
-  <script defer src="js/app.js?v=3.1.0">
+- SHIPPING-only → **`doc-new` (Document = หน้าแรก)**
+- ADMIN/SUPER_ADMIN → `jobs` · role อื่น → `wait`
+
+## 2. Role ใดถูกพาเข้า Document อัตโนมัติ
+- **SHIPPING (status active)** → เข้า Document ทันทีหลัง login (`_isShippingOnly()` = role==="SHIPPING")
+- `_docIsSuper()`/SUPER_ADMIN เห็น Document ได้ แต่ landing = jobs (ไม่ auto)
+
+## 3. Startup Function ที่เรียกโค้ด Document ก่อนเปิดเมนู
+- `renderView()` → **`renderDocView()`** (core อ้าง **14 จุด**) — เมื่อ view เป็น doc-* (SHIPPING = ตั้งแต่ landing)
+- `renderApp()` → อ้าง `DOC.pageSize` (DOC state)
+- **setInterval (หลัง login ทุก role):** `_docUpdateDesktopOverduePopup()` + `_docUpdateCompletedTodayPopup()` → เรียก `_docOverdueOpenDocs`, `_docShowDesktopOverduePopup`, `_docCompletedTodayCardCounts`, `_docShowCompletedTodayPopup`
+- `setupDocRealtime()` เรียกหลัง login (core อ้าง 1 จุด)
+→ **โค้ด Document ส่วนหนึ่งจำเป็นทันทีหลัง login แม้ไม่เปิดเมนู** (popup timer + realtime + landing สำหรับ SHIPPING)
+
+## 4. Inline `onclick` Document — **49 จุด** (จริงมากกว่าที่ประเมิน 36)
+`_docClearedPickCard, _docCloseCompletedTodayAlert, _docCloseOverdueAlert, _docOpenMobileAttachmentPreview, _docOverlayClose, _docScrollToCompletedToday, _docScrollToOverdue, _docSpCpAttach, _docSpCpDone, _docSpCustomAttach, _docSpFdaAttach, _docSpFdaSave, _docSpMobPick, _docSpOther, _docSpOtherAttach, _docSpOtherDone, _docSpOtherSubmit, _docSpPrevAddMore, _docSpPrevCancel, _docSpPrevConfirm, _docSpPrevDeleteAt, _docSpPrevZoom, _docSpSaveCustom, _docV2CancelHeader, _docV2CopyTimeline, _docV2DeleteConfirm, _docV2DeleteEntry, _docV2EditEntry, _docV2EditHeader, _docV2EditSave, _docV2ImgPreview, _docV2SaveHeader, _docV2Status, _docV2StatusSave, _docV2SysLoadMore, _docV2Tab, docClearedSubmit, docCloseHistoryDialog, docEditSubmit, docExportExcel, docGotoPage, docPostponeSubmit, docReassignSubmit, docRefresh, docSetCategory, docSetHistoryWindow, docSetStatusFilter, docSetTerminal, docToggleLeadtimeOver`
+
+## 5. Global Variables + Shared Helpers ที่ Document ใช้
+**DOC state (37 fields):** `documents, currentDoc, filters, view, page, pageSize, cardStatuses, routes, searchExtra, mobileWindowDays, _sysTL, _sysTLCache, _sysStatus, _workStatus, _spFile(s), _spSel, _spPending, _cpFiles, _fdaFiles, _editId, _postponeId, _clearedId/Card/Mode/Opts, _overdueTimer, _completedTimer, _overdueAlerted, _completedAlerted, _lastNotified*, _sessionStart, _cssInjected, ...`
+**Module vars (13):** `_docChannel, _docCountSig, _docSearchTimer, _docSearching, _docRtRenderTimer, _docVisCache, _docStructKey, _docViewStructureKey, _docExist, _docMob, _docMsg, _docs, _doc`
+**Shared helpers (จาก core):** `esc(138), toast(93), APP_CODE(52), _IW(41), fmtDateTime(8), refreshIconsIn(8), roleIsAdmin(6), getRuntimeFeature(1), sb, S.user`
+
+## 6. Realtime Channel
+- Channel: **`documents-rt-<app>`**
+- Subscribe: `setupDocRealtime()` (มี `.subscribe()`), `setupRealtime()` — **เรียกหลัง login**
+- Unsubscribe: `_teardownRealtime()` (removeChannel), `setupDocRealtime` (teardown ก่อน sub ใหม่)
+- Handler: `_onDocRealtime()` (1.3KB), `_docRealtimeRefresh()` (1.3KB) → เรียก render/refresh
+
+## 7. Timer / setInterval
+- **2 setInterval หลัง login (ทุก role):** `_docUpdateDesktopOverduePopup` (60s), `_docUpdateCompletedTodayPopup` (60s) — มี `document.hidden` guard
+- **DOC timers:** `DOC._overdueTimer`, `DOC._completedTimer` (setTimeout ภายใน popup flow)
+- `_docSearchTimer`, `_docRtRenderTimer` (debounce)
+
+## 8. จุดผูกกับ Job / Messenger / Timeline / Pending
+- **Job/Messenger (เบา):** `S.jobs` (3), `messenger_received` (3) — doc อ่านข้อมูล job บางส่วน
+- **Timeline (แน่น-ภายใน doc):** `Timeline/timeline` (39) — `_docV2*` = ระบบ timeline ของ doc เอง (ไม่ผูก messenger timeline)
+- **Pending:** ใช้ pattern `_perfCutoffISO`/pending ร่วมกับ core query (แชร์ helper)
+- **สำคัญ:** `jobRowFull` (core, render แถว job) เรียก `_otSummary` — ไม่ผูก doc โดยตรง · doc ↔ job coupling **เบา** แต่ `renderDocView` ผูกกับ core render แน่น (14 refs)
+
+## 9. กลุ่มที่แยกเป็น Lazy Chunk ได้ (บนกระดาษ — ต้อง verify ต่อ)
+| กลุ่ม | fns | ~ขนาด | เปิดเมื่อ | ความเสี่ยง |
+|---|---|---|---|---|
+| **Timeline `_docV2*`** | 23 | **~39KB** | เปิด timeline ใน doc detail | 🟠 กลาง (onclick 13, ผูก DOC._sysTL*) |
+| **Shipping-process `_docSp*`** | 27 | **~17KB** | กดขั้นตอน shipping/แนบไฟล์ | 🟠 กลาง (onclick 20, ผูก DOC._sp*) |
+| **Edit/CRUD modals** (`docEditSubmit/Postpone/Reassign/ClearedSubmit`) | 5 | ~10KB | เปิด modal แก้ไข | 🟡 ต่ำ-กลาง |
+| รวมแยกได้ (on-demand จาก doc **detail**) | 55 | **~66KB** | | |
+
+## 10. กลุ่มที่ต้องคงใน `app.js` + เหตุผล
+| กลุ่ม | fns | ~ขนาด | เหตุผล |
+|---|---|---|---|
+| `renderDocView` + render list | 3 | ~19KB | **landing SHIPPING** + core อ้าง 14 จุด (render entry) |
+| Popup/Alert timer | 13 | ~6KB | **setInterval หลัง login ทุก role** |
+| Realtime (`setupDocRealtime/_onDocRealtime/_docRealtimeRefresh`) | 3 | ~3KB | subscribe หลัง login |
+| Cache/Counts/Vis | 4 | ~1KB | ใช้โดย render + counts ตั้งแต่ landing |
+| Pagination/Filter/Category | ~8 | ~1KB | ใช้ในหน้า list (landing) |
+| Other (ต้องวิเคราะห์ราย fn) | 71 | ~67KB | ⚠️ ยังไม่ยืนยัน — ปนทั้ง must-stay และ on-demand |
+
+---
+
+## ข้อมูลเพิ่มเติม
+
+### 140 Document functions แบ่งตามหน้าที่
+- Render/View: 3 (~19KB) · Shipping `_docSp*`: 27 (~17KB) · Timeline `_docV2*`: 23 (~39KB) · Realtime: 3 (~3KB) · Cache/Counts: 4 · Popup/Alert: 13 (~6KB) · Pagination: 2 · Filter/Category: 4 · Export/PDF: 1 (~3KB, แยกไป heavy-export แล้ว) · Edit/CRUD: 5 (~10KB) · Mobile: 2 · **Other: 53 (~50KB)** ← ต้องวิเคราะห์รายตัวก่อนแยก
+
+### Call Graph (Login → หน้าแรก → เปิด Document)
+```
+boot() → loadCurrentUser() → renderApp() [อ้าง DOC.pageSize]
+  → S.view = _defaultLandingView()   // SHIPPING → "doc-new"
+  → renderView() → renderDocView()   // ← Document โหลดทันที (SHIPPING)
+  → setupRealtime()/setupDocRealtime() [subscribe documents-rt]
+  → setInterval(_docUpdate*Popup)    // ทุก role หลัง login
+[ผู้ใช้กด doc detail] → _docV2*/_docSp* (timeline/shipping) ← จุดที่ lazy ได้
 ```
 
-## 2. ลำดับ Dependency (บังคับ)
-`supabase-js` → `lucide` → `runtime-config.js` (สร้าง `window.RUNTIME_CONFIG`, `window.FEATURES`) → `js/utils/format.js` (pure formatters: esc/fmtDate/fmtDateTime/_fmtBytes/_fmtDtShort) → `js/core/runtime.js` (reader + feature gate; นิยาม `getRuntimeBoolean/Number/Feature`, `_featureForView/_viewFeatureEnabled/_safeLandingView/_renderFeatureUnavailable`) → `js/app.js` (ทุกอย่างที่เหลือ)
-- ทั้งหมด `defer` → รันตามลำดับหลัง parse · `window.supabase` พร้อมก่อน app.js เสมอ
-- app.js top-level เรียก `getRuntimeBoolean/Number` (จาก runtime.js) → ต้องโหลด runtime.js ก่อน ✅
-- runtime.js เรียก `_defaultLandingView/_isShippingOnly/canSeeAdminDashboard/esc/refreshIconsIn/hideAppLoader` (ใน app.js) เฉพาะ **ตอน runtime** (นำทาง/kill) → app.js โหลดแล้ว ✅ ไม่มี load-time forward-ref
+### Circular dependency (ที่พบ)
+- `renderDocView` ↔ `docGotoPage/docRefresh/docSet*/docToggle*` (เรียก renderDocView กลับ) — วงจร render↔filter/paginate
+- `_onDocRealtime` → `_docRealtimeRefresh` → render → (อาจ) trigger realtime debounce
 
-## 3. Global / onclick
-- **inline `onclick` = 233 จุด** → เรียก global function declaration (classic scope) · **ต้องคง classic script · ห้ามแปลง ES module** (จะทำให้ 233 ปุ่มหาย)
-- `window.X=` (ตั้งใจ export) = 5: `_dashboardGraphCache`, `dashboardCharts`, `_deskRowMenuFiring`, `testGps`, (อ่าน `window.visualViewport`)
-- State กลางจุดเดียว: `const S={…}` (jobs/core), `const DOC={…}` (documents) — ไม่มี copy ข้ามไฟล์
+### Event Listeners ติดตั้งตอน Startup (top-level รวมทั้งแอป)
+`resize×2, popstate, error, unhandledrejection, load, visibilitychange×3, online, offline, click×4, scroll, beforeunload, afterprint` — บางตัว (click/scroll) เกี่ยว doc popup/overlay
 
-## 4. Supabase / Auth / Realtime / Boot
-- **createClient:** 1 จุด — `_initSupabaseClient()` → `window.supabase.createClient(SUPA_URL, ANON_KEY)` (URL project `sytgqjglcnsabcszbngg`, anon key — ไม่มี service_role)
-- **Auth เริ่ม:** `boot()` → `checkFirstSetup()` → login flow (RPC `login_plain`) · session restore จาก localStorage `massenger_clean_user`, auth storageKey `mass-dispatch-auth-clean`
-- **Boot:** `readyState==="loading"? DOMContentLoaded→_bootWhenReady : _bootWhenReady()` → `_rcValidate()` → KILL check → `init()` → `_initSupabaseClient()` → `boot()`
-- **Realtime (3 channel):** `"jobs-rt-"+APP_CODE` (jobs, job_logs) · `"users-rt-"+APP_CODE` (users) · `"documents-rt-"+APP_CODE` (documents) — filter `app_code` · teardown ตอน hidden
+### DOM id/class ที่ Document อ้าง
+- **ids:** `doc-detail-body, doc-v2-detail/edit/fields/status/del/imgview/rowmenu, doc-sp-custom/hidden/prev-pop, doc-status-pop, doc-hist-pop, doc-other-pop/detail/file/save/err, doc-cleared-done-alert, doc-generic-overlay, doc-mobile-att-preview`
+- **classes:** `tbl-doc-*, doc-NEW/RECEIVED/COMPLETED/COMPLETED_TODAY/POSTPONED/CLEARED/CLOSED/TONREN/FZDOC, doc-attachments, doc-catchip, doc-adv-row, doc-cleared-*`
 
-## 5. Timer / Event
-- `setInterval` ×5 (doc overdue 60s · doc completed 60s · heartbeat 60s · boot poll · watchdog) · `setTimeout` ×64 (ส่วนใหญ่ debounce)
-- ⚠️ ตรวจซ้ำ: ยังไม่ยืนยันได้จาก static ว่า interval/subscription ถูกกันซ้ำครบทุกเส้นทาง → ต้อง browser DevTools (ดู REGRESSION §16/17)
+---
 
-## 6. Initial Query ตอนเปิด (หลัง login)
-- `loadJobs()` (jobs) · `loadUsers()` (users) · doc counts ตาม view · realtime subscribe ตาม role
-- ⚠️ ยังโหลดข้อมูลหน้าแรกตาม role เดิม (ไม่เปลี่ยนใน Phase นี้)
+## ผลที่คาดว่าจะลด Initial JS ได้จริง (ไม่นับโค้ดที่ต้องโหลดทันทีหลัง Login)
+| Role | Document เป็นหน้าแรก? | ลด Initial ได้จริง |
+|---|---|---|
+| **SHIPPING** | ✅ ใช่ | **~0KB** (doc = home · แยกได้แค่ sub-feature detail ที่เปิดวินาทีถัดมา) |
+| ADMIN/SUPER | ❌ (home=jobs) | ~40–66KB (เลื่อน render doc + detail sub-features) **แต่** popup timer/realtime ยังดึง doc บางส่วนหลัง login |
+| MESSENGER/STAFF | ❌ (home=wait) | คล้าย ADMIN |
 
-## 7. Module ที่จำเป็นตอน Login vs Lazy ได้ (วิเคราะห์)
-- **ต้องมีตั้งแต่ต้น:** runtime-config, core/runtime.js, supabase client, auth, permission, router (`setView/renderView`), shared state (S/DOC), shared UI (modal/toast), login
-- **Lazy ได้ (ในทางทฤษฎี):** dashboard/graphs, users, export, บาง doc view — **แต่** โค้ดปัจจุบันเป็น minified single-file + onclick global → การ lazy (dynamic import ES module) = เสี่ยงสูง ยังไม่ทำ (ดู PENDING_FIX)
+**สรุปตรงๆ:** แยก Document ทั้ง 152KB **ไม่ได้** · ที่แยกได้จริงคือ **sub-feature ใน doc detail** (`_docV2*` timeline ~39KB + `_docSp*` shipping ~17KB = ~56KB) โหลดตอนเปิด detail — **แต่ SHIPPING (เจ้าของงาน doc) เปิด detail แทบจะทันที → ประโยชน์ต่อ initial น้อยมาก + เสี่ยงกลาง**
 
-## 8. CSS class ที่สร้างจาก JS (ห้ามลบ CSS พวกนี้)
-- ตาราง/การ์ด/badge/modal/toast/menu-item ถูก build ผ่าน template string ใน `innerHTML` จำนวนมาก → **ห้ามลบ selector จาก app.css โดยไม่ยืนยันว่าไม่มีใน template string** (ดู PERFORMANCE_AUDIT §CSS — ยังไม่ลบ)
+## ข้อเสนอการแบ่ง Chunk (ให้ตรวจก่อน — ยังไม่ทำ)
+- **แนะนำ: ยังไม่แยก Document** — Round 1 (Export/Dashboard/OT/Users ~74KB) เก็บ win ที่ปลอดภัยไปแล้ว · Document เป็น home ของ SHIPPING = แยกแล้วแค่ย้ายเวลารอ
+- **ถ้าจะแยกจริง (เสี่ยงกลาง):** ทำเฉพาะ 2 sub-chunk จาก doc **detail** เท่านั้น:
+  - `doc-timeline.js` = `_docV2*` (~39KB) โหลดตอนเปิด timeline
+  - `doc-shipping.js` = `_docSp*` (~17KB) โหลดตอนกดขั้นตอน shipping
+  - **ต้องวิเคราะห์ 53 "Other" + 71 unclassified รายตัวก่อน** เพื่อยืนยันไม่มี must-stay ปน · แล้ว browser-test หนัก
+- **ห้าม** แตะ renderDocView / popup timer / realtime / cache (startup deps)

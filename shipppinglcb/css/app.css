@@ -19,3 +19,32 @@
 .tbl-doc-completed td:nth-child(8),.tbl-doc-completed th:nth-child(8){min-width:100px!important;max-width:160px!important}
 .tbl-doc-completed td:nth-child(9),.tbl-doc-completed th:nth-child(9){min-width:80px!important;max-width:140px!important}
 .tbl-doc-completed td:nth-child(11),.tbl-doc-completed th:nth-child(11){min-width:120px!important;max-width:180px!important}
+/* perf #2 (2026-07-13): content-visibility ข้ามแถวนอกจอ — เฉพาะตาราง table-layout:fixed (คอลัมน์ไม่เพี้ยน) */
+.tbl-doc-received tbody tr,.tbl-doc-postponed tbody tr{content-visibility:auto;contain-intrinsic-size:auto 44px}
+/* perf #4: หยุด animation ตอนสลับแท็บ (ลด CPU/แบต · กลับมาเล่นเมื่อดูอีกครั้ง) */
+body.tabhidden *,body.tabhidden *::before,body.tabhidden *::after{animation-play-state:paused!important}
+
+/* ===== [2026-07-14] ขยาย Modal "สร้างงานใหม่" (#modal-create) +~20% · เฉพาะ Desktop · ขนาดจริง ไม่ใช้ scale · scoped ไม่กระทบ modal อื่น/มือถือ ===== */
+@media (min-width:769px){
+  /* กล่อง modal: กว้าง/สูงขึ้น + ยังอยู่ในจอ (96vw) + เลื่อนได้ */
+  #modal-create .modal.modal-compact{width:96vw!important;max-width:936px!important;max-height:92vh!important}
+  /* padding ภายใน +~20% */
+  #modal-create .modal-head{padding:24px 29px!important;gap:19px!important}
+  #modal-create .modal-body{padding:26px 29px!important;overflow-y:auto}
+  #modal-create .modal-foot{padding:19px 29px!important;gap:12px!important}
+  /* หัวข้อ "สร้างงานใหม่" +~20% */
+  #modal-create .modal-head h2{font-size:19px!important}
+  #modal-create .cj-head-meta{font-size:15.5px!important}
+  /* ช่องกรอก / dropdown / textarea +~20% */
+  #modal-create .input,#modal-create .select,#modal-create .textarea{font-size:16.5px!important;padding:16px!important;min-height:50px!important}
+  #modal-create .textarea,#modal-create .cj-desc-box>#cj-desc{min-height:76px!important}
+  #modal-create .ta-jobnj{min-height:64px!important}
+  /* ระยะห่างระหว่างช่อง (grid) +~20% */
+  #modal-create .grid-2,#modal-create .grid-3{gap:15px!important}
+  #modal-create .field{gap:8px!important}
+  /* ปุ่มเลือกเร่งด่วน (priority) +~20% */
+  #modal-create .priority-btn{font-size:16px!important;padding:11px 15px!important;gap:8px!important}
+  #modal-create .priority-icon{width:20px!important;height:20px!important}
+  /* ปุ่ม "ยกเลิก" + "บันทึกงาน" +~20% */
+  #modal-create .modal-foot .btn{font-size:16px!important;min-height:50px!important;padding:0 24px!important}
+}
