@@ -8,7 +8,7 @@
    ============================================================ */
 window.RUNTIME_CONFIG = {
   ENVIRONMENT:        "uat",     // uat | production
-  READ_ONLY:          true,      // UAT: block insert/update/delete/upsert/upload/RPC-write
+  READ_ONLY:          false,     // false = เขียนข้อมูลได้ (live) · true = อ่านอย่างเดียว (UAT)
   KILL_SWITCH:        false,     // true = ปิด V3 + ปิด realtime + แจ้งเตือน + redirect
   KILL_REDIRECT_URL:  "",        // ปลายทางเมื่อ KILL_SWITCH (ว่าง = หน้า maintenance ในตัว)
   DESKTOP_PAGE_SIZE:  100,

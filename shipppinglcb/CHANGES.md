@@ -68,3 +68,11 @@
 | js/utils/format.js | `05e607ed2901310da18f73265a9dcc912552bd7a5e4568a7773aaf2c3dc3361a` |
 | js/core/runtime.js | `82b534f7f0e60763db3131a45ea981bd4acb12d44f7c68bab9112265344cf41d` (ไม่เปลี่ยน) |
 | css/app.css · config | ไม่เปลี่ยน |
+
+---
+## Fix ล่าสุด (การใช้งานจริง)
+1. **config/runtime-config.js:** `READ_ONLY: true → false` (เปิดเขียนข้อมูล live)
+2. **js/app.js:** `MASSENGER_READ_ONLY = getRuntimeBoolean(...) → false` — guard ไม่ติดตั้ง → รับ/ปิดงานได้ทั้ง SHIPPING/MESSENGER (แม้ config ไม่โหลด) · แก้อาการ "กดแล้วไม่อัปเดต"
+3. **css/app.css:** หน้า "ปล่อยเสร็จวันนี้" (tbl-doc-completed) — คอลัมน์ บริษัท(3)/วัน-เวลา(5)/ท่านำเข้า(7)/USER(8)/ชิปปิ้ง(9)/สถานะเอกสาร(11) แสดงบรรทัดเดียว + ellipsis (scope เฉพาะ view นี้)
+- ยืนยัน: guard write มีตัวเดียว · ฟังก์ชันรับ/ปิดงานถูกต้อง (PK จริง, error handling ครบ) · node --check ผ่านทุกไฟล์
+- ยังไม่รัน browser จริง → ต้อง hard refresh + ทดสอบบนเครื่องจริง
