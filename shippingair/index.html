@@ -2648,13 +2648,83 @@ function _saStatusModal(id){
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
       <span style="background:${m.color}22;color:${m.color};border:1px solid ${m.color}55;padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:700">${m.emoji} ${esc(m.label)}</span>
       <span style="color:#10B981;font-family:monospace;font-weight:800;font-size:15px">${esc(d.doc_no||'—')}</span></div>
-    <div style="margin-bottom:18px"><div class="sa-hgrid">${cell('🧭 โหมด',_sa.header.mode)}${cell('👤 ลูกค้า',_sa.header.cust)}${cell('📄 B/L',_sa.header.bl)}${cell('🏢 โกดัง / ท่านำเข้า',_sa.header.wh)}</div></div>
+    <div id="sa-hdr" style="margin-bottom:18px">${_saHdrViewHTML(d)}</div>
     <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:10px">⏱ Timeline การดำเนินงาน</div>
     <div id="sa-v2-timeline" style="color:#94A3B8;font-size:13px">กำลังโหลด...</div>
     <button onclick="_saAddStatus('${d.id}')" style="margin-top:18px;width:100%;background:#2563EB;color:#fff;border:none;border-radius:11px;padding:13px;font-weight:700;font-size:15px;cursor:pointer">➕ อัปเดตสถานะ</button></div>`;
   el.addEventListener('click',(e)=>{ if(e.target===el) el.remove(); });
   document.body.appendChild(el);
   _saLoadTimeline(d.id);
+}
+
+/* ===== แก้ไขข้อมูลส่วนหัวในหน้าต่าง 🚢 อัปเดตสถานะงาน (view ⇄ edit) — อ้างอิง document_id เดียว · ไม่สร้าง JOB ใหม่ · ไม่แตะ JOB อื่น ===== */
+function _saHdrCell(lbl,val){ return `<div style="background:#1A2235;border-radius:10px;padding:9px 11px;display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span style="font-size:11px;color:#94A3B8;flex-shrink:0;font-weight:600">${lbl}</span><span style="font-size:11px;color:#fff;font-weight:800;word-break:break-word;white-space:pre-wrap">${esc(val)}</span></div>`; }
+function _saHdrViewHTML(d){
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button onclick="_saHeaderEdit()" style="background:#1A2235;border:1px solid rgba(255,255,255,.14);color:#E2E8F0;font-size:12px;font-weight:700;padding:6px 12px;border-radius:9px;cursor:pointer;white-space:nowrap">✏️ แก้ไข</button>
+    </div>
+    <div class="sa-hgrid" onclick="_saHeaderEdit()" style="cursor:pointer" title="แตะเพื่อแก้ไข">
+      ${_saHdrCell('🧭 โหมด', d.category?`${catIcon(d.category)} ${d.category}`:'—')}
+      ${_saHdrCell('👤 ลูกค้า', d.company||'—')}
+      ${_saHdrCell('📄 B/L', d.job_nj||'—')}
+      ${_saHdrCell('🏢 โกดัง / ท่านำเข้า', d.import_terminal||'—')}
+    </div>`;
+}
+function _saHdrEditHTML(d){
+  const cur=String(d.category||'');
+  let modeOpts = CATEGORIES.map(c=>`<option value="${esc(c.v)}" ${cur===c.v?'selected':''}>${c.icon} ${esc(c.v)}</option>`).join('');
+  if(cur && !CATEGORIES.some(c=>c.v===cur)) modeOpts = `<option value="${esc(cur)}" selected>${catIcon(cur)} ${esc(cur)}</option>` + modeOpts;   // คงค่าเดิมถ้าไม่ใช่ IMPORT/EXPORT (กันเปลี่ยนโดยไม่ตั้งใจ)
+  const curT=String(d.import_terminal||'');
+  let termOpts = TERMINALS.map(t=>`<option value="${esc(t[0])}" ${curT===t[0]?'selected':''}>${esc(t[1])}</option>`).join('') + `<option value="ออฟฟิศ" ${curT==='ออฟฟิศ'?'selected':''}>ออฟฟิศ</option>`;
+  const knownT = TERMINALS.some(t=>t[0]===curT) || curT==='ออฟฟิศ';
+  if(curT && !knownT) termOpts = `<option value="${esc(curT)}" selected>${esc(curT)}</option>` + termOpts;
+  const inp='width:100%;margin-top:4px;background:#141A28;border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:9px 10px;color:#fff;font-size:12.5px;box-sizing:border-box;font-family:inherit';
+  const wrap='background:#1A2235;border-radius:10px;padding:9px 11px';
+  const lb='font-size:11px;color:#94A3B8;font-weight:600';
+  return `<div class="sa-hgrid">
+      <div style="${wrap}"><div style="${lb}">🧭 โหมด</div><select id="sah-mode" style="${inp};color-scheme:dark">${modeOpts}</select></div>
+      <div style="${wrap}"><div style="${lb}">👤 ลูกค้า</div><input id="sah-cust" type="text" autocomplete="off" value="${esc(d.company||'')}" style="${inp}"></div>
+      <div style="${wrap}"><div style="${lb}">📄 B/L</div><input id="sah-bl" type="text" autocomplete="off" value="${esc(d.job_nj||'')}" style="${inp}"></div>
+      <div style="${wrap}"><div style="${lb}">🏢 โกดัง / ท่านำเข้า</div><select id="sah-wh" style="${inp};color-scheme:dark">${termOpts}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+      <button onclick="_saHeaderView()" style="background:#1A2235;border:1px solid rgba(255,255,255,.14);color:#E2E8F0;font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:9px;cursor:pointer;min-height:40px">ยกเลิก</button>
+      <button id="sah-save" onclick="_saHeaderSave()" style="background:#2563EB;border:none;color:#fff;font-size:12.5px;font-weight:700;padding:9px 18px;border-radius:9px;cursor:pointer;min-height:40px">💾 บันทึก</button>
+    </div>`;
+}
+function _saHeaderEdit(){
+  const d=S.docs.find(x=>x.id===_sa.docId); if(!d) return;
+  const box=document.getElementById('sa-hdr'); if(box) box.innerHTML=_saHdrEditHTML(d);
+}
+function _saHeaderView(){
+  const d=S.docs.find(x=>x.id===_sa.docId); if(!d) return;
+  const box=document.getElementById('sa-hdr'); if(box) box.innerHTML=_saHdrViewHTML(d);
+}
+async function _saHeaderSave(){
+  const id=_sa.docId;
+  const d=S.docs.find(x=>x.id===id); if(!d){ toast('ไม่พบเอกสาร','error'); return; }
+  const mode=(document.getElementById('sah-mode')?.value||'').trim();
+  const cust=(document.getElementById('sah-cust')?.value||'').trim();
+  const bl  =(document.getElementById('sah-bl')?.value||'').trim();
+  const wh  =(document.getElementById('sah-wh')?.value||'').trim();
+  const update={ category:mode||null, company:cust||null, job_nj:bl||null, import_terminal:wh||null, updated_at:new Date().toISOString() };
+  const btn=document.getElementById('sah-save'); if(btn){ btn.disabled=true; btn.textContent='กำลังบันทึก...'; }
+  try{
+    const { error } = await sb.from(DOC_TABLE).update(update).eq('app_code',WORK_APP_CODE).eq('id',id);   // อ้างอิง id (document_id) เดียว
+    if(error) throw error;
+    const chips=[];
+    if((d.category||'')!==(update.category||'')) chips.push(`โหมด ${d.category||'—'}→${update.category||'—'}`);
+    if((d.company||'')!==(update.company||'')) chips.push('ลูกค้า');
+    if((d.job_nj||'')!==(update.job_nj||'')) chips.push('B/L');
+    if((d.import_terminal||'')!==(update.import_terminal||'')) chips.push(`ท่านำเข้า ${termLabel(d.import_terminal)}→${termLabel(update.import_terminal)}`);
+    if(chips.length) await logDoc(id, 'edited', d.doc_status, `📝 แก้ไขข้อมูลงาน · ${chips.join(' · ')}`);   // action 'edited' → เข้า Timeline ระบบ (ไม่ปน Timeline งาน)
+    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0) S.docs[_i]={ ...S.docs[_i], ...update };   // patch local — ไม่ refetch
+    _sa.header={ mode:(update.category?`${catIcon(update.category)} ${update.category}`:'—'), cust:update.company||'—', bl:update.job_nj||'—', wh:update.import_terminal||'—' };   // sync ให้ COPY ใช้ค่าล่าสุด
+    _saHeaderView();
+    renderSidebar(); if(typeof S.view==='string') routeRender();   // รีเฟรชการ์ดงาน (ไม่โหลดหน้าใหม่ทั้งหมด)
+    _saLoadTimeline(id);   // รีเฟรช Timeline ในหน้าต่าง
+    toast('บันทึกข้อมูลงานแล้ว ✅','success');
+  }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||e),'error'); if(btn){ btn.disabled=false; btn.textContent='💾 บันทึก'; } }
 }
 
 async function _saLoadTimeline(docId){
