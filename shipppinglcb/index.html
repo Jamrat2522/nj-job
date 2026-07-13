@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════
+  MASSENGER CLEAN — Production Clone (READ ONLY · UAT)  [ทาง A]
+  • สร้างจากสำเนา Production จริง → UI/UX/Flow/เมนู/ปุ่ม/Modal/Mobile/Desktop เหมือน Production 100% ตั้งแต่วันแรก
+  • คนละ Project / Folder / URL — ไม่แตะไฟล์ Production เดิม · ไม่ deploy ทับ
+  • ใช้ DB เดิม + User เดิม + Login เดิม
+  • ปลอดภัยช่วง UAT:
+      - ตัด Service Worker (ไม่ register · unregister ของเก่า)
+      - แยก session key: localStorage 'massenger_clean_user' (ไม่ชน production 'massenger_current_user')
+      - แยก supabase auth storageKey: 'mass-dispatch-auth-clean'
+      - READ ONLY guard ที่ชั้น Supabase client → block write/upload/write-RPC ทุกจุด (insert/update/upsert/delete/storage/auth.signUp)
+      - ไม่มีข้อมูลเขียนลง Production ระหว่าง UAT
+  • ขั้นต่อไป: refactor โค้ดภายในทีละส่วน + regression เทียบ production ทุกครั้ง
+  ════════════════════════════════════════════════════════════════
+-->
+
+<!--
+  MASSERGER v7.01 — 🛠 FIX: Download PNG ไม่ทำงาน (html2canvas crash)
+  ---
+  Root cause: html2canvas 1.4.1 ไม่รู้จัก CSS function ใหม่ ๆ
+    • color-mix() — ใช้ 9 ที่ (avatar gradient, glow, bar fill) → throw "unsupported color function"
+    • toDataURL() — base64 encode ในหน่วยความจำ → crash บนมือถือเก่า
+    • scale: 2 + devicePixelRatio 3 = effective 6x → OOM
+  ---
+  Fix v7.01 (ห้ามแตะข้อมูลอื่น):
+    1. _injectCaptureFallbackCSS() — inject <style> ชั่วคราว override ทุก color-mix()
+       เป็นสีเดียวจาก var (--mcard-color, --bar-color)
+       → ของจริงในหน้าไม่เปลี่ยน, แค่ระหว่าง capture เท่านั้น (2 frames)
+    2. canvas.toBlob() แทน toDataURL() — เร็วกว่า + ไม่ block + memory-friendly
+    3. scale auto: 1.5 บนมือถือ (width < 768), 2 บน desktop — กัน OOM
+    4. imageTimeout: 8000 — ไม่แฮงถ้า image โหลดช้า
+    5. foreignObjectRendering: false — เสถียรกว่า iOS Safari
+    6. Error message ละเอียดขึ้น (CORS / memory / parse)
+    7. URL.revokeObjectURL หลัง 1s — ปล่อย memory
+  ---
+  หลัง capture เสร็จ:
+    • _removeCaptureFallbackCSS() — ลบ <style> ออก
+    • Button กลับสู่สภาพเดิม
+    • Toast แจ้งสำเร็จ / fail พร้อมเหตุ
+  ---
+  ห้ามแตะ (ตรวจแล้ว):
+    ✅ CSS color-mix ของจริงในหน้า — ยังอยู่ครบ (avatar/bar/glow ยังสวย)
+    ✅ Logic graph, data, query, realtime, GPS — ไม่แตะ
+    ✅ MESSENGER_COLORS — ไม่แตะ
+    ✅ Tab switcher (v6.98) — ไม่แตะ
+    ✅ Job operations — ไม่แตะ
+  ---
+  v7.00 — 🚀 DEEP PERFORMANCE AUDIT (memoize, contain, idle defer)
+  ---
+  v6.99 — 🔒 SAFE ROLE PERF: ไม่ render Dashboard สำหรับ USER/STAFF/MESSENGER
+  ---
+  v6.98 — 🎛 SAFE REFACTOR: Single Graph Mode + Tab Switcher
+  ---
+  v6.97 — 🖼 ADD: Export Dashboard Graph PNG
+  ---
+  v6.96, v6.95, v6.94, v6.93, v6.92, v6.91, v6.90, v6.89, v6.88,
+  v6.87, v6.86, v6.85, v6.84, v6.83, v6.82, v6.81, v6.80, v6.79, v6.76 — เดิม
+  ---
+  📌 ขั้นตอนทดสอบ:
+    1. Sidebar ต้องโชว์ "MASSERGER v7.01"
+    2. คลิก 🖼 PNG ที่หัวกราฟ → ดาวน์โหลด .png สำเร็จ
+    3. ลองบนมือถือ — ต้องดาวน์โหลดได้ (scale 1.5)
+    4. ลองบน desktop — ภาพคม (scale 2)
+    5. รูป PNG ต้องเห็น avatar/bar/dot มีสีถูก (จาก fallback CSS)
+    6. หน้า dashboard จริงไม่เปลี่ยน — สียังสวยเหมือนเดิม
+-->
+
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MASSERGER">
+<meta name="theme-color" content="#10B981">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- <link rel="manifest" href="manifest.json"> --> <!-- MASSENGER CLEAN: ปิด manifest (UAT single-file · กัน error file:// CORS · PWA/SW ปิดอยู่แล้ว) -->
+<title>Mass Dispatch Enterprise — N.J. Logistics</title>
+
+<!-- ============ RESOURCE HINTS (boot-time optimization) ============ -->
+<!-- Preconnect: open TLS to critical origins in parallel with HTML parse -->
+<link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- dns-prefetch fallback for connectors not used immediately -->
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://unpkg.com">
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+<!-- preload: tell browser these scripts are critical so they download in parallel -->
+<!-- Note: ไม่มี crossorigin เพื่อ match กับ <script src> ปกติ (ไม่อย่างนั้น browser fetch 2 รอบ) -->
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
+<link rel="preload" href="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" as="script">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ============ LOADING SCREEN ============ -->
+<div id="loading" class="loading-screen"><div class="spinner"></div></div>
+
+<!-- ============ FIRST-SETUP SCREEN ============ -->
+<div id="screen-setup" class="auth-wrap" style="display:none">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="logo-box"><i data-lucide="shield-check"></i></div>
+      <div class="auth-title">
+        <h1>ติดตั้งครั้งแรก</h1>
+        <p>สร้างบัญชี SUPER ADMIN เพื่อเริ่มใช้งาน</p>
+      </div>
+    </div>
+    <div id="setup-alert"></div>
+    <div class="field"><label>Username <span class="req">*</span></label><input id="su-username" class="input" placeholder="admin"></div>
+    <div class="field"><label>ชื่อ-นามสกุล</label><input id="su-fullname" class="input" placeholder="ชื่อจริง"></div>
+    <div class="field"><label>Email</label><input id="su-email" class="input" type="email" placeholder="email@example.com (optional)"></div>
+    <div class="grid-2">
+      <div class="field"><label>รหัสผ่าน <span class="req">*</span></label>
+        <div class="input-with-icon">
+          <input id="su-password" class="input" type="password" placeholder="≥ 6 ตัวอักษร">
+          <button class="input-icon-btn" onclick="togglePw('su-password', this)"><i data-lucide="eye"></i></button>
+        </div>
+      </div>
+      <div class="field"><label>ยืนยันรหัสผ่าน <span class="req">*</span></label>
+        <div class="input-with-icon">
+          <input id="su-password2" class="input" type="password" placeholder="พิมพ์ซ้ำ">
+          <button class="input-icon-btn" onclick="togglePw('su-password2', this)"><i data-lucide="eye"></i></button>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block btn-lg" onclick="doSetupSuperAdmin()" style="margin-top:8px"><i data-lucide="rocket"></i> สร้างบัญชี SUPER ADMIN</button>
+    <div class="register-note">บัญชีนี้จะมีสิทธิ์ <b>สูงสุดทั้งระบบ</b><br>กรุณาเก็บรหัสผ่านไว้ในที่ปลอดภัย</div>
+  </div>
+</div>
+
+<!-- ============ AUTH SCREEN (Login / Register) ============ -->
+<div id="screen-auth" class="auth-wrap" style="display:none">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="logo-box"><i data-lucide="truck"></i></div>
+      <div class="auth-title">
+        <h1>Mass Dispatch Enterprise</h1>
+        <p>N.J. Logistics · ระบบจัดการแมสเซ็นเจอร์</p>
+      </div>
+    </div>
+    <div class="tabs">
+      <button id="tab-login" class="tab active" onclick="switchAuthTab('login')">เข้าสู่ระบบ</button>
+      <button id="tab-register" class="tab" onclick="switchAuthTab('register')">สมัครสมาชิก</button>
+    </div>
+    <div id="auth-alert"></div>
+    <div id="form-login" autocomplete="off">
+      <div class="field"><label>ชื่อผู้ใช้</label><input id="lg-username" class="input" placeholder="ชื่อผู้ใช้" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other"></div>
+      <div class="field"><label>Password</label>
+        <div class="input-with-icon">
+          <input id="lg-password" class="input" type="password" placeholder="••••••••" autocomplete="new-password" data-form-type="other">
+          <button class="input-icon-btn" onclick="togglePw('lg-password', this)"><i data-lucide="eye"></i></button>
+        </div>
+      </div>
+      <button id="btn-login" class="btn btn-primary btn-block btn-lg" onclick="doLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="form-register" style="display:none">
+      <div class="field"><label>Username <span class="req">*</span></label><input id="rg-username" class="input" placeholder="username"></div>
+      <div class="field"><label>แผนก / ฝ่าย <span class="req">*</span></label>
+        <select id="rg-department" class="input">
+          <option value="">— เลือกแผนก —</option>
+          <option value="IM">IM (Import)</option>
+          <option value="EX">EX (Export)</option>
+          <option value="AC">AC (Accounting)</option>
+          <option value="MASSERGER">MASSERGER</option>
+          <option value="SHIPPING">SHIPPING</option>
+          <option value="MGMT">MGMT (Management)</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>รหัสผ่าน <span class="req">*</span></label>
+          <div class="input-with-icon">
+            <input id="rg-password" class="input" type="password" placeholder="≥ 6 ตัวอักษร">
+            <button class="input-icon-btn" onclick="togglePw('rg-password', this)"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+        <div class="field"><label>ยืนยันรหัสผ่าน <span class="req">*</span></label>
+          <div class="input-with-icon">
+            <input id="rg-password2" class="input" type="password" placeholder="พิมพ์ซ้ำ">
+            <button class="input-icon-btn" onclick="togglePw('rg-password2', this)"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+      </div>
+      <button id="btn-register" class="btn btn-primary btn-block btn-lg" onclick="doRegister()">สมัครสมาชิก</button>
+    </div>
+    <div class="register-note">MASSERGER v6.83 · ใหม่ในระบบ? สมัครก่อนแล้วรอ Admin <b>อนุมัติ</b></div>
+  </div>
+</div>
+
+<!-- ============ PENDING SCREEN ============ -->
+<div id="screen-pending" class="auth-wrap" style="display:none">
+  <div class="auth-card" style="text-align:center">
+    <div class="logo-box" style="margin:0 auto 18px;background:linear-gradient(135deg,#F59E0B,#D97706)"><i data-lucide="clock"></i></div>
+    <h2 style="margin:0 0 6px">รออนุมัติ</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0 0 16px">บัญชีของคุณกำลังรอ Admin อนุมัติ — กรุณาติดต่อ Admin หากใช้เวลานานเกินไป</p>
+    <button class="btn btn-secondary btn-block" onclick="doLogout()">ออกจากระบบ</button>
+  </div>
+</div>
+
+<!-- ============ DISABLED SCREEN ============ -->
+<div id="screen-disabled" class="auth-wrap" style="display:none">
+  <div class="auth-card" style="text-align:center">
+    <div class="logo-box" style="margin:0 auto 18px;background:linear-gradient(135deg,#EF4444,#DC2626)"><i data-lucide="user-x"></i></div>
+    <h2 style="margin:0 0 6px">บัญชีถูกระงับ</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0 0 16px">บัญชีของคุณถูกระงับการใช้งาน — โปรดติดต่อ Admin</p>
+    <button class="btn btn-secondary btn-block" onclick="doLogout()">ออกจากระบบ</button>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="screen-app" class="app" style="display:none">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">NJ</div>
+      <div class="brand-text">MASSERGER<small>MASS DISPATCH</small></div>
+    </div>
+    <div class="user-card" id="user-card"></div>
+    <div id="menu"></div>
+  </aside>
+  <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Main content -->
+  <main class="main">
+    <div class="mobile-topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+      <div class="mobile-brand">
+        <div class="brand-logo" style="width:32px;height:32px;font-size:13px">NJ</div>
+        <div class="brand-text">MASSERGER</div>
+      </div>
+    </div>
+    <div id="view-root"></div>
+  </main>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="mobile-tabbar">
+    <button class="m-tab active" data-view="jobs" onclick="setView('jobs')">
+      <span class="m-tab-icon"><i data-lucide="clipboard-list"></i></span>
+      <span class="m-tab-label">งานทั้งหมด</span>
+      <span class="m-tab-dot"></span>
+    </button>
+    <button class="m-tab" data-view="wait" onclick="setView('wait')">
+      <span class="m-tab-icon"><span class="m-tab-circle m-tab-wait"></span></span>
+      <span class="m-tab-label">รอรับงาน</span>
+      <span class="m-tab-dot"></span>
+    </button>
+    <button class="m-tab" data-view="going" onclick="setView('going')">
+      <span class="m-tab-icon"><span class="m-tab-circle m-tab-going"></span></span>
+      <span class="m-tab-label">กำลังดำเนินการ</span>
+      <span class="m-tab-dot"></span>
+    </button>
+    <button class="m-tab" data-view="done" onclick="setView('done')">
+      <span class="m-tab-icon"><i data-lucide="check-circle" style="color:#10B981"></i></span>
+      <span class="m-tab-label">เสร็จแล้ว</span>
+      <span class="m-tab-dot"></span>
+    </button>
+    <button class="m-tab" onclick="toggleSidebar()">
+      <span class="m-tab-icon"><i data-lucide="menu"></i></span>
+      <span class="m-tab-label">เมนู</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ============ MODAL: CREATE / EDIT JOB ============ -->
+<div id="modal-create" class="modal-back">
+  <div class="modal modal-compact">
+    <div class="modal-head">
+      <h2 id="cj-title">สร้างงานใหม่</h2>
+      <!-- v7.97: JOB NO + วันเวลา อยู่บรรทัดเดียวกับหัวข้อ (id เดิม #cj-jobno/#cj-datetime · JS ไม่เปลี่ยน) -->
+      <span class="cj-head-meta">
+        <span class="cj-hm-item cj-hm-id">🆔 <span id="cj-jobno" style="font-family:'Inter',monospace;color:#10B981;font-weight:700">—</span></span>
+        <span class="cj-hm-item">🕒 <span id="cj-datetime">—</span></span>
+      </span>
+      <button class="x" onclick="closeModal('modal-create')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- v7.96 แถวที่ 1: บริษัท * | จำนวน | ประเภทงาน * -->
+      <div class="grid-3">
+        <div class="field">
+          <label>บริษัท <span class="req">*</span></label>
+          <input id="cj-company" class="input" placeholder="ชื่อบริษัท...">
+        </div>
+        <div class="field">
+          <label>จำนวน</label>
+          <input id="cj-quantity" type="text" class="input" autocomplete="off" inputmode="numeric" placeholder="เช่น 2, 5 ลัง, 10 กล่อง">
+        </div>
+        <div class="field">
+          <label>ประเภทงาน <span class="req">*</span></label>
+          <select id="cj-category" class="select input" onchange="var e=document.getElementById('cj-terminal-err'); if(e) e.style.display='none'; try{_cjToggleTerminalField()}catch(_){}"><!-- v7.92: เติมจาก CATEGORIES ผ่าน _fillCategorySelect (single source · ไม่ hardcode option) --></select>
+        </div>
+      </div>
+      <!-- v7.96 แถวที่ 2: รายละเอียดงาน | สถานที่รับ / ส่ง | ท่านำเข้า * -->
+      <div class="grid-3">
+        <div class="field">
+          <label>รายละเอียดงาน</label>
+          <!-- v8.03: dropdown รายละเอียดงาน + emoji + "อื่นๆ (กรอกเอง)" → สลับเป็น text input ในที่เดิม · cj-desc (select) ยังเป็นแหล่งค่าที่ submitCreate อ่าน (.value) เสมอ -->
+          <div class="cj-desc-box">
+            <select id="cj-desc" class="select input" onchange="_cjDescPick(this)">
+              <option value="" selected disabled hidden>— เลือกรายละเอียดงาน —</option>
+              <option value="รับ-ส่งดีโอ">📄 รับ-ส่งดีโอ</option>
+              <option value="รับ-ส่งวางบิล">🧾 รับ-ส่งวางบิล</option>
+              <option value="รับมัดจำตู้">💰 รับมัดจำตู้</option>
+              <option value="ล่วงเวลา">⏰ ล่วงเวลา</option>
+              <option value="รับเช็ค">🏦 รับเช็ค</option>
+              <option value="จ่ายค่าธรรมเนียม">💵 จ่ายค่าธรรมเนียม</option>
+              <option value="ส่งรถทั่ว (ศรีราชาทั่ว)">🚚 ส่งรถทั่ว (ศรีราชาทั่ว)</option>
+              <option value="ชุดงานตรวจปล่อย">📦 ชุดงานตรวจปล่อย</option>
+              <option value="จ่ายภาษี">💸 จ่ายภาษี</option>
+              <option value="กรมปศุสัตว์">🐄 กรมปศุสัตว์</option>
+              <option value="เกษตร">🌾 เกษตร</option>
+              <option value="อ.ย.">💊 อ.ย.</option>
+              <option disabled>────────────────────</option>
+              <option value="__other__">✏️ อื่นๆ (กรอกเอง)</option>
+              <option id="cj-desc-dyn" value="" hidden></option>
+            </select>
+            <input id="cj-desc-other" class="select input" type="text" placeholder="ระบุรายละเอียดงาน..." autocomplete="off" style="display:none" oninput="_cjDescType(this)" onblur="_cjDescBlur(this)">
+            <button type="button" id="cj-desc-back" class="cj-desc-back" onclick="_cjDescBack()" title="กลับไปเลือกจากรายการ" style="display:none">↩</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>สถานที่รับ / ส่ง</label>
+          <input id="cj-pickup" type="text" class="input" placeholder="ระบุสถานที่รับ / ส่ง...">
+        </div>
+        <div class="field" id="cj-terminal-field">
+          <label>ท่านำเข้า <span class="req">*</span></label>
+          <select id="cj-terminal" class="select input" onchange="var e=document.getElementById('cj-terminal-err'); if(e) e.style.display='none'">
+            <option value="" selected disabled hidden>เลือกท่านำเข้า...</option>
+          </select>
+          <div id="cj-terminal-err" style="display:none;color:#F87171;font-size:12px;margin-top:4px">กรุณาเลือกท่านำเข้า</div>
+        </div>
+      </div>
+      <!-- v7.99 แถวที่ 3: วันที่ รับ/ส่ง | เวลา (label มาตรฐานเหมือนฟิลด์อื่น · grid-2 · input/picker/validation เดิมไม่แก้) -->
+      <div class="grid-2">
+        <div class="field">
+          <label>วันที่ รับ/ส่ง <span class="req">*</span></label>
+          <input id="cj-pickup-date" type="date" class="input" onclick="try{this.showPicker&&this.showPicker()}catch(_){}">
+        </div>
+        <div class="field">
+          <label>เวลา <span class="req">*</span></label>
+          <!-- v6.69: กรอกเองเท่านั้น — ลบ dropdown/select ออก ไม่มี option list, ไม่มี default -->
+          <input id="cj-pickup-time" type="text" class="input" placeholder="HH:mm" inputmode="numeric" maxlength="5" autocomplete="off" onblur="_normTimeField(this)">
+        </div>
+      </div>
+      <!-- v7.98 แถวที่ 4: เลขใบขน | หมายเหตุ (แถวสุดท้าย) -->
+      <div class="grid-2">
+        <div class="field">
+          <label>เลขใบขน</label>
+          <textarea id="cj-jobnj" class="textarea ta-jobnj" placeholder="ระบุเลขใบขน... (วางหลายบรรทัดได้)" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>หมายเหตุ</label>
+          <textarea id="cj-notes" class="textarea" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+        </div>
+      </div>
+      <!-- v6.73: แนบรูป/ไฟล์ — เฉพาะมือถือเท่านั้น (iOS + Android)
+                  ถ่ายรูปสด (capture) หรือเลือกจากคลังภาพ/ไฟล์
+                  Desktop ซ่อนช่องนี้ด้วย class .mobile-only-field -->
+      <div class="field mobile-only-field" id="cj-attach-field">
+        <label>
+          <i data-lucide="paperclip" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"></i>
+          แนบรูป / ไฟล์
+          <small style="color:var(--muted);font-weight:400">(ไม่บังคับ · ≤15MB ต่อไฟล์ · สูงสุด 5 ไฟล์)</small>
+        </label>
+        <label class="upload-area">
+          <i data-lucide="upload-cloud" style="width:28px;height:28px"></i>
+          <div style="margin-top:6px;font-size:13px">📷 ถ่ายรูป หรือเลือกจากคลังภาพ</div>
+          <input id="cj-attach-input" type="file" multiple accept="image/*,application/pdf" onchange="for(const f of this.files){_createFiles.push(f)};this.value='';renderCreateFileList()">
+        </label>
+        <div id="cj-file-list" style="margin-top:10px"></div>
+      </div>
+
+      <!-- v6.58: Row 7 — เลือกส่งงาน (ด่วน / ไม่ด่วน) -->
+      <div class="field">
+        <label>เลือกส่งงาน</label>
+        <div class="priority-group" id="cj-priority-group">
+          <button type="button" class="priority-btn priority-urgent" data-priority="urgent" onclick="selectPriority('urgent')">
+            <span class="priority-check">✓</span>
+            <span class="priority-icon">🔴</span>
+            <span>ด่วน</span>
+          </button>
+          <button type="button" class="priority-btn priority-normal selected" data-priority="normal" onclick="selectPriority('normal')">
+            <span class="priority-check">✓</span>
+            <span class="priority-icon">🟢</span>
+            <span>ไม่ด่วน</span>
+          </button>
+        </div>
+        <input type="hidden" id="cj-priority" value="normal">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create')">ยกเลิก</button>
+      <button id="cj-submit" class="btn btn-primary" onclick="submitCreate()"><i data-lucide="check"></i> บันทึกงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: DETAIL ============ -->
+<div id="modal-detail" class="modal-back">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h2>รายละเอียดงาน</h2>
+      <button class="x" onclick="closeModal('modal-detail')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CLOSE JOB ============ -->
+<div id="modal-close" class="modal-back">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h2>ปิดงาน</h2><div style="color:var(--muted);font-size:13px;margin-top:4px">JOB NO: <b id="cl-jobno" style="color:#10B981;font-family:'Inter',monospace"></b></div></div>
+      <button class="x" onclick="closeModal('modal-close')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="cl-mode-banner" style="display:none;padding:10px 14px;border-radius:10px;border:1px solid;font-size:13px;margin-bottom:14px;line-height:1.5"></div>
+      <div class="field"><label>แนบรูป / ไฟล์ <span class="req required-msg">*</span><span class="optional-msg" style="color:var(--muted);font-size:11px;font-weight:400;display:none"> (ไม่บังคับ)</span> <small style="color:var(--muted);font-weight:400">(≤15MB ต่อไฟล์)</small></label>
+        <label class="upload-area">
+          <i data-lucide="upload-cloud" style="width:30px;height:30px"></i>
+          <div style="margin-top:6px">คลิกเพื่อเลือกไฟล์ หรือถ่ายรูป</div>
+          <input type="file" multiple accept="image/*,application/pdf" onchange="for(const f of this.files){_closeFiles.push(f)};this.value='';renderCloseFileList()">
+        </label>
+        <div id="cl-file-list" style="margin-top:10px"></div>
+      </div>
+      <div class="field hide-mobile"><label>ชื่อผู้รับงาน <span class="req required-msg">*</span><span class="optional-msg" style="color:var(--muted);font-size:11px;font-weight:400;display:none"> (ไม่บังคับ)</span></label><input id="cl-signer" class="input" placeholder="ชื่อ-นามสกุล ผู้รับงาน"></div>
+      <div class="field"><label>ลายเซ็น <span class="req required-msg">*</span><span class="optional-msg" style="color:var(--muted);font-size:11px;font-weight:400;display:none"> (ไม่บังคับ)</span> <small style="color:var(--muted);font-weight:400">เซ็นในกรอบด้านล่าง</small></label>
+        <canvas id="sig-canvas" class="sig-area"></canvas>
+        <div class="sig-controls">
+          <button class="btn btn-sm btn-ghost" onclick="clearSig()"><i data-lucide="rotate-ccw"></i> ล้าง</button>
+        </div>
+      </div>
+      <div class="field"><label>หมายเหตุปิดงาน</label><textarea id="cl-note" class="textarea" placeholder="(ไม่บังคับ)"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-close')">ยกเลิก</button>
+      <button id="cl-submit" class="btn btn-primary" onclick="submitClose()"><i data-lucide="check-circle"></i> ปิดงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CANCEL JOB ============ -->
+<div id="modal-cancel" class="modal-back">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-head">
+      <div><h2>ยกเลิกงาน</h2><div style="color:var(--muted);font-size:13px;margin-top:4px">JOB NO: <b id="cn-jobno" style="color:#10B981;font-family:'Inter',monospace"></b></div></div>
+      <button class="x" onclick="closeModal('modal-cancel')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-warn">งานที่ถูกยกเลิกจะไม่สามารถกู้คืนสถานะเดิมได้</div>
+      <div class="field"><label>เหตุผลยกเลิก <span class="req">*</span></label><textarea id="cn-reason" class="textarea" placeholder="โปรดระบุเหตุผล" rows="3"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cancel')">ปิด</button>
+      <button class="btn btn-warn" onclick="submitCancel()"><i data-lucide="x-circle"></i> ยืนยันยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: ASSIGN JOB (v6.39) ============ -->
+<div id="modal-assign" class="modal-back">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <div><h2>มอบหมายงาน</h2><div style="color:var(--muted);font-size:13px;margin-top:4px">JOB NO: <b id="asg-jobno" style="color:#10B981;font-family:'Inter',monospace"></b></div></div>
+      <button class="x" onclick="closeModal('modal-assign')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="padding:10px 14px;background:rgba(139,92,246,.10);border-left:3px solid #8B5CF6;border-radius:6px;font-size:13px;color:#C4B5FD;margin-bottom:14px;line-height:1.5">
+        <i data-lucide="info" style="width:16px;height:16px;vertical-align:-3px"></i>
+        Admin มอบหมายงานให้ messenger คนใดคนหนึ่ง · สถานะจะเปลี่ยนเป็น "ดำเนินการ" ทันที
+      </div>
+      <div class="field"><label>เลือกแมสเซ็นเจอร์ <span class="req">*</span></label>
+        <select id="asg-messenger" class="select"></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-assign')">ยกเลิก</button>
+      <button id="asg-submit" class="btn btn-primary" onclick="submitAssign()"><i data-lucide="user-check"></i> ยืนยันมอบหมาย</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: USER EDIT ============ -->
+<!-- ============ MODAL: USER ADD (v6.43) ============ -->
+<div id="modal-user-add" class="modal-back">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <div><h2>เพิ่มผู้ใช้ใหม่</h2>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px">สร้างโดย Admin · ผู้ใช้พร้อมใช้งานทันที</div>
+      </div>
+      <button class="x" onclick="closeModal('modal-user-add')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="padding:10px 14px;background:rgba(16,185,129,.10);border-left:3px solid #10B981;border-radius:6px;font-size:13px;color:#6EE7B7;margin-bottom:14px;line-height:1.5">
+        <i data-lucide="info" style="width:16px;height:16px;vertical-align:-3px"></i>
+        ระบบสร้าง email อัตโนมัติจาก username (ไม่ต้องกรอก)
+      </div>
+      <div class="field">
+        <label>Username <span class="req">*</span></label>
+        <input id="ua-username" class="input" placeholder="เช่น duck, somchai_a" autocomplete="off">
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Password <span class="req">*</span></label>
+          <div class="input-with-icon">
+            <input id="ua-password" class="input" type="password" placeholder="≥ 6 ตัวอักษร" autocomplete="new-password">
+            <button type="button" class="input-icon-btn" onclick="togglePw('ua-password', this)"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Confirm Password <span class="req">*</span></label>
+          <div class="input-with-icon">
+            <input id="ua-password2" class="input" type="password" placeholder="พิมพ์ซ้ำ" autocomplete="new-password">
+            <button type="button" class="input-icon-btn" onclick="togglePw('ua-password2', this)"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>แผนก / ฝ่าย <span class="req">*</span></label>
+        <select id="ua-department" class="select">
+          <option value="IM">IM (Import)</option>
+          <option value="EX">EX (Export)</option>
+          <option value="AC">AC (Accounting)</option>
+          <option value="MASSERGER">MASSERGER</option>
+          <option value="SHIPPING">SHIPPING</option>
+          <option value="MGMT">MGMT (Management)</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>บทบาท <span class="req">*</span></label>
+          <select id="ua-role" class="select" onchange="_uaToggleTerminals()">
+            <option value="STAFF">STAFF</option>
+            <option value="MESSENGER">MESSENGER</option>
+            <option value="SHIPPING">SHIPPING</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>สถานะ <span class="req">*</span></label>
+          <select id="ua-status" class="select">
+            <option value="active">active (ใช้ได้ทันที)</option>
+            <option value="pending">pending (รออนุมัติ)</option>
+            <option value="disabled">disabled (ปิดใช้งาน)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="ua-terminals-wrap" style="margin-top:8px;padding-top:14px;border-top:1px dashed var(--border-soft)">
+        <label style="display:flex;align-items:center;gap:8px"><i data-lucide="anchor" style="width:14px;height:14px;color:#38BDF8"></i> ท่านำเข้าที่รับผิดชอบ <span id="ua-term-sub" style="color:var(--muted);font-weight:400;font-size:12px">(สำหรับชิปปิ้ง — เลือกได้หลายท่า)</span></label>
+        <div id="ua-terminals" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div>
+        <div id="ua-terminals-err" style="display:none;color:#F87171;font-size:12px;margin-top:4px">⚠ กรุณาเลือกท่านำเข้าที่รับผิดชอบอย่างน้อย 1 รายการ</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-user-add')">ยกเลิก</button>
+      <button id="ua-submit" class="btn btn-primary" onclick="submitUserAdd()"><i data-lucide="user-plus"></i> สร้างผู้ใช้</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-user" class="modal-back">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h2 id="mu-title">แก้ไขผู้ใช้</h2>
+      <button class="x" onclick="closeModal('modal-user')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>ชื่อ-นามสกุล</label><input id="mu-fullname" class="input"></div>
+      <div class="field"><label>Username</label><input id="mu-username" class="input" autocomplete="off"></div>
+      <div class="field"><label>แผนก</label><input id="mu-department" class="input"></div>
+      <div class="field"><label>Email</label><input id="mu-email" class="input" type="email"></div>
+      <div class="grid-2">
+        <div class="field"><label>บทบาท</label>
+          <select id="mu-role" class="select" onchange="_muToggleTerminals()">
+            <option value="SUPER_ADMIN">SUPER ADMIN</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="STAFF">STAFF</option>
+            <option value="MESSENGER">MESSENGER</option>
+            <option value="SHIPPING">SHIPPING</option>
+          </select>
+        </div>
+        <div class="field"><label>สถานะ</label>
+          <select id="mu-status" class="select">
+            <option value="active">active</option>
+            <option value="pending">pending</option>
+            <option value="disabled">disabled</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="mu-terminals-wrap" style="margin-top:8px;padding-top:14px;border-top:1px dashed var(--border-soft)">
+        <label style="display:flex;align-items:center;gap:8px"><i data-lucide="anchor" style="width:14px;height:14px;color:#38BDF8"></i> ท่านำเข้าที่รับผิดชอบ <span id="mu-term-sub" style="color:var(--muted);font-weight:400;font-size:12px">(สำหรับชิปปิ้ง — เลือกได้หลายท่า)</span></label>
+        <div id="mu-terminals" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"></div>
+      </div>
+      <div class="field" style="margin-top:8px;padding-top:14px;border-top:1px dashed var(--border-soft)">
+        <label style="display:flex;align-items:center;gap:8px">
+          <i data-lucide="key-round" style="width:14px;height:14px;color:var(--accent)"></i>
+          เปลี่ยนรหัสผ่าน <span style="color:var(--muted);font-weight:400;font-size:12px">(เว้นว่าง = ไม่เปลี่ยน)</span>
+        </label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div class="pw-wrap" style="flex:1;position:relative">
+            <input id="mu-new-password" type="password" class="input" placeholder="อย่างน้อย 6 ตัว" autocomplete="new-password">
+            <button type="button" class="pw-toggle" onclick="togglePw('mu-new-password',this)" title="แสดง/ซ่อนรหัสผ่าน"><i data-lucide="eye"></i></button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="generateRandomPw('mu-new-password')" title="สุ่มรหัส"><i data-lucide="dices"></i></button>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px">⚠ การเปลี่ยน password จะใช้ผลทันที — ผู้ใช้นี้จะต้อง login ใหม่ด้วย password ใหม่</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-user')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="submitUserEdit()"><i data-lucide="save"></i> บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: PRINT (ใบสั่งงาน) ============ -->
+<div id="modal-print" class="modal-back">
+  <div class="modal" style="max-width:840px">
+    <div class="modal-head">
+      <h2>ใบสั่งงาน</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="printJobIframe()"><i data-lucide="printer"></i> พิมพ์</button>
+        <button class="btn btn-primary btn-sm" onclick="downloadJobPDF()"><i data-lucide="download"></i> Download PDF</button>
+        <button class="x" onclick="closeModal('modal-print')"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+    <div class="modal-body" id="print-body"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CONFIRM ============ -->
+<div id="modal-confirm" class="modal-back">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <h2 id="cf-title">ยืนยัน</h2>
+      <button class="x" onclick="closeModal('modal-confirm')"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body"><p id="cf-msg" style="margin:0;line-height:1.7"></p></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">ยกเลิก</button>
+      <button id="cf-ok" class="btn btn-primary">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div id="toast-wrap" class="toast-wrap"></div>
+
+<!-- ============ EXTERNAL LIBS ============ -->
+<!-- Note: html2pdf + xlsx-js-style lazy-loaded เฉพาะตอนใช้งาน (saves ~900KB at boot) -->
+<!-- v7.31: 🚀 defer — โหลด parallel กับ HTML parse, รันหลัง DOM พร้อม (ไม่ block first paint)
+     supabase + lucide รันก่อน inline app (defer รักษาลำดับ) → window.supabase พร้อมตอน init() -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+
+<!-- ============ APP ============ -->
+<script src="config/runtime-config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
