@@ -8829,9 +8829,12 @@ async function exportMappingCombined(){
         chunk.forEach(ro=>{
           const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
           const _mt = _rh.matTrim || '';   // Material (Trim): ดึงจาก 📦 RM มีเลขอ้างอิง เท่านั้น (Description ตัด # → Material name 2 → ว่าง) · ไม่ดึงจากไฟล์อื่น
+          // Desc ALL: ใช้ Material (Trim) เป็นส่วนหน้าแทน Description → "Material(Trim) / UPPER(Eng).Qty PCS." · คง suffix เดิมเป๊ะ · ถ้า Material (Trim) ว่าง ใช้ logic เดิม
+          const _dcFront = (ro.descOut||'').replace(/#.*$/s,'').trim();
+          const _descAll = (_mt && ro.descAll.startsWith(_dcFront)) ? (_mt + ro.descAll.slice(_dcFront.length)) : ro.descAll;
           aoa.push([ ro.billing, ro.bdate, _mt, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
                      _mapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
-                     numOrBlank(ro.fob), ro.descAll, _mt, _rh.entry, _rh.itemNo ]);
+                     numOrBlank(ro.fob), _descAll, _mt, _rh.entry, _rh.itemNo ]);
           tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
           tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
         });
