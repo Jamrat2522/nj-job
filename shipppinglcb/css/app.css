@@ -48,3 +48,12 @@ body.tabhidden *,body.tabhidden *::before,body.tabhidden *::after{animation-play
   /* ปุ่ม "ยกเลิก" + "บันทึกงาน" +~20% */
   #modal-create .modal-foot .btn{font-size:16px!important;min-height:50px!important;padding:0 24px!important}
 }
+
+/* ===== [2026-07-14] PERF #10 — ลด GPU cost เฉพาะมือถือ (max-width:768px) · overlay มืดคงเดิม · ไม่แตะโครง/สีปุ่ม/JS ===== */
+@media (max-width:768px){
+  .modal-back,.modal-backdrop,.sidebar-overlay,#sb-overlay{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  body{background:var(--bg)!important}
+  .pill,.pill .count,.term-chip,.menu-item .badge{box-shadow:none!important}
+  .info-card,.msg-card,.panel{box-shadow:0 1px 2px rgba(0,0,0,.2)!important}
+  .skel{animation:none!important}
+}
