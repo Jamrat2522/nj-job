@@ -93,12 +93,12 @@ function _expBook(rows,sheetName,headerE,groupBy){
   var W=HEAD.map(function(h){return String(h).length;});
   function tw(c,t){var L=String(t==null?"":t).length;if(L>W[c])W[c]=L;}
   for(var c=0;c<11;c++)put(0,c,{v:HEAD[c],t:"s",s:HS});
-  var R=1,item=0,firstDataR=1,lastDataR=1,subRows=[];
+  var R=1,item=0,firstDataR=1,lastDataR=1,subRows=[],_seen=new Set();
   function dataRow(row){
-    item++;
-    var v=[item,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.assignee||""),String(row.jobNj||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||"")];
+    var _jn=String(row.jobNo||"").trim();var _dup=(_jn&&_seen.has(_jn));var _iv;if(_jn&&!_dup){_seen.add(_jn);item++;_iv=item;}else{_iv="";}
+    var v=[_iv,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.assignee||""),String(row.jobNj||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||"")];
     for(var c=0;c<11;c++){var cell;
-      if(c===0)cell={v:item,t:"n",s:ds(0)};
+      if(c===0)cell=(_iv===""?{v:"",t:"s",s:ds(0)}:{v:_iv,t:"n",s:ds(0)});
       else if(c===8)cell={v:row.qty,t:"n",z:"#,##0",s:ds(8)};
       else if(c===9)cell={v:row.amount,t:"n",z:"#,##0.00",s:ds(9)};
       else cell={v:String(v[c]).toUpperCase(),t:"s",s:ds(c)};
