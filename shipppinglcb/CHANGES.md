@@ -25,3 +25,19 @@
 
 ## ไม่แตะ (คงใน app.js)
 Document ทั้งหมด (renderDocView, `_docV2*`, `_docSp*`, 53 Other), Timeline, รับ/ปิดงาน, Realtime, Timer, Modal สร้างงานใหม่ (+ CSS +20%), Excel format, KPI, validation, DB/schema/permission
+
+---
+## rev.2 (2026-07-14) — Bug fixes + sync
+1. **[บั๊กหน้าผู้ใช้งาน]** `_lazyRender` เขียน loading ลง `querySelector(...,main)` = จับ `<main>` ที่ครอบ `#view-root` → innerHTML ทับ = view-root หาย → `renderUsersView` หา `$("view-root")` ไม่เจอ (null) → "โหลดหน้าไม่สำเร็จ" · แก้: เขียน loading ลง `getElementById("view-root")` เอง (ไม่ทำลาย view-root) + guard ใน renderUsersView (`if(!container)return`) · ครอบคลุม `[rt jobs]` (ต้นเหตุเดียวกัน) · ไม่แตะ realtime
+2. **[edit-mode]** เอา `onclick="_docV2EditHeader()"` ออกจากการ์ด cell (โหมด/ลูกค้า/B/L/โกดัง) — เปิดแก้ไขเฉพาะปุ่ม + `event.stopPropagation()`
+3. **[search]** เพิ่ม `job_nj` (เลขใบขน/B/L) ใน client filter + server orExpr
+
+---
+## rev.3 (2026-07-14) — สิทธิ์การเห็นงาน STAFF/USER (js/app.js เท่านั้น · ไม่แตะ UI/Supabase/realtime)
+- **A** เอา "jobs" ออกจาก `_ADMIN_ONLY_VIEWS` + แก้ gate ซ้อนใน `renderView` (`v==="jobs"&&!canSeeAdminDashboard()`) ให้ bounce เฉพาะ MESSENGER → STAFF/USER เปิด "งานทั้งหมด" ได้
+- **B** `_defaultLandingView`: SHIPPING→doc-new · MESSENGER→wait · SUPER/ADMIN/STAFF/USER→jobs
+- **C** เพิ่ม `isJobOwnedByUser(job,u)`: เทียบ created_by===id ก่อน · ไม่ตรง → เทียบ created_by_name กับ username/full_name/display_user (trim+lowercase · ไม่จับชื่อว่าง)
+- **D** ใช้ `isJobOwnedByUser` แทน `created_by===id` ใน canEditJob, _workCloseAllowed, canViewJob, _jobVisibleToMe, _visibleJobs
+- **F** MESSENGER คง `_msgTerminalMatch` (WAIT ตามท่า + assigned + owned)
+- **G/H** ไม่แตะระบบเอกสาร SHIPPING · ไม่เพิ่ม USER ใน createJob · ไม่แตะ realtime/KPI/modal
+- หมายเหตุ: STAFF/USER landing=jobs (งานทั้งหมด) — ไม่เพิ่มปุ่ม sidebar (ห้ามแก้ UI) · wait/going ยังกรอง TODAY เดิม (ไม่อยู่ใน A–H)
