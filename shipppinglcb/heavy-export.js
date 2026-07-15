@@ -43,6 +43,21 @@ async function _expFetchOT(from,to){
   var fISO=fromStart.toISOString(),tISO=toEnd.toISOString();
   var seen={},out=[],PAGE=1000,page=0;
   while(page<=50){
+    var res=await sb.from("jobs").select("*").eq("app_code",APP_CODE).eq("category",OT_CATEGORY).eq("status","DONE").gte("closed_at",fISO).lt("closed_at",tISO).order("closed_at",{ascending:true}).range(page*PAGE,page*PAGE+PAGE-1);
+    if(res&&res.error){console.error("[OT EXPORT ERROR]",res.error);throw new Error("query failed");}
+    var data=(res&&res.data)||[];
+    for(var i=0;i<data.length;i++){var j=data[i];if(j&&j.id!=null&&!seen[j.id]){seen[j.id]=1;out.push(j);}}
+    if(data.length<PAGE)break;
+    page++;
+  }
+  return out;
+}
+async function _expFetchOTCA(from,to){
+  if(typeof sb==="undefined"||!sb){throw new Error("no supabase client");}
+  var fromStart=new Date(from+"T00:00:00");var toEnd=new Date(to+"T00:00:00");toEnd.setDate(toEnd.getDate()+1);
+  var fISO=fromStart.toISOString(),tISO=toEnd.toISOString();
+  var seen={},out=[],PAGE=1000,page=0;
+  while(page<=50){
     var res=await sb.from("jobs").select("*").eq("app_code",APP_CODE).eq("category",OT_CATEGORY).gte("created_at",fISO).lt("created_at",tISO).order("created_at",{ascending:true}).range(page*PAGE,page*PAGE+PAGE-1);
     if(res&&res.error){console.error("[OT EXPORT ERROR]",res.error);throw new Error("query failed");}
     var data=(res&&res.data)||[];
@@ -52,10 +67,81 @@ async function _expFetchOT(from,to){
   }
   return out;
 }
+function _expBuildRowsCA(jobs){
+  var out=[];
+  for(var x=0;x<jobs.length;x++){
+    var j=jobs[x];var items=_otParseRows(j);if(!items.length)continue;
+    for(var y=0;y<items.length;y++){
+      var it=items[y];var term=String(it.term||"").trim()||"CS";var name=String(j.created_by_name||"").trim()||"-";
+      out.push({jobNo:String(j.job_no||""),createdAt:(typeof fmtDateTime==="function"?fmtDateTime(j.created_at):String(j.created_at||"")),
+        creator:name,assignee:String(j.assigned_to_name||"").trim()||"-",jobNj:String(it.nj||""),
+        company:String(it.company||""),branch:String(it.branch||""),qty:(parseFloat(String(it.qty).replace(/,/g,""))||0),amount:(parseFloat(String(it.amount).replace(/,/g,""))||0),
+        term:term,name:name,_ca:String(j.created_at||""),_i:out.length});
+    }
+  }
+  return out;
+}
+function _expBookOrig(rows,sheetName,headerE,groupBy){
+  var HEAD=["ITEM","เลขที่ใบงาน","วันที่สร้าง","ผู้สร้าง",headerE,"JOB NJ","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า"];
+  var BORD={top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}};
+  var HS={font:{bold:true,sz:11,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E78"}},border:BORD,alignment:{horizontal:"center",vertical:"center"}};
+  function al(c){return (c===0||c===8||c===9)?"right":"left";}
+  function ds(c){return {font:{sz:11},border:BORD,alignment:{horizontal:al(c),vertical:"center"}};}
+  var ws={};function put(r,c,cell){ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;}
+  var W=HEAD.map(function(h){return String(h).length;});
+  function tw(c,t){var L=String(t==null?"":t).length;if(L>W[c])W[c]=L;}
+  for(var c=0;c<11;c++)put(0,c,{v:HEAD[c],t:"s",s:HS});
+  var R=1,item=0,firstDataR=1,lastDataR=1,subRows=[];
+  function dataRow(row){
+    item++;
+    var v=[item,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.assignee||""),String(row.jobNj||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||"")];
+    for(var c=0;c<11;c++){var cell;
+      if(c===0)cell={v:item,t:"n",s:ds(0)};
+      else if(c===8)cell={v:row.qty,t:"n",z:"#,##0",s:ds(8)};
+      else if(c===9)cell={v:row.amount,t:"n",z:"#,##0.00",s:ds(9)};
+      else cell={v:String(v[c]).toUpperCase(),t:"s",s:ds(c)};
+      put(R,c,cell);tw(c,v[c]);}
+    lastDataR=R;R++;
+  }
+  function fsum(col,sR,eR){return sR===eR?("SUM("+col+(sR+1)+")"):("SUM("+col+(sR+1)+":"+col+(eR+1)+")");}
+  function sumRow(sR,eR,sq,sa,bold,mode){
+    var es=mode==="full"?BORD:(mode==="bottom"?{bottom:{style:"thin",color:{rgb:"888888"}}}:null);
+    if(mode==="full"){for(var c=0;c<11;c++){if(c!==8&&c!==9)put(R,c,{s:{border:BORD}});}}
+    var st8={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"}};if(es)st8.border=es;
+    var st9={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"}};if(es)st9.border=es;
+    put(R,8,{t:"n",f:fsum("I",sR,eR),v:sq,z:"#,##0",s:st8});
+    put(R,9,{t:"n",f:fsum("J",sR,eR),v:sa,z:"#,##0.00",s:st9});
+    R++;
+  }
+  function grandRow(tq,ta,bold){
+    var fi="SUM("+subRows.map(function(r){return "I"+(r+1);}).join(",")+")";
+    var fj="SUM("+subRows.map(function(r){return "J"+(r+1);}).join(",")+")";
+    var es={bottom:{style:"thin",color:{rgb:"888888"}}};
+    put(R,8,{t:"n",f:fi,v:tq,z:"#,##0",s:{font:{sz:11,bold:!!bold},border:es,alignment:{horizontal:"right",vertical:"center"}}});
+    put(R,9,{t:"n",f:fj,v:ta,z:"#,##0.00",s:{font:{sz:11,bold:!!bold},border:es,alignment:{horizontal:"right",vertical:"center"}}});
+    R++;
+  }
+  function blankRow(){for(var c=0;c<11;c++)put(R,c,{s:{border:BORD}});R++;}
+  var TQ=0,TA=0;
+  if(groupBy){
+    var i=0;
+    while(i<rows.length){
+      var key=(groupBy==="term")?rows[i].term:rows[i].name,gS=R,sq=0,sa=0;
+      while(i<rows.length&&((groupBy==="term")?rows[i].term:rows[i].name)===key){sq+=(rows[i].qty||0);sa+=(rows[i].amount||0);dataRow(rows[i]);i++;}
+      subRows.push(R);TQ+=sq;TA+=sa;sumRow(gS,R-1,sq,sa,true,"full");blankRow();}
+    if(subRows.length)grandRow(TQ,TA,true);
+  }else{
+    for(var k=0;k<rows.length;k++){TQ+=(rows[k].qty||0);TA+=(rows[k].amount||0);dataRow(rows[k]);}
+    if(item>0)sumRow(firstDataR,lastDataR,TQ,TA,true,"bottom");
+  }
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:10}});
+  ws["!cols"]=W.map(function(w){return {wch:Math.min(Math.max(w+2,5),40)};});
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName);return wb;
+}
 async function _runExport(mode,from,to){
   var base;
-  try{base=await _expFetchOT(from,to);}catch(e){console.error("[OT EXPORT ERROR]",e);try{toast("ไม่สามารถ Export ข้อมูลได้ กรุณาลองใหม่","error")}catch(_){}return;}
-  var rows=_expBuildRows(base);
+  try{base=await (mode==="zip"?_expFetchOT(from,to):_expFetchOTCA(from,to));}catch(e){console.error("[OT EXPORT ERROR]",e);try{toast("ไม่สามารถ Export ข้อมูลได้ กรุณาลองใหม่","error")}catch(_){}return;}
+  var rows=(mode==="zip"?_expBuildRows(base):_expBuildRowsCA(base));
   if(!rows.length){try{toast("ไม่พบงาน OT ในช่วงวันที่ที่เลือก","error")}catch(_){}return;}
   if(mode==="zip")return _exportDoneZip(rows,from,to);
   return _expExportSingle(rows,from,to);
@@ -66,10 +152,10 @@ function _expBuildRows(jobs){
     var j=jobs[x];var items=_otParseRows(j);if(!items.length)continue;
     for(var y=0;y<items.length;y++){
       var it=items[y];var term=String(it.term||"").trim()||"CS";var name=String(j.created_by_name||"").trim()||"-";
-      out.push({jobNo:String(j.job_no||""),createdAt:(typeof fmtDateTime==="function"?fmtDateTime(j.created_at):String(j.created_at||"")),
+      out.push({jobNo:String(j.job_no||""),createdAt:(typeof fmtDateTime==="function"?fmtDateTime(j.closed_at):String(j.closed_at||"")),
         creator:name,assignee:String(j.assigned_to_name||"").trim()||"-",jobNj:String(it.nj||""),
         company:String(it.company||""),branch:String(it.branch||""),qty:(parseFloat(String(it.qty).replace(/,/g,""))||0),amount:(parseFloat(String(it.amount).replace(/,/g,""))||0),
-        term:term,name:name,_ca:String(j.created_at||""),_i:out.length});
+        term:term,name:name,_ca:String(j.closed_at||""),_i:out.length});
     }
   }
   return out;
@@ -84,7 +170,7 @@ function _expCmp(a,b){
 }
 function _expSort(rows){return rows.slice().sort(_expCmp);}
 function _expBook(rows,sheetName,headerE,groupBy){
-  var HEAD=["ITEM","เลขที่ใบงาน","วันที่สร้าง","ผู้สร้าง",headerE,"JOB NJ","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า"];
+  var HEAD=["ITEM","เลขที่ใบงาน","วันที่ปิดงาน","ผู้สร้าง",headerE,"JOB NJ","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า"];
   var BORD={top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}};
   var HS={font:{bold:true,sz:11,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E78"}},border:BORD,alignment:{horizontal:"center",vertical:"center"}};
   function al(c){return (c===0||c===8||c===9)?"right":"left";}
@@ -146,10 +232,10 @@ function _expDownload(buf,fn){
   setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(_){}a.remove();},1500);
 }
 function _expNameSuffix(from,to){var f2=from.replace(/-/g,""),t2=to.replace(/-/g,"");return (from===to)?f2:(f2+"_ถึง_"+t2);}
-async function _expExportSingle(rows,from,to){
+function _expBook1(wb,rows,sheetName){var HEAD=["ITEM","เลขที่ใบงาน","วันที่ปิดงาน","ผู้สร้าง","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า"];var BORD={top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}};var HS={font:{bold:true,sz:11,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E78"}},border:BORD,alignment:{horizontal:"center",vertical:"center"}};function al(c){return (c===0||c===6||c===7)?"right":"left";}function ds(c){return {font:{sz:11},border:BORD,alignment:{horizontal:al(c),vertical:"center"}};}var ws={};function put(r,c,cell){ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;}var W=HEAD.map(function(h){return String(h).length;});function tw(c,t){var L=String(t==null?"":t).length;if(L>W[c])W[c]=L;}for(var c=0;c<9;c++)put(0,c,{v:HEAD[c],t:"s",s:HS});var R=1,item=0,firstDataR=1,lastDataR=1,_seen=new Set();function dataRow(row){var _jn=String(row.jobNo||"").trim();var _dup=(_jn&&_seen.has(_jn));var _iv;if(_jn&&!_dup){_seen.add(_jn);item++;_iv=item;}else{_iv="";}var v=[_iv,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||"")];for(var c=0;c<9;c++){var cell;if(c===0)cell=(_iv===""?{v:"",t:"s",s:ds(0)}:{v:_iv,t:"n",s:ds(0)});else if(c===6)cell={v:row.qty,t:"n",z:"#,##0",s:ds(6)};else if(c===7)cell={v:row.amount,t:"n",z:"#,##0.00",s:ds(7)};else cell={v:String(v[c]).toUpperCase(),t:"s",s:ds(c)};put(R,c,cell);tw(c,v[c]);}lastDataR=R;R++;}function fsum(col,sR,eR){return sR===eR?("SUM("+col+(sR+1)+")"):("SUM("+col+(sR+1)+":"+col+(eR+1)+")");}function sumRow(sR,eR,sq,sa,bold){var es={bottom:{style:"thin",color:{rgb:"888888"}}};var st6={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"},border:es};var st7={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"},border:es};put(R,6,{t:"n",f:fsum("G",sR,eR),v:sq,z:"#,##0",s:st6});put(R,7,{t:"n",f:fsum("H",sR,eR),v:sa,z:"#,##0.00",s:st7});R++;}var TQ=0,TA=0;for(var k=0;k<rows.length;k++){TQ+=(rows[k].qty||0);TA+=(rows[k].amount||0);dataRow(rows[k]);}if(item>0)sumRow(firstDataR,lastDataR,TQ,TA,true);ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:8}});ws["!cols"]=W.map(function(w){return {wch:Math.min(Math.max(w+2,5),40)};});ws["!views"]=[{state:"frozen",ySplit:1,topLeftCell:"A2"}];XLSX.utils.book_append_sheet(wb,ws,sheetName);}function _expBook2(wb,rows,termValue,sheetName){var HEAD=["ITEM","เลขที่ใบงาน","วันที่ปิดงาน","ผู้สร้าง","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน"];var BORD={top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}};var HS={font:{bold:true,sz:11,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E78"}},border:BORD,alignment:{horizontal:"center",vertical:"center"}};function al(c){return (c===0||c===6||c===7)?"right":"left";}function ds(c){return {font:{sz:11},border:BORD,alignment:{horizontal:al(c),vertical:"center"}};}var ws={};function put(r,c,cell){ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;}var W=HEAD.map(function(h){return String(h).length;});function tw(c,t){var L=String(t==null?"":t).length;if(L>W[c])W[c]=L;}put(0,1,{v:"ท่านำเข้า",t:"s",s:HS});put(1,1,{v:String(termValue||""),t:"s",s:{font:{sz:11},border:BORD,alignment:{horizontal:"left",vertical:"center"}}});tw(1,"ท่านำเข้า");tw(1,String(termValue||""));var HR=3;for(var c=0;c<8;c++)put(HR,c,{v:HEAD[c],t:"s",s:HS});var R=HR+1,item=0,firstDataR=R,lastDataR=R,_seen=new Set();function dataRow(row){var _jn=String(row.jobNo||"").trim();var _dup=(_jn&&_seen.has(_jn));var _iv;if(_jn&&!_dup){_seen.add(_jn);item++;_iv=item;}else{_iv="";}var v=[_iv,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.company||""),String(row.branch||""),row.qty,row.amount];for(var c=0;c<8;c++){var cell;if(c===0)cell=(_iv===""?{v:"",t:"s",s:ds(0)}:{v:_iv,t:"n",s:ds(0)});else if(c===6)cell={v:row.qty,t:"n",z:"#,##0",s:ds(6)};else if(c===7)cell={v:row.amount,t:"n",z:"#,##0.00",s:ds(7)};else cell={v:String(v[c]).toUpperCase(),t:"s",s:ds(c)};put(R,c,cell);tw(c,v[c]);}lastDataR=R;R++;}function fsum(col,sR,eR){return sR===eR?("SUM("+col+(sR+1)+")"):("SUM("+col+(sR+1)+":"+col+(eR+1)+")");}var TQ=0,TA=0;for(var k=0;k<rows.length;k++){TQ+=(rows[k].qty||0);TA+=(rows[k].amount||0);dataRow(rows[k]);}if(item>0){var es={bottom:{style:"thin",color:{rgb:"888888"}}};put(R,6,{t:"n",f:fsum("G",firstDataR,lastDataR),v:TQ,z:"#,##0",s:{font:{sz:11,bold:true},alignment:{horizontal:"right",vertical:"center"},border:es}});put(R,7,{t:"n",f:fsum("H",firstDataR,lastDataR),v:TA,z:"#,##0.00",s:{font:{sz:11,bold:true},alignment:{horizontal:"right",vertical:"center"},border:es}});R++;}ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:7}});ws["!cols"]=W.map(function(w){return {wch:Math.min(Math.max(w+2,5),40)};});ws["!views"]=[{state:"frozen",ySplit:HR+1,topLeftCell:"A"+(HR+2)}];XLSX.utils.book_append_sheet(wb,ws,sheetName);}function _expSheetName(t,used){var n=String(t).replace(/[\\/?*\[\]:]/g,"-").slice(0,31)||"SHEET";var base=n,i=2;while(used[n]){n=(base.slice(0,28)+"_"+i).slice(0,31);i++;}used[n]=1;return n;}async function _expExportSingle(rows,from,to){
   try{if(typeof loadXlsxStyle==="function")await loadXlsxStyle();}catch(e){try{toast("โหลดไลบรารีไม่สำเร็จ","error")}catch(_){}return;}
   if(typeof XLSX==="undefined"){try{toast("ไลบรารี Export ไม่พร้อม","error")}catch(_){}return;}
-  var wb=_expBook(_expSort(rows),"รวมทั้งหมด","ผู้รับงาน",null);
+  var wb=_expBookOrig(_expSort(rows),"รวมทั้งหมด","ผู้รับงาน",null);
   var buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
   _expDownload(buf,"ใบปิดบัญชีงานOT_"+_expNameSuffix(from,to)+".xlsx");
   try{toast("Export Excel สำเร็จ ("+rows.length+" รายการ)","success")}catch(_){}
@@ -165,6 +251,7 @@ async function _exportDoneZip(rows,from,to){
   zip.file("ใบปิดบัญชีเฉพาะ CS.xlsx",XLSX.write(wbCS,{bookType:"xlsx",type:"array"}));
   zip.file("ใบปิดบัญชีรวมท่านำเข้า.xlsx",XLSX.write(wbTM,{bookType:"xlsx",type:"array"}));
   zip.file("ใบปิดบัญชีรวม CS และท่านำเข้า.xlsx",XLSX.write(wbAll,{bookType:"xlsx",type:"array"}));
+  var _sorted=_expSort(rows);var _wbMS=XLSX.utils.book_new();_expBook1(_wbMS,_sorted.filter(function(_r){return String(_r.term||"").trim()!=="CS";}),"รวมทั้งหมด");var _ord=[],_grp={};for(var _k=0;_k<_sorted.length;_k++){var _t=String(_sorted[_k].term||"").trim();if(!_t)continue;if(!_grp[_t]){_grp[_t]=[];_ord.push(_t);}_grp[_t].push(_sorted[_k]);}var _used={"รวมทั้งหมด":1};for(var _oi=0;_oi<_ord.length;_oi++){var _tv=_ord[_oi];_expBook2(_wbMS,_grp[_tv],_tv,_expSheetName(_tv,_used));}zip.file("ใบปิดบัญชี แยกท่านำเข้า.xlsx",XLSX.write(_wbMS,{bookType:"xlsx",type:"array"}));
   var blob=await zip.generateAsync({type:"blob"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ใบปิดบัญชีงานOT_"+_expNameSuffix(from,to)+".zip";document.body.appendChild(a);a.click();
   setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(_){}a.remove();},1500);
