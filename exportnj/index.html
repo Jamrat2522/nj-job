@@ -489,7 +489,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="logo">📊</div>
       <div>
         <div class="name">REPORT ALL</div>
-        <div class="desc">รายงานรวมทุกระบบ</div>
+        <div class="desc">รายงานรวมทุกระบบ · BUILD U3</div>
       </div>
     </div>
     <div class="profile">
@@ -852,8 +852,7 @@ async function loadReports(){
   S.loading = true;
   try{
     let q = sb.from(CONFIG.TABLE).select('*').order(C.createdAt, {ascending:false}).limit(3000);
-    // สิทธิ์: user เห็นเฉพาะ created_by = ตัวเอง
-    if (!isSuperAdmin()) q = q.eq(C.createdBy, CUR.username);
+    // USER โหลดข้อมูลทั้งหมด — เห็น/แก้ได้ทุกงาน (จำกัดเฉพาะการลบ = SUPER_ADMIN)
     const { data, error } = await q;
     if (error) throw error;
     S.reports = data || [];
@@ -910,9 +909,9 @@ function renderReportsView(higasketOnly){
 
   document.getElementById('pageActions').innerHTML = `
     <button class="btn btn-s" onclick="higasketRefresh()">🔄 รีเฟรช</button>
-    ${isSuperAdmin()?`<button class="btn btn-s" onclick="triggerImport(${higasketOnly})">📥 Import Excel</button>
+    <button class="btn btn-s" onclick="triggerImport(${higasketOnly})">📥 Import Excel</button>
     <button class="btn btn-export" onclick="exportExcel(${higasketOnly})">📤 Export Excel</button>
-    <button class="btn btn-danger" onclick="deleteAllMode('Higasket')">🗑️ ลบทั้งหมด</button>`:''}
+    ${isSuperAdmin()?`<button class="btn btn-danger" onclick="deleteAllMode('Higasket')">🗑️ ลบทั้งหมด</button>`:''}
     <button class="btn btn-p" onclick="openReportModal(null,${higasketOnly})">➕ เพิ่มรายงาน</button>
     <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none"
       onchange="importExcel(event,${higasketOnly})">`;
@@ -1038,7 +1037,7 @@ function tableHtml(rows, higasketOnly){
     const startNo = (S.page-1)*CONFIG.PAGE_SIZE;   // ITEM ต่อเนื่องข้ามหน้า (แสดงผลอย่างเดียว)
     body = rows.map((r,i)=>{
       const item = startNo + i + 1;
-      const canEdit = isSuperAdmin() || (r[C.createdBy]===CUR.username);
+      const canEdit = true;   // USER แก้ได้ทุกแถว
       const canDel  = isSuperAdmin();   // ลบได้เฉพาะ SUPER ADMIN
       const tds = RCOLS.map(col=>{
         let v = r[col.k];
@@ -1146,11 +1145,7 @@ function collectDocs(){
   return DOCS.filter(([k])=>{ const el=document.getElementById('doc_'+k); return el&&el.checked; }).map(([k])=>k);
 }
 async function saveReport(id, higasketOnly){
-  // สิทธิ์: user แก้ได้เฉพาะแถวของตัวเอง
-  if (id!=null && !isSuperAdmin()){
-    const own=S.reports.find(x=>String(x[C.id])===String(id));
-    if (own && own[C.createdBy]!==CUR.username){ toast('ไม่มีสิทธิ์แก้ไขรายการนี้','err'); return; }
-  }
+  // สิทธิ์: USER แก้ได้ทุกแถว · จำกัดเฉพาะการลบ (SUPER_ADMIN)
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> กำลังบันทึก...';
   const val=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
   const payload={
@@ -1242,7 +1237,7 @@ async function deleteAllMode(mode){
 /* ==================================================================
    IMPORT EXCEL  (แมปตรงไฟล์ HIGASKET จริง — จีน/ไทย)
 ================================================================== */
-function triggerImport(h){ if(!isSuperAdmin()){ toast('เฉพาะผู้ดูแลระบบเท่านั้น','err'); return; } document.getElementById('importFile').click(); }
+function triggerImport(h){ document.getElementById('importFile').click(); }   // USER นำเข้าได้
 
 // map header → field โดย fuzzy keyword (รองรับหลายชีต: 送货计划 / Air / Sheet1 / Sheet3)
 function mapHigasketHeader(hRaw){
@@ -1422,9 +1417,9 @@ function _njRenderUsers(){
       <td>${escapeHtml(u.internal_username||'—')}</td>
       <td>${activeChip}</td>
       <td><div class="rowact" style="justify-content:flex-end">
-        <button class="iconbtn" title="แก้ไข" onclick="njAddUser(${JSON.stringify(u.id)})">✏️</button>
+        <button class="iconbtn" title="แก้ไข" onclick="njAddUser('${String(u.id)}')">✏️</button>
         ${locked?`<button class="iconbtn" title="บัญชีระบบ ห้ามลบ" disabled style="opacity:.35">🔒</button>`
-          :`<button class="iconbtn del" title="ลบ" onclick="njUserDelete(${JSON.stringify(u.id)})">🗑️</button>`}
+          :`<button class="iconbtn del" title="ลบ" onclick="njUserDelete('${String(u.id)}')">🗑️</button>`}
       </div></td>
     </tr>`;
   }).join('') || `<tr><td colspan="8"><div class="empty"><div class="ei">👥</div>ยังไม่มีผู้ใช้</div></td></tr>`;
@@ -1469,7 +1464,7 @@ function njAddUser(id){
         </div>
         <div class="mf">
           <button class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
-          <button class="btn btn-p" id="uSaveBtn" onclick="njUserSave(${id!=null?JSON.stringify(id):'null'})">💾 บันทึก</button>
+          <button class="btn btn-p" id="uSaveBtn" onclick="njUserSave(${id!=null?("'"+String(id)+"'"):'null'})">💾 บันทึก</button>
         </div>
       </div>
     </div>`;
@@ -1687,6 +1682,7 @@ function ancaRound2(v){ const n=Number(v); return isNaN(n)?0:Math.round((n+Numbe
 function ancaRound5(v){ const n=Number(v); return isNaN(n)?0:Math.round((n+Number.EPSILON)*1e5)/1e5; }   // ปัด 5 ตำแหน่ง (unit Price ตาม template)
 function ancaKeepDesc(s){ return String(s==null?'':s).replace(/^\s+|\s+$/g,''); }   // ตัดเฉพาะหัว-ท้าย คงช่องว่างภายใน (ตรง Excel)
 function ancaCleanDesc(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
+function ancaNormalizeItemCode(value){ return String(value==null?'':value).replace(/[\u200B-\u200D\uFEFF\u00A0]/g,'').replace(/[\u2010-\u2015\u2212]/g,'-').trim().toUpperCase(); }   // ANCA: ลบอักขระซ่อน (ZWSP/NBSP) + แปลงขีดพิเศษเป็น - + ตัดหัวท้าย + ตัวใหญ่
 function ancaFmtBytes(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
 
 /* ---------- PDF parsing (pdf.js, ทุกหน้า) ---------- */
@@ -1713,7 +1709,7 @@ async function parseAncaPdf(arrayBuffer){
   const dd=full.match(new RegExp(DP+'\\s+'+DP));
   if(dd){ shipDate=ancaParseDMY(dd[1]); printDate=ancaParseDMY(dd[2]); }
   else { const d1=full.match(new RegExp(DP)); if(d1) shipDate=ancaParseDMY(d1[1]); }
-  const cm=full.match(/Currency:\s*(THB|USD|EUR|AUD|JPY|GBP|SGD|CNY|HKD|NZD)\b/i); if(cm) currency=cm[1].toUpperCase();
+  const cm=full.match(/Currency:\s*([A-Z]{3})\b/i); if(cm) currency=cm[1].toUpperCase();
   const invoiceDate = shipDate || printDate;   // ใช้ Ship Date เป็นหลัก
   // items
   const items=[]; let cur=null;
@@ -1764,35 +1760,68 @@ function buildAncaMapping(){
   excelInvSet.forEach(iv=>{ if(iv && !pdfInvSet.has(iv)) ANCA.warnings.push(`Excel มี Invoice ${iv} ที่ไม่ได้อัปโหลด PDF`); });
   pdfInvSet.forEach(iv=>{ if(!excelInvSet.has(iv)) ANCA.warnings.push(`PDF Invoice ${iv} ไม่พบใน Excel`); });
 
-  const map=[]; let running=0;
+  const map=[];
   // วันที่ invoice = วันที่ล่าสุด (max) จาก PDF ทุกไฟล์ ใช้กับทุกแถว (ตรง template)
   let globalDate=null;
   ANCA.pdfs.forEach(p=>{ const d=p.parsed&&p.parsed.invoiceDate; if(d instanceof Date && (!globalDate||d>globalDate)) globalDate=d; });
-  ANCA.excel.rows.forEach(row=>{
-    running++;
-    const pdf=pdfByInv[row.invoiceNo];
-    // match pdf item by invoice + itemNumber (+qty/amount if duplicate)
-    let pit=null;
-    if(pdf){ const same=pdf.items.filter(it=>it.itemNumber===row.item);
-      if(same.length===1) pit=same[0];
-      else if(same.length>1){ pit=same.reduce((b,it)=>{ const d=Math.abs(it.qty-row.qty)+Math.abs(it.amount-row.amount); return (b==null||d<b._d)?Object.assign({_d:d},it):b; },null); }
-    }
-    const hs=normalizeHsCode(row.hs);
-    const product=(String(row.item||'').trim()==='-'?'':String(row.item||'').trim());
-    const invNo=row.invoiceNo;
+  // ===== 1) เรียง Invoice(PDF) น้อย→มาก · 2) ภายใน Invoice ใช้ลำดับ pdf.items ตาม PDF (ห้าม sort Ln/Item/Qty) =====
+  const ancaInvCmp=(av,bv)=>{ av=String(av||'').trim(); bv=String(bv||'').trim(); const an=/^\d+$/.test(av)?Number(av):null, bn=/^\d+$/.test(bv)?Number(bv):null;
+    if(an!==null&&bn!==null&&an!==bn) return an-bn; return av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'}); };
+  const ancaSortedPdfs=ANCA.pdfs.filter(p=>p.parsed&&p.parsed.invoiceNo)
+    .map((p,originalIndex)=>({p,originalIndex,inv:String(p.parsed.invoiceNo||'').trim()}))
+    .sort((a,b)=>ancaInvCmp(a.inv,b.inv)||(a.originalIndex-b.originalIndex));
+  const ancaPool=ANCA.excel.rows.slice();            // สำเนา · คงลำดับ Excel เดิม
+  const ancaUsed=new Set();                          // srcRow ที่ถูกใช้แล้ว (Excel row ใช้ครั้งเดียว)
+  const ancaOrdered=[];                              // [{invoiceNo,pdf,pit,row}] ตามลำดับสุดท้าย
+  // Match: Inv + Line + NormCode  →  Inv + NormCode + Qty + Amount (candidate เดียว) · ไม่มี fallback code-only · ไม่เดา ไม่เลือกแถวแรก
+  const ancaFindRow=(invNorm,pit)=>{
+    const pdfCode=ancaNormalizeItemCode(pit.itemNumber);
+    const cands=ancaPool.filter(row=>!ancaUsed.has(row.srcRow) && normalizeInvoiceNo(row.invoiceNo)===invNorm && ancaNormalizeItemCode(row.item)===pdfCode);
+    let matched=cands.find(row=>String(row.line==null?'':row.line).trim()!=='' && String(row.line).trim()===String(pit.line).trim());
+    if(!matched){ const exact=cands.filter(row=>Math.abs((Number(row.qty)||0)-(Number(pit.qty)||0))<0.001 && Math.abs((Number(row.amount)||0)-(Number(pit.amount)||0))<0.01);
+      if(exact.length===1) matched=exact[0]; }
+    if(matched){ ancaUsed.add(matched.srcRow); return matched; }
+    return null;
+  };
+  // PDF item เป็นตัวตั้ง: สร้าง slot ทุกบรรทัดตามลำดับ PDF (แม้ match ไม่พบ) · ตามด้วย Excel row ของ Invoice นั้นที่ยังไม่ถูกใช้
+  ancaSortedPdfs.forEach(sp=>{ const pdf=sp.p.parsed; const invNorm=normalizeInvoiceNo(pdf.invoiceNo);
+    (pdf.items||[]).forEach(pit=>{ const row=ancaFindRow(invNorm,pit);
+      ancaOrdered.push({invoiceNo:invNorm,pdf,pit,row});
+      if(!row) ANCA.warnings.push(`ไม่พบ Excel Row: Invoice ${pdf.invoiceNo}, Line ${pit.line}, Item ${pit.itemNumber}, Qty ${pit.qty}, Amount ${pit.amount}`);
+    });
+    ANCA.excel.rows.forEach(row=>{ if(!ancaUsed.has(row.srcRow) && normalizeInvoiceNo(row.invoiceNo)===invNorm){ ancaUsed.add(row.srcRow);
+      ancaOrdered.push({invoiceNo:invNorm,pdf,pit:null,row});
+      ANCA.warnings.push(`Excel Row ไม่มีรายการตรงกันใน Invoice PDF: Invoice ${row.invoiceNo}, Item ${row.item}`); } });
+  });
+  // Excel row ของ Invoice ที่ไม่มี PDF → ท้ายไฟล์ · เรียง Invoice น้อย→มาก · ภายในคงลำดับ Excel เดิม
+  const ancaNoPdfInvs=[...new Set(ANCA.excel.rows.filter(r=>!ancaUsed.has(r.srcRow)).map(r=>normalizeInvoiceNo(r.invoiceNo)))].sort(ancaInvCmp);
+  ancaNoPdfInvs.forEach(inv=>{ ANCA.excel.rows.forEach(row=>{ if(!ancaUsed.has(row.srcRow) && normalizeInvoiceNo(row.invoiceNo)===inv){ ancaUsed.add(row.srcRow);
+    ancaOrdered.push({invoiceNo:inv,pdf:null,pit:null,row});
+    ANCA.warnings.push(`Excel Row ไม่มีรายการตรงกันใน Invoice PDF: Invoice ${row.invoiceNo}, Item ${row.item}`); } }); });
+  // สร้าง Mapping จาก ancaOrdered · PDF item ที่ไม่พบ Excel → ใช้ข้อมูลจาก PDF, ช่อง Excel-only (M/N) ว่าง · ห้ามย้ายท้าย ห้ามบล็อก
+  ancaOrdered.forEach((o,idx)=>{
+    const row=o.row, pit=o.pit, pdf=o.pdf;
+    const qty=row?row.qty:(pit?pit.qty:0);
+    const price=row?row.price:(pit?pit.unitPrice:0);
+    const amount=row?row.amount:(pit?pit.amount:0);
+    const pcNorm=ancaNormalizeItemCode(row?row.item:(pit?pit.itemNumber:''));   // Product Code = normalized (ลบอักขระซ่อน)
+    const product=(pcNorm==='-'?'':pcNorm);
+    const hs=normalizeHsCode(row?row.hs:(pit?pit.hsCode:''));
+    const um=row?row.um:'EA';
+    const invNo=o.invoiceNo;
     const r={
-      _i:map.length, _src:row.srcRow, _warn:[], _err:[],
+      _i:map.length, _src:(row?row.srcRow:('pdf_'+idx)), _warn:[], _err:[],
       A:(/^\d+$/.test(invNo)?Number(invNo):invNo),                    // ตัวเลขถ้าเป็นเลขล้วน (ตรง template)
-      B:running,
+      B:idx+1,                                                         // Item No. ต่อเนื่อง 1..N (ไม่รีเซ็ตต่อ invoice)
       C:globalDate,                                                    // วันที่รวม (max) ทุกแถว
-      D:row.qty, E:(row.um&&row.um.toUpperCase()!=='EA'?row.um:'EA'), F:row.qty, G:'C62',
-      H:ancaRound5(row.price),                                         // unit Price ปัด 5 ตำแหน่ง
-      I:Number(row.amount)||0,                                         // Amt = ค่า Excel เต็ม (ไม่ปัด)
-      J:(row.currency||(pdf&&pdf.currency)||''),
-      K:(pit?normalizeCountry(pit.country):normalizeCountry(row.customerCountry)),   // PDF ก่อน · ไม่มีก็ใช้ Customer Country
-      L:product, M:ancaKeepDesc(row.desc), N:ancaCleanDesc(row.thai),  // M คงช่องว่างเดิม
+      D:qty, E:(um&&String(um).toUpperCase()!=='EA'?um:'EA'), F:qty, G:'C62',
+      H:ancaRound5(price),                                            // unit Price ปัด 5 ตำแหน่ง
+      I:Number(amount)||0,                                            // Amt
+      J:(pdf?(pdf.currency||''):(row?(row.currency||''):'')),        // มี PDF → currency จาก PDF · ไม่มี PDF → Excel
+      K:(pdf?(pit?normalizeCountry(pit.country):''):(row?normalizeCountry(row.customerCountry):'')),  // มี PDF: match→ประเทศ PDF, ไม่ match→ว่าง · ไม่มี PDF→Customer Country
+      L:product, M:(row?ancaKeepDesc(row.desc):''), N:(row?ancaCleanDesc(row.thai):''),  // Excel-only: ไม่พบ Excel → ว่าง
       O:(/^\d+$/.test(hs)?Number(hs):hs), P:0, Q:'NO BRAND', R:'', S:'', T:'', U:'Y', V:'F5302128710018', W:'ที่ 87/2563', X:ANCA_FIX.X, Y:'0994000163011', Z:'02',
-      _pdf:pit, _um:row.um
+      _pdf:pit, _um:um
     };
     map.push(r);
   });
@@ -2000,7 +2029,7 @@ function exportAncaExcel(){
       if(k===undefined){ ws[ref]={t:'s',v:'',s:mkData()}; continue; }   // คอลัมน์ AA (ว่าง) คงเส้นขอบ
       let v=r[k];
       if(k==='C'){ cell={t:'n', v:dserial(v), z:'dd/mm/yyyy'}; }   // invoice date = วันที่จริง แสดง 13/07/2026
-      else if(k==='X'){ cell=(v instanceof Date)?{t:'n',v:dserial(v)}:{t:'s',v:''}; }   // license date คงเดิม (serial General)
+      else if(k==='X'){ cell=(v instanceof Date && !isNaN(v))?{t:'n',v:dserial(v),z:'dd/mm/yyyy'}:{t:'s',v:''}; }   // license date = วันที่จริง แสดง 24/04/2020
       else if(k==='A'||k==='O'){ cell=(typeof v==='number')?{t:'n',v}:{t:'s',v:(v==null?'':String(v))}; }   // เลขล้วน = number (ตรง template)
       else if(k==='H'){ cell={t:'n', v:Number(v)||0, z:'#,##0.00'}; }   // Unit Price = คั่นหลักพัน 2 ตำแหน่ง (1,234.50)
       else if(k==='B'||k==='D'||k==='F'||k==='I'){ cell={t:'n',v:Number(v)||0}; }
@@ -2022,8 +2051,10 @@ function exportAncaExcel(){
   ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(nRows+1,1),c:NC-1}});
   ws['!cols']=cols; if(margins) ws['!margins']=margins;
   const wb={SheetNames:[tplName],Sheets:{}}; wb.Sheets[tplName]=ws;
-  const now=new Date(); const ts=now.getFullYear()+_ancaPad2(now.getMonth()+1)+_ancaPad2(now.getDate())+'_'+_ancaPad2(now.getHours())+_ancaPad2(now.getMinutes())+_ancaPad2(now.getSeconds());
-  const fname=`MAPPING_ANCA_TYPE_1_FZ_${ts}.xlsx`;
+  const ancaInvNos=ANCA.pdfs.filter(p=>p.parsed&&p.parsed.invoiceNo).map(p=>String(p.parsed.invoiceNo).trim()).filter((v,i,a)=>v&&a.indexOf(v)===i)
+    .sort((a,b)=>{ const an=/^\d+$/.test(a)?Number(a):null,bn=/^\d+$/.test(b)?Number(b):null; if(an!==null&&bn!==null&&an!==bn)return an-bn; return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); })
+    .map(v=>v.replace(/[\\/:*?"<>|]/g,'_'));   // เรียง Invoice น้อย→มาก (ไม่ยึดลำดับอัปโหลด)
+  const fname=(ancaInvNos.length?ancaInvNos.join('_'):'ANCA_MAPPING')+'.xlsx';   // ชื่อไฟล์ = เลข Invoice จาก PDF (upload order) เท่านั้น
   XLSX.writeFile(wb,fname,{bookType:'xlsx'});
   const invs=[...new Set(ANCA.mapping.map(r=>r.A))];
   const totQty=ANCA.mapping.reduce((s,r)=>s+Number(r.D||0),0);
@@ -2672,8 +2703,9 @@ function exportSigExcel(){
   ws['!cols']=cols;
   if(margins) ws['!margins']=margins;
   const wb={SheetNames:[tplName], Sheets:{}}; wb.Sheets[tplName]=ws;
-  const now=new Date(); const ts=now.getFullYear()+_ancaPad2(now.getMonth()+1)+_ancaPad2(now.getDate())+'_'+_ancaPad2(now.getHours())+_ancaPad2(now.getMinutes())+_ancaPad2(now.getSeconds());
-  const fname=`MAPPING_SIG_${ts}.xlsx`;
+  const sigInvNos=[...new Set(SIG.files.filter(f=>f.parsed&&!f.error).map(f=>f.parsed&&f.parsed.inv&&f.parsed.inv.invoiceNo).map(v=>String(v==null?'':v).trim()).filter(Boolean))];
+  if(!sigInvNos.length){ toast('ไม่พบเลข Invoice ในไฟล์ — ไม่สามารถ Export ได้','err'); return; }
+  const fname=sigInvNos.join('_')+'.xlsx';   // ชื่อไฟล์ = เลข Invoice เท่านั้น
   XLSX.writeFile(wb, fname, {bookType:'xlsx'});   // .xlsx เพื่อคงเส้นขอบ/สไตล์ตารางให้เหมือนต้นฉบับ
   toast(`Export สำเร็จ · ${n} รายการ · ${fname}`,'ok');
 }
@@ -2777,7 +2809,7 @@ function knPickStatus(idx){
 function knStatusChip(s){ const c=KN_STATUS_COLOR[s]||'#8b949e';
   return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;background:${c}22;color:${c};font-size:12px;font-weight:600;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:${c}"></span>${escapeHtml(s||'—')}</span>`; }
 function knBaseSet(){ return (S.reports||[]).filter(r=>(r[C.customer]||'')===CONFIG.KN); }
-function knVisible(){ let a=knBaseSet(); if(!isSuperAdmin()) a=a.filter(r=>(r.kn_user===CUR.username)||(r[C.createdBy]===CUR.username)); return a; }
+function knVisible(){ return knBaseSet(); }   // USER เห็นทุกงาน (สิทธิ์ลบเท่านั้นที่จำกัด)
 function knUserList(){ const s=new Set(); knVisible().forEach(r=>{ const u=String(r.kn_user||'').trim(); if(u) s.add(u); }); return [...s].sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase())); }
 function knFiltered(){
   let a=knVisible();
@@ -2803,7 +2835,7 @@ function knRenderView(){
      ${admin?`<button class="btn btn-danger" onclick="deleteAllMode('KN')">🗑️ ลบทั้งหมด</button>`:''}
      <input type="file" id="knImportFile" accept=".xlsx,.xls" style="display:none" onchange="knImportExcel(event)">`;
   const all=knVisible();
-  document.getElementById('pageSub').textContent = `ทั้งหมด ${all.length} งาน` + (admin?' · ทุกผู้ใช้':' · เฉพาะงานของฉัน');
+  document.getElementById('pageSub').textContent = `ทั้งหมด ${all.length} งาน` + ' · ทุกผู้ใช้';
   // dashboard 6 การ์ด (นับจาก boolean · แถวเดียวนับได้หลายการ์ด)
   const card=(label,val,color,filter)=>`<div class="card ${filter&&KNS.statusFilters.includes(filter)?'kncard-on':''}" style="cursor:pointer;border-left:3px solid ${color}" onclick="${filter?`knToggleStatus('${filter}')`:'knClearStatus()'}"><div class="cv">${val}</div><div class="cl">${label}</div></div>`;
   const cards = card('ทั้งหมด',all.length,'#8b949e','')
@@ -2928,7 +2960,7 @@ function knTableHtml(rows){
   let body;
   if(!slice.length){ body=`<tr><td colspan="${cols.length+1}" style="text-align:center;color:var(--muted);padding:26px">— ไม่มีข้อมูล —</td></tr>`; }
   else body=slice.map((r,i)=>{
-    const canEdit=admin||(r.kn_user===CUR.username)||(r[C.createdBy]===CUR.username);
+    const canEdit=true;   // USER แก้ได้ทุกแถว
     const nf=(S.knBillCount&&S.knBillCount[r[C.id]])||0;
     const fileBtn = nf>0?`<button class="iconbtn" title="ไฟล์แนบ (${nf})" onclick="knBillViewModal('${String(r[C.id])}')">📎</button>`:'';
     const tds=cols.map(f=>{
@@ -3050,7 +3082,7 @@ async function knSave(id){
   const cb=k=>{const el=document.getElementById('kf_'+k);return !!(el&&el.checked);};   // checkbox → boolean
   const editing=id!=null;
   const r = editing ? S.reports.find(x=>String(x[C.id])===String(id)) : null;
-  if(editing && r && !isSuperAdmin() && r.kn_user!==CUR.username && r[C.createdBy]!==CUR.username){ toast('ไม่มีสิทธิ์แก้ไขงานนี้','err'); return; }
+  // สิทธิ์: USER แก้ได้ทุกงาน · จำกัดเฉพาะการลบ (SUPER_ADMIN)
   const payload={
     customer:CONFIG.KN,
     bl_awb:dv('bl_awb'),
@@ -3307,7 +3339,7 @@ async function knRefresh(){
 }
 
 /* ---------- Import Excel (Kuehne · sheet Sheet1/รอปล่อย2 · A-T) ---------- */
-function knTriggerImport(){ if(!isSuperAdmin()){ toast('เฉพาะผู้ดูแลระบบเท่านั้น','err'); return; } const el=document.getElementById('knImportFile'); if(el) el.click(); }
+function knTriggerImport(){ const el=document.getElementById('knImportFile'); if(el) el.click(); }   // USER นำเข้าได้
 
 // แปลงค่าวันที่จาก Excel (serial/Date/ข้อความ) → 'YYYY-MM-DD' รองรับ พ.ศ. (>2500 → -543)
 function knImportDate(v){
@@ -3325,7 +3357,6 @@ function knImportDate(v){
   return y+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 async function knImportExcel(ev){
-  if(!isSuperAdmin()){ ev.target.value=''; toast('เฉพาะผู้ดูแลระบบเท่านั้น','err'); return; }
   const file=ev.target.files&&ev.target.files[0]; ev.target.value='';
   if(!file) return;
   const EXPECT=KN_FIELDS.map(f=>f[0]);   // หัว A-T ที่ต้องตรง (20 คอลัมน์) — ['ลำดับ',...,'JOB KN']
@@ -3477,6 +3508,41 @@ const SCH_EXPORT_EXTRA = [
   ['รายละเอียด ตรวจปล่อยเรียบร้อย','kn_note_released',false],
   ['รายละเอียด วางบิลเรียบร้อย','kn_note_billed',false]
 ];
+// ===== โครงไฟล์ Excel Schaeffler จริง 31 คอลัมน์ A–AE (นำเข้า+ส่งออกใช้ชุดเดียวกัน) · BL ปรากฏ 2 ครั้ง (D=ข้อความ, U=checkbox) =====
+const SCH_EXCEL_COLUMNS = [
+  {h:'ลำดับ', t:'seq'},                                              // A
+  {h:'ชื่อลูกค้าที่สั่งงาน', k:'kn_order_customer', t:'text'},        // B
+  {h:'บริษัท', k:'kn_company', t:'text'},                            // C
+  {h:'BL', k:'bl_awb', t:'text'},                                    // D
+  {h:'InvoiceNo', k:'invoice_no', t:'text'},                         // E
+  {h:'ชื่อเรือ', k:'kn_vessel_name', t:'text'},                       // F
+  {h:'ETA', k:'kn_eta', t:'date'},                                   // G
+  {h:'ท่านำเข้า', k:'kn_import_port', t:'text'},                      // H
+  {h:'วันที่ลูกค้าส่งเอกสาร', k:'kn_doc_sent_date', t:'date'},        // I
+  {h:'วันที่ ENTER เอกสาร', k:'kn_doc_enter_date', t:'date'},         // J
+  {h:'วันที่ลูกค้าส่งเอกสารครบ', k:'kn_doc_complete_date', t:'date'}, // K
+  {h:'วันที่ NJ ส่งคอนเฟิร์มดราฟ', k:'kn_nj_confirm_date', t:'date'}, // L
+  {h:'สถานะ', k:'status', t:'status'},                               // M
+  {h:'สถานะติดปัญหา', k:'kn_problem_status', t:'text'},              // N
+  {h:'USER', k:'kn_user', t:'text'},                                 // O
+  {h:'วันที่ลูกค้าคอนเฟิร์มดราฟ', k:'kn_cust_confirm_date', t:'date'},// P
+  {h:'วันที่ได้รับดีโอ', k:'kn_do_date', t:'date'},                  // Q
+  {h:'วันที่ตรวจปล่อย', k:'kn_release_date', t:'date'},              // R
+  {h:'วันที่ส่งของ', k:'kn_delivery_date', t:'date'},                // S
+  {h:'ENTER', k:'kn_doc_enter', t:'bool'},                           // T
+  {h:'BL', k:'kn_doc_bl', t:'bool'},                                 // U (BL ครั้งที่ 2 = checkbox)
+  {h:'INV', k:'kn_doc_inv', t:'bool'},                               // V
+  {h:'PKL', k:'kn_doc_pkl', t:'bool'},                               // W
+  {h:'FORM', k:'kn_doc_rm_excel', t:'bool'},                         // X
+  {h:'สมอ', k:'kn_doc_import_pdf', t:'bool'},                         // Y
+  {h:'ใบอนุญาตอื่น', k:'kn_doc_export_excel', t:'bool'},             // Z
+  {h:'ใบอนุญาตอื่น (ระบุ)', k:'kn_doc_other_text', t:'text'},        // AA
+  {h:'', t:'spacer'},                                                // AB (คอลัมน์ว่าง)
+  {h:'วันที่ส่งเอกสารเข้าวางบิล', k:'kn_billing_date', t:'date'},     // AC
+  {h:'JOB NJ', k:'kn_job_nj', t:'text'},                             // AD
+  {h:'JOB KN', k:'kn_job_kn', t:'text'}                              // AE
+];
+function schImportBool(v){ if(v==null) return false; const s=String(v).replace(/\s+/g,'').toLowerCase(); return ['✓','✔','x','true','1','yes','y','มี','/','●','■'].includes(s); }
 const SCHS = { page:1, search:'',
   statusFilters:(function(){ try{ const v=JSON.parse(localStorage.getItem('schStatusFilters')); return Array.isArray(v)?v:[]; }catch(e){ return []; } })(),
   userFilters:(function(){ try{ const v=JSON.parse(localStorage.getItem('schUserFilters')); return Array.isArray(v)?v:[]; }catch(e){ return []; } })(),
@@ -3516,7 +3582,7 @@ function schPickStatus(idx){
 function schStatusChip(s){ const c=SCH_STATUS_COLOR[s]||'#8b949e';
   return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;background:${c}22;color:${c};font-size:12px;font-weight:600;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:${c}"></span>${escapeHtml(s||'—')}</span>`; }
 function schBaseSet(){ return (S.reports||[]).filter(r=>(r[C.customer]||'')===CONFIG.SCH); }
-function schVisible(){ let a=schBaseSet(); if(!isSuperAdmin()) a=a.filter(r=>(r.kn_user===CUR.username)||(r[C.createdBy]===CUR.username)); return a; }
+function schVisible(){ return schBaseSet(); }   // USER เห็นทุกงาน (สิทธิ์ลบเท่านั้นที่จำกัด)
 function schUserList(){ const s=new Set(); schVisible().forEach(r=>{ const u=String(r.kn_user||'').trim(); if(u) s.add(u); }); return [...s].sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase())); }
 function schFiltered(){
   let a=schVisible();
@@ -3528,7 +3594,7 @@ function schFiltered(){
       if(SCHS.etaTo && e>SCHS.etaTo) return false; return true; });
   }
   const q=SCHS.search.trim().toLowerCase();
-  if(q) a=a.filter(r=>['kn_order_customer','kn_company','bl_awb','kn_job_nj','kn_job_kn','kn_user','kn_problem_status'].some(k=>String(r[k]||'').toLowerCase().includes(q)));
+  if(q) a=a.filter(r=>['kn_order_customer','kn_company','bl_awb','invoice_no','kn_vessel_name','kn_job_nj','kn_job_kn','kn_user','kn_problem_status'].some(k=>String(r[k]||'').toLowerCase().includes(q)));
   a.sort((x,y)=>String(y[C.createdAt]||'').localeCompare(String(x[C.createdAt]||'')));
   return a;
 }
@@ -3537,12 +3603,13 @@ function schRenderView(){
   const admin=isSuperAdmin();
   document.getElementById('pageActions').innerHTML =
     `<button class="btn btn-s" onclick="schRefresh()">🔄 รีเฟรช</button>
+     <button class="btn btn-s" onclick="schTriggerImport()">📥 นำเข้า Excel</button>
      <button class="btn btn-export" onclick="schExport()">📤 Export Excel</button>
      <button class="btn btn-p" onclick="schOpenModal(null)">➕ เพิ่มงาน Sch</button>
      ${admin?`<button class="btn btn-danger" onclick="deleteAllMode('SCH')">🗑️ ลบทั้งหมด</button>`:''}
      <input type="file" id="schImportFile" accept=".xlsx,.xls" style="display:none" onchange="schImportExcel(event)">`;
   const all=schVisible();
-  document.getElementById('pageSub').textContent = `ทั้งหมด ${all.length} งาน` + (admin?' · ทุกผู้ใช้':' · เฉพาะงานของฉัน');
+  document.getElementById('pageSub').textContent = `ทั้งหมด ${all.length} งาน` + ' · ทุกผู้ใช้';
   // dashboard 6 การ์ด (นับจาก boolean · แถวเดียวนับได้หลายการ์ด)
   const card=(label,val,color,filter)=>`<div class="card ${filter&&SCHS.statusFilters.includes(filter)?'kncard-on':''}" style="cursor:pointer;border-left:3px solid ${color}" onclick="${filter?`schToggleStatus('${filter}')`:'schClearStatus()'}"><div class="cv">${val}</div><div class="cl">${label}</div></div>`;
   const cards = card('ทั้งหมด',all.length,'#8b949e','')
@@ -3667,7 +3734,7 @@ function schTableHtml(rows){
   let body;
   if(!slice.length){ body=`<tr><td colspan="${cols.length+1}" style="text-align:center;color:var(--muted);padding:26px">— ไม่มีข้อมูล —</td></tr>`; }
   else body=slice.map((r,i)=>{
-    const canEdit=admin||(r.kn_user===CUR.username)||(r[C.createdBy]===CUR.username);
+    const canEdit=true;   // USER แก้ได้ทุกแถว
     const nf=(S.schBillCount&&S.schBillCount[r[C.id]])||0;
     const fileBtn = nf>0?`<button class="iconbtn" title="ไฟล์แนบ (${nf})" onclick="schBillViewModal('${String(r[C.id])}')">📎</button>`:'';
     const tds=cols.map(f=>{
@@ -3710,9 +3777,11 @@ function schOpenModal(id){
             ${txt('ชื่อลูกค้าที่สั่งงาน','kn_order_customer')}
             ${txt('บริษัท','kn_company')}
             ${txt('BL','bl_awb')}
+            ${txt('InvoiceNo','invoice_no')}
+            ${txt('ชื่อเรือ','kn_vessel_name')}
             ${dt('ETA','kn_eta')}
             ${txt('ท่านำเข้า','kn_import_port')}
-            <input type="hidden" id="kf_kn_user" value="${attr(r&&r.kn_user)}">
+            <div class="fld"><label>USER</label><input id="kf_kn_user" value="${attr((r&&r.kn_user)||(CUR&&CUR.username)||'')}"></div>
             <input type="hidden" id="kf_kn_release_port" value="${attr(r&&r.kn_release_port)}">
             <div class="fld full"><label>สถานะติดปัญหา</label><input id="kf_kn_problem_status" value="${attr(r&&r.kn_problem_status)}"></div>
           </div>
@@ -3730,6 +3799,7 @@ function schOpenModal(id){
 
           <div class="rsection mt">วันที่ดำเนินการ</div>
           <div class="rgrid">
+            ${dt('วันที่ลูกค้าส่งเอกสาร','kn_doc_sent_date')}
             ${dt('วันที่ ENTER เอกสาร','kn_doc_enter_date')}
             ${dt('วันที่ลูกค้าส่งเอกสารครบ','kn_doc_complete_date')}
             ${dt('วันที่ NJ ส่งคอนเฟิร์มดราฟ','kn_nj_confirm_date')}
@@ -3738,11 +3808,10 @@ function schOpenModal(id){
             ${dt('วันที่ตรวจปล่อย','kn_release_date')}
             ${dt('วันที่ส่งของ','kn_delivery_date')}
           </div>
-          <input type="hidden" id="kf_kn_doc_sent_date" value="${attr(dateVal(r&&r.kn_doc_sent_date))}">
 
           <div class="rsection mt">เอกสารส่งวางบิล</div>
           <div class="rgrid">
-            ${dt('วันที่วางบิล','kn_billing_date')}
+            ${dt('วันที่ส่งเอกสารเข้าวางบิล','kn_billing_date')}
             ${txt('JOB NJ','kn_job_nj')}
             ${txt('JOB KN','kn_job_kn')}
           </div>
@@ -3787,10 +3856,10 @@ async function schSave(id){
   const cb=k=>{const el=document.getElementById('kf_'+k);return !!(el&&el.checked);};   // checkbox → boolean
   const editing=id!=null;
   const r = editing ? S.reports.find(x=>String(x[C.id])===String(id)) : null;
-  if(editing && r && !isSuperAdmin() && r.kn_user!==CUR.username && r[C.createdBy]!==CUR.username){ toast('ไม่มีสิทธิ์แก้ไขงานนี้','err'); return; }
+  // สิทธิ์: USER แก้ได้ทุกงาน · จำกัดเฉพาะการลบ (SUPER_ADMIN)
   const payload={
     customer:CONFIG.SCH,
-    bl_awb:dv('bl_awb'),
+    bl_awb:dv('bl_awb'), invoice_no:dv('invoice_no'), kn_vessel_name:dv('kn_vessel_name'),
     kn_order_customer:dv('kn_order_customer'), kn_company:dv('kn_company'),
     kn_import_port:dv('kn_import_port'), kn_release_port:dv('kn_release_port'),
     kn_job_nj:dv('kn_job_nj'), kn_job_kn:dv('kn_job_kn'),
@@ -3970,64 +4039,32 @@ function schExport(){
   const tplwb=XLSX.read(KN_TPL_B64,{type:'base64',cellStyles:true,cellNF:true});
   const tplName='รอปล่อย2';
   const tplws=tplwb.Sheets[tplName]||tplwb.Sheets[tplwb.SheetNames[0]];
-  const NC=29;   // A-AC (เพิ่ม ENTER, วันที่ ENTER เอกสาร, ใบอนุญาตอื่น(ระบุ) จาก template เดิม 26)
+  const NC=SCH_EXCEL_COLUMNS.length;   // 31 คอลัมน์ A–AE (โครงเดียวกับ Import → round-trip ได้)
   const enc=(r,c)=>XLSX.utils.encode_cell({r,c});
   const _thin={style:'thin',color:{rgb:'000000'}}, _bd={top:_thin,bottom:_thin,left:_thin,right:_thin};
   const mkHead=(fill)=>({font:{name:'Calibri',sz:11,color:{rgb:'000000'}},fill:{patternType:'solid',fgColor:{rgb:fill}},border:_bd,alignment:{horizontal:'center',vertical:'center'}});
   const mkData=(center)=>({font:{name:'Calibri',sz:11,color:{rgb:'000000'}},border:_bd,alignment:center?{horizontal:'center',vertical:'center'}:{vertical:'center'}});
-  // map คอลัมน์ → {k:key, t:type, h:หัว}  (type: seq/date/bool/status/text · spacer=คอลัมน์ว่างหัวเหลือง)
-  const M=[
-    {t:'seq',h:'ลำดับ'},                                    // A
-    {k:'kn_order_customer',h:'ชื่อลูกค้าที่สั่งงาน'},        // B
-    {k:'kn_company',h:'บริษัท'},                            // C
-    {k:'bl_awb',h:'BL'},                                    // D
-    {k:'kn_eta',t:'date',h:'ETA'},                          // E
-    {k:'kn_import_port',h:'ท่านำเข้า'},                     // F
-    {k:'kn_doc_sent_date',t:'date',h:'วันที่ลูกค้าส่งเอกสาร'},      // G
-    {k:'kn_doc_enter_date',t:'date',h:'วันที่ ENTER เอกสาร'},       // H (ใหม่)
-    {k:'kn_doc_complete_date',t:'date',h:'วันที่ลูกค้าส่งเอกสารครบ'},// I
-    {k:'kn_nj_confirm_date',t:'date',h:'วันที่ NJ ส่งคอนเฟิร์มดราฟ'},// I
-    {t:'status',h:'สถานะ'},                                 // J
-    {k:'kn_problem_status',h:'สถานะติดปัญหา'},              // K
-    {k:'kn_user',h:'USER'},                                 // L
-    {k:'kn_cust_confirm_date',t:'date',h:'วันที่ลูกค้าคอนเฟิร์มดราฟ'},// M
-    {k:'kn_do_date',t:'date',h:'วันที่ได้รับดีโอ'},          // N
-    {k:'kn_release_date',t:'date',h:'วันที่ตรวจปล่อย'},      // O
-    {k:'kn_delivery_date',t:'date',h:'วันที่ส่งของ'},        // P
-    {k:'kn_doc_enter',t:'bool',h:'ENTER'},                  // Q ENTER (ก่อน BL)
-    {k:'kn_doc_bl',t:'bool',h:'BL'},                        // R BL
-    {k:'kn_doc_inv',t:'bool',h:'INV'},                      // S INV
-    {k:'kn_doc_pkl',t:'bool',h:'PKL'},                      // T PKL
-    {k:'kn_doc_rm_excel',t:'bool',h:'FORM'},                // U FORM (เดิม RM EXCEL)
-    {k:'kn_doc_import_pdf',t:'bool',h:'สมอ'},               // V สมอ (เดิม ใบขาเข้า PDF)
-    {k:'kn_doc_export_excel',t:'bool',h:'ใบอนุญาตอื่น'},    // W ใบอนุญาตอื่น (เดิม ใบขาออก EXCEL)
-    {k:'kn_doc_other_text',h:'ใบอนุญาตอื่น (ระบุ)'},        // X ข้อความใบอนุญาตอื่น
-    {spacer:true,h:''},                                     // Y คอลัมน์ว่าง (หัวเหลือง)
-    {k:'kn_billing_date',t:'date',h:'วันที่ส่งเอกสารเข้าวางบิล'},   // Z
-    {k:'kn_job_nj',h:'JOB NJ'},                             // AA
-    {k:'kn_job_kn',h:'JOB KN'}                              // AB
-  ];
+  const M=SCH_EXCEL_COLUMNS;   // A ลำดับ · M สถานะ · AB spacer · date/bool/text (BL 2 ครั้ง D/U)
   const dserial=v=>{ if(v==null||v==='')return null; const d=(v instanceof Date)?v:new Date(v); if(isNaN(d.getTime()))return null; return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(1899,11,30))/86400000); };
   const ws={};
-  // หัว (style ตาม template · spacer=เหลือง FFFF00 · อื่น=FFC000)
-  for(let c=0;c<NC;c++) ws[enc(0,c)]={t:'s',v:M[c].h,s:mkHead(M[c].spacer?'FFFF00':'FFC000')};
+  // หัว A–AE (spacer=เหลือง FFFF00 · อื่น=FFC000)
+  for(let c=0;c<NC;c++) ws[enc(0,c)]={t:'s',v:M[c].h,s:mkHead(M[c].t==='spacer'?'FFFF00':'FFC000')};
   // ข้อมูล
   rows.forEach((r,ri)=>{ const R=ri+1;
     for(let c=0;c<NC;c++){
       const m=M[c]; const ref=enc(R,c); let cell;
-      if(m.spacer){ cell={t:'s',v:'',s:mkData(false)}; ws[ref]=cell; continue; }   // คอลัมน์ว่าง
+      if(m.t==='spacer'){ ws[ref]={t:'s',v:'',s:mkData(false)}; continue; }   // AB คอลัมน์ว่าง
       if(m.t==='seq'){ cell={t:'n',v:ri+1,s:mkData(true)}; }
       else if(m.t==='status'){ cell={t:'s',v:schStatusText(r)||String(r.status||''),s:mkData(false)}; }
       else if(m.t==='date'){ const s=dserial(r[m.k]); cell=(s==null)?{t:'s',v:'',s:mkData(false)}:{t:'n',v:s,z:'dd/mm/yyyy',s:mkData(false)}; cell.s.numFmt='dd/mm/yyyy'; }
       else if(m.t==='bool'){ cell={t:'s',v:(r[m.k]?'✓':''),s:mkData(true)}; }
-      else { const v=r[m.k]; cell=(v==null||v==='')?{t:'s',v:'',s:mkData(false)}:{t:'s',v:String(v),s:mkData(false)}; }
+      else { const v=r[m.k]; cell=(v==null||v==='')?{t:'s',v:'',s:mkData(false)}:{t:'s',v:String(v),s:mkData(false)}; }   // text — บังคับข้อความ (BL/InvoiceNo/ท่านำเข้า/JOB ไม่มี .0/scientific)
       ws[ref]=cell;
     }
   });
   ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(rows.length,1),c:NC-1}});
-  // ความกว้างคอลัมน์ตาม template (A/ข้อความ/spacer/วันที่วางบิล ≈19.7 · อื่น 13)
-  const wideCol=new Set([0,24,25,26]);
-  ws['!cols']=Array.from({length:NC},(_,c)=>({wch: wideCol.has(c)?19.71:13}));
+  // ความกว้าง: ลำดับ 6 · spacer 3 · อื่น 15
+  ws['!cols']=SCH_EXCEL_COLUMNS.map(col=>({wch: col.t==='seq'?6 : (col.t==='spacer'?3 : 15)}));
   const wb={SheetNames:[tplName],Sheets:{}}; wb.Sheets[tplName]=ws;
   const now=new Date(), p2=n=>String(n).padStart(2,'0');
   const fname=`Report_SCH_${now.getFullYear()}${p2(now.getMonth()+1)}${p2(now.getDate())}_${p2(now.getHours())}${p2(now.getMinutes())}${p2(now.getSeconds())}.xlsx`;
@@ -4044,7 +4081,7 @@ async function schRefresh(){
 }
 
 /* ---------- Import Excel (Kuehne · sheet Sheet1/รอปล่อย2 · A-T) ---------- */
-function schTriggerImport(){ if(!isSuperAdmin()){ toast('เฉพาะผู้ดูแลระบบเท่านั้น','err'); return; } const el=document.getElementById('schImportFile'); if(el) el.click(); }
+function schTriggerImport(){ const el=document.getElementById('schImportFile'); if(el) el.click(); }   // USER นำเข้าได้
 
 // แปลงค่าวันที่จาก Excel (serial/Date/ข้อความ) → 'YYYY-MM-DD' รองรับ พ.ศ. (>2500 → -543)
 function schImportDate(v){
@@ -4062,50 +4099,54 @@ function schImportDate(v){
   return y+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 async function schImportExcel(ev){
-  if(!isSuperAdmin()){ ev.target.value=''; toast('เฉพาะผู้ดูแลระบบเท่านั้น','err'); return; }
   const file=ev.target.files&&ev.target.files[0]; ev.target.value='';
   if(!file) return;
-  const EXPECT=SCH_FIELDS.map(f=>f[0]);   // หัว A-T ที่ต้องตรง (20 คอลัมน์) — ['ลำดับ',...,'JOB KN']
+  const EXPECT=SCH_EXCEL_COLUMNS.map(col=>col.h);   // หัว A–AE ต้องตรง 31 คอลัมน์
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    // หาชีตที่มี "หัวคอลัมน์ KN จริง" (ชื่อลูกค้าที่สั่งงาน + JOB NJ/KN) — รองรับทุกชื่อชีต (Sheet1 / รอปล่อย2 ฯลฯ)
+    // หาชีตที่มีหัวคอลัมน์ Schaeffler จริง (ชื่อลูกค้าที่สั่งงาน + JOB NJ/KN + InvoiceNo/ชื่อเรือ)
     let sn=null;
     for(const name of wb.SheetNames){
       const test=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
       if(!test.length) continue;
       const h=test[0].map(x=>String(x==null?'':x).replace(/\s+/g,' ').trim());
-      if(h.includes('ชื่อลูกค้าที่สั่งงาน') && (h.includes('JOB NJ')||h.includes('JOB KN'))){ sn=name; break; }
+      if(h.includes('ชื่อลูกค้าที่สั่งงาน') && (h.includes('JOB NJ')||h.includes('JOB KN')) && (h.includes('InvoiceNo')||h.includes('ชื่อเรือ'))){ sn=name; break; }
     }
-    if(!sn){ alert('ไม่พบชีตที่มีหัวคอลัมน์ KN (ต้องมี "ชื่อลูกค้าที่สั่งงาน" และ "JOB NJ")\n\nชีตที่มีในไฟล์: '+wb.SheetNames.join(', ')); return; }
+    if(!sn){ alert('ไม่พบชีตที่มีหัวคอลัมน์ Schaeffler (ต้องมี "ชื่อลูกค้าที่สั่งงาน", "InvoiceNo"/"ชื่อเรือ" และ "JOB NJ")\n\nชีตที่มีในไฟล์: '+wb.SheetNames.join(', ')); return; }
     const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});
     if(!aoa.length){ alert('ไฟล์ว่างเปล่า — ไม่พบข้อมูล'); return; }
-    // ตรวจหัวคอลัมน์ A-T ต้องตรง 100%
+    // ตรวจหัวคอลัมน์ A–AE ต้องตรง 100% (ตามตำแหน่ง · BL ปรากฏ 2 ครั้งที่ D/U)
     const hdr=aoa[0].map(x=>String(x==null?'':x).replace(/\s+/g,' ').trim());
     const norm=s=>String(s).replace(/\s+/g,'').trim();
     for(let c=0;c<EXPECT.length;c++){
       if(norm(hdr[c]||'')!==norm(EXPECT[c])){
-        alert(`หัวคอลัมน์ไม่ตรงกับต้นฉบับ — หยุดนำเข้า\n\nคอลัมน์ที่ ${c+1} (${String.fromCharCode(65+c)})\nต้องเป็น: "${EXPECT[c]}"\nแต่พบ: "${hdr[c]||'(ว่าง)'}"\n\nอ่านจาก sheet: ${sn}`);
+        alert(`หัวคอลัมน์ไม่ตรงกับต้นฉบับ — หยุดนำเข้า\n\nคอลัมน์ที่ ${c+1} (${XLSX.utils.encode_col(c)})\nต้องเป็น: "${EXPECT[c]||'(ว่าง)'}"\nแต่พบ: "${hdr[c]||'(ว่าง)'}"\n\nอ่านจาก sheet: ${sn}`);
         return;
       }
     }
-    // อ่านแถวข้อมูล → payload (A-T map ตาม SCH_FIELDS · A=ลำดับ ข้าม · ข้ามคอลัมน์หลัง T)
+    // อ่านแถวข้อมูล → payload ตาม SCH_EXCEL_COLUMNS (A=ลำดับ ข้าม · AB spacer ข้าม · M=สถานะ · text/date/bool)
     const items=[]; const rowErrors=[];
     const _normSt=x=>String(x==null?'':x).replace(/\s+/g,'').toLowerCase();
     for(let r=1;r<aoa.length;r++){
       const raw=aoa[r]; if(!raw||raw.every(x=>x==null||x==='')) continue;   // ข้ามแถวว่าง
       const rec={customer:CONFIG.SCH};
-      for(let c=1;c<SCH_FIELDS.length;c++){   // c=0 คือ 'ลำดับ' ข้าม · อ่านแค่ A-T
-        const f=SCH_FIELDS[c]; const val=raw[c];
-        if(f[2]){   // คอลัมน์วันที่
-          const hasVal = val!=null && String(val).trim()!=='';
+      SCH_EXCEL_COLUMNS.forEach((col,c)=>{
+        if(col.t==='seq'||col.t==='spacer'||col.t==='status') return;   // A ลำดับ / AB ว่าง / M สถานะ (จัดการแยก)
+        const val=raw[c];
+        if(col.t==='date'){
+          const hasVal=val!=null && String(val).trim()!=='';
           const dv=schImportDate(val);
-          if(hasVal && dv==null) rowErrors.push(`แถว ${r+1} คอลัมน์ ${String.fromCharCode(65+c)} (${f[0]}): วันที่ผิดรูปแบบ "${String(val).trim()}" — นำเข้าแถวนี้ (เว้นวันที่)`);
-          rec[f[1]]=dv;
-        } else { const s=(val==null?'':String(val)).trim(); rec[f[1]] = s===''?null:s; }
-      }
-      // สถานะ: match แบบ normalize (เว้นวรรค/ตัวพิมพ์) → ติ๊ก boolean · ไม่ตรงก็ยังนำเข้า (ไม่ skip)
-      const stRaw=(rec.status==null?'':String(rec.status)).trim();
+          if(hasVal && dv==null) rowErrors.push(`แถว ${r+1} คอลัมน์ ${XLSX.utils.encode_col(c)} (${col.h}): วันที่ผิดรูปแบบ "${String(val).trim()}" — นำเข้าแถวนี้ (เว้นวันที่)`);
+          rec[col.k]=dv;
+        } else if(col.t==='bool'){
+          rec[col.k]=schImportBool(val);
+        } else {   // text — เก็บเป็นข้อความ (เลข 2801 → "2801" ไม่มี .0 · leading zero/คอมมา คงเดิม)
+          const s=(val==null?'':String(val)).trim(); rec[col.k]= s===''?null:s;
+        }
+      });
+      // สถานะ (M) → match 5 สถานะมาตรฐาน + ติ๊ก boolean · ไม่ตรงก็ยังนำเข้า (ไม่ skip)
+      const stRaw=(raw[12]==null?'':String(raw[12])).trim();
       const matched=SCH_ST_FIELDS.find(s=>_normSt(s[0])===_normSt(stRaw));
       SCH_ST_FIELDS.forEach(s=>{ rec[s[1]] = !!(matched && matched[1]===s[1]); });
       rec.status = matched ? matched[0] : stRaw;   // ตรง→ชื่อมาตรฐาน · ไม่ตรง→เก็บข้อความดิบ
@@ -4606,6 +4647,7 @@ CVT.parseFillIn=function(aoa){
     const inv=normText(row[idx.invoice]);
     if(!inv) continue;
     rows.push({
+      srcRow:(r+1),   // ข้อ 1: เลขแถวต้นทางไม่ซ้ำ (ใช้ตรวจว่า TH Ship row ถูกใช้แล้วหรือยัง)
       invoice:inv, delivery:normText(row[idx.delivery]), sap:normText(row[idx.sap]),
       batch:normBatch(row[idx.batch]), qty:num(row[idx.qty]), uom:trim(row[idx.uom]),
       amount:num(row[idx.amount]), hs:normText(row[idx.hs]), origin:trim(row[idx.origin]),
@@ -4690,32 +4732,52 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   // ---- index Fill-in rows by (invoice, itemCode, batch) as a consumable pool ----
   const fiPool={};
   fillIn.rows.forEach(r=>{
-    const k=r.invoice+'|'+r.sap+'|'+r.batch;
+    const k=r.invoice+'|'+cmpNum(r.delivery)+'|'+r.sap+'|'+r.batch;   // ข้อ 2: key มี Delivery
     (fiPool[k]=fiPool[k]||[]).push(r);
   });
-  function takeFI(inv,item,batch,plQty){
-    const pool=fiPool[inv+'|'+item+'|'+batch];
+  const _fiEqFields=['invoice','delivery','sap','batch','qty','uom','amount','hs','origin','billingDate','manuf','expiry','matDesc','matDescTH'];
+  function takeFI(inv,deliv,item,batch){
+    const pool=fiPool[inv+'|'+deliv+'|'+item+'|'+batch];   // Invoice+Delivery+SAP+Batch (ไม่ใช้ PL Qty)
     if(!pool||!pool.length) return null;
-    // prefer an unused row whose qty matches plQty; else first unused; else first
-    let pick=pool.find(r=>!r._used && Math.abs(r.qty-plQty)<0.5);
-    if(!pick) pick=pool.find(r=>!r._used);
-    if(!pick) pick=pool[0];
-    pick._used=(pick._used||0)+1;
-    return pick;
+    const unused=pool.filter(r=>!r._used);
+    if(unused.length===0) return null;
+    if(unused.length===1){ const p=unused[0]; p._used=(p._used||0)+1; return p; }
+    // Equivalent Duplicate Bijection: หลายแถวที่ "เหมือนกันทุกช่องที่มีผลต่อ Export" = แลกเปลี่ยนกันได้
+    // → consume 1:1 เรียง srcRow น้อย→มาก (จับคู่แบบกำหนดผลแน่นอน · ไม่ใช่การเดา · แต่ละ srcRow ใช้ครั้งเดียว)
+    const base=unused[0];
+    const allEq=unused.every(r=>_fiEqFields.every(k=>String(r[k]==null?'':r[k])===String(base[k]==null?'':base[k])));
+    if(allEq){
+      if(unused.length===pool.length){ warnings.push(`Equivalent duplicate matched 1:1: Invoice ${inv} SAP ${item} Batch ${batch}, ${pool.length} PDF Slots ↔ ${pool.length} identical TH Ship Rows`); }
+      const pick=unused.slice().sort((a,b)=>(Number(a.srcRow)||0)-(Number(b.srcRow)||0))[0];
+      pick._used=(pick._used||0)+1; return pick;
+    }
+    return null;   // >1 และค่าต่างกันแม้ช่องเดียว → คลุมเครือ (เว้นว่าง + Warning ตามกฎเดิม)
   }
 
   const mainRows=[]; const lpiRows=[];
   let entryLine=0;
   const validation={ perInvoice:{}, staMisses:[], ambiguous:[] };
 
-  invoices.forEach(iv=>{
+  // ข้อ 1: clone + sort Invoice Number น้อย→มาก (ไม่แตะ invoices ต้นฉบับ)
+  const sortedInvoices=invoices.slice().sort((a,b)=>{ const av=String(a.invoiceNo||'').trim(), bv=String(b.invoiceNo||'').trim();
+    if(/^\d+$/.test(av)&&/^\d+$/.test(bv)) return Number(av)-Number(bv);
+    return av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'}); });
+  sortedInvoices.forEach(iv=>{
     const invNo=iv.invoiceNo;
-    const lines=iv.lines.slice().sort((a,b)=>a.slNo-b.slNo);
+    const lines=iv.lines.slice();   // ข้อ 2: คงลำดับตาม PDF Parser (ไม่ sort Sl.No)
     let invLineNo=0;
     lines.forEach(li=>{
       const key=cmpNum(iv.deliveryNo)+'|'+li.slNo+'|'+li.itemCode;
       const plRows=plByLine[key]||[];
-      if(!plRows.length){ errors.push(`ไม่พบ PL: Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},'ไม่พบข้อมูลใน Packing List'); return; }
+      if(!plRows.length){
+        // ข้อ 3/4: ทุก Sl.No สร้าง Main Row · ไม่มี PL → ไม่มี Batch → ยืนยัน TH Ship ไม่ได้ → A/C และค่าอื่นว่าง (ไม่ใช้ PDF/RA แทน)
+        warnings.push(`ไม่พบ PL: Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode} — เว้นค่าว่าง (ยืนยัน TH Ship ไม่ได้)`);
+        invLineNo++; entryLine++;
+        mainRows.push({ A:'', B:null, C:'', D:invLineNo, E:entryLine,
+          F:'', G:'', H:'', I:'', J:'', K:'', L:'', M:'000', N:65004, O:'',
+          P:'', Q:'', R:'', S:'', T:'CONVATEC', U:'' });
+        return;
+      }
       invLineNo++; entryLine++;
 
       // aggregate per batch within this line
@@ -4729,24 +4791,35 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       });
 
       let qtyShipped=0, nwSum=0, gwSum=0, amountSum=0;
-      let hsSet=new Set(), uomSet=new Set(), originVal='', fiSap='';
+      let hsSet=new Set(), uomSet=new Set(), originVal='';
+      const thInvSet=new Set(), thSapSet=new Set(), thDateSet=new Set(), thDescSet=new Set(), thDescTHSet=new Set();
+      const batchKeys=Object.keys(byBatch); let matchedCount=0;
       const lpiForLine=[];
-      Object.keys(byBatch).forEach(b=>{
+      batchKeys.forEach(b=>{
         const bb=byBatch[b];
-        const fi=takeFI(invNo, li.itemCode, b, bb.plQty);
-        let billQty = fi ? fi.qty : bb.plQty;
+        const fi=takeFI(invNo, cmpNum(iv.deliveryNo), li.itemCode, b);   // ข้อ 1/2: Match TH Ship ก่อน · key Invoice+Delivery+SAP+Batch · ไม่ใช้ PL Qty
         if(fi){
-          amountSum+=fi.amount;
+          matchedCount++;
+          amountSum+=fi.amount; qtyShipped+=(fi.qty||0);
           if(fi.hs) hsSet.add(fi.hs);
           if(fi.uom) uomSet.add(fi.uom);
-          if(!originVal && fi.origin) originVal=fi.origin;
-          if(!fiSap) fiSap=fi.sap;
+          if(fi.origin) originVal=originVal||fi.origin;
+          if(fi.invoice!=null&&fi.invoice!=='') thInvSet.add(String(fi.invoice));
+          if(fi.sap!=null&&fi.sap!=='') thSapSet.add(String(fi.sap));
+          if(fi.billingDate!=null) thDateSet.add(fi.billingDate);
+          if(fi.matDesc) thDescSet.add(fi.matDesc);
+          if(fi.matDescTH) thDescTHSet.add(fi.matDescTH);
         } else {
-          warnings.push(`ไม่พบ Fill in: Inv ${invNo} Item ${li.itemCode} Batch ${b}`);
+          warnings.push(`ยืนยัน TH Ship ไม่ได้ (เว้นว่าง): Inv ${invNo} SAP ${li.itemCode} Batch ${b}`);   // ข้อ 9: ระบุ Invoice/SAP/Batch
         }
-        qtyShipped+=billQty; nwSum+=bb.nw; gwSum+=bb.gw;
-        lpiForLine.push({batch:b, qty:billQty, manuf:(fi?fi.manuf:null), expiry:(fi?fi.expiry:null), uom:(fi?fi.uom:'')});
+        nwSum+=bb.nw; gwSum+=bb.gw;
+        lpiForLine.push({batch:b, qty:(fi?fi.qty:null), manuf:(fi?fi.manuf:null), expiry:(fi?fi.expiry:null), uom:(fi?fi.uom:''), matched:!!fi});   // ข้อ 3/6: LPI จาก TH Ship เฉพาะ batch ที่ยืนยัน
       });
+      // ข้อ 4/5: A/C/SAP จาก matched TH Ship (ค่าเดียวที่ยืนยัน · ไม่เลือกแถวแรก · ไม่ตรงกัน → เว้น)
+      const thInv = thInvSet.size===1 ? [...thInvSet][0] : '';
+      const thSap = thSapSet.size===1 ? [...thSapSet][0] : '';
+      const fiSap = thSap;
+      const allMatched = batchKeys.length>0 && matchedCount===batchKeys.length;   // ข้อ 6: ครบทุก batch เท่านั้น (ห้ามยอดบางส่วน)
 
       // HS / UoM consistency
       if(hsSet.size>1){ errors.push(`HS ไม่ตรงกันใน Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode}: ${[...hsSet].join(',')}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`HS ไม่ตรงกันในบรรทัด: ${[...hsSet].join(', ')}`); }
@@ -4754,14 +4827,14 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       const hs=[...hsSet][0]||'';
       const uom=[...uomSet][0]||'';
 
-      // RA lookup by SAP(itemCode)
-      const raCands=(ra.byS[li.itemCode]||[]);
+      // ข้อ 4: RA lookup ใช้ SAP จาก matched TH Ship
+      const raCands=(fiSap ? (ra.byS[fiSap]||[]) : []);
       let raPick=null;
       if(raCands.length===1) raPick=raCands[0];
       else if(raCands.length>1){
         let f=raCands.filter(c=>(!c.hs||!hs||c.hs===hs));
         if(f.length===1) raPick=f[0];
-        else { validation.ambiguous.push(`RA DATA คลุมเครือ SAP ${li.itemCode} (${raCands.length})`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`RA DATA คลุมเครือ (พบ ${raCands.length} รายการ)`); raPick=f[0]||raCands[0]; }
+        else { validation.ambiguous.push(`RA DATA คลุมเครือ SAP ${li.itemCode} (${raCands.length})`); warnings.push(`RA DATA คลุมเครือ SAP ${li.itemCode} (${raCands.length}) — เว้นว่าง`); raPick=null; }   // ข้อ 3: ไม่เลือกแถวแรก
       } else {
         warnings.push(`ไม่พบ RA DATA SAP ${li.itemCode}`);
       }
@@ -4778,12 +4851,10 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
 
       // descriptions
       let newDesc = (raPick&&raPick.descEN) || '';
-      if(!newDesc){ /* fallback fill-in material desc */ const anyFi=(fiPool[invNo+'|'+li.itemCode+'|'+Object.keys(byBatch)[0]]||[])[0]; newDesc=anyFi?anyFi.matDesc:''; }
+      if(!newDesc){ newDesc = thDescSet.size===1 ? [...thDescSet][0] : ''; }   // ข้อ 5: TH Ship ค่าเดียวที่ยืนยัน (ไม่เลือกแถวแรก)
       let desc = (raPick&&raPick.descTH) || (raPick&&raPick.descTHlic) || '';
       if(!desc){
-        // documented fallback: Fill-in Mat Desc(TH) (col AB) when RA DATA lacks item
-        const anyFiD=(fiPool[invNo+'|'+li.itemCode+'|'+Object.keys(byBatch)[0]]||[])[0];
-        if(anyFiD && anyFiD.matDescTH){ desc=anyFiD.matDescTH; warnings.push(`DESCRIPTION(TH) จาก Fill-in (RA DATA ไม่มี SAP ${li.itemCode})`); }
+        if(thDescTHSet.size===1){ desc=[...thDescTHSet][0]; warnings.push(`DESCRIPTION(TH) จาก Fill-in (RA DATA ไม่มี SAP ${fiSap||li.itemCode})`); }   // ข้อ 5: ค่าเดียวที่ยืนยัน
       }
       if(!desc){ errors.push(`ไม่พบ DESCRIPTION(TH) SAP ${li.itemCode}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},'ไม่พบ DESCRIPTION (ภาษาไทย)'); }
 
@@ -4791,14 +4862,13 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       const _hsN=String(hs==null?'':hs).replace(/[\s.\-]/g,'');
       let sta = Object.prototype.hasOwnProperty.call(staLookup,_hsN) ? staLookup[_hsN] : '';
 
-      // billing date & year
-      const anyFi2=(fiPool[invNo+'|'+li.itemCode+'|'+Object.keys(byBatch)[0]]||[])[0];
-      const billDate=anyFi2?anyFi2.billingDate:null;
+      // billing date — matched TH Ship ค่าเดียวที่ยืนยัน + ครบทุก batch (ข้อ 4/5/6)
+      const billDate=(allMatched && thDateSet.size===1) ? [...thDateSet][0] : null;
       const bd=toJsDate(billDate); const year=bd&&!isNaN(bd)?bd.getFullYear():'';
 
       mainRows.push({
-        A:invNo, B:billDate, C:li.itemCode, D:invLineNo, E:entryLine,
-        F:newDesc, G:desc, H:round(qtyShipped,3), I:uom, J:round(amountSum,2),
+        A:(thInv||''), B:billDate, C:(thSap||''), D:invLineNo, E:entryLine,
+        F:newDesc, G:desc, H:(allMatched?round(qtyShipped,3):''), I:uom, J:(allMatched?round(amountSum,2):''),   // ข้อ 4/6: A/C จาก matched TH · ครบทุก batch เท่านั้น (ห้ามยอดบางส่วน)
         K:hs, L:sta, M:'000', N:65004, O:coo, P:round(nwSum,3),
         Q:(raPick?raPick.license:''), R:(raPick?raPick.lpi:''), S:year, T:'CONVATEC', U:round(gwSum,3)
       });
@@ -4807,8 +4877,9 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       let bi=0;
       // merge same batch qty within entry line (already merged in byBatch)
       Object.keys(byBatch).forEach(b=>{
-        bi++;
         const lp=lpiForLine.find(x=>x.batch===b)||{};
+        if(!lp.matched) return;   // ข้อ 6/8: ไม่มี TH Ship → ไม่สร้าง LPI (มี Warning แล้ว)
+        bi++;
         lpiRows.push({
           A:entryLine, B:bi, C:b, D:lp.manuf||null, E:lp.expiry||null,
           F:1, G:(lp.uom||uom), H:round(lp.qty||0,3), I:(lp.uom||uom)
@@ -4818,9 +4889,9 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   });
 
   // ---- validation totals ----
-  const sumQty=round(mainRows.reduce((a,r)=>a+r.H,0),3);
-  const sumNW =round(mainRows.reduce((a,r)=>a+r.P,0),3);
-  const sumGW =round(mainRows.reduce((a,r)=>a+r.U,0),3);
+  const sumQty=round(mainRows.reduce((a,r)=>a+(Number(r.H)||0),0),3);
+  const sumNW =round(mainRows.reduce((a,r)=>a+(Number(r.P)||0),0),3);
+  const sumGW =round(mainRows.reduce((a,r)=>a+(Number(r.U)||0),0),3);
   const sumValue =round(mainRows.reduce((a,r)=>a+(Number(r.J)||0),0),2);
   validation.sumQty=sumQty; validation.sumNW=sumNW; validation.sumGW=sumGW; validation.sumValue=sumValue;
   validation.plMeta=pl.meta;
@@ -5091,7 +5162,7 @@ function cvtFilesComplete(){
   return okInv && !!CS.pl && !!CS.th && !pending;
 }
 function cvtUpdateButtons(){
-  const on=cvtFilesComplete() && !CS.busy;
+  const on=!CS.busy;   // ข้อ 1: Export ได้ตลอด · Disabled เฉพาะขณะสร้างไฟล์ (CS.busy)
   const a=document.getElementById('cvtExpMainBtn'), b=document.getElementById('cvtExpLpiBtn');
   if(a) a.disabled=!on; if(b) b.disabled=!on;
 }
@@ -5106,7 +5177,11 @@ async function cvtRunPipeline(btn){
   const invoices=CS.invPdfs.filter(p=>p.parsed).map(p=>p.parsed);
   await cvtStep(btn,'กำลังจับคู่ข้อมูล...');
   await cvtStep(btn,'กำลังคำนวณ NW/GW...');
-  const res=CVT.buildMapping(invoices, CS.pl.data, CS.th.fi, CS.th.ra, convatecStaLookup);
+  // ข้อ 1: ไฟล์ไม่ครบก็ Export ได้ — ใช้โครงว่างแทนไฟล์ที่ขาด (ค่าที่พึ่งไฟล์นั้นจะว่าง)
+  const plData=(CS.pl&&CS.pl.data)?CS.pl.data:{rows:[],meta:null};
+  const thFi=(CS.th&&CS.th.fi)?CS.th.fi:{rows:[]};
+  const thRa=(CS.th&&CS.th.ra)?CS.th.ra:{byS:{}};
+  const res=CVT.buildMapping(invoices, plData, thFi, thRa, convatecStaLookup);
   await cvtStep(btn,'กำลังตรวจสอบ...');
   CS.result=res;
   return res;
@@ -5122,8 +5197,7 @@ function cvtDownload(bytes,fname){
 function cvtTs(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes()); }
 
 async function cvtExport(kind){
-  if(CS.busy) return;
-  if(!cvtFilesComplete()){ toast('อัปโหลดไฟล์ให้ครบก่อน (Invoice + PL + TH Ship)','err'); return; }
+  if(CS.busy) return;   // ข้อ 1: ไม่บล็อกจากไฟล์ไม่ครบ — Export ได้เสมอ (ไม่มี Confirmation Modal)
   const btnMain=document.getElementById('cvtExpMainBtn'), btnLpi=document.getElementById('cvtExpLpiBtn');
   const btn = kind==='main'?btnMain:btnLpi;
   const origMain=btnMain.innerHTML, origLpi=btnLpi.innerHTML;
@@ -5132,12 +5206,7 @@ async function cvtExport(kind){
   const restore=()=>{ CS.busy=false; btnMain.innerHTML=origMain; btnLpi.innerHTML=origLpi; if(clearBtn) clearBtn.disabled=false; cvtUpdateButtons(); };
   try{
     const res=await cvtRunPipeline(btn);
-    if(res.blocked){
-      cvtRenderErrorTable(res);
-      restore();
-      toast('พบข้อผิดพลาด — ไม่สร้างไฟล์ (ดูตารางด้านล่าง)','err');
-      return;
-    }
+    // ข้อ 1: ไม่บล็อก Export จาก blocked/errors/warnings — สร้างไฟล์เสมอ (Warning แสดงใน Dashboard)
     await cvtStep(btn,'กำลังสร้าง Excel...');
     if(kind==='main'){ const bytes=CVT.exportMain(XLSX,null,res.mainRows); cvtDownload(bytes,'MAPPING_CONVATEC_'+cvtTs()+'.xlsx'); }
     else { const bytes=CVT.exportLPI(XLSX,null,res.lpiRows); cvtDownload(bytes,'MAPPING_LPI_CONVATEC_'+cvtTs()+'.xlsx'); }
@@ -5159,7 +5228,7 @@ function cvtRenderErrorTable(res){
     <td>${escapeHtml(x.batch||'')}</td><td>${escapeHtml(x.reason||'')}</td></tr>`).join('');
   document.getElementById('cvtDash').innerHTML=`
     <div style="margin-top:14px;border:1px solid #f85149;border-radius:10px;padding:12px 14px;background:#161b22">
-      <div style="font-weight:700;color:#f85149;margin-bottom:8px">❌ พบข้อผิดพลาด ${res.issues.length} รายการ — ไม่สามารถ Export ได้</div>
+      <div style="font-weight:700;color:#d29922;margin-bottom:8px">⚠️ พบข้อมูลที่ควรตรวจสอบ ${res.issues.length} รายการ — ระบบยัง Export ได้</div>
       <div style="overflow:auto;max-height:340px">
         <table class="cvt-errtbl"><thead><tr><th>Invoice</th><th>Delivery</th><th>Line</th><th>Item</th><th>Batch</th><th>สาเหตุ</th></tr></thead>
         <tbody>${rows}</tbody></table>
