@@ -5688,7 +5688,7 @@ async function _xpdfHighlightStem(file, targetItems, ctx){
         const startPageNums = new Set();   // pages with "แผ่นที่ 1/xx" = START PAGE of a customs-entry set (always kept)
 
         // ── Cap page scan (item #1) — prevents freeze on huge PDFs ──
-        const XPDF_MAX_PAGES = 60;
+        const XPDF_MAX_PAGES = 120;
         const pagesToScan = Math.min(numPages, XPDF_MAX_PAGES);
         // ── Large PDF warning (item #6) — toast when > 40 pages ──
         if (numPages > 40 && typeof toast === 'function') {
@@ -9008,8 +9008,18 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   ];
   // คอลัมน์ที่แสดงในตาราง (ซ่อนวันที่ 7 คอลัมน์ — เฉพาะการแสดงผล ไม่กระทบ modal/export/db)
   const _rptRemarkCol = RPT_MAIN.find(c=>c.k==='remark');   // สถานะติดปัญหา (remark) — render แยกหลังคอลัมน์ "สถานะ"
-  const RPT_MAIN_VIS = (()=>{
-    const vis = RPT_MAIN.filter(c=>!c.hT && c.k!=='remark' && c.k!=='customer_name');   // remark ย้าย render หลัง "สถานะ" · ซ่อน "ชื่อลูกค้า" จากตาราง (คงใน DB/Modal/Search/Filter/Export)
+  // remark ย้าย render หลัง "สถานะ" · คอลัมน์ลูกค้าขึ้นกับโหมด:
+  //   • REPORT FORMSCH MANAGEMENT (rptFormMode=false) → ซ่อน "ลูกค้า"(รหัส SCH) · แสดง "ชื่อลูกค้า"(customer_name)
+  //   • REPORT FORM (rptFormMode=true)                → คงเดิม: แสดง "ลูกค้า" · ซ่อน "ชื่อลูกค้า"
+  //   (ทั้งสองฟิลด์ยังคงอยู่ครบใน DB/Modal/Search/Filter/Export — สลับเฉพาะการแสดงหัวตาราง)
+  function _rptComputeVis(){
+    const hideCode = !window.rptFormMode;                       // FORMSCH MANAGEMENT → ซ่อนคอลัมน์รหัสลูกค้า
+    const vis = RPT_MAIN.filter(c=>{
+      if(c.hT || c.k==='remark') return false;
+      if(c.k==='customer')      return !hideCode;               // "ลูกค้า"(รหัส): แสดงเฉพาะ REPORT FORM
+      if(c.k==='customer_name') return hideCode;                // "ชื่อลูกค้า": แสดงเฉพาะ FORMSCH MANAGEMENT
+      return true;
+    });
     // ➕ คอลัมน์แสดงผลอย่างเดียว (reuse field เดิม) วางหลัง REF:กรม (trade_ref):
     //    วันที่ได้รับเมล์ (mail_received_date) → วันที่ได้รับเอกสารครบ (nj_full_docs_date)
     //    dash:แสดง "-" ถ้าว่าง · nf:ไม่มีช่องกรอง (ไม่กระทบ Filter/Export/DB/Modal)
@@ -9018,7 +9028,8 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const i = vis.findIndex(c=>c.k==='trade_ref');
     if(i>=0) vis.splice(i+1,0,mailCol,docCol); else vis.push(mailCol,docCol);
     return vis;
-  })();
+  }
+  let RPT_MAIN_VIS = _rptComputeVis();
   // กลุ่ม 2: เอกสารที่ลูกค้าส่งมา (5)  checkbox
   const RPT_CUST = [
     {k:'customer_rm',         h:'RM EXCEL',          w:64},
@@ -9419,7 +9430,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
 
   /* ── virtual render TBODY ───────────────────────────────── */
-  function _rptRender(){ _rptBuildHead(); _rptBuildCols(); _rptRenderBody(true); _rptSyncHeadPad(); }   // load/sort/filter/เปลี่ยน column → build head + body + sync
+  function _rptRender(){ RPT_MAIN_VIS=_rptComputeVis(); _rptBuildHead(); _rptBuildCols(); _rptRenderBody(true); _rptSyncHeadPad(); }   // recompute VIS ตามโหมด (FORMSCH MANAGEMENT/FORM) → build head + body + sync
   let _rptLastStart=-1,_rptLastEnd=-1,_rptLastN=-1,_rptLastScrollTop=-1;
   function _rptRenderBody(force){                                    // scroll → เฉพาะ tbody เท่านั้น
     const sc=document.getElementById('rpt-scroll'), tb=document.getElementById('rpt-tbody');
@@ -9703,6 +9714,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     }else if(_ss==='APPROVED'){
       const _pk=document.getElementById('mf-appr-date');
       rec.system_approval_status='APPROVED'; rec.reject_reason=''; rec.system_approve_date=(_pk?(_pk.value||''):''); rec.remark='อนุมัติเรียบร้อย';
+      rec.nj_submit_system_date=_rptTodayISO();   // 🟢 อนุมัติจากระบบ → เด้ง "วันที่ NJ ส่งข้อมูลเข้าระบบ" = วันนี้ ทับทุกครั้งที่กดบันทึก (ห้ามว่าง) · สถานะอื่นไม่แตะ
     }else if(_ss==='WAIT_APPROVAL'){
       rec.system_approval_status='WAIT_APPROVAL'; rec.reject_reason=''; rec.system_approve_date=''; rec.remark='ส่งข้อมูลเข้าระบบแล้ว รออนุมัติ';
     }else if(_ss==='CANCELLED'){
