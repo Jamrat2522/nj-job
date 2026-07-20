@@ -8616,6 +8616,34 @@ async function fzReadInvoice(file){
   return rows;
 }
 
+/* ── อ่านค่า Incoterms จากไฟล์ INVOICE CLC (หัวข้อ "Incoterms" เป๊ะ · ค่าใต้/ขวา/merge) ──
+   คืน distinct values (รักษาตัวพิมพ์เดิม) · caller เป็นผู้ตรวจ 0/หลายค่า */
+async function fzReadIncoterm(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type:'array', cellDates:false });
+  const norm = v => String(v==null?'':v).replace(/\s+/g,' ').trim();
+  const values = [];
+  for(const name of wb.SheetNames){
+    const sh = wb.Sheets[name]; if(!sh || !sh['!ref']) continue;
+    const range = XLSX.utils.decode_range(sh['!ref']);
+    const merges = sh['!merges'] || [];
+    const cellAt = (r,c) => { const cell = sh[XLSX.utils.encode_cell({r,c})]; return cell ? cell.v : null; };
+    const mergedVal = (r,c) => { for(const m of merges){ if(r>=m.s.r && r<=m.e.r && c>=m.s.c && c<=m.e.c) return cellAt(m.s.r,m.s.c); } return cellAt(r,c); };
+    for(let r=range.s.r; r<=range.e.r; r++){
+      for(let c=range.s.c; c<=range.e.c; c++){
+        const v = cellAt(r,c); if(v==null) continue;
+        if(norm(v).toLowerCase() !== 'incoterms') continue;   // เป๊ะเท่านั้น — ไม่จับ "Incoterms (Part 2)" ฯลฯ
+        let got = false;
+        for(let rr=r+1; rr<=range.e.r; rr++){ const bv = mergedVal(rr,c); if(norm(bv)!==''){ values.push(norm(bv)); got = true; } }   // ใต้หัวข้อ (ตารางคอลัมน์)
+        if(!got){ const rv = mergedVal(r,c+1); if(norm(rv)!=='') values.push(norm(rv)); }                                            // ขวาหัวข้อ (label:value)
+      }
+    }
+  }
+  const seen = new Set(), distinct = [];
+  for(const v of values){ const k=v.toUpperCase(); if(!seen.has(k)){ seen.add(k); distinct.push(v); } }
+  return distinct;
+}
+
 /* ── Read RM (.xlsx) — Outbound Delivery + Part No → Ref# Inbound Customs Entry ── */
 async function fzReadRm(file){
   if(!file) return [];
@@ -8894,6 +8922,163 @@ function fzRenderPreview(rows){
   }
 }
 
+/* ── รวมรายการซ้ำก่อน Export (Mapping Schaeffler FZ เท่านั้น) ──
+   รวมเป็น 1 แถว เมื่อ 6 ช่องตรงกันครบทั้งหมด:
+     1) INVOICE NO. (billing) 2) PRODUCT CODE (prodcode)
+     3) EN Description 1 (endesc) 4) Origin (origin)
+     5) เลขที่ใบขนอ้าง (refent) 6) รายการที่ (refitem)
+   SUM คอลัมน์ตัวเลข: qty(=qty.inv/qty.ใบขน) · netwt · gross · unitPrice · amt
+     - รองรับ number / ข้อความ / comma / ทศนิยม / ช่องว่าง (ช่องว่าง = 0 เฉพาะตอนคำนวณ)
+     - all-blank ทั้งกลุ่ม → คงค่าว่าง (ไม่ใส่ 0 ปลอม)
+   Display-once (เลือกค่าไม่ว่างแรก): currency · thdesc · hsShort · stat · brand
+   คงตำแหน่งแถวแรก · รักษาลำดับเดิม · ไม่สร้างแถวว่าง · ยอดรวมไม่เปลี่ยน
+   แถวที่ไม่ซ้ำ (count=1) → คงค่าเดิมทุกช่อง 100% (ไม่แปลง/ไม่ปัดเศษ) */
+function fzMergeRows(rows){
+  const num = v => {
+    if(v==null || v==='') return 0;
+    if(typeof v==='number') return isFinite(v) ? v : 0;
+    const n = parseFloat(String(v).replace(/,/g,'').trim());
+    return isFinite(n) ? n : 0;
+  };
+  const r6 = v => Math.round(v*1e6)/1e6;   // ตัด float noise ให้ตรงไฟล์ตัวอย่าง
+  const SUM  = ['qty','netwt','gross','unitPrice','amt'];
+  const ONCE = ['currency','thdesc','hsShort','stat','brand'];
+  const keyOf = r => [r.billing, r.prodcode, r.endesc, r.origin, r.refent, r.refitem]
+    .map(x => String(x==null ? '' : x).trim()).join('\u0001');
+  const map = new Map(), order = [];
+  for(const r of rows){
+    const k = keyOf(r);
+    if(!map.has(k)){
+      const g = { row:{...r}, count:1, anyNum:{} };
+      for(const f of SUM) g.anyNum[f] = (r[f]!=='' && r[f]!=null);
+      map.set(k, g); order.push(k);
+    } else {
+      const g = map.get(k), base = g.row;
+      if(g.count===1){ for(const f of SUM) base[f] = num(base[f]); } // แปลง base เป็นตัวเลขตอนเริ่มรวม
+      for(const f of SUM){
+        base[f] = num(base[f]) + num(r[f]);
+        if(r[f]!=='' && r[f]!=null) g.anyNum[f] = true;
+      }
+      for(const f of ONCE){
+        if((base[f]==='' || base[f]==null) && r[f]!=='' && r[f]!=null) base[f] = r[f];
+      }
+      g.count++;
+    }
+  }
+  return order.map(k => {
+    const g = map.get(k), base = g.row;
+    if(g.count > 1){ for(const f of SUM) base[f] = g.anyNum[f] ? r6(num(base[f])) : ''; }
+    return base;
+  });
+}
+
+/* ==================================================================
+   MAPPING KN (Mapping Schaeffler FZ only) - build a NEW separate workbook
+   Template "MAPPING KN(1).xlsx" embedded as base64, loaded via ExcelJS.
+   Fill from rows (after duplicate-merge); copy style from row2(data)/row8(summary).
+   Does NOT touch the existing Mapping Excel; does NOT affect other modes.
+   ================================================================== */
+const FZ_KN_TEMPLATE_B64 = "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";
+function fzB64ToU8(b64){
+  const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
+async function fzBuildKNWorkbook(rows, incoterm){
+  // XML surgery: แกะ template (JSZip) → คัดลอก style-index (s) ของแถวข้อมูลตัวอย่าง (row2)
+  // และแถวสรุป (row8) ตรง ๆ → styles.xml ไม่ถูกแตะเลย = ฟอนต์/สี/เส้นขอบ/รูปแบบตัวเลข ตรง template 100%
+  if(typeof JSZip === 'undefined') throw new Error('JSZip \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e1e\u0e23\u0e49\u0e2d\u0e21 (MAPPING KN)');
+  const INCO = String(incoterm==null?'':incoterm).trim();   // M = Incoterms จาก INVOICE CLC (ไม่ใช่ DDP)
+  if(INCO === '') throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
+  const KO = 'Order kitting \u0e44\u0e21\u0e48\u0e21\u0e35\u0e40\u0e25\u0e02\u0e43\u0e1a\u0e02\u0e19\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07\u0e02\u0e32\u0e40\u0e02\u0e49\u0e32';
+  const num = v => { if(v==null||v==='') return null; if(typeof v==='number') return isFinite(v)?v:null; const n=parseFloat(String(v).replace(/,/g,'').trim()); return isFinite(n)?n:null; };
+  const toSerial = dt => { const e=Date.UTC(1899,11,30); const u=Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate(),dt.getHours(),dt.getMinutes(),dt.getSeconds()); return (u-e)/86400000; };
+  const safeInv = s => { s=String(s==null?'':s).trim(); return (/^\d+$/.test(s) && s[0]!=='0' && s.length<=15) ? Number(s) : s; };
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const xmlNum = n => { if(Number.isInteger(n)) return String(n); let s=String(n); if(/[eE]/.test(s)){ s=n.toFixed(12).replace(/0+$/,'').replace(/\.$/,''); } return s; };
+  const cNum = (col,r,s,v) => '<c r="'+col+r+'"'+(s?' s="'+s+'"':'')+'><v>'+xmlNum(v)+'</v></c>';
+  const cStr = (col,r,s,v) => '<c r="'+col+r+'"'+(s?' s="'+s+'"':'')+' t="inlineStr"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';
+  const cEmpty = (col,r,s) => '<c r="'+col+r+'"'+(s?' s="'+s+'"':'')+'/>';
+  const txt = (col,r,s,v) => (v==null||v==='') ? cEmpty(col,r,s) : cStr(col,r,s,v);
+
+  const zip = await JSZip.loadAsync(fzB64ToU8(FZ_KN_TEMPLATE_B64));
+  let sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
+  const row1 = sheet.match(/<row r="1"[\s\S]*?<\/row>/)[0];   // หัวตาราง — คงเดิมทุกอย่าง
+  // เพิ่ม number format วันที่ dd.mm.yyyy (custom id 165) + cellXf ใหม่ให้คอลัมน์ D — ไม่แตะ style เดิม
+  let styles = await zip.file('xl/styles.xml').async('string');
+  const KN_DATE_FMT_ID = 165;   // ว่าง (template เดิมใช้ 43,164)
+  styles = styles.replace(/<numFmts count="(\d+)">/, (m,c)=>'<numFmts count="'+(parseInt(c,10)+1)+'">')
+                 .replace(/<\/numFmts>/, '<numFmt numFmtId="'+KN_DATE_FMT_ID+'" formatCode="dd\\.mm\\.yyyy"/></numFmts>');
+  let KN_DATE_S = 0;
+  styles = styles.replace(/<cellXfs count="(\d+)">/, (m,c)=>{ KN_DATE_S = parseInt(c,10); return '<cellXfs count="'+(KN_DATE_S+1)+'">'; })
+                 .replace(/<\/cellXfs>/, '<xf numFmtId="'+KN_DATE_FMT_ID+'" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>');
+  zip.file('xl/styles.xml', styles);
+  const DS = String(KN_DATE_S);   // style index สำหรับคอลัมน์ D (dd.mm.yyyy)
+  const N = rows.length;
+  let body = '';
+  for(let i=0;i<N;i++){
+    const d = rows[i], r = 2+i;
+    const invRaw = String(d.billing==null?'':d.billing).trim();
+    const invFZ = /^FZ-/i.test(invRaw) ? invRaw : ('FZ-'+invRaw);   // C: เติม FZ- (ไม่ซ้ำ) → เก็บเป็น text ครบทุกหลัก
+    const dt = d.billdt ? (d.billdt instanceof Date ? d.billdt : (isNaN(new Date(d.billdt)) ? null : new Date(d.billdt))) : null;
+    const hsI = parseInt(d.hsShort,10); const hsVal = isFinite(hsI) ? hsI : (d.hsShort||'');
+    let item; if(d.refitem!=='' && d.refitem!=null) item = num(d.refitem); else item = null;   // AA: มีรายการที่→ใช้ค่านั้น · ไม่มี→เว้นว่าง (ยึด template, ไม่ใส่ 5)
+    const nw=num(d.netwt), gw=num(d.gross), up=num(d.unitPrice), am=num(d.amt), qty=num(d.qty);
+    let p = '<row r="'+r+'" spans="1:28" s="16" customFormat="1">';
+    p += cEmpty('A',r,'10');
+    p += cNum('B',r,'10', i+1);
+    p += cStr('C',r,'', invFZ);
+    p += (dt ? cNum('D',r,DS, toSerial(dt)) : cEmpty('D',r,DS));
+    p += txt('E',r,'12', d.prodcode);
+    p += txt('F',r,'12', d.endesc);
+    p += (qty==null ? cEmpty('G',r,'') : cNum('G',r,'', qty));
+    p += cStr('H',r,'','C62');
+    p += (up==null ? cEmpty('I',r,'13') : cNum('I',r,'13', up));
+    p += (am==null ? cEmpty('J',r,'13') : cNum('J',r,'13', am));
+    p += txt('K',r,'10', d.currency);
+    p += txt('L',r,'10', d.origin);
+    p += cStr('M',r,'10', INCO);
+    p += txt('N',r,'', d.thdesc);
+    p += (hsVal==='' ? cEmpty('O',r,'') : (typeof hsVal==='number' ? cNum('O',r,'', hsVal) : cStr('O',r,'', hsVal)));
+    p += cEmpty('P',r,'14');
+    p += cEmpty('Q',r,'12');
+    p += txt('R',r,'12', d.prodcode);
+    p += cEmpty('S',r,'12');
+    p += (nw==null ? cEmpty('T',r,'15') : cNum('T',r,'15', nw));
+    p += (gw==null ? cEmpty('U',r,'15') : cNum('U',r,'15', gw));
+    p += txt('W',r,'16', d.brand);
+    p += cEmpty('X',r,'17');
+    p += cEmpty('Y',r,'17');
+    p += txt('Z',r,'16', d.refent);
+    p += (item==null ? cEmpty('AA',r,'11') : cNum('AA',r,'11', item));
+    p += cEmpty('AB',r,'15');
+    p += '</row>';
+    body += p;
+  }
+  const sr = 2+N;
+  const sumG = rows.reduce((s,r)=>s+(num(r.qty)||0),0);
+  const sumJ = rows.reduce((s,r)=>s+(num(r.amt)||0),0);
+  const sumT = rows.reduce((s,r)=>s+(num(r.netwt)||0),0);
+  let sum = '<row r="'+sr+'" spans="1:28">';
+  sum += '<c r="G'+sr+'" s="21"><f>SUM(G2:G'+(N+1)+')</f><v>'+xmlNum(sumG)+'</v></c>';
+  sum += '<c r="J'+sr+'" s="22"><f>SUM(J2:J'+(N+1)+')</f><v>'+xmlNum(sumJ)+'</v></c>';
+  sum += '<c r="T'+sr+'" s="22"><f>SUM(T2:T'+(N+1)+')</f><v>'+xmlNum(sumT)+'</v></c>';
+  sum += '</row>';
+  sheet = sheet.replace(/<sheetData>[\s\S]*<\/sheetData>/, '<sheetData>'+row1+body+sum+'</sheetData>');
+  sheet = sheet.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:AB'+sr+'"/>');
+  sheet = sheet.replace(/<selection [^>]*\/>/, '<selection activeCell="A1" sqref="A1"/>');
+  zip.file('xl/worksheets/sheet1.xml', sheet);
+  // ลบ calcChain (อ้าง cell สูตรตำแหน่งเดิม — จะ stale เมื่อจำนวนแถวเปลี่ยน) เพื่อกัน Excel repair
+  zip.remove('xl/calcChain.xml');
+  let ct = await zip.file('[Content_Types].xml').async('string');
+  ct = ct.replace(/<Override PartName="\/xl\/calcChain\.xml"[^>]*\/>/, '');
+  zip.file('[Content_Types].xml', ct);
+  let rels = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+  rels = rels.replace(/<Relationship [^>]*calcChain\.xml[^>]*\/>/, '');
+  zip.file('xl/_rels/workbook.xml.rels', rels);
+  return await zip.generateAsync({ type:'arraybuffer' });
+}
+
 /* ── Export single-sheet workbook (mapping) ตามตัวอย่าง template ── */
 async function fzDownload(){
   const btn = document.getElementById('fz-btn-download');
@@ -8904,7 +9089,7 @@ async function fzDownload(){
     const miss=[]; if(!fzState.inv) miss.push('INVOICE CLC'); if(!fzState.rm) miss.push('RM');
     if(miss.length) throw new Error('อัปโหลดไม่ครบ — ขาดไฟล์: '+miss.join(', '));
     const c = await fzComputeMapping();
-    const rows = c.result;
+    const rows = fzMergeRows(c.result);   // ★ รวมรายการซ้ำ (6 key ตรงกัน) ก่อนเขียน Worksheet
     if(!rows || !rows.length) throw new Error('ประมวลผลไม่สำเร็จ — ไม่มีข้อมูลสำหรับสร้างไฟล์');
     fzState.result = rows;
 
@@ -8968,6 +9153,33 @@ async function fzDownload(){
     FZ_FIX_TAX_ID,                // col 29 เลขประจำตัวผู้เสียภาษี ★ FIX FIELD
     FZ_FIX_TAMNAENG               // col 30 ตำแหน่ง             ★ FIX FIELD
   ]);
+
+  // ── แถวสรุปยอดรวม (Mapping Schaeffler FZ เท่านั้น) ──
+  //   คำนวณจาก data2 (หลังรวมรายการซ้ำแล้ว) — ห้ามใช้แถวก่อนรวม, ห้ามนับซ้ำ
+  //   สรุปเฉพาะ: qty.inv.(col7) · qty.ใบขน(col9) · Net W.(col11) · Item net price(col14)
+  //   ช่องอื่นเว้นว่าง · ใส่ 'รวม' ใน EN Description 1 (col5) · ช่องว่าง = 0 ตอนคำนวณ
+  const _snum = v => {
+    if(v==null || v==='') return 0;
+    if(typeof v==='number') return isFinite(v) ? v : 0;
+    const n = parseFloat(String(v).replace(/,/g,'').trim());
+    return isFinite(n) ? n : 0;
+  };
+  const _r6 = v => Math.round(v*1e6)/1e6;
+  let _sQtyInv=0, _sQtyDoc=0, _sNetW=0, _sItemNet=0;
+  for(const d of data2){
+    _sQtyInv  += _snum(d[6]);    // col 7  qty.inv.
+    _sQtyDoc  += _snum(d[8]);    // col 9  qty.ใบขน
+    _sNetW    += _snum(d[10]);   // col 11 Net W.
+    _sItemNet += _snum(d[13]);   // col 14 Item net price
+  }
+  const sumRow = new Array(30).fill('');
+  sumRow[4]  = 'รวม';           // col 5  Description (EN Description) 1
+  sumRow[6]  = _r6(_sQtyInv);   // col 7  qty.inv.
+  sumRow[8]  = _r6(_sQtyDoc);   // col 9  qty.ใบขน
+  sumRow[10] = _r6(_sNetW);     // col 11 Net W.
+  sumRow[13] = _r6(_sItemNet);  // col 14 Item net price
+  data2.push(sumRow);
+
   const ws2 = XLSX.utils.aoa_to_sheet([HDR2, ...data2]);
   ws2['!cols'] = [
     {wch:14},{wch:12},{wch:6},{wch:18},{wch:28},{wch:18},
@@ -8992,13 +9204,45 @@ async function fzDownload(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws2, 'mapping');
 
-  const inv1 = rows[0]?.billing || 'output';
-  const invLast = rows[rows.length-1]?.billing || '';
-  const fname = (inv1 === invLast)
-    ? 'MAPPING_SCHAEFFLER_FZ_'+inv1+'.xlsx'
-    : 'MAPPING_SCHAEFFLER_FZ_'+inv1+'_to_'+invLast+'.xlsx';
-  XLSX.writeFile(wb, fname);
-    fzSetStatus('✓ สร้างไฟล์สำเร็จ ' + rows.length + ' rows');
+  // ── INVOICE NO. (ตัดช่องว่าง · คงเลขยาว/ศูนย์นำหน้า) + guard หลาย invoice (spec #9) ──
+  const invSet = [...new Set(rows.map(r => String(r.billing||'').trim()).filter(x => x !== ''))];
+  if(invSet.length > 1) throw new Error('พบหลาย INVOICE NO. ('+invSet.join(', ')+') — หยุด Export เพื่อป้องกันไฟล์ผิด');
+  const invNo = invSet[0] || 'output';
+
+  // ── ไฟล์ Mapping Excel เดิม → arraybuffer (ไม่แตะ workbook เดิม, ไม่เพิ่ม sheet) ──
+  const mapBuf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+
+  // ── อ่านค่า Incoterms จาก INVOICE CLC (ยกเลิกค่าคงที่ DDP) + ตรวจก่อนสร้าง KN ──
+  const incoList = await fzReadIncoterm(fzState.inv);
+  if(incoList.length === 0) throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
+  if(incoList.length > 1) throw new Error('พบค่า Incoterms ไม่ตรงกันหลายค่า: ' + incoList.join(', ') + ' — กรุณาตรวจสอบไฟล์ INVOICE CLC');
+  const incoterm = incoList[0];
+
+  // ── สร้าง MAPPING KN เป็น workbook ใหม่แยกต่างหาก จากข้อมูลหลังรวม (rows เดียวกัน) ──
+  const knBuf = await fzBuildKNWorkbook(rows, incoterm);
+
+  // ── ตรวจสอบก่อน ZIP (spec #9): ยอด/จำนวนของ 2 ไฟล์ตรงกันโดยอ้าง rows ชุดเดียวกัน ──
+  {
+    const _n = v => { if(v==null||v==='') return 0; if(typeof v==='number') return v; const x=parseFloat(String(v).replace(/,/g,'')); return isFinite(x)?x:0; };
+    const sQty = rows.reduce((s,r)=>s+_n(r.qty),0);
+    const sAmt = rows.reduce((s,r)=>s+_n(r.amt),0);
+    const sNet = rows.reduce((s,r)=>s+_n(r.netwt),0);
+    console.log('[FZ+KN] invNo', invNo, '| rows', rows.length, '| ΣQty', sQty, '| ΣItemNet=ΣTotalPrice', sAmt, '| ΣNetW=ΣNetWeight', sNet);
+    if(!(rows.length > 0)) throw new Error('ไม่มีรายการสำหรับสร้างไฟล์');
+  }
+
+  // ── รวม Excel 2 ไฟล์เป็น ZIP เดียว แล้วดาวน์โหลดครั้งเดียว ──
+  if(typeof JSZip === 'undefined') throw new Error('JSZip ยังไม่พร้อม');
+  const zip = new JSZip();
+  zip.file(invNo + '.xlsx', mapBuf);          // ไฟล์ Mapping Excel เดิม
+  zip.file(invNo + ' KN.xlsx', knBuf);        // ไฟล์ MAPPING KN
+  const blob = await zip.generateAsync({ type:'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = invNo + '.zip';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+    fzSetStatus('✓ สร้าง ZIP สำเร็จ: ' + invNo + '.zip (Mapping + MAPPING KN · ' + rows.length + ' รายการ)');
   }catch(e){
     console.error(e);
     fzSetStatus('สร้างไฟล์ไม่สำเร็จ: ' + (e.message||e), true);
