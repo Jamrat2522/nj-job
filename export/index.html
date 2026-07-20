@@ -8908,8 +8908,9 @@ const _eleState = {
 // ── Column alias definitions (tolerant to real-world variations) ──
 const _eleCols = {
   sale: {
-    invoiceNo:    ['Invoice Number','Invoice No.','Invoice No','InvoiceNo','Invoice'],
-    invoiceDate:  ['Invoice date','Invoice Date','InvoiceDate','Date','Billing Date'],
+    // ⚠ exact เท่านั้น — ห้าม alias กว้าง ('Invoice','Date','Billing Date') กันจับผิดคอลัมน์ (spec #4)
+    invoiceNo:    ['Invoice Number','Invoice No.','Invoice No','InvoiceNo'],
+    invoiceDate:  ['Invoice date','Invoice Date','InvoiceDate'],
     itemCode:     ['Item code','Item Code','ItemCode','Item','Product Code','Part Number','Material'],
     description:  ['Material description','Description','Material Description','Material Desc.','Desc.','Product Description','Eng description'],
     quantity:     ['Quantity','Qty','Qty.','Invoiced Quantity','Billing qty in SKU'],
@@ -8919,7 +8920,11 @@ const _eleCols = {
     // Formula: Sale!A = ItemCode & Y (col Y = "Document number of the reference documen" = DELIVERY NO)
     deliveryRef:  ['Document number of the reference documen','Document number of reference document',
                    'Document number of the reference document','Reference Document Number',
-                   'Delivery reference','Delivery No','DELIVERY NO']
+                   'Delivery reference','Delivery No','DELIVERY NO'],
+    // ⭐ ตัวแยก invoice ที่ถูกต้อง: ข้ามแถวที่ Billing document is cancelled = 'X'
+    //    (SALE key ซ้ำมักเป็นคู่ invoice ยกเลิก vs invoice ใหม่ — qty เท่ากัน แยกด้วย flag นี้เท่านั้น)
+    billingCancelled: ['Billing document is cancelled','Billing Document Is Cancelled',
+                       'Billing doc is cancelled','Cancelled','Canceled']
   },
   ct: {
     deliveryNo:   ['DELIVERY NO','Delivery No','DeliveryNo','Delivery'],
@@ -8981,10 +8986,54 @@ function _eleToNumLineItem(v){
   return m ? parseFloat(m[0]) : Number.MAX_SAFE_INTEGER;
 }
 function _eleFmtDate(v){
-  // Pass through as-is — Excel date serials (e.g. 46083) are preserved
-  // so XLSX output renders them correctly as dates in Excel
+  // แปลงวันที่จาก SALE → DD/MM/YYYY (ข้อความ)
+  //   • ห้ามใช้ UTC / toISOString()  • ห้ามบวก-ลบวัน  • ห้ามเปลี่ยนวันจากต้นฉบับ
+  //   รองรับ: (1) Excel date serial (number)  (2) Date object  (3) ข้อความวันที่
   if(v==null || v==='') return '';
-  return v;
+  var pad = function(n){ n=String(n); return n.length<2 ? '0'+n : n; };
+
+  // (1) Excel date serial → XLSX.SSF (ไม่ผูก timezone, ตรงตาม serial เป๊ะ)
+  if(typeof v === 'number' && isFinite(v)){
+    try{
+      var dc = XLSX.SSF.parse_date_code(v);
+      if(dc && dc.y) return pad(dc.d)+'/'+pad(dc.m)+'/'+dc.y;
+    }catch(ex){}
+    return String(v);
+  }
+
+  // (2) Date object → อ่านตามปฏิทินท้องถิ่นตรงๆ (ไม่ใช้ getUTC*)
+  if(v instanceof Date && !isNaN(v)){
+    return pad(v.getDate())+'/'+pad(v.getMonth()+1)+'/'+v.getFullYear();
+  }
+
+  // (3) ข้อความ — แปลงเฉพาะรูปแบบที่ชัดเจน ไม่งั้นคืนค่าเดิม (ห้ามเดา)
+  var s = String(v).trim();
+  if(s === '') return '';
+  // ตัวเลขล้วน = serial ในรูปข้อความ
+  if(/^\d+(\.\d+)?$/.test(s)){
+    try{
+      var dcn = XLSX.SSF.parse_date_code(parseFloat(s));
+      if(dcn && dcn.y) return pad(dcn.d)+'/'+pad(dcn.m)+'/'+dcn.y;
+    }catch(exn){}
+    return s;
+  }
+  var m;
+  // ISO: YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD → Y,M,D (ไม่กำกวม)
+  if(m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$/)){
+    return pad(m[3])+'/'+pad(m[2])+'/'+m[1];
+  }
+  // DD-MM-YYYY / DD/MM/YYYY / DD.MM.YYYY (2-4 หลักปี) → คุมลำดับวัน-เดือนเมื่อระบุได้
+  if(m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/)){
+    var a = parseInt(m[1],10), b = parseInt(m[2],10);
+    var yy = (m[3].length===2) ? ('20'+m[3]) : m[3];
+    var dd, mm;
+    if(a>12 && b<=12){ dd=a; mm=b; }        // ช่องแรก>12 → เป็นวันแน่นอน
+    else if(b>12 && a<=12){ dd=b; mm=a; }   // ช่องสอง>12 → ต้นฉบับเป็น month-first
+    else { dd=a; mm=b; }                     // กำกวม → ยึด day-first (DD/MM ตามรูปแบบไทย/SALE)
+    return pad(dd)+'/'+pad(mm)+'/'+yy;
+  }
+  // รูปแบบอื่นที่ไม่ชัดเจน → คืนค่าเดิม ไม่ดัดแปลง
+  return s;
 }
 
 function _eleSanitizeName(name){
@@ -9166,12 +9215,12 @@ async function _eleLoadMulti(kind, fileList){
         // PL: header-scan reader (header may be at row 18+)
         parsed = await _elePLReadFile(f);
       } else if(kind === 'sale'){
-        // SALE: compact — read only 7 needed columns (vs ~37 total) → ~5x faster
+        // SALE: compact — read needed columns (+ billingCancelled สำหรับกรอง invoice ที่ยกเลิก)
         parsed = await _eleReadFileCompact(f, [
           _eleCols.sale.itemCode, _eleCols.sale.deliveryRef,
           _eleCols.sale.invoiceNo, _eleCols.sale.invoiceDate,
           _eleCols.sale.description, _eleCols.sale.unitNetPrice,
-          _eleCols.sale.country
+          _eleCols.sale.country, _eleCols.sale.billingCancelled
         ]);
       } else if(kind === 'ct'){
         // CT: compact — exclude lineItem (causes partial-match issue with ITEM col)
@@ -9505,8 +9554,9 @@ function eleClear(){
 function _eleBuildMapping(saleData, ctData, plData, masterData){
   // ── STEP 1: Build SALE index using correct key = ItemCode + DeliveryRef ──
   // Formula: Sale!A = =AA&Y  (col AA = Item code, col Y = "Document number of the reference documen" = DELIVERY NO)
-  const saleIdx    = new Map();
-  const salePosIdx = new Map(); // for LINE ITEM sort
+  const saleIdx     = new Map(); // key → แถว SALE ที่ "ไม่ถูกยกเลิก" แถวแรกตามลำดับไฟล์
+  const salePosIdx  = new Map(); // key → ตำแหน่งใน SALE (สำหรับ sort LINE ITEM)
+  const saleInvSet  = new Map(); // key → Set(invoice ที่ valid) — ใช้เตือนถ้ามี >1
   let salePos = 0;
   for(const r of saleData.rows){
     const item    = _eleClean(_eleGetCol(r, _eleCols.sale.itemCode));
@@ -9514,8 +9564,14 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
     if(!item && !delRef) continue;
     salePos++;
     const k = item+'|'+delRef;
-    if(!saleIdx.has(k))    saleIdx.set(k, r);
     if(!salePosIdx.has(k)) salePosIdx.set(k, salePos);
+    // ⭐ FIX: ข้ามแถว invoice ที่ถูกยกเลิก (Billing document is cancelled = 'X')
+    //   SALE key ซ้ำมักเป็นคู่ [invoice ยกเลิก + invoice ใหม่] qty เท่ากัน แยกได้ด้วย flag นี้เท่านั้น
+    //   เดิมเก็บแถวแรก → มักได้แถวยกเลิก ทำให้แถว 36–429 ได้ invoice ผิด
+    if(_eleClean(_eleGetCol(r, _eleCols.sale.billingCancelled)) === 'X') continue;
+    if(!saleIdx.has(k)) saleIdx.set(k, r); // เก็บแถว valid แถวแรก (ลำดับไฟล์ SALE)
+    const inv = String(_eleGetCol(r, _eleCols.sale.invoiceNo) || '').trim();
+    if(inv){ if(!saleInvSet.has(k)) saleInvSet.set(k, new Set()); saleInvSet.get(k).add(inv); }
   }
 
   // ── STEP 2: Sort CT by LINE ITEM = SALE file position (formula behavior) ──
@@ -9545,7 +9601,9 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
 
   // ── STEP 4: Build output rows FROM CT ──
   const out = [];
-  let saleHit=0, saleMiss=0, plHit=0, plMiss=0, masterHit=0, masterMiss=0;
+  let saleHit=0, saleMiss=0, plHit=0, plMiss=0, masterHit=0, masterMiss=0, multiInv=0;
+  const notMatched  = []; // [{item,delivery}] จับ SALE ไม่ได้
+  const multiInvList = []; // [{item,delivery,invoices[]}] delivery/key มี invoice valid > 1
 
   ctRows.forEach(function(ct, i){
     const ctItem     = _eleGetCol(ct, _eleCols.ct.item);
@@ -9577,7 +9635,14 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
     const sale = saleIdx.get(saleKey) || null;
     const pl   = plIdx.get(_eleClean(ctItem)) || null;
     const mst  = masterIdx.get(_eleClean(ctItem)) || null;
-    if(sale) saleHit++; else saleMiss++;
+    if(sale){
+      saleHit++;
+      const invSet = saleInvSet.get(saleKey);
+      if(invSet && invSet.size > 1){ multiInv++; multiInvList.push({item:String(ctItem), delivery:String(ctDelivery), invoices:[...invSet]}); }
+    } else {
+      saleMiss++;
+      notMatched.push({item:String(ctItem), delivery:String(ctDelivery)}); // spec #8: ระบุ CT ITEM + DELIVERY NO
+    }
     if(pl)   plHit++;   else plMiss++;
     if(mst)  masterHit++; else masterMiss++;
 
@@ -9603,7 +9668,9 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
 
   return {
     rows: out,
-    stats: { saleHit, saleMiss, plHit, plMiss, masterHit, masterMiss }
+    stats: { saleHit, saleMiss, plHit, plMiss, masterHit, masterMiss, multiInv },
+    notMatched: notMatched,
+    multiInvList: multiInvList
   };
 }
 
@@ -9753,13 +9820,19 @@ async function eleExport(){
         ctFile:   ctArr[i].fileName,
         plFile:   plArr[i].fileName,
         rows:     result.rows,
-        stats:    result.stats
+        stats:    result.stats,
+        notMatched:  result.notMatched || [],
+        multiInvList: result.multiInvList || []
       });
       totSH += result.stats.saleHit;   totSM += result.stats.saleMiss;
       totPH += result.stats.plHit;     totPM += result.stats.plMiss;
       totMH += result.stats.masterHit; totMM += result.stats.masterMiss;
     }
     s.ctSorted = true;
+
+    // รวม warning ข้ามทุก job
+    let allNotMatched = [], allMultiInv = [];
+    jobs.forEach(function(j){ allNotMatched = allNotMatched.concat(j.notMatched); allMultiInv = allMultiInv.concat(j.multiInvList); });
 
     const setD = function(id,v){ const e = document.getElementById(id); if(e) e.textContent = v; };
     setD('ele-dbg-sale-match',     totSH);
@@ -9769,6 +9842,19 @@ async function eleExport(){
     setD('ele-dbg-master-match',   totMH);
     setD('ele-dbg-master-unmatch', totMM);
     _eleUpdateDebug();
+
+    // ⚠ SALE NOT MATCH (spec #5/#8): CT รายการที่จับ SALE ไม่ได้ → INVOICE Number/DATE ว่าง
+    //   ไม่ยืมค่าจากแถวก่อนหน้า และไม่ใช้ Invoice แรกของไฟล์ + ระบุ ITEM/DELIVERY
+    if(totSM > 0){
+      const detail = allNotMatched.slice(0,5).map(function(x){ return x.item+' / '+x.delivery; }).join('  •  ');
+      showErr('⚠ SALE NOT MATCH: '+totSM+' รายการ (INVOICE Number/DATE ว่าง) — '+detail+(allNotMatched.length>5?'  …':''));
+    }
+    // ⚠ MULTIPLE INVOICE ใน delivery/key เดียว (spec #9) — เตือน ไม่เลือกแบบสุ่ม (เลือกแถว valid แรกตามลำดับ SALE)
+    if(allMultiInv.length > 0){
+      const mi = allMultiInv[0];
+      toast('⚠ พบ '+allMultiInv.length+' รายการที่มีหลาย Invoice ใน key เดียว เช่น '+mi.item+'/'+mi.delivery+' → ['+mi.invoices.join(', ')+'] (เลือกแถว valid แรกตามลำดับ SALE)', 'error');
+      console.warn('[ELE] MULTIPLE INVOICE keys:', allMultiInv);
+    }
 
     if(N === 1){
       // Single → plain xlsx download
@@ -9833,12 +9919,22 @@ function _eleRenderPreview(jobs){
   const first = jobs[0];
   const sample = first.rows.slice(0, 10);
   const th = ELE_HEADERS.map(function(h){ return '<th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);background:var(--s2);border-bottom:2px solid #58a6ff;white-space:nowrap">'+(h||'—')+'</th>'; }).join('');
-  const body = sample.map(function(r){ return '<tr style="border-bottom:1px solid var(--bd)">'+r.map(function(c){ return '<td style="padding:6px 10px;font-size:11px;color:var(--t1);white-space:nowrap">'+String(c==null?'':c)+'</td>'; }).join('')+'</tr>'; }).join('');
+  // ⚠ SALE NOT MATCH banner + ไฮไลต์แถวที่ INVOICE Number ว่าง (col 1) — UI เท่านั้น ไม่แตะข้อมูล export
+  const totalMiss = jobs.reduce(function(a,j){ return a + (j.stats ? j.stats.saleMiss : 0); }, 0);
+  const warnBanner = totalMiss > 0
+    ? '<div style="margin-top:8px;padding:8px 12px;border:1px solid #f85149;border-radius:6px;background:rgba(248,81,73,.12);color:#f85149;font-size:11px;font-weight:700">⚠ SALE NOT MATCH: '+totalMiss+' รายการ — INVOICE Number / INVOICE DATE เว้นว่าง (ไม่ยืมค่าจากรายการอื่น)</div>'
+    : '';
+  const body = sample.map(function(r){
+    var noMatch = (r[1]==null || String(r[1]).trim()===''); // col 1 = INVOICE Number
+    var trStyle = noMatch ? 'border-bottom:1px solid var(--bd);background:rgba(248,81,73,.10)' : 'border-bottom:1px solid var(--bd)';
+    return '<tr style="'+trStyle+'"'+(noMatch?' title="SALE NOT MATCH"':'')+'>'+r.map(function(c){ return '<td style="padding:6px 10px;font-size:11px;color:var(--t1);white-space:nowrap">'+String(c==null?'':c)+'</td>'; }).join('')+'</tr>';
+  }).join('');
   prev.innerHTML =
     '<div style="margin-top:8px">'+
       '<div style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--t2);margin-bottom:8px">'+jobs.length+' mapping(s)</div>'+
       jobList+
     '</div>'+
+    warnBanner+
     '<div class="tcard" style="margin-top:12px">'+
       '<div class="th-row"><div><div class="t-title">Preview: '+first.saleFile+'</div><div class="t-cnt">10 แถวแรก จาก '+first.rows.length+'</div></div></div>'+
       '<div class="tscroll"><table style="width:100%;border-collapse:collapse"><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table></div>'+
