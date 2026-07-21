@@ -866,8 +866,16 @@ const S = {
   _rt: null,
   _searchTimer: null,
   jobStatus: {},   // docId → ข้อความ Timeline การดำเนินงานล่าสุด (สถานะงาน) · '' = ยังไม่มี timeline
-  sysStatus: {}    // docId → {t,m} Timeline ระบบล่าสุด (สถานะเอกสาร · desktop RECEIVED) · null = ไม่มี
+  sysStatus: {},   // docId → {t,m} Timeline ระบบล่าสุด (สถานะเอกสาร · desktop RECEIVED) · null = ไม่มี
+  // #4 per-mode cache — แต่ละโหมดมี array ของตัวเอง (S.docs ชี้ไปที่ cache ของโหมดปัจจุบันเพื่อรองรับโค้ดเดิม)
+  viewCache: {},   // view → { docs:[], loaded, loading, lastLoadedAt, count }
+  counts: {},      // view → จำนวนจริงจาก count query (badge sidebar · ไม่ใช่จาก cache 200)
+  _viewLoadPromises: {},   // #15 lock กัน query ซ้ำต่อโหมด
+  _viewReqToken: {}        // #15 token กัน response โหมดเก่ามาทับโหมดใหม่
 };
+const VIEW_LIMIT = 200;                 // #2 สูงสุด 200 งาน/โหมด
+const DOC_MODES = ['all','NEW','RECEIVED','COMPLETED_TODAY','POSTPONED','TOMORROW','ADVANCE','EDIT'];  // โหมดเอกสาร (มี count/cache)
+function _vc(view){ if(!S.viewCache[view]) S.viewCache[view]={ docs:[], loaded:false, loading:false, lastLoadedAt:0, count:null }; return S.viewCache[view]; }
 
 /* ---------------- helpers ---------------- */
 const $ = id => document.getElementById(id);
@@ -936,6 +944,9 @@ function isOwnOnly(){ const r=_permRole(); return r!=='ADMIN' && r!=='SUPER_ADMI
 function _firstAllowedView(){ const v=PERM_VIEWS[_permRole()]; if(v==='ALL') return 'all'; return (v&&v[0])||null; }
 // เอกสารที่ "มองเห็นได้" ตามสิทธิ์ — own-only เห็นเฉพาะงานตนเอง (assigned/creator) + งานใหม่ที่ยังไม่มีผู้รับ (ไว้กดรับงาน)
 let _visCache = { ref:null, val:null };
+// #1 ล้าง cache แถวที่มองเห็น — เรียกทุกครั้งที่ S.docs ถูก mutate ในที่เดิม (splice/unshift/sort/[i]=)
+//     เพราะ ref ไม่เปลี่ยน cache จะค้าง (เฉพาะ user isOwnOnly) → ต้อง invalidate ตรง ๆ
+function _invalidateDocsCache(){ _visCache = { ref:null, val:null }; }
 function _visibleDocs(){
   if(!isOwnOnly()) return S.docs;
   if(_visCache.ref===S.docs) return _visCache.val;   // cache ต่อ render (S.docs set ใหม่ทุก reload → ref เปลี่ยน → cache miss)
@@ -1109,30 +1120,108 @@ function doLogout(){
 }
 
 /* ---------------- data layer ---------------- */
-async function loadDocuments(){
-  try{
-    let { data, error } = await sb.from(DOC_TABLE)
-      .select(DOC_COLS).eq('app_code', WORK_APP_CODE)
-      .order('created_at', { ascending:false }).limit(1000);
-    if(error && /freight_paid/i.test(error.message||'')){ // คอลัมน์ใหม่ยังไม่ถูก migrate → fallback
-      ({ data, error } = await sb.from(DOC_TABLE)
-        .select(DOC_COLS_FALLBACK).eq('app_code', WORK_APP_CODE)
-        .order('created_at', { ascending:false }).limit(1000));
-    }
-    if(error){ console.error('[loadDocuments]', error); toast('โหลดเอกสารไม่สำเร็จ: '+(error.message||''),'error'); return; }
-    S.docs = data || [];
-    S.loaded = true;
-    // คืนค่า POSTPONED ที่ข้ามวัน → NEW (รอชิปปิ้งรับ) · เฉพาะ flow เอกสาร SHIPPING นี้เท่านั้น
-    // resetExpiredPostponedDocuments() patch S.docs local ให้แล้ว (เฉพาะแถวที่คืนค่าสำเร็จ)
-    // → #4 ไม่ต้อง refetch 1000 แถวซ้ำ (realtime จะ reconcile ให้อีกชั้น)
-    await resetExpiredPostponedDocuments();
-  }catch(e){ console.error(e); }
+/* ============================================================
+   PER-MODE DATA LAYER (#1-5,9,10,12,13,15) — โหลดแยกตามโหมด ≤200 · cache แยกโหมด · count query
+   ด่านสิทธิ์ท้ายสุดยังเป็น _visibleDocs()/VIEWS[view].test (สิทธิ์รั่วไม่ได้แม้ query ผิด) + fallback เมื่อ error
+   ============================================================ */
+// ช่วงเวลา "วันนี้" ตามเวลาไทย (UTC+7) → ISO (สำหรับ COMPLETED_TODAY · ห้าม UTC ทำวันเลื่อน) (#12)
+function _todayRangeTH(){
+  const now=new Date(); const th=new Date(now.getTime()+7*3600*1000);      // เลื่อนเป็นเวลาไทย
+  const y=th.getUTCFullYear(), m=th.getUTCMonth(), d=th.getUTCDate();
+  const startUTC=new Date(Date.UTC(y,m,d,0,0,0)-7*3600*1000);              // 00:00 ไทย → UTC
+  const endUTC  =new Date(Date.UTC(y,m,d+1,0,0,0)-7*3600*1000);           // 00:00 พรุ่งนี้ไทย → UTC
+  return { start:startUTC.toISOString(), end:endUTC.toISOString() };
 }
-// คืนค่าเอกสารที่เลื่อน (POSTPONED) ข้ามวันกลับเป็น NEW อัตโนมัติหลังเที่ยงคืน · ไม่แตะ CLEARED/COMPLETED · ไม่ลบ Timeline
+// own-only overlay — mirror _visibleDocs() เป๊ะ (NEW ที่ยังไม่มีผู้รับ = เห็นทุกคน · ที่เหลือ = ของตน)
+function _applyOwnOnly(q, view){
+  if(!isOwnOnly()) return q;
+  const uid=String(S.user&&S.user.id||'');
+  const mine=`creator_user.eq.${uid},assigned_user.eq.${uid}`;
+  if(view==='NEW'||view==='TOMORROW'||view==='ADVANCE') return q.or(`assigned_user.is.null,${mine}`);   // NEW-modes: unassigned NEW + ของตน
+  if(view==='all') return q.or(`and(doc_status.eq.NEW,assigned_user.is.null),${mine}`);                 // all: (NEW & unassigned) + ของตน
+  return q.or(mine);                                                                                     // RECEIVED/POSTPONED/COMPLETED_TODAY/EDIT: เฉพาะของตน
+}
+// เงื่อนไข server ต่อโหมด (สถานะ/วันที่/shipping_date) — ตรงกับ VIEWS[view].test
+function _applyViewFilter(q, view){
+  const today=todayYMD(), tmr=tomorrowYMD();
+  if(view==='NEW')             q=q.eq('doc_status','NEW').or(`shipping_date.is.null,shipping_date.lte.${today}`);
+  else if(view==='RECEIVED')   q=q.eq('doc_status','RECEIVED');
+  else if(view==='POSTPONED')  q=q.eq('doc_status','POSTPONED');
+  else if(view==='TOMORROW')   q=q.eq('doc_status','NEW').eq('shipping_date',tmr);
+  else if(view==='ADVANCE')    q=q.eq('doc_status','NEW').gt('shipping_date',tmr);
+  else if(view==='EDIT')       q=q.eq('doc_status','EDIT_COMPLETED');
+  else if(view==='COMPLETED_TODAY'){ const r=_todayRangeTH(); q=q.eq('doc_status','COMPLETED').gte('completed_at',r.start).lt('completed_at',r.end); }
+  // view==='all' → ไม่ filter สถานะ
+  return _applyOwnOnly(q, view);
+}
+// โหลดข้อมูลของโหมดเดียว ≤200 · lock กัน query ซ้ำ (#15) · token กัน response เก่าทับใหม่ · fallback freight_paid
+async function loadView(view, opts={}){
+  if(!DOC_MODES.includes(view)) return;
+  const c=_vc(view);
+  if(S._viewLoadPromises[view] && !opts.force) return S._viewLoadPromises[view];   // #15 ใช้ promise เดิม
+  const tok=(S._viewReqToken[view]=(S._viewReqToken[view]||0)+1);                    // #15 request token
+  c.loading=true;
+  const p=(async()=>{
+    const _q0=performance.now();
+    try{
+      let q=sb.from(DOC_TABLE).select(DOC_COLS).eq('app_code',WORK_APP_CODE);
+      q=_applyViewFilter(q, view).order('created_at',{ascending:false}).limit(VIEW_LIMIT);
+      let { data, error }=await q;
+      if(error && /freight_paid/i.test(error.message||'')){                          // คอลัมน์ใหม่ยังไม่ migrate → fallback
+        let q2=sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE);
+        q2=_applyViewFilter(q2, view).order('created_at',{ascending:false}).limit(VIEW_LIMIT);
+        ({ data, error }=await q2);
+      }
+      if(error){ console.error('[loadView '+view+']', error); if(!c.loaded) toast('โหลดข้อมูลไม่สำเร็จ: '+(error.message||''),'error'); return; }
+      if(S._viewReqToken[view]!==tok) return;                                          // #15 มี request ใหม่กว่าแล้ว → ทิ้งผลเก่า
+      _perfMark('supabaseQuery·'+view, _q0);
+      c.docs=(data||[]).slice(0,VIEW_LIMIT); c.loaded=true; c.lastLoadedAt=Date.now();
+      if(view===S.view){ S.docs=c.docs; _invalidateDocsCache(); }
+    }catch(e){ console.error('[loadView]', e); }
+    finally{ c.loading=false; }
+  })();
+  S._viewLoadPromises[view]=p;
+  try{ await p; } finally { if(S._viewLoadPromises[view]===p) delete S._viewLoadPromises[view]; }
+  return p;
+}
+// backward-compat: โค้ดเดิมที่เรียก loadDocuments() → โหลด "โหมดปัจจุบัน" เท่านั้น (ไม่โหลดรวมทุกสถานะแล้ว)
+async function loadDocuments(){ S.loaded=true; await loadView(S.view,{force:true}); _ensureCount(S.view); }
+// count query ต่อโหมด (#9) — คืนเฉพาะจำนวน (head:true · ไม่โหลดข้อมูล) · ใช้ filter+own-only เดียวกัน
+async function _ensureCount(view){
+  if(!DOC_MODES.includes(view) || !canView(view)) return;
+  try{
+    let q=sb.from(DOC_TABLE).select('id',{count:'exact',head:true}).eq('app_code',WORK_APP_CODE);
+    q=_applyViewFilter(q, view);
+    const { count, error }=await q;
+    if(!error && typeof count==='number'){ S.counts[view]=count; _vc(view).count=count; }
+  }catch(e){ console.warn('[count '+view+']', e); }
+}
+function _ensureCounts(){ const ps=DOC_MODES.filter(canView).map(v=>_ensureCount(v)); Promise.all(ps).then(()=>{ renderSidebar(); renderMobileTabbar(); }); }   // ทุกโหมด (badge sidebar) → re-render เมื่อ count มาครบ
+let _recountTimer=null;
+function _recountSoon(){ clearTimeout(_recountTimer); _recountTimer=setTimeout(()=>{ _ensureCounts(); renderSidebar(); renderMobileTabbar(); }, 1200); }   // #9 ตรวจ count ใหม่หลัง realtime burst
+// ตรวจว่าเอกสารมองเห็นได้ตามสิทธิ์ (mirror _visibleDocs) — ใช้ตอน route realtime เข้า cache
+function _docVisibleToUser(row){
+  if(!isOwnOnly()) return true;
+  const uid=String(S.user&&S.user.id||'');
+  if(row.doc_status==='NEW' && !row.assigned_user) return true;
+  return String(row.assigned_user||'')===uid || String(row.creator_user||'')===uid;
+}
+function _docInMode(row, mode){ const v=VIEWS[mode]; if(!v) return false; return _docVisibleToUser(row) && v.test(row); }
+// cache ops — mutate array ในที่เดิม (ref เดียวกับ S.docs เมื่อเป็นโหมดปัจจุบัน) · cap 200
+function _cacheUpsert(mode, row){
+  const c=_vc(mode); const i=c.docs.findIndex(d=>d.id===row.id);
+  if(i>=0) c.docs[i]=row; else c.docs.unshift(row);
+  c.docs.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  if(c.docs.length>VIEW_LIMIT) c.docs.length=VIEW_LIMIT;
+}
+function _cacheRemove(mode, id){ const c=_vc(mode); const i=c.docs.findIndex(d=>d.id===id); if(i>=0) c.docs.splice(i,1); }
+
+// คืนค่าเอกสารที่เลื่อน (POSTPONED) ข้ามวันกลับเป็น NEW อัตโนมัติหลังเที่ยงคืน · query POSTPONED โดยตรง (ไม่พึ่ง S.docs โหมดปัจจุบัน)
 async function resetExpiredPostponedDocuments(){
   try{
     const today = todayYMD();
-    const expired = (S.docs||[]).filter(d => d.doc_status==='POSTPONED' && d.postponed_at && ymd(d.postponed_at) < today);
+    let { data:_pd } = await sb.from(DOC_TABLE).select('id,doc_status,postponed_at').eq('app_code',WORK_APP_CODE).eq('doc_status','POSTPONED').limit(VIEW_LIMIT);
+    const expired = (_pd||[]).filter(d => d.postponed_at && ymd(d.postponed_at) < today);
     if(!expired.length) return false;
     for(const d of expired){
       const patch = { doc_status:'NEW', received_at:null, assigned_user:null, assigned_name:null, delivery_status:'READY_FOR_SHIPPING' };
@@ -1158,6 +1247,8 @@ async function resetExpiredPostponedDocuments(){
       }
       else { console.warn('[postponed_reset]', error); }
     }
+    // per-mode: POSTPONED/NEW cache + count เปลี่ยน → โหลดใหม่เฉพาะ 2 โหมดนี้ (ไม่โหลดรวม)
+    try{ await loadView('POSTPONED',{force:true}); await loadView('NEW',{force:true}); _ensureCount('POSTPONED'); _ensureCount('NEW'); }catch(_){}
     return true;
   }catch(e){ console.warn('[resetExpiredPostponed]', e); return false; }
 }
@@ -1170,49 +1261,144 @@ async function logDoc(documentId, action, doc_status, note){
     if(documentId && action!=='status' && action!=='doc_status') delete S.sysStatus[documentId];   // ✚ invalidate สถานะเอกสาร → renderDocView(RECEIVED) ดึงล่าสุดใหม่ (ทันที ไม่ต้อง refresh)
   }catch(e){ console.warn('[log]', e); }
 }
+/* #10 Performance mark (แสดงเฉพาะเมื่อ DEBUG_PERF=true · ไม่รบกวนผู้ใช้ปกติ) */
+const DEBUG_PERF = false;
+function _perf(name, fn){ if(!DEBUG_PERF){ return fn?fn():undefined; } const t=performance.now(); const r=fn?fn():undefined; console.log('%c⏱ '+name+' '+(performance.now()-t).toFixed(1)+'ms','color:#10B981'); return r; }
+function _perfMark(name, sinceMs){ if(DEBUG_PERF) console.log('%c⏱ '+name+' '+(performance.now()-sinceMs).toFixed(1)+'ms','color:#38BDF8'); }
+
+/* #2/#3 Realtime — ฟัง 2 ตาราง (sa_documents + sa_document_logs) พร้อม filter app_code
+   · sa_documents  : INSERT/UPDATE/DELETE → patch S.docs เฉพาะแถว (ไม่ refetch 1000)
+   · sa_document_logs: status → S.jobStatus[doc] · doc_status/doc_completed/อื่น → S.sysStatus[doc] (โหลดล่าสุดเฉพาะ 1 doc)
+   · .subscribe(status) : จับ SUBSCRIBED/CHANNEL_ERROR/TIMED_OUT/CLOSED → reconnect + delta sync
+   · ป้องกัน channel ซ้ำ ด้วย _rtSubscribing + removeChannel เดิมก่อน */
+let _rtSubscribing=false;
 function subscribeRealtime(){
-  if(S._rt){ try{ sb.removeChannel(S._rt); }catch(_){} }
+  if(_rtSubscribing) return;                       // กันสร้างซ้ำระหว่างกำลัง subscribe
+  _rtSubscribing=true;
+  if(S._rt){ try{ sb.removeChannel(S._rt); }catch(_){} S._rt=null; }
   try{
+    // หมายเหตุ: กรอง app_code ฝั่ง JS (ใน _saRealtimeApply/_saLogRealtimeApply) แทน server-side filter
+    //   เพราะการใส่ filter ฝั่ง server ทำให้ event DELETE ส่งไม่ครบถ้าไม่ได้ตั้ง REPLICA IDENTITY FULL → คงพฤติกรรมเดิม 100%
     S._rt = sb.channel('sa_docs_rt')
       .on('postgres_changes', { event:'*', schema:'public', table:DOC_TABLE }, (payload)=>{ _saRealtimeApply(payload); })
-      .subscribe();
-  }catch(e){ console.warn('[realtime]', e); }
+      .on('postgres_changes', { event:'*', schema:'public', table:LOG_TABLE }, (payload)=>{ _saLogRealtimeApply(payload); })
+      .subscribe((status)=>{
+        S._rtStatus = status;
+        if(DEBUG_PERF) console.log('%c⏱ realtime status: '+status,'color:#F59E0B');
+        if(status==='SUBSCRIBED'){
+          _rtSubscribing=false;
+          if(S._rtWasDown){ S._rtWasDown=false; _saDeltaSync(); }   // เพิ่งกลับมา online → sync ส่วนที่ตกหล่น
+        } else if(status==='CHANNEL_ERROR' || status==='TIMED_OUT' || status==='CLOSED'){
+          _rtSubscribing=false; S._rtWasDown=true;
+          clearTimeout(S._rtRetry);
+          S._rtRetry=setTimeout(()=>{ subscribeRealtime(); }, 1500);  // ลอง subscribe ใหม่
+        }
+      });
+  }catch(e){ console.warn('[realtime]', e); _rtSubscribing=false; }
+  _bindRtLifecycle();
 }
-let _refreshTimer=null, _rtRefetch=false;
-// ตัวรันกลาง: ถ้า _rtRefetch=true → โหลดใหม่ทั้งหมดก่อน (fallback) · ไม่งั้น render เฉพาะ (S.docs อัปเดต incremental แล้ว)
+// จับ visibility/pageshow/online (bind ครั้งเดียว) → กลับมาเปิดจอ/เน็ตกลับ → เช็ค channel · หลุด→subscribe ใหม่ · sync delta
+let _rtLifecycleBound=false;
+function _bindRtLifecycle(){
+  if(_rtLifecycleBound) return; _rtLifecycleBound=true;
+  const wake=()=>{
+    if(document.visibilityState==='hidden') return;
+    const st=S._rt && S._rt.state;                 // 'joined' = ยัง subscribed
+    if(st!=='joined'){ S._rtWasDown=true; subscribeRealtime(); }   // หลุด → subscribe ใหม่ (จะ deltaSync ตอน SUBSCRIBED)
+    else { _saDeltaSync(); }                        // ยังต่ออยู่ → แค่ sync ส่วนที่ตกหล่น
+  };
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') wake(); });
+  window.addEventListener('pageshow', wake);
+  window.addEventListener('online', wake);
+}
+// Delta sync — ดึงเฉพาะเอกสารที่เปลี่ยนหลัง _lastSyncAt (ไม่โหลด 1000 ซ้ำ) แล้ว merge เฉพาะแถว
+let _deltaBusy=false;
+async function _saDeltaSync(){
+  if(_deltaBusy) return; _deltaBusy=true;
+  const t0=performance.now();
+  try{
+    const v=S.view;
+    if(DOC_MODES.includes(v)){
+      await loadView(v,{force:true});                 // #16 sync เฉพาะโหมดที่เปิดอยู่ (≤200) · ไม่โหลดทุกโหมด
+      _ensureCount(v);
+      // สถานะ Timeline ของหน้าปัจจุบัน (RECEIVED) อาจเปลี่ยนช่วง offline → ล้าง cache เฉพาะแถวที่แสดง แล้วโหลดใหม่
+      if(v==='RECEIVED'){ try{ const ids=(computeRows().rows||[]).map(x=>x.id); ids.forEach(id=>{ delete S.jobStatus[id]; delete S.sysStatus[id]; }); }catch(_){} }
+      _invalidateDocsCache(); _rtRun();
+    }
+    S._lastSyncAt = new Date().toISOString();
+  }catch(e){ console.warn('[deltaSync]', e); }
+  finally{ _deltaBusy=false; _perfMark('deltaSync', t0); }
+}
+// #4 ตัวรันกลาง — coalesce ด้วย 1 animation frame (แทน debounce 350ms) · render เฉพาะส่วน
+//   view เอกสาร → _renderDocBody() (tbody-only: search คง focus, ไม่ scroll กระโดด, dropdown/modal ไม่ปิด) · view อื่น → routeRender()
+let _rtRAF=0, _rtRefetch=false;
 function _rtRun(){
-  clearTimeout(_refreshTimer);
-  _refreshTimer = setTimeout(async ()=>{
-    const refetch = _rtRefetch; _rtRefetch=false;
+  if(_rtRAF) return;
+  _rtRAF = requestAnimationFrame(async ()=>{
+    _rtRAF=0; const t0=performance.now();
+    const refetch=_rtRefetch; _rtRefetch=false;
     try{
-      if(refetch) await loadDocuments();
-      renderSidebar(); if(typeof S.view==='string') routeRender();
+      if(refetch){ await loadDocuments(); _invalidateDocsCache(); }
+      renderSidebar();
+      if(typeof S.view==='string'){
+        const root=$('view-root');
+        const isDocList = root && root.querySelector('tbody') && S.view!=='graph' && S.view!=='users';
+        if(isDocList) _renderDocBody(); else routeRender();   // patch tbody ถ้าเป็นหน้ารายการ · ไม่งั้น render ปกติ
+      }
     }catch(e){ console.warn('[rt]', e); }
-  }, 350);
+    _perfMark('realtime→DOM', t0);
+  });
 }
-// fallback เดิม: โหลดใหม่ทั้งหมด + render (พฤติกรรมเดียวกับของเดิม 100%)
+// fallback: โหลดใหม่ทั้งหมด + render (พฤติกรรมเดิม 100% · ใช้เฉพาะกรณีไม่ชัด/error)
 function scheduleRefresh(){ _rtRefetch=true; _rtRun(); }
-// #5 Realtime Incremental — อัปเดต S.docs เฉพาะแถวที่เปลี่ยนจาก payload (ไม่ refetch 1000 แถว)
-//   แล้ว render ผ่าน path เดิม (renderSidebar + routeRender) → badge/KPI/filter/search/pagination/menu/ลบ/เพิ่ม ถูกครบ
-//   ทุกกรณีไม่ชัด/เสี่ยง/error → scheduleRefresh() (refetch เดิม) ห้ามฝืน
+// #5/#2 sa_documents incremental — patch S.docs เฉพาะแถวจาก payload (ไม่ refetch 1000)
 function _saRealtimeApply(payload){
   try{
-    if(!S.loaded || !Array.isArray(S.docs)){ scheduleRefresh(); return; }
     const ev = String(payload && (payload.eventType||payload.event) || '').toUpperCase();
     const row    = (payload && payload.new && Object.keys(payload.new).length) ? payload.new : null;
     const oldRow = (payload && payload.old && Object.keys(payload.old).length) ? payload.old : null;
-    if(row && row.app_code && row.app_code !== WORK_APP_CODE) return;   // เอกสารแอปอื่น → ไม่เกี่ยว ไม่ render
+    if(row && row.app_code && row.app_code !== WORK_APP_CODE) return;   // เอกสารแอปอื่น → ไม่เกี่ยว
     if(ev==='DELETE'){
-      const id = oldRow && oldRow.id; if(!id){ scheduleRefresh(); return; }   // ไม่รู้ id → refetch
-      const i = S.docs.findIndex(d=>d.id===id); if(i>=0) S.docs.splice(i,1);   // ลบออก → หายทันที
+      const id = oldRow && oldRow.id; if(!id){ _recountSoon(); return; }
+      DOC_MODES.forEach(m=>_cacheRemove(m, id));                        // #6 ลบออกจากทุก cache ที่พบ
+      delete S.jobStatus[id]; delete S.sysStatus[id];                   // ล้างสถานะของ doc นี้
     } else if(ev==='INSERT' || ev==='UPDATE'){
-      if(!row || !row.id){ scheduleRefresh(); return; }
-      const i = S.docs.findIndex(d=>d.id===row.id);
-      if(i>=0) S.docs[i] = row; else S.docs.unshift(row);                       // อัปเดต/เพิ่มงานใหม่
-      S.docs.sort((a,b)=> String(b.created_at||'').localeCompare(String(a.created_at||'')));  // เรียงตาม query เดิม
-    } else { scheduleRefresh(); return; }                                       // event อื่น → refetch
-    _rtRun();   // render-only (ไม่ refetch) — S.docs ถูกต้องแล้ว
-  }catch(e){ console.warn('[rt-inc]', e); scheduleRefresh(); }                   // error → refetch เดิม
+      if(!row || !row.id){ _recountSoon(); return; }
+      DOC_MODES.forEach(m=>{ if(_docInMode(row, m)) _cacheUpsert(m, row); else _cacheRemove(m, row.id); });  // #6 อยู่โหมดไหน→อัปเดต · ไม่อยู่แล้ว→ลบออก (ย้ายสถานะ)
+    } else { _recountSoon(); return; }
+    if(S.view && _vc(S.view)) S.docs=_vc(S.view).docs;                  // sync ref โหมดปัจจุบัน
+    _invalidateDocsCache();
+    S._lastSyncAt = new Date().toISOString();
+    _recountSoon();                                                     // #9 ปรับ count (debounced re-count)
+    // #8 targeted render: UPDATE ที่แถวยังอยู่หน้าปัจจุบัน → patch แถวเดียว · อื่น ๆ (insert/ลบ/ย้าย) → rebuild เฉพาะหน้าปัจจุบัน
+    if(ev==='UPDATE' && row && row.id && _rowEl(row.id) && _patchDocumentRow(row.id)){ _updateCurrentViewCounters(); renderSidebar(); renderMobileTabbar(); }
+    else _rtRun();
+  }catch(e){ console.warn('[rt-inc]', e); _recountSoon(); _rtRun(); }
+}
+// #2 sa_document_logs incremental — อัปเดตสถานะเฉพาะ document_id ที่ได้รับผลกระทบ (โหลดล่าสุดเฉพาะ 1 doc · ไม่ refetch เอกสาร)
+//   action 'status' → สถานะลูกค้า (S.jobStatus) · action อื่น (doc_status/doc_completed/ระบบ) → สถานะชิปปิ้ง/เอกสาร (S.sysStatus)
+function _saLogRealtimeApply(payload){
+  try{
+    const row    = (payload && payload.new && Object.keys(payload.new).length) ? payload.new : null;
+    const oldRow = (payload && payload.old && Object.keys(payload.old).length) ? payload.old : null;
+    const rec = row || oldRow; if(!rec) return;
+    if(rec.app_code && rec.app_code !== WORK_APP_CODE) return;          // log แอปอื่น → ไม่เกี่ยว
+    const did = rec.document_id; if(!did) return;
+    const action = String(rec.action||'');
+    // ล้าง cache สถานะของ doc นี้ แล้วโหลดล่าสุดใหม่เฉพาะ id เดียว (INSERT/UPDATE/DELETE ครอบคลุมด้วยการโหลดล่าสุดใหม่)
+    if(action==='status'){ delete S.jobStatus[did]; }
+    else { delete S.sysStatus[did]; }
+    S._lastSyncAt = new Date().toISOString();
+    const jobs=[];
+    if(action==='status') jobs.push(_loadJobStatus([did])); else jobs.push(_loadSysStatus([did]));
+    Promise.all(jobs).then(()=>{
+      if(!_patchDocumentStatusCells(did)) _rtRun();   // #8 patch เฉพาะเซลล์สถานะของแถวนั้น · ไม่ rebuild tbody (fallback ถ้าแถวไม่อยู่ในหน้า)
+      // ถ้าหน้าต่าง Timeline ของงานนี้เปิดอยู่ → รีเฟรช Timeline ใน modal ทันที
+      if(document.getElementById('sa-v2-detail') && _sa && _sa.docId===did){
+        if(_sa.tlMode==='doc') _saLoadDocTimeline(did); else _saLoadTimeline(did);
+      }
+    });
+  }catch(e){ console.warn('[rt-log]', e); }
 }
 
 /* ---------------- doc helpers ---------------- */
@@ -1291,31 +1477,42 @@ function _scheduleMidnightReset(){
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 5); // 00:00:05 พรุ่งนี้ (เผื่อ buffer)
   _midnightTimer = setTimeout(async ()=>{
-    try{ await loadDocuments(); renderSidebar(); if(typeof S.view==='string') routeRender(); }catch(_e){ console.warn('[midnight]', _e); }
+    try{ await resetExpiredPostponedDocuments(); if(DOC_MODES.includes(S.view)) await loadView(S.view,{force:true}); _ensureCounts(); renderSidebar(); if(typeof S.view==='string') routeRender(); }catch(_e){ console.warn('[midnight]', _e); }
     _scheduleMidnightReset();   // ตั้งเวลารอบถัดไป
   }, Math.max(1000, next - now));
 }
 async function enterApp(){
   showScreen('screen-app');
-  // #5 default pageSize ตามอุปกรณ์ — มือถือ 25 แถว (ลด DOM/ให้ scroll ลื่น) · desktop 50 แถว
-  S.pageSize = _vpMobile() ? 25 : 50;
+  // #3 pageSize ตามอุปกรณ์ — มือถือ 30 · คอม 100
+  S.pageSize = _vpMobile() ? 30 : 100;
   // header user
   $('sb-avatar').textContent = avatarText(uname());
   $('sb-name').textContent = uname();
   $('sb-role').textContent = String(S.user.role||'STAFF');
+  S.view = _firstAllowedView() || '__noaccess';   // กำหนดโหมดเริ่มต้นก่อนโหลด
+  S.docs = _vc(S.view).docs;
   renderSidebar();
   renderMobileTabbar();
   refreshIcons();
-  await loadDocuments();
+  S._lastSyncAt = new Date().toISOString();   // #3 มาร์คเวลาก่อน subscribe → delta sync ครอบคลุมช่วงโหลดหน้าแรก
+  subscribeRealtime();                         // subscribe ก่อน initial load (event ที่เปลี่ยนระหว่างโหลดไม่ตกหล่น)
+  const _t0=performance.now();
+  if(DOC_MODES.includes(S.view)) await loadView(S.view,{force:true});   // #1 โหลดเฉพาะโหมดปัจจุบัน (≤200) · ไม่โหลดรวมทุกสถานะ
+  _perfMark('initialLoad', _t0);
+  _ensureCounts();                             // #9 count query ทุกโหมด (badge) · background
+  resetExpiredPostponedDocuments();            // คืน POSTPONED ข้ามวัน (self-query · background)
   _scheduleMidnightReset();   // ⏰ เข้าสู่วันใหม่ 00:00 → เช็ค POSTPONED ข้ามวันอัตโนมัติ (แม้แอปเปิดค้าง)
-  subscribeRealtime();
-  S.view = _firstAllowedView() || '__noaccess';
+  S._lastSyncAt = new Date().toISOString();
+  S.docs = _vc(S.view).docs; _invalidateDocsCache();
   renderSidebar(); renderMobileTabbar();
   routeRender();
 }
 function viewCount(key){
+  if(S.counts[key]!=null) return S.counts[key];                  // #9 จำนวนจริงจาก count query
   const v = VIEWS[key]; if(!v) return 0;
-  return _visibleDocs().filter(v.test).length;
+  const c = S.viewCache[key];                                    // fallback: นับจาก cache โหมดนั้น (ก่อน count มา)
+  if(c && Array.isArray(c.docs)) return c.docs.filter(v.test).length;
+  return 0;
 }
 function renderSidebar(){
   const item = (key, icon, label, opts={}) => {
@@ -1389,10 +1586,15 @@ function closeSidebar(){ $('sidebar').classList.remove('open'); $('sb-overlay').
 function setView(v){
   if(!canView(v)){ const fb=_firstAllowedView(); if(!fb){ v='__noaccess'; } else { v=fb; } }
   S.view = v; S.page = 1; S.filters = { search:'', terminal:'', category:'', priority:'', customer:'', cs:'', dateFrom:'', dateTo:'' };
+  if(DOC_MODES.includes(v)){ S.docs = _vc(v).docs; } _invalidateDocsCache();   // #4 ชี้ cache โหมดใหม่
   closeSidebar();
   renderSidebar(); renderMobileTabbar();
-  routeRender();
+  routeRender();                 // #5 แสดง cache ทันที (ถ้าเคยโหลด) · ไม่ล็อกทั้งหน้า
   window.scrollTo(0,0);
+  if(DOC_MODES.includes(v)){     // #5 sync เบื้องหลัง แล้ว patch เฉพาะส่วน
+    loadView(v,{force:true}).then(()=>{ if(S.view===v){ S.docs=_vc(v).docs; _invalidateDocsCache(); renderSidebar(); const r=$('view-root'); if(r && r.querySelector('tbody')) _renderDocBody(); else routeRender(); } });
+    _ensureCount(v);
+  }
 }
 function _renderNoAccess(){
   $('view-root').innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
@@ -1526,7 +1728,7 @@ function docRow(d){
     : _saGenericActions(d);
   const prio = d.priority||'normal';
   const statusTxt = (d.doc_status==='RECEIVED' && d.card_status) ? d.card_status : m.label;
-  return `<tr>
+  return `<tr data-document-id="${esc(d.id)}">
     <td data-l="JOB NO" title="${esc(d.doc_no||'')}${d.job_nj?`\nNJ: ${esc(d.job_nj)}`:''}"><div class="job-no">${esc((d.doc_no||'—').split('-').pop())}</div></td>
     <td data-l="เร่งด่วน"><span class="prio prio-${prio}">${esc(prioLabel(prio))}</span></td>
     <td data-l="บริษัท" class="company-cell"><span class="company" title="${esc(d.company||'')}">${esc(d.company||'—')}</span></td>
@@ -1558,6 +1760,7 @@ function docRow(d){
   </tr>`;
 }
 function renderDocView(){
+  const _r0=performance.now();
   const def = VIEWS[S.view] || VIEWS.all;
   const { list, rows, total, totalPages } = computeRows();
   // terminal chips — โชว์ทุกท่าที่กำหนดไว้ (รวมนับ 0) + ป้ายชื่อเต็ม · เหมือนโครงสร้าง MASSENGER
@@ -1631,12 +1834,18 @@ function renderDocView(){
     </div>`;
   // apply status pill filter for 'all'
   refreshIcons($('view-root'));   // scoped: สแกนไอคอนเฉพาะ view-root ไม่ต้อง scan ทั้งหน้า
-  // ✚ สถานะงาน (📋 งาน) + สถานะเอกสาร (🖥 ระบบ): โหลด Timeline ล่าสุดของ RECEIVED ที่ยังไม่ cache แล้ว re-render body (async · ไม่บล็อก)
-  if(S.view==='RECEIVED'){
-    const _all=(list||[]).map(x=>x.id);
-    const _nj=_all.filter(id=>!(id in S.jobStatus)), _ns=_all.filter(id=>!(id in S.sysStatus));
-    if(_nj.length || _ns.length) Promise.all([_loadJobStatus(_nj), _loadSysStatus(_ns)]).then(()=>{ if(S.view==='RECEIVED' && $('view-root')) _renderDocBody(); });
-  }
+  _perfMark('renderDocView', _r0);
+  // ✚ สถานะงาน (📋 งาน) + สถานะเอกสาร (🖥 ระบบ): #5 โหลด Timeline ล่าสุด **เฉพาะแถวหน้าปัจจุบัน (rows)** ที่ยังไม่ cache แล้ว re-render body
+  if(S.view==='RECEIVED') _loadStatusForRows(rows);
+}
+// #5 โหลดสถานะเฉพาะแถวที่กำลังแสดง (ยังไม่มี cache) — ใช้ตอน render/เปลี่ยนหน้า/ค้นหา/เปลี่ยน filter/เปลี่ยนจำนวนแสดง
+function _loadStatusForRows(rows){
+  if(S.view!=='RECEIVED') return;
+  const ids=(rows||[]).map(x=>x.id);
+  const _nj=ids.filter(id=>!(id in S.jobStatus)), _ns=ids.filter(id=>!(id in S.sysStatus));
+  if(!_nj.length && !_ns.length) return;
+  const t0=performance.now();
+  Promise.all([_loadJobStatus(_nj), _loadSysStatus(_ns)]).then(()=>{ _perfMark('timelineQuery', t0); if(S.view==='RECEIVED' && $('view-root')) _renderDocBody(); });
 }
 // อัปเดตเฉพาะ tbody + paginator + ตัวเลขสรุป (ไม่ rebuild ทั้ง view-root) — ใช้ตอนค้นหา/เปลี่ยนหน้า/เปลี่ยนจำนวนแสดง
 // pills (ท่านำเข้า/สถานะ/ทั้งหมด) นับจาก base ที่ไม่รวม search/terminal → คงที่ ไม่ต้องอัปเดต
@@ -1659,15 +1868,78 @@ function _renderDocBody(){
   const sub = root.querySelector('.sub');
   if(sub) sub.textContent = `รวม ${total} รายการ` + (S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
   if(empty) refreshIcons(root);   // ไอคอน inbox มีเฉพาะตอนว่าง (scoped view-root) · แถวปกติใช้ emoji ไม่ต้องสแกน lucide
+  _loadStatusForRows(rows);       // #5 เปลี่ยนหน้า/ค้นหา/filter/จำนวนแสดง → โหลดสถานะเฉพาะแถวใหม่ที่ยังไม่ cache
+}
+/* #8 Row-patch engine — อัปเดต/ลบ/แทรกเฉพาะแถว (data-document-id) · fallback _renderDocBody เมื่อ patch ไม่ได้ */
+function _currentPageIds(){ try{ return new Set((computeRows().rows||[]).map(x=>x.id)); }catch(_){ return new Set(); } }
+function _rowEl(id){ return $('view-root') ? $('view-root').querySelector(`tr[data-document-id="${String(id).replace(/"/g,'')}"]`) : null; }
+function _patchDocumentRow(documentId){
+  try{
+    const tr=_rowEl(documentId); if(!tr) return false;
+    const d=(S.docs||[]).find(x=>x.id===documentId); if(!d) return false;
+    if(!_currentPageIds().has(documentId)) return false;         // ไม่อยู่หน้าปัจจุบันแล้ว → ให้ผู้เรียก fallback
+    const tmp=document.createElement('tbody'); tmp.innerHTML=docRow(d);
+    const nr=tmp.firstElementChild; if(!nr) return false;
+    tr.replaceWith(nr); refreshIcons(nr);
+    return true;
+  }catch(_){ return false; }
+}
+function _patchDocumentStatusCells(documentId){
+  try{
+    if(S.view!=='RECEIVED') return false;                        // คอลัมน์สถานะแยกมีเฉพาะ RECEIVED
+    const tr=_rowEl(documentId); if(!tr) return false;
+    const sys=tr.querySelector('.st-sys'), js=tr.querySelector('.js-txt');
+    if(sys) sys.innerHTML=_stCellHTML(S.sysStatus[documentId]);
+    if(js)  js.innerHTML=_stCellHTML(S.jobStatus[documentId]);
+    const sysWrap=tr.querySelector('.st-sys'); if(sysWrap) sysWrap.title=esc(_sysStatusOf({id:documentId}));
+    const jsCell=tr.querySelector('.col-jobstatus'); if(jsCell) jsCell.title=esc(_jobStatusOf({id:documentId}));
+    return !!(sys||js);
+  }catch(_){ return false; }
+}
+function _insertDocumentRow(){ const r=$('view-root'); if(r && r.querySelector('tbody')) _renderDocBody(); }   // แทรก/จัดตำแหน่งตาม sort+pagination → rebuild เฉพาะหน้าปัจจุบัน (ปลอดภัย)
+function _removeDocumentRow(documentId){ const tr=_rowEl(documentId); if(tr){ tr.remove(); _updateCurrentViewCounters(); } }
+function _updateCurrentViewCounters(){
+  try{
+    const root=$('view-root'); if(!root) return;
+    const { total, totalPages }=computeRows();
+    const sub=root.querySelector('.sub'); if(sub) sub.textContent=`รวม ${total} รายการ`+(S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
+    const pg=root.querySelector('.paginator');
+    if(pg) pg.innerHTML = total>S.pageSize ? `
+          <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(1)">«</button>
+          <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(${S.page-1})">‹</button>
+          <span class="pg-info">หน้า ${S.page} / ${totalPages} · ${total} รายการ</span>
+          <button class="pg-btn" ${S.page>=totalPages?'disabled':''} onclick="docGoto(${S.page+1})">›</button>
+          <button class="pg-btn" ${S.page>=totalPages?'disabled':''} onclick="docGoto(${totalPages})">»</button>`:'';
+  }catch(_){}
+}
+// #11 Server-side search — เฉพาะเมื่อพิมพ์ค้นหา และ cache โหมดเต็ม 200 (อาจมีงานเก่ากว่าที่ตรงคำค้น) · ผลอยู่ในโหมด+สิทธิ์เดิม · merge เข้า cache
+let _srvSearchTok=0;
+async function _maybeServerSearch(q){
+  q=String(q||'').trim(); if(!q || !DOC_MODES.includes(S.view)) return;
+  const c=_vc(S.view); if(!c.loaded || c.docs.length<VIEW_LIMIT) return;   // ยังไม่เต็ม 200 → client search พอ
+  const tok=++_srvSearchTok; const view=S.view;
+  try{
+    const like='%'+q.replace(/[%,]/g,' ')+'%';
+    let query=sb.from(DOC_TABLE).select(DOC_COLS).eq('app_code',WORK_APP_CODE);
+    query=_applyViewFilter(query, view)
+      .or(`doc_no.ilike.${like},company.ilike.${like},job_nj.ilike.${like},creator_name.ilike.${like},assigned_name.ilike.${like}`)
+      .order('created_at',{ascending:false}).limit(VIEW_LIMIT);
+    let { data, error }=await query;
+    if(error && /freight_paid/i.test(error.message||'')){ /* fallback */ let q2=sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE); q2=_applyViewFilter(q2,view).or(`doc_no.ilike.${like},company.ilike.${like},job_nj.ilike.${like},creator_name.ilike.${like},assigned_name.ilike.${like}`).order('created_at',{ascending:false}).limit(VIEW_LIMIT); ({data,error}=await q2); }
+    if(error || tok!==_srvSearchTok || S.view!==view || S.filters.search!==q) return;   // stale/เปลี่ยนแล้ว → ทิ้ง
+    let added=false;
+    (data||[]).forEach(row=>{ if(row&&row.id && !c.docs.some(d=>d.id===row.id)){ c.docs.push(row); added=true; } });
+    if(added){ if(S.view===view){ S.docs=c.docs; } _invalidateDocsCache(); _renderDocBody(); }
+  }catch(e){ console.warn('[serverSearch]', e); }
 }
 function docSetSearch(v){
   S.filters.search=v; S.page=1;
   clearTimeout(S._searchTimer);
-  S._searchTimer=setTimeout(()=>{ _renderDocBody(); },200);   // partial: input คงอยู่ใน DOM → ไม่ต้อง re-focus/คืน cursor
+  S._searchTimer=setTimeout(()=>{ _renderDocBody(); _maybeServerSearch(v); },200);   // partial: input คงอยู่ใน DOM → ไม่ต้อง re-focus/คืน cursor · #11 ค้นเซิร์ฟเวอร์ถ้า cache เต็ม
 }
 function docSetTerminal(t){ S.filters.terminal=t; S.page=1; renderDocView(); }
 function docSetStatusF(st){ S.filters.statusF=st; S.page=1; renderDocView(); }
-function docSetPageSize(n){ S.pageSize=parseInt(n,10)||50; S.page=1; _renderDocBody(); }
+function docSetPageSize(n){ S.pageSize=parseInt(n,10)||100; S.page=1; _renderDocBody(); }
 function docGoto(p){ S.page=Math.max(1,p); _renderDocBody(); window.scrollTo(0,0); }
 // ✚ ตัวกรอง Customer / CS / ช่วงวันที่ — client-side ล้วน · re-render เฉพาะ body (ไม่ query Supabase · ไม่ render ทั้งหน้า)
 function _customerList(){ const s=new Set(); (S.docs||[]).forEach(d=>{ if(d.company) s.add(d.company); }); return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b),'th')); }
@@ -1772,7 +2044,7 @@ function docClearDates(){
   const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
   _renderDocBody();
 }
-async function docRefresh(){ await loadDocuments(); S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; _shipSetsCache=null; renderSidebar(); renderDocView(); toast('อัปเดตเอกสารล่าสุดแล้ว','success'); }
+async function docRefresh(){ const v=S.view; S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; _shipSetsCache=null; if(DOC_MODES.includes(v)){ await loadView(v,{force:true}); _ensureCount(v); } renderSidebar(); renderDocView(); toast('อัปเดตเฉพาะโหมดนี้แล้ว','success'); }   // #13 โหลดใหม่เฉพาะโหมดปัจจุบัน ≤200 · ไม่ล้าง cache โหมดอื่น
 /* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
 const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
 function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
@@ -1850,6 +2122,9 @@ function _flddToggle(trigger, kind){
 }
 function _flddOnResize(){ if(_FLDD.open && window.innerWidth!==_FLDD.w) _flddClose(); }   // ปิดเฉพาะ resize จริง (กว้างเปลี่ยน) · keyboard มือถือ (สูงเปลี่ยน) ไม่ปิด
 window.addEventListener('resize', _flddOnResize, {passive:true});
+// #3 เปลี่ยนขนาดจอ → ปรับ pageSize (คอม100/มือถือ30) · กลับหน้า 1 · re-render จาก cache (ไม่โหลด DB ใหม่)
+let _psResizeTimer=null;
+window.addEventListener('resize', ()=>{ clearTimeout(_psResizeTimer); _psResizeTimer=setTimeout(()=>{ const want=_vpMobile()?30:100; if(S.pageSize!==want){ S.pageSize=want; S.page=1; const r=$('view-root'); if(r && r.querySelector('tbody')) _renderDocBody(); } }, 200); }, {passive:true});
 
 /* ---------------- Export Excel (lazy-load xlsx-js-style · clone จาก MASSENGER) ---------------- */
 const _lazyScripts = new Map();
@@ -2159,7 +2434,7 @@ async function docEditSubmit(id){
     await logDoc(id, termChanged?'reassign':'edited', d.doc_status, note);
     document.getElementById('sa-docedit')?.remove();
     toast(termChanged?'เปลี่ยนท่านำเข้าแล้ว':'บันทึกการแก้ไขแล้ว','success');
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; renderSidebar(); routeRender(); } else { await loadDocuments(); renderSidebar(); routeRender(); }   // patch local — ไม่ refetch 1000 แถว (realtime reconcile)
+    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; _invalidateDocsCache(); renderSidebar(); routeRender(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   // #1 patch local + ล้าง cache — ไม่ refetch 1000 (realtime reconcile)
   }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||''),'error'); if(btn){ btn.disabled=false; btn.innerHTML='บันทึกการแก้ไข'; } }
 }
 function openModal(id){ $(id).classList.add('show'); refreshIcons(); }
@@ -2443,10 +2718,11 @@ async function saveForm(editId){
   const btn = $('f-save'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...';
   try{
     if(editId){
-      let { error } = await sb.from(DOC_TABLE).update(payload).eq('app_code',WORK_APP_CODE).eq('id',editId);
-      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ error } = await sb.from(DOC_TABLE).update(p).eq('app_code',WORK_APP_CODE).eq('id',editId)); }
+      let { data:_ur, error } = await sb.from(DOC_TABLE).update(payload).eq('app_code',WORK_APP_CODE).eq('id',editId).select(DOC_COLS).maybeSingle();
+      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ data:_ur, error } = await sb.from(DOC_TABLE).update(p).eq('app_code',WORK_APP_CODE).eq('id',editId).select(DOC_COLS).maybeSingle()); }
       if(error) throw error;
       await logDoc(editId,'edited',null,'แก้ไขข้อมูลงาน');
+      if(_ur && _ur.id){ DOC_MODES.forEach(m=>{ if(_docInMode(_ur,m)) _cacheUpsert(m,_ur); else _cacheRemove(m,_ur.id); }); if(S.view&&_vc(S.view)) S.docs=_vc(S.view).docs; _recountSoon(); }   // #7 patch local เข้า cache ที่ถูกโหมด (ไม่ refetch)
       toast('บันทึกการแก้ไขแล้ว','success');
     }else{
       payload.app_code = WORK_APP_CODE;
@@ -2475,14 +2751,15 @@ async function saveForm(editId){
       payload.doc_status = 'NEW';
       payload.creator_user = (S.user&&S.user.id)||null;
       payload.creator_name = uname();
-      let { data, error } = await sb.from(DOC_TABLE).insert(payload).select('id').maybeSingle();
-      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ data, error } = await sb.from(DOC_TABLE).insert(p).select('id').maybeSingle()); }
+      let { data, error } = await sb.from(DOC_TABLE).insert(payload).select(DOC_COLS).maybeSingle();
+      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ data, error } = await sb.from(DOC_TABLE).insert(p).select(DOC_COLS).maybeSingle()); }
       if(error) throw error;
-      if(data&&data.id) await logDoc(data.id,'created','NEW','สร้างงานใหม่');
+      if(data&&data.id){ await logDoc(data.id,'created','NEW','สร้างงานใหม่'); DOC_MODES.forEach(m=>{ if(_docInMode(data,m)) _cacheUpsert(m,data); }); if(S.view&&_vc(S.view)) S.docs=_vc(S.view).docs; _recountSoon(); }   // #7 เพิ่ม row เข้า cache ที่ถูกโหมด (ไม่ refetch)
       toast('สร้างงานแล้ว','success');
     }
     closeModal('modal-form');
-    await loadDocuments(); renderSidebar(); routeRender();
+    _invalidateDocsCache(); renderSidebar();   // #7 patch local แล้ว → render เฉพาะส่วน · ให้ realtime reconcile เครื่องอื่น
+    { const _root=$('view-root'); if(_root && _root.querySelector('tbody') && S.view!=='graph' && S.view!=='users') _renderDocBody(); else routeRender(); }
   }catch(e){
     console.error(e); toast('บันทึกไม่สำเร็จ: '+(e.message||''),'error');
   }finally{
@@ -2593,7 +2870,7 @@ async function _docUpdate(id, patch, action, logNote){
   const { error } = await sb.from(DOC_TABLE).update(patch).eq('app_code',WORK_APP_CODE).eq('id',id);
   if(error){ toast('ดำเนินการไม่สำเร็จ: '+(error.message||''),'error'); throw error; }
   await logDoc(id, action, patch.doc_status||null, logNote||null);
-  const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...patch }; renderSidebar(); routeRender(); } else { await loadDocuments(); renderSidebar(); routeRender(); }   // patch local — ไม่ refetch 1000 แถว (realtime reconcile)
+  const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...patch }; _invalidateDocsCache(); renderSidebar(); routeRender(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   // #1 patch local + ล้าง cache — ไม่ refetch 1000 (realtime reconcile)
 }
 
 // NEW → RECEIVED (รับงาน)
@@ -2718,7 +2995,7 @@ async function _saHeaderSave(){
     if((d.job_nj||'')!==(update.job_nj||'')) chips.push('B/L');
     if((d.import_terminal||'')!==(update.import_terminal||'')) chips.push(`ท่านำเข้า ${termLabel(d.import_terminal)}→${termLabel(update.import_terminal)}`);
     if(chips.length) await logDoc(id, 'edited', d.doc_status, `📝 แก้ไขข้อมูลงาน · ${chips.join(' · ')}`);   // action 'edited' → เข้า Timeline ระบบ (ไม่ปน Timeline งาน)
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0) S.docs[_i]={ ...S.docs[_i], ...update };   // patch local — ไม่ refetch
+    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; _invalidateDocsCache(); }   // #1 patch local + ล้าง cache — ไม่ refetch
     _sa.header={ mode:(update.category?`${catIcon(update.category)} ${update.category}`:'—'), cust:update.company||'—', bl:update.job_nj||'—', wh:update.import_terminal||'—' };   // sync ให้ COPY ใช้ค่าล่าสุด
     _saHeaderView();
     renderSidebar(); if(typeof S.view==='string') routeRender();   // รีเฟรชการ์ดงาน (ไม่โหลดหน้าใหม่ทั้งหมด)
@@ -2792,7 +3069,7 @@ function _saRenderTL(wrap, items){
     if(dStr!==curDate){ curDate=dStr; html+=`<div style="font-size:12px;font-weight:800;color:#60A5FA;margin:14px 0 6px">📅 วันที่ : ${dStr}</div>`; }
     const imgUrls = extractImageUrls(it.msg);
     const lines=it.msg.split('\n').filter(x=>{ const t=x.trim(); if(!t) return false; if(imgUrls.some(u=>x.includes(u))) return false; if(/^รูปภาพประกอบ\s*:?\s*$/.test(t)) return false; return true; }).map(x=>`<div style="font-size:13px;color:#fff;line-height:1.5">${esc(x.trim())}</div>`).join('');
-    const imgHtml = imgUrls.length ? `<div class="tl-imgs">${imgUrls.map(u=>`<img src="${esc(u)}" loading="lazy" class="tl-img" onclick="openImagePreview('${esc(u)}')" alt="รูปภาพประกอบ">`).join('')}</div><span class="timeline-img-link" onclick="openImagePreview('${esc(imgUrls[0])}')">🔍 เปิดรูป (${imgUrls.length})</span>` : '';
+    const imgHtml = imgUrls.length ? `<div class="tl-imgs">${imgUrls.map(u=>`<img src="${esc(u)}" loading="lazy" decoding="async" class="tl-img" onclick="openImagePreview('${esc(u)}')" alt="รูปภาพประกอบ">`).join('')}</div><span class="timeline-img-link" onclick="openImagePreview('${esc(imgUrls[0])}')">🔍 เปิดรูป (${imgUrls.length})</span>` : '';
     const _vo = (()=>{ const dd=S.docs.find(x=>x.id===_sa.docId); return dd && dd.doc_status==='COMPLETED'; })();
     const editBtn=_vo?'':`<button onclick="_saEditEntry('${it.id}')" title="แก้ไขวันที่/เวลา/ข้อความ" style="flex-shrink:0;background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.4);color:#93C5FD;font-size:11px;font-weight:700;padding:4px 9px;border-radius:8px;cursor:pointer;white-space:nowrap">✏️ แก้ไข</button>`;
     const delBtn=(!_vo && isAdmin())?`<button onclick="_saDeleteEntry('${it.id}')" title="ลบสถานะนี้" style="flex-shrink:0;background:rgba(220,38,38,.15);border:1px solid rgba(248,113,113,.45);color:#FCA5A5;font-size:11px;font-weight:700;padding:4px 9px;border-radius:8px;cursor:pointer;white-space:nowrap">🗑 ลบ</button>`:'';
@@ -3016,6 +3293,7 @@ function _saImgRemove(inputId, previewId, idx){
 // ย่อรูปก่อนอัปโหลด (เฉพาะรูป > 500KB) · canvas → JPEG q0.75 · ยาวสุด 1600px · ชื่อไฟล์เดิม
 // fallback คืนไฟล์เดิมเสมอถ้า: ไม่ใช่รูป / <500KB / error / บีบแล้วไม่เล็กลง → upload ไม่มีทางพัง, ครบทุกรูป
 async function _saCompressImage(file){
+  const _c0=performance.now();
   try{
     if(!file || !/^image\//i.test(file.type||'')) return file;
     if(file.size <= 500*1024) return file;
@@ -3034,6 +3312,7 @@ async function _saCompressImage(file){
     ctx.drawImage(img,0,0,w,h);
     const blob=await new Promise(r=>{ try{ cv.toBlob(r,'image/jpeg',0.75); }catch(_){ r(null); } });
     if(!blob || blob.size>=file.size) return file;
+    _perfMark('imageCompress', _c0);
     return new File([blob], file.name, { type:'image/jpeg', lastModified:Date.now() });
   }catch(_){ return file; }
 }
@@ -3060,7 +3339,7 @@ async function _saSaveStatusWithImage({ id, text, files, complete }){
   if(pop){ pop.querySelectorAll('button,input').forEach(b=>b.disabled=true); }
   try{
     const now = new Date().toISOString();
-    const urls = await _mapLimit(files||[], 3, f=>_saUploadStatusImage(id, f));   // upload \u0e17\u0e38\u0e01\u0e23\u0e39\u0e1b\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e01\u0e31\u0e19
+    const _u0=performance.now(); const urls = await _mapLimit(files||[], _vpMobile()?2:3, f=>_saUploadStatusImage(id, f)); _perfMark('imageUpload', _u0);   // upload \u0e17\u0e38\u0e01\u0e23\u0e39\u0e1b\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e01\u0e31\u0e19
     const note = `${text}\n\u0e23\u0e39\u0e1b\u0e20\u0e32\u0e1e\u0e1b\u0e23\u0e30\u0e01\u0e2d\u0e1a:\n${urls.join('\n')}`;
     const completeStatus = (d.category===EDIT_CATEGORY) ? 'EDIT_COMPLETED' : 'COMPLETED';
     const nextStatus = complete ? completeStatus : (d.doc_status||'RECEIVED');
@@ -3076,7 +3355,7 @@ async function _saSaveStatusWithImage({ id, text, files, complete }){
     if(docErr) throw docErr;
     document.getElementById('sa-docstatus')?.remove();
     toast(complete ? '\u0e08\u0e1a\u0e07\u0e32\u0e19\u0e41\u0e25\u0e49\u0e27 \u2705 \u0e22\u0e49\u0e32\u0e22\u0e44\u0e1b\u0e07\u0e32\u0e19\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e41\u0e25\u0e49\u0e27' : '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e17\u0e32\u0e07\u0e41\u0e25\u0e49\u0e27 \u2705','success');
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; renderSidebar(); _renderDocBody(); } else { await loadDocuments(); renderSidebar(); routeRender(); }   /* ปิดงาน: patch local -> _renderDocBody (body-only ลบแถว ไม่ refetch/ไม่ render ทั้งหน้า) */
+    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; _invalidateDocsCache(); renderSidebar(); _renderDocBody(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   /* #1 ปิดงาน: patch local + ล้าง cache -> _renderDocBody (body-only ลบแถว) */
   }catch(e){
     console.error(e); toast('\u0e1c\u0e34\u0e14\u0e1e\u0e25\u0e32\u0e14: '+(e.message||e),'error');
     if(pop){ pop.querySelectorAll('button,input').forEach(b=>b.disabled=false); }
@@ -3161,7 +3440,7 @@ async function _saDeleteEntry(logId){
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||e),'error'); }
 }
 
-async function _saRefreshList(){ try{ await loadDocuments(); renderSidebar(); if(typeof S.view==='string') routeRender(); }catch(_){} }
+async function _saRefreshList(){ try{ _invalidateDocsCache(); renderSidebar(); const _root=$('view-root'); if(_root && _root.querySelector('tbody') && S.view!=='graph' && S.view!=='users') _renderDocBody(); else if(typeof S.view==='string') routeRender(); }catch(_){} }   // #7 หลังเพิ่ม/แก้/ลบ Timeline: local patch แล้ว → render เฉพาะส่วน (ไม่ refetch 1000 · realtime reconcile เครื่องอื่น)
 
 /* RECEIVED row → 📋 งาน (timeline) + 🖥️ ระบบ (admin) + ⋮ เมนู */
 function _saReceivedActions(d){
@@ -3329,7 +3608,7 @@ async function _saSysTimeline(id){
         body=`<div style="font-size:14px;color:#fff;line-height:1.6">${esc(it.msg)}</div>`;
       }
       const whoHtml=it.who?`<div style="font-size:12px;color:#64748B;margin-top:1px">(${esc(it.who)})</div>`:'';
-      const imgHtml=imgUrls.length?`<div class="tl-imgs">${imgUrls.map(u=>`<img src="${esc(u)}" loading="lazy" class="tl-img" onclick="openImagePreview('${esc(u)}')" alt="รูปภาพประกอบ">`).join('')}</div><span class="timeline-img-link" onclick="openImagePreview('${esc(imgUrls[0])}')">🔍 เปิดรูป (${imgUrls.length})</span>`:'';
+      const imgHtml=imgUrls.length?`<div class="tl-imgs">${imgUrls.map(u=>`<img src="${esc(u)}" loading="lazy" decoding="async" class="tl-img" onclick="openImagePreview('${esc(u)}')" alt="รูปภาพประกอบ">`).join('')}</div><span class="timeline-img-link" onclick="openImagePreview('${esc(imgUrls[0])}')">🔍 เปิดรูป (${imgUrls.length})</span>`:'';
       html+=`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0 6px 4px;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#7DD3FC;flex-shrink:0;font-size:13px;white-space:nowrap">• ⏰ ${tS}</span><div style="flex:1;min-width:0">${body}${whoHtml}${imgHtml}</div></div>`;
     });
     if(wrap) wrap.innerHTML=html;
@@ -3419,7 +3698,7 @@ async function docDelete(id){
     const { error } = await sb.from(DOC_TABLE).delete().eq('app_code',WORK_APP_CODE).eq('id',id);
     if(error) throw error;
     closeModal('modal-detail');
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0) S.docs.splice(_i,1); renderSidebar(); routeRender();   // ลบ local ทันที (realtime reconcile) — ไม่ refetch
+    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0) S.docs.splice(_i,1); _invalidateDocsCache(); renderSidebar(); routeRender();   // #1 ลบ local + ล้าง cache (realtime reconcile) — ไม่ refetch
     toast('ลบงานแล้ว','success');
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||''),'error'); }
 }
