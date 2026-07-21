@@ -9258,19 +9258,8 @@ async function fzBuildKNWorkbook(rows, incoterm){
 }
 
 /* ── Export single-sheet workbook (mapping) ตามตัวอย่าง template ── */
-async function fzDownload(){
-  const btn = document.getElementById('fz-btn-download');
-  if(btn && btn.dataset.busy==='1') return;
-  const origLabel = btn ? btn.textContent : '';
-  if(btn){ btn.dataset.busy='1'; btn.disabled=true; btn.textContent='กำลังสร้างไฟล์...'; }
-  try{
-    const miss=[]; if(!fzState.inv) miss.push('INVOICE CLC'); if(!fzState.rm) miss.push('RM');
-    if(miss.length) throw new Error('อัปโหลดไม่ครบ — ขาดไฟล์: '+miss.join(', '));
-    const c = await fzComputeMapping();
-    const rows = fzMergeRows(c.result);   // ★ รวมรายการซ้ำ (6 key ตรงกัน) ก่อนเขียน Worksheet
-    if(!rows || !rows.length) throw new Error('ประมวลผลไม่สำเร็จ — ไม่มีข้อมูลสำหรับสร้างไฟล์');
-    fzState.result = rows;
-
+function fzBuildMappingBuf(rows){
+  // ★ สร้าง Worksheet "mapping" จาก rows ที่ส่งเข้ามา (แยกต่อ INVOICE ได้) — โค้ด/Template/สูตร/รูปแบบ คงเดิมเป๊ะ
   // ════════════════════════════════════════════════════════════════════
   // FIX FIELDS (mapping sheet) — hardcode ทุก row · ห้ามดึงจาก Invoice/RM
   // ════════════════════════════════════════════════════════════════════
@@ -9381,51 +9370,94 @@ async function fzDownload(){
   // Compose workbook — single sheet (mapping)
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws2, 'mapping');
+  return XLSX.write(wb, { bookType:'xlsx', type:'array' });
+}
 
-  // ── INVOICE NO. (ตัดช่องว่าง · คงเลขยาว/ศูนย์นำหน้า) + guard หลาย invoice (spec #9) ──
-  const invSet = [...new Set(rows.map(r => String(r.billing||'').trim()).filter(x => x !== ''))];
-  if(invSet.length > 1) throw new Error('พบหลาย INVOICE NO. ('+invSet.join(', ')+') — หยุด Export เพื่อป้องกันไฟล์ผิด');
-  const invNo = invSet[0] || 'output';
+async function fzDownload(){
+  const btn = document.getElementById('fz-btn-download');
+  if(btn && btn.dataset.busy==='1') return;
+  const origLabel = btn ? btn.textContent : '';
+  if(btn){ btn.dataset.busy='1'; btn.disabled=true; btn.textContent='กำลังสร้างไฟล์...'; }
+  try{
+    const miss=[]; if(!fzState.inv) miss.push('INVOICE CLC'); if(!fzState.rm) miss.push('RM');
+    if(miss.length) throw new Error('อัปโหลดไม่ครบ — ขาดไฟล์: '+miss.join(', '));
+    const c = await fzComputeMapping();
+    const allRows = fzMergeRows(c.result);   // ★ รวมรายการซ้ำ (6 key ตรงกัน) ก่อนเขียน Worksheet
+    if(!allRows || !allRows.length) throw new Error('ประมวลผลไม่สำเร็จ — ไม่มีข้อมูลสำหรับสร้างไฟล์');
+    fzState.result = allRows;
 
-  // ── ไฟล์ Mapping Excel เดิม → arraybuffer (ไม่แตะ workbook เดิม, ไม่เพิ่ม sheet) ──
-  const mapBuf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+    // ── อ่านค่า Incoterms จาก INVOICE CLC (คงตรรกะเดิม) ──
+    const incoList = await fzReadIncoterm(fzState.inv);
+    if(incoList.length === 0) throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
 
-  // ── อ่านค่า Incoterms จาก INVOICE CLC (ยกเลิกค่าคงที่ DDP) + ตรวจก่อนสร้าง KN ──
-  const incoList = await fzReadIncoterm(fzState.inv);
-  if(incoList.length === 0) throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
-  if(incoList.length > 1) throw new Error('พบค่า Incoterms ไม่ตรงกันหลายค่า: ' + incoList.join(', ') + ' — กรุณาตรวจสอบไฟล์ INVOICE CLC');
-  const incoterm = incoList[0];
+    // ── แยกตาม INVOICE NO. (คงเลขยาว/ศูนย์นำหน้า) — ห้ามปะปน (spec #2,#4,#10) ──
+    const invSet = [...new Set(allRows.map(r => String(r.billing||'').trim()).filter(x => x !== ''))];
 
-  // ── สร้าง MAPPING KN เป็น workbook ใหม่แยกต่างหาก จากข้อมูลหลังรวม (rows เดียวกัน) ──
-  const knBuf = await fzBuildKNWorkbook(rows, incoterm);
-
-  // ── ตรวจสอบก่อน ZIP (spec #9): ยอด/จำนวนของ 2 ไฟล์ตรงกันโดยอ้าง rows ชุดเดียวกัน ──
-  {
+    if(typeof JSZip === 'undefined') throw new Error('JSZip ยังไม่พร้อม');
     const _n = v => { if(v==null||v==='') return 0; if(typeof v==='number') return v; const x=parseFloat(String(v).replace(/,/g,'')); return isFinite(x)?x:0; };
-    const sQty = rows.reduce((s,r)=>s+_n(r.qty),0);
-    const sAmt = rows.reduce((s,r)=>s+_n(r.amt),0);
-    const sNet = rows.reduce((s,r)=>s+_n(r.netwt),0);
-    console.log('[FZ+KN] invNo', invNo, '| rows', rows.length, '| ΣQty', sQty, '| ΣItemNet=ΣTotalPrice', sAmt, '| ΣNetW=ΣNetWeight', sNet);
-    if(!(rows.length > 0)) throw new Error('ไม่มีรายการสำหรับสร้างไฟล์');
-  }
+    // incoterm ต่อ INVOICE: ไฟล์มีค่าเดียว → ใช้ค่านั้นทุก invoice · หลายค่า → ดึงเฉพาะของ invoice นั้นจาก rows
+    const incotermFor = (sub, inv) => {
+      if(incoList.length === 1) return incoList[0];
+      const s = [...new Set(sub.map(r=>String(r.incoterm||'').trim()).filter(Boolean))];
+      if(s.length === 1) return s[0];
+      if(s.length === 0) throw new Error('ไม่พบ Incoterms สำหรับ INVOICE '+inv+' ในไฟล์ INVOICE CLC');
+      throw new Error('พบ Incoterms หลายค่าใน INVOICE '+inv+': '+s.join(', '));
+    };
 
-  // ── รวม Excel 2 ไฟล์เป็น ZIP เดียว แล้วดาวน์โหลดครั้งเดียว ──
-  if(typeof JSZip === 'undefined') throw new Error('JSZip ยังไม่พร้อม');
-  const zip = new JSZip();
-  zip.file(invNo + '.xlsx', mapBuf);          // ไฟล์ Mapping Excel เดิม
-  zip.file(invNo + ' KN.xlsx', knBuf);        // ไฟล์ MAPPING KN
-  const blob = await zip.generateAsync({ type:'blob' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = invNo + '.zip';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-    fzSetStatus('✓ สร้าง ZIP สำเร็จ: ' + invNo + '.zip (Mapping + MAPPING KN · ' + rows.length + ' รายการ)');
+    if(invSet.length <= 1){
+      // ═══ 1 INVOICE — คงพฤติกรรมเดิมทุกประการ (spec #8) ═══
+      if(incoList.length > 1) throw new Error('พบค่า Incoterms ไม่ตรงกันหลายค่า: ' + incoList.join(', ') + ' — กรุณาตรวจสอบไฟล์ INVOICE CLC');
+      const invNo = invSet[0] || 'output';
+      const incoterm = incoList[0];
+      const mapBuf = fzBuildMappingBuf(allRows);
+      const knBuf = await fzBuildKNWorkbook(allRows, incoterm);
+      const sQty=allRows.reduce((s,r)=>s+_n(r.qty),0), sAmt=allRows.reduce((s,r)=>s+_n(r.amt),0), sNet=allRows.reduce((s,r)=>s+_n(r.netwt),0);
+      console.log('[FZ+KN] invNo', invNo, '| rows', allRows.length, '| \u03a3Qty', sQty, '| \u03a3ItemNet', sAmt, '| \u03a3NetW', sNet);
+      const zip = new JSZip();
+      zip.file(invNo + '.xlsx', mapBuf);          // ไฟล์ Mapping Excel เดิม
+      zip.file(invNo + ' KN.xlsx', knBuf);        // ไฟล์ MAPPING KN
+      const blob = await zip.generateAsync({ type:'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = invNo + '.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      fzSetStatus('\u2713 \u0e2a\u0e23\u0e49\u0e32\u0e07 ZIP \u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08: ' + invNo + '.zip (Mapping + MAPPING KN \u00b7 ' + allRows.length + ' \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23)');
+    } else {
+      // ═══ หลาย INVOICE — รวมเป็น 2 ไฟล์ (Excel ปกติ 1 + KN 1) · worksheet เดียว/ประเภท · เรียง INVOICE น้อย→มาก ═══
+      const sortedInv = invSet.slice().sort((a,b)=>{ const na=Number(a), nb=Number(b); if(isFinite(na)&&isFinite(nb)) return na-nb; return String(a).localeCompare(String(b)); });
+      const range = sortedInv[0] + '-' + sortedInv[sortedInv.length-1];
+      // เรียงรายการตาม INVOICE (stable — คงลำดับภายในแต่ละ invoice) · แถว billing ว่างต่อท้าย (กันข้อมูลสูญหาย)
+      const sorted = allRows.slice().sort((a,b)=>{
+        const ba=String(a.billing||'').trim(), bb=String(b.billing||'').trim();
+        if(ba===bb) return 0;
+        if(ba==='') return 1; if(bb==='') return -1;
+        const na=Number(ba), nb=Number(bb);
+        if(isFinite(na)&&isFinite(nb)) return na-nb;
+        return ba.localeCompare(bb);
+      });
+      // incoterm (รวม): ไฟล์ค่าเดียว → ใช้ค่านั้น · หลายค่า → ต้องเป็นค่าเดียวจริงในชุดที่รวม
+      const incoterm = (incoList.length===1) ? incoList[0] : incotermFor(sorted, range);
+      const mapBuf = fzBuildMappingBuf(sorted);                 // ★ 1 Worksheet · 1 หัวตาราง · 1 ยอดรวมท้าย (รวมทุก INVOICE)
+      const knBuf  = await fzBuildKNWorkbook(sorted, incoterm); // ★ 1 Worksheet KN · 1 หัวตาราง · 1 ยอดรวมท้าย
+      const sQty=sorted.reduce((s,r)=>s+_n(r.qty),0), sAmt=sorted.reduce((s,r)=>s+_n(r.amt),0), sNet=sorted.reduce((s,r)=>s+_n(r.netwt),0);
+      console.log('[FZ+KN·รวม] INVOICE', sortedInv.join(','), '| rows', sorted.length, '| ΣQty', sQty, '| ΣItemNet', sAmt, '| ΣNetW', sNet);
+      const zip = new JSZip();
+      zip.file(range + '.xlsx', mapBuf);           // Excel ปกติ (รวมทุก INVOICE ใน sheet เดียว)
+      zip.file(range + ' KN.xlsx', knBuf);         // Excel KN (รวมทุก INVOICE ใน sheet เดียว)
+      const blob = await zip.generateAsync({ type:'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = range + '.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      fzSetStatus('✓ สร้าง 2 ไฟล์สำเร็จ: ' + range + '.xlsx + ' + range + ' KN.xlsx (รวม ' + sortedInv.length + ' INVOICE: ' + sortedInv.join(', ') + ' · ' + sorted.length + ' รายการ)');
+    }
   }catch(e){
     console.error(e);
     fzSetStatus('สร้างไฟล์ไม่สำเร็จ: ' + (e.message||e), true);
   }finally{
-    if(btn){ btn.dataset.busy=''; btn.disabled=false; btn.textContent = origLabel || '⬇ Export Excel'; }
+    if(btn){ btn.dataset.busy=''; btn.disabled=false; btn.textContent = origLabel || '\u2b07 Export Excel'; }
     fzCheckReady();
   }
 }
