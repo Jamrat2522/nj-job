@@ -496,7 +496,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="logo">📊</div>
       <div>
         <div class="name">REPORT ALL</div>
-        <div class="desc">รายงานรวมทุกระบบ · BUILD U21</div>
+        <div class="desc">รายงานรวมทุกระบบ · BUILD U32</div>
       </div>
     </div>
     <div class="profile">
@@ -5174,44 +5174,81 @@ const AUTOSTORE = (function(){
     return {plNo,netWeight,grossWeight};
   }
 
+  // ---- ตารางพิกัด Fix ถาวร: Notes/Hd code(8หลัก) → Stat (Tariff = code เอง) ----
+  const TARIFF_MAP={
+    '76109099':'000','84313990':'000','49019990':'090','39199099':'090','49019910':'090',
+    '73181510':'000','39269099':'090','73181590':'000','76169990':'090','85011099':'000',
+    '73269099':'090','84283990':'000','84798970':'000','85044030':'000','85444299':'000',
+    '73182200':'000','84733090':'000','85044090':'090','34039990':'000','82041100':'000',
+    '82055900':'000','84714990':'000','85176249':'000','85361099':'000','85369029':'000',
+    '85423100':'000','90173000':'000','30012000':'000','84253900':'000','84735090':'000',
+    '84798969':'000','85044020':'000','85072095':'000','85072099':'000','94032090':'000'
+  };
+  const BOI_LICENSE_NO='66-1801-2-00-2-0 ลว14/12/2566';   // เลขใบอนุญาต BOI แบบ Fix (ใส่เมื่อ CUSTOMS TYPE เป็น BOI)
+  function isBOI(customsType){
+    const ct=String(customsType==null?'':customsType).toUpperCase();
+    return /BOI/.test(ct) && !/NON[\s-]*BOI/.test(ct);   // มี BOI แต่ไม่ใช่ "NON BOI"
+  }
+  // กฎพิเศษแปลง Notes/Hd code (ต้นทาง 6/8 หลัก → พิกัดที่ถูกต้อง)
+  const SPECIAL_HD={ '843139':'84313990','84313900':'84313990','84735000':'84735090','94032000':'94032090' };
+  // HS Code → { tariff:8หลัก(เติม 0 ท้ายถ้าไม่ครบ), notesHd:กฎพิเศษ/มิฉะนั้น=tariff, stat:จับคู่จาก notesHd }
+  // ทั้งหมดเป็นข้อความ · คงศูนย์หน้า · ไม่ปัดทศนิยม · ไม่แสดงยกกำลัง · ไม่มีจุด/ช่องว่าง/ขีด
+  function hsResolve(hs){
+    const digits=String(hs==null?'':hs).replace(/\D/g,'');
+    if(!digits) return {tariff:'', notesHd:'', stat:''};   // ไม่มี HS → ว่างทั้งหมด
+    let tariff=digits.slice(0,8); if(tariff.length<8) tariff=tariff.padEnd(8,'0');   // Tariff ครบ 8 หลักเสมอ
+    const notesHd = SPECIAL_HD[digits] || SPECIAL_HD[tariff] || tariff;              // Notes/Hd: กฎพิเศษก่อน มิฉะนั้น = tariff
+    const stat=(notesHd.length===8 && Object.prototype.hasOwnProperty.call(TARIFF_MAP,notesHd))?TARIFF_MAP[notesHd]:'';   // Stat จาก Notes/Hd หลังแปลง
+    return {tariff:tariff, notesHd:notesHd, stat:stat};
+  }
+
   function buildMapping(inv, pl){
-    if(!inv.invoiceNo) { const e=new Error('ไม่พบเลข INVOICE ในไฟล์ INVOICE'); e.code='INV_NO'; throw e; }
-    if(!inv.items.length){ const e=new Error('ไม่พบรายการสินค้าในไฟล์ INVOICE'); e.code='INV_ITEMS'; throw e; }
-    if(!pl.plNo){ const e=new Error('ไม่พบเลข PL ในไฟล์ PL'); e.code='PL_NO'; throw e; }
-    if(pl.netWeight==null||pl.grossWeight==null){ const e=new Error('ไม่พบน้ำหนักรวมในไฟล์ PL'); e.code='PL_W'; throw e; }
+    const warnings=[];
+    if(!inv.invoiceNo) warnings.push('ไม่พบเลข INVOICE ในไฟล์ INVOICE (คอลัมน์ INVOICE จะว่าง)');
+    if(!inv.items.length) warnings.push('ไม่พบรายการสินค้าในไฟล์ INVOICE');
+    if(!pl.plNo) warnings.push('ไม่พบเลข PL ในไฟล์ PL');
+    if(pl.netWeight==null||pl.grossWeight==null) warnings.push('ไม่พบน้ำหนักรวมในไฟล์ PL (คอลัมน์ N.W./G.W. จะเว้นว่าง)');
     { const invoicePL=String(inv.ourRef||'').replace(/\s+/g,'').toUpperCase();
       const uploadedPL=String(pl.plNo||'').replace(/\s+/g,'').toUpperCase();
-      if(!invoicePL || invoicePL!==uploadedPL){ const e=new Error('INVOICE และ PL ไม่ตรงกัน กรุณาตรวจสอบไฟล์อีกครั้ง'); e.code='PAIR'; throw e; } }
+      if(!invoicePL || !uploadedPL) warnings.push('ตรวจการจับคู่ INVOICE–PL ไม่ได้ (ไม่พบ Our Ref หรือเลข PL)');
+      else if(invoicePL!==uploadedPL) warnings.push('INVOICE และ PL อาจไม่ตรงกัน: Our Ref "'+invoicePL+'" ≠ PL "'+uploadedPL+'"'); }
     // exclude FEE / Package
     const kept=inv.items.filter(it=>{
       const p=clean(it.part).toUpperCase(); const d=clean(it.desc).toLowerCase();
       if(p==='FEE') return false; if(d==='package') return false; return true;
     });
-    if(!kept.length){ const e=new Error('ไม่พบรายการสินค้าในไฟล์ INVOICE'); e.code='INV_ITEMS'; throw e; }
+    if(inv.items.length && !kept.length) warnings.push('ไม่พบรายการสินค้าที่ Export ได้ (ทุกรายการเป็น FEE/Package)');
     const exportAmountTotal=kept.reduce((s,it)=>s+(Number(it.amount)||0),0);
-    if(!(exportAmountTotal>0)){ const e=new Error('ไม่สามารถคำนวณน้ำหนักได้ เนื่องจากยอดรวมสินค้าเป็น 0'); e.code='AMT0'; throw e; }
-    const rows=kept.map((it,i)=>({
-      A:i+1, B:inv.invoiceNo, C:inv.date?inv.date.serial:null, D:it.part, E:it.desc, F:'',
+    const canWeight = exportAmountTotal>0 && pl.netWeight!=null && pl.grossWeight!=null;
+    if(kept.length && !canWeight) warnings.push('กระจายน้ำหนักไม่ได้ (ยอดรวมสินค้าเป็น 0 หรือไม่พบน้ำหนัก PL) — คอลัมน์ N.W./G.W. จะเว้นว่าง');
+    const rows=kept.map((it,i)=>{
+      const hr=hsResolve(it.hsCode);   // Tariff=8หลัก, Notes/Hd=กฎพิเศษ/8หลัก, Stat=จับคู่จาก Notes/Hd — ต่อรายการ
+      return {
+      A:i+1, B:inv.invoiceNo||'', C:inv.date?inv.date.serial:null, D:it.part, E:it.desc, F:(it.thDesc||''),
       G:it.qty, H:it.price, I:it.amount, J:inv.currency||'',
-      K:round3(pl.netWeight*(it.amount)/exportAmountTotal), L:round3(pl.grossWeight*(it.amount)/exportAmountTotal),
-      M:'KGM', N:'C62', O:'AutoStore', P:'', Q:''
-    }));
-    // fix rounding remainder on last row
-    const sumK=round3(rows.reduce((s,r)=>s+r.K,0)), sumL=round3(rows.reduce((s,r)=>s+r.L,0));
-    const last=rows[rows.length-1];
-    last.K=round3(last.K+(round3(pl.netWeight)-sumK));
-    last.L=round3(last.L+(round3(pl.grossWeight)-sumL));
-    return { rows, exportAmountTotal:Math.round(exportAmountTotal*100)/100,
+      K:canWeight?round3(pl.netWeight*(Number(it.amount)||0)/exportAmountTotal):'',
+      L:canWeight?round3(pl.grossWeight*(Number(it.amount)||0)/exportAmountTotal):'',
+      M:'KGM', N:'C62', O:'AutoStore', P:hr.notesHd, Q:'',
+      R:(it.customsType||''), S:'003', T:hr.tariff, U:hr.stat, V:'KGM', W:50001, X:'9PART3', Y:(isBOI(it.customsType)?BOI_LICENSE_NO:'')
+    };});
+    // fix rounding remainder on last row (เฉพาะเมื่อคำนวณน้ำหนักได้)
+    if(canWeight && rows.length){
+      const sumK=round3(rows.reduce((s,r)=>s+(Number(r.K)||0),0)), sumL=round3(rows.reduce((s,r)=>s+(Number(r.L)||0),0));
+      const last=rows[rows.length-1];
+      last.K=round3(last.K+(round3(pl.netWeight)-sumK));
+      last.L=round3(last.L+(round3(pl.grossWeight)-sumL));
+    }
+    return { rows, warnings, exportAmountTotal:Math.round(exportAmountTotal*100)/100,
       qtyTotal:rows.reduce((s,r)=>s+(Number(r.G)||0),0),
       amtTotal:Math.round(rows.reduce((s,r)=>s+(Number(r.I)||0),0)*100)/100,
-      nwTotal:round3(rows.reduce((s,r)=>s+r.K,0)), gwTotal:round3(rows.reduce((s,r)=>s+r.L,0)),
+      nwTotal:round3(rows.reduce((s,r)=>s+(Number(r.K)||0),0)), gwTotal:round3(rows.reduce((s,r)=>s+(Number(r.L)||0),0)),
       netWeight:pl.netWeight, grossWeight:pl.grossWeight, excluded:inv.items.length-kept.length };
   }
 
   // ---- export (ZIP surgery) ----
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const DATA_S={A:3,B:3,C:8,D:6,E:6,F:3,G:3,H:3,I:3,J:3,K:3,L:3,M:3,N:3,O:3,P:3,Q:4};
-  const STR={B:1,D:1,E:1,J:1,M:1,N:1,O:1};
+  const DATA_S={A:3,B:3,C:8,D:6,E:6,F:3,G:3,H:3,I:3,J:3,K:3,L:3,M:3,N:3,O:3,P:3,Q:4,R:3,S:3,T:3,U:3,V:3,W:3,X:3,Y:3};
+  const STR={B:1,D:1,E:1,F:1,J:1,M:1,N:1,O:1,P:1,R:1,S:1,T:1,U:1,V:1,X:1,Y:1};
   function cell(ref,s,val,isStr,f,cf){
     if(f) return '<c r="'+ref+'" s="'+s+'"><f>'+esc(f)+'</f>'+(cf!=null?'<v>'+cf+'</v>':'')+'</c>';
     if(val==null||val==='') return '<c r="'+ref+'" s="'+s+'"/>';
@@ -5222,14 +5259,22 @@ const AUTOSTORE = (function(){
     const dec=new TextDecoder('utf-8'), enc=new TextEncoder();
     const files=fflate.unzipSync(new Uint8Array(templateBytes));
     let sheet=dec.decode(files['xl/worksheets/sheet1.xml']);
-    const r1=sheet.match(/<row r="1"[^>]*>[\s\S]*?<\/row>/)[0];
-    const COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q'];
+    let r1=sheet.match(/<row r="1"[^>]*>[\s\S]*?<\/row>/)[0];
+    // นำหัว STA (Q1 จาก template) กลับ — คงไว้ที่ตำแหน่งเดิม แล้วต่อหัวคอลัมน์ใหม่ที่ R1–Y1 (STA กับ Stat เป็นคนละคอลัมน์)
+    if(r1.indexOf('CUSTOMS TYPE')<0){
+      const hStyle=(r1.match(/<c r="Q1"[^>]*\bs="(\d+)"/)||[])[1]||'2';
+      const NEWH=[['R','CUSTOMS TYPE'],['S','Priv.'],['T','Tariff'],['U','Stat'],['V','Stat Unit'],['W','Seq.'],['X','ExportTariff'],['Y','BOI Liecense No.']];
+      const hx=NEWH.map(function(p){ return '<c r="'+p[0]+'1" s="'+hStyle+'" t="inlineStr"><is><t xml:space="preserve">'+esc(p[1])+'</t></is></c>'; }).join('');
+      r1=r1.replace(/(<c r="Q1"[\s\S]*?<\/c>)/,'$1'+hx)   // ต่อหัวใหม่หลัง Q1 (คง STA)
+           .replace(/spans="1:17"/,'spans="1:25"');
+    }
+    const COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y'];
     const n=rows.length, lastData=n+1, totalR=n+2;
     let body=r1;
     rows.forEach((r,i)=>{
       const rn=i+2; let cells='';
       COLS.forEach(col=>{ const ref=col+rn; cells+=cell(ref,DATA_S[col],r[col],!!STR[col]); });
-      body+='<row r="'+rn+'" spans="1:17">'+cells+'</row>';
+      body+='<row r="'+rn+'" spans="1:25">'+cells+'</row>';
     });
     const T=1;
     const tcells=cell('A'+totalR,T,'')+cell('B'+totalR,T,'')+cell('C'+totalR,T,'')+cell('D'+totalR,T,'')+cell('E'+totalR,T,'')+cell('F'+totalR,T,'')
@@ -5237,11 +5282,11 @@ const AUTOSTORE = (function(){
       +cell('H'+totalR,T,'')
       +cell('I'+totalR,T,'','','SUM(I2:I'+lastData+')',Math.round(rows.reduce((s,r)=>s+(Number(r.I)||0),0)*100)/100)
       +cell('J'+totalR,T,'')
-      +cell('K'+totalR,T,'','','SUM(K2:K'+lastData+')',Math.round(rows.reduce((s,r)=>s+r.K,0)*1000)/1000)
-      +cell('L'+totalR,T,'','','SUM(L2:L'+lastData+')',Math.round(rows.reduce((s,r)=>s+r.L,0)*1000)/1000);
-    body+='<row r="'+totalR+'" spans="1:17">'+tcells+'</row>';
+      +cell('K'+totalR,T,'','','SUM(K2:K'+lastData+')',Math.round(rows.reduce((s,r)=>s+(Number(r.K)||0),0)*1000)/1000)
+      +cell('L'+totalR,T,'','','SUM(L2:L'+lastData+')',Math.round(rows.reduce((s,r)=>s+(Number(r.L)||0),0)*1000)/1000);
+    body+='<row r="'+totalR+'" spans="1:25">'+tcells+'</row>';
     sheet=sheet.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+body+'</sheetData>');
-    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:Q'+totalR+'"/>');
+    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:Y'+totalR+'"/>');
     files['xl/worksheets/sheet1.xml']=enc.encode(sheet);
     if(files['xl/calcChain.xml']) delete files['xl/calcChain.xml'];
     if(files['[Content_Types].xml']){ let ct=dec.decode(files['[Content_Types].xml']).replace(/<Override[^>]*calcChain[^>]*\/>/,''); files['[Content_Types].xml']=enc.encode(ct); }
@@ -5249,10 +5294,60 @@ const AUTOSTORE = (function(){
     return fflate.zipSync(files,{level:0});
   }
 
-  return { parseInvoice, parsePL, buildMapping, exportTemplate };
+  // ---- อ่าน Invoice จาก Excel 1 ชีต → {invoiceNo,date,currency,ourRef,items} (shape เดียวกับ parseInvoice) ----
+  function parseInvoiceXlsx(ws){
+    if(!ws||!ws['!ref']) return null;
+    const rng=XLSX.utils.decode_range(ws['!ref']);
+    const V=(r,c)=>{ const cell=ws[XLSX.utils.encode_cell({r:r,c:c})]; return cell==null?null:cell.v; };
+    const S=(r,c)=>{ const v=V(r,c); return v==null?'':String(v).trim(); };
+    const W=(r,c)=>{ const cell=ws[XLSX.utils.encode_cell({r:r,c:c})]; if(cell==null)return ''; return cell.w!=null?String(cell.w).trim():(cell.v!=null?String(cell.v).trim():''); }; // คงรูปแบบตามที่แสดง (เช่น HS code ไม่ตัดศูนย์/ไม่เป็นทศนิยม)
+    const R0=rng.s.r,R1=rng.e.r,C0=rng.s.c,C1=rng.e.c;
+    const CUR=/^(USD|EUR|THB|CHF|JPY|GBP|SGD|CNY|HKD|AUD)$/i;
+    const num=x=>{ if(x==null||x==='')return null; const n=Number(String(x).replace(/,/g,'')); return isFinite(n)?n:null; };
+    let invoiceNo=null, ourRef=null, currency=null, dateSerial=null, hdrRow=-1, col={};
+    for(let r=R0;r<=R1 && hdrRow<0;r++){
+      for(let c=C0;c<=C1;c++){
+        const s=S(r,c); if(!s) continue; const low=s.toLowerCase(), up=s.toUpperCase();
+        if(invoiceNo==null){ const m=s.match(/\bINV\d{4}-\d{3,}/i); if(m) invoiceNo=m[0].toUpperCase(); }
+        if(invoiceNo==null && (up==='NO.'||up==='NO')){ for(let cc=c+1;cc<=C1;cc++){ const x=S(r,cc); if(x){ invoiceNo=x; break; } } }
+        if(ourRef==null){ const m=s.match(/\bPAC\d{4}-\d{3,}/i); if(m) ourRef=m[0].toUpperCase(); }
+        if(ourRef==null && /our\s*reference\s*no/i.test(low)){ const below=S(r+1,c)||S(r,c+1); if(below){ const mm=below.match(/\bPAC\d{4}-\d{3,}/i); ourRef=(mm?mm[0]:below).toUpperCase(); } }
+        if(currency==null && CUR.test(s)) currency=up;
+        if(dateSerial==null && /invoice\s*date/i.test(low)){ const cand=[V(r+1,c),V(r,c+1)].find(x=>typeof x==='number'&&x>20000&&x<80000); if(cand!=null) dateSerial=Math.floor(cand); }
+        if(hdrRow<0 && /part\s*code/i.test(low)){
+          const cmap={};
+          for(let cc=C0;cc<=C1;cc++){ const hh=S(r,cc).toLowerCase();
+            if(/^item$/.test(hh)) cmap.item=cc; else if(/^qty/.test(hh)) cmap.qty=cc;
+            else if(/part\s*code/.test(hh)) cmap.part=cc; else if(/^description/.test(hh)) cmap.desc=cc;
+            else if(/^price/.test(hh)) cmap.price=cc; else if(/^amount/.test(hh)) cmap.amount=cc;
+            else if(/^thai\s*des/.test(hh)) cmap.thDesc=cc; else if(/^hs\s*code/.test(hh)) cmap.hsCode=cc;
+            else if(/customs\s*type/.test(hh)) cmap.customsType=cc; }
+          if(cmap.part!=null && cmap.amount!=null){ hdrRow=r; col=cmap; }
+        }
+      }
+    }
+    const items=[];
+    if(hdrRow>=0){
+      const STOP=/^(VAT%?|Net\s*amount|Total|SUM|Shipping\s*Mark|Delivery\s*To|Subtotal|Grand\s*Total)/i;
+      for(let r=hdrRow+1;r<=R1;r++){
+        const stopCell=col.item!=null?S(r,col.item):'';
+        if(STOP.test(stopCell)) break;
+        const part=col.part!=null?S(r,col.part):'';
+        const amount=col.amount!=null?V(r,col.amount):null;
+        if(!part && (amount==null||amount==='')) break;   // แถวว่าง = จบรายการ
+        items.push({ no:num(col.item!=null?V(r,col.item):null), qty:num(col.qty!=null?V(r,col.qty):null),
+          part:clean(part), desc:clean(col.desc!=null?S(r,col.desc):''),
+          price:num(col.price!=null?V(r,col.price):null), amount:num(amount),
+          thDesc:(col.thDesc!=null?S(r,col.thDesc):''), hsCode:(col.hsCode!=null?W(r,col.hsCode):''), customsType:(col.customsType!=null?S(r,col.customsType):'') });
+      }
+    }
+    return {invoiceNo, date:(dateSerial!=null?{serial:dateSerial}:null), currency, ourRef, items};
+  }
+
+  return { parseInvoice, parseInvoiceXlsx, parsePL, buildMapping, exportTemplate };
 })();
 
-const ASS={ inv:null, pl:null, busy:false };
+const ASS={ invs:[], pls:[], busy:false };
 function asB64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u; }
 function asSafeName(s){ return String(s==null?'':s).replace(/[\\\/:*?"<>|]/g,'_'); }
 async function asExtractPdfItems(ab){
@@ -5267,58 +5362,119 @@ async function asExtractPdfItems(ab){
 }
 function autostoreRenderView(){
   document.getElementById('pageTitle').textContent='AUTOSTORE';
-  document.getElementById('pageSub').textContent='อัปโหลด INVOICE + PL (PDF) แล้วกด Export Excel ได้ทันที — อ่านข้อมูลตอนกด Export (ไม่ใช้ OCR เพราะ PDF มี text)';
+  document.getElementById('pageSub').textContent='อัปโหลด INVOICE (PDF หรือ Excel หลายชีต) + PL (PDF) ได้หลายไฟล์พร้อมกัน แล้วกด Export เป็น Excel ไฟล์เดียว — รวมทุก Invoice/ทุกชีต เรียงเลขน้อย→มาก';
   document.getElementById('pageActions').innerHTML='';
   const c=document.getElementById('content');
   c.innerHTML='<div class="anca-view">'
     +'<div class="tyrolit-upload-grid">'
-      +'<div class="drop anca-upload-card" id="asInvDrop"><h4>📄 INVOICE (PDF)</h4>'
-        +'<label class="pick">📄 เลือกไฟล์ INVOICE<input id="asInvInput" type="file" accept=".pdf" style="display:none" onchange="asLoad(\'inv\',this.files[0])"></label>'
-        +'<span class="hint">ไฟล์ PDF Invoice (หลายหน้าได้)</span><div class="flist" id="asInvList"></div></div>'
+      +'<div class="drop anca-upload-card" id="asInvDrop"><h4>📄 INVOICE (PDF / Excel)</h4>'
+        +'<label class="pick">📄 เลือกไฟล์ INVOICE<input id="asInvInput" type="file" accept=".pdf,.xlsx,.xls,.csv" multiple style="display:none" onchange="asLoad(\'inv\',this.files); this.value=\'\'"></label>'
+        +'<span class="hint">PDF หรือ Excel (หลายชีต/หลายไฟล์) — อ่านทุกชีตอัตโนมัติ</span><div class="flist" id="asInvList"></div></div>'
       +'<div class="drop anca-upload-card" id="asPlDrop"><h4>📦 PL (PDF)</h4>'
-        +'<label class="pick">📦 เลือกไฟล์ PL<input id="asPlInput" type="file" accept=".pdf" style="display:none" onchange="asLoad(\'pl\',this.files[0])"></label>'
-        +'<span class="hint">ไฟล์ PDF Packing/Shipment (หลายหน้าได้)</span><div class="flist" id="asPlList"></div></div>'
+        +'<label class="pick">📦 เลือกไฟล์ PL<input id="asPlInput" type="file" accept=".pdf" multiple style="display:none" onchange="asLoad(\'pl\',this.files); this.value=\'\'"></label>'
+        +'<span class="hint">เลือก/โยนได้หลายไฟล์ · จับคู่กับ Invoice อัตโนมัติ</span><div class="flist" id="asPlList"></div></div>'
     +'</div>'
     +'<div class="actions">'
-      +'<button class="abtn export primary" id="asExpBtn" onclick="asExport()">📤 EXPORT EXCEL</button>'
+      +'<button class="abtn export primary" id="asExpBtn" onclick="asExport()">📤 EXPORT EXCEL (ไฟล์เดียว)</button>'
     +'</div>'
     +'<div id="asSummary"></div>'
   +'</div>';
-  if(typeof ancaBindDrop==='function'){ ancaBindDrop('asInvDrop',f=>asLoad('inv',f[0])); ancaBindDrop('asPlDrop',f=>asLoad('pl',f[0])); }
+  if(typeof ancaBindDrop==='function'){ ancaBindDrop('asInvDrop',f=>asLoad('inv',f)); ancaBindDrop('asPlDrop',f=>asLoad('pl',f)); }
   asRenderFiles();
 }
-function asLoad(kind,f){ if(!f)return;
-  if(!/\.pdf$/i.test(f.name)){ toast('รองรับเฉพาะไฟล์ PDF','err'); return; }
-  if(kind==='inv') ASS.inv=f; else ASS.pl=f;
-  toast((kind==='inv'?'INVOICE':'PL')+': '+f.name,'ok'); asRenderFiles();
+function asLoad(kind,files){ if(!files)return;
+  const list = (files.length!=null) ? Array.from(files) : [files];
+  const arr = kind==='inv'?ASS.invs:ASS.pls; let added=0;
+  const ok = kind==='inv' ? /\.(pdf|xlsx|xls|csv)$/i : /\.pdf$/i;
+  list.forEach(f=>{ if(!f)return;
+    if(!ok.test(f.name||'')){ toast('ข้าม ('+(kind==='inv'?'รองรับ PDF/Excel':'รองรับ PDF')+'): '+(f.name||''),'err'); return; }
+    if(arr.some(x=>x.name===f.name && x.size===f.size)) return;   // กันไฟล์ซ้ำ
+    arr.push(f); added++; });
+  if(added) toast((kind==='inv'?'INVOICE':'PL')+' +'+added+' ไฟล์ (รวม '+arr.length+')','ok');
+  asRenderFiles();
 }
+function asRemove(kind,i){ const arr=kind==='inv'?ASS.invs:ASS.pls; if(i>=0&&i<arr.length) arr.splice(i,1); asRenderFiles(); }
 function asRenderFiles(){
-  const set=(id,file,ph)=>{ const el=document.getElementById(id); if(!el)return;
-    el.innerHTML = file ? '<div class="frow"><span class="fn">📄 '+escapeHtml(file.name)+'</span><span class="fmeta"><span class="fok">พร้อม</span></span></div>'
-                        : '<div style="color:#8b949e;font-size:12.5px">'+ph+'</div>'; };
-  set('asInvList',ASS.inv,'ยังไม่มีไฟล์ INVOICE'); set('asPlList',ASS.pl,'ยังไม่มีไฟล์ PL');
+  const render=(id,arr,kind,ph)=>{ const el=document.getElementById(id); if(!el)return;
+    el.innerHTML = arr.length
+      ? arr.map((f,i)=>'<div class="frow"><span class="fn">📄 '+escapeHtml(f.name)+'</span><span class="fmeta"><span class="fok">พร้อม</span> <a href="#" title="ลบ" style="color:#f85149;text-decoration:none;margin-left:8px;font-weight:700" onclick="asRemove(\''+kind+'\','+i+');return false;">✕</a></span></div>').join('')
+      : '<div style="color:#8b949e;font-size:12.5px">'+ph+'</div>'; };
+  render('asInvList',ASS.invs,'inv','ยังไม่มีไฟล์ INVOICE');
+  render('asPlList',ASS.pls,'pl','ยังไม่มีไฟล์ PL');
 }
 async function asExport(){
   if(ASS.busy)return;
   const btn=document.getElementById('asExpBtn');
-  if(!ASS.inv||!ASS.pl){ toast('กรุณาอัปโหลด INVOICE และ PL ให้ครบก่อน Export','err'); asShowErr('อัปโหลดไม่ครบ',['กรุณาอัปโหลด INVOICE และ PL ให้ครบก่อน Export']); return; }
+  if(!ASS.invs.length){ toast('กรุณาอัปโหลดไฟล์ INVOICE (PDF/Excel) อย่างน้อย 1 ไฟล์','err'); asShowErr('ยังไม่มีไฟล์ INVOICE',['กรุณาอัปโหลดไฟล์ INVOICE (PDF หรือ Excel) อย่างน้อย 1 ไฟล์ก่อน Export']); return; }
   ASS.busy=true; if(btn){ btn.disabled=true; btn.textContent='กำลังสร้าง Excel...'; }
-  asProgress('กำลังอ่านข้อมูลจาก PDF…');
+  const warnings=[];
   try{
-    const invItems=await asExtractPdfItems(await ASS.inv.arrayBuffer());
-    const plItems=await asExtractPdfItems(await ASS.pl.arrayBuffer());
-    const inv=AUTOSTORE.parseInvoice(invItems), pl=AUTOSTORE.parsePL(plItems);
-    let R;
-    try{ R=AUTOSTORE.buildMapping(inv,pl); }
-    catch(e){ asShowErr('ไม่สามารถ Export ได้',[e.message]); toast(e.message,'err'); return; }
-    const bytes=AUTOSTORE.exportTemplate(fflate, asB64ToBytes(AUTOSTORE_TPL_B64), R.rows);
+    // 1) อ่าน+parse ทุก INVOICE — Excel อ่านทุกชีต (1 ชีต = 1 invoice), PDF = 1 invoice · ไฟล์/ชีตไหนอ่านไม่ได้ → ข้าม + เตือน (ไม่บล็อก)
+    asProgress('กำลังอ่าน INVOICE '+ASS.invs.length+' ไฟล์…');
+    const invList=[];
+    for(let i=0;i<ASS.invs.length;i++){ const f=ASS.invs[i];
+      try{
+        const ab=await f.arrayBuffer(); const nm=f.name||'';
+        if(/\.pdf$/i.test(nm)){
+          const items=await asExtractPdfItems(ab); const inv=AUTOSTORE.parseInvoice(items); inv._file=nm; invList.push(inv);
+        } else {
+          const wb=XLSX.read(new Uint8Array(ab),{type:'array'});   // Excel/CSV → serial dates
+          let got=0;
+          wb.SheetNames.forEach(sn=>{ try{ const inv=AUTOSTORE.parseInvoiceXlsx(wb.Sheets[sn]);
+            if(inv && (inv.invoiceNo || (inv.items&&inv.items.length))){ inv._file=nm+' · '+sn; invList.push(inv); got++; }
+          }catch(e){ warnings.push('ชีต "'+sn+'" ในไฟล์ "'+nm+'" อ่านไม่ได้: '+(e&&e.message||e)); } });
+          if(!got) warnings.push('ไฟล์ INVOICE "'+nm+'" ไม่พบข้อมูลที่อ่านได้ในทุกชีต');
+        }
+      }
+      catch(e){ warnings.push('อ่าน INVOICE ไม่ได้ ข้ามไฟล์ "'+f.name+'": '+(e&&e.message||e)); }
+    }
+    // 2) อ่าน+parse ทุก PL (PDF)
+    asProgress('กำลังอ่าน PL '+ASS.pls.length+' ไฟล์…');
+    const plList=[];
+    for(let i=0;i<ASS.pls.length;i++){ const f=ASS.pls[i];
+      try{ const items=await asExtractPdfItems(await f.arrayBuffer()); const pl=AUTOSTORE.parsePL(items); pl._file=f.name; plList.push(pl); }
+      catch(e){ warnings.push('อ่าน PL ไม่ได้ ข้ามไฟล์ "'+f.name+'": '+(e&&e.message||e)); }
+    }
+    if(!invList.length) warnings.push('อ่านข้อมูลจากไฟล์ INVOICE ไม่ได้เลย — ไฟล์ที่ได้จะว่าง');
+    // 3) รวม Invoice ซ้ำ (invoiceNo เดียวกัน → รวมรายการเข้าด้วยกันตามเงื่อนไขเดิม)
+    const norm=s=>String(s||'').replace(/\s+/g,'').toUpperCase();
+    const groups=new Map();
+    invList.forEach((inv,idx)=>{ const key=inv.invoiceNo?norm(inv.invoiceNo):('__noinv_'+idx);
+      if(groups.has(key)){ const g=groups.get(key); g.items=g.items.concat(inv.items); g._dup=(g._dup||1)+1; if(!g.ourRef) g.ourRef=inv.ourRef; if(!g.date) g.date=inv.date; if(!g.currency) g.currency=inv.currency; }
+      else groups.set(key,{invoiceNo:inv.invoiceNo,date:inv.date,currency:inv.currency,ourRef:inv.ourRef,items:inv.items.slice(),_dup:1}); });
+    groups.forEach(g=>{ if(g._dup>1) warnings.push('Invoice "'+(g.invoiceNo||'(ไม่พบเลข)')+'" ซ้ำ '+g._dup+' ไฟล์ — รวมรายการเข้าด้วยกัน'); });
+    // 4) แผนที่ PL ตามเลข
+    const plByNo=new Map(); plList.forEach(pl=>{ if(pl.plNo) plByNo.set(norm(pl.plNo),pl); });
+    // 5) buildMapping ต่อ Invoice + จับคู่ PL อัตโนมัติ (ไม่ throw — เก็บ warnings)
+    const uniq=[...groups.values()];
+    let allRows=[]; let totalExcluded=0; const usedPl=new Set();
+    uniq.forEach(inv=>{
+      const key=norm(inv.ourRef); const matchPl=(key&&plByNo.get(key))||{plNo:null,netWeight:null,grossWeight:null};
+      if(matchPl.plNo) usedPl.add(norm(matchPl.plNo)); else if(plList.length) warnings.push('Invoice "'+(inv.invoiceNo||'(ไม่พบเลข)')+'" ไม่พบ PL ที่จับคู่ (Our Ref "'+(inv.ourRef||'-')+'") — เว้นน้ำหนักว่าง');
+      const R=AUTOSTORE.buildMapping(inv, matchPl);
+      (R.warnings||[]).forEach(w=>warnings.push('['+(inv.invoiceNo||'ไม่พบเลข')+'] '+w));
+      totalExcluded += (R.excluded||0);
+      allRows=allRows.concat(R.rows);
+    });
+    plList.forEach(pl=>{ if(pl.plNo && !usedPl.has(norm(pl.plNo))) warnings.push('PL "'+pl.plNo+'" ไม่ถูกจับคู่กับ Invoice ใด'); });
+    // 6) เรียง Invoice น้อย→มาก (ตามคอลัมน์ B) + รีนัมเบอร์ running A ทั้งไฟล์
+    allRows.sort((a,b)=>String(a.B||'').localeCompare(String(b.B||''),undefined,{numeric:true,sensitivity:'base'}));
+    allRows.forEach((r,i)=>{ r.A=i+1; });
+    // 7) Export ไฟล์เดียว (template/สูตร/คอลัมน์เดิม)
+    asProgress('กำลังสร้าง Excel…');
+    const bytes=AUTOSTORE.exportTemplate(fflate, asB64ToBytes(AUTOSTORE_TPL_B64), allRows);
     const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url; a.download=asSafeName(inv.invoiceNo)+'.xlsx'; document.body.appendChild(a); a.click();
+    // ชื่อไฟล์ = เลข Invoice ที่อ่านได้จริงเท่านั้น (เรียงน้อย→มาก, ต่อด้วย "_") · ห้าม AUTOSTORE/MAPPING/EXPORT/วันเวลา/ชื่อชีต
+    const invNos=uniq.map(u=>u.invoiceNo).filter(Boolean)
+      .sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true,sensitivity:'base'}));
+    const fname = invNos.length ? invNos.map(asSafeName).join('_') : 'INVOICE';
+    a.href=url; a.download=fname+'.xlsx'; document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },1500);
-    asShowOk(inv,R); toast('Export สำเร็จ: '+inv.invoiceNo+'.xlsx','ok');
-  }catch(e){ asShowErr('เกิดข้อผิดพลาด',[e.message]); toast('ล้มเหลว: '+e.message,'err'); }
-  finally{ ASS.busy=false; if(btn){ btn.disabled=false; btn.textContent='📤 EXPORT EXCEL'; } }
+    asShowOkMulti(uniq, allRows, totalExcluded, warnings, fname);
+    toast('Export สำเร็จ: '+fname+'.xlsx'+(warnings.length?' (เตือน '+warnings.length+')':''),'ok');
+  }catch(e){ asShowErr('เกิดข้อผิดพลาด',[String(e&&e.message||e)].concat(warnings)); toast('ล้มเหลว: '+(e&&e.message||e),'err'); }
+  finally{ ASS.busy=false; if(btn){ btn.disabled=false; btn.textContent='📤 EXPORT EXCEL (ไฟล์เดียว)'; } }
 }
 function asProgress(msg){ const d=document.getElementById('asSummary'); if(d) d.innerHTML='<div style="margin-top:16px;padding:12px 16px;border:1px solid #30363d;border-radius:10px;background:#161b22;color:#c9d1d9;font-size:13px">⏳ '+escapeHtml(msg)+'</div>'; }
 function asShowErr(title,list){ const d=document.getElementById('asSummary'); if(!d)return;
@@ -5326,10 +5482,29 @@ function asShowErr(title,list){ const d=document.getElementById('asSummary'); if
     +'<div style="color:#f85149;font-weight:600;margin-bottom:8px">⚠️ '+escapeHtml(title)+'</div>'
     +'<ul style="margin:0;padding-left:20px;color:#c9d1d9;font-size:13px;max-height:260px;overflow:auto">'+list.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul></div>'; }
 function asShowOk(inv,R){ const d=document.getElementById('asSummary'); if(!d)return;
+  const w=(R.warnings||[]);
   d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #3fb950;border-radius:10px;background:rgba(63,185,80,.08)">'
-    +'<div style="color:#3fb950;font-weight:600">✅ Export สำเร็จ: '+escapeHtml(inv.invoiceNo)+'.xlsx</div>'
+    +'<div style="color:#3fb950;font-weight:600">✅ Export สำเร็จ: '+escapeHtml(inv.invoiceNo||'AUTOSTORE')+'.xlsx</div>'
     +'<div style="color:#c9d1d9;font-size:13px;margin-top:6px">'+R.rows.length+' รายการ'+(R.excluded?' (ตัด FEE/Package '+R.excluded+' รายการ)':'')+' · Qty '+R.qtyTotal+' · Total '+R.amtTotal+' '+escapeHtml(inv.currency||'')+'</div>'
-    +'<div style="color:#c9d1d9;font-size:13px;margin-top:4px">N.W. รวม '+R.nwTotal+' = PL Net '+R.netWeight+' · G.W. รวม '+R.gwTotal+' = PL Gross '+R.grossWeight+'</div></div>'; }
+    +'<div style="color:#c9d1d9;font-size:13px;margin-top:4px">N.W. รวม '+R.nwTotal+' = PL Net '+(R.netWeight==null?'-':R.netWeight)+' · G.W. รวม '+R.gwTotal+' = PL Gross '+(R.grossWeight==null?'-':R.grossWeight)+'</div>'
+    +(w.length?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(227,179,65,.3)"><div style="color:#e3b341;font-weight:600;font-size:12.5px;margin-bottom:4px">⚠️ คำเตือน '+w.length+' รายการ (Export แล้ว — ไม่บล็อก):</div><ul style="margin:0;padding-left:20px;color:#d4a72c;font-size:12.5px;max-height:200px;overflow:auto">'+w.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul></div>':'')
+    +'</div>'; }
+function asShowOkMulti(uniq, rows, excluded, warnings, fname){
+  const d=document.getElementById('asSummary'); if(!d)return;
+  const num=r=>{ const v=Number(r); return isFinite(v)?v:0; };
+  const qty=rows.reduce((s,r)=>s+num(r.G),0);
+  const amt=Math.round(rows.reduce((s,r)=>s+num(r.I),0)*100)/100;
+  const nw=Math.round(rows.reduce((s,r)=>s+num(r.K),0)*1000)/1000;
+  const gw=Math.round(rows.reduce((s,r)=>s+num(r.L),0)*1000)/1000;
+  const invList=uniq.map(u=>escapeHtml(u.invoiceNo||'(ไม่พบเลข)')).join(', ');
+  const w=warnings||[];
+  d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #3fb950;border-radius:10px;background:rgba(63,185,80,.08)">'
+    +'<div style="color:#3fb950;font-weight:600">✅ Export สำเร็จ: '+escapeHtml(fname)+'.xlsx</div>'
+    +'<div style="color:#c9d1d9;font-size:13px;margin-top:6px">'+uniq.length+' Invoice · '+rows.length+' รายการ'+(excluded?' (ตัด FEE/Package '+excluded+')':'')+' · Qty '+qty+' · Total '+amt+'</div>'
+    +'<div style="color:#c9d1d9;font-size:13px;margin-top:4px">N.W. รวม '+nw+' · G.W. รวม '+gw+'</div>'
+    +'<div style="color:#8b949e;font-size:12px;margin-top:4px">Invoice (เรียงน้อย→มาก): '+invList+'</div>'
+    +(w.length?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(227,179,65,.3)"><div style="color:#e3b341;font-weight:600;font-size:12.5px;margin-bottom:4px">⚠️ คำเตือน '+w.length+' รายการ (Export แล้ว — ไม่บล็อก):</div><ul style="margin:0;padding-left:20px;color:#d4a72c;font-size:12.5px;max-height:220px;overflow:auto">'+w.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul></div>':'')
+    +'</div>'; }
 
 
 /* ===================== DIAM ASIA MODE (OCR) ===================== */
@@ -5806,7 +5981,7 @@ function diamReset(){ DMS.inv=null; DMS.pl=null;
 /* =================== END DIAM ASIA MODE =================== */
 
 /* ===================== LE CREUSET core + template ===================== */
-const LECREUSET_TPL_B64 = "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";
+const LECREUSET_TPL_B64 = "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";
 const LC = (function(){
   const XLSXlib = XLSX;
   const THAI=/[\u0e00-\u0e7f]/;
@@ -5855,8 +6030,8 @@ const LC = (function(){
 
   function findSheet(wb,kind){
     for(const name of wb.SheetNames){ const t=name.toLowerCase();
-      if(kind==='CI' && t.indexOf('ci.')===0) return wb.Sheets[name];
-      if(kind==='PL' && t.indexOf('pl.')===0) return wb.Sheets[name]; }
+      if(kind==='CI' && /^ci[.\-_ ]?\d|^ci[.\-_ ]/.test(t)) return wb.Sheets[name];
+      if(kind==='PL' && /^pl[.\-_ ]?\d|^pl[.\-_ ]/.test(t)) return wb.Sheets[name]; }
     for(const name of wb.SheetNames){ const ws=wb.Sheets[name],rg=wsInfo(ws); let j='';
       for(let R=rg.s.r;R<=Math.min(rg.e.r,rg.s.r+30);R++) for(let C=rg.s.c;C<=rg.e.c;C++){ const v=cellV(ws,R,C); if(v) j+=' '+v; }
       j=j.toLowerCase();
@@ -5886,17 +6061,20 @@ const LC = (function(){
     const pl=findSheet(wb,'PL'); if(!pl) throw new Error('ไม่พบ Packing List');
     const rg=wsInfo(ci);
     // ---- Invoice No + Issued date ----
-    let invno=null, issuedRaw=null, issued=null;
+    let invno=null, issuedRaw=null, invDateRaw=null, issued=null;
     for(let R=rg.s.r;R<=Math.min(rg.e.r,rg.s.r+25);R++) for(let C=rg.s.c;C<=rg.e.c;C++){
       const v=cellV(ci,R,C); if(typeof v!=='string') continue;
-      const vv=v.trim().toUpperCase().replace(/:$/,'');
+      const vv=v.trim().toUpperCase().replace(/:$/,''); const lv=v.toLowerCase();
       if(vv==='INV NO.'||vv==='INV NO'){ for(let cc=C+1;cc<=rg.e.c;cc++){ const x=cellStr(ci,R,cc); if(x){ invno=x; break; } } }
-      if(v.toLowerCase().indexOf('issued date')>=0){ for(let cc=C+1;cc<=rg.e.c;cc++){ const c2=cell(ci,R,cc); if(c2&&c2.v!=null&&String(c2.v).trim()!==''){ issuedRaw=c2.v; break; } } }
+      if(lv.indexOf('invoice date')>=0){ for(let cc=C+1;cc<=rg.e.c;cc++){ const c2=cell(ci,R,cc); if(c2&&c2.v!=null&&String(c2.v).trim()!==''){ invDateRaw=c2.v; break; } } }
+      else if(lv.indexOf('issued date')>=0){ for(let cc=C+1;cc<=rg.e.c;cc++){ const c2=cell(ci,R,cc); if(c2&&c2.v!=null&&String(c2.v).trim()!==''){ issuedRaw=c2.v; break; } } }
     }
     if(!invno) throw new Error('ไม่พบ Invoice No.');
-    if(issuedRaw==null) throw new Error('ไม่พบ Issued Date');
-    issued=parseIssuedDate(issuedRaw);
-    if(!issued) throw new Error('รูปแบบ Issued Date ไม่ถูกต้อง: '+String(issuedRaw));
+    // Invoice Date จากหัวข้อ Invoice Date ก่อน (ถ้ามี) ไม่งั้น Issued date — อ่านค่าจริงจากไฟล์ ไม่ใช้วันที่ระบบ
+    const dateRaw = (invDateRaw!=null?invDateRaw:issuedRaw);
+    if(dateRaw==null) throw new Error('ไม่พบ Invoice Date');
+    issued=parseIssuedDate(dateRaw);
+    if(!issued) throw new Error('รูปแบบ Invoice Date ไม่ถูกต้อง: '+String(dateRaw));
 
     // ---- หัวตารางสินค้า CI ----
     const h=findHeaderRow(ci,['Item No','Item Description','Total Qty']); if(!h) throw new Error('ไม่พบหัวตารางสินค้าใน Commercial Invoice');
@@ -6045,15 +6223,19 @@ const LC = (function(){
     while((x=re.exec(m[1]))){ out[x[1]]=x[2]?+x[2]:0; } return out; }
   // เพิ่ม numFmt dd/mm/yyyy + xf วันที่ (clone จาก xf ฐาน) → คืน {styles, idx}
   function ensureDateXf(styles, baseIdx){
-    let s=styles;
-    if(s.indexOf('formatCode="dd/mm/yyyy"')<0){
-      if(/<numFmts count="(\d+)"/.test(s)){ s=s.replace(/<numFmts count="(\d+)"/,(m,n)=>'<numFmts count="'+(+n+1)+'"').replace('</numFmts>','<numFmt numFmtId="167" formatCode="dd/mm/yyyy"/></numFmts>'); }
-      else { s=s.replace('<fonts','<numFmts count="1"><numFmt numFmtId="167" formatCode="dd/mm/yyyy"/></numFmts><fonts'); }
+    let s=styles; let dateId;
+    const mExist=s.match(/<numFmt numFmtId="(\d+)" formatCode="dd\/mm\/yyyy"\/>/);
+    if(mExist){ dateId=mExist[1]; }            // มี dd/mm/yyyy อยู่แล้ว (เช่น 166) → ใช้ id เดิม
+    else {                                     // ไม่มี → เพิ่ม numFmt ด้วย id ว่างจริง (max+1, >=167)
+      let maxId=166; (s.match(/<numFmt numFmtId="(\d+)"/g)||[]).forEach(t=>{ const n=+t.match(/\d+/)[0]; if(n>maxId) maxId=n; });
+      dateId=String(maxId+1);
+      if(/<numFmts count="(\d+)"/.test(s)){ s=s.replace(/<numFmts count="(\d+)"/,(m,n)=>'<numFmts count="'+(+n+1)+'"').replace('</numFmts>','<numFmt numFmtId="'+dateId+'" formatCode="dd/mm/yyyy"/></numFmts>'); }
+      else { s=s.replace('<fonts','<numFmts count="1"><numFmt numFmtId="'+dateId+'" formatCode="dd/mm/yyyy"/></numFmts><fonts'); }
     }
     const block=s.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
     const xfs=block[2].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)||[];
     let base=xfs[baseIdx]||xfs[0]||'<xf numFmtId="14" fontId="0" fillId="0" borderId="0"/>';
-    let clone=base.replace(/numFmtId="\d+"/,'numFmtId="167"');
+    let clone=base.replace(/numFmtId="\d+"/,'numFmtId="'+dateId+'"');
     if(clone.indexOf('applyNumberFormat')<0) clone=clone.replace('<xf ','<xf applyNumberFormat="1" ');
     const idx=xfs.length;
     s=s.replace(/<cellXfs count="\d+">([\s\S]*?)<\/cellXfs>/,'<cellXfs count="'+(idx+1)+'">$1'+clone+'</cellXfs>');
@@ -6067,6 +6249,8 @@ const LC = (function(){
     let xml=dec.decode(files[sheetPath]);
     // STY จาก row 2 (clone รูปแบบแถวต้นแบบ) — fallback ถ้าไม่มี
     const STY=rowStyles(xml,2)||{A:2,B:25,C:2,D:8,E:8,F:8,G:41,H:13,I:8,J:8,K:26,L:8,M:42,N:41,O:41,P:26,Q:32,R:26,S:26,T:33,U:26,V:26,W:25,X:32,Y:32};
+    // SUMSTY จากแถวสรุปต้นแบบ (row 21 ในตัวอย่าง) — สไตล์แถวรวมต่างจาก data (ไม่มี alignment) — fallback = STY
+    const SUMSTY=rowStyles(xml,21)||STY;
     // xf วันที่ dd/mm/yyyy (clone จาก STY.B)
     let styles=dec.decode(files['xl/styles.xml']);
     const dx=ensureDateXf(styles, STY.B); styles=dx.styles; const DATE=dx.idx;
@@ -6079,17 +6263,32 @@ const LC = (function(){
       rows.push('<row r="'+r+'" ht="16.2" customHeight="1">'+[
         T(C('A'),STY.A,data.invno), Nn(C('B'),DATE,data.dateSerial), Nn(C('C'),STY.C,i+1),
         T(C('D'),STY.D,it.item), T(C('E'),STY.E,it.desc), Nn(C('F'),STY.F,it.qty),
-        T(C('G'),STY.G,'C62'), Nn(C('H'),STY.H,it.price), Nn(C('I'),STY.I,it.price),
+        T(C('G'),STY.G,'C62'), Nn(C('H'),STY.H,it.amount), Nn(C('I'),STY.I,it.price),
         Nn(C('J'),STY.J,it.amount), T(C('K'),STY.K,'THB'), T(C('L'),STY.L,it.th),
         Nn(C('M'),STY.M,it.nw), Em(C('N'),STY.N), Nn(C('O'),STY.O,it.gw),
         Nn(C('P'),STY.P,69120000), T(C('Q'),STY.Q,'001'), T(C('R'),STY.R,'TH'),
         T(C('S'),STY.S,'LE CREUSET'), T(C('T'),STY.T,'58-2372-0-00-1-0 ลว.27 ต.ค. 2558'),
-        T(C('U'),STY.U,'BOI'), T(C('V'),STY.V,'BOI0105554153614'), Nn(C('W'),DATE,data.dateSerial),
+        T(C('U'),STY.U,'Y'), T(C('V'),STY.V,'BOI0105554153614'), Nn(C('W'),DATE,data.dateSerial),
         T(C('X'),STY.X,'0994000740964'), T(C('Y'),STY.Y,'02')
       ].join('')+'</row>');
     });
+    // ---- แถวสรุปยอด (=SUM) : F,H,J,M,O (สไตล์เดียวกับ data ตามตัวอย่าง) ----
+    const last=data.items.length+1;               // แถวสินค้าสุดท้าย (Excel row)
+    const sr=data.items.length+2;                  // แถวสรุป
+    const F=(ref,s,formula,cached)=>'<c r="'+ref+'" s="'+s+'"><f>'+formula+'</f><v>'+cached+'</v></c>';
+    const sumQ=data.items.reduce((a,it)=>a+Number(it.qty),0);
+    const sumA=Math.round(data.items.reduce((a,it)=>a+Number(it.amount),0)*100)/100;
+    const sumM=Math.round(data.items.reduce((a,it)=>a+Number(it.nw),0)*1000)/1000;
+    const sumO=Math.round(data.items.reduce((a,it)=>a+Number(it.gw),0)*1000)/1000;
+    rows.push('<row r="'+sr+'">'+[
+      F('F'+sr,SUMSTY.F,'SUM(F2:F'+last+')',sumQ),
+      F('H'+sr,SUMSTY.H,'SUM(H2:H'+last+')',sumA),
+      F('J'+sr,SUMSTY.J,'SUM(J2:J'+last+')',sumA),
+      F('M'+sr,SUMSTY.M,'SUM(M2:M'+last+')',sumM),
+      F('O'+sr,SUMSTY.O,'SUM(O2:O'+last+')',sumO)
+    ].join('')+'</row>');
     xml=xml.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+rows.join('')+'</sheetData>');
-    xml=xml.replace(/<dimension ref="[^"]*"/,'<dimension ref="A1:Y'+(data.items.length+1)+'"');
+    xml=xml.replace(/<dimension ref="[^"]*"/,'<dimension ref="A1:Y'+(data.items.length+2)+'"');
     xml=xml.replace(/<legacyDrawing[^>]*\/>/g,'');   // ตัด legacyDrawing (ชี้ VML comment)
     files[sheetPath]=enc.encode(xml);
     // ---- ลบ Comment / VML / calcChain + rel + content type ----
@@ -6110,13 +6309,14 @@ const LC = (function(){
     let wb; try{ wb=XLSXlib.read(bytes,{type:'array'}); }catch(e){ return 'อ่านไฟล์ที่สร้างไม่ได้: '+e.message; }
     if(wb.SheetNames.length!==1) return 'มี Sheet เกินที่จำเป็น: '+wb.SheetNames.join(', ');
     const ws=wb.Sheets[wb.SheetNames[0]]; const rg=wsInfo(ws);
-    if(rg.e.r!==data.items.length) return 'จำนวนแถวไม่ตรงกับสินค้า ('+rg.e.r+' vs '+data.items.length+')';
+    const lastData=data.items.length+1;            // แถวสินค้าสุดท้าย (Excel), แถวสรุป = +1
+    if(rg.e.r!==data.items.length+1) return 'จำนวนแถวไม่ตรง ('+rg.e.r+' vs '+(data.items.length+1)+')';
     let sQ=0,sA=0,sN=0,sG=0;
     for(const k in ws){ if(k[0]==='!') continue; const c=ws[k];
       if(c.t==='e') return 'พบ Formula Error ที่ '+k+': '+(c.w||'');
       const sv=String(c.v);
       if(sv==='NaN'||sv==='undefined'||sv==='Infinity'||sv==='null') return 'พบค่าผิด ('+sv+') ที่ '+k;
-      const m=k.match(/^([A-Z]+)(\d+)$/); if(!m) continue; const col=m[1], row=+m[2]; if(row<2) continue;
+      const m=k.match(/^([A-Z]+)(\d+)$/); if(!m) continue; const col=m[1], row=+m[2]; if(row<2||row>lastData) continue;   // รวมเฉพาะแถวสินค้า (ข้ามหัว+แถวสรุป)
       if(col==='F') sQ+=Number(c.v)||0; else if(col==='J') sA+=Number(c.v)||0; else if(col==='M') sN+=Number(c.v)||0; else if(col==='O') sG+=Number(c.v)||0;
     }
     if(Math.abs(sN-data.totNW)>0.02) return 'ผลรวม N.W. ในไฟล์ไม่ตรง ('+sN.toFixed(2)+')';
@@ -6180,7 +6380,7 @@ async function lcExport(){
     lcProgress('กำลังสร้างไฟล์ Excel...');
     const ab=await LCS.file.arrayBuffer();
     let wb;
-    try{ wb=XLSX.read(new Uint8Array(ab),{type:'array',cellDates:true}); }
+    try{ wb=XLSX.read(new Uint8Array(ab),{type:'array'}); }   // ไม่ใช้ cellDates → วันที่เป็น serial → แปลงด้วยปฏิทินล้วน (ไม่เพี้ยนตาม timezone)
     catch(e){ lcShowErr('รูปแบบไฟล์ MT INVOICE ไม่ถูกต้อง',['ไม่สามารถอ่านไฟล์ Excel ได้ — โปรดตรวจไฟล์']); toast('อ่านไฟล์ไม่ได้','err'); return; }
     let d;
     try{ d=LC.parse(wb); }
