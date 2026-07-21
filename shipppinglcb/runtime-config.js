@@ -12,7 +12,8 @@ window.RUNTIME_CONFIG = {
   KILL_SWITCH:        false,     // true = ปิด V3 + ปิด realtime + แจ้งเตือน + redirect
   KILL_REDIRECT_URL:  "",        // ปลายทางเมื่อ KILL_SWITCH (ว่าง = หน้า maintenance ในตัว)
   DESKTOP_PAGE_SIZE:  100,
-  MOBILE_PAGE_SIZE:   40,
+  MOBILE_PAGE_SIZE:   30,
+  ADMIN_MOBILE_PAGE_SIZE: 50,
   LOG_LEVEL:          "info"      // debug | info | warn | error | silent
 };
 
