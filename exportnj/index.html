@@ -496,7 +496,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="logo">📊</div>
       <div>
         <div class="name">REPORT ALL</div>
-        <div class="desc">รายงานรวมทุกระบบ · BUILD U36</div>
+        <div class="desc">รายงานรวมทุกระบบ · BUILD U38</div>
       </div>
     </div>
     <div class="profile">
@@ -549,6 +549,9 @@ tbody tr:last-child td{border-bottom:none}
       </div>
       <div class="item" data-view="lecreuset" onclick="switchView('lecreuset')">
         <span class="ic">🍲</span><span class="lbl">LE CREUSET</span>
+      </div>
+      <div class="item" data-view="zhenwestern" onclick="switchView('zhenwestern')">
+        <span class="ic">🏭</span><span class="lbl">ZHENWESTERN</span>
       </div>
       <div class="item" data-view="sch-weight" onclick="switchView('sch-weight')">
         <span class="ic">⚖️</span><span class="lbl">ตรวจน้ำหนัก SCH</span>
@@ -912,6 +915,7 @@ function switchView(v){
   else if (v==='diam') diamRenderView();
   else if (v==='autostore') autostoreRenderView();
   else if (v==='lecreuset') lecreusetRenderView();
+  else if (v==='zhenwestern') zhenwesternRenderView();
   else if (v==='anca-export') ancaRenderView();
   else if (v==='wisdom-export') wisdomRenderView();
   else if (v==='sig-export') sigRenderView();
@@ -6500,6 +6504,328 @@ function lcReset(){ LCS.file=null; const i=document.getElementById('lcInput'); i
   const s=document.getElementById('lcSummary'); if(s)s.innerHTML='';
   lcRenderFiles(); lcUpdateBtn(); toast('ล้างไฟล์แล้ว','ok'); }
 /* =================== END LE CREUSET MODE =================== */
+
+/* =================== ZHENWESTERN MODE (Zero-Impact add-on) =================== */
+const ZHENWESTERN_TPL_B64 = "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";
+const ZW = (function(){
+  const S=v=>(v==null?'':String(v));
+  const esc=s=>S(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const norm=s=>S(s).replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  const normKey=s=>norm(s).toLowerCase();
+  const codeKey=s=>norm(s).toLowerCase();   // PRODUCT CODE: trim + collapse spaces + case-insensitive (คงจุด/ขีด)
+  const cleanHdr=s=>norm(s).replace(/[:：]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+  const num=v=>{ if(v==null||v==='')return null; if(typeof v==='number')return v; const n=parseFloat(String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'')); return isFinite(n)?n:null; };
+
+  // อ่าน cell value จาก worksheet (SheetJS) — คืน {v, w} (raw + formatted)
+  function cellRaw(ws, r, c){ const ref=XLSX.utils.encode_cell({r:r,c:c}); const cell=ws[ref]; return cell?cell.v:null; }
+  function cellW(ws, r, c){ const ref=XLSX.utils.encode_cell({r:r,c:c}); const cell=ws[ref]; return cell?(cell.w!=null?cell.w:cell.v):null; }
+  function range(ws){ return XLSX.utils.decode_range(ws['!ref']); }
+
+  // ===== INVOICE NO. จากชีต CI ('INV.NO.:' / 'INV.NO.：') =====
+  function parseInvoiceNo(ws){
+    const rg=range(ws);
+    for(let r=rg.s.r;r<=rg.e.r;r++) for(let c=rg.s.c;c<=rg.e.c;c++){
+      const v=cellRaw(ws,r,c); if(typeof v!=='string')continue;
+      const m=v.match(/INV\.?\s*NO\.?\s*[:：]?\s*(.*)$/i);
+      if(m && /INV/i.test(v)){ let s=norm(m[1]); if(s) return s; 
+        // ถ้าเลขอยู่เซลล์ถัดไป
+        const nx=norm(S(cellRaw(ws,r,c+1))); if(nx) return nx; }
+    }
+    return null;
+  }
+  // ===== INVOICE DATE จาก 'DATE:' / 'DATE：' → serial (ไม่แตะ timezone) =====
+  function parseDateSerial(ws){
+    const rg=range(ws);
+    for(let r=rg.s.r;r<=rg.e.r;r++) for(let c=rg.s.c;c<=rg.e.c;c++){
+      const v=cellRaw(ws,r,c); if(typeof v!=='string')continue;
+      if(/^\s*DATE\s*[:：]/i.test(v) || cleanHdr(v)==='date'){
+        // ค่าอยู่เซลล์เดียวกัน(หลัง label) หรือเซลล์ขวา
+        for(const cc of [c+1,c+2,c]){ const rawv=cellRaw(ws,r,cc);
+          if(typeof rawv==='number' && rawv>20000 && rawv<80000) return Math.floor(rawv);
+          if(typeof rawv==='string'){ const d=parseTextDate(rawv); if(d!=null)return d; }
+        }
+      }
+    }
+    return null;
+  }
+  function parseTextDate(s){ s=norm(s); let m;
+    if(m=s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/)) return ymdToSerial(+m[3],+m[2],+m[1]);
+    if(m=s.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/)) return ymdToSerial(+m[1],+m[2],+m[3]);
+    return null;
+  }
+  function ymdToSerial(y,mo,d){ // ปฏิทินล้วน → Excel serial (1900 system, รวม bug 1900-02-29)
+    const utc=Date.UTC(y,mo-1,d); const base=Date.UTC(1899,11,30);
+    let serial=Math.round((utc-base)/86400000); if(serial>=60)serial+=0; return serial;
+  }
+
+  // ===== หา header row แบบ dynamic (คืน {row, colMap}) =====
+  function findHeaderCI(ws){
+    const rg=range(ws);
+    for(let r=rg.s.r;r<=rg.e.r;r++){
+      const map={}; let hasCode=false,hasItem=false,hasQty=false,hasAmt=false;
+      for(let c=rg.s.c;c<=rg.e.c;c++){ const h=cleanHdr(S(cellRaw(ws,r,c))); if(!h)continue;
+        if(h==='item no.'||h==='item no'||h==='itemno') { map.item=c; hasItem=true; }
+        else if(h==='product name'||h==='product name/description'||h==='description') map.name=c;
+        else if(h==='product code') { map.code=c; hasCode=true; }
+        else if(h==='quantity'||h==='qty') { map.qty=c; hasQty=true; }
+        else if(/^unit price/.test(h)) map.price=c;
+        else if(/^amount/.test(h)) { map.amount=c; hasAmt=true; }
+        else if(/hs code for\s*export/.test(h) || h==='hs code') map.hs=c;
+      }
+      if(hasCode && hasQty && hasAmt) return {row:r, map:map};
+    }
+    return null;
+  }
+  function parseCIItems(ws){
+    const hdr=findHeaderCI(ws); if(!hdr) throw new Error('ไม่พบหัวตารางรายการสินค้าในชีต CI');
+    const rg=range(ws), m=hdr.map, items=[];
+    for(let r=hdr.row+1;r<=rg.e.r;r++){
+      const codev=norm(S(cellRaw(ws,r,m.code)));
+      const first=norm(S(cellRaw(ws,r,rg.s.c)));
+      if(/^total/i.test(first)||/^total/i.test(codev)) break;   // ถึงแถวยอดรวม → หยุด
+      if(!codev) continue;                                       // ไม่มี PRODUCT CODE → ข้าม
+      const amt=num(cellRaw(ws,r,m.amount)); const qty=num(cellRaw(ws,r,m.qty));
+      if(qty==null && amt==null) continue;                       // ไม่มีข้อมูลสินค้า → ข้าม
+      items.push({
+        itemNo: num(m.item!=null?cellRaw(ws,r,m.item):null) ,
+        name: m.name!=null?norm(S(cellRaw(ws,r,m.name))):'',
+        code: codev,
+        qty: qty, price: m.price!=null?num(cellRaw(ws,r,m.price)):null,
+        amount: amt, hs: m.hs!=null?norm(S(cellRaw(ws,r,m.hs))):''
+      });
+    }
+    return items;
+  }
+
+  // ===== PL: header 2 แถว (PRODUCT CODE / TOTAL N.W / TOTAL G.W) =====
+  function findHeaderPL(ws){
+    const rg=range(ws); let codeCol=null, nwCol=null, gwCol=null, hdrRow=null;
+    for(let r=rg.s.r;r<=Math.min(rg.e.r,rg.s.r+25);r++){
+      for(let c=rg.s.c;c<=rg.e.c;c++){ const h=cleanHdr(S(cellRaw(ws,r,c)));
+        if(h==='product code' && codeCol==null){ codeCol=c; hdrRow=r; }
+        if((h==='total n.w'||h==='total nw'||h==='total n w') && nwCol==null) nwCol=c;
+        if((h==='total g.w'||h==='total gw'||h==='total g w') && gwCol==null) gwCol=c;
+      }
+      if(codeCol!=null && nwCol!=null && gwCol!=null) return {codeCol,nwCol,gwCol,hdrRow:Math.max(hdrRow,r)};
+    }
+    if(codeCol!=null && nwCol!=null && gwCol!=null) return {codeCol,nwCol,gwCol,hdrRow:hdrRow};
+    return null;
+  }
+  function parsePLWeights(ws){
+    const h=findHeaderPL(ws); if(!h) throw new Error('ไม่พบหัว PRODUCT CODE / TOTAL N.W / TOTAL G.W ในชีต PL');
+    const rg=range(ws), agg={}, order=[];
+    for(let r=h.hdrRow+1;r<=rg.e.r;r++){
+      const code=norm(S(cellRaw(ws,r,h.codeCol)));
+      const first=norm(S(cellRaw(ws,r,rg.s.c)));
+      if(/^total/i.test(code)||/^total/i.test(first)) continue;   // ข้ามแถว TOTAL
+      if(!code) continue;
+      const nw=num(cellRaw(ws,r,h.nwCol)), gw=num(cellRaw(ws,r,h.gwCol));
+      if(nw==null && gw==null) continue;
+      const k=codeKey(code);
+      if(!agg[k]){ agg[k]={code:code, nw:0, gw:0}; order.push(k); }
+      agg[k].nw += (nw||0); agg[k].gw += (gw||0);
+    }
+    return {agg, order};
+  }
+
+  // ===== orchestrate =====
+  function parse(wb){
+    const names=wb.SheetNames;
+    if(names.indexOf('CI')<0) throw new Error('ไม่พบชีต CI');
+    if(names.indexOf('PL')<0) throw new Error('ไม่พบชีต PL');
+    const ci=wb.Sheets['CI'], pl=wb.Sheets['PL'];
+    const invno=parseInvoiceNo(ci); if(!invno) throw new Error('ไม่พบเลข INVOICE ในชีต CI');
+    const dateSerial=parseDateSerial(ci); if(dateSerial==null) throw new Error('ไม่พบ INVOICE DATE ในชีต CI');
+    const items=parseCIItems(ci); if(!items.length) throw new Error('ไม่พบรายการสินค้าในชีต CI');
+    const {agg}=parsePLWeights(pl);
+
+    // จับคู่ CI ↔ PL (normalize) — ห้ามนับ NW/GW ซ้ำเมื่อ CI มี code ซ้ำ
+    const missInCI=[], missInPL=[]; const usedPL={};
+    items.forEach(it=>{ const k=codeKey(it.code);
+      if(!agg[k]){ missInPL.push(it.code); it.nw=0; it.gw=0; }
+      else if(usedPL[k]){ it.nw=0; it.gw=0; }   // code ซ้ำใน CI → ใส่ครั้งเดียว (กันนับซ้ำ)
+      else { it.nw=agg[k].nw; it.gw=agg[k].gw; usedPL[k]=true; }
+    });
+    Object.keys(agg).forEach(k=>{ if(!items.some(it=>codeKey(it.code)===k)) missInPL.length; });
+    // PL code ที่ไม่มีใน CI
+    Object.keys(agg).forEach(k=>{ if(!items.some(it=>codeKey(it.code)===k)) missInCI.push(agg[k].code); });
+    if(missInPL.length) throw new Error('PRODUCT CODE '+missInPL[0]+' ไม่พบในชีต PL');
+    if(missInCI.length) throw new Error('PRODUCT CODE '+missInCI[0]+' พบใน PL แต่ไม่พบใน CI');
+
+    // ตรวจยอด NW/GW รวม = PL total
+    const nwSum=items.reduce((s,i)=>s+(i.nw||0),0), gwSum=items.reduce((s,i)=>s+(i.gw||0),0);
+    const plNw=Object.keys(agg).reduce((s,k)=>s+agg[k].nw,0), plGw=Object.keys(agg).reduce((s,k)=>s+agg[k].gw,0);
+    if(Math.abs(nwSum-plNw)>0.01) throw new Error('ยอด NW ไม่ตรงกับชีต PL');
+    if(Math.abs(gwSum-plGw)>0.01) throw new Error('ยอด GW ไม่ตรงกับชีต PL');
+
+    return {invno, dateSerial, dateStr:dmyStr(dateSerial), items, nwSum, gwSum};
+  }
+
+  // ===== clone Template แล้วเติมข้อมูล =====
+  const DATA_COLS={A:'item',B:'inv',C:'date',D:'code',E:'name',G:'qty',H:'price',I:'amount',J:'hs',K:'nw',L:'gw',Z:'date'};
+  // Excel serial → {d,m,y} ด้วยปฏิทิน Gregorian ล้วน (ไม่ใช้ Date/UTC/toISOString, ไม่เลื่อน timezone, ไม่บวก/ลบวัน)
+  function serialToYMD(serial){
+    let z=Math.floor(serial)-25569;   // วันนับจาก 1970-01-01 (ระบบ 1900 ของ Excel)
+    z+=719468; const era=Math.floor((z>=0?z:z-146096)/146097); const doe=z-era*146097;
+    const yoe=Math.floor((doe-Math.floor(doe/1460)+Math.floor(doe/36524)-Math.floor(doe/146096))/365);
+    let y=yoe+era*400; const doy=doe-(365*yoe+Math.floor(yoe/4)-Math.floor(yoe/100));
+    const mp=Math.floor((5*doy+2)/153); const d=doy-Math.floor((153*mp+2)/5)+1; const m=mp<10?mp+3:mp-9;
+    if(m<=2)y+=1; return {d:d,m:m,y:y};
+  }
+  function dmyStr(serial){ const o=serialToYMD(serial);
+    return String(o.d).padStart(2,'0')+'/'+String(o.m).padStart(2,'0')+'/'+String(o.y); }
+  const DMY_RE=/^\d{2}\/\d{2}\/\d{4}$/;   // DD/MM/YYYY เท่านั้น
+
+  function colToNum(c){ let n=0; for(let i=0;i<c.length;i++) n=n*26+(c.charCodeAt(i)-64); return n; }
+  function exportTemplate(fflate, tplBytes, d){
+    const files=fflate.unzipSync(tplBytes);
+    const key='xl/worksheets/sheet1.xml';
+    let sheet=fflate.strFromU8(files[key]);
+    // ดึง 3 แถวต้นแบบ
+    const row1=(sheet.match(/<row r="1"[^>]*>[\s\S]*?<\/row>/)||[])[0];
+    const row2=(sheet.match(/<row r="2"[^>]*>[\s\S]*?<\/row>/)||[])[0];
+    const row3=(sheet.match(/<row r="3"[^>]*>[\s\S]*?<\/row>/)||[])[0];
+    const rowOpen2=(row2.match(/<row r="2"[^>]*>/)||[])[0];
+    const rowOpen3=(row3.match(/<row r="3"[^>]*>/)||[])[0];
+    // parse cells ของ row2 เป็น map: col → cell xml
+    const tplCells={}; let mm; const cre=/<c r="([A-Z]+)2"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while(mm=cre.exec(row2)){ tplCells[mm[1]]=mm[0]; }
+    const COLS=Object.keys(tplCells).sort((a,b)=>colToNum(a)-colToNum(b));
+
+    function dataCell(col,rn,it){
+      const v=DATA_COLS[col];
+      if(v==='item') return '<c r="'+col+rn+'" s="3" t="n"><v>'+(it.itemNo!=null?it.itemNo:'')+'</v></c>';
+      if(v==='inv')  return '<c r="'+col+rn+'" s="3" t="inlineStr"><is><t xml:space="preserve">'+esc(d.invno)+'</t></is></c>';
+      if(v==='date') { const s=(col==='C'?'4':'6'); return '<c r="'+col+rn+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+esc(d.dateStr)+'</t></is></c>'; }   // DD/MM/YYYY เป็นข้อความ (ไม่ใช่ serial/ไม่ใช่ m/d/yyyy)
+      if(v==='code') return '<c r="'+col+rn+'" s="3" t="inlineStr"><is><t xml:space="preserve">'+esc(it.code)+'</t></is></c>';
+      if(v==='name') return '<c r="'+col+rn+'" s="3" t="inlineStr"><is><t xml:space="preserve">'+esc(it.name)+'</t></is></c>';
+      if(v==='qty')  return it.qty!=null?'<c r="'+col+rn+'" s="3" t="n"><v>'+it.qty+'</v></c>':'<c r="'+col+rn+'" s="3"/>';
+      if(v==='price')return it.price!=null?'<c r="'+col+rn+'" s="3" t="n"><v>'+it.price+'</v></c>':'<c r="'+col+rn+'" s="3"/>';
+      if(v==='amount')return it.amount!=null?'<c r="'+col+rn+'" s="5" t="n"><v>'+it.amount+'</v></c>':'<c r="'+col+rn+'" s="5"/>';
+      if(v==='hs')   { const n=num(it.hs); return n!=null?'<c r="'+col+rn+'" s="3" t="n"><v>'+n+'</v></c>':'<c r="'+col+rn+'" s="3" t="inlineStr"><is><t xml:space="preserve">'+esc(it.hs)+'</t></is></c>'; }
+      if(v==='nw')   return '<c r="'+col+rn+'" s="3" t="n"><v>'+(it.nw||0)+'</v></c>';
+      if(v==='gw')   return '<c r="'+col+rn+'" s="3" t="n"><v>'+(it.gw||0)+'</v></c>';
+      return null;
+    }
+    // สร้างแถวสินค้า
+    let body=row1;
+    d.items.forEach((it,i)=>{ const rn=i+2; let cells='';
+      COLS.forEach(col=>{
+        if(DATA_COLS[col]) cells+=dataCell(col,rn,it);                 // คอลัมน์ข้อมูล
+        else cells+=tplCells[col].replace(new RegExp('r="'+col+'2"'),'r="'+col+rn+'"');   // FIX → clone R2 (style+ค่า)
+      });
+      body+=rowOpen2.replace('r="2"','r="'+rn+'"')+cells+'</row>';
+    });
+    // แถว SUM
+    const last=d.items.length+1;   // rn ของแถวสุดท้ายสินค้า
+    const sumRn=d.items.length+2;
+    let sumCells=''; const sre=/<c r="([A-Z]+)3"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g; let sm;
+    while(sm=sre.exec(row3)){ const col=sm[1]; let cell=sm[0].replace(new RegExp('r="'+col+'3"'),'r="'+col+sumRn+'"');
+      if(/<f[ >]/.test(cell)){ // ปรับช่วง SUM ให้ครอบคลุมทุกแถวสินค้า + คำนวณค่าใหม่
+        cell=cell.replace(/SUM\([A-Z]+2(?::[A-Z]+\d+)?\)/,'SUM('+col+'2:'+col+last+')');
+        const map={G:'qty',I:'amount',K:'nw',L:'gw'}; const f=map[col];
+        let tot=0; if(f) d.items.forEach(it=>{ tot+=(f==='nw'?(it.nw||0):f==='gw'?(it.gw||0):(it[f]||0)); });
+        cell=cell.replace(/<v>[^<]*<\/v>/,'<v>'+tot+'</v>');
+      }
+      sumCells+=cell;
+    }
+    body+=rowOpen3.replace('r="3"','r="'+sumRn+'"')+sumCells+'</row>';
+
+    sheet=sheet.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+body+'</sheetData>');
+    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:AB'+sumRn+'"/>');
+    files[key]=fflate.strToU8(sheet);
+    return fflate.zipSync(files);
+  }
+
+  // ตรวจไฟล์ที่สร้างก่อนดาวน์โหลด: ทุกแถวสินค้า C (INVOICE DATE) และ Z (วันที่ออกใบอนุญาต) ต้องเป็นข้อความ DD/MM/YYYY และตรงกัน
+  function verifyDates(fflate, bytes, d){
+    let sheet; try{ sheet=fflate.strFromU8(fflate.unzipSync(bytes)['xl/worksheets/sheet1.xml']); }catch(e){ return 'อ่านไฟล์ที่สร้างไม่ได้'; }
+    const n=d.items.length; const want=d.dateStr;
+    for(let rn=2;rn<=n+1;rn++){
+      for(const col of ['C','Z']){
+        const m=sheet.match(new RegExp('<c r="'+col+rn+'"[^>]*>\\s*<is><t[^>]*>([^<]*)</t>'));
+        const tv=m?m[1]:null;
+        if(tv==null || !DMY_RE.test(tv) || tv!==want) return 'รูปแบบ INVOICE DATE หรือวันที่ออกใบอนุญาตไม่ถูกต้อง ต้องเป็น DD/MM/YYYY';
+      }
+    }
+    return null;
+  }
+
+  return { parse, exportTemplate, verifyDates };
+})();
+
+let ZWS={file:null,busy:false};
+function zwB64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u; }
+function zhenwesternRenderView(){
+  document.getElementById('pageTitle').textContent='ZHENWESTERN';
+  document.getElementById('pageSub').textContent='อัปโหลดไฟล์ INV (.xlsx) แล้วกด EXPORT EXCEL — ระบบอ่านชีต CI/PL รวมน้ำหนัก ตรวจสอบ และสร้าง Mapping จาก Template ในระบบให้ในคลิกเดียว (ไม่ต้องอัปโหลด MAPPING TEMPLATE)';
+  document.getElementById('pageActions').innerHTML='';
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="anca-view">'
+    +'<div class="drop anca-upload-card" id="zwDrop"><h4>📄 INV (.xlsx)</h4>'
+      +'<label class="pick">📄 เลือกไฟล์ INV<input id="zwInput" type="file" accept=".xlsx" style="display:none" onchange="zwLoad(this.files[0])"></label>'
+      +'<span class="hint">ไฟล์ Excel เดียว (มีชีต CI และ PL) — Template MAPPING ฝังในระบบแล้ว</span><div class="flist" id="zwList"></div></div>'
+    +'<div class="actions">'
+      +'<button class="abtn export primary" id="zwExpBtn" onclick="zwExport()" disabled>📥 EXPORT EXCEL</button>'
+      +'<button class="abtn" id="zwClearBtn" onclick="zwReset()">🗑️ ล้างไฟล์</button>'
+    +'</div>'
+    +'<div id="zwSummary"></div>'
+  +'</div>';
+  if(typeof ancaBindDrop==='function'){ ancaBindDrop('zwDrop',f=>zwLoad(f[0])); }
+  zwRenderFiles(); zwUpdateBtn();
+}
+function zwLoad(f){ if(!f)return;
+  if(!/\.xlsx$/i.test(f.name)){ toast('รองรับเฉพาะไฟล์ INV .xlsx','err'); return; }
+  ZWS.file=f; toast('INV: '+f.name,'ok'); zwRenderFiles(); zwUpdateBtn();
+}
+function zwRenderFiles(){ const el=document.getElementById('zwList'); if(!el)return;
+  el.innerHTML = ZWS.file ? '<div class="frow"><span class="fn">📄 '+escapeHtml(ZWS.file.name)+'</span><span class="fmeta"><span class="fok">พร้อม</span></span></div>'
+                          : '<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์ INV</div>'; }
+function zwUpdateBtn(){ const b=document.getElementById('zwExpBtn'); if(b) b.disabled=ZWS.busy||!ZWS.file; }
+function zwProgress(msg){ const d=document.getElementById('zwSummary'); if(d) d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #30363d;border-radius:10px;background:#161b22;color:#c9d1d9;font-size:13px"><span class="spin">⏳</span> '+escapeHtml(msg)+'</div>'; }
+function zwShowErr(title,list){ const d=document.getElementById('zwSummary'); if(!d)return;
+  d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #f85149;border-radius:10px;background:rgba(248,81,73,.08)">'
+    +'<div style="color:#f85149;font-weight:600;margin-bottom:8px">⛔ '+escapeHtml(title)+'</div>'
+    +'<ul style="margin:0;padding-left:20px;color:#c9d1d9;font-size:13px">'+(list||[]).map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul></div>'; }
+function zwShowOk(d){ const el=document.getElementById('zwSummary'); if(!el)return;
+  const nw=Math.round(d.nwSum*100)/100, gw=Math.round(d.gwSum*100)/100;
+  el.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #3fb950;border-radius:10px;background:rgba(63,185,80,.08)">'
+    +'<div style="color:#3fb950;font-weight:600">✅ Export สำเร็จ: '+escapeHtml(d.invno)+'.xlsx</div>'
+    +'<div style="color:#c9d1d9;font-size:13px;margin-top:6px">'+d.items.length+' รายการ · N.W. รวม '+nw.toLocaleString('en-US',{minimumFractionDigits:2})+' · G.W. รวม '+gw.toLocaleString('en-US',{minimumFractionDigits:2})+' KGM</div></div>'; }
+async function zwExport(){
+  if(ZWS.busy)return;
+  if(!ZWS.file){ toast('กรุณาอัปโหลดไฟล์ INV','err'); zwShowErr('ยังไม่ได้เลือกไฟล์',['กรุณาอัปโหลดไฟล์ INV (.xlsx)']); return; }
+  if(typeof XLSX==='undefined'){ zwShowErr('ยังโหลดไลบรารีไม่สำเร็จ',['ไม่พบไลบรารี Excel — ตรวจอินเทอร์เน็ตแล้วรีเฟรช']); return; }
+  ZWS.busy=true; zwUpdateBtn();
+  try{
+    zwProgress('กำลังอ่าน CI/PL และสร้างไฟล์ Excel...');
+    const ab=await ZWS.file.arrayBuffer();
+    let wb;
+    try{ wb=XLSX.read(new Uint8Array(ab),{type:'array'}); }
+    catch(e){ zwShowErr('รูปแบบไฟล์ INV ไม่ถูกต้อง',['ไม่สามารถอ่านไฟล์ Excel ได้ — โปรดตรวจไฟล์']); toast('อ่านไฟล์ไม่ได้','err'); return; }
+    let d;
+    try{ d=ZW.parse(wb); }
+    catch(e){ zwShowErr('ตรวจสอบไม่ผ่าน — ไม่ Export',[e.message||String(e)]); toast('ตรวจสอบไม่ผ่าน','err'); return; }
+    let bytes;
+    try{ bytes=ZW.exportTemplate(fflate, zwB64ToBytes(ZHENWESTERN_TPL_B64), d); }
+    catch(e){ zwShowErr('ไม่พบ Template MAPPING ภายในระบบ หรือรูปแบบ Template ไม่ถูกต้อง',[e.message||String(e)]); toast('สร้างไฟล์ไม่สำเร็จ','err'); return; }
+    // ตรวจรูปแบบวันที่จริงในเซลล์ก่อนดาวน์โหลด (INVOICE DATE / วันที่ออกใบอนุญาต = DD/MM/YYYY)
+    const derr=ZW.verifyDates(fflate, bytes, d);
+    if(derr){ zwShowErr('ตรวจวันที่ก่อนดาวน์โหลดไม่ผ่าน — ไม่ดาวน์โหลด',[derr]); toast('รูปแบบวันที่ไม่ถูกต้อง','err'); return; }
+    const fname=String(d.invno).replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'_').replace(/\s+/g,' ').trim()+'.xlsx';
+    const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },1500);
+    zwShowOk(d); toast('Export สำเร็จ: '+d.invno+'.xlsx','ok');
+  }catch(e){ zwShowErr('ไม่สามารถสร้างไฟล์ Mapping ได้',[e.message||String(e)]); toast('ล้มเหลว: '+e.message,'err'); }
+  finally{ ZWS.busy=false; zwUpdateBtn(); }
+}
+function zwReset(){ ZWS.file=null; const i=document.getElementById('zwInput'); if(i)i.value='';
+  const s=document.getElementById('zwSummary'); if(s)s.innerHTML='';
+  zwRenderFiles(); zwUpdateBtn(); toast('ล้างไฟล์แล้ว','ok'); }
+/* =================== END ZHENWESTERN MODE =================== */
+
 
 
 
