@@ -496,7 +496,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="logo">📊</div>
       <div>
         <div class="name">REPORT ALL</div>
-        <div class="desc">รายงานรวมทุกระบบ · BUILD U38</div>
+        <div class="desc">รายงานรวมทุกระบบ · BUILD U42</div>
       </div>
     </div>
     <div class="profile">
@@ -4414,7 +4414,7 @@ function medRenderStatus(){
   if(mb){ let h='';
     if(!MED.loading && MED.errors.length){ h+=`<div class="msgbox warn"><b>⚠️ คำเตือน HS (${MED.errors.length}) — แถวเหล่านี้ยัง Export ครบ (sta/seq ว่าง)</b><ul>${MED.errors.slice(0,40).map(e=>`<li>${escapeHtml(e)}</li>`).join('')}${MED.errors.length>40?'<li>...</li>':''}</ul></div>`; }
     if(!MED.loading && MED.mapping.length){ h+=`<div class="msgbox ok">✅ พร้อม Export ${MED.mapping.length} แถว → กด <b>EXPORT EXCEL</b> (ไฟล์: MEDTRONIC_MAPPING_${escapeHtml(medBaseName(MED.fileName))}.xlsx)</div>`; }
-    if(!MED.loading && MED.lpiSummary){ const s=MED.lpiSummary; h+=`<div class="msgbox ${s.cut?'warn':'ok'}"><b>สรุป MAPPING LPI</b><br>รายการทั้งหมด: ${s.total} แถว · ตัดออก (NOT FOUND / NON FDA): <b>${s.cut}</b> แถว · Export จริง: <b>${s.exported}</b> แถว</div>`; }
+    if(!MED.loading && MED.lpiSummary){ const s=MED.lpiSummary; h+=`<div class="msgbox ${s.cut?'warn':'ok'}"><b>สรุป MAPPING LPI</b><br>รายการ Packing List ทั้งหมด: ${s.total} แถว · ตัดออก: <b>${s.cut}</b> แถว · Export จริงใน Sheet รวม: <b>${s.exported}</b> แถว<br>จำนวน INVOICE: <b>${s.invoices!=null?s.invoices:'-'}</b> · จำนวน Sheet: <b>${s.sheets!=null?s.sheets:'-'}</b> (รวม 1 + แยก ${s.invoices!=null?s.invoices:'-'})${s.unmatched?` · จับคู่ VAT ไม่พบ: ${s.unmatched} แถว (ไม่ตัด)`:''}</div>`; }
     mb.innerHTML=h;
   }
 }
@@ -4448,14 +4448,18 @@ async function medUploadFile(file){
     if(miss.length){ MED.loading=false; medRenderView(); toast('หัวคอลัมน์ VAT ไม่ครบ: '+miss.map(k=>MED_VATNAME[k]).join(', '),'err'); return; }
     const g=(row,k)=>{ const v=row[ix[k]]; return v==null?'':v; };
     // เก็บ lookup ITEM CODE → LINE ITEM + LPI REF + CFS + วันที่ invoice รวม (ใช้กับ LPI)
-    const vLine={}, vMeta={}; let invDate='';
+    const vLine={}, vMeta={}; let invDate=''; const vByII={}, invOrder={}; let _oi=0;   // vByII: "INVOICE NO+ITEM CODE" → {lineItem,invDate,invNo} (รองรับ ITEM ซ้ำหลาย invoice)
     for(let r=1;r<aoa.length;r++){ const row=aoa[r]; if(!row) continue;
       const it=String(g(row,'itemCode')).trim(); const ln=g(row,'lineItem');
+      const invNo=String(g(row,'invNo')).trim(); const invD=medSerialToDMY(g(row,'invDate'));
+      if(invNo && invOrder[invNo]===undefined) invOrder[invNo]=_oi++;   // ลำดับ INVOICE ตามที่ปรากฏใน VAT
+      if(invNo && it){ const k=invNo+'\u0001'+it; if(vByII[k]===undefined) vByII[k]={lineItem:ln, invDate:invD, invNo:invNo}; }   // ไม่ให้รายการหลังทับรายการก่อน
       if(it && vLine[it]===undefined && ln!=='' && ln!=null) vLine[it]=ln;
       if(it && vMeta[it]===undefined) vMeta[it]={ lpi:String(g(row,'lpi')==null?'':g(row,'lpi')).trim(), cfs:String(g(row,'cfs')==null?'':g(row,'cfs')).trim() };
       if(!invDate){ const d=medSerialToDMY(g(row,'invDate')); if(d) invDate=d; }
     }
     MED.vatItemLine=vLine; MED.vatMeta=vMeta; MED.invoiceDate=invDate; MED.packing=paoa;
+    MED.vatByInvItem=vByII; MED.vatInvOrder=invOrder;
     const map=[], warns=[];
     for(let r=1;r<aoa.length;r++){
       const row=aoa[r]||[];
@@ -4483,7 +4487,7 @@ async function medUploadFile(file){
     toast(`อ่านสำเร็จ · Export ${map.length} แถว (เท่า VAT)`+(warns.length?` · คำเตือน HS ${warns.length}`:''),'ok');
   }catch(e){ MED.loading=false; medRenderView(); toast('อ่านไฟล์ไม่สำเร็จ: '+(e.message||e),'err'); }
 }
-function medRefresh(){ MED.fileName=''; MED.mapping=[]; MED.errors=[]; MED.loading=false; MED.packing=[]; MED.vatItemLine={}; MED.vatMeta={}; MED.invoiceDate=''; MED.lpiSummary=null; medRenderView(); toast('รีเฟรชแล้ว','ok'); }
+function medRefresh(){ MED.fileName=''; MED.mapping=[]; MED.errors=[]; MED.loading=false; MED.packing=[]; MED.vatItemLine={}; MED.vatMeta={}; MED.vatByInvItem={}; MED.vatInvOrder={}; MED.invoiceDate=''; MED.lpiSummary=null; medRenderView(); toast('รีเฟรชแล้ว','ok'); }
 function medClear(){ medRefresh(); }
 
 function medExport(){
@@ -4528,68 +4532,90 @@ function medExportLPI(){
   const paoa=MED.packing;
   const phdr=(paoa[0]||[]).map(x=>String(x==null?'':x).trim());
   const pi=n=>phdr.findIndex(h=>h.toUpperCase()===n.toUpperCase());
-  const ixItem=pi('ITEM CODE'), ixLot=pi('VENDOR LOT'), ixQty=pi('QTY SHIPPED'), ixUnit=pi('SHIPPING UNIT'), ixExp=pi('EXPIRY DATE (DD/MM/YYYY)');
+  const ixInv=pi('INVOICE NUMBER'), ixItem=pi('ITEM CODE'), ixLot=pi('VENDOR LOT'), ixQty=pi('QTY SHIPPED'), ixUnit=pi('SHIPPING UNIT'), ixExp=pi('EXPIRY DATE (DD/MM/YYYY)');
   if(ixItem<0||ixLot<0||ixQty<0||ixUnit<0){ toast('หัวคอลัมน์ Packing list ไม่ครบ (ต้องมี ITEM CODE, VENDOR LOT, QTY SHIPPED, SHIPPING UNIT)','err'); return; }
-  // สร้าง A (LINE ITEM) จาก VAT ตาม ITEM CODE · ไม่พบ → ต่อเลขลำดับ (ไม่ให้ว่าง)
-  const lineByItem={}; let maxLine=0;
-  for(const it in MED.vatItemLine){ const n=Number(MED.vatItemLine[it]); lineByItem[it]=MED.vatItemLine[it]; if(isFinite(n)&&n>maxLine)maxLine=n; }
-  const invDate = MED.invoiceDate || '';
-  const Ddate = medDMYtoDate(invDate) || new Date(9999,11,31,12,0,0);   // วันที่ผลิต = INVOICE DATE (Date จริง)
-  const rows=[]; let totalRows=0, cutRows=0;
+  const vByII=MED.vatByInvItem||{}, invOrder=MED.vatInvOrder||{};   // VAT lookup: INVOICE NO + ITEM CODE
+  const defDate=new Date(9999,11,31,12,0,0);
+  const rows=[]; let totalRows=0, cutRows=0, unmatched=0; const warns=[];
   for(let r=1;r<paoa.length;r++){
     const row=paoa[r]; if(!row||row.every(x=>x==null||x==='')) continue;
     const item=String(row[ixItem]==null?'':row[ixItem]).trim();
-    if(item==='') continue;   // ต้องมี item อย่างน้อย
+    if(item==='') continue;   // ไม่มี ITEM CODE = ไม่ใช่แถวข้อมูล
     totalRows+=1;
-    // กรอง: VAT LPI REFERENCE CODE = "NOT FOUND" หรือ CFS = "NON FDA" → ตัดออกก่อน mapping/นับ
-    const meta=(MED.vatMeta&&MED.vatMeta[item])||null;
-    if(meta && ((meta.lpi||'').toUpperCase()==='NOT FOUND' || (meta.cfs||'').toUpperCase()==='NON FDA')){ cutRows+=1; continue; }
-    // A = LINE ITEM (จาก VAT · ไม่พบ → ต่อเลขลำดับ)
-    let A = lineByItem[item];
-    if(A===undefined || A===''){ maxLine+=1; A=maxLine; lineByItem[item]=A; }
-    const An = Number(A); const Asort = isFinite(An)?An:Number.MAX_SAFE_INTEGER;
+    // Packing List เป็น master 100% — ทุกแถวสร้าง LPI · ไม่ตัด (NOT FOUND/NON FDA/LOT ซ้ำ/ITEM ซ้ำ/จับคู่ VAT ไม่พบ)
+    const pInv=ixInv>=0?String(row[ixInv]==null?'':row[ixInv]).trim():'';
+    const v=vByII[pInv+'\u0001'+item]||null;   // จับคู่ VAT ด้วย INVOICE NO + ITEM CODE (ITEM ซ้ำหลาย invoice แยกถูก)
+    let A, invForJ, Ddate;
+    if(v){ A=v.lineItem; invForJ=v.invNo; Ddate=medDMYtoDate(v.invDate)||defDate; }
+    else { A=''; invForJ=pInv; Ddate=(MED.invoiceDate?medDMYtoDate(MED.invoiceDate):null)||defDate; unmatched+=1;
+           warns.push(`แถว Packing ${r+1} (INVOICE ${pInv||'-'} · ITEM ${item}) จับคู่ VAT ไม่พบ — Export ต่อ (LINE ITEM/DATE จาก VAT ว่าง)`); }
+    const invSort=(invOrder[pInv]!=null)?invOrder[pInv]:Number.MAX_SAFE_INTEGER;   // เรียงตามลำดับ INVOICE ใน VAT
+    const An=Number(A); const Asort=(A!==''&&A!=null&&isFinite(An))?An:Number.MAX_SAFE_INTEGER;
     const lotRaw=row[ixLot]; const lot=(lotRaw==null||String(lotRaw).trim()==='')?'NO-LOT':String(lotRaw).trim();
     const expRaw=(ixExp>=0)?row[ixExp]:'';
     let Estr=medSerialToDMY(expRaw); if(!Estr||String(Estr).trim()==='') Estr='31/12/9999';
-    const Edate=medDMYtoDate(Estr) || new Date(9999,11,31,12,0,0);   // วันที่หมดอายุ = Date จริง · ว่าง→31/12/9999
+    const Edate=medDMYtoDate(Estr) || defDate;   // วันที่หมดอายุ = Date จริง · ว่าง→31/12/9999
     const qtyRaw=row[ixQty]; let H=Number(qtyRaw); if(!isFinite(H)||qtyRaw==null||qtyRaw==='') H=0;
     const unit=medUnit(row[ixUnit]);
-    rows.push({A:A, _asort:Asort, _pk:r, C:lot, D:Ddate, E:Edate, F:1, G:unit, H:H, I:unit});
+    rows.push({A:A, J:invForJ, _inv:pInv, _invsort:invSort, _asort:Asort, _pk:r, C:lot, D:Ddate, E:Edate, F:1, G:unit, H:H, I:unit});
   }
-  if(!rows.length){ toast('ไม่มีแถว Lot ให้ Export','err'); return; }
-  // เรียง: LINE ITEM น้อย→มาก · ลำดับ VAT เดิม (=line item) · ลำดับ Packing list เดิม
-  rows.sort((a,b)=> (a._asort-b._asort) || (a._pk-b._pk));
-  // คำนวณ B ใหม่หลัง sort: เริ่ม 1 ใหม่เมื่อ LINE ITEM เปลี่ยน
-  let curA=null, cnt=0;
-  rows.forEach(r=>{ if(r.A!==curA){ curA=r.A; cnt=0; } cnt+=1; r.B=cnt; });
+  if(!rows.length){ toast('ไม่มีแถวข้อมูล Packing list ให้ Export','err'); return; }
+  // เรียง: ลำดับ INVOICE (ตาม VAT) → LINE ITEM (น้อย→มาก) → ลำดับแถวเดิมของ Packing list
+  rows.sort((a,b)=> (a._invsort-b._invsort) || (a._asort-b._asort) || (a._pk-b._pk));
+  // B = ลำดับภายในกลุ่ม INVOICE NO + LINE ITEM (เริ่ม 1 ใหม่เมื่อเปลี่ยน INVOICE หรือ LINE ITEM)
+  let curKey=null, cnt=0;
+  rows.forEach(r=>{ const k=r._inv+'\u0001'+String(r.A); if(k!==curKey){ curKey=k; cnt=0; } cnt+=1; r.B=cnt; });
   // เขียนลง template LPI (ห้ามเปลี่ยนสี/ฟอนต์/ความกว้าง)
   const tplwb=XLSX.read(LPI_TPL_B64,{type:'base64',cellStyles:true,cellNF:true});
   const tplName=tplwb.SheetNames[0]; const tplws=tplwb.Sheets[tplName];
-  const NC=9;
-  const cols=(tplws['!cols']||[]).slice(0,NC).map(c=>{const o={};if(c){if(typeof c.wch==='number')o.wch=c.wch;else if(typeof c.wpx==='number')o.wpx=Math.round(c.wpx);}return o;});
-  const H=[]; for(let c=0;c<NC;c++){ const hc=tplws[XLSX.utils.encode_cell({r:0,c})]; H.push(hc&&hc.v!=null?String(hc.v):''); }
+  const NC=10;   // A–J (เพิ่ม J = INVOICE NO) · A–I เดิมไม่เปลี่ยน
+  const cols=[]; for(let c=0;c<9;c++){ const cc=(tplws['!cols']||[])[c]; const o={}; if(cc){ if(typeof cc.wch==='number')o.wch=cc.wch; else if(typeof cc.wpx==='number')o.wpx=Math.round(cc.wpx); } cols.push(o); }
+  cols.push({wch:16});   // ความกว้างคอลัมน์ J
   const _thin={style:'thin',color:{rgb:'000000'}}, _bd={top:_thin,bottom:_thin,left:_thin,right:_thin};
   const mkData=()=>({font:{name:'Calibri',sz:11},border:_bd});
-  const L=['A','B','C','D','E','F','G','H','I'];
-  const ws={};
-  // หัวตาราง: copy จาก template ตรงๆ (คงข้อความ/สี/ฟอนต์เดิม) · ลบ _x000d_ (escape \r ของ SheetJS)
-  for(let c=0;c<NC;c++){ const ref=XLSX.utils.encode_cell({r:0,c}); const tc=tplws[ref]; const cell= tc?JSON.parse(JSON.stringify(tc)):{t:'s',v:H[c]}; if(typeof cell.v==='string') cell.v=cell.v.replace(/_x000d_/g,'').replace(/\r\n/g,'\n').replace(/\r/g,''); ws[ref]=cell; }
-  rows.forEach((r,ri)=>{ const R=ri+1;
-    for(let c=0;c<NC;c++){ const k=L[c]; const ref=XLSX.utils.encode_cell({r:R,c}); let v=r[k]; let cell;
-      if(k==='D'||k==='E'){ cell=(v instanceof Date)?{t:'d',v:v,z:'dd/mm/yyyy'}:{t:'d',v:new Date(9999,11,31,12,0,0),z:'dd/mm/yyyy'}; }   // วันที่ Excel จริง
-      else if(['A','B','F','H'].includes(k)){ const n=Number(v); cell=isFinite(n)?{t:'n',v:n}:{t:'s',v:String(v==null?'':v)}; }
-      else { cell={t:'s',v:(v==null?'':String(v))}; }
-      cell.s=mkData(); ws[ref]=cell;
-    }
-  });
-  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:NC-1}});
-  ws['!cols']=cols;
-  const wb={SheetNames:[tplName],Sheets:{}}; wb.Sheets[tplName]=ws;
+  const L=['A','B','C','D','E','F','G','H','I','J'];
+  // สร้าง 1 worksheet จาก subset ของ rows (หัว A–I จาก Template + หัว J 'INVOICE NO' + ข้อมูล + สไตล์/ความกว้างเดิม)
+  function mkSheet(subset){
+    const ws={};
+    for(let c=0;c<9;c++){ const ref=XLSX.utils.encode_cell({r:0,c}); const tc=tplws[ref]; const cell= tc?JSON.parse(JSON.stringify(tc)):{t:'s',v:''}; if(typeof cell.v==='string') cell.v=cell.v.replace(/_x000d_/g,'').replace(/\r\n/g,'\n').replace(/\r/g,''); ws[ref]=cell; }
+    { const hi=tplws[XLSX.utils.encode_cell({r:0,c:8})]; const jc=hi?JSON.parse(JSON.stringify(hi)):{t:'s'}; jc.v='INVOICE NO'; jc.t='s'; ws[XLSX.utils.encode_cell({r:0,c:9})]=jc; }
+    subset.forEach((r,ri)=>{ const R=ri+1;
+      for(let c=0;c<NC;c++){ const k=L[c]; const ref=XLSX.utils.encode_cell({r:R,c}); let v=r[k]; let cell;
+        if(k==='D'||k==='E'){ cell=(v instanceof Date)?{t:'d',v:v,z:'dd/mm/yyyy'}:{t:'d',v:new Date(9999,11,31,12,0,0),z:'dd/mm/yyyy'}; }   // วันที่ Excel จริง
+        else if(k==='J'){ cell={t:'s',v:(v==null?'':String(v))}; }   // INVOICE NO = ข้อความ (กันเลขยกกำลัง/คงศูนย์หน้า)
+        else if(['A','B','F','H'].includes(k)){ const n=Number(v); cell=(v!==''&&v!=null&&isFinite(n))?{t:'n',v:n}:{t:'s',v:String(v==null?'':v)}; }
+        else { cell={t:'s',v:(v==null?'':String(v))}; }
+        cell.s=mkData(); ws[ref]=cell;
+      }
+    });
+    ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:subset.length,c:NC-1}});
+    ws['!cols']=cols;
+    return ws;
+  }
+  // ตรวจจำนวน Sheet รวม = จำนวนแถวข้อมูล Packing list — ไม่เท่า → หยุด
+  if(rows.length!==totalRows){ toast('จำนวน Export ('+rows.length+') ไม่เท่าจำนวนแถว Packing list ('+totalRows+') — หยุด Export','err'); return; }
+  // จัดกลุ่มตาม INVOICE NO (คงลำดับตาม VAT จาก rows ที่ sort แล้ว) — ใช้ค่า J เป็นตัวแยก
+  const invGroups=[], invIndex={};
+  rows.forEach(r=>{ const inv=String(r.J==null?'':r.J); if(invIndex[inv]===undefined){ invIndex[inv]=invGroups.length; invGroups.push({inv:inv, rows:[]}); } invGroups[invIndex[inv]].rows.push(r); });
+  // ชื่อ Sheet = เลข INVOICE (ลบอักขระต้องห้าม \ / ? * [ ] : · ตัดถ้าเกิน 31 + เตือน · คงเลข invoice)
+  const usedNames={}, sheetWarns=[];
+  function sheetName(inv){ let n=String(inv).replace(/[\\\/\?\*\[\]:]/g,''); if(n==='') n='INV';
+    if(n.length>31){ n=n.slice(0,31); sheetWarns.push('ชื่อ Sheet "'+inv+'" ยาวเกิน 31 ตัว — ตัดเหลือ "'+n+'"'); }
+    let base=n, i=2; while(usedNames[n.toLowerCase()]){ const suf='_'+i; n=base.slice(0,31-suf.length)+suf; i++; } usedNames[n.toLowerCase()]=1; return n; }
+  // ประกอบ workbook: Sheet 'รวม' ก่อน แล้วตามด้วยแต่ละ INVOICE ตามลำดับ VAT
+  const wb={SheetNames:[], Sheets:{}};
+  wb.SheetNames.push('รวม'); wb.Sheets['รวม']=mkSheet(rows);
+  let splitTotal=0;
+  invGroups.forEach(gp=>{ const nm=sheetName(gp.inv); wb.SheetNames.push(nm); wb.Sheets[nm]=mkSheet(gp.rows); splitTotal+=gp.rows.length; });
+  // ตรวจ: ผลรวม Sheet แยกทุก INVOICE ต้องเท่ากับ Sheet รวม
+  if(splitTotal!==rows.length){ toast('ผลรวม Sheet แยก ('+splitTotal+') ไม่เท่า Sheet รวม ('+rows.length+') — หยุด Export','err'); return; }
   const fname=`MAPPING_LPI_${medBaseName(MED.fileName)}.xlsx`;
   XLSX.writeFile(wb,fname,{bookType:'xlsx'});
-  MED.lpiSummary={ total:totalRows, cut:cutRows, exported:rows.length };
-  medRenderStatus();
-  toast(`Export MAPPING LPI · ทั้งหมด ${totalRows} · ตัดออก ${cutRows} · Export ${rows.length} · ${fname}`,'ok');
+  MED.lpiSummary={ total:totalRows, cut:cutRows, exported:rows.length, unmatched:unmatched, invoices:invGroups.length, sheets:invGroups.length+1 };
+  const allWarns=warns.concat(sheetWarns);
+  if(allWarns.length) MED.errors=(MED.errors||[]).concat(allWarns);   // คำเตือน (จับคู่ไม่พบ/ชื่อ sheet ตัด) — ไม่ตัดรายการ
+  medRenderStatus(); medRenderView();
+  toast(`Export MAPPING LPI · รวม ${rows.length} แถว · ${invGroups.length} INVOICE · ${invGroups.length+1} Sheet · ${fname}`,'ok');
 }
 
 </script>
@@ -4705,12 +4731,34 @@ CVT.parseInvoice=function(pageLines){
    header line: |N| |CTECxxxx| |WEIGHT| |dim| |vol   (carry pkg + weight)
    item line:   |CTECxxxx|? |SIDxxxx| |ORDER| |LINE| |PRTNUM| |desc| |ICC| |QTY| |BATCH| |EXPIRY| |NW
 ================================================================== */
+/* Expiry Date รองรับ 2 รูปแบบ (PDF.js อาจแยก token ต่างกันในแต่ละเบราว์เซอร์):
+   (1) token เดียว: "01 Mar 2031"  (2) 3 token: "01" | "Mar" | "2031"
+   วัน 1-2 หลัก (1 Mar / 01 Mar / 31 Dec) · ห้ามใช้แถวแรกแทน · หา batch/qty จากตำแหน่งก่อนวันที่ */
+const _PL_MON={jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+function _plMonOK(t){ return t!=null && Object.prototype.hasOwnProperty.call(_PL_MON, String(t).toLowerCase()); }
+function _plFmtExpiry(d,mo,y){ return String(parseInt(d,10)).padStart(2,'0')+' '+_PL_MON[String(mo).toLowerCase()]+' '+String(y); }
+/* คืน {dateStart, expiry} : dateStart = index ของ token วันแรกของวันที่ (batch = ก่อนหน้า 1) หรือ null ถ้าไม่พบ */
+function _plFindExpiry(T){
+  // (1) single-token full date — scan ท้าย→หน้า (เอาตัวใกล้ NW)
+  for(let i=T.length-1;i>=0;i--){
+    const mm=String(T[i]).match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
+    if(mm && _plMonOK(mm[2])) return {dateStart:i, expiry:_plFmtExpiry(mm[1],mm[2],mm[3])};
+  }
+  // (2) 3-token date "dd" | "Mon" | "yyyy" — scan ท้าย→หน้า
+  for(let i=T.length-3;i>=0;i--){
+    if(/^\d{1,2}$/.test(T[i]) && _plMonOK(T[i+1]) && /^\d{4}$/.test(T[i+2])){
+      return {dateStart:i, expiry:_plFmtExpiry(T[i],T[i+1],T[i+2])};
+    }
+  }
+  return null;
+}
 CVT.parsePL=function(pageLines){
-  const rows=[]; let curPkg='', curPkgW=null;
+  const rows=[]; const warnings=[]; let curPkg='', curPkgW=null;
   const meta={totalPackages:null,totalQty:null,totalNW:null,totalGW:null};
-  const flat=[]; pageLines.forEach(pl=>pl.forEach(l=>flat.push(l)));
+  const flat=[]; pageLines.forEach((pl,pi)=>pl.forEach(l=>flat.push({line:l,page:pi+1})));
 
-  for(const line of flat){
+  for(const fl of flat){
+    const line=fl.line, page=fl.page;
     // capture meta totals
     let m;
     if((m=line.match(/Total Package\(s\):[\s|]*(\d[\d,]*)/))) meta.totalPackages=parseInt(m[1].replace(/,/g,''),10);
@@ -4727,24 +4775,28 @@ CVT.parsePL=function(pageLines){
     }
     // item line: find an ORDER (10-digit 0032...) + LINE (6-digit) + PRTNUM (7-digit)
     // token forms: may start with CTEC (same pkg) or SID
-    const oi=T.findIndex(t=>/^0?0?3\d{6,8}$/.test(t) && t.length>=8 && /^00\d{8}$/.test(t)); // 0032315737
     let orderIdx=T.findIndex(t=>/^00\d{8}$/.test(t));
     if(orderIdx>=0){
       const order=T[orderIdx];
       const lineNo=T[orderIdx+1];      // 000010
       const prtnum=T[orderIdx+2];      // 1012193
       if(/^\d{6}$/.test(lineNo) && /^\d{6,8}$/.test(prtnum)){
-        // qty, batch, expiry, nw are the trailing tokens; nw = last decimal token
-        // find last numeric decimal (NW)
+        // nw = last decimal token
         let nw=null;
         for(let k=T.length-1;k>=0;k--){ if(/^\d+\.\d+$/.test(T[k])){ nw=parseFloat(T[k]); break; } }
-        // batch = token before an expiry date pattern; qty = int before batch
+        // batch = token ก่อนวันที่ · qty = int ก่อน batch (รองรับวันที่ 1-token และ 3-token)
         let batch='',qty=null,expiry='';
-        const exIdx=T.findIndex(t=>/^\d{2}\s[A-Za-z]{3}\s\d{4}$/.test(t));
-        if(exIdx>=0){
-          expiry=T[exIdx];
-          batch=normBatch(T[exIdx-1]);
-          qty=parseInt(s(T[exIdx-2]).replace(/,/g,''),10);
+        const ex=_plFindExpiry(T);
+        if(ex){
+          expiry=ex.expiry;
+          if(ex.dateStart-1>=0) batch=normBatch(T[ex.dateStart-1]);
+          if(ex.dateStart-2>=0){ const q=parseInt(s(T[ex.dateStart-2]).replace(/,/g,''),10); qty=isNaN(q)?null:q; }
+        }
+        // ข้อ 2: ห้ามปล่อยผ่านเงียบ — batch/qty อ่านไม่ได้ = Warning พร้อมหน้า+token ต้นทาง (ไม่แก้เป็นค่าว่างแบบเงียบ)
+        if(!batch || qty==null){
+          warnings.push('PL อ่าน '+(!batch&&qty==null?'Batch+Qty':(!batch?'Batch':'Qty'))
+            +' ไม่ได้: หน้า '+page+' Delivery '+normText(order)+' Line '+lineNo+' Item '+normText(prtnum)
+            +' | Tokens: '+T.join(' · '));
         }
         rows.push({
           package:curPkg, packageWeight:curPkgW,
@@ -4755,7 +4807,7 @@ CVT.parsePL=function(pageLines){
       }
     }
   }
-  return {rows, meta};
+  return {rows, meta, warnings};
 };
 
 /* ==================================================================
@@ -4851,6 +4903,9 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   const errors=[], warnings=[], issues=[];
   function addIssue(ctx,reason){ issues.push({invoice:ctx.invoice||'',delivery:ctx.delivery||'',line:(ctx.line!=null?ctx.line:''),item:ctx.item||'',batch:ctx.batch||'',reason:reason}); }
   const round=(x,d)=>{ const f=Math.pow(10,d); return Math.round((x+Number.EPSILON)*f)/f; };
+  // ข้อ 2: Warning จากตัวอ่าน PL (batch/qty อ่านไม่ได้) ให้ทะลุมาถึงหน้าสรุป/Export
+  if(pl && pl.warnings && pl.warnings.length) pl.warnings.forEach(w=>warnings.push(w));
+  let matchedBatchesTotal=0, totalBatchesAll=0;   // ข้อ 8: นับ batch จับคู่ TH Ship สำเร็จ/ทั้งหมด
 
   // delivery -> invoiceNo
   const delToInv={};
@@ -4963,6 +5018,7 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       const thSap = thSapSet.size===1 ? [...thSapSet][0] : '';
       const fiSap = thSap;
       const allMatched = batchKeys.length>0 && matchedCount===batchKeys.length;   // ข้อ 6: ครบทุก batch เท่านั้น (ห้ามยอดบางส่วน)
+      totalBatchesAll += batchKeys.length; matchedBatchesTotal += matchedCount;   // ข้อ 8
 
       // HS / UoM consistency
       if(hsSet.size>1){ errors.push(`HS ไม่ตรงกันใน Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode}: ${[...hsSet].join(',')}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`HS ไม่ตรงกันในบรรทัด: ${[...hsSet].join(', ')}`); }
@@ -5039,6 +5095,13 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   validation.sumQty=sumQty; validation.sumNW=sumNW; validation.sumGW=sumGW; validation.sumValue=sumValue;
   validation.plMeta=pl.meta;
   validation.rowCount=mainRows.length; validation.lpiCount=lpiRows.length;
+  // ข้อ 8: ตัวเลขจับคู่ + คีย์ตัวอย่างจาก 3 แหล่ง (ไว้แจ้งเตือนกรณีจับคู่ = 0)
+  validation.matchedBatches=matchedBatchesTotal; validation.totalBatches=totalBatchesAll;
+  validation.sampleKeys={
+    invoicePdf: invoices.slice(0,5).map(iv=>({invoice:iv.invoiceNo, delivery:iv.deliveryNo, lines:iv.lines.length})),
+    packingList: (pl.rows||[]).slice(0,5).map(r=>({delivery:r.delivery, sap:r.itemCode, batch:r.batch, qty:r.qty})),
+    thShip: (fillIn.rows||[]).slice(0,5).map(r=>({invoice:r.invoice, delivery:r.delivery, sap:r.sap, batch:r.batch, qty:r.qty}))
+  };
 
   // ---- totals mismatch vs PL declared ----
   if(pl.meta){
@@ -7278,7 +7341,7 @@ function convatecRenderView(){
         <label class="pick">📄 เลือกไฟล์ Invoice PDF
           <input id="cvtInvInput" type="file" accept=".pdf" multiple style="display:none" onchange="cvtAddInv(this.files)"></label>
         <span class="hint">รองรับหลายไฟล์ · ลากวางได้ · ลำดับตามที่อัปโหลด</span>
-        <div class="flist" id="cvtInvList"></div>
+        <div class="flist" id="cvtInvList" style="max-height:270px;overflow-y:auto"></div>
       </div>
       <div class="drop anca-upload-card" id="cvtPlDrop">
         <h4>2. PACKING LIST PDF (1 ไฟล์)</h4>
@@ -7353,14 +7416,13 @@ function cvtInvDrop(e,i){ e.preventDefault(); if(cvtDragIdx==null||cvtDragIdx===
 function cvtRenderFiles(){
   const il=document.getElementById('cvtInvList');
   if(il) il.innerHTML = CS.invPdfs.map((p,i)=>{
-    const st=p.error?`<span class="ferr">อ่านไม่ได้: ${escapeHtml(p.error)}</span>`
-      :(p.parsed?`<span class="fok">พร้อม</span> · Inv <b>${escapeHtml(p.parsed.invoiceNo||'?')}</b> · Deliv ${escapeHtml(p.parsed.deliveryNo||'?')} · ${p.parsed.lines.length} บรรทัด`:'⏳ กำลังอ่าน...');
-    return `<div class="frow" draggable="true" data-cvti="${i}" ondragstart="cvtInvDragStart(event,${i})" ondragover="event.preventDefault()" ondrop="cvtInvDrop(event,${i})" title="ลากเพื่อจัดลำดับ Invoice" style="cursor:grab"><span class="fn">☰ 📄 ${escapeHtml(p.name)}</span><span class="fmeta">${cvtFmtBytes(p.size)} · ${st}</span><button class="del" onclick="cvtDelInv(${i})">✕</button></div>`;
+    const st=p.error?'<span class="ferr">อ่านไม่ได้</span>':(p.parsed?'<span class="fok">● พร้อม</span>':'⏳ กำลังอ่าน');
+    return `<div class="frow" draggable="true" data-cvti="${i}" ondragstart="cvtInvDragStart(event,${i})" ondragover="event.preventDefault()" ondrop="cvtInvDrop(event,${i})" style="cursor:grab;padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(p.name)}" style="flex:1;min-width:0;max-width:none">☰ 📄 ${escapeHtml(p.name)}</span><span class="fmeta" style="flex:0 0 auto">${st}</span><button class="del" onclick="cvtDelInv(${i})">✕</button></div>`;
   }).join('')||'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   const pl=document.getElementById('cvtPlList');
-  if(pl) pl.innerHTML = CS.pl?`<div class="frow"><span class="fn">📄 ${escapeHtml(CS.pl.name)}</span><span class="fmeta"><span class="fok">พร้อม</span> · ${CS.pl.data.rows.length} รายการ · ${CS.pl.pages} หน้า</span><button class="del" onclick="cvtDelPl()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
+  if(pl) pl.innerHTML = CS.pl?`<div class="frow" style="padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(CS.pl.name)}" style="flex:1;min-width:0;max-width:none">📄 ${escapeHtml(CS.pl.name)}</span><span class="fmeta" style="flex:0 0 auto"><span class="fok">● พร้อม</span></span><button class="del" onclick="cvtDelPl()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   const th=document.getElementById('cvtThList');
-  if(th) th.innerHTML = CS.th?`<div class="frow"><span class="fn">📊 ${escapeHtml(CS.th.name)}</span><span class="fmeta"><span class="fok">พร้อม</span> · Fill in ${CS.th.fi.rows.length}</span><button class="del" onclick="cvtDelTh()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
+  if(th) th.innerHTML = CS.th?`<div class="frow" style="padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(CS.th.name)}" style="flex:1;min-width:0;max-width:none">📊 ${escapeHtml(CS.th.name)}</span><span class="fmeta" style="flex:0 0 auto"><span class="fok">● พร้อม</span></span><button class="del" onclick="cvtDelTh()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   cvtUpdateButtons();
   cvtTryPreview();
 }
@@ -7445,13 +7507,28 @@ async function cvtExport(kind){
   const restore=()=>{ CS.busy=false; btnMain.innerHTML=origMain; btnLpi.innerHTML=origLpi; if(clearBtn) clearBtn.disabled=false; cvtUpdateButtons(); };
   try{
     const res=await cvtRunPipeline(btn);
-    // ข้อ 1: ไม่บล็อก Export จาก blocked/errors/warnings — สร้างไฟล์เสมอ (Warning แสดงใน Dashboard)
+    // ข้อ 8: ไฟล์ครบทั้ง 3 แหล่ง แต่จับคู่ TH Ship = 0 → ห้ามแจ้งสำเร็จ · โชว์คีย์ตัวอย่าง 3 แหล่ง
+    const v=res.validation||{};
+    const allSrc = (CS.invPdfs.filter(p=>p.parsed).length>=1)
+                 && (CS.pl&&CS.pl.data&&CS.pl.data.rows&&CS.pl.data.rows.length>0)
+                 && (CS.th&&CS.th.fi&&CS.th.fi.rows&&CS.th.fi.rows.length>0);
+    const zeroMatch = allSrc && (v.totalBatches>0) && (v.matchedBatches===0);
+    if(zeroMatch){
+      const sk=v.sampleKeys||{};
+      res.warnings.push('❌ จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด (0/'+v.totalBatches+' batch) — ตรวจคีย์ Invoice+Delivery+SAP+Batch');
+      (sk.invoicePdf||[]).forEach(k=>res.warnings.push('  Invoice PDF: Invoice '+k.invoice+' · Delivery '+k.delivery));
+      (sk.packingList||[]).forEach(k=>res.warnings.push('  Packing List: Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
+      (sk.thShip||[]).forEach(k=>res.warnings.push('  TH Ship: Invoice '+k.invoice+' · Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
+      try{ console.warn('CVT zero-match sampleKeys',sk); }catch(_){}
+    }
+    // ข้อ 1: ยังสร้างไฟล์เสมอ (Warning แสดงใน Dashboard) — แต่ข้อความสถานะสะท้อนผลจับคู่จริง
     await cvtStep(btn,'กำลังสร้าง Excel...');
     if(kind==='main'){ const bytes=CVT.exportMain(XLSX,null,res.mainRows); cvtDownload(bytes,'MAPPING_CONVATEC_'+cvtTs()+'.xlsx'); }
     else { const bytes=CVT.exportLPI(XLSX,null,res.lpiRows); cvtDownload(bytes,'MAPPING_LPI_CONVATEC_'+cvtTs()+'.xlsx'); }
     cvtRenderDash(res);
     restore();
-    toast('Export สำเร็จ','ok');
+    if(zeroMatch) toast('จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด — ดูคีย์ตัวอย่างใน Dashboard','err');
+    else toast('Export สำเร็จ','ok');
   }catch(e){
     console.error(e); restore(); toast('Export ล้มเหลว: '+(e.message||e),'err');
   }
