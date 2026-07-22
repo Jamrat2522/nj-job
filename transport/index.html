@@ -1226,12 +1226,39 @@ html, body { overflow-x: hidden !important; }
           </div>
           <input type="text" id="sac_fOwner" placeholder="🔎 ผู้เบิกเงิน" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;min-width:120px;"/>
 
-          <select id="sac_fClose" title="สถานะปิดบัญชี" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;color-scheme:dark;">
-            <option value="ALL">สถานะปิดบัญชี: ทั้งหมด</option>
-            <option value="OUTSTANDING">🔴 มียอดยกไป</option>
-            <option value="WAIT_RETURN">🟡 รอคืนเงิน</option>
-            <option value="CLOSED">🟢 ปิดครบ</option>
-          </select>
+          <!-- สถานะปิดบัญชี (multi-select checkbox) -->
+          <div class="sac-msel" id="sac_fStatusMsel">
+            <button type="button" class="sac-msel-btn" id="sac_fStatusBtn">สถานะ: <span class="cv" id="sac_fStatusCv">ทั้งหมด</span> ▾</button>
+            <div class="sac-msel-panel" id="sac_fStatusPanel" style="display:none;">
+              <label><input type="checkbox" id="sac_fStatusAll"> <b>ทั้งหมด</b></label>
+              <div class="sac-msel-div"></div>
+              <label><input type="checkbox" class="sac_fStatusOpt" value="OUTSTANDING"> 🔴 ยอดยกไป</label>
+              <label><input type="checkbox" class="sac_fStatusOpt" value="WAIT_RETURN"> 🟡 รอคืนเงิน</label>
+              <label><input type="checkbox" class="sac_fStatusOpt" value="CLOSED"> 🟢 ปิดครบ</label>
+            </div>
+          </div>
+
+          <!-- ยอดคืนบริษัท (multi-select + ค้นหา) -->
+          <div class="sac-msel" id="sac_fReturnMsel">
+            <button type="button" class="sac-msel-btn" id="sac_fReturnBtn">ยอดคืนบริษัท: <span class="cv" id="sac_fReturnCv">ทั้งหมด</span> ▾</button>
+            <div class="sac-msel-panel" id="sac_fReturnPanel" style="display:none;">
+              <input type="text" class="sac-msel-search" id="sac_fReturnSearch" placeholder="🔎 ค้นหายอดเงิน..." autocomplete="off"/>
+              <label><input type="checkbox" id="sac_fReturnAll"> <b>ทั้งหมด</b></label>
+              <div class="sac-msel-div"></div>
+              <div id="sac_fReturnList"></div>
+            </div>
+          </div>
+
+          <!-- ยอดปิดไม่ได้ / ยอดยกไปวันใหม่ (multi-select + ค้นหา) -->
+          <div class="sac-msel" id="sac_fUnclosedMsel">
+            <button type="button" class="sac-msel-btn" id="sac_fUnclosedBtn">ยอดปิดไม่ได้: <span class="cv" id="sac_fUnclosedCv">ทั้งหมด</span> ▾</button>
+            <div class="sac-msel-panel" id="sac_fUnclosedPanel" style="display:none;">
+              <input type="text" class="sac-msel-search" id="sac_fUnclosedSearch" placeholder="🔎 ค้นหายอดเงิน..." autocomplete="off"/>
+              <label><input type="checkbox" id="sac_fUnclosedAll"> <b>ทั้งหมด</b></label>
+              <div class="sac-msel-div"></div>
+              <div id="sac_fUnclosedList"></div>
+            </div>
+          </div>
 
           <div style="flex:1;min-width:8px;"></div>
 
@@ -1652,6 +1679,17 @@ html, body { overflow-x: hidden !important; }
 @media(max-width:600px){ .sac-fgrid,.sac-fgrid2{grid-template-columns:1fr;} }
 /* เน้นกรอบแดงช่องบังคับที่ยังว่าง */
 .sac-invalid{border-color:var(--red) !important;box-shadow:0 0 0 2px rgba(224,82,82,.28) !important;}
+/* ตัวกรอง multi-select (สถานะ / ยอดคืนบริษัท) */
+.sac-msel{position:relative;display:inline-block;}
+.sac-msel-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+.sac-msel-btn .cv{color:var(--accent);font-weight:600;}
+.sac-msel-panel{position:absolute;top:calc(100% + 4px);left:0;min-width:190px;max-width:270px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:60;padding:6px;max-height:300px;overflow:auto;}
+.sac-msel-panel label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;white-space:nowrap;}
+.sac-msel-panel label:hover{background:var(--bg3);}
+.sac-msel-panel input[type=checkbox]{cursor:pointer;width:15px;height:15px;flex:none;accent-color:var(--accent);}
+.sac-msel-search{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 8px;border-radius:6px;margin-bottom:6px;}
+.sac-msel-div{border-top:1px solid var(--border);margin:4px 2px;}
+.sac-msel-empty{padding:8px;font-size:12px;color:var(--muted);}
 </style>
 
 <!-- ══ 💰 ปิดบัญชีชิปปิ้ง — FORM MODAL (เพิ่ม/แก้ไข) ══ -->
@@ -1674,10 +1712,24 @@ html, body { overflow-x: hidden !important; }
         </div>
       </div>
       <div class="fg" style="position:relative;">
-        <label>ชื่อชิปปิ้ง <span style="color:var(--accent);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;">ค้นหาชื่อ/ชื่อเล่น</span> <span style="color:var(--red);font-weight:700;">*</span></label>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <span>ชื่อชิปปิ้ง <span style="color:var(--accent);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;">ค้นหาชื่อ/ชื่อเล่น</span> <span style="color:var(--red);font-weight:700;">*</span></span>
+          <button type="button" id="sac_shipAddBtn" title="เพิ่มชื่อชิปปิ้งใหม่" style="margin-left:auto;background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.4);color:var(--accent);font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;cursor:pointer;font-family:'Sarabun',sans-serif;white-space:nowrap;">➕ เพิ่มชื่อ</button>
+        </label>
         <div style="position:relative;">
           <input type="text" id="sac_ship" placeholder="พิมพ์ชื่อจริงหรือชื่อเล่น..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"/>
           <div id="sac_shipDD" class="sac-combo-dd" style="display:none;"></div>
+          <!-- แผงเพิ่มชื่อชิปปิ้งใหม่ -->
+          <div id="sac_shipAddPanel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:80;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.45);padding:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;">➕ เพิ่มชื่อชิปปิ้งใหม่</div>
+            <input type="text" id="sac_shipAddFull" placeholder="ชื่อจริง" autocomplete="off" style="width:100%;margin-bottom:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:6px 9px;border-radius:6px;"/>
+            <input type="text" id="sac_shipAddNick" placeholder="ชื่อเล่น (ถ้ามี)" autocomplete="off" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:6px 9px;border-radius:6px;"/>
+            <div id="sac_shipAddErr" style="display:none;color:var(--red);font-size:11px;margin-bottom:6px;"></div>
+            <div style="display:flex;gap:6px;justify-content:flex-end;">
+              <button type="button" id="sac_shipAddCancel" style="background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 12px;border-radius:7px;cursor:pointer;">ยกเลิก</button>
+              <button type="button" id="sac_shipAddSave" style="background:var(--accent);color:#000;border:none;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;padding:5px 14px;border-radius:7px;cursor:pointer;">💾 บันทึก</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -5099,7 +5151,6 @@ function _sacReadFilters(){
     end:     ($('sac_fEnd')||{}).value || '',
     ship:    (($('sac_fShip')||{}).value || '').trim().toLowerCase(),
     owner:   (($('sac_fOwner')||{}).value || '').trim().toLowerCase(),
-    close:   ($('sac_fClose')||{}).value || 'ALL',
   };
 }
 
@@ -5110,7 +5161,12 @@ function _sacFilterGroups(groups, f){
     if(f.end   && (g.closing_date||'') > f.end)   return false;
     if(f.ship  && !String(g.shipping_name||'').toLowerCase().includes(f.ship)) return false;
     if(f.owner && !String(g.ownerText||'').toLowerCase().includes(f.owner)) return false;
-    if(f.close && f.close!=='ALL' && !(g.statusCodes||[g.status]).includes(f.close)) return false;
+    // สถานะ (multi, OR) — ว่าง = ทั้งหมด
+    if(SAC.fStatusSel && SAC.fStatusSel.size>0 && !(g.statusCodes||[g.status]).some(c=>SAC.fStatusSel.has(c))) return false;
+    // ยอดคืนบริษัท (multi, OR) — ว่าง = ทั้งหมด
+    if(SAC.fReturnSel && SAC.fReturnSel.size>0 && !SAC.fReturnSel.has(_sacR2(g.returned).toFixed(2))) return false;
+    // ยอดปิดไม่ได้/ยกไปวันใหม่ (multi, OR) — ว่าง = ทั้งหมด (รองรับ 0.00)
+    if(SAC.fUnclosedSel && SAC.fUnclosedSel.size>0 && !SAC.fUnclosedSel.has(_sacR2(g.unclosed).toFixed(2))) return false;
     return true;
   });
 }
@@ -5303,13 +5359,9 @@ async function _sacSaveForm(){
   //   ยอดเงิน "0.00" ถือว่ากรอกแล้ว (ว่างจริง = ค่าว่างเปล่า)
   //   ชื่อชิปปิ้ง: ต้องเลือกจากรายการเท่านั้น (ห้ามข้อความอิสระ)
   const notEmpty = el => String(el.value||'').trim()!=='';
-  const shipInList = el => {
-    const n = _sacNormName(_sacParseStaff(el.value||'').displayName);
-    return !!n && (SAC.staff||[]).some(c=> c.normDisp === n);
-  };
   const checks = [
     {id:'sac_owner',    test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
-    {id:'sac_ship',     test:shipInList, msg:'กรุณาเลือกชื่อชิปปิ้ง'},
+    {id:'sac_ship',     test:notEmpty,   msg:'กรุณากรอกชื่อชิปปิ้ง'},
     {id:'sac_advance',  test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
     {id:'sac_used',     test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
     {id:'sac_unclosed', test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
@@ -5566,7 +5618,14 @@ function _sacExportExcel(){
   bind('sac_reload', async ()=>{ SAC.ALL=[]; await renderShipClose(); if(typeof toast==='function') toast('โหลดข้อมูลใหม่ ✓'); });
   bind('sac_clearFilter', ()=>{
     ['sac_fStart','sac_fEnd','sac_fShip','sac_fOwner'].forEach(id=>{ if($(id)) $(id).value=''; });
-    if($('sac_fClose')) $('sac_fClose').value='ALL';
+    const rs=$('sac_fReturnSearch'); if(rs) rs.value='';
+    const us=$('sac_fUnclosedSearch'); if(us) us.value='';
+    SAC.fStatusSel = new Set();
+    SAC.fReturnSel = new Set();
+    SAC.fUnclosedSel = new Set();
+    if(typeof _sacStatusSync==='function') _sacStatusSync();
+    if(typeof _sacReturnSync==='function'){ _sacReturnRenderList(); _sacReturnSync(); }
+    if(typeof _sacUnclosedSync==='function'){ _sacUnclosedRenderList(); _sacUnclosedSync(); }
     renderShipClose();
     if(typeof toast==='function') toast('ล้างตัวกรองแล้ว ✓');
   });
@@ -5645,6 +5704,18 @@ function _sacExportExcel(){
     });
     shp.addEventListener('blur', ()=>{ setTimeout(()=>{ _sacStaffClose(); _sacFormComputeCarry(); }, 150); });
   }
+  // ปุ่ม ➕ เพิ่มชื่อชิปปิ้ง + แผงเพิ่มชื่อ
+  (function(){
+    const ab=$('sac_shipAddBtn');
+    if(ab && !ab._sacAddBound){
+      ab._sacAddBound=true;
+      ab.addEventListener('click', ()=>{ const p=$('sac_shipAddPanel'); if(p && p.style.display==='block') _sacShipAddClose(); else _sacShipAddOpen(); });
+      const sv=$('sac_shipAddSave'); if(sv) sv.addEventListener('click', _sacShipAddSaveDo);
+      const cc=$('sac_shipAddCancel'); if(cc) cc.addEventListener('click', _sacShipAddClose);
+      const nf=$('sac_shipAddNick'); if(nf) nf.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); _sacShipAddSaveDo(); } });
+      const ff=$('sac_shipAddFull'); if(ff) ff.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); _sacShipAddSaveDo(); } });
+    }
+  })();
   // combobox ชื่อผู้เบิกเงิน
   const own = $('sac_owner');
   if(own && !own._sacOwnerBound){
@@ -5673,7 +5744,7 @@ function _sacExportExcel(){
     own.addEventListener('blur', ()=>{ setTimeout(_sacOwnerClose, 150); });
   }
   // ตัวกรองแบบ live
-  ['sac_fStart','sac_fEnd','sac_fClose'].forEach(id=>{
+  ['sac_fStart','sac_fEnd'].forEach(id=>{
     const el=$(id); if(el && !el._sacFBound){ el._sacFBound=true; el.addEventListener('change', renderShipClose); }
   });
   ['sac_fShip','sac_fOwner'].forEach(id=>{
@@ -5695,6 +5766,48 @@ function _sacExportExcel(){
       else if(e.key==='Escape'){ if(open){ e.preventDefault(); _sacFShipClose(); } }
     });
     fsh.addEventListener('blur', ()=>{ setTimeout(_sacFShipClose, 150); });
+  })();
+
+  // ── ตัวกรอง multi-select: สถานะ + ยอดคืนบริษัท ──
+  (function(){
+    const sBtn=$('sac_fStatusBtn'), sPanel=$('sac_fStatusPanel');
+    const rBtn=$('sac_fReturnBtn'), rPanel=$('sac_fReturnPanel');
+    const uBtn=$('sac_fUnclosedBtn'), uPanel=$('sac_fUnclosedPanel');
+    if(sBtn && !sBtn._sacMselBound){
+      sBtn._sacMselBound=true;
+      sBtn.addEventListener('click', ()=>{ const open=sPanel.style.display==='block'; if(rPanel) rPanel.style.display='none'; if(uPanel) uPanel.style.display='none'; sPanel.style.display=open?'none':'block'; _sacStatusSync(); });
+      const allcb=$('sac_fStatusAll');
+      if(allcb) allcb.addEventListener('change', ()=>{ SAC.fStatusSel = allcb.checked ? new Set(SAC_STATUS_OPTS.map(x=>x[0])) : new Set(); _sacStatusSync(); renderShipClose(); });
+      document.querySelectorAll('.sac_fStatusOpt').forEach(cb=>{
+        cb.addEventListener('change', ()=>{ if(cb.checked) SAC.fStatusSel.add(cb.value); else SAC.fStatusSel.delete(cb.value); _sacStatusSync(); renderShipClose(); });
+      });
+    }
+    if(rBtn && !rBtn._sacMselBound){
+      rBtn._sacMselBound=true;
+      rBtn.addEventListener('click', ()=>{ const open=rPanel.style.display==='block'; if(sPanel) sPanel.style.display='none'; if(uPanel) uPanel.style.display='none'; rPanel.style.display=open?'none':'block'; if(!open){ _sacReturnRenderList(); _sacReturnSync(); } });
+      const rAll=$('sac_fReturnAll');
+      if(rAll) rAll.addEventListener('change', ()=>{ SAC.fReturnSel = rAll.checked ? new Set(_sacReturnDistinct()) : new Set(); _sacReturnRenderList(); _sacReturnSync(); renderShipClose(); });
+      const rSearch=$('sac_fReturnSearch');
+      if(rSearch) rSearch.addEventListener('input', _sacReturnRenderList);
+    }
+    if(uBtn && !uBtn._sacMselBound){
+      uBtn._sacMselBound=true;
+      uBtn.addEventListener('click', ()=>{ const open=uPanel.style.display==='block'; if(sPanel) sPanel.style.display='none'; if(rPanel) rPanel.style.display='none'; uPanel.style.display=open?'none':'block'; if(!open){ _sacUnclosedRenderList(); _sacUnclosedSync(); } });
+      const uAll=$('sac_fUnclosedAll');
+      if(uAll) uAll.addEventListener('change', ()=>{ SAC.fUnclosedSel = uAll.checked ? new Set(_sacUnclosedDistinct()) : new Set(); _sacUnclosedRenderList(); _sacUnclosedSync(); renderShipClose(); });
+      const uSearch=$('sac_fUnclosedSearch');
+      if(uSearch) uSearch.addEventListener('input', _sacUnclosedRenderList);
+    }
+    // ปิด panel เมื่อคลิกพื้นที่ด้านนอก (ติ๊กภายใน panel ไม่ปิด)
+    if(!document._sacMselOutside){
+      document._sacMselOutside=true;
+      document.addEventListener('click', e=>{
+        const sm=document.getElementById('sac_fStatusMsel'), rm=document.getElementById('sac_fReturnMsel'), um=document.getElementById('sac_fUnclosedMsel');
+        if(sm && !sm.contains(e.target)){ const p=document.getElementById('sac_fStatusPanel'); if(p) p.style.display='none'; }
+        if(rm && !rm.contains(e.target)){ const p=document.getElementById('sac_fReturnPanel'); if(p) p.style.display='none'; }
+        if(um && !um.contains(e.target)){ const p=document.getElementById('sac_fUnclosedPanel'); if(p) p.style.display='none'; }
+      });
+    }
   })();
 
   // ปิด modal เมื่อคลิกฉากหลัง
@@ -5730,15 +5843,25 @@ const SAC_STAFF_SEED = [
   "อนุชิต (ปอนด์)",
   "อัจฉรา (ฝน)",
   "ปาณัท (นัท)",
-  "กฤษฏา (เปียว)"
+  "กฤษฏา (เปียว)",
+  "วันชนะ (เมย์)",
+  "นิคม (คม)",
+  "วิศรุต (ตุ้ย)",
+  "จำลอง (จ่อย)",
+  "จำรัส (น้อย)"
 ];
 SAC.staff = [];          // [{fullName, nickname, displayName, normFull, normNick, normDisp, source}]
+SAC.staffHidden = new Set();  // normDisp ของชื่อที่ถูกลบ (ซ่อนจากรายการค้นหา — ไม่แตะข้อมูลปิดบัญชีเก่า)
 SAC.staffReady = false;
 SAC.staffLoading = false;
 SAC.staffComboItems = [];
 SAC.staffComboIdx = -1;
 SAC.fShipItems = [];     // ตัวกรอง "ชื่อชิปปิ้ง": รายชื่อไม่ซ้ำจากข้อมูลจริง (SAC.ALL)
 SAC.fShipIdx = -1;
+SAC.fStatusSel = new Set();   // ตัวกรองสถานะ (multi) — ว่าง = ทั้งหมด
+SAC.fReturnSel = new Set();   // ตัวกรองยอดคืนบริษัท (multi, key = ตัวเลข toFixed(2)) — ว่าง = ทั้งหมด
+SAC.fUnclosedSel = new Set();  // ตัวกรองยอดปิดไม่ได้/ยกไปวันใหม่ (multi, key = ตัวเลข toFixed(2)) — ว่าง = ทั้งหมด
+const SAC_STATUS_OPTS = [['OUTSTANDING','🔴 ยอดยกไป'],['WAIT_RETURN','🟡 รอคืนเงิน'],['CLOSED','🟢 ปิดครบ']];
 
 // แยกข้อความ "ชื่อจริง (ชื่อเล่น)" → {fullName, nickname, displayName}
 // ตัดหัวท้าย + รวมช่องว่างซ้ำ ; displayName เป็นรูปแบบมาตรฐาน "ชื่อจริง (ชื่อเล่น)"
@@ -5785,7 +5908,7 @@ function _sacBuildStaffList(dbRows){
   const rest = all.filter(x=> pinNorms.indexOf(x.normDisp)===-1)
                   .sort((a,b)=> a.fullName.localeCompare(b.fullName,'th'));
   const pinned = pinNorms.map(pn=> all.find(x=>x.normDisp===pn)).filter(Boolean);
-  return pinned.concat(rest);
+  return pinned.concat(rest).filter(x=> !(SAC.staffHidden && SAC.staffHidden.has(x.normDisp)));
 }
 
 // โหลดครั้งเดียว (seed พร้อมทันที, db เสริมภายหลังแบบ graceful)
@@ -5797,10 +5920,16 @@ async function _sacEnsureStaff(){
   try{
     if(typeof sb !== 'undefined' && sb){
       const {data, error} = await sb.from('shipping_staff')
-        .select('full_name, nickname, display_name, source, is_active')
+        .select('full_name, nickname, display_name, source, is_active, normalized_name')
         .order('full_name',{ascending:true});
       if(!error && Array.isArray(data)){
         dbRows = data.filter(r=> r.is_active !== false);
+        // ชื่อที่ถูกลบ (is_active=false) → ซ่อนจากรายการค้นหา
+        SAC.staffHidden = new Set(
+          data.filter(r=> r.is_active===false)
+              .map(r=> r.normalized_name || _sacNormName(r.display_name || (r.full_name ? (r.nickname ? (r.full_name+' ('+r.nickname+')') : r.full_name) : '')))
+              .filter(Boolean)
+        );
       } else if(error){
         console.warn('[SHIPCLOSE] shipping_staff ยังไม่พร้อม (ใช้ seed อย่างเดียว):', error.message||error);
       }
@@ -5813,6 +5942,20 @@ async function _sacEnsureStaff(){
   SAC.staffLoading = false;
 }
 
+// รวมรายชื่อ: seed/staff + ชื่อจริงจากรายการ (SAC.ALL) — กันซ้ำตาม normDisp, ปักหมุด ประยงค์/ธนาดิษย์ ก่อน
+function _sacStaffMerged(){
+  const map = new Map();
+  (SAC.staff||[]).forEach(c=>{ if(c.normDisp && !map.has(c.normDisp)) map.set(c.normDisp,c); });
+  (SAC.ALL||[]).forEach(r=>{
+    const d=(r.shipping_name||'').trim(); if(!d) return;
+    const it=_sacStaffItem(d,'data'); if(it.normDisp && !map.has(it.normDisp)) map.set(it.normDisp,it);
+  });
+  const pinNorms = SAC_SHIP_PINNED.map(n=>_sacNormName(_sacParseStaff(n).displayName));
+  const all=Array.from(map.values());
+  const pinned=pinNorms.map(pn=>all.find(x=>x.normDisp===pn)).filter(Boolean);
+  const rest=all.filter(x=>pinNorms.indexOf(x.normDisp)===-1).sort((a,b)=>a.fullName.localeCompare(b.fullName,'th'));
+  return pinned.concat(rest).filter(x=> !(SAC.staffHidden && SAC.staffHidden.has(x.normDisp)));
+}
 function _sacStaffRender(){
   const dd = document.getElementById('sac_shipDD');
   const inp = document.getElementById('sac_ship');
@@ -5825,7 +5968,7 @@ function _sacStaffRender(){
     SAC.staffComboItems = []; SAC.staffComboIdx = -1; dd.style.display='block'; return;
   }
 
-  const list = SAC.staff || [];
+  const list = _sacStaffMerged();
   // ค้นหาได้ทั้งชื่อจริง ชื่อเล่น และชื่อเต็ม
   let matches = q ? list.filter(c=> c.normFull.includes(q) || c.normNick.includes(q) || c.normDisp.includes(q)) : list.slice();
   const CAP = 60;
@@ -5837,12 +5980,14 @@ function _sacStaffRender(){
   SAC.staffComboIdx = -1;
 
   if(!items.length){
-    dd.innerHTML = `<div class="sac-combo-empty">ไม่พบรายชื่อ — กรุณาเลือกจากรายการ</div>`;
+    dd.innerHTML = `<div class="sac-combo-empty">ไม่พบในรายการ — พิมพ์ชื่อใหม่แล้วกดบันทึกได้</div>`;
     dd.style.display='block'; return;
   }
+  const canDel = (typeof _sacIsAdmin==='function' && _sacIsAdmin());
   dd.innerHTML = items.map((it,i)=>{
     const nick = it.nick ? ` <span style="color:var(--muted);font-weight:400;">(${_sacEsc(it.nick)})</span>` : '';
-    return `<div class="sac-combo-item" data-i="${i}" title="${_sacEsc(it.name)}"><b>${_sacEsc(it.full)}</b>${nick}</div>`;
+    const del = canDel ? `<span class="sac-combo-del" data-i="${i}" title="ลบชื่อนี้" style="margin-left:auto;color:var(--red);cursor:pointer;padding:0 2px 0 8px;flex:none;">🗑️</span>` : '';
+    return `<div class="sac-combo-item" data-i="${i}" title="${_sacEsc(it.name)}" style="display:flex;align-items:center;"><span style="overflow:hidden;text-overflow:ellipsis;"><b>${_sacEsc(it.full)}</b>${nick}</span>${del}</div>`;
   }).join('');
   dd.style.display='block';
   dd.querySelectorAll('.sac-combo-item').forEach(el=>{
@@ -5850,6 +5995,18 @@ function _sacStaffRender(){
     el.addEventListener('click', ()=>{
       const it = SAC.staffComboItems[Number(el.dataset.i)];
       if(it) _sacStaffSelect(it.name);
+    });
+  });
+  dd.querySelectorAll('.sac-combo-del').forEach(el=>{
+    el.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); });
+    el.addEventListener('click', async e=>{
+      e.preventDefault(); e.stopPropagation();
+      const it = SAC.staffComboItems[Number(el.dataset.i)];
+      if(!it) return;
+      if(!confirm('คุณต้องการลบรายชื่อนี้ใช่หรือไม่\n\n'+it.name)) return;
+      const res = await _sacDeleteShipName(it.name);
+      _sacStaffRender();   // หายจากรายการทันที
+      if(typeof toast==='function') toast(res && res.dbSaved ? '🗑️ ลบชื่อชิปปิ้งแล้ว (ถาวร)' : '🗑️ ลบชื่อชิปปิ้งแล้ว');
     });
   });
 }
@@ -5924,6 +6081,86 @@ function _sacFShipSelect(name){
   if(typeof renderShipClose==='function') renderShipClose();   // กรองตารางทันที
 }
 
+// ══ ตัวกรองสถานะ (multi-select checkbox) ══
+function _sacStatusLabel(){
+  const n=SAC.fStatusSel.size, total=SAC_STATUS_OPTS.length;
+  if(n===0 || n===total) return 'ทั้งหมด';
+  if(n===1){ const c=[...SAC.fStatusSel][0]; const o=SAC_STATUS_OPTS.find(x=>x[0]===c); return o?o[1]:'1 รายการ'; }
+  return 'เลือกแล้ว '+n+' รายการ';
+}
+function _sacStatusSync(){
+  document.querySelectorAll('.sac_fStatusOpt').forEach(cb=>{ cb.checked=SAC.fStatusSel.has(cb.value); });
+  const all=document.getElementById('sac_fStatusAll'); if(all) all.checked = SAC.fStatusSel.size===SAC_STATUS_OPTS.length;
+  const cv=document.getElementById('sac_fStatusCv'); if(cv) cv.textContent=_sacStatusLabel();
+}
+
+// ══ ตัวกรองยอดคืนบริษัท (multi-select + ค้นหา) ══
+function _sacFmtMoneyBaht(key){ return _sacMoney(parseFloat(key))+' บาท'; }   // "12,500.00 บาท"
+// แปลงข้อความยอดเงิน → ตัวเลข (ตัด , และ "บาท") สำหรับเรียงตามค่าจริง
+function _sacParseMoneyNum(value){
+  const cleaned = String(value==null?'':value).replace(/,/g,'').replace(/บาท/g,'').trim();
+  const n = Number.parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+function _sacReturnDistinct(){
+  const map=new Map();
+  (SAC.GROUPS_ALL||[]).forEach(g=>{ const k=_sacR2(g.returned).toFixed(2); if(!map.has(k)) map.set(k,true); });
+  return Array.from(map.keys()).sort((a,b)=>_sacParseMoneyNum(b)-_sacParseMoneyNum(a));  // มาก → น้อย
+}
+function _sacReturnLabel(){
+  const total=_sacReturnDistinct().length, n=SAC.fReturnSel.size;
+  if(n===0 || (total>0 && n===total)) return 'ทั้งหมด';
+  if(n===1){ return _sacFmtMoneyBaht([...SAC.fReturnSel][0]); }
+  return 'เลือกแล้ว '+n+' รายการ';
+}
+function _sacReturnRenderList(){
+  const box=document.getElementById('sac_fReturnList'); if(!box) return;
+  const q=((document.getElementById('sac_fReturnSearch')||{}).value||'').replace(/[^0-9.]/g,'');
+  const all=_sacReturnDistinct();
+  const shown = q ? all.filter(k=> k.includes(q) || _sacMoney(parseFloat(k)).replace(/,/g,'').includes(q)) : all;
+  if(!shown.length){ box.innerHTML='<div class="sac-msel-empty">ไม่พบยอดเงิน</div>'; }
+  else box.innerHTML=shown.map(k=>`<label><input type="checkbox" class="sac_fReturnOpt" value="${_sacEsc(k)}" ${SAC.fReturnSel.has(k)?'checked':''}> ${_sacEsc(_sacFmtMoneyBaht(k))}</label>`).join('');
+  box.querySelectorAll('.sac_fReturnOpt').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ if(cb.checked) SAC.fReturnSel.add(cb.value); else SAC.fReturnSel.delete(cb.value); _sacReturnSync(); if(typeof renderShipClose==='function') renderShipClose(); });
+  });
+}
+function _sacReturnSync(){
+  const cv=document.getElementById('sac_fReturnCv'); if(cv) cv.textContent=_sacReturnLabel();
+  const all=_sacReturnDistinct();
+  const allcb=document.getElementById('sac_fReturnAll'); if(allcb) allcb.checked = all.length>0 && SAC.fReturnSel.size===all.length;
+  document.querySelectorAll('.sac_fReturnOpt').forEach(cb=>{ cb.checked=SAC.fReturnSel.has(cb.value); });
+}
+
+// ══ ตัวกรองยอดปิดไม่ได้ / ยอดยกไปวันใหม่ (multi-select + ค้นหา) ══
+function _sacUnclosedDistinct(){
+  const map=new Map();
+  (SAC.GROUPS_ALL||[]).forEach(g=>{ const k=_sacR2(g.unclosed).toFixed(2); if(!map.has(k)) map.set(k,true); });  // รวม 0.00 ด้วย
+  return Array.from(map.keys()).sort((a,b)=>_sacParseMoneyNum(b)-_sacParseMoneyNum(a));  // มาก → น้อย
+}
+function _sacUnclosedLabel(){
+  const total=_sacUnclosedDistinct().length, n=SAC.fUnclosedSel.size;
+  if(n===0 || (total>0 && n===total)) return 'ทั้งหมด';
+  if(n===1){ return _sacFmtMoneyBaht([...SAC.fUnclosedSel][0]); }
+  return 'เลือกแล้ว '+n+' รายการ';
+}
+function _sacUnclosedRenderList(){
+  const box=document.getElementById('sac_fUnclosedList'); if(!box) return;
+  const q=((document.getElementById('sac_fUnclosedSearch')||{}).value||'').replace(/[^0-9.]/g,'');
+  const all=_sacUnclosedDistinct();
+  const shown = q ? all.filter(k=> k.includes(q) || _sacMoney(parseFloat(k)).replace(/,/g,'').includes(q)) : all;
+  if(!shown.length){ box.innerHTML='<div class="sac-msel-empty">ไม่พบยอดเงิน</div>'; }
+  else box.innerHTML=shown.map(k=>`<label><input type="checkbox" class="sac_fUnclosedOpt" value="${_sacEsc(k)}" ${SAC.fUnclosedSel.has(k)?'checked':''}> ${_sacEsc(_sacFmtMoneyBaht(k))}</label>`).join('');
+  box.querySelectorAll('.sac_fUnclosedOpt').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ if(cb.checked) SAC.fUnclosedSel.add(cb.value); else SAC.fUnclosedSel.delete(cb.value); _sacUnclosedSync(); if(typeof renderShipClose==='function') renderShipClose(); });
+  });
+}
+function _sacUnclosedSync(){
+  const cv=document.getElementById('sac_fUnclosedCv'); if(cv) cv.textContent=_sacUnclosedLabel();
+  const all=_sacUnclosedDistinct();
+  const allcb=document.getElementById('sac_fUnclosedAll'); if(allcb) allcb.checked = all.length>0 && SAC.fUnclosedSel.size===all.length;
+  document.querySelectorAll('.sac_fUnclosedOpt').forEach(cb=>{ cb.checked=SAC.fUnclosedSel.has(cb.value); });
+}
+
 // เพิ่มชื่อชิปปิ้งใหม่เข้า shipping_staff (graceful) + in-memory — กันซ้ำตาม normDisp
 async function _sacMaybeSaveStaff(rawName){
   const p = _sacParseStaff(rawName);
@@ -5950,6 +6187,80 @@ async function _sacMaybeSaveStaff(rawName){
   }catch(e){ console.warn('[SHIPCLOSE] insert staff exception:', e.message); }
 }
 
+// เพิ่มชื่อชิปปิ้งใหม่จากหน้าเว็บ (in-memory ทันที + insert shipping_staff ถาวร) — กันซ้ำตาม normDisp
+async function _sacAddShipName(full, nick){
+  const p = _sacParseStaff(nick ? (full+' ('+nick+')') : full);
+  if(!p.displayName) return {ok:false, reason:'empty'};
+  const norm = _sacNormName(p.displayName);
+  if((SAC.staff||[]).some(c=> c.normDisp === norm)) return {ok:false, reason:'dup'};
+  // เพิ่มลงหน่วยความจำทันที (ค้นหา/เลือกได้เหมือนรายชื่อเดิม)
+  SAC.staff.push(_sacStaffItem(p.displayName, 'manual'));
+  SAC.staff.sort((a,b)=> a.fullName.localeCompare(b.fullName,'th'));
+  let dbSaved=false;
+  try{
+    if(typeof sb !== 'undefined' && sb){
+      const {error} = await sb.from('shipping_staff').insert([{
+        full_name:p.fullName, nickname:p.nickname||null, display_name:p.displayName,
+        normalized_name:norm, source:'manual', is_active:true,
+        created_by:(typeof CU!=='undefined' && CU)?(CU.username||null):null,
+      }]);
+      dbSaved = !error;
+      if(error) console.warn('[SHIPCLOSE] insert shipping_staff ไม่สำเร็จ (เก็บ in-memory):', error.message||error);
+    }
+  }catch(e){ console.warn('[SHIPCLOSE] insert staff exception:', e.message); }
+  return {ok:true, dbSaved, displayName:p.displayName};
+}
+// ลบชื่อชิปปิ้ง (ซ่อนจากรายการค้นหา + persist is_active=false) — ไม่แตะข้อมูลปิดบัญชีเก่า
+async function _sacDeleteShipName(displayName){
+  const p=_sacParseStaff(displayName);
+  const norm=_sacNormName(p.displayName);
+  if(!norm) return {ok:false};
+  SAC.staff = (SAC.staff||[]).filter(c=> c.normDisp!==norm);   // ออกจากรายการทันที
+  if(!SAC.staffHidden) SAC.staffHidden=new Set();
+  SAC.staffHidden.add(norm);
+  let dbSaved=false;
+  try{
+    if(typeof sb !== 'undefined' && sb){
+      const {error} = await sb.from('shipping_staff').upsert([{
+        full_name:p.fullName, nickname:p.nickname||null, display_name:p.displayName,
+        normalized_name:norm, source:'manual', is_active:false,
+        created_by:(typeof CU!=='undefined' && CU)?(CU.username||null):null,
+      }], {onConflict:'normalized_name'});
+      dbSaved = !error;
+      if(error) console.warn('[SHIPCLOSE] ลบชื่อชิปปิ้ง (soft-delete) ไม่สำเร็จ (ซ่อน in-memory):', error.message||error);
+    }
+  }catch(e){ console.warn('[SHIPCLOSE] delete staff exception:', e.message); }
+  return {ok:true, dbSaved};
+}
+function _sacShipAddOpen(){
+  const $=id=>document.getElementById(id);
+  _sacStaffClose();
+  if($('sac_shipAddFull')) $('sac_shipAddFull').value='';
+  if($('sac_shipAddNick')) $('sac_shipAddNick').value='';
+  const e=$('sac_shipAddErr'); if(e){ e.style.display='none'; e.textContent=''; }
+  const p=$('sac_shipAddPanel'); if(p){ p.style.display='block'; }
+  if($('sac_shipAddFull')) $('sac_shipAddFull').focus();
+}
+function _sacShipAddClose(){ const p=document.getElementById('sac_shipAddPanel'); if(p) p.style.display='none'; }
+async function _sacShipAddSaveDo(){
+  const $=id=>document.getElementById(id);
+  const full=($('sac_shipAddFull')||{}).value||'';
+  const nick=($('sac_shipAddNick')||{}).value||'';
+  const err=$('sac_shipAddErr');
+  const showErr=m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(!String(full).trim()){ showErr('กรุณากรอกชื่อจริง'); return; }
+  const res = await _sacAddShipName(String(full).trim(), String(nick).trim());
+  if(!res.ok){
+    if(res.reason==='dup') showErr('มีชื่อนี้อยู่แล้วในรายการ');
+    else showErr('กรุณากรอกชื่อจริง');
+    return;
+  }
+  _sacShipAddClose();
+  const inp=$('sac_ship'); if(inp){ inp.value=res.displayName; }   // เลือกชื่อใหม่ให้เลย
+  if(typeof _sacFormComputeCarry==='function') _sacFormComputeCarry();
+  if(typeof toast==='function') toast(res.dbSaved ? '✅ เพิ่มชื่อชิปปิ้งแล้ว (บันทึกถาวร)' : '✅ เพิ่มชื่อชิปปิ้งแล้ว');
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // 💰 ปิดบัญชีชิปปิ้ง — Advance Owner Combobox (ช่องชื่อผู้เบิกเงิน)
@@ -5958,7 +6269,10 @@ async function _sacMaybeSaveStaff(rawName){
 // ═══════════════════════════════════════════════════════════════
 const SAC_OWNER_SEED = [
   "ธนาดิษย์ (เอ็ม)",
-  "ประยงค์ (ยงค์)"
+  "ประยงค์ (ยงค์)",
+  "วันชนะ (เมย์)",
+  "นิคม (คม)",
+  "วิศรุต (ตุ้ย)"
 ];
 SAC.owners = [];
 SAC.ownersReady = false;
