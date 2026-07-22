@@ -496,7 +496,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="logo">📊</div>
       <div>
         <div class="name">REPORT ALL</div>
-        <div class="desc">รายงานรวมทุกระบบ · BUILD U32</div>
+        <div class="desc">รายงานรวมทุกระบบ · BUILD U36</div>
       </div>
     </div>
     <div class="profile">
@@ -847,8 +847,9 @@ function applyRoleUI(){
 ================================================================== */
 async function boot(){
   initSupabase();
-  // auth-locked: บังคับ Login ใหม่ทุกครั้งที่เปิด/refresh — ห้ามเข้าระบบอัตโนมัติจาก session เดิม
-  setCurrentUser(null);
+  // คืน session เดิมจาก localStorage → เข้าระบบต่อทันที (ไม่ล้าง session เมื่อ refresh) · ถ้าไม่มี/พัง ค่อยให้ Login
+  const u = getCurrentUser();
+  if(u && u.username){ try{ await enterApp(); return; }catch(e){} }
   showLoginModal();
 }
 async function enterApp(){
@@ -1108,12 +1109,12 @@ function pagerHtml(h){
 /* ==================================================================
    REPORT — ADD / EDIT / DELETE
 ================================================================== */
-function openReportModal(id, higasketOnly){
+function openReportModal(id, higasketOnly){ window.__reportModalLock=true;   // ล็อก Modal 3 โหมดรายงาน: คลิกนอกไม่ปิด + เตือนก่อนออกถ้ายังไม่บันทึก
   const r = id!=null ? S.reports.find(x=>String(x[C.id])===String(id)) : null;
   const editing = !!r;
   const cust = r ? (r[C.customer]||'') : (higasketOnly?CONFIG.HIGASKET:'');
   document.getElementById('modalRoot').innerHTML = `
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal wide">
         <div class="mh"><h3><span class="plus">${editing?'✏️':'＋'}</span> ${editing?'แก้ไขรายงาน':'เพิ่มรายงาน'}</h3>
           <button class="xbtn" onclick="closeModal()">✕</button></div>
@@ -1462,7 +1463,7 @@ function njAddUser(id){
   const editing=!!u;
   const locked = u && String(u.username||'').toLowerCase()==='jamrat';
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal sm">
         <div class="mh"><h3>${editing?'✏️ แก้ไขผู้ใช้':'➕ เพิ่มผู้ใช้'}</h3>
           <button class="xbtn" onclick="closeModal()">✕</button></div>
@@ -1647,7 +1648,11 @@ function renderSettings(){
 /* ==================================================================
    HELPERS
 ================================================================== */
-function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+function closeModal(){ window.__reportModalLock=false; document.getElementById('modalRoot').innerHTML=''; }
+// คลิกพื้นที่ว่างนอก Modal: ปิดได้เฉพาะ Modal ทั่วไป · Modal เพิ่ม/แก้ไขของ 3 โหมดรายงาน (lock=true) จะไม่ปิด (ปิดได้เฉพาะ X/ยกเลิก/บันทึกสำเร็จ)
+function modalBackdropClose(){ if(window.__reportModalLock) return; closeModal(); }
+// เตือนก่อนออก/รีเฟรช/ปิดแท็บ ขณะกรอกข้อมูลใน Modal เพิ่ม/แก้ไขของ 3 โหมดรายงาน
+window.addEventListener('beforeunload', function(e){ if(window.__reportModalLock){ e.preventDefault(); e.returnValue=''; return ''; } });
 function deptOptions(current){
   // คงค่าแผนกเดิมไว้เสมอแม้ไม่อยู่ในลิสต์มาตรฐาน (เช่น 'Management' ห้ามแปลงเป็น 'Mgmt')
   const list = DEPARTMENTS.slice();
@@ -2455,7 +2460,7 @@ function schwShowErrorModal(){
   if(!errs.length) return;
   const fnum=n=>Number(n).toLocaleString(undefined,{maximumFractionDigits:3});
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal" style="width:min(560px,94vw);max-height:88vh;display:flex;flex-direction:column;background:#1c2128;border:1px solid #30363d;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)">
         <div class="mh" style="padding:16px 22px;border-bottom:1px solid #30363d;display:flex;align-items:center;justify-content:space-between">
           <h3 style="font-size:16px;font-weight:700;color:#f85149">⚠️ พบรายการน้ำหนักไม่ถูกต้อง</h3>
@@ -2996,7 +3001,7 @@ function knTableHtml(rows){
   const admin=isSuperAdmin();
   const PS=CONFIG.PAGE_SIZE, start=(KNS.page-1)*PS, slice=rows.slice(start,start+PS);
   const dcol=new Set(KN_FIELDS.filter(f=>f[2]).map(f=>f[1]));
-  const HIDE=new Set(['kn_order_customer','kn_doc_sent_date','kn_release_port']);   // ซ่อนเฉพาะตารางหน้ารายงาน (ยังบันทึก/แก้ไข/ค้นหา/Import/Export ได้)
+  const HIDE=new Set(['kn_order_customer','kn_doc_sent_date','kn_release_port','kn_user','kn_delivery_date','kn_billing_date','kn_job_nj','kn_job_kn']);   // ซ่อนจากตารางหลัก → ไปดู/แก้ในปุ่ม ⋮ แทน (ยังบันทึก/ค้นหา/Import/Export ได้)
   const cols=KN_FIELDS.filter(f=>!HIDE.has(f[1]));
   const th = cols.map(f=>`<th>${escapeHtml(f[0])}</th>`).join('') + '<th></th>';
   let body;
@@ -3013,6 +3018,7 @@ function knTableHtml(rows){
       return `<td>${escapeHtml(v!=null&&v!==''?String(v):'—')}</td>`;
     }).join('');
     const acts = `<div class="rowact" style="justify-content:flex-end">
+        <button class="iconbtn" title="จัดการ (USER, วันที่ส่งของ, วันที่วางบิล, JOB NJ, JOB KN)" onclick="knQuickModal('${String(r[C.id])}')">⋮</button>
         ${fileBtn}
         ${canEdit?`<button class="iconbtn" title="แก้ไข" onclick="knOpenModal('${String(r[C.id])}')">✏️</button>`:''}
         ${admin?`<button class="iconbtn del" title="ลบ" onclick="knDelete('${String(r[C.id])}')">🗑️</button>`:''}
@@ -3030,14 +3036,14 @@ function knPage(p){ KNS.page=p; const rows=knFiltered(); document.getElementById
 
 // มิเรอร์ข้อความช่อง note ของสถานะ → ช่องสถานะติดปัญหา (live · ว่าง=ล้าง · ไม่เปลี่ยนสถานะ) — ใช้ร่วม KN+Sch
 function knSyncProblem(val){ const el=document.getElementById('kf_kn_problem_status'); if(el) el.value=(val==null?'':val); }
-function knOpenModal(id){
+function knOpenModal(id){ window.__reportModalLock=true;   // ล็อก Modal 3 โหมดรายงาน: คลิกนอกไม่ปิด + เตือนก่อนออกถ้ายังไม่บันทึก
   const r = id!=null ? S.reports.find(x=>String(x[C.id])===String(id)) : null;
   const editing=!!r;
   const knSelIdx = KN_ST_FIELDS.findIndex(s=>!!(r&&r[s[1]]));   // สถานะที่เลือกอยู่ (ตัวแรกที่ true) · -1=ยังไม่เลือก
   const txt=(label,key)=>`<div class="fld"><label>${label}</label><input id="kf_${key}" value="${attr(r&&r[key])}"></div>`;
   const dt =(label,key)=>`<div class="fld"><label>${label}</label><input id="kf_${key}" type="date" value="${attr(dateVal(r&&r[key]))}"></div>`;
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal wide">
         <div class="mh"><h3><span class="plus">${editing?'✏️':'＋'}</span> ${editing?'แก้ไขงาน KN':'เพิ่มงาน KN'}</h3>
           <button class="xbtn" onclick="closeModal()">✕</button></div>
@@ -3117,6 +3123,51 @@ function knOpenModal(id){
       </div>
     </div>`;
   knBillInit(r?String(r[C.id]):null);   // โหลดไฟล์แนบเดิม (ถ้าแก้ไข) + เรนเดอร์รายการ
+}
+// ===== ⋮ จัดการเร็ว (KN): USER / วันที่ส่งของ / วันที่ส่งเอกสารเข้าวางบิล / JOB NJ / JOB KN =====
+function knQuickModal(id){ window.__reportModalLock=true;   // ล็อก Modal: คลิกนอกไม่ปิด + เตือนก่อนออกถ้ายังไม่บันทึก
+  const r = S.reports.find(x=>String(x[C.id])===String(id));
+  if(!r){ window.__reportModalLock=false; toast('ไม่พบรายการ','err'); return; }
+  const head = escapeHtml(r.kn_job_nj||r.bl_awb||r.kn_company||String(id));
+  document.getElementById('modalRoot').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
+      <div class="modal">
+        <div class="mh"><h3><span class="plus">⋮</span> จัดการข้อมูล — ${head}</h3>
+          <button class="xbtn" onclick="closeModal()">✕</button></div>
+        <div class="mb">
+          <div class="rgrid">
+            <div class="fld"><label>USER</label><input id="kqf_kn_user" value="${attr(r.kn_user)}"></div>
+            <div class="fld"><label>วันที่ส่งของ</label><input id="kqf_kn_delivery_date" type="date" value="${attr(dateVal(r.kn_delivery_date))}"></div>
+            <div class="fld"><label>วันที่ส่งเอกสารเข้าวางบิล</label><input id="kqf_kn_billing_date" type="date" value="${attr(dateVal(r.kn_billing_date))}"></div>
+            <div class="fld"><label>JOB NJ</label><input id="kqf_kn_job_nj" value="${attr(r.kn_job_nj)}"></div>
+            <div class="fld"><label>JOB KN</label><input id="kqf_kn_job_kn" value="${attr(r.kn_job_kn)}"></div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
+          <button class="btn btn-p" id="knQuickSaveBtn" onclick="knQuickSave('${String(id)}')">💾 บันทึก</button>
+        </div>
+      </div>
+    </div>`;
+}
+async function knQuickSave(id){
+  const g=k=>{const el=document.getElementById('kqf_'+k);return el?el.value.trim():'';};
+  const dv=k=>{const v=g(k);return v||null;};
+  const payload={   // อัปเดตเฉพาะ 5 คอลัมน์นี้ (partial update → ไม่แตะข้อมูลเดิมคอลัมน์อื่น/สถานะ/สูตร)
+    kn_user:g('kn_user')||null,
+    kn_delivery_date:dv('kn_delivery_date'),
+    kn_billing_date:dv('kn_billing_date'),
+    kn_job_nj:dv('kn_job_nj'),
+    kn_job_kn:dv('kn_job_kn')
+  };
+  const btn=document.getElementById('knQuickSaveBtn'); if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try{
+    if(!sb) initSupabase();
+    const {error}=await sb.from(CONFIG.TABLE).update(payload).eq(C.id,id); if(error)throw error;
+    const r=S.reports.find(x=>String(x[C.id])===String(id)); if(r) Object.assign(r,payload);   // อัปเดต local ทันที (ไม่ต้องรีเฟรชหน้า)
+    closeModal(); knRenderView();   // รายการเดิมอัปเดตทันที
+    toast('บันทึกข้อมูลสำเร็จ','ok');
+  }catch(e){ if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';} toast('บันทึกไม่สำเร็จ: '+(e.message||e),'err'); }
 }
 async function knSave(id){
   const g=k=>{const el=document.getElementById('kf_'+k);return el?el.value.trim():'';};
@@ -3272,7 +3323,7 @@ async function knRefreshBillCounts(){
 // ดูไฟล์แนบแบบอ่านอย่างเดียว (เปิดจากตาราง — ผู้มีสิทธิ์ดู KN เปิด/ดาวน์โหลดได้)
 async function knBillViewModal(reportId){
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal">
         <div class="mh"><h3>📎 ไฟล์แนบใบวางบิล</h3><button class="xbtn" onclick="closeModal()">✕</button></div>
         <div class="mb"><div id="knBillViewList" class="knbill-list"><div class="knbill-empty">กำลังโหลด...</div></div></div>
@@ -3636,7 +3687,7 @@ function schFiltered(){
       if(SCHS.etaTo && e>SCHS.etaTo) return false; return true; });
   }
   const q=SCHS.search.trim().toLowerCase();
-  if(q) a=a.filter(r=>['kn_order_customer','kn_company','bl_awb','invoice_no','kn_vessel_name','kn_job_nj','kn_job_kn','kn_user','kn_problem_status'].some(k=>String(r[k]||'').toLowerCase().includes(q)));
+  if(q) a=a.filter(r=>['kn_order_customer','kn_company','bl_awb','invoice_no','kn_vessel_name','kn_job_nj','kn_job_kn','kn_user','kn_problem_status','kn_delivery_date','kn_billing_date'].some(k=>String(r[k]||'').toLowerCase().includes(q)));
   a.sort((x,y)=>String(y[C.createdAt]||'').localeCompare(String(x[C.createdAt]||'')));
   return a;
 }
@@ -3770,7 +3821,7 @@ function schTableHtml(rows){
   const admin=isSuperAdmin();
   const PS=CONFIG.PAGE_SIZE, start=(SCHS.page-1)*PS, slice=rows.slice(start,start+PS);
   const dcol=new Set(SCH_FIELDS.filter(f=>f[2]).map(f=>f[1]));
-  const HIDE=new Set(['kn_order_customer','kn_doc_sent_date','kn_release_port']);   // ซ่อนเฉพาะตารางหน้ารายงาน (ยังบันทึก/แก้ไข/ค้นหา/Import/Export ได้)
+  const HIDE=new Set(['kn_order_customer','kn_doc_sent_date','kn_release_port','kn_user','kn_delivery_date','kn_billing_date','kn_job_nj','kn_job_kn']);   // ซ่อนจากตารางหลัก → ไปดู/แก้ในปุ่ม ⋮ แทน (ยังบันทึก/ค้นหา/Import/Export ได้)
   const cols=SCH_FIELDS.filter(f=>!HIDE.has(f[1]));
   const th = cols.map(f=>`<th>${escapeHtml(f[0])}</th>`).join('') + '<th></th>';
   let body;
@@ -3787,6 +3838,7 @@ function schTableHtml(rows){
       return `<td>${escapeHtml(v!=null&&v!==''?String(v):'—')}</td>`;
     }).join('');
     const acts = `<div class="rowact" style="justify-content:flex-end">
+        <button class="iconbtn" title="จัดการ (USER, วันที่ส่งของ, วันที่วางบิล, JOB NJ, JOB KN)" onclick="schQuickModal('${String(r[C.id])}')">⋮</button>
         ${fileBtn}
         ${canEdit?`<button class="iconbtn" title="แก้ไข" onclick="schOpenModal('${String(r[C.id])}')">✏️</button>`:''}
         ${admin?`<button class="iconbtn del" title="ลบ" onclick="schDelete('${String(r[C.id])}')">🗑️</button>`:''}
@@ -3802,14 +3854,14 @@ function schTableHtml(rows){
 }
 function schPage(p){ SCHS.page=p; const rows=schFiltered(); document.getElementById('content').querySelector('.tablewrap').outerHTML=schTableHtml(rows); }
 
-function schOpenModal(id){
+function schOpenModal(id){ window.__reportModalLock=true;   // ล็อก Modal 3 โหมดรายงาน: คลิกนอกไม่ปิด + เตือนก่อนออกถ้ายังไม่บันทึก
   const r = id!=null ? S.reports.find(x=>String(x[C.id])===String(id)) : null;
   const editing=!!r;
   const schSelIdx = SCH_ST_FIELDS.findIndex(s=>!!(r&&r[s[1]]));   // สถานะที่เลือกอยู่ (ตัวแรกที่ true) · -1=ยังไม่เลือก
   const txt=(label,key)=>`<div class="fld"><label>${label}</label><input id="kf_${key}" value="${attr(r&&r[key])}"></div>`;
   const dt =(label,key)=>`<div class="fld"><label>${label}</label><input id="kf_${key}" type="date" value="${attr(dateVal(r&&r[key]))}"></div>`;
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal wide">
         <div class="mh"><h3><span class="plus">${editing?'✏️':'＋'}</span> ${editing?'แก้ไขงาน Sch':'เพิ่มงาน Sch'}</h3>
           <button class="xbtn" onclick="closeModal()">✕</button></div>
@@ -3891,6 +3943,51 @@ function schOpenModal(id){
       </div>
     </div>`;
   schBillInit(r?String(r[C.id]):null);   // โหลดไฟล์แนบเดิม (ถ้าแก้ไข) + เรนเดอร์รายการ
+}
+// ===== ⋮ จัดการเร็ว: USER / วันที่ส่งของ / วันที่ส่งเอกสารเข้าวางบิล / JOB NJ / JOB KN =====
+function schQuickModal(id){ window.__reportModalLock=true;   // ล็อก Modal 3 โหมดรายงาน: คลิกนอกไม่ปิด + เตือนก่อนออกถ้ายังไม่บันทึก
+  const r = S.reports.find(x=>String(x[C.id])===String(id));
+  if(!r){ toast('ไม่พบรายการ','err'); return; }
+  const head = escapeHtml(r.kn_job_nj||r.bl_awb||r.kn_company||String(id));
+  document.getElementById('modalRoot').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
+      <div class="modal">
+        <div class="mh"><h3><span class="plus">⋮</span> จัดการข้อมูล — ${head}</h3>
+          <button class="xbtn" onclick="closeModal()">✕</button></div>
+        <div class="mb">
+          <div class="rgrid">
+            <div class="fld"><label>USER</label><input id="sqf_kn_user" value="${attr(r.kn_user)}"></div>
+            <div class="fld"><label>วันที่ส่งของ</label><input id="sqf_kn_delivery_date" type="date" value="${attr(dateVal(r.kn_delivery_date))}"></div>
+            <div class="fld"><label>วันที่ส่งเอกสารเข้าวางบิล</label><input id="sqf_kn_billing_date" type="date" value="${attr(dateVal(r.kn_billing_date))}"></div>
+            <div class="fld"><label>JOB NJ</label><input id="sqf_kn_job_nj" value="${attr(r.kn_job_nj)}"></div>
+            <div class="fld"><label>JOB KN</label><input id="sqf_kn_job_kn" value="${attr(r.kn_job_kn)}"></div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
+          <button class="btn btn-p" id="schQuickSaveBtn" onclick="schQuickSave('${String(id)}')">💾 บันทึก</button>
+        </div>
+      </div>
+    </div>`;
+}
+async function schQuickSave(id){
+  const g=k=>{const el=document.getElementById('sqf_'+k);return el?el.value.trim():'';};
+  const dv=k=>{const v=g(k);return v||null;};
+  const payload={   // อัปเดตเฉพาะ 5 คอลัมน์นี้ (partial update → ไม่แตะข้อมูลเดิมคอลัมน์อื่น/สถานะ/สูตร)
+    kn_user:g('kn_user')||null,
+    kn_delivery_date:dv('kn_delivery_date'),
+    kn_billing_date:dv('kn_billing_date'),
+    kn_job_nj:dv('kn_job_nj'),
+    kn_job_kn:dv('kn_job_kn')
+  };
+  const btn=document.getElementById('schQuickSaveBtn'); if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try{
+    if(!sb) initSupabase();
+    const {error}=await sb.from(CONFIG.TABLE).update(payload).eq(C.id,id); if(error)throw error;
+    const r=S.reports.find(x=>String(x[C.id])===String(id)); if(r) Object.assign(r,payload);   // อัปเดต local ทันที
+    closeModal(); schRenderView();   // รายการเดิมอัปเดตทันที
+    toast('บันทึกข้อมูลสำเร็จ','ok');
+  }catch(e){ if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';} toast('บันทึกไม่สำเร็จ: '+(e.message||e),'err'); }
 }
 async function schSave(id){
   const g=k=>{const el=document.getElementById('kf_'+k);return el?el.value.trim():'';};
@@ -4046,7 +4143,7 @@ async function schRefreshBillCounts(){
 // ดูไฟล์แนบแบบอ่านอย่างเดียว (เปิดจากตาราง — ผู้มีสิทธิ์ดู KN เปิด/ดาวน์โหลดได้)
 async function schBillViewModal(reportId){
   document.getElementById('modalRoot').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="overlay" onclick="if(event.target===this)modalBackdropClose()">
       <div class="modal">
         <div class="mh"><h3>📎 ไฟล์แนบใบวางบิล</h3><button class="xbtn" onclick="closeModal()">✕</button></div>
         <div class="mb"><div id="schBillViewList" class="knbill-list"><div class="knbill-empty">กำลังโหลด...</div></div></div>
