@@ -133,6 +133,7 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .nav-badge.electroluxd02{background:rgba(20,184,166,.15);color:#2dd4bf;border:1px solid rgba(20,184,166,.3)}
 .nav-badge.airinter2{background:rgba(224,108,42,.15);color:#e06c2a;border:1px solid rgba(224,108,42,.3)}
 .nav-badge.triumph2{background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.3)}
+.nav-badge.zhenwestern2{background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)}
 
 /* ─── MAIN ─── */
 .main{margin-left:240px;flex:1;min-height:100vh;display:flex;flex-direction:column;overflow:hidden;min-width:0;max-width:calc(100vw - 240px)}
@@ -151,6 +152,7 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .company-badge.electroluxd02{background:rgba(20,184,166,.18);color:#2dd4bf;border:1px solid rgba(20,184,166,.35)}
 .company-badge.airinter2{background:rgba(224,108,42,.18);color:#e06c2a;border:1px solid rgba(224,108,42,.35)}
 .company-badge.triumph2{background:rgba(249,115,22,.18);color:#f97316;border:1px solid rgba(249,115,22,.35)}
+.company-badge.zhenwestern2{background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35)}
 .tb-right{display:flex;align-items:center;gap:12px}
 .tb-date{font-size:12px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
 
@@ -702,6 +704,11 @@ body.legacy-active .content-area { display: none !important; }
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7.82 14h8.36l1.45-7H6.37l1.45 7zM16 6V4h3v2h-3zm-9 0V4H4v2h3zm0 10h10l-.78-3.75H7.78L7 16z"/></svg>
       <span class="label">Triumph</span>
       <span class="nav-badge triumph2">TRIUMPH</span>
+    </a>
+    <a class="sb-item" data-nav="zhenwestern" onclick="switchCustomer('zhenwestern')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.3l7 3.5v8.4l-7 3.5-7-3.5V7.8l7-3.5z"/></svg>
+      <span class="label">Zhenwestern</span>
+      <span class="nav-badge zhenwestern2">ZHENWESTERN</span>
     </a>
 </div>
 
@@ -1320,6 +1327,39 @@ body.legacy-active .content-area { display: none !important; }
 </div>
 </div>
 
+<!-- ═══════════ ZHENWESTERN MODE ═══════════ -->
+<div class="pview" id="page-zhenwestern">
+  <div style="max-width:1080px;margin:0 auto;padding:24px;font-family:'IBM Plex Sans Thai',sans-serif">
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:800;color:#e6edf3">ZHENWESTERN</div>
+      <div style="font-size:13px;color:#8b949e;margin-top:4px">อัพโหลด INV (.xlsx: ชีต CI + PL) และ MAPPING Template → กด EXPORT ได้ทันที → ไฟล์ &lt;INVOICE&gt;.xlsx</div>
+    </div>
+    <div id="zwt-err" style="display:none;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:14px;line-height:1.6"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div id="zwt-inv-box" style="background:#161b22;border:2px dashed #30363d;border-radius:12px;padding:22px;text-align:center;transition:border-color .2s">
+        <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#f97316;margin-bottom:6px">📄 INV FILE (.xlsx)</div>
+        <div style="font-size:10px;color:#6e7681;margin-bottom:14px;line-height:1.6">ชีต <b>CI</b> = ข้อมูลหลัก · ชีต <b>PL</b> = NW/GW<br>ชีต 包装说明 ไม่อ่าน</div>
+        <label style="display:inline-block;padding:9px 22px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;background:#f97316">
+          เลือกไฟล์ INV<input type="file" accept=".xlsx,.xls" style="display:none" onchange="zwtOnFile('inv',this.files[0]);this.value=''">
+        </label>
+        <div id="zwt-inv-name" style="font-size:11px;color:#3fb950;margin-top:10px;word-break:break-all"></div>
+      </div>
+      <div id="zwt-tpl-box" style="background:#161b22;border:2px dashed #30363d;border-radius:12px;padding:22px;text-align:center;transition:border-color .2s">
+        <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#3b82f6;margin-bottom:6px">📋 MAPPING TEMPLATE</div>
+        <div style="font-size:10px;color:#6e7681;margin-bottom:14px;line-height:1.6">ไฟล์ Template ต้นฉบับ (.xls/.xlsx)<br>คงรูปแบบ/สูตร/สี 100%</div>
+        <label style="display:inline-block;padding:9px 22px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;background:#3b82f6">
+          เลือกไฟล์ MAPPING<input type="file" accept=".xlsx,.xls" style="display:none" onchange="zwtOnFile('tpl',this.files[0]);this.value=''">
+        </label>
+        <div id="zwt-tpl-name" style="font-size:11px;color:#3fb950;margin-top:10px;word-break:break-all"></div>
+      </div>
+    </div>
+    <button id="zwt-export-btn" onclick="zwtExport()" disabled style="width:100%;padding:15px;border:none;border-radius:11px;font-size:15px;font-weight:800;letter-spacing:.5px;cursor:not-allowed;background:#21262d;color:#6e7681;transition:all .2s;font-family:'IBM Plex Sans Thai',sans-serif">
+      📥 EXPORT EXCEL
+    </button>
+    <div id="zwt-preview" style="margin-top:18px"></div>
+  </div>
+</div>
+
       </div>
 
 </div>
@@ -1772,7 +1812,7 @@ function onPoChange(){
 
 function switchCustomer(key){
   // ── Legacy modules (yida / electrolux / electroluxd / electroluxd0 / airinter / triumph) — แสดงหน้าของตัวเองแทน unified UI ──
-  const LEGACY = ['yida','electrolux','electroluxd','electroluxd0','airinter','triumph'];
+  const LEGACY = ['yida','electrolux','electroluxd','electroluxd0','airinter','triumph','zhenwestern'];
   const isLegacy = LEGACY.includes(key);
 
   // update sidebar active state (ทุก key)
@@ -1790,8 +1830,8 @@ function switchCustomer(key){
       p.classList.toggle('on', p.id === 'page-'+key);
     });
     // update topbar
-    const titles = { yida:'YIDA', electrolux:'Electrolux', electroluxd:'Electrolux Type D', electroluxd0:'Electrolux Type D สาขา0', airinter:'Airinter', triumph:'Triumph' };
-    const badges = { yida:'YIDA', electrolux:'ELECTROLUX', electroluxd:'ELECTROLUX D', electroluxd0:'ELE D สาขา0', airinter:'AIRINTER', triumph:'TRIUMPH' };
+    const titles = { yida:'YIDA', electrolux:'Electrolux', electroluxd:'Electrolux Type D', electroluxd0:'Electrolux Type D สาขา0', airinter:'Airinter', triumph:'Triumph', zhenwestern:'Zhenwestern' };
+    const badges = { yida:'YIDA', electrolux:'ELECTROLUX', electroluxd:'ELECTROLUX D', electroluxd0:'ELE D สาขา0', airinter:'AIRINTER', triumph:'TRIUMPH', zhenwestern:'ZHENWESTERN' };
     document.getElementById('topbar-title').textContent = titles[key];
     const badge = document.getElementById('topbar-badge');
     badge.textContent = badges[key];
@@ -8926,7 +8966,10 @@ const _eleCols = {
     // ⭐ ตัวแยก invoice ที่ถูกต้อง: ข้ามแถวที่ Billing document is cancelled = 'X'
     //    (SALE key ซ้ำมักเป็นคู่ invoice ยกเลิก vs invoice ใหม่ — qty เท่ากัน แยกด้วย flag นี้เท่านั้น)
     billingCancelled: ['Billing document is cancelled','Billing Document Is Cancelled',
-                       'Billing doc is cancelled','Cancelled','Canceled']
+                       'Billing doc is cancelled','Cancelled','Canceled'],
+    // ⭐ Electrolux SALE รวม: แยก ZBI (invoice จริง) ออกจาก ZBIC (aggregate) + สะพาน Sales Document
+    billingType:      ['Billing Type','Billing type','BillingType'],
+    salesDocument:    ['Sales Document','Sales document','SalesDocument']
   },
   ct: {
     deliveryNo:   ['DELIVERY NO','Delivery No','DeliveryNo','Delivery'],
@@ -9242,12 +9285,14 @@ async function _eleLoadMulti(kind, fileList){
         parsed = await _elePLReadFile(f);
       } else if(kind === 'sale'){
         // SALE: compact — read needed columns (+ quantity/netValue สำหรับ Allocation, + billingCancelled)
+        //   + billingType/salesDocument สำหรับแยก ZBI/ZBIC + สะพาน Sales Document (SALE รวม)
         parsed = await _eleReadFileCompact(f, [
           _eleCols.sale.itemCode, _eleCols.sale.deliveryRef,
           _eleCols.sale.invoiceNo, _eleCols.sale.invoiceDate,
           _eleCols.sale.description, _eleCols.sale.unitNetPrice,
           _eleCols.sale.country, _eleCols.sale.billingCancelled,
-          _eleCols.sale.quantity, _eleCols.sale.netValue
+          _eleCols.sale.quantity, _eleCols.sale.netValue,
+          _eleCols.sale.billingType, _eleCols.sale.salesDocument
         ]);
       } else if(kind === 'ct'){
         // CT: compact — exclude lineItem (causes partial-match issue with ITEM col)
@@ -9528,10 +9573,7 @@ function _eleCheckReady(){
     btn.style.cursor  = ready ? 'pointer' : 'not-allowed';
   }
   const lbl = document.getElementById('ele-run-lbl');
-  if(lbl){
-    if(N >= 2) lbl.textContent = 'Export ZIP ('+N+' mappings)';
-    else lbl.textContent = 'Export MAPPING_ELECTROLUX.xlsx';
-  }
+  if(lbl){ lbl.textContent = 'Export MAPPING_ELECTROLUX.xlsx'; }
   const mbtn = document.getElementById('ele-merge-btn');
   if(mbtn){
     mbtn.disabled = !ready;
@@ -9539,10 +9581,7 @@ function _eleCheckReady(){
     mbtn.style.cursor  = ready ? 'pointer' : 'not-allowed';
   }
   const mlbl = document.getElementById('ele-merge-lbl');
-  if(mlbl){
-    if(N >= 2) mlbl.textContent = 'Export รวมไฟล์ ('+N+'→1 xlsx)';
-    else mlbl.textContent = 'Export รวมไฟล์ (1 xlsx)';
-  }
+  if(mlbl){ mlbl.textContent = 'Export MAPPING_ELECTROLUX.xlsx'; }
 }
 
 // ── Clear (does NOT touch persistent MASTER) ──
@@ -9734,6 +9773,168 @@ function _eleBuildMapping(saleData, ctData, plData, masterData){
   return { rows: rows, stats: stats, validation: validation };
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  เตรียม SALE ใหม่ (ไฟล์รวมหลายงาน) ให้เข้า FLOW เดิม — ไม่แตะ Logic SALE เก่า
+//  - ตรวจว่า SALE ครอบ CT ด้วย Exact (Product+Delivery) ครบ 100% ไหม
+//      • ครบ  → SALE ใหม่แบบรวม → กรองเหลือเฉพาะแถวที่ Key อยู่ใน CT (ตัดงานอื่นทิ้ง)
+//      • ไม่ครบ → SALE เก่าแบบแยก → คืนค่าเดิม (ใช้ product-fallback เดิม ไม่เปลี่ยนพฤติกรรม)
+//  - ห้ามรวม SALE เก่า+ใหม่, ห้ามแก้ Invoice, คงลำดับแถว/คอลัมน์เดิมทุกอย่าง
+// ════════════════════════════════════════════════════════════════════
+function _elePrepareNewSaleForLegacyFlow(saleData, ctData){
+  if(!saleData || !saleData.rows || !ctData || !ctData.rows) return saleData;
+  const G = _eleGetCol, C = _eleCols;
+  const _notCanc = function(r){ return _eleClean(G(r, C.sale.billingCancelled)) !== 'X'; };
+  const _inv  = function(r){ return String(G(r, C.sale.invoiceNo) || '').trim(); };
+  const _bt   = function(r){ return _eleClean(G(r, C.sale.billingType)); };
+  const _sd   = function(r){ return String(G(r, C.sale.salesDocument) || '').trim(); };
+  const _prod = function(r){ return _eleNormCode(G(r, C.sale.itemCode)); };
+  const _del  = function(r){ return _eleNormDelivery(G(r, C.sale.deliveryRef)); };
+  const _qty  = function(r){ return _eleToNum(G(r, C.sale.quantity)); };
+
+  // ── Step 2: Target Quantity ต่อ Product จาก CT + Exact Key (Product + Delivery) ──
+  const ctQtyByProduct = new Map(), ctExactKeys = new Set();
+  ctData.rows.forEach(function(r){
+    const p = _eleNormCode(G(r, C.ct.item)); if(!p) return;
+    ctQtyByProduct.set(p, (ctQtyByProduct.get(p) || 0) + _eleToNum(G(r, C.ct.quantity)));
+    const d = _eleNormDelivery(G(r, C.ct.deliveryNo));
+    if(d) ctExactKeys.add(p + '|' + d);
+  });
+  if(ctExactKeys.size === 0) return saleData;
+
+  // ── Step 13: ตรวจ SALE แบบแยก — valid rows ทั้งหมดเป็น ZBI (หรือไม่มี Billing Type) & qty/product == CT & ไม่มี product เกิน → no-op ──
+  //   (SALE แยกมี delivery จริง ไม่ตรง CT aggregate → ต้องคง FLOW เดิม/Product Fallback ตาม spec #13)
+  var allZbiOrBlank = true, hasExtra = false;
+  var saleQtyByProduct = new Map();
+  saleData.rows.forEach(function(r){
+    if(!_notCanc(r)) return;
+    var bt = _bt(r);
+    if(bt && bt !== 'ZBI') allZbiOrBlank = false;
+    var p = _prod(r); if(!p) return;
+    saleQtyByProduct.set(p, (saleQtyByProduct.get(p) || 0) + _qty(r));
+    if(!ctQtyByProduct.has(p)) hasExtra = true;
+  });
+  if(allZbiOrBlank && !hasExtra){
+    var qtyMatch = (saleQtyByProduct.size === ctQtyByProduct.size);
+    if(qtyMatch){
+      saleQtyByProduct.forEach(function(q, p){
+        if(Math.abs((ctQtyByProduct.get(p) || 0) - q) > 1e-9) qtyMatch = false;
+      });
+    }
+    if(qtyMatch) return saleData; // SALE แยก → FLOW เดิม 100% (ไม่แตะผลลัพธ์เดิม)
+  }
+
+  // ── Step 4: Exact-match rows → Direct ZBI invoice / Bridge Sales Document (จาก ZBIC) ──
+  const directZbiInvoices = new Set(), bridgeSalesDocuments = new Set();
+  saleData.rows.forEach(function(r){
+    if(!_notCanc(r)) return;
+    if(!ctExactKeys.has(_prod(r) + '|' + _del(r))) return;
+    var bt = _bt(r);
+    if(bt === 'ZBI'){ var iv = _inv(r); if(iv) directZbiInvoices.add(iv); }
+    else if(bt === 'ZBIC'){ var sd = _sd(r); if(sd) bridgeSalesDocuments.add(sd); }
+  });
+
+  // ── Step 6: Vector qty/product ต่อ ZBI Invoice (เฉพาะ ZBI ไม่ยกเลิก) + Sales Document ของ invoice ──
+  const zbiInvoiceQty = new Map(), zbiInvoiceSD = new Map();
+  saleData.rows.forEach(function(r){
+    if(!_notCanc(r) || _bt(r) !== 'ZBI') return;
+    var iv = _inv(r), p = _prod(r); if(!iv || !p) return;
+    if(!zbiInvoiceQty.has(iv)){ zbiInvoiceQty.set(iv, new Map()); zbiInvoiceSD.set(iv, new Set()); }
+    var m = zbiInvoiceQty.get(iv); m.set(p, (m.get(p) || 0) + _qty(r));
+    var sd = _sd(r); if(sd) zbiInvoiceSD.get(iv).add(sd);
+  });
+
+  // ── Step 7: remainingQty = CT target − Direct ZBI (ถ้าติดลบ = เลือกผิด → หยุด) ──
+  const remainingQty = new Map(ctQtyByProduct);
+  directZbiInvoices.forEach(function(iv){
+    var m = zbiInvoiceQty.get(iv); if(!m) return;
+    m.forEach(function(q, p){ remainingQty.set(p, (remainingQty.get(p) || 0) - q); });
+  });
+  var negative = false;
+  remainingQty.forEach(function(q){ if(q < -1e-9) negative = true; });
+  if(negative){
+    return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
+             _preparedNew: true, _prepError: 'remaining-negative' };
+  }
+
+  var needMore = false;
+  remainingQty.forEach(function(q){ if(Math.abs(q) > 1e-9) needMore = true; });
+
+  var resolvedZbi = [];
+  if(needMore){
+    // ── Step 8-9: Candidate ZBI = SD ∈ bridge · ไม่ใช่ direct · fit remaining · ไม่มี product เกิน ──
+    var candidates = [];
+    zbiInvoiceQty.forEach(function(m, iv){
+      if(directZbiInvoices.has(iv)) return;
+      var bridged = false; zbiInvoiceSD.get(iv).forEach(function(sd){ if(bridgeSalesDocuments.has(sd)) bridged = true; });
+      if(!bridged) return;
+      var fit = true;
+      m.forEach(function(q, p){
+        if(q > (remainingQty.get(p) || 0) + 1e-9) fit = false;      // เกิน remaining
+        if(Math.abs(remainingQty.get(p) || 0) < 1e-9) fit = false;  // product ที่ CT ไม่ต้องการ
+      });
+      if(fit) candidates.push(iv);
+    });
+
+    // ── Step 10: Exact subset — combination ที่ qty/product รวม == remaining เป๊ะ (DFS, ไม่ heuristic) ──
+    var solutions = [];
+    if(candidates.length <= 24){
+      var cur = new Map(), sel = [], nodes = 0;
+      var dfs = function(i){
+        if(nodes++ > 500000 || solutions.length >= 2) return;
+        if(i === candidates.length){
+          var ok = true;
+          remainingQty.forEach(function(need, p){
+            if(Math.abs(need) > 1e-9 && Math.abs((cur.get(p) || 0) - need) > 1e-9) ok = false;
+          });
+          if(ok) solutions.push(sel.slice());
+          return;
+        }
+        dfs(i + 1); // exclude candidate i
+        if(solutions.length >= 2) return;
+        var m = zbiInvoiceQty.get(candidates[i]), fits = true;
+        m.forEach(function(q, p){ if((cur.get(p) || 0) + q > (remainingQty.get(p) || 0) + 1e-9) fits = false; });
+        if(fits){
+          m.forEach(function(q, p){ cur.set(p, (cur.get(p) || 0) + q); });
+          sel.push(candidates[i]); dfs(i + 1); sel.pop();
+          m.forEach(function(q, p){ cur.set(p, (cur.get(p) || 0) - q); });
+        }
+      };
+      dfs(0);
+    }
+    if(solutions.length === 0){
+      return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
+               _preparedNew: true, _prepError: 'no-exact-subset' };
+    }
+    if(solutions.length > 1){
+      return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
+               _preparedNew: true, _prepError: 'multiple-subset' };
+    }
+    resolvedZbi = solutions[0];
+  }
+
+  // ── Step 12: Prepared SALE = ทุกแถว ZBI (ไม่ยกเลิก) ที่ Invoice ∈ selected (direct ∪ resolved) — คงลำดับเดิม ──
+  const selectedInvoices = new Set();
+  directZbiInvoices.forEach(function(x){ selectedInvoices.add(x); });
+  resolvedZbi.forEach(function(x){ selectedInvoices.add(x); });
+  const preparedRows = saleData.rows.filter(function(r){
+    return _notCanc(r) && _bt(r) === 'ZBI' && selectedInvoices.has(_inv(r));
+  });
+  if(preparedRows.length === 0){
+    return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
+             _preparedNew: true, _prepError: 'no-related' };
+  }
+  return {
+    rows: preparedRows,
+    fileName: saleData.fileName,
+    headers: saleData.headers,
+    _preparedNew: true,
+    _selectedInvoices: Array.from(selectedInvoices),
+    _bridgeSalesDocuments: Array.from(bridgeSalesDocuments),
+    _sourceRowCount: saleData.rows.length,
+    _preparedRowCount: preparedRows.length
+  };
+}
+
 const ELE_HEADERS = [
   'NO','INVOICE Number','INVOICE DATE','Product Code',
   'Qty. Inv+Qty. ใบขน','Amount','Net WT','G.W. WT',
@@ -9919,7 +10120,8 @@ function _eleAggValidate(jobs){
 async function eleExport(){
   const s = _eleState;
   const errEl = document.getElementById('ele-err');
-  const showErr = function(msg){ if(errEl){ errEl.style.display='block'; errEl.textContent = msg; } toast(msg,'error'); };
+  const showErr = function(msg){ if(errEl){ errEl.style.display='block'; errEl.textContent = msg; errEl.style.color=''; errEl.style.background=''; errEl.style.borderColor=''; } toast(msg,'error'); };
+  const showWarn = function(msg){ if(errEl){ errEl.style.display='block'; errEl.textContent = msg; errEl.style.color='#8a5300'; errEl.style.background='#fff7e6'; errEl.style.borderColor='#f0a500'; } };
   if(errEl) errEl.style.display = 'none';
   if(!s.master){ showErr('ยังไม่มี MASTER — อัพโหลดและกด Save ก่อน'); return; }
   if(!s.sale.length || !s.ct.length || !s.pl.length){ showErr('กรุณาอัพโหลด SALE / CT / PL ให้ครบ'); return; }
@@ -9934,10 +10136,14 @@ async function eleExport(){
   try {
     const sortByName = function(a,b){ return String(a.fileName).localeCompare(String(b.fileName)); };
     const saleArr=[...s.sale].sort(sortByName), ctArr=[...s.ct].sort(sortByName), plArr=[...s.pl].sort(sortByName);
-    const N = ctArr.length, jobs = []; let allRows = [];
+    const N = ctArr.length, jobs = []; let allRows = []; const prepErrors = [];
     for(let i=0;i<N;i++){
       const saleData = saleArr.length === 1 ? saleArr[0] : saleArr[i];
-      const result = _eleBuildMapping(saleData, ctArr[i], plArr[i], s.master);
+      const preparedSale = _elePrepareNewSaleForLegacyFlow(saleData, ctArr[i]); // SALE ใหม่แบบรวม → เลือก ZBI จริง; SALE แยก → คืนค่าเดิม
+      if(preparedSale && preparedSale._prepError){
+        prepErrors.push({ ct: ctArr[i].fileName, err: preparedSale._prepError });
+      }
+      const result = _eleBuildMapping(preparedSale, ctArr[i], plArr[i], s.master);
       jobs.push({ ctFile:ctArr[i].fileName, rows:result.rows, stats:result.stats, validation:result.validation });
       allRows = allRows.concat(result.rows);
     }
@@ -9950,39 +10156,58 @@ async function eleExport(){
     setD('ele-dbg-master-match', V.ctRows - V.masterMissList.length); setD('ele-dbg-master-unmatch', V.masterMissList.length);
     if(typeof _eleUpdateDebug === 'function') _eleUpdateDebug();
 
-    // ── Validation 100% (spec #19) — block เฉพาะ SALE/PACKING/qty ──
+    // ── รวบรวมปัญหาเป็น "คำเตือน" ทั้งหมด (ไม่หยุด Export) ──
+    const warnings = [];
+    if(prepErrors.length > 0){
+      const _pmsg = { 'no-exact-subset':'หา ZBI รายใบที่รวมยอดตรง CT ไม่ได้ (ระบบไม่ใช้ ZBIC/งานอื่นแทน)',
+                      'multiple-subset':'พบชุด ZBI Invoice ได้มากกว่า 1 ชุด — ต้องตรวจสอบก่อน (ไม่เดา)',
+                      'remaining-negative':'Direct ZBI เกินยอด CT (เลือก Invoice ผิด)',
+                      'no-related':'ไม่พบ ZBI Invoice ที่สัมพันธ์กับ Product+Delivery ของ CT' };
+      prepErrors.forEach(function(pe){
+        warnings.push('เตรียม SALE รวมไม่สำเร็จ ('+pe.ct+'): '+(_pmsg[pe.err]||pe.err)); console.warn('[ELE] prepError', pe);
+      });
+    }
     if(V.qmSale.length > 0){
       const d=V.qmSale.slice(0,5).map(function(x){return x.item+' (CT '+x.ctQty+'≠SALE '+x.saleQty+')';}).join('  •  ');
-      showErr('⛔ หยุด Export: Quantity รวมต่อ Product Code ไม่ตรง CT↔SALE — '+d); console.warn('[ELE] qty CT↔SALE',V.qmSale); return;
+      warnings.push('Quantity CT↔SALE ไม่ตรง '+V.qmSale.length+' product — '+d); console.warn('[ELE] qty CT↔SALE',V.qmSale);
     }
     if(V.qmPk.length > 0){
       const d=V.qmPk.slice(0,5).map(function(x){return x.item+' (CT '+x.ctQty+'≠PACK '+x.pkQty+')';}).join('  •  ');
-      showErr('⛔ หยุด Export: Quantity รวมต่อ Product Code ไม่ตรง CT↔PACKING — '+d); console.warn('[ELE] qty CT↔PK',V.qmPk); return;
+      warnings.push('Quantity CT↔PACKING ไม่ตรง '+V.qmPk.length+' product — '+d); console.warn('[ELE] qty CT↔PK',V.qmPk);
     }
     if(V.unalloc.length > 0){
       const d=V.unalloc.slice(0,6).map(function(x){return x.item+'/'+x.delivery+' (ขาด '+x.need+')';}).join('  •  ');
-      showErr('⛔ หยุด Export: SALE จัดสรรไม่ครบ '+V.unalloc.length+' รายการ — '+d); console.warn('[ELE] unalloc',V.unalloc); return;
+      warnings.push('SALE จัดสรรไม่ครบ '+V.unalloc.length+' รายการ — '+d); console.warn('[ELE] unalloc',V.unalloc);
     }
-    if(!V.amountOK){ showErr('⛔ หยุด Export: Amount รวมไม่ตรง SALE (out '+V.amtOut+' ≠ SALE '+V.amtSale+')'); return; }
-    if(!V.netWtOK){ showErr('⛔ หยุด Export: Net Weight รวมไม่ตรง PACKING (out '+V.nwOut+' ≠ PACK '+V.nwPack+')'); return; }
-    if(V.fieldMiss > 0){ showErr('⛔ หยุด Export: หัวข้อ SALE/Net WT ขาด '+V.fieldMiss+' แถว'); console.warn('[ELE] fieldMiss',V.fieldRows); return; }
-    // MASTER ขาด → warning (ไม่ block)
+    if(!V.amountOK) warnings.push('Amount รวมไม่ตรง SALE (out '+V.amtOut+' ≠ SALE '+V.amtSale+')');
+    if(!V.netWtOK) warnings.push('Net Weight รวมไม่ตรง PACKING (out '+V.nwOut+' ≠ PACK '+V.nwPack+')');
+    if(V.fieldMiss > 0){ warnings.push('หัวข้อ SALE/Net WT ว่าง '+V.fieldMiss+' แถว'); console.warn('[ELE] fieldMiss',V.fieldRows); }
     if(V.masterMissList.length > 0){
       const d=V.masterMissList.slice(0,6).map(function(x){return x.item;}).join(', ');
-      toast('⚠ MASTER NOT MATCH: '+V.masterMissList.length+' รายการ (Part Desc/HS/STAT ว่าง) — '+d, 'error');
+      warnings.push('MASTER NOT MATCH '+V.masterMissList.length+' รายการ (Part Desc/HS/STAT ว่าง) — '+d);
     }
 
     // ── รวมทุก Invoice เป็นไฟล์เดียว: เรียง Invoice→LINE→Product→Delivery→CT แล้ว flatten NO ต่อเนื่อง ──
     const files = _eleBuildInvoiceFiles(allRows); // group+sort ตาม Invoice→LINE→Product→Delivery (ใช้เรียงเท่านั้น)
     const mergedCells = [];
     files.forEach(function(f){ f.cells.forEach(function(c){ const cc = c.slice(); cc[0] = mergedCells.length + 1; mergedCells.push(cc); }); }); // NO ต่อเนื่อง 1..N
+
+    // หยุดได้เฉพาะกรณี output ว่างจริง (spec #7)
+    if(mergedCells.length === 0){ showErr('⛔ หยุด Export: ประมวลผลแล้วไม่มีข้อมูล Output แม้แต่แถวเดียว'); return; }
+
     const summary = 'CT '+V.ctRows+' → '+mergedCells.length+' แถว • '+files.length+' invoice • Amount '+V.amtOut+' • NetWt '+V.nwOut;
-
     const wb = _eleMakeWorkbook(mergedCells);          // Worksheet เดียว 'Electrolux' (template เดิม)
-    XLSX.writeFile(wb, 'MAPPING_ELECTROLUX.xlsx', {cellStyles:true}); // ไฟล์เดียว ไม่มี invoice/วันที่ในชื่อ ไม่ ZIP
-    toast('✅ Export MAPPING_ELECTROLUX.xlsx • '+summary, 'success');
+    XLSX.writeFile(wb, 'MAPPING_ELECTROLUX.xlsx', {cellStyles:true}); // เขียนไม่ได้จริง → throw → catch (spec #8)
 
-    s.lastResult = { jobs, files };
+    if(warnings.length > 0){
+      showWarn('⚠ พบข้อมูลบางรายการไม่ตรง แต่ระบบ Export ไฟล์ให้แล้ว • คำเตือน '+warnings.length+' รายการ กรุณาตรวจสอบข้อมูลใน Excel');
+      console.warn('[ELE] warnings ('+warnings.length+'):\n- '+warnings.join('\n- '));
+      toast('✅ Export MAPPING_ELECTROLUX.xlsx สำเร็จ • พบคำเตือน '+warnings.length+' รายการ กรุณาตรวจสอบข้อมูล', 'success');
+    } else {
+      toast('✅ Export MAPPING_ELECTROLUX.xlsx สำเร็จ • '+summary, 'success');
+    }
+
+    s.lastResult = { jobs, files, warnings };
     _eleRenderPreview(jobs);
   } catch(err){ console.error(err); showErr('Export ผิดพลาด: '+err.message); }
   finally{ if(btn) btn.disabled=false; if(ico) ico.style.display='inline-block'; if(spin) spin.style.display='none'; _eleCheckReady(); }
@@ -13448,6 +13673,203 @@ function doLogout(){
 }
 
 switchCustomer('celestica');
+
+/* ════════════════════════════════════════════════════════════════════
+ *  ZHENWESTERN MODE — INV (CI+PL) + MAPPING Template → <INVOICE>.xlsx
+ *  แยกอิสระ ไม่ shared state กับโหมดอื่น (prefix zwt / _zwt / window.ZWT)
+ *  ════════════════════════════════════════════════════════════════════ */
+window.ZWT = { invBuf:null, invName:'', tplBuf:null, tplName:'' };
+
+function zwtErr(msg, warn){
+  const e = document.getElementById('zwt-err'); if(!e) return;
+  e.style.display = 'block';
+  if(warn){ e.style.background='#3a2a00'; e.style.border='1px solid #8a6d3b'; e.style.color='#f0c674'; }
+  else    { e.style.background='#3d0a0a'; e.style.border='1px solid #7f1d1d'; e.style.color='#fca5a5'; }
+  e.textContent = msg;
+}
+function zwtClearErr(){ const e=document.getElementById('zwt-err'); if(e) e.style.display='none'; }
+function zwtCheckReady(){
+  const b=document.getElementById('zwt-export-btn'); if(!b) return;
+  const ok = !!(ZWT.invBuf && ZWT.tplBuf);
+  b.disabled = !ok;
+  b.style.cursor = ok ? 'pointer' : 'not-allowed';
+  b.style.background = ok ? 'linear-gradient(135deg,#10b981,#059669)' : '#21262d';
+  b.style.color = ok ? '#fff' : '#6e7681';
+}
+async function zwtOnFile(kind, file){
+  if(!file) return; zwtClearErr();
+  try{
+    const buf = await file.arrayBuffer();
+    if(kind === 'inv'){
+      const wb = XLSX.read(buf, {type:'array', cellDates:false}); // validate มีชีต CI
+      if(!wb.Sheets['CI']){ zwtErr('ไม่พบชีต CI ในไฟล์ INV — ตรวจไฟล์อีกครั้ง'); return; }
+      ZWT.invBuf = buf; ZWT.invName = file.name;
+      document.getElementById('zwt-inv-name').textContent = '✓ ' + file.name;
+      document.getElementById('zwt-inv-box').style.borderColor = '#3fb950';
+    } else {
+      XLSX.read(buf, {type:'array'}); // validate อ่านได้
+      ZWT.tplBuf = buf; ZWT.tplName = file.name;
+      document.getElementById('zwt-tpl-name').textContent = '✓ ' + file.name;
+      document.getElementById('zwt-tpl-box').style.borderColor = '#3fb950';
+    }
+  }catch(err){ console.error(err); zwtErr('อ่านไฟล์ไม่ได้: ' + err.message); }
+  zwtCheckReady();
+}
+
+/* ── readers ── */
+function _zwtAoa(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, blankrows:true}); }
+function _zwtInvNo(aoa){
+  for(const row of aoa) for(const c of row){
+    const m = String(c==null?'':c).match(/INV\.?\s*NO\.?\s*[:：]\s*(.+)$/i);
+    if(m) return m[1].trim();
+  }
+  return '';
+}
+function _zwtDate(aoa){ // อ่านวันที่จาก DATE：  (คงค่าดิบ serial/ข้อความ ไม่แปลง UTC)
+  for(let i=0;i<aoa.length;i++) for(let j=0;j<aoa[i].length;j++){
+    const s = String(aoa[i][j]==null?'':aoa[i][j]);
+    if(/^DATE\s*[:：]/i.test(s.trim())){
+      const m = s.match(/DATE\s*[:：]\s*(.+)$/i);
+      if(m && m[1].trim()) return m[1].trim();
+      for(let k=j+1;k<aoa[i].length;k++) if(aoa[i][k]!=='' && aoa[i][k]!=null) return aoa[i][k];
+    }
+  }
+  return '';
+}
+function _zwtReadCI(ws){
+  const a = _zwtAoa(ws);
+  const invNo = _zwtInvNo(a), date = _zwtDate(a);
+  let hr = -1;
+  for(let i=0;i<a.length;i++){ const j=a[i].map(x=>String(x).toUpperCase());
+    if(j.some(x=>x.includes('ITEM NO')) && j.some(x=>x.includes('PRODUCT CODE')) && j.some(x=>x.includes('QUANTITY'))){ hr=i; break; } }
+  if(hr < 0) return { invNo, date, items:[] };
+  const H = a[hr].map(x=>String(x).toUpperCase().replace(/\s+/g,' ').trim());
+  const col = n => H.findIndex(h=>h.includes(n));
+  const cItem=col('ITEM NO'), cName=col('PRODUCT NAME'), cCode=col('PRODUCT CODE'),
+        cQty=col('QUANTITY'), cPrice=col('UNIT PRICE'), cAmt=col('AMOUNT'), cHs=col('HS CODE');
+  const items = [];
+  for(let i=hr+1;i<a.length;i++){
+    const r = a[i];
+    if(String(r[cItem]!=null?r[cItem]:(r[0]||'')).trim().toUpperCase() === 'TOTAL') break;
+    if(String(r[cCode]==null?'':r[cCode]).trim() === '') continue;
+    items.push({
+      itemNo: r[cItem], name: r[cName], code: String(r[cCode]).trim(),
+      qty: Number(r[cQty])||0, price: Number(r[cPrice])||0, amount: Number(r[cAmt])||0, hs: r[cHs]
+    });
+  }
+  return { invNo, date, items };
+}
+function _zwtReadPL(ws){
+  const a = _zwtAoa(ws);
+  let hr = -1;
+  for(let i=0;i<a.length;i++){ if(a[i].map(x=>String(x).toUpperCase()).some(x=>x.includes('TOTAL N.W'))){ hr=i; break; } }
+  if(hr < 0) return { nw:{}, gw:{} };
+  const H = a[hr].map(x=>String(x).toUpperCase().replace(/\s+/g,' ').trim());
+  const cNW = H.findIndex(h=>h.includes('TOTAL N.W')), cGW = H.findIndex(h=>h.includes('TOTAL G.W'));
+  let cCode = -1;
+  for(let i=Math.max(0,hr-1);i<=hr;i++){ const k=a[i].map(x=>String(x).toUpperCase()).findIndex(h=>h.includes('PRODUCT CODE')); if(k>=0){ cCode=k; break; } }
+  const nw={}, gw={};
+  for(let i=hr+1;i<a.length;i++){
+    const r=a[i]; const code=String(r[cCode]==null?'':r[cCode]).trim();
+    if(code==='' || code.toUpperCase()==='TOTAL') break;
+    nw[code] = (nw[code]||0) + (Number(r[cNW])||0);
+    gw[code] = (gw[code]||0) + (Number(r[cGW])||0);
+  }
+  return { nw, gw };
+}
+function _zwtRound(x,d){ const p=Math.pow(10,d); return Math.round((Number(x)+(x>=0?1:-1)*1e-9)*p)/p; }
+
+function zwtExport(){
+  zwtClearErr();
+  if(!ZWT.invBuf){ zwtErr('ยังไม่ได้อัพโหลดไฟล์ INV'); return; }
+  if(!ZWT.tplBuf){ zwtErr('ยังไม่ได้อัพโหลดไฟล์ MAPPING Template'); return; }
+  try{
+    // อ่าน INV
+    const invWb = XLSX.read(ZWT.invBuf, {type:'array', cellDates:false});
+    if(!invWb.Sheets['CI']){ zwtErr('ไม่พบชีต CI'); return; }
+    if(!invWb.Sheets['PL']){ zwtErr('ไม่พบชีต PL'); return; }
+    const ci = _zwtReadCI(invWb.Sheets['CI']);
+    const pl = _zwtReadPL(invWb.Sheets['PL']);
+    if(!ci.invNo){ zwtErr('อ่านเลข INVOICE ไม่ได้ (INV.NO.) จากชีต CI'); return; }
+    if(!ci.items.length){ zwtErr('ไม่พบรายการสินค้าในชีต CI'); return; }
+
+    // โหลด Template ใหม่ทุกครั้ง (คง pristine format)
+    const tplWb = XLSX.read(ZWT.tplBuf, {type:'array', cellStyles:true});
+    const ws = tplWb.Sheets[tplWb.SheetNames[0]];
+    const R = XLSX.utils.decode_range(ws['!ref']);
+    const NCOL = R.e.c + 1;
+    const enc = (r,c) => XLSX.utils.encode_cell({r,c});
+    // เก็บ style ต้นแบบจากแถว data (r=1) และแถว total (r=2)
+    const tplData = {}, tplTot = {};
+    for(let c=0;c<NCOL;c++){
+      tplData[c] = ws[enc(1,c)] ? Object.assign({}, ws[enc(1,c)]) : null;
+      tplTot[c]  = ws[enc(2,c)] ? Object.assign({}, ws[enc(2,c)]) : null;
+    }
+    const setCell = (r,c,tplCell,val,type) => {
+      const base = tplCell ? Object.assign({}, tplCell) : {};
+      if(val !== undefined){ base.v = val; if(type) base.t = type; }
+      ws[enc(r,c)] = base;
+    };
+    // เขียนแถวสินค้า (คอลัมน์ที่ไม่ได้ map = คงค่า FIX จาก template row2)
+    const dateVal = ci.date;
+    ci.items.forEach((it,i)=>{
+      const r = 1 + i;
+      const D = { 0:it.itemNo, 1:ci.invNo, 2:dateVal, 3:it.code, 4:it.name,
+                  6:it.qty, 7:it.price, 8:it.amount, 9:it.hs,
+                  10:(pl.nw[it.code]||0), 11:(pl.gw[it.code]||0), 25:dateVal }; // 25=Z วันที่ออกใบอนุญาต = INVOICE DATE
+      for(let c=0;c<NCOL;c++){
+        if(Object.prototype.hasOwnProperty.call(D,c)){
+          const v = D[c]; const ty = (typeof v === 'number') ? 'n' : 's';
+          setCell(r, c, tplData[c], v, ty);
+        } else {
+          setCell(r, c, tplData[c]); // FIX
+        }
+      }
+    });
+    // แถว TOTAL หลังสินค้า
+    const N = ci.items.length, totR = 1 + N;
+    const sumQty = ci.items.reduce((s,it)=>s+it.qty,0);
+    const sumAmt = ci.items.reduce((s,it)=>s+it.amount,0);
+    const sumNW  = ci.items.reduce((s,it)=>s+(pl.nw[it.code]||0),0);
+    const sumGW  = ci.items.reduce((s,it)=>s+(pl.gw[it.code]||0),0);
+    const M = { 6:_zwtRound(sumQty,3), 8:_zwtRound(sumAmt,2), 10:_zwtRound(sumNW,3), 11:_zwtRound(sumGW,3) };
+    for(let c=0;c<NCOL;c++){
+      if(Object.prototype.hasOwnProperty.call(M,c)) setCell(totR, c, tplTot[c], M[c], 'n');
+      else setCell(totR, c, tplTot[c]);
+    }
+    ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:totR, c:NCOL-1} });
+
+    // ── ตรวจสอบก่อน Export ──
+    const warns = [];
+    ci.items.forEach(it=>{ if(!(it.code in pl.nw)) warns.push('PRODUCT CODE "'+it.code+'" ไม่พบใน PL (NW/GW = 0)'); });
+    // ชื่อไฟล์ = <INVOICE>.xlsx (เฉพาะอักขระที่ปลอดภัย)
+    const fname = String(ci.invNo).replace(/[^\w.\-]/g,'') + '.xlsx';
+    XLSX.writeFile(tplWb, fname, { cellStyles:true, bookType:'xlsx' });
+
+    // preview
+    const prev = document.getElementById('zwt-preview');
+    if(prev){
+      const dstr = (typeof dateVal==='number' && XLSX.SSF) ? (function(){ try{ const d=XLSX.SSF.parse_date_code(dateVal); const z=n=>String(n).padStart(2,'0'); return z(d.d)+'/'+z(d.m)+'/'+d.y; }catch(e){ return String(dateVal); } })() : String(dateVal);
+      prev.innerHTML =
+        '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;font-family:\'IBM Plex Sans Thai\',sans-serif">'+
+        '<div style="font-size:12px;font-weight:700;color:#3fb950;margin-bottom:10px">✅ Export '+fname+' สำเร็จ</div>'+
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:12px;color:#c9d1d9">'+
+        '<div><div style="color:#6e7681;font-size:10px">INVOICE</div>'+ci.invNo+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">DATE</div>'+dstr+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">รายการ</div>'+N+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">รวม QTY</div>'+_zwtRound(sumQty,3)+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">รวม AMOUNT</div>'+_zwtRound(sumAmt,2)+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">รวม NW</div>'+_zwtRound(sumNW,3)+'</div>'+
+        '<div><div style="color:#6e7681;font-size:10px">รวม GW</div>'+_zwtRound(sumGW,3)+'</div>'+
+        '</div>'+
+        (warns.length ? '<div style="margin-top:10px;color:#f0c674;font-size:11px">⚠ '+warns.join(' · ')+'</div>' : '')+
+        '</div>';
+    }
+    if(warns.length) zwtErr('Export สำเร็จ แต่พบคำเตือน '+warns.length+' รายการ — ตรวจสอบข้อมูล', true);
+    if(typeof toast === 'function') toast('✅ Export '+fname+(warns.length?(' • เตือน '+warns.length):''), warns.length?'warn':'success');
+  }catch(err){ console.error(err); zwtErr('Export ผิดพลาด: '+err.message); }
+}
+
 </script>
 </body>
 </html>
