@@ -1051,6 +1051,8 @@ const CARD_STATUS_PRESETS = [
 // คอลัมน์ที่ดึง
 const DOC_COLS = 'id,app_code,doc_no,company,category,description,job_nj,quantity,priority,freight_paid,import_terminal,pickup_location,creator_user,creator_name,assigned_user,assigned_name,shipping_date,pickup_time,doc_status,card_status,note,received_at,cleared_at,completed_at,postponed_at,created_at,updated_at';
 const DOC_COLS_FALLBACK = 'id,app_code,doc_no,company,category,description,job_nj,quantity,priority,import_terminal,pickup_location,creator_user,creator_name,assigned_user,assigned_name,shipping_date,pickup_time,doc_status,card_status,note,received_at,cleared_at,completed_at,postponed_at,created_at,updated_at';
+let _fpMissing = false;                       // จำว่า DB ไม่มีคอลัมน์ freight_paid → ครั้งต่อไปข้ามไปใช้ FALLBACK เลย (ไม่ยิง 400 ซ้ำ)
+function _docCols(){ return _fpMissing ? DOC_COLS_FALLBACK : DOC_COLS; }
 
 // นิยามเมนู: key → predicate
 const VIEWS = {
@@ -1132,15 +1134,8 @@ function _todayRangeTH(){
   const endUTC  =new Date(Date.UTC(y,m,d+1,0,0,0)-7*3600*1000);           // 00:00 พรุ่งนี้ไทย → UTC
   return { start:startUTC.toISOString(), end:endUTC.toISOString() };
 }
-// own-only overlay — mirror _visibleDocs() เป๊ะ (NEW ที่ยังไม่มีผู้รับ = เห็นทุกคน · ที่เหลือ = ของตน)
-function _applyOwnOnly(q, view){
-  if(!isOwnOnly()) return q;
-  const uid=String(S.user&&S.user.id||'');
-  const mine=`creator_user.eq.${uid},assigned_user.eq.${uid}`;
-  if(view==='NEW'||view==='TOMORROW'||view==='ADVANCE') return q.or(`assigned_user.is.null,${mine}`);   // NEW-modes: unassigned NEW + ของตน
-  if(view==='all') return q.or(`and(doc_status.eq.NEW,assigned_user.is.null),${mine}`);                 // all: (NEW & unassigned) + ของตน
-  return q.or(mine);                                                                                     // RECEIVED/POSTPONED/COMPLETED_TODAY/EDIT: เฉพาะของตน
-}
+// own-only: บังคับสิทธิ์ที่ client (_visibleDocs) เป็นด่านหลัก — ไม่กรอง server เพื่อเลี่ยง .or() ซ้อน (400) และกันรั่วชัวร์
+function _applyOwnOnly(q, view){ return q; }
 // เงื่อนไข server ต่อโหมด (สถานะ/วันที่/shipping_date) — ตรงกับ VIEWS[view].test
 function _applyViewFilter(q, view){
   const today=todayYMD(), tmr=tomorrowYMD();
@@ -1164,15 +1159,22 @@ async function loadView(view, opts={}){
   const p=(async()=>{
     const _q0=performance.now();
     try{
-      let q=sb.from(DOC_TABLE).select(DOC_COLS).eq('app_code',WORK_APP_CODE);
+      let q=sb.from(DOC_TABLE).select(_docCols()).eq('app_code',WORK_APP_CODE);
       q=_applyViewFilter(q, view).order('created_at',{ascending:false}).limit(VIEW_LIMIT);
       let { data, error }=await q;
-      if(error && /freight_paid/i.test(error.message||'')){                          // คอลัมน์ใหม่ยังไม่ migrate → fallback
+      if(error && /freight_paid/i.test(error.message||'')){ _fpMissing=true;             // DB ไม่มี freight_paid → จำไว้ + fallback cols
         let q2=sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE);
         q2=_applyViewFilter(q2, view).order('created_at',{ascending:false}).limit(VIEW_LIMIT);
         ({ data, error }=await q2);
       }
-      if(error){ console.error('[loadView '+view+']', error); if(!c.loaded) toast('โหลดข้อมูลไม่สำเร็จ: '+(error.message||''),'error'); return; }
+      if(error){
+        // FALLBACK กัน 400 จาก server filter ที่ DB ไม่รองรับ → ดึงแบบ plain (เหมือน query เดิมที่ใช้ได้) แล้วกรอง client ด้วย VIEWS[view].test
+        console.warn('[loadView '+view+'] filtered query failed → plain fallback:', error && error.message);
+        let r=await sb.from(DOC_TABLE).select(_docCols()).eq('app_code',WORK_APP_CODE).order('created_at',{ascending:false}).limit(600);
+        if(r.error && /freight_paid/i.test(r.error.message||'')){ _fpMissing=true; r=await sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE).order('created_at',{ascending:false}).limit(600); }
+        if(r.error){ console.error('[loadView plain]', r.error); if(!c.loaded) toast('โหลดข้อมูลไม่สำเร็จ: '+(r.error.message||''),'error'); return; }
+        data=(r.data||[]).filter(d=>{ try{ return _docVisibleToUser(d) && VIEWS[view].test(d); }catch(_){ return false; } }); error=null;
+      }
       if(S._viewReqToken[view]!==tok) return;                                          // #15 มี request ใหม่กว่าแล้ว → ทิ้งผลเก่า
       _perfMark('supabaseQuery·'+view, _q0);
       c.docs=(data||[]).slice(0,VIEW_LIMIT); c.loaded=true; c.lastLoadedAt=Date.now();
@@ -1920,12 +1922,12 @@ async function _maybeServerSearch(q){
   const tok=++_srvSearchTok; const view=S.view;
   try{
     const like='%'+q.replace(/[%,]/g,' ')+'%';
-    let query=sb.from(DOC_TABLE).select(DOC_COLS).eq('app_code',WORK_APP_CODE);
+    let query=sb.from(DOC_TABLE).select(_docCols()).eq('app_code',WORK_APP_CODE);
     query=_applyViewFilter(query, view)
       .or(`doc_no.ilike.${like},company.ilike.${like},job_nj.ilike.${like},creator_name.ilike.${like},assigned_name.ilike.${like}`)
       .order('created_at',{ascending:false}).limit(VIEW_LIMIT);
     let { data, error }=await query;
-    if(error && /freight_paid/i.test(error.message||'')){ /* fallback */ let q2=sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE); q2=_applyViewFilter(q2,view).or(`doc_no.ilike.${like},company.ilike.${like},job_nj.ilike.${like},creator_name.ilike.${like},assigned_name.ilike.${like}`).order('created_at',{ascending:false}).limit(VIEW_LIMIT); ({data,error}=await q2); }
+    if(error && /freight_paid/i.test(error.message||'')){ _fpMissing=true; let q2=sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE); q2=_applyViewFilter(q2,view).or(`doc_no.ilike.${like},company.ilike.${like},job_nj.ilike.${like},creator_name.ilike.${like},assigned_name.ilike.${like}`).order('created_at',{ascending:false}).limit(VIEW_LIMIT); ({data,error}=await q2); }
     if(error || tok!==_srvSearchTok || S.view!==view || S.filters.search!==q) return;   // stale/เปลี่ยนแล้ว → ทิ้ง
     let added=false;
     (data||[]).forEach(row=>{ if(row&&row.id && !c.docs.some(d=>d.id===row.id)){ c.docs.push(row); added=true; } });
@@ -2718,8 +2720,9 @@ async function saveForm(editId){
   const btn = $('f-save'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...';
   try{
     if(editId){
-      let { data:_ur, error } = await sb.from(DOC_TABLE).update(payload).eq('app_code',WORK_APP_CODE).eq('id',editId).select(DOC_COLS).maybeSingle();
-      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ data:_ur, error } = await sb.from(DOC_TABLE).update(p).eq('app_code',WORK_APP_CODE).eq('id',editId).select(DOC_COLS).maybeSingle()); }
+      if(_fpMissing) delete payload.freight_paid;
+      let { data:_ur, error } = await sb.from(DOC_TABLE).update(payload).eq('app_code',WORK_APP_CODE).eq('id',editId).select(_docCols()).maybeSingle();
+      if(error && /freight_paid/i.test(error.message||'')){ _fpMissing=true; const p={...payload}; delete p.freight_paid; ({ data:_ur, error } = await sb.from(DOC_TABLE).update(p).eq('app_code',WORK_APP_CODE).eq('id',editId).select(DOC_COLS_FALLBACK).maybeSingle()); }
       if(error) throw error;
       await logDoc(editId,'edited',null,'แก้ไขข้อมูลงาน');
       if(_ur && _ur.id){ DOC_MODES.forEach(m=>{ if(_docInMode(_ur,m)) _cacheUpsert(m,_ur); else _cacheRemove(m,_ur.id); }); if(S.view&&_vc(S.view)) S.docs=_vc(S.view).docs; _recountSoon(); }   // #7 patch local เข้า cache ที่ถูกโหมด (ไม่ refetch)
@@ -2751,8 +2754,9 @@ async function saveForm(editId){
       payload.doc_status = 'NEW';
       payload.creator_user = (S.user&&S.user.id)||null;
       payload.creator_name = uname();
-      let { data, error } = await sb.from(DOC_TABLE).insert(payload).select(DOC_COLS).maybeSingle();
-      if(error && /freight_paid/i.test(error.message||'')){ const p={...payload}; delete p.freight_paid; ({ data, error } = await sb.from(DOC_TABLE).insert(p).select(DOC_COLS).maybeSingle()); }
+      if(_fpMissing) delete payload.freight_paid;
+      let { data, error } = await sb.from(DOC_TABLE).insert(payload).select(_docCols()).maybeSingle();
+      if(error && /freight_paid/i.test(error.message||'')){ _fpMissing=true; const p={...payload}; delete p.freight_paid; ({ data, error } = await sb.from(DOC_TABLE).insert(p).select(DOC_COLS_FALLBACK).maybeSingle()); }
       if(error) throw error;
       if(data&&data.id){ await logDoc(data.id,'created','NEW','สร้างงานใหม่'); DOC_MODES.forEach(m=>{ if(_docInMode(data,m)) _cacheUpsert(m,data); }); if(S.view&&_vc(S.view)) S.docs=_vc(S.view).docs; _recountSoon(); }   // #7 เพิ่ม row เข้า cache ที่ถูกโหมด (ไม่ refetch)
       toast('สร้างงานแล้ว','success');
