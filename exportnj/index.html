@@ -2564,19 +2564,23 @@ function sigParseInvoice(aoa){
 function sigParsePacking(aoa){
   let hr=-1;
   for(let i=0;i<aoa.length;i++){ if(String(aoa[i][0]==null?'':aoa[i][0]).trim().toLowerCase()==='products'){ hr=i; break; } }
-  const rows=[]; let boi='';
-  if(hr<0) return {rows, boi};
+  const rows=[]; let boi='', boiSeen=false, blocks=[];
+  if(hr<0) return {rows, boi, blocks};
   // เก็บ "ทุกแถว" ตามลำดับบน→ล่าง · ห้ามยุบรายการที่ชื่อสินค้าซ้ำกัน (เดิมเก็บเป็น map จึงถูกทับ)
+  // BOI No. : ทุกครั้งที่พบ = เริ่ม "ช่วงใหม่" ใช้กับรายการที่อยู่ถัดจากบรรทัดนั้นจนกว่าจะพบ BOI No. บรรทัดถัดไป
+  // → BOI เดิมที่กลับมาปรากฏอีกครั้ง ถือเป็นช่วงใหม่ · เก็บค่าดิบ (คง / และ - · ไม่ตัดศูนย์ · ไม่แปลงเป็นตัวเลข)
   for(let i=hr+1;i<aoa.length;i++){ const row=aoa[i]; const a=String(row[0]==null?'':row[0]).trim();
     if(!a) continue;
-    let m=a.match(/BOI No\.?\s*(.+)/i); if(m){ boi=m[1].trim(); continue; }
+    let m=a.match(/BOI\s*No\.?\s*(.+)/i);
+    if(m){ boi=String(m[1]).trim(); boiSeen=true; blocks.push({boi, from:rows.length+1, to:null}); continue; }
     if(/^Total/i.test(a)||/^BRAND/i.test(a)) continue;
     const pallet=sigNum(row[3]); if(pallet==null) continue;
     rows.push({ order:rows.length+1, designation:a.replace(/\s+/g,' '), pallet,
-                carton:sigNum(row[4]), qty:sigNum(row[5]), nw:sigNum(row[6]), gw:sigNum(row[7]) });
+                carton:sigNum(row[4]), qty:sigNum(row[5]), nw:sigNum(row[6]), gw:sigNum(row[7]),
+                boi:boi });   // ← BOI ของช่วงที่แถวนี้สังกัด (ไม่ใช่ BOI ตัวสุดท้ายของไฟล์)
   }
-  rows.forEach(r=>{ r.boi=boi; });
-  return {rows, boi};
+  blocks.forEach((b,i)=>{ b.to = (i+1<blocks.length? blocks[i+1].from-1 : rows.length); });
+  return {rows, boi, blocks, boiSeen};
 }
 /* คีย์เทียบชื่อสินค้า (ใช้ชุดเดียวกันทั้งฝั่ง Packing และ Invoice) */
 function sigDesgKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toUpperCase(); }
@@ -2617,7 +2621,7 @@ function buildSigMapping(){
         N:(fileRow===1?inv.inland:''), O:(fileRow===1?'EUR':''),
         P:pk?pk.pallet:'', Q:SIG_FIX.Q, R:pk?pk.carton:'', S:SIG_FIX.S, T:pk?pk.nw:'', U:pk?pk.gw:'',
         V:inv.mark, W:inv.dest, X:inv.origin, Y:yr, Z:SIG_FIX.Z, AA:SIG_FIX.AA, AB:inv.brand,
-        AC:SIG_FIX.AC, AD:pk?pk.boi:(p.pack&&p.pack.boi)||'', AE:SIG_FIX.AE, AF:SIG_FIX.AF, AG:inv.date, AH:SIG_FIX.AH,
+        AC:SIG_FIX.AC, AD:(pk&&pk.boi)?pk.boi:'', AE:SIG_FIX.AE, AF:SIG_FIX.AF, AG:inv.date, AH:SIG_FIX.AH,
         _desg:desg });
     };
     if(packRows.length){
@@ -2638,7 +2642,11 @@ function buildSigMapping(){
       inv.items.forEach(it=>emit(it, null));
     }
   });
-  SIG.mapping=map; validateSigMapping(); return SIG.errors.length===0;
+  SIG.mapping=map;
+  // แจ้งเตือนก่อน Export: รายการที่ไม่พบ BOI License No (เว้นว่างไว้ ไม่เดาค่า)
+  const noBoi=map.filter(r=>!r.AD).map(r=>r.C);
+  if(noBoi.length) SIG.warnings.push(`ไม่พบ BOI License No สำหรับ Item ที่ ${noBoi.join(', ')}`);
+  validateSigMapping(); return SIG.errors.length===0;
 }
 function validateSigMapping(){
   const seen=new Set();
