@@ -4646,6 +4646,28 @@ CVT.normText=normText; CVT.normNum=normNum; CVT.normBatch=normBatch;
 function cmpNum(v){ const t=stripDot0(trim(v)).replace(/^0+/,''); return t===''?'0':t; }
 CVT.cmpNum=cmpNum;
 
+/* ข้อ 5: คีย์จับคู่กลาง — Invoice + Delivery + SAP + Batch
+   ใช้ชุด Normalize เดียวกันทุกจุด (สร้าง fiPool และ takeFI) · ห้ามประกอบคีย์คนละวิธี
+   Invoice/SAP = ข้อความ+trim+ตัด .0  · Delivery = ตัด 0 นำหน้าเฉพาะตอนเทียบ (0032315737 = 32315737)
+   Batch = trim + ตัวพิมพ์ใหญ่ · คงเลข 0 นำหน้า · ไม่ลบอักขระภายใน */
+function cvtMatchKey(invoice, delivery, sap, batch){
+  return [ normText(invoice), cmpNum(delivery), normText(sap), normBatch(batch) ].join('|');
+}
+CVT.matchKey=cvtMatchKey;
+
+/* ข้อ 1/2: Normalize HS กลาง — ใช้ชุดเดียวกันทั้ง TH Ship, RA DATA และ STA Master
+   ข้อความ · trim · ตัด .0 จาก Excel · ลบจุด/ขีด/ช่องว่าง · เก็บเฉพาะตัวเลข
+   ตัวอย่าง 3214.10.10 → 32141010 · 3304.99.00 → 33049900 */
+function hsNorm(v){
+  const t=trim(v);
+  if(t==='') return '';
+  // เลขล้วนจาก Excel เช่น 30069100 หรือ 30069100.0 → ตัดทศนิยมศูนย์ท้าย
+  if(/^\d+(\.0+)?$/.test(t)) return t.replace(/\.0+$/,'');
+  // รูปแบบมีจุด/ขีดคั่น เช่น 3304.99.00 หรือ 3006-9100 → เก็บเฉพาะตัวเลข
+  return t.replace(/[^0-9]/g,'');
+}
+CVT.hsNorm=hsNorm;
+
 /* ---------- ISO alpha-2 country map (verified from real files) ---------- */
 const ISO2 = {
   'DOMINICAN REPUBLIC':'DO','UNITED KINGDOM':'GB','GB':'GB','GREAT BRITAIN':'GB',
@@ -4833,9 +4855,9 @@ CVT.parseFillIn=function(aoa){
     material:['Material#'], matDesc:['Material Description'], batch:['Batch'],
     qty:['Billing Qty.'], uom:['UoM'], amount:['Total Amount'], hs:['HS Code'],
     origin:['Origin'], billingDate:['Billing Date'], manuf:['Manuf Date'], expiry:['Expiry Date'],
-    license:['License'], coo:['COO'], matDescTH:['Mat Desc(TH)']
+    license:['License'], coo:['COO'], matDescTH:['Mat Desc(TH)'], lpiU:['U']
   });
-  const missing=Object.keys(idx).filter(k=>idx[k]<0 && !['manuf','expiry','matDesc','material','license','coo','matDescTH'].includes(k));
+  const missing=Object.keys(idx).filter(k=>idx[k]<0 && !['manuf','expiry','matDesc','material','license','coo','matDescTH','lpiU'].includes(k));
   const rows=[];
   for(let r=1;r<aoa.length;r++){
     const row=aoa[r]; if(!row) continue;
@@ -4850,6 +4872,10 @@ CVT.parseFillIn=function(aoa){
       expiry:(idx.expiry>=0?row[idx.expiry]:null),
       matDesc:(idx.matDesc>=0?trim(row[idx.matDesc]):''),
       matDescTH:(idx.matDescTH>=0?trim(row[idx.matDescTH]):''),
+      // ข้อ 2/7: CFS/LPI ที่มาพร้อม TH Ship เอง (คอลัมน์ License และ U) — ใช้เป็นแหล่งยืนยันเมื่อ RA DATA ไม่มี
+      license:(idx.license>=0?trim(row[idx.license]):''),
+      lpiU:(idx.lpiU>=0?trim(row[idx.lpiU]):''),
+      cooTH:(idx.coo>=0?trim(row[idx.coo]):''),
       _used:0
     });
   }
@@ -4893,6 +4919,9 @@ function toJsDate(v){
 CVT.toJsDate=toJsDate;
 function fmtDMY(v){ const d=toJsDate(v); if(!d||isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); }
 CVT.fmtDMY=fmtDMY;
+/* คีย์เปรียบเทียบ "วันที่" ตามค่า — Date คนละ object ที่ค่าตรงกันต้องนับเป็นค่าเดียว
+   (ไม่งั้น LINE ที่มีหลาย Batch จะได้ INVOICE DATE / Year ว่างทั้งที่ TH Ship ตรงกัน) */
+function _dateKey(v){ const d=toJsDate(v); return (d&&!isNaN(d)) ? 'T'+d.getTime() : 'S'+String(v); }
 
 /* ==================================================================
    BUILD MAPPING (main + LPI) + validation
@@ -4912,12 +4941,14 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   invoices.forEach(iv=>{ if(iv.deliveryNo) delToInv[cmpNum(iv.deliveryNo)]=iv.invoiceNo; });
 
   // ---- PL: per-package GW distribution (row-level) ----
+  // ข้อ 1: เก็บ GW ต่อแถวใน Map ภายในฟังก์ชัน — ห้ามเขียนทับ pl.rows ต้นฉบับ (สูตรเดิมทุกประการ)
+  const gwOf=new Map();
   const pkgGroups={};
   pl.rows.forEach(r=>{ (pkgGroups[r.package]=pkgGroups[r.package]||[]).push(r); });
   Object.keys(pkgGroups).forEach(pk=>{
     const g=pkgGroups[pk]; const sumNW=g.reduce((a,r)=>a+r.netWeight,0);
     const pw=g[0].packageWeight||0;
-    g.forEach(r=>{ r._gw = sumNW>0 ? pw*r.netWeight/sumNW : 0; });
+    g.forEach(r=>{ gwOf.set(r, sumNW>0 ? pw*r.netWeight/sumNW : 0); });
   });
 
   // ---- index PL rows by (deliveryCmp, slNo, itemCode) ----
@@ -4927,19 +4958,23 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
     (plByLine[k]=plByLine[k]||[]).push(r);
   });
 
-  // ---- index Fill-in rows by (invoice, itemCode, batch) as a consumable pool ----
+  // ---- index Fill-in rows into a consumable pool (คีย์กลาง: Invoice+Delivery+SAP+Batch) ----
   const fiPool={};
   fillIn.rows.forEach(r=>{
-    const k=r.invoice+'|'+cmpNum(r.delivery)+'|'+r.sap+'|'+r.batch;   // ข้อ 2: key มี Delivery
+    const k=cvtMatchKey(r.invoice, r.delivery, r.sap, r.batch);   // ข้อ 5: คีย์ชุดเดียวกับ takeFI
     (fiPool[k]=fiPool[k]||[]).push(r);
   });
+  // ข้อ 1/3: สถานะ "ใช้แล้ว" เก็บใน Set ภายในฟังก์ชัน (สร้างใหม่ทุกครั้งที่เรียก buildMapping)
+  // → ไม่เขียน _used ลงแถวต้นฉบับ · Preview/Export/LPI ให้ผลเท่ากันเสมอ (Pure Function)
+  const usedFillInRows=new Set();
+  function fiRowId(r){ return String(r.srcRow); }
   const _fiEqFields=['invoice','delivery','sap','batch','qty','uom','amount','hs','origin','billingDate','manuf','expiry','matDesc','matDescTH'];
   function takeFI(inv,deliv,item,batch){
-    const pool=fiPool[inv+'|'+deliv+'|'+item+'|'+batch];   // Invoice+Delivery+SAP+Batch (ไม่ใช้ PL Qty)
+    const pool=fiPool[cvtMatchKey(inv,deliv,item,batch)];   // ข้อ 5: คีย์ชุดเดียวกับตอนสร้าง fiPool
     if(!pool||!pool.length) return null;
-    const unused=pool.filter(r=>!r._used);
+    const unused=pool.filter(r=>!usedFillInRows.has(fiRowId(r)));
     if(unused.length===0) return null;
-    if(unused.length===1){ const p=unused[0]; p._used=(p._used||0)+1; return p; }
+    if(unused.length===1){ usedFillInRows.add(fiRowId(unused[0])); return unused[0]; }
     // Equivalent Duplicate Bijection: หลายแถวที่ "เหมือนกันทุกช่องที่มีผลต่อ Export" = แลกเปลี่ยนกันได้
     // → consume 1:1 เรียง srcRow น้อย→มาก (จับคู่แบบกำหนดผลแน่นอน · ไม่ใช่การเดา · แต่ละ srcRow ใช้ครั้งเดียว)
     const base=unused[0];
@@ -4947,7 +4982,7 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
     if(allEq){
       if(unused.length===pool.length){ warnings.push(`Equivalent duplicate matched 1:1: Invoice ${inv} SAP ${item} Batch ${batch}, ${pool.length} PDF Slots ↔ ${pool.length} identical TH Ship Rows`); }
       const pick=unused.slice().sort((a,b)=>(Number(a.srcRow)||0)-(Number(b.srcRow)||0))[0];
-      pick._used=(pick._used||0)+1; return pick;
+      usedFillInRows.add(fiRowId(pick)); return pick;
     }
     return null;   // >1 และค่าต่างกันแม้ช่องเดียว → คลุมเครือ (เว้นว่าง + Warning ตามกฎเดิม)
   }
@@ -4985,12 +5020,13 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
         if(!byBatch[b]) byBatch[b]={batch:b, plQty:0, nw:0, gw:0, expiry:pr.expiry};
         byBatch[b].plQty += (pr.qty||0);
         byBatch[b].nw    += pr.netWeight;
-        byBatch[b].gw    += pr._gw;
+        byBatch[b].gw    += (gwOf.get(pr)||0);
       });
 
       let qtyShipped=0, nwSum=0, gwSum=0, amountSum=0;
       let hsSet=new Set(), uomSet=new Set(), originVal='';
-      const thInvSet=new Set(), thSapSet=new Set(), thDateSet=new Set(), thDescSet=new Set(), thDescTHSet=new Set();
+      const thInvSet=new Set(), thSapSet=new Set(), thDateMap=new Map(), thDescSet=new Set(), thDescTHSet=new Set();
+      const thLicSet=new Set(), thLpiSet=new Set();   // ข้อ 2/7: CFS/LPI จาก TH Ship (License / U) ของแถวที่จับคู่แล้ว
       const batchKeys=Object.keys(byBatch); let matchedCount=0;
       const lpiForLine=[];
       batchKeys.forEach(b=>{
@@ -5004,9 +5040,11 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
           if(fi.origin) originVal=originVal||fi.origin;
           if(fi.invoice!=null&&fi.invoice!=='') thInvSet.add(String(fi.invoice));
           if(fi.sap!=null&&fi.sap!=='') thSapSet.add(String(fi.sap));
-          if(fi.billingDate!=null) thDateSet.add(fi.billingDate);
+          if(fi.billingDate!=null) thDateMap.set(_dateKey(fi.billingDate), fi.billingDate);
           if(fi.matDesc) thDescSet.add(fi.matDesc);
           if(fi.matDescTH) thDescTHSet.add(fi.matDescTH);
+          if(fi.license) thLicSet.add(fi.license);
+          if(fi.lpiU) thLpiSet.add(fi.lpiU);
         } else {
           warnings.push(`ยืนยัน TH Ship ไม่ได้ (เว้นว่าง): Inv ${invNo} SAP ${li.itemCode} Batch ${b}`);   // ข้อ 9: ระบุ Invoice/SAP/Batch
         }
@@ -5017,25 +5055,51 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       const thInv = thInvSet.size===1 ? [...thInvSet][0] : '';
       const thSap = thSapSet.size===1 ? [...thSapSet][0] : '';
       const fiSap = thSap;
-      const allMatched = batchKeys.length>0 && matchedCount===batchKeys.length;   // ข้อ 6: ครบทุก batch เท่านั้น (ห้ามยอดบางส่วน)
+      const allMatched = batchKeys.length>0 && matchedCount===batchKeys.length;
       totalBatchesAll += batchKeys.length; matchedBatchesTotal += matchedCount;   // ข้อ 8
+      // ข้อ 6: บาง Batch ไม่ตรง = ห้ามล้างทั้ง LINE · รวมยอดเฉพาะ Batch ที่จับคู่สำเร็จ + แจ้งจำนวนที่ไม่สำเร็จ
+      if(batchKeys.length>0 && matchedCount>0 && !allMatched){
+        warnings.push(`ยอดรวมบางส่วน: Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode} — จับคู่ TH Ship ได้ ${matchedCount}/${batchKeys.length} Batch (QTY/VALUE รวมเฉพาะ Batch ที่จับคู่สำเร็จ)`);
+      }
 
       // HS / UoM consistency
       if(hsSet.size>1){ errors.push(`HS ไม่ตรงกันใน Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode}: ${[...hsSet].join(',')}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`HS ไม่ตรงกันในบรรทัด: ${[...hsSet].join(', ')}`); }
       if(uomSet.size>1){ errors.push(`UoM ไม่ตรงกันใน Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`UoM ไม่ตรงกันในบรรทัด: ${[...uomSet].join(', ')}`); }
       const hs=[...hsSet][0]||'';
       const uom=[...uomSet][0]||'';
+      const _hsN=hsNorm(hs);                          // ข้อ 1/2: HS ปัจจุบันจาก TH Ship (Normalize กลาง)
+      const _itemForLookup=normText(thSap||li.itemCode);
+      const _ctx=`Invoice ${invNo} Delivery ${iv.deliveryNo} SAP ${_itemForLookup} HS ${_hsN||'(ว่าง)'}`;
 
-      // ข้อ 4: RA lookup ใช้ SAP จาก matched TH Ship
+      // ข้อ 2: RA lookup — SAP เป็นคีย์หลัก · HS ช่วยเลือกเมื่อมีหลายแถว · ห้ามใช้แถวแรกโดยอัตโนมัติ
       const raCands=(fiSap ? (ra.byS[fiSap]||[]) : []);
-      let raPick=null;
-      if(raCands.length===1) raPick=raCands[0];
+      let raPick=null, raShared=null;   // raShared = License/LPI ที่ทุก Candidate ตรงกัน (ใช้ค่าร่วมได้)
+      if(raCands.length===1){ raPick=raCands[0]; }                       // ข้อ 2.2
       else if(raCands.length>1){
-        let f=raCands.filter(c=>(!c.hs||!hs||c.hs===hs));
-        if(f.length===1) raPick=f[0];
-        else { validation.ambiguous.push(`RA DATA คลุมเครือ SAP ${li.itemCode} (${raCands.length})`); warnings.push(`RA DATA คลุมเครือ SAP ${li.itemCode} (${raCands.length}) — เว้นว่าง`); raPick=null; }   // ข้อ 3: ไม่เลือกแถวแรก
+        const hsMatch=(_hsN? raCands.filter(c=>hsNorm(c.hs)===_hsN) : []);   // ข้อ 2.3: Normalize ทั้ง 2 ฝั่ง
+        if(hsMatch.length===1){ raPick=hsMatch[0]; }
+        else {
+          const src = hsMatch.length>1 ? hsMatch : raCands;                  // ข้อ 2.4: ตรวจ License/LPI ของผู้สมัครทั้งหมด
+          const licSet=[...new Set(src.map(c=>trim(c.license)))];
+          const lpiSet=[...new Set(src.map(c=>trim(c.lpi)))];
+          const detail=src.map((c,i)=>`#${i+1} HS ${hsNorm(c.hs)||'-'} · License ${trim(c.license)||'(ว่าง)'} · LPI ${trim(c.lpi)||'(ว่าง)'}`).join(' | ');
+          if(licSet.length===1 && lpiSet.length===1 && (licSet[0]||lpiSet[0])){
+            raShared={license:licSet[0], lpi:lpiSet[0]};                     // ข้อ 2.5: ค่าร่วมเหมือนกันทุกแถว
+            warnings.push(`RA DATA หลาย Candidate แต่ License/LPI ตรงกันทุกแถว → ใช้ค่าร่วม: ${_ctx} · พบ ${src.length} Candidate · ${detail}`);
+          } else {
+            const filled=src.filter(c=>trim(c.license)&&trim(c.lpi));
+            if(filled.length===1){                                           // ข้อ 2.6: มีแถวเดียวที่ License+LPI ไม่ว่าง
+              raPick=filled[0];
+              warnings.push(`RA DATA หลาย Candidate · มีเพียงแถวเดียวที่ License/LPI ไม่ว่าง → ใช้แถวนั้น: ${_ctx} · พบ ${src.length} Candidate · ${detail}`);
+            } else {                                                         // ข้อ 2.7/6: ยืนยันไม่ได้ = เว้นว่าง + แจ้งเหตุผล
+              validation.ambiguous.push(`RA DATA คลุมเครือ SAP ${_itemForLookup} (${src.length})`);
+              warnings.push(`RA DATA คลุมเครือ: ${_ctx} · พบ ${src.length} Candidate · ${detail} · License/LPI ไม่เหมือนกัน จึงเว้นว่าง`);
+              raPick=null;
+            }
+          }
+        }
       } else {
-        warnings.push(`ไม่พบ RA DATA SAP ${li.itemCode}`);
+        warnings.push(`ไม่พบ RA DATA: ${_ctx} · พบ 0 Candidate (CFS/LPI/Description/COO จาก RA จะไม่มี — ข้อมูล TH Ship อื่นยังคงอยู่)`);
       }
 
       // COO from RA (compare with fill-in origin)
@@ -5057,19 +5121,43 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
       }
       if(!desc){ errors.push(`ไม่พบ DESCRIPTION(TH) SAP ${li.itemCode}`); addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},'ไม่พบ DESCRIPTION (ภาษาไทย)'); }
 
-      // STA: Convatec fixed lookup ด้วย HS (normalize) เท่านั้น · ไม่พบ = ว่าง · ไม่บล็อก ไม่ error
-      const _hsN=String(hs==null?'':hs).replace(/[\s.\-]/g,'');
-      let sta = Object.prototype.hasOwnProperty.call(staLookup,_hsN) ? staLookup[_hsN] : '';
+      // ข้อ 1: STA — 1) ITEM CODE + HS จาก CVT_STA  2) HS Master (เฉพาะ HS ที่มีค่าเดียว)
+      //        3) ไม่พบ/หลายค่า = เว้นว่าง + Warning · ห้ามเลือกแถวแรก · ห้ามกำหนดค่าว่างไว้ล่วงหน้า
+      //        ใช้ HS ปัจจุบันจาก TH Ship เสมอ (ห้ามย้อนไปใช้ HS เก่าใน Template เพื่อให้ได้ STA)
+      const _staByItem=(staLookup&&staLookup.byItemHs)?staLookup.byItemHs:null;
+      const _staByHs=(staLookup&&staLookup.byHs)?staLookup.byHs
+                     :((staLookup&&!staLookup.byItemHs)?staLookup:{});
+      let sta='', staSrc='';
+      if(_hsN){
+        const k1=_itemForLookup+'|'+_hsN;
+        if(_staByItem && Object.prototype.hasOwnProperty.call(_staByItem,k1) && _staByItem[k1]!==''){ sta=String(_staByItem[k1]); staSrc='ITEM+HS'; }
+        if(sta==='' && Object.prototype.hasOwnProperty.call(_staByHs,_hsN) && _staByHs[_hsN]!==''){ sta=String(_staByHs[_hsN]); staSrc='HS'; }
+      }
+      if(sta===''){
+        const amb=(staLookup&&staLookup.byHsAmbig)?staLookup.byHsAmbig[_hsN]:null;
+        warnings.push(amb
+          ? `STA คลุมเครือ (เว้นว่าง): ${_ctx} · HS นี้มีหลายค่าใน Master (${amb.join(', ')}) และไม่มีคู่ ITEM+HS จึงยืนยันไม่ได้`
+          : `STA ไม่พบ (เว้นว่าง): ${_ctx} · ไม่มีทั้งคู่ ITEM+HS และ HS นี้ใน STA Master — ต้องเพิ่มค่า STA ของ HS ${_hsN||'(ว่าง)'} เข้า Master`);
+      }
 
-      // billing date — matched TH Ship ค่าเดียวที่ยืนยัน + ครบทุก batch (ข้อ 4/5/6)
-      const billDate=(allMatched && thDateSet.size===1) ? [...thDateSet][0] : null;
+      // billing date — matched TH Ship ค่าเดียวที่ยืนยัน (ข้อ 6: ไม่ล้างทั้ง LINE เพราะบาง Batch ไม่ตรง)
+      const billDate=(thDateMap.size===1) ? [...thDateMap.values()][0] : null;
       const bd=toJsDate(billDate); const year=bd&&!isNaN(bd)?bd.getFullYear():'';
+
+      // ข้อ 2/7: CFS + LPI — RA DATA ก่อน · ถ้า RA ไม่มี/ยืนยันไม่ได้ ใช้ค่าจริงจาก TH Ship (คอลัมน์ License / U)
+      // ของแถวที่จับคู่แล้วและต้องเป็นค่าเดียวที่ยืนยันได้ · ห้ามสร้างค่าขึ้นเอง · ไม่พบจริง = เว้นว่าง + Warning
+      let cfs = raPick ? trim(raPick.license) : (raShared ? raShared.license : '');
+      let lpiRef = raPick ? trim(raPick.lpi) : (raShared ? raShared.lpi : '');
+      if(!cfs && thLicSet.size===1){ cfs=[...thLicSet][0]; warnings.push(`CFS จาก TH Ship (คอลัมน์ License) — RA DATA ไม่มี/ยืนยันไม่ได้: ${_ctx}`); }
+      if(!lpiRef && thLpiSet.size===1){ lpiRef=[...thLpiSet][0]; warnings.push(`LPI REFERENCE CODE จาก TH Ship (คอลัมน์ U) — RA DATA ไม่มี/ยืนยันไม่ได้: ${_ctx}`); }
+      if(!cfs) warnings.push(`CFS ไม่พบ (เว้นว่าง): ${_ctx} · RA Candidate ${raCands.length} · TH Ship License ${thLicSet.size===0?'ว่าง':'มี '+thLicSet.size+' ค่าไม่ตรงกัน'}`);
+      if(!lpiRef) warnings.push(`LPI REFERENCE CODE ไม่พบ (เว้นว่าง): ${_ctx} · RA Candidate ${raCands.length} · TH Ship U ${thLpiSet.size===0?'ว่าง':'มี '+thLpiSet.size+' ค่าไม่ตรงกัน'}`);
 
       mainRows.push({
         A:(thInv||''), B:billDate, C:(thSap||''), D:invLineNo, E:entryLine,
-        F:newDesc, G:desc, H:(allMatched?round(qtyShipped,3):''), I:uom, J:(allMatched?round(amountSum,2):''),   // ข้อ 4/6: A/C จาก matched TH · ครบทุก batch เท่านั้น (ห้ามยอดบางส่วน)
+        F:newDesc, G:desc, H:(matchedCount>0?round(qtyShipped,3):''), I:uom, J:(matchedCount>0?round(amountSum,2):''),   // ข้อ 6: รวมเฉพาะ Batch ที่จับคู่สำเร็จ (ไม่ล้างทั้ง LINE)
         K:hs, L:sta, M:'000', N:65004, O:coo, P:round(nwSum,3),
-        Q:(raPick?raPick.license:''), R:(raPick?raPick.lpi:''), S:year, T:'CONVATEC', U:round(gwSum,3)
+        Q:cfs, R:lpiRef, S:year, T:'CONVATEC', U:round(gwSum,3)
       });
 
       // ---- LPI rows: 1 per batch within this ENTRY LINE ----
@@ -5201,11 +5289,24 @@ root.CVT=CVT;
 
 /* --- embedded STA_LOOKUP (item|HS -> sta) from MAPPING template --- */
 const CVT_STA = {"1003073|30069100":"000","1003643|30069100":"000","1703526|30069100":"000","1002436|30069100":"000","1002437|30069100":"000","1003644|30069100":"000","1222277|30069100":"000","1718305|30069100":"000","1003645|30069100":"000","1002435|30059020":"000","1704768|30059020":"000","1023423|30059010":"000","1729194|30051090":"000","1003642|30051090":"000","1003666|30051090":"000","1051022|30059010":"000","1703037|30069100":"000","1704764|30051090":"000","1704763|30051090":"000","1002437|30051090":"000","1002859|30069100":"000","1703528|30051090":"000","1739989|30051090":"000","1708334|32141000":"090","1002879|32141000":"090","1002896|30069100":"000","1156502|30069100":"000","1701953|30069100":"000","1704768|30069100":"000","1708334|30069100":"000","1715180|30069100":"000","1704761|30069100":"000","1020975|30069100":"000","1003674|30069100":"000","1729239|30059010":"000","1703596|30069100":"000","1156501|30051090":"000","1708330|30059010":"000","1704764|30059090":"090","1012193|30069100":"000","1704025|30051090":"000"};
-/* Fixed STA เฉพาะโหมด Convatec Import (lookup ด้วย HS อย่างเดียว · ไม่แตะ STA_LOOKUP เดิม) */
-const convatecStaLookup = {
-  "30059090":"090","30069100":"000","32141010":"","30059010":"000",
-  "30051090":"000","33049900":"","30059020":"000"
-};
+/* STA Master เฉพาะโหมด Convatec Import — สร้างจาก CVT_STA (หลักฐานจริงจาก MAPPING) เท่านั้น
+   byItemHs : "ITEM|HS" -> STA        (ลำดับที่ 1)
+   byHs     : "HS" -> STA เฉพาะ HS ที่มีค่า STA เดียวในทั้ง Master (ลำดับที่ 2)
+   byHsAmbig: "HS" -> [ค่าที่ขัดกัน]   (ใช้เว้นว่าง + Warning · ห้ามเลือกค่าแรก)
+   ห้ามกำหนด STA เป็นค่าว่างไว้ล่วงหน้า · HS ที่ไม่มีใน Master = เว้นว่าง + Warning */
+const convatecStaLookup = (function(){
+  const byItemHs={}, hsVals={};
+  Object.keys(CVT_STA).forEach(k=>{
+    const p=String(k).split('|'); if(p.length<2) return;
+    const item=String(p[0]).trim(), hs=CVT.hsNorm(p[1]), v=String(CVT_STA[k]==null?'':CVT_STA[k]).trim();
+    if(!item||!hs||v==='') return;
+    byItemHs[item+'|'+hs]=v;
+    (hsVals[hs]=hsVals[hs]||new Set()).add(v);
+  });
+  const byHs={}, byHsAmbig={};
+  Object.keys(hsVals).forEach(hs=>{ const s=[...hsVals[hs]]; if(s.length===1) byHs[hs]=s[0]; else byHsAmbig[hs]=s; });
+  return {byItemHs, byHs, byHsAmbig};
+})();
 /* --- UI + wiring --- */
 /* ============ CONVATEC IMPORT — UI + wiring (Zero-Impact add-on) ============ */
 const CS = { invPdfs:[], pl:null, th:null, result:null, busy:false };
@@ -7427,13 +7528,21 @@ function cvtRenderFiles(){
   cvtTryPreview();
 }
 function cvtFmtNum(v,d){ const n=Number(v)||0; return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+/* ข้อ 5: ฟังก์ชันกลาง — Preview / EXPORT EXCEL / EXPORT LPI ต้องเรียกทางเดียวกันเสมอ
+   CVT.buildMapping เป็น Pure Function (ไม่แก้ข้อมูลต้นฉบับ) จึงให้ผลเท่ากันทุกครั้งที่เรียก */
+function cvtBuildFreshResult(){
+  const invoices=CS.invPdfs.filter(p=>p.parsed).map(p=>p.parsed);
+  const plData=(CS.pl&&CS.pl.data)?CS.pl.data:{rows:[],meta:null};
+  const thFi=(CS.th&&CS.th.fi)?CS.th.fi:{rows:[]};
+  const thRa=(CS.th&&CS.th.ra)?CS.th.ra:{byS:{}};
+  return CVT.buildMapping(invoices, plData, thFi, thRa, convatecStaLookup);
+}
 function cvtTryPreview(){
   const sm=document.getElementById('cvtSummary'); if(!sm) return;
   if(CS.busy) return;
   if(!cvtFilesComplete()){ sm.innerHTML=''; return; }
   try{
-    const invoices=CS.invPdfs.filter(p=>p.parsed).map(p=>p.parsed);
-    const res=CVT.buildMapping(invoices, CS.pl.data, CS.th.fi, CS.th.ra, convatecStaLookup);
+    const res=cvtBuildFreshResult();
     CS.result=res;
     cvtRenderSummary(res);
   }catch(e){ sm.innerHTML=''; }
@@ -7475,14 +7584,10 @@ async function cvtRunPipeline(btn){
   if(CS.invPdfs.some(p=>!p.parsed&&!p.error)){ await cvtStep(btn,'กำลังอ่านไฟล์...');
     while(CS.invPdfs.some(p=>!p.parsed&&!p.error)) await cvtSleep(80); }
   await cvtStep(btn,'กำลังอ่านไฟล์...');
-  const invoices=CS.invPdfs.filter(p=>p.parsed).map(p=>p.parsed);
   await cvtStep(btn,'กำลังจับคู่ข้อมูล...');
   await cvtStep(btn,'กำลังคำนวณ NW/GW...');
-  // ข้อ 1: ไฟล์ไม่ครบก็ Export ได้ — ใช้โครงว่างแทนไฟล์ที่ขาด (ค่าที่พึ่งไฟล์นั้นจะว่าง)
-  const plData=(CS.pl&&CS.pl.data)?CS.pl.data:{rows:[],meta:null};
-  const thFi=(CS.th&&CS.th.fi)?CS.th.fi:{rows:[]};
-  const thRa=(CS.th&&CS.th.ra)?CS.th.ra:{byS:{}};
-  const res=CVT.buildMapping(invoices, plData, thFi, thRa, convatecStaLookup);
+  // ข้อ 5: ใช้ฟังก์ชันกลางเดียวกับ Preview (ไฟล์ไม่ครบก็ Export ได้ — ค่าที่พึ่งไฟล์นั้นจะว่าง)
+  const res=cvtBuildFreshResult();
   await cvtStep(btn,'กำลังตรวจสอบ...');
   CS.result=res;
   return res;
@@ -7507,7 +7612,7 @@ async function cvtExport(kind){
   const restore=()=>{ CS.busy=false; btnMain.innerHTML=origMain; btnLpi.innerHTML=origLpi; if(clearBtn) clearBtn.disabled=false; cvtUpdateButtons(); };
   try{
     const res=await cvtRunPipeline(btn);
-    // ข้อ 8: ไฟล์ครบทั้ง 3 แหล่ง แต่จับคู่ TH Ship = 0 → ห้ามแจ้งสำเร็จ · โชว์คีย์ตัวอย่าง 3 แหล่ง
+    // ข้อ 7: ไฟล์ครบทั้ง 3 แหล่ง แต่จับคู่ TH Ship = 0 → หยุดก่อนสร้างไฟล์ (ห้ามดาวน์โหลดไฟล์ว่าง/ห้ามแจ้งสำเร็จ)
     const v=res.validation||{};
     const allSrc = (CS.invPdfs.filter(p=>p.parsed).length>=1)
                  && (CS.pl&&CS.pl.data&&CS.pl.data.rows&&CS.pl.data.rows.length>0)
@@ -7515,20 +7620,22 @@ async function cvtExport(kind){
     const zeroMatch = allSrc && (v.totalBatches>0) && (v.matchedBatches===0);
     if(zeroMatch){
       const sk=v.sampleKeys||{};
-      res.warnings.push('❌ จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด (0/'+v.totalBatches+' batch) — ตรวจคีย์ Invoice+Delivery+SAP+Batch');
+      res.warnings.push('❌ จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด กรุณาตรวจสอบ Invoice + Delivery + SAP + Batch (0/'+v.totalBatches+' Batch)');
       (sk.invoicePdf||[]).forEach(k=>res.warnings.push('  Invoice PDF: Invoice '+k.invoice+' · Delivery '+k.delivery));
       (sk.packingList||[]).forEach(k=>res.warnings.push('  Packing List: Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
       (sk.thShip||[]).forEach(k=>res.warnings.push('  TH Ship: Invoice '+k.invoice+' · Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
       try{ console.warn('CVT zero-match sampleKeys',sk); }catch(_){}
+      cvtRenderDash(res);
+      restore();
+      toast('จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด กรุณาตรวจสอบ Invoice + Delivery + SAP + Batch','err');
+      return;   // ข้อ 7: ไม่สร้างไฟล์
     }
-    // ข้อ 1: ยังสร้างไฟล์เสมอ (Warning แสดงใน Dashboard) — แต่ข้อความสถานะสะท้อนผลจับคู่จริง
     await cvtStep(btn,'กำลังสร้าง Excel...');
     if(kind==='main'){ const bytes=CVT.exportMain(XLSX,null,res.mainRows); cvtDownload(bytes,'MAPPING_CONVATEC_'+cvtTs()+'.xlsx'); }
     else { const bytes=CVT.exportLPI(XLSX,null,res.lpiRows); cvtDownload(bytes,'MAPPING_LPI_CONVATEC_'+cvtTs()+'.xlsx'); }
     cvtRenderDash(res);
     restore();
-    if(zeroMatch) toast('จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด — ดูคีย์ตัวอย่างใน Dashboard','err');
-    else toast('Export สำเร็จ','ok');
+    toast('Export สำเร็จ','ok');
   }catch(e){
     console.error(e); restore(); toast('Export ล้มเหลว: '+(e.message||e),'err');
   }
