@@ -5716,6 +5716,30 @@ async function _xpdfHighlightStem(file, targetItems, ctx){
             if(/แผ่นที่1\/\d+/.test(_flat)) startPageNums.add(p);
           }
           const maxX = Math.min(vp.width * 0.15, 88); // item col x≈45-55, 000 at x≈85
+
+          // ── FIX: ยึดคอลัมน์ "รายการที่" เป็นหลักในการตรวจจับเลขรายการ ─────────
+          // เดิม: รับตัวเลขทุกตัวที่ x 15..88 → โทเคนจากช่องอื่น เช่น "090/C62"
+          //       (รหัสสิทธิพิเศษ) หรือ "8482.10.00" (ประเภทพิกัด) ถูกตีความเป็น
+          //       เลขรายการ 90 / 8482 ทำให้ตีกรอบผิดตำแหน่ง/ผิดรายการ
+          // ใหม่: หา x ของหัวคอลัมน์ "ราย / การ / ที่" ในหน้านั้น แล้วรับเฉพาะโทเคน
+          //       ที่อยู่ในคอลัมน์เดียวกัน และขึ้นต้นด้วยตัวเลขล้วน (ไม่ตามด้วย . หรือ /)
+          // ปลอดภัย: ถ้าหน้านั้นหาหัวคอลัมน์ไม่เจอ หรือกรองแล้วไม่เหลือเลย
+          //          → ใช้กติกาเดิมทั้งหมด (ไม่ทำให้รายการเดิมตกหล่น)
+          let _itemColX = null;
+          {
+            const _hdrX = [];
+            for(const _h of tc.items){
+              const _t = (_h.str||'').replace(/\s+/g,'');
+              if(_t !== 'ราย' && _t !== 'การ' && _t !== 'ที่' && _t !== 'รายการที่') continue;
+              const _hx = _h.transform[4], _hy = _h.transform[5];
+              if(_hx < vp.width * 0.2 && _hy > vp.height * 0.75) _hdrX.push(_hx);
+            }
+            if(_hdrX.length >= 2) _itemColX = Math.min(..._hdrX);
+          }
+          const _RE_ITEMNUM_STRICT = /^\d{1,4}(\s|$)/;
+          const _pageItemStrict = [];
+          const _pageItemLoose  = [];
+
           const RE_CC_ALONE  = /^([A-Z]{2})$/;
           const RE_BRAND_CC  = /^([A-Z][A-Z ]+?)\s+([A-Z]{2})$/;  // "INA GB" / "LUK CN"
 
@@ -5741,7 +5765,11 @@ async function _xpdfHighlightStem(file, targetItems, ctx){
                 && !(/^0{2,}/.test(s)) && x >= 15 && x <= maxX){
               const numStr = String(matchNum);
               const w = Math.max(numStr.length * fh * 0.65, fh * 0.8);
-              itemPositions.push({pageNum:p, x, y, w, fh, itemNo:matchNum, type:'item'});
+              const _hit = {pageNum:p, x, y, w, fh, itemNo:matchNum, type:'item'};
+              _pageItemLoose.push(_hit);
+              if(_itemColX !== null
+                 && x >= _itemColX - 10 && x <= _itemColX + 25
+                 && _RE_ITEMNUM_STRICT.test(s)) _pageItemStrict.push(_hit);
             }
 
             // ── B: Country code (right column, x > 50% of page) ──
@@ -5763,6 +5791,9 @@ async function _xpdfHighlightStem(file, targetItems, ctx){
               itemPositions.push({pageNum:p, x:bx, y, w:ccW, fh, cc, type:'cc'});
             }
           }
+          // ยึดผลจากคอลัมน์ "รายการที่" ถ้าจับได้ · ถ้าไม่ได้เลย → ใช้ผลกติกาเดิมของหน้านั้น
+          (_pageItemStrict.length ? _pageItemStrict : _pageItemLoose)
+            .forEach(_h => itemPositions.push(_h));
           page.cleanup();
           await new Promise(r=>setTimeout(r,0));
         }
