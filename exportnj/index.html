@@ -5450,7 +5450,13 @@ const AUTOSTORE = (function(){
       rows.push({no:+itemNoItem.s.trim(), qty, part, desc, price, amount});
     });
     // dedup by itemNo (headers repeat per page but PCS only in data); keep first per (page,no,amount)
-    return {invoiceNo,date,currency,ourRef,items:rows};
+    // Original Country (PDF): อ่านระดับเอกสารจากป้ายกำกับในข้อความ แล้วใช้กับทุกรายการ (ข้อ 4)
+    // หมายเหตุ: ตัวอ่าน PDF นี้อิงพิกัดคอลัมน์ จึงยังไม่รองรับ Origin แยกรายบรรทัดจนกว่าจะมีไฟล์ตัวอย่างจริง
+    let docOrigin='';
+    { const mo=joinAll.match(/(?:Original\s*Country|Country\s*of\s*Origin|Origin|Made\s*in|ประเทศต้นกำเนิด)\s*[:：]?\s*([A-Za-z\u0E00-\u0E7F][A-Za-z\u0E00-\u0E7F .'-]{1,40})/i);
+      if(mo) docOrigin=String(mo[1]).trim().replace(/\s{2,}/g,' '); }
+    rows.forEach(r=>{ r.origin=docOrigin; });
+    return {invoiceNo,date,currency,ourRef,items:rows,docOrigin};
   }
 
   function parseWeightValue(value){
@@ -5536,8 +5542,13 @@ const AUTOSTORE = (function(){
       K:canWeight?round3(pl.netWeight*(Number(it.amount)||0)/exportAmountTotal):'',
       L:canWeight?round3(pl.grossWeight*(Number(it.amount)||0)/exportAmountTotal):'',
       M:'KGM', N:'C62', O:'AutoStore', P:hr.notesHd, Q:'',
-      R:(it.customsType||''), S:'003', T:hr.tariff, U:hr.stat, V:'KGM', W:50001, X:'9PART3', Y:(isBOI(it.customsType)?BOI_LICENSE_NO:'')
+      R:(it.customsType||''), S:'003', T:hr.tariff, U:hr.stat, V:'KGM', W:50001, X:'9PART3', Y:(isBOI(it.customsType)?BOI_LICENSE_NO:''),
+      Z:String(it.origin==null?'':it.origin).trim()   // Original Country (ต่อท้ายเสมอ · ไม่ขยับ A–Y)
     };});
+    // ข้อ 6: ไม่พบ Original Country → เว้นว่าง + แจ้งเตือนก่อน Export
+    { const miss=rows.filter(r=>!r.Z).length;
+      if(rows.length && miss===rows.length) warnings.push('ไม่พบข้อมูล Original Country จากไฟล์ INVOICE กรุณาตรวจสอบข้อมูล');
+      else if(miss) warnings.push('ไม่พบข้อมูล Original Country จากไฟล์ INVOICE กรุณาตรวจสอบข้อมูล (รายการที่ '+rows.filter(r=>!r.Z).map(r=>r.A).join(', ')+')'); }
     // fix rounding remainder on last row (เฉพาะเมื่อคำนวณน้ำหนักได้)
     if(canWeight && rows.length){
       const sumK=round3(rows.reduce((s,r)=>s+(Number(r.K)||0),0)), sumL=round3(rows.reduce((s,r)=>s+(Number(r.L)||0),0));
@@ -5554,8 +5565,8 @@ const AUTOSTORE = (function(){
 
   // ---- export (ZIP surgery) ----
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const DATA_S={A:3,B:3,C:8,D:6,E:6,F:3,G:3,H:3,I:3,J:3,K:3,L:3,M:3,N:3,O:3,P:3,Q:4,R:3,S:3,T:3,U:3,V:3,W:3,X:3,Y:3};
-  const STR={B:1,D:1,E:1,F:1,J:1,M:1,N:1,O:1,P:1,R:1,S:1,T:1,U:1,V:1,X:1,Y:1};
+  const DATA_S={A:3,B:3,C:8,D:6,E:6,F:3,G:3,H:3,I:3,J:3,K:3,L:3,M:3,N:3,O:3,P:3,Q:4,R:3,S:3,T:3,U:3,V:3,W:3,X:3,Y:3,Z:3};
+  const STR={B:1,D:1,E:1,F:1,J:1,M:1,N:1,O:1,P:1,R:1,S:1,T:1,U:1,V:1,X:1,Y:1,Z:1};
   function cell(ref,s,val,isStr,f,cf){
     if(f) return '<c r="'+ref+'" s="'+s+'"><f>'+esc(f)+'</f>'+(cf!=null?'<v>'+cf+'</v>':'')+'</c>';
     if(val==null||val==='') return '<c r="'+ref+'" s="'+s+'"/>';
@@ -5575,13 +5586,19 @@ const AUTOSTORE = (function(){
       r1=r1.replace(/(<c r="Q1"[\s\S]*?<\/c>)/,'$1'+hx)   // ต่อหัวใหม่หลัง Q1 (คง STA)
            .replace(/spans="1:17"/,'spans="1:25"');
     }
-    const COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y'];
+    // Original Country = ต่อท้ายที่ Z1 เสมอ · ไม่ขยับคอลัมน์ A–Y เดิม · ถ้ามีอยู่แล้วไม่สร้างซ้ำ
+    if(r1.indexOf('Original Country')<0){
+      const hStyle2=(r1.match(/<c r="Y1"[^>]*\bs="(\d+)"/)||r1.match(/<c r="Q1"[^>]*\bs="(\d+)"/)||[])[1]||'2';
+      r1=r1.replace(/<\/row>$/,'<c r="Z1" s="'+hStyle2+'" t="inlineStr"><is><t xml:space="preserve">Original Country</t></is></c></row>');
+    }
+    r1=r1.replace(/spans="1:(17|25)"/,'spans="1:26"');
+    const COLS=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
     const n=rows.length, lastData=n+1, totalR=n+2;
     let body=r1;
     rows.forEach((r,i)=>{
       const rn=i+2; let cells='';
       COLS.forEach(col=>{ const ref=col+rn; cells+=cell(ref,DATA_S[col],r[col],!!STR[col]); });
-      body+='<row r="'+rn+'" spans="1:25">'+cells+'</row>';
+      body+='<row r="'+rn+'" spans="1:26">'+cells+'</row>';
     });
     const T=1;
     const tcells=cell('A'+totalR,T,'')+cell('B'+totalR,T,'')+cell('C'+totalR,T,'')+cell('D'+totalR,T,'')+cell('E'+totalR,T,'')+cell('F'+totalR,T,'')
@@ -5591,9 +5608,9 @@ const AUTOSTORE = (function(){
       +cell('J'+totalR,T,'')
       +cell('K'+totalR,T,'','','SUM(K2:K'+lastData+')',Math.round(rows.reduce((s,r)=>s+(Number(r.K)||0),0)*1000)/1000)
       +cell('L'+totalR,T,'','','SUM(L2:L'+lastData+')',Math.round(rows.reduce((s,r)=>s+(Number(r.L)||0),0)*1000)/1000);
-    body+='<row r="'+totalR+'" spans="1:25">'+tcells+'</row>';
+    body+='<row r="'+totalR+'" spans="1:26">'+tcells+'</row>';
     sheet=sheet.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+body+'</sheetData>');
-    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:Y'+totalR+'"/>');
+    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:Z'+totalR+'"/>');
     files['xl/worksheets/sheet1.xml']=enc.encode(sheet);
     if(files['xl/calcChain.xml']) delete files['xl/calcChain.xml'];
     if(files['[Content_Types].xml']){ let ct=dec.decode(files['[Content_Types].xml']).replace(/<Override[^>]*calcChain[^>]*\/>/,''); files['[Content_Types].xml']=enc.encode(ct); }
@@ -5611,7 +5628,10 @@ const AUTOSTORE = (function(){
     const R0=rng.s.r,R1=rng.e.r,C0=rng.s.c,C1=rng.e.c;
     const CUR=/^(USD|EUR|THB|CHF|JPY|GBP|SGD|CNY|HKD|AUD)$/i;
     const num=x=>{ if(x==null||x==='')return null; const n=Number(String(x).replace(/,/g,'')); return isFinite(n)?n:null; };
-    let invoiceNo=null, ourRef=null, currency=null, dateSerial=null, hdrRow=-1, col={};
+    let invoiceNo=null, ourRef=null, currency=null, dateSerial=null, hdrRow=-1, col={}, docOrigin='';
+    // ป้ายกำกับ Original Country ที่รองรับ (หัวคอลัมน์รายบรรทัด และข้อความระดับเอกสาร)
+    const ORG_HDR=/^(original\s*country|country\s*of\s*origin|origin(\s*country)?|made\s*in|ประเทศต้นกำเนิด)\s*:?\s*$/i;
+    const ORG_LBL=/(original\s*country|country\s*of\s*origin|origin|made\s*in|ประเทศต้นกำเนิด)\s*[:：]\s*(.+)$/i;
     for(let r=R0;r<=R1 && hdrRow<0;r++){
       for(let c=C0;c<=C1;c++){
         const s=S(r,c); if(!s) continue; const low=s.toLowerCase(), up=s.toUpperCase();
@@ -5621,6 +5641,11 @@ const AUTOSTORE = (function(){
         if(ourRef==null && /our\s*reference\s*no/i.test(low)){ const below=S(r+1,c)||S(r,c+1); if(below){ const mm=below.match(/\bPAC\d{4}-\d{3,}/i); ourRef=(mm?mm[0]:below).toUpperCase(); } }
         if(currency==null && CUR.test(s)) currency=up;
         if(dateSerial==null && /invoice\s*date/i.test(low)){ const cand=[V(r+1,c),V(r,c+1)].find(x=>typeof x==='number'&&x>20000&&x<80000); if(cand!=null) dateSerial=Math.floor(cand); }
+        // Original Country ระดับเอกสาร: "Country of Origin : China" (ในเซลล์เดียว) หรือป้ายอยู่เซลล์ซ้าย/บน
+        if(!docOrigin){ const mo=s.match(ORG_LBL); if(mo && String(mo[2]).trim()) docOrigin=String(mo[2]).trim(); }
+        if(!docOrigin && ORG_HDR.test(s)){ const nx=S(r,c+1)||S(r+1,c);
+          // กันกรณีเป็น "หัวคอลัมน์" ในแถวหัวตาราง — เซลล์ข้าง ๆ จะเป็นหัวคอลัมน์อื่น ไม่ใช่ค่าประเทศ
+          if(nx && !ORG_HDR.test(nx) && !/^(item|qty|part\s*code|description|price|amount|thai\s*des|hs\s*code|customs\s*type)/i.test(nx)) docOrigin=nx; }
         if(hdrRow<0 && /part\s*code/i.test(low)){
           const cmap={};
           for(let cc=C0;cc<=C1;cc++){ const hh=S(r,cc).toLowerCase();
@@ -5628,7 +5653,8 @@ const AUTOSTORE = (function(){
             else if(/part\s*code/.test(hh)) cmap.part=cc; else if(/^description/.test(hh)) cmap.desc=cc;
             else if(/^price/.test(hh)) cmap.price=cc; else if(/^amount/.test(hh)) cmap.amount=cc;
             else if(/^thai\s*des/.test(hh)) cmap.thDesc=cc; else if(/^hs\s*code/.test(hh)) cmap.hsCode=cc;
-            else if(/customs\s*type/.test(hh)) cmap.customsType=cc; }
+            else if(/customs\s*type/.test(hh)) cmap.customsType=cc;
+            else if(ORG_HDR.test(S(r,cc))) cmap.origin=cc; }   // คอลัมน์ Original Country รายบรรทัด
           if(cmap.part!=null && cmap.amount!=null){ hdrRow=r; col=cmap; }
         }
       }
@@ -5645,10 +5671,13 @@ const AUTOSTORE = (function(){
         items.push({ no:num(col.item!=null?V(r,col.item):null), qty:num(col.qty!=null?V(r,col.qty):null),
           part:clean(part), desc:clean(col.desc!=null?S(r,col.desc):''),
           price:num(col.price!=null?V(r,col.price):null), amount:num(amount),
-          thDesc:(col.thDesc!=null?S(r,col.thDesc):''), hsCode:(col.hsCode!=null?W(r,col.hsCode):''), customsType:(col.customsType!=null?S(r,col.customsType):'') });
+          thDesc:(col.thDesc!=null?S(r,col.thDesc):''), hsCode:(col.hsCode!=null?W(r,col.hsCode):''), customsType:(col.customsType!=null?S(r,col.customsType):''),
+          // Original Country: มีคอลัมน์รายบรรทัด → ใช้ค่าแถวนั้นเท่านั้น (แถวว่าง = เว้นว่าง + เตือน · ห้ามยืมประเทศจากแถวอื่น)
+          // ไม่มีคอลัมน์รายบรรทัด → ใช้ค่าระดับเอกสาร (ข้อ 4: ทุกรายการประเทศเดียวกัน)
+          origin:(col.origin!=null) ? S(r,col.origin) : docOrigin });
       }
     }
-    return {invoiceNo, date:(dateSerial!=null?{serial:dateSerial}:null), currency, ourRef, items};
+    return {invoiceNo, date:(dateSerial!=null?{serial:dateSerial}:null), currency, ourRef, items, docOrigin};
   }
 
   return { parseInvoice, parseInvoiceXlsx, parsePL, buildMapping, exportTemplate };
