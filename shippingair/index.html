@@ -1260,7 +1260,7 @@ async function logDoc(documentId, action, doc_status, note){
       app_code: WORK_APP_CODE, document_id: documentId, action, doc_status,
       user_id: (S.user&&S.user.id)||null, user_name: uname(), note: note||null
     });
-    if(documentId && action!=='status' && action!=='doc_status') delete S.sysStatus[documentId];   // ✚ invalidate สถานะเอกสาร → renderDocView(RECEIVED) ดึงล่าสุดใหม่ (ทันที ไม่ต้อง refresh)
+    if(documentId && action!=='status' && action!=='doc_status') _refreshStatusCell(documentId,'sys');   // ✚ refresh สถานะเอกสารแบบ SWR (ไม่ล้างค่าเดิม → ไม่วูบ)
   }catch(e){ console.warn('[log]', e); }
 }
 /* #10 Performance mark (แสดงเฉพาะเมื่อ DEBUG_PERF=true · ไม่รบกวนผู้ใช้ปกติ) */
@@ -1273,10 +1273,15 @@ function _perfMark(name, sinceMs){ if(DEBUG_PERF) console.log('%c⏱ '+name+' '+
    · sa_document_logs: status → S.jobStatus[doc] · doc_status/doc_completed/อื่น → S.sysStatus[doc] (โหลดล่าสุดเฉพาะ 1 doc)
    · .subscribe(status) : จับ SUBSCRIBED/CHANNEL_ERROR/TIMED_OUT/CLOSED → reconnect + delta sync
    · ป้องกัน channel ซ้ำ ด้วย _rtSubscribing + removeChannel เดิมก่อน */
-let _rtSubscribing=false;
+let _rtSubscribing=false, _rtEpoch=0, _rtRetryDelay=1500;
 function subscribeRealtime(){
   if(_rtSubscribing) return;                       // กันสร้างซ้ำระหว่างกำลัง subscribe
   _rtSubscribing=true;
+  clearTimeout(S._rtRetry);
+  // 🔑 epoch: ปิดเสียง callback ของ channel เก่า — sb.removeChannel() จะยิง status 'CLOSED' ของ channel เดิม
+  //    ถ้าไม่กัน callback นั้นจะตั้ง retry ใหม่ → subscribeRealtime → removeChannel → 'CLOSED' → วนไม่รู้จบทุก 1.5 วิ
+  //    (= ต้นเหตุจริงของอาการกระพริบ เพราะทุกรอบ SUBSCRIBED จะเรียก _saDeltaSync)
+  const myEpoch = ++_rtEpoch;
   if(S._rt){ try{ sb.removeChannel(S._rt); }catch(_){} S._rt=null; }
   try{
     // หมายเหตุ: กรอง app_code ฝั่ง JS (ใน _saRealtimeApply/_saLogRealtimeApply) แทน server-side filter
@@ -1285,29 +1290,34 @@ function subscribeRealtime(){
       .on('postgres_changes', { event:'*', schema:'public', table:DOC_TABLE }, (payload)=>{ _saRealtimeApply(payload); })
       .on('postgres_changes', { event:'*', schema:'public', table:LOG_TABLE }, (payload)=>{ _saLogRealtimeApply(payload); })
       .subscribe((status)=>{
+        if(myEpoch!==_rtEpoch) return;             // callback ของ channel ที่ถูกแทนที่แล้ว → ทิ้ง (ตัดวงจร loop)
         S._rtStatus = status;
         if(DEBUG_PERF) console.log('%c⏱ realtime status: '+status,'color:#F59E0B');
         if(status==='SUBSCRIBED'){
-          _rtSubscribing=false;
+          _rtSubscribing=false; _rtRetryDelay=1500;   // ต่อสำเร็จ → รีเซ็ต backoff
           if(S._rtWasDown){ S._rtWasDown=false; _saDeltaSync(); }   // เพิ่งกลับมา online → sync ส่วนที่ตกหล่น
         } else if(status==='CHANNEL_ERROR' || status==='TIMED_OUT' || status==='CLOSED'){
           _rtSubscribing=false; S._rtWasDown=true;
           clearTimeout(S._rtRetry);
-          S._rtRetry=setTimeout(()=>{ subscribeRealtime(); }, 1500);  // ลอง subscribe ใหม่
+          S._rtRetry=setTimeout(()=>{ subscribeRealtime(); }, _rtRetryDelay);  // ลอง subscribe ใหม่
+          _rtRetryDelay=Math.min(_rtRetryDelay*2, 30000);   // backoff — กัน retry ถี่ซ้อนกัน
         }
       });
   }catch(e){ console.warn('[realtime]', e); _rtSubscribing=false; }
   _bindRtLifecycle();
 }
 // จับ visibility/pageshow/online (bind ครั้งเดียว) → กลับมาเปิดจอ/เน็ตกลับ → เช็ค channel · หลุด→subscribe ใหม่ · sync delta
-let _rtLifecycleBound=false;
+let _rtLifecycleBound=false, _wakeTimer=null;
 function _bindRtLifecycle(){
   if(_rtLifecycleBound) return; _rtLifecycleBound=true;
   const wake=()=>{
     if(document.visibilityState==='hidden') return;
-    const st=S._rt && S._rt.state;                 // 'joined' = ยัง subscribed
-    if(st!=='joined'){ S._rtWasDown=true; subscribeRealtime(); }   // หลุด → subscribe ใหม่ (จะ deltaSync ตอน SUBSCRIBED)
-    else { _saDeltaSync(); }                        // ยังต่ออยู่ → แค่ sync ส่วนที่ตกหล่น
+    clearTimeout(_wakeTimer);
+    _wakeTimer=setTimeout(()=>{                    // debounce: visibilitychange/pageshow/online ที่มาใกล้กัน → ทำครั้งเดียว
+      const st=S._rt && S._rt.state;               // 'joined' = ยัง subscribed · 'joining' = กำลังต่อ (อย่าไปตัด)
+      if(st==='joined'){ _saDeltaSync(); }         // ยังต่ออยู่ → แค่ sync ส่วนที่ตกหล่น
+      else if(st!=='joining'){ S._rtWasDown=true; subscribeRealtime(); }   // หลุดจริง → subscribe ใหม่
+    }, 300);
   };
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') wake(); });
   window.addEventListener('pageshow', wake);
@@ -1315,17 +1325,24 @@ function _bindRtLifecycle(){
 }
 // Delta sync — ดึงเฉพาะเอกสารที่เปลี่ยนหลัง _lastSyncAt (ไม่โหลด 1000 ซ้ำ) แล้ว merge เฉพาะแถว
 let _deltaBusy=false;
+// ลายเซ็นสมาชิก+ลำดับแถวของหน้าปัจจุบัน — เปลี่ยน = แถวเข้า/ออก/สลับลำดับจริง (ต้อง rebuild tbody)
+function _pageIdsSig(){ try{ return String(S.page)+'#'+(computeRows().rows||[]).map(r=>r.id).join('|'); }catch(_){ return ''; } }
+// ลายเซ็นเนื้อหาแถวที่แสดงอยู่ — ครอบคลุมทุกฟิลด์ที่ docRow วาด (ไม่พึ่ง updated_at อย่างเดียว)
+function _docsSig(){ try{ return (computeRows().rows||[]).map(r=>[r.id,r.doc_no,r.company,r.category,r.description,r.job_nj,r.quantity,r.priority,r.import_terminal,r.pickup_location,r.pickup_time,r.assigned_name,r.creator_name,r.doc_status,r.card_status,r.received_at,r.completed_at,r.updated_at].join('~')).join('|'); }catch(_){ return ''; } }
 async function _saDeltaSync(){
   if(_deltaBusy) return; _deltaBusy=true;
   const t0=performance.now();
   try{
     const v=S.view;
     if(DOC_MODES.includes(v)){
+      const sigBefore=_docsSig();
       await loadView(v,{force:true});                 // #16 sync เฉพาะโหมดที่เปิดอยู่ (≤200) · ไม่โหลดทุกโหมด
       _ensureCount(v);
-      // สถานะ Timeline ของหน้าปัจจุบัน (RECEIVED) อาจเปลี่ยนช่วง offline → ล้าง cache เฉพาะแถวที่แสดง แล้วโหลดใหม่
-      if(v==='RECEIVED'){ try{ const ids=(computeRows().rows||[]).map(x=>x.id); ids.forEach(id=>{ delete S.jobStatus[id]; delete S.sysStatus[id]; }); }catch(_){} }
-      _invalidateDocsCache(); _rtRun();
+      _invalidateDocsCache();
+      if(_docsSig()!==sigBefore) _rtRun();             // เอกสารเปลี่ยนจริงเท่านั้นจึง re-render (ไม่งั้นคงตารางเดิมไว้)
+      // สถานะ Timeline อาจเปลี่ยนช่วง offline → force refresh แบบ background
+      //   ⚠️ ห้าม delete S.jobStatus/S.sysStatus ก่อน query (ค่าเดิมต้องค้างบนจอ) · เสร็จแล้ว patch เฉพาะเซลล์
+      if(v==='RECEIVED'){ try{ _loadStatusForRows(computeRows().rows||[], {force:true}); }catch(_){} }
     }
     S._lastSyncAt = new Date().toISOString();
   }catch(e){ console.warn('[deltaSync]', e); }
@@ -1360,6 +1377,7 @@ function _saRealtimeApply(payload){
     const row    = (payload && payload.new && Object.keys(payload.new).length) ? payload.new : null;
     const oldRow = (payload && payload.old && Object.keys(payload.old).length) ? payload.old : null;
     if(row && row.app_code && row.app_code !== WORK_APP_CODE) return;   // เอกสารแอปอื่น → ไม่เกี่ยว
+    const idsBefore=_pageIdsSig();                                      // ลายเซ็นแถวหน้าปัจจุบัน (id+ลำดับ+หน้า) ก่อนอัปเดต cache
     if(ev==='DELETE'){
       const id = oldRow && oldRow.id; if(!id){ _recountSoon(); return; }
       DOC_MODES.forEach(m=>_cacheRemove(m, id));                        // #6 ลบออกจากทุก cache ที่พบ
@@ -1371,10 +1389,14 @@ function _saRealtimeApply(payload){
     if(S.view && _vc(S.view)) S.docs=_vc(S.view).docs;                  // sync ref โหมดปัจจุบัน
     _invalidateDocsCache();
     S._lastSyncAt = new Date().toISOString();
-    _recountSoon();                                                     // #9 ปรับ count (debounced re-count)
-    // #8 targeted render: UPDATE ที่แถวยังอยู่หน้าปัจจุบัน → patch แถวเดียว · อื่น ๆ (insert/ลบ/ย้าย) → rebuild เฉพาะหน้าปัจจุบัน
-    if(ev==='UPDATE' && row && row.id && _rowEl(row.id) && _patchDocumentRow(row.id)){ _updateCurrentViewCounters(); renderSidebar(); renderMobileTabbar(); }
-    else _rtRun();
+    _recountSoon();                                                     // #9 ปรับ count + sidebar/tabbar (debounced · ไม่แตะตาราง)
+    // 🎯 render เฉพาะเมื่อ "หน้าปัจจุบัน" ได้รับผลจริง
+    const idsAfter=_pageIdsSig();
+    if(idsAfter!==idsBefore) _rtRun();                                  // แถวเข้า/ออก/ลำดับเปลี่ยนจริง → rebuild tbody หน้าปัจจุบัน
+    else if(row && row.id && _rowEl(row.id)){                           // สมาชิก+ลำดับเดิม · แถวอยู่บนหน้า → patch แถวเดียว
+      if(_patchDocumentRow(row.id)) _updateCurrentViewCounters(); else _rtRun();
+    }
+    else _updateCurrentViewCounters();                                  // งานนอกหน้าปัจจุบัน → อัปเดตแค่ตัวเลข/paginator · **ไม่แตะแถวเลย**
   }catch(e){ console.warn('[rt-inc]', e); _recountSoon(); _rtRun(); }
 }
 // #2 sa_document_logs incremental — อัปเดตสถานะเฉพาะ document_id ที่ได้รับผลกระทบ (โหลดล่าสุดเฉพาะ 1 doc · ไม่ refetch เอกสาร)
@@ -1387,14 +1409,14 @@ function _saLogRealtimeApply(payload){
     if(rec.app_code && rec.app_code !== WORK_APP_CODE) return;          // log แอปอื่น → ไม่เกี่ยว
     const did = rec.document_id; if(!did) return;
     const action = String(rec.action||'');
-    // ล้าง cache สถานะของ doc นี้ แล้วโหลดล่าสุดใหม่เฉพาะ id เดียว (INSERT/UPDATE/DELETE ครอบคลุมด้วยการโหลดล่าสุดใหม่)
-    if(action==='status'){ delete S.jobStatus[did]; }
-    else { delete S.sysStatus[did]; }
+    // ⚠️ ห้าม delete cache ก่อน query (จะทำให้เซลล์ว่างชั่วขณะ = กระพริบ) → force refresh แล้ว patch เฉพาะเซลล์ตอนได้ข้อมูลจริง
     S._lastSyncAt = new Date().toISOString();
     const jobs=[];
-    if(action==='status') jobs.push(_loadJobStatus([did])); else jobs.push(_loadSysStatus([did]));
+    if(action==='status') jobs.push(_loadJobStatus([did],{force:true})); else jobs.push(_loadSysStatus([did],{force:true}));
     Promise.all(jobs).then(()=>{
-      if(!_patchDocumentStatusCells(did)) _rtRun();   // #8 patch เฉพาะเซลล์สถานะของแถวนั้น · ไม่ rebuild tbody (fallback ถ้าแถวไม่อยู่ในหน้า)
+      // ✅ แถวอยู่หน้าปัจจุบัน → patch เฉพาะเซลล์สถานะใน rAF เดียว
+      //    งานนอกหน้าปัจจุบัน (คนละหน้า/ถูก filter/คนละโหมด) → อัปเดต cache อย่างเดียว **ห้าม _rtRun()/render ตาราง**
+      if(_rowEl(did)) requestAnimationFrame(()=>{ _patchDocumentStatusCells(did); });
       // ถ้าหน้าต่าง Timeline ของงานนี้เปิดอยู่ → รีเฟรช Timeline ใน modal ทันที
       if(document.getElementById('sa-v2-detail') && _sa && _sa.docId===did){
         if(_sa.tlMode==='doc') _saLoadDocTimeline(did); else _saLoadTimeline(did);
@@ -1841,13 +1863,28 @@ function renderDocView(){
   if(S.view==='RECEIVED') _loadStatusForRows(rows);
 }
 // #5 โหลดสถานะเฉพาะแถวที่กำลังแสดง (ยังไม่มี cache) — ใช้ตอน render/เปลี่ยนหน้า/ค้นหา/เปลี่ยน filter/เปลี่ยนจำนวนแสดง
-function _loadStatusForRows(rows){
+let _statusRenderTok=0;
+// force refresh สถานะของงานเดียว โดยไม่ล้างค่าเดิม (SWR) แล้ว patch เฉพาะเซลล์ใน rAF เดียว
+function _refreshStatusCell(id, which){
+  if(!id) return;
+  const p = (which==='job') ? _loadJobStatus([id],{force:true}) : _loadSysStatus([id],{force:true});
+  Promise.resolve(p).then(()=>{ requestAnimationFrame(()=>{ _patchDocumentStatusCells(id); }); });
+}
+function _loadStatusForRows(rows, opts){
   if(S.view!=='RECEIVED') return;
-  const ids=(rows||[]).map(x=>x.id);
-  const _nj=ids.filter(id=>!(id in S.jobStatus)), _ns=ids.filter(id=>!(id in S.sysStatus));
+  const force=!!(opts&&opts.force);
+  const ids=(rows||[]).map(x=>x.id).filter(Boolean);
+  const _nj=force?ids:ids.filter(id=>!(id in S.jobStatus)), _ns=force?ids:ids.filter(id=>!(id in S.sysStatus));
   if(!_nj.length && !_ns.length) return;
   const t0=performance.now();
-  Promise.all([_loadJobStatus(_nj), _loadSysStatus(_ns)]).then(()=>{ _perfMark('timelineQuery', t0); if(S.view==='RECEIVED' && $('view-root')) _renderDocBody(); });
+  const tok=++_statusRenderTok;   // #6 กันผล query เก่ากลับมาทีหลังแล้ววาดทับของใหม่
+  Promise.all([_loadJobStatus(_nj,{force}), _loadSysStatus(_ns,{force})]).then(()=>{
+    _perfMark('timelineQuery', t0);
+    if(tok!==_statusRenderTok) return;                       // มีคำขอใหม่กว่าแล้ว → ทิ้งผลนี้
+    if(S.view!=='RECEIVED' || !$('view-root')) return;
+    // #4 patch เฉพาะเซลล์ .st-sys / .js-txt รวมใน rAF เดียว → เบราว์เซอร์วาดรอบเดียว · ไม่ rebuild tbody · ไม่กระพริบ
+    requestAnimationFrame(()=>{ ids.forEach(id=>_patchDocumentStatusCells(id)); });
+  });
 }
 // อัปเดตเฉพาะ tbody + paginator + ตัวเลขสรุป (ไม่ rebuild ทั้ง view-root) — ใช้ตอนค้นหา/เปลี่ยนหน้า/เปลี่ยนจำนวนแสดง
 // pills (ท่านำเข้า/สถานะ/ทั้งหมด) นับจาก base ที่ไม่รวม search/terminal → คงที่ ไม่ต้องอัปเดต
@@ -1891,10 +1928,9 @@ function _patchDocumentStatusCells(documentId){
     if(S.view!=='RECEIVED') return false;                        // คอลัมน์สถานะแยกมีเฉพาะ RECEIVED
     const tr=_rowEl(documentId); if(!tr) return false;
     const sys=tr.querySelector('.st-sys'), js=tr.querySelector('.js-txt');
-    if(sys) sys.innerHTML=_stCellHTML(S.sysStatus[documentId]);
+    if(sys){ sys.innerHTML=_stCellHTML(S.sysStatus[documentId]); sys.title=_sysStatusOf({id:documentId}); }
     if(js)  js.innerHTML=_stCellHTML(S.jobStatus[documentId]);
-    const sysWrap=tr.querySelector('.st-sys'); if(sysWrap) sysWrap.title=esc(_sysStatusOf({id:documentId}));
-    const jsCell=tr.querySelector('.col-jobstatus'); if(jsCell) jsCell.title=esc(_jobStatusOf({id:documentId}));
+    const jsCell=tr.querySelector('.col-jobstatus'); if(jsCell) jsCell.title=_jobStatusOf({id:documentId});
     return !!(sys||js);
   }catch(_){ return false; }
 }
@@ -1997,45 +2033,73 @@ async function _shipSets(){
 function _isShipLog(l, sets){ const nm=String(l.user_name||'').trim(); if(!nm || nm==='SYSTEM') return false; const uid=(l.user_id!=null)?String(l.user_id):''; return (uid && sets.ids.has(uid)) || sets.names.has(nm); }
 function _isSysAutoLog(l){ return String(l.user_name||'').trim()==='SYSTEM'; }
 function _sysAutoMsg(note){ let s=String(note||''); const a=s.indexOf('→'); if(a>=0) s=s.slice(a+1); s=s.replace(/\s*\([^)]*\)\s*$/,'').trim(); return s || '🆕 กลับเข้าคิวเอกสารใหม่'; }
-async function _loadSysStatus(ids){
-  const need=[...new Set((ids||[]).filter(Boolean))].filter(id=>!(id in S.sysStatus));
+const _ssInflight=new Set();   // #6 กัน query สถานะชิปปิ้ง id เดียวกันซ้อนกัน
+async function _loadSysStatus(ids, opts){
+  const force=!!(opts&&opts.force);
+  const all=[...new Set((ids||[]).filter(Boolean))];
+  const need=(force?all:all.filter(id=>!(id in S.sysStatus))).filter(id=>!_ssInflight.has(id));
   if(!need.length) return;
-  const sets=await _shipSets();                          // match SHIPPING ด้วย user_id + ชื่อ (เหมือนหน้าต่าง · ทน name mismatch)
-  for(let i=0;i<need.length;i+=200){
-    const chunk=need.slice(i,i+200);
-    try{
-      const { data } = await sb.from(LOG_TABLE).select('document_id,action,note,user_name,user_id,created_at')
-        .eq('app_code',WORK_APP_CODE).in('document_id',chunk)
-        .neq('action','status')   // ตัด status(=สถานะลูกค้า) · รวม doc_status(SHIPPING+รูป) เหมือนหน้าต่าง · role filter คัด SHIPPING
-        .order('created_at',{ascending:false});               // ล่าสุดก่อน → entry SHIPPING แรกที่ผ่าน filter = แถวล่างสุดที่หน้าต่างแสดง
-      const seen={};
-      (data||[]).forEach(l=>{ const did=l.document_id; if(!did || seen[did]) return;
-        if(!_isShipLog(l, sets)) return;    // เฉพาะผู้บันทึก SHIPPING (id/name) · ตัด SYSTEM/role อื่น → คอลัมน์ = SHIPPING ล่าสุด
-        seen[did]=1; S.sysStatus[did]={ t:fmtTime(l.created_at), m:_sysMsg(l) };   // _sysMsg = ข้อความที่หน้าต่างแสดงเป๊ะ
-      });
-    }catch(e){ console.warn('[sysStatus]', e); }
-    chunk.forEach(id=>{ if(!(id in S.sysStatus)) S.sysStatus[id]=null; });
-  }
+  need.forEach(id=>_ssInflight.add(id));
+  try{
+    const sets=await _shipSets();                        // match SHIPPING ด้วย user_id + ชื่อ (เหมือนหน้าต่าง · ทน name mismatch)
+    for(let i=0;i<need.length;i+=200){
+      const chunk=need.slice(i,i+200);
+      const tmp={}; let ok=false;                        // ⚠️ เขียนลง tmp ก่อน — ห้ามแตะค่าเดิมระหว่าง query
+      try{
+        const { data, error } = await sb.from(LOG_TABLE).select('document_id,action,note,user_name,user_id,created_at')
+          .eq('app_code',WORK_APP_CODE).in('document_id',chunk)
+          .neq('action','status')   // ตัด status(=สถานะลูกค้า) · รวม doc_status(SHIPPING+รูป) เหมือนหน้าต่าง · role filter คัด SHIPPING
+          .order('created_at',{ascending:false});               // ล่าสุดก่อน → entry SHIPPING แรกที่ผ่าน filter = แถวล่างสุดที่หน้าต่างแสดง
+        if(!error){
+          ok=true;
+          const seen={};
+          (data||[]).forEach(l=>{ const did=l.document_id; if(!did || seen[did]) return;
+            if(!_isShipLog(l, sets)) return;    // เฉพาะผู้บันทึก SHIPPING (id/name) · ตัด SYSTEM/role อื่น → คอลัมน์ = SHIPPING ล่าสุด
+            seen[did]=1; tmp[did]={ t:fmtTime(l.created_at), m:_sysMsg(l) };   // _sysMsg = ข้อความที่หน้าต่างแสดงเป๊ะ
+          });
+        } else { console.warn('[sysStatus]', error); }
+      }catch(e){ console.warn('[sysStatus]', e); }
+      if(ok){
+        chunk.forEach(id=>{ if(!(id in tmp)) tmp[id]=null; });   // query สำเร็จ + ไม่มี timeline จริง → null
+        Object.assign(S.sysStatus, tmp);                          // อัปเดตครั้งเดียวแบบ atomic
+      }
+      // query ล้มเหลว → คงค่าเดิมไว้
+    }
+  } finally { need.forEach(id=>_ssInflight.delete(id)); }
 }
-async function _loadJobStatus(ids){
-  const need=[...new Set((ids||[]).filter(Boolean))].filter(id=>!(id in S.jobStatus));
+const _jsInflight=new Set();   // #6 กัน query สถานะลูกค้า id เดียวกันซ้อนกัน
+async function _loadJobStatus(ids, opts){
+  const force=!!(opts&&opts.force);
+  const all=[...new Set((ids||[]).filter(Boolean))];
+  const need=(force?all:all.filter(id=>!(id in S.jobStatus))).filter(id=>!_jsInflight.has(id));
   if(!need.length) return;
-  for(let i=0;i<need.length;i+=200){
-    const chunk=need.slice(i,i+200);
-    try{
-      const { data } = await sb.from(LOG_TABLE).select('document_id,note,user_name,created_at')
-        .eq('app_code',WORK_APP_CODE).eq('action','status').in('document_id',chunk)
-        .order('created_at',{ascending:false});   // ล่าสุดก่อน → entry ที่ผ่านเงื่อนไขตัวแรกของแต่ละงาน = ล่าสุด
-      const seen={};
-      (data||[]).forEach(l=>{ const did=l.document_id; if(seen[did]) return;
-        if(String(l.user_name||'')==='SYSTEM') return;          // ห้าม Timeline ระบบ
-        if(extractImageUrls(l.note).length) return;             // ห้าม entry รูป (= Document timeline)
-        const txt=_jobStatusText(l.note); if(!txt) return;
-        seen[did]=1; S.jobStatus[did]={ t:fmtTime(l.created_at), m:txt };   // เก็บ เวลา(HH:mm) + ข้อความ ของ Timeline ล่าสุด
-      });
-    }catch(e){ console.warn('[jobStatus]', e); }
-    chunk.forEach(id=>{ if(!(id in S.jobStatus)) S.jobStatus[id]=null; });   // งานที่ไม่มี timeline → null (แสดง —)
-  }
+  need.forEach(id=>_jsInflight.add(id));
+  try{
+    for(let i=0;i<need.length;i+=200){
+      const chunk=need.slice(i,i+200);
+      const tmp={}; let ok=false;                    // ⚠️ เขียนลง tmp ก่อน — ห้ามแตะค่าเดิมระหว่าง query (กันจอว่างชั่วขณะ)
+      try{
+        const { data, error } = await sb.from(LOG_TABLE).select('document_id,note,user_name,created_at')
+          .eq('app_code',WORK_APP_CODE).eq('action','status').in('document_id',chunk)
+          .order('created_at',{ascending:false});   // ล่าสุดก่อน → entry ที่ผ่านเงื่อนไขตัวแรกของแต่ละงาน = ล่าสุด
+        if(!error){
+          ok=true;
+          const seen={};
+          (data||[]).forEach(l=>{ const did=l.document_id; if(seen[did]) return;
+            if(String(l.user_name||'')==='SYSTEM') return;          // ห้าม Timeline ระบบ
+            if(extractImageUrls(l.note).length) return;             // ห้าม entry รูป (= Document timeline)
+            const txt=_jobStatusText(l.note); if(!txt) return;
+            seen[did]=1; tmp[did]={ t:fmtTime(l.created_at), m:txt };   // เก็บ เวลา(HH:mm) + ข้อความ ของ Timeline ล่าสุด
+          });
+        } else { console.warn('[jobStatus]', error); }
+      }catch(e){ console.warn('[jobStatus]', e); }
+      if(ok){
+        chunk.forEach(id=>{ if(!(id in tmp)) tmp[id]=null; });   // query สำเร็จ + ไม่มี timeline จริง → null (แสดง —)
+        Object.assign(S.jobStatus, tmp);                          // อัปเดตครั้งเดียวแบบ atomic
+      }
+      // query ล้มเหลว → คงค่าเดิมไว้ ห้ามเปลี่ยนเป็น null
+    }
+  } finally { need.forEach(id=>_jsInflight.delete(id)); }
 }
 function docSetCustomer(v){ S.filters.customer=v||''; S.page=1; _renderDocBody(); }
 function docSetCS(v){ S.filters.cs=v||''; S.page=1; _renderDocBody(); }
@@ -2046,7 +2110,7 @@ function docClearDates(){
   const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
   _renderDocBody();
 }
-async function docRefresh(){ const v=S.view; S.jobStatus={}; S.sysStatus={}; _shipNamesCache=null; _shipSetsCache=null; if(DOC_MODES.includes(v)){ await loadView(v,{force:true}); _ensureCount(v); } renderSidebar(); renderDocView(); toast('อัปเดตเฉพาะโหมดนี้แล้ว','success'); }   // #13 โหลดใหม่เฉพาะโหมดปัจจุบัน ≤200 · ไม่ล้าง cache โหมดอื่น
+async function docRefresh(){ const v=S.view; _shipNamesCache=null; _shipSetsCache=null; if(DOC_MODES.includes(v)){ await loadView(v,{force:true}); _ensureCount(v); } renderSidebar(); renderDocView(); try{ _loadStatusForRows(computeRows().rows||[], {force:true}); }catch(_){}   /* force refresh สถานะโดยไม่ล้าง cache ก่อน (ค่าเดิมค้างบนจอ ไม่กระพริบ) */ toast('อัปเดตเฉพาะโหมดนี้แล้ว','success'); }   // #13 โหลดใหม่เฉพาะโหมดปัจจุบัน ≤200 · ไม่ล้าง cache โหมดอื่น
 /* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
 const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
 function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
@@ -3352,7 +3416,7 @@ async function _saSaveStatusWithImage({ id, text, files, complete }){
       user_id:(S.user&&S.user.id)||null, user_name: uname(), note, created_at: now
     });
     if(logErr) throw logErr;
-    if(complete) delete S.sysStatus[id];   // ✚ doc_completed อยู่ใน Timeline ระบบ → invalidate สถานะเอกสาร (อัปเดตทันที)
+    if(complete) _refreshStatusCell(id,'sys');   // ✚ doc_completed อยู่ใน Timeline ระบบ → refresh แบบ SWR (ไม่ล้างค่าเดิม → ไม่วูบ)
     const update = { card_status: text, note, updated_at: now };
     if(complete){ update.doc_status=completeStatus; update.completed_at=now; }
     const { error: docErr } = await sb.from(DOC_TABLE).update(update).eq('app_code',WORK_APP_CODE).eq('id',id);
@@ -3425,7 +3489,7 @@ async function _saEditSave(){
     document.getElementById('sa-v2-edit')?.remove();
     toast('แก้ไข Timeline แล้ว ✅','success');
     if(_sa.docId){ if(_sa.tlMode==='doc') _saLoadDocTimeline(_sa.docId); else _saLoadTimeline(_sa.docId); }
-    if(_sa.docId) delete S.jobStatus[_sa.docId];   // ✚ invalidate → renderDocView(RECEIVED) จะดึงรายการล่าสุดที่เหลือใหม่
+    if(_sa.docId) _refreshStatusCell(_sa.docId,'job');   // ✚ refresh แบบ SWR (ไม่ล้างค่าเดิม → ไม่วูบ)
     _saRefreshList();
   }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||e),'error'); }
 }
@@ -3439,7 +3503,7 @@ async function _saDeleteEntry(logId){
     if(error) throw error;
     toast('ลบรายการแล้ว','success');
     if(_sa.docId){ if(_sa.tlMode==='doc') _saLoadDocTimeline(_sa.docId); else _saLoadTimeline(_sa.docId); }
-    if(_sa.docId) delete S.jobStatus[_sa.docId];   // ✚ invalidate → ดึงรายการล่าสุดที่ยังเหลือใหม่
+    if(_sa.docId) _refreshStatusCell(_sa.docId,'job');   // ✚ refresh แบบ SWR (ไม่ล้างค่าเดิม → ไม่วูบ)
     _saRefreshList();
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||e),'error'); }
 }
