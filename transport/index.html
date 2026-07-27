@@ -1198,14 +1198,12 @@ html, body { overflow-x: hidden !important; }
     <div class="tab-panel" id="tab-shipclose">
 
       <!-- dashboard -->
-      <div class="sgrid">
-        <div class="sc"><div class="sc-label">ยอดเบิกเงินรวม</div><div class="sc-val" id="sac_d_adv">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ยอดใช้ไปรวม</div><div class="sc-val" id="sac_d_used">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ยอดปิดไม่ได้รวม</div><div class="sc-val" id="sac_d_unc" style="color:var(--accent);">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ยอดคืนบริษัทรวม</div><div class="sc-val" id="sac_d_ret" style="color:var(--blue);">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ยอดตั้งต้นรวม</div><div class="sc-val" id="sac_d_remain" style="color:var(--green);">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ยอดยกมารวม</div><div class="sc-val" id="sac_d_out" style="color:var(--muted);">—</div><div class="sc-unit">บาท</div></div>
-        <div class="sc"><div class="sc-label">ชิปปิ้งมียอดยกไป</div><div class="sc-val" id="sac_d_nout">—</div><div class="sc-unit">ราย</div></div>
+      <div class="sgrid sac-sgrid">
+        <div class="sc"><div class="sc-label">ยอดเบิกเงิน</div><div class="sc-val" id="sac_d_adv">—</div><div class="sc-unit">บาท</div></div>
+        <div class="sc"><div class="sc-label">ค่าใช้จ่าย(ต้นทุน)</div><div class="sc-val" id="sac_d_used">—</div><div class="sc-unit">บาท</div></div>
+        <div class="sc"><div class="sc-label">ยอดใบเสร็จ</div><div class="sc-val" id="sac_d_receipt" style="color:var(--accent);">—</div><div class="sc-unit">บาท</div></div>
+        <div class="sc"><div class="sc-label">ยอดปิดไม่ได้</div><div class="sc-val" id="sac_d_unc" style="color:var(--red);">—</div><div class="sc-unit">บาท</div></div>
+        <div class="sc"><div class="sc-label">ยอดคืนบริษัท</div><div class="sc-val" id="sac_d_ret" style="color:var(--blue);">—</div><div class="sc-unit">บาท</div></div>
       </div>
 
       <!-- filter bar -->
@@ -1215,16 +1213,18 @@ html, body { overflow-x: hidden !important; }
           <span style="font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;">ตัวกรอง</span>
 
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <input type="date" id="sac_fStart" title="วันที่เริ่มต้น" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 8px;border-radius:8px;color-scheme:dark;"/>
-            <span style="color:var(--muted);font-size:11px;">ถึง</span>
-            <input type="date" id="sac_fEnd" title="วันที่สิ้นสุด" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 8px;border-radius:8px;color-scheme:dark;"/>
+            <input type="date" id="sac_fStart" title="วันที่เริ่มต้น (จากวันที่)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 8px;border-radius:8px;color-scheme:dark;flex:none;position:relative;z-index:1;pointer-events:auto;cursor:pointer;"/>
+            <span style="color:var(--muted);font-size:11px;pointer-events:none;">ถึง</span>
+            <input type="date" id="sac_fEnd" title="วันที่สิ้นสุด (ถึงวันที่)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 8px;border-radius:8px;color-scheme:dark;flex:none;position:relative;z-index:1;pointer-events:auto;cursor:pointer;"/>
           </div>
 
           <div style="position:relative;display:inline-block;">
             <input type="text" id="sac_fShip" placeholder="🔎 ชื่อชิปปิ้ง" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;min-width:130px;"/>
             <div id="sac_fShipDD" class="sac-combo-dd" style="display:none;"></div>
           </div>
-          <input type="text" id="sac_fOwner" placeholder="🔎 ผู้เบิกเงิน" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;min-width:120px;"/>
+          <select id="sac_fOwner" title="ผู้เบิกเงิน (ผู้ถือเงิน)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;min-width:120px;cursor:pointer;color-scheme:dark;">
+            <option value="">ผู้เบิกเงิน: ทั้งหมด</option>
+          </select>
 
           <!-- สถานะปิดบัญชี (multi-select checkbox) -->
           <div class="sac-msel" id="sac_fStatusMsel">
@@ -1232,8 +1232,7 @@ html, body { overflow-x: hidden !important; }
             <div class="sac-msel-panel" id="sac_fStatusPanel" style="display:none;">
               <label><input type="checkbox" id="sac_fStatusAll"> <b>ทั้งหมด</b></label>
               <div class="sac-msel-div"></div>
-              <label><input type="checkbox" class="sac_fStatusOpt" value="OUTSTANDING"> 🔴 ยอดยกไป</label>
-              <label><input type="checkbox" class="sac_fStatusOpt" value="WAIT_RETURN"> 🟡 รอคืนเงิน</label>
+              <label><input type="checkbox" class="sac_fStatusOpt" value="OUTSTANDING"> 🔴 มียอดยกไป / 🟡 รอคืนเงิน</label>
               <label><input type="checkbox" class="sac_fStatusOpt" value="CLOSED"> 🟢 ปิดครบ</label>
             </div>
           </div>
@@ -1249,7 +1248,7 @@ html, body { overflow-x: hidden !important; }
             </div>
           </div>
 
-          <!-- ยอดปิดไม่ได้ / ยอดยกไปวันใหม่ (multi-select + ค้นหา) -->
+          <!-- ยอดปิดไม่ได้ (multi-select + ค้นหา) -->
           <div class="sac-msel" id="sac_fUnclosedMsel">
             <button type="button" class="sac-msel-btn" id="sac_fUnclosedBtn">ยอดปิดไม่ได้: <span class="cv" id="sac_fUnclosedCv">ทั้งหมด</span> ▾</button>
             <div class="sac-msel-panel" id="sac_fUnclosedPanel" style="display:none;">
@@ -1262,10 +1261,10 @@ html, body { overflow-x: hidden !important; }
 
           <div style="flex:1;min-width:8px;"></div>
 
-          <button type="button" id="sac_addBtn" style="background:var(--accent);color:#000;border:none;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(245,158,11,.22);">➕ บันทึกปิดบัญชีชิปปิ้ง</button>
           <button type="button" id="sac_reload" style="background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;">🔄 โหลดใหม่</button>
           <button type="button" id="sac_clearFilter" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Sarabun',sans-serif;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;">↺ ล้างตัวกรอง</button>
           <button type="button" id="sac_export" style="background:var(--green);color:#000;border:none;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;">📊 Export Excel</button>
+          <button type="button" id="sac_addBtn" style="background:var(--accent);color:#000;border:none;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(245,158,11,.22);">➕ บันทึกปิดบัญชีชิปปิ้ง</button>
         </div>
       </div>
 
@@ -1274,10 +1273,13 @@ html, body { overflow-x: hidden !important; }
         <div class="tw">
           <table>
             <thead><tr>
-              <th>วันที่</th><th>ชื่อชิปปิ้ง</th><th style="text-align:right;">ยอดยกมา</th>
-              <th style="text-align:right;">ยอดเบิกเงินเพิ่ม</th><th style="text-align:right;">ยอดตั้งต้นวันนี้</th>
-              <th style="text-align:right;">ยอดใช้ไป</th><th style="text-align:right;">ยอดปิดไม่ได้ / ยอดยกไปวันใหม่ <span style="color:var(--red);font-weight:700;">*</span></th>
-              <th style="text-align:right;">ยอดคืนบริษัท</th><th>สถานะ</th>
+              <th>วันที่</th><th>ชื่อชิปปิ้ง</th>
+              <th style="text-align:right;">ยอดเบิกเงิน</th>
+              <th style="text-align:right;">ค่าใช้จ่าย(ต้นทุน)</th>
+              <th style="text-align:right;">ยอดใบเสร็จ</th>
+              <th style="text-align:right;">ยอดปิดไม่ได้</th>
+              <th style="text-align:right;">ยอดคืนบริษัท</th>
+              <th>สถานะ</th>
               <th style="min-width:80px;text-align:center;">จัดการ</th>
             </tr></thead>
             <tbody id="sac_tb"></tbody>
@@ -1679,6 +1681,9 @@ html, body { overflow-x: hidden !important; }
 @media(max-width:600px){ .sac-fgrid,.sac-fgrid2{grid-template-columns:1fr;} }
 /* เน้นกรอบแดงช่องบังคับที่ยังว่าง */
 .sac-invalid{border-color:var(--red) !important;box-shadow:0 0 0 2px rgba(224,82,82,.28) !important;}
+/* การ์ดสรุปโหมดปิดบัญชีชิปปิ้ง: 4 ใบกว้างเท่ากัน เต็มความกว้าง container (ไม่แตะ .sgrid ของโหมดอื่น) */
+.sac-sgrid{grid-template-columns:repeat(5,1fr);}
+@media(max-width:900px){ .sac-sgrid{grid-template-columns:repeat(2,1fr);} }
 /* ตัวกรอง multi-select (สถานะ / ยอดคืนบริษัท) */
 .sac-msel{position:relative;display:inline-block;}
 .sac-msel-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
@@ -1734,17 +1739,12 @@ html, body { overflow-x: hidden !important; }
       </div>
     </div>
 
-    <!-- ข้อมูลการเงิน (ระบบยกยอด) -->
+    <!-- ข้อมูลการเงิน -->
     <div class="sac-fgrid" style="margin-top:8px;">
-      <!-- แถวที่ 1: ช่องกรอกเอง -->
-      <div class="fg"><label>ยอดเบิกเงินเพิ่ม <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_advance" placeholder="0.00" style="text-align:right;"/></div>
-      <div class="fg"><label>ยอดใช้ไป <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_used" placeholder="0.00" style="text-align:right;"/></div>
-      <div class="fg"><label>ยอดปิดไม่ได้ / ยอดยกไปวันใหม่ <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_unclosed" placeholder="0.00" style="text-align:right;"/></div>
-      <!-- แถวที่ 2: ช่องคำนวณอัตโนมัติ (readonly) -->
-      <div class="fg"><label>ยอดยกมา</label>
-        <input type="text" id="sac_carryIn" readonly placeholder="0.00" style="background:var(--bg4);color:var(--muted);font-family:'IBM Plex Mono',monospace;font-weight:700;text-align:right;cursor:default;"/></div>
-      <div class="fg"><label>ยอดตั้งต้นวันนี้</label>
-        <input type="text" id="sac_startBal" readonly placeholder="0.00" style="background:var(--bg4);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-weight:700;text-align:right;cursor:default;"/></div>
+      <div class="fg"><label>ยอดเบิกเงิน <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_advance" placeholder="0.00" style="text-align:right;"/></div>
+      <div class="fg"><label>ค่าใช้จ่าย(ต้นทุน) <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_used" placeholder="0.00" style="text-align:right;"/></div>
+      <div class="fg"><label>ยอดใบเสร็จ <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_receipt" placeholder="0.00" style="text-align:right;"/></div>
+      <div class="fg"><label>ยอดปิดไม่ได้ <span style="color:var(--red);font-weight:700;">*</span></label><input type="text" inputmode="decimal" autocomplete="off" id="sac_unclosed" placeholder="0.00" style="text-align:right;"/></div>
       <div class="fg"><label>ยอดคืนบริษัท</label>
         <input type="text" id="sac_returned" readonly placeholder="0.00" style="background:rgba(74,144,226,.08);border:1px solid rgba(74,144,226,.25);color:var(--blue);font-family:'IBM Plex Mono',monospace;font-weight:700;text-align:right;cursor:default;"/></div>
     </div>
@@ -1785,9 +1785,11 @@ html, body { overflow-x: hidden !important; }
       <table>
         <thead><tr>
           <th>รายละเอียด</th>
-          <th style="text-align:right;">ยอดยกมา</th><th style="text-align:right;">ยอดเบิกเงินเพิ่ม</th>
-          <th style="text-align:right;">ยอดตั้งต้นวันนี้</th><th style="text-align:right;">ยอดใช้ไป</th>
-          <th style="text-align:right;">ยอดปิดไม่ได้</th><th style="text-align:right;">ยอดคืนบริษัท</th>
+          <th style="text-align:right;">ยอดเบิกเงิน</th>
+          <th style="text-align:right;">ค่าใช้จ่าย(ต้นทุน)</th>
+          <th style="text-align:right;">ยอดใบเสร็จ</th>
+          <th style="text-align:right;">ยอดปิดไม่ได้</th>
+          <th style="text-align:right;">ยอดคืนบริษัท</th>
           <th>ผู้บันทึก</th><th>วันเวลาที่บันทึก</th>
           <th style="text-align:center;">จัดการ</th>
         </tr></thead>
@@ -1796,13 +1798,73 @@ html, body { overflow-x: hidden !important; }
     </div>
     <!-- ยอดรวมรายบุคคล -->
     <div style="margin-top:12px;padding:12px 16px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:13px;">
-      <span style="color:var(--muted);">ยอดยกมา: <b class="mono" id="sac_dt_carry">—</b></span>
-      <span>ยอดเบิกเงินเพิ่ม: <b class="mono" id="sac_dt_adv">—</b></span>
-      <span style="color:var(--accent);">ยอดตั้งต้นวันนี้: <b class="mono" id="sac_dt_start">—</b></span>
-      <span>ยอดใช้ไป: <b class="mono" id="sac_dt_used">—</b></span>
+      <span>ยอดเบิกเงิน: <b class="mono" id="sac_dt_adv">—</b></span>
+      <span>ค่าใช้จ่าย(ต้นทุน): <b class="mono" id="sac_dt_used">—</b></span>
+      <span style="color:var(--accent);">ยอดใบเสร็จ: <b class="mono" id="sac_dt_receipt">—</b></span>
       <span style="color:var(--red);">ยอดปิดไม่ได้: <b class="mono" id="sac_dt_unc">—</b></span>
       <span style="color:var(--blue);">ยอดคืนบริษัท: <b class="mono" id="sac_dt_ret">—</b></span>
       <span style="margin-left:auto;">สถานะ: <b id="sac_dt_status">—</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: กู้คืนยอดเก่า (Admin) — รายการเก่าที่ไม่มี CLOSE_ACCOUNT_STAMP -->
+<div class="mo" id="sac_recoverMo" style="z-index:800;">
+  <div class="mo-box" style="max-width:480px;">
+    <div class="mo-head">
+      <div class="md-title">↩ กู้คืนยอดเก่า</div>
+      <button class="mo-x" type="button" id="sac_recoverX">✕</button>
+    </div>
+    <div class="mo-body">
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;"><span style="color:var(--muted);">วันที่:</span><b id="sac_rcDate">—</b></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;"><span style="color:var(--muted);">ชื่อชิปปิ้ง:</span><b id="sac_rcShip">—</b></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;"><span style="color:var(--muted);">ผู้เบิกเงิน:</span><b id="sac_rcOwner">—</b></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:5px;"><span style="color:var(--muted);">ค่าใช้จ่าย(ต้นทุน):</span><b class="mono" id="sac_rcUsed">—</b></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:var(--muted);">ID รายการ:</span><b class="mono" id="sac_rcId" style="font-size:11px;">—</b></div>
+      </div>
+      <div class="fg" id="sac_rcInputWrap">
+        <label>ยอดปิดไม่ได้เดิม <span style="color:var(--red);font-weight:700;">*</span></label>
+        <input type="text" inputmode="decimal" autocomplete="off" id="sac_rcAmt" placeholder="0.00" style="text-align:right;"/>
+      </div>
+      <div id="sac_rcErr" style="display:none;color:var(--red);font-size:12px;margin-top:8px;"></div>
+      <div id="sac_rcMsg" style="display:none;color:var(--text2);font-size:13px;line-height:1.7;margin-top:8px;"></div>
+    </div>
+    <div class="br" style="justify-content:flex-end;">
+      <button type="button" class="btn btn-g" id="sac_rcCancel">ยกเลิก</button>
+      <button type="button" class="btn btn-p" id="sac_rcConfirm">↩ ยืนยันกู้คืนยอด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ยืนยันปิดยอดค้าง (ปิดบัญชีชิปปิ้ง) -->
+<div class="mo" id="sac_closeMo" style="z-index:800;">
+  <div class="mo-box" style="max-width:460px;">
+    <div class="mo-head">
+      <div class="md-title" id="sac_closeTitle">✅ ปิดยอดค้าง</div>
+      <button class="mo-x" type="button" id="sac_closeX">✕</button>
+    </div>
+    <div class="mo-body">
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:13px;">
+          <span style="color:var(--muted);">ชื่อชิปปิ้ง:</span><b id="sac_closeName">—</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:13px;">
+          <span style="color:var(--muted);">วันที่:</span><b id="sac_closeDate">—</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:13px;">
+          <span style="color:var(--muted);">ผู้เบิกเงิน:</span><b id="sac_closeOwner">—</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;">
+          <span style="color:var(--muted);" id="sac_closeAmtLabel">ยอดค้างที่ต้องคืน:</span><b class="mono" id="sac_closeAmt" style="color:var(--red);">—</b>
+        </div>
+      </div>
+      <div id="sac_closeMsg" style="font-size:13px;color:var(--text2);line-height:1.7;">ยืนยันว่าได้รับเงินคืนครบแล้ว และต้องการปิดยอดรายการนี้หรือไม่</div>
+      <div id="sac_closeErr" style="display:none;color:var(--red);font-size:12px;margin-top:8px;"></div>
+    </div>
+    <div class="br" style="justify-content:flex-end;">
+      <button type="button" class="btn btn-g" id="sac_closeCancel">ยกเลิก</button>
+      <button type="button" class="btn btn-p" id="sac_closeConfirm">✅ ยืนยันปิดยอด</button>
     </div>
   </div>
 </div>
@@ -5024,9 +5086,9 @@ const SAC = {
 };
 
 // ปัดทศนิยม 2 ตำแหน่งแบบปลอดภัย
-function _sacR2(x){ return Math.round((Number(x||0) + Number.EPSILON) * 100) / 100; }
+function _sacR2(x){ const n = Number(x); return Math.round(((Number.isFinite(n) ? n : 0) + Number.EPSILON) * 100) / 100; }
 // รูปแบบ 1,234.00
-function _sacMoney(v){ return Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function _sacMoney(v){ const n=Number(v); return (Number.isFinite(n)?n:0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 // escape html กันพัง
 function _sacEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // สิทธิ์ admin
@@ -5082,12 +5144,74 @@ async function fetchShipClose(){
 // ─── จัดกลุ่มรายคน/ต่อวัน ───────────────
 // key = closing_date + '|' + shipping_name
 // advance ใช้ MAX (กันนับซ้ำเมื่อเงินก้อนเดียวถูกแบ่งหลาย JOB) ; used/unclosed/returned = SUM
+// ══ Status Stamp: เก็บ "สถานะ" แยกจาก "ยอดเงิน" ในฟิลด์ note เดิม (ไม่เพิ่ม field/ตาราง) ══
+// Stamp ล่าสุด = สถานะปัจจุบัน · ไม่ลบ Stamp เก่า (เก็บประวัติ)
+function _sacFindStatusStamp(note){
+  const s=String(note==null?'':note);
+  const re=/\[SHIP_CLOSE_STATUS\]([\s\S]*?)\[\/SHIP_CLOSE_STATUS\]/g;
+  let m,last=null;
+  while((m=re.exec(s))!==null){
+    const b=m[1];
+    const st=(b.match(/status\s*=\s*([A-Z_]+)/)||[])[1];
+    const raw=(b.match(/amount_snapshot\s*=\s*([\d,]+(?:\.\d+)?)/)||[])[1];
+    const a=(raw==null)?NaN:Number(String(raw).replace(/,/g,''));
+    if(st==='CLOSED'||st==='OUTSTANDING') last={status:st, snapshot:(Number.isFinite(a)?_sacR2(a):null)};
+  }
+  return last;
+}
+// §8 ข้อมูลเก่า: เคยปิดยอดด้วยระบบเดิมที่เขียน unclosed=0 → ใช้ previous_unclosed เป็นยอดจริงสำหรับแสดงผล
+function _sacLegacyPrevUnclosed(note){
+  const s=String(note==null?'':note);
+  const re=/\[CLOSE_ACCOUNT_STAMP\]([\s\S]*?)\[\/CLOSE_ACCOUNT_STAMP\]/g;
+  let m,last=null;
+  while((m=re.exec(s))!==null){
+    const raw=(m[1].match(/previous_unclosed\s*=\s*([\d,]+(?:\.\d+)?)/)||[])[1];
+    const a=(raw==null)?NaN:Number(String(raw).replace(/,/g,''));
+    if(Number.isFinite(a)&&a>0) last=_sacR2(a);
+  }
+  return last;
+}
+// §7 ซ่อน Machine Stamp จากหมายเหตุที่ผู้ใช้เห็น (คงข้อความจริงไว้)
+function _sacStripStamps(note){
+  return String(note==null?'':note)
+    .replace(/\[SHIP_CLOSE_STATUS\][\s\S]*?\[\/SHIP_CLOSE_STATUS\]/g,'')
+    .replace(/\[CLOSE_ACCOUNT_STAMP\][\s\S]*?\[\/CLOSE_ACCOUNT_STAMP\]/g,'')
+    .replace(/\[CLOSE_ACCOUNT_RECOVERY\][\s\S]*?\[\/CLOSE_ACCOUNT_RECOVERY\]/g,'')
+    .replace(/\n{3,}/g,'\n\n').trim();
+}
+function _sacExtractStamps(note){
+  const s=String(note==null?'':note);
+  const out=(s.match(/\[SHIP_CLOSE_STATUS\][\s\S]*?\[\/SHIP_CLOSE_STATUS\]|\[CLOSE_ACCOUNT_STAMP\][\s\S]*?\[\/CLOSE_ACCOUNT_STAMP\]|\[CLOSE_ACCOUNT_RECOVERY\][\s\S]*?\[\/CLOSE_ACCOUNT_RECOVERY\]/g)||[]);
+  return out.join('\n\n');
+}
+// สร้าง Status Stamp
+function _sacMakeStatusStamp(action, status, snapshot, who){
+  return '[SHIP_CLOSE_STATUS]\n'
+    +`action=${action}\n`
+    +`status=${status}\n`
+    +`amount_snapshot=${_sacR2(snapshot).toFixed(2)}\n`
+    +`action_at=${_sacNowISOBKK()}\n`
+    +`action_by=${who}\n`
+    +'[/SHIP_CLOSE_STATUS]';
+}
+// §1 หายอด "ยอดปิดไม่ได้ / ยอดยกไปวันใหม่" ตามลำดับแหล่งข้อมูลจริง (แสดงผลเท่านั้น ไม่เขียน DB)
+//   1) unclosed_amount ที่ยังไม่ถูกเขียนทับ  2) company_outstanding ที่ยังเก็บยอดเดิม  3) previous_unclosed ใน CLOSE_ACCOUNT_STAMP
+// §2/§8 กู้เฉพาะรายการ closing_date <= '2026-07-23' — วันที่ 24/07/2026 ขึ้นไปใช้ค่าตรงจากฐานข้อมูลเท่านั้น
+const SAC_RESTORE_MAX_DATE = '2026-07-23';
+function _sacResolveUnclosed(r){
+  const cur=_sacR2(r.unclosed_amount);
+  if(cur>0) return {amount:cur, source:'unclosed_amount'};
+  const d=String(r.closing_date||'');
+  if(!d || d>SAC_RESTORE_MAX_DATE) return {amount:cur, source:'unclosed_amount'};   // Guard: ห้ามแตะ 24/07 ขึ้นไป
+  const co=_sacR2(r.company_outstanding);
+  if(co>0) return {amount:co, source:'company_outstanding'};
+  const prev=_sacLegacyPrevUnclosed(r.note);
+  if(prev) return {amount:prev, source:'CLOSE_ACCOUNT_STAMP.previous_unclosed'};
+  return {amount:0, source:'not_found'};
+}
 function _sacBuildGroups(recs){
-  // ── โมเดลใหม่: 1 รายการ = 1 แถว · ยกยอดต่อรายการ ──
-  //   ยอดยกมา = ยอดปิดไม่ได้ของรายการก่อนหน้า (ชิปปิ้งคนเดียวกัน เรียงตาม closing_date, created_at)
-  //   ยอดตั้งต้นวันนี้ = ยอดยกมา + ยอดเบิกเงินเพิ่ม
-  //   ยอดคืนบริษัท = ยอดตั้งต้นวันนี้ - ยอดใช้ไป - ยอดปิดไม่ได้
-  //   ยอดยกไปวันใหม่ = ยอดปิดไม่ได้ (ปลายวัน)
+  // ── โครงสร้างใหม่: 1 รายการ = 1 แถว (ไม่ยกยอดข้ามวัน) ──
+  //   ยอดคืนบริษัท = ยอดเบิกเงิน - ค่าใช้จ่าย(ต้นทุน) - ยอดใบเสร็จ - ยอดปิดไม่ได้
   const list = (recs||[]).map(r=>{
     const g = {
       key: 'r'+r.id,
@@ -5098,41 +5222,38 @@ function _sacBuildGroups(recs){
       shipping_name: r.shipping_name||'',
       owners: new Set(),
       rows: [r],
-      advance:  _sacR2(r.advance_amount),   // ยอดเบิกเงินเพิ่ม
-      used:     _sacR2(r.used_amount),
-      unclosed: _sacR2(r.unclosed_amount),
+      advance:  _sacR2(r.advance_amount),          // ยอดเบิกเงิน            (advance_amount)
+      used:     _sacR2(r.used_amount),             // ค่าใช้จ่าย(ต้นทุน)      (used_amount)
+      receipt:  _sacR2(r.receipt_amount),          // ยอดใบเสร็จ             (receipt_amount) · ข้อมูลเก่า = 0.00
+      // ยอดปิดไม่ได้ (unclosed_amount) — อ่านยอดจริงเสมอ (รองรับข้อมูลเก่าตามลำดับแหล่งข้อมูลเดิม)
+      unclosed: _sacResolveUnclosed(r).amount,
+      unclosedSource: _sacResolveUnclosed(r).source,
     };
     if(r.advance_owner) g.owners.add(r.advance_owner);
     g.ownerText = Array.from(g.owners).join(', ');
+    // สูตรเดียวทุกจุด
+    g.returned    = _sacR2(g.advance - g.used - g.receipt - g.unclosed);   // ยอดคืนบริษัท
+    g.outstanding = _sacR2(g.unclosed);
+    // สถานะ: ใช้ Status Stamp ล่าสุดก่อน · ไม่มี Stamp จึงใช้กฎเดิม (workflow เดิม ไม่เปลี่ยน)
+    const rec0=(g.rows&&g.rows[0])?g.rows[0]:null;
+    const stSt=rec0?_sacFindStatusStamp(rec0.note):null;
+    const legacyClosed = rec0 ? (_sacR2(rec0.unclosed_amount)===0 && _sacResolveUnclosed(rec0).amount>0) : false;
+    let st;
+    if(stSt) st = stSt.status;
+    else if(legacyClosed) st = 'CLOSED';
+    else st = (g.unclosed>0) ? 'OUTSTANDING' : 'CLOSED';
+    if(st==='CLOSED'){
+      g.status='CLOSED';
+      g.statusCodes=['CLOSED'];
+      g.badges=[{text:'🟢 ปิดครบ',color:'var(--green)'}];
+      g.statusText='🟢 ปิดครบ'; g.statusColor='var(--green)';
+    } else {
+      g.status='OUTSTANDING';
+      g.statusCodes=['OUTSTANDING'];
+      g.badges=[{text:'🔴 มียอดยกไป',color:'var(--red)'},{text:'🟡 รอคืนเงิน',color:'var(--accent)'}];
+      g.statusText='🔴 มียอดยกไป'; g.statusColor='var(--red)';
+    }
     return g;
-  });
-  // เรียงต่อเนื่องรายชิปปิ้ง (จากประวัติทั้งหมด ไม่อิงตัวกรอง) → คำนวณยกยอด
-  const byPerson = {};
-  list.forEach(g=>{ const k=_sacNormName(g.shipping_name); (byPerson[k]||(byPerson[k]=[])).push(g); });
-  Object.keys(byPerson).forEach(k=>{
-    const arr = byPerson[k];
-    arr.sort((a,b)=> a.closing_date!==b.closing_date
-      ? (a.closing_date<b.closing_date?-1:1)
-      : (String(a.created_at)<String(b.created_at)?-1:(String(a.created_at)>String(b.created_at)?1:0)));
-    let carry = 0;
-    arr.forEach(g=>{
-      g.carryIn      = _sacR2(carry);
-      g.startBalance = _sacR2(g.carryIn + g.advance);            // ยอดตั้งต้นวันนี้
-      g.returned     = _sacR2(g.startBalance - g.used - g.unclosed); // ยอดคืนบริษัท
-      g.outstanding  = _sacR2(g.unclosed);                       // = ยอดยกไปวันใหม่ (คงค้าง)
-      carry = g.unclosed;   // ยอดยกไปวันใหม่ = ยอดปิดไม่ได้ปลายวัน
-      if(g.unclosed>0){
-        g.status='OUTSTANDING';
-        g.statusCodes=['OUTSTANDING','WAIT_RETURN'];
-        g.badges=[{text:'🔴 มียอดยกไป',color:'var(--red)'},{text:'🟡 รอคืนเงิน',color:'var(--accent)'}];
-        g.statusText='🔴 มียอดยกไป'; g.statusColor='var(--red)';
-      } else {
-        g.status='CLOSED';
-        g.statusCodes=['CLOSED'];
-        g.badges=[{text:'🟢 ปิดครบ',color:'var(--green)'}];
-        g.statusText='🟢 ปิดครบ'; g.statusColor='var(--green)';
-      }
-    });
   });
   // เรียงแสดงผล: วันที่ล่าสุดก่อน → created_at ล่าสุด → ชื่อ
   list.sort((a,b)=>{
@@ -5144,45 +5265,138 @@ function _sacBuildGroups(recs){
 }
 
 // ─── อ่านค่าตัวกรอง ───────────────────────
+// วันที่ปัจจุบันตามเขตเวลา Asia/Bangkok (กัน UTC เพี้ยนข้ามวันช่วงเช้ามืด)
+function _sacTodayBKK(){
+  try{
+    return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  }catch(_e){ return new Date().toISOString().slice(0,10); }
+}
+// วันที่ล่าสุดที่มีข้อมูลจริงในฐานข้อมูล
+function _sacLatestDataDate(){
+  let d='';
+  (SAC.ALL||[]).forEach(r=>{ const c=r.closing_date||''; if(c && c>d) d=c; });
+  return d;
+}
+// ยังไม่ได้เลือกวันที่ → ใช้วันที่ล่าสุดที่มีข้อมูล (ไม่ใช้วันปัจจุบันถ้าวันนั้นไม่มีข้อมูล)
+function _sacAutoPickDate(){
+  const s=document.getElementById('sac_fStart'), e=document.getElementById('sac_fEnd');
+  if(!s || !e) return;
+  if(!(s.value||'') && !(e.value||'')){
+    const latest=_sacLatestDataDate();
+    if(latest){ s.value=latest; e.value=latest; }   // แสดงวันที่ที่ระบบใช้จริงในช่องวันที่
+  }
+}
+// ตรวจช่วงวันที่: จากวันที่ ต้องไม่เกิน ถึงวันที่
+function _sacCheckDateRange(){
+  const s=(document.getElementById('sac_fStart')||{}).value||'';
+  const e=(document.getElementById('sac_fEnd')||{}).value||'';
+  if(s && e && s>e){
+    if(typeof toast==='function') toast('จากวันที่ต้องไม่เกินถึงวันที่','err');
+    return false;
+  }
+  return true;
+}
+// ยอดเงินที่เลือกในตัวกรอง "ยอดคืนบริษัท"/"ยอดปิดไม่ได้" ผูกกับข้อมูล "วัน/คน" ชุดเดิม
+// เมื่อเปลี่ยนวันที่หรือผู้เบิกเงิน ต้องล้างตัวเลือกเหล่านี้ ไม่งั้นจะกรองรายการจริงหายไปหมด (ยอดดูเหมือน "หาย")
+function _sacPruneAmountFilters(){
+  // §5 ยอดที่เลือกไว้จากวัน/ตัวกรองก่อนหน้า ถ้าไม่มีในชุดข้อมูลปัจจุบัน ให้ลบออก
+  // (ไม่ล้างทั้งหมด — ยอดที่ยังมีอยู่จริงจะคงการเลือกไว้)
+  let changed=false;
+  if(SAC.fReturnSel && SAC.fReturnSel.size){
+    const ok=new Set(_sacReturnDistinct());
+    Array.from(SAC.fReturnSel).forEach(k=>{ if(!ok.has(k)){ SAC.fReturnSel.delete(k); changed=true; } });
+  }
+  if(SAC.fUnclosedSel && SAC.fUnclosedSel.size){
+    const ok=new Set(_sacUnclosedDistinct());
+    Array.from(SAC.fUnclosedSel).forEach(k=>{ if(!ok.has(k)){ SAC.fUnclosedSel.delete(k); changed=true; } });
+  }
+  // อัปเดตข้อความบนปุ่ม + รายการใน panel ให้ตรงกับตัวเลือกชุดใหม่เสมอ
+  if(typeof _sacReturnRenderList==='function'){ _sacReturnRenderList(); _sacReturnSync(); }
+  if(typeof _sacUnclosedRenderList==='function'){ _sacUnclosedRenderList(); _sacUnclosedSync(); }
+  return changed;
+}
+// กันสถานะค้างที่ไม่มีอยู่จริงแล้ว (เช่นโค้ดเก่า) มากรองจนไม่เหลือรายการ
+function _sacPruneStatusFilter(){
+  if(!SAC.fStatusSel || !SAC.fStatusSel.size) return;
+  const valid = new Set(SAC_STATUS_OPTS.map(x=>x[0]));
+  let changed=false;
+  Array.from(SAC.fStatusSel).forEach(c=>{ if(!valid.has(c)){ SAC.fStatusSel.delete(c); changed=true; } });
+  if(changed && typeof _sacStatusSync==='function') _sacStatusSync();
+}
+// §8 ตรวจสอบผล Update: อ่านรายการกลับจากฐานข้อมูล แล้วเทียบยอดที่คืน — ไม่ตรง = ไม่ถือว่าสำเร็จ
+async function _sacVerifyAmounts(id, expected){
+  const {data, error} = await sb.from('shipping_account_closings')
+    .select('id, unclosed_amount, company_outstanding').eq('id', id).single();
+  if(error || !data) return {ok:false, msg:'อ่านข้อมูลกลับมาตรวจสอบไม่สำเร็จ: '+((error&&error.message)||'ไม่พบรายการ')};
+  const u=_sacR2(data.unclosed_amount), c=_sacR2(data.company_outstanding), e=_sacR2(expected);
+  if(u!==e || c!==e){
+    return {ok:false, msg:`บันทึกไม่ตรง (ยอดปิดไม่ได้=${_sacMoney(u)} / คงค้าง=${_sacMoney(c)} ต้องเป็น ${_sacMoney(e)}) กรุณาลองใหม่`};
+  }
+  return {ok:true};
+}
 function _sacReadFilters(){
   const $ = id=>document.getElementById(id);
   return {
     start:   ($('sac_fStart')||{}).value || '',
     end:     ($('sac_fEnd')||{}).value || '',
     ship:    (($('sac_fShip')||{}).value || '').trim().toLowerCase(),
-    owner:   (($('sac_fOwner')||{}).value || '').trim().toLowerCase(),
+    owner:   (($('sac_fOwner')||{}).value || '').trim(),
   };
 }
 
 // กรองระดับ group (หลังคำนวณยอดยกมาจากประวัติเต็มแล้ว)
-function _sacFilterGroups(groups, f){
+// skip = 'return' | 'unclosed' → ใช้ตัวกรองทุกตัว ยกเว้นตัวที่ระบุ (สำหรับสร้างตัวเลือกใน dropdown)
+function _sacFilterGroups(groups, f, skip){
   return groups.filter(g=>{
     if(f.start && (g.closing_date||'') < f.start) return false;
     if(f.end   && (g.closing_date||'') > f.end)   return false;
     if(f.ship  && !String(g.shipping_name||'').toLowerCase().includes(f.ship)) return false;
-    if(f.owner && !String(g.ownerText||'').toLowerCase().includes(f.owner)) return false;
+    // ผู้เบิกเงิน (dropdown): '' = ทั้งหมด · '__NONE__' = ไม่ได้เบิกจากผู้ถือเงิน
+    if(f.owner){
+      const lbl=_sacOwnerLabel(g);
+      if(f.owner==='__NONE__'){ if(lbl!==SAC_NO_OWNER) return false; }
+      else if(_sacNormName(lbl)!==_sacNormName(f.owner)) return false;
+    }
     // สถานะ (multi, OR) — ว่าง = ทั้งหมด
     if(SAC.fStatusSel && SAC.fStatusSel.size>0 && !(g.statusCodes||[g.status]).some(c=>SAC.fStatusSel.has(c))) return false;
     // ยอดคืนบริษัท (multi, OR) — ว่าง = ทั้งหมด
-    if(SAC.fReturnSel && SAC.fReturnSel.size>0 && !SAC.fReturnSel.has(_sacR2(g.returned).toFixed(2))) return false;
+    if(skip!=='return' && SAC.fReturnSel && SAC.fReturnSel.size>0 && !SAC.fReturnSel.has(_sacR2(g.returned).toFixed(2))) return false;
     // ยอดปิดไม่ได้/ยกไปวันใหม่ (multi, OR) — ว่าง = ทั้งหมด (รองรับ 0.00)
-    if(SAC.fUnclosedSel && SAC.fUnclosedSel.size>0 && !SAC.fUnclosedSel.has(_sacR2(g.unclosed).toFixed(2))) return false;
+    if(skip!=='unclosed' && SAC.fUnclosedSel && SAC.fUnclosedSel.size>0 && !SAC.fUnclosedSel.has(_sacR2(g.unclosed).toFixed(2))) return false;
     return true;
   });
+}
+// รายการ group สำหรับสร้างตัวเลือกยอดเงินใน dropdown — ผ่านตัวกรองทุกตัว ยกเว้นตัวมันเอง
+// (ใช้ _sacFilterGroups ตัวเดียวกับตาราง จึงไม่มีทางเงื่อนไขไม่ตรงกัน)
+function _sacGroupsForAmountOptions(excludeFilter){
+  return _sacFilterGroups(SAC.GROUPS_ALL||[], _sacReadFilters(), excludeFilter);
 }
 
 // ─── RENDER หลัก ───────────────────────────
 async function renderShipClose(){
+  // §12 กันผลลัพธ์เก่าเขียนทับ: ถือ token ประจำรอบ — รอบที่ไม่ใช่ล่าสุดจะถูกทิ้ง
+  const myReq = (SAC.REQ = (SAC.REQ || 0) + 1);
+  const tbEl = document.getElementById('sac_tb');
+  if(tbEl) tbEl.innerHTML = '<tr><td colspan="9"><div class="empty">⏳ กำลังโหลดข้อมูล...</div></td></tr>';   // ล้างผลลัพธ์เดิมก่อนโหลด
   const fetched = await fetchShipClose();
+  if(myReq !== SAC.REQ) return;   // มีการเปลี่ยนวันที่/ผู้เบิกเงินใหม่กว่า → ทิ้งผลลัพธ์รอบนี้
   if(fetched === null){
-    console.warn('[SHIPCLOSE] fetch ล้มเหลว — คงข้อมูลเดิมบนหน้าจอ');
-  } else {
-    SAC.ALL = fetched;
+    // §12.6 โหลดไม่สำเร็จ — ห้ามแสดงข้อมูลชุดเก่าเสมือนเป็นข้อมูลใหม่
+    console.warn('[SHIPCLOSE] fetch ล้มเหลว');
+    if(tbEl) tbEl.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ — กด "🔄 โหลดใหม่" เพื่อลองอีกครั้ง</div></td></tr>';
+    ['sac_d_adv','sac_d_used','sac_d_receipt','sac_d_unc','sac_d_ret'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent='—'; });
+    const pg=document.getElementById('sac_pager'); if(pg) pg.innerHTML='';
+    return;
   }
+  SAC.ALL = fetched;
+  _sacFillOwnerFilter();   // เติมตัวเลือกผู้เบิกเงินจากข้อมูลจริง (ก่อนอ่านค่ากรอง)
+  _sacAutoPickDate();      // ไม่ได้เลือกวันที่ → ใช้วันที่ล่าสุดที่มีข้อมูลจริง
+  _sacPruneStatusFilter(); // กันสถานะค้างที่ไม่มีอยู่จริงมากรองจนรายการหาย
   const f = _sacReadFilters();
   // สร้างกลุ่มจากประวัติทั้งหมด (คำนวณยอดยกมาถูกต้องเสมอ แม้แก้ย้อนหลัง) แล้วค่อยกรองเพื่อแสดง
   const groupsAll = _sacBuildGroups(SAC.ALL.slice());
   SAC.GROUPS_ALL = groupsAll;
+  _sacPruneAmountFilters();   // §5 ล้างยอดที่เลือกค้างซึ่งไม่มีในวันที่/ตัวกรองปัจจุบัน
   const groups = _sacFilterGroups(groupsAll, f);
   SAC.GROUPS = groups;
 
@@ -5193,25 +5407,302 @@ async function renderShipClose(){
 
 // ─── DASHBOARD ─────────────────────────────
 function _sacRenderDashboard(groups){
-  const sum = (arr,fn)=>arr.reduce((s,g)=>s+fn(g),0);
-  const tAdv   = _sacR2(sum(groups,g=>g.advance));       // ยอดเบิกเงินเพิ่มรวม
-  const tUsed  = _sacR2(sum(groups,g=>g.used));
-  const tUnc   = _sacR2(sum(groups,g=>g.unclosed));
-  const tRet   = _sacR2(sum(groups,g=>g.returned));
-  const tStart = _sacR2(sum(groups,g=>g.startBalance));  // ยอดตั้งต้นรวม
-  const tCarry = _sacR2(sum(groups,g=>g.carryIn));        // ยอดยกมารวม
-  const nOutstanding = new Set(groups.filter(g=>g.unclosed>0).map(g=>g.shipping_name)).size;
+  // คำนวณจากข้อมูลที่ถูกกรองแล้วเท่านั้น (วันที่ + ผู้เบิกเงิน + อื่น ๆ) — ไม่ใช้ค่าค้าง/cache
+  const sum = (fn)=>_sacR2((groups||[]).reduce((s,g)=>s+_sacR2(fn(g)),0));
+  const adv     = sum(g=>g.advance);    // ยอดเบิกเงิน        (advance_amount)
+  const used    = sum(g=>g.used);       // ค่าใช้จ่าย(ต้นทุน)  (used_amount)
+  const receipt = sum(g=>g.receipt);    // ยอดใบเสร็จ         (receipt_amount)
+  const unc     = sum(g=>g.unclosed);   // ยอดปิดไม่ได้       (unclosed_amount)
+  const ret     = _sacR2(adv - used - receipt - unc);   // สูตรเดียวกับแถว
   const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent = v; };
-  set('sac_d_adv',    _sacMoney(tAdv));
-  set('sac_d_used',   _sacMoney(tUsed));
-  set('sac_d_unc',    _sacMoney(tUnc));
-  set('sac_d_ret',    _sacMoney(tRet));
-  set('sac_d_remain', _sacMoney(tStart));
-  set('sac_d_out',    _sacMoney(tCarry));
-  set('sac_d_nout',   nOutstanding);
+  set('sac_d_adv',     _sacMoney(adv));
+  set('sac_d_used',    _sacMoney(used));
+  set('sac_d_receipt', _sacMoney(receipt));
+  set('sac_d_unc',     _sacMoney(unc));
+  set('sac_d_ret',     _sacMoney(ret));
 }
 
+
 // ─── ตารางสรุปรายคน/ต่อวัน (แบ่งหน้า) ──────
+// ══ จัดกลุ่มรายงานตาม "ชื่อผู้เบิกเงิน" (ผู้ถือเงิน) ══
+const SAC_NO_OWNER = '💼 ไม่ได้เบิกจากผู้ถือเงิน';
+function _sacOwnerLabel(g){
+  const o = String((g && g.ownerText) || '').trim();
+  if(!o || _sacNormName(o)==='ไม่มี') return SAC_NO_OWNER;
+  return o;
+}
+// ยอดยกมาของกลุ่ม = ผลรวม "ยอดปิดไม่ได้/ยกไปวันใหม่" ของวันก่อนหน้า เฉพาะรายการของผู้เบิกเงินคนนี้
+function _sacOwnerCarryIn(ownerLabel, dateInView){
+  const all = SAC.GROUPS_ALL || [];
+  const mine = all.filter(g=> _sacOwnerLabel(g)===ownerLabel && g.closing_date && g.closing_date < dateInView);
+  if(!mine.length) return 0;
+  let prevDate='';
+  mine.forEach(g=>{ if(g.closing_date>prevDate) prevDate=g.closing_date; });   // วันก่อนหน้าที่มีข้อมูลล่าสุด
+  return _sacR2(mine.filter(g=>g.closing_date===prevDate).reduce((s,g)=>s+_sacR2(g.unclosed),0));
+}
+// แปลงรายการที่กรองแล้ว → กลุ่มตามผู้เบิกเงิน (เรียงชื่อ, ในกลุ่มเรียงวันที่น้อย→มาก)
+function _sacGroupByOwner(rows){
+  const map=new Map();
+  rows.forEach(g=>{ const k=_sacOwnerLabel(g); if(!map.has(k)) map.set(k,[]); map.get(k).push(g); });
+  const names=Array.from(map.keys()).sort((a,b)=>{
+    if(a===SAC_NO_OWNER) return 1; if(b===SAC_NO_OWNER) return -1;   // กลุ่มไม่มีผู้ถือเงินไว้ท้ายสุด
+    return a.localeCompare(b,'th');
+  });
+  return names.map(name=>{
+    const list=map.get(name).slice().sort((a,b)=>
+      a.closing_date!==b.closing_date ? (a.closing_date<b.closing_date?-1:1)
+      : (a.shipping_name<b.shipping_name?-1:(a.shipping_name>b.shipping_name?1:0)));
+    let firstDate=''; list.forEach(g=>{ if(!firstDate || (g.closing_date && g.closing_date<firstDate)) firstDate=g.closing_date||''; });
+    const carryIn   = firstDate ? _sacOwnerCarryIn(name, firstDate) : 0;   // ยอดยกมา (จากวันก่อนหน้า)
+    const advance   = _sacR2(list.reduce((s,g)=>s+_sacR2(g.advance),0));   // ยอดเบิกเงินเพิ่ม
+    const totalMoney= _sacR2(carryIn + advance);                            // เงินทั้งหมด
+    const givenOut  = _sacR2(list.reduce((s,g)=>s+_sacR2(g.startBalance),0)); // เบิกให้ชิปปิ้งทั้งหมด
+    const leftOver  = _sacR2(totalMoney - givenOut);                        // เงินคงเหลือ
+    const sum = {
+      advance, startBalance:givenOut,
+      used:     _sacR2(list.reduce((s,g)=>s+_sacR2(g.used),0)),
+      unclosed: _sacR2(list.reduce((s,g)=>s+_sacR2(g.unclosed),0)),
+      returned: _sacR2(list.reduce((s,g)=>s+_sacR2(g.returned),0)),
+    };
+    return {name, rows:list, carryIn, advance, totalMoney, givenOut, leftOver, sum};
+  });
+}
+// เติมตัวเลือกผู้เบิกเงินใน dropdown จากข้อมูลจริง (คงค่าที่เลือกไว้)
+function _sacFillOwnerFilter(){
+  const sel=document.getElementById('sac_fOwner'); if(!sel) return;
+  const keep=sel.value||'';
+  const seen=new Set(); const names=[];
+  (SAC.ALL||[]).forEach(r=>{
+    const o=String(r.advance_owner||'').trim();
+    if(!o) return;
+    const k=_sacNormName(o);
+    if(!seen.has(k)){ seen.add(k); names.push(o); }
+  });
+  names.sort((a,b)=>a.localeCompare(b,'th'));
+  sel.innerHTML = `<option value="">ผู้เบิกเงิน: ทั้งหมด</option>`
+    + names.map(n=>`<option value="${_sacEsc(n)}">ผู้เบิกเงิน: ${_sacEsc(n)}</option>`).join('')
+    + `<option value="__NONE__">ผู้เบิกเงิน: ${_sacEsc(SAC_NO_OWNER)}</option>`;
+  sel.value = keep;
+  if(sel.value!==keep) sel.value='';   // ตัวเลือกเดิมหายไป → กลับเป็นทั้งหมด
+}
+// ══ ปิดยอดค้าง (รายคน/รายรายการ) ══
+// สิทธิ์: admin หรือเจ้าของรายการ (เหมือนสิทธิ์แก้ไข)
+function _sacCanCloseRow(g){
+  const r=(g && g.rows && g.rows[0]) ? g.rows[0] : null;
+  if(!r) return false;
+  return _sacIsAdmin() || (r.created_by === (typeof CU!=='undefined' && CU ? CU.username : null));
+}
+function _sacOpenCloseConfirm(g){
+  if(!g || !(g.unclosed>0)) return;
+  SAC.CLOSING = g; SAC.CONFIRM_MODE = 'close';
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('sac_closeTitle','✅ ปิดยอด');
+  set('sac_closeAmtLabel','ยอดปิดไม่ได้:');
+  set('sac_closeName', g.shipping_name||'—');
+  set('sac_closeDate', g.closing_date||'—');
+  set('sac_closeOwner', _sacOwnerLabel(g));
+  set('sac_closeAmt', _sacMoney(g.unclosed)+' บาท');
+  set('sac_closeMsg','ยืนยันว่าได้รับเงินคืนครบแล้ว และต้องการเปลี่ยนสถานะรายการนี้เป็น “ปิดครบ” ใช่หรือไม่?');
+  set('sac_closeConfirm','✅ ยืนยันปิดยอด');
+  const err=document.getElementById('sac_closeErr'); if(err){ err.style.display='none'; err.textContent=''; }
+  const mo=document.getElementById('sac_closeMo'); if(mo) mo.classList.add('open');
+}
+// ปุ่มยืนยันในหน้าต่างเดิม — ทำงานตามโหมดที่เปิด (ปิดยอด / ถอยสถานะ)
+async function _sacConfirmAction(){
+  if(SAC.CONFIRM_MODE==='revert') return _sacDoRevertStatus();
+  return _sacDoCloseBalance();
+}
+function _sacCloseConfirmClose(){ const mo=document.getElementById('sac_closeMo'); if(mo) mo.classList.remove('open'); SAC.CLOSING=null; }
+// เวลาปัจจุบันรูปแบบ ISO ตามเขตเวลา Asia/Bangkok (+07:00)
+function _sacNowISOBKK(){
+  try{
+    const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date());
+    const g=t=>((p.find(x=>x.type===t)||{}).value||'00');
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}:${g('second')}+07:00`;
+  }catch(_e){ return new Date().toISOString(); }
+}
+async function _sacDoCloseBalance(){
+  const g = SAC.CLOSING;
+  const err=document.getElementById('sac_closeErr');
+  const showErr=m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(SAC.BUSY) return;                          // §12 กันกดซ้ำ
+  if(!g){ _sacCloseConfirmClose(); return; }
+  const rec=(g.rows&&g.rows[0])?g.rows[0]:null;
+  if(!rec){ showErr('ไม่พบรายการที่เลือก กรุณาโหลดข้อมูลใหม่'); return; }
+  if(!_sacCanCloseRow(g)){ showErr('คุณไม่มีสิทธิ์ปิดยอดรายการนี้'); return; }
+  SAC.BUSY = true;
+  try{
+    // §12 อ่านข้อมูลล่าสุดจากฐานข้อมูลก่อนเปลี่ยนสถานะ (อ้างอิง id จริง)
+    const {data:fresh, error:selErr} = await sb.from('shipping_account_closings')
+      .select('id, unclosed_amount, note').eq('id', rec.id).single();
+    if(selErr || !fresh){ showErr('อ่านข้อมูลล่าสุดไม่สำเร็จ: '+((selErr&&selErr.message)||'ไม่พบรายการ')); return; }
+    const cur=_sacFindStatusStamp(fresh.note);
+    if(cur && cur.status==='CLOSED'){ showErr('รายการนี้ปิดยอดแล้ว'); return; }   // กันกดซ้ำ
+    const who=(typeof CU!=='undefined' && CU) ? (CU.username||'-') : '-';
+    // §4 เปลี่ยนเฉพาะสถานะ — ไม่แตะยอดเงินใด ๆ (update เฉพาะ note)
+    const oldNote=(fresh.note==null?'':String(fresh.note)).trim();
+    const stamp=_sacMakeStatusStamp('closed','CLOSED', g.unclosed, who);
+    const {error} = await sb.from('shipping_account_closings')
+      .update({ note:(oldNote? oldNote+'\n\n' : '')+stamp }).eq('id', rec.id);
+    if(error){ showErr('ปิดยอดไม่สำเร็จ: '+(error.message||error)); return; }     // ไม่สำเร็จ → ไม่เปลี่ยน UI
+    const vf=await _sacVerifyStatus(rec.id,'CLOSED');                              // §12 อ่านกลับมาตรวจสอบ
+    if(!vf.ok){ showErr(vf.msg); return; }
+  }catch(e){ showErr('ปิดยอดไม่สำเร็จ: '+e.message); return; }
+  finally{ SAC.BUSY = false; }
+  _sacCloseConfirmClose();
+  await renderShipClose();
+  _sacRefreshDetailIfOpen();
+  if(typeof toast==='function') toast('✅ เปลี่ยนสถานะเป็น ปิดครบ แล้ว');
+}
+// §12 ตรวจผล: อ่าน note กลับมาแล้วเทียบสถานะจาก Stamp ล่าสุด
+async function _sacVerifyStatus(id, expected){
+  const {data, error} = await sb.from('shipping_account_closings').select('id, note').eq('id', id).single();
+  if(error || !data) return {ok:false, msg:'อ่านข้อมูลกลับมาตรวจสอบไม่สำเร็จ: '+((error&&error.message)||'ไม่พบรายการ')};
+  const st=_sacFindStatusStamp(data.note);
+  if(!st || st.status!==expected) return {ok:false, msg:'บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่'};
+  return {ok:true};
+}
+// ══ §6 ยอดกลับ (ย้อนสถานะ CLOSED → OUTSTANDING) — เปลี่ยนเฉพาะสถานะ ไม่แตะยอดเงิน ══
+function _sacCanRevertRow(g){
+  const r=(g && g.rows && g.rows[0]) ? g.rows[0] : null;
+  if(!r) return false;
+  return g.status==='CLOSED' && _sacCanCloseRow(g);   // ปิดครบแล้วเท่านั้น
+}
+function _sacOpenRevertConfirm(g){
+  if(!g || !_sacCanRevertRow(g)) return;
+  SAC.CLOSING = g; SAC.CONFIRM_MODE = 'revert';
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('sac_closeTitle','↩ ยอดกลับ');
+  set('sac_closeAmtLabel','ยอดปิดไม่ได้:');
+  set('sac_closeName', g.shipping_name||'—');
+  set('sac_closeDate', g.closing_date||'—');
+  set('sac_closeOwner', _sacOwnerLabel(g));
+  set('sac_closeAmt', _sacMoney(g.unclosed)+' บาท');
+  set('sac_closeMsg','ยืนยันเปลี่ยนสถานะรายการนี้กลับเป็น “มียอดยกไป / รอคืนเงิน” ใช่หรือไม่?');
+  set('sac_closeConfirm','↩ ยืนยันยอดกลับ');
+  const err=document.getElementById('sac_closeErr'); if(err){ err.style.display='none'; err.textContent=''; }
+  const mo=document.getElementById('sac_closeMo'); if(mo) mo.classList.add('open');
+}
+async function _sacDoRevertStatus(){
+  const g = SAC.CLOSING;
+  const err=document.getElementById('sac_closeErr');
+  const showErr=m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(SAC.BUSY) return;                          // §12 กันกดซ้ำ
+  if(!g){ _sacCloseConfirmClose(); return; }
+  const rec=(g.rows&&g.rows[0])?g.rows[0]:null;
+  if(!rec){ showErr('ไม่พบรายการที่เลือก กรุณาโหลดข้อมูลใหม่'); return; }
+  if(!_sacCanCloseRow(g)){ showErr('คุณไม่มีสิทธิ์เปลี่ยนสถานะรายการนี้'); return; }
+  SAC.BUSY = true;
+  try{
+    const {data:fresh, error:selErr} = await sb.from('shipping_account_closings')
+      .select('id, unclosed_amount, note').eq('id', rec.id).single();
+    if(selErr || !fresh){ showErr('อ่านข้อมูลล่าสุดไม่สำเร็จ: '+((selErr&&selErr.message)||'ไม่พบรายการ')); return; }
+    const cur=_sacFindStatusStamp(fresh.note);
+    const legacyClosed=(_sacR2(fresh.unclosed_amount)===0 && !!_sacLegacyPrevUnclosed(fresh.note));
+    const isClosed = cur ? (cur.status==='CLOSED') : (legacyClosed || _sacR2(fresh.unclosed_amount)===0);
+    if(!isClosed){ showErr('รายการนี้ยังไม่ได้ปิดยอด'); return; }   // กันกดซ้ำ
+    const who=(typeof CU!=='undefined' && CU) ? (CU.username||'-') : '-';
+    // เปลี่ยนเฉพาะสถานะ — ไม่แตะยอดเงินใด ๆ (update เฉพาะ note)
+    const oldNote=(fresh.note==null?'':String(fresh.note)).trim();
+    const stamp=_sacMakeStatusStamp('reopened','OUTSTANDING', g.unclosed, who);
+    const {error} = await sb.from('shipping_account_closings')
+      .update({ note:(oldNote? oldNote+'\n\n' : '')+stamp }).eq('id', rec.id);
+    if(error){ showErr('ยอดกลับไม่สำเร็จ: '+(error.message||error)); return; }
+    const vf=await _sacVerifyStatus(rec.id,'OUTSTANDING');
+    if(!vf.ok){ showErr(vf.msg); return; }
+  }catch(e){ showErr('ยอดกลับไม่สำเร็จ: '+e.message); return; }
+  finally{ SAC.BUSY = false; }
+  _sacCloseConfirmClose();
+  await renderShipClose();
+  _sacRefreshDetailIfOpen();
+  if(typeof toast==='function') toast('↩ เปลี่ยนสถานะกลับเป็น มียอดยกไป / รอคืนเงิน แล้ว');
+}
+// ══ §6/§7 กู้คืนยอดเก่า (รายการที่ปิดก่อนมีระบบ Stamp — ไม่มี previous_unclosed ให้ถอย) ══
+// เงื่อนไข: ยอดค้าง = 0 + ไม่มี Stamp active + ไม่เคยกู้คืนมาก่อน + มีสิทธิ์ในแถวนั้น
+function _sacHasRecovery(note){ return /\[CLOSE_ACCOUNT_RECOVERY\][\s\S]*?\[\/CLOSE_ACCOUNT_RECOVERY\]/.test(String(note==null?'':note)); }
+function _sacCanRecoverRow(g){
+  const r=(g && g.rows && g.rows[0]) ? g.rows[0] : null;
+  if(!r) return false;
+  if(_sacR2(g.unclosed) > 0) return false;              // มียอดแสดงอยู่แล้ว → ไม่ต้องกู้
+  if(_sacFindStatusStamp(r.note)) return false;         // มีประวัติสถานะแล้ว
+  if(_sacLegacyPrevUnclosed(r.note)) return false;      // มียอดเดิมจาก Stamp เก่าแล้ว
+  return _sacCanCloseRow(g);
+}
+function _sacOpenRecoverConfirm(g){
+  if(!g || !_sacCanRecoverRow(g)) return;
+  const r=g.rows[0];
+  SAC.RECOVER = g;
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('sac_rcDate', g.closing_date||'—');
+  set('sac_rcShip', g.shipping_name||'—');
+  set('sac_rcOwner', _sacOwnerLabel(g));
+  set('sac_rcUsed', _sacMoney(g.used)+' บาท');
+  set('sac_rcId', String(r.id));
+  const err=document.getElementById('sac_rcErr'); if(err){ err.style.display='none'; err.textContent=''; }
+  const amt=document.getElementById('sac_rcAmt'); if(amt) amt.value='';
+  const wrap=document.getElementById('sac_rcInputWrap');
+  const msg=document.getElementById('sac_rcMsg');
+  const btn=document.getElementById('sac_rcConfirm');
+  const isAdmin=_sacIsAdmin();
+  // §6 ผู้ใช้ทั่วไปห้ามกรอกยอดเก่าเอง
+  if(wrap) wrap.style.display = isAdmin ? '' : 'none';
+  if(btn)  btn.style.display  = isAdmin ? '' : 'none';
+  if(msg){
+    msg.style.display = isAdmin ? 'none' : 'block';
+    msg.textContent = 'รายการเก่านี้ไม่มีประวัติยอดเดิม กรุณาติดต่อ Admin เพื่อกู้คืนข้อมูล';
+  }
+  const mo=document.getElementById('sac_recoverMo'); if(mo) mo.classList.add('open');
+}
+function _sacRecoverClose(){ const mo=document.getElementById('sac_recoverMo'); if(mo) mo.classList.remove('open'); SAC.RECOVER=null; }
+async function _sacDoRecoverLegacy(){
+  const g = SAC.RECOVER;
+  const err=document.getElementById('sac_rcErr');
+  const showErr=m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(SAC.BUSY) return;
+  if(!g){ _sacRecoverClose(); return; }
+  if(!_sacIsAdmin()){ showErr('เฉพาะ Admin เท่านั้นที่กู้คืนยอดเก่าได้'); return; }
+  const rec=(g.rows&&g.rows[0])?g.rows[0]:null;
+  if(!rec){ showErr('ไม่พบรายการที่เลือก กรุณาโหลดข้อมูลใหม่'); return; }
+  const amt=_sacR2(_sacParseMoney((document.getElementById('sac_rcAmt')||{}).value));
+  if(!(amt>0)){ showErr('กรุณากรอกยอดเดิมเป็นตัวเลขมากกว่า 0'); return; }
+  if(!confirm(`ยืนยันกู้คืนยอดปิดไม่ได้\nจำนวน ${_sacMoney(amt)} บาท\nให้รายการนี้ใช่หรือไม่?`)) return;
+  SAC.BUSY = true;
+  try{
+    // §7 อ่านข้อมูลล่าสุดจากฐานข้อมูลอีกครั้งก่อน Update
+    const {data:fresh, error:selErr} = await sb.from('shipping_account_closings')
+      .select('id, advance_amount, unclosed_amount, used_amount, receipt_amount, note').eq('id', rec.id).single();
+    if(selErr || !fresh){ showErr('อ่านข้อมูลล่าสุดไม่สำเร็จ: '+((selErr&&selErr.message)||'ไม่พบรายการ')); return; }
+    if(_sacR2(fresh.unclosed_amount) > 0){ showErr('รายการนี้มียอดอยู่แล้ว ไม่ต้องกู้คืน'); return; }
+    if(_sacFindActiveStamp(fresh.note)){ showErr('รายการนี้มีประวัติปิดยอด กรุณาใช้ปุ่มถอยสถานะแทน'); return; }
+    if(_sacHasRecovery(fresh.note)){ showErr('รายการนี้เคยกู้คืนยอดแล้ว'); return; }   // §13 ห้ามกู้ซ้ำ
+    const who=(typeof CU!=='undefined' && CU) ? (CU.username||'-') : '-';
+    const stamp='[CLOSE_ACCOUNT_RECOVERY]\n'
+      +`restored_unclosed=${amt.toFixed(2)}\n`
+      +`restored_at=${_sacNowISOBKK()}\n`
+      +`restored_by=${who}\n`
+      +'source=legacy_manual_recovery\n'
+      +'status=restored\n'
+      +'[/CLOSE_ACCOUNT_RECOVERY]';
+    const oldNote=(fresh.note==null?'':String(fresh.note)).trim();
+    const advA=_sacR2(fresh.advance_amount), rcpt=_sacR2(fresh.receipt_amount);
+    const used=_sacR2(fresh.used_amount);
+    const {error} = await sb.from('shipping_account_closings').update({
+      unclosed_amount:amt,
+      company_outstanding:amt,
+      returned_amount:_sacR2(advA - used - rcpt - amt),   // สูตรใหม่
+      total_deduction:_sacR2(used + rcpt + amt),         // สูตรใหม่
+      note:(oldNote? oldNote+'\n\n' : '')+stamp,       // ต่อท้าย ไม่ลบข้อความเดิม
+    }).eq('id', rec.id);
+    if(error){ showErr('กู้คืนยอดไม่สำเร็จ: '+(error.message||error)); return; }
+    const vf = await _sacVerifyAmounts(rec.id, amt);   // §8 อ่านกลับมาตรวจสอบก่อนแจ้งสำเร็จ
+    if(!vf.ok){ showErr(vf.msg); return; }
+  }catch(e){ showErr('กู้คืนยอดไม่สำเร็จ: '+e.message); return; }
+  finally{ SAC.BUSY = false; }
+  _sacRecoverClose();
+  await renderShipClose();
+  _sacRefreshDetailIfOpen();
+  if(typeof toast==='function') toast('↩ กู้คืนยอดเก่าเรียบร้อยแล้ว');
+}
 function _sacRenderTable(){
   const tb = document.getElementById('sac_tb');
   if(!tb) return;
@@ -5219,36 +5710,74 @@ function _sacRenderTable(){
   const cnt = document.getElementById('sac_rowCount');
   if(cnt) cnt.textContent = groups.length ? `(${groups.length} รายการ)` : '';
   if(!groups.length){
-    tb.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="empty-icon">💰</div>ไม่พบข้อมูล — กด "➕ บันทึกปิดบัญชีชิปปิ้ง" เพื่อเริ่ม</div></td></tr>`;
+    const ds=(document.getElementById('sac_fStart')||{}).value||'';
+    const de=(document.getElementById('sac_fEnd')||{}).value||'';
+    const noDataAtAll = !((SAC.ALL||[]).length);
+    const msg = noDataAtAll ? 'ไม่พบข้อมูล'
+              : ((ds||de) ? 'ไม่พบข้อมูลในวันที่เลือก' : 'ไม่พบข้อมูล — กด "➕ บันทึกปิดบัญชีชิปปิ้ง" เพื่อเริ่ม');
+    tb.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="empty-icon">💰</div>${_sacEsc(msg)}</div></td></tr>`;
     const pg=document.getElementById('sac_pager'); if(pg) pg.innerHTML='';
     return;
   }
   const PS = (typeof PAGE_SIZE!=='undefined') ? PAGE_SIZE : 20;
+  const B = v=>_sacMoney(v);
   const tp = Math.ceil(groups.length/PS);
   if(SAC.PAGE>tp) SAC.PAGE=tp;
   if(SAC.PAGE<1) SAC.PAGE=1;
   const st = (SAC.PAGE-1)*PS;
   const pageRows = groups.slice(st, st+PS);
-  tb.innerHTML = pageRows.map(g=>{
-    return `<tr>
+  const S = fn=>_sacR2(groups.reduce((s,g)=>s+_sacR2(fn(g)),0));   // รวมเฉพาะข้อมูลที่กรองแล้ว
+  const totTd='padding:8px;border-top:2px solid var(--border2);font-weight:700;background:var(--bg3);';
+  tb.innerHTML = pageRows.map(g=>`<tr>
       <td>${_sacEsc(g.closing_date)}</td>
       <td><button class="sac-detail-link" data-key="${_sacEsc(g.key)}" style="background:none;border:none;color:var(--accent);font-family:inherit;font-size:inherit;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;">${_sacEsc(g.shipping_name)||'—'}</button></td>
-      <td class="mono" style="text-align:right;color:var(--muted);">${_sacMoney(g.carryIn)}</td>
-      <td class="mono" style="text-align:right;">${_sacMoney(g.advance)}</td>
-      <td class="mono" style="text-align:right;color:var(--accent);font-weight:700;">${_sacMoney(g.startBalance)}</td>
-      <td class="mono" style="text-align:right;">${_sacMoney(g.used)}</td>
-      <td class="mono" style="text-align:right;color:var(--red);font-weight:700;">${_sacMoney(g.unclosed)}</td>
-      <td class="mono" style="text-align:right;color:var(--blue);font-weight:700;">${_sacMoney(g.returned)}</td>
+      <td class="mono" style="text-align:right;">${B(g.advance)}</td>
+      <td class="mono" style="text-align:right;">${B(g.used)}</td>
+      <td class="mono" style="text-align:right;color:var(--accent);">${B(g.receipt)}</td>
+      <td class="mono" style="text-align:right;color:var(--red);font-weight:700;">${B(g.unclosed)}</td>
+      <td class="mono" style="text-align:right;color:var(--blue);font-weight:700;">${B(g.returned)}</td>
       <td>${(g.badges||[]).map(b=>`<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--bg4);color:${b.color};white-space:nowrap;margin:1px 3px 1px 0;">${b.text}</span>`).join('')}</td>
       <td style="text-align:center;">
-        <button class="ie ie-e sac-detail-btn" data-key="${_sacEsc(g.key)}" title="ดูรายละเอียด">👁️ ดู</button>
+        <div style="display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;">
+          <button class="ie ie-e sac-detail-btn" data-key="${_sacEsc(g.key)}" title="ดูรายละเอียด">👁️ ดู</button>
+          ${(g.status!=='CLOSED' && _sacCanCloseRow(g)) ? `<button class="ie sac-close-btn" data-key="${_sacEsc(g.key)}" title="เปลี่ยนสถานะเป็น ปิดครบ" style="color:var(--green);border-color:rgba(61,186,116,.45);">✅ ปิดยอด</button>` : ''}
+          ${(g.status!=='CLOSED' && _sacCanRevertRow(g)) ? `<button class="ie sac-revert-btn" data-key="${_sacEsc(g.key)}" title="เปลี่ยนสถานะกลับเป็น มียอดยกไป / รอคืนเงิน" style="color:var(--accent);border-color:rgba(245,166,35,.45);">↩ ยอดกลับ</button>` : ''}
+          ${(g.status!=='CLOSED' && _sacCanRecoverRow(g)) ? `<button class="ie sac-recover-btn" data-key="${_sacEsc(g.key)}" title="กู้คืนยอดเก่า (รายการที่ไม่มีประวัติยอดเดิม)" style="color:var(--muted);border-color:var(--border2);">↩ กู้คืนยอดเก่า</button>` : ''}
+        </div>
       </td>
+    </tr>`).join('')
+    // แถว "รวม" ท้ายตาราง — รวมเฉพาะข้อมูลที่แสดง (กรองแล้ว)
+    + `<tr>
+      <td style="${totTd}" colspan="2">รวม</td>
+      <td class="mono" style="${totTd}text-align:right;">${B(S(g=>g.advance))}</td>
+      <td class="mono" style="${totTd}text-align:right;">${B(S(g=>g.used))}</td>
+      <td class="mono" style="${totTd}text-align:right;color:var(--accent);">${B(S(g=>g.receipt))}</td>
+      <td class="mono" style="${totTd}text-align:right;color:var(--red);">${B(S(g=>g.unclosed))}</td>
+      <td class="mono" style="${totTd}text-align:right;color:var(--blue);">${B(S(g=>g.returned))}</td>
+      <td style="${totTd}"></td><td style="${totTd}"></td>
     </tr>`;
-  }).join('');
   tb.querySelectorAll('.sac-detail-btn,.sac-detail-link').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const g = SAC.GROUPS.find(x=>x.key===btn.dataset.key);
       if(g) _sacOpenDetail(g);
+    });
+  });
+  tb.querySelectorAll('.sac-close-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const g = SAC.GROUPS.find(x=>x.key===btn.dataset.key);
+      if(g) _sacOpenCloseConfirm(g);
+    });
+  });
+  tb.querySelectorAll('.sac-revert-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const g = SAC.GROUPS.find(x=>x.key===btn.dataset.key);
+      if(g) _sacOpenRevertConfirm(g);
+    });
+  });
+  tb.querySelectorAll('.sac-recover-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const g = SAC.GROUPS.find(x=>x.key===btn.dataset.key);
+      if(g) _sacOpenRecoverConfirm(g);
     });
   });
   if(typeof renderPager==='function'){
@@ -5289,48 +5818,113 @@ function _sacSanitizeMoney(value, caret){
 
 function _sacFormCalc(){
   const $ = id=>document.getElementById(id);
-  const carryIn = _sacParseMoney(($('sac_carryIn')||{}).value);
-  const adv  = _sacParseMoney(($('sac_advance')||{}).value);
-  const used = _sacParseMoney(($('sac_used')||{}).value);
-  const unc  = _sacParseMoney(($('sac_unclosed')||{}).value);
-  const start = _sacR2(carryIn + adv);        // ยอดตั้งต้นวันนี้ = ยกมา + เบิกเพิ่ม
-  const ret   = _sacR2(start - used - unc);   // ยอดคืนบริษัท = ตั้งต้น - ใช้ไป - ปิดไม่ได้
-  if($('sac_startBal')) $('sac_startBal').value = _sacMoney(start);
+  const adv     = _sacParseMoney(($('sac_advance')||{}).value);   // ยอดเบิกเงิน
+  const cost    = _sacParseMoney(($('sac_used')||{}).value);      // ค่าใช้จ่าย(ต้นทุน)
+  const receipt = _sacParseMoney(($('sac_receipt')||{}).value);   // ยอดใบเสร็จ
+  const unc     = _sacParseMoney(($('sac_unclosed')||{}).value);  // ยอดปิดไม่ได้
+  const ret     = _sacR2(adv - cost - receipt - unc);             // ยอดคืนบริษัท (readonly)
   if($('sac_returned')) $('sac_returned').value = _sacMoney(ret);
+  _sacRenderFormSummary();
+}
+
+
+// ── สรุปยอดรวมของวัน (ในหน้าต่างบันทึก/แก้ไข) ──
+// รวมข้อมูลที่บันทึกแล้ว + รายการที่กำลังกรอกอยู่ (สด) → ใช้โมเดลเดียวกับตารางหลัก
+function _sacFormSummaryRecs(){
+  const $=id=>document.getElementById(id);
+  const editId=($('sac_form_id')||{}).value||'';
+  const date=($('sac_date')||{}).value||'';
+  const ship=_sacParseStaff(($('sac_ship')||{}).value||'').displayName;
+  const base=(SAC.ALL||[]).filter(r=> String(r.id)!==String(editId));   // กันนับซ้ำรายการที่กำลังแก้
+  if(!date || !ship) return base;
+  const orig=editId?_sacFindRecordById(editId):null;
+  return base.concat([{
+    id:'__live__',
+    closing_date:date,
+    created_at:(orig&&orig.created_at)?orig.created_at:new Date().toISOString(),
+    shipping_name:ship,
+    advance_amount:_sacParseMoney(($('sac_advance')||{}).value),
+    used_amount:_sacParseMoney(($('sac_used')||{}).value),
+    unclosed_amount:_sacParseMoney(($('sac_unclosed')||{}).value),
+  }]);
+}
+function _sacRenderFormSummary(){
+  const box=document.getElementById('sac_formSummary'); if(!box) return;
+  // §3/§10 พาเนล "สรุปยอดรวมของวัน" ถูกซ่อนถาวร → ไม่ render (คงฟังก์ชันไว้ ไม่ลบ)
+  box.innerHTML='';
+  return;
+  /* eslint-disable no-unreachable */
+  const B=v=>_sacMoney(v)+' บาท';
+  const date=(document.getElementById('sac_date')||{}).value||'';
+  if(!date){ box.innerHTML='<tr><td style="padding:10px;color:var(--muted);">— เลือกวันที่และชื่อชิปปิ้งเพื่อดูสรุปยอด —</td></tr>'; return; }
+  // สร้างกลุ่มจากประวัติทั้งหมด (ยกยอดถูกต้อง) แล้วคัดเฉพาะวันที่นี้ — ไม่ปนวันอื่น
+  const rows=_sacBuildGroups(_sacFormSummaryRecs()).filter(g=>g.closing_date===date);
+  if(!rows.length){ box.innerHTML='<tr><td style="padding:10px;color:var(--muted);">— ยังไม่มีรายการของวันนี้ —</td></tr>'; return; }
+  // รวมต่อชื่อชิปปิ้ง: ยกมา=รายการแรกของวัน · เบิก/ใช้=ผลรวม · ปิดไม่ได้=รายการสุดท้าย (ปลายวัน)
+  const byName=new Map();
+  rows.slice().sort((a,b)=>String(a.created_at)<String(b.created_at)?-1:1).forEach(g=>{
+    const k=_sacNormName(g.shipping_name);
+    if(!byName.has(k)) byName.set(k,{name:g.shipping_name,carryIn:g.carryIn,advance:0,used:0,unclosed:0});
+    const o=byName.get(k);
+    o.advance=_sacR2(o.advance+g.advance); o.used=_sacR2(o.used+g.used); o.unclosed=_sacR2(g.unclosed);
+  });
+  const people=Array.from(byName.values()).map(o=>{
+    o.startBalance=_sacR2(o.carryIn+o.advance);
+    o.returned=_sacR2(o.startBalance-o.used-o.unclosed);
+    return o;
+  });
+  const T=people.reduce((s,o)=>({carryIn:_sacR2(s.carryIn+o.carryIn),advance:_sacR2(s.advance+o.advance),used:_sacR2(s.used+o.used),unclosed:_sacR2(s.unclosed+o.unclosed)}),{carryIn:0,advance:0,used:0,unclosed:0});
+  const Tstart=_sacR2(T.carryIn+T.advance);
+  const Tret=_sacR2(Tstart-T.used-T.unclosed);
+  const th='padding:6px 8px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;';
+  const td='padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;';
+  box.innerHTML =
+    // แถวสรุป "ยอดยกมา" — อยู่ลำดับแรกเสมอ
+    `<tr><td colspan="7" style="padding:8px;background:var(--bg3);border-bottom:1px solid var(--border);">
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12px;">
+        <b style="color:var(--accent);">ยอดยกมา: ${_sacEsc(B(T.carryIn))}</b>
+        <span>เบิกเพิ่มรวม: <b class="mono">${_sacEsc(B(T.advance))}</b></span>
+        <span style="color:var(--accent);">ตั้งต้นวันนี้: <b class="mono">${_sacEsc(B(Tstart))}</b></span>
+        <span>ใช้ไปรวม: <b class="mono">${_sacEsc(B(T.used))}</b></span>
+        <span style="color:var(--red);">ปิดไม่ได้รวม: <b class="mono">${_sacEsc(B(T.unclosed))}</b></span>
+        <span style="color:var(--blue);">คืนบริษัทรวม: <b class="mono">${_sacEsc(B(Tret))}</b></span>
+      </div></td></tr>` +
+    // หัวตารางรายคน
+    `<tr><th style="${th}">วันที่</th><th style="${th}">ชื่อชิปปิ้ง</th><th style="${th}text-align:right;">ยอดเบิกเงินเพิ่ม</th><th style="${th}text-align:right;">ยอดตั้งต้นวันนี้</th><th style="${th}text-align:right;">ยอดใช้ไป</th><th style="${th}text-align:right;">ยอดปิดไม่ได้ / ยอดยกไปวันใหม่</th><th style="${th}text-align:right;">ยอดคืนบริษัท</th></tr>` +
+    people.map(o=>`<tr>
+      <td style="${td}">${_sacEsc(date)}</td>
+      <td style="${td}">${_sacEsc(o.name)||'—'}</td>
+      <td class="mono" style="${td}text-align:right;">${_sacEsc(B(o.advance))}</td>
+      <td class="mono" style="${td}text-align:right;color:var(--accent);">${_sacEsc(B(o.startBalance))}</td>
+      <td class="mono" style="${td}text-align:right;">${_sacEsc(B(o.used))}</td>
+      <td class="mono" style="${td}text-align:right;color:var(--red);">${_sacEsc(B(o.unclosed))}</td>
+      <td class="mono" style="${td}text-align:right;color:var(--blue);">${_sacEsc(B(o.returned))}</td>
+    </tr>`).join('');
+  /* eslint-enable no-unreachable */
 }
 // ยอดยกมา = ยอดปิดไม่ได้ล่าสุด "ก่อนวันที่ปัจจุบัน" ของชิปปิ้งคนเดียวกัน (จากประวัติเต็ม ไม่อิงตัวกรอง)
 function _sacFormComputeCarry(){
-  const $ = id=>document.getElementById(id);
-  const date = ($('sac_date')||{}).value || '';
-  const ship = _sacNormName(($('sac_ship')||{}).value || '');
-  const editId = ($('sac_form_id')||{}).value || '';
-  let best = null;
-  if(date && ship){
-    (SAC.ALL||[]).forEach(r=>{
-      if(String(r.id)===String(editId)) return;                   // ไม่รวมรายการที่กำลังแก้เอง
-      if(_sacNormName(r.shipping_name||'')!==ship) return;         // ชิปปิ้งคนเดียวกัน
-      if(!r.closing_date || r.closing_date>=date) return;          // ก่อนวันที่ปัจจุบัน
-      if(!best || r.closing_date>best.closing_date ||
-        (r.closing_date===best.closing_date && String(r.created_at||'')>String(best.created_at||''))) best=r;
-    });
-  }
-  const carry = best ? _sacR2(best.unclosed_amount) : 0;
-  if($('sac_carryIn')) $('sac_carryIn').value = _sacMoney(carry);
+  // โครงสร้างใหม่ไม่ใช้ "ยอดยกมา" แล้ว — คงชื่อฟังก์ชันไว้เพื่อไม่กระทบจุดที่เรียกใช้เดิม
   _sacFormCalc();
 }
+
 
 function _sacOpenForm(rec){
   const $ = id=>document.getElementById(id);
   const isEdit = !!(rec && rec.id);
   $('sac_form_id').value = isEdit ? rec.id : '';
   $('sac_form_title').textContent = isEdit ? '✏️ แก้ไขปิดบัญชีชิปปิ้ง' : '➕ บันทึกปิดบัญชีชิปปิ้ง';
-  $('sac_date').value        = isEdit ? (rec.closing_date||'') : new Date().toISOString().slice(0,10);
+  // ซ่อน "📊 สรุปยอดรวมของวัน" เฉพาะหน้าต่างแก้ไข (หน้าต่างเพิ่มรายการยังแสดงตามเดิม)
+  (function(){ const w=$('sac_formSummaryWrap'); if(w) w.style.display='none'; })();   // §3/§10 ซ่อนทั้งหน้าต่างเพิ่มและแก้ไข
+  $('sac_date').value        = isEdit ? (rec.closing_date||'') : _sacTodayBKK();
   $('sac_owner').value       = isEdit ? (rec.advance_owner||'') : '';
   $('sac_ship').value        = isEdit ? (rec.shipping_name||'') : '';
   $('sac_detail').value      = 'ค่าใช้จ่ายชิปปิ้งทั้งหมด';   // ล็อก readonly คงข้อความเดิม
-  $('sac_note').value        = isEdit ? (rec.note||'') : '';
+  SAC.EDIT_STAMPS = isEdit ? _sacExtractStamps(rec.note) : '';   // §7 เก็บ Stamp ไว้ ไม่ให้หายตอนบันทึก
+  $('sac_note').value        = isEdit ? _sacStripStamps(rec.note) : '';
   $('sac_advance').value     = (isEdit && rec.advance_amount!=null) ? _sacFormatMoney(rec.advance_amount) : '';
   $('sac_used').value        = (isEdit && rec.used_amount!=null) ? _sacFormatMoney(rec.used_amount) : '';
+  $('sac_receipt').value     = (isEdit && rec.receipt_amount!=null) ? _sacFormatMoney(rec.receipt_amount) : '';
   $('sac_unclosed').value    = (isEdit && rec.unclosed_amount!=null) ? _sacFormatMoney(rec.unclosed_amount) : '';
   // ยอดเงินคืนบริษัท: อ่านอย่างเดียว — _sacFormCalc() ท้ายฟังก์ชันจะคำนวณให้เอง
   // (ช่องผู้รับเงิน/ผู้ตรวจสอบ ถูกซ่อนแล้ว — ไม่ตั้งค่า/ไม่ส่งค่า เพื่อไม่ทับค่าเดิมใน DB)
@@ -5364,6 +5958,7 @@ async function _sacSaveForm(){
     {id:'sac_ship',     test:notEmpty,   msg:'กรุณากรอกชื่อชิปปิ้ง'},
     {id:'sac_advance',  test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
     {id:'sac_used',     test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
+    {id:'sac_receipt',  test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
     {id:'sac_unclosed', test:notEmpty,   msg:'กรุณากรอกข้อมูลให้ครบถ้วน'},
   ];
   checks.forEach(c=>{ const el=$(c.id); if(el) el.classList.remove('sac-invalid'); });
@@ -5377,31 +5972,36 @@ async function _sacSaveForm(){
     }
   }
 
-  const carryIn = _sacParseMoney($('sac_carryIn').value);
-  const adv  = _sacParseMoney($('sac_advance').value);
-  const used = _sacParseMoney($('sac_used').value);
-  const unc  = _sacParseMoney($('sac_unclosed').value);
-  const start = _sacR2(carryIn + adv);   // ยอดตั้งต้นวันนี้
-  // §6 ตรวจสอบก่อนบันทึก: ยอดใช้ไป + ยอดปิดไม่ได้ ต้องไม่มากกว่า ยอดตั้งต้นวันนี้ (กันยอดคืนติดลบ)
-  if(_sacR2(used + unc) > start){
-    if(errEl){ errEl.textContent='ยอดใช้ไปและยอดปิดไม่ได้รวมกัน มากกว่ายอดตั้งต้นวันนี้ กรุณาตรวจสอบจำนวนเงิน'; errEl.style.display='block'; }
+  const adv     = _sacParseMoney($('sac_advance').value);    // ยอดเบิกเงิน
+  const cost    = _sacParseMoney($('sac_used').value);       // ค่าใช้จ่าย(ต้นทุน)
+  const receipt = _sacParseMoney($('sac_receipt').value);    // ยอดใบเสร็จ
+  const unc     = _sacParseMoney($('sac_unclosed').value);   // ยอดปิดไม่ได้
+  // §6 ห้ามติดลบ
+  if(adv<0 || cost<0 || receipt<0 || unc<0){
+    if(errEl){ errEl.textContent='จำนวนเงินต้องไม่ติดลบ กรุณาตรวจสอบจำนวนเงิน'; errEl.style.display='block'; }
     return;
   }
-  const ret = _sacR2(start - used - unc);   // ยอดคืนบริษัท = ตั้งต้น - ใช้ไป - ปิดไม่ได้
+  // §6 ค่าใช้จ่าย(ต้นทุน) + ยอดใบเสร็จ + ยอดปิดไม่ได้ ต้องไม่มากกว่ายอดเบิกเงิน (กันยอดคืนติดลบ)
+  if(_sacR2(cost + receipt + unc) > adv){
+    if(errEl){ errEl.textContent='ค่าใช้จ่าย(ต้นทุน) ยอดใบเสร็จ และยอดปิดไม่ได้รวมกัน มากกว่ายอดเบิกเงิน กรุณาตรวจสอบจำนวนเงิน'; errEl.style.display='block'; }
+    return;
+  }
+  const ret = _sacR2(adv - cost - receipt - unc);   // ยอดคืนบริษัท
 
   const payload = {
     closing_date:       date,
     advance_owner:      ($('sac_owner').value||'').trim() || null,
     shipping_name:      ship,
     expense_detail:     ($('sac_detail').value||'').trim() || null,
-    advance_amount:     adv,      // ยอดเบิกเงินเพิ่ม
-    used_amount:        used,
-    unclosed_amount:    unc,
-    returned_amount:    ret,
-    total_deduction:    _sacR2(used + unc),
-    remaining_amount:   start,    // สแนปช็อตยอดตั้งต้น (แสดงผลจริงคำนวณใหม่ตอน render)
-    company_outstanding:unc,      // = ยอดปิดไม่ได้
-    note:               ($('sac_note').value||'').trim() || null,
+    advance_amount:     adv,        // ยอดเบิกเงิน
+    used_amount:        cost,       // ค่าใช้จ่าย(ต้นทุน)
+    receipt_amount:     receipt,    // ยอดใบเสร็จ
+    unclosed_amount:    unc,        // ยอดปิดไม่ได้
+    company_outstanding:unc,
+    returned_amount:    ret,        // ยอดคืนบริษัท
+    total_deduction:    _sacR2(cost + receipt + unc),
+    note:               (function(){ const v=($('sac_note').value||'').trim(); const st=SAC.EDIT_STAMPS||'';
+                          return ((v? v+(st?'\n\n':'') : '')+st) || null; })(),
   };
 
   try{
@@ -5469,10 +6069,9 @@ function _sacOpenDetail(g){
       const created = r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '—';
       return `<tr>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">${_sacEsc(r.expense_detail)||'—'}</td>
-        <td class="mono" style="text-align:right;color:var(--muted);">${_sacMoney(g.carryIn)}</td>
         <td class="mono" style="text-align:right;">${_sacMoney(g.advance)}</td>
-        <td class="mono" style="text-align:right;color:var(--accent);">${_sacMoney(g.startBalance)}</td>
         <td class="mono" style="text-align:right;">${_sacMoney(g.used)}</td>
+        <td class="mono" style="text-align:right;color:var(--accent);">${_sacMoney(g.receipt)}</td>
         <td class="mono" style="text-align:right;color:var(--red);">${_sacMoney(g.unclosed)}</td>
         <td class="mono" style="text-align:right;color:var(--blue);">${_sacMoney(g.returned)}</td>
         <td>${_sacEsc(r.created_by)||'—'}</td>
@@ -5505,10 +6104,9 @@ function _sacOpenDetail(g){
   }
   // ยอดรวมท้าย modal
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-  set('sac_dt_carry', _sacMoney(g.carryIn));
   set('sac_dt_adv', _sacMoney(g.advance));
-  set('sac_dt_start', _sacMoney(g.startBalance));
   set('sac_dt_used', _sacMoney(g.used));
+  set('sac_dt_receipt', _sacMoney(g.receipt));
   set('sac_dt_unc', _sacMoney(g.unclosed));
   set('sac_dt_ret', _sacMoney(g.returned));
   const stEl = document.getElementById('sac_dt_status');
@@ -5532,7 +6130,7 @@ function _sacDMY(iso){ if(/^\d{4}-\d{2}-\d{2}$/.test(iso||'')){ const p=iso.spli
 //   หัวตาราง: วันที่ / ชื่อชิปปิ้ง / ยอดยกมา / ยอดเบิกเงิน / ยอดใช้ไป / ยอดปิดไม่ได้ /
 //             ยอดหักทั้งหมด / ยอดคืนบริษัท / ยอดคงเหลือ / ยอดคงค้างบริษัท / สถานะ
 //   ค่าตัวเลขใช้ค่าที่ระบบแสดงจริง (สูตรใหม่) — 1 กลุ่ม (ชิปปิ้ง/วัน) ต่อ 1 แถว
-function _sacBuildReportSheet(groups){
+function _sacBuildReportSheet(rows){
   const B = _sacXlBorderAll();
   const money = '#,##0.00';
   const acct  = '_-* #,##0.00_-;\\-* #,##0.00_-;_-* "-"??_-;_-@_-';
@@ -5540,62 +6138,79 @@ function _sacBuildReportSheet(groups){
   const R = (r,c)=>{ let s='',n=c+1; while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26);} return s+(r+1); };
   const setC=(r,c,v,s,t)=>{ ws[R(r,c)]={v:(v==null?'':v), t:(t||(typeof v==='number'?'n':'s')), s:s}; };
 
-  // แถวหัวตาราง (row 0) — TH SarabunPSK 12, กึ่งกลาง, พื้นส้ม FFC000, เส้นขอบบางดำ, wrap
-  const headFont={name:'TH SarabunPSK',sz:12,color:{rgb:'FF000000'}};
-  const hStyle={font:headFont, fill:{patternType:'solid',fgColor:{rgb:'FFFFC000'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:B};
-  const headers=['ลำดับ','ชื่อชิปปิ้ง','ยอดยกมา','ยอดเบิกเงินเพิ่ม','ยอดตั้งต้นวันนี้','ยอดใช้ไป','ยอดปิดไม่ได้ / ยอดยกไปวันใหม่','ยอดคืนบริษัท'];
+  // §5 หัวตาราง A1:I1 — TH SarabunPSK 12 · พื้นส้ม FFC000 · กึ่งกลาง · wrap · เส้นขอบบางดำ · สูง 32
+  const hStyle={ font:{name:'TH SarabunPSK',sz:12,color:{rgb:'FF000000'}},
+                 fill:{patternType:'solid',fgColor:{rgb:'FFFFC000'}},
+                 alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:B };
+  const headers=['วันที่','ชื่อชิปปิ้ง','ยอดเบิกเงิน','ค่าใช้จ่าย(ต้นทุน)','ยอดใบเสร็จ',
+                 'ยอดปิดไม่ได้','ยอดคืนบริษัท','สถานะ'];
+  const NC = headers.length;   // 9 คอลัมน์ A..I
   headers.forEach((h,c)=>setC(0,c,h,hStyle,'s'));
 
-  // แถวข้อมูล (row 1+) — TH SarabunPSK 16 ตัวหนา, เส้นขอบบาง, ตัวเลข #,##0.00
-  const dataFont={name:'TH SarabunPSK',sz:16,bold:true,color:{rgb:'FF000000'}};
-  const cText  ={font:dataFont, border:B};
-  const cCenter={font:dataFont, border:B, alignment:{horizontal:'center'}};
-  const cMoney ={font:dataFont, border:B, numFmt:money};
-  let sums=[0,0,0,0,0,0]; // C..H
+  // §6 แถวข้อมูล — TH SarabunPSK 16 ตัวหนา · พื้นขาว · เส้นขอบครบ · สูง 24 · กึ่งกลางแนวตั้ง
+  const dFont={name:'TH SarabunPSK',sz:16,bold:true,color:{rgb:'FF000000'}};
+  const dFill={patternType:'solid',fgColor:{rgb:'FFFFFFFF'}};
+  const cDate ={font:dFont,fill:dFill,border:B,alignment:{horizontal:'center',vertical:'center'}};
+  const cLeft ={font:dFont,fill:dFill,border:B,alignment:{horizontal:'left',vertical:'center'}};
+  const cMoney={font:dFont,fill:dFill,border:B,alignment:{horizontal:'right',vertical:'center'},numFmt:money};
+
+  const rmeta=[]; rmeta[0]={hpt:32};
+  const sums=[0,0,0,0,0];          // C..G
   let row=1;
-  groups.forEach((g,idx)=>{
-    const carryIn=Number(g.carryIn||0), adv=Number(g.advance||0), used=Number(g.used||0), unc=Number(g.unclosed||0);
-    const start=_sacR2(carryIn+adv);         // ยอดตั้งต้นวันนี้
-    const returned=_sacR2(start-used-unc);   // ยอดคืนบริษัท
-    const vals=[carryIn,adv,start,used,unc,returned];
-    setC(row,0,idx+1,cCenter,'n');           // ลำดับ
-    setC(row,1,g.shipping_name||'',cText,'s');
-    vals.forEach((v,i)=>{ const rv=_sacR2(v); setC(row,2+i,rv,cMoney,'n'); sums[i]=_sacR2(sums[i]+rv); });
+  (rows||[]).forEach(g=>{
+    const adv     = _sacR2(g.advance);      // C ยอดเบิกเงิน
+    const cost    = _sacR2(g.used);         // D ค่าใช้จ่าย(ต้นทุน)
+    const receipt = _sacR2(g.receipt);      // E ยอดใบเสร็จ
+    const unc     = _sacR2(g.unclosed);     // F ยอดปิดไม่ได้ (คงอยู่แม้สถานะปิดครบ)
+    const ret     = _sacR2(adv - cost - receipt - unc);   // G ยอดคืนบริษัท
+    setC(row,0,String(g.closing_date||''),cDate,'s');     // A วันที่ YYYY-MM-DD
+    setC(row,1,String(g.shipping_name||''),cLeft,'s');    // B ชื่อชิปปิ้ง
+    [adv,cost,receipt,unc,ret].forEach((v,i)=>{           // C..G ตัวเลขจริง
+      setC(row,2+i,v,cMoney,'n'); sums[i]=_sacR2(sums[i]+v);
+    });
+    // H สถานะเต็มพร้อม emoji ตามสถานะจริง — ไม่ตัดข้อความ
+    // H สถานะ — ตัด emoji/ไอคอนนำหน้าออก เหลือข้อความล้วน (เฉพาะไฟล์ Excel · หน้าเว็บคงเดิม)
+    const stText = (g.badges&&g.badges.length)
+      ? g.badges.map(b=>_sacStripStatusEmoji(b.text)).filter(Boolean).join(' / ')
+      : _sacStripStatusEmoji(g.statusText||'');
+    setC(row,7,stText,cLeft,'s');
+    rmeta[row]={hpt:24};
     row++;
   });
 
-  // แถว "ยอดสรุป" — Calibri 11 ตัวหนา, พื้นฟ้าอ่อน, รูปแบบบัญชี (ผลรวมคอลัมน์ C:H)
-  const sumFont={name:'Calibri',sz:11,bold:true};
-  const sumFill={patternType:'solid',fgColor:{rgb:'FFB4C7E7'}};
-  setC(row,0,'ยอดสรุป',{font:sumFont},'s');
-  sums.forEach((v,i)=>setC(row,2+i,_sacR2(v),{font:sumFont,fill:sumFill,numFmt:acct},'n'));
-  const lastRow=row;
-  row++;
+  // §9 แถวรวม — Calibri 11 ตัวหนา · พื้นฟ้าอ่อน B4C7E7 · รูปแบบบัญชี · B และ I เว้นว่าง
+  const sFont={name:'Calibri',sz:11,bold:true};
+  const sFill={patternType:'solid',fgColor:{rgb:'FFB4C7E7'}};
+  const sText ={font:sFont,fill:sFill,border:B,alignment:{vertical:'center'}};
+  const sMoney={font:sFont,fill:sFill,border:B,alignment:{horizontal:'right',vertical:'center'},numFmt:acct};
+  setC(row,0,'รวม',sText,'s');
+  setC(row,1,'',sText,'s');                                   // B ไม่รวมตัวเลข
+  sums.forEach((v,i)=>setC(row,2+i,_sacR2(v),sMoney,'n'));    // C:G ผลรวมจากแถวที่ export จริง
+  setC(row,7,'',sText,'s');                                   // H สถานะ เว้นว่าง
+  rmeta[row]={hpt:24};
 
-  // ความกว้างคอลัมน์ (wch = ความกว้างจริง − 0.83203125 ของ xlsx-js-style) — ปรับให้พอดี 8 คอลัมน์ใหม่
-  ws['!ref']='A1:H'+row;
+  // §8 ความกว้างคอลัมน์ (wch = ความกว้างจริง − 0.83203125 ของ xlsx-js-style)
   const OFF=0.83203125;
-  const W=[6.5, 17.0, 12.0, 15.0, 15.0, 11.0, 22.0, 14.0];
+  const W=[12, 17, 15, 18, 15, 15, 15, 34.27];
   ws['!cols']=W.map(w=>({wch:Math.round((w-OFF)*100000)/100000}));
-  const rmeta=[]; rmeta[0]={hpt:32};   // หัวตารางสูงขึ้นให้พอดีข้อความยาว (wrap)
-  for(let r=1;r<lastRow;r++) rmeta[r]={hpt:24};
   ws['!rows']=rmeta;
+  ws['!ref']='A1:'+R(row, NC-1);
   return ws;
 }
-
 function _sacExportExcel(){
   if(typeof XLSX==='undefined'){ if(typeof toast==='function') toast('ไลบรารี Excel ยังไม่พร้อม','err'); return; }
   // คำนวณกลุ่ม+ยอดยกมาใหม่จากประวัติเต็ม แล้วกรองตามที่แสดง (ค่าตรงกับระบบ)
   const groupsAll = _sacBuildGroups(SAC.ALL.slice());
   const groups = _sacFilterGroups(groupsAll, _sacReadFilters());
   if(!groups.length){ if(typeof toast==='function') toast('ไม่มีข้อมูลให้ Export','err'); return; }
-  // เรียงวันเก่า→ใหม่ แล้วชื่อชิปปิ้ง
+  SAC.GROUPS_ALL = groupsAll;
+  // §10 เรียงวันที่เก่า→ใหม่ · ในวันเดียวกันเรียงตามชื่อชิปปิ้ง (ไม่แก้ลำดับต้นฉบับ)
   const rows = groups.slice().sort((a,b)=>
     a.closing_date!==b.closing_date ? (a.closing_date<b.closing_date?-1:1)
-    : (a.shipping_name<b.shipping_name?-1:(a.shipping_name>b.shipping_name?1:0)));
+    : String(a.shipping_name||'').localeCompare(String(b.shipping_name||''),'th'));
   const ws = _sacBuildReportSheet(rows);
   const wb = XLSX.utils.book_new();
-  const today = new Date().toISOString().slice(0,10);   // YYYY-MM-DD (ชื่อไฟล์)
+  const today = _sacTodayBKK();                          // YYYY-MM-DD ตามเขตเวลา Asia/Bangkok
   const p = today.split('-');
   const wsName = `${p[2]}-${p[1]}-${p[0]}`;              // DD-MM-YYYY (ชื่อ worksheet)
   XLSX.utils.book_append_sheet(wb, ws, wsName);
@@ -5744,12 +6359,25 @@ function _sacExportExcel(){
     own.addEventListener('blur', ()=>{ setTimeout(_sacOwnerClose, 150); });
   }
   // ตัวกรองแบบ live
+  // ── ตัวกรองวันที่: จากวันที่ / ถึงวันที่ (ผูกเหมือนกันทั้งสองช่อง) ──
   ['sac_fStart','sac_fEnd'].forEach(id=>{
-    const el=$(id); if(el && !el._sacFBound){ el._sacFBound=true; el.addEventListener('change', renderShipClose); }
+    const el=$(id);
+    if(el && !el._sacFBound){
+      el._sacFBound=true;
+      el.addEventListener('change', ()=>{
+        // เลือก "จากวันที่" → ดูรายวัน (ตั้ง "ถึงวันที่" เป็นวันเดียวกัน) — ปรับ "ถึงวันที่" เองได้ถ้าต้องการช่วง
+        if(id==='sac_fStart'){ const e2=$('sac_fEnd'); if(e2) e2.value = el.value; }
+        _sacCheckDateRange(); renderShipClose();
+      });
+      el.addEventListener('input',  ()=>{ renderShipClose(); });   // พิมพ์เองก็กรองทันที
+      // คลิกที่ช่อง → เปิดปฏิทินทันที (รองรับทั้งคอมและมือถือ)
+      el.addEventListener('click', ()=>{ try{ if(typeof el.showPicker==='function') el.showPicker(); }catch(_e){} });
+    }
   });
-  ['sac_fShip','sac_fOwner'].forEach(id=>{
+  ['sac_fShip'].forEach(id=>{
     const el=$(id); if(el && !el._sacFBound){ el._sacFBound=true; el.addEventListener('input', renderShipClose); }
   });
+  (function(){ const el=$('sac_fOwner'); if(el && !el._sacFOwnBound){ el._sacFOwnBound=true; el.addEventListener('change', renderShipClose); } })();
   // ตัวกรอง "ชื่อชิปปิ้ง" — dropdown เลือกจากรายชื่อจริง (คลิกเปิด · พิมพ์ค้นหา · เลือก→กรอง · ล้าง→ทั้งหมด)
   (function(){
     const fsh = $('sac_fShip');
@@ -5811,9 +6439,17 @@ function _sacExportExcel(){
   })();
 
   // ปิด modal เมื่อคลิกฉากหลัง
-  ['sac_formMo','sac_detailMo'].forEach(id=>{
+  ['sac_formMo','sac_detailMo','sac_closeMo','sac_recoverMo'].forEach(id=>{
     const el=$(id); if(el && !el._sacBdBound){ el._sacBdBound=true; el.addEventListener('click', e=>{ if(e.target===el) el.classList.remove('open'); }); }
   });
+  // ปุ่มในหน้าต่างกู้คืนยอดเก่า
+  bind('sac_recoverX', _sacRecoverClose);
+  bind('sac_rcCancel', _sacRecoverClose);
+  bind('sac_rcConfirm', _sacDoRecoverLegacy);
+  // ปุ่มในหน้าต่างยืนยันปิดยอด
+  bind('sac_closeX',       _sacCloseConfirmClose);
+  bind('sac_closeCancel',  _sacCloseConfirmClose);
+  bind('sac_closeConfirm', _sacConfirmAction);
 })();
 
 // expose
@@ -5848,7 +6484,8 @@ const SAC_STAFF_SEED = [
   "นิคม (คม)",
   "วิศรุต (ตุ้ย)",
   "จำลอง (จ่อย)",
-  "จำรัส (น้อย)"
+  "จำรัส (น้อย)",
+  "ประยงค์ (ยงค์)1"
 ];
 SAC.staff = [];          // [{fullName, nickname, displayName, normFull, normNick, normDisp, source}]
 SAC.staffHidden = new Set();  // normDisp ของชื่อที่ถูกลบ (ซ่อนจากรายการค้นหา — ไม่แตะข้อมูลปิดบัญชีเก่า)
@@ -5861,7 +6498,7 @@ SAC.fShipIdx = -1;
 SAC.fStatusSel = new Set();   // ตัวกรองสถานะ (multi) — ว่าง = ทั้งหมด
 SAC.fReturnSel = new Set();   // ตัวกรองยอดคืนบริษัท (multi, key = ตัวเลข toFixed(2)) — ว่าง = ทั้งหมด
 SAC.fUnclosedSel = new Set();  // ตัวกรองยอดปิดไม่ได้/ยกไปวันใหม่ (multi, key = ตัวเลข toFixed(2)) — ว่าง = ทั้งหมด
-const SAC_STATUS_OPTS = [['OUTSTANDING','🔴 ยอดยกไป'],['WAIT_RETURN','🟡 รอคืนเงิน'],['CLOSED','🟢 ปิดครบ']];
+const SAC_STATUS_OPTS = [['OUTSTANDING','🔴 มียอดยกไป / 🟡 รอคืนเงิน'],['CLOSED','🟢 ปิดครบ']];
 
 // แยกข้อความ "ชื่อจริง (ชื่อเล่น)" → {fullName, nickname, displayName}
 // ตัดหัวท้าย + รวมช่องว่างซ้ำ ; displayName เป็นรูปแบบมาตรฐาน "ชื่อจริง (ชื่อเล่น)"
@@ -5876,11 +6513,29 @@ function _sacParseStaff(raw){
 }
 function _sacStaffItem(raw, source){
   const p = _sacParseStaff(raw);
+  const disp = String(p.displayName||'');
+  // คีย์ค้นหาเพิ่มเติม — รองรับชื่อที่มีตัวต่อท้ายหลังวงเล็บ เช่น "ประยงค์ (ยงค์)1"
+  //   ให้ค้นด้วย "ยงค์1" และ "ประยงค์1" ได้ โดยไม่เปลี่ยน displayName/normDisp (dedupe ยังแยกกัน)
+  const keys = [];
+  const m = disp.match(/^(.*?)\s*\(([^()]*)\)(.*)$/);
+  if(m){
+    const base=m[1].trim(), nick=m[2].trim(), suffix=(m[3]||'').trim();
+    if(suffix){ keys.push(_sacNormName(base+suffix), _sacNormName(nick+suffix)); }
+  }
+  keys.push(_sacNormName(disp.replace(/[\s()]/g,'')));   // รูปแบบไม่มีเว้นวรรค/วงเล็บ
   return {
     fullName: p.fullName, nickname: p.nickname, displayName: p.displayName,
     normFull: _sacNormName(p.fullName), normNick: _sacNormName(p.nickname),
-    normDisp: _sacNormName(p.displayName), source: source||'default'
+    normDisp: _sacNormName(p.displayName),
+    normKeys: keys.filter(Boolean),
+    source: source||'default'
   };
+}
+// ตรวจว่าชื่อนี้ตรงกับคำค้นหรือไม่ (ใช้เฉพาะช่อง "ชื่อชิปปิ้ง")
+function _sacStaffMatch(c, q){
+  if(!q) return true;
+  if(c.normFull.includes(q) || c.normNick.includes(q) || c.normDisp.includes(q)) return true;
+  return (c.normKeys||[]).some(k=> k.includes(q));
 }
 
 // รวม seed + db → dedup ตาม normDisp (ตัวแรกชนะ)
@@ -5970,7 +6625,7 @@ function _sacStaffRender(){
 
   const list = _sacStaffMerged();
   // ค้นหาได้ทั้งชื่อจริง ชื่อเล่น และชื่อเต็ม
-  let matches = q ? list.filter(c=> c.normFull.includes(q) || c.normNick.includes(q) || c.normDisp.includes(q)) : list.slice();
+  let matches = q ? list.filter(c=> _sacStaffMatch(c,q)) : list.slice();
   const CAP = 60;
   const capped = matches.slice(0, CAP);
 
@@ -6051,7 +6706,7 @@ function _sacFShipRender(){
   if(!dd || !inp) return;
   const q = _sacNormName(inp.value||'');
   const all = _sacFShipBuild();
-  const matches = q ? all.filter(c=> c.normFull.includes(q) || c.normNick.includes(q) || c.normDisp.includes(q)) : all.slice();
+  const matches = q ? all.filter(c=> _sacStaffMatch(c,q)) : all.slice();
   SAC.fShipItems = matches.slice(0, 80);
   SAC.fShipIdx = -1;
   if(!SAC.fShipItems.length){
@@ -6104,7 +6759,8 @@ function _sacParseMoneyNum(value){
 }
 function _sacReturnDistinct(){
   const map=new Map();
-  (SAC.GROUPS_ALL||[]).forEach(g=>{ const k=_sacR2(g.returned).toFixed(2); if(!map.has(k)) map.set(k,true); });
+  // สร้างตัวเลือกจากข้อมูลที่ผ่านตัวกรองแล้ว (วันที่/ชิปปิ้ง/ผู้เบิกเงิน/สถานะ/ยอดปิดไม่ได้) — ยกเว้นตัวกรองยอดคืนบริษัทเอง
+  _sacGroupsForAmountOptions('return').forEach(g=>{ const k=_sacR2(g.returned).toFixed(2); if(!map.has(k)) map.set(k,true); });
   return Array.from(map.keys()).sort((a,b)=>_sacParseMoneyNum(b)-_sacParseMoneyNum(a));  // มาก → น้อย
 }
 function _sacReturnLabel(){
@@ -6134,7 +6790,8 @@ function _sacReturnSync(){
 // ══ ตัวกรองยอดปิดไม่ได้ / ยอดยกไปวันใหม่ (multi-select + ค้นหา) ══
 function _sacUnclosedDistinct(){
   const map=new Map();
-  (SAC.GROUPS_ALL||[]).forEach(g=>{ const k=_sacR2(g.unclosed).toFixed(2); if(!map.has(k)) map.set(k,true); });  // รวม 0.00 ด้วย
+  // สร้างตัวเลือกจากข้อมูลที่ผ่านตัวกรองแล้ว — ยกเว้นตัวกรองยอดปิดไม่ได้เอง
+  _sacGroupsForAmountOptions('unclosed').forEach(g=>{ const k=_sacR2(g.unclosed).toFixed(2); if(!map.has(k)) map.set(k,true); });  // รวม 0.00 ด้วย
   return Array.from(map.keys()).sort((a,b)=>_sacParseMoneyNum(b)-_sacParseMoneyNum(a));  // มาก → น้อย
 }
 function _sacUnclosedLabel(){
@@ -6270,6 +6927,7 @@ async function _sacShipAddSaveDo(){
 const SAC_OWNER_SEED = [
   "ธนาดิษย์ (เอ็ม)",
   "ประยงค์ (ยงค์)",
+  "ประยงค์ (ยงค์)1",
   "วันชนะ (เมย์)",
   "นิคม (คม)",
   "วิศรุต (ตุ้ย)"
