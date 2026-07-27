@@ -9823,6 +9823,89 @@ function _elePrepareNewSaleForLegacyFlow(saleData, ctData){
     if(qtyMatch) return saleData; // SALE แยก → FLOW เดิม 100% (ไม่แตะผลลัพธ์เดิม)
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  //  EXACT MATCH FLOW (แยกออกจาก ZBI/ZBIC โดยสิ้นเชิง)
+  //   A. CT  → qty รวมต่อ Key = normProduct + '|' + normDelivery
+  //   B. SALE→ qty รวมต่อ Key เดียวกัน (ไม่จำกัด Billing Type — รองรับ ZB และอื่น ๆ)
+  //            เงื่อนไขแถว: ไม่ Cancelled · มี Item code · มี Delivery ref · มี Invoice Number
+  //   C. ครบทุก Key + qty ตรง (tol 1e-9) → ใช้แถว SALE จริงทันที ไม่เข้า Logic ZBI/ZBIC
+  //   D. ไม่ครบ → ตกไป Logic ZBI/ZBIC เดิม (ไฟล์รูปแบบเก่า ผลลัพธ์เดิมทุกประการ)
+  //   ⚠ พบ ZBI/ZBIC บน Key ของ CT = ไฟล์รูปแบบเก่า (invoice จริง + aggregate/สะพาน Sales Document)
+  //     → ข้าม Exact Flow ทั้งหมด ใช้ Logic ZBI/ZBIC เดิม 100% (spec D — กันผลลัพธ์เดิมเปลี่ยน)
+  // ═══════════════════════════════════════════════════════════════════
+  const ctExactQty = new Map();
+  ctData.rows.forEach(function(r){
+    const p = _eleNormCode(G(r, C.ct.item)); if(!p) return;
+    const d = _eleNormDelivery(G(r, C.ct.deliveryNo)); if(!d) return;
+    const k = p + '|' + d;
+    ctExactQty.set(k, (ctExactQty.get(k) || 0) + _eleToNum(G(r, C.ct.quantity)));
+  });
+
+  const exactRows = [], saleExactQty = new Map();
+  var hasLegacyBtOnCtKey = false;
+  saleData.rows.forEach(function(r){
+    if(!_notCanc(r)) return;                       // Billing document is cancelled = X → ตัด
+    const p = _prod(r); if(!p) return;             // Item code ว่าง → ตัด
+    const d = _del(r);  if(!d) return;             // Delivery reference ว่าง → ตัด
+    const k = p + '|' + d;
+    if(!ctExactQty.has(k)) return;                 // ไม่อยู่ใน CT → ไม่เกี่ยวกับงานนี้
+    var _bti = _bt(r);
+    if(_bti === 'ZBI' || _bti === 'ZBIC'){ hasLegacyBtOnCtKey = true; return; } // ไฟล์รูปแบบเก่า
+    if(!_inv(r)) return;                           // Invoice Number ว่าง → ตัด
+    exactRows.push(r);                             // คงลำดับแถวเดิมของไฟล์ SALE
+    saleExactQty.set(k, (saleExactQty.get(k) || 0) + _qty(r));
+  });
+
+  const exactMissing = [], exactQtyDiff = [];
+  ctExactQty.forEach(function(q, k){
+    if(!saleExactQty.has(k)) exactMissing.push(k);
+    else if(Math.abs(q - saleExactQty.get(k)) > 1e-9)
+      exactQtyDiff.push({ key:k, ct:q, sale:saleExactQty.get(k) });
+  });
+  const exactFull = !hasLegacyBtOnCtKey && exactRows.length > 0 &&
+                    exactMissing.length === 0 && exactQtyDiff.length === 0;
+
+  console.log('[ELE] CT exact key qty', Array.from(ctExactQty.entries()));
+  console.log('[ELE] SALE exact key qty', Array.from(saleExactQty.entries()));
+  console.log('[ELE] exact coverage', { ctKeys: ctExactQty.size, saleKeys: saleExactQty.size,
+    missing: exactMissing, qtyDiff: exactQtyDiff, oldFormatZbiZbic: hasLegacyBtOnCtKey, full: exactFull });
+
+  if(exactFull){
+    const _exInv = [], _exBt = [];
+    exactRows.forEach(function(r){
+      const iv = _inv(r); if(iv && _exInv.indexOf(iv) < 0) _exInv.push(iv);
+      const bt = _bt(r);  if(bt && _exBt.indexOf(bt) < 0) _exBt.push(bt);
+    });
+    console.log('[ELE] exact selected rows', exactRows.length, 'invoices', _exInv);
+    console.log('[ELE] selected billing types', _exBt);
+    // คืนแถว SALE ต้นฉบับทั้งแถว → Invoice/Date/Billing Type/Sales Document/Qty/Net Value/Desc/Country เดิมทุกค่า
+    return {
+      rows: exactRows,
+      fileName: saleData.fileName,
+      headers: saleData.headers,
+      _preparedNew: true,
+      _exactMatch: true,
+      _selectedInvoices: _exInv,
+      _selectedBillingTypes: _exBt,
+      _sourceRowCount: saleData.rows.length,
+      _preparedRowCount: exactRows.length
+    };
+  }
+
+  // รายละเอียดต้นเหตุ (ใช้ประกอบข้อความ error ของ FLOW ZBI/ZBIC ด้านล่าง — spec #10)
+  const _exactDiagMsg = (function(){
+    const parts = [];
+    if(exactMissing.length)
+      parts.push('ไม่พบ SALE ที่ตรงกับ Product+Delivery: ' + exactMissing.slice(0,6).join(', ') + (exactMissing.length>6?' …':''));
+    if(exactQtyDiff.length)
+      parts.push('Quantity SALE ไม่เท่ากับ CT: ' + exactQtyDiff.slice(0,6).map(function(x){
+        return x.key + ' (CT ' + x.ct + ' ≠ SALE ' + x.sale + ')'; }).join(', ') + (exactQtyDiff.length>6?' …':''));
+    if(hasLegacyBtOnCtKey) parts.push('พบแถว ZBI/ZBIC บน Key ของ CT (ไฟล์รูปแบบเก่า) → ใช้ Logic ZBI/ZBIC เดิม');
+    if(!exactRows.length && !exactMissing.length && !exactQtyDiff.length)
+      parts.push('ไม่มีแถว SALE ที่ผ่านเงื่อนไข (ไม่ Cancelled · มี Item code · Delivery ref · Invoice Number)');
+    return parts.join(' | ');
+  })();
+
   // ── Step 4: Exact-match rows → Direct ZBI invoice / Bridge Sales Document (จาก ZBIC) ──
   const directZbiInvoices = new Set(), bridgeSalesDocuments = new Set();
   saleData.rows.forEach(function(r){
@@ -9853,7 +9936,7 @@ function _elePrepareNewSaleForLegacyFlow(saleData, ctData){
   remainingQty.forEach(function(q){ if(q < -1e-9) negative = true; });
   if(negative){
     return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
-             _preparedNew: true, _prepError: 'remaining-negative' };
+             _preparedNew: true, _prepError: 'remaining-negative', _prepDetail: _exactDiagMsg };
   }
 
   var needMore = false;
@@ -9903,11 +9986,11 @@ function _elePrepareNewSaleForLegacyFlow(saleData, ctData){
     }
     if(solutions.length === 0){
       return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
-               _preparedNew: true, _prepError: 'no-exact-subset' };
+               _preparedNew: true, _prepError: 'no-exact-subset', _prepDetail: _exactDiagMsg };
     }
     if(solutions.length > 1){
       return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
-               _preparedNew: true, _prepError: 'multiple-subset' };
+               _preparedNew: true, _prepError: 'multiple-subset', _prepDetail: _exactDiagMsg };
     }
     resolvedZbi = solutions[0];
   }
@@ -9921,7 +10004,7 @@ function _elePrepareNewSaleForLegacyFlow(saleData, ctData){
   });
   if(preparedRows.length === 0){
     return { rows: [], fileName: saleData.fileName, headers: saleData.headers,
-             _preparedNew: true, _prepError: 'no-related' };
+             _preparedNew: true, _prepError: 'no-related', _prepDetail: _exactDiagMsg };
   }
   return {
     rows: preparedRows,
@@ -10141,7 +10224,20 @@ async function eleExport(){
       const saleData = saleArr.length === 1 ? saleArr[0] : saleArr[i];
       const preparedSale = _elePrepareNewSaleForLegacyFlow(saleData, ctArr[i]); // SALE ใหม่แบบรวม → เลือก ZBI จริง; SALE แยก → คืนค่าเดิม
       if(preparedSale && preparedSale._prepError){
-        prepErrors.push({ ct: ctArr[i].fileName, err: preparedSale._prepError });
+        prepErrors.push({ ct: ctArr[i].fileName, err: preparedSale._prepError, detail: preparedSale._prepDetail || '' });
+        // spec #10: ห้ามส่ง rows ว่างเข้า _eleBuildMapping() → หยุดพร้อมบอกต้นเหตุจริง
+        if(!preparedSale.rows || preparedSale.rows.length === 0){
+          const _pmHard = {
+            'no-exact-subset'   :'ไม่พบ SALE ที่ตรงกับ CT (Exact Product+Delivery ไม่ครบ และหาชุด ZBI ที่รวมยอดตรงไม่ได้)',
+            'multiple-subset'   :'พบหลาย Invoice ที่ไม่สามารถตัดสินใจได้อย่างปลอดภัย',
+            'remaining-negative':'Quantity SALE ที่เลือกเกินยอด CT (เลือก Invoice ผิด)',
+            'no-related'        :'ไม่พบ SALE ที่ตรงกับ Product + Delivery'
+          };
+          console.error('[ELE] prepError', preparedSale._prepError, preparedSale._prepDetail || '');
+          showErr('⛔ หยุด Export ('+ctArr[i].fileName+'): '+(_pmHard[preparedSale._prepError]||preparedSale._prepError)
+                  + (preparedSale._prepDetail ? ' — '+preparedSale._prepDetail : ''));
+          return;
+        }
       }
       const result = _eleBuildMapping(preparedSale, ctArr[i], plArr[i], s.master);
       jobs.push({ ctFile:ctArr[i].fileName, rows:result.rows, stats:result.stats, validation:result.validation });
