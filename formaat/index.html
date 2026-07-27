@@ -1725,7 +1725,9 @@ function makeBOL_VN(rep, cIdx){
           'BoL Number':          blNum || port,                // Proforma (fallback port)
           'VISTA Entity Code':   r['VISTA Entity Code'],
           ITEM:                  0,
-          'QAD Description1':    r['QAD Description1'], // effective (PCV||QAD)
+          // ⭐ QAD Description1 = ชื่อสินค้าจาก INV PDF (match Invoice + รายการสินค้า)
+          //    ไม่พบใน PDF → คงค่าเดิม แล้ว validation จะแจ้งเลข Invoice + รายการก่อน Export
+          'QAD Description1':    (pdfHit && pdfHit.desc) || r['QAD Description1'],
           'PCV Description':     pcv,                   // raw PCV
           'HTS cod':             hts,
           'INVOICE NO TH':       r['INVOICE NO TH'],   // อันแรกใน group (ถ้ามีหลาย invoice → sub-rows ด้านล่าง)
@@ -1941,8 +1943,12 @@ function validateBeforeExport_VN(){
   Object.values(SVN.bolSheets).forEach(rows=>rows.forEach(r=>{
     const vista=r['VISTA Entity Code']; if(!vista) return;          // sub-row (invoice เสริม) ข้าม
     const bl=r['BoL Number']||'';
-    if(hasPdf && !_vnPdfLookup(vista, bl))
+    const _ph=hasPdf?_vnPdfLookup(vista, bl):null;
+    if(hasPdf && !_ph)
       issues.push(`❌ ไม่พบชื่อสินค้าหรือพิกัดใน INV PDF — Invoice ${bl} | ${vista}`);
+    // ⭐ QAD Description1 ทุกแถวต้องตรงกับชื่อสินค้าใน INV PDF
+    if(_ph && String(r['QAD Description1']||'').trim() !== String(_ph.desc||'').trim())
+      issues.push(`❌ QAD Description1 ไม่ตรงชื่อสินค้าใน INV PDF — Invoice ${bl} | ${vista} | ได้ "${r['QAD Description1']}" ต้องเป็น "${_ph.desc}"`);
     if(!r['Cost Structure No.'])
       issues.push(`❌ ไม่พบต้นทุนใน Master (Sheet 1 และ Sheet 2) — ${vista}`);
     ['ผลรวม ของ QTY','ผลรวม ของ Weight in KGs','ผลรวม ของ Amount 3RD ( AUD )','ผลรวม ของ Amount TH ( THB )'].forEach(c=>{
