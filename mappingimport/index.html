@@ -9807,25 +9807,302 @@ function txReset(){
   txRenderLists(); txCheckReady(); txSetStatus(txHint());
 }
 
-/* ── อ่าน PDF → บรรทัดข้อความต่อหน้า (จัดกลุ่มตามพิกัด Y) ── */
-async function txPdfPages(file){
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+/* ── OCR Fallback (ใช้เฉพาะโหมด Texas db12 และเฉพาะเมื่อหน้านั้นไม่มี Text Layer) ──
+   • โหลด Tesseract.js จาก CDN แบบ lazy — ถ้า PDF มี Text Layer ครบ จะไม่โหลดไลบรารีเลย
+   • ทุกอย่างรับข้อมูลจาก File.arrayBuffer() / Canvas เท่านั้น — ไม่สร้าง URL file:// ไม่ใช้ iframe/object */
+const TX_OCR_LIB    = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+const TX_OCR_WORKER = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js';
+const TX_OCR_CORE   = 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1';
+const TX_OCR_LANG   = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int';
+const TX_OCR_SCALE  = 300 / 72;   // ≈4.17 (300 DPI) — ค่าต่ำสุดที่ทดสอบแล้วอ่าน (EA)(USD)(USD) และ TI part number ได้ครบ
+const TX_OCR_MAXPX  = 40e6;       // เพดานพิกเซลต่อ canvas — กันมือถือ/เครื่องค้าง
+const TX_OCR_BAND   = 0.25;       // สัดส่วนความสูงส่วนหัวที่ OCR ก่อน เพื่อตรวจว่าเป็นหน้า Invoice หรือ Terms of Sale
+
+let txOcrLibP = null;
+function txLoadOcrLib(){
+  if(window.Tesseract) return Promise.resolve(window.Tesseract);
+  if(txOcrLibP) return txOcrLibP;
+  txOcrLibP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = TX_OCR_LIB; s.async = true;
+    s.onload  = () => window.Tesseract ? res(window.Tesseract)
+                                       : rej(new Error('OCR Library โหลดไม่สำเร็จ (ไม่พบ Tesseract)'));
+    s.onerror = () => rej(new Error('OCR Library โหลดไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต/การเข้าถึง CDN'));
+    document.head.appendChild(s);
+  }).catch(e => { txOcrLibP = null; throw e; });
+  return txOcrLibP;
+}
+async function txOcrCreateWorker(){
+  const T = await txLoadOcrLib();
+  return await T.createWorker('eng', 1, {
+    workerPath: TX_OCR_WORKER, corePath: TX_OCR_CORE, langPath: TX_OCR_LANG,
+    workerBlobURL: true, logger: () => {}
+  });
+}
+/* words ของ Tesseract.js v5 อยู่ใน blocks→paragraphs→lines→words (รองรับ data.words ของเวอร์ชันเก่าด้วย) */
+function txOcrWords(data){
+  if(data && Array.isArray(data.words) && data.words.length) return data.words;
+  const out = [];
+  ((data && data.blocks) || []).forEach(b => (b.paragraphs || []).forEach(p =>
+    (p.lines || []).forEach(l => (l.words || []).forEach(w => out.push(w)))));
+  return out;
+}
+/* จัดกลุ่มคำจาก Bounding Box → บรรทัด (บนลงล่าง / ซ้ายไปขวา) */
+function txOcrWordsToLines(words){
+  const ws = (words || []).filter(w => w && w.bbox && w.text && String(w.text).trim());
+  if(!ws.length) return [];
+  const arr = ws.map(w => ({ t: String(w.text).trim(), x: w.bbox.x0,
+    y: (w.bbox.y0 + w.bbox.y1) / 2, h: Math.max(1, w.bbox.y1 - w.bbox.y0) }));
+  arr.sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows = []; let cur = null;
+  for(const w of arr){
+    if(cur && Math.abs(w.y - cur.y) <= Math.max(6, cur.h * 0.6)){
+      cur.w.push(w); cur.y = (cur.y * (cur.w.length - 1) + w.y) / cur.w.length;
+    }else{ cur = { y: w.y, h: w.h, w: [w] }; rows.push(cur); }
+  }
+  return rows.map(r => r.w.sort((a, b) => a.x - b.x).map(o => o.t).join(' ').replace(/\s+/g, ' ').trim())
+             .filter(s => s.length);
+}
+/* Normalize ข้อความก่อน Parse — แก้เฉพาะคำ/ป้ายกำกับที่ OCR อ่านคลาดเคลื่อน (ไม่แตะตัวเลขในเนื้อข้อมูล) */
+function txOcrNormLines(lines){
+  return (lines || []).map(s => String(s == null ? '' : s)
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u2018\u2019\u02bc\u2032]/g, "'")
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\bl\s*nvoice\b/gi, 'Invoice')
+    .replace(/\bInvoice\s*nu?[rmn]{1,3}be?r\b/gi, 'Invoice number')
+    .replace(/\bInvoice\s*n[uo]mber\b/gi, 'Invoice number')
+    .replace(/\bInvoice\s*dat[ea]\b/gi, 'Invoice date')
+    .replace(/\bT[l1I]\s+TERMS\s+OF\s+SALE\b/gi, 'TI TERMS OF SALE')
+    .replace(/\bTotal\s*Quan[tl]ity\b/gi, 'Total Quantity')
+    .replace(/\bTotal\s*Va[li]ue\b/gi, 'Total Value')
+    .replace(/\bDescr[il]ption\b/gi, 'Description')
+    .replace(/\s+/g, ' ').trim()).filter(s => s.length);
+}
+/* ตรวจประเภทหน้าจากข้อความจริง — ห้ามยึดว่าหน้าคี่=Invoice / หน้าคู่=Terms */
+function txPageIsTerms(txt){
+  if(/\bPAGE\s*1\s*OF\b/i.test(txt)) return false;              // หน้า Invoice — ห้ามข้ามเด็ดขาด
+  return /\bPAGE\s*[2-9]\d*\s*OF\b/i.test(txt)
+      || /\bT[l1I]\s*TERMS\s+OF\s+SALE\b/i.test(txt)
+      || /\bCERTIFICATE\s+OF\s+CONFORMANCE\b/i.test(txt);
+}
+/* ── จัดกลุ่ม Text Item เป็นบรรทัดด้วย "ระยะห่าง" ไม่ใช่การปัด Y แบบตายตัว ──
+   สาเหตุจริงของบั๊ก: โค้ดเดิมใช้ Math.round(y*2)/2 ทำให้ข้อความที่ baseline ต่างกันเพียง
+   เศษจุด (เช่น 287.820 กับ 287.729) ตกคนละ bucket → TI part number หลุดออกจากแถวสินค้า */
+const TX_Y_TOL = 1.5;   // pt — น้อยกว่าระยะบรรทัดจริง (~10pt) มาก แต่มากพอครอบ baseline ที่เหลื่อมกัน
+function txRowsOf(words, tol){
+  const arr = (words || []).slice().sort((a, b) => (b.y - a.y) || (a.x - b.x));
+  const rows = []; let cur = null;
+  for(const w of arr){
+    if(cur && Math.abs(cur.y - w.y) <= (tol || TX_Y_TOL)) cur.w.push(w);
+    else { cur = { y: w.y, w: [w] }; rows.push(cur); }
+  }
+  rows.forEach(r => r.w.sort((a, b) => a.x - b.x));
+  return rows;
+}
+function txLinesOf(words, tol){
+  return txRowsOf(words, tol)
+    .map(r => r.w.map(o => String(o.s)).join(' ').replace(/\s+/g, ' ').trim())
+    .filter(s => s.length);
+}
+/* ── Parser แบบ Column-aware (สำรอง) — ใช้เมื่ออ่านด้วย Regex รายบรรทัดแล้วไม่พบ Item ── */
+const TX_COL_HDR = [
+  ['ITEM', /^Item$/i], ['TI', /^TI part number$/i], ['HTS', /^HTS number$/i],
+  ['ECCN', /^US\s*\/\s*Local\s+ECCN$/i], ['QTY', /^Quantity$/i],
+  ['UNIT', /^Unit value$/i], ['SUB', /^Subtotal value$/i]
+];
+function txItemsByColumns(raw){
+  if(!raw || !raw.length) return [];
+  const hdr = {};
+  for(const w of raw){ const t = String(w.s).replace(/\s+/g, ' ').trim();
+    for(const hc of TX_COL_HDR) if(hdr[hc[0]] === undefined && hc[1].test(t)) hdr[hc[0]] = { x: w.x, y: w.y }; }
+  for(const k of ['ITEM','TI','HTS','QTY','UNIT','SUB']) if(!hdr[k]) return [];
+  const cols = Object.keys(hdr).map(k => ({ k: k, x: hdr[k].x })).sort((a, b) => a.x - b.x);
+  const bnd = []; for(let i = 1; i < cols.length; i++) bnd.push((cols[i-1].x + cols[i].x) / 2);
+  const colOf = x => { let i = 0; while(i < bnd.length && x > bnd[i]) i++; return cols[i].k; };
+  const rows = txRowsOf(raw.filter(w => w.y < hdr.ITEM.y - 4), TX_Y_TOL);
+  const items = []; let cur = null, stop = false;
+  const push = () => { if(cur) items.push(cur); cur = null; };
+  for(const r of rows){
+    const cell = {};
+    for(const w of r.w){ const k = colOf(w.x); cell[k] = (cell[k] ? cell[k] + ' ' : '') + String(w.s).trim(); }
+    const first = (cell.ITEM || '').trim(), ti = (cell.TI || '').trim();
+    if(/^Total\s+(Quantity|Value)/i.test(ti) || /^Comments\b/i.test(ti)) stop = true;
+    if(stop) continue;
+    if(/^\d+$/.test(first)){
+      push();
+      cur = { item: +first, ti:'', hts:'', qty: NaN, unit: NaN, sub: NaN, coo:'', cust:'', desc:'', _ti: [], _hts: [] };
+      if(ti) cur._ti.push(ti);
+      if(cell.HTS) cur._hts.push(cell.HTS.trim());
+      cur.qty  = parseInt(String(cell.QTY || '').replace(/[^\d]/g, ''), 10);
+      cur.unit = parseFloat(String(cell.UNIT || '').replace(/,/g, ''));
+      cur.sub  = parseFloat(String(cell.SUB  || '').replace(/,/g, ''));
+      continue;
+    }
+    if(!cur) continue;
+    if(ti) cur._ti.push(ti);
+    if(cell.HTS) cur._hts.push(cell.HTS.trim());
+  }
+  push();
+  for(const it of items){
+    it.ti = it._ti[0] || '';
+    for(const s of it._hts){
+      if(!it.hts){ const m = /^(\d{4}\.\d{2}\.\d{2,4})$/.exec(s); if(m){ it.hts = m[1]; continue; } }
+      if(!it.coo){ const c = /^([A-Z]{2})\s*:\s*[\d,]+$/.exec(s); if(c){ it.coo = c[1]; continue; } }
+      if(!it.cust && !/^\d{4}\.\d{2}\.\d{2,4}$/.test(s) && !/^[A-Z]{2}\s*:/.test(s)) it.cust = s;
+    }
+    for(let i = 0; i < it._ti.length; i++){
+      const s = it._ti[i];
+      if(!it.desc && /^Description\s*:/i.test(s)){
+        let d = s.replace(/^Description\s*:\s*/i, '').trim();
+        for(let j = i + 1; j < it._ti.length; j++){ const t = it._ti[j];
+          if(!t || TX_RE_DESCSTOP.test(t)) break; d += ' ' + t; }
+        it.desc = d.replace(/\s+/g, ' ').trim();
+      }
+      if(!it.coo){ const c = /(?:^|\s)COO\s+([A-Z]{2})\s*:/.exec(s); if(c) it.coo = c[1]; }
+    }
+    delete it._ti; delete it._hts;
+  }
+  return items.filter(x => x.item && isFinite(x.qty) && isFinite(x.sub));
+}
+/* ── ค้นเลข Invoice แบบยืดหยุ่น — ชื่อ Field กับค่าอยู่คนละ Text Item / คนละบรรทัดได้ ── */
+function txNormTxt(v){
+  return String(v == null ? '' : v)
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ');
+}
+const TX_RE_INVNO = /Invoice\s*n[ur]m?be?r\s*[:.]?\s*(\d{6,})/i;
+function txFindInvoiceNo(page){
+  let m = TX_RE_INVNO.exec(page.lines.join('\n'));            // 1) จากบรรทัดที่จัดกลุ่มแล้ว
+  if(m) return m[1];
+  m = TX_RE_INVNO.exec(page.fullText || '');                  // 2) จากข้อความทั้งหน้า
+  if(m) return m[1];
+  const raw = page.raw || [];                                 // 3) จาก rawItems ตามลำดับตำแหน่ง
+  for(let i = 0; i < raw.length; i++){
+    if(!/Invoice\s*n[ur]m?be?r/i.test(String(raw[i].s))) continue;
+    for(let j = i; j < Math.min(raw.length, i + 6); j++){
+      const d = /(\d{6,})/.exec(String(raw[j].s)); if(d) return d[1];
+    }
+  }
+  return '';
+}
+/* หน้าที่ Text Layer อ่านได้ไม่พอ → ต้อง OCR */
+function txTextWeak(lines){
+  const t = (lines || []).join(' ');
+  if(t.replace(/\s+/g, '').length < 50) return true;
+  return !/Invoice\s*n[ur]m?be?r/i.test(t) && !/COMMERCIAL\s+INVOICE/i.test(t);
+}
+function txFreeCanvas(cv){ if(!cv) return; try{ cv.width = 1; cv.height = 1; }catch(e){} }
+async function txRenderPage(page){
+  const v1 = page.getViewport({ scale: 1 });
+  let sc = TX_OCR_SCALE;
+  const px = v1.width * v1.height * sc * sc;
+  if(px > TX_OCR_MAXPX) sc = sc * Math.sqrt(TX_OCR_MAXPX / px);
+  const vp = page.getViewport({ scale: sc });
+  const cv = document.createElement('canvas');
+  cv.width  = Math.max(1, Math.ceil(vp.width));
+  cv.height = Math.max(1, Math.ceil(vp.height));
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, cv.width, cv.height);
+  await page.render({ canvasContext: cx, viewport: vp }).promise;
+  return cv;
+}
+function txCropTop(cv, ratio){
+  const h = Math.max(1, Math.round(cv.height * ratio));
+  const c2 = document.createElement('canvas');
+  c2.width = cv.width; c2.height = h;
+  c2.getContext('2d').drawImage(cv, 0, 0, cv.width, h, 0, 0, cv.width, h);
+  return c2;
+}
+/* OCR หน้าเดียว — ประมวลผลทีละหน้า แล้วคืน canvas ทันที (ห้ามเก็บภาพทุกหน้าไว้พร้อมกัน) */
+async function txOcrPage(page, i, n, cx){
+  let cv = null, band = null;
+  try{
+    if(cx.onPage) cx.onPage(i, n, 'ocr-wait');
+    const w = await cx.getWorker();
+    cv   = await txRenderPage(page);
+    band = txCropTop(cv, TX_OCR_BAND);
+    let head = '';
+    try{ const r = await w.recognize(band, {}, { text: true }); head = (r && r.data && r.data.text) || ''; }
+    catch(e){ head = ''; }
+    txFreeCanvas(band); band = null;
+    if(head && txPageIsTerms(txOcrNormLines(head.split('\n')).join(' '))){
+      cx.terms = (cx.terms || 0) + 1;
+      return [];                                   // หน้า Terms of Sale — ไม่ OCR เต็มหน้า และไม่สร้างรายการสินค้า
+    }
+    if(cx.onPage) cx.onPage(i, n, 'ocr');
+    const res = await w.recognize(cv, {}, { text: true, blocks: true });
+    let lines = txOcrWordsToLines(txOcrWords(res && res.data));
+    if(!lines.length && res && res.data && res.data.text) lines = txOcrNormLines(String(res.data.text).split('\n'));
+    if(lines.length) cx.ocrOk = (cx.ocrOk || 0) + 1;
+    else (cx.ocrFail = cx.ocrFail || []).push(i);
+    return lines;
+  }catch(e){
+    (cx.ocrFail = cx.ocrFail || []).push(i);
+    if(!cx.ocrErr) cx.ocrErr = (e && e.message) ? e.message : String(e);
+    return [];
+  }finally{ txFreeCanvas(band); txFreeCanvas(cv); }
+}
+
+/* ── เปิด PDF จาก ArrayBuffer เท่านั้น + ลอง Worker CDN สำรองเมื่อตัวหลักโหลดไม่สำเร็จ ── */
+const TX_PDF_WORKERS = [
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js',
+  'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js'
+];
+async function txPdfOpen(buf){
+  const src0 = pdfjsLib.GlobalWorkerOptions.workerSrc;
+  const tried = [];
+  let last = null;
+  for(const src of [src0].concat(TX_PDF_WORKERS)){
+    if(!src || tried.indexOf(src) >= 0) continue;
+    tried.push(src);
+    try{
+      pdfjsLib.GlobalWorkerOptions.workerSrc = src;
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = src0;          // คืนค่าเดิม — ไม่กระทบโหมดอื่น
+      return pdf;
+    }catch(e){ last = e; }
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = src0;
+  throw new Error('เปิด PDF ไม่สำเร็จ / PDF Worker โหลดไม่สำเร็จ — ' + (last && last.message ? last.message : last));
+}
+
+/* ── อ่าน PDF → เก็บต่อหน้า 3 รูปแบบ: raw (x,y,w,h,eol) / lines (จัดกลุ่มตาม Y) / fullText ── */
+async function txPdfPages(file, ctx){
+  const cx = ctx || {};
+  const buf = await file.arrayBuffer();                      // อ่านจาก File เท่านั้น
+  const pdf = await txPdfOpen(buf);
+  if(cx.onDoc) cx.onDoc(pdf.numPages);
   const pages = [];
   for(let i = 1; i <= pdf.numPages; i++){
+    if(cx.onPage) cx.onPage(i, pdf.numPages, 'text');
     const page = await pdf.getPage(i);
     const tc = await page.getTextContent();
-    const rows = new Map();
+    const raw = [];
+    let flow = '';
     for(const it of tc.items){
-      const str = (it.str == null ? '' : String(it.str));
+      const str = txNormTxt(it.str == null ? '' : it.str);
+      flow += str + (it.hasEOL ? '\n' : '');
       if(!str.trim()) continue;
-      const y = Math.round((it.transform[5] || 0) * 2) / 2;
-      if(!rows.has(y)) rows.set(y, []);
-      rows.get(y).push({ x: it.transform[4] || 0, s: str });
+      raw.push({ s: str, x: it.transform[4] || 0, y: it.transform[5] || 0,
+                 w: it.width || 0, h: it.height || 0, eol: !!it.hasEOL });
     }
-    const keys = [...rows.keys()].sort((a, b) => b - a);          // บนลงล่าง
-    pages.push(keys.map(k => rows.get(k).sort((a, b) => a.x - b.x).map(o => o.s).join(' ').replace(/\s+/g, ' ').trim()));
+    let lines = txLinesOf(raw, TX_Y_TOL);
+    let fullText = flow.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
+    let ocr = false;
+    if(txTextWeak(lines)){                                    // ไม่มี Text Layer จริง → OCR เฉพาะหน้านี้
+      cx.ocrUsed = true; ocr = true;
+      lines = await txOcrPage(page, i, pdf.numPages, cx);
+      fullText = lines.join('\n');
+      raw.length = 0;
+    }
+    pages.push({ n: i, lines: lines, fullText: fullText, raw: raw, ocr: ocr });
+    cx.pagesRead = (cx.pagesRead || 0) + 1;
+    if(cx.debug) try{ console.debug('[TX] page', i + '/' + pdf.numPages,
+      '| textItems', raw.length, '| lines', lines.length, '| fullText', fullText.length, '| ocr', ocr); }catch(e){}
+    if(page.cleanup) try{ page.cleanup(); }catch(e){}
   }
+  if(pdf.destroy) try{ await pdf.destroy(); }catch(e){}
   return pages;
 }
 
@@ -9834,6 +10111,12 @@ const TX_RE_ITEM = /^(\d+)\s+(\S+)\s+(\d{4}\.\d{2}\.\d{2})\s+([\d,]+)\s+([\d.]+)
 const TX_RE_COO  = /^\S*\s*([A-Z]{2}):\s*([\d,]+)\s*$/;
 const TX_RE_CUST = /^(\d{6,})\s+(\S+)$/;
 const TX_RE_CUR  = /\(\s*EA\s*\)\s*\(\s*([A-Z]{3})\s*\)\s*\(\s*([A-Z]{3})\s*\)/;
+/* สำรองสำหรับข้อความจาก OCR — ใช้ต่อเมื่อ Regex เดิมด้านบนไม่ match เท่านั้น (Regex เดิมไม่ถูกแก้)
+   OCR รวมคอลัมน์ ECCN / License number มาต่อท้ายในบรรทัดเดียวกัน จึงต้องยืดหยุ่นขึ้น */
+const TX_RE_ITEM_OCR = /^(\d+)\s+(\S+)\s+(\d{4}\.\d{2}\.\d{2,4})\s+(?:\S+\s+)?([\d,]+)\s+([\d.]+)\s+([\d,]+\.\d+)$/;
+const TX_RE_COO_OCR  = /(?:^|\s)([A-Z]{2})\s*:\s*([\d,]+)(?:\s|$)/;
+const TX_RE_CUST_OCR = /^(\d{6,})\s+([A-Z0-9][A-Z0-9\-\/.]{5,})(?:\s|$)/i;
+const TX_RE_CUR_OCR  = /\(\s*EA\s*\)\D{0,12}\(\s*([A-Z]{2,3})\s*\)\D{0,12}\(\s*([A-Z]{2,3})\s*\)/;
 /* บรรทัดที่ต้อง "หยุดอ่าน" Description (ห้ามให้ HTS / COO / Customer P.O. / Boxes ปะปน) */
 const TX_RE_DESCSTOP = /^(Boxes\s*:|COO\b|Customer\s*P\.?\s*O|Total\s+Quantity|Total\s+Value|Comments\b|Signed\b|Certifications\b|Description\s*:|\d{4}\.\d{2}\.\d{2})/i;
 /* Tariff Code: HTS number → ลบจุด → เติม 0 ด้านหน้าให้ครบ 11 หลัก (Text) */
@@ -9852,25 +10135,43 @@ function txMapDesc(v){
 }
 const TX_MON = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
 
-function txParsePages(pages, out){
-  for(const lines of pages){
+function txParsePages(pages, out, ctx){
+  const cx = ctx || {};
+  for(const src of pages){
+    /* รองรับทั้งรูปแบบใหม่ {n,lines,fullText,raw} และรูปแบบเดิม (array ของบรรทัด) */
+    const page = Array.isArray(src)
+      ? { n: 0, lines: src, fullText: src.join('\n'), raw: [] }
+      : src;
+    const lines = txOcrNormLines(page.lines);                      // Normalize ก่อน Parse
     const txt = lines.join('\n');
-    if(/PAGE\s*2\s*OF/i.test(txt)) continue;                       // หน้า Terms of Sale — ห้ามสร้างรายการ
-    const mi = txt.match(/Invoice number\s+(\d+)/i);
-    if(!mi) continue;
-    const ino = mi[1];
-    const md = txt.match(/Invoice date\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/i);
+    if(txPageIsTerms(txt)){                                        // ตรวจจากข้อความของหน้านั้นเท่านั้น
+      cx.termsSeen = (cx.termsSeen || 0) + 1;
+      if(cx.onPageInfo) cx.onPageInfo(page.n, 'terms');
+      continue;
+    }
+    const ino = txFindInvoiceNo({ lines: lines, fullText: page.fullText, raw: page.raw });
+    if(!ino){
+      cx.noInv = (cx.noInv || 0) + 1;
+      if(cx.onPageInfo) cx.onPageInfo(page.n, 'no-invoice');
+      continue;
+    }
+    const md = txt.match(/Invoice date\D{0,8}(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/i)
+            || String(page.fullText || '').match(/Invoice date\D{0,8}(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/i);
     let rec = out.get(ino);
-    if(!rec){ rec = { inv: ino, d: null, m: null, y: null, cur: '', items: [], tq: null, tv: null, _seen: false }; out.set(ino, rec); }
+    if(!rec){ rec = { inv: ino, d: null, m: null, y: null, cur: '', items: [], tq: null, tv: null, _seen: false, _keys: new Map() }; out.set(ino, rec); }
+    if(!rec._keys) rec._keys = new Map();
     if(md && rec.d == null){ rec.d = +md[1]; rec.m = TX_MON[md[2].toLowerCase()] || null; rec.y = +md[3]; }
-    if(!rec.cur){ const mc = txt.match(TX_RE_CUR); if(mc) rec.cur = mc[2]; }   // สกุลเงินจากหัวคอลัมน์ Subtotal value
-    if(rec._seen) continue;            // Invoice เดียวกันจาก PDF อีกไฟล์ — ตัดข้อมูลซ้ำ
-    rec._seen = true;
+    if(!rec.cur){ const mc = txt.match(TX_RE_CUR) || txt.match(TX_RE_CUR_OCR);   // สกุลเงินจากหัวคอลัมน์ Subtotal value
+      if(mc){ const c2 = String(mc[2] || '').toUpperCase(), c1 = String(mc[1] || '').toUpperCase();
+              rec.cur = (c2.length === 3) ? c2 : ((c1.length === 3) ? c1 : ''); } }
+    /* ── 1) อ่านรายการสินค้าด้วย Regex รายบรรทัด ── */
+    const found = [];
     const idxs = [];
-    for(let i = 0; i < lines.length; i++) if(TX_RE_ITEM.test(lines[i].trim())) idxs.push(i);
+    for(let i = 0; i < lines.length; i++){ const s = lines[i].trim();
+      if(TX_RE_ITEM.test(s) || TX_RE_ITEM_OCR.test(s)) idxs.push(i); }
     for(let k = 0; k < idxs.length; k++){
       const i = idxs[k];
-      const m = TX_RE_ITEM.exec(lines[i].trim());
+      const m = TX_RE_ITEM.exec(lines[i].trim()) || TX_RE_ITEM_OCR.exec(lines[i].trim());
       const it = { item: +m[1], ti: m[2], hts: m[3],
                    qty: parseInt(m[4].replace(/,/g, ''), 10),
                    unit: parseFloat(m[5]), sub: parseFloat(m[6].replace(/,/g, '')),
@@ -9879,24 +10180,48 @@ function txParsePages(pages, out){
       for(let j = i + 1; j < stop; j++){
         const s = lines[j].trim();
         if(/^Total Quantity/i.test(s)) break;
-        if(!it.coo){ const c = TX_RE_COO.exec(s); if(c) it.coo = c[1]; }
-        if(!it.cust){ const u = TX_RE_CUST.exec(s); if(u) it.cust = u[2]; }
-        if(!it.desc && /^Description:/i.test(s)){
-          let d = s.replace(/^Description:\s*/i, '').trim();
+        if(!it.coo){ const c = TX_RE_COO.exec(s) || TX_RE_COO_OCR.exec(s); if(c) it.coo = c[1]; }
+        if(!it.cust){ const u = TX_RE_CUST.exec(s) || TX_RE_CUST_OCR.exec(s); if(u) it.cust = u[2]; }
+        if(!it.desc && /^Description\s*:/i.test(s)){
+          let d = s.replace(/^Description\s*:\s*/i, '').trim();
           for(let k = j + 1; k < stop; k++){                 // Description หลายบรรทัด → ต่อด้วยเว้นวรรค 1 ช่อง
             const t = lines[k].trim();
-            if(!t || TX_RE_DESCSTOP.test(t) || TX_RE_ITEM.test(t)) break;
+            if(!t || TX_RE_DESCSTOP.test(t) || TX_RE_ITEM.test(t) || TX_RE_ITEM_OCR.test(t)) break;
             d += ' ' + t;
           }
           it.desc = d.replace(/\s+/g, ' ').trim();
         }
       }
-      rec.items.push(it);
+      found.push(it);
     }
-    const mq = txt.match(/Total Quantity:\s*([\d,]+)/i);
-    const mv = txt.match(/Total Value:\s*([\d,]+\.\d+)/i);
+    /* ── 2) ถ้ายังไม่พบ Item → อ่านจากตำแหน่ง X/Y ของ Text Item (Column-aware) ── */
+    let via = 'regex';
+    if(!found.length && page.raw && page.raw.length){
+      const alt = txItemsByColumns(page.raw);
+      if(alt.length){ via = 'column'; for(const a of alt) found.push(a); }
+    }
+    for(const it of found){
+      /* กันซ้ำด้วย Key = Invoice number + Item number + TI part number
+         ถ้าเคยอ่านแล้วแต่บาง Field ยังขาด → Merge เฉพาะ Field ที่ขาด (ห้ามลบข้อมูลที่อ่านสำเร็จแล้ว) */
+      const key = rec.inv + '|' + it.item + '|' + it.ti;
+      const old = rec._keys.get(key);
+      if(old){
+        if(!old.coo  && it.coo)  old.coo  = it.coo;
+        if(!old.cust && it.cust) old.cust = it.cust;
+        if(!old.desc && it.desc) old.desc = it.desc;
+        if(!old.hts  && it.hts)  old.hts  = it.hts;
+        continue;
+      }
+      rec._keys.set(key, it); rec.items.push(it);
+    }
+    const mq = txt.match(/Total Quantity\D{0,4}([\d,]+)/i);
+    const mv = txt.match(/Total Value\D{0,4}([\d,]+\.\d+)/i);
     if(mq && rec.tq == null) rec.tq = parseInt(mq[1].replace(/,/g, ''), 10);
     if(mv && rec.tv == null) rec.tv = parseFloat(mv[1].replace(/,/g, ''));
+    /* Invoice ถือว่า "อ่านสำเร็จ" เมื่อครบ: เลขที่ + วันที่ + อย่างน้อย 1 Item + Total Quantity + Total Value */
+    const done = !!(rec.inv && rec.y && rec.m && rec.d && rec.items.length && rec.tq != null && rec.tv != null);
+    if(done && !rec._seen){ rec._seen = true; if(cx.onInvoice) cx.onInvoice(rec.inv); }
+    if(cx.onPageInfo) cx.onPageInfo(page.n, 'invoice ' + ino + ' · item ' + found.length + ' (' + via + ')');
   }
 }
 
@@ -10137,17 +10462,75 @@ async function txBuildBook(list){
   return await zip.generateAsync({ type: 'arraybuffer' });
 }
 
+/* ข้อความผิดพลาดต้องระบุสาเหตุจริง — สรุปจากผลอ่านจริงของแต่ละหน้า */
+function txFailReason(cx){
+  const p = [];
+  p.push('อ่าน PDF ' + (cx.pagesRead || 0) + ' หน้า แต่ไม่พบ Invoice');
+  if(cx.terms || cx.termsSeen) p.push('เป็นหน้า Terms of Sale ' + ((cx.terms || 0) + (cx.termsSeen || 0)) + ' หน้า');
+  if(cx.textItems === 0) p.push('ไม่พบ Text Item ในไฟล์เลย');
+  if(cx.hasCommercial && !cx.noInv) p.push('พบคำว่า COMMERCIAL INVOICE แต่อ่าน Invoice Number ไม่ได้');
+  if(cx.ocrUsed){
+    p.push('ไม่พบ Text Layer จึงใช้ OCR — สำเร็จ ' + (cx.ocrOk || 0) + ' หน้า');
+    if(cx.ocrFail && cx.ocrFail.length)
+      p.push('OCR หน้า ' + cx.ocrFail.join(', ') + ' ไม่สำเร็จ กรุณาตรวจสอบความคมชัดของไฟล์');
+    if(cx.ocrErr) p.push('สาเหตุ: ' + cx.ocrErr);
+  }else{
+    p.push('อ่านจาก Text Layer ทั้งหมด (ไม่เข้าเงื่อนไขเรียก OCR)');
+  }
+  if(cx.noInv) p.push('หน้าที่อ่านข้อความได้แต่ไม่พบ "Invoice number" ' + cx.noInv + ' หน้า');
+  return p.join(' · ');
+}
+
 async function txDownload(){
   const btn = document.getElementById('tx-btn-export');
+  let ocrWorker = null;
+  const cx = {
+    debug: true,
+    pagesRead: 0, textItems: 0, hasCommercial: false,
+    ocrUsed: false, ocrOk: 0, ocrFail: [], terms: 0, termsSeen: 0, noInv: 0, ocrErr: '',
+    fi: 1, fn: 1,
+    getWorker: async () => {
+      if(ocrWorker) return ocrWorker;                       // สร้าง Worker ตัวเดียวต่อการ Export แล้ว Reuse ทุกหน้า
+      txSetStatus('กำลังเตรียม OCR (โหลดครั้งแรกอาจใช้เวลาสักครู่) …');
+      ocrWorker = await txOcrCreateWorker();
+      return ocrWorker;
+    },
+    onDoc: (n) => { txSetStatus('ตรวจพบ PDF ' + n + ' หน้า'); try{ console.debug('[TX] pages', n); }catch(e){} },
+    onPage: (i, n, st) => {
+      const pre = (cx.fn > 1 ? 'ไฟล์ ' + cx.fi + '/' + cx.fn + ' · ' : '');
+      if(st === 'text')          txSetStatus(pre + 'กำลังอ่านหน้า ' + i + '/' + n);
+      else if(st === 'ocr-wait') txSetStatus(pre + 'หน้า ' + i + ' ไม่มี Text Layer — กำลัง OCR');
+      else if(st === 'ocr')      txSetStatus(pre + 'กำลัง OCR หน้า ' + i + '/' + n);
+    },
+    onPageInfo: (n, info) => {
+      if(/^terms/.test(info)) txSetStatus('หน้า ' + n + ': ข้ามหน้า Terms of Sale');
+      else if(/^invoice /.test(info)) txSetStatus('หน้า ' + n + ': พบ ' + info.replace(/^invoice /, 'Invoice '));
+      try{ console.debug('[TX] page', n, '->', info); }catch(e){}
+    },
+    onInvoice: (inv) => { try{ console.debug('[TX] invoice complete', inv); }catch(e){} }
+  };
   try{
     if(btn) btn.disabled = true;
     if(!txState.pdfs.length) throw new Error('ยังไม่ได้แนบไฟล์ INVOICE PDF');
 
     // 1) อ่าน PDF ทุกไฟล์
-    txSetStatus('กำลังอ่าน PDF …');
     const map = new Map();
-    for(const f of txState.pdfs) txParsePages(await txPdfPages(f), map);
-    if(!map.size) throw new Error('ไม่พบ Invoice ใน PDF ที่อัปโหลด');
+    cx.fn = txState.pdfs.length;
+    for(let fi = 0; fi < txState.pdfs.length; fi++){
+      const f = txState.pdfs[fi];
+      cx.fi = fi + 1;
+      txSetStatus('กำลังอ่านไฟล์ ' + cx.fi + '/' + cx.fn + ' — ' + f.name);
+      try{ console.debug('[TX] file', cx.fi + '/' + cx.fn, f.name, f.size + ' bytes'); }catch(e){}
+      const pgs = await txPdfPages(f, cx);
+      for(const p of pgs){
+        cx.textItems += (p.raw ? p.raw.length : 0);
+        if(/COMMERCIAL\s+INVOICE/i.test(p.fullText || '')) cx.hasCommercial = true;
+      }
+      txParsePages(pgs, map, cx);
+    }
+    if(!map.size) throw new Error(txFailReason(cx));
+    txSetStatus('พบ Invoice ทั้งหมด ' + map.size + ' Invoice · กำลังตรวจสอบรายการสินค้า …');
+    try{ console.debug('[TX] invoices', map.size, [...map.keys()].join(',')); }catch(e){}
 
     // 2) เรียงตามเลข Invoice จากน้อยไปมาก (แบบตัวเลข)
     const list = [...map.values()].sort((a, b) => {
@@ -10195,7 +10578,10 @@ async function txDownload(){
   }catch(e){
     console.error('[TX]', e);
     txSetStatus('✗ ' + (e && e.message ? e.message : e), 'err');
-  }finally{ if(btn) btn.disabled = false; txCheckReady(); }
+  }finally{
+    if(ocrWorker){ try{ await ocrWorker.terminate(); }catch(e){} ocrWorker = null; }
+    if(btn) btn.disabled = false; txCheckReady();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function(){
