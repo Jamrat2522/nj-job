@@ -7,6 +7,7 @@
        จึงไม่กระทบพฤติกรรมเดิมของระบบใด ๆ
    ============================================================ */
 window.RUNTIME_CONFIG = {
+  APP_BUILD:          "3.1.0",   // ⚠️ Deployment Version — แก้ทุกครั้งที่ deploy ใหม่ (ต้องตรงกับ ?v= ใน index.html)
   ENVIRONMENT:        "uat",     // uat | production
   READ_ONLY:          false,     // false = เขียนข้อมูลได้ (live) · true = อ่านอย่างเดียว (UAT)
   KILL_SWITCH:        false,     // true = ปิด V3 + ปิด realtime + แจ้งเตือน + redirect
@@ -14,6 +15,8 @@ window.RUNTIME_CONFIG = {
   DESKTOP_PAGE_SIZE:  100,
   MOBILE_PAGE_SIZE:   30,
   ADMIN_MOBILE_PAGE_SIZE: 50,
+  DATE_RANGE_MAX_ROWS_DESKTOP: 10000,  // เพดานแถวเมื่อกรองช่วงวันที่ (คอมพิวเตอร์)
+  DATE_RANGE_MAX_ROWS_MOBILE:   3000,  // เพดานแถวเมื่อกรองช่วงวันที่ (มือถือ) — กัน OOM
   LOG_LEVEL:          "info"      // debug | info | warn | error | silent
 };
 
