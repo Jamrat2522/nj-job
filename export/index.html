@@ -372,19 +372,69 @@ body.thaixm-mode #page-sub{
   body.thaixm-mode .upload-grid{grid-template-columns:1fr !important}
 }
 
-/* ── WORD mode: 2-column full-width upload area (INVOICE slot ซ่อน)
- *    มีแค่ 2 slots: PDF + MASTER · override wide-3col defaults
+/* ── WORD mode: 4-column full-width upload area (INVOICE slot ซ่อน)
+ *    มี 4 slots: PDF + MASTER + BOOK PDF + BOOK EXCEL · override wide-3col defaults
  *    ต้องอยู่หลัง wide-3col block (specificity เท่ากัน → ใช้ rule order) ── */
 body.word-mode .upload-grid{
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
   gap:18px;
 }
 body.word-mode .up-card{
   min-height:0 !important;
 }
+@media(max-width:1200px){
+  body.word-mode .upload-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+}
 @media(max-width:700px){
   body.word-mode .upload-grid{grid-template-columns:1fr !important}
 }
+
+/* ── WORD mode: COMPACT — ย่อความสูงกรอบอัปโหลดทั้ง 4 ช่องลง ~50%
+ *    เฉพาะขนาด/ระยะห่างเท่านั้น · ไม่แตะสี ไม่แตะโครงสร้าง HTML ไม่แตะฟังก์ชัน
+ *    scope: body.word-mode → ไม่กระทบโหมดอื่น ── */
+body.word-mode .upload-grid{gap:12px}
+body.word-mode .up-card{
+  min-height:118px !important;
+  padding:8px !important;
+  gap:6px !important;
+}
+body.word-mode .up-head{font-size:9.5px}
+body.word-mode .up-head .dot{width:6px;height:6px}
+body.word-mode .slot{
+  min-height:92px !important;
+  padding:7px 8px !important;
+  gap:3px !important;
+}
+body.word-mode .slot-ic{
+  width:26px !important;height:26px !important;
+  border-radius:8px !important;font-size:14px !important;
+}
+body.word-mode .slot-name{font-size:11.5px;line-height:1.2}
+body.word-mode .slot-keybadge{font-size:8.5px;padding:1px 6px}
+body.word-mode .slot-cols{
+  font-size:9px;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+body.word-mode .slot-hint{
+  font-size:9.5px;padding:3px 6px;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+body.word-mode .slot-clear{top:5px;right:5px;width:18px;height:18px;font-size:10px}
+body.word-mode .pdf-filelist{max-height:58px !important;gap:2px !important;margin-top:4px !important}
+body.word-mode .pdf-filelist > div{padding:2px 6px !important;font-size:9.5px !important;gap:4px !important}
+body.word-mode .pdf-filelist > div button{font-size:11px !important;padding:0 2px !important}
+body.word-mode .master-actions{margin-top:5px !important}
+body.word-mode .master-actions button{padding:4px 8px !important;font-size:9.5px !important}
+@media(max-width:700px){
+  body.word-mode .slot-cols{-webkit-line-clamp:3}
+  body.word-mode .slot-hint{white-space:normal}
+}
+
+/* ── WORD mode: ซ่อน Debug Panel จากผู้ใช้ทั่วไป (logic ภายในยังทำงานปกติ)
+ *    display:none → ไม่เหลือพื้นที่ว่าง · เปิดดูได้เมื่ออยู่ Debug Mode (body.wm-debug) ── */
+body.word-mode .debug-card{display:none !important}
+body.word-mode.wm-debug .debug-card{display:block !important}
 
 /* ── LEEDARSON mode: 1-row × 4-column upload (compact) ── */
 body.leedarson-mode .upload-grid{
@@ -1646,6 +1696,12 @@ const CUSTOMERS = {
         title:'Master (.xlsx)', keyBadge:'Key: Item No.',
         cols:'Thai Desc · พิกัด · Stat · Origin · BOI',
         joinKeys:['Item No','Item No.','ItemNo','Product Code','Part No']},
+      {key:'BOOKPDF', type:'pdf', color:'cyan', icon:'📕',
+        title:'BOOK PDF', keyBadge:'Key: CSM NO',
+        cols:'CLP Report (.pdf) · 1 ไฟล์ · Rcv No / Store · CLP.NO'},
+      {key:'BOOKXLS', type:'excel', color:'green', icon:'📗',
+        title:'BOOK EXCEL', keyBadge:'Key: Store',
+        cols:'Vessel Schedule (.xlsx) · Vessel name · VOY · Terminal · Remark'},
     ]
   },
 
@@ -1742,6 +1798,12 @@ Object.keys(CUSTOMERS).forEach(c=>{
  *    Cleared whenever PDFs change (added/removed/cleared) ═══ */
 slotData.hoxin._exportedInvoiceRows = null;
 
+/* ═══ WORD-only: ช่องอัปโหลดเพิ่ม BOOK PDF (1 ไฟล์) + BOOK EXCEL (1 ไฟล์)
+ *    BOOKPDF = array (slot type 'pdf') แต่ถูกบังคับให้เก็บได้ครั้งละ 1 ไฟล์
+ *    BOOKXLS = object {name, sheets, rows} (slot type 'excel') ═══ */
+slotData.word.BOOKPDF = [];
+slotData.word.BOOKXLS = null;
+
 /* ═══ MASTER persistence — localStorage สำหรับลูกค้า 6 รายในหน้า unified
  *    ให้ข้อมูล Master ที่อัพโหลดไม่หาย (จนกว่าจะกด Delete)  ═══ */
 const MASTER_KEY_PREFIX = '_masterDB_';
@@ -1810,6 +1872,25 @@ function onPoChange(){
   refreshDebug();
 }
 
+/* ═══ WORD MODE — Debug Panel visibility ═══
+ *  ค่าเริ่มต้น = ซ่อน · เปิดได้ 2 ทาง:
+ *    1) URL     : ...?worddebug=1
+ *    2) Console : setWordDebug(true) / setWordDebug(false)
+ *  ไม่มีผลกับโหมดอื่น (CSS ผูกกับ body.word-mode เท่านั้น)
+ *  renderDebugGrid()/refreshDebug()/computeStats() ยังทำงานตามเดิมทุกประการ */
+function _wmDebugOn(){
+  try{
+    if(/[?&]worddebug=1(&|$)/.test(location.search)) return true;
+    return localStorage.getItem('_wordDebugPanel') === '1';
+  }catch(e){ return false; }
+}
+function setWordDebug(on){
+  try{ localStorage.setItem('_wordDebugPanel', on ? '1' : '0'); }catch(e){}
+  document.body.classList.toggle('wm-debug', !!on);
+  toast(on ? 'WORD Debug Panel: เปิด' : 'WORD Debug Panel: ปิด', 'ok');
+  return !!on;
+}
+
 function switchCustomer(key){
   // ── Legacy modules (yida / electrolux / electroluxd / electroluxd0 / airinter / triumph) — แสดงหน้าของตัวเองแทน unified UI ──
   const LEGACY = ['yida','electrolux','electroluxd','electroluxd0','airinter','triumph','zhenwestern'];
@@ -1874,6 +1955,8 @@ function switchCustomer(key){
   document.body.classList.toggle('thaixm-mode', key === 'thaixm');
   // WORD-specific body class — INVOICE slot ถูกซ่อน เหลือ 2 ช่อง (PDF + MASTER) → grid 2 คอลัมน์
   document.body.classList.toggle('word-mode', key === 'word');
+  // WORD — Debug Panel ซ่อนโดยค่าเริ่มต้น · เปิดได้ด้วย setWordDebug(true) หรือ ?worddebug=1
+  document.body.classList.toggle('wm-debug', _wmDebugOn());
   // LEEDARSON-specific body class — 2 ช่อง (INVOICE + MASTER) → grid 2 คอลัมน์
   document.body.classList.toggle('leedarson-mode', key === 'leedarson');
 
@@ -1997,7 +2080,7 @@ function renderSlots(){
           <div class="slot-name">${s.title}</div>
           ${s.keyBadge ? `<div class="slot-keybadge">${s.keyBadge}</div>` : ''}
           <div class="slot-cols">${s.cols}</div>
-          <div class="slot-hint">${hint}</div>
+          <div class="slot-hint" title="${escapeHtml(hint)}">${hint}</div>
           <button class="slot-clear" onclick="clearSlot(event,'${s.key}')" title="ล้างทั้งหมด">✕</button>
         </div>
         ${pdfFileList}
@@ -2189,7 +2272,9 @@ async function processFiles(files, key){
 
   if(slotCfg.type === 'pdf'){
     const existing = slotData[activeCustomer][key];
-    const arr = Array.isArray(existing) ? existing.slice() : [];  // clone เพื่อไม่ให้ reference ชน
+    // WORD/BOOKPDF = ช่องไฟล์เดียว → เริ่มจาก array ว่างเสมอ (ไฟล์ใหม่แทนที่ไฟล์เดิม ไม่ค้างข้อมูลเก่า)
+    const singlePdfSlot = (activeCustomer === 'word' && key === 'BOOKPDF');
+    const arr = (Array.isArray(existing) && !singlePdfSlot) ? existing.slice() : [];  // clone เพื่อไม่ให้ reference ชน
     const filesArr = Array.from(files);  // convert FileList → Array
     // ── HOXIN เพิ่ม: รับ .xlsx ในช่อง PDF ได้ด้วย (parseLinesHOXIN ทำงานกับ text-lines เหมือนกัน)
     const hoxinAllowsXlsx = (activeCustomer === 'hoxin' && key === 'PDF');
@@ -2222,6 +2307,7 @@ async function processFiles(files, key){
         } else {
           info = isPdf ? await readPDF(f) : await readHOXINXlsxAsPDF(f);
         }
+        if(singlePdfSlot) arr.length = 0;   // ช่องไฟล์เดียว → เก็บเฉพาะไฟล์ล่าสุด
         arr.push(info);
         added++;
       } catch(err){
@@ -2276,6 +2362,22 @@ async function processFiles(files, key){
           slotData.leedarson.MASTER = { name:f.name, sheets:wbinfo.sheets, rows };
           toast(`${slotCfg.title}: ${rows.length} rows จาก ${f.name}`, 'ok');
         }
+      } catch(err){
+        toast(`อ่าน ${f.name} ไม่ได้: ${err.message}`, 'err');
+      }
+      renderSlots(); refreshDebug(); refreshButtons();
+      _processingFiles = false;
+      return;
+    }
+    // WORD/BOOKXLS — header ไม่ได้อยู่แถวแรก → ใช้ reader เฉพาะ (หาแถวหัวตาราง Store + Vessel name)
+    if(activeCustomer === 'word' && key === 'BOOKXLS'){
+      try{
+        const sheets = await _wbkReadBookXlsx(f);
+        const rows   = _wbkBuildBookXlsRows(sheets);
+        slotData.word.BOOKXLS = {name:f.name, sheets, rows};
+        toast(rows.length
+          ? `${slotCfg.title}: ${rows.length} rows จาก ${f.name}`
+          : `${f.name}: ไม่พบหัวตาราง Store + Vessel name`, rows.length ? 'ok' : 'warn');
       } catch(err){
         toast(`อ่าน ${f.name} ไม่ได้: ${err.message}`, 'err');
       }
@@ -3420,10 +3522,12 @@ function doPreview(){
 /* ═══ Clear ═══ */
 function doClear(){
   const d = slotData[activeCustomer];
-  const any = d.PDF.length>0 || (d.PLPDF && d.PLPDF.length>0) || d.INVOICE || d.NWGW || d.MASTER || (poInputData[activeCustomer]||'').trim();
+  const any = d.PDF.length>0 || (d.PLPDF && d.PLPDF.length>0) || d.INVOICE || d.NWGW || d.MASTER || (poInputData[activeCustomer]||'').trim()
+            || (activeCustomer === 'word' && ((d.BOOKPDF && d.BOOKPDF.length>0) || d.BOOKXLS));
   if(!any){ toast('ยังไม่มีข้อมูลให้ล้าง', 'warn'); return; }
   if(!confirm('ล้างข้อมูลทั้งหมดของ ' + CUSTOMERS[activeCustomer].title + '?\n(ข้อมูล Master ที่บันทึกใน localStorage จะยังอยู่)')) return;
   slotData[activeCustomer] = {PDF:[], PLPDF:[], INVOICE:null, NWGW:null, MASTER:null};
+  if(activeCustomer === 'word'){ slotData.word.BOOKPDF = []; slotData.word.BOOKXLS = null; }
   poInputData[activeCustomer] = '';
   const po = document.getElementById('po-input'); if(po) po.value = '';
 
@@ -4382,6 +4486,10 @@ function parseLinesWORD(lines){
     if(m2) invoice_number = m2[1].trim();
   }
 
+  // ── 1b) Consignment Id / CSM NO / Job No. (สำหรับคอลัมน์ AC) ──
+  //     อ่านจาก text จริงเท่านั้น · ไม่พบ = ค่าว่าง (ห้ามเดา)
+  const consignment_id = _wbkFindCsmId(text) || _wbkFindCsmId((lines||[]).join(' '));
+
   // ── 2) Invoice Date → DD-MM-YYYY ──
   const MONTHS = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
                   jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
@@ -4476,7 +4584,9 @@ function parseLinesWORD(lines){
     NET_WEIGHT:it.net_weight, GROSS_WEIGHT:it.gross_weight, PKGS:it.number_of_pkgs
   })));
 
-  return { invoice_number, invoice_date, type:'word_invoice', items, _debug };
+  console.log('[WORD] Consignment Id  :', consignment_id || '(none)');
+
+  return { invoice_number, invoice_date, consignment_id, type:'word_invoice', items, _debug };
 }
 
 
@@ -4838,6 +4948,256 @@ function parseLinesWORDSafe(lines){
   return parseLinesWORD(lines);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  WORD MODE ONLY — BOOK PDF (CLP Report) + BOOK EXCEL (Vessel Schedule)
+ *  ใช้เติมคอลัมน์ AC–AH เท่านั้น · ไม่แตะคอลัมน์ A–AB และไม่แตะโหมดอื่น
+ *  ทุกค่าอ่านจากไฟล์จริงที่ผู้ใช้อัปโหลด — ไม่มี hardcode / ไม่เดาค่า
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function _wbkNorm(s){ return String(s==null?'':s).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim(); }
+function _wbkKey(s){ return _wbkNorm(s).toUpperCase(); }
+
+/* ── ป้ายกำกับที่ยอมรับสำหรับ Consignment Id (เผื่อ pdf.js แตก token เป็นตัวอักษร) ── */
+const _WBK_CSM_LABELS = [
+  /C\s*o\s*n\s*s\s*i\s*g\s*n\s*m\s*e\s*n\s*t\s*I\s*d\s*[.:：]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i,
+  /C\s*S\s*M\s*N\s*o\s*\.?\s*[.:：]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i,
+  /J\s*o\s*b\s*N\s*o\s*\.?\s*[.:：]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i,
+  /J\s*o\s*b\s*N\s*u\s*m\s*b\s*e\s*r\s*[.:：]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i
+];
+function _wbkFindCsmId(text){
+  const s = String(text||'');
+  for(const re of _WBK_CSM_LABELS){
+    const m = s.match(re);
+    if(m && m[1]) return m[1].trim();
+  }
+  return '';
+}
+
+/* ── รูปแบบ token ที่ใช้แยกคอลัมน์ใน BOOK PDF ── */
+const _WBK_STORE_RE = /^[A-Za-z0-9]{1,8}-[A-Za-z0-9]{1,6}$/;   // Rcv No / Store Code เช่น "345-DT"
+const _WBK_CSM_RE   = /^[A-Za-z]{2,6}\d{2,}$/;                  // CSM NO เช่น "ECIS586"
+
+/* สร้าง index จาก BOOK PDF: CSM NO → { store, clpNo, clpShort, feeder, pageFlat, page }
+ *  · ผูกแถว CSM NO เข้ากับ "หัวหน้ากลุ่ม" (CLP.NO / FEEDER NAME) ของหน้าเดียวกันเท่านั้น
+ *  · ไม่ข้ามหน้า ไม่ยืมหัวจากหน้าอื่น */
+function _wbkBuildBookPdfIndex(entry){
+  const byCsm = new Map();
+  if(!entry) return { byCsm, pages:0 };
+  const chunks = (entry.lines && entry.lines.length)
+    ? entry.lines
+    : String(entry.text||'').split('\n').map(s=>s.trim()).filter(Boolean);
+
+  chunks.forEach((raw, pi)=>{
+    const t    = String(raw||'').replace(/\s*-\s*/g,'-');   // เชื่อมกรณี pdf.js แตกที่ขีด
+    const toks = t.split(/\s+/).filter(Boolean);
+    const pageFlat = _wbkFlat(raw);                          // ใช้ cross-check Vessel/VOY
+
+    // ── CLP.NO ของหน้านี้ (โทเคนก่อน/หลังคำว่า CLP.NO.) ──
+    let clpNo = '';
+    for(let i=0;i<toks.length;i++){
+      if(!/^CLP\.?\s*NO\.?$/i.test(toks[i])) continue;
+      const back = toks.slice(Math.max(0,i-5), i).join('');
+      let m = back.match(/([A-Za-z0-9]+-[A-Za-z0-9]+)$/);
+      if(m){ clpNo = m[1]; break; }
+      const fwd = toks.slice(i+1, i+6).join('');
+      m = fwd.match(/^[:：]?([A-Za-z0-9]+-[A-Za-z0-9]+)/);
+      if(m){ clpNo = m[1]; break; }
+    }
+    if(!clpNo){
+      const m = t.match(/CLP\.?\s*NO\.?\s*[:：]?\s*([A-Za-z0-9]+-[A-Za-z0-9]+)/i);
+      if(m) clpNo = m[1];
+    }
+    const clpShort = (clpNo && clpNo.indexOf('-')>=0) ? clpNo.slice(clpNo.lastIndexOf('-')+1) : '';
+
+    // ── FEEDER NAME ของหน้านี้ (ใช้ตรวจสอบไขว้กับ BOOK EXCEL) ──
+    const feeder = _wbkFeederOfPage(raw);
+
+    // ── store ที่พบบ่อยที่สุดในหน้า (ใช้เป็น fallback ถ้าโทเคนถัดจาก CSM ไม่ใช่ store) ──
+    const freq = {};
+    for(const tk of toks){
+      if(!_WBK_STORE_RE.test(tk)) continue;
+      if(clpNo && tk === clpNo) continue;
+      freq[tk] = (freq[tk]||0) + 1;
+    }
+    let pageStore = '', best = 0;
+    for(const k of Object.keys(freq)){ if(freq[k] > best){ best = freq[k]; pageStore = k; } }
+
+    // ── จับคู่ CSM NO → Rcv No (โทเคนถัดไป) ──
+    for(let i=0;i<toks.length;i++){
+      const a = toks[i];
+      if(!_WBK_CSM_RE.test(a)) continue;
+      const b = toks[i+1];
+      let store = '';
+      if(b && _WBK_STORE_RE.test(b) && !(clpNo && b === clpNo)) store = b;
+      else store = pageStore;
+      if(!store) continue;
+      const k = a.toUpperCase();
+      if(!byCsm.has(k)) byCsm.set(k, { store, clpNo, clpShort, feeder, pageFlat, page: pi+1 });
+    }
+  });
+  return { byCsm, pages: chunks.length };
+}
+
+/* ตัดช่องว่างทั้งหมด + ตัวพิมพ์ใหญ่ — ใช้เทียบ Vessel name + VOY แบบทนการแตก token ของ pdf.js */
+function _wbkFlat(s){ return String(s==null?'':s).toUpperCase().replace(/[\s\u00A0]+/g,''); }
+
+/* อ่าน FEEDER NAME ของหน้า BOOK PDF (ค่าจริงอยู่ก่อนป้ายกำกับตามลำดับ text ของ pdf.js) */
+function _wbkFeederOfPage(raw){
+  const segs = String(raw||'').split(/\s{2,}/).map(s=>s.trim()).filter(Boolean);
+  const SKIP = /^(CONTAINER|ETD\b|MOTHER|CARRIER|BOOKING|WK\.|SUPPLIER|ARTICLE|NET\s*CBM|CSM\s*NO|PKGS|GROSS)/i;
+  for(let j=0;j<segs.length;j++){
+    const m = segs[j].match(/^(.*?)\s*FEEDER\s*NAME\s*[:：]?\s*(.*)$/i);
+    if(!m) continue;
+    let v = (m[1]||'').trim() || (m[2]||'').trim();
+    if(!v){
+      const prev = segs.slice(Math.max(0,j-2), j).filter(x=>!SKIP.test(x));
+      v = prev.length ? prev[0] : '';
+    }
+    return v.trim();
+  }
+  return '';
+}
+
+/* อ่าน BOOK EXCEL ทุกชีตเป็น AOA */
+function _wbkReadBookXlsx(file){
+  return new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ev=>{
+      try{
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheets = {};
+        wb.SheetNames.forEach(n=>{
+          sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, defval:'', raw:false, blankrows:true});
+        });
+        res(sheets);
+      } catch(e){ rej(e); }
+    };
+    r.onerror = ()=>rej(new Error('read error'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+/* หาแถวหัวตาราง (Store + Vessel name) แล้วดึงแถวข้อมูลออกมา */
+function _wbkBuildBookXlsRows(sheets){
+  const rows = [];
+  for(const nm of Object.keys(sheets||{})){
+    const aoa = sheets[nm] || [];
+    let hdr=-1, cStore=-1, cVessel=-1, cVoy=-1, cTerm=-1, cRem=-1;
+    for(let r=0; r<Math.min(aoa.length, 60); r++){
+      const row = aoa[r] || [];
+      let s=-1, v=-1;
+      for(let c=0;c<row.length;c++){
+        const h = _wbkKey(row[c]);
+        if(h==='STORE'       && s<0) s=c;
+        if(h==='VESSEL NAME' && v<0) v=c;
+      }
+      if(s>=0 && v>=0){
+        hdr=r; cStore=s; cVessel=v;
+        // VOY = คอลัมน์ VOY ตัวแรกที่อยู่ถัดจาก Vessel name
+        for(let c=v+1;c<row.length;c++){ if(_wbkKey(row[c])==='VOY'){ cVoy=c; break; } }
+        for(let c=0;c<row.length;c++){
+          const h = _wbkKey(row[c]);
+          if(h==='TERMINAL' && cTerm<0) cTerm=c;
+          if(h==='REMARK'   && cRem <0) cRem =c;
+        }
+        break;
+      }
+    }
+    if(hdr<0) continue;
+    for(let r=hdr+1;r<aoa.length;r++){
+      const row = aoa[r] || [];
+      const st = _wbkNorm(row[cStore]);
+      if(!st) continue;
+      rows.push({
+        store:    st,
+        vessel:   _wbkNorm(cVessel>=0 ? row[cVessel] : ''),
+        voy:      _wbkNorm(cVoy   >=0 ? row[cVoy]    : ''),
+        terminal: _wbkNorm(cTerm  >=0 ? row[cTerm]   : ''),
+        remark:   _wbkNorm(cRem   >=0 ? row[cRem]    : '')
+      });
+    }
+    if(rows.length) break;
+  }
+  return rows;
+}
+
+/* Terminal: เอาเฉพาะรหัสหลังขีดสุดท้าย · คงเป็น "ข้อความ" กันเลขศูนย์นำหน้าหาย */
+function _wbkTerminalCode(v){
+  const s = _wbkNorm(v);
+  if(!s) return '';
+  const i = s.lastIndexOf('-');
+  return i>=0 ? s.slice(i+1).trim() : s;
+}
+
+/* Remark มีหมายเลข CLP ตรงกับ CLP.NO จาก BOOK PDF หรือไม่ */
+function _wbkRemarkHasClp(remark, clpShort){
+  if(!clpShort) return false;
+  const nums = String(remark||'').match(/\d{2,6}/g) || [];
+  const target = String(clpShort).replace(/^0+/,'') || '0';
+  return nums.some(n => n === clpShort || n.replace(/^0+/,'') === target);
+}
+
+/* เลือกแถว BOOK EXCEL — ต้องตรงครบ 2 เงื่อนไข:
+ *   1) Store ตรงกับ Rcv No จาก BOOK PDF (exact หลัง trim/uppercase)
+ *   2) Remark มีหมายเลข CLP ตรงกับ CLP.NO ของหัวหน้ากลุ่มใน BOOK PDF
+ * ห้ามจับคู่ด้วย Store อย่างเดียว · ห้ามเลือกแถวแรกทันที */
+function _wbkPickXlsRow(rows, store, clpShort){
+  const key = _wbkKey(store);
+  if(!key) return null;
+  const cand = (rows||[]).filter(r => _wbkKey(r.store) === key);
+  if(!cand.length) return null;
+  const hit = cand.filter(r => _wbkRemarkHasClp(r.remark, clpShort));
+  return hit.length ? hit[0] : null;
+}
+
+/* รวมผล AC–AH ของ 1 invoice
+ *  · คำนวณใหม่ทุกครั้งต่อ 1 Consignment Id (ไม่มีค่าค้างจากรายการก่อนหน้า)
+ *  · ช่องที่มีปัญหา = ว่างเฉพาะช่องนั้น · รายการอื่นยัง Export ได้ตามปกติ */
+function _wbkResolve(consignmentId, ctx){
+  const out = { ac:'', ad:'', ae:'', af:'', ag:'', ah:'' };
+  if(!ctx) return out;
+  const csm = _wbkNorm(consignmentId).toUpperCase();
+  const push = (src, msg) => {
+    if(ctx.issues) ctx.issues.push({ invoice: ctx._invNo||'', consignment: csm||'(ไม่พบ)', source: src, detail: msg });
+  };
+
+  if(!csm){ push('PDF Invoice', 'ไม่พบ Consignment Id / CSM NO / Job No.'); return out; }
+  out.ac = csm;
+
+  if(!ctx.pdfIdx || !ctx.pdfIdx.byCsm || !ctx.pdfIdx.byCsm.size){ push('BOOK PDF', 'ยังไม่ได้อัปโหลด BOOK PDF'); return out; }
+  const hit = ctx.pdfIdx.byCsm.get(csm);
+  if(!hit){ push('BOOK PDF', `ไม่พบ CSM NO "${csm}" (exact match)`); return out; }
+  if(!hit.clpShort){ push('BOOK PDF', `หน้า ${hit.page}: อ่าน CLP.NO ไม่ได้`); out.ad = hit.store; return out; }
+
+  if(!ctx.xlsRows || !ctx.xlsRows.length){ push('BOOK EXCEL', 'ยังไม่ได้อัปโหลด BOOK EXCEL'); out.ad = hit.store; return out; }
+  const row = _wbkPickXlsRow(ctx.xlsRows, hit.store, hit.clpShort);
+  if(!row){
+    push('BOOK EXCEL',
+      `ไม่พบแถวที่ Store="${hit.store}" และ Remark มี CLP ${hit.clpShort} (BOOK PDF หน้า ${hit.page} · CLP.NO=${hit.clpNo})`);
+    out.ad = hit.store;
+    return out;
+  }
+
+  out.ad = row.store;
+  out.ae = row.vessel;
+  out.af = row.voy;
+  out.ag = _wbkTerminalCode(row.terminal);
+  out.ah = row.remark;
+
+  /* ── ตรวจสอบไขว้: Vessel name + VOY ของ BOOK EXCEL ต้องปรากฏใน BOOK PDF หน้าเดียวกัน ──
+   *    ไม่ตรง → ล้างเฉพาะ AE/AF และรายงาน (AD/AG/AH ที่ยืนยันด้วย Store+CLP แล้วยังคงไว้) */
+  const want = _wbkFlat(row.vessel) + _wbkFlat(row.voy);
+  if(want && hit.pageFlat && hit.pageFlat.indexOf(want) < 0){
+    push('CROSS-CHECK',
+      `Vessel/VOY ไม่ตรงกัน → BOOK PDF (หน้า ${hit.page}) FEEDER NAME="${hit.feeder||'(อ่านไม่ได้)'}" · ` +
+      `BOOK EXCEL Vessel name="${row.vessel}" VOY="${row.voy}" → เว้นว่าง AE/AF`);
+    out.ae = '';
+    out.af = '';
+  }
+  return out;
+}
+
 /* ═══ buildSheetWORD — 28 columns match JSEX321_Mapping.xlsx byte-identical
  *
  * Data sources:
@@ -4856,14 +5216,17 @@ function parseLinesWORDSafe(lines){
  *           - เลขประจำตัวผู้เสียภาษี = 0994000740964
  *           - ตำแหน่ง (Preview) = 02
  *           - วันที่ออกใบอนุญาต = ใช้วัน invoice ═══ */
-function buildSheetWORD(allResults, masterRows, addTotal){
+function buildSheetWORD(allResults, masterRows, addTotal, bookCtx){
+  /* A–AB = 28 คอลัมน์เดิม (ห้ามเปลี่ยน) · AC–AH = 6 คอลัมน์ใหม่จาก BOOK PDF + BOOK EXCEL */
+  const BASE_COLS = 28;
   const HEADERS = [
     'invoice no.','invoice date.','ลำดับที่ใบขน','Product Code ','Product ส่งกรม',
     'Eng description','Thai Description','Qty. Inv.และQty. ใบขน','หน่วย / Qty. Inv.และQty. ใบขน',
     'Unit Price','Amount','NET WEIGHT','GROSS WEIGHT','NUMBER OF PKGS','หน่วย OF PKGS',
     'Currency ','term','Shipping Mark','Original  Country','Brand','HS code','STAT',
     'สิทธิประโยชน์','BOI License No','เลขที่ใบอนุญาต','วันที่ ออก่ใบอนุญาต',
-    'เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\n(Preview)\t'
+    'เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\n(Preview)\t',
+    'job no /Consignment Id/CSM NO','Store','Vessel name','VOY','Terminal','Remark'
   ];
 
   // ── Constants (hardcoded — ตาม template JSEX321_Mapping.xlsx) ──
@@ -4966,6 +5329,10 @@ function buildSheetWORD(allResults, masterRows, addTotal){
   allResults.forEach(r => {
     const invNo   = r.invoice_number || '';
     const invDate = _fmtDate(r.invoice_date || '');
+    // ── AC–AH: หา 1 ครั้งต่อ 1 invoice แล้วใส่ซ้ำครบทุกแถวของ invoice นั้น (ไม่ merge cell) ──
+    if(bookCtx) bookCtx._invNo = invNo;
+    const bk = bookCtx ? _wbkResolve(r.consignment_id, bookCtx)
+                       : { ac:'', ad:'', ae:'', af:'', ag:'', ah:'' };
     (r.items||[]).forEach(it => {
       const code = it.item_no || '';
       const rawEng = (it.description || '').trim();
@@ -5011,7 +5378,13 @@ function buildSheetWORD(allResults, masterRows, addTotal){
         C.permitNo,                                 // 25 เลขที่ใบอนุญาต
         invDate,                                    // 26 วันที่ออกใบอนุญาต = วัน invoice
         C.taxId,                                    // 27 เลขประจำตัวผู้เสียภาษี
-        C.position                                  // 28 ตำแหน่ง
+        C.position,                                 // 28 ตำแหน่ง
+        bk.ac,                                      // 29 AC job no /Consignment Id/CSM NO
+        bk.ad,                                      // 30 AD Store
+        bk.ae,                                      // 31 AE Vessel name
+        bk.af,                                      // 32 AF VOY
+        bk.ag,                                      // 33 AG Terminal (ข้อความ)
+        bk.ah                                       // 34 AH Remark
       ]);
     });
   });
@@ -5028,7 +5401,7 @@ function buildSheetWORD(allResults, masterRows, addTotal){
     const nwSum    = r2(sumCol(11));
     const gwSum    = r2(sumCol(12));
     const pkgsSum  = r2(sumCol(13));
-    const totalRow = new Array(HEADERS.length).fill('');
+    const totalRow = new Array(BASE_COLS).fill('');   // A–AB เท่านั้น (AC–AH เว้นว่างตามตัวอย่าง)
     // แถวสรุป: แสดงเฉพาะยอดรวมตัวเลข · ช่องข้อความทั้งหมดเว้นว่าง (ไม่มีคำว่า TOTAL/รวม)
     totalRow[7]  = qtySum;                  // Qty รวม
     // index 9 (Unit Price) เว้นว่างตามสเปก
@@ -5045,7 +5418,8 @@ function buildSheetWORD(allResults, masterRows, addTotal){
     {wch:14},{wch:13},{wch:11},{wch:13},{wch:13},{wch:24},{wch:22},{wch:14},
     {wch:14},{wch:12},{wch:14},{wch:13},{wch:13},{wch:14},{wch:14},{wch:10},
     {wch:8},{wch:14},{wch:13},{wch:14},{wch:14},{wch:8},{wch:14},{wch:22},{wch:26},
-    {wch:16},{wch:18},{wch:14}
+    {wch:16},{wch:18},{wch:14},
+    {wch:14},{wch:8},{wch:13},{wch:8},{wch:8},{wch:10}
   ];
   // Header style
   const hFill = {type:'pattern',pattern:'solid',fgColor:{rgb:'1F3864'}};
@@ -5060,7 +5434,7 @@ function buildSheetWORD(allResults, masterRows, addTotal){
     const tFont   = {bold:true, name:'Arial', sz:10};
     const tFill   = {type:'pattern', pattern:'solid', fgColor:{rgb:'D9E1F2'}};
     const tBorder = {top:{style:'medium', color:{rgb:'000000'}}};
-    for(let ci=0; ci<HEADERS.length; ci++){
+    for(let ci=0; ci<BASE_COLS; ci++){
       const ref = XLSX.utils.encode_cell({r:_totalRowIdx, c:ci});
       if(!ws[ref]) ws[ref] = {t:'s', v:''};           // สร้าง cell ว่างให้เส้นบนต่อเนื่อง
       ws[ref].s = {font:tFont, fill:tFill, border:tBorder};
@@ -6082,6 +6456,17 @@ async function doExportWORD(){
   const d = slotData.word;
   const masterRows = (d.MASTER && d.MASTER.rows) || [];
 
+  // ── BOOK PDF + BOOK EXCEL context (คอลัมน์ AC–AH) — สร้างครั้งเดียวใช้ทุกไฟล์ ──
+  const bookPdfEntry = (d.BOOKPDF && d.BOOKPDF.length) ? d.BOOKPDF[0] : null;
+  const bookCtx = {
+    pdfIdx:   bookPdfEntry ? _wbkBuildBookPdfIndex(bookPdfEntry) : null,
+    xlsRows:  (d.BOOKXLS && d.BOOKXLS.rows) || [],
+    issues:   [],
+    _invNo:   ''
+  };
+  console.log('[WORD-BOOK] BOOK PDF   :', bookPdfEntry ? `${bookPdfEntry.name} · ${bookCtx.pdfIdx.pages} หน้า · ${bookCtx.pdfIdx.byCsm.size} CSM` : '(ไม่มี)');
+  console.log('[WORD-BOOK] BOOK EXCEL :', (d.BOOKXLS && d.BOOKXLS.name) ? `${d.BOOKXLS.name} · ${bookCtx.xlsRows.length} rows` : '(ไม่มี)');
+
   // ── dedup ชื่อไฟล์: ครั้งแรกไม่มี suffix, ซ้ำ → _2 _3 ... ──
   const used = new Map();
   const uniqueName = base => {
@@ -6109,7 +6494,7 @@ async function doExportWORD(){
       const invNo = String(r.invoice_number || '').trim();
       const name  = uniqueName(baseName(invNo, pdf.name));
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, buildSheetWORD([r], masterRows, true), 'MAPPING');
+      XLSX.utils.book_append_sheet(wb, buildSheetWORD([r], masterRows, true, bookCtx), 'MAPPING');
       files.push({ name, wb, invNo, items:(r.items||[]).length });
       invoiceList.push(invNo || ('('+(pdf.name||'?')+')'));
     }
@@ -6120,7 +6505,7 @@ async function doExportWORD(){
       const invNo = String(r.invoice_number || '').trim();
       const name  = uniqueName(baseName(invNo, ''));
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, buildSheetWORD([r], masterRows, true), 'MAPPING');
+      XLSX.utils.book_append_sheet(wb, buildSheetWORD([r], masterRows, true, bookCtx), 'MAPPING');
       files.push({ name, wb, invNo, items:(r.items||[]).length });
       invoiceList.push(invNo || '(no-inv)');
     }
@@ -6141,6 +6526,20 @@ async function doExportWORD(){
   console.log('[WORD-EXPORT] ZIP mode        :', zipMode ? 'ON' : 'OFF');
   console.log('[WORD-EXPORT] Invoices        :', invoiceList.join(', '));
   console.log('[WORD-EXPORT] Files           :', files.map(f=>f.name).join(', '));
+
+  /* ── สรุปรายการที่ค้นหาไม่พบ (AC–AH) — ไม่หยุด Export · ช่องที่ไม่พบเป็นค่าว่าง ── */
+  if(bookCtx.issues.length){
+    console.warn('[WORD-BOOK] ── ไม่พบข้อมูล ' + bookCtx.issues.length + ' รายการ ──');
+    console.table(bookCtx.issues);
+    const bySrc = {};
+    bookCtx.issues.forEach(x=>{ (bySrc[x.source] = bySrc[x.source] || []).push((x.invoice||'(no-inv)') + '/' + (x.consignment||'-')); });
+    const summary = Object.keys(bySrc)
+      .map(s => `${s}: ${[...new Set(bySrc[s])].join(', ')}`)
+      .join(' | ');
+    setTimeout(()=> toast('⚠ ไม่พบข้อมูล → ' + summary + ' (ดูรายละเอียดใน Console)', 'warn'), 2600);
+  } else {
+    console.log('[WORD-BOOK] AC–AH ครบทุก invoice');
+  }
 
   // ── 1 ไฟล์ → Excel เดี่ยว (ไม่ zip) ──
   if(!zipMode){
