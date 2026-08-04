@@ -252,51 +252,7 @@ T('9. Deploy ไม่ครบ (ประกาศเวอร์ชันแ�
   w.sessionStorage.setItem('njhr_v2_reload_v2-core-9', '2');   // จำลองว่ารีโหลดมาแล้ว 2 ครั้ง
   await ctx.guard.checkNow();
   assert.equal(replaces.length, 0, 'ไม่รีโหลดซ้ำอีก');
-  assert.ok(appEl.innerHTML.includes('เวอร์ชันไม่ตรงกัน'), 'หน้าควบคุมเวอร์ชันไม่ตรง');
-  assert.ok(appEl.innerHTML.includes('v2-core-9') && appEl.innerHTML.includes(ctx.BUILD),
-    'ต้องแสดงทั้งเวอร์ชันเซิร์ฟเวอร์และเวอร์ชันไฟล์ในเครื่อง');
-  assert.ok(appEl.querySelector('#vg-admin'), 'ต้องมีทางให้ผู้ดูแลระบบเข้าไปแก้เวอร์ชัน');
-});
-
-T('9ก. เซิร์ฟเวอร์เก่ากว่าไฟล์ (อัปโหลดแล้วยังไม่ประกาศเวอร์ชัน) → ผู้ดูแลระบบเข้าระบบไปแก้ได้ ไม่ตันถาวร', async () => {
-  const { w, ctx, appEl, replaces, reloads } = await makeWorld(async (fn) => {
-    if (fn === 'njhr_version_status') return Object.assign({}, OK_STATUS, { version: 'v2-legacy-0' });
-    if (fn === 'njhr_logout') return {};
-    if (fn === 'njhr_session_check') { throw new Error('NO'); }
-    throw new Error('unexpected ' + fn);
-  });
-  w.sessionStorage.setItem('njhr_v2_reload_v2-legacy-0', '2');
-  await ctx.guard.checkNow();
-  appEl.querySelector('#vg-admin').click();                       // ผู้ดูแลระบบเลือกเข้าไปแก้เวอร์ชัน
-  assert.equal(w.sessionStorage.getItem('njhr_v2_version_override'), 'v2-legacy-0|' + ctx.BUILD,
-    'ต้องบันทึกสถานะโหมดแก้ไขเวอร์ชันเฉพาะคู่เวอร์ชันนี้');
-  const st = await ctx.guard.checkNow();
-  assert.equal(st.blocked, false, 'หลังเลือกโหมดแก้ไข ต้องใช้งานต่อได้เพื่อไปตั้งเวอร์ชัน');
-  assert.equal(st.versionMismatch, true);
-  assert.ok(w.document.getElementById('v2-ver-banner'), 'ต้องมีแถบเตือนค้างไว้');
-  assert.equal(replaces.length, 0, 'ห้าม force-reload อัตโนมัติซ้ำ (การรีโหลดครั้งนี้ผู้ใช้กดเอง)');
-  assert.equal(reloads.length, 1, 'กดปุ่มแล้วรีโหลด 1 ครั้งเพื่อเข้าโหมดแก้ไขเวอร์ชัน');
-});
-
-T('9ข. โหมดแก้ไขเวอร์ชันใช้ได้เฉพาะคู่เวอร์ชันเดิม · ตั้งเวอร์ชันตรงแล้วแถบเตือนหาย', async () => {
-  let ver = 'v2-legacy-0';
-  const { w, ctx, appEl } = await makeWorld(async (fn) => {
-    if (fn === 'njhr_version_status') return Object.assign({}, OK_STATUS, { version: ver });
-    if (fn === 'njhr_logout') return {};
-    if (fn === 'njhr_session_check') { throw new Error('NO'); }
-    throw new Error('unexpected ' + fn);
-  });
-  w.sessionStorage.setItem('njhr_v2_version_override', 'v2-legacy-0|' + ctx.BUILD);
-  assert.equal((await ctx.guard.checkNow()).versionMismatch, true);
-  ver = 'v2-legacy-7';                                            // เซิร์ฟเวอร์เปลี่ยนเป็นเวอร์ชันอื่น
-  w.sessionStorage.setItem('njhr_v2_reload_v2-legacy-7', '0');
-  const st2 = await ctx.guard.checkNow();
-  assert.equal(st2.blocked, true, 'เวอร์ชันคู่ใหม่ต้องไม่ถูกข้ามด้วย override เดิม');
-  ver = ctx.BUILD;                                                // ผู้ดูแลระบบตั้งเวอร์ชันให้ตรงไฟล์แล้ว
-  const st3 = await ctx.guard.checkNow();
-  assert.equal(st3.blocked, false);
-  assert.equal(w.sessionStorage.getItem('njhr_v2_version_override'), null, 'ต้องล้างสถานะโหมดแก้ไข');
-  assert.ok(!w.document.getElementById('v2-ver-banner'), 'แถบเตือนต้องหาย');
+  assert.ok(appEl.innerHTML.includes('การอัปเดตยังไม่สมบูรณ์'), 'หน้าควบคุม deploy ไม่ครบ');
 });
 
 T('10. Error ใน module เดียว → Error State ไม่ใช่หน้าว่าง (Error Boundary)', async () => {

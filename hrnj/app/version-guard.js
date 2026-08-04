@@ -12,12 +12,6 @@
    ============================================================ */
 export function createVersionGuard(ctx) {
   let timer = null, countdown = null, lastState = null, checking = null, wasBlocked = false;
-  const OVERRIDE_KEY = 'njhr_v2_version_override';
-  /* true เมื่อผู้ดูแลระบบเลือก "เข้าสู่ระบบเพื่อแก้ไขเวอร์ชัน" สำหรับคู่เวอร์ชันนี้ (แท็บนี้เท่านั้น) */
-  const hasOverride = (serverVersion) => {
-    try { return sessionStorage.getItem(OVERRIDE_KEY) === serverVersion + '|' + ctx.BUILD; }
-    catch (_) { return false; }
-  };
 
   const status = () => ctx.client.rpc('njhr_version_status', {});
 
@@ -38,50 +32,17 @@ export function createVersionGuard(ctx) {
       sessionStorage.setItem(k, String(n));
     } catch (_) {}
     if (n > 2) {
-      /* รีโหลดแล้วไฟล์ในเบราว์เซอร์ยังเป็นเวอร์ชันเดิม = รีโหลดต่อไปก็ไม่ช่วย
-         เกิดได้ 2 กรณี:
-           (ก) ประกาศเวอร์ชันใหม่แต่ไฟล์ยังอัปโหลดไม่ครบ → ต้องอัปโหลดไฟล์ให้ครบ
-           (ข) อัปโหลดไฟล์ชุดใหม่แล้ว แต่ยังไม่ได้ประกาศเวอร์ชันบนเซิร์ฟเวอร์ (server เก่ากว่าไฟล์)
-         กรณี (ข) ต้องเปิดทางให้ผู้ดูแลระบบเข้าไปตั้งเวอร์ชันที่ #/system ได้ ไม่งั้นระบบตันถาวร */
       ctx.appEl.innerHTML =
         '<div class="mt-wrap"><div class="mt-card"><div class="mt-ic">⚠️</div>' +
-        '<h1>เวอร์ชันไม่ตรงกัน</h1>' +
-        '<p class="mt-msg">เซิร์ฟเวอร์ประกาศเวอร์ชัน <b>' + esc(serverVersion) + '</b> ' +
-        'แต่ไฟล์ที่เครื่องนี้โหลดได้คือ <b>' + esc(ctx.BUILD) + '</b> — โหลดใหม่แล้วยังไม่ตรง</p>' +
-        '<div class="mt-hint">' +
-        '<p><b>ถ้าเพิ่งอัปโหลดไฟล์ชุดใหม่:</b> ยังไม่ได้ประกาศเวอร์ชันบนเซิร์ฟเวอร์ ' +
-        'ให้ผู้ดูแลระบบกดปุ่มด้านล่างแล้วไปที่ "สถานะระบบและเวอร์ชัน" เพื่อบันทึกเวอร์ชัน <b>' + esc(ctx.BUILD) + '</b></p>' +
-        '<p><b>ถ้าเพิ่งประกาศเวอร์ชันใหม่:</b> ไฟล์ชุดใหม่ยังอัปโหลดไม่ครบ ให้อัปโหลดไฟล์ให้ครบก่อน</p>' +
-        '</div>' +
-        '<button class="btn btn-primary" id="vg-admin">เข้าสู่ระบบเพื่อแก้ไขเวอร์ชัน (ผู้ดูแลระบบ)</button> ' +
-        '<button class="btn btn-ghost" onclick="location.reload()">ลองอีกครั้ง</button></div></div>';
-      const ab = document.getElementById('vg-admin');
-      if (ab) ab.onclick = () => {
-        /* ข้ามการตรวจเวอร์ชันชั่วคราวเฉพาะแท็บนี้ และเฉพาะคู่เวอร์ชันนี้เท่านั้น
-           ไม่ข้าม Maintenance · ไม่ข้ามสิทธิ์ · หายเมื่อปิดแท็บ */
-        try { sessionStorage.setItem(OVERRIDE_KEY, serverVersion + '|' + ctx.BUILD); } catch (_) {}
-        location.hash = '#/login';
-        location.reload();          // เริ่มระบบใหม่ในโหมดแก้ไขเวอร์ชัน (ผู้ใช้เป็นคนสั่งเอง ไม่ใช่ลูปอัตโนมัติ)
-      };
+        '<h1>การอัปเดตยังไม่สมบูรณ์</h1>' +
+        '<p class="mt-msg">เซิร์ฟเวอร์ประกาศเวอร์ชัน <b>' + esc(serverVersion) + '</b> แต่ไฟล์ชุดใหม่ยังโหลดไม่ได้ ' +
+        'กรุณาแจ้งผู้ดูแลระบบ (อัปโหลดไฟล์ให้ครบก่อนประกาศเวอร์ชัน)</p>' +
+        '<button class="btn btn-primary" onclick="location.reload()">ลองอีกครั้ง</button></div></div>';
       return;
     }
     const u = new URL(location.href);
     u.searchParams.set('r', serverVersion || Date.now().toString(36));
     location.replace(u.toString());
-  }
-
-  /* แถบเตือนเวอร์ชันไม่ตรง (แสดงเฉพาะตอนอยู่ในโหมดแก้ไขเวอร์ชัน) */
-  function versionBanner(serverVersion) {
-    let b = document.getElementById('v2-ver-banner');
-    if (!b) {
-      b = document.createElement('div');
-      b.id = 'v2-ver-banner';
-      b.className = 'v2-ver-banner';
-      document.body.appendChild(b);
-    }
-    b.innerHTML = '⚠ โหมดแก้ไขเวอร์ชัน — ไฟล์ในเครื่อง <b>' + esc(ctx.BUILD) +
-      '</b> · เซิร์ฟเวอร์ <b>' + esc(serverVersion) + '</b> · ' +
-      'ไปที่ "สถานะระบบและเวอร์ชัน" เพื่อบันทึกเวอร์ชันให้ตรงกัน';
   }
 
   function renderMaintenance(st) {
@@ -157,12 +118,6 @@ export function createVersionGuard(ctx) {
     readOnlyBanner(false);
 
     /* 3) เทียบ deployment version */
-    if (st.version && st.version !== ctx.BUILD && hasOverride(st.version)) {
-      /* โหมดแก้ไขเวอร์ชัน: ใช้งานต่อได้เพื่อให้ผู้ดูแลระบบไปตั้งเวอร์ชันที่ #/system
-         แจ้งเตือนค้างไว้บนจอตลอด กันลืมว่ากำลังอยู่ในสถานะไม่ปกติ */
-      versionBanner(st.version);
-      return { blocked: false, versionMismatch: true };
-    }
     if (st.version && st.version !== ctx.BUILD) {
       /* เวอร์ชันบนเซิร์ฟเวอร์ใหม่กว่า → ห้ามใช้ไฟล์ชุดเก่าต่อ
          มี session ค้าง → เพิกถอนก่อน (deploy ใหม่ต้อง login ใหม่เสมอ) */
@@ -170,10 +125,6 @@ export function createVersionGuard(ctx) {
       forceReloadNewBuild(st.version);
       return { blocked: true };
     }
-    /* เวอร์ชันตรงกันแล้ว — ล้างสถานะโหมดแก้ไขเวอร์ชันและแถบเตือนทิ้ง */
-    try { sessionStorage.removeItem(OVERRIDE_KEY); } catch (_) {}
-    const vb = document.getElementById('v2-ver-banner');
-    if (vb) vb.remove();
     return { blocked: false };
   }
 
