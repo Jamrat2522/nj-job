@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR V2 — ตรวจการโหลดไฟล์ (Diagnostic)</title>
+<meta name="robots" content="noindex">
+<style>
+  body { font-family: Tahoma, sans-serif; margin: 0; padding: 16px; background: #F6F7F9; color: #111827; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 18px 0 8px; }
+  .sub { color: #64748B; font-size: 12.5px; margin: 0 0 14px; }
+  .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  button { min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #D1D5DB; background: #fff;
+           font: inherit; cursor: pointer; margin-right: 8px; }
+  button.p { background: #B80000; border-color: #B80000; color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #F1F5F9; vertical-align: top;
+           word-break: break-all; }
+  th { background: #FAFBFC; position: sticky; top: 0; }
+  .ok { color: #15803D; font-weight: bold; } .bad { color: #DC2626; font-weight: bold; }
+  .warn { color: #B45309; font-weight: bold; }
+  textarea { width: 100%; height: 220px; font-family: monospace; font-size: 11.5px; }
+  code { background: #F1F5F9; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>HR V2 — ตรวจการโหลดไฟล์บนเซิร์ฟเวอร์จริง</h1>
+<p class="sub">หน้านี้เป็น HTML ธรรมดา ไม่ใช้ ES Module จึงเปิดได้แม้ระบบหลักพัง ·
+ไม่แตะระบบ V1 · ไม่เขียนข้อมูลใด ๆ</p>
+
+<div class="card" id="filewarn" style="display:none;border-color:#DC2626;background:#FEF2F2">
+  <h2 style="margin:0 0 6px;color:#B91C1C">⛔ กำลังเปิดจากไฟล์ในเครื่อง (file://) — ผลตรวจใช้ไม่ได้</h2>
+  <p style="margin:0 0 8px;font-size:13px">
+    HR V2 เป็น ES Module เบราว์เซอร์ <b>ห้าม</b>โหลด module และ fetch ผ่าน <code>file://</code> ทุกไฟล์จึงขึ้น
+    "Failed to fetch" ทั้งหมด — <b>ไม่ได้แปลว่าไฟล์หายหรือเซิร์ฟเวอร์ผิด</b>
+  </p>
+  <p style="margin:0;font-size:13px">ต้องเปิดผ่าน HTTP เท่านั้น เลือกอย่างใดอย่างหนึ่ง:<br>
+    ① อัปโหลดขึ้นโฮสต์แล้วเปิด <code>https://&lt;โดเมน&gt;/hr-v2/diag.html</code><br>
+    ② ทดสอบในเครื่อง: เปิด Command Prompt ที่โฟลเดอร์ <code>hr-v2</code> แล้วพิมพ์
+    <code>python -m http.server 8080</code> จากนั้นเปิด <code>http://localhost:8080/diag.html</code>
+  </p>
+</div>
+
+<div class="card">
+  <button class="p" id="run">▶ เริ่มตรวจทั้งหมด</button>
+  <button id="copy">📋 คัดลอกผลไปส่งผู้พัฒนา</button>
+  <button id="clear">🧹 ล้าง Cache/SW เฉพาะ /hr-v2/</button>
+  <span id="prog" style="margin-left:8px;color:#64748B"></span>
+</div>
+
+<div class="card"><h2 style="margin-top:0">1. สภาพแวดล้อม</h2><div id="env"></div></div>
+<div class="card"><h2 style="margin-top:0">2. ทดสอบ Dynamic Import จริง</h2><div id="dyn"></div></div>
+<div class="card"><h2 style="margin-top:0">3. ไฟล์ทั้งหมด (สถานะ · Content-Type · เนื้อหาต้นไฟล์)</h2>
+  <div id="files">ยังไม่ได้ตรวจ</div></div>
+<div class="card"><h2 style="margin-top:0">4. สรุปสำหรับส่งกลับ</h2>
+  <textarea id="out" readonly placeholder="กด ▶ เริ่มตรวจทั้งหมด"></textarea></div>
+
+<script>
+/* ── รายการไฟล์ที่ระบบต้องใช้จริงตอน runtime (ไม่รวมไฟล์ทดสอบ/เอกสาร) ── */
+var MANIFEST = [
+  "app/app-shell.js","app/bootstrap.js","app/error-boundary.js","app/router.js","app/routes.js",
+  "app/session.js","app/version-guard.js",
+  "components/form.js","components/modal.js","components/table.js","components/toast.js","components/ui-states.js",
+  "modules/approvals/approvals.js","modules/attendance/attendance.js","modules/audit/audit.js",
+  "modules/calendar/calendar.js","modules/dashboard/dashboard.js","modules/departments/departments.js",
+  "modules/employees/employees.js","modules/geofence/geofence.js","modules/home/home.js","modules/home/system.js",
+  "modules/hrdocs/hrdocs.js","modules/leave/leave.js","modules/login/login.js","modules/login/no-access.js",
+  "modules/notify/notify.js","modules/ot/ot.js","modules/payroll/entries.js","modules/payroll/items.js",
+  "modules/payslip/payslip.js","modules/profile/profile.js","modules/reports/reports.js",
+  "modules/settings/settings.js","modules/shifts/shifts.js","modules/users/users.js","modules/workflow/workflow.js",
+  "repositories/index.js","services/supabase-client.js",
+  "styles/base.css","styles/layout.css","styles/tokens.css"
+];
+var lines = [];
+function log(s) { lines.push(s); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+  return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+
+function verdict(r) {
+  if (r.err) return ['bad', 'FETCH FAIL: ' + r.err];
+  if (r.status === 404) return ['bad', '404 ไม่พบไฟล์ (ยังไม่อัปโหลด หรือ path/ตัวพิมพ์ไม่ตรง)'];
+  if (r.status >= 400) return ['bad', 'HTTP ' + r.status];
+  var isJs = /\.js$/.test(r.path), isCss = /\.css$/.test(r.path);
+  var ct = (r.ct || '').toLowerCase();
+  if (isJs && /text\/html/.test(ct)) return ['bad', 'เซิร์ฟเวอร์ส่ง HTML แทนไฟล์ JS → Rewrite Rule ดึงไป index.html'];
+  if (/^\s*<(!doctype|html)/i.test(r.head)) return ['bad', 'เนื้อไฟล์เป็น HTML (index.html) ไม่ใช่โค้ดจริง'];
+  if (isJs && !/javascript|ecmascript/.test(ct)) return ['warn', 'MIME ไม่ถูกต้อง (' + (r.ct || 'ว่าง') + ') ต้องเป็น text/javascript'];
+  if (isCss && !/text\/css/.test(ct)) return ['warn', 'MIME ของ CSS ไม่ถูกต้อง (' + (r.ct || 'ว่าง') + ')'];
+  return ['ok', 'ปกติ'];
+}
+
+async function probe(path) {
+  var url = new URL(path, location.href).href;
+  var out = { path: path, url: url };
+  try {
+    var res = await fetch(url, { cache: 'no-store' });
+    out.status = res.status;
+    out.ct = res.headers.get('content-type') || '';
+    var t = await res.text();
+    out.size = t.length;
+    out.head = t.slice(0, 80).replace(/\s+/g, ' ');
+  } catch (e) { out.err = e && e.message; }
+  return out;
+}
+
+async function runAll() {
+  lines = [];
+  var prog = document.getElementById('prog');
+  log('=== HR V2 DIAGNOSTIC ===');
+  log('เวลา: ' + new Date().toString());
+  log('URL หน้านี้: ' + location.href);
+  log('โปรโตคอล: ' + location.protocol + (IS_FILE ?
+    '  ⛔ เปิดจากไฟล์ในเครื่อง — ผลตรวจใช้ไม่ได้ ต้องเปิดผ่าน http/https' : '  ✓ ตรวจได้'));
+
+  /* 1. สภาพแวดล้อม */
+  var envHtml = '';
+  var base = document.querySelector('base');
+  var swCtrl = (navigator.serviceWorker && navigator.serviceWorker.controller)
+    ? navigator.serviceWorker.controller.scriptURL : 'ไม่มี';
+  var regs = [];
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    try { regs = await navigator.serviceWorker.getRegistrations(); } catch (e) {}
+  }
+  var cacheNames = [];
+  if (window.caches && caches.keys) { try { cacheNames = await caches.keys(); } catch (e) {} }
+  var env = [
+    ['ตำแหน่งติดตั้ง V2', location.pathname.replace(/diag\.html$/, '')],
+    ['<base href>', base ? base.getAttribute('href') : 'ไม่มี (ถูกต้องสำหรับ V2)'],
+    ['SW ที่ควบคุมหน้านี้', swCtrl],
+    ['SW ที่ลงทะเบียนไว้', regs.length ? regs.map(function (r) { return r.scope; }).join(' | ') : 'ไม่มี'],
+    ['Cache Storage', cacheNames.length ? cacheNames.join(' | ') : 'ไม่มี'],
+    ['User-Agent', navigator.userAgent]
+  ];
+  env.forEach(function (e) {
+    envHtml += '<div><b>' + esc(e[0]) + ':</b> ' + esc(e[1]) + '</div>';
+    log('[ENV] ' + e[0] + ': ' + e[1]);
+  });
+  document.getElementById('env').innerHTML = envHtml;
+
+  /* 2. ทดสอบ dynamic import แบบเดียวกับที่ระบบใช้ */
+  var dynHtml = '', target = new URL('app/bootstrap.js?diag=1', location.href).href;
+  try {
+    await import(target);
+    dynHtml = '<span class="ok">import() สำเร็จ</span> — ' + esc(target);
+    log('[DYN] OK ' + target);
+  } catch (e) {
+    dynHtml = '<span class="bad">import() ล้มเหลว</span><br>URL: ' + esc(target) +
+      '<br>ข้อความ: ' + esc(e && e.message);
+    log('[DYN] FAIL ' + target + ' :: ' + (e && e.message));
+  }
+  document.getElementById('dyn').innerHTML = dynHtml;
+
+  /* 3. ตรวจไฟล์ทีละตัว */
+  var html = '<table><thead><tr><th>ไฟล์</th><th>HTTP</th><th>Content-Type</th><th>ขนาด</th>' +
+             '<th>ต้นไฟล์</th><th>ผล</th></tr></thead><tbody>';
+  var badCount = 0, warnCount = 0;
+  for (var i = 0; i < MANIFEST.length; i++) {
+    prog.textContent = 'กำลังตรวจ ' + (i + 1) + '/' + MANIFEST.length;
+    var r = await probe(MANIFEST[i]);
+    var v = verdict(r);
+    if (v[0] === 'bad') badCount++; if (v[0] === 'warn') warnCount++;
+    html += '<tr><td>' + esc(r.path) + '</td><td>' + esc(r.status || '-') + '</td><td>' + esc(r.ct || '-') +
+      '</td><td>' + esc(r.size == null ? '-' : r.size) + '</td><td>' + esc(r.head || '-') +
+      '</td><td class="' + v[0] + '">' + esc(v[1]) + '</td></tr>';
+    log('[FILE] ' + (v[0] === 'ok' ? 'OK  ' : v[0].toUpperCase() + ' ') + r.path +
+        ' | http=' + (r.status || r.err) + ' | ct=' + (r.ct || '-') + ' | size=' + (r.size == null ? '-' : r.size) +
+        ' | head=' + (r.head || '-') + ' | ' + v[1]);
+  }
+  html += '</tbody></table>';
+  document.getElementById('files').innerHTML = html;
+  prog.textContent = 'ตรวจครบ ' + MANIFEST.length + ' ไฟล์';
+
+  log('=== สรุป: ผิดพลาด ' + badCount + ' ไฟล์ · เตือน ' + warnCount + ' ไฟล์ · ปกติ ' +
+      (MANIFEST.length - badCount - warnCount) + ' ไฟล์ ===');
+  document.getElementById('out').value = lines.join('\n');
+}
+
+var IS_FILE = location.protocol === 'file:';
+if (IS_FILE) {
+  document.getElementById('filewarn').style.display = 'block';
+  document.getElementById('run').textContent = '▶ ตรวจต่อไป (ผลจะไม่ถูกต้องเพราะเปิดจาก file://)';
+}
+document.getElementById('run').onclick = function () {
+  if (IS_FILE && !confirm('กำลังเปิดจาก file:// ผลตรวจจะผิดทั้งหมด\n\nต้องการตรวจต่อหรือไม่?')) return;
+  runAll();
+};
+document.getElementById('copy').onclick = function () {
+  var t = document.getElementById('out'); t.select();
+  try { document.execCommand('copy'); alert('คัดลอกผลแล้ว'); } catch (e) { alert('กด Ctrl+C เพื่อคัดลอก'); }
+};
+/* ล้างเฉพาะของ V2 เท่านั้น — ห้ามแตะ SW/Cache ของ V1 */
+document.getElementById('clear').onclick = async function () {
+  var done = [];
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    var rs = await navigator.serviceWorker.getRegistrations();
+    for (var i = 0; i < rs.length; i++) {
+      if (String(rs[i].scope).indexOf('/hr-v2/') >= 0) { await rs[i].unregister(); done.push('unregister ' + rs[i].scope); }
+    }
+  }
+  if (window.caches && caches.keys) {
+    var ks = await caches.keys();
+    for (var j = 0; j < ks.length; j++) {
+      if (ks[j].indexOf('njhr-v2') === 0) { await caches.delete(ks[j]); done.push('delete cache ' + ks[j]); }
+    }
+  }
+  alert(done.length ? done.join('\n') : 'ไม่พบ SW หรือ Cache ของ V2 (ถูกต้อง — V2 ไม่ได้ลงทะเบียน SW)\n' +
+    'หมายเหตุ: SW/Cache ของ V1 ไม่ถูกแตะต้องโดยเจตนา');
+};
+</script>
+</body>
+</html>
