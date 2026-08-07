@@ -5111,11 +5111,25 @@ function uniReset(){ UNS.files=[];
 
 /* ==================== GOODYEAR (INVOICE PDF + PACKING LIST PDF → Excel ไฟล์เดียว) ==================== */
 const GYS={ invs:[], pls:[], busy:false };
-const GY_HEADERS=['Invoice No. :','Invoice No.Date','Item No.','Product Code','Desc.','DescTH','Qty.','Unit',
-  'Net Weight','Netweight Unit','Gross Weight','Grossweight Unit','Curr.','Amount','Priv.','Tariff','Stat',
-  'Stat Unit','Seq.','ExportTariff','Package Amount','Package Unit','Brand Name','Original  Country'];
-const GY_WIDTHS=[14,15,22,13,30,12,9,7,12,14,13,16,7,12,7,10,7,9,7,12,15,13,12,15];
-const GY_FIX={ unit:'C62', nwUnit:'KGM', gwUnit:'KGM', curr:'USD', brand:'GOODYEAR', country:'THAILAND' };
+const GY_HEADERS=['Invoice No. :','Invoice No.Date','Item No.',
+  'Product Code+Product ส่งกรม+Desc.en1 =ข้อมูล3ช่องนี้ต้องตรงกันเสมอ',
+  'Product Code+Product ส่งกรม+Desc.en1 =ข้อมูล3ช่องนี้ต้องตรงกันเสมอ',
+  'Product Code+Product ส่งกรม+Desc.en1 =ข้อมูล3ช่องนี้ต้องตรงกันเสมอ',
+  'Desc.en2',
+  'DescTH / ชื่อสินค้า NEW AIRCRAFT TIRES  = ยางครื่องบินใหม่ , RETREADED AIRCRAFT TIRES =ยางนอกเครื่องบินชนิดอัดลม',
+  'Qty.','Unit/fix','Net Weight','Netweight Unit/fix','Gross Weight','Grossweight Unit/fix','UNIT PRICE','Amount','Curr.',
+  'Priv./fix','Tariff/ ชื่อสินค้า NEW AIRCRAFT TIRES  = 000040113000 , RETREADED AIRCRAFT TIRES =000040121300',
+  'Stat/fix','Stat Unit/fix','Seq./fix','ExportTariff/fix','Package ให้เท่ากับ Qty.','Package Unit/fix','Brand Name/fix',
+  'Original  Country THAILAND = TH/fix','e.shpmark1','e.shpmark2','สิทธิ์ ขอชดเชย/fix','import tax /fix','อื่นๆ'];
+const GY_WIDTHS=[14,15,14.1,27.4,8.43,8.43,30,23,8.43,7,12,14,13,16,12.6,12,7,8.9,13.9,7,8.43,7,12,9.5,13,12,15,30.7,11.4,8.6,15.9,62.1];
+const GY_FIX={ unit:'C62', nwUnit:'KGM', gwUnit:'KGM', curr:'USD', priv:'003', stat:'000', statUnit:'C62', seq:50001,
+  expTariff:'9PART3', pkgUnit:'PP', brand:'GOODYEAR', country:'TH', claim:'Y', importTax:'C0101300001646',
+  note:'บริษัทฯ ขอรับรองว่าราคาส่งออกนี้ไม่รวมโครงยาง แต่เป็นราคาหล่อดอกเท่านั้น' };
+/* ประเภทสินค้า → DescTH + Tariff (จุดเดียวสำหรับเพิ่ม Mapping ใหม่) */
+const GY_TYPE_MAP={
+  'NEW AIRCRAFT TIRES':       { descTH:'ยางครื่องบินใหม่',          tariff:'000040113000' },
+  'RETREADED AIRCRAFT TIRES': { descTH:'ยางนอกเครื่องบินชนิดอัดลม', tariff:'000040121300' }
+};
 /* ข้อความที่ห้ามนับเป็นรายการสินค้า (หัวตาราง/ยอดรวม/เงื่อนไข TSO ฯลฯ) */
 const GY_SKIP_DESC=/^(RETREADED AIRCRAFT TIRES|NEW AIRCRAFT TIRES|F\.O\.B\.|REPAIR\/INVEST|FREIGHT CHARGES|C&F|VAT\b|CFR\b|OCEAN FREIGHT|SHIPPING MARK|SOLD TO|SHIP TO|COUNTRY OF ORIGIN|THE CONDITIONS|PRODUCT\b|CODE$|DESCRIPTION\b|USD$|LOOSES\b)/i;
 
@@ -5136,18 +5150,26 @@ function gyDateUTC(s){ const m=String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4
 
 /* ---------- PARSE: INVOICE (รองรับหลายหน้า · ORDER NO. ข้ามหน้า) ---------- */
 function gyParseInvoice(lines, fileName){
-  const inv={ fileName, no:null, date:null, items:[] };
+  const inv={ fileName, no:null, date:null, items:[], tireType:'', shp1:'', shp2:'', _mark:0 };
   let pendingOrder=null;
   for(const L of lines){
     let m;
     if(!inv.no && (m=L.match(/\bINVOICE\s*NO\.?\s*:?\s*(\d{5,})\b/i))){ inv.no=m[1]; continue; }
     if(!inv.date && (m=L.match(/\bINVOICE\s*DATE\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4})\b/i))){ inv.date=m[1]; continue; }
     if((m=L.match(/^ORDER\s*NO\.?\s*:?\s*(\S.*)$/i))){ pendingOrder=m[1].replace(/\s+/g,' ').trim(); continue; }
+    /* ประเภทสินค้า: หัวข้อในตาราง หรือบรรทัด "NN LOOSES (PCS) ... AIRCRAFT TIRES." */
+    if(!inv.tireType && (m=L.match(/\b(NEW|RETREADED)\s+AIRCRAFT\s+TIRES\b/i))) inv.tireType=m[1].toUpperCase()+' AIRCRAFT TIRES';
+    /* Shipping Mark 2 บรรทัดถัดจาก "SHIPPING MARK:" */
+    if(/^SHIPPING\s*MARK\s*:?$/i.test(L)){ if(!inv._mark) inv._mark=1; continue; }
+    if(inv._mark>=1 && inv._mark<=2 && !/^(THE CONDITIONS|OCEAN FREIGHT|SOLD TO|SHIP TO|Country of Origin)/i.test(L)){
+      if(inv._mark===1) inv.shp1=L; else inv.shp2=L;
+      inv._mark++; continue;
+    }
     m=L.match(/^(\d{6,10})\s+(.+?)\s+PC\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)$/);
     if(!m) continue;
     const desc=m[2].replace(/\s+/g,' ').trim();
     if(!desc || GY_SKIP_DESC.test(desc)) continue;
-    inv.items.push({ productCode:m[1], desc, qty:gyNum(m[3]), amount:gyNum(m[5]), itemNo:pendingOrder||'' });
+    inv.items.push({ productCode:m[1], desc, qty:gyNum(m[3]), unitPrice:gyNum(m[4]), amount:gyNum(m[5]), itemNo:pendingOrder||'' });
   }
   return inv;
 }
@@ -5177,67 +5199,100 @@ function gyBuildRows(invList, plList, warnings){
   const sorted=invList.slice().sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true,sensitivity:'base'}));
   sorted.forEach(inv=>{
     const pl=plByNo.get(inv.no)||null;
-    if(pl) usedPl.add(inv.no); else warnings.push('Invoice '+inv.no+' ไม่พบ PL ที่จับคู่ — เว้น Net Weight ว่าง');
-    const map=new Map(); if(pl) pl.rows.forEach(r=>{ if(!map.has(r.key)) map.set(r.key,r); });
-    const grp=new Map(), noWeight=new Set();
+    if(pl) usedPl.add(inv.no); else warnings.push('Invoice '+inv.no+' ไม่พบ PL ที่จับคู่ — เว้น Net Weight / Gross Weight ว่าง');
+    /* ประเภทสินค้าของ Invoice → D=E=F, DescTH, Tariff (ห้ามเดา) */
+    const type=inv.tireType||'';
+    const tm=GY_TYPE_MAP[type]||null;
+    /* รายการที่ผ่านเงื่อนไข (Qty/Amount เป็นตัวเลข และรู้ประเภทสินค้า) */
+    const okItems=[];
     inv.items.forEach((it,i)=>{
-      if(!isFinite(it.qty)){ warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' Qty ไม่ใช่ตัวเลข — ข้ามแถว'); return; }
-      if(!isFinite(it.amount)){ warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' Amount ไม่ใช่ตัวเลข — ข้ามแถว'); return; }
-      if(!it.itemNo) warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' ไม่พบ ORDER NO.');
-      const k=gyDescKey(it.desc), p=map.get(k);
-      let nw=null;
-      if(p && isFinite(p.netPerPc)) nw=Math.round(it.qty*p.netPerPc*1000)/1000;
-      else { unmatched++;
-        if(pl && !noWeight.has(k)){ noWeight.add(k); warnings.push('Invoice '+inv.no+' ไม่พบน้ำหนักใน PL สำหรับ "'+it.desc+'"'); } }
-      grp.set(k,(grp.get(k)||0)+it.qty);
-      rows.push({ invNo:inv.no, date:inv.date, itemNo:it.itemNo, productCode:it.productCode, desc:it.desc,
-                  qty:it.qty, netWeight:nw, amount:it.amount, seq:rows.length+1 });
+      if(!isFinite(it.qty)){ warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' Qty ไม่ใช่ตัวเลข — ไม่ Export แถวนี้'); return; }
+      if(!isFinite(it.amount)){ warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' Amount ไม่ใช่ตัวเลข — ไม่ Export แถวนี้'); return; }
+      if(!tm){ warnings.push('Invoice '+inv.no+' รายการที่ '+(i+1)+' ('+(it.desc||'-')+') ไม่พบประเภทสินค้า NEW/RETREADED AIRCRAFT TIRES ในเอกสาร — ไม่ Export แถวนี้'); return; }
+      okItems.push(it);
     });
-    /* Seq. เริ่ม 1 ใหม่ทุก Invoice */
-    let s=0; rows.forEach(r=>{ if(r.invNo===inv.no){ s++; r.seq=s; } });
+    if(!okItems.length) return;
+    /* Net/Gross Weight: กระจายน้ำหนักรวมจาก Packing List ตามสัดส่วน Amount ของแต่ละรายการ
+       (แถวสุดท้ายรับส่วนต่างเพื่อให้ผลรวมเท่ากับ TOTAL ของ PL พอดี) */
+    let totalNet=NaN;
+    if(pl){
+      totalNet=(pl.totalNet!=null && isFinite(pl.totalNet)) ? pl.totalNet
+              : pl.rows.reduce((a,r)=>a+(isFinite(r.totalNet)?r.totalNet:0),0);
+    }
+    const amtSum=okItems.reduce((a,it)=>a+it.amount,0);
+    const wts=[]; let acc=0;
+    okItems.forEach((it,i)=>{
+      if(!pl || !isFinite(totalNet) || !(amtSum>0)){ wts.push(null); return; }
+      if(i===okItems.length-1){ wts.push(Math.round((totalNet-acc)*1000)/1000); return; }
+      const v=Math.round(totalNet*it.amount/amtSum*1000)/1000; acc+=v; wts.push(v);
+    });
+    okItems.forEach((it,i)=>{
+      if(wts[i]==null) unmatched++;
+      rows.push({ invNo:inv.no, date:inv.date, type:type, desc2:it.desc, descTH:tm.descTH, tariff:tm.tariff,
+                  qty:it.qty, netWeight:wts[i], grossWeight:wts[i], unitPrice:it.unitPrice, amount:it.amount,
+                  shp1:inv.shp1||'', shp2:inv.shp2||'', itemNo:it.itemNo });
+    });
     /* ตรวจยอดกับ PL */
     if(pl){
+      const sumQty=okItems.reduce((a,it)=>a+it.qty,0);
+      if(pl.totalQty!=null && Math.abs(sumQty-pl.totalQty)>0.0005)
+        warnings.push('Invoice '+inv.no+' ผลรวม Qty '+sumQty+' ≠ TOTAL ของ PL '+pl.totalQty);
+      const grp=new Map(); okItems.forEach(it=>{ const k=gyDescKey(it.desc); grp.set(k,(grp.get(k)||0)+it.qty); });
       pl.rows.forEach(r=>{ const q=grp.get(r.key);
         if(q==null) warnings.push('Invoice '+inv.no+' PL มี "'+r.desc+'" แต่ไม่พบใน Invoice');
         else if(Math.abs(q-r.qty)>0.0005) warnings.push('Invoice '+inv.no+' Qty "'+r.desc+'" Invoice='+q+' ≠ PL='+r.qty); });
-      const sumNet=rows.filter(r=>r.invNo===inv.no&&r.netWeight!=null).reduce((a,r)=>a+r.netWeight,0);
-      if(pl.totalNet!=null && Math.abs(sumNet-pl.totalNet)>0.01)
-        warnings.push('Invoice '+inv.no+' ผลรวม Net Weight '+(Math.round(sumNet*1000)/1000)+' ≠ TOTAL ของ PL '+pl.totalNet);
-      const sumQty=rows.filter(r=>r.invNo===inv.no).reduce((a,r)=>a+r.qty,0);
-      if(pl.totalQty!=null && Math.abs(sumQty-pl.totalQty)>0.0005)
-        warnings.push('Invoice '+inv.no+' ผลรวม Qty '+sumQty+' ≠ TOTAL ของ PL '+pl.totalQty);
     }
   });
   plByNo.forEach((pl,no)=>{ if(!usedPl.has(no)) warnings.push('PL เลข '+no+' ไม่ถูกจับคู่กับ Invoice ใด'); });
+  /* Item No. เรียงต่อเนื่องทั้งไฟล์ (เก็บเป็นข้อความ) */
+  rows.forEach((r,i)=>{ r.itemSeq=String(i+1); });
   return { rows, unmatched };
 }
-/* ---------- EXCEL (ExcelJS · Sheet เดียว · หัวคอลัมน์ตาม Mapping1.xlsx) ---------- */
+/* ---------- EXCEL (ExcelJS · ชีต MAPPING · 32 คอลัมน์ตามไฟล์ MAPPING ถูก) ---------- */
 async function gyBuildWorkbook(rows){
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('MAPPING',{ views:[{state:'frozen', ySplit:1}] });
   ws.columns=GY_WIDTHS.map(w=>({width:w}));
+  const BD={ top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
   const head=ws.addRow(GY_HEADERS);
-  head.eachCell(c=>{ c.font={bold:true};
-    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC000'}};
-    c.alignment={horizontal:'center',vertical:'middle'};
-    c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}; });
+  head.eachCell({includeEmpty:true},(c,col)=>{
+    c.font={ name:'Tahoma', size:11, bold:true };
+    c.alignment={ horizontal:'center', vertical:'middle' };
+    if(col<=31) c.border=BD;
+  });
   rows.forEach(r=>{
-    const er=ws.addRow([ String(r.invNo), gyDateUTC(r.date), String(r.itemNo||''), String(r.productCode||''),
-      r.desc, '', r.qty, GY_FIX.unit,
-      r.netWeight==null?'':r.netWeight, GY_FIX.nwUnit, '', GY_FIX.gwUnit, GY_FIX.curr, r.amount,
-      '', '', '', '', r.seq, '', '', '', GY_FIX.brand, GY_FIX.country ]);
+    const blank=v=>(v==null||!isFinite(v))?'':v;
+    const er=ws.addRow([ String(r.invNo||''), gyDateUTC(r.date), String(r.itemSeq||''),
+      r.type||'', r.type||'', r.type||'', r.desc2||'', r.descTH||'',
+      blank(r.qty), GY_FIX.unit, blank(r.netWeight), GY_FIX.nwUnit, blank(r.grossWeight), GY_FIX.gwUnit,
+      blank(r.unitPrice), blank(r.amount), GY_FIX.curr,
+      GY_FIX.priv, String(r.tariff||''), GY_FIX.stat, GY_FIX.statUnit, GY_FIX.seq, GY_FIX.expTariff,
+      blank(r.qty), GY_FIX.pkgUnit, GY_FIX.brand, GY_FIX.country,
+      r.shp1||'', r.shp2||'', GY_FIX.claim, GY_FIX.importTax, GY_FIX.note ]);
     er.eachCell({includeEmpty:true},(c,col)=>{
-      c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-      if(col===1||col===3||col===4){ c.numFmt='@'; c.alignment={horizontal:'left'}; }
-      else if(col===2){ c.numFmt='dd/mm/yyyy'; c.alignment={horizontal:'center'}; }
-      else if(col===7){ c.numFmt='0.###'; c.alignment={horizontal:'right'}; }
-      else if(col===9||col===11){ c.numFmt='0.000'; c.alignment={horizontal:'right'}; }
-      else if(col===14){ c.numFmt='0.00'; c.alignment={horizontal:'right'}; }
-      else if(col===19){ c.numFmt='0'; c.alignment={horizontal:'center'}; }
-      else if([8,10,12,13,24].includes(col)) c.alignment={horizontal:'center'};
+      c.font={ name:'Tahoma', size:11 };
+      if(col<=31) c.border=BD;
+      if(col===1||col===3||col===4||col===5||col===6){ c.numFmt='@'; c.alignment={horizontal:'left'}; }
+      else if(col===2){ c.numFmt='dd/mm/yyyy'; }
+      else if(col===9){ c.numFmt='#,##0'; }
+      else if(col===11||col===13){ c.numFmt='0.000'; }
+      else if(col===15){ c.numFmt='#,##0.00'; }
+      else if(col===16){ c.numFmt='0.00'; }
+      else if(col===22){ c.numFmt='0'; }
     });
   });
-  ws.autoFilter={ from:'A1', to:{ row:1, column:GY_HEADERS.length } };
+  /* แถวรวมท้ายไฟล์ — Qty. / Net Weight / Gross Weight / Amount */
+  if(rows.length){
+    const first=2, last=rows.length+1;
+    const tr=ws.addRow([]);
+    [9,11,13,16].forEach(col=>{
+      const L=ws.getColumn(col).letter;
+      const c=tr.getCell(col);
+      c.value={ formula:'SUM('+L+first+':'+L+last+')' };
+      c.numFmt='#,##0'; c.font={ name:'Tahoma', size:11 };
+    });
+    for(let col=9;col<=16;col++) tr.getCell(col).border=BD;
+  }
   return await wb.xlsx.writeBuffer();
 }
 /* ---------- VIEW ---------- */
@@ -5576,29 +5631,36 @@ function tpvBuildRows(inv, pl, warnings){
   if(!brand) warnings.push('ไม่พบ REMARK ใน INVOICE — เว้น Brand ว่าง');
   if(!inv.invNo) warnings.push('ไม่พบ INV NO ใน INVOICE');
   if(!inv.dateStr) warnings.push('ไม่พบ DATE ใน INVOICE');
-  if(pl.plNo && inv.invNo && pl.plNo!==inv.invNo) warnings.push('เลขเอกสารไม่ตรงกัน: INVOICE "'+inv.invNo+'" ≠ PL "'+pl.plNo+'"');
+  /* ---- ยอดรวมของ Packing List: ใช้ "บรรทัด Total" เท่านั้น ห้ามใช้ค่าจากรายการย่อย/ช่วงใดช่วงหนึ่ง ---- */
+  const totPkg=pl.totalPackage, totQty=pl.totalQty, totNet=pl.totalNet, totGross=pl.totalGross;
+  const r3=v=>Math.round(v*1000)/1000;
+  const chk=[];                                  /* ตรวจก่อน Export — ไม่ผ่าน = ไม่ Export Invoice นี้ */
+  const invQty=inv.items.reduce((a,it)=>a+(isFinite(it.qty)?it.qty:0),0);
+  if(!pl.plNo) chk.push('ไม่พบ DN No. ใน PACKING LIST');
+  else if(inv.invNo && tpvDocKey(pl.plNo)!==tpvDocKey(inv.invNo))
+    chk.push('Invoice No. ('+inv.invNo+') ไม่ตรงกับ DN No. ('+pl.plNo+')');
+  if(!isFinite(totQty)) chk.push('ไม่พบ Total Qty ในบรรทัด Total ของ PACKING LIST');
+  else if(Math.abs(invQty-totQty)>0.0005)
+    chk.push('Qty ไม่ตรง: INVOICE '+invQty+' / PL Total '+totQty+' (ผลต่าง '+r3(invQty-totQty)+')');
+  if(!isFinite(totPkg)) chk.push('ไม่พบ Total Package ในบรรทัด Total ของ PACKING LIST');
+  if(!isFinite(totNet)) chk.push('ไม่พบ Total Net WT. ในบรรทัด Total ของ PACKING LIST');
+  if(!isFinite(totGross)) chk.push('ไม่พบ Total Gross WT. ในบรรทัด Total ของ PACKING LIST');
+  /* PL หลายช่วง: ผลรวมทุกช่วงต้องเท่ากับบรรทัด Total */
+  if(pl.blocks.length){
+    const sum=k=>pl.blocks.reduce((a,b)=>a+(isFinite(b[k])?b[k]:0),0);
+    const cmp=(name,got,tot)=>{ if(isFinite(tot) && Math.abs(got-tot)>0.005)
+      chk.push(name+' รวมทุกช่วงใน PL ('+r3(got)+') ไม่ตรงกับบรรทัด Total ('+tot+') ผลต่าง '+r3(got-tot)); };
+    cmp('Qty', sum('qty'), totQty); cmp('Net WT.', sum('net'), totNet); cmp('Gross WT.', sum('gross'), totGross);
+    let pkgFromCase=0, hasCase=false;
+    pl.blocks.forEach(b=>{ const m=String(b.caseNo||'').match(/^(\d+)\s*-\s*(\d+)$/);
+      if(m){ hasCase=true; pkgFromCase+=(Number(m[2])-Number(m[1])+1); }
+      else if(/^\d+$/.test(String(b.caseNo||''))){ hasCase=true; pkgFromCase+=1; } });
+    if(hasCase && isFinite(totPkg) && pkgFromCase!==totPkg)
+      chk.push('Package Amount รวมทุกช่วง CASE NO. ('+pkgFromCase+') ไม่ตรงกับ Total Package ('+totPkg+') ผลต่าง '+(pkgFromCase-totPkg));
+  }
   const rows=[];
   inv.items.forEach((it,i)=>{
-    /* จับคู่ PL: Product Code / Item Code / Description / Quantity (Reset ต่อรายการ) */
-    let blk=null, why='';
-    const cands=pl.blocks;
-    const norm=s=>tpvNorm(s).toUpperCase();
-    if(it.productCode) { blk=cands.find(b=>norm(b.desc).indexOf(norm(it.productCode))>=0)||null; if(blk) why='Product Code'; }
-    if(!blk && it.itemCode){ blk=cands.find(b=>norm(b.desc).indexOf(norm(it.itemCode))>=0)||null; if(blk) why='Item Code'; }
-    if(!blk && it.descEN)  { blk=cands.find(b=>norm(b.desc).indexOf(norm(it.descEN))>=0)||null; if(blk) why='Description'; }
-    if(!blk && isFinite(it.qty)){ blk=cands.find(b=>Math.abs(b.qty-it.qty)<0.0005)||null; if(blk) why='Quantity'; }
-    if(!blk && cands.length===1 && inv.items.length===1){ blk=cands[0]; why='รายการเดียว'; }
-    if(!blk) warnings.push('รายการที่ '+(i+1)+' จับคู่กับ PACKING LIST ไม่ได้ — เว้น Package/Net WT./Gross WT. ว่าง');
-    else if(isFinite(it.qty) && Math.abs(blk.qty-it.qty)>0.0005)
-      warnings.push('รายการที่ '+(i+1)+' Qty INVOICE '+it.qty+' ≠ PL '+blk.qty+' (จับคู่ด้วย '+why+')');
-    /* Package Amount จากช่วง CASE NO. ของบล็อกนั้น */
-    let pkgStart=null,pkgEnd=null,pkgAmt=NaN;
-    if(blk && blk.caseNo){ const m=blk.caseNo.match(/^(\d+)\s*-\s*(\d+)$/);
-      if(m){ pkgStart=+m[1]; pkgEnd=+m[2]; pkgAmt=pkgEnd-pkgStart+1; }
-      else if(/^\d+$/.test(blk.caseNo)){ pkgStart=+blk.caseNo; pkgEnd=+blk.caseNo; pkgAmt=1; } }
-    if(!isFinite(pkgAmt) && inv.items.length===1 && isFinite(pl.totalPackage)){ pkgAmt=pl.totalPackage; pkgStart=1; pkgEnd=pl.totalPackage; }
-    if(inv.items.length===1 && isFinite(pl.totalPackage) && isFinite(pkgAmt) && pkgAmt!==pl.totalPackage)
-      warnings.push('Package Amount '+pkgAmt+' ≠ Total Package ใน PL '+pl.totalPackage);
+    const first=(i===0);                         /* ยอดรวมของ Invoice แสดงครั้งเดียวที่แถวแรก */
     /* MARKS & NOS 4 บรรทัด */
     let marks='';
     { const src=inv.marks.slice();
@@ -5606,8 +5668,8 @@ function tpvBuildRows(inv, pl, warnings){
       if(i3>=1 && src[i3+1]!=null) marks=[src[i3-1],src[i3],src[i3+1]].join('\n');
       if(i3>=2) marks=[src[i3-2],src[i3-1],src[i3],src[i3+1]].filter(x=>x!=null).slice(0,4).join('\n');
       if(!marks){
-        const l1=inv.invNo, l2='', l3=(pkgStart!=null&&pkgEnd!=null)?('NO:'+tpvPad4(pkgStart)+' -'+tpvPad4(pkgEnd)):'', l4='';
-        marks=[l1,l2,l3,l4].filter(x=>x).join('\n');
+        const l3=isFinite(totPkg)?('NO:'+tpvPad4(1)+' -'+tpvPad4(totPkg)):'';
+        marks=[inv.invNo,'',l3,''].filter(x=>x).join('\n');
         warnings.push('อ่านบล็อก MARKS & NOS 4 บรรทัดจาก INVOICE ไม่ครบ — สร้างเท่าที่พบจริง');
       }
     }
@@ -5621,15 +5683,17 @@ function tpvBuildRows(inv, pl, warnings){
       itemCode:it.itemCode, size:it.size,
       qty:it.qty, qtyUnit:it.qtyUnit, declQty:it.qty, declUnit:TPV_FIX.declUnit,
       unitPrice:it.unitPrice, amount:it.amount, curr:inv.currency,
-      pkgAmount:pkgAmt, pkgUnit:TPV_FIX.pkgUnit,
-      netWt:blk?blk.net:NaN, grossWt:blk?blk.gross:NaN,
+      pkgAmount:first?totPkg:NaN, pkgUnit:TPV_FIX.pkgUnit,
+      netWt:first?totNet:NaN, grossWt:first?totGross:NaN,
       marks:marks, originCountry:inv.originCountry, purchaseCountry:inv.purchaseCountry,
       tariff:tf?tf.tariff:'', stat:tf?tf.stat:'',
       boiRight:tm?tm.boiRight:'', boiLicense:tm?tm.boiLicense:'', brand:brand,
       permitNo:tm?tm.permitNo:'', issueDate:tm?tm.issueDate:'', authority:tm?tm.authority:'',
-      position:TPV_FIX.position
+      position:TPV_FIX.position,
+      chk:chk.slice()                            /* ผลตรวจของ Invoice นี้ (ติดไปกับทุกแถว) */
     });
   });
+  chk.forEach(x=>warnings.push('Invoice '+inv.invNo+': '+x));
   return rows;
 }
 
@@ -5760,7 +5824,7 @@ function tpvRebuild(){
   sets.forEach(s=>{
     s.rowIssues={};
     s.rows.forEach(r=>{
-      const f=tpvRowFinal(r); const bad=[];
+      const f=tpvRowFinal(r); const bad=[].concat(r.chk||[]);
       if(!f.invNo) bad.push('ไม่มี INV NO');
       if(!f.date) bad.push('ไม่มี DATE');
       if(!f.productCode) bad.push('ไม่มี Product Code');
@@ -5768,9 +5832,11 @@ function tpvRebuild(){
       if(!f.qtyUnit) bad.push('ไม่มี Unit');
       if(!isFinite(f.amount)) bad.push('ไม่มี Amount');
       if(!f.curr) bad.push('ไม่มี Currency');
-      if(!isFinite(f.pkgAmount)) bad.push('ไม่มี Package Amount');
-      if(!isFinite(f.netWt)) bad.push('ไม่มี Net WT.');
-      if(!isFinite(f.grossWt)) bad.push('ไม่มี Gross WT.');
+      if(f.no===1){                        /* ยอดรวมของ Invoice อยู่ที่แถวแรกเพียงแถวเดียว */
+        if(!isFinite(f.pkgAmount)) bad.push('ไม่มี Package Amount (Total Package)');
+        if(!isFinite(f.netWt)) bad.push('ไม่มี Net WT. (Total Net WT.)');
+        if(!isFinite(f.grossWt)) bad.push('ไม่มี Gross WT. (Total Gross WT.)');
+      }
       if(String(f.marks||'').split('\n').filter(x=>x.trim()).length!==4) bad.push('MARKS & NOS ไม่ครบ 4 บรรทัด');
       if(!f.descTH) bad.push('ไม่มี DESCRIPTION TH');
       if(bad.length) s.rowIssues[r.key]=bad;
