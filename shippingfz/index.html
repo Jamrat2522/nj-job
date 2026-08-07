@@ -757,6 +757,38 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc.tbl-recv td.td-actions .row-act{margin-left:0 !important;margin-right:0 !important}   /* กันปุ่มถูก margin เดิมดันตำแหน่ง */
   .tbl-doc td.td-actions .row-act{margin-left:0}
 @media (prefers-reduced-motion:reduce){ *{animation-duration:.001s !important;transition-duration:.001s !important} }
+/* ============================================================
+   🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
+   scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
+   ============================================================ */
+.sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
+.sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
+.sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
+.sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
+.sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
+.sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
+.sfz-rip{justify-content:center}
+.sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
+.sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
+.sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
+.sfz-rip-dd .rip-dd-item.is-disabled{opacity:.42;cursor:not-allowed}
+.sfz-rip-dd .rip-dd-danger{color:#F87171}
+.sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
+.sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
+#rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+#rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
+#rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
+@media (max-width:768px),(pointer:coarse){
+  .sfz-rip{width:100%}
+  .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
+  .sfz-rip .rip-menu{flex:0 0 auto;min-width:44px;min-height:44px}
+  .sfz-rip-dd{min-width:210px}
+  .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
+  #rip-att .rip-att-meta{display:none}
+}
 </style>
 </head>
 <body>
@@ -2255,6 +2287,7 @@ function _loadStatusForRows(rows, opts){
 // อัปเดตเฉพาะ tbody + paginator + ตัวเลขสรุป (ไม่ rebuild ทั้ง view-root) — ใช้ตอนค้นหา/เปลี่ยนหน้า/เปลี่ยนจำนวนแสดง
 // pills (ท่านำเข้า/สถานะ/ทั้งหมด) นับจาก base ที่ไม่รวม search/terminal → คงที่ ไม่ต้องอัปเดต
 function _renderDocBody(){
+  if(_ripDD) ripCloseMenu();      // ตารางกำลังถูก render ใหม่ → ปิดเมนู ⋮ ที่ค้างอยู่
   const root = $('view-root');
   const tb = root && root.querySelector('tbody');
   if(!tb){ return renderDocView(); }   // ไม่ใช่หน้าเอกสาร → render เต็ม
@@ -2758,25 +2791,6 @@ body{font-family:'Sarabun','Inter',sans-serif;color:#000}
 .job-pdf .pdf-sign .line{border-top:1px solid #333;padding-top:3px;font-size:9pt;font-weight:600;margin-top:3px}
 .job-pdf .pdf-sign .sub{font-size:8pt;color:#666;margin-top:1px}
 
-/* ============================================================
-   🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
-   scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
-   ============================================================ */
-.sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
-.sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
-.sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
-.sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
-.sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
-.sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
-#rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
-#rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
-#rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
-@media (max-width:768px),(pointer:coarse){
-  .sfz-rip{width:100%}
-  .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
-  #rip-att .rip-att-meta{display:none}
-}
 </style></head><body>${pdf.outerHTML}</body></html>`);
   doc.close();
   setTimeout(()=>{ try{ iframe.contentWindow.focus(); iframe.contentWindow.print(); }catch(e){ console.error('[print]',e); } setTimeout(()=>{ try{ iframe.remove() }catch(_){} },2000); },300);
@@ -3896,17 +3910,87 @@ function isInProgressReleaseMode(d){
   return S.view === 'RECEIVED' && !!d && d.doc_status === 'RECEIVED';
 }
 
+/* คอลัมน์ "การจัดการ" = ปุ่ม ⋮ ปุ่มเดียว · คำสั่งทั้ง 4 ย้ายเข้า dropdown
+   Function เดิมทั้งหมดไม่ถูกแตะ — เมนูแค่เรียกตัวเดิม */
 function renderInProgressReleaseActions(d){
   const id = d.id;
-  const n  = _ripAtt[id];
-  const can = (n > 0);
-  const del = canDeleteDoc(d)
-    ? `<button class="rip-btn rip-del" onclick="event.stopPropagation();docDelete('${id}')" title="ลบงาน">🗑️ ลบ</button>` : '';
   return `<span class="sfz-rip">`
-    + `<button class="rip-btn rip-post" onclick="event.stopPropagation();openPostponePrompt('${id}')" title="เลื่อนตรวจปล่อย">📅 เลื่อน</button>`
-    + `<button class="rip-btn rip-att" data-rip-att="${esc(id)}" onclick="event.stopPropagation();openAttachDocs('${id}')" title="แนบเอกสาร">📎 แนบเอกสาร${can?` (${n})`:''}</button>`
-    + `<button class="rip-btn rip-close${can?'':' is-disabled'}" data-rip-close="${esc(id)}" onclick="event.stopPropagation();ripCloseJob('${id}')" title="${can?'ปิดงาน':'กรุณาแนบเอกสารก่อนปิดงาน'}">✅ ปิดงาน</button>`
-    + del + `</span>`;
+    + `<button class="rip-btn rip-menu" data-rip-menu="${esc(id)}" aria-haspopup="menu" aria-expanded="false"`
+    + ` onclick="event.stopPropagation();ripToggleMenu('${id}', this)" title="เมนูจัดการ">⋮</button>`
+    + `</span>`;
+}
+
+/* ---------- Dropdown เมนู 3 จุด ----------
+   · แนบที่ <body> + position:fixed → ตารางที่มี overflow ตัดเมนูไม่ได้
+   · เปิดได้ทีละ 1 แถว · คลิกนอก/กด Esc/scroll/resize → ปิด
+   · ผูก listener ระดับ document เพียงชุดเดียวตอนเปิด และถอดออกตอนปิด → ไม่มี event ซ้ำ */
+let _ripDD = null;          // { el, id, btn, onDoc, onKey, onScroll }
+
+function ripCloseMenu(){
+  if(!_ripDD) return;
+  const d=_ripDD; _ripDD=null;
+  try{ document.removeEventListener('mousedown', d.onDoc, true); }catch(_){ }
+  try{ document.removeEventListener('keydown', d.onKey, true); }catch(_){ }
+  try{ window.removeEventListener('scroll', d.onScroll, true); }catch(_){ }
+  try{ window.removeEventListener('resize', d.onScroll, true); }catch(_){ }
+  if(d.btn) d.btn.setAttribute('aria-expanded','false');
+  if(d.el && d.el.parentNode) d.el.parentNode.removeChild(d.el);
+}
+
+function ripToggleMenu(id, btn){
+  const same = _ripDD && _ripDD.id === id;
+  ripCloseMenu();                                  // ปิดของเดิมเสมอ → เปิดได้ทีละ 1 แถว
+  if(same) return;                                 // กดปุ่มเดิมซ้ำ = ปิด
+
+  const d = (S.docs||[]).find(x=>x.id===id);
+  if(!d) return;
+  const n = _ripAtt[id] || 0;
+  const canClose = (n > 0);
+  const canDel = canDeleteDoc(d);                  // สิทธิ์เดิมทุกประการ
+
+  const el = document.createElement('div');
+  el.id='rip-dd'; el.className='sfz-rip-dd'; el.setAttribute('role','menu');
+  el.innerHTML =
+      `<button class="rip-dd-item" role="menuitem" data-act="post">📅 เลื่อน</button>`
+    + `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
+    + `<button class="rip-dd-item${canClose?'':' is-disabled'}" role="menuitem" data-act="close"`
+    + ` title="${canClose?'ปิดงาน':'กรุณาแนบเอกสารก่อนปิดงาน'}">✅ ปิดงาน</button>`
+    + (canDel ? `<div class="rip-dd-sep"></div><button class="rip-dd-item rip-dd-danger" role="menuitem" data-act="del">🗑️ ลบ</button>` : '');
+  document.body.appendChild(el);
+
+  // ตำแหน่ง: ใต้ปุ่ม · ถ้าพื้นที่ด้านล่างไม่พอ (แถวล่างสุด) ให้เปิดขึ้นด้านบน
+  const r = btn.getBoundingClientRect();
+  const mh = el.offsetHeight, mw = el.offsetWidth;
+  const below = window.innerHeight - r.bottom;
+  const top = (below < mh + 12 && r.top > mh + 12) ? (r.top - mh - 6) : (r.bottom + 6);
+  let left = r.right - mw;
+  if(left < 8) left = 8;
+  if(left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+  el.style.top = Math.max(8, top) + 'px';
+  el.style.left = left + 'px';
+
+  el.addEventListener('click', ev=>{
+    const b = ev.target.closest('.rip-dd-item'); if(!b) return;
+    ev.stopPropagation();
+    const act = b.getAttribute('data-act');
+    if(act==='close' && !canClose){ toast('กรุณาแนบเอกสารก่อนปิดงาน','error'); ripCloseMenu(); return; }
+    ripCloseMenu();                                 // กดรายการแล้วปิดเมนูเสมอ
+    if(act==='post')       openPostponePrompt(id);  // Function เดิม
+    else if(act==='att')   openAttachDocs(id);      // Function เดิม
+    else if(act==='close') ripCloseJob(id);         // Function เดิม (เงื่อนไขไฟล์แนบเดิม)
+    else if(act==='del')   docDelete(id);           // Function เดิม (มี confirm ในตัว)
+  });
+
+  const onDoc = ev=>{ if(!el.contains(ev.target) && ev.target!==btn) ripCloseMenu(); };
+  const onKey = ev=>{ if(ev.key==='Escape') ripCloseMenu(); };
+  const onScroll = ()=> ripCloseMenu();
+  document.addEventListener('mousedown', onDoc, true);
+  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', onScroll, true);
+
+  btn.setAttribute('aria-expanded','true');
+  _ripDD = { el, id, btn, onDoc, onKey, onScroll };
 }
 
 /* ปิดงาน — ต้องมีไฟล์แนบอย่างน้อย 1 ไฟล์ · ใช้ flow/สถานะเดิมของระบบ (RECEIVED → CLEARED) */
@@ -3935,15 +4019,9 @@ async function _ripLoadAttachCounts(rows){
   _ripPatchButtons();
 }
 function _ripPatchButtons(){
-  document.querySelectorAll('[data-rip-close]').forEach(b=>{
-    const n = _ripAtt[b.getAttribute('data-rip-close')] || 0;
-    b.classList.toggle('is-disabled', !(n>0));
-    b.title = n>0 ? 'ปิดงาน' : 'กรุณาแนบเอกสารก่อนปิดงาน';
-  });
-  document.querySelectorAll('[data-rip-att]').forEach(b=>{
-    const n = _ripAtt[b.getAttribute('data-rip-att')] || 0;
-    b.textContent = n>0 ? `📎 แนบเอกสาร (${n})` : '📎 แนบเอกสาร';
-  });
+  /* คอลัมน์การจัดการเหลือปุ่ม ⋮ อย่างเดียว — สถานะ "ปิดงาน" อ่านจาก _ripAtt ตอนเปิดเมนู (ค่าสดเสมอ)
+     ถ้าเมนูเปิดค้างอยู่ตอนจำนวนไฟล์แนบเปลี่ยน → ปิดเมนูเพื่อไม่ให้แสดงค่าเก่า */
+  if(_ripDD) ripCloseMenu();
 }
 
 /* Modal แนบเอกสาร — ใช้ bucket/ตาราง/Signed URL เดิมของระบบทั้งหมด */

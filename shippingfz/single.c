@@ -33,7 +33,13 @@
 #define ID_TRAY_OPEN   1001
 #define ID_TRAY_REOPEN 1002
 #define ID_TRAY_QUIT   1003
-#define HEALTH_BODY    "{\"ok\":true,\"app\":\"shipping_fz\",\"server\":\"local\",\"mode\":\"single-exe\"}"
+#ifndef SFZ_BUILD
+#define SFZ_BUILD "dev"
+#endif
+/* build id = ลายเซ็นของ index.html ที่ฝังอยู่ใน EXE ตัวนี้
+   ใช้ให้ launcher รู้ว่า server ที่เปิดค้างอยู่เป็น "เวอร์ชันเดียวกัน" หรือไม่ */
+#define HEALTH_BODY    "{\"ok\":true,\"app\":\"shipping_fz\",\"server\":\"local\",\"mode\":\"single-exe\",\"build\":\"" SFZ_BUILD "\"}"
+#define BUILD_MARK     "\"build\":\"" SFZ_BUILD "\""
 
 static SOCKET       g_listen = INVALID_SOCKET;
 static int          g_port   = 0;
@@ -211,7 +217,9 @@ static int find_running_port(void){
         while(total < 1023 && (r = recv(s, buf + total, 1023 - total, 0)) > 0) total += r;
         closesocket(s);
         buf[total > 0 ? total : 0] = 0;
-        if(strstr(buf, "\"app\":\"shipping_fz\"")) return p;
+        /* ต้องเป็น SHIPPING FZ "และ" build เดียวกันเท่านั้นจึงถือว่าใช้ตัวเดิมได้
+           ถ้าเป็นเวอร์ชันเก่าค้างอยู่ → ข้ามไป แล้วเปิด server ของเวอร์ชันใหม่แทน */
+        if(strstr(buf, "\"app\":\"shipping_fz\"") && strstr(buf, BUILD_MARK)) return p;
     }
     return 0;
 }

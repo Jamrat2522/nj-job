@@ -1,0 +1,66 @@
+759a760,791
+> /* ============================================================
+>    🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
+>    scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
+>    ============================================================ */
+> .sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+> .sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
+> .sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
+> .sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
+> .sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
+> .sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
+> .sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
+> .sfz-rip{justify-content:center}
+> .sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
+> .sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
+> .sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+> .sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
+> .sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
+> .sfz-rip-dd .rip-dd-item.is-disabled{opacity:.42;cursor:not-allowed}
+> .sfz-rip-dd .rip-dd-danger{color:#F87171}
+> .sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
+> .sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
+> #rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+> #rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
+> #rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
+> @media (max-width:768px),(pointer:coarse){
+>   .sfz-rip{width:100%}
+>   .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
+>   .sfz-rip .rip-menu{flex:0 0 auto;min-width:44px;min-height:44px}
+>   .sfz-rip-dd{min-width:210px}
+>   .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
+>   #rip-att .rip-att-meta{display:none}
+> }
+2762,2793d2793
+< /* ============================================================
+<    🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
+<    scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
+<    ============================================================ */
+< .sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+< .sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
+< .sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
+< .sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
+< .sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
+< .sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
+< .sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
+< .sfz-rip{justify-content:center}
+< .sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
+< .sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
+< .sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+< .sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
+< .sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
+< .sfz-rip-dd .rip-dd-item.is-disabled{opacity:.42;cursor:not-allowed}
+< .sfz-rip-dd .rip-dd-danger{color:#F87171}
+< .sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
+< .sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
+< #rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+< #rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
+< #rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
+< @media (max-width:768px),(pointer:coarse){
+<   .sfz-rip{width:100%}
+<   .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
+<   .sfz-rip .rip-menu{flex:0 0 auto;min-width:44px;min-height:44px}
+<   .sfz-rip-dd{min-width:210px}
+<   .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
+<   #rip-att .rip-att-meta{display:none}
+< }
