@@ -1212,8 +1212,15 @@ function togglePw(id, btn){
 function avatarText(name){ const n=String(name||'U').trim(); return n.slice(0,1).toUpperCase(); }
 function pad(n){ return String(n).padStart(2,'0'); }
 function ymd(d){ d=d?new Date(d):new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-function todayYMD(){ return ymd(new Date()); }
-function tomorrowYMD(){ const d=new Date(); d.setDate(d.getDate()+1); return ymd(d); }
+/* วันที่สำหรับตัดสิน "วันนี้/พรุ่งนี้" ของทุก View และ Count — บังคับ Asia/Bangkok (UTC+7)
+   ไม่ผูกกับ timezone ของเครื่อง · ให้ตรงกับ _todayRangeTH() ที่ฝั่ง server ใช้อยู่แล้ว
+   หมายเหตุ: ymd() เดิมยังใช้เวลาเครื่องสำหรับการ "แสดงผล" ทั่วไป ไม่ถูกแตะ */
+function ymdTH(d){
+  const t = new Date((d?new Date(d):new Date()).getTime() + 7*3600*1000);
+  return t.getUTCFullYear()+'-'+pad(t.getUTCMonth()+1)+'-'+pad(t.getUTCDate());
+}
+function todayYMD(){ return ymdTH(); }
+function tomorrowYMD(){ return ymdTH(new Date(Date.now()+24*3600*1000)); }
 function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
 function fmtTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
@@ -1360,7 +1367,7 @@ const VIEWS = {
   all:             { title:'📄 เอกสารทั้งหมด',  test:d=>true },
   NEW:             { title:'🟡 รอรับงาน',        test:d=>d.doc_status==='NEW' && (!d.shipping_date || d.shipping_date<=todayYMD()) },
   RECEIVED:        { title:'🔵 ดำเนินตรวจปล่อย', test:d=>d.doc_status==='RECEIVED' },
-  COMPLETED_TODAY: { title:'🟢 ปล่อยเสร็จวันนี้', test:d=>d.doc_status==='COMPLETED' && d.completed_at && ymd(d.completed_at)===todayYMD() },
+  COMPLETED_TODAY: { title:'🟢 ปล่อยเสร็จวันนี้', test:d=>d.doc_status==='COMPLETED' && d.completed_at && ymdTH(d.completed_at)===todayYMD() },
   POSTPONED:       { title:'🔴 เลื่อนตรวจปล่อย',  test:d=>d.doc_status==='POSTPONED' },
   TOMORROW:        { title:'📅 งานพรุ่งนี้',       test:d=>d.doc_status==='NEW' && d.shipping_date===tomorrowYMD() },
   ADVANCE:         { title:'🗓️ งานล่วงหน้า',      test:d=>d.doc_status==='NEW' && d.shipping_date && d.shipping_date>tomorrowYMD() },
@@ -3316,7 +3323,20 @@ async function _docUpdate(id, patch, action, logNote){
   const { error } = await sb.from(DOC_TABLE).update(patch).eq('app_code',WORK_APP_CODE).eq('id',id);
   if(error){ toast('ดำเนินการไม่สำเร็จ: '+(error.message||''),'error'); throw error; }
   await logDoc(id, action, patch.doc_status||null, logNote||null);
-  const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...patch }; _invalidateDocsCache(); renderSidebar(); routeRender(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   // #1 patch local + ล้าง cache — ไม่ refetch 1000 (realtime reconcile)
+  const _i=S.docs.findIndex(x=>x.id===id);
+  const _row = (_i>=0) ? { ...S.docs[_i], ...patch } : null;
+  if(_row){
+    S.docs[_i] = _row;
+    /* ย้ายแถวระหว่าง per-mode cache ทันที: อยู่โหมดไหน→upsert · ไม่อยู่แล้ว→ลบออก
+       เช่น RECEIVED → COMPLETED : หลุดจาก cache RECEIVED และเข้า cache COMPLETED_TODAY เลย
+       ไม่ต้องรอ Realtime และไม่ refetch */
+    try{ DOC_MODES.forEach(m=>{ if(_docInMode(_row, m)) _cacheUpsert(m, _row); else _cacheRemove(m, _row.id); }); }catch(_c){ }
+    _invalidateDocsCache(); renderSidebar(); routeRender();
+    try{ _recountSoon(); }catch(_r){ }                 // badge ทุกโหมดอัปเดตทันที (1 RPC · debounce เดิม)
+  } else {
+    await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender();
+    try{ _recountSoon(); }catch(_r){ }
+  }
 }
 
 // NEW → RECEIVED (รับงาน)
@@ -3993,10 +4013,17 @@ function ripToggleMenu(id, btn){
   _ripDD = { el, id, btn, onDoc, onKey, onScroll };
 }
 
-/* ปิดงาน — ต้องมีไฟล์แนบอย่างน้อย 1 ไฟล์ · ใช้ flow/สถานะเดิมของระบบ (RECEIVED → CLEARED) */
-function ripCloseJob(id){
+/* ปิดงาน — ต้องมีไฟล์แนบอย่างน้อย 1 ไฟล์
+   FLOW: RECEIVED → COMPLETED โดยตรง (ไม่ผ่าน CLEARED อีกต่อไป)
+   ใช้ docComplete() เดิมของระบบ → confirm + _docUpdate({doc_status:'COMPLETED', completed_at:now})
+   + Timeline/Audit action='completed' + ผู้ปิดงาน ตามเดิมทุกอย่าง */
+const _ripClosing = new Set();          // กันกดซ้ำ/ยิงซ้อน
+async function ripCloseJob(id){
   if(!(_ripAtt[id] > 0)){ toast('กรุณาแนบเอกสารก่อนปิดงาน','error'); return; }
-  openClearedPrompt(id);
+  if(_ripClosing.has(id)) return;
+  _ripClosing.add(id);
+  try{ await docComplete(id); }
+  finally{ _ripClosing.delete(id); }
 }
 
 /* โหลดจำนวนไฟล์แนบเฉพาะแถวที่แสดงอยู่ แล้ว patch เฉพาะปุ่ม (ไม่ re-render ตาราง) */
@@ -4513,7 +4540,10 @@ function userRow(u){
     <td data-l="สถานะ"><span class="s-${esc(status)}">${esc(status.toUpperCase())}</span></td>
     <td data-l="วันที่สร้าง" style="color:var(--muted);font-size:12px">${fmtDateTime(u.created_at)}</td>
     <td data-l="การจัดการ" class="td-actions"><div class="u-acts" style="justify-content:flex-end">
-      <span style="font-size:11.5px;color:var(--muted2)">🔒 อ่านอย่างเดียว</span>
+      ${isSuper() ? (
+          (status==='pending' ? `<button class="btn btn-sm btn-primary" onclick="approveUser('${u.id}')"><i data-lucide="check"></i> อนุมัติ</button>` : '')
+        + `<button class="btn btn-sm btn-ghost" onclick="openUserEdit('${u.id}')"><i data-lucide="pencil"></i> แก้ไข</button>`
+        ) : '<span style="font-size:11.5px;color:var(--muted2)">🔒 อ่านอย่างเดียว</span>'}
     </div></td>
   </tr>`;
 }
@@ -4527,7 +4557,21 @@ function revealPassword(id){
 }
 
 /* 🔒 READ-ONLY: SHIPPING FZ ไม่อนุมัติบัญชีในตาราง users เดิม (ลบ query ออกจากไฟล์แล้ว) */
-async function approveUser(id){ _sfzLegacyUserReadOnly(); }
+async function approveUser(id){
+  if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่อนุมัติบัญชีได้','error'); return; }
+  if(_userBusy.has(id)) return;
+  _userBusy.add(id);
+  try{
+    const { error } = await sb.rpc('sfz_admin_update_user', {
+      p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+      p_user_id: String(id), p_status: 'active'
+    });
+    if(error) throw error;
+    toast('อนุมัติบัญชีแล้ว','success');
+    await loadUsersData(); renderUsers();
+  }catch(e){ toast(_userRpcMsg(e),'error'); }
+  finally{ _userBusy.delete(id); }
+}
 
 async function syncUsers(btn){
   if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Sync...'; }
@@ -4540,8 +4584,14 @@ async function syncUsers(btn){
 }
 
 /* ---- เพิ่ม / แก้ไข ผู้ใช้ ---- */
-function openUserAdd(){ if(_sfzLegacyUserReadOnly()) return; openUserForm(null); }
-function openUserEdit(id){ if(_sfzLegacyUserReadOnly()) return; const u=(S.users||[]).find(x=>x.id===id); if(u) openUserForm(u); }
+function openUserAdd(){
+  if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่เพิ่มผู้ใช้ได้','error'); return; }
+  openUserForm(null);
+}
+function openUserEdit(id){
+  if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่แก้ไขผู้ใช้ได้','error'); return; }
+  const u=(S.users||[]).find(x=>x.id===id); if(u) openUserForm(u);
+}
 function openUserForm(u){
   const edit = !!u;
   const cur = u||{};
@@ -4591,7 +4641,79 @@ function openUserForm(u){
 }
 
 /* 🔒 READ-ONLY: SHIPPING FZ ไม่เพิ่ม/แก้บัญชีในตาราง users เดิม (ลบ query ออกจากไฟล์แล้ว) */
-async function saveUser(editId){ _sfzLegacyUserReadOnly(); }
+/* แปลง error code จาก RPC เป็นข้อความที่อ่านรู้เรื่อง (ระบุสาเหตุจริง ไม่ใช่ "เพิ่มผู้ใช้ไม่ได้") */
+const _userBusy = new Set();
+function _userRpcMsg(e){
+  const raw = String((e && (e.message || e.details || e.hint)) || '');
+  if(/permission_denied/.test(raw))            return 'ไม่มีสิทธิ์: เฉพาะ SUPER ADMIN เท่านั้น (permission_denied)';
+  const dup = raw.match(/username_already_exists:?\s*(\S*)/);
+  if(dup)                                      return 'Username นี้ถูกใช้แล้ว: '+(dup[1]||'')+' (username_already_exists)';
+  const role = raw.match(/invalid_role:?\s*(\S*)/);
+  if(role)                                     return 'บทบาทไม่ถูกต้อง: '+(role[1]||'')+' (invalid_role)';
+  const st = raw.match(/invalid_status:?\s*(\S*)/);
+  if(st)                                       return 'สถานะไม่ถูกต้อง: '+(st[1]||'')+' (invalid_status)';
+  const miss = raw.match(/missing_required_field:?\s*(\S*)/);
+  if(miss)                                     return 'กรอกข้อมูลไม่ครบ: '+(miss[1]||'')+' (missing_required_field)';
+  if(/user_not_found/.test(raw))               return 'ไม่พบบัญชีนี้ (user_not_found)';
+  if(/Could not find the function|PGRST202/.test(raw))
+    return 'ยังไม่ได้ติดตั้ง RPC จัดการผู้ใช้ — รันไฟล์ sql/030_user_admin_rpc.sql ก่อน';
+  return raw || 'บันทึกไม่สำเร็จ';
+}
+
+async function saveUser(editId){
+  if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่จัดการผู้ใช้ได้','error'); return; }
+  const full_name = $('u-name').value.trim();
+  const username  = $('u-username') ? $('u-username').value.trim() : '';
+  const password  = $('u-password') ? $('u-password').value : '';
+  const status    = $('u-status').value || 'active';
+  const department= $('u-dept').value || null;
+  const role      = $('u-role').value || 'STAFF';
+  const termsArr  = Array.from(document.querySelectorAll('.u-term-chk:checked')).map(c=>c.value);
+  const terminals = termsArr.length ? termsArr.join(', ') : null;
+
+  if(!full_name){ toast('กรอกชื่อ-สกุล','error'); return; }
+  if(!editId && !username){ toast('กรอก Username','error'); return; }
+  if(!editId && !password){ toast('ตั้งรหัสผ่าน','error'); return; }
+  if(USER_ROLES.indexOf(String(role).toUpperCase())<0){ toast('บทบาทไม่ถูกต้อง','error'); return; }
+
+  const key = editId || ('new:'+username);
+  if(_userBusy.has(key)) return;                       // กันกดซ้ำ / INSERT ซ้ำ
+  _userBusy.add(key);
+
+  const btn=$('u-save'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...'; }
+  try{
+    if(editId){
+      const { error } = await sb.rpc('sfz_admin_update_user', {
+        p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+        p_user_id: String(editId), p_full_name: full_name, p_department: department,
+        p_role: role, p_status: status, p_password: password || null,
+        p_terminals: terminals, p_set_terminals: true
+      });
+      if(error) throw error;
+      toast('บันทึกการแก้ไขแล้ว','success');
+    }else{
+      const colors=['#0EA672','#3B82F6','#A855F7','#F59E0B','#EF4444','#14B8A6','#F97316'];
+      const { error } = await sb.rpc('sfz_admin_create_user', {
+        p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+        p_username: username, p_password: password, p_full_name: full_name,
+        p_department: department, p_role: role, p_status: status,
+        p_terminals: terminals, p_avatar: colors[Math.floor(Math.random()*colors.length)]
+      });
+      if(error) throw error;
+      toast('เพิ่มผู้ใช้สำเร็จ','success');
+    }
+    closeModal('modal-form');
+    _shipSetsCache=null;                               // รายชื่อเปลี่ยน → ล้าง cache map ผู้ใช้
+    await loadUsersData();                             // reload เฉพาะรายชื่อผู้ใช้
+    renderUsers();
+  }catch(e){
+    console.error('[saveUser]', e);
+    toast(_userRpcMsg(e),'error');
+  }finally{
+    _userBusy.delete(key);
+    if(btn){ btn.disabled=false; btn.innerHTML='<i data-lucide="check"></i> บันทึก'; refreshIcons(); }
+  }
+}
 
 /* 🔒 READ-ONLY: SHIPPING FZ ไม่ลบบัญชีในตาราง users เดิม (ลบ query ออกจากไฟล์แล้ว) */
 async function deleteUserConfirm(id){ _sfzLegacyUserReadOnly(); }

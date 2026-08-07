@@ -1,66 +1,113 @@
-759a760,791
-> /* ============================================================
->    🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
->    scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
->    ============================================================ */
-> .sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-> .sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
-> .sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
-> .sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
-> .sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
-> .sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
-> .sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
-> .sfz-rip{justify-content:center}
-> .sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
-> .sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
-> .sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-> .sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
-> .sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
-> .sfz-rip-dd .rip-dd-item.is-disabled{opacity:.42;cursor:not-allowed}
-> .sfz-rip-dd .rip-dd-danger{color:#F87171}
-> .sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
-> .sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
-> #rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
-> #rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
-> #rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
-> @media (max-width:768px),(pointer:coarse){
->   .sfz-rip{width:100%}
->   .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
->   .sfz-rip .rip-menu{flex:0 0 auto;min-width:44px;min-height:44px}
->   .sfz-rip-dd{min-width:210px}
->   .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
->   #rip-att .rip-att-meta{display:none}
+4543c4543,4546
+<       <span style="font-size:11.5px;color:var(--muted2)">🔒 อ่านอย่างเดียว</span>
+---
+>       ${isSuper() ? (
+>           (status==='pending' ? `<button class="btn btn-sm btn-primary" onclick="approveUser('${u.id}')"><i data-lucide="check"></i> อนุมัติ</button>` : '')
+>         + `<button class="btn btn-sm btn-ghost" onclick="openUserEdit('${u.id}')"><i data-lucide="pencil"></i> แก้ไข</button>`
+>         ) : '<span style="font-size:11.5px;color:var(--muted2)">🔒 อ่านอย่างเดียว</span>'}
+4557c4560,4574
+< async function approveUser(id){ _sfzLegacyUserReadOnly(); }
+---
+> async function approveUser(id){
+>   if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่อนุมัติบัญชีได้','error'); return; }
+>   if(_userBusy.has(id)) return;
+>   _userBusy.add(id);
+>   try{
+>     const { error } = await sb.rpc('sfz_admin_update_user', {
+>       p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+>       p_user_id: String(id), p_status: 'active'
+>     });
+>     if(error) throw error;
+>     toast('อนุมัติบัญชีแล้ว','success');
+>     await loadUsersData(); renderUsers();
+>   }catch(e){ toast(_userRpcMsg(e),'error'); }
+>   finally{ _userBusy.delete(id); }
 > }
-2762,2793d2793
-< /* ============================================================
-<    🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
-<    scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
-<    ============================================================ */
-< .sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-< .sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
-< .sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
-< .sfz-rip .rip-att,#rip-att .rip-att{background:#7C3AED;border-color:#A78BFA}
-< .sfz-rip .rip-close,#rip-att .rip-close{background:#0EA672;border-color:#10B981}
-< .sfz-rip .rip-del,#rip-att .rip-del{background:#DC2626;border-color:#F87171}
-< .sfz-rip .rip-btn.is-disabled{opacity:.45;cursor:not-allowed}
-< .sfz-rip{justify-content:center}
-< .sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
-< .sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
-< .sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-< .sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
-< .sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
-< .sfz-rip-dd .rip-dd-item.is-disabled{opacity:.42;cursor:not-allowed}
-< .sfz-rip-dd .rip-dd-danger{color:#F87171}
-< .sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
-< .sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
-< #rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
-< #rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
-< #rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
-< @media (max-width:768px),(pointer:coarse){
-<   .sfz-rip{width:100%}
-<   .sfz-rip .rip-btn{flex:1 1 calc(50% - 6px);min-height:44px;font-size:13px}
-<   .sfz-rip .rip-menu{flex:0 0 auto;min-width:44px;min-height:44px}
-<   .sfz-rip-dd{min-width:210px}
-<   .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
-<   #rip-att .rip-att-meta{display:none}
-< }
+4570,4571c4587,4594
+< function openUserAdd(){ if(_sfzLegacyUserReadOnly()) return; openUserForm(null); }
+< function openUserEdit(id){ if(_sfzLegacyUserReadOnly()) return; const u=(S.users||[]).find(x=>x.id===id); if(u) openUserForm(u); }
+---
+> function openUserAdd(){
+>   if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่เพิ่มผู้ใช้ได้','error'); return; }
+>   openUserForm(null);
+> }
+> function openUserEdit(id){
+>   if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่แก้ไขผู้ใช้ได้','error'); return; }
+>   const u=(S.users||[]).find(x=>x.id===id); if(u) openUserForm(u);
+> }
+4621c4644,4716
+< async function saveUser(editId){ _sfzLegacyUserReadOnly(); }
+---
+> /* แปลง error code จาก RPC เป็นข้อความที่อ่านรู้เรื่อง (ระบุสาเหตุจริง ไม่ใช่ "เพิ่มผู้ใช้ไม่ได้") */
+> const _userBusy = new Set();
+> function _userRpcMsg(e){
+>   const raw = String((e && (e.message || e.details || e.hint)) || '');
+>   if(/permission_denied/.test(raw))            return 'ไม่มีสิทธิ์: เฉพาะ SUPER ADMIN เท่านั้น (permission_denied)';
+>   const dup = raw.match(/username_already_exists:?\s*(\S*)/);
+>   if(dup)                                      return 'Username นี้ถูกใช้แล้ว: '+(dup[1]||'')+' (username_already_exists)';
+>   const role = raw.match(/invalid_role:?\s*(\S*)/);
+>   if(role)                                     return 'บทบาทไม่ถูกต้อง: '+(role[1]||'')+' (invalid_role)';
+>   const st = raw.match(/invalid_status:?\s*(\S*)/);
+>   if(st)                                       return 'สถานะไม่ถูกต้อง: '+(st[1]||'')+' (invalid_status)';
+>   const miss = raw.match(/missing_required_field:?\s*(\S*)/);
+>   if(miss)                                     return 'กรอกข้อมูลไม่ครบ: '+(miss[1]||'')+' (missing_required_field)';
+>   if(/user_not_found/.test(raw))               return 'ไม่พบบัญชีนี้ (user_not_found)';
+>   if(/Could not find the function|PGRST202/.test(raw))
+>     return 'ยังไม่ได้ติดตั้ง RPC จัดการผู้ใช้ — รันไฟล์ sql/030_user_admin_rpc.sql ก่อน';
+>   return raw || 'บันทึกไม่สำเร็จ';
+> }
+> 
+> async function saveUser(editId){
+>   if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้นที่จัดการผู้ใช้ได้','error'); return; }
+>   const full_name = $('u-name').value.trim();
+>   const username  = $('u-username') ? $('u-username').value.trim() : '';
+>   const password  = $('u-password') ? $('u-password').value : '';
+>   const status    = $('u-status').value || 'active';
+>   const department= $('u-dept').value || null;
+>   const role      = $('u-role').value || 'STAFF';
+>   const termsArr  = Array.from(document.querySelectorAll('.u-term-chk:checked')).map(c=>c.value);
+>   const terminals = termsArr.length ? termsArr.join(', ') : null;
+> 
+>   if(!full_name){ toast('กรอกชื่อ-สกุล','error'); return; }
+>   if(!editId && !username){ toast('กรอก Username','error'); return; }
+>   if(!editId && !password){ toast('ตั้งรหัสผ่าน','error'); return; }
+>   if(USER_ROLES.indexOf(String(role).toUpperCase())<0){ toast('บทบาทไม่ถูกต้อง','error'); return; }
+> 
+>   const key = editId || ('new:'+username);
+>   if(_userBusy.has(key)) return;                       // กันกดซ้ำ / INSERT ซ้ำ
+>   _userBusy.add(key);
+> 
+>   const btn=$('u-save'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...'; }
+>   try{
+>     if(editId){
+>       const { error } = await sb.rpc('sfz_admin_update_user', {
+>         p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+>         p_user_id: String(editId), p_full_name: full_name, p_department: department,
+>         p_role: role, p_status: status, p_password: password || null,
+>         p_terminals: terminals, p_set_terminals: true
+>       });
+>       if(error) throw error;
+>       toast('บันทึกการแก้ไขแล้ว','success');
+>     }else{
+>       const colors=['#0EA672','#3B82F6','#A855F7','#F59E0B','#EF4444','#14B8A6','#F97316'];
+>       const { error } = await sb.rpc('sfz_admin_create_user', {
+>         p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
+>         p_username: username, p_password: password, p_full_name: full_name,
+>         p_department: department, p_role: role, p_status: status,
+>         p_terminals: terminals, p_avatar: colors[Math.floor(Math.random()*colors.length)]
+>       });
+>       if(error) throw error;
+>       toast('เพิ่มผู้ใช้สำเร็จ','success');
+>     }
+>     closeModal('modal-form');
+>     _shipSetsCache=null;                               // รายชื่อเปลี่ยน → ล้าง cache map ผู้ใช้
+>     await loadUsersData();                             // reload เฉพาะรายชื่อผู้ใช้
+>     renderUsers();
+>   }catch(e){
+>     console.error('[saveUser]', e);
+>     toast(_userRpcMsg(e),'error');
+>   }finally{
+>     _userBusy.delete(key);
+>     if(btn){ btn.disabled=false; btn.innerHTML='<i data-lucide="check"></i> บันทึก'; refreshIcons(); }
+>   }
+> }
