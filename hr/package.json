@@ -1,0 +1,27 @@
+{
+  "name": "nj-hr-v2",
+  "version": "2.4.0",
+  "private": true,
+  "description": "NJ LOGISTIC HR SYSTEM V2 — build tools (runtime split: core / dashboard / compatibility)",
+  "scripts": {
+    "build": "node build.js",
+    "build:raw": "node build.js --raw",
+    "check": "node build.js --check && node harness/check-all-js.js",
+    "test:regression": "node harness/compare.js rollback/before_runtime_dashboard_split .",
+    "test:p2": "node harness/p2_suite.js . 8901",
+    "test:gate": "node harness/p2_gate.js . 8902",
+    "test:sw": "node harness/p2_sw.js . 8903",
+    "test:perf": "node harness/measure.js . 8904 AFTER compat",
+    "test:p3": "node harness/p3_feature.js . 8905"
+  },
+  "devDependencies": {
+    "clean-css": "5.3.3",
+    "terser": "5.49.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

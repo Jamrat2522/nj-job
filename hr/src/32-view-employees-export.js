@@ -1,0 +1,55 @@
+  /* ================= EMPLOYEES EXPORT =================
+     ย้ายมาจาก 08-view-employees.js โดยไม่แก้เนื้อใน
+     โหลดเมื่อกดปุ่ม #emp-export เท่านั้น ================= */
+  var EMP_XLS_HEAD = ['ลำดับ', 'รหัสพนักงาน', 'คำนำหน้า', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'แผนก',
+    'ตำแหน่ง', 'ระดับ', 'ประเภทพนักงาน', 'วันที่เริ่มงาน', 'วันที่พ้นสภาพ', 'สถานะ', 'เบอร์โทร', 'อีเมล'];
+
+  function empExport(btn) {
+    var s = empState, errEl = document.getElementById('emp-err');
+    if (errEl) errEl.textContent = '';
+    if (btn.disabled) return;
+    var label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังสร้างไฟล์…';
+    // ดึงทั้งหมดตามตัวกรอง (ไม่ใช่แค่หน้าปัจจุบัน) ครั้งละ 100 แถว
+    var all = [];
+    function pull(off) {
+      return sbRpcList('njhr_emp_list', {
+        p_token: sbToken(), p_q: s.q || null, p_dept: s.dept || null, p_status: s.status || null,
+        p_sort: s.sort, p_desc: s.desc, p_limit: 100, p_offset: off
+      }).then(function (rows) {
+        all = all.concat(rows);
+        var total = rows.length ? Number(rows[0].total_count) : 0;
+        if (all.length < total && rows.length) return pull(off + 100);
+      });
+    }
+    pull(0).then(function () {
+      if (!all.length) { throw new Error('ไม่พบพนักงานตามเงื่อนไขที่เลือก'); }
+      var now = new Date();
+      var stamp = empBE(now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())) +
+        ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+      var title = [db.settings.companyName, 'ทะเบียนพนักงาน',
+        'แผนก: ' + (s.dept || 'ทุกแผนก'),
+        'สถานะ: ' + (s.status ? EMP_STATUS_MAP[s.status] : 'ทุกสถานะ'),
+        'จำนวนพนักงาน: ' + all.length + ' คน', 'วันที่ Export: ' + stamp];
+      var cells = all.map(function (e, i) {
+        return [i + 1, e.emp_code, e.prefix, e.full_name, e.nickname, e.department_name,
+          e.position_name, e.level, e.emp_type, empBE(e.start_date),
+          e.resign_date ? empBE(e.resign_date) : '—', EMP_STATUS_MAP[e.status] || e.status,
+          e.phone, e.email];
+      });
+      return rptLoadZip().then(function () {
+        return rptBuildXlsx('ทะเบียนพนักงาน', EMP_XLS_HEAD, cells,
+          [8, 14, 10, 26, 12, 20, 22, 12, 16, 14, 14, 12, 14, 24], title);
+      });
+    }).then(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = rptSafeName('ทะเบียนพนักงาน_' + (empState.dept || 'ทุกแผนก')) + '.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      audit('EXPORT', 'Export ทะเบียนพนักงาน ' + all.length + ' คน');
+      toast('ดาวน์โหลดทะเบียนพนักงานแล้ว ' + all.length + ' คน');
+    }).catch(function (ex) {
+      if (errEl) errEl.textContent = (ex && ex.message) || 'Export ไม่สำเร็จ';
+    }).then(function () { btn.disabled = false; btn.innerHTML = label; });
+  }

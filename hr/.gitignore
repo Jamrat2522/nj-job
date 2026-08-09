@@ -1,0 +1,59 @@
+# ============================================================
+# NJ HR V2 — .gitignore
+# ============================================================
+
+# Dependencies — ติดตั้งใหม่ด้วย npm ci จาก package-lock.json
+node_modules/
+
+# ไฟล์แพ็กเกจสำหรับส่งมอบ — สร้างใหม่ได้ทุกครั้ง ไม่ต้องเก็บใน Git
+*.zip
+hr-v2-deploy/
+hr-v2-source/
+
+# สแนปช็อตย้อนกลับ — ใช้ Git History แทน (tag ต่อ build)
+rollback/
+
+# ผลดิบจากชุดทดสอบ — สร้างใหม่ทุกครั้งที่รัน
+harness/*_result.md
+harness/p3_sw_raw_output.txt
+harness/last.json
+harness/shots/
+harness/screenshots/
+
+# ระบบปฏิบัติการ / เครื่องมือแก้ไข
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# Log
+*.log
+npm-debug.log*
+
+# ไฟล์ชั่วคราว
+tmp/
+temp/
+.cache/
+
+# ============================================================
+# ⚠ ข้อควรระวังด้านความปลอดภัย
+#
+# config.js ถูกเก็บใน Git โดยเจตนา เพราะมีเฉพาะค่า Public:
+#   NJHR_SUPABASE_URL · NJHR_SUPABASE_ANON_KEY (publishable key)
+# ซึ่งเบราว์เซอร์อ่านได้อยู่แล้ว ไม่ใช่ความลับ
+#
+# ห้ามใส่ค่าเหล่านี้ลง Git เด็ดขาด:
+#   Service Role Key · Database Password · Secret Key
+#   Access Token · Refresh Token · JWT Secret
+#
+# ถ้าจำเป็นต้องใช้ ให้เก็บใน Environment Variable ของโฮสต์เท่านั้น
+# ============================================================
+.env
+.env.*
+*.pem
+*.key
+service-role*
+secret*
