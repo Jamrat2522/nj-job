@@ -1,0 +1,88 @@
+MASSENGER V3 — DEPLOY FILES  (3.6.1 -> 3.6.2)
+=============================================
+วันที่: 2026-08-10
+!! ห้าม deploy จนกว่าจะทดสอบตาม "ทดสอบก่อนขึ้น production" ด้านล่างครบ !!
+
+-----------------------------------------------------------------
+A) ไฟล์ที่ต้องอัปโหลดทับ  (5 ไฟล์)  -- อัปตามลำดับนี้เท่านั้น
+-----------------------------------------------------------------
+1.  config/runtime-config.js        APP_BUILD 3.6.2 + DOC_STATUS_RPC:true
+2.  js/core/runtime.js              _RC_DEFAULTS -> 3.6.2
+3.  js/app.js                       แกนหลักที่แก้ทั้งหมด
+4.  js/heavy-users.js               lazy load seed users
+5.  index.html                      ?v=3.6.2 (5 จุด)   <-- อัปตัวสุดท้ายเสมอ
+
+-----------------------------------------------------------------
+B) ไฟล์ใหม่  (ตัดสินใจก่อนว่าจะ deploy หรือไม่)
+-----------------------------------------------------------------
+    js/admin/seed-users.js
+      - มีรหัสผ่านบัญชีจริง 121 บัญชี (plaintext)
+      - index.html ไม่อ้างอิงไฟล์นี้
+      - ระบบทำงานปกติ 100% โดยไม่มีไฟล์นี้
+      - จะขึ้น error เฉพาะตอน SUPER_ADMIN กดปุ่ม "Sync Users" เท่านั้น
+      >> แนะนำ: อย่า deploy ถ้าไม่ได้ใช้ Sync Users
+      >> ดู PERFORMANCE_REPORT.md ข้อ 4
+
+-----------------------------------------------------------------
+C) ไฟล์ที่ไม่ได้แก้  (ไม่ต้องอัปโหลด)
+-----------------------------------------------------------------
+    css/app.css
+    js/utils/format.js
+    js/heavy-jobs.js
+    js/heavy-dash.js
+    js/heavy-export.js
+    js/heavy-ot.js
+    js/app.monolithic.js        <-- rollback เท่านั้น ห้ามโหลดในระบบปกติ ห้ามลบ
+
+-----------------------------------------------------------------
+D) SQL MIGRATION  -- ยังไม่ execute ทั้งหมด
+-----------------------------------------------------------------
+    sql/migration_massenger_maintenance.sql      [ยังไม่รัน]
+        แทนงานซ่อมข้อมูลที่ถอดออกจาก boot
+        มี p_dry_run=true เป็นค่าเริ่มต้น -> รัน DRY RUN ก่อนเสมอ
+        !! ต้องตรวจว่าคอลัมน์ postponed_until / delivery_status มีจริงก่อน !!
+
+    sql/migration_massenger_search_index.sql     [ยังไม่รัน]
+        index สำหรับ ilike '%keyword%'
+        SECTION A ต้องรันก่อน ถ้า EXPLAIN ไม่ช้าจริง = ไม่ต้องสร้าง
+
+    sql/migration_massenger_doc_status_rows.sql  [ยังไม่รัน]  <-- ต้องรันถ้าเปิด DOC_STATUS_RPC
+        3.6.2 ตั้ง DOC_STATUS_RPC:true แล้ว
+        ถ้าไม่รัน migration นี้ ระบบจะ fallback เส้นทางเดิมอัตโนมัติ (ไม่พัง)
+
+    sql/migration_massenger_sidebar_counts.sql   [รันแล้ว 2026-08-10]
+    sql/migration_massenger_status_counts.sql    [รันแล้ว]
+
+-----------------------------------------------------------------
+E) ลำดับการทำงานที่แนะนำ
+-----------------------------------------------------------------
+1.  รัน sql/migration_massenger_doc_status_rows.sql
+2.  ทดสอบ RPC ด้วย query ตัวอย่างท้ายไฟล์ SQL
+3.  อัปโหลดไฟล์ A ตามลำดับ 1->5
+4.  Hard refresh (Ctrl+Shift+R / Cmd+Shift+R)
+5.  ทดสอบตามรายการด้านล่าง
+6.  รัน sql/migration_massenger_maintenance.sql แบบ DRY RUN แล้วดูตัวเลข
+7.  รัน sql/migration_massenger_search_index.sql SECTION A แล้วดู EXPLAIN
+
+-----------------------------------------------------------------
+F) ทดสอบก่อนขึ้น production  (ยังไม่ได้ทดสอบจากฝั่งผู้พัฒนา)
+-----------------------------------------------------------------
+[ ] SUPER_ADMIN desktop : badge ขึ้นครบ 8 ตัวทันทีหลัง login
+[ ] SUPER_ADMIN desktop : Network เห็น massenger_sidebar_counts เพียง 1 ครั้ง
+[ ] ADMIN desktop       : Network ไม่มี jobs.update ต่อเนื่องหลัง login (เดิมมีถึง 500)
+[ ] ทุก role            : เข้า wait / going / done-today / canceled ได้ปกติ
+[ ] SHIPPING            : landing doc-new ขึ้นปกติ
+[ ] โมดูลเอกสาร         : ทุกสถานะเปิดได้ ตัวเลข badge เท่าเดิม
+[ ] คอลัมน์สถานะการทำงาน / สถานะระบบ ในหน้าเอกสาร ต้องเหมือนก่อนอัปเดต
+      (ถ้าไม่ตรง = ปิด DOC_STATUS_RPC กลับเป็น false)
+[ ] มือถือ               : ไม่มีเมนู "งานทั้งหมด" และ "เอกสารทั้งหมด"
+[ ] มือถือ               : badge เมนูอื่นขึ้นปกติ
+[ ] desktop "งานทั้งหมด" : เปิดแล้วหน้าว่าง ไม่มี query โหลดรายการ
+[ ] desktop "งานทั้งหมด" : ค้นหา 2 ตัวอักษร -> ได้ผล แบ่งหน้า 50 ปุ่มก่อนหน้า/ถัดไปทำงาน
+[ ] desktop "เอกสารทั้งหมด" : เหมือนกัน
+[ ] สร้างงาน / รับงาน / ปิดงาน / แนบไฟล์ / ลายเซ็น : ทำงานปกติ
+[ ] Realtime : เปลี่ยนสถานะจากอีกเครื่อง badge ขยับใน ~0.6 วิ
+[ ] ปุ่มรีเฟรช : badge อัปเดต ไม่มี query โหลดรายการทั้งหมด
+[ ] ไอคอนทุกหน้า : ไม่มีไอคอนหาย
+[ ] Sync Users : ถ้า deploy seed-users.js -> ทำงานปกติ
+                 ถ้าไม่ deploy -> ขึ้น toast error เฉพาะตอนกดปุ่ม (ยอมรับได้)
