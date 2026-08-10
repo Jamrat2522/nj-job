@@ -5001,6 +5001,7 @@ function mapCountryCodeCommon(name){
 
 /* ── Schaeffler TECHNO (19 cols) ── */
 function parseSchaefflerTechno(lines){
+  console.info('[Techno parser] designation-structure-v3');
   const text = lines.join('\n');
 
   // ── Comprehensive country mapper (shared by main + fallback parsers) ──
@@ -5084,6 +5085,29 @@ function parseSchaefflerTechno(lines){
   const originMatch = text.match(/Country\s+of\s+origin\s*:?\s*([\p{L}][\p{L}.\s]{1,40})/iu);
   const origin_code = originMatch ? technoCountryCode(originMatch[1].trim()) : '';
 
+  // ── Item boundary map (Techno only) ──────────────────────────────────────
+  // เก็บตำแหน่งเริ่มต้นของ "ทุกรายการ" ทั้ง Format A (3-part มี slash) และ Format B
+  // (Intercompany 2-part ไม่มี slash) — regex ต้องตรงกับที่ใช้จับ item ใน main loop เป๊ะ ๆ
+  // ใช้กำหนดขอบเขต item block: [itemStart .. nextItemStart) เพื่อให้การค้นหา
+  // "Country of origin" ข้าม Footer / Page break / Header หน้าถัดไป / "Page:" / "2/4" /
+  // หัวตารางซ้ำ ได้โดยไม่หลุดไปรายการถัดไป
+  const _TECHNO_ITEM_RE_A = /^(\d{6})\s+(\d{7,9}-\d{3,4}-\d{2})\s*\/\s*(\d{14,16})\s*\/\s*([\d,]+)\s+([A-Z][A-Z0-9]*)/;
+  const _TECHNO_ITEM_RE_B = /^(\d{6})\s+(\d{7,9}-\d{3,4}-\d{2})\s+([\d,]+)\s+([A-Z][A-Z0-9]*)$/;
+  const _technoIsItemStart = (raw) => {
+    const l = cleanTextCommon(raw || '');
+    if(!l) return false;
+    return _TECHNO_ITEM_RE_A.test(l) || _TECHNO_ITEM_RE_B.test(l);
+  };
+  const _technoItemStarts = [];
+  for(let s = 0; s < lines.length; s++){
+    if(_technoIsItemStart(lines[s])) _technoItemStarts.push(s);
+  }
+  // ขอบเขตท้าย block ของรายการที่เริ่มบรรทัด idx = ตำแหน่งเริ่มรายการถัดไป (exclusive)
+  const _technoBlockEnd = (idx) => {
+    for(const p of _technoItemStarts){ if(p > idx) return p; }
+    return lines.length;
+  };
+
   const items = [];
   let currentPage = '';
 
@@ -5146,32 +5170,48 @@ function parseSchaefflerTechno(lines){
     // (เพิ่ม valve + non-bearing parts: valve, coupling, gear, clutch, pulley, tensioner,
     //  gasket, seal, pump, shaft, spring, chain, sensor)
     const IS_ENG_DESC = /bearing|housing|roller|insert|sprocket|track\s*roller|flanged|take.?up|plummer|needle|valve|coupling|gear|clutch|pulley|tensioner|gasket|seal|pump|shaft|spring|chain|sensor/i;
-    const isArtifact  = (l) => /Schaeffler|Co\.,?\s*Ltd|Vietnam|GmbH|^Page|^\d+\/\d+$|^SI\d|^Original$|^Invoice$|^Item\s+Material|^Designation$|^Dimensions$/i.test(l)
+    const isArtifact  = (l) => /Schaeffler|Co\.,?\s*Ltd|Vietnam|GmbH|^Page|^\d+\/\d+$|^SI\d|^Original$|^Invoice$|^Item\s+Material|^Designation$|^Dimensions$|^corresponding\s+to\s*:/i.test(l)
                              || /Document\s+No\.|Delivery\s+Note|Order\s+No\.|Purch\.|^\d+\/\d+$/.test(l);
 
     let desc2 = '', english_description = '';
 
+    // ── บรรทัดที่ห้ามอ่านเป็น Designation เด็ดขาด (กัน false positive) ──
+    // corresponding to: ห้ามเขียนทับ Designation หลักโดยเด็ดขาด
+    const DESIG_REJECT = /^(?:corresponding\s+to\s*:|Order\b|Delivery\b|Date\s+of\s+delivery\s*:|Total\s+Value\b|Net\s+Value\b|Purch\.\s*order|Commodity\s+code\s*:|Country\s+of\s+origin\s*:|Designation$|Dimensions$|Price\s*\/\s*Price\s+unit)/i;
+
+    // ── โครงสร้าง Designation มาตรฐาน Schaeffler ──
+    //   "<Designation>#<SupplyCode>/ <English Description>"
+    //   G1 = ทุกอย่างจนถึงจบ #SupplyCode (เก็บ "#" + supply code ไว้ครบ ห้ามตัด)
+    //   G2 = ข้อความหลัง "/" อย่างน้อย 1 ตัวอักษร (ไม่จำกัดความยาวขั้นต่ำ)
+    //   ".+?" แบบ lazy ทำให้ตัวแบ่งคือ "/" ที่อยู่ "หลัง #SupplyCode" เท่านั้น
+    //   → "/" ที่อยู่ภายใน Designation ก่อน #SupplyCode จะไม่ถูกใช้เป็นตัวแบ่ง
+    const DESIG_RE = /^(.+?#[A-Za-z0-9][A-Za-z0-9>._-]*)\/\s*(\S(?:.*\S)?)$/;
+
     // Helper: try to parse a designation line "Article#Supply/ English"
     const tryParseLine = (ln) => {
       if (!ln || isArtifact(ln)) return null;
+      if (DESIG_REJECT.test(ln)) return null;
+
+      // ── Path 0 (PRIMARY): ตรวจจากโครงสร้าง Designation ──
+      // ไม่ใช้ keyword ชื่อสินค้า และไม่ใช้ความยาวขั้นต่ำ → รองรับชื่อสั้น (Bush/Nut/Pin/Seal…)
+      const dm = ln.match(DESIG_RE);
+      if (dm) {
+        const d2  = dm[1].trim();
+        const eng = dm[2].trim();
+        if (d2 && eng && eng.length <= 120 && /[A-Za-z]/.test(eng)) {
+          return { desc2: d2, english: eng };
+        }
+      }
+
+      // ── Fallback: Invoice รูปแบบเก่าที่ไม่มี "#SupplyCode" ──
       const parts = ln.split('/ ');
       if (parts.length >= 2) {
         const lastPart = parts[parts.length - 1].trim();
-        // Path A: keyword match — confidence สูง
+        // Path A: keyword match — ใช้เฉพาะเมื่อโครงสร้างด้านบนไม่เข้าเงื่อนไข
         if (IS_ENG_DESC.test(lastPart)) {
-          let articleRaw = parts.slice(0, parts.length - 1).join('/').trimEnd();
-          if (articleRaw.includes('#')) {
-            articleRaw = articleRaw.slice(0, articleRaw.indexOf('#')).replace(/\/\s*$/, '').trim();
-          }
-          return { desc2: articleRaw, english: lastPart };
-        }
-        // Path B (fallback): format-based — ถ้า article part มี "#<code>"
-        // นี่เป็น Schaeffler designation format มาตรฐาน — ใช้กับ product ทุกประเภท
-        // (Supply code อาจเป็น digits "#0001" หรือ letter "#N" / "#X" ก็ได้)
-        // ป้องกัน false positive ด้วย isArtifact filter ด้านบน + เช็คความยาว lastPart
-        const articlePart = parts.slice(0, parts.length - 1).join('/');
-        if (/#[A-Za-z0-9]+/.test(articlePart) && lastPart.length >= 5 && lastPart.length <= 120) {
-          let articleRaw = articlePart.slice(0, articlePart.indexOf('#')).replace(/\/\s*$/, '').trim();
+          // Desc 2 = Designation ทั้งหมดที่อยู่ซ้ายของตัวแบ่ง "/ " — ต้องเก็บ Supply code
+          //   (#N1, #N1>V, #S2, ...) ไว้ครบ ห้ามตัดที่ "#"
+          const articleRaw = parts.slice(0, parts.length - 1).join('/').replace(/\/\s*$/, '').trim();
           return { desc2: articleRaw, english: lastPart };
         }
       }
@@ -5179,12 +5219,19 @@ function parseSchaefflerTechno(lines){
       return null;
     };
 
-    // Scan i+1 to i+15 to find description (handles cross-page items)
-    for (let k = 1; k <= 15; k++) {
-      const ln = cleanTextCommon(lines[i+k] || '');
+    // ── ขอบเขต item block ของรายการนี้ ([i+1 .. nextItemStart)) ──
+    // ใช้ร่วมกันทั้ง Description / Desc 2 / Unit Price / Total Price / Country of origin
+    // — ไม่จำกัดด้วยจำนวนบรรทัดตายตัว จึงอ่านข้าม Footer / Page break / Header หน้าถัดไป /
+    //   "Page:" / "3/8" / หัวตารางซ้ำ ได้ และหยุดก่อนรายการถัดไปเสมอ
+    const _blockEnd = _technoBlockEnd(i);
+
+    // Scan ภายใน item block เพื่อหา designation line (รองรับรายการที่ถูกตัดข้ามหน้า)
+    // บรรทัดรบกวน (Schaeffler / Registered Seat / General Partner / Bank accounts /
+    // Original / Invoice / Document No. / Page: / n/n / Item-Designation-Dimensions /
+    // Price / Price unit) ถูกกรองด้วย isArtifact ใน tryParseLine อยู่แล้ว → ข้ามแล้วค้นต่อ
+    for (let k = i+1; k < _blockEnd; k++) {
+      const ln = cleanTextCommon(lines[k] || '');
       if (!ln) continue;
-      // Stop if we hit the next item line
-      if (k > 1 && /^\d{6}\s+[\d]/.test(ln)) break;
       const parsed = tryParseLine(ln);
       if (parsed) {
         desc2               = parsed.desc2;
@@ -5193,9 +5240,12 @@ function parseSchaefflerTechno(lines){
       }
     }
 
-    let unit_price = '', total_price = '', item_origin = origin_code;
+    // ค่าเริ่มต้นของ origin ต้องเป็นค่าว่างเสมอ — ห้ามใช้ origin_code (ประเทศแรกในเอกสาร)
+    // หรือประเทศของรายการก่อนหน้า เพราะจะทำให้ประเทศข้ามรายการเมื่อรายการถูกตัดข้ามหน้า
+    let unit_price = '', total_price = '', item_origin = '';
+    let _valueFound = false, _originFound = false;
 
-    for(let j = i+1; j < Math.min(i+25, lines.length); j++){
+    for(let j = i+1; j < _blockEnd; j++){
       const look = cleanTextCommon(lines[j] || '');
 
       // ── Value line: ──
@@ -5203,20 +5253,29 @@ function parseSchaefflerTechno(lines){
       //   Format B (Intercompany): "Net Value 2.39 / 1 PC 4,818.24"
       //   "for item" จึงทำเป็น optional
       // Group1=unit_price, skip qty, Group2=total_price
-      const valMatch = look.match(
-        /(?:Total|Net)\s+Value(?:\s+for\s+(?:item|Item))?\s+([\d,.]+)\s*\/\s*[\d,]+\s*PC\s+([\d,.]+)/i
-      );
-      if (valMatch) {
-        unit_price  = toNumberCommon(valMatch[1]);
-        total_price = toNumberCommon(valMatch[2]);
+      if (!_valueFound) {
+        const valMatch = look.match(
+          /(?:Total|Net)\s+Value(?:\s+for\s+(?:item|Item))?\s+([\d,.]+)\s*\/\s*[\d,]+\s*PC\s+([\d,.]+)/i
+        );
+        if (valMatch) {
+          unit_price  = toNumberCommon(valMatch[1]);
+          total_price = toNumberCommon(valMatch[2]);
+          _valueFound = true;
+        }
       }
 
       // ── Per-item country of origin (allows "." for "P.R. of China", \p{L} for ü/Türkiye) ──
-      const oi = look.match(/Country\s+of\s+origin\s*:?\s*([\p{L}][\p{L}.\s]{1,40})/iu);
-      if (oi) item_origin = technoCountryCode(oi[1].trim());
+      // ผูกกับ "รายการแรกที่พบใน block นี้" เท่านั้น
+      if (!_originFound) {
+        const oi = look.match(/Country\s+of\s+origin\s*:?\s*([\p{L}][\p{L}.\s]{1,40})/iu);
+        if (oi) { item_origin = technoCountryCode(oi[1].trim()); _originFound = true; }
+      }
 
-      // Stop at next item line
-      if (j > i+1 && /^\d{6}\s+\d{7,9}-\d{3,4}-\d{2}\s*\//.test(look)) break;
+      if (_valueFound && _originFound) break;
+    }
+
+    if (!_originFound) {
+      console.warn('[Techno] ⚠ อ่าน Country of origin ไม่ได้ภายใน item block — item', no, product_code, '(line', i, '→', _blockEnd, ')');
     }
 
     items.push({
@@ -5302,7 +5361,9 @@ function parseSchaefflerTechno(lines){
       const tmpRe = /(\d{6})\s+(\d{7,9}-\d{3,4}-\d{2})\s*\/\s*(\d{14,16})\s*\/\s*([\d,]+)\s+(PC|EA|PCS|PCE|KG|KGM|M|MM)\b/g;
       let im;
       while((im = tmpRe.exec(bigText)) !== null){
-        itemPositions.push(im.index + im[0].length);
+        // เก็บ "ตำแหน่งเริ่มต้น" ของรายการ (ไม่ใช่ตำแหน่งท้ายรายการ)
+        // เพื่อให้ nextItemStart เป็นขอบเขตของ item block ที่ถูกต้อง
+        itemPositions.push(im.index);
       }
     }
     // English description (after material_no, before next pattern)
@@ -5339,19 +5400,20 @@ function parseSchaefflerTechno(lines){
       const total_price = tv ? tv.total : 0;
       itemIdx++;
 
-      // หา origin: ก่อนอื่นมองหา "Country of origin" ในระยะ window หลัง itemEnd (ล่าสุดที่อยู่ใกล้)
+      // หา origin: ต้องอยู่ "หลัง item ปัจจุบัน และก่อน item ถัดไป" เท่านั้น
+      // ห้ามยืมประเทศของรายการก่อนหน้า (originBefore) และห้ามใช้ origin_code เป็น default
       let item_origin = '';
       const originAfter = originPositions.find(p => p.pos > itemEnd && p.pos < nextItemStart);
       if(originAfter){
         item_origin = technoCountryCode(originAfter.raw);
       } else {
-        const originBefore = lastBefore(originPositions, itemStart);
-        item_origin = originBefore ? technoCountryCode(originBefore.raw) : (origin_code || '');
+        console.warn('[Techno] ⚠ Fallback: อ่าน Country of origin ไม่ได้ภายใน item block — item', no, product_code);
       }
 
       // ── Description parsing ──
       // Format: " 6409-C-C3#N1/ Deep groove ball bearing 45,000X120,000X29,000 MM Order ..."
-      //   - article (Desc 2) = ทุกอย่างก่อน "#" (อาจมี "/" ในนั้น เช่น "NRB2X17,8-G2/0-2")
+      //   - Desc 2 = Designation ทั้งหมดก่อนตัวแบ่ง "/" = Article + "#" + Supply code
+      //     (อาจมี "/" ใน article เช่น "NRB2X17,8-G2/0-2") — ห้าม export เฉพาะ Article code
       //   - english description = ข้อความหลัง "#XXX/ " จนถึง dimensions/Order/Total
       //   - รองรับ english desc ที่ขึ้นต้นด้วย digit เช่น "4/3-way central valve" หรือ
       //     มี digit ตรงกลาง เช่น "AS 4 socket" — ตัดที่ dimension format \d+[,X.]\d+
@@ -5362,13 +5424,13 @@ function parseSchaefflerTechno(lines){
       // G3 (eng desc): รับ letter/digit + space/dash/slash/dot — ตัดที่ dimension หรือ Order/Total/...
       const descM = after.match(/^\s*([A-Za-z0-9][A-Za-z0-9,.\-\/]*?)#([A-Z0-9>]+)\/\s*([A-Za-z0-9][A-Za-z0-9\s\-\/.]+?)(?=\s+\d+[,X.\u00D7]\d+|\s+\d{3,}\s|\s+Order|\s+Total|\s+Net|\s+Date|\s+Schaeffler|\s+corresponding|\s+Comm|\s+US\s+Export|\s+\d+\s+(?:PC|EA|MM|KG))/i);
       if(descM){
-        desc2 = descM[1].trim();
+        desc2 = (descM[1].trim() + '#' + descM[2].trim()).trim();
         english_description = descM[3].trim().replace(/\s*\/\s*/g, '/');
       } else {
         const wider = bigText.slice(itemEnd, itemEnd + 1500);
         const wideM = wider.match(/([A-Za-z0-9][A-Za-z0-9,.\-\/]{2,40})#([A-Z0-9>]+)\/\s*([A-Za-z0-9][A-Za-z0-9\s\-\/.]{3,80}?)(?=\s+\d+[,X.\u00D7]\d+|\s+\d{3,}\s|\s+Order|\s+Total|\s+Net|\s+corresponding|\s+Comm)/i);
         if(wideM){
-          desc2 = wideM[1].trim();
+          desc2 = (wideM[1].trim() + '#' + wideM[2].trim()).trim();
           english_description = wideM[3].trim().replace(/\s*\/\s*/g, '/');
         }
       }
@@ -5599,6 +5661,23 @@ function parseSchaefflerAutomotive(lines){
   const payment_conditions = paymentMatch ? cleanTextCommon(paymentMatch[1]) : '';
   const items = [];
   let currentPage = '';
+
+  // ── Item boundary map (Automotive only) ─────────────────────────────────
+  // เก็บตำแหน่งเริ่มต้นของทุก Item (regex เดียวกับที่ใช้จับ item ใน main loop)
+  // ใช้กำหนดขอบเขต item block: [itemStart .. nextItemStart) เพื่ออ่าน
+  //   Description / Product Code / Preference status / Country of origin
+  // ได้ครบโดยข้าม Footer / Bank line / Page break / Header หน้าถัดไป
+  // และไม่ใช้จำนวนบรรทัดตายตัวเป็นขอบเขต
+  const _AUTO_ITEM_RE = /^(\d{4,6})\s+([A-Za-z0-9][A-Za-z0-9.]{0,14})\s+([A-Z0-9\-]+)\s+([\d,]+(?:\.\d+)?)\s+([A-Za-z]{1,5})\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([A-Z0-9]+)$/;
+  const _autoItemStarts = [];
+  for(let s = 0; s < lines.length; s++){
+    if(_AUTO_ITEM_RE.test(cleanTextCommon(lines[s]))) _autoItemStarts.push(s);
+  }
+  const _autoBlockEnd = (idx) => {
+    for(const p of _autoItemStarts){ if(p > idx) return p; }
+    return lines.length;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = cleanTextCommon(lines[i]);
 
@@ -5667,46 +5746,64 @@ function parseSchaefflerAutomotive(lines){
       return null;
     };
 
-    // Scan i+1 to i+20 to find description line (item 1 may cross page break)
+    // Scan ภายใน item block (i+1 .. nextItemStart) — ไม่ใช้จำนวนบรรทัดตายตัว
+    // แยกสถานะการพบข้อมูลแต่ละ field: การพบ Description ต้องไม่หยุดการค้นหา Origin
     // Skip bank/footer lines that contain IBAN/BIC/payment info
     const isBankLine = (ln) => /IBAN|BIC|SWIFT|Commerzbank|Geschäftsführer|Registergericht|haftende|Verwaltungs|Postfach|Morgan|USt-ID|EUR:|USD:/i.test(ln);
-    for(let k=1; k<=20; k++){
-      const ln = cleanTextCommon(lines[i+k]||'');
+    const _autoEnd = _autoBlockEnd(i);
+    let _descFound = false, _prefFound = false, _originFound = false;
+    for(let k = i+1; k < _autoEnd; k++){
+      const ln = cleanTextCommon(lines[k]||'');
       if(!ln) continue;
-      // Stop if next item line found
-      if(k>1 && /^\d{4,6}\s+[A-Za-z0-9][A-Za-z0-9.]{0,14}/.test(ln)) break;
       // Skip bank/footer lines
       if(isBankLine(ln)) continue;
-      const parsed = tryDescLine(ln);
-      if(parsed){
-        hs_code=parsed.hs; description=parsed.desc;
-        product_code=parsed.pc; activity_date=parsed.dt||activity_date;
-        break;
+
+      if(!_descFound){
+        const parsed = tryDescLine(ln);
+        if(parsed){
+          hs_code=parsed.hs; description=parsed.desc;
+          product_code=parsed.pc; activity_date=parsed.dt||activity_date;
+          _descFound = true;
+          continue;   // บรรทัดนี้เป็น Description แล้ว — ไปอ่านบรรทัดถัดไปต่อ (ห้าม break)
+        }
       }
       // Capture activity date from standalone date lines
       const onlyDate = ln.match(/^([0-9]{2}\.[0-9]{2}\.[0-9]{4})$/);
       if(onlyDate && !activity_date) activity_date=onlyDate[1];
-      // Preference status
-      if(/Preference\s+status:/i.test(ln)){
+      // Preference status + Country of origin — อยู่บรรทัดเดียวกัน ต้องอ่านให้ครบทั้งคู่
+      if((!_prefFound || !_originFound) && /Preference\s+status:/i.test(ln)){
         const pfM=ln.match(/Preference\s+status:\s*([A-Z])/i);
-        if(pfM) preference_status=pfM[1].trim();
+        if(pfM && !_prefFound){ preference_status=pfM[1].trim(); _prefFound = true; }
         // ใช้ \p{L} เพื่อจับ Unicode letters (ü ใน Türkiye)
         const orM=ln.match(/Country\s+of\s+origin:\s*([\p{L}][\p{L}.\s]+)/iu);
-        if(orM){ country_of_origin=cleanTextCommon(orM[1]); origin_code=autoCountryCode(country_of_origin); }
-      }
-    }
-    // Also scan for preference if not yet found (may appear after description)
-    if(!preference_status){
-      for(let k=1; k<=20; k++){
-        const ln=cleanTextCommon(lines[i+k]||'');
-        if(!ln || isBankLine(ln)) continue;
-        if(k>1 && /^\d{4,6}\s+[A-Za-z0-9][A-Za-z0-9.]{0,14}/.test(ln)) break;
-        if(/Preference\s+status:/i.test(ln)){
-          const pfM=ln.match(/Preference\s+status:\s*([A-Z])/i);
-          if(pfM) preference_status=pfM[1].trim();
-          break;
+        if(orM && !_originFound){
+          country_of_origin=cleanTextCommon(orM[1]);
+          origin_code=autoCountryCode(country_of_origin);
+          _originFound = true;
         }
       }
+      // หยุดได้เมื่อเก็บ field ที่จำเป็นครบแล้ว
+      if(_descFound && _prefFound && _originFound) break;
+    }
+    // Safety net: ถ้า Preference หรือ Origin ยังว่าง ให้ค้นหาต่อภายใน item block เดิม
+    if(!preference_status || !origin_code){
+      for(let k = i+1; k < _autoEnd; k++){
+        const ln=cleanTextCommon(lines[k]||'');
+        if(!ln || isBankLine(ln)) continue;
+        if(/Preference\s+status:/i.test(ln)){
+          const pfM=ln.match(/Preference\s+status:\s*([A-Z])/i);
+          if(pfM && !preference_status) preference_status=pfM[1].trim();
+          const orM=ln.match(/Country\s+of\s+origin:\s*([\p{L}][\p{L}.\s]+)/iu);
+          if(orM && !origin_code){
+            country_of_origin=cleanTextCommon(orM[1]);
+            origin_code=autoCountryCode(country_of_origin);
+          }
+          if(preference_status && origin_code) break;
+        }
+      }
+    }
+    if(!origin_code){
+      console.warn('[Auto] ⚠ อ่าน Country of origin ไม่ได้ภายใน item block — item', item_no, article_no, '(line', i, '→', _autoEnd, ')');
     }
     items.push({ item_no, invoice_no, invoice_date, article_no, batch_no, product_code,
       description, hs_code, quantity, unit, unit_price_thb, amount_thb, currency:'THB',
@@ -5804,7 +5901,7 @@ function parseSchaefflerAutomotive(lines){
       const tax_code       = im.groups[7].trim();
       const itemPos        = im.index;
       const itemEnd        = im.end;
-      const nextItemPos    = (idx + 1 < itemMatches.length) ? itemMatches[idx + 1].index : (itemEnd + 2000);
+      const nextItemPos    = (idx + 1 < itemMatches.length) ? itemMatches[idx + 1].index : bigText.length;
 
       // Per-item invoice
       const inv = lastBefore(invPositions, itemPos);
@@ -5827,6 +5924,8 @@ function parseSchaefflerAutomotive(lines){
         country_of_origin = originMatch.raw;
         // ใช้ autoCountryCode เพื่อ map → ISO code ครอบคลุม 60+ ประเทศ + fuzzy Türkiye/Czech/etc.
         origin_code = autoCountryCode(country_of_origin);
+      } else {
+        console.warn('[Auto] ⚠ Fallback: อ่าน Country of origin ไม่ได้ภายใน item block — item', item_no, article_no);
       }
 
       items.push({
