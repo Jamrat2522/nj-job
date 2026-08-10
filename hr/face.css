@@ -1,0 +1,137 @@
+/* ============================================================
+   NJ HR V.10 — face.css
+   สแกนใบหน้าเพื่อลงเวลา + ลงทะเบียนใบหน้า
+   โหลดเฉพาะตอนเปิดหน้าสแกน (face.js เป็นคนใส่ <link> ให้เอง)
+   ใช้ตัวแปรสีเดิมของระบบ ไม่แตะ styles.css และไม่กระทบ Desktop
+   ============================================================ */
+
+.njf-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: #0B0D10; color: #fff;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior: contain;
+}
+.njf-overlay[hidden] { display: none; }
+
+/* ---------- แถบบน ---------- */
+/* หัวหน้าสแกนเป็นสีขาว ตัวอักษรเข้ม ตามแบบ (ไม่ใช่แถบแดง) */
+.njf-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; background: #fff; color: #101828; flex: none;
+  border-bottom: 1px solid #E2E8F0;
+}
+.njf-top b { font-size: 16px; font-weight: 600; }
+.njf-top small { display: block; font-size: 11px; color: #94A3B8; }
+.njf-back {
+  border: 0; background: #F1F5F9; color: #334155;
+  width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 20px;
+}
+
+/* ---------- กล้อง ---------- */
+.njf-cam { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
+.njf-cam video {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scaleX(-1);                 /* กระจกเงา ให้ผู้ใช้จัดหน้าง่าย */
+  background: #000; display: block;
+}
+.njf-cam canvas { display: none; }
+
+.njf-guide { position: absolute; inset: 0; pointer-events: none; }
+.njf-oval {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
+  width: min(62vw, 260px); aspect-ratio: 3 / 4;
+  border: 2px dashed rgba(255,255,255,.9); border-radius: 50%;
+  transition: border-color .2s;
+}
+.njf-oval.ok  { border-color: #22C55E; border-style: solid; }
+.njf-oval.bad { border-color: #F59E0B; }
+.njf-corner { position: absolute; width: 34px; height: 34px; border: 3px solid #fff; opacity: .9; }
+.njf-corner.tl { left: 8%;  top: 14%; border-right: 0; border-bottom: 0; border-radius: 6px 0 0 0; }
+.njf-corner.tr { right: 8%; top: 14%; border-left: 0;  border-bottom: 0; border-radius: 0 6px 0 0; }
+.njf-corner.bl { left: 8%;  bottom: 26%; border-right: 0; border-top: 0; border-radius: 0 0 0 6px; }
+.njf-corner.br { right: 8%; bottom: 26%; border-left: 0;  border-top: 0; border-radius: 0 0 6px 0; }
+
+.njf-hint {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,0));
+  padding: 26px 18px 16px; text-align: center;
+}
+.njf-hint b { display: block; font-size: 17px; font-weight: 600; }
+.njf-hint small { display: block; font-size: 12.5px; opacity: .85; margin-top: 3px; }
+
+/* ---------- แผงสถานะ 3 ขั้น ---------- */
+.njf-panel { flex: none; background: #fff; color: var(--ink, #101828); border-radius: 18px 18px 0 0;
+  padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); }
+.njf-steps { display: flex; align-items: flex-start; gap: 4px; }
+.njf-step { flex: 1; text-align: center; min-width: 0; }
+.njf-step .ico {
+  width: 46px; height: 46px; margin: 0 auto 7px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #F1F5F9; color: #94A3B8; font-size: 20px; border: 2px solid #E2E8F0;
+  transition: all .2s;
+}
+.njf-step small { display: block; font-size: 11.5px; line-height: 1.45; color: #64748B; }
+.njf-step b { display: block; font-size: 12.5px; color: #334155; margin-bottom: 2px; }
+.njf-step.run .ico { background: #FEE2E2; border-color: #E60000; color: #E60000; }
+.njf-step.run b { color: #E60000; }
+.njf-step.ok  .ico { background: #DCFCE7; border-color: #22C55E; color: #16A34A; }
+.njf-step.bad .ico { background: #FEE2E2; border-color: #EF4444; color: #DC2626; }
+.njf-step.bad small { color: #DC2626; }
+.njf-line { flex: none; width: 18px; height: 2px; background: #E2E8F0; margin-top: 23px; }
+
+.njf-msg { margin-top: 12px; font-size: 13.5px; line-height: 1.6; text-align: center; color: #475569; }
+.njf-msg.err { color: #DC2626; font-weight: 500; }
+
+.njf-actions { display: flex; gap: 10px; margin-top: 14px; }
+.njf-btn {
+  flex: 1; min-height: 48px; border-radius: 12px; font-family: inherit;
+  font-size: 15px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.njf-btn.primary { background: #E60000; color: #fff; }
+.njf-btn.ghost   { background: #fff; color: #E60000; border-color: #E60000; }
+.njf-btn.plain   { background: #F1F5F9; color: #475569; }
+.njf-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ---------- หน้าผลสำเร็จ ---------- */
+.njf-result { flex: 1; overflow: auto; background: #F8FAFC; color: var(--ink, #101828);
+  padding: 22px 16px calc(20px + env(safe-area-inset-bottom)); text-align: center; }
+.njf-check {
+  width: 96px; height: 96px; margin: 6px auto 14px; border-radius: 50%;
+  background: #DCFCE7; color: #16A34A; font-size: 46px;
+  display: flex; align-items: center; justify-content: center;
+}
+.njf-result h3 { font-size: 20px; margin: 0 0 4px; color: #15803D; }
+.njf-result p  { margin: 0 0 18px; font-size: 13.5px; color: #64748B; }
+.njf-rows { display: flex; flex-direction: column; gap: 9px; text-align: left; }
+.njf-row {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 12px 14px;
+}
+.njf-row .k { flex: 1; font-size: 13.5px; color: #475569; }
+.njf-row .v { font-size: 15px; font-weight: 600; }
+.njf-row .v.ok { color: #16A34A; }
+.njf-row small { display: block; font-size: 11.5px; color: #94A3B8; font-weight: 400; }
+.njf-shot { width: 62px; height: 62px; border-radius: 12px; object-fit: cover; background: #E2E8F0; }
+
+/* ---------- ลงทะเบียนใบหน้า ---------- */
+.njf-poses { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.njf-pose {
+  flex: 1; max-width: 100px; text-align: center; font-size: 12px; color: #64748B;
+  border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 9px 4px; background: #fff;
+}
+.njf-pose.on   { border-color: #E60000; color: #E60000; font-weight: 600; }
+.njf-pose.done { border-color: #22C55E; background: #F0FDF4; color: #16A34A; }
+.njf-pose i { display: block; font-size: 19px; font-style: normal; margin-bottom: 3px; }
+
+@media (min-width: 900px) {
+  .njf-overlay { max-width: 460px; left: 50%; transform: translateX(-50%);
+    box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
+}
+@media (max-width: 340px) {
+  .njf-step small { font-size: 10.5px; }
+  .njf-line { width: 10px; }
+}
