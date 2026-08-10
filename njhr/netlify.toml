@@ -1,0 +1,182 @@
+# ============================================================
+# netlify.toml — HR V2
+#
+# ขอบเขต: ตั้งค่าการบีบอัดและ Cache Header เท่านั้น
+#         ไม่แก้โครงสร้างโปรเจกต์ · ไม่แก้ Build · ไม่เปลี่ยนชื่อไฟล์
+#         ไม่มี Redirect · ไม่มี Rewrite · ไม่แตะ Supabase
+#
+# ⚠ เรื่อง Brotli / gzip บน Netlify
+#   Netlify บีบอัดไฟล์ข้อความให้อัตโนมัติที่ชั้น CDN (Brotli ก่อน แล้ว gzip)
+#   ตาม Accept-Encoding ที่เบราว์เซอร์ส่งมา — **เปิดหรือปิดผ่าน config ไม่ได้**
+#   ไม่มีคีย์ compression / brotli / gzip ใน netlify.toml
+#   ไฟล์นี้จึงทำได้เพียงตั้ง Content-Type ให้ถูกต้อง เพื่อให้ Netlify รู้ว่าไฟล์ใดเป็น text
+#   และตั้ง Cache-Control ให้เหมาะกับแต่ละไฟล์
+#
+#   การยืนยันว่าบีบอัดจริงต้องดูจาก Response Header บนเว็บจริงเท่านั้น
+#   คำสั่งตรวจอยู่ท้ายไฟล์
+# ============================================================
+
+[build]
+  # โปรเจกต์นี้ไม่มีขั้นตอน build บน Netlify — อัปโหลดไฟล์ที่ build เสร็จแล้วจากเครื่อง
+  # publish ชี้ไปที่โฟลเดอร์ที่มี index.html
+  publish = "."
+  command = ""
+
+
+# ─────────────────────────────────────────────────────────────
+# 1) index.html — ห้ามแคชเด็ดขาด
+#    เป็นไฟล์เดียวที่บอกว่า build ปัจจุบันคืออะไร (ผ่าน ?v= ในลิงก์)
+#    ถ้าแคช ผู้ใช้จะติดอยู่กับ build เก่าตลอดไป
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+
+# ─────────────────────────────────────────────────────────────
+# 2) config.js — ห้ามแคชเด็ดขาด
+#    เก็บค่า Environment และ NJHR_BUILD_VERSION
+#    sw.js บังคับ network-only + no-store ให้อยู่แล้ว ตรงนี้บังคับซ้ำที่ชั้น CDN
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/config.js"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Content-Type = "application/javascript; charset=utf-8"
+
+
+# ─────────────────────────────────────────────────────────────
+# 3) sw.js — ห้ามแคชนาน
+#    Service Worker ต้องถูกตรวจใหม่ทุกครั้ง ไม่งั้น build ใหม่จะไม่ถูก activate
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+    Content-Type = "application/javascript; charset=utf-8"
+    Service-Worker-Allowed = "/"
+
+
+# ─────────────────────────────────────────────────────────────
+# 4) ไฟล์ที่มี Build Version ต่อท้าย (?v=BUILD) — แคชยาวได้
+#    URL เปลี่ยนทุก build จึงไม่มีทางได้ไฟล์เก่า
+#    Netlify จับคู่ด้วย path ไม่รวม query — กฎนี้ครอบทั้ง /app.js และ /app.js?v=xxxx
+#    ปลอดภัยเพราะไม่มีจุดใดในระบบเรียกไฟล์เหล่านี้โดยไม่ใส่ ?v=
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/asset-manifest.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/runtime/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/views/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/compat/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/styles.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "text/css; charset=utf-8"
+
+[[headers]]
+  for = "/mobile.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "text/css; charset=utf-8"
+
+[[headers]]
+  for = "/face.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/face.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "text/css; charset=utf-8"
+
+[[headers]]
+  for = "/master-salary.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/report-template.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+
+# ─────────────────────────────────────────────────────────────
+# 5) รูปภาพและ asset อื่น — แคชได้ปานกลาง
+#    ไม่มี ?v= จึงไม่ใช้ immutable · 7 วันแล้วตรวจใหม่
+# ─────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+
+# ============================================================
+# วิธีตรวจหลัง Deploy — ต้องรันบนเว็บจริง ไม่ใช่เครื่องพัฒนา
+#
+# 1) ยืนยัน Brotli
+#    curl -sI -H "Accept-Encoding: br" https://<โดเมน>/app.js?v=<BUILD> | grep -i "content-encoding\|content-length\|cache-control"
+#    คาดหวัง: content-encoding: br
+#
+# 2) ยืนยัน gzip (เบราว์เซอร์เก่า)
+#    curl -sI -H "Accept-Encoding: gzip" https://<โดเมน>/app.js?v=<BUILD> | grep -i "content-encoding"
+#    คาดหวัง: content-encoding: gzip
+#
+# 3) ยืนยัน CSS
+#    curl -sI -H "Accept-Encoding: br" https://<โดเมน>/styles.css?v=<BUILD> | grep -i "content-encoding\|cache-control"
+#
+# 4) ยืนยันว่า index.html ไม่ถูกแคช
+#    curl -sI https://<โดเมน>/ | grep -i "cache-control"
+#    คาดหวัง: no-store, no-cache, must-revalidate
+#
+# 5) ยืนยันว่า config.js ไม่ถูกแคช
+#    curl -sI https://<โดเมน>/config.js | grep -i "cache-control"
+#
+# 6) ยืนยันว่า sw.js ไม่ถูกแคชนาน
+#    curl -sI https://<โดเมน>/sw.js | grep -i "cache-control"
+#
+# 7) เทียบขนาดก่อน/หลังบีบอัด
+#    curl -sI -H "Accept-Encoding: identity" https://<โดเมน>/app.js?v=<BUILD> | grep -i content-length
+#    curl -sI -H "Accept-Encoding: br"       https://<โดเมน>/app.js?v=<BUILD> | grep -i content-length
+#
+# ขนาดที่วัดได้ในเครื่อง (gzip -9) ใช้เป็นค่าอ้างอิงคร่าว ๆ
+#    runtime/core.js       69.7 KB  →  ~21 KB
+#    views/dashboard.js    16.2 KB  →  ~5 KB
+#    compat/app-legacy.js 674.3 KB  →  ~161 KB
+#    styles.css   74.7 KB  →  ~15 KB
+#    mobile.css   40.3 KB  →  ~7 KB
+# Brotli ปกติเล็กกว่า gzip อีกราว 10–20%
+# ============================================================
