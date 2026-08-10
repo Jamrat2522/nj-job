@@ -7,7 +7,7 @@
        จึงไม่กระทบพฤติกรรมเดิมของระบบใด ๆ
    ============================================================ */
 window.RUNTIME_CONFIG = {
-  APP_BUILD:          "3.1.0",   // ⚠️ Deployment Version — แก้ทุกครั้งที่ deploy ใหม่ (ต้องตรงกับ ?v= ใน index.html)
+  APP_BUILD:          "3.2.0",   // ⚠️ Deployment Version — แก้ทุกครั้งที่ deploy ใหม่ (ต้องตรงกับ ?v= ใน index.html)
   ENVIRONMENT:        "uat",     // uat | production
   READ_ONLY:          false,     // false = เขียนข้อมูลได้ (live) · true = อ่านอย่างเดียว (UAT)
   KILL_SWITCH:        false,     // true = ปิด V3 + ปิด realtime + แจ้งเตือน + redirect
