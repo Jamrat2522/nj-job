@@ -2,7 +2,10 @@
   function viewDashboard(el) {
     var u = currentUser();
     if (u.role === 'USER') dashEmployee(el); else dashAdmin(el);
-    dashMobileFeed(el);         // ปฏิทินบริษัท + ข่าวสาร (แสดงเฉพาะมือถือ)
+    if (u.role === 'USER') dashMobileHome(el);   // หน้าหลักมือถือ — ข้อมูลจริงจาก Supabase
+    /* ภาพอ้างอิงหน้าหลักจบที่ "ประกาศล่าสุด" — ฟีดปฏิทิน/ข่าวสารจึงแสดงเฉพาะผู้ดูแลระบบ
+       (พนักงานเข้าดูได้ที่ #/calendar และ #/announcements ตามเดิม ไม่ได้ตัดฟีเจอร์ทิ้ง) */
+    if (u.role !== 'USER') dashMobileFeed(el);
   }
 
   /* ---------- ปฏิทินบริษัท + ข่าวสาร บนหน้าหลักมือถือ ----------
@@ -221,6 +224,232 @@
     return html + '</div></div>';
   }
 
+  /* ============================================================
+     หน้าหลักมือถือของพนักงาน (USER) — ตามภาพอ้างอิงที่อนุมัติแล้ว
+     ข้อมูลจริงจาก Supabase ทั้งหมด ไม่อ่าน db.* :
+       njhr_att_today            สถานะวันนี้ + ชื่อกะ + เวลากะ
+       njhr_att_report           มาทำงาน / มาสาย (เดือนปัจจุบัน)
+       njhr_leave_report         ลางาน (วัน) + รายการรออนุมัติ
+       njhr_ot_list              OT (ชม.) + รายการรออนุมัติ
+       njhr_att_correction_list  ลงชื่อย้อนหลังรออนุมัติ
+       njhr_ann_feed             ประกาศล่าสุด
+     บล็อกนี้เป็น .only-mobile — หน้า Desktop เดิมไม่เปลี่ยนแม้แต่บรรทัดเดียว
+     ============================================================ */
+  var dashHome = { seq: 0 };
+
+  function dashHomeMonth() {
+    var d = new Date();
+    try {
+      var p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok',
+        year: 'numeric', month: '2-digit', day: '2-digit' }).format(d).split('-');
+      var y = Number(p[0]), m = Number(p[1]);
+      var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      return { s: p[0] + '-' + p[1] + '-01',
+               e: p[0] + '-' + p[1] + '-' + String(last).padStart(2, '0'),
+               label: TH_MONTHS[m - 1] + ' ' + (y + 543) };
+    } catch (e) {
+      var t = todayISO();
+      return { s: t.slice(0, 8) + '01', e: t, label: '' };
+    }
+  }
+  function dashHomeGreet() {
+    var h = new Date().getHours();
+    if (h < 12) return 'สวัสดีตอนเช้า \u{1F44B}';
+    if (h < 17) return 'สวัสดีตอนบ่าย \u{1F44B}';
+    return 'สวัสดีตอนเย็น \u{1F44B}';
+  }
+  function dashHomeDMY(v) {
+    var d = String(v || '').slice(0, 10).split('-');
+    if (d.length !== 3) return '—';
+    return Number(d[2]) + ' ' + TH_MONTHS[Number(d[1]) - 1].slice(0, 3) + '. ' + (Number(d[0]) + 543);
+  }
+  function dashHomeHM(ts) {
+    var m = /T(\d{2}):(\d{2})/.exec(String(ts || ''));
+    return m ? m[1] + ':' + m[2] : '';
+  }
+
+  function dashMobileHome(el) {
+    var u = currentUser();
+    if (u.role !== 'USER') return;
+    var seq = ++dashHome.seq;
+    var wrap = document.createElement('div');
+    wrap.className = 'only-mobile mh';
+    wrap.id = 'mh-root';
+    el.insertBefore(wrap, el.firstChild);
+
+    var e = currentEmp() || {};
+    var name = ((e.title || '') + (e.firstName || '') + ' ' + (e.lastName || '')).trim() || u.username;
+    var m = dashHomeMonth();
+
+    /* โครงหน้าออกก่อน (ชื่อ/รหัส/แผนกมีอยู่แล้ว) ตัวเลขเติมทีหลังแบบไม่บล็อกจอ */
+    wrap.innerHTML =
+      '<section class="mh-emp">' + avatarHTML(name, 66) +
+      '<div class="grow"><b>' + esc(name) + '</b>' +
+      '<small>รหัสพนักงาน: <i>' + esc(e.code || '—') + '</i></small>' +
+      '<small>แผนก: <i>' + esc(dept(e.deptId) || '—') + '</i></small>' +
+      '<em>' + dashHomeGreet() + '</em></div></section>' +
+
+      '<section class="mh-card">' +
+      '<div class="mh-h">' + icon('chart', 'ic-sm') + '<b>รายงานของฉัน</b>' +
+      '<small>สรุปเดือน ' + esc(m.label) + '</small></div>' +
+      '<div class="mh-stats" id="mh-stats">' +
+      ['work', 'late', 'leave', 'ot'].map(function (k) {
+        return '<div class="mh-st s-' + k + '"><span class="mh-st-ic"></span>' +
+          '<small></small><b>—</b></div>';
+      }).join('') + '</div></section>' +
+
+      '<section class="mh-today" id="mh-today">' +
+      '<span class="mh-today-ic">' + icon('clock') + '</span>' +
+      '<b class="mh-clock" id="mh-clock">--:--</b>' +
+      '<div class="mh-today-r"><small>สถานะวันนี้</small>' +
+      '<span class="mh-date">' + esc(fmtDate(todayISO())) + '</span>' +
+      '<em id="mh-st">กำลังตรวจสอบ…</em></div></section>' +
+
+      '<section class="mh-card" id="mh-pend-box">' +
+      '<div class="mh-h">' + icon('checkSquare', 'ic-sm') + '<b>รายการรออนุมัติ</b>' +
+      '<a class="mh-more" href="#/requests">ดูทั้งหมด</a></div>' +
+      '<div id="mh-pend"><div class="mh-skel2"></div></div></section>' +
+
+      '<a class="mh-ann" id="mh-ann" href="#/announcements">' +
+      '<span class="mh-ann-ic">' + icon('megaphone') + '</span>' +
+      '<div class="grow"><b>ประกาศล่าสุด</b><small>กำลังโหลด…</small></div>' +
+      '<span class="mh-ann-x">' + icon('chevR') + '</span></a>';
+
+    startLiveClock();
+    dashHomeClock();
+
+    if (!sbToken() || !sbReady()) return;
+    var tk = sbToken();
+
+    /* ---------- สถานะวันนี้ ---------- */
+    sbRpcList('njhr_att_today', { p_token: tk }).then(function (r) {
+      if (seq !== dashHome.seq) return;
+      var a = (r || [])[0] || null;
+      var st = document.getElementById('mh-st');
+      var box = document.getElementById('mh-today');
+      if (!st || !box) return;
+      if (a && a.check_in && a.check_out) {
+        st.textContent = 'เข้างาน ' + dashHomeHM(a.check_in) + ' · ออกงาน ' + dashHomeHM(a.check_out);
+        box.classList.add('done');
+      } else if (a && a.check_in) {
+        st.textContent = 'เข้างานแล้ว ' + dashHomeHM(a.check_in);
+        box.classList.add('in');
+      } else {
+        st.textContent = 'ยังไม่ได้ลงเวลา';
+      }
+    }).catch(function () {
+      var st = document.getElementById('mh-st');
+      if (st) st.textContent = 'โหลดสถานะไม่สำเร็จ';
+    });
+
+    /* ---------- รายงานเดือนนี้ + รายการรออนุมัติ ---------- */
+    Promise.all([
+      sbRpcList('njhr_att_report', { p_token: tk, p_from: m.s, p_to: m.e, p_type: 'ATTEND',
+        p_employee: e.id || null, p_limit: 500, p_offset: 0 }).catch(function () { return null; }),
+      sbRpcList('njhr_leave_report', { p_token: tk, p_from: m.s, p_to: m.e,
+        p_status: null }).catch(function () { return null; }),
+      sbRpcList('njhr_ot_list', { p_token: tk, p_from: m.s, p_to: m.e,
+        p_status: null, p_mine: true, p_limit: 200, p_offset: 0 }).catch(function () { return null; }),
+      sbRpcList('njhr_att_correction_list', { p_token: tk, p_employee: e.id || null,
+        p_status: 'PENDING', p_limit: 50, p_offset: 0 }).catch(function () { return null; })
+    ]).then(function (r) {
+      if (seq !== dashHome.seq) return;
+      var att = r[0], lv = r[1], ot = r[2], cor = r[3];
+      var mine = function (x) { return !e.id || x.employee_id === e.id || x.emp_code === e.code; };
+
+      var work = att ? att.filter(function (x) {
+        return mine(x) && x.check_in; }).length : null;
+      var late = att ? att.filter(function (x) {
+        return mine(x) && Number(x.late_min) > 0; }).length : null;
+
+      var lvMine = lv ? lv.filter(mine) : [];
+      var leaveDays = lv ? Math.round(lvMine.filter(function (x) {
+        return ['APPROVED', 'COMPLETED'].indexOf(String(x.status || '').toUpperCase()) >= 0;
+      }).reduce(function (n, x) { return n + (Number(x.total_days) || 0); }, 0) * 100) / 100 : null;
+
+      var otMine = ot ? ot.filter(mine) : [];
+      var otH = ot ? Math.round(otMine.filter(function (x) {
+        return ['APPROVED', 'COMPLETED'].indexOf(String(x.status || '').toUpperCase()) >= 0;
+      }).reduce(function (n, x) { return n + (Number(x.hours) || 0); }, 0) * 100) / 100 : null;
+
+      var cards = [
+        ['work', '\u{1F4C5}', 'มาทำงาน', work, 'วัน'],
+        ['late', '\u{1F553}', 'มาสาย', late, 'ครั้ง'],
+        ['leave', '\u{1F4CB}', 'ลางาน', leaveDays, 'วัน'],
+        ['ot', '\u{23F1}\u{FE0F}', 'OT', otH, 'ชม.']
+      ];
+      var sb = document.getElementById('mh-stats');
+      if (sb) sb.innerHTML = cards.map(function (c) {
+        return '<div class="mh-st s-' + c[0] + '"><span class="mh-st-ic">' + c[1] + '</span>' +
+          '<small>' + esc(c[2]) + '</small>' +
+          '<b>' + (c[3] == null ? 'โหลดไม่สำเร็จ' : esc(String(c[3])) + ' <i>' + c[4] + '</i>') + '</b></div>';
+      }).join('');
+
+      /* รายการรออนุมัติ — เฉพาะสถานะ PENDING เท่านั้น สูงสุด 3 รายการ */
+      var P = function (x) { return String(x || '').toUpperCase() === 'PENDING'; };
+      var pend = [];
+      lvMine.filter(function (x) { return P(x.status); }).forEach(function (x) {
+        pend.push([x.start_date, '\u{1F4C5}', esc(x.leave_type || 'ลางาน'),
+          dashHomeDMY(x.start_date), (Number(x.total_days) || 0) + ' วัน', '#/leave']);
+      });
+      otMine.filter(function (x) { return P(x.status); }).forEach(function (x) {
+        pend.push([x.ot_date || x.work_date, '\u{23F1}\u{FE0F}', 'OT',
+          dashHomeDMY(x.ot_date || x.work_date), (Number(x.hours) || 0) + ' ชั่วโมง', '#/ot']);
+      });
+      (cor || []).filter(function (x) { return P(x.status); }).forEach(function (x) {
+        pend.push([x.work_date, '\u{1F501}', 'ลงชื่อย้อนหลัง',
+          dashHomeDMY(x.work_date), 'เวลาเข้า ' + (dashHomeHM(x.new_check_in) || '—'), '#/req-history']);
+      });
+      pend.sort(function (a, b) { return String(b[0]).localeCompare(String(a[0])); });
+
+      var pb = document.getElementById('mh-pend');
+      if (pb) {
+        pb.innerHTML = pend.length
+          ? pend.slice(0, 3).map(function (x) {
+              return '<a class="mh-pd" href="' + x[5] + '">' +
+                '<span class="mh-pd-ic">' + x[1] + '</span>' +
+                '<div class="grow"><b>' + x[2] + ' · ' + esc(x[3]) + '</b>' +
+                '<small>' + esc(x[4]) + '</small></div>' +
+                '<span class="mh-pd-tag">รออนุมัติ</span>' +
+                '<span class="mh-pd-x">' + icon('chevR') + '</span></a>';
+            }).join('')
+          : '<div class="mh-none">ไม่มีรายการรออนุมัติ</div>';
+      }
+    });
+
+    /* ---------- ประกาศล่าสุด ---------- */
+    sbRpcList('njhr_ann_feed', { p_token: tk, p_limit: 1, p_offset: 0, p_unread_only: false })
+      .then(function (rows) {
+        if (seq !== dashHome.seq) return;
+        var a = (rows || [])[0], box = document.getElementById('mh-ann');
+        if (!box) return;
+        var sm = box.querySelector('small');
+        if (!a) { sm.textContent = 'ยังไม่มีประกาศ'; return; }
+        sm.textContent = a.title || '—';
+        box.setAttribute('href', '#/announcements');
+      }).catch(function () {
+        var box = document.getElementById('mh-ann');
+        if (box) box.querySelector('small').textContent = 'โหลดประกาศไม่สำเร็จ';
+      });
+  }
+
+  /* นาฬิกา HH:MM ของหน้าหลักมือถือ — ใช้ตัวจับเวลาเดียวกับ startLiveClock ไม่สร้างซ้ำ */
+  function dashHomeClock() {
+    function tick() {
+      var c = document.getElementById('mh-clock');
+      if (!c) return;
+      var d = new Date();
+      c.textContent = String(d.getHours()).padStart(2, '0') + ':' +
+                      String(d.getMinutes()).padStart(2, '0');
+    }
+    tick();
+    clearInterval(dashHome.t);
+    dashHome.t = setInterval(function () {
+      if (!document.getElementById('mh-clock')) { clearInterval(dashHome.t); return; }
+      tick();
+    }, 10000);
+  }
+
   function dashEmployee(el) {
     var e = currentEmp();
     var t = todayISO();
@@ -230,7 +459,10 @@
     var paid = db.payroll.filter(function (p) { return p.status === 'PAID' || p.status === 'CONFIRMED'; }).slice(-1)[0];
     var slip = paid ? paid.entries.find(function (x) { return x.empId === e.id; }) : null;
 
+    /* หน้าเดิมของ Desktop คงไว้ทุกบรรทัด — ห่อด้วย .only-desktop เพื่อไม่ให้ซ้อนกับ
+       หน้าหลักมือถือแบบใหม่ (dashMobileHome) ที่แสดงเฉพาะจอมือถือ */
     el.innerHTML =
+      '<div class="only-desktop dash-legacy">' +
       '<div class="card clock-card">' +
       '  <div class="clock-now" id="live-clock">--:--:--</div>' +
       '  <div class="clock-date">' + fmtDate(t) + ' · กะ ' + esc(e.shift) + '</div>' +
@@ -263,7 +495,7 @@
       db.announcements.filter(function (a) { return a.active; }).slice(0, 2).map(function (a) {
         return '<div class="list-row"><div class="grow"><b>' + (a.pinned ? icon('pin', 'ic-sm ic-red') + ' ' : '') + esc(a.title) + '</b><small>' + fmtDate(a.date) + '</small></div></div>';
       }).join('') + '</div></div>' +
-      '</div></div>';
+      '</div></div></div>';
 
     startLiveClock();
     // การลงเวลาบันทึกลง Supabase ที่หน้า "ลงเวลา" เท่านั้น (แหล่งข้อมูลเดียว)

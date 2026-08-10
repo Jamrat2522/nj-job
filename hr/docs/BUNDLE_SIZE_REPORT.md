@@ -1,15 +1,15 @@
-# Bundle Size Report — build 5e110050
+# Bundle Size Report — build 381986f8
 
 | ไฟล์ | raw | gzip -9 | hash |
 |---|---:|---:|---|
-| `index.html` | 15429 | 5128 | `—` |
-| `config.js` | 5378 | 1878 | `—` |
-| `asset-manifest.js` | 5499 | 1248 | `1acf9bc5` |
+| `index.html` | 15429 | 5130 | `—` |
+| `config.js` | 5378 | 1879 | `—` |
+| `asset-manifest.js` | 5499 | 1248 | `76fd9c71` |
 | `runtime/namespace.js` | 5281 | 2075 | `815b8995` |
-| `runtime/core.js` | 74364 | 21675 | `6e723305` |
+| `runtime/core.js` | 74939 | 21871 | `8aee3742` |
 | `styles.css` | 83219 | 16292 | `f004525e` |
-| `mobile.css` | 41961 | 7659 | `7f177aea` |
-| `views/dashboard.js` | 16540 | 5222 | `caf87771` |
+| `mobile.css` | 47146 | 8615 | `72510f48` |
+| `views/dashboard.js` | 24546 | 7449 | `1ae5c172` |
 | `runtime/shared/emp-meta.js` | 4264 | 1394 | `3436375a` |
 | `runtime/shared/hr-meta.js` | 8910 | 5213 | `781668be` |
 | `runtime/shared/report-export.js` | 6079 | 2000 | `711627a7` |
@@ -32,5 +32,5 @@
 | `views/profile/main.js` | 135084 | 32274 | `ffab9d49` |
 | `views/calendar/main.js` | 27304 | 8073 | `02fdd2b1` |
 | `views/notifications/main.js` | 3956 | 1604 | `73cba532` |
-| `compat/app-legacy.js` | 404780 | 94638 | `463a7dac` |
-| `sw.js` | 5370 | 2205 | `—` |
+| `compat/app-legacy.js` | 402430 | 94133 | `60cb63ce` |
+| `sw.js` | 5370 | 2209 | `—` |

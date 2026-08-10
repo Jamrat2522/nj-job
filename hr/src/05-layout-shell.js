@@ -206,11 +206,29 @@
   }
 
   var _shellSig = null;
+
+  /* ---------- โหมดหัวแถบมือถือ (ตามภาพอ้างอิงที่อนุมัติแล้ว) ----------
+     'brand' = แถบกรมท่า โลโก้ NJL + NJL HR   (หน้าหลัก · โปรไฟล์)
+     'mid'   = แถบกรมท่า ชื่อหน้ากลางแถบ       (ลงเวลา · คำขอ)
+     ''      = หัวแถบเดิม (Desktop และทุก Route อื่น)
+     ค่านี้ต้องอยู่ใน shellSignature ด้วย ไม่งั้นเปลี่ยนหน้าในกลุ่มเดียวกัน
+     จะเข้าทาง shellUpdateActive() ซึ่งไม่คำนวณคลาสของ .topbar ใหม่ */
+  var MB_BRAND_ROUTES = ['#/dashboard', '#/profile'];
+  var MB_MID_ROUTES = ['#/attendance', '#/requests'];
+  function mbHeaderMode(activeHash) {
+    var u = currentUser();
+    if (!u || u.role !== 'USER') return '';
+    if (MB_BRAND_ROUTES.indexOf(activeHash) >= 0) return 'brand';
+    if (MB_MID_ROUTES.indexOf(activeHash) >= 0) return 'mid';
+    return '';
+  }
+
   function shellSignature(activeHash) { // ทุกอย่างที่มีผลต่อหน้าตา shell ยกเว้นตัว active
     var u = currentUser();
     var g = groupOfRoute(activeHash);
     return [u ? u.id : '', u ? u.role : '', !!uiState.sidebarCollapsed, pendingCount(),
       _ntUnread,                                    // แจ้งเตือน: นับจาก Supabase (njhr_notify_unread)
+      mbHeaderMode(activeHash),                     // โหมดหัวแถบมือถือ — เปลี่ยนแล้วต้อง render ใหม่จริง
       g ? g.key : ''].join('|');   // สถานะ accordion ไม่อยู่ใน signature — ปรับด้วย accApply() แทนการ render ใหม่
   }
   // PERF: เปลี่ยนหน้าแล้ว shell เหมือนเดิม → อัปเดตแค่สถานะ active ไม่สร้าง DOM ใหม่ทั้งชุด
@@ -250,6 +268,9 @@
     var collapsed = !!uiState.sidebarCollapsed;
     var pc = pendingCount();
     var unread = _ntUnread;                          // Supabase: njhr_notify_unread
+
+    var mbMode = mbHeaderMode(activeHash);
+    var mbBrand = mbMode === 'brand', mbTitleOnly = mbMode === 'mid';
 
     // เปิดเฉพาะหมวดของหน้าปัจจุบัน หมวดอื่นปิดทั้งหมด (State กลางค่าเดียว)
     accSyncToRoute(activeHash);
@@ -308,8 +329,13 @@
       '  <button class="side-collapse" id="side-collapse" aria-label="ย่อเมนู">' + icon(collapsed ? 'chevR' : 'chevL') + '<span class="menu-text">ย่อเมนู</span></button>' +
       '</aside>' +
       '<div class="content">' +
-      '  <header class="topbar">' +
+      /* หัวแถบ — Desktop คงเดิมทุกอย่าง (กฎมือถืออยู่ใน @media เท่านั้น)
+         มือถือพนักงาน: brand = โลโก้ NJL + NJL HR · mid = ชื่อหน้ากลางแถบ */
+      '  <header class="topbar' + (mbBrand ? ' tb-mb' : '') + (mbTitleOnly ? ' tb-mid' : '') + '">' +
       '    <button class="btn-icon only-mobile" id="hamburger" aria-label="เปิดเมนู">' + icon('menu') + '</button>' +
+      (mbBrand
+        ? '    <span class="tb-brand only-mobile"><span class="tb-logo">NJL</span><b>NJL HR</b></span>'
+        : '') +
       '    <h2 class="page-title" id="topbar-title">' + ROUTES[activeHash].title + '</h2>' +
       '    <div class="topbar-right">' +
       '      <button class="btn-icon bell" id="btn-bell" aria-label="การแจ้งเตือน">' + icon('bell') + (unread ? '<span class="bell-badge">' + unread + '</span>' : '') + '</button>' +

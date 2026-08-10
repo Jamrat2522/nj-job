@@ -1288,3 +1288,123 @@ select.gf-sort {
   .user-shell .sidebar{width:88%;max-width:340px}
   .side-user-card{min-height:72px}
 }
+
+/* ============================================================
+   หน้าหลักมือถือของพนักงาน (.mh) — ตามภาพอ้างอิงที่อนุมัติแล้ว
+   แสดงเฉพาะมือถือผ่าน .only-mobile · Desktop ไม่ได้รับผลกระทบ
+   ============================================================ */
+.mh { display: flex; flex-direction: column; gap: 12px; }
+.mh section, .mh .mh-ann { background: #fff; border: 1px solid var(--line, #E4E9F2);
+  border-radius: 18px; box-shadow: 0 1px 3px rgba(16, 24, 40, .05); }
+
+/* การ์ดพนักงาน */
+.mh-emp { display: flex; align-items: center; gap: 14px; padding: 16px 16px; }
+.mh-emp .avatar { flex: none; }
+.mh-emp .grow { min-width: 0; }
+.mh-emp b { display: block; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+.mh-emp small { display: block; font-size: 13px; color: var(--ink-2, #64748B); margin-top: 3px; }
+.mh-emp small i { font-style: normal; color: #1D4ED8; font-weight: 600; }
+.mh-emp em { display: block; font-style: normal; font-size: 13px;
+  color: var(--ink-2, #64748B); margin-top: 6px; }
+
+/* หัวข้อในการ์ด */
+.mh-h { display: flex; align-items: center; gap: 8px; padding: 14px 15px 0; }
+.mh-h b { font-size: 15.5px; }
+.mh-h { flex-wrap: wrap; }
+.mh-h small { flex: 1 1 100%; font-size: 12.5px; color: var(--ink-2, #64748B); margin-top: 2px; }
+.mh-h .ic { color: #1D4ED8; }
+.mh-more { margin-left: auto; font-size: 13px; color: #1D4ED8; font-weight: 500; }
+
+/* รายงานของฉัน — 4 ช่อง 2×2 */
+.mh-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 15px 15px; }
+/* ตามภาพ Master: ไอคอนอยู่ซ้าย ข้อความ "มาทำงาน" อยู่ขวาบรรทัดเดียวกัน ตัวเลขอยู่บรรทัดล่าง */
+.mh-st { border-radius: 14px; padding: 12px 13px; border: 1px solid transparent;
+  display: grid; grid-template-columns: auto 1fr; column-gap: 9px; align-items: center; }
+.mh-st-ic { font-size: 21px; grid-row: 1 / span 2; align-self: center; }
+.mh-st small { grid-column: 2; font-size: 13.5px; color: var(--ink-2, #64748B); align-self: end; }
+.mh-st b { grid-column: 2; font-size: 25px; line-height: 1.15; align-self: start; }
+.mh-st b i { font-style: normal; font-size: 13px; font-weight: 500; color: var(--ink-2, #64748B); }
+.mh-st.s-work  { background: #F0FDF4; border-color: #BBF7D0; } .mh-st.s-work b  { color: #16A34A; }
+.mh-st.s-late  { background: #EFF6FF; border-color: #BFDBFE; } .mh-st.s-late b  { color: #1D4ED8; }
+.mh-st.s-leave { background: #FEF2F2; border-color: #FECACA; } .mh-st.s-leave b { color: #DC2626; }
+.mh-st.s-ot    { background: #FFFBEB; border-color: #FDE68A; } .mh-st.s-ot b    { color: #D97706; }
+
+/* สถานะวันนี้ */
+.mh-today { display: flex; align-items: center; gap: 14px; padding: 15px 16px;
+  background: #FFFBEB !important; border-color: #FDE68A !important; }
+.mh-today-ic { flex: none; color: #D97706; }
+.mh-today-ic .ic { width: 34px; height: 34px; }
+.mh-clock { font-size: 34px; letter-spacing: -1px; color: #0F172A; }
+.mh-today-r { border-left: 1px solid #FDE68A; padding-left: 14px; margin-left: auto;
+  text-align: right; min-width: 0; }
+.mh-today-r small { display: block; font-size: 12.5px; color: var(--ink-2, #64748B); }
+.mh-date { display: block; font-size: 14px; font-weight: 600; margin-top: 1px; }
+.mh-today-r em { display: block; font-style: normal; font-size: 13px; color: #D97706; margin-top: 2px; }
+.mh-today.in  { background: #EFF6FF !important; border-color: #BFDBFE !important; }
+.mh-today.in .mh-today-r, .mh-today.done .mh-today-r { border-left-color: #BFDBFE; }
+.mh-today.in em, .mh-today.done em { color: #1D4ED8; }
+.mh-today.done { background: #F0FDF4 !important; border-color: #BBF7D0 !important; }
+.mh-today.done em { color: #16A34A; }
+
+/* รายการรออนุมัติ */
+.mh-pd { display: flex; align-items: center; gap: 11px; padding: 12px 15px;
+  border-top: 1px solid var(--line, #F1F5F9); color: inherit; min-height: 60px; }
+#mh-pend > .mh-pd:first-child { border-top: 0; }
+.mh-pd-ic { font-size: 19px; flex: none; }
+.mh-pd .grow { min-width: 0; }
+.mh-pd b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.mh-pd small { display: block; font-size: 12.5px; color: var(--ink-2, #64748B); margin-top: 1px; }
+.mh-pd-tag { flex: none; font-size: 11.5px; background: #FEF3C7; color: #B45309;
+  border-radius: 999px; padding: 4px 10px; font-weight: 500; }
+.mh-pd-x { flex: none; color: #94A3B8; }
+.mh-none { padding: 18px 15px; text-align: center; font-size: 13px; color: var(--ink-2, #64748B); }
+.mh-skel2 { height: 60px; margin: 12px 15px 14px; border-radius: 12px; background: #F1F5F9;
+  animation: shpulse 1.2s ease-in-out infinite; }
+
+/* ประกาศล่าสุด */
+.mh-ann { display: flex; align-items: center; gap: 12px; padding: 14px 15px; color: inherit;
+  min-height: 64px; }
+.mh-ann-ic { flex: none; width: 38px; height: 38px; border-radius: 11px; background: #EFF6FF;
+  color: #1D4ED8; display: flex; align-items: center; justify-content: center; }
+.mh-ann .grow { min-width: 0; }
+.mh-ann b { display: block; font-size: 14.5px; }
+.mh-ann small { display: block; font-size: 13px; color: var(--ink-2, #64748B); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mh-ann-x { flex: none; color: #94A3B8; }
+
+@media (max-width: 359px) {
+  .mh-stats { grid-template-columns: 1fr; }
+  .mh-clock { font-size: 28px; }
+}
+
+/* ============================================================
+   หัวแถบมือถือแบบ NJL HR (เฉพาะพนักงาน 4 หน้าตามภาพอ้างอิง)
+   Desktop ไม่ได้รับผลกระทบ — กฎทั้งหมดอยู่ใน @media (max-width: 900px)
+   ============================================================ */
+@media (max-width: 900px) {
+  .topbar.tb-mb, .topbar.tb-mid {
+    background: #0F1E3D !important; border-bottom: 0 !important;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    padding-left: 14px; padding-right: 14px;
+  }
+  .topbar.tb-mb #hamburger, .topbar.tb-mid #hamburger { display: none !important; }
+  .topbar.tb-mb .page-title { display: none; }
+  .topbar.tb-mb .topbar-user, .topbar.tb-mid .topbar-user { display: none; }
+  .topbar.tb-mb .bell, .topbar.tb-mid .bell { color: #fff; }
+  /* .only-mobile ตั้ง display ไว้ด้วย ต้องเจาะจงกว่าเพื่อให้ได้ flex จริง (ไม่งั้นข้อความทับโลโก้) */
+  .topbar .tb-brand.only-mobile { display: flex !important; align-items: center; gap: 11px;
+    flex: 1; min-width: 0; }
+  .tb-logo { min-width: 46px; height: 34px; padding: 0 8px; border-radius: 9px;
+    background: var(--red, #E60000); color: #fff; display: inline-flex;
+    align-items: center; justify-content: center; font-weight: 800; font-size: 15px;
+    letter-spacing: .5px; flex: none; line-height: 1; }
+  .tb-brand b { color: #fff; font-size: 19px; letter-spacing: -.2px; white-space: nowrap; }
+  /* กระดิ่งมีจุดแดงตามภาพ เมื่อมีแจ้งเตือนที่ยังไม่อ่าน */
+  .topbar.tb-mb .bell-badge, .topbar.tb-mid .bell-badge {
+    min-width: 9px; height: 9px; padding: 0; font-size: 0; line-height: 0;
+    border: 2px solid #0F1E3D; top: 4px; right: 4px; }
+  /* หน้าลงเวลา / คำขอ — ชื่อหน้าอยู่กลางแถบ ตามภาพอ้างอิง */
+  .topbar.tb-mid .page-title { color: #fff; font-size: 19px; margin: 0 auto;
+    padding-left: 40px; }
+  .topbar.tb-mid .topbar-right { margin-left: 0; }
+}

@@ -162,9 +162,11 @@
       cmp('นามสกุลอังกฤษ', r.old_last_name_en, r.new_last_name_en) +
       cmp('ชื่อเล่น', r.old_nickname, r.new_nickname) +
       cmp('อีเมล', r.old_email, r.new_email) +
-      '<label class="field" style="margin-top:12px"><span>เชื่อมกับบัญชีเดิม ' +
-      '<small class="muted">(เว้นว่าง = สร้างบัญชีใหม่ โดยใช้รหัสพนักงานเป็นชื่อผู้ใช้)</small></span>' +
-      '<input id="act-un" autocomplete="off" placeholder="เช่น ' + esc(r.emp_code || '') + '"></label>' +
+      /* ไม่มีช่องให้พิมพ์ Username อีกแล้ว — เซิร์ฟเวอร์เป็นผู้หาบัญชีเดิมของพนักงานคนนี้เอง
+         ผู้ดูแลจึงเลือกบัญชีผิดคนไม่ได้ และชื่อผู้ใช้หลังเชื่อมเป็นรหัสพนักงานเสมอ */
+      '<p class="muted note" style="margin-top:12px">ชื่อผู้ใช้หลังเชื่อมจะเป็น ' +
+      '<b>' + esc(r.emp_code || '') + '</b> (รหัสพนักงาน) โดยอัตโนมัติ ' +
+      'ระบบจะเลือกบัญชีเดิมของพนักงานรายนี้ให้เอง</p>' +
       '<div class="form-error" id="actl-err" role="alert"></div>',
       '<button class="btn btn-ghost" id="actl-cancel">ยกเลิก</button>' +
       '<button class="btn btn-primary" id="actl-go">ยืนยันเชื่อมบัญชี</button>');
@@ -173,10 +175,11 @@
     document.getElementById('actl-go').onclick = function () {
       var eb = document.getElementById('actl-err');
       eb.textContent = '';
-      var un = String(document.getElementById('act-un').value || '').trim();
       withButtonLoading(this, 'กำลังเชื่อมบัญชี…', function () {
+        /* Signature ของ RPC คงเดิมทุกตัว (p_token · p_request_id · p_username)
+           ส่ง p_username = null เสมอ เพื่อให้เซิร์ฟเวอร์ resolve บัญชีเดิมจาก employee เอง */
         return sbRpc('njhr_activation_link', {
-          p_token: sbToken(), p_request_id: id, p_username: un || null
+          p_token: sbToken(), p_request_id: id, p_username: null
         }).then(function (res) {
           closeModal();
           toast((res && res.message) || 'เชื่อมบัญชีเรียบร้อยแล้ว', 'success');
@@ -469,7 +472,10 @@
       ['toggle', u.is_active ? '\u{1F534}' : '\u{1F7E2}',
                  u.is_active ? 'เปลี่ยนสถานะ: ปิดใช้งาน' : 'เปลี่ยนสถานะ: เปิดใช้งาน',
                  !isSelf, u.is_active ? 't-red' : 't-green'],
-      ['link',   '\u{1F517}', u.employee_id ? 'เปลี่ยนพนักงานที่เชื่อม' : 'เชื่อมโยงพนักงาน', true, ''],
+      /* ตัด "เชื่อมโยงพนักงาน / เปลี่ยนพนักงานที่เชื่อม" ออกจากเมนู
+         การเชื่อมบัญชีต้องมาจากคำขอสมัคร (แถว "รอเชื่อม") เท่านั้น
+         เซิร์ฟเวอร์บล็อกซ้ำอีกชั้นใน njhr_user_link — การซ่อนปุ่มไม่ใช่ด่านความปลอดภัย
+         "ยกเลิกการเชื่อมพนักงาน" ยังอยู่ เพราะไม่ใช่ทางลัดข้าม Activation Flow */
       ['unlink', '\u{1F517}', 'ยกเลิกการเชื่อมพนักงาน', !!u.employee_id, ''],
       ['del',    '\u{1F5D1}\u{FE0F}', 'ลบบัญชี', canDelete, 't-red']
     ].filter(function (x) { return x[3]; });
@@ -572,64 +578,27 @@
       '<label class="check"><input type="checkbox" name="is_active" ' + (!u || u.is_active ? 'checked' : '') +
       (isSelf ? ' disabled' : '') + '><span>เปิดใช้งานบัญชี</span></label>' +
       (isSelf ? '<p class="muted note">นี่คือบัญชีของคุณเอง — เปลี่ยนสิทธิ์และปิดใช้งานตัวเองไม่ได้</p>' : '') +
-      // ---- เชื่อมพนักงาน: ค้นหาจาก employees จริง เฉพาะคนที่ยังไม่มีบัญชี
+      /* ---- เชื่อมพนักงาน ----
+         ตัดช่องค้นหาและเลือกพนักงานออก เพราะเป็นทางลัดข้าม Activation Flow
+         การเชื่อมบัญชีต้องมาจากคำขอสมัคร (แถว "รอเชื่อม") เท่านั้น
+         แสดงพนักงานที่เชื่อมอยู่แบบอ่านอย่างเดียว · เอาออกได้ที่เมนู "ยกเลิกการเชื่อมพนักงาน" */
       '<div class="emp-sec">เชื่อมกับพนักงาน</div>' +
       '<div id="us-picked">' + (pickedEmp
-        ? '<div class="list-row"><div class="grow"><b>' + esc(pickedEmp.code + ' — ' + pickedEmp.name) + '</b></div>' +
-          '<button type="button" class="btn-icon ic-red" id="us-clear-emp" aria-label="ลบ">' + icon('x') + '</button></div>'
+        ? '<div class="list-row"><div class="grow"><b>' + esc(pickedEmp.code + ' — ' + pickedEmp.name) + '</b></div></div>'
         : '<small class="muted">ยังไม่ได้เชื่อมกับพนักงาน</small>') + '</div>' +
-      '<span class="search-box as-search">' + icon('search', 'ic-sm') +
-      '<input id="us-eq" autocomplete="off" placeholder="ค้นหา รหัส / ชื่อ / แผนก / ตำแหน่ง">' +
-      '<div class="rpt-ac" id="us-eac" hidden></div></span>' +
-      '<p class="muted note">แสดงเฉพาะพนักงานที่ยังไม่มีบัญชีผู้ใช้ — พนักงาน 1 คนเชื่อมได้ 1 บัญชีเท่านั้น</p>' +
+      '<p class="muted note">การเชื่อมบัญชีกับพนักงานทำได้จากคำขอ ' +
+      '<b>"รอเชื่อม"</b> เท่านั้น — พนักงานต้องกดสมัครสมาชิกครั้งแรกก่อน</p>' +
       '<div class="form-error" id="us-ferr" role="alert"></div></form>',
       '<button class="btn btn-ghost" id="usf-cancel">ยกเลิก</button><button class="btn btn-primary" id="usf-save">บันทึก</button>',
       { wide: true });
 
+    /* ค่าเดิมเสมอ — ฟอร์มนี้เปลี่ยนการเชื่อมพนักงานไม่ได้อีกแล้ว
+       ส่งค่าเดิมกลับไปให้ njhr_user_save เพื่อไม่ให้การเชื่อมที่มีอยู่หลุด */
     var empId = pickedEmp ? pickedEmp.id : null;
     document.getElementById('usf-cancel').onclick = closeModal;
-    function bindClear() {
-      var c = document.getElementById('us-clear-emp');
-      if (c) c.onclick = function () {
-        empId = null;
-        document.getElementById('us-picked').innerHTML = '<small class="muted">ยังไม่ได้เชื่อมกับพนักงาน</small>';
-      };
-    }
-    bindClear();
 
-    var qEl = document.getElementById('us-eq');
-    function acBox() { return document.getElementById('us-eac'); }
-    function closeAc() { var b = acBox(); if (b) { b.hidden = true; b.innerHTML = ''; } }
-    qEl.oninput = debounce(function () {
-      var box = acBox(), inp = document.getElementById('us-eq');
-      if (!box || !inp) return;
-      var q = inp.value.trim();
-      if (!q) { closeAc(); return; }
-      sbRpcList('njhr_user_candidates', {
-        p_token: sbToken(), p_q: q, p_current: (u && u.employee_id) || null, p_limit: 8
-      }).then(function (rows) {
-        if (!rows.length) { closeAc(); return; }
-        box.innerHTML = rows.map(function (r) {
-          return '<button type="button" class="rpt-ac-item" data-useid="' + esc(r.employee_id) + '"' +
-            ' data-uscode="' + esc(r.emp_code) + '" data-usname="' + esc(r.emp_name) + '">' +
-            esc(r.emp_code) + ' — ' + esc(r.emp_name) + ' — ' + esc(r.department || '-') +
-            ' — ' + esc(r.position_name || '-') + '</button>';
-        }).join('');
-        box.hidden = false;
-      }).catch(function (er) { document.getElementById('us-ferr').textContent = er.message || 'ค้นหาไม่สำเร็จ'; });
-    }, 300);
-    qEl.onblur = function () { setTimeout(closeAc, 150); };
-    document.getElementById('us-eac').onmousedown = function (ev) {
-      var b = ev.target.closest ? ev.target.closest('[data-useid]') : null;
-      if (!b) return;
-      ev.preventDefault();
-      empId = b.dataset.useid;
-      document.getElementById('us-picked').innerHTML =
-        '<div class="list-row"><div class="grow"><b>' + esc(b.dataset.uscode + ' — ' + b.dataset.usname) + '</b></div>' +
-        '<button type="button" class="btn-icon ic-red" id="us-clear-emp" aria-label="ลบ">' + icon('x') + '</button></div>';
-      document.getElementById('us-eq').value = '';
-      bindClear(); closeAc();
-    };
+    /* ตัวค้นหาพนักงาน (njhr_user_candidates) ถูกถอดออกพร้อมกับช่องเลือกพนักงาน
+       เพราะเป็นทางลัดข้าม Activation Flow — ไม่มี element ให้ผูก event แล้ว */
 
     document.getElementById('usf-save').onclick = function () {
       var btn = this, fm = document.getElementById('us-f'), ferr = document.getElementById('us-ferr');
