@@ -6181,6 +6181,9 @@ function parseSchaefflerIndia(lines){
           if (!bl) continue;
           // Skip end markers / junk / page-header artifacts (กรณี block ข้าม page)
           if (/^(Inv\.|US\s+Export|PO\s+No|PO\s+Pos|Material\s*:|Case\s+No|Bore\s*:|Page\s*:|Export\s+Invoice|Total\s+Invoice|Item\s+Details|Rate\s*$|Amount\s*$|Quantity\s*$|\(USD\)|HSN\s+Code\s*:)/i.test(bl)) continue;
+          // Skip "Bore Diameter:55.000 MM" / "Bore Diameter : 55.000 MM" (ไม่ใช่ชื่อสินค้า)
+          //   ตัวกรอง "Bore\s*:" ด้านบนไม่ครอบคลุมเพราะบรรทัดจริงมีคำว่า "Diameter" คั่น
+          if (/^Bore\s+Diameter\s*:\s*[\d,.]+\s*MM\b/i.test(bl)) continue;
           // Skip price-only lines (e.g. "19.00 / 1 PC 2,280.00")
           if (/^[\d,]+\.\d+\s*\/\s*\d+\s*PC/i.test(bl)) continue;
           // Skip pure numbers / dates
@@ -6418,6 +6421,16 @@ function parseSchaefflerIndia(lines){
 }
 
 function buildSheetSchaefflerIndia(allResults){
+  // ── Final normalization ส่วนกลาง (ใช้ร่วมทั้ง Main parser และ Fallback parser) ──
+  //   ตัด "Bore Diameter:<ตัวเลข> MM" และข้อความที่ตามหลังออกจากชื่อสินค้า
+  //   เช่น "Spherical roller bearing Bore Diameter:55.000 MM" → "Spherical roller bearing"
+  //   ทำงานกับสินค้าทุกประเภท ไม่ hardcode ชื่อสินค้าหรือขนาดรูใด ๆ
+  function normalizeIndiaEnglishDescription(value){
+    return String(value || '')
+      .replace(/\s*Bore\s+Diameter\s*:\s*[\d,.]+\s*MM\b.*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
   // 21 columns
   // col 4  = 'English Description' (col E) — raw value จาก parser ตรงๆ (ไม่ prefix)
   //          เช่น raw = "Cylindrical roller bearing" → output "Cylindrical roller bearing"
@@ -6451,7 +6464,8 @@ function buildSheetSchaefflerIndia(allResults){
       }
       // ── English Description: ใช้ raw value จาก parser ตรงๆ (ไม่ prefix) ──
       //    เช่น raw = "Cylindrical roller bearing" → output "Cylindrical roller bearing"
-      const _finalEngDesc = _engDesc;
+      //    ผ่าน normalizeIndiaEnglishDescription() เพื่อตัด "Bore Diameter:... MM" ออก
+      const _finalEngDesc = normalizeIndiaEnglishDescription(_engDesc);
       rows.push([
         it.no||'', it.invoice_no||r.invoice_no||'', it.invoice_date||r.invoice_date||'',
         it.product_code||'',
@@ -6482,11 +6496,21 @@ function buildSheetSchaefflerIndia(allResults){
     return 0;
   });
 
-  // ── Re-number "No" column (col 0) + เติม "item line" (col 18, col S) เป็นเลขลำดับ 1..N ──
+  // ── กำหนดเลข "No" (col 0) ใหม่ให้ "เริ่ม 1 ใหม่ทุก Invoice"
+  //    และเติม "item line" (col 18, col S) เป็นลำดับรวม 1..N เหมือนเดิม ──
   // หมายเหตุ: HEADERS.length-1 = col 19 (สถานะ) — ดังนั้นใช้ index 18 ตรง ๆ
-  rows.forEach((row, idx) => {
-    row[0] = idx + 1;
-    row[18] = idx + 1;     // item line (col S)
+  let previousInvoice = '';
+  let invoiceRowNo = 0;
+  rows.forEach((row, globalIndex) => {
+    const currentInvoice = String(row[1] || '').trim();
+    if (currentInvoice !== previousInvoice) {
+      previousInvoice = currentInvoice;
+      invoiceRowNo = 1;
+    } else {
+      invoiceRowNo += 1;
+    }
+    row[0]  = invoiceRowNo;      // No — เริ่ม 1 ใหม่ทุก Invoice
+    row[18] = globalIndex + 1;   // item line (col S) — ลำดับรวมทั้งไฟล์
     // row[19] = status (เซ็ตไว้แล้วตอน push)
   });
 
