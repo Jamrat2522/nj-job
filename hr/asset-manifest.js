@@ -1,14 +1,14 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-5e110050",
+  "buildId": "njhr-v2-381986f8",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
-    "core": "runtime/core.js?v=6e723305"
+    "core": "runtime/core.js?v=8aee3742"
   },
   "modules": {
     "dashboard": {
-      "url": "views/dashboard.js?v=caf87771",
+      "url": "views/dashboard.js?v=1ae5c172",
       "deps": [],
       "provides": [
         "viewDashboard"
@@ -200,7 +200,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "compatibility": {
-      "url": "compat/app-legacy.js?v=463a7dac",
+      "url": "compat/app-legacy.js?v=60cb63ce",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -230,6 +230,6 @@ window.NJHR_ASSETS = {
   },
   "styles": {
     "main": "styles.css?v=f004525e",
-    "mobile": "mobile.css?v=7f177aea"
+    "mobile": "mobile.css?v=72510f48"
   }
 };
