@@ -5456,6 +5456,19 @@ function parseSchaefflerTechno(lines){
 }
 
 function buildSheetSchaefflerTechno(allResults){
+  // ── Normalize Desc 2 ส่วนกลาง (ใช้ทั้ง Main parser และ Global/Fallback parser) ──
+  //   เก็บเฉพาะข้อความก่อน "#" — ตัด "#" และ SupplyCode ทั้งหมดหลัง "#" ออก
+  //   ถ้าไม่มี "#" ให้คงค่าเดิม  เช่น
+  //     "F-579076.07.SKLBK#N"  → "F-579076.07.SKLBK"
+  //     "6309-C-2Z-C4#N1>V"    → "6309-C-2Z-C4"
+  //   หมายเหตุ: normalize ที่ขั้นตอน Export เท่านั้น — parser ยังใช้ "#" แยก
+  //   English Description ตามโครงสร้าง <Designation>#<SupplyCode>/ <English> เหมือนเดิม
+  function normalizeTechnoDesc2(value){
+    const text = String(value || '').trim();
+    const hashIndex = text.indexOf('#');
+    const result = hashIndex >= 0 ? text.slice(0, hashIndex) : text;
+    return result.replace(/\/\s*$/, '').trim();
+  }
   // 19 columns (เพิ่ม 'item line' ที่ col S — running number)
   const HEADERS = ['No','Invoice No.','Invoice Date','Product Code','English Description',
     'Quantity','Unit','Unit Price','Total Price','Currency','Origin','Incoterm',
@@ -5485,7 +5498,7 @@ function buildSheetSchaefflerTechno(allResults){
         it.currency||r.currency||'USD',
         it.origin||'',
         it.incoterm||r.incoterm||'',
-        it.desc2||'',
+        normalizeTechnoDesc2(it.desc2),   // col M — Desc 2 (ตัด #SupplyCode ออก)
         it.material_no||'',
         status,              // col O — สถานะ
         it.net_weight||'',
