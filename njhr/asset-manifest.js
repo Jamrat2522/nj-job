@@ -1,15 +1,17 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-133f9b44",
+  "buildId": "njhr-v2-9ff9d43b",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
-    "core": "runtime/core.js?v=d48e9db8"
+    "core": "runtime/core.js?v=6a306a6f"
   },
   "modules": {
     "dashboard": {
-      "url": "views/dashboard.js?v=5b419f6b",
-      "deps": [],
+      "url": "views/dashboard.js?v=9db4a602",
+      "deps": [
+        "shared-leave-meta"
+      ],
       "provides": [
         "viewDashboard"
       ]
@@ -30,7 +32,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "shared-requests": {
-      "url": "runtime/shared/requests.js?v=cd7e445b",
+      "url": "runtime/shared/requests.js?v=cd184aff",
       "deps": [],
       "provides": []
     },
@@ -65,7 +67,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "requests-leave": {
-      "url": "views/leave/main.js?v=617afb84",
+      "url": "views/leave/main.js?v=66e94a62",
       "deps": [
         "shared-requests",
         "shared-hr-meta",
@@ -78,7 +80,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "ot": {
-      "url": "views/ot/main.js?v=587fb4a7",
+      "url": "views/ot/main.js?v=d143fc7d",
       "deps": [
         "shared-requests"
       ],
@@ -96,6 +98,17 @@ window.NJHR_ASSETS = {
       ],
       "provides": [
         "viewReports"
+      ]
+    },
+    "report-menu": {
+      "url": "views/reports/menu.js?v=f45b1484",
+      "deps": [
+        "shared-report",
+        "shared-leave-meta"
+      ],
+      "provides": [
+        "viewRptLeave",
+        "viewRptOT"
       ]
     },
     "employees-form": {
@@ -141,7 +154,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "leave-form": {
-      "url": "views/leave/form.js?v=a1f09b7c",
+      "url": "views/leave/form.js?v=ba744d65",
       "deps": [
         "requests-leave",
         "shared-leave-meta",
@@ -200,7 +213,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "compatibility": {
-      "url": "compat/app-legacy.js?v=76dbc88b",
+      "url": "compat/app-legacy.js?v=47d7d6ca",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -229,7 +242,7 @@ window.NJHR_ASSETS = {
     }
   },
   "styles": {
-    "main": "styles.css?v=7cce639b",
+    "main": "styles.css?v=564585e2",
     "mobile": "mobile.css?v=65bc9fcb"
   }
 };

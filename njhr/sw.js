@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-133f9b44';
+const V = 'njhr-v2-9ff9d43b';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,13 +10,13 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=86db7b0f","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=d48e9db8","./styles.css?v=7cce639b","./mobile.css?v=65bc9fcb","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=e8cc8dad","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=6a306a6f","./styles.css?v=564585e2","./mobile.css?v=65bc9fcb","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
       app-legacy.js → cache ตอนเปิด Feature เดิมครั้งแรกเท่านั้น ห้าม precache
       ที่เหลือโหลดผ่าน loadScriptOnce/loadStyleOnce ซึ่งเติม ?v= ให้แล้ว */
-const LAZY_PATHS = ["dashboard.js","emp-meta.js","hr-meta.js","report-export.js","requests.js","leave-meta.js","attachments.js","list.js","main.js","report.js","form.js","documents.js","import.js","export.js","correction.js","detail.js","app-legacy.js","face.js","face.css","master-salary.js","report-template.js"];
+const LAZY_PATHS = ["dashboard.js","emp-meta.js","hr-meta.js","report-export.js","requests.js","leave-meta.js","attachments.js","list.js","main.js","report.js","menu.js","form.js","documents.js","import.js","export.js","correction.js","detail.js","app-legacy.js","face.js","face.css","master-salary.js","report-template.js"];
 
 /* C) ห้าม cache เด็ดขาด — config.js · Supabase/RPC · ทุก origin อื่น
       ข้อมูลพนักงาน เงินเดือน ใบหน้า Audit ลงเวลา Signed URL อยู่บน Supabase
