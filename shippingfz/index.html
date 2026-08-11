@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="0811-E">
+<meta name="sfz-build" content="0811-H">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -740,7 +740,8 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc tbody td.td-actions .row-act.ra-more{flex:0 0 52px;min-width:52px;max-width:52px;font-size:20px}
 
   /* ══════════ การ์ดงานมือถือ (markup ใหม่ · .m-card) ══════════ */
-  .tbl-doc tbody tr.m-card-row{display:block;background:#151E2C;border:1px solid rgba(255,255,255,.08);border-radius:17px;margin-bottom:14px;padding:0;overflow:hidden}
+  .tbl-doc tbody tr.m-card-row{display:block;background:#151E2C;border:1px solid rgba(255,255,255,.08);border-radius:17px;margin-bottom:14px;padding:0;overflow:hidden;
+    content-visibility:auto;contain-intrinsic-size:auto 268px}
   .tbl-doc tbody td.m-card{display:block;padding:16px;border:none}
   .tbl-doc tbody td.m-card::before{display:none}
   .m-card .mc-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
@@ -899,6 +900,35 @@ body:has(.modal-back.show){overflow:hidden}
 .sfz-rip-dd .rip-dd-danger{color:#F87171}
 .sfz-rip-dd .rip-dd-danger:hover{background:rgba(220,38,38,.16)}
 .sfz-rip-dd .rip-dd-sep{height:1px;margin:5px 6px;background:var(--border)}
+#rip-att .rip-att-closebtn{display:block;width:100%;min-height:52px;margin-top:16px;border:1px solid #34D399;border-radius:12px;background:#10B981;color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,.3)}
+#rip-att .rip-att-closebtn:hover{filter:brightness(1.08)}
+#rip-att .rip-att-closebtn:active{transform:translateY(1px) scale(.99)}
+#rip-att .rip-att-closebtn:disabled{opacity:.75;cursor:progress}
+#rip-att .rip-att-closebtn[hidden]{display:none}
+@media (max-width:760px){
+  #rip-att .rip-att-closebtn{position:sticky;bottom:calc(6px + env(safe-area-inset-bottom));z-index:2;min-height:54px}
+}
+#df-modal .df-list{display:flex;flex-direction:column;gap:2px}
+#df-modal .df-row{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid rgba(148,163,184,.14);flex-wrap:wrap}
+#df-modal .df-ic{flex-shrink:0;font-size:17px}
+#df-modal .df-name{flex:1 1 140px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0;font-size:13.5px}
+#df-modal .df-meta{flex-shrink:0;font-size:11px;color:#7A8699}
+#df-modal .df-btn{flex-shrink:0;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap}
+#df-modal .df-view{background:rgba(59,130,246,.16);border-color:#3B82F6;color:#93C5FD}
+#df-modal .df-dl{background:rgba(16,185,129,.16);border-color:#10B981;color:#6EE7B7}
+#df-modal .df-btn:hover{filter:brightness(1.2)}
+#df-modal .df-view-box{margin-top:14px;background:#0B1018;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;max-height:60vh;overflow:auto}
+#df-modal .df-img{width:100%;height:auto;border-radius:8px;display:block}
+#df-modal .df-frame{width:100%;height:56vh;border:none;border-radius:8px;background:#fff}
+#df-modal .df-open{display:inline-block;margin-top:8px;color:#60A5FA;font-size:13px;text-decoration:underline}
+#df-modal .df-loading{font-size:13px;color:#94A3B8;padding:8px 2px}
+@media (max-width:760px){
+  #df-modal .df-row{gap:6px;padding:12px 2px}
+  #df-modal .df-name{flex:1 1 100%}
+  #df-modal .df-btn{flex:1 1 calc(50% - 4px);min-height:44px}
+  #df-modal .df-meta{display:none}
+  #df-modal .df-frame{height:50vh}
+}
 #rip-att .rip-att-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.14)}
 #rip-att .rip-att-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#E2E8F0}
 #rip-att .rip-att-meta{font-size:11px;color:#7A8699;flex-shrink:0}
@@ -962,7 +992,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-E</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-H</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -4313,6 +4343,7 @@ function openAttachDocs(id){
       <button class="rip-btn rip-att" style="width:100%;min-height:44px" onclick="document.getElementById('rip-att-file').click()">＋ เลือกไฟล์ (เลือกได้หลายไฟล์)</button>
       <div id="rip-att-status" style="font-size:12.5px;color:#94A3B8;margin-top:10px"></div>
       <div id="rip-att-list" style="margin-top:12px;font-size:13px;color:#94A3B8">กำลังโหลด...</div>
+      <button id="rip-att-close" class="rip-att-closebtn" hidden onclick="_ripAttCloseJob('${id}')">✅ ปิดงาน</button>
     </div></div>`;
   document.body.appendChild(el);
   refreshIcons();
@@ -4329,6 +4360,7 @@ async function _ripAttRender(id){
     const list = data||[];
     _ripAtt[id] = list.length;
     _ripPatchButtons();
+    _ripAttToggleCloseBtn(id, list.length);
     if(!list.length){ box.innerHTML = '<div style="padding:10px 0">ยังไม่มีเอกสารแนบ</div>'; return; }
     const canDel = isAdmin();
     box.innerHTML = list.map(f=>`<div class="rip-att-row">
@@ -4339,6 +4371,33 @@ async function _ripAttRender(id){
       </div>`).join('');
   }catch(e){
     box.innerHTML = '<div style="color:#f87171">โหลดรายการไฟล์ไม่สำเร็จ: '+esc(e.message||'')+'</div>';
+  }
+}
+
+/* ปุ่ม "ปิดงาน" ในหน้าต่างแนบเอกสาร — เฉพาะมือถือ + โหมด ดำเนินตรวจปล่อย
+   ใช้ ripCloseJob() เดิมทั้งหมด (ตรวจไฟล์จาก Supabase + confirm + docComplete) ไม่มี logic ใหม่ */
+function _ripAttToggleCloseBtn(id, n){
+  const b = document.getElementById('rip-att-close');
+  if(!b) return;
+  b.hidden = !( (n||0) > 0 && _vpMobile() && S.view === 'RECEIVED' );
+}
+const _ripAttClosing = new Set();
+async function _ripAttCloseJob(id){
+  if(_ripAttClosing.has(id)) return;                 // กันกดซ้ำ
+  _ripAttClosing.add(id);
+  const b = document.getElementById('rip-att-close');
+  const _t = b ? b.textContent : '';
+  if(b){ b.disabled = true; b.textContent = 'กำลังปิดงาน...'; }
+  try{
+    await ripCloseJob(id);                           // Workflow ปิดงานเดิม (มี confirm ในตัว)
+    const d = (S.docs||[]).find(x=>x.id===id);
+    if(d && d.doc_status === 'COMPLETED'){           // สำเร็จ → ปิด Modal ให้เลย
+      const m = document.getElementById('rip-att'); if(m) m.remove();
+    }
+  }finally{
+    _ripAttClosing.delete(id);
+    const b2 = document.getElementById('rip-att-close');
+    if(b2){ b2.disabled = false; b2.textContent = _t || '✅ ปิดงาน'; }
   }
 }
 
@@ -4407,8 +4466,92 @@ function _saCompletedTodayActions(d){
   h+=`<button class="row-act ra-more" onclick="event.stopPropagation();_saCompletedMenu(event,'${id}')" title="เพิ่มเติม">⋮</button>`;
   return h;
 }
+
+/* ============================================================
+   ดู / ดาวน์โหลดเอกสารแนบของงาน — ใช้ ATTACH_TABLE + STORAGE_BUCKET + Signed URL เดิม
+   ไม่แตะสถานะงาน ปิดงาน เลื่อนงาน หรือข้อมูล JOB ใด ๆ
+   ============================================================ */
+async function _dfSignedUrl(path, downloadName){
+  const opt = downloadName ? { download: downloadName } : undefined;
+  const { data, error } = await sb.storage.from(STORAGE_BUCKET).createSignedUrl(path, SIGNED_URL_TTL, opt);
+  if(error) throw error;
+  return data.signedUrl;
+}
+function _dfIsImage(name){ return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(String(name||'')); }
+function _dfIsPdf(name){ return /\.pdf$/i.test(String(name||'')); }
+
+async function openDocFiles(id, wantDownload){
+  const d = (S.docs||[]).find(x=>x.id===id);
+  try{
+    const { data, error } = await sb.from(ATTACH_TABLE)
+      .select('id,storage_path,file_name,file_size,uploaded_name,created_at')
+      .eq('app_code', WORK_APP_CODE).eq('document_id', id)     // ผูกกับ JOB ที่กดเท่านั้น
+      .order('created_at', { ascending:false });
+    if(error) throw error;
+    const list = data || [];
+    if(!list.length){ toast('งานนี้ไม่มีเอกสารแนบ','error'); return; }   // ไม่เปิดหน้าว่าง
+    if(wantDownload && list.length === 1){                               // ไฟล์เดียว → โหลดเลย
+      await _dfDownload(list[0].storage_path, list[0].file_name);
+      return;
+    }
+    _dfOpenModal(d, list, !!wantDownload);
+  }catch(e){
+    console.warn('[openDocFiles]', e);
+    toast('เปิดเอกสารไม่สำเร็จ: '+((e&&e.message)||''),'error');
+  }
+}
+
+function _dfOpenModal(d, list, wantDownload){
+  const old = document.getElementById('df-modal'); if(old) old.remove();
+  const el = document.createElement('div');
+  el.id='df-modal'; el.className='modal-back show'; el.style.zIndex='99997';
+  el.innerHTML = `<div class="modal" style="max-width:640px">
+    <div class="modal-head"><h2 style="font-size:16px;margin:0">${wantDownload?'📥 ดาวน์โหลดเอกสาร':'👁 ดูเอกสาร'}</h2>
+      <button class="x" onclick="_dfClose()"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px">JOB NO: <b style="color:#10B981">${esc((d&&d.doc_no)||'—')}</b> · ${list.length} ไฟล์</p>
+      <div class="df-list">${list.map(f=>`<div class="df-row">
+          <span class="df-ic">${_dfIsPdf(f.file_name)?'📕':(_dfIsImage(f.file_name)?'🖼':'📄')}</span>
+          <span class="df-name" title="${esc(f.file_name||'')}">${esc(f.file_name||'ไฟล์')}</span>
+          <span class="df-meta">${f.file_size?Math.round(f.file_size/1024)+' KB':''}</span>
+          <button class="df-btn df-view" onclick="_dfPreview('${esc(f.storage_path)}','${esc(f.file_name||'')}')">👁 ดู</button>
+          <button class="df-btn df-dl" onclick="_dfDownload('${esc(f.storage_path)}','${esc(f.file_name||'')}')">📥 โหลด</button>
+        </div>`).join('')}</div>
+      <div id="df-view" class="df-view-box" hidden></div>
+    </div></div>`;
+  document.body.appendChild(el);
+  refreshIcons();
+}
+function _dfClose(){ const el=document.getElementById('df-modal'); if(el) el.remove(); }   // ปิดแล้วกลับหน้าเดิม ไม่ re-render รายการ
+
+async function _dfPreview(path, name){
+  const box = document.getElementById('df-view'); if(!box) return;
+  box.hidden = false;
+  box.innerHTML = '<div class="df-loading">กำลังเปิดไฟล์...</div>';
+  try{
+    const url = await _dfSignedUrl(path);                     // Signed URL ชั่วคราว ไม่เปิดเผย path ถาวร
+    if(_dfIsImage(name))      box.innerHTML = `<img src="${esc(url)}" alt="${esc(name)}" class="df-img">`;
+    else if(_dfIsPdf(name))   box.innerHTML = `<iframe src="${esc(url)}" class="df-frame" title="${esc(name)}"></iframe>`
+                                            + `<a class="df-open" href="${esc(url)}" target="_blank" rel="noopener">เปิดในแท็บใหม่</a>`;
+    else                      box.innerHTML = `<a class="df-open" href="${esc(url)}" target="_blank" rel="noopener">เปิดไฟล์ ${esc(name)}</a>`;
+  }catch(e){
+    box.innerHTML = '<div class="df-loading" style="color:#f87171">เปิดไฟล์ไม่สำเร็จ: '+esc((e&&e.message)||'')+'</div>';
+  }
+}
+
+async function _dfDownload(path, name){
+  try{
+    const url = await _dfSignedUrl(path, name || true);       // ดาวน์โหลดด้วยชื่อไฟล์เดิม
+    const a = document.createElement('a');
+    a.href = url; a.download = name || ''; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ toast('ดาวน์โหลดไม่สำเร็จ: '+((e&&e.message)||''),'error'); }
+}
+
 function _saCompletedMenu(ev, id){
   const items=[
+    ['👁','ดูเอกสาร',`openDocFiles('${id}',false)`],
+    ['📥','ดาวน์โหลดเอกสาร',`openDocFiles('${id}',true)`],
     ['🖨','ปริ้นต์ใบงาน',`openPrintJob('${id}')`],
     ['📄','สร้างงานซ้ำ',`docDuplicate('${id}')`]
   ];
@@ -4994,7 +5137,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-E' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-H' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
