@@ -762,6 +762,12 @@ body:has(.modal-back.show){overflow:hidden}
   .m-card .mc-acts .sfz-rip{flex:1;justify-content:stretch;gap:10px}
   .m-card .mc-acts .sfz-rip .rip-btn{flex:1 1 auto;min-height:56px;border-radius:14px;font-size:16px}
   .m-card .mc-acts .sfz-rip .rip-menu{flex:0 0 56px;min-width:56px;max-width:56px}
+
+  /* 3 ปุ่มบนการ์ด RECEIVED (มือถือ): แนบเอกสาร | ปิดงาน | ⋮ */
+  .m-card .mc-acts .sfz-rip.sfz-rip-m{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 56px;gap:8px;width:100%}
+  .m-card .mc-acts .sfz-rip-m .rip-btn{width:100%;min-width:0;flex:none;min-height:56px;border-radius:14px;font-size:14.5px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .m-card .mc-acts .sfz-rip-m .rip-menu{font-size:20px;padding:0}
+  .sfz-rip .rip-close.is-locked{background:#475569;border-color:#64748B;color:#CBD5E1;opacity:1}
 }
 @media (max-width:359px){
   .m-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -4097,6 +4103,15 @@ function isInProgressReleaseMode(d){
    Function เดิมทั้งหมดไม่ถูกแตะ — เมนูแค่เรียกตัวเดิม */
 function renderInProgressReleaseActions(d){
   const id = d.id;
+  if(_vpMobile()){
+    /* มือถือ: แสดง แนบเอกสาร + ปิดงาน บนการ์ดเลย · คำสั่งรอง (เลื่อน/ลบ) อยู่ใน ⋮ */
+    const n = _ripAtt[id] || 0, can = n > 0;
+    return `<span class="sfz-rip sfz-rip-m">`
+      + `<button class="rip-btn rip-att" data-rip-att="${esc(id)}" onclick="event.stopPropagation();openAttachDocs('${id}')" title="แนบเอกสาร">${can?`📎 เอกสาร (${n})`:'📎 แนบเอกสาร'}</button>`
+      + `<button class="rip-btn rip-close${can?'':' is-locked'}" data-rip-close="${esc(id)}" onclick="event.stopPropagation();ripCloseJob('${id}')" title="${can?'ปิดงาน':'ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน'}">${can?'✅ ปิดงาน':'🔒 แนบก่อนปิด'}</button>`
+      + `<button class="rip-btn rip-menu" data-rip-menu="${esc(id)}" aria-haspopup="menu" aria-expanded="false" onclick="event.stopPropagation();ripToggleMenu('${id}', this)" title="เมนูจัดการ">⋮</button>`
+      + `</span>`;
+  }
   return `<span class="sfz-rip">`
     + `<button class="rip-btn rip-menu" data-rip-menu="${esc(id)}" aria-haspopup="menu" aria-expanded="false"`
     + ` onclick="event.stopPropagation();ripToggleMenu('${id}', this)" title="เมนูจัดการ">⋮</button>`
@@ -4133,11 +4148,13 @@ function ripToggleMenu(id, btn){
 
   const el = document.createElement('div');
   el.id='rip-dd'; el.className='sfz-rip-dd'; el.setAttribute('role','menu');
+  const _mob = _vpMobile();            // มือถือ: แนบเอกสาร/ปิดงาน อยู่บนการ์ดแล้ว → เมนูเหลือ เลื่อน + ลบ
   el.innerHTML =
       `<button class="rip-dd-item" role="menuitem" data-act="post">📅 เลื่อน</button>`
-    + `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
-    + `<button class="rip-dd-item${canClose?'':' is-disabled'}" role="menuitem" data-act="close"`
-    + ` title="${canClose?'ปิดงาน':'กรุณาแนบเอกสารก่อนปิดงาน'}">✅ ปิดงาน</button>`
+    + (_mob ? '' :
+        `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
+      + `<button class="rip-dd-item${canClose?'':' is-disabled'}" role="menuitem" data-act="close"`
+      + ` title="${canClose?'ปิดงาน':'กรุณาแนบเอกสารก่อนปิดงาน'}">✅ ปิดงาน</button>`)
     + (canDel ? `<div class="rip-dd-sep"></div><button class="rip-dd-item rip-dd-danger" role="menuitem" data-act="del">🗑️ ลบ</button>` : '');
   document.body.appendChild(el);
 
@@ -4182,11 +4199,33 @@ function ripToggleMenu(id, btn){
    + Timeline/Audit action='completed' + ผู้ปิดงาน ตามเดิมทุกอย่าง */
 const _ripClosing = new Set();          // กันกดซ้ำ/ยิงซ้อน
 async function ripCloseJob(id){
-  if(!(_ripAtt[id] > 0)){ toast('กรุณาแนบเอกสารก่อนปิดงาน','error'); return; }
-  if(_ripClosing.has(id)) return;
+  if(_ripClosing.has(id)) return;        // กดรัว ๆ → ทำงานครั้งเดียว
   _ripClosing.add(id);
-  try{ await docComplete(id); }
-  finally{ _ripClosing.delete(id); }
+  const btn = document.querySelector(`[data-rip-close="${CSS.escape(String(id))}"]`);
+  if(btn) btn.disabled = true;
+  try{
+    /* ตรวจจำนวนไฟล์จากฐานข้อมูลจริงก่อนเสมอ — ไม่เชื่อค่าใน _ripAtt */
+    const { count, error } = await sb.from(ATTACH_TABLE)
+      .select('id', { count:'exact', head:true })
+      .eq('app_code', WORK_APP_CODE).eq('document_id', id);
+    if(error) throw error;
+    const n = Number(count) || 0;
+    _ripAtt[id] = n;
+    _ripPatchButtons();
+    if(!(n > 0)){
+      toast('ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน','error');
+      openAttachDocs(id);                // เปิดหน้าต่างแนบเอกสารให้ทันที
+      return;
+    }
+    await docComplete(id);               // confirm + สถานะ/Timeline/Audit เดิม
+  }catch(e){
+    console.warn('[ripCloseJob]', e);
+    toast('ตรวจไฟล์แนบไม่สำเร็จ: '+((e&&e.message)||''),'error');
+  }finally{
+    _ripClosing.delete(id);
+    const b2 = document.querySelector(`[data-rip-close="${CSS.escape(String(id))}"]`);
+    if(b2) b2.disabled = false;
+  }
 }
 
 /* โหลดจำนวนไฟล์แนบเฉพาะแถวที่แสดงอยู่ แล้ว patch เฉพาะปุ่ม (ไม่ re-render ตาราง) */
@@ -4209,8 +4248,17 @@ async function _ripLoadAttachCounts(rows){
   _ripPatchButtons();
 }
 function _ripPatchButtons(){
-  /* คอลัมน์การจัดการเหลือปุ่ม ⋮ อย่างเดียว — สถานะ "ปิดงาน" อ่านจาก _ripAtt ตอนเปิดเมนู (ค่าสดเสมอ)
-     ถ้าเมนูเปิดค้างอยู่ตอนจำนวนไฟล์แนบเปลี่ยน → ปิดเมนูเพื่อไม่ให้แสดงค่าเก่า */
+  /* อัปเดตปุ่มบนการ์ดมือถือทันทีที่จำนวนไฟล์เปลี่ยน — ไม่ re-render ตาราง ไม่ต้องรีเฟรช */
+  document.querySelectorAll('[data-rip-close]').forEach(b=>{
+    const n = _ripAtt[b.getAttribute('data-rip-close')] || 0, can = n > 0;
+    b.classList.toggle('is-locked', !can);
+    b.textContent = can ? '✅ ปิดงาน' : '🔒 แนบก่อนปิด';
+    b.title = can ? 'ปิดงาน' : 'ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน';
+  });
+  document.querySelectorAll('[data-rip-att]').forEach(b=>{
+    const n = _ripAtt[b.getAttribute('data-rip-att')] || 0;
+    b.textContent = n > 0 ? `📎 เอกสาร (${n})` : '📎 แนบเอกสาร';
+  });
   if(_ripDD) ripCloseMenu();
 }
 
