@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="0811-B">
+<meta name="sfz-build" content="0811-C">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -809,7 +809,7 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc td .ucol-desk{display:block;line-height:1.35}
   .tbl-doc td .u-ordby{display:block;color:#94a3b8;font-size:11px;font-weight:400;margin-top:1px}
   /* RECEIVED: "ผู้สั่งงาน" หลัง USER + มี รายละเอียดงาน(5) → 13 คอลัมน์ (เลื่อน 9-13) */
-  .tbl-doc.tbl-recv{min-width:951px}   /* 🔵 ดำเนินตรวจปล่อย: ย้าย ประเภท+LEAD TIME+เวลา เข้าเมนู ⋮ · ขยายสถานะเอกสาร/สถานะงาน (2 บรรทัด) · ลด บริษัท/รายละเอียด/ชิปปิ้ง */
+  .tbl-doc.tbl-recv{min-width:1017px}   /* 🔵 ดำเนินตรวจปล่อย: ย้าย ประเภท+LEAD TIME+เวลา เข้าเมนู ⋮ · ขยายสถานะเอกสาร/สถานะงาน (2 บรรทัด) · ลด บริษัท/รายละเอียด/ชิปปิ้ง */
   .tbl-doc.tbl-recv .col-cat{display:none}    /* 📦 ประเภท = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
   .tbl-doc.tbl-recv .col-lead{display:none}   /* ⏱️ LEAD TIME = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
   .tbl-doc.tbl-recv .col-time{display:none}   /* 🕒 เวลา = ย้ายไปเมนู ⋮ (desktop) · มือถือคงเดิม */
@@ -833,7 +833,7 @@ body:has(.modal-back.show){overflow:hidden}
   .tbl-doc.tbl-recv th:nth-child(12),.tbl-doc.tbl-recv td:nth-child(12){width:185px} /* สถานะเอกสาร (⏰ ระบบ · 2 บรรทัด) */
   /* ลบคอลัมน์ 👤 สถานะลูกค้า (เดิมที่ 13) → LEAD TIME 14→13 · การจัดการ 15→14 */
   .tbl-doc.tbl-recv th:nth-child(13),.tbl-doc.tbl-recv td:nth-child(13){width:78px;padding-left:8px;padding-right:8px}  /* LEAD TIME */
-  .tbl-doc.tbl-recv th:nth-child(14),.tbl-doc.tbl-recv td:nth-child(14){width:196px} /* การจัดการ */
+  .tbl-doc.tbl-recv th:nth-child(14),.tbl-doc.tbl-recv td:nth-child(14){width:262px} /* การจัดการ (เลื่อน+ปิดงาน+⋮) */
   /* 🟡 รอรับงาน (NEW): รวม รายละเอียดงาน + สถานที่รับ/ส่ง เป็นช่องเดียว (col-jdesc) 2 บรรทัด → ขยาย col-jdesc(5) — เฉพาะ NEW desktop */
   .tbl-doc.tbl-new{min-width:1132px}   /* 🟡 รอรับงาน: +คอลัมน์ 📄 เลขใบขน */
   .tbl-doc.tbl-new th:nth-child(1),.tbl-doc.tbl-new td:nth-child(1){width:52px}    /* JOB NO */
@@ -861,6 +861,13 @@ body:has(.modal-back.show){overflow:hidden}
    🔵 ดำเนินตรวจปล่อย (RECEIVED) — ปุ่มคอลัมน์ "การจัดการ" เฉพาะโหมดนี้
    scope: .sfz-rip และ #rip-att เท่านั้น — ไม่มี selector กว้าง ไม่กระทบโหมด/หน้าอื่น
    ============================================================ */
+.sfz-rip.sfz-rip-d{display:flex;flex-wrap:nowrap;gap:6px;align-items:center;justify-content:flex-end}
+.sfz-rip-d .rip-btn{flex:0 0 auto;min-height:36px;padding:0 10px;font-size:12.5px;white-space:nowrap}
+.sfz-rip-d .rip-dpost{background:rgba(234,88,12,.16);border-color:#F59E0B;color:#FDBA74}
+.sfz-rip-d .rip-dclose{background:rgba(16,185,129,.16);border-color:#10B981;color:#6EE7B7}
+.sfz-rip-d .rip-dclose.is-locked{background:rgba(148,163,184,.12);border-color:#64748B;color:#CBD5E1}
+.sfz-rip-d .rip-btn:hover{filter:brightness(1.25)}
+.sfz-rip-d .rip-menu{min-width:34px;padding:0 6px}
 .sfz-rip{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .sfz-rip .rip-btn,#rip-att .rip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 10px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid;cursor:pointer;white-space:nowrap;line-height:1;color:#fff}
 .sfz-rip .rip-post,#rip-att .rip-post{background:#EA580C;border-color:#FB923C}
@@ -951,7 +958,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-B</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-C</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -4123,7 +4130,11 @@ function renderInProgressReleaseActions(d){
       + `<button class="rip-btn rip-menu" data-rip-menu="${esc(id)}" aria-haspopup="menu" aria-expanded="false" onclick="event.stopPropagation();ripToggleMenu('${id}', this)" title="เมนูจัดการ">⋮</button>`
       + `</span>`;
   }
-  return `<span class="sfz-rip">`
+  /* Desktop: เลื่อน + ปิดงาน แสดงในคอลัมน์เลย · ⋮ เหลือ แนบเอกสาร + ลบ */
+  const n = _ripAtt[id] || 0, can = n > 0;
+  return `<span class="sfz-rip sfz-rip-d">`
+    + `<button class="rip-btn rip-dpost" onclick="event.stopPropagation();openPostponePrompt('${id}')" title="เลื่อนตรวจปล่อย">🗓 เลื่อน</button>`
+    + `<button class="rip-btn rip-dclose${can?'':' is-locked'}" data-rip-close="${esc(id)}" onclick="event.stopPropagation();ripCloseJob('${id}')" title="${can?'ปิดงาน':'ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน'}">✅ ปิดงาน</button>`
     + `<button class="rip-btn rip-menu" data-rip-menu="${esc(id)}" aria-haspopup="menu" aria-expanded="false"`
     + ` onclick="event.stopPropagation();ripToggleMenu('${id}', this)" title="เมนูจัดการ">⋮</button>`
     + `</span>`;
@@ -4161,14 +4172,14 @@ function ripToggleMenu(id, btn){
   el.id='rip-dd'; el.className='sfz-rip-dd'; el.setAttribute('role','menu');
   /* หน้าต่าง "จัดการ" — เลื่อน / ปิดงาน อยู่แถวเดียวกันบนสุด 50/50 · แนบเอกสาร + ลบ อยู่ล่าง
      ใช้ทั้ง Desktop และมือถือ · ปุ่มปิดงานไม่ถูกซ่อนบนมือถืออีกต่อไป */
+  /* เลื่อน/ปิดงาน (คอม) และ แนบเอกสาร/ปิดงาน (มือถือ) อยู่นอกเมนูแล้ว
+     เมนูจึงเหลือเฉพาะคำสั่งที่ยังไม่มีปุ่มด้านนอก */
+  const _mob = _vpMobile();
   el.innerHTML =
       `<div class="rip-dd-title">จัดการ</div>`
-    + `<div class="rip-dd-row">`
-    +   `<button class="rip-dd-btn rip-dd-post" role="menuitem" data-act="post" title="เลื่อนตรวจปล่อย">🗓 เลื่อน</button>`
-    +   `<button class="rip-dd-btn rip-dd-close${canClose?'':' is-locked'}" role="menuitem" data-act="close" title="${canClose?'ปิดงาน':'ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน'}">✅ ปิดงาน</button>`
-    + `</div>`
-    + `<div class="rip-dd-sep"></div>`
-    + `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
+    + (_mob
+        ? `<button class="rip-dd-item" role="menuitem" data-act="post">🗓 เลื่อน</button>`
+        : `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`)
     + (canDel ? `<div class="rip-dd-sep"></div><button class="rip-dd-item rip-dd-danger" role="menuitem" data-act="del">🗑️ ลบ</button>` : '');
   document.body.appendChild(el);
 
@@ -4980,7 +4991,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-B' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-C' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
