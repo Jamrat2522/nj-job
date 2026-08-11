@@ -21,6 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
+<meta name="sfz-build" content="0811-B">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -870,6 +871,16 @@ body:has(.modal-back.show){overflow:hidden}
 .sfz-rip{justify-content:center}
 .sfz-rip .rip-menu{background:transparent;border-color:var(--border);color:var(--muted);min-width:38px;padding:0 8px;font-size:18px;font-weight:900;letter-spacing:1px}
 .sfz-rip .rip-menu:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.sfz-rip-dd{min-width:250px;max-width:calc(100vw - 20px)}
+.sfz-rip-dd .rip-dd-title{font-size:12px;font-weight:800;letter-spacing:.5px;color:#94A3B8;padding:4px 6px 8px}
+.sfz-rip-dd .rip-dd-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:2px}
+.sfz-rip-dd .rip-dd-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-width:0;min-height:46px;padding:0 8px;border-radius:12px;border:1px solid;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:filter .12s ease,transform .06s ease}
+.sfz-rip-dd .rip-dd-btn:hover{filter:brightness(1.25)}
+.sfz-rip-dd .rip-dd-btn:active{transform:scale(.97)}
+.sfz-rip-dd .rip-dd-btn:disabled{opacity:.7;cursor:progress}
+.sfz-rip-dd .rip-dd-post{background:rgba(234,88,12,.16);border-color:#F59E0B;color:#FDBA74}
+.sfz-rip-dd .rip-dd-close{background:rgba(16,185,129,.16);border-color:#10B981;color:#6EE7B7}
+.sfz-rip-dd .rip-dd-close.is-locked{background:rgba(148,163,184,.12);border-color:#64748B;color:#CBD5E1}
 .sfz-rip-dd{position:fixed;z-index:100070;min-width:190px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .sfz-rip-dd .rip-dd-item{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--text);font-size:13.5px;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap;font-family:inherit}
 .sfz-rip-dd .rip-dd-item:hover{background:rgba(255,255,255,.07)}
@@ -940,7 +951,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-B</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -4148,13 +4159,16 @@ function ripToggleMenu(id, btn){
 
   const el = document.createElement('div');
   el.id='rip-dd'; el.className='sfz-rip-dd'; el.setAttribute('role','menu');
-  const _mob = _vpMobile();            // มือถือ: แนบเอกสาร/ปิดงาน อยู่บนการ์ดแล้ว → เมนูเหลือ เลื่อน + ลบ
+  /* หน้าต่าง "จัดการ" — เลื่อน / ปิดงาน อยู่แถวเดียวกันบนสุด 50/50 · แนบเอกสาร + ลบ อยู่ล่าง
+     ใช้ทั้ง Desktop และมือถือ · ปุ่มปิดงานไม่ถูกซ่อนบนมือถืออีกต่อไป */
   el.innerHTML =
-      `<button class="rip-dd-item" role="menuitem" data-act="post">📅 เลื่อน</button>`
-    + (_mob ? '' :
-        `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
-      + `<button class="rip-dd-item${canClose?'':' is-disabled'}" role="menuitem" data-act="close"`
-      + ` title="${canClose?'ปิดงาน':'กรุณาแนบเอกสารก่อนปิดงาน'}">✅ ปิดงาน</button>`)
+      `<div class="rip-dd-title">จัดการ</div>`
+    + `<div class="rip-dd-row">`
+    +   `<button class="rip-dd-btn rip-dd-post" role="menuitem" data-act="post" title="เลื่อนตรวจปล่อย">🗓 เลื่อน</button>`
+    +   `<button class="rip-dd-btn rip-dd-close${canClose?'':' is-locked'}" role="menuitem" data-act="close" title="${canClose?'ปิดงาน':'ต้องแนบเอกสารอย่างน้อย 1 ไฟล์ก่อนปิดงาน'}">✅ ปิดงาน</button>`
+    + `</div>`
+    + `<div class="rip-dd-sep"></div>`
+    + `<button class="rip-dd-item" role="menuitem" data-act="att">📎 แนบเอกสาร${n>0?` (${n})`:''}</button>`
     + (canDel ? `<div class="rip-dd-sep"></div><button class="rip-dd-item rip-dd-danger" role="menuitem" data-act="del">🗑️ ลบ</button>` : '');
   document.body.appendChild(el);
 
@@ -4169,16 +4183,23 @@ function ripToggleMenu(id, btn){
   el.style.top = Math.max(8, top) + 'px';
   el.style.left = left + 'px';
 
-  el.addEventListener('click', ev=>{
-    const b = ev.target.closest('.rip-dd-item'); if(!b) return;
+  el.addEventListener('click', async ev=>{
+    const b = ev.target.closest('[data-act]'); if(!b) return;
     ev.stopPropagation();
     const act = b.getAttribute('data-act');
-    if(act==='close' && !canClose){ toast('กรุณาแนบเอกสารก่อนปิดงาน','error'); ripCloseMenu(); return; }
-    ripCloseMenu();                                 // กดรายการแล้วปิดเมนูเสมอ
-    if(act==='post')       openPostponePrompt(id);  // Function เดิม
-    else if(act==='att')   openAttachDocs(id);      // Function เดิม
-    else if(act==='close') ripCloseJob(id);         // Function เดิม (เงื่อนไขไฟล์แนบเดิม)
-    else if(act==='del')   docDelete(id);           // Function เดิม (มี confirm ในตัว)
+    if(act==='post'){ ripCloseMenu(); openPostponePrompt(id); return; }   // Workflow เลื่อนงานเดิม
+    if(act==='att'){  ripCloseMenu(); openAttachDocs(id);     return; }   // Function เดิม
+    if(act==='del'){  ripCloseMenu(); docDelete(id);          return; }   // Function เดิม (มี confirm)
+    if(act==='close'){
+      if(b.dataset.busy==='1') return;                                     // กันกดซ้ำระหว่างบันทึก
+      b.dataset.busy='1'; b.disabled=true;
+      const _t=b.innerHTML; b.innerHTML='<span class="spinner"></span> กำลังบันทึก...';
+      try{ await ripCloseJob(id); }                                        // ตรวจไฟล์แนบ + Workflow ปิดงานเดิม
+      finally{
+        if(b.isConnected){ b.dataset.busy=''; b.disabled=false; b.innerHTML=_t; }
+        ripCloseMenu();
+      }
+    }
   });
 
   const onDoc = ev=>{ if(!el.contains(ev.target) && ev.target!==btn) ripCloseMenu(); };
@@ -4959,8 +4980,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v && SFZ_ENV==='local') _v.textContent='SHIPPING FZ · v.1.0 · LOCAL';
-    if(_v && SFZ_ENV==='file')  _v.textContent='SHIPPING FZ · v.1.0 · FILE'; }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-B' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
