@@ -129,10 +129,13 @@
         .map(function (x) { return '<option value="' + x[0] + '"' + (s.sort === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select>' +
       '<button class="btn btn-ghost btn-sm emp-dirbtn" id="emp-dir">' + (s.desc ? 'มาก→น้อย' : 'น้อย→มาก') + '</button>' +
       '<span class="grow"></span>' +
-      '<button class="btn btn-ghost emp-tbtn" id="emp-export">' + icon('download') + ' <span class="emp-btxt">Export Excel</span></button>' +
+      /* ลำดับปุ่มบนแถบเครื่องมือ: ดาวน์โหลดเทมเพลต → นำเข้า Excel → Export Excel → เพิ่มพนักงาน
+         สลับเฉพาะลำดับที่วางใน DOM — id · class · Handler · การทำงาน เหมือนเดิมทุกปุ่ม
+         ผู้ที่ไม่มีสิทธิ์แก้ไขยังเห็นเฉพาะ Export Excel เหมือนเดิม */
       (edit ? '<button class="btn btn-ghost emp-tbtn" id="emp-tpl">' + icon('download') + ' <span class="emp-btxt">ดาวน์โหลดเทมเพลต</span></button>' +
-        '<button class="btn btn-ghost emp-tbtn" id="emp-import">' + icon('upload') + ' <span class="emp-btxt">นำเข้า Excel</span></button>' +
-        '<button class="btn btn-primary emp-addbtn" id="emp-add">' + icon('plus') + ' เพิ่มพนักงาน</button>' : '') + '</div>' +
+        '<button class="btn btn-ghost emp-tbtn" id="emp-import">' + icon('upload') + ' <span class="emp-btxt">นำเข้า Excel</span></button>' : '') +
+      '<button class="btn btn-ghost emp-tbtn" id="emp-export">' + icon('download') + ' <span class="emp-btxt">Export Excel</span></button>' +
+      (edit ? '<button class="btn btn-primary emp-addbtn" id="emp-add">' + icon('plus') + ' เพิ่มพนักงาน</button>' : '') + '</div>' +
       '<div class="card p0" id="emp-table"><div class="muted" style="padding:18px">กำลังโหลดข้อมูลจาก Supabase…</div></div>' +
       '<div class="pager" id="emp-pager"></div>' +
       '<div class="form-error" id="emp-err" role="alert" style="white-space:pre-line"></div>';

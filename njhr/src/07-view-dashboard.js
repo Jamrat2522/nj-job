@@ -224,7 +224,7 @@
         dashSetNum('dk-pend', pend);
         var pk = document.getElementById('dk-pend');
         if (pk) {
-          var card = pk.closest ? pk.closest('.kpi') : null;
+          var card = pk.closest ? pk.closest('.rp-kpi') : null;
           if (card) { card.classList.remove('k-red', 'k-slate'); card.classList.add(pend ? 'k-red' : 'k-slate'); }
         }
 
@@ -271,16 +271,19 @@
   function dashAdmin(el) {
     /* ไอคอนใช้ชุด SVG ของระบบ (icon()) ไม่เพิ่ม Library ใหม่
        ค่าเริ่มต้นเป็น "…" ระหว่างรอ Supabase — ไม่มีการ hardcode ตัวเลขใด ๆ */
+    /* การ์ด KPI ใช้โครงเดียวกับหน้า "รายงานทั้งหมด" (.rp-kpi)
+       เพื่อให้ขนาด · มุมโค้ง · เงา · ระยะห่าง · ขนาดตัวอักษร เป็นชุดเดียวกันทั้งระบบ
+       ยังเป็น <a href> คลิกได้เหมือนเดิม · Route · id · ข้อความ ไม่เปลี่ยน */
     function kpi(route, label, id, cls, ic) {
-      return '<a href="' + route + '" class="kpi ' + (cls || '') + '">' +
-        (ic ? '<span class="kpi-ic">' + icon(ic) + '</span>' : '') +
-        '<span class="kpi-txt"><small' + (id === 'dk-pay' ? ' id="dk-pay-label"' : '') + '>' + label + '</small>' +
+      return '<a href="' + route + '" class="rp-kpi ' + (cls || '') + '">' +
+        (ic ? '<span class="rp-kpi-ic">' + icon(ic) + '</span>' : '') +
+        '<span class="grow"><small' + (id === 'dk-pay' ? ' id="dk-pay-label"' : '') + '>' + label + '</small>' +
         '<b id="' + id + '">…</b></span></a>';
     }
 
     el.innerHTML =
       '<div class="only-desktop dash-legacy">' +
-      '<div class="kpi-grid">' +
+      '<div class="rp-kpis dash-kpis">' +
       DASH_KPI.map(function (k) { return kpi(k[1], k[2], k[0], k[3], k[4]); }).join('') +
       kpi('#/payroll', 'เงินเดือน', 'dk-pay', 'k-pink', 'wallet') +
       '</div>' +

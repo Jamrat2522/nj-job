@@ -8,7 +8,8 @@
      ไม่มีตัวกรอง = ไม่แสดงแถบนี้เลย ไม่กินที่ */
   function rpChipsHtml(s) {
     var out = [];
-    if (s.from && s.to) out.push(['date', 'ช่วงวันที่', rpDMY(s.from) + ' – ' + rpDMY(s.to), false]);
+    var cyc = rpCycle();
+    out.push(['date', 'รอบเดือน', cycleLabel(s.ym) + ' (' + rpDMY(cyc.start) + ' – ' + rpDMY(cyc.end) + ')', false]);
     if (s.deptId) out.push(['dept', 'แผนก', s.deptId, true]);
     if (s.empId) out.push(['emp', 'พนักงาน', s.q || '-', true]);
     if (!out.length) return '';
@@ -28,17 +29,23 @@
       return;
     }
     var s = rpState, seq = ++s.seq;
+    /* ต้องมีรอบเดือนก่อนสร้าง <select> มิฉะนั้นช่องรอบเดือนจะว่าง */
+    if (!s.ym) s.ym = cycleCurrent().ym;
     var derr = rpDateErr();
 
     el.innerHTML =
-      '<div class="card"><div class="card-head"><h3>REPORT ALL</h3></div>' +
+      /* .rp-page = ตัวระบุขอบเขตของหน้านี้เท่านั้น
+         CSS เฉพาะ Desktop จะถอดรูปลักษณ์ Card ใบใหญ่ออกและซ่อนหัวข้อซ้ำ
+         (หัวข้อหน้าแสดงที่ Topbar อยู่แล้ว) — โครง DOM เดิมคงไว้ทุกบรรทัด */
+      '<div class="card rp-page"><div class="card-head"><h3>REPORT ALL</h3></div>' +
       /* ตัวกรอง: ทุกช่องมี Label กำกับ ไม่ต้องเดาว่าช่องไหนคืออะไร
          เรียงตามลำดับการใช้งานจริง วันที่ → แผนก → พนักงาน → ปุ่ม */
       '<div class="rp-filters">' +
-      '<label class="rp-f"><span>วันที่เริ่มต้น</span>' +
-      '<input type="date" id="rp-from" value="' + esc(s.from) + '"></label>' +
-      '<label class="rp-f"><span>วันที่สิ้นสุด</span>' +
-      '<input type="date" id="rp-to" value="' + esc(s.to) + '"></label>' +
+      '<label class="rp-f rp-f-ym"><span>รอบเดือน</span>' +
+      '<select id="rp-ym">' + cycleOptions(s.ym, 24, 1).map(function (ym) {
+        return '<option value="' + ym + '"' + (ym === s.ym ? ' selected' : '') + '>' +
+          esc(cycleLabel(ym)) + '</option>';
+      }).join('') + '</select></label>' +
       '<label class="rp-f"><span>แผนก</span>' +
       '<select id="rp-dept"><option value="">ทุกแผนก</option>' +
       // รายชื่อแผนกมาจาก njhr_emp_departments (ตาราง employees จริง) ไม่ใช้ db.departments
@@ -53,6 +60,8 @@
       '<button class="btn btn-ghost" id="rp-clear">ล้างตัวกรอง</button>' +
       '<button class="btn btn-primary rp-exbtn" id="rp-export"' + (derr ? ' disabled' : '') + '>' +
       icon('download') + ' EXPORT EXCEL</button></div></div>' +
+      /* ช่วงวันที่จริงของรอบที่เลือก เปลี่ยนตามเดือนอัตโนมัติ */
+      '<p class="rptm-cycle" id="rp-cycle">' + esc(cycleRangeText(s.ym)) + '</p>' +
       rpChipsHtml(s) +
       (derr ? '<div class="form-error" id="rp-derr">' + esc(derr) + '</div>' : '') +
       '<div id="rp-cards"></div>' +
@@ -69,8 +78,7 @@
       }).catch(function () { /* ไม่มีแผนก = dropdown เหลือ "ทุกแผนก" ตามเดิม */ });
     }
 
-    document.getElementById('rp-from').onchange = function () { s.from = this.value; viewReportAll(el); };
-    document.getElementById('rp-to').onchange = function () { s.to = this.value; viewReportAll(el); };
+    document.getElementById('rp-ym').onchange = function () { s.ym = this.value; viewReportAll(el); };
     document.getElementById('rp-dept').onchange = function () {
       s.deptId = this.value;
       // พนักงานที่เลือกไว้ไม่อยู่ในแผนกใหม่ = ล้างทิ้ง
@@ -222,7 +230,8 @@
 
   function rpClear(el) {
     rpState.seq++;                                   // ยกเลิกผลลัพธ์เก่าที่กำลังจะกลับมา
-    rpState = { from: '', to: '', deptId: '', empId: '', q: '', seq: rpState.seq };
+    /* ล้างตัวกรอง = กลับรอบปัจจุบัน · ทุกแผนก · ทุกคน */
+    rpState = { ym: cycleCurrent().ym, deptId: '', empId: '', q: '', seq: rpState.seq };
     rpData = null;
     try { lsRemove('njhr_rp_filter'); sessionStorage.removeItem('njhr_rp_filter'); } catch (e) { }
     viewReportAll(el);

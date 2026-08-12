@@ -128,8 +128,8 @@
       '<h2 class="req-mb-title">คำขอ</h2>' +
 
       '<section class="req-mb-bal" id="req-bal">' +
-      '<div class="req-mb-bal-h">' + icon('chart', 'ic-sm') + '<b>สรุปสิทธิ์การลา</b>' +
-      '<small>คงเหลือ</small></div>' +
+      '<div class="req-mb-bal-h">' + icon('chart', 'ic-sm') + '<b>สรุปวันลาปีนี้</b>' +
+      '<small>ลาแล้ว</small></div>' +
       '<div class="req-mb-bal-g">' +
       RQ_CARDS.map(function (c) {
         return '<div class="req-bi ' + c.cls + '"><span class="req-bi-ic">' +
@@ -260,15 +260,19 @@
     }
     g.innerHTML = RQ_CARDS.map(function (c) {
       var r = rqPick(rqState.bal || [], c);
-      /* ไม่มีข้อมูลประเภทนี้ = แสดง — ห้ามเดาเป็นศูนย์
-         มีข้อมูลแต่ remaining เป็น null (ไม่จำกัดสิทธิ์) ก็แสดง — เช่นกัน */
-      var has = !!r && r.remaining != null;
-      var left = has ? (Math.round(Number(r.remaining) * 10) / 10) : null;
+      /* ตัวเลขหลัก = "ลาแล้ว" จาก used เท่านั้น (ไม่รวม pending)
+         ไม่มีข้อมูลประเภทนี้ = แสดง — ห้ามเดาเป็นศูนย์
+         พักร้อนเป็นประเภทเดียวที่แสดง "คงเหลือ" ต่อท้าย */
+      var has = !!r;
+      var used = has ? lvUsedDays(r) : null;
+      var rem = (has && c.key === 'vac') ? lvRemainDays(r) : null;
       return '<div class="req-bi ' + c.cls + '"><span class="req-bi-ic">' +
         icon(REQ_BAL_IC[c.key] || 'calendar') + '</span>' +
         '<span class="req-bi-l">' + esc(c.label) + '</span>' +
-        '<span class="req-bi-v">' + (has ? '<b>' + esc(String(left)) + '</b><i>วัน</i>'
-                                          : '<b class="req-bi-na">—</b>') + '</span></div>';
+        '<span class="req-bi-v">' + (has ? '<b>' + esc(String(used)) + '</b><i>วัน</i>'
+                                          : '<b class="req-bi-na">—</b>') + '</span>' +
+        (rem != null ? '<span class="req-bi-rem">คงเหลือ ' + esc(String(rem)) + ' วัน</span>' : '') +
+        '</div>';
     }).join('');
   }
 
@@ -371,14 +375,17 @@
     var d = document.createElement('div');
     d.className = 'rq-bal';
     d.innerHTML = '<div class="rq-bal-h" style="grid-column:1/-1">' +
-      '<span class="rq-bal-hic">' + icon('chart', 'ic-sm') + '</span>สรุปสิทธิ์การลา</div>' +
+      '<span class="rq-bal-hic">' + icon('chart', 'ic-sm') + '</span>สรุปวันลาปีนี้ (ลาแล้ว)</div>' +
       RQ_CARDS.map(function (c) {
         var r = rqPick(rqState.bal, c);
-        var left = r ? Number(r.remaining || 0) : 0;
+        /* ตัวเลข = ลาแล้ว (used) · พักร้อนแสดงคงเหลือต่อท้ายได้ประเภทเดียว */
+        var rem = (r && c.key === 'vac') ? lvRemainDays(r) : null;
         return '<div class="rq-bal-i ' + c.cls + '"><div class="rq-bal-ic">' + c.em + '</div>' +
           '<span class="lbl">' + c.label + '</span>' +
-          '<span class="rq-pill"><b>' + (r ? (Math.round(left * 10) / 10) : '—') + '</b>' +
-          '<small>' + (r ? 'วัน' : 'ไม่มีสิทธิ์') + '</small></span></div>';
+          '<span class="rq-pill"><b>' + (r ? lvUsedDays(r) : '—') + '</b>' +
+          '<small>' + (r ? 'วัน' : 'ไม่มีข้อมูล') + '</small></span>' +
+          (rem != null ? '<span class="rq-bal-rem">คงเหลือ ' + esc(String(rem)) + ' วัน</span>' : '') +
+          '</div>';
       }).join('');
     box.replaceWith(d);
   }
@@ -575,14 +582,19 @@
   function lvRenderBal() {
     var box = document.getElementById('lv-bal');
     if (!box) return;
-    // แสดงเฉพาะประเภทที่มีโควตาจริงใน employees (leave_sick / leave_personal / leave_vacation)
-    box.innerHTML = LEAVE_TYPES.filter(function (t) { return lvBal[t.code] && lvBal[t.code].quota != null; })
+    /* แสดงทุกประเภทที่ RPC ส่งมา (njhr_leave_balances คืนครบทุกประเภทอยู่แล้ว)
+       ตัวเลขหลัก = "ลาแล้ว" จาก used เท่านั้น — ไม่แสดง quota และไม่แสดงแถบสัดส่วนสิทธิ์
+       ลาพักร้อนประเภทเดียวที่แสดง "คงเหลือ" เพิ่ม */
+    box.innerHTML = LEAVE_TYPES.filter(function (t) { return !!lvBal[t.code]; })
       .map(function (t) {
-        var b = lvBal[t.code], q = lvNum(b.quota), rem = lvNum(b.remaining);
-        var pct = q > 0 ? Math.max(0, Math.min(100, rem / q * 100)) : 0;
-        return '<div class="card bal-card"><small>' + esc(t.name) + '</small><b>' + rem + ' <i>วัน</i></b>' +
-          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + t.color + '"></div></div>' +
-          '<small class="muted">สิทธิ์ ' + q + ' วัน/ปี</small></div>';
+        var b = lvBal[t.code];
+        var used = lvUsedDays(b);
+        var rem = lvIsVacation(t.code) ? lvRemainDays(b) : null;
+        return '<div class="card bal-card"><small>' + esc(t.name) + '</small>' +
+          '<b>' + used + ' <i>วัน</i></b>' +
+          '<small class="muted">ลาแล้ว</small>' +
+          (rem != null ? '<small class="bal-rem">คงเหลือ ' + esc(String(rem)) + ' วัน</small>' : '') +
+          '</div>';
       }).join('');
   }
 
@@ -621,11 +633,25 @@
      <thead> และ <tbody> อยู่ในตารางเดียวกัน · ทุกแถวตรงกับหัวคอลัมน์
      Mobile View เดิม (.req-card.only-mobile) อยู่ครบด้านล่าง ไม่ถูกแตะแม้แต่บรรทัดเดียว
      ปุ่มใช้ data-lvdetail / data-lvcancel ตัวเดิม Handler จึงเป็นของเดิมทั้งหมด */
+  /* ข้อความคอลัมน์ "จำนวนวัน" — อ่านค่าจริงจากคำขอเท่านั้น
+       HOURLY  → l.hours   เช่น "2 ชั่วโมง"
+       อื่น ๆ  → l.total_days เช่น "1 วัน" · "0.5 วัน"
+     ค่าที่เป็น null / undefined / ไม่ใช่ตัวเลข คืน "—" (ไม่แสดง undefined หรือช่องว่าง)
+     ใช้ค่า 0 ตามจริงได้ ไม่ตัดทิ้ง */
+  function lvQtyTxt(l, md) {
+    var raw = (md === 'HOURLY') ? l.hours : l.total_days;
+    if (raw === null || raw === undefined || raw === '') return '—';
+    var n = Number(raw);
+    if (!isFinite(n)) return '—';
+    n = Math.round(n * 100) / 100;
+    return n + (md === 'HOURLY' ? ' ชั่วโมง' : ' วัน');
+  }
+
   function lvDeskTable(rows, mineView) {
     return '<div class="card p0 only-desktop lvt-wrap"><table class="lvt lvt-lv">' +
       '<thead><tr>' +
       '<th>เลขคำขอ</th><th>ประเภท</th><th>วันที่</th><th>รูปแบบการลา</th>' +
-      '<th>ไฟล์แนบ</th><th>สถานะ</th><th class="lvt-act-h"></th>' +
+      '<th>จำนวนวัน</th><th>ไฟล์แนบ</th><th>สถานะ</th><th class="lvt-act-h"></th>' +
       '</tr></thead><tbody>' +
       rows.map(function (l) { return lvDeskRow(l, mineView); }).join('') +
       '</tbody></table></div>';
@@ -633,18 +659,20 @@
 
   function lvDeskRow(l, mineView) {
     var lt = lvType(l.leave_type), md = lvMode(l), st = l.ui_status || l.status;
-    var days = lvNum(l.total_days), hrs = lvNum(l.hours);
-    var files = l.file_name ? 1 : 0;
+    var files = l.file_name ? 1 : 0;   // จำนวนวัน/ชั่วโมง ย้ายไปคำนวณใน lvQtyTxt() แล้ว
     return '<tr>' +
       '<td class="lvt-c-no"><b>' + esc(lvCode(l)) + '</b></td>' +
       '<td class="lvt-c-type">' +
       '<span class="chip" style="background:' + lt.color + '18;color:' + lt.color + '">' + esc(lt.name) + '</span></td>' +
       '<td class="lvt-c-date"><b>' +
       fmtDateDMY(l.start_date) + (l.end_date !== l.start_date ? ' – ' + fmtDateDMY(l.end_date) : '') + '</b></td>' +
-      '<td class="lvt-c-mode"><b>' + lvModeTxt(md) + '</b>' +
-      '<small>' + (md === 'HOURLY'
-        ? String(l.start_time || '').slice(0, 5) + '–' + String(l.end_time || '').slice(0, 5) + ' · ' + hrs + ' ชม.'
-        : days + ' วัน') + '</small></td>' +
+      /* รูปแบบการลา — บรรทัดเดียว ไม่มีบรรทัดรอง ไม่แสดงจำนวนซ้ำ
+         ค่ามาจาก lvMode(l) ซึ่งอ่าน approvals[0].meta.mode ก่อน แล้วถอยไปใช้
+         leave_unit === 'hour' → HOURLY · is_halfday → HALF_AM · นอกนั้น FULL */
+      '<td class="lvt-c-mode"><b>' + lvModeTxt(md) + '</b></td>' +
+      /* จำนวนวัน — คอลัมน์ใหม่ ค่าจริงจากคำขอ ไม่ hardcode
+         ลารายชั่วโมงใช้ l.hours · นอกนั้นใช้ l.total_days · ไม่มีข้อมูล = — */
+      '<td class="lvt-c-qty"><b>' + esc(lvQtyTxt(l, md)) + '</b></td>' +
       '<td class="lvt-c-file">' + (files
         ? '<span class="lvt-file">' + icon('paperclip', 'ic-sm') + '<span>' + files + ' ไฟล์</span></span>'
         : '<span class="muted">ไม่มีไฟล์แนบ</span>') + '</td>' +

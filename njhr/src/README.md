@@ -41,7 +41,6 @@ node build.js --check    # ตรวจว่า app.js ตรงกับ src/ 
 | `12-view-reports-settings.js` | `viewReportAll`, `viewShifts`, `viewGeofence`, `viewApprovalSettings`, `viewPayItems`, `viewSSO`, `viewReports`, `viewCalendar` | 5610–10907 |
 | `13-view-admin-users.js` | `viewAnnouncements`, `viewUsers`, `viewDepartments`, `viewSettings`, `viewAudit`, `viewNotifications` | 10908–12009 |
 | `14-view-profile-hrdocs.js` | `dRow`, `viewProfile`, `viewHrDocs` | 12010–15136 |
-| `15-view-salary-merge-boot.js` | `viewSalaryMerge`, bootstrap, ปิด IIFE | 15137–15322 |
 
 ## ข้อควรระวัง
 

@@ -257,9 +257,10 @@
         var jb = (itOt.jobs || []).find(function (x) { return x.no === parseInt(key[0], 10); });
         var f = jb && jb.files && jb.files[parseInt(key[1], 10)];
         if (!f) return;
-        if (d.jview) window.open(f.data, '_blank');
-        else { var a = document.createElement('a'); a.href = f.data; a.download = f.name;
-               document.body.appendChild(a); a.click(); a.remove(); }
+        /* ใช้ตัวช่วยชุดเดียวกับ Timeline — 👁 เปิด Preview ทับในหน้าเดิม (ไม่เปิดแท็บใหม่)
+           ⬇ ดาวน์โหลดพร้อม Toast ที่ปิดได้ */
+        if (d.jview) filePreviewOpen(f.url || f.data, f.name);
+        else fileDownload(f.url || f.data, f.name);
         return;
       }
       if (d.fixapprove || d.fixreject) { fixDecide(d.fixapprove || d.fixreject, !!d.fixapprove, el, t); return; }
@@ -2305,18 +2306,25 @@
   /* ================= REPORT ALL =================
      ตัวกรอง: ช่วงวันที่อิสระ (รองรับข้ามเดือน) · แผนก (Department ID จริง) · ค้นหาพนักงาน (Employee ID จริง)
      Preview การ์ดสรุป และ Export ใช้ rpCollect() ชุดเดียวกัน */
-  var rpState = { from: '', to: '', deptId: '', empId: '', q: '', seq: 0 };
+  /* ตัวกรองหลักคือ "รอบเดือน 26–25" (ym) เหมือนรายงานการลาและรายงานโอที
+     ค่าเริ่มต้น = รอบเดือนปัจจุบัน · ช่วงวันที่จริงมาจาก cycleRange() ตัวกลางตัวเดียวกัน */
+  var rpState = { ym: '', deptId: '', empId: '', q: '', seq: 0 };
   var rpData = null;
 
   function rpCanUse() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
-  function rpDateErr() {
-    var s = rpState;
-    if (!s.from || !s.to) return 'กรุณาเลือกช่วงวันที่เพื่อดึงข้อมูล';
-    if (s.from > s.to) return 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
-    return '';
+
+  /* รอบที่กำลังเลือกอยู่ — ไม่มีค่า = รอบปัจจุบัน จึงไม่มีทางว่าง */
+  function rpCycle() {
+    if (!rpState.ym) rpState.ym = cycleCurrent().ym;
+    return cycleRange(rpState.ym) || cycleCurrent();
   }
+
+  /* รอบเดือนมีค่าเสมอ จึงไม่มีข้อผิดพลาดเรื่องช่วงวันที่อีก
+     คงฟังก์ชันไว้เพื่อไม่ต้องแก้จุดเรียกเดิม */
+  function rpDateErr() { return ''; }
+
   function rpRangeOf() {
-    var last = parseInt(String(rpState.to).split('-')[2], 10);
-    return { s: rpState.from, e: rpState.to, lastDay: last };
+    var c = rpCycle();
+    return { s: c.start, e: c.end, lastDay: 25 };   // รอบจบวันที่ 25 เสมอ
   }
 

@@ -17,7 +17,6 @@
     '#/leave': { title: 'ลางาน', roles: ALL, view: 'viewLeave', mod: 'requests-leave' },
     '#/ot': { title: 'OT', roles: ALL, view: 'viewOT', mod: 'ot' },
     '#/payroll': { title: 'เงินเดือน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewPayroll', mod: 'compatibility' },
-    '#/salary-merge': { title: 'รวมเงินเดือน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewSalaryMerge', mod: 'compatibility' },
     '#/payslips': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: function () { window.location.hash = '#/epayslip'; } }, // โหมดเดิมถูกยุบรวม — redirect
     '#/epayslip': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: 'viewEPayslip', mod: 'compatibility' },
     '#/approval-settings': { title: 'ตั้งค่าการอนุมัติ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewApprovalSettings', mod: 'compatibility' },
@@ -25,8 +24,11 @@
     '#/sso': { title: 'ประกันสังคม', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewSSO', mod: 'compatibility' },
     '#/approvals': { title: 'อนุมัติรายการ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewApprovals', mod: 'compatibility' },
     '#/reports': { title: 'รายงานการลงเวลา', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewReports', mod: 'attendance-report' },
-    '#/rpt-leave': { title: 'REPORT ลางาน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptLeave', mod: 'report-menu' },
-    '#/rpt-ot': { title: 'REPORT OT', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptOT', mod: 'report-menu' },
+    '#/rpt-leave': { title: 'รายงานการลา', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptLeave', mod: 'report-menu' },
+    '#/rpt-ot': { title: 'รายงานโอที', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptOT', mod: 'report-menu' },
+    /* ใช้ #/rpt-wht (ไม่มีตัวเลข) เพราะ build.js:162 อ่าน ROUTES ด้วย regex '(#\/[a-z-]+)'
+       ซึ่งไม่รับตัวเลขในชื่อ Route — ถ้าใส่ #/rpt-wht50 จะถูกข้ามและ build ล้ม */
+    '#/rpt-wht': { title: 'รายงาน 50 ทวิ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptWht50', mod: 'report-menu' },
     '#/calendar': { title: 'ปฏิทินองค์กร', roles: ALL, view: 'viewCalendar', mod: 'calendar' },
     '#/announcements': { title: 'ประกาศบริษัท', roles: ALL, view: 'viewAnnouncements', mod: 'compatibility' },
     '#/users': { title: 'จัดการสมาชิก', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewUsers', mod: 'compatibility' },
@@ -35,7 +37,7 @@
     '#/geofence': { title: 'พื้นที่ลงเวลา', roles: ['SUPER_ADMIN'], view: 'viewGeofence', mod: 'compatibility' },
     '#/shifts': { title: 'ตั้งค่ากะทำงาน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewShifts', mod: 'compatibility' },
     '#/audit': { title: 'ประวัติการใช้งาน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewAudit', mod: 'compatibility' },
-    '#/reportall': { title: 'REPORT ALL', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewReportAll', mod: 'compatibility' },
+    '#/reportall': { title: 'รายงานทั้งหมด', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewReportAll', mod: 'compatibility' },
     '#/notifications': { title: 'การแจ้งเตือน', roles: ALL, view: 'viewNotifications', mod: 'notifications' },
     '#/profile': { title: 'โปรไฟล์', roles: ALL, view: 'viewProfile', mod: 'profile-docs' }
   };

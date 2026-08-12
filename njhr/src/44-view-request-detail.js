@@ -21,6 +21,11 @@
       var d = (r && r.data) ? r.data : r;           // njhr_ot_get คืน data jsonb
       if (!d) { body.innerHTML = emptyState('ไม่พบรายละเอียดคำขอนี้'); return; }
       body.innerHTML = kind === 'OT' ? rhOtHtml(d, id) : rhLeaveHtml(d, id);
+      /* OT: ไฟล์อยู่ในแต่ละรายการงาน (index ตรงกับ jobs) · ใบลา: อยู่ใน attachments */
+      var fl = kind === 'OT'
+        ? (d.jobs || []).map(function (j) { return { url: j.file_url, name: j.file_name }; })
+        : (d.attachments || []);
+      bindFileButtons(body, fl);
     }).catch(function (ex) {
       var body = document.querySelector('#modal-root .modal-body');
       if (body) body.innerHTML = '<div class="form-error">' +
@@ -51,10 +56,14 @@
       rhRow('ผู้ยื่น', esc(d.emp_name || '')) +
       rhRow('สถานะ', '<span class="badge ' + st.c + '">' + st.t + '</span>') +
       (d.reason ? rhRow('เหตุผล', esc(d.reason)) : '') +
-      (files.length ? rhRow('ไฟล์แนบ', files.map(function (f) {
-        return '<a class="link" href="' + esc(f.url || '#') + '" target="_blank" rel="noopener">' +
-          esc(f.name || 'ไฟล์แนบ') + '</a>';
-      }).join('<br>')) : rhRow('ไฟล์แนบ', '—')) +
+      /* ไฟล์แนบ: ปุ่ม 👁 เปิด Preview ทับในหน้าเดิม · ปุ่ม ⬇ ดาวน์โหลดพร้อม Toast
+         ไม่ใช้ <a target="_blank"> แล้ว — ผูก Event หลัง render ด้วย bindFileButtons() */
+      (files.length ? rhRow('ไฟล์แนบ', '<div class="otj-flist">' + files.map(function (f, i) {
+        return '<div class="otj-file"><span class="otj-fname">' + icon('fileText', 'ic-sm') + ' ' +
+          esc(f.name || 'ไฟล์แนบ') + '</span>' +
+          '<button type="button" class="btn-icon" data-fp="' + i + '" aria-label="ดู">' + icon('eye') + '</button>' +
+          '<button type="button" class="btn-icon" data-fd="' + i + '" aria-label="ดาวน์โหลด">' + icon('download') + '</button></div>';
+      }).join('') + '</div>') : rhRow('ไฟล์แนบ', '—')) +
       '</div>' +
       '<h4 style="margin:16px 0 6px;font-size:14.5px">Timeline การอนุมัติ</h4>' +
       rhTimeline(d.approvals);
@@ -75,13 +84,17 @@
       '</div>' +
       (jobs.length
         ? '<h4 style="margin:16px 0 6px;font-size:14.5px">รายการงาน ' + jobs.length + ' รายการ</h4>' +
-          '<div class="rh-det">' + jobs.map(function (j) {
+          '<div class="rh-det">' + jobs.map(function (j, i) {
             return '<div class="rh-drow"><span class="v">' +
               '<b>' + esc(j.job_no || j.job || '') + '</b>' +
               (j.job_type ? ' <span class="chip">' + esc(j.job_type) + '</span>' : '') +
               (j.detail ? '<br><small class="muted">' + esc(j.detail) + '</small>' : '') +
-              (j.file_name ? '<br><a class="link" href="' + esc(j.file_url || '#') +
-                '" target="_blank" rel="noopener">' + esc(j.file_name) + '</a>' : '') +
+              (j.file_name
+                ? '<br><span class="otj-file otj-file-inline"><span class="otj-fname">' +
+                  icon('fileText', 'ic-sm') + ' ' + esc(j.file_name) + '</span>' +
+                  '<button type="button" class="btn-icon" data-fp="' + i + '" aria-label="ดู">' + icon('eye') + '</button>' +
+                  '<button type="button" class="btn-icon" data-fd="' + i + '" aria-label="ดาวน์โหลด">' + icon('download') + '</button></span>'
+                : '') +
               '</span></div>';
           }).join('') + '</div>'
         : '') +

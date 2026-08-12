@@ -82,17 +82,13 @@
       })() + '</div>' +
       '<form id="ot-f" novalidate>' +
       // ---------- ข้อมูลผู้ยื่นคำขอ: อ่านจาก Session แก้เองไม่ได้ ----------
-      '<div class="ot-req-info">' +
-      /* 3 ช่องแรกซ้ำกับการ์ดพนักงานด้านบน จึงซ่อนเฉพาะมือถือด้วย .ri-dup
-         Desktop ยังแสดงครบเหมือนเดิมทุกช่อง ไม่มีข้อมูลหาย */
-      '<div class="ri-dup"><small>ผู้ยื่นคำขอ</small><b>' + esc(e.title + e.firstName + ' ' + e.lastName) + '</b></div>' +
-      '<div class="ri-dup"><small>รหัสพนักงาน</small><b>' + esc(e.code) + '</b></div>' +
-      '<div class="ri-dup"><small>แผนก</small><b>' + esc(dept(e.deptId)) + '</b></div>' +
-      '<div><small>ตำแหน่ง</small><b>' + esc(e.position || '-') + '</b></div>' +
-      '<div><small>วันที่ยื่นคำขอ</small><b>' + esc(submittedAt) + '</b></div>' +
-      '<div><small>เลขที่คำขอ</small><b id="otf-no" class="muted">สร้างเมื่อบันทึกสำเร็จ</b></div>' +
-      '</div>' +
-      '<div class="ot-shift-info">' + icon('timer', 'ic-sm') + ' กะทำงานของคุณ: <b>' + esc(sh.name) + '</b> · เลิกงาน <b>' + esc(sh.end) + (sh.overnight ? ' (วันถัดไป)' : '') + '</b></div>' +
+      // ใช้แถบร่วม reqInfoBar() ตัวเดียวกับหน้า "ขอลางาน" จึงเป็นรูปแบบเดียวกันแน่นอน
+      reqInfoBar(e, submittedAt, 'otf-no') +
+      /* แถบ "กะทำงานของคุณ" ถูกถอดออกจาก UI แล้ว (ทำให้ Modal กระชับขึ้น)
+         ข้อมูลกะ (sh) ยังถูกใช้งานครบเหมือนเดิม ไม่ได้ลบ Logic ใด ๆ
+           · ค่าเริ่มต้นของช่อง "เวลาเริ่ม" = sh.end (เวลาเลิกงานของกะ)
+           · คำเตือนเมื่อเวลา OT ซ้อนกับเวลาทำงานปกติของกะ (ovl ใน otfRecalc)
+           · shTime(sh) ในข้อความคำเตือน */
       // ---------- ข้อมูล OT: วันที่/เวลาของทั้งคำขอ ----------
       '<div class="otj-head"><b>ข้อมูล OT</b></div>' +
       '<div class="ot-main">' +
@@ -211,18 +207,20 @@
             inp.onchange = inp.oninput;
           }
         });
+        /* ไฟล์แนบที่เพิ่งแนบในฟอร์ม — ใช้ตัวช่วยชุดเดียวกับ Timeline
+           👁 Preview ทับในหน้าเดิม · ⬇ ดาวน์โหลดพร้อม Toast ที่ปิดได้ */
         rowEl.querySelectorAll('[data-fview]').forEach(function (b) {
-          b.onclick = function () {
+          b.onclick = function (ev) {
+            ev.preventDefault();
             var f = jobs[i].files[parseInt(b.dataset.fview, 10)];
-            window.open(f.url || f.data, '_blank');
+            if (f) filePreviewOpen(f.url || f.data, f.name);
           };
         });
         rowEl.querySelectorAll('[data-fdl]').forEach(function (b) {
-          b.onclick = function () {
+          b.onclick = function (ev) {
+            ev.preventDefault();
             var f = jobs[i].files[parseInt(b.dataset.fdl, 10)];
-            var a = document.createElement('a'); a.href = f.url || f.data; a.download = f.name;
-            if (f.url) a.target = '_blank';
-            document.body.appendChild(a); a.click(); a.remove();
+            if (f) fileDownload(f.url || f.data, f.name);
           };
         });
         rowEl.querySelectorAll('[data-fdel]').forEach(function (b) {

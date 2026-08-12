@@ -99,6 +99,71 @@
     return pad(d) + '/' + pad(m) + '/' + y;
   }
   function money(n) { return (n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  /* ================= รอบเดือน 26–25 (ใช้ร่วมกันทุกหน้ารายงาน) =================
+     รอบของเดือนที่เลือก = วันที่ 26 ของเดือนก่อนหน้า → วันที่ 25 ของเดือนที่เลือก
+       รอบ 2026-08 → start 2026-07-26 · end 2026-08-25 · endExclusive 2026-08-26
+
+     เป็น "สูตรกลางตัวเดียว" ของทั้ง 3 รายงาน (รายงานทั้งหมด · รายงานการลา · รายงานโอที)
+     ห้ามเขียนสูตรแยกในแต่ละหน้า
+
+     คำนวณด้วยตัวเลขปี/เดือนตรง ๆ ไม่ผ่าน Date object และไม่แปลง Timezone
+     ค่าที่ได้จึงเป็นวันตามปฏิทินไทยเสมอ ไม่มีปัญหาวันเลื่อนจาก UTC
+     endExclusive มีไว้ให้ query แบบ `>= start AND < endExclusive`
+     จะได้ครอบคลุมวันที่ 25 ทั้งวันแม้ค่าที่เก็บมีเวลาติดมาด้วย */
+  function cycleRange(ym) {
+    var p = String(ym || '').split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    if (!isFinite(y) || !isFinite(m) || m < 1 || m > 12) return null;
+    var py = m === 1 ? y - 1 : y;              // เดือนก่อนหน้า (ข้ามปีได้)
+    var pm = m === 1 ? 12 : m - 1;
+    return {
+      ym: y + '-' + pad(m),
+      start: py + '-' + pad(pm) + '-26',
+      end: y + '-' + pad(m) + '-25',
+      // วันถัดจากวันสิ้นรอบ = วันที่ 26 ของ "เดือนเดียวกัน" (เพราะรอบจบวันที่ 25)
+      endExclusive: y + '-' + pad(m) + '-26'
+    };
+  }
+
+  /* รอบของ "วันนี้" — วันที่ 1–25 อยู่ในรอบเดือนปัจจุบัน
+     วันที่ 26 เป็นต้นไปถือเป็นรอบของเดือนถัดไปแล้ว */
+  function cycleCurrent(isoToday) {
+    var t = String(isoToday || todayISO());
+    var p = t.split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return cycleRange(todayISO().slice(0, 7));
+    if (d >= 26) { if (m === 12) { y += 1; m = 1; } else { m += 1; } }
+    return cycleRange(y + '-' + pad(m));
+  }
+
+  function cycleLabel(ym) {
+    var p = String(ym || '').split('-');
+    var m = parseInt(p[1], 10);
+    if (!isFinite(m) || m < 1 || m > 12) return String(ym || '');
+    return TH_MONTHS[m - 1] + ' ' + p[0];      // ปี ค.ศ. ตามรูปแบบวันที่ของระบบ
+  }
+
+  /* ข้อความช่วงวันที่ของรอบ เช่น "รอบข้อมูล 26/07/2026 – 25/08/2026" */
+  function cycleRangeText(ym) {
+    var r = cycleRange(ym);
+    return r ? ('รอบข้อมูล ' + fmtDateDMY(r.start) + ' – ' + fmtDateDMY(r.end)) : '';
+  }
+
+  /* ตัวเลือกรอบเดือนสำหรับ <select> — ย้อนหลัง back เดือน และล่วงหน้า fwd เดือน */
+  function cycleOptions(curYm, back, fwd) {
+    var p = String(curYm || '').split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    if (!isFinite(y) || !isFinite(m)) return [];
+    var out = [], i;
+    for (i = -(back || 12); i <= (fwd || 0); i++) {
+      var mm = m + i, yy = y;
+      while (mm < 1) { mm += 12; yy -= 1; }
+      while (mm > 12) { mm -= 12; yy += 1; }
+      out.push(yy + '-' + pad(mm));
+    }
+    return out.reverse();                       // เดือนล่าสุดอยู่บนสุด
+  }
   /* ===== ตัวโหลด Library กลาง — Promise Cache =====
      - เรียกซ้ำคืน Promise เดิม ไม่สร้าง <script> ซ้ำ ไม่เกิด Global ซ้ำ
      - ตรวจ tag เดิมด้วย data-lib ก่อนสร้างใหม่

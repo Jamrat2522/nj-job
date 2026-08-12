@@ -74,21 +74,13 @@
       })() + '</div>' +
       '<form id="lv-f" novalidate>' +
       // ---------- ข้อมูลผู้ยื่นคำขอ (อ่านจาก Session ผู้ใช้แก้เองไม่ได้) ----------
-      '<div class="ot-req-info">' +
-      /* 3 ช่องแรกซ้ำกับการ์ดพนักงานด้านบน จึงซ่อนเฉพาะมือถือด้วย .ri-dup
-         Desktop ยังแสดงครบเหมือนเดิมทุกช่อง ไม่มีข้อมูลหาย */
-      '<div class="ri-dup"><small>ผู้ยื่นคำขอ</small><b>' + esc(e.title + e.firstName + ' ' + e.lastName) + '</b></div>' +
-      '<div class="ri-dup"><small>รหัสพนักงาน</small><b>' + esc(e.code) + '</b></div>' +
-      '<div class="ri-dup"><small>แผนก</small><b>' + esc(dept(e.deptId)) + '</b></div>' +
-      '<div><small>ตำแหน่ง</small><b>' + esc(e.position || '-') + '</b></div>' +
-      '<div><small>วันที่ยื่นคำขอ</small><b>' + esc(submittedAt) + '</b></div>' +
-      '<div><small>เลขที่คำขอ</small><b id="lvf-no" class="muted">สร้างเมื่อบันทึกสำเร็จ</b></div>' +
-      '</div>' +
+      // ใช้แถบร่วม reqInfoBar() ตัวเดียวกับหน้า "ขอ OT" จึงเป็นรูปแบบเดียวกันแน่นอน
+      reqInfoBar(e, submittedAt, 'lvf-no') +
       '<label class="field"><span>ประเภทการลา <i class="req">*</i></span><select name="typeId" id="lvf-type">' +
       LEAVE_TYPES.map(function (t) {
-        var b = lvBal[t.code];
-        return '<option value="' + t.code + '">' + esc(t.name) +
-          (b && b.quota != null ? ' (คงเหลือ ' + lvNum(b.remaining) + ' วัน)' : ' (ไม่จำกัด)') + '</option>';
+        /* แสดงชื่อประเภทอย่างเดียว — ไม่แสดงสิทธิ์/คงเหลือใน Dropdown ทุกประเภท
+           ยอดคงเหลือของลาพักร้อนดูได้ที่การ์ดสรุปด้านบนเท่านั้น */
+        return '<option value="' + t.code + '">' + esc(t.name) + '</option>';
       }).join('') + '</select></label>' +
       '<label class="field"><span>รูปแบบการลา <i class="req">*</i></span><div class="seg" id="lvf-mode">' +
       [['FULL', 'เต็มวัน'], ['HALF_AM', 'ครึ่งวันเช้า'], ['HALF_PM', 'ครึ่งวันบ่าย'], ['HOURLY', 'รายชั่วโมง']].map(function (m, i2) {
@@ -201,7 +193,14 @@
       if (d.startDate > d.endDate) { err.textContent = 'วันที่เริ่มต้องไม่มากกว่าวันที่สิ้นสุด'; return; }
       if (d.mode !== 'HOURLY' && d.days <= 0) { err.textContent = 'ช่วงวันที่เลือกไม่มีวันทำงาน (ตรงกับวันหยุด)'; return; }
       if (d.mode === 'HOURLY' && d.hours <= 0) { err.textContent = 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'; return; }
-      if (hasQuota && lvNum(b.remaining) < d.useDays) { err.textContent = 'วันลาคงเหลือไม่เพียงพอ (คงเหลือ ' + lvNum(b.remaining) + ' วัน)'; return; }
+      /* เงื่อนไขการบล็อกเหมือนเดิมทุกประการ — เปลี่ยนเฉพาะข้อความ
+         เปิดเผยตัวเลขคงเหลือได้เฉพาะลาพักร้อน ประเภทอื่นบอกแค่ว่าไม่พอ */
+      if (hasQuota && lvNum(b.remaining) < d.useDays) {
+        err.textContent = lvIsVacation(lt.code)
+          ? 'วันลาคงเหลือไม่เพียงพอ (คงเหลือ ' + lvNum(b.remaining) + ' วัน)'
+          : 'วันลาคงเหลือไม่เพียงพอ';
+        return;
+      }
       /* ไฟล์แนบเป็นตัวเลือก ไม่บังคับทุกประเภทการลา
          เดิมบล็อกด้วย `lt.needDoc && !files.length` — ถอดออกตามข้อกำหนดใหม่
          การตรวจชนิดไฟล์ · ขนาดไฟล์ · สถานะกำลังอัปโหลด ยังทำงานเหมือนเดิมทุกจุด */

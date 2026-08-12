@@ -40,13 +40,13 @@
     {
       key: 'report', t: 'รายงาน', i: 'chart', items: [
         { r: '#/reports', t: 'รายงานการลงเวลา', i: 'chart' },
-        { r: '#/salary-merge', t: 'รวมเงินเดือน', i: 'download' },
         { r: '#/sso', t: 'ประกันสังคม', i: 'shield' },
-        { r: '#/reportall', t: 'REPORT ALL', i: 'fileText' },     // เข้าตรงจาก Sidebar (หน้าทางผ่าน REPORT ถูกลบแล้ว)
+        { r: '#/reportall', t: 'รายงานทั้งหมด', i: 'fileText' },     // เข้าตรงจาก Sidebar (หน้าทางผ่าน REPORT ถูกลบแล้ว)
         /* deskOnly = แสดงเฉพาะจอคอมพิวเตอร์ (ใส่ class .only-desktop ให้ลิงก์)
            สองรายงานนี้ออกแบบสำหรับหน้าคอมเท่านั้น จึงไม่เพิ่มรายการใดลงเมนูบนมือถือ */
-        { r: '#/rpt-leave', t: 'REPORT ลางาน', i: 'calendarOff', deskOnly: true },
-        { r: '#/rpt-ot', t: 'REPORT OT', i: 'timer', deskOnly: true }]
+        { r: '#/rpt-leave', t: 'รายงานการลา', i: 'calendarOff', deskOnly: true },
+        { r: '#/rpt-ot', t: 'รายงานโอที', i: 'timer', deskOnly: true },
+        { r: '#/rpt-wht', t: 'รายงาน 50 ทวิ', i: 'fileText', deskOnly: true }]
     },
     {
       key: 'system', t: 'ระบบ', i: 'settings', items: [

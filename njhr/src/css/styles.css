@@ -227,6 +227,10 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .bal-card { margin: 0; padding: 14px 16px; }
 .bal-card b { font-size: 24px; display: block; margin: 2px 0 6px; }
 .bal-card b i { font-style: normal; font-size: 13px; color: var(--ink-2); font-weight: 400; }
+/* บรรทัด "คงเหลือ X วัน" — แสดงเฉพาะการ์ดลาพักร้อน (ประเภทเดียวที่อนุญาต) */
+.bal-card .bal-rem { display: block; margin-top: 4px; font-size: 12.5px; color: var(--green); font-weight: 600; }
+/* บรรทัดคงเหลือของการ์ดสรุปชุด rq-bal (พักร้อนเท่านั้น) */
+.rq-bal-rem { display: block; margin-top: 2px; font-size: 12px; color: var(--green); font-weight: 600; }
 .bal-grid { display: flex; flex-direction: column; gap: 12px; }
 .bal-top { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 4px; }
 .slip-mini span { color: var(--ink-2); font-size: 13px; }
@@ -362,6 +366,28 @@ tbody tr:last-child td { border-bottom: 0; }
 /* ---------- ตัวกรองหน้ารายงาน + Autocomplete ชื่อพนักงาน ---------- */
 .rpt-filters { flex-wrap: wrap; gap: 8px; }
 .rpt-emp-box { position: relative; min-width: 260px; flex: 1 1 260px; }
+
+/* ---------- แถบตัวกรองรายงานการลงเวลา: แถวเดียวบน Desktop ----------
+   ลำดับใน DOM เดิมอยู่แล้ว: ประเภทรายงาน · วันที่เริ่ม · ถึง · วันที่สิ้นสุด ·
+   แผนก · สถานะ · ค้นหา · ล้างตัวกรอง · Export Excel
+   ปัญหาเดิมคือ flex-wrap: wrap ทำให้ "ล้างตัวกรอง" ตกลงแถวที่ 2
+   แก้เฉพาะการจัดวางฝั่ง Desktop — ไม่แตะ DOM · ปุ่ม · สี · ไอคอน · Logic
+   มือถือใช้กฎใน @media (max-width: 900px) เดิมทุกบรรทัด ไม่ถูกกระทบ */
+@media screen and (min-width: 901px) {
+  .rpt-filters { flex-wrap: nowrap; gap: 9px; }
+  /* ช่องต่าง ๆ ไม่ยืดเกินจำเป็น และหดได้เมื่อพื้นที่แคบ แทนที่จะตกบรรทัด */
+  .rpt-filters > select { flex: 0 1 auto; min-width: 0; max-width: 200px; }
+  .rpt-filters > input[type="date"] { flex: 0 0 auto; width: 148px; }
+  .rpt-filters > .btn { flex: 0 0 auto; white-space: nowrap; }
+  /* ช่องค้นหากินพื้นที่ที่เหลือ */
+  .rpt-filters .rpt-emp-box { flex: 1 1 200px; min-width: 180px; }
+  /* ตัวคั่นเดิมไม่ต้องดันปุ่มแล้ว เพราะช่องค้นหาทำหน้าที่นั้นแทน */
+  .rpt-filters > .grow { display: none; }
+  /* ความสูงเท่ากันทุกช่อง (ปุ่ม .btn สูง 42px อยู่แล้ว) */
+  .rpt-filters > select,
+  .rpt-filters > input[type="date"],
+  .rpt-filters .rpt-emp-box { min-height: 42px; }
+}
 .rpt-ac {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
   background: var(--card); border: 1px solid var(--line); border-radius: 10px;
@@ -398,7 +424,53 @@ tbody tr:last-child td { border-bottom: 0; }
 .rp-fbtns .btn { min-height: 42px; white-space: nowrap; }
 .rp-emp-box { position: relative; width: 100%; min-width: 0; }
 
+/* แท็บเล็ต (901–1023px): การ์ด KPI ของ Dashboard 2 ใบต่อแถว
+   ช่วงนี้บล็อก .dash-legacy หลัก (min-width: 1024px) ยังไม่ทำงาน จึงกำหนดแยก */
+@media screen and (min-width: 901px) and (max-width: 1023px) {
+  .dash-legacy .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- REPORT ALL — พื้นที่หน้าแบบเดียวกับ REPORT ลางาน (เฉพาะจอคอมพิวเตอร์) ----------
+   ถอดรูปลักษณ์ Card ใบใหญ่ที่ครอบทั้งหน้าออก ให้ตัวกรองและ KPI วางบนพื้นหลังหน้าโดยตรง
+   Scope ด้วย .rp-page ทั้งหมด จึงไม่กระทบ .card / .main-view / .content หรือหน้าอื่น
+   มือถือใช้กฎเดิมใน @media (max-width: 900px) ไม่ถูกแตะ */
+@media screen and (min-width: 901px) {
+  .main-view > .rp-page {
+    width: 100%; max-width: none;
+    background: transparent; border: 0; box-shadow: none; border-radius: 0;
+    padding: 0; margin: 0;
+  }
+  /* หัวข้อ "REPORT ALL" ซ้ำกับ Topbar — ซ่อนเฉพาะในเนื้อหา ไม่แตะ Header ของระบบ */
+  .rp-page > .card-head { display: none; }
+
+  /* แถบตัวกรองเต็มความกว้าง · Label อยู่ด้านบนเหมือนเดิม
+     รอบเดือน · แผนก · พนักงาน (ยืด) · ล้างตัวกรอง · EXPORT EXCEL (ขวาสุด) */
+  .rp-page .rp-filters {
+    display: flex; align-items: flex-end; flex-wrap: nowrap;
+    gap: 12px; width: 100%; margin: 0;
+  }
+  .rp-page .rp-f-ym { flex: 0 0 auto; }
+  .rp-page .rp-f-ym > select { min-width: 180px; }
+  .rp-page .rp-filters > .rp-f:nth-of-type(2) { flex: 0 1 280px; min-width: 200px; }
+  .rp-page .rp-f-emp { flex: 1 1 240px; min-width: 200px; }
+  .rp-page .rp-fbtns { flex: 0 0 auto; margin-left: auto; }
+  /* ทุกช่องและปุ่มสูงเท่ากัน 42px */
+  .rp-page .rp-f > input,
+  .rp-page .rp-f > select,
+  .rp-page .rp-emp-box,
+  .rp-page .rp-fbtns .btn { min-height: 42px; }
+
+  /* ระยะห่าง: ตัวกรอง → ช่วงวันที่/ชิป → KPI */
+  .rp-page .rptm-cycle { margin: 10px 2px 0; }
+  .rp-page .rp-chips { margin-top: 10px; }
+  .rp-page .rp-kpis { margin-top: 14px; width: 100%; }
+}
+
 /* ตัวกรองที่ใช้อยู่ — เห็นทันทีว่ากรองอะไร กด × ล้างทีละตัวได้ */
+/* ข้อความ "รอบข้อมูล DD/MM/YYYY – DD/MM/YYYY" ใต้แถบตัวกรอง (ใช้ทั้ง 3 รายงาน)
+   อยู่นอก media query เพราะ REPORT ALL เปิดบนมือถือได้ด้วย */
+.rptm-cycle { margin: 8px 2px 0; font-size: 13px; color: var(--ink-2); }
+.rp-f-ym > select { min-width: 170px; }
 .rp-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .rp-chips-l { font-size: 12px; color: var(--ink-2); }
 .rp-chip { display: inline-flex; align-items: center; gap: 7px;
@@ -593,6 +665,58 @@ tbody tr:last-child td { border-bottom: 0; }
   opacity: 0; transform: translateY(-8px); transition: all .25s;
 }
 .toast.show { opacity: 1; transform: none; }
+
+/* Toast ที่ปิดเองได้ (ใช้กับปุ่มดาวน์โหลดไฟล์แนบ) — ไม่กระทบ .toast เดิมของหน้าอื่น */
+.toast-dis { align-items: center; padding-right: 8px; }
+.toast-dis .toast-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.toast-dis .toast-txt b { font-size: 14px; }
+.toast-dis .toast-txt small { font-size: 12.5px; opacity: .85; overflow-wrap: anywhere; }
+.toast-dis .toast-x {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; cursor: pointer; opacity: .8;
+}
+.toast-dis .toast-x:hover { background: rgba(255, 255, 255, .16); opacity: 1; }
+
+/* ---------- Preview ไฟล์แนบ (ซ้อนอยู่ในหน้าเดิม ไม่เปิดแท็บใหม่) ----------
+   z-index สูงกว่า .modal-overlay เพื่อทับ Timeline Modal ที่ยังเปิดค้างอยู่ข้างหลัง */
+.fp-overlay {
+  position: fixed; inset: 0; z-index: 1200; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  background: rgba(15, 23, 42, .62);
+}
+.fp-box {
+  display: flex; flex-direction: column; width: min(920px, 100%); max-height: 100%;
+  background: #fff; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 18px 48px rgba(17, 24, 39, .35);
+}
+.fp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--line);
+}
+.fp-head h3 {
+  margin: 0; font-size: 15px; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fp-body {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); padding: 12px; overflow: auto;
+}
+.fp-img { max-width: 100%; max-height: 70vh; object-fit: contain; display: block; }
+.fp-frame { width: 100%; height: 70vh; border: 0; background: #fff; }
+.fp-none { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 16px; color: var(--ink-2); text-align: center; }
+.fp-none p { margin: 0; font-size: 14px; }
+.fp-foot { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--line); }
+
+/* ไฟล์แนบแบบอินไลน์ในรายการงาน OT */
+.otj-file-inline { display: inline-flex; margin-top: 4px; }
+
+@media (max-width: 768px) {
+  .fp-overlay { padding: 0; }
+  .fp-box { width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
+  .fp-img { max-height: none; }
+  .fp-frame { height: 100%; min-height: 60vh; }
+}
 .toast-success .ic { color: #4ADE80; }
 .toast-error .ic { color: #F87171; }
 .toast-info .ic { color: #93C5FD; }
@@ -637,13 +761,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .an-body { white-space: pre-line; }
 
 /* ---------- โหมดรวมเงินเดือน ---------- */
-.sm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 4px; }
-.sm-box { margin: 0; text-align: center; cursor: pointer; border: 2px dashed var(--line); box-shadow: none; padding: 22px 14px; transition: border-color .15s, background .15s; }
-.sm-box:hover { border-color: var(--blue); background: #F8FAFF; }
-.sm-box b { display: block; margin: 6px 0 2px; }
-.sm-box .ic { width: 26px; height: 26px; color: var(--ink-2); }
-.sm-box.sm-ok { border-color: var(--green); background: #F0FDF4; }
-.sm-box.sm-ok .ic { color: var(--green); }
 
 /* ---------- E-PAYSLIP (ดีไซน์ใหม่ แยกจากสลิปเดิม) ---------- */
 .epayslip { --ep-navy: #17335F; --ep-red: #A61E22; --ep-soft: #F5F7FB; background: #fff; border-radius: 16px; padding: 22px 24px; max-width: 680px; margin: 0 auto; color: var(--ep-navy); }
@@ -811,10 +928,15 @@ tbody tr:last-child td { border-bottom: 0; }
 .otj-sum { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px; }
 .otj-vhead { display: flex; flex-direction: column; gap: 2px; }
 .otj-note { margin: 0; font-size: 13px; color: var(--ink-2); }
-.ot-req-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+/* แถบข้อมูลผู้ยื่นคำขอ (ใช้ร่วมกันทั้ง "ขอลางาน" และ "ขอ OT")
+   Desktop = 5 ช่องในแถวเดียว · สัดส่วนตามความยาวข้อมูลจริง
+   เลขที่คำขอ 18% · วันที่ยื่น 20% · ผู้ยื่น 24% · รหัส 12% · แผนก 26% */
+.ot-req-info { display: grid; grid-template-columns: 18% 20% 24% 12% 26%; gap: 4px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; align-items: start; }
 .ot-req-info > div { display: flex; flex-direction: column; min-width: 0; }
 .ot-req-info small { font-size: 11.5px; color: var(--ink-2); }
-.ot-req-info b { font-size: 14px; overflow-wrap: anywhere; }
+.ot-req-info b { font-size: 14px; overflow-wrap: anywhere; line-height: 1.35; }
+/* กันข้อความล้นออกนอกช่องและกัน Horizontal Scroll */
+.ot-req-info > div { overflow: hidden; }
 .otj-cols { background: var(--bg); font-weight: 600; font-size: 12.5px; border-bottom: 1px solid var(--line); }
 .otj-row { border-bottom: 1px solid var(--line); }
 .otj-row:last-child { border-bottom: 0; }
@@ -843,7 +965,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .sh-row .chip { margin-left: 6px; font-size: 11.5px; }
 .shf-emp { gap: 10px; cursor: pointer; }
 .shf-emp input { width: 18px; height: 18px; flex: none; }
-.ot-shift-info { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin-bottom: 10px; font-size: 14px; }
 .ot-warn { color: #B7791F; font-size: 13px; margin-top: 6px; min-height: 0; }
 .ot-warn:empty { display: none; }
 
@@ -917,11 +1038,14 @@ tbody tr:last-child td { border-bottom: 0; }
   .bn-item.active { font-weight: 500; }
 
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .sm-grid { grid-template-columns: 1fr; }
   .ep-cards, .ep-cols, .ep-emp-grid { grid-template-columns: 1fr; }
   .gf-grid { grid-template-columns: 1fr; }
   #gf-map { height: 280px; }
-  .ot-req-info { grid-template-columns: 1fr 1fr; }
+  /* มือถือ: 2 คอลัมน์ ขึ้นแถวใหม่ตามพื้นที่ · ลำดับข้อมูลเดิม
+     เลขที่คำขอ → วันที่ยื่น → ผู้ยื่น → รหัส → แผนก
+     ช่อง "แผนก" เป็นช่องที่ 5 จึงกินเต็มแถวสุดท้าย ไม่เหลือช่องว่างข้าง */
+  .ot-req-info { grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .ot-req-info .ri-dp { grid-column: 1 / -1; }
   .otj-hrs { flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .ot-main { grid-template-columns: 1fr 1fr; gap: 8px; }
   .ot-main .field:last-child { grid-column: 1 / -1; }
@@ -2105,13 +2229,28 @@ body.njhr-busy { cursor: progress; }
     background: #FAFBFC; padding: 12px 16px;
     border-bottom: 1px solid var(--line); white-space: nowrap;
   }
-  .lvt thead th:nth-child(1) { width: 13%; }
-  .lvt thead th:nth-child(2) { width: 18%; }
-  .lvt thead th:nth-child(3) { width: 15%; }
-  .lvt thead th:nth-child(4) { width: 18%; }
-  .lvt thead th:nth-child(5) { width: 11%; }
-  .lvt thead th:nth-child(6) { width: 10%; }
-  .lvt thead th:nth-child(7) { width: 15%; }
+  /* ความกว้างคอลัมน์แยกตามตาราง เพราะตารางลางานมี 8 คอลัมน์ (เพิ่ม "จำนวนวัน")
+     ส่วนตาราง OT ยังมี 7 คอลัมน์ — ค่าของ OT คงเดิมทุกตัวเลข ไม่เปลี่ยนหน้าตา
+     เลขคำขอ · ประเภท · วันที่ · ช่วงเวลา · ไฟล์แนบ · สถานะ · ปุ่ม */
+  /* เลขคำขอ · ประเภท · ประเภทงาน · วันที่ · ช่วงเวลา · จำนวนชั่วโมง · ไฟล์แนบ · สถานะ · ปุ่ม */
+  .lvt-ot thead th:nth-child(1) { width: 12%; }
+  .lvt-ot thead th:nth-child(2) { width: 11%; }
+  .lvt-ot thead th:nth-child(3) { width: 13%; }
+  .lvt-ot thead th:nth-child(4) { width: 12%; }
+  .lvt-ot thead th:nth-child(5) { width: 13%; }
+  .lvt-ot thead th:nth-child(6) { width: 10%; }
+  .lvt-ot thead th:nth-child(7) { width: 10%; }
+  .lvt-ot thead th:nth-child(8) { width: 8%; }
+  .lvt-ot thead th:nth-child(9) { width: 11%; }
+  /* เลขคำขอ · ประเภท · วันที่ · รูปแบบการลา · จำนวนวัน · ไฟล์แนบ · สถานะ · ปุ่ม */
+  .lvt-lv thead th:nth-child(1) { width: 13%; }
+  .lvt-lv thead th:nth-child(2) { width: 15%; }
+  .lvt-lv thead th:nth-child(3) { width: 16%; }
+  .lvt-lv thead th:nth-child(4) { width: 12%; }
+  .lvt-lv thead th:nth-child(5) { width: 10%; }
+  .lvt-lv thead th:nth-child(6) { width: 11%; }
+  .lvt-lv thead th:nth-child(7) { width: 9%; }
+  .lvt-lv thead th:nth-child(8) { width: 14%; }
   .lvt tbody td {
     padding: 12px 16px; border-bottom: 1px solid var(--line);
     vertical-align: middle; min-width: 0;
@@ -2126,6 +2265,8 @@ body.njhr-busy { cursor: progress; }
     display: block; font-size: 13px; color: #64748B; margin-top: 3px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* ประเภทงานอาจยาว เช่น "คีย์ + ตรวจปล่อย" — ตัดด้วย ellipsis ไม่ให้ตารางล้น */
+  .lvt-ot tbody td.lvt-c-jt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lvt tbody td .chip {
     display: inline-block; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2165,8 +2306,34 @@ body.njhr-busy { cursor: progress; }
   .rptm-f-emp { flex: 1 1 280px; min-width: 260px; }
   .rptm-f-emp .search-box { min-height: 42px; min-width: 0; }
   .rptm-filters > .btn { min-height: 42px; white-space: nowrap; }
-  .rptm-sum { margin: 10px 2px 12px; line-height: 1.9; }
-  .rptm-wrap { margin-bottom: 12px; }
+  /* ช่องเลือกรอบเดือน — กว้างพอสำหรับ "กันยายน 2026" ไม่ตัดคำ */
+  .rptm-f-ym > select { min-width: 170px; }
+
+  /* ---------- รายงาน 50 ทวิ ---------- */
+  .wht-lead { margin: 0 2px 12px; }
+  .wht-block { margin: 10px 0 0; }
+  .wht-sum { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+  .wht-sum-i {
+    display: flex; flex-direction: column; gap: 2px; min-width: 120px;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 9px 13px;
+  }
+  .wht-sum-i small { font-size: 11.5px; color: var(--ink-2); }
+  .wht-sum-i b { font-size: 19px; line-height: 1.2; }
+  /* ตัวเงินชิดขวาให้อ่านง่าย · เลขไทยกับอารบิกกว้างเท่ากันด้วย tabular-nums */
+  .lvt-wht .wht-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lvt-wht tbody td small { display: block; font-size: 11.5px; color: var(--ink-2); }
+  .lvt-wht tbody td small.t-red { color: var(--red-strong); }
+  .lvt-wht thead th:nth-child(1) { width: 11%; }
+  .lvt-wht thead th:nth-child(2) { width: 20%; }
+  .lvt-wht thead th:nth-child(3) { width: 15%; }
+  .lvt-wht thead th:nth-child(4) { width: 12%; }
+  .lvt-wht thead th:nth-child(5) { width: 13%; }
+  .lvt-wht thead th:nth-child(6) { width: 12%; }
+  .lvt-wht thead th:nth-child(7) { width: 10%; }
+  .lvt-wht thead th:nth-child(8) { width: 7%; }
+  /* ถอดข้อความสรุปตัวกรองออกแล้ว — ตารางจึงต่อจากแถบตัวกรองทันที
+     ใส่ระยะห่างบนให้ตารางแทนที่ margin เดิมของข้อความสรุป ไม่ให้ติดกันเกินไป */
+  .rptm-wrap { margin-top: 12px; margin-bottom: 12px; }
 
   .rptm-table { width: 100%; border-collapse: collapse; }
   /* หัวตารางสีเทาอ่อน ตัวหนังสือกรมท่า */
@@ -2259,47 +2426,48 @@ body.njhr-busy { cursor: progress; }
 
   .dash-legacy { max-width: 1440px; margin-inline: auto; padding-inline: 24px; }
 
-  /* KPI 4 คอลัมน์ × 2 แถว */
-  .dash-legacy .kpi-grid {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
+  /* ---------- KPI — ใช้ Component เดียวกับหน้า "รายงานทั้งหมด" (.rp-kpi) ----------
+     ขนาด · มุมโค้ง · เงา · ระยะห่าง · ขนาดตัวอักษร มาจากกฎกลางของ .rp-kpi ทั้งหมด
+     ที่นี่กำหนดเพิ่มเฉพาะ 3 เรื่องที่หน้า Dashboard ต่างออกไป
+       1) การ์ดเป็นลิงก์ <a> จึงต้องล้าง text-decoration และใส่ hover
+       2) ไอคอนเป็น SVG (ไม่ใช่ Emoji) จึงต้องกำหนดขนาดและสี
+       3) ชุดสีของแต่ละการ์ดตามเดิมของ Dashboard
+     Scope ใต้ .dash-legacy ทั้งหมด — หน้ารายงานทั้งหมดไม่ถูกกระทบ */
+  .dash-legacy .dash-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 0; margin-bottom: 16px;
   }
-  .dash-legacy .kpi {
-    /* styles.css:194 ตั้ง .kpi { display:flex; flex-direction:column } ไว้
-       ต้องเขียน flex-direction: row ทับตรง ๆ ไม่งั้นการ์ดจะเรียงแนวตั้ง (วัดจาก computed style) */
-    display: flex; flex-direction: row; align-items: center; gap: 14px;
-    min-height: 92px; height: 92px; padding: 18px 20px; border-radius: 16px;
-    background: #fff; border: 1px solid #E4E9F2;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, .05); color: inherit;
+  .dash-legacy .rp-kpi {
+    text-decoration: none; color: inherit;
+    transition: box-shadow .12s, border-color .12s;
   }
-  .dash-legacy .kpi:hover { transform: none; box-shadow: 0 4px 12px rgba(16, 24, 40, .08); border-color: #CBD5E1; }
-  .dash-legacy .kpi-ic {
-    flex: none; width: 48px; height: 48px; border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    background: #EEF2F7; color: #334155;
+  .dash-legacy .rp-kpi:hover {
+    box-shadow: 0 4px 12px rgba(16, 24, 40, .08); border-color: #CBD5E1;
   }
-  .dash-legacy .kpi-ic .ic { width: 24px; height: 24px; }
-  .dash-legacy .kpi-txt { min-width: 0; }
-  .dash-legacy .kpi small {
-    display: block; font-size: 14px; color: #64748B;
+  .dash-legacy .rp-kpi small {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .dash-legacy .kpi b {
-    display: block; font-size: 26px; line-height: 1.2; margin-top: 2px; color: #0F172A;
+  .dash-legacy .rp-kpi b {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .dash-legacy .kpi.k-navy  .kpi-ic { background: #E3ECFB; color: #1D4ED8; }
-  .dash-legacy .kpi.k-green .kpi-ic { background: #E7F8ED; color: #16A34A; }
-  .dash-legacy .kpi.k-green b { color: #16A34A; }
-  .dash-legacy .kpi.k-yellow .kpi-ic { background: #FFF3DF; color: #EA580C; }
-  .dash-legacy .kpi.k-yellow b { color: #EA580C; }
-  .dash-legacy .kpi.k-blue  .kpi-ic { background: #E3ECFB; color: #2563EB; }
-  .dash-legacy .kpi.k-blue  b { color: #2563EB; }
-  .dash-legacy .kpi.k-red   .kpi-ic { background: #FDE7E9; color: #D71920; }
-  .dash-legacy .kpi.k-red   b { color: #D71920; }
-  .dash-legacy .kpi.k-purple .kpi-ic { background: #F0EBFD; color: #7C3AED; }
-  .dash-legacy .kpi.k-purple b { color: #7C3AED; }
-  .dash-legacy .kpi.k-pink  .kpi-ic { background: #FDE7F1; color: #DB2777; }
-  .dash-legacy .kpi.k-slate .kpi-ic { background: #EEF2F7; color: #475569; }
+  /* ไอคอน SVG ใช้ currentColor จึงต้องกำหนด color คู่กับพื้นหลังทุกสี */
+  .dash-legacy .rp-kpi-ic .ic { width: 20px; height: 20px; }
+  .dash-legacy .rp-kpi.k-navy   .rp-kpi-ic { background: #E3ECFB; color: #1D4ED8; }
+  .dash-legacy .rp-kpi.k-navy   b { color: #1D4ED8; }
+  .dash-legacy .rp-kpi.k-green  .rp-kpi-ic { background: #E7F8ED; color: #16A34A; }
+  .dash-legacy .rp-kpi.k-green  b { color: #16A34A; }
+  .dash-legacy .rp-kpi.k-yellow .rp-kpi-ic { background: #FFF3DF; color: #EA580C; }
+  .dash-legacy .rp-kpi.k-yellow b { color: #EA580C; }
+  .dash-legacy .rp-kpi.k-blue   .rp-kpi-ic { background: #E3ECFB; color: #2563EB; }
+  .dash-legacy .rp-kpi.k-blue   b { color: #2563EB; }
+  .dash-legacy .rp-kpi.k-red    .rp-kpi-ic { background: #FDE7E9; color: #D71920; }
+  .dash-legacy .rp-kpi.k-red    b { color: #D71920; }
+  .dash-legacy .rp-kpi.k-purple .rp-kpi-ic { background: #F0EBFD; color: #7C3AED; }
+  .dash-legacy .rp-kpi.k-purple b { color: #7C3AED; }
+  .dash-legacy .rp-kpi.k-pink   .rp-kpi-ic { background: #FDE7F1; color: #DB2777; }
+  .dash-legacy .rp-kpi.k-pink   b { color: #DB2777; }
+  .dash-legacy .rp-kpi.k-slate  .rp-kpi-ic { background: #EEF2F7; color: #475569; }
+  .dash-legacy .rp-kpi.k-slate  b { color: #475569; }
 
   /* 2 คอลัมน์สมดุล */
   .dash-legacy .dash-cols {
@@ -2315,11 +2483,11 @@ body.njhr-busy { cursor: progress; }
   .dash-legacy .dash-notify-full .card { width: 100%; }
   .dash-legacy .empty-state { padding: 26px 16px; }
 
-  /* จอคอมแคบ 1024–1279px: KPI 2 คอลัมน์ */
+  /* จอคอมแคบ 1024–1279px: KPI 2 คอลัมน์
+     ขนาดตัวอักษรใช้ของกฎกลาง .rp-kpi ไม่กำหนดทับแล้ว */
   @media (max-width: 1279px) {
     .dash-legacy { padding-inline: 16px; }
-    .dash-legacy .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .dash-legacy .kpi b { font-size: 23px; }
+    .dash-legacy .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 }
 

@@ -9,6 +9,30 @@
     { key: 'vac',   cls: 'rq-vac',  em: '\u{1F334}', label: 'พักร้อน', match: ['พักร้อน', 'VACATION', 'ANNUAL'] }
   ];
 
+  /* ---------- กติกาแสดงยอดวันลาในหน้า Leave ----------
+     ทุกประเภทแสดงเฉพาะ "ลาแล้ว X วัน" จาก used (นับเฉพาะ APPROVED — pending ไม่นับ)
+     มีเพียง "ลาพักร้อน" ประเภทเดียวที่แสดง "คงเหลือ X วัน" จาก remaining เพิ่มได้
+     ไม่แสดง quota ("สิทธิ์ X วัน/ปี") ของประเภทใดเลย
+     เป็นการเปลี่ยนเฉพาะการแสดงผล ไม่แตะ RPC และไม่แตะการคำนวณสิทธิ์ */
+  function lvIsVacation(code) {
+    var t = String(code || '').toUpperCase();
+    return t.indexOf('VACATION') >= 0 || t.indexOf('ANNUAL') >= 0 || t.indexOf('พักร้อน') >= 0;
+  }
+
+  /* จำนวนวันที่ลาไปแล้วจริง — used เท่านั้น ไม่รวม pending
+     ไม่มีข้อมูล = 0 (แสดง "ลาแล้ว 0 วัน" ไม่ซ่อน) */
+  function lvUsedDays(r) {
+    var n = Number(r && r.used);
+    return isFinite(n) ? Math.round(n * 10) / 10 : 0;
+  }
+
+  /* คงเหลือ — ใช้กับลาพักร้อนเท่านั้น · null = ไม่จำกัดสิทธิ์ */
+  function lvRemainDays(r) {
+    if (!r || r.remaining == null) return null;
+    var n = Number(r.remaining);
+    return isFinite(n) ? Math.round(n * 10) / 10 : null;
+  }
+
   function rqPick(rows, card) {
     for (var i = 0; i < rows.length; i++) {
       var t = String(rows[i].leave_type || '').toUpperCase();
@@ -33,6 +57,56 @@
       x = x.id;
     }
     return 'LV-' + String(x || '').slice(0, 6).toUpperCase();
+  }
+
+  /* ---------- แถบข้อมูลผู้ยื่นคำขอ (ใช้ร่วมกันทั้งหน้า "ขอลางาน" และ "ขอ OT") ----------
+     รูปแบบเดียวกันทั้งสองหน้า เรียงซ้าย → ขวา
+       เลขที่คำขอ · วันที่ยื่น · ผู้ยื่น · รหัส · แผนก
+     Desktop = แถวเดียว 5 ช่อง · Mobile = ไหลตามพื้นที่ (ลำดับเดิม)
+
+     เลขที่คำขอก่อนบันทึกสำเร็จแสดง "—" แล้วให้ Flow เดิมเขียนทับด้วยเลขจริง
+     ผ่าน element id ที่ส่งเข้ามา (lvf-no / otf-no) — ไม่แตะ Logic การออกเลข
+
+     "ตำแหน่ง" ถูกซ่อนเฉพาะ UI ของสองหน้านี้เท่านั้น
+     ข้อมูลใน employees · RPC · หน้าโปรไฟล์ ไม่ถูกแตะ
+
+     ใช้ข้อมูลจริงจาก currentEmp() ที่ระบบโหลดอยู่ ไม่ hardcode */
+  function reqInfoBar(e, submittedAt, noId) {
+    var nm = ((e.title || '') + (e.firstName || '') + ' ' + (e.lastName || '')).trim() || '—';
+    var dp = (e.deptId ? dept(e.deptId) : '') || e.deptName || '';
+    if (!dp || dp === '\u2014') dp = '—';
+    function cell(cls, label, val, id) {
+      return '<div class="' + cls + '"><small>' + label + '</small>' +
+        '<b' + (id ? ' id="' + id + '" class="muted"' : '') + '>' + esc(val) + '</b></div>';
+    }
+    return '<div class="ot-req-info">' +
+      cell('ri-no', 'เลขที่คำขอ', '—', noId) +
+      cell('ri-at', 'วันที่ยื่น', submittedAt) +
+      cell('ri-nm', 'ผู้ยื่น', nm) +
+      cell('ri-cd', 'รหัส', e.code || '—') +
+      cell('ri-dp', 'แผนก', dp) +
+      '</div>';
+  }
+
+  /* ผูกปุ่มดู/ดาวน์โหลดไฟล์แนบภายในกล่องที่กำหนด
+     ใช้ filePreviewOpen() และ fileDownload() จาก core — ไม่เปิดแท็บใหม่ ไม่ reload
+     รับ list ของไฟล์เพื่ออ่าน url/ชื่อจริง ไม่ต้องฝัง URL ลงใน attribute */
+  function bindFileButtons(box, files) {
+    if (!box) return;
+    box.querySelectorAll('[data-fp]').forEach(function (b) {
+      b.onclick = function (ev) {
+        ev.preventDefault();
+        var f = files[parseInt(b.dataset.fp, 10)];
+        if (f) filePreviewOpen(f.url, f.name);
+      };
+    });
+    box.querySelectorAll('[data-fd]').forEach(function (b) {
+      b.onclick = function (ev) {
+        ev.preventDefault();
+        var f = files[parseInt(b.dataset.fd, 10)];
+        if (f) fileDownload(f.url, f.name);
+      };
+    });
   }
 
   function showTimeline(kind, id) {
@@ -63,10 +137,12 @@
       var files = d.attachments || [];
       var tl = (d.approvals || []).slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); });
       body.innerHTML =
-        (files.length ? '<div class="otj-flist">' + files.map(function (f) {
+        /* ปุ่ม 👁 เปิด Preview ทับในหน้าเดิม (ไม่เปิดแท็บใหม่) · ปุ่ม ⬇ ดาวน์โหลดพร้อม Toast
+           ผูก Event ด้วย data-fp / data-fd หลัง render — ไม่ใช้ <a target="_blank"> อีกต่อไป */
+        (files.length ? '<div class="otj-flist">' + files.map(function (f, i) {
           return '<div class="otj-file"><span class="otj-fname">' + icon('fileText', 'ic-sm') + ' ' + esc(f.name) + '</span>' +
-            '<a class="btn-icon" href="' + esc(f.url) + '" target="_blank" rel="noopener" aria-label="ดู">' + icon('eye') + '</a>' +
-            '<a class="btn-icon" href="' + esc(f.url) + '" download aria-label="ดาวน์โหลด">' + icon('download') + '</a></div>';
+            '<button type="button" class="btn-icon" data-fp="' + i + '" aria-label="ดู">' + icon('eye') + '</button>' +
+            '<button type="button" class="btn-icon" data-fd="' + i + '" aria-label="ดาวน์โหลด">' + icon('download') + '</button></div>';
         }).join('') + '</div>' : '') +
         '<div class="timeline">' + tl.map(function (x) {
           var act = x.action_th || { SUBMIT: 'ส่งคำขอ', APPROVE: 'อนุมัติ', REJECT: 'ไม่อนุมัติ', INFO: 'ขอข้อมูลเพิ่ม', CANCEL: 'ยกเลิกคำขอ' }[x.action] || x.action;
@@ -75,6 +151,7 @@
             '<small>' + esc(x.by_name || '') + ' · ' + esc(x.at || '') + '</small>' +
             (x.note ? '<p>' + esc(x.note) + '</p>' : '') + '</div></div>';
         }).join('') + '</div>';
+      bindFileButtons(body, files);
     }).catch(function (er) {
       var body = document.querySelector('#modal-root .modal-body');
       if (body) body.innerHTML = '<div class="form-error">' + esc(er.message || 'โหลดรายละเอียดไม่สำเร็จ') + '</div>';
@@ -181,14 +258,21 @@
       var j = js.find(function (x) { return x.no === parseInt(p[0], 10); });
       return j && j.files && j.files[parseInt(p[1], 10)];
     }
+    /* ไฟล์แนบของรายการงาน OT — ใช้ตัวช่วยชุดเดียวกับไฟล์แนบใบลา
+       👁 เปิด Preview ทับในหน้าเดิม (เดิมใช้ window.open เปิดแท็บใหม่)
+       ⬇ ดาวน์โหลดพร้อม Toast ที่ปิดได้ (เดิมคลิก <a download> เงียบ ๆ ไม่มีการแจ้งผล) */
     scope.querySelectorAll('[data-jview]').forEach(function (b) {
-      b.onclick = function () { var f = jf(b.dataset.jview); if (f) window.open(f.data, '_blank'); };
+      b.onclick = function (ev) {
+        ev.preventDefault();
+        var f = jf(b.dataset.jview);
+        if (f) filePreviewOpen(f.url || f.data, f.name);
+      };
     });
     scope.querySelectorAll('[data-jdl]').forEach(function (b) {
-      b.onclick = function () {
-        var f = jf(b.dataset.jdl); if (!f) return;
-        var a = document.createElement('a'); a.href = f.data; a.download = f.name;
-        document.body.appendChild(a); a.click(); a.remove();
+      b.onclick = function (ev) {
+        ev.preventDefault();
+        var f = jf(b.dataset.jdl);
+        if (f) fileDownload(f.url || f.data, f.name);
       };
     });
   }

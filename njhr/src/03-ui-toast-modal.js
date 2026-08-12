@@ -9,6 +9,106 @@
     setTimeout(function () { el.classList.remove('show'); setTimeout(function () { el.remove(); }, 300); }, 3200);
   }
 
+  /* ---------- Toast ที่ปิดเองได้ (ใช้กับปุ่มดาวน์โหลดไฟล์แนบ) ----------
+     แยกจาก toast() เดิมโดยสิ้นเชิง — toast() ของหน้าอื่นไม่เปลี่ยนพฤติกรรมแม้แต่จุดเดียว
+     ต่างกันตรง: มีหัวข้อ + บรรทัดรอง · มีปุ่ม × ปิดเอง · อยู่นาน 5 วินาที
+     ปิดแล้วปิดเฉพาะ Toast ใบนั้น ไม่แตะ Modal หรือหน้าเบื้องหลัง */
+  function toastDismiss(title, sub, type) {
+    var wrap = document.getElementById('toasts');
+    if (!wrap) return null;
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'success') + ' toast-dis';
+    el.innerHTML =
+      '<span>' + (type === 'error' ? icon('ban') : type === 'info' ? icon('info') : icon('check')) + '</span>' +
+      '<div class="toast-txt"><b>' + esc(title) + '</b>' +
+      (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
+      '<button type="button" class="toast-x" aria-label="ปิด">' + icon('x') + '</button>';
+    wrap.appendChild(el);
+    setTimeout(function () { el.classList.add('show'); }, 10);
+    var gone = false;
+    function bye() {
+      if (gone) return; gone = true;
+      el.classList.remove('show');
+      setTimeout(function () { el.remove(); }, 300);
+    }
+    el.querySelector('.toast-x').onclick = bye;   // ปิดเฉพาะ Toast ใบนี้
+    setTimeout(bye, 5000);                        // หายเองใน 5 วินาที (กด × ก่อนได้)
+    return el;
+  }
+
+  /* ================= PREVIEW ไฟล์แนบ =================
+     เปิดทับอยู่ในหน้าเดิม ไม่เปิดแท็บใหม่ ไม่ reload
+     ใช้ container ของตัวเอง (#file-preview-root) แยกจาก #modal-root
+     Timeline Modal ที่อยู่ข้างหลังจึงยังเปิดค้างอยู่ตำแหน่งเดิม ปิด Preview แล้วกลับมาเห็นทันที */
+  function fpExt(name, url) {
+    var s2 = String(name || '') || String(url || '');
+    s2 = s2.split('?')[0].split('#')[0];
+    var m = /\.([a-z0-9]+)$/i.exec(s2);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function filePreviewClose() {
+    var r = document.getElementById('file-preview-root');
+    if (r) r.remove();
+    document.removeEventListener('keydown', fpKey);
+  }
+
+  function fpKey(ev) { if (ev.key === 'Escape') { ev.stopPropagation(); filePreviewClose(); } }
+
+  function filePreviewOpen(url, name) {
+    filePreviewClose();
+    var ext = fpExt(name, url);
+    var isImg = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].indexOf(ext) >= 0;
+    var isPdf = ext === 'pdf';
+    var inner = isImg
+      ? '<img class="fp-img" src="' + esc(url) + '" alt="' + esc(name || '') + '">'
+      : isPdf
+        ? '<iframe class="fp-frame" src="' + esc(url) + '" title="' + esc(name || '') + '"></iframe>'
+        : '<div class="fp-none">' + icon('fileText') +
+          '<p>ไม่รองรับการดูตัวอย่างไฟล์นี้ กรุณาดาวน์โหลดไฟล์</p></div>';
+
+    var root = document.createElement('div');
+    root.id = 'file-preview-root';
+    root.innerHTML =
+      '<div class="fp-overlay" id="fp-overlay">' +
+      '<div class="fp-box" role="dialog" aria-modal="true">' +
+      '<div class="fp-head"><h3>' + esc(name || 'ไฟล์แนบ') + '</h3>' +
+      '<button type="button" class="btn-icon" id="fp-x" aria-label="ปิด">' + icon('x') + '</button></div>' +
+      '<div class="fp-body">' + inner + '</div>' +
+      '<div class="fp-foot"><button type="button" class="btn btn-ghost" id="fp-close">ปิด</button></div>' +
+      '</div></div>';
+    document.body.appendChild(root);
+    document.getElementById('fp-x').onclick = filePreviewClose;
+    document.getElementById('fp-close').onclick = filePreviewClose;
+    document.getElementById('fp-overlay').addEventListener('mousedown', function (ev) {
+      if (ev.target === this) filePreviewClose();
+    });
+    document.addEventListener('keydown', fpKey);
+  }
+
+  /* ---------- ดาวน์โหลดไฟล์แนบ ----------
+     ดึงไฟล์เป็น Blob แล้วสั่งบันทึก จึงไม่เปิดแท็บใหม่และไม่ reload
+     สำเร็จ = Toast "เริ่มดาวน์โหลดแล้ว" · ล้มเหลว = Toast ผิดพลาด (ไม่แสดงว่าสำเร็จ)
+     ไม่แตะ Storage / URL / ชื่อไฟล์ / Path เดิม */
+  function fileDownload(url, name) {
+    if (!url) { toastDismiss('ดาวน์โหลดไม่สำเร็จ', 'กรุณาลองใหม่อีกครั้ง', 'error'); return; }
+    var fname = String(name || 'file');
+    fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.blob();
+    }).then(function (blob) {
+      var href = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = href; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(href); }, 4000);
+      toastDismiss('เริ่มดาวน์โหลดแล้ว', fname, 'success');
+    })['catch'](function (er) {
+      try { console.error('[FILE] ดาวน์โหลดไม่สำเร็จ:', er); } catch (e) {}
+      toastDismiss('ดาวน์โหลดไม่สำเร็จ', 'กรุณาลองใหม่อีกครั้ง', 'error');
+    });
+  }
+
   /* ================= MODAL ================= */
   function openModal(title, bodyHTML, footHTML, opts) {
     opts = opts || {};

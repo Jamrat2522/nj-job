@@ -95,7 +95,7 @@ const CHUNKS = {
   notifications: { files: ['18-view-notifications.js'], out: 'views/notifications/main.js', deps: [] },
 
   compatibility: { files: ['11-view-approvals-payroll.js', '12-view-reports-settings.js',
-                           '13-view-admin-users.js', '16-salary-merge-core.js', '15-view-salary-merge-boot.js'],
+                           '13-view-admin-users.js'],
                    out: 'compat/app-legacy.js',
                    deps: ['shared-emp-meta', 'shared-hr-meta', 'shared-report', 'shared-requests',
                           'shared-leave-meta', 'shared-attachments'] }
