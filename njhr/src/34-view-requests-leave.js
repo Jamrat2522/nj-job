@@ -98,11 +98,8 @@
     FIX: { ic: 'history', cls: 'k-fix' }
   };
 
-  function reqThaiDate(v) {
-    var d = String(v || '').slice(0, 10).split('-');
-    if (d.length !== 3) return '';
-    return Number(d[2]) + ' ' + TH_MONTHS[Number(d[1]) - 1].slice(0, 3) + '. ' + (Number(d[0]) + 543);
-  }
+  // วันที่บนรายการคำขอฝั่งมือถือ — ใช้ตัวแปลงกลาง fmtDateDMY() เพื่อให้ตรงกับ Desktop
+  function reqThaiDate(v) { return fmtDateDMY(v); }
   function reqHM(ts) {
     var m = /T(\d{2}):(\d{2})/.exec(String(ts || ''));
     return m ? m[1] + ':' + m[2] : '';
@@ -488,7 +485,7 @@
     if (!rows.length) { box.innerHTML = emptyState('ไม่มีรายการในตัวกรองนี้'); return; }
     box.innerHTML = '<div class="list">' + rows.map(function (r) {
       var st = rhStatus(r.status);
-      var when = empBE(r.date) + (r.date2 && r.date2 !== r.date ? ' – ' + empBE(r.date2) : '');
+      var when = fmtDateDMY(r.date) + (r.date2 && r.date2 !== r.date ? ' – ' + fmtDateDMY(r.date2) : '');
       return '<div class="list-row" data-rh="' + esc(r.kind) + ':' + esc(r.id) + '">' +
         '<div class="grow"><b>' + esc(r.kind === 'OT' ? 'OT' : r.title) + '</b>' +
         '<small>' + esc(when) + (r.qty ? ' · ' + esc(r.qty) : '') + '</small></div>' +
@@ -643,7 +640,7 @@
       '<td class="lvt-c-type">' +
       '<span class="chip" style="background:' + lt.color + '18;color:' + lt.color + '">' + esc(lt.name) + '</span></td>' +
       '<td class="lvt-c-date"><b>' +
-      fmtDate(l.start_date) + (l.end_date !== l.start_date ? ' – ' + fmtDate(l.end_date) : '') + '</b></td>' +
+      fmtDateDMY(l.start_date) + (l.end_date !== l.start_date ? ' – ' + fmtDateDMY(l.end_date) : '') + '</b></td>' +
       '<td class="lvt-c-mode"><b>' + lvModeTxt(md) + '</b>' +
       '<small>' + (md === 'HOURLY'
         ? String(l.start_time || '').slice(0, 5) + '–' + String(l.end_time || '').slice(0, 5) + ' · ' + hrs + ' ชม.'
@@ -670,7 +667,7 @@
       '<div class="req-top">' + avatarHTML(who, 40) +
       '<div class="grow"><b>' + esc(who) + '</b><small>' + esc(sub) + '</small></div>' + statusBadge(st) + '</div>' +
       '<div class="req-body"><span class="chip" style="background:' + lt.color + '18;color:' + lt.color + '">' + esc(lt.name) + '</span>' +
-      '<span>' + fmtDate(l.start_date) + (l.end_date !== l.start_date ? ' – ' + fmtDate(l.end_date) : '') + '</span>' +
+      '<span>' + fmtDateDMY(l.start_date) + (l.end_date !== l.start_date ? ' – ' + fmtDateDMY(l.end_date) : '') + '</span>' +
       '<span>' + lvModeTxt(md) + (md === 'HOURLY'
         ? ' ' + String(l.start_time || '').slice(0, 5) + '–' + String(l.end_time || '').slice(0, 5) + ' (' + hrs + ' ชม.)'
         : ' · ' + days + ' วัน') + '</span></div>' +

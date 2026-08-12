@@ -69,7 +69,22 @@
     'njhr_pay_item_save': 1, 'njhr_session_check': 1, 'njhr_shift_assign': 1, 'njhr_shift_save': 1,
     'njhr_shift_set_active': 1, 'njhr_slip_mark_sent': 1, 'njhr_sso_emp_save': 1, 'njhr_user_link': 1,
     'njhr_user_password': 1, 'njhr_user_save': 1, 'njhr_wf_delete': 1, 'njhr_wf_save': 1,
-    'njhr_wf_step_delete': 1, 'njhr_wf_step_move': 1, 'njhr_wf_step_save': 1
+    'njhr_wf_step_delete': 1, 'njhr_wf_step_move': 1, 'njhr_wf_step_save': 1,
+    /* เพิ่มจากการตรวจ Static: RPC เหล่านี้ Frontend เรียกจริงและ SQL เขียนข้อมูล
+       (insert/update/delete) แต่เดิมถูกจัดเป็น Read จึงถูก Retry/Abort ได้ — อันตราย
+       njhr_doc_confirm_text ไม่อยู่ในลิสต์นี้โดยเจตนา เพราะเป็น Read (stable) */
+    'njhr_activation_link': 1, 'njhr_activation_reject': 1, 'njhr_activation_submit': 1,
+    'njhr_att_correction_submit': 1, 'njhr_gov_holiday_apply': 1, 'njhr_gov_holiday_set': 1,
+    'njhr_me_save': 1, 'njhr_user_delete': 1,
+    /* ยืนยันจาก SQL แล้วว่าเขียนข้อมูลจริง (insert/update/delete) และไม่ใช่ stable
+       F3_correction_workflow.sql · K2_shift_membership.sql · 44_approval_workflow.sql
+       ใส่ไว้แม้ Frontend ปัจจุบันยังไม่ได้เรียกทุกตัว เพื่อกันการจัดชั้นผิดเมื่อมีการเรียกในอนาคต */
+    'njhr_att_correction_approve': 1, 'njhr_att_correction_reject': 1,
+    'njhr_shift_assign_many': 1, 'njhr_shift_no_shift_set': 1, 'njhr_shift_remove': 1,
+    'njhr_wf_approver_add': 1, 'njhr_wf_approver_remove': 1, 'njhr_wf_step_toggle': 1,
+    /* RPC ที่ Frontend เริ่มเรียกในรอบย้าย Data Source (OT · ประกาศ · ตั้งค่า) */
+    'njhr_announcement_save': 1, 'njhr_announcement_set_active': 1,
+    'njhr_ot_decide': 1, 'njhr_ot_submit': 1, 'njhr_setting_save': 1
   };
   function sbIsWriteRpc(fn) { return SB_WRITE_RPC[fn] === 1; }
   function sbOnce(fn, body, ctl) {
@@ -263,7 +278,46 @@
      เก็บเฉพาะ URL ไว้ในระบบ ไม่เก็บ base64 (base64 ทำให้ localStorage เต็มแล้วข้อมูลหาย) */
 
   // จำนวนใบลาที่รออนุมัติ (นับจากเซิร์ฟเวอร์) — ใช้กับ Badge เมนู
-  var _lvPending = 0;
+  var _lvPending = 0, _otPending = 0, _fxPending = 0;
+
+  /* รีเฟรชตัวเลขรออนุมัติของ OT และลงชื่อย้อนหลังจาก Supabase
+     ใช้ p_limit = 1 แล้วอ่าน total_count จึงไม่ดึงข้อมูลทั้งคิวมาเพียงเพื่อจะนับ
+     เรียกจากจุดที่สถานะเปลี่ยนจริงเท่านั้น — ไม่มีการเรียกจาก render */
+  function refreshOtPending() {
+    var u = currentUser();
+    if (!u || ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    sbRpcList('njhr_ot_list', { p_token: sbToken(), p_from: null, p_to: null,
+      p_status: 'PENDING', p_dept: null, p_employee: null, p_q: null,
+      p_mine: false, p_limit: 1, p_offset: 0 })
+      .then(function (rows) {
+        _otPending = rows.length ? Number(rows[0].total_count) : 0;
+        refreshMenuBadge();
+      })['catch'](function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  function refreshFixPending() {
+    var u = currentUser();
+    if (!u || !sbToken()) return;
+    sbRpcList('njhr_att_correction_list', { p_token: sbToken(), p_employee: null,
+      p_status: 'PENDING', p_from: null, p_to: null, p_limit: 1, p_offset: 0,
+      p_mine_queue: true })
+      .then(function (rows) {
+        _fxPending = rows.length ? Number(rows[0].total_count) : 0;
+        refreshMenuBadge();
+      })['catch'](function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  /* ให้ chunk อื่นตั้งค่าตัวนับได้โดยตรงเมื่อโหลดคิวมาแล้ว (ไม่ต้องยิง RPC ซ้ำ) */
+  function setOtPending(n) { _otPending = Number(n) || 0; refreshMenuBadge(); }
+  function setFxPending(n) { _fxPending = Number(n) || 0; refreshMenuBadge(); }
+
+  /* รีเฟรชครบทั้งสามประเภทในครั้งเดียว — ใช้ที่ Login และหลังทำรายการ */
+  function refreshPendingAll() {
+    refreshLeavePending();
+    refreshOtPending();
+    refreshFixPending();
+  }
+
   function refreshLeavePending() {
     var u = currentUser();
     if (!u || ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
@@ -272,6 +326,34 @@
         _lvPending = rows.length ? Number(rows[0].total_count) : 0;
         refreshMenuBadge();
       }).catch(function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  /* ---------- Hydrate db.settings หลัง Login (Cache Compatibility) ----------
+     แหล่งจริงคือ system_settings ผ่าน njhr_setting_list
+     db.settings ถูกคงไว้เป็น "สำเนาสำหรับหน้าที่ยังอ่านของเดิม" เท่านั้น
+       สลิปเงินเดือน · เทมเพลตนำเข้าพนักงาน · ทะเบียนเอกสาร HR ยังอ่าน db.settings.companyName
+
+     Key จริงจาก 78_system_settings.sql (ไม่ได้ตั้งชื่อเอง)
+       company_name       → db.settings.companyName
+       work_start_time    → db.settings.workStart
+       late_grace_minutes → db.settings.lateGrace
+
+     ยิงครั้งเดียวตอน Login สำเร็จ · ล้มเหลว = คงค่าเดิมในเครื่องไว้ ไม่ทำให้หน้าใดพัง
+     คีย์ geofence* ไม่อยู่ในชุดนี้ — RPC ปฏิเสธคีย์นั้นโดยตรง โหมด GPS จึงคงพฤติกรรมเดิม */
+  function hydrateSettings() {
+    if (!sbReady() || !sbToken()) return;
+    sbRpcList('njhr_setting_list', { p_token: sbToken(), p_category: null })
+      .then(function (rows) {
+        var map = {};
+        (rows || []).forEach(function (r) { map[r.key] = r.value; });
+        var changed = false;
+        if (map.company_name != null) { db.settings.companyName = String(map.company_name); changed = true; }
+        if (map.work_start_time != null) { db.settings.workStart = String(map.work_start_time); changed = true; }
+        if (map.late_grace_minutes != null) { db.settings.lateGrace = parseInt(map.late_grace_minutes, 10) || 0; changed = true; }
+        if (changed) saveDB();
+      })['catch'](function (er) {
+        try { console.error('[SETTINGS] hydrate จาก njhr_setting_list ล้มเหลว:', er); } catch (e) {}
+      });
   }
 
   function renderLogin() {
@@ -329,8 +411,9 @@
         audit('LOGIN', 'เข้าสู่ระบบสำเร็จ (Supabase · ' + u.role + ')');
         toast('ยินดีต้อนรับ ' + (u.emp_name || u.username));
         nav('#/dashboard');
-        refreshLeavePending();
+        refreshPendingAll();
         refreshNotifyBadge();
+        hydrateSettings();
       }).catch(function (e) { loginFail(e.message || 'เข้าสู่ระบบไม่สำเร็จ'); });
     };
     document.getElementById('lg-activate').onclick = function () { actOpenForm(); };
@@ -472,7 +555,7 @@
     if (t && sbReady()) { sbRpc('njhr_logout', { p_token: t }).catch(function () {}); }  // เพิกถอนฝั่งเซิร์ฟเวอร์
     sbSetToken('');
     sbClearUser();
-    _lvPending = 0; _ntUnread = 0;
+    _lvPending = 0; _otPending = 0; _fxPending = 0; _ntUnread = 0;
     try { NJHR.notify.reset(); } catch (e) {}   // หยุด Polling + ล้างป้ายแดงทุกจุด
     if (session) audit('LOGOUT', 'ออกจากระบบ');
     session = null; saveSession();

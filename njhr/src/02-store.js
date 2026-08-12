@@ -186,10 +186,15 @@
     var b = balance(empId, typeId);
     return Math.round((b.quota - b.used - reservedDays(empId, typeId)) * 100) / 100;
   }
+  /* จำนวนรายการรออนุมัติบน Badge — นับจาก Supabase ทั้งสามประเภท
+       ใบลา            _lvPending  ← njhr_leave_queue
+       OT              _otPending  ← njhr_ot_list (p_status='PENDING')
+       ลงชื่อย้อนหลัง  _fxPending  ← njhr_att_correction_list (p_mine_queue=true)
+     ค่าเก็บเป็น State กลาง ไม่ยิง RPC ตอน render Sidebar
+     รีเฟรชเมื่อ Login · เปิดหน้าอนุมัติ · ยื่น/อนุมัติ/ไม่อนุมัติ/ยกเลิก เท่านั้น
+     เดิมนับ OT และลงชื่อย้อนหลังจาก db.* ใน localStorage ซึ่งบน Production ว่างเปล่า */
   function pendingCount() {
-    return _lvPending +                                    // ใบลา: นับจาก Supabase (njhr_leave_queue)
-      db.ots.filter(function (o) { return o.status === 'PENDING'; }).length +
-      db.corrections.filter(function (c) { return c.status === 'PENDING'; }).length;
+    return _lvPending + _otPending + _fxPending;
   }
   function audit(action, detail) {
     var u = currentUser();

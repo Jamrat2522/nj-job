@@ -148,83 +148,159 @@
     if (n <= 0) b.remove(); else b.textContent = n > 99 ? '99+' : String(n);
   }
 
-  function dashAdmin(el) {
-    var actives = db.employees.filter(function (e) { return e.status === 'ACTIVE'; });
-    var t = todayISO();
-    var todayAtt = db.attendance.filter(function (a) { return a.date === t; });
-    var late = todayAtt.filter(function (a) { return a.status === 'LATE'; }).length;
-    var onLeaveToday = db.leaves.filter(function (l) {
-      return (l.status === 'APPROVED' || l.status === 'COMPLETED') && l.startDate <= t && l.endDate >= t;
-    }).length;
-    var checkedIds = todayAtt.map(function (a) { return a.empId; });
-    var absent = Math.max(0, actives.length - checkedIds.length - onLeaveToday);
-    var otToday = db.ots.filter(function (o) { return o.date === t && o.status !== 'CANCELLED' && o.status !== 'REJECTED'; }).length;
-    var pc = pendingCount();
-    var pr = db.payroll[db.payroll.length - 1] || { month: new Date().getMonth() + 1, year: new Date().getFullYear(), status: 'DRAFT', entries: [] }; // ข้อมูลว่าง (production ที่ยังไม่เชื่อม) ต้องไม่ทำให้หน้าพัง
-    var stMap = { DRAFT: ['แบบร่าง', 'warn'], CALCULATED: ['คำนวณแล้ว', 'info'], CONFIRMED: ['ยืนยันแล้ว', 'ok'], PAID: ['จ่ายแล้ว', 'ok'] };
+  /* ============================================================
+     Dashboard ผู้ดูแล (Desktop) — ยอดทุกตัวมาจาก Supabase
+       RPC เดียว: njhr_dashboard_summary(p_token) → data jsonb
+         data.company.employees_active / checked_in_today / late_today
+                     / on_leave_today / ot_today / pending_total
+         data.announcements  ประกาศที่กำลังเผยแพร่ (ชุดเดียวกับหน้า #/announcements)
+         data.payroll        งวดเงินเดือนล่าสุด (period_month · period_year · status)
+       สิทธิ์ตรวจฝั่งเซิร์ฟเวอร์ด้วย njhr_ctx — ผู้ที่ไม่ใช่ผู้ดูแลจะได้ company = {}
 
+     เดิมทุกตัวอ่านจาก db.* ใน localStorage ซึ่งบน Production ว่างเปล่าเสมอ
+     จึงแสดง 0 ทุกช่องแม้ฐานข้อมูลมีข้อมูลจริง
+
+     ⚠ ห้าม fallback ไป db.* — RPC ล้มเหลว = แสดงข้อความผิดพลาด ไม่แสดง 0
+     Layout · KPI · การ์ด · Route · คลาส CSS เดิมทุกบรรทัด เปลี่ยนเฉพาะแหล่งข้อมูล
+     ============================================================ */
+  var dashSum = { seq: 0 };
+  var DASH_KPI = [
+    ['dk-emp', '#/employees', 'พนักงานทั้งหมด', 'k-navy', 'users'],
+    ['dk-in', '#/reports', 'เข้างานวันนี้', 'k-green', 'checkSquare'],
+    ['dk-late', '#/reports', 'มาสายวันนี้', 'k-yellow', 'clock'],
+    ['dk-leave', '#/calendar', 'ลางานวันนี้', 'k-blue', 'calendarOff'],
+    ['dk-abs', '#/reports', 'ขาดงานวันนี้', 'k-red', 'ban'],
+    ['dk-ot', '#/ot', 'OT วันนี้', 'k-purple', 'timer'],
+    ['dk-pend', '#/approvals', 'รายการรออนุมัติ', 'k-slate', 'fileText']
+  ];
+  var DASH_PAY_ST = { DRAFT: ['แบบร่าง', 'warn'], CALCULATED: ['คำนวณแล้ว', 'info'],
+    CONFIRMED: ['ยืนยันแล้ว', 'ok'], PAID: ['จ่ายแล้ว', 'ok'] };
+
+  function dashSetNum(id, v) {
+    var b = document.getElementById(id);
+    if (b) b.textContent = (v == null ? '—' : String(v));
+  }
+  function dashSumErr(msg, ex) {
+    try { console.error('[DASHBOARD] njhr_dashboard_summary ล้มเหลว:', ex || msg); } catch (e) {}
+    DASH_KPI.forEach(function (k) { dashSetNum(k[0], null); });
+    dashSetNum('dk-pay', '—');
+    var c = document.getElementById('dash-chart');
+    if (c) c.innerHTML = '<div class="form-error" role="alert">' + esc(msg) + '</div>';
+    var a = document.getElementById('dash-ann-body');
+    if (a) a.innerHTML = '<div class="form-error" role="alert">' + esc(msg) + '</div>';
+  }
+
+  function dashChartHTML(rows) {
+    var maxV = Math.max.apply(null, rows.map(function (c) { return c[1]; }).concat([1]));
+    return rows.map(function (c) {
+      return '<div class="bar-row"><span class="bar-label">' + c[0] + '</span><div class="bar-track"><div class="bar-fill" style="width:' +
+        Math.round(c[1] / maxV * 100) + '%;background:' + c[2] + '"></div></div><b>' + c[1] + '</b></div>';
+    }).join('');
+  }
+
+  function dashSummaryLoad() {
+    var seq = ++dashSum.seq;
+    setTimeout(function () {
+      if (seq !== dashSum.seq || !document.getElementById('dk-emp')) return;
+      if (!sbReady() || !sbToken()) { dashSumErr('ยังไม่ได้เชื่อมต่อ Supabase — โหลดยอดสรุปไม่ได้'); return; }
+      sbRpc('njhr_dashboard_summary', { p_token: sbToken() }).then(function (r) {
+        if (seq !== dashSum.seq) return;
+        var d = (r && r.data) ? r.data : r;
+        if (!d) { dashSumErr('ไม่ได้รับข้อมูลสรุปจากเซิร์ฟเวอร์'); return; }
+        var co = d.company || {};
+        var emp = Number(co.employees_active) || 0;
+        var cin = Number(co.checked_in_today) || 0;
+        var late = Number(co.late_today) || 0;
+        var lv = Number(co.on_leave_today) || 0;
+        /* ขาดงาน = พนักงานปฏิบัติงาน − ลงเวลาแล้ว − ลาวันนี้ (สูตรเดิมทุกตัว) */
+        var abs = Math.max(0, emp - cin - lv);
+        dashSetNum('dk-emp', emp);
+        dashSetNum('dk-in', cin);
+        dashSetNum('dk-late', late);
+        dashSetNum('dk-leave', lv);
+        dashSetNum('dk-abs', abs);
+        dashSetNum('dk-ot', Number(co.ot_today) || 0);
+        var pend = Number(co.pending_total) || 0;
+        dashSetNum('dk-pend', pend);
+        var pk = document.getElementById('dk-pend');
+        if (pk) {
+          var card = pk.closest ? pk.closest('.kpi') : null;
+          if (card) { card.classList.remove('k-red', 'k-slate'); card.classList.add(pend ? 'k-red' : 'k-slate'); }
+        }
+
+        /* งวดเงินเดือน — อ่านอย่างเดียวจาก data.payroll ไม่แตะ Workflow เงินเดือน */
+        var pay = d.payroll || {};
+        var pm = Number(pay.period_month) || (new Date().getMonth() + 1);
+        var pst = String(pay.status || 'DRAFT');
+        var pl = document.getElementById('dk-pay-label');
+        if (pl) pl.textContent = 'เงินเดือน ' + TH_MONTHS[pm - 1].slice(0, 3) + '.';
+        dashSetNum('dk-pay', DASH_PAY_ST[pst] ? DASH_PAY_ST[pst][0] : pst);
+
+        var c = document.getElementById('dash-chart');
+        if (c) {
+          c.innerHTML = dashChartHTML([
+            ['เข้างาน', Math.max(0, cin - late), 'var(--green)'],
+            ['มาสาย', late, 'var(--yellow)'],
+            ['ลางาน', lv, 'var(--blue)'],
+            ['ขาดงาน', abs, 'var(--red-strong)']
+          ]);
+        }
+
+        /* ประกาศบริษัทล่าสุด — ชุดเดียวกับหน้า #/announcements (company_announcements) */
+        var ab = document.getElementById('dash-ann-body');
+        if (ab) {
+          var anns = (d.announcements || []).slice(0, 3);
+          ab.innerHTML = anns.length
+            ? '<div class="list">' + anns.map(function (a) {
+                /* ไอคอนเลือกจากข้อมูลจริงที่มีอยู่: ประกาศสำคัญ (HIGH/URGENT) = pin · ที่เหลือ = megaphone */
+                var hi = ['HIGH', 'URGENT'].indexOf(String(a.priority || '').toUpperCase()) >= 0;
+                return '<div class="list-row"><span class="ann-ic' + (hi ? ' pin' : '') + '">' +
+                  icon(hi ? 'pin' : 'megaphone') + '</span>' +
+                  '<div class="grow"><b>' + esc(a.title) + '</b><small>' +
+                  fmtDate(String(a.publish_at || '').slice(0, 10)) + '</small></div></div>';
+              }).join('') + '</div>'
+            : emptyState('ยังไม่มีประกาศ');
+        }
+      })['catch'](function (ex) {
+        if (seq !== dashSum.seq) return;
+        dashSumErr('โหลดยอดสรุปไม่สำเร็จ: ' + ((ex && ex.message) || ex), ex);
+      });
+    }, 0);
+  }
+
+  function dashAdmin(el) {
     /* ไอคอนใช้ชุด SVG ของระบบ (icon()) ไม่เพิ่ม Library ใหม่
-       ค่าและ Route เดิมทุกตัว ไม่มีการ hardcode ตัวเลขใด ๆ */
-    function kpi(route, label, val, cls, ic) {
+       ค่าเริ่มต้นเป็น "…" ระหว่างรอ Supabase — ไม่มีการ hardcode ตัวเลขใด ๆ */
+    function kpi(route, label, id, cls, ic) {
       return '<a href="' + route + '" class="kpi ' + (cls || '') + '">' +
         (ic ? '<span class="kpi-ic">' + icon(ic) + '</span>' : '') +
-        '<span class="kpi-txt"><small>' + label + '</small><b>' + val + '</b></span></a>';
+        '<span class="kpi-txt"><small' + (id === 'dk-pay' ? ' id="dk-pay-label"' : '') + '>' + label + '</small>' +
+        '<b id="' + id + '">…</b></span></a>';
     }
-    /* การ์ด "คำขอลาล่าสุด" อ่านจาก Supabase (njhr_rpt_leave_list) ไม่ใช่ db.leaves
-       เนื้อหาเติมแบบ async ใน dashLeaveCard() — ตัวแปร recentLeaves เดิมถูกยกเลิก */
 
-    // กราฟลงเวลา: เข้างาน/สาย/ลา/ขาด
-    var chartData = [
-      ['เข้างาน', todayAtt.length - late, 'var(--green)'],
-      ['มาสาย', late, 'var(--yellow)'],
-      ['ลางาน', onLeaveToday, 'var(--blue)'],
-      ['ขาดงาน', absent, 'var(--red-strong)']
-    ];
-    var maxV = Math.max.apply(null, chartData.map(function (c) { return c[1]; }).concat([1]));
-
-    /* Desktop เดิมทุกบรรทัด — ห่อ .only-desktop เพื่อไม่ให้ซ้อนกับหน้าหลักมือถือ (dashMobileHome) */
     el.innerHTML =
       '<div class="only-desktop dash-legacy">' +
       '<div class="kpi-grid">' +
-      kpi('#/employees', 'พนักงานทั้งหมด', actives.length, 'k-navy', 'users') +
-      kpi('#/reports', 'เข้างานวันนี้', todayAtt.length, 'k-green', 'checkSquare') +
-      kpi('#/reports', 'มาสายวันนี้', late, 'k-yellow', 'clock') +
-      kpi('#/calendar', 'ลางานวันนี้', onLeaveToday, 'k-blue', 'calendarOff') +
-      kpi('#/reports', 'ขาดงานวันนี้', absent, 'k-red', 'ban') +
-      kpi('#/ot', 'OT วันนี้', otToday, 'k-purple', 'timer') +
-      kpi('#/approvals', 'รายการรออนุมัติ', pc, pc ? 'k-red' : 'k-slate', 'fileText') +
-      kpi('#/payroll', 'เงินเดือน ' + TH_MONTHS[pr.month - 1].slice(0, 3) + '.', stMap[pr.status] ? stMap[pr.status][0] : pr.status, 'k-pink', 'wallet') +
+      DASH_KPI.map(function (k) { return kpi(k[1], k[2], k[0], k[3], k[4]); }).join('') +
+      kpi('#/payroll', 'เงินเดือน', 'dk-pay', 'k-pink', 'wallet') +
       '</div>' +
       '<div class="dash-cols">' +
       '<div class="col">' +
       '  <div class="card"><div class="card-head"><h3>คำขอลาล่าสุด</h3><a class="link" href="#/approvals">ดูทั้งหมด</a></div>' +
       dashLeaveBody() + '</div>' +
-      '  <div class="card"><div class="card-head"><h3>สรุปการลงเวลาวันนี้</h3></div><div class="bar-chart">' +
-      chartData.map(function (c) {
-        return '<div class="bar-row"><span class="bar-label">' + c[0] + '</span><div class="bar-track"><div class="bar-fill" style="width:' + Math.round(c[1] / maxV * 100) + '%;background:' + c[2] + '"></div></div><b>' + c[1] + '</b></div>';
-      }).join('') + '</div></div>' +
+      '  <div class="card"><div class="card-head"><h3>สรุปการลงเวลาวันนี้</h3></div>' +
+      '<div class="bar-chart" id="dash-chart"><small class="muted">กำลังโหลด…</small></div></div>' +
       '</div>' +
       '<div class="col">' +
       '  <div class="card dash-ann"><div class="card-head"><h3>ประกาศบริษัทล่าสุด</h3><a class="link" href="#/announcements">ดูทั้งหมด</a></div>' +
-      (function () {
-        var anns = db.announcements.filter(function (a) { return a.active; }).slice(0, 3);
-        return anns.length
-          ? '<div class="list">' + anns.map(function (a) {
-              /* ไอคอนเลือกจากข้อมูลจริงที่มีอยู่: ปักหมุด = pin · ที่เหลือ = megaphone
-                 ไม่มีฟิลด์ประเภทประกาศในข้อมูล จึงไม่เดาไอคอนจากเนื้อหา */
-              var ic = a.pinned ? 'pin' : 'megaphone';
-              return '<div class="list-row"><span class="ann-ic' + (a.pinned ? ' pin' : '') + '">' +
-                icon(ic) + '</span>' +
-                '<div class="grow"><b>' + esc(a.title) + '</b><small>' +
-                fmtDate(a.date) + ' · ' + esc(a.by) + '</small></div></div>';
-            }).join('') + '</div>'
-          : emptyState('ยังไม่มีประกาศ');
-      })() + '</div>' +
+      '<div id="dash-ann-body"><small class="muted">กำลังโหลด…</small></div></div>' +
       '  <div class="card"><div class="card-head"><h3>ปฏิทินองค์กร</h3><a class="link" href="#/calendar">ดูทั้งหมด</a></div>' + miniCalendar() + '</div>' +
       '</div></div>' +
       /* การแจ้งเตือนล่าสุด — เต็มความกว้างด้านล่าง ข้อมูลและ Event เดิมทั้งหมด */
       '<div class="dash-notify-full">' + dashNotifyCard() + '</div>' +
       '</div>';
+
+    dashSummaryLoad();
   }
 
   function miniCalendar() {
@@ -490,7 +566,9 @@
       var otMine = ot ? ot.filter(mine) : [];
       var otH = ot ? Math.round(otMine.filter(function (x) {
         return ['APPROVED', 'COMPLETED'].indexOf(String(x.status || '').toUpperCase()) >= 0;
-      }).reduce(function (n, x) { return n + (Number(x.hours) || 0); }, 0) * 100) / 100 : null;
+      /* njhr_ot_list คืนคอลัมน์ ot_hours (ตาราง ot_requests) ไม่ใช่ hours
+         เดิมอ่าน x.hours จึงได้ 0 เสมอ */
+      }).reduce(function (n, x) { return n + (Number(x.ot_hours) || 0); }, 0) * 100) / 100 : null;
 
       /* ไอคอนใช้ชุด SVG ของระบบ (icon()) ไม่ใช้ Emoji */
       var cards = [
@@ -516,7 +594,7 @@
       });
       otMine.filter(function (x) { return P(x.status); }).forEach(function (x) {
         pend.push([x.ot_date || x.work_date, 'timer', 'ot', 'OT',
-          dashHomeDMY(x.ot_date || x.work_date), (Number(x.hours) || 0) + ' ชั่วโมง', '#/ot']);
+          dashHomeDMY(x.ot_date || x.work_date), (Number(x.ot_hours) || 0) + ' ชั่วโมง', '#/ot']);
       });
       (cor || []).filter(function (x) { return P(x.status); }).forEach(function (x) {
         pend.push([x.work_date, 'history', 'cr', 'ลงชื่อย้อนหลัง',
@@ -572,12 +650,43 @@
     }, 10000);
   }
 
+  /* ============================================================
+     Dashboard พนักงาน (Desktop · USER) — ข้อมูลจริงจาก Supabase
+       ลงเวลาวันนี้    njhr_att_today      (แทน shAttToday ที่อ่าน db.attendance)
+       วันลาคงเหลือ    njhr_leave_balances (แทน db.leaveTypes + remainDays)
+       คำขอลาล่าสุด    njhr_leave_list     (ของตนเองทุก Role)
+       OT ล่าสุด       njhr_ot_list        (p_mine = true)
+       ประกาศ          njhr_ann_feed       ← Feed ของ USER เท่านั้น รักษา Target/สถานะอ่าน
+                                             ไม่ใช้ njhr_announcement_list ของผู้ดูแล
+       สลิปเงินเดือน   ยังใช้ db.payroll ตามเดิม — INTENTIONAL LOCAL, PAYROLL ROUND
+
+     Layout · การ์ด · ปุ่ม · Route · คลาส CSS เดิมทุกบรรทัด เปลี่ยนเฉพาะแหล่งข้อมูล
+     ⚠ ห้าม fallback ไป db.* — RPC ล้มเหลว = แสดงข้อความผิดพลาด ไม่แสดงว่าไม่มีข้อมูล
+     ============================================================ */
+  var dashEmp = { seq: 0 };
+
+  var DASH_LT = {
+    SICK: ['ลาป่วย', '#DC2626'], PERSONAL: ['ลากิจ', '#2563EB'], VACATION: ['ลาพักร้อน', '#059669'],
+    MATERNITY: ['ลาคลอด', '#DB2777'], ORDINATION: ['ลาบวช', '#D97706'],
+    HALFDAY: ['ลาครึ่งวัน', '#7C3AED'], OTHER: ['ลาอื่น ๆ', '#64748B']
+  };
+  function dashLtName(c) { return (DASH_LT[String(c || '').toUpperCase()] || [c, '#64748B'])[0]; }
+  function dashLtColor(c) { return (DASH_LT[String(c || '').toUpperCase()] || [c, '#64748B'])[1]; }
+  function dashHM2(v) {
+    var m = /T(\d{2}):(\d{2})/.exec(String(v || ''));
+    return m ? m[1] + ':' + m[2] : '';
+  }
+  function dashErrBox(id, msg, ex) {
+    try { console.error('[DASHBOARD USER] ' + id + ': ', ex || msg); } catch (e) {}
+    var b = document.getElementById(id);
+    if (b) b.innerHTML = '<div class="form-error" role="alert">' + esc(msg) + '</div>';
+  }
+
   function dashEmployee(el) {
     var e = currentEmp();
     var t = todayISO();
-    var att = e ? shAttToday(e) : null;
-    var myLeaves = db.leaves.filter(function (l) { return l.empId === e.id; }).sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt); });
-    var myOts = db.ots.filter(function (o) { return o.empId === e.id; }).sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt); });
+    var seq = ++dashEmp.seq;
+    /* สลิปเงินเดือน — คงพฤติกรรมเดิมทั้งหมด (ห้ามแตะ Payroll รอบนี้) */
     var paid = db.payroll.filter(function (p) { return p.status === 'PAID' || p.status === 'CONFIRMED'; }).slice(-1)[0];
     var slip = paid ? paid.entries.find(function (x) { return x.empId === e.id; }) : null;
 
@@ -587,42 +696,148 @@
       '<div class="only-desktop dash-legacy">' +
       '<div class="card clock-card">' +
       '  <div class="clock-now" id="live-clock">--:--:--</div>' +
-      '  <div class="clock-date">' + fmtDate(t) + ' · กะ ' + esc(e.shift) + '</div>' +
-      '  <div class="clock-status">' + (att ?
-        (att.in ? '<span class="chip chip-ok">เข้างาน ' + att.in + '</span>' : '') + (att.out ? ' <span class="chip chip-info">ออกงาน ' + att.out + '</span>' : '')
-        : '<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>') + '</div>' +
+      '  <div class="clock-date">' + fmtDate(t) + ' · กะ <span id="de-shift">' + esc(e.shift || '') + '</span></div>' +
+      '  <div class="clock-status" id="de-status"><span class="chip">กำลังโหลด…</span></div>' +
       '  <div class="clock-btns">' +
-      '    <button class="btn btn-primary btn-lg" id="dash-in" ' + (att && att.in ? 'disabled' : '') + '>' + icon('login') + ' เข้างาน</button>' +
-      '    <button class="btn btn-dark btn-lg" id="dash-out" ' + (!att || !att.in || att.out ? 'disabled' : '') + '>' + icon('logout') + ' ออกงาน</button>' +
+      '    <button class="btn btn-primary btn-lg" id="dash-in">' + icon('login') + ' เข้างาน</button>' +
+      '    <button class="btn btn-dark btn-lg" id="dash-out" disabled>' + icon('logout') + ' ออกงาน</button>' +
       '  </div><small class="muted">ลงเวลาแบบละเอียด (จำลอง GPS/กล้อง) ที่หน้า <a class="link" href="#/attendance">ลงเวลา</a></small></div>' +
       '<div class="dash-cols">' +
-      '<div class="col"><div class="card"><div class="card-head"><h3>วันลาคงเหลือ</h3><a class="link" href="#/leave">ขอลางาน</a></div><div class="bal-grid">' +
-      db.leaveTypes.filter(function (x) { return x.active && x.quota > 0; }).map(function (x) {
-        var rem = remainDays(e.id, x.id), pct = Math.max(0, Math.min(100, rem / x.quota * 100));
-        return '<div class="bal-item"><div class="bal-top"><span>' + esc(x.name) + '</span><b>' + rem + ' วัน</b></div><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + x.color + '"></div></div></div>';
-      }).join('') + '</div></div>' +
+      '<div class="col"><div class="card"><div class="card-head"><h3>วันลาคงเหลือ</h3><a class="link" href="#/leave">ขอลางาน</a></div>' +
+      '<div class="bal-grid" id="de-bal"><small class="muted">กำลังโหลด…</small></div></div>' +
       '<div class="card"><div class="card-head"><h3>คำขอล่าสุดของฉัน</h3><a class="link" href="#/leave">ทั้งหมด</a></div>' +
-      (myLeaves.length ? '<div class="list">' + myLeaves.slice(0, 3).map(function (l) {
-        return '<div class="list-row"><div class="grow"><b>' + esc(leaveType(l.typeId).name) + '</b><small>' + fmtDate(l.startDate) + (l.endDate !== l.startDate ? ' – ' + fmtDate(l.endDate) : '') + ' · ' + l.days + ' วัน</small></div>' + statusBadge(l.status) + '</div>';
-      }).join('') + '</div>' : emptyState('ยังไม่เคยขอลา')) + '</div></div>' +
+      '<div id="de-leave"><small class="muted">กำลังโหลด…</small></div></div></div>' +
       '<div class="col">' +
       '<div class="card"><div class="card-head"><h3>OT ล่าสุด</h3><a class="link" href="#/ot">ทั้งหมด</a></div>' +
-      (myOts.length ? '<div class="list">' + myOts.slice(0, 3).map(function (o) {
-        return '<div class="list-row"><div class="grow"><b>' + fmtDate(o.date) + '</b><small>' + o.start + ' – ' + o.end + ' (' + o.hours + ' ชม.)</small></div>' + statusBadge(o.status) + '</div>';
-      }).join('') + '</div>' : emptyState('ยังไม่มีคำขอ OT')) + '</div>' +
+      '<div id="de-ot"><small class="muted">กำลังโหลด…</small></div></div>' +
       '<div class="card"><div class="card-head"><h3>สลิปเดือนล่าสุด</h3><a class="link" href="#/epayslip">เปิดสลิป</a></div>' +
       (slip ? '<div class="slip-mini"><span>' + fmtMonthYear(paid.month, paid.year) + '</span><b>฿ ' + money(slip.net) + '</b><small>เงินสุทธิเข้าบัญชี ' + esc(e.bank) + ' ' + maskAcc(e.account) + '</small></div>' : emptyState('ยังไม่มีสลิป')) + '</div>' +
       dashNotifyCard() +
-      '<div class="card"><div class="card-head"><h3>ประกาศบริษัทล่าสุด</h3><a class="link" href="#/announcements">ดูทั้งหมด</a></div><div class="list">' +
-      db.announcements.filter(function (a) { return a.active; }).slice(0, 2).map(function (a) {
-        return '<div class="list-row"><div class="grow"><b>' + (a.pinned ? icon('pin', 'ic-sm ic-red') + ' ' : '') + esc(a.title) + '</b><small>' + fmtDate(a.date) + '</small></div></div>';
-      }).join('') + '</div></div>' +
+      '<div class="card"><div class="card-head"><h3>ประกาศบริษัทล่าสุด</h3><a class="link" href="#/announcements">ดูทั้งหมด</a></div>' +
+      '<div id="de-ann"><small class="muted">กำลังโหลด…</small></div></div>' +
       '</div></div></div>';
 
     startLiveClock();
     // การลงเวลาบันทึกลง Supabase ที่หน้า "ลงเวลา" เท่านั้น (แหล่งข้อมูลเดียว)
     document.getElementById('dash-in').onclick = function () { location.hash = '#/attendance'; };
     document.getElementById('dash-out').onclick = function () { location.hash = '#/attendance'; };
+
+    dashEmpLoad(seq);
+  }
+
+  function dashEmpLoad(seq) {
+    if (!sbReady() || !sbToken()) {
+      ['de-bal', 'de-leave', 'de-ot', 'de-ann'].forEach(function (id) {
+        dashErrBox(id, 'ยังไม่ได้เชื่อมต่อ Supabase — โหลดข้อมูลไม่ได้');
+      });
+      var stb = document.getElementById('de-status');
+      if (stb) stb.innerHTML = '<span class="chip chip-bad">โหลดสถานะไม่สำเร็จ</span>';
+      return;
+    }
+    var tk = sbToken();
+
+    /* ---- ลงเวลาวันนี้ + ชื่อกะ ---- */
+    sbRpc('njhr_att_today', { p_token: tk }).then(function (r) {
+      if (seq !== dashEmp.seq) return;
+      var stb = document.getElementById('de-status');
+      var inT = dashHM2(r && r.check_in), outT = dashHM2(r && r.check_out);
+      if (stb) {
+        stb.innerHTML = (inT || outT)
+          ? (inT ? '<span class="chip chip-ok">เข้างาน ' + esc(inT) + '</span>' : '') +
+            (outT ? ' <span class="chip chip-info">ออกงาน ' + esc(outT) + '</span>' : '')
+          : '<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>';
+      }
+      var sh = document.getElementById('de-shift');
+      if (sh && r && r.shift_name) {
+        sh.textContent = r.shift_name +
+          (r.shift_start ? ' ' + String(r.shift_start).slice(0, 5) + '–' + String(r.shift_end || '').slice(0, 5) : '');
+      }
+      var bi = document.getElementById('dash-in'), bo = document.getElementById('dash-out');
+      if (bi) bi.disabled = !!inT;
+      if (bo) bo.disabled = !inT || !!outT;
+    })['catch'](function (ex) {
+      if (seq !== dashEmp.seq) return;
+      try { console.error('[DASHBOARD USER] njhr_att_today:', ex); } catch (e) {}
+      var stb = document.getElementById('de-status');
+      if (stb) stb.innerHTML = '<span class="chip chip-bad">โหลดสถานะลงเวลาไม่สำเร็จ</span>';
+    });
+
+    /* ---- วันลาคงเหลือ ---- */
+    sbRpcList('njhr_leave_balances', { p_token: tk }).then(function (rows) {
+      if (seq !== dashEmp.seq) return;
+      var box = document.getElementById('de-bal');
+      if (!box) return;
+      var use = (rows || []).filter(function (b) { return b.quota != null && Number(b.quota) > 0; });
+      box.innerHTML = use.length ? use.map(function (b) {
+        var q = Number(b.quota) || 0, rem = Math.round((Number(b.remaining) || 0) * 100) / 100;
+        var pct = q > 0 ? Math.max(0, Math.min(100, rem / q * 100)) : 0;
+        return '<div class="bal-item"><div class="bal-top"><span>' + esc(dashLtName(b.leave_type)) +
+          '</span><b>' + rem + ' วัน</b></div><div class="bar-track"><div class="bar-fill" style="width:' +
+          pct + '%;background:' + dashLtColor(b.leave_type) + '"></div></div></div>';
+      }).join('') : emptyState('ยังไม่มีสิทธิ์การลา');
+    })['catch'](function (ex) {
+      if (seq !== dashEmp.seq) return;
+      dashErrBox('de-bal', 'โหลดวันลาคงเหลือไม่สำเร็จ: ' + ((ex && ex.message) || ex), ex);
+    });
+
+    /* ---- คำขอลาล่าสุดของฉัน ---- */
+    sbRpcList('njhr_leave_list', { p_token: tk, p_status: null, p_limit: 3, p_offset: 0 })
+      .then(function (rows) {
+        if (seq !== dashEmp.seq) return;
+        var box = document.getElementById('de-leave');
+        if (!box) return;
+        box.innerHTML = (rows && rows.length)
+          ? '<div class="list">' + rows.slice(0, 3).map(function (l) {
+              var d1 = fmtDateDMY(l.start_date);
+              var d2 = (l.end_date && l.end_date !== l.start_date) ? ' – ' + fmtDateDMY(l.end_date) : '';
+              return '<div class="list-row"><div class="grow"><b>' + esc(dashLtName(l.leave_type)) +
+                '</b><small>' + d1 + d2 + ' · ' + (Number(l.total_days) || 0) + ' วัน</small></div>' +
+                statusBadge(l.ui_status || l.status) + '</div>';
+            }).join('') + '</div>'
+          : emptyState('ยังไม่เคยขอลา');
+      })['catch'](function (ex) {
+        if (seq !== dashEmp.seq) return;
+        dashErrBox('de-leave', 'โหลดคำขอลาไม่สำเร็จ: ' + ((ex && ex.message) || ex), ex);
+      });
+
+    /* ---- OT ล่าสุดของฉัน ---- */
+    sbRpcList('njhr_ot_list', { p_token: tk, p_from: null, p_to: null, p_status: null,
+      p_dept: null, p_employee: null, p_q: null, p_mine: true, p_limit: 3, p_offset: 0 })
+      .then(function (rows) {
+        if (seq !== dashEmp.seq) return;
+        var box = document.getElementById('de-ot');
+        if (!box) return;
+        box.innerHTML = (rows && rows.length)
+          ? '<div class="list">' + rows.slice(0, 3).map(function (o) {
+              return '<div class="list-row"><div class="grow"><b>' + fmtDateDMY(o.ot_date) +
+                '</b><small>' + esc(String(o.start_time || '').slice(0, 5)) + ' – ' +
+                esc(String(o.end_time || '').slice(0, 5)) + ' (' + (Number(o.ot_hours) || 0) +
+                ' ชม.)</small></div>' + statusBadge(o.status) + '</div>';
+            }).join('') + '</div>'
+          : emptyState('ยังไม่มีคำขอ OT');
+      })['catch'](function (ex) {
+        if (seq !== dashEmp.seq) return;
+        dashErrBox('de-ot', 'โหลดคำขอ OT ไม่สำเร็จ: ' + ((ex && ex.message) || ex), ex);
+      });
+
+    /* ---- ประกาศบริษัทล่าสุด — Feed ของ USER (รักษา Target และสถานะอ่าน) ---- */
+    sbRpcList('njhr_ann_feed', { p_token: tk, p_limit: 2, p_offset: 0, p_unread_only: false })
+      .then(function (rows) {
+        if (seq !== dashEmp.seq) return;
+        var box = document.getElementById('de-ann');
+        if (!box) return;
+        box.innerHTML = (rows && rows.length)
+          ? '<div class="list">' + rows.slice(0, 2).map(function (a) {
+              /* ไอคอนปักหมุดใช้ is_important ที่ Feed ส่งมาจริง ไม่เดาจากเนื้อหา */
+              return '<div class="list-row"><div class="grow"><b>' +
+                (a.is_important ? icon('pin', 'ic-sm ic-red') + ' ' : '') + esc(a.title) +
+                '</b><small>' + fmtDate(String(a.publish_at || '').slice(0, 10)) + '</small></div></div>';
+            }).join('') + '</div>'
+          : emptyState('ยังไม่มีประกาศ');
+      })['catch'](function (ex) {
+        if (seq !== dashEmp.seq) return;
+        dashErrBox('de-ann', 'โหลดประกาศไม่สำเร็จ: ' + ((ex && ex.message) || ex), ex);
+      });
   }
 
   /* ============================================================

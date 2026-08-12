@@ -36,16 +36,24 @@
         }
       }
       if (errs[i]) continue;
-      // เทียบกับคำขออื่นที่ยังมีผล (รออนุมัติ / อนุมัติแล้ว)
-      for (var oi = 0; oi < db.ots.length; oi++) {
-        var o = db.ots[oi];
-        if (o.empId !== empId || o.id === skipReqId) continue;
-        if (['PENDING', 'APPROVED'].indexOf(o.status) < 0) continue;   // ไม่อนุมัติ/ยกเลิก ไม่บล็อก
-        var hit = otJobsOf(o).some(function (oj) {
-          var sp = otSpan(oj);
-          return sp && spans[i].s < sp.e && sp.s < spans[i].e;
-        });
-        if (hit) { errs[i] = 'ช่วงเวลารายการนี้ซ้อนกับคำขอ ' + o.id + ' ของคุณที่ยังมีผลอยู่'; break; }
+      /* เทียบกับคำขออื่นที่ยังมีผล (รออนุมัติ / อนุมัติแล้ว)
+         แหล่งข้อมูล = otSbRows ที่หน้า #/ot โหลดมาจาก njhr_ot_list (Supabase) แล้ว
+         เดิมวนจาก db.ots ใน localStorage ซึ่งเป็นคำขอเก่าที่ยังไม่อยู่ในฐานข้อมูล
+         จึงบล็อกการยื่นใหม่ทั้งที่ฝั่งเซิร์ฟเวอร์ยังว่าง
+         การตรวจนี้เป็นเพียงการเตือนล่วงหน้า — njhr_ot_submit ตรวจซ้ำและเป็นผู้ตัดสินจริง */
+      var srv = otSbRows || [];
+      for (var oi = 0; oi < srv.length; oi++) {
+        var o = srv[oi];
+        if (o.id === skipReqId) continue;
+        if (['PENDING', 'APPROVED'].indexOf(String(o.status || '')) < 0) continue;   // ไม่อนุมัติ/ยกเลิก ไม่บล็อก
+        var sp = otSpan({ date: String(o.ot_date || '').slice(0, 10),
+                          start: String(o.start_time || '').slice(0, 5),
+                          end: String(o.end_time || '').slice(0, 5),
+                          nextDay: !!o.spans_next_day });
+        if (sp && spans[i].s < sp.e && sp.s < spans[i].e) {
+          errs[i] = 'ช่วงเวลารายการนี้ซ้อนกับคำขอ ' + (o.request_no || o.id) + ' ของคุณที่ยังมีผลอยู่';
+          break;
+        }
       }
     }
     return errs;
@@ -277,67 +285,56 @@
 
       submitting = true;
       btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…';
-      setTimeout(function () {
-        try {
-          if (db.ots.some(function (x) { return x.clientKey === submitKey; })) { closeModal(); return; }
-          var d = {}; new FormData(document.getElementById('ot-f')).forEach(function (v, k) { d[k] = v; });
-          // ทุกรายการงานใช้วันที่/เวลาชุดเดียวกันของคำขอ
-          // ชั่วโมงถูกหารเฉลี่ยต่อรายการ เพื่อให้ผลรวมทุกที่ (เงินเดือน / REPORT ALL / รายงาน OT)
-          // เท่ากับช่วงเวลาจริงพอดี ไม่ถูกนับซ้ำตามจำนวน JOB
-          var per = Math.round((total / jobs.length) * 100) / 100;
-          var jobRows = jobs.map(function (j, i) {
-            return {
-              no: i + 1, job: j.job.trim(), detail: j.detail.trim(), jobType: j.jobType,
-              date: h.date, start: h.start, end: h.end,
-              nextDay: !!h.nextDay, endDate: otJobEndDate(h),
-              // รายการสุดท้ายรับเศษที่เหลือ ผลรวมจึงตรงกับ total เป๊ะ
-              hours: i === jobs.length - 1
-                ? Math.round((total - per * (jobs.length - 1)) * 100) / 100 : per,
-              files: j.files
-            };
-          });
-          var o = {
-            id: uid('OT'), empId: e.id, clientKey: submitKey,
-            empCodeSnap: e.code, deptSnap: dept(e.deptId), positionSnap: e.position || '',
-            date: h.date, start: h.start, end: h.end, hours: total,
-            spansNextDay: !!h.nextDay,
-            reason: String(d.note || '').trim(),
-            note: String(d.note || '').trim(),
-            jobs: jobRows,
-            status: 'PENDING', createdAt: submittedAt,
-            timeline: [{ at: submittedAt, by: e.firstName + ' ' + e.lastName, action: 'ส่งคำขอ', note: '' }]
-          };
-          db.ots.push(o);
-          notifyApprovers('คำขอ OT ใหม่', e.firstName + ' ขอ OT ' + jobRows.length + ' รายการ รวม ' + total + ' ชม.', '#/approvals');
-          audit('OT_REQ', 'ส่งคำขอ OT ' + o.id + ' (' + jobRows.length + ' รายการงาน · ' + total + ' ชม.)');
-          saveDB();
-          if (!saveDbGuard()) {
-            db.ots = db.ots.filter(function (x) { return x.id !== o.id; });
-            submitting = false; btn.disabled = false; btn.innerHTML = 'ส่งคำขอ';
-            err.textContent = 'บันทึกคำขอไม่สำเร็จ: พื้นที่จัดเก็บในเบราว์เซอร์เต็ม';
-            return;
-          }
-          jobRows.forEach(function (j) {
-            (j.files || []).forEach(function (f) {
-              if (!f.path) return;
-              sbRpc('njhr_ot_attach_add', {
-                p_token: sbToken(), p_ot_id: o.id, p_job_no: j.no, p_job_code: j.job,
-                p_file_name: f.name, p_file_path: f.path, p_file_url: f.url,
-                p_file_size: f.size, p_content_type: f.type || null
-              }).then(function () { f.registered = true; saveDB(); }).catch(function () { });
+
+      /* ---------- ส่งคำขอไปที่ Supabase เท่านั้น: njhr_ot_submit ----------
+         RPC ทำครบในตัวแล้ว: insert ot_requests + njhr_ot_jobs · ตรวจช่วงเวลาทับ ·
+         หารชั่วโมงลงแต่ละรายการงาน · เขียน Audit · แจ้งเตือนผู้อนุมัติ
+         จึงไม่ push ลง db.ots · ไม่ saveDB() · ไม่เรียก notifyApprovers()/audit() ซ้ำ
+
+         p_jobs ใช้ชื่อคีย์ตาม Signature จริงของ RPC: job_code · detail · job_type · note
+         ไฟล์แนบยังลงทะเบียนด้วย njhr_ot_attach_add ตัวเดิม โดยใช้ id จริงจากฐานข้อมูล */
+      var d = {}; new FormData(document.getElementById('ot-f')).forEach(function (v, k) { d[k] = v; });
+      var jobsPayload = jobs.map(function (j) {
+        return { job_code: j.job.trim(), detail: j.detail.trim(), job_type: j.jobType, note: '' };
+      });
+
+      sbRpc('njhr_ot_submit', {
+        p_token: sbToken(),
+        p_date: h.date,
+        p_start: h.start,
+        p_end: h.end,
+        p_next_day: !!h.nextDay,
+        p_jobs: jobsPayload,
+        p_reason: String(d.note || '').trim() || null
+      }).then(function (res) {
+        var otId = res && res.id;
+        if (!otId) throw new Error('เซิร์ฟเวอร์ไม่ได้คืนเลขคำขอ');
+        var hrs = (res && res.ot_hours != null) ? res.ot_hours : total;
+        /* ลงทะเบียนไฟล์แนบกับคำขอจริงในฐานข้อมูล (job_no เรียงตามลำดับที่ส่งไป) */
+        jobs.forEach(function (j, i) {
+          (j.files || []).forEach(function (f) {
+            if (!f.path) return;
+            sbRpc('njhr_ot_attach_add', {
+              p_token: sbToken(), p_ot_id: otId, p_job_no: i + 1, p_job_code: j.job.trim(),
+              p_file_name: f.name, p_file_path: f.path, p_file_url: f.url,
+              p_file_size: f.size, p_content_type: f.type || null
+            })['catch'](function (er) {
+              console.error('[OT] njhr_ot_attach_add ล้มเหลว:', er);
             });
           });
-          var noEl = document.getElementById('otf-no');
-          if (noEl) { noEl.textContent = o.id; noEl.classList.remove('muted'); }
-          closeModal();
-          toast('ส่งคำขอ OT แล้ว เลขที่ ' + o.id + ' · ' + jobRows.length + ' รายการ รวม ' + total + ' ชม.');
-          viewOT(listEl);
-        } catch (ex) {
-          submitting = false;
-          btn.disabled = false; btn.innerHTML = 'ส่งคำขอ';
-          err.textContent = 'บันทึกไม่สำเร็จ: ' + ((ex && ex.message) || ex);
-        }
-      }, 0);
+        });
+        var noEl = document.getElementById('otf-no');
+        if (noEl) { noEl.textContent = otId; noEl.classList.remove('muted'); }
+        closeModal();
+        toast('ส่งคำขอ OT แล้ว · ' + jobsPayload.length + ' รายการ รวม ' + hrs + ' ชม.');
+        refreshOtPending();              // ยื่นคำขอใหม่ → นับ Badge ใหม่
+        viewOT(listEl);
+      })['catch'](function (ex) {
+        submitting = false;
+        btn.disabled = false; btn.innerHTML = 'ส่งคำขอ';
+        console.error('[OT] njhr_ot_submit ล้มเหลว:', ex);
+        err.textContent = (ex && ex.message) || 'ส่งคำขอไม่สำเร็จ';
+      });
     };
   }
 

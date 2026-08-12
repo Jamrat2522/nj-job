@@ -67,6 +67,7 @@
         }).then(function (r) {
           closeModal();
           toast('ส่งคำขอลงชื่อย้อนหลังแล้ว รอการอนุมัติตามผัง', 'success');
+          refreshFixPending();           // ยื่นคำขอใหม่ → นับ Badge ใหม่
           render();
         });
       })['catch'](function (e) {

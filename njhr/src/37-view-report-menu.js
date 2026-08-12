@@ -65,8 +65,8 @@
   /* ---------- แถวสำหรับตารางและ Excel (ชุดเดียวกัน ลำดับคอลัมน์เดียวกัน) ---------- */
   function rptmLeaveCells(r, i) {
     var lt = lvType(r.leave_type);
-    var d1 = fmtDate(r.start_date);
-    var d2 = (r.end_date && r.end_date !== r.start_date) ? ' – ' + fmtDate(r.end_date) : '';
+    var d1 = fmtDateDMY(r.start_date);
+    var d2 = (r.end_date && r.end_date !== r.start_date) ? ' – ' + fmtDateDMY(r.end_date) : '';
     var mode = String(r.mode_txt || '');
     if (String(r.leave_unit || '') === 'hour') {
       mode += ' ' + rptmHM(r.start_time) + '–' + rptmHM(r.end_time);
@@ -88,7 +88,7 @@
       String(i + 1),
       String(r.request_no || '—'),
       r.is_holiday ? 'OT วันหยุด' : 'OT ปกติ',
-      fmtDate(r.ot_date),
+      fmtDateDMY(r.ot_date),
       rptmHM(r.start_time) + ' – ' + rptmHM(r.end_time) + (r.spans_next_day ? ' (+1 วัน)' : ''),
       String(rptmNum(r.ot_hours)),
       rptmFullName(r),
@@ -210,8 +210,8 @@
     var all = s.rows;
     if (sum) {
       sum.innerHTML = cfg.dateNote + ': <b>' +
-        esc(s.from ? rptDateBE(s.from) : 'ไม่จำกัด') + ' – ' +
-        esc(s.to ? rptDateBE(s.to) : 'ไม่จำกัด') + '</b>' +
+        esc(s.from ? fmtDateDMY(s.from) : 'ไม่จำกัด') + ' – ' +
+        esc(s.to ? fmtDateDMY(s.to) : 'ไม่จำกัด') + '</b>' +
         ' · แผนก: <b>' + esc(s.dept || 'ทุกแผนก') + '</b>' +
         ' · พนักงาน: <b>' + esc(s.q || 'ทุกคน') + '</b>' +
         ' · จำนวนรายการ: <b>' + all.length + ' รายการ</b>';
@@ -269,8 +269,8 @@
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังสร้างไฟล์…';
 
     var rows = s.rows.map(function (r, i) { return cfg.cells(r, i); });
-    var period = (s.from ? rptDateBE(s.from).replace(/\//g, '-') : 'ทั้งหมด') +
-      '_ถึง_' + (s.to ? rptDateBE(s.to).replace(/\//g, '-') : 'ทั้งหมด');
+    var period = (s.from ? fmtDateDMY(s.from).replace(/\//g, '-') : 'ทั้งหมด') +
+      '_ถึง_' + (s.to ? fmtDateDMY(s.to).replace(/\//g, '-') : 'ทั้งหมด');
     var fname = rptSafeName(cfg.sheet) + '_' + rptSafeName(s.dept || 'ทุกแผนก') + '_' +
       rptSafeName(s.q || 'ทุกคน') + '_' + period + '.xlsx';
 

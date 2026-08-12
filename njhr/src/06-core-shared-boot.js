@@ -367,7 +367,9 @@
 
   /* มี token และผ่านทั้ง healthcheck + session_check แล้ว */
   function njhrStartAfterSession() {
-    render(); refreshLeavePending(); refreshNotifyBadge(); refreshDocPending();
+    /* เปิดแอปด้วย session เดิม = ถือเป็นการเข้าใช้งานครั้งใหม่ของเครื่องนี้
+       จึงนับรออนุมัติครบสามประเภทจาก Supabase และ Hydrate ตั้งค่าลง db.settings หนึ่งครั้ง */
+    render(); refreshPendingAll(); refreshNotifyBadge(); refreshDocPending(); hydrateSettings();
     ntStartPoll(); ntUnlockAudio();   // เริ่มตรวจแจ้งเตือน + ปลดล็อกเสียงหลัง Login
     if (!location.hash) location.hash = session ? '#/dashboard' : '#/login';
   }

@@ -4,6 +4,167 @@
      เห็นเฉพาะรายการที่ผังการอนุมัติส่งมาถึงตนเองจริง — ไม่อ่าน db.corrections */
   var _fxQueue = [], _fxLoading = false, _fxSeq = 0;
 
+  /* ---------- คิว "คำขอ OT" — ข้อมูลจริงจาก Supabase ----------
+     เดิมอ่าน db.ots ใน localStorage ทำให้คำขอที่ยื่นเข้าฐานข้อมูลจริงไม่ปรากฏในคิว
+       รายการ      njhr_ot_list      (p_status='PENDING' · ผู้อนุมัติเห็นของทุกคน)
+       รายการงาน   njhr_ot_get       (njhr_ot_list ไม่คืน njhr_ot_jobs)
+       ไฟล์แนบ     njhr_ot_attach_list
+     แล้วประกอบเป็นโครงเดียวกับที่การ์ดเดิมใช้ (it.jobs[].files[]) เพื่อให้ UI เหมือนเดิมทุกบรรทัด
+
+     ⚠ ต้นทุน: 2N+1 คำขอ (N = จำนวนคำขอที่รออนุมัติ ซึ่งมีเพดาน p_limit = 200)
+        njhr_ot_list ไม่คืนรายการงานและไฟล์แนบ จึงไม่มีทางได้ข้อมูลนี้ใน Query เดียว
+        โดยไม่แก้ Return Signature ของ RPC ซึ่งรอบนี้สั่งห้าม */
+  var _otQueue = [], _otLoading = false, _otSeq = 0, _otDecideBusy = false;
+
+  function apOtHM(v) { return String(v == null ? '' : v).slice(0, 5); }
+
+  /* แปลงแถวจาก RPC เป็นโครงที่การ์ดเดิมอ่าน — ไม่แตะ db.ots */
+  function apOtShape(row, detail, files) {
+    var jobs = ((detail && detail.jobs) || []).map(function (j) {
+      var mine = (files || []).filter(function (f) { return Number(f.job_no) === Number(j.no); });
+      return {
+        no: Number(j.no) || 0, job: j.job_code || '', detail: j.detail || '', jobType: j.job_type || '',
+        date: String(j.job_date || row.ot_date || '').slice(0, 10),
+        start: apOtHM(j.start_time), end: apOtHM(j.end_time),
+        nextDay: !!j.spans_next_day, endDate: String(j.end_date || '').slice(0, 10),
+        hours: Number(j.ot_hours) || 0,
+        files: mine.map(function (f) { return { name: f.file_name, url: f.file_url, data: f.file_url }; })
+      };
+    });
+    return {
+      id: row.id, otNo: row.request_no || row.id, empId: row.employee_id,
+      empCode: row.emp_code || '', empFullName: String((row.prefix || '') + (row.emp_name || '')).trim(),
+      date: String(row.ot_date || '').slice(0, 10),
+      start: apOtHM(row.start_time), end: apOtHM(row.end_time),
+      hours: Number(row.ot_hours) || 0, spansNextDay: !!row.spans_next_day,
+      reason: row.reason || '', note: row.reason || '',
+      deptSnap: row.department || '', positionSnap: row.position_name || '',
+      createdAt: String(row.created_at || '').replace('T', ' ').slice(0, 16),
+      status: row.status, jobs: jobs
+    };
+  }
+
+  function apprLoadOt(el) {
+    var seq = ++_otSeq;
+    _otLoading = true; _otQueue = [];
+    apprRender(el);
+    sbRpcList('njhr_ot_list', {
+      p_token: sbToken(), p_from: null, p_to: null, p_status: 'PENDING',
+      p_dept: null, p_employee: null, p_q: null, p_mine: false, p_limit: 200, p_offset: 0
+    }).then(function (rows) {
+      if (seq !== _otSeq) return;
+      var list = rows || [];
+      NJHR.state.otPending = list.length ? Number(list[0].total_count) : 0;
+      setOtPending(NJHR.state.otPending);
+      if (!list.length) { _otLoading = false; _otQueue = []; apprRender(el); return; }
+      return Promise.all(list.map(function (r) {
+        return Promise.all([
+          sbRpc('njhr_ot_get', { p_token: sbToken(), p_id: r.id })
+            ['catch'](function () { return null; }),
+          sbRpcList('njhr_ot_attach_list', { p_token: sbToken(), p_ot_id: String(r.id) })
+            ['catch'](function () { return []; })
+        ]).then(function (x) {
+          var d = x[0] && x[0].data ? x[0].data : x[0];
+          return apOtShape(r, d, x[1]);
+        });
+      })).then(function (items) {
+        if (seq !== _otSeq) return;
+        _otLoading = false; _otQueue = items;
+        apprRender(el);
+      });
+    })['catch'](function (ex) {
+      if (seq !== _otSeq) return;
+      _otLoading = false; _otQueue = [];
+      console.error('[APPROVALS] njhr_ot_list ล้มเหลว:', ex);
+      apprRender(el);
+      var eb = document.getElementById('appr-err');
+      if (eb) eb.textContent = 'โหลดคำขอ OT จาก Supabase ไม่สำเร็จ: ' + ((ex && ex.message) || ex);
+    });
+  }
+
+  /* การ์ดคำขอ OT — DOM · คลาส · ปุ่ม · ข้อความ เหมือน approvalCard() เดิมทุกบรรทัด
+     ต่างเฉพาะแหล่งชื่อ/รหัส/แผนก/ตำแหน่ง ที่มาจาก RPC แทน db.employees ที่ว่างเปล่า */
+  function otApprovalCard(it) {
+    var body = '<span class="ap-badge ap-badge-ot">คำขอ OT</span>' +
+      '<span class="ap-date">' + fmtDateDMY(it.date) + '</span>' +
+      '<span class="ap-time">' + esc(it.start) + ' – ' + esc(it.end) +
+      (it.spansNextDay ? ' (+1 วัน)' : '') + '</span>' +
+      '<span class="ap-num">' + it.hours + ' ชม.</span>' +
+      '<span class="ap-num">' + (it.jobs || []).length + ' รายการงาน</span>' +
+      '<span class="ap-shift">' + esc(it.deptSnap || '-') + ' · ' + esc(it.positionSnap || '-') + '</span>';
+    return '<div class="card req-card ap-card">' +
+      '<div class="req-top">' + avatarHTML(it.empFullName || '?', 40) +
+      '<div class="grow"><b class="ap-name">' + esc(it.empFullName || '—') + '</b><small>' +
+      esc(it.empCode) + ' · ' + esc(it.deptSnap || '—') + ' · ' + esc(it.otNo) + '</small></div>' +
+      statusBadge(it.status) + '</div>' +
+      '<div class="req-body ap-body">' + body + '</div>' +
+      '<p class="req-reason ap-reason">' + esc(it.reason) + '</p>' +
+      otJobsHTML(it) +
+      '<div class="req-actions ap-actions">' +
+      '<button class="btn btn-primary btn-sm" data-approve="' + esc(it.id) + '">' + icon('check') + ' อนุมัติ</button>' +
+      '<button class="btn btn-danger-ghost btn-sm" data-reject="' + esc(it.id) + '">ไม่อนุมัติ</button>' +
+      '<button class="btn btn-ghost btn-sm" data-moreinfo="' + esc(it.id) + '">ขอข้อมูลเพิ่ม</button>' +
+      '<span class="grow"></span><button class="btn btn-ghost btn-sm" data-detail="' + esc(it.id) + '">Timeline</button></div></div>';
+  }
+
+  /* อนุมัติ / ไม่อนุมัติ คำขอ OT → njhr_ot_decide
+     RPC เขียน Audit + แจ้งเตือนเจ้าของคำขอเองแล้ว จึงไม่เรียก audit()/notify() ซ้ำ
+     และไม่แก้สถานะใน db.ots
+     "ขอข้อมูลเพิ่ม" ยังไม่รองรับฝั่ง SQL (njhr_ot_decide รับเฉพาะ APPROVE/REJECT/CANCEL)
+     จึงคงปุ่มเดิมไว้แล้วแจ้งผู้ใช้ตรง ๆ ไม่ต่อ SQL แบบเดา */
+  function otDecide(id, action, el) {
+    var it = _otQueue.find(function (x) { return String(x.id) === String(id); });
+    if (!it) return;
+    if (action === 'INFO') {
+      toast('คำขอ OT ยังไม่รองรับ "ขอข้อมูลเพิ่ม" — กรุณาเลือกอนุมัติหรือไม่อนุมัติ', 'info');
+      return;
+    }
+    var act = action === 'APPROVE' ? 'APPROVE' : 'REJECT';
+    var txt = act === 'APPROVE' ? 'อนุมัติ' : 'ไม่อนุมัติ';
+
+    function send(note, btn) {
+      if (_otDecideBusy) return;
+      _otDecideBusy = true;
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…'; }
+      return sbRpc('njhr_ot_decide', { p_token: sbToken(), p_id: id, p_action: act, p_note: note || null })
+        .then(function () {
+          _otDecideBusy = false; closeModal();
+          toast(txt + 'เรียบร้อย · แจ้งพนักงานแล้ว', act === 'REJECT' ? 'info' : 'success');
+          _otQueue = _otQueue.filter(function (x) { return String(x.id) !== String(id); });
+          var card = el.querySelector('[data-approve="' + id + '"]');
+          card = card ? card.closest('.req-card') : null;
+          if (card && _otQueue.length) {
+            card.remove();
+            var tabBtn = el.querySelectorAll('.tab')[1];
+            var badge = tabBtn ? tabBtn.querySelector('.tab-badge') : null;
+            if (badge) { if (_otQueue.length) badge.textContent = _otQueue.length; else badge.remove(); }
+          } else apprRender(el);
+          refreshOtPending();
+          refreshMenuBadge();
+        })['catch'](function (er) {
+          _otDecideBusy = false; closeModal();
+          console.error('[APPROVALS] njhr_ot_decide ล้มเหลว:', er);
+          toast((er && er.message) || (txt + 'ไม่สำเร็จ'), 'error');
+          viewApprovals(el);
+        });
+    }
+
+    if (act === 'APPROVE') {
+      confirmDialog('อนุมัติรายการ', 'อนุมัติคำขอ <b>' + esc(it.otNo) + '</b> ของ <b>' +
+        esc(it.empFullName || '') + '</b> ใช่หรือไม่', 'อนุมัติ', function () { return send(''); });
+    } else {
+      openModal('ไม่อนุมัติ · ' + esc(it.otNo),
+        '<label class="field"><span>เหตุผลที่ไม่อนุมัติ <i class="req">*</i></span><textarea id="rj-reason" rows="3" placeholder="จำเป็นต้องระบุเหตุผล"></textarea></label><div class="form-error" id="rj-err" role="alert"></div>',
+        '<button class="btn btn-ghost" id="rj-cancel">ยกเลิก</button><button class="btn btn-danger" id="rj-ok">ยืนยันไม่อนุมัติ</button>');
+      document.getElementById('rj-cancel').onclick = closeModal;
+      document.getElementById('rj-ok').onclick = function () {
+        var r = document.getElementById('rj-reason').value.trim();
+        if (!r) { document.getElementById('rj-err').textContent = 'กรุณาระบุเหตุผล'; return; }
+        send(r, this);
+      };
+    }
+  }
+
   function apprLoadFix(el) {
     var seq = ++_fxSeq;
     _fxLoading = true; _fxQueue = [];
@@ -14,6 +175,7 @@
     }).then(function (rows) {
       if (seq !== _fxSeq) return;
       _fxLoading = false; _fxQueue = rows || [];
+      setFxPending(_fxQueue.length ? Number(_fxQueue[0].total_count) || _fxQueue.length : 0);
       apprRender(el);
     })['catch'](function (ex) {
       if (seq !== _fxSeq) return;
@@ -26,6 +188,7 @@
 
   function viewApprovals(el) {
     if (apprTab === 'fix') { apprLoadFix(el); return; }
+    if (apprTab === 'ot') { apprLoadOt(el); return; }
     if (apprTab !== 'leave') { apprRender(el); return; }
     var seq = ++_lvQSeq;
     _lvQLoading = true; _lvQueue = [];
@@ -46,23 +209,22 @@
   }
 
   function apprRender(el) {
-    var tabs = [['leave', 'คำขอลา', _lvQueue], ['ot', 'คำขอ OT', db.ots], ['fix', 'ลงชื่อย้อนหลัง', _fxQueue]];
-    var cur = tabs.find(function (t) { return t[0] === apprTab; });
+    /* คิวทั้งสามแท็บมาจาก Supabase แล้ว — ไม่อ่าน db.* อีก */
+    var tabs = [['leave', 'คำขอลา', _lvQueue], ['ot', 'คำขอ OT', _otQueue], ['fix', 'ลงชื่อย้อนหลัง', _fxQueue]];
     var items = apprTab === 'leave' ? _lvQueue.slice()
       : apprTab === 'fix' ? _fxQueue.slice()
-      : cur[2].filter(function (x) { return x.status === 'PENDING' || x.status === 'NEED_MORE_INFO'; })
-          .sort(function (a, b) { return a.createdAt.localeCompare(b.createdAt); });
+      : _otQueue.slice().sort(function (a, b) { return String(a.createdAt).localeCompare(String(b.createdAt)); });
 
     var FIRST = 40; // PERF: วาดชุดแรกให้เห็นทันที ที่เหลือต่อท้ายเป็นช่วง (รายการครบเท่าเดิมทุกใบ)
     el.innerHTML =
       '<div class="tabs">' + tabs.map(function (t) {
         var n = t[0] === 'leave' ? NJHR.state.lvPending
               : t[0] === 'fix' ? _fxQueue.length
-              : t[2].filter(function (x) { return x.status === 'PENDING'; }).length;
+              : _otQueue.length;
         return '<button class="tab' + (t[0] === apprTab ? ' active' : '') + '" data-tab="' + t[0] + '">' + t[1] + (n ? ' <span class="tab-badge">' + n + '</span>' : '') + '</button>';
       }).join('') + '</div>' +
       '<div class="req-list" id="appr-list">' + (
-        (apprTab === 'leave' && _lvQLoading) || (apprTab === 'fix' && _fxLoading)
+        (apprTab === 'leave' && _lvQLoading) || (apprTab === 'fix' && _fxLoading) || (apprTab === 'ot' && _otLoading)
           ? '<div class="card"><small class="muted">กำลังโหลดข้อมูลจาก Supabase…</small></div>'
         : items.length ? items.slice(0, FIRST).map(function (it) { return approvalCard(it); }).join('')
         : '<div class="card">' + emptyState('ไม่มีรายการรออนุมัติ') + '</div>') + '</div>' +
@@ -89,7 +251,7 @@
       if (d.jview || d.jdl) {
         var cardEl = t.closest('.ap-card');
         var apBtn = cardEl && cardEl.querySelector('[data-approve]');
-        var itOt = apBtn && db.ots.find(function (x) { return x.id === apBtn.dataset.approve; });
+        var itOt = apBtn && _otQueue.find(function (x) { return String(x.id) === String(apBtn.dataset.approve); });
         if (!itOt) return;
         var key = String(d.jview || d.jdl).split('-');
         var jb = (itOt.jobs || []).find(function (x) { return x.no === parseInt(key[0], 10); });
@@ -114,6 +276,18 @@
         }
         if (itm && itm.id) apMobileDetail(itm, el, apprTab);
         else if (apprTab === 'leave') lvShowTimeline(d.detail);
+        else if (apprTab === 'ot') {
+          /* รายละเอียด/Timeline ของ OT อ่านจาก njhr_ot_get ผ่าน Module เดิม
+             Module อยู่คนละ chunk จึงต้องโหลดก่อนเรียกใช้ */
+          var otId = d.detail;
+          if (NJHR.modules.isLoaded('request-detail')) NJHR.features.requestDetail.open('OT', otId, el);
+          else NJHR.modules.load('request-detail').then(function () {
+            NJHR.features.requestDetail.open('OT', otId, el);
+          })['catch'](function (ex) {
+            console.error('[APPROVALS] โหลด Module request-detail ไม่สำเร็จ:', ex);
+            toast('ไม่สามารถเปิดรายละเอียดได้ กรุณาลองใหม่', 'error');
+          });
+        }
         else showTimeline(apprTab === 'fix' ? 'fix' : apprTab, d.detail);
       }
       else if (d.approve) doApprove(d.approve, 'APPROVE', el);
@@ -376,6 +550,7 @@
   function approvalCard(it) {
     if (apprTab === 'leave') return leaveApprovalCard(it);
     if (apprTab === 'fix') return fixApprovalCard(it);
+    if (apprTab === 'ot') return otApprovalCard(it);
     var e = emp(it.empId);
     var sh = e ? shOf(e) : null;
     var body = '';
@@ -483,6 +658,7 @@
 
   function doApprove(id, action, el) {
     if (apprTab === 'leave') { lvDecide(id, action, el); return; }
+    if (apprTab === 'ot') { otDecide(id, action, el); return; }
     var it = findApprovalItem(id);
     if (!it) return;
     var u = currentUser(), approver = currentEmp();
@@ -565,6 +741,53 @@
   function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
   // คืน Promise ของ map: employee_id -> { earning, deduction, items[] }
+  /* ---------- ชั่วโมง OT ที่อนุมัติแล้วของงวดนั้น — จาก Supabase เท่านั้น ----------
+     RPC: njhr_ot_report (มีอยู่แล้วบน Production · ไม่สร้างใหม่)
+       คืนข้อมูล "รายรายการงาน" (1 แถว = 1 JOB) พร้อม job_date · job_hours · employee_id
+       จึงตรงกับสูตรเดิมของ Payroll ที่นับจากรายการงาน ไม่ใช่ชั่วโมงรวมระดับคำขอ
+
+     ⚠ ป้องกันการบวกซ้ำ: รวมด้วย job_hours เท่านั้น ห้ามใช้ request_hours
+        OT 18:00–21:00 = 3 ชม. แยกเป็น JOB A 1.5 + JOB B 1.5 → รวมได้ 3 ไม่ใช่ 6
+     ⚠ ห้าม fallback ไป db.ots — RPC ล้มเหลว = โยน error ให้ผู้เรียกแสดงและไม่คำนวณ
+
+     ช่วงวันที่ = วันแรกถึงวันสุดท้ายของงวด (เดือน/ปีเดิมของ Payroll ไม่เปลี่ยน Business Logic)
+     p_status = 'APPROVED' ให้เซิร์ฟเวอร์กรอง — Pending/Rejected/Cancelled ไม่ถูกส่งมา
+     ดึงเป็นช่วง ๆ ตาม total_count เพราะ RPC มีเพดาน p_limit สูงสุด 5000 แถว */
+  var PR_OT_PAGE = 2000;
+
+  function prMonthRange(year, month) {
+    var last = new Date(year, month, 0).getDate();
+    return { from: year + '-' + pad(month) + '-01', to: year + '-' + pad(month) + '-' + pad(last) };
+  }
+
+  function prFetchOtHours(year, month) {
+    if (!sbReady() || !sbToken()) {
+      return Promise.reject(new Error('ยังไม่ได้เชื่อมต่อ Supabase'));
+    }
+    var r = prMonthRange(year, month);
+    var map = {}, seen = 0;
+
+    function page(offset) {
+      return sbRpcList('njhr_ot_report', {
+        p_token: sbToken(), p_from: r.from, p_to: r.to, p_status: 'APPROVED',
+        p_dept: null, p_employee: null, p_q: null,
+        p_limit: PR_OT_PAGE, p_offset: offset
+      }).then(function (rows) {
+        rows = rows || [];
+        var total = rows.length ? Number(rows[0].total_count) || 0 : 0;
+        rows.forEach(function (j) {
+          var id = j.employee_id;
+          if (!id) return;
+          map[id] = round2((map[id] || 0) + (Number(j.job_hours) || 0));
+        });
+        seen += rows.length;
+        if (rows.length === PR_OT_PAGE && seen < total) return page(offset + PR_OT_PAGE);
+        return map;
+      });
+    }
+    return page(0);
+  }
+
   function prFetchPayItems(year, month) {
     if (!sbReady() || !sbToken()) return Promise.resolve({});
     return sbRpcList('njhr_pay_entry_totals', {
@@ -648,28 +871,24 @@
     var calcBtn = document.getElementById('pr-calc');
     if (calcBtn) calcBtn.onclick = function () {
       confirmDialog('คำนวณเงินเดือน', 'คำนวณเงินเดือนงวด <b>' + fmtMonthYear(pr.month, pr.year) + '</b> จากฐานเงินเดือน + OT ที่อนุมัติแล้ว + รายการเงินเดือนที่กำหนดไว้ ใช่หรือไม่', 'คำนวณ', function () {
-        // สูตรเดิมทุกบรรทัด (base + allowance + OT · ปกส. 5% เพดาน 750 · ภาษี) — ไม่แก้
-        var baseEntries = db.employees.filter(function (x) { return x.status === 'ACTIVE'; }).map(function (x) {
-          // รวมชั่วโมงจาก "รายการงาน OT" ที่อนุมัติแล้วและวันที่ของรายการอยู่ในงวดนี้
-          // (คำขอเดียวอาจมีหลายรายการคนละวัน จึงนับรายการเป็นหลัก ไม่ใช้ชั่วโมงรวมระดับคำขอ)
-          var otHours = db.ots.filter(function (o) {
-            return o.empId === x.id && o.status === 'APPROVED';
-          }).reduce(function (n, o) {
-            return n + otJobsOf(o).reduce(function (m, j) {
-              if (!j.date) return m;
-              var dp = String(j.date).split('-');
-              if (parseInt(dp[1], 10) !== pr.month || parseInt(dp[0], 10) !== pr.year) return m;
-              return m + (isFinite(j.hours) ? Number(j.hours) : otJobHours(j));
-            }, 0);
-          }, 0);
-          var otAmt = Math.round(x.baseSalary / 30 / 8 * 1.5 * otHours);
-          var gross = x.baseSalary + x.allowance + otAmt;
-          var sso = Math.min(Math.round(x.baseSalary * 0.05), 750);
-          var tax = x.baseSalary > 50000 ? Math.round(x.baseSalary * 0.03) : 0;
-          return { empId: x.id, base: x.baseSalary, allowance: x.allowance, ot: otAmt, earnings: gross, sso: sso, tax: tax, otherDeduct: 0, deductions: sso + tax, net: gross - sso - tax };
-        });
-        // แล้วค่อยบวก-หักรายการเงินเดือนของงวดนั้นทับลงไป (ชุดข้อมูลเดียวกับหน้ารายการเงินเดือน)
-        prFetchPayItems(pr.year, pr.month).then(function (map) {
+        /* ชั่วโมง OT มาจาก Supabase (njhr_ot_report) ไม่ใช่ db.ots อีกต่อไป
+           โหลดพร้อมรายการเงินเดือน — ตัวใดตัวหนึ่งล้ม = ไม่คำนวณทั้งงวด ไม่ fallback ไป Local */
+        Promise.all([
+          prFetchOtHours(pr.year, pr.month),
+          prFetchPayItems(pr.year, pr.month)
+        ]).then(function (res) {
+          var otMap = res[0], map = res[1];
+          // สูตรเดิมทุกบรรทัด (base + allowance + OT · ปกส. 5% เพดาน 750 · ภาษี) — ไม่แก้
+          var baseEntries = db.employees.filter(function (x) { return x.status === 'ACTIVE'; }).map(function (x) {
+            // ชั่วโมงรวมรายพนักงานของงวดนี้ — รวมจาก job_hours ระดับรายการงานแล้วฝั่งผู้โหลด
+            var otHours = Number(otMap[x.id]) || 0;
+            var otAmt = Math.round(x.baseSalary / 30 / 8 * 1.5 * otHours);
+            var gross = x.baseSalary + x.allowance + otAmt;
+            var sso = Math.min(Math.round(x.baseSalary * 0.05), 750);
+            var tax = x.baseSalary > 50000 ? Math.round(x.baseSalary * 0.03) : 0;
+            return { empId: x.id, base: x.baseSalary, allowance: x.allowance, ot: otAmt, earnings: gross, sso: sso, tax: tax, otherDeduct: 0, deductions: sso + tax, net: gross - sso - tax };
+          });
+          // แล้วค่อยบวก-หักรายการเงินเดือนของงวดนั้นทับลงไป (ชุดข้อมูลเดียวกับหน้ารายการเงินเดือน)
           pr.entries = baseEntries.map(function (en) { return prApplyPayItems(en, map[en.empId]); });
           pr.status = 'CALCULATED';
           audit('PAYROLL_CALC', 'คำนวณเงินเดือน ' + fmtMonthYear(pr.month, pr.year));
@@ -677,8 +896,9 @@
           toast('คำนวณเงินเดือนแล้ว ' + pr.entries.length + ' คน');
           viewPayroll(el);
         }).catch(function (er) {
-          // โหลดรายการเงินเดือนไม่ได้ = ไม่คำนวณ (กันยอดผิดโดยไม่รู้ตัว) และไม่ fallback
-          toast('โหลดรายการเงินเดือนจาก Supabase ไม่สำเร็จ: ' + (er.message || er) + ' — ยังไม่คำนวณ', 'error');
+          // โหลด OT หรือรายการเงินเดือนไม่ได้ = ไม่คำนวณ (กันยอดผิดโดยไม่รู้ตัว) และไม่ fallback ไป db.ots
+          console.error('[PAYROLL] โหลดข้อมูลคำนวณจาก Supabase ล้มเหลว:', er);
+          toast('โหลดข้อมูลคำนวณจาก Supabase ไม่สำเร็จ: ' + ((er && er.message) || er) + ' — ยังไม่คำนวณ', 'error');
         });
       });
     };

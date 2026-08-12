@@ -152,10 +152,8 @@
     return { s: s0, e: e0 };
   }
 
-  function otDMY(iso) { // แสดงวันที่รูปแบบ DD/MM/YYYY
-    var p = String(iso || '').split('-');
-    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '';
-  }
+  // แสดงวันที่รูปแบบ DD/MM/YYYY — ใช้ตัวแปลงกลาง fmtDateDMY() ตัวเดียวของระบบ
+  function otDMY(iso) { return fmtDateDMY(iso); }
 
   function bindReqCardActions(el, kind) {
     el.querySelectorAll('[data-detail]').forEach(function (b) {

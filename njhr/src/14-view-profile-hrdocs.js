@@ -91,11 +91,60 @@
     };
 
     var saveBtn = document.getElementById('pf-save');
-    if (saveBtn) saveBtn.onclick = function () {
-      var fm = document.getElementById('pf-f');
-      e.phone = fm.phone.value.trim(); e.email = fm.email.value.trim();
-      audit('PROFILE_EDIT', 'แก้ไขข้อมูลติดต่อ'); saveDB(); toast('บันทึกข้อมูลติดต่อแล้ว');
-    };
+    if (saveBtn) {
+      /* ---------- ข้อมูลติดต่อ: แหล่งจริงคือ employees ผ่าน njhr_me_get / njhr_me_save ----------
+         เดิมแก้ e.phone / e.email ใน db.employees แล้ว saveDB() ลง localStorage
+         ซึ่งเครื่องอื่นมองไม่เห็นและไม่เคยถึงฐานข้อมูลเลย
+
+         ⚠ njhr_me_save เขียนทับครบทั้ง 7 คอลัมน์ของ allowlist ทุกครั้ง
+            (nickname · birth_date · national_id · phone · email · address · emergency_phone)
+            คีย์ที่ไม่ส่งไปจะกลายเป็น null → ต้องโหลดค่าปัจจุบันจาก njhr_me_get มาก่อน
+            แล้วส่งกลับครบทั้ง 7 ค่าโดยแทนที่เฉพาะ phone/email ที่หน้านี้แก้ได้
+         Audit ถูกเขียนโดย njhr_me_save แล้ว จึงไม่เรียก audit() ซ้ำ
+         ช่องกรอกและหน้าตาเดิมทุกบรรทัด ไม่เพิ่ม/ลดช่องใด */
+      var pfMe = null;
+      if (sbReady() && sbToken()) {
+        sbRpc('njhr_me_get', { p_token: sbToken() }).then(function (r) {
+          var d = (r && r.data) ? r.data : r;
+          if (!d || !d.employee) return;
+          pfMe = d.employee;
+          var fm0 = document.getElementById('pf-f');
+          if (!fm0) return;
+          fm0.elements.phone.value = pfMe.phone || '';
+          fm0.elements.email.value = pfMe.email || '';
+        }).catch(function (er) {
+          console.error('[PROFILE] njhr_me_get ล้มเหลว:', er);
+        });
+      }
+      saveBtn.onclick = function () {
+        var fm = document.getElementById('pf-f'), btn = this;
+        if (!sbReady() || !sbToken()) { toast('ยังไม่ได้เชื่อมต่อ Supabase — บันทึกไม่ได้', 'error'); return; }
+        if (!pfMe) { toast('กำลังโหลดข้อมูลเดิม กรุณารอสักครู่แล้วกดใหม่', 'info'); return; }
+        if (btn.disabled) return;
+        var label = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…';
+        sbRpc('njhr_me_save', {
+          p_token: sbToken(),
+          p_data: {
+            nickname: pfMe.nickname || '',
+            birth_date: pfMe.birth_date || '',
+            national_id: pfMe.national_id || '',
+            phone: fm.elements.phone.value.trim(),
+            email: fm.elements.email.value.trim(),
+            address: pfMe.address || '',
+            emergency_phone: pfMe.emergency_phone || ''
+          }
+        }).then(function (r) {
+          var d = (r && r.data) ? r.data : r;
+          if (d && d.employee) pfMe = d.employee;
+          if (e) { e.phone = fm.elements.phone.value.trim(); e.email = fm.elements.email.value.trim(); }
+          toast('บันทึกข้อมูลติดต่อแล้ว');
+        }).catch(function (er) {
+          console.error('[PROFILE] njhr_me_save ล้มเหลว:', er);
+          toast((er && er.message) || 'บันทึกข้อมูลติดต่อไม่สำเร็จ', 'error');
+        }).then(function () { btn.disabled = false; btn.innerHTML = label; });
+      };
+    }
     document.getElementById('pf-logout').onclick = function () {
       confirmDialog('ออกจากระบบ', 'ต้องการออกจากระบบใช่หรือไม่', 'ออกจากระบบ', function () { doLogout(false); }, true);
     };

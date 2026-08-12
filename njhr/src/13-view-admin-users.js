@@ -1,64 +1,141 @@
+  /* ================= VIEW: ANNOUNCEMENTS =================
+     ข้อมูลจริงจากตาราง company_announcements ผ่าน RPC เดิม (77_announcements.sql)
+       list        njhr_announcement_list
+       detail      njhr_announcement_get
+       create/edit njhr_announcement_save   (มี Audit + Notification เมื่อ p_notify=true)
+       ปิดใช้งาน   njhr_announcement_set_active (มี Audit)
+     ไม่อ่านและไม่เขียน db.announcements อีกต่อไป · ไม่สร้าง audit()/notify() ซ้ำที่ Frontend
+     โครง DOM · คลาส · ปุ่ม · ข้อความ เหมือนเดิมทุกบรรทัด
+
+     "ปักหมุด" ของหน้าจอผูกกับคอลัมน์ priority ของฐานข้อมูล
+       ติ๊กปักหมุด = HIGH · ไม่ติ๊ก = NORMAL · แสดงหมุดเมื่อ priority เป็น HIGH หรือ URGENT
+     (company_announcements ไม่มีคอลัมน์ pinned — priority เป็นฟิลด์เดียวที่ใช้จัดลำดับ
+      และ njhr_announcement_list เรียง URGENT/HIGH ขึ้นก่อนอยู่แล้ว ตรงกับพฤติกรรมเดิม) ================= */
+  var anRows = [], anSeq = 0;
+
+  function anPinned(a) { return ['HIGH', 'URGENT'].indexOf(String(a.priority || '').toUpperCase()) >= 0; }
+  function anDate(a) { return String(a.publish_at || a.created_at || '').slice(0, 10); }
+
   function viewAnnouncements(el) {
     var u = currentUser();
     var canManage = ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) >= 0;
-    var list = db.announcements.filter(function (a) { return a.active || canManage; })
-      .sort(function (a, b) { return (b.pinned - a.pinned) || b.date.localeCompare(a.date); });
+    var seq = ++anSeq;
 
-    el.innerHTML =
-      '<div class="toolbar"><h3>ประกาศบริษัท</h3><span class="grow"></span>' +
-      (canManage ? '<button class="btn btn-primary" id="an-add">' + icon('plus') + ' เพิ่มประกาศ</button>' : '') + '</div>' +
-      '<div class="req-list">' + (list.length ? list.map(function (a) {
-        return '<div class="card req-card' + (!a.active ? ' inactive-card' : '') + '">' +
-          '<div class="req-top"><div class="grow"><b>' + (a.pinned ? icon('pin', 'ic-sm ic-red') + ' ' : '') + esc(a.title) + '</b>' +
-          '<small>' + fmtDate(a.date) + ' · ' + esc(a.by) + (!a.active ? ' · ปิดใช้งานแล้ว' : '') + '</small></div></div>' +
-          '<div class="req-actions"><button class="btn btn-ghost btn-sm" data-an-view="' + a.id + '">อ่านประกาศ</button>' +
-          (canManage ? '<button class="btn btn-ghost btn-sm" data-an-edit="' + a.id + '">แก้ไข</button>' +
-            (a.active ? '<button class="btn btn-ghost btn-sm t-red" data-an-off="' + a.id + '">ปิดใช้งาน</button>' : '') : '') + '</div></div>';
-      }).join('') : '<div class="card">' + emptyState('ยังไม่มีประกาศ') + '</div>') + '</div>';
+    function paint(list, err) {
+      el.innerHTML =
+        '<div class="toolbar"><h3>ประกาศบริษัท</h3><span class="grow"></span>' +
+        (canManage ? '<button class="btn btn-primary" id="an-add">' + icon('plus') + ' เพิ่มประกาศ</button>' : '') + '</div>' +
+        '<div class="req-list">' + (err
+          ? '<div class="card"><div class="form-error" role="alert">' + esc(err) + '</div></div>'
+          : (list === null
+            ? '<div class="card"><small class="muted">กำลังโหลดข้อมูลจาก Supabase…</small></div>'
+            : (list.length ? list.map(function (a) {
+                return '<div class="card req-card' + (!a.is_active ? ' inactive-card' : '') + '">' +
+                  '<div class="req-top"><div class="grow"><b>' + (anPinned(a) ? icon('pin', 'ic-sm ic-red') + ' ' : '') + esc(a.title) + '</b>' +
+                  '<small>' + fmtDate(anDate(a)) + ' · ' + esc(a.created_by) + (!a.is_active ? ' · ปิดใช้งานแล้ว' : '') + '</small></div></div>' +
+                  '<div class="req-actions"><button class="btn btn-ghost btn-sm" data-an-view="' + esc(a.id) + '">อ่านประกาศ</button>' +
+                  (canManage ? '<button class="btn btn-ghost btn-sm" data-an-edit="' + esc(a.id) + '">แก้ไข</button>' +
+                    (a.is_active ? '<button class="btn btn-ghost btn-sm t-red" data-an-off="' + esc(a.id) + '">ปิดใช้งาน</button>' : '') : '') + '</div></div>';
+              }).join('') : '<div class="card">' + emptyState('ยังไม่มีประกาศ') + '</div>'))) + '</div>';
 
-    var addBtn = document.getElementById('an-add');
-    if (addBtn) addBtn.onclick = function () { anForm(null, el); };
-    el.querySelectorAll('[data-an-view]').forEach(function (b) {
-      b.onclick = function () {
-        var a = db.announcements.find(function (x) { return x.id === b.dataset.anView; });
-        openModal(esc(a.title), '<p class="an-body">' + esc(a.body) + '</p><small class="muted">' + fmtDate(a.date) + ' · ' + esc(a.by) + '</small>',
-          '<button class="btn btn-ghost" id="an-close">ปิด</button>');
-        document.getElementById('an-close').onclick = closeModal;
-      };
-    });
-    el.querySelectorAll('[data-an-edit]').forEach(function (b) { b.onclick = function () { anForm(b.dataset.anEdit, el); }; });
-    el.querySelectorAll('[data-an-off]').forEach(function (b) {
-      b.onclick = function () {
-        confirmDialog('ปิดใช้งานประกาศ', 'ปิดประกาศนี้ไม่ให้พนักงานเห็นใช่หรือไม่', 'ปิดใช้งาน', function () {
-          db.announcements.find(function (x) { return x.id === b.dataset.anOff; }).active = false;
-          audit('ANNOUNCE_OFF', 'ปิดประกาศ ' + b.dataset.anOff); saveDB(); toast('ปิดใช้งานประกาศแล้ว', 'info'); viewAnnouncements(el);
-        }, true);
-      };
+      var addBtn = document.getElementById('an-add');
+      if (addBtn) addBtn.onclick = function () { anForm(null, el); };
+      el.querySelectorAll('[data-an-view]').forEach(function (b) {
+        b.onclick = function () { anView(b.dataset.anView); };
+      });
+      el.querySelectorAll('[data-an-edit]').forEach(function (b) { b.onclick = function () { anForm(b.dataset.anEdit, el); }; });
+      el.querySelectorAll('[data-an-off]').forEach(function (b) {
+        b.onclick = function () {
+          confirmDialog('ปิดใช้งานประกาศ', 'ปิดประกาศนี้ไม่ให้พนักงานเห็นใช่หรือไม่', 'ปิดใช้งาน', function () {
+            // njhr_announcement_set_active เขียน Audit เองแล้ว จึงไม่เรียก audit() ซ้ำ
+            return sbRpc('njhr_announcement_set_active', {
+              p_token: sbToken(), p_id: b.dataset.anOff, p_active: false
+            }).then(function () {
+              closeModal(); toast('ปิดใช้งานประกาศแล้ว', 'info'); viewAnnouncements(el);
+            }).catch(function (er) {
+              closeModal();
+              console.error('[ANNOUNCE] njhr_announcement_set_active ล้มเหลว:', er);
+              toast((er && er.message) || 'ปิดใช้งานประกาศไม่สำเร็จ', 'error');
+            });
+          }, true);
+        };
+      });
+    }
+
+    paint(null, '');
+    if (!sbReady() || !sbToken()) { paint([], 'ยังไม่ได้เชื่อมต่อ Supabase — โหลดประกาศไม่ได้'); return; }
+    sbRpcList('njhr_announcement_list', { p_token: sbToken(), p_q: null, p_limit: 100, p_offset: 0 })
+      .then(function (rows) {
+        if (seq !== anSeq) return;
+        anRows = rows || [];
+        paint(anRows, '');
+      }).catch(function (er) {
+        if (seq !== anSeq) return;
+        console.error('[ANNOUNCE] njhr_announcement_list ล้มเหลว:', er);
+        paint([], 'โหลดประกาศจาก Supabase ไม่สำเร็จ: ' + ((er && er.message) || er));
+      });
+  }
+
+  function anView(id) {
+    openModal('ประกาศบริษัท', '<div class="muted"><span class="spinner"></span> กำลังโหลด…</div>',
+      '<button class="btn btn-ghost" id="an-close">ปิด</button>');
+    var cb = document.getElementById('an-close');
+    if (cb) cb.onclick = closeModal;
+    sbRpc('njhr_announcement_get', { p_token: sbToken(), p_id: id }).then(function (r) {
+      var a = (r && r.data) ? r.data : r;
+      var body = document.querySelector('#modal-root .modal-body');
+      if (!body || !a) return;
+      var h = document.querySelector('#modal-root .modal-head h3');
+      if (h) h.textContent = a.title || 'ประกาศบริษัท';
+      body.innerHTML = '<p class="an-body">' + esc(a.content || '') + '</p>' +
+        '<small class="muted">' + fmtDate(anDate(a)) + ' · ' + esc(a.created_by || '') + '</small>';
+    }).catch(function (er) {
+      var body = document.querySelector('#modal-root .modal-body');
+      console.error('[ANNOUNCE] njhr_announcement_get ล้มเหลว:', er);
+      if (body) body.innerHTML = '<div class="form-error">' + esc((er && er.message) || 'โหลดประกาศไม่สำเร็จ') + '</div>';
     });
   }
 
   function anForm(id, listEl) {
-    var a = id ? db.announcements.find(function (x) { return x.id === id; }) : null;
+    var a = id ? anRows.find(function (x) { return String(x.id) === String(id); }) : null;
     openModal(a ? 'แก้ไขประกาศ' : 'เพิ่มประกาศ',
       '<form id="an-f" novalidate>' +
       '<label class="field"><span>หัวข้อ <i class="req">*</i></span><input name="title" value="' + esc(a ? a.title : '') + '"></label>' +
-      '<label class="field"><span>เนื้อหา <i class="req">*</i></span><textarea name="body" rows="5">' + esc(a ? a.body : '') + '</textarea></label>' +
-      '<label class="check"><input type="checkbox" name="pinned" ' + (a && a.pinned ? 'checked' : '') + '><span>ปักหมุดประกาศนี้</span></label>' +
+      '<label class="field"><span>เนื้อหา <i class="req">*</i></span><textarea name="body" rows="5">' + esc(a ? (a.content || '') : '') + '</textarea></label>' +
+      '<label class="check"><input type="checkbox" name="pinned" ' + (a && anPinned(a) ? 'checked' : '') + '><span>ปักหมุดประกาศนี้</span></label>' +
       '<div class="form-error" id="an-err" role="alert"></div></form>',
       '<button class="btn btn-ghost" id="anf-cancel">ยกเลิก</button><button class="btn btn-primary" id="anf-save">' + (a ? 'บันทึกการแก้ไข' : 'เผยแพร่ประกาศ') + '</button>');
     document.getElementById('anf-cancel').onclick = closeModal;
     document.getElementById('anf-save').onclick = function () {
-      var fm = document.getElementById('an-f');
-      var title = fm.title.value.trim(), body = fm.body.value.trim();
+      var fm = document.getElementById('an-f'), btn = this;
+      /* ใช้ fm.elements — ชื่อฟิลด์ "title"/"body" ชนกับ property ของ HTMLElement
+         การอ้าง fm.title ตรง ๆ จะได้ค่า attribute title (string) ไม่ใช่ช่องกรอก */
+      var title = fm.elements.title.value.trim(), body = fm.elements.body.value.trim();
       if (!title || !body) { document.getElementById('an-err').textContent = 'กรุณากรอกหัวข้อและเนื้อหา'; return; }
-      var byName = currentEmp() ? empName(currentEmp().id) : currentUser().username;
-      if (a) { a.title = title; a.body = body; a.pinned = fm.pinned.checked; audit('ANNOUNCE_EDIT', 'แก้ไขประกาศ ' + a.id); toast('บันทึกประกาศแล้ว'); }
-      else {
-        db.announcements.unshift({ id: uid('AN'), title: title, body: body, pinned: fm.pinned.checked, date: todayISO(), by: byName, active: true });
-        db.users.forEach(function (uu) { if (uu.active) notify(uu.id, 'ประกาศใหม่', title, '#/announcements'); });
-        audit('ANNOUNCE_ADD', 'เพิ่มประกาศ ' + title); toast('เผยแพร่ประกาศแล้ว');
-      }
-      saveDB(); closeModal(); viewAnnouncements(listEl);
+      if (btn.disabled) return;
+      var label = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…';
+      /* p_notify=true เฉพาะตอนสร้างใหม่ — ให้พฤติกรรมตรงกับของเดิมที่แจ้งเตือนเมื่อเพิ่มประกาศเท่านั้น
+         RPC เป็นผู้สร้าง Notification และ Audit จึงไม่เรียก notify()/audit() ซ้ำที่ Frontend
+         ตอนแก้ไขต้องส่ง p_publish_at เดิมกลับไปด้วย มิฉะนั้น RPC จะตั้งวันเผยแพร่เป็นเวลาปัจจุบัน */
+      sbRpc('njhr_announcement_save', {
+        p_token: sbToken(),
+        p_id: a ? a.id : null,
+        p_title: title,
+        p_content: body,
+        p_priority: fm.elements.pinned.checked ? 'HIGH' : 'NORMAL',
+        p_publish_at: a ? (a.publish_at || null) : null,
+        p_expire_at: a ? (a.expire_at || null) : null,
+        p_notify: !a
+      }).then(function () {
+        closeModal();
+        toast(a ? 'บันทึกประกาศแล้ว' : 'เผยแพร่ประกาศแล้ว');
+        viewAnnouncements(listEl);
+      }).catch(function (er) {
+        console.error('[ANNOUNCE] njhr_announcement_save ล้มเหลว:', er);
+        var eb = document.getElementById('an-err');
+        if (eb) eb.textContent = (er && er.message) || 'บันทึกประกาศไม่สำเร็จ';
+      }).then(function () { btn.disabled = false; btn.innerHTML = label; });
     };
   }
 
@@ -925,6 +1002,39 @@
   }
 
   /* ================= VIEW: SETTINGS ================= */
+  /* ---------- ตั้งค่าทั่วไป: อ่าน/เขียนที่ system_settings ผ่าน RPC เดิม ----------
+     njhr_setting_list / njhr_setting_save (78_system_settings.sql) เป็นแหล่งจริง
+     คีย์ที่หน้านี้ดูแล 3 คีย์: company_name · work_start_time · late_grace_minutes
+     ยังเขียนกลับลง db.settings ด้วย เพื่อไม่ให้จุดอื่นที่อ่าน db.settings.companyName
+     (สลิป · เทมเพลตนำเข้า · ทะเบียนเอกสาร) เปลี่ยนพฤติกรรม — Supabase เป็นแหล่งจริง
+     ส่วน db.settings เป็นเพียงสำเนาสำหรับแสดงผลของหน้าที่ยังไม่ได้ย้าย
+
+     njhr_setting_save มี Audit ในตัวแล้ว จึงไม่สร้าง audit() ซ้ำที่ Frontend
+     โหมด Geofence ไม่ผ่าน RPC นี้ เพราะ njhr_setting_save ปฏิเสธคีย์ geofence*
+     (พิกัดอยู่ที่ njhr_geofences เท่านั้น) จึงคงพฤติกรรมเดิมไว้ทั้งหมด */
+  var ST_KEYS = { companyName: 'company_name', workStart: 'work_start_time', lateGrace: 'late_grace_minutes' };
+
+  function stSetErr(msg) { var b = document.getElementById('st-err'); if (b) b.textContent = msg || ''; }
+
+  function stLoad() {
+    if (!sbReady() || !sbToken()) { stSetErr('ยังไม่ได้เชื่อมต่อ Supabase — ค่าที่แสดงเป็นค่าในเครื่อง'); return; }
+    sbRpcList('njhr_setting_list', { p_token: sbToken(), p_category: null }).then(function (rows) {
+      var map = {};
+      (rows || []).forEach(function (r) { map[r.key] = r.value; });
+      var fm = document.getElementById('st-f');
+      if (!fm) return;
+      /* value เป็น jsonb — string มาเป็น string, number มาเป็น number อยู่แล้ว */
+      if (map.company_name != null) { db.settings.companyName = String(map.company_name); fm.elements.companyName.value = db.settings.companyName; }
+      if (map.work_start_time != null) { db.settings.workStart = String(map.work_start_time); fm.elements.workStart.value = db.settings.workStart; }
+      if (map.late_grace_minutes != null) { db.settings.lateGrace = parseInt(map.late_grace_minutes, 10) || 0; fm.elements.lateGrace.value = db.settings.lateGrace; }
+      saveDB();
+      stSetErr('');
+    }).catch(function (er) {
+      console.error('[SETTINGS] njhr_setting_list ล้มเหลว:', er);
+      stSetErr('โหลดการตั้งค่าจาก Supabase ไม่สำเร็จ: ' + ((er && er.message) || er));
+    });
+  }
+
   function viewSettings(el) {
     el.innerHTML =
       '<div class="dash-cols"><div class="col">' +
@@ -948,15 +1058,21 @@
       '<small class="muted">' + (currentUser().role === 'SUPER_ADMIN'
         ? 'มีผลกับการลงเวลาทั้งระบบ — Production จะบังคับตรวจพิกัด GPS จริงทุกครั้ง'
         : 'แก้ไขได้เฉพาะ Super Admin') + '</small></label>' +
-      '<button class="btn btn-primary" id="st-save" type="button">บันทึกการตั้งค่า</button></form></div></div></div>';
+      '<button class="btn btn-primary" id="st-save" type="button">บันทึกการตั้งค่า</button>' +
+      '<div class="form-error" id="st-err" role="alert" style="white-space:pre-line"></div></form></div></div></div>';
 
     ltLoad(el);
+    stLoad();
     document.getElementById('st-save').onclick = function () {
-      var fm = document.getElementById('st-f');
-      db.settings.companyName = fm.companyName.value.trim() || db.settings.companyName;
-      db.settings.workStart = fm.workStart.value;
-      db.settings.lateGrace = parseInt(fm.lateGrace.value, 10) || 0;
+      var fm = document.getElementById('st-f'), btn = this;
+      stSetErr('');
+      var vals = {
+        companyName: fm.elements.companyName.value.trim() || db.settings.companyName,
+        workStart: fm.elements.workStart.value,
+        lateGrace: parseInt(fm.elements.lateGrace.value, 10) || 0
+      };
       // โหมดระบบลงเวลา — เขียนเฉพาะฟิลด์ mode ของ geofence เดิม ไม่แตะพิกัด/รัศมี
+      // (คีย์ geofence* บันทึกผ่าน njhr_setting_save ไม่ได้ตามกฎของ RPC จึงคงพฤติกรรมเดิม)
       var md = document.getElementById('st-gfmode');
       if (md && !md.disabled && currentUser().role === 'SUPER_ADMIN') {
         var g0 = gfGet();
@@ -966,9 +1082,31 @@
           g0.updatedBy = currentUser().username + ' (' + currentUser().id + ')';
           g0.updatedByRole = currentUser().role;
           audit('GEOFENCE_UPDATE', 'เปลี่ยนโหมดระบบลงเวลาเป็น ' + md.value);
+          saveDB();
         }
       }
-      audit('SETTINGS', 'แก้ไขตั้งค่าระบบ'); saveDB(); toast('บันทึกการตั้งค่าแล้ว');
+      if (!sbReady() || !sbToken()) { stSetErr('ยังไม่ได้เชื่อมต่อ Supabase — บันทึกการตั้งค่าไม่ได้'); return; }
+      if (btn.disabled) return;
+      var label = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…';
+      /* บันทึกทีละคีย์ตาม Signature จริงของ njhr_setting_save(p_token, p_key, p_value jsonb, ...)
+         value เป็น jsonb — ส่งเป็น string/number ตรง ๆ ตามที่ seed ไว้ใน 78_system_settings.sql
+         Audit ถูกเขียนโดย RPC แล้ว จึงไม่เรียก audit() ซ้ำ */
+      Promise.all([
+        sbRpc('njhr_setting_save', { p_token: sbToken(), p_key: ST_KEYS.companyName, p_value: vals.companyName }),
+        sbRpc('njhr_setting_save', { p_token: sbToken(), p_key: ST_KEYS.workStart, p_value: vals.workStart }),
+        sbRpc('njhr_setting_save', { p_token: sbToken(), p_key: ST_KEYS.lateGrace, p_value: vals.lateGrace })
+      ]).then(function () {
+        // สำเนาในเครื่องสำหรับหน้าที่ยังอ่าน db.settings อยู่ (สลิป/เทมเพลต) — ไม่ใช่แหล่งจริง
+        db.settings.companyName = vals.companyName;
+        db.settings.workStart = vals.workStart;
+        db.settings.lateGrace = vals.lateGrace;
+        saveDB();
+        toast('บันทึกการตั้งค่าแล้ว');
+      }).catch(function (er) {
+        console.error('[SETTINGS] njhr_setting_save ล้มเหลว:', er);
+        stSetErr('บันทึกการตั้งค่าไม่สำเร็จ: ' + ((er && er.message) || er));
+      }).then(function () { btn.disabled = false; btn.innerHTML = label; });
     };
   }
   // โหลด/แก้ Metadata ประเภทการลาจาก Supabase (ตาราง leave_types · RPC njhr_leave_types*)

@@ -188,40 +188,109 @@
     return out;
   }
 
-  function rptOtRows() {
-    var st = rptState;
-    if (!st.from || !st.to || st.from > st.to) return [];
-    var byId = {};
-    rptEmployees().forEach(function (e) { byId[e.id] = e; });
-    var out = [];
-    db.ots.forEach(function (o) {
-      var e = byId[o.empId];
-      if (!e) return;                                   // กรองด้วย Employee ID จริง
-      var n = rptName(e);
-      otJobsOf(o).forEach(function (j) {
-        if (!j.date || j.date < st.from || j.date > st.to) return;   // กรองตามวันที่ของรายการงาน
-        out.push({
-          reqId: o.id, no: j.no, code: e.code || '', name: n.name, title: n.title,
-          dept: o.deptSnap || dept(e.deptId), position: o.positionSnap || e.position || '',
-          job: j.job || '', detail: j.detail || '', jobType: j.jobType || '',
-          date: j.date, start: j.start || '', end: j.end || '',
-          endDate: j.endDate || otJobEndDate(j), nextDay: !!j.nextDay,
-          hours: isFinite(j.hours) ? Number(j.hours) : otJobHours(j),
-          fileNames: (j.files || []).map(function (f) { return f.name; }).join(', '),
-          fileCount: (j.files || []).length,
-          status: OT_STATUS_TH[o.status] || o.status,
-          createdAt: o.createdAt || '', approver: o.approver || '', approvedAt: o.approvedAt || '',
-          note: o.note || '', empId: e.id
+  /* ---------- รายงาน OT เดิม (แท็บ "รายงาน OT" ในหน้า #/reports) ----------
+     ข้อมูลจริงจาก Supabase — เดิมวน db.ots ใน localStorage
+       แถวหลัก (รายรายการงาน)  njhr_ot_report   22 คอลัมน์ ครบทุกช่องของตารางนี้
+                               ยกเว้น วันที่ยื่น · ผู้อนุมัติ · วันที่อนุมัติ · ไฟล์แนบ
+       วันที่ยื่น               njhr_rpt_ot_list (created_at ระดับคำขอ)
+       ผู้อนุมัติ + วันที่อนุมัติ njhr_ot_get     (approvals jsonb) เฉพาะคำขอที่ไม่ใช่ PENDING
+       ไฟล์แนบ (ชื่อ + จำนวน)   njhr_ot_attach_list ระดับคำขอ แล้วจับคู่เข้ารายการงานด้วย job_no
+
+     ✔ ไม่ต้องแก้ Return Signature ของ njhr_ot_report — RPC ที่มีอยู่ครอบคลุมครบแล้ว
+       (ตรวจตามที่สั่งในข้อ 4: rpt_ot_list + ot_get + attach_list เติมส่วนที่ขาดได้ทั้งหมด)
+     ⚠ ต้นทุน: 2 + 2N คำขอ (N = จำนวนคำขอในช่วงที่เลือก) จำกัดด้วย p_limit ของ RPC
+     หัวตาราง · ลำดับคอลัมน์ · สูตรสรุป เหมือนเดิมทุกช่อง */
+  var rptOtData = [], rptOtLoading = false, rptOtSeq = 0, rptOtErr = '';
+
+  function rptOtRows() { return rptOtData; }
+
+  function rptOtHM(v) { return String(v == null ? '' : v).slice(0, 5); }
+
+  /* ผู้อนุมัติ + วันที่อนุมัติ จาก approvals jsonb — เอา action สุดท้ายที่ไม่ใช่ SUBMIT */
+  function rptOtApprover(approvals) {
+    var a = (approvals || []).filter(function (x) {
+      var act = String(x.action || '').toUpperCase();
+      return act === 'APPROVE' || act === 'REJECT' || act === 'CANCEL';
+    });
+    if (!a.length) return { by: '', at: '' };
+    var last = a[a.length - 1];
+    return { by: String(last.by || ''), at: String(last.at || '').replace('T', ' ').slice(0, 16) };
+  }
+
+  function rptOtLoad(el) {
+    var st = rptState, seq = ++rptOtSeq;
+    rptOtErr = '';
+    if (!st.from || !st.to || st.from > st.to) { rptOtData = []; rptOtLoading = false; return Promise.resolve(); }
+    if (!sbReady() || !sbToken()) {
+      rptOtData = []; rptOtLoading = false;
+      rptOtErr = 'ยังไม่ได้เชื่อมต่อ Supabase — รายงาน OT ต้องใช้ข้อมูลจริงเท่านั้น';
+      return Promise.resolve();
+    }
+    rptOtLoading = true; rptOtData = [];
+    var args = { p_token: sbToken(), p_from: st.from, p_to: st.to,
+      p_dept: st.deptId || null, p_q: st.q || null };
+    return Promise.all([
+      sbRpcList('njhr_ot_report', {
+        p_token: args.p_token, p_from: args.p_from, p_to: args.p_to, p_status: 'ALL',
+        p_dept: args.p_dept, p_employee: st.empId || null, p_q: args.p_q,
+        p_limit: 2000, p_offset: 0
+      }),
+      sbRpcList('njhr_rpt_ot_list', args)['catch'](function () { return []; })
+    ]).then(function (res) {
+      if (seq !== rptOtSeq) return;
+      var jobs = res[0] || [], reqs = res[1] || [];
+      var meta = {};
+      reqs.forEach(function (r) { meta[String(r.req_id)] = r; });
+      var ids = [];
+      jobs.forEach(function (j) { if (ids.indexOf(String(j.ot_id)) < 0) ids.push(String(j.ot_id)); });
+      /* ไฟล์แนบ + ผู้อนุมัติ ต้องอ่านรายคำขอ (RPC ที่มีอยู่ไม่คืนแบบรวม) */
+      return Promise.all(ids.map(function (id) {
+        return Promise.all([
+          sbRpcList('njhr_ot_attach_list', { p_token: sbToken(), p_ot_id: id })['catch'](function () { return []; }),
+          sbRpc('njhr_ot_get', { p_token: sbToken(), p_id: id })['catch'](function () { return null; })
+        ]).then(function (x) {
+          var d = x[1] && x[1].data ? x[1].data : x[1];
+          return { id: id, files: x[0] || [], appr: rptOtApprover(d && d.request && d.request.approvals) };
         });
+      })).then(function (extra) {
+        if (seq !== rptOtSeq) return;
+        var byId = {};
+        extra.forEach(function (x) { byId[x.id] = x; });
+        rptOtData = jobs.map(function (j) {
+          var x = byId[String(j.ot_id)] || { files: [], appr: { by: '', at: '' } };
+          var mine = x.files.filter(function (f) { return Number(f.job_no) === Number(j.job_no); });
+          var m = meta[String(j.ot_id)] || {};
+          return {
+            reqId: m.request_no || j.ot_id, no: j.job_no, code: j.emp_code || '',
+            name: j.emp_name || '', title: j.prefix || '',
+            dept: j.department || '', position: j.position_name || '',
+            job: j.job_code || '', detail: j.detail || '', jobType: j.job_type || '',
+            date: String(j.job_date || '').slice(0, 10),
+            start: rptOtHM(j.start_time), end: rptOtHM(j.end_time),
+            endDate: String(j.end_date || '').slice(0, 10), nextDay: !!j.spans_next_day,
+            hours: Number(j.job_hours) || 0,
+            fileNames: mine.map(function (f) { return f.file_name; }).join(', '),
+            fileCount: mine.length,
+            status: OT_STATUS_TH[j.status] || j.status,
+            createdAt: String(m.created_at || '').replace('T', ' ').slice(0, 16),
+            approver: x.appr.by, approvedAt: x.appr.at,
+            note: j.reason || '', empId: j.employee_id
+          };
+        });
+        // เรียง: วันที่ OT → เวลาเริ่ม → รหัสพนักงาน → เลขที่คำขอ → ลำดับรายการ
+        rptOtData.sort(function (a2, b2) {
+          return a2.date.localeCompare(b2.date) || String(a2.start).localeCompare(String(b2.start)) ||
+            String(a2.code).localeCompare(String(b2.code), 'th', { numeric: true }) ||
+            String(a2.reqId).localeCompare(String(b2.reqId)) || (a2.no - b2.no);
+        });
+        rptOtLoading = false;
       });
+    })['catch'](function (ex) {
+      if (seq !== rptOtSeq) return;
+      rptOtLoading = false; rptOtData = [];
+      console.error('[REPORT] รายงาน OT จาก Supabase ล้มเหลว:', ex);
+      rptOtErr = 'โหลดรายงาน OT จาก Supabase ไม่สำเร็จ: ' + ((ex && ex.message) || ex);
     });
-    // เรียง: วันที่ OT → เวลาเริ่ม → รหัสพนักงาน → เลขที่คำขอ → ลำดับรายการ
-    out.sort(function (a2, b2) {
-      return a2.date.localeCompare(b2.date) || String(a2.start).localeCompare(String(b2.start)) ||
-        String(a2.code).localeCompare(String(b2.code), 'th', { numeric: true }) ||
-        String(a2.reqId).localeCompare(String(b2.reqId)) || (a2.no - b2.no);
-    });
-    return out;
   }
 
   var RPT_OT_HEAD = ['เลขที่คำขอ', 'ลำดับรายการ', 'รหัสพนักงาน', 'ชื่อ–นามสกุล', 'แผนก', 'ตำแหน่ง',
@@ -242,6 +311,31 @@
     return [r.reqId, r.no, r.code, r.name, r.dept, r.position, r.job, r.detail, r.jobType,
       rptDateBE(r.date), r.start, r.end + (r.nextDay ? ' (+1 วัน)' : ''), r.hours,
       r.fileNames, r.fileCount, r.status, r.approver || '-', r.approvedAt || '-', r.note];
+  }
+
+  /* เติมตาราง + การ์ดสรุปของรายงาน OT หลังข้อมูลจาก Supabase มาถึง
+     หัวตาราง · ลำดับคอลัมน์ · การ์ดสรุป เหมือนเดิมทุกช่อง */
+  function rptOtPaint(el) {
+    var box = document.getElementById('rpt-table');
+    var eb = document.getElementById('rpt-err');
+    if (eb) eb.textContent = rptOtErr || '';
+    var rows = rptOtRows();
+    var sum = rptOtSummary(rows);
+    var sb = el.querySelector('.rpt-otsum');
+    if (sb) {
+      sb.innerHTML = [['คำขอทั้งหมด', sum.reqs], ['รายการงานทั้งหมด', sum.items], ['ชั่วโมงรวม', sum.hours],
+        ['จำนวนพนักงาน', sum.emps], ['รออนุมัติ', sum.pend], ['อนุมัติแล้ว', sum.appr]]
+        .map(function (x) { return '<div class="bal-item"><div class="bal-top"><span>' + x[0] + '</span><b>' + x[1] + '</b></div></div>'; }).join('');
+    }
+    var cnt = el.querySelector('.rpt-sum b:last-child');
+    if (cnt) cnt.textContent = rows.length + ' รายการ';
+    if (!box) return;
+    box.innerHTML = rows.length
+      ? '<div class="table-wrap"><table><thead><tr>' +
+        RPT_OT_HEAD.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        rows.map(function (r) { return '<tr>' + rptOtCells(r).map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') +
+        '</tbody></table></div>'
+      : emptyState(rptOtErr ? 'ไม่สามารถแสดงข้อมูลได้' : rptEmptyMsg());
   }
 
   function rptOtSummary(rows) {
@@ -332,7 +426,8 @@
     var isOt = s.type === 'ot', isLv = s.type === 'leave', isBal = s.type === 'balance';
     var isAtt = s.type === 'attendance' || s.type === 'late';
     // รายงานลงเวลา · มาสาย · ลา · วันลาคงเหลือ ดึงจาก Supabase ทั้งหมด (โหลดแบบ async)
-    var isSb = isLv || isBal || isAtt;
+    /* รายงาน OT ย้ายมาอ่านจาก Supabase แล้ว จึงเข้าเส้นทางโหลดแบบ async เดียวกับรายงานอื่น */
+    var isSb = isLv || isBal || isAtt || isOt;
     if (isBal) err = '';                            // รายงานคงเหลือใช้ "ปี" ไม่ใช้ช่วงวันที่
     var rows = (err || isSb) ? [] : (isOt ? rptOtRows() : rptRows());
     var head = isOt ? RPT_OT_HEAD : RPT_HEAD;
@@ -477,7 +572,12 @@
     document.getElementById('rpt-export').onclick = function () { rptExport(this); };
 
     if (!rptDeptCache.length) rptLoadDepts(el);
-    if (isSb) rptLoadSb(el, seq);
+    if (isOt) {
+      rptOtLoad(el).then(function () {
+        if (seq !== rptSeq) return;
+        rptOtPaint(el);
+      });
+    } else if (isSb) rptLoadSb(el, seq);
   }
 
   var rptSeq = 0;

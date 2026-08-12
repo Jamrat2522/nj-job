@@ -66,7 +66,7 @@
     return '<div class="rh-det">' +
       rhRow('เลขที่คำขอ', '<code>' + esc(String(id).slice(0, 8)) + '</code>') +
       rhRow('ประเภทคำขอ', 'ขอทำงานล่วงเวลา (OT)') +
-      rhRow('วันที่ทำ OT', esc(d.ot_date ? empBE(String(d.ot_date).slice(0, 10)) : '')) +
+      rhRow('วันที่ทำ OT', esc(d.ot_date ? fmtDateDMY(d.ot_date) : '')) +
       rhRow('เวลา', esc(String(d.start_time || '').slice(0, 5) + ' – ' +
         String(d.end_time || '').slice(0, 5) + (d.spans_next_day ? ' (วันถัดไป)' : ''))) +
       rhRow('จำนวนชั่วโมง', (d.ot_hours != null ? d.ot_hours + ' ชม.' : '—')) +

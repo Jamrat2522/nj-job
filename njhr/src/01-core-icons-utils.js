@@ -84,6 +84,20 @@
     return parseInt(p2[2], 10) + ' ' + TH_MONTHS[parseInt(p2[1], 10) - 1].slice(0, 3) + '. ' + (parseInt(p2[0], 10) + 543);
   }
   function fmtMonthYear(m, y) { return TH_MONTHS[m - 1] + ' ' + (y + 543); }
+  /* ---------- ตัวแปลงวันที่กลางตัวเดียวของระบบ: DD/MM/YYYY (ปี ค.ศ.) ----------
+     ใช้กับหน้าลางาน · OT · REPORT ลางาน · REPORT OT ทั้ง Desktop และ Mobile
+     เพื่อให้ทุกหน้าแสดงรูปแบบเดียวกันแน่นอน
+
+     ตัดสตริงตรง ๆ ไม่ผ่าน new Date() จึงไม่มีปัญหา Timezone ทำให้วันที่เลื่อน ±1 วัน
+     รับได้ทั้ง '2026-08-11' และ '2026-08-11T09:00:00+07:00' (ตัดเหลือ 10 ตัวแรก)
+     เป็นการแปลง "ตอนแสดงผล" เท่านั้น ไม่แตะค่าที่เก็บในฐานข้อมูลและไม่ใช้ในการกรอง/เรียงข้อมูล */
+  function fmtDateDMY(v) {
+    var p = String(v == null ? '' : v).slice(0, 10).split('-');
+    if (p.length !== 3) return '—';
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return '—';
+    return pad(d) + '/' + pad(m) + '/' + y;
+  }
   function money(n) { return (n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   /* ===== ตัวโหลด Library กลาง — Promise Cache =====
      - เรียกซ้ำคืน Promise เดิม ไม่สร้าง <script> ซ้ำ ไม่เกิด Global ซ้ำ
