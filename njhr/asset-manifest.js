@@ -1,14 +1,14 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-ee81efe5",
+  "buildId": "njhr-v2-517247d2",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
-    "core": "runtime/core.js?v=42e0bb4f"
+    "core": "runtime/core.js?v=ef8621cd"
   },
   "modules": {
     "dashboard": {
-      "url": "views/dashboard.js?v=aa6ec5f5",
+      "url": "views/dashboard.js?v=731e7ce1",
       "deps": [
         "shared-leave-meta"
       ],
@@ -67,7 +67,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "requests-leave": {
-      "url": "views/leave/main.js?v=9a6b3ba2",
+      "url": "views/leave/main.js?v=5911afa7",
       "deps": [
         "shared-requests",
         "shared-hr-meta",
@@ -80,7 +80,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "ot": {
-      "url": "views/ot/main.js?v=a0bca247",
+      "url": "views/ot/main.js?v=8c1c27cb",
       "deps": [
         "shared-requests"
       ],
@@ -101,7 +101,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "report-menu": {
-      "url": "views/reports/menu.js?v=f840b908",
+      "url": "views/reports/menu.js?v=40405aec",
       "deps": [
         "shared-report",
         "shared-leave-meta"
@@ -175,7 +175,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "ot-form": {
-      "url": "views/ot/form.js?v=eec2948b",
+      "url": "views/ot/form.js?v=51a444cb",
       "deps": [
         "ot",
         "shared-requests",
@@ -184,7 +184,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "profile-docs": {
-      "url": "views/profile/main.js?v=d190cf02",
+      "url": "views/profile/main.js?v=982e318b",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -214,7 +214,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "compatibility": {
-      "url": "compat/app-legacy.js?v=1bf02005",
+      "url": "compat/app-legacy.js?v=d38d4293",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -242,7 +242,7 @@ window.NJHR_ASSETS = {
     }
   },
   "styles": {
-    "main": "styles.css?v=9ea84541",
-    "mobile": "mobile.css?v=d57cc707"
+    "main": "styles.css?v=2a356420",
+    "mobile": "mobile.css?v=c8384a4b"
   }
 };

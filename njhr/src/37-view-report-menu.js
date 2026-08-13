@@ -391,7 +391,25 @@
   var whtSel = {};                 // { wht50_id: true }
   var whtBulk = null;              // { total, done, ok, skip, fail, errors:[], running }
 
-  var whtState = { year: 0, q: '', send: '', rows: null, sum: null, err: '', seq: 0 };
+  var whtState = { year: 0, q: '', send: '', dept: '', rows: null, sum: null, err: '', seq: 0 };
+
+  /* แผนกจริงจากฐานข้อมูล — ใช้ rptmDepts ชุดเดียวกับรายงานอื่น (njhr_emp_departments)
+     ห้าม hardcode รายชื่อแผนก */
+  function whtLoadDepts() {
+    var sel = document.getElementById('wht-dept');
+    if (!sel) return;
+    if (rptmDeptsLoaded) { sel.innerHTML = rptmDeptOptions(whtState.dept); return; }
+    if (!sbReady() || !sbToken()) return;
+    sbRpcList('njhr_emp_departments', { p_token: sbToken() }).then(function (ds) {
+      rptmDeptsLoaded = true;
+      rptmDepts = (ds || []).map(function (d) { return String(d.name || ''); })
+        .filter(function (n) { return n !== ''; });
+      var s2 = document.getElementById('wht-dept');
+      if (s2) s2.innerHTML = rptmDeptOptions(whtState.dept);
+    })['catch'](function (er) {
+      console.error('[WHT50] njhr_emp_departments ล้มเหลว:', er);
+    });
+  }
 
   /* ปีภาษีเป็น ค.ศ. ตามรูปแบบวันที่ของระบบ · แสดงคู่ พ.ศ. ให้อ่านง่าย */
   function whtYearOptions(cur) {
@@ -448,14 +466,19 @@
       return out;
     }
 
-    /* CONFIRMED ขึ้นไป — ดาวน์โหลดต้องมี document_id จริงและ PDF พร้อม */
-    var dlOn = WHT_PDF_READY && !!r.document_id;
-    out.push(whtBtn('dl', r.document_id, 'ดาวน์โหลด PDF', dlOn,
-      r.document_id ? ' — ' + WHT_BLOCK_MSG : ' — ยังไม่ได้ส่ง จึงยังไม่มีเอกสารให้ดาวน์โหลด', 'download'));
-
+    /* CONFIRMED แต่ยังไม่ส่ง — ยังไม่มี document_id จึงยังสร้าง/ดาวน์โหลด PDF ไม่ได้
+       (document_id เกิดตอน njhr_wht50_send สร้างแถวใน njhr_emp_documents) */
     if (!sent) {
-      out.push(whtBtn('send', r.wht50_id, 'ส่งให้พนักงาน', WHT_PDF_READY, ' — ' + WHT_BLOCK_MSG, 'send'));
+      out.push(whtBtn('send', r.wht50_id, 'ส่งให้พนักงาน', WHT_PDF_READY,
+        ' — ' + WHT_BLOCK_MSG, 'send'));
+      return out;
     }
+
+    /* ส่งแล้ว — มี document_id จึงสร้างและดาวน์โหลด PDF ได้ (เมื่อ Gate เปิด) */
+    out.push(whtBtn('gen', r.document_id, 'สร้าง PDF', WHT_PDF_READY && !!r.document_id,
+      ' — ' + WHT_BLOCK_MSG, 'refresh'));
+    out.push(whtBtn('dl', r.document_id, 'ดาวน์โหลด PDF', WHT_PDF_READY && !!r.document_id,
+      ' — ' + WHT_BLOCK_MSG, 'download'));
     return out;
   }
 
@@ -531,22 +554,28 @@
      ALREADY_SENT จาก RPC นับเป็น "ข้าม" ไม่ใช่ผิดพลาด */
   function whtBulkSend(ids) {
     if (!ids.length) { toast('ไม่มีรายการที่พร้อมส่ง', 'info'); return; }
-    whtBulk = { total: ids.length, done: 0, ok: 0, skip: 0, fail: 0, errors: [], running: true };
+    /* นับ 2 ขั้นแยกกัน: ส่งเอกสาร → สร้าง PDF
+       ขั้นสร้าง PDF ล้มไม่ทำให้ "ส่งแล้ว" กลายเป็นล้มเหลว */
+    whtBulk = { total: ids.length, done: 0, sent: 0, skip: 0, fail: 0,
+                pdfOk: 0, pdfFail: 0, errors: [], pdfErrors: [], running: true, phase: 'send' };
     var go = document.getElementById('wht-go');
     if (go) { go.disabled = true; go.innerHTML = '<span class="spinner"></span> กำลังส่ง…'; }
     whtBulkPaint();
 
     var queue = ids.slice();
+    var pdfQueue = [];
 
     function runBatch() {
-      if (!queue.length) return finish();
+      if (!queue.length) return (WHT_PDF_READY ? runPdf() : finish());
       var batch = queue.splice(0, WHT_BATCH);
       Promise.all(batch.map(function (id) {
-        return sbRpc('njhr_wht50_send', { p_token: sbToken(), p_id: id })
-          .then(function (r) {
-            var d = (r && r.data) ? r.data : r;
-            var res = (d && (d.result || (d[0] && d[0].result))) || 'SENT';
-            if (res === 'ALREADY_SENT') whtBulk.skip++; else whtBulk.ok++;
+        /* ส่งด้วย wht50_id — RPC คืน document_id ที่เพิ่งสร้างมาให้ใช้ต่อ */
+        return sbRpcList('njhr_wht50_send', { p_token: sbToken(), p_id: id })
+          .then(function (rows) {
+            var r0 = (rows && rows[0]) || {};
+            var res = r0.result || 'SENT';
+            if (res === 'ALREADY_SENT') whtBulk.skip++; else whtBulk.sent++;
+            if (r0.document_id) pdfQueue.push(r0.document_id);
           })['catch'](function (ex) {
             whtBulk.fail++;
             whtBulk.errors.push({ id: id, msg: (ex && ex.message) || 'ส่งไม่สำเร็จ' });
@@ -557,6 +586,28 @@
       })).then(function () {
         setTimeout(runBatch, 0);        // คืนคิวให้เบราว์เซอร์วาดหน้าจอ
       });
+    }
+
+    /* ---- ขั้นที่ 2: สร้าง Final PDF ของเอกสารที่เพิ่งส่งสำเร็จ ----
+       ล้มที่ขั้นนี้ไม่ย้อนสถานะการส่ง เพราะเอกสารส่งไปแล้วจริง */
+    function runPdf() {
+      if (!pdfQueue.length) return finish();
+      whtBulk.phase = 'pdf';
+      whtBulk.done = 0; whtBulk.total = pdfQueue.length;
+      whtBulkPaint();
+      var q2 = pdfQueue.slice();
+      (function step() {
+        if (!q2.length) return finish();
+        var b2 = q2.splice(0, WHT_BATCH);
+        Promise.all(b2.map(function (docId) {
+          return whtGenerate(docId, null)
+            .then(function () { whtBulk.pdfOk++; })
+            ['catch'](function (ex) {
+              whtBulk.pdfFail++;
+              whtBulk.pdfErrors.push({ id: docId, msg: (ex && ex.message) || 'สร้าง PDF ไม่สำเร็จ' });
+            }).then(function () { whtBulk.done++; whtBulkPaint(); });
+        })).then(function () { setTimeout(step, 0); });
+      })();
     }
 
     function finish() {
@@ -574,27 +625,58 @@
     var box = document.getElementById('wht-progress');
     if (!box || !whtBulk) return;
     var b = whtBulk;
+    var lbl = b.phase === 'pdf' ? 'กำลังสร้าง PDF ' : 'กำลังส่ง ';
     box.innerHTML = b.running
-      ? '<div class="wht-prog-l">กำลังส่ง ' + b.done + ' / ' + b.total + '</div>' +
+      ? '<div class="wht-prog-l">' + lbl + b.done + ' / ' + b.total + '</div>' +
         '<div class="bar-track"><div class="bar-fill" style="width:' +
-        Math.round(b.done / b.total * 100) + '%"></div></div>'
-      : '<div class="wht-prog-l"><b>ส่งเสร็จแล้ว</b></div>' +
+        Math.round(b.done / Math.max(b.total, 1) * 100) + '%"></div></div>'
+      : '<div class="wht-prog-l"><b>ดำเนินการเสร็จแล้ว</b></div>' +
         '<div class="wht-sum">' +
-        [['สำเร็จ', b.ok], ['ข้าม', b.skip], ['ผิดพลาด', b.fail]].map(function (x) {
+        [['ส่งสำเร็จ', b.sent], ['ข้าม (ส่งแล้ว)', b.skip], ['ส่งผิดพลาด', b.fail],
+         ['PDF สำเร็จ', b.pdfOk], ['PDF ผิดพลาด', b.pdfFail]].map(function (x) {
           return '<span class="wht-sum-i"><small>' + x[0] + '</small><b>' + x[1] + '</b></span>';
         }).join('') + '</div>' +
         (b.errors.length
-          ? '<div class="form-error">' +
+          ? '<div class="form-error">ส่งไม่สำเร็จ\n' +
             b.errors.slice(0, 5).map(function (e) { return esc(e.msg); }).join('\n') +
             (b.errors.length > 5 ? '\n… และอีก ' + (b.errors.length - 5) + ' รายการ' : '') + '</div>' +
             '<button type="button" class="btn btn-ghost" id="wht-retry">' +
-            icon('refresh') + ' ลองใหม่เฉพาะรายการผิดพลาด (' + b.errors.length + ')</button>'
+            icon('refresh') + ' ส่งใหม่เฉพาะที่ผิดพลาด (' + b.errors.length + ')</button>'
+          : '') +
+        (b.pdfErrors.length
+          ? '<div class="form-error">สร้าง PDF ไม่สำเร็จ (เอกสารส่งถึงพนักงานแล้ว)\n' +
+            b.pdfErrors.slice(0, 5).map(function (e) { return esc(e.msg); }).join('\n') +
+            (b.pdfErrors.length > 5 ? '\n… และอีก ' + (b.pdfErrors.length - 5) + ' รายการ' : '') + '</div>' +
+            '<button type="button" class="btn btn-ghost" id="wht-retry-pdf">' +
+            icon('refresh') + ' สร้าง PDF ใหม่เฉพาะที่ผิดพลาด (' + b.pdfErrors.length + ')</button>'
           : '');
+
     var rt = document.getElementById('wht-retry');
     if (rt) rt.onclick = function () {
-      /* ส่งซ้ำเฉพาะรายการที่ผิดพลาด — รายการที่สำเร็จแล้วไม่ถูกแตะ
-         และถ้าจริง ๆ ส่งไปแล้ว RPC จะคืน ALREADY_SENT เองอีกชั้น */
+      /* ส่งซ้ำเฉพาะที่ผิดพลาด — ที่สำเร็จแล้วไม่ถูกแตะ
+         ถ้าส่งไปแล้วจริง RPC จะคืน ALREADY_SENT เองอีกชั้น */
       whtBulkSend(whtBulk.errors.map(function (e) { return e.id; }));
+    };
+    var rp = document.getElementById('wht-retry-pdf');
+    if (rp) rp.onclick = function () {
+      /* สร้าง PDF ใหม่อย่างเดียว — ไม่เรียก njhr_wht50_send ซ้ำ */
+      var ids = whtBulk.pdfErrors.map(function (e) { return e.id; });
+      whtBulk = { total: ids.length, done: 0, sent: 0, skip: 0, fail: 0,
+                  pdfOk: 0, pdfFail: 0, errors: [], pdfErrors: [], running: true, phase: 'pdf' };
+      whtBulkPaint();
+      var q = ids.slice();
+      (function step() {
+        if (!q.length) { whtBulk.running = false; whtBulkPaint(); whtLoad(); return; }
+        var batch = q.splice(0, WHT_BATCH);
+        Promise.all(batch.map(function (docId) {
+          return whtGenerate(docId, null)
+            .then(function () { whtBulk.pdfOk++; })
+            ['catch'](function (ex) {
+              whtBulk.pdfFail++;
+              whtBulk.pdfErrors.push({ id: docId, msg: (ex && ex.message) || 'สร้าง PDF ไม่สำเร็จ' });
+            }).then(function () { whtBulk.done++; whtBulkPaint(); });
+        })).then(function () { setTimeout(step, 0); });
+      })();
     };
   }
 
@@ -611,6 +693,8 @@
       '<span class="search-box">' + icon('search', 'ic-sm') +
       '<input id="wht-q" autocomplete="off" placeholder="ค้นหารหัสพนักงาน หรือ ชื่อ-นามสกุล" ' +
       'value="' + esc(s.q) + '"></span></label>' +
+      '<label class="rptm-f"><span>แผนก</span>' +
+      '<select id="wht-dept">' + rptmDeptOptions(s.dept) + '</select></label>' +
       '<label class="rptm-f"><span>สถานะการส่ง</span>' +
       '<select id="wht-send">' +
       [['', 'ทั้งหมด'], ['NOT_SENT', 'ยังไม่ส่ง'], ['SENT', 'ส่งแล้ว'], ['OPENED', 'เปิดแล้ว']]
@@ -632,6 +716,7 @@
     document.getElementById('wht-year').onchange = function () {
       s.year = parseInt(this.value, 10); whtLoad();
     };
+    document.getElementById('wht-dept').onchange = function () { s.dept = this.value; whtLoad(); };
     document.getElementById('wht-send').onchange = function () { s.send = this.value; whtLoad(); };
     var qEl = document.getElementById('wht-q');
     qEl.oninput = debounce(function () { s.q = qEl.value; whtLoad(); }, 350);
@@ -640,10 +725,11 @@
       whtConfirmSend(ready, 'ทั้งหมด');
     };
     document.getElementById('wht-clear').onclick = function () {
-      s.year = Number(String(todayISO()).slice(0, 4)); s.q = ''; s.send = '';
+      s.year = Number(String(todayISO()).slice(0, 4)); s.q = ''; s.send = ''; s.dept = '';
       viewRptWht50(el); whtLoad();
     };
 
+    whtLoadDepts();
     whtPaint();
     whtLoad();
   }
@@ -661,7 +747,7 @@
     Promise.all([
       sbRpcList('njhr_wht50_send_list', {
         p_token: sbToken(), p_year: s.year,
-        p_q: s.q || null, p_send_status: s.send || null, p_dept: null
+        p_q: s.q || null, p_send_status: s.send || null, p_dept: s.dept || null
       }),
       sbRpc('njhr_wht50_send_summary', { p_token: sbToken(), p_year: s.year })
     ]).then(function (r) {
@@ -791,86 +877,15 @@
 
   /* ---------- สร้างร่าง / ยืนยัน / แก้ไข ----------
      ใช้ RPC เดิมของ 87_wht50.sql ทั้งหมด ไม่สร้างตัวใหม่ */
-  function whtDraft(empId, btn) {
-    if (!empId) return;
-    if (btn) btn.disabled = true;
-    sbRpc('njhr_wht50_draft', {
-      p_token: sbToken(), p_employee: empId, p_year: whtState.year
-    }).then(function () {
-      toast('สร้างร่างเอกสาร 50 ทวิ แล้ว');
-      whtLoad();
-    })['catch'](function (ex) {
-      toastDismiss('สร้างร่างไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
-      if (btn) btn.disabled = false;
-    });
-  }
-
-  function whtConfirmDoc(id, btn) {
-    if (!id) return;
-    confirmDialog('ยืนยันเอกสาร 50 ทวิ',
-      'เมื่อยืนยันแล้วระบบจะออกเลขที่เอกสาร และแก้ไขยอดไม่ได้อีก ต้องการดำเนินการหรือไม่',
-      'ยืนยันเอกสาร', function () {
-        if (btn) btn.disabled = true;
-        sbRpc('njhr_wht50_confirm', { p_token: sbToken(), p_id: id })
-          .then(function () { toast('ยืนยันเอกสารแล้ว'); whtLoad(); })
-          ['catch'](function (ex) {
-            toastDismiss('ยืนยันไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
-            if (btn) btn.disabled = false;
-          });
-      });
-  }
-
-  /* แก้ไขยอด — เปิดตัวอย่างพร้อมโหมดแก้ไข (ใช้ njhr_wht50_get / _update เดิม) */
-  function whtEdit(id) { whtPreview(id, true); }
-
-  /* ---------- ดูตัวอย่าง ----------
-     เปิด Modal ในหน้าเดิม ไม่เปิดแท็บใหม่
-     ผู้ดูแลเปิดดูไม่นับเป็น "เปิดแล้ว" — ไม่เรียก njhr_doc_view */
-  /* ---------- ตัวอย่างเอกสาร ----------
-     ใช้ Layout Definition ชุดเดียวกับ Renderer PDF:
-       normalizeWht50Snapshot() → payer/payee
-       WHT50_FORM_TYPES         → ติ๊ก ภ.ง.ด. จากค่า enum จริง
-       normalizeSection()       → ลงยอดในแถวมาตรา 40(x) ให้ถูก
-     ตรรกะเดียวกับ edge-functions/njhr-doc-pdf/wht50.ts (ดู whtModel ด้านล่าง)
-     จึงไม่มี Preview คนละแบบกับ PDF
-
-     ผู้ดูแลเปิดดูที่นี่ไม่เรียก njhr_doc_view — สถานะจึงไม่กลายเป็น OPENED */
-  function whtPreview(whtId, editMode) {
-    if (!whtId) return;
-    var r = (whtState.rows || []).filter(function (x) { return x.wht50_id === whtId; })[0] || {};
-    openModal((editMode ? 'แก้ไข' : 'ดูตัวอย่าง') + ' 50 ทวิ',
-      '<div class="ot-req-info">' +
-      [['เลขที่เอกสาร', r.doc_no || '—'], ['ปีภาษี', (whtState.year + 543)],
-       ['ผู้ถูกหักภาษี', r.full_name || '—'], ['รหัสพนักงาน', r.emp_code || '—'],
-       ['แผนก', r.department_name || '—']].map(function (x) {
-        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(String(x[1])) + '</b></div>';
-      }).join('') + '</div>' +
-      '<div class="wht-prev" id="wht-prev">' +
-      '<div class="muted" style="padding:18px">กำลังโหลดข้อมูลเอกสาร…</div></div>' +
-      '<div class="form-error" id="wht-pv-err"></div>',
-      '<button type="button" class="btn btn-ghost" id="wht-pv-close">ปิด</button>' +
-      '<button type="button" class="btn btn-primary" id="wht-pv-dl"' +
-      ((WHT_PDF_READY && r.document_id) ? '' :
-        ' disabled title="' + (r.document_id ? WHT_BLOCK_MSG : 'ยังไม่ได้ส่ง จึงยังไม่มีไฟล์') + '"') +
-      '>' + icon('download') + ' ดาวน์โหลด</button>');
-    document.getElementById('wht-pv-close').onclick = closeModal;
-    var dl = document.getElementById('wht-pv-dl');
-    if (dl) dl.onclick = function () { whtDownload(r.document_id, dl); };
-
-    /* อ่าน Snapshot จริงด้วย RPC เดิม แล้วประกอบด้วยตรรกะเดียวกับ Renderer */
-    sbRpc('njhr_wht50_get', { p_token: sbToken(), p_id: whtId }).then(function (res) {
-      var d = (res && res.data) ? res.data : res;
-      var box = document.getElementById('wht-prev');
-      if (box) box.innerHTML = whtPreviewHtml(whtModel(d || {}));
-    })['catch'](function (ex) {
-      var e = document.getElementById('wht-pv-err');
-      if (e) e.textContent = (ex && ex.message) || 'โหลดข้อมูลเอกสารไม่สำเร็จ';
-      var box = document.getElementById('wht-prev');
-      if (box) box.innerHTML = '';
-    });
-  }
-
-  /* ---------- Model กลาง (ตรรกะเดียวกับ wht50.ts) ---------- */
+  /* ============================================================
+     CANONICAL WHT50 MODEL CONTRACT (ฝั่งเบราว์เซอร์)
+     ------------------------------------------------------------
+     ต้องได้ค่าตรงกับ buildWht50Model() ใน
+     edge-functions/njhr-doc-pdf/wht50.ts ทุกช่อง
+     เบราว์เซอร์กับ Edge Function รันคนละ Runtime จึงแชร์ไฟล์กันไม่ได้
+     แต่ชื่อช่องและวิธีคำนวณต้องเหมือนกัน
+     harness/wht50_test.js ใช้ Fixture ชุดเดียวเทียบสองฝั่งทีละช่อง
+     ============================================================ */
   var WHT_FORMS = [
     ['PND1A', 'ภ.ง.ด.1ก'], ['PND1A_SPECIAL', 'ภ.ง.ด.1ก พิเศษ'], ['PND2', 'ภ.ง.ด.2'],
     ['PND3', 'ภ.ง.ด.3'], ['PND2A', 'ภ.ง.ด.2ก'], ['PND3A', 'ภ.ง.ด.3ก'], ['PND53', 'ภ.ง.ด.53']
@@ -882,6 +897,15 @@
     ['40(4)', ['40_4', '40.4', '4'], '4.', '(ก) ดอกเบี้ย ฯลฯ ตามมาตรา 40 (4) (ก)'],
     ['3TRES', ['3เตรส', '5'], '5.', 'การจ่ายเงินได้ที่ต้องหักภาษี ณ ที่จ่าย ตามคำสั่งกรมสรรพากรที่ออกตามมาตรา 3 เตรส'],
     ['OTHER', ['อื่น', '6'], '6.', 'เงินได้นอกจาก 1. – 5.']
+  ];
+  /* วิธีออกภาษี — ค่าเดียวกับ njhr_wht50.tax_payment_mode */
+  var WHT_PAYMODES = [
+    ['WITHHOLD', 'หัก ณ ที่จ่าย'], ['PAID_CONTINUOUS', 'ออกให้ตลอดไป'],
+    ['PAID_ONCE', 'ออกให้ครั้งเดียว'], ['OTHER', 'อื่น ๆ']
+  ];
+  var WHT_COPY_LABELS = [
+    'ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่ายใช้แนบพร้อมกับแบบแสดงรายการ)',
+    'ฉบับที่ 2 (สำหรับผู้ถูกหักภาษี ณ ที่จ่ายเก็บไว้เป็นหลักฐาน)'
   ];
 
   function whtSection(v) {
@@ -896,9 +920,25 @@
     return '';
   }
 
-  /* ประกอบชื่อ/ที่อยู่จาก field จริงของ Production */
-  function whtNorm(d) {
+  function whtNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function whtBeDate(v) {
+    var t = String(v == null ? '' : v).slice(0, 10);
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    return m ? (m[3] + '/' + m[2] + '/' + (Number(m[1]) + 543)) : '';
+  }
+
+  /* payer: company_name · company_address · company_tax_id
+     payee: prefix + first_name + last_name · national_id · address */
+  function normalizeWht50Snapshot(d) {
     var p = d.payer_snapshot || {}, e = d.payee_snapshot || {};
+    var built = [e.prefix, e.first_name, e.last_name]
+      .map(function (x) { return String(x == null ? '' : x).trim(); })
+      .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
     return {
       payer: {
         name: String(p.company_name || p.name || '').trim(),
@@ -906,19 +946,61 @@
         taxid: String(p.company_tax_id || p.tax_id || '').trim()
       },
       payee: {
-        name: [e.prefix, e.first_name, e.last_name]
-          .map(function (x) { return String(x || '').trim(); })
-          .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || String(e.name || '').trim(),
+        name: built || String(e.name || '').trim(),
         address: String(e.address || '').trim(),
         taxid: String(e.national_id || e.tax_id || '').trim()
       }
     };
   }
 
+  /* จำนวนเงินเป็นตัวอักษรไทย — ตรรกะเดียวกับ bahtText() ใน wht50.ts */
+  var TH_NUM = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+  var TH_POS = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
+  function whtIntThai(n) {
+    if (n === 0) return TH_NUM[0];
+    if (n >= 1000000) {
+      var high = Math.floor(n / 1000000), rest = n % 1000000;
+      return whtIntThai(high) + 'ล้าน' + (rest ? whtIntThai(rest) : '');
+    }
+    var str = String(n), out = '';
+    for (var i = 0; i < str.length; i++) {
+      var dg = Number(str[i]), pos = str.length - i - 1;
+      if (dg === 0) continue;
+      if (pos === 0 && dg === 1 && str.length > 1) out += 'เอ็ด';
+      else if (pos === 1 && dg === 1) out += 'สิบ';
+      else if (pos === 1 && dg === 2) out += 'ยี่สิบ';
+      else out += TH_NUM[dg] + TH_POS[pos];
+    }
+    return out;
+  }
+  function whtBahtText(v) {
+    if (v === null || v === undefined) return '';
+    var neg = v < 0, abs = Math.abs(Math.round(v * 100) / 100);
+    var baht = Math.floor(abs), satang = Math.round((abs - baht) * 100), out = '';
+    if (baht === 0 && satang === 0) out = 'ศูนย์บาทถ้วน';
+    else {
+      if (baht > 0) out += whtIntThai(baht) + 'บาท';
+      if (satang > 0) out += whtIntThai(satang) + 'สตางค์'; else out += 'ถ้วน';
+    }
+    return (neg ? 'ลบ' : '') + out;
+  }
+
   function whtModel(d) {
-    var np = whtNorm(d);
+    var missing = [];
+    var np = normalizeWht50Snapshot(d);
+    if (!np.payer.name) missing.push('ชื่อผู้มีหน้าที่หักภาษี ณ ที่จ่าย (payer_snapshot.company_name)');
+    if (!np.payer.taxid) missing.push('เลขประจำตัวผู้เสียภาษีอากรของบริษัท (payer_snapshot.company_tax_id)');
+    if (!np.payee.name) missing.push('ชื่อผู้ถูกหักภาษี ณ ที่จ่าย (payee_snapshot.prefix/first_name/last_name)');
+    if (!np.payee.taxid) missing.push('เลขประจำตัวประชาชนของผู้ถูกหักภาษี (payee_snapshot.national_id)');
+
     var ft = String(d.form_type || '').trim().toUpperCase();
+    if (!ft) missing.push('ประเภทแบบยื่นรายการ (form_type)');
+    else if (!WHT_FORMS.some(function (f) { return f[0] === ft; })) {
+      missing.push('form_type ไม่รู้จัก: ' + ft);
+    }
+
     var sec = whtSection(d.income_section);
+    var totalIncome = whtNum(d.total_income), totalTax = whtNum(d.total_tax);
     var byKey = {};
     var fin = d.income_final;
     var arr = Object.prototype.toString.call(fin) === '[object Array]' ? fin
@@ -930,46 +1012,357 @@
         var prev = byKey[k] || { paid_on: '', amount: 0, tax: 0 };
         byKey[k] = {
           paid_on: String(it.paid_on || it.period || prev.paid_on || ''),
-          amount: (Number(it.amount) || 0) + prev.amount,
-          tax: (Number(it.tax) || 0) + prev.tax
+          amount: (whtNum(it.amount) || 0) + (prev.amount || 0),
+          tax: (whtNum(it.tax) || 0) + (prev.tax || 0)
         };
       });
     } else if (sec) {
       byKey[sec] = {
         paid_on: d.tax_year ? ('ปีภาษี ' + (Number(d.tax_year) + 543)) : '',
-        amount: Number(d.total_income) || 0, tax: Number(d.total_tax) || 0
+        amount: totalIncome, tax: totalTax
       };
+    } else {
+      missing.push('ประเภทเงินได้ที่รู้จัก (income_section / income_final)');
     }
+
+    var pmode = String(d.tax_payment_mode || '').trim().toUpperCase();
+    var pmodeOther = String(d.tax_payment_mode_other || '').trim();
+    if (!pmode) missing.push('วิธีออกภาษี (tax_payment_mode)');
+    else if (!WHT_PAYMODES.some(function (x) { return x[0] === pmode; })) {
+      missing.push('วิธีออกภาษีไม่รู้จัก: ' + pmode);
+    } else if (pmode === 'OTHER' && !pmodeOther) {
+      missing.push('รายละเอียดวิธีออกภาษี (tax_payment_mode_other)');
+    }
+
+    var signerName = String(d.signer_name || '').trim();
+    if (!signerName) missing.push('ชื่อผู้ลงนาม');
+    var issue = whtBeDate(d.issue_date);
+    if (!issue) missing.push('วันที่ออกหนังสือรับรองฯ');
+
     return {
+      taxYear: d.tax_year == null ? null : Number(d.tax_year),
+      docNo: String(d.doc_no || ''),
+      bookNo: String(d.book_no || ''),
+      seqNo: String(d.seq_no == null ? '' : d.seq_no),
+      copyLabels: WHT_COPY_LABELS.slice(),
+      title: 'หนังสือรับรองการหักภาษี ณ ที่จ่าย',
+      subtitle: 'ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร',
       payer: np.payer, payee: np.payee,
-      forms: WHT_FORMS.map(function (f) { return { label: f[1], checked: f[0] === ft }; }),
-      seq_no: String(d.seq_no == null ? '' : d.seq_no),
-      book_no: String(d.book_no || ''), doc_no: String(d.doc_no || ''),
-      lines: WHT_ROWS.map(function (r) {
+      formType: WHT_FORMS.map(function (f) {
+        return { code: f[0], label: f[1], checked: f[0] === ft };
+      }),
+      incomeRows: WHT_ROWS.map(function (r) {
         var v = byKey[r[0]];
-        return { no: r[2], label: r[3], paid_on: v ? v.paid_on : '',
+        return { key: r[0], no: r[2], label: r[3],
+          paid_on: v ? v.paid_on : '',
           amount: v ? v.amount : null, tax: v ? v.tax : null };
       }),
-      total_income: d.total_income == null ? null : Number(d.total_income),
-      total_tax: d.total_tax == null ? null : Number(d.total_tax),
-      total_sso: d.total_sso == null ? null : Number(d.total_sso),
-      total_pvd: d.total_pvd == null ? null : Number(d.total_pvd),
-      signer_name: String(d.signer_name || ''),
-      signer_position: String(d.signer_position || ''),
-      issue_date: d.issue_date ? fmtDateDMY(d.issue_date) : ''
+      totalIncome: totalIncome, totalTax: totalTax,
+      taxWords: whtBahtText(totalTax),
+      totalGpf: null,
+      totalSso: whtNum(d.total_sso), totalPvd: whtNum(d.total_pvd),
+      paymentMode: WHT_PAYMODES.map(function (x) {
+        return { code: x[0], label: x[1], checked: x[0] === pmode };
+      }),
+      paymentModeOther: pmodeOther,
+      certifyText: 'ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ',
+      signer: { name: signerName, position: String(d.signer_position || '') },
+      issueDate: issue,
+      amendSeq: Number(d.amend_seq || 0),
+      missing: missing
     };
   }
 
-  function whtM(v) {
-    return v == null ? '' :
-      Number(v).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  /* ---------- สร้างร่าง ----------
+     Signature จริง (87_wht50.sql:271)
+       njhr_wht50_draft(p_token, p_year, p_employees uuid[], p_form_type, p_income_section)
+     p_employees เป็น array เสมอ · คืน table (employee_id, doc_id, ok, message) */
+  function whtDraft(employeeId, btn) {
+    if (!employeeId) return;
+    if (btn) btn.disabled = true;
+    sbRpcList('njhr_wht50_draft', {
+      p_token: sbToken(), p_year: whtState.year,
+      p_employees: [employeeId], p_form_type: 'PND1A', p_income_section: '40(1)'
+    }).then(function (rows) {
+      var r0 = (rows && rows[0]) || {};
+      if (r0.ok === false) {
+        toastDismiss('สร้างร่างไม่สำเร็จ', r0.message || 'ไม่ทราบสาเหตุ', 'error');
+        if (btn) btn.disabled = false;
+        return;
+      }
+      toast(r0.message || 'สร้างร่างเอกสาร 50 ทวิ แล้ว');
+      whtLoad();
+    })['catch'](function (ex) {
+      toastDismiss('สร้างร่างไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+      if (btn) btn.disabled = false;
+    });
   }
 
+  /* ---------- ยืนยันเอกสาร ----------
+     แบบฟอร์มบังคับให้ระบุวิธีออกภาษี จึงต้องมีค่าก่อนจึงยืนยันได้
+     Trigger ฝั่งฐานข้อมูลตรวจซ้ำอีกชั้น (90_wht50_pdf.sql) กันการยิงตรง */
+  function whtConfirmDoc(wht50Id, btn) {
+    if (!wht50Id) return;
+    sbRpcList('njhr_wht50_get', { p_token: sbToken(), p_id: wht50Id }).then(function (rows) {
+      var d = ((rows && rows[0]) || {}).data || {};
+      var md = String(d.tax_payment_mode || '').trim();
+      if (!md) {
+        toastDismiss('ยืนยันไม่ได้', 'กรุณาระบุวิธีออกภาษีก่อนยืนยันเอกสาร', 'error');
+        return;
+      }
+      if (md === 'OTHER' && !String(d.tax_payment_mode_other || '').trim()) {
+        toastDismiss('ยืนยันไม่ได้', 'เลือก "อื่น ๆ" ต้องระบุรายละเอียดวิธีออกภาษี', 'error');
+        return;
+      }
+      whtConfirmAsk(wht50Id, btn);
+    })['catch'](function (ex) {
+      toastDismiss('ตรวจข้อมูลไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่', 'error');
+    });
+  }
+
+  function whtConfirmAsk(wht50Id, btn) {
+    confirmDialog('ยืนยันเอกสาร 50 ทวิ',
+      'เมื่อยืนยันแล้วระบบจะออกเลขที่เอกสาร และแก้ไขยอดไม่ได้อีก ต้องการดำเนินการหรือไม่',
+      'ยืนยันเอกสาร', function () {
+        if (btn) btn.disabled = true;
+        sbRpcList('njhr_wht50_confirm', { p_token: sbToken(), p_id: wht50Id })
+          .then(function (rows) {
+            var r0 = (rows && rows[0]) || {};
+            toast('ยืนยันเอกสารแล้ว' + (r0.doc_no ? ' เลขที่ ' + r0.doc_no : ''));
+            whtLoad();
+          })['catch'](function (ex) {
+            toastDismiss('ยืนยันไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+            if (btn) btn.disabled = false;
+          });
+      });
+  }
+
+  /* ---------- แก้ไขเอกสารร่าง ----------
+     njhr_wht50_update(p_token, p_id, p_patch jsonb, p_reason)
+     ส่งเฉพาะ key ที่ RPC รับจริง */
+  function whtEdit(wht50Id) {
+    if (!wht50Id) return;
+    sbRpcList('njhr_wht50_get', { p_token: sbToken(), p_id: wht50Id }).then(function (rows) {
+      var d = ((rows && rows[0]) || {}).data || {};
+      openModal('แก้ไขเอกสาร 50 ทวิ',
+        '<div class="form-2col">' +
+        '<label class="field"><span>ประเภทแบบยื่นรายการ</span>' +
+        '<select name="form_type">' + WHT_FORMS.map(function (f) {
+          return '<option value="' + f[0] + '"' +
+            (String(d.form_type || '') === f[0] ? ' selected' : '') + '>' + esc(f[1]) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="field"><span>ประเภทเงินได้</span>' +
+        '<select name="income_section">' + WHT_ROWS.map(function (r) {
+          return '<option value="' + r[0] + '"' +
+            (String(d.income_section || '') === r[0] ? ' selected' : '') + '>' +
+            r[2] + ' ' + esc(r[3].slice(0, 40)) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="field"><span>เล่มที่</span>' +
+        '<input name="book_no" value="' + esc(d.book_no || '') + '"></label>' +
+        '<label class="field"><span>ลำดับที่ในแบบ</span>' +
+        '<input name="seq_no" type="number" min="1" value="' +
+        esc(d.seq_no == null ? '' : d.seq_no) + '"></label>' +
+        '<label class="field"><span>วันที่ออกหนังสือรับรองฯ</span>' +
+        '<input name="issue_date" type="date" value="' +
+        esc(String(d.issue_date || '').slice(0, 10)) + '"></label>' +
+        '<label class="field"><span>ชื่อผู้ลงนาม</span>' +
+        '<input name="signer_name" value="' + esc(d.signer_name || '') + '"></label>' +
+        '<label class="field"><span>ตำแหน่งผู้ลงนาม</span>' +
+        '<input name="signer_position" value="' + esc(d.signer_position || '') + '"></label>' +
+        '<label class="field"><span>วิธีออกภาษี <i class="req">*</i></span>' +
+        '<select name="tax_payment_mode" id="wht-ed-mode">' +
+        '<option value="">— เลือก —</option>' + WHT_PAYMODES.map(function (x) {
+          return '<option value="' + x[0] + '"' +
+            (String(d.tax_payment_mode || '') === x[0] ? ' selected' : '') + '>' +
+            esc(x[1]) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="field" id="wht-ed-other-wrap"' +
+        (String(d.tax_payment_mode || '') === 'OTHER' ? '' : ' hidden') + '>' +
+        '<span>ระบุวิธีออกภาษี <i class="req">*</i></span>' +
+        '<input name="tax_payment_mode_other" value="' +
+        esc(d.tax_payment_mode_other || '') + '"></label>' +
+        '<label class="field"><span>หมายเหตุ</span>' +
+        '<input name="note" value="' + esc(d.note || '') + '"></label>' +
+        '</div>' +
+        '<label class="field"><span>เหตุผลการแก้ไข</span>' +
+        '<input id="wht-ed-reason" placeholder="ระบุเหตุผลเพื่อบันทึกในประวัติ"></label>' +
+        '<div class="form-error" id="wht-ed-err"></div>',
+        '<button type="button" class="btn btn-ghost" id="wht-ed-cancel">ยกเลิก</button>' +
+        '<button type="button" class="btn btn-primary" id="wht-ed-save">บันทึก</button>');
+
+      document.getElementById('wht-ed-cancel').onclick = closeModal;
+      document.getElementById('wht-ed-mode').onchange = function () {
+        var w = document.getElementById('wht-ed-other-wrap');
+        if (w) w.hidden = this.value !== 'OTHER';
+      };
+      document.getElementById('wht-ed-save').onclick = function () {
+        var sbtn = this, errEl = document.getElementById('wht-ed-err');
+        var patch = {};
+        ['form_type', 'income_section', 'book_no', 'seq_no', 'issue_date',
+         'signer_name', 'signer_position', 'note',
+         'tax_payment_mode', 'tax_payment_mode_other'].forEach(function (k) {
+          var el = document.querySelector('#modal-root [name="' + k + '"]');
+          if (el && String(el.value).trim() !== '') patch[k] = String(el.value).trim();
+        });
+        if (patch.tax_payment_mode === 'OTHER' && !patch.tax_payment_mode_other) {
+          if (errEl) errEl.textContent = 'เลือก "อื่น ๆ" ต้องระบุรายละเอียดวิธีออกภาษี';
+          return;
+        }
+        var reason = (document.getElementById('wht-ed-reason') || {}).value || '';
+        sbtn.disabled = true;
+        sbRpcList('njhr_wht50_update', {
+          p_token: sbToken(), p_id: wht50Id, p_patch: patch, p_reason: reason || null
+        }).then(function () {
+          closeModal(); toast('บันทึกการแก้ไขแล้ว'); whtLoad();
+        })['catch'](function (ex) {
+          if (errEl) errEl.textContent = (ex && ex.message) || 'บันทึกไม่สำเร็จ';
+          sbtn.disabled = false;
+        });
+      };
+    })['catch'](function (ex) {
+      toastDismiss('เปิดเอกสารไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่', 'error');
+    });
+  }
+
+  /* ---------- สถานะ Final PDF ----------
+     njhr_wht50_send_list ไม่ได้คืน final_pdf_status จึงห้ามอ่านจากแถวในตาราง
+     ต้องถามจาก njhr_doc_pdf_status(p_token, document_id) ซึ่งคืน table(data jsonb)
+     รูปแบบเดียวกับ njhr_wht50_get จึงใช้ sbRpcList แล้วอ่าน rows[0].data ตาม Pattern เดิม
+     คืน null เมื่อยังไม่มี document_id (ยังไม่ได้ส่ง) — ผู้เรียกต้องรับมือกรณีนี้ */
+  function whtPdfStatus(documentId) {
+    if (!documentId) return Promise.resolve(null);
+    return sbRpcList('njhr_doc_pdf_status', { p_token: sbToken(), p_id: documentId })
+      .then(function (rows) { return ((rows && rows[0]) || {}).data || null; });
+  }
+
+  /* ข้อความสถานะที่ผู้ดูแลเห็น — ตรงกับค่าจริงใน constraint (PENDING/READY/FAILED) */
+  function whtPdfStatusTxt(st) {
+    if (!st) return 'ยังไม่ได้ส่ง จึงยังไม่มีไฟล์';
+    var v = st.final_pdf_status || null;
+    if (v === 'READY') return 'ไฟล์พร้อมแล้ว';
+    if (v === 'FAILED') return 'สร้างไฟล์ไม่สำเร็จ' +
+      (st.final_pdf_error ? ' — ' + st.final_pdf_error : '');
+    if (v === 'PENDING') return 'กำลังสร้างไฟล์';
+    return 'ยังไม่ได้สร้างไฟล์';
+  }
+
+  /* ---------- สร้าง Final PDF ----------
+     ผ่าน Edge Function เท่านั้น เพราะ claim/commit ต้องใช้ service_role */
+  function whtGenerate(documentId, btn) {
+    if (!documentId) return Promise.reject(new Error('ยังไม่มีเอกสาร'));
+    if (btn) btn.disabled = true;
+    return sbDocPdfFn({ action: 'generate', document_id: documentId })
+      .then(function (d) { if (btn) btn.disabled = false; return d; })
+      ['catch'](function (ex) { if (btn) btn.disabled = false; throw ex; });
+  }
+
+  /* ---------- ตัวอย่างเอกสาร (ฝั่งผู้ดูแล) ----------
+     ใช้ Model กลางชุดเดียวกับ Renderer PDF
+     ผู้ดูแลเปิดดูที่นี่ไม่เรียก njhr_doc_view — สถานะจึงไม่กลายเป็น OPENED */
+  function whtPreview(wht50Id) {
+    if (!wht50Id) return;
+    var r = (whtState.rows || []).filter(function (x) { return x.wht50_id === wht50Id; })[0] || {};
+    /* ห้ามเดาสถานะไฟล์จากแถวในตาราง — njhr_wht50_send_list ไม่ได้คืน final_pdf_status
+       เปิดหน้าต่างด้วยโหมด "ตัวอย่างก่อนสร้าง Final PDF" ไปก่อน
+       แล้วถาม njhr_doc_pdf_status ทีหลัง ถ้าไฟล์พร้อมจริงจึงเพิ่มปุ่มดูไฟล์จริงให้ */
+    openModal('ดูตัวอย่าง 50 ทวิ',
+      '<div class="ot-req-info">' +
+      [['เลขที่เอกสาร', r.doc_no || '—'], ['ปีภาษี', (whtState.year + 543)],
+       ['ผู้ถูกหักภาษี', r.full_name || '—'], ['รหัสพนักงาน', r.emp_code || '—'],
+       ['แผนก', r.department_name || '—']].map(function (x) {
+        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(String(x[1])) + '</b></div>';
+      }).join('') + '</div>' +
+      '<div class="wht-prev-tabs" id="wht-pv-tabs" hidden></div>' +
+      '<div class="ot-warn wht-pv-note" id="wht-pv-note">' + icon('info', 'ic-sm') +
+      ' ตัวอย่างก่อนสร้าง Final PDF — ยังไม่ใช่ไฟล์ที่ส่งให้พนักงาน</div>' +
+      '<div class="wht-prev" id="wht-prev">' +
+      '<div class="muted" style="padding:18px">กำลังโหลดข้อมูลเอกสาร…</div></div>' +
+      '<div class="form-error" id="wht-pv-err"></div>',
+      '<button type="button" class="btn btn-ghost" id="wht-pv-close">ปิด</button>' +
+      '<button type="button" class="btn btn-primary" id="wht-pv-dl" disabled ' +
+      'title="กำลังตรวจสถานะไฟล์">' + icon('download') + ' ดาวน์โหลด</button>');
+    document.getElementById('wht-pv-close').onclick = closeModal;
+    var dlb = document.getElementById('wht-pv-dl');
+    if (dlb) dlb.onclick = function () { whtDownload(r.document_id, dlb); };
+
+    whtPreviewLoad(wht50Id);
+
+    /* ถามสถานะไฟล์จริงจาก RPC แล้วค่อยเปิดปุ่มตามผลที่ได้ */
+    whtPdfStatus(r.document_id).then(function (st) {
+      var note = document.getElementById('wht-pv-note');
+      var tabs = document.getElementById('wht-pv-tabs');
+      var ready = !!(st && st.final_pdf_status === 'READY' && st.can_download);
+
+      if (note) {
+        note.innerHTML = icon('info', 'ic-sm') + ' ' +
+          (ready ? 'ไฟล์ Final PDF พร้อมแล้ว — กดปุ่มด้านล่างเพื่อดูไฟล์จริง'
+                 : 'ตัวอย่างก่อนสร้าง Final PDF — ' + esc(whtPdfStatusTxt(st)));
+      }
+      if (dlb) {
+        if (ready && WHT_PDF_READY) { dlb.disabled = false; dlb.title = ''; }
+        else {
+          dlb.disabled = true;
+          dlb.title = ready ? WHT_BLOCK_MSG : 'PDF ยังไม่พร้อมดาวน์โหลด';
+        }
+      }
+      if (ready && tabs) {
+        tabs.hidden = false;
+        tabs.innerHTML =
+          '<button type="button" class="btn btn-ghost btn-sm" id="wht-pv-model">ดูจากข้อมูล</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="wht-pv-file">ดูไฟล์ PDF จริง</button>';
+        document.getElementById('wht-pv-model').onclick = function () {
+          if (note) note.hidden = false;
+          whtPreviewLoad(wht50Id);
+        };
+        document.getElementById('wht-pv-file').onclick = function () {
+          var box = document.getElementById('wht-prev');
+          if (note) note.hidden = true;
+          box.innerHTML = '<div class="muted" style="padding:18px">กำลังเปิดไฟล์…</div>';
+          sbDocPdfFn({ action: 'download', document_id: r.document_id }).then(function (x) {
+            if (!x || !x.url) throw new Error('เปิดไฟล์ไม่สำเร็จ');
+            box.innerHTML = '<iframe class="wht50-emp-pdf" src="' + esc(x.url) + '" title="50 ทวิ"></iframe>';
+          })['catch'](function (ex) {
+            box.innerHTML = '<div class="ot-warn">' + esc((ex && ex.message) || 'เปิดไฟล์ไม่สำเร็จ') + '</div>';
+          });
+        };
+      }
+    })['catch'](function (ex) {
+      var note = document.getElementById('wht-pv-note');
+      if (note) {
+        note.innerHTML = icon('info', 'ic-sm') + ' ตัวอย่างก่อนสร้าง Final PDF — ' +
+          'ตรวจสถานะไฟล์ไม่สำเร็จ: ' + esc((ex && ex.message) || 'ไม่ทราบสาเหตุ');
+      }
+    });
+  }
+
+  function whtPreviewLoad(wht50Id) {
+    var box = document.getElementById('wht-prev');
+    if (box) box.innerHTML = '<div class="muted" style="padding:18px">กำลังโหลดข้อมูลเอกสาร…</div>';
+    sbRpcList('njhr_wht50_get', { p_token: sbToken(), p_id: wht50Id }).then(function (rows) {
+      var d = ((rows && rows[0]) || {}).data || {};
+      var b = document.getElementById('wht-prev');
+      if (b) b.innerHTML = whtPreviewHtml(whtModel(d));
+    })['catch'](function (ex) {
+      var e = document.getElementById('wht-pv-err');
+      if (e) e.textContent = (ex && ex.message) || 'โหลดข้อมูลเอกสารไม่สำเร็จ';
+    });
+  }
+
+  function whtM(v) {
+    return v === null || v === undefined ? '' :
+      Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /* ตัวอย่างเอกสาร — องค์ประกอบครบเท่าที่ Renderer วาดลง PDF */
   function whtPreviewHtml(m) {
     return '<div class="wht-form">' +
-      '<div class="wht-f-head"><b>หนังสือรับรองการหักภาษี ณ ที่จ่าย</b>' +
-      '<small>ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</small>' +
-      '<small>เล่มที่ ' + esc(m.book_no || '—') + ' · เลขที่ ' + esc(m.doc_no || '—') + '</small></div>' +
+      '<div class="wht-f-copies">' + m.copyLabels.map(function (c) {
+        return '<div>' + esc(c) + '</div>';
+      }).join('') + '</div>' +
+      '<div class="wht-f-head"><b>' + esc(m.title) + '</b>' +
+      '<small>' + esc(m.subtitle) + '</small>' +
+      '<small>เล่มที่ ' + esc(m.bookNo || '—') + ' · เลขที่ ' + esc(m.docNo || '—') +
+      (m.amendSeq > 0 ? ' · (ฉบับแก้ไขครั้งที่ ' + m.amendSeq + ')' : '') + '</small></div>' +
       '<div class="wht-f-party"><b>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย</b>' +
       '<div>ชื่อ: ' + esc(m.payer.name || '—') + '</div>' +
       '<div>ที่อยู่: ' + esc(m.payer.address || '—') + '</div>' +
@@ -978,44 +1371,73 @@
       '<div>ชื่อ: ' + esc(m.payee.name || '—') + '</div>' +
       '<div>ที่อยู่: ' + esc(m.payee.address || '—') + '</div>' +
       '<div>เลขประจำตัวประชาชน: ' + esc(m.payee.taxid || '—') + '</div>' +
-      '<div>ลำดับที่ในแบบ: ' + esc(m.seq_no || '—') + '</div></div>' +
-      '<div class="wht-f-forms">' + m.forms.map(function (f) {
+      '<div>ลำดับที่ในแบบ: ' + esc(m.seqNo || '—') + '</div></div>' +
+      '<div class="wht-f-forms">' + m.formType.map(function (f) {
         return '<span class="wht-f-ck' + (f.checked ? ' on' : '') + '">' +
           (f.checked ? '☑' : '☐') + ' ' + esc(f.label) + '</span>';
       }).join('') + '</div>' +
       '<table class="wht-f-tb"><thead><tr>' +
       '<th>ประเภทเงินได้พึงประเมินที่จ่าย</th><th>วัน เดือน หรือปีภาษีที่จ่าย</th>' +
       '<th>จำนวนเงินที่จ่าย</th><th>ภาษีที่หักและนำส่งไว้</th></tr></thead><tbody>' +
-      m.lines.map(function (l) {
+      m.incomeRows.map(function (l) {
         return '<tr><td>' + l.no + ' ' + esc(l.label) + '</td><td>' + esc(l.paid_on) + '</td>' +
           '<td class="wht-num">' + whtM(l.amount) + '</td>' +
           '<td class="wht-num">' + whtM(l.tax) + '</td></tr>';
       }).join('') +
       '<tr class="wht-f-sum"><td><b>รวมเงินที่จ่ายและภาษีที่หักนำส่ง</b></td><td></td>' +
-      '<td class="wht-num"><b>' + whtM(m.total_income) + '</b></td>' +
-      '<td class="wht-num"><b>' + whtM(m.total_tax) + '</b></td></tr>' +
+      '<td class="wht-num"><b>' + whtM(m.totalIncome) + '</b></td>' +
+      '<td class="wht-num"><b>' + whtM(m.totalTax) + '</b></td></tr>' +
+      '<tr><td colspan="2">รวมเงินภาษีที่หักนำส่ง (ตัวอักษร)</td>' +
+      '<td colspan="2"><b>' + esc(m.taxWords || '—') + '</b></td></tr>' +
       '</tbody></table>' +
-      '<div class="wht-f-fund">เงินที่จ่ายเข้า · กองทุนประกันสังคม ' + whtM(m.total_sso) +
-      ' · กองทุนสำรองเลี้ยงชีพ ' + whtM(m.total_pvd) + '</div>' +
-      '<div class="wht-f-sign">ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ' +
-      '<div>ลงชื่อ ' + esc(m.signer_name || '—') + ' ผู้จ่ายเงิน</div>' +
-      (m.signer_position ? '<div>' + esc(m.signer_position) + '</div>' : '') +
-      '<div>วัน เดือน ปี ที่ออกหนังสือรับรองฯ ' + esc(m.issue_date || '—') + '</div></div>' +
+      '<div class="wht-f-fund">เงินที่จ่ายเข้า · ' +
+      'กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน ' + (whtM(m.totalGpf) || '—') +
+      ' · กองทุนประกันสังคม ' + (whtM(m.totalSso) || '—') +
+      ' · กองทุนสำรองเลี้ยงชีพ ' + (whtM(m.totalPvd) || '—') + '</div>' +
+      '<div class="wht-f-fund">ผู้จ่ายเงิน · ' + m.paymentMode.map(function (p, i) {
+        return '<span class="wht-f-ck' + (p.checked ? ' on' : '') + '">' +
+          (p.checked ? '☑' : '☐') + ' (' + (i + 1) + ') ' + esc(p.label) + '</span>';
+      }).join(' ') + (m.paymentModeOther ? ' — ' + esc(m.paymentModeOther) : '') + '</div>' +
+      '<div class="wht-f-sign">' + esc(m.certifyText) +
+      '<div>ลงชื่อ ' + esc(m.signer.name || '—') + ' ผู้จ่ายเงิน</div>' +
+      (m.signer.position ? '<div>' + esc(m.signer.position) + '</div>' : '') +
+      '<div>วัน เดือน ปี ที่ออกหนังสือรับรองฯ ' + esc(m.issueDate || '—') + '</div></div>' +
+      '<div class="wht-f-seal">ประทับตรานิติบุคคล (ถ้ามี)</div>' +
+      (m.missing.length
+        ? '<div class="form-error">ข้อมูลยังไม่ครบ ' + m.missing.length + ' รายการ — ' +
+          esc(m.missing.join(' · ')) + '</div>'
+        : '') +
       '</div>';
   }
 
-  function whtDownload(docId, btn) {
+  /* ---------- ดาวน์โหลด Final PDF ----------
+     ต้องผ่าน Edge Function (action = download) เท่านั้น
+     njhr_doc_pdf_access ถูก revoke จาก anon/authenticated และคืน storage_path ไม่ใช่ URL */
+  function whtDownload(documentId, btn) {
     if (!WHT_PDF_READY) { toast(WHT_BLOCK_MSG, 'info'); return; }
-    /* docId ที่รับเข้ามาคือ document_id (ของ njhr_emp_documents) */
-    var r = (whtState.rows || []).filter(function (x) { return x.document_id === docId; })[0];
+    if (!documentId) {
+      toastDismiss('ดาวน์โหลดไม่ได้', 'ยังไม่ได้ส่งเอกสาร จึงยังไม่มีไฟล์', 'error');
+      return;
+    }
+    var r = (whtState.rows || []).filter(function (x) { return x.document_id === documentId; })[0];
     var fname = '50ทวิ_' + (whtState.year + 543) + '_' + ((r && r.emp_code) || 'EMP') + '.pdf';
     if (btn) btn.disabled = true;
-    sbRpc('njhr_doc_pdf_access', { p_token: sbToken(), p_id: docId })
-      .then(function (d) {
-        var u = (d && (d.url || (d.data && d.data.url)));
-        if (!u) throw new Error('ออกลิงก์ไฟล์ไม่สำเร็จ');
-        fileDownload(u, fname);
-      })['catch'](function (ex) {
-        toastDismiss('ดาวน์โหลดไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
-      }).then(function () { if (btn) btn.disabled = false; });
+    /* ตรวจสถานะจริงก่อนเสมอ — ห้ามยิง Download ทั้งที่ไฟล์ยังไม่พร้อม
+       เพราะ Edge จะตอบ error ที่ผู้ใช้อ่านไม่รู้เรื่อง และเสียเวลารอเปล่า */
+    whtPdfStatus(documentId).then(function (st) {
+      if (!st || st.final_pdf_status !== 'READY' || !st.can_download) {
+        var why = (st && st.final_pdf_status === 'FAILED')
+          ? ('สร้างไฟล์ไม่สำเร็จ' + (st.final_pdf_error ? ' — ' + st.final_pdf_error : ''))
+          : whtPdfStatusTxt(st);
+        toastDismiss('PDF ยังไม่พร้อมดาวน์โหลด', why, 'error');
+        return null;
+      }
+      return sbDocPdfFn({ action: 'download', document_id: documentId })
+        .then(function (d) {
+          if (!d || !d.url) throw new Error('ออกลิงก์ไฟล์ไม่สำเร็จ');
+          fileDownload(d.url, d.file_name || fname);
+        });
+    })['catch'](function (ex) {
+      toastDismiss('ดาวน์โหลดไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+    }).then(function () { if (btn) btn.disabled = false; });
   }

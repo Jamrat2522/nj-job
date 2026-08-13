@@ -2236,25 +2236,104 @@ body.njhr-busy { cursor: progress; }
   /* ความกว้างคอลัมน์แยกตามตาราง เพราะตารางลางานมี 8 คอลัมน์ (เพิ่ม "จำนวนวัน")
      ส่วนตาราง OT ยังมี 7 คอลัมน์ — ค่าของ OT คงเดิมทุกตัวเลข ไม่เปลี่ยนหน้าตา
      เลขคำขอ · ประเภท · วันที่ · ช่วงเวลา · ไฟล์แนบ · สถานะ · ปุ่ม */
-  /* เลขคำขอ · ประเภท · ประเภทงาน · วันที่ · ช่วงเวลา · จำนวนชั่วโมง · ไฟล์แนบ · สถานะ · ปุ่ม */
-  .lvt-ot thead th:nth-child(1) { width: 12%; }
-  .lvt-ot thead th:nth-child(2) { width: 11%; }
-  .lvt-ot thead th:nth-child(3) { width: 13%; }
-  .lvt-ot thead th:nth-child(4) { width: 12%; }
-  .lvt-ot thead th:nth-child(5) { width: 13%; }
-  .lvt-ot thead th:nth-child(6) { width: 10%; }
-  .lvt-ot thead th:nth-child(7) { width: 10%; }
-  .lvt-ot thead th:nth-child(8) { width: 8%; }
-  .lvt-ot thead th:nth-child(9) { width: 11%; }
-  /* เลขคำขอ · ประเภท · วันที่ · รูปแบบการลา · จำนวนวัน · ไฟล์แนบ · สถานะ · ปุ่ม */
-  .lvt-lv thead th:nth-child(1) { width: 13%; }
-  .lvt-lv thead th:nth-child(2) { width: 15%; }
-  .lvt-lv thead th:nth-child(3) { width: 16%; }
-  .lvt-lv thead th:nth-child(4) { width: 12%; }
-  .lvt-lv thead th:nth-child(5) { width: 10%; }
-  .lvt-lv thead th:nth-child(6) { width: 11%; }
-  .lvt-lv thead th:nth-child(7) { width: 9%; }
-  .lvt-lv thead th:nth-child(8) { width: 14%; }
+  /* ตาราง OT มี 10 คอลัมน์ (เพิ่ม "ชื่อพนักงาน" ต่อจากเลขคำขอ)
+     เลขคำขอ · ชื่อพนักงาน · ประเภท · ประเภทงาน · วันที่ · ช่วงเวลา ·
+     จำนวนชั่วโมง · ไฟล์แนบ · สถานะ · ปุ่ม  — รวม 100% พอดี */
+  .lvt-ot thead th:nth-child(1) { width: 10%; }   /* เลขคำขอ */
+  .lvt-ot thead th:nth-child(2) { width: 14%; }   /* ชื่อพนักงาน */
+  .lvt-ot thead th:nth-child(3) { width: 10%; }   /* ประเภท */
+  .lvt-ot thead th:nth-child(4) { width: 11%; }   /* ประเภทงาน */
+  .lvt-ot thead th:nth-child(5) { width: 10%; }   /* วันที่ */
+  .lvt-ot thead th:nth-child(6) { width: 12%; }   /* ช่วงเวลา */
+  .lvt-ot thead th:nth-child(7) { width: 9%; }    /* จำนวนชั่วโมง */
+  .lvt-ot thead th:nth-child(8) { width: 10%; }   /* ไฟล์แนบ */
+  .lvt-ot thead th:nth-child(9) { width: 8%; }    /* สถานะ */
+  .lvt-ot thead th:nth-child(10) { width: 6%; }   /* ปุ่มจัดการ */
+  /* ชื่อพนักงานยาวได้ ตัดด้วย ellipsis ไม่ให้ดันคอลัมน์อื่น */
+  .lvt-ot tbody td.lvt-c-emp b {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ---------- ขนาดและน้ำหนักตัวอักษรเฉพาะตาราง OT บนจอคอม ----------
+     เดิมใช้ค่ากลางร่วมกับตารางลางาน (หัว 12.5px · ข้อมูล 15px หนา 600)
+     ซึ่งใหญ่และหนาเกินไปเมื่อมี 10 คอลัมน์ จึงย่อและลดน้ำหนักเฉพาะ .lvt-ot
+     ตารางลางาน (.lvt-lv) และการ์ดมือถือไม่ถูกแตะแม้แต่กฎเดียว */
+  .lvt-ot thead th { font-size: 11.5px; font-weight: 500; padding: 10px 10px; }
+  .lvt-ot tbody td { padding: 10px 10px; }
+  .lvt-ot tbody td b { font-size: 12.5px; font-weight: 500; }
+  .lvt-ot tbody td small { font-size: 11.5px; margin-top: 2px; }
+  .lvt-ot tbody td .chip { font-size: 11.5px; font-weight: 500; padding: 3px 8px; }
+  .lvt-ot .lvt-file { font-size: 11.5px; }
+  .lvt-ot .lvt-file .ic { width: 14px; height: 14px; }
+  .lvt-ot .lvt-c-st .badge { font-size: 11.5px; font-weight: 500; }
+  /* ปุ่มจัดการ — ตัวอักษรบางลงและเล็กลงให้เข้าชุดกับตาราง */
+  .lvt-ot .lvt-acts .btn { font-size: 11.5px; font-weight: 500; padding: 0 9px; min-height: 30px; }
+  .lvt-ot .lv-eye {
+    width: 32px; height: 32px; min-width: 32px; min-height: 32px; border-radius: 9px;
+  }
+  .lvt-ot .lv-eye .ic { width: 16px; height: 16px; }
+
+  /* จอคอมแคบ 901–1280px — ย่อลงอีกขั้นให้ 10 คอลัมน์ยังอยู่ในกรอบ */
+  @media (max-width: 1280px) {
+    .lvt-ot thead th { font-size: 11px; padding: 9px 7px; }
+    .lvt-ot tbody td { padding: 9px 7px; }
+    .lvt-ot tbody td b { font-size: 12px; }
+    .lvt-ot tbody td .chip { font-size: 11px; padding: 3px 6px; }
+    .lvt-ot .lvt-file { font-size: 11px; }
+    .lvt-ot .lvt-acts .btn { font-size: 11px; padding: 0 7px; }
+  }
+  /* ตารางลางานมี 9 คอลัมน์ (เพิ่ม "ชื่อพนักงาน" ต่อจากเลขคำขอ)
+     เลขคำขอ · ชื่อพนักงาน · ประเภท · วันที่ · รูปแบบการลา · จำนวนวัน · ไฟล์แนบ · สถานะ · ปุ่ม
+     รวม 100% พอดี — ตาราง OT ด้านบนยังเป็น 9 คอลัมน์เดิม ค่าไม่ถูกแตะ */
+  .lvt-lv thead th:nth-child(1) { width: 11%; }   /* เลขคำขอ */
+  .lvt-lv thead th:nth-child(2) { width: 15%; }   /* ชื่อพนักงาน */
+  .lvt-lv thead th:nth-child(3) { width: 11%; }   /* ประเภท */
+  .lvt-lv thead th:nth-child(4) { width: 15%; }   /* วันที่ (อาจเป็นช่วง) */
+  .lvt-lv thead th:nth-child(5) { width: 11%; }   /* รูปแบบการลา */
+  .lvt-lv thead th:nth-child(6) { width: 8%; }    /* จำนวนวัน */
+  .lvt-lv thead th:nth-child(7) { width: 11%; }   /* ไฟล์แนบ */
+  .lvt-lv thead th:nth-child(8) { width: 9%; }    /* สถานะ */
+  .lvt-lv thead th:nth-child(9) { width: 9%; }    /* ปุ่มดูรายละเอียด */
+  /* ชื่อพนักงานยาวได้ ตัดด้วย ellipsis ไม่ให้ดันคอลัมน์อื่น */
+  .lvt-lv tbody td.lvt-c-emp b {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ---------- ขนาดตัวอักษรเฉพาะตารางลางานบนจอคอม ----------
+     เดิมใช้ค่ากลางร่วมกับตาราง OT (หัว 12.5px · ข้อมูล 15px)
+     ซึ่งใหญ่เกินไปเมื่อมี 9 คอลัมน์ จึงย่อลงเฉพาะ .lvt-lv
+     ตาราง OT (.lvt-ot) และการ์ดมือถือไม่ถูกแตะแม้แต่กฎเดียว */
+  /* ⚠ ห้ามมีตัวหนาในหน้าต่างนี้
+     ตัว <b> ในแต่ละช่องได้ font-weight: 700 มาจากค่าเริ่มต้นของเบราว์เซอร์
+     หัวตารางได้ 600 จาก .lvt thead th · Badge ได้ 600 จากกฎ Desktop ที่บรรทัด 1200
+     จึงต้องเขียนทับทั้งสามจุดให้เหลือ 400/500 ไม่งั้นยังหนาอยู่เหมือนเดิม */
+  .lvt-lv thead th { font-size: 11.5px; font-weight: 500; padding: 10px 12px; }
+  .lvt-lv tbody td { padding: 10px 12px; font-weight: 400; }
+  .lvt-lv tbody td b { font-size: 13px; font-weight: 400; }
+  .lvt-lv tbody td small { font-size: 11.5px; font-weight: 400; margin-top: 2px; }
+  .lvt-lv tbody td .chip { font-size: 11.5px; font-weight: 500; padding: 3px 9px; }
+  .lvt-lv .lvt-file { font-size: 12px; font-weight: 400; }
+  .lvt-lv .lvt-file .ic { width: 14px; height: 14px; }
+  .lvt-lv .lvt-c-st .badge { font-size: 11.5px; font-weight: 500; }
+  /* ปุ่มยกเลิกคำขอ — เบาลงให้เข้าชุดกับตาราง (ยังเป็นปุ่มเดิม Handler เดิม) */
+  .lvt-lv .lvt-acts .btn { font-size: 11.5px; font-weight: 500; padding: 0 9px; min-height: 30px; }
+  .lvt-lv .lv-eye {
+    width: 34px; height: 34px; min-width: 34px; min-height: 34px; border-radius: 9px;
+  }
+  .lvt-lv .lv-eye .ic { width: 17px; height: 17px; }
+  /* กันตัวหนาหลุดเข้ามาจากกฎอื่นในอนาคต — ทุก element ในตารางลางานต้องไม่เกิน 500 */
+  .lvt-lv strong, .lvt-lv th, .lvt-lv td, .lvt-lv td * { font-weight: inherit; }
+  .lvt-lv tbody td b, .lvt-lv tbody td strong { font-weight: 400; }
+
+  /* จอคอมแคบ 901–1280px — ย่อลงอีกขั้นให้ 9 คอลัมน์ยังอยู่ในกรอบ */
+  @media (max-width: 1280px) {
+    .lvt-lv thead th { font-size: 11px; padding: 9px 9px; }
+    .lvt-lv tbody td { padding: 9px 9px; }
+    .lvt-lv tbody td b { font-size: 12.5px; }
+    .lvt-lv tbody td .chip { font-size: 11px; padding: 3px 7px; }
+    .lvt-lv .lvt-file { font-size: 11.5px; }
+    .lvt-lv .lvt-acts .btn { font-size: 11px; padding: 0 7px; }
+  }
   .lvt tbody td {
     padding: 12px 16px; border-bottom: 1px solid var(--line);
     vertical-align: middle; min-width: 0;
@@ -2360,6 +2439,13 @@ body.njhr-busy { cursor: progress; }
   .wht-f-sum td { background: var(--bg); }
   .wht-f-fund, .wht-f-sign { font-size: 12px; margin-top: 8px; }
   .wht-f-sign { text-align: right; }
+  .wht-f-copies { font-size: 10.5px; color: var(--ink-2); text-align: right; margin-bottom: 6px; }
+  .wht-f-seal { margin-top: 10px; border: 1px dashed var(--line); border-radius: 8px;
+    padding: 14px; width: 180px; text-align: center; font-size: 11px; color: var(--ink-2); }
+  .wht-prev-tabs { display: flex; gap: 8px; margin-top: 10px; }
+  .wht-pv-note { margin-top: 10px; }
+  .wht50-emp-pdf { width: 100%; height: 62vh; border: 1px solid var(--line); border-radius: 8px; }
+  @media (max-width: 900px) { .wht50-emp-pdf { height: 54vh; } }
   .lvt-wht .wht-ck { width: 38px; text-align: center; }
   .lvt-wht tr.wht-nopick { opacity: .72; }
   .wht-sum { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }

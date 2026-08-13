@@ -308,30 +308,108 @@
         var otId = res && res.id;
         if (!otId) throw new Error('เซิร์ฟเวอร์ไม่ได้คืนเลขคำขอ');
         var hrs = (res && res.ot_hours != null) ? res.ot_hours : total;
-        /* ลงทะเบียนไฟล์แนบกับคำขอจริงในฐานข้อมูล (job_no เรียงตามลำดับที่ส่งไป) */
+        /* ลงทะเบียนไฟล์แนบกับคำขอจริงในฐานข้อมูล (job_no เรียงตามลำดับที่ส่งไป)
+           ต้องรอให้ครบทุกไฟล์ก่อนปิดหน้าต่างและขึ้นข้อความสำเร็จ
+           ไม่งั้นจะเกิดกรณี "แจ้งว่าสำเร็จแล้ว แต่ไฟล์แนบยังลงทะเบียนไม่ครบ"
+           ซึ่งผู้อนุมัติจะเปิดดูแล้วไม่เห็นไฟล์โดยไม่มีใครรู้ */
+        var attachJobs = [];
         jobs.forEach(function (j, i) {
           (j.files || []).forEach(function (f) {
             if (!f.path) return;
-            sbRpc('njhr_ot_attach_add', {
-              p_token: sbToken(), p_ot_id: otId, p_job_no: i + 1, p_job_code: j.job.trim(),
-              p_file_name: f.name, p_file_path: f.path, p_file_url: f.url,
-              p_file_size: f.size, p_content_type: f.type || null
-            })['catch'](function (er) {
-              console.error('[OT] njhr_ot_attach_add ล้มเหลว:', er);
-            });
+            attachJobs.push({ job: j, idx: i, file: f });
           });
         });
-        var noEl = document.getElementById('otf-no');
-        if (noEl) { noEl.textContent = otId; noEl.classList.remove('muted'); }
-        closeModal();
-        toast('ส่งคำขอ OT แล้ว · ' + jobsPayload.length + ' รายการ รวม ' + hrs + ' ชม.');
-        refreshOtPending();              // ยื่นคำขอใหม่ → นับ Badge ใหม่
-        viewOT(listEl);
+
+        var attachFail = [];
+        return Promise.all(attachJobs.map(function (t) {
+          return sbRpc('njhr_ot_attach_add', {
+            p_token: sbToken(), p_ot_id: otId, p_job_no: t.idx + 1, p_job_code: t.job.job.trim(),
+            p_file_name: t.file.name, p_file_path: t.file.path, p_file_url: t.file.url,
+            p_file_size: t.file.size, p_content_type: t.file.type || null
+          })['catch'](function (er) {
+            /* เก็บไว้รายงานรวม ไม่ throw เพื่อให้ไฟล์ที่เหลือลงทะเบียนต่อจนครบ
+               คำขอถูกบันทึกไปแล้วจริง จึงไม่ย้อนสถานะ แต่ต้องบอกผู้ใช้ตามจริง */
+            console.error('[OT] njhr_ot_attach_add ล้มเหลว:', er);
+            /* เก็บข้อมูลครบทุกช่องเพื่อให้แนบใหม่ได้โดยไม่ต้องอัปโหลดไฟล์ซ้ำ
+               (ไฟล์อยู่บน Storage แล้ว ขาดแค่การลงทะเบียนใน njhr_ot_attachments) */
+            attachFail.push({
+              name: t.file.name, path: t.file.path, url: t.file.url,
+              size: t.file.size, type: t.file.type,
+              job_no: t.idx + 1, job_code: t.job.job.trim(),
+              msg: (er && er.message) || 'ไม่ทราบสาเหตุ'
+            });
+          });
+        })).then(function () {
+          var noEl = document.getElementById('otf-no');
+          if (noEl) { noEl.textContent = otId; noEl.classList.remove('muted'); }
+
+          if (attachFail.length) {
+            /* ---------- คำขอถูกสร้างแล้ว แต่ไฟล์แนบไม่ครบ ----------
+               ห้ามเปิดปุ่ม "ส่งคำขอ" อีก เพราะจะเกิดคำขอ OT ซ้ำ
+               (njhr_ot_submit ไม่มี Duplicate Guard — ยิงซ้ำได้แถวใหม่ทันที)
+               จึงคง submitting = true ไว้ตลอด แล้วเปลี่ยนปุ่มเป็น "แนบไฟล์ใหม่"
+               ซึ่งยิงเฉพาะ njhr_ot_attach_add ของไฟล์ที่ล้ม โดยใช้ ot_id เดิม */
+            otAttachRecover(otId, attachFail, attachJobs.length, btn, err, listEl);
+            return;
+          }
+
+          closeModal();
+          toast('ส่งคำขอ OT แล้ว · ' + jobsPayload.length + ' รายการ รวม ' + hrs + ' ชม.' +
+            (attachJobs.length ? ' · แนบไฟล์ ' + attachJobs.length + ' ไฟล์' : ''));
+          refreshOtPending();            // ยื่นคำขอใหม่ → นับ Badge ใหม่
+          viewOT(listEl);
+        });
       })['catch'](function (ex) {
         submitting = false;
         btn.disabled = false; btn.innerHTML = 'ส่งคำขอ';
         console.error('[OT] njhr_ot_submit ล้มเหลว:', ex);
         err.textContent = (ex && ex.message) || 'ส่งคำขอไม่สำเร็จ';
+      });
+    };
+  }
+
+  /* ---------- แนบไฟล์ใหม่เฉพาะที่ล้มเหลว ----------
+     ใช้คำขอ OT เดิมที่สร้างสำเร็จไปแล้ว จึงไม่มีทางเกิดคำขอซ้ำ
+     ไฟล์ที่แนบสำเร็จรอบก่อนไม่ถูกส่งซ้ำ จึงไม่มีไฟล์แนบซ้ำ
+     ปุ่ม "ส่งคำขอ" ไม่กลับมาอีกในหน้าต่างนี้ */
+  function otAttachRecover(otId, failed, totalFiles, btn, err, listEl) {
+    var pending = failed.slice();
+
+    function paint() {
+      err.innerHTML =
+        '<b>สร้างคำขอ OT เลขที่ ' + esc(String(otId)) + ' แล้ว</b><br>' +
+        'แต่แนบไฟล์ไม่สำเร็จ ' + pending.length + ' จาก ' + totalFiles + ' ไฟล์:<br>' +
+        pending.map(function (x) { return '· ' + esc(x.name); }).join('<br>');
+      btn.disabled = false;
+      btn.innerHTML = 'แนบไฟล์ใหม่ (' + pending.length + ')';
+    }
+    paint();
+
+    /* เปลี่ยนหน้าที่ของปุ่มเดิม — ไม่เรียก njhr_ot_submit อีกแล้ว */
+    btn.onclick = function () {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> กำลังแนบไฟล์…';
+      var stillFail = [];
+      Promise.all(pending.map(function (t) {
+        return sbRpc('njhr_ot_attach_add', {
+          p_token: sbToken(), p_ot_id: otId, p_job_no: t.job_no, p_job_code: t.job_code,
+          p_file_name: t.name, p_file_path: t.path, p_file_url: t.url,
+          p_file_size: t.size, p_content_type: t.type || null
+        })['catch'](function (er) {
+          console.error('[OT] แนบไฟล์ใหม่ล้มเหลว:', er);
+          stillFail.push(t);
+        });
+      })).then(function () {
+        if (stillFail.length) {
+          pending = stillFail;
+          paint();
+          return;
+        }
+        /* ครบแล้วจึงถือว่าสำเร็จ */
+        closeModal();
+        toast('แนบไฟล์ครบแล้ว · คำขอ OT เลขที่ ' + otId);
+        refreshOtPending();
+        viewOT(listEl);
       });
     };
   }

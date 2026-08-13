@@ -1575,10 +1575,35 @@ select.gf-sort {
 /* ออกจากระบบ — คั่นด้วยเส้นบาง ๆ ตามภาพ */
 .pfm-item.pf-m-out { margin-top: 8px; border-top: 1px solid #1E3A6B; }
 
-/* การ์ดเดิมของ Desktop — ซ่อนบนมือถือ เปิดเมื่อกด "ข้อมูลส่วนตัว" */
+/* ---------- รูปโปรไฟล์บนมือถือ ---------- */
+.pfm-ava { position: relative; display: inline-flex; flex: none; }
+.pfm-photo-img {
+  width: 58px; height: 58px; border-radius: 50%; object-fit: cover;
+  display: block; background: #E2E8F0;
+}
+.pfm-cam {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #1D4ED8; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid #0B2A5B; cursor: pointer;
+}
+.pfm-cam .ic { width: 13px; height: 13px; }
+.pfm-cam.is-busy { opacity: .55; pointer-events: none; }
+.pfm-photo-msg {
+  margin: 8px 14px 0; padding: 8px 11px; border-radius: 9px;
+  font-size: 12.5px; background: #EEF4FF; color: #1E3A8A;
+}
+.pfm-photo-msg.is-err { background: #FEE2E2; color: #B91C1C; }
+
+/* การ์ดเดิมของ Desktop — ซ่อนบนมือถือ เปิดเมื่อกด "ข้อมูลส่วนตัว"
+   ⚠ ต้องมี !important เพราะกล่องนี้มีคลาส .only-desktop ติดอยู่ด้วย
+      ซึ่ง styles.css ตั้ง `display: none !important` ไว้สำหรับจอมือถือ
+      กฎที่ไม่มี !important จึงแพ้เสมอ ทำให้กดแล้วไม่มีอะไรขึ้น
+   ไม่ถอด .only-desktop ออกจากระบบ และไม่แตะกฎกลางตัวนั้นเลย */
 @media (max-width: 900px) {
   .pf-legacy { display: none; }
-  .pf-legacy.pf-show-mobile { display: block; margin-top: 14px; }
+  .pf-legacy.pf-show-mobile { display: block !important; margin-top: 14px; }
 }
 
 /* ============================================================

@@ -99,12 +99,18 @@ async function loadFonts() {
   const boldName = names.find((n) => isBold(n) && !isItalic(n));
   const regName = names.find((n) => !isBold(n) && !isItalic(n));
 
+  /* ขาดตัวไหนต้องบอกชื่อไฟล์ตัวนั้น — ห้าม fallback ไปฟอนต์ละติน
+     เพราะข้อความไทยจะกลายเป็นช่องว่างทั้งฉบับโดยไม่มีใครรู้ */
   if (!regName || !boldName) {
+    const want: string[] = [];
+    if (!regName) want.push("Prompt-Regular.ttf");
+    if (!boldName) want.push("Prompt-Bold.ttf");
     throw Object.assign(
       new Error(
-        "ไม่พบไฟล์ฟอนต์ TH Sarabun New ครบทั้ง Regular และ Bold ในโฟลเดอร์ fonts/ — " +
-        "ไฟล์ .ttf ที่พบจริง: " + (names.length ? names.join(", ") : "(ไม่มีเลย)") + " · " +
-        "ต้องวางไฟล์ฟอนต์ก่อน Deploy (ดู fonts/README.md) " +
+        "Missing Thai font: " + want.join(", ") + " — " +
+        "ไฟล์ .ttf ที่พบจริงในโฟลเดอร์ fonts/: " +
+        (names.length ? names.join(", ") : "(ไม่มีเลย)") + " · " +
+        "ต้องวางไฟล์ฟอนต์ไทยที่มีสิทธิ์ใช้งานก่อน Deploy (ดู fonts/README.md) · " +
         "ระบบจะไม่สลับไปใช้ฟอนต์อื่นแทนโดยอัตโนมัติ",
       ),
       { status: 500 },

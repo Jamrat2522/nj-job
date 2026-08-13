@@ -1,14 +1,55 @@
   /* ================= VIEW: DASHBOARD ================= */
+  /* จอที่กว้างเกิน 900px = Desktop — ตรงกับกฎ CSS @media (max-width: 900px)
+     ที่สลับ .only-desktop / .only-mobile เป๊ะ ๆ จึงไม่มีทางที่ JS กับ CSS จะเห็นไม่ตรงกัน */
+  function dashIsMobile() {
+    try { return window.matchMedia('(max-width: 900px)').matches; }
+    catch (e) { return (window.innerWidth || 0) <= 900; }
+  }
+
+  /* จำไว้ว่ารอบที่แล้ววาดฝั่งไหน ใช้ตัดสินว่าต้องวาดใหม่ไหมเมื่อผู้ใช้ย่อ/ขยายหน้าต่าง */
+  var dashLastMobile = null;
+
   function viewDashboard(el) {
     var u = currentUser();
-    if (u.role === 'USER') dashEmployee(el); else dashAdmin(el);
-    /* หน้าหลักมือถือแสดงทุก Role ให้สอดคล้องกับ Header และ Bottom Navigation
-       (.only-mobile จึงไม่กระทบ Desktop · หน้าเดิมของแต่ละ Role ยังอยู่ครบใน .only-desktop) */
-    dashMobileHome(el);
+    var mob = dashIsMobile();
+    dashLastMobile = mob;
+
+    /* เดิมเรียกทั้งสองฝั่งเสมอ ฝั่งที่ถูกซ่อนด้วย CSS ก็ยังยิง RPC ครบ
+       ตอนนี้วาดเฉพาะฝั่งที่ผู้ใช้เห็นจริง — หน้าตาและข้อมูลของแต่ละฝั่งไม่เปลี่ยน
+       สิทธิ์ตาม Role ยังตัดสินด้วยเงื่อนไขเดิมทุกบรรทัด */
+    if (mob) {
+      /* หน้าหลักมือถือแสดงทุก Role ให้สอดคล้องกับ Header และ Bottom Navigation */
+      dashMobileHome(el);
+    } else {
+      if (u.role === 'USER') dashEmployee(el); else dashAdmin(el);
+    }
+
+    dashBindResize(el);
     /* ภาพอ้างอิงหน้าหลักจบที่ "ประกาศล่าสุด" — ไม่เรียก dashMobileFeed อีก
-       (ฟีดนี้เป็น .only-mobile จึงซ้ำกับหน้าหลักมือถือใหม่ทุก Role
-        เนื้อหาเดิมยังเข้าดูได้ที่ #/calendar และ #/announcements ไม่ได้ตัดฟีเจอร์ทิ้ง) */
+       (เนื้อหาเดิมยังเข้าดูได้ที่ #/calendar และ #/announcements ไม่ได้ตัดฟีเจอร์ทิ้ง) */
   }
+
+  /* ผู้ใช้ย่อ/ขยายหน้าต่างข้ามเส้น 900px → วาดฝั่งที่ถูกต้องให้ใหม่
+     ถ้าไม่ทำ ผู้ใช้ที่ลากหน้าต่างจะเห็นหน้าว่าง เพราะอีกฝั่งไม่เคยถูกวาด
+     ผูก Listener ครั้งเดียวต่อการเข้าใช้งานหนึ่งครั้ง ไม่สะสมซ้ำ */
+  var dashResizeBound = false;
+  function dashBindResize(el) {
+    if (dashResizeBound) { dashResizeEl = el; return; }
+    dashResizeBound = true;
+    dashResizeEl = el;
+    var t = null;
+    window.addEventListener('resize', function () {
+      if (t) clearTimeout(t);
+      t = setTimeout(function () {
+        /* วาดใหม่เฉพาะตอนที่ยังอยู่หน้า Dashboard และข้ามเส้นแบ่งจริงเท่านั้น */
+        if (NJHR.state.currentRoute !== '#/dashboard') return;
+        var now = dashIsMobile();
+        if (now === dashLastMobile) return;
+        if (dashResizeEl) viewDashboard(dashResizeEl);
+      }, 200);
+    });
+  }
+  var dashResizeEl = null;
 
   /* ---------- ปฏิทินบริษัท + ข่าวสาร บนหน้าหลักมือถือ ----------
      ข้อมูลจริงจาก Supabase เท่านั้น: njhr_event_list (ปฏิทิน) · njhr_ann_feed (ประกาศ)

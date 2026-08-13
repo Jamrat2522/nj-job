@@ -11,9 +11,15 @@
        ไฟล์แนบ     njhr_ot_attach_list
      แล้วประกอบเป็นโครงเดียวกับที่การ์ดเดิมใช้ (it.jobs[].files[]) เพื่อให้ UI เหมือนเดิมทุกบรรทัด
 
-     ⚠ ต้นทุน: 2N+1 คำขอ (N = จำนวนคำขอที่รออนุมัติ ซึ่งมีเพดาน p_limit = 200)
-        njhr_ot_list ไม่คืนรายการงานและไฟล์แนบ จึงไม่มีทางได้ข้อมูลนี้ใน Query เดียว
-        โดยไม่แก้ Return Signature ของ RPC ซึ่งรอบนี้สั่งห้าม */
+     ปัจจุบันใช้ njhr_ot_approval_queue อ่านครั้งเดียวจบ (91_ot_approval_queue.sql)
+     RPC ตัวนี้คืนคอลัมน์เดิมของ njhr_ot_list ครบ บวก jobs และ attachments เป็น jsonb
+     จึงไม่ต้องยิงต่อรายการอีก
+
+     เดิมเป็น 2N+1 คำขอ: njhr_ot_list 1 ครั้ง แล้ววน njhr_ot_get + njhr_ot_attach_list
+     ต่อทุกรายการ (10 รายการ = 21 · 50 รายการ = 101 · เพดาน 200 รายการ = 401)
+
+     ถ้ายังไม่ได้รัน 91 บน Production ระบบจะถอยไปใช้เส้นทางเดิมอัตโนมัติ
+     หน้าเว็บจึงใช้งานได้ทั้งก่อนและหลังรัน Migration ไม่ต้องรอ Deploy พร้อมกัน */
   var _otQueue = [], _otLoading = false, _otSeq = 0, _otDecideBusy = false;
 
   function apOtHM(v) { return String(v == null ? '' : v).slice(0, 5); }
@@ -44,11 +50,25 @@
     };
   }
 
-  function apprLoadOt(el) {
-    var seq = ++_otSeq;
-    _otLoading = true; _otQueue = [];
-    apprRender(el);
-    sbRpcList('njhr_ot_list', {
+  /* เคยเรียก njhr_ot_approval_queue แล้วไม่พบหรือไม่มีสิทธิ์หรือไม่
+     จำไว้ในตัวแปรเพื่อไม่ต้องลองใหม่ทุกครั้งที่เปิดหน้า */
+  var _otQueueRpcMissing = false;
+
+  /* RPC ยังไม่ถูกติดตั้ง = PostgREST ตอบ 404/PGRST202 หรือฟังก์ชันไม่มีอยู่
+     กรณีอื่น (สิทธิ์ไม่พอ ข้อมูลผิด) ต้องไม่ถอย เพราะจะกลบข้อผิดพลาดจริง */
+  function _otQueueNotInstalled(ex) {
+    var m = String((ex && (ex.message || ex.code)) || '').toLowerCase();
+    return m.indexOf('pgrst202') >= 0 ||
+           m.indexOf('could not find the function') >= 0 ||
+           m.indexOf('does not exist') >= 0 ||
+           m.indexOf('schema cache') >= 0 ||
+           m.indexOf('404') >= 0;
+  }
+
+  /* เส้นทางเดิม 2N+1 — เก็บไว้เป็นทางถอยจนกว่าจะรัน 91 บน Production
+     ห้ามลบจนกว่าจะยืนยันว่า njhr_ot_approval_queue ใช้งานได้จริงแล้ว */
+  function apprLoadOtLegacy(el, seq) {
+    return sbRpcList('njhr_ot_list', {
       p_token: sbToken(), p_from: null, p_to: null, p_status: 'PENDING',
       p_dept: null, p_employee: null, p_q: null, p_mine: false, p_limit: 200, p_offset: 0
     }).then(function (rows) {
@@ -72,15 +92,55 @@
         _otLoading = false; _otQueue = items;
         apprRender(el);
       });
-    })['catch'](function (ex) {
-      if (seq !== _otSeq) return;
-      _otLoading = false; _otQueue = [];
-      console.error('[APPROVALS] njhr_ot_list ล้มเหลว:', ex);
-      apprRender(el);
-      var eb = document.getElementById('appr-err');
-      if (eb) eb.textContent = 'โหลดคำขอ OT จาก Supabase ไม่สำเร็จ: ' + ((ex && ex.message) || ex);
     });
   }
+
+  function apprLoadOt(el) {
+    var seq = ++_otSeq;
+    _otLoading = true; _otQueue = [];
+    apprRender(el);
+
+    if (_otQueueRpcMissing) {
+      return apprLoadOtLegacy(el, seq)['catch'](function (ex) { apprOtErr(el, seq, ex); });
+    }
+
+    /* อ่านครั้งเดียวจบ — พารามิเตอร์ชุดเดียวกับ njhr_ot_list เดิมทุกตัว */
+    sbRpcList('njhr_ot_approval_queue', {
+      p_token: sbToken(), p_from: null, p_to: null, p_status: 'PENDING',
+      p_dept: null, p_employee: null, p_q: null, p_mine: false, p_limit: 200, p_offset: 0
+    }).then(function (rows) {
+      if (seq !== _otSeq) return;
+      var list = rows || [];
+      NJHR.state.otPending = list.length ? Number(list[0].total_count) : 0;
+      setOtPending(NJHR.state.otPending);
+      _otLoading = false;
+      /* jobs / attachments มาเป็น jsonb แล้ว จึงประกอบด้วย apOtShape ตัวเดิม
+         โครงที่การ์ดอ่าน (it.jobs[].files[]) จึงเหมือนเดิมทุกช่อง */
+      _otQueue = list.map(function (r) {
+        return apOtShape(r, { jobs: r.jobs || [] }, r.attachments || []);
+      });
+      apprRender(el);
+    })['catch'](function (ex) {
+      if (seq !== _otSeq) return;
+      if (_otQueueNotInstalled(ex)) {
+        /* ยังไม่ได้รัน 91 — ถอยไปเส้นทางเดิมเงียบ ๆ ผู้ใช้ไม่เห็นความต่าง */
+        _otQueueRpcMissing = true;
+        console.warn('[APPROVALS] ยังไม่มี njhr_ot_approval_queue — ใช้เส้นทางเดิมแทน');
+        return apprLoadOtLegacy(el, seq)['catch'](function (e2) { apprOtErr(el, seq, e2); });
+      }
+      apprOtErr(el, seq, ex);
+    });
+  }
+
+  function apprOtErr(el, seq, ex) {
+    if (seq !== _otSeq) return;
+    _otLoading = false; _otQueue = [];
+    console.error('[APPROVALS] โหลดคิว OT ล้มเหลว:', ex);
+    apprRender(el);
+    var eb = document.getElementById('appr-err');
+    if (eb) eb.textContent = 'โหลดคำขอ OT จาก Supabase ไม่สำเร็จ: ' + ((ex && ex.message) || ex);
+  }
+
 
   /* การ์ดคำขอ OT — DOM · คลาส · ปุ่ม · ข้อความ เหมือน approvalCard() เดิมทุกบรรทัด
      ต่างเฉพาะแหล่งชื่อ/รหัส/แผนก/ตำแหน่ง ที่มาจาก RPC แทน db.employees ที่ว่างเปล่า */

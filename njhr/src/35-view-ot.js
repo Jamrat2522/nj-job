@@ -93,17 +93,30 @@
   function otDeskTable(rows) {
     return '<div class="card p0 only-desktop lvt-wrap"><table class="lvt lvt-ot">' +
       '<thead><tr>' +
-      '<th>เลขคำขอ</th><th>ประเภท</th><th>ประเภทงาน</th><th>วันที่</th><th>ช่วงเวลา</th>' +
-      '<th>จำนวนชั่วโมง</th><th>ไฟล์แนบ</th><th>สถานะ</th><th class="lvt-act-h"></th>' +
+      '<th>เลขคำขอ</th><th>ชื่อพนักงาน</th><th>ประเภท</th><th>ประเภทงาน</th><th>วันที่</th>' +
+      '<th>ช่วงเวลา</th><th>จำนวนชั่วโมง</th><th>ไฟล์แนบ</th><th>สถานะ</th>' +
+      '<th class="lvt-act-h"></th>' +
       '</tr></thead><tbody>' +
       rows.map(function (o) { return otDeskRow(o); }).join('') +
       '</tbody></table></div>';
+  }
+
+  /* ชื่อผู้ขอ OT — ตรรกะเดียวกับ apOtShape() ในหน้าอนุมัติ (empFullName)
+     ไม่มีข้อมูลจริงจึงแสดง — ไม่เดาและไม่สร้างชื่อขึ้นเอง */
+  function otWho(o) {
+    var full = String((o.prefix || '') + (o.emp_name || '')).trim();
+    return full || '—';
   }
 
   function otDeskRow(o) {
     var fileN = Number(o.files_count) || 0;
     return '<tr>' +
       '<td class="lvt-c-no"><b>' + esc(otReqNo(o)) + '</b></td>' +
+      /* ชื่อพนักงาน — ประกอบจาก prefix + emp_name ที่ njhr_ot_list ส่งมาอยู่แล้ว
+         ⚠ ต่างจากตารางลางาน: RPC ของ OT คืน prefix กับ emp_name แยกกัน
+            (65_ot.sql:187 · emp_name = first_name + ' ' + last_name ไม่มีคำนำหน้า)
+         หน้าอนุมัติ OT ประกอบแบบเดียวกันนี้อยู่แล้ว จึงใช้ตรรกะเดิม ไม่แก้ SQL/RPC */
+      '<td class="lvt-c-emp"><b>' + esc(otWho(o)) + '</b></td>' +
       /* ประเภท — บรรทัดเดียว ไม่แสดงจำนวนรายการงานอีก (ดูได้ที่ปุ่มดูรายละเอียด) */
       '<td class="lvt-c-type"><b>' + esc(otKind(o)) + '</b></td>' +
       /* ประเภทงาน — ของ "รายการงานที่ 1" เท่านั้น ไม่รวมหลายรายการ ไม่ใช้รายการอื่น */

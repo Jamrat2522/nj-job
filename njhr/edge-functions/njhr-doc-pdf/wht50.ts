@@ -25,7 +25,7 @@
 //      แล้วให้ชั้นบนตัดสินใจ (ดู validateWht50Model)
 // ============================================================
 
-import { PDFDocument, PDFFont, PDFPage, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFArray, PDFDocument, PDFFont, PDFName, PDFNumber, PDFPage, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
 const A4_W = 595.28;
@@ -88,15 +88,15 @@ export function normalizeSection(v: unknown): string {
 }
 
 /* ---------- ประเภทการออกภาษีของผู้จ่ายเงิน ---------- */
-/* ประเภทการออกภาษีตามแบบ — ยังไม่มีคอลัมน์เก็บใน Production
-   จึงเรนเดอร์ช่องให้ครบตามแบบแต่ "ไม่ติ๊ก" และไม่บล็อกการออกเอกสาร
-   ถ้าจะให้ติ๊กอัตโนมัติต้องเพิ่มคอลัมน์ก่อน (ดูข้อเสนอท้าย 90_wht50_pdf.sql) */
-export const WHT50_PAYER_MODES = [
-  { key: "WITHHELD", label: "หัก ณ ที่จ่าย" },
-  { key: "PAID_ALWAYS", label: "ออกให้ตลอดไป" },
-  { key: "PAID_ONCE", label: "ออกให้ครั้งเดียว" },
-  { key: "OTHER", label: "อื่น ๆ" },
-] as const;
+/* วิธีออกภาษี — ค่าที่เก็บใน njhr_wht50.tax_payment_mode
+   (คอลัมน์นี้เพิ่มโดย 90_wht50_pdf.sql · ยังไม่ได้รันบน Production)
+   ติ๊กเฉพาะตัวที่ตรงกับข้อมูลจริงเท่านั้น ห้ามติ๊กเองโดยไม่มีค่า */
+export const WHT50_PAYMENT_MODES = [
+  { code: "WITHHOLD", label: "หัก ณ ที่จ่าย" },
+  { code: "PAID_CONTINUOUS", label: "ออกให้ตลอดไป" },
+  { code: "PAID_ONCE", label: "ออกให้ครั้งเดียว" },
+  { code: "OTHER", label: "อื่น ๆ" },
+];
 
 /* ============================================================
    Normalize Snapshot ให้ตรงกับ field จริงใน Production
@@ -148,6 +148,8 @@ export interface Wht50Snapshot {
   total_tax?: number | string;
   total_sso?: number | string;
   total_pvd?: number | string;
+  tax_payment_mode?: string;
+  tax_payment_mode_other?: string;
   signer_name?: string;
   signer_position?: string;
   amend_seq?: number;
@@ -163,27 +165,41 @@ export interface Wht50Line {
   tax: number | null;
 }
 
+/* ============================================================
+   CANONICAL WHT50 MODEL CONTRACT
+   ------------------------------------------------------------
+   นี่คือรูปข้อมูลชุดเดียวของทั้งระบบ
+   ทั้ง Admin Preview (เบราว์เซอร์) และ Final PDF (Edge Function)
+   ต้อง normalize ข้อมูลดิบจาก njhr_wht50 มาเป็นรูปนี้ให้ได้ค่าตรงกันทุกช่อง
+
+   เบราว์เซอร์กับ Edge รันคนละ Runtime จึงแชร์ไฟล์เดียวกันไม่ได้
+   แต่ชื่อช่องและวิธีคำนวณต้องเหมือนกันทุกตัว
+   มี Fixture ชุดเดียวใน harness/wht50_test.js เทียบค่าทั้งสองฝั่ง
+   ============================================================ */
 export interface Wht50Model {
-  copies: string[];
+  taxYear: number | null;
+  docNo: string;
+  bookNo: string;
+  seqNo: string;
+  copyLabels: string[];
   title: string;
   subtitle: string;
-  book_no: string;
-  doc_no: string;
   payer: { name: string; address: string; taxid: string };
   payee: { name: string; address: string; taxid: string };
-  form_types: { label: string; checked: boolean }[];
-  seq_no: string;
-  lines: Wht50Line[];
-  total_income: number | null;
-  total_tax: number | null;
-  total_tax_text: string;
-  funds: { label: string; amount: number | null }[];
-  payer_modes: { label: string; checked: boolean }[];
-  certify_text: string;
-  signer_name: string;
-  signer_position: string;
-  issue_date: string;
-  amend_seq: number;
+  formType: { code: string; label: string; checked: boolean }[];
+  incomeRows: Wht50Line[];
+  totalIncome: number | null;
+  totalTax: number | null;
+  taxWords: string;
+  totalGpf: number | null;
+  totalSso: number | null;
+  totalPvd: number | null;
+  paymentMode: { code: string; label: string; checked: boolean }[];
+  paymentModeOther: string;
+  certifyText: string;
+  signer: { name: string; position: string };
+  issueDate: string;
+  amendSeq: number;
   /** ช่องที่ไม่มีข้อมูลจริง — ชั้นบนใช้ตัดสินใจว่าจะออกเอกสารได้หรือไม่ */
   missing: string[];
 }
@@ -270,10 +286,12 @@ export function buildWht50Model(snap: Wht50Snapshot): Wht50Model {
   else if (!WHT50_FORM_TYPES.some((f) => f.code === ft)) {
     missing.push(`form_type ไม่รู้จัก: ${ft}`);
   }
-  const form_types = WHT50_FORM_TYPES.map((f) => ({ label: f.label, checked: f.code === ft }));
+  const formType = WHT50_FORM_TYPES.map((f) => ({
+    code: f.code, label: f.label, checked: f.code === ft,
+  }));
 
   /* ---- ตารางเงินได้: อ่านจาก income_final ก่อน ----
-     income_final เป็น array ของรายการที่ผู้ดูแลยืนยันแล้ว
+     income_final เป็นรายการที่ผู้ดูแลยืนยันแล้ว
      ถ้าไม่มี ใช้ income_section ระบุว่าเงินได้อยู่ข้อไหน แล้วลงยอดรวมในข้อนั้น
      ห้าม hardcode ทุกเอกสารเป็น 40(1) */
   const secRaw = normalizeSection(snap.income_section);
@@ -282,16 +300,21 @@ export function buildWht50Model(snap: Wht50Snapshot): Wht50Model {
 
   const byKey: Record<string, { paid_on: string; amount: number | null; tax: number | null }> = {};
   const fin = snap.income_final;
-  const finArr = Array.isArray(fin) ? fin : (fin && Array.isArray((fin as any).items) ? (fin as any).items : null);
+  const finArr = Array.isArray(fin)
+    ? fin
+    : (fin && Array.isArray((fin as { items?: unknown[] }).items)
+      ? (fin as { items: unknown[] }).items
+      : null);
   if (finArr && finArr.length) {
     for (const it of finArr) {
-      const k = normalizeSection((it as any).section ?? (it as any).key) || secRaw;
+      const o = it as Record<string, unknown>;
+      const k = normalizeSection(o.section ?? o.key) || secRaw;
       if (!k) continue;
-      const prev = byKey[k] ?? { paid_on: "", amount: null, tax: null };
+      const prev = byKey[k] ?? { paid_on: "", amount: 0, tax: 0 };
       byKey[k] = {
-        paid_on: String((it as any).paid_on ?? (it as any).period ?? prev.paid_on ?? ""),
-        amount: (num((it as any).amount) ?? 0) + (prev.amount ?? 0),
-        tax: (num((it as any).tax) ?? 0) + (prev.tax ?? 0),
+        paid_on: String(o.paid_on ?? o.period ?? prev.paid_on ?? ""),
+        amount: (num(o.amount) ?? 0) + (prev.amount ?? 0),
+        tax: (num(o.tax) ?? 0) + (prev.tax ?? 0),
       };
     }
   } else if (secRaw) {
@@ -304,7 +327,7 @@ export function buildWht50Model(snap: Wht50Snapshot): Wht50Model {
     missing.push("ประเภทเงินได้ที่รู้จัก (income_section / income_final)");
   }
 
-  const lines: Wht50Line[] = WHT50_INCOME_ROWS.map((r) => {
+  const incomeRows: Wht50Line[] = WHT50_INCOME_ROWS.map((r) => {
     const v = byKey[r.key];
     return {
       key: r.key, no: r.no, label: r.label,
@@ -314,47 +337,51 @@ export function buildWht50Model(snap: Wht50Snapshot): Wht50Model {
     };
   });
 
-  /* ---- ผู้จ่ายเงิน ----
-     Production ยังไม่มีคอลัมน์เก็บประเภทการออกภาษี จึงไม่ติ๊กช่องใด
-     และไม่บล็อกการออกเอกสาร (ไม่เดาค่าแทนผู้ใช้)
-     ผู้ออกเอกสารกรอกด้วยมือบนกระดาษได้ตามแบบ */
-  const payer_modes = WHT50_PAYER_MODES.map((m) => ({ label: m.label, checked: false }));
+  /* ---- วิธีออกภาษี ----
+     ติ๊กจากค่าจริงใน tax_payment_mode เท่านั้น ไม่มีค่า = ไม่ติ๊กช่องใด
+     และถือว่าข้อมูลไม่ครบ (แบบฟอร์มบังคับให้ระบุ) */
+  const pmode = String(snap.tax_payment_mode ?? "").trim().toUpperCase();
+  const pmodeOther = String(snap.tax_payment_mode_other ?? "").trim();
+  if (!pmode) {
+    missing.push("วิธีออกภาษี (tax_payment_mode)");
+  } else if (!WHT50_PAYMENT_MODES.some((x) => x.code === pmode)) {
+    missing.push(`วิธีออกภาษีไม่รู้จัก: ${pmode}`);
+  } else if (pmode === "OTHER" && !pmodeOther) {
+    missing.push("รายละเอียดวิธีออกภาษี (tax_payment_mode_other)");
+  }
+  const paymentMode = WHT50_PAYMENT_MODES.map((x) => ({
+    code: x.code, label: x.label, checked: x.code === pmode,
+  }));
 
-  const signer_name = String(snap.signer_name ?? "").trim();
-  if (!signer_name) missing.push("ชื่อผู้ลงนาม");
+  const signerName = String(snap.signer_name ?? "").trim();
+  if (!signerName) missing.push("ชื่อผู้ลงนาม");
   const issue = beDate(snap.issue_date);
   if (!issue) missing.push("วันที่ออกหนังสือรับรองฯ");
 
   return {
-    copies: [
+    taxYear: snap.tax_year == null ? null : Number(snap.tax_year),
+    docNo: String(snap.doc_no ?? ""),
+    bookNo: String(snap.book_no ?? ""),
+    seqNo: String(snap.seq_no ?? ""),
+    copyLabels: [
       "ฉบับที่ 1 (สำหรับผู้ถูกหักภาษี ณ ที่จ่ายใช้แนบพร้อมกับแบบแสดงรายการ)",
       "ฉบับที่ 2 (สำหรับผู้ถูกหักภาษี ณ ที่จ่ายเก็บไว้เป็นหลักฐาน)",
     ],
     title: "หนังสือรับรองการหักภาษี ณ ที่จ่าย",
     subtitle: "ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร",
-    book_no: String(snap.book_no ?? ""),
-    doc_no: String(snap.doc_no ?? ""),
-    payer: { name: pName, address: pAddr, taxid: pTax },
-    payee: { name: eName, address: eAddr, taxid: eTax },
-    form_types,
-    seq_no: String(snap.seq_no ?? ""),
-    lines,
-    total_income: totalIncome,
-    total_tax: totalTax,
-    total_tax_text: bahtText(totalTax),
-    funds: [
-      /* Production ยังไม่มีคอลัมน์ กบข./กสจ. — แสดงหัวข้อตามแบบแต่เว้นยอดไว้ */
-      { label: "กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน", amount: null },
-      { label: "กองทุนประกันสังคม", amount: num(snap.total_sso) },
-      { label: "กองทุนสำรองเลี้ยงชีพ", amount: num(snap.total_pvd) },
-    ],
-    payer_modes,
-    certify_text:
-      "ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ",
-    signer_name,
-    signer_position: String(snap.signer_position ?? ""),
-    issue_date: issue,
-    amend_seq: Number(snap.amend_seq ?? 0),
+    payer, payee, formType, incomeRows,
+    totalIncome, totalTax,
+    taxWords: bahtText(totalTax),
+    /* Production ยังไม่มีคอลัมน์ กบข./กสจ. — แสดงหัวข้อตามแบบแต่เว้นยอด */
+    totalGpf: null,
+    totalSso: num(snap.total_sso),
+    totalPvd: num(snap.total_pvd),
+    paymentMode,
+    paymentModeOther: pmodeOther,
+    certifyText: "ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ",
+    signer: { name: signerName, position: String(snap.signer_position ?? "") },
+    issueDate: issue,
+    amendSeq: Number(snap.amend_seq ?? 0),
     missing,
   };
 }
@@ -367,15 +394,71 @@ export function validateWht50Model(m: Wht50Model): { ok: boolean; missing: strin
 /* ============================================================
    วาด PDF จาก Model
    ============================================================ */
-interface Ctx { pdf: PDFDocument; page: PDFPage; y: number; reg: PDFFont; bold: PDFFont; }
+interface Ctx {
+  pdf: PDFDocument; page: PDFPage; y: number; reg: PDFFont; bold: PDFFont;
+  /* fontkit font สำหรับคำนวณ glyph ที่ถูกวาดจริง (ใช้แก้ตาราง /W ทีหลัง) */
+  fkReg: FkFont; fkBold: FkFont;
+  usedReg: Map<number, number>; usedBold: Map<number, number>;
+}
+
+/* รูปของ fontkit เท่าที่ใช้ — ไม่ประกาศเกินจำเป็น */
+interface FkGlyph { id: number; advanceWidth: number; }
+interface FkFont {
+  unitsPerEm: number;
+  layout(text: string): { glyphs: FkGlyph[]; positions: { xAdvance: number }[] };
+}
+
+/* ============================================================
+   บันทึก glyph ที่ถูกวาดจริงพร้อมความกว้างหลังผ่าน GSUB/GPOS
+   ------------------------------------------------------------
+   ฟอนต์ไทยเลือก glyph ตัวแปรตามบริบท เช่น ไม้เอกเหนือพยัญชนะมีหาง
+   glyph กลุ่มนี้เข้าถึงได้จาก layout() เท่านั้น ไม่ได้มาจากรหัสอักขระตรง ๆ
+   pdf-lib จึงไม่ใส่ไว้ในตาราง /W — ต้องเก็บเองแล้วเติมกลับหลัง save
+   ============================================================ */
+/* ข้อความครอบคลุมอักขระไทยทุกตัวและทุกคู่ที่ทำให้เกิด glyph ตัวแปร
+   ใช้ลงทะเบียนความกว้างล่วงหน้า ไม่ได้วาดลงเอกสาร */
+const THAI_COVERAGE = (function (): string {
+  const cons = "กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮ";
+  const upper = ["", "ิ", "ี", "ึ", "ื", "ั", "็", "์"];
+  const tones = ["", "่", "้", "๊", "๋", "์"];
+  const lower = ["", "ุ", "ู", "ฺ"];
+  const marks = ["ิ", "ี", "ึ", "ื", "ั", "็", "์", "่", "้", "๊", "๋", "ุ", "ู", "ฺ"];
+  let out = cons + "ะาำเแโใไๅๆฯ๐๑๒๓๔๕๖๗๘๙";
+  for (const c of cons) {
+    for (const u of upper) {
+      for (const t of tones) out += c + u + t + " ";
+    }
+    for (const l of lower) out += c + l + " ";
+    /* ลำดับเครื่องหมายซ้อนกัน 2 ตัว — บางคู่ทำให้ฟอนต์เลือก glyph คนละตัวอีก
+       เช่น "ฮูิ" และ "ฮูั" ให้ glyph ที่คู่เดี่ยวไม่เคยสร้าง */
+    for (const m1 of marks) {
+      for (const m2 of marks) out += c + m1 + m2 + " ";
+    }
+  }
+  return out;
+})();
+
+function collectGlyphs(font: FkFont, text: string, out: Map<number, number>): void {
+  if (!text) return;
+  let r;
+  try { r = font.layout(text); } catch { return; }
+  for (let i = 0; i < r.glyphs.length; i++) {
+    const g = r.glyphs[i];
+    const adv = r.positions[i] ? r.positions[i].xAdvance : g.advanceWidth;
+    /* แปลงเป็นหน่วย 1/1000 em ตามที่ PDF ใช้ */
+    out.set(g.id, Math.round((adv / font.unitsPerEm) * 1000));
+  }
+}
 
 function txt(ctx: Ctx, s: string, x: number, y: number, size: number, bold = false, color = C_TEXT) {
   if (!s) return;
+  collectGlyphs(bold ? ctx.fkBold : ctx.fkReg, s, bold ? ctx.usedBold : ctx.usedReg);
   ctx.page.drawText(s, { x, y, size, font: bold ? ctx.bold : ctx.reg, color });
 }
 
 function txtR(ctx: Ctx, s: string, xRight: number, y: number, size: number, bold = false) {
   if (!s) return;
+  collectGlyphs(bold ? ctx.fkBold : ctx.fkReg, s, bold ? ctx.usedBold : ctx.usedReg);
   const f = bold ? ctx.bold : ctx.reg;
   const w = f.widthOfTextAtSize(s, size);
   ctx.page.drawText(s, { x: xRight - w, y, size, font: f, color: C_TEXT });
@@ -417,12 +500,12 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   /* เล่มที่ / เลขที่ มุมขวา */
   txt(ctx, "เล่มที่", A4_W - M_R - 150, y + 15, 9);
   dotted(ctx, A4_W - M_R - 122, y + 14, 50);
-  txt(ctx, m.book_no, A4_W - M_R - 120, y + 15, 9);
+  txt(ctx, m.bookNo, A4_W - M_R - 120, y + 15, 9);
   txt(ctx, "เลขที่", A4_W - M_R - 66, y + 15, 9);
   dotted(ctx, A4_W - M_R - 40, y + 14, 40);
-  txt(ctx, m.doc_no, A4_W - M_R - 38, y + 15, 9);
-  if (m.amend_seq > 0) {
-    txtR(ctx, `(ฉบับแก้ไขครั้งที่ ${m.amend_seq})`, A4_W - M_R, y - 10, 8);
+  txt(ctx, m.docNo, A4_W - M_R - 38, y + 15, 9);
+  if (m.amendSeq > 0) {
+    txtR(ctx, `(ฉบับแก้ไขครั้งที่ ${m.amendSeq})`, A4_W - M_R, y - 10, 8);
   }
   y -= 20;
 
@@ -460,9 +543,9 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   let x = M_L;
   txt(ctx, "ลำดับที่", x, y, 8);
   dotted(ctx, x + 30, y - 2, 34);
-  txt(ctx, m.seq_no, x + 34, y, 8);
+  txt(ctx, m.seqNo, x + 34, y, 8);
   x += 70;
-  for (const f of m.form_types) {
+  for (const f of m.formType) {
     if (x > A4_W - M_R - 70) { y -= 13; x = M_L + 70; }
     x = checkbox(ctx, x, y, f.checked, f.label, 8) + 4;
   }
@@ -480,14 +563,18 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   txt(ctx, "ประเภทเงินได้พึงประเมินที่จ่าย", colLabel + 40, y - 11, 8, true);
   txt(ctx, "วัน เดือน", colDate + 8, y - 8, 7.5, true);
   txt(ctx, "หรือปีภาษีที่จ่าย", colDate + 2, y - 17, 7.5, true);
-  txt(ctx, "จำนวนเงินที่จ่าย", colAmt + 8, y - 11, 7.5, true);
-  txt(ctx, "ภาษีที่หักและนำส่งไว้", colTax - 78, y - 11, 7.5, true);
+  /* หัวสองคอลัมน์ขวาแบ่งสองบรรทัด — คอลัมน์ภาษีกว้าง 42pt
+     ถ้าเขียนบรรทัดเดียวจะยาวเกินและไปทับคอลัมน์จำนวนเงิน */
+  txt(ctx, "จำนวนเงิน", colAmt + 16, y - 8, 7.5, true);
+  txt(ctx, "ที่จ่าย", colAmt + 26, y - 17, 7.5, true);
+  txt(ctx, "ภาษีที่หัก", colAmt + 84, y - 8, 7, true);
+  txt(ctx, "และนำส่งไว้", colAmt + 80, y - 17, 7, true);
   ctx.page.drawLine({ start: { x: colDate, y: y - hHead }, end: { x: colDate, y }, thickness: 0.7, color: C_LINE });
   ctx.page.drawLine({ start: { x: colAmt, y: y - hHead }, end: { x: colAmt, y }, thickness: 0.7, color: C_LINE });
   ctx.page.drawLine({ start: { x: colAmt + 78, y: y - hHead }, end: { x: colAmt + 78, y }, thickness: 0.7, color: C_LINE });
   y -= hHead;
 
-  for (const ln of m.lines) {
+  for (const ln of m.incomeRows) {
     const h = ln.key === "3TRES" ? 26 : 17;
     box(ctx, M_L, y - h, CW, h);
     ctx.page.drawLine({ start: { x: colDate, y: y - h }, end: { x: colDate, y }, thickness: 0.7, color: C_LINE });
@@ -512,20 +599,25 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   ctx.page.drawLine({ start: { x: colAmt, y: y - hSum }, end: { x: colAmt, y }, thickness: 0.7, color: C_LINE });
   ctx.page.drawLine({ start: { x: colAmt + 78, y: y - hSum }, end: { x: colAmt + 78, y }, thickness: 0.7, color: C_LINE });
   txt(ctx, "รวมเงินที่จ่ายและภาษีที่หักนำส่ง", colLabel + 60, y - 12, 8, true);
-  txtR(ctx, money(m.total_income), colAmt + 74, y - 12, 8, true);
-  txtR(ctx, money(m.total_tax), colTax - 4, y - 12, 8, true);
+  txtR(ctx, money(m.totalIncome), colAmt + 74, y - 12, 8, true);
+  txtR(ctx, money(m.totalTax), colTax - 4, y - 12, 8, true);
   y -= hSum;
 
   const hTxt = 18;
   box(ctx, M_L, y - hTxt, CW, hTxt);
   txt(ctx, "รวมเงินภาษีที่หักนำส่ง (ตัวอักษร)", colLabel, y - 12, 8);
-  txt(ctx, m.total_tax_text, colLabel + 130, y - 12, 8, true);
+  txt(ctx, m.taxWords, colLabel + 130, y - 12, 8, true);
   y -= hTxt + 10;
 
   /* ---- เงินที่จ่ายเข้ากองทุน ---- */
   txt(ctx, "เงินที่จ่ายเข้า", M_L, y, 8);
   let fx = M_L + 52;
-  for (const f of m.funds) {
+  const funds = [
+    { label: "กบข./กสจ./กองทุนสงเคราะห์ครูโรงเรียนเอกชน", amount: m.totalGpf },
+    { label: "กองทุนประกันสังคม", amount: m.totalSso },
+    { label: "กองทุนสำรองเลี้ยงชีพ", amount: m.totalPvd },
+  ];
+  for (const f of funds) {
     txt(ctx, f.label, fx, y, 7.5);
     const lw = ctx.reg.widthOfTextAtSize(f.label, 7.5);
     dotted(ctx, fx + lw + 3, y - 2, 46);
@@ -538,30 +630,34 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   /* ---- ผู้จ่ายเงิน ---- */
   txt(ctx, "ผู้จ่ายเงิน", M_L, y, 8, true);
   let px = M_L + 46;
-  m.payer_modes.forEach((p, i) => {
+  m.paymentMode.forEach((p, i) => {
     px = checkbox(ctx, px, y, p.checked, `(${i + 1}) ${p.label}`, 8) + 6;
   });
+  if (m.paymentModeOther) {
+    dotted(ctx, px, y - 2, 90);
+    txt(ctx, m.paymentModeOther, px + 2, y, 8);
+  }
   y -= 20;
 
   /* ---- คำรับรอง + ลงชื่อ ---- */
-  txt(ctx, m.certify_text, M_L, y, 8);
+  txt(ctx, m.certifyText, M_L, y, 8);
   y -= 26;
 
   const sx = A4_W - M_R - 210;
   txt(ctx, "ลงชื่อ", sx, y, 8);
   dotted(ctx, sx + 26, y - 2, 150);
-  const nmW = ctx.reg.widthOfTextAtSize(m.signer_name, 8);
-  txt(ctx, m.signer_name, sx + 26 + (150 - nmW) / 2, y + 2, 8);
+  const nmW = ctx.reg.widthOfTextAtSize(m.signer.name, 8);
+  txt(ctx, m.signer.name, sx + 26 + (150 - nmW) / 2, y + 2, 8);
   txt(ctx, "ผู้จ่ายเงิน", sx + 180, y - 12, 8);
   y -= 14;
-  if (m.signer_position) {
-    const poW = ctx.reg.widthOfTextAtSize(m.signer_position, 7.5);
-    txt(ctx, m.signer_position, sx + 26 + (150 - poW) / 2, y, 7.5);
+  if (m.signer.position) {
+    const poW = ctx.reg.widthOfTextAtSize(m.signer.position, 7.5);
+    txt(ctx, m.signer.position, sx + 26 + (150 - poW) / 2, y, 7.5);
     y -= 12;
   }
   txt(ctx, "วัน เดือน ปี ที่ออกหนังสือรับรองฯ", sx - 10, y, 8);
   dotted(ctx, sx + 118, y - 2, 58);
-  txt(ctx, m.issue_date, sx + 122, y, 8);
+  txt(ctx, m.issueDate, sx + 122, y, 8);
 
   /* ตรานิติบุคคล (ถ้ามี) */
   box(ctx, M_L, y - 34, 92, 46, C_THIN, 0.5);
@@ -569,7 +665,121 @@ function drawOne(ctx: Ctx, m: Wht50Model, copyLabel: string) {
   txt(ctx, "(ถ้ามี)", M_L + 34, y - 24, 7);
 }
 
+/* ============================================================
+   ตรวจฟอนต์ไทยก่อนวาด — ห้าม fallback Helvetica
+   ------------------------------------------------------------
+   pdf-lib ไม่มีฟอนต์ไทยในตัว ถ้าใช้ Helvetica ข้อความไทยจะกลายเป็นช่องว่าง
+   หรือเครื่องหมายคำถามทั้งหน้า ซึ่งเป็นเอกสารภาษีที่ใช้ไม่ได้
+   จึงต้องหยุดตั้งแต่ต้นและบอกชื่อไฟล์ที่ขาดให้ชัด
+   ============================================================ */
+export const WHT50_FONT_FILES = {
+  regular: "Prompt-Regular.ttf",
+  bold: "Prompt-Bold.ttf",
+};
+
+/** ขนาดขั้นต่ำที่ถือว่าเป็นไฟล์ฟอนต์จริง ไม่ใช่ไฟล์เปล่าหรือ placeholder */
+const FONT_MIN_BYTES = 20000;
+
+export function assertThaiFontsReady(
+  fontRegular: Uint8Array | null | undefined,
+  fontBold: Uint8Array | null | undefined,
+): void {
+  const missing: string[] = [];
+  if (!fontRegular || fontRegular.length < FONT_MIN_BYTES) {
+    missing.push(WHT50_FONT_FILES.regular);
+  }
+  if (!fontBold || fontBold.length < FONT_MIN_BYTES) {
+    missing.push(WHT50_FONT_FILES.bold);
+  }
+  if (missing.length) {
+    throw new Error("Missing Thai font: " + missing.join(", "));
+  }
+}
+
+/* ============================================================
+   เติมความกว้างของ glyph ไทยที่ pdf-lib ตกหล่นในตาราง /W
+   ------------------------------------------------------------
+   อาการเดิม: มีช่องว่างกว้างเท่าตัวอักษรแทรกหลังวรรณยุกต์ทุกตำแหน่ง
+              เช่น "ที่จ่าย" แสดงเป็น "ที่  จ่าย"
+
+   สาเหตุ (พิสูจน์จากไฟล์ PDF จริง ไม่ใช่การเดา):
+     pdf-lib 1.17.1 สร้างตาราง /W จาก glyph ที่ map ตรงจากรหัสอักขระเท่านั้น
+     แต่ฟอนต์ไทยเลือก glyph ตัวแปรผ่าน GSUB เช่น
+       glyph 720 ไม้เอกปกติ        → มีใน /W width 0   ✓
+       glyph 721 · 723 · 724 ตัวแปร → ไม่มีใน /W        ✗
+     โปรแกรมอ่าน PDF จึงใช้ค่าปริยาย /DW = 1000
+
+   วิธีแก้ที่ใช้:
+     ไม่ตั้ง /DW 0 ทั้งฟอนต์ (เสี่ยงทำให้ glyph อื่นที่ตกหล่นกว้าง 0 ไปด้วย)
+     แต่เติม /W เฉพาะ glyph ที่วาดจริงและยังไม่มีในตาราง
+     โดยใช้ความกว้างจริงจาก fontkit หลังผ่าน GSUB/GPOS
+
+     ต้องทำหลัง save เพราะ pdf-lib สร้าง Font Dictionary ตอน save เท่านั้น
+     จึง save → โหลดกลับ → แก้ /W ของ CIDFontType2 → save อีกครั้ง
+     ผลลัพธ์จึงพิสูจน์ได้จากไบต์สุดท้ายจริง
+   ============================================================ */
+async function patchGlyphWidths(
+  bytes: Uint8Array,
+  usedReg: Map<number, number>,
+  usedBold: Map<number, number>,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes);
+  const ctx = (doc as unknown as {
+    context: { enumerateIndirectObjects(): Array<[unknown, unknown]> };
+  }).context;
+  if (!ctx || typeof ctx.enumerateIndirectObjects !== "function") return bytes;
+
+  let patched = 0;
+  for (const [, obj] of ctx.enumerateIndirectObjects()) {
+    const dict = obj as unknown as {
+      get?: (k: unknown) => unknown;
+      lookup?: (k: unknown) => unknown;
+    };
+    if (!dict || typeof dict.get !== "function") continue;
+
+    const sub = dict.get(PDFName.of("Subtype"));
+    if (!sub || String(sub) !== "/CIDFontType2") continue;
+
+    const base = dict.get(PDFName.of("BaseFont"));
+    const baseName = base ? String(base) : "";
+    /* แยกว่าเป็นฟอนต์ตัวปกติหรือตัวหนา จากชื่อที่ pdf-lib ตั้งให้ */
+    const used = /Bold/i.test(baseName) ? usedBold : usedReg;
+    if (!used.size) continue;
+
+    const wArr = dict.get(PDFName.of("W")) as PDFArray | undefined;
+    if (!wArr || typeof wArr.size !== "function") continue;
+
+    /* อ่านว่า CID ไหนมีความกว้างระบุไว้แล้ว
+       รูปแบบที่ pdf-lib เขียนคือ  cid [ w ]  เรียงต่อกัน */
+    const have = new Set<number>();
+    for (let k = 0; k < wArr.size(); k++) {
+      const cur = wArr.get(k);
+      const nxt = k + 1 < wArr.size() ? wArr.get(k + 1) : null;
+      const curNum = cur as unknown as { asNumber?: () => number };
+      const nxtArr = nxt as unknown as { size?: () => number };
+      if (typeof curNum.asNumber === "function" && nxtArr &&
+          typeof nxtArr.size === "function") {
+        const start = curNum.asNumber();
+        const n = (nxt as PDFArray).size();
+        for (let q = 0; q < n; q++) have.add(start + q);
+      }
+    }
+
+    /* เติมเฉพาะตัวที่ขาด — ไม่แตะของเดิมเลย */
+    for (const [gid, w] of used) {
+      if (have.has(gid)) continue;
+      const one = doc.context.obj([w]) as PDFArray;
+      wArr.push(PDFNumber.of(gid));
+      wArr.push(one);
+      patched++;
+    }
+  }
+  if (!patched) return bytes;
+  return await doc.save();
+}
+
 /**
+ * สร้าง PDF หนังสือรับรองการหักภาษี ณ ที่จ่าย/**
  * สร้าง PDF หนังสือรับรองการหักภาษี ณ ที่จ่าย
  * ออก 2 ฉบับตามที่กรมสรรพากรกำหนด (ฉบับที่ 1 และ ฉบับที่ 2) หน้าละฉบับ
  */
@@ -578,6 +788,10 @@ export async function buildWht50Pdf(
   fontRegular: Uint8Array,
   fontBold: Uint8Array,
 ): Promise<Uint8Array> {
+  /* ตรวจฟอนต์ก่อนอย่างอื่น — ถ้าขาดต้องไม่สร้างไฟล์และไม่ commit READY
+     ตัวเรียก (index.ts) จะส่งต่อไป njhr_doc_pdf_fail ตาม Pipeline เดิม */
+  assertThaiFontsReady(fontRegular, fontBold);
+
   const m = buildWht50Model(snap);
   const v = validateWht50Model(m);
   if (!v.ok) {
@@ -590,16 +804,33 @@ export async function buildWht50Pdf(
   const reg = await pdf.embedFont(fontRegular, { subset: false });
   const bold = await pdf.embedFont(fontBold, { subset: false });
 
-  pdf.setTitle(`50TAWI-${m.doc_no}`);
+  pdf.setTitle(`50TAWI-${m.docNo}`);
   pdf.setSubject("หนังสือรับรองการหักภาษี ณ ที่จ่าย ตามมาตรา 50 ทวิ");
   pdf.setProducer("NJ LOGISTIC HR SYSTEM");
   pdf.setCreator("NJ LOGISTIC HR SYSTEM");
   pdf.setCreationDate(new Date(0));
   pdf.setModificationDate(new Date(0));
 
-  for (const copyLabel of m.copies) {
-    const page = pdf.addPage([A4_W, A4_H]);
-    drawOne({ pdf, page, y: A4_H - M_T, reg, bold }, m, copyLabel);
+  const fkReg = fontkit.create(fontRegular) as unknown as FkFont;
+  const fkBold = fontkit.create(fontBold) as unknown as FkFont;
+  const usedReg = new Map<number, number>();
+  const usedBold = new Map<number, number>();
+
+  /* ลงทะเบียน glyph ตัวแปรของไทยไว้ล่วงหน้าทุกแบบ
+     เพราะข้อมูลจริง (ชื่อคน · ที่อยู่) มีอักษรอะไรก็ได้
+     ถ้ารอเก็บเฉพาะตอนวาด จะพลาดตัวแปรที่เอกสารฉบับนี้บังเอิญไม่มี
+     แล้วเอกสารของคนถัดไปที่มีอักษรนั้นจะเกิดช่องว่างทันที
+     รวมทุกคู่ พยัญชนะ × (สระบน/ล่าง) × วรรณยุกต์ — เพิ่มไม่กี่สิบรายการ */
+  for (const f of [{ fk: fkReg, out: usedReg }, { fk: fkBold, out: usedBold }]) {
+    collectGlyphs(f.fk, THAI_COVERAGE, f.out);
   }
-  return await pdf.save();
+
+  for (const copyLabel of m.copyLabels) {
+    const page = pdf.addPage([A4_W, A4_H]);
+    drawOne({ pdf, page, y: A4_H - M_T, reg, bold, fkReg, fkBold, usedReg, usedBold },
+      m, copyLabel);
+  }
+
+  /* เติมความกว้าง glyph ไทยที่ pdf-lib ตกหล่น ก่อนคืนไบต์สุดท้าย */
+  return await patchGlyphWidths(await pdf.save(), usedReg, usedBold);
 }

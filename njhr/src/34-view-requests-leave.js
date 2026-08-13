@@ -647,10 +647,18 @@
     return n + (md === 'HOURLY' ? ' ชั่วโมง' : ' วัน');
   }
 
+  /* ชื่อผู้ขอลา — ตรรกะเดียวกับที่การ์ดมือถือใช้อยู่เดิม
+     แยกออกมาเป็นฟังก์ชันเดียวเพื่อให้ตารางกับการ์ดไม่มีทางแสดงต่างกัน */
+  function lvWho(l) {
+    if (l.emp_name) return l.emp_name;
+    var e = currentEmp();
+    return e ? (e.firstName + ' ' + e.lastName) : '—';
+  }
+
   function lvDeskTable(rows, mineView) {
     return '<div class="card p0 only-desktop lvt-wrap"><table class="lvt lvt-lv">' +
       '<thead><tr>' +
-      '<th>เลขคำขอ</th><th>ประเภท</th><th>วันที่</th><th>รูปแบบการลา</th>' +
+      '<th>เลขคำขอ</th><th>ชื่อพนักงาน</th><th>ประเภท</th><th>วันที่</th><th>รูปแบบการลา</th>' +
       '<th>จำนวนวัน</th><th>ไฟล์แนบ</th><th>สถานะ</th><th class="lvt-act-h"></th>' +
       '</tr></thead><tbody>' +
       rows.map(function (l) { return lvDeskRow(l, mineView); }).join('') +
@@ -662,6 +670,12 @@
     var files = l.file_name ? 1 : 0;   // จำนวนวัน/ชั่วโมง ย้ายไปคำนวณใน lvQtyTxt() แล้ว
     return '<tr>' +
       '<td class="lvt-c-no"><b>' + esc(lvCode(l)) + '</b></td>' +
+      /* ชื่อพนักงาน — ใช้ emp_name ที่ njhr_leave_list ส่งมาอยู่แล้ว
+         (prefix + first_name + last_name ประกอบใน RPC · R3_request_no_expose.sql)
+         การ์ดมือถือใช้ค่าเดียวกันนี้มาตั้งแต่แรก จึงไม่ต้องแก้ SQL/RPC
+         ถ้าไม่มีค่า (คำขอของตนเองที่ RPC ไม่ส่งชื่อมา) ถอยไปใช้ชื่อผู้ใช้ปัจจุบัน
+         ด้วยตรรกะเดียวกับ leaveCard() เป๊ะ ๆ ไม่มีการเดาหรือสร้างข้อมูลใหม่ */
+      '<td class="lvt-c-emp"><b>' + esc(lvWho(l)) + '</b></td>' +
       '<td class="lvt-c-type">' +
       '<span class="chip" style="background:' + lt.color + '18;color:' + lt.color + '">' + esc(lt.name) + '</span></td>' +
       '<td class="lvt-c-date"><b>' +
@@ -688,7 +702,7 @@
   function leaveCard(l, mineView) {
     var lt = lvType(l.leave_type), md = lvMode(l), st = l.ui_status || l.status;
     var days = lvNum(l.total_days), hrs = lvNum(l.hours);
-    var who = l.emp_name || (function () { var e = currentEmp(); return e ? e.firstName + ' ' + e.lastName : '—'; })();
+    var who = lvWho(l);          // ตรรกะเดิมทุกบรรทัด ย้ายไปไว้ที่เดียว
     var sub = (l.department || (l.emp_code ? '' : dept((currentEmp() || {}).deptId)) || '—') + ' · ' + lvCode(l);
 
     return '<div class="card req-card only-mobile">' +

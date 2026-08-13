@@ -84,7 +84,15 @@
     'njhr_wf_approver_add': 1, 'njhr_wf_approver_remove': 1, 'njhr_wf_step_toggle': 1,
     /* RPC ที่ Frontend เริ่มเรียกในรอบย้าย Data Source (OT · ประกาศ · ตั้งค่า) */
     'njhr_announcement_save': 1, 'njhr_announcement_set_active': 1,
-    'njhr_ot_decide': 1, 'njhr_ot_submit': 1, 'njhr_setting_save': 1
+    'njhr_ot_decide': 1, 'njhr_ot_submit': 1, 'njhr_setting_save': 1,
+    /* 50 ทวิ — ทั้ง 4 ตัวเขียนข้อมูลจริงและมีผลข้างเคียง (ยืนยันจาก 87_wht50.sql)
+         njhr_wht50_draft    insert แถวใหม่ + ออกเลขลำดับ
+         njhr_wht50_update   update ร่าง + เขียน audit WHT50_EDIT
+         njhr_wht50_confirm  ออกเลขที่เอกสาร (running number) + เปลี่ยนสถานะ
+         njhr_wht50_send     สร้างแถวใน njhr_emp_documents + แจ้งเตือน
+       ถ้าถูกจัดเป็น Read จะโดน Retry/Dedup ซึ่งทำให้เกิดเอกสารซ้ำหรือเลขกระโดด */
+    'njhr_wht50_draft': 1, 'njhr_wht50_update': 1,
+    'njhr_wht50_confirm': 1, 'njhr_wht50_send': 1
   };
   function sbIsWriteRpc(fn) { return SB_WRITE_RPC[fn] === 1; }
   function sbOnce(fn, body, ctl) {
@@ -214,6 +222,27 @@
   function sbRpcList(fn, body) {
     return sbCall(fn, body).then(function (j) { return Array.isArray(j) ? j : (j ? [j] : []); });
   }
+  /* ---------- เรียก Edge Function njhr-doc-pdf ----------
+     ตัวกลางตัวเดียวของทั้งระบบ — หน้าเอกสาร HR และหน้ารายงาน 50 ทวิ ใช้ร่วมกัน
+     ต้องผ่านทางนี้เท่านั้น เพราะ njhr_doc_pdf_access ถูก revoke จาก anon/authenticated
+     (I2_finalpdf.sql:534) เรียกตรงจากหน้าเว็บไม่ได้ และ RPC นี้คืน storage_path
+     ไม่ใช่ URL — ตัว Edge Function เป็นผู้ออก Signed URL ด้วย service_role */
+  function sbDocPdfFn(body) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    return fetch(SB.url + '/functions/v1/njhr-doc-pdf', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ token: sbToken() }, body || {}))
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var d = {};
+        try { d = JSON.parse(t); } catch (e) { d = {}; }
+        if (!r.ok) throw new Error(d.error || 'ดำเนินการกับไฟล์ไม่สำเร็จ (' + r.status + ')');
+        return d;
+      });
+    });
+  }
+
   function sbRpc(fn, body) {
     return sbCall(fn, body).then(function (j) { return Array.isArray(j) ? j[0] : j; });
   }

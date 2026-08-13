@@ -15,6 +15,7 @@
    ใช้งาน: node build.js            สร้างไฟล์ deploy
            node build.js --check    ตรวจว่าไฟล์ deploy ตรงกับ src/ (ไม่เขียนทับ)
            node build.js --raw      สร้างแบบไม่ minify (ไว้ debug)
+           node build.js --dist     สร้าง dist/ สำหรับ Publish ขึ้นเว็บ (เฉพาะไฟล์ที่เบราว์เซอร์ใช้)
 */
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), vm = require('vm');
 const { minify_sync } = require('terser');
@@ -24,6 +25,7 @@ const D = __dirname, SRC = path.join(D, 'src'), CSSSRC = path.join(SRC, 'css'), 
 const md5 = b => crypto.createHash('md5').update(b).digest('hex');
 const RAW = process.argv.includes('--raw');
 const CHECK = process.argv.includes('--check');
+const DIST = process.argv.includes('--dist');
 const fail = m => { console.error('BUILD FAILED — ' + m); process.exit(1); };
 
 /* ---------- 1) นิยาม Chunk ----------
@@ -403,6 +405,72 @@ Object.keys(outFiles).forEach(f => {
 if (swOut !== swSrc) fs.writeFileSync(swPath, swOut);
 if (cfgOut !== cfgSrc) fs.writeFileSync(cfgPath, cfgOut);
 if (idxOut !== idxSrc) fs.writeFileSync(idxPath, idxOut);
+
+/* ---------- 9.5) dist/ — เฉพาะไฟล์ที่เบราว์เซอร์ใช้จริง ----------
+   ทำไมต้องมี: publish = "." ทำให้ src/ · harness/ · supabase-new/ · docs/
+   ถูกอัปขึ้นเว็บสาธารณะไปด้วย ทั้งที่เป็น Source และไฟล์ SQL
+
+   รายชื่อไฟล์มาจากผลลัพธ์ของ build เอง (outFiles + ไฟล์ราก + assets)
+   ไม่ได้เขียนรายชื่อไว้ตายตัว จึงไม่มีทางตกหล่นเมื่อเพิ่ม chunk ใหม่ */
+function buildDist() {
+  const dist = path.join(D, 'dist');
+  fs.rmSync(dist, { recursive: true, force: true });
+
+  const list = Object.keys(outFiles).slice();
+  ['index.html', 'config.js', 'sw.js', 'asset-manifest.js',
+   'styles.css', 'mobile.css', 'runtime/namespace.js'].forEach(f => {
+    if (list.indexOf(f) < 0 && fs.existsSync(path.join(D, f))) list.push(f);
+  });
+  /* ไฟล์เดี่ยวที่ index.html หรือ chunk อ้างถึง แต่ build ไม่ได้สร้างเอง */
+  ['face.js', 'face.css', 'master-salary.js', 'report-template.js',
+   'manifest.webmanifest', 'favicon.ico', 'robots.txt', '_headers', '_redirects',
+   'netlify.toml'].forEach(f => {
+    if (list.indexOf(f) < 0 && fs.existsSync(path.join(D, f))) list.push(f);
+  });
+  /* โฟลเดอร์ assets ทั้งชุด (รูป ไอคอน ฟอนต์) */
+  const assetsDir = path.join(D, 'assets');
+  if (fs.existsSync(assetsDir)) {
+    (function walk(rel) {
+      fs.readdirSync(path.join(D, rel), { withFileTypes: true }).forEach(e => {
+        const r = rel + '/' + e.name;
+        if (e.isDirectory()) walk(r);
+        else if (list.indexOf(r) < 0) list.push(r);
+      });
+    })('assets');
+  }
+
+  let n = 0;
+  list.forEach(f => {
+    const from = path.join(D, f);
+    if (!fs.existsSync(from)) return;
+    const to = path.join(dist, f);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(from, to);
+    n++;
+  });
+
+  /* กันพลาด: dist ต้องไม่มี Source หรือไฟล์ SQL หลุดไป */
+  const banned = ['src', 'harness', 'docs', 'supabase', 'supabase-new',
+                  'runtime-src', 'edge-functions', 'rollback', 'node_modules'];
+  banned.forEach(b => {
+    if (fs.existsSync(path.join(dist, b))) {
+      fail('dist/ ไม่ควรมีโฟลเดอร์ ' + b);
+    }
+  });
+  const stray = [];
+  (function scan(rel) {
+    fs.readdirSync(path.join(dist, rel || '.'), { withFileTypes: true }).forEach(e => {
+      const r = rel ? rel + '/' + e.name : e.name;
+      if (e.isDirectory()) scan(r);
+      else if (/\.(sql|md|ts)$/i.test(e.name)) stray.push(r);
+    });
+  })('');
+  if (stray.length) fail('dist/ มีไฟล์ที่ไม่ควร Publish: ' + stray.join(', '));
+
+  if (n > 100) fail('dist/ มี ' + n + ' ไฟล์ เกิน 100 ไฟล์ที่ GitHub อัปโหลดได้ต่อครั้ง');
+  console.log('dist/  ' + n + ' ไฟล์ (เฉพาะที่เบราว์เซอร์ใช้จริง)');
+}
+if (DIST) buildDist();
 
 /* ---------- 10) ตรวจว่า Asset ทุกตัวใน manifest มีอยู่จริง ---------- */
 JSON.parse(manifest.slice(manifest.indexOf('{'), manifest.lastIndexOf('}') + 1));

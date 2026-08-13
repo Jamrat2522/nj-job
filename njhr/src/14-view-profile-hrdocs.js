@@ -19,6 +19,179 @@
     ['logout',       '\u{1F6AA}', 'ออกจากระบบ',        'm-red',    'pf-m-out']
   ];
 
+  /* ============================================================
+     รูปโปรไฟล์บนมือถือ
+     ------------------------------------------------------------
+     ต่อระบบแฟ้มพนักงานเดิมทั้งหมด ไม่สร้าง Storage ใหม่
+       Edge Function njhr-emp-file  action = upload-url / download-url
+       RPC njhr_empfile_save        เก็บทะเบียนไฟล์ + ทำ Versioning ให้เอง
+       category = PERSONAL · doc_kind = PHOTO
+     employee_id มาจาก njhr_me_get เท่านั้น (ผูกกับ Token) ไม่รับจาก URL
+     ============================================================ */
+  var PF_PHOTO_MAX = 10 * 1024 * 1024;        // ตรงกับ EMPF_MAX และ MAX_SIZE ใน Edge Function
+  var PF_PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+  function pfEmpFn(body) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    return fetch(SB.url + '/functions/v1/njhr-emp-file', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ token: sbToken() }, body || {}))
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var d = {};
+        try { d = JSON.parse(t); } catch (e) { d = {}; }
+        if (!r.ok) throw new Error(d.error || 'เข้าถึงไฟล์ไม่สำเร็จ (' + r.status + ')');
+        return d;
+      });
+    });
+  }
+
+  function pfPhotoMsg(txt, isErr) {
+    var box = document.getElementById('pfm-photo-msg');
+    if (!box) return;
+    if (!txt) { box.hidden = true; box.textContent = ''; return; }
+    box.hidden = false;
+    box.className = 'pfm-photo-msg' + (isErr ? ' is-err' : '');
+    box.textContent = txt;
+  }
+
+  /* หารูปล่าสุดจากแฟ้มพนักงาน
+     ⚠ ต้องค้นเสมอ ไม่ดูจาก employees.photo_url เพราะ njhr_empfile_save ไม่ได้เขียนคอลัมน์นั้น */
+  function pfFindPhoto(empId) {
+    return sbRpc('njhr_empfile_list', { p_token: sbToken(), p_employee: empId })
+      .then(function (r) {
+        var d = (r && r.data) || {};
+        var files = Array.isArray(d.files) ? d.files : [];
+        var list = files.filter(function (f) {
+          return String(f.category) === 'PERSONAL' && String(f.doc_kind) === 'PHOTO' &&
+            !f.deleted_at;
+        });
+        list.sort(function (a, b) {
+          return String(b.updated_at || b.uploaded_at || '')
+            .localeCompare(String(a.updated_at || a.uploaded_at || ''));
+        });
+        return list[0] || null;
+      })['catch'](function (er) {
+        console.error('[PROFILE] njhr_empfile_list ล้มเหลว:', er);
+        return null;                       // หน้าโปรไฟล์ต้องไม่พังเพราะหารูปไม่เจอ
+      });
+  }
+
+  function pfShowPhoto(url) {
+    var box = document.getElementById('pfm-ava');
+    if (!box || !url) return;
+    var old = box.querySelector('.avatar, .pfm-photo-img');
+    var img = document.createElement('img');
+    img.className = 'pfm-photo-img';
+    img.src = url;
+    img.alt = 'รูปโปรไฟล์';
+    img.onerror = function () { pfPhotoMsg('เปิดรูปโปรไฟล์ไม่สำเร็จ', true); };
+    if (old) box.replaceChild(img, old); else box.insertBefore(img, box.firstChild);
+  }
+
+  var pfPhotoCur = null;                   // ไฟล์ PHOTO ปัจจุบัน ใช้ทำ Versioning ตอนเปลี่ยนรูป
+  var pfPhotoBusy = false;
+
+  function pfPhotoLoad(empId) {
+    return pfFindPhoto(empId).then(function (f) {
+      pfPhotoCur = f;
+      if (!f) return null;                 // ไม่มีรูป → ใช้ avatarHTML() เดิมต่อไป
+      return pfEmpFn({ action: 'download-url', file_id: f.id })
+        .then(function (d) { if (d && d.url) pfShowPhoto(d.url); return d; })
+        ['catch'](function (er) {
+          console.error('[PROFILE] ขอลิงก์รูปไม่สำเร็จ:', er);
+          return null;                     // ล้มเหลว → คงตัวอักษรย่อไว้ ไม่ทำหน้าพัง
+        });
+    });
+  }
+
+  function pfPhotoUpload(file, empId) {
+    if (pfPhotoBusy) return;
+    if (PF_PHOTO_MIME.indexOf(String(file.type || '').toLowerCase()) < 0) {
+      pfPhotoMsg('รับเฉพาะไฟล์รูปภาพ JPG · PNG · WEBP เท่านั้น', true);
+      return;
+    }
+    if (file.size > PF_PHOTO_MAX) {
+      pfPhotoMsg('ไฟล์ใหญ่เกิน ' + (PF_PHOTO_MAX / 1048576) + ' MB', true);
+      return;
+    }
+
+    pfPhotoBusy = true;
+    var cam = document.getElementById('pfm-cam');
+    if (cam) cam.classList.add('is-busy');
+    pfPhotoMsg('กำลังอัปโหลดรูป…', false);
+
+    pfEmpFn({
+      action: 'upload-url', employee_id: empId,
+      category: 'PERSONAL', doc_kind: 'PHOTO',
+      file_name: file.name, size: file.size
+    }).then(function (d) {
+      if (!d.upload_url || !d.path) throw new Error('ขอสิทธิ์อัปโหลดไม่สำเร็จ');
+      return fetch(d.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) {
+          throw new Error('อัปโหลดไม่สำเร็จ: ' + String(t).slice(0, 120));
+        });
+        return { name: file.name, path: d.path, mime: file.type || '', size: file.size };
+      });
+    }).then(function (f) {
+      /* มีรูปเดิมอยู่แล้ว → ส่ง p_id เดิมเพื่อให้ระบบทำ Versioning
+         ไฟล์เก่าจะถูกเก็บใน njhr_emp_file_versions ไม่ถูกลบทิ้ง */
+      return sbRpc('njhr_empfile_save', {
+        p_token: sbToken(), p_employee: empId,
+        p_category: 'PERSONAL', p_doc_kind: 'PHOTO',
+        p_file: f, p_id: (pfPhotoCur && pfPhotoCur.id) || null,
+        p_document_date: null, p_expiry_date: null, p_note: null
+      });
+    }).then(function () {
+      return pfPhotoLoad(empId);           // ดึงรูปล่าสุดกลับมาแสดงทันที
+    }).then(function () {
+      pfPhotoMsg('', false);
+      toast('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว');
+    })['catch'](function (ex) {
+      console.error('[PROFILE] อัปโหลดรูปล้มเหลว:', ex);
+      pfPhotoMsg((ex && ex.message) || 'อัปโหลดรูปไม่สำเร็จ', true);
+    }).then(function () {
+      pfPhotoBusy = false;
+      if (cam) cam.classList.remove('is-busy');
+      var inp = document.getElementById('pfm-photo');
+      if (inp) inp.value = '';             // เลือกไฟล์เดิมซ้ำได้
+    });
+  }
+
+  function pfPhotoInit(el, mePromise) {
+    var cam = el.querySelector('#pfm-cam');
+    var inp = el.querySelector('#pfm-photo');
+    if (!cam || !inp) return;
+
+    pfPhotoCur = null;
+    mePromise.then(function (me) {
+      if (!me || !me.id) return;
+      pfPhotoLoad(me.id);
+
+      /* อยู่ใน <a> จึงต้องกันไม่ให้ลิงก์ทำงานเมื่อกดปุ่มกล้อง */
+      cam.onclick = function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        if (pfPhotoBusy) return;
+        inp.click();
+      };
+      cam.onkeydown = function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault(); ev.stopPropagation();
+        inp.click();
+      };
+      inp.onclick = function (ev) { ev.stopPropagation(); };
+      inp.onchange = function () {
+        var f = this.files && this.files[0];
+        if (f) pfPhotoUpload(f, me.id);
+      };
+    });
+  }
+
   function pfMobileHtml(u, e) {
     var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;
     return '<div class="only-mobile pfm">' +
@@ -27,11 +200,19 @@
       '<button type="button" class="pfm-x" id="pfm-close" aria-label="กลับหน้าหลัก">' +
       icon('x') + '</button></div>' +
 
-      '<a class="pfm-emp" href="#/profile?sec=detail">' + avatarHTML(name, 58) +
+      /* ปุ่มกล้องซ้อนบนรูป — เปิด File Picker ของเครื่อง
+         ห่อด้วย <span> ไม่ใช่ <button> เพราะอยู่ใน <a> จะซ้อน element กดไม่ได้
+         input[type=file] ซ่อนไว้ รับเฉพาะรูปภาพ (ตรวจซ้ำอีกชั้นตอนเลือกไฟล์) */
+      '<a class="pfm-emp" href="#/profile?sec=detail">' +
+      '<span class="pfm-ava" id="pfm-ava">' + avatarHTML(name, 58) +
+      '<span class="pfm-cam" id="pfm-cam" role="button" tabindex="0" ' +
+      'aria-label="เปลี่ยนรูปโปรไฟล์" title="เปลี่ยนรูปโปรไฟล์">' + icon('camera') + '</span>' +
+      '<input type="file" id="pfm-photo" accept="image/jpeg,image/png,image/webp" hidden></span>' +
       '<div class="grow"><b>' + esc(name) + '</b>' +
       '<small>รหัสพนักงาน: <i>' + esc((e && e.code) || '—') + '</i></small>' +
       '<small>แผนก: <i>' + esc((e && dept(e.deptId)) || '—') + '</i></small></div>' +
       '<span class="pfm-x2">' + icon('chevR') + '</span></a>' +
+      '<div class="pfm-photo-msg" id="pfm-photo-msg" hidden></div>' +
 
       '<nav class="pfm-menu">' + PF_MENU.map(function (m) {
         return '<button type="button" class="pfm-item ' + m[4] + '" data-pfm="' + esc(m[0]) + '">' +
@@ -90,6 +271,23 @@
       if (box) { box.classList.add('pf-show-mobile'); box.scrollIntoView({ behavior: 'smooth' }); }
     };
 
+    /* ---------- njhr_me_get ครั้งเดียวต่อการเปิดหน้า ----------
+       ทั้งฟอร์มข้อมูลติดต่อและรูปโปรไฟล์ใช้ผลลัพธ์ก้อนเดียวกัน
+       employee.id ที่ได้มาจาก Token เท่านั้น ไม่รับจาก URL หรือ localStorage */
+    var pfMe = null;
+    var pfMePromise = (sbReady() && sbToken())
+      ? sbRpc('njhr_me_get', { p_token: sbToken() }).then(function (r) {
+          var d = (r && r.data) ? r.data : r;
+          pfMe = (d && d.employee) || null;
+          return pfMe;
+        })['catch'](function (er) {
+          console.error('[PROFILE] njhr_me_get ล้มเหลว:', er);
+          return null;
+        })
+      : Promise.resolve(null);
+
+    pfPhotoInit(el, pfMePromise);
+
     var saveBtn = document.getElementById('pf-save');
     if (saveBtn) {
       /* ---------- ข้อมูลติดต่อ: แหล่งจริงคือ employees ผ่าน njhr_me_get / njhr_me_save ----------
@@ -102,20 +300,14 @@
             แล้วส่งกลับครบทั้ง 7 ค่าโดยแทนที่เฉพาะ phone/email ที่หน้านี้แก้ได้
          Audit ถูกเขียนโดย njhr_me_save แล้ว จึงไม่เรียก audit() ซ้ำ
          ช่องกรอกและหน้าตาเดิมทุกบรรทัด ไม่เพิ่ม/ลดช่องใด */
-      var pfMe = null;
-      if (sbReady() && sbToken()) {
-        sbRpc('njhr_me_get', { p_token: sbToken() }).then(function (r) {
-          var d = (r && r.data) ? r.data : r;
-          if (!d || !d.employee) return;
-          pfMe = d.employee;
-          var fm0 = document.getElementById('pf-f');
-          if (!fm0) return;
-          fm0.elements.phone.value = pfMe.phone || '';
-          fm0.elements.email.value = pfMe.email || '';
-        }).catch(function (er) {
-          console.error('[PROFILE] njhr_me_get ล้มเหลว:', er);
-        });
-      }
+      /* ใช้ผลจาก njhr_me_get ก้อนเดียวกับรูปโปรไฟล์ — ไม่ยิง RPC ซ้ำ */
+      pfMePromise.then(function (me) {
+        if (!me) return;
+        var fm0 = document.getElementById('pf-f');
+        if (!fm0) return;
+        fm0.elements.phone.value = me.phone || '';
+        fm0.elements.email.value = me.email || '';
+      });
       saveBtn.onclick = function () {
         var fm = document.getElementById('pf-f'), btn = this;
         if (!sbReady() || !sbToken()) { toast('ยังไม่ได้เชื่อมต่อ Supabase — บันทึกไม่ได้', 'error'); return; }
@@ -1748,7 +1940,76 @@
     });
   }
 
+  /* ---------- หน้ารายละเอียด 50 ทวิ (ฝั่งพนักงาน) ----------
+     แสดงเฉพาะข้อมูลเอกสารและปุ่มดู/ดาวน์โหลด
+     ไม่มี: รอรับทราบ · ACK · SIGN · ปุ่มรับทราบ/ปฏิเสธ · เนื้อความเอกสารทั่วไป
+     ถ้า Final PDF พร้อมแล้ว ให้ดูไฟล์จริงผ่าน Signed URL
+     จะได้ไม่มีหน้าตาอีกชุดที่ต่างจากไฟล์ที่ได้รับ */
+  function docPaintWht50Detail(el) {
+    var d = docDetailData.doc || {};
+    var meta = d.doc_meta || {};
+    var yr = meta.tax_year ? (Number(meta.tax_year) + 543) : '';
+    var opened = d.status === 'VIEWED';
+    var pdfReady = (d.final_pdf_status === 'READY');
+
+    el.innerHTML =
+      '<div class="card doc-top"><div class="card-head">' +
+      '<button class="btn btn-ghost btn-sm" id="doc-back">← กลับรายการเอกสาร</button>' +
+      '<span class="grow"></span>' +
+      '<span class="badge ' + (opened ? 'badge-ok' : 'badge-info') + '">' +
+      esc(docMyStateText(d)) + '</span></div>' +
+      '<h3 style="margin:6px 0 2px">🧾 ' +
+      esc(yr ? ('50 ทวิ ประจำปีภาษี ' + yr) : (d.title || docTypeLabel(d.doc_type))) + '</h3>' +
+      '<div class="ot-req-info">' +
+      [['เลขที่เอกสาร', d.doc_no || '—'],
+       ['ปีภาษี', yr || '—'],
+       ['วันที่ได้รับ', docTS(d.sent_at || d.issued_at)],
+       ['สถานะ', docMyStateText(d)]].map(function (x) {
+        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(String(x[1])) + '</b></div>';
+      }).join('') + '</div></div>' +
+      '<div class="card" id="wht50-emp-view">' +
+      (pdfReady
+        ? '<div class="muted" style="padding:14px">กำลังเปิดเอกสาร…</div>'
+        : '<div class="ot-warn">' + icon('info', 'ic-sm') +
+          ' เอกสารกำลังจัดเตรียม กรุณาลองใหม่อีกครั้งภายหลัง</div>') +
+      '<div class="doc-my-act" style="margin-top:12px">' +
+      '<button class="btn btn-primary btn-sm" id="wht50-emp-dl"' +
+      (pdfReady ? '' : ' disabled title="ยังไม่มีไฟล์ให้ดาวน์โหลด"') + '>' +
+      icon('download') + ' ดาวน์โหลด</button>' +
+      '<button class="btn btn-ghost btn-sm" id="wht50-emp-close">ปิด</button>' +
+      '</div></div>' +
+      '<div class="form-error" id="doc-err"></div>';
+
+    document.getElementById('doc-back').onclick = function () { docState.openId = ''; viewHrDocs(el); };
+    document.getElementById('wht50-emp-close').onclick = function () { docState.openId = ''; viewHrDocs(el); };
+    document.getElementById('wht50-emp-dl').onclick = function () { docPdfDownload(d.id, this); };
+
+    /* ดูไฟล์จริง — ขอ Signed URL ผ่าน Edge Function เท่านั้น ไม่มี URL สาธารณะ */
+    if (pdfReady) {
+      sbDocPdfFn({ action: 'download', document_id: d.id }).then(function (r) {
+        var box = document.getElementById('wht50-emp-view');
+        if (!box) return;
+        if (!r || !r.url) throw new Error('เปิดไฟล์ไม่สำเร็จ');
+        box.querySelector('.muted').outerHTML =
+          '<iframe class="wht50-emp-pdf" src="' + esc(r.url) + '" title="50 ทวิ"></iframe>';
+      })['catch'](function (ex) {
+        var box = document.getElementById('wht50-emp-view');
+        if (box && box.querySelector('.muted')) {
+          box.querySelector('.muted').outerHTML =
+            '<div class="ot-warn">' + icon('info', 'ic-sm') + ' ' +
+            esc((ex && ex.message) || 'เปิดไฟล์ไม่สำเร็จ') + '</div>';
+        }
+      });
+    }
+  }
+
   function docPaintDetail(el) {
+    /* ══════════ 50 ทวิ: ออกทางนี้ทันที ══════════
+       เอกสารภาษีไม่มีการรับทราบและไม่มีการลงนาม จึงต้องไม่ตกไปเส้นทางเอกสาร HR ทั่วไป
+       ซึ่งจะเรียก docA4Html() / docAckPanelHtml() และขึ้นคำว่า "รอรับทราบ"
+       return ทันทีตรงนี้ ไม่ให้ไหลต่อแม้แต่บรรทัดเดียว */
+    if (docIsWht50(docDetailData.doc)) { docPaintWht50Detail(el); return; }
+
     var d = docDetailData.doc, org = docDetailData.org || {}, ack = docDetailData.ack;
     var events = docDetailData.events || [];
     var mng = docCanManage(), appr = docCanApprove();

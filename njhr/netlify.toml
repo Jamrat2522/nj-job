@@ -18,8 +18,13 @@
 
 [build]
   # โปรเจกต์นี้ไม่มีขั้นตอน build บน Netlify — อัปโหลดไฟล์ที่ build เสร็จแล้วจากเครื่อง
-  # publish ชี้ไปที่โฟลเดอร์ที่มี index.html
-  publish = "."
+  #
+  # publish ชี้ไปที่ dist/ ซึ่งมีเฉพาะไฟล์ที่เบราว์เซอร์ใช้จริง
+  # สร้างด้วย `node build.js --dist` (build.js เขียน dist/ ให้จาก DEPLOY_MD5.txt)
+  #
+  # เหตุผล: ก่อนหน้านี้ publish = "." ทำให้ src/ · harness/ · supabase-new/ · docs/
+  # ถูกอัปขึ้นเว็บสาธารณะไปด้วย ทั้งที่เป็น Source และไฟล์ SQL ที่ไม่ควรเปิดเผย
+  publish = "dist"
   command = ""
 
 
