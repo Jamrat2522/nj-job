@@ -54,9 +54,9 @@ SELECT tablename, rowsecurity FROM pg_tables
  ORDER BY tablename;
 
 -- 8) policy ทั้งหมดต้องเป็น SELECT เท่านั้น และต้องไม่มีบน profiles / user_access
-SELECT tablename, polname, cmd FROM pg_policies
+SELECT tablename, policyname, cmd FROM pg_policies
  WHERE schemaname='public' AND tablename LIKE 'njacc\_%' ESCAPE '\'
- ORDER BY tablename, polname;
+ ORDER BY tablename, policyname;
 -- Expected: ไม่มีแถวของ njacc_profiles / njacc_user_access · cmd = SELECT ทั้งหมด
 
 -- 9) TABLE GRANTS: anon ต้องไม่มีสิทธิ์ใด ๆ · authenticated ต้องไม่มีบน profiles/user_access
@@ -149,8 +149,8 @@ SELECT 'routine', routine_name FROM information_schema.routines
 -- Expected: 0 rows (ชื่อทุก object ขึ้นต้น njacc_)
 
 -- 16c) policy / trigger / index ทั้งหมดของระบบนี้ต้องอยู่บนตาราง njacc_ เท่านั้น
-SELECT tablename, polname FROM pg_policies
- WHERE schemaname='public' AND polname LIKE 'njacc%' AND tablename NOT LIKE 'njacc\_%';
+SELECT tablename, policyname FROM pg_policies
+ WHERE schemaname='public' AND policyname LIKE 'njacc%' AND tablename NOT LIKE 'njacc\_%';
 SELECT tgname, tgrelid::regclass::text AS table_name FROM pg_trigger
  WHERE NOT tgisinternal AND tgname LIKE 'njacc%' AND tgrelid::regclass::text NOT LIKE 'njacc\_%';
 SELECT indexname, tablename FROM pg_indexes
@@ -182,6 +182,32 @@ SELECT conname FROM pg_constraint
 -- 16h) ต้องไม่มี njacc_admin_link_auth (ช่อง link นอก state machine) — Expected 0
 SELECT count(*) AS link_auth_left FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='public' AND p.proname='njacc_admin_link_auth';
+
+-- 16i) HELPER EXPOSURE: helper ภายในต้องไม่ถูก GRANT ให้ authenticated (ต้องได้ 0 แถว)
+SELECT routine_name, grantee FROM information_schema.routine_privileges
+ WHERE routine_name IN ('njacc_match_job','njacc_build_charge_set','njacc_natural_key',
+   'njacc_norm_key','njacc_audit','njacc_next_doc_no','njacc_idem_check','njacc_req_profile',
+   'njacc_sanitize_detail')
+   AND grantee IN ('anon','authenticated','PUBLIC');
+
+-- 16j) คอลัมน์ที่ index ต้องใช้ มีอยู่จริงบน njacc_jobs (ต้องได้ 4 แถว)
+SELECT column_name FROM information_schema.columns
+ WHERE table_schema='public' AND table_name='njacc_jobs'
+   AND column_name IN ('case_no','contact','cs_name','i_billing_apl') ORDER BY column_name;
+
+-- 16k) NATURAL SORT TEST (ต้องได้เรียง INV-1, INV-2, INV-10, INV-100)
+SELECT x FROM (VALUES ('INV-1'),('INV-2'),('INV-10'),('INV-100'),
+  ('NJ2605-2'),('NJ2605-10'),('NJ2605-100')) v(x)
+ ORDER BY public.njacc_natural_key(x);
+
+-- 16l) SNAPSHOT INVARIANT: snapshot ต้องผูกกับ job ที่มีอยู่จริงเสมอ (ต้องได้ 0 แถว)
+SELECT s.job_id FROM public.njacc_job_financial_snapshot s
+ LEFT JOIN public.njacc_jobs j ON j.id = s.job_id WHERE j.id IS NULL;
+
+-- 16m) CUSTOMER CONSISTENCY: งานที่ออก INVOICE แล้ว ลูกค้าต้องตรงกับใบแจ้งหนี้ (ต้องได้ 0 แถว)
+SELECT j.job_no FROM public.njacc_jobs j
+  JOIN public.njacc_invoices i ON i.id = j.invoice_id
+ WHERE j.customer_id IS DISTINCT FROM i.customer_id;
 
 -- 17) ตาราง BILLING เดิมยังอยู่ครบ ไม่ถูกแตะ
 SELECT table_name FROM information_schema.tables

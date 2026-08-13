@@ -18,18 +18,46 @@ export function pickFile(accept = '.csv,.txt,.xlsx,.xls') {
     i.click();
   });
 }
+/* อ่านทั้ง xlsx/xls/csv ผ่าน SheetJS — CSV ใช้ parser ที่รองรับ quoted comma / newline / "" */
 export async function readSheet(file) {
-  const name = (file.name || '').toLowerCase();
-  if (name.endsWith('.csv') || name.endsWith('.txt')) {
-    const text = await file.text();
-    return text.split(/\r?\n/).filter(l => l.trim() !== '')
-      .map(l => l.split(/[,;\t]/).map(s => s.trim().replace(/^"|"$/g, '')));
-  }
   const X = await xlsx();
-  const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  const name = (file.name || '').toLowerCase();
+  let wb;
+  if (name.endsWith('.csv') || name.endsWith('.txt')) {
+    wb = X.read(await file.text(), { type: 'string', raw: false, cellDates: true });
+  } else {
+    wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+  }
   const sh = wb.Sheets[wb.SheetNames[0]];
   return X.utils.sheet_to_json(sh, { header: 1, raw: false, defval: '' })
     .map(r => (r || []).map(v => (v == null ? '' : String(v).trim())));
+}
+
+/* normalize key ให้ตรงกับ njacc_norm_key ฝั่ง DB (trim + upper + ยุบช่องว่าง + ตัด .0) */
+export const normKey = (v) => String(v ?? '').trim().toUpperCase()
+  .replace(/\s+/g, ' ').replace(/\.0+$/, '');
+
+/* Credit Term: "30", "30 Days", " 45 ", "60 DAYS" → ตัวเลข · อ่านไม่ได้ → null */
+export function parseCreditTerm(v) {
+  const s = String(v ?? '').trim();
+  if (s === '') return '';
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(d|day|days|วัน)?\.?$/i);
+  if (!m) return null;
+  return String(Math.round(Number(m[1])));
+}
+
+/* หา header row + คืน index ของคอลัมน์ตามชื่อที่รองรับ (ไม่เดา A/B ถ้ามี header จริง) */
+export function findHeaderCols(grid, spec, scanRows = 10) {
+  for (let i = 0; i < Math.min(scanRows, grid.length); i++) {
+    const row = (grid[i] || []).map(c => String(c || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.:]/g, ''));
+    const found = {};
+    for (const [field, names] of Object.entries(spec)) {
+      const idx = row.findIndex(c => names.includes(c));
+      if (idx >= 0) found[field] = idx;
+    }
+    if (Object.keys(found).length === Object.keys(spec).length) return { headerRow: i, cols: found };
+  }
+  return null;
 }
 
 /* ---------- value parsers ---------- */
@@ -116,10 +144,12 @@ export async function runMainImport(ctx) {
   const seen = new Map();
   const dupInFile = [];
   const invalidDate = [];
+  const invalidTerm = [];
   for (let i = hIdx + 1; i < grid.length; i++) {
     const raw = grid[i];
     const key = String(raw[colOf.key] ?? '').trim();
     if (!key) continue;
+    const nkey = normKey(key);
     const fields = {};
     let bad = false;
     for (const f of presentFields) {
@@ -129,7 +159,8 @@ export async function runMainImport(ctx) {
         if (iso === null) { bad = true; break; }
         v = iso;
       } else if (f === 'credit_term_days') {
-        const n = toNum(v); v = n === null ? '' : String(Math.round(n));
+        const ct = parseCreditTerm(v);
+        if (ct === null) { invalidTerm.push(key); v = ''; } else v = ct;
       } else if (f === 'operational_status') {
         v = STATUS_MAP[norm(v)] || '';
       }
@@ -147,8 +178,8 @@ export async function runMainImport(ctx) {
     }
     const rec = { key, fields, money: hasMoney ? money : null };
     /* ไฟล์เดียวกัน key ซ้ำ → ยึดแถวล่างสุด แต่ต้องรายงาน */
-    if (seen.has(key)) { dupInFile.push(key); rows[seen.get(key)] = rec; }
-    else { seen.set(key, rows.length); rows.push(rec); }
+    if (seen.has(nkey)) { dupInFile.push(key); rows[seen.get(nkey)] = rec; }
+    else { seen.set(nkey, rows.length); rows.push(rec); }
   }
   if (!rows.length) { toast('ไม่พบแถวข้อมูลที่ใช้ได้ในไฟล์', 'err'); return; }
 
@@ -164,7 +195,7 @@ export async function runMainImport(ctx) {
 
   const ok = await previewDialog({
     file: file.name, total: rows.length, fields: presentFields, hasMoney,
-    dupInFile, invalidDate, missCust, missComp, ctx,
+    dupInFile, invalidDate, invalidTerm, missCust, missComp, ctx,
   });
   if (!ok) return;
   if (ok === 'create-masters') {
@@ -175,7 +206,7 @@ export async function runMainImport(ctx) {
 
   /* ---- ส่งเป็น batch ---- */
   const CHUNK = 100;
-  const sum = { inserted: 0, updated: 0, skipped: 0, ambiguous: [], unresolved_master: [], failed: [] };
+  const sum = { inserted: 0, updated: 0, skipped: 0, ambiguous: [], unresolved_master: [], failed: [], invoiced_locked: [] };
   const prog = progressDialog(rows.length);
   try {
     for (let i = 0; i < rows.length; i += CHUNK) {
@@ -186,11 +217,12 @@ export async function runMainImport(ctx) {
       sum.ambiguous = sum.ambiguous.concat(res.ambiguous || []);
       sum.unresolved_master = sum.unresolved_master.concat(res.unresolved_master || []);
       sum.failed = sum.failed.concat(res.failed || []);
+      sum.invoiced_locked = sum.invoiced_locked.concat(res.invoiced_locked || []);
       prog.update(Math.min(i + CHUNK, rows.length));
     }
   } finally { prog.close(); }
 
-  resultDialog(sum, dupInFile, invalidDate);
+  resultDialog(sum, dupInFile, invalidDate, invalidTerm);
   ctx.refresh();
 }
 
@@ -213,6 +245,8 @@ function previewDialog(info) {
         <div class="t-xs t-2">ยึดแถวล่างสุด: ${esc(info.dupInFile.slice(0, 20).join(', '))}</div></div>` : ''}
       ${info.invalidDate.length ? `<div class="mt-1"><b class="money-neg">วันที่ไม่ถูกต้อง (${info.invalidDate.length})</b>
         <div class="t-xs t-2">${esc(info.invalidDate.slice(0, 20).join(', '))}</div></div>` : ''}
+      ${(info.invalidTerm || []).length ? `<div class="mt-1"><b class="money-neg">Credit Term อ่านไม่ได้ (${info.invalidTerm.length})</b>
+        <div class="t-xs t-2">${esc(info.invalidTerm.slice(0, 20).join(', '))} — ระบบจะไม่เดาค่าให้</div></div>` : ''}
       ${listOf(info.missCust, 'ลูกค้าที่ยังไม่มีในระบบ/กำกวม')}
       ${listOf(info.missComp, 'บริษัท Invoice ที่ยังไม่มีในระบบ/กำกวม')}
       ${(info.missCust.length || info.missComp.length)
@@ -242,7 +276,7 @@ function progressDialog(total) {
   };
 }
 
-function resultDialog(sum, dupInFile, invalidDate) {
+function resultDialog(sum, dupInFile, invalidDate, invalidTerm = []) {
   const line = (lb, arr, cls) => arr.length
     ? `<div class="mt-1"><b class="${cls}">${lb} (${arr.length})</b>
         <div class="t-xs t-2">${esc(arr.slice(0, 25).map(x => typeof x === 'string' ? x : (x.key || JSON.stringify(x))).join(', '))}${arr.length > 25 ? ' …' : ''}</div></div>` : '';
@@ -257,7 +291,9 @@ function resultDialog(sum, dupInFile, invalidDate) {
     ${line('ข้อมูลหลักไม่ตรง (ข้ามแถว)', sum.unresolved_master, 'money-neg')}
     ${line('ผิดพลาด', sum.failed, 'money-neg')}
     ${line('ซ้ำในไฟล์ (ใช้แถวล่างสุด)', dupInFile, 't-2')}
-    ${line('วันที่ไม่ถูกต้อง (ข้าม)', invalidDate, 'money-neg')}`;
+    ${line('วันที่ไม่ถูกต้อง (ข้าม)', invalidDate, 'money-neg')}
+    ${line('Credit Term อ่านไม่ได้ (ไม่บันทึกค่านั้น)', invalidTerm, 'money-neg')}
+    ${line('งานที่ออก INVOICE แล้ว — ฟิลด์บัญชีถูกล็อก', (sum.invoiced_locked || []), 'money-neg')}`;
   const f = document.createElement('div');
   f.innerHTML = '<button class="btn btn-p" data-close>ปิด</button>';
   openModal({ title: 'ผลการนำเข้า', body: b, footer: f, large: true });
@@ -267,16 +303,26 @@ function resultDialog(sum, dupInFile, invalidDate) {
 export async function runAplUpload(ctx) {
   const file = await pickFile(); if (!file) return;
   const grid = await readSheet(file);
+  /* หา header จริงก่อน — ไม่เดา A/B ถ้าไฟล์มีหัวตาราง */
+  const hit = findHeaderCols(grid, {
+    key: ['invoice', 'invoice no', 'invoice number', 'เลขที่ invoice', 'เลขที่ใบแจ้งหนี้'],
+    value: ['apl billing', 'ชื่อคนรับวางบิล', 'ผู้รับวางบิล', 'contact', 'ชื่อผู้รับวางบิล'],
+  });
   const pairs = [];
-  for (const r of grid) {
-    const key = String(r[0] ?? '').trim();
-    const val = String(r[1] ?? '').trim();
-    if (!key || /^(invoice|เลข)/i.test(key)) continue;   // ข้ามหัวตาราง
+  const start = hit ? hit.headerRow + 1 : 0;
+  const kIdx = hit ? hit.cols.key : 0;
+  const vIdx = hit ? hit.cols.value : 1;
+  for (let i = start; i < grid.length; i++) {
+    const key = String(grid[i][kIdx] ?? '').trim();
+    const val = String(grid[i][vIdx] ?? '').trim();
+    if (!key) continue;
+    if (!hit && /^(invoice|เลข)/i.test(key)) continue;     // fallback: ข้ามหัวตารางแบบหยาบ
     pairs.push({ key, value: val });
   }
-  if (!pairs.length) { toast('ไฟล์ต้องมี 2 คอลัมน์: Invoice | ชื่อผู้รับวางบิล', 'err'); return; }
+  if (!pairs.length) { toast('ไม่พบข้อมูล Invoice / ชื่อคนรับวางบิล ในไฟล์', 'err'); return; }
   if (!(await confirmModal('Upload APL Billing',
-    `พบ ${pairs.length} รายการ — อัปเดตเฉพาะช่อง I BILLING APL เท่านั้น`))) return;
+    `พบ ${pairs.length} รายการ${hit ? ' (อ่านตามหัวตารางในไฟล์)' : ' (ไม่พบหัวตาราง — ใช้คอลัมน์ A/B)'}<br>
+     อัปเดตเฉพาะช่อง I BILLING APL เท่านั้น`))) return;
   const { showBulkResult } = await import('./charge-export.js');
   const res = await uploadAplBatch(ctx.charge, ctx.group, pairs);
   showBulkResult('ผล Upload APL Billing', res);
@@ -310,16 +356,25 @@ export async function runUpload19(ctx) {
 export async function runContactUpload() {
   const file = await pickFile(); if (!file) return;
   const grid = await readSheet(file);
+  const hit = findHeaderCols(grid, {
+    company: ['company invoice', 'company', 'บริษัท', 'บริษัท invoice'],
+    contact: ['contact', 'contact person', 'ผู้ติดต่อ', 'ชื่อผู้ติดต่อ'],
+  });
   const pairs = [];
-  for (const r of grid) {
-    const company = String(r[0] ?? '').trim();
-    const contact = String(r[1] ?? '').trim();
-    if (!company || /^(company|บริษัท)/i.test(company)) continue;
+  const start = hit ? hit.headerRow + 1 : 0;
+  const cIdx = hit ? hit.cols.company : 0;
+  const nIdx = hit ? hit.cols.contact : 1;
+  for (let i = start; i < grid.length; i++) {
+    const company = String(grid[i][cIdx] ?? '').trim();
+    const contact = String(grid[i][nIdx] ?? '').trim();
+    if (!company) continue;
+    if (!hit && /^(company|บริษัท)/i.test(company)) continue;
     pairs.push({ company, contact });
   }
-  if (!pairs.length) { toast('ไฟล์ต้องมี 2 คอลัมน์: Company Invoice | Contact', 'err'); return; }
+  if (!pairs.length) { toast('ไม่พบคอลัมน์ Company Invoice / Contact ในไฟล์', 'err'); return; }
   if (!(await confirmModal('อัปโหลด LIST NAME',
-    `พบ ${pairs.length} รายการ — อัปเดต Contact ของ Company Invoice (ข้อมูลหลัก)`))) return;
+    `พบ ${pairs.length} รายการ${hit ? ' (อ่านตามหัวตารางในไฟล์)' : ' (ไม่พบหัวตาราง — ใช้คอลัมน์ A/B)'}<br>
+     อัปเดต Contact ของ Company Invoice (ข้อมูลหลัก)`))) return;
   const { showBulkResult } = await import('./charge-export.js');
   const res = await uploadContactList(pairs);
   showBulkResult('ผลอัปเดต Contact List', res);

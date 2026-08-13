@@ -179,9 +179,9 @@ BEGIN
   IF NOT public.njacc_can(v_charge,v_group,'view') THEN RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
   v_size := least(greatest(coalesce((p->>'size')::int,20),1),100);
   v_off  := (greatest(coalesce((p->>'page')::int,1),1)-1) * v_size;
-  -- natural sort: ใช้ invoice_sort_key ที่ pad ตัวเลขไว้แล้ว (INV-2 มาก่อน INV-10)
+  -- natural sort: accounting invoice ก่อน (class 0) แล้วค่อย source invoice (class 1)
   v_order := CASE WHEN p->>'sort'='invoice_no'
-    THEN 'invoice_sort_key ' ELSE 'date ' END
+    THEN 'invoice_sort_class, coalesce(invoice_acc_key, invoice_src_key) ' ELSE 'date ' END
     || CASE WHEN lower(coalesce(p->>'dir','desc'))='asc' THEN 'ASC NULLS LAST' ELSE 'DESC NULLS LAST' END;
 
   PERFORM public.njacc_build_charge_set(p);
@@ -194,13 +194,17 @@ END $$;
 GRANT EXECUTE ON FUNCTION public.njacc_list_charges(jsonb) TO authenticated;
 
 -- ตัวสร้าง result set กลาง (ใช้ร่วม list / kpi / export) — DATA ISOLATION ที่ server
--- natural sort key: แปลงตัวเลขในสตริงเป็นบล็อกความกว้างคงที่ (INV-2 < INV-10)
+-- natural sort key: แยก token ตัวเลข/ไม่ใช่ตัวเลข แล้ว pad ตัวเลขให้กว้างคงที่ 20 หลัก
+-- ทดสอบบน PostgreSQL จริงแล้ว: INV-1 < INV-2 < INV-10 < INV-100 · NJ2605-2 < NJ2605-10 < NJ2605-100
 CREATE OR REPLACE FUNCTION public.njacc_natural_key(p text)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
-  SELECT CASE WHEN p IS NULL THEN NULL ELSE
-    regexp_replace(upper(p), '\d+', lpad('\&', 12, '0'), 'g') END
+  SELECT CASE WHEN p IS NULL THEN NULL ELSE coalesce((
+    SELECT string_agg(CASE WHEN t ~ '^[0-9]+$' THEN lpad(t, 20, '0') ELSE t END, '' ORDER BY ord)
+      FROM regexp_matches(upper(trim(p)), '[0-9]+|[^0-9]+', 'g') WITH ORDINALITY AS r(m, ord),
+           LATERAL unnest(m) AS t
+  ), '') END
 $$;
-REVOKE ALL ON FUNCTION public.njacc_natural_key(text) FROM public, anon;
+REVOKE ALL ON FUNCTION public.njacc_natural_key(text) FROM public, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.njacc_build_charge_set(p jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -257,7 +261,11 @@ BEGIN
   )
   SELECT id, job_no, coalesce(reference_date, created_at::date) AS date,
          invoice_no, source_invoice_no,
-         public.njacc_natural_key(coalesce(invoice_no, source_invoice_no)) AS invoice_sort_key,
+         /* sort key แยกประเภทชัดเจน: class 0 = accounting invoice · class 1 = source invoice
+            (ไม่ coalesce ให้เลขสองระบบปนเป็นคีย์เดียว) */
+         CASE WHEN invoice_no IS NOT NULL THEN 0 ELSE 1 END AS invoice_sort_class,
+         public.njacc_natural_key(invoice_no) AS invoice_acc_key,
+         public.njacc_natural_key(source_invoice_no) AS invoice_src_key,
          customer_name, customer_job_no, company_invoice,
          house_bl_no, master_bl_no, customs_declaration_no,
          service_amount, advance_amount, subtotal, vat_amount, wht_amount,
@@ -360,7 +368,8 @@ BEGIN
   IF NOT public.njacc_can(v_charge,v_group,'view') THEN RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
   v_size := least(greatest(coalesce((p->>'size')::int,20),1),100);
   v_off  := (greatest(coalesce((p->>'page')::int,1),1)-1) * v_size;
-  v_order := CASE WHEN p->>'sort'='invoice_no' THEN 'invoice_sort_key ' ELSE 'date ' END
+  v_order := CASE WHEN p->>'sort'='invoice_no'
+    THEN 'invoice_sort_class, coalesce(invoice_acc_key, invoice_src_key) ' ELSE 'date ' END
     || CASE WHEN lower(coalesce(p->>'dir','desc'))='asc' THEN 'ASC NULLS LAST' ELSE 'DESC NULLS LAST' END;
 
   PERFORM public.njacc_build_charge_set(p);
@@ -391,21 +400,43 @@ BEGIN
 END $$;
 GRANT EXECUTE ON FUNCTION public.njacc_charge_page_bundle(jsonb) TO authenticated;
 
--- Export: คืนทุกแถวตามฟิลเตอร์ (cap 5000) — ต้องมีสิทธิ์ export
+-- EXPORT แบบแบ่งหน้า (cursor/offset) — ห้าม silent truncate
+--   p.export_page (1-based) · p.export_size (default 1000, max 5000)
+--   คืน total / returned / has_more / truncated  → Frontend loop จน has_more=false
+--   HARD LIMIT 100,000 แถว: เกินกว่านี้ block ไม่ให้ export (ต้องแคบตัวกรอง)
 CREATE OR REPLACE FUNCTION public.njacc_export_charges(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE pr public.njacc_profiles; v_rows jsonb; v_cap int := 5000;
+DECLARE pr public.njacc_profiles; v_rows jsonb; v_total bigint;
+        v_page int; v_size int; v_off int; v_ret int; v_hard int := 100000;
 BEGIN
   pr := public.njacc_req_profile();
   IF NOT public.njacc_can(p->>'charge_type',p->>'company_group','export') THEN
     RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
+  v_size := least(greatest(coalesce((p->>'export_size')::int,1000),1),5000);
+  v_page := greatest(coalesce((p->>'export_page')::int,1),1);
+  v_off  := (v_page-1) * v_size;
+
   PERFORM public.njacc_build_charge_set(p);
+  SELECT count(*) INTO v_total FROM _njacc_l;
+  IF v_total > v_hard THEN
+    RETURN jsonb_build_object('total',v_total,'rows','[]'::jsonb,'returned',0,
+      'has_more',false,'truncated',true,'hard_limit',v_hard);
+  END IF;
+
+  -- Compatibility export: เรียงตามวันที่ ASC แล้ว source invoice แบบ natural ASC
   SELECT coalesce(jsonb_agg(t),'[]'::jsonb) INTO v_rows FROM (
-    SELECT * FROM _njacc_l ORDER BY date DESC, coalesce(invoice_no,source_invoice_no) DESC
-    LIMIT v_cap) t;
-  PERFORM public.njacc_audit(pr.id,'EXPORT_CHARGES','job',NULL,
-    jsonb_build_object('charge_type',p->>'charge_type','company_group',p->>'company_group'));
-  RETURN jsonb_build_object('rows',v_rows,'cap',v_cap);
+    SELECT * FROM _njacc_l
+     ORDER BY date ASC NULLS LAST, invoice_src_key ASC NULLS LAST, job_no ASC
+     OFFSET v_off LIMIT v_size) t;
+  v_ret := jsonb_array_length(v_rows);
+
+  IF v_page = 1 THEN
+    PERFORM public.njacc_audit(pr.id,'EXPORT_CHARGES','job',NULL,
+      jsonb_build_object('charge_type',p->>'charge_type','company_group',p->>'company_group',
+        'total',v_total));
+  END IF;
+  RETURN jsonb_build_object('total',v_total,'rows',v_rows,'returned',v_ret,
+    'has_more', (v_off + v_ret) < v_total, 'truncated', false, 'hard_limit', v_hard);
 END $$;
 GRANT EXECUTE ON FUNCTION public.njacc_export_charges(jsonb) TO authenticated;
 
@@ -413,27 +444,37 @@ GRANT EXECUTE ON FUNCTION public.njacc_export_charges(jsonb) TO authenticated;
 -- F. BULK TOOLS (เขียนใหม่บน njacc_* ทั้งหมด — ไม่แตะตาราง BILLING เดิม)
 --    p_keys = เลขอ้างอิงที่ผู้ใช้วาง/อัปโหลด: job_no | invoice_no | source_invoice_no
 -- ---------------------------------------------------------------
+-- normalize key: trim + upper + ยุบช่องว่าง + ตัด .0 ที่ Excel เติมให้เลขที่ถูกมองเป็น numeric
+CREATE OR REPLACE FUNCTION public.njacc_norm_key(p text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT nullif(regexp_replace(
+           regexp_replace(upper(trim(coalesce(p,''))), '\s+', ' ', 'g'),
+           '\.0+$', ''), '')
+$$;
+REVOKE ALL ON FUNCTION public.njacc_norm_key(text) FROM public, anon, authenticated;
+
 -- helper: จับคู่ key (job_no / source_invoice_no / accounting invoice_no / customer_job_no)
 -- ภายใน scope charge_type + company_group เท่านั้น · คืน job_id เมื่อ match ได้ "หนึ่งเดียว"
 CREATE OR REPLACE FUNCTION public.njacc_match_job(p_charge text, p_group text, p_key text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_key text := upper(trim(coalesce(p_key,''))); v_n int; v_id uuid;
+DECLARE v_key text := public.njacc_norm_key(p_key); v_n int; v_id uuid;
 BEGIN
-  IF v_key = '' THEN RETURN jsonb_build_object('status','NOT_FOUND'); END IF;
-  SELECT count(*), min(j.id) INTO v_n, v_id
+  IF v_key IS NULL THEN RETURN jsonb_build_object('status','NOT_FOUND'); END IF;
+  SELECT count(*), (array_agg(j.id))[1] INTO v_n, v_id
     FROM public.njacc_jobs j
     LEFT JOIN public.njacc_invoices i ON i.id = j.invoice_id
    WHERE j.charge_type = p_charge AND j.company_group = p_group
-     AND (upper(trim(j.job_no)) = v_key
-       OR upper(trim(coalesce(j.source_invoice_no,''))) = v_key
-       OR upper(trim(coalesce(i.invoice_no,''))) = v_key
-       OR upper(trim(coalesce(j.customer_job_no,''))) = v_key);
+     AND (public.njacc_norm_key(j.job_no) = v_key
+       OR public.njacc_norm_key(j.source_invoice_no) = v_key
+       OR public.njacc_norm_key(i.invoice_no) = v_key
+       OR public.njacc_norm_key(j.customer_job_no) = v_key);
   IF v_n = 0 THEN RETURN jsonb_build_object('status','NOT_FOUND'); END IF;
   IF v_n > 1 THEN RETURN jsonb_build_object('status','AMBIGUOUS','count',v_n); END IF;
   RETURN jsonb_build_object('status','OK','job_id',v_id);
 END $$;
-REVOKE ALL ON FUNCTION public.njacc_match_job(text,text,text) FROM public, anon;
-GRANT EXECUTE ON FUNCTION public.njacc_match_job(text,text,text) TO authenticated;
+-- INTERNAL ONLY: ไม่มี permission check ภายใน → ห้ามให้ Browser เรียกตรง (กัน probe ข้อมูล)
+-- RPC ที่เรียกใช้ (bulk/upload) เป็น SECURITY DEFINER จึงเรียกได้ด้วยสิทธิ์เจ้าของ function
+REVOKE ALL ON FUNCTION public.njacc_match_job(text,text,text) FROM public, anon, authenticated;
 
 -- BULK SET FIELD: คืนผลรายบรรทัด (matched / not_found / ambiguous / skipped)
 CREATE OR REPLACE FUNCTION public.njacc_bulk_set_field(p jsonb)
@@ -501,11 +542,11 @@ GRANT EXECUTE ON FUNCTION public.njacc_bulk_set_status(jsonb) TO authenticated;
 CREATE OR REPLACE FUNCTION public.njacc_quick_close_lookup(p jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE pr public.njacc_profiles; v_charge text := p->>'charge_type'; v_group text := p->>'company_group';
-        v_key text := upper(trim(coalesce(p->>'key','')));
+        v_key text := public.njacc_norm_key(p->>'key');
 BEGIN
   pr := public.njacc_req_profile();
   IF NOT public.njacc_can(v_charge,v_group,'view') THEN RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
-  IF v_key = '' THEN RETURN jsonb_build_object('matches','[]'::jsonb); END IF;
+  IF v_key IS NULL THEN RETURN jsonb_build_object('matches','[]'::jsonb); END IF;
   RETURN jsonb_build_object('matches', (
     SELECT coalesce(jsonb_agg(t),'[]'::jsonb) FROM (
       SELECT j.id, j.job_no, j.source_invoice_no, i.invoice_no, j.customer_job_no,
@@ -514,10 +555,10 @@ BEGIN
         LEFT JOIN public.njacc_invoices i ON i.id = j.invoice_id
         LEFT JOIN public.njacc_customers c ON c.id = j.customer_id
        WHERE j.charge_type = v_charge AND j.company_group = v_group
-         AND (upper(trim(j.job_no)) = v_key
-           OR upper(trim(coalesce(j.source_invoice_no,''))) = v_key
-           OR upper(trim(coalesce(i.invoice_no,''))) = v_key
-           OR upper(trim(coalesce(j.customer_job_no,''))) = v_key)
+         AND (public.njacc_norm_key(j.job_no) = v_key
+           OR public.njacc_norm_key(j.source_invoice_no) = v_key
+           OR public.njacc_norm_key(i.invoice_no) = v_key
+           OR public.njacc_norm_key(j.customer_job_no) = v_key)
        LIMIT 20) t));
 END $$;
 GRANT EXECUTE ON FUNCTION public.njacc_quick_close_lookup(jsonb) TO authenticated;
@@ -541,14 +582,14 @@ BEGIN
   IF NOT public.njacc_can(p->>'charge_type',p->>'company_group','create') THEN
     RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
   FOR nm IN SELECT DISTINCT jsonb_array_elements_text(p->'customers') LOOP
-    SELECT count(*), min(id) INTO v_n, v_id FROM public.njacc_customers
+    SELECT count(*), (array_agg(id))[1] INTO v_n, v_id FROM public.njacc_customers
      WHERE upper(regexp_replace(trim(customer_name),'\s+',' ','g')) = upper(regexp_replace(trim(nm),'\s+',' ','g'));
     v_cust := v_cust || jsonb_build_object('name',nm,
       'status', CASE WHEN v_n=0 THEN 'NOT_FOUND' WHEN v_n=1 THEN 'OK' ELSE 'AMBIGUOUS' END,
       'id', CASE WHEN v_n=1 THEN v_id::text END);
   END LOOP;
   FOR nm IN SELECT DISTINCT jsonb_array_elements_text(p->'companies') LOOP
-    SELECT count(*), min(id) INTO v_n, v_id FROM public.njacc_company_invoices
+    SELECT count(*), (array_agg(id))[1] INTO v_n, v_id FROM public.njacc_company_invoices
      WHERE upper(regexp_replace(trim(company_name),'\s+',' ','g')) = upper(regexp_replace(trim(nm),'\s+',' ','g'))
         OR upper(trim(coalesce(company_code,''))) = upper(trim(nm));
     v_comp := v_comp || jsonb_build_object('name',nm,
@@ -599,7 +640,8 @@ DECLARE pr public.njacc_profiles;
         r jsonb; f jsonb; mny jsonb; v_key text; v_n int; v_id uuid; v_no text;
         v_ins int := 0; v_upd int := 0; v_skip int := 0;
         v_amb jsonb := '[]'::jsonb; v_unres jsonb := '[]'::jsonb; v_fail jsonb := '[]'::jsonb;
-        v_cust uuid; v_comp uuid; v_has_money boolean;
+        v_cust uuid; v_comp uuid; v_has_money boolean; v_locked boolean := false;
+        v_bad text[]; v_lockrep jsonb := '[]'::jsonb; v_has_money_row boolean := false;
 BEGIN
   pr := public.njacc_req_profile();
   IF NOT public.njacc_can(v_charge,v_group,'create') THEN RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
@@ -610,12 +652,14 @@ BEGIN
   FOR r IN SELECT jsonb_array_elements(p->'rows') LOOP
     f := coalesce(r->'fields','{}'::jsonb);
     mny := r->'money';
-    v_key := upper(trim(coalesce(r->>'key','')));
+    v_has_money_row := mny IS NOT NULL AND jsonb_typeof(mny)='object' AND mny <> '{}'::jsonb;
+    v_locked := false; v_bad := NULL;
+    v_key := public.njacc_norm_key(r->>'key');
     v_cust := NULL; v_comp := NULL;
 
     -- resolve master แบบ exact normalized (ไม่มี fuzzy)
     IF f ? 'customer_name' AND coalesce(f->>'customer_name','') <> '' THEN
-      SELECT count(*), min(id) INTO v_n, v_cust FROM public.njacc_customers
+      SELECT count(*), (array_agg(id))[1] INTO v_n, v_cust FROM public.njacc_customers
        WHERE upper(regexp_replace(trim(customer_name),'\s+',' ','g'))
            = upper(regexp_replace(trim(f->>'customer_name'),'\s+',' ','g'));
       IF v_n <> 1 THEN
@@ -625,7 +669,7 @@ BEGIN
       END IF;
     END IF;
     IF f ? 'company_invoice' AND coalesce(f->>'company_invoice','') <> '' THEN
-      SELECT count(*), min(id) INTO v_n, v_comp FROM public.njacc_company_invoices
+      SELECT count(*), (array_agg(id))[1] INTO v_n, v_comp FROM public.njacc_company_invoices
        WHERE upper(regexp_replace(trim(company_name),'\s+',' ','g'))
            = upper(regexp_replace(trim(f->>'company_invoice'),'\s+',' ','g'))
           OR upper(trim(coalesce(company_code,''))) = upper(trim(f->>'company_invoice'));
@@ -638,10 +682,10 @@ BEGIN
 
     -- match งานเดิมใน scope นี้เท่านั้น (source_invoice_no) — ซ้ำ >1 = AMBIGUOUS ไม่แตะข้อมูล
     v_id := NULL;
-    IF v_key <> '' THEN
-      SELECT count(*), min(id) INTO v_n, v_id FROM public.njacc_jobs
+    IF v_key IS NOT NULL THEN
+      SELECT count(*), (array_agg(id))[1] INTO v_n, v_id FROM public.njacc_jobs
        WHERE charge_type = v_charge AND company_group = v_group
-         AND upper(trim(coalesce(source_invoice_no,''))) = v_key;
+         AND public.njacc_norm_key(source_invoice_no) = v_key;
       IF v_n > 1 THEN
         v_amb := v_amb || jsonb_build_object('key',r->>'key','count',v_n);
         CONTINUE;
@@ -667,6 +711,25 @@ BEGIN
         RETURNING id INTO v_id;
         v_ins := v_ins + 1;
       ELSE
+        /* INVOICED JOB GUARD: งานที่ออก INVOICE แล้ว ห้าม import แก้ field ที่กระทบบัญชี
+           อนุญาตเฉพาะ operational metadata: case_no / contact / cs_name / i_billing_apl / eta / etd / note */
+        SELECT invoice_id IS NOT NULL INTO v_locked FROM public.njacc_jobs WHERE id = v_id;
+        IF v_locked THEN
+          v_bad := ARRAY(SELECT k FROM unnest(ARRAY['customer_name','company_invoice','reference_date',
+                          'credit_term_days','due_date','data_type','customs_declaration_no',
+                          'house_bl_no','master_bl_no','customer_job_no','operational_status']) k
+                          WHERE f ? k);
+          IF array_length(v_bad,1) > 0 OR v_has_money_row THEN
+            v_lockrep := v_lockrep || jsonb_build_object('key', r->>'key',
+              'reason','INVOICED_JOB_LOCKED_FIELDS',
+              'locked_fields', to_jsonb(coalesce(v_bad, ARRAY[]::text[])),
+              'financial_blocked', v_has_money_row);
+            /* ยังอนุญาตให้อัปเดต metadata ที่ปลอดภัยต่อไป โดยตัด field ที่ล็อกออก */
+            f := f - 'customer_name' - 'company_invoice' - 'reference_date' - 'credit_term_days'
+                   - 'due_date' - 'data_type' - 'customs_declaration_no' - 'house_bl_no'
+                   - 'master_bl_no' - 'customer_job_no' - 'operational_status';
+          END IF;
+        END IF;
         -- update เฉพาะ field ที่มีใน header (f ? 'x') — field ที่ไฟล์ไม่มี ห้ามถูกล้าง
         UPDATE public.njacc_jobs SET
           data_type = CASE WHEN f ? 'data_type' THEN f->>'data_type' ELSE data_type END,
@@ -694,7 +757,7 @@ BEGIN
       END IF;
 
       -- FINANCIAL SNAPSHOT (ไม่ใช่ INVOICE) — เก็บค่าตามไฟล์ต้นทางตรง ๆ ไม่คำนวณแทน
-      v_has_money := mny IS NOT NULL AND jsonb_typeof(mny)='object';
+      v_has_money := v_has_money_row AND NOT v_locked;   -- invoiced job → ไม่แตะยอดเงิน
       IF v_has_money THEN
         INSERT INTO public.njacc_job_financial_snapshot(job_id,source_type,service_charge,advance,
           vat,amount,wht,total_amount,imported_by)
@@ -702,9 +765,21 @@ BEGIN
           (nullif(mny->>'service_charge',''))::numeric,(nullif(mny->>'advance',''))::numeric,
           (nullif(mny->>'vat',''))::numeric,(nullif(mny->>'amount',''))::numeric,
           (nullif(mny->>'wht',''))::numeric,(nullif(mny->>'total_amount',''))::numeric,pr.id)
+        /* FILE AUTHORITY: อัปเดตเฉพาะช่องที่มีใน header ของไฟล์ (mny ? 'key')
+           header มี + ค่าว่าง → ล้างเป็น NULL ได้ · header ไม่มี → คงค่าเดิม 100% */
         ON CONFLICT (job_id) DO UPDATE SET
-          service_charge=EXCLUDED.service_charge, advance=EXCLUDED.advance, vat=EXCLUDED.vat,
-          amount=EXCLUDED.amount, wht=EXCLUDED.wht, total_amount=EXCLUDED.total_amount,
+          service_charge = CASE WHEN mny ? 'service_charge' THEN EXCLUDED.service_charge
+                                ELSE public.njacc_job_financial_snapshot.service_charge END,
+          advance = CASE WHEN mny ? 'advance' THEN EXCLUDED.advance
+                         ELSE public.njacc_job_financial_snapshot.advance END,
+          vat = CASE WHEN mny ? 'vat' THEN EXCLUDED.vat
+                     ELSE public.njacc_job_financial_snapshot.vat END,
+          amount = CASE WHEN mny ? 'amount' THEN EXCLUDED.amount
+                        ELSE public.njacc_job_financial_snapshot.amount END,
+          wht = CASE WHEN mny ? 'wht' THEN EXCLUDED.wht
+                     ELSE public.njacc_job_financial_snapshot.wht END,
+          total_amount = CASE WHEN mny ? 'total_amount' THEN EXCLUDED.total_amount
+                              ELSE public.njacc_job_financial_snapshot.total_amount END,
           imported_at=now(), imported_by=EXCLUDED.imported_by;
       END IF;
     EXCEPTION WHEN others THEN
@@ -716,7 +791,8 @@ BEGIN
     jsonb_build_object('charge_type',v_charge,'company_group',v_group,
       'inserted',v_ins,'updated',v_upd,'skipped',v_skip));
   RETURN jsonb_build_object('inserted',v_ins,'updated',v_upd,'skipped',v_skip,
-    'ambiguous',v_amb,'unresolved_master',v_unres,'failed',v_fail);
+    'ambiguous',v_amb,'unresolved_master',v_unres,'failed',v_fail,
+    'invoiced_locked',v_lockrep);
 END $$;
 GRANT EXECUTE ON FUNCTION public.njacc_import_jobs_batch(jsonb) TO authenticated;
 
@@ -792,7 +868,7 @@ BEGIN
     RAISE EXCEPTION 'NJACC_FORBIDDEN'; END IF;
   FOR r IN SELECT jsonb_array_elements(p->'pairs') LOOP
     v_req := v_req + 1;
-    SELECT count(*), min(id) INTO v_n, v_id FROM public.njacc_company_invoices
+    SELECT count(*), (array_agg(id))[1] INTO v_n, v_id FROM public.njacc_company_invoices
      WHERE upper(regexp_replace(trim(company_name),'\s+',' ','g'))
          = upper(regexp_replace(trim(coalesce(r->>'company','')),'\s+',' ','g'))
         OR upper(trim(coalesce(company_code,''))) = upper(trim(coalesce(r->>'company','')));

@@ -121,7 +121,6 @@ COMMIT;
 -- VERIFICATION
 SELECT tablename, rowsecurity FROM pg_tables
  WHERE schemaname='public' AND tablename LIKE 'njacc\_%' ESCAPE '\' ORDER BY tablename;
-SELECT polname, tablename FROM pg_policies p JOIN pg_tables t
-  ON t.tablename = p.tablename WHERE p.schemaname='public'
-  AND p.tablename LIKE 'njacc\_%' ESCAPE '\' ORDER BY p.tablename;
+SELECT policyname, tablename, cmd FROM pg_policies
+ WHERE schemaname='public' AND tablename LIKE 'njacc\_%' ESCAPE '\' ORDER BY tablename, policyname;
 -- ตรวจว่าไม่มี write policy: query ด้านบนต้องมีเฉพาะ policy _sel

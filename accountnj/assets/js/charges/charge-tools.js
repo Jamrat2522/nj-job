@@ -11,8 +11,19 @@ import { once } from '../core/request-manager.js';
 import { esc, dmy } from '../core/formatter.js';
 import { groupLabel } from '../config/charge-groups.js';
 
-/* กล่องรับเลขอ้างอิงหลายบรรทัด (+ ค่าที่จะเติม) */
-function keysDialog(title, { withValue, valueLabel, valueType = 'text', okLabel = 'ดำเนินการ' } = {}) {
+/* ดึง token ที่เป็นเลขอ้างอิงจากบรรทัดที่วางมา — ข้ามวันที่ (dd/mm/yyyy) และ token ว่าง */
+export function extractRefToken(line) {
+  const parts = String(line || '').split(/[\s\t,;|]+/).map(x => x.trim()).filter(Boolean);
+  for (const p of parts) {
+    if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(p)) continue;   // วันที่
+    if (/^\d{4}-\d{2}-\d{2}$/.test(p)) continue;
+    return p;
+  }
+  return '';
+}
+
+/* กล่องรับเลขอ้างอิงหลายบรรทัด (+ ค่าที่จะเติม + วันที่เสริม) */
+function keysDialog(title, { withValue, valueLabel, valueType = 'text', okLabel = 'ดำเนินการ', extraDate } = {}) {
   return new Promise(res => {
     const b = document.createElement('div');
     b.innerHTML = `
@@ -20,7 +31,9 @@ function keysDialog(title, { withValue, valueLabel, valueType = 'text', okLabel 
         (รองรับ Job No / Invoice No / Source Invoice No / Customer Job No)</p>
       <div class="fld"><textarea class="inp w100" id="tk-keys" rows="8" style="min-height:150px"></textarea></div>
       ${withValue ? `<div class="fld"><label>${esc(valueLabel)}</label>
-        <input class="inp w100" id="tk-val" type="${valueType}"></div>` : ''}`;
+        <input class="inp w100" id="tk-val" type="${valueType}"></div>` : ''}
+      ${extraDate ? `<div class="fld"><label>${esc(extraDate)}</label>
+        <input class="inp w100" id="tk-date" type="date"></div>` : ''}`;
     const f = document.createElement('div');
     f.innerHTML = `<button class="btn btn-o" data-close>ยกเลิก</button>
       <button class="btn btn-p" id="tk-ok">${esc(okLabel)}</button>`;
@@ -30,7 +43,8 @@ function keysDialog(title, { withValue, valueLabel, valueType = 'text', okLabel 
       if (!keys.length) { toast('ยังไม่ได้วางเลขอ้างอิง', 'err'); return; }
       const value = withValue ? b.querySelector('#tk-val').value.trim() : null;
       if (withValue && !value) { toast('กรอก' + valueLabel, 'err'); return; }
-      closeModal(); res({ keys, value });
+      const date = extraDate ? (b.querySelector('#tk-date').value || '') : '';
+      closeModal(); res({ keys, value, date });
     };
     m.addEventListener('click', e => {
       if (e.target === m || e.target.closest('[data-close]')) res(null);
@@ -88,7 +102,8 @@ export async function runTool(action, ctx) {
         if (!r) return;
         if (!(await confirmModal('ยืนยันจบงาน',
           `จะตั้งสถานะ CLOSE ให้ ${r.keys.length} รายการ (เฉพาะงานที่ยังไม่ถูกยกเลิก)`))) return;
-        const res = await once('bulk-close', () => bulkSetStatus(ctx.charge, ctx.group, r.keys, 'CLOSE'));
+        const res = await once('bulk-close', () =>
+          bulkSetStatus(ctx.charge, ctx.group, r.keys.map(extractRefToken).filter(Boolean), 'CLOSE'));
         showBulkResult('ผลการจบงาน', res); ctx.refresh(); return;
       }
       case 'close-upload': {
@@ -103,15 +118,26 @@ export async function runTool(action, ctx) {
         showBulkResult('ผลตัดจบงานจากไฟล์', res); ctx.refresh(); return;
       }
       case 'bulk-case': {
-        const r = await keysDialog('Bulk Case', { withValue: true, valueLabel: 'Case', okLabel: 'อัปเดต Case' });
+        const r = await keysDialog('Bulk Case', { withValue: true, valueLabel: 'Case',
+          okLabel: 'อัปเดต Case', extraDate: 'ETA (ถ้าต้องการเติมด้วย)' });
         if (!r) return;
-        const res = await once('bulk-case', () => bulkSetField(ctx.charge, ctx.group, r.keys, 'case_no', r.value));
-        showBulkResult('ผลอัปเดต Case', res); ctx.refresh(); return;
+        /* รองรับวางทั้งบรรทัดจากงานจริง เช่น "NJ2605-03795 15/05/2026 AIR260507"
+           → ใช้เฉพาะ token แรกที่เป็นเลขอ้างอิง (ไม่เอาวันที่/รหัสอื่นไป query) */
+        const keys = r.keys.map(extractRefToken).filter(Boolean);
+        if (!keys.length) { toast('ไม่พบเลขอ้างอิงในข้อความที่วาง', 'err'); return; }
+        const res = await once('bulk-case', () => bulkSetField(ctx.charge, ctx.group, keys, 'case_no', r.value));
+        showBulkResult('ผลอัปเดต Case', res);
+        if (r.date) {
+          const res2 = await bulkSetField(ctx.charge, ctx.group, keys, 'eta', r.date);
+          showBulkResult('ผลเติม ETA', res2);
+        }
+        ctx.refresh(); return;
       }
       case 'fill-etd': {
         const r = await keysDialog('เติม ETD', { withValue: true, valueLabel: 'ETD', valueType: 'date', okLabel: 'เติม ETD' });
         if (!r) return;
-        const res = await once('fill-etd', () => bulkSetField(ctx.charge, ctx.group, r.keys, 'etd', r.value));
+        const res = await once('fill-etd', () =>
+          bulkSetField(ctx.charge, ctx.group, r.keys.map(extractRefToken).filter(Boolean), 'etd', r.value));
         showBulkResult('ผลเติม ETD', res); ctx.refresh(); return;
       }
 

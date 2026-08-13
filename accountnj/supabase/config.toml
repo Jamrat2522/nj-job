@@ -1,0 +1,17 @@
+# =====================================================================
+# BILLING NJ — Supabase config (เฉพาะส่วน Edge Functions)
+# ใช้กับ Supabase CLI · ถ้า deploy ผ่าน Dashboard ให้ตั้งค่าให้ตรงกันด้วยมือ
+# =====================================================================
+
+# njacc-login: ถูกเรียก "ก่อน" ผู้ใช้มี JWT (มีแค่ apikey)
+#   → ต้องปิด verify_jwt ไม่งั้น preflight/POST จะถูกปฏิเสธ
+#     และเบราว์เซอร์จะรายงานเป็น CORS error
+#   ความปลอดภัย: ฟังก์ชันตรวจ login_name + password กับ GoTrue เอง
+#   และไม่คืนตัวตนภายในกลับเบราว์เซอร์
+[functions.njacc-login]
+verify_jwt = false
+
+# njacc-admin-user: ใช้เฉพาะผู้ที่ล็อกอินแล้ว (ส่ง JWT ของผู้เรียกมาด้วย)
+#   RPC njacc_admin_begin_user ตรวจสิทธิ์ SUPER_ADMIN ซ้ำอีกชั้นที่ฐานข้อมูล
+[functions.njacc-admin-user]
+verify_jwt = true

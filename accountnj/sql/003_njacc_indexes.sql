@@ -2,6 +2,27 @@
 -- BILLING NJ — 003_njacc_indexes.sql  (รันหลัง 002)
 -- Index ตาม query จริงของ list / kpi / report / receipt
 -- =====================================================================
+-- ► PREFLIGHT (อ่านอย่างเดียว — ต้องผ่านก่อนรันไฟล์นี้)
+-- 1) ต้องมี extension pg_trgm อยู่แล้ว · BILLING NJ ไม่สร้าง/แก้ shared extension เอง
+DO $pre$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname='pg_trgm') THEN
+    RAISE EXCEPTION 'NJACC_REQUIRES_PG_TRGM: ให้ผู้ดูแลฐานข้อมูลติดตั้ง extension pg_trgm ก่อน (CREATE EXTENSION pg_trgm;) แล้วรันไฟล์นี้ใหม่';
+  END IF;
+END $pre$;
+-- 2) คอลัมน์ที่ index ต้องใช้ ต้องมีอยู่แล้วจาก 001
+DO $pre2$
+DECLARE v_missing text;
+BEGIN
+  SELECT string_agg(c, ', ') INTO v_missing FROM (
+    SELECT c FROM unnest(ARRAY['case_no','i_billing_apl','cs_name','contact']) c
+     WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='njacc_jobs' AND column_name=c)) t;
+  IF v_missing IS NOT NULL THEN
+    RAISE EXCEPTION 'NJACC_MISSING_COLUMNS on njacc_jobs: % — ให้รัน 001 เวอร์ชันล่าสุดก่อน', v_missing;
+  END IF;
+END $pre2$;
+
 BEGIN;
 
 -- jobs: หน้า list กรอง charge_type+company_group เสมอ + เรียง created_at
@@ -45,8 +66,6 @@ CREATE INDEX njacc_ua_profile_idx ON public.njacc_user_access (profile_id);
 -- SEARCH: GIN trigram เฉพาะฟิลด์ที่ใช้ ILIKE '%...%' จริงในหน้ารายการ
 -- (Production มี pg_trgm ติดตั้งแล้ว — ถ้าไม่มีให้รัน CREATE EXTENSION ก่อน)
 -- ---------------------------------------------------------------
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
 CREATE INDEX njacc_jobs_cjob_trgm_idx   ON public.njacc_jobs USING gin (customer_job_no gin_trgm_ops);
 CREATE INDEX njacc_jobs_hbl_trgm_idx    ON public.njacc_jobs USING gin (house_bl_no gin_trgm_ops);
 CREATE INDEX njacc_jobs_mbl_trgm_idx    ON public.njacc_jobs USING gin (master_bl_no gin_trgm_ops);

@@ -585,7 +585,7 @@ SELECT grantee, privilege_type FROM information_schema.role_table_grants
    AND grantee IN ('anon','authenticated');
 
 -- 2) ไม่มี policy บน profiles/user_access สำหรับ authenticated (ต้องได้ 0 rows)
-SELECT tablename, polname, cmd FROM pg_policies
+SELECT tablename, policyname, cmd FROM pg_policies
  WHERE schemaname='public' AND tablename IN ('njacc_profiles','njacc_user_access');
 
 -- 3) njacc_resolve_login ถูกถอนแล้ว (ต้องได้ 0)

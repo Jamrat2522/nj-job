@@ -12,9 +12,9 @@
 
 | ลำดับ | ไฟล์ | หน้าที่ |
 |---|---|---|
-| 1 | `sql/001_njacc_schema.sql` | 18 ตาราง (มี PREFLIGHT กันชนชื่อ) |
+| 1 | `sql/001_njacc_schema.sql` | **19 ตาราง** (18 หลัก + `njacc_job_financial_snapshot`) · schema สมบูรณ์ในไฟล์เดียว |
 | 2 | `sql/002_njacc_constraints.sql` | PK/FK/UNIQUE/CHECK + trigger updated_at |
-| 3 | `sql/003_njacc_indexes.sql` | index ตาม query จริง |
+| 3 | `sql/003_njacc_indexes.sql` | index + GIN trigram · **PREFLIGHT ตรวจ pg_trgm และคอลัมน์ที่ต้องใช้** (ไม่สร้าง extension เอง) |
 | 4 | `sql/004_njacc_rls.sql` | RLS ทุกตาราง · ปิด direct SELECT บน profiles/user_access |
 | 5 | `sql/005_njacc_rpc.sql` | RPC ทั้งหมด (ไม่มี resolve_login แบบ anon) |
 | 6 | `sql/006_njacc_seed.sql` | settings + SUPER ADMIN 2 คน + STEP B2/C bootstrap |
@@ -58,6 +58,26 @@
 
 **ไม่มีรหัสผ่านอยู่ในไฟล์ใดของโปรเจกต์** — ตั้งใน Dashboard เท่านั้น
 
+## 2.0 ลำดับ "ให้เข้าระบบได้ก่อน" (LOGIN FIRST)
+
+รันตามนี้แล้วจะ login ได้ — ใช้ `sql/LOGIN_BOOTSTRAP.sql` ช่วยตรวจทีละขั้น
+
+| ขั้น | ทำอะไร | ตรวจอย่างไร |
+|---|---|---|
+| 1 | รัน SQL `001 → 002 → 003 → 004 → 005 → 006 → 008 → 009` (ห้ามรัน `sql/legacy/*`) | `LOGIN_BOOTSTRAP` ส่วน A: tables=19, `njacc_app_status` = 1, เรียกได้ |
+| 2 | ดูอีเมล Auth แบบ opaque | `LOGIN_BOOTSTRAP` ส่วน B |
+| 3 | Dashboard → Authentication → Users → Add user (Auto Confirm ✓ + ตั้งรหัสผ่านเอง) | เห็น user ในรายการ |
+| 4 | รัน `LOGIN_BOOTSTRAP` ส่วน C (STEP C) | ส่วน D: `active=t`, `ACTIVE`, `linked=t`, NOTICE `D4 ... OK` |
+| 5 | Deploy Edge Function `njacc-login` โดย **ปิด Verify JWT** | `OPTIONS /functions/v1/njacc-login` ต้องได้ 2xx |
+| 6 | Deploy `njacc-admin-user` โดย **เปิด Verify JWT** | ใช้หลัง login แล้วเท่านั้น |
+| 7 | Login ด้วย **`jamrat30`** (ไม่ใช่ `jamrat`) + รหัสจากขั้น 3 | Console ต้องไม่มี 404 `njacc_app_status` |
+
+**สาเหตุที่พบบ่อยเมื่อ login ไม่ผ่าน**
+- Console ขึ้น `404 njacc_app_status` → ยังไม่ได้รัน SQL (ขั้น 1)
+- Console ขึ้น CORS / `ERR_FAILED` ที่ `njacc-login` → ยังไม่ได้ deploy Edge Function หรือ **ยังเปิด Verify JWT ไว้**
+  (ฟังก์ชันนี้ถูกเรียกตอนยังไม่มี JWT — ถ้าเปิดไว้ preflight จะไม่ผ่านและเบราว์เซอร์รายงานเป็น CORS)
+- `NJACC_LOGIN_NOT_FOUND` → ยังไม่ได้ link (ขั้น 4) หรือพิมพ์ชื่อผู้ใช้ผิด
+
 ## 2.1 ติดตั้ง Edge Functions (จำเป็น 2 ตัว)
 
 | Function | หน้าที่ |
@@ -72,6 +92,13 @@ Supabase Dashboard → Authentication → Users (ดูอีเมล opaque �
 หากต้องการ invite / reset-password flow ในแอป ต้องสั่งเพิ่มเป็นงานรอบถัดไป
 
 Dashboard → **Edge Functions** → New function → วางไฟล์จาก `supabase/functions/<ชื่อ>/index.ts` → Deploy
+
+| Function | Verify JWT | เหตุผล |
+|---|---|---|
+| `njacc-login` | **ปิด (false)** | ถูกเรียกก่อนผู้ใช้มี JWT · ฟังก์ชันตรวจ login_name + password กับ GoTrue เอง |
+| `njacc-admin-user` | **เปิด (true)** | ใช้เฉพาะผู้ที่ล็อกอินแล้ว · RPC ตรวจ SUPER_ADMIN ซ้ำที่ DB |
+
+ถ้า deploy ด้วย Supabase CLI ค่าเหล่านี้อยู่ใน `supabase/config.toml` ให้แล้ว
 Secrets ที่ต้องมี: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (ปกติ Supabase ใส่ให้อัตโนมัติ)
 
 **Security model ที่ได้จริง**

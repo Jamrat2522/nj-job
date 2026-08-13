@@ -1,12 +1,14 @@
 /* API หน้ารายการ — ทุกตัวส่ง charge_type + company_group เสมอ (Data Isolation ที่ server) */
 import { rpc } from '../core/supabase-client.js';
 
-export const payload = ({ charge, group, filters = {}, sort, dir, page, size, withOptions }) => ({
+export const payload = ({ charge, group, filters = {}, sort, dir, page, size, withOptions,
+  exportPage, exportSize }) => ({
   charge_type: charge, company_group: group,
   q: filters.q || null, status: filters.status || null,
   customer_id: filters.customer || null, cs: filters.cs || null,
   due: filters.due || null, from: filters.from || null, to: filters.to || null,
   sort, dir, page, size, with_options: !!withOptions,
+  export_page: exportPage, export_size: exportSize,
 });
 
 /* bundle เดียว: rows + total + kpi (+ filter_options) — สร้าง working set ครั้งเดียวที่ server */

@@ -58,6 +58,7 @@ CREATE TABLE public.njacc_user_access (
   can_issue_receipt   boolean NOT NULL DEFAULT false,
   can_export          boolean NOT NULL DEFAULT false,
   can_void            boolean NOT NULL DEFAULT false,
+  can_delete          boolean NOT NULL DEFAULT false,
   can_manage_users    boolean NOT NULL DEFAULT false,
   created_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -127,6 +128,10 @@ CREATE TABLE public.njacc_jobs (
   credit_term_days        integer,
   due_date                date,
   note                    text,
+  case_no                 text,          -- Case (ย้ายมาจาก 008 เพื่อให้ 003 สร้าง index ได้)
+  contact                 text,          -- Contact ของงาน (override master LIST NAME)
+  cs_name                 text,          -- Name CS
+  i_billing_apl           text,          -- APL Billing
   operational_status      text NOT NULL DEFAULT 'OPEN',  -- OPEN|PROCESSING|CLOSE|CANCELED
   invoice_id              uuid,                 -- NULL จนบัญชีออก INVOICE (FK ใน 002)
   created_by              uuid REFERENCES public.njacc_profiles(id),
@@ -155,6 +160,8 @@ CREATE TABLE public.njacc_invoices (
   invoice_date   date NOT NULL DEFAULT current_date,
   due_date       date,
   subtotal       numeric(18,2) NOT NULL DEFAULT 0,
+  service_amount numeric(18,2) NOT NULL DEFAULT 0,   -- ยอดฝั่ง SERVICE ของใบนี้
+  advance_amount numeric(18,2) NOT NULL DEFAULT 0,   -- ยอดฝั่ง ADVANCE ของใบนี้
   vat_base       numeric(18,2) NOT NULL DEFAULT 0,
   vat_rate       numeric(6,3)  NOT NULL DEFAULT 0,
   vat_amount     numeric(18,2) NOT NULL DEFAULT 0,
@@ -185,7 +192,8 @@ CREATE TABLE public.njacc_invoice_items (
   vat_amount  numeric(18,2) NOT NULL DEFAULT 0,
   wht_rate    numeric(6,3)  NOT NULL DEFAULT 0,
   wht_amount  numeric(18,2) NOT NULL DEFAULT 0,
-  line_total  numeric(18,2) NOT NULL DEFAULT 0
+  line_total  numeric(18,2) NOT NULL DEFAULT 0,
+  charge_kind text NOT NULL DEFAULT 'SERVICE'        -- SERVICE | ADVANCE
 );
 
 -- ---------- 10. PAYMENTS ----------

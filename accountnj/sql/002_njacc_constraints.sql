@@ -101,6 +101,9 @@ CREATE TRIGGER njacc_invoices_touch  BEFORE UPDATE ON public.njacc_invoices
 CREATE TRIGGER njacc_settings_touch  BEFORE UPDATE ON public.njacc_settings
   FOR EACH ROW EXECUTE FUNCTION public.njacc_touch_updated_at();
 
+ALTER TABLE public.njacc_invoice_items
+  ADD CONSTRAINT njacc_items_kind_ck CHECK (charge_kind IN ('SERVICE','ADVANCE'));
+
 ALTER TABLE public.njacc_job_financial_snapshot
   ADD CONSTRAINT njacc_fs_source_ck CHECK (source_type IN ('IMPORT_OLD_BILLING','MANUAL'));
 
