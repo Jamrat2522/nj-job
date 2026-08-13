@@ -563,51 +563,65 @@
     whtBulkPaint();
 
     var queue = ids.slice();
-    var pdfQueue = [];
 
-    function runBatch() {
-      if (!queue.length) return (WHT_PDF_READY ? runPdf() : finish());
-      var batch = queue.splice(0, WHT_BATCH);
-      Promise.all(batch.map(function (id) {
-        /* ส่งด้วย wht50_id — RPC คืน document_id ที่เพิ่งสร้างมาให้ใช้ต่อ */
-        return sbRpcList('njhr_wht50_send', { p_token: sbToken(), p_id: id })
-          .then(function (rows) {
-            var r0 = (rows && rows[0]) || {};
-            var res = r0.result || 'SENT';
-            if (res === 'ALREADY_SENT') whtBulk.skip++; else whtBulk.sent++;
-            if (r0.document_id) pdfQueue.push(r0.document_id);
-          })['catch'](function (ex) {
+    /* ---------- PDF-FIRST ต่อรายการ ----------
+       ลำดับบังคับของแต่ละคน (ห้ามสลับ):
+         prepare_document → เอกสาร DRAFT + document_id
+         → generate PDF   → njhr_doc_pdf_claim / commit ผ่าน Edge
+         → ตรวจ READY     → njhr_doc_pdf_status ต้องเป็น READY จริง
+         → njhr_wht50_send → SENT + Notification
+
+       ถ้า PDF ของคนไหนล้ม คนนั้นจะไม่ถูกส่งและไม่มีการแจ้งเตือน
+       (ฝั่ง SQL บังคับซ้ำอีกชั้น — njhr_wht50_send ปฏิเสธถ้า final_pdf_status <> READY)
+       คนอื่นในคิวยังทำงานต่อได้ตามปกติ */
+    function runOne(id) {
+      var docId = null;
+      return sbRpcList('njhr_wht50_prepare_document', { p_token: sbToken(), p_id: id })
+        .then(function (rows) {
+          var r0 = (rows && rows[0]) || {};
+          docId = r0.document_id || null;
+          if (!docId) throw new Error('เตรียมเอกสารไม่สำเร็จ');
+          return whtGenerate(docId, null);
+        })
+        .then(function () {
+          /* ยืนยันจากฐานข้อมูลจริง ห้ามเชื่อผลของ generate อย่างเดียว */
+          return sbRpc('njhr_doc_pdf_status', { p_token: sbToken(), p_id: docId });
+        })
+        .then(function (r) {
+          var st = (r && r.data) || {};
+          if (st.final_pdf_status !== 'READY') {
+            throw new Error('PDF ยังไม่พร้อม (สถานะ ' +
+              (st.final_pdf_status || 'ยังไม่มีไฟล์') + ')');
+          }
+          whtBulk.pdfOk++;
+          return sbRpcList('njhr_wht50_send', { p_token: sbToken(), p_id: id });
+        })
+        .then(function (rows) {
+          var r0 = (rows && rows[0]) || {};
+          if ((r0.result || 'SENT') === 'ALREADY_SENT') whtBulk.skip++;
+          else whtBulk.sent++;
+        })
+        ['catch'](function (ex) {
+          var msg = (ex && ex.message) || 'ดำเนินการไม่สำเร็จ';
+          /* แยกให้ชัดว่าล้มที่ขั้น PDF หรือขั้นส่ง — ยังไม่ได้ส่งทั้งคู่ */
+          if (docId && whtBulk.pdfOk === 0) { /* ไม่ทำอะไร ตกไปนับด้านล่าง */ }
+          if (/PDF/i.test(msg)) {
+            whtBulk.pdfFail++;
+            whtBulk.pdfErrors.push({ id: docId || id, msg: msg });
+          } else {
             whtBulk.fail++;
-            whtBulk.errors.push({ id: id, msg: (ex && ex.message) || 'ส่งไม่สำเร็จ' });
-          }).then(function () {
-            whtBulk.done++;
-            whtBulkPaint();
-          });
-      })).then(function () {
-        setTimeout(runBatch, 0);        // คืนคิวให้เบราว์เซอร์วาดหน้าจอ
-      });
+            whtBulk.errors.push({ id: id, msg: msg });
+          }
+        })
+        .then(function () { whtBulk.done++; whtBulkPaint(); });
     }
 
-    /* ---- ขั้นที่ 2: สร้าง Final PDF ของเอกสารที่เพิ่งส่งสำเร็จ ----
-       ล้มที่ขั้นนี้ไม่ย้อนสถานะการส่ง เพราะเอกสารส่งไปแล้วจริง */
-    function runPdf() {
-      if (!pdfQueue.length) return finish();
-      whtBulk.phase = 'pdf';
-      whtBulk.done = 0; whtBulk.total = pdfQueue.length;
-      whtBulkPaint();
-      var q2 = pdfQueue.slice();
-      (function step() {
-        if (!q2.length) return finish();
-        var b2 = q2.splice(0, WHT_BATCH);
-        Promise.all(b2.map(function (docId) {
-          return whtGenerate(docId, null)
-            .then(function () { whtBulk.pdfOk++; })
-            ['catch'](function (ex) {
-              whtBulk.pdfFail++;
-              whtBulk.pdfErrors.push({ id: docId, msg: (ex && ex.message) || 'สร้าง PDF ไม่สำเร็จ' });
-            }).then(function () { whtBulk.done++; whtBulkPaint(); });
-        })).then(function () { setTimeout(step, 0); });
-      })();
+    function runBatch() {
+      if (!queue.length) return finish();
+      var batch = queue.splice(0, WHT_BATCH);
+      Promise.all(batch.map(runOne)).then(function () {
+        setTimeout(runBatch, 0);        // คืนคิวให้เบราว์เซอร์วาดหน้าจอ
+      });
     }
 
     function finish() {
@@ -625,7 +639,7 @@
     var box = document.getElementById('wht-progress');
     if (!box || !whtBulk) return;
     var b = whtBulk;
-    var lbl = b.phase === 'pdf' ? 'กำลังสร้าง PDF ' : 'กำลังส่ง ';
+    var lbl = 'กำลังสร้าง PDF และส่ง ';
     box.innerHTML = b.running
       ? '<div class="wht-prog-l">' + lbl + b.done + ' / ' + b.total + '</div>' +
         '<div class="bar-track"><div class="bar-fill" style="width:' +

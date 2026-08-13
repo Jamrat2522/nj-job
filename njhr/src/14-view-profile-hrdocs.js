@@ -90,6 +90,48 @@
     if (old) box.replaceChild(img, old); else box.insertBefore(img, box.firstChild);
   }
 
+  /* ---------- Preview Local (ยังไม่ได้อัปโหลด) ----------
+     ⚠ ต้องแยกให้ชัดจากรูปที่อัปโหลดสำเร็จแล้ว
+       Preview ใช้ class เพิ่ม .is-preview + ข้อความกำกับว่ากำลังอัปโหลด
+       ถ้าอัปโหลดล้มเหลว ต้องคืนรูปเดิมกลับ ห้ามปล่อยให้ Preview ค้างเหมือนสำเร็จ */
+  var pfAvaBak = null;                     // HTML ของรูป/Avatar เดิม ไว้คืนเมื่อล้มเหลว
+  var pfPreviewUrl = null;                 // objectURL ที่ต้อง revoke
+
+  function pfShowPreview(file) {
+    var box = document.getElementById('pfm-ava');
+    if (!box) return;
+    var old = box.querySelector('.avatar, .pfm-photo-img');
+    pfAvaBak = old ? old.outerHTML : null;
+    pfClearPreviewUrl();
+    try { pfPreviewUrl = URL.createObjectURL(file); } catch (e) { pfPreviewUrl = null; }
+    if (!pfPreviewUrl) return;
+    var img = document.createElement('img');
+    img.className = 'pfm-photo-img is-preview';
+    img.src = pfPreviewUrl;
+    img.alt = 'ตัวอย่างรูปที่เลือก (ยังไม่ได้อัปโหลด)';
+    if (old) box.replaceChild(img, old); else box.insertBefore(img, box.firstChild);
+  }
+
+  function pfClearPreviewUrl() {
+    if (!pfPreviewUrl) return;
+    try { URL.revokeObjectURL(pfPreviewUrl); } catch (e) {}
+    pfPreviewUrl = null;
+  }
+
+  /* คืนรูปเดิมกลับเมื่ออัปโหลดล้มเหลว — ไม่ให้ผู้ใช้เข้าใจผิดว่าเปลี่ยนรูปสำเร็จ */
+  function pfRestoreAva() {
+    var box = document.getElementById('pfm-ava');
+    pfClearPreviewUrl();
+    if (!box || pfAvaBak == null) { pfAvaBak = null; return; }
+    var cur = box.querySelector('.avatar, .pfm-photo-img');
+    if (cur) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = pfAvaBak;
+      if (tmp.firstChild) box.replaceChild(tmp.firstChild, cur);
+    }
+    pfAvaBak = null;
+  }
+
   var pfPhotoCur = null;                   // ไฟล์ PHOTO ปัจจุบัน ใช้ทำ Versioning ตอนเปลี่ยนรูป
   var pfPhotoBusy = false;
 
@@ -120,6 +162,7 @@
     pfPhotoBusy = true;
     var cam = document.getElementById('pfm-cam');
     if (cam) cam.classList.add('is-busy');
+    pfShowPreview(file);                   // Preview หลัง Validate ผ่านแล้วเท่านั้น
     pfPhotoMsg('กำลังอัปโหลดรูป…', false);
 
     pfEmpFn({
@@ -150,10 +193,13 @@
     }).then(function () {
       return pfPhotoLoad(empId);           // ดึงรูปล่าสุดกลับมาแสดงทันที
     }).then(function () {
-      pfPhotoMsg('', false);
+      pfAvaBak = null;                     // สำเร็จแล้ว ไม่ต้องคืนรูปเดิม
+      pfClearPreviewUrl();                 // รูปจริงจาก Signed URL แทน Preview แล้ว
+      pfPhotoMsg('อัปโหลดรูปเรียบร้อย', false);
       toast('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว');
     })['catch'](function (ex) {
       console.error('[PROFILE] อัปโหลดรูปล้มเหลว:', ex);
+      pfRestoreAva();                      // ล้มเหลว → คืนรูปเดิม ห้ามค้าง Preview
       pfPhotoMsg((ex && ex.message) || 'อัปโหลดรูปไม่สำเร็จ', true);
     }).then(function () {
       pfPhotoBusy = false;
@@ -192,9 +238,76 @@
     });
   }
 
+  /* ---------- วันที่แบบ DD/MM/YYYY (ค.ศ.) ----------
+     ⚠ ไม่ใช้ empBE() เพราะอันนั้นแปลงเป็น พ.ศ.
+       ตรวจรูปแบบเข้มก่อนเสมอ ค่าที่ไม่ใช่วันที่จริงคืน '-' ห้ามให้เกิด Invalid Date */
+  function pfDMY(v) {
+    var s = String(v == null ? '' : v).slice(0, 10);
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return '-';
+    var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    if (!isFinite(y) || !isFinite(mo) || !isFinite(d)) return '-';
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return '-';
+    return m[3] + '/' + m[2] + '/' + m[1];
+  }
+
+  /* ---------- การ์ดข้อมูลส่วนตัวของมือถือ ----------
+     ⚠ แยกจาก .pf-legacy ของ Desktop โดยสิ้นเชิง — Desktop จึงไม่เปลี่ยนแม้แต่พิกเซลเดียว
+     ทุกช่องเป็นอ่านอย่างเดียว เพราะ njhr_me_save รับแก้เฉพาะ
+       nickname · birth_date · national_id · phone · email · address · emergency_phone
+     รหัสพนักงาน / แผนก / ตำแหน่ง / วันที่เริ่มงาน มาจาก Employee Master แก้ที่นี่ไม่ได้ */
+  var PF_INFO_ROWS = [
+    ['name', 'ชื่อ-นามสกุล'], ['code', 'รหัสพนักงาน'], ['dept', 'แผนก'],
+    ['pos', 'ตำแหน่ง'], ['start', 'วันที่เริ่มงาน'], ['email', 'อีเมล'], ['phone', 'โทรศัพท์']
+  ];
+
+  function pfInfoHtml() {
+    return '<section class="pfm-info" id="pfm-info" hidden ' +
+      'aria-labelledby="pfm-info-h">' +
+      '<div class="pfm-info-h" id="pfm-info-h">' + icon('user', 'ic-sm') +
+      '<b>ข้อมูลส่วนตัว</b>' +
+      '<button type="button" class="pfm-info-x" id="pfm-info-close" ' +
+      'aria-label="ปิดข้อมูลส่วนตัว">' + icon('x') + '</button></div>' +
+      PF_INFO_ROWS.map(function (r) {
+        return '<div class="pfm-info-r"><span>' + esc(r[1]) + '</span>' +
+          '<b id="pfi-' + r[0] + '">—</b></div>';
+      }).join('') +
+      '<p class="pfm-info-note">ข้อมูลจากทะเบียนพนักงาน · แก้ไขได้ที่ฝ่ายบุคคล</p></section>';
+  }
+
+  /* เติมค่าจริงจาก njhr_me_get — ไม่มี RPC ใหม่ ไม่มีการเดาชื่อฟิลด์ */
+  function pfFillInfo(me) {
+    if (!me) return;
+    var v = {
+      name: me.full_name || '', code: me.emp_code || '',
+      dept: me.department_name || '', pos: me.position_name || '',
+      start: pfDMY(me.start_date), email: me.email || '', phone: me.phone || ''
+    };
+    PF_INFO_ROWS.forEach(function (r) {
+      var el = document.getElementById('pfi-' + r[0]);
+      if (!el) return;
+      var t = String(v[r[0]] == null ? '' : v[r[0]]).trim();
+      el.textContent = t === '' ? '-' : t;
+    });
+  }
+
+  /* เปิด/ปิด "ข้อมูลส่วนตัว" บนมือถือ
+     ⚠ ยังใช้ .pf-show-mobile ตัวเดิมกับ .pf-legacy ไม่แตะกฎ CSS นั้นเลย
+       และไม่แตะ .only-desktop เพื่อไม่ให้กระทบหน้าจออื่นทั้งระบบ */
+  function pfToggleDetail(el, force) {
+    var info = el.querySelector('#pfm-info');
+    var box = el.querySelector('.pf-legacy');
+    var open = (force === undefined) ? (info ? info.hidden : true) : !!force;
+    if (info) info.hidden = !open;
+    if (box) box.classList.toggle('pf-show-mobile', open);
+    if (open) {
+      var t = info || box;
+      if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   function pfMobileHtml(u, e) {
-    var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;
-    return '<div class="only-mobile pfm">' +
+    var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;    return '<div class="only-mobile pfm">' +
       '<div class="pfm-brand"><span class="pfm-logo">NJL</span>' +
       '<div class="grow"><b>NJL HR</b><small>ระบบบริหารทรัพยากรบุคคล</small></div>' +
       '<button type="button" class="pfm-x" id="pfm-close" aria-label="กลับหน้าหลัก">' +
@@ -213,6 +326,7 @@
       '<small>แผนก: <i>' + esc((e && dept(e.deptId)) || '—') + '</i></small></div>' +
       '<span class="pfm-x2">' + icon('chevR') + '</span></a>' +
       '<div class="pfm-photo-msg" id="pfm-photo-msg" hidden></div>' +
+      pfInfoHtml() +
 
       '<nav class="pfm-menu">' + PF_MENU.map(function (m) {
         return '<button type="button" class="pfm-item ' + m[4] + '" data-pfm="' + esc(m[0]) + '">' +
@@ -252,12 +366,9 @@
         return;
       }
       if (to === 'detail') {
-        /* ข้อมูลส่วนตัว = การ์ดข้อมูลติดต่อในหน้าเดียวกัน (ของเดิม ไม่สร้างหน้าใหม่) */
-        var box = el.querySelector('.pf-legacy');
-        if (box) {
-          box.classList.add('pf-show-mobile');
-          box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        /* ข้อมูลส่วนตัว = การ์ดข้อมูลมือถือ + การ์ดข้อมูลติดต่อเดิม (ของเดิม ไม่สร้างหน้าใหม่)
+           กดซ้ำ = ปิด · ปุ่ม × ในการ์ดก็ปิดได้ */
+        pfToggleDetail(el);
         return;
       }
       window.location.hash = to;
@@ -267,8 +378,13 @@
     var empCard = el.querySelector('.pfm-emp');
     if (empCard) empCard.onclick = function (ev) {
       ev.preventDefault();
-      var box = el.querySelector('.pf-legacy');
-      if (box) { box.classList.add('pf-show-mobile'); box.scrollIntoView({ behavior: 'smooth' }); }
+      pfToggleDetail(el);
+    };
+
+    var infoX = el.querySelector('#pfm-info-close');
+    if (infoX) infoX.onclick = function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      pfToggleDetail(el, false);
     };
 
     /* ---------- njhr_me_get ครั้งเดียวต่อการเปิดหน้า ----------
@@ -286,6 +402,7 @@
         })
       : Promise.resolve(null);
 
+    pfMePromise.then(function (me) { pfFillInfo(me); });
     pfPhotoInit(el, pfMePromise);
 
     var saveBtn = document.getElementById('pf-save');

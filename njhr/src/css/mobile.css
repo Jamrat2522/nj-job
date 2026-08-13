@@ -1596,6 +1596,46 @@ select.gf-sort {
 }
 .pfm-photo-msg.is-err { background: #FEE2E2; color: #B91C1C; }
 
+/* รูป Preview Local — ยังไม่ได้อัปโหลด ทำให้ต่างจากรูปจริงด้วยสายตา
+   ห้ามให้ผู้ใช้เข้าใจผิดว่าอัปโหลดสำเร็จแล้ว */
+.pfm-photo-img.is-preview { opacity: .62; filter: saturate(.7); }
+
+/* การ์ดข้อมูลส่วนตัวเฉพาะมือถือ — ไม่เกี่ยวกับ .pf-legacy ของ Desktop */
+.pfm-info {
+  margin-top: 12px; background: #fff; border-radius: 16px;
+  padding: 4px 0 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+  overflow: hidden;
+}
+.pfm-info[hidden] { display: none; }
+.pfm-info-h {
+  display: flex; align-items: center; gap: 9px;
+  padding: 12px 14px 10px; border-bottom: 1px solid #EEF2F7;
+}
+.pfm-info-h b { flex: 1; font-size: 15.5px; color: #0F172A; min-width: 0; }
+.pfm-info-h .ic { color: #1D4ED8; flex: none; }
+.pfm-info-x {
+  flex: none; width: 40px; height: 40px; margin: -6px -8px -6px 0;
+  border: 0; background: none; color: #94A3B8; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pfm-info-x .ic { width: 20px; height: 20px; color: #94A3B8; }
+.pfm-info-r {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid #F5F7FA; min-width: 0;
+}
+.pfm-info-r:last-of-type { border-bottom: 0; }
+.pfm-info-r > span { flex: 0 0 40%; font-size: 13.5px; color: #64748B; }
+.pfm-info-r > b {
+  flex: 1 1 auto; min-width: 0; font-size: 14.5px; color: #0F172A;
+  text-align: right; overflow-wrap: anywhere;
+}
+.pfm-info-note { margin: 8px 14px 0; font-size: 12px; color: #94A3B8; }
+@media (max-width: 360px) {
+  .pfm-info-r { gap: 8px; }
+  .pfm-info-r > span { flex-basis: 44%; font-size: 13px; }
+  .pfm-info-r > b { font-size: 14px; }
+}
+
 /* การ์ดเดิมของ Desktop — ซ่อนบนมือถือ เปิดเมื่อกด "ข้อมูลส่วนตัว"
    ⚠ ต้องมี !important เพราะกล่องนี้มีคลาส .only-desktop ติดอยู่ด้วย
       ซึ่ง styles.css ตั้ง `display: none !important` ไว้สำหรับจอมือถือ
