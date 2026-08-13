@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>BILLING NJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- BUILD VERSION: ทุก Release ต้องแก้เลขนี้ + APP_VERSION ใน core/config.js + deploy_version ใน DB ให้ตรงกัน -->
+<script>window.__BUILD='1.4.0';</script>
+<link rel="stylesheet" href="assets/css/core/reset.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/core/variables.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/core/typography.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/core/layout.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/core/utilities.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/components/shell.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/components/ui.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/components/data.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/login.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/charge-list.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/job-form.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/invoice.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/receipt.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/report.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/withholding.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/backup.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/pages/users.css?v=1.4.0">
+<link rel="stylesheet" href="assets/css/responsive/responsive.css?v=1.4.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div class="login-wrap"><div class="login-card">
+  <div class="login-logo">NJ</div>
+  <h2 class="login-t">BILLING NJ</h2>
+  <p class="login-s">กำลังเปิดระบบ…</p>
+  <div class="load-row"><div class="spin"></div></div>
+</div></div>
+<script type="module">
+  const V = window.__BUILD;
+  (async () => {
+    try {
+      const [{ startVersionGuard, checkNow }, { restoreSession }, { renderLogin }, { startRouter }] =
+        await Promise.all([
+          import('./assets/js/core/version-guard.js?v=' + V),
+          import('./assets/js/auth/session.js?v=' + V),
+          import('./assets/js/auth/login-page.js?v=' + V),
+          import('./assets/js/core/router.js?v=' + V),
+        ]);
+      /* 1) เช็ค version/maintenance ก่อนทุกอย่าง — ถ้าติด maintenance จะ lock ที่นี่ */
+      const ok = await checkNow('boot');
+      if (!ok) return;
+      startVersionGuard();
+      /* 2) restore session → เข้าแอป หรือไปหน้า login */
+      const enterApp = async () => {
+        await startRouter();   /* router เลือกหน้าแรกตามสิทธิ์ผู้ใช้เอง */
+      };
+      if (await restoreSession()) await enterApp();
+      else await renderLogin(enterApp);
+    } catch (e) {
+      console.error('[BILLING NJ boot]', e);
+      document.body.innerHTML =
+        '<div class="login-wrap"><div class="login-card">' +
+        '<div class="login-logo">NJ</div><h2 class="login-t">เปิดระบบไม่สำเร็จ</h2>' +
+        '<p class="login-s">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วรีเฟรชหน้าอีกครั้ง</p></div></div>';
+    }
+  })();
+</script>
+</body>
+</html>
