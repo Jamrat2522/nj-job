@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-e75e812f';
+const V = 'njhr-v2-ee81efe5';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,7 +10,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=47f112af","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=84d74c35","./styles.css?v=c358304d","./mobile.css?v=c8ff7f71","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=7a956eff","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=42e0bb4f","./styles.css?v=9ea84541","./mobile.css?v=d57cc707","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)

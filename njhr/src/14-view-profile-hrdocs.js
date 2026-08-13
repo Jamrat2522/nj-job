@@ -893,10 +893,23 @@
      แยก 2 กลุ่มด้วยสถานะจริงจาก DB ไม่ใช่ค่าที่คิดเองในเบราว์เซอร์ ================= */
   var DOC_MY_PENDING_ST = ['SENT', 'VIEWED'];
 
-  function docMyIsPending(r) { return DOC_MY_PENDING_ST.indexOf(r.status) >= 0; }
+  /* 50 ทวิ เป็นเอกสารแจ้งให้ทราบ ไม่ต้องกดรับทราบและไม่ต้องลงนาม
+     (สร้างด้วย requires_signature = false และไม่มี ACK row)
+     จึงไม่นับเป็น "รอดำเนินการ" เหมือนสัญญาหรือหนังสือเตือน */
+  function docIsWht50(r) { return r && r.doc_type === 'WHT50'; }
+
+  function docMyIsPending(r) {
+    if (docIsWht50(r)) return false;
+    return DOC_MY_PENDING_ST.indexOf(r.status) >= 0;
+  }
 
   // ป้ายสถานะฝั่งพนักงาน — อ้างอิง requires_signature จริงของเอกสารฉบับนั้น
   function docMyStateText(r) {
+    /* 50 ทวิ ใช้คำของตัวเอง — ห้ามขึ้นว่า "รอรับทราบ" */
+    if (docIsWht50(r)) {
+      if (r.status === 'SENT') return 'ยังไม่ได้เปิด';
+      if (r.status === 'VIEWED') return 'เปิดแล้ว';
+    }
     if (r.status === 'SENT' || r.status === 'VIEWED') {
       return r.requires_signature ? 'รอลงนาม' : 'รอรับทราบ';
     }
@@ -908,6 +921,29 @@
   }
 
   function docMyCard(r) {
+    /* ---------- 50 ทวิ: การ์ดเฉพาะ ----------
+       หัวข้อบอกปีภาษี · วันที่ได้รับ · สถานะ ยังไม่ได้เปิด/เปิดแล้ว
+       ปุ่ม ดูเอกสาร (เปิด Modal ในหน้าเดิม) และ ดาวน์โหลด
+       ไม่มีปุ่มรับทราบ/ลงนาม เพราะเอกสารภาษีไม่ต้องทำสองอย่างนั้น */
+    if (docIsWht50(r)) {
+      var yr = (r.doc_meta && r.doc_meta.tax_year)
+        ? (Number(r.doc_meta.tax_year) + 543) : '';
+      var opened = r.status === 'VIEWED';
+      return '<div class="card doc-my-card doc-wht50">' +
+        '<div class="doc-my-head"><b>🧾 ' +
+        esc(yr ? ('50 ทวิ ประจำปีภาษี ' + yr) : (r.title || docTypeLabel(r.doc_type))) + '</b>' +
+        '<span class="badge ' + (opened ? 'badge-ok' : 'badge-info') + '">' +
+        esc(docMyStateText(r)) + '</span></div>' +
+        '<small class="muted">' + esc(r.doc_no || '') +
+        ' · วันที่ได้รับ ' + docTS(r.sent_at || r.issued_at) + '</small>' +
+        (opened && r.viewed_at ? '<small class="muted">เปิดเมื่อ ' + docTS(r.viewed_at) + '</small>' : '') +
+        '<div class="doc-my-act">' +
+        '<button class="btn btn-ghost btn-sm" data-doc-open="' + esc(r.id) + '">' +
+        icon('eye') + ' ดูเอกสาร</button>' +
+        '<button class="btn btn-ghost btn-sm" data-doc-dl="' + esc(r.id) + '">' +
+        icon('download') + ' ดาวน์โหลด</button></div></div>';
+    }
+
     var pend = docMyIsPending(r);
     var t = docTypeLabel(r.doc_type);
     var em = pend ? (r.requires_signature ? '🟠' : '🟡') : (r.status === 'REJECTED' ? '⛔' : '✅');
@@ -960,6 +996,15 @@
       if (sum) sum.textContent = 'ทั้งหมด ' + docRows.length + ' ฉบับ · รอดำเนินการ ' + pend.length;
 
       box.onclick = function (ev) {
+        /* ปุ่มดาวน์โหลดของการ์ด 50 ทวิ — ใช้เส้นทางเดิม docPdfDownload()
+           ซึ่งขอ Signed URL ผ่าน njhr_doc_pdf_access (ตรวจสิทธิ์เจ้าของที่ Server)
+           ไม่เปิดแท็บใหม่ และไม่เปลี่ยนสถานะเป็นเปิดแล้ว */
+        var dl = ev.target.closest ? ev.target.closest('[data-doc-dl]') : null;
+        if (dl) {
+          ev.preventDefault(); ev.stopPropagation();
+          docPdfDownload(dl.dataset.docDl, dl);
+          return;
+        }
         var b = ev.target.closest ? ev.target.closest('[data-doc-open]') : null;
         if (!b) return;
         docState.openId = b.dataset.docOpen;
@@ -1403,7 +1448,10 @@
         '<div class="form-2col">' +
         '<label class="field"><span>ประเภทเอกสาร <i class="req">*</i></span><select name="doc_type" id="docf-type"' +
         (editing ? ' disabled' : '') + '>' +
-        DOC_TYPES.map(function (t) {
+        /* 50 ทวิ ออกจากหน้า "รายงาน > รายงาน 50 ทวิ" เท่านั้น
+           จึงไม่ให้เลือกในฟอร์มสร้างเอกสาร HR ทั่วไป
+           แต่ยังคงอยู่ใน DOC_TYPES เพื่อใช้ชื่อ/ไอคอน และใช้กรองประเภทได้ตามปกติ */
+        DOC_TYPES.filter(function (t) { return t.code !== 'WHT50'; }).map(function (t) {
           return '<option value="' + t.code + '"' + (d && d.doc_type === t.code ? ' selected' : '') + '>' +
             t.em + ' ' + esc(t.label) + '</option>';
         }).join('') + '</select></label>' +

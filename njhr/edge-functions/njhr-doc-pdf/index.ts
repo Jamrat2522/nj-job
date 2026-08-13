@@ -22,6 +22,7 @@
 // ============================================================
 
 import { buildFinalPdf, Snapshot } from "./pdf.ts";
+import { buildWht50Pdf, Wht50Snapshot } from "./wht50.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -202,13 +203,21 @@ Deno.serve(async (req) => {
       claimed = true;
 
       const snap = row.data as Snapshot;
-      if (!snap?.doc || !snap?.ack || !snap?.storage_path) {
+      /* 50 ทวิ ไม่มีการรับทราบ/ลงนาม จึงไม่มี ack — ตรวจเงื่อนไขแยกจากเอกสารทั่วไป */
+      const isWht50 = String(snap?.doc?.doc_type ?? "") === "WHT50";
+      if (!snap?.doc || !snap?.storage_path || (!isWht50 && !snap?.ack)) {
         throw new Error("ข้อมูลเอกสารไม่ครบสำหรับสร้าง PDF");
+      }
+      if (isWht50 && !(snap as any).wht50) {
+        throw new Error("ไม่พบ Snapshot ของ 50 ทวิ (njhr_wht50) จาก Claim");
       }
 
       // 2) สร้าง PDF จาก Snapshot ล้วน
+      //    WHT50 ใช้ Renderer เฉพาะ · เอกสารประเภทอื่นใช้ Renderer เดิม 100%
       const fonts = await loadFonts();
-      const bytes = await buildFinalPdf(snap, fonts.reg, fonts.bold);
+      const bytes = isWht50
+        ? await buildWht50Pdf((snap as any).wht50 as Wht50Snapshot, fonts.reg, fonts.bold)
+        : await buildFinalPdf(snap, fonts.reg, fonts.bold);
       if (!bytes?.length) throw new Error("สร้างไฟล์ PDF ไม่สำเร็จ (ไฟล์ว่าง)");
       if (bytes.length > MAX_BYTES) {
         throw new Error(`ไฟล์ใหญ่เกิน ${MAX_BYTES / 1024 / 1024} MB`);

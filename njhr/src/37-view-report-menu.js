@@ -29,13 +29,33 @@
      ค่าเริ่มต้น = รอบเดือนปัจจุบัน (cycleCurrent) เพื่อให้เปิดหน้ามาเห็นข้อมูลรอบนี้ทันที
      ช่วงวันที่จริงที่ส่งไป RPC คำนวณจาก cycleRange() ตัวกลางเสมอ */
   var rptmState = {
-    leave: { ym: '', dept: '', q: '', rows: null, err: '', page: 0, seq: 0 },
-    ot: { ym: '', dept: '', q: '', rows: null, err: '', page: 0, seq: 0 }
+    leave: { ym: '', from: '', to: '', dept: '', q: '', rows: null, err: '', page: 0, seq: 0 },
+    ot: { ym: '', from: '', to: '', dept: '', q: '', rows: null, err: '', page: 0, seq: 0 }
   };
 
   function rptmCycle(s) {
     if (!s.ym) s.ym = cycleCurrent().ym;
     return cycleRange(s.ym) || cycleCurrent();
+  }
+
+  /* ช่วงวันที่ที่ใช้ดึงข้อมูลจริง = รอบเดือน ∩ ช่วงที่ผู้ใช้เลือก
+       ไม่เลือกวันที่เลย        → ได้รอบเดือนเต็มเหมือนเดิมทุกประการ
+       เลือกเฉพาะ "จากวันที่"   → จากวันนั้นถึงปลายรอบ
+       เลือกเฉพาะ "ถึงวันที่"   → ต้นรอบถึงวันนั้น
+     เปรียบเทียบสตริง ISO ได้ตรง ๆ เพราะเป็น YYYY-MM-DD ความยาวเท่ากัน
+     ส่งค่านี้เป็น p_from / p_to ให้ RPC เดิม (รองรับอยู่แล้ว) — ไม่กรองซ้ำในหน้าเว็บ */
+  function rptmRange(s) {
+    var c = rptmCycle(s);
+    return {
+      start: (s.from && s.from > c.start) ? s.from : c.start,
+      end: (s.to && s.to < c.end) ? s.to : c.end
+    };
+  }
+
+  /* ผู้ใช้เลือกวันที่กลับหัวกลับหาง — ต้องไม่ยิง Query และต้องบอกให้รู้ */
+  function rptmDateErr(s) {
+    if (s.from && s.to && s.from > s.to) return 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
+    return '';
   }
 
   function rptmMonthOptions(cur) {
@@ -136,6 +156,14 @@
       '<select id="rptm-ym">' + rptmMonthOptions(s.ym) + '</select></label>' +
       '<label class="rptm-f"><span>แผนก</span>' +
       '<select id="rptm-dept">' + rptmDeptOptions(s.dept) + '</select></label>' +
+      /* ตัวกรองช่วงวันที่ — กรองเพิ่มภายในรอบเดือน ไม่แทนที่รอบเดือน
+         ใช้ input[type=date] ชุดเดียวกับหน้าอื่นในระบบ */
+      '<label class="rptm-f rptm-f-dt"><span>จากวันที่</span>' +
+      '<input type="date" id="rptm-from" value="' + esc(s.from) + '" ' +
+      'min="' + esc(rptmCycle(s).start) + '" max="' + esc(rptmCycle(s).end) + '"></label>' +
+      '<label class="rptm-f rptm-f-dt"><span>ถึงวันที่</span>' +
+      '<input type="date" id="rptm-to" value="' + esc(s.to) + '" ' +
+      'min="' + esc(rptmCycle(s).start) + '" max="' + esc(rptmCycle(s).end) + '"></label>' +
       '<label class="rptm-f rptm-f-emp"><span>พนักงาน</span>' +
       '<span class="search-box">' + icon('search', 'ic-sm') +
       '<input id="rptm-q" autocomplete="off" ' +
@@ -152,9 +180,18 @@
 
     document.getElementById('rptm-ym').onchange = function () {
       s.ym = this.value; s.page = 0;
-      var cy = document.getElementById('rptm-cycle');
-      if (cy) cy.textContent = cycleRangeText(s.ym);
+      /* วันที่ที่เลือกไว้ถ้าหลุดออกนอกรอบใหม่ ให้ล้างทิ้ง กันผลลัพธ์ว่างโดยไม่รู้สาเหตุ */
+      var c = rptmCycle(s);
+      if (s.from && (s.from < c.start || s.from > c.end)) s.from = '';
+      if (s.to && (s.to < c.start || s.to > c.end)) s.to = '';
+      rptmRender(cfg, el);
       rptmLoad(cfg);
+    };
+    document.getElementById('rptm-from').onchange = function () {
+      s.from = this.value; s.page = 0; rptmLoad(cfg);
+    };
+    document.getElementById('rptm-to').onchange = function () {
+      s.to = this.value; s.page = 0; rptmLoad(cfg);
     };
     document.getElementById('rptm-dept').onchange = function () {
       s.dept = this.value; s.page = 0; rptmLoad(cfg);
@@ -162,7 +199,7 @@
     var qEl = document.getElementById('rptm-q');
     qEl.oninput = debounce(function () { s.q = qEl.value; s.page = 0; rptmLoad(cfg); }, 350);
     document.getElementById('rptm-clear').onclick = function () {
-      s.ym = cycleCurrent().ym; s.dept = ''; s.q = ''; s.page = 0;
+      s.ym = cycleCurrent().ym; s.from = ''; s.to = ''; s.dept = ''; s.q = ''; s.page = 0;
       rptmRender(cfg, el);
       rptmLoad(cfg);
     };
@@ -176,6 +213,8 @@
   function rptmLoad(cfg) {
     var s = rptmState[cfg.key], seq = ++s.seq;
     s.err = '';
+    var derr = rptmDateErr(s);
+    if (derr) { s.rows = []; s.err = derr; rptmPaint(cfg); return; }   // ไม่ยิง Query
     if (!sbReady() || !sbToken()) {
       s.rows = []; s.err = 'ยังไม่ได้เชื่อมต่อ Supabase — รายงานนี้ต้องใช้ข้อมูลจริงเท่านั้น';
       rptmPaint(cfg); return;
@@ -185,7 +224,7 @@
     /* ส่งช่วงวันที่ของรอบไปให้ RPC กรองตั้งแต่ต้น — ไม่ดึงทุกเดือนมาแล้วค่อย filter ในหน้าเว็บ
        p_from/p_to ของ RPC เป็นแบบรวมปลายทั้งสองข้าง (>= from และ <= to)
        จึงส่ง end = วันที่ 25 ได้ตรง ๆ และครอบคลุมวันที่ 25 ทั้งวัน */
-    var cyc = rptmCycle(s);
+    var cyc = rptmRange(s);
     sbRpcList(cfg.rpc, {
       p_token: sbToken(),
       p_from: cyc.start, p_to: cyc.end,
@@ -276,8 +315,9 @@
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังสร้างไฟล์…';
 
     var rows = s.rows.map(function (r, i) { return cfg.cells(r, i); });
-    /* ชื่อไฟล์ระบุรอบเดือนที่เลือก — ข้อมูลในไฟล์คือชุดเดียวกับที่แสดงบนหน้าจอ */
-    var cyc = rptmCycle(s);
+    /* ชื่อไฟล์ระบุช่วงวันที่จริงที่กรอง (รอบเดือน ∩ จาก–ถึง)
+       แถวที่ Export คือ s.rows ตัวเดียวกับที่ตารางใช้ จึงตรงกับหน้าจอเสมอ */
+    var cyc = rptmRange(s);
     var period = fmtDateDMY(cyc.start).replace(/\//g, '-') + '_ถึง_' +
       fmtDateDMY(cyc.end).replace(/\//g, '-');
     var fname = rptSafeName(cfg.sheet) + '_' + rptSafeName(s.dept || 'ทุกแผนก') + '_' +
@@ -334,7 +374,22 @@
        1) ยังไม่มีแบบฟอร์ม 50 ทวิ ตัวจริงที่ฝ่ายบัญชีตรวจแล้ว
        2) Edge Function njhr-doc-pdf ยังไม่ได้ deploy บน Production
      การส่งเอกสารภาษีที่ผิดแบบ พนักงานนำไปยื่นภาษีไม่ได้ จึงต้องกันไว้ก่อน */
+  /* ---------- Feature Gate ----------
+     WHT_PDF_READY = false จนกว่าจะครบทุกข้อนี้ (ห้ามลบ Gate ก่อนตรวจจริง)
+       1. Renderer WHT50 มีจริงใน Source            → มีแล้ว (edge-functions/njhr-doc-pdf/wht50.ts)
+       2. SQL PDF Pipeline พร้อม                     → มีแล้ว (90_wht50_pdf.sql) แต่ยังไม่ได้รัน
+       3. Edge Function njhr-doc-pdf Deploy จริง      → ยังไม่ได้ Deploy
+       4. มีไฟล์ฟอนต์ไทยใน Deployment                 → ยังไม่มี (fonts/ มีแต่ README)
+       5. ทดสอบ generate → READY → download ผ่านจริง  → ยังไม่ได้ทดสอบ
+     เมื่อครบแล้วเปลี่ยนเป็น true จุดเดียว ปุ่มส่งทั้งหมดจะเปิดพร้อมกัน */
+  var WHT_PDF_READY = false;
+
   var WHT_BLOCK_MSG = 'ยังไม่ได้ตั้งค่าแบบฟอร์ม 50 ทวิ';
+  var WHT_BATCH = 25;              // จำนวนรายการต่อรอบของการส่งจำนวนมาก
+
+  /* สถานะการเลือกและผลการส่ง — แยกจาก whtState เพื่อไม่ให้ปนกับข้อมูลตาราง */
+  var whtSel = {};                 // { wht50_id: true }
+  var whtBulk = null;              // { total, done, ok, skip, fail, errors:[], running }
 
   var whtState = { year: 0, q: '', send: '', rows: null, sum: null, err: '', seq: 0 };
 
@@ -360,6 +415,189 @@
     return isFinite(n) ? n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
   }
 
+  /* ---------- ปุ่มจัดการตามสถานะเอกสาร ----------
+     ไม่มีเอกสาร → สร้างร่าง
+     DRAFT       → ดูตัวอย่าง · แก้ไข · ยืนยัน
+     CONFIRMED   → ดูตัวอย่าง · ดาวน์โหลด PDF · ส่ง
+     SENT/OPENED → ดูตัวอย่าง · ดาวน์โหลด PDF
+
+     ID ที่ใช้ต่างกันชัดเจน (ห้ามสลับ)
+       wht50_id    → draft · get · update · confirm · send
+       document_id → njhr_doc_pdf_access (ดาวน์โหลด) */
+  function whtBtn(kind, id, label, on, why, ic) {
+    return '<button type="button" class="btn-icon" data-wht-' + kind + '="' + esc(id || '') + '"' +
+      (on ? '' : ' disabled') + ' aria-label="' + label + '" title="' + label + (on ? '' : why) +
+      '">' + icon(ic) + '</button>';
+  }
+
+  function whtActions(r) {
+    var st = r.doc_status || 'NONE';
+    var sent = r.send_status === 'SENT' || r.send_status === 'OPENED';
+    var out = [];
+
+    if (st === 'NONE') {
+      out.push(whtBtn('draft', r.employee_id, 'สร้างร่าง', true, '', 'plus'));
+      return out;
+    }
+
+    out.push(whtBtn('view', r.wht50_id, 'ดูตัวอย่าง', !!r.wht50_id, ' — ยังไม่มีเอกสาร', 'eye'));
+
+    if (st === 'DRAFT') {
+      out.push(whtBtn('edit', r.wht50_id, 'แก้ไข', true, '', 'edit'));
+      out.push(whtBtn('confirm', r.wht50_id, 'ยืนยันเอกสาร', true, '', 'checkSquare'));
+      return out;
+    }
+
+    /* CONFIRMED ขึ้นไป — ดาวน์โหลดต้องมี document_id จริงและ PDF พร้อม */
+    var dlOn = WHT_PDF_READY && !!r.document_id;
+    out.push(whtBtn('dl', r.document_id, 'ดาวน์โหลด PDF', dlOn,
+      r.document_id ? ' — ' + WHT_BLOCK_MSG : ' — ยังไม่ได้ส่ง จึงยังไม่มีเอกสารให้ดาวน์โหลด', 'download'));
+
+    if (!sent) {
+      out.push(whtBtn('send', r.wht50_id, 'ส่งให้พนักงาน', WHT_PDF_READY, ' — ' + WHT_BLOCK_MSG, 'send'));
+    }
+    return out;
+  }
+
+  /* ---------- แถบ "เลือกแล้ว X รายการ" ---------- */
+  function whtPickable() {
+    return (whtState.rows || []).filter(function (r) { return r.is_ready && r.wht50_id; });
+  }
+
+  function whtSelIds() {
+    return Object.keys(whtSel).filter(function (k) { return whtSel[k]; });
+  }
+
+  function whtSelBar() {
+    var bar = document.getElementById('wht-selbar');
+    if (!bar) return;
+    var n = whtSelIds().length;
+    if (!n) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.hidden = false;
+    bar.innerHTML = '<b>เลือกแล้ว ' + n + ' รายการ</b>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="wht-unsel">ยกเลิกการเลือก</button>' +
+      '<span class="grow"></span>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="wht-sendsel"' +
+      (WHT_PDF_READY ? '' : ' disabled title="' + WHT_BLOCK_MSG + '"') + '>' +
+      icon('send') + ' ส่งรายการที่เลือก</button>';
+    document.getElementById('wht-unsel').onclick = function () {
+      whtSel = {}; whtPaint(); 
+    };
+    var sb = document.getElementById('wht-sendsel');
+    if (sb) sb.onclick = function () { whtConfirmSend(whtSelIds(), 'เลือกไว้'); };
+  }
+
+  /* ---------- กล่องยืนยันก่อนส่ง ----------
+     ตัวเลขทุกตัวมาจาก njhr_wht50_send_summary และรายการจริงบนหน้า ไม่ hardcode */
+  function whtConfirmSend(ids, scope) {
+    if (!ids.length) { toast('ยังไม่ได้เลือกรายการ', 'info'); return; }
+    var s = whtState, sum = s.sum || {};
+    var rows = (s.rows || []).filter(function (r) { return ids.indexOf(r.wht50_id) >= 0; });
+    var ready = rows.filter(function (r) { return r.is_ready; }).length;
+    var sent = rows.filter(function (r) { return r.send_status !== 'NOT_SENT'; }).length;
+    var bad = rows.filter(function (r) { return !r.has_national_id; }).length;
+    var nodoc = rows.filter(function (r) { return r.doc_status !== 'CONFIRMED'; }).length;
+
+    openModal('ยืนยันส่งเอกสาร 50 ทวิ ให้พนักงาน' + (scope === 'ทั้งหมด' ? 'ทั้งหมด' : 'ที่เลือก'),
+      '<div class="wht-sum">' +
+      [['ปีภาษี', (s.year + 543) + ' (ค.ศ. ' + s.year + ')'],
+       ['พนักงานทั้งหมด', (sum.total_emp != null ? sum.total_emp : rows.length) + ' คน'],
+       ['เลือกส่งครั้งนี้', ids.length + ' คน'],
+       ['พร้อมส่ง', ready + ' คน'],
+       ['ส่งแล้ว', sent + ' คน'],
+       ['ยังไม่มีเอกสาร', nodoc + ' คน'],
+       ['ข้อมูลไม่ครบ', bad + ' คน']].map(function (x) {
+        return '<span class="wht-sum-i"><small>' + esc(x[0]) + '</small><b>' + esc(String(x[1])) + '</b></span>';
+      }).join('') + '</div>' +
+      '<p class="muted note">ระบบส่งเฉพาะรายการที่ <b>พร้อมส่ง</b> เท่านั้น ' +
+      'รายการที่ส่งแล้วจะถูกข้ามอัตโนมัติ ไม่มีการส่งซ้ำ</p>' +
+      '<div id="wht-progress" class="wht-progress"></div>',
+      '<button type="button" class="btn btn-ghost" id="wht-cancel">ยกเลิก</button>' +
+      '<button type="button" class="btn btn-primary" id="wht-go">' + icon('send') + ' เริ่มส่ง</button>');
+
+    document.getElementById('wht-cancel').onclick = closeModal;
+    document.getElementById('wht-go').onclick = function () {
+      /* ส่งด้วย wht50_id เท่านั้น — njhr_wht50_send รับ id ของ njhr_wht50 */
+      var only = rows.filter(function (r) { return r.is_ready; })
+        .map(function (r) { return r.wht50_id; });
+      whtBulkSend(only);
+    };
+  }
+
+  /* ---------- ส่งจำนวนมากแบบแบ่งรอบ ----------
+     รอบละ WHT_BATCH รายการ · คืนคิวให้เบราว์เซอร์ระหว่างรอบด้วย setTimeout
+     จึงไม่ทำให้หน้าเว็บค้างแม้พนักงานหลักร้อยคน
+     ใช้ RPC เดิม njhr_wht50_send รายคน — ไม่มีการสร้าง RPC ส่งซ้ำ
+     ALREADY_SENT จาก RPC นับเป็น "ข้าม" ไม่ใช่ผิดพลาด */
+  function whtBulkSend(ids) {
+    if (!ids.length) { toast('ไม่มีรายการที่พร้อมส่ง', 'info'); return; }
+    whtBulk = { total: ids.length, done: 0, ok: 0, skip: 0, fail: 0, errors: [], running: true };
+    var go = document.getElementById('wht-go');
+    if (go) { go.disabled = true; go.innerHTML = '<span class="spinner"></span> กำลังส่ง…'; }
+    whtBulkPaint();
+
+    var queue = ids.slice();
+
+    function runBatch() {
+      if (!queue.length) return finish();
+      var batch = queue.splice(0, WHT_BATCH);
+      Promise.all(batch.map(function (id) {
+        return sbRpc('njhr_wht50_send', { p_token: sbToken(), p_id: id })
+          .then(function (r) {
+            var d = (r && r.data) ? r.data : r;
+            var res = (d && (d.result || (d[0] && d[0].result))) || 'SENT';
+            if (res === 'ALREADY_SENT') whtBulk.skip++; else whtBulk.ok++;
+          })['catch'](function (ex) {
+            whtBulk.fail++;
+            whtBulk.errors.push({ id: id, msg: (ex && ex.message) || 'ส่งไม่สำเร็จ' });
+          }).then(function () {
+            whtBulk.done++;
+            whtBulkPaint();
+          });
+      })).then(function () {
+        setTimeout(runBatch, 0);        // คืนคิวให้เบราว์เซอร์วาดหน้าจอ
+      });
+    }
+
+    function finish() {
+      whtBulk.running = false;
+      whtBulkPaint();
+      if (go) { go.disabled = false; go.innerHTML = icon('send') + ' เริ่มส่ง'; go.hidden = true; }
+      whtSel = {};
+      whtLoad();                         // ดึงสถานะจริงจากฐานข้อมูลใหม่
+    }
+
+    runBatch();
+  }
+
+  function whtBulkPaint() {
+    var box = document.getElementById('wht-progress');
+    if (!box || !whtBulk) return;
+    var b = whtBulk;
+    box.innerHTML = b.running
+      ? '<div class="wht-prog-l">กำลังส่ง ' + b.done + ' / ' + b.total + '</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' +
+        Math.round(b.done / b.total * 100) + '%"></div></div>'
+      : '<div class="wht-prog-l"><b>ส่งเสร็จแล้ว</b></div>' +
+        '<div class="wht-sum">' +
+        [['สำเร็จ', b.ok], ['ข้าม', b.skip], ['ผิดพลาด', b.fail]].map(function (x) {
+          return '<span class="wht-sum-i"><small>' + x[0] + '</small><b>' + x[1] + '</b></span>';
+        }).join('') + '</div>' +
+        (b.errors.length
+          ? '<div class="form-error">' +
+            b.errors.slice(0, 5).map(function (e) { return esc(e.msg); }).join('\n') +
+            (b.errors.length > 5 ? '\n… และอีก ' + (b.errors.length - 5) + ' รายการ' : '') + '</div>' +
+            '<button type="button" class="btn btn-ghost" id="wht-retry">' +
+            icon('refresh') + ' ลองใหม่เฉพาะรายการผิดพลาด (' + b.errors.length + ')</button>'
+          : '');
+    var rt = document.getElementById('wht-retry');
+    if (rt) rt.onclick = function () {
+      /* ส่งซ้ำเฉพาะรายการที่ผิดพลาด — รายการที่สำเร็จแล้วไม่ถูกแตะ
+         และถ้าจริง ๆ ส่งไปแล้ว RPC จะคืน ALREADY_SENT เองอีกชั้น */
+      whtBulkSend(whtBulk.errors.map(function (e) { return e.id; }));
+    };
+  }
+
   function viewRptWht50(el) {
     var s = whtState;
     if (!s.year) s.year = Number(String(todayISO()).slice(0, 4));
@@ -381,9 +619,12 @@
         }).join('') + '</select></label>' +
       '<button type="button" class="btn btn-ghost" id="wht-clear">ล้างตัวกรอง</button>' +
       '<span class="grow"></span>' +
-      '<button type="button" class="btn btn-primary" id="wht-sendall" disabled ' +
-      'title="' + WHT_BLOCK_MSG + '">' + icon('send') + ' ส่งทั้งหมด</button></div>' +
-      '<div class="ot-warn wht-block">' + icon('info', 'ic-sm') + ' ' + esc(WHT_BLOCK_MSG) + '</div>' +
+      '<button type="button" class="btn btn-primary" id="wht-sendall"' +
+      (WHT_PDF_READY ? '' : ' disabled title="' + WHT_BLOCK_MSG + '"') + '>' +
+      icon('send') + ' ส่งทั้งหมด</button></div>' +
+      (WHT_PDF_READY ? '' :
+        '<div class="ot-warn wht-block">' + icon('info', 'ic-sm') + ' ' + esc(WHT_BLOCK_MSG) + '</div>') +
+      '<div class="wht-selbar" id="wht-selbar" hidden></div>' +
       '<div id="wht-sum" class="wht-sum"></div>' +
       '<div class="card p0 rptm-wrap" id="wht-table"></div>' +
       '<div class="form-error" id="wht-err" role="alert" style="white-space:pre-line"></div>';
@@ -394,6 +635,10 @@
     document.getElementById('wht-send').onchange = function () { s.send = this.value; whtLoad(); };
     var qEl = document.getElementById('wht-q');
     qEl.oninput = debounce(function () { s.q = qEl.value; whtLoad(); }, 350);
+    document.getElementById('wht-sendall').onclick = function () {
+      var ready = whtPickable().map(function (r) { return r.wht50_id; });
+      whtConfirmSend(ready, 'ทั้งหมด');
+    };
     document.getElementById('wht-clear').onclick = function () {
       s.year = Number(String(todayISO()).slice(0, 4)); s.q = ''; s.send = '';
       viewRptWht50(el); whtLoad();
@@ -465,12 +710,20 @@
 
     box.innerHTML =
       '<div class="lvt-wrap"><table class="lvt lvt-wht"><thead><tr>' +
+      '<th class="wht-ck"><input type="checkbox" id="wht-all" aria-label="เลือกทั้งหมด"></th>' +
       '<th>รหัสพนักงาน</th><th>ชื่อพนักงาน</th><th>แผนก</th>' +
       '<th class="wht-num">รายได้รวม</th><th class="wht-num">ภาษีหัก ณ ที่จ่าย</th>' +
       '<th>สถานะเอกสาร</th><th>สถานะการส่ง</th><th>จัดการ</th>' +
       '</tr></thead><tbody>' +
       s.rows.map(function (r) {
-        return '<tr>' +
+        /* เลือกได้เฉพาะรายการที่พร้อมส่งจริง (is_ready จาก RPC)
+           รายการที่ส่งแล้ว/ยังไม่มีเอกสาร/ข้อมูลไม่ครบ จะกดเลือกไม่ได้ */
+        var canPick = !!r.is_ready;
+        return '<tr' + (canPick ? '' : ' class="wht-nopick"') + '>' +
+          /* เก็บ wht50_id สำหรับส่ง — ไม่ใช่ document_id */
+          '<td class="wht-ck"><input type="checkbox" data-wht-pick="' + esc(r.wht50_id || '') + '"' +
+          (canPick ? '' : ' disabled') + (whtSel[r.wht50_id] ? ' checked' : '') +
+          ' aria-label="เลือก ' + esc(r.emp_code || '') + '"></td>' +
           '<td><b>' + esc(r.emp_code || '—') + '</b></td>' +
           '<td><b>' + esc(r.full_name || '—') + '</b>' +
           (r.has_national_id ? '' : '<small class="t-red">ไม่มีเลขประจำตัวประชาชน</small>') + '</td>' +
@@ -482,10 +735,287 @@
           '<td>' + whtBadge(WHT_SEND_TH, r.send_status) +
           (r.sent_at ? '<small>' + esc(String(r.sent_at).slice(0, 10)) + '</small>' : '') + '</td>' +
           '<td><div class="lvt-acts">' +
-          ['eye:ดูตัวอย่าง', 'download:ดาวน์โหลด PDF', 'send:ส่งให้พนักงาน'].map(function (a) {
-            var p = a.split(':');
-            return '<button type="button" class="btn-icon" disabled aria-label="' + p[1] + '" ' +
-              'title="' + p[1] + ' — ' + WHT_BLOCK_MSG + '">' + icon(p[0]) + '</button>';
-          }).join('') + '</div></td></tr>';
+          whtActions(r).join('') + '</div></td></tr>';
       }).join('') + '</tbody></table></div>';
+
+    whtBind();
+    whtSelBar();
+  }
+
+  /* ผูก Event ของ Checkbox และปุ่มจัดการหลังวาดตารางทุกครั้ง */
+  function whtBind() {
+    var all = document.getElementById('wht-all');
+    if (all) {
+      var pick = whtPickable();
+      all.checked = pick.length > 0 && pick.every(function (r) { return whtSel[r.wht50_id]; });
+      all.disabled = pick.length === 0;
+      all.onchange = function () {
+        var on = this.checked;
+        pick.forEach(function (r) {
+          if (on) whtSel[r.wht50_id] = true; else delete whtSel[r.wht50_id];
+        });
+        whtPaint();
+      };
+    }
+    document.querySelectorAll('[data-wht-pick]').forEach(function (b) {
+      b.onchange = function () {
+        var id = b.dataset.whtPick;
+        if (this.checked) whtSel[id] = true; else delete whtSel[id];
+        whtSelBar();
+        var a2 = document.getElementById('wht-all');
+        if (a2) {
+          var pk = whtPickable();
+          a2.checked = pk.length > 0 && pk.every(function (r) { return whtSel[r.wht50_id]; });
+        }
+      };
+    });
+    document.querySelectorAll('[data-wht-view]').forEach(function (b) {
+      b.onclick = function () { whtPreview(b.dataset.whtView); };          // wht50_id
+    });
+    document.querySelectorAll('[data-wht-dl]').forEach(function (b) {
+      b.onclick = function () { whtDownload(b.dataset.whtDl, b); };        // document_id
+    });
+    document.querySelectorAll('[data-wht-send]').forEach(function (b) {
+      b.onclick = function () { whtConfirmSend([b.dataset.whtSend], 'รายคน'); };  // wht50_id
+    });
+    document.querySelectorAll('[data-wht-draft]').forEach(function (b) {
+      b.onclick = function () { whtDraft(b.dataset.whtDraft, b); };        // employee_id
+    });
+    document.querySelectorAll('[data-wht-confirm]').forEach(function (b) {
+      b.onclick = function () { whtConfirmDoc(b.dataset.whtConfirm, b); }; // wht50_id
+    });
+    document.querySelectorAll('[data-wht-edit]').forEach(function (b) {
+      b.onclick = function () { whtEdit(b.dataset.whtEdit); };             // wht50_id
+    });
+  }
+
+  /* ---------- สร้างร่าง / ยืนยัน / แก้ไข ----------
+     ใช้ RPC เดิมของ 87_wht50.sql ทั้งหมด ไม่สร้างตัวใหม่ */
+  function whtDraft(empId, btn) {
+    if (!empId) return;
+    if (btn) btn.disabled = true;
+    sbRpc('njhr_wht50_draft', {
+      p_token: sbToken(), p_employee: empId, p_year: whtState.year
+    }).then(function () {
+      toast('สร้างร่างเอกสาร 50 ทวิ แล้ว');
+      whtLoad();
+    })['catch'](function (ex) {
+      toastDismiss('สร้างร่างไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  function whtConfirmDoc(id, btn) {
+    if (!id) return;
+    confirmDialog('ยืนยันเอกสาร 50 ทวิ',
+      'เมื่อยืนยันแล้วระบบจะออกเลขที่เอกสาร และแก้ไขยอดไม่ได้อีก ต้องการดำเนินการหรือไม่',
+      'ยืนยันเอกสาร', function () {
+        if (btn) btn.disabled = true;
+        sbRpc('njhr_wht50_confirm', { p_token: sbToken(), p_id: id })
+          .then(function () { toast('ยืนยันเอกสารแล้ว'); whtLoad(); })
+          ['catch'](function (ex) {
+            toastDismiss('ยืนยันไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+            if (btn) btn.disabled = false;
+          });
+      });
+  }
+
+  /* แก้ไขยอด — เปิดตัวอย่างพร้อมโหมดแก้ไข (ใช้ njhr_wht50_get / _update เดิม) */
+  function whtEdit(id) { whtPreview(id, true); }
+
+  /* ---------- ดูตัวอย่าง ----------
+     เปิด Modal ในหน้าเดิม ไม่เปิดแท็บใหม่
+     ผู้ดูแลเปิดดูไม่นับเป็น "เปิดแล้ว" — ไม่เรียก njhr_doc_view */
+  /* ---------- ตัวอย่างเอกสาร ----------
+     ใช้ Layout Definition ชุดเดียวกับ Renderer PDF:
+       normalizeWht50Snapshot() → payer/payee
+       WHT50_FORM_TYPES         → ติ๊ก ภ.ง.ด. จากค่า enum จริง
+       normalizeSection()       → ลงยอดในแถวมาตรา 40(x) ให้ถูก
+     ตรรกะเดียวกับ edge-functions/njhr-doc-pdf/wht50.ts (ดู whtModel ด้านล่าง)
+     จึงไม่มี Preview คนละแบบกับ PDF
+
+     ผู้ดูแลเปิดดูที่นี่ไม่เรียก njhr_doc_view — สถานะจึงไม่กลายเป็น OPENED */
+  function whtPreview(whtId, editMode) {
+    if (!whtId) return;
+    var r = (whtState.rows || []).filter(function (x) { return x.wht50_id === whtId; })[0] || {};
+    openModal((editMode ? 'แก้ไข' : 'ดูตัวอย่าง') + ' 50 ทวิ',
+      '<div class="ot-req-info">' +
+      [['เลขที่เอกสาร', r.doc_no || '—'], ['ปีภาษี', (whtState.year + 543)],
+       ['ผู้ถูกหักภาษี', r.full_name || '—'], ['รหัสพนักงาน', r.emp_code || '—'],
+       ['แผนก', r.department_name || '—']].map(function (x) {
+        return '<div><small>' + esc(x[0]) + '</small><b>' + esc(String(x[1])) + '</b></div>';
+      }).join('') + '</div>' +
+      '<div class="wht-prev" id="wht-prev">' +
+      '<div class="muted" style="padding:18px">กำลังโหลดข้อมูลเอกสาร…</div></div>' +
+      '<div class="form-error" id="wht-pv-err"></div>',
+      '<button type="button" class="btn btn-ghost" id="wht-pv-close">ปิด</button>' +
+      '<button type="button" class="btn btn-primary" id="wht-pv-dl"' +
+      ((WHT_PDF_READY && r.document_id) ? '' :
+        ' disabled title="' + (r.document_id ? WHT_BLOCK_MSG : 'ยังไม่ได้ส่ง จึงยังไม่มีไฟล์') + '"') +
+      '>' + icon('download') + ' ดาวน์โหลด</button>');
+    document.getElementById('wht-pv-close').onclick = closeModal;
+    var dl = document.getElementById('wht-pv-dl');
+    if (dl) dl.onclick = function () { whtDownload(r.document_id, dl); };
+
+    /* อ่าน Snapshot จริงด้วย RPC เดิม แล้วประกอบด้วยตรรกะเดียวกับ Renderer */
+    sbRpc('njhr_wht50_get', { p_token: sbToken(), p_id: whtId }).then(function (res) {
+      var d = (res && res.data) ? res.data : res;
+      var box = document.getElementById('wht-prev');
+      if (box) box.innerHTML = whtPreviewHtml(whtModel(d || {}));
+    })['catch'](function (ex) {
+      var e = document.getElementById('wht-pv-err');
+      if (e) e.textContent = (ex && ex.message) || 'โหลดข้อมูลเอกสารไม่สำเร็จ';
+      var box = document.getElementById('wht-prev');
+      if (box) box.innerHTML = '';
+    });
+  }
+
+  /* ---------- Model กลาง (ตรรกะเดียวกับ wht50.ts) ---------- */
+  var WHT_FORMS = [
+    ['PND1A', 'ภ.ง.ด.1ก'], ['PND1A_SPECIAL', 'ภ.ง.ด.1ก พิเศษ'], ['PND2', 'ภ.ง.ด.2'],
+    ['PND3', 'ภ.ง.ด.3'], ['PND2A', 'ภ.ง.ด.2ก'], ['PND3A', 'ภ.ง.ด.3ก'], ['PND53', 'ภ.ง.ด.53']
+  ];
+  var WHT_ROWS = [
+    ['40(1)', ['40_1', '40.1', '1'], '1.', 'เงินเดือน ค่าจ้าง เบี้ยเลี้ยง โบนัส ฯลฯ ตามมาตรา 40 (1)'],
+    ['40(2)', ['40_2', '40.2', '2'], '2.', 'ค่าธรรมเนียม ค่านายหน้า ฯลฯ ตามมาตรา 40 (2)'],
+    ['40(3)', ['40_3', '40.3', '3'], '3.', 'ค่าแห่งลิขสิทธิ์ หรือสิทธิอย่างอื่น ฯลฯ ตามมาตรา 40 (3)'],
+    ['40(4)', ['40_4', '40.4', '4'], '4.', '(ก) ดอกเบี้ย ฯลฯ ตามมาตรา 40 (4) (ก)'],
+    ['3TRES', ['3เตรส', '5'], '5.', 'การจ่ายเงินได้ที่ต้องหักภาษี ณ ที่จ่าย ตามคำสั่งกรมสรรพากรที่ออกตามมาตรา 3 เตรส'],
+    ['OTHER', ['อื่น', '6'], '6.', 'เงินได้นอกจาก 1. – 5.']
+  ];
+
+  function whtSection(v) {
+    var raw = String(v == null ? '' : v).replace(/\s/g, '').toUpperCase();
+    if (!raw) return '';
+    for (var i = 0; i < WHT_ROWS.length; i++) {
+      if (raw === WHT_ROWS[i][0].toUpperCase()) return WHT_ROWS[i][0];
+      for (var j = 0; j < WHT_ROWS[i][1].length; j++) {
+        if (raw === String(WHT_ROWS[i][1][j]).toUpperCase()) return WHT_ROWS[i][0];
+      }
+    }
+    return '';
+  }
+
+  /* ประกอบชื่อ/ที่อยู่จาก field จริงของ Production */
+  function whtNorm(d) {
+    var p = d.payer_snapshot || {}, e = d.payee_snapshot || {};
+    return {
+      payer: {
+        name: String(p.company_name || p.name || '').trim(),
+        address: String(p.company_address || p.address || '').trim(),
+        taxid: String(p.company_tax_id || p.tax_id || '').trim()
+      },
+      payee: {
+        name: [e.prefix, e.first_name, e.last_name]
+          .map(function (x) { return String(x || '').trim(); })
+          .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || String(e.name || '').trim(),
+        address: String(e.address || '').trim(),
+        taxid: String(e.national_id || e.tax_id || '').trim()
+      }
+    };
+  }
+
+  function whtModel(d) {
+    var np = whtNorm(d);
+    var ft = String(d.form_type || '').trim().toUpperCase();
+    var sec = whtSection(d.income_section);
+    var byKey = {};
+    var fin = d.income_final;
+    var arr = Object.prototype.toString.call(fin) === '[object Array]' ? fin
+      : (fin && Object.prototype.toString.call(fin.items) === '[object Array]' ? fin.items : null);
+    if (arr && arr.length) {
+      arr.forEach(function (it) {
+        var k = whtSection(it.section || it.key) || sec;
+        if (!k) return;
+        var prev = byKey[k] || { paid_on: '', amount: 0, tax: 0 };
+        byKey[k] = {
+          paid_on: String(it.paid_on || it.period || prev.paid_on || ''),
+          amount: (Number(it.amount) || 0) + prev.amount,
+          tax: (Number(it.tax) || 0) + prev.tax
+        };
+      });
+    } else if (sec) {
+      byKey[sec] = {
+        paid_on: d.tax_year ? ('ปีภาษี ' + (Number(d.tax_year) + 543)) : '',
+        amount: Number(d.total_income) || 0, tax: Number(d.total_tax) || 0
+      };
+    }
+    return {
+      payer: np.payer, payee: np.payee,
+      forms: WHT_FORMS.map(function (f) { return { label: f[1], checked: f[0] === ft }; }),
+      seq_no: String(d.seq_no == null ? '' : d.seq_no),
+      book_no: String(d.book_no || ''), doc_no: String(d.doc_no || ''),
+      lines: WHT_ROWS.map(function (r) {
+        var v = byKey[r[0]];
+        return { no: r[2], label: r[3], paid_on: v ? v.paid_on : '',
+          amount: v ? v.amount : null, tax: v ? v.tax : null };
+      }),
+      total_income: d.total_income == null ? null : Number(d.total_income),
+      total_tax: d.total_tax == null ? null : Number(d.total_tax),
+      total_sso: d.total_sso == null ? null : Number(d.total_sso),
+      total_pvd: d.total_pvd == null ? null : Number(d.total_pvd),
+      signer_name: String(d.signer_name || ''),
+      signer_position: String(d.signer_position || ''),
+      issue_date: d.issue_date ? fmtDateDMY(d.issue_date) : ''
+    };
+  }
+
+  function whtM(v) {
+    return v == null ? '' :
+      Number(v).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function whtPreviewHtml(m) {
+    return '<div class="wht-form">' +
+      '<div class="wht-f-head"><b>หนังสือรับรองการหักภาษี ณ ที่จ่าย</b>' +
+      '<small>ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</small>' +
+      '<small>เล่มที่ ' + esc(m.book_no || '—') + ' · เลขที่ ' + esc(m.doc_no || '—') + '</small></div>' +
+      '<div class="wht-f-party"><b>ผู้มีหน้าที่หักภาษี ณ ที่จ่าย</b>' +
+      '<div>ชื่อ: ' + esc(m.payer.name || '—') + '</div>' +
+      '<div>ที่อยู่: ' + esc(m.payer.address || '—') + '</div>' +
+      '<div>เลขประจำตัวผู้เสียภาษีอากร: ' + esc(m.payer.taxid || '—') + '</div></div>' +
+      '<div class="wht-f-party"><b>ผู้ถูกหักภาษี ณ ที่จ่าย</b>' +
+      '<div>ชื่อ: ' + esc(m.payee.name || '—') + '</div>' +
+      '<div>ที่อยู่: ' + esc(m.payee.address || '—') + '</div>' +
+      '<div>เลขประจำตัวประชาชน: ' + esc(m.payee.taxid || '—') + '</div>' +
+      '<div>ลำดับที่ในแบบ: ' + esc(m.seq_no || '—') + '</div></div>' +
+      '<div class="wht-f-forms">' + m.forms.map(function (f) {
+        return '<span class="wht-f-ck' + (f.checked ? ' on' : '') + '">' +
+          (f.checked ? '☑' : '☐') + ' ' + esc(f.label) + '</span>';
+      }).join('') + '</div>' +
+      '<table class="wht-f-tb"><thead><tr>' +
+      '<th>ประเภทเงินได้พึงประเมินที่จ่าย</th><th>วัน เดือน หรือปีภาษีที่จ่าย</th>' +
+      '<th>จำนวนเงินที่จ่าย</th><th>ภาษีที่หักและนำส่งไว้</th></tr></thead><tbody>' +
+      m.lines.map(function (l) {
+        return '<tr><td>' + l.no + ' ' + esc(l.label) + '</td><td>' + esc(l.paid_on) + '</td>' +
+          '<td class="wht-num">' + whtM(l.amount) + '</td>' +
+          '<td class="wht-num">' + whtM(l.tax) + '</td></tr>';
+      }).join('') +
+      '<tr class="wht-f-sum"><td><b>รวมเงินที่จ่ายและภาษีที่หักนำส่ง</b></td><td></td>' +
+      '<td class="wht-num"><b>' + whtM(m.total_income) + '</b></td>' +
+      '<td class="wht-num"><b>' + whtM(m.total_tax) + '</b></td></tr>' +
+      '</tbody></table>' +
+      '<div class="wht-f-fund">เงินที่จ่ายเข้า · กองทุนประกันสังคม ' + whtM(m.total_sso) +
+      ' · กองทุนสำรองเลี้ยงชีพ ' + whtM(m.total_pvd) + '</div>' +
+      '<div class="wht-f-sign">ขอรับรองว่าข้อความและตัวเลขดังกล่าวข้างต้นถูกต้องตรงกับความจริงทุกประการ' +
+      '<div>ลงชื่อ ' + esc(m.signer_name || '—') + ' ผู้จ่ายเงิน</div>' +
+      (m.signer_position ? '<div>' + esc(m.signer_position) + '</div>' : '') +
+      '<div>วัน เดือน ปี ที่ออกหนังสือรับรองฯ ' + esc(m.issue_date || '—') + '</div></div>' +
+      '</div>';
+  }
+
+  function whtDownload(docId, btn) {
+    if (!WHT_PDF_READY) { toast(WHT_BLOCK_MSG, 'info'); return; }
+    /* docId ที่รับเข้ามาคือ document_id (ของ njhr_emp_documents) */
+    var r = (whtState.rows || []).filter(function (x) { return x.document_id === docId; })[0];
+    var fname = '50ทวิ_' + (whtState.year + 543) + '_' + ((r && r.emp_code) || 'EMP') + '.pdf';
+    if (btn) btn.disabled = true;
+    sbRpc('njhr_doc_pdf_access', { p_token: sbToken(), p_id: docId })
+      .then(function (d) {
+        var u = (d && (d.url || (d.data && d.data.url)));
+        if (!u) throw new Error('ออกลิงก์ไฟล์ไม่สำเร็จ');
+        fileDownload(u, fname);
+      })['catch'](function (ex) {
+        toastDismiss('ดาวน์โหลดไม่สำเร็จ', (ex && ex.message) || 'กรุณาลองใหม่อีกครั้ง', 'error');
+      }).then(function () { if (btn) btn.disabled = false; });
   }

@@ -1010,13 +1010,27 @@ select.gf-sort {
     /* แถวเดียวเสมอ — ไม่ให้ปุ่มตกลงบรรทัดที่ 2
        ที่ความกว้างแคบจะย่อตามลำดับ: ช่องค้นหา → padding ของ select → gap → padding ปุ่ม
        (ดู @media ย่อยด้านล่าง) ปุ่มทุกปุ่มยังแสดงครบ ไม่ซ่อน ไม่ย่อเป็นไอคอน */
-    flex-wrap: nowrap;
+    /* แบ่ง 2 แถว: แถวบน = ปุ่มจัดการข้อมูล · แถวล่าง = ค้นหาและตัวกรอง
+       ใช้ wrap + order เพื่อไม่ต้องย้าย DOM (มือถือจึงไม่ถูกกระทบ) */
+    flex-wrap: wrap;
+    row-gap: 12px;
     margin-bottom: 12px;
     width: 100%;
     min-width: 0;
   }
   /* ทุกช่องสูงเท่ากันและไม่ยืดเอง — มีเพียงช่องค้นหาที่ยืด/หดได้ */
   .emp-filters > * { height: 48px; flex: 0 0 auto; }
+
+  /* ---------- แถวบน: ปุ่มจัดการข้อมูล (ชิดซ้าย) ----------
+     order: -1 ดันขึ้นไปอยู่แถวแรก · flex-basis 100% กินเต็มแถวเพื่อบังคับให้ตัวกรองตกลงแถวล่าง
+     ปุ่มเรียง: นำเข้า Excel · Export Excel · เพิ่มพนักงาน (ตามลำดับใน DOM) */
+  .emp-filters .emp-actions {
+    display: flex; align-items: center; justify-content: flex-start;
+    order: -1; flex: 0 0 100%; width: 100%; height: auto; gap: 11px;
+  }
+  /* เพิ่มพนักงานอยู่ในกลุ่มนี้แล้ว ไม่ต้องดันไปขวาสุดอีก */
+  .emp-filters .emp-actions .emp-addbtn { margin-left: 0; }
+  .emp-filters .emp-actions .btn { height: 48px; flex: 0 0 auto; }
   .emp-filters .grow { display: none; }      /* ปุ่มขวาสุดใช้ margin-left แทน */
 
   /* ช่องค้นหา 280–340px และย่อได้เป็นอันดับแรก */
@@ -1059,22 +1073,26 @@ select.gf-sort {
 }
 /* 1366px: กรอบเนื้อหา = 1366 − 270 (Sidebar) − 48 (padding) = 1,048px
    ย่อ select · gap · padding ปุ่ม ให้ผลรวมพอดี แล้วเหลือที่ให้ช่องค้นหา */
+/* แถวตัวกรองเหลือ 6 ช่อง (ปุ่มจัดการย้ายขึ้นแถวบนแล้ว) จึงมีที่เหลือมาก
+   ไม่ต้องย่อตัวอักษรจนเล็กเหมือนตอนที่ทุกอย่างอยู่แถวเดียว
+   ที่ 1366px: 6 ช่องรวม ~780px จากกรอบ 1,048px — เหลือให้ช่องค้นหายืดสบาย */
 @media (min-width: 1024px) and (max-width: 1400px) {
-  .emp-filters { gap: 5px; }
-  .emp-filters .emp-search { flex: 1 1 110px; min-width: 78px; padding: 0 8px; }
-  .emp-filters select { max-width: 124px; font-size: 11.5px; padding: 0 18px 0 7px; }
-  .emp-filters #emp-dept { max-width: 132px; }
-  .emp-filters .btn { padding: 0 6px; font-size: 11.5px; gap: 4px; }
-  .emp-filters .btn .ic { width: 14px; height: 14px; }
-  .emp-filters .emp-dirbtn { padding: 0 6px; }
+  .emp-filters { gap: 8px; }
+  .emp-filters .emp-search { flex: 1 1 200px; min-width: 140px; padding: 0 11px; }
+  .emp-filters select { max-width: 168px; font-size: 13px; padding: 0 26px 0 10px; }
+  .emp-filters #emp-dept { max-width: 180px; }
+  .emp-filters .btn { padding: 0 12px; font-size: 13px; gap: 6px; }
+  .emp-filters .btn .ic { width: 16px; height: 16px; }
+  .emp-filters .emp-dirbtn { padding: 0 12px; }
 }
+/* จอคอมแคบ 1024–1320px (กรอบ ~706px) ย่อลงอีกขั้นให้ยังอยู่แถวเดียว */
 @media (min-width: 1024px) and (max-width: 1320px) {
-  .emp-filters { gap: 4px; }
-  .emp-filters .emp-search { flex: 1 1 90px; min-width: 70px; }
-  .emp-filters select { max-width: 112px; font-size: 11px; padding: 0 16px 0 6px; }
-  .emp-filters #emp-dept { max-width: 120px; }
-  .emp-filters .btn { padding: 0 5px; font-size: 11px; }
-  .emp-filters .btn .ic { width: 13px; height: 13px; }
+  .emp-filters { gap: 6px; }
+  .emp-filters .emp-search { flex: 1 1 120px; min-width: 90px; padding: 0 9px; }
+  .emp-filters select { max-width: 132px; font-size: 12px; padding: 0 20px 0 8px; }
+  .emp-filters #emp-dept { max-width: 144px; }
+  .emp-filters .btn { padding: 0 9px; font-size: 12px; }
+  .emp-filters .btn .ic { width: 15px; height: 15px; }
 }
 
 /* ============================================================
@@ -1083,31 +1101,53 @@ select.gf-sort {
    ไม่แตะข้อมูลหรือการคำนวณสิทธิ์ลาใด ๆ (แก้ CSS อย่างเดียว)
    ============================================================ */
 @media (min-width: 1024px) {
-  /* 3 การ์ดในแถวเดียว สูงเท่ากันทุกใบ */
+  /* ประเภทลาทั้ง 7 อยู่แถวเดียว เต็มความกว้าง Content สูงเท่ากันทุกใบ
+     ลาป่วย · ลากิจ · ลาพักร้อน · ลาคลอด · ลาบวช · ลาครึ่งวัน · ลาอื่น ๆ */
   #lv-bal.bal-cards {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 10px; margin-bottom: 12px; align-items: stretch;
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px; margin-bottom: 20px; align-items: stretch;
   }
   #lv-bal .bal-card {
-    display: flex; flex-direction: column; justify-content: center;
-    gap: 3px;                                  /* ลดระยะระหว่างหัวข้อ · ตัวเลข · แถบ */
-    padding: 9px 13px; margin: 0; height: 100%;
+    display: flex; flex-direction: column; justify-content: flex-start;
+    gap: 2px; min-height: 90px;
+    padding: 14px 13px; margin: 0; height: 100%; min-width: 0;
   }
-  #lv-bal .bal-card > small:first-child { font-size: 12.5px; line-height: 1.3; }
-  #lv-bal .bal-card b {
-    font-size: 19px; line-height: 1.15; margin: 0;   /* เดิม 24px + margin 2/6px */
+  /* ชื่อประเภทลาอยู่บนสุด ยาวได้ไม่ล้นการ์ด */
+  #lv-bal .bal-card > small:first-child {
+    font-size: 12.5px; line-height: 1.3; overflow-wrap: anywhere;
   }
+  /* ตัวเลขวันที่ใช้แล้วเด่นที่สุดในการ์ด */
+  #lv-bal .bal-card b { font-size: 21px; line-height: 1.15; margin: 0; }
   #lv-bal .bal-card b i { font-size: 12px; }
-  #lv-bal .bar-track { height: 8px; margin: 1px 0 0; }
-  /* ข้อความ "สิทธิ์ X วัน/ปี" ชิดกับแถบความคืบหน้า */
-  #lv-bal .bal-card > small.muted { font-size: 11.5px; line-height: 1.25; margin-top: 2px; }
+  /* "ลาแล้ว" เล็กลง */
+  #lv-bal .bal-card > small.muted { font-size: 11.5px; line-height: 1.25; margin-top: 0; }
+  /* "คงเหลือ X วัน" คงสีเขียวเดิม (กฎสีอยู่ที่ styles.css) */
+  #lv-bal .bal-card .bal-rem { font-size: 12px; margin-top: 3px; }
 }
 
-/* จอ 1024–1280px: บีบอีกเล็กน้อยไม่ให้การ์ดสูงเกิน */
-@media (min-width: 1024px) and (max-width: 1280px) {
+/* 1281–1400px: ลด gap และตัวอักษรลงเล็กน้อยก่อน — ยังคง 7 ใบแถวเดียว */
+@media (min-width: 1281px) and (max-width: 1400px) {
   #lv-bal.bal-cards { gap: 8px; }
-  #lv-bal .bal-card { padding: 8px 11px; }
-  #lv-bal .bal-card b { font-size: 18px; }
+  #lv-bal .bal-card { padding: 13px 11px; }
+  #lv-bal .bal-card b { font-size: 20px; }
+}
+
+/* 1200–1280px: บีบอีกขั้น ยังอยู่แถวเดียว */
+@media (min-width: 1200px) and (max-width: 1280px) {
+  #lv-bal.bal-cards { gap: 7px; }
+  #lv-bal .bal-card { padding: 12px 9px; }
+  #lv-bal .bal-card > small:first-child { font-size: 12px; }
+  #lv-bal .bal-card b { font-size: 19px; }
+  #lv-bal .bal-card .bal-rem { font-size: 11.5px; }
+}
+
+/* 1024–1199px: พื้นที่ไม่พอสำหรับ 7 ใบจริง ๆ จึงเปลี่ยนเป็น 4 + 3
+   (ตามลำดับที่กำหนด: ย่อ font/gap ก่อน ถ้ายังไม่พอจึงขึ้นบรรทัดใหม่)
+   ไม่เกิด Horizontal Scroll */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  #lv-bal.bal-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  #lv-bal .bal-card { padding: 12px 11px; }
+  #lv-bal .bal-card b { font-size: 19px; }
 }
 
 /* ---------- จัดการสมาชิก: ตาราง 7 คอลัมน์ ---------- */
