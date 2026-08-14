@@ -2569,4 +2569,5 @@
   NJHR.compat.scope.todayISO = todayISO;
   NJHR.compat.scope.uid = uid;
   NJHR.compat.scope.userOfEmp = userOfEmp;
+  NJHR.compat.scope.withButtonLoading = withButtonLoading;
 })();
