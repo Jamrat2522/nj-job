@@ -63,6 +63,10 @@
     'njhr_empfile_delete': 1, 'njhr_empfile_save': 1, 'njhr_face_delete': 1, 'njhr_gf_delete': 1,
     'njhr_gf_save': 1, 'njhr_holiday_delete': 1, 'njhr_holiday_save': 1, 'njhr_leave_cancel': 1,
     'njhr_leave_decide': 1, 'njhr_leave_submit': 1, 'njhr_leave_type_save': 1, 'njhr_login': 1,
+    /* เพิ่มใหม่: ทั้งสามตัวเขียนข้อมูลจริง ห้าม retry
+       njhr_face_login สร้าง session · njhr_face_self_enroll เขียนทะเบียนใบหน้า
+       njhr_face_login_set เปลี่ยนสวิตช์ความปลอดภัยของบัญชี */
+    'njhr_face_login': 1, 'njhr_face_login_set': 1, 'njhr_face_self_enroll': 1,
     'njhr_logout': 1, 'njhr_notify_read': 1, 'njhr_notify_read_all': 1, 'njhr_ot_attach_add': 1,
     'njhr_ot_attach_delete': 1, 'njhr_pay_entry_bulk': 1, 'njhr_pay_entry_copy_apply': 1, 'njhr_pay_entry_delete': 1,
     'njhr_pay_entry_save': 1, 'njhr_pay_entry_set_active': 1, 'njhr_pay_item_delete': 1, 'njhr_pay_item_reorder': 1,
@@ -294,6 +298,38 @@
       return sbLoginParse(r);
     });
   }
+
+  /* ---------- เข้าสู่ระบบด้วยใบหน้า (มือถือ) ----------
+     ใช้ตัวแปลผลลัพธ์ตัวเดียวกับรหัสผ่าน เพราะ njhr_face_login คืนคอลัมน์ชุดเดียวกับ njhr_login
+     ⚠ ไม่แตะ sbLogin — เข้าด้วยรหัสผ่านยังทำงานเหมือนเดิมทุกประการ (ระบบสำรอง)
+     ⚠ ไม่ส่ง GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น */
+  function sbFaceLoginKey() {
+    /* คีย์อุปกรณ์สำหรับจำกัดจำนวนครั้งที่สแกนผิด — ไม่ใช่ความลับและไม่ใช่ข้อมูลชีวมาตร */
+    var k = '';
+    try { k = localStorage.getItem('njhr_dev_key') || ''; } catch (e) {}
+    if (!k) {
+      k = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem('njhr_dev_key', k); } catch (e) {}
+    }
+    return k;
+  }
+  function sbFaceLogin(descriptor, livenessMethod) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    return fetch(SB.url + '/rest/v1/rpc/njhr_face_login', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_descriptor: descriptor, p_faces_found: 1,
+        p_liveness: true, p_liveness_method: livenessMethod || 'PASSIVE',
+        p_device_key: sbFaceLoginKey(),
+        p_ua: (navigator.userAgent || '').slice(0, 200)
+      })
+    }).then(sbLoginParse);
+  }
+
+  window.NJHR_faceLogin = function (descriptor, method) {
+    return sbFaceLogin(descriptor, method);
+  };
 
   /* ================= SUPABASE LEAVE DATA LAYER =================
      ประเภทการลายึด enum `leave_type` ของ Supabase (7 ค่า) เป็นแหล่งจริง

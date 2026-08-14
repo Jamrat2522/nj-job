@@ -464,7 +464,37 @@
   }
 
   /* ---------- ลงเวลาด้วยใบหน้า ---------- */
+  /* ---------- ลงเวลา ----------
+     ถ้ายังไม่มีใบหน้าต้นแบบของพนักงานคนนี้ ให้ลงทะเบียน 3 มุมก่อนอัตโนมัติ
+     แล้วจึงกลับมาลงเวลาตามปกติ (Face → Liveness → Snapshot ใหม่ → GPS → Geofence)
+     ครั้งต่อไปจะข้ามขั้นลงทะเบียนทันที ไม่ต้องหันซ้าย-ขวาอีก */
   function punch(kind, onDone) {
+    if (S.busy) return;                       // กันกดซ้ำ
+    S.busy = true;
+    rpc('njhr_face_status', { p_token: token(), p_employee: null, p_q: null })
+      .then(function (r) {
+        /* njhr_face_status คืนแถวของตัวเองเมื่อไม่ใช่แอดมิน (92_face_attendance.sql บรรทัด 12) */
+        var row = Array.isArray(r) ? r[0] : r;
+        return !!(row && row.enrolled && row.is_active);
+      })
+      ['catch'](function () { return true; })  // อ่านสถานะไม่ได้ → ไปเส้นทางเดิม ให้ RPC ตัดสิน
+      .then(function (has) {
+        if (has) { S.busy = false; return doPunch(kind, onDone); }
+        S.busy = false;
+        enrollThenPunch(kind, onDone);
+      });
+  }
+
+  /* ลงทะเบียนใบหน้าต้นแบบครั้งแรก แล้วต่อด้วยการลงเวลาทันที
+     ⚠ ลงทะเบียนสำเร็จ ≠ ลงเวลาสำเร็จ — ยังต้องผ่าน Face + Liveness + GPS + Geofence
+       ถ้า GPS/Geofence ไม่ผ่าน ใบหน้าต้นแบบยังถูกเก็บไว้ ครั้งหน้าไม่ต้องลงทะเบียนใหม่ */
+  function enrollThenPunch(kind, onDone) {
+    enroll(null, function () {
+      setTimeout(function () { doPunch(kind, onDone); }, 60);
+    });
+  }
+
+  function doPunch(kind, onDone) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
     var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
@@ -793,13 +823,19 @@
     function finish() {
       closeCam();
       drawPoses('กำลังบันทึกข้อมูลใบหน้า…');
-      rpc('njhr_face_enroll', {
-        p_token: token(),
-        p_employee: employeeId || null,
-        p_descriptors: got,
-        p_quality: { samples: got.length, captured_at: new Date().toISOString() },
-        p_snapshot: snapPath
-      }).then(function (r) {
+      /* ไม่ระบุ employeeId = พนักงานลงทะเบียนใบหน้าของตัวเองจากมือถือ
+         ใช้ njhr_face_self_enroll ซึ่งไม่มีพารามิเตอร์ p_employee เลย
+         พนักงานเป้าหมายมาจาก session ฝั่งฐานข้อมูลเท่านั้น จึงลงทะเบียนแทนคนอื่นไม่ได้
+         ถ้าระบุ employeeId (หน้าจัดการพนักงานของ HR) ยังใช้ njhr_face_enroll เดิม */
+      var isSelf = !employeeId;
+      var body = isSelf
+        ? { p_token: token(), p_descriptors: got,
+            p_quality: { samples: got.length, captured_at: new Date().toISOString() },
+            p_snapshot: snapPath }
+        : { p_token: token(), p_employee: employeeId, p_descriptors: got,
+            p_quality: { samples: got.length, captured_at: new Date().toISOString() },
+            p_snapshot: snapPath };
+      rpc(isSelf ? 'njhr_face_self_enroll' : 'njhr_face_enroll', body).then(function (r) {
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
           '<div class="njf-msg"><b>ลงทะเบียนใบหน้าสำเร็จ</b><br>เก็บใบหน้าไว้ ' +
           ((r && r.sample_count) || got.length) + ' มุม</div>' +
@@ -839,6 +875,86 @@
   w.addEventListener('pagehide', closeCam);
   d.addEventListener('visibilitychange', function () { if (d.hidden) closeCam(); });
 
+  /* ---------- สแกนใบหน้าเข้าสู่ระบบ ----------
+     ⚠ ไม่ขอ GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น
+     ⚠ ไม่ถ่าย Snapshot และไม่สร้าง Attendance — เข้าสู่ระบบอย่างเดียว
+     การตัดสินว่าใบหน้านี้เป็นใครทำที่ฐานข้อมูลทั้งหมด (njhr_face_login)
+     เบราว์เซอร์ส่งไปแค่เวกเตอร์ของหน้าตัวเอง ไม่เคยได้รับทะเบียนใบหน้าของใคร */
+  function login(onOk, onCancel) {
+    if (S.busy) return;
+    S.busy = true;
+    shell('สแกนใบหน้าเข้าสู่ระบบ', 'มองกล้องให้อยู่ในกรอบ');
+    var st = { live: 'wait', match: 'wait' };
+    panel(stepsHtml(st, 'กำลังเตรียมกล้อง…'));
+    actions([{ label: 'ยกเลิก', style: 'ghost', on: function () {
+      close(); if (typeof onCancel === 'function') onCancel();
+    } }]);
+
+    var camL = openCam();
+    var modelL = loadModels();
+    camL.then(function () {
+      if (!S.ready) { panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…')); }
+    }, function () {});
+    modelL['catch'](function () {});
+
+    Promise.all([camL, modelL])
+      .then(function () {
+        S.running = true;
+        st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
+        actions([{ label: 'ยกเลิก', style: 'ghost', on: function () {
+          close(); if (typeof onCancel === 'function') onCancel();
+        } }]);
+        hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
+        return grabFrames(6, function (warn) { if (warn) setMsg(warn, true); });
+      })
+      .then(function (frames) {
+        var lv = passiveLiveness(frames);
+        if (lv.pass) return { frames: frames, live: lv };
+        if (!lv.challenge) throw new Error(lv.reason);
+        setMsg(lv.reason, false);
+        hint('กรุณากระพริบตา 1 ครั้ง', 'ระบบกำลังยืนยันว่าเป็นบุคคลจริง');
+        return blinkChallenge(function (t) { setMsg(t); }).then(function (ok) {
+          if (!ok) throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณาลองใหม่');
+          return grabFrames(3, null).then(function (f2) {
+            return { frames: f2, live: { pass: true, method: 'BLINK' } };
+          });
+        });
+      })
+      .then(function (ctx) {
+        st.live = 'ok'; st.match = 'run';
+        closeCam();                            // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
+        panel(stepsHtml(st, 'กำลังยืนยันตัวตน…'));
+        var best = ctx.frames[ctx.frames.length - 1];
+        if (typeof w.NJHR_faceLogin !== 'function') {
+          throw new Error('ระบบเข้าสู่ระบบด้วยใบหน้ายังไม่พร้อมใช้งาน');
+        }
+        return w.NJHR_faceLogin(best.desc, ctx.live.method);
+      })
+      .then(function (row) {
+        st.match = 'ok';
+        panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
+          '<div class="njf-msg"><b>เข้าสู่ระบบสำเร็จ</b><br>' +
+          esc(row.emp_name || row.username || '') + '</div>');
+        S.busy = false;
+        close();
+        if (typeof onOk === 'function') onOk(row);
+      })
+      ['catch'](function (e) {
+        closeCam();
+        st.match = 'bad';
+        panel(stepsHtml(st, (e && e.message) || 'เข้าสู่ระบบด้วยใบหน้าไม่สำเร็จ', true));
+        actions([
+          { label: 'เข้าสู่ระบบด้วยรหัสผ่าน', style: 'plain', on: function () {
+            close(); if (typeof onCancel === 'function') onCancel();
+          } },
+          { label: 'ลองใหม่', style: 'primary', on: function () {
+            close(); setTimeout(function () { login(onOk, onCancel); }, 60);
+          } }
+        ]);
+        S.busy = false;
+      });
+  }
+
   w.NJHRFace = {
     /* อุ่นเครื่องระบบตรวจใบหน้าไว้ล่วงหน้า (ไลบรารี + โมเดล) แบบไม่บล็อกหน้าจอ
        ใช้ S.loading/S.ready ตัวเดิมเป็น State กลาง จึงไม่โหลดซ้ำและกัน Concurrent Load ได้เอง
@@ -850,6 +966,7 @@
     isReady: function () { return !!S.ready; },
     punch: punch,
     enroll: enroll,
+    login: login,
     close: close,
     snapshotUrl: snapshotUrl,
     isOpen: function () { return !!S.root; }
