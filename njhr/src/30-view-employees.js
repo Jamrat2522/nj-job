@@ -219,6 +219,148 @@
     empLoad(el, seq);
   }
 
+
+  /* ---------- หลักฐานการลงเวลา + รูปเข้า/ออก (SUPER_ADMIN) ----------
+     แยกจากปุ่มกล้อง Face Template เดิมโดยเด็ดขาด:
+       - ปุ่ม "ใบหน้า" = ลงทะเบียน/จัดการ Face Template
+       - ปุ่ม "ประวัติลงเวลา" = ดูเวลา IN/OUT + รูป Snapshot + Geofence/GPS
+     รายการอ่านจาก RPC njhr_att_punch_evidence_list ซึ่งตรวจ SUPER_ADMIN ซ้ำฝั่ง DB
+     รูปอยู่ bucket private และขอ Signed URL ผ่าน njhr-face-file เฉพาะตอนกด "ดูรูป" */
+  function empEvidenceDate(v) {
+    var p = String(v || '').slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '—';
+  }
+
+  function empEvidenceTime(v) {
+    if (!v) return '—';
+    try {
+      return new Intl.DateTimeFormat('th-TH', {
+        timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(new Date(v));
+    } catch (e) {
+      var m = /T(\d{2}:\d{2})/.exec(String(v));
+      return m ? m[1] : '—';
+    }
+  }
+
+  function empEvidenceGroups(rows) {
+    var by = {}, keys = [];
+    (rows || []).forEach(function (r) {
+      var k = String(r.work_date || '').slice(0, 10);
+      if (!k) return;
+      if (!by[k]) { by[k] = { date: k, IN: null, OUT: null }; keys.push(k); }
+      var a = String(r.action || '').toUpperCase();
+      if ((a === 'IN' || a === 'OUT') && !by[k][a]) by[k][a] = r;
+    });
+    keys.sort().reverse();
+    return keys.map(function (k) { return by[k]; });
+  }
+
+  function empEvidencePhotoBtn(r, label) {
+    if (!r || !r.snapshot_path) return '<span class="muted">ไม่มีรูป</span>';
+    return '<button type="button" class="btn btn-ghost btn-sm" data-eatt-photo="' +
+      esc(r.snapshot_path) + '" data-eatt-label="' + esc(label) + '">' +
+      icon('camera') + ' ดูรูป</button>';
+  }
+
+  function empEvidencePlace(r) {
+    if (!r) return '—';
+    var gps = (r.lat != null && r.lng != null)
+      ? Number(r.lat).toFixed(6) + ', ' + Number(r.lng).toFixed(6)
+      : 'ไม่มีพิกัด';
+    var dist = r.distance_m != null ? ' · ห่าง ' + Math.round(Number(r.distance_m)) + ' ม.' : '';
+    return '<div><b>' + esc(r.geofence_name || '—') + '</b>' +
+      '<small style="display:block">' + esc(gps + dist) + '</small></div>';
+  }
+
+  function empEvidenceRender(rows) {
+    var box = document.getElementById('eatt-results');
+    if (!box) return;
+    var list = empEvidenceGroups(rows);
+    if (!list.length) { box.innerHTML = emptyState('ไม่พบประวัติลงเวลาในช่วงที่เลือก'); return; }
+    box.innerHTML = '<div class="table-wrap"><table><thead><tr>' +
+      ['วันที่', 'เวลาเข้า', 'รูปเข้า', 'เวลาออก', 'รูปออก', 'สถานที่ / GPS']
+        .map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + list.map(function (g) {
+        var i = g.IN, o = g.OUT;
+        var loc = '';
+        if (i) loc += '<div><small>เข้า</small> ' + empEvidencePlace(i) + '</div>';
+        if (o) loc += '<div style="margin-top:6px"><small>ออก</small> ' + empEvidencePlace(o) + '</div>';
+        return '<tr><td>' + empEvidenceDate(g.date) + '</td>' +
+          '<td>' + empEvidenceTime(i && i.punched_at) + '</td>' +
+          '<td>' + empEvidencePhotoBtn(i, 'รูปเข้างาน ' + empEvidenceDate(g.date)) + '</td>' +
+          '<td>' + empEvidenceTime(o && o.punched_at) + '</td>' +
+          '<td>' + empEvidencePhotoBtn(o, 'รูปออกงาน ' + empEvidenceDate(g.date)) + '</td>' +
+          '<td>' + (loc || '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function empEvidenceLoad(empId) {
+    var fromEl = document.getElementById('eatt-from'), toEl = document.getElementById('eatt-to');
+    var err = document.getElementById('eatt-err'), box = document.getElementById('eatt-results');
+    var from = fromEl && fromEl.value ? fromEl.value : null;
+    var to = toEl && toEl.value ? toEl.value : null;
+    if (err) err.textContent = '';
+    if (from && to && from > to) { if (err) err.textContent = 'วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด'; return; }
+    if (box) box.innerHTML = '<div class="muted" style="padding:18px">กำลังโหลดประวัติลงเวลา…</div>';
+    sbRpcList('njhr_att_punch_evidence_list', {
+      p_token: sbToken(), p_employee: empId, p_from: from, p_to: to, p_limit: 200
+    }).then(empEvidenceRender).catch(function (ex) {
+      if (box) box.innerHTML = emptyState('โหลดประวัติลงเวลาไม่สำเร็จ');
+      if (err) err.textContent = ex.message || 'โหลดประวัติลงเวลาไม่สำเร็จ';
+    });
+  }
+
+  function empEvidenceViewPhoto(path, label, btn) {
+    if (!path || !btn || btn.getAttribute('data-busy') === '1') return;
+    var html = btn.innerHTML;
+    btn.setAttribute('data-busy', '1'); btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> กำลังเปิด…';
+    function restore() { btn.removeAttribute('data-busy'); btn.disabled = false; btn.innerHTML = html; }
+    function signed() {
+      if (!window.NJHRFace || typeof window.NJHRFace.snapshotUrl !== 'function')
+        throw new Error('โมดูลรูปหลักฐานยังไม่พร้อม');
+      return window.NJHRFace.snapshotUrl(path);
+    }
+    var ready = window.NJHRFace
+      ? Promise.resolve()
+      : loadScriptOnce('face', njAsset('face.js'), 'NJHRFace');
+    ready.then(signed).then(function (url) {
+      if (!url) throw new Error('ไม่พบ URL สำหรับรูปหลักฐาน');
+      filePreviewOpen(url, (label || 'รูปลงเวลา') + '.jpg');
+      restore();
+    }).catch(function (ex) {
+      restore();
+      toast(ex.message || 'เปิดรูปไม่สำเร็จ', 'error');
+    });
+  }
+
+  function empAttendanceEvidenceOpen(empId) {
+    if (currentUser().role !== 'SUPER_ADMIN') {
+      toast('คุณไม่มีสิทธิ์ดูหลักฐานการลงเวลาของพนักงาน', 'error'); return;
+    }
+    var e = empRows.filter(function (x) { return String(x.id) === String(empId); })[0] || {};
+    openModal('ประวัติลงเวลาและรูปเข้า–ออก',
+      '<div class="doc-empinfo"><b>' + esc(e.emp_code || '') + ' · ' + esc(e.full_name || '') + '</b>' +
+      '<small>' + esc(e.department_name || '—') + '</small></div>' +
+      '<div class="toolbar" style="margin:12px 0;gap:8px;flex-wrap:wrap">' +
+      '<label class="field" style="margin:0"><span>จากวันที่</span><input id="eatt-from" type="date"></label>' +
+      '<label class="field" style="margin:0"><span>ถึงวันที่</span><input id="eatt-to" type="date"></label>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="eatt-search">ค้นหา</button>' +
+      '</div><div class="form-error" id="eatt-err" role="alert"></div>' +
+      '<div id="eatt-results"><div class="muted" style="padding:18px">กำลังโหลดประวัติลงเวลา…</div></div>' +
+      '<p class="muted note">รูปหลักฐานอยู่ใน Storage แบบ Private และจะออก Signed URL ชั่วคราวเฉพาะตอนกดดูรูป</p>',
+      '<button type="button" class="btn btn-ghost" id="eatt-close">ปิด</button>', { wide: true });
+    document.getElementById('eatt-close').onclick = closeModal;
+    document.getElementById('eatt-search').onclick = function () { empEvidenceLoad(empId); };
+    var r = document.getElementById('eatt-results');
+    if (r) r.onclick = function (ev) {
+      var b = ev.target.closest ? ev.target.closest('[data-eatt-photo]') : null;
+      if (b) empEvidenceViewPhoto(b.getAttribute('data-eatt-photo'), b.getAttribute('data-eatt-label'), b);
+    };
+    empEvidenceLoad(empId);
+  }
+
   function empLoad(el, seq) {
     var s = empState;
     sbRpcList('njhr_emp_list', {
@@ -251,7 +393,8 @@
               '<td>' + empStatusBadge(e.status) + '</td>' +
               '<td class="ta-r"><button class="btn-icon" data-emp-view="' + e.id + '" aria-label="ดูข้อมูล">' + icon('eye') + '</button>' +
               (docs ? '<button class="btn-icon" data-emp-docs="' + e.id + '" aria-label="เอกสาร" title="เอกสาร">' + icon('folder') + '</button>' +
-                      '<button class="btn-icon" data-emp-face="' + e.id + '" aria-label="ลงทะเบียนใบหน้า" title="ลงทะเบียนใบหน้า">' + icon('camera') + '</button>' : '') +
+                      '<button class="btn-icon" data-emp-face="' + e.id + '" aria-label="ลงทะเบียนใบหน้า" title="ลงทะเบียนใบหน้า">' + icon('camera') + '</button>' +
+                      '<button class="btn-icon" data-emp-att="' + e.id + '" aria-label="ประวัติลงเวลาและรูปเข้าออก" title="ประวัติลงเวลาและรูปเข้า–ออก">' + icon('history') + '</button>' : '') +
               (edit ? '<button class="btn-icon" data-emp-edit="' + e.id + '" aria-label="แก้ไข">' + icon('edit') + '</button>' +
                 '<button class="btn-icon ic-red" data-emp-status="' + e.id + '" aria-label="เปลี่ยนสถานะ">' + icon('ban') + '</button>' +
                 (e.status === 'RESIGNED' ? '' :
@@ -264,7 +407,8 @@
               esc(e.department_name || '—') + '</small></div>' + empStatusBadge(e.status) + '</div>' +
               '<div class="m-card-actions"><button class="btn btn-ghost btn-sm" data-emp-view="' + e.id + '">ดูข้อมูล</button>' +
               (docs ? '<button class="btn btn-ghost btn-sm" data-emp-docs="' + e.id + '">เอกสาร</button>' +
-                      '<button class="btn btn-ghost btn-sm" data-emp-face="' + e.id + '">ใบหน้า</button>' : '') +
+                      '<button class="btn btn-ghost btn-sm" data-emp-face="' + e.id + '">ใบหน้า</button>' +
+                      '<button class="btn btn-ghost btn-sm" data-emp-att="' + e.id + '">ประวัติลงเวลา</button>' : '') +
               (edit ? '<button class="btn btn-ghost btn-sm" data-emp-edit="' + e.id + '">แก้ไข</button>' +
                 '<button class="btn btn-ghost btn-sm t-red" data-emp-status="' + e.id + '">เปลี่ยนสถานะ</button>' +
                 (e.status === 'RESIGNED' ? '' :
@@ -283,11 +427,12 @@
       }
 
       box.onclick = function (ev) {
-        var b = ev.target.closest ? ev.target.closest('[data-emp-view],[data-emp-edit],[data-emp-status],[data-emp-docs],[data-emp-face],[data-emp-del]') : null;
+        var b = ev.target.closest ? ev.target.closest('[data-emp-view],[data-emp-edit],[data-emp-status],[data-emp-docs],[data-emp-face],[data-emp-att],[data-emp-del]') : null;
         if (!b) return;
         // Runtime Split — ปุ่มแต่ละตัวโหลด Action Module ของตัวเองก่อน แล้วเรียกฟังก์ชันเดิมด้วยพารามิเตอร์ชุดเดิม
         if (b.dataset.empView) empOpenAction('employees-form', b, function () { NJHR.features.employeesForm.detail(b.dataset.empView); });
         else if (b.dataset.empFace) empOpenAction('employees-form', b, function () { NJHR.features.employeesForm.face(b.dataset.empFace); });
+        else if (b.dataset.empAtt) empAttendanceEvidenceOpen(b.dataset.empAtt);
         else if (b.dataset.empDocs) empOpenAction('employees-documents', b, function () { NJHR.features.employeesDocs.open(b.dataset.empDocs); });
         else if (b.dataset.empEdit) empOpenAction('employees-form', b, function () { NJHR.features.employeesForm.open(b.dataset.empEdit, el); });
         else if (b.dataset.empDel) empOpenAction('employees-form', b, function () { NJHR.features.employeesForm.remove(b.dataset.empDel, el); });

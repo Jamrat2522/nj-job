@@ -354,7 +354,12 @@
           }
 
           closeModal();
-          toast('ส่งคำขอ OT แล้ว · ' + jobsPayload.length + ' รายการ รวม ' + hrs + ' ชม.' +
+          /* กลุ่มยกเว้นผู้บริหาร njhr_ot_submit คืน status = APPROVED มาเลย
+             จึงต้องขึ้นข้อความอนุมัติอัตโนมัติ ห้ามขึ้น "รออนุมัติ" */
+          toast((String(res && res.status) === 'APPROVED'
+              ? 'บันทึก OT เรียบร้อย · อนุมัติอัตโนมัติแล้ว · '
+              : 'ส่งคำขอ OT แล้ว · ') +
+            jobsPayload.length + ' รายการ รวม ' + hrs + ' ชม.' +
             (attachJobs.length ? ' · แนบไฟล์ ' + attachJobs.length + ' ไฟล์' : ''));
           refreshOtPending();            // ยื่นคำขอใหม่ → นับ Badge ใหม่
           viewOT(listEl);

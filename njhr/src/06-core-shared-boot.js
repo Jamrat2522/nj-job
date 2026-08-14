@@ -15,6 +15,40 @@
   var _ntUnread = 0;
   var _docPending = 0;          // Badge "เอกสารของฉัน" — มาจาก njhr_doc_my_pending เท่านั้น
 
+  /* ---------- กลุ่มยกเว้นผู้บริหาร (MANAGING DIRECTOR / SUPER_ADMIN) ----------
+     Browser ถามเฉพาะ RPC njhr_hr_exempt_me() ด้วย Session Token ของผู้ใช้ปัจจุบัน
+     ห้ามส่ง employee_id จากหน้าจอเพื่อใช้ตัดสินสิทธิ์ — Backend เป็นผู้หา employee_id,
+     department_name / position_name / role จาก Session + Database เองทั้งหมด
+
+     ค่านี้เป็นเพียงตัวช่วยฝั่งหน้าจอ (ไม่เปิดกล้อง / เลือกข้อความ)
+     สิทธิ์จริงถูกบังคับซ้ำใน njhr_att_punch_exempt() เสมอ ปลอมค่านี้ไม่มีผล */
+  var _exCache = { key: '', val: null, loading: null };
+
+  function njExemptKey() { return String(sbToken() || ''); }
+
+  function njExemptReset() { _exCache = { key: '', val: null, loading: null }; }
+
+  /* คืน Promise<boolean> — ถามเซิร์ฟเวอร์ครั้งเดียวต่อ Session แล้วจำไว้ */
+  function njExemptCheck() {
+    var k = njExemptKey();
+    if (!k) return Promise.resolve(false);
+    if (_exCache.key === k && _exCache.val !== null) return Promise.resolve(_exCache.val);
+    if (_exCache.key === k && _exCache.loading) return _exCache.loading;
+    _exCache = { key: k, val: null, loading: null };
+    _exCache.loading = sbRpc('njhr_hr_exempt_me', { p_token: k })
+      .then(function (v) {
+        /* sbCall คืน null เมื่อคำขอถูกยกเลิก — ห้ามตีความว่า "ไม่ใช่ผู้บริหาร" แล้วจำไว้ */
+        if (v !== true && v !== false) throw new Error('ตรวจสิทธิ์ยกเว้นไม่สำเร็จ');
+        if (_exCache.key === k) { _exCache.val = v; _exCache.loading = null; }
+        return v;
+      }, function (e) {
+        if (_exCache.key === k) _exCache.loading = null;   // ไม่จำค่าเมื่อผิดพลาด กดใหม่แล้วถามซ้ำได้
+        throw e;
+      });
+    return _exCache.loading;
+  }
+
+
   function emptyState(msg) { return '<div class="empty">' + icon('info') + '<p>' + esc(msg) + '</p></div>'; }
   function statusBadge(st) {
     var map = {

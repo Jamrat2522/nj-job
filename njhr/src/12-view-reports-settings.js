@@ -253,7 +253,10 @@
   var shState = { seq: 0, shifts: [], unassigned: [], unQ: '', pick: {}, totalAll: 0, empPreview: {},
                   totalActive: 0, totalProbation: 0, err: '',
                   /* K2 — สถานะ "ไม่ใช้กะ" (NO_SHIFT) อ่านจาก njhr_shift_no_shift_employees */
-                  noShift: [], nsQ: '', nsPick: {}, nsOpen: false };
+                  noShift: [], nsQ: '', nsPick: {}, nsOpen: false,
+                  /* รายชื่อ "พนักงานที่มีกะใช้งานอยู่" — รวมจาก njhr_shift_employee_list ของทุกกะ
+                     ค้นหาฝั่ง Client เพราะ RPC ตัวนี้ไม่มีพารามิเตอร์ค้นหา (ห้ามแก้ RPC) */
+                  assigned: [], asQ: '', asOpen: true, asLoading: false };
 
   /* วันที่ปัจจุบันตามเวลาไทย — ห้ามใช้ todayISO() ของเบราว์เซอร์ เพราะเครื่องที่ตั้ง Time Zone อื่น
      จะได้วันที่คลาดไป 1 วัน แล้ว effective_date จะผิด */
@@ -303,12 +306,256 @@
       shState.noShift = r[5] || [];
       shState.empPreview = {};
       shRender(el);
+      shLoadAssigned(el, seq);
     }).catch(function (ex) {
       if (seq !== shState.seq) return;
       shState.err = (ex && ex.message) || 'โหลดข้อมูลกะจาก Supabase ไม่สำเร็จ';
       shState.shifts = []; shState.unassigned = []; shState.noShift = [];
       shRender(el);
     });
+  }
+
+  /* ---------- รายชื่อ "พนักงานที่มีกะใช้งานอยู่" ----------
+     ระบบไม่มี RPC ที่คืนพนักงานทุกกะในครั้งเดียว จึงเรียก njhr_shift_employee_list ของแต่ละกะ
+     แบบขนานแล้วรวมฝั่ง Client — ไม่แตะ SQL / RPC / ตารางใด ๆ
+     โหลดแยกรอบเพื่อให้ส่วนบนของหน้าขึ้นก่อน ไม่ต้องรอครบทุกกะ */
+  function shLoadAssigned(el, seq) {
+    var shifts = shState.shifts.slice();
+    if (!shifts.length) { shState.assigned = []; shState.asLoading = false; shRenderAssigned(el); return; }
+    shState.asLoading = true;
+    shRenderAssigned(el);
+    Promise.all(shifts.map(function (s) {
+      return sbRpcList('njhr_shift_employee_list', { p_token: sbToken(), p_shift: s.id })
+        .then(function (rows) { return { s: s, rows: rows || [] }; })
+        .catch(function () { return { s: s, rows: [], failed: true }; });
+    })).then(function (packs) {
+      if (seq !== shState.seq) return;
+      var seen = {}, out = [], failed = 0;
+      packs.forEach(function (p) {
+        if (p.failed) { failed++; return; }
+        p.rows.forEach(function (e) {
+          if (seen[e.employee_id]) return;      // กันซ้ำ (พนักงาน 1 คนควรอยู่กะเดียว)
+          seen[e.employee_id] = 1;
+          out.push({
+            employee_id: e.employee_id, emp_code: e.emp_code || '', full_name: e.full_name || '',
+            nickname: e.nickname || '', department_name: e.department_name || '',
+            position_name: e.position_name || '', emp_status: e.emp_status || '',
+            effective_date: e.effective_date || null,
+            shift_id: p.s.id, shift_name: p.s.shift_name,
+            shift_time: shRowTime(p.s), shift_active: !!p.s.is_active
+          });
+        });
+      });
+      out.sort(function (a, b) { return String(a.emp_code).localeCompare(String(b.emp_code), 'th'); });
+      shState.assigned = out;
+      shState.asLoading = false;
+      shRenderAssigned(el);
+      if (failed) shErr('โหลดรายชื่อพนักงานบางกะไม่สำเร็จ ' + failed + ' กะ — กด "ลองใหม่" หรือรีเฟรชหน้า');
+    });
+  }
+
+  /* สีป้ายกะ — จับคำที่ใช้จริงก่อน ถ้าไม่ตรงใช้ Hash ให้สีคงที่ต่อชื่อกะเดิมเสมอ */
+  function shTone(name) {
+    var n = String(name || '');
+    if (/ดึก|night/i.test(n)) return 'sh-t-blue';
+    if (/บ่าย|afternoon|swing/i.test(n)) return 'sh-t-orange';
+    if (/เช้า|morning|day|ปกติ/i.test(n)) return 'sh-t-green';
+    var h = 0, i;
+    for (i = 0; i < n.length; i++) h = (h * 33 + n.charCodeAt(i)) >>> 0;
+    return ['sh-t-green', 'sh-t-orange', 'sh-t-blue', 'sh-t-purple', 'sh-t-teal'][h % 5];
+  }
+  function shShiftBadge(name, time, active) {
+    return '<span class="sh-badge ' + shTone(name) + (active ? '' : ' sh-t-off') + '">' +
+      esc(name) + ' (' + esc(time) + ')' + (active ? '' : ' · ปิดใช้งาน') + '</span>';
+  }
+  function shFindAssigned(id) {
+    for (var i = 0; i < shState.assigned.length; i++) {
+      if (String(shState.assigned[i].employee_id) === String(id)) return shState.assigned[i];
+    }
+    return null;
+  }
+  function shAssignedVisible() {
+    var q = shNorm(shState.asQ);
+    if (!q) return shState.assigned;
+    return shState.assigned.filter(function (e) {
+      return shNorm([e.emp_code, e.full_name, e.nickname, e.department_name,
+                     e.position_name, e.shift_name].join(' ')).indexOf(q) >= 0;
+    });
+  }
+
+  /* วาดใหม่เฉพาะส่วนที่ 2 — ไม่กระทบส่วนอื่นและไม่ต้องโหลดข้อมูลใหม่ */
+  function shRenderAssigned(el) {
+    var box = document.getElementById('sh-assigned');
+    if (!box) return;
+    box.innerHTML = shAssignedHtml(shCanManage());
+    shBindAssigned(el);
+  }
+
+  function shBindAssigned(el) {
+    var tg = document.getElementById('sha-toggle');
+    if (tg) tg.onclick = function () { shState.asOpen = !shState.asOpen; shRenderAssigned(el); };
+    var qi = document.getElementById('sha-q');
+    if (qi) qi.oninput = function () {
+      shState.asQ = this.value;
+      shRenderAssigned(el);
+      var i = document.getElementById('sha-q');
+      if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    };
+  }
+
+  /* ย้ายกะรายคน — ใช้ shAssignMany เส้นทางเดิม (njhr_shift_assign_many) ไม่มีตรรกะใหม่ */
+  function shMoveOne(empId, el) {
+    if (!shCanManage()) { toast('คุณไม่มีสิทธิ์จัดการกะทำงาน', 'error'); return; }
+    var e = shFindAssigned(empId);
+    if (!e) { shErr('ไม่พบข้อมูลพนักงาน — กำลังโหลดใหม่'); shLoad(el); return; }
+    var opts = shState.shifts.filter(function (s) { return s.is_active && s.id !== e.shift_id; });
+    openModal('ย้ายกะพนักงาน',
+      '<div class="fm-emp">' + avatarHTML(e.full_name, 44) +
+      '<span class="grow"><b>' + esc(e.full_name) + '</b>' +
+      '<small>' + esc(e.emp_code) + ' · ' + esc(e.position_name || '—') +
+      ' · ' + esc(e.department_name || '—') + '</small></span></div>' +
+      '<div class="sh-mv-now"><small>กะปัจจุบัน</small>' +
+      shShiftBadge(e.shift_name, e.shift_time, e.shift_active) +
+      (e.effective_date ? '<small>เริ่มใช้กะ ' + empBE(e.effective_date) + '</small>' : '') + '</div>' +
+      (opts.length
+        ? '<label class="field"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shmv-to">' +
+          '<option value="">— เลือกกะ —</option>' +
+          opts.map(function (s) {
+            return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
+          }).join('') + '</select></label>' +
+          '<label class="field"><span>วันที่มีผล <i class="req">*</i></span>' +
+          '<input type="date" id="shmv-date" value="' + shTodayBKK() + '"></label>' +
+          '<p class="muted note">ประวัติกะเดิมก่อนวันที่มีผลยังคงอยู่ครบ ไม่ถูกลบ</p>'
+        : '<p class="muted note">ยังไม่มีกะอื่นที่เปิดใช้งานให้ย้ายไป</p>') +
+      '<div class="form-error" id="shmv-err" role="alert"></div>',
+      '<button class="btn btn-ghost" id="shmv-cancel">ยกเลิก</button>' +
+      (opts.length ? '<button class="btn btn-primary" id="shmv-go">' + icon('send') + ' ย้ายกะ</button>' : ''));
+    document.getElementById('shmv-cancel').onclick = closeModal;
+    var go = document.getElementById('shmv-go');
+    if (!go) return;
+    go.onclick = function () {
+      var btn = this, eb = document.getElementById('shmv-err');
+      var to = document.getElementById('shmv-to').value;
+      var dt = document.getElementById('shmv-date').value;
+      eb.textContent = '';
+      if (!to) { eb.textContent = 'กรุณาเลือกกะปลายทาง'; return; }
+      if (!dt) { eb.textContent = 'กรุณาเลือกวันที่มีผล'; return; }
+      var w = shFind(to);
+      shAssignMany([empId], to, dt, btn, el).then(function (res) {
+        var same = (res || []).filter(function (x) { return x.result === 'UNCHANGED'; }).length;
+        if (same) { eb.textContent = 'พนักงานอยู่ในกะนี้อยู่แล้ว — ไม่ได้สร้างรายการซ้ำ'; return; }
+        if (res) closeModal();
+      });
+      if (w) { /* ชื่อกะปลายทางใช้ยืนยันในข้อความ toast ของ shAssignMany เดิม */ }
+    };
+  }
+
+  /* ประวัติกะย้อนหลังรายคน — อ่านจาก njhr_shift_history (RPC ใหม่ อ่านอย่างเดียว)
+     สิทธิ์ตัดสินฝั่งฐานข้อมูล ที่นี่แค่แสดงผลและแปลง Error เป็นข้อความไทย */
+  var SH_HIST_ST = { ACTIVE: ['ใช้งานกะนี้', 'sh-t-green'], REMOVED: ['นำออกจากกะ', 'sh-t-warn'],
+                     NO_SHIFT: ['ไม่ใช้กะ', 'sh-t-off2'] };
+  function shHistStatus(st) {
+    var m = SH_HIST_ST[String(st || '').toUpperCase()] || [String(st || '—'), 'sh-t-off2'];
+    return '<span class="sh-badge ' + m[1] + '">' + esc(m[0]) + '</span>';
+  }
+  function shHistWhen(v) {
+    if (!v) return '—';
+    try {
+      return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'short',
+        timeStyle: 'short', hour12: false }).format(new Date(v));
+    } catch (e) { return String(v).replace('T', ' ').slice(0, 16); }
+  }
+  function shHistoryOne(empId) {
+    var e = shFindAssigned(empId) || {};
+    openModal('ประวัติกะ',
+      '<div class="fm-emp">' + avatarHTML(e.full_name || '', 44) +
+      '<span class="grow"><b>' + esc(e.full_name || '—') + '</b>' +
+      '<small>' + esc(e.emp_code || '—') + ' · ' + esc(e.position_name || '—') +
+      ' · ' + esc(e.department_name || '—') + '</small></span></div>' +
+      '<div class="toolbar sh-hist-bar">' +
+      '<label class="field sh-f"><span>จากวันที่</span><input type="date" id="shh-from"></label>' +
+      '<label class="field sh-f"><span>ถึงวันที่</span><input type="date" id="shh-to"></label>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="shh-go">ค้นหา</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="shh-clear">ล้าง</button></div>' +
+      '<div class="form-error" id="shh-err" role="alert"></div>' +
+      '<div id="shh-body"><div class="sh-load"><span class="spinner"></span> กำลังโหลดประวัติกะ…</div></div>' +
+      '<p class="muted note">แสดงทุกรายการที่บันทึกไว้ตามลำดับเวลา — เป็นการอ่านอย่างเดียว ไม่แก้ไขข้อมูลกะ</p>',
+      '<button class="btn btn-ghost" id="shh-close">ปิด</button>', { wide: true });
+    document.getElementById('shh-close').onclick = closeModal;
+    document.getElementById('shh-go').onclick = function () { shHistLoad(empId); };
+    document.getElementById('shh-clear').onclick = function () {
+      document.getElementById('shh-from').value = '';
+      document.getElementById('shh-to').value = '';
+      shHistLoad(empId);
+    };
+    shHistLoad(empId);
+  }
+  function shHistLoad(empId) {
+    var box = document.getElementById('shh-body'), eb = document.getElementById('shh-err');
+    if (!box) return;
+    var fromEl = document.getElementById('shh-from'), toEl = document.getElementById('shh-to');
+    var from = fromEl && fromEl.value ? fromEl.value : null;
+    var to = toEl && toEl.value ? toEl.value : null;
+    if (eb) eb.textContent = '';
+    if (from && to && from > to) { if (eb) eb.textContent = 'วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด'; return; }
+    box.innerHTML = '<div class="sh-load"><span class="spinner"></span> กำลังโหลดประวัติกะ…</div>';
+    sbRpcList('njhr_shift_history', { p_token: sbToken(), p_employee: empId,
+      p_from: from, p_to: to, p_limit: 200 }).then(function (rows) {
+      var box2 = document.getElementById('shh-body');
+      if (!box2) return;
+      if (!rows || !rows.length) { box2.innerHTML = emptyState('ไม่พบประวัติกะในช่วงที่เลือก'); return; }
+      box2.innerHTML = '<div class="table-wrap sh-tbl"><table><thead><tr>' +
+        '<th>วันที่มีผล</th><th>กะ</th><th>เวลา</th><th>สถานะ</th><th>บันทึกโดย</th><th>บันทึกเมื่อ</th>' +
+        '</tr></thead><tbody>' +
+        rows.map(function (r) {
+          var t = (r.start_time || r.end_time)
+            ? shHHMM(r.start_time) + '–' + shHHMM(r.end_time) + (r.is_overnight ? ' (วันถัดไป)' : '')
+            : '—';
+          return '<tr' + (r.is_current ? ' class="sh-hist-now"' : '') + '>' +
+            '<td>' + (r.effective_date ? empBE(r.effective_date) : '—') +
+            (r.is_current ? ' <span class="sh-badge sh-t-blue">ใช้อยู่</span>' : '') + '</td>' +
+            '<td>' + (r.shift_name ? esc(r.shift_name) +
+              (r.shift_active === false ? ' <small class="muted">(กะปิดใช้งาน)</small>' : '') : '—') + '</td>' +
+            '<td>' + esc(t) + '</td>' +
+            '<td>' + shHistStatus(r.status) + '</td>' +
+            '<td>' + esc(r.assigned_by || '—') + '</td>' +
+            '<td>' + esc(shHistWhen(r.assigned_at)) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }).catch(function (ex) {
+      var box2 = document.getElementById('shh-body'), e2 = document.getElementById('shh-err');
+      var msg = (ex && ex.message) || 'โหลดประวัติกะไม่สำเร็จ';
+      if (/PGRST202|could not find the function|does not exist|schema cache/i.test(msg)) {
+        msg = 'ยังไม่ได้ติดตั้ง njhr_shift_history บนฐานข้อมูล — ให้รัน sql/100_shift_history.sql ก่อน';
+      }
+      if (box2) box2.innerHTML = emptyState('ไม่สามารถแสดงประวัติกะได้');
+      if (e2) e2.textContent = msg;
+    });
+  }
+
+  /* ดูรายละเอียด — แสดงเฉพาะข้อมูลที่โหลดมาแล้ว ไม่เรียก RPC เพิ่ม */
+  function shInfoOne(empId) {
+    var e = shFindAssigned(empId);
+    if (!e) return;
+    function row(k, v) {
+      return '<div class="ep-info"><span>' + esc(k) + '</span><span>:</span><b>' +
+        (v == null || v === '' ? '—' : v) + '</b></div>';
+    }
+    openModal('รายละเอียดพนักงาน',
+      '<div class="fm-emp">' + avatarHTML(e.full_name, 44) +
+      '<span class="grow"><b>' + esc(e.full_name) + '</b><small>' + esc(e.emp_code) +
+      (e.nickname ? ' · ' + esc(e.nickname) : '') + '</small></span></div>' +
+      '<div class="detail-grid">' +
+      row('รหัสพนักงาน', esc(e.emp_code)) +
+      row('ชื่อ-นามสกุล', esc(e.full_name)) +
+      row('ชื่อเล่น', esc(e.nickname)) +
+      row('ตำแหน่ง', esc(e.position_name)) +
+      row('แผนก', esc(e.department_name)) +
+      row('สถานะพนักงาน', esc(EMP_STATUS_MAP[e.emp_status] || e.emp_status || '')) +
+      row('กะปัจจุบัน', shShiftBadge(e.shift_name, e.shift_time, e.shift_active)) +
+      row('เริ่มใช้กะนี้', e.effective_date ? empBE(e.effective_date) : '') +
+      '</div>',
+      '<button class="btn btn-ghost" id="shi-close">ปิด</button>');
+    document.getElementById('shi-close').onclick = closeModal;
   }
 
   function viewShifts(el) {
@@ -419,11 +666,14 @@
 
     box.onclick = function (ev) {
       var b = ev.target.closest
-        ? ev.target.closest('[data-edit],[data-emp],[data-toggle],[data-del],[data-more],[data-copy]') : null;
+        ? ev.target.closest('[data-edit],[data-emp],[data-toggle],[data-del],[data-more],[data-copy],[data-shmove],[data-shinfo],[data-shhist]') : null;
       if (!b) return;
       var d = b.dataset;
       if (d.more) return shCardMenu(b, d.more, el);
       document.querySelectorAll('.sh-pop').forEach(function (n) { n.remove(); });
+      if (d.shmove) return shMoveOne(d.shmove, el);
+      if (d.shhist) return shHistoryOne(d.shhist);
+      if (d.shinfo) return shInfoOne(d.shinfo);
       if (d.edit) return shiftForm(d.edit, el);
       if (d.emp) return shEmpListModal(d.emp, el);
       if (d.toggle) return shToggle(d.toggle, el);
@@ -431,6 +681,7 @@
       if (d.del) return shDeleteInfo(d.del, el);
     };
     shBindUnassigned(el);
+    shBindAssigned(el);
   }
 
   /* การ์ดกะ 1 ใบ = 1 แถวเต็มความกว้าง — ไม่แสดงรายชื่อพนักงาน
@@ -536,41 +787,96 @@
   /* ---------- ยังไม่ได้กำหนดกะ ---------- */
   function shUnassignedHtml(manage) {
     var rows = shState.unassigned;
-    return '<div class="card"><div class="card-head"><h3>ยังไม่ได้กำหนดกะ</h3>' +
+    return '<div class="card sh-sec"><div class="card-head">' +
+      '<h3>พนักงานที่ยังไม่ได้กำหนดกะ</h3>' +
       '<span class="badge badge-warn">' + rows.length + ' คน</span></div>' +
-      '<p class="muted" style="margin-top:0">พนักงานสถานะปฏิบัติงานและทดลองงานที่ยังไม่มีประวัติใน employee_shifts</p>' +
-      '<div class="toolbar">' +
+      '<div class="toolbar sh-secbar">' +
       '<div class="search-box">' + icon('search', 'ic-sm') +
       '<input id="shu-q" placeholder="ค้นหารหัส / ชื่อ / ชื่อเล่น / แผนก" value="' + esc(shState.unQ) + '"></div>' +
       (manage && rows.length
-        ? '<button class="btn btn-ghost btn-sm" id="shu-all">เลือกทั้งหมดที่แสดง</button>' +
+        ? '<button class="btn btn-ghost btn-sm" id="shu-all">เลือกทั้งหมด</button>' +
           '<button class="btn btn-ghost btn-sm" id="shu-none">ล้างการเลือก</button>' : '') +
       '</div>' +
       (rows.length
-        ? '<div class="list" id="shu-list">' + rows.map(function (e) {
-            return '<label class="list-row sh-emp-row"><input type="checkbox" class="shu-pick" value="' + esc(e.employee_id) + '"' +
-              (shState.pick[e.employee_id] ? ' checked' : '') + (manage ? '' : ' disabled') + '>' +
-              '<div class="grow"><b>' + esc(e.full_name) + '</b>' +
-              '<small>' + esc(e.emp_code) + (e.nickname ? ' · ' + esc(e.nickname) : '') +
-              ' · ' + esc(e.department_name || '—') + ' · ' + esc(e.position_name || '—') +
-              ' · ' + esc(EMP_STATUS_MAP[e.emp_status] || e.emp_status) + '</small></div></label>';
-          }).join('') + '</div>' +
+        ? '<div class="table-wrap sh-tbl"><table id="shu-list"><thead><tr>' +
+          (manage ? '<th class="sh-c-pick"></th>' : '') +
+          '<th>พนักงาน</th><th>ตำแหน่ง</th><th>แผนก</th><th>สถานะ</th>' +
+          '</tr></thead><tbody>' +
+          rows.map(function (e) {
+            return '<tr>' +
+              (manage ? '<td class="sh-c-pick"><input type="checkbox" class="shu-pick" value="' +
+                esc(e.employee_id) + '"' + (shState.pick[e.employee_id] ? ' checked' : '') +
+                ' aria-label="เลือก ' + esc(e.full_name) + '"></td>' : '') +
+              '<td><div class="cell-user">' + avatarHTML(e.full_name, 32) +
+              '<div><b>' + esc(e.full_name) + '</b><small>' + esc(e.emp_code) +
+              (e.nickname ? ' · ' + esc(e.nickname) : '') + '</small></div></div></td>' +
+              '<td>' + esc(e.position_name || '—') + '</td>' +
+              '<td>' + esc(e.department_name || '—') + '</td>' +
+              '<td><span class="sh-badge sh-t-warn">ไม่ได้กำหนดกะ</span></td></tr>';
+          }).join('') + '</tbody></table></div>' +
           (manage
-            ? '<div class="toolbar" style="margin-top:10px">' +
-              '<label class="field"><span>ย้ายเข้ากะ</span><select id="shu-to">' +
+            ? '<div class="sh-actbar">' +
+              '<label class="field sh-f"><span>ย้ายเข้ากะ <i class="req">*</i></span><select id="shu-to">' +
               '<option value="">— เลือกกะ —</option>' +
               shState.shifts.filter(function (s) { return s.is_active; }).map(function (s) {
-                return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' · ' + shRowTime(s) + '</option>';
+                return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
               }).join('') + '</select></label>' +
-              '<label class="field"><span>วันที่มีผล</span>' +
+              '<label class="field sh-f"><span>วันที่มีผล <i class="req">*</i></span>' +
               '<input type="date" id="shu-date" value="' + shTodayBKK() + '"></label>' +
               '<span class="grow"></span>' +
               '<button class="btn btn-ghost" id="shu-ns">' + icon('ban') +
               ' ตั้งเป็นไม่ใช้กะ (<span id="shu-n2">0</span>)</button>' +
-              '<button class="btn btn-primary" id="shu-go">' + icon('check') + ' ย้ายเข้ากะ (<span id="shu-n">0</span>)</button>' +
+              '<button class="btn btn-primary" id="shu-go">' + icon('check') +
+              ' ย้ายเข้ากะ (<span id="shu-n">0</span>)</button>' +
               '</div>' : '')
         : emptyState(shState.unQ ? 'ไม่พบพนักงานตามคำค้น' : 'พนักงานทุกคนมีกะแล้ว')) +
-      '</div>' + shNoShiftHtml(manage);
+      '</div>' + '<div id="sh-assigned">' + shAssignedHtml(manage) + '</div>' + shNoShiftHtml(manage);
+  }
+
+  /* ---------- ส่วนที่ 2 — พนักงานที่มีกะใช้งานอยู่ ----------
+     แสดงผลอย่างเดียว + ปุ่มย้ายกะรายคน (เรียก shAssignMany เส้นทางเดิมทุกประการ) */
+  function shAssignedHtml(manage) {
+    var rows = shAssignedVisible();
+    var body;
+    if (shState.asLoading) {
+      body = '<div class="sh-load"><span class="spinner"></span> กำลังโหลดรายชื่อพนักงานที่มีกะ…</div>';
+    } else if (!rows.length) {
+      body = emptyState(shState.asQ ? 'ไม่พบพนักงานตามคำค้น' : 'ยังไม่มีพนักงานที่ถูกกำหนดกะ');
+    } else {
+      body = '<div class="table-wrap sh-tbl"><table><thead><tr>' +
+        '<th>พนักงาน</th><th>ตำแหน่ง</th><th>แผนก</th><th>กะปัจจุบัน</th>' +
+        '<th class="ta-r">จัดการ</th></tr></thead><tbody>' +
+        rows.map(function (e) {
+          return '<tr>' +
+            '<td><div class="cell-user">' + avatarHTML(e.full_name, 32) +
+            '<div><b>' + esc(e.full_name) + '</b><small>' + esc(e.emp_code) +
+            (e.nickname ? ' · ' + esc(e.nickname) : '') + '</small></div></div></td>' +
+            '<td>' + esc(e.position_name || '—') + '</td>' +
+            '<td>' + esc(e.department_name || '—') + '</td>' +
+            '<td>' + shShiftBadge(e.shift_name, e.shift_time, e.shift_active) + '</td>' +
+            '<td class="ta-r sh-c-act">' +
+            (manage ? '<button class="btn-icon" data-shmove="' + esc(e.employee_id) + '"' +
+              ' aria-label="ย้ายกะ" title="ย้ายกะ">' + icon('send') + '</button>' : '') +
+            '<button class="btn-icon" data-shhist="' + esc(e.employee_id) + '"' +
+            ' aria-label="ประวัติกะ" title="ประวัติกะ">' + icon('calendar') + '</button>' +
+            '<button class="btn-icon" data-shinfo="' + esc(e.employee_id) + '"' +
+            ' aria-label="ดูรายละเอียด" title="ดูรายละเอียด">' + icon('eye') + '</button>' +
+            '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    return '<div class="card sh-sec"><div class="card-head">' +
+      '<h3>พนักงานที่มีกะใช้งานอยู่</h3>' +
+      '<span class="badge badge-ok">' + shState.assigned.length + ' คน</span>' +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-ghost btn-sm" id="sha-toggle">' +
+      icon(shState.asOpen ? 'chevUp' : 'chevDown') +
+      (shState.asOpen ? ' ซ่อนรายชื่อ' : ' แสดงรายชื่อ') + '</button></div>' +
+      (shState.asOpen
+        ? '<div class="toolbar sh-secbar">' +
+          '<div class="search-box">' + icon('search', 'ic-sm') +
+          '<input id="sha-q" placeholder="ค้นหารหัส / ชื่อ / ชื่อเล่น / แผนก" value="' + esc(shState.asQ) + '"></div>' +
+          '</div>' + body
+        : '') + '</div>';
   }
 
   /* ---------- ส่วน "ไม่ใช้กะ" (NO_SHIFT) — พับ/ขยายได้ ----------
@@ -2187,7 +2493,12 @@
     var label = m ? m[1] : ct;
     return cv ? label.replace('…', cv) : label;
   }
-  function asErr(msg) { var b = document.getElementById('as-err'); if (b) b.textContent = msg || ''; }
+  /* ข้อความผิดพลาด — ถ้าหน้าต่างตั้งค่าเปิดอยู่ ให้แสดงในหน้าต่างนั้น (ไม่ให้ตกไปอยู่หลัง Overlay) */
+  function asErr(msg) {
+    var d = document.getElementById('aswf-err');
+    var b = d || document.getElementById('as-err');
+    if (b) b.textContent = msg || '';
+  }
 
   /* ประเภทคำขอ — โครงกลางจุดเดียว เพิ่มประเภทใหม่ในอนาคตแก้ที่อาร์เรย์นี้ที่เดียว
      (ฐานข้อมูลปัจจุบัน njhr_approval_workflows.request_type รองรับ 'LEAVE','OT') */
@@ -2208,17 +2519,21 @@
   var asWfs = [], asSteps = [], asOverview = [], asQ = {}, asDrag = null;
   var asStepOpen = {};   // จำสถานะ แสดง/ซ่อน รายชื่อผู้อนุมัติของแต่ละขั้น (ค่าเริ่มต้น = แสดง)
   function asStepIsOpen(id) { return asStepOpen[id] !== false; }
-  // ซ่อนเฉพาะรายชื่อผู้อนุมัติ + ช่องค้นหา — ส่วนหัวและปุ่มทั้งหมดยังอยู่ครบ
+  /* ซ่อน/แสดงเฉพาะรายชื่อผู้อนุมัติ + ช่องค้นหา
+     สำคัญ: ห้ามเขียน innerHTML ทับ .wf-card-head (ซึ่งถือ data-as-fold อยู่)
+     เพราะจะล้าง ชื่อขั้น · Step no · Badge · เมนู ⋮ (แก้ไข/ย้ายขึ้น/ย้ายลง/ปิดใช้งาน/ลบ) หายทั้งหมด
+     จึงแตะเฉพาะ Attribute ของหัวการ์ด และเปลี่ยนไอคอนที่ .wf-caret ซึ่งเป็น Element แยกของมันเอง */
   function asSyncStepBody(id) {
     var body = document.getElementById('wfb-' + id);
-    var btn = document.querySelector('[data-as-fold="' + id + '"]');
-    if (!body || !btn) return;
+    var head = document.querySelector('[data-as-fold="' + id + '"]');
+    if (!body || !head) return;
     var open = asStepIsOpen(id);
     body.hidden = !open;
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    btn.setAttribute('aria-label', open ? 'ซ่อนรายชื่อผู้อนุมัติ' : 'แสดงรายชื่อผู้อนุมัติ');
-    btn.setAttribute('title', open ? 'ซ่อนรายชื่อผู้อนุมัติ' : 'แสดงรายชื่อผู้อนุมัติ');
-    btn.innerHTML = icon(open ? 'eyeOff' : 'eye');
+    head.setAttribute('aria-expanded', open ? 'true' : 'false');
+    head.setAttribute('aria-label', open ? 'ซ่อนรายชื่อผู้อนุมัติ' : 'แสดงรายชื่อผู้อนุมัติ');
+    head.setAttribute('title', open ? 'ซ่อนรายชื่อผู้อนุมัติ' : 'แสดงรายชื่อผู้อนุมัติ');
+    var caret = head.querySelector('.wf-caret');
+    if (caret) caret.innerHTML = icon(open ? 'eyeOff' : 'eye', 'ic-sm');
   }
   var asPool = [], asPoolSel = {}, asPoolQ = '';
   var asEPool = [], asEPoolSel = {}, asEPoolQ = '', asEPoolDept = '';   // ขอบเขตแบบเลือกพนักงานรายคน
@@ -2301,7 +2616,6 @@
       '</div><div id="as-warn"></div></div>' +
       '<div class="card as-listcard"><div class="card-head"><h3>ชุด Workflow · ' + esc(asTypeLabel(asState.type)) + '</h3></div>' +
       '<div id="as-wflist"><small class="muted">กำลังโหลดข้อมูลจาก Supabase…</small></div></div>' +
-      '<div id="as-detail"></div>' +
       '<div class="form-error" id="as-err" role="alert" style="white-space:pre-line"></div>';
 
     document.getElementById('as-type').onchange = function () {
@@ -2545,9 +2859,8 @@
   // ปิดผัง → กลับไปเห็นเฉพาะรายการชุด Workflow เต็มหน้าจอ (ไม่แตะข้อมูลใด ๆ)
   function asCloseWf(el) {
     asState.wfId = ''; asQ = {}; asSteps = [];
-    var box = document.getElementById('as-detail');
-    if (box) box.innerHTML = '';
-    asRenderWfList(el);
+    asDialogClose();
+    if (el) asRenderWfList(el);
   }
 
   function asWfForm(wfId, el) {
@@ -2802,9 +3115,9 @@
   // ใช้ "แผนกหลัก (anchor_dept)" เป็นตัวเชื่อม → RPC ขั้นอนุมัติเดิมทุกตัวไม่ต้องแก้
   function asLoadSteps(el, seq) {
     var w = asCurrentWf();
-    var box = document.getElementById('as-detail');
-    if (!w) { asSteps = []; if (box) box.innerHTML = ''; return Promise.resolve(); }
-    if (box && !box.innerHTML) box.innerHTML = '<div class="card"><small class="muted">กำลังโหลดขั้นอนุมัติ…</small></div>';
+    if (!w) { asSteps = []; asDialogClose(); return Promise.resolve(); }
+    var box = asDialogBody(el);
+    if (box && !box.innerHTML) box.innerHTML = '<div class="aswf-load"><small class="muted">กำลังโหลดขั้นอนุมัติ…</small></div>';
     return sbRpcList('njhr_wf_steps', { p_token: sbToken(), p_type: asState.type, p_dept: w.anchor_dept })
       .then(function (rows) {
         if (seq !== asState.seq) return;
@@ -2816,23 +3129,95 @@
       });
   }
 
+  /* ---------- หน้าต่างตั้งค่าการอนุมัติ (Dialog กลางจอ) ----------
+     ใช้ Root ของตัวเองแยกจาก #modal-root เพราะหน้าต่างย่อย (แก้ไขขั้น / ยืนยันลบ)
+     ยังใช้ openModal() เดิม ถ้าใช้ Root เดียวกันหน้าต่างนี้จะถูกเขียนทับ
+     Logic / RPC / ปุ่ม / id ทั้งหมดคงเดิม เปลี่ยนเฉพาะที่วางเท่านั้น */
+  function asDialogBody(el) {
+    var root = document.getElementById('aswf-root');
+    if (root) return document.getElementById('as-detail');
+    root = document.createElement('div');
+    root.id = 'aswf-root';
+    root.innerHTML =
+      '<div class="aswf-overlay" id="aswf-overlay">' +
+      '<div class="aswf-box" role="dialog" aria-modal="true" aria-labelledby="aswf-title">' +
+      '<div class="aswf-head"><div class="grow"><h3 id="aswf-title">ตั้งค่าการอนุมัติ (Workflow)</h3>' +
+      '<small>กำหนดลำดับผู้อนุมัติสำหรับคำขอนี้</small></div>' +
+      '<button type="button" class="btn-icon" id="aswf-x" aria-label="ปิด">' + icon('x') + '</button></div>' +
+      '<div class="aswf-body" id="as-detail"></div>' +
+      '<div class="form-error aswf-err" id="aswf-err" role="alert" style="white-space:pre-line"></div>' +
+      '<div class="aswf-foot">' +
+      '<button type="button" class="btn btn-ghost" id="aswf-cancel">ปิด</button>' +
+      '<button type="button" class="btn btn-primary" id="as-close">บันทึกการตั้งค่า</button>' +
+      '</div></div></div>';
+    document.body.appendChild(root);
+    document.body.classList.add('aswf-open');
+    // ทุกคำสั่งบันทึกทำทันทีที่ระดับ RPC อยู่แล้ว ปุ่มนี้จึงเป็นการ "เสร็จสิ้น/ปิดหน้าต่าง"
+    document.getElementById('as-close').onclick = function () { asCloseWf(el); };
+    document.getElementById('aswf-cancel').onclick = function () { asCloseWf(el); };
+    document.getElementById('aswf-x').onclick = function () { asCloseWf(el); };
+    document.getElementById('aswf-overlay').addEventListener('mousedown', function (ev) {
+      if (ev.target === this) asCloseWf(el);
+    });
+    asEscHost = el;
+    document.addEventListener('keydown', asEscKey, true);
+    window.addEventListener('hashchange', asDialogClose);
+    return document.getElementById('as-detail');
+  }
+  var asEscHost = null;
+  // ปิดด้วย Esc เฉพาะตอนไม่มีหน้าต่างย่อยเปิดค้างอยู่ (หน้าต่างย่อยต้องถูกปิดก่อน)
+  function asEscKey(ev) {
+    if (ev.key !== 'Escape') return;
+    var mr = document.getElementById('modal-root');
+    if (mr && mr.innerHTML) return;
+    if (!document.getElementById('aswf-root')) return;
+    ev.stopPropagation();
+    asCloseWf(asEscHost);
+  }
+  function asDialogClose() {
+    var root = document.getElementById('aswf-root');
+    if (root) root.remove();
+    document.body.classList.remove('aswf-open');
+    document.removeEventListener('keydown', asEscKey, true);
+    window.removeEventListener('hashchange', asDialogClose);
+    asEscHost = null;
+  }
+
   function asRenderDetail(el) {
-    var box = document.getElementById('as-detail'), w = asCurrentWf();
-    if (!box || !w) return;
+    var w = asCurrentWf();
+    if (!w) return;
+    var box = asDialogBody(el);
+    if (!box) return;
     box.innerHTML =
-      '<div class="card wf-topbar"><div class="wf-top-info">' +
+      '<div class="aswf-sum">' +
       '<div class="wf-top-cell"><small>ประเภทคำขอ</small><b>' + esc(asTypeLabel(asState.type)) + '</b></div>' +
       '<div class="wf-top-cell"><small>แผนก</small><b>' + esc(asDeptText(w)) + '</b></div>' +
       '<div class="wf-top-cell"><small>จำนวนขั้นอนุมัติ</small><b>' + asSteps.length + ' ขั้น</b></div>' +
-      '<span class="grow"></span>' +
-      '<button class="btn btn-ghost" id="as-add-step">' + icon('plus') + ' เพิ่มขั้นอนุมัติ</button>' +
-      '<button class="btn btn-primary" id="as-close">' + icon('check') + ' บันทึก</button>' +
-      '</div></div>' +
-      '<div id="as-steps"></div>';
+      '</div>' +
+      '<h4 class="aswf-h">ลำดับการอนุมัติ</h4>' +
+      '<div id="as-steps"></div>' +
+      '<button type="button" class="btn btn-ghost aswf-add" id="as-add-step">' +
+      icon('plus') + ' เพิ่มขั้นอนุมัติ</button>' +
+      '<div id="as-recap"></div>';
     document.getElementById('as-add-step').onclick = function () { asStepForm(null, el); };
-    // ทุกคำสั่งบันทึกทำทันทีที่ระดับ RPC อยู่แล้ว ปุ่มนี้จึงเป็นการ "เสร็จสิ้น/ปิดผัง"
-    document.getElementById('as-close').onclick = function () { asCloseWf(el); };
     asRenderSteps(el);
+  }
+
+  /* สรุปก่อนบันทึก — แสดงผลอย่างเดียว อ่านจากข้อมูลชุดเดียวกับที่แสดงด้านบน ไม่คำนวณใหม่ */
+  function asRenderRecap() {
+    var box = document.getElementById('as-recap'), w = asCurrentWf();
+    if (!box || !w) return;
+    var on = asSteps.filter(function (x) { return x.active; });
+    var order = on.length
+      ? on.map(function (st, i) { return '<span class="aswf-ord">' + (i + 1) + ') ' + esc(st.name) + '</span>'; }).join('')
+      : '<span class="muted">ยังไม่มีขั้นอนุมัติที่เปิดใช้งาน</span>';
+    box.innerHTML =
+      '<div class="aswf-recap"><b class="aswf-recap-h">' + icon('listOl', 'ic-sm') + ' สรุปการตั้งค่า</b>' +
+      '<div class="aswf-recap-row"><span>ประเภทคำขอ</span><b>' + esc(asTypeLabel(asState.type)) + '</b></div>' +
+      '<div class="aswf-recap-row"><span>แผนก</span><b>' + esc(asDeptText(w)) + '</b></div>' +
+      '<div class="aswf-recap-row"><span>จำนวนขั้นอนุมัติ</span><b>' + asSteps.length + ' ขั้น</b></div>' +
+      '<div class="aswf-recap-row"><span>ลำดับการอนุมัติ</span><b class="aswf-ords">' + order + '</b></div>' +
+      '<small class="muted aswf-note">ทุกการเปลี่ยนแปลงถูกบันทึกลงฐานข้อมูลทันทีที่กดในแต่ละขั้น</small></div>';
   }
 
 
@@ -2856,6 +3241,7 @@
         '<div class="wf-node wf-node-empty">ยังไม่มีขั้นอนุมัติ — กด "เพิ่มขั้นอนุมัติ"</div>' +
         arrow + end + '</div>';
       asBindSteps(el, box);
+      asRenderRecap();
       return;
     }
 
@@ -2911,6 +3297,7 @@
     box.innerHTML = '<div class="wf-flowcol">' + start + arrow + cards + arrow + end + '</div>';
     asSteps.forEach(function (st) { asSyncStepBody(st.step_id); });
     asBindSteps(el, box);
+    asRenderRecap();
   }
 
 

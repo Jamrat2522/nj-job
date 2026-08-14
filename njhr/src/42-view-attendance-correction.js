@@ -3,8 +3,9 @@
      โหลดเมื่อกด #att-fix เท่านั้น ================= */
   /* ฟอร์ม "ลงชื่อย้อนหลัง"
      ส่งเข้า njhr_att_correction_submit (Supabase) เท่านั้น — ไม่เขียน db.corrections / localStorage
-     RPC บังคับผ่าน njhr_wf_route ก่อนสร้างคำขอ · ไม่มีผังการอนุมัติ = ส่งไม่ได้
-     สถานะเริ่มต้น PENDING เสมอ · ห้าม Auto Approve · Attendance จริงเขียนเมื่ออนุมัติครบทุกขั้น */
+     พนักงานทั่วไป: Server หา Workflow → PENDING → เขียน Attendance เมื่ออนุมัติครบทุกขั้น
+     MANAGING DIRECTOR / SUPER_ADMIN ที่ Server ตรวจว่าเป็นกลุ่มยกเว้น: APPROVED + เขียน Attendance ทันที
+     Frontend อ่าน status ที่ RPC คืนจริงเท่านั้น ห้ามตัดสินสิทธิ์เอง */
   function correctionForm() {
     var today = todayISO();
     openModal('ลงชื่อย้อนหลัง',
@@ -23,7 +24,8 @@
 
       '<form id="fix-f" novalidate>' +
       '<p class="muted note" style="margin-top:0">กรอกเวลาที่ถูกต้องของวันนั้น ' +
-      'ระบบจะส่งให้ผู้อนุมัติตามผังที่ตั้งไว้ · เวลาที่ไม่ได้กรอกจะคงค่าเดิมไว้</p>' +
+      'ระบบจะตรวจสิทธิ์และผังอนุมัติจากเซิร์ฟเวอร์ · กลุ่มผู้บริหารที่ได้รับยกเว้นจะอนุมัติและบันทึกทันที ' +
+      '· เวลาที่ไม่ได้กรอกจะคงค่าเดิมไว้</p>' +
       '<label class="field"><span>วันที่ <i class="req">*</i></span>' +
       '<input type="date" name="date" value="' + today + '" max="' + today + '"></label>' +
       '<div class="form-2col">' +
@@ -66,7 +68,11 @@
           p_reason: reason, p_employee: null, p_attachment: null
         }).then(function (r) {
           closeModal();
-          toast('ส่งคำขอลงชื่อย้อนหลังแล้ว รอการอนุมัติตามผัง', 'success');
+          /* กลุ่มยกเว้นผู้บริหาร RPC จะคืน status = APPROVED มาเลย
+             จึงห้ามขึ้นข้อความ "รออนุมัติ" — อ่านจากค่าที่เซิร์ฟเวอร์คืนจริงเท่านั้น */
+          toast(String(r && r.status) === 'APPROVED'
+            ? 'บันทึกลงชื่อย้อนหลังเรียบร้อย · อนุมัติอัตโนมัติแล้ว'
+            : 'ส่งคำขอลงชื่อย้อนหลังแล้ว รอการอนุมัติตามผัง', 'success');
           refreshFixPending();           // ยื่นคำขอใหม่ → นับ Badge ใหม่
           render();
         });

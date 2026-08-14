@@ -57,6 +57,9 @@
   window.NJHR_SB_TIMEOUT_MS = SB_TIMEOUT_MS;
   var SB_WRITE_RPC = {
     'njhr_ann_ack': 1, 'njhr_ann_read': 1, 'njhr_att_migrate': 1, 'njhr_att_punch': 1,
+    /* ลงเวลาของกลุ่มยกเว้นผู้บริหาร — เป็นคำสั่งเขียน ต้องอยู่ในรายการนี้เสมอ
+       ไม่งั้นจะถูกจัดเป็นคำสั่งอ่าน แล้ว "ลองใหม่อัตโนมัติ" ทำให้ลงเวลาซ้ำได้ */
+    'njhr_att_punch_exempt': 1,
     'njhr_dept_delete': 1, 'njhr_dept_move': 1, 'njhr_dept_save': 1, 'njhr_doc_delete': 1,
     'njhr_doc_flow': 1, 'njhr_doc_org_save': 1, 'njhr_doc_respond': 1, 'njhr_doc_save': 1,
     'njhr_doc_view': 1, 'njhr_emp_import': 1, 'njhr_emp_save': 1, 'njhr_emp_status': 1,
@@ -672,6 +675,7 @@
     sbClearUser();
     _lvPending = 0; _otPending = 0; _fxPending = 0; _ntUnread = 0;
     try { NJHR.notify.reset(); } catch (e) {}   // หยุด Polling + ล้างป้ายแดงทุกจุด
+    try { njExemptReset(); } catch (e) {}       // ล้างผลตรวจกลุ่มยกเว้นของบัญชีเดิม
     if (session) audit('LOGOUT', 'ออกจากระบบ');
     session = null; saveSession();
     if (location.hash === '#/login') renderLogin();

@@ -650,6 +650,54 @@
       if (btn) btn.removeAttribute('data-busy');
     }
 
+    /* ---------- กลุ่มยกเว้นผู้บริหาร: ไม่เปิดกล้อง ไม่โหลด face.js ----------
+       ถามเซิร์ฟเวอร์ก่อนเสมอ (njhr_hr_exempt_me จาก Session Token) แล้วจึงเลือกเส้นทาง
+       ถ้าตรวจไม่สำเร็จ ให้ถือเป็นพนักงานทั่วไป = ยังต้องสแกนใบหน้า (ปลอดภัยกว่า) */
+    njExemptCheck().then(function (ex) {
+      if (ex) { attPunchExempt(kind, el, unbusy, errEl, mbErr); return; }
+      attPunchFace(kind, el, unbusy, errEl, mbErr);
+    }, function () {
+      attPunchFace(kind, el, unbusy, errEl, mbErr);
+    });
+  }
+
+  /* ลงเวลาแบบยกเว้นใบหน้า — ยังบังคับ GPS และ Geofence ตามเดิมทุกประการ
+     Geofence ถูกตรวจฝั่งเซิร์ฟเวอร์ใน njhr_att_punch ที่ถูกเรียกต่อจาก
+     njhr_att_punch_exempt ซึ่งตรวจสิทธิ์ยกเว้นซ้ำด้วยตัวเองก่อนเสมอ */
+  function attPunchExempt(kind, el, unbusy, errEl, mbErr) {
+    function fail(msg) {
+      unbusy();
+      errEl.textContent = msg;
+      if (mbErr) mbErr.textContent = msg;
+    }
+    if (!navigator.geolocation) { fail('อุปกรณ์นี้ไม่รองรับ GPS จึงลงเวลาไม่ได้'); return; }
+
+    errEl.textContent = 'กำลังตรวจตำแหน่ง…';
+    if (mbErr) mbErr.textContent = 'กำลังตรวจตำแหน่ง…';
+    attMbGps('', 'กำลังตรวจตำแหน่ง', 'รอสัญญาณ GPS');
+
+    navigator.geolocation.getCurrentPosition(function (p) {
+      sbRpc('njhr_att_punch_exempt', {
+        p_token: sbToken(), p_action: kind, p_at: null,
+        p_lat: p.coords.latitude, p_lng: p.coords.longitude, p_accuracy: p.coords.accuracy
+      }).then(function (r) {
+        if (!r) throw new Error('เซิร์ฟเวอร์ไม่ตอบกลับ กรุณาลองใหม่');
+        unbusy();
+        toast((kind === 'IN' ? 'ลงเวลาเข้างานเรียบร้อย' : 'ลงเวลาออกงานเรียบร้อย') +
+          (r.geofence_name ? ' · ' + r.geofence_name : ''), 'success');
+        viewAttendance(el);
+      })['catch'](function (e) {
+        fail((e && e.message) || 'ลงเวลาไม่สำเร็จ กรุณาลองใหม่');
+      });
+    }, function (er) {
+      fail(er && er.code === 1
+        ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่'
+        : 'อ่านสัญญาณ GPS ไม่สำเร็จ กรุณาลองใหม่กลางที่โล่ง');
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+  }
+
+  /* เส้นทางเดิมของพนักงานทั่วไป — ไม่แก้ Logic ใด ๆ ย้ายมาเป็นฟังก์ชันแยกเท่านั้น */
+  function attPunchFace(kind, el, unbusy, errEl, mbErr) {
     /* ลงเวลาต้องผ่านการสแกนใบหน้าเสมอ — face.js เรียก njhr_att_punch_face
        ซึ่งตรวจใบหน้า + Liveness + Geofence แล้วจึงเขียน attendance ให้ในตัว
        จึงไม่มีการเรียก njhr_att_punch ตรงจากปุ่มนี้อีกต่อไป */

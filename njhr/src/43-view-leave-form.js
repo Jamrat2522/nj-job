@@ -228,22 +228,32 @@
           p_client_key: submitKey
         });
       }).then(function (r) {
+        /* กลุ่มยกเว้นผู้บริหาร njhr_leave_submit อนุมัติให้ทันทีในตัว
+           แต่ไม่ได้คืน status กลับมา จึงต้องถามสถานะยกเว้นก่อนเลือกข้อความ
+           ถามไม่สำเร็จ = ใช้ข้อความเดิม (ไม่กระทบการบันทึกที่สำเร็จไปแล้ว) */
+        return njExemptCheck().then(
+          function (ex) { return { r: r, ex: ex }; },
+          function ()   { return { r: r, ex: false }; });
+      }).then(function (o) {
+        var r = o.r, lvApproved = o.ex;
+        var stText = lvApproved ? 'อนุมัติอัตโนมัติแล้ว' : 'รออนุมัติ';
         var no = r && r.id ? lvCode(r.id) : '';
         var noEl = document.getElementById('lvf-no');
         if (noEl) { noEl.textContent = no; noEl.classList.remove('muted'); }
         closeModal();
         toast(r && r.duplicated
           ? 'คำขอนี้ถูกส่งไปแล้ว เลขที่ ' + no
-          : 'ส่งคำขอลาแล้ว เลขที่ ' + no + ' · แนบไฟล์ ' + ((r && r.file_count) || 0) + ' ไฟล์ · สถานะ: รออนุมัติ');
+          : (lvApproved ? 'บันทึกใบลาแล้ว เลขที่ ' : 'ส่งคำขอลาแล้ว เลขที่ ') + no +
+            ' · แนบไฟล์ ' + ((r && r.file_count) || 0) + ' ไฟล์ · สถานะ: ' + stText);
         NJHR.features.leaveList.resetPage();
         refreshLeavePending();
         viewLeave(listEl);
         /* หน้าสำเร็จ: เลือกกลับหน้าคำขอ หรือยื่นใบใหม่ทันที
            ไม่แตะ Logic การส่ง — เป็นหน้าจอหลังบันทึกสำเร็จเท่านั้น */
-        openModal('ส่งคำขอสำเร็จ',
+        openModal(lvApproved ? 'บันทึกสำเร็จ' : 'ส่งคำขอสำเร็จ',
           '<div class="fm-done"><span class="fm-done-ic">' + icon('check') + '</span>' +
-          '<b>ส่งคำขอลาเรียบร้อย</b>' +
-          '<small>เลขที่คำขอ ' + esc(no || '-') + ' · สถานะ: รออนุมัติ</small></div>',
+          '<b>' + (lvApproved ? 'บันทึกใบลาเรียบร้อย' : 'ส่งคำขอลาเรียบร้อย') + '</b>' +
+          '<small>เลขที่คำขอ ' + esc(no || '-') + ' · สถานะ: ' + stText + '</small></div>',
           '<button class="btn btn-ghost" id="fmd-again">ยื่นคำขอใหม่</button>' +
           '<button class="btn btn-primary" id="fmd-back">กลับหน้าคำขอ</button>',
           { fullMobile: true });

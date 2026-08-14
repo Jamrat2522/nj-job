@@ -1,10 +1,10 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-b748acda",
+  "buildId": "njhr-v2-1993c7c0",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
-    "core": "runtime/core.js?v=38413f93"
+    "core": "runtime/core.js?v=0e8af553"
   },
   "modules": {
     "dashboard": {
@@ -47,7 +47,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "employees": {
-      "url": "views/employees/list.js?v=d061ac9f",
+      "url": "views/employees/list.js?v=dd15c869",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta"
@@ -57,7 +57,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "attendance": {
-      "url": "views/attendance/main.js?v=0ec76b22",
+      "url": "views/attendance/main.js?v=70df9e7c",
       "deps": [
         "shared-report",
         "shared-requests"
@@ -148,14 +148,14 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "attendance-correction": {
-      "url": "views/attendance/correction.js?v=d2741254",
+      "url": "views/attendance/correction.js?v=66367e10",
       "deps": [
         "attendance"
       ],
       "provides": []
     },
     "leave-form": {
-      "url": "views/leave/form.js?v=5c38d912",
+      "url": "views/leave/form.js?v=c10f95b2",
       "deps": [
         "requests-leave",
         "shared-leave-meta",
@@ -175,7 +175,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "ot-form": {
-      "url": "views/ot/form.js?v=51a444cb",
+      "url": "views/ot/form.js?v=aa491edc",
       "deps": [
         "ot",
         "shared-requests",
@@ -214,7 +214,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "compatibility": {
-      "url": "compat/app-legacy.js?v=7e599aef",
+      "url": "compat/app-legacy.js?v=b34f7044",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -242,7 +242,7 @@ window.NJHR_ASSETS = {
     }
   },
   "styles": {
-    "main": "styles.css?v=2a356420",
-    "mobile": "mobile.css?v=7566dfa1"
+    "main": "styles.css?v=0ce0b08b",
+    "mobile": "mobile.css?v=07f53e74"
   }
 };

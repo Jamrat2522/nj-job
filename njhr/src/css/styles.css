@@ -1296,7 +1296,7 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 /* ---------- Approval Workflow (ตั้งค่าการอนุมัติ) ---------- */
-#as-detail:empty { display: none; }              /* ไม่เปิดผัง = ไม่เว้นพื้นที่ว่าง */
+/* #as-detail ย้ายไปอยู่ใน Body ของหน้าต่างตั้งค่า (.aswf-body) — ไม่ต้องซ่อนตอนว่างอีก */
 .wf-sets { display: flex; flex-direction: column; gap: 10px; }
 .wf-set { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--card); cursor: pointer; }
 .wf-set:hover { border-color: #CBD5E1; }
@@ -1882,6 +1882,58 @@ tbody tr:last-child td { border-bottom: 0; }
 @media (max-width: 720px) {
   .pi-bulkbar { align-items: stretch; }
   .pi-bulkbar .grow { display: none; }
+}
+
+/* ---------- หน้าต่างตั้งค่าการอนุมัติ (Dialog กลางจอ · แสดงผลอย่างเดียว) ----------
+   z-index 90 = ต่ำกว่า .modal-overlay (100) เพื่อให้หน้าต่างย่อยซ้อนขึ้นมาด้านบนได้ */
+.aswf-overlay {
+  position: fixed; inset: 0; background: rgba(17, 24, 39, .45); z-index: 90;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  animation: fadeIn .15s;
+}
+.aswf-box {
+  background: var(--card); border-radius: 16px; width: 100%; max-width: 900px;
+  max-height: min(88vh, calc(100vh - 48px)); display: flex; flex-direction: column;
+  box-shadow: 0 20px 50px rgba(17, 24, 39, .25); animation: pop .18s;
+}
+.aswf-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 12px; }
+.aswf-head h3 { font-size: 17px; color: var(--navy); margin: 0; }
+.aswf-head small { display: block; font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.aswf-body { flex: 1; overflow: auto; padding: 4px 20px 6px; }
+.aswf-load { padding: 22px 2px; }
+.aswf-sum {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: #F8FAFC;
+}
+.aswf-sum .wf-top-cell b { display: block; overflow-wrap: anywhere; }
+.aswf-h { font-size: 14px; color: var(--navy); margin: 16px 0 10px; }
+.aswf-add { width: 100%; margin-top: 12px; border-style: dashed; justify-content: center; }
+.aswf-recap {
+  border: 1px solid #C7D7F5; border-radius: 12px; background: #F5F8FF;
+  padding: 12px 16px; margin: 14px 0 4px;
+}
+.aswf-recap-h { display: flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--navy); }
+.aswf-recap-h .ic { width: 15px; height: 15px; }
+.aswf-recap-row { display: flex; gap: 12px; font-size: 13px; margin-top: 7px; }
+.aswf-recap-row > span { flex: none; width: 140px; color: var(--ink-2); }
+.aswf-recap-row > b { min-width: 0; overflow-wrap: anywhere; }
+.aswf-ords { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.aswf-ord { font-weight: 600; }
+.aswf-note { display: block; margin-top: 9px; font-size: 11.5px; }
+.aswf-err:empty { display: none; }
+.aswf-err { margin: 0 20px; }
+.aswf-foot {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 12px 20px 18px; border-top: 1px solid var(--line); margin-top: 6px;
+}
+body.aswf-open { overflow: hidden; }
+@media (max-width: 720px) {
+  .aswf-overlay { padding: 0; }
+  .aswf-box { max-width: none; height: 100%; max-height: 100%; border-radius: 0; }
+  .aswf-sum { grid-template-columns: 1fr; gap: 10px; }
+  .aswf-recap-row { flex-direction: column; gap: 2px; }
+  .aswf-recap-row > span { width: auto; }
+  .aswf-foot .btn { flex: 1; }
 }
 
 /* ---------- Workflow แบบ Flow บนลงล่าง (ปรับเฉพาะการแสดงผล) ---------- */
@@ -2688,4 +2740,37 @@ body.njhr-busy { cursor: progress; }
   @media (max-width: 1279px) {
     .dash-legacy .dash-notify-full .dash-nt-grid { grid-template-columns: 1fr; }
   }
+}
+
+
+/* ============================================================
+   FINAL UX — Workflow Dialog (Desktop): หน้าต่างเล็ก ดูงานง่าย
+   เปลี่ยนเฉพาะการแสดงผล ไม่แตะ Workflow Logic/RPC
+   ============================================================ */
+@media (min-width: 1024px) {
+  #aswf-root .aswf-box { max-width: 900px; max-height: min(86vh, 780px); }
+  #aswf-root .aswf-head { padding: 16px 18px 10px; }
+  #aswf-root .aswf-body { padding: 2px 18px 6px; }
+  #aswf-root .aswf-sum { gap: 0; padding: 0; overflow: hidden; background: #FAFBFD; }
+  #aswf-root .aswf-sum .wf-top-cell { padding: 11px 14px; border-right: 1px solid var(--line, #E5E7EB); }
+  #aswf-root .aswf-sum .wf-top-cell:last-child { border-right: 0; }
+  #aswf-root .aswf-h { margin: 14px 0 8px; }
+  #aswf-root .wf-flowcol { gap: 8px; }
+  #aswf-root .wf-node-start,
+  #aswf-root .wf-node-end,
+  #aswf-root .wf-arrow { display: none; }
+  #aswf-root .wf-card { border-radius: 12px; }
+  #aswf-root .wf-card-head { align-items: center; padding: 10px 12px; gap: 9px; }
+  #aswf-root .wf-card-head b { font-size: 14px; margin: 1px 0 2px; }
+  #aswf-root .wf-card-head small { font-size: 11.5px; line-height: 1.45; }
+  #aswf-root .wf-stepno {
+    display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px;
+    border-radius: 999px; background: #EAF2FF; color: #1D4ED8; font-size: 10.5px;
+  }
+  #aswf-root .wf-card-body { padding: 0 12px 10px; border-top: 1px solid #F1F5F9; }
+  #aswf-root .wf-appr { padding-top: 9px; }
+  #aswf-root .aswf-add { margin-top: 9px; min-height: 40px; }
+  #aswf-root .aswf-recap { margin-top: 10px; padding: 10px 13px; }
+  #aswf-root .aswf-recap-row { margin-top: 5px; }
+  #aswf-root .aswf-foot { padding: 10px 18px 14px; }
 }
