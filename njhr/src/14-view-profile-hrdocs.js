@@ -349,14 +349,44 @@
   /* เปิด/ปิด "ข้อมูลส่วนตัว" บนมือถือ
      ⚠ ยังใช้ .pf-show-mobile ตัวเดิมกับ .pf-legacy ไม่แตะกฎ CSS นั้นเลย
        และไม่แตะ .only-desktop เพื่อไม่ให้กระทบหน้าจออื่นทั้งระบบ */
+  /* Render เนื้อหา "ข้อมูลส่วนตัว" ครั้งเดียวต่อการเปิดหน้า
+     ⚠ กันสร้างซ้ำและกันผูก Event ซ้ำด้วย data-ready
+     ตัว init ทั้งสาม (รูป · ข้อมูล · Face Login) จึงถูกเรียกครั้งเดียวเท่านั้น */
+  var pfDetailUser = null, pfDetailEmp = null, pfDetailMe = null;
+
+  function pfRenderDetail(el) {
+    var box = el.querySelector('#pfm-detail');
+    if (!box || box.getAttribute('data-ready') === '1') return false;
+    box.innerHTML = pfDetailHtml(pfDetailUser, pfDetailEmp);
+    box.setAttribute('data-ready', '1');
+
+    var back = box.querySelector('#pfm-detail-back');
+    if (back) back.onclick = function (ev) {
+      ev.preventDefault(); pfToggleDetail(el, false);
+    };
+    var infoX = box.querySelector('#pfm-info-close');
+    if (infoX) infoX.onclick = function (ev) {
+      ev.preventDefault(); ev.stopPropagation(); pfToggleDetail(el, false);
+    };
+
+    /* ใช้ผลลัพธ์ njhr_me_get ก้อนเดิมของหน้า ไม่ยิง RPC ใหม่ */
+    if (pfDetailMe) {
+      pfDetailMe.then(function (me) { pfFillInfo(me); });
+      pfPhotoInit(box, pfDetailMe);
+    }
+    pfSecInit(box);
+    return true;
+  }
+
   function pfToggleDetail(el, force) {
-    var info = el.querySelector('#pfm-info');
+    var det = el.querySelector('#pfm-detail');
     var box = el.querySelector('.pf-legacy');
-    var open = (force === undefined) ? (info ? info.hidden : true) : !!force;
-    if (info) info.hidden = !open;
+    var open = (force === undefined) ? (det ? det.hidden : true) : !!force;
+    if (open) pfRenderDetail(el);
+    if (det) det.hidden = !open;
     if (box) box.classList.toggle('pf-show-mobile', open);
     if (open) {
-      var t = info || box;
+      var t = det || box;
       if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
@@ -527,28 +557,43 @@
     load();
   }
 
-  function pfMobileHtml(u, e) {
-    var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;    return '<div class="only-mobile pfm">' +
-      '<div class="pfm-brand"><span class="pfm-logo">NJL</span>' +
-      '<div class="grow"><b>NJL HR</b><small>ระบบบริหารทรัพยากรบุคคล</small></div>' +
-      '<button type="button" class="pfm-x" id="pfm-close" aria-label="กลับหน้าหลัก">' +
-      icon('x') + '</button></div>' +
+  /* ---------- เนื้อหาของ "ข้อมูลส่วนตัว" ----------
+     ⚠ ไม่ถูก Render พร้อมหน้าโปรไฟล์หลัก — สร้างเมื่อกดเมนูข้อมูลส่วนตัวเท่านั้น
+       (pfRenderDetail) จึงไม่ใช่การซ่อนด้วย CSS
+     ประกอบด้วย 3 ส่วนตามลำดับ: การ์ดพนักงาน → pfInfoHtml() → pfSecHtml()
+     ทุกส่วนใช้ HTML และ id เดิมทั้งหมด ระบบอัปโหลดรูป/Face Login จึงทำงานเหมือนเดิม */
+  function pfDetailHtml(u, e) {
+    var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;
+    return '<div class="pfm-detail-h">' +
+      '<button type="button" class="pfm-detail-back" id="pfm-detail-back" ' +
+      'aria-label="กลับ">' + icon('chevL') + '</button>' +
+      '<b>ข้อมูลส่วนตัว</b></div>' +
 
       /* ปุ่มกล้องซ้อนบนรูป — เปิด File Picker ของเครื่อง
          ห่อด้วย <span> ไม่ใช่ <button> เพราะอยู่ใน <a> จะซ้อน element กดไม่ได้
          input[type=file] ซ่อนไว้ รับเฉพาะรูปภาพ (ตรวจซ้ำอีกชั้นตอนเลือกไฟล์) */
-      '<a class="pfm-emp" href="#/profile?sec=detail">' +
+      '<div class="pfm-emp">' +
       '<span class="pfm-ava" id="pfm-ava">' + avatarHTML(name, 58) +
       '<span class="pfm-cam" id="pfm-cam" role="button" tabindex="0" ' +
       'aria-label="เปลี่ยนรูปโปรไฟล์" title="เปลี่ยนรูปโปรไฟล์">' + icon('camera') + '</span>' +
       '<input type="file" id="pfm-photo" accept="image/jpeg,image/png,image/webp" hidden></span>' +
       '<div class="grow"><b>' + esc(name) + '</b>' +
       '<small>รหัสพนักงาน: <i>' + esc((e && e.code) || '—') + '</i></small>' +
-      '<small>แผนก: <i>' + esc((e && dept(e.deptId)) || '—') + '</i></small></div>' +
-      '<span class="pfm-x2">' + icon('chevR') + '</span></a>' +
+      '<small>แผนก: <i>' + esc((e && dept(e.deptId)) || '—') + '</i></small></div></div>' +
       '<div class="pfm-photo-msg" id="pfm-photo-msg" hidden></div>' +
       pfInfoHtml() +
-      pfSecHtml() +
+      pfSecHtml();
+  }
+
+  function pfMobileHtml(u, e) {
+    return '<div class="only-mobile pfm">' +
+      '<div class="pfm-brand"><span class="pfm-logo">NJL</span>' +
+      '<div class="grow"><b>NJL HR</b><small>ระบบบริหารทรัพยากรบุคคล</small></div>' +
+      '<button type="button" class="pfm-x" id="pfm-close" aria-label="กลับหน้าหลัก">' +
+      icon('x') + '</button></div>' +
+
+      /* กล่องว่างของ "ข้อมูลส่วนตัว" — เนื้อหาถูกใส่ตอนกดเมนูเท่านั้น */
+      '<section class="pfm-detail" id="pfm-detail" hidden></section>' +
 
       '<nav class="pfm-menu">' + PF_MENU.map(function (m) {
         return '<button type="button" class="pfm-item ' + m[4] + '" data-pfm="' + esc(m[0]) + '">' +
@@ -597,17 +642,8 @@
     };
     var cx = document.getElementById('pfm-close');
     if (cx) cx.onclick = function () { window.location.hash = '#/dashboard'; };
-    var empCard = el.querySelector('.pfm-emp');
-    if (empCard) empCard.onclick = function (ev) {
-      ev.preventDefault();
-      pfToggleDetail(el);
-    };
-
-    var infoX = el.querySelector('#pfm-info-close');
-    if (infoX) infoX.onclick = function (ev) {
-      ev.preventDefault(); ev.stopPropagation();
-      pfToggleDetail(el, false);
-    };
+    /* การ์ดพนักงานและปุ่มปิดย้ายเข้าไปอยู่ใน "ข้อมูลส่วนตัว" แล้ว
+       จึงผูก Event ที่ pfRenderDetail ครั้งเดียว ไม่ผูกซ้ำที่นี่ */
 
     /* ---------- njhr_me_get ครั้งเดียวต่อการเปิดหน้า ----------
        ทั้งฟอร์มข้อมูลติดต่อและรูปโปรไฟล์ใช้ผลลัพธ์ก้อนเดียวกัน
@@ -624,9 +660,15 @@
         })
       : Promise.resolve(null);
 
-    pfMePromise.then(function (me) { pfFillInfo(me); });
-    pfSecInit(el);
-    pfPhotoInit(el, pfMePromise);
+    /* ---------- เก็บบริบทไว้ให้ "ข้อมูลส่วนตัว" ใช้ ----------
+       ⚠ ไม่เรียก pfPhotoInit / pfSecInit / pfFillInfo ที่นี่แล้ว
+         เพราะการ์ดพนักงาน · pfInfoHtml · pfSecHtml ยังไม่ถูก Render จนกว่าจะกดเมนู
+         ทั้งสามตัวถูกเรียกครั้งเดียวใน pfRenderDetail (กันซ้ำด้วย data-ready)
+       njhr_me_get ยังยิงครั้งเดียวต่อการเปิดหน้าเหมือนเดิม ไม่เพิ่ม RPC */
+    pfDetailUser = u; pfDetailEmp = e; pfDetailMe = pfMePromise;
+
+    /* เปิด Detail อัตโนมัติเมื่อมาด้วยลิงก์ #/profile?sec=detail (ของเดิม) */
+    if (/[?&]sec=detail/.test(location.hash)) pfToggleDetail(el, true);
 
     var saveBtn = document.getElementById('pf-save');
     if (saveBtn) {

@@ -484,15 +484,16 @@
 
     /* โครงหน้าออกก่อน (ชื่อ/รหัส/แผนกมีอยู่แล้ว) ตัวเลขเติมทีหลังแบบไม่บล็อกจอ */
     wrap.innerHTML =
-      '<a class="mh-emp" href="#/profile" id="mh-emp">' +
+      /* การ์ดข้อมูลพนักงาน = แสดงอย่างเดียว
+         ⚠ เป็น <div> ไม่ใช่ <a> — กดแล้วไม่ไปหน้าไหน ไม่มี href / onclick / listener
+         ⚠ ไม่มีลูกศร > และไม่มีแถบ "วันนี้ยังไม่ได้ลงเวลา" ในการ์ดนี้
+           สถานะการลงเวลาแสดงที่หัวข้อ "สถานะวันนี้" ด้านล่างที่เดียว ไม่ซ้ำสองที่ */
+      '<div class="mh-emp" id="mh-emp">' +
       '<span class="mh-av" id="mh-av">' + dashHomeAvatar(name, '') + '</span>' +
       '<span class="grow"><b>' + esc(name) + '</b>' +
       '<small>รหัสพนักงาน: <i id="mh-code">' + esc(e.code || '') + '</i></small>' +
       '<small class="mh-dept"' + (dp ? '' : ' hidden') + '>แผนก: <i id="mh-dept">' +
-      esc(dp) + '</i></small></span>' +
-      '<span class="mh-emp-x">' + icon('chevR') + '</span>' +
-      '<span class="mh-emp-st" id="mh-emp-st">' + icon('clock', 'ic-sm') +
-      '<em>กำลังตรวจสอบ…</em></span></a>' +
+      esc(dp) + '</i></small></span></div>' +
 
       '<h3 class="mh-t">รายงานของฉัน<small>สรุปเดือน ' + esc(m.label) + '</small></h3>' +
       '<div class="mh-stats" id="mh-stats">' +
@@ -556,7 +557,6 @@
       var a = (r || [])[0] || null;
       var st = document.getElementById('mh-st');
       var box = document.getElementById('mh-today');
-      var strip = document.getElementById('mh-emp-st');
       if (!st || !box) return;
       var txt, cls = '';
       if (a && a.check_in && a.check_out) {
@@ -570,16 +570,9 @@
       }
       st.textContent = txt;
       if (cls) box.classList.add(cls);
-      if (strip) {
-        var em = strip.querySelector('em');
-        if (em) em.textContent = (cls ? '' : 'วันนี้') + txt;
-        if (cls) strip.classList.add(cls);
-      }
     }).catch(function () {
       var st = document.getElementById('mh-st');
       if (st) st.textContent = 'โหลดสถานะไม่สำเร็จ';
-      var strip = document.getElementById('mh-emp-st');
-      if (strip) { var em2 = strip.querySelector('em'); if (em2) em2.textContent = 'โหลดสถานะไม่สำเร็จ'; }
     });
 
     /* ---------- รายงานเดือนนี้ + รายการรออนุมัติ ---------- */
