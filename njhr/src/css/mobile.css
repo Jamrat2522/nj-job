@@ -2334,3 +2334,39 @@ select.gf-sort {
   .sh-tbl td { font-size: 13.5px; }
   .sh-c-act .btn-icon { width: 36px; height: 36px; }
 }
+
+
+/* ============================================================
+   ขอลางาน (Mobile) — จับคู่ช่องให้อยู่แถวเดียวกัน
+   เต็มวัน   : [วันที่เริ่ม] [วันที่สิ้นสุด]
+   รายชั่วโมง : [เวลาเริ่ม] [เวลาสิ้นสุด]
+   ใช้ flex แทน grid เพื่อว่าเมื่อ JS ซ่อน #lvf-endwrap (ครึ่งวัน/รายชั่วโมง)
+   ช่องที่เหลือจะกินเต็มแถวเอง ไม่เหลือช่องว่างครึ่งจอ
+   ขอบเขต: เฉพาะ .lvf-2col ในฟอร์มขอลาเท่านั้น · Desktop (>900px) ไม่ถูกแตะ
+   ไม่แตะ Logic คำนวณวัน/ชั่วโมงลา และ Workflow อนุมัติ
+   ============================================================ */
+@media (max-width: 900px) {
+  .lvf-2col,
+  .modal-overlay.modal-full .lvf-2col {
+    display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 0 10px;
+  }
+  .lvf-2col > .field,
+  .modal-overlay.modal-full .lvf-2col > .field {
+    flex: 1 1 0; width: auto; min-width: 0; max-width: 100%;
+  }
+  .lvf-2col > .field > input,
+  .modal-overlay.modal-full .lvf-2col > .field > input {
+    width: 100%; min-width: 0; max-width: 100%;
+  }
+  /* ป้ายกำกับยาวกว่าช่อง = ตัดบรรทัดแทนดันจอกว้าง */
+  .lvf-2col > .field > span,
+  .modal-overlay.modal-full .lvf-2col > .field > span {
+    min-width: 0; overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 340px) {
+  .lvf-2col,
+  .modal-overlay.modal-full .lvf-2col { gap: 0 8px; }
+  .lvf-2col > .field > input,
+  .modal-overlay.modal-full .lvf-2col > .field > input { padding-left: 8px; padding-right: 8px; }
+}

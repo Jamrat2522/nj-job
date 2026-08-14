@@ -86,10 +86,10 @@
       [['FULL', 'เต็มวัน'], ['HALF_AM', 'ครึ่งวันเช้า'], ['HALF_PM', 'ครึ่งวันบ่าย'], ['HOURLY', 'รายชั่วโมง']].map(function (m, i2) {
         return '<button type="button" class="seg-btn' + (i2 === 0 ? ' active' : '') + '" data-mode="' + m[0] + '">' + m[1] + '</button>';
       }).join('') + '</div></label>' +
-      '<div class="form-2col">' +
+      '<div class="form-2col lvf-2col">' +
       '<label class="field"><span>วันที่เริ่ม <i class="req">*</i></span><input type="date" name="startDate" id="lvf-start" value="' + todayISO() + '"></label>' +
       '<label class="field" id="lvf-endwrap"><span>วันที่สิ้นสุด <i class="req">*</i></span><input type="date" name="endDate" id="lvf-end" value="' + todayISO() + '"></label></div>' +
-      '<div class="form-2col" id="lvf-times" style="display:none">' +
+      '<div class="form-2col lvf-2col" id="lvf-times" style="display:none">' +
       '<label class="field"><span>เวลาเริ่ม <i class="req">*</i></span><input type="time" name="startTime" id="lvf-st" value="09:00"></label>' +
       '<label class="field"><span>เวลาสิ้นสุด <i class="req">*</i></span><input type="time" name="endTime" id="lvf-et" value="12:00"></label></div>' +
       '<label class="field"><span>เหตุผลการลา <i class="req">*</i></span>' +
