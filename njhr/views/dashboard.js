@@ -484,23 +484,45 @@
     sbRpc('njhr_empfile_list', { p_token: sbToken(), p_employee: empId }).then(function (r) {
       if (seq !== dashHome.seq) return;
       var d = (r && r.data) || r || {};
-      var files = d.files || [];
-      var hit = null, i;
-      for (i = 0; i < files.length; i++) {
-        if (String(files[i].category) === 'PERSONAL' && String(files[i].doc_kind) === 'PHOTO') { hit = files[i]; break; }
-      }
-      if (!hit || !hit.id) return;
-      return fetch(String(window.NJHR_SUPABASE_URL || '') + '/functions/v1/njhr-emp-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json',
-                   'apikey': String(window.NJHR_SUPABASE_ANON_KEY || ''),
-                   'Authorization': 'Bearer ' + String(window.NJHR_SUPABASE_ANON_KEY || '') },
-        body: JSON.stringify({ action: 'download-url', token: sbToken(), file_id: hit.id })
-      }).then(function (res) { return res.ok ? res.json() : null; }).then(function (j) {
-        if (!j || !j.url) return;
-        dashHomeSetPhoto(seq, name, j.url);
+      var files = Array.isArray(d.files) ? d.files.slice() : [];
+      var list = files.filter(function (f) {
+        return String(f.category) === 'PERSONAL' && String(f.doc_kind) === 'PHOTO' && !f.deleted_at;
       });
-    }).catch(function () { });
+      list.sort(function (a, b) {
+        return String(b.updated_at || b.uploaded_at || '').localeCompare(String(a.updated_at || a.uploaded_at || ''));
+      });
+      var hit = list[0] || null;
+      if (!hit || !hit.id) return;
+
+      /* ใช้ Edge Function เดียวกับหน้า Profile เพื่อขอ Signed URL ของ bucket private
+         ไม่เขียน photo_url กลับฐานข้อมูล และไม่เปิด bucket เป็น public */
+      var base = String(window.NJHR_SUPABASE_URL ||
+        (window.NJHR_CONFIG && window.NJHR_CONFIG.supabaseUrl) || '');
+      var key = String(window.NJHR_SUPABASE_ANON_KEY ||
+        (window.NJHR_CONFIG && window.NJHR_CONFIG.supabaseAnonKey) || '');
+      if (!base || !key) return;
+      return fetch(base + '/functions/v1/njhr-emp-file', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify({ action: 'download-url', token: sbToken(), file_id: hit.id })
+      }).then(function (res) {
+        return res.text().then(function (txt) {
+          var j = null;
+          try { j = txt ? JSON.parse(txt) : null; } catch (e) { j = null; }
+          if (!res.ok || !j || !j.url) throw new Error('PROFILE_PHOTO_URL_FAILED_' + res.status);
+          return j;
+        });
+      }).then(function (j) {
+        if (seq !== dashHome.seq) return;
+        var im = new Image();
+        im.onload = function () { if (seq === dashHome.seq) dashHomeSetPhoto(seq, name, j.url); };
+        im.onerror = function () {};
+        im.src = j.url;
+      });
+    }).catch(function (ex) {
+      try { console.warn('[DASHBOARD] โหลดรูปโปรไฟล์มือถือไม่สำเร็จ:', ex && ex.message ? ex.message : 'UNKNOWN'); } catch (e) {}
+    });
   }
 
   function dashMobileHome(el) {

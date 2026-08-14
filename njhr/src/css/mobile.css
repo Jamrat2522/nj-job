@@ -1846,6 +1846,13 @@ select.gf-sort {
 .att-mb-st.s-gps.bad b { color: #B91C1C; } .att-mb-st.s-gps.bad small { color: #B91C1C; }
 
 /* ใบหน้า — รอ = ฟ้าจาง · พร้อม = ฟ้าเข้ม */
+/* Mobile attendance only: legacy face-status card must never remain visible on the page.
+   Face Attendance logic is unchanged and still starts from the IN/OUT buttons. */
+@media (max-width: 900px) {
+  #att-mb #attmb-face,
+  #att-mb .att-mb-st.s-face { display: none !important; }
+}
+
 .att-mb-st.s-face { background: linear-gradient(120deg, #E6EEFB 0%, #F7FAFF 100%); }
 .att-mb-st.s-face .att-mb-ic { background: #64748B; }
 .att-mb-st.s-face .att-mb-ic2 { background: #E2E8F0; color: #64748B; }
