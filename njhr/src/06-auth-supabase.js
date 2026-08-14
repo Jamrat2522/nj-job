@@ -67,6 +67,7 @@
        njhr_face_login สร้าง session · njhr_face_self_enroll เขียนทะเบียนใบหน้า
        njhr_face_login_set เปลี่ยนสวิตช์ความปลอดภัยของบัญชี */
     'njhr_face_login': 1, 'njhr_face_login_set': 1, 'njhr_face_self_enroll': 1,
+    'njhr_face_self_reenroll': 1,
     'njhr_logout': 1, 'njhr_notify_read': 1, 'njhr_notify_read_all': 1, 'njhr_ot_attach_add': 1,
     'njhr_ot_attach_delete': 1, 'njhr_pay_entry_bulk': 1, 'njhr_pay_entry_copy_apply': 1, 'njhr_pay_entry_delete': 1,
     'njhr_pay_entry_save': 1, 'njhr_pay_entry_set_active': 1, 'njhr_pay_item_delete': 1, 'njhr_pay_item_reorder': 1,

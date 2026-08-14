@@ -317,7 +317,7 @@
   ];
 
   function pfInfoHtml() {
-    return '<section class="pfm-info" id="pfm-info" hidden ' +
+    return '<section class="pfm-info" id="pfm-info" ' +
       'aria-labelledby="pfm-info-h">' +
       '<div class="pfm-info-h" id="pfm-info-h">' + icon('user', 'ic-sm') +
       '<b>ข้อมูลส่วนตัว</b>' +
@@ -344,6 +344,13 @@
       var t = String(v[r[0]] == null ? '' : v[r[0]]).trim();
       el.textContent = t === '' ? '-' : t;
     });
+    /* หัวการ์ดพนักงานใน Detail ใช้ผลจาก njhr_me_get ชุดเดียวกันเป็นแหล่งจริง */
+    var hn = document.getElementById('pfm-emp-name');
+    var hc = document.getElementById('pfm-emp-code');
+    var hd = document.getElementById('pfm-emp-dept');
+    if (hn) hn.textContent = String(v.name || '').trim() || '-';
+    if (hc) hc.textContent = String(v.code || '').trim() || '-';
+    if (hd) hd.textContent = String(v.dept || '').trim() || '-';
   }
 
   /* เปิด/ปิด "ข้อมูลส่วนตัว" บนมือถือ
@@ -577,9 +584,9 @@
       '<span class="pfm-cam" id="pfm-cam" role="button" tabindex="0" ' +
       'aria-label="เปลี่ยนรูปโปรไฟล์" title="เปลี่ยนรูปโปรไฟล์">' + icon('camera') + '</span>' +
       '<input type="file" id="pfm-photo" accept="image/jpeg,image/png,image/webp" hidden></span>' +
-      '<div class="grow"><b>' + esc(name) + '</b>' +
-      '<small>รหัสพนักงาน: <i>' + esc((e && e.code) || '—') + '</i></small>' +
-      '<small>แผนก: <i>' + esc((e && dept(e.deptId)) || '—') + '</i></small></div></div>' +
+      '<div class="grow"><b id="pfm-emp-name">' + esc(name) + '</b>' +
+      '<small>รหัสพนักงาน: <i id="pfm-emp-code">' + esc((e && e.code) || '—') + '</i></small>' +
+      '<small>แผนก: <i id="pfm-emp-dept">—</i></small></div></div>' +
       '<div class="pfm-photo-msg" id="pfm-photo-msg" hidden></div>' +
       pfInfoHtml() +
       pfSecHtml();
