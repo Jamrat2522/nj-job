@@ -424,7 +424,13 @@
     if (h2 && b != null) h2.textContent = b;
   }
   function stepsHtml(state, msg, isErr) {
-    var names = [['ตรวจคนจริง', 'live'], ['เทียบใบหน้า', 'match'], ['ตรวจ GPS', 'gps']];
+    /* แสดงเฉพาะขั้นที่มีอยู่ใน state จริง
+       ⚠ เข้าสู่ระบบด้วยใบหน้าไม่ส่ง gps มา จึงต้องไม่โชว์ขั้น "ตรวจ GPS"
+         (เดิมโชว์ตายตัว 3 ขั้น ทำให้ผู้ใช้เข้าใจผิดว่า Face Login ใช้ตำแหน่ง) */
+    var names = [['ตรวจคนจริง', 'live'], ['เทียบใบหน้า', 'match'], ['ตรวจ GPS', 'gps']]
+      .filter(function (n) {
+        return Object.prototype.hasOwnProperty.call(state || {}, n[1]);
+      });
     var icons = { live: '&#128100;', match: '&#128373;', gps: '&#128205;' };
     var txt = { wait: 'รอดำเนินการ', run: 'กำลังตรวจสอบ', ok: 'ผ่าน', bad: 'ไม่ผ่าน' };
     return '<div class="njf-steps">' + names.map(function (n, i) {
@@ -533,16 +539,20 @@
         return grabFrames(6, function (warn) { if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…'); });
       })
       .then(function (frames) {
+        /* ---------- ตรวจบุคคลจริงแบบไม่ต้องทำท่าทาง ----------
+           ⚠ การลงเวลาปกติต้องไม่บังคับกระพริบตา / หันซ้าย / หันขวา
+             พนักงานแค่มองกล้อง ระบบตรวจเอง
+           ถ้ารอบแรกยังตัดสินไม่ได้ ให้เก็บภาพเพิ่มอีกชุดแล้วตรวจซ้ำเงียบ ๆ
+           ไม่ขอให้ผู้ใช้ทำอะไรเพิ่ม — ยังไม่ผ่านค่อยแจ้งให้กด "ลองใหม่" */
         var lv = passiveLiveness(frames);
         if (lv.pass) return { frames: frames, live: lv };
         if (!lv.challenge) throw new Error(lv.reason);
-        setMsg(lv.reason, false);
-        hint('กรุณากระพริบตา 1 ครั้ง', 'ระบบกำลังยืนยันว่าเป็นบุคคลจริง');
-        return blinkChallenge(function (t) { setMsg(t); }).then(function (ok) {
-          if (!ok) throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณาลองใหม่');
-          return grabFrames(3, null).then(function (f2) {
-            return { frames: f2, live: { pass: true, score: lv.score, method: 'BLINK' } };
-          });
+        setMsg('กำลังตรวจสอบบุคคลจริง…', false);
+        hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
+        return grabFrames(8, null).then(function (f2) {
+          var lv2 = passiveLiveness(f2);
+          if (lv2.pass) return { frames: f2, live: lv2 };
+          throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณามองกล้องให้ชัดแล้วลองใหม่');
         });
       })
       .then(function (ctx) {
@@ -761,10 +771,14 @@
     { key: 'RIGHT', label: 'หันขวา',   icon: '&#10145;',  hint: 'หันหน้าไปทางขวาเล็กน้อย',   test: function (y) { return y < -0.20; } }
   ];
 
-  function enroll(employeeId, onDone) {
+  function enroll(employeeId, onDone, opts) {
     if (S.busy) return;
     S.busy = true;
-    shell('ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
+    /* opts.password มีค่า = "ลงทะเบียนใบหน้าใหม่" (ทับของเดิม)
+       ต้องยืนยันรหัสผ่านมาแล้วจากหน้าข้อมูลส่วนตัว และฐานข้อมูลตรวจซ้ำอีกชั้น
+       ⚠ ของเดิมจะถูกแทนที่ก็ต่อเมื่อ RPC สำเร็จเท่านั้น — ระหว่างถ่าย 3 มุมไม่แตะของเดิมเลย */
+    var reNew = !!(opts && opts.password);
+    shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
     var got = [], idx = 0, snapPath = null;
 
     function drawPoses(msg, err) {
@@ -828,16 +842,24 @@
          พนักงานเป้าหมายมาจาก session ฝั่งฐานข้อมูลเท่านั้น จึงลงทะเบียนแทนคนอื่นไม่ได้
          ถ้าระบุ employeeId (หน้าจัดการพนักงานของ HR) ยังใช้ njhr_face_enroll เดิม */
       var isSelf = !employeeId;
-      var body = isSelf
-        ? { p_token: token(), p_descriptors: got,
-            p_quality: { samples: got.length, captured_at: new Date().toISOString() },
-            p_snapshot: snapPath }
-        : { p_token: token(), p_employee: employeeId, p_descriptors: got,
-            p_quality: { samples: got.length, captured_at: new Date().toISOString() },
-            p_snapshot: snapPath };
-      rpc(isSelf ? 'njhr_face_self_enroll' : 'njhr_face_enroll', body).then(function (r) {
+      var q = { samples: got.length, captured_at: new Date().toISOString() };
+      var fnName, body;
+      if (!isSelf) {
+        fnName = 'njhr_face_enroll';
+        body = { p_token: token(), p_employee: employeeId, p_descriptors: got,
+                 p_quality: q, p_snapshot: snapPath };
+      } else if (reNew) {
+        fnName = 'njhr_face_self_reenroll';
+        body = { p_token: token(), p_password: opts.password, p_descriptors: got,
+                 p_quality: q, p_snapshot: snapPath };
+      } else {
+        fnName = 'njhr_face_self_enroll';
+        body = { p_token: token(), p_descriptors: got, p_quality: q, p_snapshot: snapPath };
+      }
+      rpc(fnName, body).then(function (r) {
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
-          '<div class="njf-msg"><b>ลงทะเบียนใบหน้าสำเร็จ</b><br>เก็บใบหน้าไว้ ' +
+          '<div class="njf-msg"><b>' + (reNew ? 'ลงทะเบียนใบหน้าใหม่สำเร็จ' : 'ลงทะเบียนใบหน้าสำเร็จ') +
+          '</b><br>เก็บใบหน้าไว้ ' +
           ((r && r.sample_count) || got.length) + ' มุม</div>' +
           '<div class="njf-actions" id="njf-act"></div>');
         actions([{ label: 'เสร็จสิ้น', style: 'primary', on: function () {
@@ -848,7 +870,7 @@
         actions([
           { label: 'ปิด', style: 'plain', on: close },
           { label: 'ลองใหม่', style: 'primary', on: function () {
-            close(); setTimeout(function () { enroll(employeeId, onDone); }, 60);
+            close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
           } }
         ]);
       });
@@ -880,6 +902,15 @@
      ⚠ ไม่ถ่าย Snapshot และไม่สร้าง Attendance — เข้าสู่ระบบอย่างเดียว
      การตัดสินว่าใบหน้านี้เป็นใครทำที่ฐานข้อมูลทั้งหมด (njhr_face_login)
      เบราว์เซอร์ส่งไปแค่เวกเตอร์ของหน้าตัวเอง ไม่เคยได้รับทะเบียนใบหน้าของใคร */
+  /* ข้อความที่พนักงานเห็น — ส่งต่อเฉพาะข้อความภาษาไทยที่ระบบเราตั้งใจสื่อสารเอง
+     ข้อความอังกฤษจากฐานข้อมูล/PostgREST ถือเป็นข้อผิดพลาดทางเทคนิค แสดงเป็นข้อความกลาง */
+  function faceUserMsg(e) {
+    var raw = (e && e.message) || '';
+    if (/[\u0E00-\u0E7F]/.test(raw)) return raw;
+    return 'ไม่สามารถเข้าสู่ระบบด้วยใบหน้าได้ในขณะนี้ ' +
+           'กรุณาลองใหม่หรือเข้าสู่ระบบด้วยรหัสผ่าน';
+  }
+
   function login(onOk, onCancel) {
     if (S.busy) return;
     S.busy = true;
@@ -942,7 +973,10 @@
       ['catch'](function (e) {
         closeCam();
         st.match = 'bad';
-        panel(stepsHtml(st, (e && e.message) || 'เข้าสู่ระบบด้วยใบหน้าไม่สำเร็จ', true));
+        /* ⚠ Error ดิบจากฐานข้อมูล/PostgREST (เช่น schema cache) ห้ามโชว์ให้พนักงาน
+           แต่ต้องไม่กลบจนตรวจปัญหาไม่ได้ — Console ยังเห็นข้อความจริงเสมอ */
+        try { console.error('[FACE LOGIN] ล้มเหลว:', e); } catch (e2) {}
+        panel(stepsHtml(st, faceUserMsg(e), true));
         actions([
           { label: 'เข้าสู่ระบบด้วยรหัสผ่าน', style: 'plain', on: function () {
             close(); if (typeof onCancel === 'function') onCancel();

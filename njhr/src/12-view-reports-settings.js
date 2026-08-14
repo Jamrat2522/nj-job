@@ -2175,7 +2175,10 @@
       ['ADJACENT_HOLIDAY', 'ลาต่อเนื่องกับวันหยุด'], ['BACKDATED', 'ลาย้อนหลัง']],
     OT: [['ALL', 'ทุกคำขอ'], ['HOURS_GT', 'OT เกิน … ชั่วโมง'], ['JOB_TYPE', 'ประเภทงานที่กำหนด'],
       ['JOB_COUNT_GT', 'จำนวน JOB มากกว่า …'], ['HOLIDAY', 'OT ในวันหยุด'],
-      ['PUBLIC_HOLIDAY', 'OT ในวันหยุดนักขัตฤกษ์']]
+      ['PUBLIC_HOLIDAY', 'OT ในวันหยุดนักขัตฤกษ์']],
+    /* ลงชื่อย้อนหลัง — ตอนนี้ต้องการให้ทุกคำขอเข้าผังอนุมัติ
+       ยังไม่มี Requirement ให้แยกเงื่อนไข จึงมีค่าเดียว ห้ามเพิ่มเองโดยไม่มีโจทย์ */
+    CORRECTION: [['ALL', 'ทุกคำขอ']]
   };
   var AS_COND_NEEDVAL = ['DAYS_GT', 'DAYS_GTE', 'LEAVE_TYPE', 'HOURS_GT', 'JOB_TYPE', 'JOB_COUNT_GT'];
 
@@ -2191,9 +2194,9 @@
   var AS_TYPES = [
     { code: 'LEAVE', label: 'การลางาน', ovKey: 'leave_steps' },
     { code: 'OT', label: 'การขอ OT', ovKey: 'ot_steps' },
-    // ประเภทที่ 3 — njhr_wf_overview ยังไม่มีคอลัมน์นับขั้นของ CORRECTION
-    // จึงตั้ง ovKey เป็น null แล้วข้ามแถบเตือน "ยังไม่ได้ตั้งผู้อนุมัติ" ของประเภทนี้
-    { code: 'CORRECTION', label: 'ลงชื่อย้อนหลัง', ovKey: null }
+    /* njhr_wf_overview คืน correction_steps แล้ว (98_wf_correction_manage.sql)
+       จึงเตือนแผนกที่ยังไม่มีผังอนุมัติได้เหมือน LEAVE / OT */
+    { code: 'CORRECTION', label: 'ลงชื่อย้อนหลัง', ovKey: 'correction_steps' }
   ];
   function asTypeDef(code) {
     for (var i = 0; i < AS_TYPES.length; i++) if (AS_TYPES[i].code === code) return AS_TYPES[i];

@@ -324,7 +324,12 @@
         p_device_key: sbFaceLoginKey(),
         p_ua: (navigator.userAgent || '').slice(0, 200)
       })
-    }).then(sbLoginParse);
+    }).then(sbLoginParse)['catch'](function (e) {
+      /* ⚠ เก็บข้อความจริงไว้ใน Console เสมอ — face.js เป็นผู้แปลงเป็นข้อความที่ผู้ใช้อ่านได้
+         ห้ามกลบจนตรวจปัญหาไม่ได้ (เช่น schema cache / signature ไม่ตรง) */
+      try { console.error('[FACE LOGIN RPC] njhr_face_login ล้มเหลว:', e); } catch (e2) {}
+      throw e;
+    });
   }
 
   window.NJHR_faceLogin = function (descriptor, method) {

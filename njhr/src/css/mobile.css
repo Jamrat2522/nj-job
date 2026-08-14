@@ -2218,3 +2218,17 @@ select.gf-sort {
 
 /* ปุ่มสแกนใบหน้าเข้าสู่ระบบ บนหน้า Login (มือถือเท่านั้น) */
 .lg-face-btn { margin-bottom: 8px; min-height: 48px; }
+
+/* ---------- การ์ดความปลอดภัยฯ: กันปุ่มหลุดจอ / ถูกแถบล่างบัง ----------
+   อยู่ใน .only-mobile pfm จึงไม่กระทบ Desktop */
+.pfm-sec { max-width: 100%; overflow-x: hidden; }
+.pfm-sec-act { max-width: 100%; }
+.pfm-sec-act .btn {
+  max-width: 100%; width: 100%; box-sizing: border-box;
+  white-space: normal; word-break: break-word;
+}
+/* เผื่อพื้นที่ท้ายหน้าให้พ้นแถบเมนูล่าง + Safe Area ของ iPhone */
+.pfm { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 360px) {
+  .pfm-sec-act .btn { font-size: 14.5px; padding-left: 10px; padding-right: 10px; }
+}

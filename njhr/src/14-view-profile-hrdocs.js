@@ -31,17 +31,58 @@
   var PF_PHOTO_MAX = 10 * 1024 * 1024;        // ตรงกับ EMPF_MAX และ MAX_SIZE ใน Edge Function
   var PF_PHOTO_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
+  /* ---------- ข้อผิดพลาดของระบบรูปโปรไฟล์ ----------
+     ⚠ ห้ามปล่อยข้อความดิบของเบราว์เซอร์ (เช่น "Load failed" ของ Safari/iPhone,
+       "Failed to fetch" ของ Chrome) ออกหน้าจอ เพราะผู้ใช้อ่านไม่รู้เรื่อง
+       และไม่บอกว่าพังขั้นไหน
+     ทุกข้อผิดพลาดจะถูกติดป้ายขั้นตอน (pfStep) ไว้ก่อน แล้วแปลงเป็นข้อความไทยตอนแสดงผล
+     รายละเอียดจริงลง Console เท่านั้น และต้องไม่มี token / signed url / key หลุดออกมา */
+  /* ข้อความที่ผู้ใช้เห็น — ต้องเป็นภาษาไทยเสมอ
+     ถ้าเป็นข้อความอังกฤษดิบของเบราว์เซอร์ ("Load failed" / "Failed to fetch" / "NetworkError")
+     ให้แทนด้วยข้อความที่บอกได้ว่าติดที่การเชื่อมต่อบริการอัปโหลด */
+  function pfPhotoUserMsg(ex) {
+    var m = (ex && ex.message) || '';
+    if (/[\u0E00-\u0E7F]/.test(m)) return m;
+    return 'ไม่สามารถเชื่อมต่อบริการอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง';
+  }
+
+  function pfStepErr(step, msg, cause) {
+    var e = new Error(msg);
+    e.pfStep = step;
+    if (cause) e.pfCause = cause;
+    return e;
+  }
+
+  /* ล้างค่าที่เป็นความลับออกก่อนเขียน Console — กัน Signed URL / token / key รั่ว */
+  function pfSafeDetail(x) {
+    var t = (x && (x.message || x.error)) ? String(x.message || x.error) : String(x || '');
+    return t.replace(/https?:\/\/[^\s"']+/gi, '[url]')
+            .replace(/(token|apikey|key|signature|jwt)=[^&\s"']*/gi, '$1=[hidden]')
+            .replace(/eyJ[A-Za-z0-9_.-]{10,}/g, '[token]')
+            .slice(0, 300);
+  }
+
   function pfEmpFn(body) {
-    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    if (!sbReady()) {
+      return Promise.reject(pfStepErr('CONFIG', 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    }
     return fetch(SB.url + '/functions/v1/njhr-emp-file', {
       method: 'POST',
       headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({ token: sbToken() }, body || {}))
+    })['catch'](function (ne) {
+      /* fetch โยน TypeError เมื่อต่อไม่ติด — รวมกรณีที่ Edge Function ยังไม่ถูก Deploy
+         Safari แสดงเป็น "Load failed" · Chrome แสดงเป็น "Failed to fetch" */
+      throw pfStepErr('EDGE_UNREACHABLE',
+        'ไม่สามารถเชื่อมต่อบริการอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง', ne);
     }).then(function (r) {
       return r.text().then(function (t) {
         var d = {};
         try { d = JSON.parse(t); } catch (e) { d = {}; }
-        if (!r.ok) throw new Error(d.error || 'เข้าถึงไฟล์ไม่สำเร็จ (' + r.status + ')');
+        if (!r.ok) {
+          throw pfStepErr('EDGE_ERROR',
+            d.error || 'เข้าถึงไฟล์ไม่สำเร็จ (' + r.status + ')', 'HTTP ' + r.status);
+        }
         return d;
       });
     });
@@ -170,14 +211,19 @@
       category: 'PERSONAL', doc_kind: 'PHOTO',
       file_name: file.name, size: file.size
     }).then(function (d) {
-      if (!d.upload_url || !d.path) throw new Error('ขอสิทธิ์อัปโหลดไม่สำเร็จ');
+      if (!d.upload_url || !d.path) {
+        throw pfStepErr('SIGN_URL', 'ไม่สามารถขอสิทธิ์อัปโหลดรูปได้');
+      }
       return fetch(d.upload_url, {
         method: 'PUT',
         headers: { 'Content-Type': file.type || 'application/octet-stream' },
         body: file
+      })['catch'](function (ne) {
+        throw pfStepErr('PUT_STORAGE', 'อัปโหลดรูปไปยัง Storage ไม่สำเร็จ', ne);
       }).then(function (r) {
         if (!r.ok) return r.text().then(function (t) {
-          throw new Error('อัปโหลดไม่สำเร็จ: ' + String(t).slice(0, 120));
+          throw pfStepErr('PUT_STORAGE', 'อัปโหลดรูปไปยัง Storage ไม่สำเร็จ',
+            'HTTP ' + r.status + ' ' + String(t).slice(0, 120));
         });
         return { name: file.name, path: d.path, mime: file.type || '', size: file.size };
       });
@@ -189,6 +235,10 @@
         p_category: 'PERSONAL', p_doc_kind: 'PHOTO',
         p_file: f, p_id: (pfPhotoCur && pfPhotoCur.id) || null,
         p_document_date: null, p_expiry_date: null, p_note: null
+      })['catch'](function (se) {
+        /* ไฟล์ขึ้น Storage แล้วแต่ทะเบียนไฟล์ไม่ถูกบันทึก — ต้องบอกให้ตรงความจริง */
+        throw pfStepErr('SAVE_RECORD',
+          'อัปโหลดไฟล์แล้ว แต่บันทึกข้อมูลรูปโปรไฟล์ไม่สำเร็จ', se);
       });
     }).then(function () {
       return pfPhotoLoad(empId);           // ดึงรูปล่าสุดกลับมาแสดงทันที
@@ -198,9 +248,14 @@
       pfPhotoMsg('อัปโหลดรูปเรียบร้อย', false);
       toast('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว');
     })['catch'](function (ex) {
-      console.error('[PROFILE] อัปโหลดรูปล้มเหลว:', ex);
+      /* Console เห็นขั้นตอนที่พัง + รายละเอียดที่ล้างความลับแล้ว */
+      try {
+        console.error('[PROFILE] อัปโหลดรูปล้มเหลว · ขั้นตอน=' +
+          ((ex && ex.pfStep) || 'UNKNOWN') + ' · ' + pfSafeDetail(ex && ex.pfCause) +
+          ' · ' + pfSafeDetail(ex));
+      } catch (e2) {}
       pfRestoreAva();                      // ล้มเหลว → คืนรูปเดิม ห้ามค้าง Preview
-      pfPhotoMsg((ex && ex.message) || 'อัปโหลดรูปไม่สำเร็จ', true);
+      pfPhotoMsg(pfPhotoUserMsg(ex), true);
     }).then(function () {
       pfPhotoBusy = false;
       if (cam) cam.classList.remove('is-busy');
@@ -367,21 +422,40 @@
       var enrolled = !!(s && s.enrolled);
       st.textContent = on ? 'เปิดใช้งาน' : (enrolled ? 'ปิดใช้งาน' : 'ยังไม่ได้ตั้งค่า');
       st.className = on ? 'is-on' : '';
-      act.innerHTML = on
-        ? '<button type="button" class="btn btn-ghost btn-block" id="pfsec-off">' +
-          'ปิดการเข้าสู่ระบบด้วยใบหน้า</button>'
-        : '<button type="button" class="btn btn-dark btn-block" id="pfsec-on">' +
-          icon('camera') + ' ตั้งค่าสแกนใบหน้าเข้าสู่ระบบ</button>';
+      /* ปุ่ม "ลงทะเบียนใบหน้าใหม่" แสดงเมื่อมีใบหน้าต้นแบบอยู่แล้วเท่านั้น */
+      act.innerHTML =
+        (on ? '' : '<button type="button" class="btn btn-dark btn-block" id="pfsec-on">' +
+                   icon('camera') + ' ตั้งค่าสแกนใบหน้าเข้าสู่ระบบ</button>') +
+        (enrolled ? '<button type="button" class="btn btn-ghost btn-block" id="pfsec-re">' +
+                    'ลงทะเบียนใบหน้าใหม่</button>' : '') +
+        (on ? '<button type="button" class="btn btn-ghost btn-block" id="pfsec-off">' +
+              'ปิดการเข้าสู่ระบบด้วยใบหน้า</button>' : '');
       bind(enrolled);
     }
 
     function load() {
+      var st = document.getElementById('pfsec-st');
+      var act = document.getElementById('pfsec-act');
+      if (st) { st.textContent = 'กำลังตรวจสอบสถานะ…'; st.className = ''; }
+      if (act) act.innerHTML = '';
+      pfSecMsg('');
       sbRpc('njhr_face_login_status', { p_token: sbToken() })
         .then(paint)
         ['catch'](function (e) {
-          var st = document.getElementById('pfsec-st');
-          if (st) st.textContent = 'ตรวจสอบสถานะไม่สำเร็จ';
-          console.error('[PROFILE] njhr_face_login_status ล้มเหลว:', e);
+          /* ⚠ Error ดิบจากฐานข้อมูล/PostgREST ห้ามโชว์ให้พนักงาน
+             แต่ Console ต้องเห็นข้อความจริงเสมอเพื่อให้ตรวจปัญหาได้ */
+          try { console.error('[PROFILE] njhr_face_login_status ล้มเหลว:', e); } catch (e2) {}
+          var st2 = document.getElementById('pfsec-st');
+          var act2 = document.getElementById('pfsec-act');
+          if (st2) st2.textContent = 'ไม่สามารถตรวจสอบสถานะได้';
+          /* ต้องมีทางออกให้ผู้ใช้เสมอ — ห้ามค้างจนกดอะไรไม่ได้ */
+          if (act2) {
+            act2.innerHTML = '<button type="button" class="btn btn-ghost btn-block" ' +
+              'id="pfsec-retry">ลองใหม่</button>';
+            var rb = document.getElementById('pfsec-retry');
+            if (rb) rb.onclick = function () { load(); };   // ยิง Request ใหม่จริง
+          }
+          pfSecMsg('ไม่สามารถตรวจสอบสถานะการสแกนใบหน้าได้ กรุณาลองใหม่', true);
         });
     }
 
@@ -408,6 +482,24 @@
                 load();
               });
             });
+          });
+        })['catch'](function (e) {
+          pfSecMsg((e && e.message) || 'ดำเนินการไม่สำเร็จ', true);
+        });
+      };
+      var re = document.getElementById('pfsec-re');
+      if (re) re.onclick = function () {
+        pfSecMsg('');
+        pfSecAskPw('ลงทะเบียนใบหน้าใหม่', 'ยืนยัน').then(function (pw) {
+          if (!pw) return;
+          /* ⚠ ส่งรหัสผ่านเข้า enroll เพื่อให้ใช้ njhr_face_self_reenroll
+             ใบหน้าต้นแบบเดิมจะถูกแทนที่ก็ต่อเมื่อ RPC สำเร็จเท่านั้น
+             ถ้ากล้องปิด / Liveness ไม่ผ่าน / มุมไม่ครบ / RPC ล้ม → ของเดิมยังใช้ได้ */
+          return pfSecFaceModule().then(function () {
+            window.NJHRFace.enroll(null, function () {
+              pfSecMsg('ลงทะเบียนใบหน้าใหม่สำเร็จ', false);
+              load();
+            }, { password: pw });
           });
         })['catch'](function (e) {
           pfSecMsg((e && e.message) || 'ดำเนินการไม่สำเร็จ', true);
