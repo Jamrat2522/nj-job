@@ -2873,12 +2873,35 @@
     };
   }
 
-  /* ย้ายกะรายคน — ใช้ shAssignMany เส้นทางเดิม (njhr_shift_assign_many) ไม่มีตรรกะใหม่ */
+  /* ปลายทางพิเศษของหน้า UI เท่านั้น — Backend ยังคงใช้ status NO_SHIFT เดิม
+     เพื่อไม่ปะปนกับ UUID ของ work_shifts */
+  var SH_NO_SHIFT = '__NO_SHIFT__';
+  function shMoveOptions(excludeShiftId, includePlaceholder) {
+    var out = includePlaceholder === false ? '' : '<option value="">— เลือกกะ —</option>';
+    out += '<option value="' + SH_NO_SHIFT + '">ไม่มีกะ</option>';
+    out += shState.shifts.filter(function (s) {
+      return s.is_active && (!excludeShiftId || String(s.id) !== String(excludeShiftId));
+    }).map(function (s) {
+      return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
+    }).join('');
+    return out;
+  }
+  function shMoveLabel(dest) {
+    if (dest === SH_NO_SHIFT) return 'ไม่มีกะ';
+    var w = shFind(dest);
+    return w ? w.shift_name : '';
+  }
+  function shMoveMany(ids, dest, dt, btn, el) {
+    if (dest === SH_NO_SHIFT) return shNoShiftSet(ids, dt, true, btn, el);
+    return shAssignMany(ids, dest, dt, btn, el);
+  }
+
+  /* ย้ายกะรายคน — Dropdown เดียวรองรับ กะ→กะ และ กะ→ไม่มีกะ
+     effective_date และประวัติทั้งหมดตัดสิน/เก็บที่ Backend เหมือนเดิม */
   function shMoveOne(empId, el) {
     if (!shCanManage()) { toast('คุณไม่มีสิทธิ์จัดการกะทำงาน', 'error'); return; }
     var e = shFindAssigned(empId);
     if (!e) { shErr('ไม่พบข้อมูลพนักงาน — กำลังโหลดใหม่'); shLoad(el); return; }
-    var opts = shState.shifts.filter(function (s) { return s.is_active && s.id !== e.shift_id; });
     openModal('ย้ายกะพนักงาน',
       '<div class="fm-emp">' + avatarHTML(e.full_name, 44) +
       '<span class="grow"><b>' + esc(e.full_name) + '</b>' +
@@ -2887,43 +2910,41 @@
       '<div class="sh-mv-now"><small>กะปัจจุบัน</small>' +
       shShiftBadge(e.shift_name, e.shift_time, e.shift_active) +
       (e.effective_date ? '<small>เริ่มใช้กะ ' + empBE(e.effective_date) + '</small>' : '') + '</div>' +
-      (opts.length
-        ? '<label class="field"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shmv-to">' +
-          '<option value="">— เลือกกะ —</option>' +
-          opts.map(function (s) {
-            return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
-          }).join('') + '</select></label>' +
-          '<label class="field"><span>วันที่มีผล <i class="req">*</i></span>' +
-          '<input type="date" id="shmv-date" value="' + shTodayBKK() + '"></label>' +
-          '<p class="muted note">ประวัติกะเดิมก่อนวันที่มีผลยังคงอยู่ครบ ไม่ถูกลบ</p>'
-        : '<p class="muted note">ยังไม่มีกะอื่นที่เปิดใช้งานให้ย้ายไป</p>') +
+      '<label class="field"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shmv-to">' +
+      shMoveOptions(e.shift_id, true) + '</select></label>' +
+      '<label class="field"><span>วันที่มีผล <i class="req">*</i></span>' +
+      '<input type="date" id="shmv-date" value="' + shTodayBKK() + '"></label>' +
+      '<p class="muted note">ก่อนวันที่มีผลยังใช้กะเดิม · เมื่อเลือก “ไม่มีกะ” จะหยุดบังคับลงเวลา/สแกนหน้าเมื่อถึงวันที่มีผล · ประวัติเดิมไม่ถูกลบ</p>' +
       '<div class="form-error" id="shmv-err" role="alert"></div>',
       '<button class="btn btn-ghost" id="shmv-cancel">ยกเลิก</button>' +
-      (opts.length ? '<button class="btn btn-primary" id="shmv-go">' + icon('send') + ' ย้ายกะ</button>' : ''));
+      '<button class="btn btn-primary" id="shmv-go">' + icon('send') + ' ย้ายกะ</button>');
     document.getElementById('shmv-cancel').onclick = closeModal;
-    var go = document.getElementById('shmv-go');
-    if (!go) return;
-    go.onclick = function () {
+    document.getElementById('shmv-go').onclick = function () {
       var btn = this, eb = document.getElementById('shmv-err');
       var to = document.getElementById('shmv-to').value;
       var dt = document.getElementById('shmv-date').value;
       eb.textContent = '';
       if (!to) { eb.textContent = 'กรุณาเลือกกะปลายทาง'; return; }
       if (!dt) { eb.textContent = 'กรุณาเลือกวันที่มีผล'; return; }
-      var w = shFind(to);
-      shAssignMany([empId], to, dt, btn, el).then(function (res) {
-        var same = (res || []).filter(function (x) { return x.result === 'UNCHANGED'; }).length;
-        if (same) { eb.textContent = 'พนักงานอยู่ในกะนี้อยู่แล้ว — ไม่ได้สร้างรายการซ้ำ'; return; }
-        if (res) closeModal();
-      });
-      if (w) { /* ชื่อกะปลายทางใช้ยืนยันในข้อความ toast ของ shAssignMany เดิม */ }
+      var label = shMoveLabel(to);
+      confirmDialog('ย้ายกะ',
+        'ย้าย <b>' + esc(e.full_name) + '</b> จาก <b>' + esc(e.shift_name) + '</b>' +
+        ' ไป <b>' + esc(label) + '</b><br>มีผลตั้งแต่ <b>' + empBE(dt) + '</b>' +
+        '<br><small class="muted">ประวัติกะและประวัติลงเวลาเดิมจะไม่ถูกลบหรือแก้ย้อนหลัง</small>',
+        'ย้ายกะ', function () {
+          return shMoveMany([empId], to, dt, btn, el).then(function (res) {
+            var same = (res || []).filter(function (x) { return x.result === 'UNCHANGED'; }).length;
+            if (same) { eb.textContent = 'สถานะปลายทางนี้มีผลอยู่แล้ว — ไม่ได้สร้างรายการซ้ำ'; return; }
+            if (res) closeModal();
+          });
+        }, to === SH_NO_SHIFT);
     };
   }
 
   /* ประวัติกะย้อนหลังรายคน — อ่านจาก njhr_shift_history (RPC ใหม่ อ่านอย่างเดียว)
      สิทธิ์ตัดสินฝั่งฐานข้อมูล ที่นี่แค่แสดงผลและแปลง Error เป็นข้อความไทย */
   var SH_HIST_ST = { ACTIVE: ['ใช้งานกะนี้', 'sh-t-green'], REMOVED: ['นำออกจากกะ', 'sh-t-warn'],
-                     NO_SHIFT: ['ไม่ใช้กะ', 'sh-t-off2'] };
+                     NO_SHIFT: ['ไม่มีกะ', 'sh-t-off2'] };
   function shHistStatus(st) {
     var m = SH_HIST_ST[String(st || '').toUpperCase()] || [String(st || '—'), 'sh-t-off2'];
     return '<span class="sh-badge ' + m[1] + '">' + esc(m[0]) + '</span>';
@@ -3105,9 +3126,6 @@
         return '<option value="' + o[0] + '"' + (shSort === o[0] ? ' selected' : '') +
           '>เรียงตาม: ' + o[1] + '</option>';
       }).join('') + '</select>' +
-      (currentUser().role === 'SUPER_ADMIN'
-        ? '<button class="btn btn-ghost sh-migbtn" id="sh-migrate" title="นำเข้ากะเดิมจากเครื่องนี้">' + icon('history') +
-          ' <span class="sh-btxt">นำเข้ากะเดิมจากเครื่องนี้</span></button>' : '') +
       (manage ? '<button class="btn btn-primary sh-addbtn" id="sh-add2">' + icon('plus') + ' เพิ่มกะทำงาน</button>' : '') +
       '</div>' +
 
@@ -3131,9 +3149,6 @@
     document.getElementById('sh-sort').onchange = function () { shSort = this.value; shRender(el); };
     var ab = document.getElementById('sh-add2');
     if (ab) ab.onclick = function () { shiftForm(null, el); };
-    var mb = document.getElementById('sh-migrate');
-    if (mb) mb.onclick = function () { shMigrateTool(el); };
-
     box.onclick = function (ev) {
       var b = ev.target.closest
         ? ev.target.closest('[data-edit],[data-emp],[data-toggle],[data-del],[data-more],[data-copy],[data-shmove],[data-shinfo],[data-shhist]') : null;
@@ -3288,18 +3303,13 @@
           }).join('') + '</tbody></table></div>' +
           (manage
             ? '<div class="sh-actbar">' +
-              '<label class="field sh-f"><span>ย้ายเข้ากะ <i class="req">*</i></span><select id="shu-to">' +
-              '<option value="">— เลือกกะ —</option>' +
-              shState.shifts.filter(function (s) { return s.is_active; }).map(function (s) {
-                return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
-              }).join('') + '</select></label>' +
+              '<label class="field sh-f"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shu-to">' +
+              shMoveOptions(null, true) + '</select></label>' +
               '<label class="field sh-f"><span>วันที่มีผล <i class="req">*</i></span>' +
               '<input type="date" id="shu-date" value="' + shTodayBKK() + '"></label>' +
               '<span class="grow"></span>' +
-              '<button class="btn btn-ghost" id="shu-ns">' + icon('ban') +
-              ' ตั้งเป็นไม่ใช้กะ (<span id="shu-n2">0</span>)</button>' +
-              '<button class="btn btn-primary" id="shu-go">' + icon('check') +
-              ' ย้ายเข้ากะ (<span id="shu-n">0</span>)</button>' +
+              '<button class="btn btn-primary" id="shu-go">' + icon('send') +
+              ' ย้ายกะ (<span id="shu-n">0</span>)</button>' +
               '</div>' : '')
         : emptyState(shState.unQ ? 'ไม่พบพนักงานตามคำค้น' : 'พนักงานทุกคนมีกะแล้ว')) +
       '</div>' + '<div id="sh-assigned">' + shAssignedHtml(manage) + '</div>' + shNoShiftHtml(manage);
@@ -3351,14 +3361,14 @@
         : '') + '</div>';
   }
 
-  /* ---------- ส่วน "ไม่ใช้กะ" (NO_SHIFT) — พับ/ขยายได้ ----------
+  /* ---------- ส่วน "ไม่มีกะ" (NO_SHIFT) — พับ/ขยายได้ ----------
      รายชื่อมาจาก njhr_shift_no_shift_employees ค้นหาฝั่งเซิร์ฟเวอร์
      คนกลุ่มนี้ไม่ถูกนับใน "ยังไม่ได้กำหนดกะ" ตามตรรกะของ K2 (ฐานข้อมูลตัดสิน ไม่ใช่ Frontend) */
   function shNoShiftHtml(manage) {
     var rows = shState.noShift;
     if (!shState.nsOpen) {
       return '<div class="card sh-ns-card"><div class="card-head">' +
-        '<h3>ไม่ใช้กะ</h3><span class="badge badge-mut">' + rows.length + ' คน</span>' +
+        '<h3>ไม่มีกะ</h3><span class="badge badge-mut">' + rows.length + ' คน</span>' +
         '<span class="grow"></span>' +
         '<button class="btn btn-ghost btn-sm" id="shn-toggle">' + icon('chevDown') + ' แสดงรายชื่อ</button>' +
         '</div>' +
@@ -3366,7 +3376,7 @@
         'ไม่ถูกนับว่า "ยังไม่ได้กำหนดกะ" และไม่ถูกเตือนว่ากำหนดกะไม่ครบ</p></div>';
     }
     return '<div class="card sh-ns-card"><div class="card-head">' +
-      '<h3>ไม่ใช้กะ</h3><span class="badge badge-mut">' + rows.length + ' คน</span>' +
+      '<h3>ไม่มีกะ</h3><span class="badge badge-mut">' + rows.length + ' คน</span>' +
       '<span class="grow"></span>' +
       '<button class="btn btn-ghost btn-sm" id="shn-toggle">' + icon('chevUp') + ' ซ่อนรายชื่อ</button>' +
       '</div>' +
@@ -3389,12 +3399,17 @@
           }).join('') + '</div>' +
           (manage
             ? '<div class="toolbar" style="margin-top:10px">' +
-              '<label class="field"><span>วันที่มีผล</span>' +
+              '<label class="field"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shn-to">' +
+              '<option value="">— เลือกกะ —</option>' +
+              shState.shifts.filter(function (s) { return s.is_active; }).map(function (s) {
+                return '<option value="' + esc(s.id) + '">' + esc(s.shift_name) + ' (' + shRowTime(s) + ')</option>';
+              }).join('') + '</select></label>' +
+              '<label class="field"><span>วันที่มีผล <i class="req">*</i></span>' +
               '<input type="date" id="shn-date" value="' + shTodayBKK() + '"></label>' +
               '<span class="grow"></span>' +
-              '<button class="btn btn-primary" id="shn-cancel">' + icon('check') +
-              ' ยกเลิกไม่ใช้กะ (<span id="shn-n">0</span>)</button></div>' : '')
-        : emptyState(shState.nsQ ? 'ไม่พบพนักงานตามคำค้น' : 'ยังไม่มีพนักงานที่ตั้งเป็นไม่ใช้กะ')) +
+              '<button class="btn btn-primary" id="shn-move">' + icon('send') +
+              ' ย้ายกะ (<span id="shn-n">0</span>)</button></div>' : '')
+        : emptyState(shState.nsQ ? 'ไม่พบพนักงานตามคำค้น' : 'ยังไม่มีพนักงานที่อยู่สถานะไม่มีกะ')) +
       '</div>';
   }
   function shBindUnassigned(el) {
@@ -3411,7 +3426,6 @@
     function syncN() {
       var n = Object.keys(shState.pick).filter(function (k) { return shState.pick[k]; }).length;
       var s = document.getElementById('shu-n'); if (s) s.textContent = n;
-      var s2 = document.getElementById('shu-n2'); if (s2) s2.textContent = n;
     }
     var lb = document.getElementById('shu-list');
     if (lb) lb.onchange = function (ev) {
@@ -3443,30 +3457,17 @@
       if (!ids.length) { shErr('กรุณาเลือกพนักงานอย่างน้อย 1 คน'); return; }
       if (!to) { shErr('กรุณาเลือกกะปลายทาง'); return; }
       if (!dt) { shErr('กรุณาเลือกวันที่มีผล'); return; }
-      var w = shFind(to);
-      confirmDialog('ย้ายเข้ากะ',
-        'ย้ายพนักงาน <b>' + ids.length + ' คน</b> เข้ากะ <b>' + esc(w ? w.shift_name : '') + '</b>' +
-        '<br>มีผลตั้งแต่ <b>' + empBE(dt) + '</b>',
-        'ย้ายเข้ากะ', function () { return shAssignMany(ids, to, dt, btn, el); }, false);
-    };
-    var ns = document.getElementById('shu-ns');
-    if (ns) ns.onclick = function () {
-      var btn = this;
-      var ids = Object.keys(shState.pick).filter(function (k) { return shState.pick[k]; });
-      var dt = document.getElementById('shu-date').value;
-      shErr('');
-      if (!ids.length) { shErr('กรุณาเลือกพนักงานอย่างน้อย 1 คน'); return; }
-      if (!dt) { shErr('กรุณาเลือกวันที่มีผล'); return; }
-      confirmDialog('ตั้งเป็นไม่ใช้กะ',
-        'ตั้งพนักงาน <b>' + ids.length + ' คน</b> เป็น <b>ไม่ใช้กะ</b>' +
+      var label = shMoveLabel(to);
+      confirmDialog('ย้ายกะ',
+        'ย้ายพนักงาน <b>' + ids.length + ' คน</b> ไป <b>' + esc(label) + '</b>' +
         '<br>มีผลตั้งแต่ <b>' + empBE(dt) + '</b>' +
-        '<br><small class="muted">จะไม่ถูกนับว่ายังไม่ได้กำหนดกะ และไม่ถูกเตือนอีก</small>',
-        'ตั้งเป็นไม่ใช้กะ', function () { return shNoShiftSet(ids, dt, true, btn, el); }, false);
+        '<br><small class="muted">ประวัติกะและประวัติลงเวลาเดิมไม่ถูกลบหรือแก้ย้อนหลัง</small>',
+        'ย้ายกะ', function () { return shMoveMany(ids, to, dt, btn, el); }, to === SH_NO_SHIFT);
     };
     shBindNoShift(el);
   }
 
-  /* ---------- ผูกปุ่มของส่วน "ไม่ใช้กะ" ---------- */
+  /* ---------- ผูกปุ่มของส่วน "ไม่มีกะ" ---------- */
   function shBindNoShift(el) {
     var tg = document.getElementById('shn-toggle');
     if (tg) tg.onclick = function () { shState.nsOpen = !shState.nsOpen; shRender(el); };
@@ -3504,20 +3505,22 @@
       syncN();
     };
     syncN();
-    var cx = document.getElementById('shn-cancel');
-    if (cx) cx.onclick = function () {
+    var mv = document.getElementById('shn-move');
+    if (mv) mv.onclick = function () {
       var btn = this;
       var ids = Object.keys(shState.nsPick).filter(function (k) { return shState.nsPick[k]; });
+      var to = document.getElementById('shn-to').value;
       var dt = document.getElementById('shn-date').value;
       shErr('');
       if (!ids.length) { shErr('กรุณาเลือกพนักงานอย่างน้อย 1 คน'); return; }
+      if (!to) { shErr('กรุณาเลือกกะปลายทาง'); return; }
       if (!dt) { shErr('กรุณาเลือกวันที่มีผล'); return; }
-      confirmDialog('ยกเลิกไม่ใช้กะ',
-        'ยกเลิกสถานะไม่ใช้กะของพนักงาน <b>' + ids.length + ' คน</b>' +
+      var w = shFind(to);
+      confirmDialog('ย้ายจากไม่มีกะเข้ากะ',
+        'ย้ายพนักงาน <b>' + ids.length + ' คน</b> จาก <b>ไม่มีกะ</b> ไป <b>' + esc(w ? w.shift_name : '') + '</b>' +
         '<br>มีผลตั้งแต่ <b>' + empBE(dt) + '</b>' +
-        '<br><small class="muted">จะกลับไปอยู่ "ยังไม่ได้กำหนดกะ" ' +
-        'ไม่กลับไปใช้กะเดิมโดยอัตโนมัติ</small>',
-        'ยกเลิกไม่ใช้กะ', function () { return shNoShiftSet(ids, dt, false, btn, el); }, false);
+        '<br><small class="muted">ก่อนวันที่มีผลยังคงเป็น “ไม่มีกะ” และประวัติเดิมไม่ถูกลบ</small>',
+        'ย้ายกะ', function () { return shAssignMany(ids, to, dt, btn, el); }, false);
     };
   }
 
@@ -3554,18 +3557,10 @@
       'ผูกกะ' + (w ? ' ' + w.shift_name : '') + ' ให้พนักงาน {n} คนแล้ว', el);
   }
 
-  /* นำออกจากกะ — njhr_shift_remove · p_no_shift เลือกปลายทาง 2 แบบ */
-  function shRemoveMany(ids, dt, noShift, btn, el) {
-    return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_remove',
-      { p_token: sbToken(), p_employees: ids, p_effective_date: dt, p_no_shift: !!noShift },
-      noShift ? 'ตั้งเป็นไม่ใช้กะ {n} คนแล้ว' : 'นำออกจากกะ {n} คนแล้ว', el);
-  }
-
-  /* ตั้ง / ยกเลิก "ไม่ใช้กะ" — njhr_shift_no_shift_set */
   function shNoShiftSet(ids, dt, on, btn, el) {
     return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_no_shift_set',
       { p_token: sbToken(), p_employees: ids, p_effective_date: dt, p_on: !!on },
-      on ? 'ตั้งเป็นไม่ใช้กะ {n} คนแล้ว' : 'ยกเลิกไม่ใช้กะ {n} คนแล้ว', el);
+      on ? 'ย้ายไปไม่มีกะ {n} คนแล้ว' : 'ยกเลิกไม่มีกะ {n} คนแล้ว', el);
   }
 
   /* ---------- รายชื่อพนักงานในกะ + ย้ายไปกะอื่น ---------- */
@@ -3601,20 +3596,12 @@
               '<div class="shl-none" id="shl-none" hidden>ไม่พบพนักงานที่ตรงกับคำค้นหา</div></div>' +
               (manage
                 ? '<div class="form-2col" style="margin-top:12px">' +
-                  '<label class="field"><span>ย้ายผู้ที่เลือกไปกะ</span><select id="shl-to">' +
-                  '<option value="">— เลือกกะ —</option>' +
-                  shState.shifts.filter(function (x) { return x.is_active && x.id !== shiftId; }).map(function (x) {
-                    return '<option value="' + esc(x.id) + '">' + esc(x.shift_name) + ' · ' + shRowTime(x) + '</option>';
-                  }).join('') + '</select></label>' +
-                  '<label class="field"><span>วันที่มีผล</span>' +
+                  '<label class="field"><span>ย้ายไปกะ <i class="req">*</i></span><select id="shl-to">' +
+                  shMoveOptions(shiftId, true) + '</select></label>' +
+                  '<label class="field"><span>วันที่มีผล <i class="req">*</i></span>' +
                   '<input type="date" id="shl-date" value="' + shTodayBKK() + '"></label></div>' +
-                  '<div class="toolbar shl-acts">' +
-                  '<button class="btn btn-primary" id="shl-move">' + icon('send') + ' ย้ายกะ</button>' +
-                  '<span class="grow"></span>' +
-                  '<button class="btn btn-ghost" id="shl-rm">' + icon('logout') +
-                  ' นำออกจากกะ (ยังต้องใช้กะ)</button>' +
-                  '<button class="btn btn-ghost t-red" id="shl-ns">' + icon('ban') +
-                  ' นำออก + ตั้งเป็นไม่ใช้กะ</button></div>' : '')
+                  '<div class="toolbar shl-acts"><span class="grow"></span>' +
+                  '<button class="btn btn-primary" id="shl-move">' + icon('send') + ' ย้ายกะ</button></div>' : '')
             : emptyState('ยังไม่มีพนักงานในกะนี้')) +
           '<div class="form-error" id="shl-err" role="alert" style="white-space:pre-line"></div>';
 
@@ -3631,31 +3618,6 @@
           return rows.filter(function (r) { return ids.indexOf(r.employee_id) >= 0; })
             .map(function (r) { return r.emp_code + ' ' + r.full_name; });
         }
-        var rmBtn = document.getElementById('shl-rm');
-        var nsBtn = document.getElementById('shl-ns');
-        function shlRemove(noShift, btn) {
-          var ids = shlPicked(), dt = shlDate();
-          var eb = document.getElementById('shl-err');
-          eb.textContent = '';
-          if (!ids.length) { eb.textContent = 'กรุณาเลือกพนักงานอย่างน้อย 1 คน'; return; }
-          if (!dt) { eb.textContent = 'กรุณาเลือกวันที่มีผล'; return; }
-          var nm = shlNames(ids);
-          confirmDialog(noShift ? 'นำออกจากกะ และตั้งเป็นไม่ใช้กะ' : 'นำออกจากกะ',
-            'ต้องการนำพนักงาน <b>' + ids.length + ' คน</b> ออกจากกะ <b>' + esc(s.shift_name) + '</b> หรือไม่' +
-            '<br>มีผลตั้งแต่ <b>' + empBE(dt) + '</b>' +
-            '<br><small class="muted">' + esc(nm.slice(0, 5).join(' · ')) +
-            (nm.length > 5 ? ' และอีก ' + (nm.length - 5) + ' คน' : '') + '</small>' +
-            '<br><br>' + (noShift
-              ? '<b>ผลลัพธ์:</b> กำหนดเป็น <b>ไม่ใช้กะ</b> — จะไม่ถูกนับว่ายังไม่ได้กำหนดกะ'
-              : '<b>ผลลัพธ์:</b> กลับไปอยู่ <b>"ยังไม่ได้กำหนดกะ"</b> เพื่อเลือกกะใหม่ภายหลัง') +
-            '<br><small class="muted">ประวัติกะย้อนหลังก่อนวันที่มีผลยังคงอยู่ครบ</small>',
-            'ยืนยัน', function () {
-              return shRemoveMany(ids, dt, noShift, btn, el).then(function () { closeModal(); });
-            }, !!noShift);
-        }
-        if (rmBtn) rmBtn.onclick = function () { shlRemove(false, this); };
-        if (nsBtn) nsBtn.onclick = function () { shlRemove(true, this); };
-
         var mv = document.getElementById('shl-move');
         var qEl = document.getElementById('shl-q');
         if (qEl) {
@@ -3685,21 +3647,20 @@
           if (!ids.length) { eb.textContent = 'กรุณาเลือกพนักงานอย่างน้อย 1 คน'; return; }
           if (!to) { eb.textContent = 'กรุณาเลือกกะปลายทาง'; return; }
           if (!dt) { eb.textContent = 'กรุณาเลือกวันที่มีผล'; return; }
-          var w = shFind(to);
-          /* ทุกคนใน Modal นี้อยู่กะเดียวกันอยู่แล้ว จึงสรุปกะเดิมได้ครั้งเดียว
-             ไม่ต้อง Confirm ทีละคน และยิง RPC ครั้งเดียวแบบ Batch */
+          var label = shMoveLabel(to);
+          /* ทุกคนใน Modal นี้อยู่กะเดียวกันอยู่แล้ว — ยิง Batch RPC ครั้งเดียว */
           confirmDialog('ย้ายกะ',
             'พนักงาน <b>' + ids.length + ' คน</b> ปัจจุบันอยู่กะ <b>' + esc(s.shift_name) + '</b>' +
-            '<br>ต้องการย้ายไปกะ <b>' + esc(w ? w.shift_name : '') + '</b> ' +
+            '<br>ต้องการย้ายไป <b>' + esc(label) + '</b> ' +
             'ตั้งแต่วันที่ <b>' + empBE(dt) + '</b> หรือไม่' +
-            '<br><small class="muted">ประวัติกะเดิมก่อนวันที่มีผลยังคงอยู่ครบ</small>',
+            '<br><small class="muted">ก่อนวันที่มีผลยังใช้กะเดิม · ประวัติกะและลงเวลาเดิมไม่ถูกลบ</small>',
             'ย้ายกะ', function () {
-              return shAssignMany(ids, to, dt, btn, el).then(function (res) {
+              return shMoveMany(ids, to, dt, btn, el).then(function (res) {
                 var same = (res || []).filter(function (x) { return x.result === 'UNCHANGED'; }).length;
-                if (same) eb.textContent = 'อยู่ในกะนี้แล้ว ' + same + ' คน — ไม่ได้สร้างรายการซ้ำ';
+                if (same) eb.textContent = 'สถานะปลายทางนี้มีผลอยู่แล้ว ' + same + ' คน — ไม่ได้สร้างรายการซ้ำ';
                 else closeModal();
               });
-            }, false);
+            }, to === SH_NO_SHIFT);
         };
       }).catch(function (ex) {
         var body = document.querySelector('#modal-root .modal-body');
@@ -3802,84 +3763,6 @@
       }).catch(function (ex) {
         btn.disabled = false; btn.innerHTML = 'บันทึก';
         eb.textContent = (ex && ex.message) || 'บันทึกไม่สำเร็จ';
-      });
-    };
-  }
-
-  /* ---------- เครื่องมือย้ายกะเดิมจาก localStorage ขึ้น Supabase (ใช้ครั้งเดียว) ----------
-     อ่านข้อมูลเก่าในเครื่องนี้เท่านั้น แล้วส่งเข้า njhr_shift_assign
-     จับคู่พนักงานด้วยรหัสพนักงาน → Employee UUID จริงจาก njhr_shift_unassigned_employees
-     จับคู่กะด้วยเวลาเริ่ม-เลิกงาน → work_shifts จริง · ผูกเฉพาะคนที่ยังไม่มีกะ (กันซ้ำ) */
-  function shMigrateTool(el) {
-    var legacyShifts = (db && db.shifts) || [];
-    var legacyEmps = (db && db.employees) || [];
-    var byId = {};
-    legacyShifts.forEach(function (x) { byId[x.id] = x; });
-    // จับคู่: รหัสพนักงานเดิม → กะจริงในฐานข้อมูล (เทียบด้วยเวลาเริ่ม-เลิก)
-    var plan = [], noShift = [], noEmp = [];
-    var unByCode = {};
-    shState.unassigned.forEach(function (u) { unByCode[String(u.emp_code).trim().toUpperCase()] = u; });
-    legacyEmps.forEach(function (e) {
-      var code = String(e.code || e.emp_code || '').trim().toUpperCase();
-      var u = unByCode[code];
-      if (!u) return;                                  // ไม่อยู่ในรายการ "ยังไม่มีกะ" → ข้าม (กันซ้ำ)
-      var ls = byId[e.shiftId];
-      if (!ls) { noShift.push(code); return; }
-      var target = null;
-      for (var i = 0; i < shState.shifts.length; i++) {
-        var s = shState.shifts[i];
-        if (s.is_active && shHHMM(s.start_time) === shHHMM(ls.start) && shHHMM(s.end_time) === shHHMM(ls.end)) { target = s; break; }
-      }
-      if (!target) { noShift.push(code + ' (' + ls.start + '-' + ls.end + ')'); return; }
-      plan.push({ id: u.employee_id, code: code, name: u.full_name, shift: target });
-    });
-    legacyEmps.forEach(function (e) {
-      var code = String(e.code || e.emp_code || '').trim().toUpperCase();
-      if (code && !unByCode[code]) noEmp.push(code);
-    });
-
-    openModal('นำเข้ากะเดิมจากเครื่องนี้',
-      '<p class="muted">อ่านข้อมูลกะเดิมที่ค้างอยู่ในเบราว์เซอร์เครื่องนี้ครั้งเดียว แล้วบันทึกขึ้น Supabase ' +
-      'ผ่าน RPC จริง — ข้อมูลเดิมในเครื่องจะไม่ถูกนำมาแสดงบนหน้าจอไม่ว่ากรณีใด</p>' +
-      '<div class="bal-grid">' +
-      [['กะเดิมในเครื่อง', legacyShifts.length], ['พนักงานเดิมในเครื่อง', legacyEmps.length],
-       ['ผูกกะได้', plan.length], ['จับคู่กะไม่ได้', noShift.length], ['มีกะอยู่แล้ว/ไม่พบรหัส', noEmp.length]]
-        .map(function (x) { return '<div class="bal-item"><div class="bal-top"><span>' + x[0] + '</span><b>' + x[1] + '</b></div></div>'; }).join('') +
-      '</div>' +
-      '<label class="field"><span>วันที่เริ่มใช้กะ (effective_date)</span>' +
-      '<input type="date" id="shm-date" value="' + todayISO() + '"></label>' +
-      (plan.length
-        ? '<div class="table-wrap empi-table" style="max-height:240px"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>กะปลายทาง</th></tr></thead><tbody>' +
-          plan.slice(0, 200).map(function (p) {
-            return '<tr><td>' + esc(p.code) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.shift.shift_name) + ' · ' + shRowTime(p.shift) + '</td></tr>';
-          }).join('') + '</tbody></table></div>'
-        : '<div class="ot-warn">ไม่พบข้อมูลกะเดิมที่ผูกได้ — อาจเคยนำเข้าไปแล้ว หรือเครื่องนี้ไม่มีข้อมูลเก่า</div>') +
-      '<div class="form-error" id="shm-err" role="alert" style="white-space:pre-line"></div>',
-      '<button class="btn btn-ghost" id="shm-cancel">ยกเลิก</button>' +
-      (plan.length ? '<button class="btn btn-primary" id="shm-go">นำเข้า ' + plan.length + ' คน</button>' : ''),
-      { wide: true });
-    document.getElementById('shm-cancel').onclick = closeModal;
-    var gob = document.getElementById('shm-go');
-    if (gob) gob.onclick = function () {
-      var dt = document.getElementById('shm-date').value;
-      var eb = document.getElementById('shm-err');
-      if (!dt) { eb.textContent = 'กรุณาเลือกวันที่เริ่มใช้กะ'; return; }
-      var btn = this, done = 0, fail = [];
-      if (btn.disabled) return;
-      btn.disabled = true;
-      plan.reduce(function (chain, p) {
-        return chain.then(function () {
-          btn.innerHTML = '<span class="spinner"></span> ' + done + '/' + plan.length;
-          return sbRpc('njhr_shift_assign', {
-            p_token: sbToken(), p_employee: p.id, p_shift: p.shift.id, p_effective_date: dt
-          }).then(function () { done++; })
-            .catch(function (ex) { fail.push(p.code + ': ' + ((ex && ex.message) || '')); });
-        });
-      }, Promise.resolve()).then(function () {
-        closeModal();
-        toast('นำเข้ากะเดิมแล้ว ' + done + ' คน' + (fail.length ? ' · ไม่สำเร็จ ' + fail.length + ' คน' : ''));
-        shLoad(el);                       // โหลดกลับจาก Supabase เพื่อตรวจสอบ
-        if (fail.length) setTimeout(function () { shErr('ไม่สำเร็จ:\n' + fail.slice(0, 10).join('\n')); }, 400);
       });
     };
   }

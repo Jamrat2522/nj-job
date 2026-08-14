@@ -59,7 +59,7 @@
   // จับคู่ประเภทการลาที่ต้องโชว์ 3 การ์ดตามแบบ กับชื่อประเภทจริงในฐานข้อมูล
   /* ================= ATTENDANCE =================
      ย้ายมาจาก 09-view-attendance.js โดยไม่แก้เนื้อใน ================= */
-  var attState = { seq: 0, today: null, history: [], loading: false };
+  var attState = { seq: 0, today: null, shiftState: null, history: [], loading: false };
 
   var attFaceTried = false;              // กันโหลด face.js ซ้ำ
 
@@ -225,7 +225,6 @@
     if (bi) bi.onclick = function () { attPunch('IN', el); };
     if (bo) bo.onclick = function () { attPunch('OUT', el); };
     if (!me.ok) { if (bi) bi.disabled = true; if (bo) bo.disabled = true; }
-    attMbFaceState();
   }
 
   /* สถานะระบบสแกนใบหน้า — อ่านจาก NJHRFace.isReady() ตัวจริงเท่านั้น
@@ -233,6 +232,14 @@
   function attMbFaceState() {
     var box = document.getElementById('attmb-face');
     if (!box) return;
+    if (attState.shiftState && attState.shiftState.attendance_required === false) {
+      if (attMbFaceState._t) { clearInterval(attMbFaceState._t); attMbFaceState._t = 0; }
+      box.classList.remove('ok');
+      var nb = box.querySelector('b'), ns = box.querySelector('small');
+      if (nb) nb.textContent = 'ไม่ต้องสแกนใบหน้า';
+      if (ns) ns.textContent = 'วันนี้มีสถานะ “ไม่มีกะ”';
+      return;
+    }
     var ready = !!(window.NJHRFace && window.NJHRFace.isReady());
     var b = box.querySelector('b'), sm = box.querySelector('small');
     if (ready) {
@@ -258,6 +265,7 @@
   function viewAttendance(el) {
     if (!sbReady()) { el.innerHTML = emptyState('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'); return; }
     var seq = ++attState.seq;
+    attState.shiftState = null;
     el.innerHTML =
       attMbHTML() +
       '<div class="card clock-card only-desktop">' +
@@ -291,7 +299,6 @@
     startLiveClock();
     attMbBind(el);
     attRenderEmpCard();
-    attCheckGps();
     document.getElementById('att-in').onclick = function () { attPunch('IN', el); };
     document.getElementById('att-out').onclick = function () { attPunch('OUT', el); };
     // Runtime Split — แบบฟอร์มแก้ไขเวลาย้อนหลังอยู่คนละ chunk โหลดเมื่อกดเท่านั้น
@@ -307,7 +314,6 @@
     document.getElementById('att-csv').onclick = function () { attExportCsv(); };
     attLoad(el, seq);
     attMigrateCard(el);
-    attFaceWarmup();                          // อุ่นเครื่องระบบสแกนใบหน้าหลังหน้าแสดงผลแล้ว
   }
 
   /* ---------- อุ่นเครื่องระบบสแกนใบหน้า (เฉพาะหน้าลงเวลา) ----------
@@ -464,6 +470,7 @@
   }
 
   function attShiftText(t) {
+    if (attState.shiftState && attState.shiftState.attendance_required === false) return 'ไม่มีกะ · ไม่ต้องลงเวลา';
     if (t && t.shift_start && t.shift_end) {
       return 'กะเวลา: ' + String(t.shift_start).slice(0, 5) + '–' + String(t.shift_end).slice(0, 5);
     }
@@ -479,9 +486,9 @@
         '<div class="grow"><b>' + esc(me.name) + '</b>' +
         '<small>รหัสพนักงาน: ' + esc(me.code || '—') + '</small>' +
         '<small>แผนก: ' + esc(me.dept || '—') + '</small>' +
-        '<small>กะงาน: ' + (t.shift_name
-          ? esc(t.shift_name) + ' ' + String(t.shift_start).slice(0, 5) + ' - ' + String(t.shift_end).slice(0, 5)
-          : '—') + '</small></div>';
+        '<small>กะงาน: ' + (attState.shiftState && attState.shiftState.attendance_required === false
+          ? 'ไม่มีกะ'
+          : (t.shift_name ? esc(t.shift_name) + ' ' + String(t.shift_start).slice(0, 5) + ' - ' + String(t.shift_end).slice(0, 5) : '—')) + '</small></div>';
     }
     /* หน้าลงเวลามือถือไม่แสดงการ์ดพนักงานแล้ว (ถอด Markup ออกจาก attMbHTML)
        Employee Mapping ยังใช้งานเหมือนเดิมทุกจุด — attMe().id ส่ง employee_id ตอนบันทึก
@@ -524,6 +531,27 @@
     var b = box.querySelector('b'), sm = box.querySelector('small');
     if (b) b.textContent = title;
     if (sm) sm.textContent = note;
+  }
+
+  function attNoShiftUi() {
+    var s = attState.shiftState || {};
+    if (s.attendance_required !== false) return;
+    var st = document.getElementById('att-status');
+    if (st) st.innerHTML = '<span class="chip chip-info">ไม่มีกะ · วันนี้ไม่ต้องลงเวลา</span>';
+    var gps = document.getElementById('att-gps');
+    if (gps) {
+      gps.className = 'mb-gps only-mobile';
+      gps.innerHTML = '<span class="mb-gps-ic">' + icon('mapPin') + '</span>' +
+        '<span class="grow"><b>ไม่ต้องตรวจตำแหน่ง</b><small>วันนี้มีสถานะ “ไม่มีกะ”</small></span>';
+    }
+    attMbGps('', 'ไม่ต้องตรวจตำแหน่ง', 'วันนี้มีสถานะ “ไม่มีกะ”');
+    attMbFaceState();
+    var hb = document.getElementById('attmb-hist');
+    if (hb && !(attState.today && attState.today.check_in)) {
+      hb.className = 'att-mb-hb';
+      hb.innerHTML = '<span class="att-mb-hic">' + icon('fileText') + '</span>' +
+        '<b>วันนี้ไม่ต้องลงเวลา</b><small>สถานะ “ไม่มีกะ” มีผลแล้ว</small>';
+    }
   }
 
   function attCheckGps() {
@@ -573,25 +601,33 @@
   function attLoad(el, seq) {
     var errEl = document.getElementById('att-err');
     if (errEl) errEl.textContent = '';
-    sbRpc('njhr_att_today', { p_token: sbToken() }).then(function (t) {
+    Promise.all([
+      sbRpc('njhr_att_today', { p_token: sbToken() }),
+      sbRpc('njhr_shift_my_state', { p_token: sbToken(), p_date: todayISO() })
+    ]).then(function (parts) {
       if (seq !== attState.seq) return;
-      attState.today = t || null;
+      var t = parts[0] || null, ss = parts[1] || null;
+      attState.today = t;
+      attState.shiftState = ss;
+      var noShift = !!(ss && ss.attendance_required === false);
       var who = document.getElementById('att-who'), st = document.getElementById('att-status');
       var u = currentUser();
       if (who) who.textContent = fmtDate(todayISO()) + ' · ' + (u.emp_name || u.username) +
-        (t && t.shift_name ? ' · กะ ' + t.shift_name + ' ' +
-          String(t.shift_start).slice(0, 5) + '–' + String(t.shift_end).slice(0, 5) : '');
+        (noShift ? ' · ไม่มีกะ' : (t && t.shift_name ? ' · กะ ' + t.shift_name + ' ' +
+          String(t.shift_start).slice(0, 5) + '–' + String(t.shift_end).slice(0, 5) : ''));
       if (st) {
-        st.innerHTML = !t || !t.check_in
-          ? '<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>'
-          : '<span class="chip chip-ok">เข้างาน ' + attHM(t.check_in) +
-            (t.late_min > 0 ? ' (สาย ' + t.late_min + ' นาที)' : '') + '</span> ' +
-            (t.check_out ? '<span class="chip chip-info">ออกงาน ' + attHM(t.check_out) +
-              (t.work_hours != null ? ' · ' + t.work_hours + ' ชม.' : '') + '</span>'
-              : '<span class="chip chip-warn">ยังไม่ออกงาน</span>');
+        st.innerHTML = noShift
+          ? '<span class="chip chip-info">ไม่มีกะ · วันนี้ไม่ต้องลงเวลา</span>'
+          : (!t || !t.check_in
+            ? '<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>'
+            : '<span class="chip chip-ok">เข้างาน ' + attHM(t.check_in) +
+              (t.late_min > 0 ? ' (สาย ' + t.late_min + ' นาที)' : '') + '</span> ' +
+              (t.check_out ? '<span class="chip chip-info">ออกงาน ' + attHM(t.check_out) +
+                (t.work_hours != null ? ' · ' + t.work_hours + ' ชม.' : '') + '</span>'
+                : '<span class="chip chip-warn">ยังไม่ออกงาน</span>'));
       }
-      attRenderEmpCard();                    // เติมกะทำงานจริงลงการ์ดพนักงาน
-      var canPunch = attMe().ok;
+      attRenderEmpCard();
+      var canPunch = attMe().ok && !noShift;
       var bIn = document.getElementById('att-in'), bOut = document.getElementById('att-out');
       var inDis = !canPunch || !!(t && t.check_in);
       var outDis = !canPunch || !(t && t.check_in) || !!(t && t.check_out);
@@ -601,13 +637,22 @@
       if (mbIn) mbIn.disabled = inDis;
       if (mbOut) mbOut.disabled = outDis;
       attMbToday(t);
+      if (noShift) {
+        attNoShiftUi();
+      } else {
+        attCheckGps();
+        attMbFaceState();
+        attFaceWarmup();
+      }
     }).catch(function (er) {
       if (seq !== attState.seq) return;
-      console.error('[ATTENDANCE] njhr_att_today ล้มเหลว:', er);
+      console.error('[ATTENDANCE] โหลดสถานะวันนี้/กะล้มเหลว:', er);
       var st = document.getElementById('att-status');
       if (st) st.innerHTML = '<span class="chip chip-warn">โหลดสถานะไม่สำเร็จ</span>';
       if (errEl) errEl.textContent = er.message || 'โหลดสถานะไม่สำเร็จ';
+      /* Fail closed: ถ้าอ่านสถานะกะไม่ได้ จะไม่เปิด GPS/กล้องและไม่เปิดปุ่มลงเวลา */
     });
+
 
     // ประวัติ 14 วันล่าสุดของตัวเอง — อ่านจากตาราง attendance จริง
     var to = todayISO();
@@ -659,6 +704,13 @@
     var mbErr = document.getElementById('attmb-err');
     errEl.textContent = '';
     if (mbErr) mbErr.textContent = '';
+
+    /* NO_SHIFT มีผลแล้ว = ไม่ต้องลงเวลาและไม่เปิดกล้อง/GPS จากปุ่มนี้ */
+    if (attState.shiftState && attState.shiftState.attendance_required === false) {
+      var mn = 'วันนี้เป็นสถานะ “ไม่มีกะ” จึงไม่ต้องลงเวลา';
+      errEl.textContent = mn; if (mbErr) mbErr.textContent = mn;
+      return;
+    }
 
     /* ยังไม่ได้เชื่อมกับข้อมูลพนักงาน = ห้ามส่งคำสั่งลงเวลาเด็ดขาด (ห้ามใช้ค่า fallback) */
     if (!attMe().ok) {
