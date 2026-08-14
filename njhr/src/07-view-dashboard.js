@@ -21,7 +21,7 @@
       /* หน้าหลักมือถือแสดงทุก Role ให้สอดคล้องกับ Header และ Bottom Navigation */
       dashMobileHome(el);
     } else {
-      if (u.role === 'USER') dashEmployee(el); else dashAdmin(el);
+      if (['USER', 'ADMIN'].indexOf(u.role) >= 0) dashEmployee(el); else dashAdmin(el);
     }
 
     dashBindResize(el);
@@ -877,7 +877,7 @@
      การ์ด "คำขอลาล่าสุด" (Dashboard ผู้ดูแล) — ข้อมูลจริงจาก Supabase
        RPC: njhr_rpt_leave_list (S1_report_menu.sql) — คำขอลาทุกสถานะ 1 คำขอ = 1 แถว
        ส่งตัวกรองเป็น null ทั้งหมด = ไม่จำกัดช่วงวันที่/แผนก/พนักงาน
-       สิทธิ์การมองเห็นตรวจฝั่งเซิร์ฟเวอร์ด้วย njhr_rptmenu_guard (SUPER_ADMIN/ADMIN)
+       สิทธิ์การมองเห็นตรวจฝั่งเซิร์ฟเวอร์ด้วย njhr_rptmenu_guard (SUPER_ADMIN/HR)
        ซึ่งเป็นชุดสิทธิ์เดียวกับที่ dashAdmin() ถูกเรียกอยู่แล้ว
 
      เดิมอ่านจาก db.leaves ใน localStorage ซึ่งไม่เคยถูกเติมจาก Supabase

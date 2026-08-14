@@ -131,18 +131,18 @@
   }
   function leaveType(id) { return idx().lt[id]; }
   function userById(id) { return idx().user[id]; }
-  /* ยุบ Role ให้เหลือ 3 ค่าที่ระบบ HR ใช้จริง
-     SUPER_ADMIN และ ADMIN คงเดิม · ค่าอื่นทั้งหมดเป็น USER */
+  /* ระบบ HR ใช้ 4 Role: SUPER_ADMIN / HR / ADMIN / USER
+     Role เก่าหรือค่าอื่นทั้งหมดให้ทำงานแบบ USER เพื่อไม่ให้สิทธิ์หลุด */
   function normRole(v) {
     var r = String(v || '').toUpperCase();
-    return (r === 'SUPER_ADMIN' || r === 'ADMIN') ? r : 'USER';
+    return (r === 'SUPER_ADMIN' || r === 'HR' || r === 'ADMIN') ? r : 'USER';
   }
   function currentUser() {
     if (session && session.src === 'supabase') {
       if (!sbUser) sbLoadUser();
       if (sbUser && sbUser.user_id === session.userId) {
-        // ระบบ HR ใช้ 3 Role เท่านั้น — SUPER_ADMIN / ADMIN / USER
-        // ค่าอื่นทั้งหมด (EMPLOYEE · STAFF · ACCOUNT · HR · MANAGER) ยุบรวมเป็น USER
+        // ระบบ HR ใช้ 4 Role — SUPER_ADMIN / HR / ADMIN / USER
+        // ค่าอื่นทั้งหมด (EMPLOYEE · STAFF · ACCOUNT · MANAGER ฯลฯ) ยุบรวมเป็น USER
         // ทำที่จุดเดียวนี้ ทุกหน้าจึงเห็นค่าเดียวกันโดยไม่ต้องแก้รายหน้า
         var r = normRole(sbUser.role);
         return { id: sbUser.user_id, username: sbUser.username, role: r, empId: sbUser.employee_id,
@@ -205,7 +205,7 @@
     db.notifications.unshift({ id: uid('N'), userId: userId, title: title, body: body, link: link || '#/dashboard', read: false, at: nowStamp() });
   }
   function notifyApprovers(title, body, link) {
-    db.users.filter(function (u) { return ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) >= 0 && u.active; })
+    db.users.filter(function (u) { return ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) >= 0 && u.active; })
       .forEach(function (u) { notify(u.id, title, body, link); });
   }
   function userOfEmp(empId) { return db.users.find(function (u) { return u.empId === empId; }); }

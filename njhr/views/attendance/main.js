@@ -1,1 +1,759 @@
-(function(){"use strict";var S=window.NJHR&&NJHR.compat&&NJHR.compat.scope;if(!S)throw new Error("RUNTIME_NOT_READY");var icon=S.icon;var pad=S.pad;var todayISO=S.todayISO;var fmtDate=S.fmtDate;var njAsset=S.njAsset;var loadScriptOnce=S.loadScriptOnce;var esc=S.esc;var avatarHTML=S.avatarHTML;var saveDB=S.saveDB;var emp=S.emp;var dept=S.dept;var currentUser=S.currentUser;var currentEmp=S.currentEmp;var toast=S.toast;var confirmDialog=S.confirmDialog;var sbReady=S.sbReady;var sbRpcList=S.sbRpcList;var sbRpc=S.sbRpc;var sbToken=S.sbToken;var njExemptCheck=S.njExemptCheck;var emptyState=S.emptyState;var startLiveClock=S.startLiveClock;var TH_MONTHS=S.TH_MONTHS;var db=S.db;var rptDateBE=S.rptDateBE;var attState={seq:0,today:null,history:[],loading:false};var attFaceTried=false;var attRange="14";function attHM(t){if(!t)return"—";return new Date(t).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Bangkok"})}function attMe(){var u=currentUser()||{};var sb=u.sb||{};var e=currentEmp()||{};var id=u.empId||sb.employee_id||e.id||"";var name=String(sb.emp_name||u.fullName||e.firstName?sb.emp_name||u.fullName||(e.title||"")+(e.firstName||"")+" "+(e.lastName||""):u.username||"").trim();var code=String(sb.emp_code||e.code||"").trim();var dept=String(sb.emp_department||u.department||e.deptName||"").trim();if(!dept&&e.deptId){var dn=dept(e.deptId);if(dn&&dn!=="—")dept=dn}return{id:id,name:name||u.username||"",code:code,dept:dept,ok:!!id,role:u.role||""}}function attOpenAction(mod,btn,fn){if(!btn||btn.getAttribute("data-busy")==="1")return;var navId=NJHR.router.navId(),route=NJHR.state.currentRoute;function ok(){return navId===NJHR.router.navId()&&route===NJHR.state.currentRoute&&!!currentUser()}if(NJHR.modules.isLoaded(mod)){if(ok())fn();return}var html=btn.innerHTML,dis=btn.disabled;btn.setAttribute("data-busy","1");btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';function restore(){btn.removeAttribute("data-busy");btn.disabled=dis;btn.innerHTML=html}NJHR.modules.load(mod).then(function(){restore();if(ok())fn()})["catch"](function(e){restore();try{console.error("[MODULE] "+(e&&e.message?e.message:e))}catch(e2){}if(ok())toast("ไม่สามารถโหลดหน้านี้ได้ กรุณาลองใหม่","error")})}var attMb={clockT:0};function attMbClockSVG(){var ticks="";for(var i=0;i<60;i++){var big=i%5===0;var r1=big?40:44,r2=48;var a=i*6*Math.PI/180;ticks+='<line x1="'+(60+r1*Math.sin(a)).toFixed(2)+'" y1="'+(60-r1*Math.cos(a)).toFixed(2)+'" x2="'+(60+r2*Math.sin(a)).toFixed(2)+'" y2="'+(60-r2*Math.cos(a)).toFixed(2)+'" class="acl-t'+(big?" acl-tb":"")+'"/>'}return'<svg class="acl" viewBox="0 0 120 120" aria-hidden="true">'+'<defs><linearGradient id="aclg" x1="0" y1="0" x2="0" y2="1">'+'<stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient>'+'<radialGradient id="aclf" cx="50%" cy="35%" r="70%">'+'<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EAF1FF"/></radialGradient></defs>'+'<circle cx="60" cy="60" r="56" fill="url(#aclg)"/>'+'<circle cx="60" cy="60" r="49" fill="url(#aclf)"/>'+ticks+'<line id="acl-h" x1="60" y1="60" x2="60" y2="34" class="acl-hh"/>'+'<line id="acl-m" x1="60" y1="60" x2="60" y2="22" class="acl-mm"/>'+'<circle cx="60" cy="60" r="4.5" class="acl-c"/></svg>'}function attThaiDate(iso){var d=String(iso||"").slice(0,10).split("-");if(d.length!==3)return"";return Number(d[2])+" "+TH_MONTHS[Number(d[1])-1].slice(0,3)+". "+(Number(d[0])+543)}function attMbHTML(){var me=attMe();return'<div class="att-mb only-mobile" id="att-mb">'+'<div class="att-mb-bar">'+'<span class="att-mb-logo">NJL</span>'+'<span class="grow"><b>NJL HR</b><small>ระบบบริหารทรัพยากรบุคคล</small></span>'+'<a class="att-mb-bell" href="#/notifications" aria-label="การแจ้งเตือน">'+icon("bell")+"</a>"+"</div>"+'<h2 class="att-mb-title">ลงเวลา</h2>'+'<section class="att-mb-clock">'+attMbClockSVG()+'<div class="grow"><b id="attmb-time">--:--</b>'+"<small>"+icon("calendar","ic-sm")+"<span>"+esc(attThaiDate(todayISO()))+"</span></small>"+"<small>"+icon("clock","ic-sm")+'<span id="attmb-shift">กำลังโหลดกะทำงาน…</span></small>'+"</div></section>"+'<section class="att-mb-st s-gps" id="attmb-gps">'+'<span class="att-mb-ic">'+icon("mapPin")+"</span>"+'<span class="grow"><b>กำลังตรวจตำแหน่ง</b><small>รอสัญญาณ GPS</small></span>'+'<span class="att-mb-ic2">'+icon("mapPin","ic-sm")+"</span></section>"+'<section class="att-mb-st s-face" id="attmb-face">'+'<span class="att-mb-ic">'+attMbFaceSVG()+"</span>"+'<span class="grow"><b>กำลังเตรียมกล้อง</b><small>ระบบสแกนใบหน้ากำลังเตรียมพร้อม</small></span>'+'<span class="att-mb-ic2">'+icon("shield","ic-sm")+"</span></section>"+'<div class="att-mb-acts">'+'<button type="button" class="att-mb-btn b-in" id="attmb-in" disabled>'+icon("login")+"<span>เข้างาน</span></button>"+'<button type="button" class="att-mb-btn b-out" id="attmb-out" disabled>'+icon("logout")+"<span>ออกงาน</span></button></div>"+'<div class="att-mb-err" id="attmb-err" role="alert"></div>'+'<section class="att-mb-hist">'+'<div class="att-mb-hh">'+icon("calendar","ic-sm")+"<b>ประวัติวันนี้</b>"+'<a class="att-mb-more" href="#/req-history" aria-label="ดูประวัติทั้งหมด">'+icon("chevR")+"</a></div>"+'<div class="att-mb-hb" id="attmb-hist">'+'<span class="att-mb-hic">'+icon("fileText")+"</span>"+"<b>ยังไม่มีข้อมูลการลงเวลา</b><small>คุณยังไม่ได้เข้างาน</small></div></section>"+(me.ok?"":'<div class="att-mb-block">'+icon("info","ic-sm")+"<span>บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน จึงลงเวลาไม่ได้ กรุณาติดต่อฝ่ายบุคคล</span></div>")+"</div>"}function attMbFaceSVG(){return'<svg viewBox="0 0 24 24" class="ic" fill="none" stroke="currentColor" stroke-width="1.8" '+'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>'+'<circle cx="9.2" cy="10.5" r=".9" fill="currentColor" stroke="none"/>'+'<circle cx="14.8" cy="10.5" r=".9" fill="currentColor" stroke="none"/>'+'<path d="M9 14.6c.8.9 1.8 1.4 3 1.4s2.2-.5 3-1.4"/></svg>'}function attMbTick(){var t=document.getElementById("attmb-time");if(!t){clearInterval(attMb.clockT);attMb.clockT=0;return}var d=new Date;t.textContent=pad(d.getHours())+":"+pad(d.getMinutes());var h=document.getElementById("acl-h"),m=document.getElementById("acl-m");if(h)h.setAttribute("transform","rotate("+(d.getHours()%12*30+d.getMinutes()*.5).toFixed(2)+" 60 60)");if(m)m.setAttribute("transform","rotate("+(d.getMinutes()*6).toFixed(2)+" 60 60)")}function attMbBind(el){attMbTick();clearInterval(attMb.clockT);attMb.clockT=setInterval(attMbTick,1e3);var me=attMe();var bi=document.getElementById("attmb-in"),bo=document.getElementById("attmb-out");if(bi)bi.onclick=function(){attPunch("IN",el)};if(bo)bo.onclick=function(){attPunch("OUT",el)};if(!me.ok){if(bi)bi.disabled=true;if(bo)bo.disabled=true}attMbFaceState()}function attMbFaceState(){var box=document.getElementById("attmb-face");if(!box)return;var ready=!!(window.NJHRFace&&window.NJHRFace.isReady());var b=box.querySelector("b"),sm=box.querySelector("small");if(ready){box.classList.add("ok");if(b)b.textContent="พร้อมสแกนใบหน้า";if(sm)sm.textContent="กรุณามองตรงเข้ากล้อง";return}if(b)b.textContent=window.NJHRFace?"กำลังเตรียมระบบสแกนใบหน้า":"กำลังเตรียมกล้อง";if(sm)sm.textContent="ระบบสแกนใบหน้ากำลังเตรียมพร้อม";if(!attMbFaceState._t){attMbFaceState._t=setInterval(function(){if(!document.getElementById("attmb-face")){clearInterval(attMbFaceState._t);attMbFaceState._t=0;return}if(window.NJHRFace&&window.NJHRFace.isReady()){clearInterval(attMbFaceState._t);attMbFaceState._t=0;attMbFaceState()}},1200)}}function viewAttendance(el){if(!sbReady()){el.innerHTML=emptyState("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase");return}var seq=++attState.seq;el.innerHTML=attMbHTML()+'<div class="card clock-card only-desktop">'+'<div class="mb-lbl only-mobile">เวลาปัจจุบัน</div>'+'<div class="clock-now" id="live-clock">--:--:--</div>'+'<div class="clock-date" id="att-who">'+esc(fmtDate(todayISO()))+"</div>"+'<div class="clock-status" id="att-status"><span class="spinner"></span> กำลังโหลด…</div>'+'<div class="mb-emp only-mobile" id="att-emp"></div>'+'<div class="mb-gps only-mobile" id="att-gps">'+'<span class="mb-gps-ic">'+icon("mapPin")+"</span>"+'<span class="grow"><b>กำลังตรวจตำแหน่ง…</b><small>รอสัญญาณ GPS</small></span></div>'+'<div class="clock-btns">'+'<button class="btn btn-primary btn-lg" id="att-in" disabled>'+icon("login")+" เข้างาน</button>"+'<button class="btn btn-dark btn-lg" id="att-out" disabled>'+icon("logout")+" ออกงาน</button>"+"</div>"+'<div class="form-error" id="att-err" role="alert" style="white-space:pre-line"></div></div>'+'<div class="card att-hcard only-desktop"><div class="card-head att-hhead"><h3>ประวัติการลงเวลา</h3>'+'<span class="grow"></span>'+'<span class="gf-seg" id="att-range">'+[["7","7 วัน"],["14","14 วัน"],["30","30 วัน"]].map(function(r){return'<button type="button" class="gf-segb'+(attRange===r[0]?" on":"")+'" data-attr="'+r[0]+'">'+r[1]+"</button>"}).join("")+"</span>"+'<button class="btn btn-ghost btn-sm" id="att-csv">'+icon("download")+" Export CSV</button>"+'<button class="btn btn-ghost btn-sm" id="att-fix">'+icon("clock")+" ลงชื่อย้อนหลัง</button></div>"+'<div id="att-stats" class="att-stats"></div>'+'<div id="att-hist"><div class="ep-state"><span class="spinner"></span> กำลังโหลด…</div></div></div>'+'<div id="att-mig" class="only-desktop"></div>';startLiveClock();attMbBind(el);attRenderEmpCard();attCheckGps();document.getElementById("att-in").onclick=function(){attPunch("IN",el)};document.getElementById("att-out").onclick=function(){attPunch("OUT",el)};document.getElementById("att-fix").onclick=function(){attOpenAction("attendance-correction",this,function(){NJHR.features.attendanceCorrection.open()})};document.getElementById("att-range").onclick=function(ev){var b=ev.target.closest?ev.target.closest("[data-attr]"):null;if(!b)return;attRange=b.dataset.attr;viewAttendance(el)};document.getElementById("att-csv").onclick=function(){attExportCsv()};attLoad(el,seq);attMigrateCard(el);attFaceWarmup()}var attFaceWarmed=false;function attFaceWarmup(){if(attFaceWarmed)return;attFaceWarmed=true;var idle=window.requestIdleCallback||function(fn){return setTimeout(fn,900)};idle(function(){try{if(window.NJHRFace){window.NJHRFace.warmup();return}loadScriptOnce("face",njAsset("face.js"),"NJHRFace").then(function(){if(window.NJHRFace)window.NJHRFace.warmup()})["catch"](function(){attFaceWarmed=false})}catch(e){attFaceWarmed=false}},{timeout:3e3})}var TH_DAYS_FULL=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];function attStatusInfo(r){var k=String(r.status||"").toUpperCase();if(k==="LATE"||r.late_min>0)return{text:"มาสาย",badge:"badge-warn",cls:"late"};if(k==="ABSENT")return{text:"ขาดงาน",badge:"badge-bad",cls:"absent"};if(k==="LEAVE")return{text:"ลางาน",badge:"badge-info",cls:"leave"};if(k==="HOLIDAY")return{text:"วันหยุด",badge:"badge-mut",cls:"holiday"};if(!r.check_out)return{text:"ยังไม่ออกงาน",badge:"badge-mut",cls:"open"};return{text:"ปกติ",badge:"badge-ok",cls:"ok"}}function attRenderStats(rows){var box=document.getElementById("att-stats");if(!box)return;var late=0,absent=0,ok=0,hrs=0,lateMin=0;(rows||[]).forEach(function(r){var st=attStatusInfo(r);if(st.cls==="late"){late++;lateMin+=Number(r.late_min)||0}else if(st.cls==="absent")absent++;else if(st.cls==="ok")ok++;hrs+=Number(r.work_hours)||0});box.innerHTML=[["✅","มาปกติ",ok+" วัน","k-green"],["⏰","มาสาย",late+" วัน",late?"k-warn":"k-grey"],["❌","ขาดงาน",absent+" วัน",absent?"k-red":"k-grey"],["🕒","ชั่วโมงรวม",Math.round(hrs*10)/10+" ชม.","k-blue"]].map(function(c){return'<div class="att-stat '+c[3]+'"><span class="att-stat-ic">'+c[0]+"</span>"+'<div class="grow"><small>'+c[1]+"</small><b>"+c[2]+"</b></div></div>"}).join("")+(lateMin?'<div class="att-stat-note">รวมมาสาย '+lateMin+" นาที</div>":"")}function attExportCsv(){var rows=attState.history||[];if(!rows.length){toast("ยังไม่มีข้อมูลให้ Export","info");return}var head=["วันที่","วัน","เข้างาน","ออกงาน","ชั่วโมง","สาย (นาที)","สถานะ"];var lines=[head.join(",")];rows.forEach(function(r){var iso=String(r.work_date).slice(0,10);var dt=new Date(iso+"T00:00:00");lines.push([rptDateBE(iso),TH_DAYS_FULL[dt.getDay()],attHM(r.check_in),attHM(r.check_out),r.work_hours==null?"":r.work_hours,r.late_min>0?r.late_min:"",attStatusInfo(r).text].map(function(v){return'"'+String(v==null?"":v).replace(/"/g,'""')+'"'}).join(","))});var blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ประวัติลงเวลา-"+attRange+"วัน-"+todayISO()+".csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}function attLocalRows(){var out=[];(db.attendance||[]).forEach(function(a){var e=emp(a.empId);if(!e||!e.code||!a.date)return;out.push({emp_code:String(e.code),date:String(a.date),in:a.in||"",out:a.out||"",status:a.status||""})});return out}function attMigrateCard(el){var box=document.getElementById("att-mig");if(!box)return;if(["SUPER_ADMIN","ADMIN"].indexOf(currentUser().role)<0){box.innerHTML="";return}var rows=attLocalRows();if(!rows.length){box.innerHTML="";return}box.innerHTML='<div class="card"><div class="ot-warn">พบข้อมูลลงเวลาเดิมที่ยังอยู่ในเบราว์เซอร์เครื่องนี้ <b>'+rows.length+" รายการ</b> — ข้อมูลนี้เครื่องอื่นมองไม่เห็น "+"กรุณาย้ายเข้าฐานข้อมูลก่อนเลิกใช้ที่เก็บในเครื่อง</div>"+'<div class="toolbar"><span class="grow"></span>'+'<button class="btn btn-ghost" id="attmig-check">ตรวจสอบก่อนย้าย</button>'+'<button class="btn btn-primary" id="attmig-run">ย้ายเข้าฐานข้อมูล</button></div>'+'<div id="attmig-out"></div></div>';document.getElementById("attmig-check").onclick=function(){run(this,true)};document.getElementById("attmig-run").onclick=function(){confirmDialog("ย้ายข้อมูลลงเวลาเข้าฐานข้อมูล","ย้าย <b>"+rows.length+" รายการ</b> จากเครื่องนี้เข้าฐานข้อมูลกลาง<br>"+'<small class="muted">ไม่ทับข้อมูลที่มีอยู่แล้วในระบบ · ทำซ้ำได้ไม่เกิดข้อมูลซ้ำ</small>',"ย้ายข้อมูล",function(){return run(document.getElementById("attmig-run"),false)})};function run(btn,dry){if(btn.disabled)return;var label=btn.innerHTML,out=document.getElementById("attmig-out");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังทำงาน…';return sbRpcList("njhr_att_migrate",{p_token:sbToken(),p_rows:rows,p_dry_run:dry,p_overwrite:false}).then(function(res){var ins=res.filter(function(x){return x.action==="INSERT"}).length;var skp=res.filter(function(x){return x.action==="SKIP"}).length;var err=res.filter(function(x){return x.action==="ERROR"});out.innerHTML='<div class="bal-grid">'+[["ทั้งหมด",res.length],["นำเข้าใหม่",ins],["ข้าม (มีอยู่แล้ว)",skp],["ผิดพลาด",err.length]].map(function(x){return'<div class="bal-item"><div class="bal-top"><span>'+x[0]+"</span><b>"+x[1]+"</b></div></div>"}).join("")+"</div>"+(err.length?'<div class="table-wrap empi-table"><table><thead><tr><th>แถว</th><th>รหัส</th><th>วันที่</th><th>เหตุผล</th></tr></thead><tbody>'+err.map(function(x){return'<tr class="row-bad"><td>'+x.row_no+"</td><td>"+esc(x.emp_code||"—")+"</td>"+"<td>"+esc(x.work_date||"—")+"</td><td>"+esc(x.message)+"</td></tr>"}).join("")+"</tbody></table></div>":"");if(!dry){toast("ย้ายข้อมูลลงเวลาแล้ว · ใหม่ "+ins+" · ข้าม "+skp+(err.length?" · ผิดพลาด "+err.length:""));if(!err.length){db.attendance=[];saveDB();toast("ล้างข้อมูลลงเวลาในเครื่องแล้ว — ระบบใช้ฐานข้อมูลกลางอย่างเดียว","info")}viewAttendance(el)}}).catch(function(er){console.error("[ATTENDANCE] njhr_att_migrate ล้มเหลว:",er);out.innerHTML='<div class="form-error">'+esc(er.message||"ย้ายข้อมูลไม่สำเร็จ")+"</div>"}).then(function(){btn.disabled=false;btn.innerHTML=label})}}function attShiftText(t){if(t&&t.shift_start&&t.shift_end){return"กะเวลา: "+String(t.shift_start).slice(0,5)+"–"+String(t.shift_end).slice(0,5)}return"ยังไม่กำหนดกะ"}function attRenderEmpCard(){var t=attState.today||{};var me=attMe();var box=document.getElementById("att-emp");if(box){box.innerHTML=avatarHTML(me.name,46)+'<div class="grow"><b>'+esc(me.name)+"</b>"+"<small>รหัสพนักงาน: "+esc(me.code||"—")+"</small>"+"<small>แผนก: "+esc(me.dept||"—")+"</small>"+"<small>กะงาน: "+(t.shift_name?esc(t.shift_name)+" "+String(t.shift_start).slice(0,5)+" - "+String(t.shift_end).slice(0,5):"—")+"</small></div>"}var sh=document.getElementById("attmb-shift");if(sh)sh.textContent=attShiftText(t)}function attMbToday(t){var box=document.getElementById("attmb-hist");if(!box)return;if(!t||!t.check_in){box.className="att-mb-hb";box.innerHTML='<span class="att-mb-hic">'+icon("fileText")+"</span>"+"<b>ยังไม่มีข้อมูลการลงเวลา</b><small>คุณยังไม่ได้เข้างาน</small>";return}var st=attStatusInfo(t);box.className="att-mb-hb has";box.innerHTML='<div class="att-mb-hrow"><span>'+icon("login","ic-sm")+"เข้างาน</span>"+"<b>"+esc(attHM(t.check_in))+"</b></div>"+'<div class="att-mb-hrow"><span>'+icon("logout","ic-sm")+"ออกงาน</span>"+"<b>"+esc(t.check_out?attHM(t.check_out):"—")+"</b></div>"+'<div class="att-mb-hrow"><span>'+icon("info","ic-sm")+"สถานะ</span>"+'<b class="badge '+st.badge+'">'+esc(st.text)+"</b></div>"+(t.late_min>0?'<div class="att-mb-hnote">มาสาย '+Number(t.late_min)+" นาที</div>":"")+(t.work_hours!=null&&t.check_out?'<div class="att-mb-hnote">รวม '+Number(t.work_hours)+" ชั่วโมง</div>":"")}function attMbGps(state,title,note){var box=document.getElementById("attmb-gps");if(!box)return;box.className="att-mb-st s-gps"+(state?" "+state:"");var b=box.querySelector("b"),sm=box.querySelector("small");if(b)b.textContent=title;if(sm)sm.textContent=note}function attCheckGps(){var box=document.getElementById("att-gps");if(!navigator.geolocation){attMbGps("bad","GPS ไม่พร้อม","อุปกรณ์นี้ไม่รองรับการอ่านตำแหน่ง");return}attMbGps("","กำลังตรวจตำแหน่ง","รอสัญญาณ GPS");navigator.geolocation.getCurrentPosition(function(p){sbRpc("njhr_gf_check",{p_token:sbToken(),p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:p.coords.accuracy}).then(function(r){var inside=!!(r&&r.pass);var b2=document.getElementById("att-gps");if(!b2)return;attMbGps(inside?"ok":"bad",inside?"อยู่ในพื้นที่บริษัท":"อยู่นอกพื้นที่ลงเวลา",inside?"GPS พร้อม":"ย้ายเข้าพื้นที่บริษัทแล้วลองใหม่");if(!b2)return;b2.className="mb-gps only-mobile "+(inside?"ok":"bad");b2.innerHTML='<span class="mb-gps-ic">'+icon("mapPin")+"</span>"+'<span class="grow"><b>'+(inside?"อยู่ในพื้นที่บริษัท":"อยู่นอกพื้นที่บริษัท")+"</b>"+"<small>"+esc(r&&r.geofence_name||"สัญญาณ GPS")+" · Accuracy: "+Math.round(p.coords.accuracy)+" เมตร</small></span>"}).catch(function(){attMbGps("bad","GPS ไม่พร้อม","ตรวจพื้นที่ไม่สำเร็จ กรุณาลองใหม่");var b2=document.getElementById("att-gps");if(b2)b2.innerHTML='<span class="mb-gps-ic">'+icon("mapPin")+"</span>"+'<span class="grow"><b>ตรวจพื้นที่ไม่สำเร็จ</b><small>ลองใหม่อีกครั้ง</small></span>'})},function(er){attMbGps("bad",er&&er.code===1?"ไม่อนุญาตตำแหน่ง":"GPS ไม่พร้อม",er&&er.code===1?"เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่":"อ่านสัญญาณ GPS ไม่สำเร็จ กรุณาลองใหม่");var b2=document.getElementById("att-gps");if(b2){b2.className="mb-gps only-mobile bad";b2.innerHTML='<span class="mb-gps-ic">'+icon("mapPin")+"</span>"+'<span class="grow"><b>ไม่สามารถอ่าน GPS ได้</b><small>เปิดสิทธิ์ตำแหน่งแล้วลองใหม่</small></span>'}},{enableHighAccuracy:true,timeout:12e3,maximumAge:0})}function attLoad(el,seq){var errEl=document.getElementById("att-err");if(errEl)errEl.textContent="";sbRpc("njhr_att_today",{p_token:sbToken()}).then(function(t){if(seq!==attState.seq)return;attState.today=t||null;var who=document.getElementById("att-who"),st=document.getElementById("att-status");var u=currentUser();if(who)who.textContent=fmtDate(todayISO())+" · "+(u.emp_name||u.username)+(t&&t.shift_name?" · กะ "+t.shift_name+" "+String(t.shift_start).slice(0,5)+"–"+String(t.shift_end).slice(0,5):"");if(st){st.innerHTML=!t||!t.check_in?'<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>':'<span class="chip chip-ok">เข้างาน '+attHM(t.check_in)+(t.late_min>0?" (สาย "+t.late_min+" นาที)":"")+"</span> "+(t.check_out?'<span class="chip chip-info">ออกงาน '+attHM(t.check_out)+(t.work_hours!=null?" · "+t.work_hours+" ชม.":"")+"</span>":'<span class="chip chip-warn">ยังไม่ออกงาน</span>')}attRenderEmpCard();var canPunch=attMe().ok;var bIn=document.getElementById("att-in"),bOut=document.getElementById("att-out");var inDis=!canPunch||!!(t&&t.check_in);var outDis=!canPunch||!(t&&t.check_in)||!!(t&&t.check_out);if(bIn)bIn.disabled=inDis;if(bOut)bOut.disabled=outDis;var mbIn=document.getElementById("attmb-in"),mbOut=document.getElementById("attmb-out");if(mbIn)mbIn.disabled=inDis;if(mbOut)mbOut.disabled=outDis;attMbToday(t)}).catch(function(er){if(seq!==attState.seq)return;console.error("[ATTENDANCE] njhr_att_today ล้มเหลว:",er);var st=document.getElementById("att-status");if(st)st.innerHTML='<span class="chip chip-warn">โหลดสถานะไม่สำเร็จ</span>';if(errEl)errEl.textContent=er.message||"โหลดสถานะไม่สำเร็จ"});var to=todayISO();var days=Math.max(1,parseInt(attRange,10)||14);var d0=new Date(to+"T00:00:00");d0.setDate(d0.getDate()-(days-1));var from=d0.getFullYear()+"-"+pad(d0.getMonth()+1)+"-"+pad(d0.getDate());sbRpcList("njhr_att_report",{p_token:sbToken(),p_from:from,p_to:to,p_type:"ATTEND",p_dept:null,p_employee:null,p_q:null,p_limit:100,p_offset:0}).then(function(rows){if(seq!==attState.seq)return;var meId=attMe().id;var mine=meId?(rows||[]).filter(function(r){return r.employee_id===meId}):rows||[];attState.history=mine;var box=document.getElementById("att-hist");if(!box)return;attRenderStats(mine);box.innerHTML=mine.length?'<div class="att-list">'+mine.map(function(r){var st=attStatusInfo(r);var iso=String(r.work_date).slice(0,10);var dt=new Date(iso+"T00:00:00");return'<div class="att-row '+st.cls+'">'+'<div class="att-day"><b>'+dt.getDate()+"</b>"+"<small>"+TH_MONTHS[dt.getMonth()].slice(0,3)+"</small></div>"+'<div class="att-main"><b>'+esc(TH_DAYS_FULL[dt.getDay()])+" "+esc(rptDateBE(iso))+"</b>"+"<small>เข้า "+attHM(r.check_in)+" · ออก "+attHM(r.check_out)+(r.work_hours!=null?" · "+r.work_hours+" ชม.":"")+"</small></div>"+(r.late_min>0?'<span class="att-late">สาย '+r.late_min+" นาที</span>":"")+'<span class="badge '+st.badge+'">'+esc(st.text)+"</span></div>"}).join("")+"</div>":'<div class="att-empty">'+icon("clock")+"<b>ยังไม่มีข้อมูลการลงเวลา</b><small>ในช่วง "+attRange+" วันที่ผ่านมา</small></div>"}).catch(function(er){if(seq!==attState.seq)return;console.error("[ATTENDANCE] โหลดประวัติล้มเหลว:",er);var box=document.getElementById("att-hist");if(box)box.innerHTML=emptyState("โหลดประวัติลงเวลาไม่สำเร็จ")})}function attPunch(kind,el){if(attState.loading)return;var btn=document.getElementById(kind==="IN"?"att-in":"att-out");var mbBtn=document.getElementById(kind==="IN"?"attmb-in":"attmb-out");var errEl=document.getElementById("att-err")||{textContent:""};var mbErr=document.getElementById("attmb-err");errEl.textContent="";if(mbErr)mbErr.textContent="";if(!attMe().ok){var m0="บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน จึงลงเวลาไม่ได้ กรุณาติดต่อฝ่ายบุคคล";errEl.textContent=m0;if(mbErr)mbErr.textContent=m0;return}if(mbBtn){if(mbBtn.getAttribute("data-busy")==="1")return;mbBtn.setAttribute("data-busy","1");mbBtn.classList.add("busy")}if(btn&&btn.getAttribute("data-busy")==="1")return;if(btn)btn.setAttribute("data-busy","1");function unbusy(){if(mbBtn){mbBtn.removeAttribute("data-busy");mbBtn.classList.remove("busy")}if(btn)btn.removeAttribute("data-busy")}njExemptCheck().then(function(ex){if(ex){attPunchExempt(kind,el,unbusy,errEl,mbErr);return}attPunchFace(kind,el,unbusy,errEl,mbErr)},function(){attPunchFace(kind,el,unbusy,errEl,mbErr)})}function attPunchExempt(kind,el,unbusy,errEl,mbErr){function fail(msg){unbusy();errEl.textContent=msg;if(mbErr)mbErr.textContent=msg}if(!navigator.geolocation){fail("อุปกรณ์นี้ไม่รองรับ GPS จึงลงเวลาไม่ได้");return}errEl.textContent="กำลังตรวจตำแหน่ง…";if(mbErr)mbErr.textContent="กำลังตรวจตำแหน่ง…";attMbGps("","กำลังตรวจตำแหน่ง","รอสัญญาณ GPS");navigator.geolocation.getCurrentPosition(function(p){sbRpc("njhr_att_punch_exempt",{p_token:sbToken(),p_action:kind,p_at:null,p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:p.coords.accuracy}).then(function(r){if(!r)throw new Error("เซิร์ฟเวอร์ไม่ตอบกลับ กรุณาลองใหม่");unbusy();toast((kind==="IN"?"ลงเวลาเข้างานเรียบร้อย":"ลงเวลาออกงานเรียบร้อย")+(r.geofence_name?" · "+r.geofence_name:""),"success");viewAttendance(el)})["catch"](function(e){fail(e&&e.message||"ลงเวลาไม่สำเร็จ กรุณาลองใหม่")})},function(er){fail(er&&er.code===1?"ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่":"อ่านสัญญาณ GPS ไม่สำเร็จ กรุณาลองใหม่กลางที่โล่ง")},{enableHighAccuracy:true,timeout:12e3,maximumAge:0})}function attPunchFace(kind,el,unbusy,errEl,mbErr){if(window.NJHRFace){window.NJHRFace.punch(kind,function(){unbusy();viewAttendance(el)});return}if(!attFaceTried){attFaceTried=true;loadScriptOnce("face",njAsset("face.js"),"NJHRFace").then(function(){unbusy();attPunch(kind,el)})["catch"](function(){attFaceTried=false;unbusy();var m1="โหลดโมดูลสแกนใบหน้าไม่สำเร็จ (face.js) — ลงเวลาไม่ได้";errEl.textContent=m1;if(mbErr)mbErr.textContent=m1});errEl.textContent="กำลังเตรียมระบบสแกนใบหน้า…";if(mbErr)mbErr.textContent="กำลังเตรียมระบบสแกนใบหน้า…";return}unbusy();var m2="ระบบสแกนใบหน้ายังไม่พร้อม — ติดต่อฝ่ายบุคคล";errEl.textContent=m2;if(mbErr)mbErr.textContent=m2}NJHR.views.register("viewAttendance",viewAttendance)})();
+(function () {
+  'use strict';
+  var S = window.NJHR && NJHR.compat && NJHR.compat.scope;
+  if (!S) throw new Error('RUNTIME_NOT_READY');
+  var icon = S.icon;
+  var pad = S.pad;
+  var todayISO = S.todayISO;
+  var fmtDate = S.fmtDate;
+  var njAsset = S.njAsset;
+  var loadScriptOnce = S.loadScriptOnce;
+  var esc = S.esc;
+  var avatarHTML = S.avatarHTML;
+  var saveDB = S.saveDB;
+  var emp = S.emp;
+  var dept = S.dept;
+  var currentUser = S.currentUser;
+  var currentEmp = S.currentEmp;
+  var toast = S.toast;
+  var confirmDialog = S.confirmDialog;
+  var sbReady = S.sbReady;
+  var sbRpcList = S.sbRpcList;
+  var sbRpc = S.sbRpc;
+  var sbToken = S.sbToken;
+  var njExemptCheck = S.njExemptCheck;
+  var emptyState = S.emptyState;
+  var startLiveClock = S.startLiveClock;
+  var TH_MONTHS = S.TH_MONTHS;
+  var db = S.db;
+  var rptDateBE = S.rptDateBE;
+  /* ================= VIEW: ATTENDANCE ================= */
+  /* ================= VIEW: ลงเวลา =================
+     บันทึกลงตาราง attendance บน Supabase ทุกครั้งผ่าน njhr_att_punch
+     เวลาที่ใช้ตัดสินสายมาจากเซิร์ฟเวอร์และกะจริงของพนักงาน (njhr_shift_at) ไม่ใช่นาฬิกาเครื่อง */
+
+
+
+  /* ---------- สรุปสถิติ + สถานะ + Export (อ่านจากข้อมูลที่ RPC ส่งมาแล้ว) ----------
+     ไม่ยิง RPC เพิ่ม ไม่แตะสูตรคำนวณสายหรือชั่วโมงงาน */
+
+
+
+  /* Export CSV จากข้อมูลที่แสดงอยู่ — ไม่ยิง RPC ใหม่ */
+
+  /* ---------- ย้ายข้อมูลลงเวลาเดิมจากเครื่องนี้เข้า Supabase (ทำครั้งเดียว) ---------- */
+
+  /* ---------- การ์ดพนักงาน (มือถือ) — ข้อมูลจริงจาก session + njhr_att_today ---------- */
+
+  /* ---------- การ์ดสถานะ GPS (มือถือ) — ใช้ njhr_gf_check ตัวเดิม ---------- */
+
+
+
+
+
+  /* ================= VIEW: REQUESTS (หน้าคำขอ — มือถือเป็นหลัก) =================
+     รวมทางเข้าสำหรับ ยื่นใบลา · ขอ OT · ประวัติลาและ OT ไว้หน้าเดียว
+     สิทธิ์การลาคงเหลือดึงจาก njhr_leave_balances (RPC เดิม ไม่แตะสูตรใด ๆ)
+     ไม่สร้างระบบลา/OT ใหม่ — เป็นหน้าทางเข้าไปยังหน้าเดิมทั้งหมด */
+
+  // จับคู่ประเภทการลาที่ต้องโชว์ 3 การ์ดตามแบบ กับชื่อประเภทจริงในฐานข้อมูล
+  /* ================= ATTENDANCE =================
+     ย้ายมาจาก 09-view-attendance.js โดยไม่แก้เนื้อใน ================= */
+  var attState = { seq: 0, today: null, history: [], loading: false };
+
+  var attFaceTried = false;              // กันโหลด face.js ซ้ำ
+
+  var attRange = '14';                   // ช่วงประวัติ: 7 / 14 / 30 วัน
+
+  function attHM(t) {
+    if (!t) return '—';
+    return new Date(t).toLocaleTimeString('th-TH',
+      { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' });
+  }
+
+  /* ---------- ตัวตนของผู้ที่ล็อกอิน — ไล่จาก Session → app_users → employees ----------
+     currentUser() คืน { id, username, role, empId, fullName, department, sb }
+     ไม่มี emp_code / department_name / emp_name อยู่บน object นี้เลย (ของเดิมอ่านผิดฟิลด์
+     หน้าจึงขึ้น "รหัสพนักงาน: —" และ "แผนก: —")
+     ค่าจริงอยู่ที่ u.sb.* (จาก njhr_login/njhr_session_check) และ currentEmp() (store)
+     ไม่มี employee_id = ถือว่าลงเวลาไม่ได้ ห้ามส่งค่าแทน */
+  function attMe() {
+    var u = currentUser() || {};
+    var sb = u.sb || {};
+    var e = currentEmp() || {};
+    var id = u.empId || sb.employee_id || e.id || '';
+    var name = String(sb.emp_name || u.fullName || e.firstName
+      ? (sb.emp_name || u.fullName || ((e.title || '') + (e.firstName || '') + ' ' + (e.lastName || '')))
+      : u.username || '').trim();
+    var code = String(sb.emp_code || e.code || '').trim();
+    var dept = String(sb.emp_department || u.department || e.deptName || '').trim();
+    if (!dept && e.deptId) { var dn = dept(e.deptId); if (dn && dn !== '—') dept = dn; }
+    return { id: id, name: name || u.username || '', code: code, dept: dept,
+             ok: !!id, role: u.role || '' };
+  }
+
+  /* ---------- ตัวโหลด Action Module ของหน้าลงเวลา ---------- */
+  function attOpenAction(mod, btn, fn) {
+    if (!btn || btn.getAttribute('data-busy') === '1') return;
+    var navId = NJHR.router.navId(), route = NJHR.state.currentRoute;
+    function ok() { return navId === NJHR.router.navId() && route === NJHR.state.currentRoute && !!currentUser(); }
+    if (NJHR.modules.isLoaded(mod)) { if (ok()) fn(); return; }
+    var html = btn.innerHTML, dis = btn.disabled;
+    btn.setAttribute('data-busy', '1'); btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    function restore() { btn.removeAttribute('data-busy'); btn.disabled = dis; btn.innerHTML = html; }
+    NJHR.modules.load(mod).then(function () { restore(); if (ok()) fn(); })['catch'](function (e) {
+      restore();
+      try { console.error('[MODULE] ' + (e && e.message ? e.message : e)); } catch (e2) {}
+      if (ok()) toast('ไม่สามารถโหลดหน้านี้ได้ กรุณาลองใหม่', 'error');
+    });
+  }
+
+  /* ============================================================
+     หน้าลงเวลาบนมือถือ (.att-mb) — ตามภาพอ้างอิงที่อนุมัติแล้ว
+     ไม่สร้าง RPC ใหม่และไม่บันทึกซ้ำ: ปุ่มเรียก attPunch() ตัวเดิม
+     สถานะทุกช่องมาจากผลจริง (njhr_att_today · njhr_gf_check · NJHRFace)
+     Desktop ไม่ได้รับผลกระทบ — บล็อกนี้เป็น .only-mobile ทั้งก้อน
+     ============================================================ */
+  var attMb = { clockT: 0 };
+
+  /* นาฬิกาอนาล็อกแบบ SVG — เข็มหมุนตามเวลาจริงของเครื่อง (ไม่ใช้รูปภาพ ไม่ใช้ Emoji) */
+  function attMbClockSVG() {
+    var ticks = '';
+    for (var i = 0; i < 60; i++) {
+      var big = (i % 5 === 0);
+      var r1 = big ? 40 : 44, r2 = 48;
+      var a = (i * 6) * Math.PI / 180;
+      ticks += '<line x1="' + (60 + r1 * Math.sin(a)).toFixed(2) + '" y1="' + (60 - r1 * Math.cos(a)).toFixed(2) +
+        '" x2="' + (60 + r2 * Math.sin(a)).toFixed(2) + '" y2="' + (60 - r2 * Math.cos(a)).toFixed(2) +
+        '" class="acl-t' + (big ? ' acl-tb' : '') + '"/>';
+    }
+    return '<svg class="acl" viewBox="0 0 120 120" aria-hidden="true">' +
+      '<defs><linearGradient id="aclg" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#1D4ED8"/></linearGradient>' +
+      '<radialGradient id="aclf" cx="50%" cy="35%" r="70%">' +
+      '<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EAF1FF"/></radialGradient></defs>' +
+      '<circle cx="60" cy="60" r="56" fill="url(#aclg)"/>' +
+      '<circle cx="60" cy="60" r="49" fill="url(#aclf)"/>' +
+      ticks +
+      '<line id="acl-h" x1="60" y1="60" x2="60" y2="34" class="acl-hh"/>' +
+      '<line id="acl-m" x1="60" y1="60" x2="60" y2="22" class="acl-mm"/>' +
+      '<circle cx="60" cy="60" r="4.5" class="acl-c"/></svg>';
+  }
+
+  /* วันที่ไทยแบบย่อ เช่น 10 ส.ค. 2569 (ปี พ.ศ.) */
+  function attThaiDate(iso) {
+    var d = String(iso || '').slice(0, 10).split('-');
+    if (d.length !== 3) return '';
+    return Number(d[2]) + ' ' + TH_MONTHS[Number(d[1]) - 1].slice(0, 3) + '. ' + (Number(d[0]) + 543);
+  }
+
+  function attMbHTML() {
+    var me = attMe();
+    return '<div class="att-mb only-mobile" id="att-mb">' +
+      '<div class="att-mb-bar">' +
+      '<span class="att-mb-logo">NJL</span>' +
+      '<span class="grow"><b>NJL HR</b><small>ระบบบริหารทรัพยากรบุคคล</small></span>' +
+      '<a class="att-mb-bell" href="#/notifications" aria-label="การแจ้งเตือน">' + icon('bell') + '</a>' +
+      '</div>' +
+      '<h2 class="att-mb-title">ลงเวลา</h2>' +
+
+      '<section class="att-mb-clock">' + attMbClockSVG() +
+      '<div class="grow"><b id="attmb-time">--:--</b>' +
+      '<small>' + icon('calendar', 'ic-sm') + '<span>' + esc(attThaiDate(todayISO())) + '</span></small>' +
+      '<small>' + icon('clock', 'ic-sm') + '<span id="attmb-shift">กำลังโหลดกะทำงาน…</span></small>' +
+      '</div></section>' +
+
+      '<section class="att-mb-st s-gps" id="attmb-gps">' +
+      '<span class="att-mb-ic">' + icon('mapPin') + '</span>' +
+      '<span class="grow"><b>กำลังตรวจตำแหน่ง</b><small>รอสัญญาณ GPS</small></span>' +
+      '<span class="att-mb-ic2">' + icon('mapPin', 'ic-sm') + '</span></section>' +
+
+      '<section class="att-mb-st s-face" id="attmb-face">' +
+      '<span class="att-mb-ic">' + attMbFaceSVG() + '</span>' +
+      '<span class="grow"><b>กำลังเตรียมกล้อง</b><small>ระบบสแกนใบหน้ากำลังเตรียมพร้อม</small></span>' +
+      '<span class="att-mb-ic2">' + icon('shield', 'ic-sm') + '</span></section>' +
+
+      /* ปุ่มลงเวลา 2 คอลัมน์กว้างเท่ากัน — เข้างานซ้าย ออกงานขวา
+         ตรรกะเปิด-ปิดปุ่มยังเป็นของเดิมทุกบรรทัด (attMe().ok + สถานะ check_in/check_out) */
+      '<div class="att-mb-acts">' +
+      '<button type="button" class="att-mb-btn b-in" id="attmb-in" disabled>' +
+      icon('login') + '<span>เข้างาน</span></button>' +
+      '<button type="button" class="att-mb-btn b-out" id="attmb-out" disabled>' +
+      icon('logout') + '<span>ออกงาน</span></button></div>' +
+      '<div class="att-mb-err" id="attmb-err" role="alert"></div>' +
+
+      '<section class="att-mb-hist">' +
+      '<div class="att-mb-hh">' + icon('calendar', 'ic-sm') + '<b>ประวัติวันนี้</b>' +
+      '<a class="att-mb-more" href="#/req-history" aria-label="ดูประวัติทั้งหมด">' + icon('chevR') + '</a></div>' +
+      '<div class="att-mb-hb" id="attmb-hist">' +
+      '<span class="att-mb-hic">' + icon('fileText') + '</span>' +
+      '<b>ยังไม่มีข้อมูลการลงเวลา</b><small>คุณยังไม่ได้เข้างาน</small></div></section>' +
+      (me.ok ? '' :
+        '<div class="att-mb-block">' + icon('info', 'ic-sm') +
+        '<span>บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน จึงลงเวลาไม่ได้ กรุณาติดต่อฝ่ายบุคคล</span></div>') +
+      '</div>';
+  }
+
+  /* ไอคอนสแกนใบหน้า — SVG ล้วน ไม่ใช้ Emoji และไม่พึ่งไลบรารีภายนอก */
+  function attMbFaceSVG() {
+    return '<svg viewBox="0 0 24 24" class="ic" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>' +
+      '<circle cx="9.2" cy="10.5" r=".9" fill="currentColor" stroke="none"/>' +
+      '<circle cx="14.8" cy="10.5" r=".9" fill="currentColor" stroke="none"/>' +
+      '<path d="M9 14.6c.8.9 1.8 1.4 3 1.4s2.2-.5 3-1.4"/></svg>';
+  }
+
+  function attMbTick() {
+    var t = document.getElementById('attmb-time');
+    if (!t) { clearInterval(attMb.clockT); attMb.clockT = 0; return; }
+    var d = new Date();
+    t.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var h = document.getElementById('acl-h'), m = document.getElementById('acl-m');
+    if (h) h.setAttribute('transform', 'rotate(' +
+      ((d.getHours() % 12) * 30 + d.getMinutes() * 0.5).toFixed(2) + ' 60 60)');
+    if (m) m.setAttribute('transform', 'rotate(' + (d.getMinutes() * 6).toFixed(2) + ' 60 60)');
+  }
+
+  function attMbBind(el) {
+    attMbTick();
+    clearInterval(attMb.clockT);
+    attMb.clockT = setInterval(attMbTick, 1000);      // ล้างตัวเองเมื่อออกจากหน้า (ตรวจ element ทุกครั้ง)
+    var me = attMe();
+    var bi = document.getElementById('attmb-in'), bo = document.getElementById('attmb-out');
+    if (bi) bi.onclick = function () { attPunch('IN', el); };
+    if (bo) bo.onclick = function () { attPunch('OUT', el); };
+    if (!me.ok) { if (bi) bi.disabled = true; if (bo) bo.disabled = true; }
+    attMbFaceState();
+  }
+
+  /* สถานะระบบสแกนใบหน้า — อ่านจาก NJHRFace.isReady() ตัวจริงเท่านั้น
+     ไม่เปิดกล้องเองและไม่แตะ Face Workflow เดิม */
+  function attMbFaceState() {
+    var box = document.getElementById('attmb-face');
+    if (!box) return;
+    var ready = !!(window.NJHRFace && window.NJHRFace.isReady());
+    var b = box.querySelector('b'), sm = box.querySelector('small');
+    if (ready) {
+      box.classList.add('ok');
+      if (b) b.textContent = 'พร้อมสแกนใบหน้า';
+      if (sm) sm.textContent = 'กรุณามองตรงเข้ากล้อง';
+      return;
+    }
+    if (b) b.textContent = window.NJHRFace ? 'กำลังเตรียมระบบสแกนใบหน้า' : 'กำลังเตรียมกล้อง';
+    if (sm) sm.textContent = 'ระบบสแกนใบหน้ากำลังเตรียมพร้อม';
+    if (!attMbFaceState._t) {
+      attMbFaceState._t = setInterval(function () {
+        if (!document.getElementById('attmb-face')) {
+          clearInterval(attMbFaceState._t); attMbFaceState._t = 0; return;
+        }
+        if (window.NJHRFace && window.NJHRFace.isReady()) {
+          clearInterval(attMbFaceState._t); attMbFaceState._t = 0; attMbFaceState();
+        }
+      }, 1200);
+    }
+  }
+
+  function viewAttendance(el) {
+    if (!sbReady()) { el.innerHTML = emptyState('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'); return; }
+    var seq = ++attState.seq;
+    el.innerHTML =
+      attMbHTML() +
+      '<div class="card clock-card only-desktop">' +
+      '<div class="mb-lbl only-mobile">เวลาปัจจุบัน</div>' +
+      '<div class="clock-now" id="live-clock">--:--:--</div>' +
+      '<div class="clock-date" id="att-who">' + esc(fmtDate(todayISO())) + '</div>' +
+      '<div class="clock-status" id="att-status"><span class="spinner"></span> กำลังโหลด…</div>' +
+      // การ์ดพนักงาน + การ์ดสถานะ GPS — แสดงเฉพาะมือถือตามแบบที่กำหนด
+      '<div class="mb-emp only-mobile" id="att-emp"></div>' +
+      '<div class="mb-gps only-mobile" id="att-gps">' +
+      '<span class="mb-gps-ic">' + icon('mapPin') + '</span>' +
+      '<span class="grow"><b>กำลังตรวจตำแหน่ง…</b><small>รอสัญญาณ GPS</small></span></div>' +
+      '<div class="clock-btns">' +
+      '<button class="btn btn-primary btn-lg" id="att-in" disabled>' + icon('login') + ' เข้างาน</button>' +
+      '<button class="btn btn-dark btn-lg" id="att-out" disabled>' + icon('logout') + ' ออกงาน</button>' +
+      '</div>' +
+      '<div class="form-error" id="att-err" role="alert" style="white-space:pre-line"></div></div>' +
+      '<div class="card att-hcard only-desktop"><div class="card-head att-hhead"><h3>ประวัติการลงเวลา</h3>' +
+      '<span class="grow"></span>' +
+      '<span class="gf-seg" id="att-range">' +
+      [['7', '7 วัน'], ['14', '14 วัน'], ['30', '30 วัน']].map(function (r) {
+        return '<button type="button" class="gf-segb' + (attRange === r[0] ? ' on' : '') +
+          '" data-attr="' + r[0] + '">' + r[1] + '</button>';
+      }).join('') + '</span>' +
+      '<button class="btn btn-ghost btn-sm" id="att-csv">' + icon('download') + ' Export CSV</button>' +
+      '<button class="btn btn-ghost btn-sm" id="att-fix">' + icon('clock') + ' ลงชื่อย้อนหลัง</button></div>' +
+      '<div id="att-stats" class="att-stats"></div>' +
+      '<div id="att-hist"><div class="ep-state"><span class="spinner"></span> กำลังโหลด…</div></div></div>' +
+      '<div id="att-mig" class="only-desktop"></div>';
+
+    startLiveClock();
+    attMbBind(el);
+    attRenderEmpCard();
+    attCheckGps();
+    document.getElementById('att-in').onclick = function () { attPunch('IN', el); };
+    document.getElementById('att-out').onclick = function () { attPunch('OUT', el); };
+    // Runtime Split — แบบฟอร์มแก้ไขเวลาย้อนหลังอยู่คนละ chunk โหลดเมื่อกดเท่านั้น
+    document.getElementById('att-fix').onclick = function () {
+      attOpenAction('attendance-correction', this, function () { NJHR.features.attendanceCorrection.open(); });
+    };
+    document.getElementById('att-range').onclick = function (ev) {
+      var b = ev.target.closest ? ev.target.closest('[data-attr]') : null;
+      if (!b) return;
+      attRange = b.dataset.attr;              // จำเฉพาะระหว่างใช้งาน ไม่บันทึกที่ใด
+      viewAttendance(el);
+    };
+    document.getElementById('att-csv').onclick = function () { attExportCsv(); };
+    attLoad(el, seq);
+    attMigrateCard(el);
+    attFaceWarmup();                          // อุ่นเครื่องระบบสแกนใบหน้าหลังหน้าแสดงผลแล้ว
+  }
+
+  /* ---------- อุ่นเครื่องระบบสแกนใบหน้า (เฉพาะหน้าลงเวลา) ----------
+     ทำหลัง Critical UI แสดงแล้ว และเลื่อนไปช่วงที่เบราว์เซอร์ว่าง จึงไม่ทำให้หน้านี้ช้าลง
+     ใช้ loadScriptOnce (Promise cache ตัวเดิม) + NJHRFace.warmup ซึ่งใช้ State กลางของ face.js
+     จึงไม่โหลดซ้ำและกันการโหลดพร้อมกันได้เอง · ล้มเหลวเงียบ ไม่กระทบหน้าใช้งาน
+     ตอนกดปุ่มลงเวลาจริงยังใช้เส้นทางเดิมทุกอย่าง */
+  var attFaceWarmed = false;
+  function attFaceWarmup() {
+    if (attFaceWarmed) return;
+    attFaceWarmed = true;
+    var idle = window.requestIdleCallback ||
+      function (fn) { return setTimeout(fn, 900); };
+    idle(function () {
+      try {
+        if (window.NJHRFace) { window.NJHRFace.warmup(); return; }
+        loadScriptOnce('face', njAsset('face.js'), 'NJHRFace')
+          .then(function () { if (window.NJHRFace) window.NJHRFace.warmup(); })
+          ['catch'](function () { attFaceWarmed = false; });
+      } catch (e) { attFaceWarmed = false; }
+    }, { timeout: 3000 });
+  }
+
+  var TH_DAYS_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+  function attStatusInfo(r) {
+    var k = String(r.status || '').toUpperCase();
+    if (k === 'LATE' || r.late_min > 0) return { text: 'มาสาย', badge: 'badge-warn', cls: 'late' };
+    if (k === 'ABSENT') return { text: 'ขาดงาน', badge: 'badge-bad', cls: 'absent' };
+    if (k === 'LEAVE') return { text: 'ลางาน', badge: 'badge-info', cls: 'leave' };
+    if (k === 'HOLIDAY') return { text: 'วันหยุด', badge: 'badge-mut', cls: 'holiday' };
+    if (!r.check_out) return { text: 'ยังไม่ออกงาน', badge: 'badge-mut', cls: 'open' };
+    return { text: 'ปกติ', badge: 'badge-ok', cls: 'ok' };
+  }
+
+  function attRenderStats(rows) {
+    var box = document.getElementById('att-stats');
+    if (!box) return;
+    var late = 0, absent = 0, ok = 0, hrs = 0, lateMin = 0;
+    (rows || []).forEach(function (r) {
+      var st = attStatusInfo(r);
+      if (st.cls === 'late') { late++; lateMin += Number(r.late_min) || 0; }
+      else if (st.cls === 'absent') absent++;
+      else if (st.cls === 'ok') ok++;
+      hrs += Number(r.work_hours) || 0;
+    });
+    box.innerHTML = [
+      ['\u2705', 'มาปกติ', ok + ' วัน', 'k-green'],
+      ['\u23F0', 'มาสาย', late + ' วัน', late ? 'k-warn' : 'k-grey'],
+      ['\u274C', 'ขาดงาน', absent + ' วัน', absent ? 'k-red' : 'k-grey'],
+      ['\u{1F552}', 'ชั่วโมงรวม', (Math.round(hrs * 10) / 10) + ' ชม.', 'k-blue']
+    ].map(function (c) {
+      return '<div class="att-stat ' + c[3] + '"><span class="att-stat-ic">' + c[0] + '</span>' +
+        '<div class="grow"><small>' + c[1] + '</small><b>' + c[2] + '</b></div></div>';
+    }).join('') +
+      (lateMin ? '<div class="att-stat-note">รวมมาสาย ' + lateMin + ' นาที</div>' : '');
+  }
+
+  function attExportCsv() {
+    var rows = attState.history || [];
+    if (!rows.length) { toast('ยังไม่มีข้อมูลให้ Export', 'info'); return; }
+    var head = ['วันที่', 'วัน', 'เข้างาน', 'ออกงาน', 'ชั่วโมง', 'สาย (นาที)', 'สถานะ'];
+    var lines = [head.join(',')];
+    rows.forEach(function (r) {
+      var iso = String(r.work_date).slice(0, 10);
+      var dt = new Date(iso + 'T00:00:00');
+      lines.push([
+        rptDateBE(iso), TH_DAYS_FULL[dt.getDay()],
+        attHM(r.check_in), attHM(r.check_out),
+        (r.work_hours == null ? '' : r.work_hours),
+        (r.late_min > 0 ? r.late_min : ''),
+        attStatusInfo(r).text
+      ].map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','));
+    });
+    var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ประวัติลงเวลา-' + attRange + 'วัน-' + todayISO() + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  function attLocalRows() {
+    var out = [];
+    (db.attendance || []).forEach(function (a) {
+      var e = emp(a.empId);
+      if (!e || !e.code || !a.date) return;
+      out.push({ emp_code: String(e.code), date: String(a.date),
+        in: a.in || '', out: a.out || '', status: a.status || '' });
+    });
+    return out;
+  }
+
+  function attMigrateCard(el) {
+    var box = document.getElementById('att-mig');
+    if (!box) return;
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) { box.innerHTML = ''; return; }
+    var rows = attLocalRows();
+    if (!rows.length) { box.innerHTML = ''; return; }
+    box.innerHTML =
+      '<div class="card"><div class="ot-warn">พบข้อมูลลงเวลาเดิมที่ยังอยู่ในเบราว์เซอร์เครื่องนี้ <b>' +
+      rows.length + ' รายการ</b> — ข้อมูลนี้เครื่องอื่นมองไม่เห็น ' +
+      'กรุณาย้ายเข้าฐานข้อมูลก่อนเลิกใช้ที่เก็บในเครื่อง</div>' +
+      '<div class="toolbar"><span class="grow"></span>' +
+      '<button class="btn btn-ghost" id="attmig-check">ตรวจสอบก่อนย้าย</button>' +
+      '<button class="btn btn-primary" id="attmig-run">ย้ายเข้าฐานข้อมูล</button></div>' +
+      '<div id="attmig-out"></div></div>';
+    document.getElementById('attmig-check').onclick = function () { run(this, true); };
+    document.getElementById('attmig-run').onclick = function () {
+      confirmDialog('ย้ายข้อมูลลงเวลาเข้าฐานข้อมูล',
+        'ย้าย <b>' + rows.length + ' รายการ</b> จากเครื่องนี้เข้าฐานข้อมูลกลาง<br>' +
+        '<small class="muted">ไม่ทับข้อมูลที่มีอยู่แล้วในระบบ · ทำซ้ำได้ไม่เกิดข้อมูลซ้ำ</small>',
+        'ย้ายข้อมูล', function () { return run(document.getElementById('attmig-run'), false); });
+    };
+
+    function run(btn, dry) {
+      if (btn.disabled) return;
+      var label = btn.innerHTML, out = document.getElementById('attmig-out');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังทำงาน…';
+      return sbRpcList('njhr_att_migrate', {
+        p_token: sbToken(), p_rows: rows, p_dry_run: dry, p_overwrite: false
+      }).then(function (res) {
+        var ins = res.filter(function (x) { return x.action === 'INSERT'; }).length;
+        var skp = res.filter(function (x) { return x.action === 'SKIP'; }).length;
+        var err = res.filter(function (x) { return x.action === 'ERROR'; });
+        out.innerHTML =
+          '<div class="bal-grid">' +
+          [['ทั้งหมด', res.length], ['นำเข้าใหม่', ins], ['ข้าม (มีอยู่แล้ว)', skp], ['ผิดพลาด', err.length]]
+            .map(function (x) { return '<div class="bal-item"><div class="bal-top"><span>' + x[0] + '</span><b>' + x[1] + '</b></div></div>'; }).join('') +
+          '</div>' +
+          (err.length
+            ? '<div class="table-wrap empi-table"><table><thead><tr><th>แถว</th><th>รหัส</th><th>วันที่</th><th>เหตุผล</th></tr></thead><tbody>' +
+              err.map(function (x) {
+                return '<tr class="row-bad"><td>' + x.row_no + '</td><td>' + esc(x.emp_code || '—') + '</td>' +
+                  '<td>' + esc(x.work_date || '—') + '</td><td>' + esc(x.message) + '</td></tr>';
+              }).join('') + '</tbody></table></div>'
+            : '');
+        if (!dry) {
+          toast('ย้ายข้อมูลลงเวลาแล้ว · ใหม่ ' + ins + ' · ข้าม ' + skp +
+            (err.length ? ' · ผิดพลาด ' + err.length : ''));
+          // ย้ายสำเร็จครบแล้วจึงล้างที่เก็บในเครื่อง (เหลือแถวผิดไว้ให้ตรวจ)
+          if (!err.length) {
+            db.attendance = [];
+            saveDB();
+            toast('ล้างข้อมูลลงเวลาในเครื่องแล้ว — ระบบใช้ฐานข้อมูลกลางอย่างเดียว', 'info');
+          }
+          viewAttendance(el);
+        }
+      }).catch(function (er) {
+        console.error('[ATTENDANCE] njhr_att_migrate ล้มเหลว:', er);
+        out.innerHTML = '<div class="form-error">' + esc(er.message || 'ย้ายข้อมูลไม่สำเร็จ') + '</div>';
+      }).then(function () { btn.disabled = false; btn.innerHTML = label; });
+    }
+  }
+
+  function attShiftText(t) {
+    if (t && t.shift_start && t.shift_end) {
+      return 'กะเวลา: ' + String(t.shift_start).slice(0, 5) + '–' + String(t.shift_end).slice(0, 5);
+    }
+    return 'ยังไม่กำหนดกะ';
+  }
+
+  function attRenderEmpCard() {
+    var t = attState.today || {};
+    var me = attMe();
+    var box = document.getElementById('att-emp');
+    if (box) {
+      box.innerHTML = avatarHTML(me.name, 46) +
+        '<div class="grow"><b>' + esc(me.name) + '</b>' +
+        '<small>รหัสพนักงาน: ' + esc(me.code || '—') + '</small>' +
+        '<small>แผนก: ' + esc(me.dept || '—') + '</small>' +
+        '<small>กะงาน: ' + (t.shift_name
+          ? esc(t.shift_name) + ' ' + String(t.shift_start).slice(0, 5) + ' - ' + String(t.shift_end).slice(0, 5)
+          : '—') + '</small></div>';
+    }
+    /* หน้าลงเวลามือถือไม่แสดงการ์ดพนักงานแล้ว (ถอด Markup ออกจาก attMbHTML)
+       Employee Mapping ยังใช้งานเหมือนเดิมทุกจุด — attMe().id ส่ง employee_id ตอนบันทึก
+       และ attMe().ok ยังเป็นตัวปิดปุ่มลงเวลาพร้อมแจ้ง Error เมื่อบัญชียังไม่ผูกพนักงาน */
+    var sh = document.getElementById('attmb-shift');
+    if (sh) sh.textContent = attShiftText(t);
+  }
+
+  /* ประวัติวันนี้ (มือถือ) — ใช้ผลจาก njhr_att_today ที่โหลดมาแล้ว ไม่ยิง RPC เพิ่ม */
+  function attMbToday(t) {
+    var box = document.getElementById('attmb-hist');
+    if (!box) return;
+    if (!t || !t.check_in) {
+      box.className = 'att-mb-hb';
+      box.innerHTML = '<span class="att-mb-hic">' + icon('fileText') + '</span>' +
+        '<b>ยังไม่มีข้อมูลการลงเวลา</b><small>คุณยังไม่ได้เข้างาน</small>';
+      return;
+    }
+    var st = attStatusInfo(t);
+    box.className = 'att-mb-hb has';
+    box.innerHTML =
+      '<div class="att-mb-hrow"><span>' + icon('login', 'ic-sm') + 'เข้างาน</span>' +
+      '<b>' + esc(attHM(t.check_in)) + '</b></div>' +
+      '<div class="att-mb-hrow"><span>' + icon('logout', 'ic-sm') + 'ออกงาน</span>' +
+      '<b>' + esc(t.check_out ? attHM(t.check_out) : '—') + '</b></div>' +
+      '<div class="att-mb-hrow"><span>' + icon('info', 'ic-sm') + 'สถานะ</span>' +
+      '<b class="badge ' + st.badge + '">' + esc(st.text) + '</b></div>' +
+      (t.late_min > 0 ? '<div class="att-mb-hnote">มาสาย ' + Number(t.late_min) + ' นาที</div>' : '') +
+      (t.work_hours != null && t.check_out
+        ? '<div class="att-mb-hnote">รวม ' + Number(t.work_hours) + ' ชั่วโมง</div>' : '');
+  }
+
+  /* การ์ดสถานะ GPS ฝั่งมือถือ — ข้อความมาจากผลจริงเท่านั้น
+     ห้ามขึ้น "อยู่ในพื้นที่บริษัท" ก่อนได้พิกัดและผ่าน Geofence จริง
+     ไม่มีการเขียนพิกัดลง Console หรือ DOM */
+  function attMbGps(state, title, note) {
+    var box = document.getElementById('attmb-gps');
+    if (!box) return;
+    box.className = 'att-mb-st s-gps' + (state ? ' ' + state : '');
+    var b = box.querySelector('b'), sm = box.querySelector('small');
+    if (b) b.textContent = title;
+    if (sm) sm.textContent = note;
+  }
+
+  function attCheckGps() {
+    var box = document.getElementById('att-gps');
+    if (!navigator.geolocation) {
+      attMbGps('bad', 'GPS ไม่พร้อม', 'อุปกรณ์นี้ไม่รองรับการอ่านตำแหน่ง');
+      return;
+    }
+    attMbGps('', 'กำลังตรวจตำแหน่ง', 'รอสัญญาณ GPS');
+    navigator.geolocation.getCurrentPosition(function (p) {
+      sbRpc('njhr_gf_check', {
+        p_token: sbToken(), p_lat: p.coords.latitude, p_lng: p.coords.longitude,
+        p_accuracy: p.coords.accuracy
+      }).then(function (r) {
+        var inside = !!(r && r.pass);
+        var b2 = document.getElementById('att-gps');
+        if (!b2) return;
+        attMbGps(inside ? 'ok' : 'bad',
+          inside ? 'อยู่ในพื้นที่บริษัท' : 'อยู่นอกพื้นที่ลงเวลา',
+          inside ? 'GPS พร้อม' : 'ย้ายเข้าพื้นที่บริษัทแล้วลองใหม่');
+        if (!b2) return;
+        b2.className = 'mb-gps only-mobile ' + (inside ? 'ok' : 'bad');
+        b2.innerHTML = '<span class="mb-gps-ic">' + icon('mapPin') + '</span>' +
+          '<span class="grow"><b>' + (inside ? 'อยู่ในพื้นที่บริษัท' : 'อยู่นอกพื้นที่บริษัท') + '</b>' +
+          '<small>' + esc((r && r.geofence_name) || 'สัญญาณ GPS') +
+          ' · Accuracy: ' + Math.round(p.coords.accuracy) + ' เมตร</small></span>';
+      }).catch(function () {
+        attMbGps('bad', 'GPS ไม่พร้อม', 'ตรวจพื้นที่ไม่สำเร็จ กรุณาลองใหม่');
+        var b2 = document.getElementById('att-gps');
+        if (b2) b2.innerHTML = '<span class="mb-gps-ic">' + icon('mapPin') + '</span>' +
+          '<span class="grow"><b>ตรวจพื้นที่ไม่สำเร็จ</b><small>ลองใหม่อีกครั้ง</small></span>';
+      });
+    }, function (er) {
+      attMbGps('bad',
+        (er && er.code === 1) ? 'ไม่อนุญาตตำแหน่ง' : 'GPS ไม่พร้อม',
+        (er && er.code === 1) ? 'เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่'
+                              : 'อ่านสัญญาณ GPS ไม่สำเร็จ กรุณาลองใหม่');
+      var b2 = document.getElementById('att-gps');
+      if (b2) {
+        b2.className = 'mb-gps only-mobile bad';
+        b2.innerHTML = '<span class="mb-gps-ic">' + icon('mapPin') + '</span>' +
+          '<span class="grow"><b>ไม่สามารถอ่าน GPS ได้</b><small>เปิดสิทธิ์ตำแหน่งแล้วลองใหม่</small></span>';
+      }
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+  }
+
+  function attLoad(el, seq) {
+    var errEl = document.getElementById('att-err');
+    if (errEl) errEl.textContent = '';
+    sbRpc('njhr_att_today', { p_token: sbToken() }).then(function (t) {
+      if (seq !== attState.seq) return;
+      attState.today = t || null;
+      var who = document.getElementById('att-who'), st = document.getElementById('att-status');
+      var u = currentUser();
+      if (who) who.textContent = fmtDate(todayISO()) + ' · ' + (u.emp_name || u.username) +
+        (t && t.shift_name ? ' · กะ ' + t.shift_name + ' ' +
+          String(t.shift_start).slice(0, 5) + '–' + String(t.shift_end).slice(0, 5) : '');
+      if (st) {
+        st.innerHTML = !t || !t.check_in
+          ? '<span class="chip chip-warn">วันนี้ยังไม่ได้ลงเวลา</span>'
+          : '<span class="chip chip-ok">เข้างาน ' + attHM(t.check_in) +
+            (t.late_min > 0 ? ' (สาย ' + t.late_min + ' นาที)' : '') + '</span> ' +
+            (t.check_out ? '<span class="chip chip-info">ออกงาน ' + attHM(t.check_out) +
+              (t.work_hours != null ? ' · ' + t.work_hours + ' ชม.' : '') + '</span>'
+              : '<span class="chip chip-warn">ยังไม่ออกงาน</span>');
+      }
+      attRenderEmpCard();                    // เติมกะทำงานจริงลงการ์ดพนักงาน
+      var canPunch = attMe().ok;
+      var bIn = document.getElementById('att-in'), bOut = document.getElementById('att-out');
+      var inDis = !canPunch || !!(t && t.check_in);
+      var outDis = !canPunch || !(t && t.check_in) || !!(t && t.check_out);
+      if (bIn) bIn.disabled = inDis;
+      if (bOut) bOut.disabled = outDis;
+      var mbIn = document.getElementById('attmb-in'), mbOut = document.getElementById('attmb-out');
+      if (mbIn) mbIn.disabled = inDis;
+      if (mbOut) mbOut.disabled = outDis;
+      attMbToday(t);
+    }).catch(function (er) {
+      if (seq !== attState.seq) return;
+      console.error('[ATTENDANCE] njhr_att_today ล้มเหลว:', er);
+      var st = document.getElementById('att-status');
+      if (st) st.innerHTML = '<span class="chip chip-warn">โหลดสถานะไม่สำเร็จ</span>';
+      if (errEl) errEl.textContent = er.message || 'โหลดสถานะไม่สำเร็จ';
+    });
+
+    // ประวัติ 14 วันล่าสุดของตัวเอง — อ่านจากตาราง attendance จริง
+    var to = todayISO();
+    var days = Math.max(1, parseInt(attRange, 10) || 14);
+    var d0 = new Date(to + 'T00:00:00'); d0.setDate(d0.getDate() - (days - 1));
+    var from = d0.getFullYear() + '-' + pad(d0.getMonth() + 1) + '-' + pad(d0.getDate());
+    sbRpcList('njhr_att_report', {
+      p_token: sbToken(), p_from: from, p_to: to, p_type: 'ATTEND',
+      p_dept: null, p_employee: null, p_q: null, p_limit: 100, p_offset: 0
+    }).then(function (rows) {
+      if (seq !== attState.seq) return;
+      // ผู้ดูแลเรียก RPC เดียวกันจะได้ข้อมูลทุกคน จึงกรองเฉพาะของตัวเองมาแสดงในประวัติ
+      var meId = attMe().id;                 // employee_id จริงของผู้ล็อกอิน (ของเดิมอ่านฟิลด์ที่ไม่มี)
+      var mine = meId ? (rows || []).filter(function (r) { return r.employee_id === meId; }) : (rows || []);
+      attState.history = mine;
+      var box = document.getElementById('att-hist');
+      if (!box) return;
+      attRenderStats(mine);
+      box.innerHTML = mine.length
+        ? '<div class="att-list">' + mine.map(function (r) {
+            var st = attStatusInfo(r);
+            var iso = String(r.work_date).slice(0, 10);
+            var dt = new Date(iso + 'T00:00:00');
+            return '<div class="att-row ' + st.cls + '">' +
+              '<div class="att-day"><b>' + dt.getDate() + '</b>' +
+              '<small>' + TH_MONTHS[dt.getMonth()].slice(0, 3) + '</small></div>' +
+              '<div class="att-main"><b>' + esc(TH_DAYS_FULL[dt.getDay()]) + ' ' +
+              esc(rptDateBE(iso)) + '</b>' +
+              '<small>เข้า ' + attHM(r.check_in) + ' · ออก ' + attHM(r.check_out) +
+              (r.work_hours != null ? ' · ' + r.work_hours + ' ชม.' : '') + '</small></div>' +
+              (r.late_min > 0 ? '<span class="att-late">สาย ' + r.late_min + ' นาที</span>' : '') +
+              '<span class="badge ' + st.badge + '">' + esc(st.text) + '</span></div>';
+          }).join('') + '</div>'
+        : '<div class="att-empty">' + icon('clock') +
+          '<b>ยังไม่มีข้อมูลการลงเวลา</b><small>ในช่วง ' + attRange + ' วันที่ผ่านมา</small></div>';
+    }).catch(function (er) {
+      if (seq !== attState.seq) return;
+      console.error('[ATTENDANCE] โหลดประวัติล้มเหลว:', er);
+      var box = document.getElementById('att-hist');
+      if (box) box.innerHTML = emptyState('โหลดประวัติลงเวลาไม่สำเร็จ');
+    });
+  }
+
+  function attPunch(kind, el) {
+    if (attState.loading) return;
+    var btn = document.getElementById(kind === 'IN' ? 'att-in' : 'att-out');
+    var mbBtn = document.getElementById(kind === 'IN' ? 'attmb-in' : 'attmb-out');
+    var errEl = document.getElementById('att-err') || { textContent: '' };
+    var mbErr = document.getElementById('attmb-err');
+    errEl.textContent = '';
+    if (mbErr) mbErr.textContent = '';
+
+    /* ยังไม่ได้เชื่อมกับข้อมูลพนักงาน = ห้ามส่งคำสั่งลงเวลาเด็ดขาด (ห้ามใช้ค่า fallback) */
+    if (!attMe().ok) {
+      var m0 = 'บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน จึงลงเวลาไม่ได้ กรุณาติดต่อฝ่ายบุคคล';
+      errEl.textContent = m0; if (mbErr) mbErr.textContent = m0;
+      return;
+    }
+    /* กันกดซ้ำระหว่างรอผล — ปลดล็อกเมื่อหน้าถูก render ใหม่หลังบันทึกเสร็จ */
+    if (mbBtn) {
+      if (mbBtn.getAttribute('data-busy') === '1') return;
+      mbBtn.setAttribute('data-busy', '1');
+      mbBtn.classList.add('busy');
+    }
+    if (btn && btn.getAttribute('data-busy') === '1') return;
+    if (btn) btn.setAttribute('data-busy', '1');
+    function unbusy() {
+      if (mbBtn) { mbBtn.removeAttribute('data-busy'); mbBtn.classList.remove('busy'); }
+      if (btn) btn.removeAttribute('data-busy');
+    }
+
+    /* ---------- กลุ่มยกเว้นผู้บริหาร: ไม่เปิดกล้อง ไม่โหลด face.js ----------
+       ถามเซิร์ฟเวอร์ก่อนเสมอ (njhr_hr_exempt_me จาก Session Token) แล้วจึงเลือกเส้นทาง
+       ถ้าตรวจไม่สำเร็จ ให้ถือเป็นพนักงานทั่วไป = ยังต้องสแกนใบหน้า (ปลอดภัยกว่า) */
+    njExemptCheck().then(function (ex) {
+      if (ex) { attPunchExempt(kind, el, unbusy, errEl, mbErr); return; }
+      attPunchFace(kind, el, unbusy, errEl, mbErr);
+    }, function () {
+      attPunchFace(kind, el, unbusy, errEl, mbErr);
+    });
+  }
+
+  /* ลงเวลาแบบยกเว้นใบหน้า — ยังบังคับ GPS และ Geofence ตามเดิมทุกประการ
+     Geofence ถูกตรวจฝั่งเซิร์ฟเวอร์ใน njhr_att_punch ที่ถูกเรียกต่อจาก
+     njhr_att_punch_exempt ซึ่งตรวจสิทธิ์ยกเว้นซ้ำด้วยตัวเองก่อนเสมอ */
+  function attPunchExempt(kind, el, unbusy, errEl, mbErr) {
+    function fail(msg) {
+      unbusy();
+      errEl.textContent = msg;
+      if (mbErr) mbErr.textContent = msg;
+    }
+    if (!navigator.geolocation) { fail('อุปกรณ์นี้ไม่รองรับ GPS จึงลงเวลาไม่ได้'); return; }
+
+    errEl.textContent = 'กำลังตรวจตำแหน่ง…';
+    if (mbErr) mbErr.textContent = 'กำลังตรวจตำแหน่ง…';
+    attMbGps('', 'กำลังตรวจตำแหน่ง', 'รอสัญญาณ GPS');
+
+    navigator.geolocation.getCurrentPosition(function (p) {
+      sbRpc('njhr_att_punch_exempt', {
+        p_token: sbToken(), p_action: kind, p_at: null,
+        p_lat: p.coords.latitude, p_lng: p.coords.longitude, p_accuracy: p.coords.accuracy
+      }).then(function (r) {
+        if (!r) throw new Error('เซิร์ฟเวอร์ไม่ตอบกลับ กรุณาลองใหม่');
+        unbusy();
+        toast((kind === 'IN' ? 'ลงเวลาเข้างานเรียบร้อย' : 'ลงเวลาออกงานเรียบร้อย') +
+          (r.geofence_name ? ' · ' + r.geofence_name : ''), 'success');
+        viewAttendance(el);
+      })['catch'](function (e) {
+        fail((e && e.message) || 'ลงเวลาไม่สำเร็จ กรุณาลองใหม่');
+      });
+    }, function (er) {
+      fail(er && er.code === 1
+        ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์แล้วลองใหม่'
+        : 'อ่านสัญญาณ GPS ไม่สำเร็จ กรุณาลองใหม่กลางที่โล่ง');
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+  }
+
+  /* เส้นทางเดิมของพนักงานทั่วไป — ไม่แก้ Logic ใด ๆ ย้ายมาเป็นฟังก์ชันแยกเท่านั้น */
+  function attPunchFace(kind, el, unbusy, errEl, mbErr) {
+    /* ลงเวลาต้องผ่านการสแกนใบหน้าเสมอ — face.js เรียก njhr_att_punch_face
+       ซึ่งตรวจใบหน้า + Liveness + Geofence แล้วจึงเขียน attendance ให้ในตัว
+       จึงไม่มีการเรียก njhr_att_punch ตรงจากปุ่มนี้อีกต่อไป */
+    if (window.NJHRFace) {
+      window.NJHRFace.punch(kind, function () { unbusy(); viewAttendance(el); });
+      return;
+    }
+    if (!attFaceTried) {                       // โหลดโมดูลสแกนใบหน้าครั้งแรก
+      attFaceTried = true;
+      // ตัวโหลดกลาง: Promise cache · timeout · โหลดล้มเหลวแล้วกดใหม่ลองใหม่ได้
+      loadScriptOnce('face', njAsset('face.js'), 'NJHRFace')
+        .then(function () { unbusy(); attPunch(kind, el); })
+        ['catch'](function () {
+          attFaceTried = false;                // ให้กดลงเวลาใหม่แล้วลองโหลดอีกครั้ง
+          unbusy();
+          var m1 = 'โหลดโมดูลสแกนใบหน้าไม่สำเร็จ (face.js) — ลงเวลาไม่ได้';
+          errEl.textContent = m1; if (mbErr) mbErr.textContent = m1;
+        });
+      errEl.textContent = 'กำลังเตรียมระบบสแกนใบหน้า…';
+      if (mbErr) mbErr.textContent = 'กำลังเตรียมระบบสแกนใบหน้า…';
+      return;
+    }
+    unbusy();
+    var m2 = 'ระบบสแกนใบหน้ายังไม่พร้อม — ติดต่อฝ่ายบุคคล';
+    errEl.textContent = m2; if (mbErr) mbErr.textContent = m2;
+  }
+
+
+  NJHR.views.register('viewAttendance', viewAttendance);
+})();

@@ -999,7 +999,7 @@
   var epPeriods = [], epRows = [], epFilters = { DEPARTMENT: [], POSITION: [] };
   var epSel = {};                       // payroll_id ที่เลือกไว้
 
-  function epIsAdmin() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function epIsAdmin() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
 
   function viewEPayslip(el) {
     var seq = ++epState.seq, admin = epIsAdmin();
@@ -2371,7 +2371,7 @@
   var rpState = { ym: '', deptId: '', empId: '', q: '', seq: 0 };
   var rpData = null;
 
-  function rpCanUse() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function rpCanUse() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
 
   /* รอบที่กำลังเลือกอยู่ — ไม่มีค่า = รอบปัจจุบัน จึงไม่มีทางว่าง */
   function rpCycle() {

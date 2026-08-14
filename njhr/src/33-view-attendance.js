@@ -375,7 +375,7 @@
   function attMigrateCard(el) {
     var box = document.getElementById('att-mig');
     if (!box) return;
-    if (['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) < 0) { box.innerHTML = ''; return; }
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) { box.innerHTML = ''; return; }
     var rows = attLocalRows();
     if (!rows.length) { box.innerHTML = ''; return; }
     box.innerHTML =

@@ -48,7 +48,7 @@
 
   function empForm(id, listEl) {
     if (!empCanEdit()) { toast('คุณไม่มีสิทธิ์แก้ไขข้อมูลพนักงาน', 'error'); return; }
-    var canSalary = ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0;
+    var canSalary = ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0;
     function build(e) {
       e = e || {};
       function fld(name, label, type, req, val, extra) {
@@ -229,6 +229,7 @@
      ข้อมูลทั้งหมดยังอยู่ครบ · บัญชีผู้ใช้ไม่กำพร้า · ย้อนกลับได้
      ไม่สร้าง SQL / RPC / DELETE CASCADE ใด ๆ ขึ้นใหม่ ================= */
   function empRemoveForm(id, listEl) {
+    if (currentUser().role !== 'SUPER_ADMIN') { toast('เฉพาะ SUPER_ADMIN เท่านั้นที่ใช้คำสั่งลบพนักงานได้', 'error'); return; }
     var cached = empRows.find(function (x) { return x.id === id; });
     if (cached) { empRemoveBuild(id, listEl, cached); return; }
     sbRpc('njhr_emp_get', { p_token: sbToken(), p_id: id }).then(function (r) {

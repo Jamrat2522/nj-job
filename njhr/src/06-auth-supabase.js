@@ -359,8 +359,8 @@
      เรียกจากจุดที่สถานะเปลี่ยนจริงเท่านั้น — ไม่มีการเรียกจาก render */
   function refreshOtPending() {
     var u = currentUser();
-    if (!u || ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
-    sbRpcList('njhr_ot_list', { p_token: sbToken(), p_from: null, p_to: null,
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    sbRpcList('njhr_ot_approval_queue', { p_token: sbToken(), p_from: null, p_to: null,
       p_status: 'PENDING', p_dept: null, p_employee: null, p_q: null,
       p_mine: false, p_limit: 1, p_offset: 0 })
       .then(function (rows) {
@@ -371,7 +371,7 @@
 
   function refreshFixPending() {
     var u = currentUser();
-    if (!u || !sbToken()) return;
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
     sbRpcList('njhr_att_correction_list', { p_token: sbToken(), p_employee: null,
       p_status: 'PENDING', p_from: null, p_to: null, p_limit: 1, p_offset: 0,
       p_mine_queue: true })
@@ -394,7 +394,7 @@
 
   function refreshLeavePending() {
     var u = currentUser();
-    if (!u || ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
     sbRpcList('njhr_leave_queue', { p_token: sbToken(), p_limit: 1, p_offset: 0 })
       .then(function (rows) {
         _lvPending = rows.length ? Number(rows[0].total_count) : 0;

@@ -18,7 +18,7 @@
 
   function viewAnnouncements(el) {
     var u = currentUser();
-    var canManage = ['SUPER_ADMIN', 'ADMIN'].indexOf(u.role) >= 0;
+    var canManage = ['SUPER_ADMIN', 'HR'].indexOf(u.role) >= 0;
     var seq = ++anSeq;
 
     function paint(list, err) {
@@ -143,8 +143,8 @@
   // จัดการสมาชิก: อ่าน USER จริงจาก public.app_users (app_code='salary') ผ่าน RPC njhr_list_users
   // เชื่อมชื่อพนักงานด้วย app_users.employee_id = employees.id (ทำฝั่งเซิร์ฟเวอร์)
   var usPage = 0, usTotal = 0, usSeq = 0;
-  function usCanEdit() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
-  var US_ROLES = ['SUPER_ADMIN', 'ADMIN', 'USER'];   // ระบบ HR ใช้ 3 Role เท่านั้น
+  function usCanEdit() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
+  var US_ROLES = ['SUPER_ADMIN', 'HR', 'ADMIN', 'USER'];   // ระบบ HR ใช้ 4 Role
 
   var usState = { q: '', role: '', status: '', dept: '', menu: null };
 
@@ -155,7 +155,7 @@
   function actLoadPending() {
     var box = document.getElementById('act-panel');
     if (!box) return;
-    if (currentUser().role !== 'SUPER_ADMIN') { box.innerHTML = ''; return; }
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) { box.innerHTML = ''; return; }
     var seq = ++actSeq;
     box.innerHTML = '<div class="card"><div class="muted" style="padding:14px">' +
       '<span class="spinner"></span> กำลังโหลดคำขอเปิดใช้งาน…</div></div>';
@@ -527,7 +527,7 @@
   function usRoleClass(role) {
     var r = String(role || '').toUpperCase();
     if (r === 'SUPER_ADMIN') return 'chip-bad';
-    if (r === 'ADMIN') return 'chip-ok';
+    if (r === 'HR') return 'chip-ok';
     if (r === 'ADMIN') return 'chip-warn';
     return 'chip-info';                       // USER · MESSENGER · SHIPPING · อื่น ๆ
   }
@@ -536,6 +536,7 @@
     var u = usRows.find(function (x) { return x.user_id === userId; }) || {};
     var me = currentUser();
     var isSelf = me && u.username === me.username;
+    var protectedSuper = me && me.role !== 'SUPER_ADMIN' && u.role === 'SUPER_ADMIN';
     /* "ลบบัญชี" = ลบถาวรจริงผ่าน njhr_user_delete
        แสดงเฉพาะกรณีที่ RPC ยอมลบเท่านั้น เพื่อไม่ให้ผู้ใช้กดแล้วเจอ error
        เงื่อนไขชุดเดียวกันนี้ถูกตรวจซ้ำฝั่ง SQL อีกชั้น — การซ่อนปุ่มไม่ใช่ด่านความปลอดภัย */
@@ -543,17 +544,17 @@
                     u.role === 'USER' && !u.employee_id;
     // ทุกคำสั่งของบัญชีอยู่ในเมนูนี้ทั้งหมด ตารางหลักจึงเหลือเฉพาะข้อมูล
     var items = [
-      ['edit',   '\u{270F}\u{FE0F}', 'แก้ไขข้อมูล', true, ''],
-      ['role',   '\u{1F464}', 'เปลี่ยนสิทธิ์', true, ''],
-      ['pass',   '\u{1F512}', 'รีเซ็ตรหัสผ่าน', true, ''],
+      ['edit',   '\u{270F}\u{FE0F}', 'แก้ไขข้อมูล', !protectedSuper, ''],
+      ['role',   '\u{1F464}', 'เปลี่ยนสิทธิ์', !protectedSuper, ''],
+      ['pass',   '\u{1F512}', 'รีเซ็ตรหัสผ่าน', !protectedSuper, ''],
       ['toggle', u.is_active ? '\u{1F534}' : '\u{1F7E2}',
                  u.is_active ? 'เปลี่ยนสถานะ: ปิดใช้งาน' : 'เปลี่ยนสถานะ: เปิดใช้งาน',
-                 !isSelf, u.is_active ? 't-red' : 't-green'],
+                 !isSelf && !protectedSuper, u.is_active ? 't-red' : 't-green'],
       /* ตัด "เชื่อมโยงพนักงาน / เปลี่ยนพนักงานที่เชื่อม" ออกจากเมนู
          การเชื่อมบัญชีต้องมาจากคำขอสมัคร (แถว "รอเชื่อม") เท่านั้น
          เซิร์ฟเวอร์บล็อกซ้ำอีกชั้นใน njhr_user_link — การซ่อนปุ่มไม่ใช่ด่านความปลอดภัย
          "ยกเลิกการเชื่อมพนักงาน" ยังอยู่ เพราะไม่ใช่ทางลัดข้าม Activation Flow */
-      ['unlink', '\u{1F517}', 'ยกเลิกการเชื่อมพนักงาน', !!u.employee_id, ''],
+      ['unlink', '\u{1F517}', 'ยกเลิกการเชื่อมพนักงาน', !!u.employee_id && !protectedSuper, ''],
       ['del',    '\u{1F5D1}\u{FE0F}', 'ลบบัญชี', canDelete, 't-red']
     ].filter(function (x) { return x[3]; });
 
@@ -637,6 +638,9 @@
   function usForm(userId, listEl) {
     if (!usCanEdit()) { toast('คุณไม่มีสิทธิ์แก้ไขผู้ใช้งาน', 'error'); return; }
     var u = userId ? usRows.find(function (x) { return x.user_id === userId; }) : null;
+    if (u && u.role === 'SUPER_ADMIN' && currentUser().role !== 'SUPER_ADMIN') {
+      toast('HR ไม่สามารถแก้ไขบัญชี SUPER_ADMIN ได้', 'error'); return;
+    }
     var isSelf = u && currentUser() && u.username === currentUser().username;
     var pickedEmp = u && u.employee_id ? { id: u.employee_id, code: u.emp_code, name: u.emp_name } : null;
 
@@ -761,13 +765,13 @@
   var dpState = { q: '', openId: null, empQ: '', seq: 0 };
   var dpRows = [];
 
-  function dpCanEdit() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function dpCanEdit() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   function dpErr(m) { var b = document.getElementById('dp-err'); if (b) b.textContent = m || ''; }
 
   function viewDepartments(el) {
     if (!sbReady()) { el.innerHTML = emptyState('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'); return; }
     var seq = ++dpState.seq, edit = dpCanEdit();
-    var canWf = ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0;
+    var canWf = ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0;
 
     el.innerHTML =
       '<div class="toolbar dp-filters"><h3 style="margin:0">แผนกทั้งหมด</h3>' +
@@ -802,7 +806,7 @@
   }
 
   function dpLoad(el, seq, canWf, edit) {
-    if (canWf === undefined) canWf = ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0;
+    if (canWf === undefined) canWf = ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0;
     if (edit === undefined) edit = dpCanEdit();
     sbRpcList('njhr_dept_list', { p_token: sbToken(), p_q: dpState.q || null }).then(function (rows) {
       if (seq !== dpState.seq) return;
@@ -822,8 +826,8 @@
             '<td>' + d.employees_total + ' คน</td>' +
             '<td class="ta-r"><button class="btn-icon" data-dp-view="' + esc(d.id) + '" aria-label="ดูพนักงาน">' + icon('users') + '</button>' +
             (canWf ? '<button class="btn-icon" data-dp-wf="' + esc(d.name) + '" aria-label="ตั้งค่าการอนุมัติ">' + icon('checkSquare') + '</button>' : '') +
-            (edit ? '<button class="btn-icon" data-dp-edit="' + esc(d.id) + '" aria-label="แก้ไข">' + icon('edit') + '</button>' +
-              '<button class="btn-icon ic-red" data-dp-del="' + esc(d.id) + '" aria-label="ลบ">' + icon('x') + '</button>' : '') +
+            (edit ? '<button class="btn-icon" data-dp-edit="' + esc(d.id) + '" aria-label="แก้ไข">' + icon('edit') + '</button>' : '') +
+            (currentUser().role === 'SUPER_ADMIN' ? '<button class="btn-icon ic-red" data-dp-del="' + esc(d.id) + '" aria-label="ลบ">' + icon('x') + '</button>' : '') +
             '</td></tr>';
         }).join('') + '</tbody></table></div>';
 
@@ -981,6 +985,7 @@
 
   /* ---------- ลบแผนก ---------- */
   function dpDelete(id, el) {
+    if (currentUser().role !== 'SUPER_ADMIN') { dpErr('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบแผนกได้'); return; }
     var d = dpRows.find(function (x) { return x.id === id; }) || {};
     dpErr('');
     sbRpc('njhr_dept_delete', { p_token: sbToken(), p_id: id, p_confirm: false }).then(function (r) {

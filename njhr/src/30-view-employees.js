@@ -67,9 +67,9 @@
   /* ---------- ลบเอกสาร (SUPER_ADMIN เท่านั้น · ต้องระบุเหตุผล) ---------- */
   /* ================= EMPLOYEES (list · form · detail · files · status) =================
      ย้ายมาจาก 08-view-employees.js โดยไม่แก้เนื้อใน ================= */
-  function empCanEdit() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function empCanEdit() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
 
-  function empCanDocs() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function empCanDocs() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
 
   function empErr(msg) { var b = document.getElementById('emp-err'); if (b) b.textContent = msg || ''; }
 
@@ -114,7 +114,7 @@
        role อื่น     → Self Service ของตัวเอง
        สำคัญ: return ตรงนี้ก่อน แปลว่า njhr_emp_list / njhr_emp_departments
        ไม่เคยถูกเรียกเลยสำหรับ USER/ADMIN — ไม่ใช่โหลดมาทั้งบริษัทแล้วค่อยกรอง */
-    if (currentUser().role !== 'SUPER_ADMIN') { meView(el); return; }
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) { meView(el); return; }
     var s = empState, seq = ++s.seq, edit = empCanEdit();
 
     el.innerHTML =
@@ -336,7 +336,7 @@
   }
 
   function empAttendanceEvidenceOpen(empId) {
-    if (currentUser().role !== 'SUPER_ADMIN') {
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) {
       toast('คุณไม่มีสิทธิ์ดูหลักฐานการลงเวลาของพนักงาน', 'error'); return;
     }
     var e = empRows.filter(function (x) { return String(x.id) === String(empId); })[0] || {};
@@ -397,7 +397,7 @@
                       '<button class="btn-icon" data-emp-att="' + e.id + '" aria-label="ประวัติลงเวลาและรูปเข้าออก" title="ประวัติลงเวลาและรูปเข้า–ออก">' + icon('history') + '</button>' : '') +
               (edit ? '<button class="btn-icon" data-emp-edit="' + e.id + '" aria-label="แก้ไข">' + icon('edit') + '</button>' +
                 '<button class="btn-icon ic-red" data-emp-status="' + e.id + '" aria-label="เปลี่ยนสถานะ">' + icon('ban') + '</button>' +
-                (e.status === 'RESIGNED' ? '' :
+                (currentUser().role !== 'SUPER_ADMIN' || e.status === 'RESIGNED' ? '' :
                   '<button class="btn-icon ic-red" data-emp-del="' + e.id + '" aria-label="ลบพนักงาน" title="ลบพนักงาน">' + icon('trash') + '</button>') : '') +
               '</td></tr>';
           }).join('') + '</tbody></table></div>' +
@@ -411,7 +411,7 @@
                       '<button class="btn btn-ghost btn-sm" data-emp-att="' + e.id + '">ประวัติลงเวลา</button>' : '') +
               (edit ? '<button class="btn btn-ghost btn-sm" data-emp-edit="' + e.id + '">แก้ไข</button>' +
                 '<button class="btn btn-ghost btn-sm t-red" data-emp-status="' + e.id + '">เปลี่ยนสถานะ</button>' +
-                (e.status === 'RESIGNED' ? '' :
+                (currentUser().role !== 'SUPER_ADMIN' || e.status === 'RESIGNED' ? '' :
                   '<button class="btn btn-ghost btn-sm t-red" data-emp-del="' + e.id + '">ลบพนักงาน</button>') : '') + '</div></div>';
           }).join('') + '</div>'
         : emptyState('ไม่พบพนักงานตามเงื่อนไขที่เลือก');

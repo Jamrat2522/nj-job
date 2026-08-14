@@ -1,1 +1,2572 @@
-(function(){"use strict";var P='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';var ICONS={more:P+'<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>',send:P+'<path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4Z"/></svg>',dashboard:P+'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',users:P+'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',clock:P+'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',calendarOff:P+'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="19"/><line x1="15" y1="15" x2="9" y2="19"/></svg>',timer:P+'<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/></svg>',wallet:P+'<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>',fileText:P+'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',shield:P+'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',check:P+'<polyline points="20 6 9 17 4 12"/></svg>',checkSquare:P+'<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',chart:P+'<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',calendar:P+'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',megaphone:P+'<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',userCog:P+'<circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3"/><path d="m15.2 13.9-.9-.3"/><path d="m16.6 18.7.3-.9"/><path d="m19.1 12.2.3-.9"/><path d="m19.6 18.7-.4-1"/><path d="m16.8 12.3-.4-1"/><path d="m14.3 16.6 1-.4"/><path d="m20.7 13.8 1-.4"/></svg>',building:P+'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>',settings:P+'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',history:P+'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',logout:P+'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',home:P+'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',user:P+'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',menu:P+'<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>',bell:P+'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',x:P+'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',plus:P+'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',search:P+'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',edit:P+'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',eye:P+'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',eyeOff:P+'<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>',download:P+'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',ban:P+'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>',printer:P+'<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',chevL:P+'<polyline points="15 18 9 12 15 6"/></svg>',chevR:P+'<polyline points="9 18 15 12 9 6"/></svg>',chevUp:P+'<polyline points="18 15 12 9 6 15"/></svg>',chevDown:P+'<polyline points="6 9 12 15 18 9"/></svg>',alignLeft:P+'<line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>',alignCenter:P+'<line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>',alignRight:P+'<line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/></svg>',alignJustify:P+'<line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="3" y2="18"/></svg>',listUl:P+'<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3.5" y1="6" x2="3.51" y2="6"/><line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/></svg>',listOl:P+'<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 5h1v4"/><path d="M4 9h2"/><path d="M6 18H4c0-1 2-1.6 2-2.6S5 14 4 14.6"/></svg>',indent:P+'<polyline points="3 8 7 12 3 16"/><line x1="21" y1="12" x2="11" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>',outdent:P+'<polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="11" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>',undo:P+'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>',redo:P+'<path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>',eraser:P+'<path d="M20 20H9l-5-5a2 2 0 0 1 0-2.8l7-7a2 2 0 0 1 2.8 0l6 6a2 2 0 0 1 0 2.8L14 20"/><line x1="18" y1="20" x2="8" y2="20"/></svg>',paperclip:P+'<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',folder:P+'<path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg>',upload:P+'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',trash:P+'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',pin:P+'<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',info:P+'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',mapPin:P+'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',camera:P+'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',login:P+'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>'};function icon(name,cls){return'<span class="ic '+(cls||"")+'">'+(ICONS[name]||"")+"</span>"}var TH_MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];var TH_DAYS=["อา","จ","อ","พ","พฤ","ศ","ส"];function pad(n){return String(n).padStart(2,"0")}function todayISO(){var d=new Date;return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}function nowTime(){var d=new Date;return pad(d.getHours())+":"+pad(d.getMinutes())}function nowStamp(){return todayISO()+" "+nowTime()}function fmtDate(isoStr){if(!isoStr)return"—";var p2=isoStr.split("-");return parseInt(p2[2],10)+" "+TH_MONTHS[parseInt(p2[1],10)-1].slice(0,3)+". "+(parseInt(p2[0],10)+543)}function fmtMonthYear(m,y){return TH_MONTHS[m-1]+" "+(y+543)}function fmtDateDMY(v){var p=String(v==null?"":v).slice(0,10).split("-");if(p.length!==3)return"—";var y=parseInt(p[0],10),m=parseInt(p[1],10),d=parseInt(p[2],10);if(!isFinite(y)||!isFinite(m)||!isFinite(d))return"—";return pad(d)+"/"+pad(m)+"/"+y}function money(n){return(n||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}function cycleRange(ym){var p=String(ym||"").split("-");var y=parseInt(p[0],10),m=parseInt(p[1],10);if(!isFinite(y)||!isFinite(m)||m<1||m>12)return null;var py=m===1?y-1:y;var pm=m===1?12:m-1;return{ym:y+"-"+pad(m),start:py+"-"+pad(pm)+"-26",end:y+"-"+pad(m)+"-25",endExclusive:y+"-"+pad(m)+"-26"}}function cycleCurrent(isoToday){var t=String(isoToday||todayISO());var p=t.split("-");var y=parseInt(p[0],10),m=parseInt(p[1],10),d=parseInt(p[2],10);if(!isFinite(y)||!isFinite(m)||!isFinite(d))return cycleRange(todayISO().slice(0,7));if(d>=26){if(m===12){y+=1;m=1}else{m+=1}}return cycleRange(y+"-"+pad(m))}function cycleLabel(ym){var p=String(ym||"").split("-");var m=parseInt(p[1],10);if(!isFinite(m)||m<1||m>12)return String(ym||"");return TH_MONTHS[m-1]+" "+p[0]}function cycleRangeText(ym){var r=cycleRange(ym);return r?"รอบข้อมูล "+fmtDateDMY(r.start)+" – "+fmtDateDMY(r.end):""}function cycleOptions(curYm,back,fwd){var p=String(curYm||"").split("-");var y=parseInt(p[0],10),m=parseInt(p[1],10);if(!isFinite(y)||!isFinite(m))return[];var out=[],i;for(i=-(back||12);i<=(fwd||0);i++){var mm=m+i,yy=y;while(mm<1){mm+=12;yy-=1}while(mm>12){mm-=12;yy+=1}out.push(yy+"-"+pad(mm))}return out.reverse()}function njAsset(path){var v=window.NJHR_BUILD_VERSION;if(!v)return path;return path+(path.indexOf("?")>=0?"&":"?")+"v="+encodeURIComponent(v)}var NJ_LIB_CACHE={};var NJ_LIB_TIMEOUT=2e4;function loadScriptOnce(key,src,globalName){if(NJ_LIB_CACHE[key])return NJ_LIB_CACHE[key];var pr=new Promise(function(resolve,reject){if(globalName&&window[globalName]){resolve();return}var exist=document.querySelector('script[data-lib="'+key+'"]');if(exist){if(exist.getAttribute("data-loaded")==="1"){resolve();return}exist.addEventListener("load",function(){resolve()});exist.addEventListener("error",function(){reject(new Error("โหลด "+key+" ไม่สำเร็จ"))});return}var done=false;var sc=document.createElement("script");sc.src=src;sc.async=false;sc.setAttribute("data-lib",key);var timer=setTimeout(function(){if(done)return;done=true;reject(new Error("โหลด "+key+" ไม่สำเร็จ: หมดเวลารอ"))},NJ_LIB_TIMEOUT);sc.onload=function(){if(done)return;done=true;clearTimeout(timer);sc.setAttribute("data-loaded","1");if(globalName&&!window[globalName]){reject(new Error("โหลด "+key+" แล้วแต่ไม่พบ "+globalName));return}resolve()};sc.onerror=function(){if(done)return;done=true;clearTimeout(timer);reject(new Error("โหลด "+key+" ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"))};document.head.appendChild(sc)})["catch"](function(e){delete NJ_LIB_CACHE[key];var bad=document.querySelector('script[data-lib="'+key+'"]:not([data-loaded="1"])');if(bad&&bad.parentNode)bad.parentNode.removeChild(bad);throw e});NJ_LIB_CACHE[key]=pr;return pr}function loadStyleOnce(key,href){var ck="css:"+key;if(NJ_LIB_CACHE[ck])return NJ_LIB_CACHE[ck];var pr=new Promise(function(resolve,reject){var exist=document.querySelector('link[data-lib="'+key+'"]');if(exist){if(exist.getAttribute("data-loaded")==="1"){resolve();return}exist.addEventListener("load",function(){resolve()});exist.addEventListener("error",function(){reject(new Error("โหลด CSS "+key+" ไม่สำเร็จ"))});return}var done=false;var l=document.createElement("link");l.rel="stylesheet";l.href=href;l.setAttribute("data-lib",key);var timer=setTimeout(function(){if(done)return;done=true;reject(new Error("โหลด CSS "+key+" ไม่สำเร็จ: หมดเวลารอ"))},NJ_LIB_TIMEOUT);l.onload=function(){if(done)return;done=true;clearTimeout(timer);l.setAttribute("data-loaded","1");resolve()};l.onerror=function(){if(done)return;done=true;clearTimeout(timer);reject(new Error("โหลด CSS "+key+" ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"))};document.head.appendChild(l)})["catch"](function(e){delete NJ_LIB_CACHE[ck];var bad=document.querySelector('link[data-lib="'+key+'"]:not([data-loaded="1"])');if(bad&&bad.parentNode)bad.parentNode.removeChild(bad);throw e});NJ_LIB_CACHE[ck]=pr;return pr}window.NJHR_loadStyleOnce=loadStyleOnce;window.NJHR_loadScriptOnce=loadScriptOnce;window.NJHR_asset=njAsset;function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function uid(prefix){return prefix+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6).toUpperCase()}function maskAcc(a){if(!a)return"—";return a.slice(0,4)+"-x-xxx"+a.slice(-4)}function isWeekend(isoStr){var d=new Date(isoStr+"T00:00:00").getDay();return d===0||d===6}var holCache={ready:false,at:0,set:Object.create(null),name:Object.create(null),loading:null};var HOL_TTL=5*60*1e3;function holLoad(force){if(!sbReady()||!sbToken())return Promise.resolve(false);if(!force&&holCache.ready&&Date.now()-holCache.at<HOL_TTL)return Promise.resolve(true);if(holCache.loading)return holCache.loading;holCache.loading=sbRpcList("njhr_holiday_list",{p_token:sbToken(),p_from:null,p_to:null}).then(function(rows){var st=Object.create(null),nm=Object.create(null);(rows||[]).forEach(function(h){var d=String(h.holiday_date).slice(0,10);st[d]=1;nm[d]=h.name});holCache.set=st;holCache.name=nm;holCache.ready=true;holCache.at=Date.now();return true}).catch(function(er){console.error("[HOLIDAY] โหลดวันหยุดจาก Supabase ไม่สำเร็จ ใช้ข้อมูลสำรองในเครื่อง:",er);return false}).then(function(ok){holCache.loading=null;return ok});return holCache.loading}function holInvalidate(){holCache.ready=false;holCache.at=0}function holHas(isoStr){if(holCache.ready)return!!holCache.set[isoStr];return(db.holidays||[]).some(function(h){return h.date===isoStr})}function holName(isoStr){if(holCache.ready)return holCache.name[isoStr]||"";var h=(db.holidays||[]).find(function(x){return x.date===isoStr});return h?h.name:""}function isHoliday(isoStr){return holHas(isoStr)}function businessDays(start,end){var s=new Date(start+"T00:00:00"),e=new Date(end+"T00:00:00"),c=0;if(s>e)return 0;while(s<=e){var isoStr=s.getFullYear()+"-"+pad(s.getMonth()+1)+"-"+pad(s.getDate());if(!isWeekend(isoStr)&&!isHoliday(isoStr))c++;s.setDate(s.getDate()+1)}return c}function hoursDiff(t1,t2){var a=t1.split(":"),b=t2.split(":");var m=parseInt(b[0],10)*60+parseInt(b[1],10)-(parseInt(a[0],10)*60+parseInt(a[1],10));if(m<0)m+=24*60;return Math.round(m/60*100)/100}function debounce(fn,ms){var t;return function(){var a=arguments,c=this;clearTimeout(t);t=setTimeout(function(){fn.apply(c,a)},ms)}}function downloadCSV(filename,rows){var csv="\ufeff"+rows.map(function(r){return r.map(function(c){return'"'+String(c==null?"":c).replace(/"/g,'""')+'"'}).join(",")}).join("\n");var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},800)}function avatarHTML(name,size,colorSeed){var initial=(name||"?").trim().charAt(0);var colors=["#E60000","#2563EB","#16A34A","#F59E0B","#7C3AED","#0D9488","#DB2777"];var c=colors[(colorSeed||name||"").length%colors.length];return'<span class="avatar" style="width:'+size+"px;height:"+size+"px;background:"+c+"22;color:"+c+";font-size:"+Math.round(size*.42)+'px">'+esc(initial)+"</span>"}var DB_KEY="njhr_db_v3",SES_KEY="njhr_session_v1",UI_KEY="njhr_ui_v1";var db={},session,uiState;var NJ_COMPANY_NAME="N.J. LOGISTICS & FRUITS CO., LTD.";var NJ_COMPANY_LEGACY=["N.J. LOGISTIC CO., LTD.","N.J. LOGISTICS CO., LTD.","N.J. LOGISTIC & FRUITS CO., LTD.","N.J. LOGISTIC & FRUIT CO., LTD.","N.J. LOGISTICS & FRUIT CO., LTD."];function njFixCompanyName(){var cur=String(db.settings&&db.settings.companyName||"").trim();if(!cur||NJ_COMPANY_LEGACY.indexOf(cur)>=0){db.settings.companyName=NJ_COMPANY_NAME;saveDB()}}function njCompanyParts(){var full=String(db.settings.companyName||NJ_COMPANY_NAME).trim();var m=full.match(/^(N\.J\.)\s*(.*)$/i);return m?{prefix:m[1],rest:m[2]}:{prefix:"",rest:full}}function emptyDB(){return{version:"prod",departments:[],employees:[],users:[],leaveTypes:[],balances:[],leaves:[],ots:[],corrections:[],attendance:[],payroll:[],announcements:[],holidays:[],audit:[],notifications:[],shifts:[],shiftMoves:[],settings:{companyName:NJ_COMPANY_NAME,workStart:"08:30",lateGrace:15,geofenceRadius:200}}}function fillDbGaps(){var base=emptyDB(),changed=false;Object.keys(base).forEach(function(k){if(db[k]===undefined||db[k]===null){db[k]=base[k];changed=true}});if(db.settings)Object.keys(base.settings).forEach(function(k){if(db.settings[k]===undefined){db.settings[k]=base.settings[k];changed=true}});if(changed)saveDB()}function dbReplace(next){Object.keys(db).forEach(function(k){if(!(k in next))delete db[k]});Object.keys(next).forEach(function(k){db[k]=next[k]})}function loadDB(){var seed=window.SEED;try{var raw=lsGet(DB_KEY);if(raw){var parsed=JSON.parse(raw);if(!seed||parsed.version===seed.version){dbReplace(parsed);return}}}catch(e){}dbReplace(seed?JSON.parse(JSON.stringify(seed)):emptyDB());saveDB()}var memStore={};var storageBlocked=false;function lsGet(k){try{return localStorage.getItem(k)}catch(e){storageBlocked=true;return memStore[k]!=null?memStore[k]:null}}var lsLastError="";function lsSet(k,v){try{localStorage.setItem(k,v);lsLastError="";return true}catch(e){storageBlocked=true;memStore[k]=v;lsLastError=e&&e.name==="QuotaExceededError"?"พื้นที่จัดเก็บในเบราว์เซอร์เต็ม — ข้อมูลนี้ยังไม่ถูกบันทึกถาวร":"บันทึกข้อมูลลงเบราว์เซอร์ไม่สำเร็จ";return false}}function lsRemove(k){try{localStorage.removeItem(k)}catch(e){storageBlocked=true;delete memStore[k]}}function saveDB(){bumpIdx();return lsSet(DB_KEY,JSON.stringify(db))}function saveDbGuard(){if(!lsLastError)return true;toast(lsLastError,"error");return false}function loadSession(){try{session=JSON.parse(lsGet(SES_KEY))}catch(e){session=null}}function saveSession(){if(session)lsSet(SES_KEY,JSON.stringify(session));else lsRemove(SES_KEY)}function loadUI(){try{uiState=JSON.parse(lsGet(UI_KEY))||{}}catch(e){uiState={}}}function saveUI(){lsSet(UI_KEY,JSON.stringify(uiState))}var _idxVer=0,_idx=null;function bumpIdx(){_idxVer++}function idx(){if(_idx&&_idx.v===_idxVer)return _idx;var m={v:_idxVer,emp:{},dept:{},lt:{},user:{},bal:{},resv:{}};db.employees.forEach(function(e){m.emp[e.id]=e});db.departments.forEach(function(d){m.dept[d.id]=d});db.leaveTypes.forEach(function(t){m.lt[t.id]=t});db.users.forEach(function(u){m.user[u.id]=u});(db.balances||[]).forEach(function(b){m.bal[b.empId+"|"+b.typeId]=b});(db.leaves||[]).forEach(function(l){if(l.status!=="PENDING")return;var k=l.empId+"|"+l.typeId;m.resv[k]=(m.resv[k]||0)+(l.days||0)+(l.hours||0)/8});_idx=m;return m}function emp(id){return idx().emp[id]}function empName(id){var e=emp(id);return e?e.firstName+" "+e.lastName:"—"}function dept(id){var d=idx().dept[id];if(d)return d.name;var ce=currentEmp();return ce&&ce.sbOnly&&ce.deptName?ce.deptName:"—"}function leaveType(id){return idx().lt[id]}function userById(id){return idx().user[id]}function normRole(v){var r=String(v||"").toUpperCase();return r==="SUPER_ADMIN"||r==="ADMIN"?r:"USER"}function currentUser(){if(session&&session.src==="supabase"){if(!sbUser)sbLoadUser();if(sbUser&&sbUser.user_id===session.userId){var r=normRole(sbUser.role);return{id:sbUser.user_id,username:sbUser.username,role:r,empId:sbUser.employee_id,active:true,fullName:sbUser.full_name,department:sbUser.department,sb:sbUser}}return null}return session?userById(session.userId):null}function currentEmp(){var u=currentUser();if(!u||!u.empId)return null;var e=emp(u.empId);if(e)return e;if(u.sb){var nm=String(u.sb.emp_name||u.sb.full_name||u.username).trim().split(/\s+/);return{id:u.sb.employee_id,code:u.sb.emp_code||"-",title:"",firstName:nm[0]||u.username,lastName:nm.slice(1).join(" "),nickname:"",deptId:"",position:u.sb.emp_position||"",hireDate:"",status:u.sb.emp_status||"ACTIVE",empType:"",phone:"",email:u.sb.email||"",shift:"",shiftId:"",baseSalary:0,allowance:0,bank:"",account:"",deptName:u.sb.emp_department||"",sbOnly:true}}return null}function balance(empId,typeId){var k=empId+"|"+typeId;var b=idx().bal[k];if(!b){b={empId:empId,typeId:typeId,year:(new Date).getFullYear(),quota:(leaveType(typeId)||{}).quota||0,used:0};db.balances.push(b);idx().bal[k]=b}return b}function reservedDays(empId,typeId){return idx().resv[empId+"|"+typeId]||0}function remainDays(empId,typeId){var b=balance(empId,typeId);return Math.round((b.quota-b.used-reservedDays(empId,typeId))*100)/100}function pendingCount(){return _lvPending+_otPending+_fxPending}function audit(action,detail){var u=currentUser();db.audit.unshift({at:nowStamp(),by:u?u.username:"system",action:action,detail:detail});saveDB()}function notify(userId,title,body,link){db.notifications.unshift({id:uid("N"),userId:userId,title:title,body:body,link:link||"#/dashboard",read:false,at:nowStamp()})}function notifyApprovers(title,body,link){db.users.filter(function(u){return["SUPER_ADMIN","ADMIN"].indexOf(u.role)>=0&&u.active}).forEach(function(u){notify(u.id,title,body,link)})}function userOfEmp(empId){return db.users.find(function(u){return u.empId===empId})}function toast(msg,type){var wrap=document.getElementById("toasts");var el=document.createElement("div");el.className="toast toast-"+(type||"success");el.innerHTML="<span>"+(type==="error"?icon("ban"):type==="info"?icon("info"):icon("check"))+"</span><div>"+esc(msg)+"</div>";wrap.appendChild(el);setTimeout(function(){el.classList.add("show")},10);setTimeout(function(){el.classList.remove("show");setTimeout(function(){el.remove()},300)},3200)}function toastDismiss(title,sub,type){var wrap=document.getElementById("toasts");if(!wrap)return null;var el=document.createElement("div");el.className="toast toast-"+(type||"success")+" toast-dis";el.innerHTML="<span>"+(type==="error"?icon("ban"):type==="info"?icon("info"):icon("check"))+"</span>"+'<div class="toast-txt"><b>'+esc(title)+"</b>"+(sub?"<small>"+esc(sub)+"</small>":"")+"</div>"+'<button type="button" class="toast-x" aria-label="ปิด">'+icon("x")+"</button>";wrap.appendChild(el);setTimeout(function(){el.classList.add("show")},10);var gone=false;function bye(){if(gone)return;gone=true;el.classList.remove("show");setTimeout(function(){el.remove()},300)}el.querySelector(".toast-x").onclick=bye;setTimeout(bye,5e3);return el}function fpExt(name,url){var s2=String(name||"")||String(url||"");s2=s2.split("?")[0].split("#")[0];var m=/\.([a-z0-9]+)$/i.exec(s2);return m?m[1].toLowerCase():""}function filePreviewClose(){var r=document.getElementById("file-preview-root");if(r)r.remove();document.removeEventListener("keydown",fpKey)}function fpKey(ev){if(ev.key==="Escape"){ev.stopPropagation();filePreviewClose()}}function filePreviewOpen(url,name){filePreviewClose();var ext=fpExt(name,url);var isImg=["jpg","jpeg","png","webp","gif","bmp"].indexOf(ext)>=0;var isPdf=ext==="pdf";var inner=isImg?'<img class="fp-img" src="'+esc(url)+'" alt="'+esc(name||"")+'">':isPdf?'<iframe class="fp-frame" src="'+esc(url)+'" title="'+esc(name||"")+'"></iframe>':'<div class="fp-none">'+icon("fileText")+"<p>ไม่รองรับการดูตัวอย่างไฟล์นี้ กรุณาดาวน์โหลดไฟล์</p></div>";var root=document.createElement("div");root.id="file-preview-root";root.innerHTML='<div class="fp-overlay" id="fp-overlay">'+'<div class="fp-box" role="dialog" aria-modal="true">'+'<div class="fp-head"><h3>'+esc(name||"ไฟล์แนบ")+"</h3>"+'<button type="button" class="btn-icon" id="fp-x" aria-label="ปิด">'+icon("x")+"</button></div>"+'<div class="fp-body">'+inner+"</div>"+'<div class="fp-foot"><button type="button" class="btn btn-ghost" id="fp-close">ปิด</button></div>'+"</div></div>";document.body.appendChild(root);document.getElementById("fp-x").onclick=filePreviewClose;document.getElementById("fp-close").onclick=filePreviewClose;document.getElementById("fp-overlay").addEventListener("mousedown",function(ev){if(ev.target===this)filePreviewClose()});document.addEventListener("keydown",fpKey)}function fileDownload(url,name){if(!url){toastDismiss("ดาวน์โหลดไม่สำเร็จ","กรุณาลองใหม่อีกครั้ง","error");return}var fname=String(name||"file");fetch(url).then(function(res){if(!res.ok)throw new Error("HTTP "+res.status);return res.blob()}).then(function(blob){var href=URL.createObjectURL(blob);var a=document.createElement("a");a.href=href;a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(href)},4e3);toastDismiss("เริ่มดาวน์โหลดแล้ว",fname,"success")})["catch"](function(er){try{console.error("[FILE] ดาวน์โหลดไม่สำเร็จ:",er)}catch(e){}toastDismiss("ดาวน์โหลดไม่สำเร็จ","กรุณาลองใหม่อีกครั้ง","error")})}function openModal(title,bodyHTML,footHTML,opts){opts=opts||{};closeModal();var root=document.getElementById("modal-root");root.innerHTML='<div class="modal-overlay'+(opts.fullMobile?" modal-full":"")+'" id="modal-overlay">'+'<div class="modal '+(opts.wide?"modal-wide":"")+'" role="dialog" aria-modal="true">'+'<div class="modal-head">'+(opts.fullMobile?'<button class="btn-icon only-mobile" id="modal-back" aria-label="ย้อนกลับ">'+icon("chevL")+"</button>":"")+"<h3>"+title+'</h3><button class="btn-icon" id="modal-x" aria-label="ปิด">'+icon("x")+"</button></div>"+'<div class="modal-body">'+bodyHTML+"</div>"+(footHTML?'<div class="modal-foot">'+footHTML+"</div>":"")+"</div></div>";document.body.classList.add("modal-open");document.getElementById("modal-x").onclick=closeModal;var mb=document.getElementById("modal-back");if(mb)mb.onclick=closeModal;document.getElementById("modal-overlay").addEventListener("mousedown",function(ev){if(ev.target===this&&!opts.locked)closeModal()})}function closeModal(){document.getElementById("modal-root").innerHTML="";document.body.classList.remove("modal-open")}function withButtonLoading(btn,loadingText,task){if(!btn)return Promise.resolve(task());if(btn.dataset&&btn.dataset.busy==="1")return Promise.resolve();var oldHtml=btn.innerHTML;var oldDisabled=btn.disabled;var oldWidth=btn.style.width;var rect=btn.getBoundingClientRect();if(rect&&rect.width)btn.style.width=Math.round(rect.width)+"px";if(btn.dataset)btn.dataset.busy="1";btn.disabled=true;btn.setAttribute("aria-busy","true");btn.innerHTML='<span class="spinner"></span> '+esc(loadingText||"กำลังดำเนินการ…");function restore(){btn.innerHTML=oldHtml;btn.disabled=oldDisabled;btn.style.width=oldWidth;btn.setAttribute("aria-busy","false");if(btn.dataset)btn.dataset.busy="0"}var p;try{p=task()}catch(e){restore();throw e}if(!p||typeof p.then!=="function"){restore();return Promise.resolve(p)}return p.then(function(v){restore();return v},function(e){restore();throw e})}function confirmDialog(title,msg,okLabel,onOk,danger){openModal(title,'<p class="confirm-msg">'+msg+'</p><div class="form-error" id="cf-err" role="alert"></div>','<button class="btn btn-ghost" id="cf-no">ยกเลิก</button>'+'<button class="btn '+(danger?"btn-danger":"btn-primary")+'" id="cf-yes">'+esc(okLabel)+"</button>");var noBtn=document.getElementById("cf-no");var yesBtn=document.getElementById("cf-yes");noBtn.onclick=closeModal;var cfBusy=false;yesBtn.onclick=function(){if(cfBusy)return;var btn=this;var oldHtml=btn.innerHTML;var oldWidth=btn.style.width;var rect=btn.getBoundingClientRect();var errEl=document.getElementById("cf-err");if(errEl)errEl.textContent="";function lock(){cfBusy=true;if(rect&&rect.width)btn.style.width=Math.round(rect.width)+"px";btn.disabled=true;noBtn.disabled=true;btn.setAttribute("aria-busy","true");btn.innerHTML='<span class="spinner"></span> กำลังดำเนินการ…'}function unlock(){cfBusy=false;btn.innerHTML=oldHtml;btn.style.width=oldWidth;btn.disabled=false;noBtn.disabled=false;btn.setAttribute("aria-busy","false")}function fail(e){unlock();var msg=e&&e.message||"ดำเนินการไม่สำเร็จ";var el=document.getElementById("cf-err");if(el)el.textContent=msg;else toast(msg,"error")}var r;cfBusy=true;try{r=onOk()}catch(e){cfBusy=false;fail(e);return}if(!r||typeof r.then!=="function"){closeModal();return}cfBusy=false;lock();r.then(function(){unlock();closeModal()},fail)}}var ROLE_TH={SUPER_ADMIN:"ผู้ดูแลระบบสูงสุด",ADMIN:"ผู้ดูแลระบบ",USER:"ผู้ใช้งาน"};var ALL=["SUPER_ADMIN","ADMIN","USER"];var ROUTES={"#/dashboard":{title:"Dashboard",roles:ALL,view:"viewDashboard",mod:"dashboard"},"#/employees":{title:"พนักงาน",roles:ALL,view:"viewEmployees",mod:"employees"},"#/hr-docs":{title:"เอกสาร HR",roles:ALL,view:"viewHrDocs",mod:"profile-docs"},"#/attendance":{title:"ลงเวลา",roles:ALL,view:"viewAttendance",mod:"attendance"},"#/requests":{title:"คำขอ",roles:ALL,view:"viewRequests",mod:"requests-leave"},"#/req-history":{title:"ประวัติลางานและ OT",roles:ALL,view:"viewReqHistory",mod:"requests-leave"},"#/leave":{title:"ลางาน",roles:ALL,view:"viewLeave",mod:"requests-leave"},"#/ot":{title:"OT",roles:ALL,view:"viewOT",mod:"ot"},"#/payroll":{title:"เงินเดือน",roles:["SUPER_ADMIN","ADMIN"],view:"viewPayroll",mod:"compatibility"},"#/payslips":{title:"สลิปเงินเดือน (E-PAYSLIP)",roles:ALL,view:function(){window.location.hash="#/epayslip"}},"#/epayslip":{title:"สลิปเงินเดือน (E-PAYSLIP)",roles:ALL,view:"viewEPayslip",mod:"compatibility"},"#/approval-settings":{title:"ตั้งค่าการอนุมัติ",roles:["SUPER_ADMIN","ADMIN"],view:"viewApprovalSettings",mod:"compatibility"},"#/pay-items":{title:"รายการเงินเดือน",roles:["SUPER_ADMIN","ADMIN"],view:"viewPayItems",mod:"compatibility"},"#/sso":{title:"ประกันสังคม",roles:["SUPER_ADMIN","ADMIN"],view:"viewSSO",mod:"compatibility"},"#/approvals":{title:"อนุมัติรายการ",roles:["SUPER_ADMIN","ADMIN"],view:"viewApprovals",mod:"compatibility"},"#/reports":{title:"รายงานการลงเวลา",roles:["SUPER_ADMIN","ADMIN"],view:"viewReports",mod:"attendance-report"},"#/rpt-leave":{title:"รายงานการลา",roles:["SUPER_ADMIN","ADMIN"],view:"viewRptLeave",mod:"report-menu"},"#/rpt-ot":{title:"รายงานโอที",roles:["SUPER_ADMIN","ADMIN"],view:"viewRptOT",mod:"report-menu"},"#/rpt-wht":{title:"รายงาน 50 ทวิ",roles:["SUPER_ADMIN","ADMIN"],view:"viewRptWht50",mod:"report-menu"},"#/calendar":{title:"ปฏิทินองค์กร",roles:ALL,view:"viewCalendar",mod:"calendar"},"#/announcements":{title:"ประกาศบริษัท",roles:ALL,view:"viewAnnouncements",mod:"compatibility"},"#/users":{title:"จัดการสมาชิก",roles:["SUPER_ADMIN","ADMIN"],view:"viewUsers",mod:"compatibility"},"#/departments":{title:"จัดการแผนก",roles:["SUPER_ADMIN","ADMIN"],view:"viewDepartments",mod:"compatibility"},"#/settings":{title:"ตั้งค่าระบบ",roles:["SUPER_ADMIN","ADMIN"],view:"viewSettings",mod:"compatibility"},"#/geofence":{title:"พื้นที่ลงเวลา",roles:["SUPER_ADMIN"],view:"viewGeofence",mod:"compatibility"},"#/shifts":{title:"ตั้งค่ากะทำงาน",roles:["SUPER_ADMIN","ADMIN"],view:"viewShifts",mod:"compatibility"},"#/audit":{title:"ประวัติการใช้งาน",roles:["SUPER_ADMIN","ADMIN"],view:"viewAudit",mod:"compatibility"},"#/reportall":{title:"รายงานทั้งหมด",roles:["SUPER_ADMIN","ADMIN"],view:"viewReportAll",mod:"compatibility"},"#/notifications":{title:"การแจ้งเตือน",roles:ALL,view:"viewNotifications",mod:"notifications"},"#/profile":{title:"โปรไฟล์",roles:ALL,view:"viewProfile",mod:"profile-docs"}};function canAccess(route){var u=currentUser();return u&&ROUTES[route]&&ROUTES[route].roles.indexOf(u.role)>=0}function nav(hash){if(location.hash===hash)render();else location.hash=hash}var SECTION_TARGET={history:".att-hcard"};function rtScrollToSection(){var q=location.hash.split("?")[1]||"";var m=/(?:^|&)sec=([\w-]+)/.exec(q);var sel=m&&SECTION_TARGET[m[1]];if(!sel){window.scrollTo(0,0);return}requestAnimationFrame(function(){var el=document.querySelector(sel);if(el&&el.scrollIntoView)el.scrollIntoView({block:"start"});else window.scrollTo(0,0)})}function rtFinishRender(){document.getElementById("drawer-overlay").classList.remove("open");document.getElementById("sidebar").classList.remove("drawer-open");document.body.classList.remove("sidebar-open");rtScrollToSection()}function rtLoadingHTML(){return'<div class="card"><small class="muted"><span class="spinner"></span> กำลังโหลด…</small></div>'}function rtRenderError(host,hash){if(!host)return;host.innerHTML='<div class="empty">'+icon("info")+"<p>ไม่สามารถโหลดหน้านี้ได้ กรุณาลองใหม่</p>"+'<button class="btn btn-primary" id="rt-retry">ลองใหม่</button></div>';var btn=document.getElementById("rt-retry");if(btn)btn.onclick=function(){render()}}function render(){try{sbAbortReads()}catch(e){}var hash=location.hash||"#/dashboard";if(hash.indexOf("#/")!==0)hash="#/dashboard";if(!session){NJHR.router.bump();renderLogin();return}var u=currentUser();if(!u||!u.active){doLogout(true);return}if(!ROUTES[hash]){var bare=hash.split("?")[0].replace(/\/(addition|deduction|income|expense)$/i,"");if(ROUTES[bare])hash=bare;else{hash="#/dashboard";if(location.hash&&location.hash!==hash){location.hash=hash;return}}}if(!canAccess(hash)){toast("คุณไม่มีสิทธิ์เข้าถึงหน้านี้","error");hash="#/dashboard";if(location.hash!==hash){location.hash=hash;return}}var navId=NJHR.router.bump();var r=ROUTES[hash];NJHR.state.currentRoute=hash;renderShell(hash);var host=mountTabs(hash);var ntPaint=function(){try{NJHR.notify.paint()}catch(e){}};if(typeof r.view==="function"){r.view(host);rtFinishRender();ntPaint();return}if(NJHR.views.has(r.view)){NJHR.views.render(r.view,host,navId,hash);rtFinishRender();ntPaint();return}host.innerHTML=rtLoadingHTML();rtFinishRender();NJHR.modules.load(r.mod).then(function(){if(navId!==NJHR.router.navId())return;if(!session)return;if(!canAccess(hash))return;var host2=document.getElementById("view-host")||host;if(!NJHR.views.has(r.view)){rtRenderError(host2,hash);return}NJHR.views.render(r.view,host2,navId,hash);ntPaint()})["catch"](function(e){try{console.error("[MODULE] "+(e&&e.message?e.message:e))}catch(e2){}if(navId!==NJHR.router.navId()||!session)return;rtRenderError(document.getElementById("view-host")||host,hash)})}var MENU_TOP={r:"#/dashboard",t:"Dashboard",i:"dashboard"};var USER_MENU=[{r:"#/calendar",t:"ปฏิทินองค์กร",i:"calendar"},{r:"#/hr-docs",t:"เอกสารของฉัน",i:"fileText",myDocsBadge:true},{r:"#/epayslip",t:"สลิปเงินเดือน",i:"wallet"},{r:"#/attendance",q:"?sec=history",t:"ประวัติการลงเวลา",i:"clock"}];var MENU_GROUPS=[{key:"people",t:"บุคลากร",i:"users",items:[{r:"#/employees",t:"พนักงาน",i:"users"},{r:"#/hr-docs",t:"เอกสาร HR",i:"fileText",userTitle:"เอกสารของฉัน",myDocsBadge:true},{r:"#/attendance",t:"ลงเวลา",i:"clock"}]},{key:"requests",t:"คำขอ",i:"checkSquare",items:[{r:"#/leave",t:"ลางาน",i:"calendarOff"},{r:"#/ot",t:"OT",i:"timer"},{r:"#/approvals",t:"อนุมัติรายการ",i:"checkSquare",badge:true}]},{key:"money",t:"เงินเดือน",i:"wallet",items:[{r:"#/payroll",t:"เงินเดือน",i:"wallet"},{r:"#/epayslip",t:"สลิปเงินเดือน",i:"fileText"}]},{key:"report",t:"รายงาน",i:"chart",items:[{r:"#/reports",t:"รายงานการลงเวลา",i:"chart"},{r:"#/sso",t:"ประกันสังคม",i:"shield"},{r:"#/reportall",t:"รายงานทั้งหมด",i:"fileText"},{r:"#/rpt-leave",t:"รายงานการลา",i:"calendarOff",deskOnly:true},{r:"#/rpt-ot",t:"รายงานโอที",i:"timer",deskOnly:true},{r:"#/rpt-wht",t:"รายงาน 50 ทวิ",i:"fileText",deskOnly:true}]},{key:"system",t:"ระบบ",i:"settings",items:[{r:"#/users",t:"ผู้ใช้งาน",i:"userCog",also:["#/departments"]},{r:"#/settings",t:"ตั้งค่า",i:"settings",also:["#/geofence","#/shifts","#/approval-settings","#/pay-items"]},{r:"#/audit",t:"ประวัติการใช้งาน",i:"history"}]}];function menuTitle(m){var u=currentUser();return m.userTitle&&u&&u.role==="USER"?m.userTitle:m.t}function menuBadgeOf(m,pc){if(m.badge&&pc>0)return pc;if(m.myDocsBadge){var d=Number(NJHR.state.docPending)||0;if(d>0)return d}return 0}function menuRoutes(m){return[m.r].concat(m.also||[])}function menuMatch(m,hash){return menuRoutes(m).indexOf(hash)>=0}function menuVisible(m){return menuRoutes(m).some(canAccess)}function menuHref(m){var r=menuRoutes(m).filter(canAccess)[0]||m.r;return r+(m.q&&r===m.r?m.q:"")}var TABSETS=[{key:"users",tabs:[{r:"#/users",t:"จัดการสมาชิก"},{r:"#/departments",t:"จัดการแผนก"}]},{key:"settings",tabs:[{r:"#/settings",t:"ตั้งค่าระบบ"},{r:"#/geofence",t:"พื้นที่ลงเวลา"},{r:"#/shifts",t:"ตั้งค่ากะทำงาน"},{r:"#/approval-settings",t:"ตั้งค่าการอนุมัติ"},{r:"#/pay-items",t:"รายการเงินเดือน"}]}];function tabsetOf(hash){return TABSETS.find(function(ts){return ts.tabs.some(function(t){return t.r===hash})})}function mountTabs(hash){var mv=document.getElementById("main-view");var ts=tabsetOf(hash),html="";if(ts){var tabs=ts.tabs.filter(function(t){return canAccess(t.r)});if(tabs.length>1){html='<div class="tabs page-tabs">'+tabs.map(function(t){return'<a class="tab'+(t.r===hash?" active":"")+'" href="'+t.r+'">'+esc(t.t)+"</a>"}).join("")+"</div>"}}mv.innerHTML=html+'<div id="view-host"></div>';return document.getElementById("view-host")}function groupOfRoute(hash){return MENU_GROUPS.find(function(g){return g.items.some(function(m){return menuMatch(m,hash)})})}function refreshMenuBadge(){var pc=pendingCount();MENU_GROUPS.forEach(function(g){g.items.forEach(function(m){if(!m.badge&&!m.myDocsBadge)return;var mb=menuBadgeOf(m,pc);document.querySelectorAll('.side-menu a.menu-item[href="'+menuHref(m)+'"], '+'#menu-flyout a.menu-item[href="'+menuHref(m)+'"]').forEach(function(a){var b=a.querySelector(".menu-badge");if(mb>0){if(b)b.textContent=mb;else a.insertAdjacentHTML("beforeend",'<span class="menu-badge">'+mb+"</span>")}else if(b){b.remove()}})})});MENU_GROUPS.forEach(function(g){var gb=g.items.reduce(function(n,m){return n+menuBadgeOf(m,pc)},0);var btn=document.getElementById("menu-cat-btn-"+g.key);if(!btn)return;var cb=btn.querySelector(".cat-badge");if(gb>0){if(cb)cb.textContent=gb;else btn.querySelector(".menu-text").insertAdjacentHTML("afterend",'<span class="menu-badge cat-badge">'+gb+"</span>")}else if(cb){cb.remove()}})}function bottomNavItems(){return[["#/dashboard","หน้าหลัก","home"],["#/attendance","ลงเวลา","clock"],["#/requests","คำขอ","checkSquare"],["#/profile","โปรไฟล์","user"]]}function bnActive(r,activeHash){if(r===activeHash)return true;if(r==="#/requests"){return["#/leave","#/ot","#/approvals","#/req-history"].indexOf(activeHash)>=0}var g=groupOfRoute(activeHash),gr=groupOfRoute(r);return!!(g&&gr&&g.key===gr.key)}function accInit(){if(typeof uiState.openSidebarGroup==="undefined"){uiState.openSidebarGroup=null;delete uiState.menuOpen;saveUI()}}function accSyncToRoute(activeHash){accInit();var g=groupOfRoute(activeHash);var next=g?g.key:null;if(uiState.openSidebarGroup!==next){uiState.openSidebarGroup=next;saveUI()}}function accApply(){var sb=document.getElementById("sidebar");if(!sb)return;sb.querySelectorAll(".menu-cat").forEach(function(cat){var on=cat.dataset.group===uiState.openSidebarGroup;cat.classList.toggle("open",on);var btn=cat.querySelector(".menu-cat-btn");if(btn)btn.setAttribute("aria-expanded",on?"true":"false")})}function accToggle(key){accInit();uiState.openSidebarGroup=uiState.openSidebarGroup===key?null:key;saveUI();accApply()}var _shellSig=null;var MB_BRAND_ROUTES=["#/dashboard"];var MB_HIDE_ROUTES=["#/profile","#/requests","#/attendance"];var MB_MID_ROUTES=[];function mbHeaderMode(activeHash){if(!currentUser())return"";if(MB_BRAND_ROUTES.indexOf(activeHash)>=0)return"brand";if(MB_MID_ROUTES.indexOf(activeHash)>=0)return"mid";if(MB_HIDE_ROUTES.indexOf(activeHash)>=0)return"hide";return""}function shellSignature(activeHash){var u=currentUser();var g=groupOfRoute(activeHash);return[u?u.id:"",u?u.role:"",!!uiState.sidebarCollapsed,pendingCount(),_ntUnread,mbHeaderMode(activeHash),g?g.key:""].join("|")}function shellUpdateActive(activeHash){var sb=document.getElementById("sidebar");if(!sb)return false;sb.querySelectorAll(".menu-item.active").forEach(function(a){a.classList.remove("active")});if(MENU_TOP.r===activeHash){var top=sb.querySelector('a.menu-item[href="'+MENU_TOP.r+'"]');if(top)top.classList.add("active")}MENU_GROUPS.forEach(function(g){g.items.forEach(function(m){if(!menuMatch(m,activeHash))return;var lnk=sb.querySelector('.menu-cat[data-group="'+g.key+'"] a.menu-item[href="'+menuHref(m)+'"]');if(lnk)lnk.classList.add("active")})});document.querySelectorAll(".bn-item").forEach(function(a){a.classList.toggle("active",a.getAttribute("href")===activeHash)});var bnv=document.getElementById("bottom-nav");if(bnv)bnv.classList.toggle("bn-att",activeHash==="#/attendance");var t=document.getElementById("topbar-title");if(t&&ROUTES[activeHash])t.textContent=ROUTES[activeHash].title;accSyncToRoute(activeHash);accApply();return true}function renderShell(activeHash){var oldFly=document.getElementById("menu-flyout");if(oldFly)oldFly.remove();var sig=shellSignature(activeHash);if(sig===_shellSig&&document.getElementById("main-view")&&shellUpdateActive(activeHash))return;_shellSig=sig;var app=document.getElementById("app");var u=currentUser(),e=currentEmp();var name=e?e.firstName+" "+e.lastName:u.username;var collapsed=!!uiState.sidebarCollapsed;var pc=pendingCount();var unread=_ntUnread;var mbMode=mbHeaderMode(activeHash);var mbBrand=mbMode==="brand",mbTitleOnly=mbMode==="mid";var mbHide=mbMode==="hide";accSyncToRoute(activeHash);function subLink(m){var t=menuTitle(m),mb=menuBadgeOf(m,pc);return'<a href="'+menuHref(m)+'" class="menu-item sub-item'+(menuMatch(m,activeHash)?" active":"")+(m.deskOnly?" only-desktop":"")+'" data-tip="'+esc(t)+'">'+icon(m.i)+'<span class="menu-text">'+esc(t)+"</span>"+(mb>0?'<span class="menu-badge">'+mb+"</span>":"")+"</a>"}var menuHTML='<a href="'+MENU_TOP.r+'" class="menu-item'+(MENU_TOP.r===activeHash?" active":"")+'" data-tip="'+MENU_TOP.t+'">'+icon(MENU_TOP.i)+'<span class="menu-text">'+MENU_TOP.t+"</span></a>"+MENU_GROUPS.map(function(g){var items=g.items.filter(menuVisible);if(!items.length)return"";var isOpen=uiState.openSidebarGroup===g.key;var hasActive=items.some(function(m){return menuMatch(m,activeHash)});var gb=items.reduce(function(n,m){return n+menuBadgeOf(m,pc)},0);var groupBadge=gb>0?'<span class="menu-badge cat-badge">'+gb+"</span>":"";return'<div class="menu-cat'+(isOpen?" open":"")+'" data-group="'+g.key+'">'+'<button type="button" class="menu-item menu-cat-btn'+(hasActive?" has-active":"")+'" data-cat="'+g.key+'"'+' id="menu-cat-btn-'+g.key+'" aria-controls="menu-sub-'+g.key+'" aria-expanded="'+isOpen+'" data-tip="'+g.t+'">'+icon(g.i)+'<span class="menu-text">'+g.t+"</span>"+groupBadge+'<span class="cat-arrow" aria-hidden="true">'+icon("chevR")+"</span></button>"+'<div class="menu-sub" id="menu-sub-'+g.key+'" role="group" aria-labelledby="menu-cat-btn-'+g.key+'">'+items.map(subLink).join("")+"</div></div>"}).join("");var isUser=u.role==="USER";if(isUser){menuHTML='<div class="menu-group">'+USER_MENU.filter(function(m){return!ROUTES[m.r]||canAccess(m.r)}).map(subLink).join("")+"</div>"}app.innerHTML='<div class="layout'+(collapsed?" collapsed":"")+(isUser?" user-shell":"")+'">'+'<div class="drawer-overlay" id="drawer-overlay"></div>'+'<aside class="sidebar" id="sidebar">'+'  <div class="side-brand"><span class="brand-badge">NJ</span><div class="brand-txt"><b>NJ LOGISTIC</b><small>HR SYSTEM</small></div>'+'    <button class="btn-icon side-close" id="drawer-close" aria-label="ปิดเมนู">'+icon("x")+"</button></div>"+(isUser?'  <a href="#/profile" class="side-user side-user-card" id="side-profile">'+avatarHTML(name,46)+'    <div class="side-user-txt"><b>'+esc(name)+"</b>"+"      <small>"+esc(e&&e.code||"—")+"</small>"+"      <small>"+esc(e&&dept(e.deptId)||"—")+"</small></div>"+'    <span class="cat-arrow" aria-hidden="true">'+icon("chevR")+"</span></a>":'  <div class="side-user">'+avatarHTML(name,42)+'    <div class="side-user-txt"><b>'+esc(name)+'</b><small><span class="dot-on"></span>'+ROLE_TH[u.role]+"</small></div></div>")+'  <nav class="side-menu">'+menuHTML+'    <div class="menu-group"><a href="javascript:void 0" id="menu-logout" class="menu-item" data-tip="ออกจากระบบ">'+icon("logout")+'<span class="menu-text">ออกจากระบบ</span></a></div>'+"  </nav>"+'  <button class="side-collapse" id="side-collapse" aria-label="ย่อเมนู">'+icon(collapsed?"chevR":"chevL")+'<span class="menu-text">ย่อเมนู</span></button>'+"</aside>"+'<div class="content">'+'  <header class="topbar'+(mbBrand?" tb-mb":"")+(mbTitleOnly?" tb-mid":"")+(mbHide?" tb-hide":"")+'">'+'    <button class="btn-icon only-mobile" id="hamburger" aria-label="เปิดเมนู">'+icon("menu")+"</button>"+(mbBrand?'    <span class="tb-brand only-mobile"><span class="tb-logo">NJL</span><b>NJL HR</b></span>':"")+'    <h2 class="page-title" id="topbar-title">'+ROUTES[activeHash].title+"</h2>"+'    <div class="topbar-right">'+'      <button class="btn-icon bell" id="btn-bell" aria-label="การแจ้งเตือน">'+icon("bell")+(unread?'<span class="bell-badge">'+unread+"</span>":"")+"</button>"+'      <a href="#/profile" class="topbar-user">'+avatarHTML(name,34)+'<span class="only-desktop">'+esc(e?e.nickname||e.firstName:u.username)+"</span></a>"+"    </div></header>"+'  <main class="main-view" id="main-view"></main>'+"</div>"+'<nav class="bottom-nav'+(activeHash==="#/attendance"?" bn-att":"")+'" id="bottom-nav">'+bottomNavItems().map(function(b){return'<a href="'+b[0]+'" class="bn-item'+(bnActive(b[0],activeHash)?" active":"")+'">'+icon(b[2])+"<span>"+b[1]+"</span></a>"}).join("")+"</nav></div>";document.getElementById("hamburger").onclick=function(){document.getElementById("sidebar").classList.add("drawer-open");document.getElementById("drawer-overlay").classList.add("open");document.body.classList.add("sidebar-open")};function closeDrawer(){document.getElementById("sidebar").classList.remove("drawer-open");document.getElementById("drawer-overlay").classList.remove("open");document.body.classList.remove("sidebar-open")}window.njhrCloseDrawer=closeDrawer;document.getElementById("drawer-overlay").onclick=closeDrawer;document.getElementById("drawer-close").onclick=closeDrawer;document.querySelectorAll(".side-menu a.menu-item, #side-profile").forEach(function(a){a.addEventListener("click",closeDrawer)});document.querySelectorAll('.side-menu a[href^="#/"]').forEach(function(a){a.addEventListener("click",closeDrawer)});document.getElementById("side-collapse").onclick=function(){uiState.sidebarCollapsed=!uiState.sidebarCollapsed;saveUI();render()};function closeFlyout(){var f=document.getElementById("menu-flyout");if(f)f.remove();document.removeEventListener("mousedown",flyoutOutside,true)}function flyoutOutside(ev){var f=document.getElementById("menu-flyout");if(f&&!f.contains(ev.target)&&!ev.target.closest(".menu-cat-btn"))closeFlyout()}function openFlyout(btn,gKey){var g=MENU_GROUPS.find(function(x){return x.key===gKey});var items=g.items.filter(menuVisible);var wasOpen=document.getElementById("menu-flyout");closeFlyout();if(wasOpen&&wasOpen.dataset.key===gKey)return;var rect=btn.getBoundingClientRect();var f=document.createElement("div");f.id="menu-flyout";f.dataset.key=gKey;f.style.top=Math.min(rect.top,window.innerHeight-(items.length*44+56))+"px";f.style.left=rect.right+8+"px";f.innerHTML='<div class="flyout-title">'+g.t+"</div>"+items.map(function(m){var t=menuTitle(m),mb=menuBadgeOf(m,pc);return'<a href="'+menuHref(m)+'" class="menu-item sub-item'+(menuMatch(m,activeHash)?" active":"")+'">'+icon(m.i)+'<span class="menu-text">'+esc(t)+"</span>"+(mb>0?'<span class="menu-badge">'+mb+"</span>":"")+"</a>"}).join("");document.body.appendChild(f);f.querySelectorAll("a").forEach(function(a){a.addEventListener("click",closeFlyout)});document.addEventListener("mousedown",flyoutOutside,true)}document.querySelectorAll(".menu-cat-btn").forEach(function(btn){btn.onclick=function(){var key=this.dataset.cat;var isDesktopCollapsed=uiState.sidebarCollapsed&&window.innerWidth>900;if(isDesktopCollapsed){openFlyout(this,key);return}accToggle(key)}});document.getElementById("menu-logout").onclick=function(){confirmDialog("ออกจากระบบ","ต้องการออกจากระบบใช่หรือไม่","ออกจากระบบ",function(){doLogout(false)},true)};document.getElementById("btn-bell").onclick=function(){nav("#/notifications")}}var SB={url:window.NJHR_SUPABASE_URL||"",key:window.NJHR_SUPABASE_ANON_KEY||""};var sbUser=null,sbLoginMsg="";function sbSaveUser(){try{localStorage.setItem("njhr_sb_user",JSON.stringify(sbUser))}catch(e){}}function sbLoadUser(){try{sbUser=JSON.parse(localStorage.getItem("njhr_sb_user"))}catch(e){sbUser=null}}function sbClearUser(){sbUser=null;try{localStorage.removeItem("njhr_sb_user")}catch(e){}}function sbReady(){return!!(SB.url&&SB.key)}var SB_HEALTH=null;function sbConnCheck(){if(!sbReady())return Promise.reject(new Error("CONFIG"));return sbRpc("njhr_healthcheck",{}).then(function(h){SB_HEALTH=h||null;if(!h||h.ok!==true||h.project_ready!==true)throw new Error("SCHEMA");return h},function(e){if(e&&e.message==="SCHEMA")throw e;SB_HEALTH=null;throw new Error("NETWORK")})}function renderConnError(){document.getElementById("app").innerHTML='<div class="login-wrap"><div class="login-card">'+'<div class="login-brand"><span class="brand-badge big">NJ</span><h1>NJ LOGISTIC</h1><p>HR SYSTEM</p></div>'+'<div class="form-error" id="conn-msg" role="alert" style="text-align:center;line-height:1.8">'+"ไม่สามารถเชื่อมต่อฐานข้อมูล Supabase ได้<br>กรุณาตรวจสอบการตั้งค่าระบบหรือการเชื่อมต่ออินเทอร์เน็ต</div>"+(SB_HEALTH&&SB_HEALTH.detail&&SB_HEALTH.detail.missing&&SB_HEALTH.detail.missing.length?'<p class="muted note">ยังติดตั้งไม่ครบ: '+esc(SB_HEALTH.detail.missing.join(", "))+" · schema "+esc(String(SB_HEALTH.schema_version||"-"))+"</p>":"")+'<button class="btn btn-primary btn-block btn-lg" id="conn-retry">ลองเชื่อมต่ออีกครั้ง</button>'+"</div></div>";document.getElementById("conn-retry").onclick=function(){var b=this;b.disabled=true;b.innerHTML='<span class="spinner"></span> กำลังเชื่อมต่อ…';njhrBoot()}}var SB_TIMEOUT_MS=13e3;window.NJHR_SB_TIMEOUT_MS=SB_TIMEOUT_MS;var SB_WRITE_RPC={njhr_ann_ack:1,njhr_ann_read:1,njhr_att_migrate:1,njhr_att_punch:1,njhr_att_punch_exempt:1,njhr_dept_delete:1,njhr_dept_move:1,njhr_dept_save:1,njhr_doc_delete:1,njhr_doc_flow:1,njhr_doc_org_save:1,njhr_doc_respond:1,njhr_doc_save:1,njhr_doc_view:1,njhr_emp_import:1,njhr_emp_save:1,njhr_emp_status:1,njhr_empfile_delete:1,njhr_empfile_save:1,njhr_face_delete:1,njhr_gf_delete:1,njhr_gf_save:1,njhr_holiday_delete:1,njhr_holiday_save:1,njhr_leave_cancel:1,njhr_leave_decide:1,njhr_leave_submit:1,njhr_leave_type_save:1,njhr_login:1,njhr_face_login:1,njhr_face_login_set:1,njhr_face_self_enroll:1,njhr_face_self_reenroll:1,njhr_logout:1,njhr_notify_read:1,njhr_notify_read_all:1,njhr_ot_attach_add:1,njhr_ot_attach_delete:1,njhr_pay_entry_bulk:1,njhr_pay_entry_copy_apply:1,njhr_pay_entry_delete:1,njhr_pay_entry_save:1,njhr_pay_entry_set_active:1,njhr_pay_item_delete:1,njhr_pay_item_reorder:1,njhr_pay_item_save:1,njhr_session_check:1,njhr_shift_assign:1,njhr_shift_save:1,njhr_shift_set_active:1,njhr_slip_mark_sent:1,njhr_sso_emp_save:1,njhr_user_link:1,njhr_user_password:1,njhr_user_save:1,njhr_wf_delete:1,njhr_wf_save:1,njhr_wf_step_delete:1,njhr_wf_step_move:1,njhr_wf_step_save:1,njhr_activation_link:1,njhr_activation_reject:1,njhr_activation_submit:1,njhr_att_correction_submit:1,njhr_gov_holiday_apply:1,njhr_gov_holiday_set:1,njhr_me_save:1,njhr_user_delete:1,njhr_att_correction_approve:1,njhr_att_correction_reject:1,njhr_shift_assign_many:1,njhr_shift_no_shift_set:1,njhr_shift_remove:1,njhr_wf_approver_add:1,njhr_wf_approver_remove:1,njhr_wf_step_toggle:1,njhr_announcement_save:1,njhr_announcement_set_active:1,njhr_ot_decide:1,njhr_ot_submit:1,njhr_setting_save:1,njhr_wht50_draft:1,njhr_wht50_update:1,njhr_wht50_confirm:1,njhr_wht50_send:1};function sbIsWriteRpc(fn){return SB_WRITE_RPC[fn]===1}function sbOnce(fn,body,ctl){return fetch(SB.url+"/rest/v1/rpc/"+fn,{method:"POST",headers:{apikey:SB.key,Authorization:"Bearer "+SB.key,"Content-Type":"application/json"},body:JSON.stringify(body||{}),signal:ctl?ctl.signal:undefined}).then(function(r){return r.json().then(function(j){if(!r.ok){var e=new Error(j&&(j.message||j.hint)||"เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");e.sbServer=true;throw e}return j})})}var SB_INFLIGHT={};var SB_BUSY=0;function sbBusy(delta){SB_BUSY+=delta;if(SB_BUSY<0)SB_BUSY=0;try{var b=document.body;if(!b)return;if(SB_BUSY>0)b.classList.add("njhr-busy");else b.classList.remove("njhr-busy")}catch(e){}}function sbWriteKey(fn,body){var b={},k;for(k in body){if(body.hasOwnProperty(k)&&k!=="p_token")b[k]=body[k]}try{return fn+"|"+JSON.stringify(b)}catch(e){return""}}var SB_READ_INFLIGHT={};var SB_NO_ABORT={njhr_healthcheck:1,njhr_session_check:1,njhr_leave_queue:1,njhr_notify_unread:1,njhr_notify_list:1,njhr_ann_feed:1,njhr_event_list:1,njhr_holiday_list:1};var SB_ABORTERS=[];function sbAbortReads(){var list=SB_ABORTERS,i;SB_ABORTERS=[];for(i=0;i<list.length;i++){try{list[i].abort()}catch(e){}}return list.length}function sbCall(fn,body){if(!sbReady())return Promise.reject(new Error("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase"));var isWrite=sbIsWriteRpc(fn),lockKey="";if(isWrite){lockKey=sbWriteKey(fn,body||{});if(lockKey&&SB_INFLIGHT[lockKey]){try{console.error("[RPC "+fn+"] ถูกปฏิเสธ: คำสั่งเดิมยังทำงานไม่เสร็จ")}catch(e){}return Promise.reject(new Error("กำลังบันทึกรายการนี้อยู่ กรุณารอสักครู่"))}if(lockKey)SB_INFLIGHT[lockKey]=1;sbBusy(1)}var canRetry=!isWrite,tried=0;function attempt(){tried++;var ctl=typeof AbortController!=="undefined"?new AbortController:null;var timedOut=false;var timer=setTimeout(function(){timedOut=true;if(ctl)ctl.abort()},SB_TIMEOUT_MS);if(ctl&&!isWrite&&SB_NO_ABORT[fn]!==1)SB_ABORTERS.push(ctl);return sbOnce(fn,body,ctl).then(function(j){clearTimeout(timer);return j},function(err){clearTimeout(timer);if(err&&err.sbServer)throw err;if(!timedOut&&err&&err.name==="AbortError")return null;try{console.error("[RPC "+fn+"] "+(err&&err.message))}catch(e){}if(canRetry&&tried===1)return attempt();throw new Error(timedOut?"เซิร์ฟเวอร์ตอบกลับช้าเกินไป กรุณาลองใหม่อีกครั้ง":"เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่")})}if(!isWrite){var rk;try{rk=fn+"|"+JSON.stringify(body||{})}catch(e){rk=""}if(!rk)return attempt();if(SB_READ_INFLIGHT[rk])return SB_READ_INFLIGHT[rk];var pr=attempt();SB_READ_INFLIGHT[rk]=pr;pr.then(function(){delete SB_READ_INFLIGHT[rk]},function(){delete SB_READ_INFLIGHT[rk]});return pr}return attempt().then(function(v){if(lockKey)delete SB_INFLIGHT[lockKey];sbBusy(-1);return v},function(e){if(lockKey)delete SB_INFLIGHT[lockKey];sbBusy(-1);throw e})}function sbRpcList(fn,body){return sbCall(fn,body).then(function(j){return Array.isArray(j)?j:j?[j]:[]})}function sbDocPdfFn(body){if(!sbReady())return Promise.reject(new Error("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase"));return fetch(SB.url+"/functions/v1/njhr-doc-pdf",{method:"POST",headers:{apikey:SB.key,Authorization:"Bearer "+SB.key,"Content-Type":"application/json"},body:JSON.stringify(Object.assign({token:sbToken()},body||{}))}).then(function(r){return r.text().then(function(t){var d={};try{d=JSON.parse(t)}catch(e){d={}}if(!r.ok)throw new Error(d.error||"ดำเนินการกับไฟล์ไม่สำเร็จ ("+r.status+")");return d})})}function sbRpc(fn,body){return sbCall(fn,body).then(function(j){return Array.isArray(j)?j[0]:j})}function sbToken(){try{return localStorage.getItem("njhr_token")||""}catch(e){return""}}function sbSetToken(t){try{t?localStorage.setItem("njhr_token",t):localStorage.removeItem("njhr_token")}catch(e){}}function sbSessionCheck(){var t=sbToken();if(!t)return Promise.reject(new Error("NO_SESSION"));return sbRpc("njhr_session_check",{p_token:t}).then(function(row){if(!row||!row.user_id)throw new Error("เซสชันไม่ถูกต้อง");if(!row.employee_id)throw new Error("บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน กรุณาติดต่อผู้ดูแลระบบ");sbUser=Object.assign({},sbUser||{},row);sbSaveUser();session={userId:row.user_id,at:nowStamp(),src:"supabase"};saveSession();return row})}function sbLoginCall(body){return fetch(SB.url+"/rest/v1/rpc/njhr_login",{method:"POST",headers:{apikey:SB.key,Authorization:"Bearer "+SB.key,"Content-Type":"application/json"},body:JSON.stringify(body)})}function sbLoginParse(r){return r.json().then(function(j){if(!r.ok)throw new Error(j&&(j.message||j.hint)||"เข้าสู่ระบบไม่สำเร็จ");var row=Array.isArray(j)?j[0]:j;if(!row||!row.user_id)throw new Error("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");return row})}function sbLogin(username,password,remember){if(!sbReady())return Promise.reject(new Error("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase (NJHR_SUPABASE_URL / ANON_KEY)"));var base={p_username:username,p_password:password,p_ua:(navigator.userAgent||"").slice(0,200)};var withRemember={p_username:base.p_username,p_password:base.p_password,p_ua:base.p_ua,p_remember:remember===true};return sbLoginCall(withRemember).then(function(r){if(r.status===404)return sbLoginCall(base).then(sbLoginParse);return sbLoginParse(r)})}function sbFaceLoginKey(){var k="";try{k=localStorage.getItem("njhr_dev_key")||""}catch(e){}if(!k){k="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);try{localStorage.setItem("njhr_dev_key",k)}catch(e){}}return k}function sbFaceLogin(descriptor,livenessMethod){if(!sbReady())return Promise.reject(new Error("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase"));return fetch(SB.url+"/rest/v1/rpc/njhr_face_login",{method:"POST",headers:{apikey:SB.key,Authorization:"Bearer "+SB.key,"Content-Type":"application/json"},body:JSON.stringify({p_descriptor:descriptor,p_faces_found:1,p_liveness:true,p_liveness_method:livenessMethod||"PASSIVE",p_device_key:sbFaceLoginKey(),p_ua:(navigator.userAgent||"").slice(0,200)})}).then(sbLoginParse)["catch"](function(e){try{console.error("[FACE LOGIN RPC] njhr_face_login ล้มเหลว:",e)}catch(e2){}throw e})}window.NJHR_faceLogin=function(descriptor,method){return sbFaceLogin(descriptor,method)};var _lvPending=0,_otPending=0,_fxPending=0;function refreshOtPending(){var u=currentUser();if(!u||["SUPER_ADMIN","ADMIN"].indexOf(u.role)<0||!sbToken())return;sbRpcList("njhr_ot_list",{p_token:sbToken(),p_from:null,p_to:null,p_status:"PENDING",p_dept:null,p_employee:null,p_q:null,p_mine:false,p_limit:1,p_offset:0}).then(function(rows){_otPending=rows.length?Number(rows[0].total_count):0;refreshMenuBadge()})["catch"](function(){})}function refreshFixPending(){var u=currentUser();if(!u||!sbToken())return;sbRpcList("njhr_att_correction_list",{p_token:sbToken(),p_employee:null,p_status:"PENDING",p_from:null,p_to:null,p_limit:1,p_offset:0,p_mine_queue:true}).then(function(rows){_fxPending=rows.length?Number(rows[0].total_count):0;refreshMenuBadge()})["catch"](function(){})}function setOtPending(n){_otPending=Number(n)||0;refreshMenuBadge()}function setFxPending(n){_fxPending=Number(n)||0;refreshMenuBadge()}function refreshPendingAll(){refreshLeavePending();refreshOtPending();refreshFixPending()}function refreshLeavePending(){var u=currentUser();if(!u||["SUPER_ADMIN","ADMIN"].indexOf(u.role)<0||!sbToken())return;sbRpcList("njhr_leave_queue",{p_token:sbToken(),p_limit:1,p_offset:0}).then(function(rows){_lvPending=rows.length?Number(rows[0].total_count):0;refreshMenuBadge()}).catch(function(){})}function hydrateSettings(){if(!sbReady()||!sbToken())return;sbRpcList("njhr_setting_list",{p_token:sbToken(),p_category:null}).then(function(rows){var map={};(rows||[]).forEach(function(r){map[r.key]=r.value});var changed=false;if(map.company_name!=null){db.settings.companyName=String(map.company_name);changed=true}if(map.work_start_time!=null){db.settings.workStart=String(map.work_start_time);changed=true}if(map.late_grace_minutes!=null){db.settings.lateGrace=parseInt(map.late_grace_minutes,10)||0;changed=true}if(changed)saveDB()})["catch"](function(er){try{console.error("[SETTINGS] hydrate จาก njhr_setting_list ล้มเหลว:",er)}catch(e){}})}function renderLogin(){var app=document.getElementById("app");app.innerHTML='<div class="login-wrap"><div class="login-card">'+'<div class="login-brand"><span class="brand-badge big">NJ</span><h1>NJ LOGISTIC</h1><p>HR SYSTEM</p></div>'+'<form id="login-form" novalidate>'+'<label class="field"><span>ชื่อผู้ใช้</span><input type="text" id="lg-user" autocomplete="username" placeholder="เช่น admin" required></label>'+'<label class="field"><span>รหัสผ่าน</span><span class="pw-wrap"><input type="password" id="lg-pass" autocomplete="current-password" placeholder="รหัสผ่าน" required>'+'<button type="button" class="btn-icon pw-toggle" id="lg-eye" aria-label="แสดงรหัสผ่าน">'+icon("eye")+"</button></span></label>"+'<label class="check"><input type="checkbox" id="lg-remember"><span>จดจำการเข้าสู่ระบบ 30 วัน</span></label>'+'<div class="form-error" id="lg-error" role="alert"></div>'+'<button class="btn btn-primary btn-block btn-lg" id="lg-btn" type="submit">'+icon("login")+" เข้าสู่ระบบ</button>"+"</form>"+'<div class="login-links">'+'<button type="button" class="btn btn-dark btn-block only-mobile lg-face-btn" id="lg-face">'+icon("camera")+" สแกนใบหน้าเข้าสู่ระบบ</button>"+'<button type="button" class="btn btn-ghost btn-block" id="lg-activate">สมัครสมาชิกครั้งแรก</button>'+"</div>"+"</div></div>";var eyeOn=false;if(sbLoginMsg){var lgErr=document.getElementById("lg-error");if(lgErr)lgErr.textContent=sbLoginMsg;sbLoginMsg=""}document.getElementById("lg-eye").onclick=function(){eyeOn=!eyeOn;document.getElementById("lg-pass").type=eyeOn?"text":"password";this.innerHTML=icon(eyeOn?"eyeOff":"eye")};document.getElementById("login-form").onsubmit=function(ev){ev.preventDefault();var uEl=document.getElementById("lg-user"),pEl=document.getElementById("lg-pass");var err=document.getElementById("lg-error"),btn=document.getElementById("lg-btn");err.textContent="";var uname=uEl.value.trim(),pass=pEl.value;if(!uname||!pass){err.textContent="กรุณากรอกชื่อผู้ใช้และรหัสผ่าน";return}btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังตรวจสอบ…';function loginFail(msg){btn.disabled=false;btn.innerHTML=icon("login")+" เข้าสู่ระบบ";err.textContent=msg;db.audit.unshift({at:nowStamp(),by:uname,action:"LOGIN_FAILED",detail:msg});saveDB()}var rmEl=document.getElementById("lg-remember");var remember=!!(rmEl&&rmEl.checked);sbLogin(uname,pass,remember).then(function(u){if(u.session_token)sbSetToken(u.session_token);session={userId:u.user_id,at:nowStamp(),src:"supabase"};sbUser=u;saveSession();sbSaveUser();audit("LOGIN","เข้าสู่ระบบสำเร็จ (Supabase · "+u.role+")");toast("ยินดีต้อนรับ "+(u.emp_name||u.username));nav("#/dashboard");refreshPendingAll();refreshNotifyBadge();hydrateSettings()}).catch(function(e){loginFail(e.message||"เข้าสู่ระบบไม่สำเร็จ")})};document.getElementById("lg-activate").onclick=function(){actOpenForm()};var faceBtn=document.getElementById("lg-face");if(faceBtn)faceBtn.onclick=function(){var err=document.getElementById("lg-error");if(err)err.textContent="";faceBtn.disabled=true;faceBtn.innerHTML='<span class="spinner"></span> กำลังเตรียมกล้อง…';function reset(){faceBtn.disabled=false;faceBtn.innerHTML=icon("camera")+" สแกนใบหน้าเข้าสู่ระบบ"}function start(){if(!window.NJHRFace||typeof window.NJHRFace.login!=="function"){reset();if(err)err.textContent="ระบบสแกนใบหน้ายังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน";return}reset();window.NJHRFace.login(function(u){if(u.session_token)sbSetToken(u.session_token);session={userId:u.user_id,at:nowStamp(),src:"supabase"};sbUser=u;saveSession();sbSaveUser();audit("LOGIN","เข้าสู่ระบบด้วยใบหน้าสำเร็จ (Supabase · "+u.role+")");toast("ยินดีต้อนรับ "+(u.emp_name||u.username));nav("#/dashboard");refreshPendingAll();refreshNotifyBadge();hydrateSettings()},function(){reset()})}if(window.NJHRFace)return start();loadScriptOnce("face",njAsset("face.js"),"NJHRFace").then(start)["catch"](function(){reset();if(err)err.textContent="โหลดระบบสแกนใบหน้าไม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน"})};document.getElementById("lg-user").focus()}var ACT_F=[["act-code","รหัสพนักงาน","text","กรุณากรอกรหัสพนักงาน","กรอกให้ตรงกับข้อมูลพนักงานในระบบ"],["act-fnm","ชื่อ (ภาษาไทย)","text","กรุณากรอกชื่อภาษาไทย"],["act-lnm","นามสกุล (ภาษาไทย)","text","กรุณากรอกนามสกุลภาษาไทย"],["act-fen","First Name (ภาษาอังกฤษ)","text","กรุณากรอกชื่อภาษาอังกฤษ",null,true],["act-len","Last Name (ภาษาอังกฤษ)","text","กรุณากรอกนามสกุลภาษาอังกฤษ","ใช้ยืนยันตัวตนคู่กับรหัสพนักงาน",true],["act-nick","ชื่อเล่น","text","กรุณากรอกชื่อเล่น"],["act-mail","อีเมล","email","กรุณากรอกอีเมล"],["act-pw","รหัสผ่านใหม่","password","กรุณากรอกรหัสผ่าน"],["act-pw2","ยืนยันรหัสผ่านใหม่","password","กรุณายืนยันรหัสผ่าน"]];function actField(f){var isPw=f[2]==="password";return'<label class="field"><span>'+f[1]+' <i class="req">*</i>'+(f[4]?' <small class="muted">('+f[4]+")</small>":"")+"</span>"+(isPw?'<span class="pw-wrap"><input type="password" id="'+f[0]+'" autocomplete="new-password">'+'<button type="button" class="btn-icon pw-toggle" data-eye="'+f[0]+'" '+'aria-label="แสดงรหัสผ่าน">'+icon("eye")+"</button></span>":'<input type="'+f[2]+'" id="'+f[0]+'" autocomplete="off"'+(f[5]?' style="text-transform:uppercase"':"")+">")+'<small class="field-err" id="'+f[0]+'-err"></small></label>'}function actSetErr(id,msg){var b=document.getElementById(id+"-err");if(b)b.textContent=msg||"";var i=document.getElementById(id);if(i)i.classList.toggle("inv",!!msg)}function actCheck(id){var v=String((document.getElementById(id)||{}).value||"").trim();var f=ACT_F.filter(function(x){return x[0]===id})[0];if(!v)return f?f[3]:"กรุณากรอกข้อมูล";if(id==="act-mail"&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v))return"รูปแบบอีเมลไม่ถูกต้อง";if(id==="act-pw"){if(v.length<8)return"รหัสผ่านต้องมีอย่างน้อย 8 ตัว";if(!/[a-z]/.test(v))return"รหัสผ่านต้องมีตัวพิมพ์เล็กอย่างน้อย 1 ตัว";if(!/[A-Z]/.test(v))return"รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว";if(!/[0-9]/.test(v))return"รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว";var code=String((document.getElementById("act-code")||{}).value||"").trim();if(code&&v.toLowerCase()===code.toLowerCase())return"ห้ามใช้รหัสพนักงานเป็นรหัสผ่าน"}if(id==="act-pw2"){var p1=String((document.getElementById("act-pw")||{}).value||"");if(v!==p1)return"รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน"}return""}function actOpenForm(){openModal("สมัครสมาชิกครั้งแรก",'<p class="muted" style="margin-top:0">สำหรับพนักงานที่มีข้อมูลในระบบแล้วแต่ยังไม่มีบัญชี · '+"ระบบยืนยันตัวตนด้วย <b>รหัสพนักงาน + นามสกุลภาษาอังกฤษ</b> · "+"หลังส่งคำขอ ผู้ดูแลระบบสูงสุดจะตรวจสอบและเชื่อมบัญชีให้</p>"+'<form id="act-f" novalidate>'+ACT_F.map(actField).join("")+'<div class="form-error" id="act-err" role="alert"></div></form>','<button class="btn btn-ghost" id="act-back">กลับหน้าเข้าสู่ระบบ</button>'+'<button class="btn btn-primary" id="act-go">สมัครสมาชิก</button>',{wide:true,fullMobile:true});document.getElementById("act-back").onclick=closeModal;document.querySelectorAll("[data-eye]").forEach(function(b){b.onclick=function(){var inp=document.getElementById(this.dataset.eye);if(!inp)return;var on=inp.type==="password";inp.type=on?"text":"password";this.innerHTML=icon(on?"eyeOff":"eye")}});ACT_F.forEach(function(f){var inp=document.getElementById(f[0]);if(!inp)return;inp.oninput=function(){actSetErr(f[0],"")};inp.onblur=function(){actSetErr(f[0],actCheck(f[0]))}});document.getElementById("act-go").onclick=function(){var btn=this,err=document.getElementById("act-err");err.textContent="";var bad=0;ACT_F.forEach(function(f){var m=actCheck(f[0]);actSetErr(f[0],m);if(m)bad++});if(bad){err.textContent="กรุณาแก้ไขข้อมูลที่ยังไม่ถูกต้อง";return}function val(id){return String(document.getElementById(id).value).trim()}withButtonLoading(btn,"กำลังตรวจสอบ…",function(){function valEn(id){return val(id).toUpperCase()}return sbRpc("njhr_activation_submit",{p_emp_code:val("act-code"),p_first_name:val("act-fnm"),p_last_name:val("act-lnm"),p_first_name_en:valEn("act-fen"),p_last_name_en:valEn("act-len"),p_nickname:val("act-nick"),p_email:val("act-mail"),p_password:document.getElementById("act-pw").value}).then(function(r){if(r&&r.ok){closeModal();toast(r.message,"success");return}err.textContent=r&&r.message||"ไม่สามารถสมัครสมาชิกได้"})})["catch"](function(e){err.textContent=e&&e.message||"ไม่สามารถสมัครสมาชิกได้"})}}function doLogout(silent){var t=sbToken();try{sbAbortReads()}catch(e){}if(t&&sbReady()){sbRpc("njhr_logout",{p_token:t}).catch(function(){})}sbSetToken("");sbClearUser();_lvPending=0;_otPending=0;_fxPending=0;_ntUnread=0;try{NJHR.notify.reset()}catch(e){}try{njExemptReset()}catch(e){}if(session)audit("LOGOUT","ออกจากระบบ");session=null;saveSession();if(location.hash==="#/login")renderLogin();else location.hash="#/login";if(!silent)toast("ออกจากระบบแล้ว","info")}var clockTimer=null;var _ntUnread=0;var _docPending=0;var _exCache={key:"",val:null,loading:null};function njExemptKey(){return String(sbToken()||"")}function njExemptReset(){_exCache={key:"",val:null,loading:null}}function njExemptCheck(){var k=njExemptKey();if(!k)return Promise.resolve(false);if(_exCache.key===k&&_exCache.val!==null)return Promise.resolve(_exCache.val);if(_exCache.key===k&&_exCache.loading)return _exCache.loading;_exCache={key:k,val:null,loading:null};_exCache.loading=sbRpc("njhr_hr_exempt_me",{p_token:k}).then(function(v){if(v!==true&&v!==false)throw new Error("ตรวจสิทธิ์ยกเว้นไม่สำเร็จ");if(_exCache.key===k){_exCache.val=v;_exCache.loading=null}return v},function(e){if(_exCache.key===k)_exCache.loading=null;throw e});return _exCache.loading}function emptyState(msg){return'<div class="empty">'+icon("info")+"<p>"+esc(msg)+"</p></div>"}function statusBadge(st){var map={PENDING:["รออนุมัติ","warn"],APPROVED:["อนุมัติแล้ว","ok"],REJECTED:["ไม่อนุมัติ","bad"],CANCELLED:["ยกเลิกแล้ว","mut"],COMPLETED:["เสร็จสิ้น","info"],NEED_MORE_INFO:["ขอข้อมูลเพิ่ม","info"],ACTIVE:["ทำงานอยู่","ok"],SUSPENDED:["พักงาน","warn"],RESIGNED:["ลาออกแล้ว","mut"],PRESENT:["ปกติ","ok"],LATE:["มาสาย","warn"],DRAFT:["แบบร่าง","mut"],CALCULATED:["คำนวณแล้ว","info"],CONFIRMED:["ยืนยันแล้ว","ok"],PAID:["จ่ายแล้ว","ok"]};var m=map[st]||[st,"mut"];return'<span class="badge badge-'+m[1]+'">'+m[0]+"</span>"}function startLiveClock(){clearInterval(clockTimer);function tick(){var elC=document.getElementById("live-clock");if(!elC){clearInterval(clockTimer);return}var d=new Date;elC.textContent=pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds())}tick();clockTimer=setInterval(tick,1e3)}function empBE(iso){var p2=String(iso||"").split("-");return p2.length===3?p2[2]+"/"+p2[1]+"/"+(parseInt(p2[0],10)+543):"—"}function shGet(id){return(db.shifts||[]).find(function(x){return x.id===id})}function shOf(e){return e&&shGet(e.shiftId)||db.shifts&&db.shifts[0]||{id:"",name:"กะปกติ",start:"08:30",end:"17:30",breakMins:60,overnight:false,active:true}}function shTime(sh){return sh.start+"–"+sh.end+(sh.overnight?" (วันถัดไป)":"")}function shOfAtt(e,att){return att&&att.shiftId&&shGet(att.shiftId)||shOf(e)}function shAttToday(e){var t=todayISO();var att=db.attendance.find(function(a){return a.empId===e.id&&a.date===t});if(!att&&shOf(e).overnight){var y=new Date(t+"T00:00:00");y.setDate(y.getDate()-1);var yIso=y.getFullYear()+"-"+("0"+(y.getMonth()+1)).slice(-2)+"-"+("0"+y.getDate()).slice(-2);att=db.attendance.find(function(a){return a.empId===e.id&&a.date===yIso&&a.in&&!a.out})||att}return att}function shMigrate(){if(!db.shifts){var before=db.employees.length;db.shifts=[];var seen={};db.employees.forEach(function(e){var str=e.shift||"08:30-17:30";if(!seen[str]){var p=str.split("-");seen[str]={id:"SH"+("0"+(db.shifts.length+1)).slice(-2),name:str==="08:30-17:30"?"กะปกติ":"กะ "+str,start:p[0]||"08:30",end:p[1]||"17:30",breakMins:60,overnight:false,active:true,updatedAt:nowStamp(),updatedBy:"migration"};db.shifts.push(seen[str])}});if(!db.shifts.length)db.shifts.push({id:"SH01",name:"กะปกติ",start:"08:30",end:"17:30",breakMins:60,overnight:false,active:true,updatedAt:nowStamp(),updatedBy:"migration"});db.employees.forEach(function(e){e.shiftId=(seen[e.shift||"08:30-17:30"]||db.shifts[0]).id});if(db.employees.length!==before)throw new Error("shift migration: จำนวนพนักงานเปลี่ยน");audit("SHIFT_MIGRATE","สร้างกะจากข้อมูลเดิม "+db.shifts.length+" กะ / ผูกพนักงาน "+before+" คน");saveDB()}if(db.shifts&&db.shifts.length){db.employees.forEach(function(e){if(!e.shiftId)e.shiftId=db.shifts[0].id})}if(!db.shiftMoves)db.shiftMoves=[];bumpIdx()}function refreshDocPending(){if(!sbToken()||!sbReady())return Promise.resolve();return sbRpcList("njhr_doc_my_pending",{p_token:sbToken()}).then(function(rows){var r=rows&&rows[0]||{};var v=Number(r.pending)||0;if(v===_docPending)return;_docPending=v;refreshMenuBadge()})["catch"](function(){})}var NT_BELLS="#btn-bell, .att-mb-bell, .req-mb-bell";var NT_POLL_MS=45e3;var _ntTimer=null,_ntBusy=false,_ntSeen=null,_ntPrimed=false;function ntBadgeText(n){return n>99?"99+":String(n)}function ntPaintBadges(){var v=_ntUnread,txt=ntBadgeText(v);var list=document.querySelectorAll(NT_BELLS);Array.prototype.forEach.call(list,function(bell){var b=bell.querySelector(".bell-badge");if(v>0){if(b)b.textContent=txt;else bell.insertAdjacentHTML("beforeend",'<span class="bell-badge">'+txt+"</span>")}else if(b){b.remove()}});try{if(navigator.setAppBadge){if(v>0)navigator.setAppBadge(v)["catch"](function(){});else if(navigator.clearAppBadge)navigator.clearAppBadge()["catch"](function(){})}}catch(e){}}var _ntAudio=null,_ntAudioOK=false;function ntSoundOn(){try{return localStorage.getItem("njhr_nt_sound")!=="off"}catch(e){return true}}function ntSetSound(on){try{localStorage.setItem("njhr_nt_sound",on?"on":"off")}catch(e){}if(on)ntUnlockAudio()}function ntUnlockAudio(){try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!_ntAudio)_ntAudio=new AC;if(_ntAudio.state==="suspended")_ntAudio.resume()["catch"](function(){});_ntAudioOK=true}catch(e){_ntAudioOK=false}}function ntDing(){if(!ntSoundOn()||!_ntAudioOK||!_ntAudio)return;try{var t=_ntAudio.currentTime,o=_ntAudio.createOscillator(),g=_ntAudio.createGain();o.type="sine";o.frequency.setValueAtTime(880,t);o.frequency.exponentialRampToValueAtTime(1320,t+.08);g.gain.setValueAtTime(1e-4,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(1e-4,t+.35);o.connect(g);g.connect(_ntAudio.destination);o.start(t);o.stop(t+.36)}catch(e){}}function ntTimeText(ts){var m=/T(\d{2}):(\d{2})/.exec(String(ts||""));return m?m[1]+":"+m[2]+" น.":""}function ntToast(item){var wrap=document.getElementById("toasts");if(!wrap)return;var el=document.createElement("div");el.className="toast toast-nt";el.setAttribute("role","status");el.innerHTML='<span class="nt-ic">'+icon("bell")+"</span>"+'<div class="nt-body"><b>'+esc(item.title||"แจ้งเตือนใหม่")+"</b>"+(item.body?"<small>"+esc(item.body)+"</small>":"")+"<i>"+esc(ntTimeText(item.created_at))+"</i></div>"+'<button type="button" class="nt-x" aria-label="ปิด">'+icon("x")+"</button>";el.onclick=function(ev){if(ev.target.closest&&ev.target.closest(".nt-x")){el.remove();return}if(item.id){sbRpc("njhr_notify_read",{p_token:sbToken(),p_id:item.id})["catch"](function(){}).then(function(){refreshNotifyBadge(true)})}el.remove();location.hash=item.link||"#/notifications"};wrap.appendChild(el);setTimeout(function(){el.classList.add("show")},10);setTimeout(function(){el.classList.remove("show");setTimeout(function(){el.remove()},300)},7e3)}function ntAnnounceNew(){sbRpc("njhr_notify_list",{p_token:sbToken(),p_limit:5,p_offset:0}).then(function(rows){var arr=Array.isArray(rows)?rows:rows?[rows]:[];var fresh=[];arr.forEach(function(r){if(!r||!r.id||r.is_read)return;if(_ntSeen[r.id])return;_ntSeen[r.id]=1;fresh.push(r)});if(!fresh.length)return;ntDing();fresh.slice(0,3).forEach(function(r){ntToast(r)})})["catch"](function(){})}function refreshNotifyBadge(silent){if(!sbToken()||!sbReady())return;if(_ntBusy)return;_ntBusy=true;sbRpc("njhr_notify_unread",{p_token:sbToken()}).then(function(n){_ntBusy=false;var v=Number(n)||0;var prev=_ntUnread;_ntUnread=v;ntPaintBadges();if(!_ntPrimed){_ntPrimed=true;_ntSeen=_ntSeen||Object.create(null);sbRpc("njhr_notify_list",{p_token:sbToken(),p_limit:5,p_offset:0}).then(function(rows){(Array.isArray(rows)?rows:[]).forEach(function(r){if(r&&r.id)_ntSeen[r.id]=1})})["catch"](function(){});return}if(!silent&&v>prev)ntAnnounceNew()})["catch"](function(){_ntBusy=false})}function ntTick(){if(!sbToken()||!sbReady()){ntStopPoll();return}if(document.visibilityState!=="visible")return;refreshNotifyBadge()}function ntStartPoll(){if(_ntTimer)return;_ntSeen=_ntSeen||Object.create(null);_ntTimer=setInterval(ntTick,NT_POLL_MS)}function ntStopPoll(){if(_ntTimer){clearInterval(_ntTimer);_ntTimer=null}}function ntReset(){ntStopPoll();_ntUnread=0;_ntSeen=null;_ntPrimed=false;_ntBusy=false;ntPaintBadges()}function ntWake(){if(!sbToken()||!sbReady())return;if(document.visibilityState!=="visible")return;ntStartPoll();refreshNotifyBadge()}document.addEventListener("visibilitychange",ntWake);window.addEventListener("focus",ntWake);window.addEventListener("online",ntWake);["pointerdown","keydown"].forEach(function(ev){window.addEventListener(ev,function once(){ntUnlockAudio();window.removeEventListener(ev,once)},{once:true})});NJHR.notify={refresh:refreshNotifyBadge,paint:ntPaintBadges,start:ntStartPoll,stop:ntStopPoll,reset:ntReset,soundOn:ntSoundOn,setSound:ntSetSound,unlockAudio:ntUnlockAudio,badgeText:ntBadgeText};Object.defineProperty(NJHR.state,"sbUser",{get:function(){return sbUser}});Object.defineProperty(NJHR.state,"lvPending",{get:function(){return _lvPending},set:function(v){_lvPending=v}});Object.defineProperty(NJHR.state,"ntUnread",{get:function(){return _ntUnread},set:function(v){_ntUnread=v}});Object.defineProperty(NJHR.state,"docPending",{get:function(){return _docPending},set:function(v){_docPending=v}});NJHR.layout.refreshDocPending=refreshDocPending;window.addEventListener("hashchange",render);window.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.body.classList.contains("sidebar-open")&&window.njhrCloseDrawer)window.njhrCloseDrawer()});window.addEventListener("resize",function(){if(window.innerWidth>900&&document.body.classList.contains("sidebar-open")&&window.njhrCloseDrawer)window.njhrCloseDrawer()});var njhrBooted=false;function njhrBootOnce(){if(njhrBooted)return;njhrBooted=true;loadDB();fillDbGaps();loadSession();loadUI();shMigrate();njFixCompanyName();holLoad();if(storageBlocked)setTimeout(function(){toast("เบราว์เซอร์บล็อกการบันทึกข้อมูลในเครื่อง — ใช้งานได้ปกติ แต่ Refresh แล้วข้อมูลทดลองจะรีเซ็ต","info")},600);njhrBoot()}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",njhrBootOnce)}else{njhrBootOnce()}function njhrBoot(){var hasToken=sbToken()&&sbReady();if(!hasToken){sbConnCheck().then(njhrStart,renderConnError);return}var connErr=null,sessErr=null,done=0;function finish(){if(++done<2)return;if(connErr){renderConnError(connErr);return}if(sessErr){sbSetToken("");sbClearUser();session=null;saveSession();if(sessErr.message!=="NO_SESSION")sbLoginMsg=sessErr.message;renderLogin();return}njhrStartAfterSession()}sbConnCheck().then(function(){connErr=null},function(e){connErr=e}).then(finish);sbSessionCheck().then(function(){sessErr=null},function(e){sessErr=e}).then(finish)}function njhrStart(){if(session&&session.src==="supabase"){session=null;saveSession();sbClearUser()}if(!location.hash)location.hash=session?"#/dashboard":"#/login";else render()}function njhrStartAfterSession(){render();refreshPendingAll();refreshNotifyBadge();refreshDocPending();hydrateSettings();ntStartPoll();ntUnlockAudio();if(!location.hash)location.hash=session?"#/dashboard":"#/login"}NJHR.compat.scope=NJHR.compat.scope||{};Object.keys(ROUTES).forEach(function(h){NJHR.router.moduleMap[h.replace("#/","")]=ROUTES[h].mod?[ROUTES[h].mod]:[]});NJHR.core.render=render;NJHR.core.nav=nav;NJHR.core.canAccess=canAccess;NJHR.auth.logout=doLogout;NJHR.auth.currentUser=currentUser;NJHR.ui.toast=toast;NJHR.ui.openModal=openModal;NJHR.ui.closeModal=closeModal;NJHR.layout.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.ALL=ALL;NJHR.compat.scope.NJ_COMPANY_NAME=NJ_COMPANY_NAME;NJHR.compat.scope.P=P;NJHR.compat.scope.ROLE_TH=ROLE_TH;NJHR.compat.scope.SB=SB;NJHR.compat.scope.TH_DAYS=TH_DAYS;NJHR.compat.scope.TH_MONTHS=TH_MONTHS;NJHR.compat.scope.audit=audit;NJHR.compat.scope.avatarHTML=avatarHTML;NJHR.compat.scope.balance=balance;NJHR.compat.scope.businessDays=businessDays;NJHR.compat.scope.canAccess=canAccess;NJHR.compat.scope.closeModal=closeModal;NJHR.compat.scope.confirmDialog=confirmDialog;NJHR.compat.scope.currentEmp=currentEmp;NJHR.compat.scope.currentUser=currentUser;NJHR.compat.scope.cycleCurrent=cycleCurrent;NJHR.compat.scope.cycleLabel=cycleLabel;NJHR.compat.scope.cycleOptions=cycleOptions;NJHR.compat.scope.cycleRange=cycleRange;NJHR.compat.scope.cycleRangeText=cycleRangeText;NJHR.compat.scope.db=db;NJHR.compat.scope.debounce=debounce;NJHR.compat.scope.dept=dept;NJHR.compat.scope.doLogout=doLogout;NJHR.compat.scope.downloadCSV=downloadCSV;NJHR.compat.scope.emp=emp;NJHR.compat.scope.empBE=empBE;NJHR.compat.scope.empName=empName;NJHR.compat.scope.emptyState=emptyState;NJHR.compat.scope.esc=esc;NJHR.compat.scope.fileDownload=fileDownload;NJHR.compat.scope.filePreviewOpen=filePreviewOpen;NJHR.compat.scope.fmtDate=fmtDate;NJHR.compat.scope.fmtDateDMY=fmtDateDMY;NJHR.compat.scope.fmtMonthYear=fmtMonthYear;NJHR.compat.scope.holHas=holHas;NJHR.compat.scope.holInvalidate=holInvalidate;NJHR.compat.scope.holLoad=holLoad;NJHR.compat.scope.holName=holName;NJHR.compat.scope.hoursDiff=hoursDiff;NJHR.compat.scope.icon=icon;NJHR.compat.scope.idx=idx;NJHR.compat.scope.isHoliday=isHoliday;NJHR.compat.scope.isWeekend=isWeekend;NJHR.compat.scope.leaveType=leaveType;NJHR.compat.scope.loadScriptOnce=loadScriptOnce;NJHR.compat.scope.loadStyleOnce=loadStyleOnce;NJHR.compat.scope.lsRemove=lsRemove;NJHR.compat.scope.maskAcc=maskAcc;NJHR.compat.scope.money=money;NJHR.compat.scope.nav=nav;NJHR.compat.scope.njAsset=njAsset;NJHR.compat.scope.njCompanyParts=njCompanyParts;NJHR.compat.scope.njExemptCheck=njExemptCheck;NJHR.compat.scope.notify=notify;NJHR.compat.scope.nowStamp=nowStamp;NJHR.compat.scope.openModal=openModal;NJHR.compat.scope.pad=pad;NJHR.compat.scope.refreshFixPending=refreshFixPending;NJHR.compat.scope.refreshLeavePending=refreshLeavePending;NJHR.compat.scope.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.refreshNotifyBadge=refreshNotifyBadge;NJHR.compat.scope.refreshOtPending=refreshOtPending;NJHR.compat.scope.render=render;NJHR.compat.scope.saveDB=saveDB;NJHR.compat.scope.sbDocPdfFn=sbDocPdfFn;NJHR.compat.scope.sbReady=sbReady;NJHR.compat.scope.sbRpc=sbRpc;NJHR.compat.scope.sbRpcList=sbRpcList;NJHR.compat.scope.sbToken=sbToken;NJHR.compat.scope.setFxPending=setFxPending;NJHR.compat.scope.setOtPending=setOtPending;NJHR.compat.scope.shOf=shOf;NJHR.compat.scope.shOfAtt=shOfAtt;NJHR.compat.scope.shTime=shTime;NJHR.compat.scope.startLiveClock=startLiveClock;NJHR.compat.scope.statusBadge=statusBadge;NJHR.compat.scope.toast=toast;NJHR.compat.scope.toastDismiss=toastDismiss;NJHR.compat.scope.todayISO=todayISO;NJHR.compat.scope.uid=uid;NJHR.compat.scope.userOfEmp=userOfEmp;NJHR.compat.scope.withButtonLoading=withButtonLoading})();
+/* ============================================================
+   NJ LOGISTIC HR SYSTEM
+   โครงสร้าง: Icons / Utils / Store / Session / UI Managers /
+              Router+Guards / Layout / Views / Init
+   Production: Store จะเปลี่ยนเป็น Supabase (Auth + PostgREST + RPC)
+   โดย View เรียกผ่าน Repository ชั้นเดียว ไม่ต้องเขียน UI ใหม่
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ================= ICONS (Lucide-style inline SVG) ================= */
+  var P = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+  var ICONS = {
+    more: P + '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>',
+    send: P + '<path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4Z"/></svg>',
+    dashboard: P + '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+    users: P + '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    clock: P + '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    calendarOff: P + '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="15" x2="15" y2="19"/><line x1="15" y1="15" x2="9" y2="19"/></svg>',
+    timer: P + '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/></svg>',
+    wallet: P + '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>',
+    fileText: P + '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    shield: P + '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
+    check: P + '<polyline points="20 6 9 17 4 12"/></svg>',
+    checkSquare: P + '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    chart: P + '<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
+    calendar: P + '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    megaphone: P + '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+    userCog: P + '<circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10 15H6a4 4 0 0 0-4 4v2"/><path d="m21.7 16.4-.9-.3"/><path d="m15.2 13.9-.9-.3"/><path d="m16.6 18.7.3-.9"/><path d="m19.1 12.2.3-.9"/><path d="m19.6 18.7-.4-1"/><path d="m16.8 12.3-.4-1"/><path d="m14.3 16.6 1-.4"/><path d="m20.7 13.8 1-.4"/></svg>',
+    building: P + '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>',
+    settings: P + '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
+    history: P + '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
+    logout: P + '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    home: P + '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+    user: P + '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    menu: P + '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>',
+    bell: P + '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    x: P + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    plus: P + '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    search: P + '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    edit: P + '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+    eye: P + '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: P + '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>',
+    download: P + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    ban: P + '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>',
+    printer: P + '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    chevL: P + '<polyline points="15 18 9 12 15 6"/></svg>',
+    chevR: P + '<polyline points="9 18 15 12 9 6"/></svg>',
+    chevUp: P + '<polyline points="18 15 12 9 6 15"/></svg>',
+    chevDown: P + '<polyline points="6 9 12 15 18 9"/></svg>',
+    alignLeft: P + '<line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>',
+    alignCenter: P + '<line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/></svg>',
+    alignRight: P + '<line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/></svg>',
+    alignJustify: P + '<line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="3" y2="18"/></svg>',
+    listUl: P + '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3.5" y1="6" x2="3.51" y2="6"/><line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/></svg>',
+    listOl: P + '<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 5h1v4"/><path d="M4 9h2"/><path d="M6 18H4c0-1 2-1.6 2-2.6S5 14 4 14.6"/></svg>',
+    indent: P + '<polyline points="3 8 7 12 3 16"/><line x1="21" y1="12" x2="11" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>',
+    outdent: P + '<polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="11" y2="12"/><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="18" x2="11" y2="18"/></svg>',
+    undo: P + '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>',
+    redo: P + '<path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>',
+    eraser: P + '<path d="M20 20H9l-5-5a2 2 0 0 1 0-2.8l7-7a2 2 0 0 1 2.8 0l6 6a2 2 0 0 1 0 2.8L14 20"/><line x1="18" y1="20" x2="8" y2="20"/></svg>',
+    paperclip: P + '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+    folder: P + '<path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg>',
+    upload: P + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    trash: P + '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    pin: P + '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
+    info: P + '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    mapPin: P + '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+    camera: P + '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+    login: P + '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>'
+  };
+  function icon(name, cls) { return '<span class="ic ' + (cls || '') + '">' + (ICONS[name] || '') + '</span>'; }
+
+  /* ================= UTILS ================= */
+  var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  var TH_DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function nowTime() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function nowStamp() { return todayISO() + ' ' + nowTime(); }
+  function fmtDate(isoStr) {
+    if (!isoStr) return '—';
+    var p2 = isoStr.split('-');
+    return parseInt(p2[2], 10) + ' ' + TH_MONTHS[parseInt(p2[1], 10) - 1].slice(0, 3) + '. ' + (parseInt(p2[0], 10) + 543);
+  }
+  function fmtMonthYear(m, y) { return TH_MONTHS[m - 1] + ' ' + (y + 543); }
+  /* ---------- ตัวแปลงวันที่กลางตัวเดียวของระบบ: DD/MM/YYYY (ปี ค.ศ.) ----------
+     ใช้กับหน้าลางาน · OT · REPORT ลางาน · REPORT OT ทั้ง Desktop และ Mobile
+     เพื่อให้ทุกหน้าแสดงรูปแบบเดียวกันแน่นอน
+
+     ตัดสตริงตรง ๆ ไม่ผ่าน new Date() จึงไม่มีปัญหา Timezone ทำให้วันที่เลื่อน ±1 วัน
+     รับได้ทั้ง '2026-08-11' และ '2026-08-11T09:00:00+07:00' (ตัดเหลือ 10 ตัวแรก)
+     เป็นการแปลง "ตอนแสดงผล" เท่านั้น ไม่แตะค่าที่เก็บในฐานข้อมูลและไม่ใช้ในการกรอง/เรียงข้อมูล */
+  function fmtDateDMY(v) {
+    var p = String(v == null ? '' : v).slice(0, 10).split('-');
+    if (p.length !== 3) return '—';
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return '—';
+    return pad(d) + '/' + pad(m) + '/' + y;
+  }
+  function money(n) { return (n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  /* ================= รอบเดือน 26–25 (ใช้ร่วมกันทุกหน้ารายงาน) =================
+     รอบของเดือนที่เลือก = วันที่ 26 ของเดือนก่อนหน้า → วันที่ 25 ของเดือนที่เลือก
+       รอบ 2026-08 → start 2026-07-26 · end 2026-08-25 · endExclusive 2026-08-26
+
+     เป็น "สูตรกลางตัวเดียว" ของทั้ง 3 รายงาน (รายงานทั้งหมด · รายงานการลา · รายงานโอที)
+     ห้ามเขียนสูตรแยกในแต่ละหน้า
+
+     คำนวณด้วยตัวเลขปี/เดือนตรง ๆ ไม่ผ่าน Date object และไม่แปลง Timezone
+     ค่าที่ได้จึงเป็นวันตามปฏิทินไทยเสมอ ไม่มีปัญหาวันเลื่อนจาก UTC
+     endExclusive มีไว้ให้ query แบบ `>= start AND < endExclusive`
+     จะได้ครอบคลุมวันที่ 25 ทั้งวันแม้ค่าที่เก็บมีเวลาติดมาด้วย */
+  function cycleRange(ym) {
+    var p = String(ym || '').split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    if (!isFinite(y) || !isFinite(m) || m < 1 || m > 12) return null;
+    var py = m === 1 ? y - 1 : y;              // เดือนก่อนหน้า (ข้ามปีได้)
+    var pm = m === 1 ? 12 : m - 1;
+    return {
+      ym: y + '-' + pad(m),
+      start: py + '-' + pad(pm) + '-26',
+      end: y + '-' + pad(m) + '-25',
+      // วันถัดจากวันสิ้นรอบ = วันที่ 26 ของ "เดือนเดียวกัน" (เพราะรอบจบวันที่ 25)
+      endExclusive: y + '-' + pad(m) + '-26'
+    };
+  }
+
+  /* รอบของ "วันนี้" — วันที่ 1–25 อยู่ในรอบเดือนปัจจุบัน
+     วันที่ 26 เป็นต้นไปถือเป็นรอบของเดือนถัดไปแล้ว */
+  function cycleCurrent(isoToday) {
+    var t = String(isoToday || todayISO());
+    var p = t.split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return cycleRange(todayISO().slice(0, 7));
+    if (d >= 26) { if (m === 12) { y += 1; m = 1; } else { m += 1; } }
+    return cycleRange(y + '-' + pad(m));
+  }
+
+  function cycleLabel(ym) {
+    var p = String(ym || '').split('-');
+    var m = parseInt(p[1], 10);
+    if (!isFinite(m) || m < 1 || m > 12) return String(ym || '');
+    return TH_MONTHS[m - 1] + ' ' + p[0];      // ปี ค.ศ. ตามรูปแบบวันที่ของระบบ
+  }
+
+  /* ข้อความช่วงวันที่ของรอบ เช่น "รอบข้อมูล 26/07/2026 – 25/08/2026" */
+  function cycleRangeText(ym) {
+    var r = cycleRange(ym);
+    return r ? ('รอบข้อมูล ' + fmtDateDMY(r.start) + ' – ' + fmtDateDMY(r.end)) : '';
+  }
+
+  /* ตัวเลือกรอบเดือนสำหรับ <select> — ย้อนหลัง back เดือน และล่วงหน้า fwd เดือน */
+  function cycleOptions(curYm, back, fwd) {
+    var p = String(curYm || '').split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    if (!isFinite(y) || !isFinite(m)) return [];
+    var out = [], i;
+    for (i = -(back || 12); i <= (fwd || 0); i++) {
+      var mm = m + i, yy = y;
+      while (mm < 1) { mm += 12; yy -= 1; }
+      while (mm > 12) { mm -= 12; yy += 1; }
+      out.push(yy + '-' + pad(mm));
+    }
+    return out.reverse();                       // เดือนล่าสุดอยู่บนสุด
+  }
+  /* ===== ตัวโหลด Library กลาง — Promise Cache =====
+     - เรียกซ้ำคืน Promise เดิม ไม่สร้าง <script> ซ้ำ ไม่เกิด Global ซ้ำ
+     - ตรวจ tag เดิมด้วย data-lib ก่อนสร้างใหม่
+     - โหลดล้มเหลวหรือหมดเวลา = ลบออกจาก cache ให้ลองใหม่ได้
+     - ไม่กลืน error · มี timeout ชัดเจน
+     - ตรวจ global ที่คาดหวังหลังโหลด ถ้าไม่พบถือว่าล้มเหลว */
+  /* ไฟล์ในโปรเจกต์ต้องมี Build Version ต่อท้าย เพื่อไม่ให้ Browser ใช้ไฟล์ข้าม Build
+     ค่ามาจาก config.js ซึ่ง build.js เขียนให้เป็นค่าเดียวกับ sw.js */
+  function njAsset(path) {
+    var v = window.NJHR_BUILD_VERSION;
+    if (!v) return path;
+    return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(v);
+  }
+  var NJ_LIB_CACHE = {};
+  var NJ_LIB_TIMEOUT = 20000;
+  function loadScriptOnce(key, src, globalName) {
+    if (NJ_LIB_CACHE[key]) return NJ_LIB_CACHE[key];
+    var pr = new Promise(function (resolve, reject) {
+      if (globalName && window[globalName]) { resolve(); return; }
+      var exist = document.querySelector('script[data-lib="' + key + '"]');
+      if (exist) {
+        if (exist.getAttribute('data-loaded') === '1') { resolve(); return; }
+        exist.addEventListener('load', function () { resolve(); });
+        exist.addEventListener('error', function () { reject(new Error('โหลด ' + key + ' ไม่สำเร็จ')); });
+        return;
+      }
+      var done = false;
+      var sc = document.createElement('script');
+      sc.src = src;
+      sc.async = false;                       // รักษาลำดับเมื่อโหลดหลายไฟล์ต่อกัน
+      sc.setAttribute('data-lib', key);
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('โหลด ' + key + ' ไม่สำเร็จ: หมดเวลารอ'));
+      }, NJ_LIB_TIMEOUT);
+      sc.onload = function () {
+        if (done) return;
+        done = true; clearTimeout(timer);
+        sc.setAttribute('data-loaded', '1');
+        if (globalName && !window[globalName]) {
+          reject(new Error('โหลด ' + key + ' แล้วแต่ไม่พบ ' + globalName));
+          return;
+        }
+        resolve();
+      };
+      sc.onerror = function () {
+        if (done) return;
+        done = true; clearTimeout(timer);
+        reject(new Error('โหลด ' + key + ' ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+      };
+      document.head.appendChild(sc);
+    })['catch'](function (e) {
+      delete NJ_LIB_CACHE[key];               // ให้ผู้ใช้กดใหม่แล้วลองโหลดอีกครั้งได้
+      var bad = document.querySelector('script[data-lib="' + key + '"]:not([data-loaded="1"])');
+      if (bad && bad.parentNode) bad.parentNode.removeChild(bad);
+      throw e;
+    });
+    NJ_LIB_CACHE[key] = pr;
+    return pr;
+  }
+  /* โหลด CSS แบบเดียวกับ loadScriptOnce
+     - onerror = reject (ไม่กลืน Error) · มี timeout เท่ากับสคริปต์
+     - ล้มเหลวแล้วลบ <link> ที่เสียและลบ Promise ออกจาก cache ให้ลองใหม่ได้
+     - โหลดสำเร็จแล้วเรียกซ้ำคืนทันที ไม่ดาวน์โหลดซ้ำ */
+  function loadStyleOnce(key, href) {
+    var ck = 'css:' + key;
+    if (NJ_LIB_CACHE[ck]) return NJ_LIB_CACHE[ck];
+    var pr = new Promise(function (resolve, reject) {
+      var exist = document.querySelector('link[data-lib="' + key + '"]');
+      if (exist) {
+        if (exist.getAttribute('data-loaded') === '1') { resolve(); return; }
+        exist.addEventListener('load', function () { resolve(); });
+        exist.addEventListener('error', function () { reject(new Error('โหลด CSS ' + key + ' ไม่สำเร็จ')); });
+        return;
+      }
+      var done = false;
+      var l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = href;
+      l.setAttribute('data-lib', key);
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('โหลด CSS ' + key + ' ไม่สำเร็จ: หมดเวลารอ'));
+      }, NJ_LIB_TIMEOUT);
+      l.onload = function () {
+        if (done) return;
+        done = true; clearTimeout(timer);
+        l.setAttribute('data-loaded', '1');
+        resolve();
+      };
+      l.onerror = function () {
+        if (done) return;
+        done = true; clearTimeout(timer);
+        reject(new Error('โหลด CSS ' + key + ' ไม่สำเร็จ — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'));
+      };
+      document.head.appendChild(l);
+    })['catch'](function (e) {
+      delete NJ_LIB_CACHE[ck];                  // ให้ลองใหม่ได้
+      var bad = document.querySelector('link[data-lib="' + key + '"]:not([data-loaded="1"])');
+      if (bad && bad.parentNode) bad.parentNode.removeChild(bad);
+      throw e;
+    });
+    NJ_LIB_CACHE[ck] = pr;
+    return pr;
+  }
+  /* เปิดทางให้โมดูลที่อยู่นอก IIFE ของ app.js ใช้ตัวโหลดชุดเดียวกันได้
+     ปัจจุบันมี face.js ตัวเดียวที่ต้องใช้ — ใช้ cache และตรรกะ retry เดียวกัน
+     ไม่ให้เกิดตรรกะโหลดไฟล์ซ้ำสองที่ */
+  window.NJHR_loadStyleOnce = loadStyleOnce;
+  window.NJHR_loadScriptOnce = loadScriptOnce;
+  window.NJHR_asset = njAsset;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function uid(prefix) { return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+  function maskAcc(a) { if (!a) return '—'; return a.slice(0, 4) + '-x-xxx' + a.slice(-4); }
+  function isWeekend(isoStr) { var d = new Date(isoStr + 'T00:00:00').getDay(); return d === 0 || d === 6; }
+  /* ---------- วันหยุด: แหล่งข้อมูลกลางชุดเดียว ----------
+     ตาราง holidays บน Supabase คือชุดเดียวกับที่ njhr_leave_workdays() ใช้นับวันทำงานฝั่งเซิร์ฟเวอร์
+     ปฏิทิน / OT / REPORT ALL / การนับวันลาฝั่งหน้าจอ อ่านผ่าน holHas() ตัวเดียวกันทั้งหมด
+     Fallback: ถ้ายังโหลดไม่สำเร็จ ใช้ db.holidays เดิม เพื่อไม่ให้การคำนวณพังกลางคัน */
+  var holCache = { ready: false, at: 0, set: Object.create(null), name: Object.create(null), loading: null };
+  var HOL_TTL = 5 * 60 * 1000;
+
+  function holLoad(force) {
+    if (!sbReady() || !sbToken()) return Promise.resolve(false);
+    if (!force && holCache.ready && (Date.now() - holCache.at) < HOL_TTL) return Promise.resolve(true);
+    if (holCache.loading) return holCache.loading;
+    holCache.loading = sbRpcList('njhr_holiday_list', { p_token: sbToken(), p_from: null, p_to: null })
+      .then(function (rows) {
+        var st = Object.create(null), nm = Object.create(null);
+        (rows || []).forEach(function (h) {
+          var d = String(h.holiday_date).slice(0, 10);
+          st[d] = 1; nm[d] = h.name;
+        });
+        holCache.set = st; holCache.name = nm;
+        holCache.ready = true; holCache.at = Date.now();
+        return true;
+      }).catch(function (er) {
+        console.error('[HOLIDAY] โหลดวันหยุดจาก Supabase ไม่สำเร็จ ใช้ข้อมูลสำรองในเครื่อง:', er);
+        return false;
+      }).then(function (ok) { holCache.loading = null; return ok; });
+    return holCache.loading;
+  }
+  function holInvalidate() { holCache.ready = false; holCache.at = 0; }
+  // ตัวอ่านกลาง: โหลดสำเร็จแล้วใช้ Supabase · ยังไม่สำเร็จจึงใช้ db.holidays เดิม
+  function holHas(isoStr) {
+    if (holCache.ready) return !!holCache.set[isoStr];
+    return (db.holidays || []).some(function (h) { return h.date === isoStr; });
+  }
+  function holName(isoStr) {
+    if (holCache.ready) return holCache.name[isoStr] || '';
+    var h = (db.holidays || []).find(function (x) { return x.date === isoStr; });
+    return h ? h.name : '';
+  }
+
+  // ฟังก์ชันเดิมยังอยู่ครบ เปลี่ยนเฉพาะให้เรียกตัวกลาง (ผู้เรียกเดิมไม่ต้องแก้)
+  function isHoliday(isoStr) { return holHas(isoStr); }
+  // นับวันทำงานระหว่างช่วง (ไม่รวมเสาร์-อาทิตย์และวันหยุดบริษัท) — Production ย้ายไป DB Function
+  function businessDays(start, end) {
+    var s = new Date(start + 'T00:00:00'), e = new Date(end + 'T00:00:00'), c = 0;
+    if (s > e) return 0;
+    while (s <= e) {
+      var isoStr = s.getFullYear() + '-' + pad(s.getMonth() + 1) + '-' + pad(s.getDate());
+      if (!isWeekend(isoStr) && !isHoliday(isoStr)) c++;
+      s.setDate(s.getDate() + 1);
+    }
+    return c;
+  }
+  function hoursDiff(t1, t2) {
+    var a = t1.split(':'), b = t2.split(':');
+    var m = (parseInt(b[0], 10) * 60 + parseInt(b[1], 10)) - (parseInt(a[0], 10) * 60 + parseInt(a[1], 10));
+    if (m < 0) m += 24 * 60; // OT ข้ามวัน
+    return Math.round(m / 60 * 100) / 100;
+  }
+  function debounce(fn, ms) { var t; return function () { var a = arguments, c = this; clearTimeout(t); t = setTimeout(function () { fn.apply(c, a); }, ms); }; }
+  function downloadCSV(filename, rows) {
+    var csv = '\uFEFF' + rows.map(function (r) {
+      return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 800);
+  }
+  function avatarHTML(name, size, colorSeed) {
+    var initial = (name || '?').trim().charAt(0);
+    var colors = ['#E60000', '#2563EB', '#16A34A', '#F59E0B', '#7C3AED', '#0D9488', '#DB2777'];
+    var c = colors[(colorSeed || name || '').length % colors.length];
+    return '<span class="avatar" style="width:' + size + 'px;height:' + size + 'px;background:' + c + '22;color:' + c + ';font-size:' + Math.round(size * 0.42) + 'px">' + esc(initial) + '</span>';
+  }
+
+  /* ================= STORE (Demo Repository) ================= */
+  // Production: แทนที่ชั้นนี้ด้วย Supabase Client — View ไม่ต้องแก้
+  var DB_KEY = 'njhr_db_v3', SES_KEY = 'njhr_session_v1', UI_KEY = 'njhr_ui_v1';
+  var db = {}, session, uiState;
+
+  // โครงข้อมูลว่างสำหรับ Production (ไม่มี mock-data.js) — ไม่ fallback ไปข้อมูล Demo เด็ดขาด
+  // ชื่อบริษัทที่ถูกต้อง (แหล่งเดียว) — ตั้งค่าระบบยังแก้ได้ตามเดิม
+  var NJ_COMPANY_NAME = 'N.J. LOGISTICS & FRUITS CO., LTD.';
+  // ชื่อที่เคยสะกดผิด/ชื่อเดิม → อัปเดตให้ถูกครั้งเดียว (ชื่อที่ผู้ดูแลตั้งเองจะไม่ถูกแตะ)
+  var NJ_COMPANY_LEGACY = [
+    'N.J. LOGISTIC CO., LTD.', 'N.J. LOGISTICS CO., LTD.',
+    'N.J. LOGISTIC & FRUITS CO., LTD.', 'N.J. LOGISTIC & FRUIT CO., LTD.',
+    'N.J. LOGISTICS & FRUIT CO., LTD.'
+  ];
+  function njFixCompanyName() {
+    var cur = String((db.settings && db.settings.companyName) || '').trim();
+    if (!cur || NJ_COMPANY_LEGACY.indexOf(cur) >= 0) {
+      db.settings.companyName = NJ_COMPANY_NAME;
+      saveDB();
+    }
+  }
+  // แยก "N.J." ออกจากส่วนที่เหลือ เพื่อจัดรูปแบบสีคนละสี (ข้อความชุดเดียว ไม่มีชื่อซ้ำใน DOM)
+  function njCompanyParts() {
+    var full = String(db.settings.companyName || NJ_COMPANY_NAME).trim();
+    var m = full.match(/^(N\.J\.)\s*(.*)$/i);
+    return m ? { prefix: m[1], rest: m[2] } : { prefix: '', rest: full };
+  }
+
+  function emptyDB() {
+    return { version: 'prod', departments: [], employees: [], users: [], leaveTypes: [], balances: [],
+      leaves: [], ots: [], corrections: [], attendance: [], payroll: [], announcements: [],
+      holidays: [], audit: [], notifications: [], shifts: [], shiftMoves: [],
+      settings: { companyName: NJ_COMPANY_NAME, workStart: '08:30', lateGrace: 15, geofenceRadius: 200 } };
+  }
+  // เติม key ที่ขาดให้ครบเสมอ — DB ที่บันทึกจากเวอร์ชันเก่าอาจไม่มี payroll/shifts ฯลฯ
+  // ถ้าไม่เติม โค้ดที่เรียก db.payroll.filter(...) จะโยน TypeError แล้วทั้งหน้าจอว่างเปล่า
+  function fillDbGaps() {
+    var base = emptyDB(), changed = false;
+    Object.keys(base).forEach(function (k) {
+      if (db[k] === undefined || db[k] === null) { db[k] = base[k]; changed = true; }
+    });
+    if (db.settings) Object.keys(base.settings).forEach(function (k) {
+      if (db.settings[k] === undefined) { db.settings[k] = base.settings[k]; changed = true; }
+    });
+    if (changed) saveDB();
+  }
+  /* แทนที่ "เนื้อใน" ของ db ตัวเดิม ไม่สร้าง object ใหม่ ----------
+     chunk อื่น (dashboard / attendance / leave-form / ot / compat ฯลฯ) รับ db ผ่าน
+     NJHR.compat.scope ตอนโหลด chunk ครั้งเดียว และ NJHR.compat.scope ถูกสร้างที่ท้าย IIFE
+     ของ runtime/core.js ซึ่ง "หลัง" njhrBootOnce() ในกรณีที่ DOM พร้อมอยู่แล้ว
+     ถ้า loadDB() สร้าง object ใหม่ ลำดับนี้จะทำให้ chunk อื่นได้ db ที่ผิดใบหรือ undefined
+     โครงข้อมูลและค่าใน localStorage ไม่เปลี่ยนแปลงใด ๆ */
+  function dbReplace(next) {
+    Object.keys(db).forEach(function (k) { if (!(k in next)) delete db[k]; });
+    Object.keys(next).forEach(function (k) { db[k] = next[k]; });
+  }
+  function loadDB() {
+    var seed = window.SEED;                       // มีเฉพาะ environment=development
+    try {
+      var raw = lsGet(DB_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (!seed || parsed.version === seed.version) { dbReplace(parsed); return; }
+      }
+    } catch (e) { /* ข้อมูลเสีย → เริ่มใหม่ */ }
+    dbReplace(seed ? JSON.parse(JSON.stringify(seed)) : emptyDB());
+    saveDB();
+  }
+  // localStorage อาจถูกบล็อกในบางสภาพแวดล้อม (เช่นเปิด file:// ที่ถูกจำกัดสิทธิ์)
+  // → ใช้ตัวเก็บสำรองในหน่วยความจำแทน เพื่อให้ระบบเปิดใช้งานได้เสมอ
+  var memStore = {};
+  var storageBlocked = false;
+  function lsGet(k) {
+    try { return localStorage.getItem(k); } catch (e) { storageBlocked = true; return memStore[k] != null ? memStore[k] : null; }
+  }
+  var lsLastError = '';
+  function lsSet(k, v) {
+    try { localStorage.setItem(k, v); lsLastError = ''; return true; }
+    catch (e) {
+      // เดิมกลืน error เงียบ ๆ แล้ว fallback ไปหน่วยความจำ → หน้าจอขึ้นว่าบันทึกสำเร็จ แต่ Refresh แล้วข้อมูลหาย
+      storageBlocked = true; memStore[k] = v;
+      lsLastError = (e && e.name === 'QuotaExceededError')
+        ? 'พื้นที่จัดเก็บในเบราว์เซอร์เต็ม — ข้อมูลนี้ยังไม่ถูกบันทึกถาวร'
+        : 'บันทึกข้อมูลลงเบราว์เซอร์ไม่สำเร็จ';
+      return false;
+    }
+  }
+  function lsRemove(k) {
+    try { localStorage.removeItem(k); } catch (e) { storageBlocked = true; delete memStore[k]; }
+  }
+  function saveDB() { bumpIdx(); return lsSet(DB_KEY, JSON.stringify(db)); }
+  // เรียกหลัง saveDB() ในจุดที่ผู้ใช้ต้องรู้ทันทีว่าบันทึกไม่สำเร็จ
+  function saveDbGuard() {
+    if (!lsLastError) return true;
+    toast(lsLastError, 'error');
+    return false;
+  }
+  function loadSession() { try { session = JSON.parse(lsGet(SES_KEY)); } catch (e) { session = null; } }
+  function saveSession() { if (session) lsSet(SES_KEY, JSON.stringify(session)); else lsRemove(SES_KEY); }
+  function loadUI() { try { uiState = JSON.parse(lsGet(UI_KEY)) || {}; } catch (e) { uiState = {}; } }
+  function saveUI() { lsSet(UI_KEY, JSON.stringify(uiState)); }
+
+  // -------- lookups
+  // ---- Index cache (PERF): แทนการ scan array ซ้ำในลูปเรนเดอร์ — ค่าที่คืนเป็น object เดิม ไม่ใช่สำเนา
+  var _idxVer = 0, _idx = null;
+  function bumpIdx() { _idxVer++; }               // เรียกทุกครั้งที่ข้อมูลเปลี่ยน (ใน saveDB)
+  function idx() {
+    if (_idx && _idx.v === _idxVer) return _idx;
+    var m = { v: _idxVer, emp: {}, dept: {}, lt: {}, user: {}, bal: {}, resv: {} };
+    db.employees.forEach(function (e) { m.emp[e.id] = e; });
+    db.departments.forEach(function (d) { m.dept[d.id] = d; });
+    db.leaveTypes.forEach(function (t) { m.lt[t.id] = t; });
+    db.users.forEach(function (u) { m.user[u.id] = u; });
+    (db.balances || []).forEach(function (b) { m.bal[b.empId + '|' + b.typeId] = b; });
+    // ยอดวันลาที่ค้างอนุมัติ: รวมครั้งเดียว O(n) แทนการ filter ทั้งก้อนต่อ 1 การ์ด
+    (db.leaves || []).forEach(function (l) {
+      if (l.status !== 'PENDING') return;
+      var k = l.empId + '|' + l.typeId;
+      m.resv[k] = (m.resv[k] || 0) + (l.days || 0) + (l.hours || 0) / 8;
+    });
+    _idx = m;
+    return m;
+  }
+  function emp(id) { return idx().emp[id]; }
+  function empName(id) { var e = emp(id); return e ? e.firstName + ' ' + e.lastName : '—'; }
+  function dept(id) {
+    var d = idx().dept[id];
+    if (d) return d.name;
+    var ce = currentEmp();
+    return (ce && ce.sbOnly && ce.deptName) ? ce.deptName : '—';
+  }
+  function leaveType(id) { return idx().lt[id]; }
+  function userById(id) { return idx().user[id]; }
+  /* ระบบ HR ใช้ 4 Role: SUPER_ADMIN / HR / ADMIN / USER
+     Role เก่าหรือค่าอื่นทั้งหมดให้ทำงานแบบ USER เพื่อไม่ให้สิทธิ์หลุด */
+  function normRole(v) {
+    var r = String(v || '').toUpperCase();
+    return (r === 'SUPER_ADMIN' || r === 'HR' || r === 'ADMIN') ? r : 'USER';
+  }
+  function currentUser() {
+    if (session && session.src === 'supabase') {
+      if (!sbUser) sbLoadUser();
+      if (sbUser && sbUser.user_id === session.userId) {
+        // ระบบ HR ใช้ 4 Role — SUPER_ADMIN / HR / ADMIN / USER
+        // ค่าอื่นทั้งหมด (EMPLOYEE · STAFF · ACCOUNT · MANAGER ฯลฯ) ยุบรวมเป็น USER
+        // ทำที่จุดเดียวนี้ ทุกหน้าจึงเห็นค่าเดียวกันโดยไม่ต้องแก้รายหน้า
+        var r = normRole(sbUser.role);
+        return { id: sbUser.user_id, username: sbUser.username, role: r, empId: sbUser.employee_id,
+                 active: true, fullName: sbUser.full_name, department: sbUser.department, sb: sbUser };
+      }
+      return null;
+    }
+    return session ? userById(session.userId) : null;
+  }
+  function currentEmp() {
+    var u = currentUser();
+    if (!u || !u.empId) return null;
+    var e = emp(u.empId);
+    if (e) return e;
+    // Login ด้วย USER จริงจาก Supabase แต่ข้อมูล HR ของพนักงานคนนี้ยังไม่ถูกย้ายมา
+    // → สร้าง object จากฟิลด์จริงที่ RPC ส่งมาเท่านั้น (ไม่กรอกตัวเลขขึ้นเอง) กันหน้าจอพัง
+    if (u.sb) {
+      var nm = String(u.sb.emp_name || u.sb.full_name || u.username).trim().split(/\s+/);
+      return { id: u.sb.employee_id, code: u.sb.emp_code || '-', title: '',
+        firstName: nm[0] || u.username, lastName: nm.slice(1).join(' '), nickname: '',
+        deptId: '', position: u.sb.emp_position || '', hireDate: '',
+        status: u.sb.emp_status || 'ACTIVE', empType: '', phone: '', email: u.sb.email || '',
+        shift: '', shiftId: '', baseSalary: 0, allowance: 0, bank: '', account: '',
+        deptName: u.sb.emp_department || '', sbOnly: true };
+    }
+    return null;
+  }
+  function balance(empId, typeId) {
+    var k = empId + '|' + typeId;
+    var b = idx().bal[k];
+    if (!b) {
+      b = { empId: empId, typeId: typeId, year: new Date().getFullYear(), quota: (leaveType(typeId) || {}).quota || 0, used: 0 };
+      db.balances.push(b); idx().bal[k] = b; // พฤติกรรมเดิม: สร้างยอดใหม่ถ้ายังไม่มี
+    }
+    return b;
+  }
+  function reservedDays(empId, typeId) {
+    return idx().resv[empId + '|' + typeId] || 0; // ค่าเท่าเดิม แต่ใช้ index ที่รวมไว้แล้ว
+  }
+  function remainDays(empId, typeId) {
+    var b = balance(empId, typeId);
+    return Math.round((b.quota - b.used - reservedDays(empId, typeId)) * 100) / 100;
+  }
+  /* จำนวนรายการรออนุมัติบน Badge — นับจาก Supabase ทั้งสามประเภท
+       ใบลา            _lvPending  ← njhr_leave_queue
+       OT              _otPending  ← njhr_ot_list (p_status='PENDING')
+       ลงชื่อย้อนหลัง  _fxPending  ← njhr_att_correction_list (p_mine_queue=true)
+     ค่าเก็บเป็น State กลาง ไม่ยิง RPC ตอน render Sidebar
+     รีเฟรชเมื่อ Login · เปิดหน้าอนุมัติ · ยื่น/อนุมัติ/ไม่อนุมัติ/ยกเลิก เท่านั้น
+     เดิมนับ OT และลงชื่อย้อนหลังจาก db.* ใน localStorage ซึ่งบน Production ว่างเปล่า */
+  function pendingCount() {
+    return _lvPending + _otPending + _fxPending;
+  }
+  function audit(action, detail) {
+    var u = currentUser();
+    db.audit.unshift({ at: nowStamp(), by: u ? u.username : 'system', action: action, detail: detail });
+    saveDB();
+  }
+  function notify(userId, title, body, link) {
+    db.notifications.unshift({ id: uid('N'), userId: userId, title: title, body: body, link: link || '#/dashboard', read: false, at: nowStamp() });
+  }
+  function notifyApprovers(title, body, link) {
+    db.users.filter(function (u) { return ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) >= 0 && u.active; })
+      .forEach(function (u) { notify(u.id, title, body, link); });
+  }
+  function userOfEmp(empId) { return db.users.find(function (u) { return u.empId === empId; }); }
+
+  /* ================= TOAST ================= */
+  function toast(msg, type) {
+    var wrap = document.getElementById('toasts');
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'success');
+    el.innerHTML = '<span>' + (type === 'error' ? icon('ban') : type === 'info' ? icon('info') : icon('check')) + '</span><div>' + esc(msg) + '</div>';
+    wrap.appendChild(el);
+    setTimeout(function () { el.classList.add('show'); }, 10);
+    setTimeout(function () { el.classList.remove('show'); setTimeout(function () { el.remove(); }, 300); }, 3200);
+  }
+
+  /* ---------- Toast ที่ปิดเองได้ (ใช้กับปุ่มดาวน์โหลดไฟล์แนบ) ----------
+     แยกจาก toast() เดิมโดยสิ้นเชิง — toast() ของหน้าอื่นไม่เปลี่ยนพฤติกรรมแม้แต่จุดเดียว
+     ต่างกันตรง: มีหัวข้อ + บรรทัดรอง · มีปุ่ม × ปิดเอง · อยู่นาน 5 วินาที
+     ปิดแล้วปิดเฉพาะ Toast ใบนั้น ไม่แตะ Modal หรือหน้าเบื้องหลัง */
+  function toastDismiss(title, sub, type) {
+    var wrap = document.getElementById('toasts');
+    if (!wrap) return null;
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'success') + ' toast-dis';
+    el.innerHTML =
+      '<span>' + (type === 'error' ? icon('ban') : type === 'info' ? icon('info') : icon('check')) + '</span>' +
+      '<div class="toast-txt"><b>' + esc(title) + '</b>' +
+      (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
+      '<button type="button" class="toast-x" aria-label="ปิด">' + icon('x') + '</button>';
+    wrap.appendChild(el);
+    setTimeout(function () { el.classList.add('show'); }, 10);
+    var gone = false;
+    function bye() {
+      if (gone) return; gone = true;
+      el.classList.remove('show');
+      setTimeout(function () { el.remove(); }, 300);
+    }
+    el.querySelector('.toast-x').onclick = bye;   // ปิดเฉพาะ Toast ใบนี้
+    setTimeout(bye, 5000);                        // หายเองใน 5 วินาที (กด × ก่อนได้)
+    return el;
+  }
+
+  /* ================= PREVIEW ไฟล์แนบ =================
+     เปิดทับอยู่ในหน้าเดิม ไม่เปิดแท็บใหม่ ไม่ reload
+     ใช้ container ของตัวเอง (#file-preview-root) แยกจาก #modal-root
+     Timeline Modal ที่อยู่ข้างหลังจึงยังเปิดค้างอยู่ตำแหน่งเดิม ปิด Preview แล้วกลับมาเห็นทันที */
+  function fpExt(name, url) {
+    var s2 = String(name || '') || String(url || '');
+    s2 = s2.split('?')[0].split('#')[0];
+    var m = /\.([a-z0-9]+)$/i.exec(s2);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function filePreviewClose() {
+    var r = document.getElementById('file-preview-root');
+    if (r) r.remove();
+    document.removeEventListener('keydown', fpKey);
+  }
+
+  function fpKey(ev) { if (ev.key === 'Escape') { ev.stopPropagation(); filePreviewClose(); } }
+
+  function filePreviewOpen(url, name) {
+    filePreviewClose();
+    var ext = fpExt(name, url);
+    var isImg = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].indexOf(ext) >= 0;
+    var isPdf = ext === 'pdf';
+    var inner = isImg
+      ? '<img class="fp-img" src="' + esc(url) + '" alt="' + esc(name || '') + '">'
+      : isPdf
+        ? '<iframe class="fp-frame" src="' + esc(url) + '" title="' + esc(name || '') + '"></iframe>'
+        : '<div class="fp-none">' + icon('fileText') +
+          '<p>ไม่รองรับการดูตัวอย่างไฟล์นี้ กรุณาดาวน์โหลดไฟล์</p></div>';
+
+    var root = document.createElement('div');
+    root.id = 'file-preview-root';
+    root.innerHTML =
+      '<div class="fp-overlay" id="fp-overlay">' +
+      '<div class="fp-box" role="dialog" aria-modal="true">' +
+      '<div class="fp-head"><h3>' + esc(name || 'ไฟล์แนบ') + '</h3>' +
+      '<button type="button" class="btn-icon" id="fp-x" aria-label="ปิด">' + icon('x') + '</button></div>' +
+      '<div class="fp-body">' + inner + '</div>' +
+      '<div class="fp-foot"><button type="button" class="btn btn-ghost" id="fp-close">ปิด</button></div>' +
+      '</div></div>';
+    document.body.appendChild(root);
+    document.getElementById('fp-x').onclick = filePreviewClose;
+    document.getElementById('fp-close').onclick = filePreviewClose;
+    document.getElementById('fp-overlay').addEventListener('mousedown', function (ev) {
+      if (ev.target === this) filePreviewClose();
+    });
+    document.addEventListener('keydown', fpKey);
+  }
+
+  /* ---------- ดาวน์โหลดไฟล์แนบ ----------
+     ดึงไฟล์เป็น Blob แล้วสั่งบันทึก จึงไม่เปิดแท็บใหม่และไม่ reload
+     สำเร็จ = Toast "เริ่มดาวน์โหลดแล้ว" · ล้มเหลว = Toast ผิดพลาด (ไม่แสดงว่าสำเร็จ)
+     ไม่แตะ Storage / URL / ชื่อไฟล์ / Path เดิม */
+  function fileDownload(url, name) {
+    if (!url) { toastDismiss('ดาวน์โหลดไม่สำเร็จ', 'กรุณาลองใหม่อีกครั้ง', 'error'); return; }
+    var fname = String(name || 'file');
+    fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.blob();
+    }).then(function (blob) {
+      var href = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = href; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(href); }, 4000);
+      toastDismiss('เริ่มดาวน์โหลดแล้ว', fname, 'success');
+    })['catch'](function (er) {
+      try { console.error('[FILE] ดาวน์โหลดไม่สำเร็จ:', er); } catch (e) {}
+      toastDismiss('ดาวน์โหลดไม่สำเร็จ', 'กรุณาลองใหม่อีกครั้ง', 'error');
+    });
+  }
+
+  /* ================= MODAL ================= */
+  function openModal(title, bodyHTML, footHTML, opts) {
+    opts = opts || {};
+    closeModal();
+    var root = document.getElementById('modal-root');
+    root.innerHTML =
+      '<div class="modal-overlay' + (opts.fullMobile ? ' modal-full' : '') + '" id="modal-overlay">' +
+      '<div class="modal ' + (opts.wide ? 'modal-wide' : '') + '" role="dialog" aria-modal="true">' +
+      '<div class="modal-head">' +
+      (opts.fullMobile ? '<button class="btn-icon only-mobile" id="modal-back" aria-label="ย้อนกลับ">' +
+        icon('chevL') + '</button>' : '') +
+      '<h3>' + title + '</h3><button class="btn-icon" id="modal-x" aria-label="ปิด">' + icon('x') + '</button></div>' +
+      '<div class="modal-body">' + bodyHTML + '</div>' +
+      (footHTML ? '<div class="modal-foot">' + footHTML + '</div>' : '') +
+      '</div></div>';
+    document.body.classList.add('modal-open');
+    document.getElementById('modal-x').onclick = closeModal;
+    var mb = document.getElementById('modal-back');
+    if (mb) mb.onclick = closeModal;
+    document.getElementById('modal-overlay').addEventListener('mousedown', function (ev) {
+      if (ev.target === this && !opts.locked) closeModal();
+    });
+  }
+  function closeModal() {
+    document.getElementById('modal-root').innerHTML = '';
+    document.body.classList.remove('modal-open');
+  }
+  /* ล็อกเฉพาะปุ่มที่ผู้ใช้กด — ไม่แตะปุ่มอื่นในหน้า
+     - กันกดซ้ำด้วย data-busy บนตัวปุ่มเอง
+     - เก็บ innerHTML และ disabled เดิมไว้ คืนค่าใน finally เสมอ
+       ทั้งกรณีสำเร็จ ล้มเหลว และ timeout จึงไม่มีทางค้าง disabled ถาวร
+     - คงความกว้างปุ่มเดิมไว้ระหว่างโหลด กัน layout กระโดด
+     - ไม่ใช้ setTimeout ปลดล็อก
+     ใช้กับปุ่มที่ยังไม่มี guard เดิม · ปุ่มที่มี btn.disabled guard อยู่แล้วไม่ต้องเปลี่ยน */
+  function withButtonLoading(btn, loadingText, task) {
+    if (!btn) return Promise.resolve(task());
+    if (btn.dataset && btn.dataset.busy === '1') return Promise.resolve();
+    var oldHtml = btn.innerHTML;
+    var oldDisabled = btn.disabled;
+    var oldWidth = btn.style.width;
+    var rect = btn.getBoundingClientRect();
+    if (rect && rect.width) btn.style.width = Math.round(rect.width) + 'px';
+    if (btn.dataset) btn.dataset.busy = '1';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="spinner"></span> ' + esc(loadingText || 'กำลังดำเนินการ…');
+    function restore() {
+      btn.innerHTML = oldHtml;
+      btn.disabled = oldDisabled;
+      btn.style.width = oldWidth;
+      btn.setAttribute('aria-busy', 'false');
+      if (btn.dataset) btn.dataset.busy = '0';
+    }
+    var p;
+    try { p = task(); } catch (e) { restore(); throw e; }
+    if (!p || typeof p.then !== 'function') { restore(); return Promise.resolve(p); }
+    return p.then(function (v) { restore(); return v; },
+                  function (e) { restore(); throw e; });
+  }
+
+  function confirmDialog(title, msg, okLabel, onOk, danger) {
+    openModal(title,
+      '<p class="confirm-msg">' + msg + '</p><div class="form-error" id="cf-err" role="alert"></div>',
+      '<button class="btn btn-ghost" id="cf-no">ยกเลิก</button>' +
+      '<button class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cf-yes">' + esc(okLabel) + '</button>');
+    var noBtn = document.getElementById('cf-no');
+    var yesBtn = document.getElementById('cf-yes');
+    noBtn.onclick = closeModal;
+
+    /* ป้องกันกดซ้ำ + รองรับ onOk ที่คืน Promise
+       - งาน synchronous: ทำงานแล้วปิด Modal ทันทีเหมือนเดิม
+       - งาน asynchronous: แสดง Loading ที่ปุ่มยืนยัน **ไม่ปิด Modal จนกว่าจะสำเร็จ**
+       - ล้มเหลวหรือ throw: Modal ยังอยู่ · ปุ่มกลับมากดใหม่ได้ · แสดงข้อความผิดพลาด
+       - ปุ่มยกเลิกถูกปิดระหว่างทำงาน กันปิด Modal ทิ้งกลางคัน */
+    var cfBusy = false;
+    yesBtn.onclick = function () {
+      if (cfBusy) return;
+      var btn = this;
+      var oldHtml = btn.innerHTML;
+      var oldWidth = btn.style.width;
+      var rect = btn.getBoundingClientRect();
+      var errEl = document.getElementById('cf-err');
+      if (errEl) errEl.textContent = '';
+
+      function lock() {
+        cfBusy = true;
+        if (rect && rect.width) btn.style.width = Math.round(rect.width) + 'px';
+        btn.disabled = true;
+        noBtn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.innerHTML = '<span class="spinner"></span> กำลังดำเนินการ…';
+      }
+      function unlock() {
+        cfBusy = false;
+        btn.innerHTML = oldHtml;
+        btn.style.width = oldWidth;
+        btn.disabled = false;
+        noBtn.disabled = false;
+        btn.setAttribute('aria-busy', 'false');
+      }
+      function fail(e) {
+        unlock();
+        var msg = (e && e.message) || 'ดำเนินการไม่สำเร็จ';
+        var el = document.getElementById('cf-err');
+        if (el) el.textContent = msg; else toast(msg, 'error');
+      }
+
+      var r;
+      cfBusy = true;                       // กันกดรัวระหว่างเรียก onOk รอบแรก
+      try { r = onOk(); } catch (e) { cfBusy = false; fail(e); return; }
+
+      if (!r || typeof r.then !== 'function') { closeModal(); return; }   // synchronous เหมือนเดิม
+
+      cfBusy = false; lock();              // async: แสดง Loading แล้วรอผล
+      r.then(function () { unlock(); closeModal(); }, fail);
+    };
+  }
+
+  /* ================= ROUTER + GUARDS ================= */
+  /* ระบบ HR ใช้ 4 Role — SUPER_ADMIN / HR / ADMIN / USER
+     ADMIN = USER + หน้าอนุมัติรายการ · HR = ผู้ดูแล HR (ไม่มีสิทธิ์ลบ) */
+  var ROLE_TH = { SUPER_ADMIN: 'ผู้ดูแลระบบสูงสุด', HR: 'ฝ่าย HR', ADMIN: 'ผู้อนุมัติ', USER: 'ผู้ใช้งาน' };
+  var ALL = ['SUPER_ADMIN', 'HR', 'ADMIN', 'USER'];
+  /* Runtime Split — `view` เปลี่ยนจากการอ้างฟังก์ชันตรง ๆ เป็น "ชื่อ View ใน Registry"
+     เหตุผล: ฟังก์ชัน viewXxx ทั้ง 27 ตัวย้ายไปอยู่คนละ chunk แล้ว จึงไม่มี hoisting ให้อ้างอิงตอนสร้าง object นี้
+     `mod`  = ชื่อ Module ใน Asset Manifest ที่บรรจุ View นั้น (Route-to-Module Mapping แหล่งเดียวของระบบ)
+     Route · title · roles · ลำดับ · การ redirect — เหมือนเดิมทุกตัวอักษร */
+  var ROUTES = {
+    '#/dashboard': { title: 'Dashboard', roles: ALL, view: 'viewDashboard', mod: 'dashboard' },
+    '#/employees': { title: 'พนักงาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewEmployees', mod: 'employees' },
+    '#/hr-docs': { title: 'เอกสาร HR', roles: ALL, view: 'viewHrDocs', mod: 'profile-docs' },
+    '#/attendance': { title: 'ลงเวลา', roles: ALL, view: 'viewAttendance', mod: 'attendance' },
+    '#/requests': { title: 'คำขอ', roles: ALL, view: 'viewRequests', mod: 'requests-leave' },
+    '#/req-history': { title: 'ประวัติลางานและ OT', roles: ALL, view: 'viewReqHistory', mod: 'requests-leave' },
+    '#/leave': { title: 'ลางาน', roles: ALL, view: 'viewLeave', mod: 'requests-leave' },
+    '#/ot': { title: 'OT', roles: ALL, view: 'viewOT', mod: 'ot' },
+    '#/payroll': { title: 'เงินเดือน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewPayroll', mod: 'compatibility' },
+    '#/payslips': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: function () { window.location.hash = '#/epayslip'; } }, // โหมดเดิมถูกยุบรวม — redirect
+    '#/epayslip': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: 'viewEPayslip', mod: 'compatibility' },
+    '#/approval-settings': { title: 'ตั้งค่าการอนุมัติ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewApprovalSettings', mod: 'compatibility' },
+    '#/pay-items': { title: 'รายการเงินเดือน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewPayItems', mod: 'compatibility' },
+    '#/sso': { title: 'ประกันสังคม', roles: ['SUPER_ADMIN', 'HR'], view: 'viewSSO', mod: 'compatibility' },
+    '#/approvals': { title: 'อนุมัติรายการ', roles: ['SUPER_ADMIN', 'HR', 'ADMIN'], view: 'viewApprovals', mod: 'compatibility' },
+    '#/reports': { title: 'รายงานการลงเวลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewReports', mod: 'attendance-report' },
+    '#/rpt-leave': { title: 'รายงานการลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptLeave', mod: 'report-menu' },
+    '#/rpt-ot': { title: 'รายงานโอที', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptOT', mod: 'report-menu' },
+    /* ใช้ #/rpt-wht (ไม่มีตัวเลข) เพราะ build.js:162 อ่าน ROUTES ด้วย regex '(#\/[a-z-]+)'
+       ซึ่งไม่รับตัวเลขในชื่อ Route — ถ้าใส่ #/rpt-wht50 จะถูกข้ามและ build ล้ม */
+    '#/rpt-wht': { title: 'รายงาน 50 ทวิ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptWht50', mod: 'report-menu' },
+    '#/calendar': { title: 'ปฏิทินองค์กร', roles: ALL, view: 'viewCalendar', mod: 'calendar' },
+    '#/announcements': { title: 'ประกาศบริษัท', roles: ALL, view: 'viewAnnouncements', mod: 'compatibility' },
+    '#/users': { title: 'จัดการสมาชิก', roles: ['SUPER_ADMIN', 'HR'], view: 'viewUsers', mod: 'compatibility' },
+    '#/departments': { title: 'จัดการแผนก', roles: ['SUPER_ADMIN', 'HR'], view: 'viewDepartments', mod: 'compatibility' },
+    '#/settings': { title: 'ตั้งค่าระบบ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewSettings', mod: 'compatibility' },
+    '#/geofence': { title: 'พื้นที่ลงเวลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewGeofence', mod: 'compatibility' },
+    '#/shifts': { title: 'ตั้งค่ากะทำงาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewShifts', mod: 'compatibility' },
+    '#/audit': { title: 'ประวัติการใช้งาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewAudit', mod: 'compatibility' },
+    '#/reportall': { title: 'รายงานทั้งหมด', roles: ['SUPER_ADMIN', 'HR'], view: 'viewReportAll', mod: 'compatibility' },
+    '#/notifications': { title: 'การแจ้งเตือน', roles: ALL, view: 'viewNotifications', mod: 'notifications' },
+    '#/profile': { title: 'โปรไฟล์', roles: ALL, view: 'viewProfile', mod: 'profile-docs' }
+  };
+  function canAccess(route) {
+    var u = currentUser();
+    return u && ROUTES[route] && ROUTES[route].roles.indexOf(u.role) >= 0;
+  }
+  function nav(hash) { if (location.hash === hash) render(); else location.hash = hash; }
+
+  /* ---------- ปิดลิ้นชัก + เลื่อนขึ้นบนสุด (ยกมาจาก render() เดิมทั้งบล็อก ไม่แก้ลำดับ) ---------- */
+  /* section ที่เปิดผ่าน ?sec= — ใช้ element ที่หน้านั้นมีอยู่แล้ว ไม่แก้ view ใด ๆ
+     มีไว้เพื่อให้เมนูสองรายการที่ชี้หน้าเดียวกันพาไปคนละจุด
+     (ปุ่มล่าง "ลงเวลา" = บนสุด · Drawer "ประวัติการลงเวลา" = การ์ดประวัติ) */
+  var SECTION_TARGET = { history: '.att-hcard' };
+
+  function rtScrollToSection() {
+    var q = (location.hash.split('?')[1] || '');
+    var m = /(?:^|&)sec=([\w-]+)/.exec(q);
+    var sel = m && SECTION_TARGET[m[1]];
+    if (!sel) { window.scrollTo(0, 0); return; }
+    // view บางหน้าเติมเนื้อหาแบบ async — รอรอบ paint ถัดไปก่อนค่อยหา element
+    requestAnimationFrame(function () {
+      var el = document.querySelector(sel);
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+      else window.scrollTo(0, 0);
+    });
+  }
+
+  function rtFinishRender() {
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('sidebar').classList.remove('drawer-open');
+    document.body.classList.remove('sidebar-open');   // เปลี่ยนหน้า/logout = ปลดล็อกเสมอ
+    rtScrollToSection();
+  }
+  /* Loading / Error / Retry — ใช้ class เดิมของระบบทั้งหมด ไม่เพิ่ม CSS ใหม่
+     ข้อความสั้น ไม่เปิดเผย path ไม่เปิดเผยชื่อไฟล์ ไม่เปิดเผยข้อความ error ภายใน */
+  function rtLoadingHTML() {
+    return '<div class="card"><small class="muted"><span class="spinner"></span> กำลังโหลด…</small></div>';
+  }
+  function rtRenderError(host, hash) {
+    if (!host) return;
+    host.innerHTML = '<div class="empty">' + icon('info') +
+      '<p>ไม่สามารถโหลดหน้านี้ได้ กรุณาลองใหม่</p>' +
+      '<button class="btn btn-primary" id="rt-retry">ลองใหม่</button></div>';
+    var btn = document.getElementById('rt-retry');
+    if (btn) btn.onclick = function () { render(); };
+  }
+
+  function render() {
+    // เปลี่ยนหน้า = ยกเลิกคำสั่งอ่านของเนื้อหาหน้าเดิมที่ยังค้าง
+    // (ไม่แตะคำสั่งเขียน และไม่แตะ RPC ระดับ Shell เช่น badge รออนุมัติ)
+    try { sbAbortReads(); } catch (e) {}
+    var hash = location.hash || '#/dashboard';
+    if (hash.indexOf('#/') !== 0) hash = '#/dashboard';
+    if (!session) { NJHR.router.bump(); renderLogin(); return; }
+    var u = currentUser();
+    if (!u || !u.active) { doLogout(true); return; }
+    if (!ROUTES[hash]) {
+      // ลิงก์เดิมที่มี query string เช่น #/pay-items?tab=addition ต้องยังเปิดได้
+      var bare = hash.split('?')[0].replace(/\/(addition|deduction|income|expense)$/i, '');
+      if (ROUTES[bare]) hash = bare;
+      else {
+        // Route ที่ถูกลบ/ไม่มีจริง: แก้ URL ด้วย ไม่ปล่อยให้ค้างเป็นลิงก์เสีย
+        hash = '#/dashboard';
+        if (location.hash && location.hash !== hash) { location.hash = hash; return; }
+      }
+    }
+    if (!canAccess(hash)) {
+      toast('คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error');
+      hash = '#/dashboard';
+      if (location.hash !== hash) { location.hash = hash; return; }
+    }
+    /* ผ่านด่านสิทธิ์แล้วเท่านั้นจึงจะแตะ Module Loader
+       ผู้ที่ไม่มีสิทธิ์จะไม่มีทางสั่งดาวน์โหลดไฟล์ของหน้านั้นได้เลย */
+    var navId = NJHR.router.bump();
+    var r = ROUTES[hash];
+    NJHR.state.currentRoute = hash;
+
+    renderShell(hash);
+    var host = mountTabs(hash);   // แถบ Tab อยู่เหนือเนื้อหา · view เดิมไม่ต้องแก้
+
+    /* ntPaint(): ป้ายแดงกระดิ่งต้องวาดใหม่ทุกครั้งที่ view mount เสร็จ
+       เพราะกระดิ่งมือถือ (.att-mb-bell / .req-mb-bell) เพิ่งถูกสร้างในรอบนั้น */
+    var ntPaint = function () { try { NJHR.notify.paint(); } catch (e) {} };
+    if (typeof r.view === 'function') { r.view(host); rtFinishRender(); ntPaint(); return; }
+    if (NJHR.views.has(r.view)) { NJHR.views.render(r.view, host, navId, hash); rtFinishRender(); ntPaint(); return; }
+
+    host.innerHTML = rtLoadingHTML();
+    rtFinishRender();
+    NJHR.modules.load(r.mod).then(function () {
+      if (navId !== NJHR.router.navId()) return;                 // มีการนำทางใหม่ระหว่างโหลด
+      if (!session) return;                                      // ออกจากระบบระหว่างโหลด
+      if (!canAccess(hash)) return;                              // สิทธิ์เปลี่ยนระหว่างโหลด
+      var host2 = document.getElementById('view-host') || host;
+      if (!NJHR.views.has(r.view)) { rtRenderError(host2, hash); return; }
+      NJHR.views.render(r.view, host2, navId, hash);
+      ntPaint();
+    })['catch'](function (e) {
+      try { console.error('[MODULE] ' + (e && e.message ? e.message : e)); } catch (e2) {}
+      if (navId !== NJHR.router.navId() || !session) return;
+      rtRenderError(document.getElementById('view-host') || host, hash);
+    });
+  }
+
+  /* ================= LAYOUT (Sidebar / Header / BottomNav) ================= */
+  // เมนูแบบหมวดกดเปิด-ปิด — Route และสิทธิ์ (ROUTES.roles) เดิมทั้งหมด
+  var MENU_TOP = { r: '#/dashboard', t: 'Dashboard', i: 'dashboard' };
+  /* โครงเมนูใหม่ (Sidebar 1 ระดับ + เมนูย่อยในหมวด)
+     ประกาศบริษัท / ปฏิทินองค์กร / การแจ้งเตือน / โปรไฟล์ ถูกย้ายออกจาก Sidebar
+     → เข้าผ่านการ์ดบน Dashboard และไอคอนบน Topbar · Route เดิมทุกตัวยังอยู่ครบ
+     `also` = Route ที่อยู่ในหน้าเดียวกันแบบ Tab (ใช้เพื่อไฮไลต์เมนูให้ถูกหมวด) */
+  /* เมนูของ USER — 1 ระดับ 4 รายการตามที่ออกแบบไว้
+     Route ทุกตัวเป็น Route เดิมที่มีอยู่แล้วใน ROUTES (roles: ALL) ไม่ได้สร้างใหม่
+     ไม่ใส่ หน้าหลัก / ลงเวลา / คำขอ / โปรไฟล์ เพราะอยู่ Bottom Navigation แล้ว
+     (1 Function = 1 Primary Entry Point) */
+  var USER_MENU = [
+    { r: '#/calendar',   t: 'ปฏิทินองค์กร',      i: 'calendar' },
+    { r: '#/hr-docs',    t: 'เอกสารของฉัน',      i: 'fileText', myDocsBadge: true },
+    { r: '#/epayslip',   t: 'สลิปเงินเดือน',      i: 'wallet' },
+    // ชี้หน้าเดียวกับปุ่ม "ลงเวลา" แต่คนละจุดหมาย:
+    //   ปุ่มล่าง "ลงเวลา"        = ทำรายการเข้า/ออก (บนสุดของหน้า)
+    //   Drawer "ประวัติการลงเวลา" = การ์ดประวัติ (.att-hcard) ที่มีอยู่แล้วในหน้าเดียวกัน
+    { r: '#/attendance', q: '?sec=history', t: 'ประวัติการลงเวลา', i: 'clock' }
+  ];
+  /* ADMIN ใช้งานเหมือน USER ทุกอย่าง และมีเพียงเมนูอนุมัติรายการเพิ่มอีก 1 หน้า */
+  var ADMIN_MENU = USER_MENU.concat([
+    { r: '#/approvals', t: 'อนุมัติรายการ', i: 'checkSquare', badge: true }
+  ]);
+
+  var MENU_GROUPS = [
+    {
+      key: 'people', t: 'บุคลากร', i: 'users', items: [
+        { r: '#/employees', t: 'พนักงาน', i: 'users' },
+        { r: '#/hr-docs', t: 'เอกสาร HR', i: 'fileText', userTitle: 'เอกสารของฉัน', myDocsBadge: true },
+        { r: '#/attendance', t: 'ลงเวลา', i: 'clock' }]
+    },
+    {
+      key: 'requests', t: 'คำขอ', i: 'checkSquare', items: [
+        { r: '#/leave', t: 'ลางาน', i: 'calendarOff' },
+        { r: '#/ot', t: 'OT', i: 'timer' },
+        { r: '#/approvals', t: 'อนุมัติรายการ', i: 'checkSquare', badge: true }]
+    },
+    {
+      key: 'money', t: 'เงินเดือน', i: 'wallet', items: [
+        { r: '#/payroll', t: 'เงินเดือน', i: 'wallet' },
+        { r: '#/epayslip', t: 'สลิปเงินเดือน', i: 'fileText' }]
+    },
+    {
+      key: 'report', t: 'รายงาน', i: 'chart', items: [
+        { r: '#/reports', t: 'รายงานการลงเวลา', i: 'chart' },
+        { r: '#/sso', t: 'ประกันสังคม', i: 'shield' },
+        { r: '#/reportall', t: 'รายงานทั้งหมด', i: 'fileText' },     // เข้าตรงจาก Sidebar (หน้าทางผ่าน REPORT ถูกลบแล้ว)
+        /* deskOnly = แสดงเฉพาะจอคอมพิวเตอร์ (ใส่ class .only-desktop ให้ลิงก์)
+           สองรายงานนี้ออกแบบสำหรับหน้าคอมเท่านั้น จึงไม่เพิ่มรายการใดลงเมนูบนมือถือ */
+        { r: '#/rpt-leave', t: 'รายงานการลา', i: 'calendarOff', deskOnly: true },
+        { r: '#/rpt-ot', t: 'รายงานโอที', i: 'timer', deskOnly: true },
+        { r: '#/rpt-wht', t: 'รายงาน 50 ทวิ', i: 'fileText', deskOnly: true }]
+    },
+    {
+      key: 'system', t: 'ระบบ', i: 'settings', items: [
+        { r: '#/users', t: 'ผู้ใช้งาน', i: 'userCog', also: ['#/departments'] },
+        { r: '#/settings', t: 'ตั้งค่า', i: 'settings', also: ['#/geofence', '#/shifts', '#/approval-settings', '#/pay-items'] },
+        { r: '#/audit', t: 'ประวัติการใช้งาน', i: 'history' }]
+    }
+  ];
+  /* ชื่อเมนูตาม Role — USER เห็น "เอกสารของฉัน" · ผู้ดูแลยังเห็น "เอกสาร HR" เหมือนเดิม
+     Route · สิทธิ์ · ข้อมูล ยังเป็นชุดเดียวกันทั้งหมด เปลี่ยนแค่ป้ายชื่อบนเมนู */
+  function menuTitle(m) {
+    var u = currentUser();
+    return (m.userTitle && u && ['USER', 'ADMIN'].indexOf(u.role) >= 0) ? m.userTitle : m.t;
+  }
+  // Badge ของเมนู 1 รายการ: อนุมัติรายการใช้ pendingCount() เดิม · เอกสารของฉันใช้ NJHR.state.docPending
+  function menuBadgeOf(m, pc) {
+    if (m.badge && pc > 0) return pc;
+    if (m.myDocsBadge) { var d = Number(NJHR.state.docPending) || 0; if (d > 0) return d; }
+    return 0;
+  }
+
+  // เมนู 1 รายการอาจครอบหลาย Route ที่แสดงเป็น Tab ในหน้าเดียวกัน
+  function menuRoutes(m) { return [m.r].concat(m.also || []); }
+  function menuMatch(m, hash) { return menuRoutes(m).indexOf(hash) >= 0; }
+  function menuVisible(m) { return menuRoutes(m).some(canAccess); }
+  // ลิงก์ของเมนู = Route แรกที่ผู้ใช้คนนี้เปิดได้จริง (กันกดแล้วถูกเด้งกลับ)
+  /* m.q = query สำหรับพาไปยัง section ในหน้าเดียวกัน (เช่น ?sec=history)
+     Router ตัด query ออกก่อนหาสิทธิ์อยู่แล้ว จึงไม่กระทบการตรวจ ROUTES/canAccess */
+  function menuHref(m) {
+    var r = menuRoutes(m).filter(canAccess)[0] || m.r;
+    return r + (m.q && r === m.r ? m.q : '');
+  }
+
+  /* หน้ารวมแบบ Tab — ใช้ Route เดิมทั้งหมด ไม่รวมข้อมูลของสองระบบเข้าด้วยกัน
+     แต่ละแท็บยังเรียก view เดิมของ Route นั้นตามปกติ */
+  var TABSETS = [
+    { key: 'users', tabs: [
+      { r: '#/users', t: 'จัดการสมาชิก' },
+      { r: '#/departments', t: 'จัดการแผนก' }] },
+    { key: 'settings', tabs: [
+      { r: '#/settings', t: 'ตั้งค่าระบบ' },
+      { r: '#/geofence', t: 'พื้นที่ลงเวลา' },
+      { r: '#/shifts', t: 'ตั้งค่ากะทำงาน' },
+      { r: '#/approval-settings', t: 'ตั้งค่าการอนุมัติ' },
+      { r: '#/pay-items', t: 'รายการเงินเดือน' }] }
+  ];
+  function tabsetOf(hash) {
+    return TABSETS.find(function (ts) { return ts.tabs.some(function (t) { return t.r === hash; }); });
+  }
+  // วางแถบ Tab ไว้เหนือเนื้อหา แล้วคืน element เปล่าให้ view เดิมเขียนลงไป (view ไม่ต้องแก้เลย)
+  function mountTabs(hash) {
+    var mv = document.getElementById('main-view');
+    var ts = tabsetOf(hash), html = '';
+    if (ts) {
+      var tabs = ts.tabs.filter(function (t) { return canAccess(t.r); });
+      if (tabs.length > 1) {
+        html = '<div class="tabs page-tabs">' + tabs.map(function (t) {
+          return '<a class="tab' + (t.r === hash ? ' active' : '') + '" href="' + t.r + '">' + esc(t.t) + '</a>';
+        }).join('') + '</div>';
+      }
+    }
+    mv.innerHTML = html + '<div id="view-host"></div>';
+    return document.getElementById('view-host');
+  }
+
+  function groupOfRoute(hash) {
+    return MENU_GROUPS.find(function (g) {
+      return g.items.some(function (m) { return menuMatch(m, hash); });
+    });
+  }
+  // อัปเดตเฉพาะตัวเลข badge (ใช้ pendingCount() เดิม) หลังอนุมัติ/ปฏิเสธ โดยไม่ re-render shell
+  function refreshMenuBadge() {
+    var pc = pendingCount();
+    // ตัวเลขต่างกันได้ระหว่าง "อนุมัติรายการ" (pendingCount) กับ "เอกสารของฉัน" (docPending)
+    // จึงอัปเดตทีละลิงก์ตาม data-badge-route แทนการเขียนทับด้วยเลขเดียวทั้งหมด
+    MENU_GROUPS.forEach(function (g) {
+      g.items.forEach(function (m) {
+        if (!m.badge && !m.myDocsBadge) return;
+        var mb = menuBadgeOf(m, pc);
+        document.querySelectorAll('.side-menu a.menu-item[href="' + menuHref(m) + '"], ' +
+                                  '#menu-flyout a.menu-item[href="' + menuHref(m) + '"]')
+          .forEach(function (a) {
+            var b = a.querySelector('.menu-badge');
+            if (mb > 0) {
+              if (b) b.textContent = mb;
+              else a.insertAdjacentHTML('beforeend', '<span class="menu-badge">' + mb + '</span>');
+            } else if (b) { b.remove(); }
+          });
+      });
+    });
+    // ตัวเลขรวมบนหัวหมวด
+    MENU_GROUPS.forEach(function (g) {
+      var gb = g.items.reduce(function (n, m) { return n + menuBadgeOf(m, pc); }, 0);
+      var btn = document.getElementById('menu-cat-btn-' + g.key);
+      if (!btn) return;
+      var cb = btn.querySelector('.cat-badge');
+      if (gb > 0) {
+        if (cb) cb.textContent = gb;
+        else btn.querySelector('.menu-text')
+                .insertAdjacentHTML('afterend', '<span class="menu-badge cat-badge">' + gb + '</span>');
+      } else if (cb) { cb.remove(); }
+    });
+  }
+
+  /* ปุ่มล่างบนมือถือ
+     USER / EMPLOYEE = 5 ปุ่มตามสเปก (หน้าหลัก · ลงเวลา · ลางาน · สลิป · โปรไฟล์)
+     ผู้ดูแล = หัวหมวดใหม่ + โปรไฟล์ (Sidebar Drawer ยังเป็นเมนูหลักตามเดิม) */
+  // เมนูล่างมือถือ: 4 เมนูเท่านั้นตามแบบที่กำหนด — ใช้ชุดเดียวกันทุก Role
+  // (สลิปและลางานยังอยู่ในระบบและเมนูข้าง แค่ไม่อยู่บนเมนูล่าง)
+  function bottomNavItems() {
+    return [['#/dashboard', 'หน้าหลัก', 'home'],
+            ['#/attendance', 'ลงเวลา', 'clock'],
+            ['#/requests', 'คำขอ', 'checkSquare'],
+            ['#/profile', 'โปรไฟล์', 'user']];
+  }
+  // ไฮไลต์ปุ่มล่างให้ครอบทั้งหมวด (เช่น อยู่หน้า #/departments ต้องไฮไลต์ "ระบบ")
+  function bnActive(r, activeHash) {
+    if (r === activeHash) return true;
+    // แท็บ "คำขอ" ครอบหน้าลา / OT / อนุมัติ ที่เข้าถึงจากหน้านี้ด้วย
+    if (r === '#/requests') {
+      return ['#/leave', '#/ot', '#/approvals', '#/req-history'].indexOf(activeHash) >= 0;
+    }
+    var g = groupOfRoute(activeHash), gr = groupOfRoute(r);
+    return !!(g && gr && g.key === gr.key);
+  }
+
+  /* ================= SIDEBAR ACCORDION =================
+     ใช้ State กลางค่าเดียว: uiState.openSidebarGroup = 'people' | 'requests' | ... | null
+     (เดิมเป็น uiState.menuOpen แบบ boolean หลายตัว ซึ่งทำให้เปิดค้างพร้อมกันได้) */
+  function accInit() {
+    if (typeof uiState.openSidebarGroup === 'undefined') {
+      uiState.openSidebarGroup = null;
+      delete uiState.menuOpen;                 // ล้างสถานะเก่าแบบหลาย boolean ทิ้ง
+      saveUI();
+    }
+  }
+  // เปิดเฉพาะกลุ่มที่มี Route ปัจจุบัน · หน้าเดี่ยว (Dashboard/โปรไฟล์ ฯลฯ) = ยุบทุกกลุ่ม
+  function accSyncToRoute(activeHash) {
+    accInit();
+    var g = groupOfRoute(activeHash);
+    var next = g ? g.key : null;
+    if (uiState.openSidebarGroup !== next) { uiState.openSidebarGroup = next; saveUI(); }
+  }
+  // ปรับเฉพาะ class + aria-expanded ของหมวด ไม่สร้าง Sidebar ใหม่ทั้งชุด
+  function accApply() {
+    var sb = document.getElementById('sidebar');
+    if (!sb) return;
+    sb.querySelectorAll('.menu-cat').forEach(function (cat) {
+      var on = cat.dataset.group === uiState.openSidebarGroup;
+      cat.classList.toggle('open', on);
+      var btn = cat.querySelector('.menu-cat-btn');
+      if (btn) btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+  }
+  // กดหัวข้อหลัก: เปิดกลุ่มนี้และปิดกลุ่มอื่นทันที · กดซ้ำที่กลุ่มเดิม = ยุบ
+  function accToggle(key) {
+    accInit();
+    uiState.openSidebarGroup = (uiState.openSidebarGroup === key) ? null : key;
+    saveUI();
+    accApply();
+  }
+
+  var _shellSig = null;
+
+  /* ---------- โหมดหัวแถบมือถือ (ตามภาพอ้างอิงที่อนุมัติแล้ว) ----------
+     'brand' = แถบกรมท่า โลโก้ NJL + NJL HR   (หน้าหลัก · โปรไฟล์)
+     'mid'   = แถบกรมท่า ชื่อหน้ากลางแถบ       (ลงเวลา · คำขอ)
+     ''      = หัวแถบเดิม (Desktop และทุก Route อื่น)
+     ค่านี้ต้องอยู่ใน shellSignature ด้วย ไม่งั้นเปลี่ยนหน้าในกลุ่มเดียวกัน
+     จะเข้าทาง shellUpdateActive() ซึ่งไม่คำนวณคลาสของ .topbar ใหม่ */
+  var MB_BRAND_ROUTES = ['#/dashboard'];
+  /* หน้าโปรไฟล์มีแถบแบรนด์ของตัวเองอยู่ในหน้า (.pfm-brand ตามภาพอ้างอิง)
+     จึงซ่อน topbar บนมือถือ ไม่ให้ซ้อนกัน 2 ชั้น */
+  var MB_HIDE_ROUTES = ['#/profile', '#/requests', '#/attendance'];
+  var MB_MID_ROUTES = [];
+  function mbHeaderMode(activeHash) {
+    /* หน้าตาแอปมือถือเหมือนกันทุก Role (USER · ADMIN · SUPER_ADMIN)
+       เพราะ Bottom Navigation 4 เมนูก็แสดงทุก Role อยู่แล้ว
+       สิทธิ์การใช้งานยังแยกตาม Role ที่ Route Guard เหมือนเดิม ไม่ได้แตะ */
+    if (!currentUser()) return '';
+    if (MB_BRAND_ROUTES.indexOf(activeHash) >= 0) return 'brand';
+    if (MB_MID_ROUTES.indexOf(activeHash) >= 0) return 'mid';
+    if (MB_HIDE_ROUTES.indexOf(activeHash) >= 0) return 'hide';
+    return '';
+  }
+
+  function shellSignature(activeHash) { // ทุกอย่างที่มีผลต่อหน้าตา shell ยกเว้นตัว active
+    var u = currentUser();
+    var g = groupOfRoute(activeHash);
+    return [u ? u.id : '', u ? u.role : '', !!uiState.sidebarCollapsed, pendingCount(),
+      _ntUnread,                                    // แจ้งเตือน: นับจาก Supabase (njhr_notify_unread)
+      mbHeaderMode(activeHash),                     // โหมดหัวแถบมือถือ — เปลี่ยนแล้วต้อง render ใหม่จริง
+      g ? g.key : ''].join('|');   // สถานะ accordion ไม่อยู่ใน signature — ปรับด้วย accApply() แทนการ render ใหม่
+  }
+  // PERF: เปลี่ยนหน้าแล้ว shell เหมือนเดิม → อัปเดตแค่สถานะ active ไม่สร้าง DOM ใหม่ทั้งชุด
+  function shellUpdateActive(activeHash) {
+    var sb = document.getElementById('sidebar');
+    if (!sb) return false;
+    sb.querySelectorAll('.menu-item.active').forEach(function (a) { a.classList.remove('active'); });
+    // เมนูหนึ่งรายการอาจครอบหลาย Route (แท็บในหน้าเดียวกัน) จึงเทียบด้วย menuMatch ไม่ใช่ href ตรง ๆ
+    if (MENU_TOP.r === activeHash) {
+      var top = sb.querySelector('a.menu-item[href="' + MENU_TOP.r + '"]');
+      if (top) top.classList.add('active');
+    }
+    MENU_GROUPS.forEach(function (g) {
+      g.items.forEach(function (m) {
+        if (!menuMatch(m, activeHash)) return;
+        var lnk = sb.querySelector('.menu-cat[data-group="' + g.key + '"] a.menu-item[href="' + menuHref(m) + '"]');
+        if (lnk) lnk.classList.add('active');
+      });
+    });
+    document.querySelectorAll('.bn-item').forEach(function (a) {
+      a.classList.toggle('active', a.getAttribute('href') === activeHash);
+    });
+    // แถบเมนูล่างของหน้าลงเวลาใช้พื้นกรมท่า — ต้องสลับคลาสในเส้นทางนี้ด้วย
+    // ไม่งั้นเปลี่ยนหน้าในกลุ่มที่ shell signature เท่ากันแล้วคลาสจะค้าง
+    var bnv = document.getElementById('bottom-nav');
+    if (bnv) bnv.classList.toggle('bn-att', activeHash === '#/attendance');
+    var t = document.getElementById('topbar-title');
+    if (t && ROUTES[activeHash]) t.textContent = ROUTES[activeHash].title;
+    accSyncToRoute(activeHash); accApply();   // เปลี่ยนหน้าแล้วเปิดเฉพาะกลุ่มของ Route นั้น
+    return true;
+  }
+  function renderShell(activeHash) {
+    var oldFly = document.getElementById('menu-flyout');
+    if (oldFly) oldFly.remove(); // flyout ถูก append ไว้ที่ body ต้องเก็บกวาดเอง
+    var sig = shellSignature(activeHash);
+    if (sig === _shellSig && document.getElementById('main-view') && shellUpdateActive(activeHash)) return;
+    _shellSig = sig;
+    var app = document.getElementById('app');
+    var u = currentUser(), e = currentEmp();
+    var name = e ? e.firstName + ' ' + e.lastName : u.username;
+    var collapsed = !!uiState.sidebarCollapsed;
+    var pc = pendingCount();
+    var unread = _ntUnread;                          // Supabase: njhr_notify_unread
+
+    var mbMode = mbHeaderMode(activeHash);
+    var mbBrand = mbMode === 'brand', mbTitleOnly = mbMode === 'mid';
+    var mbHide = mbMode === 'hide';
+
+    // เปิดเฉพาะหมวดของหน้าปัจจุบัน หมวดอื่นปิดทั้งหมด (State กลางค่าเดียว)
+    accSyncToRoute(activeHash);
+
+    function subLink(m) {
+      var t = menuTitle(m), mb = menuBadgeOf(m, pc);
+      return '<a href="' + menuHref(m) + '" class="menu-item sub-item' + (menuMatch(m, activeHash) ? ' active' : '') +
+        (m.deskOnly ? ' only-desktop' : '') + '" data-tip="' + esc(t) + '">' +
+        icon(m.i) + '<span class="menu-text">' + esc(t) + '</span>' +
+        (mb > 0 ? '<span class="menu-badge">' + mb + '</span>' : '') + '</a>';
+    }
+    var menuHTML =
+      '<a href="' + MENU_TOP.r + '" class="menu-item' + (MENU_TOP.r === activeHash ? ' active' : '') + '" data-tip="' + MENU_TOP.t + '">' +
+      icon(MENU_TOP.i) + '<span class="menu-text">' + MENU_TOP.t + '</span></a>' +
+      MENU_GROUPS.map(function (g) {
+        var items = g.items.filter(menuVisible);
+        if (!items.length) return ''; // ไม่มีสิทธิ์เมนูย่อยเลย → ไม่แสดงหัวหมวด
+        var isOpen = uiState.openSidebarGroup === g.key;
+        var hasActive = items.some(function (m) { return menuMatch(m, activeHash); });
+        var gb = items.reduce(function (n, m) { return n + menuBadgeOf(m, pc); }, 0);
+        var groupBadge = gb > 0 ? '<span class="menu-badge cat-badge">' + gb + '</span>' : '';
+        return '<div class="menu-cat' + (isOpen ? ' open' : '') + '" data-group="' + g.key + '">' +
+          '<button type="button" class="menu-item menu-cat-btn' + (hasActive ? ' has-active' : '') + '" data-cat="' + g.key + '"' +
+          ' id="menu-cat-btn-' + g.key + '" aria-controls="menu-sub-' + g.key + '" aria-expanded="' + isOpen + '" data-tip="' + g.t + '">' +
+          icon(g.i) + '<span class="menu-text">' + g.t + '</span>' + groupBadge +
+          '<span class="cat-arrow" aria-hidden="true">' + icon('chevR') + '</span></button>' +
+          '<div class="menu-sub" id="menu-sub-' + g.key + '" role="group" aria-labelledby="menu-cat-btn-' + g.key + '">' +
+          items.map(subLink).join('') + '</div></div>';
+      }).join('');
+
+    /* USER/ADMIN ใช้ Self-service shell เดียวกัน; ADMIN เพิ่มเฉพาะหน้าอนุมัติรายการ */
+    var isSelfService = ['USER', 'ADMIN'].indexOf(u.role) >= 0;
+    if (isSelfService) {
+      var selfMenu = u.role === 'ADMIN' ? ADMIN_MENU : USER_MENU;
+      menuHTML = '<div class="menu-group">' + selfMenu.filter(function (m) {
+        return !ROUTES[m.r] || canAccess(m.r);
+      }).map(subLink).join('') + '</div>';
+    }
+
+    app.innerHTML =
+      '<div class="layout' + (collapsed ? ' collapsed' : '') + (isSelfService ? ' user-shell' : '') + '">' +
+      '<div class="drawer-overlay" id="drawer-overlay"></div>' +
+      '<aside class="sidebar" id="sidebar">' +
+      '  <div class="side-brand"><span class="brand-badge">NJ</span><div class="brand-txt"><b>NJ LOGISTIC</b><small>HR SYSTEM</small></div>' +
+      '    <button class="btn-icon side-close" id="drawer-close" aria-label="ปิดเมนู">' + icon('x') + '</button></div>' +
+      (isSelfService
+        // การ์ดโปรไฟล์: ชื่อ–นามสกุล · รหัสพนักงาน · แผนก · กดได้ทั้งการ์ด
+        ? '  <a href="#/profile" class="side-user side-user-card" id="side-profile">' + avatarHTML(name, 46) +
+          '    <div class="side-user-txt"><b>' + esc(name) + '</b>' +
+          '      <small>' + esc((e && e.code) || '—') + '</small>' +
+          '      <small>' + esc((e && dept(e.deptId)) || '—') + '</small></div>' +
+          '    <span class="cat-arrow" aria-hidden="true">' + icon('chevR') + '</span></a>'
+        : '  <div class="side-user">' + avatarHTML(name, 42) +
+          '    <div class="side-user-txt"><b>' + esc(name) + '</b><small><span class="dot-on"></span>' + ROLE_TH[u.role] + '</small></div></div>') +
+      '  <nav class="side-menu">' + menuHTML +
+      '    <div class="menu-group"><a href="javascript:void 0" id="menu-logout" class="menu-item" data-tip="ออกจากระบบ">' + icon('logout') + '<span class="menu-text">ออกจากระบบ</span></a></div>' +
+      '  </nav>' +
+      '  <button class="side-collapse" id="side-collapse" aria-label="ย่อเมนู">' + icon(collapsed ? 'chevR' : 'chevL') + '<span class="menu-text">ย่อเมนู</span></button>' +
+      '</aside>' +
+      '<div class="content">' +
+      /* หัวแถบ — Desktop คงเดิมทุกอย่าง (กฎมือถืออยู่ใน @media เท่านั้น)
+         มือถือพนักงาน: brand = โลโก้ NJL + NJL HR · mid = ชื่อหน้ากลางแถบ */
+      '  <header class="topbar' + (mbBrand ? ' tb-mb' : '') + (mbTitleOnly ? ' tb-mid' : '') +
+             (mbHide ? ' tb-hide' : '') + '">' +
+      '    <button class="btn-icon only-mobile" id="hamburger" aria-label="เปิดเมนู">' + icon('menu') + '</button>' +
+      (mbBrand
+        ? '    <span class="tb-brand only-mobile"><span class="tb-logo">NJL</span><b>NJL HR</b></span>'
+        : '') +
+      '    <h2 class="page-title" id="topbar-title">' + ROUTES[activeHash].title + '</h2>' +
+      '    <div class="topbar-right">' +
+      '      <button class="btn-icon bell" id="btn-bell" aria-label="การแจ้งเตือน">' + icon('bell') + (unread ? '<span class="bell-badge">' + unread + '</span>' : '') + '</button>' +
+      '      <a href="#/profile" class="topbar-user">' + avatarHTML(name, 34) + '<span class="only-desktop">' + esc(e ? e.nickname || e.firstName : u.username) + '</span></a>' +
+      '    </div></header>' +
+      '  <main class="main-view" id="main-view"></main>' +
+      '</div>' +
+      '<nav class="bottom-nav' + (activeHash === '#/attendance' ? ' bn-att' : '') + '" id="bottom-nav">' +
+      bottomNavItems()
+        .map(function (b) { return '<a href="' + b[0] + '" class="bn-item' + (bnActive(b[0], activeHash) ? ' active' : '') + '">' + icon(b[2]) + '<span>' + b[1] + '</span></a>'; }).join('') +
+      '</nav></div>';
+
+    document.getElementById('hamburger').onclick = function () {
+      document.getElementById('sidebar').classList.add('drawer-open');
+      document.getElementById('drawer-overlay').classList.add('open');
+      document.body.classList.add('sidebar-open');       // ล็อกหน้าหลัง (ไม่ใช้ :has)
+    };
+    function closeDrawer() {
+      document.getElementById('sidebar').classList.remove('drawer-open');
+      document.getElementById('drawer-overlay').classList.remove('open');
+      document.body.classList.remove('sidebar-open');
+    }
+    window.njhrCloseDrawer = closeDrawer;                 // ให้ route/logout/resize เรียกได้
+    document.getElementById('drawer-overlay').onclick = closeDrawer;
+    document.getElementById('drawer-close').onclick = closeDrawer;
+    // เลือกเมนูแล้วปิดลิ้นชักเอง (มือถือ) — ไม่ยิง RPC ใด ๆ เพิ่ม
+    document.querySelectorAll('.side-menu a.menu-item, #side-profile').forEach(function (a) {
+      a.addEventListener('click', closeDrawer);
+    });
+    document.querySelectorAll('.side-menu a[href^="#/"]').forEach(function (a) { a.addEventListener('click', closeDrawer); });
+    document.getElementById('side-collapse').onclick = function () {
+      uiState.sidebarCollapsed = !uiState.sidebarCollapsed; saveUI(); render();
+    };
+    // เปิด-ปิดหมวดเมนู: โหมดปกติ toggle ในที่, โหมดย่อ (desktop) แสดง flyout ด้านขวา
+    function closeFlyout() {
+      var f = document.getElementById('menu-flyout');
+      if (f) f.remove();
+      document.removeEventListener('mousedown', flyoutOutside, true);
+    }
+    function flyoutOutside(ev) {
+      var f = document.getElementById('menu-flyout');
+      if (f && !f.contains(ev.target) && !ev.target.closest('.menu-cat-btn')) closeFlyout();
+    }
+    function openFlyout(btn, gKey) {
+      var g = MENU_GROUPS.find(function (x) { return x.key === gKey; });
+      var items = g.items.filter(menuVisible);
+      var wasOpen = document.getElementById('menu-flyout');
+      closeFlyout();
+      if (wasOpen && wasOpen.dataset.key === gKey) return; // กดซ้ำ = ปิด
+      var rect = btn.getBoundingClientRect();
+      var f = document.createElement('div');
+      f.id = 'menu-flyout'; f.dataset.key = gKey;
+      // position:fixed เพื่อไม่ถูก overflow ของ sidebar ตัด
+      f.style.top = Math.min(rect.top, window.innerHeight - (items.length * 44 + 56)) + 'px';
+      f.style.left = rect.right + 8 + 'px';
+      f.innerHTML = '<div class="flyout-title">' + g.t + '</div>' + items.map(function (m) {
+        var t = menuTitle(m), mb = menuBadgeOf(m, pc);
+        return '<a href="' + menuHref(m) + '" class="menu-item sub-item' + (menuMatch(m, activeHash) ? ' active' : '') + '">' +
+          icon(m.i) + '<span class="menu-text">' + esc(t) + '</span>' +
+          (mb > 0 ? '<span class="menu-badge">' + mb + '</span>' : '') + '</a>';
+      }).join('');
+      document.body.appendChild(f);
+      f.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', closeFlyout); });
+      document.addEventListener('mousedown', flyoutOutside, true);
+    }
+    document.querySelectorAll('.menu-cat-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var key = this.dataset.cat;
+        var isDesktopCollapsed = uiState.sidebarCollapsed && window.innerWidth > 900;
+        if (isDesktopCollapsed) { openFlyout(this, key); return; }
+        accToggle(key);   // เปิดกลุ่มนี้ · ปิดกลุ่มอื่นทันที · กดซ้ำ = ยุบ
+      };
+    });
+    document.getElementById('menu-logout').onclick = function () {
+      confirmDialog('ออกจากระบบ', 'ต้องการออกจากระบบใช่หรือไม่', 'ออกจากระบบ', function () { doLogout(false); }, true);
+    };
+    document.getElementById('btn-bell').onclick = function () { nav('#/notifications'); };
+  }
+
+  /* ================= LOGIN ================= */
+  /* ================= SUPABASE AUTH LAYER =================
+     USER จริงมาจากตาราง app_users (app_code='salary') เท่านั้น
+     รหัสผ่านตรวจฝั่งเซิร์ฟเวอร์ด้วย RPC njhr_login (SECURITY DEFINER)
+     localStorage เก็บได้เฉพาะ session/UI preference — ไม่มี password ไม่มี hash */
+  var SB = {
+    url: (window.NJHR_SUPABASE_URL || ''),      // ตั้งค่าใน index.html
+    key: (window.NJHR_SUPABASE_ANON_KEY || '')  // publishable/anon key เท่านั้น ห้ามใส่ service role
+  };
+  var sbUser = null, sbLoginMsg = '';
+  function sbSaveUser() { try { localStorage.setItem('njhr_sb_user', JSON.stringify(sbUser)); } catch (e) {} }
+  function sbLoadUser() { try { sbUser = JSON.parse(localStorage.getItem('njhr_sb_user')); } catch (e) { sbUser = null; } }
+  function sbClearUser() { sbUser = null; try { localStorage.removeItem('njhr_sb_user'); } catch (e) {} }
+  function sbReady() { return !!(SB.url && SB.key); }
+  // ทดสอบการเชื่อมต่อตอนเริ่มระบบ — อ่านอย่างเดียว ไม่แตะข้อมูล · Key ส่งทาง header เท่านั้น
+  // 401/403 = Key ใช้ไม่ได้ · fetch reject = ไม่มีเน็ต/URL ผิด · สถานะอื่นถือว่า Key ผ่านแล้ว
+  var SB_HEALTH = null;
+  function sbConnCheck() {
+    if (!sbReady()) return Promise.reject(new Error('CONFIG'));
+    // เรียก RPC จริง ไม่ใช่แค่ GET /rest/v1/ — ตรวจทั้งการเชื่อมต่อ สิทธิ์ Key และ schema_version
+    return sbRpc('njhr_healthcheck', {}).then(function (h) {
+      SB_HEALTH = h || null;
+      if (!h || h.ok !== true || h.project_ready !== true) throw new Error('SCHEMA');
+      return h;
+    }, function (e) {
+      if (e && e.message === 'SCHEMA') throw e;
+      SB_HEALTH = null;
+      throw new Error('NETWORK');
+    });
+  }
+  // ข้อความเดียวสำหรับทุกสาเหตุ — ไม่เปิดเผย Key และไม่บอกรายละเอียดที่ใช้เดา Key ได้
+  function renderConnError() {
+    document.getElementById('app').innerHTML =
+      '<div class="login-wrap"><div class="login-card">' +
+      '<div class="login-brand"><span class="brand-badge big">NJ</span><h1>NJ LOGISTIC</h1><p>HR SYSTEM</p></div>' +
+      '<div class="form-error" id="conn-msg" role="alert" style="text-align:center;line-height:1.8">' +
+      'ไม่สามารถเชื่อมต่อฐานข้อมูล Supabase ได้<br>กรุณาตรวจสอบการตั้งค่าระบบหรือการเชื่อมต่ออินเทอร์เน็ต</div>' +
+      (SB_HEALTH && SB_HEALTH.detail && SB_HEALTH.detail.missing && SB_HEALTH.detail.missing.length
+        ? '<p class="muted note">ยังติดตั้งไม่ครบ: ' + esc(SB_HEALTH.detail.missing.join(', ')) +
+          ' · schema ' + esc(String(SB_HEALTH.schema_version || '-')) + '</p>' : '') +
+      '<button class="btn btn-primary btn-block btn-lg" id="conn-retry">ลองเชื่อมต่ออีกครั้ง</button>' +
+      '</div></div>';
+    document.getElementById('conn-retry').onclick = function () {
+      var b = this; b.disabled = true; b.innerHTML = '<span class="spinner"></span> กำลังเชื่อมต่อ…';
+      njhrBoot();                                  // ใช้ลำดับเริ่มระบบเดิม ไม่ Refresh หน้าเว็บ
+    };
+  }
+  /* ===== ตัวกลางเรียก RPC — Timeout + AbortController + Retry เฉพาะคำสั่งอ่าน =====
+     - Timeout 13 วินาที ยกเลิกด้วย AbortController
+     - Retry 1 ครั้ง เฉพาะ RPC ที่อ่านข้อมูล และเฉพาะเมื่อล้มเหลวระดับเครือข่าย/หมดเวลา
+     - RPC ที่เขียนข้อมูลห้าม retry เด็ดขาด เพราะอาจทำให้เกิดข้อมูลซ้ำ
+     - ข้อความผิดพลาดที่คืนออกไปเป็นภาษาที่ผู้ใช้เข้าใจได้ ส่วนรายละเอียดทางเทคนิคลง console
+     - รูปแบบค่าที่ resolve เหมือนเดิมทุกประการ (list คืน array · single คืน object) */
+  var SB_TIMEOUT_MS = 13000;
+  /* เปิดค่าเดียวกันให้โมดูลแยกที่อยู่นอก IIFE นี้ใช้ร่วม (face.js)
+     เพื่อให้มี Timeout ค่าเดียวทั้งระบบ ไม่ต้องประกาศซ้ำ */
+  window.NJHR_SB_TIMEOUT_MS = SB_TIMEOUT_MS;
+  var SB_WRITE_RPC = {
+    'njhr_ann_ack': 1, 'njhr_ann_read': 1, 'njhr_att_migrate': 1, 'njhr_att_punch': 1,
+    /* ลงเวลาของกลุ่มยกเว้นผู้บริหาร — เป็นคำสั่งเขียน ต้องอยู่ในรายการนี้เสมอ
+       ไม่งั้นจะถูกจัดเป็นคำสั่งอ่าน แล้ว "ลองใหม่อัตโนมัติ" ทำให้ลงเวลาซ้ำได้ */
+    'njhr_att_punch_exempt': 1,
+    'njhr_dept_delete': 1, 'njhr_dept_move': 1, 'njhr_dept_save': 1, 'njhr_doc_delete': 1,
+    'njhr_doc_flow': 1, 'njhr_doc_org_save': 1, 'njhr_doc_respond': 1, 'njhr_doc_save': 1,
+    'njhr_doc_view': 1, 'njhr_emp_import': 1, 'njhr_emp_save': 1, 'njhr_emp_status': 1,
+    'njhr_empfile_delete': 1, 'njhr_empfile_save': 1, 'njhr_face_delete': 1, 'njhr_gf_delete': 1,
+    'njhr_gf_save': 1, 'njhr_holiday_delete': 1, 'njhr_holiday_save': 1, 'njhr_leave_cancel': 1,
+    'njhr_leave_decide': 1, 'njhr_leave_submit': 1, 'njhr_leave_type_save': 1, 'njhr_login': 1,
+    /* เพิ่มใหม่: ทั้งสามตัวเขียนข้อมูลจริง ห้าม retry
+       njhr_face_login สร้าง session · njhr_face_self_enroll เขียนทะเบียนใบหน้า
+       njhr_face_login_set เปลี่ยนสวิตช์ความปลอดภัยของบัญชี */
+    'njhr_face_login': 1, 'njhr_face_login_set': 1, 'njhr_face_self_enroll': 1,
+    'njhr_face_self_reenroll': 1,
+    'njhr_logout': 1, 'njhr_notify_read': 1, 'njhr_notify_read_all': 1, 'njhr_ot_attach_add': 1,
+    'njhr_ot_attach_delete': 1, 'njhr_pay_entry_bulk': 1, 'njhr_pay_entry_copy_apply': 1, 'njhr_pay_entry_delete': 1,
+    'njhr_pay_entry_save': 1, 'njhr_pay_entry_set_active': 1, 'njhr_pay_item_delete': 1, 'njhr_pay_item_reorder': 1,
+    'njhr_pay_item_save': 1, 'njhr_session_check': 1, 'njhr_shift_assign': 1, 'njhr_shift_save': 1,
+    'njhr_shift_set_active': 1, 'njhr_slip_mark_sent': 1, 'njhr_sso_emp_save': 1, 'njhr_user_link': 1,
+    'njhr_user_password': 1, 'njhr_user_save': 1, 'njhr_wf_delete': 1, 'njhr_wf_save': 1,
+    'njhr_wf_step_delete': 1, 'njhr_wf_step_move': 1, 'njhr_wf_step_save': 1,
+    /* เพิ่มจากการตรวจ Static: RPC เหล่านี้ Frontend เรียกจริงและ SQL เขียนข้อมูล
+       (insert/update/delete) แต่เดิมถูกจัดเป็น Read จึงถูก Retry/Abort ได้ — อันตราย
+       njhr_doc_confirm_text ไม่อยู่ในลิสต์นี้โดยเจตนา เพราะเป็น Read (stable) */
+    'njhr_activation_link': 1, 'njhr_activation_reject': 1, 'njhr_activation_submit': 1,
+    'njhr_att_correction_submit': 1, 'njhr_gov_holiday_apply': 1, 'njhr_gov_holiday_set': 1,
+    'njhr_me_save': 1, 'njhr_user_delete': 1,
+    /* ยืนยันจาก SQL แล้วว่าเขียนข้อมูลจริง (insert/update/delete) และไม่ใช่ stable
+       F3_correction_workflow.sql · K2_shift_membership.sql · 44_approval_workflow.sql
+       ใส่ไว้แม้ Frontend ปัจจุบันยังไม่ได้เรียกทุกตัว เพื่อกันการจัดชั้นผิดเมื่อมีการเรียกในอนาคต */
+    'njhr_att_correction_approve': 1, 'njhr_att_correction_reject': 1,
+    'njhr_shift_assign_many': 1, 'njhr_shift_no_shift_set': 1, 'njhr_shift_remove': 1,
+    'njhr_wf_approver_add': 1, 'njhr_wf_approver_remove': 1, 'njhr_wf_step_toggle': 1,
+    /* RPC ที่ Frontend เริ่มเรียกในรอบย้าย Data Source (OT · ประกาศ · ตั้งค่า) */
+    'njhr_announcement_save': 1, 'njhr_announcement_set_active': 1,
+    'njhr_ot_decide': 1, 'njhr_ot_submit': 1, 'njhr_setting_save': 1,
+    /* 50 ทวิ — ทั้ง 4 ตัวเขียนข้อมูลจริงและมีผลข้างเคียง (ยืนยันจาก 87_wht50.sql)
+         njhr_wht50_draft    insert แถวใหม่ + ออกเลขลำดับ
+         njhr_wht50_update   update ร่าง + เขียน audit WHT50_EDIT
+         njhr_wht50_confirm  ออกเลขที่เอกสาร (running number) + เปลี่ยนสถานะ
+         njhr_wht50_send     สร้างแถวใน njhr_emp_documents + แจ้งเตือน
+       ถ้าถูกจัดเป็น Read จะโดน Retry/Dedup ซึ่งทำให้เกิดเอกสารซ้ำหรือเลขกระโดด */
+    'njhr_wht50_draft': 1, 'njhr_wht50_update': 1,
+    'njhr_wht50_confirm': 1, 'njhr_wht50_send': 1
+  };
+  function sbIsWriteRpc(fn) { return SB_WRITE_RPC[fn] === 1; }
+  function sbOnce(fn, body, ctl) {
+    return fetch(SB.url + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) {
+          var e = new Error((j && (j.message || j.hint)) || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+          e.sbServer = true;                       // เซิร์ฟเวอร์ตอบแล้วแต่ปฏิเสธ — ห้าม retry
+          throw e;
+        }
+        return j;
+      });
+    });
+  }
+  /* ล็อกกันบันทึกซ้ำระดับข้อมูล — ใช้กับ RPC ที่เขียนข้อมูลเท่านั้น
+     คีย์ = ชื่อ RPC + payload ที่ตัด token ออก
+     - payload เหมือนกันเป๊ะและยังค้างอยู่ = การกดซ้ำ → ปฏิเสธทันที ไม่ยิงซ้ำ
+     - payload ต่างกัน = คนละรายการ → ผ่านปกติ (อัปโหลดหลายไฟล์พร้อมกันยังทำงานได้)
+     - ปลดล็อกเมื่อ settle เสมอ ไม่ว่าสำเร็จ ล้มเหลว หรือหมดเวลา จึงไม่มีล็อกค้าง */
+  var SB_INFLIGHT = {};
+  /* Busy State ระดับระบบ — ระหว่างที่มีคำสั่งเขียนข้อมูลค้างอยู่ ให้ body ได้ class 'njhr-busy'
+     CSS จะทำให้ปุ่มทุกปุ่มกดไม่ได้และจางลง ผู้ใช้เห็นทันทีว่าระบบกำลังทำงาน
+     ตัวนับปลดเมื่อคำสั่งจบเสมอ ทั้งสำเร็จ ล้มเหลว หมดเวลา และแม้ผู้ใช้เปลี่ยนหน้าไปแล้ว
+     จึงไม่มีทางค้าง Disabled ถาวร */
+  var SB_BUSY = 0;
+  function sbBusy(delta) {
+    SB_BUSY += delta;
+    if (SB_BUSY < 0) SB_BUSY = 0;
+    try {
+      var b = document.body;
+      if (!b) return;
+      if (SB_BUSY > 0) b.classList.add('njhr-busy');
+      else b.classList.remove('njhr-busy');
+    } catch (e) {}
+  }
+  function sbWriteKey(fn, body) {
+    var b = {}, k;
+    for (k in body) { if (body.hasOwnProperty(k) && k !== 'p_token') b[k] = body[k]; }
+    try { return fn + '|' + JSON.stringify(b); } catch (e) { return ''; }
+  }
+  /* รวม request อ่านที่ซ้ำกันและยังค้างอยู่ให้ใช้ผลเดียวกัน (In-flight Read Sharing)
+     - ใช้เฉพาะ RPC ที่อ่านข้อมูล · ไม่มีการเก็บผลไว้ใช้ซ้ำหลังจบ จึงไม่มีข้อมูลเก่าค้าง
+     - คีย์รวม p_token ด้วย ผู้ใช้คนละสิทธิ์จึงไม่ใช้ผลร่วมกัน (ไม่กระทบ RLS)
+     - ล้างทันทีที่ request จบ ไม่ว่าสำเร็จหรือล้มเหลว */
+  var SB_READ_INFLIGHT = {};
+  /* ทะเบียน request อ่านที่กำลังวิ่ง — ใช้ยกเลิกเมื่อผู้ใช้เปลี่ยนหน้า/ตัวกรอง/ค้นหาใหม่
+     ยกเลิกเฉพาะ RPC อ่านของ "เนื้อหาหน้า" เท่านั้น
+     - ไม่แตะคำสั่งเขียน เพราะยกเลิกฝั่งเบราว์เซอร์ไม่ได้หยุดงานที่ฐานข้อมูลทำไปแล้ว
+     - ไม่แตะ RPC ระดับ Shell/Boot (badge รออนุมัติ · แจ้งเตือน · สถานะระบบ)
+       เพราะถูกยิงใหม่ทุกครั้งที่ render ถ้ายกเลิกจะทำให้ badge และ Shell ว่างเปล่า */
+  var SB_NO_ABORT = {
+    'njhr_healthcheck': 1, 'njhr_session_check': 1, 'njhr_leave_queue': 1,
+    'njhr_notify_unread': 1, 'njhr_notify_list': 1, 'njhr_ann_feed': 1,
+    'njhr_event_list': 1, 'njhr_holiday_list': 1
+  };
+  var SB_ABORTERS = [];
+  function sbAbortReads() {
+    var list = SB_ABORTERS, i;
+    SB_ABORTERS = [];
+    for (i = 0; i < list.length; i++) {
+      try { list[i].abort(); } catch (e) {}
+    }
+    return list.length;
+  }
+  function sbCall(fn, body) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    var isWrite = sbIsWriteRpc(fn), lockKey = '';
+    if (isWrite) {
+      lockKey = sbWriteKey(fn, body || {});
+      if (lockKey && SB_INFLIGHT[lockKey]) {
+        try { console.error('[RPC ' + fn + '] ถูกปฏิเสธ: คำสั่งเดิมยังทำงานไม่เสร็จ'); } catch (e) {}
+        return Promise.reject(new Error('กำลังบันทึกรายการนี้อยู่ กรุณารอสักครู่'));
+      }
+      if (lockKey) SB_INFLIGHT[lockKey] = 1;
+      sbBusy(1);
+    }
+    var canRetry = !isWrite, tried = 0;
+    function attempt() {
+      tried++;
+      var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timedOut = false;
+      var timer = setTimeout(function () { timedOut = true; if (ctl) ctl.abort(); }, SB_TIMEOUT_MS);
+      if (ctl && !isWrite && SB_NO_ABORT[fn] !== 1) SB_ABORTERS.push(ctl);
+      return sbOnce(fn, body, ctl).then(function (j) {
+        clearTimeout(timer);
+        return j;
+      }, function (err) {
+        clearTimeout(timer);
+        if (err && err.sbServer) throw err;                 // เซิร์ฟเวอร์ปฏิเสธ — ส่งข้อความเดิมออกไป
+        // ถูกยกเลิกเพราะผู้ใช้เปลี่ยนหน้า/ค้นหาใหม่ = พฤติกรรมปกติ ไม่ใช่ข้อขัดข้อง
+        // คืนค่าว่างแบบเงียบ ไม่โยน error เพราะมี .catch กว่า 100 จุดที่แสดง ex.message ให้ผู้ใช้เห็น
+        // ไม่ retry · ไม่เขียน console.error · sbRpcList แปลง null เป็น [] และ sbRpc คืน null
+        if (!timedOut && err && err.name === 'AbortError') return null;
+        try { console.error('[RPC ' + fn + '] ' + (err && err.message)); } catch (e) {}
+        if (canRetry && tried === 1) return attempt();      // อ่านข้อมูล: ลองใหม่ครั้งเดียว
+        throw new Error(timedOut
+          ? 'เซิร์ฟเวอร์ตอบกลับช้าเกินไป กรุณาลองใหม่อีกครั้ง'
+          : 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      });
+    }
+    if (!isWrite) {
+      var rk;
+      try { rk = fn + '|' + JSON.stringify(body || {}); } catch (e) { rk = ''; }
+      if (!rk) return attempt();
+      if (SB_READ_INFLIGHT[rk]) return SB_READ_INFLIGHT[rk];
+      var pr = attempt();
+      SB_READ_INFLIGHT[rk] = pr;
+      pr.then(function () { delete SB_READ_INFLIGHT[rk]; },
+              function () { delete SB_READ_INFLIGHT[rk]; });
+      return pr;
+    }
+    return attempt().then(function (v) {
+      if (lockKey) delete SB_INFLIGHT[lockKey];
+      sbBusy(-1);
+      return v;
+    }, function (e) {
+      if (lockKey) delete SB_INFLIGHT[lockKey];
+      sbBusy(-1);
+      throw e;
+    });
+  }
+  function sbRpcList(fn, body) {
+    return sbCall(fn, body).then(function (j) { return Array.isArray(j) ? j : (j ? [j] : []); });
+  }
+  /* ---------- เรียก Edge Function njhr-doc-pdf ----------
+     ตัวกลางตัวเดียวของทั้งระบบ — หน้าเอกสาร HR และหน้ารายงาน 50 ทวิ ใช้ร่วมกัน
+     ต้องผ่านทางนี้เท่านั้น เพราะ njhr_doc_pdf_access ถูก revoke จาก anon/authenticated
+     (I2_finalpdf.sql:534) เรียกตรงจากหน้าเว็บไม่ได้ และ RPC นี้คืน storage_path
+     ไม่ใช่ URL — ตัว Edge Function เป็นผู้ออก Signed URL ด้วย service_role */
+  function sbDocPdfFn(body) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    return fetch(SB.url + '/functions/v1/njhr-doc-pdf', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ token: sbToken() }, body || {}))
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var d = {};
+        try { d = JSON.parse(t); } catch (e) { d = {}; }
+        if (!r.ok) throw new Error(d.error || 'ดำเนินการกับไฟล์ไม่สำเร็จ (' + r.status + ')');
+        return d;
+      });
+    });
+  }
+
+  function sbRpc(fn, body) {
+    return sbCall(fn, body).then(function (j) { return Array.isArray(j) ? j[0] : j; });
+  }
+  // เก็บเฉพาะ token — role/employee_id ไม่ใช้ค่าที่อยู่ในเครื่องเป็นหลักฐานสิทธิ์
+  function sbToken() { try { return localStorage.getItem('njhr_token') || ''; } catch (e) { return ''; } }
+  function sbSetToken(t) { try { t ? localStorage.setItem('njhr_token', t) : localStorage.removeItem('njhr_token'); } catch (e) {} }
+  // (1)(2)(3)(5) ตรวจ session กับเซิร์ฟเวอร์: คืนค่า user จาก server เท่านั้น
+  function sbSessionCheck() {
+    var t = sbToken();
+    if (!t) return Promise.reject(new Error('NO_SESSION'));
+    return sbRpc('njhr_session_check', { p_token: t }).then(function (row) {
+      if (!row || !row.user_id) throw new Error('เซสชันไม่ถูกต้อง');
+      if (!row.employee_id) throw new Error('บัญชีนี้ยังไม่ได้เชื่อมกับข้อมูลพนักงาน กรุณาติดต่อผู้ดูแลระบบ');
+      sbUser = Object.assign({}, sbUser || {}, row);
+      sbSaveUser();
+      session = { userId: row.user_id, at: nowStamp(), src: 'supabase' };
+      saveSession();
+      return row;
+    });
+  }
+  /* เข้าสู่ระบบ
+     - ส่ง p_remember เป็น boolean เท่านั้น · Frontend ไม่กำหนดวันหมดอายุเอง
+       เซิร์ฟเวอร์เป็นผู้คำนวณ expires_at (12 ชั่วโมง หรือ 30 วัน)
+     - ถ้า SQL ฝั่งเซิร์ฟเวอร์ยังไม่ได้ติดตั้ง p_remember PostgREST จะตอบ 404
+       จึงลองใหม่โดยไม่ส่ง p_remember เพื่อไม่ให้ผู้ใช้ทั้งระบบ Login ไม่ได้ระหว่างช่วง Deploy
+       เมื่อติดตั้ง SQL ครบแล้ว เส้นทาง fallback นี้จะไม่ถูกใช้อีก */
+  function sbLoginCall(body) {
+    return fetch(SB.url + '/rest/v1/rpc/njhr_login', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+  function sbLoginParse(r) {
+    return r.json().then(function (j) {
+      if (!r.ok) throw new Error((j && (j.message || j.hint)) || 'เข้าสู่ระบบไม่สำเร็จ');
+      var row = Array.isArray(j) ? j[0] : j;
+      if (!row || !row.user_id) throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      return row;
+    });
+  }
+  function sbLogin(username, password, remember) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase (NJHR_SUPABASE_URL / ANON_KEY)'));
+    var base = { p_username: username, p_password: password, p_ua: (navigator.userAgent || '').slice(0, 200) };
+    var withRemember = { p_username: base.p_username, p_password: base.p_password, p_ua: base.p_ua,
+                         p_remember: remember === true };
+    return sbLoginCall(withRemember).then(function (r) {
+      if (r.status === 404) return sbLoginCall(base).then(sbLoginParse);   // เซิร์ฟเวอร์ยังไม่รองรับ
+      return sbLoginParse(r);
+    });
+  }
+
+  /* ---------- เข้าสู่ระบบด้วยใบหน้า (มือถือ) ----------
+     ใช้ตัวแปลผลลัพธ์ตัวเดียวกับรหัสผ่าน เพราะ njhr_face_login คืนคอลัมน์ชุดเดียวกับ njhr_login
+     ⚠ ไม่แตะ sbLogin — เข้าด้วยรหัสผ่านยังทำงานเหมือนเดิมทุกประการ (ระบบสำรอง)
+     ⚠ ไม่ส่ง GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น */
+  function sbFaceLoginKey() {
+    /* คีย์อุปกรณ์สำหรับจำกัดจำนวนครั้งที่สแกนผิด — ไม่ใช่ความลับและไม่ใช่ข้อมูลชีวมาตร */
+    var k = '';
+    try { k = localStorage.getItem('njhr_dev_key') || ''; } catch (e) {}
+    if (!k) {
+      k = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem('njhr_dev_key', k); } catch (e) {}
+    }
+    return k;
+  }
+  function sbFaceLogin(descriptor, livenessMethod) {
+    if (!sbReady()) return Promise.reject(new Error('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'));
+    return fetch(SB.url + '/rest/v1/rpc/njhr_face_login', {
+      method: 'POST',
+      headers: { 'apikey': SB.key, 'Authorization': 'Bearer ' + SB.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_descriptor: descriptor, p_faces_found: 1,
+        p_liveness: true, p_liveness_method: livenessMethod || 'PASSIVE',
+        p_device_key: sbFaceLoginKey(),
+        p_ua: (navigator.userAgent || '').slice(0, 200)
+      })
+    }).then(sbLoginParse)['catch'](function (e) {
+      /* ⚠ เก็บข้อความจริงไว้ใน Console เสมอ — face.js เป็นผู้แปลงเป็นข้อความที่ผู้ใช้อ่านได้
+         ห้ามกลบจนตรวจปัญหาไม่ได้ (เช่น schema cache / signature ไม่ตรง) */
+      try { console.error('[FACE LOGIN RPC] njhr_face_login ล้มเหลว:', e); } catch (e2) {}
+      throw e;
+    });
+  }
+
+  window.NJHR_faceLogin = function (descriptor, method) {
+    return sbFaceLogin(descriptor, method);
+  };
+
+  /* ================= SUPABASE LEAVE DATA LAYER =================
+     ประเภทการลายึด enum `leave_type` ของ Supabase (7 ค่า) เป็นแหล่งจริง
+     โควตาอ่านจาก employees.leave_sick / leave_personal / leave_vacation ผ่าน RPC
+     ตาราง leave_types จริงไม่มีคอลัมน์ color/quota/needDoc → เก็บเฉพาะ label/สี/กฎแนบเอกสารไว้ที่นี่
+     ไม่มี fallback ไป db.* หรือ localStorage เมื่อ Supabase error */
+  // รูปแบบการลาเดิม (FULL/HALF_AM/HALF_PM/HOURLY) เก็บใน approvals[0].meta.mode
+
+  // อัปโหลดไฟล์แนบเข้า bucket leave-attachments แล้วคืน URL จริงให้ RPC บันทึกลง leave_attachments
+  /* อัปโหลดไฟล์แนบขึ้น Supabase Storage — ใช้ร่วมกันทั้งใบลาและ OT
+     เก็บเฉพาะ URL ไว้ในระบบ ไม่เก็บ base64 (base64 ทำให้ localStorage เต็มแล้วข้อมูลหาย) */
+
+  // จำนวนใบลาที่รออนุมัติ (นับจากเซิร์ฟเวอร์) — ใช้กับ Badge เมนู
+  var _lvPending = 0, _otPending = 0, _fxPending = 0;
+
+  /* รีเฟรชตัวเลขรออนุมัติของ OT และลงชื่อย้อนหลังจาก Supabase
+     ใช้ p_limit = 1 แล้วอ่าน total_count จึงไม่ดึงข้อมูลทั้งคิวมาเพียงเพื่อจะนับ
+     เรียกจากจุดที่สถานะเปลี่ยนจริงเท่านั้น — ไม่มีการเรียกจาก render */
+  function refreshOtPending() {
+    var u = currentUser();
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    sbRpcList('njhr_ot_approval_queue', { p_token: sbToken(), p_from: null, p_to: null,
+      p_status: 'PENDING', p_dept: null, p_employee: null, p_q: null,
+      p_mine: false, p_limit: 1, p_offset: 0 })
+      .then(function (rows) {
+        _otPending = rows.length ? Number(rows[0].total_count) : 0;
+        refreshMenuBadge();
+      })['catch'](function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  function refreshFixPending() {
+    var u = currentUser();
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    sbRpcList('njhr_att_correction_list', { p_token: sbToken(), p_employee: null,
+      p_status: 'PENDING', p_from: null, p_to: null, p_limit: 1, p_offset: 0,
+      p_mine_queue: true })
+      .then(function (rows) {
+        _fxPending = rows.length ? Number(rows[0].total_count) : 0;
+        refreshMenuBadge();
+      })['catch'](function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  /* ให้ chunk อื่นตั้งค่าตัวนับได้โดยตรงเมื่อโหลดคิวมาแล้ว (ไม่ต้องยิง RPC ซ้ำ) */
+  function setOtPending(n) { _otPending = Number(n) || 0; refreshMenuBadge(); }
+  function setFxPending(n) { _fxPending = Number(n) || 0; refreshMenuBadge(); }
+
+  /* รีเฟรชครบทั้งสามประเภทในครั้งเดียว — ใช้ที่ Login และหลังทำรายการ */
+  function refreshPendingAll() {
+    refreshLeavePending();
+    refreshOtPending();
+    refreshFixPending();
+  }
+
+  function refreshLeavePending() {
+    var u = currentUser();
+    if (!u || ['SUPER_ADMIN', 'HR', 'ADMIN'].indexOf(u.role) < 0 || !sbToken()) return;
+    sbRpcList('njhr_leave_queue', { p_token: sbToken(), p_limit: 1, p_offset: 0 })
+      .then(function (rows) {
+        _lvPending = rows.length ? Number(rows[0].total_count) : 0;
+        refreshMenuBadge();
+      }).catch(function () { /* ไม่แตะ Badge เดิมเมื่อโหลดไม่สำเร็จ */ });
+  }
+
+  /* ---------- Hydrate db.settings หลัง Login (Cache Compatibility) ----------
+     แหล่งจริงคือ system_settings ผ่าน njhr_setting_list
+     db.settings ถูกคงไว้เป็น "สำเนาสำหรับหน้าที่ยังอ่านของเดิม" เท่านั้น
+       สลิปเงินเดือน · เทมเพลตนำเข้าพนักงาน · ทะเบียนเอกสาร HR ยังอ่าน db.settings.companyName
+
+     Key จริงจาก 78_system_settings.sql (ไม่ได้ตั้งชื่อเอง)
+       company_name       → db.settings.companyName
+       work_start_time    → db.settings.workStart
+       late_grace_minutes → db.settings.lateGrace
+
+     ยิงครั้งเดียวตอน Login สำเร็จ · ล้มเหลว = คงค่าเดิมในเครื่องไว้ ไม่ทำให้หน้าใดพัง
+     คีย์ geofence* ไม่อยู่ในชุดนี้ — RPC ปฏิเสธคีย์นั้นโดยตรง โหมด GPS จึงคงพฤติกรรมเดิม */
+  function hydrateSettings() {
+    if (!sbReady() || !sbToken()) return;
+    sbRpcList('njhr_setting_list', { p_token: sbToken(), p_category: null })
+      .then(function (rows) {
+        var map = {};
+        (rows || []).forEach(function (r) { map[r.key] = r.value; });
+        var changed = false;
+        if (map.company_name != null) { db.settings.companyName = String(map.company_name); changed = true; }
+        if (map.work_start_time != null) { db.settings.workStart = String(map.work_start_time); changed = true; }
+        if (map.late_grace_minutes != null) { db.settings.lateGrace = parseInt(map.late_grace_minutes, 10) || 0; changed = true; }
+        if (changed) saveDB();
+      })['catch'](function (er) {
+        try { console.error('[SETTINGS] hydrate จาก njhr_setting_list ล้มเหลว:', er); } catch (e) {}
+      });
+  }
+
+  function renderLogin() {
+    var app = document.getElementById('app');
+    app.innerHTML =
+      '<div class="login-wrap"><div class="login-card">' +
+      '<div class="login-brand"><span class="brand-badge big">NJ</span><h1>NJ LOGISTIC</h1><p>HR SYSTEM</p></div>' +
+      '<form id="login-form" novalidate>' +
+      '<label class="field"><span>ชื่อผู้ใช้</span><input type="text" id="lg-user" autocomplete="username" placeholder="เช่น admin" required></label>' +
+      '<label class="field"><span>รหัสผ่าน</span><span class="pw-wrap"><input type="password" id="lg-pass" autocomplete="current-password" placeholder="รหัสผ่าน" required>' +
+      '<button type="button" class="btn-icon pw-toggle" id="lg-eye" aria-label="แสดงรหัสผ่าน">' + icon('eye') + '</button></span></label>' +
+      '<label class="check"><input type="checkbox" id="lg-remember"><span>จดจำการเข้าสู่ระบบ 30 วัน</span></label>' +
+      '<div class="form-error" id="lg-error" role="alert"></div>' +
+      '<button class="btn btn-primary btn-block btn-lg" id="lg-btn" type="submit">' + icon('login') + ' เข้าสู่ระบบ</button>' +
+      '</form>' +
+      '<div class="login-links">' +
+      '<button type="button" class="btn btn-dark btn-block only-mobile lg-face-btn" id="lg-face">' +
+      icon('camera') + ' สแกนใบหน้าเข้าสู่ระบบ</button>' +
+      '<button type="button" class="btn btn-ghost btn-block" id="lg-activate">สมัครสมาชิกครั้งแรก</button>' +
+      '</div>' +
+      '</div></div>';
+
+    var eyeOn = false;
+    if (sbLoginMsg) {
+      var lgErr = document.getElementById('lg-error');
+      if (lgErr) lgErr.textContent = sbLoginMsg;
+      sbLoginMsg = '';
+    }
+    document.getElementById('lg-eye').onclick = function () {
+      eyeOn = !eyeOn;
+      document.getElementById('lg-pass').type = eyeOn ? 'text' : 'password';
+      this.innerHTML = icon(eyeOn ? 'eyeOff' : 'eye');
+    };
+    document.getElementById('login-form').onsubmit = function (ev) {
+      ev.preventDefault();
+      var uEl = document.getElementById('lg-user'), pEl = document.getElementById('lg-pass');
+      var err = document.getElementById('lg-error'), btn = document.getElementById('lg-btn');
+      err.textContent = '';
+      var uname = uEl.value.trim(), pass = pEl.value;
+      if (!uname || !pass) { err.textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'; return; }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังตรวจสอบ…';
+      // ตรวจ USER จริงจาก Supabase (app_users · app_code='salary') ผ่าน RPC ฝั่งเซิร์ฟเวอร์
+      // ไม่มี password/hash ส่งกลับมาที่ browser · ไม่ใช้ USER ใน mock-data.js
+      function loginFail(msg) {
+        btn.disabled = false; btn.innerHTML = icon('login') + ' เข้าสู่ระบบ';
+        err.textContent = msg;
+        db.audit.unshift({ at: nowStamp(), by: uname, action: 'LOGIN_FAILED', detail: msg }); saveDB();
+      }
+      var rmEl = document.getElementById('lg-remember');
+      var remember = !!(rmEl && rmEl.checked);
+      sbLogin(uname, pass, remember).then(function (u) {
+        // สร้าง session จากผลฝั่งเซิร์ฟเวอร์เท่านั้น (role/employee_id ไม่รับจากฝั่ง browser)
+        if (u.session_token) sbSetToken(u.session_token);   // token จากเซิร์ฟเวอร์เท่านั้น
+        session = { userId: u.user_id, at: nowStamp(), src: 'supabase' };
+        sbUser = u;
+        saveSession(); sbSaveUser();
+        audit('LOGIN', 'เข้าสู่ระบบสำเร็จ (Supabase · ' + u.role + ')');
+        toast('ยินดีต้อนรับ ' + (u.emp_name || u.username));
+        nav('#/dashboard');
+        refreshPendingAll();
+        refreshNotifyBadge();
+        hydrateSettings();
+      }).catch(function (e) { loginFail(e.message || 'เข้าสู่ระบบไม่สำเร็จ'); });
+    };
+    document.getElementById('lg-activate').onclick = function () { actOpenForm(); };
+
+    /* ---------- สแกนใบหน้าเข้าสู่ระบบ (มือถือ) ----------
+       ⚠ ไม่ขอ GPS · ไม่สร้าง Attendance · เข้า Dashboard เท่านั้น
+       ใช้เส้นทางสร้าง session เดียวกับรหัสผ่านทุกบรรทัด (sbSetToken → session → nav)
+       รหัสผ่านยังใช้ได้ตลอดเป็นระบบสำรอง — ปุ่มนี้เป็นทางเลือกเพิ่ม ไม่ได้แทนที่ */
+    var faceBtn = document.getElementById('lg-face');
+    if (faceBtn) faceBtn.onclick = function () {
+      var err = document.getElementById('lg-error');
+      if (err) err.textContent = '';
+      faceBtn.disabled = true;
+      faceBtn.innerHTML = '<span class="spinner"></span> กำลังเตรียมกล้อง…';
+      function reset() {
+        faceBtn.disabled = false;
+        faceBtn.innerHTML = icon('camera') + ' สแกนใบหน้าเข้าสู่ระบบ';
+      }
+      function start() {
+        if (!window.NJHRFace || typeof window.NJHRFace.login !== 'function') {
+          reset();
+          if (err) err.textContent = 'ระบบสแกนใบหน้ายังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน';
+          return;
+        }
+        reset();
+        window.NJHRFace.login(function (u) {
+          if (u.session_token) sbSetToken(u.session_token);
+          session = { userId: u.user_id, at: nowStamp(), src: 'supabase' };
+          sbUser = u;
+          saveSession(); sbSaveUser();
+          audit('LOGIN', 'เข้าสู่ระบบด้วยใบหน้าสำเร็จ (Supabase · ' + u.role + ')');
+          toast('ยินดีต้อนรับ ' + (u.emp_name || u.username));
+          nav('#/dashboard');
+          refreshPendingAll();
+          refreshNotifyBadge();
+          hydrateSettings();
+        }, function () { reset(); });
+      }
+      if (window.NJHRFace) return start();
+      /* โหลดโมดูลกล้องเมื่อกดเท่านั้น — ไม่ถ่วงหน้า Login ของทุกคน */
+      loadScriptOnce('face', njAsset('face.js'), 'NJHRFace').then(start)['catch'](function () {
+        reset();
+        if (err) err.textContent = 'โหลดระบบสแกนใบหน้าไม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน';
+      });
+    };
+    document.getElementById('lg-user').focus();
+  }
+
+  /* ===== สมัครสมาชิกครั้งแรก =====
+     พนักงานกรอก 9 ช่อง: รหัสพนักงาน · ชื่อ/นามสกุลไทย · ชื่อ/นามสกุลอังกฤษ ·
+                        ชื่อเล่น · อีเมล · รหัสผ่าน · ยืนยันรหัสผ่าน
+     ตัวจับคู่คือ emp_code + last_name_en (นามสกุลภาษาอังกฤษ) เท่านั้น
+       · CASE A — employees.last_name_en มีค่า → ต้องตรงเป๊ะหลัง UPPER+TRIM
+       · CASE B — employees.last_name_en ว่าง  → รับค่าที่กรอก รอ SUPER_ADMIN ตรวจตอนเชื่อม
+     ไม่ใช้นามสกุลไทย · ไม่ใช้ชื่อเล่น · ไม่ใช้ Username · ไม่มี fallback · ไม่มี fuzzy
+     SQL ตรวจซ้ำทุกข้อใน njhr_activation_submit — ฝั่งหน้าจอไม่ใช่ด่านความปลอดภัย
+     ช่องที่ 5 = ข้อความช่วยใต้ชื่อช่อง · ช่องที่ 6 = true คือบังคับเป็นตัวพิมพ์ใหญ่ */
+  var ACT_F = [
+    ['act-code',  'รหัสพนักงาน',            'text',     'กรุณากรอกรหัสพนักงาน', 'กรอกให้ตรงกับข้อมูลพนักงานในระบบ'],
+    ['act-fnm',   'ชื่อ (ภาษาไทย)',          'text',     'กรุณากรอกชื่อภาษาไทย'],
+    ['act-lnm',   'นามสกุล (ภาษาไทย)',       'text',     'กรุณากรอกนามสกุลภาษาไทย'],
+    ['act-fen',   'First Name (ภาษาอังกฤษ)', 'text',     'กรุณากรอกชื่อภาษาอังกฤษ', null, true],
+    ['act-len',   'Last Name (ภาษาอังกฤษ)',  'text',     'กรุณากรอกนามสกุลภาษาอังกฤษ', 'ใช้ยืนยันตัวตนคู่กับรหัสพนักงาน', true],
+    ['act-nick',  'ชื่อเล่น',                'text',     'กรุณากรอกชื่อเล่น'],
+    ['act-mail',  'อีเมล',                  'email',    'กรุณากรอกอีเมล'],
+    ['act-pw',    'รหัสผ่านใหม่',            'password', 'กรุณากรอกรหัสผ่าน'],
+    ['act-pw2',   'ยืนยันรหัสผ่านใหม่',      'password', 'กรุณายืนยันรหัสผ่าน']
+  ];
+
+  function actField(f) {
+    var isPw = f[2] === 'password';
+    return '<label class="field"><span>' + f[1] + ' <i class="req">*</i>' +
+      (f[4] ? ' <small class="muted">(' + f[4] + ')</small>' : '') + '</span>' +
+      (isPw
+        ? '<span class="pw-wrap"><input type="password" id="' + f[0] + '" autocomplete="new-password">' +
+          '<button type="button" class="btn-icon pw-toggle" data-eye="' + f[0] + '" ' +
+          'aria-label="แสดงรหัสผ่าน">' + icon('eye') + '</button></span>'
+        : '<input type="' + f[2] + '" id="' + f[0] + '" autocomplete="off"' +
+          (f[5] ? ' style="text-transform:uppercase"' : '') + '>') +
+      '<small class="field-err" id="' + f[0] + '-err"></small></label>';
+  }
+
+  function actSetErr(id, msg) {
+    var b = document.getElementById(id + '-err');
+    if (b) b.textContent = msg || '';
+    var i = document.getElementById(id);
+    if (i) i.classList.toggle('inv', !!msg);
+  }
+
+  /* ตรวจทีละช่อง — คืนข้อความผิดพลาด หรือ '' เมื่อผ่าน
+     เงื่อนไขรหัสผ่านตรงกับที่ SQL ตรวจซ้ำอีกชั้นใน njhr_activation_submit */
+  function actCheck(id) {
+    var v = String((document.getElementById(id) || {}).value || '').trim();
+    var f = ACT_F.filter(function (x) { return x[0] === id; })[0];
+    if (!v) return f ? f[3] : 'กรุณากรอกข้อมูล';
+    if (id === 'act-mail' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'รูปแบบอีเมลไม่ถูกต้อง';
+    if (id === 'act-pw') {
+      if (v.length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว';
+      if (!/[a-z]/.test(v)) return 'รหัสผ่านต้องมีตัวพิมพ์เล็กอย่างน้อย 1 ตัว';
+      if (!/[A-Z]/.test(v)) return 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว';
+      if (!/[0-9]/.test(v)) return 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว';
+      var code = String((document.getElementById('act-code') || {}).value || '').trim();
+      if (code && v.toLowerCase() === code.toLowerCase()) return 'ห้ามใช้รหัสพนักงานเป็นรหัสผ่าน';
+    }
+    if (id === 'act-pw2') {
+      var p1 = String((document.getElementById('act-pw') || {}).value || '');
+      if (v !== p1) return 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน';
+    }
+    return '';
+  }
+
+  function actOpenForm() {
+    openModal('สมัครสมาชิกครั้งแรก',
+      '<p class="muted" style="margin-top:0">สำหรับพนักงานที่มีข้อมูลในระบบแล้วแต่ยังไม่มีบัญชี · ' +
+      'ระบบยืนยันตัวตนด้วย <b>รหัสพนักงาน + นามสกุลภาษาอังกฤษ</b> · ' +
+      'หลังส่งคำขอ ผู้ดูแลระบบสูงสุดจะตรวจสอบและเชื่อมบัญชีให้</p>' +
+      '<form id="act-f" novalidate>' + ACT_F.map(actField).join('') +
+      '<div class="form-error" id="act-err" role="alert"></div></form>',
+      '<button class="btn btn-ghost" id="act-back">กลับหน้าเข้าสู่ระบบ</button>' +
+      '<button class="btn btn-primary" id="act-go">สมัครสมาชิก</button>',
+      { wide: true, fullMobile: true });
+
+    document.getElementById('act-back').onclick = closeModal;
+
+    // รูปตาแยกกันของแต่ละช่องรหัสผ่าน
+    document.querySelectorAll('[data-eye]').forEach(function (b) {
+      b.onclick = function () {
+        var inp = document.getElementById(this.dataset.eye);
+        if (!inp) return;
+        var on = inp.type === 'password';
+        inp.type = on ? 'text' : 'password';
+        this.innerHTML = icon(on ? 'eyeOff' : 'eye');
+      };
+    });
+
+    // ข้อความผิดพลาดหายทันทีเมื่อแก้ถูก
+    ACT_F.forEach(function (f) {
+      var inp = document.getElementById(f[0]);
+      if (!inp) return;
+      inp.oninput = function () { actSetErr(f[0], ''); };
+      inp.onblur = function () { actSetErr(f[0], actCheck(f[0])); };
+    });
+
+    document.getElementById('act-go').onclick = function () {
+      var btn = this, err = document.getElementById('act-err');
+      err.textContent = '';
+      var bad = 0;
+      ACT_F.forEach(function (f) {
+        var m = actCheck(f[0]);
+        actSetErr(f[0], m);
+        if (m) bad++;
+      });
+      if (bad) { err.textContent = 'กรุณาแก้ไขข้อมูลที่ยังไม่ถูกต้อง'; return; }
+
+      function val(id) { return String(document.getElementById(id).value).trim(); }
+      withButtonLoading(btn, 'กำลังตรวจสอบ…', function () {
+        /* ชื่อภาษาอังกฤษส่งเป็นตัวพิมพ์ใหญ่ — SQL Normalize ซ้ำด้วย UPPER(TRIM())
+           จึงไม่พึ่งฝั่งหน้าจอเพียงอย่างเดียว */
+        function valEn(id) { return val(id).toUpperCase(); }
+        return sbRpc('njhr_activation_submit', {
+          p_emp_code:      val('act-code'),
+          p_first_name:    val('act-fnm'),
+          p_last_name:     val('act-lnm'),
+          p_first_name_en: valEn('act-fen'),
+          p_last_name_en:  valEn('act-len'),
+          p_nickname:      val('act-nick'),
+          p_email:         val('act-mail'),
+          p_password:      document.getElementById('act-pw').value
+        }).then(function (r) {
+          if (r && r.ok) { closeModal(); toast(r.message, 'success'); return; }
+          err.textContent = (r && r.message) || 'ไม่สามารถสมัครสมาชิกได้';
+        });
+      })['catch'](function (e) {
+        err.textContent = (e && e.message) || 'ไม่สามารถสมัครสมาชิกได้';
+      });
+    };
+  }
+  function doLogout(silent) {
+    var t = sbToken();
+    try { sbAbortReads(); } catch (e) {}   // ยกเลิกคำสั่งอ่านค้างของ session เดิม
+    if (t && sbReady()) { sbRpc('njhr_logout', { p_token: t }).catch(function () {}); }  // เพิกถอนฝั่งเซิร์ฟเวอร์
+    sbSetToken('');
+    sbClearUser();
+    _lvPending = 0; _otPending = 0; _fxPending = 0; _ntUnread = 0;
+    try { NJHR.notify.reset(); } catch (e) {}   // หยุด Polling + ล้างป้ายแดงทุกจุด
+    try { njExemptReset(); } catch (e) {}       // ล้างผลตรวจกลุ่มยกเว้นของบัญชีเดิม
+    if (session) audit('LOGOUT', 'ออกจากระบบ');
+    session = null; saveSession();
+    if (location.hash === '#/login') renderLogin();
+    else location.hash = '#/login'; // hashchange จะ render หน้า Login เอง
+    if (!silent) toast('ออกจากระบบแล้ว', 'info');
+  }
+
+  /* ================= CORE SHARED (ย้ายมาจาก View Module) =================
+     ฟังก์ชันในบล็อกนี้ถูกย้ายเข้ามาโดยไม่แก้เนื้อในแม้แต่ตัวอักษรเดียว
+     เหตุผลของแต่ละตัวระบุใน RUNTIME_SPLIT_REPORT.md §Shared Function
+
+       emptyState / statusBadge  (เดิม 07)  — 7 และ 2 chunk อื่นเรียกใช้
+       startLiveClock + clockTimer (เดิม 07) — dashboard และ compat เรียกทั้งคู่
+       empBE                     (เดิม 08)  — dashboard เรียก จึงข้ามขอบเขต chunk
+       shGet/shOf/shTime/shOfAtt/shAttToday (เดิม 12) — dashboard เรียก shAttToday
+       shMigrate                 (เดิม 12)  — njhrBootOnce() เรียกตอน boot
+       refreshNotifyBadge + _ntUnread (เดิม 13) — njhrStartAfterSession() เรียกตอน boot
+                                                  และ refreshMenuBadge() (05) อ่าน _ntUnread
+     ตัวแก้ไข Shift (shRender/shMigrateTool/viewShifts) ยังอยู่ใน compat ตามเดิม
+     ================================================================= */
+  var clockTimer = null;
+  var _ntUnread = 0;
+  var _docPending = 0;          // Badge "เอกสารของฉัน" — มาจาก njhr_doc_my_pending เท่านั้น
+
+  /* ---------- กลุ่มยกเว้นผู้บริหาร (MANAGING DIRECTOR / SUPER_ADMIN) ----------
+     Browser ถามเฉพาะ RPC njhr_hr_exempt_me() ด้วย Session Token ของผู้ใช้ปัจจุบัน
+     ห้ามส่ง employee_id จากหน้าจอเพื่อใช้ตัดสินสิทธิ์ — Backend เป็นผู้หา employee_id,
+     department_name / position_name / role จาก Session + Database เองทั้งหมด
+
+     ค่านี้เป็นเพียงตัวช่วยฝั่งหน้าจอ (ไม่เปิดกล้อง / เลือกข้อความ)
+     สิทธิ์จริงถูกบังคับซ้ำใน njhr_att_punch_exempt() เสมอ ปลอมค่านี้ไม่มีผล */
+  var _exCache = { key: '', val: null, loading: null };
+
+  function njExemptKey() { return String(sbToken() || ''); }
+
+  function njExemptReset() { _exCache = { key: '', val: null, loading: null }; }
+
+  /* คืน Promise<boolean> — ถามเซิร์ฟเวอร์ครั้งเดียวต่อ Session แล้วจำไว้ */
+  function njExemptCheck() {
+    var k = njExemptKey();
+    if (!k) return Promise.resolve(false);
+    if (_exCache.key === k && _exCache.val !== null) return Promise.resolve(_exCache.val);
+    if (_exCache.key === k && _exCache.loading) return _exCache.loading;
+    _exCache = { key: k, val: null, loading: null };
+    _exCache.loading = sbRpc('njhr_hr_exempt_me', { p_token: k })
+      .then(function (v) {
+        /* sbCall คืน null เมื่อคำขอถูกยกเลิก — ห้ามตีความว่า "ไม่ใช่ผู้บริหาร" แล้วจำไว้ */
+        if (v !== true && v !== false) throw new Error('ตรวจสิทธิ์ยกเว้นไม่สำเร็จ');
+        if (_exCache.key === k) { _exCache.val = v; _exCache.loading = null; }
+        return v;
+      }, function (e) {
+        if (_exCache.key === k) _exCache.loading = null;   // ไม่จำค่าเมื่อผิดพลาด กดใหม่แล้วถามซ้ำได้
+        throw e;
+      });
+    return _exCache.loading;
+  }
+
+
+  function emptyState(msg) { return '<div class="empty">' + icon('info') + '<p>' + esc(msg) + '</p></div>'; }
+  function statusBadge(st) {
+    var map = {
+      PENDING: ['รออนุมัติ', 'warn'], APPROVED: ['อนุมัติแล้ว', 'ok'], REJECTED: ['ไม่อนุมัติ', 'bad'],
+      CANCELLED: ['ยกเลิกแล้ว', 'mut'], COMPLETED: ['เสร็จสิ้น', 'info'], NEED_MORE_INFO: ['ขอข้อมูลเพิ่ม', 'info'],
+      ACTIVE: ['ทำงานอยู่', 'ok'], SUSPENDED: ['พักงาน', 'warn'], RESIGNED: ['ลาออกแล้ว', 'mut'],
+      PRESENT: ['ปกติ', 'ok'], LATE: ['มาสาย', 'warn'], DRAFT: ['แบบร่าง', 'mut'],
+      CALCULATED: ['คำนวณแล้ว', 'info'], CONFIRMED: ['ยืนยันแล้ว', 'ok'], PAID: ['จ่ายแล้ว', 'ok']
+    };
+    var m = map[st] || [st, 'mut'];
+    return '<span class="badge badge-' + m[1] + '">' + m[0] + '</span>';
+  }
+  function startLiveClock() {
+    clearInterval(clockTimer);
+    function tick() {
+      var elC = document.getElementById('live-clock');
+      if (!elC) { clearInterval(clockTimer); return; }
+      var d = new Date();
+      elC.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+    tick(); clockTimer = setInterval(tick, 1000);
+  }
+  function empBE(iso) {
+    var p2 = String(iso || '').split('-');
+    return p2.length === 3 ? p2[2] + '/' + p2[1] + '/' + (parseInt(p2[0], 10) + 543) : '—';
+  }
+  function shGet(id) { return (db.shifts || []).find(function (x) { return x.id === id; }); }
+  function shOf(e) { // อ่านกะของพนักงาน (fallback ปลอดภัย ไม่ error)
+    return (e && shGet(e.shiftId)) || (db.shifts && db.shifts[0]) ||
+      { id: '', name: 'กะปกติ', start: '08:30', end: '17:30', breakMins: 60, overnight: false, active: true };
+  }
+  function shTime(sh) { return sh.start + '–' + sh.end + (sh.overnight ? ' (วันถัดไป)' : ''); }
+  function shOfAtt(e, att) { return (att && att.shiftId && shGet(att.shiftId)) || shOf(e); }
+  function shAttToday(e) { // record สำหรับหน้าลงเวลา: วันนี้ หรือของเมื่อวานที่ยังไม่ปิด (กะข้ามวัน)
+    var t = todayISO();
+    var att = db.attendance.find(function (a) { return a.empId === e.id && a.date === t; });
+    if (!att && shOf(e).overnight) {
+      var y = new Date(t + 'T00:00:00');
+      y.setDate(y.getDate() - 1);
+      var yIso = y.getFullYear() + '-' + ('0' + (y.getMonth() + 1)).slice(-2) + '-' + ('0' + y.getDate()).slice(-2);
+      att = db.attendance.find(function (a) { return a.empId === e.id && a.date === yIso && a.in && !a.out; }) || att;
+    }
+    return att;
+  }
+  function shMigrate() { // idempotent: รันซ้ำได้ ข้อมูลพนักงานเดิมไม่หาย
+    if (!db.shifts) {
+      var before = db.employees.length;
+      db.shifts = [];
+      var seen = {};
+      db.employees.forEach(function (e) {
+        var str = e.shift || '08:30-17:30';
+        if (!seen[str]) {
+          var p = str.split('-');
+          seen[str] = {
+            id: 'SH' + ('0' + (db.shifts.length + 1)).slice(-2),
+            name: str === '08:30-17:30' ? 'กะปกติ' : 'กะ ' + str, // กะเดิมของระบบ = "กะปกติ"
+            start: p[0] || '08:30', end: p[1] || '17:30', breakMins: 60, overnight: false,
+            active: true, updatedAt: nowStamp(), updatedBy: 'migration'
+          };
+          db.shifts.push(seen[str]);
+        }
+      });
+      if (!db.shifts.length) db.shifts.push({ id: 'SH01', name: 'กะปกติ', start: '08:30', end: '17:30', breakMins: 60, overnight: false, active: true, updatedAt: nowStamp(), updatedBy: 'migration' });
+      db.employees.forEach(function (e) { e.shiftId = (seen[e.shift || '08:30-17:30'] || db.shifts[0]).id; });
+      if (db.employees.length !== before) throw new Error('shift migration: จำนวนพนักงานเปลี่ยน');
+      audit('SHIFT_MIGRATE', 'สร้างกะจากข้อมูลเดิม ' + db.shifts.length + ' กะ / ผูกพนักงาน ' + before + ' คน');
+      saveDB();
+    }
+    if (db.shifts && db.shifts.length) {   // บั๊กเดิม: ถ้าไม่มีกะเลยจะอ่าน db.shifts[0].id ไม่ได้
+      db.employees.forEach(function (e) { if (!e.shiftId) e.shiftId = db.shifts[0].id; }); // กันพนักงานตกหล่น
+    }
+    if (!db.shiftMoves) db.shiftMoves = [];   // ประวัติการย้ายกะ (เพิ่มใหม่ ข้อมูลเดิมไม่กระทบ)
+    bumpIdx();
+  }
+  /* ---------- Badge "เอกสารของฉัน" ----------
+     นับจาก njhr_doc_my_pending(p_token) ของจริงใน DB (สร้างใน H2)
+     employee_id มาจาก token ฝั่งเซิร์ฟเวอร์ ไม่ส่งจาก browser
+     ไม่นับจาก array ใด ๆ ใน browser และไม่เก็บลง localStorage */
+  function refreshDocPending() {
+    if (!sbToken() || !sbReady()) return Promise.resolve();
+    return sbRpcList('njhr_doc_my_pending', { p_token: sbToken() }).then(function (rows) {
+      var r = (rows && rows[0]) || {};
+      var v = Number(r.pending) || 0;
+      if (v === _docPending) return;
+      _docPending = v;
+      refreshMenuBadge();
+    })['catch'](function () { /* โหลดไม่ได้ = ไม่แตะ Badge เดิม */ });
+  }
+
+  /* ================= ระบบแจ้งเตือน (ใช้ njhr_notify_* เดิมทั้งหมด) =================
+     Production ตรวจแล้ว: publication supabase_realtime ไม่มี public.notifications
+     จึงใช้ Polling ตามข้อกำหนด fallback ไม่ใช้ Realtime
+     ป้ายแดงทุกจุดอ่านจาก _ntUnread ตัวเดียว (njhr_notify_unread) จึงไม่มีทางนับซ้ำ */
+  var NT_BELLS = '#btn-bell, .att-mb-bell, .req-mb-bell';
+  var NT_POLL_MS = 45000;
+  var _ntTimer = null, _ntBusy = false, _ntSeen = null, _ntPrimed = false;
+
+  function ntBadgeText(n) { return n > 99 ? '99+' : String(n); }
+
+  /* วาดป้ายแดงลงกระดิ่งทุกตัวที่มีอยู่บนหน้าจอขณะนั้น */
+  function ntPaintBadges() {
+    var v = _ntUnread, txt = ntBadgeText(v);
+    var list = document.querySelectorAll(NT_BELLS);
+    Array.prototype.forEach.call(list, function (bell) {
+      var b = bell.querySelector('.bell-badge');
+      if (v > 0) {
+        if (b) b.textContent = txt;
+        else bell.insertAdjacentHTML('beforeend', '<span class="bell-badge">' + txt + '</span>');
+      } else if (b) { b.remove(); }
+    });
+    /* PWA App Badge — เบราว์เซอร์ที่ไม่รองรับต้องไม่ทำให้พัง */
+    try {
+      if (navigator.setAppBadge) {
+        if (v > 0) navigator.setAppBadge(v)['catch'](function () {});
+        else if (navigator.clearAppBadge) navigator.clearAppBadge()['catch'](function () {});
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- เสียงแจ้งเตือน: สร้างจาก WebAudio ในเครื่อง ไม่มีไฟล์ ไม่มี CDN ---------- */
+  var _ntAudio = null, _ntAudioOK = false;
+  function ntSoundOn() {
+    try { return localStorage.getItem('njhr_nt_sound') !== 'off'; } catch (e) { return true; }
+  }
+  function ntSetSound(on) {
+    try { localStorage.setItem('njhr_nt_sound', on ? 'on' : 'off'); } catch (e) {}
+    if (on) ntUnlockAudio();
+  }
+  /* ปลดล็อกหลังผู้ใช้แตะหน้าจอครั้งแรกหรือหลัง Login — ข้อจำกัด Autoplay ของมือถือ */
+  function ntUnlockAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!_ntAudio) _ntAudio = new AC();
+      if (_ntAudio.state === 'suspended') _ntAudio.resume()['catch'](function () {});
+      _ntAudioOK = true;
+    } catch (e) { _ntAudioOK = false; }
+  }
+  function ntDing() {
+    if (!ntSoundOn() || !_ntAudioOK || !_ntAudio) return;
+    try {
+      var t = _ntAudio.currentTime, o = _ntAudio.createOscillator(), g = _ntAudio.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(880, t);
+      o.frequency.exponentialRampToValueAtTime(1320, t + 0.08);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g); g.connect(_ntAudio.destination);
+      o.start(t); o.stop(t + 0.36);
+    } catch (e) { /* เบราว์เซอร์ไม่อนุญาต = เงียบ ไม่พัง */ }
+  }
+
+  /* ---------- ข้อความเด้งด้านบน: หัวข้อ · เนื้อหา · เวลา · กดไปหน้าปลายทาง ---------- */
+  function ntTimeText(ts) {
+    var m = /T(\d{2}):(\d{2})/.exec(String(ts || ''));
+    return m ? m[1] + ':' + m[2] + ' น.' : '';
+  }
+  function ntToast(item) {
+    var wrap = document.getElementById('toasts');
+    if (!wrap) return;
+    var el = document.createElement('div');
+    el.className = 'toast toast-nt';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="nt-ic">' + icon('bell') + '</span>' +
+      '<div class="nt-body"><b>' + esc(item.title || 'แจ้งเตือนใหม่') + '</b>' +
+      (item.body ? '<small>' + esc(item.body) + '</small>' : '') +
+      '<i>' + esc(ntTimeText(item.created_at)) + '</i></div>' +
+      '<button type="button" class="nt-x" aria-label="ปิด">' + icon('x') + '</button>';
+    el.onclick = function (ev) {
+      if (ev.target.closest && ev.target.closest('.nt-x')) { el.remove(); return; }
+      /* ทำเครื่องหมายอ่านก่อนแล้วค่อยเปิดหน้าปลายทาง */
+      if (item.id) {
+        sbRpc('njhr_notify_read', { p_token: sbToken(), p_id: item.id })
+          ['catch'](function () {})
+          .then(function () { refreshNotifyBadge(true); });
+      }
+      el.remove();
+      location.hash = item.link || '#/notifications';
+    };
+    wrap.appendChild(el);
+    setTimeout(function () { el.classList.add('show'); }, 10);
+    setTimeout(function () {
+      el.classList.remove('show');
+      setTimeout(function () { el.remove(); }, 300);
+    }, 7000);
+  }
+
+  /* ดึงรายการใหม่มาแสดง — เรียกเฉพาะตอนตัวเลขเพิ่มขึ้นจริง จึงไม่ดังซ้ำตอน render */
+  function ntAnnounceNew() {
+    sbRpc('njhr_notify_list', { p_token: sbToken(), p_limit: 5, p_offset: 0 })
+      .then(function (rows) {
+        var arr = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+        var fresh = [];
+        arr.forEach(function (r) {
+          if (!r || !r.id || r.is_read) return;
+          if (_ntSeen[r.id]) return;
+          _ntSeen[r.id] = 1;
+          fresh.push(r);
+        });
+        if (!fresh.length) return;
+        ntDing();                               // ดังครั้งเดียวต่อรอบ แม้มีหลายรายการ
+        fresh.slice(0, 3).forEach(function (r) { ntToast(r); });
+      })['catch'](function () {});
+  }
+
+  /* ---------- ตรวจจำนวนที่ยังไม่อ่าน ---------- */
+  function refreshNotifyBadge(silent) {
+    if (!sbToken() || !sbReady()) return;
+    if (_ntBusy) return;                        // กัน RPC ซ้อนกัน
+    _ntBusy = true;
+    sbRpc('njhr_notify_unread', { p_token: sbToken() }).then(function (n) {
+      _ntBusy = false;
+      var v = Number(n) || 0;
+      var prev = _ntUnread;
+      _ntUnread = v;
+      ntPaintBadges();
+      /* รอบแรกหลัง Login ถือเป็นการตั้งค่าเริ่มต้น ไม่ต้องเด้งของเก่าทั้งกอง */
+      if (!_ntPrimed) {
+        _ntPrimed = true; _ntSeen = _ntSeen || Object.create(null);
+        sbRpc('njhr_notify_list', { p_token: sbToken(), p_limit: 5, p_offset: 0 })
+          .then(function (rows) {
+            (Array.isArray(rows) ? rows : []).forEach(function (r) { if (r && r.id) _ntSeen[r.id] = 1; });
+          })['catch'](function () {});
+        return;
+      }
+      if (!silent && v > prev) ntAnnounceNew();
+    })['catch'](function () { _ntBusy = false; /* โหลดไม่ได้ = ไม่แตะ Badge เดิม */ });
+  }
+
+  /* ---------- Polling + เหตุการณ์กลับเข้าแอป ---------- */
+  function ntTick() {
+    if (!sbToken() || !sbReady()) { ntStopPoll(); return; }
+    if (document.visibilityState !== 'visible') return;   // อยู่เบื้องหลัง = ไม่ยิง
+    refreshNotifyBadge();
+  }
+  function ntStartPoll() {
+    if (_ntTimer) return;
+    _ntSeen = _ntSeen || Object.create(null);
+    _ntTimer = setInterval(ntTick, NT_POLL_MS);
+  }
+  function ntStopPoll() {
+    if (_ntTimer) { clearInterval(_ntTimer); _ntTimer = null; }
+  }
+  function ntReset() {                          // ออกจากระบบ
+    ntStopPoll();
+    _ntUnread = 0; _ntSeen = null; _ntPrimed = false; _ntBusy = false;
+    ntPaintBadges();
+  }
+  function ntWake() {
+    if (!sbToken() || !sbReady()) return;
+    if (document.visibilityState !== 'visible') return;
+    ntStartPoll();
+    refreshNotifyBadge();
+  }
+  document.addEventListener('visibilitychange', ntWake);
+  window.addEventListener('focus', ntWake);
+  window.addEventListener('online', ntWake);
+  /* ปลดล็อกเสียงหลังผู้ใช้แตะหน้าจอครั้งแรก (ครั้งเดียวพอ) */
+  ['pointerdown', 'keydown'].forEach(function (ev) {
+    window.addEventListener(ev, function once() {
+      ntUnlockAudio();
+      window.removeEventListener(ev, once);
+    }, { once: true });
+  });
+
+  NJHR.notify = {
+    refresh: refreshNotifyBadge, paint: ntPaintBadges,
+    start: ntStartPoll, stop: ntStopPoll, reset: ntReset,
+    soundOn: ntSoundOn, setSound: ntSetSound, unlockAudio: ntUnlockAudio,
+    badgeText: ntBadgeText
+  };
+
+
+  /* ---------- Compatibility Adapter: สถานะที่ Core และ Feature Chunk เขียนร่วมกัน ----------
+     3 ตัวนี้ถูกกำหนดค่าใหม่ (reassign) หลัง chunk โหลดไปแล้ว
+     การส่งเข้า chunk แบบคัดลอกค่าจะได้ค่าค้าง จึงต้องอ่าน/เขียนผ่าน accessor ตัวเดียวกัน
+     รายการจุดที่แก้ใน Feature Chunk ระบุครบใน RUNTIME_SPLIT_REPORT.md */
+  Object.defineProperty(NJHR.state, 'sbUser',    { get: function () { return sbUser; } });
+  Object.defineProperty(NJHR.state, 'lvPending', { get: function () { return _lvPending; }, set: function (v) { _lvPending = v; } });
+  Object.defineProperty(NJHR.state, 'ntUnread',  { get: function () { return _ntUnread; }, set: function (v) { _ntUnread = v; } });
+  Object.defineProperty(NJHR.state, 'docPending', { get: function () { return _docPending; }, set: function (v) { _docPending = v; } });
+  NJHR.layout.refreshDocPending = refreshDocPending;
+
+  /* ================= INIT ================= */
+  window.addEventListener('hashchange', render);
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.body.classList.contains('sidebar-open') && window.njhrCloseDrawer) window.njhrCloseDrawer();
+  });
+  window.addEventListener('resize', function () {
+    if (window.innerWidth > 900 && document.body.classList.contains('sidebar-open') && window.njhrCloseDrawer) window.njhrCloseDrawer();
+  });
+  /* เริ่มระบบเมื่อ DOM พร้อม
+     index.html โหลด app.js แบบ dynamic script (async = false) แทน document.write
+     สคริปต์แบบนี้ **ไม่บล็อก DOMContentLoaded** จึงมีโอกาสที่ event ยิงไปก่อน app.js ทำงาน
+     ต้องตรวจ document.readyState ด้วย ไม่งั้นระบบจะไม่เริ่มเลยและได้หน้าจอว่าง
+     ตัวแปร njhrBooted กันไม่ให้เริ่มซ้ำสองรอบ */
+  var njhrBooted = false;
+  function njhrBootOnce() {
+    if (njhrBooted) return;
+    njhrBooted = true;
+    loadDB(); fillDbGaps(); loadSession(); loadUI(); shMigrate(); njFixCompanyName();
+    holLoad();          // อุ่นแคชวันหยุดตั้งแต่เปิดแอป ให้ตัวคำนวณแบบ synchronous ใช้ได้ทันที
+    if (storageBlocked) setTimeout(function () {
+      toast('เบราว์เซอร์บล็อกการบันทึกข้อมูลในเครื่อง — ใช้งานได้ปกติ แต่ Refresh แล้วข้อมูลทดลองจะรีเซ็ต', 'info');
+    }, 600);
+    njhrBoot();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', njhrBootOnce);
+  } else {
+    njhrBootOnce();                       // DOM พร้อมแล้ว เริ่มทันที
+  }
+
+  // ลำดับเริ่มระบบ: อ่านค่า Supabase → ทดสอบการเชื่อมต่อ → เข้าสู่ระบบ/ตรวจ session → แสดงหน้าหลัก
+  // แยกเป็นฟังก์ชันเพื่อให้ปุ่ม "ลองเชื่อมต่ออีกครั้ง" เรียกซ้ำได้โดยไม่ Refresh
+  // (event listener ผูกไว้ระดับโมดูลแล้ว เรียกซ้ำจึงไม่เกิด listener ซ้ำ)
+  function njhrBoot() {
+    /* PERF: เดิมเป็น sbConnCheck() → sbSessionCheck() เรียงกันเป็นทอด
+       บนเน็ตจริงจึงเสียเวลา 2 รอบเดินทางก่อนเห็นหน้าจอ
+       เปลี่ยนเป็นยิงขนานกันเมื่อมี token — เงื่อนไขการผ่านเหมือนเดิมทุกประการ
+       คือต้องผ่านทั้ง healthcheck และ session_check ก่อน render
+       ต่างกันแค่เวลารวมลดจาก (A + B) เหลือ max(A, B) */
+    var hasToken = sbToken() && sbReady();
+    if (!hasToken) { sbConnCheck().then(njhrStart, renderConnError); return; }
+
+    var connErr = null, sessErr = null, done = 0;
+    function finish() {
+      if (++done < 2) return;
+      if (connErr) { renderConnError(connErr); return; }     // ปัญหาเชื่อมต่อมาก่อนเสมอ
+      if (sessErr) {                                          // เชื่อมต่อได้ แต่ session ใช้ไม่ได้
+        sbSetToken(''); sbClearUser(); session = null; saveSession();
+        if (sessErr.message !== 'NO_SESSION') sbLoginMsg = sessErr.message;
+        renderLogin();
+        return;
+      }
+      njhrStartAfterSession();
+    }
+    sbConnCheck().then(function () { connErr = null; }, function (e) { connErr = e; }).then(finish);
+    sbSessionCheck().then(function () { sessErr = null; }, function (e) { sessErr = e; }).then(finish);
+  }
+  /* ไม่มี token — เส้นทางเดิมทุกประการ */
+  function njhrStart() {
+    if (session && session.src === 'supabase') {
+      session = null; saveSession(); sbClearUser();   // ไม่มี token = ไม่ถือว่ามีสิทธิ์
+    }
+    // ถ้าต้อง set hash ให้ hashchange เป็นผู้เรียก render (กัน render ซ้ำ 2 รอบ)
+    if (!location.hash) location.hash = session ? '#/dashboard' : '#/login';
+    else render();
+  }
+
+  /* มี token และผ่านทั้ง healthcheck + session_check แล้ว */
+  function njhrStartAfterSession() {
+    /* เปิดแอปด้วย session เดิม = ถือเป็นการเข้าใช้งานครั้งใหม่ของเครื่องนี้
+       จึงนับรออนุมัติครบสามประเภทจาก Supabase และ Hydrate ตั้งค่าลง db.settings หนึ่งครั้ง */
+    render(); refreshPendingAll(); refreshNotifyBadge(); refreshDocPending(); hydrateSettings();
+    ntStartPoll(); ntUnlockAudio();   // เริ่มตรวจแจ้งเตือน + ปลดล็อกเสียงหลัง Login
+    if (!location.hash) location.hash = session ? '#/dashboard' : '#/login';
+  }
+
+  /* ---------- Public Contract (สร้างอัตโนมัติจาก symbol จริง) ---------- */
+  NJHR.compat.scope = NJHR.compat.scope || {};
+  Object.keys(ROUTES).forEach(function (h) {
+    NJHR.router.moduleMap[h.replace("#/", "")] = ROUTES[h].mod ? [ROUTES[h].mod] : [];
+  });
+  NJHR.core.render = render; NJHR.core.nav = nav; NJHR.core.canAccess = canAccess;
+  NJHR.auth.logout = doLogout; NJHR.auth.currentUser = currentUser;
+  NJHR.ui.toast = toast; NJHR.ui.openModal = openModal; NJHR.ui.closeModal = closeModal;
+  NJHR.layout.refreshMenuBadge = refreshMenuBadge;
+  NJHR.compat.scope.ALL = ALL;
+  NJHR.compat.scope.NJ_COMPANY_NAME = NJ_COMPANY_NAME;
+  NJHR.compat.scope.P = P;
+  NJHR.compat.scope.ROLE_TH = ROLE_TH;
+  NJHR.compat.scope.SB = SB;
+  NJHR.compat.scope.TH_DAYS = TH_DAYS;
+  NJHR.compat.scope.TH_MONTHS = TH_MONTHS;
+  NJHR.compat.scope.audit = audit;
+  NJHR.compat.scope.avatarHTML = avatarHTML;
+  NJHR.compat.scope.balance = balance;
+  NJHR.compat.scope.businessDays = businessDays;
+  NJHR.compat.scope.canAccess = canAccess;
+  NJHR.compat.scope.closeModal = closeModal;
+  NJHR.compat.scope.confirmDialog = confirmDialog;
+  NJHR.compat.scope.currentEmp = currentEmp;
+  NJHR.compat.scope.currentUser = currentUser;
+  NJHR.compat.scope.cycleCurrent = cycleCurrent;
+  NJHR.compat.scope.cycleLabel = cycleLabel;
+  NJHR.compat.scope.cycleOptions = cycleOptions;
+  NJHR.compat.scope.cycleRange = cycleRange;
+  NJHR.compat.scope.cycleRangeText = cycleRangeText;
+  NJHR.compat.scope.db = db;
+  NJHR.compat.scope.debounce = debounce;
+  NJHR.compat.scope.dept = dept;
+  NJHR.compat.scope.doLogout = doLogout;
+  NJHR.compat.scope.downloadCSV = downloadCSV;
+  NJHR.compat.scope.emp = emp;
+  NJHR.compat.scope.empBE = empBE;
+  NJHR.compat.scope.empName = empName;
+  NJHR.compat.scope.emptyState = emptyState;
+  NJHR.compat.scope.esc = esc;
+  NJHR.compat.scope.fileDownload = fileDownload;
+  NJHR.compat.scope.filePreviewOpen = filePreviewOpen;
+  NJHR.compat.scope.fmtDate = fmtDate;
+  NJHR.compat.scope.fmtDateDMY = fmtDateDMY;
+  NJHR.compat.scope.fmtMonthYear = fmtMonthYear;
+  NJHR.compat.scope.holHas = holHas;
+  NJHR.compat.scope.holInvalidate = holInvalidate;
+  NJHR.compat.scope.holLoad = holLoad;
+  NJHR.compat.scope.holName = holName;
+  NJHR.compat.scope.hoursDiff = hoursDiff;
+  NJHR.compat.scope.icon = icon;
+  NJHR.compat.scope.idx = idx;
+  NJHR.compat.scope.isHoliday = isHoliday;
+  NJHR.compat.scope.isWeekend = isWeekend;
+  NJHR.compat.scope.leaveType = leaveType;
+  NJHR.compat.scope.loadScriptOnce = loadScriptOnce;
+  NJHR.compat.scope.loadStyleOnce = loadStyleOnce;
+  NJHR.compat.scope.lsRemove = lsRemove;
+  NJHR.compat.scope.maskAcc = maskAcc;
+  NJHR.compat.scope.money = money;
+  NJHR.compat.scope.nav = nav;
+  NJHR.compat.scope.njAsset = njAsset;
+  NJHR.compat.scope.njCompanyParts = njCompanyParts;
+  NJHR.compat.scope.njExemptCheck = njExemptCheck;
+  NJHR.compat.scope.notify = notify;
+  NJHR.compat.scope.nowStamp = nowStamp;
+  NJHR.compat.scope.openModal = openModal;
+  NJHR.compat.scope.pad = pad;
+  NJHR.compat.scope.refreshFixPending = refreshFixPending;
+  NJHR.compat.scope.refreshLeavePending = refreshLeavePending;
+  NJHR.compat.scope.refreshMenuBadge = refreshMenuBadge;
+  NJHR.compat.scope.refreshNotifyBadge = refreshNotifyBadge;
+  NJHR.compat.scope.refreshOtPending = refreshOtPending;
+  NJHR.compat.scope.render = render;
+  NJHR.compat.scope.saveDB = saveDB;
+  NJHR.compat.scope.sbDocPdfFn = sbDocPdfFn;
+  NJHR.compat.scope.sbReady = sbReady;
+  NJHR.compat.scope.sbRpc = sbRpc;
+  NJHR.compat.scope.sbRpcList = sbRpcList;
+  NJHR.compat.scope.sbToken = sbToken;
+  NJHR.compat.scope.setFxPending = setFxPending;
+  NJHR.compat.scope.setOtPending = setOtPending;
+  NJHR.compat.scope.shOf = shOf;
+  NJHR.compat.scope.shOfAtt = shOfAtt;
+  NJHR.compat.scope.shTime = shTime;
+  NJHR.compat.scope.startLiveClock = startLiveClock;
+  NJHR.compat.scope.statusBadge = statusBadge;
+  NJHR.compat.scope.toast = toast;
+  NJHR.compat.scope.toastDismiss = toastDismiss;
+  NJHR.compat.scope.todayISO = todayISO;
+  NJHR.compat.scope.uid = uid;
+  NJHR.compat.scope.userOfEmp = userOfEmp;
+})();

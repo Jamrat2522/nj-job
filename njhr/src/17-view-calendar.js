@@ -20,7 +20,7 @@
                    depts: [], leaves: [], ots: [],
                    holSet: Object.create(null), holLabel: Object.create(null),
                    err: '', loading: false };
-  function calCanManage() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function calCanManage() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   function calDeptName(id) {
     for (var i = 0; i < calState.depts.length; i++) if (calState.depts[i].id === id) return calState.depts[i].name;
     return '';
@@ -141,28 +141,34 @@
       '<div class="toolbar">' +
       '<button class="btn-icon" id="cal-prev" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า">' + icon('chevL') + '</button><h3>' + fmtMonthYear(s.m + 1, s.y) + '</h3>' +
       '<button class="btn-icon" id="cal-next" aria-label="เดือนถัดไป" title="เดือนถัดไป">' + icon('chevR') + '</button>' +
-      // ค่าใน dropdown = Department UUID จริง · ตัวเลือกแรกคือ "ทุกแผนก"
-      '<select id="cal-dept" aria-label="เลือกแผนก"><option value="">ทุกแผนก</option>' +
-      s.depts.map(function (dd) {
-        return '<option value="' + esc(dd.id) + '"' + (s.dept === dd.id ? ' selected' : '') + '>' +
-          esc(dd.name) + (dd.code ? ' (' + esc(dd.code) + ')' : '') + '</option>';
-      }).join('') + '</select>' +
+      // USER/ADMIN เห็นเฉพาะวันหยุด จึงไม่แสดงตัวกรองแผนก
+      (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0
+        ? '<select id="cal-dept" aria-label="เลือกแผนก"><option value="">ทุกแผนก</option>' +
+          s.depts.map(function (dd) {
+            return '<option value="' + esc(dd.id) + '"' + (s.dept === dd.id ? ' selected' : '') + '>' +
+              esc(dd.name) + (dd.code ? ' (' + esc(dd.code) + ')' : '') + '</option>';
+          }).join('') + '</select>'
+        : '') +
       '<span class="grow"></span><div class="seg">' +
       '<button class="seg-btn' + (s.mode === 'month' ? ' active' : '') + '" id="cal-mv">เดือน</button>' +
       '<button class="seg-btn' + (s.mode === 'list' ? ' active' : '') + '" id="cal-lv">รายการ</button></div>' +
       (calCanManage() ? '<button class="btn btn-primary btn-sm" id="cal-hol">' + icon('calendar') + ' จัดการวันหยุด</button>' : '') + '</div>' +
       '<div class="card">' + body + '</div>' +
-      '<div class="legend"><span class="cal-ev ev-hol">วันหยุด</span><span class="cal-ev ev-leave">ลางาน</span>' +
-      '<span class="cal-ev ev-ot">OT</span><span class="muted cal-src" id="cal-src"></span></div>';
+      '<div class="legend"><span class="cal-ev ev-hol">วันหยุดบริษัท</span>' +
+      (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0
+        ? '<span class="cal-ev ev-leave">ลางาน</span><span class="cal-ev ev-ot">OT</span>' : '') +
+      '<span class="muted cal-src" id="cal-src"></span></div>';
 
     document.getElementById('cal-prev').onclick = function () { s.m--; if (s.m < 0) { s.m = 11; s.y--; } viewCalendar(el); };
     document.getElementById('cal-next').onclick = function () { s.m++; if (s.m > 11) { s.m = 0; s.y++; } viewCalendar(el); };
-    document.getElementById('cal-dept').onchange = function () { s.dept = this.value; calLoad(el); };
+    var calDept = document.getElementById('cal-dept');
+    if (calDept) calDept.onchange = function () { s.dept = this.value; calLoad(el); };
     document.getElementById('cal-mv').onclick = function () { s.mode = 'month'; calRender(el); };
     document.getElementById('cal-lv').onclick = function () { s.mode = 'list'; calRender(el); };
     var src = document.getElementById('cal-src');
-    if (src) src.textContent = 'แผนก ' + s.depts.length + ' · ลา ' + s.leaves.length +
-      ' · OT ' + s.ots.length + ' รายการ — ข้อมูลจากฐานข้อมูลกลาง';
+    if (src) src.textContent = ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0
+      ? ('แผนก ' + s.depts.length + ' · ลา ' + s.leaves.length + ' · OT ' + s.ots.length + ' รายการ — ข้อมูลจากฐานข้อมูลกลาง')
+      : 'แสดงเฉพาะวันหยุดของบริษัท';
     if (calCanManage()) document.getElementById('cal-hol').onclick = function () { calHolidays(el); };
   }
 
@@ -556,8 +562,8 @@
                 '<td class="ch-act-c"><span class="ch-act">' +
                 '<button class="btn-icon" data-ch-edit="' + esc(h.id) + '" data-ch-d="' + esc(d) +
                 '" data-ch-n="' + esc(h.name) + '" aria-label="แก้ไข">' + icon('edit') + '</button>' +
-                '<button class="btn-icon ic-red" data-ch-del="' + esc(h.id) + '" data-ch-n="' + esc(h.name) +
-                '" aria-label="ลบ">' + icon('x') + '</button></span></td></tr>';
+                (calIsSuper() ? '<button class="btn-icon ic-red" data-ch-del="' + esc(h.id) + '" data-ch-n="' + esc(h.name) +
+                  '" aria-label="ลบ">' + icon('x') + '</button>' : '') + '</span></td></tr>';
             }).join('') + '</tbody></table></div>'
           : emptyState('ปี ' + (year + 543) + ' ยังไม่ได้กำหนดวันหยุด');
         box.onclick = function (ev) {
@@ -616,6 +622,7 @@
     }
 
     function del(id, name) {
+      if (!calIsSuper()) { document.getElementById('ch-err').textContent = 'เฉพาะ SUPER_ADMIN เท่านั้นที่ลบวันหยุดได้'; return; }
       confirmDialog('ลบวันหยุด',
         'ลบวันหยุด <b>' + esc(name) + '</b> ใช่หรือไม่<br>' +
         '<small class="muted">การนับวันลาและประเภทวันของ OT จะเปลี่ยนตามทันที</small>',

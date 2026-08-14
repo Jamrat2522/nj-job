@@ -1,14 +1,14 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-1993c7c0",
+  "buildId": "njhr-v2-349c732f",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
-    "core": "runtime/core.js?v=0e8af553"
+    "core": "runtime/core.js?v=6b119f27"
   },
   "modules": {
     "dashboard": {
-      "url": "views/dashboard.js?v=4fb18b93",
+      "url": "views/dashboard.js?v=3e3573be",
       "deps": [
         "shared-leave-meta"
       ],
@@ -47,7 +47,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "employees": {
-      "url": "views/employees/list.js?v=dd15c869",
+      "url": "views/employees/list.js?v=12a33405",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta"
@@ -57,7 +57,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "attendance": {
-      "url": "views/attendance/main.js?v=70df9e7c",
+      "url": "views/attendance/main.js?v=8839befd",
       "deps": [
         "shared-report",
         "shared-requests"
@@ -113,7 +113,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "employees-form": {
-      "url": "views/employees/form.js?v=3d311a5b",
+      "url": "views/employees/form.js?v=88d9ac35",
       "deps": [
         "employees",
         "shared-emp-meta",
@@ -184,7 +184,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "profile-docs": {
-      "url": "views/profile/main.js?v=8696c36c",
+      "url": "views/profile/main.js?v=f313e7f7",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -198,7 +198,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "calendar": {
-      "url": "views/calendar/main.js?v=20368fcd",
+      "url": "views/calendar/main.js?v=b75cebc3",
       "deps": [
         "shared-report"
       ],
@@ -214,7 +214,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "compatibility": {
-      "url": "compat/app-legacy.js?v=b34f7044",
+      "url": "compat/app-legacy.js?v=9c2fc3d9",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",

@@ -1,43 +1,43 @@
   /* ================= ROUTER + GUARDS ================= */
-  /* ระบบ HR ใช้ 3 Role เท่านั้น — SUPER_ADMIN / ADMIN / USER
-     ค่าเดิม HR · ACCOUNT · MANAGER · EMPLOYEE ถูกยุบรวมเป็น USER (ดู normRole ใน STORE) */
-  var ROLE_TH = { SUPER_ADMIN: 'ผู้ดูแลระบบสูงสุด', ADMIN: 'ผู้ดูแลระบบ', USER: 'ผู้ใช้งาน' };
-  var ALL = ['SUPER_ADMIN', 'ADMIN', 'USER'];
+  /* ระบบ HR ใช้ 4 Role — SUPER_ADMIN / HR / ADMIN / USER
+     ADMIN = USER + หน้าอนุมัติรายการ · HR = ผู้ดูแล HR (ไม่มีสิทธิ์ลบ) */
+  var ROLE_TH = { SUPER_ADMIN: 'ผู้ดูแลระบบสูงสุด', HR: 'ฝ่าย HR', ADMIN: 'ผู้อนุมัติ', USER: 'ผู้ใช้งาน' };
+  var ALL = ['SUPER_ADMIN', 'HR', 'ADMIN', 'USER'];
   /* Runtime Split — `view` เปลี่ยนจากการอ้างฟังก์ชันตรง ๆ เป็น "ชื่อ View ใน Registry"
      เหตุผล: ฟังก์ชัน viewXxx ทั้ง 27 ตัวย้ายไปอยู่คนละ chunk แล้ว จึงไม่มี hoisting ให้อ้างอิงตอนสร้าง object นี้
      `mod`  = ชื่อ Module ใน Asset Manifest ที่บรรจุ View นั้น (Route-to-Module Mapping แหล่งเดียวของระบบ)
      Route · title · roles · ลำดับ · การ redirect — เหมือนเดิมทุกตัวอักษร */
   var ROUTES = {
     '#/dashboard': { title: 'Dashboard', roles: ALL, view: 'viewDashboard', mod: 'dashboard' },
-    '#/employees': { title: 'พนักงาน', roles: ALL, view: 'viewEmployees', mod: 'employees' },
+    '#/employees': { title: 'พนักงาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewEmployees', mod: 'employees' },
     '#/hr-docs': { title: 'เอกสาร HR', roles: ALL, view: 'viewHrDocs', mod: 'profile-docs' },
     '#/attendance': { title: 'ลงเวลา', roles: ALL, view: 'viewAttendance', mod: 'attendance' },
     '#/requests': { title: 'คำขอ', roles: ALL, view: 'viewRequests', mod: 'requests-leave' },
     '#/req-history': { title: 'ประวัติลางานและ OT', roles: ALL, view: 'viewReqHistory', mod: 'requests-leave' },
     '#/leave': { title: 'ลางาน', roles: ALL, view: 'viewLeave', mod: 'requests-leave' },
     '#/ot': { title: 'OT', roles: ALL, view: 'viewOT', mod: 'ot' },
-    '#/payroll': { title: 'เงินเดือน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewPayroll', mod: 'compatibility' },
+    '#/payroll': { title: 'เงินเดือน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewPayroll', mod: 'compatibility' },
     '#/payslips': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: function () { window.location.hash = '#/epayslip'; } }, // โหมดเดิมถูกยุบรวม — redirect
     '#/epayslip': { title: 'สลิปเงินเดือน (E-PAYSLIP)', roles: ALL, view: 'viewEPayslip', mod: 'compatibility' },
-    '#/approval-settings': { title: 'ตั้งค่าการอนุมัติ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewApprovalSettings', mod: 'compatibility' },
-    '#/pay-items': { title: 'รายการเงินเดือน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewPayItems', mod: 'compatibility' },
-    '#/sso': { title: 'ประกันสังคม', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewSSO', mod: 'compatibility' },
-    '#/approvals': { title: 'อนุมัติรายการ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewApprovals', mod: 'compatibility' },
-    '#/reports': { title: 'รายงานการลงเวลา', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewReports', mod: 'attendance-report' },
-    '#/rpt-leave': { title: 'รายงานการลา', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptLeave', mod: 'report-menu' },
-    '#/rpt-ot': { title: 'รายงานโอที', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptOT', mod: 'report-menu' },
+    '#/approval-settings': { title: 'ตั้งค่าการอนุมัติ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewApprovalSettings', mod: 'compatibility' },
+    '#/pay-items': { title: 'รายการเงินเดือน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewPayItems', mod: 'compatibility' },
+    '#/sso': { title: 'ประกันสังคม', roles: ['SUPER_ADMIN', 'HR'], view: 'viewSSO', mod: 'compatibility' },
+    '#/approvals': { title: 'อนุมัติรายการ', roles: ['SUPER_ADMIN', 'HR', 'ADMIN'], view: 'viewApprovals', mod: 'compatibility' },
+    '#/reports': { title: 'รายงานการลงเวลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewReports', mod: 'attendance-report' },
+    '#/rpt-leave': { title: 'รายงานการลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptLeave', mod: 'report-menu' },
+    '#/rpt-ot': { title: 'รายงานโอที', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptOT', mod: 'report-menu' },
     /* ใช้ #/rpt-wht (ไม่มีตัวเลข) เพราะ build.js:162 อ่าน ROUTES ด้วย regex '(#\/[a-z-]+)'
        ซึ่งไม่รับตัวเลขในชื่อ Route — ถ้าใส่ #/rpt-wht50 จะถูกข้ามและ build ล้ม */
-    '#/rpt-wht': { title: 'รายงาน 50 ทวิ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewRptWht50', mod: 'report-menu' },
+    '#/rpt-wht': { title: 'รายงาน 50 ทวิ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewRptWht50', mod: 'report-menu' },
     '#/calendar': { title: 'ปฏิทินองค์กร', roles: ALL, view: 'viewCalendar', mod: 'calendar' },
     '#/announcements': { title: 'ประกาศบริษัท', roles: ALL, view: 'viewAnnouncements', mod: 'compatibility' },
-    '#/users': { title: 'จัดการสมาชิก', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewUsers', mod: 'compatibility' },
-    '#/departments': { title: 'จัดการแผนก', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewDepartments', mod: 'compatibility' },
-    '#/settings': { title: 'ตั้งค่าระบบ', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewSettings', mod: 'compatibility' },
-    '#/geofence': { title: 'พื้นที่ลงเวลา', roles: ['SUPER_ADMIN'], view: 'viewGeofence', mod: 'compatibility' },
-    '#/shifts': { title: 'ตั้งค่ากะทำงาน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewShifts', mod: 'compatibility' },
-    '#/audit': { title: 'ประวัติการใช้งาน', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewAudit', mod: 'compatibility' },
-    '#/reportall': { title: 'รายงานทั้งหมด', roles: ['SUPER_ADMIN', 'ADMIN'], view: 'viewReportAll', mod: 'compatibility' },
+    '#/users': { title: 'จัดการสมาชิก', roles: ['SUPER_ADMIN', 'HR'], view: 'viewUsers', mod: 'compatibility' },
+    '#/departments': { title: 'จัดการแผนก', roles: ['SUPER_ADMIN', 'HR'], view: 'viewDepartments', mod: 'compatibility' },
+    '#/settings': { title: 'ตั้งค่าระบบ', roles: ['SUPER_ADMIN', 'HR'], view: 'viewSettings', mod: 'compatibility' },
+    '#/geofence': { title: 'พื้นที่ลงเวลา', roles: ['SUPER_ADMIN', 'HR'], view: 'viewGeofence', mod: 'compatibility' },
+    '#/shifts': { title: 'ตั้งค่ากะทำงาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewShifts', mod: 'compatibility' },
+    '#/audit': { title: 'ประวัติการใช้งาน', roles: ['SUPER_ADMIN', 'HR'], view: 'viewAudit', mod: 'compatibility' },
+    '#/reportall': { title: 'รายงานทั้งหมด', roles: ['SUPER_ADMIN', 'HR'], view: 'viewReportAll', mod: 'compatibility' },
     '#/notifications': { title: 'การแจ้งเตือน', roles: ALL, view: 'viewNotifications', mod: 'notifications' },
     '#/profile': { title: 'โปรไฟล์', roles: ALL, view: 'viewProfile', mod: 'profile-docs' }
   };

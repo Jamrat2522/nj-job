@@ -242,7 +242,7 @@
   // เพื่อให้ทุกจุดที่อ่านค่าเดิมทำงานต่อโดยไม่ hardcode (ค่ามาจากกะจริง)
   // กะที่ใช้จริงของใบลงเวลาหนึ่งใบ (ประวัติต้องไม่เปลี่ยนตามการย้ายกะภายหลัง)
 
-  function shCanManage() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function shCanManage() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   var shSearch = '', shFStatus = '';
   var shSort = 'RECENT';                  // เรียงตาม: ล่าสุด / ชื่อกะ / จำนวนพนักงาน
   /* ---------- ตั้งค่ากะทำงาน — อ่าน/เขียนผ่าน Supabase RPC เท่านั้น ----------
@@ -726,8 +726,10 @@
           (s.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน') + '</button>' +
           '<button type="button" class="us-menu-item" data-copy="' + esc(id) + '">' +
           '<span class="us-menu-ic">\u{1F4CB}</span>คัดลอกกะ</button>' +
-          '<button type="button" class="us-menu-item t-red" data-del="' + esc(id) + '">' +
-          '<span class="us-menu-ic">\u{1F5D1}\u{FE0F}</span>ลบกะ</button>'
+          (currentUser().role === 'SUPER_ADMIN'
+            ? '<button type="button" class="us-menu-item t-red" data-del="' + esc(id) + '">' +
+              '<span class="us-menu-ic">\u{1F5D1}\u{FE0F}</span>ลบกะ</button>'
+            : '')
         : '');
     document.body.appendChild(pop);
 
@@ -1429,8 +1431,8 @@
   // ตรวจสิทธิ์ซ้ำทุกจุด (ไม่พึ่งการซ่อนปุ่ม) — ใช้ค่ามาตรฐานระบบเดิม role === 'SUPER_ADMIN'
   function gfRequireSA(redirect) {
     var u = currentUser();
-    if (u && u.role === 'SUPER_ADMIN') return true;
-    toast('คุณไม่มีสิทธิ์แก้ไขการตั้งค่าระบบ เฉพาะ Super Admin เท่านั้นที่สามารถดำเนินการได้', 'error');
+    if (u && ['SUPER_ADMIN', 'HR'].indexOf(u.role) >= 0) return true;
+    toast('คุณไม่มีสิทธิ์จัดการพื้นที่ลงเวลา', 'error');
     if (redirect !== false) window.location.hash = '#/dashboard';
     return false;
   }
@@ -1708,8 +1710,9 @@
           '<td class="ta-r gf-c-act">' +
           '<button class="btn-icon gf-btn" data-gf-edit="' + esc(g.id) + '" aria-label="แก้ไข" title="แก้ไขพื้นที่นี้">' +
           icon('edit') + '</button>' +
-          '<button class="btn-icon gf-btn ic-red" data-gf-del="' + esc(g.id) + '" aria-label="ลบ" title="ลบพื้นที่นี้">' +
-          icon('trash') + '</button></td></tr>';
+          (currentUser().role === 'SUPER_ADMIN'
+            ? '<button class="btn-icon gf-btn ic-red" data-gf-del="' + esc(g.id) + '" aria-label="ลบ" title="ลบพื้นที่นี้">' + icon('trash') + '</button>'
+            : '') + '</td></tr>';
       }).join('') + '</tbody></table></div></div>';
 
     body.onclick = function (ev) {
@@ -1870,6 +1873,7 @@
   /* ต้องยืนยันก่อนลบเสมอ — เดิมถ้าพื้นที่ว่างเปล่า RPC จะลบทันทีตั้งแต่รอบตรวจ
      จึงย้ายมาถามก่อนแล้วค่อยเรียกด้วย p_confirm = true ครั้งเดียว */
   function gfDeleteArea(id, el) {
+    if (currentUser().role !== 'SUPER_ADMIN') { gfErrEl('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบพื้นที่ลงเวลาได้'); return; }
     var g = null;
     for (var i = 0; i < GF_ROWS.length; i++) if (GF_ROWS[i].id === id) g = GF_ROWS[i];
     gfErrEl('');
@@ -2594,7 +2598,7 @@
 
   function viewApprovalSettings(el) {
     // กันเปิด Route ตรงโดยไม่มีสิทธิ์ (นอกเหนือจากการซ่อนแท็บ)
-    if (['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) < 0) {
+    if (['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) < 0) {
       el.innerHTML = '<div class="card">' + emptyState('คุณไม่มีสิทธิ์เข้าถึงหน้าตั้งค่าการอนุมัติ') + '</div>';
       return;
     }
@@ -2705,7 +2709,7 @@
         '<div class="wf-set-acts">' +
         '<button class="btn-icon wf-act-view" data-as-wfview="' + esc(w.workflow_id) + '" aria-label="ดูรายละเอียด" title="ดูรายละเอียด">' + icon('eye') + '</button>' +
         '<button class="btn-icon wf-act-edit" data-as-wfedit="' + esc(w.workflow_id) + '" aria-label="แก้ไข / ตั้งขั้นอนุมัติ" title="แก้ไข / ตั้งขั้นอนุมัติ">' + icon('edit') + '</button>' +
-        '<button class="btn-icon wf-act-del" data-as-wfdel="' + esc(w.workflow_id) + '" aria-label="ลบชุด" title="ลบชุด">' + icon('x') + '</button>' +
+        (currentUser().role === 'SUPER_ADMIN' ? '<button class="btn-icon wf-act-del" data-as-wfdel="' + esc(w.workflow_id) + '" aria-label="ลบชุด" title="ลบชุด">' + icon('x') + '</button>' : '') +
         '</div>' +
         '</div>';
     }).join('') + '</div>';
@@ -3093,6 +3097,7 @@
   }
 
   function asWfDelete(wfId, el) {
+    if (currentUser().role !== 'SUPER_ADMIN') { toast('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบได้', 'error'); return; }
     var w = asFindWf(wfId);
     asErr('');
     sbRpc('njhr_wf_delete', { p_token: sbToken(), p_id: wfId, p_confirm: false })
@@ -3273,8 +3278,9 @@
         (i === asSteps.length - 1 ? ' disabled' : '') + '>' + icon('chevDown', 'ic-sm') + ' ย้ายลง</button>' +
         '<button type="button" data-as-toggle="' + esc(st.step_id) + '">' +
         icon(st.active ? 'ban' : 'check', 'ic-sm') + (st.active ? ' ปิดใช้งาน' : ' เปิดใช้งาน') + '</button>' +
-        '<button type="button" class="t-red" data-as-del="' + esc(st.step_id) + '">' +
-        icon('trash', 'ic-sm') + ' ลบขั้น</button>' +
+        (currentUser().role === 'SUPER_ADMIN'
+          ? '<button type="button" class="t-red" data-as-del="' + esc(st.step_id) + '">' + icon('trash', 'ic-sm') + ' ลบขั้น</button>'
+          : '') +
         '</div></span>' +
         '<span class="wf-caret" aria-hidden="true">' + icon('chevDown', 'ic-sm') + '</span>' +
         '</div>' +
@@ -3283,8 +3289,9 @@
           ? appr.map(function (a) {
               return '<span class="wf-chip"><span class="grow"><b>' + esc(a.emp_code) + '</b> ' + esc(a.name) +
                 '<small>' + esc(a.position || '-') + ' · ' + esc(a.department || '-') + '</small></span>' +
-                '<button type="button" class="wf-chip-x" data-appr-del="' + esc(a.employee_id) + '" ' +
-                'data-step="' + esc(st.step_id) + '" aria-label="ลบผู้อนุมัติ">' + icon('x') + '</button></span>';
+                (currentUser().role === 'SUPER_ADMIN'
+                  ? '<button type="button" class="wf-chip-x" data-appr-del="' + esc(a.employee_id) + '" data-step="' + esc(st.step_id) + '" aria-label="ลบผู้อนุมัติ">' + icon('x') + '</button>'
+                  : '') + '</span>';
             }).join('')
           : '<span class="muted">ยังไม่มีผู้อนุมัติ — ค้นหาและเพิ่มด้านล่าง</span>') + '</div>' +
         '<span class="search-box as-search">' + icon('search', 'ic-sm') +
@@ -3426,6 +3433,9 @@
   }
 
   function asApprover(fn, stepId, empId, el) {
+    if (fn === 'njhr_wf_approver_remove' && currentUser().role !== 'SUPER_ADMIN') {
+      asErr('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบผู้อนุมัติได้'); return;
+    }
     asErr('');
     sbRpc(fn, { p_token: sbToken(), p_step_id: stepId, p_employee: empId })
       .then(function () {
@@ -3470,6 +3480,7 @@
 
   // ลบขั้น: ถ้ามีคำขอรออนุมัติ เซิร์ฟเวอร์จะคืนจำนวนมาให้ถามยืนยันก่อน
   function asDelete(stepId, el) {
+    if (currentUser().role !== 'SUPER_ADMIN') { toast('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบได้', 'error'); return; }
     var st = asFindStep(stepId);
     asErr('');
     sbRpc('njhr_wf_step_delete', { p_token: sbToken(), p_step_id: stepId, p_confirm: false })
@@ -3528,7 +3539,9 @@
       '<div class="form-error" id="as-ferr" role="alert"></div></form>',
       (st ? '<button class="btn btn-ghost btn-sm" id="asf-up">' + icon('chevUp', 'ic-sm') + ' ย้ายขึ้น</button>' +
             '<button class="btn btn-ghost btn-sm" id="asf-down">' + icon('chevDown', 'ic-sm') + ' ย้ายลง</button>' +
-            '<button class="btn btn-ghost btn-sm t-red" id="asf-del">' + icon('trash', 'ic-sm') + ' ลบขั้น</button>' +
+            (currentUser().role === 'SUPER_ADMIN'
+              ? '<button class="btn btn-ghost btn-sm t-red" id="asf-del">' + icon('trash', 'ic-sm') + ' ลบขั้น</button>'
+              : '') +
             '<span class="grow"></span>' : '') +
       '<button class="btn btn-ghost" id="asf-cancel">ยกเลิก</button>' +
       '<button class="btn btn-primary" id="asf-save">บันทึก</button>',
@@ -3606,7 +3619,7 @@
   var piY = new Date().getFullYear(), piM = new Date().getMonth() + 1;
   var piEnQ = '', piEnRows = [];
 
-  function piCanEdit() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function piCanEdit() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   function piErr(msg) { var b = document.getElementById('pi-err'); if (b) b.textContent = msg || ''; }
 
   /* หน้าเดียว: รายชื่อพนักงาน + รายการที่กำหนดในเดือนนั้น
@@ -3666,7 +3679,7 @@
             '<td class="ta-r">' + (edit
               ? '<button class="btn-icon" data-pi-edit="' + esc(r.code) + '" aria-label="แก้ไข">' + icon('edit') + '</button>' +
                 '<button class="btn-icon ' + (r.active ? 'ic-red' : '') + '" data-pi-toggle="' + esc(r.code) + '" aria-label="เปิด/ปิด">' + icon(r.active ? 'ban' : 'check') + '</button>' +
-                (r.in_use ? '' : '<button class="btn-icon ic-red" data-pi-del="' + esc(r.code) + '" aria-label="ลบ">' + icon('x') + '</button>')
+                (r.in_use || currentUser().role !== 'SUPER_ADMIN' ? '' : '<button class="btn-icon ic-red" data-pi-del="' + esc(r.code) + '" aria-label="ลบ">' + icon('x') + '</button>')
               : '') + '</td></tr>';
         }).join('') : '<tr><td colspan="9" class="muted" style="padding:18px">ยังไม่มีรายการเงินเดือน</td></tr>';
 
@@ -3727,6 +3740,7 @@
   }
 
   function piDelete(code, el) {
+    if (currentUser().role !== 'SUPER_ADMIN') { toast('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบได้', 'error'); return; }
     var r = piFind(code);
     if (!r) return;
     confirmDialog('ลบรายการเงินเดือน',
@@ -3925,10 +3939,11 @@
             (r.assigned
               ? '<button class="btn-icon pe-abtn" data-pe-edit="' + esc(r.entry_id) + '" aria-label="แก้ไข" title="แก้ไข"' +
                 (locked ? ' disabled' : '') + '>' + icon('edit') + '</button>' +
-                '<button class="btn-icon pe-abtn ic-red" data-pe-del="' + esc(r.entry_id) + '"' +
+                (currentUser().role === 'SUPER_ADMIN' ? '<button class="btn-icon pe-abtn ic-red" data-pe-del="' + esc(r.entry_id) + '"' +
                 (r.can_delete && !locked ? '' : ' disabled') +
                 ' aria-label="ลบ" title="' + (r.can_delete && !locked
                   ? 'ลบรายการนี้' : 'ลบไม่ได้ — อยู่ในงวดที่ยืนยันแล้ว') + '">' + icon('trash') + '</button>'
+                : '')
               : '')
           : '') + '</td></tr>';
     }).join('');
@@ -4407,7 +4422,7 @@
 
         body.innerHTML = piEnRows.length ? piEnRows.map(function (r) {
           var mode = r.entry_mode || 'ONE_TIME';
-          var canDel = edit && r.can_delete && !r.locked;
+          var canDel = edit && currentUser().role === 'SUPER_ADMIN' && r.can_delete && !r.locked;
           return '<tr' + (r.is_active ? '' : ' class="row-mut"') + '>' +
             (edit ? '<td class="pi-ck-col"><input type="checkbox" class="pi-ck" value="' + esc(r.id) + '"' +
               (piSel[r.id] ? ' checked' : '') + '></td>' : '') +
@@ -4524,7 +4539,7 @@
         (lockedN ? '<small class="t-red">มี ' + lockedN + ' รายการที่ลบไม่ได้ (อยู่ในงวดที่ยืนยันแล้ว)</small>' : '') +
         '<span class="grow"></span>' +
         '<button class="btn btn-ghost btn-sm" id="pi-bdis">ปิดใช้งานที่เลือก</button>' +
-        '<button class="btn btn-danger btn-sm" id="pi-bdel">ลบที่เลือก</button>' +
+        (currentUser().role === 'SUPER_ADMIN' ? '<button class="btn btn-danger btn-sm" id="pi-bdel">ลบที่เลือก</button>' : '') +
         '<button class="btn btn-ghost btn-sm" id="pi-bclr">ยกเลิกการเลือก</button></div>';
 
       document.getElementById('pi-bclr').onclick = function () {
@@ -4540,7 +4555,8 @@
           'งวดเงินเดือนที่คำนวณหรือปิดไปแล้วไม่เปลี่ยนย้อนหลัง</small>',
           'ปิดใช้งาน', function () { return piBulkRun(el, 'DEACTIVATE'); }, true);
       };
-      document.getElementById('pi-bdel').onclick = function () {
+      var bulkDel = document.getElementById('pi-bdel');
+      if (bulkDel) bulkDel.onclick = function () {
         var n = piSelIds().length;
         confirmDialog('ลบรายการที่เลือก',
           'ยืนยันลบรายการที่เลือก ' + n + ' รายการหรือไม่' +
@@ -4567,6 +4583,9 @@
   }
 
   function piBulkRun(el, action) {
+    if (String(action || '').toUpperCase() === 'DELETE' && currentUser().role !== 'SUPER_ADMIN') {
+      toast('เฉพาะ SUPER_ADMIN เท่านั้นที่ลบได้', 'error'); return;
+    }
     var ids = piSelIds();
     if (!ids.length) return;
     piErr('');
@@ -4874,7 +4893,7 @@
 
   /* ฐานและยอดสมทบคำนวณที่ฐานข้อมูลด้วย njhr_sso_base() (สูตรกลางแหล่งเดียว)
      Frontend แค่แสดงผล ไม่คำนวณซ้ำ และไม่มีอัตรา/เพดาน Hardcode อีกต่อไป */
-  function ssoCanEdit() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function ssoCanEdit() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   function ssoOf(r) {
     return {
       enabled: r.sso_enabled !== false,

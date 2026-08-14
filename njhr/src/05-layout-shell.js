@@ -18,6 +18,10 @@
     //   Drawer "ประวัติการลงเวลา" = การ์ดประวัติ (.att-hcard) ที่มีอยู่แล้วในหน้าเดียวกัน
     { r: '#/attendance', q: '?sec=history', t: 'ประวัติการลงเวลา', i: 'clock' }
   ];
+  /* ADMIN ใช้งานเหมือน USER ทุกอย่าง และมีเพียงเมนูอนุมัติรายการเพิ่มอีก 1 หน้า */
+  var ADMIN_MENU = USER_MENU.concat([
+    { r: '#/approvals', t: 'อนุมัติรายการ', i: 'checkSquare', badge: true }
+  ]);
 
   var MENU_GROUPS = [
     {
@@ -59,7 +63,7 @@
      Route · สิทธิ์ · ข้อมูล ยังเป็นชุดเดียวกันทั้งหมด เปลี่ยนแค่ป้ายชื่อบนเมนู */
   function menuTitle(m) {
     var u = currentUser();
-    return (m.userTitle && u && u.role === 'USER') ? m.userTitle : m.t;
+    return (m.userTitle && u && ['USER', 'ADMIN'].indexOf(u.role) >= 0) ? m.userTitle : m.t;
   }
   // Badge ของเมนู 1 รายการ: อนุมัติรายการใช้ pendingCount() เดิม · เอกสารของฉันใช้ NJHR.state.docPending
   function menuBadgeOf(m, pc) {
@@ -316,21 +320,22 @@
           items.map(subLink).join('') + '</div></div>';
       }).join('');
 
-    /* USER เห็นเมนูชุดของตัวเอง — ผู้ดูแลยังเห็นเมนูหมวดเดิมทุกประการ */
-    var isUser = u.role === 'USER';
-    if (isUser) {
-      menuHTML = '<div class="menu-group">' + USER_MENU.filter(function (m) {
+    /* USER/ADMIN ใช้ Self-service shell เดียวกัน; ADMIN เพิ่มเฉพาะหน้าอนุมัติรายการ */
+    var isSelfService = ['USER', 'ADMIN'].indexOf(u.role) >= 0;
+    if (isSelfService) {
+      var selfMenu = u.role === 'ADMIN' ? ADMIN_MENU : USER_MENU;
+      menuHTML = '<div class="menu-group">' + selfMenu.filter(function (m) {
         return !ROUTES[m.r] || canAccess(m.r);
       }).map(subLink).join('') + '</div>';
     }
 
     app.innerHTML =
-      '<div class="layout' + (collapsed ? ' collapsed' : '') + (isUser ? ' user-shell' : '') + '">' +
+      '<div class="layout' + (collapsed ? ' collapsed' : '') + (isSelfService ? ' user-shell' : '') + '">' +
       '<div class="drawer-overlay" id="drawer-overlay"></div>' +
       '<aside class="sidebar" id="sidebar">' +
       '  <div class="side-brand"><span class="brand-badge">NJ</span><div class="brand-txt"><b>NJ LOGISTIC</b><small>HR SYSTEM</small></div>' +
       '    <button class="btn-icon side-close" id="drawer-close" aria-label="ปิดเมนู">' + icon('x') + '</button></div>' +
-      (isUser
+      (isSelfService
         // การ์ดโปรไฟล์: ชื่อ–นามสกุล · รหัสพนักงาน · แผนก · กดได้ทั้งการ์ด
         ? '  <a href="#/profile" class="side-user side-user-card" id="side-profile">' + avatarHTML(name, 46) +
           '    <div class="side-user-txt"><b>' + esc(name) + '</b>' +

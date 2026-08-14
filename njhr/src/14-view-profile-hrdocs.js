@@ -745,20 +745,17 @@
     var x = docStat(s);
     return '<span class="badge ' + x.c + '">' + x.em + ' ' + esc(x.t) + '</span>';
   }
-  function docCanManage() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function docCanManage() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   // เอกสารที่ยังเป็นร่าง = ยังไม่ออกใช้งาน
   function docIsIssued(st) { return ['DRAFT', 'PENDING', 'PENDING_APPROVAL'].indexOf(st) < 0; }
   /* สิทธิ์ลบเอกสาร (กฎเดียวกับฝั่งเซิร์ฟเวอร์ njhr_doc_delete)
      · ร่าง → ผู้สร้างเอกสาร / ADMIN / SUPER_ADMIN
      · ออกใช้งานแล้ว → SUPER_ADMIN เท่านั้น และต้องระบุเหตุผล */
+  /* ลบเอกสารทุกสถานะได้เฉพาะ SUPER_ADMIN; HR แก้ไข/อนุมัติได้แต่ลบไม่ได้ */
   function docCanDelete(r) {
-    if (!r) return false;
-    var u = currentUser(), role = u.role;
-    if (docIsIssued(r.status)) return role === 'SUPER_ADMIN';
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN') return true;
-    return String(r.issued_by || '').toLowerCase() === String(u.username || '').toLowerCase();
+    return !!r && currentUser().role === 'SUPER_ADMIN';
   }
-  function docCanApprove() { return ['SUPER_ADMIN', 'ADMIN'].indexOf(currentUser().role) >= 0; }
+  function docCanApprove() { return ['SUPER_ADMIN', 'HR'].indexOf(currentUser().role) >= 0; }
   function docErr(msg) { var b = document.getElementById('doc-err'); if (b) b.textContent = msg || ''; }
   function docDate(v) { return v ? empBE(String(v).slice(0, 10)) : '—'; }
   // บริบทอุปกรณ์สำหรับบันทึกหลักฐานการรับทราบ (IP ฝั่งเบราว์เซอร์อ่านไม่ได้ จึงเว้นไว้ให้เซิร์ฟเวอร์)
