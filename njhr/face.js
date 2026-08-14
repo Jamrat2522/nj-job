@@ -85,6 +85,70 @@
       });
     });
   }
+
+  /* Face Attendance บนมือถือจำเป็นต้องเห็นจำนวนแถวจริงจาก njhr_face_status
+     ห้ามใช้ rpc() ด้านบน เพราะ helper กลางนั้นคืนแถวแรกเพื่อคงพฤติกรรมเดิมของโมดูลอื่น */
+  function rpcRows(fn, body) {
+    var c = sb();
+    return fetchT(c.url + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { 'apikey': c.key, 'Authorization': 'Bearer ' + c.key,
+                 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body || {})
+    }, 'เชื่อมต่อเซิร์ฟเวอร์').then(function (r) {
+      return r.text().then(function (t) {
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch (e) { j = null; }
+        if (!r.ok) throw new Error((j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ'));
+        if (j == null) return [];
+        return Array.isArray(j) ? j : [j];
+      });
+    });
+  }
+
+  /* employee_id ต้องมาจาก Session ปัจจุบันที่ runtime ตรวจจาก server แล้วเท่านั้น
+     ไม่อ่านจากฟอร์ม/URL และไม่เดาแถวแรกจากรายการของ HR/SUPER_ADMIN */
+  function currentSessionEmployeeId() {
+    var u = null;
+    try {
+      if (w.NJHR && w.NJHR.auth && typeof w.NJHR.auth.currentUser === 'function') {
+        u = w.NJHR.auth.currentUser();
+      }
+    } catch (e) { u = null; }
+    var id = u && (u.empId || (u.sb && u.sb.employee_id));
+    return id ? String(id) : '';
+  }
+
+  function mobileAttendanceFaceStatus() {
+    var empId = currentSessionEmployeeId();
+    if (!empId) return Promise.reject(new Error('ไม่พบข้อมูลพนักงานของ Session ปัจจุบัน กรุณาเข้าสู่ระบบใหม่'));
+    return rpcRows('njhr_face_status', { p_token: token(), p_employee: empId, p_q: null })
+      .then(function (rows) {
+        if (rows.length !== 1) {
+          throw new Error('Face Status ของ Session ปัจจุบันไม่ถูกต้อง (' + rows.length + ' แถว)');
+        }
+        var row = rows[0] || {};
+        if (String(row.employee_id || '') !== empId) {
+          throw new Error('Face Status ไม่ตรงกับพนักงานของ Session ปัจจุบัน');
+        }
+        if (row.enrolled && !row.is_active) {
+          throw new Error('ข้อมูลใบหน้าของคุณถูกปิดใช้งาน กรุณาติดต่อฝ่ายบุคคล');
+        }
+        return !!row.enrolled;
+      });
+  }
+
+  function attendanceStatusError(e) {
+    var msg = (e && e.message) || 'ตรวจสถานะใบหน้าไม่สำเร็จ กรุณาลองใหม่';
+    try { console.error('[FACE ATTENDANCE STATUS]', e); } catch (e2) {}
+    try {
+      if (w.NJHR && w.NJHR.ui && typeof w.NJHR.ui.toast === 'function') {
+        w.NJHR.ui.toast(msg, 'error');
+        return;
+      }
+    } catch (e3) {}
+    try { w.alert(msg); } catch (e4) {}
+  }
   function fn(action, body) {
     var c = sb();
     return fetchT(c.url + '/functions/v1/njhr-face-file', {
@@ -477,9 +541,28 @@
   function punch(kind, onDone) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
+
+    /* แก้เฉพาะ Mobile Face Attendance:
+       HR/SUPER_ADMIN ที่ส่ง p_employee=null จะได้หลายแถวจาก Production RPC
+       จึงต้องระบุ employee_id ของ Session ปัจจุบันและห้ามเลือก [0] แบบสุ่ม
+       Desktop คง Flow เดิมทุกประการตามขอบเขตงาน */
+    if (deviceInfo().device === 'Mobile') {
+      mobileAttendanceFaceStatus()
+        .then(function (has) {
+          if (has) { S.busy = false; return doPunch(kind, onDone); }
+          S.busy = false;
+          enrollThenPunch(kind, onDone);
+        })
+        ['catch'](function (e) {
+          S.busy = false;
+          attendanceStatusError(e);
+        });
+      return;
+    }
+
     rpc('njhr_face_status', { p_token: token(), p_employee: null, p_q: null })
       .then(function (r) {
-        /* njhr_face_status คืนแถวของตัวเองเมื่อไม่ใช่แอดมิน (92_face_attendance.sql บรรทัด 12) */
+        /* Desktop คงพฤติกรรมเดิม — งานนี้แก้เฉพาะ Mobile */
         var row = Array.isArray(r) ? r[0] : r;
         return !!(row && row.enrolled && row.is_active);
       })
