@@ -140,11 +140,6 @@
       '<span class="grow"><b>กำลังตรวจตำแหน่ง</b><small>รอสัญญาณ GPS</small></span>' +
       '<span class="att-mb-ic2">' + icon('mapPin', 'ic-sm') + '</span></section>' +
 
-      '<section class="att-mb-st s-face" id="attmb-face">' +
-      '<span class="att-mb-ic">' + attMbFaceSVG() + '</span>' +
-      '<span class="grow"><b>กำลังเตรียมกล้อง</b><small>ระบบสแกนใบหน้ากำลังเตรียมพร้อม</small></span>' +
-      '<span class="att-mb-ic2">' + icon('shield', 'ic-sm') + '</span></section>' +
-
       /* ปุ่มลงเวลา 2 คอลัมน์กว้างเท่ากัน — เข้างานซ้าย ออกงานขวา
          ตรรกะเปิด-ปิดปุ่มยังเป็นของเดิมทุกบรรทัด (attMe().ok + สถานะ check_in/check_out) */
       '<div class="att-mb-acts">' +

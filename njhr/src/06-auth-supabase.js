@@ -88,7 +88,7 @@
        F3_correction_workflow.sql · K2_shift_membership.sql · 44_approval_workflow.sql
        ใส่ไว้แม้ Frontend ปัจจุบันยังไม่ได้เรียกทุกตัว เพื่อกันการจัดชั้นผิดเมื่อมีการเรียกในอนาคต */
     'njhr_att_correction_approve': 1, 'njhr_att_correction_reject': 1,
-    'njhr_shift_assign_many': 1, 'njhr_shift_no_shift_set': 1, 'njhr_shift_remove': 1,
+    'njhr_shift_assign_many': 1, 'njhr_shift_no_shift_set': 1, 'njhr_shift_remove': 1, 'njhr_shift_move_many': 1,
     'njhr_wf_approver_add': 1, 'njhr_wf_approver_remove': 1, 'njhr_wf_step_toggle': 1,
     /* RPC ที่ Frontend เริ่มเรียกในรอบย้าย Data Source (OT · ประกาศ · ตั้งค่า) */
     'njhr_announcement_save': 1, 'njhr_announcement_set_active': 1,
@@ -110,15 +110,45 @@
       body: JSON.stringify(body || {}),
       signal: ctl ? ctl.signal : undefined
     }).then(function (r) {
-      return r.json().then(function (j) {
+      return r.text().then(function (t) {
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch (e2) { j = null; }
         if (!r.ok) {
-          var e = new Error((j && (j.message || j.hint)) || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+          /* ห้ามกลืนรายละเอียดของ Error จากเซิร์ฟเวอร์
+             PostgREST ตอบกลับเป็น { code, message, details, hint }
+             เดิมเก็บแค่ message จึงไล่หาสาเหตุ 400 ไม่ได้เลย — ตอนนี้เก็บครบทุกช่อง
+             และพิมพ์ Body ดิบลง Console เพื่อให้เปิด DevTools แล้วอ่านได้ทันที */
+          var msg = (j && (j.message || j.hint || j.error)) || ('เซิร์ฟเวอร์ปฏิเสธคำขอ (HTTP ' + r.status + ')');
+          var e = new Error(msg);
           e.sbServer = true;                       // เซิร์ฟเวอร์ตอบแล้วแต่ปฏิเสธ — ห้าม retry
+          e.sbStatus = r.status;
+          e.sbCode = (j && j.code) || '';
+          e.sbDetails = (j && j.details) || '';
+          e.sbHint = (j && j.hint) || '';
+          e.sbBody = t || '';
+          e.sbFn = fn;
+          try {
+            console.error('[RPC ' + fn + '] HTTP ' + r.status +
+              (e.sbCode ? ' · code=' + e.sbCode : '') + ' · ' + msg +
+              (e.sbDetails ? '\n  details: ' + e.sbDetails : '') +
+              (e.sbHint ? '\n  hint: ' + e.sbHint : '') +
+              '\n  payload: ' + JSON.stringify(sbSafeBody(body)) +
+              '\n  response: ' + t);
+          } catch (e3) {}
           throw e;
         }
         return j;
       });
     });
+  }
+  /* ตัด token ออกก่อนพิมพ์ payload ลง Console — ไม่ให้ Session รั่วใน log */
+  function sbSafeBody(body) {
+    var out = {}, k;
+    for (k in body) {
+      if (!body.hasOwnProperty(k)) continue;
+      out[k] = (k === 'p_token') ? '(ซ่อนไว้)' : body[k];
+    }
+    return out;
   }
   /* ล็อกกันบันทึกซ้ำระดับข้อมูล — ใช้กับ RPC ที่เขียนข้อมูลเท่านั้น
      คีย์ = ชื่อ RPC + payload ที่ตัด token ออก

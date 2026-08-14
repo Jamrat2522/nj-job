@@ -1,3 +1,51 @@
+  /* ============================================================
+     ปุ่ม "↻ รีเฟรช" ของหัวข้อในหน้าตั้งค่า — ตัวเดียวใช้ร่วมกันทุกหัวข้อ
+       · เรียก "ฟังก์ชันโหลดข้อมูลเดิม" ของหัวข้อนั้นตรง ๆ ไม่มี Logic โหลดซ้ำ
+       · อ่านอย่างเดียว ไม่เขียนฐานข้อมูล · ไม่แตะ Route · ไม่ reload หน้า
+       · STG_BUSY เก็บสถานะไว้ระดับ chunk จึงยังกันกดซ้ำได้แม้หัวข้อนั้น
+         จะ re-render ตัวเองระหว่างกำลังโหลด (เช่น หน้าตั้งค่าการอนุมัติ)
+       · โหลดล้มเหลว = ปลดล็อกปุ่มเสมอ กดใหม่ได้ทันที
+     ============================================================ */
+  var STG_BUSY = {};
+  var STG_LABEL = '\u21BB \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A';           // ↻ รีเฟรช
+  var STG_LOADING = '<span class="spinner"></span> \u0E01\u0E33\u0E25\u0E31\u0E07\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A\u2026';
+
+  function stgRefreshBtn(key) {
+    var busy = !!STG_BUSY[key];
+    return '<button type="button" class="btn btn-ghost btn-sm stg-refresh" data-stg-refresh="' + esc(key) + '"' +
+      (busy ? ' disabled aria-busy="true"' : ' aria-busy="false"') +
+      ' title="โหลดข้อมูลล่าสุดของหัวข้อนี้">' + (busy ? STG_LOADING : STG_LABEL) + '</button>';
+  }
+
+  function stgFindBtn(key) {
+    return document.querySelector('[data-stg-refresh="' + key + '"]');
+  }
+
+  function stgBindRefresh(key, host, load) {
+    var b = (host && host.querySelector) ? host.querySelector('[data-stg-refresh="' + key + '"]') : stgFindBtn(key);
+    if (!b) return;
+    b.onclick = function () {
+      if (STG_BUSY[key]) return;                     // กันกดซ้ำระหว่างกำลังโหลด
+      STG_BUSY[key] = true;
+      var btn = this;
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = STG_LOADING;
+      function done() {
+        STG_BUSY[key] = false;
+        var cur = stgFindBtn(key);                   // ปุ่มอาจถูก re-render ไปแล้ว
+        if (!cur) return;
+        cur.disabled = false;
+        cur.setAttribute('aria-busy', 'false');
+        cur.innerHTML = STG_LABEL;
+      }
+      var p;
+      try { p = load(); } catch (e) { done(); throw e; }
+      if (p && typeof p.then === 'function') p.then(done, done);
+      else done();
+    };
+  }
+
   /* RPC ของ Attendance/Leave/OT รับ "ชื่อแผนก" เป็น text — dropdown เก็บชื่อแผนกตรง ๆ */
   function rpDeptName(v) { return v || null; }
   var rpDepts = [];                 // จาก njhr_emp_departments (ตาราง employees จริง)
@@ -582,7 +630,8 @@
   function viewShifts(el) {
     shState.pick = {};
     el.innerHTML =
-      '<div class="sh-head"><h3>ตั้งค่ากะทำงาน</h3>' +
+      '<div class="sh-head">' +
+      '<div class="stg-hrow"><h3>ตั้งค่ากะทำงาน</h3>' + stgRefreshBtn('shifts') + '</div>' +
       '<p class="muted">จัดการกะทำงาน เวลาทำงาน และกำหนดพนักงานที่ใช้กะนี้</p></div>' +
       '<div id="sh-body"><div class="sh-kpis">' +
       '<div class="sh-skel k"></div><div class="sh-skel k"></div>' +
@@ -591,6 +640,9 @@
       '<div class="sh-skel c"></div></div></div>' +
       '<div class="form-error" id="sh-err" role="alert" style="white-space:pre-line"></div>';
     shLoad(el);
+    // รีเฟรช = เรียก shLoad ตัวเดิม (njhr_shift_list · njhr_shift_unassigned_employees ·
+    // njhr_emp_list ×3 · njhr_shift_no_shift_employees แล้วต่อด้วย njhr_shift_employee_list)
+    stgBindRefresh('shifts', el, function () { return shLoad(el); });
   }
 
   /* รายชื่อพนักงานไม่แสดงบนการ์ดอีกต่อไป — ดูได้จากเมนู ⋮ → รายชื่อพนักงาน
@@ -1054,9 +1106,11 @@
     };
   }
 
-  /* ---------- ตัวเรียก RPC สมาชิกกะทั้งหมด (K2) ----------
-     ทุกตัวเป็น Batch รับ uuid[] ยิงครั้งเดียวต่อการกด 1 ครั้ง — ไม่มีการวน RPC ทีละคนอีกแล้ว
-     Frontend ไม่แตะ employee_shifts เอง ทุกอย่างผ่าน RPC ฐานข้อมูลเป็น Source of Truth */
+  /* ---------- ตัวเรียก RPC สมาชิกกะทั้งหมด ----------
+     การย้ายกะใช้ njhr_shift_move_many ตัวเดียว:
+     - ส่ง employee ids เป็น JSON array (jsonb) เพื่อไม่ให้ PostgREST ต้อง cast JSON -> uuid[] ก่อนเข้า RPC
+     - Backend validate UUID/date/shift เองและ UPSERT แถว effective_date เดียว
+     - Frontend ไม่แตะ employee_shifts เอง ทุกอย่างผ่าน RPC ฐานข้อมูลเป็น Source of Truth */
   function shBatch(btn, loadingText, fn, args, okText, el) {
     if (!btn || btn.dataset.busy === '1') return Promise.resolve(null);
     var label = btn.innerHTML;
@@ -1069,7 +1123,14 @@
       toast(okText.replace('{n}', n) + (same ? ' · ไม่มีการเปลี่ยนแปลง ' + same + ' คน' : ''));
       return rows || [];
     }).catch(function (ex) {
-      shErr((ex && ex.message) || 'ดำเนินการไม่สำเร็จ');   // ห้ามกลืน Error
+      /* ห้ามกลืน Error และห้ามแสดงว่าสำเร็จ — แสดงรายละเอียดจากเซิร์ฟเวอร์ให้ครบ
+         (PostgREST ตอบ code / message / details / hint · sbOnce เก็บมาให้แล้ว)
+         Body ดิบทั้งก้อนถูกพิมพ์ลง Console โดย sbOnce เพื่อให้เปิด DevTools อ่านได้ */
+      var m = (ex && ex.message) || 'ดำเนินการไม่สำเร็จ';
+      if (ex && ex.sbStatus) m += ' (HTTP ' + ex.sbStatus + (ex.sbCode ? ' · ' + ex.sbCode : '') + ')';
+      if (ex && ex.sbDetails) m += '\n' + ex.sbDetails;
+      if (ex && ex.sbHint) m += '\n' + ex.sbHint;
+      shErr(m);
       return null;
     }).then(function (rows) {
       btn.dataset.busy = '0'; btn.disabled = false; btn.innerHTML = label;
@@ -1079,18 +1140,46 @@
     });
   }
 
-  /* ผูก/ย้ายกะหลายคนพร้อมกัน — njhr_shift_assign_many (Batch) */
+  function shMovePayload(ids, shiftId, dt, noShift) {
+    var uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    var dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    var clean = [], seen = {};
+    (ids || []).forEach(function (id) {
+      id = String(id || '').trim();
+      if (!uuidRe.test(id)) throw new Error('พบข้อมูลพนักงานไม่ถูกต้อง กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง');
+      if (!seen[id]) { seen[id] = 1; clean.push(id); }
+    });
+    if (!clean.length) throw new Error('กรุณาเลือกพนักงานอย่างน้อย 1 คน');
+    if (!dateRe.test(String(dt || ''))) throw new Error('วันที่มีผลไม่ถูกต้อง');
+    if (!noShift && !uuidRe.test(String(shiftId || ''))) throw new Error('กะปลายทางไม่ถูกต้อง กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง');
+    return {
+      p_token: sbToken(),
+      p_employees: clean,
+      p_shift: noShift ? null : String(shiftId),
+      p_effective_date: String(dt),
+      p_no_shift: !!noShift
+    };
+  }
+
+  /* ผูก/ย้ายกะหลายคนพร้อมกัน — endpoint เดียวที่รับ JSONB เพื่อให้ Browser/PostgREST เสถียร */
   function shAssignMany(ids, shiftId, dt, btn, el) {
-    var w = shFind(shiftId);
-    return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_assign_many',
-      { p_token: sbToken(), p_employees: ids, p_shift: shiftId, p_effective_date: dt },
+    var w = shFind(shiftId), payload;
+    try { payload = shMovePayload(ids, shiftId, dt, false); }
+    catch (ex) { shErr(ex.message || 'ข้อมูลย้ายกะไม่ถูกต้อง'); return Promise.resolve(null); }
+    return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_move_many', payload,
       'ผูกกะ' + (w ? ' ' + w.shift_name : '') + ' ให้พนักงาน {n} คนแล้ว', el);
   }
 
   function shNoShiftSet(ids, dt, on, btn, el) {
-    return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_no_shift_set',
-      { p_token: sbToken(), p_employees: ids, p_effective_date: dt, p_on: !!on },
-      on ? 'ย้ายไปไม่มีกะ {n} คนแล้ว' : 'ยกเลิกไม่มีกะ {n} คนแล้ว', el);
+    var payload;
+    if (!on) {
+      shErr('กรุณาเลือกกะปลายทางก่อนยกเลิกสถานะไม่มีกะ');
+      return Promise.resolve(null);
+    }
+    try { payload = shMovePayload(ids, null, dt, true); }
+    catch (ex) { shErr(ex.message || 'ข้อมูลย้ายกะไม่ถูกต้อง'); return Promise.resolve(null); }
+    return shBatch(btn, 'กำลังบันทึก…', 'njhr_shift_move_many', payload,
+      'ย้ายไปไม่มีกะ {n} คนแล้ว', el);
   }
 
   /* ---------- รายชื่อพนักงานในกะ + ย้ายไปกะอื่น ---------- */
@@ -1478,7 +1567,8 @@
     if (typeof GF_ST.sort === 'undefined') GF_ST.sort = 'RECENT';
 
     el.innerHTML =
-      '<div class="gf-head"><div class="grow"><h3>พื้นที่ลงเวลา</h3>' +
+      '<div class="gf-head"><div class="grow">' +
+      '<div class="stg-hrow"><h3>พื้นที่ลงเวลา</h3>' + stgRefreshBtn('geofence') + '</div>' +
       '<p class="muted">จัดการสถานที่และพนักงานที่ได้รับอนุญาตให้ลงเวลาเข้า–ออกงาน</p></div></div>' +
       // แถบเครื่องมือแถวเดียว: ค้นหา → สถานะ → เรียงตาม → ปุ่มเพิ่ม (ขวาสุด)
       '<div class="gf-bar">' +
@@ -1516,11 +1606,13 @@
     };
     gfLoadList(el, seq);
     gfLegacyNotice(el);
+    // รีเฟรช = เรียก gfLoadList ตัวเดิม (RPC njhr_gf_list) วาดเฉพาะ #gf-body ใหม่
+    stgBindRefresh('geofence', el, function () { return gfLoadList(el, ++GF_ST.seq); });
   }
 
   function gfLoadList(el, seq) {
     gfErrEl('');
-    sbRpcList('njhr_gf_list', { p_token: sbToken(), p_q: GF_ST.q || null }).then(function (rows) {
+    return sbRpcList('njhr_gf_list', { p_token: sbToken(), p_q: GF_ST.q || null }).then(function (rows) {
       if (seq !== GF_ST.seq) return;
       GF_ROWS = rows || [];
       gfDrawCards(el);
@@ -2491,7 +2583,8 @@
     el.innerHTML =
       '<div class="card as-top">' +
       '<div class="as-top-row">' +
-      '<div class="as-top-txt"><h3>ตั้งค่าการอนุมัติ (Workflow)</h3>' +
+      '<div class="as-top-txt">' +
+      '<div class="stg-hrow"><h3>ตั้งค่าการอนุมัติ (Workflow)</h3>' + stgRefreshBtn('approval') + '</div>' +
       '<p class="muted">สร้างชุดขั้นตอนการอนุมัติ กำหนดได้ว่าใช้กับทุกแผนก เฉพาะแผนกที่เลือก หรือเลือกพนักงานรายคน</p></div>' +
       '<div class="toolbar as-filters">' +
       '<select id="as-type" aria-label="ประเภทคำขอ">' +
@@ -2509,8 +2602,11 @@
       asState.type = this.value; asState.wfId = ''; asQ = {}; viewApprovalSettings(el);
     };
     document.getElementById('as-add-wf').onclick = function () { asWfForm(null, el); };
+    // รีเฟรช = เรียก viewApprovalSettings ตัวเดิมซ้ำบน element เดิม (njhr_wf_list ·
+    // njhr_wf_overview · njhr_wf_steps) — asState.seq ตัวเดิมกันผลลัพธ์เก่าทับของใหม่
+    stgBindRefresh('approval', el, function () { return viewApprovalSettings(el); });
 
-    sbRpcList('njhr_wf_list', { p_token: sbToken(), p_type: asState.type }).then(function (rows) {
+    return sbRpcList('njhr_wf_list', { p_token: sbToken(), p_type: asState.type }).then(function (rows) {
       if (seq !== asState.seq) return;
       asWfs = rows || [];
       asApplyJumpDept();
@@ -3511,11 +3607,14 @@
   function viewPayItems(el) {
     if (!sbReady()) { el.innerHTML = emptyState('ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase'); return; }
     el.innerHTML =
-      '<div class="pe-head"><h3>กำหนดรายการเงินเดือนให้พนักงาน</h3>' +
+      '<div class="pe-head">' +
+      '<div class="stg-hrow"><h3>กำหนดรายการเงินเดือนให้พนักงาน</h3>' + stgRefreshBtn('pay-items') + '</div>' +
       '<p class="muted">กำหนดรายการเงินเพิ่มหรือเงินหักให้พนักงานในแต่ละเดือน</p></div>' +
       '<div id="pi-panel"></div>' +
       '<div class="form-error" id="pi-err" role="alert" style="white-space:pre-line"></div>';
     piEmpPanel(el);
+    // รีเฟรช = เรียก piEmpPanel ตัวเดิม (RPC njhr_pay_emp_list) วาดเฉพาะ #pi-panel ใหม่
+    stgBindRefresh('pay-items', el, function () { return piEmpPanel(el); });
   }
 
   /* ---------- Master: เงินเพิ่ม / เงินหัก ---------- */
@@ -3759,7 +3858,7 @@
     };
     if (edit) document.getElementById('pe-add').onclick = function () { peAssignModal(el, null); };
 
-    sbRpcList('njhr_pay_emp_list', {
+    return sbRpcList('njhr_pay_emp_list', {
       p_token: sbToken(), p_year: piY, p_month: piM,
       p_q: peState.q || null, p_status: peState.status
     }).then(function (rows) {

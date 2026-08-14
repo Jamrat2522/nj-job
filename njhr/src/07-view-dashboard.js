@@ -533,13 +533,13 @@
       var emp2 = d && d.employee ? d.employee : null;
       if (!emp2) return;
       /* 1) photo_url เป็น URL เต็ม (https:// หรือ data:image/) → ใช้ตรง ๆ
-         2) มีค่าแต่ไม่ใช่ URL เต็ม = เป็น path ใน Storage → ขอ Signed URL ผ่าน Edge Function
-         3) ไม่มีค่าเลย → ใช้ Avatar ตัวอักษรทันที ไม่ต้องยิง njhr_empfile_list
-            (เดิมยิงทุกครั้งแม้ photo_url ว่าง = เสีย 1 Round-trip ฟรีให้ผู้ใช้ทุกคน)
-         4) ขอไม่สำเร็จ / รูปเสีย → Avatar ตัวอักษร (หน้าไม่พัง) */
+         2) นอกนั้นให้ค้น PHOTO ล่าสุดจากแฟ้มพนักงานแล้วขอ Signed URL
+            เพราะระบบอัปโหลดรูปโปรไฟล์จริงบันทึกที่ njhr_emp_files และไม่ได้เขียน employees.photo_url
+         3) ไม่มี PHOTO / ขอ Signed URL ไม่สำเร็จ / รูปเสีย → Avatar ตัวอักษร (หน้าไม่พัง)
+         จำกัดอยู่ใน Mobile Dashboard เท่านั้น ไม่แก้ข้อมูลและไม่แตะหน้า Profile/Desktop */
       var pv = String(emp2.photo_url == null ? '' : emp2.photo_url).trim();
       if (dashHomePhoto(pv)) dashHomeSetPhoto(seq, name, pv);
-      else if (pv) dashHomePhotoSigned(seq, name, emp2.id || e.id || u.empId);
+      else dashHomePhotoSigned(seq, name, emp2.id || e.id || u.empId);
       var cd = document.getElementById('mh-code');
       if (cd && emp2.emp_code) cd.textContent = emp2.emp_code;
       var dv = document.getElementById('mh-dept');

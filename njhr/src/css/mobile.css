@@ -2305,21 +2305,26 @@ select.gf-sort {
 
 
 /* ============================================================
-   FINAL UX — ตั้งค่ากะทำงาน (Desktop): คนที่ยังไม่มีกะต้องเห็นก่อนทันที
+   ตั้งค่ากะทำงาน (Desktop) — ลำดับบล็อกบนหน้า
+     1) รายการกะทำงาน  = หัวข้อ → KPI → ค้นหา/ตัวกรอง → รายการกะ   (บนสุดเสมอ)
+     2) พนักงานที่มีกะใช้งานอยู่ (#sh-assigned)
+     3) ไม่มีกะ (.sh-ns-card)
+     4) พนักงานที่ยังไม่ได้กำหนดกะ / พื้นที่เลือกเพื่อย้ายกะ (.sh-sec)
    เปลี่ยนเฉพาะลำดับ/หน้าตา ไม่แตะ RPC หรือ Logic กะ
+   บล็อกนี้เป็นชุดเดียวที่กำหนด order ของ #sh-body — ห้ามเพิ่มชุดซ้อนทับ
    ============================================================ */
 @media (min-width: 1024px) {
   #sh-body { display: flex; flex-direction: column; min-width: 0; }
-  #sh-body > .sh-sec { order: 1; }
-  #sh-body > #sh-assigned { order: 2; }
-  #sh-body > .sh-ns-card { order: 3; }
-  #sh-body > .sh-kpis { order: 10; position: relative; margin-top: 26px; padding-top: 40px; }
+  #sh-body > .sh-kpis { order: 1; position: relative; margin-top: 0; padding-top: 30px; }
   #sh-body > .sh-kpis::before {
     content: 'รายการกะทำงาน'; position: absolute; left: 0; top: 0;
     font-size: 16px; font-weight: 600; color: var(--navy, #101827);
   }
-  #sh-body > .sh-bar { order: 11; }
-  #sh-body > .sh-grid, #sh-body > .gf-empty { order: 12; }
+  #sh-body > .sh-bar { order: 2; }
+  #sh-body > .sh-grid, #sh-body > .gf-empty { order: 3; }
+  #sh-body > #sh-assigned { order: 4; }
+  #sh-body > .sh-ns-card { order: 5; }
+  #sh-body > .sh-sec { order: 6; margin-top: 4px; }
   #sh-body > .sh-sec:first-of-type {
     border-color: #E3E8F0; box-shadow: 0 2px 10px rgba(16,24,40,.06);
   }
@@ -2370,3 +2375,15 @@ select.gf-sort {
   .lvf-2col > .field > input,
   .modal-overlay.modal-full .lvf-2col > .field > input { padding-left: 8px; padding-right: 8px; }
 }
+
+
+/* ============================================================
+   หน้าตั้งค่าระบบ — ปุ่ม "↻ รีเฟรช" วางติดกับหัวข้อของแต่ละหน้า
+     พื้นที่ลงเวลา [↻ รีเฟรช] · ตั้งค่ากะทำงาน [↻ รีเฟรช]
+     ตั้งค่าการอนุมัติ [↻ รีเฟรช] · รายการเงินเดือน [↻ รีเฟรช]
+   .stg-hrow ครอบเฉพาะ <h3> กับปุ่ม — คำอธิบายใต้หัวข้อยังอยู่บรรทัดเดิม
+   ไม่เปลี่ยนขนาดตัวอักษร สี หรือระยะห่างเดิมของหัวข้อ
+   ============================================================ */
+.stg-hrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 3px; }
+.stg-hrow > h3 { margin: 0; }
+.stg-refresh { flex: none; white-space: nowrap; }
