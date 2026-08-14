@@ -306,6 +306,135 @@
     }
   }
 
+  /* ---------- ความปลอดภัยและการเข้าสู่ระบบ (มือถือเท่านั้น) ----------
+     ⚠ ใช้ Face Template ชุดเดียวกับการลงเวลา (njhr_emp_faces) ไม่สร้างฐานใบหน้าชุดที่สอง
+       ถ้าลงทะเบียนใบหน้าไว้แล้วจากการลงเวลา → เปิด Face Login ได้เลย ไม่ต้องถ่าย 3 มุมซ้ำ
+       ถ้ายังไม่มี → ถ่าย 3 มุมก่อน แล้วจึงเปิด
+     ⚠ ทุกการกระทำต้องยืนยันรหัสผ่านปัจจุบัน (ตรวจฝั่งฐานข้อมูลใน njhr_face_login_set) */
+  function pfSecHtml() {
+    return '<section class="pfm-info pfm-sec" id="pfm-sec">' +
+      '<div class="pfm-info-h">' + icon('shield', 'ic-sm') +
+      '<b>ความปลอดภัยและการเข้าสู่ระบบ</b></div>' +
+      '<div class="pfm-sec-row">' +
+      '<div class="pfm-sec-t"><b>สแกนใบหน้าเข้าสู่ระบบ</b>' +
+      '<small id="pfsec-st">กำลังตรวจสอบ…</small></div></div>' +
+      '<div class="pfm-sec-act" id="pfsec-act"></div>' +
+      '<div class="pfm-sec-msg" id="pfsec-msg" hidden></div></section>';
+  }
+
+  function pfSecMsg(t, err) {
+    var b = document.getElementById('pfsec-msg');
+    if (!b) return;
+    b.textContent = t || '';
+    b.hidden = !t;
+    b.className = 'pfm-sec-msg' + (err ? ' is-err' : '');
+  }
+
+  /* ถามรหัสผ่านปัจจุบัน — ฝั่งหน้าจอเป็นเพียงตัวรับค่า ฐานข้อมูลเป็นด่านจริง */
+  function pfSecAskPw(title, okLabel) {
+    return new Promise(function (resolve) {
+      openModal(title,
+        '<label class="field"><span>รหัสผ่านปัจจุบัน</span>' +
+        '<input type="password" id="pfsec-pw" autocomplete="current-password"></label>' +
+        '<div class="form-error" id="pfsec-pwerr" role="alert"></div>',
+        '<button class="btn btn-ghost" id="pfsec-no">ยกเลิก</button>' +
+        '<button class="btn btn-primary" id="pfsec-yes">' + esc(okLabel) + '</button>');
+      document.getElementById('pfsec-no').onclick = function () { closeModal(); resolve(null); };
+      document.getElementById('pfsec-yes').onclick = function () {
+        var v = String((document.getElementById('pfsec-pw') || {}).value || '');
+        if (!v) { document.getElementById('pfsec-pwerr').textContent = 'กรุณากรอกรหัสผ่าน'; return; }
+        closeModal(); resolve(v);
+      };
+      var i = document.getElementById('pfsec-pw');
+      if (i) i.focus();
+    });
+  }
+
+  function pfSecSet(pw, enable) {
+    return sbRpc('njhr_face_login_set',
+      { p_token: sbToken(), p_password: pw, p_enable: enable });
+  }
+
+  function pfSecInit(el) {
+    var box = el.querySelector('#pfm-sec');
+    if (!box) return;
+
+    function paint(s) {
+      var st = document.getElementById('pfsec-st');
+      var act = document.getElementById('pfsec-act');
+      if (!st || !act) return;
+      var on = !!(s && s.face_login_enabled);
+      var enrolled = !!(s && s.enrolled);
+      st.textContent = on ? 'เปิดใช้งาน' : (enrolled ? 'ปิดใช้งาน' : 'ยังไม่ได้ตั้งค่า');
+      st.className = on ? 'is-on' : '';
+      act.innerHTML = on
+        ? '<button type="button" class="btn btn-ghost btn-block" id="pfsec-off">' +
+          'ปิดการเข้าสู่ระบบด้วยใบหน้า</button>'
+        : '<button type="button" class="btn btn-dark btn-block" id="pfsec-on">' +
+          icon('camera') + ' ตั้งค่าสแกนใบหน้าเข้าสู่ระบบ</button>';
+      bind(enrolled);
+    }
+
+    function load() {
+      sbRpc('njhr_face_login_status', { p_token: sbToken() })
+        .then(paint)
+        ['catch'](function (e) {
+          var st = document.getElementById('pfsec-st');
+          if (st) st.textContent = 'ตรวจสอบสถานะไม่สำเร็จ';
+          console.error('[PROFILE] njhr_face_login_status ล้มเหลว:', e);
+        });
+    }
+
+    function bind(enrolled) {
+      var on = document.getElementById('pfsec-on');
+      var off = document.getElementById('pfsec-off');
+      if (on) on.onclick = function () {
+        pfSecMsg('');
+        pfSecAskPw('ตั้งค่าสแกนใบหน้าเข้าสู่ระบบ', 'ยืนยัน').then(function (pw) {
+          if (!pw) return;
+          /* มี Face Template อยู่แล้ว → เปิดได้เลย ไม่ต้องถ่าย 3 มุมซ้ำ */
+          if (enrolled) return pfSecSet(pw, true).then(function () {
+            pfSecMsg('เปิดใช้งานการเข้าสู่ระบบด้วยใบหน้าสำเร็จ', false);
+            load();
+          });
+          /* ยังไม่มี → ถ่าย 3 มุมก่อน แล้วจึงเปิด */
+          return pfSecFaceModule().then(function () {
+            window.NJHRFace.enroll(null, function () {
+              pfSecSet(pw, true).then(function () {
+                pfSecMsg('ตั้งค่าสแกนใบหน้าเข้าสู่ระบบสำเร็จ', false);
+                load();
+              })['catch'](function (e2) {
+                pfSecMsg((e2 && e2.message) || 'เปิดใช้งานไม่สำเร็จ', true);
+                load();
+              });
+            });
+          });
+        })['catch'](function (e) {
+          pfSecMsg((e && e.message) || 'ดำเนินการไม่สำเร็จ', true);
+        });
+      };
+      if (off) off.onclick = function () {
+        pfSecMsg('');
+        pfSecAskPw('ปิดการเข้าสู่ระบบด้วยใบหน้า', 'ปิดใช้งาน').then(function (pw) {
+          if (!pw) return;
+          return pfSecSet(pw, false).then(function () {
+            pfSecMsg('ปิดการเข้าสู่ระบบด้วยใบหน้าแล้ว', false);
+            load();
+          });
+        })['catch'](function (e) {
+          pfSecMsg((e && e.message) || 'ดำเนินการไม่สำเร็จ', true);
+        });
+      };
+    }
+
+    function pfSecFaceModule() {
+      if (window.NJHRFace) return Promise.resolve();
+      return loadScriptOnce('face', njAsset('face.js'), 'NJHRFace');
+    }
+
+    load();
+  }
+
   function pfMobileHtml(u, e) {
     var name = e ? (e.title + e.firstName + ' ' + e.lastName) : u.username;    return '<div class="only-mobile pfm">' +
       '<div class="pfm-brand"><span class="pfm-logo">NJL</span>' +
@@ -327,6 +456,7 @@
       '<span class="pfm-x2">' + icon('chevR') + '</span></a>' +
       '<div class="pfm-photo-msg" id="pfm-photo-msg" hidden></div>' +
       pfInfoHtml() +
+      pfSecHtml() +
 
       '<nav class="pfm-menu">' + PF_MENU.map(function (m) {
         return '<button type="button" class="pfm-item ' + m[4] + '" data-pfm="' + esc(m[0]) + '">' +
@@ -403,6 +533,7 @@
       : Promise.resolve(null);
 
     pfMePromise.then(function (me) { pfFillInfo(me); });
+    pfSecInit(el);
     pfPhotoInit(el, pfMePromise);
 
     var saveBtn = document.getElementById('pf-save');

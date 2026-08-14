@@ -435,6 +435,8 @@
       '<button class="btn btn-primary btn-block btn-lg" id="lg-btn" type="submit">' + icon('login') + ' เข้าสู่ระบบ</button>' +
       '</form>' +
       '<div class="login-links">' +
+      '<button type="button" class="btn btn-dark btn-block only-mobile lg-face-btn" id="lg-face">' +
+      icon('camera') + ' สแกนใบหน้าเข้าสู่ระบบ</button>' +
       '<button type="button" class="btn btn-ghost btn-block" id="lg-activate">สมัครสมาชิกครั้งแรก</button>' +
       '</div>' +
       '</div></div>';
@@ -482,6 +484,48 @@
       }).catch(function (e) { loginFail(e.message || 'เข้าสู่ระบบไม่สำเร็จ'); });
     };
     document.getElementById('lg-activate').onclick = function () { actOpenForm(); };
+
+    /* ---------- สแกนใบหน้าเข้าสู่ระบบ (มือถือ) ----------
+       ⚠ ไม่ขอ GPS · ไม่สร้าง Attendance · เข้า Dashboard เท่านั้น
+       ใช้เส้นทางสร้าง session เดียวกับรหัสผ่านทุกบรรทัด (sbSetToken → session → nav)
+       รหัสผ่านยังใช้ได้ตลอดเป็นระบบสำรอง — ปุ่มนี้เป็นทางเลือกเพิ่ม ไม่ได้แทนที่ */
+    var faceBtn = document.getElementById('lg-face');
+    if (faceBtn) faceBtn.onclick = function () {
+      var err = document.getElementById('lg-error');
+      if (err) err.textContent = '';
+      faceBtn.disabled = true;
+      faceBtn.innerHTML = '<span class="spinner"></span> กำลังเตรียมกล้อง…';
+      function reset() {
+        faceBtn.disabled = false;
+        faceBtn.innerHTML = icon('camera') + ' สแกนใบหน้าเข้าสู่ระบบ';
+      }
+      function start() {
+        if (!window.NJHRFace || typeof window.NJHRFace.login !== 'function') {
+          reset();
+          if (err) err.textContent = 'ระบบสแกนใบหน้ายังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน';
+          return;
+        }
+        reset();
+        window.NJHRFace.login(function (u) {
+          if (u.session_token) sbSetToken(u.session_token);
+          session = { userId: u.user_id, at: nowStamp(), src: 'supabase' };
+          sbUser = u;
+          saveSession(); sbSaveUser();
+          audit('LOGIN', 'เข้าสู่ระบบด้วยใบหน้าสำเร็จ (Supabase · ' + u.role + ')');
+          toast('ยินดีต้อนรับ ' + (u.emp_name || u.username));
+          nav('#/dashboard');
+          refreshPendingAll();
+          refreshNotifyBadge();
+          hydrateSettings();
+        }, function () { reset(); });
+      }
+      if (window.NJHRFace) return start();
+      /* โหลดโมดูลกล้องเมื่อกดเท่านั้น — ไม่ถ่วงหน้า Login ของทุกคน */
+      loadScriptOnce('face', njAsset('face.js'), 'NJHRFace').then(start)['catch'](function () {
+        reset();
+        if (err) err.textContent = 'โหลดระบบสแกนใบหน้าไม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน';
+      });
+    };
     document.getElementById('lg-user').focus();
   }
 
