@@ -65,10 +65,21 @@ Deno.serve(async (req) => {
 
   try {
     // ---------- ขอสิทธิ์อัปโหลดรูป ----------
+    // size เป็น "ตัวเลือก": ถ้า Client ส่งมา (รู้ขนาดแล้ว) ยังตรวจเหมือนเดิมทุกประการ
+    // ถ้าไม่ส่ง (Upload Reservation ล่วงหน้าก่อนมี Blob) จะไม่ตรวจที่นี่ — และไม่ตรวจก็ปลอดภัย
+    // เพราะบัคเก็ต njhr-face ถูกบังคับที่ชั้น Storage จริงแล้ว:
+    //     file_size_limit = 3 MB · allowed_mime_types = image/jpeg
+    // Storage เป็นผู้ Reject การอัปโหลดจริงที่เกินขนาดหรือ MIME ผิด
+    // ไม่มีการรับ size = 0 หรือ size ปลอมมาใช้หลบ Validation
     if (p.action === "upload-url") {
-      const size = Number(p.size || 0);
-      if (size > MAX_SIZE) {
-        return json({ error: `รูปใหญ่เกิน ${MAX_SIZE / 1024 / 1024} MB` }, 413);
+      if (p.size !== undefined && p.size !== null) {
+        const size = Number(p.size);
+        if (!Number.isFinite(size) || size < 0) {
+          return json({ error: "ขนาดไฟล์ไม่ถูกต้อง" }, 400);
+        }
+        if (size > MAX_SIZE) {
+          return json({ error: `รูปใหญ่เกิน ${MAX_SIZE / 1024 / 1024} MB` }, 413);
+        }
       }
       const rows = await rpc("njhr_face_upload_path", {
         p_token: token,

@@ -143,6 +143,14 @@
 # 5) รูปภาพและ asset อื่น — แคชได้ปานกลาง
 #    ไม่มี ?v= จึงไม่ใช้ immutable · 7 วันแล้วตรวจใหม่
 # ─────────────────────────────────────────────────────────────
+# โมเดลตรวจใบหน้า (face-api 1.7.13) — เนื้อไฟล์ไม่มีวันเปลี่ยนโดยไม่เปลี่ยนชื่อ/เวอร์ชัน
+# จึงตั้ง immutable ให้โหลดครั้งเดียวถาวร ไม่โหลดซ้ำแม้ Deploy Release ใหม่
+# (Service Worker ปล่อยผ่าน path นี้อยู่แล้ว — ไม่อยู่ใน CORE/LAZY จึงไม่ผูกกับ Build Version)
+[[headers]]
+  for = "/assets/models/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 [[headers]]
   for = "/assets/*"
   [headers.values]

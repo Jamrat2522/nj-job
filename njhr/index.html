@@ -7,10 +7,12 @@
   <meta name="theme-color" content="#101827">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0ce0b08b">
+  <!-- CSS ของระบบ (Critical) มาก่อนฟอนต์ภายนอก — ฟอนต์ใช้ display=swap อยู่แล้ว
+       จึงวาดหน้าด้วยฟอนต์สำรองได้ทันทีระหว่างรอ ไม่บล็อกการเรนเดอร์บนเน็ตช้า -->
+  <link rel="stylesheet" href="styles.css?v=f384017b">
   <!-- ส่วนเพิ่มสำหรับมือถือ (ไม่แก้ styles.css เดิม) -->
-  <link rel="stylesheet" href="mobile.css?v=a9b2131a">
+  <link rel="stylesheet" href="mobile.css?v=1936a3b3">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="app"></div>
@@ -56,7 +58,7 @@
       return pr;
     };
 
-    if (window.NJHR_ENV !== 'production') window.NJHR_loadBootScript('mock-data.js?v=b7b92fb9');
+    if (window.NJHR_ENV !== 'production') window.NJHR_loadBootScript('mock-data.js?v=65e2f419');
   </script>
   <!-- Environment Safety Gate — ข้อบังคับ (กฎข้อ 50)
        BLOCK แม้ข้อเดียว: ห้ามสร้าง Supabase Client · ห้าม Login · ห้ามเรียก Table/RPC/Storage
@@ -116,7 +118,7 @@
           if (el) el.innerHTML = '<div style="padding:24px;font-family:system-ui">' +
             'โหลดไฟล์ระบบไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง</div>';
         };
-        window.NJHR_loadBootScript('asset-manifest.js?v=772e0b96')
+        window.NJHR_loadBootScript('asset-manifest.js?v=1ec67a23')
           .then(function () {
             var A = window.NJHR_ASSETS;
             if (!A || !A.runtime || !A.runtime.namespace || !A.runtime.core) throw new Error('ASSET_MANIFEST_MISSING');

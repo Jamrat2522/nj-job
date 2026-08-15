@@ -21,12 +21,19 @@
 (function (w, d) {
   'use strict';
 
-  var FACE_API_SRC = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js';
-  var MODEL_URL = w.NJHR_FACE_MODEL_URL ||
-    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
+  /* ---------- แหล่งไลบรารี + โมเดล ----------
+     หลัก:   assets/models/ บน Origin เดียวกับระบบ (netlify.toml ตั้ง immutable
+             จึงโหลดครั้งเดียวถาวร ไม่โหลดซ้ำแม้ Deploy เวอร์ชันใหม่)
+     สำรอง:  jsDelivr CDN ตัวเดิม — ใช้เฉพาะเมื่อไฟล์ Local โหลดไม่สำเร็จ
+             (เช่น Deploy ไม่ครบ) เพื่อไม่ให้การลงเวลาหยุดทั้งบริษัท
+     ไฟล์และเวอร์ชันตรงกันทั้งสองแหล่ง (@vladmandic/face-api@1.7.13) ผลตรวจจึงเท่ากัน */
+  var FACE_API_LOCAL = 'assets/models/face-api.js';
+  var FACE_API_CDN   = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js';
+  var MODEL_URL_LOCAL = w.NJHR_FACE_MODEL_URL || 'assets/models';
+  var MODEL_URL_CDN   = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
 
   var S = {
-    ready: false, loading: null, cssAdded: false,
+    ready: false, loading: null, cssAdded: false, mode: '',
     stream: null, video: null, canvas: null, raf: 0,
     running: false, busy: false, root: null,
     attempts: 0, lastFail: null,
@@ -50,24 +57,79 @@
      ใช้ค่าเดียวกับ SB_TIMEOUT_MS ของ runtime (window.NJHR_SB_TIMEOUT_MS)
      ไม่ประกาศค่าใหม่ซ้ำ · ครบเวลาแล้ว abort จริง ไม่ปล่อยให้ Loading ค้าง */
   function netTimeout() { return Number(w.NJHR_SB_TIMEOUT_MS) || 13000; }
+  /* [ข้อ 4] Abort Controller "ต่อ Attempt" — ไม่ใช่ตัวเดียวข้าม Attempt
+     ATT.ctls เก็บ controller ของ Attempt ปัจจุบันเท่านั้น
+     attAbortAll() ถูกเรียกตอน Retry / Cancel / Route Change / Logout / Background
+     → Snapshot PUT · Error Evidence PUT · Edge request ของ Attempt เก่าถูกยกเลิกทันที
+     Request ของ Attempt ใหม่ใช้ชุด controller คนละชุด จึงไม่ถูกยกเลิกตามไปด้วย
+     RPC กลางของระบบ (rpc()) ก็ผ่าน fetchT เช่นกัน แต่จะถูก Abort เฉพาะเมื่อ
+     Attempt ที่เป็นเจ้าของถูกยกเลิกจริง ไม่กระทบส่วนอื่นของแอป */
+  /* [ข้อ 4] Network Cancellation แบบ "ต่อ Owner จริง"
+     NET.owner = Owner ID ปัจจุบัน (Attempt ID หรือ Enrollment Run ID)
+     ทุก Request ที่เกิดขึ้นจะถูก Register เข้า Owner ที่ active ตอนนั้น
+     abortAttempt(ownerId) ยกเลิกเฉพาะ Request ของ Owner นั้น
+     Attempt เก่าที่ยิง Request ทีหลังจะได้ owner เดิมของตัวเอง จึงลงทะเบียนเข้า
+     Owner ของ Attempt ใหม่ไม่ได้ และไม่มีทางถูก Abort ข้ามกัน */
+  var NET = { owner: 0, map: {} };
+  function netOwn(ownerId) { NET.owner = ownerId || 0; }
+  function netTrack(ctl) {
+    if (!ctl) return function () {};
+    var o = NET.owner;
+    if (!NET.map[o]) NET.map[o] = [];
+    NET.map[o].push(ctl);
+    return function () {
+      var a = NET.map[o]; if (!a) return;
+      var i = a.indexOf(ctl); if (i >= 0) a.splice(i, 1);
+      if (!a.length) delete NET.map[o];
+    };
+  }
+  function abortAttempt(ownerId) {
+    var a = NET.map[ownerId]; if (!a) return;
+    delete NET.map[ownerId];
+    a.forEach(function (c) { try { c.abort(); } catch (e) {} });
+  }
+  /* ยกเลิกของ Owner ปัจจุบันเท่านั้น — ใช้ตอน close()/closeSoft() */
+  function attAbortAll() { abortAttempt(NET.owner); }
+
   function fetchT(url, opt, label) {
     var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     var timedOut = false;
+    var untrack = netTrack(ctl);
     var ms = netTimeout();
     var timer = setTimeout(function () { timedOut = true; if (ctl) ctl.abort(); }, ms);
     var o = Object.assign({}, opt || {});
     if (ctl) o.signal = ctl.signal;
     return fetch(url, o).then(function (r) {
+      untrack();
       clearTimeout(timer);
       return r;
     }, function (e) {
       clearTimeout(timer);
+      untrack();
       if (timedOut) {
         throw new Error((label || 'การเชื่อมต่อ') + 'ใช้เวลานานเกินไป กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
       }
+      /* ถูก abort จาก attAbortAll() = Attempt ถูกยกเลิก → เงียบ ไม่ขึ้น Error UI */
+      if (e && (e.name === 'AbortError')) throw AbortAttendanceError();
       throw new Error((label || 'การเชื่อมต่อ') + 'ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
     });
   }
+
+  /* [Error Monitoring] ส่งต่อไปยัง Central Monitor ที่มีอยู่แล้ว (NJHR.errReport)
+     ห้ามสร้าง Monitor ตัวใหม่ · ห้ามเปลี่ยน Logic/Flow · ห้ามเพิ่ม delay หรือ retry
+     AbortAttendanceError = การยกเลิกตาม Flow ปกติ → ไม่ใช่ Error ห้ามรายงาน */
+  function njfReport(kind, source, err, extra) {
+    try {
+      if (isAborted(err)) return;
+      if (w.NJHR && typeof w.NJHR.errReport === 'function') {
+        w.NJHR.errReport(kind, source, err, extra);
+      }
+    } catch (e) {}
+  }
+  /* กัน double-report: mark error ที่รายงานไปแล้วตอน non-2xx
+     เพื่อไม่ให้ .catch ชั้นนอก (transport handler) รายงานซ้ำอีกครั้ง */
+  function njfMark(e) { try { e.njfReported = 1; } catch (x) {} return e; }
+  function njfDone(e) { return !!(e && e.njfReported); }
 
   function rpc(fn, body) {
     var c = sb();
@@ -80,9 +142,19 @@
       return r.text().then(function (t) {
         var j = null;
         try { j = t ? JSON.parse(t) : null; } catch (e) { j = null; }
-        if (!r.ok) throw new Error((j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ'));
+        if (!r.ok) {
+          var msg = (j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ');
+          njfReport('RPC_FAIL', fn, { message: msg },
+                    'status=' + r.status + ((j && j.code) ? (' code=' + j.code) : ''));
+          throw njfMark(new Error(msg));          // ข้อความเดิมทุกประการ
+        }
         return Array.isArray(j) ? j[0] : j;
       });
+    })['catch'](function (e) {
+      /* transport: network fail / timeout (fetchT แปลงเป็นข้อความเดิมแล้ว)
+         ไม่รายงานซ้ำถ้า non-2xx รายงานไปแล้ว · ไม่รายงานการยกเลิกตาม Flow */
+      if (!njfDone(e)) njfReport('RPC_FAIL', fn, e, 'transport');
+      throw e;                                     // rethrow ตัวเดิม ไม่เปลี่ยน UI/ข้อความ
     });
   }
 
@@ -99,10 +171,18 @@
       return r.text().then(function (t) {
         var j = null;
         try { j = t ? JSON.parse(t) : null; } catch (e) { j = null; }
-        if (!r.ok) throw new Error((j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ'));
+        if (!r.ok) {
+          var msg = (j && (j.message || j.error)) || ('เรียก ' + fn + ' ไม่สำเร็จ');
+          njfReport('RPC_FAIL', fn, { message: msg },
+                    'status=' + r.status + ((j && j.code) ? (' code=' + j.code) : ''));
+          throw njfMark(new Error(msg));
+        }
         if (j == null) return [];
         return Array.isArray(j) ? j : [j];
       });
+    })['catch'](function (e) {
+      if (!njfDone(e)) njfReport('RPC_FAIL', fn, e, 'transport');
+      throw e;
     });
   }
 
@@ -119,7 +199,21 @@
     return id ? String(id) : '';
   }
 
-  function mobileAttendanceFaceStatus() {
+  /* ---------- Face Status Cache (ตัดออกจาก Critical Path ตอนกดลงเวลา) ----------
+     ผูกกับ token + employee_id ของ Session ปัจจุบัน — เปลี่ยนอย่างใดอย่างหนึ่ง = Cache ใช้ไม่ได้
+     Invalidate เมื่อ: Logout / Session เปลี่ยน / ลงทะเบียนใบหน้าใหม่ (faceStatusReset)
+     เก็บเฉพาะ "เคยลงทะเบียนแล้วหรือยัง" ซึ่งใช้เลือกเส้นทาง UI เท่านั้น
+     การตรวจใบหน้าจริงยังทำที่เซิร์ฟเวอร์ใน njhr_att_punch_face ทุกครั้งเหมือนเดิม */
+  var FS = { key: '', val: null, loading: null };
+
+  function faceStatusKey(empId) { return String(token() || '') + '|' + String(empId || ''); }
+
+  function faceStatusReset() { FS = { key: '', val: null, loading: null }; }
+
+  /* อ่านสถานะใบหน้าของ Session ปัจจุบัน — ใช้ employee_id จาก Session เท่านั้น
+     ทั้ง Desktop / Android / iOS / iPad เส้นทางเดียวกันหมด ไม่มี p_employee:null
+     และไม่เดาแถวแรกจากผลลัพธ์หลายแถวของ HR/SUPER_ADMIN อีกต่อไป */
+  function faceStatusFetch() {
     var empId = currentSessionEmployeeId();
     if (!empId) return Promise.reject(new Error('ไม่พบข้อมูลพนักงานของ Session ปัจจุบัน กรุณาเข้าสู่ระบบใหม่'));
     return rpcRows('njhr_face_status', { p_token: token(), p_employee: empId, p_q: null })
@@ -137,6 +231,27 @@
         return !!row.enrolled;
       });
   }
+
+  /* คืน Promise<boolean> — ถ้ามี Cache ที่ตรง key แล้ว "ไม่ยิง RPC ซ้ำ" */
+  function faceStatus() {
+    var k = faceStatusKey(currentSessionEmployeeId());
+    if (FS.key === k && FS.val !== null) return Promise.resolve(FS.val);
+    if (FS.key === k && FS.loading) return FS.loading;
+    FS = { key: k, val: null, loading: null };
+    FS.loading = faceStatusFetch().then(function (v) {
+      if (FS.key === k) { FS.val = v; FS.loading = null; }
+      return v;
+    }, function (e) {
+      if (FS.key === k) FS.loading = null;    // ไม่จำค่าเมื่อผิดพลาด → กดใหม่ถามซ้ำได้
+      throw e;
+    });
+    return FS.loading;
+  }
+
+  /* Preload จากหน้า Attendance หลังรู้ว่า attendance_required = true
+     ล้มเหลวเงียบ — ตอนกดลงเวลาจะ fallback ไปถามเซิร์ฟเวอร์ตามเส้นทางเดิม */
+  function faceStatusPreload() { return faceStatus()['catch'](function () {}); }
+
 
   function attendanceStatusError(e) {
     var msg = (e && e.message) || 'ตรวจสถานะใบหน้าไม่สำเร็จ กรุณาลองใหม่';
@@ -159,9 +274,31 @@
       return r.text().then(function (t) {
         var j = {};
         try { j = t ? JSON.parse(t) : {}; } catch (e) { j = {}; }
-        if (!r.ok) throw new Error(j.error || 'เข้าถึงรูปไม่สำเร็จ');
+        if (!r.ok) {
+          njfReport('EDGE_FAIL', 'njhr-face-file/' + action,
+                    { message: 'HTTP ' + r.status + ' ' + (j.error || '') });
+          throw njfMark(new Error(j.error || 'เข้าถึงรูปไม่สำเร็จ'));
+        }
+        /* [Invalid Response] HTTP 200 แต่ JSON ผิดสัญญา = ถือเป็น EDGE_FAIL
+           รายงานเฉพาะ "ชื่อ field ที่ขาด" ห้าม log Response Body ดิบ */
+        var miss = '';
+        if (action === 'upload-url' && (!j.upload_url || !j.path)) {
+          miss = (!j.upload_url ? 'upload_url ' : '') + (!j.path ? 'path' : '');
+        } else if (action === 'view-url' && !j.url) {
+          miss = 'url';
+        } else if (!t) {
+          miss = 'empty-body';
+        }
+        if (miss) {
+          njfReport('EDGE_FAIL', 'njhr-face-file/' + action,
+                    { message: 'invalid response: missing ' + miss.trim() });
+          throw njfMark(new Error('เข้าถึงรูปไม่สำเร็จ'));   // ข้อความเดิมของ Flow
+        }
         return j;
       });
+    })['catch'](function (e) {
+      if (!njfDone(e)) njfReport('EDGE_FAIL', 'njhr-face-file/' + action, e, 'transport');
+      throw e;
     });
   }
   function deviceInfo() {
@@ -191,23 +328,40 @@
       try { console.error((e && e.message) || 'โหลด face.css ไม่สำเร็จ'); } catch (e2) {}
     });
   }
+  function faceScript(src) {
+    return new Promise(function (res, rej) {
+      if (w.faceapi) return res();
+      var s = d.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = res;
+      s.onerror = function () {
+        s.remove();
+        rej(new Error('โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ ตรวจอินเทอร์เน็ต'));
+      };
+      d.head.appendChild(s);
+    });
+  }
+  function faceNets(base) {
+    var f = w.faceapi;
+    return Promise.all([
+      f.nets.tinyFaceDetector.loadFromUri(base),
+      f.nets.faceLandmark68Net.loadFromUri(base),
+      f.nets.faceRecognitionNet.loadFromUri(base)
+    ]);
+  }
   function loadModels() {
     if (S.ready) return Promise.resolve();
     if (S.loading) return S.loading;
-    S.loading = new Promise(function (res, rej) {
-      if (w.faceapi) return res();
-      var s = d.createElement('script');
-      s.src = FACE_API_SRC; s.async = true;
-      s.onload = res;
-      s.onerror = function () { rej(new Error('โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ ตรวจอินเทอร์เน็ต')); };
-      d.head.appendChild(s);
+    /* Local ก่อน → พลาดค่อยถอยไป CDN (แจ้งใน Console ให้ผู้ดูแลเห็นว่า Deploy โมเดลไม่ครบ)
+       พลาดทั้งคู่ = Error ข้อความเดิม และ S.loading ถูกล้างให้กดลองใหม่ได้เหมือนเดิม */
+    S.loading = faceScript(FACE_API_LOCAL)['catch'](function () {
+      try { console.error('[FACE] โหลด assets/models/face-api.js ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
+      return faceScript(FACE_API_CDN);
     }).then(function () {
-      var f = w.faceapi;
-      return Promise.all([
-        f.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        f.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        f.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
+      return faceNets(MODEL_URL_LOCAL)['catch'](function () {
+        try { console.error('[FACE] โหลดโมเดลจาก assets/models ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
+        return faceNets(MODEL_URL_CDN);
+      });
     }).then(function () {
       S.ready = true;
     }).catch(function (e) {
@@ -218,20 +372,49 @@
   }
 
   /* ---------- กล้อง ---------- */
+  /* [ข้อ 2] Camera Generation — กัน getUserMedia ที่ Resolve หลัง Cancel/Logout/Route Change
+     เอา Stream กลับมาใส่ S.stream (Camera resurrection)
+     ทุกจุดที่ปิดกล้องจะ ++CAM.gen ทำให้คำขอที่ค้างอยู่หมดสิทธิ์ทันที */
+  var CAM = { gen: 0 };
+  function camInvalidate() { CAM.gen++; }
+
+  /* Sentinel สำหรับ Flow ที่ถูกยกเลิก — .catch() ต้องเงียบ ไม่ขึ้น Error UI */
+  function AbortAttendanceError() {
+    var e = new Error('ATTENDANCE_ABORTED');
+    e.aborted = true;
+    return e;
+  }
+  function isAborted(e) { return !!(e && e.aborted); }
+
   function openCam() {
     if (S.stream) return Promise.resolve(S.stream);   // กันเปิดซ้ำ
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(new Error('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง'));
     }
+    var myGen = CAM.gen;
     return navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
       audio: false
     }).then(function (st) {
+      /* คำขอนี้หมดอายุแล้ว (ถูก Cancel/Logout/Route Change ระหว่างรอสิทธิ์กล้อง)
+         → ปิด Track ทิ้งทันที ห้ามเขียน S.stream ห้าม srcObject ห้าม play()
+         แล้วจบแบบ Cancel เงียบ */
+      if (myGen !== CAM.gen || !S.video) {
+        try { st.getTracks().forEach(function (tr) { try { tr.stop(); } catch (e2) {} }); } catch (e3) {}
+        throw AbortAttendanceError();
+      }
       S.stream = st;
       S.video.srcObject = st;
       S.video.setAttribute('playsinline', '');   // iPhone ต้องมี ไม่งั้นเปิดเต็มจอ
-      return S.video.play().then(function () { return st; });
+      return S.video.play().then(function () {
+        if (myGen !== CAM.gen) {                 // หมดอายุระหว่างรอ play()
+          closeCam();
+          throw AbortAttendanceError();
+        }
+        return st;
+      });
     }).catch(function (e) {
+      if (isAborted(e)) throw e;                 // ยกเลิกเงียบ ไม่แปลงเป็นข้อความ Error
       var n = e && e.name;
       if (n === 'NotAllowedError' || n === 'SecurityError') {
         throw new Error('กล้องไม่ได้รับอนุญาต — เปิดสิทธิ์กล้องในตั้งค่าเบราว์เซอร์แล้วลองใหม่');
@@ -242,6 +425,7 @@
     });
   }
   function closeCam() {
+    camInvalidate();                            // [ข้อ 2] คำขอกล้องที่ค้างอยู่หมดสิทธิ์ทันที
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
     S.running = false;
     if (S.stream) {
@@ -360,13 +544,21 @@
   }
 
   /* ---------- เก็บเฟรมและตรวจ ---------- */
-  function grabFrames(count, onTick) {
+  /* [ข้อ 2] grabFrames ต้องมี Owner ของตัวเอง ห้ามพึ่ง S.running Global อย่างเดียว
+     alive() = ฟังก์ชันของผู้เรียก (mine() ของ Attempt · enAlive() ของ Enrollment Run)
+     ตรวจทุก Async Boundary: ก่อน detect · หลัง detect · ก่อน onTick · ก่อนเขียน out ·
+     ก่อน RAF · ก่อน resolve · ก่อน reject
+     Attempt เก่าที่ detect ตอบทีหลัง จะ reject เงียบด้วย Cancellation Sentinel
+     และจะไม่ schedule RAF · ไม่ inference รอบต่อไป · ไม่แตะ UI */
+  function grabFrames(count, onTick, alive) {
+    var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     var out = [];
     return new Promise(function (res, rej) {
       var tries = 0;
       (function loop() {
-        if (!S.running) return rej(new Error('ยกเลิกแล้ว'));
+        if (!S.running || !live()) return rej(AbortAttendanceError());
         detect().then(function (res2) {
+          if (!live()) return rej(AbortAttendanceError());   // detect ตอบหลังหมดอายุ = หยุดทันที
           tries++;
           if (!res2.length) {
             if (onTick) onTick('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
@@ -384,10 +576,11 @@
               if (onTick) onTick(null, out.length / count);
             }
           }
+          if (!live()) return rej(AbortAttendanceError());
           if (out.length >= count) return res(out);
           if (tries > count * 12) return rej(new Error('ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่'));
           S.raf = requestAnimationFrame(loop);
-        }).catch(function (e) { rej(e); });
+        }).catch(function (e) { rej(live() ? e : AbortAttendanceError()); });
       })();
     });
   }
@@ -425,17 +618,67 @@
       c.toBlob(function (b) { res(b); }, 'image/jpeg', 0.82);
     });
   }
+  /* [ข้อ 3] จอง Signed Upload URL ล่วงหน้า (ยังไม่มี Blob จึงไม่ส่ง size)
+     ปลอดภัยเพราะบัคเก็ต njhr-face ถูกบังคับที่ชั้น Storage จริงแล้ว
+     (file_size_limit 3 MB · allowed_mime_types image/jpeg) — Storage เป็นผู้ Reject
+     การจองไม่สร้าง Object ใด ๆ ถ้าไม่มี PUT ตามมา จึงไม่เกิดไฟล์ขยะเมื่อผู้ใช้ Cancel */
+  var SNAP_MAX = 3 * 1024 * 1024;
+  function reserveUpload(kind, action, employeeId) {
+    return fn('upload-url', {
+      kind: kind, punch_action: action || null,
+      employee_id: employeeId || null
+    });
+  }
+
+  /* PUT ขึ้น URL ที่จองไว้ — ถ้าไม่มีการจอง (หรือจองล้มเหลว) ให้ขอใหม่พร้อม size จริง */
+  function putSnapshot(blob, resv, kind, action, employeeId) {
+    if (!blob) return Promise.resolve(null);
+    if (blob.size > SNAP_MAX) {               // Defense-in-depth ฝั่ง Client
+      return Promise.reject(new Error('รูปหลักฐานใหญ่เกิน 3 MB'));
+    }
+    var got = resv ? Promise.resolve(resv)
+                   : fn('upload-url', { kind: kind, punch_action: action || null,
+                                        employee_id: employeeId || null, size: blob.size });
+    return got.then(function (r) {
+      return fetchT(r.upload_url,
+        { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob }, 'อัปโหลดภาพ')
+        .then(function (up) {
+          if (!up.ok) {
+            njfReport('EDGE_FAIL', 'njhr-face/signed-put', { message: 'HTTP ' + up.status });
+            throw njfMark(new Error('อัปโหลดภาพไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
+          }
+          return r.path;
+        })['catch'](function (e) {
+          /* ห้าม log: Signed URL · เนื้อไฟล์ · token · รูปใบหน้า */
+          if (!njfDone(e)) njfReport('EDGE_FAIL', 'njhr-face/signed-put', e, 'transport');
+          throw e;
+        });
+    });
+  }
+
   function uploadSnapshot(blob, kind, action, employeeId) {
     if (!blob) return Promise.resolve(null);
     return fn('upload-url', {
       kind: kind, punch_action: action || null,
       employee_id: employeeId || null, size: blob.size
     }).then(function (r) {
+      /* [Error Monitoring] Signed PUT ของ REQUEST / ENROLL
+         ใช้ guard เดิม (njfMark/njfDone) กัน double-report
+         isAborted → njfReport ข้ามให้เอง จึงไม่รายงานการยกเลิกตาม Flow ปกติ
+         ห้าม log: Signed URL · รูปใบหน้า · เนื้อไฟล์ · token */
       return fetchT(r.upload_url,
         { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob }, 'อัปโหลดภาพ')
         .then(function (up) {
-          if (!up.ok) throw new Error('อัปโหลดภาพไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+          if (!up.ok) {
+            njfReport('EDGE_FAIL', 'njhr-face/signed-put',
+                      { message: 'HTTP ' + up.status }, 'kind=' + String(kind || ''));
+            throw njfMark(new Error('อัปโหลดภาพไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
+          }
           return r.path;
+        })['catch'](function (e) {
+          if (!njfDone(e)) njfReport('EDGE_FAIL', 'njhr-face/signed-put', e,
+                                     'transport kind=' + String(kind || ''));
+          throw e;
         });
     });
   }
@@ -445,17 +688,121 @@
   }
 
   /* ---------- GPS ---------- */
-  function getGps() {
+  /* ---------- GPS ----------
+     [PERF/หลักฐาน] เดิมใช้ getCurrentPosition ครั้งเดียวตอนเริ่มกดลงเวลา
+     แต่ RPC njhr_att_punch_face ถูกส่งหลังสแกนใบหน้าเสร็จ (ห่างกันหลายวินาที)
+     พิกัดที่เป็นหลักฐานจึงเป็น Fix "ตอนเริ่ม" ซึ่งเก่าที่สุดและมักหยาบที่สุด
+     (ช่วงแรกของ Cold Start ค่า accuracy ยังกว้าง แล้วค่อยแคบลงเรื่อย ๆ)
+
+     เปลี่ยนเป็น watchPosition ที่เดินคู่ไปกับการสแกนใบหน้า แล้ว "ใช้ Fix ล่าสุด
+     ณ เวลาที่จะส่งจริง" — ได้ทั้งเร็วขึ้น (ไม่ต้อง Cold Start ใหม่หลังสแกน)
+     และหลักฐานสดกว่าเดิม
+
+     คงไว้ครบทุกตัว ไม่ผ่อนอะไรเลย:
+       enableHighAccuracy: true · maximumAge: 0 · timeout: 12000
+     ห้ามใช้พิกัดข้ามรอบ: gpsStart() สร้าง Session ใหม่ทุกครั้งที่กดลงเวลา
+     ค่าที่เก็บได้จากรอบก่อนถูกทิ้งทั้งหมด และ gpsStop() ปิด watch เสมอ
+     accuracy ที่ส่งไปเป็นค่าจริงของ Fix นั้น — Server ยังตรวจ
+     accuracy ≤ max_accuracy และ distance ≤ radius เหมือนเดิมทุกประการ */
+  var G = { id: 0, err: null, first: null, fixes: [], sid: 0, denied: false };
+
+  /* หน้าต่างความสดของ Fix ณ วินาทีที่ส่ง (มิลลิวินาที)
+     ที่มา: watchPosition ยิง Fix ราว 1 ครั้ง/วินาที → 3000ms ครอบคลุม ~3 Fix สุดท้าย
+     เพียงพอให้เลือกตัวที่แม่นที่สุด โดยไม่ย้อนไปไกลจนกลายเป็นตำแหน่งเก่า */
+  var GPS_FRESH_MS = 3000;
+  /* ถ้ายังไม่มี Fix สดตอนจะส่ง ให้รอ Fix ใหม่ได้นานสุดเท่านี้ แล้ว Fail Closed
+     ไม่ใช่ค่าสุ่ม: = หน้าต่างความสด + 1 รอบ watch (ราว 1 วินาที) */
+  var GPS_WAIT_MS = 4000;
+
+  /* [ข้อ 1] gpsStop ต้องระบุ sid เจ้าของเสมอ — Async ของ Attempt เก่าที่มาช้า
+     จะหยุด watch ของ Attempt ใหม่ไม่ได้เด็ดขาด */
+  function gpsStop(expectedSid) {
+    if (expectedSid !== undefined && expectedSid !== G.sid) return;   // ไม่ใช่เจ้าของ = ไม่แตะ
+    if (G.id && navigator.geolocation) {
+      try { navigator.geolocation.clearWatch(G.id); } catch (e) {}
+    }
+    G.id = 0;
+  }
+
+  /* ขึ้น Punch Session ใหม่ — คืน sid ให้ผู้เรียกถือไว้เป็นเจ้าของ */
+  function gpsStart() {
+    gpsStop();                                   // ปิด watch ของ Attempt ก่อนหน้าแบบไม่มีเงื่อนไข
+    G.sid++; G.err = null; G.first = null; G.fixes = []; G.denied = false;
+    var mySid = G.sid;
+    if (!navigator.geolocation) {
+      G.err = 'อุปกรณ์นี้ไม่รองรับ GPS';
+      G.first = Promise.resolve({ ok: false, reason: G.err });
+      return mySid;
+    }
+    var settle = null;
+    G.first = new Promise(function (res) { settle = res; });
+    G.id = navigator.geolocation.watchPosition(function (p) {
+      if (mySid !== G.sid) return;               // Fix จาก Session เก่า = ทิ้ง
+      G.err = null;
+      /* [ข้อ 2] ใช้ position.timestamp จริงเมื่อมี — เป็นเวลาที่อุปกรณ์ได้พิกัดนั้นจริง
+         ไม่ใช่เวลาที่ callback ถูกเรียก (ซึ่งอาจช้ากว่าเมื่อ main thread ติด) */
+      var at = (p && typeof p.timestamp === 'number' && p.timestamp > 0) ? p.timestamp : Date.now();
+      var fx = { ok: true, lat: p.coords.latitude, lng: p.coords.longitude,
+                 accuracy: p.coords.accuracy, at: at, sid: mySid };
+      G.fixes.push(fx);
+      if (G.fixes.length > 20) G.fixes.shift();  // กันหน่วยความจำโตไม่จำกัด
+      if (settle) { settle(fx); settle = null; } // Fix แรก = แจ้งสถานะบนจอ
+    }, function (e) {
+      if (mySid !== G.sid) return;
+      /* [ข้อ 5] PERMISSION_DENIED (code 1) เป็น Terminal — รอต่อไปก็ไม่มีทางได้ Fix
+         จึงตั้ง denied เพื่อให้ gpsFresh() Fail Closed ทันที ไม่รอ GPS_WAIT_MS เต็ม
+         ส่วน POSITION_UNAVAILABLE (2) / TIMEOUT (3) เป็นความผิดพลาดชั่วคราว
+         ยังมีโอกาสได้ Fix จึงต้องรอต่อจนครบหน้าต่างเวลา ห้าม Fail เร็ว */
+      G.denied = (e && e.code === 1);
+      G.err = G.denied
+        ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งของเบราว์เซอร์แล้วลองใหม่'
+        : 'ไม่สามารถอ่าน GPS ได้ กรุณาลองใหม่กลางที่โล่ง';
+      if (settle && !G.fixes.length) { settle({ ok: false, reason: G.err }); settle = null; }
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+    return mySid;
+  }
+
+  /* คืน Fix ที่ "สดจริง" และแม่นที่สุดของ Punch Session ที่ระบุ — ไม่มีก็คืน null
+     [ข้อ 2] ไม่มี fallback ไป Fix ที่พ้นหน้าต่างความสดอีกต่อไป */
+  function gpsPickFresh(sid) {
+    var now = Date.now();
+    var fresh = G.fixes.filter(function (f) {
+      return f.sid === sid && (now - f.at) <= GPS_FRESH_MS;
+    });
+    if (!fresh.length) return null;
+    var best = fresh[0];
+    for (var i = 1; i < fresh.length; i++) {
+      var f = fresh[i];
+      if (f.accuracy < best.accuracy || (f.accuracy === best.accuracy && f.at > best.at)) best = f;
+    }
+    return best;
+  }
+
+  /* ใช้ตอนกำลังจะส่ง RPC เท่านั้น
+     มี Fix สด → ใช้ทันที · ยังไม่มี → รอ Fix ใหม่สั้น ๆ · ยังไม่ได้อีก → Fail Closed
+     ห้ามส่ง Fix เก่าไปให้ njhr_att_punch_face เด็ดขาด */
+  function gpsFresh(sid) {
+    var p = gpsPickFresh(sid);
+    if (p) return Promise.resolve(p);
+    if (sid !== G.sid) {
+      return Promise.resolve({ ok: false, reason: 'การลงเวลารอบนี้ถูกยกเลิกแล้ว' });
+    }
     return new Promise(function (res) {
-      if (!navigator.geolocation) return res({ ok: false, reason: 'อุปกรณ์นี้ไม่รองรับ GPS' });
-      navigator.geolocation.getCurrentPosition(function (p) {
-        res({ ok: true, lat: p.coords.latitude, lng: p.coords.longitude,
-              accuracy: p.coords.accuracy });
-      }, function (e) {
-        res({ ok: false, reason: e && e.code === 1
-          ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งแล้วลองใหม่'
-          : 'ไม่สามารถอ่าน GPS ได้ กรุณาลองใหม่กลางที่โล่ง' });
-      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+      var t0 = Date.now(), iv = 0, done = false;
+      function finish(v) { if (done) return; done = true; if (iv) clearInterval(iv); res(v); }
+      iv = setInterval(function () {
+        if (sid !== G.sid) {
+          return finish({ ok: false, reason: 'การลงเวลารอบนี้ถูกยกเลิกแล้ว' });
+        }
+        var q = gpsPickFresh(sid);
+        if (q) return finish(q);
+        /* [ข้อ 5] ไม่ได้รับอนุญาต + ยังไม่มี Fix เลย = รอต่อไม่มีประโยชน์ */
+        if (G.denied && !G.fixes.length) return finish({ ok: false, reason: G.err });
+        if (Date.now() - t0 >= GPS_WAIT_MS) {
+          finish({ ok: false, reason: G.err ||
+            'GPS ยังไม่พร้อม (ยังไม่ได้ตำแหน่งที่สดพอ) กรุณาลองใหม่กลางที่โล่ง' });
+        }
+      }, 250);
     });
   }
 
@@ -527,8 +874,28 @@
       if (h && h.on) h.on();
     };
   }
-  function close() {
+  /* [ข้อ 1] Handoff Close — ใช้เฉพาะตอน "ลงทะเบียนใบหน้าจากการลงเวลา" สำเร็จ
+     แล้วต้องส่งต่อไป doPunch() ด้วย Operation ID เดิม
+     ปิดกล้อง · cancel RAF · เอา Overlay ออก · reset S.busy
+     แต่ **ไม่** opInvalidate() และ **ไม่** เปลี่ยน S.mode ออกจาก 'ATTENDANCE'
+     (ต่างจาก close() ปกติที่ใช้กับ Cancel/Manual Enroll/Face Login/Route/Logout/Error) */
+  function closeSoft() {
     closeCam();
+    attAbortAll();                            // [ข้อ 4] Network ของขั้นลงทะเบียนต้องไม่ค้าง
+    if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
+    S.root = null; S.busy = false;
+    /* คง S.mode = 'ATTENDANCE' และ OP.id เดิมไว้ */
+  }
+
+  function close() {
+    closeCam();                               // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
+    G.sid++;                                  // Attempt (GPS) ปัจจุบันหมดสิทธิ์ทันที
+    opInvalidate();                           // Attendance Operation หมดอายุทันที
+    enInvalidate();                           // Enrollment Run ปัจจุบันหมดสิทธิ์
+    FLOW.kind = ''; FLOW.op = -1;             // [ข้อ 5] ปิดหน้าจอ = จบ Punch Flow · Retry นับใหม่
+    attAbortAll();                            // [ข้อ 4] ยกเลิก Network ของ Attempt นี้ทั้งหมด
+    gpsStop();                                // ปิด watchPosition ทุกกรณีที่ปิดหน้าจอ
+    S.mode = '';
     if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
     S.root = null; S.busy = false;
   }
@@ -538,62 +905,95 @@
      ถ้ายังไม่มีใบหน้าต้นแบบของพนักงานคนนี้ ให้ลงทะเบียน 3 มุมก่อนอัตโนมัติ
      แล้วจึงกลับมาลงเวลาตามปกติ (Face → Liveness → Snapshot ใหม่ → GPS → Geofence)
      ครั้งต่อไปจะข้ามขั้นลงทะเบียนทันที ไม่ต้องหันซ้าย-ขวาอีก */
-  function punch(kind, onDone) {
+  /* [ข้อ 1] Attendance Operation ID — ครอบทั้ง Operation ตั้งแต่ punch() ไม่ใช่แค่ doPunch()
+     ครอบคลุมช่วงที่ faceStatus() / enroll ครั้งแรก กำลังรออยู่ ซึ่ง cancelAttendance()
+     เดิมมองไม่เห็นเพราะ S.mode ยังไม่ถูกตั้ง
+     invalidate เมื่อ: Cancel · Route Change · Logout · Session invalid · Retry */
+  var OP = { id: 0 };
+  /* [ข้อ 5] Punch Flow — ครอบ Attempt 1..N ของการกด IN/OUT ครั้งเดียวกัน
+     ใช้ให้ "จำนวน Retry" นับต่อ Flow ไม่ใช่ต่อ Attempt
+     เปลี่ยน kind (IN↔OUT) หรือขึ้น Operation ใหม่ = Flow ใหม่ · รีเซ็ตตัวนับ + Evidence */
+  var FLOW = { id: 0, kind: '', op: -1 };
+  /* [ข้อ 5] Enrollment Run generation — แยกจาก Attendance Operation
+     ใช้กับทั้ง Manual Enrollment (Profile/HR) และ Enrollment ที่เกิดจากการลงเวลา */
+  var EN = { id: 0 };
+  function enInvalidate() { EN.id++; }
+  function opStart() { S.mode = 'ATTENDANCE'; return ++OP.id; }
+  function opAlive(myOp) { return myOp === OP.id && S.mode === 'ATTENDANCE'; }
+  function opInvalidate() { OP.id++; }
+
+  function punch(kind, onDone, inheritOp) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
+    /* เริ่ม Operation ทันที ก่อนยิง faceStatus() — ตั้งแต่วินาทีนี้
+       cancelAttendance() รู้แล้วว่ามีงานลงเวลาค้างอยู่ */
+    var myOp = (typeof inheritOp === 'number') ? inheritOp : opStart();
 
-    /* แก้เฉพาะ Mobile Face Attendance:
-       HR/SUPER_ADMIN ที่ส่ง p_employee=null จะได้หลายแถวจาก Production RPC
-       จึงต้องระบุ employee_id ของ Session ปัจจุบันและห้ามเลือก [0] แบบสุ่ม
-       Desktop คง Flow เดิมทุกประการตามขอบเขตงาน */
-    if (deviceInfo().device === 'Mobile') {
-      mobileAttendanceFaceStatus()
-        .then(function (has) {
-          if (has) { S.busy = false; return doPunch(kind, onDone); }
-          S.busy = false;
-          enrollThenPunch(kind, onDone);
-        })
-        ['catch'](function (e) {
-          S.busy = false;
-          attendanceStatusError(e);
-        });
-      return;
-    }
-
-    rpc('njhr_face_status', { p_token: token(), p_employee: null, p_q: null })
-      .then(function (r) {
-        /* Desktop คงพฤติกรรมเดิม — งานนี้แก้เฉพาะ Mobile */
-        var row = Array.isArray(r) ? r[0] : r;
-        return !!(row && row.enrolled && row.is_active);
-      })
-      ['catch'](function () { return true; })  // อ่านสถานะไม่ได้ → ไปเส้นทางเดิม ให้ RPC ตัดสิน
+    /* [PERF] Face Status มาจาก Cache ที่ Preload ไว้ตั้งแต่เข้าหน้า Attendance
+       ถ้า Cache พร้อม = ไม่ยิง njhr_face_status ซ้ำ เข้ากล้อง/GPS ได้ทันที
+       ถ้ายังไม่พร้อม (Preload ล้มเหลว) = ถามเซิร์ฟเวอร์ตรงนี้ตามเส้นทางเดิม
+       ทุกอุปกรณ์ (Desktop / Android / iOS / iPad) ใช้เส้นทางเดียวกันทั้งหมด
+       employee_id มาจาก Session เท่านั้น — เลิกใช้ p_employee:null + แถวแรก */
+    faceStatus()
       .then(function (has) {
-        if (has) { S.busy = false; return doPunch(kind, onDone); }
+        if (!opAlive(myOp)) { S.busy = false; return; }   // ถูกยกเลิกระหว่างรอ = หยุดเงียบ
+        if (has) { S.busy = false; return doPunch(kind, onDone, myOp); }
         S.busy = false;
-        enrollThenPunch(kind, onDone);
+        enrollThenPunch(kind, onDone, myOp);
+      })
+      ['catch'](function (e) {
+        S.busy = false;
+        if (!opAlive(myOp)) return;                        // ถูกยกเลิกระหว่างรอ = ไม่ขึ้น error
+        attendanceStatusError(e);
       });
   }
 
   /* ลงทะเบียนใบหน้าต้นแบบครั้งแรก แล้วต่อด้วยการลงเวลาทันที
      ⚠ ลงทะเบียนสำเร็จ ≠ ลงเวลาสำเร็จ — ยังต้องผ่าน Face + Liveness + GPS + Geofence
        ถ้า GPS/Geofence ไม่ผ่าน ใบหน้าต้นแบบยังถูกเก็บไว้ ครั้งหน้าไม่ต้องลงทะเบียนใหม่ */
-  function enrollThenPunch(kind, onDone) {
+  function enrollThenPunch(kind, onDone, myOp) {
+    /* [ข้อ 1] ลงทะเบียนใบหน้าครั้งแรกที่เกิดจากการลงเวลา = ยังอยู่ใน Attendance Context
+       ส่ง { attendance: true } เข้า enroll() เพื่อคง S.mode='ATTENDANCE'
+       Route Change / Logout จึงปิดกล้องและยกเลิก Flow นี้ได้
+       ส่วน Manual Enrollment จากหน้า Profile/HR ไม่ส่ง flag นี้ = Enrollment ปกติ */
     enroll(null, function () {
-      setTimeout(function () { doPunch(kind, onDone); }, 60);
-    });
+      /* มาถึงที่นี่ได้เฉพาะเมื่อ Enrollment สำเร็จและยังเป็น Operation เดิม
+         (enroll ใช้ closeSoft() ในโหมด attendance จึงไม่ถูก opInvalidate) */
+      if (!opAlive(myOp)) return;             // ถูกยกเลิกจริง (Route/Logout) = ไม่ต่อ
+      setTimeout(function () {
+        if (!opAlive(myOp)) return;
+        doPunch(kind, onDone, myOp);          // ต่อด้วย Face + Liveness + GPS + Geofence ตามเดิม
+      }, 60);
+    }, { attendance: true, attendanceOp: myOp });
   }
 
-  function doPunch(kind, onDone) {
+  function doPunch(kind, onDone, myOp) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
+    if (typeof myOp !== 'number') myOp = opStart();   // เผื่อถูกเรียกตรง
+    if (!opAlive(myOp)) { S.busy = false; return; }
+    /* [ข้อ 5] Evidence ต้องเป็นของ "Attempt ปัจจุบัน" เท่านั้น — ล้างทุกครั้งที่เริ่ม Attempt
+       กัน Special Request ของ OUT หยิบ Snapshot/GPS/Liveness/Similarity ที่ค้างจาก IN
+       ส่วนจำนวน Retry นับตาม Punch Flow (กด IN/OUT 1 ครั้ง = 1 Flow) ไม่ใช่ต่อ Attempt */
+    S.ctx = { snapshot: null, gps: null, similarity: null, distance: null,
+              liveness: null, liveness_method: null, reason: null, ready: false };
+    if (FLOW.kind !== kind || FLOW.op !== myOp) {
+      FLOW.id++; FLOW.kind = kind; FLOW.op = myOp; S.attempts = 0;
+    }
     var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
     shell('สแกนใบหน้า', title);
     var st = { live: 'wait', match: 'wait', gps: 'wait' };
     panel(stepsHtml(st, 'กำลังเตรียมกล้อง…'));
     actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
 
-    var gpsP = getGps();                      // ขอ GPS พร้อมกันไปเลย ไม่ต้องรอ
-    gpsP.then(function (g) {
+    /* [ข้อ 1] Attempt นี้เป็นเจ้าของ GPS Session หมายเลข aid เท่านั้น
+       Async ที่ค้างจาก Attempt ก่อนหน้าจะแตะ watch / S.ctx ของ Attempt นี้ไม่ได้ */
+    var aid = gpsStart();
+    netOwn('A' + aid);                        // [ข้อ 4] Network ของ Attempt นี้ผูกกับ aid
+    /* เจ้าของ = ต้องตรงทั้ง GPS Session และ Attendance Operation */
+    var mine = function () { return aid === G.sid && opAlive(myOp); };
+    G.first.then(function (g) {
+      if (!mine()) return;                    // Attempt เก่ามาช้า = ไม่แตะจอของ Attempt ใหม่
       st.gps = g.ok ? 'run' : 'bad';
       /* GPS ตอบกลับมาเมื่อไรก็ได้ ต้องไม่ลบสถานะ "กำลังเตรียมระบบตรวจสอบใบหน้า" ทิ้ง
          ถ้าโมเดลยังไม่พร้อม ให้คงข้อความเดิมไว้ */
@@ -606,6 +1006,10 @@
        การตรวจใบหน้าเริ่มก็ต่อเมื่อโมเดลพร้อมจริงเท่านั้น (Promise.all ด้านล่าง) */
     var camP = openCam();
     var modelP = loadModels();
+    /* [ข้อ 3] จอง Signed Upload URL ขนานไปกับ Camera + Model + GPS
+       ตัด 1 Network Round-trip ออกจากช่วงท้ายหลังสแกนใบหน้าผ่าน
+       ล้มเหลวเงียบ → ตอน PUT จะขอใหม่พร้อม size จริงตามเส้นทางเดิม */
+    var resvP = reserveUpload('PUNCH', kind, null)['catch'](function () { return null; });
     camP.then(function () {
       if (!S.ready) {
         panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…'));
@@ -619,7 +1023,10 @@
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
         hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
-        return grabFrames(6, function (warn) { if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…'); });
+        return grabFrames(6, function (warn) {
+          if (!mine()) return;                  // [ข้อ 2] ห้าม Attempt เก่าเขียน UI
+          if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…');
+        }, mine);
       })
       .then(function (frames) {
         /* ---------- ตรวจบุคคลจริงแบบไม่ต้องทำท่าทาง ----------
@@ -630,28 +1037,45 @@
         var lv = passiveLiveness(frames);
         if (lv.pass) return { frames: frames, live: lv };
         if (!lv.challenge) throw new Error(lv.reason);
+        if (!mine()) throw AbortAttendanceError();   // [ข้อ 2] ห้ามเปิด grabFrames(8) ต่อหลัง Cancel
         setMsg('กำลังตรวจสอบบุคคลจริง…', false);
         hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
-        return grabFrames(8, null).then(function (f2) {
+        return grabFrames(8, null, mine).then(function (f2) {
+          if (!mine()) throw AbortAttendanceError();  // [ข้อ 2] ยกเลิกระหว่างชุดที่สอง
           var lv2 = passiveLiveness(f2);
           if (lv2.pass) return { frames: f2, live: lv2 };
           throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณามองกล้องให้ชัดแล้วลองใหม่');
         });
       })
       .then(function (ctx) {
+        if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อน Snapshot/Upload
         st.live = 'ok'; st.match = 'run';
         panel(stepsHtml(st, 'กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
         hint('กำลังบันทึก', 'กรุณาอย่าขยับใบหน้า');
         return snapshotBlob().then(function (b) {
+          /* [ข้อ 3] Cancel เกิดได้ "ระหว่าง" สร้าง Blob → ตรวจซ้ำก่อน PUT
+             ยกเลิกแล้ว = ห้าม PUT · ห้าม GPS Fresh · ห้าม Punch RPC
+             Signed Reservation ที่ไม่ได้ใช้ปล่อยหมดอายุได้ เพราะยังไม่มี Object ถูกสร้าง */
+          if (!mine()) { closeCam(); throw AbortAttendanceError(); }
           closeCam();                          // ปิดกล้องทันทีเมื่อได้ภาพครบ
-          return uploadSnapshot(b, 'PUNCH', kind, null).then(function (path) {
+          return resvP.then(function (resv) {
+            if (!mine()) throw AbortAttendanceError();
+            return putSnapshot(b, resv, 'PUNCH', kind, null);
+          }).then(function (path) {
             ctx.snapshot = path;
-            return gpsP.then(function (g) { ctx.gps = g; return ctx; });
+            /* [PERF/หลักฐาน] ใช้ Fix ล่าสุด ณ วินาทีที่จะส่ง ไม่ใช่ Fix แรกตอนเริ่มกด */
+            /* [ข้อ 2] ต้องได้ Fix "สดจริง" ของ Attempt นี้เท่านั้น ไม่มีก็ Fail Closed
+               ไม่ส่ง Fix เก่าไปให้ njhr_att_punch_face เด็ดขาด */
+            return gpsFresh(aid).then(function (g) {
+              if (!g || !g.ok) throw new Error(g && g.reason ? g.reason : 'GPS ยังไม่พร้อม');
+              ctx.gps = g; return ctx;
+            });
           });
         });
       })
       .then(function (ctx) {
+        if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อนยิง Punch RPC
         var best = ctx.frames[ctx.frames.length - 1];
         return rpc('njhr_att_punch_face', {
           p_token: token(), p_action: kind,
@@ -664,21 +1088,33 @@
         }).then(function (r) { return { r: r, ctx: ctx }; });
       })
       .then(function (o) {
-        S.ctx.similarity = o.r ? o.r.similarity : null;
-        S.ctx.distance = o.r ? o.r.verify_distance : null;
-        S.ctx.liveness = true;
-        S.ctx.liveness_method = o.ctx.live.method;
-        S.ctx.snapshot = o.ctx.snapshot;
-        S.ctx.gps = o.ctx.gps;
+        /* [ข้อ 2] ตรวจ Owner "ก่อน" เขียน Global State ทุกฟิลด์
+           เดิมเขียน similarity/distance/liveness/liveness_method/snapshot ไปแล้ว
+           ค่อยตรวจ mine() → Attempt เก่าที่ RPC ตอบช้าเขียนทับ Context รอบใหม่ได้
+           ตอนนี้ประกอบเป็นก้อนเดียวใน local แล้ว Commit ทีเดียวเมื่อเป็นเจ้าของจริง */
+        if (!mine()) return;                  // ผลของ Attempt เก่า = ทิ้งทั้งก้อน ไม่แตะแม้แต่ field เดียว
+        var commit = {
+          similarity: o.r ? o.r.similarity : null,
+          distance: o.r ? o.r.verify_distance : null,
+          liveness: true,
+          liveness_method: o.ctx.live.method,
+          snapshot: o.ctx.snapshot,
+          gps: o.ctx.gps
+        };
+        Object.keys(commit).forEach(function (k) { S.ctx[k] = commit[k]; });
         if (!o.r || !o.r.ok) {
           st.match = 'bad';
           throw new Error((o.r && o.r.reason) || 'ยืนยันใบหน้าไม่สำเร็จ');
         }
         st.match = 'ok'; st.gps = 'ok';
         S.attempts = 0;
+        gpsStop(aid);       // [ข้อ 4] Punch RPC เสร็จ = หยุด watch ของ Attempt นี้ทันที
         showSuccess(kind, o.r, o.ctx, onDone);
       })
       .catch(function (e) {
+        /* [ข้อ 3] Flow ที่ถูก Cancel = เงียบสนิท ไม่ขึ้น Error UI ไม่นับ attempts
+           ไม่ Upload หลักฐาน ไม่แตะ State ใด ๆ */
+        if (isAborted(e) || !mine()) return;
         var msg = (e && e.message) || 'สแกนไม่สำเร็จ';
         S.attempts++;
         S.ctx.reason = msg;
@@ -686,13 +1122,27 @@
         var keep = (S.stream && S.video && S.video.videoWidth)
           ? snapshotBlob().then(function (b) {
               closeCam();
+              /* [ข้อ 4] Blob เสร็จหลัง Retry/Cancel = ห้ามสร้าง Fetch ใหม่เด็ดขาด */
+              if (!mine()) return null;
               return uploadSnapshot(b, 'REQUEST', kind, null).catch(function () { return null; });
             }).catch(function () { closeCam(); return null; })
           : Promise.resolve(null);
+        /* [ข้อ 1+2] เก็บหลักฐานสำหรับ "คำขออนุมัติพิเศษ" แบบ Async
+           ทุกจุดตรวจ mine() ก่อนเขียน S.ctx — ถ้าผู้ใช้กด "ลองใหม่" ระหว่างนี้
+           Attempt เก่าจะไม่เขียนทับ Snapshot/GPS ของ Attempt ใหม่
+           และ gpsStop(aid) จะไม่หยุด watch ของ Attempt ใหม่ */
+        /* [ข้อ 2] หลักฐานสำหรับ "คำขออนุมัติพิเศษ" — เก็บใน local ก่อน
+           แล้ว Commit เข้า S.ctx ครั้งเดียวเมื่อยังเป็นเจ้าของจริง */
         keep.then(function (path) {
-          S.ctx.snapshot = path;
-          return gpsP;
-        }).then(function (g) { S.ctx.gps = g; }).catch(function () {});
+          return gpsFresh(aid).then(function (g) { return { snapshot: path, gps: g }; },
+                                    function () { return { snapshot: path, gps: null }; });
+        }).then(function (ev) {
+          if (!mine()) return;                // Attempt เก่า = ห้ามเขียนแม้แต่ field เดียว
+          S.ctx.snapshot = ev.snapshot;
+          if (ev.gps) S.ctx.gps = ev.gps;
+          S.ctx.ready = true;                 // [ข้อ 5] Evidence ของ Attempt นี้พร้อมแล้ว
+        }).catch(function () { if (mine()) S.ctx.ready = true; })
+          .then(function () { gpsStop(aid); });
         if (st.live === 'run') st.live = 'bad';
         else if (st.match === 'run') st.match = 'bad';
         panel(stepsHtml(st, msg, true));
@@ -700,7 +1150,10 @@
         var maxTry = Number(w.NJHR_FACE_MAX_ATTEMPTS || 3);
         if (S.attempts < maxTry) {
           acts.unshift({ label: 'ลองใหม่ (' + S.attempts + '/' + maxTry + ')', style: 'primary',
-            on: function () { close(); setTimeout(function () { punch(kind, onDone); }, 60); } });
+            on: function () {
+              close();                        // close() เรียก opInvalidate() + gpsStop() ให้แล้ว
+              setTimeout(function () { punch(kind, onDone); }, 60);
+            } });
         } else {
           acts.unshift({ label: 'ส่งคำขออนุมัติลงเวลา', style: 'primary',
             on: function () { specialRequest(kind, msg, onDone); } });
@@ -855,6 +1308,24 @@
   ];
 
   function enroll(employeeId, onDone, opts) {
+    /* [ข้อ 1] opts.attendance = true → ลงทะเบียนนี้เกิดจากการลงเวลา
+       คง S.mode='ATTENDANCE' ให้ Route Change / Logout ปิดกล้องและยกเลิกได้
+       Manual Enrollment จากหน้า Profile/HR ไม่ส่ง flag นี้ → S.mode='ENROLL'
+       cancelAttendance() จึงไม่แตะ และ Face Login (mode 'LOGIN') ก็ไม่ถูกกระทบ */
+    var enAtt = !!(opts && opts.attendance);
+    var enOp = (opts && typeof opts.attendanceOp === 'number') ? opts.attendanceOp : null;
+    /* [ข้อ 4] ยังมีชีวิตอยู่ไหม — โหมด Attendance ผูกกับ Operation ID จริง
+       โหมด Manual (Profile/HR) ไม่ผูก จึงทำงานแบบเดิมทุกประการ */
+    /* [ข้อ 5] Enrollment Run ID — Manual Enrollment ก็ต้องมีเจ้าของจริง
+       เดิม Manual คืน true ตลอด ทำให้ Run เก่ายัง capture/upload/ส่ง RPC ต่อได้หลังปิดหน้าจอ
+       ตอนนี้ทุก Run มีหมายเลขของตัวเอง · ปิด/เปลี่ยน Route/Background = Run หมดสิทธิ์ทันที */
+    var myRun = ++EN.id;
+    netOwn('E' + myRun);                      // [ข้อ 4] Network ของ Enrollment Run นี้
+    var enAlive = function () {
+      if (myRun !== EN.id) return false;                 // Run เก่า = ตายทันที
+      return enAtt ? (enOp === null || opAlive(enOp)) : true;
+    };
+    S.mode = enAtt ? 'ATTENDANCE' : 'ENROLL';
     if (S.busy) return;
     S.busy = true;
     /* opts.password มีค่า = "ลงทะเบียนใบหน้าใหม่" (ทับของเดิม)
@@ -899,19 +1370,26 @@
                 var lv = passiveLiveness(buf.concat(buf));
                 if (!lv.pass && !lv.challenge) { buf.length = 0; setMsg(lv.reason, true); }
                 else {
+                  /* [ข้อ 6] ตรวจ Owner ก่อนเขียน State / Upload / ไป Pose ถัดไป */
+                  if (!enAlive()) { closeCam(); return; }
                   got.push(buf[buf.length - 1].desc);
                   if (idx === 0) {
                     snapshotBlob().then(function (b) {
+                      if (!enAlive()) return null;          // [ข้อ 6] ยกเลิกระหว่างสร้าง Blob
                       return uploadSnapshot(b, 'ENROLL', null, employeeId || null);
-                    }).then(function (p2) { snapPath = p2; }).catch(function () {});
+                    }).then(function (p2) {
+                      if (enAlive()) snapPath = p2;         // [ข้อ 6] Run เก่าห้ามเขียน State
+                    }).catch(function () {});
                   }
                   idx++;
+                  if (!enAlive()) { closeCam(); return; }
                   if (idx >= POSES.length) return finish();
                   return capturePose();
                 }
               }
             }
           }
+        if (!enAlive()) return;                                    // [ข้อ 3] ก่อน RAF
           S.raf = requestAnimationFrame(loop);
         }).catch(function (e) { setMsg((e && e.message) || 'ตรวจใบหน้าไม่สำเร็จ', true); });
       })();
@@ -919,6 +1397,7 @@
 
     function finish() {
       closeCam();
+      if (!enAlive()) { closeCam(); return; }              // [ข้อ 6] ก่อน finish()/เปลี่ยน UI
       drawPoses('กำลังบันทึกข้อมูลใบหน้า…');
       /* ไม่ระบุ employeeId = พนักงานลงทะเบียนใบหน้าของตัวเองจากมือถือ
          ใช้ njhr_face_self_enroll ซึ่งไม่มีพารามิเตอร์ p_employee เลย
@@ -939,16 +1418,23 @@
         fnName = 'njhr_face_self_enroll';
         body = { p_token: token(), p_descriptors: got, p_quality: q, p_snapshot: snapPath };
       }
+      if (!enAlive()) { closeCam(); return; }     // [ข้อ 4] ถูกยกเลิกก่อนส่ง = ห้ามส่ง RPC
       rpc(fnName, body).then(function (r) {
+        if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
+        faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
           '<div class="njf-msg"><b>' + (reNew ? 'ลงทะเบียนใบหน้าใหม่สำเร็จ' : 'ลงทะเบียนใบหน้าสำเร็จ') +
           '</b><br>เก็บใบหน้าไว้ ' +
           ((r && r.sample_count) || got.length) + ' มุม</div>' +
           '<div class="njf-actions" id="njf-act"></div>');
         actions([{ label: 'เสร็จสิ้น', style: 'primary', on: function () {
-          close(); if (typeof onDone === 'function') onDone(r);
+          /* [ข้อ 1] โหมด Attendance → Handoff (ไม่ฆ่า Operation) แล้วต่อไป doPunch()
+             โหมด Manual → close() ปกติเหมือนเดิมทุกประการ */
+          if (enAtt) closeSoft(); else close();
+          if (typeof onDone === 'function') onDone(r);
         } }]);
       }).catch(function (e) {
+        if (isAborted(e) || !enAlive()) return;   // [ข้อ 5] Run ถูกยกเลิก = เงียบ
         drawPoses((e && e.message) || 'บันทึกไม่สำเร็จ', true);
         actions([
           { label: 'ปิด', style: 'plain', on: close },
@@ -965,9 +1451,13 @@
     camE.then(function () { if (!S.ready) drawPoses('กำลังเตรียมระบบตรวจสอบใบหน้า…'); }, function () {});
     modelE['catch'](function () {});
     Promise.all([camE, modelE]).then(function () {
+      if (!enAlive()) { closeCam(); throw AbortAttendanceError(); }   // [ข้อ 5] หลัง Cam+Model
       S.running = true;
       capturePose();
     }).catch(function (e) {
+      /* [ข้อ 3] Run เก่าที่ Reject ทีหลังห้าม closeCam() กล้องของ Run ใหม่
+         และห้ามเขียน UI / S.busy ของ Run ใหม่ */
+      if (isAborted(e) || !enAlive()) return;
       closeCam();                              // ฝั่งใดฝั่งหนึ่งล้มเหลว ต้องไม่ปล่อยกล้องค้างเปิด
       drawPoses((e && e.message) || 'เปิดกล้องไม่สำเร็จ', true);
       actions([{ label: 'ปิด', style: 'plain', on: close }]);
@@ -977,8 +1467,21 @@
 
   /* ---------- ปิดกล้องเมื่อออกจากหน้า ---------- */
   w.addEventListener('hashchange', close);
-  w.addEventListener('pagehide', closeCam);
-  d.addEventListener('visibilitychange', function () { if (d.hidden) closeCam(); });
+  /* ---------- [ข้อ 6] Background Cleanup แบบรู้โหมด ----------
+     เดิม pagehide / visibilitychange เรียกแค่ closeCam() ซึ่งไม่พอสำหรับการลงเวลา
+     เพราะ GPS Watch · Attendance Operation · Network ของ Attempt ยังทำงานต่อ
+
+     ATTENDANCE / ENROLL → ยกเลิกทั้ง Operation อย่างปลอดภัย
+        (invalidate OP+EN · closeCam+RAF · stop GPS Watch · abort Attempt Network · ปิด Overlay)
+     LOGIN (Face Login) → คงพฤติกรรมเดิมทุกประการ: ปิดกล้องอย่างเดียว ไม่แตะ Logic
+        เหตุผล: Face Login ไม่มี GPS/Operation และการปิด Flow ทิ้งจะทำให้ผู้ใช้
+        กลับมาแล้วเจอหน้าจอค้าง — เดิมทำงานถูกอยู่แล้วจึงไม่แตะ */
+  function bgCleanup() {
+    if (S.mode === 'ATTENDANCE' || S.mode === 'ENROLL') { close(); return; }
+    closeCam();
+  }
+  w.addEventListener('pagehide', bgCleanup);
+  d.addEventListener('visibilitychange', function () { if (d.hidden) bgCleanup(); });
 
   /* ---------- สแกนใบหน้าเข้าสู่ระบบ ----------
      ⚠ ไม่ขอ GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น
@@ -997,6 +1500,7 @@
   function login(onOk, onCancel) {
     if (S.busy) return;
     S.busy = true;
+    S.mode = 'LOGIN';                         // [ข้อ 1/6] Face Login คนละ Context — ห้ามถูก cancelAttendance ปิด
     shell('สแกนใบหน้าเข้าสู่ระบบ', 'มองกล้องให้อยู่ในกรอบ');
     var st = { live: 'wait', match: 'wait' };
     panel(stepsHtml(st, 'กำลังเตรียมกล้อง…'));
@@ -1078,14 +1582,26 @@
        ล้มเหลวก็เงียบ — ตอนกดสแกนจริงจะโหลดใหม่ตามเส้นทางเดิม */
     warmup: function () {
       addCss();
+      /* [ข้อ 3] warmup() = โมเดลอย่างเดียว — Face Status ถูก Preload แยกต่างหาก
+         ผ่าน statusPreload() เพื่อไม่ให้ติด flag "อุ่นแล้ว" ตอนสลับบัญชี */
       return loadModels()['catch'](function () {});
     },
+    statusPreload: faceStatusPreload,
+    statusReset: faceStatusReset,
     isReady: function () { return !!S.ready; },
     punch: punch,
     enroll: enroll,
     login: login,
     close: close,
     snapshotUrl: snapshotUrl,
-    isOpen: function () { return !!S.root; }
+    isOpen: function () { return !!S.root; },
+    /* [ข้อ 5] ยกเลิกเฉพาะ Face "Attendance" ที่ค้างอยู่ (Route change / Logout / Session invalid)
+       Face Login (mode ว่าง หรือโหมดอื่น) จะไม่ถูกปิดโดยไม่ตั้งใจเด็ดขาด */
+    cancelAttendance: function () {
+      if (S.mode !== 'ATTENDANCE') return false;
+      close();                                 // closeCam + cancelAnimationFrame + clearWatch + invalidate aid
+      return true;
+    },
+    mode: function () { return S.mode || ''; }
   };
 })(window, document);

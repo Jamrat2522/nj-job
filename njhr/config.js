@@ -19,7 +19,7 @@ window.NJHR_ENV_NAME = 'production';
 
 /* ---------- 2) Build Version ---------- */
 /* ใช้แสดงในหน้า Diagnostic เท่านั้น ห้ามแสดงบน Sidebar/Header */
-window.NJHR_BUILD_VERSION = 'njhr-v2-4411b8f4';
+window.NJHR_BUILD_VERSION = 'njhr-v2-65e2f419';
 
 /* ---------- 3) Supabase ---------- */
 window.NJHR_SUPABASE_URL      = 'https://sytgqjglcnsabcszbngg.supabase.co';
@@ -74,3 +74,10 @@ window.NJHR_CONFIG_FILE_OK = true;
    window.NJHR_SUPABASE_ANON_KEY= '__PRODUCTION_PUBLISHABLE_KEY__';
    window.NJHR_ALLOW_PRODUCTION = true;
    ============================================================ */
+
+/* ---------- Web Push (VAPID) ----------
+   ใส่ "Public Key" อย่างเดียว — คีย์นี้เปิดเผยได้ตามสเปก Web Push
+   ⚠ Private Key ห้ามอยู่ในไฟล์นี้เด็ดขาด · เก็บที่ Supabase Edge Function Secrets
+     (VAPID_PRIVATE_KEY) เท่านั้น
+   ปล่อยว่างไว้ = ปุ่มเปิดการแจ้งเตือนจะแจ้งว่า "ยังไม่ได้ตั้งค่า Push" และระบบทำงานปกติ */
+window.NJHR_VAPID_PUBLIC_KEY = 'BPlHZfh9omJ9HQQ4MsUXlsGsc4KCeMPjfqQA63OD6n4AF9lwflsCxFLopbkvMhmUIYnT9FQ96UcXH6uNv5_PkH4';

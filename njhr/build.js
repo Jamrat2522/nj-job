@@ -32,8 +32,11 @@ const fail = m => { console.error('BUILD FAILED — ' + m); process.exit(1); };
    ลำดับไฟล์ในแต่ละ chunk = ลำดับเลขนำหน้าเหมือนเดิม (deterministic)
    core รวม 01–06 ไว้ไฟล์เดียวโดยเจตนา — เหตุผลใน RUNTIME_SPLIT_REPORT.md §สถาปัตยกรรม */
 const CHUNKS = {
-  core: { files: ['01-core-icons-utils.js', '02-store.js', '03-ui-toast-modal.js', '04-router-guards.js',
-                  '05-layout-shell.js', '06-auth-supabase.js', '06-core-shared-boot.js'],
+  /* 00-error-monitor.js ต้องอยู่ต้นสุดของ core เพื่อให้ njErrReport() ถูกประกาศ
+     ก่อนที่ sbCall()/fn() จะเรียกใช้ (hoisting ของ function declaration ครอบคลุมอยู่แล้ว
+     แต่วางไว้ต้นเพื่อความชัดเจน) — ไม่โหลดไลบรารีใด ๆ เพิ่ม ขนาดโตน้อยมาก */
+  core: { files: ['00-error-monitor.js', '01-core-icons-utils.js', '02-store.js', '03-ui-toast-modal.js',
+                  '04-router-guards.js', '05-layout-shell.js', '06-auth-supabase.js', '06-core-shared-boot.js'],
           out: 'runtime/core.js', deps: [] },
   /* dashboard ต้องใช้ lvType() แปลงรหัสประเภทการลาที่ RPC ส่งมาเป็นชื่อไทย
      (การ์ด "คำขอลาล่าสุด" อ่านจาก Supabase ไม่ใช่ db.leaveTypes ใน localStorage อีกต่อไป) */
@@ -43,7 +46,8 @@ const CHUNKS = {
   'shared-emp-meta':   { files: ['20-shared-emp-meta.js'],   out: 'runtime/shared/emp-meta.js',      deps: [] },
   'shared-hr-meta':    { files: ['21-shared-hr-meta.js'],    out: 'runtime/shared/hr-meta.js',       deps: [] },
   'shared-report':     { files: ['22-shared-report.js'],     out: 'runtime/shared/report-export.js', deps: [] },
-  'shared-requests':   { files: ['23-shared-requests.js'],   out: 'runtime/shared/requests.js',      deps: [] },
+  'shared-requests':   { files: ['23-shared-requests.js'],   out: 'runtime/shared/requests.js',
+                         deps: ['shared-attachments'] },   /* [Privacy 104] reqFileOpen/Download */
   'shared-leave-meta': { files: ['24-shared-leave-meta.js'], out: 'runtime/shared/leave-meta.js',    deps: [] },
   'shared-attachments':{ files: ['25-shared-attachments.js'],out: 'runtime/shared/attachments.js',   deps: [] },
 
@@ -82,12 +86,15 @@ const CHUNKS = {
   'ot-form':             { files: ['45-view-ot-form.js'],               out: 'views/ot/form.js',
                            deps: ['ot', 'shared-requests', 'shared-attachments'] },
 
-  /* โปรไฟล์ + เอกสารของฉัน — 2 หน้าที่พนักงานมือถือเปิดบ่อยที่สุด
-     แยกออกจาก app-legacy.js เพื่อไม่ให้ต้องลากก้อนใหญ่ทั้งก้อนมาด้วย
-     ใช้ Pattern เดียวกับ attendance / leave / ot / employees ที่แยกไว้แล้ว */
-  'profile-docs': { files: ['14-view-profile-hrdocs.js'], out: 'views/profile/main.js',
-                    deps: ['shared-emp-meta', 'shared-hr-meta', 'shared-report',
-                           'shared-requests', 'shared-attachments'] },
+  /* โปรไฟล์ (มือถือเปิดบ่อยที่สุด) — แยกออกจากศูนย์เอกสาร HR
+     #/profile จึงไม่ต้องโหลด WHT50 / Template หนังสือรับรอง / Rich Text Editor / OOXML อีก
+     การแบ่งไฟล์ตรวจแล้วไม่มี symbol ข้ามฝั่ง (pf* ↔ doc*) — Gate ข้อ 6 ยืนยันซ้ำตอน build */
+  profile:   { files: ['14-view-profile.js'], out: 'views/profile/main.js',
+               deps: ['shared-hr-meta'] },
+  /* ศูนย์จัดการเอกสาร HR (WHT50 · หนังสือรับรอง · RTE · OOXML · Export) */
+  'hr-docs': { files: ['15-view-hrdocs.js'], out: 'views/profile/hrdocs.js',
+               deps: ['shared-emp-meta', 'shared-hr-meta', 'shared-report',
+                      'shared-requests', 'shared-attachments'] },
 
   /* ปฏิทินองค์กร + การแจ้งเตือน — 2 หน้าที่พนักงานมือถือเปิดบ่อย
      แยกออกจาก app-legacy.js ด้วย Pattern เดียวกับ attendance / leave / ot / employees
@@ -337,7 +344,16 @@ Object.keys(outFiles).forEach(f => {
 /* ---------- 8) Build ID + hash แยกต่อไฟล์ ---------- */
 const hash = {};
 Object.keys(outFiles).forEach(f => { hash[f] = md5(outFiles[f]).slice(0, 8); });
-const stamp = md5(Object.keys(outFiles).sort().map(f => f + ':' + hash[f]).join('|')).slice(0, 8);
+/* ไฟล์นิ่งที่ไม่ได้ผ่านขั้นตอน build แต่ถูกโหลดด้วย njAsset('...') = 'ไฟล์?v=<BUILD_VERSION>'
+   ถ้าไม่นับรวมเข้า stamp การแก้ไฟล์เหล่านี้อย่างเดียวจะไม่ทำให้ Build Version เปลี่ยน
+   → เบราว์เซอร์/Service Worker จะเสิร์ฟของเก่าต่อไป (พบจริงตอนแก้ face.js รอบนี้) */
+const STATIC_VERSIONED = ['face.js', 'face.css', 'master-salary.js', 'report-template.js'];
+const staticSig = STATIC_VERSIONED.map(function (f) {
+  const p = path.join(D, f);
+  return f + ':' + (fs.existsSync(p) ? md5(fs.readFileSync(p)).slice(0, 8) : 'missing');
+}).join('|');
+const stamp = md5(Object.keys(outFiles).sort().map(f => f + ':' + hash[f]).join('|') +
+                  '|static|' + staticSig).slice(0, 8);
 const q = f => f + '?v=' + hash[f];
 
 const RUNTIME_KEYS = ['core'];
