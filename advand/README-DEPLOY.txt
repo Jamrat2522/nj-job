@@ -1,18 +1,19 @@
 ==========================================================
- ADVANCE — FINAL SECURE (รอบ 6)
- ⚠️ ไฟล์ชุดนี้ = ใช้โยนขึ้น GitHub (DEPLOY)
+ ADVANCE — Dark Sidebar + Light Content
+ ⚠️ ไฟล์ชุดนี้ = ใช้โยนขึ้น GitHub / DEPLOY
 ==========================================================
 GitHub.com -> repo Advance -> Add file -> Upload files
--> ลาก index.html -> Commit changes        (1 ไฟล์)
+-> ลาก index.html -> Commit changes   (1 ไฟล์ · ในลิมิต 100)
 
-SHA-256 : a0576658f4f0247670364895eda61326e3f79a73393887f1b8f41e24ece12ce2
-ขนาด    : 394808 bytes
+SHA-256 : e4f4bc42bc33682adff4829f68a52d5f62ee310912b74f16c990aecb122fa07d
+ขนาด    : 425249 bytes
 
-⚠️ index.html รอบนี้ "ไม่มีการแก้ไข" — ไบต์ต่อไบต์เท่ากับรอบ 5 ที่ผ่าน 203/203
-   งานรอบนี้เกิดฝั่ง Database ทั้งหมด (RUN-01/02/03 + VERIFY)
-   จะอัปโหลดซ้ำหรือไม่ก็ได้ — ผลลัพธ์เหมือนเดิมทุกประการ
+รอบนี้เพิ่ม CSS 118 บรรทัด · ลบ 0 บรรทัด (hunk เดียว ต่อท้าย <style>)
+รวมสะสมทั้งโปรเจกต์ธีม = 601 บรรทัด · ไม่มี HTML/JS ถูกแตะเลย
 
-Frontend Cutover ไป njadv_* RPC = ยังไม่ทำ (รอบถัดไป)
-เหตุผล: RUN-04 ถูกบล็อกด้วย dependency 4 แอป การ cutover ตอนนี้
-        จึงยังไม่ให้ผลด้าน security จริง แต่แบกความเสี่ยง login ของ 112 คน
-        ดูรายละเอียดใน ADVANCE-FINAL-SECURITY-SQL.zip / RUN-04
+ขอบเขต: .sidebar (ดำอมกรม #111827 + แดง accent)
+        #pageJobs / #modalCreate = ยัง Light Theme เหมือนเดิม
+        Login / #pageUsers / modal อื่น = ไม่เปลี่ยน
+
+คงของเดิม 100%: Logo NJ · ADVANCE · NJ · v.7 · ชื่อเมนู · จำนวน · Icon · Structure
+Acceptance: PASS 203/203 · FAIL 0

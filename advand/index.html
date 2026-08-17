@@ -2371,6 +2371,607 @@
     max-height: 220px !important;
     overflow-y: auto !important;
   }
+
+  /* ============================================================================
+     ☀️ LIGHT THEME — เฉพาะหน้า "เงินสำรองจ่าย / ค่าใช้จ่ายนอกราคาขาย" (#pageJobs)
+     ----------------------------------------------------------------------------
+     PRESENTATION ONLY. เพิ่มต่อท้ายอย่างเดียว ไม่แก้ selector เดิมแม้แต่บรรทัดเดียว
+     ขอบเขต: #pageJobs เท่านั้น → Login / Sidebar / Modal / #pageUsers ไม่ถูกแตะ
+     ไม่มีการเปลี่ยน HTML, class, id, event handler, business logic
+     ============================================================================ */
+  #pageJobs {
+    --lt-bg:        #F8FAFC;
+    --lt-surface:   #FFFFFF;
+    --lt-border:    #E2E8F0;
+    --lt-divider:   #EDF1F5;
+    --lt-row-line:  #E8EDF3;
+    --lt-hover:     #F8FAFC;
+    --lt-t1:        #172033;
+    --lt-t2:        #64748B;
+    --lt-t3:        #94A3B8;
+    --lt-green:     #00A86B;
+    --lt-shadow:    0 2px 8px rgba(15,23,42,.06);
+    background: var(--lt-bg);
+    color: var(--lt-t1);
+  }
+
+  /* ---------- หัวข้อหน้า ---------- */
+  #pageJobs .page-title { color: var(--lt-t1); }
+  #pageJobs .page-sub   { color: var(--lt-t2); }
+
+  /* ---------- ปุ่มด้านบน: พื้นขาว + ขอบ/ตัวอักษรสีแบรนด์ ---------- */
+  #pageJobs .page-actions .btn {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    box-shadow: var(--lt-shadow);
+    color: var(--lt-t1);
+  }
+  #pageJobs .page-actions .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,.10); }
+  #pageJobs .btn-green   { border-color: #A7E8CD; color: #059669; }
+  #pageJobs .btn-green:hover   { background: #F0FDF8; border-color: #6EE7B7; }
+  #pageJobs .btn-line    { border-color: #A7E8C0; color: #16233A; }
+  #pageJobs .btn-line:hover    { background: #F0FDF4; border-color: #06C755; }
+  #pageJobs .btn-line .line-badge { background: #06C755; color: #fff; }
+  #pageJobs .btn-refresh { border-color: #BFD9FF; color: #2563EB; }
+  #pageJobs .btn-refresh:hover { background: #F0F6FF; border-color: #3B82F6; }
+  #pageJobs .btn-ghost, #pageJobs .btn-export-excel {
+    border-color: #DCE3EC; color: var(--lt-t1);
+  }
+  #pageJobs .btn-ghost:hover, #pageJobs .btn-export-excel:hover { background: #F1F5F9; }
+
+  /* ---------- KPI Card 4 ใบ: พื้นอ่อนมาก ตัวเลขเข้มอ่านชัด ---------- */
+  #pageJobs .kpi-card  { box-shadow: var(--lt-shadow); }
+  #pageJobs .kpi-title { color: var(--lt-t1); }
+  #pageJobs .kpi-num   { color: #0F172A; }
+
+  #pageJobs .kpi-job      { background: #EFF6FF; border: 1px solid #BFDBFE; }
+  #pageJobs .kpi-job .kpi-unit { color: #2563EB; }
+  #pageJobs .kpi-job .kpi-icn  { background: #DBEAFE; }
+
+  #pageJobs .kpi-pending  { background: #FFF8EC; border: 1px solid #FCD9A4; }
+  #pageJobs .kpi-pending .kpi-unit { color: #C2790B; }
+  #pageJobs .kpi-pending .kpi-icn  { background: #FDEBCB; }
+
+  #pageJobs .kpi-approved { background: #F0FDF6; border: 1px solid #A7E8CD; }
+  #pageJobs .kpi-approved .kpi-unit { color: #059669; }
+  #pageJobs .kpi-approved .kpi-icn  { background: #D6F5E6; }
+
+  #pageJobs .kpi-close    { background: #F7F3FF; border: 1px solid #D8CCFB; }
+  #pageJobs .kpi-close .kpi-unit { color: #7C3AED; }
+  #pageJobs .kpi-close .kpi-icn  { background: #EAE1FE; }
+
+  /* ---------- Status Filter: พื้นขาว สีอยู่ที่ dot/badge ---------- */
+  #pageJobs .pill {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    color: var(--lt-t1);
+    box-shadow: var(--lt-shadow);
+  }
+  #pageJobs .pill:hover { background: #F1F5F9; color: var(--lt-t1); }
+  #pageJobs .pill .count { background: #F1F5F9; color: var(--lt-t2); }
+
+  #pageJobs .pill[data-status="all"]      .count { background: #F1F5F9; color: #475569; }
+  #pageJobs .pill[data-status="pending"]  .count { background: #FFE9E9; color: #DC2626; }
+  #pageJobs .pill[data-status="approved"] .count { background: #DEF7EC; color: #059669; }
+  #pageJobs .pill[data-status="rejected"] .count { background: #F1F5F9; color: #64748B; }
+  #pageJobs .pill[data-status="close"]    .count { background: #FFE9E9; color: #DC2626; }
+
+  /* เลือกอยู่ = พื้นอ่อนของสถานะนั้น (ไม่ใช่พื้นเข้ม) */
+  #pageJobs .pill.active { font-weight: 600; }
+  #pageJobs .pill.active[data-status="all"]      { background: #F1F5F9; border-color: #CBD5E1; color: #334155; }
+  #pageJobs .pill.active[data-status="pending"]  { background: #FFF1F1; border-color: #FBB4B4; color: #B91C1C; }
+  #pageJobs .pill.active[data-status="approved"] { background: #F0FDF6; border-color: #86E3B8; color: #047857; }
+  #pageJobs .pill.active[data-status="rejected"] { background: #F1F5F9; border-color: #CBD5E1; color: #475569; }
+  #pageJobs .pill.active[data-status="close"]    { background: #FFF1F1; border-color: #FBB4B4; color: #B91C1C; }
+
+  /* ---------- Search ---------- */
+  #pageJobs .search-bar input {
+    background: var(--lt-surface);
+    border: 1px solid #DCE3EC;
+    color: var(--lt-t1);
+    box-shadow: var(--lt-shadow);
+  }
+  #pageJobs .search-bar input::placeholder { color: var(--lt-t2); }
+  #pageJobs .search-bar input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  #pageJobs .search-bar svg { color: var(--lt-t2); }
+
+  /* ---------- Table ---------- */
+  #pageJobs .table-wrap {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    box-shadow: var(--lt-shadow);
+  }
+  #pageJobs thead th {
+    background: var(--lt-surface);
+    color: var(--lt-t1);
+    border-bottom: 1px solid var(--lt-divider);
+  }
+  #pageJobs tbody td {
+    background: transparent;
+    color: var(--lt-t1);
+    border-bottom: 1px solid var(--lt-row-line);
+  }
+  #pageJobs tbody tr:hover { background: var(--lt-hover); }
+  #pageJobs tbody tr:hover td { background: var(--lt-hover); }
+  #pageJobs .amount-cell { color: var(--lt-green); text-shadow: none; }
+  #pageJobs .date-cell   { color: var(--lt-t1); }
+  #pageJobs .empty       { color: var(--lt-t2); }
+  #pageJobs .empty svg   { opacity: .25; }
+
+  /* คอลัมน์ "จัดการ" sticky — ต้องเป็นพื้นขาว ไม่งั้นเหลือแถบ navy */
+  @media (min-width: 901px) {
+    #pageJobs .desktop-table-premium td:last-child,
+    #pageJobs .desktop-table-premium th.th-actions {
+      background: var(--lt-surface) !important;
+      box-shadow: -8px 0 16px -12px rgba(15,23,42,.18) !important;
+    }
+    #pageJobs .desktop-table-premium tbody tr:hover td:last-child { background: var(--lt-hover) !important; }
+    /* accent underline ประจำคอลัมน์ — คงสีเดิม ตัด glow ออกให้เข้ากับ light */
+    #pageJobs .desktop-table-premium thead th::after { opacity: .9; box-shadow: none !important; }
+    #pageJobs .desktop-table-premium .user-name-only { color: var(--lt-t1); }
+  }
+  #pageJobs thead th.th-actions { color: #0EA57A; text-shadow: none; }
+
+  /* JOB NJ AD = เขียว (ตาม master reference) */
+  #pageJobs .desktop-table-premium .th-jobad { color: var(--lt-t1); }
+
+  /* ---------- Badge สถานะในตาราง ---------- */
+  #pageJobs .b-pending  { background: #FFE9E9; color: #DC2626; }
+  #pageJobs .b-approved { background: #DEF7EC; color: #047857; }
+  #pageJobs .b-reject   { background: #F1F5F9; color: #64748B; }
+  #pageJobs .b-reject .dot { background: #94A3B8; }
+  #pageJobs .b-close    { background: #FFE9E9; color: #DC2626; }
+  #pageJobs .b-mode-advance { background: #EFF6FF; color: #2563EB; }
+  #pageJobs .b-mode-extra   { background: #F7F3FF; color: #7C3AED; }
+
+  /* ---------- ปุ่ม Action: พื้น pastel + icon สีชัด ---------- */
+  #pageJobs .row-actions button { box-shadow: none; border: 1px solid transparent; }
+  #pageJobs .row-actions button:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15,23,42,.12); }
+
+  #pageJobs .row-actions .a-view    { background: #F3ECFF; color: #7C3AED; }
+  #pageJobs .row-actions .a-view:hover    { background: #A855F7; color: #fff; }
+  #pageJobs .row-actions .a-approve { background: #DEF7EC; color: #059669; box-shadow: none; }
+  #pageJobs .row-actions .a-approve:hover { background: #10B981; color: #fff; }
+  #pageJobs .row-actions .a-reject  { background: #F1F5F9; color: #64748B; }
+  #pageJobs .row-actions .a-reject:hover  { background: #94A3B8; color: #fff; }
+  #pageJobs .row-actions .a-edit    { background: #E8F1FF; color: #2563EB; }
+  #pageJobs .row-actions .a-edit:hover    { background: #3B82F6; color: #fff; }
+  #pageJobs .row-actions .a-print   { background: #FFF2DC; color: #C2790B; }
+  #pageJobs .row-actions .a-print:hover   { background: #F59E0B; color: #fff; }
+  #pageJobs .row-actions .a-slip    { background: #FFF2DC; color: #C2790B; }
+  #pageJobs .row-actions .a-slip:hover    { background: #F59E0B; color: #fff; }
+  #pageJobs .row-actions .a-restore { background: #FFF2DC; color: #C2790B; }
+  #pageJobs .row-actions .a-restore:hover  { background: #F59E0B; color: #fff; }
+  #pageJobs .row-actions .a-barcode { background: #E4F4FF; color: #0284C7; }
+  #pageJobs .row-actions .a-barcode:hover { background: #0EA5E9; color: #fff; }
+  #pageJobs .row-actions .a-attach  { background: #ECEBFF; color: #4F46E5; }
+  #pageJobs .row-actions .a-attach:hover  { background: #6366F1; color: #fff; }
+  #pageJobs .row-actions .a-delete  { background: #FFE9E9; color: #DC2626; }
+  #pageJobs .row-actions .a-delete:hover  { background: #EF4444; color: #fff; }
+  #pageJobs .row-actions .a-line    { background: #E6F9EE; color: #06A544; }
+  #pageJobs .row-actions .a-line:hover    { background: #06C755; color: #fff; }
+  #pageJobs .row-actions button:not([class*="a-"]) { background: #F1F5F9; color: var(--lt-t2); }
+
+  /* ---------- Mobile card view (<=900px) ---------- */
+  @media (max-width: 900px) {
+    #pageJobs .job-card {
+      background: var(--lt-surface);
+      border: 1px solid var(--lt-border);
+      box-shadow: var(--lt-shadow);
+    }
+    #pageJobs .jc-time, #pageJobs .jc-jobnj,
+    #pageJobs .jc-info-row .lbl, #pageJobs .jc-accts-title,
+    #pageJobs .jc-acct-bank, #pageJobs .jc-amount-label { color: var(--lt-t2); }
+    #pageJobs .jc-company, #pageJobs .jc-info-row b { color: var(--lt-t1); }
+    #pageJobs .jc-info-row { color: #334155; }
+    #pageJobs .jc-timeline {
+      background: #F8FAFC; border: 1px solid var(--lt-border); color: #334155;
+    }
+    #pageJobs .jc-acct-row { background: #F0F6FF; border: 1px solid #C7DDFF; }
+    #pageJobs .jc-acct-no  { color: var(--lt-t1); }
+    #pageJobs .jc-amount   { background: #F0FDF6; border: 1px solid #A7E8CD; }
+    #pageJobs .jc-amount-val { color: var(--lt-green); }
+    #pageJobs .jc-meta     { color: var(--lt-t2); }
+  }
+
+  /* ============================================================================
+     ☀️ LIGHT THEME — Modal "สร้างงานใหม่" (#modalCreate)
+     ----------------------------------------------------------------------------
+     PRESENTATION ONLY · เพิ่มต่อท้ายอย่างเดียว ไม่แก้ selector เดิม
+     ขอบเขต: #modalCreate เท่านั้น → modal อื่นทุกตัวยังเป็น Dark เหมือนเดิม
+     ทับ #modalCreate rules เดิม (บรรทัด ~551-632) ได้เพราะมาทีหลัง + specificity เท่ากัน
+     ไม่แตะ HTML / JS / Auto Number / Validation / Save / Search / Timeline logic
+     ============================================================================ */
+  #modalCreate {
+    --lt-surface:  #FFFFFF;
+    --lt-border:   #E2E8F0;
+    --lt-divider:  #E8EDF3;
+    --lt-field-bd: #20B99A;
+    --lt-t1:       #172033;
+    --lt-t2:       #64748B;
+    --lt-t3:       #8A98AD;
+    --lt-label:    #17325C;
+    --lt-foot:     #F8FAFC;
+    --lt-green:    #10B981;
+    --lt-green-dk: #059669;
+  }
+
+  /* ---------- Overlay + กล่อง Modal ---------- */
+  #modalCreate.modal-back { background: rgba(15,23,42,.30); }
+  #modalCreate .modal {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    border-radius: 20px;
+    box-shadow: 0 18px 50px rgba(15,23,42,.18);
+    color: var(--lt-t1);
+  }
+  #modalCreate .modal-head {
+    background: var(--lt-surface) !important;
+    border-bottom: none;
+  }
+  #modalCreate .modal-title { color: var(--lt-label); }
+  #modalCreate .modal-head > div > div:last-child { color: var(--lt-t2) !important; }
+  #modalCreate .modal-close {
+    background: var(--lt-surface);
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    color: var(--lt-t1);
+  }
+  #modalCreate .modal-close:hover { background: #F1F5F9; color: var(--lt-t1); }
+
+  /* ---------- แถบ JOB NJ AD / วันที่เวลา = Card เทาอ่อน ---------- */
+  /* div ถัดจาก .modal-head คือแถบนี้ (มี inline style จึงต้อง !important) */
+  #modalCreate .modal-head + div {
+    background: #F8FAFC;
+    border: 1px solid var(--lt-border);
+    border-radius: 16px;
+    padding: 14px 18px !important;
+    margin-bottom: 16px !important;
+  }
+  #modalCreate .job-no-pill { color: #00A67A; font-size: 17px; }
+  #modalCreate .auto-chip {
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    color: var(--lt-green-dk);
+    padding: 7px 14px;
+  }
+  #modalCreate #newDateTime { color: var(--lt-t1); }
+  #modalCreate .modal-head + div div[style*="letter-spacing"] { color: var(--lt-t2) !important; }
+
+  /* ---------- Label ---------- */
+  #modalCreate .field-label { color: var(--lt-label); font-weight: 700; }
+  #modalCreate .field-label .req,
+  #modalCreate .field-label i { color: #EF4444; }
+
+  /* ---------- Input / Select / Textarea: เส้นประเขียวเล็กละเอียด (ตาม PNG) ---------- */
+  #modalCreate .field-input,
+  #modalCreate textarea.field-input,
+  #modalCreate select.field-input {
+    background: var(--lt-surface) !important;
+    color: var(--lt-t1) !important;
+    border: 1.5px dashed var(--lt-field-bd) !important;
+    border-radius: 15px !important;
+    box-shadow: none !important;
+  }
+  #modalCreate .field-input::placeholder,
+  #modalCreate textarea::placeholder { color: var(--lt-t3); }
+  /* Focus — ยังคงเป็นเส้นประ ห้ามเปลี่ยนเป็นเส้นทึบ */
+  #modalCreate .field-input:focus,
+  #modalCreate textarea.field-input:focus,
+  #modalCreate select.field-input:focus {
+    background: var(--lt-surface) !important;
+    border: 1.5px dashed var(--lt-green) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,.08) !important;
+    outline: none !important;
+  }
+
+  /* ---------- Dropdown (combo) — ต้องเป็น Light ทุกสถานะ ---------- */
+  #modalCreate .combo-caret { color: var(--lt-t2); }
+  #modalCreate .combo-caret:hover { background: #F1F5F9; color: #2563EB; }
+  #modalCreate .combo-list,
+  #modalCreate .type-combo-list {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    box-shadow: 0 12px 30px -8px rgba(15,23,42,.18);
+  }
+  #modalCreate .combo-opt,
+  #modalCreate .type-combo-list .combo-opt { color: var(--lt-t1); }
+  #modalCreate .combo-opt:hover { background: #F1F5F9; color: var(--lt-t1); }
+  #modalCreate .combo-opt.active,
+  #modalCreate .combo-opt[aria-selected="true"] { background: #ECFDF5; color: #047857; }
+  #modalCreate .combo-empty { color: var(--lt-t2); }
+
+  /* ---------- Section / หัวข้อ ---------- */
+  #modalCreate .section { border-top: 1px dashed var(--lt-border); }
+  #modalCreate .section-title { color: #047857; }
+
+  /* ---------- Timeline / หมายเหตุ (การ์ดขาว ขอบทึบ ไม่ใช่เส้นประ) ---------- */
+  #modalCreate .timeline-card {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    border-radius: 14px;
+    border-left: 3px solid var(--lt-green);
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  #modalCreate .timeline-list > .timeline-card + .timeline-card { border-top: 1px solid var(--lt-divider); }
+  #modalCreate .tl-head .tag  { background: #ECFDF5; color: var(--lt-green-dk); }
+  #modalCreate .tl-head .time { color: var(--lt-t2); }
+  #modalCreate .tl-info       { color: var(--lt-t1); }
+  #modalCreate .tl-info b     { color: var(--lt-t1); }
+
+  /* scrollbar — Track #F1F5F9 / Thumb #CBD5E1 ตามสเปก */
+  #modalCreate textarea.field-input::-webkit-scrollbar,
+  #modalCreate .timeline-textarea::-webkit-scrollbar,
+  #modalCreate .timeline-list::-webkit-scrollbar,
+  #modalCreate .combo-list::-webkit-scrollbar,
+  #modalCreate .pay-table-scroll-x::-webkit-scrollbar,
+  #modalCreate .extra-table-scroll-x::-webkit-scrollbar { width: 10px; height: 10px; }
+  #modalCreate textarea.field-input::-webkit-scrollbar-track,
+  #modalCreate .timeline-textarea::-webkit-scrollbar-track,
+  #modalCreate .timeline-list::-webkit-scrollbar-track,
+  #modalCreate .combo-list::-webkit-scrollbar-track,
+  #modalCreate .pay-table-scroll-x::-webkit-scrollbar-track,
+  #modalCreate .extra-table-scroll-x::-webkit-scrollbar-track { background: #F1F5F9; border-radius: 999px; }
+  #modalCreate textarea.field-input::-webkit-scrollbar-thumb,
+  #modalCreate .timeline-textarea::-webkit-scrollbar-thumb,
+  #modalCreate .timeline-list::-webkit-scrollbar-thumb,
+  #modalCreate .combo-list::-webkit-scrollbar-thumb,
+  #modalCreate .pay-table-scroll-x::-webkit-scrollbar-thumb,
+  #modalCreate .extra-table-scroll-x::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+  #modalCreate .pay-table-scroll-x::-webkit-scrollbar-thumb:hover,
+  #modalCreate .extra-table-scroll-x::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+  /* ---------- Payment Items ---------- */
+  #modalCreate .pay-table-scroll-x,
+  #modalCreate .extra-table-scroll-x {
+    border: 1px solid var(--lt-border) !important;
+    border-radius: 14px !important;
+    background: var(--lt-surface) !important;
+  }
+  #modalCreate .pay-table-modal thead th {
+    color: var(--lt-t2);
+    border-bottom: 1px solid var(--lt-divider);
+  }
+  #modalCreate .pay-table-modal tbody td { border-bottom: 1px solid var(--lt-divider); color: var(--lt-t1); }
+  #modalCreate .pay-empty-row td { color: var(--lt-t2); }
+  #modalCreate .pay-row-input,
+  #modalCreate .pay-row-select,
+  #modalCreate .ex-row-input {
+    background: var(--lt-surface) !important;
+    border: 1px dashed var(--lt-field-bd) !important;
+    border-radius: 12px !important;
+    color: var(--lt-t1) !important;
+  }
+  #modalCreate .pay-row-input:focus,
+  #modalCreate .pay-row-select:focus,
+  #modalCreate .ex-row-input:focus {
+    border: 1px dashed var(--lt-green) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,.08) !important;
+    background: var(--lt-surface) !important;
+  }
+
+  /* ---------- การ์ดสรุปยอด ---------- */
+  #modalCreate .sum-card   { background: #F8FAFC; border: 1px solid var(--lt-border); box-shadow: none; }
+  #modalCreate .sum-label  { color: var(--lt-t2); }
+  #modalCreate .sum-val    { color: var(--lt-t1); }
+  #modalCreate .sum-sub    { color: var(--lt-t3); }
+  #modalCreate .sum-blue   .sum-val { color: #2563EB; }
+  #modalCreate .sum-purple .sum-val { color: #7C3AED; }
+  #modalCreate .sum-cyan   .sum-val { color: #0284C7; }
+  #modalCreate .sum-orange .sum-val { color: #C2790B; }
+  #modalCreate .sum-green  .sum-val { color: #047857; }
+
+  /* ---------- Footer ---------- */
+  #modalCreate .modal-foot {
+    background: var(--lt-foot) !important;
+    border-top: 1px solid var(--lt-border) !important;
+  }
+  #modalCreate .modal-foot .btn-ghost {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-field-bd);
+    color: var(--lt-label);
+  }
+  #modalCreate .modal-foot .btn-ghost:hover { background: #F1F5F9; }
+  #modalCreate .modal-foot .btn-green,
+  #modalCreate .modal-foot .btn-primary {
+    background: var(--lt-green);
+    color: #FFFFFF;
+    border: 1px solid var(--lt-green);
+    box-shadow: 0 4px 12px rgba(16,185,129,.28);
+  }
+  #modalCreate .modal-foot .btn-green:hover,
+  #modalCreate .modal-foot .btn-primary:hover { background: var(--lt-green-dk); border-color: var(--lt-green-dk); }
+
+  /* ปุ่มรองภายใน modal (COPY ข้อความ / เพิ่มรายการ) */
+  #modalCreate .btn-ghost { background: var(--lt-surface); border: 1px solid var(--lt-field-bd); color: var(--lt-label); }
+  #modalCreate .btn-ghost:hover { background: #F1F5F9; }
+
+  /* ---------- แก้ contrast จุดที่ยัง inherit token ของ dark theme ---------- */
+  /* หัวข้อ TIMELINE / Payment Items เดิมใช้ var(--text-1) = #e8eef8 → จางบนพื้นขาว */
+  #modalCreate .timeline-section-title,
+  #modalCreate .payment-section-title { color: var(--lt-t1); }
+
+  /* กล่อง TIMELINE = Light Card ขาว ขอบทึบ (ตามสเปกข้อ 9 — ไม่ใช่เส้นประ) */
+  #modalCreate .timeline-textarea {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+    border-radius: 14px;
+    color: var(--lt-t1);
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  #modalCreate .timeline-textarea:focus {
+    background: var(--lt-surface);
+    border-color: var(--lt-green);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.08);
+  }
+  #modalCreate .timeline-textarea::placeholder { color: var(--lt-t3); }
+
+  /* ปุ่ม COPY ข้อความ — เดิมเป็นฟ้า glow สว่างจ้า */
+  #modalCreate .btn-tl-copy,
+  #modalCreate .btn-blue-glow {
+    background: var(--lt-surface) !important;
+    border: 1px solid var(--lt-field-bd) !important;
+    color: var(--lt-label) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  #modalCreate .btn-tl-copy:hover,
+  #modalCreate .btn-blue-glow:hover { background: #F1F5F9 !important; border-color: #94A3B8 !important; }
+
+  /* หัวตาราง Payment Items + แถวว่าง */
+  #modalCreate .pay-table-modal thead th { color: var(--lt-label); font-weight: 800; }
+  #modalCreate .pay-table,
+  #modalCreate .pay-table-wrap { background: transparent; }
+  #modalCreate .pay-table thead th { background: #F8FAFC; color: var(--lt-label); }
+
+  /* ป้ายกำกับยอดรวมด้านล่าง */
+  #modalCreate .sum-label,
+  #modalCreate .sum-card .sum-label { color: var(--lt-label); }
+  #modalCreate .ex-val { color: var(--lt-t1); }
+  #modalCreate .ex-blue  .ex-val { color: #2563EB; }
+  #modalCreate .ex-green .ex-val { color: #047857; text-shadow: none; }
+
+  /* ปุ่ม "เพิ่มรายการ" ให้เป็น primary เขียวเหมือน design system */
+  #modalCreate .btn-green { background: var(--lt-green); color: #fff; border: 1px solid var(--lt-green); box-shadow: 0 4px 12px rgba(16,185,129,.28); }
+  #modalCreate .btn-green:hover { background: var(--lt-green-dk); border-color: var(--lt-green-dk); }
+
+  /* ---------- ทับ rule เดิมที่ใช้ !important (บรรทัด ~2300-2318) ---------- */
+  /* เดิมบังคับ #eaf2ff (ขาวอมฟ้า) → มองไม่เห็นบนพื้นขาว ต้องใช้ !important สู้ */
+  #modalCreate .pay-table-modal thead th { color: var(--lt-label) !important; }
+  #modalCreate .pay-table-modal thead th::selection,
+  #modalCreate .pay-table-modal thead th *::selection { color: var(--lt-label) !important; }
+  #modalCreate .pay-row-input,
+  #modalCreate .type-combo-input { color: var(--lt-t1) !important; }
+
+  /* <option> ของ native select ยังเป็นพื้น navy */
+  #modalCreate .pay-row-select option,
+  #modalCreate select.field-input option {
+    background: var(--lt-surface);
+    color: var(--lt-t1);
+  }
+  #modalCreate .pay-row-select option:checked,
+  #modalCreate select.field-input option:checked {
+    background: linear-gradient(0deg, #ECFDF5, #ECFDF5);
+    color: #047857;
+  }
+
+  /* ============================================================================
+     🖤 DARK PREMIUM SIDEBAR (ดำอมกรม + แดงเป็น Accent)
+     ----------------------------------------------------------------------------
+     PRESENTATION ONLY · เพิ่มต่อท้ายอย่างเดียว ไม่แก้ selector เดิม
+     ขอบเขต: .sidebar เท่านั้น → Content ขวา (#pageJobs / #modalCreate) ยังเป็น Light
+     ไม่แตะ HTML / routing / filter / badge calculation / event handler
+     ============================================================================ */
+  .sidebar {
+    --sb-bg:      #111827;
+    --sb-card:    #171E2B;
+    --sb-card-bd: #2A3444;
+    --sb-group-bd:#303948;
+    --sb-hover:   #202938;
+    --sb-t1:      #F8FAFC;
+    --sb-t2:      #CBD5E1;
+    --sb-t3:      #8996AA;
+    --sb-red:     #EF4444;
+    --sb-red-dk:  #DC2626;
+    background: var(--sb-bg);
+    border-right: 1px solid var(--sb-card-bd);
+  }
+
+  /* ---------- Brand: คง Logo NJ เดิม ไม่เปลี่ยน branding ---------- */
+  .sidebar .brand { border-bottom: 1px solid var(--sb-card-bd); }
+  .sidebar .brand-text b     { color: var(--sb-t1); }
+  .sidebar .brand-text small { color: #94A3B8; }
+
+  /* ---------- User Profile = Card ---------- */
+  .sidebar .user-card {
+    background: var(--sb-card) !important;
+    border: 1px solid var(--sb-card-bd) !important;
+    border-radius: 14px;
+    padding: 10px 12px !important;
+    margin-bottom: 8px;
+  }
+  .sidebar .user-name   { color: var(--sb-t1); }
+  .sidebar .user-role   { color: #34D399; }
+  .sidebar .user-online { background: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.22); }
+
+  /* ---------- หัวข้อ WORK / SYSTEM ---------- */
+  .sidebar .nav-section-title { color: var(--sb-t3); }
+
+  /* ---------- Card หมวดหลัก ---------- */
+  .sidebar .nav-group {
+    background: var(--sb-card);
+    border: 1px solid var(--sb-group-bd);
+    border-radius: 14px;
+    padding: 4px 5px 8px;
+    margin-bottom: 10px;
+  }
+  .sidebar .nav-parent { color: var(--sb-t1); white-space: normal; align-items: center; }
+  /* หมวดชื่อยาว ("ค่าใช้จ่ายนอกราคาขาย") — วัดแล้วต้องใช้ 151px แต่มีที่ 106px
+     ลด font ถึง 11px ก็ยังไม่พอ → ให้ขึ้นบรรทัดใหม่แทน ภาษาไทยจึงไม่ถูกตัด */
+  .sidebar .nav-parent > span:not(.ico):not(.total-pill) {
+    min-width: 0; white-space: normal; line-height: 1.3; word-break: break-word;
+  }
+  .sidebar .nav-parent .total-pill { flex-shrink: 0; }
+  .sidebar .nav-parent .ico       { background: rgba(239,68,68,.12); }
+  .sidebar .nav-parent.extra .ico { background: rgba(168,85,247,.15); }
+  .sidebar .nav-parent .total-pill       { background: #243852; color: #93C5FD; }
+  .sidebar .nav-parent.extra .total-pill { background: #352454; color: #C4B5FD; }
+
+  /* ---------- Sub Menu: มีพื้นที่กดชัด ---------- */
+  .sidebar .nav-sub .nav-item,
+  .sidebar .nav-item {
+    color: var(--sb-t2);
+    border-radius: 10px;
+    border-left: 3px solid transparent;
+  }
+  .sidebar .nav-item:hover { background: var(--sb-hover); color: var(--sb-t1); }
+
+  /* ---------- ACTIVE STATE: พื้นแดงอ่อน + แถบแดงซ้าย ---------- */
+  .sidebar .nav-item.active {
+    background: rgba(239,68,68,.08);
+    border-left: 3px solid var(--sb-red);
+    color: var(--sb-t1);
+    text-shadow: none;
+    font-weight: 800;
+  }
+  .sidebar .nav-item.active:hover { background: rgba(239,68,68,.13); }
+
+  /* ---------- Badge สถานะ (คงการแยกสีเดิม) ---------- */
+  .sidebar .nav-item .count { background: #263142; color: var(--sb-t2); }
+  .sidebar .nav-item[data-status="pending"]  .count { background: rgba(239,68,68,.18); color: #FCA5A5; }
+  .sidebar .nav-item[data-status="approved"] .count { background: rgba(16,185,129,.18); color: #6EE7B7; }
+  .sidebar .nav-item[data-status="rejected"] .count { background: #263142;              color: #CBD5E1; }
+  .sidebar .nav-item[data-status="close"]    .count { background: rgba(220,38,38,.20);  color: #FCA5A5; }
+
+  /* dot สถานะ — รออนุมัติ/Close = แดง · อนุมัติ = เขียว · ไม่อนุมัติ = เทา */
+  .sidebar .nav-item[data-status="pending"]  .dot { background: var(--sb-red) !important; }
+  .sidebar .nav-item[data-status="close"]    .dot { background: var(--sb-red) !important; }
+  .sidebar .nav-item[data-status="approved"] .dot { background: #10B981 !important; }
+  .sidebar .nav-item[data-status="rejected"] .dot { background: #64748B !important; }
+
+  /* ---------- เส้น timeline แนวตั้งระหว่างสถานะ (CSS ล้วน ไม่แตะ HTML) ---------- */
+  .sidebar .nav-sub {
+    border-left: 1px dashed #374151;
+    margin-left: 14px;
+    padding-left: 6px;
+  }
+
+  /* ---------- ปุ่มออกจากระบบ ---------- */
+  .sidebar .nav-item[onclick*="doLogout"] {
+    background: rgba(220,38,38,.10);
+    border: 1px solid rgba(239,68,68,.35);
+    border-radius: 12px;
+    color: #FCA5A5 !important;
+    justify-content: center;
+    margin-top: 8px !important;
+  }
+  .sidebar .nav-item[onclick*="doLogout"]:hover { background: rgba(220,38,38,.20); }
+
+  /* ---------- Scrollbar ---------- */
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-track { background: var(--sb-bg); }
+  .sidebar::-webkit-scrollbar-thumb { background: #37465E; border-radius: 999px; }
+  .sidebar::-webkit-scrollbar-thumb:hover { background: #475569; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ⚡ xlsx-js-style: LAZY LOAD (โหลดเมื่อกด Export ครั้งแรกเท่านั้น) — ดู ensureXlsx() -->
