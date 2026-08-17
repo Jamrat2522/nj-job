@@ -1,0 +1,216 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NJ — ตรวจเอกสาร 4 แบบ (INVOICE / RECEIPT / CREDIT NOTE / ADVANCE) ก่อน Deploy</title>
+<link rel="stylesheet" href="assets/css/core/reset.css">
+<link rel="stylesheet" href="assets/css/core/variables.css">
+<link rel="stylesheet" href="assets/css/core/typography.css">
+<link rel="stylesheet" href="assets/css/pages/invoice-doc.css">
+<link rel="stylesheet" href="assets/css/pages/receipt-doc.css">
+<link rel="stylesheet" href="assets/css/pages/advance-doc.css">
+<link rel="stylesheet" href="assets/css/pages/credit-note-doc.css">
+<style>
+  body{background:#e9edf3;padding:18px 10px 40px;font-family:inherit}
+  .bar{max-width:210mm;margin:0 auto 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .bar b{margin-right:4px;font-size:.9rem}
+  .bar button{padding:6px 12px;border:1px solid #c9d2e0;background:#fff;border-radius:6px;cursor:pointer;font:inherit;font-size:.86rem}
+  .bar button.on{background:#12306e;color:#fff;border-color:#12306e}
+  .bar .pr{background:#e01e2d;color:#fff;border-color:#e01e2d;margin-left:auto}
+  @media print{.bar{display:none}}
+</style></head><body>
+<div class="bar"><b>เอกสาร:</b>
+  <button data-doc="rc" class="on">RECEIPT / ใบเสร็จรับเงิน</button>
+  <button data-doc="iv">INVOICE / ใบแจ้งหนี้</button>
+  <button data-doc="cn">CREDIT NOTE / ใบลดหนี้</button>
+  <button data-doc="ap">ADVANCE PAYMENT / ใบรับชำระเงินล่วงหน้า</button>
+  <button class="pr" onclick="window.print()">🖨 Print / Save PDF</button></div>
+<div class="bar" id="cases"></div>
+<div id="out"></div>
+<script type="module">
+import { invoiceDocHTML } from './assets/js/invoices/invoice-doc.js';
+import { receiptDocHTML } from './assets/js/receipts/receipt-doc.js';
+import { advanceDocHTML } from './assets/js/finance/advance-doc.js';
+import { creditNoteDocHTML } from './assets/js/finance/credit-note-doc.js';
+/* ── INVOICE ── */
+const ivBase={invoice_no:'NJ2605-01377',invoice_date:'2026-05-07',vat_amount:105,vat_rate:7,
+ subtotal:2100,total_amount:2205,service_amount:1500,advance_amount:600,
+ customer_name:'KUEHNE + NAGEL LTD. HEAD OFFICE',customer_tax_id:'0105528008441',
+ customer_branch_code:'000000',customer_phone:'02-0188800',
+ customer_address:'1788 SINGHA COMPLEX BUILDING, 29TH FLOOR, UNIT NO. 2900 NEW PETCHBURI ROAD, BANGKAPI, HUAYKWANG, BANGKOK 10310',
+ job_no:'JOB2604-06222',customs_declaration_no:'A0291690420250',customer_job_no:'107/3511137-0192',
+ master_bl_no:'EGLCXM129487SIT',house_bl_no:'FCL+FZ',remarks:'3X40(600+300X2)',
+ company_invoice:'ANCA MANUFACTURING(THAILAND) LTD.',created_by_name:'RATTANAKRON.P',
+ items:[{line_no:1,description:'SERVICE CHARGE CLEARANCE EXPORT',amount:1200,unit_price:1200,vat_rate:7,vat_amount:84,wht_rate:3,wht_amount:36},
+        {line_no:2,description:'SERVICE CHARGE FREE ZONE',amount:300,unit_price:300,vat_rate:7,vat_amount:21,wht_rate:3,wht_amount:9},
+        {line_no:3,description:'ADVANCE OVER TIME',amount:600,unit_price:600,vat_rate:0,vat_amount:0,wht_rate:0,wht_amount:0}]};
+const IV={
+ 'Service + Advance':[ivBase,{}],
+ 'Service Only':[{...ivBase,advance_amount:0,subtotal:1500,total_amount:1605,items:ivBase.items.slice(0,2)},{}],
+ 'Advance Only':[{...ivBase,vat_amount:0,service_amount:0,subtotal:600,total_amount:600,items:[ivBase.items[2]]},{}],
+ '12 รายการ':[{...ivBase,vat_amount:84,subtotal:1200,total_amount:1284,items:Array.from({length:12},(_,i)=>({
+   line_no:i+1,description:i===0?'SERVICE CHARGE CUSTOMS CLEARANCE EXPORT FULL CONTAINER LOAD INCLUDING DOCUMENT HANDLING':'SERVICE CHARGE ITEM '+(i+1),
+   amount:100,unit_price:100,vat_rate:7,vat_amount:7,wht_rate:3,wht_amount:3}))},{}],
+ 'Long Description':[{...ivBase,subtotal:1500,vat_amount:105,total_amount:1605,advance_amount:0,items:[
+   {line_no:1,description:'SERVICE CHARGE CUSTOMS CLEARANCE EXPORT FULL CONTAINER LOAD INCLUDING DOCUMENT HANDLING, PORT OPERATION, TERMINAL HANDLING CHARGE, FREE ZONE DECLARATION PROCESSING FEE AND OTHER MISCELLANEOUS EXPENSES INCURRED ON BEHALF OF THE CUSTOMER',amount:1200,unit_price:1200,vat_rate:7,vat_amount:84,wht_rate:3,wht_amount:36},
+   {line_no:2,description:'SERVICE CHARGE FREE ZONE — WHARFAGE, LIFT ON / LIFT OFF, CONTAINER CLEANING AND SEAL FEE',amount:300,unit_price:300,vat_rate:7,vat_amount:21,wht_rate:3,wht_amount:9}]},{}],
+ 'DRAFT':[{...ivBase,invoice_no:'DRAFT-0001',has_real_no:false},{draft:true}]};
+/* ── RECEIPT ── */
+/* mk(no, date, desc, sub, vatRate, whtRate, cash?)
+   *** amount = "เงินสดที่รับจริง" (Backend RUN-03 ตัดด้วย Net = Gross − WHT) ***
+   ไม่ส่ง cash -> รับเต็มใบ = Gross − WHT
+   เอกสารต้องแสดงคอลัมน์ Amount เป็น GROSS (คำนวณกลับจาก ratio ใน renderer) */
+const mk=(no,d,ds,sub,vr,wr,cash)=>{const vat=Math.round(sub*vr)/100,wht=Math.round(sub*wr)/100,
+ total=Math.round((sub+vat)*100)/100;
+ return {invoice_no:no,invoice_date:d,description:ds,charge_type:'SERVICE',
+  subtotal:sub,vat_amount:vat,vat_rate:vr,wht_amount:wht,total_amount:total,
+  /* wht_breakdown = โครงสร้างจริงที่ njacc_list_receipts ส่งมาหลังรัน 05_RUN-04
+     (อ่านจาก njacc_invoice_items.wht_rate) · ไม่มี WHT -> [] */
+  wht_breakdown: wht ? [{rate:wr, amount:wht}] : [],
+  amount: cash!==undefined?cash:Math.round((total-wht)*100)/100};};
+/* mkMulti = ใบแจ้งหนี้ใบเดียวที่มีหลายอัตรา WHT (ขนส่ง 1% + บริการ 3%) */
+const mkMulti=(no,d,ds,lines,cash)=>{let sub=0,vat=0,wht=0;const by=new Map();
+ for(const l of lines){sub+=l.sub;const v=Math.round(l.sub*l.vr)/100;vat=Math.round((vat+v)*100)/100;
+  const w=Math.round(l.sub*l.wr)/100;wht=Math.round((wht+w)*100)/100;
+  if(w) by.set(l.wr,Math.round(((by.get(l.wr)||0)+w)*100)/100);}
+ const total=Math.round((sub+vat)*100)/100;
+ return {invoice_no:no,invoice_date:d,description:ds,charge_type:'SERVICE',
+  subtotal:sub,vat_amount:vat,vat_rate:lines[0].vr,wht_amount:wht,total_amount:total,
+  wht_breakdown:[...by.entries()].sort((a,b)=>a[0]-b[0]).map(([rate,amount])=>({rate,amount})),
+  amount: cash!==undefined?cash:Math.round((total-wht)*100)/100};};
+const rcBase={receipt_no:'RCP202608-00001',receipt_date:'2026-08-17',status:'ISSUED',
+ customer_name:'KUEHNE + NAGEL LTD. HEAD OFFICE',customer_tax_id:'0105528008441',
+ customer_branch_code:'000000',customer_phone:'02-0188800',
+ customer_address:'10th Floor, Empire Tower, 1 South Sathorn Road, Yannawa, Sathorn, Bangkok 10120, Thailand',
+ /* Gross 1,605 + 535 + 2,140 = 4,280 · WHT 45+15+60 = 120 · รับจริง 4,160 */
+ total_received:4160,
+ invoices:[mk('NJ202608-00001','2026-08-07','SERVICE CHARGE CLEARANCE EXPORT',1500,7,3),
+           mk('NJ202608-00002','2026-08-08','SERVICE CHARGE IMPORT',500,7,3),
+           mk('NJ202608-00003','2026-08-09','SERVICE CHARGE WAREHOUSE',2000,7,3)]};
+const RC={
+ '3 Invoice (Gross 4,280 · WHT 120 · รับ 4,160)':[rcBase],
+ '1 Invoice (Full 1,605 → รับ 1,560)':[{...rcBase,total_received:1560,invoices:[rcBase.invoices[0]]}],
+ 'Partial 780 (ratio 50%)':[{...rcBase,total_received:780,
+   invoices:[mk('NJ202608-00001','2026-08-07','SERVICE CHARGE CLEARANCE EXPORT',1500,7,3,780)]}],
+ 'WHT 1% (ขนส่ง)':[{...rcBase,total_received:1060,
+   invoices:[mk('NJ202608-00010','2026-08-07','TRANSPORTATION CHARGE',1000,7,1)]}],
+ 'WHT 3% (บริการ)':[{...rcBase,total_received:1040,
+   invoices:[mk('NJ202608-00011','2026-08-07','SERVICE CHARGE',1000,7,3)]}],
+ 'Mixed WHT — หลาย Invoice (1% + 3%)':[{...rcBase,total_received:2100,
+   invoices:[mk('NJ202608-00010','2026-08-07','TRANSPORTATION CHARGE',1000,7,1),
+             mk('NJ202608-00011','2026-08-07','SERVICE CHARGE',1000,7,3)]}],
+ 'Mixed WHT — ใบเดียวมี 1% + 3%':[{...rcBase,total_received:2100,
+   invoices:[mkMulti('NJ202608-00020','2026-08-07','TRANSPORTATION + SERVICE',
+     [{sub:1000,vr:7,wr:1},{sub:1000,vr:7,wr:3}])]}],
+ 'Mixed WHT — ใบเดียว Partial 50%':[{...rcBase,total_received:1050,
+   invoices:[mkMulti('NJ202608-00020','2026-08-07','TRANSPORTATION + SERVICE',
+     [{sub:1000,vr:7,wr:1},{sub:1000,vr:7,wr:3}],1050)]}],
+ 'ไม่มี WHT':[{...rcBase,total_received:1605,
+   invoices:[mk('NJ202608-00012','2026-08-07','SERVICE CHARGE',1500,7,0)]}],
+ 'มีใบ Advance ปน (ต้องไม่ขึ้นในตาราง)':[{...rcBase,invoices:[...rcBase.invoices,
+   {invoice_no:'ADV202608-00001',invoice_date:'2026-08-10',description:'ADVANCE OVER TIME',amount:600,
+    charge_type:'ADVANCE',subtotal:600,vat_amount:0,vat_rate:0,wht_amount:0,wht_rate:0,total_amount:600}]}],
+ '10 Invoice':[{...rcBase,total_received:9700,invoices:Array.from({length:10},(_,i)=>
+   mk('NJ202608-000'+(10+i),'2026-08-11','SERVICE CHARGE ITEM '+(i+1),1000,7,3))}],
+ '12 Invoice':[{...rcBase,total_received:11640,invoices:Array.from({length:12},(_,i)=>
+   mk('NJ202608-000'+(20+i),'2026-08-11','SERVICE CHARGE ITEM '+(i+1),1000,7,3))}],
+ 'ยังไม่รัน 05_RUN-04 (ไม่มีข้อมูลภาษี)':[{receipt_no:'RCP202608-00099',receipt_date:'2026-08-17',
+   customer_name:'ลูกค้า ทดสอบ',total_received:1000,invoices:[{invoice_no:'NJ202608-00099',amount:1000}]}],
+ 'VOID':[{...rcBase,status:'VOID'}]};
+/* ── ADVANCE PAYMENT ── */
+const apItem=(n,ds,q,up)=>({line_no:n,description:ds,qty:q,unit_price:up,amount:q*up,
+ vat_rate:0,vat_amount:0,wht_rate:0,wht_amount:0,charge_kind:'ADVANCE'});
+const apBase={invoice_no:'ADV202608-00001',invoice_date:'2026-08-17',charge_type:'ADVANCE',
+ company_group:'NJ',status:'POSTED',subtotal:26000,vat_rate:0,vat_amount:0,wht_amount:0,total_amount:26000,
+ customer:{name:'KUEHNE + NAGEL LTD. HEAD OFFICE',tax_id:'0105528008441',branch_code:'000000',
+  address:'10th Floor, Empire Tower, 1 South Sathorn Road, Yannawa, Sathorn, Bangkok 10120, Thailand',
+  phone:'02-0188800'},
+ job:{job_no:'JADNJ26-0622',customer_job_no:'107/3511137-0192',house_bl_no:'FCL+FZ',
+  source_invoice_no:'NJ202608-00001',note:'Advance payment for shipment operations.'},
+ items:[apItem(1,'CUSTOMS CLEARANCE ADVANCE',1,15000),
+        apItem(2,'PORT CHARGE ADVANCE',1,8500),
+        apItem(3,'DOCUMENT PROCESSING ADVANCE',1,2500)]};
+const AP={
+ '3 รายการ (ภาพตัวอย่าง)':[apBase,{advanceStatus:'PENDING'}],
+ '1 รายการ':[{...apBase,subtotal:15000,total_amount:15000,items:[apBase.items[0]]},{advanceStatus:'PAID'}],
+ '12 รายการ':[{...apBase,subtotal:24000,total_amount:24000,
+   items:Array.from({length:12},(_,i)=>apItem(i+1,i===0
+     ?'CUSTOMS CLEARANCE ADVANCE FULL CONTAINER LOAD INCLUDING DOCUMENT HANDLING AND PORT OPERATION'
+     :'ADVANCE ITEM '+(i+1),2,1000))},{advanceStatus:'SETTLED'}],
+ 'Description ยาว':[{...apBase,subtotal:26000,total_amount:26000,items:[
+   apItem(1,'CUSTOMS CLEARANCE ADVANCE FOR FULL CONTAINER LOAD SHIPMENT INCLUDING DOCUMENT HANDLING, PORT OPERATION, TERMINAL HANDLING CHARGE AND FREE ZONE DECLARATION PROCESSING FEE PAYABLE IN ADVANCE ON BEHALF OF THE CUSTOMER',1,15000),
+   apItem(2,'PORT CHARGE ADVANCE — WHARFAGE, LIFT ON / LIFT OFF, CONTAINER CLEANING, SEAL FEE AND OTHER MISCELLANEOUS TERMINAL EXPENSES',1,8500),
+   apItem(3,'DOCUMENT PROCESSING ADVANCE',1,2500)]},{advanceStatus:'PENDING'}],
+ 'มี VAT จริง (ไม่ฝืน 0%)':[{...apBase,vat_rate:7,vat_amount:1820,total_amount:27820,
+   items:apBase.items.map(x=>({...x,vat_rate:7,vat_amount:Math.round(x.amount*7)/100}))},{advanceStatus:'PENDING'}],
+ 'มี WHT จริง':[{...apBase,wht_amount:780},{advanceStatus:'PAID'}],
+ 'ยังไม่รัน SQL 027':[{...apBase,customer:{name:'KUEHNE + NAGEL LTD. HEAD OFFICE',
+   tax_id:'0105528008441',branch_code:'000000',address:'10th Floor, Empire Tower, Bangkok 10120'},
+   job:{job_no:'JADNJ26-0622',source_invoice_no:'NJ202608-00001'}},{advanceStatus:'PENDING'}],
+ 'ไม่มีรายการ':[{...apBase,subtotal:0,total_amount:0,items:[]},{advanceStatus:'PENDING'}],
+ 'VOID':[{...apBase,status:'VOID'},{advanceStatus:'PENDING'}]};
+/* ── CREDIT NOTE ── */
+/* prior = ยอดที่ลดไปแล้วจากใบลดหนี้อื่นที่ POSTED ก่อนหน้า (SQL เป็นคนคำนวณส่งมา)
+   correct_amount = original - prior - diff  ← สะสม ไม่ใช่แค่ใบนี้ */
+const cnItem=(n,ds,orig,diff,rate,prior=0)=>({line_no:n,invoice_item_id:'x'+n,description:ds,
+ original_amount:orig,amount:diff,vat_rate:rate,prior_credited:prior,
+ cumulative_credited:Math.round((prior+diff)*100)/100,
+ correct_amount:Math.round((orig-prior-diff)*100)/100,
+ vat_amount:Math.round(diff*rate)/100,credit_amount:Math.round((diff+diff*rate/100)*100)/100});
+const cnBase={credit_note_no:'CN202608-00001',credit_note_date:'2026-08-17',status:'POSTED',
+ reason:'Adjustment on Service Charge / ตามการตกลงปรับลดค่าบริการ',
+ customer:{name:'KUEHNE + NAGEL LTD. HEAD OFFICE',tax_id:'0105528008441',branch_code:'000000',
+  address:'10th Floor, Empire Tower, 1 South Sathorn Road,\nYannawa, Sathorn, Bangkok 10120, Thailand',
+  phone:'02-0188800'},
+ invoice:{invoice_no:'NJ202608-00001',invoice_date:'2026-08-07',status:'POSTED',
+  subtotal:1605,vat_amount:112.35,total_amount:1717.35},
+ invoice_items:[{line_no:1,description:'SERVICE CHARGE CLEARANCE EXPORT',amount:1605}],
+ items:[cnItem(1,'SERVICE CHARGE CLEARANCE EXPORT\nปรับลดค่าบริการตามการตกลง',1605,100,7)]};
+const CN={
+ 'Partial Credit (VAT 7%)':[cnBase],
+ 'Full Credit (ลดเต็มจำนวน)':[{...cnBase,
+   items:[cnItem(1,'SERVICE CHARGE CLEARANCE EXPORT — ยกเลิกรายการทั้งหมด',1605,1605,7)]}],
+ 'Multiple Items':[{...cnBase,
+   invoice_items:[{line_no:1,description:'SERVICE CHARGE CLEARANCE EXPORT',amount:1200},
+                  {line_no:2,description:'SERVICE CHARGE FREE ZONE',amount:300},
+                  {line_no:3,description:'DOCUMENT FEE',amount:105}],
+   items:[cnItem(1,'SERVICE CHARGE CLEARANCE EXPORT',1200,200,7),
+          cnItem(2,'SERVICE CHARGE FREE ZONE',300,300,7),
+          cnItem(3,'DOCUMENT FEE',105,55.5,7)]}],
+ 'VAT 0% (ไม่ติดป้ายใบกำกับภาษี)':[{...cnBase,
+   items:[cnItem(1,'ADVANCE OVER TIME — ปรับลด',600,150,0)]}],
+ 'VAT ปนหลายอัตรา':[{...cnBase,
+   items:[cnItem(1,'SERVICE CHARGE',1200,100,7),cnItem(2,'ADVANCE OVER TIME',600,100,0)]}],
+ 'Description ยาว':[{...cnBase,
+   items:[cnItem(1,'SERVICE CHARGE CUSTOMS CLEARANCE EXPORT FULL CONTAINER LOAD INCLUDING DOCUMENT HANDLING, PORT OPERATION, TERMINAL HANDLING CHARGE AND FREE ZONE DECLARATION PROCESSING FEE — ปรับลดตามการตกลงกับลูกค้าเนื่องจากคิดค่าบริการเกินจากอัตราที่ตกลงไว้',1605,255.75,7)]}],
+ '12 รายการ':[{...cnBase,
+   invoice_items:Array.from({length:12},(_,i)=>({line_no:i+1,description:'SERVICE CHARGE ITEM '+(i+1),amount:500})),
+   items:Array.from({length:12},(_,i)=>cnItem(i+1,'SERVICE CHARGE ITEM '+(i+1),500,50,7))}],
+ 'สะสม CN#1 (10,000 ลด 2,000)':[{...cnBase,credit_note_no:'CN202608-00001',
+   invoice_items:[{line_no:1,description:'SERVICE CHARGE',amount:10000}],
+   items:[cnItem(1,'SERVICE CHARGE',10000,2000,7,0)]}],
+ 'สะสม CN#2 (ลดอีก 1,500 -> 6,500)':[{...cnBase,credit_note_no:'CN202608-00002',
+   invoice_items:[{line_no:1,description:'SERVICE CHARGE',amount:10000}],
+   items:[cnItem(1,'SERVICE CHARGE',10000,1500,7,2000)]}],
+ 'DRAFT (ยังไม่ออกเลข)':[{...cnBase,status:'DRAFT',credit_note_no:'CNDRAFT-1a2b3c4d'}],
+ 'VOID':[{...cnBase,status:'VOID'}],
+ 'ยังไม่รัน RUN-02 (ไม่มี Original/Correct)':[{...cnBase,
+   items:[{line_no:1,description:'SERVICE CHARGE CLEARANCE EXPORT',amount:100,
+           vat_rate:7,vat_amount:7,credit_amount:107}]}]};
+const out=document.getElementById('out'), cases=document.getElementById('cases');
+let doc='rc';
+function paint(){
+  const M = doc==='rc'?RC:(doc==='ap'?AP:(doc==='cn'?CN:IV));
+  cases.innerHTML='<b>ชุดข้อมูล:</b>'+Object.keys(M).map((k,i)=>
+    `<button data-k="${k}" class="${i===0?'on':''}">${k}</button>`).join('');
+  const draw=(k)=>{const a=M[k]; out.innerHTML = doc==='rc' ? receiptDocHTML(a[0])
+    : doc==='ap' ? advanceDocHTML(a[0],a[1])
+    : doc==='cn' ? creditNoteDocHTML(a[0]) : invoiceDocHTML(a[0],a[1]);};
+  cases.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{
+    cases.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); draw(b.dataset.k);});
+  draw(Object.keys(M)[0]);
+}
+document.querySelectorAll('.bar button[data-doc]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.bar button[data-doc]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); doc=b.dataset.doc; paint();});
+paint();
+</script></body></html>

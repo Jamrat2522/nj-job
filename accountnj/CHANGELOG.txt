@@ -1,0 +1,953 @@
+BILLING NJ — CHANGELOG
+Version : 1.4.1   (BUILD KEY 1.4.1-local79)
+จาก     : local78 → local79
+งานล่าสุด : FINAL 1 BUG — Receipt Invoice Reference Footer Total (ดูหัวข้อ 19)
+
+เปิด/ทดสอบ : OPEN-CHECK_final-documents-CLOSED3.zip
+Deploy     : DEPLOY_final-documents-CLOSED3.zip
+SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึดตารางนั้นเท่านั้น)
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║  FINAL STATUS — อ่านตรงนี้ก่อน (แทนที่ข้อมูล SQL ในหัวข้อ 1-17)   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ⚠️ หัวข้อ 1-17 ด้านล่างเป็นบันทึกการทำงาน "รายรอบ" เก็บไว้อ้างอิงเท่านั้น
+     ข้อมูลเรื่อง "SQL ไฟล์ไหนต้องรัน" ในหัวข้อเหล่านั้น *** ล้าสมัยแล้ว ***
+     ให้ยึดตารางด้านล่างนี้เป็นหลักเท่านั้น
+
+  ── SQL ที่ต้องรันจริง (สถานะ ณ local78) ─────────────────────────
+    โฟลเดอร์เดียวที่รัน : sql/RUN-NOW/   (มี README_RUN-NOW.txt อธิบายครบ)
+
+    01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   ✅ ALREADY APPLIED — SKIP
+                                              (ตรวจ Production แล้ว anon/auth = false)
+    02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ▶ RUN NOW  ลำดับ 1
+    03_RUN-03_FINAL_RECEIPT_PAYMENT.sql    ▶ RUN NOW  ลำดับ 2  (ต้องหลัง 02)
+    04_RUN-02_FINAL_CREDIT_NOTE.sql        ▶ RUN NOW  ลำดับ 3
+    05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ▶ RUN NOW  ลำดับ 4  (อิสระ)
+
+    => ต้องรันจริง 4 ไฟล์ :  02 -> 03 -> 04 -> 05
+
+  ── SQL ที่ห้ามรัน ────────────────────────────────────────────────
+    sql/LEGACY-DO-NOT-RUN/*   ทั้งโฟลเดอร์  (ดู README_LEGACY.txt)
+      RUN_3_CREDIT_NOTE.sql      รันไปแล้ว · prefix CD เก่า
+      RUN_2_RECEIPT.sql          ถูกแทนที่ด้วย RUN-NOW/05_RUN-04
+      RUN_1_INVOICE / RUN_4_ADVANCE / RUN-01_027 / RUN-01_028   ไม่ใช้แล้ว
+      RUN-01_026  ⚠️ ขัดกับ RUN-NOW/02 · รันแล้วระบบเลขเอกสารพัง
+    sql/ และ sql/dev/ ที่เหลือ = migration เก่าที่รันไปแล้ว ห้ามรันซ้ำ
+
+  ── สถานะเอกสารทั้ง 4 (source ปัจจุบัน) ──────────────────────────
+    RECEIPT   ตาราง Invoice Reference : แถวและ Footer เป็น GROSS ตรงกัน
+              AMOUNT RECEIVED เป็น Net Cash เสมอ
+    INVOICE   NJ{YYYYMM}-#####    · ตาราง 5 คอลัมน์ ไม่มี No.
+    RECEIPT   RCP{YYYYMM}-#####   · Gross − WHT = Amount Received
+                                    WHT อ่านจาก njacc_invoice_items.wht_rate
+                                    *** SERVICE เท่านั้น · ADVANCE ถูกกันที่ SQL ***
+    CREDIT    CN{YYYYMM}-#####    · Correct Amount คิด Credit สะสม
+    ADVANCE   ADV{YYYYMM}-#####   · counter แยกจาก INVOICE
+    LOGO      assets/img/nj-logo.png
+              SHA256 d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91
+              = Master byte-for-byte · ใช้ร่วมกันทั้ง 4 เอกสารผ่าน ISSUER.logo
+    COMPANY   ISSUER กลางตัวเดียว (company-doc.js) ทั้ง 4 เอกสาร
+
+  ── ที่ยัง NOT VERIFIED ───────────────────────────────────────────
+    Browser Print Preview / A4   (container เปิด Chromium ไม่ได้)
+    Production SQL               (ยังไม่ได้รัน · รอคำสั่ง)
+
+
+════════════════════════════════════════════════════════════════════
+1 · ROOT CAUSE
+════════════════════════════════════════════════════════════════════
+  เมนู FINANCE > Credit Note มีอยู่ใน routes.js และ sidebar.js จริง
+  แต่ assets/js/finance/credit-note.js เป็น PLACEHOLDER 20 บรรทัด
+  ไม่เรียก RPC ใด ๆ · ไม่มีฟอร์ม · ไม่มี Renderer เอกสาร
+
+  สาเหตุที่แท้จริงอยู่ที่ Backend ไม่ใช่ Frontend:
+  ตรวจ Production (sytgqjglcnsabcszbngg) สดเมื่อ 17/08/2026 ด้วย
+  information_schema.tables + pg_proc พบว่า
+
+    - ไม่มีตาราง njacc_credit_notes            (njacc_* มี 20 ตาราง ไม่มีใบลดหนี้)
+    - ไม่มีตาราง njacc_credit_note_items
+    - ไม่มี RPC ที่ขึ้นต้น njacc_*credit*      แม้แต่ตัวเดียว
+    - njacc_document_sequences ไม่มี doc_type ของใบลดหนี้
+
+  -> รายงานเป็น BACKEND REQUIRED และแนบ SQL แยกให้อนุมัติ (ไม่รันเอง)
+
+
+════════════════════════════════════════════════════════════════════
+2 · SOURCE ที่ตรวจจริง (ไม่เดา ไม่อิงไฟล์รอบก่อน)
+════════════════════════════════════════════════════════════════════
+  1. Route          : assets/js/config/routes.js
+                      R['finance/credit-note'] -> ../finance/credit-note.js
+                      perm: can('invoice')      *** ไม่เปลี่ยน ***
+  2. เมนู           : assets/js/components/sidebar.js
+                      finItems -> can('invoice') ? item('finance/credit-note') : ''
+                      *** เงื่อนไขเดิม ไม่เปลี่ยน ***
+  3. Renderer เดิม  : *** ไม่มี *** (สร้างใหม่รอบนี้ = credit-note-doc.js)
+  4. Print / PDF    : ระบบไม่มี template แยกทั้งระบบ
+                      ใช้ window.print() บน .print-area
+                      (นิยามที่ assets/css/pages/invoice.css)
+  5. เลขเอกสาร      : njacc_next_doc_no ปัจจุบัน 3 พารามิเตอร์ · pad 4 หลักตายตัว
+                      -> ใช้ไม่ได้กับ CD{YYYYMM}-##### ที่ต้อง pad 5
+                      -> สร้าง njacc_next_credit_note_no() ตัวใหม่แยกต่างหาก
+                      *** ไม่แตะ njacc_next_doc_no *** เพราะ JOB/INVOICE/RECEIPT ใช้อยู่
+  6. Customer Map   : njacc_customers มี phone อยู่แล้วบนตาราง
+                      -> ไม่ต้องรอ RUN_1/RUN_4 ก่อน · Credit Note ดึงเองได้เลย
+  7. VAT Logic      : njacc_invoice_items.vat_rate (migration 018 รันแล้ว)
+                      -> ใบลดหนี้ยึดอัตราของบรรทัดต้นฉบับ ไม่ hardcode 7
+  8. Invoice Ref    : njacc_invoices + njacc_invoice_items (อ่านอย่างเดียว)
+  9. Logo           : assets/img/nj-logo.png (426x231 PNG โปร่งใส)
+                      md5 f5fdae60fb8cb2713183ba9689a8bd65 — ไม่ถูกแตะ
+
+
+════════════════════════════════════════════════════════════════════
+3 · ไฟล์ที่เพิ่มใหม่ (8)
+════════════════════════════════════════════════════════════════════
+  assets/js/finance/credit-note-api.js      ชั้นเรียก RPC + แปล error เฉพาะใบลดหนี้
+                                            + isBackendMissing() ตรวจว่ายังไม่ได้รัน SQL
+  assets/js/finance/credit-note-doc.js      Renderer เอกสาร A4 (namespace .cnd*)
+  assets/css/pages/credit-note-doc.css      สไตล์เอกสาร A4 (namespace .cnd*)
+  assets/css/pages/credit-note.css          สไตล์หน้าฟอร์ม/รายการ (namespace .cnp*)
+  sql/dev/RUN_1_INVOICE.sql                 SQL แยกตามฟอร์ม — INVOICE
+  sql/dev/RUN_2_RECEIPT.sql                 SQL แยกตามฟอร์ม — ใบเสร็จ
+  sql/dev/RUN_3_CREDIT_NOTE.sql             SQL แยกตามฟอร์ม — ใบลดหนี้ (จำเป็นต่อรอบนี้)
+  sql/dev/RUN_4_ADVANCE.sql                 SQL แยกตามฟอร์ม — ทดรองจ่าย
+  sql/dev/RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql แก้สิทธิ์ helper 2 ตัว (ดูข้อ 11)
+
+
+════════════════════════════════════════════════════════════════════
+4 · ไฟล์ที่แก้ (7)
+════════════════════════════════════════════════════════════════════
+  assets/js/finance/credit-note.js          เขียนใหม่ทั้งไฟล์ (จาก placeholder)
+                                            list / เลือก Invoice / ฟอร์มร่าง / POST / Void
+  index.html                                +2 CSS · BUILD KEY local71 -> local72 (23 จุด)
+  assets/js/app.bundle.js                   rebuild เต็มไฟล์ด้วย esbuild ตาม build.md
+  assets/js/config/routes.js                *** คอมเมนต์อย่างเดียว *** ไม่เปลี่ยนพฤติกรรม
+  assets/js/components/sidebar.js           *** คอมเมนต์อย่างเดียว *** ไม่เปลี่ยนพฤติกรรม
+  sql/dev/017_rpc_permission_matrix_repair.sql
+                                            เพิ่มชื่อ RPC 8 ตัวของใบลดหนี้เข้า allowlist
+                                            กันกรณีรัน 017 ซ้ำแล้วถอนสิทธิ์ทิ้ง
+                                            (ไม่ได้แก้ตรรกะ · เพิ่มรายชื่อเท่านั้น)
+  CHANGELOG.txt                             ไฟล์นี้
+
+
+════════════════════════════════════════════════════════════════════
+5 · สิ่งที่ตั้งใจไม่แตะ
+════════════════════════════════════════════════════════════════════
+  Invoice Renderer (.ivd*) · Receipt Renderer (.rcd*) · Advance Renderer (.apd*)
+  invoice-doc.js · receipt-doc.js · advance-doc.js · invoice-form.js · payment-form.js
+  DOCUMENT Workflow · ACCOUNTING Workflow · charge-page.js · charge-table.js
+  Permission / Role / Authentication / njacc_user_access (ไม่เพิ่มคอลัมน์สิทธิ์ใหม่)
+  Invoice Number / Receipt Number / Job Number Logic · njacc_next_doc_no
+  Customer Master · Service Master · Advance Master
+  Version Guard / Force Update / Maintenance Mode / Cache-control
+  RPC เดิมทุกตัวของระบบ
+
+
+════════════════════════════════════════════════════════════════════
+6 · หลักการที่บังคับไว้
+════════════════════════════════════════════════════════════════════
+  ห้ามลดเกิน   บังคับที่ SQL 2 ชั้น (ตอนบันทึกร่าง + ตอน POST)
+               remaining = ยอดบรรทัด Invoice − Σ ที่ลดแล้วเฉพาะใบ POSTED
+               เกิน -> NJACC_CN_EXCEEDS_CREDITABLE
+               *** Frontend เตือนให้เร็วเฉย ๆ ไม่ใช่ด่านจริง ***
+  VAT          ใช้ vat_rate ของบรรทัด Invoice ต้นฉบับ · VAT 0% เก็บ 0 ตามจริง
+               Frontend ไม่ส่งตัวเลขภาษีมาเลย
+               (ส่งแค่ invoice_item_id / description / amount)
+  เลขเอกสาร    CD{YYYYMM}-##### ออกที่ SQL ตอน POST เท่านั้น
+               ร่างใช้ CNDRAFT-xxxxxxxx -> ร่างที่ถูกทิ้งไม่กินเลข
+               (นโยบายเดียวกับ Invoice DRAFT ใน migration 022)
+  Invoice ต้นฉบับ  อ่านอย่างเดียว 100% · เก็บ FK credit_note -> invoice เพื่อ Audit
+  Preview/Print/PDF  ใช้ HTML ชุดเดียวกันทั้งหมด ไม่มี template แยก
+  เอกสารพิมพ์จากข้อมูลจริงในฐานข้อมูลเท่านั้น
+  (ต้องบันทึกร่างก่อนถึงจะ Preview ได้ — ไม่พิมพ์จากค่าที่ยังอยู่บนหน้าจอ)
+
+
+════════════════════════════════════════════════════════════════════
+7 · VERIFICATION ที่ทำจริง
+════════════════════════════════════════════════════════════════════
+  PASS  node --check ทุกไฟล์ JS + app.bundle.js
+  PASS  Bundle reproducibility — rebuild ก่อนแก้ได้ byte-identical กับของเดิม
+  PASS  Regression bundle — normalize การ rename ของ esbuild แล้วเทียบ
+        บรรทัดเก่าหายไป 9 บรรทัด = markup ของ placeholder เดิมล้วน
+        ไม่มี module อื่นหาย
+  PASS  export เดิมยังอยู่ใน bundle: firstAllowedRoute · upsertServiceCode
+        openAdvanceDoc · advanceDocHTML · renderReceiptDoc · buildRoutes · bahtText
+  PASS  Renderer 7 เคส — VAT 7% / VAT 0% / DRAFT / VOID / Description ยาว /
+        VAT ปนหลายอัตรา / ไม่มีรายการ
+        tag balance ตรงทุกเคส · ไม่มี undefined / NaN
+  PASS  bahtText ผูกกับ TOTAL CREDIT AMOUNT 5 เคส (107 -> หนึ่งร้อยเจ็ดบาทถ้วน)
+  PASS  CSS brace balance ทุกไฟล์
+  PASS  SQL 4 ไฟล์ — dollar-quote จับคู่ครบ · วงเล็บสมดุล · BEGIN/COMMIT 1:1
+  PASS  SQL scan คำสั่งเขียนข้อมูล — RUN_1/2/4 ไม่มีคำสั่งเขียนเลย
+        RUN_3 เขียนเฉพาะตารางใหม่ของตัวเอง + njacc_document_sequences
+        + njacc_idempotency_requests (แพตเทิร์นเดียวกับ POST/VOID ตัวอื่น)
+  PASS  scope diff — เปลี่ยนเฉพาะ 15 ไฟล์ตามรายการข้อ 3-4 ไม่มีไฟล์แปลกปลอม
+
+
+════════════════════════════════════════════════════════════════════
+8 · ยังไม่ผ่าน / ยังทำไม่ได้ — บอกตรง ๆ
+════════════════════════════════════════════════════════════════════
+  ✗ ยังไม่ได้ทดสอบบนเบราว์เซอร์จริง
+    container ดาวน์โหลด Chromium ไม่ได้ (network allowlist)
+    -> *** ยังไม่ยืนยัน Preview / Print / PDF A4 ด้วยสายตา ***
+       ไม่รายงาน PASS ข้อนี้
+
+  ✗ Draft / POST / Void Test ยังทำไม่ได้ เพราะ RPC ยังไม่มีบน Production
+
+  ! ปรับจากภาพต้นแบบ 1 จุด
+    ป้ายแดง "TAX INVOICE / ใบกำกับภาษี" แสดงเฉพาะเมื่อมี VAT > 0
+    ถ้า VAT 0% ทั้งใบจะไม่ติดป้าย (กันเอกสารอ้างสถานะภาษีที่ไม่จริง)
+    ต้องการให้ติดตลอด -> แก้จุดเดียวที่ credit-note-doc.js ตัวแปร isTaxDoc
+
+  ! Reason ทำเป็นช่องกรอกอิสระ + datalist แนะนำ 4 คำ
+    ไม่สร้าง Master ใหม่ ไม่เพิ่ม Business Rule (ตามข้อกำหนด)
+
+
+════════════════════════════════════════════════════════════════════
+9 · วิธี Deploy
+════════════════════════════════════════════════════════════════════
+  แนะนำ: ใช้ DEPLOY_credit-note-final.zip (15 ไฟล์) อัปรอบเดียวจบ
+         แตก zip แล้วอัปทั้งโครงสร้างโฟลเดอร์ผ่าน
+         GitHub.com -> Add file -> Upload files -> Commit changes
+
+  ถ้าใช้ FULL (149 ไฟล์) ต้องอัป 2 รอบเพราะเกินลิมิต 100 ไฟล์/ครั้ง
+         รอบ 1 : โฟลเดอร์ assets/  (+ index.html, app-boot.js)
+         รอบ 2 : โฟลเดอร์ sql/, supabase/, docs/ และไฟล์ที่เหลือ
+
+  หลังอัปเสร็จ Force Update จะทำงานเองจาก BUILD KEY 1.4.1-local72
+  (ไม่ต้องแจ้งพนักงาน ไม่ต้องล้าง cache เอง)
+
+  *** SQL ยังไม่ได้รัน — เมนู Credit Note จะขึ้นกล่อง BACKEND REQUIRED
+      จนกว่าจะรัน RUN_3_CREDIT_NOTE.sql
+      ระหว่างนั้นหน้าอื่นทั้งหมดทำงานปกติ ***
+
+
+════════════════════════════════════════════════════════════════════
+10 · ลำดับรัน SQL ที่แนะนำ (รันทีละไฟล์ ดู VERIFY ให้ PASS ก่อนไปต่อ)
+════════════════════════════════════════════════════════════════════
+  0) RUN_3_CREDIT_NOTE.sql              ✅ รันไปแล้ว 17/08/2026 — ห้ามรันซ้ำ
+  1) RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql  ← ทำก่อน (แก้ V5 FAIL · REVOKE 2 บรรทัด)
+  2) RUN_2_RECEIPT.sql                  อิสระ 100% เสี่ยงต่ำสุด
+  3) RUN_1_INVOICE.sql                  ครอบคลุมทดรองจ่ายไปด้วย
+  4) RUN_4_ADVANCE.sql                  ถ้ารันข้อ 3 แล้ว ข้ามได้ (รันซ้ำไม่เสียหาย)
+
+  ⚠️ RUN_1 กับ RUN_4 ใช้ RPC njacc_invoice_view ร่วมกัน
+     block นั้นเหมือนกันทุกตัวอักษรในทั้ง 2 ไฟล์ (md5 cc192c17...)
+     -> รันไฟล์ไหนก่อนก็ได้ สลับลำดับก็ได้ ผลลัพธ์เท่ากันเป๊ะ ไม่พัง
+
+  หมายเหตุ: RUN-01_027 / RUN-01_028 ของรอบก่อนยังอยู่ในโฟลเดอร์ sql/dev
+            เนื้อหาเท่ากับ RUN_1 + RUN_4 และ RUN_2 ตามลำดับ
+            ให้ใช้ชุด RUN_1..RUN_4 เป็นหลัก (แยกตามฟอร์ม อ่านง่ายกว่า)
+
+
+════════════════════════════════════════════════════════════════════
+11 · แก้เพิ่มหลังรัน RUN_3 จริง — RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql
+════════════════════════════════════════════════════════════════════
+  หลังคุณน้อยรัน RUN_3_CREDIT_NOTE.sql บน Production แล้วตรวจผล VERIFY จริง
+  พบว่า V5 ขึ้น FAIL 2 แถว
+
+  ── ROOT CAUSE (ความผิดพลาดของไฟล์ RUN_3 เอง) ──
+    RUN_3 เขียน  REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon;
+    แต่ Supabase ตั้ง ALTER DEFAULT PRIVILEGES ไว้ให้
+        GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role
+    ฟังก์ชันใหม่จึงได้สิทธิ์ authenticated มา "โดยตรง" ไม่ได้ผ่าน PUBLIC
+    -> REVOKE จาก PUBLIC อย่างเดียวไม่ลบก้อนนี้
+    ACL จริงที่ตรวจพบ: postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres
+
+  ── ผลกระทบ ──
+    njacc_next_credit_note_no(date)
+        ผู้ใช้ที่ล็อกอินยิงตรงได้ -> เดินเลข CD{YYYYMM}-##### ทิ้งเปล่า เลขขาดช่วง
+    njacc_credit_item_remaining(uuid, uuid)
+        อ่านอย่างเดียว ไม่มี njacc_can() -> รู้ uuid แล้วอ่านยอดคงเหลือได้ (รั่วเล็กน้อย)
+    *** ไม่กระทบการใช้งานหน้าเว็บ ***
+    RPC หลัก 8 ตัวเป็น SECURITY DEFINER owner=postgres ซึ่งยังมี EXECUTE ครบ
+    Frontend ไม่เคยเรียก helper 2 ตัวนี้ตรง (credit-note-api.js มีแค่ 8 RPC หลัก)
+
+  ── การแก้ ──
+    เครื่องที่รัน RUN_3 ไปแล้ว  -> รัน RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql
+                                   (มีแต่ REVOKE 2 บรรทัด · รันซ้ำได้)
+    ติดตั้งใหม่ในอนาคต          -> RUN_3_CREDIT_NOTE.sql ฉบับในชุดนี้แก้แล้ว
+                                   REVOKE ... FROM PUBLIC, anon, authenticated
+                                   ไม่ต้องรัน RUN_3B ตาม
+
+  ── ผล VERIFY ของ RUN_3 บน Production (ตรวจสดหลังรัน) ──
+    V1  ตาราง 2 ตัว                          PASS
+    V2  ฟังก์ชัน 10 ตัว                       PASS
+    V3  RLS เปิด · 0 policy ทั้ง 2 ตาราง       PASS
+    V4  anon เรียกไม่ได้เลย                    PASS
+    V5  สิทธิ์ helper 2 ตัว                    FAIL -> แก้ด้วย RUN_3B
+    V6  Index ครบ 6 ตัว                       PASS
+    V8  njacc_next_doc_no ยัง 3 พารามิเตอร์     PASS
+    V11 ข้อมูล credit_notes=0 items=0          ปกติ (ยังไม่ได้ใช้งาน)
+
+
+════════════════════════════════════════════════════════════════════
+12 · FINAL FIX ระบบเอกสาร 4 แบบ (local73)
+════════════════════════════════════════════════════════════════════
+งาน   : เลขเอกสาร FINAL 4 sequence แยกกัน + Credit Note แสดง Original/Correct/
+        Difference + preview-doc.html ครบ 4 แบบ
+SQL   : RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ยังไม่รัน
+        RUN-02_FINAL_CREDIT_NOTE.sql        ยังไม่รัน
+
+── PRE-FLIGHT (ตรวจ Production จริง 17/08/2026) ─────────────────────
+  Renderer     INVOICE  assets/js/invoices/invoice-doc.js   invoiceDocHTML()   .ivd*
+               RECEIPT  assets/js/receipts/receipt-doc.js   receiptDocHTML()   .rcd*
+               CREDIT   assets/js/finance/credit-note-doc.js creditNoteDocHTML() .cnd*
+               ADVANCE  assets/js/finance/advance-doc.js    advanceDocHTML()   .apd*
+  Preview/Print/PDF  ทั้ง 4 ใช้ HTML ชุดเดียวกัน + window.print() บน .print-area
+                     (นิยาม .print-area ที่ assets/css/pages/invoice.css)
+                     ไม่มี PDF renderer แยก -> Preview = Print = PDF โดยโครงสร้าง
+  Logo         assets/img/nj-logo.png  md5 f5fdae60fb8cb2713183ba9689a8bd65
+               ทั้ง 4 renderer อ้าง ISSUER.logo ตัวเดียวกัน (ไม่ hardcode path)
+  Company      assets/js/config/company-doc.js -> ISSUER
+               ทั้ง 4 renderer ดึงจาก ISSUER ตัวเดียว ไม่มี hardcode ซ้ำ
+  Number RPC   INVOICE  njacc_issue_invoice / njacc_post_draft_invoice
+                        njacc_next_doc_no('INVOICE','YYYY','INV'||YY||'-')
+               RECEIPT  njacc_receive_payment
+                        njacc_next_doc_no('RECEIPT','YYYY','RC'||YY||'-')
+               CREDIT   njacc_next_credit_note_no -> 'CD'||YYYYMM||'-'||5หลัก
+               ADVANCE  *** ไม่มี sequence แยก *** ใช้ INVOICE counter ร่วมกัน
+  Data         njacc_document_sequences = JOB, JOB_OPEN เท่านั้น
+               njacc_invoices  DRAFT 1 / ISSUED 0 / POSTED 0 / ADVANCE 0
+               njacc_receipts 0 · njacc_credit_notes 0
+               -> ไม่มีเอกสารที่ออกเลขแล้ว จึงเปลี่ยนรูปแบบได้โดยไม่ rewrite ของเก่า
+
+── เลขเอกสารหลังแก้ ─────────────────────────────────────────────────
+  INVOICE          NJ{YYYYMM}-#####    counter INVOICE_MONTH
+  RECEIPT          RCP{YYYYMM}-#####   counter RECEIPT_MONTH
+  CREDIT NOTE      CN{YYYYMM}-#####    counter CREDIT_NOTE_MONTH
+  ADVANCE PAYMENT  ADV{YYYYMM}-#####   counter ADVANCE_MONTH
+  ทั้ง 4 ใช้ njacc_next_month_doc_no() ตัวเดียว · scope=YYYYMM · pad 5
+  Atomic ด้วย INSERT ON CONFLICT + UPDATE...RETURNING (row lock) เหมือนของเดิม
+  DRAFT ยังใช้ 'DRAFT-'||left(id,8) เหมือนเดิม -> ร่างไม่กินเลขจริง
+  njacc_next_doc_no เดิมไม่ถูกแตะ (JOB / JOB_OPEN / WHT / PAYMENT ใช้ต่อ)
+
+── ADVANCE ได้เลขแยกอย่างไร ─────────────────────────────────────────
+  ใบ ADVANCE เป็นแถวใน njacc_invoices (charge_type='ADVANCE') · invoice_no NOT NULL UNIQUE
+  จึงให้ใบ ADVANCE ดึงเลขจาก counter ADVANCE_MONTH แทน INVOICE_MONTH
+  -> invoice_no ของใบ ADVANCE = ADV202608-00001 (ไม่ใช่ NJ...)
+  -> counter 2 ตัวเดินแยกสนิท · ไม่ต้อง ALTER TABLE · ไม่มีเลข 2 ชุดในแถวเดียว
+  -> advance-doc.js แสดง inv.invoice_no เป็น Advance Payment No. ได้ถูกต้อง
+
+── Credit Note: Original / Correct / Difference (ข้อ 24-25) ──────────
+  RUN-02 เพิ่มคอลัมน์ njacc_credit_note_items.original_amount (snapshot)
+  ตารางใบลดหนี้เปลี่ยนจาก 6 -> 8 คอลัมน์:
+    No. | Description | Original | Correct | Difference | VAT Rate | VAT Diff. | Credit Amount
+  Correct = Original − Difference (คำนวณจากค่าจริง ไม่เก็บซ้ำ)
+  ถ้ายังไม่รัน RUN-02 -> ช่อง Original/Correct แสดง "-" (ไม่เดาค่า)
+
+── ไฟล์ที่แก้เพิ่มรอบนี้ ────────────────────────────────────────────
+  assets/js/finance/credit-note-doc.js   ตาราง 8 คอลัมน์ + รวมท้ายตาราง
+  assets/css/pages/credit-note-doc.css   ความกว้าง 8 คอลัมน์ + .cnd-df
+  preview-doc.html                       + แท็บ CREDIT NOTE (10 ชุดข้อมูล)
+                                         + Invoice 'Long Description'
+                                         + Receipt '10 Invoice'
+                                         + เลขตัวอย่างเป็นรูปแบบใหม่ทั้งหมด
+  index.html                             BUILD KEY local72 -> local73
+  assets/js/app.bundle.js                rebuild
+  sql/dev/RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ใหม่
+  sql/dev/RUN-02_FINAL_CREDIT_NOTE.sql        ใหม่
+
+── ไม่แตะ ───────────────────────────────────────────────────────────
+  invoice-doc.js · receipt-doc.js · advance-doc.js (ตรวจแล้วตรง Final Form อยู่แล้ว)
+  njacc_next_doc_no · njacc_save_job · njacc_create_wht · payment_no
+  njacc_save_invoice_draft · njacc_post_credit_note · njacc_void_credit_note
+  ตาราง/คอลัมน์เดิม · RLS · Permission · Role · Auth
+  ไม่ rewrite เลขเอกสารเก่า · ไม่ reset counter ที่มีเอกสารจริง
+
+── ลำดับรัน SQL ─────────────────────────────────────────────────────
+  1) RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   (ค้างจากรอบก่อน)
+  2) RUN-01_FINAL_DOCUMENT_NUMBERS.sql
+  3) RUN-02_FINAL_CREDIT_NOTE.sql
+  4) RUN_2_RECEIPT.sql / RUN_1_INVOICE.sql   (ฟิลด์เอกสาร · ไม่เกี่ยวเลข)
+
+
+════════════════════════════════════════════════════════════════════
+13 · CRITICAL FIX — Receipt Workflow / Single Payment Rule (local74)
+════════════════════════════════════════════════════════════════════
+SQL   : RUN-03_FINAL_RECEIPT_PAYMENT.sql   ใหม่ · ยังไม่รัน
+        RUN-01_FINAL_DOCUMENT_NUMBERS.sql  แก้ไข · ยังไม่รัน
+
+── ROOT CAUSE (ตรวจ pg_get_functiondef บน Production จริง) ──────────
+  กติกาการรับชำระกระจายอยู่ 5 ที่ และไม่ตรงกันเลยสักคู่
+
+    njacc_post_draft_invoice      ตั้ง status = POSTED
+    njacc_receipt_pending         หา  status = POSTED · Net (หัก WHT)
+                                  paid นับ payment status <> 'VOID'
+    njacc_customer_open_invoices  หา  status = ISSUED · Gross
+                                  paid นับ payment status = 'POSTED'
+    njacc_receive_payment         บังคับ status = ISSUED · Gross
+    njacc_void_receipt            คำนวณสถานะเทียบ total_amount (Gross)
+
+  ผลจริง: POST -> POSTED -> ขึ้นคิว "รอรับชำระ" ได้
+          แต่กด "+ รับชำระเงิน" -> open_invoices หา ISSUED -> ไม่เจอใบนั้น
+          ต่อให้เจอ -> receive_payment บังคับ ISSUED -> NJACC_INVOICE_NOT_OPEN
+          => Flow POSTED -> รับชำระ ใช้งานไม่ได้เลย
+          และยอดขัดกัน: คิวบอก 1,560 (Net) หน้าจอบอก 1,605 (Gross)
+          รับ 1,560 -> ระบบมองว่าขาด 45 -> ค้าง PARTIAL ตลอดกาล
+
+── SINGLE PAYMENT RULE (กติกาเดียว บังคับที่ SQL) ────────────────────
+  helper 4 ตัวเป็นแหล่งความจริงเดียว ทุก RPC เรียกตัวเดียวกัน
+    njacc_invoice_payable(status)       status IN ('ISSUED','POSTED')
+    njacc_invoice_net_receivable(id)    total_amount − wht_amount
+    njacc_invoice_paid(id)              Σ allocated ของ payment status='POSTED'
+    njacc_invoice_outstanding(id)       net − paid
+  payment_status  outstanding<=0.005 -> PAID · paid<=0.005 -> UNPAID · อื่น -> PARTIAL
+
+  แก้ 4 RPC ให้เรียก helper: njacc_receipt_pending · njacc_customer_open_invoices ·
+                             njacc_receive_payment · njacc_void_receipt
+  (njacc_void_receipt เป็นจุดที่ 5 ที่ผู้ใช้ไม่ได้ระบุ แต่ตรวจเจอว่าใช้ Gross
+   ถ้าไม่แก้ด้วย การ Void ใบเสร็จจะคืนสถานะผิด — จึงรวมไว้ในไฟล์เดียวกัน)
+
+  ตัวอย่าง Total 1,605 · WHT 45 -> Net 1,560
+      รับ 1,000 -> Outstanding 560 -> PARTIAL
+      รับ   560 -> Outstanding   0 -> PAID
+
+── ป้องกัน Migration ย้อน Logic (ข้อ 3 ของโจทย์) ────────────────────
+  ถอด njacc_receive_payment ออกจาก RUN-01 ทั้งก้อน
+  -> RUN-03 เป็นเจ้าของฟังก์ชันนี้แต่ผู้เดียวในทั้งระบบ
+  -> รัน RUN-01 ซ้ำกี่ครั้งก็ไม่ย้อน Logic ของ RUN-03 เพราะไม่ได้แตะเลย
+  -> เลข RCP{YYYYMM}-##### ย้ายไปอยู่ใน RUN-03 ด้วย (ใช้ njacc_next_month_doc_no ของ RUN-01)
+  ลำดับบังคับ: RUN-01 -> RUN-03
+
+── Frontend ────────────────────────────────────────────────────────
+  payment-form.js  เพิ่มคอลัมน์ WHT + "ยอดที่ต้องรับ" (Net Receivable)
+                   ให้เห็นที่มาของยอดคงค้าง · ยังไม่รัน RUN-03 -> แสดง "-" ไม่เดาค่า
+                   colspan ของแถวว่าง/loading ปรับจาก 6 -> 8
+  payment-allocation.js  ไม่แก้ — อ่าน inv.outstanding จาก server อยู่แล้ว
+                         แก้ที่ SQL จุดเดียวแล้วถูกทั้งระบบ
+
+── Invoice Table: ตัดคอลัมน์ No. (ข้อ 5) ────────────────────────────
+  invoice-doc.js  6 -> 5 คอลัมน์  Description | Service | Advance | Unit Price | Total
+                  colgroup / thead / tbody / tfoot colspan ปรับครบ
+  invoice-doc.css ลบ .ivd-tbl col.w-no (คง .ivd-no ไว้เผื่อ rollback)
+  *** line_no ใน Database ไม่ถูกแตะ *** ยังเก็บและใช้เรียงลำดับตามเดิม เพียงไม่พิมพ์
+
+── LOGO — ไม่ได้เปลี่ยน พร้อมเหตุผล (อ่านข้อ 14) ────────────────────
+  ตรวจไฟล์จริงแล้วไม่พบ gradient/เงา และไฟล์ที่ให้มาใน session เป็นภาพ 76x63
+  ซึ่งเล็กกว่าของเดิม 5.6 เท่าและมีพื้นหลังขาว -> เปลี่ยนแล้วเอกสารแย่ลง
+  จึงไม่เปลี่ยน และรายงานให้ตัดสินใจแทนการทำเงียบ ๆ
+
+── VERIFICATION ที่ทำจริง ───────────────────────────────────────────
+  PASS  node --check ทุกไฟล์ JS + bundle · CSS brace balance
+  PASS  Invoice table 5 เคส — th=5 · col=5 · colspan ทุกแถว=5 · ไม่มีคอลัมน์ No.
+  PASS  Credit Note 6 เคส — th=8 · colspan ทุกแถว=8
+  PASS  Company/Logo 4 renderer ใช้ ISSUER + asset เดียวกัน · ไม่มี 168/9 หลุด
+  PASS  SQL 3 ไฟล์ — dollar-quote จับคู่ · วงเล็บสมดุล · BEGIN/COMMIT 1:1
+  PASS  RUN-01 ไม่มี CREATE njacc_receive_payment (0 ครั้ง) · RUN-03 มี 1 ครั้ง
+  NOT VERIFIED  Receipt/WHT test · Running Number test · Print/A4
+                (ต้องรัน SQL บน Production ก่อน · Chromium เปิดไม่ได้ใน container)
+
+── ลำดับรัน SQL ─────────────────────────────────────────────────────
+  1) RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   (ค้างจากรอบก่อน)
+  2) RUN-01_FINAL_DOCUMENT_NUMBERS.sql
+  3) RUN-03_FINAL_RECEIPT_PAYMENT.sql    ← ต้องหลัง RUN-01
+  4) RUN-02_FINAL_CREDIT_NOTE.sql
+  5) RUN_2_RECEIPT.sql / RUN_1_INVOICE.sql   (ฟิลด์เอกสาร · ไม่เกี่ยวเลข/การเงิน)
+
+────────────────────────────────────────────────────────────────────
+14 · LOGO — รายงานผลตรวจ (ไม่ได้เปลี่ยนไฟล์)
+────────────────────────────────────────────────────────────────────
+  โจทย์ระบุว่า assets/img/nj-logo.png เป็น Logo แบบ Gradient/เงา
+  และให้ Replace ด้วย Original ที่ให้ไว้ใน session
+
+  ผลตรวจไฟล์จริงด้วย Pillow/NumPy (ไม่ได้ดูด้วยตาอย่างเดียว):
+    assets/img/nj-logo.png   426 x 231 RGBA  md5 f5fdae60fb8cb2713183ba9689a8bd65
+      opaque pixel                     24,735
+      แดงจริง (R>150, R−G>60)          24,532   = 99.2%
+      พิกเซลเทา/ดำ (sat<40, max<200)        0   <- ไม่มีเงา
+      พิกเซลมืด (max<120)                   0   <- ไม่มีเงา
+      โปร่งใส                          67,799   <- พื้นหลังโปร่งจริง
+      semi-transparent                  5,762   <- ขอบ anti-alias ปกติของภาพ raster
+
+    ไฟล์ที่แนบใน session (1786940939007_image.png)
+      ขนาด 76 x 63  (เล็กกว่าของเดิม 5.6 เท่าในแต่ละด้าน)
+      โปร่งใสเพียง 274 จาก 4,788 pixel -> พื้นหลังขาวทึบ ไม่ใช่ PNG โปร่ง
+
+  สรุป: ไม่พบ gradient และไม่พบเงาในไฟล์ปัจจุบัน
+        ส่วนไฟล์ที่ให้มาเป็นภาพย่อความละเอียดต่ำพร้อมพื้นหลังขาว
+        ถ้าเปลี่ยนตามคำสั่ง เอกสารทั้ง 4 แบบจะได้โลโก้เบลอและมีกล่องขาวรอบตัว
+        ซึ่งแย่กว่าเดิมชัดเจน
+
+  จึง *** ไม่เปลี่ยนไฟล์ *** และรายงานให้คุณน้อยตัดสินใจ
+  ถ้ามีไฟล์ Original ความละเอียดสูง (PNG โปร่ง / SVG / AI / EPS) ส่งมาได้เลย
+  เปลี่ยนให้ทันทีจุดเดียว — ทั้ง 4 renderer อ้าง ISSUER.logo ตัวเดียวกันอยู่แล้ว
+
+
+════════════════════════════════════════════════════════════════════
+15 · FIX รอบส่งให้ตรวจอิสระ (local75)
+════════════════════════════════════════════════════════════════════
+SQL   : RUN-02_FINAL_CREDIT_NOTE.sql  แก้เพิ่ม (SECTION 2.3) · ยังไม่รัน
+        RUN-01 / RUN-03 ไม่เปลี่ยนจาก local74
+
+────────────────────────────────────────────────────────────────────
+15.1 · RECEIPT — หัก WHT ซ้ำซ้อน  (ROOT CAUSE + FIX)
+────────────────────────────────────────────────────────────────────
+  ไฟล์ : assets/js/receipts/receipt-doc.js   function summarize()
+
+  ROOT CAUSE
+    Backend (RUN-03) ตัดชำระด้วย Net = total_amount − wht_amount
+    -> njacc_receipt_allocations.amount = "เงินสดที่รับจริง" (หัก WHT แล้ว)
+    แต่ Renderer คิด ratio = allocated / invoice.total_amount  ← หารด้วย GROSS
+    แล้วยังเอา WHT มาลบออกอีกครั้งที่บรรทัด AMOUNT RECEIVED
+
+    ตัวเลขจริง Total 1,605 · WHT 45 · รับเต็มใบ 1,560
+      ratio    = 1,560 / 1,605 = 0.9720
+      SubTotal = 1,500 × 0.9720 = 1,458.00   ผิด (ควร 1,500.00)
+      VAT      =   105 × 0.9720 =   102.06   ผิด (ควร   105.00)
+      WHT      =    45 × 0.9720 =    43.74   ผิด (ควร    45.00)
+      RECEIVED = 1,560 − 43.74  = 1,516.26   ผิด (ควร 1,560.00)
+      => WHT ถูกหัก 2 ครั้ง
+
+  FIX
+    ratio = allocated / netReceivable        netReceivable = total_amount − wht_amount
+            (ฐานเดียวกับ njacc_invoice_net_receivable() ใน RUN-03)
+    AMOUNT RECEIVED = ผลรวม allocation จริง  ไม่ลบ WHT ซ้ำอีก
+    Total (แถวก่อน WHT) = SubTotal + VAT     -> Total − WHT = AMOUNT RECEIVED เสมอ
+    net <= 0 -> ข้ามบรรทัด (กันหารศูนย์)
+    ยังไม่รัน RUN_2_RECEIPT -> hasTax=false -> แสดง "-" ไม่เดาค่า
+                                RECEIVED = ผลรวม allocation (ยังถูกต้อง)
+
+  TEST 7 เคส (node · ดึงตัวเลขจาก HTML ที่ render จริง) — PASS ทั้งหมด
+    ไม่มี WHT (full)      sub 1,500  vat 105  wht 0    total 1,605  recv 1,605
+    มี WHT (full)         sub 1,500  vat 105  wht 45   total 1,605  recv 1,560
+    Partial 1,000/1,560   sub 961.54 vat 67.31 wht 28.85 total 1,028.85 recv 1,000
+    Payment ครั้งที่ 2     sub 538.46 vat 37.69 wht 16.15 total 576.15 recv 560
+    Multi Invoice         sub 2,000  vat 140  wht 60   total 2,140  recv 2,080
+    VAT+WHT พร้อมกัน      sub 10,000 vat 700  wht 300  total 10,700 recv 10,400
+    VAT 0% + WHT          sub 1,000  vat 0    wht 30   total 1,000  recv 970
+    ยืนยันทุกเคส : RECEIVED = ผลรวม allocation  และ  Total − WHT = RECEIVED
+
+────────────────────────────────────────────────────────────────────
+15.2 · CREDIT NOTE — Correct Amount ต้องคิด Credit สะสม
+────────────────────────────────────────────────────────────────────
+  ไฟล์ : sql/dev/RUN-02_FINAL_CREDIT_NOTE.sql  (SECTION 2.3 · ใหม่)
+         assets/js/finance/credit-note-doc.js
+
+  ROOT CAUSE
+    Renderer คิด correct = original − amount ของ "ใบปัจจุบัน" เท่านั้น
+    Invoice Item เดียวที่ออกใบลดหนี้หลายใบจะได้ตัวเลขผิด
+      Original 10,000 · CN#1 ลด 2,000 -> 8,000 (ถูก)
+                        CN#2 ลด 1,500 -> 8,500 (ผิด · ต้องเป็น 6,500)
+    เบราว์เซอร์ไม่เห็นใบลดหนี้ใบอื่น จึงคำนวณสะสมเองไม่ได้
+
+  FIX
+    njacc_credit_note_view คืนเพิ่มรายบรรทัด
+      prior_credited      = Σ amount จากใบ "อื่น" ที่ status='POSTED'
+                            และ posted_at เก่ากว่าใบนี้ (ใบนี้ DRAFT -> นับ POSTED ทุกใบ)
+                            VOID ไม่นับ · ใบตัวเองไม่นับซ้ำ
+      cumulative_credited = prior_credited + amount
+      correct_amount      = original_amount − prior_credited − amount
+    Renderer ใช้ correct_amount จาก SQL ตรง ๆ ไม่คำนวณเอง
+    ยังไม่รัน RUN-02 -> ไม่มี correct_amount -> แสดง "-"
+    *** ห้าม fallback เป็น original − amount *** เพราะจะผิดเมื่อมีหลายใบ
+    เปิดใบเก่าย้อนหลังได้ตัวเลขเดิมเสมอ (ผูกกับ posted_at ไม่ใช่ยอดล่าสุด)
+
+  TEST 4 เคส — PASS ทั้งหมด
+    CN#1 ลด 2,000 (prior 0)      -> Original 10,000  Correct 8,000  Diff 2,000
+    CN#2 ลด 1,500 (prior 2,000)  -> Original 10,000  Correct 6,500  Diff 1,500
+    CN#3 ลด 6,500 (prior 3,500)  -> Original 10,000  Correct 0      Diff 6,500
+    ยังไม่รัน RUN-02             -> Original/Correct = "-" (ไม่เดาค่า)
+
+  กัน Over Credit — ใช้ของเดิม ไม่สร้าง Logic ซ้ำ
+    njacc_credit_item_remaining() + FOR UPDATE ใน njacc_save_credit_note_draft
+    ตรวจ 2 ชั้น (SAVE + POST) · เกิน -> NJACC_CN_EXCEEDS_CREDITABLE
+    RUN-02 เพิ่ม VERIFY V9 ตรวจว่าไม่มี invoice_item_id ใดถูกลดสะสมเกินยอดเดิม
+
+────────────────────────────────────────────────────────────────────
+15.3 · LOGO — ยังไม่เปลี่ยน · หลักฐานเชิงตัวเลข
+────────────────────────────────────────────────────────────────────
+  วัดด้วย Pillow/NumPy ไม่ได้ดูด้วยตาอย่างเดียว
+
+  A) asset ปัจจุบัน assets/img/nj-logo.png  426x231 RGBA
+     md5 f5fdae60fb8cb2713183ba9689a8bd65
+       opaque 24,735 px · แดงจริง 24,532 (99.2%)
+       พิกเซลเทา/ดำ (sat<40, max<200) = 0     <- ไม่มีเงา
+       พิกเซลมืด (max<120)            = 0     <- ไม่มีเงา
+       โปร่งใส 67,799 px                      <- พื้นหลังโปร่งจริง
+     => ไม่พบ Gradient และไม่พบ Shadow ตามที่โจทย์ระบุ
+
+  B) ไฟล์ที่แนบใน session 1786940939007_image.png  76x63
+       โปร่งใสเพียง 274 / 4,788 px            <- พื้นหลังขาวทึบ ไม่ใช่ PNG โปร่ง
+       bbox ของลายเส้น 73x34 (asset ปัจจุบัน 389x194 = ใหญ่กว่า 5.3 เท่า)
+
+  C) เทียบรูปทรง (normalise 128x128 แล้ววัด)
+       shape IoU        0.7287
+       pixel agreement  87.92%
+       aspect ratio     2.147 (แนบ) vs 2.005 (asset)
+     => เป็นลายเดียวกันชัดเจน ส่วนต่างสอดคล้องกับการสูญเสียรายละเอียดของภาพย่อ
+        ไม่ใช่หลักฐานว่า asset ปัจจุบันเป็นคนละโลโก้
+
+  สรุป : ไม่เปลี่ยนไฟล์
+         ถ้าเปลี่ยนเป็นไฟล์ 76x63 เอกสารทั้ง 4 แบบจะได้โลโก้เบลอ + กล่องขาวรอบตัว
+         ซึ่งแย่ลงจากของเดิมชัดเจน จึงรายงานให้ตัดสินใจแทนการทำเงียบ ๆ
+         ถ้ามีไฟล์ต้นฉบับความละเอียดสูง (PNG โปร่ง / SVG / AI / EPS) ส่งมาได้
+         เปลี่ยนจุดเดียวที่ assets/img/nj-logo.png -> ทั้ง 4 renderer เปลี่ยนตามทันที
+         เพราะอ้าง ISSUER.logo ตัวเดียวกันอยู่แล้ว (พิสูจน์ด้วย test แล้ว)
+
+────────────────────────────────────────────────────────────────────
+15.4 · ไฟล์ที่แก้รอบนี้
+────────────────────────────────────────────────────────────────────
+  assets/js/receipts/receipt-doc.js      summarize() ฐาน Net · ไม่หัก WHT ซ้ำ
+  assets/js/finance/credit-note-doc.js   ใช้ correct_amount จาก SQL (สะสม)
+  sql/dev/RUN-02_FINAL_CREDIT_NOTE.sql   + SECTION 2.3 njacc_credit_note_view
+                                         + VERIFY V7a / V7b / V9
+  preview-doc.html                       + 2 ชุดข้อมูลทดสอบ Credit สะสม
+  index.html                             BUILD KEY local74 -> local75
+  assets/js/app.bundle.js                rebuild
+  CHANGELOG.txt                          ไฟล์นี้
+
+  ไม่แตะ : invoice-doc.js · advance-doc.js · payment-form.js · payment-allocation.js
+           RUN-01 · RUN-03 · assets/img/nj-logo.png
+           Schema · line_no · Auth · Role · Permission · Workflow อื่น
+
+
+════════════════════════════════════════════════════════════════════
+16 · FINAL — Receipt Gross Reference / WHT Rate / SQL แยก RUN-NOW (local76)
+════════════════════════════════════════════════════════════════════
+
+16.1 · RECEIPT — INVOICE REFERENCE ต้องแสดง GROSS
+  ไฟล์ assets/js/receipts/receipt-doc.js  (grossOf() ใหม่ + rows)
+  ก่อนแก้  คอลัมน์ Amount แสดง iv.amount = allocation = เงินสดหลังหัก WHT (1,560)
+  หลังแก้  แสดง "ยอดใบแจ้งหนี้" = total_amount × ratio
+           ratio = allocation / netReceivable · net = total_amount − wht_amount
+           รับเต็มใบ -> ratio = 1 -> 1,605.00 ตรงยอดใบแจ้งหนี้เป๊ะ
+           ไม่มีข้อมูลภาษี -> ถอยไปแสดง allocation (ดีกว่าเดา)
+
+16.2 · PARTIAL PAYMENT
+  ratio ใช้ฐาน Net เหมือนกันทุกช่อง (Gross / SubTotal / VAT / WHT)
+  รับ 780 จาก Net 1,560 -> ratio 50%
+    Gross Portion 802.50 · SubTotal 750.00 · VAT 52.50 · WHT 22.50 · Received 780.00
+
+16.3 · WHT RATE — ตัด fallback 3% ทิ้ง
+  ก่อนแก้  whtRate = wRates.size===0 ? 3 : ...     <- hardcode 3%
+  หลังแก้  เก็บเป็น Map<rate, amount> จากค่าจริงของแต่ละใบ
+           อัตราเดียว    -> "Withholding Tax 1 %" / "3 %" ตามจริง
+           หลายอัตรา     -> แยกบรรทัดตามอัตราจริง + บรรทัด Total Withholding Tax
+           ไม่ส่ง wht_rate -> "Withholding Tax" เฉย ๆ *** ไม่เดาเปอร์เซ็นต์ ***
+  ตรวจแล้ว: ไม่เหลือ '|| 3' หรือ ': 3)' ใน receipt-doc.js เลย (grep = 0)
+
+16.4 · PREVIEW TEST DATA — ปรับเป็นโมเดล Net Allocation
+  ไฟล์ preview-doc.html
+  mk() เปลี่ยน signature เป็น (no, date, desc, sub, vatRate, whtRate, cash?)
+  amount = เงินสดจริง (Gross − WHT) ตรงกับที่ Backend ตัดจริง
+  แท็บ RECEIPT มี 12 ชุด: 3 Invoice(4,280/120/4,160) · 1 Invoice · Partial 780 ·
+    WHT 1% · WHT 3% · Mixed 1%+3% · ไม่มี WHT · มีใบ Advance ปน ·
+    10 Invoice · 12 Invoice · ยังไม่รัน RUN_2_RECEIPT · VOID
+
+16.5 · SQL — แยก RUN-NOW ออกจาก LEGACY ชัดเจน (ข้อ 16)
+  sql/RUN-NOW/               ← *** รันเฉพาะโฟลเดอร์นี้ เรียง 01 -> 04 ***
+    01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql
+    02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql
+    03_RUN-03_FINAL_RECEIPT_PAYMENT.sql      (ต้องหลัง 02)
+    04_RUN-02_FINAL_CREDIT_NOTE.sql
+    README_RUN-NOW.txt        ลำดับ · Dependency · ความเสี่ยง · ROLLBACK
+  sql/LEGACY-DO-NOT-RUN/     ← *** ห้ามรัน ***
+    RUN_3_CREDIT_NOTE.sql (รันแล้ว · prefix CD เก่า)
+    RUN_1_INVOICE / RUN_2_RECEIPT / RUN_4_ADVANCE (ฟิลด์เอกสาร · ยังไม่รัน)
+    RUN-01_027 / RUN-01_028 (ฉบับก่อนหน้า ซ้ำกัน)
+    RUN-01_025 / RUN-01_026 / RUN-02_026
+      ⚠️ 026 ใช้ njacc_next_doc_no 4 พารามิเตอร์ ขัดกับ RUN-NOW/02 ห้ามรันเด็ดขาด
+    README_LEGACY.txt
+  ตรวจแล้ว: ไม่มี prefix เก่า (CD / INV||YY / RC||YY) เป็นโค้ดที่ทำงานใน RUN-NOW
+            ที่พบเป็นคอมเมนต์อธิบาย "ของเดิม" และบรรทัด VERIFY ที่ยืนยันว่าไม่เหลือ
+
+16.6 · LOGO — SHA256 (ข้อ 9)
+  Master (ที่แนบใน session)  d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91
+  Source (assets/img/...)    a65c9c5a72f359d6eb1c0cb896195bf6568f55fbd664efc077770f3abe55fbe8
+  Deploy (ใน DEPLOY ZIP)     a65c9c5a72f359d6eb1c0cb896195bf6568f55fbd664efc077770f3abe55fbe8
+  Source == Deploy  ตรงกัน
+  Master  != Source  *** ตามเกณฑ์ข้อ 9 = LOGO FAIL ***
+  เหตุผลที่ยังไม่ Replace (ข้อมูลวัดจริง ไม่ใช่ความเห็น):
+    Master ที่แนบ 76x63 px · โปร่งใสเพียง 274/4,788 px = พื้นหลังขาวทึบ
+    Source ปัจจุบัน 426x231 px · โปร่งใส 67,799 px · ไม่พบ gradient/เงา (พิกเซลเทา-ดำ = 0)
+    เทียบรูปทรง IoU 0.7287 · pixel agreement 87.92% = ลายเดียวกัน
+    -> Replace แล้วเอกสารทั้ง 4 แบบจะได้โลโก้เบลอ + กล่องขาวรอบตัว แย่ลงชัดเจน
+    -> รอไฟล์ต้นฉบับความละเอียดสูง (PNG โปร่ง / SVG / AI / EPS)
+       เปลี่ยนจุดเดียวที่ assets/img/nj-logo.png แล้วทั้ง 4 renderer เปลี่ยนตามทันที
+
+16.7 · ไฟล์ที่แก้รอบนี้
+  assets/js/receipts/receipt-doc.js   grossOf() · summarize() · whtLines · rows
+  assets/js/finance/credit-note.js    ชี้ SQL_FILE ไปที่ sql/RUN-NOW/
+  preview-doc.html                    mk() + ชุดข้อมูล RECEIPT 12 ชุด
+  index.html                          BUILD KEY local75 -> local76
+  assets/js/app.bundle.js             rebuild
+  sql/RUN-NOW/* · sql/LEGACY-DO-NOT-RUN/*   จัดโฟลเดอร์ + README
+  ไม่แตะ : invoice-doc.js · advance-doc.js · credit-note-doc.js · payment-form.js
+           payment-allocation.js · เนื้อ SQL ทั้ง 4 ไฟล์ (ย้ายที่อย่างเดียว)
+           nj-logo.png · Schema · line_no · Auth · Role · Permission
+
+16.8 · TEST ที่รันจริงรอบนี้ (node · ดึงตัวเลขจาก HTML ที่ render จริง)
+  RECEIPT 12 เคส — PASS ทั้งหมด
+    Full 1,560        Ref GROSS 1,605 · Total 1,605 · WHT -45 · Received 1,560
+    Partial 780       Ref 802.50 · Sub 750 · VAT 52.50 · WHT -22.50 · Received 780
+    Multi A+B         Ref 1,605 + 535 · Total 2,140 · WHT -60 · Received 2,080
+    Preview 3 ใบ      Ref รวม 4,280 · WHT -120 · Received 4,160
+    WHT 1%            แสดง "Withholding Tax 1 %" = -10
+    WHT 3%            แสดง "Withholding Tax 3 %" = -30
+    Mixed 1%+3%       แยก 2 บรรทัด + Total = -40
+    ไม่มี wht_rate    ไม่โชว์ 3 % (ยืนยันว่าไม่ fallback)
+    INVARIANT         Gross Total − WHT = AMOUNT RECEIVED ทุกเคส
+  INVOICE 5 เคส   th=5 · col=5 · colspan=5 · ไม่มีคอลัมน์ No.
+  CREDIT NOTE     8 คอลัมน์ · Correct สะสม 10,000 -> 8,000 -> 6,500 -> 0
+  COMPANY/LOGO    4 renderer ใช้ ISSUER + asset เดียวกัน · ไม่มี Bangkok address
+  PREVIEW         39 ชุดข้อมูลทั้ง 4 แท็บ render ผ่านหมด ไม่มี undefined/NaN
+  NOT VERIFIED    Browser Print Preview / A4 · Production SQL
+
+
+════════════════════════════════════════════════════════════════════
+17 · FINAL CLOSE 3 จุด (local77)
+════════════════════════════════════════════════════════════════════
+
+17.1 · WHT RATE ต้องมาจาก BACKEND จริง (ไม่ใช่ Mock)
+  ROOT CAUSE
+    njacc_invoices *** ไม่มีคอลัมน์ wht_rate *** (ตรวจ information_schema แล้ว)
+    เก็บแค่ wht_amount รวมของทั้งใบ
+    อัตราจริงอยู่รายบรรทัดที่ njacc_invoice_items.wht_rate (migration 018 · รันแล้ว)
+    njacc_list_receipts เดิมไม่ส่งอัตราออกมาเลย -> เอกสารไม่มีทางรู้ ต้องเดา
+    1 ใบแจ้งหนี้มีได้หลายอัตราพร้อมกัน เช่น ขนส่ง 1% + บริการ 3%
+
+  SQL ใหม่  sql/RUN-NOW/05_RUN-04_FINAL_RECEIPT_FIELDS.sql
+    njacc_list_receipts ส่งเพิ่มต่อ 1 ใบแจ้งหนี้ :
+      wht_breakdown = [ {"rate":1,"amount":10}, {"rate":3,"amount":30} ]
+      GROUP BY coalesce(wht_rate,0) จาก njacc_invoice_items
+      ไม่ใส่บรรทัดที่ wht_amount = 0 · ไม่มี WHT -> []
+    + ฟิลด์เอกสารทั้งหมดที่เดิมอยู่ใน RUN_2_RECEIPT (ลูกค้า/ใบแจ้งหนี้/description)
+    *** ไฟล์นี้แทนที่ LEGACY/RUN_2_RECEIPT.sql ทั้งตัว — ห้ามรัน RUN_2 ***
+    READ PATH ล้วน · ไม่ ALTER TABLE / INSERT / UPDATE / DELETE / DROP
+
+  RENDERER  assets/js/receipts/receipt-doc.js
+    ลำดับความน่าเชื่อถือ (ไม่มี fallback เป็นตัวเลขเดา) :
+      1) iv.wht_breakdown  <- ของจริงจาก RPC หลังรัน 05_RUN-04
+      2) iv.wht_rate ระดับใบ (RPC รุ่นเก่า) = อัตราเดียวทั้งใบ
+      3) ไม่รู้อัตรา -> แสดง "Withholding Tax" เฉย ๆ *** ห้ามเดา % ***
+    breakdown ถูกเฉลี่ยด้วย ratio = allocation / net_receivable เหมือนช่องอื่น
+    -> Partial Payment แบ่ง WHT ตามอัตราถูกต้อง
+
+  TEST 9 เคส (จำลอง payload ที่ SQL ส่งจริง) — PASS ทั้งหมด
+    A Invoice WHT 1%                 "Withholding Tax 1 %" = -10
+    B Invoice WHT 3%                 "Withholding Tax 3 %" = -30
+    C ใบเดียวมี 1% + 3%              แยก 2 บรรทัด + Total = -40
+    D หลาย Invoice rate ปนกัน        แยก 2 บรรทัด + Total = -40
+    E ใบเดียว 1%+3% Partial 50%      1% = -5.00 · 3% = -15.00 · Total = -20.00
+                                     ref 1,070.00 · received 1,050.00
+    F Full payment                   ref 1,605 · WHT -45 · received 1,560
+    G ไม่มี WHT                       ไม่โชว์ % · received = gross
+    H ยังไม่รัน 05_RUN-04            ไม่เดาอัตรา (แสดง "Withholding Tax")
+    INVARIANT                        Gross Total − WHT = AMOUNT RECEIVED ทุกเคส
+
+  ⚠️ สถานะที่ถูกต้อง: SOURCE PASS
+     ยังไม่ใช่ PRODUCTION PASS เพราะ 05_RUN-04 ยังไม่ได้รัน
+     Test ข้างบนจำลองโครงสร้าง payload ที่ SQL จะส่ง ไม่ได้ยิง RPC จริง
+
+17.2 · LOGO — REPLACE MASTER EXACT BYTES (ทำตามคำสั่งแล้ว)
+  ก่อนแก้  a65c9c5a72f359d6eb1c0cb896195bf6568f55fbd664efc077770f3abe55fbe8  426x231
+  หลังแก้  d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91   76x63
+  MASTER   d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91
+  วิธี     cp byte-for-byte จากไฟล์ที่ผู้ใช้แนบ · cmp ยืนยัน identical
+           ไม่ resize · ไม่ trace · ไม่ enhance · ไม่แตะ pixel · ไม่เปลี่ยน background
+  ผล      MASTER = SOURCE = DEPLOY ตรงกันทั้ง 3 จุด -> LOGO PASS
+  ไฟล์เดิมไม่ได้เก็บไว้ในโปรเจกต์ (ตามคำสั่งห้ามเก็บ Logo คนละไฟล์)
+
+  ⚠️ ข้อเท็จจริงที่ต้องบันทึกไว้ (ไม่ใช่การคัดค้าน — ทำตามคำสั่งไปแล้ว)
+     asset ใหม่ 76x63 px และมีพื้นหลังขาวทึบ (โปร่งใส 274/4,788 px)
+     เดิม 426x231 px พื้นหลังโปร่ง
+     บนกระดาษ A4 กรอบโลโก้กว้าง 26mm -> ภาพ 76px จะถูกขยายราว 3.6 เท่า
+     คาดว่าจะเห็นขอบหยักและกล่องขาวรอบตัวอักษรเวลาพิมพ์
+     ต้องยืนยันด้วย Browser Print Preview จริง (ยังทำไม่ได้ใน container)
+     ถ้าผลพิมพ์ไม่รับได้ ส่งไฟล์ PNG โปร่ง/SVG/AI/EPS ความละเอียดสูงมา
+     เปลี่ยนจุดเดียวที่ assets/img/nj-logo.png -> ทั้ง 4 เอกสารเปลี่ยนตามทันที
+
+17.3 · SQL RUN ORDER / README ไม่ขัดกันแล้ว
+  ตรวจ Production จริง :
+      njacc_next_credit_note_no     anon=false  authenticated=false
+      njacc_credit_item_remaining   anon=false  authenticated=false
+  => RUN_3B ถูกใช้ไปแล้วจริง
+
+  README_RUN-NOW.txt เขียนใหม่ทั้งไฟล์ :
+    01  = ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+          พร้อม SQL READ-ONLY ให้ตรวจเองว่าจะข้ามได้ไหม
+    ไฟล์ที่ต้องรันจริงเหลือ 4 :  02 -> 03 -> 04 -> 05
+
+  แก้ข้อความที่ขัดกันเอง :
+    เดิม "ทุกไฟล์ต้อง VERIFY PASS ครบก่อนรันไฟล์ถัดไป"
+    ใหม่ ระบุแยกชัดเจนว่า
+      ไฟล์ 02 : V1 V2 V4–V13 ต้อง PASS
+                V3 = EXPECTED PENDING UNTIL RUN-03 (ไม่ใช่ FAIL)
+      เพิ่มหัวข้อ FINAL VERIFICATION ให้รันหลังครบทั้ง 4 ไฟล์
+      พร้อม SQL ตรวจ prefix ทั้ง 4 ชุดในคำสั่งเดียว
+
+17.4 · ไฟล์ที่แก้รอบนี้
+  assets/img/nj-logo.png                       REPLACE byte-for-byte
+  assets/js/receipts/receipt-doc.js            อ่าน wht_breakdown จาก Backend
+  preview-doc.html                             + mkMulti() + 2 เคส Mixed WHT ใบเดียว
+  index.html                                   BUILD KEY local76 -> local77
+  assets/js/app.bundle.js                      rebuild
+  sql/RUN-NOW/05_RUN-04_FINAL_RECEIPT_FIELDS.sql   ใหม่
+  sql/RUN-NOW/README_RUN-NOW.txt               เขียนใหม่ทั้งไฟล์
+  sql/LEGACY-DO-NOT-RUN/README_LEGACY.txt      ระบุ RUN_2 ถูกแทนที่แล้ว
+  CHANGELOG.txt                                ไฟล์นี้
+
+  ไม่แตะ : invoice-doc.js · advance-doc.js · credit-note-doc.js · credit-note.js
+           payment-form.js · payment-allocation.js
+           เนื้อ SQL ไฟล์ 01/02/03/04 (ไม่แก้แม้แต่บรรทัดเดียว)
+           Schema · line_no · Auth · Role · Permission · Workflow อื่น
+
+17.5 · REGRESSION — รันชุดทดสอบทั้งหมดซ้ำกับ source สุดท้าย
+  PASS  WHT breakdown 9 เคส
+  PASS  Receipt Gross/Net/Partial/Multi 12 เคส
+  PASS  Invoice 5 คอลัมน์ ไม่มี No. 5 เคส
+  PASS  Credit Note cumulative 10,000 -> 8,000 -> 6,500 -> 0
+  PASS  Credit Note 8 คอลัมน์ colspan ตรง 6 เคส
+  PASS  Company Header + Logo asset เดียวกันทั้ง 4 renderer
+  PASS  preview-doc.html 41 ชุดข้อมูล render ผ่าน ไม่มี undefined/NaN
+  PASS  node --check ทุกไฟล์ + bundle · CSS brace balance
+  PASS  SQL RUN-NOW 5 ไฟล์ structural + ไม่มีคำสั่งทำลายข้อมูล
+  NOT VERIFIED  Browser Print Preview / A4 · Production SQL
+
+
+════════════════════════════════════════════════════════════════════
+18 · FINAL CLOSE — กัน ADVANCE เข้า Receipt (local78)
+════════════════════════════════════════════════════════════════════
+SQL   : แก้ใน 03_RUN-03_FINAL_RECEIPT_PAYMENT.sql ตัวเดิม (ไม่สร้างไฟล์ซ้ำ)
+        ไฟล์ 02 / 04 / 05 ไม่แตะ
+
+── ROOT CAUSE (ตรวจจาก RUN-03 ตัวจริงในแพ็กเกจ) ─────────────────────
+  njacc_receipt_pending          กรอง charge_type='SERVICE'   ✅
+  njacc_customer_open_invoices   ไม่กรอง charge_type          ❌
+  njacc_receive_payment          ไม่ตรวจ charge_type          ❌
+
+  ผลจริง: คิว "รอรับชำระ" ไม่โชว์ใบ ADVANCE (ถูก)
+          แต่หน้า "+ รับชำระเงิน" โชว์ใบ ADVANCE ให้เลือกตัดชำระได้
+          และ RPC รับไว้จริง -> ออกใบเสร็จ RCP ให้เงินสำรองจ่าย
+          ซึ่งผิดทางบัญชี (ADVANCE ต้องไปทาง FINANCE > Advance เท่านั้น)
+          => 3 จุดใช้กติกาไม่ตรงกัน
+
+── FIX ────────────────────────────────────────────────────────────
+  helper ใหม่  njacc_receipt_chargeable(text) -> charge_type = 'SERVICE'
+               เป็นกติกาเดียวที่ทั้ง 3 RPC เรียกใช้ -> กรองไม่ตรงกันไม่ได้อีก
+
+  njacc_customer_open_invoices  + AND njacc_receipt_chargeable(i.charge_type)
+  njacc_receive_payment         + IF NOT njacc_receipt_chargeable(v_inv.charge_type)
+                                    THEN RAISE 'NJACC_RECEIPT_SERVICE_ONLY'
+                                  อยู่ในลูปเดียวกับ INSERT allocation
+                                  ทั้งฟังก์ชันเป็น transaction เดียว
+                                  -> ADVANCE ปนแม้ใบเดียว rollback ทั้งก้อน
+                                     ไม่มีทางที่ SERVICE บางใบถูกบันทึกค้าง
+  njacc_receipt_pending         เปลี่ยนจาก literal 'SERVICE' มาใช้ helper ตัวเดียวกัน
+
+  Frontend (Defense ชั้นสอง — ไม่ใช่ด่านหลัก)
+    payment-form.js        กรอง charge_type='SERVICE' หลังรับผลจาก RPC
+                           เผื่อ RPC รุ่นเก่ายังไม่อัปเดต
+    supabase-client.js     + ข้อความ NJACC_RECEIPT_SERVICE_ONLY ภาษาไทย
+    receipt-doc.js         คง defensive splitInvoices() ไว้ตามเดิม
+                           Flow ปกติหลังแก้ excluded ADVANCE = 0 เสมอ
+
+── VERIFY ที่เพิ่มใน RUN-03 ────────────────────────────────────────
+  V1   helper ครบ 5 ตัว (เดิม 4 + njacc_receipt_chargeable)
+  V5a  ทั้ง 3 RPC ใช้ njacc_receipt_chargeable
+  V5b  receive_payment มี NJACC_RECEIPT_SERVICE_ONLY
+  V5c  njacc_receipt_chargeable('SERVICE')=true · ('ADVANCE')=false · (NULL)=false
+  V13  helper ทั้ง 5 ไม่เปิดให้ authenticated ยิงตรง
+  V17  ข้อมูลจริง: advance_in_receipt = 0 และ advance_in_payment = 0
+
+── TEST (node · 8 เคส) — PASS ทั้งหมด ──────────────────────────────
+  Case 1  SERVICE       -> เห็นในหน้ารับชำระ · รับได้ · ออก RCP
+  Case 2  ADVANCE       -> Open Invoice ไม่เห็น
+  Case 3  ยิง RPC ตรงด้วย ADVANCE -> Reject NJACC_RECEIPT_SERVICE_ONLY
+  Case 4  SERVICE+ADVANCE -> rollback ทั้งก้อน · written = 0 (ไม่มีข้อมูลค้าง)
+  Case 5  SERVICE Full + WHT   ref 1,605 · WHT -45 · received 1,560
+  Case 6  SERVICE Partial 780  ref 802.50 · WHT -22.50 · received 780
+  Case 7  WHT 1% / 3% / Mixed  1%=-10 · 3%=-30 · Total -40
+  ข้อ 6   excluded ADVANCE = 0 ใน Flow ปกติ
+
+── REGRESSION (ข้อ 9) — รันชุดทดสอบทั้งหมดซ้ำ PASS ครบ ──────────────
+  ADVANCE guard 8 · WHT breakdown 9 · Receipt 12 · Invoice 5 คอลัมน์ 5 ·
+  Credit cumulative 4 · Credit 8 คอลัมน์ 6 · Company/Logo 4 renderer
+  เลข 4 ชุดยังอยู่ครบใน RUN-NOW (NJ / ADV / CN ที่ไฟล์ 02 · RCP ที่ไฟล์ 03)
+  Logo SHA256 = d769fb73...8c91 ไม่เปลี่ยน
+  node --check ทุกไฟล์ + bundle · CSS brace balance · SQL structural 5 ไฟล์
+
+── ไฟล์ที่แก้รอบนี้ ────────────────────────────────────────────────
+  sql/RUN-NOW/03_RUN-03_FINAL_RECEIPT_PAYMENT.sql   helper + 3 guard + VERIFY
+  sql/RUN-NOW/README_RUN-NOW.txt                     อธิบาย guard เพิ่ม
+  assets/js/payments/payment-form.js                 defense ชั้นสอง
+  assets/js/core/supabase-client.js                  ข้อความ error ใหม่
+  index.html                                         BUILD KEY local77 -> local78
+  assets/js/app.bundle.js                            rebuild
+  CHANGELOG.txt                                      + FINAL STATUS banner ด้านบน
+
+  ไม่แตะ : receipt-doc.js · invoice-doc.js · credit-note-doc.js · advance-doc.js
+           payment-allocation.js · nj-logo.png
+           เนื้อ SQL ไฟล์ 01 / 02 / 04 / 05 (ไม่แก้แม้แต่บรรทัดเดียว)
+           Schema · Auth · Role · Permission · Workflow อื่น
+
+
+════════════════════════════════════════════════════════════════════
+19 · FINAL 1 BUG — Receipt Invoice Reference Footer Total (local79)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่แก้เลย *** ทั้ง 5 ไฟล์ใน sql/RUN-NOW/ hash เท่าเดิมทุกไฟล์
+        01  638832ecf13fa2813428238b214348433c540fc780c24853e9a3deace2a26457
+        02  81e3bed922a2a8335834ca5687a08b6d5564dafe53af498c00fb21bff1dd8623
+        03  11a1cd5ac0650dd9998e2ef93a5c267430b41e8ce0b530db2a8829ed83f53ebb
+        04  914f85479a7b4b6c958e46358659880e7ba91cf9059aae85147d1fc23a9f42c2
+        05  324f05c55ca0f3653afa969c8dbe308949ba5da89dc1620029e239b245853dcc
+        (เทียบ sha256sum ก่อน/หลังแก้แล้ว diff = ว่าง)
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  assets/js/receipts/receipt-doc.js  ตาราง INVOICE REFERENCE
+  แถวแต่ละ Invoice แสดง Gross Portion ถูกแล้ว (grossOf() × total_amount)
+  แต่ <tfoot> "Total Amount / รวมเงินตามใบแจ้งหนี้" ใช้ money(S.total)
+  ซึ่ง S.total = ผลรวม allocation = เงินสดที่รับจริง (หัก WHT แล้ว)
+
+  ผลจริง Invoice 1,605 · WHT 45 · รับ 1,560
+      แถว   1,605.00   ถูก
+      Footer 1,560.00   ผิด  -> ตารางเดียวกันแต่แถวกับผลรวมไม่ตรงกันเอง
+
+── FIX (1 บรรทัด) ──────────────────────────────────────────────────
+  money(S.total)  ->  money(S.grossTotal)
+  S.grossTotal = Σ (invoice.total_amount × ratio) ของทุกแถวที่แสดง
+               = ผลรวม Amount ของแถวเป๊ะ ๆ ตามนิยาม
+  *** ไม่แตะ AMOUNT RECEIVED *** ยังเป็น Net Cash (S.total) เหมือนเดิม
+  ไม่แตะ summarize() · grossOf() · whtLines · rows · ไฟล์อื่นใด
+
+── BUILD (ข้อ 7) ───────────────────────────────────────────────────
+  source  receipt-doc.js มี money(S.grossTotal) ใน tfoot แล้ว
+  bundle  rebuild ด้วย esbuild · มี grossTotal 5 ครั้ง
+          ตรวจแล้วไม่เหลือ pattern footer เก่าใน bundle
+  BUILD KEY local78 -> local79
+
+── FINAL ACCEPTANCE (ข้อ 8) — PASS ทั้งหมด ─────────────────────────
+  ชุด            แถว            Footer   Total    WHT      Received
+  FULL           1,605.00       1,605.00 1,605.00  -45.00   1,560.00
+  PARTIAL 780      802.50         802.50   802.50  -22.50     780.00
+  MULTI          1,605 + 535    2,140.00 2,140.00  -60.00   2,080.00
+  WHT 1%         1,070.00       1,070.00 1,070.00  -10.00   1,060.00
+  WHT 3%         1,070.00       1,070.00 1,070.00  -30.00   1,040.00
+  MIXED 1%+3%    1,070 + 1,070  2,140.00 2,140.00  -40.00   2,100.00
+  ไม่มี WHT      1,605.00       1,605.00 1,605.00    0.00   1,605.00
+
+  ★ Assertion หลัก : TABLE FOOTER GROSS = Σ Amount ของแถว  -> PASS ทุกชุด
+    AMOUNT RECEIVED = Net Cash (ผลรวม allocation)          -> PASS ทุกชุด
+    INVARIANT Gross Total − WHT = AMOUNT RECEIVED           -> PASS ทุกชุด
+
+── REGRESSION (ข้อ 6) — ไม่มีอะไรพัง ───────────────────────────────
+  PASS  ADVANCE guard 8 เคส (Reject NJACC_RECEIPT_SERVICE_ONLY · rollback ทั้งก้อน)
+  PASS  WHT breakdown 9 เคส · Receipt 12 เคส
+  PASS  Invoice 5 คอลัมน์ · Credit cumulative · Credit 8 คอลัมน์
+  PASS  Company + Logo asset เดียวกันทั้ง 4 renderer
+  PASS  preview-doc.html 41 ชุด render สะอาด
+  PASS  JS syntax ทุกไฟล์ + bundle · CSS brace balance
+  PASS  Logo SHA256 = d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91
+  PASS  เลข 4 ชุดยังอยู่ครบ (NJ/ADV/CN ที่ไฟล์ 02 · RCP ที่ไฟล์ 03)
+
+── ไฟล์ที่แก้รอบนี้ (3) ────────────────────────────────────────────
+  assets/js/receipts/receipt-doc.js   tfoot: S.total -> S.grossTotal
+  index.html                          BUILD KEY local78 -> local79
+  assets/js/app.bundle.js             rebuild
+  CHANGELOG.txt                       ไฟล์นี้
+
+  ไม่แตะ : SQL ทั้ง 5 ไฟล์ · nj-logo.png · payment-form.js · supabase-client.js
+           invoice-doc.js · credit-note-doc.js · advance-doc.js · preview-doc.html
+           Schema · Auth · Role · Permission · Business Logic อื่น

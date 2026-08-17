@@ -1,0 +1,196 @@
+/* ══ เอกสาร CREDIT NOTE / ใบลดหนี้ (A4 Portrait) ══
+   Preview / Print / PDF ใช้ชุดเดียวกันทั้งหมด
+   ─────────────────────────────────────────────────────────────────
+   *** namespace .cnd* เท่านั้น ***
+   ไม่ทับ .ivd* (INVOICE) · .rcd* (RECEIPT) · .apd* (ADVANCE)
+   อยู่ใน Design Family เดียวกัน (Navy + White + NJ Red Accent)
+   แต่แยกประเภทได้ทันทีจากหัวเรื่อง CREDIT NOTE / ใบลดหนี้ (แดง)
+   และตัวเลข TOTAL CREDIT AMOUNT เป็นสีแดง */
+.cnd{
+  --nv:#122a63;
+  --nv2:#1c3d86;
+  --rd:#d81f2a;
+  --ln:#c9d4e6;
+  --ln2:#e5ebf5;
+  --ink:#16233d;
+  --ink2:#5d6a82;
+  --tint:#f3f6fc;
+  width:210mm; min-height:297mm; margin:0 auto; padding:8mm 8mm 6mm;
+  background:#fff; color:var(--ink);
+  font-size:8.8pt; line-height:1.3;
+  display:flex; flex-direction:column; position:relative;
+  box-sizing:border-box;
+}
+.cnd *{box-sizing:border-box}
+.cnd .cnd-r{text-align:right}
+.cnd .cnd-c{text-align:center}
+.cnd .cnd-b{font-weight:700}
+.cnd .cnd-dim{color:var(--ink2)}
+
+.cnd-ic{display:inline-flex;width:11px;height:11px;flex:none;color:var(--nv);vertical-align:-2px}
+.cnd-ic svg{width:100%;height:100%;stroke-linecap:round;stroke-linejoin:round}
+.cnd-bub{display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:7.6mm;height:7.6mm;border-radius:1.8mm;background:var(--nv);color:#fff}
+.cnd-bub svg{width:4.2mm;height:4.2mm;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── HEADER (compact — ไม่กินพื้นที่ A4) ── */
+.cnd-head{display:flex;justify-content:space-between;align-items:flex-start;gap:6mm}
+.cnd-head-l{display:flex;align-items:flex-start;gap:4mm;min-width:0}
+/* โลโก้จริงจาก asset — contain เสมอ ไม่ยืด ไม่บิด ไม่เปลี่ยนสี ไม่ใส่ effect */
+.cnd-logo{width:26mm;height:15mm;object-fit:contain;object-position:left center;flex:none}
+.cnd-co{min-width:0;padding-top:.4mm}
+.cnd-co-nm{font-size:15pt;font-weight:800;color:var(--nv);letter-spacing:.1px;line-height:1.1}
+.cnd-co-ad{font-size:8pt;color:var(--ink2);margin-top:1.2mm;max-width:96mm}
+.cnd-co-tl{font-size:8pt;color:var(--ink2);margin-top:1mm;display:flex;
+  align-items:center;gap:1.4mm;flex-wrap:wrap}
+.cnd-co-tl i{color:var(--ln);font-style:normal;padding:0 1.4mm}
+.cnd-head-r{text-align:right;flex:none}
+.cnd-title{font-size:21pt;font-weight:800;color:var(--nv);line-height:1.02;
+  letter-spacing:-.3px;white-space:nowrap}
+.cnd-title-th{font-size:16pt;font-weight:700;color:var(--rd);line-height:1.18;
+  margin-top:.4mm;white-space:nowrap}
+.cnd-chip{display:inline-block;margin-top:2mm;background:var(--rd);color:#fff;
+  font-size:8.4pt;font-weight:700;padding:1.2mm 4mm;border-radius:1.4mm;white-space:nowrap}
+.cnd-chip i{font-style:normal;opacity:.7;padding:0 .8mm}
+
+/* แถบคู่ แดงบาง + navy หนา — เอกลักษณ์ของใบลดหนี้ */
+.cnd-band{height:1.5mm;margin:2.6mm 0 4.2mm;border-radius:.8mm;
+  background:linear-gradient(90deg,var(--rd) 0 30%,var(--nv) 30% 100%)}
+
+/* ── การ์ด 2 ช่อง ── */
+.cnd-grid{display:grid;grid-template-columns:1fr 1.04fr;gap:5mm;margin-bottom:4.4mm;
+  align-items:start}
+.cnd-box{border:1px solid var(--ln);border-radius:2.6mm;padding:0 3.4mm 2.4mm}
+.cnd-box-t{display:flex;align-items:center;gap:2.2mm;margin:-3.8mm 0 1mm -1.4mm}
+.cnd-box-t span{background:var(--nv);color:#fff;font-size:8.4pt;font-weight:700;
+  padding:1.3mm 4mm;border-radius:1.8mm}
+.cnd-box-b{padding-top:1.4mm}
+.cnd-f{display:flex;gap:2.6mm;align-items:flex-start;
+  padding:1.9mm 0;border-bottom:1px solid var(--ln2)}
+.cnd-f-last{border-bottom:0;padding-bottom:.6mm}
+.cnd-f-b{min-width:0;flex:1}
+/* Tax ID + Branch อยู่แถวเดียวกันตามแบบ */
+.cnd-f-2 .cnd-f-br{flex:0 0 30mm;border-left:1px solid var(--ln2);padding-left:3mm}
+.cnd-l{font-size:7.8pt;color:var(--ink2);line-height:1.2}
+.cnd-v{font-size:9.4pt;margin-top:.9mm;word-break:break-word;line-height:1.32}
+.cnd-v-b{font-weight:600}
+.cnd-v-ml{white-space:pre-line}
+/* แถวแบบ label ซ้าย / ค่าเด่นขวา (ฝั่ง CREDIT NOTE DETAILS) */
+.cnd-f-kv{align-items:center}
+.cnd-f-kv .cnd-f-b{padding-top:.4mm}
+.cnd-kv{flex:none;font-size:11.4pt;font-weight:800;color:var(--nv);
+  letter-spacing:.2px;white-space:nowrap;text-align:right}
+.cnd-kv-s{font-size:10.4pt}
+.cnd-pend{font-size:8.4pt;font-weight:600;color:var(--ink2);letter-spacing:0}
+
+/* ── Section + ตาราง ── */
+.cnd-sec{margin-bottom:4.4mm}
+.cnd-sec-t{background:var(--nv);color:#fff;font-size:9.4pt;font-weight:700;
+  text-align:center;padding:1.8mm 3mm;border-radius:2mm 2mm 0 0;letter-spacing:.2px}
+.cnd-sec-t i{font-style:normal;font-weight:400;opacity:.86}
+.cnd-tbl{width:100%;border-collapse:collapse;table-layout:fixed;
+  border:1px solid var(--nv);border-top:0}
+.cnd-tbl thead th{background:var(--nv);color:#fff;font-size:7.8pt;font-weight:600;
+  padding:1.8mm 2.4mm;border-top:1px solid rgba(255,255,255,.26);
+  border-right:1px solid rgba(255,255,255,.2);line-height:1.24}
+.cnd-tbl thead th:last-child{border-right:0}
+.cnd-tbl tbody td{padding:2.4mm 2.6mm;border-bottom:1px solid var(--ln2);
+  border-right:1px solid var(--ln2);font-size:8.8pt;vertical-align:middle}
+.cnd-tbl tbody td:last-child{border-right:0}
+.cnd-tbl tbody tr:last-child td{border-bottom:1px solid var(--ln)}
+.cnd-ds{word-break:break-word}
+.cnd-tbl .cnd-r,.cnd-tbl .cnd-c{font-variant-numeric:tabular-nums}
+.cnd-empty{text-align:center;color:var(--ink2);padding:6mm 0}
+/* ยอดลดหนี้รายบรรทัด = แดง (ให้ต่างจาก Invoice ทันที) */
+.cnd-cr{color:var(--rd);font-weight:700}
+
+.cnd-tbl-ref col.w-no{width:12mm}
+.cnd-tbl-ref col.w-ino{width:34mm}
+.cnd-tbl-ref col.w-idt{width:34mm}
+.cnd-tbl-ref col.w-ds{width:auto}
+.cnd-tbl-ref col.w-amt{width:34mm}
+
+/* 8 คอลัมน์ (ข้อ 24-25): Original / Correct / Difference ต้องแสดงครบ
+   Description ยืดหยุ่นได้ ที่เหลือกว้างคงที่เพื่อไม่ให้ตัวเลขตกบรรทัด */
+.cnd-tbl-cn col.w-no{width:9mm}
+.cnd-tbl-cn col.w-ds{width:auto}
+.cnd-tbl-cn col.w-og{width:24mm}
+.cnd-tbl-cn col.w-co{width:24mm}
+.cnd-tbl-cn col.w-df{width:23mm}
+.cnd-tbl-cn col.w-vr{width:17mm}
+.cnd-tbl-cn col.w-va{width:20mm}
+.cnd-tbl-cn col.w-cr{width:27mm}
+/* ตารางแน่นขึ้นเพราะคอลัมน์เยอะ — ยังอ่านออกบน A4 */
+.cnd-tbl-cn thead th{font-size:7.2pt;padding:1.6mm 1.6mm}
+.cnd-tbl-cn tbody td{font-size:8.2pt;padding:2.2mm 1.8mm}
+.cnd-tbl-cn .cnd-sumrow td{font-size:8.2pt;padding:2mm 1.8mm}
+/* ผลต่างที่ลด — เน้นให้เห็นว่าเป็นยอดที่ถูกหักออก */
+.cnd-df{color:var(--rd);font-weight:600}
+
+.cnd-sumrow td{background:var(--tint);border-bottom:1px solid var(--ln2);
+  border-right:0;padding:2.2mm 2.6mm;font-size:8.8pt;font-weight:600}
+.cnd-sumrow:last-child td{border-bottom:0}
+/* แถวรวมสุดท้ายในตาราง — แดง เด่นที่สุดในตาราง */
+.cnd-sumrow-g td{border-top:1.2pt solid var(--nv);color:var(--rd);font-weight:800;
+  font-size:9.4pt}
+.cnd-sumrow-g td:last-child{font-size:12.4pt}
+
+/* ── Amount in words + Summary ── */
+.cnd-mid{display:grid;grid-template-columns:1fr 1.06fr;gap:5mm;align-items:stretch;
+  margin-bottom:4.4mm}
+.cnd-words{border:1px solid var(--ln);border-radius:2.4mm;padding:2.8mm 3.4mm}
+.cnd-words-t{font-size:8.2pt;color:var(--ink2)}
+.cnd-words-v{margin-top:2.4mm;font-size:11pt;font-weight:700;color:var(--ink);
+  word-break:break-word}
+.cnd-words-ln{margin-top:2.6mm;border-bottom:1px dotted var(--ink2)}
+.cnd-sum{border:1px solid var(--ln);border-radius:2.4mm;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center}
+.cnd-sl{display:flex;justify-content:space-between;gap:4mm;padding:2.6mm 3.6mm;
+  font-size:9pt;font-weight:600;border-bottom:1px solid var(--ln2);
+  font-variant-numeric:tabular-nums}
+.cnd-sl:last-child{border-bottom:0}
+/* TOTAL CREDIT AMOUNT = เด่นที่สุดของทั้งเอกสาร */
+.cnd-sl-g{background:var(--tint);border-top:1px solid var(--ln);align-items:center;
+  padding:3.2mm 3.6mm}
+.cnd-sl-g span:first-child{color:var(--rd);font-weight:800;letter-spacing:.2px}
+.cnd-sl-g span:last-child{color:var(--rd);font-size:13.4pt;font-weight:800}
+
+/* ── NOTE ── */
+.cnd-note{border:1px solid var(--ln);border-radius:2.4mm;padding:2.8mm 3.4mm}
+.cnd-note-t{font-size:8.6pt;font-weight:800;color:var(--nv);margin-bottom:1.6mm}
+.cnd-note-l{margin:0;padding-left:4.4mm}
+.cnd-note-l li{font-size:8pt;color:var(--ink);margin-bottom:1.4mm;line-height:1.34}
+.cnd-note-l li:last-child{margin-bottom:0}
+.cnd-note-l li span{display:block}
+.cnd-note-l li em{display:block;font-style:normal;color:var(--ink2)}
+
+.cnd-edge{height:2.4mm;margin-top:auto;border-radius:1.2mm;
+  background:linear-gradient(90deg,var(--nv) 0 72%,var(--rd) 72% 100%)}
+
+/* DRAFT / VOID */
+.cnd-badge{position:absolute;top:6mm;right:8mm;z-index:2;background:#fff;
+  font-size:8.2pt;font-weight:800;letter-spacing:.6px;padding:1mm 3.2mm;
+  border-radius:1.4mm;border:1.4pt solid currentColor}
+.cnd-badge-v{color:var(--rd);transform:rotate(-4deg)}
+.cnd-badge-d{color:var(--ink2)}
+.cnd-draft{--nv:#33436b;--rd:#9aa4b8}
+
+/* ── บนจอ ── */
+@media screen{ .cnd{box-shadow:0 2px 14px rgba(13,31,60,.14);border:1px solid var(--ln)} }
+@media screen and (max-width:820px){
+  .cnd{transform-origin:top center;transform:scale(.62);margin-bottom:-110mm}
+}
+
+/* ══ PRINT / PDF — ต้องได้หน้าตาเดียวกับ Preview เป๊ะ ══ */
+@page{size:A4 portrait;margin:0}
+@media print{
+  .cnd{width:210mm;min-height:297mm;margin:0;border:0;box-shadow:none;transform:none}
+  .cnd,.cnd *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* หลายหน้า: ซ้ำหัวตาราง · ไม่ตัดแถวครึ่ง · สรุป/หมายเหตุไม่แตกข้ามหน้า */
+  .cnd-tbl thead{display:table-header-group}
+  .cnd-tbl tfoot{display:table-row-group}
+  .cnd-tbl tr,.cnd-sumrow{page-break-inside:avoid;break-inside:avoid}
+  .cnd-mid,.cnd-sum,.cnd-words,.cnd-sl-g,.cnd-note,.cnd-box
+    {page-break-inside:avoid;break-inside:avoid}
+  .cnd-head,.cnd-band,.cnd-sec-t{page-break-after:avoid}
+}

@@ -38,6 +38,7 @@ export async function render(cnt) {
       <div class="tbl-wrap" style="border:none;box-shadow:none">
       <table class="tbl rp-alloc-tbl"><thead><tr>
         <th>INVOICE</th><th>วันที่</th><th>Due</th><th class="r">ยอดรวม</th>
+        <th class="r">WHT</th><th class="r">ยอดที่ต้องรับ</th>
         <th class="r">คงค้าง</th><th class="r">ตัดชำระครั้งนี้</th></tr></thead>
         <tbody id="pm-tbody"><tr><td colspan="6" class="empty">เลือกลูกค้าก่อน</td></tr></tbody></table></div>
       <div class="row" style="padding:12px 18px;border-top:1px solid var(--line)">
@@ -52,16 +53,29 @@ export async function render(cnt) {
 
   async function loadInv() {
     const cid = cnt.querySelector('#pm-cust').value;
-    if (!cid) { invoices = []; tbody.innerHTML = '<tr><td colspan="6" class="empty">เลือกลูกค้าก่อน</td></tr>'; upd(); return; }
-    tbody.innerHTML = '<tr><td colspan="6" class="load-row"><div class="spin"></div></td></tr>';
+    if (!cid) { invoices = []; tbody.innerHTML = '<tr><td colspan="8" class="empty">เลือกลูกค้าก่อน</td></tr>'; upd(); return; }
+    tbody.innerHTML = '<tr><td colspan="8" class="load-row"><div class="spin"></div></td></tr>';
     try {
-      invoices = await openInvoices(cid);
+      /* ── Defense ชั้นสอง ──
+         ด่านหลักคือ SQL (njacc_customer_open_invoices + njacc_receive_payment
+         ใน RUN-NOW/03) ที่กรอง charge_type='SERVICE' อยู่แล้ว
+         ที่นี่กรองซ้ำเผื่อ RPC รุ่นเก่ายังไม่ได้อัปเดต -> ADVANCE จะไม่โผล่ให้เลือก
+         ไม่ใช่การกรองแทน Backend · ถ้าหลุดมาถึง RPC จะโดน NJACC_RECEIPT_SERVICE_ONLY */
+      const all = await openInvoices(cid);
+      invoices = (all || []).filter(i =>
+        String(i.charge_type || 'SERVICE').toUpperCase() === 'SERVICE');
+      /* แสดง WHT และ Net Receivable ให้เห็นที่มาของยอดคงค้าง (มาจาก RUN-03)
+         Outstanding = Net Receivable − ที่รับแล้ว · ไม่ใช่ Gross
+         ยังไม่ได้รัน RUN-03 -> ไม่มี wht_amount/net_receivable ในผลลัพธ์ -> แสดง "-" ไม่เดาค่า */
       tbody.innerHTML = invoices.length ? invoices.map(i => `<tr data-inv="${i.id}">
         <td class="t-b">${esc(i.invoice_no)}</td><td>${dmy(i.invoice_date)}</td><td>${dmy(i.due_date)}</td>
-        <td class="r">${money(i.total_amount)}</td><td class="r money-neg">${money(i.outstanding)}</td>
+        <td class="r">${money(i.total_amount)}</td>
+        <td class="r">${i.wht_amount === undefined ? '-' : money(i.wht_amount)}</td>
+        <td class="r">${i.net_receivable === undefined ? '-' : money(i.net_receivable)}</td>
+        <td class="r money-neg">${money(i.outstanding)}</td>
         <td class="r"><input class="inp" type="number" step="0.01" min="0" max="${i.outstanding}"
           data-alloc value=""></td></tr>`).join('')
-        : '<tr><td colspan="6" class="empty">ลูกค้ารายนี้ไม่มี INVOICE คงค้าง</td></tr>';
+        : '<tr><td colspan="8" class="empty">ลูกค้ารายนี้ไม่มี INVOICE บริการคงค้าง (งานสำรองจ่ายใช้เมนู FINANCE &gt; Advance)</td></tr>';
       upd();
     } catch (e) { handleErr(e); }
   }

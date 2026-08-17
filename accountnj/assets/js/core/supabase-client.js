@@ -31,6 +31,13 @@ function normalizeErr(error) {
     NJACC_REASON_REQUIRED: 'ต้องระบุเหตุผล',
     NJACC_NO_ITEMS: 'ต้องมีรายการอย่างน้อย 1 รายการ',
     NJACC_INVOICE_NOT_OPEN: 'INVOICE ไม่อยู่ในสถานะที่รับชำระได้',
+    /* FINANCE > Receipt รับชำระเฉพาะงานบริการ · งานสำรองจ่ายมี Flow ของตัวเอง */
+    NJACC_RECEIPT_SERVICE_ONLY:
+      'รับชำระได้เฉพาะ INVOICE งานบริการ (SERVICE) — งานสำรองจ่าย (ADVANCE) ต้องใช้เมนู FINANCE > Advance',
+    /* ปิดงาน → ส่งเข้า ACCOUNTING (migration 025) */
+    NJACC_CLOSE_BAD_STATUS: 'ปิดงานไม่ได้ — งานนี้ไม่ได้อยู่ในสถานะ OPEN หรือ PROCESSING',
+    NJACC_ACCOUNTING_HANDOFF_FAILED:
+      'ปิดงานไม่สำเร็จ — ACCOUNTING ยังรับงานนี้ไม่ได้ ระบบยกเลิกรายการทั้งหมดแล้ว งานยังอยู่ที่ DOCUMENT กรุณาลองใหม่',
   };
   for (const k in map) if (m.includes(k)) { const e = new Error(map[k]); e.code = k; return e; }
   return error instanceof Error ? error : new Error(m || 'เกิดข้อผิดพลาด');
