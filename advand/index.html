@@ -1631,6 +1631,30 @@
     justify-content: center;
   }
   .timeline-actions .btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  /* ============ RENDER PAGINATION ============ */
+  .job-pager {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; flex-wrap: wrap; margin: 14px 0 4px;
+  }
+  .job-pager:empty { display: none; }
+  .job-pager .pg-btn {
+    min-width: 34px; height: 32px; padding: 0 10px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-2); color: var(--text-2);
+    font-size: 12.5px; font-weight: 600; line-height: 30px;
+  }
+  .job-pager .pg-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--text-1); }
+  .job-pager .pg-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .job-pager .pg-btn.active {
+    background: var(--green-soft); border-color: var(--green);
+    color: #6ee7b7;
+  }
+  .job-pager .pg-info { font-size: 12px; color: var(--text-3); margin-left: 4px; }
+  @media (max-width: 900px) {
+    .job-pager { gap: 6px; margin: 10px 0 84px; }
+    .job-pager .pg-info { width: 100%; text-align: center; margin: 4px 0 0; }
+  }
   .btn-tl-add {
     background: linear-gradient(135deg, #f97316, #ea580c);
     color: #fff;
@@ -2349,7 +2373,8 @@
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- ⚡ xlsx-js-style: LAZY LOAD (โหลดเมื่อกด Export ครั้งแรกเท่านั้น) — ดู ensureXlsx() -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 </head>
 <body>
 
@@ -2384,7 +2409,7 @@
         </svg>
       </button>
     </div>
-    <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
     <div class="login-footer">
       ADVANCE v7.0
     </div>
@@ -2565,6 +2590,9 @@
 
     <!-- Card View (Mobile) -->
     <div class="job-cards-mobile" id="jobCardsMobile"></div>
+
+    <!-- ⚡ Render Pagination (ไม่กระทบยอดรวม/สถิติ — แบ่งแสดงผลเท่านั้น) -->
+    <div class="job-pager" id="jobPager"></div>
   </main>
 
   <!-- ============ USERS MANAGEMENT PAGE ============ -->
@@ -3034,6 +3062,10 @@ const LS_JOBS  = 'advance_v7_jobs';
 const LS_USER  = 'advance_v7_user';
 const LS_USERS = 'advance_v7_users';
 const LS_COUNTER = 'advance_v7_counter';
+const LS_PROFILE = 'advance_v7_user_profile';   // ✅ key เดิม — ไม่เปลี่ยนชื่อ
+
+/* ⚡ Render pagination — แบ่งแสดงผลเท่านั้น ไม่กระทบยอดรวม/สถิติ/Export */
+const RENDER_PAGE_SIZE = 100;
 
 let state = {
   user: null,
@@ -3041,7 +3073,12 @@ let state = {
   page: 'jobs',
   view: { mode: 'advance', status: 'pending' },
   jobs: [],
-  users: []
+  users: [],
+  usersLoaded: false,     // ⚡ โหลด app_users แล้วหรือยัง (กันโหลดซ้ำ)
+  sessionVerified: false, // 🛡 Server ยืนยัน profile แล้วหรือยัง (กัน localStorage ปลอม role)
+  usersFullLoaded: false, // 🛡 โหลดชุด management (มี password) แล้วหรือยัง
+  tablePage: 1,           // ⚡ หน้าปัจจุบันของตาราง
+  tableSig: ''            // ⚡ ลายเซ็น filter ปัจจุบัน (เปลี่ยน = reset หน้า)
 };
 
 function loadJobs() {
@@ -3055,65 +3092,158 @@ function loadJobs() {
   state.jobs = [];
 }
 
+let _lastSaveJobsStats = null;   // 📊 ใช้ตรวจ performance ของการเขียน cache
 function saveJobs() {
-  localStorage.setItem(LS_JOBS, JSON.stringify(state.jobs));
+  // 🛡 cache เต็มชุด ≈ 4.5 MB — บาง browser (โดยเฉพาะ iOS Safari) quota ~5 MB
+  //    ถ้าเขียนไม่ได้ ห้าม throw ทิ้งกลางทาง เพราะจะทำให้ sync/CRUD ค้าง
+  //    state.jobs ในหน่วยความจำยังถูกต้องเสมอ — แค่รอบหน้าจะ sync แบบ FULL แทน DELTA
+  try {
+    const _t0 = performance.now();
+    const _json = JSON.stringify(state.jobs);
+    const _t1 = performance.now();
+    localStorage.setItem(LS_JOBS, _json);
+    // 📊 ตัวเลขสำหรับตรวจ performance เท่านั้น — ไม่กระทบ business logic
+    _lastSaveJobsStats = { stringifyMs: +(_t1 - _t0).toFixed(2),
+                           writeMs: +(performance.now() - _t1).toFixed(2),
+                           bytes: _json.length, rows: state.jobs.length };
+  } catch (e) {
+    console.warn('[advance_jobs] เขียน cache ไม่สำเร็จ (quota?) — ทำงานต่อได้ปกติ:', e && e.name);
+  }
 }
 
-async function loadUsers() {
-  // ดึง users จาก Supabase (ใช้ select * เพื่อรองรับ schema ที่อาจต่างกัน)
+/* ============================================================
+   👥 APP_USERS — แยก 2 ระดับตามความอ่อนไหวของข้อมูล
+   ------------------------------------------------------------
+   ปัญหาเดิม: โหลด password ของผู้ใช้ 112 คน เข้าเบราว์เซอร์ของ
+              "ทุก role" ตั้งแต่เข้าระบบ ทั้งที่ USER/STAFF ไม่มีวันได้ใช้
+
+   DIRECTORY (ไม่อ่อนไหว)  — ใช้ทำ dept badge / คอลัมน์ USER ในตารางงาน
+     → ไม่มี password, ไม่มี password_hash
+     → โหลดหลัง login ให้ทุก role ได้
+
+   MANAGEMENT (อ่อนไหว)   — ใช้เฉพาะหน้า "จัดการผู้ใช้งาน"
+     → มี password (หน้านี้แสดง/แก้รหัสผ่านจริง)
+     → โหลดเมื่อครบ 3 เงื่อนไขเท่านั้น:
+         1) sessionVerified = true  (Server ยืนยัน role แล้ว)
+         2) canSeeAllMenus()        (AC/ACCOUNT/ADMIN/SUPER_ADMIN)
+         3) ผู้ใช้เปิดหน้า Users จริงๆ
+============================================================ */
+const APP_USERS_DIRECTORY_COLS = 'id,username,email,department,role,status,created_at,full_name,internal_username,is_active';
+const APP_USERS_MANAGE_COLS    = 'id,username,email,password,department,role,status,created_at,full_name,internal_username,is_active';
+
+function _mapAppUserRow(row) {
+  const u = {
+    id: row.id,
+    username: row.username || '',
+    email: row.email || '',
+    dept: row.department || row.dept || '',
+    role: (row.role || '').toUpperCase(),
+    status: (row.status || 'active').toUpperCase(),
+    createdAt: row.created_at || row.createdAt || '',
+    fullName: row.full_name || row.fullName || '',
+    displayUser: row.display_user || row.displayUser || '',
+    internalUsername: row.internal_username || row.internalUsername || '',
+    isActive: row.is_active !== false
+  };
+  // ใส่ password เฉพาะเมื่อ query ดึงมาจริง (directory จะไม่มี key นี้เลย)
+  if ('password' in row) u.password = row.password || '';
+  return u;
+}
+
+/** ล้างข้อมูลอ่อนไหวก่อนเขียนลง localStorage — cache ห้ามมีรหัสผ่านเด็ดขาด */
+function _cacheUserDirectory(list) {
+  try {
+    const safe = list.map(u => { const { password, password_hash, ...rest } = u; return rest; });
+    localStorage.setItem(LS_USERS, JSON.stringify(safe));
+  } catch (e) {}
+}
+
+async function _fetchAppUsers(cols) {
+  const { data, error } = await sb
+    .from('app_users')
+    .select(cols)
+    .eq('app_code', APP_CODE);          // ✅ กรองฝั่ง Server (Production: ไม่มีแถว app_code NULL)
+  if (error || !data) return { error };
+  const list = data.map(_mapAppUserRow);
+  list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return { list };
+}
+
+/**
+ * DIRECTORY — ไม่มีรหัสผ่าน · โหลดหลัง login ได้ทุก role
+ * ใช้โดย getJobDept() (แผนก) และคอลัมน์ USER ในตารางงาน
+ */
+async function loadUserDirectory() {
   if (sb) {
     try {
-      const { data, error } = await sb
-        .from('app_users')
-        .select('*');
-      if (!error && data) {
-        // กรอง app_code แบบยืดหยุ่น (รับว่าง/null = ใช้ได้ทุก app)
-        const filtered = data.filter(row => {
-          const ac = String(row.app_code || '').toLowerCase();
-          return !ac || ac === String(APP_CODE).toLowerCase();
-        });
-        state.users = filtered.map(row => ({
-          id: row.id,
-          username: row.username || '',
-          email: row.email || '',
-          password: row.password || '',
-          dept: row.department || row.dept || '',
-          role: (row.role || '').toUpperCase(),
-          status: (row.status || 'active').toUpperCase(),
-          createdAt: row.created_at || row.createdAt || '',
-          fullName: row.full_name || row.fullName || '',
-          displayUser: row.display_user || row.displayUser || '',
-          internalUsername: row.internal_username || row.internalUsername || '',
-          isActive: row.is_active !== false
-        }));
-        // เรียงตาม createdAt (ถ้ามี) — ใหม่ก่อน
-        state.users.sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-        // cache to localStorage as fallback
-        try { localStorage.setItem(LS_USERS, JSON.stringify(state.users)); } catch(e){}
+      const { list, error } = await _fetchAppUsers(APP_USERS_DIRECTORY_COLS);
+      if (list) {
+        // ถ้าเคยโหลดชุด management (มี password) แล้ว → อย่าลดระดับข้อมูลลง
+        if (state.usersFullLoaded) return;
+        state.users = list;
+        state.usersLoaded = true;
+        _cacheUserDirectory(list);
         if (state.page === 'users') renderUsers();
         else if (state.page === 'jobs') renderTable();
         return;
       }
-      console.warn('[ADVANCE] loadUsers from Supabase failed:', error);
+      console.warn('[ADVANCE] loadUserDirectory failed:', error);
     } catch (e) {
-      console.error('[ADVANCE] loadUsers exception:', e);
+      console.error('[ADVANCE] loadUserDirectory exception:', e);
     }
   }
-  // Fallback: localStorage cache → seed
+  // Fallback: cache (ไม่มีรหัสผ่านอยู่แล้ว)
   try {
     const raw = localStorage.getItem(LS_USERS);
     if (raw) {
       state.users = JSON.parse(raw);
       if (state.page === 'users') renderUsers();
+      else if (state.page === 'jobs') renderTable();
       return;
     }
-  } catch(e){}
-  state.users = seedSampleUsers();
-  saveUsers();
+  } catch (e) {}
+  // 🛡 ห้าม seed ผู้ใช้ปลอมทับข้อมูลจริง — seed เฉพาะกรณี SDK ไม่มีจริงๆ (offline demo)
+  //    ถ้า sb มีอยู่แต่ query fail → ปล่อยว่าง (dept แสดง '—') ดีกว่าแสดงแผนกผิด
+  if (!sb) {
+    state.users = seedSampleUsers();
+    saveUsers();
+    if (state.page === 'users') renderUsers();
+    else if (state.page === 'jobs') renderTable();
+    return;
+  }
+  state.users = Array.isArray(state.users) ? state.users : [];
+  if (state.page === 'jobs') renderTable();
 }
 
+/**
+ * MANAGEMENT — มีรหัสผ่าน · เฉพาะหน้าจัดการผู้ใช้งาน
+ * 🛡 ต้อง sessionVerified + role ที่มีสิทธิ์เท่านั้น
+ */
+async function loadUsersForManagement() {
+  if (!state.sessionVerified) { console.warn('[ADVANCE] ปฏิเสธโหลดข้อมูลผู้ใช้: session ยังไม่ถูกยืนยัน'); return false; }
+  if (!canSeeAllMenus())      { console.warn('[ADVANCE] ปฏิเสธโหลดข้อมูลผู้ใช้: role ไม่มีสิทธิ์'); return false; }
+  if (!sb) return false;
+  try {
+    const { list, error } = await _fetchAppUsers(APP_USERS_MANAGE_COLS);
+    if (!list) { console.warn('[ADVANCE] loadUsersForManagement failed:', error); return false; }
+    state.users = list;
+    state.usersLoaded = true;
+    state.usersFullLoaded = true;
+    _cacheUserDirectory(list);   // cache ยังคงไม่มีรหัสผ่าน
+    if (state.page === 'users') renderUsers();
+    return true;
+  } catch (e) {
+    console.error('[ADVANCE] loadUsersForManagement exception:', e);
+    return false;
+  }
+}
+
+/** ⛔ ชื่อเดิม — คงไว้เพื่อ backward compat แต่ชี้ไป directory (ไม่มีรหัสผ่าน) */
+async function loadUsers() { return loadUserDirectory(); }
+
 function saveUsers() {
-  localStorage.setItem(LS_USERS, JSON.stringify(state.users));
+  // 🛡 cache ผู้ใช้ห้ามมีรหัสผ่าน — ใช้ writer ตัวเดียวกับ directory
+  _cacheUserDirectory(Array.isArray(state.users) ? state.users : []);
 }
 
 function seedSampleUsers() {
@@ -3430,12 +3560,31 @@ function jobFromDb(r) {
 }
 
 /** Upsert 1 job → Supabase. On failure mark _dirty (retry on next refresh). */
+/**
+ * 🕒 นำ field ที่ "Server เป็นเจ้าของ" กลับเข้า object เดิม (mutate in place)
+ *    created_at / updated_at มาจาก DEFAULT now() + TRIGGER เท่านั้น
+ *    jobToDb() ไม่เคยส่งขึ้นไป → ต้องรับกลับมาไม่งั้น local จะไม่มี timestamp
+ *    ห้ามแตะข้อมูลธุรกิจ (customer/payments/…) เพื่อไม่ให้ทับสิ่งที่ผู้ใช้กรอก
+ */
+function _mergeServerFields(job, row) {
+  if (!job || !row) return job;
+  ['created_at', 'updated_at', 'created_by', 'updated_by'].forEach(k => {
+    if (row[k] !== undefined && row[k] !== null) job[k] = row[k];
+  });
+  return job;
+}
+
 async function syncJob(j) {
   if (!sb || !j) return false;
+  if (!canWriteToCloud('syncJob')) { j._dirty = true; saveJobs(); return false; }   // 🛡 defense-in-depth
   try {
-    const { error } = await sb
+    // 🕒 ขอ Server row กลับมาด้วย เพื่อรับ created_at / updated_at ที่ DB สร้างให้
+    //    (DEFAULT now() + TRIGGER tg_advance_jobs_updated_at) — ห้ามเดาเวลาฝั่ง client
+    const { data, error } = await sb
       .from('advance_jobs')
-      .upsert(jobToDb(j), { onConflict: 'id' });
+      .upsert(jobToDb(j), { onConflict: 'id' })
+      .select()
+      .single();
     if (error) {
       console.warn('[advance_jobs] upsert failed:', error);
       j._dirty = true;
@@ -3443,7 +3592,18 @@ async function syncJob(j) {
       toast('⚠️ Sync ขึ้น Cloud ไม่สำเร็จ — เก็บไว้ในเครื่อง · จะลองใหม่ตอน Refresh', 'err');
       return false;
     }
-    if (j._dirty) { delete j._dirty; saveJobs(); }
+    if (!data) {
+      // upsert ผ่านแต่ไม่ได้ row กลับ → สถานะไม่ชัดเจน
+      // 🛡 ห้ามเคลียร์ _dirty/_localOnly แบบผิดสถานะ — ปล่อยให้รอบหน้า retry
+      console.warn('[advance_jobs] upsert ผ่านแต่ไม่ได้ row กลับ — คงสถานะ _dirty/_localOnly ไว้');
+      j._dirty = true;
+      saveJobs();
+      return false;
+    }
+    // ✅ merge เฉพาะ field ที่ Server เป็นเจ้าของ (ไม่แตะข้อมูลธุรกิจที่ผู้ใช้กรอก)
+    _mergeServerFields(j, data);
+    delete j._dirty; delete j._localOnly;
+    saveJobs();
     return true;
   } catch (e) {
     console.warn('[advance_jobs] sync exception:', e);
@@ -3453,53 +3613,344 @@ async function syncJob(j) {
   }
 }
 
-/** Fetch all jobs from Supabase. Bulletproof against orphans (local-only jobs). */
-async function loadJobsFromSupabase() {
-  if (!sb) return false;
+/* ============================================================
+   ⚡ ADVANCE JOBS SYNC — INCREMENTAL / DELTA
+   ------------------------------------------------------------
+   ปัญหาเดิม: ทุกครั้งที่เปิดเว็บดึง advance_jobs ครบทุกแถว
+              (Production 1,548 แถว ≈ 4.5 MB JSON)
+
+   วิธีใหม่ 2 โหมด:
+     FULL  — ใช้เมื่อ "ยังไม่เคยมี cache" เท่านั้น
+             ดึงแบบแบ่งหน้า 100 (first paint) → 500/ชุด
+     DELTA — ใช้เมื่อมี cache แล้ว (กรณีปกติ = แทบทุกครั้ง)
+             1) ดึง manifest เฉพาะ id + updated_at   (≈ 103 kB)
+             2) เทียบกับ cache → รู้ว่าแถวไหน "เปลี่ยนจริง"
+             3) ดึงเฉพาะแถวที่เปลี่ยน (.in('id', ...))
+             → เปิดเว็บครั้งที่ 2 เป็นต้นไป ≈ 103 kB แทน 4.5 MB
+
+   ทำไม manifest ถึงเชื่อถือได้ (ตรวจ Production แล้ว):
+     advance_jobs.updated_at  NOT NULL · DEFAULT now()
+     TRIGGER tg_advance_jobs_updated_at BEFORE UPDATE → NEW.updated_at = now()
+     → ทุก INSERT/UPDATE ดัน updated_at เสมอ ไม่มีทางพลาด
+
+   สิ่งที่ "ไม่เปลี่ยน" จากเดิม:
+     • state.jobs ยังเป็น dataset เต็ม → KPI / pill / sidebar / Search /
+       Export / LINE Share / visibleJobs() (role filter) ทำงานเหมือนเดิมทุกอย่าง
+     • Orphan safety net (งาน local ที่ไม่มีบน Cloud → push กลับ) ยังอยู่ครบ
+     • ลำดับ created_at DESC เหมือนเดิม
+============================================================ */
+const FETCH_FIRST_PAGE = 100;   // FULL: หน้าแรก → render ทันที
+const FETCH_CHUNK      = 500;   // FULL: ที่เหลือ → ทยอยดึง
+const DELTA_IN_CHUNK   = 200;   // DELTA: ดึงแถวที่เปลี่ยน ครั้งละกี่ id
+const DELTA_MAX_RATIO  = 0.6;   // DELTA: ถ้าเปลี่ยนเกิน 60% → สู้ FULL ไม่ได้ ใช้ FULL แทน
+
+/* 📊 สถิติ network รอบล่าสุด — ใช้ตรวจสอบ/ทดสอบ ไม่กระทบ business logic */
+let _lastSyncStats = null;
+let _jobsFetchInFlight = null;   // 🔒 กัน request ซ้อน
+
+/** เรียงตามลำดับเดิม: created_at DESC */
+function _sortJobsDesc(list) {
+  return list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+}
+
+/**
+ * 🛡 แยกงาน local ที่ "ไม่มีบน Cloud" ออกเป็น 2 กลุ่ม
+ * ------------------------------------------------------------------
+ * เดิม: ไม่มีบน remote → push กลับทุกกรณี
+ *       → งานที่ SUPER_ADMIN ลบไปแล้ว ถูก cache เครื่องอื่นดันกลับขึ้น Production
+ *
+ * ใหม่: ตัดสินจากหลักฐานที่พิสูจน์ได้ ไม่ใช่การเดา
+ *   ORPHAN (push กลับ)  = ยังไม่เคยขึ้น Cloud สำเร็จเลย
+ *        • _localOnly === true                (ตั้งตอน saveJob สร้างงานใหม่)
+ *        • หรือไม่มี created_at               (created_at มาจาก DEFAULT now() ของ Server
+ *                                              เท่านั้น — jobToDb ไม่เคยส่งขึ้นไป
+ *                                              ดังนั้น "ไม่มี created_at" = ไม่เคยกลับมาจาก Cloud)
+ *   REMOVED (ลบทิ้ง)     = เคยอยู่บน Cloud แล้ว แต่ตอนนี้หายไป = ถูกลบอย่างถูกต้อง
+ */
+function _classifyMissingLocal(localBefore, remoteHas) {
+  const orphans = [], removed = [];
+  (localBefore || []).forEach(j => {
+    if (remoteHas(j.id)) return;
+    const neverSynced = (j._localOnly === true) || !j.created_at;
+    if (neverSynced) orphans.push(j);
+    else removed.push(j);
+  });
+  if (removed.length) {
+    console.log(`[advance_jobs] ${removed.length} งานถูกลบบน Cloud → ลบออกจากเครื่อง (ไม่ push กลับ)`,
+      removed.map(r => r.jobNo || r.id));
+    removed.filter(r => r._dirty).forEach(r => console.warn(
+      `[advance_jobs] ⚠️ ${r.jobNo || r.id} มีการแก้ไขที่ยังไม่ sync แต่ถูกลบบน Cloud — ยึดตาม Cloud (ไม่ resurrect)`));
+  }
+  return { orphans, removed };
+}
+
+/** push เฉพาะ orphan จริง (งานที่ยังไม่เคยขึ้น Cloud) */
+async function _pushOrphans(orphans) {
+  if (!orphans.length) return;
+  if (!canWriteToCloud('orphan push')) return;   // 🛡 ห้าม push ก่อน validate
   try {
+    // 🕒 ขอ row กลับมาด้วย — orphan ที่ขึ้น Cloud สำเร็จต้องได้ created_at/updated_at ทันที
+    //    ไม่งั้นรอบ DELTA ถัดไปจะมองว่า "ไม่มี created_at" = ยังไม่เคย sync → push ซ้ำวนไป
+    const { data, error: pushErr } = await sb
+      .from('advance_jobs')
+      .upsert(orphans.map(jobToDb), { onConflict: 'id' })
+      .select();
+    if (pushErr) { console.warn('[advance_jobs] orphan push failed:', pushErr); return; }
+    const byId = new Map((data || []).map(r => [r.id, r]));
+    let merged = 0;
+    orphans.forEach(o => {
+      const row = byId.get(o.id);
+      if (!row) {
+        // 🛡 ไม่ได้ row กลับ → สถานะไม่ชัด ห้ามเคลียร์ flag ผิดสถานะ
+        console.warn('[advance_jobs] orphan', o.jobNo || o.id, 'ไม่ได้ row กลับ — คง _localOnly ไว้');
+        return;
+      }
+      _mergeServerFields(o, row);
+      delete o._dirty; delete o._localOnly;
+      merged++;
+    });
+    console.log(`[advance_jobs] Pushed ${orphans.length} orphan(s) · merged timestamp ${merged}`);
+    saveJobs();
+  } catch (e) { console.warn('[advance_jobs] orphan push exception:', e); }
+}
+
+/**
+ * 🛡 RETRY งานที่ค้าง _dirty (แก้ในเครื่องแต่ sync ไม่สำเร็จ)
+ * ------------------------------------------------------------------
+ * สำเร็จ  → Cloud ตรงกับ local · เคลียร์ _dirty · ใช้ updated_at ใหม่จาก Server
+ * ล้มเหลว → คงเวอร์ชัน local ไว้ · คง _dirty ไว้ · ห้ามให้ Cloud เวอร์ชันเก่าทับ
+ *
+ * ⚠️ Conflict: ถ้าฝั่ง Cloud ถูกคนอื่นแก้ระหว่างที่เราค้าง dirty จะถูกตรวจจับและ log
+ *    นโยบายคือ "การแก้ที่ยังไม่ sync ของผู้ใช้ต้องไม่หาย" → local ชนะ (last-write-wins
+ *    ตรงกับพฤติกรรมเดิมของ syncJob) แต่ไม่เงียบ — เขียน console.warn พร้อมเวลาทั้งสองฝั่ง
+ */
+async function _retryDirtyJob(local, remoteStamp) {
+  if (!canWriteToCloud('dirty retry')) return null;   // 🛡 คง local + _dirty ไว้ก่อน
+  if (remoteStamp && String(local.updated_at || '') !== String(remoteStamp)) {
+    console.warn(`[advance_jobs] ⚠️ CONFLICT ${local.jobNo || local.id}: ` +
+      `local(dirty) updated_at=${local.updated_at || '—'} · cloud updated_at=${remoteStamp} ` +
+      `→ ใช้เวอร์ชัน local (การแก้ไขของผู้ใช้ต้องไม่หาย)`);
+  }
+  try {
+    const { data, error } = await sb
+      .from('advance_jobs')
+      .upsert(jobToDb(local), { onConflict: 'id' })
+      .select()
+      .single();
+    if (error || !data) {
+      console.warn('[advance_jobs] retry dirty failed — คง local + _dirty ไว้:', error);
+      return null;                                  // ❌ คง local เดิม (ยัง _dirty)
+    }
+    const fresh = jobFromDb(data);                  // ✅ ได้ updated_at ใหม่จาก Server
+    delete fresh._dirty; delete fresh._localOnly;
+    return fresh;
+  } catch (e) {
+    console.warn('[advance_jobs] retry dirty exception — คง local + _dirty ไว้:', e);
+    return null;
+  }
+}
+
+/** FULL MODE — ดึงทุกแถวแบบแบ่งหน้า (ใช้เมื่อไม่มี cache เท่านั้น) */
+async function _loadJobsFull(localBefore, stats) {
+  const rows = [];
+  let from = 0, size = FETCH_FIRST_PAGE, complete = false;
+
+  for (let guard = 0; guard < 200; guard++) {
     const { data, error } = await sb
       .from('advance_jobs')
       .select('*')
       .eq('app_code', APP_CODE)
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.warn('[advance_jobs] load failed:', error);
-      return false;
+      .order('created_at', { ascending: false })
+      .range(from, from + size - 1);
+    if (error) { console.warn('[advance_jobs] full load failed:', error); return false; }
+
+    const batch = data || [];
+    rows.push(...batch);
+    stats.requests++; stats.rowsFetched += batch.length;
+
+    const isFirstBatch = (from === 0);
+    const isLastBatch  = (batch.length < size);
+
+    // ✅ วาดชุดแรกทันที (first paint) ชุดกลางสะสมเงียบๆ
+    if (batch.length && (isFirstBatch || isLastBatch) && state.page === 'jobs' && state.user) {
+      const partialIds = new Set(rows.map(r => r.id));
+      const keepLocal = localBefore.filter(j => !partialIds.has(j.id));
+      state.jobs = rows.map(jobFromDb).concat(keepLocal);
+      renderAll();
+      await new Promise(r => setTimeout(r, 0));   // ปล่อย main thread
     }
 
-    const remote = (data || []).map(jobFromDb);
-    const remoteIds = new Set(remote.map(r => r.id));
+    if (isLastBatch) { complete = true; break; }
+    from += size;
+    size = FETCH_CHUNK;
+  }
 
-    // 🛡 SAFETY NET: any local job NOT in remote = orphan
-    //   (was created locally but never reached Supabase — e.g., browser crash mid-sync)
-    //   Push them now so no data is ever lost.
-    const orphans = (state.jobs || []).filter(j => !remoteIds.has(j.id));
-    if (orphans.length) {
-      try {
-        const { error: pushErr } = await sb
-          .from('advance_jobs')
-          .upsert(orphans.map(jobToDb), { onConflict: 'id' });
-        if (pushErr) console.warn('[advance_jobs] orphan push failed:', pushErr);
-        else console.log(`[advance_jobs] Pushed ${orphans.length} orphan(s) to Cloud`);
-      } catch (e) { console.warn('[advance_jobs] orphan push exception:', e); }
-    }
-
-    // Final state: remote (truth) + orphans (preserved local-only)
-    // _dirty flags cleared because either synced or pushed-as-orphan
-    state.jobs = remote.concat(orphans.map(o => { delete o._dirty; return o; }));
+  if (!complete) {
+    // 🛡 โหลดไม่ครบ → ห้ามสรุปว่าอะไรเป็น orphan และห้ามทิ้งงานในเครื่อง
+    console.warn('[advance_jobs] fetch guard hit — ยังโหลดไม่ครบ, ข้าม orphan/delete check');
+    const gotIds = new Set(rows.map(r => r.id));
+    const keepLocal = localBefore.filter(j => !gotIds.has(j.id));   // เก็บของเดิมไว้ทั้งหมด
+    state.jobs = _sortJobsDesc(rows.map(jobFromDb)).concat(keepLocal);
     saveJobs();
-
     if (state.page === 'jobs') renderAll();
     return true;
-  } catch (e) {
-    console.warn('[advance_jobs] load exception:', e);
-    return false;
   }
+
+  const remote = rows.map(jobFromDb);
+  const remoteIds = new Set(remote.map(r => r.id));
+
+  // 🛡 RETRY แถวที่ค้าง _dirty ก่อน แล้วให้เวอร์ชัน local ชนะ (ห้าม Cloud เก่าทับงานที่แก้ไว้)
+  const dirtyLocal = localBefore.filter(j => j._dirty && remoteIds.has(j.id));
+  const remoteStampFull = new Map(rows.map(r => [r.id, r.updated_at]));
+  const overrideById = new Map();
+  for (const local of dirtyLocal) {
+    const fresh = await _retryDirtyJob(local, remoteStampFull.get(local.id));
+    stats.requests++;
+    if (fresh) { overrideById.set(local.id, fresh); stats.dirtyRetryOk++; }
+    else       { overrideById.set(local.id, local); stats.dirtyRetryFail++; }  // คง local + _dirty
+  }
+
+  const { orphans, removed } = _classifyMissingLocal(localBefore, id => remoteIds.has(id));
+  await _pushOrphans(orphans);
+  stats.orphansPushed = orphans.length;
+  stats.removedByServer = removed.length;
+
+  state.jobs = _sortJobsDesc(remote.map(r => overrideById.get(r.id) || r)).concat(orphans);
+  saveJobs();
+  return true;
+}
+
+/**
+ * DELTA MODE — ดึง manifest (id + updated_at) แล้วดึงเฉพาะแถวที่เปลี่ยน
+ * คืน false ถ้าไม่เหมาะกับ delta (ให้ผู้เรียก fallback ไป FULL)
+ */
+async function _loadJobsDelta(localBefore, stats) {
+  // [1] manifest — เบามาก (id + updated_at เท่านั้น)
+  const { data: manifest, error: mErr } = await sb
+    .from('advance_jobs')
+    .select('id,updated_at')
+    .eq('app_code', APP_CODE);
+  if (mErr) { console.warn('[advance_jobs] manifest failed:', mErr); return null; }
+  stats.requests++; stats.manifestRows = (manifest || []).length;
+
+  const localById = new Map(localBefore.map(j => [j.id, j]));
+  const remoteStamp = new Map((manifest || []).map(r => [r.id, r.updated_at]));
+
+  // [2] แถวที่ต้องดึงจริง = ใหม่ / updated_at ไม่ตรง
+  //     🛡 แถวที่ค้าง _dirty จะ "ไม่ดึง" — เพราะการดึง Cloud มาแล้ว merge จะทับงานที่ผู้ใช้แก้ไว้
+  //        (data loss) แถวพวกนี้ไปเข้ากระบวนการ retry ใน [3.5] แทน
+  const needIds = [], dirtyIds = [];
+  remoteStamp.forEach((stamp, id) => {
+    const local = localById.get(id);
+    if (!local) { needIds.push(id); return; }
+    if (local._dirty) { dirtyIds.push(id); return; }
+    if (String(local.updated_at || '') !== String(stamp || '')) needIds.push(id);
+  });
+
+  // ถ้าเปลี่ยนเยอะมาก → ดึงทีเดียวแบบ FULL คุ้มกว่า
+  if (remoteStamp.size && (needIds.length + dirtyIds.length) / remoteStamp.size > DELTA_MAX_RATIO) {
+    console.log(`[advance_jobs] delta ${needIds.length}/${remoteStamp.size} → เกิน ${DELTA_MAX_RATIO*100}% ใช้ FULL แทน`);
+    return null;
+  }
+
+  // [3] ดึงเฉพาะแถวที่เปลี่ยน
+  const fetched = [];
+  for (let i = 0; i < needIds.length; i += DELTA_IN_CHUNK) {
+    const chunk = needIds.slice(i, i + DELTA_IN_CHUNK);
+    const { data, error } = await sb
+      .from('advance_jobs')
+      .select('*')
+      .eq('app_code', APP_CODE)
+      .in('id', chunk);
+    if (error) { console.warn('[advance_jobs] delta fetch failed:', error); return null; }
+    fetched.push(...(data || []));
+    stats.requests++; stats.rowsFetched += (data || []).length;
+  }
+
+  // [3.5] 🛡 RETRY แถวที่ค้าง _dirty — ห้ามให้ Cloud เวอร์ชันเก่าทับงานที่ผู้ใช้แก้ไว้
+  const retriedById = new Map();
+  for (const id of dirtyIds) {
+    const local = localById.get(id);
+    const fresh = await _retryDirtyJob(local, remoteStamp.get(id));
+    stats.requests++;
+    if (fresh) { retriedById.set(id, fresh); stats.dirtyRetryOk++; }
+    else       { stats.dirtyRetryFail++; }        // คง local + _dirty ไว้ (ไม่ใส่ใน map)
+  }
+
+  // [4] ประกอบ dataset เต็ม
+  //     ลำดับความสำคัญ: retry สำเร็จ > แถวที่เพิ่งดึงจาก Cloud > cache เดิม (รวม dirty ที่ retry ไม่ผ่าน)
+  const fetchedById = new Map(fetched.map(r => [r.id, jobFromDb(r)]));
+  const merged = [];
+  remoteStamp.forEach((stamp, id) => {
+    merged.push(retriedById.get(id) || fetchedById.get(id) || localById.get(id));
+  });
+
+  // [5] 🛡 งาน local ที่ไม่มีบน Cloud — แยก orphan จริง ออกจากงานที่ถูกลบบน Server
+  const { orphans, removed } = _classifyMissingLocal(localBefore, id => remoteStamp.has(id));
+  await _pushOrphans(orphans);
+  if (orphans.length) stats.requests++;
+  stats.orphansPushed = orphans.length;
+  stats.removedByServer = removed.length;         // ❌ ไม่ push · ไม่ resurrect · ลบออกจากเครื่อง
+
+  state.jobs = _sortJobsDesc(merged.filter(Boolean)).concat(orphans);
+  saveJobs();
+  stats.mode = 'delta';
+  stats.changed = needIds.length;
+  stats.dirty = dirtyIds.length;
+  stats.reusedFromCache = remoteStamp.size - needIds.length - dirtyIds.length;
+  return true;
+}
+
+/**
+ * Orchestrator — เลือกโหมดเอง
+ * @param {{force?:boolean}} opts  force=true → บังคับ FULL (ปุ่ม Refresh ใช้ค่า default = delta)
+ */
+async function loadJobsFromSupabase(opts) {
+  if (!sb) return false;
+  if (_jobsFetchInFlight) return _jobsFetchInFlight;   // 🔒 กัน loop / กดซ้ำ
+  const force = !!(opts && opts.force);
+
+  _jobsFetchInFlight = (async () => {
+    try {
+      const localBefore = Array.isArray(state.jobs) ? state.jobs.slice() : [];
+      const stats = { mode: 'full', requests: 0, rowsFetched: 0, manifestRows: 0,
+                      changed: null, dirty: 0, reusedFromCache: 0,
+                      dirtyRetryOk: 0, dirtyRetryFail: 0,
+                      orphansPushed: 0, removedByServer: 0 };
+
+      // มี cache ที่ใช้ได้ → ลอง DELTA ก่อน
+      const canDelta = !force && localBefore.length > 0 && localBefore.every(j => j.updated_at);
+      if (canDelta) {
+        const ok = await _loadJobsDelta(localBefore, stats);
+        if (ok) {
+          _lastSyncStats = stats;
+          console.log('[advance_jobs] DELTA sync', stats);
+          if (state.page === 'jobs') renderAll();
+          return true;
+        }
+        // delta ใช้ไม่ได้ → ตกไป FULL (ข้อมูลยังไม่ถูกแตะ)
+        state.jobs = localBefore;
+      }
+
+      const ok = await _loadJobsFull(localBefore, stats);
+      _lastSyncStats = stats;
+      if (ok) console.log('[advance_jobs] FULL sync', stats);
+      if (ok && state.page === 'jobs') renderAll();
+      return ok;
+    } catch (e) {
+      console.warn('[advance_jobs] load exception:', e);
+      return false;
+    }
+  })();
+
+  try { return await _jobsFetchInFlight; }
+  finally { _jobsFetchInFlight = null; }
 }
 
 /** Delete 1 job by id from Supabase */
 async function syncJobDelete(id) {
   if (!sb || !id) return false;
+  if (!canWriteToCloud('syncJobDelete')) return false;   // 🛡 defense-in-depth
   try {
     const { error } = await sb
       .from('advance_jobs')
@@ -3523,6 +3974,7 @@ async function syncJobDelete(id) {
 async function migrateLocalToSupabaseIfNeeded() {
   if (!sb) return;
   if (localStorage.getItem(LS_MIGRATED) === 'yes') return;
+  if (!canWriteToCloud('migration upsert')) return;   // 🛡 ห้าม migrate ก่อน validate
 
   try {
     const { count, error } = await sb
@@ -3629,7 +4081,47 @@ function togglePw() {
   const el = document.getElementById('loginPass');
   el.type = el.type === 'password' ? 'text' : 'password';
 }
+/* ⚡ คอลัมน์ที่ session/login ใช้จริง — ไม่ดึงทั้งแถว */
+const SESSION_COLS = 'id,username,app_code,role,status,is_active,full_name,internal_username,department,email';
+
+/* ============================================================
+   🛡 SESSION PROFILE — ALLOWLIST เท่านั้น
+   Session (state.userProfile) และ localStorage[LS_PROFILE]
+   ห้ามมีรหัสผ่านเด็ดขาด ไม่ว่า caller จะส่งอะไรเข้ามา
+   → เก็บเฉพาะ field ที่ session ใช้จริง · field อื่นถูกตัดทิ้งทั้งหมด
+============================================================ */
+const SESSION_PROFILE_FIELDS = [
+  'id','username','app_code','role','status','is_active',
+  'full_name','internal_username','display_user','department','email'
+];
+
+function sanitizeSessionProfile(src) {
+  const out = {};
+  if (!src || typeof src !== 'object') return out;
+  for (const k of SESSION_PROFILE_FIELDS) {
+    if (src[k] !== undefined) out[k] = src[k];
+  }
+  // 🛡 defense-in-depth — แม้ allowlist จะกันอยู่แล้ว ก็ลบซ้ำอีกชั้น
+  delete out.password;
+  delete out.password_hash;
+  return out;
+}
+
+let _loginBusy = false;   // 🔒 กันกด Login ซ้อน (double click / tap รัวบนมือถือ)
+
+function _setLoginBusy(on) {
+  _loginBusy = on;
+  const btn = document.getElementById('loginBtn');
+  if (btn) {
+    btn.disabled = on;
+    btn.textContent = on ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ';
+    btn.style.opacity = on ? '.6' : '';
+    btn.style.cursor  = on ? 'not-allowed' : '';
+  }
+}
+
 async function doLogin() {
+  if (_loginBusy) return;   // 🔒 มี request ค้างอยู่ — ห้ามยิงซ้ำ
   const u = String(document.getElementById('loginUser').value || '').trim().toLowerCase();
   const p = String(document.getElementById('loginPass').value || '').trim();
   if (!u || !p) { toast('กรอกชื่อผู้ใช้และรหัสผ่าน','err'); return; }
@@ -3639,6 +4131,9 @@ async function doLogin() {
     return;
   }
 
+  _setLoginBusy(true);
+  try {
+
   // 🔒 Login ผ่าน public.app_users (spec: 1 web = 1 app_code)
   // ผู้ใช้กรอก: jamrat / Jam497522
   // DB เก็บ: username='jamrat' + internal_username='Jamrat05' + app_code='advance'
@@ -3646,7 +4141,7 @@ async function doLogin() {
   try {
     const { data, error } = await sb
       .from('app_users')
-      .select('*')
+      .select(SESSION_COLS)
       .eq('username', u)
       .eq('password', p)
       .eq('app_code', APP_CODE);
@@ -3695,21 +4190,191 @@ async function doLogin() {
   // state.user เก็บ display name (เช่น JAMRAT) เพื่อ backward compat
   const displayName = (user.display_user || user.full_name || user.internal_username || user.username || u).toString();
   state.user = displayName.toUpperCase();
-  state.userProfile = user;
-  localStorage.setItem(LS_USER, state.user);
-  localStorage.setItem('advance_v7_user_profile', JSON.stringify(user));
+  state.userProfile = sanitizeSessionProfile(user);   // 🛡 ห้ามมี password/password_hash ใน session
+  state.sessionVerified = true;   // 🛡 Server เพิ่งยืนยันตัวตน + role นี้เอง
+  saveSession();
   toast(`👋 ยินดีต้อนรับคุณ ${displayUserName(state.user)}`,'ok');
   showApp();
+
+  } finally {
+    _setLoginBusy(false);   // 🔓 ปลด lock เสมอ (สำเร็จ / fail / exception)
+  }
+}
+
+/* ============================================================
+   🔐 SESSION — Save / Clear / Restore / Validate
+============================================================ */
+function saveSession() {
+  try {
+    // 🛡 ประตูเดียวของการเขียน session — sanitize ทั้งใน memory และใน localStorage
+    //    ต่อให้ caller ยัด password เข้ามาใน state.userProfile ก็ต้องไม่ถูกเก็บ
+    const safe = sanitizeSessionProfile(state.userProfile);
+    if (state.userProfile) state.userProfile = safe;
+    localStorage.setItem(LS_USER, state.user);
+    localStorage.setItem(LS_PROFILE, JSON.stringify(safe));
+  } catch (e) { console.warn('[session] save failed:', e); }
+}
+
+function clearSession() {
+  try {
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_PROFILE);
+  } catch (e) {}
+  state.user = null;
+  state.userProfile = null;
+  state.usersLoaded = false;
+  state.usersFullLoaded = false;
+  state.users = [];              // 🛡 ล้างข้อมูลผู้ใช้ออกจากหน่วยความจำตอน logout
+  state.sessionVerified = false;
+  _deferredCloudWrites = false;   // ทิ้งงานเขียนที่ค้างอยู่ — session นี้ใช้ไม่ได้แล้ว
+}
+
+/* ============================================================
+   🛡 SESSION PERMISSION GATE
+   ระหว่าง restore จาก localStorage — role ยังไม่ได้ยืนยันกับ Server
+   (ผู้ใช้แก้ advance_v7_user_profile.role เป็น SUPER_ADMIN เองได้)
+   → บล็อกทุก privileged mutation จนกว่า validateSession() จะสำเร็จ
+============================================================ */
+/* 🛡 ประตูเดียวสำหรับ "การเขียนขึ้น Cloud ทุกชนิด"
+   ก่อน Server ยืนยัน session → อนุญาตเฉพาะการอ่าน (cache / network read)
+   ห้าม: migration upsert · orphan push · dirty retry · delete · storage mutation
+   งานที่ถูกเลื่อนจะถูกทำต่อทันทีที่ validateSession() สำเร็จ (flushDeferredCloudWrites) */
+let _deferredCloudWrites = false;
+
+function canWriteToCloud(reason) {
+  if (state.sessionVerified) return true;
+  _deferredCloudWrites = true;
+  console.warn('[session] ⛔ บล็อกการเขียนขึ้น Cloud ก่อน validate' + (reason ? ' — ' + reason : '') + ' (จะทำใหม่หลังยืนยัน session)');
+  return false;
+}
+
+/** เรียกหลัง validateSession สำเร็จ — ทำงานเขียนที่ถูกเลื่อนไว้ให้ครบ */
+async function flushDeferredCloudWrites() {
+  if (!_deferredCloudWrites || !state.sessionVerified) return;
+  _deferredCloudWrites = false;
+  console.log('[session] ✅ session ยืนยันแล้ว — เริ่ม sync แบบเขียนได้');
+  try {
+    await migrateLocalToSupabaseIfNeeded();
+    await loadJobsFromSupabase();
+  } catch (e) { console.warn('[session] flush deferred writes failed:', e); }
+}
+
+function requireVerifiedSession(what) {
+  if (state.sessionVerified) return true;
+  // ยังไม่ยืนยัน → เร่งตรวจทันที (ข้าม throttle) แล้วให้ผู้ใช้ลองใหม่
+  validateSession('gate');
+  toast(`⏳ กำลังตรวจสอบสิทธิ์กับเซิร์ฟเวอร์${what ? ' ก่อน' + what : ''} — กรุณาลองอีกครั้ง`, 'err');
+  return false;
+}
+
+function showLoginPage() {
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('loginPage').style.display = 'grid';
+}
+
+/**
+ * 🔄 Restore session จาก cache (instant) แล้วค่อย validate กับ Server เบื้องหลัง
+ * คืน true = เข้า App ได้เลย / false = ต้อง Login
+ */
+function restoreSession() {
+  let cachedUser = null, cachedProfile = null;
+  try {
+    cachedUser = localStorage.getItem(LS_USER);
+    const raw = localStorage.getItem(LS_PROFILE);
+    if (raw) cachedProfile = JSON.parse(raw);
+  } catch (e) { console.warn('[session] restore parse failed:', e); }
+
+  // ไม่มี cache ครบ → Login ตามปกติ
+  if (!cachedUser || !cachedProfile || !cachedProfile.id) return false;
+
+  state.user = String(cachedUser);
+  // 🛡 cache ที่ค้างจากเวอร์ชันเก่าอาจมี password อยู่ → ตัดทิ้งทันทีที่อ่านขึ้นมา
+  state.userProfile = sanitizeSessionProfile(cachedProfile);
+  saveSession();                // เขียนทับ cache เดิมด้วยชุดที่ sanitize แล้ว (local เท่านั้น ไม่แตะ Cloud)
+  showApp();                    // ⚡ เข้าทันที ไม่รอ network
+  validateSession('startup');   // 🛡 ตรวจกับ Server เบื้องหลัง
+  return true;
+}
+
+let _lastValidateAt = 0;
+let _validateInFlight = false;
+
+/**
+ * 🛡 Lightweight validation — query แถวเดียว + เฉพาะคอลัมน์ที่ใช้
+ * fail (user ถูกลบ / disable / เปลี่ยน app_code) → clear session + กลับ Login
+ * network error → ไม่เตะออก (offline ต้องใช้งานต่อได้)
+ */
+async function validateSession(reason) {
+  if (!sb || !state.userProfile?.id) return true;
+  if (_validateInFlight) return true;
+  // throttle 60 วิ — กัน request loop ตอนสลับแท็บถี่ๆ
+  const now = Date.now();
+  if (reason !== 'startup' && reason !== 'gate' && now - _lastValidateAt < 60000) return true;
+  _validateInFlight = true;
+  try {
+    const { data, error } = await sb
+      .from('app_users')
+      .select(SESSION_COLS)
+      .eq('id', state.userProfile.id)
+      .eq('app_code', APP_CODE)
+      .maybeSingle();
+
+    if (error) {
+      // ⚠️ เครือข่าย/RLS มีปัญหา → ไม่เตะออก (กัน false logout)
+      console.warn('[session] validate error (ไม่เตะออก):', error);
+      return true;
+    }
+
+    _lastValidateAt = Date.now();
+
+    const bad = !data
+      || data.is_active === false
+      || (String(data.status || '').toLowerCase() && String(data.status).toLowerCase() !== 'active');
+
+    if (bad) {
+      clearSession();
+      showLoginPage();
+      toast('⚠️ บัญชีนี้ถูกปิดใช้งานหรือถูกลบ — กรุณาเข้าสู่ระบบใหม่', 'err');
+      return false;
+    }
+
+    // ✅ Session ยังใช้ได้ → Server = Source of Truth (ทับค่าที่มาจาก localStorage)
+    const prevRole = normalizeRole(state.userProfile.role);
+    const prevUser = String(state.user || '');
+    state.userProfile = sanitizeSessionProfile({ ...state.userProfile, ...data });
+    const displayName = (data.display_user || data.full_name || data.internal_username || data.username || state.user).toString();
+    state.user = displayName.toUpperCase();
+    state.sessionVerified = true;   // 🛡 ปลดล็อก privileged actions
+    saveSession();
+    flushDeferredCloudWrites();     // ▶️ เพิ่งยืนยัน → ทำงานเขียนที่ถูกเลื่อนไว้
+
+    if (normalizeRole(data.role) !== prevRole || state.user !== prevUser) {
+      // cache ถูกแก้ / role เปลี่ยนฝั่ง Server → บังคับใช้ค่าจริงทันที
+      document.getElementById('userName').textContent = displayUserName(state.user);
+      document.getElementById('userAvatar').textContent = (state.user || 'NJ').slice(0, 2);
+      const roleEl = document.getElementById('userRole');
+      if (roleEl) {
+        const r = currentRole();
+        roleEl.textContent = r === 'SUPER_ADMIN' ? 'SUPER ADMIN' : (r || 'USER');
+      }
+      applyRolePermissions();
+      // ถ้ากำลังอยู่หน้า Users แต่ role จริงไม่มีสิทธิ์ → เตะกลับหน้างาน
+      if (state.page === 'users' && !canSeeAllMenus()) goPage('jobs');
+      else if (state.page === 'jobs') renderAll();
+    }
+    return true;
+  } catch (e) {
+    console.warn('[session] validate exception (ไม่เตะออก):', e);
+    return true;
+  } finally {
+    _validateInFlight = false;
+  }
 }
 
 function doLogout() {
   if (!confirm('ออกจากระบบใช่หรือไม่?')) return;
-  localStorage.removeItem(LS_USER);
-  localStorage.removeItem('advance_v7_user_profile');
-  state.user = null;
-  state.userProfile = null;
-  document.getElementById('app').classList.remove('show');
-  document.getElementById('loginPage').style.display = 'grid';
+  clearSession();
+  showLoginPage();
 }
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
@@ -3731,12 +4396,18 @@ function showApp() {
   renderAll();
   // 🌩 sync to Supabase (migration + fetch) in background
   kickoffJobsSync();
+  // 👥 app_users → โหลด "directory" (ไม่มีรหัสผ่าน) หลัง login เท่านั้น
+  //    ใช้ทำ dept badge + คอลัมน์ USER ในตารางงาน
+  //    เดิม: โหลดตั้งแต่หน้า Login = 358 แถว × 21 คอลัมน์ รวม password
+  if (!state.usersLoaded) loadUserDirectory();
 }
 
 /* ============================================================
    NAVIGATION / VIEW
 ============================================================ */
 function goPage(page) {
+  // 🛡 Session Permission Gate — ห้ามเข้าหน้า Users ก่อน Server ยืนยัน role
+  if (page === 'users' && !requireVerifiedSession('เข้าหน้าจัดการผู้ใช้')) return;
   // 🛡️ USER/STAFF: บล็อกไม่ให้เข้าหน้า Users (AC/ACCOUNT/ADMIN/SUPER_ADMIN เข้าได้)
   if (page === 'users' && !canSeeAllMenus()) {
     toast('คุณไม่มีสิทธิ์เข้าหน้าจัดการผู้ใช้งาน', 'err');
@@ -3747,8 +4418,8 @@ function goPage(page) {
   document.getElementById('pageUsers').style.display = page === 'users' ? '' : 'none';
   if (page === 'users') {
     renderUsers();
-    // refresh from Supabase แบบ background — ถ้ามีข้อมูลใหม่จะ re-render เอง
-    loadUsers();
+    // 🛡 โหลดชุดที่มีรหัสผ่าน เฉพาะตอนเข้าหน้านี้ + session ยืนยันแล้ว + role มีสิทธิ์
+    loadUsersForManagement();
     // เคลียร์ active state ใน sidebar
     document.querySelectorAll('.nav-sub .nav-item').forEach(el => el.classList.remove('active'));
   }
@@ -3913,7 +4584,44 @@ function setStatus(s) {
   renderAll();
 }
 
+/* ⚡ ตัวควบคุม Render Pagination */
+function goJobPage(p) {
+  state.tablePage = p;
+  renderTable();
+  const tw = document.querySelector('.table-wrap.desktop-table-premium');
+  if (tw) tw.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderJobPager(page, totalPages, totalRows, startIdx, shown) {
+  const el = document.getElementById('jobPager');
+  if (!el) return;
+  if (!totalPages || totalPages <= 1) { el.innerHTML = ''; return; }
+
+  // แสดงหมายเลขหน้าแบบย่อ: 1 … (p-1) p (p+1) … last
+  const nums = new Set([1, totalPages, page, page - 1, page + 1]);
+  const list = [...nums].filter(n => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+
+  let html = `<button class="pg-btn" onclick="goJobPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>‹</button>`;
+  let prev = 0;
+  list.forEach(n => {
+    if (prev && n - prev > 1) html += `<span class="pg-info">…</span>`;
+    html += `<button class="pg-btn ${n === page ? 'active' : ''}" onclick="goJobPage(${n})">${n}</button>`;
+    prev = n;
+  });
+  html += `<button class="pg-btn" onclick="goJobPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>›</button>`;
+  html += `<span class="pg-info">แสดง ${startIdx + 1}–${startIdx + shown} จาก ${totalRows} งาน</span>`;
+  el.innerHTML = html;
+}
+
 function renderTable() {
+  /* ⚡ filter เปลี่ยน (โหมด/สถานะ/คำค้น) → กลับหน้า 1 */
+  const _sig = [
+    state.view.mode,
+    state.view.status,
+    (document.getElementById('searchInput')?.value || '').trim().toLowerCase()
+  ].join('|');
+  if (_sig !== state.tableSig) { state.tableSig = _sig; state.tablePage = 1; }
+
   // toggle class ตามโหมด เพื่อปรับ UI เฉพาะโหมด extra (ไม่กระทบ advance)
   const tw = document.querySelector('.table-wrap.desktop-table-premium');
   if (tw) tw.classList.toggle('mode-extra-table', state.view.mode === 'extra');
@@ -3942,11 +4650,22 @@ function renderTable() {
       <div style="font-size:12px;margin-top:6px;">กดปุ่ม "สร้างงาน" เพื่อเริ่มต้น</div>
     </div>`;
     document.getElementById('pageSub').textContent = 'รวม 0 งาน';
+    renderJobPager(0, 0);
     return;
   }
   document.getElementById('pageSub').textContent = `รวม ${list.length} งาน`;
-  renderJobCardsMobile(list);   // 📱 mobile card view (ซ่อนบน desktop ด้วย CSS)
-  tb.innerHTML = list.map(j => `
+
+  /* ⚡ RENDER PAGINATION — แบ่งเฉพาะการแสดงผล
+     `list` (ยอดรวม / KPI / Export / LINE Share) ยังเป็นชุดเต็มเหมือนเดิม */
+  const totalPages = Math.max(1, Math.ceil(list.length / RENDER_PAGE_SIZE));
+  if (state.tablePage > totalPages) state.tablePage = totalPages;
+  if (state.tablePage < 1) state.tablePage = 1;
+  const startIdx = (state.tablePage - 1) * RENDER_PAGE_SIZE;
+  const pageList = list.slice(startIdx, startIdx + RENDER_PAGE_SIZE);
+  renderJobPager(state.tablePage, totalPages, list.length, startIdx, pageList.length);
+
+  renderJobCardsMobile(pageList);   // 📱 mobile card view (ซ่อนบน desktop ด้วย CSS)
+  tb.innerHTML = pageList.map(j => `
     <tr>
       <td class="date-cell">${fmtDate(j.date)}</td>
       <td><b title="${esc(j.jobNj||'')}">${esc(stripJobPrefix(j.jobNj))}</b></td>
@@ -4396,6 +5115,8 @@ function renderSlipManagerBody(jobId) {
 }
 
 async function uploadSlipFromCard(jobId, payIdx, input) {
+  // 🛡 Session Permission Gate — Slip เป็น mutation ระดับ SUPER_ADMIN
+  if (!requireVerifiedSession('แนบสลิป')) return;
   // 🛡️ เฉพาะ SUPER_ADMIN เท่านั้นที่แนบสลิปได้
   if (!canManageSlip()) {
     toast('❌ เฉพาะ SUPER ADMIN เท่านั้นที่สามารถแนบสลิปได้', 'err');
@@ -4455,6 +5176,8 @@ async function uploadSlipFromCard(jobId, payIdx, input) {
 }
 
 async function deleteSlipFromCard(jobId, payIdx, fileIdx) {
+  // 🛡 Session Permission Gate — Slip เป็น mutation ระดับ SUPER_ADMIN
+  if (!requireVerifiedSession('ลบสลิป')) return;
   // 🛡️ เฉพาะ SUPER_ADMIN เท่านั้นที่ลบสลิปได้
   if (!canManageSlip()) {
     toast('❌ เฉพาะ SUPER ADMIN เท่านั้นที่สามารถลบสลิปได้', 'err');
@@ -4581,6 +5304,8 @@ function renderBarcodeManagerBody(jobId) {
 }
 
 async function uploadBarcodeFromCard(jobId, payIdx, input) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('แนบบาร์โค้ด')) return;
   const file = (input.files || [])[0];
   input.value = '';
   if (!file) return;
@@ -4632,6 +5357,8 @@ async function uploadBarcodeFromCard(jobId, payIdx, input) {
 }
 
 async function deleteBarcodeFromCard(jobId, payIdx, fileIdx) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('ลบบาร์โค้ด')) return;
   const j = state.jobs.find(x => x.id === jobId);
   if (!j) return;
   const items = getJobAttachItems(j);
@@ -5093,6 +5820,9 @@ function openCreateUser() {
 }
 
 function openEditUser(id) {
+  // 🛡 ต้องผ่าน Server ยืนยัน session ก่อน (กัน cached role ปลอม)
+  if (!requireVerifiedSession('แก้ไขผู้ใช้')) return;
+  if (!state.usersFullLoaded) { toast('⏳ กำลังโหลดข้อมูลผู้ใช้ — กรุณาลองอีกครั้ง', 'err'); loadUsersForManagement(); return; }
   const u = state.users.find(x => x.id === id);
   if (!u) return;
   editingUserId = id;
@@ -5107,6 +5837,8 @@ function openEditUser(id) {
 }
 
 async function saveUser() {
+  // 🛡 Session Permission Gate — ห้ามแก้ผู้ใช้ก่อน Server ยืนยัน role
+  if (!requireVerifiedSession('บันทึกผู้ใช้')) return;
   const username = document.getElementById('u_username').value.trim();
   const password = document.getElementById('u_password').value.trim();
   if (!username) { toast('กรุณาระบุชื่อผู้ใช้','err'); return; }
@@ -5144,7 +5876,6 @@ async function saveUser() {
     // ✅ ส่งเฉพาะ column ที่มีจริงใน public.app_users
     const upd = {
       username: payload.username,
-      password: payload.password,
       email: payload.email,
       department: payload.dept,
       role: payload.role,                               // enum user_role — ต้องมีค่านี้ใน enum
@@ -5152,9 +5883,15 @@ async function saveUser() {
       is_active: payload.status === 'ACTIVE',
       updated_at: new Date().toISOString(),
     };
+    // 🛡 ส่ง password เฉพาะเมื่อกรอกจริง — ช่องว่าง = "ไม่เปลี่ยนรหัสผ่าน"
+    //    กันเคสที่ชุด directory (ไม่มี password) ทำให้ฟอร์มว่าง แล้วเผลอล้างรหัสผ่านของผู้ใช้
+    if (payload.password) upd.password = payload.password;
     // 🪵 Debug log (ชั่วคราว — ดู console ถ้ามีปัญหา)
+    // 🛡 ห้าม log รหัสผ่านทุกกรณี — ตัด password/password_hash ออกก่อน log
+    const { password: _pwOmit, password_hash: _phOmit, ...updSafeLog } = upd;
+    updSafeLog.passwordChanged = !!upd.password;   // บอกแค่ว่า "เปลี่ยนรหัสผ่านหรือไม่"
     console.log('[saveUser] editingUserId:', editingUserId);
-    console.log('[saveUser] updateData:', upd);
+    console.log('[saveUser] updateData:', updSafeLog);
 
     // ใช้ .select().single() — ได้ data กลับมาทันที + verify ในรอบเดียว
     const { data: updatedData, error: updErr } = await sb.from('app_users')
@@ -5195,8 +5932,8 @@ async function saveUser() {
       return;
     }
 
-    // 3️⃣ Reload จาก Supabase (Source of Truth)
-    await loadUsers();
+    // 3️⃣ Reload จาก Supabase (Source of Truth) — ชุด management (อยู่บนหน้า Users + ผ่าน gate แล้ว)
+    await loadUsersForManagement();
 
     // 4️⃣ Sync userProfile ถ้าแก้ตัวเอง
     const refreshed = state.users.find(u => u.id === editingUserId);
@@ -5246,8 +5983,8 @@ async function saveUser() {
     return;
   }
 
-  // 3️⃣ Reload จาก Supabase
-  await loadUsers();
+  // 3️⃣ Reload จาก Supabase — ชุด management (อยู่บนหน้า Users + ผ่าน gate แล้ว)
+  await loadUsersForManagement();
 
   closeModal('modalUser');
   renderUsers();
@@ -5262,19 +5999,19 @@ function syncCurrentUserProfile(savedUser) {
   if (!me || me !== editedName) return; // ไม่ใช่ตัวเอง — ไม่ต้องทำอะไร
 
   // อัปเดต state.userProfile ทุก field ที่เปลี่ยน
-  state.userProfile = {
+  // 🛡 ห้ามนำ password ของชุด management เข้ามาใน session เด็ดขาด (sanitize คุมอีกชั้น)
+  state.userProfile = sanitizeSessionProfile({
     ...(state.userProfile || {}),
     username: savedUser.username,
-    password: savedUser.password,
     email: savedUser.email,
     department: savedUser.dept || savedUser.department,
     role: savedUser.role,
     status: (savedUser.status || 'active').toLowerCase(),
     is_active: (String(savedUser.status||'ACTIVE').toUpperCase() === 'ACTIVE'),
-  };
-  // เก็บลง localStorage ตาม spec
+  });
+  // เก็บลง localStorage ตาม spec (key เดิม) — sanitize ก่อนเขียนเสมอ
   try {
-    localStorage.setItem('advance_v7_user_profile', JSON.stringify(state.userProfile));
+    localStorage.setItem('advance_v7_user_profile', JSON.stringify(sanitizeSessionProfile(state.userProfile)));
   } catch(e) { console.warn('[syncCurrentUserProfile] save profile:', e); }
 
   // Refresh sidebar role + เมนูตามสิทธิ์ใหม่
@@ -5289,6 +6026,8 @@ function syncCurrentUserProfile(savedUser) {
 }
 
 async function deleteUser(id) {
+  // 🛡 Session Permission Gate — ห้ามลบผู้ใช้ก่อน Server ยืนยัน role
+  if (!requireVerifiedSession('ลบผู้ใช้')) return;
   // 🛡️ ลบ user ได้เฉพาะ SUPER_ADMIN (กันแม้เรียกจาก console)
   if (normalizeRole(state.userProfile?.role) !== 'SUPER_ADMIN') {
     toast('❌ คุณไม่มีสิทธิ์ลบผู้ใช้งาน', 'err');
@@ -5321,12 +6060,14 @@ async function deleteUser(id) {
 
   // ลบจาก state + cache
   state.users = state.users.filter(x => x.id !== id);
-  try { localStorage.setItem(LS_USERS, JSON.stringify(state.users)); } catch(e){}
+  _cacheUserDirectory(state.users);   // 🛡 cache ห้ามมีรหัสผ่าน (state.users ชุด management มี password)
   renderUsers();
   toast('🗑 ลบผู้ใช้งานสำเร็จ');
 }
 
 function syncUsersFromJobs() {
+  // 🛡 Session Permission Gate — เขียนทับรายชื่อผู้ใช้
+  if (!requireVerifiedSession('ดึงรายชื่อผู้ใช้')) return;
   // ดึงชื่อ user จาก timeline ของทุก job มาเพิ่ม (ถ้ายังไม่มี)
   const names = new Set();
   state.jobs.forEach(j => {
@@ -5813,6 +6554,8 @@ function onAttachInput(input) {
 }
 
 async function attachFiles(files) {
+  // 🛡 Session Permission Gate — อัปโหลดขึ้น Storage จริง
+  if (!requireVerifiedSession('แนบไฟล์')) return;
   if (!files.length) return;
   if (!sb) {
     toast('Supabase SDK ไม่พร้อม — แนบไฟล์ไม่ได้', 'err');
@@ -5944,6 +6687,8 @@ async function downloadAttachFile(idx) {
 }
 
 async function deleteAttachFile(idx) {
+  // 🛡 Session Permission Gate — ลบไฟล์บน Storage จริง
+  if (!requireVerifiedSession('ลบไฟล์แนบ')) return;
   const f = getActiveFiles()[idx];
   if (!f) return;
   if (!confirm(`ลบไฟล์ "${f.name}" ?`)) return;
@@ -5993,6 +6738,8 @@ function setupAttachDropzone() {
 }
 
 function openSlipDialog(i) {
+  // 🛡 Session Permission Gate — เปิดกล่องแนบสลิปได้เมื่อ Server ยืนยัน role แล้ว
+  if (!requireVerifiedSession('แนบสลิป')) return;
   // 🛡️ เฉพาะ SUPER_ADMIN เท่านั้นที่แนบสลิปได้
   if (!canManageSlip()) {
     toast('❌ เฉพาะ SUPER ADMIN เท่านั้นที่สามารถแนบสลิปได้', 'err');
@@ -6927,6 +7674,8 @@ function openEdit(id) {
 }
 
 function saveJob() {
+  // 🛡 Session Permission Gate — สร้าง/แก้ไขงาน
+  if (!requireVerifiedSession('บันทึกงาน')) return;
   const date = document.getElementById('f_date').value;
   const mode = document.getElementById('f_mode').value;
   const transport = document.getElementById('f_transport').value;
@@ -7024,6 +7773,7 @@ function saveJob() {
       : `${payments.length} รายการจ่าย · รวม ${fmtMoney(totActual)} บาท`;
     const job = {
       id: id8(),
+      _localOnly: true,   // 🛡 ยังไม่เคยขึ้น Cloud — ใช้แยก "orphan จริง" ออกจาก "งานที่ถูกลบบน Server"
       jobNo: makeJobNo(date, seq),
       status: 'pending',
       ...payload,
@@ -7046,6 +7796,8 @@ function saveJob() {
 }
 
 function setJobStatus(id, newStatus) {
+  // 🛡 Session Permission Gate — ห้ามเปลี่ยนสถานะก่อน Server ยืนยัน role
+  if (!requireVerifiedSession('เปลี่ยนสถานะงาน')) return;
   const j = state.jobs.find(x => x.id === id);
   if (!j) return;
   // 🛡️ Close Job → เฉพาะ AC/ACCOUNT/SUPER_ADMIN (ADMIN ห้าม)
@@ -7081,6 +7833,8 @@ function setJobStatus(id, newStatus) {
 }
 
 function deleteJob(id) {
+  // 🛡 Session Permission Gate — ห้ามลบก่อน Server ยืนยัน role
+  if (!requireVerifiedSession('ลบงาน')) return;
   // 🛡️ ลบงานได้เฉพาะ SUPER_ADMIN
   if (!canDeleteJob()) {
     toast('❌ คุณไม่มีสิทธิ์ลบงาน', 'err');
@@ -7272,6 +8026,8 @@ function recalcRow(jobId, i) {
 }
 
 function addPayment(jobId) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('เพิ่มรายการจ่าย')) return;
   const j = state.jobs.find(x=>x.id===jobId);
   if (!j) return;
   j.payments = j.payments || [];
@@ -7280,6 +8036,8 @@ function addPayment(jobId) {
 }
 
 function delPayment(jobId, i) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('ลบรายการจ่าย')) return;
   const j = state.jobs.find(x=>x.id===jobId);
   if (!j) return;
   if (!confirm('ลบรายการนี้?')) return;
@@ -7290,6 +8048,8 @@ function delPayment(jobId, i) {
 }
 
 function savePayments(jobId) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('บันทึกรายการจ่าย')) return;
   const j = state.jobs.find(x => x.id === jobId);
   saveJobs();
   if (j) syncJob(j);   // 🌩 sync to Supabase
@@ -7297,6 +8057,8 @@ function savePayments(jobId) {
 }
 
 function addTimeline(jobId) {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('เพิ่ม Timeline')) return;
   const j = state.jobs.find(x=>x.id===jobId);
   if (!j) return;
   const note = prompt('บันทึกหมายเหตุ / สถานะ (เช่น "ตรวจสอบเอกสารแล้ว"):');
@@ -7344,12 +8106,32 @@ async function doRefresh() {
     ok ? null : 'err');
 }
 
-function exportCSV() {
+/* ⚡ LAZY LOAD xlsx-js-style — โหลดเมื่อกด Export ครั้งแรกเท่านั้น
+   (เดิมโหลดใน <head> ~1 MB ทุกครั้งที่เปิดเว็บ แม้ยังไม่ได้ Login) */
+let _xlsxPromise = null;
+function ensureXlsx() {
+  if (typeof XLSX !== 'undefined') return Promise.resolve(true);
+  if (_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    s.async = true;
+    s.onload  = () => resolve(typeof XLSX !== 'undefined');
+    s.onerror = () => { _xlsxPromise = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
+
+async function exportCSV() {
   // 🛡️ Export → เฉพาะ AC/ACCOUNT/ADMIN/SUPER_ADMIN
   if (!canExport()) {
     toast('❌ คุณไม่มีสิทธิ์ Export ข้อมูล', 'err');
     return;
   }
+  // 🛡 Session Permission Gate — ห้าม Export ก่อน Server ยืนยัน role
+  if (!requireVerifiedSession('Export ข้อมูล')) return;
+  await ensureXlsx();   // ⏳ รอ SheetJS (ถ้าโหลดไม่ได้ → ตกไป fallback CSV เดิม)
   const list = state.view.status === 'all'
     ? visibleJobs().filter(j=>j.mode===state.view.mode)
     : visibleJobs().filter(j=>j.mode===state.view.mode && j.status===state.view.status);
@@ -7457,6 +8239,8 @@ function exportCSV() {
    SHARE TO LINE (รายการทั้งหมดในมุมมองปัจจุบัน)
 ============================================================ */
 function shareAllToLine() {
+  // 🛡 Session Permission Gate
+  if (!requireVerifiedSession('แชร์ไป LINE')) return;
   // 🔥 Filter เฉพาะงาน approved + วันที่ปัจจุบัน (แชร์ซ้ำได้ไม่จำกัด)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -7774,6 +8558,8 @@ function buildLineMessageAdvanceFiltered(j) {
 }
 
 function shareJobToLine(id) {
+  // 🛡 Session Permission Gate — เขียน line_shared_at กลับ DB
+  if (!requireVerifiedSession('แชร์ไป LINE')) return;
   const j = state.jobs.find(x => x.id === id);
   if (!j) return;
 
@@ -7834,6 +8620,8 @@ function shareJobToLine(id) {
 }
 
 function doBackup() {
+  // 🛡 Session Permission Gate — ส่งออกข้อมูลทั้งระบบ
+  if (!requireVerifiedSession('สำรองข้อมูล')) return;
   const blob = new Blob([JSON.stringify({version:'v7',exported:new Date().toISOString(),jobs:state.jobs}, null, 2)], { type:'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -7859,10 +8647,8 @@ function toast(msg, type) {
    INIT
 ============================================================ */
 (function init(){
-  loadJobs();
-  loadUsers();
-  // 🔒 ปิด auto-login — ทุกครั้งที่เปิดเว็บต้อง login ใหม่
-  // (localStorage LS_USER ยังคงไว้ ไม่ลบ เพื่อ data อื่นๆ ที่อ้างอิง)
+  loadJobs();   // 💾 cache-first — ไม่ยิง network
+
   // Close modals on backdrop click
   document.querySelectorAll('.modal-back').forEach(m => {
     m.addEventListener('click', e => {
@@ -7872,6 +8658,23 @@ function toast(msg, type) {
   // Enter to login
   document.getElementById('loginPass').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
+  });
+
+  // 🔄 SESSION RESTORE — เปิดเว็บ / Reload / เปิดลิงก์ซ้ำ → ไม่ต้อง Login ใหม่ถ้า session ยัง valid
+  if (!restoreSession()) {
+    showLoginPage();
+  }
+
+  // 🛡 Re-validate session เมื่อกลับมาที่แท็บ / ต่อเน็ตใหม่ (throttle 60 วิ ใน validateSession)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.user) validateSession('visible');
+  });
+  window.addEventListener('online', () => {
+    if (state.user) validateSession('online');
+  });
+  window.addEventListener('pageshow', (e) => {
+    // bfcache restore (iOS Safari / Android Chrome กลับจาก LINE)
+    if (e.persisted && state.user) validateSession('pageshow');
   });
 })();
 </script>
