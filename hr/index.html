@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NJ LOGISTIC HR SYSTEM</title>
+  <meta name="theme-color" content="#101827">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- CSS ของระบบ (Critical) มาก่อนฟอนต์ภายนอก — ฟอนต์ใช้ display=swap อยู่แล้ว
+       จึงวาดหน้าด้วยฟอนต์สำรองได้ทันทีระหว่างรอ ไม่บล็อกการเรนเดอร์บนเน็ตช้า -->
+  <link rel="stylesheet" href="styles.css?v=3d695e66">
+  <!-- ส่วนเพิ่มสำหรับมือถือ (ไม่แก้ styles.css เดิม) -->
+  <link rel="stylesheet" href="mobile.css?v=53f7104d">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="modal-root"></div>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="payslip-print-area" aria-hidden="true"></div>
+  <!-- Production: จะเปลี่ยน mock-data.js เป็น Supabase Client + Auth -->
+  <!-- การเชื่อมต่อ Supabase — ย้ายออกไปไว้ที่ config.js (ไฟล์ตั้งค่าไฟล์เดียว)
+       สลับ Staging/Production ได้ที่ config.js โดยไม่ต้องแก้ index.html หรือ app.js
+       ใช้ publishable key เท่านั้น ห้ามใส่คีย์ฝั่งเซิร์ฟเวอร์ (secret key) -->
+  <!-- config.js — Classic Script แบบ synchronous
+       โหลดก่อน Environment Safety Gate และก่อน app.js เสมอ
+       ไม่ใช้ fetch / dynamic import / document.write / query string
+       จึงเปิดได้ทั้ง file:// , http://localhost และ https://
+       (กัน Service Worker cache ด้วยกฎ no-store ใน sw.js แทน cache-buster) -->
+  <script src="./config.js"></script>
+  <!-- (7) Production ไม่โหลด mock-data.js · Development เท่านั้นที่โหลด -->
+  <script>
+    window.NJHR_ENV = 'production';   // เปลี่ยนเป็น 'development' เพื่อใช้ข้อมูลทดสอบ
+
+    /* ตัวโหลดสคริปต์กลางของ Boot Layer — ใช้แทน document.write
+       document.write บล็อก HTML Parser และเลิกใช้แล้วในเบราว์เซอร์สมัยใหม่
+       ที่นี่ใช้ script.async = false จึงรักษาลำดับการโหลดเหมือน document.write ทุกประการ
+       และมี Promise cache กันโหลดซ้ำถ้าถูกเรียกหลายครั้ง */
+    window.NJHR_BOOT_SCRIPTS = window.NJHR_BOOT_SCRIPTS || {};
+    window.NJHR_loadBootScript = function (src) {
+      if (window.NJHR_BOOT_SCRIPTS[src]) return window.NJHR_BOOT_SCRIPTS[src];
+      var pr = new Promise(function (resolve, reject) {
+        var exist = document.querySelector('script[data-boot="' + src + '"]');
+        if (exist) { resolve(); return; }
+        var sc = document.createElement('script');
+        sc.src = src;
+        sc.async = false;                 // สำคัญ: รักษาลำดับ ไม่ใช่ async
+        sc.setAttribute('data-boot', src);
+        sc.onload = function () { resolve(); };
+        sc.onerror = function () {
+          delete window.NJHR_BOOT_SCRIPTS[src];   // ให้ลองใหม่ได้
+          reject(new Error('โหลดไฟล์ไม่สำเร็จ: ' + src));
+        };
+        document.head.appendChild(sc);
+      });
+      window.NJHR_BOOT_SCRIPTS[src] = pr;
+      return pr;
+    };
+
+    if (window.NJHR_ENV !== 'production') window.NJHR_loadBootScript('mock-data.js?v=044af29a');
+  </script>
+  <!-- Environment Safety Gate — ข้อบังคับ (กฎข้อ 50)
+       BLOCK แม้ข้อเดียว: ห้ามสร้าง Supabase Client · ห้าม Login · ห้ามเรียก Table/RPC/Storage
+       ห้ามอ่าน-เขียนข้อมูล · ห้าม fallback ค่าเดิมใน index.html/app.js/localStorage
+       ต้องแสดง Error Code · ล้าง State ของ V2 · ไม่มีปุ่มข้าม · แก้แล้วต้อง Reload เอง -->
+  <script>
+    (function () {
+      var u = window.NJHR_SUPABASE_URL, k = window.NJHR_SUPABASE_ANON_KEY;
+      var env = window.NJHR_ENV_NAME, allowProd = window.NJHR_ALLOW_PRODUCTION;
+      var prodId = window.NJHR_PRODUCTION_PROJECT_ID, stgId = window.NJHR_STAGING_PROJECT_ID;
+      var code = '', err = '';
+      var ph = function (v) { return !v || String(v).indexOf('__') === 0; };
+      var ref = (String(u || '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/i) || [])[1] || '';
+      var isProd = !!ref && ref === prodId;
+      var isStg  = !!ref && !ph(stgId) && ref === stgId;
+
+      if (window.NJHR_CONFIG_FILE_OK !== true) {
+        code = 'CFG-001'; err = 'config.js โหลดไม่สำเร็จ หรือค่าไม่ครบ';
+      } else if (ph(u) || ph(k)) {
+        code = 'CFG-002'; err = 'ค่ายังเป็น __PLACEHOLDER__ (SUPABASE_URL หรือ Publishable Key)';
+      } else if (env !== 'staging' && env !== 'production') {
+        code = 'CFG-003'; err = 'NJHR_ENV_NAME ไม่ใช่ staging หรือ production';
+      } else if (env === 'staging' && ph(stgId)) {
+        code = 'CFG-002'; err = 'ยังไม่ได้กรอก NJHR_STAGING_PROJECT_ID (ยังเป็น __PLACEHOLDER__)';
+      } else if (!ref || (!isProd && !isStg)) {
+        code = 'CFG-004'; err = 'SUPABASE_URL ไม่ใช่รูปแบบ Supabase ที่อนุญาต หรือชี้ไป Project ที่ไม่อยู่ในรายการอนุญาต';
+      } else if (env === 'staging' && isProd) {
+        code = 'CFG-006'; err = 'ENV = staging แต่ URL ชี้ไปที่ PRODUCTION';
+      } else if (env === 'production' && !isProd) {
+        code = 'CFG-007'; err = 'ENV = production แต่ URL ชี้ไปที่ STAGING';
+      } else if (isProd && allowProd !== true) {
+        code = 'CFG-005'; err = 'URL ชี้ Production แต่ NJHR_ALLOW_PRODUCTION !== true';
+      } else if (env === 'staging' && allowProd === true) {
+        code = 'CFG-005'; err = 'ENV = staging แต่ NJHR_ALLOW_PRODUCTION ถูกตั้งเป็น true';
+      }
+
+      window.NJHR_CONFIG_OK = !code;
+      window.NJHR_CONFIG_ERROR = code || null;
+      // (50.10) ดู Environment ได้จาก Console / หน้า Diagnostic เท่านั้น ไม่แสดงบนหน้าจอผู้ใช้
+      window.NJHR_DIAG = function () {
+        return { env: window.NJHR_ENV_NAME, build: window.NJHR_BUILD_VERSION,
+                 supabaseUrl: window.NJHR_SUPABASE_URL, apiBase: window.NJHR_API_BASE_URL,
+                 flags: window.NJHR_FEATURE_FLAGS, configOk: window.NJHR_CONFIG_OK,
+                 errorCode: window.NJHR_CONFIG_ERROR };
+      };
+
+      if (!code) {
+        /* Gate ผ่าน → Runtime Split
+           ลำดับบังคับ: asset-manifest.js → runtime/namespace.js → runtime/core.js
+           แต่ละขั้นรอขั้นก่อนหน้าเสร็จจริง (async = false + Promise chain)
+           Manifest โหลดไม่ได้ = ไม่ Boot ต่อ (ข้อ 7.5)
+           Feature Module และ Compatibility Bundle ไม่ถูกโหลดที่นี่เลย
+           Router เป็นผู้สั่งโหลดตาม Route หลังตรวจสิทธิ์แล้วเท่านั้น */
+        var bootFail = function (e) {
+          try { console.error(e && e.message); } catch (e2) {}
+          var el = document.getElementById('app');
+          if (el) el.innerHTML = '<div style="padding:24px;font-family:system-ui">' +
+            'โหลดไฟล์ระบบไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง</div>';
+        };
+        window.NJHR_loadBootScript('asset-manifest.js?v=457eaa6a')
+          .then(function () {
+            var A = window.NJHR_ASSETS;
+            if (!A || !A.runtime || !A.runtime.namespace || !A.runtime.core) throw new Error('ASSET_MANIFEST_MISSING');
+            return window.NJHR_loadBootScript(A.runtime.namespace).then(function () {
+              return window.NJHR_loadBootScript(A.runtime.core);
+            });
+          })['catch'](bootFail);
+        return;
+      }
+
+      /* ---- ห้าม fallback: ล้างค่าเชื่อมต่อทิ้ง ไม่เหลือให้โค้ดใดหยิบไปใช้ ---- */
+      window.NJHR_SUPABASE_URL = undefined;
+      window.NJHR_SUPABASE_ANON_KEY = undefined;
+      window.NJHR_API_BASE_URL = undefined;
+
+      /* ---- ล้าง State ของ V2 เท่านั้น ----
+         V2 อยู่คนละ Origin กับ V1 ตามข้อบังคับ Deploy
+         localStorage / sessionStorage / Cache Storage / Service Worker ผูกกับ Origin
+         การล้างที่นี่จึงแตะได้เฉพาะของ V2 ไม่มีทางแตะของ V1 */
+      try {
+        ['njhr_token', 'njhr_sb_user', 'njhr_session_v1', 'njhr_db_v3', 'njhr_ui_v1', 'njhr_rp_filter']
+          .forEach(function (key) {
+            try { localStorage.removeItem(key); } catch (e) {}
+            try { sessionStorage.removeItem(key); } catch (e) {}
+          });
+      } catch (e) {}
+      try {
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (ks) {
+            ks.forEach(function (n) { if (n.indexOf('njhr-v2-') === 0) caches.delete(n); });
+          }).catch(function () {});
+        }
+      } catch (e) {}
+      try {
+        // file:// → ห้ามเรียก Service Worker API เลย แม้แต่เพื่อ unregister
+        // http/https → unregister เฉพาะ registration ที่ scope อยู่ใต้โฟลเดอร์ของ V2 เท่านั้น
+        //              ไม่ใช้ getRegistrations() แล้วล้างทุกตัว เพราะจะกระทบ V1
+        if (location.protocol !== 'file:' &&
+            navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          var v2Base = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '');
+          navigator.serviceWorker.getRegistrations().then(function (rs) {
+            rs.forEach(function (r) {
+              if (r && r.scope && r.scope.indexOf(v2Base) === 0) r.unregister();
+            });
+          }).catch(function () {});
+        }
+      } catch (e) {}
+
+      try { console.error('[' + code + '] ' + err); } catch (e) {}
+
+      document.getElementById('app').innerHTML =
+        '<div style="max-width:580px;margin:80px auto;padding:28px;font-family:Prompt,Tahoma,sans-serif;' +
+        'background:#fff;border:1px solid #E5E7EB;border-radius:16px;box-shadow:0 4px 14px rgba(17,24,39,.08)">' +
+        '<div style="display:inline-block;padding:4px 10px;border-radius:8px;background:#FEE2E2;color:#B80000;' +
+        'font-weight:700;font-size:13px;letter-spacing:.5px">' + code + '</div>' +
+        '<h2 style="margin:12px 0 10px;color:#B80000">ระบบหยุดทำงาน — ตั้งค่า Environment ไม่ถูกต้อง</h2>' +
+        '<p style="margin:0 0 12px;color:#111827">' + err + '</p>' +
+        '<p style="margin:0 0 12px;color:#64748B;line-height:1.9">' +
+        'ระบบไม่ได้เชื่อมต่อฐานข้อมูล ไม่ได้เข้าสู่ระบบ และไม่ได้เรียกใช้ข้อมูลใด ๆ<br>' +
+        'ข้อมูลการเข้าสู่ระบบและแคชของระบบนี้ถูกล้างแล้ว</p>' +
+        '<p style="margin:0;color:#64748B;line-height:1.9">แก้ไฟล์ <b>config.js</b> แล้วโหลดหน้านี้ใหม่ ' +
+        'หรือแจ้งรหัส <b>' + code + '</b> ให้ผู้ดูแลระบบ</p></div>';
+    })();
+  </script>
+  <script>
+    // Boot check: กันจอขาวกรณีเปิดไฟล์จากใน ZIP โดยไม่แตกไฟล์ หรือไฟล์ .js ไม่อยู่โฟลเดอร์เดียวกัน
+    setTimeout(function () {
+      var app = document.getElementById('app');
+      if (!app || app.childNodes.length > 0) return; // ระบบเปิดสำเร็จแล้ว
+      var missing = [];
+      if (!window.NJHR_ASSETS) missing.push('asset-manifest.js');
+      else if (!window.NJHR) missing.push('runtime/namespace.js');
+      else if (!window.NJHR.compat || !window.NJHR.compat.scope) missing.push('runtime/core.js');
+      app.innerHTML =
+        '<div style="max-width:520px;margin:80px auto;padding:28px;font-family:Prompt,Tahoma,sans-serif;' +
+        'background:#fff;border:1px solid #E5E7EB;border-radius:16px;box-shadow:0 4px 14px rgba(17,24,39,.08)">' +
+        '<h2 style="margin:0 0 10px;color:#B80000">เปิดระบบไม่สำเร็จ</h2>' +
+        '<p style="margin:0 0 12px;color:#111827">ไฟล์โปรแกรมโหลดไม่ครบ' +
+        (missing.length ? ' (ไม่พบ: <b>' + missing.join(', ') + '</b>)' : '') + '</p>' +
+        '<ol style="margin:0;padding-left:20px;color:#64748B;line-height:1.9">' +
+        '<li>คลิกขวาไฟล์ ZIP แล้วเลือก <b>แตกไฟล์ทั้งหมด (Extract All)</b> ก่อน ห้ามเปิดไฟล์จากในหน้าต่าง ZIP โดยตรง</li>' +
+        '<li>ไฟล์และโฟลเดอร์ทั้งหมด (index.html, config.js, asset-manifest.js, runtime/, views/, compat/, styles.css) ต้องอยู่ครบในโครงสร้างเดิม</li>' +
+        '<li>เปิดไฟล์ index.html ด้วย Chrome หรือ Edge</li></ol></div>';
+    }, 1500);
+  </script>
+  <script>
+    // (10) ล้าง Service Worker/Cache เวอร์ชันเก่าแล้วลงทะเบียนตัวใหม่
+    // Gate BLOCK → ห้ามลงทะเบียนใหม่ (ไม่งั้นจะเขียน Cache ทับที่เพิ่งล้างไป)
+    // file:// → ข้ามการ Register เสมอ (Service Worker ต้องการ secure context)
+    if (location.protocol !== 'file:' && 'serviceWorker' in navigator && window.NJHR_CONFIG_OK === true) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').then(function (reg) { reg.update(); }).catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
