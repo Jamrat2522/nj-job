@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-044af29a';
+const V = 'njhr-v2-e280ffbb';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,12 +10,28 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=457eaa6a","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=f652a9a9","./styles.css?v=3d695e66","./mobile.css?v=53f7104d","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=1af86fa4","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=f652a9a9","./styles.css?v=3d695e66","./mobile.css?v=34ddb0a5","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
       compat/*.js → cache ตอนเปิด Feature เดิมครั้งแรกเท่านั้น ห้าม precache
       ที่เหลือโหลดผ่าน loadScriptOnce/loadStyleOnce ซึ่งเติม ?v= ให้แล้ว */
+/* D) FACE MODELS — Cache แยกถาวร ไม่ผูกกับ Build
+      ไฟล์โมเดล face-api ไม่เคยเปลี่ยนตาม Deploy (เป็น weight ของ @vladmandic/face-api 1.7.13)
+      แต่ก้อนใหญ่มาก: face_recognition_model.bin = 6.44 MB · รวมทั้งชุด ~8.3 MB
+
+      ปัญหาที่พบจริง:
+        · SW เดิมไม่ cache โฟลเดอร์นี้เลย → พึ่ง HTTP cache ของ host อย่างเดียว
+        · บน Netlify มี netlify.toml ตั้ง immutable 1 ปีให้
+        · แต่บน GitHub Pages ไม่มีไฟล์นั้น และ Pages ส่ง max-age=600 (10 นาที)
+          → ผู้ใช้ต้องโหลดโมเดล 6.44 MB ใหม่ทุก 10 นาที = Cold Start ทุกครั้ง
+
+      แก้: cache-first ใน bucket ของตัวเอง ชื่อไม่ขึ้นต้นด้วย 'njhr-v2-'
+      จึง "ไม่ถูกลบ" ตอน activate() ของ build ใหม่ → ข้าม Deploy ได้ ข้ามการปิดแอปได้
+      ไม่ precache ตอน install (จะทำให้ install ช้า/ล้ม) — cache ตอนใช้จริงครั้งแรกเท่านั้น */
+const MODEL_CACHE = 'njhr-face-models-v1';
+const MODEL_DIR = '/assets/models/';
+
 const LAZY_PATHS = ["dashboard.js","emp-meta.js","hr-meta.js","report-export.js","requests.js","leave-meta.js","attachments.js","list.js","main.js","report.js","menu.js","form.js","documents.js","import.js","export.js","correction.js","detail.js","hrdocs.js","approvals-reports.js","admin-users.js","face.js","face.css","master-salary.js","report-template.js"];
 
 /* C) ห้าม cache เด็ดขาด — config.js · Supabase/RPC · ทุก origin อื่น
@@ -46,6 +62,8 @@ self.addEventListener('activate', e => e.waitUntil(
   caches.keys()
     .then(ks => Promise.all(
       // ลบเฉพาะ cache ของระบบนี้ที่เป็น build เก่า — ไม่แตะ cache ของระบบอื่นบน origin เดียวกัน
+      /* ลบเฉพาะ 'njhr-v2-*' ของ build เก่า — MODEL_CACHE ('njhr-face-models-v1')
+         ไม่ขึ้นต้นด้วย 'njhr-v2-' จึงรอดข้าม Deploy ทุกครั้งโดยตั้งใจ */
       ks.filter(k => k !== V && k.indexOf('njhr-v2-') === 0).map(k => caches.delete(k))))
     .then(() => self.clients.claim())));
 
@@ -197,6 +215,38 @@ self.addEventListener('fetch', e => {
   }
   if (u.pathname.endsWith('/config.js')) {                      // (50.7/50.8) network-only + no-store
     e.respondWith(fetch(e.request, { cache: 'no-store' }));
+    return;
+  }
+
+  /* FACE MODELS — cache-first ถาวร
+     มีใน cache = คืนทันที ไม่แตะ Network เลย (ครั้งที่ 2 เป็นต้นไปจึงเร็วทุกครั้ง)
+     ไม่มี = โหลดปกติแล้วเก็บไว้ · โหลดพลาดก็คืน response เดิมไป ไม่ทำให้ Flow ล้ม
+     ⚠ ไม่แตะไฟล์อื่นนอกโฟลเดอร์นี้ · ไม่แตะ config.js · ไม่แตะ Supabase */
+  if (u.pathname.indexOf(MODEL_DIR) >= 0) {
+    e.respondWith(caches.open(MODEL_CACHE).then(c => c.match(e.request).then(hit => {
+      if (hit) return hit;                       // Cache Hit = คืนทันที ไม่แตะ Network
+      return fetch(e.request).then(resp => {
+        /* [FIX] เขียน Cache ต้องผูกกับ Fetch Event Lifecycle
+           เดิม c.put() ถูกยิงทิ้งไว้เฉย ๆ (fire-and-forget) เบราว์เซอร์จึงมีสิทธิ์
+           จบ Fetch Event / terminate Service Worker ก่อนเขียนเสร็จ
+           face_recognition_model.bin = 6.44 MB ใช้เวลาเขียนนาน จึงเสี่ยงสูงเป็นพิเศษ
+           อาการที่เกิด: โหลดโมเดลสำเร็จแต่ Cache ว่าง → รอบหน้าโหลดใหม่ทั้งก้อน
+
+           e.waitUntil() ยืดอายุ Event จนเขียน Cache จบ
+           แต่ยัง return resp ทันที ไม่ await → First Load ไม่ช้าลงแม้แต่มิลลิวินาทีเดียว
+           .catch() รับ Promise Rejection เอง (เช่น QuotaExceededError บน iOS)
+           Cache ล้มเหลว = Face Flow ยังเดินต่อด้วย response จาก Network ตามปกติ
+           try/catch ชั้นนอกกันกรณี clone()/waitUntil() โยน error แบบ synchronous */
+        if (resp && resp.ok) {
+          try {
+            e.waitUntil(c.put(e.request, resp.clone()).catch(err => {
+              swReport('model-cache', (err && err.message) || 'cache put failed');
+            }));
+          } catch (err) {}
+        }
+        return resp;                             // คืนให้ face-api ทันที ไม่รอเขียน Cache
+      });
+    })));
     return;
   }
 
