@@ -818,6 +818,22 @@
       '<div class="njf-guide"><span class="njf-corner tl"></span><span class="njf-corner tr"></span>' +
       '<span class="njf-corner bl"></span><span class="njf-corner br"></span>' +
       '<div class="njf-oval" id="njf-oval"></div>' +
+      /* [UI] วงแหวนความคืบหน้ารอบใบหน้า — SVG ซ้อนบน .njf-oval พอดี
+         วาดเป็นวงกลม stroke-dasharray แล้วเลื่อน stroke-dashoffset ตามจำนวนมุมที่ผ่าน
+         เป็น overlay ล้วน: pointer-events:none · ไม่แตะ <video> · ไม่แตะ <canvas>
+         ที่ใช้จับภาพ จึงไม่กระทบการตรวจใบหน้า/คุณภาพภาพ/Descriptor เลย */
+      '<svg class="njf-ring" id="njf-ring" viewBox="0 0 120 160" aria-hidden="true">' +
+      /* bg = วงพื้นจาง · dash = เส้นประที่ไหลรอบวง (บอกว่าระบบกำลังทำงาน)
+         hint = ส่วนโค้งไฮไลต์ฝั่งที่ต้องหมุนไป · fg = ความคืบหน้าจริง */
+      '<ellipse class="njf-ring-bg" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
+      '<ellipse class="njf-ring-dash" id="njf-ring-dash" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
+      '<ellipse class="njf-ring-hint" id="njf-ring-hint" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
+      '<ellipse class="njf-ring-live" id="njf-ring-live" cx="60" cy="80" rx="49" ry="68"></ellipse>' +
+      '<ellipse class="njf-ring-fg" id="njf-ring-fg" cx="60" cy="80" rx="57" ry="77"></ellipse>' +
+      '</svg>' +
+      /* ลูกศรโค้งบอกทิศ — แสดงเฉพาะมุมซ้าย/ขวา · ✓ กลางวงเมื่อผ่าน */
+      '<div class="njf-turn" id="njf-turn" aria-hidden="true"></div>' +
+      '<div class="njf-ok" id="njf-ok" aria-hidden="true">&#10003;</div>' +
       '<div class="njf-hint"><b id="njf-h1">มองกล้องให้อยู่ในกรอบ</b>' +
       '<small id="njf-h2">กรุณาอย่าขยับใบหน้า</small></div></div></div>' +
       '<div class="njf-panel" id="njf-panel"></div>';
@@ -1301,10 +1317,15 @@
   }
 
   /* ---------- ลงทะเบียนใบหน้า ---------- */
+  /* [UI] เพิ่ม title/done/arrow สำหรับหน้าจอแนวใหม่ (Stepper 1-2-3)
+     ⚠ test() · เกณฑ์มุม 0.18 / 0.20 · ลำดับ FRONT→LEFT→RIGHT ไม่ถูกแตะแม้แต่จุดเดียว */
   var POSES = [
-    { key: 'FRONT', label: 'หน้าตรง', icon: '&#128100;', hint: 'มองกล้องตรง ๆ',   test: function (y) { return Math.abs(y) < 0.18; } },
-    { key: 'LEFT',  label: 'หันซ้าย',  icon: '&#11013;',  hint: 'หันหน้าไปทางซ้ายเล็กน้อย',  test: function (y) { return y > 0.20; } },
-    { key: 'RIGHT', label: 'หันขวา',   icon: '&#10145;',  hint: 'หันหน้าไปทางขวาเล็กน้อย',   test: function (y) { return y < -0.20; } }
+    { key: 'FRONT', label: 'หน้าตรง', icon: '&#128100;', hint: 'มองกล้องตรง ๆ',   test: function (y) { return Math.abs(y) < 0.18; },
+      title: 'มองตรง',              done: 'มองตรง',      arrow: '' },
+    { key: 'LEFT',  label: 'หันซ้าย',  icon: '&#11013;',  hint: 'หันหน้าไปทางซ้ายเล็กน้อย',  test: function (y) { return y > 0.20; },
+      title: 'ค่อย ๆ หันหน้าไปทางซ้าย', done: 'หันซ้าย ครบแล้ว', arrow: '&#8592;' },
+    { key: 'RIGHT', label: 'หันขวา',   icon: '&#10145;',  hint: 'หันหน้าไปทางขวาเล็กน้อย',   test: function (y) { return y < -0.20; },
+      title: 'ค่อย ๆ หันหน้าไปทางขวา',  done: 'หันขวา ครบแล้ว',  arrow: '&#8594;' }
   ];
 
   function enroll(employeeId, onDone, opts) {
@@ -1335,13 +1356,113 @@
     shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
     var got = [], idx = 0, snapPath = null;
 
-    function drawPoses(msg, err) {
-      panel('<div class="njf-poses">' + POSES.map(function (p, i) {
-        return '<div class="njf-pose ' + (i < idx ? 'done' : i === idx ? 'on' : '') + '">' +
-          '<i>' + p.icon + '</i>' + esc(p.label) + '</div>';
-      }).join('') + '</div>' +
-      '<div class="njf-msg' + (err ? ' err' : '') + '" id="njf-msg">' + esc(msg || '') + '</div>' +
-      '<div class="njf-actions" id="njf-act"></div>');
+    /* [UI] หน้าจอลงทะเบียนแนวใหม่
+         · Stepper วงกลม 1-2-3 (ผ่านแล้วเป็น ✓ เขียว · ขั้นปัจจุบันเป็นวงน้ำเงิน)
+         · หัวข้อบอกสิ่งที่ต้องทำ + ลูกศรบอกทิศ
+         · แถบ Progress + ตัวเลข n/3
+       ทั้งหมดเป็นการ "แสดงผล" ล้วน — ไม่แตะการตรวจมุม/จำนวนภาพ/ลำดับ/Descriptor
+       stepDone = true เมื่อเพิ่งบันทึกมุมนี้สำเร็จ (ใช้โชว์ข้อความ "ครบแล้ว ✓") */
+    /* [UI] เลื่อนวงแหวนตามความคืบหน้า (0..1) · เปลี่ยนเป็นเขียวเมื่อครบมุม
+       ไม่มีผลต่อ Logic ใด ๆ — ล้มเหลวเงียบถ้าไม่พบ element */
+    function ringSet(ratio, done) {
+      try {
+        var fg = document.getElementById('njf-ring-fg');
+        if (!fg) return;
+        var len = fg.getTotalLength ? fg.getTotalLength() : 424;
+        fg.style.strokeDasharray = len;
+        fg.style.strokeDashoffset = String(len * (1 - Math.max(0, Math.min(1, ratio))));
+        fg.classList.toggle('ok', !!done);
+      } catch (e) {}
+    }
+
+    /* [UI] ตั้งทิศทางที่ต้องหมุน + สถานะผ่านของมุมปัจจุบัน
+         cam.dataset.dir = ''|'left'|'right'  → CSS เอียงวงรีและวางลูกศร
+         .njf-ring-hint  = ส่วนโค้งไฮไลต์ฝั่งที่ต้องหมุนไป
+         .njf-ok         = เครื่องหมาย ✓ กลางวง
+       เป็นการแสดงผลล้วน ไม่แตะการตรวจมุม/คุณภาพภาพ/Descriptor */
+    /* [UI] Live feedback ระหว่างหมุนหน้า — ใช้ค่า y (yaw) ที่ลูปคำนวณอยู่แล้ว
+       ไม่เพิ่มการประมวลผลใหม่ · ไม่เรียก detect เพิ่ม · ไม่แตะเกณฑ์ผ่าน
+
+       prog = ความคืบหน้าของ "มุมนี้" 0..1 เทียบกับเกณฑ์จริงของแต่ละท่า
+         FRONT ผ่านเมื่อ |y| < 0.18 → ยิ่งเข้าใกล้ 0 ยิ่งใกล้ผ่าน
+         LEFT  ผ่านเมื่อ y > 0.20   → 0..0.20 คือช่วงกำลังหมุน
+         RIGHT ผ่านเมื่อ y < -0.20
+       state: 'far' ยังไม่ถึง · 'near' ใกล้แล้ว (>=70%) · 'hit' ถึงเกณฑ์
+       ทั้งหมดเป็นการแสดงผล — เกณฑ์ผ่านจริงยังใช้ pose.test(y) ตัวเดิมเท่านั้น */
+    function poseLive(pose, y) {
+      try {
+        var cam = S.root && S.root.querySelector('.njf-cam');
+        if (!cam || !pose) return;
+        var prog = 0;
+        if (pose.key === 'FRONT') {
+          prog = Math.max(0, Math.min(1, 1 - (Math.abs(y) / 0.60)));
+        } else if (pose.key === 'LEFT') {
+          prog = Math.max(0, Math.min(1, y / 0.20));
+        } else {
+          prog = Math.max(0, Math.min(1, -y / 0.20));
+        }
+        var hit = !!pose.test(y);
+        cam.dataset.live = hit ? 'hit' : (prog >= 0.7 ? 'near' : 'far');
+
+        /* วงแหวนชั้นในบอกความคืบหน้าของมุมนี้แบบสด */
+        var lv = document.getElementById('njf-ring-live');
+        if (lv) {
+          var len = lv.getTotalLength ? lv.getTotalLength() : 424;
+          lv.style.strokeDasharray = len;
+          lv.style.strokeDashoffset = String(len * (1 - (hit ? 1 : prog)));
+        }
+      } catch (e) {}
+    }
+
+    function poseVisual(pose, done) {
+      try {
+        var cam = S.root && S.root.querySelector('.njf-cam');
+        var oval = document.getElementById('njf-oval');
+        var turn = document.getElementById('njf-turn');
+        var ok = document.getElementById('njf-ok');
+        var hintArc = document.getElementById('njf-ring-hint');
+        var dir = (pose && pose.key === 'LEFT') ? 'left'
+                : (pose && pose.key === 'RIGHT') ? 'right' : '';
+
+        if (cam) {
+          cam.dataset.dir = done ? '' : dir;
+          cam.dataset.done = done ? '1' : '';
+          cam.dataset.live = done ? 'hit' : 'far';   // เริ่มมุมใหม่ = รีเซ็ตสถานะสด
+        }
+        var lv0 = document.getElementById('njf-ring-live');
+        if (lv0 && !done) { lv0.style.strokeDashoffset = ''; }
+        if (oval) { oval.classList.toggle('ok', !!done); }
+        if (turn) { turn.className = 'njf-turn' + (dir && !done ? ' show ' + dir : ''); }
+        if (ok) { ok.classList.toggle('show', !!done); }
+        if (hintArc) { hintArc.className.baseVal = 'njf-ring-hint' + (dir && !done ? ' ' + dir : ''); }
+      } catch (e) {}
+    }
+
+    function drawPoses(msg, err, stepDone) {
+      var cur = POSES[idx] || POSES[POSES.length - 1];
+      var shown = Math.min(idx + (stepDone ? 1 : 0), POSES.length);
+      var pct = Math.round((shown / POSES.length) * 100);
+      ringSet(shown / POSES.length, !!stepDone);
+      poseVisual(cur, !!stepDone);
+
+      panel(
+        '<div class="njf-steps">' + POSES.map(function (p, i) {
+          var st = (i < idx || (i === idx && stepDone)) ? 'done' : (i === idx ? 'on' : '');
+          return '<div class="njf-step ' + st + '"><span>' +
+                 (st === 'done' ? '&#10003;' : String(i + 1)) + '</span></div>';
+        }).join('<i class="njf-steps-line"></i>') + '</div>' +
+
+        '<div class="njf-title' + (stepDone ? ' ok' : '') + '">' +
+          (cur.arrow && !stepDone ? '<b class="njf-arrow">' + cur.arrow + '</b>' : '') +
+          esc(stepDone ? (cur.done || cur.label) : (cur.title || cur.label)) +
+          (stepDone ? ' <b class="njf-tick">&#10003;</b>' : '') +
+        '</div>' +
+
+        '<div class="njf-prog"><div class="njf-prog-bar" style="width:' + pct + '%"></div></div>' +
+        '<div class="njf-prog-txt">' + shown + '/' + POSES.length + '</div>' +
+
+        '<div class="njf-msg' + (err ? ' err' : '') + '" id="njf-msg">' + esc(msg || '') + '</div>' +
+        '<div class="njf-actions" id="njf-act"></div>');
       actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
     }
 
@@ -1359,6 +1480,7 @@
           else {
             var f0 = r[0], box = f0.detection.box, q = frameQuality(box);
             var y = yaw(f0.landmarks, box);
+            poseLive(pose, y);          // [UI] อัปเดตวงแหวน/สีตามมุมปัจจุบัน
             if (!q || q.ratio < 0.045) setMsg('เข้าใกล้กล้องขึ้นอีกเล็กน้อย', true);
             else if (q.brightness < 45) setMsg('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น', true);
             else if (q.sharpness < 12) setMsg('ภาพไม่ชัด กรุณาถือนิ่ง', true);
@@ -1381,10 +1503,18 @@
                       if (enAlive()) snapPath = p2;         // [ข้อ 6] Run เก่าห้ามเขียน State
                     }).catch(function () {});
                   }
+                  /* [UI] โชว์ "ครบแล้ว ✓" ของมุมที่เพิ่งผ่าน แล้วค่อยไปมุมถัดไป
+                     หน่วง 700ms เพื่อให้ผู้ใช้เห็นสถานะ — ไม่กระทบการตรวจใด ๆ */
+                  drawPoses('กำลังขึ้นขั้นตอนถัดไป…', false, true);
                   idx++;
                   if (!enAlive()) { closeCam(); return; }
                   if (idx >= POSES.length) return finish();
-                  return capturePose();
+                  return new Promise(function (res) {
+                    setTimeout(function () {
+                      if (!enAlive()) { closeCam(); return res(); }
+                      res(capturePose());
+                    }, 700);
+                  });
                 }
               }
             }
@@ -1395,10 +1525,50 @@
       })();
     }
 
+    /* [UI] หน้าจอกำลังบันทึก — pct 0..100 (ใช้เป็นภาพเท่านั้น ไม่ผูกกับความคืบหน้าจริงของ RPC) */
+    function saveScreen(pct) {
+      var items = POSES.map(function (p) {
+        return '<div class="njf-save-li"><b>&#10003;</b>' + esc('บันทึกมุม' + p.label) + '</div>';
+      }).join('') +
+      '<div class="njf-save-li' + (pct >= 100 ? '' : ' wait') + '">' +
+        (pct >= 100 ? '<b>&#10003;</b>' : '<i class="njf-dot"></i>') + 'ตรวจสอบความถูกต้อง</div>';
+
+      panel(
+        '<div class="njf-save">' +
+        '<div class="njf-save-t">กำลังบันทึกข้อมูลใบหน้า</div>' +
+        '<div class="njf-save-s">กรุณาอย่าออกจากหน้านี้</div>' +
+        '<div class="njf-save-list">' + items + '</div>' +
+        '<div class="njf-prog"><div class="njf-prog-bar" id="njf-save-bar" style="width:' +
+          Math.max(0, Math.min(100, pct)) + '%"></div></div>' +
+        '<div class="njf-prog-txt" id="njf-save-pct">' + Math.round(pct) + '%</div>' +
+        '</div>' +
+        '<div class="njf-actions" id="njf-act"></div>');
+      actions([]);   // ระหว่างบันทึก ไม่ให้กดยกเลิก (พฤติกรรมเดิมของขั้นนี้)
+    }
+
+    /* ขยับแถบให้ผู้ใช้เห็นว่ากำลังทำงาน — หยุดเองเมื่อ RPC ตอบกลับ */
+    var saveTick = 0;
+    function saveProgressStart() {
+      var pct = 8;
+      saveTick = setInterval(function () {
+        if (!enAlive()) { clearInterval(saveTick); return; }
+        pct = Math.min(92, pct + 6);
+        var bar = document.getElementById('njf-save-bar');
+        var txt = document.getElementById('njf-save-pct');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = Math.round(pct) + '%';
+      }, 220);
+    }
+    function saveProgressStop() { if (saveTick) { clearInterval(saveTick); saveTick = 0; } }
+
     function finish() {
       closeCam();
       if (!enAlive()) { closeCam(); return; }              // [ข้อ 6] ก่อน finish()/เปลี่ยน UI
-      drawPoses('กำลังบันทึกข้อมูลใบหน้า…');
+      /* [UI] หน้าจอ "กำลังบันทึกข้อมูลใบหน้า" — checklist มุมที่เก็บได้ + progress
+         เป็นการแสดงผลล้วน: อ่านจาก POSES/got ที่มีอยู่แล้ว ไม่คำนวณอะไรใหม่
+         ไม่แตะ RPC · ไม่แตะ descriptors · ไม่แตะเงื่อนไขบันทึก */
+      saveScreen(0);
+      saveProgressStart();
       /* ไม่ระบุ employeeId = พนักงานลงทะเบียนใบหน้าของตัวเองจากมือถือ
          ใช้ njhr_face_self_enroll ซึ่งไม่มีพารามิเตอร์ p_employee เลย
          พนักงานเป้าหมายมาจาก session ฝั่งฐานข้อมูลเท่านั้น จึงลงทะเบียนแทนคนอื่นไม่ได้
@@ -1422,10 +1592,21 @@
       rpc(fnName, body).then(function (r) {
         if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
         faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
-        panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
-          '<div class="njf-msg"><b>' + (reNew ? 'ลงทะเบียนใบหน้าใหม่สำเร็จ' : 'ลงทะเบียนใบหน้าสำเร็จ') +
-          '</b><br>เก็บใบหน้าไว้ ' +
-          ((r && r.sample_count) || got.length) + ' มุม</div>' +
+        saveProgressStop();
+        /* [UI] หน้าจอสำเร็จ — วงกลมเขียว ✓ + สรุปมุมที่เก็บได้
+           ไม่แสดงรูปใบหน้าจริง (Snapshot อยู่ใน bucket private) จึงใช้ป้ายมุมแทน */
+        panel(
+          '<div class="njf-done">' +
+          '<div class="njf-done-ic">&#10003;</div>' +
+          '<div class="njf-done-t">' +
+            esc(reNew ? 'ลงทะเบียนใบหน้าใหม่ สำเร็จ!' : 'ลงทะเบียนใบหน้า สำเร็จ!') + '</div>' +
+          '<div class="njf-done-s">พร้อมใช้งานสแกนหน้าเข้าสู่ระบบ</div>' +
+          '<div class="njf-done-tags">' + POSES.map(function (p) {
+            return '<span class="njf-done-tag"><b>&#10003;</b>' + esc(p.label) + '</span>';
+          }).join('') + '</div>' +
+          '<div class="njf-done-n">เก็บใบหน้าไว้ ' +
+            ((r && r.sample_count) || got.length) + ' มุม</div>' +
+          '</div>' +
           '<div class="njf-actions" id="njf-act"></div>');
         actions([{ label: 'เสร็จสิ้น', style: 'primary', on: function () {
           /* [ข้อ 1] โหมด Attendance → Handoff (ไม่ฆ่า Operation) แล้วต่อไป doPunch()
@@ -1434,6 +1615,7 @@
           if (typeof onDone === 'function') onDone(r);
         } }]);
       }).catch(function (e) {
+        saveProgressStop();
         if (isAborted(e) || !enAlive()) return;   // [ข้อ 5] Run ถูกยกเลิก = เงียบ
         drawPoses((e && e.message) || 'บันทึกไม่สำเร็จ', true);
         actions([
