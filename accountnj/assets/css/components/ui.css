@@ -8,6 +8,17 @@
 .btn-danger{background:var(--red-600);color:#fff}
 .btn-green{background:var(--green-600);color:#fff}
 .btn-sm{padding:5px 10px;font-size:var(--fs-xs)}
+/* ลบ — แดงแบบ Soft/Outline (ไม่ใช่แดงทึบ) ใช้ทั้งปุ่มลบแถวและลบเอกสาร */
+.btn-danger-soft{background:#fef2f2;border-color:#fecaca;color:var(--red-600)}
+.btn-danger-soft:hover{background:#fee2e2}
+/* ปุ่มเด่นที่สุดฝั่งขวา (PRINT) — น้ำเงินทึบ + เงา */
+.btn-print{background:var(--blue-600);color:#fff;box-shadow:0 1px 3px rgba(37,99,235,.35)}
+.btn-print:disabled{box-shadow:none}
+/* Disabled ต้องเห็นชัดว่ากดไม่ได้ */
+.btn:disabled{background:var(--surface-2);border-color:var(--line-2);color:var(--text-3);
+  cursor:not-allowed;opacity:.7;box-shadow:none;filter:none}
+/* ความสูงปุ่มเท่ากันทุกใบใน footer */
+.modal-f .btn,.fs-foot .btn{height:36px}
 .btn-icon{padding:7px;border-radius:var(--radius-sm)}
 /* Card */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
@@ -39,7 +50,18 @@
 .modal-lg{width:min(880px,100%)}
 .modal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
 .modal-b{padding:16px 18px;overflow-y:auto}
-.modal-f{display:flex;justify-content:flex-end;gap:9px;padding:12px 18px;border-top:1px solid var(--line)}
+.modal-f{display:flex;justify-content:flex-end;align-items:center;gap:9px;padding:12px 18px;border-top:1px solid var(--line)}
+/* ฝั่งซ้าย = เปลี่ยนสถานะเอกสาร · ฝั่งขวา = action กับเอกสาร
+   ใช้โครงเดียวกันทั้ง "เปิดงานใหม่" และ "ออกวางบิล" */
+.modal-f .mf-left,.fs-foot .mf-left{display:flex;align-items:center;gap:9px;margin-right:auto}
+.modal-f .mf-right,.fs-foot .mf-right{display:flex;align-items:center;gap:9px}
+@media(max-width:640px){
+  .modal-f,.fs-foot{flex-wrap:wrap}
+  .modal-f .mf-left,.modal-f .mf-right,
+  .fs-foot .mf-left,.fs-foot .mf-right{width:100%;margin-right:0}
+  .modal-f .mf-left .btn,.modal-f .mf-right .btn,
+  .fs-foot .mf-left .btn,.fs-foot .mf-right .btn{flex:1 1 auto;justify-content:center}
+}
 /* Loading */
 .spin{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--blue-600);border-radius:50%;animation:njSpin .7s linear infinite;margin:0 auto}
 @keyframes njSpin{to{transform:rotate(360deg)}}
@@ -48,3 +70,292 @@
 @keyframes njSk{to{background-position:-200% 0}}
 /* Empty */
 .empty{padding:40px;text-align:center;color:var(--text-3)}
+
+/* ฟอร์ม 2 คอลัมน์ (Modal เปิดงานใหม่) — เดสก์ท็อป 2 คอลัมน์ · มือถือ 1 คอลัมน์ */
+.fgrid.fgrid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:640px){.fgrid.fgrid-2{grid-template-columns:1fr}}
+
+/* ── Modal เปิดงานใหม่: กรอบแบ่ง Section (DOCUMENT ฟ้า / ACCOUNTING เขียว) ── */
+.jm-auto{display:flex;align-items:center;gap:14px;background:#eff6ff;border:1px solid #bfdbfe;
+  border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.jm-auto-lb{font-size:var(--fs-sm);font-weight:600;color:var(--blue-600);white-space:nowrap}
+.jm-auto .inp{flex:1;background:#f8fafc;color:var(--text-3)}
+.jm-sec{border:1px solid var(--line);border-radius:12px;padding:14px 16px 4px;margin-bottom:14px;background:var(--surface)}
+.jm-sec-t{font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;margin-bottom:10px;
+  display:flex;align-items:center;gap:7px}
+/* ── Section Theme — ใช้ร่วมกันทั้ง "เปิดงานใหม่" และ "ออกวางบิล" ──
+   DOCUMENT       น้ำเงิน + ฟ้าอ่อน
+   วางบิล/ACCOUNTING เขียวอ่อน
+   INVOICE        ขาว + ฟ้าอ่อน (ใช้ .jm-sec ธรรมดา + หัวข้อน้ำเงิน)
+   เปลี่ยนเฉพาะ Color Theme — Input / Label / Radius / Spacing เป็นชุดเดียวกันหมด */
+.jm-doc{border-color:#bfdbfe;background:#f8fbff}
+.jm-doc .jm-sec-t{color:var(--blue-600)}
+.jm-acc{border-color:#bbf7d0;background:#f6fef9}
+.jm-acc .jm-sec-t{color:#15803d}
+.jm-inv{border-color:#bfdbfe;background:var(--surface)}
+.jm-inv .jm-sec-t{color:var(--blue-600)}
+/* จุดนำหน้าหัวข้อ — ขนาด/ตำแหน่งเดียวกันทุก section ต่างแค่สี */
+.jm-sec-t::before{content:'';width:8px;height:8px;border-radius:2px;
+  background:currentColor;display:inline-block;margin-right:8px;vertical-align:1px}
+.jm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-bottom:10px}
+.jm-grid .fld label{font-size:var(--fs-xs)}
+.jm-grid .inp,.jm-grid .sel{height:36px}
+.jm-link{background:none;border:0;padding:2px 0 0;color:var(--blue-600);font-size:var(--fs-xs);
+  font-weight:600;cursor:pointer;align-self:flex-start}
+.jm-link:hover{text-decoration:underline}
+.jm-hint{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:9px;
+  padding:9px 12px;font-size:var(--fs-xs);margin-bottom:10px}
+@media(max-width:1100px){.jm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.jm-grid{grid-template-columns:1fr}
+  .jm-auto{flex-direction:column;align-items:stretch;gap:6px}}
+.jm-grid.jm-grid-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1100px){.jm-grid.jm-grid-5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.jm-grid.jm-grid-5{grid-template-columns:1fr}}
+
+/* ══ FULL-SCREEN FORM SHELL (ใช้ร่วมกันทุก Open/Edit — ไม่สร้าง component ซ้ำ) ══
+   ใช้ได้ 2 ทาง โดยใช้ geometry ชุดเดียวกัน:
+     1) Modal  : openModal({ fullscreen:true }) → .modal-bk.modal-fs > .modal
+     2) Route  : ครอบเนื้อหาด้วย .fs-page (job/:id/edit · invoice/issue/:jobId)
+   โครงสร้าง: Header (ติดบน) / Body (scroll เฉพาะส่วนนี้) / Footer (ติดล่างตลอด)
+   Header/Footer ถูกตรึงด้วย flex (flex:none) + Body flex:1 overflow-y:auto
+   → ปุ่มไม่หายเมื่อ scroll ลงล่าง และไม่ต้องพึ่ง position:sticky */
+.modal-bk.modal-fs{padding:0;place-items:stretch;background:rgba(13,31,60,.25)}
+.modal-fs .modal,.fs-page{
+  position:fixed;inset:0;top:0;right:0;bottom:0;left:0;
+  width:100vw;height:100dvh;max-width:none;max-height:none;
+  margin:0;border-radius:0;background:var(--surface);box-shadow:none;
+  display:flex;flex-direction:column;z-index:100}
+/* modal ต้องอยู่เหนือ .fs-page เสมอ (confirmModal / reasonModal ที่เปิดจากในฟอร์ม) */
+.modal-fs .modal{z-index:120}
+.modal-fs .modal-h,.fs-head{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 20px;border-bottom:1px solid var(--line);background:var(--surface);
+  padding-top:calc(14px + env(safe-area-inset-top,0px))}
+.modal-fs .modal-b,.fs-body{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:18px 20px;background:var(--bg,var(--surface-2))}
+.modal-fs .modal-f,.fs-foot{
+  flex:none;display:flex;justify-content:flex-end;align-items:center;gap:9px;
+  padding:12px 20px;border-top:1px solid var(--line);background:var(--surface);
+  box-shadow:0 -2px 8px rgba(13,31,60,.06);
+  padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.fs-head .fs-title{display:flex;align-items:center;gap:10px;min-width:0}
+.fs-head .fs-title h2{font-size:var(--fs-lg);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-head .fs-title .dot{width:10px;height:10px;border-radius:3px;background:var(--blue-600);flex:none}
+@media(max-width:640px){
+  .modal-fs .modal-h,.fs-head{padding-left:14px;padding-right:14px}
+  .modal-fs .modal-b,.fs-body{padding:14px}
+  .modal-fs .modal-f,.fs-foot{padding-left:14px;padding-right:14px;flex-wrap:wrap}
+  .modal-fs .modal-f .btn,.fs-foot .btn{flex:1 1 auto}}
+
+/* ══ COMBOBOX (ช่องเดียว: พิมพ์ค้นหา + เลือกจากรายการ) ══ */
+.cbx{position:relative;display:block}
+.cbx-inp{width:100%;padding-right:28px}
+.cbx-caret{position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:none;border:0;padding:2px 4px;color:var(--text-3);font-size:.8rem;line-height:1;cursor:pointer}
+.cbx-list{position:absolute;z-index:130;left:0;right:0;top:calc(100% + 3px);
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg);max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.cbx-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  padding:8px 11px;font-size:var(--fs-sm);background:none;border:0;cursor:pointer}
+.cbx-item:hover,.cbx-item.on{background:var(--blue-100)}
+.cbx-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbx-cd{flex:none;font-size:var(--fs-xs);color:var(--text-3)}
+/* codeFirst = แถวรูปแบบ "CODE | DESCRIPTION" (ช่อง CODE ในใบวางบิล และช่องลูกค้า)
+   เดิม .cbx-code ไม่มี CSS เลย → CODE กับชื่อติดกัน แยกด้วยตาไม่ออก
+   ตอนนี้ CODE = คอลัมน์ซ้ายกว้างคงที่ ตัวหนา ตัวเลขความกว้างเท่ากันทุกหลัก
+   DESCRIPTION (.cbx-nm) เป็น flex:1 อยู่แล้ว จึงได้พื้นที่ที่เหลือทั้งหมดทางขวา */
+.cbx-code{flex:none;width:76px;font-weight:600;color:var(--text-1);
+  font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbx-add{color:var(--blue-600);font-weight:600;border-top:1px solid var(--line)}
+.cbx-empty{padding:10px 11px;font-size:var(--fs-sm);color:var(--text-3)}
+.cbx-more{padding:7px 11px;font-size:var(--fs-xs);color:var(--text-3);
+  background:var(--surface-2);border-top:1px solid var(--line)}
+
+/* ══ MODAL ในพื้นที่ Content Area (Desktop) — modifier ซ้อนบน .modal-fs ══
+   ใช้กับ Modal "เปิดงานใหม่" และ "ออกวางบิล"
+
+   ── อ้างอิง Layout จริงของระบบ ไม่ hard-code ──
+     --sidebar-w  ประกาศที่ core/variables.css = 248px
+                  responsive.css ลดเป็น 220px เมื่อ ≤1366px  → Modal ขยับตามเอง
+     --topbar-h   ประกาศที่ core/variables.css = 56px  (.tb ใช้ค่าเดียวกัน)
+
+   ── Breakpoint ──
+     ≥1101px : Sidebar เป็นคอลัมน์จริงใน .app grid → Modal ต้องหลบ
+     ≤1100px : responsive.css เปลี่ยน Sidebar เป็น off-canvas (translateX(-100%))
+               จึงไม่มีอะไรให้หลบ → ใช้เต็มจอตาม .modal-fs เดิม
+               (ห้ามเอา offset ของ Desktop ไปใช้บน Mobile/Tablet)
+
+   ── โครง ── backdrop = พื้นที่ Content Area พอดี · Modal = absolute inset ตาม --modal-gap
+   Sidebar และ Top Header จึงไม่ถูกทับและไม่ถูก backdrop บังเลย */
+:root{ --modal-gap:20px; }
+@media (max-width:1440px){ :root{ --modal-gap:16px; } }   /* จอแคบลง → เว้นขอบน้อยลง ให้ได้พื้นที่คืน */
+
+@media (min-width:1101px){
+  .modal-bk.modal-bk-w80{
+    left:var(--sidebar-w); top:var(--topbar-h); right:0; bottom:0;
+    padding:0; place-items:stretch;
+    background:rgba(13,31,60,.28);
+  }
+  .modal-fs .modal.modal-w80{
+    position:absolute;
+    inset:var(--modal-gap);
+    width:auto; height:auto; max-width:none; max-height:none;
+    margin:0;
+    border-radius:var(--radius); box-shadow:var(--shadow-lg);
+    overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  /* Header/Footer ตรึงในกรอบ · Body เท่านั้นที่ scroll (ยกเลิก safe-area ของโหมดเต็มจอ) */
+  .modal-fs .modal.modal-w80 > .modal-h{padding-top:14px}
+  .modal-fs .modal.modal-w80 > .modal-f{padding-bottom:12px}
+}
+
+/* ── Grid ในฟอร์ม: 4 → 3 → 2 → 1 คอลัมน์ ตามความกว้างจริง ──
+   ช่วง 1101–1440px พื้นที่ Content Area แคบลงเพราะโดน Sidebar กิน จึงลดเหลือ 3 คอลัมน์
+   (≤1100px และ ≤640px ใช้กฎเดิมที่ประกาศไว้ก่อนหน้า) */
+@media (min-width:1101px) and (max-width:1440px){
+  .jm-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .jm-grid.jm-grid-5{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* ══ Modal ออกวางบิล (ACCOUNTING) ══ */
+/* หัวตาราง INVOICE — พื้นฟ้าอ่อน · ตัวอักษรน้ำเงินเข้ม · เส้นบาง · ไม่ใช้หลายสีในเซลล์ */
+/* ══ ตาราง INVOICE — สัดส่วนคอลัมน์ตามชนิดข้อมูลจริง ══
+   table-layout:fixed = เบราว์เซอร์เคารพความกว้างที่กำหนด
+     (ของเดิมไม่ได้ตั้ง → auto layout ยืดตาม input ทำให้ล้นจอและต้องเลื่อนแนวนอน)
+   input ทุกช่อง width:100% = ไม่ดันความกว้างคอลัมน์อีกต่อไป (ต้นเหตุหลักของ scroll)
+   DESCRIPTION ไม่กำหนดความกว้าง → กินพื้นที่ที่เหลือทั้งหมด = กว้างที่สุดในแถวเสมอ */
+.bm-items{table-layout:fixed;width:100%;min-width:1120px}
+.bm-wrap{overflow-x:auto}
+
+.bm-items col.c-seq{width:82px}
+/* CODE: 104px -> 220px  ช่องค้นหา CODE/ชื่อบริการ ต้องกดง่ายและเห็นข้อความที่พิมพ์
+   min-width ของตารางขยาย 1000 -> 1120 ตามส่วนที่เพิ่ม (+116px)
+   เพื่อไม่ให้ DESCRIPTION ถูกบีบจนแคบผิดปกติเมื่อ Modal แคบ */
+.bm-items col.c-code{width:220px}
+.bm-items col.c-desc{width:auto}      /* ยืดหยุ่น — ได้พื้นที่ที่เหลือทั้งหมด */
+.bm-items col.c-kind{width:140px}
+.bm-items col.c-qty{width:104px}
+.bm-items col.c-price{width:136px}
+.bm-items col.c-amount{width:136px}
+.bm-items col.c-act{width:58px}
+/* รวมคอลัมน์คงที่ = 876px (เดิม 760px) → DESCRIPTION ได้ส่วนที่เหลือ
+   ความกว้างตารางจริงตามขนาดจอ (Modal ไม่เต็ม viewport) และ min-width 1120px:
+     1366px: ตาราง 1120px → DESC 244px  (เดิม 322px · ตารางเลื่อนแนวนอน ~38px)
+     1440px: ตาราง 1128px → DESC 252px  (เดิม 368px)
+     1600px: ตาราง 1288px → DESC 412px  (เดิม 528px)
+     1920px: ตาราง 1608px → DESC 732px  (เดิม 848px)
+   ยก min-width 1000 → 1120 เพื่อกัน DESCRIPTION ตกต่ำกว่า 244px
+   (ถ้าคง 1000 ไว้ ที่ 1366px DESCRIPTION จะเหลือ 206px = แคบเกินไป) */
+
+.bm-items thead th{white-space:nowrap;background:var(--blue-100);color:var(--blue-700,#1d4ed8);
+  font-weight:600;border-bottom:1px solid #bfdbfe;padding:9px 10px}
+.bm-items tbody tr + tr td{border-top:1px solid var(--line)}
+.bm-items td{padding:6px 10px;vertical-align:middle}
+
+/* ── ช่องกรอก: สูง 40px กดง่าย · เต็มความกว้างคอลัมน์ · ไม่ดันตาราง ── */
+.bm-items .inp,.bm-items .sel{height:40px;width:100%;min-width:0;padding:6px 10px;
+  font-size:var(--fs-sm)}
+.bm-items .sel{padding-right:26px}
+.bm-items .cbx{width:100%}
+.bm-items .cbx .cbx-inp{width:100%}
+/* ── Dropdown ของช่อง CODE กว้างกว่าช่อง ── (scope: .bm-items เท่านั้น)
+   .cbx-list เดิมใช้ left:0;right:0 → กว้างเท่าคอลัมน์ CODE (104px) อ่านชื่อบริการไม่ออก
+   ที่นี่ปลด right ออกแล้วกางไปทางขวา: กว้างตามเนื้อหา แต่คุมด้วย min/max
+   position:absolute เหมือนเดิม → overlay ทับตาราง ไม่ดันคอลัมน์ DESCRIPTION
+   ไม่แตะ .cbx-list ตัวกลาง → combobox หน้าอื่น (เปิดงาน/แก้ไขงาน) คงเดิมทุกอย่าง
+   ขอบขวาสุดของ dropdown = 82+220+520 = 822px ยังอยู่ในตาราง 1120px จึงไม่เพิ่ม scroll แนวนอน */
+.bm-items .cbx .cbx-list{right:auto;width:max-content;min-width:420px;max-width:520px}
+/* จอเล็ก: ห้าม fix กว้างจนล้น viewport */
+@media(max-width:640px){
+  .bm-items .cbx .cbx-list{min-width:0;width:min(480px,calc(100vw - 32px));max-width:calc(100vw - 32px)}
+}
+.bm-items .bm-seq{font-weight:600;text-align:center}
+/* ตัวเลขชิดขวา + ความกว้างตัวเลขเท่ากันทุกหลัก อ่านยอดเงินง่าย */
+.bm-items .inp.r{text-align:right;font-variant-numeric:tabular-nums}
+/* AMOUNT = ค่าคำนวณอัตโนมัติ (Qty x Price) → ให้เห็นว่าต่างจากช่องกรอกปกติ
+   ยังพิมพ์ทับได้ตาม Logic เดิม ไม่ได้ทำเป็น readonly */
+.bm-items .inp[data-calc]{background:var(--surface-2);font-weight:600}
+.bm-items .inp[data-calc]:focus{background:var(--surface)}
+.bm-items .inp-bad{border-color:var(--red-600);background:#fef2f2}
+.bm-items td .btn-sm{width:100%;padding:0;height:34px}
+.bm-err{margin-bottom:10px;padding:10px 13px;border:1px solid var(--red-600);border-radius:var(--radius-sm);
+  background:#fef2f2;color:var(--red-600);font-size:var(--fs-sm)}
+.bm-err ul{margin:5px 0 0;padding-left:18px}
+.bm-sum{margin-left:auto;margin-top:12px;width:100%;max-width:300px;
+  border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden}
+.bm-sum .r-line{display:flex;justify-content:space-between;gap:16px;padding:8px 13px;
+  font-size:var(--fs-sm);border-bottom:1px solid var(--line)}
+.bm-sum .r-line:last-child{border-bottom:0}
+.bm-sum .r-line span:last-child{font-variant-numeric:tabular-nums}
+.bm-sum .r-line.total{background:var(--blue-600);color:#fff;font-weight:700;font-size:var(--fs-md)}
+.bm-sum .r-line.total span:last-child{font-size:var(--fs-lg)}
+
+/* ── เอกสารร่าง (Preview / Print Draft) — ใช้ template เดียวกับใบจริง ต่างแค่ลายน้ำ ── */
+.iv-draft{position:relative}
+.iv-draft .iv-wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:44px;font-weight:800;color:rgba(180,83,9,.10);letter-spacing:.08em;
+  pointer-events:none;transform:rotate(-18deg);z-index:1;text-align:center}
+.iv-draft > *:not(.iv-wm){position:relative;z-index:2}
+
+/* ══ Footer ปุ่ม Invoice — แถวเดียว ห้าม Wrap บน Desktop ══
+   สีสื่อความหมาย: แดง=ลบ · เขียว=บันทึก/ยืนยัน · น้ำเงิน=Preview
+                   ส้ม=Print · เหลือง=UNPOST · เทา=ปิด
+   ทุกปุ่มสูงเท่ากัน · พื้นทึบ · ตัวอักษรอ่านชัด */
+.modal-f.mf-row{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;
+  padding:10px 18px;border-top:1px solid var(--line)}
+.modal-f.mf-row .btn{height:38px;padding:0 14px;border-radius:9px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  white-space:nowrap;flex:0 0 auto;border:1px solid transparent}
+/* ── สำคัญ ── display:inline-flex ข้างบนมี specificity สูงกว่า UA stylesheet ของ [hidden]
+   ทำให้ปุ่มที่ตั้ง .hidden = true ยังโผล่อยู่ (POST กับ UNPOST ขึ้นพร้อมกัน)
+   ต้องประกาศ [hidden] ทับด้วย selector ที่แรงเท่ากันหรือมากกว่า */
+.modal-f.mf-row .btn[hidden]{display:none !important}
+/* ปุ่มปิด ดันไปชิดขวา · UNPOST อยู่ขวาสุดถัดจากปิด (ตามแบบ) */
+.modal-f.mf-row #bm-post,
+.modal-f.mf-row [data-close]{margin-left:auto}
+.modal-f.mf-row #bm-post ~ [data-close]{margin-left:0}
+.modal-f.mf-row #bm-unpost{margin-left:0}
+
+.btn-del{background:var(--red-600);color:#fff}
+.btn-del:hover:not(:disabled){filter:brightness(1.08)}
+.btn-save{background:var(--green-600);color:#fff}
+.btn-save:hover:not(:disabled){filter:brightness(1.08)}
+.btn-view{background:var(--blue-600);color:#fff}
+.btn-view:hover:not(:disabled){filter:brightness(1.08)}
+.btn-prn{background:#ea580c;color:#fff}
+.btn-prn:hover:not(:disabled){filter:brightness(1.08)}
+.btn-post{background:#15803d;color:#fff;box-shadow:0 1px 3px rgba(21,128,61,.35)}
+.btn-post:hover:not(:disabled){filter:brightness(1.10)}
+.btn-unpost{background:#f59e0b;color:#3f2d00}
+.btn-unpost:hover:not(:disabled){filter:brightness(1.08)}
+.btn-gray{background:#64748b;color:#fff}
+.btn-gray:hover:not(:disabled){filter:brightness(1.10)}
+.modal-f.mf-row .btn:active:not(:disabled){transform:translateY(1px)}
+.modal-f.mf-row .btn:disabled{background:var(--surface-2);border-color:var(--line-2);
+  color:var(--text-3);cursor:not-allowed;box-shadow:none;filter:none}
+
+/* แถบเตือนเมื่อใบถูก POST แล้ว */
+.bm-locked{margin-bottom:10px;padding:9px 13px;border-radius:var(--radius-sm);
+  background:#fffbeb;border:1px solid #fcd34d;color:#92400e;font-size:var(--fs-sm);font-weight:600}
+
+/* จอแคบ: ยอมให้ขึ้นบรรทัดใหม่ได้ ปุ่มสำคัญต้องไม่หาย */
+@media(max-width:900px){
+  .modal-f.mf-row{flex-wrap:wrap}
+  .modal-f.mf-row .btn{flex:1 1 auto}
+  .modal-f.mf-row #bm-post,.modal-f.mf-row [data-close]{margin-left:0}
+}
+@media(max-width:640px){
+  .modal-f.mf-row .btn{padding:0 10px;font-size:var(--fs-xs)}
+}
+
+/* แถบยืนยันแบบ inline ในตัว Modal (ไม่เปิด modal ซ้อน) */
+.bm-ask{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;
+  padding:11px 14px;border-radius:var(--radius-sm);
+  background:#eff6ff;border:1px solid #bfdbfe;color:var(--blue-700,#1d4ed8);font-size:var(--fs-sm)}
+.bm-ask-danger{background:#fef2f2;border-color:#fecaca;color:var(--red-600)}
+.bm-ask-msg{flex:1 1 260px;min-width:0}
+.bm-ask .inp{flex:1 1 220px;height:34px}
+.bm-ask-act{display:flex;gap:8px;flex:0 0 auto}

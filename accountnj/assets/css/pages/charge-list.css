@@ -24,6 +24,15 @@
   gap:8px;align-items:center}
 @media (max-width:1365px){.fbar-grid{grid-template-columns:repeat(4,minmax(140px,1fr))}}
 @media (max-width:900px){.fbar-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+/* ปุ่มที่ย้ายมาต่อท้าย "ล้างตัวกรอง" (หน้า DOCUMENT) */
+/* DOCUMENT มี 6 ช่อง (ค้นหา/ลูกค้า/from/to/ล้างตัวกรอง/ปุ่ม) — กำหนด grid ให้พอดีแถวเดียว */
+.fbar-grid.fbar-doc{grid-template-columns:minmax(230px,1.6fr) minmax(150px,1fr) 145px 145px auto auto}
+@media (max-width:1365px){.fbar-grid.fbar-doc{grid-template-columns:repeat(4,minmax(140px,1fr))}}
+@media (max-width:900px){.fbar-grid.fbar-doc{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+.fbar-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* ปุ่มในแถบตัวกรองสูงเท่ากันทุกตัว เพื่อให้อยู่ระดับเดียวกัน */
+.fbar-doc #ch-clear,.fbar-doc .fbar-acts .btn{height:32px;display:inline-flex;align-items:center}
+@media (max-width:900px){.fbar-acts{grid-column:1/-1}}
 /* status 2 ชั้น */
 .col-status .st-sub{font-size:var(--fs-xs);display:inline-block;margin-top:3px}
 .st-sub-none{color:var(--text-3)}
@@ -40,3 +49,31 @@
 .tbl-charge tbody tr:hover td.col-act{background:var(--blue-50)}
 .tbl-charge td.r{font-variant-numeric:tabular-nums}
 .ch-act{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ── เมนู "จัดการ" แบบ 3 จุด (หน้า DOCUMENT) ──
+   คำสั่งเดิมทั้งหมดยังอยู่ครบ แค่ย้ายเข้า dropdown เพื่อไม่ให้ปุ่มเรียงเต็มแถว */
+.row-menu{position:relative;display:inline-block}
+.btn-dots{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--surface);
+  color:var(--text-2);font-size:1rem;line-height:1;cursor:pointer;transition:background .12s,border-color .12s}
+.btn-dots:hover{background:var(--surface-2);border-color:var(--line-2)}
+.row-menu.open .btn-dots{background:var(--surface-2);border-color:var(--blue-600);color:var(--text-1)}
+.row-drop{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:40;min-width:150px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);
+  padding:5px;flex-direction:column;gap:3px}
+.row-menu.open .row-drop{display:flex}
+.row-drop .btn{width:100%;justify-content:flex-start;text-align:left;border-radius:6px}
+
+/* ป้ายประเภทงานในตาราง (Service / Advance) */
+.bdg-svc{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+.bdg-adv{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4}
+
+/* ── DOCUMENT: 3 ปุ่ม (ดู | ปิดงาน | ลบ) ต้องอยู่แถวเดียวบน Desktop ──
+   .ch-act เดิมตั้ง flex-wrap:wrap ไว้ ทำให้ปุ่มตกแถวเมื่อคอลัมน์แคบ
+   คอลัมน์จัดการเป็น sticky right อยู่แล้ว จึงกำหนดความกว้างขั้นต่ำให้พอ */
+.tbl-charge td.col-act .ch-act{flex-wrap:nowrap}
+.tbl-charge th.col-act,.tbl-charge td.col-act{min-width:250px}
+.tbl-charge td.col-act .btn-sm{white-space:nowrap;flex:0 0 auto}
+@media(max-width:640px){
+  .tbl-charge td.col-act .ch-act{flex-wrap:wrap}
+  .tbl-charge th.col-act,.tbl-charge td.col-act{min-width:0}
+}

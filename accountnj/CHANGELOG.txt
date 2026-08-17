@@ -1,10 +1,11 @@
 BILLING NJ — CHANGELOG
-Version : 1.4.1   (BUILD KEY 1.4.1-local79)
-จาก     : local78 → local79
-งานล่าสุด : FINAL 1 BUG — Receipt Invoice Reference Footer Total (ดูหัวข้อ 19)
+Version : 1.4.1   (BUILD KEY 1.4.1-local80)
+จาก     : local79 → local80
+งานล่าสุด : PACKAGING FIX — Sidebar Regression (ดูหัวข้อ 20)
 
-เปิด/ทดสอบ : OPEN-CHECK_final-documents-CLOSED3.zip
-Deploy     : DEPLOY_final-documents-CLOSED3.zip
+เปิด/ทดสอบ : OPEN-CHECK_final-documents-CLOSED3-SIDEBAR-FIX.zip
+Deploy     : DEPLOY_final-documents-CLOSED3-SIDEBAR-FIX.zip
+             *** ใช้แทน DEPLOY_final-documents-CLOSED3.zip เดิม ***
 SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึดตารางนั้นเท่านั้น)
 
 
@@ -951,3 +952,84 @@ SQL   : *** ไม่แก้เลย *** ทั้ง 5 ไฟล์ใน sq
   ไม่แตะ : SQL ทั้ง 5 ไฟล์ · nj-logo.png · payment-form.js · supabase-client.js
            invoice-doc.js · credit-note-doc.js · advance-doc.js · preview-doc.html
            Schema · Auth · Role · Permission · Business Logic อื่น
+
+
+════════════════════════════════════════════════════════════════════
+20 · PACKAGING FIX — Sidebar Regression (local80)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่แก้เลย *** hash ทั้ง 5 ไฟล์เท่าเดิม
+Source Logic : *** ไม่แก้เลย *** ไม่มีการเปลี่ยน CSS/JS ของ Sidebar แม้แต่บรรทัดเดียว
+               รอบนี้เป็นปัญหา "การแพ็กไฟล์" ล้วน
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  ไอคอน Sidebar ถูกสร้างด้วย helper SVG() ใน assets/js/components/sidebar.js
+      <svg viewBox="0 0 24 24" fill=... stroke=... stroke-width="2">
+  *** ไม่มี attribute width / height ในตัว SVG เอง ***
+  ขนาดจึงมาจาก CSS ล้วน ซึ่งอยู่ใน assets/css/components/shell.css :
+      .sb-item svg          width:17px height:17px
+      .sb-ic                width:20px height:20px
+      .sb-item .sb-ic svg   width:19px height:19px
+      .sb-sec svg           width:15px height:15px
+      .sb-sec               display:flex align-items:center gap:6px
+
+  DEPLOY_final-documents-CLOSED3.zip แพ็กเฉพาะ "ไฟล์ที่เปลี่ยน" (18 ไฟล์)
+  ตรวจแล้วมี shell.css = 0 ไฟล์  ←←← ต้นเหตุ
+  แต่แพ็ก index.html + app.bundle.js + sidebar.js ไปด้วย
+
+  ผลที่เกิด: repo ได้ JS/bundle ชุดใหม่ แต่ยังใช้ shell.css ชุดเดิมที่มีอยู่
+             ถ้า shell.css ในรีโปยังไม่มีกฎ .sb-ic / .sb-sec svg / .sb-item svg
+             -> SVG ไม่มีใครกำหนดขนาด -> เบราว์เซอร์ใช้ค่า default (บานเต็มพื้นที่)
+             = ไอคอน DOCUMENT / ACCOUNTING ใหญ่ผิดปกติ · ระยะเพี้ยน · layout พัง
+             ตรงกับข้อ 2 ของโจทย์เป๊ะ: "JS ใหม่ทำงานกับ CSS เก่า"
+
+── FIX (Packaging เท่านั้น) ────────────────────────────────────────
+  DEPLOY ชุดใหม่บรรจุ runtime ครบชุด ไม่ใช่เฉพาะไฟล์ที่เปลี่ยน :
+      index.html · preview-doc.html · CHANGELOG.txt · app-boot.js
+      assets/js/app.bundle.js
+      assets/css/**  ครบทั้ง 23 ไฟล์  ← รวม shell.css
+      assets/img/nj-logo.png
+      assets/js/** ที่แก้ (10 ไฟล์ · ให้ source ในรีโปตรงกับ bundle)
+      sql/RUN-NOW/** + sql/LEGACY-DO-NOT-RUN/**
+  รวม 54 ไฟล์ — ต่ำกว่าลิมิต GitHub 100 ไฟล์/ครั้ง อัปรอบเดียวจบ
+
+  ทุกไฟล์คัดจาก working tree ชุดเดียวกันที่ผ่านการตรวจแล้ว
+  *** ไม่มีการคัดลอกไฟล์เก่ามาปน ***
+  ยืนยัน shell.css : cmp กับ OPEN-CHECK ต้นทาง = IDENTICAL
+                     sha256 7a6c5bf0767bd2697ddba93267c5eff4...
+
+  BUILD KEY local79 -> local80 -> ?v= ของ CSS ทุกไฟล์เปลี่ยนตาม
+  -> เบราว์เซอร์บังคับโหลด shell.css ใหม่ ไม่ติด cache เก่า
+
+── TEST (node · 16 assertion) — PASS ทั้งหมด ───────────────────────
+  helper SVG() ไม่ใส่ width/height (ยืนยันว่าพึ่ง CSS ล้วน)
+  shell.css มีกฎครบ : .sb-item svg 17px · .sb-ic 20px ·
+                      .sb-item .sb-ic svg 19px · .sb-sec svg 15px ·
+                      .sb-sec flex gap 6px · .sb-item flex gap 10px ·
+                      .sb height:100vh overflow-y:auto
+  ทุกคลาสที่ bundle ใช้ (sb · sb-brand · sb-nav · sb-sec · sb-item ·
+                         sb-sub · sb-ic · sb-user) มีกฎ CSS รองรับครบ 8/8
+  layout.css : .app grid-template-columns: var(--sidebar-w)
+  variables.css : --sidebar-w = 248px
+  responsive.css : คุม .sb บนมือถือ (@media)
+  index.html โหลด shell.css · ?v= ทุก tag เวอร์ชันเดียวกัน 24 tag
+  __BUILD ตรงกับ ?v= ทุกไฟล์ = 1.4.1-local80
+  ไอคอนทั้ง 18 ตัวใน sidebar.js อยู่ใน bundle ครบ
+
+  ⚠️ NOT VERIFIED — Browser Rendering จริง (Desktop/Mobile)
+     container เปิด Chromium ไม่ได้ จึงยืนยันได้เพียงว่า
+     "CSS ที่คุมขนาดถูกส่งไปพร้อม JS แล้ว และกฎครบทุกคลาส"
+     ไม่ได้เห็นภาพจริง -> ไม่รายงาน PASS ข้อการแสดงผล
+
+── REGRESSION (ข้อ 3) — งานเอกสารไม่ถูกแตะ ─────────────────────────
+  PASS  Receipt footer gross 7 ชุด · ADVANCE guard 8 เคส
+  PASS  WHT breakdown 9 · Receipt 12 · Invoice 5 คอลัมน์
+  PASS  Credit cumulative · Credit 8 คอลัมน์ · Company/Logo 4 renderer
+  PASS  preview-doc.html 41 ชุด · JS syntax ทุกไฟล์ · CSS brace balance
+  PASS  Logo SHA256 d769fb73...8c91 ไม่เปลี่ยน
+  PASS  SQL ทั้ง 5 ไฟล์ hash เท่าเดิม
+
+── ไฟล์ที่แก้รอบนี้ (2) ────────────────────────────────────────────
+  index.html            BUILD KEY local79 -> local80
+  assets/js/app.bundle.js   rebuild
+  CHANGELOG.txt         ไฟล์นี้
+  *** ไม่แตะ shell.css · sidebar.js · CSS ใด ๆ · SQL · Source Logic ***
