@@ -1,131 +1,119 @@
-BILLING NJ — SQL RUN ORDER
-ตรวจสภาพ Production จริงเมื่อ 17/08/2026 (READ ONLY)
+BILLING NJ — SQL RUN STATUS
+ตรวจสภาพ Production จริงเมื่อ 17/08/2026 (READ ONLY · has_function_privilege /
+information_schema / pg_proc)
 ═══════════════════════════════════════════════════════════════════
 
-*** รันเฉพาะโฟลเดอร์นี้ ***
+*** ไม่มี SQL ที่ต้อง RUN NOW — ทุกไฟล์ APPLIED ครบแล้ว ***
 *** sql/LEGACY-DO-NOT-RUN/ ห้ามรัน ***
 *** sql/ และ sql/dev/ ที่เหลือ = migration เก่าที่รันไปแล้ว ห้ามรันซ้ำ ***
 
 
 ═══════════════════════════════════════════════════════════════════
-สรุปสถานะแต่ละไฟล์
+สถานะแต่ละไฟล์
 ═══════════════════════════════════════════════════════════════════
   01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
-  02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ▶ RUN NOW  (ลำดับ 1)
-  03_RUN-03_FINAL_RECEIPT_PAYMENT.sql    ▶ RUN NOW  (ลำดับ 2 · ต้องหลัง 02)
-  04_RUN-02_FINAL_CREDIT_NOTE.sql        ▶ RUN NOW  (ลำดับ 3)
-  05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ▶ RUN NOW  (ลำดับ 4 · อิสระ)
+  02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+  03_RUN-03_FINAL_RECEIPT_PAYMENT.sql    ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+  04_RUN-02_FINAL_CREDIT_NOTE.sql        ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+  05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+  06_RUN-05_WHT_CERTIFICATE.sql          ✅ ALREADY APPLIED (17/08/2026) — VERIFY ONLY
 
-  => ไฟล์ที่ต้องรันจริงมี 4 ไฟล์ :  02 -> 03 -> 04 -> 05
+  => *** ไม่มีไฟล์ที่ต้องรันแล้ว *** ทุกไฟล์ APPLIED ครบ
+     ห้ามรันซ้ำทุกไฟล์
 
+  ⚠️ หมายเหตุการรัน 06 :
+     SECTION 2 (MIGRATION) รันสำเร็จและ COMMIT แล้ว
+     แต่ SECTION 3 (VERIFY) เดิมมีบั๊ก syntax ที่ V13 :
+         ERROR 42601: subquery must return only one column
+     สาเหตุ: เขียน  (a, b) IS DISTINCT FROM (SELECT x, y FROM ...)
+             PostgreSQL ไม่รับ row-comparison กับ subquery หลายคอลัมน์
+     *** VERIFY อยู่หลัง COMMIT จึงไม่กระทบข้อมูลและไม่ rollback ***
+     ไฟล์ในชุดนี้แก้ V13 เป็น scalar subquery แยกคอลัมน์แล้ว
+     ต้องการยืนยันผลให้รันเฉพาะ SECTION 3 ซ้ำได้ (READ ONLY)
 
-═══════════════════════════════════════════════════════════════════
-01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   ✅ ALREADY APPLIED
-═══════════════════════════════════════════════════════════════════
-  ตรวจ Production จริงแล้วพบว่าสิทธิ์ถูกถอนเรียบร้อยแล้ว :
-      njacc_next_credit_note_no     anon=false  authenticated=false
-      njacc_credit_item_remaining   anon=false  authenticated=false
-
-  => ไม่ต้องรันซ้ำ
-
-  ถ้าต้องการยืนยันเอง ให้รันเฉพาะคำสั่งนี้ (READ ONLY · ไม่เปลี่ยนอะไร) :
-
-      SELECT p.proname,
-             has_function_privilege('anon', p.oid, 'EXECUTE')          AS anon,
-             has_function_privilege('authenticated', p.oid, 'EXECUTE') AS auth
-        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-       WHERE n.nspname = 'public'
-         AND p.proname IN ('njacc_next_credit_note_no','njacc_credit_item_remaining');
-
-  ได้ false ทั้ง 4 ช่อง -> ข้ามไฟล์ 01 ไปเริ่มที่ 02 ได้เลย
-  ถ้ามีช่องใดเป็น true  -> ค่อยรันไฟล์ 01 (มีแต่ REVOKE 2 บรรทัด · รันซ้ำได้)
+     ผล VERIFY จริงหลังแก้ (รันบน Production แล้ว 17/08/2026) :
+       V1–V12 · V11a–V11h   PASS ทุกแถว
+       V13 · V14 · V16       PASS (mismatched = 0 ทั้งหมด)
+       V15 ข้อมูล            wht_docs=0 items=0 wht_counter=ยังไม่มี
 
 
 ═══════════════════════════════════════════════════════════════════
-ลำดับ 1 · 02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql
+หลักฐานว่า 01–05 รันไปแล้ว (ตรวจสดบน Production)
 ═══════════════════════════════════════════════════════════════════
-  ได้อะไร      เลขเอกสารแยก scope รายเดือน · 5 หลัก
-                 INVOICE          NJ{YYYYMM}-#####
-                 ADVANCE PAYMENT  ADV{YYYYMM}-#####
-                 CREDIT NOTE      CN{YYYYMM}-#####
-               + helper njacc_next_month_doc_no() ที่ไฟล์ 03 ต้องใช้
-  Dependency   ไม่มี
-  ความเสี่ยง   ต่ำ · ไม่ ALTER TABLE · ไม่แตะข้อมูล · ไม่ rewrite เลขเก่า
-  รันซ้ำ       ได้ · ไม่แตะ njacc_receive_payment -> ไม่ย้อน Logic ของไฟล์ 03
+  01  njacc_next_credit_note_no      anon=false  authenticated=false
+      njacc_credit_item_remaining    anon=false  authenticated=false
+  02  ฟังก์ชัน njacc_next_month_doc_no          มีอยู่จริง
+  03  ฟังก์ชัน njacc_invoice_outstanding        มีอยู่จริง
+      ฟังก์ชัน njacc_receipt_chargeable         มีอยู่จริง
+  04  คอลัมน์ njacc_credit_note_items.original_amount  มีอยู่จริง
+  05  njacc_list_receipts คืน wht_breakdown     มีอยู่จริง
 
-  ⚠️ การอ่านผล VERIFY ของไฟล์นี้ — อ่านให้ถูก
-      V1 V2 V4 V5 V6 V7 V8 V9 V10 V11 V12 V13   ต้อง PASS
-      V3 (RECEIPT ใช้ RCP)                       = EXPECTED PENDING
-         ตั้งใจให้ยังไม่ PASS เพราะเลขใบเสร็จอยู่ในไฟล์ 03
-         ข้อความที่ขึ้นจะเป็น
-           "ยังไม่ได้รัน RUN-03_FINAL_RECEIPT_PAYMENT.sql — ใบเสร็จยังใช้เลขเก่า"
-         ไม่ใช่ FAIL · ให้รันไฟล์ 03 ต่อได้เลย
-         V3 จะกลายเป็น PASS หลังรันไฟล์ 03 แล้ว (ดูหัวข้อ FINAL VERIFICATION)
+  ตรวจซ้ำเองได้ด้วยคำสั่งนี้ (READ ONLY · ไม่เปลี่ยนอะไร) :
 
+      SELECT 'njacc_next_month_doc_no'  AS obj,
+             to_regprocedure('public.njacc_next_month_doc_no(text,text,date)') IS NOT NULL AS present
+      UNION ALL SELECT 'njacc_invoice_outstanding',
+             to_regprocedure('public.njacc_invoice_outstanding(uuid)') IS NOT NULL
+      UNION ALL SELECT 'njacc_receipt_chargeable',
+             to_regprocedure('public.njacc_receipt_chargeable(text)') IS NOT NULL
+      UNION ALL SELECT 'credit_note_items.original_amount',
+             EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema='public' AND table_name='njacc_credit_note_items'
+                        AND column_name='original_amount')
+      UNION ALL SELECT 'list_receipts.wht_breakdown',
+             (SELECT pg_get_functiondef(p.oid) LIKE '%wht_breakdown%'
+                FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+               WHERE n.nspname='public' AND p.proname='njacc_list_receipts');
 
-═══════════════════════════════════════════════════════════════════
-ลำดับ 2 · 03_RUN-03_FINAL_RECEIPT_PAYMENT.sql
-═══════════════════════════════════════════════════════════════════
-  ได้อะไร      Single Payment Rule เดียวกันทั้งระบบ
-                 ใบที่รับชำระได้ = status IN ('ISSUED','POSTED')
-                 Net Receivable  = total_amount − wht_amount
-                 Outstanding     = Net − paid (นับ payment status='POSTED')
-               + เลขใบเสร็จ RCP{YYYYMM}-#####
-               + *** กัน ADVANCE เข้า Receipt *** (helper njacc_receipt_chargeable)
-                 njacc_customer_open_invoices  กรอง charge_type='SERVICE'
-                 njacc_receive_payment         reject -> NJACC_RECEIPT_SERVICE_ONLY
-                 njacc_receipt_pending         ใช้ helper ตัวเดียวกัน
-                 -> ยิง RPC ตรงก็กันได้ · ถ้ามี ADVANCE ปนแม้ใบเดียว rollback ทั้งก้อน
-                 งานสำรองจ่ายต้องใช้ Flow FINANCE > Advance เท่านั้น
-               แก้ 4 RPC : njacc_receipt_pending · njacc_customer_open_invoices ·
-                           njacc_receive_payment · njacc_void_receipt
-  Dependency   *** ต้องรัน 02 ก่อน *** (PREFLIGHT จะหยุดเองถ้ายังไม่มี helper)
-  ความเสี่ยง   ปานกลาง · แก้ Business Logic การรับชำระ
-               ไม่ ALTER TABLE · ไม่ UPDATE ข้อมูลเดิม
-  รันซ้ำ       ได้
-  VERIFY       V1–V14 ต้อง PASS ทุกแถว (รวม V5a / V5b / V5c ที่ตรวจ SERVICE guard)
-               V15 / V16 / V17 เป็นตารางข้อมูลให้ดูด้วยตา
-               V17 ต้องได้ advance_in_receipt = 0 และ advance_in_payment = 0
+  ได้ true ครบทุกแถว -> ข้าม 01–05 ไปที่ 06 ได้เลย
 
 
 ═══════════════════════════════════════════════════════════════════
-ลำดับ 3 · 04_RUN-02_FINAL_CREDIT_NOTE.sql
+✅ ALREADY APPLIED · 06_RUN-05_WHT_CERTIFICATE.sql  (17/08/2026)
+   DO NOT RUN AGAIN — SECTION 3 (VERIFY) รันซ้ำได้ READ-ONLY
 ═══════════════════════════════════════════════════════════════════
-  ได้อะไร      + คอลัมน์ njacc_credit_note_items.original_amount (snapshot)
-               + njacc_credit_note_view คืน prior_credited / cumulative_credited /
-                 correct_amount -> Correct Amount คิด Credit สะสมถูกต้อง
-                 (10,000 -> CN1 2,000 = 8,000 -> CN2 1,500 = 6,500)
-  Dependency   ต้องรัน RUN_3_CREDIT_NOTE.sql มาก่อน ← รันไปแล้ว 17/08/2026
-               ไม่ผูกกับ 02 / 03
-  ความเสี่ยง   ต่ำ · ADD COLUMN อย่างเดียว (ตารางมี 0 แถว)
-  รันซ้ำ       ได้ (ADD COLUMN IF NOT EXISTS)
-  VERIFY       V1–V7 ต้อง PASS · V9 no over-credit ต้อง PASS
-
-
-═══════════════════════════════════════════════════════════════════
-ลำดับ 4 · 05_RUN-04_FINAL_RECEIPT_FIELDS.sql
-═══════════════════════════════════════════════════════════════════
-  ได้อะไร      njacc_list_receipts ส่งฟิลด์ที่เอกสารใบเสร็จต้องใช้ :
-                 ลูกค้า : tax_id · branch_code · address · phone
-                 ใบแจ้งหนี้ : invoice_date · charge_type · subtotal ·
-                              vat_amount · vat_rate · wht_amount ·
-                              total_amount · description
-                 *** wht_breakdown = [{rate, amount}] แยกตามอัตราจริง ***
-                     อ่านจาก njacc_invoice_items.wht_rate
-                     รองรับ 1 ใบมีหลายอัตรา เช่น ขนส่ง 1% + บริการ 3%
+  ได้อะไร      หนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) — RECEIVED WHT
+                 ก. ผู้มีหน้าที่หักภาษี = Customer (ผู้จ่ายเงิน)
+                 ข. ผู้ถูกหักภาษี       = N.J. (Company Config กลาง)
+                 + ตาราง njacc_wht_items -> หลายรายการเงินได้ต่อ 1 ใบ
+                 + สถานะ DRAFT (เดิมมีแค่ ISSUED/VOID)
+                 + certificate_no = เลขหนังสือรับรองจริงที่ Customer ออก (ผู้ใช้กรอก)
+                   แยกจาก document_no = เลขอ้างอิงภายในของ N.J. (WHT{YY}-####)
+                 + direction ล็อกที่ 'RECEIVED'
+                 + RPC ใหม่ 5 ตัว + njacc_list_wht คืนข้อมูลผู้หักครบ
+                 + วันที่จ่ายเงินจริงจาก njacc_payments.payment_date
+                   ผ่าน njacc_payment_allocations (status='POSTED')
+                   *** ห้ามใช้ invoice_date แทน *** ไม่มี Payment -> null
+                   มีหลาย Payment -> คืนทั้งรายการให้ผู้ใช้เลือก (ไม่เดา)
+                 + บังคับ pay_date ครบก่อนบันทึกจริง
+                   NJACC_WHT_PAY_DATE_REQUIRED / NJACC_WHT_ITEM_PAY_DATE_REQUIRED
+                 + *** ปิด Legacy njacc_create_wht *** (REVOKE จาก authenticated)
+                   -> เหลือทางออกเอกสารทางเดียว: save_draft -> post
+                   -> กำจัด Default 3% ที่ฝังอยู่ใน RPC เดิม
   Dependency   ต้องมี njacc_invoice_items.wht_rate (migration 018 — รันแล้ว)
-               ไม่ผูกกับ 02 / 03 / 04 · รันก่อนหรือหลังก็ได้
-  ความเสี่ยง   ต่ำมาก · READ PATH ล้วน
-               ไม่ ALTER TABLE / INSERT / UPDATE / DELETE / DROP / TRUNCATE
-  รันซ้ำ       ได้
-  VERIFY       V1–V10 ต้อง PASS · V11 ตรวจ wht_breakdown ตรงกับ wht_amount ของใบ
+               ไม่ผูกกับ 01–05
+  สถานะ        *** รันไปแล้ว 17/08/2026 · ห้ามรัน SECTION 2 ซ้ำ ***
+               เก็บไฟล์ไว้เพื่อ Reference / Fresh Install เท่านั้น
+  VERIFY       V1–V12 ต้อง PASS · V13/V14 ต้องได้ 0 · V15 เป็นตารางข้อมูล
+               V8   ยืนยันไม่มี RPC ใดเขียนลง njacc_invoices/njacc_invoice_items
+               V11e ยืนยัน Legacy njacc_create_wht ถูกปิด (anon/auth = false)
+               V11f invoice_options คืน payment_date จาก Payment จริง
+               V11g post_wht บังคับวันที่จ่ายเงินจริง
+               V11h save_draft ไม่ fallback pay_date เป็น document_date
+               V16  ใบที่บันทึกจริงต้องมี pay_date ครบทุกบรรทัด
 
-  *** ไฟล์นี้แทนที่ LEGACY-DO-NOT-RUN/RUN_2_RECEIPT.sql ทั้งตัว ***
-      ห้ามรัน RUN_2_RECEIPT.sql
+  ⚠️ BACKEND REQUIRED — OUTBOUND WHT / SUPPLIER MASTER
+     ตรวจแล้ว Production ไม่มี Supplier / Vendor / AP / Supplier Invoice Master
+     จึงยังทำ Flow ที่ N.J. เป็นผู้หัก (จ่ายให้ Supplier) ไม่ได้ในรอบนี้
+     direction ถูกล็อกที่ 'RECEIVED' ไว้ก่อน — เปิด OUTBOUND ต้องมี migration แยก
+
+  ⚠️ รูปแบบเลขอ้างอิงภายใน WHT{YY}-#### ต่างจากตระกูล NJ/RCP/CN/ADV {YYYYMM}-#####
+     เก็บของเดิมไว้ตามหลัก "มีระบบอยู่แล้วให้ใช้ของเดิม"
+     ต้องการเปลี่ยนให้สั่งแยกรอบ (ตอนนี้ยังมี 0 แถว เปลี่ยนได้ปลอดภัย)
 
 
 ═══════════════════════════════════════════════════════════════════
-FINAL VERIFICATION — รันหลังครบทั้ง 4 ไฟล์แล้วเท่านั้น
+FINAL VERIFICATION — READ ONLY (รันซ้ำได้ทุกเมื่อ)
 ═══════════════════════════════════════════════════════════════════
   รัน SECTION 3 ของไฟล์ 02 ซ้ำอีกครั้ง (READ ONLY)
   คราวนี้ V3 ต้องขึ้น PASS แล้ว

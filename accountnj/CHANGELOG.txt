@@ -1,11 +1,10 @@
 BILLING NJ — CHANGELOG
-Version : 1.4.1   (BUILD KEY 1.4.1-local80)
-จาก     : local79 → local80
-งานล่าสุด : PACKAGING FIX — Sidebar Regression (ดูหัวข้อ 20)
+Version : 1.4.1   (BUILD KEY 1.4.1-local86)
+จาก     : local85 → local86
+งานล่าสุด : FINAL3 — preview-doc.html แท็บ 50 ทวิ ใช้ Renderer ผิด (ดูหัวข้อ 26)
 
-เปิด/ทดสอบ : OPEN-CHECK_final-documents-CLOSED3-SIDEBAR-FIX.zip
-Deploy     : DEPLOY_final-documents-CLOSED3-SIDEBAR-FIX.zip
-             *** ใช้แทน DEPLOY_final-documents-CLOSED3.zip เดิม ***
+เปิด/ทดสอบ : OPEN-CHECK_WHT-50TAWI-FINAL3.zip
+Deploy     : DEPLOY_WHT-50TAWI-FINAL3.zip
 SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึดตารางนั้นเท่านั้น)
 
 
@@ -20,14 +19,15 @@ SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึ
   ── SQL ที่ต้องรันจริง (สถานะ ณ local78) ─────────────────────────
     โฟลเดอร์เดียวที่รัน : sql/RUN-NOW/   (มี README_RUN-NOW.txt อธิบายครบ)
 
-    01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   ✅ ALREADY APPLIED — SKIP
-                                              (ตรวจ Production แล้ว anon/auth = false)
-    02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ▶ RUN NOW  ลำดับ 1
-    03_RUN-03_FINAL_RECEIPT_PAYMENT.sql    ▶ RUN NOW  ลำดับ 2  (ต้องหลัง 02)
-    04_RUN-02_FINAL_CREDIT_NOTE.sql        ▶ RUN NOW  ลำดับ 3
-    05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ▶ RUN NOW  ลำดับ 4  (อิสระ)
+    01_RUN_3B_CREDIT_NOTE_FIX_GRANTS.sql   ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+    02_RUN-01_FINAL_DOCUMENT_NUMBERS.sql   ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+    03_RUN-03_FINAL_RECEIPT_PAYMENT.sql    ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+    04_RUN-02_FINAL_CREDIT_NOTE.sql        ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+    05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
+    06_RUN-05_WHT_CERTIFICATE.sql          ✅ ALREADY APPLIED (17/08/2026)
 
-    => ต้องรันจริง 4 ไฟล์ :  02 -> 03 -> 04 -> 05
+    => *** ไม่มีไฟล์ที่ต้องรันแล้ว *** ทุกไฟล์ APPLIED ครบ · ห้ามรันซ้ำ
+       หลักฐานการตรวจ ดู README_RUN-NOW.txt
 
   ── SQL ที่ห้ามรัน ────────────────────────────────────────────────
     sql/LEGACY-DO-NOT-RUN/*   ทั้งโฟลเดอร์  (ดู README_LEGACY.txt)
@@ -49,7 +49,12 @@ SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึ
     LOGO      assets/img/nj-logo.png
               SHA256 d769fb73003f504dec6818dcf0ce6245b9e3a1f9b0c83a95d4f050680f3b8c91
               = Master byte-for-byte · ใช้ร่วมกันทั้ง 4 เอกสารผ่าน ISSUER.logo
-    COMPANY   ISSUER กลางตัวเดียว (company-doc.js) ทั้ง 4 เอกสาร
+    50 ทวิ    RECEIVED WHT — Customer หัก · N.J. ถูกหัก
+              certificate_no = เลขที่ผู้หักออก (ผู้ใช้กรอก · ระบบไม่สร้างให้)
+              document_no    = เลขอ้างอิงภายใน WHT{YY}-#### (ระบบเลขเดิม)
+              DRAFT -> ISSUED -> VOID · หลายรายการเงินได้ต่อ 1 ใบ
+              อัตราจาก njacc_invoice_items จริง · ไม่มี Default 3% ทุก Path
+    COMPANY   ISSUER กลางตัวเดียว (company-doc.js) ทั้ง 5 เอกสาร
 
   ── ที่ยัง NOT VERIFIED ───────────────────────────────────────────
     Browser Print Preview / A4   (container เปิด Chromium ไม่ได้)
@@ -1033,3 +1038,483 @@ Source Logic : *** ไม่แก้เลย *** ไม่มีการเ�
   assets/js/app.bundle.js   rebuild
   CHANGELOG.txt         ไฟล์นี้
   *** ไม่แตะ shell.css · sidebar.js · CSS ใด ๆ · SQL · Source Logic ***
+
+
+════════════════════════════════════════════════════════════════════
+21 · หนังสือรับรองการหักภาษี ณ ที่จ่าย 50 ทวิ (local81)
+════════════════════════════════════════════════════════════════════
+SQL   : sql/RUN-NOW/06_RUN-05_WHT_CERTIFICATE.sql   ใหม่ · ยังไม่รัน
+        ไฟล์ 01-05 hash เท่าเดิมทุกไฟล์ (ไม่แตะงานเก่า)
+
+── PRE-FLIGHT (ตรวจ Production จริง 17/08/2026) ─────────────────────
+  หน้า      assets/js/withholding/withholding-page.js  (route report/withholding + withholding)
+  API       assets/js/withholding/withholding-api.js
+  CSS       assets/css/pages/withholding.css
+  ตาราง     njacc_withholding_docs  18 คอลัมน์ · *** 0 แถว ***
+  RPC เดิม  njacc_create_wht · njacc_list_wht · njacc_void_wht
+  เลขเอกสาร njacc_next_doc_no('WHT', YYYY, 'WHT'||YY||'-') -> WHT26-0001
+            *** มีระบบอยู่แล้ว ใช้ของเดิม ไม่ประดิษฐ์ใหม่ (ตามข้อ 6) ***
+            counter doc_type='WHT' ยังไม่ถูกสร้าง
+  สถานะเดิม CHECK ('ISSUED','VOID') -> ไม่มี DRAFT
+  Company   ISSUER (assets/js/config/company-doc.js) — Config กลางตัวเดียว
+  ลูกค้า    njacc_customers (id · customer_name · tax_id · branch_code · address · phone)
+            ผ่าน masters()/activeCustomers() ที่มีอยู่แล้ว
+
+── BACKEND REQUIRED ที่พบ (เหตุผลที่ต้องมี SQL) ────────────────────
+  1) เก็บได้ 1 รายการต่อ 1 ใบ (tax_base/rate/amount เป็นคอลัมน์เดี่ยว)
+  2) ไม่มีสถานะ DRAFT
+  3) njacc_list_wht ไม่คืน tax_id/branch_code/address/phone ของผู้ถูกหัก
+  4) ไม่มี RPC เลือก Invoice พร้อมอัตรา WHT จริง
+
+── ไฟล์ใหม่ (3) ────────────────────────────────────────────────────
+  assets/js/withholding/wht-doc.js     Renderer 50 ทวิ (namespace .whd*)
+  assets/css/pages/wht-doc.css         สไตล์เอกสาร A4 (.whd*)
+  sql/RUN-NOW/06_RUN-05_WHT_CERTIFICATE.sql
+
+── ไฟล์ที่แก้ (6) ──────────────────────────────────────────────────
+  assets/js/withholding/withholding-page.js  เขียนใหม่ทั้งไฟล์
+                                             list + เลือก Invoice + ฟอร์มหลายรายการ
+                                             + DRAFT + Preview + POST + Void
+  assets/js/withholding/withholding-api.js   + 5 RPC + isWhtBackendMissing + error map
+  assets/css/pages/withholding.css           + .whp* (ต่อท้าย ไม่แก้ของเดิม)
+  index.html                                 + wht-doc.css · BUILD KEY local80 -> local81
+  preview-doc.html                           + แท็บ 50 ทวิ (11 ชุดข้อมูล)
+  assets/js/app.bundle.js                    rebuild
+  sql/RUN-NOW/README_RUN-NOW.txt             + ลำดับ 5
+
+── หลักการที่บังคับไว้ ─────────────────────────────────────────────
+  ปุ่มหลัก     "+ บันทึกเอกสารหัก ณ ที่จ่าย" -> "+ ออกหนังสือรับรองหัก ณ ที่จ่าย"
+  ผู้หักภาษี   ดึงจาก ISSUER กลาง — ไม่ hardcode ข้อมูลบริษัทซ้ำในหน้า 50 ทวิ
+  ผู้ถูกหัก    เลือกจาก Customer Master เดิม -> Auto Fill tax_id/branch/address/phone
+               Tax ID + สาขา อยู่บรรทัดเดียวกันทั้งในฟอร์มและบนเอกสาร
+  Invoice Ref  เลือกจากระบบจริง (njacc_wht_invoice_options) ไม่ต้องพิมพ์เอง
+               ผูกด้วย invoice_id (UUID) ไม่ใช่ข้อความ · reference_no เป็นทางเลือกสำรอง
+               เปลี่ยนผู้ถูกหัก -> ตัดความผูกพัน Invoice ทิ้ง (SQL กันซ้ำด้วย
+               NJACC_WHT_INVOICE_MISMATCH)
+  WHT Rate     *** ไม่ hardcode 3% *** เติมจาก njacc_invoice_items.wht_rate จริง
+               รองรับ 0% / 1% / 3% และอัตราอื่นที่ระบบมี · 1 ใบมีหลายอัตราได้
+  หลายรายการ   + เพิ่ม / ลบ / แก้ ได้ · Footer รวมจากรายการจริง
+               ผู้ใช้กรอก Total เองไม่ได้ · SQL บังคับหัวใบ = ผลรวมรายการ (VERIFY V13)
+  ภาษี         amount = base × rate/100 คำนวณที่ SQL เสมอ (VERIFY V14)
+  DRAFT        WHTDRAFT-xxxxxxxx -> ร่างที่ทิ้งไม่กินเลขจริง
+  Invoice      อ่านอย่างเดียว — VERIFY V8 ยืนยันไม่มี RPC ใดเขียนลง njacc_invoices
+  ฉบับเอกสาร   Data Model เดียว · Renderer เดียว · เปลี่ยนเฉพาะ Label 3 ฉบับ
+  Permission   can('issue_receipt') / can('void') / isAdmin() เดิม ไม่เพิ่มสิทธิ์ใหม่
+               RLS เปิดบน njacc_wht_items · 0 policy · anon เรียกไม่ได้
+
+── ACCEPTANCE TEST (ข้อ 21) — PASS ────────────────────────────────
+  Case 1  ฐาน 10,000 · 3%  -> ภาษี 300.00 · รวมจ่าย 10,000 · รวมภาษี 300
+  Case 2  ฐาน 10,000 · 1%  -> ภาษี 100.00
+  Case 3  หลายรายการ 3 บรรทัด (3%+1%+0%) -> รวม 17,000 / 350
+          แต่ละบรรทัดใช้อัตราของตัวเอง ไม่ยุบเป็นอัตราเดียว
+  Case 4  เลือก Invoice -> Auto Fill ผู้ถูกหัก + รายการ + อัตราจาก wht_breakdown
+  Case 5  Save Draft -> เปิดแก้ -> Preview   (โครงสร้างพร้อม · รอรัน SQL)
+  Case 6  Preview -> Print / PDF (ปุ่มในเอกสาร · Renderer เดียวกัน)
+  Case 7  Tax ID / สาขา / ที่อยู่ / โทร ถูกต้อง ทั้งผู้หักและผู้ถูกหัก
+          ผู้หักดึงจาก ISSUER · ไม่มี Bangkok address เก่าหลุด
+  Case 8  ตัวอักษร 300 -> "สามร้อยบาทถ้วน" · 350 -> "สามร้อยห้าสิบบาทถ้วน"
+  Case 9  Renderer ไม่แก้ข้อมูลต้นทาง (immutable snapshot test)
+  Case 10 Desktop/Mobile — CSS responsive เขียนครบ แต่ยังไม่ได้ดูจริง
+  เพิ่ม   ฉบับ 1/2/3 ข้อมูลเหมือนกัน เปลี่ยนแค่ Label
+          DRAFT ไม่โชว์เลขปลอม · VOID มีตราประทับ
+          เอกสารเก่าที่ไม่มี items ยังพิมพ์ได้ (fallback จากหัวใบ)
+          โครงสร้าง 6 เคส (1/1/3/12 รายการ · desc ยาว · ว่าง) tag balance + 6 คอลัมน์
+
+── REGRESSION (ข้อ 19) — ไม่มีอะไรพัง ──────────────────────────────
+  PASS  Sidebar · Receipt footer gross · ADVANCE guard · WHT breakdown
+  PASS  Receipt 12 เคส · Invoice 5 คอลัมน์ · Credit cumulative · Credit 8 คอลัมน์
+  PASS  Company/Logo 4 renderer · preview-doc.html 52 ชุด (5 แท็บ)
+  PASS  JS syntax ทุกไฟล์ + bundle · CSS brace balance
+  PASS  Logo SHA256 d769fb73...8c91 ไม่เปลี่ยน
+  PASS  เลข 4 ชุดยังอยู่ครบ · SQL 01-05 hash เท่าเดิม
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser Print Preview / A4 (container เปิด Chromium ไม่ได้)
+  Desktop / Mobile rendering จริง
+  Draft -> Preview -> POST บน Production (ยังไม่ได้รัน 06_RUN-05)
+
+
+════════════════════════════════════════════════════════════════════
+22 · FIX2 — ทิศทางภาษี 50 ทวิ + ปิด Legacy RPC (local82)
+════════════════════════════════════════════════════════════════════
+SQL   : แก้ 06_RUN-05_WHT_CERTIFICATE.sql ตัวเดิม (ยังไม่รัน)
+        ไฟล์ 01–05 hash เท่าเดิมทุกไฟล์ · ยืนยันแล้วว่า ALREADY APPLIED
+
+── ROOT CAUSE 1 · ทิศทางภาษีสลับ ───────────────────────────────────
+  Business Flow เดิมของหน้านี้ผูกกับ Customer + Sales Invoice ของ N.J.
+    N.J. ออก Invoice ขาย -> Customer จ่ายเงินและหักภาษี -> N.J. รับ Net
+    (ยืนยันจาก njacc_invoice_net_receivable ใน RUN-03 ที่รันไปแล้ว)
+  แต่รอบก่อนผมทำ ก. ผู้หัก = N.J. / ข. ผู้ถูกหัก = Customer -> กลับด้าน
+
+  FIX  ก. ผู้มีหน้าที่หักภาษี = Customer  (wht_view คืนคีย์ 'payer')
+       ข. ผู้ถูกหักภาษี      = N.J.      (ISSUER · Config กลาง)
+       เพิ่มคอลัมน์ direction ล็อกที่ 'RECEIVED' ด้วย CHECK
+       ลายเซ็นเปลี่ยนเป็น "ลงชื่อ ผู้มีหน้าที่หักภาษี ณ ที่จ่าย (ผู้จ่ายเงิน)"
+       Renderer รองรับ payload เก่าที่ยังส่ง payee (fallback) ไม่ให้เอกสารว่าง
+
+── ROOT CAUSE 2 · เลข Certificate ใช้เลข Internal ──────────────────
+  รอบก่อนเอา document_no (WHT{YY}-#### ของ N.J.) ไปแสดงเป็นเลขหนังสือรับรอง
+  ทั้งที่เลขจริงต้องเป็นเลขที่ Customer (ผู้หัก) เป็นผู้ออก
+
+  FIX  + คอลัมน์ certificate_no — ผู้ใช้กรอกเอง *** ระบบไม่ auto-gen ***
+       เอกสารแสดง certificate_no เป็นเลขหลัก
+       document_no แสดงแยกบรรทัดว่า "เลขอ้างอิงภายใน"
+       ยังไม่ได้รับเอกสารตัวจริง -> "ยังไม่ได้รับเลขจากผู้หักภาษี" (ไม่สวมรอย)
+       UNIQUE (customer_id, certificate_no) เฉพาะที่ไม่ VOID
+
+── ROOT CAUSE 3 · Legacy RPC Bypass ────────────────────────────────
+  ตรวจ Production: njacc_create_wht authenticated EXECUTE = true
+    - สร้างแถว ISSUED ทันที ข้าม DRAFT/POST
+    - มี coalesce((p->>'rate')::numeric, 3) = Default 3%
+  => มี 2 ทางออกเอกสาร
+
+  FIX  แนวทาง A: REVOKE EXECUTE FROM authenticated, anon, PUBLIC
+       ไม่ DROP ฟังก์ชัน (ไม่ทำลายประวัติ/สิทธิ์ service_role)
+       เหลือทางเดียว: njacc_save_wht_draft -> njacc_post_wht
+       VERIFY V11e ตรวจ anon=false และ authenticated=false
+
+── ROOT CAUSE 4 · Default 3% ───────────────────────────────────────
+  FIX  njacc_save_wht_draft บังคับส่ง rate มาเสมอ
+       ไม่ส่ง -> RAISE NJACC_WHT_RATE_REQUIRED (ไม่เดาให้เป็น 3%)
+       ตรวจ source แล้วไม่เหลือบรรทัดที่ตั้ง default ให้ rate เลย
+
+── OUTBOUND WHT — ยังทำไม่ได้ (รายงานตามข้อ 5) ─────────────────────
+  *** BACKEND REQUIRED — OUTBOUND WHT / SUPPLIER MASTER ***
+  ตรวจ information_schema แล้ว Production ไม่มีตารางใดที่เป็น
+  Supplier / Vendor / Accounts Payable / Supplier Invoice
+  (ที่ชื่อคล้ายเป็นของแอป HR และ mapping คนละระบบ)
+  จึงไม่ทำ Flow ที่ N.J. เป็นผู้หัก และไม่เอา Customer มาแทน Supplier
+
+── COPY LABEL (ข้อ 8) ──────────────────────────────────────────────
+  ฉบับที่ 1  สำหรับผู้ถูกหักภาษี ณ ที่จ่าย ใช้แนบพร้อมแบบแสดงรายการ
+  ฉบับที่ 2  สำหรับผู้ถูกหักภาษี ณ ที่จ่าย เก็บไว้เป็นหลักฐาน
+  สำเนาคู่ฉบับ  สำหรับผู้มีหน้าที่หักภาษี ณ ที่จ่ายเก็บไว้เป็นหลักฐาน
+  *** เลิกใช้คำว่า "ฉบับที่ 3" ***
+
+── ไฟล์ที่แก้ (7) ──────────────────────────────────────────────────
+  sql/RUN-NOW/06_RUN-05_WHT_CERTIFICATE.sql  direction · certificate_no ·
+                                             payer · rate required · REVOKE legacy
+                                             + VERIFY V11a–V11e
+  assets/js/withholding/wht-doc.js           สลับ ก./ข. · เลข 2 ชุด · copy label
+  assets/js/withholding/withholding-page.js  ฟอร์มตามทิศทางใหม่ + ช่อง certificate_no
+                                             + กล่อง ข. = N.J. (อ่านอย่างเดียว)
+  assets/css/pages/wht-doc.css               + .whd-intlbl / .whd-int
+  assets/css/pages/withholding.css           + .whp-nj*
+  preview-doc.html                           payer + certificate_no + เคส 5% / ไม่มีเลข
+  sql/RUN-NOW/README_RUN-NOW.txt             เขียนใหม่ 01–05 = ALREADY APPLIED
+                                             06 = PENDING · คำว่า "RUN NOW" เหลือ 0
+  index.html / app.bundle.js / CHANGELOG.txt
+
+── TEST (ข้อ 14) — PASS ทั้งหมด ────────────────────────────────────
+  ก. ผู้หัก = Customer (Tax ID 0105528008441) · ไม่มี Tax ID ของ N.J. ใน ก.
+  ข. ผู้ถูกหัก = N.J. (Tax ID 0205557004651) · ไม่มีชื่อ Customer ใน ข.
+  ไม่สลับบทบาททั้งสองทาง
+  certificate_no แสดงเป็นเลขหลัก · document_no แยกเป็นเลขภายใน
+  ไม่มี certificate_no -> ไม่เอาเลขภายในมาสวมรอย
+  WHT 1% -> 100 · 3% -> 300 · 5% -> 500
+  Mixed 3%+1%+5% -> 17,000 / 450 · Manual 0% ไม่ถูกเปลี่ยนเป็น 3%
+  SQL 06 มี NJACC_WHT_RATE_REQUIRED · ไม่มี coalesce(rate,3) ในโค้ดจริง
+  SQL 06 REVOKE njacc_create_wht · มี VERIFY V11e
+  หน้าเว็บไม่มี value="3" และไม่เรียก createWht
+  direction ล็อก RECEIVED · รายงาน BACKEND REQUIRED — SUPPLIER MASTER
+  3 ฉบับข้อมูลเหมือนกัน ต่างแค่ Label · "สำเนาคู่ฉบับ" แทน "ฉบับที่ 3"
+  DRAFT ไม่โชว์เลขปลอม · VOID มีตราประทับ · Amount in Words ถูก
+
+── REGRESSION (ข้อ 13) — ไม่มีอะไรพัง ──────────────────────────────
+  PASS  50 ทวิ acceptance · Sidebar · Receipt footer gross · ADVANCE guard
+  PASS  WHT breakdown · Receipt 12 เคส · Invoice 5 คอลัมน์
+  PASS  Credit cumulative · Credit 8 คอลัมน์ · Company/Logo 4 renderer
+  PASS  preview-doc.html 54 ชุด (5 แท็บ) · JS + bundle + CSS
+  PASS  Logo SHA256 d769fb73...8c91 · SQL 01–05 hash เท่าเดิม
+  PASS  เลข 4 ชุดยังอยู่ครบ (NJ/ADV/CN ที่ไฟล์ 02 · RCP ที่ไฟล์ 03)
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser Print Preview / A4 · Desktop / Mobile rendering จริง
+  Draft -> Preview -> Issue บน Production (ยังไม่ได้รัน 06)
+
+
+════════════════════════════════════════════════════════════════════
+23 · FINAL — Action Label + Payment Date + ไม่ลงนามแทนลูกค้า (local83)
+════════════════════════════════════════════════════════════════════
+SQL   : แก้ 06_RUN-05_WHT_CERTIFICATE.sql ตัวเดิม (ยังไม่รัน)
+        01–05 ไม่แตะ · ALREADY APPLIED
+
+── ข้อ 1 · RECEIVED WHT ห้ามใช้คำว่า "ออกหนังสือรับรอง" ────────────
+  N.J. เป็นผู้ถูกหัก = ผู้ได้รับเอกสาร ไม่ใช่ผู้ออก
+  ปุ่มหลัก   "+ ออกหนังสือรับรองหัก ณ ที่จ่าย" -> "+ บันทึกหนังสือรับรองที่ได้รับ"
+  ปุ่มยืนยัน "ออกเอกสารจริง"                  -> "ยืนยันรับเอกสาร"
+  Confirm    "ออกหนังสือรับรองจริง"            -> "ยืนยันบันทึกหนังสือรับรองที่ได้รับ"
+  สถานะ UI   ISSUED แสดง "บันทึกแล้ว" (เดิม "ออกแล้ว")
+             ค่าในฐานข้อมูลคง 'ISSUED' ไว้เพื่อ Compatibility
+  Toast      "ออกเอกสารสำเร็จ" -> "บันทึกเอกสารที่ได้รับแล้ว — เลขอ้างอิงภายใน ..."
+  หัวหน้า    "ทะเบียนหนังสือรับรอง 50 ทวิ ที่ได้รับ"
+
+── ข้อ 2 · ไม่สร้างลายเซ็นแทนลูกค้า ────────────────────────────────
+  ก่อนแก้  เอกสารมี "ผู้จ่ายเงินขอรับรองว่าข้อความ..." + ช่องลงชื่อ
+           -> ดูเหมือน N.J. ออก/ลงนามแทน Customer
+  หลังแก้  *** ลบช่องลายเซ็นทั้งหมด *** (.whd-sign เหลือ 0 อ้างอิงทั้ง JS และ CSS)
+           หัวเอกสาร -> "ข้อมูลหนังสือรับรองหัก ณ ที่จ่ายที่ได้รับ"
+                        "สำเนาข้อมูลสำหรับบันทึกภายใน"
+           แถบบน     -> "สำเนาข้อมูลสำหรับบันทึกภายใน — ไม่ใช่ต้นฉบับหนังสือรับรอง"
+           ท้ายเอกสาร -> ส่วน "การอ้างอิงต้นฉบับ" ระบุ
+                         ต้นฉบับออกและลงนามโดย = ชื่อลูกค้า (ผู้หัก)
+                         ผู้บันทึกข้อมูล        = created_by_name ของ N.J.
+                         วันที่บันทึก
+           ข้อมูล payer/payee ยังตรงจริงทุกช่อง
+
+── ข้อ 3-5 · Payment Date ห้ามใช้ Invoice Date ─────────────────────
+  ROOT CAUSE  pay_date = invoice.invoice_date ทั้งหัวใบและรายการ auto-fill
+              และ SQL fallback coalesce(pay_date, v_pay, v_date)
+              -> วันที่จ่ายเงินเพี้ยนเป็นวันที่ใบแจ้งหนี้
+
+  FIX Backend  njacc_wht_invoice_options คืนเพิ่ม
+                 payments = [{payment_id, payment_no, payment_date,
+                              allocated_amount, receipt_no}]
+                   จาก njacc_payment_allocations JOIN njacc_payments
+                   นับเฉพาะ status='POSTED' (VOID ไม่นับ)
+                 payment_date = วันที่จ่ายจริง "เมื่อมี Payment เดียวเท่านั้น"
+                   มีหลายรายการ -> null *** ไม่เดาว่าจะเอาวันไหน ***
+                   ไม่มี Payment -> null
+               save_wht_draft ตัด fallback v_date ออก -> ปล่อย NULL ได้ในร่าง
+               post_wht บังคับ pay_date หัวใบ + ทุกบรรทัด
+                 NJACC_WHT_PAY_DATE_REQUIRED / NJACC_WHT_ITEM_PAY_DATE_REQUIRED
+
+  FIX Frontend  ตัด invoice.invoice_date ออกทุกจุด (grep = 0)
+                เติมจาก invoice.payment_date เท่านั้น
+                Payment เดียว   -> แสดง "เติมจากการรับชำระจริง PAY.. dd/mm/yyyy"
+                หลาย Payment    -> เตือนสีส้ม + ลิสต์วันที่ให้เลือกเอง
+                ไม่มี Payment   -> เว้นว่าง + ข้อความให้ระบุตามเอกสารที่ได้รับ
+                ตารางเลือก Invoice เพิ่มคอลัมน์ "วันที่จ่ายจริง"
+                บล็อกก่อนยืนยันถ้า pay_date ว่างหรือบรรทัดใดว่าง
+
+── ข้อ 6 · Label ที่กลับด้าน ───────────────────────────────────────
+  แก้ทุกจุด: heading · placeholder · toast · comment · error message
+  NJACC_WHT_CUSTOMER_REQUIRED  -> "ต้องเลือกผู้หักภาษี / ลูกค้าผู้จ่ายเงินก่อน"
+  NJACC_WHT_CUSTOMER_NOT_FOUND -> "ไม่พบผู้หักภาษีรายนี้"
+  NJACC_WHT_INVOICE_MISMATCH   -> "ใบแจ้งหนี้ที่อ้างอิงไม่ใช่ของลูกค้าผู้หักภาษีรายนี้"
+  "เลือกใบแจ้งหนี้เพื่อดึงผู้ถูกหัก" -> "...เพื่อดึงผู้หักภาษี / ลูกค้าผู้จ่ายเงิน"
+  ตรวจแล้วคำว่า "ผู้ถูกหัก" ที่เหลือทุกจุดอ้างถึง N.J. เท่านั้น (ถูกต้อง)
+
+── ข้อ 7 · Legacy RPC ──────────────────────────────────────────────
+  คง REVOKE EXECUTE njacc_create_wht FROM authenticated, anon, PUBLIC
+  *** ลบ export createWht ออกจาก withholding-api.js แล้ว ***
+  ตรวจ grep: ไม่มีไฟล์ใดใน assets/js เรียก createWht อีก
+
+── TEST (ข้อ 9) — PASS ทั้งหมด 33 assertion ────────────────────────
+  Invoice 01/08/2026 · Payment 30/08/2026
+    ตารางวันที่จ่าย = 30/08/2026 · ช่องวันที่จ่ายเงิน = 30/08/2026
+    ช่องวันที่ใบแจ้งหนี้ = 01/08/2026 (คนละช่อง ถูกต้อง)
+  page ไม่มี pay_date = invoice.invoice_date (grep = 0)
+  SQL คืน payment_date จาก njacc_payments · ไม่ fallback v_date
+  post_wht + หน้าเว็บบล็อกเมื่อวันที่จ่ายว่าง
+  Action label ครบทุกจุด · สถานะ "บันทึกแล้ว"
+  เอกสารไม่มีช่องลายเซ็น · ไม่มีคำรับรองของผู้จ่ายเงิน
+  ระบุต้นฉบับออกโดยลูกค้า · ผู้บันทึกคือ N.J.
+  ก.=Customer · ข.=N.J. ไม่สลับ
+  WHT 1%/3%/5% · Mixed 3+1+5% = 17,000/450
+  DRAFT ไม่โชว์เลขปลอม · VOID · 3 ฉบับข้อมูลเดียวกัน · tag balance
+
+── REGRESSION — ไม่มีอะไรพัง ───────────────────────────────────────
+  PASS  Sidebar · Receipt footer gross · ADVANCE guard · WHT breakdown
+  PASS  Receipt 12 เคส · Invoice 5 คอลัมน์ · Credit cumulative
+  PASS  Company/Logo · preview 5 แท็บ · JS + bundle + CSS
+  PASS  Logo SHA256 d769fb73...8c91 · SQL 01–05 hash เท่าเดิม
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser Print Preview / A4 · Desktop / Mobile rendering จริง
+  Payment lookup บน Production (ยังไม่ได้รัน 06)
+
+
+════════════════════════════════════════════════════════════════════
+24 · HOTFIX — VERIFY V13 syntax ใน 06 (local84)
+════════════════════════════════════════════════════════════════════
+SQL   : แก้ 06_RUN-05_WHT_CERTIFICATE.sql เฉพาะ SECTION 3 · V13
+        SECTION 1/2 ไม่แตะ · 01–05 ไม่แตะ
+Source: *** ไม่แก้ JS/CSS/HTML ใด ๆ *** เป็นบั๊ก SQL ล้วน
+
+── อาการ ───────────────────────────────────────────────────────────
+  ERROR 42601: subquery must return only one column
+  LINE 758:  AND (w.tax_base, w.amount) IS DISTINCT FROM (
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  V13 เขียนเป็น row-comparison กับ subquery หลายคอลัมน์
+      (a, b) IS DISTINCT FROM (SELECT x, y FROM ...)
+  PostgreSQL รับ subquery ในตำแหน่งนี้ได้เพียงคอลัมน์เดียว
+  (รูปแบบ row-value ใช้ได้กับ = / <> แต่ไม่ใช่กับ IS DISTINCT FROM + subquery)
+
+── ผลกระทบ = ไม่มี ─────────────────────────────────────────────────
+  V13 อยู่ใน SECTION 3 ซึ่งอยู่ "หลัง COMMIT" ของ SECTION 2
+  -> MIGRATION รันสำเร็จและ COMMIT ไปแล้ว ไม่ rollback ไม่มีข้อมูลเสียหาย
+  ตรวจ Production ยืนยันแล้ว:
+      njacc_wht_items                มีจริง
+      certificate_no · direction     มีจริง
+      status CHECK มี DRAFT           ใช่
+      RPC ใหม่                        ครบ 5 ตัว
+      njacc_create_wht authenticated  false (ปิดสำเร็จ)
+      njacc_list_wht มี certificate_no ใช่
+
+── FIX ─────────────────────────────────────────────────────────────
+  เขียน V13 ใหม่ด้วย scalar subquery แยกคอลัมน์:
+      w.tax_base IS DISTINCT FROM (SELECT round(sum(x.tax_base),2) ...)
+   OR w.amount   IS DISTINCT FROM (SELECT round(sum(x.amount),2)   ...)
+  พร้อมคอมเมนต์เตือนไม่ให้เขียนรูปแบบเดิมอีก
+  ตรวจทุกไฟล์ RUN-NOW แล้ว: pattern นี้มีที่เดียวจริง (grep = 1)
+
+── ผล VERIFY จริงหลังแก้ (รันบน Production 17/08/2026 · READ ONLY) ──
+  V1  ตาราง njacc_wht_items                     PASS
+  V2  คอลัมน์ใหม่ครบ 7                            PASS
+  V3  status รองรับ DRAFT/ISSUED/VOID            PASS
+  V4  RPC ใหม่ครบ 5                              PASS
+  V5  list_wht คืนข้อมูลผู้หักครบ                  PASS
+  V6  DRAFT ไม่กินเลขจริง (WHTDRAFT-)            PASS
+  V7  POST ใช้ njacc_next_doc_no('WHT')          PASS
+  V8  ไม่มี RPC ใดเขียนลง njacc_invoices          PASS
+  V9  SECURITY DEFINER + search_path ครบ         PASS
+  V10 anon เรียกไม่ได้                            PASS
+  V11 RLS เปิด · 0 policy                        PASS
+  V11a certificate_no + direction                PASS
+  V11b direction ล็อก RECEIVED                   PASS
+  V11c wht_view คืน payer                        PASS
+  V11d ไม่มี Default 3%                          PASS
+  V11e Legacy njacc_create_wht ถูกปิด            PASS
+  V11f invoice_options คืน payment_date          PASS
+  V11g post_wht บังคับวันที่จ่ายเงินจริง            PASS
+  V11h save_draft ไม่ fallback pay_date          PASS
+  V12 njacc_create_wht เดิมยังอยู่                PASS
+  V13 หัวใบ = ผลรวมรายการ        mismatched = 0  PASS  ← syntax ใหม่ทำงานได้
+  V14 amount = base × rate       bad_lines  = 0  PASS
+  V16 pay_date ครบ                missing   = 0  PASS
+  V15 ข้อมูล  wht_docs=0 items=0 wht_counter=ยังไม่มี
+
+── สถานะ SQL หลังรอบนี้ ────────────────────────────────────────────
+  01–06 = ALREADY APPLIED ทั้งหมด · ไม่มีไฟล์ที่ต้องรันแล้ว
+
+
+════════════════════════════════════════════════════════════════════
+25 · FINAL2 — Preview ห้ามปลอมวันที่จ่ายเงิน (local85)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่ต้องรัน *** 01–06 ALREADY APPLIED ครบ
+        แก้เฉพาะ Header ของ 06 ให้ระบุสถานะ + README (เอกสารล้วน)
+Source: แก้ assets/js/withholding/wht-doc.js ไฟล์เดียว + rebuild bundle
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  Renderer ยังมี fallback ที่เอา document_date มาแทน pay_date 2 จุด
+
+    บรรทัด 128 (แถวตาราง)
+      it.pay_date ? dmy(it.pay_date) : dmy(w.pay_date || w.document_date)
+    บรรทัด 213 (ช่องวันที่จ่ายเงิน)
+      w.pay_date ? dmy(w.pay_date) : dmy(w.document_date)
+
+  วันที่ออกหนังสือรับรอง (document_date) กับ วันที่จ่ายเงินจริง (pay_date)
+  เป็นคนละข้อมูลทางบัญชี -> เอกสารระบุวันจ่ายผิดเมื่อยังไม่มี pay_date
+
+── FIX ─────────────────────────────────────────────────────────────
+  เพิ่ม helper เดียวใช้ทั้ง 2 จุด :
+
+    const PAY_NONE = '— ยังไม่ระบุ —';
+    const payDate = (itemDate, headDate) => {
+      if (itemDate) return dmy(itemDate);
+      if (headDate) return dmy(headDate);
+      return PAY_NONE;
+    };
+
+  ลำดับ: บรรทัด -> หัวใบ -> "— ยังไม่ระบุ —"
+  *** ไม่มีทางไปถึง document_date อีกแล้ว ***
+  document_date เหลือใช้เฉพาะ 2 ช่องที่ถูกต้อง:
+    "วันที่ออกหนังสือรับรอง" และ "วันที่บันทึก"
+
+── ข้อ 3 · Backend Guard ยังอยู่ครบ ────────────────────────────────
+  NJACC_WHT_PAY_DATE_REQUIRED / NJACC_WHT_ITEM_PAY_DATE_REQUIRED
+  ไม่ถูกถอดออก -> ใบที่บันทึกจริง (ISSUED) จะมีวันที่จ่ายครบเสมอ
+  ข้อความ "— ยังไม่ระบุ —" จึงเห็นได้เฉพาะตอน Preview ร่างเท่านั้น
+
+── TEST (ข้อ 8) — PASS ทั้งหมด 15 assertion ────────────────────────
+  Case A  document_date 17/08 · pay_date null
+          วันที่ออกหนังสือรับรอง = 17/08/2026
+          วันที่จ่ายเงิน         = — ยังไม่ระบุ —
+          แถวตาราง              = — ยังไม่ระบุ —
+          ยืนยันไม่มี 17/08/2026 โผล่ในช่องวันจ่ายหรือตาราง
+  Case B  pay_date 30/08 -> เอกสาร 17/08 · จ่าย 30/08 · แถว 30/08
+  Case C  Invoice 01/08 · Payment 30/08 -> จ่าย 30/08 (ไม่ใช่ 01/08)
+          ช่องวันที่ใบแจ้งหนี้ยังเป็น 01/08 ถูกต้อง (คนละช่อง)
+  เพิ่ม   บรรทัดว่าง + หัวใบมีค่า -> ใช้หัวใบ (ไม่ใช่ document_date)
+          หลายบรรทัดคนละวัน -> 30/08 · 05/09 · 30/08 (บรรทัดว่างใช้หัวใบ)
+  Build   source มี helper payDate() · bundle มี payDate 4 ครั้ง
+          bundle ไม่เหลือ fallback เก่า
+  Guard   SQL NJACC_WHT_PAY_DATE_REQUIRED ยังอยู่
+
+── ข้อ 6 · SQL STATUS ──────────────────────────────────────────────
+  README   ไม่มีคำว่า PENDING / RUN NOW / "ยังไม่รัน" อีกแล้ว
+           01–06 = ALREADY APPLIED ทั้งหมด
+  Header 06 เพิ่มกล่องระบุชัด:
+           PRODUCTION: ALREADY APPLIED (17/08/2026)
+           *** DO NOT RUN AGAIN ***
+           VERIFY SECTION MAY BE RUN READ-ONLY
+           + บันทึกประวัติบั๊ก V13 ที่แก้แล้ว
+
+── ข้อ 4 · REGRESSION — ไม่มีอะไรพัง ───────────────────────────────
+  PASS  ทิศทาง Customer=ผู้หัก · N.J.=ผู้ถูกหัก
+  PASS  ปุ่ม "+ บันทึกหนังสือรับรองที่ได้รับ" · "ยืนยันรับเอกสาร"
+  PASS  Payment date จาก Payment จริง · ไม่ใช้ invoice_date
+  PASS  Legacy njacc_create_wht ปิดอยู่ · ไม่มี Default 3%
+  PASS  Sidebar · Invoice · Receipt · Credit Note · Advance
+  PASS  Logo SHA256 d769fb73...8c91 · เลข 4 ชุดครบ
+  PASS  preview 5 แท็บ · JS + bundle + CSS
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser Print Preview / A4 · Desktop / Mobile rendering จริง
+
+
+════════════════════════════════════════════════════════════════════
+26 · FINAL3 — preview-doc.html แท็บ 50 ทวิ ใช้ Renderer ผิด (local86)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่ต้องรัน *** 01–06 ALREADY APPLIED ครบ · ไม่แตะไฟล์ SQL ใด
+Source: แก้ preview-doc.html ไฟล์เดียว (draw() 1 branch)
+        *** ไม่แตะ wht-doc.js · withholding-page.js · Renderer อื่นใด ***
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  preview-doc.html เลือกชุดข้อมูลถูกแล้ว :
+      const M = doc==='rc'?RC:(doc==='ap'?AP:(doc==='cn'?CN:(doc==='wh'?WH:IV)));
+  แต่ draw() ขาด branch ของ 'wh' :
+      doc==='rc' ? receiptDocHTML
+    : doc==='ap' ? advanceDocHTML
+    : doc==='cn' ? creditNoteDocHTML
+    : invoiceDocHTML          <-- 'wh' ตกมาที่นี่
+  -> แท็บ "50 ทวิ" ถูก render ด้วย Renderer ของใบแจ้งหนี้ (.ivd)
+     ทั้งที่ import whtDocHTML และมี WH{} ครบแล้ว
+
+── FIX (1 branch) ──────────────────────────────────────────────────
+    : doc==='wh' ? whtDocHTML(a[0], a[1] || {})
+  a[1] = { copy } สำหรับเลือกฉบับเอกสาร (ฉบับที่ 2 / สำเนาคู่ฉบับ)
+  พร้อมคอมเมนต์เตือนไม่ให้ลืมอีก
+
+── TEST — จำลอง DOM แล้วรัน script ของ preview-doc.html จริง ─────────
+  (ไม่ได้ทดสอบจาก mock แยก แต่เรียก paint()/draw() ตัวจริงในไฟล์)
+  PASS  paint() แท็บ wh ได้ class="whd" · ไม่มี class="ivd"
+  PASS  paint() แท็บ wh มีหัว "ข้อมูลหนังสือรับรองหัก ณ ที่จ่ายที่ได้รับ"
+        และ "ตามมาตรา 50 ทวิ"
+  PASS  แท็บอื่นไม่พัง : INVOICE .ivd · RECEIPT .rcd · CREDIT .cnd · ADVANCE .apd
+  PASS  แท็บ 50 ทวิ มี 14 ชุดข้อมูล · ทุกชุดใช้ .whd
+        ไม่มี undefined/NaN · tag balance ครบทุกชุด
+  PASS  ฐาน 10,000 · WHT 3% -> 300.00
+  PASS  WHT 1% -> 100.00 · WHT 5% -> 500.00
+  PASS  หลายรายการ (3%+1%+0%) -> 3 แถว
+  PASS  12 รายการ -> 12 แถว
+  PASS  DRAFT มีตรา "DRAFT / ร่าง"
+  PASS  VOID มีตรา "VOID / ยกเลิก"
+  PASS  ไม่มีเลข Certificate -> "ยังไม่ได้รับเลขจากผู้หักภาษี"
+  PASS  ฉบับที่ 2 · สำเนาคู่ฉบับ label ถูกต้อง
+  PASS  วันที่ : ออก 31/08/2026 · จ่าย 30/08/2026 · ใบแจ้งหนี้ 01/08/2026
+        แถวตาราง 30/08/2026
+  PASS  pay_date = null -> "— ยังไม่ระบุ —" ทั้งหัวและแถว
+        ไม่ fallback ไป 31/08 (document_date) หรือ 01/08 (invoice_date)
+
+── ห้าม Regression — ตรวจแล้วครบ ───────────────────────────────────
+  PASS  wht-doc.js · withholding-page.js ไม่ถูกแตะ
+  PASS  Invoice · Receipt · Credit Note · Advance · Sidebar
+  PASS  Logo SHA256 d769fb73...8c91
+  PASS  SQL ทุกไฟล์ hash เท่าเดิม · ไม่มี SQL RUN NOW
+  PASS  ชุดทดสอบเดิม 13 ชุด ผ่านหมด
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser Print Preview / A4 · Desktop / Mobile rendering จริง

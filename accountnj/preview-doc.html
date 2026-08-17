@@ -1,6 +1,6 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NJ — ตรวจเอกสาร 4 แบบ (INVOICE / RECEIPT / CREDIT NOTE / ADVANCE) ก่อน Deploy</title>
+<title>NJ — ตรวจเอกสาร 5 แบบ (INVOICE / RECEIPT / CREDIT NOTE / ADVANCE / 50 ทวิ) ก่อน Deploy</title>
 <link rel="stylesheet" href="assets/css/core/reset.css">
 <link rel="stylesheet" href="assets/css/core/variables.css">
 <link rel="stylesheet" href="assets/css/core/typography.css">
@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="assets/css/pages/receipt-doc.css">
 <link rel="stylesheet" href="assets/css/pages/advance-doc.css">
 <link rel="stylesheet" href="assets/css/pages/credit-note-doc.css">
+<link rel="stylesheet" href="assets/css/pages/wht-doc.css">
 <style>
   body{background:#e9edf3;padding:18px 10px 40px;font-family:inherit}
   .bar{max-width:210mm;margin:0 auto 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -22,6 +23,7 @@
   <button data-doc="iv">INVOICE / ใบแจ้งหนี้</button>
   <button data-doc="cn">CREDIT NOTE / ใบลดหนี้</button>
   <button data-doc="ap">ADVANCE PAYMENT / ใบรับชำระเงินล่วงหน้า</button>
+  <button data-doc="wh">50 ทวิ / หนังสือรับรองหัก ณ ที่จ่าย</button>
   <button class="pr" onclick="window.print()">🖨 Print / Save PDF</button></div>
 <div class="bar" id="cases"></div>
 <div id="out"></div>
@@ -30,6 +32,7 @@ import { invoiceDocHTML } from './assets/js/invoices/invoice-doc.js';
 import { receiptDocHTML } from './assets/js/receipts/receipt-doc.js';
 import { advanceDocHTML } from './assets/js/finance/advance-doc.js';
 import { creditNoteDocHTML } from './assets/js/finance/credit-note-doc.js';
+import { whtDocHTML } from './assets/js/withholding/wht-doc.js';
 /* ── INVOICE ── */
 const ivBase={invoice_no:'NJ2605-01377',invoice_date:'2026-05-07',vat_amount:105,vat_rate:7,
  subtotal:2100,total_amount:2205,service_amount:1500,advance_amount:600,
@@ -195,15 +198,53 @@ const CN={
  'ยังไม่รัน RUN-02 (ไม่มี Original/Correct)':[{...cnBase,
    items:[{line_no:1,description:'SERVICE CHARGE CLEARANCE EXPORT',amount:100,
            vat_rate:7,vat_amount:7,credit_amount:107}]}]};
+/* ── 50 ทวิ ── */
+const wi=(n,base,rate,type='SERVICE',dsc=null,d='2026-08-30')=>({line_no:n,pay_date:d,
+ income_type:type,description:dsc,tax_base:base,rate,
+ amount:Math.round(base*rate)/100});
+/* RECEIVED WHT: payer = Customer (ผู้หัก) · ผู้ถูกหัก = N.J. จาก Config กลาง
+   certificate_no = เลขที่ Customer ออกให้ · document_no = เลขอ้างอิงภายใน */
+const wDoc=(items,extra={})=>({document_no:'WHT26-0001',certificate_no:'KN-WHT-2026-0451',
+ direction:'RECEIVED',document_date:'2026-08-31',created_by_name:'RATTANAKRON.P',
+ /* วันที่จ่ายเงินจริงจาก Payment (30/08) — คนละวันกับ Invoice Date (01/08) */
+ pay_date:'2026-08-30',status:'ISSUED',
+ payer:{name:'KUEHNE + NAGEL LTD. HEAD OFFICE',tax_id:'0105528008441',branch_code:'000000',
+  address:'10th Floor, Empire Tower, 1 South Sathorn Road,\nYannawa, Sathorn, Bangkok 10120, Thailand',
+  phone:'02-0188800'},
+ invoice:{invoice_no:'NJ202608-00001',invoice_date:'2026-08-01'},
+ tax_base:Math.round(items.reduce((s,i)=>s+i.tax_base,0)*100)/100,
+ amount:Math.round(items.reduce((s,i)=>s+i.amount,0)*100)/100,
+ items,...extra});
+const WH={
+ 'ฐาน 10,000 · WHT 3% = 300':[wDoc([wi(1,10000,3)])],
+ 'ฐาน 10,000 · WHT 1% = 100':[wDoc([wi(1,10000,1,'TRANSPORT')])],
+ 'หลายรายการ (3% + 1% + 0%)':[wDoc([wi(1,10000,3,'SERVICE','ค่าบริการพิธีการศุลกากร'),
+   wi(2,5000,1,'TRANSPORT','ค่าขนส่งสินค้า'),wi(3,2000,0,'OTHER','ค่าใช้จ่ายอื่น')])],
+ '12 รายการ':[wDoc(Array.from({length:12},(_,i)=>wi(i+1,1000,3,'SERVICE','รายการที่ '+(i+1))))],
+ 'รายละเอียดยาว':[wDoc([wi(1,10000,3,'SERVICE','ค่าบริการพิธีการศุลกากรขาออกแบบเต็มตู้ รวมค่าจัดทำเอกสาร ค่าดำเนินการท่าเรือ ค่าภาระท่าเทียบเรือ และค่าธรรมเนียมใบขนสินค้าเขตปลอดอากร')])],
+ 'DRAFT (ยังไม่ออกเลข)':[wDoc([wi(1,10000,3)],{status:'DRAFT',document_no:'WHTDRAFT-1a2b3c4d'})],
+ 'VOID':[wDoc([wi(1,10000,3)],{status:'VOID'})],
+ 'มีหมายเหตุ':[wDoc([wi(1,10000,3)],{note:'หักภาษี ณ ที่จ่ายตามสัญญาเลขที่ NJ-2026-001'})],
+ 'ไม่อ้าง INVOICE (กรอกเอง)':[wDoc([wi(1,10000,3)],{invoice:{},reference_no:'PO-2026-0088'})],
+ 'WHT 5%':[wDoc([wi(1,10000,5,'RENT','ค่าเช่าพื้นที่คลังสินค้า')])],
+ 'ยังไม่ได้รับเลขจากผู้หัก':[wDoc([wi(1,10000,3)],{certificate_no:null})],
+ 'วันจ่าย ≠ วันที่ใบแจ้งหนี้ (01/08 vs 30/08)':[wDoc([wi(1,10000,3)])],
+ 'ฉบับที่ 2 (สำเนา)':[wDoc([wi(1,10000,3)]),{copy:'copy'}],
+ 'สำเนาคู่ฉบับ (ผู้หักเก็บ)':[wDoc([wi(1,10000,3)]),{copy:'file'}]};
 const out=document.getElementById('out'), cases=document.getElementById('cases');
 let doc='rc';
 function paint(){
-  const M = doc==='rc'?RC:(doc==='ap'?AP:(doc==='cn'?CN:IV));
+  const M = doc==='rc'?RC:(doc==='ap'?AP:(doc==='cn'?CN:(doc==='wh'?WH:IV)));
   cases.innerHTML='<b>ชุดข้อมูล:</b>'+Object.keys(M).map((k,i)=>
     `<button data-k="${k}" class="${i===0?'on':''}">${k}</button>`).join('');
   const draw=(k)=>{const a=M[k]; out.innerHTML = doc==='rc' ? receiptDocHTML(a[0])
     : doc==='ap' ? advanceDocHTML(a[0],a[1])
-    : doc==='cn' ? creditNoteDocHTML(a[0]) : invoiceDocHTML(a[0],a[1]);};
+    : doc==='cn' ? creditNoteDocHTML(a[0])
+    /* 50 ทวิ ต้องใช้ whtDocHTML — ถ้าขาด branch นี้จะตกไป invoiceDocHTML
+       แล้วแท็บ 50 ทวิ จะถูก render ด้วย Renderer ของใบแจ้งหนี้ผิด ๆ
+       a[1] = { copy } สำหรับเลือกฉบับเอกสาร (ฉบับที่ 2 / สำเนาคู่ฉบับ) */
+    : doc==='wh' ? whtDocHTML(a[0],a[1]||{})
+    : invoiceDocHTML(a[0],a[1]);};
   cases.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{
     cases.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); draw(b.dataset.k);});

@@ -636,27 +636,27 @@
     return `<td class="nowrap col-inv">${main}${src}</td>`;
   }
   function rowHTML(r, charge, perms, mode) {
-    const txt5 = (v, w) => `<td class="ellip" style="max-width:${w}px" title="${esc(v || "")}">${esc(v || "-")}</td>`;
+    const txt6 = (v, w) => `<td class="ellip" style="max-width:${w}px" title="${esc(v || "")}">${esc(v || "-")}</td>`;
     const docCellArr = [
       `<td class="nowrap"><b>${esc(r.job_no || "-")}</b></td>`,
       /* เลขที่งาน */
-      txt5(r.company_invoice, 130),
+      txt6(r.company_invoice, 130),
       /* บริษัท Invoice */
-      txt5(r.customer_name, 180),
+      txt6(r.customer_name, 180),
       /* ลูกค้า */
-      txt5(r.customer_job_no, 120),
+      txt6(r.customer_job_no, 120),
       /* Customer Job No. */
-      txt5(r.customs_declaration_no, 130),
+      txt6(r.customs_declaration_no, 130),
       /* เลขใบขนสินค้า */
-      txt5(r.source_invoice_no, 120),
+      txt6(r.source_invoice_no, 120),
       /* Invoice ต้นทาง (Source) */
-      txt5(r.house_bl_no, 130),
+      txt6(r.house_bl_no, 130),
       /* House B/L No. */
-      txt5(r.master_bl_no, 130),
+      txt6(r.master_bl_no, 130),
       /* Master B/L No. */
-      txt5(r.booking_no, 120),
+      txt6(r.booking_no, 120),
       /* Booking No. */
-      txt5(r.vessel_name, 140),
+      txt6(r.vessel_name, 140),
       /* ชื่อเรือ / Vessel */
       `<td class="r">${r.qty_container ?? "-"}</td>`,
       /* จำนวนตู้ */
@@ -693,7 +693,7 @@
       <td class="ch-note"><span class="note-txt ellip" data-act="note" data-id="${r.id}"
         title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + actCell(false);
     if (charge === "ADVANCE") {
-      const advBody = `<td class="nowrap"><b>${esc(r.job_no || "-")}</b></td>` + txt5(r.customer_name, 200) + txt5(r.customer_job_no, 130) + `<td class="nowrap">${dmy(r.date)}</td>` + statusCell(r) + `<td class="r">${money(r.advance_amount)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.cost == null ? "-" : money(r.cost)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.charge == null ? "-" : money(r.charge)}</td><td class="r t-b" title="Gross ${money(r.gross_total)} \u2212 WHT ${money(r.wht_amount)}">${money(r.net_payable)}</td><td class="ch-note"><span class="note-txt ellip" data-act="note" data-id="${r.id}"
+      const advBody = `<td class="nowrap"><b>${esc(r.job_no || "-")}</b></td>` + txt6(r.customer_name, 200) + txt6(r.customer_job_no, 130) + `<td class="nowrap">${dmy(r.date)}</td>` + statusCell(r) + `<td class="r">${money(r.advance_amount)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.cost == null ? "-" : money(r.cost)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.charge == null ? "-" : money(r.charge)}</td><td class="r t-b" title="Gross ${money(r.gross_total)} \u2212 WHT ${money(r.wht_amount)}">${money(r.net_payable)}</td><td class="ch-note"><span class="note-txt ellip" data-act="note" data-id="${r.id}"
         title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + actCell(false);
       return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}">${advBody}</tr>`;
     }
@@ -2808,11 +2808,11 @@
            Invoice: ${esc(m.invoice_no || m.source_invoice_no || "-")} \xB7 Due: ${dmy(m.due_date)}`
           );
           if (!ok) return;
-          const r25 = await once("quick-close", () => bulkSetStatus(ctx.charge, ctx.group, [key], "CLOSE"));
-          if (r25.matched) {
+          const r26 = await once("quick-close", () => bulkSetStatus(ctx.charge, ctx.group, [key], "CLOSE"));
+          if (r26.matched) {
             toast("\u0E08\u0E1A\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27", "ok");
             if (el) el.value = "";
-          } else showBulkResult("\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E08\u0E1A\u0E07\u0E32\u0E19", r25);
+          } else showBulkResult("\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E08\u0E1A\u0E07\u0E32\u0E19", r26);
           ctx.refresh();
           return;
         }
@@ -3694,7 +3694,7 @@
     if (q2("#bm-term").value === "" && custTerm() != null) q2("#bm-term").value = custTerm();
     updDue();
     function rowHTML2(it, i, dupes) {
-      const num6 = (k, extra = "") => `<input class="inp r" data-k="${k}" type="number" step="0.01" min="0"
+      const num8 = (k, extra = "") => `<input class="inp r" data-k="${k}" type="number" step="0.01" min="0"
       value="${it[k] ?? ""}" ${extra}>`;
       const bad = dupes.has(Number(it.line_no)) ? " inp-bad" : "";
       return `<tr data-i="${i}">
@@ -3707,9 +3707,9 @@
         <option value="SERVICE" ${it.charge_kind !== "ADVANCE" ? "selected" : ""}>Service</option>
         <option value="ADVANCE" ${it.charge_kind === "ADVANCE" ? "selected" : ""}>Receipt</option>
       </select></td>
-      <td>${num6("qty")}</td>
-      <td>${num6("price")}</td>
-      <td>${num6("amount", "data-calc")}</td>
+      <td>${num8("qty")}</td>
+      <td>${num8("price")}</td>
+      <td>${num8("amount", "data-calc")}</td>
       <td class="center"><button type="button" class="btn btn-danger-soft btn-sm" data-del title="\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49">\u{1F5D1}</button></td>
     </tr>`;
     }
@@ -6126,13 +6126,279 @@
   });
 
   // assets/js/withholding/withholding-api.js
-  var createWht, listWht, voidWht;
+  function isWhtBackendMissing(e) {
+    const m = String(e && (e.message || e.hint || e.details) || "");
+    return /PGRST202/i.test(m) || /Could not find the function/i.test(m) || /schema cache/i.test(m) && /njacc_(wht|save_wht|post_wht|delete_wht)/i.test(m);
+  }
+  function whtErrMessage(e) {
+    const m = String(e && e.message || "");
+    for (const k in WHT_ERR) if (m.includes(k)) return WHT_ERR[k];
+    return m || "\u0E40\u0E01\u0E34\u0E14\u0E02\u0E49\u0E2D\u0E1C\u0E34\u0E14\u0E1E\u0E25\u0E32\u0E14";
+  }
+  var listWht, voidWht, whtInvoiceOptions, saveWhtDraft, postWht, whtView, deleteWhtDraft, WHT_ERR;
   var init_withholding_api = __esm({
     "assets/js/withholding/withholding-api.js"() {
       init_supabase_client();
-      createWht = (p, requestId) => rpc("njacc_create_wht", { p, p_request_id: requestId });
       listWht = (a) => rpc("njacc_list_wht", a);
       voidWht = (id, reason, requestId) => rpc("njacc_void_wht", { p_id: id, p_reason: reason, p_request_id: requestId });
+      whtInvoiceOptions = (p) => rpc("njacc_wht_invoice_options", { p });
+      saveWhtDraft = (p) => rpc("njacc_save_wht_draft", { p });
+      postWht = (id, requestId) => rpc("njacc_post_wht", { p_id: id, p_request_id: requestId });
+      whtView = (id) => rpc("njacc_wht_view", { p_id: id });
+      deleteWhtDraft = (id, reason) => rpc("njacc_delete_wht_draft", { p_id: id, p_reason: reason });
+      WHT_ERR = {
+        NJACC_WHT_NOT_FOUND: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E09\u0E1A\u0E31\u0E1A\u0E19\u0E35\u0E49",
+        NJACC_WHT_NOT_DRAFT: "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E23\u0E48\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27",
+        NJACC_WHT_ALREADY_ISSUED: "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E19\u0E35\u0E49\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E23\u0E34\u0E07\u0E44\u0E1B\u0E41\u0E25\u0E49\u0E27",
+        NJACC_WHT_PAY_DATE_REQUIRED: "\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01",
+        NJACC_WHT_ITEM_PAY_DATE_REQUIRED: "\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07",
+        NJACC_WHT_RATE_REQUIRED: "\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E20\u0E32\u0E29\u0E35\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23",
+        NJACC_WHT_CUSTOMER_REQUIRED: "\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E01\u0E48\u0E2D\u0E19",
+        NJACC_WHT_CUSTOMER_NOT_FOUND: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E23\u0E32\u0E22\u0E19\u0E35\u0E49",
+        NJACC_WHT_INVOICE_MISMATCH: "\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E02\u0E2D\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E23\u0E32\u0E22\u0E19\u0E35\u0E49",
+        NJACC_WHT_BASE_INVALID: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 0 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23",
+        NJACC_BAD_TAX_RATE: "\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E20\u0E32\u0E29\u0E35\u0E15\u0E49\u0E2D\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 0\u2013100",
+        NJACC_NO_ITEMS: "\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E44\u0E14\u0E49\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"
+      };
+    }
+  });
+
+  // assets/js/withholding/wht-doc.js
+  function summarize5(items) {
+    let base = 0, tax = 0;
+    const rates = /* @__PURE__ */ new Set();
+    for (const it of items) {
+      base = r25(base + num6(it.tax_base));
+      tax = r25(tax + num6(it.amount));
+      rates.add(num6(it.rate));
+    }
+    return { base, tax, rates: [...rates].sort((a, b) => a - b) };
+  }
+  function whtDocHTML(w, { copy = "original" } = {}) {
+    const items = w.items || [];
+    const S = summarize5(items);
+    const p = w.payer || w.payee || {};
+    const inv = w.invoice || {};
+    const status = String(w.status || "").toUpperCase();
+    const isDraft = status === "DRAFT";
+    const isVoid = status === "VOID";
+    const certNo = String(w.certificate_no || "").trim() || null;
+    const noRaw = String(w.document_no || "");
+    const internalNo = isDraft || /^WHTDRAFT-/.test(noRaw) ? null : noRaw || null;
+    const copyMeta = WHD_COPIES.find((c) => c.key === copy) || WHD_COPIES[0];
+    const rows = items.length ? items.map((it, i) => `<tr>
+        <td class="whd-c whd-dim">${it.line_no ?? i + 1}</td>
+        <td class="whd-c">${esc(payDate(it.pay_date, w.pay_date))}</td>
+        <td class="whd-ds">
+          <div class="whd-ds-t">${esc(incomeLabel(it.income_type))}</div>
+          ${it.description ? `<div class="whd-ds-s">${esc(it.description)}</div>` : ""}
+        </td>
+        <td class="whd-r">${money(it.tax_base)}</td>
+        <td class="whd-c">${esc(pct3(it.rate))}</td>
+        <td class="whd-r whd-tax">${money(it.amount)}</td>
+      </tr>`).join("") : '<tr><td colspan="6" class="whd-empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E44\u0E14\u0E49\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E19\u0E35\u0E49</td></tr>';
+    const refTxt = inv.invoice_no ? esc(inv.invoice_no) : w.reference_no ? esc(w.reference_no) : "-";
+    return `
+    <div class="whd print-area${isVoid ? " whd-void" : ""}${isDraft ? " whd-draft" : ""}">
+      ${isVoid ? '<div class="whd-badge whd-badge-v">VOID / \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</div>' : ""}
+      ${isDraft ? '<div class="whd-badge whd-badge-d">DRAFT / \u0E23\u0E48\u0E32\u0E07 \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</div>' : ""}
+
+      <div class="whd-copy">
+        <b>\u0E2A\u0E33\u0E40\u0E19\u0E32\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E22\u0E43\u0E19 \u2014 \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07</b>
+        <span>${esc(copyMeta.label)}</span>
+      </div>
+
+      <header class="whd-head">
+        <img class="whd-logo" src="${ISSUER.logo}" alt="N.J. Logistics">
+        <div class="whd-head-t">
+          <div class="whd-t1">\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</div>
+          <div class="whd-t2">\u0E15\u0E32\u0E21\u0E21\u0E32\u0E15\u0E23\u0E32 50 \u0E17\u0E27\u0E34 \u0E41\u0E2B\u0E48\u0E07\u0E1B\u0E23\u0E30\u0E21\u0E27\u0E25\u0E23\u0E31\u0E29\u0E0E\u0E32\u0E01\u0E23 \u2014 \u0E2A\u0E33\u0E40\u0E19\u0E32\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E22\u0E43\u0E19</div>
+          <div class="whd-t3">RECEIVED WITHHOLDING TAX CERTIFICATE \u2014 INTERNAL RECORD</div>
+        </div>
+        <div class="whd-head-r">
+          <div class="whd-nolbl">\u0E40\u0E25\u0E48\u0E21\u0E17\u0E35\u0E48 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 (\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01)</div>
+          <div class="whd-no">${certNo ? esc(certNo) : '<span class="whd-pend">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E25\u0E02\u0E08\u0E32\u0E01\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35</span>'}</div>
+          <div class="whd-dtlbl">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07</div>
+          <div class="whd-dt">${dmy(w.document_date)}</div>
+          ${internalNo ? `<div class="whd-intlbl">\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19</div>
+          <div class="whd-int">${esc(internalNo)}</div>` : ""}
+        </div>
+      </header>
+      <div class="whd-band"></div>
+
+      <section class="whd-party">
+        <div class="whd-box">
+          <div class="whd-box-t">${bub3("payer")}<span>\u0E01. \u0E1C\u0E39\u0E49\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span></div>
+          <div class="whd-box-b">
+            <div class="whd-f"><label>\u0E0A\u0E37\u0E48\u0E2D</label><div class="whd-v whd-v-b">${txt5(p.name)}</div></div>
+            <div class="whd-f whd-f-2">
+              <div class="whd-f-c"><label>\u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35\u0E2D\u0E32\u0E01\u0E23</label>
+                <div class="whd-v whd-v-tax">${txt5(p.tax_id)}</div></div>
+              <div class="whd-f-c whd-f-br"><label>\u0E2A\u0E32\u0E02\u0E32</label>
+                <div class="whd-v">${txt5(p.branch_code)}</div></div>
+            </div>
+            <div class="whd-f"><label>\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</label>
+              <div class="whd-v whd-v-ml">${addr(p.address)}</div></div>
+            <div class="whd-f whd-f-last"><label>\u0E42\u0E17\u0E23.</label>
+              <div class="whd-v">${txt5(p.phone)}</div></div>
+          </div>
+        </div>
+
+        <div class="whd-box">
+          <div class="whd-box-t">${bub3("payee")}<span>\u0E02. \u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span></div>
+          <div class="whd-box-b">
+            <div class="whd-f"><label>\u0E0A\u0E37\u0E48\u0E2D</label><div class="whd-v whd-v-b">${esc(ISSUER.nameEn)}</div></div>
+            <div class="whd-f whd-f-2">
+              <div class="whd-f-c"><label>\u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35\u0E2D\u0E32\u0E01\u0E23</label>
+                <div class="whd-v whd-v-tax">${esc(ISSUER.taxId)}</div></div>
+              <div class="whd-f-c whd-f-br"><label>\u0E2A\u0E32\u0E02\u0E32</label>
+                <div class="whd-v">\u0E2A\u0E33\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E0D\u0E48</div></div>
+            </div>
+            <div class="whd-f"><label>\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</label>
+              <div class="whd-v whd-v-ml">${esc(ISSUER.address)}</div></div>
+            <div class="whd-f whd-f-last"><label>\u0E42\u0E17\u0E23. / \u0E42\u0E17\u0E23\u0E2A\u0E32\u0E23</label>
+              <div class="whd-v">${esc(ISSUER.tel)} <i>|</i> ${esc(ISSUER.fax)}</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="whd-ref">
+        <div class="whd-ref-c"><label>\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07</label>
+          <span class="whd-ref-v">${refTxt}</span></div>
+        <div class="whd-ref-c"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19</label>
+          <span class="whd-ref-v">${esc(payDate(null, w.pay_date))}</span></div>
+        ${inv.invoice_date ? `<div class="whd-ref-c"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49</label>
+          <span class="whd-ref-v">${dmy(inv.invoice_date)}</span></div>` : ""}
+      </section>
+
+      <section class="whd-sec">
+        <div class="whd-sec-t">\u0E04. \u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E41\u0E25\u0E30\u0E08\u0E33\u0E19\u0E27\u0E19\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E41\u0E25\u0E30\u0E19\u0E33\u0E2A\u0E48\u0E07</div>
+        <table class="whd-tbl">
+          <colgroup><col class="w-no"><col class="w-dt"><col class="w-ds">
+            <col class="w-base"><col class="w-rate"><col class="w-tax"></colgroup>
+          <thead><tr>
+            <th class="whd-c">\u0E25\u0E33\u0E14\u0E31\u0E1A</th>
+            <th class="whd-c">\u0E27\u0E31\u0E19 \u0E40\u0E14\u0E37\u0E2D\u0E19<br>\u0E1B\u0E35\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</th>
+            <th class="whd-c">\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E40\u0E07\u0E34\u0E19\u0E44\u0E14\u0E49\u0E1E\u0E36\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E21\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</th>
+            <th class="whd-c">\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22<br>(\u0E1A\u0E32\u0E17)</th>
+            <th class="whd-c">\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E20\u0E32\u0E29\u0E35<br>\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01</th>
+            <th class="whd-c">\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E41\u0E25\u0E30\u0E19\u0E33\u0E2A\u0E48\u0E07\u0E44\u0E27\u0E49<br>(\u0E1A\u0E32\u0E17)</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="whd-sumrow">
+            <td colspan="3" class="whd-r">\u0E23\u0E27\u0E21\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E30\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E19\u0E33\u0E2A\u0E48\u0E07</td>
+            <td class="whd-r whd-b">${money(S.base)}</td>
+            <td></td>
+            <td class="whd-r whd-total">${money(S.tax)}</td>
+          </tr></tfoot>
+        </table>
+      </section>
+
+      <section class="whd-words">
+        ${bub3("abc")}
+        <div class="whd-words-b">
+          <div class="whd-words-t">\u0E23\u0E27\u0E21\u0E40\u0E07\u0E34\u0E19\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E41\u0E25\u0E30\u0E19\u0E33\u0E2A\u0E48\u0E07 (\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23)</div>
+          <div class="whd-words-v">( ${esc(bahtText(S.tax))} )</div>
+        </div>
+      </section>
+
+      ${w.note ? `<section class="whd-note">
+        <div class="whd-note-t">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</div>
+        <div class="whd-note-v">${esc(w.note)}</div>
+      </section>` : ""}
+
+      <section class="whd-declare">
+        <div class="whd-dec-t">\u0E01\u0E32\u0E23\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A</div>
+        <p>\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E32\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22
+           \u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E30\u0E25\u0E07\u0E19\u0E32\u0E21\u0E42\u0E14\u0E22\u0E1C\u0E39\u0E49\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 (\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19) \u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E43\u0E19\u0E2A\u0E48\u0E27\u0E19 \u0E01.
+           \u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E09\u0E1A\u0E31\u0E1A\u0E19\u0E35\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E2A\u0E33\u0E40\u0E19\u0E32\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E43\u0E0A\u0E49\u0E20\u0E32\u0E22\u0E43\u0E19\u0E02\u0E2D\u0E07\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19
+           <b>\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A \u0E41\u0E25\u0E30\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49\u0E41\u0E17\u0E19\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A</b></p>
+        <div class="whd-rec">
+          <div class="whd-rec-c"><label>\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E30\u0E25\u0E07\u0E19\u0E32\u0E21\u0E42\u0E14\u0E22</label>
+            <span>${txt5(p.name)}</span></div>
+          <div class="whd-rec-c"><label>\u0E1C\u0E39\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25</label>
+            <span>${txt5(w.created_by_name)}</span></div>
+          <div class="whd-rec-c"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</label>
+            <span>${dmy(w.document_date)}</span></div>
+        </div>
+      </section>
+
+      <div class="whd-edge"></div>
+    </div>`;
+  }
+  function openWhtDoc(w, { print = false } = {}) {
+    const b = document.createElement("div");
+    const draw = (k) => {
+      b.innerHTML = whtDocHTML(w, { copy: k });
+    };
+    draw("original");
+    const f = document.createElement("div");
+    f.innerHTML = `<div class="mf-left">
+      <select class="sel" id="whd-copy">${WHD_COPIES.map((c, i) => `<option value="${c.key}" ${i === 0 ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select>
+    </div><div class="mf-right">
+      <button class="btn btn-print" id="whd-print">\u{1F5A8} Print / Save PDF</button>
+      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`;
+    const no = String(w.certificate_no || w.document_no || "");
+    openModal({
+      title: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A " + (/^WHTDRAFT-/.test(no) || String(w.status).toUpperCase() === "DRAFT" ? "(\u0E23\u0E48\u0E32\u0E07)" : no),
+      body: b,
+      footer: f,
+      fullscreen: true,
+      wide: true
+    });
+    f.querySelector("#whd-copy").onchange = (e) => draw(e.target.value);
+    f.querySelector("#whd-print").onclick = () => window.print();
+    if (print) setTimeout(() => window.print(), 60);
+  }
+  var txt5, num6, r25, pct3, INCOME_LABEL, incomeLabel, WHD_COPIES, ICON6, bub3, addr, PAY_NONE, payDate;
+  var init_wht_doc = __esm({
+    "assets/js/withholding/wht-doc.js"() {
+      init_formatter();
+      init_modal();
+      init_baht_text();
+      init_company_doc();
+      txt5 = (v, fb = "-") => {
+        const s = v === null || v === void 0 ? "" : String(v).trim();
+        return esc(s || fb);
+      };
+      num6 = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      r25 = (n) => Math.round((num6(n) + Number.EPSILON) * 100) / 100;
+      pct3 = (v) => {
+        const n = num6(v);
+        return (Number.isInteger(n) ? String(n) : String(r25(n))) + "%";
+      };
+      INCOME_LABEL = {
+        SERVICE: "\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 / \u0E04\u0E48\u0E32\u0E08\u0E49\u0E32\u0E07\u0E17\u0E33\u0E02\u0E2D\u0E07",
+        TRANSPORT: "\u0E04\u0E48\u0E32\u0E02\u0E19\u0E2A\u0E48\u0E07",
+        RENT: "\u0E04\u0E48\u0E32\u0E40\u0E0A\u0E48\u0E32",
+        OTHER: "\u0E2D\u0E37\u0E48\u0E19 \u0E46"
+      };
+      incomeLabel = (k) => {
+        const key = String(k || "").toUpperCase();
+        return INCOME_LABEL[key] || String(k || "-");
+      };
+      WHD_COPIES = [
+        { key: "original", label: "\u0E09\u0E1A\u0E31\u0E1A\u0E17\u0E35\u0E48 1 (\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 \u0E43\u0E0A\u0E49\u0E41\u0E19\u0E1A\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E41\u0E1A\u0E1A\u0E41\u0E2A\u0E14\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E20\u0E32\u0E29\u0E35)" },
+        { key: "copy", label: "\u0E09\u0E1A\u0E31\u0E1A\u0E17\u0E35\u0E48 2 (\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 \u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19)" },
+        { key: "file", label: "\u0E2A\u0E33\u0E40\u0E19\u0E32\u0E04\u0E39\u0E48\u0E09\u0E1A\u0E31\u0E1A (\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19)" }
+      ];
+      ICON6 = {
+        payer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>',
+        payee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',
+        list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg>',
+        abc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v7.2a2.6 2.6 0 0 1-2.6 2.6H9l-5 3.6z"/></svg>'
+      };
+      bub3 = (k) => `<span class="whd-bub">${ICON6[k] || ""}</span>`;
+      addr = (v) => txt5(v, "-");
+      PAY_NONE = "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38 \u2014";
+      payDate = (itemDate, headDate) => {
+        if (itemDate) return dmy(itemDate);
+        if (headDate) return dmy(headDate);
+        return PAY_NONE;
+      };
     }
   });
 
@@ -6141,23 +6407,66 @@
   __export(withholding_page_exports, {
     render: () => render10
   });
-  async function render10(cnt) {
-    await masters();
+  function backendPanel2(cnt) {
     cnt.innerHTML = `
-    <div class="page-head"><div class="page-title"><span class="dot"></span><h2>\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</h2></div>
-      ${isAdmin() || can("issue_receipt") ? '<button class="btn btn-p" id="wh-new">+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</button>' : ""}</div>
+    <div class="page-head"><div class="page-title"><span class="dot"></span>
+      <h2>\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 \u2014 \u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07 50 \u0E17\u0E27\u0E34 \u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</h2></div></div>
+    <div class="card card-pad whp-req">
+      <h3 class="t-b">BACKEND REQUIRED \u2014 \u0E22\u0E31\u0E07\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49</h3>
+      <p class="t-2 mt-1">\u0E15\u0E23\u0E27\u0E08\u0E01\u0E31\u0E1A\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E23\u0E34\u0E07\u0E41\u0E25\u0E49\u0E27 \u0E23\u0E30\u0E1A\u0E1A\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07 50 \u0E17\u0E27\u0E34</p>
+      <ul class="whp-req-l">
+        <li>\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E32\u0E23\u0E32\u0E07 <code>njacc_wht_items</code> \u2014 \u0E40\u0E01\u0E47\u0E1A\u0E44\u0E14\u0E49 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E15\u0E48\u0E2D 1 \u0E43\u0E1A\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19</li>
+        <li>\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A <code>DRAFT</code> \u2014 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E41\u0E01\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49</li>
+        <li><code>njacc_list_wht</code> \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E37\u0E19 \u0E40\u0E25\u0E02\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35 / \u0E2A\u0E32\u0E02\u0E32 / \u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 \u0E02\u0E2D\u0E07\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35</li>
+        <li>\u0E44\u0E21\u0E48\u0E21\u0E35 RPC \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E40\u0E25\u0E37\u0E2D\u0E01 INVOICE \u0E21\u0E32\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E2D\u0E31\u0E15\u0E23\u0E32 WHT \u0E41\u0E25\u0E30\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07</li>
+        <li>\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C <code>certificate_no</code> \u2014 \u0E41\u0E22\u0E01\u0E40\u0E25\u0E02\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E02\u0E2D\u0E07\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01
+            \u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49</li>
+        <li><code>njacc_create_wht</code> \u0E40\u0E14\u0E34\u0E21\u0E22\u0E31\u0E07\u0E40\u0E1B\u0E34\u0E14\u0E43\u0E2B\u0E49\u0E22\u0E34\u0E07\u0E15\u0E23\u0E07\u0E41\u0E25\u0E30\u0E21\u0E35 Default 3%</li>
+      </ul>
+      <p class="t-sm t-3 mt-2">\u0E43\u0E2B\u0E49\u0E23\u0E31\u0E19\u0E44\u0E1F\u0E25\u0E4C\u0E19\u0E35\u0E49\u0E1A\u0E19 Supabase \u0E01\u0E48\u0E2D\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07:</p>
+      <p class="whp-req-f"><code>${esc(SQL_FILE2)}</code></p>
+      <p class="t-sm t-3 mt-2">\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E31\u0E19 \u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E37\u0E48\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A\u0E17\u0E33\u0E07\u0E32\u0E19\u0E15\u0E32\u0E21\u0E1B\u0E01\u0E15\u0E34
+        \u2014 \u0E44\u0E1F\u0E25\u0E4C SQL \u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E41\u0E15\u0E30 INVOICE / RECEIPT / CREDIT NOTE / \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E40\u0E14\u0E34\u0E21</p>
+    </div>`;
+  }
+  async function render10(cnt) {
+    ed2 = null;
+    await masters();
+    await renderList2(cnt);
+  }
+  async function renderList2(cnt) {
+    const mayIssue = isAdmin() || can("issue_receipt");
+    cnt.innerHTML = `
+    <div class="page-head"><div class="page-title"><span class="dot"></span>
+      <h2>\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 \u2014 \u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07 50 \u0E17\u0E27\u0E34 \u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</h2></div>
+      ${mayIssue ? '<button class="btn btn-p" id="wh-new">+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</button>' : ""}</div>
     <div class="fbar">
       <select class="sel" data-f="customer">${customerOpts(st4.customer)}</select>
       <input class="inp" type="date" data-f="from" value="${st4.from}">
       <input class="inp" type="date" data-f="to" value="${st4.to}">
       <button class="btn btn-o btn-sm" id="wh-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr>
-      <th>\u0E40\u0E25\u0E02\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</th><th>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17</th><th>\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 INVOICE</th>
-      <th class="r">\u0E10\u0E32\u0E19\u0E20\u0E32\u0E29\u0E35</th><th>\u0E2D\u0E31\u0E15\u0E23\u0E32</th><th class="r">\u0E22\u0E2D\u0E14\u0E2B\u0E31\u0E01</th><th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th class="center">\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</th>
-    </tr></thead><tbody id="wh-tbody"><tr><td colspan="10" class="load-row"><div class="spin"></div></td></tr></tbody>
-    </table></div><div class="card mt-2" id="wh-pgn"></div>`;
+      <th>\u0E40\u0E25\u0E02\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07</th><th>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</th><th>\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 (\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32)</th><th>\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 INVOICE</th>
+      <th class="r">\u0E10\u0E32\u0E19\u0E20\u0E32\u0E29\u0E35</th><th class="center">\u0E2D\u0E31\u0E15\u0E23\u0E32</th><th class="r">\u0E22\u0E2D\u0E14\u0E2B\u0E31\u0E01</th>
+      <th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th class="center">\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</th>
+    </tr></thead><tbody id="wh-tbody">
+      <tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr>
+    </tbody></table></div>
+    <div class="card mt-2" id="wh-pgn"></div>`;
+    const nb = cnt.querySelector("#wh-new");
+    if (nb) nb.onclick = () => renderPick2(cnt);
+    cnt.querySelector("#wh-go").onclick = () => {
+      cnt.querySelectorAll("[data-f]").forEach((el) => {
+        st4[el.dataset.f] = el.value;
+      });
+      st4.page = 1;
+      load();
+    };
+    cnt.querySelector("#wh-tbody").addEventListener("click", (e) => onRowAction2(e, cnt, load));
     async function load() {
       const t = nextToken("wht");
+      const tb = cnt.querySelector("#wh-tbody");
+      if (!tb) return;
       try {
         const res = await listWht({
           p_customer: st4.customer || null,
@@ -6168,16 +6477,33 @@
         });
         if (!isCurrent("wht", t)) return;
         const rows = res.rows || [];
-        cnt.querySelector("#wh-tbody").innerHTML = rows.length ? rows.map((r) => `<tr>
-        <td class="t-b">${esc(r.document_no)}</td><td>${dmy(r.document_date)}</td>
-        <td class="ellip" style="max-width:190px">${esc(r.customer_name)}</td>
-        <td>${esc(r.wht_type || "-")}</td><td>${esc(r.invoice_no || "-")}</td>
+        if (rows.length && rows[0].item_count === void 0) {
+          backendPanel2(cnt);
+          return;
+        }
+        tb.innerHTML = rows.length ? rows.map((r) => {
+          const s = String(r.status || "").toUpperCase();
+          const no = String(r.document_no || "");
+          const isDraft = s === "DRAFT" || /^WHTDRAFT-/.test(no);
+          const cert = String(r.certificate_no || "").trim();
+          return `<tr>
+        <td class="t-b">${cert ? esc(cert) : isDraft ? '<span class="t-3">\u2014 \u0E23\u0E48\u0E32\u0E07 \u2014</span>' : '<span class="t-3">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E25\u0E02</span>'}
+          ${!isDraft && no ? `<div class="t-xs t-3">\u0E20\u0E32\u0E22\u0E43\u0E19: ${esc(no)}</div>` : ""}</td>
+        <td>${dmy(r.document_date)}</td>
+        <td class="ellip" style="max-width:190px">${esc(r.customer_name || "-")}</td>
+        <td class="t-b">${esc(r.invoice_no || r.reference_no || "-")}</td>
         <td class="r">${money(r.tax_base)}</td>
-        <td><span class="wht-rate-chip">${Number(r.rate)}%</span></td>
+        <td class="center"><span class="wht-rate-chip">${esc(pct4(r.rate))}</span></td>
         <td class="r t-b">${money(r.amount)}</td>
-        <td>${r.status === "VOID" ? '<span class="bdg bdg-void">VOID</span>' : '<span class="bdg bdg-issued">ISSUED</span>'}</td>
-        <td><div class="ch-act">${r.status !== "VOID" && (isAdmin() || can("void")) ? `<button class="btn btn-danger btn-sm" data-void="${r.id}" data-no="${esc(r.document_no)}">Void</button>` : "-"}
-        </div></td></tr>`).join("") : '<tr><td colspan="10" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</td></tr>';
+        <td>${stBadge2(s)}</td>
+        <td><div class="ch-act">
+          <button class="btn btn-o btn-sm" data-doc="${r.id}">\u0E14\u0E39 / \u0E1E\u0E34\u0E21\u0E1E\u0E4C</button>
+          ${isDraft && (isAdmin() || can("issue_receipt")) ? `<button class="btn btn-o btn-sm" data-edit="${r.id}">\u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E48\u0E32\u0E07</button>
+               <button class="btn btn-p btn-sm" data-post="${r.id}">\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</button>
+               <button class="btn btn-danger btn-sm" data-del="${r.id}">\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07</button>` : ""}
+          ${s === "ISSUED" && (isAdmin() || can("void")) ? `<button class="btn btn-danger btn-sm" data-void="${r.id}" data-no="${esc(no)}">Void</button>` : ""}
+        </div></td></tr>`;
+        }).join("") : '<tr><td colspan="9" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</td></tr>';
         renderPagination(
           cnt.querySelector("#wh-pgn"),
           { page: st4.page, size: st4.size, total: res.total || 0 },
@@ -6188,106 +6514,539 @@
           }
         );
       } catch (e) {
-        if (isCurrent("wht", t)) handleErr(e);
+        if (!isCurrent("wht", t)) return;
+        if (isWhtBackendMissing(e)) {
+          backendPanel2(cnt);
+          return;
+        }
+        tb.innerHTML = '<tr><td colspan="9" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08</td></tr>';
+        handleErr(e);
       }
     }
-    cnt.querySelector("#wh-go").onclick = () => {
-      cnt.querySelectorAll("[data-f]").forEach((el) => st4[el.dataset.f] = el.value);
-      st4.page = 1;
-      load();
-    };
-    cnt.querySelector("#wh-tbody").addEventListener("click", async (e) => {
-      const vb = e.target.closest("[data-void]");
-      if (!vb) return;
-      const reason = await reasonModal("Void \u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 " + vb.dataset.no);
+    await load();
+  }
+  async function onRowAction2(e, cnt, reload) {
+    const doc = e.target.closest("[data-doc]");
+    if (doc) {
+      try {
+        openWhtDoc(await whtView(doc.dataset.doc));
+      } catch (ex) {
+        isWhtBackendMissing(ex) ? backendPanel2(cnt) : toast(whtErrMessage(ex), "err");
+      }
+      return;
+    }
+    const eb = e.target.closest("[data-edit]");
+    if (eb) {
+      openEditor2(cnt, { whtId: eb.dataset.edit });
+      return;
+    }
+    const pb = e.target.closest("[data-post]");
+    if (pb) {
+      if (!await confirmModal(
+        "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A",
+        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19\u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E2D\u0E2D\u0E01\u0E42\u0E14\u0E22\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u2014 N.J. \u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
+        "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23"
+      )) return;
+      try {
+        const r = await once("post-wht-" + pb.dataset.post, () => postWht(pb.dataset.post, newRequestId()));
+        if (r) toast("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19 " + (r.document_no || ""), "ok");
+        reload();
+      } catch (ex) {
+        toast(whtErrMessage(ex), "err");
+      }
+      return;
+    }
+    const db = e.target.closest("[data-del]");
+    if (db) {
+      const reason = await reasonModal("\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07 (\u0E25\u0E1A\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E48\u0E32\u0E07\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E08\u0E23\u0E34\u0E07)");
+      if (!reason) return;
+      try {
+        await once("del-wht-" + db.dataset.del, () => deleteWhtDraft(db.dataset.del, reason));
+        toast("\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27", "ok");
+        reload();
+      } catch (ex) {
+        toast(whtErrMessage(ex), "err");
+      }
+      return;
+    }
+    const vb = e.target.closest("[data-void]");
+    if (vb) {
+      const reason = await reasonModal("Void \u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07 " + vb.dataset.no);
       if (!reason) return;
       try {
         await once("void-wht-" + vb.dataset.void, () => voidWht(vb.dataset.void, reason, newRequestId()));
         toast("Void \u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27", "ok");
-        load();
+        reload();
       } catch (ex) {
         handleErr(ex);
       }
+    }
+  }
+  async function renderPick2(cnt) {
+    pk2.page = 1;
+    cnt.innerHTML = `
+    <div class="page-head"><div class="page-title"><span class="dot"></span>
+      <h2>\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 INVOICE \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07</h2></div>
+      <button class="btn btn-o" id="wh-back">\u2190 \u0E01\u0E25\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</button></div>
+    <div class="card card-pad">
+      <p class="t-sm t-3">\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E14\u0E36\u0E07\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 \xB7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \xB7 \u0E2D\u0E31\u0E15\u0E23\u0E32 WHT \u0E08\u0E23\u0E34\u0E07
+        \xB7 \u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14 \u201C\u0E02\u0E49\u0E32\u0E21\u201D \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E2D\u0E07\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</p>
+      <div class="fbar mt-2">
+        <input class="inp" id="wh-pq" value="${esc(pk2.q)}" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE / \u0E0A\u0E37\u0E48\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32">
+        <button class="btn btn-o btn-sm" id="wh-pgo">\u0E04\u0E49\u0E19\u0E2B\u0E32</button>
+        <button class="btn btn-o btn-sm" id="wh-skip">\u0E02\u0E49\u0E32\u0E21 \u2014 \u0E01\u0E23\u0E2D\u0E01\u0E40\u0E2D\u0E07\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</button>
+      </div>
+      <div class="tbl-wrap mt-2"><table class="tbl"><thead><tr>
+        <th>INVOICE</th><th>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17</th>
+        <th class="r">\u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34</th><th>\u0E2D\u0E31\u0E15\u0E23\u0E32 WHT</th><th class="r">WHT</th>
+        <th>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07</th><th class="center">\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</th>
+      </tr></thead><tbody id="wh-ptb">
+        <tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr>
+      </tbody></table></div>
+      <div class="mt-2" id="wh-ppgn"></div>
+    </div>`;
+    cnt.querySelector("#wh-back").onclick = () => renderList2(cnt);
+    cnt.querySelector("#wh-skip").onclick = () => openEditor2(cnt, {});
+    const q2 = cnt.querySelector("#wh-pq");
+    cnt.querySelector("#wh-pgo").onclick = () => {
+      pk2.q = q2.value.trim();
+      pk2.page = 1;
+      loadPick();
+    };
+    q2.addEventListener("input", () => debounce("wh-pick", () => {
+      pk2.q = q2.value.trim();
+      pk2.page = 1;
+      loadPick();
+    }, 350));
+    cnt.querySelector("#wh-ptb").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pick]");
+      if (b) openEditor2(cnt, { invoice: JSON.parse(b.dataset.pick) });
     });
-    const nb = cnt.querySelector("#wh-new");
-    if (nb) nb.onclick = () => openCreate(load);
-    load();
-  }
-  function openCreate(onDone) {
-    const requestId = newRequestId();
-    const b = document.createElement("div");
-    b.innerHTML = `
-    <div class="fgrid">
-      <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 <span class="req">*</span></label>
-        <select class="sel" id="wf-cust">${customerOpts("")}</select></div>
-      <div class="fld"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 <span class="req">*</span></label>
-        <input class="inp" type="date" id="wf-date" value="${ymd(/* @__PURE__ */ new Date())}"></div>
-      <div class="fld"><label>\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E01\u0E32\u0E23\u0E2B\u0E31\u0E01</label>
-        <select class="sel" id="wf-type">
-          <option value="SERVICE">\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23</option><option value="TRANSPORT">\u0E04\u0E48\u0E32\u0E02\u0E19\u0E2A\u0E48\u0E07</option>
-          <option value="RENT">\u0E04\u0E48\u0E32\u0E40\u0E0A\u0E48\u0E32</option><option value="OTHER">\u0E2D\u0E37\u0E48\u0E19 \u0E46</option></select></div>
-      <div class="fld"><label>\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 (\u0E40\u0E0A\u0E48\u0E19 INVOICE NO)</label>
-        <input class="inp" id="wf-ref" placeholder="\u0E40\u0E0A\u0E48\u0E19 INV26-0001"></div>
-      <div class="fld"><label>\u0E10\u0E32\u0E19\u0E20\u0E32\u0E29\u0E35 (\u0E1A\u0E32\u0E17) <span class="req">*</span></label>
-        <input class="inp" type="number" step="0.01" min="0" id="wf-base" style="text-align:right"></div>
-      <div class="fld"><label>\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E2B\u0E31\u0E01 (%)</label>
-        <input class="inp" type="number" step="0.01" min="0" id="wf-rate" value="3" style="text-align:right"></div>
-    </div>
-    <div class="jf-due-preview mt-2" id="wf-pv">\u0E22\u0E2D\u0E14\u0E2B\u0E31\u0E01: 0.00 \u0E1A\u0E32\u0E17 (\u0E23\u0E30\u0E1A\u0E1A\u0E04\u0E33\u0E19\u0E27\u0E13\u0E0B\u0E49\u0E33\u0E1D\u0E31\u0E48\u0E07\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25)</div>`;
-    const f = document.createElement("div");
-    f.innerHTML = `<button class="btn btn-o" data-close>\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</button>
-    <button class="btn btn-p" id="wf-save">\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</button>`;
-    openModal({ title: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22", body: b, footer: f, large: true });
-    const upd = () => {
-      const base = Number(b.querySelector("#wf-base").value || 0);
-      const rate = Number(b.querySelector("#wf-rate").value || 0);
-      b.querySelector("#wf-pv").textContent = "\u0E22\u0E2D\u0E14\u0E2B\u0E31\u0E01: " + money(round2(base * rate / 100)) + " \u0E1A\u0E32\u0E17 (\u0E23\u0E30\u0E1A\u0E1A\u0E04\u0E33\u0E19\u0E27\u0E13\u0E0B\u0E49\u0E33\u0E1D\u0E31\u0E48\u0E07\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25)";
-    };
-    b.addEventListener("input", upd);
-    f.querySelector("#wf-save").onclick = async (e) => {
-      const cust = b.querySelector("#wf-cust").value;
-      const base = Number(b.querySelector("#wf-base").value || 0);
-      if (!cust) {
-        toast("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "err");
-        return;
-      }
-      if (base <= 0) {
-        toast("\u0E10\u0E32\u0E19\u0E20\u0E32\u0E29\u0E35\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 0", "err");
-        return;
-      }
-      btnBusy(e.target, true);
+    async function loadPick() {
+      const t = nextToken("wh-pick");
+      const tb = cnt.querySelector("#wh-ptb");
+      if (!tb) return;
       try {
-        const res = await once("create-wht", () => createWht({
-          customer_id: cust,
-          document_date: b.querySelector("#wf-date").value,
-          wht_type: b.querySelector("#wf-type").value,
-          reference_no: b.querySelector("#wf-ref").value.trim() || null,
-          tax_base: base,
-          rate: Number(b.querySelector("#wf-rate").value || 3)
-        }, requestId));
-        closeModal();
-        toast("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 " + (res?.document_no || "") + " \u0E41\u0E25\u0E49\u0E27", "ok");
-        onDone();
+        const res = await whtInvoiceOptions({ q: pk2.q || null, page: pk2.page, size: pk2.size });
+        if (!isCurrent("wh-pick", t)) return;
+        const rows = res.rows || [];
+        tb.innerHTML = rows.length ? rows.map((r) => {
+          const bd = r.wht_breakdown || [];
+          const rateTxt = bd.length ? bd.map((b) => pct4(b.rate)).join(" + ") : "-";
+          return `<tr>
+        <td class="t-b">${esc(r.invoice_no || "-")}</td>
+        <td>${dmy(r.invoice_date)}</td>
+        <td class="ellip" style="max-width:190px">${esc(r.customer_name || "-")}</td>
+        <td>${esc(r.charge_type || "-")}</td>
+        <td class="r">${money(r.total_amount)}</td>
+        <td class="center">${esc(rateTxt)}</td>
+        <td>${r.payment_date ? dmy(r.payment_date) : (r.payments || []).length > 1 ? '<span class="t-3">' + (r.payments || []).length + " \u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2D\u0E07</span>" : '<span class="t-3">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</span>'}</td>
+        <td><div class="ch-act">
+          <button class="btn btn-p btn-sm" data-pick='${JSON.stringify(r).replace(/'/g, "&#39;")}'>\u0E40\u0E25\u0E37\u0E2D\u0E01</button>
+        </div></td></tr>`;
+        }).join("") : '<tr><td colspan="9" class="empty">\u0E44\u0E21\u0E48\u0E1E\u0E1A INVOICE \u2014 \u0E01\u0E14 \u201C\u0E02\u0E49\u0E32\u0E21\u201D \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E2D\u0E07\u0E44\u0E14\u0E49</td></tr>';
+        renderPagination(
+          cnt.querySelector("#wh-ppgn"),
+          { page: pk2.page, size: pk2.size, total: res.total || 0 },
+          ({ page, size }) => {
+            pk2.page = page;
+            pk2.size = size;
+            loadPick();
+          }
+        );
+      } catch (e) {
+        if (!isCurrent("wh-pick", t)) return;
+        if (isWhtBackendMissing(e)) {
+          backendPanel2(cnt);
+          return;
+        }
+        tb.innerHTML = '<tr><td colspan="9" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08</td></tr>';
+        toast(whtErrMessage(e), "err");
+      }
+    }
+    await loadPick();
+  }
+  async function openEditor2(cnt, { whtId = null, invoice = null } = {}) {
+    cnt.innerHTML = '<div class="card card-pad"><div class="load-row"><div class="spin"></div></div></div>';
+    let prev = null;
+    if (whtId) {
+      try {
+        prev = await whtView(whtId);
+      } catch (e) {
+        if (isWhtBackendMissing(e)) {
+          backendPanel2(cnt);
+          return;
+        }
+        toast(whtErrMessage(e), "err");
+        return renderList2(cnt);
+      }
+    }
+    const today = ymd(/* @__PURE__ */ new Date());
+    ed2 = {
+      whtId: whtId || null,
+      customer_id: prev ? prev.customer_id : invoice ? invoice.customer_id : "",
+      invoice_id: prev ? prev.invoice_id || null : invoice ? invoice.id : null,
+      invoice_no: prev ? prev.invoice && prev.invoice.invoice_no : invoice ? invoice.invoice_no : null,
+      document_date: prev ? prev.document_date : today,
+      /* *** วันที่จ่ายเงินจริง ห้ามใช้ invoice_date แทน (คนละความหมาย) ***
+         มี Payment เดียว -> เติมจาก njacc_payments.payment_date จริง
+         ไม่มี Payment หรือมีหลายรายการ -> เว้นว่าง ให้ผู้ใช้ระบุเอง
+         (มีหลายรายการ SQL จะคืน payment_date = null เพราะไม่เดาว่าจะเอาวันไหน) */
+      pay_date: prev ? prev.pay_date || "" : invoice ? invoice.payment_date || "" : "",
+      payments: invoice ? invoice.payments || [] : [],
+      certificate_no: prev ? prev.certificate_no || "" : "",
+      reference_no: prev ? prev.reference_no || "" : invoice ? invoice.invoice_no || "" : "",
+      note: prev ? prev.note || "" : "",
+      lines: []
+    };
+    if (prev && (prev.items || []).length) {
+      ed2.lines = prev.items.map((it) => ({
+        pay_date: it.pay_date || ed2.pay_date,
+        income_type: String(it.income_type || "SERVICE").toUpperCase(),
+        description: it.description || "",
+        tax_base: num7(it.tax_base),
+        rate: num7(it.rate)
+      }));
+    } else if (invoice) {
+      const bd = invoice.wht_breakdown || [];
+      const autoPay = invoice.payment_date || "";
+      ed2.lines = bd.length ? bd.map((b) => ({
+        pay_date: autoPay,
+        income_type: String(invoice.charge_type || "").toUpperCase() === "ADVANCE" ? "OTHER" : "SERVICE",
+        description: b.description || invoice.description || "",
+        tax_base: num7(b.tax_base),
+        rate: num7(b.rate)
+      })) : [{
+        pay_date: autoPay,
+        income_type: "SERVICE",
+        description: invoice.description || "",
+        tax_base: num7(invoice.subtotal),
+        rate: 0
+      }];
+    }
+    if (!ed2.lines.length) {
+      ed2.lines = [{ pay_date: "", income_type: "SERVICE", description: "", tax_base: 0, rate: 0 }];
+    }
+    const cust = activeCustomers().find((c) => c.id === ed2.customer_id) || null;
+    cnt.innerHTML = `
+    <div class="page-head"><div class="page-title"><span class="dot"></span>
+      <h2>${ed2.whtId ? "\u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E48\u0E32\u0E07" : "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"}\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</h2></div>
+      <button class="btn btn-o" id="wh-back">\u2190 \u0E01\u0E25\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</button></div>
+
+    <div class="whp-top">
+      <div class="card card-pad">
+        <h3 class="t-b">\u0E01. \u0E1C\u0E39\u0E49\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</h3>
+        <p class="t-xs t-3">\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E41\u0E25\u0E30\u0E2D\u0E2D\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E43\u0E2B\u0E49 N.J.</p>
+        <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 <span class="req">*</span></label>
+          <select class="sel w100" id="wh-cust">${customerOpts(ed2.customer_id)}</select></div>
+        <div id="wh-payee" class="whp-payee"></div>
+        <div class="whp-nj">
+          <div class="whp-nj-t">\u0E02. \u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</div>
+          <div class="whp-nj-v">${esc(ISSUER.nameEn)}</div>
+          <div class="whp-nj-s">\u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35 ${esc(ISSUER.taxId)} \xB7 \u0E2A\u0E33\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E0D\u0E48</div>
+          <div class="whp-nj-s">${esc(ISSUER.address)}</div>
+          <p class="t-xs t-3">\u0E14\u0E36\u0E07\u0E08\u0E32\u0E01 Company Config \u0E01\u0E25\u0E32\u0E07 \u2014 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E30\u0E41\u0E01\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49</p>
+        </div>
+      </div>
+      <div class="card card-pad">
+        <h3 class="t-b">\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</h3>
+        <div class="fld"><label>\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 (\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01)</label>
+          <input class="inp w100" id="wh-cert" value="${esc(ed2.certificate_no)}"
+            placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E15\u0E32\u0E21\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32">
+          <p class="t-xs t-3">\u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E43\u0E2B\u0E49 \u0E40\u0E1E\u0E23\u0E32\u0E30\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01
+            \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49</p></div>
+        <div class="whp-kv"><label>\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19</label>
+          <span class="t-3">${ed2.whtId && prev && !/^WHTDRAFT-/.test(String(prev.document_no || "")) ? esc(prev.document_no) : "\u0E2D\u0E2D\u0E01\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E15\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E08\u0E23\u0E34\u0E07"}</span></div>
+        <div class="fld"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 <span class="req">*</span></label>
+          <input class="inp w100" type="date" id="wh-ddate" value="${esc(ed2.document_date)}"></div>
+        <div class="fld"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07 <span class="req">*</span></label>
+          <input class="inp w100" type="date" id="wh-pdate" value="${esc(ed2.pay_date || "")}">
+          ${ed2.payments && ed2.payments.length > 1 ? `<p class="t-xs whp-warn">\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49\u0E19\u0E35\u0E49\u0E21\u0E35\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30 ${ed2.payments.length} \u0E04\u0E23\u0E31\u0E49\u0E07 \u2014
+                \u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E49 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A:
+                ${ed2.payments.map((x) => esc(dmy(x.payment_date)) + " (" + esc(x.payment_no || "-") + ")").join(" \xB7 ")}</p>` : ed2.payments && ed2.payments.length === 1 ? `<p class="t-xs t-3">\u0E40\u0E15\u0E34\u0E21\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E08\u0E23\u0E34\u0E07 ${esc(ed2.payments[0].payment_no || "")}
+                  ${esc(dmy(ed2.payments[0].payment_date))}</p>` : '<p class="t-xs t-3">\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07\u0E15\u0E32\u0E21\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A</p>'}
+          <p class="t-xs t-3">\u0E04\u0E19\u0E25\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E31\u0E1A\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49 \xB7 \u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E04\u0E48\u0E32\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E08\u0E23\u0E34\u0E07</p></div>
+        <div class="fld"><label>\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 / INVOICE</label>
+          <input class="inp w100" id="wh-ref" value="${esc(ed2.reference_no)}"
+            placeholder="\u0E40\u0E0A\u0E48\u0E19 NJ202608-00001">
+          ${ed2.invoice_no ? `<p class="t-xs t-3">\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A INVOICE \u0E08\u0E23\u0E34\u0E07\u0E41\u0E25\u0E49\u0E27: <b>${esc(ed2.invoice_no)}</b>
+            (\u0E40\u0E01\u0E47\u0E1A\u0E14\u0E49\u0E27\u0E22 invoice_id \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21)</p>` : ""}</div>
+        <div class="fld"><label>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</label>
+          <input class="inp w100" id="wh-note" value="${esc(ed2.note)}"></div>
+      </div>
+    </div>
+
+    <div class="card card-pad mt-2">
+      <div class="whp-ihead">
+        <h3 class="t-b">\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E44\u0E14\u0E49\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E30\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01</h3>
+        <button class="btn btn-o btn-sm" id="wh-add">+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</button>
+      </div>
+      <p class="t-xs t-3">\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E20\u0E32\u0E29\u0E35\u0E21\u0E32\u0E08\u0E32\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E23\u0E34\u0E07 (\u0E16\u0E49\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01 INVOICE \u0E08\u0E30\u0E40\u0E15\u0E34\u0E21\u0E43\u0E2B\u0E49\u0E08\u0E32\u0E01 njacc_invoice_items)
+        \xB7 \u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E1A\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07 \u0E23\u0E30\u0E1A\u0E1A\u0E04\u0E33\u0E19\u0E27\u0E13\u0E41\u0E25\u0E30\u0E15\u0E23\u0E27\u0E08\u0E0B\u0E49\u0E33\u0E17\u0E35\u0E48\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</p>
+      <div class="tbl-wrap mt-2"><table class="tbl"><thead><tr>
+        <th style="width:132px">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E08\u0E23\u0E34\u0E07 <span class="req">*</span></th>
+        <th style="width:170px">\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E40\u0E07\u0E34\u0E19\u0E44\u0E14\u0E49</th>
+        <th>\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14</th>
+        <th class="r" style="width:130px">\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</th>
+        <th class="r" style="width:96px">\u0E2D\u0E31\u0E15\u0E23\u0E32 %</th>
+        <th class="r" style="width:120px">\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01</th>
+        <th class="center" style="width:56px">\u0E25\u0E1A</th>
+      </tr></thead><tbody id="wh-ltb"></tbody></table></div>
+
+      <div class="whp-foot mt-2">
+        <div class="whp-tot">
+          <div><span>\u0E23\u0E27\u0E21\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span><b id="wh-t-base">0.00</b></div>
+          <div class="whp-tot-g"><span>\u0E23\u0E27\u0E21\u0E20\u0E32\u0E29\u0E35\u0E17\u0E35\u0E48\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span><b id="wh-t-tax">0.00</b></div>
+        </div>
+        <div class="whp-btn">
+          <button class="btn btn-o" id="wh-save">\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07</button>
+          <button class="btn btn-o" id="wh-prev" ${ed2.whtId ? "" : "disabled"}>Preview / \u0E14\u0E39\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07</button>
+          <button class="btn btn-p" id="wh-post" ${ed2.whtId ? "" : "disabled"}>\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</button>
+        </div>
+      </div>
+      ${ed2.whtId ? "" : '<p class="t-xs t-3 mt-1">Preview \u0E41\u0E25\u0E30\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E17\u0E33\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27 (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E08\u0E32\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E23\u0E34\u0E07\u0E43\u0E19\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19)</p>'}
+    </div>`;
+    const tb = cnt.querySelector("#wh-ltb");
+    cnt.querySelector("#wh-back").onclick = () => renderList2(cnt);
+    cnt.querySelector("#wh-ddate").onchange = (e) => {
+      ed2.document_date = e.target.value;
+    };
+    cnt.querySelector("#wh-pdate").onchange = (e) => {
+      ed2.pay_date = e.target.value;
+    };
+    cnt.querySelector("#wh-cert").oninput = (e) => {
+      ed2.certificate_no = e.target.value;
+    };
+    cnt.querySelector("#wh-ref").oninput = (e) => {
+      ed2.reference_no = e.target.value;
+    };
+    cnt.querySelector("#wh-note").oninput = (e) => {
+      ed2.note = e.target.value;
+    };
+    cnt.querySelector("#wh-cust").onchange = (e) => {
+      ed2.customer_id = e.target.value;
+      if (ed2.invoice_id) {
+        ed2.invoice_id = null;
+        ed2.invoice_no = null;
+      }
+      drawPayee();
+    };
+    cnt.querySelector("#wh-add").onclick = () => {
+      ed2.lines.push({
+        pay_date: ed2.pay_date || "",
+        income_type: "SERVICE",
+        description: "",
+        tax_base: 0,
+        rate: 0
+      });
+      drawLines();
+    };
+    tb.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.i);
+      if (!Number.isInteger(i) || !ed2.lines[i]) return;
+      const k = e.target.dataset.k;
+      if (k === "tax_base" || k === "rate") {
+        ed2.lines[i][k] = num7(e.target.value);
+        refreshRow(i);
+        refreshTotals();
+      } else if (k === "description") ed2.lines[i].description = e.target.value;
+    });
+    tb.addEventListener("change", (e) => {
+      const i = Number(e.target.dataset.i);
+      if (!Number.isInteger(i) || !ed2.lines[i]) return;
+      const k = e.target.dataset.k;
+      if (k === "pay_date" || k === "income_type") ed2.lines[i][k] = e.target.value;
+    });
+    tb.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-del-line]");
+      if (!b) return;
+      if (ed2.lines.length <= 1) {
+        toast("\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "err");
+        return;
+      }
+      ed2.lines.splice(Number(b.dataset.delLine), 1);
+      drawLines();
+    });
+    cnt.querySelector("#wh-save").onclick = (e) => doSave2(cnt, e.target);
+    cnt.querySelector("#wh-prev").onclick = async () => {
+      if (!ed2.whtId) return;
+      try {
+        openWhtDoc(await whtView(ed2.whtId));
       } catch (ex) {
-        handleErr(ex);
-        btnBusy(e.target, false);
+        toast(whtErrMessage(ex), "err");
       }
     };
+    cnt.querySelector("#wh-post").onclick = async () => {
+      if (!ed2.whtId) return;
+      if (!ed2.pay_date) {
+        toast("\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01", "err");
+        return;
+      }
+      if (ed2.lines.some((l) => !l.pay_date)) {
+        toast("\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E08\u0E23\u0E34\u0E07", "err");
+        return;
+      }
+      if (!await confirmModal(
+        "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A",
+        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19\u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2D\u0E2D\u0E01\u0E42\u0E14\u0E22\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 \u2014 N.J. \u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
+        "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23"
+      )) return;
+      try {
+        const r = await once("post-wht-" + ed2.whtId, () => postWht(ed2.whtId, newRequestId()));
+        if (r) toast("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E20\u0E32\u0E22\u0E43\u0E19 " + (r.document_no || ""), "ok");
+        renderList2(cnt);
+      } catch (ex) {
+        toast(whtErrMessage(ex), "err");
+      }
+    };
+    drawPayee();
+    drawLines();
+    function drawPayee() {
+      const c = activeCustomers().find((x) => x.id === ed2.customer_id) || null;
+      const el = cnt.querySelector("#wh-payee");
+      if (!el) return;
+      el.innerHTML = c ? `
+      <div class="whp-kv whp-kv-2">
+        <div><label>\u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35</label><span class="t-b">${esc(c.tax_id || "-")}</span></div>
+        <div><label>\u0E2A\u0E32\u0E02\u0E32</label><span>${esc(c.branch_code || "-")}</span></div>
+      </div>
+      <div class="whp-kv"><label>\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</label><span>${esc(c.address || "-")}</span></div>
+      <div class="whp-kv"><label>\u0E42\u0E17\u0E23.</label><span>${esc(c.phone || "-")}</span></div>` : '<p class="t-xs t-3">\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E14\u0E36\u0E07\u0E40\u0E25\u0E02\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35 / \u0E2A\u0E32\u0E02\u0E32 / \u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</p>';
+    }
+    function drawLines() {
+      tb.innerHTML = ed2.lines.map((l, i) => {
+        const tax = round2(l.tax_base * l.rate / 100);
+        return `<tr>
+        <td><input class="inp w100" type="date" data-i="${i}" data-k="pay_date"
+              value="${esc(l.pay_date || "")}"></td>
+        <td><select class="sel w100" data-i="${i}" data-k="income_type">${incomeOpts(l.income_type)}</select></td>
+        <td><input class="inp w100" data-i="${i}" data-k="description"
+              value="${esc(l.description || "")}" placeholder="\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14 (\u0E16\u0E49\u0E32\u0E21\u0E35)"></td>
+        <td><input class="inp r" type="number" step="0.01" min="0" data-i="${i}" data-k="tax_base"
+              value="${l.tax_base}"></td>
+        <td><input class="inp r" type="number" step="0.01" min="0" max="100" data-i="${i}" data-k="rate"
+              value="${l.rate}"></td>
+        <td class="r t-b" data-tax="${i}">${money(tax)}</td>
+        <td class="center"><button class="btn btn-danger btn-sm" data-del-line="${i}">\u2715</button></td>
+      </tr>`;
+      }).join("");
+      refreshTotals();
+    }
+    function refreshRow(i) {
+      const l = ed2.lines[i];
+      if (!l) return;
+      const c = tb.querySelector(`[data-tax="${i}"]`);
+      if (c) c.textContent = money(round2(l.tax_base * l.rate / 100));
+    }
+    function refreshTotals() {
+      let base = 0, tax = 0;
+      for (const l of ed2.lines) {
+        base = round2(base + l.tax_base);
+        tax = round2(tax + round2(l.tax_base * l.rate / 100));
+      }
+      const a = cnt.querySelector("#wh-t-base");
+      if (a) a.textContent = money(base);
+      const b = cnt.querySelector("#wh-t-tax");
+      if (b) b.textContent = money(tax);
+    }
   }
-  var st4;
+  async function doSave2(cnt, btn2) {
+    if (!ed2) return;
+    if (!ed2.customer_id) {
+      toast("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35 / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E01\u0E48\u0E2D\u0E19", "err");
+      return;
+    }
+    if (!ed2.lines.length) {
+      toast("\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "err");
+      return;
+    }
+    for (const l of ed2.lines) {
+      if (!(l.tax_base > 0)) {
+        toast("\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 0 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "err");
+        return;
+      }
+      if (l.rate < 0 || l.rate > 100) {
+        toast("\u0E2D\u0E31\u0E15\u0E23\u0E32\u0E20\u0E32\u0E29\u0E35\u0E15\u0E49\u0E2D\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 0\u2013100", "err");
+        return;
+      }
+    }
+    const payload2 = {
+      wht_id: ed2.whtId || null,
+      customer_id: ed2.customer_id,
+      certificate_no: (ed2.certificate_no || "").trim() || null,
+      invoice_id: ed2.invoice_id || null,
+      document_date: ed2.document_date || null,
+      pay_date: ed2.pay_date || null,
+      wht_type: ed2.lines[0].income_type,
+      reference_no: (ed2.reference_no || "").trim() || null,
+      note: (ed2.note || "").trim() || null,
+      items: ed2.lines.map((l) => ({
+        pay_date: l.pay_date || null,
+        income_type: l.income_type,
+        description: (l.description || "").trim() || null,
+        tax_base: round2(l.tax_base),
+        rate: round2(l.rate)
+      }))
+    };
+    if (btn2) btn2.disabled = true;
+    try {
+      const r = await once("save-wht", () => saveWhtDraft(payload2));
+      if (r && r.id) {
+        ed2.whtId = r.id;
+        const pv = cnt.querySelector("#wh-prev");
+        if (pv) pv.disabled = false;
+        const po = cnt.querySelector("#wh-post");
+        if (po) po.disabled = false;
+        toast("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E20\u0E32\u0E29\u0E35\u0E2B\u0E31\u0E01\u0E23\u0E27\u0E21 " + money(r.amount), "ok");
+      }
+    } catch (ex) {
+      toast(whtErrMessage(ex), "err");
+    } finally {
+      if (btn2) btn2.disabled = false;
+    }
+  }
+  var SQL_FILE2, st4, pk2, ed2, num7, pct4, INCOME_TYPES, incomeOpts, ST_BDG2, stBadge2;
   var init_withholding_page = __esm({
     "assets/js/withholding/withholding-page.js"() {
       init_withholding_api();
+      init_wht_doc();
       init_master_cache();
       init_formatter();
+      init_company_doc();
       init_permissions();
       init_pagination();
       init_modal();
       init_toast();
-      init_loading();
       init_error_handler();
       init_request_manager();
+      SQL_FILE2 = "sql/RUN-NOW/06_RUN-05_WHT_CERTIFICATE.sql";
       st4 = { customer: "", from: "", to: "", page: 1, size: 20 };
+      pk2 = { q: "", page: 1, size: 10 };
+      ed2 = null;
+      num7 = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      pct4 = (v) => {
+        const n = num7(v);
+        return (Number.isInteger(n) ? String(n) : String(round2(n))) + "%";
+      };
+      INCOME_TYPES = [
+        ["SERVICE", "\u0E04\u0E48\u0E32\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23 / \u0E04\u0E48\u0E32\u0E08\u0E49\u0E32\u0E07\u0E17\u0E33\u0E02\u0E2D\u0E07"],
+        ["TRANSPORT", "\u0E04\u0E48\u0E32\u0E02\u0E19\u0E2A\u0E48\u0E07"],
+        ["RENT", "\u0E04\u0E48\u0E32\u0E40\u0E0A\u0E48\u0E32"],
+        ["OTHER", "\u0E2D\u0E37\u0E48\u0E19 \u0E46"]
+      ];
+      incomeOpts = (sel) => INCOME_TYPES.map(([v, l]) => `<option value="${v}" ${v === sel ? "selected" : ""}>${esc(l)}</option>`).join("");
+      ST_BDG2 = {
+        DRAFT: ["bdg-due-ok", "\u0E23\u0E48\u0E32\u0E07"],
+        ISSUED: ["bdg-issued", "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27"],
+        VOID: ["bdg-void", "VOID"]
+      };
+      stBadge2 = (s) => {
+        const [c, t] = ST_BDG2[String(s || "").toUpperCase()] || ["bdg-due-ok", s || "-"];
+        return `<span class="bdg ${c}">${esc(t)}</span>`;
+      };
     }
   });
 
