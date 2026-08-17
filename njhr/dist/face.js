@@ -33,7 +33,12 @@
   var MODEL_URL_CDN   = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
 
   var S = {
+    /* [PERF] แยกสถานะโมเดลเป็น 2 เฟส
+       guideReady/guideLoading = Detector + Landmark (550 KB) — พอสำหรับนำทางใบหน้า
+       recogReady/recogLoading = Recognition (6.44 MB)  — ต้องมีเฉพาะตอนสร้าง Descriptor
+       ready = พร้อมครบทั้งสองเฟส (ความหมายเดิม ใช้กับ isReady() และ UI ที่อ่านค่านี้อยู่) */
     ready: false, loading: null, cssAdded: false, mode: '',
+    guideReady: false, guideLoading: null, recogReady: false, recogLoading: null,
     stream: null, video: null, canvas: null, raf: 0,
     running: false, busy: false, root: null,
     attempts: 0, lastFail: null,
@@ -341,34 +346,358 @@
       d.head.appendChild(s);
     });
   }
-  function faceNets(base) {
-    var f = w.faceapi;
-    return Promise.all([
-      f.nets.tinyFaceDetector.loadFromUri(base),
-      f.nets.faceLandmark68Net.loadFromUri(base),
-      f.nets.faceRecognitionNet.loadFromUri(base)
-    ]);
+  /* ---------- [PERF] Instrumentation (ปิดเป็นค่าเริ่มต้น) ----------
+     เปิดด้วย  localStorage.setItem('njhr_face_perf','1')  หรือ  window.NJHR_FACE_PERF = true
+     ปิดอยู่ = ทุกฟังก์ชันคืนทันที ไม่มี Object ใหม่ ไม่มี log ไม่กระทบ Production UX
+
+     ⚠ ห้ามเก็บ: Descriptor · รูปใบหน้า · Token · Password · GPS · ข้อมูลระบุตัวบุคคล
+        เก็บเฉพาะชื่อขั้นตอนกับตัวเลขเวลา (ms) และจำนวนครั้งเท่านั้น */
+  /* [PERF] เพดานของเส้นทาง Liveness ก้ำกึ่ง
+     BORDER_MIN = จำนวนเฟรมรวมขั้นต่ำก่อนเริ่มประเมิน (เท่ากับหน้าต่างเดิม grabFrames(8))
+     BORDER_MAX = เพดานรวม (เท่ากับกรณีแย่สุดเดิม 6 + 8 = 14) */
+  var BORDER_MIN = 8, BORDER_MAX = 14;
+
+  var PERF = { on: null, t: null };
+  function perfOn() {
+    if (PERF.on !== null) return PERF.on;
+    var v = false;
+    try { v = (w.NJHR_FACE_PERF === true) || localStorage.getItem('njhr_face_perf') === '1'; } catch (e) {}
+    PERF.on = !!v;
+    return PERF.on;
   }
-  function loadModels() {
-    if (S.ready) return Promise.resolve();
-    if (S.loading) return S.loading;
-    /* Local ก่อน → พลาดค่อยถอยไป CDN (แจ้งใน Console ให้ผู้ดูแลเห็นว่า Deploy โมเดลไม่ครบ)
-       พลาดทั้งคู่ = Error ข้อความเดิม และ S.loading ถูกล้างให้กดลองใหม่ได้เหมือนเดิม */
-    S.loading = faceScript(FACE_API_LOCAL)['catch'](function () {
+  function perfNow() {
+    try { return (w.performance && w.performance.now) ? w.performance.now() : Date.now(); }
+    catch (e) { return Date.now(); }
+  }
+  /* เริ่มจับเวลา Flow ใหม่ — flow = 'ENROLL' | 'ATTENDANCE' | 'LOGIN' */
+  function perfStart(flow) {
+    if (!perfOn()) return;
+    var ua = '';
+    try { ua = String(navigator.userAgent || ''); } catch (e) {}
+    PERF.t = {
+      flow: flow,
+      platform: /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : 'Other',
+      t0: perfNow(),
+      marks: {},
+      counters: { descriptor_calls: 0, guide_calls: 0, retry_count: 0 }
+    };
+  }
+  /* บันทึกช่วงเวลา — perfMark('camera_start_ms', tStart) */
+  function perfMark(key, from) {
+    if (!perfOn() || !PERF.t) return;
+    var n = perfNow();
+    PERF.t.marks[key] = Math.round((n - (typeof from === 'number' ? from : PERF.t.t0)) * 10) / 10;
+  }
+  /* สะสมเวลารวมของขั้นตอนที่เกิดหลายครั้งต่อ Flow (เช่น Descriptor / Liveness) */
+  function perfAdd(key, ms) {
+    if (!perfOn() || !PERF.t) return;
+    PERF.t.marks[key] = Math.round(((PERF.t.marks[key] || 0) + ms) * 10) / 10;
+  }
+  function perfDevice() {
+    var ua = '';
+    try { ua = String(navigator.userAgent || ''); } catch (e) {}
+    var os = /Android/i.test(ua) ? 'Android'
+           : /iPhone|iPad|iPod/i.test(ua) ? 'iOS'
+           : /Windows/i.test(ua) ? 'Windows'
+           : /Mac OS X/i.test(ua) ? 'macOS'
+           : /Linux/i.test(ua) ? 'Linux' : 'Other';
+    var br = /Edg\//.test(ua) ? 'Edge'
+           : /CriOS|Chrome\//.test(ua) ? 'Chrome'
+           : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
+           : /Safari\//.test(ua) ? 'Safari' : 'Other';
+    var m = /\((?:Linux; )?([^;)]{0,40})/.exec(ua);
+    var standalone = false;
+    try {
+      standalone = !!(navigator.standalone ||
+        (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches));
+    } catch (e) {}
+    var net = '';
+    try {
+      var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (c && c.effectiveType) net = String(c.effectiveType);
+    } catch (e) {}
+    return { os: os, browser: br, device: (m && m[1]) ? m[1].trim().slice(0, 40) : 'unknown',
+             mode: standalone ? 'PWA/standalone' : 'browser', network: net };
+  }
+  function perfSet(key, v) {
+    if (!perfOn() || !PERF.t) return;
+    PERF.t.counters[key] = v;
+  }
+  function perfCount(key, n) {
+    if (!perfOn() || !PERF.t) return;
+    var c = PERF.t.counters;
+    c[key] = (c[key] || 0) + (typeof n === 'number' ? n : 1);
+  }
+  /* ปิด Flow แล้วสรุปครั้งเดียว
+     บนมือถือเปิด Console ยาก จึงแสดงผลเป็นแผ่นซ้อนพร้อมปุ่มคัดลอกด้วย
+     ทั้งหมดทำงานเฉพาะเมื่อเปิดโหมดวัดผลเท่านั้น — ปิดอยู่ = ไม่มี DOM ใด ๆ ถูกสร้าง */
+  function perfEnd(totalKey) {
+    if (!perfOn() || !PERF.t) return null;
+    var t = PERF.t;
+    t.marks[totalKey || 'total_ms'] = Math.round((perfNow() - t.t0) * 10) / 10;
+    var out = { flow: t.flow, platform: t.platform, ms: t.marks, count: t.counters };
+    try { console.log('[FACE PERF] ' + t.flow + ' · ' + t.platform, out); } catch (e) {}
+    try { perfPush(out); perfPanel(); } catch (e) {}
+    PERF.t = null;
+    return out;
+  }
+
+  /* ---------- เก็บผลทดสอบข้ามการปิด/เปิดแอป ----------
+     Cold Start ต้องปิดแอปทิ้งจริง ผลจึงต้องอยู่รอดข้าม Session
+     บันทึกลง localStorage เฉพาะตอนเปิดโหมดวัดเท่านั้น เก็บได้สูงสุด 40 รายการ
+     ⚠ เก็บเฉพาะ ชื่อขั้นตอน · ตัวเลขเวลา · จำนวนครั้ง · รุ่นเครื่อง/เบราว์เซอร์
+        ไม่มี Descriptor · ไม่มีรูป · ไม่มี Token · ไม่มีรหัสผ่าน · ไม่มีพิกัด GPS */
+  var PERF_KEY = 'njhr_face_perf_log';
+  function perfLoad() {
+    if (PERF.log) return PERF.log;
+    try { PERF.log = JSON.parse(localStorage.getItem(PERF_KEY)) || []; } catch (e) { PERF.log = []; }
+    if (!Array.isArray(PERF.log)) PERF.log = [];
+    return PERF.log;
+  }
+  function perfPush(out) {
+    var log = perfLoad();
+    var dev = perfDevice();
+    /* cold = รอบนี้มีการโหลดโมเดลจริง (Warm จะไม่มีค่าเหล่านี้เลย) */
+    var cold = (out.ms.recognition_model_load_ms != null) || (out.ms.guide_model_load_ms != null);
+    log.push({
+      flow: out.flow, cold: cold, at: new Date().toISOString(),
+      os: dev.os, browser: dev.browser, device: dev.device, mode: dev.mode, network: dev.network,
+      ms: out.ms, count: out.count
+    });
+    while (log.length > 40) log.shift();
+    PERF.log = log;
+    try { localStorage.setItem(PERF_KEY, JSON.stringify(log)); } catch (e) {}
+  }
+  /* สร้างผลสรุปตาม Schema ที่กำหนด — ใช้รอบล่าสุดของแต่ละประเภท */
+  function perfResult() {
+    var log = perfLoad(), dev = perfDevice();
+    function last(flow, cold) {
+      for (var i = log.length - 1; i >= 0; i--) {
+        if (log[i].flow !== flow) continue;
+        if (typeof cold === 'boolean' && !!log[i].cold !== cold) continue;
+        return log[i];
+      }
+      return null;
+    }
+    function pick(e) {
+      if (!e) return null;
+      return { at: e.at, cold: e.cold, ms: e.ms, count: e.count };
+    }
+    var enr = last('ENROLL');
+    return {
+      schema: 'njhr-face-perf/1',
+      build: (w.NJHR_BUILD_VERSION || ''),
+      device: dev.device, os: dev.os, browser: dev.browser, mode: dev.mode, network: dev.network,
+      test_time: new Date().toISOString(),
+      face_login_cold: pick(last('LOGIN', true)),
+      face_login_warm: pick(last('LOGIN', false)),
+      attendance_in: pick(last('ATTENDANCE_IN')),
+      attendance_out: pick(last('ATTENDANCE_OUT')),
+      enrollment_front_ms: enr ? (enr.ms.enroll_front_ms || null) : null,
+      enrollment_left_ms: enr ? (enr.ms.enroll_left_ms || null) : null,
+      enrollment_right_ms: enr ? (enr.ms.enroll_right_ms || null) : null,
+      enrollment_total_ms: enr ? (enr.ms.total_enrollment_ms || null) : null,
+      enrollment_descriptor_count: enr ? (enr.count.descriptor_calls || null) : null,
+      runs: log
+    };
+  }
+  function perfText(o) {
+    var L = [], k;
+    for (k in o.ms) if (Object.prototype.hasOwnProperty.call(o.ms, k)) L.push(k + ' = ' + o.ms[k]);
+    for (k in o.count) if (Object.prototype.hasOwnProperty.call(o.count, k)) L.push(k + ' = ' + o.count[k]);
+    return L.join('\n');
+  }
+  function perfPanel() {
+    var id = 'njf-perf-panel';
+    var el = d.getElementById(id);
+    if (!el) {
+      el = d.createElement('div');
+      el.id = id;
+      el.setAttribute('style', 'position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483000;' +
+        'background:#0B1220;color:#D1E3FF;font:12px/1.55 ui-monospace,Menlo,monospace;' +
+        'padding:10px 12px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.45);' +
+        'max-height:56vh;overflow:auto;white-space:pre-wrap;');
+      d.body.appendChild(el);
+    }
+    var txt = perfTextAll();
+    el.textContent = '';
+    var pre = d.createElement('div');
+    pre.textContent = txt;
+    var bar = d.createElement('div');
+    bar.setAttribute('style', 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px');
+    function mkBtn(label, bg, on) {
+      var b = d.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.setAttribute('style', 'flex:1 1 46%;padding:9px;border:0;border-radius:8px;' +
+        'background:' + bg + ';color:#fff;font:600 12px/1 system-ui');
+      b.onclick = on;
+      return b;
+    }
+    function note(t) { pre.textContent = txt + '\n\n' + t; }
+    bar.appendChild(mkBtn('คัดลอกผล', '#1D4ED8', function () {
+      var all = JSON.stringify(perfResult(), null, 2);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(all); note('(คัดลอก JSON แล้ว)'); return;
+        }
+      } catch (e) {}
+      try {
+        var ta = d.createElement('textarea');
+        ta.value = all; d.body.appendChild(ta); ta.select();
+        d.execCommand('copy'); ta.remove(); note('(คัดลอก JSON แล้ว)');
+      } catch (e2) { note('(คัดลอกไม่สำเร็จ ใช้ปุ่มดาวน์โหลดแทน)'); }
+    }));
+    bar.appendChild(mkBtn('ดาวน์โหลด .json', '#0E7490', function () {
+      try {
+        var blob = new Blob([JSON.stringify(perfResult(), null, 2)], { type: 'application/json' });
+        var a = d.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'REAL-DEVICE-FACE-RESULT.json';
+        d.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000);
+        note('(บันทึกไฟล์แล้ว)');
+      } catch (e) { note('(ดาวน์โหลดไม่สำเร็จ ใช้ปุ่มคัดลอกแทน)'); }
+    }));
+    bar.appendChild(mkBtn('ล้างผล', '#475569', function () {
+      PERF.log = [];
+      try { localStorage.removeItem(PERF_KEY); } catch (e) {}
+      el.remove();
+    }));
+    bar.appendChild(mkBtn('ปิดโหมดวัด', '#B91C1C', function () {
+      try { localStorage.removeItem('njhr_face_perf'); } catch (e) {}
+      PERF.on = false; el.remove();
+    }));
+    el.appendChild(pre);
+    el.appendChild(bar);
+  }
+  function perfTextAll() {
+    var log = perfLoad();
+    if (!log.length) return '(ยังไม่มีผลทดสอบ)';
+    var dev = perfDevice();
+    var head = dev.device + ' · ' + dev.os + ' · ' + dev.browser + ' · ' + dev.mode +
+               (dev.network ? ' · ' + dev.network : '') + '\nbuild ' + (w.NJHR_BUILD_VERSION || '?') +
+               '\nเก็บไว้ ' + log.length + ' รอบ\n';
+    return head + log.slice(-6).map(function (e) {
+      return '\n[' + e.flow + (e.cold ? ' · COLD' : ' · WARM') + ']\n' + perfText(e);
+    }).join('');
+  }
+
+  /* [TEST ONLY] เปิดฟังก์ชันภายในให้ Harness เรียกได้ เฉพาะเมื่อ window.__TEST_MODELS = true
+     Production ไม่มีค่านี้ จึงไม่มี Object นี้เกิดขึ้นเลย และไม่มีผลต่อพฤติกรรมใด ๆ */
+  if (w.__TEST_MODELS) {
+    w.__NJHR_FACE_TEST = {
+      passiveLiveness: function (f) { return passiveLiveness(f); },
+      yaw: function (lm) { return yaw(lm); },
+      BORDER_MIN: BORDER_MIN, BORDER_MAX: BORDER_MAX
+    };
+  }
+
+  w.NJHRFacePerf = {
+    enable: function () { try { localStorage.setItem('njhr_face_perf', '1'); } catch (e) {} PERF.on = true; },
+    disable: function () { try { localStorage.removeItem('njhr_face_perf'); } catch (e) {} PERF.on = false; },
+    isOn: perfOn,
+    current: function () { return PERF.t ? JSON.parse(JSON.stringify(PERF.t)) : null; },
+    log: function () { return perfLoad().slice(); },
+    text: perfTextAll,
+    result: perfResult,
+    show: function () { if (perfOn()) perfPanel(); },
+    clear: function () {
+      PERF.log = [];
+      try { localStorage.removeItem(PERF_KEY); } catch (e) {}
+      var e2 = d.getElementById('njf-perf-panel'); if (e2) e2.remove();
+    }
+  };
+
+  /* ---------- [PERF] Two-Stage Model Loading ----------
+     ปัญหาเดิม: faceNets() รอ Promise.all ของทั้ง 3 โมเดลก่อนเริ่มตรวจหน้าได้
+       tiny_face_detector_model.bin      193 KB
+       face_landmark_68_model.bin        357 KB   → รวม GUIDE = 550 KB
+       face_recognition_model.bin      6,444 KB   → 92% ของทั้งหมด
+     ผู้ใช้จึงต้องรอ 6.44 MB ทั้งที่ขั้นนำทาง (กรอบหน้า/Yaw/Ring/Quality) ใช้แค่ 550 KB
+
+     ของใหม่แยกเป็น 2 เฟส ใช้ Shared Promise คนละตัว โหลดขนานกัน:
+       STAGE A (GUIDE)       tinyFaceDetector + faceLandmark68Net
+                             พร้อมเมื่อไหร่ = เปิดกล้อง + Detection + Landmark + Guide UI ได้ทันที
+       STAGE B (RECOGNITION) faceRecognitionNet โหลด Background
+                             รอเฉพาะตอนจะสร้าง Descriptor จริงเท่านั้น
+
+     Single-flight ทุกตัว: เรียกซ้ำ/เรียกพร้อมกันหลายที่ ได้ Promise เดิม ไม่โหลดซ้ำ
+     คง Fallback Local → CDN เดิมครบทั้งชั้น script และชั้น nets */
+  var LIB = { p: null };
+
+  /* โหลด face-api.js ครั้งเดียว ใช้ร่วมกันทั้ง 2 เฟส */
+  function libLoad() {
+    if (w.faceapi) return Promise.resolve();
+    if (LIB.p) return LIB.p;
+    LIB.p = faceScript(FACE_API_LOCAL)['catch'](function () {
       try { console.error('[FACE] โหลด assets/models/face-api.js ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
       return faceScript(FACE_API_CDN);
-    }).then(function () {
-      return faceNets(MODEL_URL_LOCAL)['catch'](function () {
-        try { console.error('[FACE] โหลดโมเดลจาก assets/models ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
-        return faceNets(MODEL_URL_CDN);
-      });
-    }).then(function () {
-      S.ready = true;
-    }).catch(function (e) {
-      S.loading = null;
-      throw new Error(e.message || 'โหลดโมเดลตรวจใบหน้าไม่สำเร็จ');
+    })['catch'](function (e) {
+      LIB.p = null;                          // ล้มเหลว = กดลองใหม่ได้เหมือนเดิม
+      throw new Error((e && e.message) || 'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ');
     });
-    return S.loading;
+    return LIB.p;
+  }
+
+  /* โหลด nets ชุดหนึ่ง พร้อม Fallback Local → CDN (ใช้ Pattern เดิมทุกประการ) */
+  function netsWithFallback(names, label) {
+    function run(base) {
+      var f = w.faceapi;
+      return Promise.all(names.map(function (n) { return f.nets[n].loadFromUri(base); }));
+    }
+    return run(MODEL_URL_LOCAL)['catch'](function () {
+      try { console.error('[FACE] โหลดโมเดล ' + label + ' จาก assets/models ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
+      return run(MODEL_URL_CDN);
+    });
+  }
+
+  /* STAGE A — GUIDE (Detector + Landmark) 550 KB */
+  function guideLoad() {
+    if (S.guideReady) return Promise.resolve();
+    if (S.guideLoading) return S.guideLoading;
+    var tG = perfNow();
+    S.guideLoading = libLoad().then(function () {
+      return netsWithFallback(['tinyFaceDetector', 'faceLandmark68Net'], 'guide');
+    }).then(function () {
+      perfMark('guide_model_load_ms', tG);
+      S.guideReady = true;
+      S.ready = !!(S.guideReady && S.recogReady);
+    })['catch'](function (e) {
+      S.guideLoading = null;
+      throw new Error((e && e.message) || 'โหลดโมเดลตรวจใบหน้าไม่สำเร็จ');
+    });
+    return S.guideLoading;
+  }
+
+  /* STAGE B — RECOGNITION (Descriptor) 6.44 MB — โหลด Background ห้าม Block Guide */
+  function recogLoad() {
+    if (S.recogReady) return Promise.resolve();
+    if (S.recogLoading) return S.recogLoading;
+    var tR = perfNow();
+    S.recogLoading = libLoad().then(function () {
+      return netsWithFallback(['faceRecognitionNet'], 'recognition');
+    }).then(function () {
+      perfMark('recognition_model_load_ms', tR);
+      S.recogReady = true;
+      S.ready = !!(S.guideReady && S.recogReady);
+    })['catch'](function (e) {
+      S.recogLoading = null;
+      throw new Error((e && e.message) || 'โหลดโมเดลยืนยันใบหน้าไม่สำเร็จ');
+    });
+    return S.recogLoading;
+  }
+
+  /* เริ่มโหลด Recognition แบบไม่บล็อกใคร — เรียกได้บ่อยเท่าไหร่ก็ได้ ไม่โหลดซ้ำ */
+  function recogPrefetch() {
+    try { recogLoad()['catch'](function () {}); } catch (e) {}
+  }
+
+  /* [COMPAT] loadModels() เดิม = "พร้อมครบทั้ง 2 เฟส"
+     ยังใช้กับ warmup() และจุดที่ต้องการความพร้อมเต็มรูปแบบ ความหมายไม่เปลี่ยน
+     S.ready ยังหมายถึง "พร้อมครบ" เหมือนเดิม จึงไม่กระทบ isReady() และ UI ที่อ่านค่านี้ */
+  function loadModels() {
+    if (S.ready) return Promise.resolve();
+    return Promise.all([guideLoad(), recogLoad()]).then(function () {});
   }
 
   /* ---------- กล้อง ---------- */
@@ -434,12 +763,47 @@
     }
     if (S.video) { try { S.video.pause(); } catch (e) {} S.video.srcObject = null; }
   }
+  /* กล้องยังใช้งานได้จริงไหม — ใช้เป็น "หลักฐาน" ก่อนตัดสินว่า Detection Error เป็น Fatal
+     ตายจริงก็ต่อเมื่อ: ไม่มี Stream/Video แล้ว หรือ Track ทุกเส้นอยู่ในสถานะ 'ended'
+     (ถูกถอนสิทธิ์ · อุปกรณ์ถูกถอด · แอปอื่นยึดกล้องไป)
+     อ่านสถานะไม่ได้ = ไม่ตัดสินว่าตาย เพื่อไม่ให้ Error ชั่วคราวถูกยกระดับเป็น Fatal */
+  function camUsable() {
+    try {
+      if (!S.stream || !S.video) return false;
+      var ts = S.stream.getTracks ? S.stream.getTracks() : null;
+      if (!ts || !ts.length) return false;
+      for (var i = 0; i < ts.length; i++) {
+        if (ts[i] && ts[i].readyState !== 'ended') return true;
+      }
+      return false;
+    } catch (e) { return true; }
+  }
 
   /* ---------- ตรวจใบหน้าหนึ่งเฟรม ---------- */
+  function detectOpt() {
+    var f = w.faceapi;
+    return new f.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+  }
+  /* CAPTURE — Detection + Landmarks + Descriptor (ของเดิม ไม่เปลี่ยนพฤติกรรม)
+     ใช้โดย Face Login / Face Attendance / Blink Challenge / ทดสอบใบหน้า ตามเดิมทุกจุด */
   function detect() {
     var f = w.faceapi;
-    var opt = new f.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
-    return f.detectAllFaces(S.video, opt).withFaceLandmarks().withFaceDescriptors();
+    perfCount('descriptor_calls');
+    var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
+    if (!perfOn()) return task;                 // ปิดโหมดวัด = คืน task เดิม ไม่ห่ออะไรเลย
+    var t = perfNow();
+    return Promise.resolve(task).then(function (r) {
+      perfAdd('descriptor_ms', perfNow() - t);
+      return r;
+    });
+  }
+  /* GUIDANCE — Detection + Landmarks เท่านั้น ห้ามคำนวณ Descriptor
+     ใช้เฉพาะลูปนำทางท่าทางของ \"ลงทะเบียนใบหน้า\" (enroll) เท่านั้น
+     Descriptor เป็นขั้นที่แพงที่สุดของ face-api การไม่คำนวณทุกเฟรมทำให้ลูปนำทางลื่นขึ้นมาก */
+  function detectGuide() {
+    var f = w.faceapi;
+    perfCount('guide_calls');
+    return f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks();
   }
 
   // ความสว่าง/ความคมชัดของกรอบใบหน้า — ใช้ตรวจแสงและกันรูปเบลอ
@@ -483,12 +847,40 @@
     }
     try { return (ear(lm.getLeftEye()) + ear(lm.getRightEye())) / 2; } catch (e) { return null; }
   }
-  // ตำแหน่งปลายจมูกเทียบกึ่งกลางกรอบ — ใช้ประมาณการหันซ้าย/ขวา
-  function yaw(lm, box) {
+  /* ---------- Yaw (การหันซ้าย/ขวา) — คำนวณจาก Landmark ล้วน ----------
+     ห้ามใช้ Bounding Box เป็นค่าอ้างอิงหลัก: กรอบขยับ/ขยายตามการหันหน้าไปด้วย
+     ทำให้ตัวหารและจุดกึ่งกลางไม่นิ่ง และปลายจมูกที่ใช้เดิม (getNose() ตัวสุดท้าย = จุด 35)
+     คือ \"ปีกจมูกฝั่งขวา\" ไม่ใช่ปลายจมูก จึงมี Bias ค้างอยู่ตั้งแต่ท่าหน้าตรง
+
+     สูตรใหม่:
+       แกนอ้างอิง = เวกเตอร์จากจุดกึ่งกลางตาซ้าย → จุดกึ่งกลางตาขวา (ทนการเอียงหัว/roll)
+       จุดวัด     = ปลายจมูกจริง (landmark 30 = ดัชนี 3 ของ getNose())
+       Normalize  = inter-eye distance (ระยะระหว่างตา) → ไม่ขึ้นกับระยะห่างจากกล้อง
+       yaw = ((ปลายจมูก − กึ่งกลางตา) · แกนตา) / (ระยะระหว่างตา)^2
+
+     ความหมายเชิงเรขาคณิต: yaw ≈ (ความลึกจมูก / ระยะระหว่างตา) × tan(มุมหัน) ≈ 0.33 × tanθ
+     เครื่องหมาย: บวก = ปลายจมูกเลื่อนไปทาง +x ของ \"เฟรมกล้องดิบ\"
+       (face-api อ่านจาก <video> โดยตรง · CSS scaleX(-1) เป็นการแสดงผลเท่านั้น ไม่กระทบพิกัด)
+       ทิศเดียวกับของเดิมทุกประการ → LEFT ยังเป็นค่าบวก · RIGHT ยังเป็นค่าลบ
+     คืน null เมื่ออ่าน Landmark ไม่ได้ = \"ยังตัดสินไม่ได้\" ผู้เรียกต้องถือว่าไม่ผ่าน */
+  function yaw(lm) {
     try {
-      var n = lm.getNose(), tip = n[n.length - 1];
-      return (tip.x - (box.x + box.width / 2)) / (box.width / 2);
-    } catch (e) { return 0; }
+      if (!lm) return null;
+      var le = lm.getLeftEye(), re = lm.getRightEye(), no = lm.getNose();
+      if (!le || !re || !no || le.length < 4 || re.length < 4 || no.length < 4) return null;
+      var a = lmMid(le), b = lmMid(re), tip = no[3];
+      if (!a || !b || !tip) return null;
+      var dx = b.x - a.x, dy = b.y - a.y;
+      var d2 = dx * dx + dy * dy;
+      if (!(d2 > 1)) return null;                       // ใบหน้าเล็กเกินไป/ตาซ้อนกัน
+      var cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      return ((tip.x - cx) * dx + (tip.y - cy) * dy) / d2;
+    } catch (e) { return null; }
+  }
+  function lmMid(pts) {
+    var sx = 0, sy = 0, i;
+    for (i = 0; i < pts.length; i++) { sx += pts[i].x; sy += pts[i].y; }
+    return { x: sx / pts.length, y: sy / pts.length };
   }
 
   /* ---------- Passive Liveness ----------
@@ -500,6 +892,13 @@
      ถ้าคะแนนก้ำกึ่ง จึงขอให้กระพริบตาเป็นการยืนยันเพิ่ม
   */
   function passiveLiveness(frames) {
+    if (!perfOn()) return passiveLivenessCore(frames);
+    var t = perfNow();
+    var r = passiveLivenessCore(frames);
+    perfAdd('passive_liveness_ms', perfNow() - t);
+    return r;
+  }
+  function passiveLivenessCore(frames) {
     if (frames.length < 4) return { pass: false, score: 0, reason: 'เก็บภาพไม่พอ กรุณาลองใหม่' };
     var q = frames.map(function (f) { return f.q; }).filter(Boolean);
     if (!q.length) return { pass: false, score: 0, reason: 'อ่านคุณภาพภาพไม่ได้' };
@@ -553,6 +952,25 @@
   function grabFrames(count, onTick, alive) {
     var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     var out = [];
+    /* [PERF] grabFrames สร้าง Descriptor ทุกเฟรม (passiveLiveness ใช้ค่า dd จริง)
+       จึงต้องมั่นใจว่า Recognition พร้อมก่อนเริ่มลูป — รอที่นี่จุดเดียว ไม่รอกลางลูป
+       recogLoad() เป็น Single-flight: ถ้าโหลดเสร็จแล้วจะ Resolve ทันที ไม่มีค่าใช้จ่าย */
+    var tW = perfNow();
+    return recogLoad().then(function () {
+      perfMark('recognition_wait_ms', tW);
+      if (!S.running || !live()) throw AbortAttendanceError();
+      if (onTick) onTick(null, 0);
+      var tF = perfNow();
+      return grabFramesLoop(count, onTick, live, out).then(function (r) {
+        perfMark('grab_frames_ms', tF);
+        return r;
+      });
+    });
+  }
+  /* [PERF] stopWhen(out) เป็นทางเลือก — คืน true เมื่อ "พอแล้ว" เพื่อ Early Exit
+     ใช้เฉพาะเส้นทาง Liveness ก้ำกึ่ง เพื่อไม่คำนวณ Descriptor ที่ไม่ได้ใช้ต่อ
+     ไม่ส่งมา = พฤติกรรมเดิมทุกประการ (หยุดเมื่อ out.length >= count เท่านั้น) */
+  function grabFramesLoop(count, onTick, live, out, stopWhen) {
     return new Promise(function (res, rej) {
       var tries = 0;
       (function loop() {
@@ -572,11 +990,12 @@
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
             } else {
               out.push({ box: box, desc: Array.from(f0.descriptor), q: q,
-                         ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks, box) });
+                         ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) });
               if (onTick) onTick(null, out.length / count);
             }
           }
           if (!live()) return rej(AbortAttendanceError());
+          if (stopWhen) { try { if (stopWhen(out)) return res(out); } catch (e2) {} }
           if (out.length >= count) return res(out);
           if (tries > count * 12) return rej(new Error('ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่'));
           S.raf = requestAnimationFrame(loop);
@@ -585,14 +1004,47 @@
     });
   }
 
-  // ขอให้กระพริบตา — ใช้เมื่อ Passive ก้ำกึ่ง
-  function blinkChallenge(onTick) {
+  /* ---------- [PERF] เก็บเฟรมเพิ่มแบบ Incremental ----------
+     ปัญหาเดิมของเส้นทาง Liveness ก้ำกึ่ง:
+       grabFrames(6) → ก้ำกึ่ง → grabFrames(8) "ชุดใหม่ทั้งหมด"
+       เฟรมชุดแรก 6 เฟรม (พร้อม Descriptor ที่จ่ายค่าไปแล้ว) ถูกทิ้งทั้งหมด
+       รวมสูงสุด 14 Descriptor inference ทุกครั้งที่ก้ำกึ่ง
+
+     ของใหม่: ต่อยอดจากเฟรมเดิม เก็บเพิ่มทีละเฟรม แล้วประเมินซ้ำด้วยฟังก์ชันเดิม
+       · หน้าต่างประเมินไม่เคยเล็กกว่าเดิม — ประเมินครั้งแรกเมื่อครบ minTotal (8) เท่านั้น
+         จึงมีคู่เฟรมสำหรับคำนวณ move/dd ไม่น้อยกว่าของเดิมเลย
+       · เพดานรวมยังเป็น maxTotal (14) เท่าเดิม → กรณีแย่สุดเท่าเดิมเป๊ะ
+       · หยุดทันทีที่ passiveLiveness() ตัวเดิมบอกว่าผ่าน → ไม่จ่าย Descriptor ที่ไม่ได้ใช้
+     ⚠ ไม่แตะ passiveLiveness · ไม่แตะเกณฑ์ · ไม่แตะ Threshold · ไม่แตะ PASS/FAIL criteria */
+  function grabFramesMore(seed, maxTotal, onTick, alive, stopWhen) {
+    var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
+    return recogLoad().then(function () {
+      if (!S.running || !live()) throw AbortAttendanceError();
+      return grabFramesLoop(maxTotal, onTick, live, seed, stopWhen);
+    });
+  }
+
+  /* ขอให้กระพริบตา — ใช้เมื่อ Passive ก้ำกึ่ง
+     [alive] เป็นพารามิเตอร์ทางเลือก (Owner ของผู้เรียก เช่น enAlive() ของ Enrollment Run)
+     ไม่ส่งมา = พฤติกรรมเดิมทุกประการ ผู้เรียกเดิม (Face Attendance / Face Login) จึงไม่กระทบ
+     ส่งมา = ตรวจ Owner ทุก Async Boundary แล้วยกเลิกเงียบด้วย Cancellation Sentinel
+
+     [PERF] เดิมเรียก detect() ซึ่งคำนวณ Descriptor ทุกเฟรมนานสูงสุด 9 วินาที
+     แต่ลูปนี้อ่านเฉพาะ r[0].landmarks ผ่าน eyeOpen() — ไม่แตะ r[0].descriptor เลยแม้แต่ครั้งเดียว
+     จึงเปลี่ยนเป็น detectGuide() (Detector + Landmark) ตัด Recognition inference ที่ไม่ได้ใช้ทิ้ง
+     ⚠ เกณฑ์และ Logic เดิมคงไว้ครบ: seenOpen ที่ ear > 0.26 · seenClose ที่ ear < 0.17 ·
+        Timeout 9000 ms · ต้องพบใบหน้าเดียว · ข้อความ onTick เดิมทุกตัวอักษร
+     ผลพลอยได้: Blink ไม่ต้องรอ Recognition Model อีกต่อไป */
+  function blinkChallenge(onTick, alive) {
+    var live = (typeof alive === 'function') ? alive : null;
     var seenOpen = false, seenClose = false, t0 = Date.now();
     return new Promise(function (res, rej) {
       (function loop() {
         if (!S.running) return rej(new Error('ยกเลิกแล้ว'));
+        if (live && !live()) return rej(AbortAttendanceError());   // ก่อน detect
         if (Date.now() - t0 > 9000) return res(false);
-        detect().then(function (r) {
+        detectGuide().then(function (r) {
+          if (live && !live()) return rej(AbortAttendanceError()); // detect ตอบหลังหมดอายุ
           if (r.length === 1) {
             var e = eyeOpen(r[0].landmarks);
             if (e != null) {
@@ -602,6 +1054,7 @@
             }
             if (onTick) onTick('กรุณากระพริบตา 1 ครั้ง');
           } else if (onTick) onTick('จัดใบหน้าให้อยู่ในกรอบ');
+          if (live && !live()) return rej(AbortAttendanceError()); // ก่อน RAF
           S.raf = requestAnimationFrame(loop);
         }).catch(rej);
       })();
@@ -610,12 +1063,17 @@
 
   /* ---------- Snapshot ---------- */
   function snapshotBlob() {
+    var tEnc = perfNow();
     return new Promise(function (res) {
       var c = S.canvas, vw = S.video.videoWidth || 640, vh = S.video.videoHeight || 480;
       var scale = Math.min(1, 480 / Math.max(vw, vh));
       c.width = Math.round(vw * scale); c.height = Math.round(vh * scale);
       c.getContext('2d').drawImage(S.video, 0, 0, c.width, c.height);
-      c.toBlob(function (b) { res(b); }, 'image/jpeg', 0.82);
+      c.toBlob(function (b) {
+        perfMark('snapshot_encode_ms', tEnc);
+        perfSet('snapshot_bytes', b ? b.size : 0);
+        res(b);
+      }, 'image/jpeg', 0.82);
     });
   }
   /* [ข้อ 3] จอง Signed Upload URL ล่วงหน้า (ยังไม่มี Blob จึงไม่ส่ง size)
@@ -658,6 +1116,7 @@
 
   function uploadSnapshot(blob, kind, action, employeeId) {
     if (!blob) return Promise.resolve(null);
+    var tUp = perfNow();
     return fn('upload-url', {
       kind: kind, punch_action: action || null,
       employee_id: employeeId || null, size: blob.size
@@ -674,6 +1133,7 @@
                       { message: 'HTTP ' + up.status }, 'kind=' + String(kind || ''));
             throw njfMark(new Error('อัปโหลดภาพไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
           }
+          perfMark('snapshot_upload_ms', tUp);
           return r.path;
         })['catch'](function (e) {
           if (!njfDone(e)) njfReport('EDGE_FAIL', 'njhr-face/signed-put', e,
@@ -1004,11 +1464,13 @@
 
     /* [ข้อ 1] Attempt นี้เป็นเจ้าของ GPS Session หมายเลข aid เท่านั้น
        Async ที่ค้างจาก Attempt ก่อนหน้าจะแตะ watch / S.ctx ของ Attempt นี้ไม่ได้ */
+    var tGps = perfNow();
     var aid = gpsStart();
     netOwn('A' + aid);                        // [ข้อ 4] Network ของ Attempt นี้ผูกกับ aid
     /* เจ้าของ = ต้องตรงทั้ง GPS Session และ Attendance Operation */
     var mine = function () { return aid === G.sid && opAlive(myOp); };
     G.first.then(function (g) {
+      perfMark('gps_wait_ms', tGps);          // GPS เริ่มขนานตั้งแต่ต้น Flow ไม่รอ Face
       if (!mine()) return;                    // Attempt เก่ามาช้า = ไม่แตะจอของ Attempt ใหม่
       st.gps = g.ok ? 'run' : 'bad';
       /* GPS ตอบกลับมาเมื่อไรก็ได้ ต้องไม่ลบสถานะ "กำลังเตรียมระบบตรวจสอบใบหน้า" ทิ้ง
@@ -1021,13 +1483,17 @@
        กล้องพร้อมก่อน = เห็นภาพตัวเองทันที ระหว่างนั้นแจ้งสถานะการเตรียมระบบตรวจใบหน้า
        การตรวจใบหน้าเริ่มก็ต่อเมื่อโมเดลพร้อมจริงเท่านั้น (Promise.all ด้านล่าง) */
     var camP = openCam();
-    var modelP = loadModels();
+    perfStart('ATTENDANCE_' + kind);
+    /* [PERF] รอเฉพาะ GUIDE (550 KB) ก่อนเริ่มตรวจหน้า
+       RECOGNITION (6.44 MB) โหลด Background ขนานไป แล้วไปรอเอาตอนสร้าง Descriptor ใน grabFrames() */
+    var modelP = guideLoad();
+    recogPrefetch();
     /* [ข้อ 3] จอง Signed Upload URL ขนานไปกับ Camera + Model + GPS
        ตัด 1 Network Round-trip ออกจากช่วงท้ายหลังสแกนใบหน้าผ่าน
        ล้มเหลวเงียบ → ตอน PUT จะขอใหม่พร้อม size จริงตามเส้นทางเดิม */
     var resvP = reserveUpload('PUNCH', kind, null)['catch'](function () { return null; });
     camP.then(function () {
-      if (!S.ready) {
+      if (!S.guideReady) {
         panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
       }
@@ -1035,6 +1501,7 @@
     modelP['catch'](function () {});          // กัน unhandled rejection · error จริงจับที่ Promise.all
     Promise.all([camP, modelP])
       .then(function () {
+        perfMark('guide_visible_ms');          // กดปุ่ม → เห็นกล้อง+กรอบนำทาง
         S.running = true;
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
@@ -1053,13 +1520,25 @@
         var lv = passiveLiveness(frames);
         if (lv.pass) return { frames: frames, live: lv };
         if (!lv.challenge) throw new Error(lv.reason);
-        if (!mine()) throw AbortAttendanceError();   // [ข้อ 2] ห้ามเปิด grabFrames(8) ต่อหลัง Cancel
+        if (!mine()) throw AbortAttendanceError();   // [ข้อ 2] ห้ามเก็บเฟรมเพิ่มต่อหลัง Cancel
         setMsg('กำลังตรวจสอบบุคคลจริง…', false);
         hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
-        return grabFrames(8, null, mine).then(function (f2) {
-          if (!mine()) throw AbortAttendanceError();  // [ข้อ 2] ยกเลิกระหว่างชุดที่สอง
-          var lv2 = passiveLiveness(f2);
-          if (lv2.pass) return { frames: f2, live: lv2 };
+        /* [PERF] Incremental Evidence — ไม่ทิ้ง 6 เฟรมแรก ต่อยอดจนกว่าจะผ่าน
+           ประเมินครั้งแรกเมื่อครบ BORDER_MIN (8) = ไม่เล็กกว่าหน้าต่างเดิม
+           เพดาน BORDER_MAX (14) = กรณีแย่สุดเท่าเดิม · เกณฑ์ตัดสินใช้ passiveLiveness ตัวเดิม */
+        var lvMore = null, extra0 = frames.length;
+        var tBorder = perfNow();
+        return grabFramesMore(frames, BORDER_MAX, null, mine, function (all) {
+          if (all.length < BORDER_MIN) return false;
+          var r = passiveLiveness(all);
+          if (r.pass) { lvMore = r; return true; }
+          return false;
+        }).then(function (all) {
+          if (!mine()) throw AbortAttendanceError();  // [ข้อ 2] ยกเลิกระหว่างเก็บเพิ่ม
+          perfMark('borderline_extra_ms', tBorder);
+          perfSet('borderline_extra_descriptor_count', Math.max(0, all.length - extra0));
+          var lv2 = lvMore || passiveLiveness(all);
+          if (lv2.pass) return { frames: all, live: lv2 };
           throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณามองกล้องให้ชัดแล้วลองใหม่');
         });
       })
@@ -1093,6 +1572,8 @@
       .then(function (ctx) {
         if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อนยิง Punch RPC
         var best = ctx.frames[ctx.frames.length - 1];
+        perfMark('client_face_ms');
+        var tRpcA = perfNow();
         return rpc('njhr_att_punch_face', {
           p_token: token(), p_action: kind,
           p_descriptor: best.desc, p_faces_found: 1,
@@ -1101,7 +1582,7 @@
           p_lng: ctx.gps.ok ? ctx.gps.lng : null,
           p_accuracy: ctx.gps.ok ? ctx.gps.accuracy : null,
           p_snapshot: ctx.snapshot, p_device: deviceInfo()
-        }).then(function (r) { return { r: r, ctx: ctx }; });
+        }).then(function (r) { perfMark('rpc_ms', tRpcA); perfEnd('total_attendance_ms'); return { r: r, ctx: ctx }; });
       })
       .then(function (o) {
         /* [ข้อ 2] ตรวจ Owner "ก่อน" เขียน Global State ทุกฟิลด์
@@ -1317,14 +1798,24 @@
   }
 
   /* ---------- ลงทะเบียนใบหน้า ---------- */
-  /* [UI] เพิ่ม title/done/arrow สำหรับหน้าจอแนวใหม่ (Stepper 1-2-3)
-     ⚠ test() · เกณฑ์มุม 0.18 / 0.20 · ลำดับ FRONT→LEFT→RIGHT ไม่ถูกแตะแม้แต่จุดเดียว */
+  /* เกณฑ์มุม — คำนวณใหม่ทั้งชุดให้เข้ากับสเกลของ yaw() แบบ Landmark
+     ค่าเดิม 0.18 / 0.20 เป็นสเกลของ Bounding Box (หารด้วยครึ่งความกว้างกรอบ)
+     นำมาใช้กับสูตรใหม่ไม่ได้เด็ดขาด เพราะตัวหารคนละตัว (ระยะระหว่างตา ≈ 45% ของความกว้างกรอบ)
+
+     สเกลใหม่: yaw ≈ 0.33 × tan(มุมหัน)
+       0.09 ≈ 15°  → เกณฑ์ \"หน้าตรง\" (ยอมรับความไม่สมมาตรของจมูกแต่ละคน ±0.02–0.03)
+       0.13 ≈ 21°  → เกณฑ์ \"หันซ้าย/ขวา\" คงระดับ \"หันเล็กน้อย\" ตามข้อความแนะนำเดิม
+     ทิศทางเครื่องหมายเท่าเดิม: LEFT = ค่าบวก · RIGHT = ค่าลบ (ดูหมายเหตุใน yaw())
+     y === null (อ่าน Landmark ไม่ได้) ต้องไม่ผ่านทุกท่า */
+  var YAW_FRONT_MAX = 0.09, YAW_TURN_MIN = 0.13;
+
+  /* [UI] title/done/arrow ของหน้าจอ Stepper 1-2-3 · ลำดับ FRONT→LEFT→RIGHT คงเดิม */
   var POSES = [
-    { key: 'FRONT', label: 'หน้าตรง', icon: '&#128100;', hint: 'มองกล้องตรง ๆ',   test: function (y) { return Math.abs(y) < 0.18; },
+    { key: 'FRONT', label: 'หน้าตรง', icon: '&#128100;', hint: 'มองกล้องตรง ๆ',   test: function (y) { return y != null && Math.abs(y) < YAW_FRONT_MAX; },
       title: 'มองตรง',              done: 'มองตรง',      arrow: '' },
-    { key: 'LEFT',  label: 'หันซ้าย',  icon: '&#11013;',  hint: 'หันหน้าไปทางซ้ายเล็กน้อย',  test: function (y) { return y > 0.20; },
+    { key: 'LEFT',  label: 'หันซ้าย',  icon: '&#11013;',  hint: 'หันหน้าไปทางซ้ายเล็กน้อย',  test: function (y) { return y != null && y > YAW_TURN_MIN; },
       title: 'ค่อย ๆ หันหน้าไปทางซ้าย', done: 'หันซ้าย ครบแล้ว', arrow: '&#8592;' },
-    { key: 'RIGHT', label: 'หันขวา',   icon: '&#10145;',  hint: 'หันหน้าไปทางขวาเล็กน้อย',   test: function (y) { return y < -0.20; },
+    { key: 'RIGHT', label: 'หันขวา',   icon: '&#10145;',  hint: 'หันหน้าไปทางขวาเล็กน้อย',   test: function (y) { return y != null && y < -YAW_TURN_MIN; },
       title: 'ค่อย ๆ หันหน้าไปทางขวา',  done: 'หันขวา ครบแล้ว',  arrow: '&#8594;' }
   ];
 
@@ -1384,22 +1875,26 @@
        ไม่เพิ่มการประมวลผลใหม่ · ไม่เรียก detect เพิ่ม · ไม่แตะเกณฑ์ผ่าน
 
        prog = ความคืบหน้าของ "มุมนี้" 0..1 เทียบกับเกณฑ์จริงของแต่ละท่า
-         FRONT ผ่านเมื่อ |y| < 0.18 → ยิ่งเข้าใกล้ 0 ยิ่งใกล้ผ่าน
-         LEFT  ผ่านเมื่อ y > 0.20   → 0..0.20 คือช่วงกำลังหมุน
-         RIGHT ผ่านเมื่อ y < -0.20
+         FRONT ผ่านเมื่อ |y| < YAW_FRONT_MAX → ยิ่งเข้าใกล้ 0 ยิ่งใกล้ผ่าน
+         LEFT  ผ่านเมื่อ y > YAW_TURN_MIN    → 0..YAW_TURN_MIN คือช่วงกำลังหมุน
+         RIGHT ผ่านเมื่อ y < -YAW_TURN_MIN
+       ตัวหารของ FRONT ใช้ YAW_FRONT_MAX × 3.33 เท่าอัตราส่วนเดิม (0.60 ต่อเกณฑ์ 0.18)
        state: 'far' ยังไม่ถึง · 'near' ใกล้แล้ว (>=70%) · 'hit' ถึงเกณฑ์
-       ทั้งหมดเป็นการแสดงผล — เกณฑ์ผ่านจริงยังใช้ pose.test(y) ตัวเดิมเท่านั้น */
+       ทั้งหมดเป็นการแสดงผล — เกณฑ์ผ่านจริงยังใช้ pose.test(y) เท่านั้น
+       y === null (อ่าน Landmark ไม่ได้) → ถือเป็น 0% และไม่ hit */
     function poseLive(pose, y) {
       try {
         var cam = S.root && S.root.querySelector('.njf-cam');
         if (!cam || !pose) return;
         var prog = 0;
-        if (pose.key === 'FRONT') {
-          prog = Math.max(0, Math.min(1, 1 - (Math.abs(y) / 0.60)));
+        if (y == null) {
+          prog = 0;
+        } else if (pose.key === 'FRONT') {
+          prog = Math.max(0, Math.min(1, 1 - (Math.abs(y) / (YAW_FRONT_MAX * 3.33))));
         } else if (pose.key === 'LEFT') {
-          prog = Math.max(0, Math.min(1, y / 0.20));
+          prog = Math.max(0, Math.min(1, y / YAW_TURN_MIN));
         } else {
-          prog = Math.max(0, Math.min(1, -y / 0.20));
+          prog = Math.max(0, Math.min(1, -y / YAW_TURN_MIN));
         }
         var hit = !!pose.test(y);
         cam.dataset.live = hit ? 'hit' : (prog >= 0.7 ? 'near' : 'far');
@@ -1466,63 +1961,195 @@
       actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
     }
 
-    function capturePose() {
+    /* ค่าคงที่ของลูปเก็บภาพหนึ่งมุม
+       STABLE_MIN   = เฟรมนำทางที่ผ่านทุกด่านติดกัน ก่อนเริ่มคำนวณ Descriptor
+       LIVE_FRAMES  = จำนวน "เฟรมกล้องจริง คนละเวลา" ที่ส่งให้ passiveLiveness
+                      (เท่ากับ grabFrames(6) ที่ใช้ในฝั่งลงเวลา/เข้าสู่ระบบ ซึ่งพิสูจน์แล้ว)
+                      ห้าม concat/clone/reuse เฟรมเดิมเพื่อเพิ่มจำนวนเด็ดขาด
+       POSE_TIMEOUT = ครบเวลาแล้ว "เริ่มนับมุมเดิมใหม่" ไม่ปิดกล้อง ไม่ล้ม Enrollment
+       ERR_MAX / ERR_WINDOW = หลักฐานของ Fatal: ต้องพังติดกันครบจำนวน "และ" ต่อเนื่องนานพอ
+                      Error ชั่วคราวเพียงไม่กี่เฟรมห้ามถูกยกระดับเป็น Fatal เด็ดขาด */
+    var STABLE_MIN = 2, LIVE_FRAMES = 6, POSE_TIMEOUT = 25000, ERR_MAX = 30, ERR_WINDOW = 5000;
+    /* [PERF] เดิมหน่วง setTimeout(700) ก่อนเริ่มมุมถัดไป = เวลาตายล้วน 700 x 2 = 1.4 วินาที
+       ตรวจแล้วว่าไม่จำเป็นเชิงเทคนิค:
+         · ผู้ใช้ต้องหมุนศีรษะเองซึ่งนานกว่า 700 ms อยู่แล้ว
+         · มุมใหม่ยังต้องผ่าน STABLE_MIN = 2 เฟรมติดกันก่อนเก็บ Descriptor
+           จึงเป็นไปไม่ได้ที่จะจับภาพท่าเก่าค้างมา
+         · ฉากเดิม แสงเดิม กล้องตัวเดิม ไม่มีการ re-expose
+       → เป็น UI feedback ล้วน (โชว์ "ครบแล้ว ✓")
+       ของใหม่: เริ่ม Detection ของมุมถัดไป "ทันที" แล้วค้างจอ ✓ ไว้ DONE_HOLD
+       ระหว่างค้างจอจะไม่เขียนข้อความ/วงแหวนทับ ✓ (msg()/poseLive ถูกกั้นไว้) */
+    var DONE_HOLD = 320;
+
+    function capturePose(opt) {
       var pose = POSES[idx];
-      hint(pose.hint, 'ระบบจะจับภาพอัตโนมัติเมื่อท่าถูกต้อง');
-      drawPoses('กำลังตรวจ: ' + pose.label);
-      var t0 = Date.now(), buf = [];
-      (function loop() {
-        if (!S.running) return;
-        if (Date.now() - t0 > 25000) { setMsg('จับภาพ ' + pose.label + ' ไม่สำเร็จ กรุณาลองใหม่', true); return; }
-        detect().then(function (r) {
-          if (!r.length) setMsg('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', true);
-          else if (r.length > 1) setMsg('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง', true);
-          else {
-            var f0 = r[0], box = f0.detection.box, q = frameQuality(box);
-            var y = yaw(f0.landmarks, box);
-            poseLive(pose, y);          // [UI] อัปเดตวงแหวน/สีตามมุมปัจจุบัน
-            if (!q || q.ratio < 0.045) setMsg('เข้าใกล้กล้องขึ้นอีกเล็กน้อย', true);
-            else if (q.brightness < 45) setMsg('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น', true);
-            else if (q.sharpness < 12) setMsg('ภาพไม่ชัด กรุณาถือนิ่ง', true);
-            else if (!pose.test(y)) setMsg(pose.hint, false);
-            else {
-              buf.push({ desc: Array.from(f0.descriptor), q: q, box: box, ear: eyeOpen(f0.landmarks) });
-              setMsg('กำลังจับภาพ ' + pose.label + ' (' + buf.length + '/3)');
-              if (buf.length >= 3) {
-                var lv = passiveLiveness(buf.concat(buf));
-                if (!lv.pass && !lv.challenge) { buf.length = 0; setMsg(lv.reason, true); }
-                else {
-                  /* [ข้อ 6] ตรวจ Owner ก่อนเขียน State / Upload / ไป Pose ถัดไป */
-                  if (!enAlive()) { closeCam(); return; }
-                  got.push(buf[buf.length - 1].desc);
-                  if (idx === 0) {
-                    snapshotBlob().then(function (b) {
-                      if (!enAlive()) return null;          // [ข้อ 6] ยกเลิกระหว่างสร้าง Blob
-                      return uploadSnapshot(b, 'ENROLL', null, employeeId || null);
-                    }).then(function (p2) {
-                      if (enAlive()) snapPath = p2;         // [ข้อ 6] Run เก่าห้ามเขียน State
-                    }).catch(function () {});
-                  }
-                  /* [UI] โชว์ "ครบแล้ว ✓" ของมุมที่เพิ่งผ่าน แล้วค่อยไปมุมถัดไป
-                     หน่วง 700ms เพื่อให้ผู้ใช้เห็นสถานะ — ไม่กระทบการตรวจใด ๆ */
-                  drawPoses('กำลังขึ้นขั้นตอนถัดไป…', false, true);
-                  idx++;
-                  if (!enAlive()) { closeCam(); return; }
-                  if (idx >= POSES.length) return finish();
-                  return new Promise(function (res) {
-                    setTimeout(function () {
-                      if (!enAlive()) { closeCam(); return res(); }
-                      res(capturePose());
-                    }, 700);
-                  });
-                }
-              }
-            }
+      /* holding = ยังโชว์ ✓ ของมุมก่อนหน้าอยู่ — ตรวจจับเดินแล้ว แต่ยังไม่เขียนทับจอ */
+      var holding = !!(opt && opt.holdMs > 0);
+      function paintPose() {
+        holding = false;
+        hint(pose.hint, 'ระบบจะจับภาพอัตโนมัติเมื่อท่าถูกต้อง');
+        drawPoses('กำลังตรวจ: ' + pose.label);
+      }
+      if (holding) {
+        setTimeout(function () {
+          if (!S.running || !enAlive() || POSES[idx] !== pose) return;
+          paintPose();
+        }, opt.holdMs);
+      } else {
+        paintPose();
+      }
+      /* ระหว่าง holding ห้ามเขียนข้อความ/วงแหวนทับหน้าจอ "ครบแล้ว ✓" */
+      function msg(t, err) { if (!holding) setMsg(t, err); }
+      function live(p, y) { if (!holding) poseLive(p, y); }
+      var t0 = Date.now(), buf = [], stable = 0, errRun = 0, errFirst = 0;
+      var poseT0 = perfNow();
+
+      /* ลูปจะเดินต่อได้ก็ต่อเมื่อยังมีเจ้าของอยู่จริง
+         Detection หยุดถาวรเฉพาะ: ยกเลิก · เปลี่ยน Route · ออกจากระบบ ·
+         กล้องพังถาวร/ถูกถอนสิทธิ์ · เก็บครบแล้วเข้าสู่ finish() */
+      function again() {
+        if (!S.running || !enAlive()) return;
+        S.raf = requestAnimationFrame(loop);
+      }
+      /* เริ่มนับมุมเดิมใหม่ — รีเซ็ตเฉพาะ timer / เฟรมที่เก็บไว้ / stable ของมุมปัจจุบัน
+         ใช้ Camera Stream เดิม · ไม่ปิดกล้อง · ไม่ย้อนมุมที่ผ่านแล้ว · ไม่ล้าง got/snapPath */
+      function resetPose(m) {
+        t0 = Date.now(); buf.length = 0; stable = 0;
+        if (m) msg(m, true);
+      }
+      /* Fatal จริงเท่านั้น — ต้องเก็บกวาดให้หมด ห้ามเหลือสถานะ "Detection หยุด แต่กล้องยังเปิด"
+           closeCam() = camInvalidate + cancelAnimationFrame + stop ทุก Track + ล้าง srcObject + S.running=false
+           ++EN.id     = Run นี้ตายทันที · Async ที่ค้างอยู่ (detect/blink/snapshot/upload) เขียน UI/State ไม่ได้อีก
+           netOwn(0)   = คำขอเครือข่ายของ Run นี้หมดสิทธิ์
+         แล้วแสดง Error ชัดเจนพร้อมทางเลือก ลองใหม่ / ปิด */
+      function fatal(reason) {
+        closeCam();
+        EN.id++;
+        netOwn(0);
+        holding = false;
+        buf.length = 0; stable = 0; errRun = 0; errFirst = 0;
+        S.busy = false;
+        drawPoses(reason, true);
+        actions([
+          { label: 'ปิด', style: 'plain', on: close },
+          { label: 'ลองใหม่', style: 'primary', on: function () {
+            close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
+          } }
+        ]);
+      }
+
+      /* ยอมรับมุมนี้ — เรียกได้ก็ต่อเมื่อ Liveness ผ่านจริงแล้วเท่านั้น
+         (ผ่าน Passive ตรง ๆ หรือผ่าน Blink Challenge) ไม่มีเส้นทางอื่นเข้าถึงจุดนี้ */
+      function acceptPose() {
+        /* [ข้อ 6] ตรวจ Owner ก่อนเขียน State / Upload / ไป Pose ถัดไป */
+        if (!enAlive()) { closeCam(); return; }
+        perfMark('enroll_' + pose.key.toLowerCase() + '_ms', poseT0);
+        got.push(buf[buf.length - 1].desc);
+        if (idx === 0) {
+          snapshotBlob().then(function (b) {
+            if (!enAlive()) return null;          // [ข้อ 6] ยกเลิกระหว่างสร้าง Blob
+            return uploadSnapshot(b, 'ENROLL', null, employeeId || null);
+          }).then(function (p2) {
+            if (enAlive()) snapPath = p2;         // [ข้อ 6] Run เก่าห้ามเขียน State
+          }).catch(function () {});
+        }
+        /* [UI] โชว์ "ครบแล้ว ✓" ของมุมที่เพิ่งผ่าน แล้วค่อยไปมุมถัดไป
+           หน่วง 700ms เพื่อให้ผู้ใช้เห็นสถานะ — ไม่กระทบการตรวจใด ๆ */
+        drawPoses('กำลังขึ้นขั้นตอนถัดไป…', false, true);
+        idx++;
+        if (!enAlive()) { closeCam(); return; }
+        if (idx >= POSES.length) return finish();
+        /* [PERF] เริ่มตรวจมุมถัดไปทันที ไม่หน่วง 700 ms — จอยังค้าง ✓ ไว้ DONE_HOLD */
+        capturePose({ holdMs: DONE_HOLD });
+      }
+
+      /* Passive ก้ำกึ่ง → ต้องกระพริบตายืนยันจริง ห้ามข้ามเด็ดขาด
+         ใช้ Camera Stream เดิม (blinkChallenge ไม่เปิด/ปิดกล้อง) และผูก Owner เป็น enAlive() */
+      function runChallenge(reason) {
+        msg(reason || 'ตรวจสอบบุคคลจริงไม่แน่ใจ กรุณากระพริบตา 1 ครั้ง', true);
+        blinkChallenge(function (t) {
+          if (S.running && enAlive()) msg(t, true);
+        }, enAlive).then(function (ok) {
+          if (!S.running || !enAlive()) return;          // Async Boundary หลัง Challenge
+          if (!ok) {                                     // ไม่ผ่าน/หมดเวลา = ตรวจมุมเดิมต่อ
+            resetPose('ยืนยันบุคคลจริงไม่สำเร็จ — กรุณาลองทำท่าเดิมอีกครั้ง');
+            return again();
           }
-        if (!enAlive()) return;                                    // [ข้อ 3] ก่อน RAF
-          S.raf = requestAnimationFrame(loop);
-        }).catch(function (e) { setMsg((e && e.message) || 'ตรวจใบหน้าไม่สำเร็จ', true); });
-      })();
+          acceptPose();
+        }, function (e) {
+          if (!S.running || !enAlive()) return;
+          if (isAborted(e)) return;                      // ยกเลิกโดยระบบ = เงียบ
+          resetPose((e && e.message) || 'ยืนยันบุคคลจริงไม่สำเร็จ กรุณาลองใหม่');
+          again();
+        });
+      }
+
+      function loop() {
+        if (!S.running || !enAlive()) return;
+        /* [PERF] ถ้าท่าถูกแล้วแต่ Recognition ยังโหลดไม่เสร็จ ห้ามนับเวลาหมดอายุใส่ผู้ใช้
+           ลูปนำทางยังเดินต่อด้วย detectGuide() ตามปกติ ไม่ค้าง ไม่ปิดกล้อง */
+        var waitRecog = (stable >= STABLE_MIN) && !S.recogReady;
+        if (waitRecog) t0 = Date.now();
+        if (!waitRecog && Date.now() - t0 > POSE_TIMEOUT) {
+          resetPose('ยังจับภาพ' + pose.label + 'ไม่สำเร็จ — ปรับแสงและระยะ แล้วทำท่าเดิมต่อได้เลย');
+          return again();
+        }
+        /* stable ครบ "และ" Recognition พร้อม เท่านั้นจึงยอมจ่ายค่า Descriptor ของเฟรมนี้ */
+        var capturing = (stable >= STABLE_MIN) && !!S.recogReady;
+        if (waitRecog) recogPrefetch();       // เผื่อยังไม่ได้เริ่ม (Single-flight ไม่โหลดซ้ำ)
+        (capturing ? detect() : detectGuide()).then(function (r) {
+          if (!S.running || !enAlive()) return;                    // ตอบหลังหมดอายุ = หยุดเงียบ
+          errRun = 0; errFirst = 0;
+          if (!r.length) { stable = 0; msg('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', true); return again(); }
+          if (r.length > 1) { stable = 0; msg('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง', true); return again(); }
+
+          var f0 = r[0], box = f0.detection.box, q = frameQuality(box);
+          var y = yaw(f0.landmarks);
+          live(pose, y);          // [UI] อัปเดตวงแหวน/สีตามมุมปัจจุบัน
+          if (!q || q.ratio < 0.045) { stable = 0; msg('เข้าใกล้กล้องขึ้นอีกเล็กน้อย', true); return again(); }
+          if (q.brightness < 45)     { stable = 0; msg('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น', true); return again(); }
+          if (q.sharpness < 12)      { stable = 0; msg('ภาพไม่ชัด กรุณาถือนิ่ง', true); return again(); }
+          if (!pose.test(y))         { stable = 0; msg(pose.hint, false); return again(); }
+
+          stable++;
+          if (!capturing || !f0.descriptor) {   // ยังเป็นเฟรมนำทาง — ไม่มี/ไม่คำนวณ Descriptor
+            msg(waitRecog ? 'ท่าถูกต้องแล้ว — กำลังเตรียมระบบยืนยันใบหน้า…'
+                             : 'ท่าถูกต้องแล้ว — นิ่งไว้สักครู่');
+            return again();
+          }
+
+          buf.push({ desc: Array.from(f0.descriptor), q: q, box: box, ear: eyeOpen(f0.landmarks) });
+          msg('กำลังจับภาพ ' + pose.label + ' (' + buf.length + '/' + LIVE_FRAMES + ')');
+          if (buf.length < LIVE_FRAMES) return again();
+
+          /* เฟรมจริงจากกล้อง คนละเวลา ครบจำนวนแล้วจึงตรวจ Liveness
+             ผ่าน       → ยอมรับมุมนี้
+             ก้ำกึ่ง     → ต้องกระพริบตายืนยันจริงก่อนเท่านั้น
+             ไม่ผ่าน     → เริ่มนับมุมเดิมใหม่
+             ไม่มีเส้นทางใดที่ lv.pass=false แล้วเข้าสู่ acceptPose() ได้โดยตรง */
+          var lv = passiveLiveness(buf);
+          if (lv.pass) return acceptPose();
+          if (lv.challenge) return runChallenge(lv.reason);
+          resetPose(lv.reason);
+          return again();
+        }).catch(function (e) {
+          if (!S.running || !enAlive()) return;
+          if (isAborted(e)) return;                 // ยกเลิกโดยระบบ = หยุดเงียบ
+          errRun++;
+          if (!errFirst) errFirst = Date.now();
+          msg((e && e.message) || 'ตรวจใบหน้าไม่สำเร็จ', true);
+          /* หลักฐานที่ 1 — กล้องตายจริง (ถูกถอนสิทธิ์/ถอดอุปกรณ์/ถูกแอปอื่นยึด) */
+          if (!camUsable()) {
+            return fatal('กล้องหยุดทำงานหรือถูกปิดสิทธิ์ — กรุณาเปิดสิทธิ์กล้องแล้วลองใหม่');
+          }
+          /* หลักฐานที่ 2 — พังติดกันครบจำนวน และต่อเนื่องนานพอ (ไม่ใช่สะดุดชั่วคราว) */
+          if (errRun >= ERR_MAX && (Date.now() - errFirst) >= ERR_WINDOW) {
+            return fatal('ตรวจใบหน้าไม่สำเร็จต่อเนื่อง — กรุณาลองใหม่อีกครั้ง');
+          }
+          again();
+        });
+      }
+      loop();
     }
 
     /* [UI] หน้าจอกำลังบันทึก — pct 0..100 (ใช้เป็นภาพเท่านั้น ไม่ผูกกับความคืบหน้าจริงของ RPC) */
@@ -1593,6 +2220,7 @@
         if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
         faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
         saveProgressStop();
+        perfEnd('total_enrollment_ms');
         /* [UI] หน้าจอสำเร็จ — วงกลมเขียว ✓ + สรุปมุมที่เก็บได้
            ไม่แสดงรูปใบหน้าจริง (Snapshot อยู่ใน bucket private) จึงใช้ป้ายมุมแทน */
         panel(
@@ -1627,13 +2255,20 @@
       });
     }
 
+    perfStart('ENROLL');
     drawPoses('กำลังเตรียมกล้อง…');
+    var tCamE = perfNow();
     var camE = openCam();
-    var modelE = loadModels();
-    camE.then(function () { if (!S.ready) drawPoses('กำลังเตรียมระบบตรวจสอบใบหน้า…'); }, function () {});
+    camE.then(function () { perfMark('camera_start_ms', tCamE); }, function () {});
+    /* [PERF] เริ่มนำทาง 3 มุมได้ทันทีเมื่อ GUIDE พร้อม ไม่ต้องรอ Recognition 6.44 MB
+       Recognition โหลด Background · capturePose() จะรอเองตอน stable ผ่านและถึงคิวทำ Descriptor */
+    var modelE = guideLoad();
+    recogPrefetch();
+    camE.then(function () { if (!S.guideReady) drawPoses('กำลังเตรียมระบบตรวจสอบใบหน้า…'); }, function () {});
     modelE['catch'](function () {});
     Promise.all([camE, modelE]).then(function () {
       if (!enAlive()) { closeCam(); throw AbortAttendanceError(); }   // [ข้อ 5] หลัง Cam+Model
+      perfMark('guide_visible_ms');
       S.running = true;
       capturePose();
     }).catch(function (e) {
@@ -1690,15 +2325,22 @@
       close(); if (typeof onCancel === 'function') onCancel();
     } }]);
 
+    perfStart('LOGIN');
+    var tCam = perfNow();
     var camL = openCam();
-    var modelL = loadModels();
+    camL.then(function () { perfMark('camera_start_ms', tCam); }, function () {});
+    /* [PERF] Cold Start: รอเฉพาะ GUIDE (550 KB) แล้วเห็นกรอบใบหน้าได้ทันที
+       Recognition (6.44 MB) โหลด Background — grabFrames() จะรอเองก่อนสร้าง Descriptor */
+    var modelL = guideLoad();
+    recogPrefetch();
     camL.then(function () {
-      if (!S.ready) { panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…')); }
+      if (!S.guideReady) { panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…')); }
     }, function () {});
     modelL['catch'](function () {});
 
     Promise.all([camL, modelL])
       .then(function () {
+        perfMark('guide_visible_ms');          // กด Face Login → เห็นกล้อง+กรอบนำทาง
         S.running = true;
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: function () {
@@ -1728,9 +2370,15 @@
         if (typeof w.NJHR_faceLogin !== 'function') {
           throw new Error('ระบบเข้าสู่ระบบด้วยใบหน้ายังไม่พร้อมใช้งาน');
         }
-        return w.NJHR_faceLogin(best.desc, ctx.live.method);
+        perfMark('client_face_ms');                 // เวลาฝั่ง Client ล้วน (ยังไม่รวม RPC)
+        var tRpc = perfNow();
+        return w.NJHR_faceLogin(best.desc, ctx.live.method).then(function (row) {
+          perfMark('rpc_ms', tRpc);                 // เวลาฝั่ง Server ล้วน — ห้ามรวมเป็นตัวเลขเดียว
+          return row;
+        });
       })
       .then(function (row) {
+        perfEnd('total_face_login_ms');
         st.match = 'ok';
         panel('<div class="njf-check" style="margin:0 auto 12px">&#10003;</div>' +
           '<div class="njf-msg"><b>เข้าสู่ระบบสำเร็จ</b><br>' +
@@ -1765,12 +2413,25 @@
     warmup: function () {
       addCss();
       /* [ข้อ 3] warmup() = โมเดลอย่างเดียว — Face Status ถูก Preload แยกต่างหาก
-         ผ่าน statusPreload() เพื่อไม่ให้ติด flag "อุ่นแล้ว" ตอนสลับบัญชี */
-      return loadModels()['catch'](function () {});
+         ผ่าน statusPreload() เพื่อไม่ให้ติด flag "อุ่นแล้ว" ตอนสลับบัญชี
+         [PERF] อุ่น GUIDE ก่อน แล้วต่อ RECOGNITION แบบ Background
+         ความหมายเดิมไม่เปลี่ยน: Promise ที่คืนจะ Resolve เมื่อพร้อมครบทั้ง 2 เฟส */
+      return guideLoad().then(function () { return recogLoad(); })['catch'](function () {});
     },
+    /* [PERF] อุ่นเฉพาะ GUIDE (550 KB) — ใช้บนหน้า Login เพื่อลด Cold Start
+       ไม่ดึง Recognition 6.44 MB มาให้คนที่เข้าด้วยรหัสผ่านโดยไม่จำเป็น */
+    warmupGuide: function () {
+      addCss();
+      return guideLoad()['catch'](function () {});
+    },
+    /* [PERF] สั่งโหลด Recognition แบบ Background · Single-flight ไม่โหลดซ้ำ */
+    prefetchRecognition: function () { recogPrefetch(); },
     statusPreload: faceStatusPreload,
     statusReset: faceStatusReset,
     isReady: function () { return !!S.ready; },
+    /* [PERF] สถานะแยกเฟส — ไว้ให้ UI/Diagnostic อ่าน ไม่มีโค้ดเดิมพึ่งพา */
+    isGuideReady: function () { return !!S.guideReady; },
+    isRecognitionReady: function () { return !!S.recogReady; },
     punch: punch,
     enroll: enroll,
     login: login,
