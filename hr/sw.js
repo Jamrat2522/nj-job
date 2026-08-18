@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-3b279ce7';
+const V = 'njhr-v2-2fb6b7a0';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,7 +10,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=b9259385","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=29a00be9","./styles.css?v=797d8f0c","./mobile.css?v=34ddb0a5","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=226f7600","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=29a00be9","./styles.css?v=797d8f0c","./mobile.css?v=34ddb0a5","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
@@ -30,6 +30,20 @@ const CORE = ["./","./index.html","./asset-manifest.js?v=b9259385","./runtime/na
       จึง "ไม่ถูกลบ" ตอน activate() ของ build ใหม่ → ข้าม Deploy ได้ ข้ามการปิดแอปได้
       ไม่ precache ตอน install (จะทำให้ install ช้า/ล้ม) — cache ตอนใช้จริงครั้งแรกเท่านั้น */
 const MODEL_CACHE = 'njhr-face-models-v1';
+/* [INSTRUMENTATION] แจ้งแหล่งที่มาจริงของไฟล์โมเดลกลับไปยังหน้าเว็บ
+   ห้ามอนุมานจาก workerStart/transferSize เพียงอย่างเดียว เพราะเบราว์เซอร์รายงานไม่ตรงกัน
+   ส่งเฉพาะสถานะ ไม่มี URL · ไม่มีขนาดไฟล์ · ไม่มีข้อมูลผู้ใช้ */
+function swModelSignal(status, clientId) {
+  /* ส่งเฉพาะแท็บที่เป็นเจ้าของคำขอนั้นจริง (e.clientId) — ห้าม Broadcast ทุกแท็บ
+     ไม่งั้นแท็บอื่นที่ไม่ได้โหลดโมเดลจะนับ MODEL_NETWORK ของแท็บนี้ไปด้วย
+     คืน Promise เพื่อให้ผู้เรียกผูกกับ e.waitUntil() ได้ — ไม่งั้น SW อาจถูก terminate ก่อนส่ง */
+  try {
+    if (!clientId) return Promise.resolve();
+    return self.clients.get(clientId).then(c => {
+      if (c) c.postMessage({ njhrModelSource: String(status) });
+    }).catch(() => {});
+  } catch (e) { return Promise.resolve(); }
+}
 const MODEL_DIR = '/assets/models/';
 
 const LAZY_PATHS = ["dashboard.js","emp-meta.js","hr-meta.js","report-export.js","requests.js","leave-meta.js","attachments.js","list.js","main.js","report.js","menu.js","form.js","documents.js","import.js","export.js","correction.js","detail.js","hrdocs.js","approvals-reports.js","admin-users.js","face.js","face.css","master-salary.js","report-template.js"];
@@ -223,8 +237,13 @@ self.addEventListener('fetch', e => {
      ไม่มี = โหลดปกติแล้วเก็บไว้ · โหลดพลาดก็คืน response เดิมไป ไม่ทำให้ Flow ล้ม
      ⚠ ไม่แตะไฟล์อื่นนอกโฟลเดอร์นี้ · ไม่แตะ config.js · ไม่แตะ Supabase */
   if (u.pathname.indexOf(MODEL_DIR) >= 0) {
+    const swCid = e.clientId || e.resultingClientId || '';
     e.respondWith(caches.open(MODEL_CACHE).then(c => c.match(e.request).then(hit => {
-      if (hit) return hit;                       // Cache Hit = คืนทันที ไม่แตะ Network
+      if (hit) {
+        try { e.waitUntil(swModelSignal('MODEL_CACHE_HIT', swCid)); } catch (err) {}
+        return hit;                              // คืนทันที ไม่แตะ Network
+      }
+      try { e.waitUntil(swModelSignal('MODEL_NETWORK', swCid)); } catch (err) {}
       return fetch(e.request).then(resp => {
         /* [FIX] เขียน Cache ต้องผูกกับ Fetch Event Lifecycle
            เดิม c.put() ถูกยิงทิ้งไว้เฉย ๆ (fire-and-forget) เบราว์เซอร์จึงมีสิทธิ์

@@ -334,17 +334,23 @@
     });
   }
   function faceScript(src) {
-    return new Promise(function (res, rej) {
+    var node = null;
+    var p = new Promise(function (res, rej) {
       if (w.faceapi) return res();
       var s = d.createElement('script');
+      node = s;
       s.src = src; s.async = true;
       s.onload = res;
       s.onerror = function () {
-        s.remove();
-        rej(new Error('โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ ตรวจอินเทอร์เน็ต'));
+        try { s.remove(); } catch (e) {}
+        rej(faceErr('FACE_LIB_LOAD_FAILED', 'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ ตรวจอินเทอร์เน็ต'));
       };
       d.head.appendChild(s);
     });
+    /* [TIMEOUT] แหล่งนี้ค้าง = ถอด <script> ทิ้งแล้วปล่อยให้ผู้เรียกไป Fallback แหล่งถัดไป */
+    return withTimeout(p, LIB_TIMEOUT_MS, 'FACE_LIB_TIMEOUT',
+      'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ (หมดเวลารอ)',
+      function () { try { if (node) node.remove(); } catch (e) {} });
   }
   /* ---------- [PERF] Instrumentation (ปิดเป็นค่าเริ่มต้น) ----------
      เปิดด้วย  localStorage.setItem('njhr_face_perf','1')  หรือ  window.NJHR_FACE_PERF = true
@@ -357,7 +363,20 @@
      BORDER_MAX = เพดานรวม (เท่ากับกรณีแย่สุดเดิม 6 + 8 = 14) */
   var BORDER_MIN = 8, BORDER_MAX = 14;
 
-  var PERF = { on: null, t: null };
+  /* [INSTRUMENTATION] boot = ตัวชี้วัดที่เกิด "ก่อน" perfStart() เช่น Model Warmup / GPS First Fix
+     เก็บแยกจาก Flow แล้วรวมตอน perfEnd()/Export — ไม่งั้น Cold Load จะหายไปทุกครั้ง
+     ⚠ เก็บเฉพาะตัวเลขเวลา/จำนวนครั้ง ไม่มี Token · lat/lng · Descriptor · รูป · Signed URL · Device ID */
+  var PERF = { on: null, t: null, boot: { marks: {}, counters: {} },
+               /* [FIX 3] true = มี Model Load ที่ยังไม่ถูก Flow ใดรับไปเป็นของตัวเอง
+                  Flow แรกหลังโหลดโมเดลจริงจะ "กิน" ค่านี้ไป → cold
+                  Flow ถัดไปที่ใช้โมเดลเดิมจะไม่ได้รับค่าอีก → warm */
+               modelPending: false,
+               /* [E2E] เวลาที่ผู้ใช้กดปุ่มลงเวลา · pressFirst = รอบนี้มีการลงทะเบียนใบหน้าครั้งแรกด้วย */
+               press: null, pressEpoch: null, pressFirst: false };
+  /* คีย์เวลาโหลดโมเดล — ต้อง consume ครั้งเดียวเท่านั้น ห้ามคัดลอกเข้าทุก Flow */
+  var PERF_MODEL_KEYS = ['guide_model_load_ms', 'recognition_model_load_ms'];
+  /* ตัวชี้วัดที่มีความหมายเฉพาะ Flow ลงเวลา (นับจากตอนกดปุ่ม) */
+  var PERF_PRESS_KEYS = ['exempt_wait_ms', 'face_status_wait_ms', 'button_to_camera_ms'];
   function perfOn() {
     if (PERF.on !== null) return PERF.on;
     var v = false;
@@ -379,8 +398,26 @@
       platform: /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : 'Other',
       t0: perfNow(),
       marks: {},
-      counters: { descriptor_calls: 0, guide_calls: 0, retry_count: 0 }
+      desc: [],
+      /* [DESCRIPTOR] model_cache_hit = โมเดลอยู่ในหน่วยความจำแล้วตั้งแต่ก่อนเริ่ม Flow นี้
+         (วัดจากสถานะจริงของ S.guideReady/S.recogReady ไม่ใช่การเดา) */
+      counters: { descriptor_calls: 0, guide_calls: 0, retry_count: 0,
+                  model_cache_hit: !!(S.guideReady && S.recogReady) }
     };
+    var env = perfRuntimeEnv();
+    PERF.t.counters.tf_backend = env.tf_backend;          // อ่านครั้งแรก (อาจยังเป็น unknown)
+    PERF.t.counters.webgl_available = env.webgl_available;
+    perfLongTaskStart();     // เผื่อยังไม่ได้เริ่มตอน Boot
+    LT.bootOpen = false;     // ปิดถัง Boot/Warmup — ต่อจากนี้เป็นของ Flow
+    perfLongTaskReset();
+    swModelBind();           // ผูก listener เท่านั้น — ห้าม reset สัญญาณที่ได้มาแล้ว
+    /* [E2E] ผูก Flow นี้กับเวลาที่ผู้ใช้กดปุ่มจริง — เฉพาะ Flow ลงเวลาเท่านั้น
+       Face Login และ Manual Enrollment ไม่ได้เริ่มจากปุ่มลงเวลา
+       ถ้าปล่อยให้หยิบไปใช้ ตัวเลข button_to_* จะรั่วข้าม Flow และอ่านผิดทั้งชุด */
+    PERF.t.usePress = String(flow || '').indexOf('ATTENDANCE') === 0;
+    if (PERF.t.usePress && PERF.press != null) {
+      PERF.t.marks.button_to_flow_ms = Math.round((PERF.t.t0 - PERF.press) * 10) / 10;
+    }
   }
   /* บันทึกช่วงเวลา — perfMark('camera_start_ms', tStart) */
   function perfMark(key, from) {
@@ -423,6 +460,202 @@
     if (!perfOn() || !PERF.t) return;
     PERF.t.counters[key] = v;
   }
+  /* บันทึกช่วงเวลาที่อาจเกิดนอก Flow — ลง boot เสมอ และลง Flow ปัจจุบันด้วยถ้ามี */
+  function perfDur(key, from) {
+    if (!perfOn()) return;
+    var ms = Math.round((perfNow() - from) * 10) / 10;
+    PERF.boot.marks[key] = ms;
+    if (PERF.t) PERF.t.marks[key] = ms;
+    /* [FIX 3] มีการโหลดโมเดลจริงเกิดขึ้น = ยังไม่มี Flow ใดรับไปเป็นของตัวเอง */
+    if (PERF_MODEL_KEYS.indexOf(key) >= 0) PERF.modelPending = true;
+  }
+  /* ค่าคงที่ระดับ Session ที่เกิดนอก Flow ได้ (เช่น gps_first_fix_ms จาก Warmup) */
+  function perfBootSet(key, v) {
+    if (!perfOn()) return;
+    PERF.boot.marks[key] = v;
+  }
+  /* ตัวนับระดับ Session — นับจากเหตุการณ์จริงเท่านั้น */
+  function perfBootCount(key, n) {
+    if (!perfOn()) return;
+    var c = PERF.boot.counters;
+    c[key] = (c[key] || 0) + (typeof n === 'number' ? n : 1);
+  }
+  /* [DESCRIPTOR] เก็บเวลาต่อรอบเพื่อหาคอขวดจริง — ยังคง Descriptor จริง 6 รอบเท่าเดิม
+     ไม่ Clone · ไม่ Reuse · ไม่ลดจำนวน — เพิ่มเฉพาะการวัด */
+  function perfDescSample(ms) {
+    if (!perfOn() || !PERF.t) return;
+    var v = Math.round(ms * 10) / 10;
+    PERF.t.marks.descriptor_ms = Math.round(((PERF.t.marks.descriptor_ms || 0) + v) * 10) / 10;
+    if (!PERF.t.desc) PERF.t.desc = [];
+    PERF.t.desc.push(v);
+    if (PERF.t.marks.first_descriptor_ms == null) PERF.t.marks.first_descriptor_ms = v;
+  }
+  /* สรุปค่ารายรอบตอนปิด Flow */
+  function perfDescSummary(t) {
+    var a = t.desc;
+    if (!a || !a.length) return;
+    var sorted = a.slice().sort(function (x, y) { return x - y; });
+    t.marks.descriptor_p50_ms = sorted[Math.floor((sorted.length - 1) / 2)];
+    t.marks.descriptor_max_ms = sorted[sorted.length - 1];
+    t.counters.descriptor_samples = a.length;
+  }
+  /* [MODEL CACHE] แหล่งที่โมเดลถูกโหลดมาจริงในรอบนี้
+       memory          = อยู่ในหน่วยความจำแล้ว ไม่ต้องโหลดซ้ำ
+       service_worker  = Service Worker ตอบจากแคช
+       network         = โหลดจากเครือข่ายจริง
+       unknown         = อ่านไม่ได้ (เบราว์เซอร์ไม่รองรับ Resource Timing) */
+  /* Service Worker เป็นผู้เดียวที่รู้แน่ชัดว่าไฟล์โมเดลมาจาก Cache หรือ Network
+     จึงใช้สัญญาณจริงที่ SW ส่งมา (MODEL_CACHE_HIT / MODEL_NETWORK)
+     ⚠ ห้ามอนุมานจาก workerStart/transferSize เพียงอย่างเดียว — รายงานไม่ตรงกันข้ามเบราว์เซอร์ */
+  /* gen        = รอบการโหลดโมเดลปัจจุบัน (เพิ่มเมื่อเริ่มโหลดจริง)
+     consumedGen = รอบที่ถูก Flow ใดรับผลไปแล้ว — ห้ามนับซ้ำให้ Flow ถัดไป
+     ⚠ ห้าม reset สัญญาณตอน perfStart ถ้าโมเดลโหลดไปแล้ว
+        เพราะการโหลดเกิดตอน warmup ซึ่งเกิด "ก่อน" perfStart เสมอ */
+  var SWMS = { hit: 0, net: 0, bound: false, gen: 0, consumedGen: -1 };
+  function swModelBind() {
+    if (SWMS.bound) return;
+    SWMS.bound = true;
+    try {
+      if (!navigator.serviceWorker || !navigator.serviceWorker.addEventListener) return;
+      navigator.serviceWorker.addEventListener('message', function (ev) {
+        var d2 = ev && ev.data;
+        if (!d2 || !d2.njhrModelSource) return;
+        if (d2.njhrModelSource === 'MODEL_CACHE_HIT') SWMS.hit++;
+        else if (d2.njhrModelSource === 'MODEL_NETWORK') SWMS.net++;
+      });
+    } catch (e) {}
+  }
+  /* เริ่มรอบการโหลดโมเดลใหม่ — เรียกจาก guideLoad/recogLoad ตอนที่จะโหลดจริงเท่านั้น */
+  function swModelBeginLoad() {
+    SWMS.gen++;
+    SWMS.hit = 0; SWMS.net = 0;
+  }
+  /* ผลของรอบนี้ถูก Flow ใดรับไปแล้วหรือยัง */
+  function swModelPending() { return SWMS.gen > SWMS.consumedGen; }
+  function swModelConsume() { SWMS.consumedGen = SWMS.gen; }
+
+  function perfModelCacheSource() {
+    /* โมเดลอยู่ในหน่วยความจำแล้วและไม่มีรอบโหลดที่ยังไม่ถูกรับผล */
+    if (S.guideReady && S.recogReady && !PERF.modelPending && !swModelPending()) return 'memory';
+    if (!swModelPending()) return 'memory';        // รอบนี้ไม่ได้โหลดไฟล์ใหม่เลย
+    if (SWMS.net > 0) return 'network';            // มีอย่างน้อย 1 ไฟล์ที่ต้องโหลดจริง
+    if (SWMS.hit > 0) return 'service_worker';
+    return 'unknown';                              // ไม่มี SW / ไม่ได้รับสัญญาณ
+  }
+
+  /* [LONG TASK] งานที่บล็อก Main Thread เกิน 50 ms — ใช้ชี้ jank จริงบน Android
+     ไม่เก็บชื่อสคริปต์หรือ URL ใด ๆ เก็บเฉพาะจำนวนครั้งและระยะเวลา */
+  /* [BOOT JANK] ต้องเริ่ม Observer "ก่อน" NJHRFace.warmup()
+     jank ก้อนใหญ่ที่สุดบน Android เกิดตอนสร้าง Model Graph ระหว่าง warmup
+     ถ้าเริ่ม Observer ตอน perfStart (หลังกดปุ่ม) จะพลาดช่วงนั้นทั้งหมด
+       bootOpen = true  → สะสมเข้าถัง Boot/Warmup
+       perfStart()      → ปิดถัง Boot แล้วเริ่มนับของ Flow แยกต่างหาก
+     ⚠ ไม่รองรับ longtask (Safari/iOS) = Export null ไม่ใช่ 0 */
+  var LT = { obs: null, count: 0, total: 0, max: 0, supported: null,
+             bootOpen: true, bootCount: 0, bootTotal: 0, bootMax: 0 };
+  function perfLongTaskStart() {
+    if (LT.obs || !perfOn()) return;
+    try {
+      if (typeof w.PerformanceObserver !== 'function') { LT.supported = false; return; }
+      var sup = w.PerformanceObserver.supportedEntryTypes;
+      if (sup && sup.indexOf && sup.indexOf('longtask') < 0) { LT.supported = false; return; }
+      LT.obs = new w.PerformanceObserver(function (list) {
+        var es = list.getEntries();
+        for (var i = 0; i < es.length; i++) {
+          var dms = Math.round(es[i].duration * 10) / 10;
+          if (LT.bootOpen) {
+            LT.bootCount++;
+            LT.bootTotal = Math.round((LT.bootTotal + dms) * 10) / 10;
+            if (dms > LT.bootMax) LT.bootMax = dms;
+          }
+          LT.count++; LT.total = Math.round((LT.total + dms) * 10) / 10;
+          if (dms > LT.max) LT.max = dms;
+        }
+      });
+      LT.obs.observe({ entryTypes: ['longtask'] });
+      LT.supported = true;
+    } catch (e) { LT.obs = null; LT.supported = false; }
+  }
+  function perfLongTaskReset() { LT.count = 0; LT.total = 0; LT.max = 0; }
+  function perfLongTaskBootReset() {
+    LT.bootOpen = true; LT.bootCount = 0; LT.bootTotal = 0; LT.bootMax = 0;
+  }
+
+  /* สภาพแวดล้อมการประมวลผล — ใช้ชี้คอขวดฝั่งเครื่อง ไม่มีข้อมูลอ่อนไหว */
+  function perfRuntimeEnv() {
+    var backend = '';
+    try {
+      var f = w.faceapi;
+      if (f && f.tf && typeof f.tf.getBackend === 'function') backend = String(f.tf.getBackend() || '');
+    } catch (e) { backend = ''; }
+    var webgl = null;
+    try {
+      var c = d.createElement('canvas');
+      webgl = !!(c.getContext('webgl2') || c.getContext('webgl') ||
+                 c.getContext('experimental-webgl'));
+    } catch (e) { webgl = null; }
+    return { tf_backend: backend || 'unknown', webgl_available: webgl };
+  }
+
+  /* คงค่า tf_backend/webgl_available ไว้ใน counters ของ Flow (ตั้งไว้แล้วที่ perfStart) */
+  function env2Backend(t) { return !!(t && t.counters); }
+
+  function perfBootReset() {
+    PERF.boot = { marks: {}, counters: {} };
+    PERF.modelPending = false;
+    PERF.press = null;
+    PERF.pressEpoch = null;
+    PERF.pressFirst = false;
+  }
+  /* [E2E] เริ่มจับเวลาตั้งแต่ "ผู้ใช้กดปุ่มลงเวลา" — ก่อน njExemptCheck / faceStatus / perfStart
+     เก็บนอก PERF.t เพราะ Flow ยังไม่ถูกเปิดในจังหวะนั้น */
+  function perfPressStart(epochMs) {
+    if (!perfOn()) return;
+    /* [E2E] หน้าลงเวลาอาจกดปุ่มก่อน face.js โหลดเสร็จ จึงรับ Date.now() ของตอนกดมาปรับฐานได้
+       แปลงกลับเป็นหน่วยเดียวกับ perfNow() เพื่อให้ทุก mark อยู่บนแกนเวลาเดียวกัน */
+    var ep = (typeof epochMs === 'number' && isFinite(epochMs) && epochMs > 0) ? epochMs : Date.now();
+    var back = Math.max(0, Date.now() - ep);
+    PERF.press = perfNow() - back;
+    PERF.pressEpoch = ep;                    // ฐานเวลาแบบ epoch สำหรับ replay mark ย้อนหลัง
+    PERF.pressFirst = false;
+  }
+  /* บันทึกช่วงเวลาที่นับจากตอนกดปุ่ม ลง boot (อยู่รอดข้าม perfStart)
+     [FIX] eventEpochMs = เวลาที่ "เหตุการณ์เกิดจริง" ไม่ใช่เวลาที่ replay
+     จำเป็นเมื่อ mark เกิดก่อน face.js โหลดเสร็จ แล้วถูกส่งตามมาทีหลัง
+     ไม่งั้น exempt_wait_ms จะกลืนเวลาโหลดโมดูลเข้าไปด้วย */
+  function perfPressMark(key, eventEpochMs) {
+    if (!perfOn() || PERF.press == null) return;
+    var ms;
+    if (typeof eventEpochMs === 'number' && isFinite(eventEpochMs) && eventEpochMs > 0 &&
+        PERF.pressEpoch != null) {
+      ms = eventEpochMs - PERF.pressEpoch;
+    } else {
+      ms = perfNow() - PERF.press;
+    }
+    if (!(ms >= 0)) ms = 0;
+    PERF.boot.marks[key] = Math.round(ms * 10) / 10;
+  }
+  function perfPressFlagFirst() { if (perfOn()) PERF.pressFirst = true; }
+  /* [PRESS] จบรอบการกดปุ่มลงเวลา — ล้างฐานเวลาทั้งชุด
+     ห้ามเรียกระหว่าง Enrollment→Punch handoff เพราะยังเป็นการกดครั้งเดียวกัน */
+  function perfPressReset() {
+    PERF.press = null;
+    PERF.pressEpoch = null;
+    PERF.pressFirst = false;
+    delete PERF.boot.marks.exempt_wait_ms;
+    delete PERF.boot.marks.face_status_wait_ms;
+    delete PERF.boot.marks.button_to_camera_ms;
+  }
+  /* [FIX 1] เขียนค่ามิลลิวินาทีลง PERF.t.marks โดยตรง
+     ใช้กับค่าที่ "รู้ผลแล้ว" เช่น gps_gate_wait_ms = 0 ตอน Warm
+     ⚠ ห้ามใช้ perfSet เพราะ perfSet เขียนลง counters ไม่ใช่ marks
+        ทำให้ timings_ms.gps_gate_wait_ms ออกมาเป็น null ตอน Export */
+  function perfMs(key, ms) {
+    if (!perfOn() || !PERF.t) return;
+    var v = Number(ms);
+    if (!isFinite(v)) return;
+    PERF.t.marks[key] = Math.round(v * 10) / 10;
+  }
   function perfCount(key, n) {
     if (!perfOn() || !PERF.t) return;
     var c = PERF.t.counters;
@@ -431,10 +664,59 @@
   /* ปิด Flow แล้วสรุปครั้งเดียว
      บนมือถือเปิด Console ยาก จึงแสดงผลเป็นแผ่นซ้อนพร้อมปุ่มคัดลอกด้วย
      ทั้งหมดทำงานเฉพาะเมื่อเปิดโหมดวัดผลเท่านั้น — ปิดอยู่ = ไม่มี DOM ใด ๆ ถูกสร้าง */
+  /* [FIX 2] Guard กัน perfEnd ซ้ำต่อ Flow — เรียกครั้งที่สองคืน null และไม่บันทึกอะไรเพิ่ม
+     (PERF.t = null หลังปิด Flow อยู่แล้ว แต่เขียนให้ชัดเจนเพื่อไม่ให้พึ่ง side effect) */
   function perfEnd(totalKey) {
-    if (!perfOn() || !PERF.t) return null;
+    if (!perfOn() || !PERF.t || PERF.t.ended) return null;
     var t = PERF.t;
+    t.ended = true;
     t.marks[totalKey || 'total_ms'] = Math.round((perfNow() - t.t0) * 10) / 10;
+    perfDescSummary(t);
+    /* [RUNTIME] อ่าน tf_backend ซ้ำ "หลังโมเดลพร้อมและก่อนปิด Flow"
+       ตอน perfStart โมเดลมักยังไม่โหลด faceapi.tf จึงยังอ่านไม่ได้ */
+    var env2 = perfRuntimeEnv();
+    if (env2.tf_backend && env2.tf_backend !== 'unknown') t.counters.tf_backend = env2.tf_backend;
+    if (t.counters.webgl_available == null) t.counters.webgl_available = env2.webgl_available;
+    t.counters.model_cache_source = perfModelCacheSource();
+    swModelConsume();        // ผลของรอบโหลดนี้ถูกรับไปแล้ว Flow ถัดไปต้องไม่ได้ซ้ำ
+    t.counters.long_task_supported = (LT.supported === null ? false : LT.supported);
+    if (LT.supported === true) {
+      t.counters.long_task_count = LT.count;
+      t.marks.long_task_total_ms = LT.total;
+      t.marks.long_task_max_ms = LT.max;
+      /* jank ที่เกิดก่อนกดปุ่ม (โหลดโมดูล + warmup + สร้าง Model Graph) */
+      t.counters.boot_long_task_count = LT.bootCount;
+      t.marks.boot_long_task_total_ms = LT.bootTotal;
+      t.marks.boot_long_task_max_ms = LT.bootMax;
+    }                                     // ไม่รองรับ = ไม่เขียนค่า → Export เป็น null
+    /* [E2E] เวลาตั้งแต่ "ผู้ใช้กดปุ่ม" จนได้ผลจริง — รวมทุกอย่างที่เกิดก่อน perfStart */
+    if (t.usePress && PERF.press != null) {
+      t.marks.button_to_result_ms = Math.round((perfNow() - PERF.press) * 10) / 10;
+      if (PERF.pressFirst) t.marks.total_first_attendance_ms = t.marks.button_to_result_ms;
+    }
+    if (env2Backend(t)) { /* no-op guard เพื่อความชัดเจนของโครงสร้าง */ }
+    /* [INSTRUMENTATION] รวม Boot/Warmup metrics เข้ากับ Flow metrics ตอนสรุป
+       Flow มีค่าอยู่แล้ว = ใช้ของ Flow (ค่าที่เกิดในรอบนี้จริง) */
+    var bk, i;
+    for (bk in PERF.boot.marks) {
+      if (!Object.prototype.hasOwnProperty.call(PERF.boot.marks, bk)) continue;
+      /* [FIX 3] เวลาโหลดโมเดลให้เฉพาะ Flow แรกหลังโหลดจริงเท่านั้น
+         Flow ถัดไปที่ใช้โมเดลเดิมต้องไม่ได้รับค่านี้ ไม่งั้นจะถูกนับเป็น cold ผิด ๆ */
+      if (PERF_MODEL_KEYS.indexOf(bk) >= 0 && !PERF.modelPending) continue;
+      /* ตัวชี้วัดที่นับจากตอนกดปุ่มลงเวลา ห้ามรั่วเข้า LOGIN / ENROLL */
+      if (!t.usePress && PERF_PRESS_KEYS.indexOf(bk) >= 0) continue;
+      if (t.marks[bk] == null) t.marks[bk] = PERF.boot.marks[bk];
+    }
+    /* Flow นี้รับเวลาโหลดโมเดลไปแล้ว → ปลดธง และลบออกจาก boot ไม่ให้รั่วไปรอบหน้า */
+    if (PERF.modelPending) {
+      PERF.modelPending = false;
+      for (i = 0; i < PERF_MODEL_KEYS.length; i++) delete PERF.boot.marks[PERF_MODEL_KEYS[i]];
+    }
+    for (bk in PERF.boot.counters) {
+      if (Object.prototype.hasOwnProperty.call(PERF.boot.counters, bk) && t.counters[bk] == null) {
+        t.counters[bk] = PERF.boot.counters[bk];
+      }
+    }
     var out = { flow: t.flow, platform: t.platform, ms: t.marks, count: t.counters };
     try { console.log('[FACE PERF] ' + t.flow + ' · ' + t.platform, out); } catch (e) {}
     try { perfPush(out); perfPanel(); } catch (e) {}
@@ -469,38 +751,186 @@
     try { localStorage.setItem(PERF_KEY, JSON.stringify(log)); } catch (e) {}
   }
   /* สร้างผลสรุปตาม Schema ที่กำหนด — ใช้รอบล่าสุดของแต่ละประเภท */
-  function perfResult() {
-    var log = perfLoad(), dev = perfDevice();
-    function last(flow, cold) {
+  /* ---------- [EXPORT] REAL-DEVICE-FACE-RESULT — Schema เดียวกับไฟล์ Template ----------
+     กรอกเฉพาะค่าที่ "วัดได้จริง" จากเครื่องนี้ · ที่เหลือคง null ให้ผู้ทดสอบกรอกเอง
+     status = PENDING_REAL_DEVICE เสมอ · ห้ามตั้ง COMPLETE/PASS อัตโนมัติ
+     ⚠ ไม่มี Token · lat/lng · Descriptor · รูป · Signed URL · รหัสผ่าน · Device ID */
+  function perfNum(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+
+  /* รวมตัวชี้วัดของ Flow ล่าสุดที่เกี่ยวข้อง + Boot/Warmup metrics */
+  function perfMerged() {
+    var log = perfLoad();
+    function last(flow) {
       for (var i = log.length - 1; i >= 0; i--) {
-        if (log[i].flow !== flow) continue;
-        if (typeof cold === 'boolean' && !!log[i].cold !== cold) continue;
-        return log[i];
+        if (log[i].flow === flow) return log[i];
       }
       return null;
     }
-    function pick(e) {
-      if (!e) return null;
-      return { at: e.at, cold: e.cold, ms: e.ms, count: e.count };
+    function lastAny(prefix) {
+      for (var i = log.length - 1; i >= 0; i--) {
+        if (String(log[i].flow || '').indexOf(prefix) === 0) return log[i];
+      }
+      return null;
     }
-    var enr = last('ENROLL');
+    var att = lastAny('ATTENDANCE'), enr = last('ENROLL');
+    var ms = {}, ct = {}, k;
+    for (k in PERF.boot.marks) {
+      if (Object.prototype.hasOwnProperty.call(PERF.boot.marks, k)) ms[k] = PERF.boot.marks[k];
+    }
+    for (k in PERF.boot.counters) {
+      if (Object.prototype.hasOwnProperty.call(PERF.boot.counters, k)) ct[k] = PERF.boot.counters[k];
+    }
+    [enr, att].forEach(function (e) {
+      if (!e) return;
+      for (var a in e.ms) { if (Object.prototype.hasOwnProperty.call(e.ms, a)) ms[a] = e.ms[a]; }
+      for (var b in e.count) { if (Object.prototype.hasOwnProperty.call(e.count, b)) ct[b] = e.count[b]; }
+    });
+    return { ms: ms, ct: ct, att: att, enr: enr };
+  }
+
+  function perfExportTemplate() {
+    var dev = perfDevice();
+    var m = perfMerged(), ms = m.ms, ct = m.ct;
+    var env = null;
+    try { env = camEnv(); } catch (e) { env = null; }
+    function box(keys) {
+      var o = {}, i;
+      for (i = 0; i < keys.length; i++) o[keys[i]] = { result: null, note: null };
+      return o;
+    }
     return {
-      schema: 'njhr-face-perf/1',
-      build: (w.NJHR_BUILD_VERSION || ''),
-      device: dev.device, os: dev.os, browser: dev.browser, mode: dev.mode, network: dev.network,
-      test_time: new Date().toISOString(),
-      face_login_cold: pick(last('LOGIN', true)),
-      face_login_warm: pick(last('LOGIN', false)),
-      attendance_in: pick(last('ATTENDANCE_IN')),
-      attendance_out: pick(last('ATTENDANCE_OUT')),
-      enrollment_front_ms: enr ? (enr.ms.enroll_front_ms || null) : null,
-      enrollment_left_ms: enr ? (enr.ms.enroll_left_ms || null) : null,
-      enrollment_right_ms: enr ? (enr.ms.enroll_right_ms || null) : null,
-      enrollment_total_ms: enr ? (enr.ms.total_enrollment_ms || null) : null,
-      enrollment_descriptor_count: enr ? (enr.count.descriptor_calls || null) : null,
-      runs: log
+      meta: {
+        status: 'PENDING_REAL_DEVICE',
+        build: String(w.NJHR_BUILD_VERSION || ''),
+        package: 'nj-hr-v2-github-lite.zip',
+        package_sha256: null,
+        platform: dev.os,
+        browser: dev.browser,
+        os_version: null,
+        device_model: dev.device || null,
+        mode: dev.mode || null,
+        network: dev.network || null,
+        tested_at: new Date().toISOString(),
+        tested_by: null
+      },
+      timings_ms: {
+        camera_open_ms:            perfNum(ms.camera_open_ms),
+        guide_visible_ms:          perfNum(ms.guide_visible_ms),
+        guide_model_load_ms:       perfNum(ms.guide_model_load_ms),
+        recognition_model_load_ms: perfNum(ms.recognition_model_load_ms),
+        descriptor_ms:             perfNum(ms.descriptor_ms),
+        first_descriptor_ms:       perfNum(ms.first_descriptor_ms),
+        descriptor_p50_ms:         perfNum(ms.descriptor_p50_ms),
+        descriptor_max_ms:         perfNum(ms.descriptor_max_ms),
+        gps_first_fix_ms:          perfNum(ms.gps_first_fix_ms),
+        gps_usable_fix_ms:         perfNum(ms.gps_usable_fix_ms),
+        gps_preflight_ms:          perfNum(ms.gps_preflight_ms),
+        gps_gate_wait_ms:          perfNum(ms.gps_gate_wait_ms),
+        exempt_wait_ms:            perfNum(ms.exempt_wait_ms),
+        face_status_wait_ms:       perfNum(ms.face_status_wait_ms),
+        button_to_camera_ms:       perfNum(ms.button_to_camera_ms),
+        button_to_result_ms:       perfNum(ms.button_to_result_ms),
+        total_first_attendance_ms: perfNum(ms.total_first_attendance_ms),
+        face_module_load_ms:       perfNum(ms.face_module_load_ms),
+        recognition_wait_ms:       perfNum(ms.recognition_wait_ms),
+        recognition_bytes_prefetch_ms: perfNum(ms.recognition_bytes_prefetch_ms),
+        grab_frames_ms:            perfNum(ms.grab_frames_ms),
+        guide_inference_ms:        perfNum(ms.guide_inference_ms),
+        long_task_total_ms:        perfNum(ms.long_task_total_ms),
+        long_task_max_ms:          perfNum(ms.long_task_max_ms),
+        boot_long_task_total_ms:   perfNum(ms.boot_long_task_total_ms),
+        boot_long_task_max_ms:     perfNum(ms.boot_long_task_max_ms),
+        route_to_gate_ready_ms:    perfNum(ms.route_to_gate_ready_ms),
+        upload_reserve_ms:         perfNum(ms.upload_reserve_ms),
+        reserve_wait_after_scan_ms:perfNum(ms.reserve_wait_after_scan_ms),
+        snapshot_encode_ms:        perfNum(ms.snapshot_encode_ms),
+        snapshot_put_ms:           perfNum(ms.snapshot_put_ms),
+        rpc_ms:                    perfNum(ms.rpc_ms),
+        total_attendance_ms:       perfNum(ms.total_attendance_ms),
+        total_enrollment_ms:       perfNum(ms.total_enrollment_ms)
+      },
+      counters: {
+        descriptor_calls:                  perfNum(ct.descriptor_calls),
+        guide_calls:                       perfNum(ct.guide_calls),
+        borderline_extra_descriptor_count: perfNum(ct.borderline_extra_descriptor_count),
+        descriptor_samples:                perfNum(ct.descriptor_samples),
+        camera_open_count:                 perfNum(ct.camera_open_count),
+        njhr_face_self_enroll_calls:       perfNum(ct.njhr_face_self_enroll_calls),
+        njhr_att_punch_face_calls:         perfNum(ct.njhr_att_punch_face_calls),
+        gps_seed_accepted:                 perfNum(ct.gps_seed_accepted),
+        njhr_gf_check_calls:               perfNum(ct.njhr_gf_check_calls),
+        gf_cache_hits:                     perfNum(ct.gf_cache_hits),
+        snapshot_bytes:                    perfNum(ct.snapshot_bytes),
+        long_task_count:                   perfNum(ct.long_task_count),
+        boot_long_task_count:              perfNum(ct.boot_long_task_count),
+        long_task_supported: (ct.long_task_supported == null ? null : ct.long_task_supported)
+      },
+      runtime: {
+        tf_backend:      (ct.tf_backend == null ? null : ct.tf_backend),
+        webgl_available: (ct.webgl_available == null ? null : ct.webgl_available),
+        model_cache_hit: (ct.model_cache_hit == null ? null : ct.model_cache_hit),
+        model_cache_source: (ct.model_cache_source == null ? null : ct.model_cache_source)
+      },
+      outcome: {
+        punch_result:          (ct.punch_result == null ? null : ct.punch_result),
+        final_result:          (ct.final_result == null ? null : ct.final_result),
+        error_code:            (ct.error_code == null ? null : ct.error_code),
+        camera_reopen_skipped: perfNum(ct.camera_reopen_skipped)
+      },
+      camera_capability: {
+        camera_capability_code: (ct.error_code && String(ct.error_code).indexOf('CAM_') === 0)
+                                  ? ct.error_code : null,
+        secure_context: env ? !!env.secure : null,
+        media_api:      env ? !!env.getUserMedia : null,
+        embedded:       env ? !!env.embedded : null,
+        in_app_browser: env ? !!env.inApp : null
+      },
+      camera_matrix: box(['1_https_gum_present_opens', '2_insecure_context', '3_media_api_missing',
+        '4_not_allowed_error', '5_not_found_error', '6_not_readable_error',
+        '7_promise_hang_timeout', '8_route_or_logout_while_waiting']),
+      gps_matrix: box(['1_warmup_starts_before_rpc_answers', '2_permission_denied_fails_immediately',
+        '3_transient_error_then_fix_at_7s_passes', '4_accuracy_80m_camera_must_not_open',
+        '5_accuracy_25m_gf_pass_camera_opens', '6_outside_geofence_camera_must_not_open',
+        '7_session_change_old_fix_unusable', '8_gps_ready_before_press_gate_wait_zero']),
+      face_matrix: box(['1_guide_frame_adds_no_descriptor_call',
+        '2_normal_attendance_6_real_descriptors', '3_borderline_total_8_to_14',
+        '4_enrollment_3_poses_18_descriptors', '5_first_attendance_no_second_camera_open',
+        '6_face_self_enroll_called_once', '7_att_punch_face_called_once',
+        '8_sql_records_time_attempt_snapshot_gps']),
+      button_gate_matrix: box(['1_mobile_buttons_disabled_on_load',
+        '2_buttons_stay_disabled_while_gf_check_pending',
+        '3_buttons_enable_only_after_gf_check_pass',
+        '4_in_button_respects_already_checked_in',
+        '5_out_button_respects_not_checked_in',
+        '6_out_button_respects_already_checked_out',
+        '7_buttons_disable_again_on_gps_denied',
+        '8_buttons_disable_again_when_outside_geofence']),
+      sql_verification: box(['njhr_att_punch_log_row_written', 'njhr_face_attempts_row_written',
+        'snapshot_path_kind_punch', 'gps_lat_lng_accuracy_recorded']),
+      notes: []
     };
   }
+
+  /* ชื่อไฟล์ตามระบบปฏิบัติการจริงของเครื่องที่ทดสอบ */
+  function perfExportName() {
+    var os = perfDevice().os;
+    if (/Android/i.test(os)) return 'REAL-DEVICE-FACE-RESULT-ANDROID.json';
+    if (/iOS/i.test(os))     return 'REAL-DEVICE-FACE-RESULT-IOS.json';
+    return 'REAL-DEVICE-FACE-RESULT-OTHER.json';
+  }
+
+  function perfExportDownload() {
+    var name = perfExportName();
+    var blob = new Blob([JSON.stringify(perfExportTemplate(), null, 2) + '\n'],
+                        { type: 'application/json' });
+    var a = d.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    d.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000);
+    return name;
+  }
+
   function perfText(o) {
     var L = [], k;
     for (k in o.ms) if (Object.prototype.hasOwnProperty.call(o.ms, k)) L.push(k + ' = ' + o.ms[k]);
@@ -534,8 +964,10 @@
       return b;
     }
     function note(t) { pre.textContent = txt + '\n\n' + t; }
+    /* [FIX 4] ทุกปุ่มที่ผลิต JSON ใช้ perfExportTemplate() เป็นแหล่งเดียว
+       ไม่มี Schema ที่สองในระบบอีกต่อไป */
     bar.appendChild(mkBtn('คัดลอกผล', '#1D4ED8', function () {
-      var all = JSON.stringify(perfResult(), null, 2);
+      var all = JSON.stringify(perfExportTemplate(), null, 2);
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(all); note('(คัดลอก JSON แล้ว)'); return;
@@ -547,16 +979,15 @@
         d.execCommand('copy'); ta.remove(); note('(คัดลอก JSON แล้ว)');
       } catch (e2) { note('(คัดลอกไม่สำเร็จ ใช้ปุ่มดาวน์โหลดแทน)'); }
     }));
+    bar.appendChild(mkBtn('Export Test JSON', '#047857', function () {
+      try { note('(บันทึก ' + perfExportDownload() + ' แล้ว)'); }
+      catch (e) { note('(Export ไม่สำเร็จ ใช้ปุ่มคัดลอกแทน)'); }
+    }));
     bar.appendChild(mkBtn('ดาวน์โหลด .json', '#0E7490', function () {
-      try {
-        var blob = new Blob([JSON.stringify(perfResult(), null, 2)], { type: 'application/json' });
-        var a = d.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'REAL-DEVICE-FACE-RESULT.json';
-        d.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000);
-        note('(บันทึกไฟล์แล้ว)');
-      } catch (e) { note('(ดาวน์โหลดไม่สำเร็จ ใช้ปุ่มคัดลอกแทน)'); }
+      /* [FIX 4] เดิมสร้าง REAL-DEVICE-FACE-RESULT.json ด้วย Schema เก่า (perfResult)
+         ตอนนี้ใช้ตัวเดียวกับปุ่ม Export Test JSON — ชื่อไฟล์ตามระบบ ANDROID/IOS เท่านั้น */
+      try { note('(บันทึก ' + perfExportDownload() + ' แล้ว)'); }
+      catch (e) { note('(ดาวน์โหลดไม่สำเร็จ ใช้ปุ่มคัดลอกแทน)'); }
     }));
     bar.appendChild(mkBtn('ล้างผล', '#475569', function () {
       PERF.log = [];
@@ -599,14 +1030,49 @@
     current: function () { return PERF.t ? JSON.parse(JSON.stringify(PERF.t)) : null; },
     log: function () { return perfLoad().slice(); },
     text: perfTextAll,
-    result: perfResult,
     show: function () { if (perfOn()) perfPanel(); },
     clear: function () {
       PERF.log = [];
+      perfBootReset();                      // [INSTRUMENTATION] ล้าง Boot/Warmup metrics ด้วย
+      perfLongTaskBootReset();              // เปิดถัง Boot ใหม่สำหรับรอบวัดถัดไป
       try { localStorage.removeItem(PERF_KEY); } catch (e) {}
       var e2 = d.getElementById('njf-perf-panel'); if (e2) e2.remove();
+    },
+    /* [EXPORT] คืน Object ตาม Schema ของ REAL-DEVICE-FACE-RESULT-*.json */
+    exportResult: function () { return perfExportTemplate(); },
+    /* [EXPORT] ดาวน์โหลดไฟล์ชื่อตามระบบ (ANDROID / IOS) — คืนชื่อไฟล์ที่บันทึก */
+    exportDownload: function () { return perfExportDownload(); },
+    exportName: perfExportName,
+    /* [E2E] เรียกจากหน้าลงเวลา ณ วินาทีที่ผู้ใช้กดปุ่มจริง (ก่อน njExemptCheck) */
+    pressStart: function (epochMs) { try { perfPressStart(epochMs); } catch (e) {} },
+    /* [PRESS] ล้างฐานเวลาการกดปุ่ม — เรียกเมื่อ Success · Fail · Cancel · Route change · Exempt จบ */
+    pressReset: function () { try { perfPressReset(); } catch (e) {} },
+    /* [BOOT JANK] ให้ผู้เรียกสั่งเริ่ม Observer เองได้ก่อน warmup (idempotent) */
+    bootObserve: function () { try { perfLongTaskStart(); } catch (e) {} },
+    /* บันทึกค่าที่วัดจากฝั่งหน้าเว็บลงถัง Boot (เช่น route_to_gate_ready_ms) */
+    bootMark: function (key, ms) {
+      try {
+        var v = Number(ms);
+        var k = String(key || '');
+        if (perfOn() && k && isFinite(v) && v >= 0) {
+          PERF.boot.marks[k] = Math.round(v * 10) / 10;
+        }
+      } catch (e) {}
+    },
+    /* [E2E] เวลาที่หน้าเว็บใช้โหลดโมดูล face.js เอง (วัดจากฝั่งหน้าเว็บ) */
+    setModuleLoadMs: function (ms) {
+      try {
+        var v = Number(ms);
+        if (perfOn() && isFinite(v) && v >= 0) PERF.boot.marks.face_module_load_ms = Math.round(v * 10) / 10;
+      } catch (e) {}
+    },
+    /* บันทึกช่วงเวลาที่นับจากตอนกดปุ่ม เช่น 'exempt_wait_ms' */
+    pressMark: function (key, eventEpochMs) {
+      try { perfPressMark(String(key || ''), eventEpochMs); } catch (e) {}
     }
   };
+  /* [TEST KIT] คู่มือเรียกผ่าน NJHRFace.perf.* — ผูกให้เป็น Object เดียวกับ NJHRFacePerf
+     เพื่อไม่ให้มี API สองชุดที่หลุดจากกัน (ผูกจริงตอนประกาศ w.NJHRFace ด้านล่าง) */
 
   /* ---------- [PERF] Two-Stage Model Loading ----------
      ปัญหาเดิม: faceNets() รอ Promise.all ของทั้ง 3 โมเดลก่อนเริ่มตรวจหน้าได้
@@ -626,15 +1092,63 @@
   var LIB = { p: null };
 
   /* โหลด face-api.js ครั้งเดียว ใช้ร่วมกันทั้ง 2 เฟส */
+  /* ---------- [TIMEOUT] เพดานเวลาของทุกขั้นที่รอทรัพยากรภายนอก ----------
+     เดิม: faceScript รอ onload/onerror เท่านั้น · loadFromUri ไม่มีเพดาน · detect ไม่มีเพดาน
+     บนเครือข่ายที่ค้างกลางทาง (ไม่ error ไม่ตอบ) ผู้ใช้จะค้างไม่มีกำหนด
+     ⚠ Timeout ห้ามแปลงเป็น PASS — ต้องโยน Error ที่มี .faceCode จริงเสมอ */
+  var LIB_TIMEOUT_MS   = 12000;   // โหลด face-api.js ต่อ 1 แหล่ง
+  var MODEL_TIMEOUT_MS = 15000;   // loadFromUri ต่อ 1 แหล่ง
+  var INFER_TIMEOUT_MS = 8000;    // 1 เฟรมของ detect()/detectGuide()
+  /* [TOTAL DEADLINE] เพดานรวมของทั้งเส้นทาง Local → CDN
+     ปัญหาเดิม: 20s (lib local) + 20s (lib CDN) + 25s (model local) + 25s (model CDN) ≈ 90 วินาที
+     ผู้ใช้จะยืนรอเกือบนาทีครึ่งก่อนเห็น Error ซึ่งใช้ไม่ได้บนหน้างานจริง
+     ของใหม่ครอบทั้งเส้นด้วยเพดานเดียว — ถึงเวลาแล้ว Fail Closed พร้อม Error Code จริง */
+  var LIB_TOTAL_MS   = 20000;     // lib: local + CDN รวมกัน
+  var MODEL_TOTAL_MS = 25000;     // model: local + CDN รวมกัน
+
+  function faceErr(code, msg) {
+    var e = new Error(msg);
+    e.faceCode = code;
+    return e;
+  }
+  /* ครอบ Promise ด้วยเพดานเวลา — เกินเวลา = reject ด้วย Error Code จริง
+     onTimeout ใช้เก็บกวาด (เช่น ถอด <script> ที่ค้าง) */
+  function withTimeout(p, ms, code, msg, onTimeout) {
+    return new Promise(function (res, rej) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        try { if (onTimeout) onTimeout(); } catch (e) {}
+        rej(faceErr(code, msg));
+      }, ms);
+      Promise.resolve(p).then(function (v) {
+        if (done) return;
+        done = true; clearTimeout(timer); res(v);
+      }, function (e) {
+        if (done) return;
+        done = true; clearTimeout(timer); rej(e);
+      });
+    });
+  }
+
   function libLoad() {
     if (w.faceapi) return Promise.resolve();
     if (LIB.p) return LIB.p;
-    LIB.p = faceScript(FACE_API_LOCAL)['catch'](function () {
+    LIB.p = faceScript(FACE_API_LOCAL)['catch'](function (e1) {
       try { console.error('[FACE] โหลด assets/models/face-api.js ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
-      return faceScript(FACE_API_CDN);
-    })['catch'](function (e) {
+      njfReport('JS_ERROR', 'face/model',
+        { message: 'lib local failed code=' + ((e1 && e1.faceCode) || '-') },
+        'stage=lib-local build=' + String(w.NJHR_BUILD_VERSION || ''));
+      return faceScript(FACE_API_CDN);       // [TIMEOUT] Fallback ได้จริงเมื่อแหล่งแรกค้าง
+    });
+    LIB.p = withTimeout(LIB.p, LIB_TOTAL_MS, 'FACE_LIB_TIMEOUT',
+      'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ (หมดเวลารอรวม)')['catch'](function (e) {
       LIB.p = null;                          // ล้มเหลว = กดลองใหม่ได้เหมือนเดิม
-      throw new Error((e && e.message) || 'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ');
+      var code = (e && e.faceCode) || 'FACE_LIB_LOAD_FAILED';
+      njfReport('JS_ERROR', 'face/model', { message: 'lib all sources failed code=' + code },
+        'stage=lib-all build=' + String(w.NJHR_BUILD_VERSION || ''));
+      throw faceErr(code, (e && e.message) || 'โหลดไลบรารีตรวจใบหน้าไม่สำเร็จ');
     });
     return LIB.p;
   }
@@ -643,28 +1157,45 @@
   function netsWithFallback(names, label) {
     function run(base) {
       var f = w.faceapi;
-      return Promise.all(names.map(function (n) { return f.nets[n].loadFromUri(base); }));
+      /* [TIMEOUT] loadFromUri ไม่มีเพดานในตัว — ครอบด้วย withTimeout ต่อแหล่ง */
+      return withTimeout(
+        Promise.all(names.map(function (n) { return f.nets[n].loadFromUri(base); })),
+        MODEL_TIMEOUT_MS, 'FACE_MODEL_TIMEOUT',
+        'โหลดโมเดล ' + label + ' ไม่สำเร็จ (หมดเวลารอ)');
     }
-    return run(MODEL_URL_LOCAL)['catch'](function () {
+    return withTimeout(run(MODEL_URL_LOCAL)['catch'](function (e1) {
       try { console.error('[FACE] โหลดโมเดล ' + label + ' จาก assets/models ไม่สำเร็จ — ใช้ CDN สำรอง'); } catch (e2) {}
-      return run(MODEL_URL_CDN);
-    });
+      njfReport('JS_ERROR', 'face/model',
+        { message: 'model local failed code=' + ((e1 && e1.faceCode) || '-') },
+        'stage=model-local label=' + label + ' build=' + String(w.NJHR_BUILD_VERSION || ''));
+      return run(MODEL_URL_CDN)['catch'](function (e2b) {
+        var code = (e2b && e2b.faceCode) || 'FACE_MODEL_LOAD_FAILED';
+        njfReport('JS_ERROR', 'face/model', { message: 'model all sources failed code=' + code },
+          'stage=model-all label=' + label + ' build=' + String(w.NJHR_BUILD_VERSION || ''));
+        throw faceErr(code, (e2b && e2b.message) || ('โหลดโมเดล ' + label + ' ไม่สำเร็จ'));
+      });
+    }), MODEL_TOTAL_MS, 'FACE_MODEL_TIMEOUT',
+        'โหลดโมเดล ' + label + ' ไม่สำเร็จ (หมดเวลารอรวม)');
   }
 
   /* STAGE A — GUIDE (Detector + Landmark) 550 KB */
   function guideLoad() {
     if (S.guideReady) return Promise.resolve();
     if (S.guideLoading) return S.guideLoading;
+    swModelBind();              // ต้องผูก listener "ก่อน" ยิงคำขอไฟล์โมเดล
+    swModelBeginLoad();
     var tG = perfNow();
     S.guideLoading = libLoad().then(function () {
       return netsWithFallback(['tinyFaceDetector', 'faceLandmark68Net'], 'guide');
     }).then(function () {
-      perfMark('guide_model_load_ms', tG);
+      perfDur('guide_model_load_ms', tG);
       S.guideReady = true;
       S.ready = !!(S.guideReady && S.recogReady);
     })['catch'](function (e) {
       S.guideLoading = null;
-      throw new Error((e && e.message) || 'โหลดโมเดลตรวจใบหน้าไม่สำเร็จ');
+      /* [FACE CODE] ต้องไม่กลืน .faceCode — ไม่งั้น Export จะได้ FLOW_ERROR แทน Timeout จริง */
+      throw faceErr((e && e.faceCode) || 'FACE_MODEL_LOAD_FAILED',
+                    (e && e.message) || 'โหลดโมเดลตรวจใบหน้าไม่สำเร็จ');
     });
     return S.guideLoading;
   }
@@ -673,16 +1204,19 @@
   function recogLoad() {
     if (S.recogReady) return Promise.resolve();
     if (S.recogLoading) return S.recogLoading;
+    swModelBind();
+    swModelBeginLoad();
     var tR = perfNow();
     S.recogLoading = libLoad().then(function () {
       return netsWithFallback(['faceRecognitionNet'], 'recognition');
     }).then(function () {
-      perfMark('recognition_model_load_ms', tR);
+      perfDur('recognition_model_load_ms', tR);
       S.recogReady = true;
       S.ready = !!(S.guideReady && S.recogReady);
     })['catch'](function (e) {
       S.recogLoading = null;
-      throw new Error((e && e.message) || 'โหลดโมเดลยืนยันใบหน้าไม่สำเร็จ');
+      throw faceErr((e && e.faceCode) || 'FACE_MODEL_LOAD_FAILED',
+                    (e && e.message) || 'โหลดโมเดลยืนยันใบหน้าไม่สำเร็จ');
     });
     return S.recogLoading;
   }
@@ -715,16 +1249,225 @@
   }
   function isAborted(e) { return !!(e && e.aborted); }
 
+  /* ---------- [ROOT CAUSE 1] Camera Capability Diagnostic ----------
+     เดิม: ไม่มี mediaDevices/getUserMedia → แจ้ง "อุปกรณ์นี้ไม่รองรับการเปิดกล้อง" กับทุกกรณี
+     ซึ่งผิดและกว้างเกินไป — มือถือทุกเครื่องมีกล้อง สาเหตุจริงมักเป็น
+     Insecure Context · in-app browser/WebView · iframe/Permissions Policy · สิทธิ์ถูกปิด
+     ของใหม่ตรวจสภาพแวดล้อมจริงก่อน แล้วแยก Error Code ให้ระบุสาเหตุได้
+     ⚠ ไม่แตะ Threshold/Liveness/Geofence · ไม่เปลี่ยนเงื่อนไขผ่าน/ไม่ผ่านใด ๆ */
+  var CAM_OPEN_TIMEOUT_MS = 15000;   // เพดานรอ getUserMedia (สิทธิ์ + เปิดอุปกรณ์)
+  var CAM_PLAY_TIMEOUT_MS = 8000;    // เพดานรอ loadedmetadata + play()
+
+  function camUA() { try { return String(navigator.userAgent || ''); } catch (e) { return ''; } }
+
+  /* in-app browser / WebView — ตรวจจาก UA ที่พบจริงบนอุปกรณ์ไทย
+     iOS: WKWebView ของแอปจะไม่มี 'Safari/' · Android: มี 'wv' หรือชื่อแอปใน UA */
+  function camInApp() {
+    var ua = camUA();
+    if (/(FBAN|FBAV|FB_IAB|Instagram|Line\/|LINE\/|Messenger|Twitter|TikTok|MicroMessenger|WeChat)/i.test(ua)) return true;
+    if (/\bwv\b/.test(ua)) return true;                                   // Android WebView
+    if (/(iPhone|iPad|iPod)/i.test(ua) && /AppleWebKit/i.test(ua)
+        && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
+    return false;
+  }
+
+  function camStandalone() {
+    try {
+      if (w.navigator && w.navigator.standalone === true) return true;
+      if (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function camEmbedded() { try { return w.top !== w.self; } catch (e) { return true; } }
+
+  /* Permissions Policy — รองรับเฉพาะบางเบราว์เซอร์ · ไม่รองรับ = null (ไม่ตัดสิน) */
+  function camPolicyAllows() {
+    try {
+      var pp = d.permissionsPolicy || d.featurePolicy;
+      if (pp && typeof pp.allowsFeature === 'function') return !!pp.allowsFeature('camera');
+    } catch (e) {}
+    return null;
+  }
+
+  /* ข้อมูลสภาพแวดล้อมกล้อง — ใช้ทั้งเลือกข้อความและส่งเข้า Error Monitor
+     ⚠ ไม่มี lat/lng · ไม่มี Token · ไม่มี Descriptor · ไม่มี Device ID · ไม่มี URL ที่มี Query */
+  function camEnv() {
+    var dv = deviceInfo();
+    var secure = false;
+    try { secure = w.isSecureContext === true; } catch (e) { secure = false; }
+    var proto = '';
+    try { proto = String(location.protocol || ''); } catch (e) { proto = ''; }
+    var hasMD = false, hasGUM = false;
+    try { hasMD = !!navigator.mediaDevices; } catch (e) { hasMD = false; }
+    try { hasGUM = hasMD && typeof navigator.mediaDevices.getUserMedia === 'function'; } catch (e) { hasGUM = false; }
+    return {
+      secure: secure, proto: proto, mediaDevices: hasMD, getUserMedia: hasGUM,
+      embedded: camEmbedded(), policy: camPolicyAllows(), inApp: camInApp(),
+      mode: camStandalone() ? 'standalone' : 'browser',
+      device: dv.device, browser: dv.browser, os: dv.os
+    };
+  }
+
+  /* สรุปเป็นสตริงสั้นสำหรับ Error Monitor — ไม่มีข้อมูลอ่อนไหว */
+  function camEnvText(env, code, errName) {
+    return 'code=' + String(code || '-') +
+           ' name=' + String(errName || '-') +
+           ' secure=' + (env.secure ? 'true' : 'false') +
+           ' proto=' + env.proto +
+           ' media_api=' + (env.getUserMedia ? 'true' : 'false') +
+           ' embedded=' + (env.embedded ? 'true' : 'false') +
+           ' policy=' + (env.policy === null ? 'unknown' : (env.policy ? 'allow' : 'deny')) +
+           ' inapp=' + (env.inApp ? 'true' : 'false') +
+           ' mode=' + env.mode +
+           ' browser=' + env.browser + ' os=' + env.os + ' device=' + env.device +
+           ' build=' + String(w.NJHR_BUILD_VERSION || '');
+  }
+
+  /* Error ที่ระบุสาเหตุได้จริง — .camCode ใช้แสดงคำแนะนำเฉพาะกรณีบนหน้าจอ */
+  function camError(code, msg) {
+    var e = new Error(msg);
+    e.camCode = code;
+    return e;
+  }
+
+  function camOpenHint(os) {
+    return /iOS/i.test(os)
+      ? 'กรุณาเปิดลิงก์นี้ด้วย Safari บน iPhone แล้วลองใหม่'
+      : 'กรุณาเปิดลิงก์นี้ด้วย Chrome บน Android แล้วลองใหม่';
+  }
+
+  /* ตรวจก่อนเรียก getUserMedia — คืน Error ถ้าฟันธงได้แล้วว่าเปิดไม่ได้ · คืน null ถ้าผ่าน */
+  function camPrecheck(env) {
+    if (!env.secure || (env.proto !== 'https:' && env.proto !== 'file:'
+        && !/^localhost$|^127\.0\.0\.1$/.test((function () {
+             try { return String(location.hostname || ''); } catch (e) { return ''; } })()))) {
+      if (!env.secure) {
+        return camError('CAM_INSECURE_CONTEXT',
+          'เปิดกล้องไม่ได้เพราะหน้านี้ไม่ได้อยู่บนการเชื่อมต่อที่ปลอดภัย (HTTPS) — ' +
+          'กรุณาเปิดด้วยที่อยู่ที่ขึ้นต้นด้วย https:// แล้วลองใหม่');
+      }
+    }
+    if (!env.getUserMedia) {
+      if (env.inApp) {
+        return camError('CAM_API_MISSING',
+          'เบราว์เซอร์ในแอปนี้ไม่เปิดให้ใช้กล้อง — ' + camOpenHint(env.os));
+      }
+      return camError('CAM_API_MISSING',
+        'เบราว์เซอร์นี้ไม่เปิดให้เว็บใช้กล้อง — ' + camOpenHint(env.os));
+    }
+    if (env.embedded && env.policy === false) {
+      return camError('CAM_EMBEDDED_BLOCKED',
+        'หน้านี้ถูกฝังอยู่ในกรอบที่ไม่อนุญาตให้ใช้กล้อง — ' + camOpenHint(env.os));
+    }
+    return null;
+  }
+
+  /* แปลง error.name ของ getUserMedia เป็น Error Code ของเรา */
+  function camMapError(e, env) {
+    var n = (e && e.name) || '';
+    if (n === 'NotAllowedError' || n === 'SecurityError') {
+      if (env.inApp) {
+        return camError('CAM_PERMISSION_DENIED',
+          'กล้องไม่ได้รับอนุญาตในเบราว์เซอร์ของแอปนี้ — ' + camOpenHint(env.os));
+      }
+      return camError('CAM_PERMISSION_DENIED',
+        /iOS/i.test(env.os)
+          ? 'กล้องไม่ได้รับอนุญาต — เปิด ตั้งค่า > Safari > กล้อง เป็น "อนุญาต" แล้วลองใหม่'
+          : 'กล้องไม่ได้รับอนุญาต — แตะไอคอนซ้ายช่องที่อยู่เว็บ > สิทธิ์ > กล้อง > อนุญาต แล้วลองใหม่');
+    }
+    if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') {
+      return camError('CAM_NOT_FOUND', 'ไม่พบกล้องหน้าที่ใช้งานได้บนอุปกรณ์นี้');
+    }
+    if (n === 'NotReadableError' || n === 'TrackStartError' || n === 'AbortError') {
+      return camError('CAM_BUSY', 'กล้องถูกใช้งานโดยแอปอื่นอยู่ — ปิดแอปที่ใช้กล้องแล้วลองใหม่');
+    }
+    return camError('CAM_OPEN_FAILED', 'เปิดกล้องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+  }
+
+  /* getUserMedia ที่มีเพดานเวลาแน่นอน
+     ⚠ Stream ที่ Resolve มา "หลัง" Timeout ต้องถูก stop เสมอ และห้ามเขียน S.stream
+        ใช้ Camera Generation เดิม (myGen) เป็นตัวตัดสิทธิ์ — ไม่มีกล้องคืนชีพ */
+  function camGetStream(myGen) {
+    return new Promise(function (res, rej) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        camInvalidate();                    // คำขอที่ค้างอยู่หมดสิทธิ์ทันที
+        rej(camError('CAM_TIMEOUT',
+          'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่'));
+      }, CAM_OPEN_TIMEOUT_MS);
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      }).then(function (st) {
+        if (done || myGen !== CAM.gen) {     // มาช้า/หมดอายุ = ปิด Track ทิ้งทันที
+          try { st.getTracks().forEach(function (tr) { try { tr.stop(); } catch (e2) {} }); } catch (e3) {}
+          if (!done) { done = true; clearTimeout(timer); rej(AbortAttendanceError()); }
+          return;
+        }
+        done = true; clearTimeout(timer); res(st);
+      }, function (e) {
+        if (done) return;
+        done = true; clearTimeout(timer); rej(e);
+      });
+    });
+  }
+
+  /* รอให้วิดีโอพร้อมจริงก่อนเริ่มตรวจใบหน้า:
+     loadedmetadata → videoWidth/videoHeight > 0 → play() สำเร็จ
+     ขาดข้อใดข้อหนึ่ง = CAM_PLAYBACK_FAILED (เดิมไม่ตรวจ ทำให้ detect() ทำงานบนเฟรมว่าง) */
+  function camAwaitPlayback(myGen) {
+    var v = S.video;
+    if (!v) return Promise.reject(AbortAttendanceError());
+    return new Promise(function (res, rej) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true; cleanup();
+        rej(camError('CAM_PLAYBACK_FAILED',
+          'กล้องเปิดแล้วแต่ยังไม่มีภาพ — ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่'));
+      }, CAM_PLAY_TIMEOUT_MS);
+      function cleanup() {
+        clearTimeout(timer);
+        try { v.removeEventListener('loadedmetadata', onMeta); } catch (e) {}
+      }
+      function onMeta() { check(); }
+      function check() {
+        if (done) return;
+        if (myGen !== CAM.gen) { done = true; cleanup(); rej(AbortAttendanceError()); return; }
+        if (!v.videoWidth || !v.videoHeight) return;    // ยังไม่มีขนาดจริง = รอ loadedmetadata ต่อ
+        done = true; cleanup();
+        var p = null;
+        try { p = v.play(); } catch (e) { p = null; }
+        Promise.resolve(p).then(function () {
+          if (myGen !== CAM.gen) { rej(AbortAttendanceError()); return; }
+          if (!v.videoWidth || !v.videoHeight) {
+            rej(camError('CAM_PLAYBACK_FAILED', 'กล้องเปิดแล้วแต่ยังไม่มีภาพ กรุณาลองใหม่'));
+            return;
+          }
+          res(true);
+        }, function () {
+          if (myGen !== CAM.gen) { rej(AbortAttendanceError()); return; }
+          rej(camError('CAM_PLAYBACK_FAILED', 'เริ่มแสดงภาพจากกล้องไม่สำเร็จ กรุณาลองใหม่'));
+        });
+      }
+      try { v.addEventListener('loadedmetadata', onMeta); } catch (e) {}
+      check();                                  // metadata อาจมาก่อนผูก listener แล้ว
+    });
+  }
+
   function openCam() {
     if (S.stream) return Promise.resolve(S.stream);   // กันเปิดซ้ำ
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return Promise.reject(new Error('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง'));
+    var env = camEnv();
+    var pre = camPrecheck(env);
+    if (pre) {
+      njfReport('JS_ERROR', 'face/camera', pre, camEnvText(env, pre.camCode, 'precheck'));
+      return Promise.reject(pre);
     }
     var myGen = CAM.gen;
-    return navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
-    }).then(function (st) {
+    return camGetStream(myGen).then(function (st) {
       /* คำขอนี้หมดอายุแล้ว (ถูก Cancel/Logout/Route Change ระหว่างรอสิทธิ์กล้อง)
          → ปิด Track ทิ้งทันที ห้ามเขียน S.stream ห้าม srcObject ห้าม play()
          แล้วจบแบบ Cancel เงียบ */
@@ -733,26 +1476,31 @@
         throw AbortAttendanceError();
       }
       S.stream = st;
+      /* [INSTRUMENTATION] นับเฉพาะตอน getUserMedia คืน Stream ใหม่ที่ถูกใช้งานจริง */
+      perfBootCount('camera_open_count');
       S.video.srcObject = st;
       S.video.setAttribute('playsinline', '');   // iPhone ต้องมี ไม่งั้นเปิดเต็มจอ
-      return S.video.play().then(function () {
+      S.video.setAttribute('muted', '');
+      /* [ROOT CAUSE 1] ต้องมีภาพจริงก่อนเริ่ม Face Detection */
+      return camAwaitPlayback(myGen).then(function () {
         if (myGen !== CAM.gen) {                 // หมดอายุระหว่างรอ play()
           closeCam();
           throw AbortAttendanceError();
         }
+        /* [E2E] นับ "กล้องพร้อมใช้จริง" หลัง loadedmetadata + videoWidth>0 + play() สำเร็จ
+           ไม่ใช่ตอนได้ MediaStream — บนมือถือสองจังหวะนี้ห่างกันได้หลายร้อย ms */
+        perfPressMark('button_to_camera_ms');
         return st;
       });
-    }).catch(function (e) {
+    })['catch'](function (e) {
       if (isAborted(e)) throw e;                 // ยกเลิกเงียบ ไม่แปลงเป็นข้อความ Error
-      var n = e && e.name;
-      if (n === 'NotAllowedError' || n === 'SecurityError') {
-        throw new Error('กล้องไม่ได้รับอนุญาต — เปิดสิทธิ์กล้องในตั้งค่าเบราว์เซอร์แล้วลองใหม่');
-      }
-      if (n === 'NotFoundError') throw new Error('ไม่พบกล้องหน้าบนอุปกรณ์นี้');
-      if (n === 'NotReadableError') throw new Error('กล้องถูกใช้งานโดยแอปอื่นอยู่');
-      throw new Error('เปิดกล้องไม่สำเร็จ');
+      var mapped = e && e.camCode ? e : camMapError(e, env);
+      njfReport('JS_ERROR', 'face/camera', mapped,
+                camEnvText(env, mapped.camCode, (e && e.name) || ''));
+      throw mapped;
     });
   }
+
   function closeCam() {
     camInvalidate();                            // [ข้อ 2] คำขอกล้องที่ค้างอยู่หมดสิทธิ์ทันที
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
@@ -789,11 +1537,15 @@
   function detect() {
     var f = w.faceapi;
     perfCount('descriptor_calls');
-    var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
-    if (!perfOn()) return task;                 // ปิดโหมดวัด = คืน task เดิม ไม่ห่ออะไรเลย
+    var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var t = perfNow();
-    return Promise.resolve(task).then(function (r) {
-      perfAdd('descriptor_ms', perfNow() - t);
+    var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
+    return withTimeout(Promise.resolve(task), INFER_TIMEOUT_MS, 'FACE_INFER_TIMEOUT',
+      'ประมวลผลใบหน้าไม่ทันเวลา กรุณาลองใหม่'
+    ).then(function (r) {
+      /* กล้องถูกปิด/เปลี่ยนรอบระหว่างรอ inference = ผลนี้ใช้ไม่ได้ ต้องยกเลิกเงียบ */
+      if (myGen !== CAM.gen) throw AbortAttendanceError();
+      perfDescSample(perfNow() - t);
       return r;
     });
   }
@@ -803,7 +1555,16 @@
   function detectGuide() {
     var f = w.faceapi;
     perfCount('guide_calls');
-    return f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks();
+    var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
+    var tG = perfNow();
+    return withTimeout(
+      Promise.resolve(f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks()),
+      INFER_TIMEOUT_MS, 'FACE_INFER_TIMEOUT', 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่'
+    ).then(function (r) {
+      if (myGen !== CAM.gen) throw AbortAttendanceError();
+      perfAdd('guide_inference_ms', perfNow() - tG);   // [PERF] แยกจาก descriptor_ms
+      return r;
+    });
   }
 
   // ความสว่าง/ความคมชัดของกรอบใบหน้า — ใช้ตรวจแสงและกันรูปเบลอ
@@ -970,24 +1731,50 @@
   /* [PERF] stopWhen(out) เป็นทางเลือก — คืน true เมื่อ "พอแล้ว" เพื่อ Early Exit
      ใช้เฉพาะเส้นทาง Liveness ก้ำกึ่ง เพื่อไม่คำนวณ Descriptor ที่ไม่ได้ใช้ต่อ
      ไม่ส่งมา = พฤติกรรมเดิมทุกประการ (หยุดเมื่อ out.length >= count เท่านั้น) */
+  /* ---------- [ROOT CAUSE 6] Two-stage Capture ----------
+     ปัญหาเดิม: ลูปนี้เรียก detect() (Detector + Landmark + Descriptor) "ทุกเฟรม"
+     แล้วค่อยตรวจว่าเฟรมนั้นใช้ได้ไหม (พบกี่หน้า · q.ratio) เฟรมที่รู้อยู่แล้วว่าจะถูกทิ้ง
+     จึงจ่ายค่า Descriptor inference ซึ่งเป็นขั้นที่แพงที่สุดของ face-api ไปฟรี ๆ
+
+     ของใหม่ใช้แนวทางเดียวกับ Enrollment:
+       Stage A (Guide)    — detectGuide() : Detector + Landmark เท่านั้น
+                            ตรวจ พบ 1 หน้า · กรอบ/ขนาด (q.ratio) · ต้องนิ่งติดกัน GRAB_STABLE_MIN เฟรม
+       Stage B (Evidence) — เมื่อผ่าน Stage A แล้วจึงเรียก detect() สร้าง Descriptor จริง
+
+     ⚠ ไม่ลดจำนวนหลักฐาน · ไม่ Clone · ไม่ Reuse เฟรม:
+        out ยังเก็บเฉพาะเฟรมที่มี Descriptor จริงจากกล้อง (Attendance ปกติ = 6 เฟรมเท่าเดิม)
+        Borderline ยังรวม BORDER_MIN..BORDER_MAX (8–14) ตาม Logic เดิมทุกประการ
+     ⚠ ไม่แตะ passiveLiveness · ไม่แตะ Threshold · ไม่แตะเกณฑ์ q.ratio 0.035 เดิม
+     ⚠ ข้อความ onTick เดิมทุกตัวอักษร และ out.length = 0 เมื่อพบหลายหน้ายังคงเดิม */
+  var GRAB_STABLE_MIN = 2;    // ต้องนิ่งอย่างน้อย 2 เฟรมติดกันก่อนจ่ายค่า Descriptor
+
   function grabFramesLoop(count, onTick, live, out, stopWhen) {
     return new Promise(function (res, rej) {
-      var tries = 0;
+      var tries = 0, stable = 0;
       (function loop() {
         if (!S.running || !live()) return rej(AbortAttendanceError());
-        detect().then(function (res2) {
+        /* Stage A ก่อนเสมอ · Stage B เฉพาะเมื่อนิ่งครบแล้ว */
+        var capturing = stable >= GRAB_STABLE_MIN;
+        (capturing ? detect() : detectGuide()).then(function (res2) {
           if (!live()) return rej(AbortAttendanceError());   // detect ตอบหลังหมดอายุ = หยุดทันที
           tries++;
           if (!res2.length) {
+            stable = 0;
             if (onTick) onTick('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
           } else if (res2.length > 1) {
+            stable = 0;
             if (onTick) onTick('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
             out.length = 0;
           } else {
             var f0 = res2[0], box = f0.detection.box;
             var q = frameQuality(box);
             if (!q || q.ratio < 0.035) {
+              stable = 0;
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+            } else if (!capturing || !f0.descriptor) {
+              /* Stage A ผ่าน แต่ยังไม่ถึงคิวสร้าง Descriptor — นับความนิ่งไว้ก่อน */
+              stable++;
+              if (onTick) onTick(null, out.length / count);
             } else {
               out.push({ box: box, desc: Array.from(f0.descriptor), q: q,
                          ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) });
@@ -997,7 +1784,11 @@
           if (!live()) return rej(AbortAttendanceError());
           if (stopWhen) { try { if (stopWhen(out)) return res(out); } catch (e2) {} }
           if (out.length >= count) return res(out);
-          if (tries > count * 12) return rej(new Error('ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่'));
+          /* เพดานจำนวนรอบต้องเผื่อเฟรมนำทางที่เพิ่มเข้ามา (ราคาถูกกว่า Descriptor มาก)
+             ไม่งั้นเส้นทางปกติจะชน 'ตรวจใบหน้าไม่สำเร็จ' ทั้งที่ยังตรวจได้อยู่ */
+          if (tries > count * 12 + GRAB_STABLE_MIN * 12) {
+            return rej(new Error('ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่'));
+          }
           S.raf = requestAnimationFrame(loop);
         }).catch(function (e) { rej(live() ? e : AbortAttendanceError()); });
       })();
@@ -1098,15 +1889,18 @@
                    : fn('upload-url', { kind: kind, punch_action: action || null,
                                         employee_id: employeeId || null, size: blob.size });
     return got.then(function (r) {
+      var tPut = perfNow();                    // [UPLOAD] เวลา PUT จริง
       return fetchT(r.upload_url,
         { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob }, 'อัปโหลดภาพ')
         .then(function (up) {
+          perfMark('snapshot_put_ms', tPut);   // สำเร็จ
           if (!up.ok) {
             njfReport('EDGE_FAIL', 'njhr-face/signed-put', { message: 'HTTP ' + up.status });
             throw njfMark(new Error('อัปโหลดภาพไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
           }
           return r.path;
         })['catch'](function (e) {
+          perfMark('snapshot_put_ms', tPut);   // ล้มเหลวก็ต้องมีตัวเลข
           /* ห้าม log: Signed URL · เนื้อไฟล์ · token · รูปใบหน้า */
           if (!njfDone(e)) njfReport('EDGE_FAIL', 'njhr-face/signed-put', e, 'transport');
           throw e;
@@ -1164,7 +1958,30 @@
      ค่าที่เก็บได้จากรอบก่อนถูกทิ้งทั้งหมด และ gpsStop() ปิด watch เสมอ
      accuracy ที่ส่งไปเป็นค่าจริงของ Fix นั้น — Server ยังตรวจ
      accuracy ≤ max_accuracy และ distance ≤ radius เหมือนเดิมทุกประการ */
-  var G = { id: 0, err: null, first: null, fixes: [], sid: 0, denied: false };
+  var G = { id: 0, err: null, first: null, fixes: [], sid: 0, denied: false,
+            /* [GPS WARMUP] ข้อมูล Session ต่อเนื่องของหน้าลงเวลา
+               warm     = watcher นี้เริ่มจาก attGpsWarmup (ไม่ใช่จากการกดปุ่ม)
+               startedAt= เวลาที่ watcher เริ่มเดิน
+               owner    = token+employee_id เจ้าของ Session — เปลี่ยนคน/Logout = ทิ้งทั้งชุด */
+            warm: false, startedAt: 0, owner: '' };
+
+  /* เจ้าของ GPS Session ปัจจุบัน — ผูกกับ Login Session + Employee
+     ใช้กันไม่ให้ Fix ของคนก่อนหน้าถูกนำมาใช้ต่อหลัง Logout/สลับบัญชี */
+  /* [ROOT CAUSE 2] เดิมเรียก sbToken() ซึ่ง "ไม่มีประกาศในไฟล์นี้" → ReferenceError ทุกครั้ง
+     → catch คืน '' → Owner Key ว่างเสมอ → กันสลับบัญชี/Logout ใช้ไม่ได้จริง
+     ของใหม่ใช้ token() (L55 ในไฟล์นี้) + currentSessionEmployeeId() ที่มีอยู่แล้ว
+     ⚠ ไม่ Log Token · ไม่ Persist Owner Key · เก็บเฉพาะในหน่วยความจำของหน้า
+        และตัดเหลือ 24 ตัวท้ายเหมือนเดิม เพื่อไม่ให้ Token เต็มไปอยู่ใน State ใด ๆ */
+  function gpsOwnerKey() {
+    try {
+      var t = '';
+      try { t = token() || ''; } catch (e1) { t = ''; }
+      var e = '';
+      try { e = currentSessionEmployeeId() || ''; } catch (e3) { e = ''; }
+      if (!e) e = (S.ctx && S.ctx.employee_id) || '';
+      return String(t).slice(-24) + '|' + String(e);
+    } catch (e2) { return ''; }
+  }
 
   /* หน้าต่างความสดของ Fix ณ วินาทีที่ส่ง (มิลลิวินาที)
      ที่มา: watchPosition ยิง Fix ราว 1 ครั้ง/วินาที → 3000ms ครอบคลุม ~3 Fix สุดท้าย
@@ -1173,6 +1990,194 @@
   /* ถ้ายังไม่มี Fix สดตอนจะส่ง ให้รอ Fix ใหม่ได้นานสุดเท่านี้ แล้ว Fail Closed
      ไม่ใช่ค่าสุ่ม: = หน้าต่างความสด + 1 รอบ watch (ราว 1 วินาที) */
   var GPS_WAIT_MS = 4000;
+
+  /* [ROOT CAUSE 4] First Fix Deadline — ต้องเท่ากับกรอบที่ให้ Browser จริง
+     ปัญหาเดิม: watchPosition ตั้ง timeout: 12000 แต่ gpsFresh() ยอมรอแค่ GPS_WAIT_MS (4000)
+     Cold GPS ที่ได้ Fix แรกวินาทีที่ 5–12 จึงถูก Fail ทิ้งทั้งที่ Browser ยังทำงานอยู่
+     ของใหม่แยกสองกรอบชัดเจน:
+       · ยังไม่เคยได้ Fix เลยในรอบนี้  → รอถึง GPS_FIRST_MS นับจาก G.startedAt (12 วินาที)
+       · มี Fix แล้วแต่ต้องการตัวที่สดกว่า → ใช้กรอบสั้นเดิม GPS_WAIT_MS (4 วินาที)
+     ⚠ PERMISSION_DENIED (code 1) ยัง Fail ทันทีเหมือนเดิม ไม่รอครบกรอบ
+       และไม่แตะ accuracy เลย — Server ยังตรวจ max_accuracy + radius เหมือนเดิมทุกประการ */
+  var GPS_FIRST_MS = 12000;
+
+  /* [ROOT CAUSE 3+4] หน้าต่างความสดตอน watcher "ยังเดินอยู่จริง"
+     ปัญหาเดิม: สแกนใบหน้าใช้เวลามากกว่า 3 วินาทีเสมอ พอถึงเวลาส่ง RPC
+     Fix ทุกตัวจึงพ้น GPS_FRESH_MS → gpsFresh() ต้องรอ Fix ใหม่อีกสูงสุด 4 วินาที
+     = อาการ "สแกนหน้าเสร็จแล้วยังหมุนรอ GPS" ที่พนักงานเจอ
+
+     ของใหม่: ถ้า watcher ยัง Active · Session เดิม · ไม่มี error · ไม่ถูก deny
+     ให้ยอมรับ Fix ที่ใหม่กว่า GPS_LIVE_MS ได้ เพราะ watcher ยิง Fix ต่อเนื่องอยู่แล้ว
+     "Fix ล่าสุดของ watcher ที่ยังเดินอยู่" = ตำแหน่งปัจจุบันจริง ไม่ใช่ตำแหน่งเก่า
+
+     ⚠ ยังมีเพดานเวลาเสมอ ไม่ใช่ยอมรับ Fix อายุเท่าไรก็ได้
+        และไม่แตะ accuracy เลย — Server ยังตรวจ max_accuracy + radius เหมือนเดิม
+     30000ms = watcher ยิงราว 1 ครั้ง/วินาที ถ้าเงียบเกิน 30 วินาที ถือว่าผิดปกติ
+     ให้กลับไปใช้เกณฑ์เข้มเดิม (GPS_FRESH_MS) แทน */
+  var GPS_LIVE_MS = 30000;
+
+  /* watcher ยังเดินอยู่จริงและเชื่อถือได้สำหรับ sid นี้หรือไม่ */
+  function gpsWatchAlive(sid) {
+    return !!(G.id && sid === G.sid && !G.denied && !G.err);
+  }
+
+  /* ---------- [ROOT CAUSE 5] GPS/Geofence Preflight ----------
+     ปัญหาเดิม: หน้าเว็บถือว่า "GPS พร้อม" เมื่อมี Fix ใด ๆ ก็ได้
+     แต่ฝั่ง SQL njhr_gf_check ตรวจครบทั้ง 4 ชั้น:
+       accuracy ≤ max_accuracy (50 ม.) · พนักงานได้รับพื้นที่ไหม · ระยะทาง · radius
+     ผลคือพนักงานสแกนหน้าจนครบแล้วค่อยรู้ว่า "นอกพื้นที่" หรือ "GPS ไม่แม่นพอ"
+     ของใหม่เรียก njhr_gf_check เป็นด่านก่อนเปิดกล้อง — ใช้ RPC เดิม ไม่มี SQL ใหม่
+     ⚠ ไม่ตัดการตรวจใน njhr_att_punch_face ออก — Server ยังตรวจซ้ำก่อนบันทึกทุกครั้ง
+        Preflight นี้เป็นการ "แจ้งเตือนล่วงหน้า" ไม่ใช่การอนุมัติ */
+
+  /* ผู้ฟังสถานะ GPS — หน้าลงเวลาสมัครไว้เพื่ออัปเดตจอทันทีจาก Callback */
+  var GPS_SUBS = [];
+  function gpsSubscribe(fn2) {
+    if (typeof fn2 !== 'function') return function () {};
+    GPS_SUBS.push(fn2);
+    return function () {
+      var i = GPS_SUBS.indexOf(fn2);
+      if (i >= 0) GPS_SUBS.splice(i, 1);
+    };
+  }
+  function gpsNotify() {
+    for (var i = 0; i < GPS_SUBS.length; i++) {
+      try { GPS_SUBS[i](); } catch (e) {}
+    }
+  }
+
+  /* ผล Preflight ล่าสุด + ตัวกันยิงซ้อน
+     key = sid|lat|lng|accuracy ที่ปัดแล้ว — Fix เดิมไม่ยิงซ้ำ
+     inflight = อนุญาตให้มี Request เดียวเท่านั้นในเวลาเดียวกัน */
+  /* [GF] inflight ผูกกับ {sid,key,gen} ของ Request ที่กำลังทำงานจริง
+     Fix ใหม่ที่ key ต่างออกไป จะต้องไม่ได้รับผลของ Fix เก่าเด็ดขาด — Fail Closed
+     gen = Generation ของ GF ทั้งชุด เพิ่มทุกครั้งที่ Session เปลี่ยน/รีเซ็ต */
+  var GF = { key: '', inflight: null, inflightSid: 0, inflightKey: '', inflightGen: 0,
+             gen: 0, val: null, at: 0, sid: 0, err: '' };
+  /* [GF CACHE] อายุสูงสุดของผล njhr_gf_check ที่นำกลับมาใช้ซ้ำได้
+     ใช้ซ้ำได้ก็ต่อเมื่อครบทุกเงื่อนไขพร้อมกัน:
+       sid เดิม · gfKey เดิม (พิกัด+accuracy ที่ปัดแล้วเท่ากัน) · pass === true · อายุ ≤ 3 วินาที
+     ขาดข้อใดข้อหนึ่ง = ยิง RPC ใหม่และ Fail Closed
+     ⚠ njhr_att_punch_face ยังตรวจ Geofence ซ้ำฝั่ง Server ก่อนบันทึกทุกครั้งเหมือนเดิม */
+  var GF_REUSE_MS = 3000;
+
+  function gfKey(sid, fix) {
+    return String(sid) + '|' + fix.lat.toFixed(5) + '|' + fix.lng.toFixed(5) +
+           '|' + Math.round(fix.accuracy);
+  }
+
+  function gfReset() {
+    var g = GF.gen + 1;                        // ผลของ Request เก่าทั้งหมดหมดสิทธิ์ทันที
+    GF = { key: '', inflight: null, inflightSid: 0, inflightKey: '', inflightGen: g,
+           gen: g, val: null, at: 0, sid: 0, err: '' };
+  }
+
+  /* คืนผลที่ "ใช้ซ้ำได้จริง" สำหรับ fix ที่ให้มา — ไม่ผ่านเงื่อนไขใดเงื่อนไขหนึ่ง = null
+     ไม่มีการยิง RPC ในฟังก์ชันนี้ ปลอดภัยที่จะเรียกถี่ ๆ จาก UI */
+  function gfCacheValid(fix) {
+    if (!fix || fix.ok === false || fix.lat == null || fix.lng == null) return null;
+    if (!GF.val || GF.val.pass !== true) return null;              // pass=false ห้ามใช้ซ้ำ
+    var sid = fix.sid || G.sid;
+    if (GF.sid !== sid || sid !== G.sid) return null;              // Session เปลี่ยน
+    if (GF.key !== gfKey(sid, fix)) return null;                   // Fix คนละจุด/คนละความแม่น
+    if (!GF.at || (Date.now() - GF.at) > GF_REUSE_MS) return null; // ผลหมดอายุ
+    return GF.val;
+  }
+
+  /* เรียก njhr_gf_check กับ Fix ที่ให้มา — คืน Promise ของผลจริงจากเซิร์ฟเวอร์
+     ห้ามยิงซ้อน · ใช้ผลซ้ำได้เฉพาะที่ผ่าน gfCacheValid() เท่านั้น */
+  function gfCheck(fix, force) {
+    if (!fix || fix.ok === false || fix.lat == null || fix.lng == null) {
+      return Promise.resolve(null);
+    }
+    var k = gfKey(fix.sid || G.sid, fix);
+    /* [GF CACHE] ใช้ซ้ำได้เฉพาะผลที่ผ่านเงื่อนไขครบทุกข้อเท่านั้น
+       force = true (กดปุ่มลงเวลา / กดตรวจตำแหน่งอีกครั้ง) จะไม่ใช้ Cache เสมอ */
+    if (!force) {
+      var cached = gfCacheValid(fix);
+      if (cached) { perfBootCount('gf_cache_hits'); return Promise.resolve(cached); }
+    }
+    var mySid = fix.sid || G.sid;
+    var myGen = GF.gen;
+    /* [GF INFLIGHT] มี Request ค้างอยู่ —
+       ตรงทั้ง sid + key + gen เท่านั้นจึงใช้ผลร่วมกันได้
+       ถ้า Fix เปลี่ยน (key ต่าง) ต้องรอให้ตัวเก่าจบ แล้วตรวจ Cache ด้วย Fix ใหม่อีกครั้ง
+       ถ้ายังใช้ไม่ได้ = ยิง Request ใหม่ ห้ามคืนผลของ Fix เก่าเด็ดขาด */
+    if (GF.inflight) {
+      if (GF.inflightSid === mySid && GF.inflightKey === k && GF.inflightGen === myGen) {
+        return GF.inflight;
+      }
+      return GF.inflight['catch'](function () { return null; }).then(function () {
+        if (myGen !== GF.gen || mySid !== G.sid) return null;   // Session/Generation เปลี่ยน
+        var c2 = force ? null : gfCacheValid(fix);
+        if (c2) { perfBootCount('gf_cache_hits'); return c2; }
+        return gfCheck(fix, force);                            // ยิงใหม่ด้วย Fix ปัจจุบัน
+      });
+    }
+    var t0 = perfNow();
+    perfBootCount('njhr_gf_check_calls');                      // นับก่อนยิงจริง
+    GF.inflightSid = mySid; GF.inflightKey = k; GF.inflightGen = myGen;
+    GF.inflight = rpcRows('njhr_gf_check', {
+      p_token: token(), p_lat: fix.lat, p_lng: fix.lng, p_accuracy: fix.accuracy
+    }).then(function (rows) {
+      GF.inflight = null; GF.inflightKey = ''; GF.at = Date.now();
+      var r = (rows && rows.length) ? rows[0] : null;
+      if (myGen !== GF.gen) return null;                       // Generation เปลี่ยน = ทิ้งผล
+      if (mySid !== G.sid) return null;                        // Session เปลี่ยน = ทิ้งผล
+      perfMark('gps_preflight_ms', t0);
+      GF.key = k; GF.sid = mySid; GF.err = '';
+      /* [GPS] Fix แรกของ Session นี้ที่ผ่านการตรวจของเซิร์ฟเวอร์จริง (pass=true)
+         แยกจาก gps_first_fix_ms ซึ่งเป็น Fix แรกที่อ่านได้เฉย ๆ
+         ไม่ hardcode max_accuracy ฝั่ง Client — ใช้คำตอบจริงจาก njhr_gf_check */
+      if (r && r.pass === true && PERF.boot.marks.gps_usable_fix_ms == null) {
+        perfBootSet('gps_usable_fix_ms', Math.max(0, (fix.at || Date.now()) - (G.startedAt || Date.now())));
+      }
+      GF.val = r ? {
+        pass: r.pass === true,
+        reason: r.reason || '',
+        geofence_name: r.geofence_name || '',
+        distance_m: r.distance_m == null ? null : Number(r.distance_m),
+        radius: r.radius == null ? null : Number(r.radius),
+        accuracy: Math.round(fix.accuracy)
+      } : null;
+      return GF.val;
+    }, function (e) {
+      GF.inflight = null; GF.inflightKey = ''; GF.at = Date.now();
+      GF.err = (e && e.message) || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ';
+      njfReport('JS_ERROR', 'face/gps-preflight', e,
+                'gps error_code=- accuracy_m=' + Math.round(fix.accuracy) +
+                ' build=' + String(w.NJHR_BUILD_VERSION || ''));
+      return null;
+    });
+    return GF.inflight;
+  }
+
+  /* Preflight แบบครบวงจรสำหรับหน้าลงเวลา:
+     มี Fix สดของ Session ที่อุ่นไว้ → ยิง njhr_gf_check → คืนผลจริง
+     ไม่มี Fix → คืน { stage:'GPS' } ให้ UI แสดงว่ายังหาตำแหน่งอยู่ */
+  function gpsPreflight(force) {
+    var sid = G.sid;
+    if (G.denied) {
+      return Promise.resolve({ stage: 'GPS', pass: false, denied: true,
+        reason: G.err || 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง' });
+    }
+    var fix = gpsPickFresh(sid);
+    if (!fix) {
+      return Promise.resolve({ stage: 'GPS', pass: false,
+        reason: G.err || '', hasFix: !!(G.fixes && G.fixes.length) });
+    }
+    return gfCheck(fix, force).then(function (r) {
+      if (!r) {
+        return { stage: 'CHECK', pass: false, accuracy: Math.round(fix.accuracy),
+                 reason: GF.err || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ กรุณาลองใหม่' };
+      }
+      return {
+        stage: 'CHECK', pass: r.pass, reason: r.reason,
+        accuracy: r.accuracy, geofence_name: r.geofence_name,
+        distance_m: r.distance_m, radius: r.radius
+      };
+    });
+  }
 
   /* [ข้อ 1] gpsStop ต้องระบุ sid เจ้าของเสมอ — Async ของ Attempt เก่าที่มาช้า
      จะหยุด watch ของ Attempt ใหม่ไม่ได้เด็ดขาด */
@@ -1184,10 +2189,50 @@
     G.id = 0;
   }
 
+  /* [GPS WARMUP] เริ่ม watcher ล่วงหน้าตั้งแต่เปิดหน้าลงเวลา (Mobile เท่านั้น)
+     คืน sid ของ Session ที่ใช้อยู่ — ถ้ามี Session ที่ยังเดินอยู่และเจ้าของเดิม จะใช้ต่อ ไม่ restart
+
+     ทำไมต้องมี: gpsStart() เดิมถูกเรียกตอน "กดปุ่มลงเวลา" เท่านั้น GPS จึงเริ่ม Cold
+     ทุกครั้ง ผู้ใช้ต้องรอ First Fix หลังกดปุ่มเสมอ
+     ของใหม่เริ่มตั้งแต่เข้าหน้า → พอกดปุ่มมักมี Fix พร้อมอยู่แล้ว
+
+     ⚠ ความปลอดภัย: ผูก Session กับ token+employee_id (gpsOwnerKey)
+        เปลี่ยนคน/Logout/Login ใหม่ = owner ไม่ตรง → ทิ้ง Fix เดิมทั้งหมดแล้วเริ่มใหม่
+        ไม่มีการ persist ลง storage ใด ๆ · อยู่ในหน่วยความจำของหน้าเท่านั้น */
+  /* หน้าลงเวลาสั่งเปิด Warmup ไว้หรือไม่ — ใช้ตัดสินว่าหลังปิดจอสแกนควรอุ่นต่อไหม */
+  var GPS_WARM_WANTED = false;
+
+  function gpsWarmStart() {
+    var key = gpsOwnerKey();
+    if (G.id && G.owner === key && !G.denied) return G.sid;   // เดินอยู่แล้วและเจ้าของเดิม = ใช้ต่อ
+    var sid = gpsStart();
+    G.warm = true;
+    G.owner = key;
+    G.startedAt = Date.now();
+    return sid;
+  }
+
+  /* [GPS WARMUP] สถานะสำหรับ UI — ไม่เปิดพิกัดออกไป คืนเฉพาะที่จำเป็นต่อการแสดงผล */
+  function gpsWarmState() {
+    var sid = G.sid;
+    var alive = gpsWatchAlive(sid);
+    var best = alive ? gpsPickFresh(sid) : null;
+    return {
+      active: !!G.id,
+      denied: !!G.denied,
+      error: G.err || '',
+      hasFix: !!(G.fixes && G.fixes.length),
+      ready: !!best,
+      accuracy: best ? Math.round(best.accuracy) : null,
+      ageMs: best ? (Date.now() - best.at) : null
+    };
+  }
+
   /* ขึ้น Punch Session ใหม่ — คืน sid ให้ผู้เรียกถือไว้เป็นเจ้าของ */
   function gpsStart() {
     gpsStop();                                   // ปิด watch ของ Attempt ก่อนหน้าแบบไม่มีเงื่อนไข
     G.sid++; G.err = null; G.first = null; G.fixes = []; G.denied = false;
+    G.warm = false; G.owner = gpsOwnerKey(); G.startedAt = Date.now();
     var mySid = G.sid;
     if (!navigator.geolocation) {
       G.err = 'อุปกรณ์นี้ไม่รองรับ GPS';
@@ -1204,9 +2249,13 @@
       var at = (p && typeof p.timestamp === 'number' && p.timestamp > 0) ? p.timestamp : Date.now();
       var fx = { ok: true, lat: p.coords.latitude, lng: p.coords.longitude,
                  accuracy: p.coords.accuracy, at: at, sid: mySid };
+      /* [INSTRUMENTATION] gps_first_fix_ms = Fix แรกจริงของ Session นี้
+         คิดจาก G.startedAt (ตอน watcher เริ่มเดิน = ตอน Warmup) ไม่ใช่ตอนกดปุ่ม */
+      if (!G.fixes.length) perfBootSet('gps_first_fix_ms', Math.max(0, at - (G.startedAt || at)));
       G.fixes.push(fx);
       if (G.fixes.length > 20) G.fixes.shift();  // กันหน่วยความจำโตไม่จำกัด
       if (settle) { settle(fx); settle = null; } // Fix แรก = แจ้งสถานะบนจอ
+      gpsNotify();                               // [ROOT CAUSE 5] อัปเดต UI จาก Callback ทันที
     }, function (e) {
       if (mySid !== G.sid) return;
       /* [ข้อ 5] PERMISSION_DENIED (code 1) เป็น Terminal — รอต่อไปก็ไม่มีทางได้ Fix
@@ -1217,7 +2266,21 @@
       G.err = G.denied
         ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งของเบราว์เซอร์แล้วลองใหม่'
         : 'ไม่สามารถอ่าน GPS ได้ กรุณาลองใหม่กลางที่โล่ง';
+      /* [ROOT CAUSE 8] รายงานเฉพาะ Error Code · เวลาถึง Fix แรก · จำนวน Fix
+         ⚠ ห้าม lat/lng · ห้าม Token · ห้าม Descriptor · ห้ามรูป · ห้าม Device ID
+         รายงานครั้งเดียวต่อ Session (njErrPost มี de-dup ด้วย signature อยู่แล้ว) */
+      try {
+        var dvg = deviceInfo();
+        njfReport('JS_ERROR', 'face/gps',
+          { message: 'geolocation error code=' + ((e && e.code) || '-') },
+          'gps_error_code=' + ((e && e.code) || '-') +
+          ' had_fix=' + (G.fixes.length ? 'true' : 'false') +
+          ' time_to_first_fix_ms=' + (G.fixes.length ? (G.fixes[0].at - G.startedAt) : -1) +
+          ' browser=' + dvg.browser + ' os=' + dvg.os + ' device=' + dvg.device +
+          ' build=' + String(w.NJHR_BUILD_VERSION || ''));
+      } catch (eg) {}
       if (settle && !G.fixes.length) { settle({ ok: false, reason: G.err }); settle = null; }
+      gpsNotify();                               // [ROOT CAUSE 5] แจ้ง UI ทันทีเมื่อสถานะเปลี่ยน
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
     return mySid;
   }
@@ -1226,8 +2289,11 @@
      [ข้อ 2] ไม่มี fallback ไป Fix ที่พ้นหน้าต่างความสดอีกต่อไป */
   function gpsPickFresh(sid) {
     var now = Date.now();
+    /* watcher ยังเดินอยู่ = ใช้หน้าต่างกว้างขึ้น (ดูเหตุผลที่ GPS_LIVE_MS)
+       watcher หยุด/มี error = กลับไปใช้เกณฑ์เข้มเดิมทันที */
+    var win = gpsWatchAlive(sid) ? GPS_LIVE_MS : GPS_FRESH_MS;
     var fresh = G.fixes.filter(function (f) {
-      return f.sid === sid && (now - f.at) <= GPS_FRESH_MS;
+      return f.sid === sid && (now - f.at) <= win;
     });
     if (!fresh.length) return null;
     var best = fresh[0];
@@ -1249,6 +2315,18 @@
     }
     return new Promise(function (res) {
       var t0 = Date.now(), iv = 0, done = false;
+      /* [ROOT CAUSE 4] เลือกกรอบเวลาตามสถานะจริงของ Session นี้
+         ยังไม่เคยได้ Fix เลย = First Fix Deadline (นับจากตอน watcher เริ่มเดิน)
+         มี Fix แล้ว = กรอบสั้นเดิมสำหรับหา Fix ที่สดกว่า */
+      var coldStart = !G.fixes.length;
+      var startedAt = G.startedAt || t0;
+      function deadlineReached() {
+        if (G.fixes.length || !coldStart) return (Date.now() - t0) >= GPS_WAIT_MS;
+        /* ยังไม่มี Fix เลย — ให้เวลาเท่ากับที่ให้ watchPosition จริง แต่ไม่ต่ำกว่ากรอบสั้นเดิม */
+        var byFirst = (Date.now() - startedAt) >= GPS_FIRST_MS;
+        var byWait  = (Date.now() - t0) >= GPS_WAIT_MS;
+        return byFirst && byWait;
+      }
       function finish(v) { if (done) return; done = true; if (iv) clearInterval(iv); res(v); }
       iv = setInterval(function () {
         if (sid !== G.sid) {
@@ -1256,9 +2334,11 @@
         }
         var q = gpsPickFresh(sid);
         if (q) return finish(q);
-        /* [ข้อ 5] ไม่ได้รับอนุญาต + ยังไม่มี Fix เลย = รอต่อไม่มีประโยชน์ */
+        /* [ข้อ 5] ไม่ได้รับอนุญาต + ยังไม่มี Fix เลย = รอต่อไม่มีประโยชน์ (Fail ทันที) */
         if (G.denied && !G.fixes.length) return finish({ ok: false, reason: G.err });
-        if (Date.now() - t0 >= GPS_WAIT_MS) {
+        /* POSITION_UNAVAILABLE (2) / TIMEOUT (3) เป็นความผิดพลาดชั่วคราว
+           ห้าม Fail ก่อนครบ First Fix Deadline — ยังมีโอกาสได้ Fix */
+        if (deadlineReached()) {
           finish({ ok: false, reason: G.err ||
             'GPS ยังไม่พร้อม (ยังไม่ได้ตำแหน่งที่สดพอ) กรุณาลองใหม่กลางที่โล่ง' });
         }
@@ -1371,6 +2451,10 @@
     FLOW.kind = ''; FLOW.op = -1;             // [ข้อ 5] ปิดหน้าจอ = จบ Punch Flow · Retry นับใหม่
     attAbortAll();                            // [ข้อ 4] ยกเลิก Network ของ Attempt นี้ทั้งหมด
     gpsStop();                                // ปิด watchPosition ทุกกรณีที่ปิดหน้าจอ
+    /* [GPS WARMUP] ถ้าหน้าลงเวลาเปิด Warmup ไว้ ให้กลับไปอุ่นต่อหลังปิดจอสแกน
+       เพื่อให้กดลงเวลาครั้งถัดไป GPS ยังพร้อมอยู่ ไม่ต้อง Cold Start ใหม่
+       ปิดหน้า/ออกจาก Route จริง ๆ จะถูกหยุดด้วย NJHRFace.gpsWarmStop() จากฝั่งหน้าจอ */
+    if (GPS_WARM_WANTED) { try { gpsWarmStart(); } catch (e3) {} }
     S.mode = '';
     if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
     S.root = null; S.busy = false;
@@ -1410,8 +2494,12 @@
        ถ้ายังไม่พร้อม (Preload ล้มเหลว) = ถามเซิร์ฟเวอร์ตรงนี้ตามเส้นทางเดิม
        ทุกอุปกรณ์ (Desktop / Android / iOS / iPad) ใช้เส้นทางเดียวกันทั้งหมด
        employee_id มาจาก Session เท่านั้น — เลิกใช้ p_employee:null + แถวแรก */
+    var tFs = perfNow();
     faceStatus()
       .then(function (has) {
+        /* [E2E] เวลารอ njhr_face_status ก่อนตัดสินเส้นทาง (Cache hit = เกือบ 0) */
+        PERF.boot.marks.face_status_wait_ms =
+          perfOn() ? Math.round((perfNow() - tFs) * 10) / 10 : PERF.boot.marks.face_status_wait_ms;
         if (!opAlive(myOp)) { S.busy = false; return; }   // ถูกยกเลิกระหว่างรอ = หยุดเงียบ
         if (has) { S.busy = false; return doPunch(kind, onDone, myOp); }
         S.busy = false;
@@ -1427,27 +2515,97 @@
   /* ลงทะเบียนใบหน้าต้นแบบครั้งแรก แล้วต่อด้วยการลงเวลาทันที
      ⚠ ลงทะเบียนสำเร็จ ≠ ลงเวลาสำเร็จ — ยังต้องผ่าน Face + Liveness + GPS + Geofence
        ถ้า GPS/Geofence ไม่ผ่าน ใบหน้าต้นแบบยังถูกเก็บไว้ ครั้งหน้าไม่ต้องลงทะเบียนใหม่ */
+  /* [ROOT CAUSE 5+7] หน้าจอแจ้งผล Preflight ที่ไม่ผ่าน — ไม่เปิดกล้องเลย
+     ผู้ใช้ไม่ต้องเสียเวลาสแกนหน้าจนครบแล้วค่อย Fail */
+  function preflightFail(kind, msg, retry) {
+    var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
+    shell('ตรวจตำแหน่ง', title);
+    panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'bad' }, msg, true));
+    actions([
+      { label: 'ปิด', style: 'plain', on: close },
+      { label: '↻ ตรวจตำแหน่งอีกครั้ง', style: 'primary', on: function () {
+        close();
+        if (typeof retry === 'function') setTimeout(retry, 60);
+      } }
+    ]);
+  }
+
   function enrollThenPunch(kind, onDone, myOp) {
     /* [ข้อ 1] ลงทะเบียนใบหน้าครั้งแรกที่เกิดจากการลงเวลา = ยังอยู่ใน Attendance Context
        ส่ง { attendance: true } เข้า enroll() เพื่อคง S.mode='ATTENDANCE'
        Route Change / Logout จึงปิดกล้องและยกเลิก Flow นี้ได้
        ส่วน Manual Enrollment จากหน้า Profile/HR ไม่ส่ง flag นี้ = Enrollment ปกติ */
-    enroll(null, function () {
-      /* มาถึงที่นี่ได้เฉพาะเมื่อ Enrollment สำเร็จและยังเป็น Operation เดิม
-         (enroll ใช้ closeSoft() ในโหมด attendance จึงไม่ถูก opInvalidate) */
-      if (!opAlive(myOp)) return;             // ถูกยกเลิกจริง (Route/Logout) = ไม่ต่อ
-      setTimeout(function () {
-        if (!opAlive(myOp)) return;
-        doPunch(kind, onDone, myOp);          // ต่อด้วย Face + Liveness + GPS + Geofence ตามเดิม
-      }, 60);
-    }, { attendance: true, attendanceOp: myOp });
+    /* [ROOT CAUSE 5] GPS/Geofence Preflight ต้องผ่านก่อนเปิด Enrollment Camera
+       รักษา GPS Watcher เดิมไว้ตลอด Enrollment (ไม่เรียก gpsStop) เพื่อให้ตอน Punch
+       ยังมี Fix สดพร้อมใช้ทันที ไม่ต้อง Cold Start ใหม่ */
+    perfPressFlagFirst();      // [E2E] รอบนี้ต้องลงทะเบียนใบหน้าก่อน = First Attendance
+    var aid = gpsWarmStart();
+    var alive = function () { return aid === G.sid && opAlive(myOp); };
+    var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
+    shell('ตรวจตำแหน่ง', title);
+    panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'wait' }, 'กำลังค้นหาตำแหน่ง…'));
+    actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+
+    gpsFresh(aid).then(function (g) {
+      if (!alive()) throw AbortAttendanceError();
+      if (!g || !g.ok) throw new Error(g && g.reason ? g.reason : 'GPS ยังไม่พร้อม');
+      panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'run' }, 'กำลังตรวจพื้นที่ลงเวลา…'));
+      actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+      /* [GF CACHE] ใช้ผลที่ยังสดได้ (sid เดิม + gfKey เดิม + pass=true + อายุ ≤ 3 วินาที)
+         หน้าลงเวลาเพิ่งถามไปเมื่อครู่ ไม่จำเป็นต้องยิงซ้ำทันทีที่กดปุ่ม
+         ⚠ ไม่ผ่านเงื่อนไขข้อใดข้อหนึ่ง = ยิง RPC ใหม่และ Fail Closed
+            และ njhr_att_punch_face ยังตรวจ Geofence ซ้ำฝั่ง Server ก่อนบันทึกเสมอ */
+      return gfCheck(g, false);
+    }).then(function (r) {
+      if (!alive()) throw AbortAttendanceError();
+      if (!r) throw new Error(GF.err || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ กรุณาลองใหม่');
+      if (!r.pass) throw new Error(r.reason || 'ยังลงเวลาจากตำแหน่งนี้ไม่ได้');
+      /* ผ่านด่านแล้วจึงเปิดกล้องลงทะเบียน */
+      if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
+      S.root = null;
+      enroll(null, function (r2, handoff) {
+        /* มาถึงที่นี่ได้เฉพาะเมื่อ Enrollment สำเร็จและยังเป็น Operation เดิม
+           (enroll ใช้ closeSoft() ในโหมด attendance จึงไม่ถูก opInvalidate) */
+        if (!opAlive(myOp)) return;             // ถูกยกเลิกจริง (Route/Logout) = ไม่ต่อ
+        setTimeout(function () {
+          if (!opAlive(myOp)) return;
+          /* [ROOT CAUSE 7] ส่งหลักฐานสดจาก Enrollment Run เดิมต่อเข้า doPunch
+             ไม่ปิดแล้วเปิดกล้องเพื่อสแกนรอบใหม่
+             njhr_att_punch_face ยังตรวจ Face Match + Liveness + GPS + Geofence
+             และบันทึก Attendance ครบเหมือนเดิมทุกประการ */
+          doPunch(kind, onDone, myOp, handoff || null);
+        }, 60);
+      }, { attendance: true, attendanceOp: myOp, attendanceKind: kind });
+    })['catch'](function (e) {
+      if (isAborted(e) || !alive()) return;
+      njfReport('JS_ERROR', 'face/gps-preflight', e,
+                'stage=enroll-preflight build=' + String(w.NJHR_BUILD_VERSION || ''));
+      preflightFail(kind, (e && e.message) || 'ตรวจตำแหน่งไม่สำเร็จ', function () {
+        punch(kind, onDone);
+      });
+    });
   }
 
-  function doPunch(kind, onDone, myOp) {
+  /* [ROOT CAUSE 7] handoff = หลักฐานสดจาก Enrollment Run เดียวกัน
+       { op, kind, desc, method, snapshotP }
+     ยอมรับก็ต่อเมื่อพิสูจน์ได้ว่าเป็น Attendance Operation เดียวกันและเป็นการกดปุ่มเดียวกัน
+     ถ้าพิสูจน์ไม่ได้ → ทิ้งทั้งก้อน แล้วเดินเส้นทางเปิดกล้องปกติ (ห้ามทำทางลัด) */
+  function handoffValid(h, kind, myOp) {
+    if (!h) return false;
+    if (h.op !== myOp) return false;                       // คนละ Attendance Operation
+    if (h.kind !== kind) return false;                     // คนละปุ่ม IN/OUT
+    if (!h.desc || !h.desc.length) return false;           // ไม่มี Descriptor จริง
+    if (!h.method) return false;                           // ไม่รู้ Liveness Method จริง
+    return true;
+  }
+
+  function doPunch(kind, onDone, myOp, handoff) {
     if (S.busy) return;                       // กันกดซ้ำ
     S.busy = true;
     if (typeof myOp !== 'number') myOp = opStart();   // เผื่อถูกเรียกตรง
     if (!opAlive(myOp)) { S.busy = false; return; }
+    /* [ROOT CAUSE 7] ใช้ Handoff ได้ก็ต่อเมื่อพิสูจน์ที่มาได้ครบเท่านั้น */
+    var hand = handoffValid(handoff, kind, myOp) ? handoff : null;
     /* [ข้อ 5] Evidence ต้องเป็นของ "Attempt ปัจจุบัน" เท่านั้น — ล้างทุกครั้งที่เริ่ม Attempt
        กัน Special Request ของ OUT หยิบ Snapshot/GPS/Liveness/Similarity ที่ค้างจาก IN
        ส่วนจำนวน Retry นับตาม Punch Flow (กด IN/OUT 1 ครั้ง = 1 Flow) ไม่ใช่ต่อ Attempt */
@@ -1464,42 +2622,141 @@
 
     /* [ข้อ 1] Attempt นี้เป็นเจ้าของ GPS Session หมายเลข aid เท่านั้น
        Async ที่ค้างจาก Attempt ก่อนหน้าจะแตะ watch / S.ctx ของ Attempt นี้ไม่ได้ */
+    /* [FIX 1] ต้องเปิด Flow ก่อนแตะ GPS Gate — ไม่งั้น PERF.t ยังเป็น null
+       ทำให้ gps_gate_wait_ms / gps_ready_ms / gps_preflight_ms หายทั้งชุด */
+    perfStart('ATTENDANCE_' + kind);
     var tGps = perfNow();
-    var aid = gpsStart();
+    /* [GPS WARMUP] ใช้ watcher ที่อุ่นไว้ตั้งแต่เปิดหน้าต่อได้เลยถ้ายังเดินอยู่และเจ้าของเดิม
+       ไม่เช่นนั้น gpsWarmStart() จะเริ่ม Session ใหม่ให้เอง (พฤติกรรมเท่ากับ gpsStart เดิม)
+       → ตัดเวลา Cold Start ของ GPS ออกจากช่วงหลังกดปุ่ม */
+    var aid = gpsWarmStart();
     netOwn('A' + aid);                        // [ข้อ 4] Network ของ Attempt นี้ผูกกับ aid
     /* เจ้าของ = ต้องตรงทั้ง GPS Session และ Attendance Operation */
     var mine = function () { return aid === G.sid && opAlive(myOp); };
-    G.first.then(function (g) {
-      perfMark('gps_wait_ms', tGps);          // GPS เริ่มขนานตั้งแต่ต้น Flow ไม่รอ Face
-      if (!mine()) return;                    // Attempt เก่ามาช้า = ไม่แตะจอของ Attempt ใหม่
-      st.gps = g.ok ? 'run' : 'bad';
-      /* GPS ตอบกลับมาเมื่อไรก็ได้ ต้องไม่ลบสถานะ "กำลังเตรียมระบบตรวจสอบใบหน้า" ทิ้ง
-         ถ้าโมเดลยังไม่พร้อม ให้คงข้อความเดิมไว้ */
-      panel(stepsHtml(st, g.ok ? (S.ready ? '' : 'กำลังเตรียมระบบตรวจสอบใบหน้า…') : g.reason, !g.ok));
+
+    /* [GPS GATE] ประตูเดียวที่กล้อง/การสแกนใบหน้าจะผ่านไปได้
+       Requirement: ห้ามเปิดกล้องก่อน GPS พร้อม
+       - มี Fix ที่ใช้ได้แล้ว (จาก Warmup) → ผ่านทันที กล้องเปิดต่อเนื่องไม่มีสะดุด
+       - ยังไม่มี → รอที่นี่ พร้อมแสดงสถานะ GPS ไม่ใช่ไปรอทีหลังตอนสแกนหน้าเสร็จ */
+    /* [ROOT CAUSE 5] ด่านนี้ต้องผ่าน "ทั้ง Fix และ Geofence" ก่อนเปิดกล้อง
+       เดิมผ่านแค่มี Fix → พนักงานสแกนหน้าครบแล้วค่อย Fail ที่ njhr_att_punch_face
+       ของใหม่ถาม njhr_gf_check (RPC เดิม) ก่อน — accuracy · พื้นที่ที่ได้รับ · ระยะ · radius
+       ⚠ ไม่ตัดการตรวจฝั่งเซิร์ฟเวอร์ออก njhr_att_punch_face ยังตรวจซ้ำก่อนบันทึกทุกครั้ง */
+    var gpsGate = (function () {
+      function preflight(fix) {
+        /* [GF CACHE] ใช้ผลที่ยังสดได้ตามกติกา 3 วินาที — ไม่ Force โดยไม่มีเหตุผล
+           Force สงวนไว้ให้ปุ่ม "ตรวจตำแหน่งอีกครั้ง" เท่านั้น */
+        return gfCheck(fix, false).then(function (r) {
+          if (!mine()) return { ok: false, reason: 'ยกเลิกแล้ว' };
+          /* [FAIL-CLOSED] ถาม njhr_gf_check ไม่สำเร็จ (RPC Error / Timeout / Network)
+             = ห้ามเปิดกล้องเด็ดขาด ห้ามลดความปลอดภัยเพื่อให้ Flow เดินต่อ
+             กล้องเปิดได้เมื่อเซิร์ฟเวอร์ตอบ pass=true เท่านั้น
+             ⚠ njhr_att_punch_face ยังตรวจ Geofence ซ้ำก่อนบันทึกเหมือนเดิมทุกประการ */
+          if (!r) {
+            st.gps = 'bad';
+            return { ok: false,
+                     reason: GF.err || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ กรุณาลองใหม่' };
+          }
+          if (!r.pass) {
+            st.gps = 'bad';
+            return { ok: false, reason: r.reason || 'ยังลงเวลาจากตำแหน่งนี้ไม่ได้' };
+          }
+          st.gps = 'run';
+          return { ok: true };
+        });
+      }
+      var have = gpsPickFresh(aid);
+      if (have) {
+        st.gps = 'run';
+        perfMark('gps_ready_ms', tGps);
+        perfMs('gps_gate_wait_ms', 0);        // [FIX 1] Warm = ไม่ต้องรอเลย (ลง marks)
+        return preflight(have);
+      }
+      st.gps = 'wait';
+      panel(stepsHtml(st, 'กำลังค้นหาตำแหน่ง…'));
       actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+      var tGate = perfNow();
+      return gpsFresh(aid).then(function (g) {
+        perfMark('gps_gate_wait_ms', tGate);
+        perfMark('gps_ready_ms', tGps);
+        if (!mine()) return { ok: false, reason: 'ยกเลิกแล้ว' };
+        if (g && g.ok !== false) {
+          panel(stepsHtml(st, 'กำลังตรวจพื้นที่ลงเวลา…'));
+          actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+          return preflight(g);
+        }
+        st.gps = 'bad';
+        return { ok: false, reason: (g && g.reason) || 'GPS ยังไม่พร้อม' };
+      });
+    })();
+
+    G.first.then(function (g) {
+      perfMark('gps_wait_ms', tGps);          // เวลาถึง Fix แรกของ Session นี้
+      if (!mine()) return;                    // Attempt เก่ามาช้า = ไม่แตะจอของ Attempt ใหม่
+      if (!g.ok) {
+        st.gps = 'bad';
+        panel(stepsHtml(st, g.reason, true));
+        actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+      }
     });
 
-    /* กล้องกับโมเดลทำงานขนานกัน — ไม่บังคับให้กล้องรอโมเดลโหลดเสร็จก่อนอีกต่อไป
-       กล้องพร้อมก่อน = เห็นภาพตัวเองทันที ระหว่างนั้นแจ้งสถานะการเตรียมระบบตรวจใบหน้า
-       การตรวจใบหน้าเริ่มก็ต่อเมื่อโมเดลพร้อมจริงเท่านั้น (Promise.all ด้านล่าง) */
-    var camP = openCam();
-    perfStart('ATTENDANCE_' + kind);
-    /* [PERF] รอเฉพาะ GUIDE (550 KB) ก่อนเริ่มตรวจหน้า
-       RECOGNITION (6.44 MB) โหลด Background ขนานไป แล้วไปรอเอาตอนสร้าง Descriptor ใน grabFrames() */
+    /* [PERF] โมเดลโหลดขนานกับ GPS ได้เสมอ — ไม่ถูก Gate
+       รอเฉพาะ GUIDE (550 KB) ก่อนเริ่มตรวจหน้า
+       RECOGNITION (6.44 MB) โหลด Background แล้วไปรอเอาตอนสร้าง Descriptor ใน grabFrames() */
     var modelP = guideLoad();
     recogPrefetch();
+
+    /* [GPS GATE] กล้องเปิด "หลัง" GPS พร้อมเท่านั้น
+       เมื่อ Warmup ทำงานสำเร็จ gpsGate จะ resolve ทันที (0 ms) กล้องจึงเปิดต่อเนื่อง
+       ไม่มีสะดุด — ได้ทั้งความปลอดภัยตาม Requirement และความเร็ว
+       ถ้า GPS ไม่ผ่าน จะไม่เปิดกล้องเลย และ reject ให้ .catch เดิมจัดการตามเส้นทางปกติ */
+    var camP = gpsGate.then(function (r) {
+      if (!r.ok) throw new Error(r.reason || 'GPS ยังไม่พร้อม');
+      if (!mine()) throw AbortAttendanceError();
+      /* [ROOT CAUSE 7] มีหลักฐานสดจาก Enrollment Run เดิม = ไม่เปิดกล้องรอบที่สอง */
+      if (hand) { perfSet('camera_reopen_skipped', 1); return null; }
+      var tCam = perfNow();
+      return openCam().then(function (v) { perfMark('camera_open_ms', tCam); return v; });
+    });
     /* [ข้อ 3] จอง Signed Upload URL ขนานไปกับ Camera + Model + GPS
        ตัด 1 Network Round-trip ออกจากช่วงท้ายหลังสแกนใบหน้าผ่าน
        ล้มเหลวเงียบ → ตอน PUT จะขอใหม่พร้อม size จริงตามเส้นทางเดิม */
-    var resvP = reserveUpload('PUNCH', kind, null)['catch'](function () { return null; });
+    var tResv = perfNow();
+    var resvP = hand ? Promise.resolve(null)
+                     : reserveUpload('PUNCH', kind, null).then(function (r) {
+                         perfMark('upload_reserve_ms', tResv);   // [UPLOAD] จองสำเร็จ
+                         return r;
+                       }, function () {
+                         perfMark('upload_reserve_ms', tResv);   // [UPLOAD] จองล้มเหลวก็ต้องมีตัวเลข
+                         return null;
+                       });
     camP.then(function () {
+      if (hand) return;                        // [ROOT CAUSE 7] ไม่มีขั้นเตรียมกล้องแล้ว
       if (!S.guideReady) {
         panel(stepsHtml(st, 'กำลังเตรียมระบบตรวจสอบใบหน้า…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
       }
     }, function () {});
     modelP['catch'](function () {});          // กัน unhandled rejection · error จริงจับที่ Promise.all
-    Promise.all([camP, modelP])
+    /* [ROOT CAUSE 7] เส้นทางที่ใช้หลักฐานสดจาก Enrollment Run เดิม
+       ไม่เปิดกล้อง · ไม่สแกนใหม่ · ไม่สร้าง Descriptor เพิ่ม
+       Snapshot เป็นหลักฐานชนิด PUNCH ใหม่ (แยกจาก ENROLL Snapshot) ที่ถ่ายไว้ในกล้องรอบเดิม */
+    var handScanP = !hand ? null : camP.then(function () {
+      if (!mine()) throw AbortAttendanceError();
+      st.live = 'ok'; st.match = 'run';
+      panel(stepsHtml(st, 'กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…'));
+      actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+      return (hand.snapshotP || Promise.resolve(null))['catch'](function () { return null; });
+    }).then(function (path) {
+      if (!mine()) throw AbortAttendanceError();
+      var ctx = { frames: [{ desc: hand.desc }], live: { method: hand.method }, snapshot: path };
+      return gpsFresh(aid).then(function (g) {
+        if (!g || !g.ok) throw new Error(g && g.reason ? g.reason : 'GPS ยังไม่พร้อม');
+        ctx.gps = g; return ctx;
+      });
+    });
+
+    (handScanP || Promise.all([camP, modelP])
       .then(function () {
         perfMark('guide_visible_ms');          // กดปุ่ม → เห็นกล้อง+กรอบนำทาง
         S.running = true;
@@ -1554,7 +2811,10 @@
              Signed Reservation ที่ไม่ได้ใช้ปล่อยหมดอายุได้ เพราะยังไม่มี Object ถูกสร้าง */
           if (!mine()) { closeCam(); throw AbortAttendanceError(); }
           closeCam();                          // ปิดกล้องทันทีเมื่อได้ภาพครบ
+          /* [UPLOAD] ถ้าการจองยังไม่เสร็จตอนสแกนจบ ต้องรู้ว่ารออีกกี่มิลลิวินาที */
+          var tWaitResv = perfNow();
           return resvP.then(function (resv) {
+            perfMark('reserve_wait_after_scan_ms', tWaitResv);
             if (!mine()) throw AbortAttendanceError();
             return putSnapshot(b, resv, 'PUNCH', kind, null);
           }).then(function (path) {
@@ -1568,12 +2828,13 @@
             });
           });
         });
-      })
+      }))
       .then(function (ctx) {
         if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อนยิง Punch RPC
         var best = ctx.frames[ctx.frames.length - 1];
         perfMark('client_face_ms');
         var tRpcA = perfNow();
+        perfBootCount('njhr_att_punch_face_calls');   // [INSTRUMENTATION] นับก่อนยิงจริง
         return rpc('njhr_att_punch_face', {
           p_token: token(), p_action: kind,
           p_descriptor: best.desc, p_faces_found: 1,
@@ -1582,7 +2843,12 @@
           p_lng: ctx.gps.ok ? ctx.gps.lng : null,
           p_accuracy: ctx.gps.ok ? ctx.gps.accuracy : null,
           p_snapshot: ctx.snapshot, p_device: deviceInfo()
-        }).then(function (r) { perfMark('rpc_ms', tRpcA); perfEnd('total_attendance_ms'); return { r: r, ctx: ctx }; });
+        }).then(function (r) {
+          /* [FIX 2] บันทึกเวลา RPC เท่านั้น — ห้ามปิด Flow ที่นี่
+             เพราะยังไม่รู้ผลว่า r.ok เป็น true หรือไม่ และ .catch ต้องเขียน outcome ได้ */
+          perfMark('rpc_ms', tRpcA);
+          return { r: r, ctx: ctx };
+        });
       })
       .then(function (o) {
         /* [ข้อ 2] ตรวจ Owner "ก่อน" เขียน Global State ทุกฟิลด์
@@ -1601,9 +2867,19 @@
         Object.keys(commit).forEach(function (k) { S.ctx[k] = commit[k]; });
         if (!o.r || !o.r.ok) {
           st.match = 'bad';
-          throw new Error((o.r && o.r.reason) || 'ยืนยันใบหน้าไม่สำเร็จ');
+          /* [FIX 2] ติดรหัสผลจริงไว้กับ Error เพื่อให้ฝั่ง failure บันทึก outcome ได้ถูกต้อง
+             ไม่ส่งข้อความที่ผู้ใช้เห็นเข้าตัวชี้วัด (อาจมีชื่อพื้นที่/ระยะทาง) */
+          var eRej = new Error((o.r && o.r.reason) || 'ยืนยันใบหน้าไม่สำเร็จ');
+          eRej.punchCode = o.r ? 'PUNCH_REJECTED' : 'PUNCH_NO_RESPONSE';
+          throw eRej;
         }
         st.match = 'ok'; st.gps = 'ok';
+        /* [FIX 2] RPC สำเร็จและ r.ok === true → บันทึกผล แล้วปิด Flow ครั้งเดียว
+           ⚠ ต้องบันทึกก่อน perfEnd เสมอ ไม่งั้น PERF.t เป็น null แล้วค่าหาย */
+        perfSet('punch_result', 'OK');
+        perfSet('final_result', 'SUCCESS');
+        perfSet('error_code', null);
+        perfEnd('total_attendance_ms');
         S.attempts = 0;
         gpsStop(aid);       // [ข้อ 4] Punch RPC เสร็จ = หยุด watch ของ Attempt นี้ทันที
         showSuccess(kind, o.r, o.ctx, onDone);
@@ -1613,6 +2889,16 @@
            ไม่ Upload หลักฐาน ไม่แตะ State ใด ๆ */
         if (isAborted(e) || !mine()) return;
         var msg = (e && e.message) || 'สแกนไม่สำเร็จ';
+        /* [FIX 2] มาถึงที่นี่ขณะ PERF.t ยังไม่เป็น null เสมอ เพราะ .then แรกไม่ปิด Flow แล้ว
+           บันทึก outcome จากผลจริงก่อน แล้วจึงปิด Flow ครั้งเดียว (perfEnd มี guard กันซ้ำ)
+           error_code = รหัสจริง ไม่เก็บข้อความที่ผู้ใช้เห็น (อาจมีชื่อพื้นที่/ระยะทาง) */
+        perfSet('punch_result', 'FAIL');
+        perfSet('final_result', 'FAIL');
+        perfSet('error_code',
+          (e && e.camCode) ? e.camCode :
+          (e && e.faceCode) ? e.faceCode :
+          (e && e.punchCode) ? e.punchCode : 'FLOW_ERROR');
+        perfEnd('total_attendance_ms');
         S.attempts++;
         S.ctx.reason = msg;
         // เก็บรูปหลักฐาน + GPS ไว้ก่อนปิดกล้อง เผื่อพนักงานกดส่งคำขออนุมัติพิเศษ
@@ -1846,6 +3132,11 @@
     var reNew = !!(opts && opts.password);
     shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
     var got = [], idx = 0, snapPath = null;
+    /* [ROOT CAUSE 7] หลักฐานสำหรับ "ลงเวลาต่อทันที" ที่เก็บจากกล้องรอบเดียวกันนี้
+       เก็บเฉพาะเมื่อ Enrollment ถูกเรียกจากการลงเวลา (enAtt) เท่านั้น
+       Manual Enrollment จาก Profile/HR ไม่แตะส่วนนี้เลย และไม่บังคับ GPS ใด ๆ */
+    var enKind = (opts && opts.attendanceKind) || '';
+    var enPunch = null;
 
     /* [UI] หน้าจอลงทะเบียนแนวใหม่
          · Stepper วงกลม 1-2-3 (ผ่านแล้วเป็น ✓ เขียว · ขั้นปัจจุบันเป็นวงน้ำเงิน)
@@ -2040,11 +3331,22 @@
 
       /* ยอมรับมุมนี้ — เรียกได้ก็ต่อเมื่อ Liveness ผ่านจริงแล้วเท่านั้น
          (ผ่าน Passive ตรง ๆ หรือผ่าน Blink Challenge) ไม่มีเส้นทางอื่นเข้าถึงจุดนี้ */
-      function acceptPose() {
+      function acceptPose(lvMethod) {
         /* [ข้อ 6] ตรวจ Owner ก่อนเขียน State / Upload / ไป Pose ถัดไป */
         if (!enAlive()) { closeCam(); return; }
         perfMark('enroll_' + pose.key.toLowerCase() + '_ms', poseT0);
         got.push(buf[buf.length - 1].desc);
+        /* [ROOT CAUSE 7] มุมสุดท้ายที่ผ่าน Liveness จริง = หลักฐานสดของ Run นี้
+           เก็บ Descriptor ตัวล่าสุด + Liveness Method จริงที่ผ่าน (PASSIVE หรือ BLINK)
+           ไม่ Clone · ไม่ Reuse ข้ามมุม · ผูกกับ Attendance Operation เดียวกันเท่านั้น */
+        if (enAtt && enOp !== null && enKind && idx === POSES.length - 1) {
+          enPunch = {
+            op: enOp, kind: enKind,
+            desc: buf[buf.length - 1].desc,
+            method: lvMethod || 'PASSIVE',
+            snapshotP: null
+          };
+        }
         if (idx === 0) {
           snapshotBlob().then(function (b) {
             if (!enAlive()) return null;          // [ข้อ 6] ยกเลิกระหว่างสร้าง Blob
@@ -2075,7 +3377,8 @@
             resetPose('ยืนยันบุคคลจริงไม่สำเร็จ — กรุณาลองทำท่าเดิมอีกครั้ง');
             return again();
           }
-          acceptPose();
+          /* [ROOT CAUSE 7] ผ่านด้วย Blink Challenge = Liveness Method จริงคือ BLINK */
+          acceptPose('BLINK');
         }, function (e) {
           if (!S.running || !enAlive()) return;
           if (isAborted(e)) return;                      // ยกเลิกโดยระบบ = เงียบ
@@ -2128,7 +3431,7 @@
              ไม่ผ่าน     → เริ่มนับมุมเดิมใหม่
              ไม่มีเส้นทางใดที่ lv.pass=false แล้วเข้าสู่ acceptPose() ได้โดยตรง */
           var lv = passiveLiveness(buf);
-          if (lv.pass) return acceptPose();
+          if (lv.pass) return acceptPose(lv.method);
           if (lv.challenge) return runChallenge(lv.reason);
           resetPose(lv.reason);
           return again();
@@ -2188,7 +3491,24 @@
     }
     function saveProgressStop() { if (saveTick) { clearInterval(saveTick); saveTick = 0; } }
 
+    /* [ROOT CAUSE 7] ถ่ายหลักฐานสำหรับ "การลงเวลา" ก่อนปิดกล้อง
+       ต้องเป็น Snapshot คนละใบกับ ENROLL Snapshot และเป็นชนิด PUNCH จริง
+       (edge njhr-face-file รับ p_kind แยก PUNCH/ENROLL/REQUEST อยู่แล้ว)
+       ล้มเหลว = ปล่อยเป็น null แล้วลงเวลาต่อได้ตามเดิม ไม่บล็อก Flow */
     function finish() {
+      var canShoot = !!(enPunch && camUsable() && S.video && S.video.videoWidth);
+      var shotP = canShoot ? snapshotBlob()['catch'](function () { return null; })
+                           : Promise.resolve(null);
+      shotP.then(function (b) {
+        if (b && enPunch && enAlive()) {
+          enPunch.snapshotP = uploadSnapshot(b, 'PUNCH', enPunch.kind, null)
+            ['catch'](function () { return null; });
+        }
+        finishSave();
+      }, function () { finishSave(); });
+    }
+
+    function finishSave() {
       closeCam();
       if (!enAlive()) { closeCam(); return; }              // [ข้อ 6] ก่อน finish()/เปลี่ยน UI
       /* [UI] หน้าจอ "กำลังบันทึกข้อมูลใบหน้า" — checklist มุมที่เก็บได้ + progress
@@ -2216,6 +3536,8 @@
         body = { p_token: token(), p_descriptors: got, p_quality: q, p_snapshot: snapPath };
       }
       if (!enAlive()) { closeCam(); return; }     // [ข้อ 4] ถูกยกเลิกก่อนส่ง = ห้ามส่ง RPC
+      /* [INSTRUMENTATION] นับก่อนยิง RPC จริง — แยกตามชื่อฟังก์ชันที่ใช้จริง */
+      if (fnName === 'njhr_face_self_enroll') perfBootCount('njhr_face_self_enroll_calls');
       rpc(fnName, body).then(function (r) {
         if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
         faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
@@ -2240,7 +3562,9 @@
           /* [ข้อ 1] โหมด Attendance → Handoff (ไม่ฆ่า Operation) แล้วต่อไป doPunch()
              โหมด Manual → close() ปกติเหมือนเดิมทุกประการ */
           if (enAtt) closeSoft(); else close();
-          if (typeof onDone === 'function') onDone(r);
+          /* [ROOT CAUSE 7] ส่งหลักฐานสดของ Run นี้ต่อให้ enrollThenPunch
+             โหมด Manual (Profile/HR) enPunch เป็น null เสมอ → onDone(r) เหมือนเดิมทุกประการ */
+          if (typeof onDone === 'function') onDone(r, enAtt ? enPunch : null);
         } }]);
       }).catch(function (e) {
         saveProgressStop();
@@ -2406,26 +3730,143 @@
       });
   }
 
+  /* [BOOT JANK] เริ่มเก็บ longtask ทันทีที่โมดูลถูกโหลด
+     ต้องอยู่ "ก่อน" ที่ผู้เรียกจะมีโอกาสเรียก NJHRFace.warmup() ได้
+     ทำงานเฉพาะเมื่อเปิดโหมดวัดผลเท่านั้น — ปิดอยู่ = ไม่สร้าง Observer ใด ๆ */
+  try { perfLongTaskStart(); } catch (e) {}
+
   w.NJHRFace = {
+    /* [TEST KIT] ทางเข้าเดียวของ Performance API — ชี้ไปยัง Object เดิม ไม่ได้สร้างชุดใหม่ */
+    perf: w.NJHRFacePerf,
     /* อุ่นเครื่องระบบตรวจใบหน้าไว้ล่วงหน้า (ไลบรารี + โมเดล) แบบไม่บล็อกหน้าจอ
        ใช้ S.loading/S.ready ตัวเดิมเป็น State กลาง จึงไม่โหลดซ้ำและกัน Concurrent Load ได้เอง
        ล้มเหลวก็เงียบ — ตอนกดสแกนจริงจะโหลดใหม่ตามเส้นทางเดิม */
     warmup: function () {
       addCss();
+      swModelBind();            // ผูกก่อน warmup เสมอ ไม่งั้นสัญญาณรอบแรกหลุด
       /* [ข้อ 3] warmup() = โมเดลอย่างเดียว — Face Status ถูก Preload แยกต่างหาก
          ผ่าน statusPreload() เพื่อไม่ให้ติด flag "อุ่นแล้ว" ตอนสลับบัญชี
-         [PERF] อุ่น GUIDE ก่อน แล้วต่อ RECOGNITION แบบ Background
-         ความหมายเดิมไม่เปลี่ยน: Promise ที่คืนจะ Resolve เมื่อพร้อมครบทั้ง 2 เฟส */
-      return guideLoad().then(function () { return recogLoad(); })['catch'](function () {});
+         [ROOT CAUSE 3] เดิมอุ่น GUIDE ให้เสร็จ "ก่อน" แล้วค่อยเริ่ม RECOGNITION (Serial)
+         ทำให้เวลารวมเท่ากับผลบวกของสองเฟส ทั้งที่ทั้งคู่เป็น Network-bound คนละไฟล์
+         ของใหม่เริ่มพร้อมกันแบบขนาน — ความหมายเดิมไม่เปลี่ยน:
+         Promise ที่คืนยัง Resolve เมื่อพร้อมครบทั้ง 2 เฟส และล้มเหลวก็ยังเงียบ
+         ⚠ หน้า Login ยังใช้ warmupGuide() ตามเดิม ไม่ดึง Recognition 6.44 MB
+            ให้ผู้ที่เลือกเข้าสู่ระบบด้วยรหัสผ่านโดยไม่จำเป็น */
+      return Promise.all([
+        guideLoad()['catch'](function () {}),
+        recogLoad()['catch'](function () {})
+      ]).then(function () {})['catch'](function () {});
     },
     /* [PERF] อุ่นเฉพาะ GUIDE (550 KB) — ใช้บนหน้า Login เพื่อลด Cold Start
        ไม่ดึง Recognition 6.44 MB มาให้คนที่เข้าด้วยรหัสผ่านโดยไม่จำเป็น */
     warmupGuide: function () {
       addCss();
+      swModelBind();
       return guideLoad()['catch'](function () {});
     },
-    /* [PERF] สั่งโหลด Recognition แบบ Background · Single-flight ไม่โหลดซ้ำ */
+    /* [PERF] สั่งโหลด Recognition แบบ Background · Single-flight ไม่โหลดซ้ำ
+       ⚠ ตัวนี้ "สร้าง Model Graph" ด้วย ซึ่งกิน Main Thread บนเครื่อง Android รุ่นล่าง */
     prefetchRecognition: function () { recogPrefetch(); },
+    /* [PERF · OPT-IN] ดึงไฟล์โมเดล Recognition เข้า HTTP/Service Worker Cache เท่านั้น
+       ไม่แตะ faceapi ไม่สร้าง Model Graph จึงไม่กิน Main Thread
+       ใช้สำหรับการวัด A/B บนเครื่องจริง (ดูหัวข้อ 1c ใน REAL-DEVICE-TEST-KIT.md)
+       ⚠ ไม่ได้ถูกเรียกโดยค่าเริ่มต้น — กลยุทธ์ warmup ปัจจุบันยังเป็น Full parallel เหมือนเดิม
+          จะเปลี่ยนค่าเริ่มต้นได้ต่อเมื่อมีตัวเลขจากเครื่องจริงยืนยันตามเกณฑ์ที่กำหนดไว้ */
+    prefetchRecognitionBytes: function () {
+      swModelBind();
+      swModelBeginLoad();
+      var urls = [MODEL_URL_LOCAL + '/face_recognition_model-weights_manifest.json',
+                  MODEL_URL_LOCAL + '/face_recognition_model.bin'];
+      var t0 = perfNow();
+      return Promise.all(urls.map(function (u) {
+        return fetch(u, { cache: 'force-cache' })['catch'](function () { return null; });
+      })).then(function () {
+        perfDur('recognition_bytes_prefetch_ms', t0);
+      })['catch'](function () {});
+    },
+    /* [GPS WARMUP] เรียกจากหน้าลงเวลาเท่านั้น (Mobile · attendance_required === true)
+       เริ่ม watchPosition ล่วงหน้าเพื่อให้ตอนกดปุ่มมี Fix พร้อมใช้ทันที
+       ไม่เปิดกล้อง ไม่ยิง RPC ไม่เก็บพิกัดลง storage — อยู่ในหน่วยความจำของหน้าเท่านั้น */
+    gpsWarmStart: function () {
+      try { GPS_WARM_WANTED = true; return gpsWarmStart(); } catch (e) { return 0; }
+    },
+    /* ออกจากหน้าลงเวลา = หยุด watcher คืนแบตเตอรี่ และล้าง Fix ทั้งหมด */
+    gpsWarmStop: function () {
+      try {
+        GPS_WARM_WANTED = false;
+        gpsStop();
+        G.fixes = []; G.warm = false; G.owner = '';
+        gfReset();                              // [ROOT CAUSE 5] ผล Preflight ของหน้าเดิมใช้ต่อไม่ได้
+      } catch (e) {}
+    },
+    /* [ROOT CAUSE 5] Preflight ด้วย njhr_gf_check (RPC เดิม ไม่มี SQL ใหม่)
+       คืน { stage, pass, reason, accuracy, geofence_name, distance_m, radius }
+       stage='GPS'   = ยังไม่มี Fix ที่ใช้ได้ · stage='CHECK' = ถามเซิร์ฟเวอร์แล้ว
+       กัน RPC ซ้อนและ Throttle ให้อยู่แล้วภายใน ผู้เรียกไม่ต้องจัดการเอง */
+    gpsPreflight: function (force) {
+      try { return gpsPreflight(force === true); }
+      catch (e) { return Promise.resolve(null); }
+    },
+    /* [GPS HANDOFF] รับ Fix ที่หน้าลงเวลาเก็บไว้จาก bootstrap watcher
+       ก่อน face.js โหลดเสร็จ — ไม่ต้องรอ First Fix ใหม่ทั้งรอบ
+       ยอมรับเฉพาะเมื่อครบทุกเงื่อนไข ไม่งั้นทิ้ง (Fail Closed):
+         · watcher ตัวจริงเดินอยู่แล้ว (G.id)
+         · Owner ตรงกับ Session ปัจจุบัน (gpsOwnerKey)
+         · Session ที่ระบุตรงกับ G.sid ปัจจุบัน
+         · Fix สดกว่า GPS_FRESH_MS และไม่เก่ากว่าตอน watcher เริ่มเดิน
+         · watcher ตัวจริงยังไม่เคยได้ Fix เลย (ใช้เร่ง First Fix เท่านั้น)
+       ⚠ ไม่ persist ลง storage ใด ๆ · ไม่ Export lat/lng
+       ⚠ Server ยังตรวจ accuracy + geofence ซ้ำใน njhr_gf_check และ njhr_att_punch_face */
+    gpsSeedFix: function (fix, sid) {
+      try {
+        if (!fix || fix.lat == null || fix.lng == null || fix.accuracy == null) return false;
+        if (!G.id || !G.sid) return false;
+        if (sid !== undefined && sid !== G.sid) return false;
+        if (G.owner !== gpsOwnerKey()) return false;
+        if (G.denied) return false;
+        if (G.fixes.length) return false;
+        var at = Number(fix.at);
+        if (!isFinite(at) || at <= 0) return false;
+        var now = Date.now();
+        if ((now - at) > GPS_FRESH_MS) return false;
+        if (at < (G.startedAt || now) - GPS_FRESH_MS) return false;
+        var acc = Number(fix.accuracy);
+        if (!isFinite(acc) || acc <= 0) return false;
+        G.fixes.push({ ok: true, lat: Number(fix.lat), lng: Number(fix.lng),
+                       accuracy: acc, at: at, sid: G.sid });
+        perfBootSet('gps_first_fix_ms', Math.max(0, at - (G.startedAt || at)));
+        perfBootCount('gps_seed_accepted');
+        gpsNotify();
+        return true;
+      } catch (e) { return false; }
+    },
+    /* Session ปัจจุบันของ GPS — ใช้ผูก Fix ที่ส่งต่อให้ถูกรอบ */
+    gpsSid: function () { try { return G.sid; } catch (e) { return 0; } },
+    /* [GF CACHE] ผล pass ที่ยังสดสำหรับ Fix ปัจจุบัน — ไม่ยิง RPC ไม่มี Side Effect
+       ใช้ให้ UI คงสถานะปุ่มไว้ได้โดยไม่ต้องปิด-เปิดทุกวินาที
+       คืน null ทันทีเมื่อ Session เปลี่ยน · Fix เปลี่ยน · ผลหมดอายุ · pass ไม่ใช่ true */
+    gpsPreflightCached: function () {
+      try {
+        var fix = gpsPickFresh(G.sid);
+        var c = gfCacheValid(fix);
+        if (!c) return null;
+        return { stage: 'CHECK', pass: true, cached: true, reason: c.reason,
+                 accuracy: c.accuracy, geofence_name: c.geofence_name,
+                 distance_m: c.distance_m, radius: c.radius };
+      } catch (e) { return null; }
+    },
+    /* [ROOT CAUSE 5] แจ้ง UI ทันทีที่ watchPosition ยิง Fix/Error — ไม่ต้องรอรอบ Poll
+       คืนฟังก์ชันสำหรับยกเลิกการติดตาม */
+    onGpsChange: function (fn2) {
+      try { return gpsSubscribe(fn2); } catch (e) { return function () {}; }
+    },
+    /* [ROOT CAUSE 1] สภาพแวดล้อมกล้อง — ใช้แสดงคำแนะนำเฉพาะกรณีบนหน้าลงเวลา
+       ไม่มีข้อมูลอ่อนไหวใด ๆ */
+    cameraEnv: function () {
+      try { return camEnv(); } catch (e) { return null; }
+    },
+    /* สถานะสำหรับ UI — คืนเฉพาะ active/denied/ready/accuracy ไม่คืนพิกัด */
+    gpsState: function () { try { return gpsWarmState(); } catch (e) { return null; } },
     statusPreload: faceStatusPreload,
     statusReset: faceStatusReset,
     isReady: function () { return !!S.ready; },
