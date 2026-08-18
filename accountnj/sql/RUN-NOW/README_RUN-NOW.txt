@@ -3,7 +3,7 @@ BILLING NJ — SQL RUN STATUS
 information_schema / pg_proc)
 ═══════════════════════════════════════════════════════════════════
 
-*** ไม่มี SQL ที่ต้อง RUN NOW — ทุกไฟล์ APPLIED ครบแล้ว ***
+*** ไม่มี SQL ที่ต้องรันแล้ว — 01–07 APPLIED ครบทั้งหมด ห้ามรันซ้ำ ***
 *** sql/LEGACY-DO-NOT-RUN/ ห้ามรัน ***
 *** sql/ และ sql/dev/ ที่เหลือ = migration เก่าที่รันไปแล้ว ห้ามรันซ้ำ ***
 
@@ -17,6 +17,8 @@ information_schema / pg_proc)
   04_RUN-02_FINAL_CREDIT_NOTE.sql        ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
   05_RUN-04_FINAL_RECEIPT_FIELDS.sql     ✅ ALREADY APPLIED — VERIFY ONLY / SKIP
   06_RUN-05_WHT_CERTIFICATE.sql          ✅ ALREADY APPLIED (17/08/2026) — VERIFY ONLY
+  07_RUN-01_025_DOCUMENT_QUEUE_AND_CLOSE.sql
+                                         ✅ ALREADY APPLIED (18/08/2026) — VERIFY ONLY
 
   => *** ไม่มีไฟล์ที่ต้องรันแล้ว *** ทุกไฟล์ APPLIED ครบ
      ห้ามรันซ้ำทุกไฟล์
@@ -110,6 +112,59 @@ information_schema / pg_proc)
   ⚠️ รูปแบบเลขอ้างอิงภายใน WHT{YY}-#### ต่างจากตระกูล NJ/RCP/CN/ADV {YYYYMM}-#####
      เก็บของเดิมไว้ตามหลัก "มีระบบอยู่แล้วให้ใช้ของเดิม"
      ต้องการเปลี่ยนให้สั่งแยกรอบ (ตอนนี้ยังมี 0 แถว เปลี่ยนได้ปลอดภัย)
+
+
+═══════════════════════════════════════════════════════════════════
+✅ ALREADY APPLIED · 07_RUN-01_025_DOCUMENT_QUEUE_AND_CLOSE.sql (18/08/2026)
+   DO NOT RUN AGAIN — SECTION 3 (VERIFY) รันซ้ำได้ READ-ONLY
+═══════════════════════════════════════════════════════════════════
+  ผลตรวจหลังรันจริงบน Production:
+    V1 queue=document PASS · V2 <> 'CLOSE' PASS · V3 pending_invoice = 'CLOSE' PASS
+    V4 njacc_document_close_job(p_id uuid, p_note text) PASS
+    V5 authenticated=true anon=false PASS · V6 SECURITY DEFINER PASS
+    V7 ข้อมูลครบ jobs=2 OPEN=1 CLOSE=1 PASS
+    JSNJ26-0002 OPEN  -> DOCUMENT เห็น · ACCOUNTING ไม่เห็น
+    JSNJ26-0001 CLOSE -> DOCUMENT ไม่เห็น · ACCOUNTING เห็น
+
+  ทำไมต้องรัน — ตรวจ Production จริงแล้วพบว่า
+    njacc_build_charge_set   ไม่มีเงื่อนไข queue='document'   -> NO
+    njacc_document_close_job ไม่มีฟังก์ชันนี้เลย              -> NO
+  แต่ Frontend ส่ง queue='document' และเรียก njacc_document_close_job อยู่แล้ว
+  => งานที่เพิ่งเปิด (operational_status='OPEN') จึงไม่แสดงในหน้า DOCUMENT
+     และปุ่ม "ปิดงาน" ทำงานไม่ได้
+
+  ข้อมูลจริงตอนตรวจ (17/08/2026):
+    OPEN SERVICE 1 · OPEN ADVANCE 0 · CLOSE SERVICE 1 · CLOSE ADVANCE 0
+    รวม njacc_jobs 2 แถว · สถานะที่มีจริง: OPEN, CLOSE
+    -> มีงาน OPEN SERVICE 1 งานที่ผู้ใช้มองไม่เห็นอยู่ตอนนี้
+
+  ไฟล์นี้ทำอะไร (ตรวจครบทุกบรรทัดแล้ว)
+    1) njacc_build_charge_set + สาขา queue='document'
+         operational_status <> 'CLOSE'  -> อยู่ DOCUMENT
+       ฝั่ง pending_invoice ยังเป็น operational_status = 'CLOSE' เหมือนเดิม
+       -> ฟิลด์เดียวกัน 2 คิวตรงข้ามกันเสมอ ไม่มีงานหายทั้งสองฝั่ง
+          และไม่มีงานอยู่ทั้งสองฝั่งพร้อมกัน (ไม่เกิด Record ซ้ำ)
+    2) njacc_document_close_job(p_id uuid, p_note text DEFAULT NULL) ใหม่
+       ล็อกแถว FOR UPDATE · ตรวจสิทธิ์ njacc_can(charge, group, 'edit')
+       ปิดได้เฉพาะ OPEN / PROCESSING (CANCELED เข้า ACCOUNTING ไม่ได้)
+       ใบที่มีผลทางบัญชีแล้ว -> NJACC_JOB_ALREADY_INVOICED
+       กดซ้ำ -> คืน already_closed=true ไม่สร้าง Audit ซ้ำ
+       เรียก njacc_set_job_status(p_id,'CLOSE',note) ตัวเดิม (Audit เดิมครบ)
+       แล้ว "ตรวจรับ" ว่างานเข้าคิว pending_invoice จริง
+       ถ้าไม่เข้า -> NJACC_ACCOUNTING_HANDOFF_FAILED (rollback ทั้ง transaction)
+       -> ไม่มีสภาพ "หายจาก DOCUMENT แต่ ACCOUNTING ไม่รับ"
+
+  ความปลอดภัย (ตรวจหลังตัดคอมเมนต์ออกแล้ว)
+    DROP TABLE   1 ครั้ง = DROP TABLE IF EXISTS _njacc_l
+                 *** เป็น TEMP TABLE ภายใน session ของ RPC เอง ***
+                 ไม่ใช่ตารางข้อมูลจริง (ของเดิมในฟังก์ชันนี้ก็ทำแบบนี้อยู่แล้ว)
+    TRUNCATE     0 · DELETE FROM 0 · UPDATE ข้อมูลเดิม 0
+    GRANT authenticated · REVOKE PUBLIC/anon ครบทั้ง 2 ฟังก์ชัน
+    ไม่สร้างคอลัมน์/สถานะ/ตารางใหม่ · ไม่แก้ njacc_set_job_status เดิม
+
+  Dependency  ต้องมี njacc_set_job_status + njacc_inv_is_final (มีอยู่แล้ว)
+  รันซ้ำ      ได้ (CREATE OR REPLACE ล้วน)
+  VERIFY      SECTION 3 ในไฟล์ (READ ONLY) V1–V… ต้อง PASS
 
 
 ═══════════════════════════════════════════════════════════════════

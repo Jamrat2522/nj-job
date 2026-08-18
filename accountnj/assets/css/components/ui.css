@@ -76,11 +76,23 @@
 @media(max-width:640px){.fgrid.fgrid-2{grid-template-columns:1fr}}
 
 /* ── Modal เปิดงานใหม่: กรอบแบ่ง Section (DOCUMENT ฟ้า / ACCOUNTING เขียว) ── */
-.jm-auto{display:flex;align-items:center;gap:14px;background:#eff6ff;border:1px solid #bfdbfe;
-  border-radius:12px;padding:12px 16px;margin-bottom:14px}
+/* SINGLE-FRAME: แถว "เลขที่งาน" เป็นแถวธรรมดาในกรอบหลัก ไม่ใช่ Card ซ้อน
+   (เดิม background/border/border-radius ทำให้เกิดกรอบชั้นที่ 2) */
+.jm-auto{display:flex;align-items:center;gap:14px;background:none;border:0;
+  border-radius:0;padding:0;margin-bottom:16px}
 .jm-auto-lb{font-size:var(--fs-sm);font-weight:600;color:var(--blue-600);white-space:nowrap}
 .jm-auto .inp{flex:1;background:#f8fafc;color:var(--text-3)}
-.jm-sec{border:1px solid var(--line);border-radius:12px;padding:14px 16px 4px;margin-bottom:14px;background:var(--surface)}
+/* วันที่งาน — อยู่แถวเดียวกับ "เลขที่งาน" ทางขวา · ช่องเลขที่งานยังกว้างกว่า
+   เป็นช่องที่ผู้ใช้แก้ได้ จึงใช้พื้นขาว/ตัวอักษรปกติ ไม่ใช่สไตล์ readonly ของ .jm-auto .inp */
+.jm-auto .jm-auto-date{flex:0 0 190px;background:var(--surface);color:var(--text)}
+@media(max-width:640px){.jm-auto .jm-auto-date{flex:1 1 auto}}
+/* SINGLE-FRAME: Section = heading + divider + spacing ภายในกรอบหลักเดียว
+   (เดิม border/border-radius/background ทำให้แต่ละ Section กลายเป็น Card ซ้อนในกรอบ Modal) */
+.jm-sec{border:0;border-radius:0;background:none;padding:0;margin:0 0 18px}
+/* divider เฉพาะ Section ที่ "มี Section อื่นมาก่อน" — ใช้ general sibling (~)
+   เพราะบางหน้ามี hidden input / div คั่นระหว่าง Section (job-form.js render())
+   ทำให้ :first-of-type / :first-child ให้ผลไม่ตรงในทุก Flow */
+.jm-sec ~ .jm-sec{border-top:1px solid var(--line);padding-top:16px}
 .jm-sec-t{font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;margin-bottom:10px;
   display:flex;align-items:center;gap:7px}
 /* ── Section Theme — ใช้ร่วมกันทั้ง "เปิดงานใหม่" และ "ออกวางบิล" ──
@@ -88,11 +100,10 @@
    วางบิล/ACCOUNTING เขียวอ่อน
    INVOICE        ขาว + ฟ้าอ่อน (ใช้ .jm-sec ธรรมดา + หัวข้อน้ำเงิน)
    เปลี่ยนเฉพาะ Color Theme — Input / Label / Radius / Spacing เป็นชุดเดียวกันหมด */
-.jm-doc{border-color:#bfdbfe;background:#f8fbff}
+/* SINGLE-FRAME: เหลือเฉพาะสีหัวข้อ + จุดนำหน้า — ไม่มีพื้น/ขอบราย Section อีกแล้ว
+   Section ยังแยกออกจากกันชัดเจนด้วย heading + divider + spacing */
 .jm-doc .jm-sec-t{color:var(--blue-600)}
-.jm-acc{border-color:#bbf7d0;background:#f6fef9}
 .jm-acc .jm-sec-t{color:#15803d}
-.jm-inv{border-color:#bfdbfe;background:var(--surface)}
 .jm-inv .jm-sec-t{color:var(--blue-600)}
 /* จุดนำหน้าหัวข้อ — ขนาด/ตำแหน่งเดียวกันทุก section ต่างแค่สี */
 .jm-sec-t::before{content:'';width:8px;height:8px;border-radius:2px;
@@ -100,9 +111,23 @@
 .jm-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-bottom:10px}
 .jm-grid .fld label{font-size:var(--fs-xs)}
 .jm-grid .inp,.jm-grid .sel{height:36px}
+/* textarea ในกริด (หมายเหตุ) — ต้องยกเลิก height:36px ของกฎด้านบน
+   ไม่จำกัดจำนวนตัวอักษร · ลากขยายเองได้ · ข้อความยาวเลื่อนดูได้ในช่อง */
+.jm-grid textarea.inp{height:auto;min-height:56px;line-height:1.35;resize:vertical}
 .jm-link{background:none;border:0;padding:2px 0 0;color:var(--blue-600);font-size:var(--fs-xs);
   font-weight:600;cursor:pointer;align-self:flex-start}
 .jm-link:hover{text-decoration:underline}
+/* ── "+ จัดการ" อยู่ข้างช่องกรอกในแถวเดียวกัน ──────────────────────────
+   ครอบ combobox + ปุ่มด้วย .fld-inline (เปลี่ยนเฉพาะตำแหน่ง UI)
+   ปุ่มยังเป็น <button class="jm-link" data-master="..."> ตัวเดิม
+   -> delegate listener เดิม b.addEventListener('click', [data-master]) ทำงานเหมือนเดิม
+   .cbx เป็น position:relative อยู่แล้ว -> .cbx-list ยังกางใต้ช่องได้ถูกตำแหน่ง */
+.fld-inline{display:flex;align-items:center;gap:10px}
+.fld-inline .cbx{flex:1 1 auto;min-width:0}
+.fld-inline .jm-link{flex:0 0 auto;align-self:center;padding:0;white-space:nowrap}
+/* จอแคบจริง ๆ ค่อยตกบรรทัด (ไม่ให้ล้นจอ) */
+@media(max-width:640px){.fld-inline{flex-wrap:wrap}
+  .fld-inline .cbx{flex:1 1 100%}}
 .jm-hint{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:9px;
   padding:9px 12px;font-size:var(--fs-xs);margin-bottom:10px}
 @media(max-width:1100px){.jm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -313,11 +338,19 @@
    ทำให้ปุ่มที่ตั้ง .hidden = true ยังโผล่อยู่ (POST กับ UNPOST ขึ้นพร้อมกัน)
    ต้องประกาศ [hidden] ทับด้วย selector ที่แรงเท่ากันหรือมากกว่า */
 .modal-f.mf-row .btn[hidden]{display:none !important}
-/* ปุ่มปิด ดันไปชิดขวา · UNPOST อยู่ขวาสุดถัดจากปิด (ตามแบบ) */
+/* ── โครง Footer ใหม่ ──
+   ปุ่มถูกจัดเป็น 2 กลุ่มใน markup แล้ว (.mf-left / .mf-right)
+   ซ้าย : ลบร่าง · UNPOST      ขวา : Print Draft -> POST -> บันทึกร่าง -> ปิด
+   กฎเดิมที่ดันด้วย margin-left:auto ราย id ไม่ต้องใช้แล้ว และต้องยกเลิก
+   มิฉะนั้นปุ่มในกลุ่มขวาจะถูกดันแยกออกจากกัน */
+.modal-f.mf-row .mf-left,
+.modal-f.mf-row .mf-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.modal-f.mf-row .mf-left{margin-right:auto}
 .modal-f.mf-row #bm-post,
-.modal-f.mf-row [data-close]{margin-left:auto}
-.modal-f.mf-row #bm-post ~ [data-close]{margin-left:0}
+.modal-f.mf-row [data-close],
 .modal-f.mf-row #bm-unpost{margin-left:0}
+/* กลุ่มซ้ายไม่มีปุ่มที่แสดงอยู่เลย (เช่นตอนยังไม่มีร่าง) ก็ยังต้องดันขวาไว้ขวาสุด */
+.modal-f.mf-row .mf-left:empty{margin-right:auto}
 
 .btn-del{background:var(--red-600);color:#fff}
 .btn-del:hover:not(:disabled){filter:brightness(1.08)}
@@ -359,3 +392,137 @@
 .bm-ask-msg{flex:1 1 260px;min-width:0}
 .bm-ask .inp{flex:1 1 220px;height:34px}
 .bm-ask-act{display:flex;gap:8px;flex:0 0 auto}
+
+/* ══ MODAL แบบ "ฟอร์มไหลต่อเนื่อง" — .modal-flow (opt-in) ══════════════════
+   ใช้กับ DOCUMENT > SERVICE และ DOCUMENT > ADVANCE (เปิดงานใหม่ / แก้ไขงาน)
+   เปิดใช้โดยส่ง cls:'modal-flow' เข้า openModal() เท่านั้น
+
+   *** ทำไมต้องเป็น modifier แยก ไม่แก้ .modal-fs / .modal-w80 กลาง ***
+   Modal อีก 6 ตัวใช้ fullscreen+wide ร่วมกัน และ "ต้องการ" scroll ภายใน
+   (ออกวางบิล · INVOICE · RECEIPT · CREDIT NOTE · ADVANCE · 50 ทวิ)
+   เพราะเป็นเอกสาร A4 ที่ต้องตรึงหัว/ท้าย — แก้กฎกลางจะพังทั้งหมด
+   และ ACCOUNTING ต้องเหมือนเดิม 100% ตามข้อกำหนด
+
+   ── ROOT CAUSE ของ Scroll ซ้อน (แก้ที่โครงสร้าง ไม่ใช่ซ่อนแถบเลื่อน) ──
+     (ก) หน้าเบื้องหลังไม่เคยถูกล็อก -> เลื่อนได้พร้อม Modal = แถบเลื่อนซ้าย
+         แก้ที่ modal.js lockPageScroll() (JS ไม่ใช่ CSS)
+     (ข) .modal-fs .modal-b  overflow-y:auto + flex:1 1 auto + min-height:0
+         -> Scroll Owner ตัวที่ 2 ภายใน Modal = แถบเลื่อนขวา
+     (ค) .modal-fs .modal-f  flex:none + box-shadow -> Footer ตรึงแยกจากฟอร์ม
+     (ง) .modal-fs .modal    position:fixed · height:100dvh
+         .modal-w80          position:absolute · inset · overflow:hidden
+         -> กล่องสูงเท่าจอเสมอ เนื้อหาจึงต้อง scroll ข้างใน
+
+   ── หลังแก้ ──
+     Scroll Owner เหลือชุดเดียว = backdrop (พื้นที่ Content Area)
+     กล่อง Modal สูงตามเนื้อหาจริง (height:auto)
+     Header -> Body -> Footer อยู่ใน Document Flow เดียวกัน
+     เลื่อนต่อเนื่องจนถึงปุ่ม 💾 บันทึกงาน / ✕ ยกเลิก ที่ท้ายฟอร์มจริง */
+
+/* Desktop (Sidebar เป็นคอลัมน์จริง) — backdrop คือ Scroll Owner ชุดเดียว
+   ── ROOT CAUSE ของ "กรอบชั้นที่ 2" (พิสูจน์จาก Computed Style จริง) ──
+     .modal-bk-w80          background:rgba(13,31,60,.28) + padding:var(--modal-gap)
+                            -> แถบเทาล้อมรอบ = กรอบชั้นนอก
+     .modal.modal-w80       border-radius:10px + box-shadow
+                            -> กล่องขาวมนลอยอยู่บนเทา = Card ชั้นใน
+     รวมกันได้ภาพ  เทา -> กล่องขาว -> Form  ซึ่งคือ 2 กรอบ
+   ── หลังแก้ ── Content Area เป็น Surface ขาวผืนเดียว: Header + Form + Footer
+   *** จำกัดที่ .modal-flow เท่านั้น *** — .modal-bk-w80 / .modal-w80 ตัวกลาง
+   ที่ Modal เอกสาร A4 อีก 6 ตัวใช้ ยังมีเทา+เงา+มุมโค้งเหมือนเดิมทุกประการ */
+@media (min-width:1101px){
+  .modal-bk.modal-bk-w80.modal-flow{
+    overflow-y:auto; overflow-x:hidden;      /* กัน Horizontal Scroll */
+    overscroll-behavior:contain;
+    place-items:start stretch;
+    /* ── MASTER UI REFERENCE ──
+       Backdrop มี tint + เว้นขอบ -> การ์ดขาวลอยอยู่กลาง Content Area
+       *** นี่คือ "กรอบเดียว" ไม่ใช่ 2 กรอบ ***
+       เทาคือ Backdrop ของ Modal (พื้นหลังนอกกรอบ) ไม่ใช่ Container ของฟอร์ม
+       กรอบที่นับจริงมีใบเดียว = .modal (ขาว) และภายในไม่มี Card ซ้อนแล้ว */
+    background:rgba(13,31,60,.28);
+    padding:var(--modal-gap);
+  }
+  .modal-fs .modal.modal-w80.modal-flow{
+    position:relative; inset:auto;
+    width:100%; height:auto; min-height:0; max-height:none;
+    /* การ์ดสูงตามเนื้อหาจริง (จบที่ Footer) ตามภาพ MASTER */
+    border-radius:var(--radius); box-shadow:var(--shadow-lg);
+    /* ยกเลิก overflow:hidden ของ .modal-w80 — เขียน longhand ให้ทับได้แน่นอน
+       (กฎเดิมตั้ง overflow-y แยก การใช้ shorthand อย่างเดียวอาจไม่ทับ) */
+    overflow:visible; overflow-x:visible; overflow-y:visible;
+  }
+  .modal-flow .modal-b{padding:16px 20px}
+}
+
+/* ≤1100px (Sidebar เป็น off-canvas) — backdrop เต็มจอและเป็น Scroll Owner ชุดเดียว
+   มือถือใช้เต็มจอ (ไม่เว้นขอบ) ตาม .modal-fs เดิม -> ไม่เสียพื้นที่หน้าจอ */
+.modal-bk.modal-fs.modal-flow{
+  overflow-y:auto; overflow-x:hidden;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  place-items:start stretch;
+}
+.modal-fs .modal.modal-flow{
+  position:relative; inset:auto;
+  width:100%; height:auto; min-height:100%; max-height:none;
+  overflow:visible; overflow-x:visible; overflow-y:visible;
+}
+
+/* Body: ไม่ scroll เอง · สูงตามเนื้อหา
+   *** ต้องเขียน overflow-y เป็น longhand ***
+   เพราะ .modal-b เดิมตั้ง overflow-y:auto ไว้ตรง ๆ */
+.modal-fs .modal.modal-flow > .modal-b,
+.modal-flow .modal-b{
+  flex:0 0 auto; min-height:0;
+  overflow:visible; overflow-x:visible; overflow-y:visible;
+  overscroll-behavior:auto;
+}
+/* Footer: เป็นส่วนท้ายของฟอร์มจริง ไม่ตรึง ไม่ sticky ไม่ fixed */
+.modal-fs .modal.modal-flow > .modal-f{
+  position:static; flex:none;
+  box-shadow:none;
+  padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+}
+
+/* ── กระชับระยะเพื่อให้เห็นข้อมูลมากขึ้น (ไม่ตัด Field ไม่ลดขนาดตัวอักษร) ──
+   ขอบเขตจำกัดใน .modal-flow เท่านั้น -> Modal เอกสาร A4 อีก 6 ตัวไม่เปลี่ยน
+   (ตั้งแต่รอบ Layout กรอบเดียว ฟอร์ม ACCOUNTING ใช้ .modal-flow ร่วมด้วยแล้ว) */
+.modal-flow .modal-b{padding:14px 18px}
+.modal-flow .jm-auto{margin-bottom:14px}
+.modal-flow .jm-sec{padding:0;margin:0 0 16px}
+.modal-flow .jm-sec ~ .jm-sec{padding-top:14px}
+.modal-flow .jm-sec-t{margin-bottom:8px}
+.modal-flow .jm-grid{gap:9px 12px;margin-bottom:8px}
+
+/* ══ SINGLE-FRAME FORM — กรอบหลักเดียวสำหรับฟอร์มงาน (4 โหมด) ══════════════
+   ขอบเขต: .modal-flow  (DOCUMENT/ACCOUNTING × SERVICE/ADVANCE — เปิดงาน/ดู/แก้ไข/วางบิล)
+           .fs-page     (route #/job/:id/edit · #/invoice/issue/:jobId)
+
+   ── ROOT CAUSE ของ "กรอบซ้อนกรอบ" ──
+     (ก) .modal-fs .modal-b / .fs-body ตั้ง background:var(--bg) = เทา
+         -> กรอบ Modal สีขาวกลายเป็น "กรอบนอก" และ Section สีขาวข้างในกลายเป็น "Card"
+     (ข) .jm-auto  มี background + border + radius            = Card ชั้นที่ 2
+     (ค) .jm-sec / .jm-doc / .jm-acc / .jm-inv มี border + radius + background = Card ชั้นที่ 3
+     -> รวมเป็น กรอบหลัก > Card เลขที่งาน > Card DOCUMENT > ฟอร์ม
+
+   ── หลังแก้ ── พื้นหลังต่อเนื่องสีเดียวทั้งกรอบ · Section แยกด้วย heading + divider
+   *** จำกัดขอบเขตด้วย .modal-flow / .fs-page เท่านั้น ***
+   Modal เอกสาร A4 อีก 6 ตัว (INVOICE · RECEIPT · CREDIT NOTE · ADVANCE · 50 ทวิ ·
+   Preview) ยังใช้พื้นเทาของ .modal-fs .modal-b เหมือนเดิมทุกประการ */
+.modal-flow .modal-b,
+.fs-page > .fs-body{background:var(--surface)}
+
+/* ══ SECTION พับ/ขยายได้ (ACCOUNTING > DOCUMENT) ══════════════════════════
+   ใช้เฉพาะ Section ที่ markup ใส่ .jm-sec-tg ให้ (billing-modal.js เท่านั้น)
+   Section อื่นที่ยังเป็น <div class="jm-sec-t"> ไม่ถูกกระทบเลย
+   .jm-sec-t เดิมเป็น flex + มี ::before เป็นจุดนำหน้า -> ใช้ต่อได้ทั้งหมด
+   ปุ่มกินเต็มความกว้าง -> กดที่แถบไหนก็ได้ ไม่ต้องเล็งไอคอน */
+.jm-sec-tg{width:100%;background:none;border:0;padding:2px 0;cursor:pointer;
+  color:inherit;font:inherit;letter-spacing:inherit;text-align:left}
+.jm-sec-tg:hover .jm-sec-lb{text-decoration:underline}
+.jm-sec-tg:focus-visible{outline:2px solid var(--blue-600);outline-offset:3px;border-radius:4px}
+/* คาเร็ตชิดขวาสุดของแถบ — ไม่ใช้ justify-content เพราะจะดัน ::before ออกจากหัวข้อ */
+.jm-cav{margin-left:auto;font-size:.85em;opacity:.75;line-height:1}
+/* พับแล้วต้องไม่เหลือช่องว่าง: [hidden] ถูก .jm-grid{display:grid} ทับได้
+   จึงประกาศทับให้ชัด (ตัว body เองไม่ได้ตั้ง display จึงใช้ค่าปกติของ [hidden]) */
+.jm-sec-body[hidden]{display:none}

@@ -10,3 +10,85 @@
   .print-area,.print-area *{visibility:visible}
   .print-area{position:absolute;inset:0;padding:0}
 }
+
+/* ══ หน้า "ดู INVOICE" — การ์ดข้อมูลงาน + หัวข้อ INVOICE PREVIEW ══
+   ใช้ Pattern เดียวกับหน้า "ดูงาน" (page-head + card card-pad + fgrid)
+   ไม่สร้าง component ใหม่ · ไม่แตะ .iv-doc / .print-area ของเอกสาร */
+.iv-info{margin-bottom:14px}
+.iv-info .fld label{font-size:var(--fs-xs);color:var(--t3,#7c879b)}
+.iv-info .fld>div{font-size:var(--fs-sm);word-break:break-word}
+.iv-pv-head{margin-bottom:10px}
+.iv-pv-head .t-xs{margin-left:10px}
+@media(max-width:640px){
+  .iv-pv-head .t-xs{display:block;margin-left:0;margin-top:4px}
+}
+/* ตอนพิมพ์: การ์ดข้อมูลและหัวข้อ Preview ต้องไม่ออกกระดาษ
+   (กฎ body *{visibility:hidden} ด้านบนซ่อนให้อยู่แล้ว — display:none กันพื้นที่ว่างค้าง) */
+@media print{
+  .iv-info,.iv-pv-head{display:none !important}
+}
+
+/* ══ ดู INVOICE แบบ Modal (ACCOUNTING) ══════════════════════════════════
+   Modal shell ใช้ .modal-fs + .modal-w80 เดิม -> .modal-b เป็น Scroll Owner
+   ชุดเดียวอยู่แล้ว (หน้าเบื้องหลังถูกล็อกโดย lockPageScroll() ใน modal.js)
+   ที่นี่ปรับเฉพาะระยะให้เอกสาร A4 อ่านสบายใน Modal · ไม่แตะ .print-area */
+#nj-modal .iv-info{margin-bottom:12px}
+#nj-modal .iv-pv-head{margin-bottom:8px}
+/* หน้าเต็มมี page-head ของ route อยู่แล้ว · ใน Modal มีหัว Modal ซ้อนอีกชั้น
+   จึงลดระยะบนของ page-head ตัวแรกไม่ให้ห่างเกินไป */
+#nj-modal .modal-b > .page-head:first-child{margin-top:0}
+
+/* ── PRINT จาก Modal ──
+   กฎเดิม body *{visibility:hidden} + .print-area{visible} ใช้ได้กับ Modal ด้วย
+   เพราะ .print-area อยู่ใน DOM จริง (#nj-modal อยู่ใต้ body)
+   แต่ต้องกัน Modal shell / backdrop ไม่ให้กินพื้นที่และไม่ให้ตัดเนื้อหา */
+@media print{
+  #nj-modal{position:static !important;background:none !important;
+            padding:0 !important;overflow:visible !important;display:block !important}
+  #nj-modal .modal{position:static !important;inset:auto !important;
+            width:auto !important;height:auto !important;max-height:none !important;
+            overflow:visible !important;box-shadow:none !important;display:block !important}
+  #nj-modal .modal-b{overflow:visible !important;height:auto !important;
+            max-height:none !important;padding:0 !important;background:none !important}
+  /* ส่วนที่ไม่ใช่เอกสารต้องไม่กินพื้นที่บนกระดาษ */
+  #nj-modal .modal-h,#nj-modal .modal-f{display:none !important}
+}
+
+/* ══ แถบสถานะใบแจ้งหนี้ในฟอร์ม (Master Invoice Form) ══
+   ผลลัพธ์ของ POST / UNPOST ต้องเห็นทันทีบนหน้าจอ ไม่ต้องเดาจากปุ่ม */
+.bm-state{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;
+  padding:9px 14px;border-radius:9px;margin-bottom:12px;
+  border:1px solid var(--line);background:var(--surface-2);font-size:13px}
+.bm-state-b{font-weight:800;letter-spacing:.4px;padding:2px 10px;border-radius:999px;
+  background:var(--surface);border:1px solid currentColor;font-size:12px}
+.bm-state-n{color:var(--t3,#7c879b);font-size:12.5px}
+.bm-state b{font-variant-numeric:tabular-nums}
+/* ยังไม่บันทึก */
+.bm-state.is-new{color:#64748b}
+/* ร่าง */
+.bm-state.is-draft{color:#b26a00;background:#fff8ec;border-color:#f0dcb8}
+/* POSTED — เน้นชัดที่สุด เพราะเป็นสถานะที่ผู้ใช้ต้องเห็นว่าเกิดขึ้นแล้ว */
+.bm-state.is-posted{color:#15803d;background:#effaf1;border-color:#bfe3c8}
+.bm-state.is-posted b{color:#0f172a}
+@media(max-width:640px){ .bm-state{font-size:12.5px} }
+
+/* ══ ซ่อนข้อความ 2 จุดบนหน้าจอ (ACCOUNTING > SERVICE / ADVANCE) ══════════
+   *** ซ่อนการแสดงผลอย่างเดียว — ไม่แตะ JS / Logic / Payload ***
+
+   1) แถบสถานะ "ยังไม่บันทึก"  (.bm-state.is-new)
+      applyState() ยังคำนวณ className + innerHTML เหมือนเดิมทุกบรรทัด
+      -> Draft / Dirty State ภายในทำงานครบ · สถานะ "ร่าง" (is-draft)
+         และ "POSTED" (is-posted) ยังแสดงตามเดิม (ไม่อยู่ในคำสั่งให้ซ่อน)
+
+   2) Due Date Helper  (#bm-due-pv)
+      *** ห้ามลบ element นี้เด็ดขาด ***
+      updDue() เขียนค่าที่คำนวณได้ลง pv.dataset.calc และ collect() อ่านค่านั้น
+      ไปใช้เป็น due_date ของ payload:
+        const due = q('#bm-due').value || q('#bm-due-pv').dataset.calc || null;
+      element ที่ display:none ยัง querySelector เจอและยังอ่าน dataset ได้ปกติ
+      -> Due Date ยังคำนวณอัตโนมัติและถูกบันทึกเหมือนเดิมทุกประการ
+
+   ขอบเขต: .bm-state / #bm-due-pv มีเฉพาะใน billing-modal.js (ACCOUNTING 2 โหมด)
+   DOCUMENT ใช้ #jf-due-pv / #nj-due-pv คนละ id -> ไม่กระทบ */
+.bm-state.is-new{display:none}
+#bm-due-pv{display:none}

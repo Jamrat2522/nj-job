@@ -3,7 +3,7 @@ import { esc, dmy, statusBadge } from '../core/formatter.js';
 import { can } from '../core/permissions.js';
 import { groupLabel, chargeLabel } from '../config/charge-groups.js';
 
-export async function render(cnt, { id }) {
+export async function render(cnt, { id, from }) {
   const j = await jobDetail(id);
   const f = (lb, v) => `<div class="fld"><label>${lb}</label><div>${v || '-'}</div></div>`;
   cnt.innerHTML = `
@@ -13,7 +13,7 @@ export async function render(cnt, { id }) {
         ${can('edit', j.charge_type, j.company_group) && !j.invoice_id && j.operational_status !== 'CANCELED'
           ? `<button class="btn btn-o" id="jd-edit">✏ แก้ไข</button>` : ''}
         ${can('invoice', j.charge_type, j.company_group) && !j.invoice_id && j.operational_status !== 'CANCELED'
-          ? `<button class="btn btn-p" id="jd-inv">ออก INVOICE</button>` : ''}
+          ? `<span class="t-xs t-3">ออก Invoice ได้ที่ ACCOUNTING &gt; ปุ่ม “ออกวางบิล”</span>` : ''}
         ${j.invoice_id ? `<button class="btn btn-o" id="jd-viewinv">ดู INVOICE</button>` : ''}
         <button class="btn btn-o" id="jd-back">← กลับ</button></div></div>
     <div class="card card-pad">
@@ -49,8 +49,20 @@ export async function render(cnt, { id }) {
           : '<span class="t-3">ไม่มีข้อมูลตู้</span>'}</div>
       <div class="fsec"><div class="fsec-t">หมายเหตุ</div><div>${esc(j.note) || '-'}</div></div>
     </div>`;
-  cnt.querySelector('#jd-back').onclick = () => location.hash = '#/charges/' + j.charge_type + '/' + j.company_group;
-  const e1 = cnt.querySelector('#jd-edit'); if (e1) e1.onclick = () => location.hash = '#/job/' + id + '/edit';
-  const e2 = cnt.querySelector('#jd-inv'); if (e2) e2.onclick = () => location.hash = '#/invoice/issue/' + id;
-  const e3 = cnt.querySelector('#jd-viewinv'); if (e3) e3.onclick = () => location.hash = '#/invoice/' + j.invoice_id;
+  /* กลับหน้าที่มาจริง (DOCUMENT/ACCOUNTING) — ไม่มี context ค่อยใช้ route เดิม */
+  const src = ['document', 'accounting'].includes(from) ? from : null;
+  const backHash = src
+    ? '#/' + src + '/' + String(j.charge_type).toLowerCase()
+    : '#/charges/' + j.charge_type + '/' + j.company_group;
+  cnt.querySelector('#jd-back').onclick = () => location.hash = backHash;
+  /* เข้าโหมดแก้ไขจากหน้าดู — พา context ไปด้วยเพื่อให้บันทึก/ยกเลิกกลับถูกหน้า
+     ใช้ Job ID เดิม → บันทึกทับ Record เดิม ไม่สร้างงานใหม่ */
+  const e1 = cnt.querySelector('#jd-edit');
+  if (e1) e1.onclick = () => location.hash = '#/job/' + id + '/edit' + (src ? '?mode=' + src : '');
+  const e3 = cnt.querySelector('#jd-viewinv');
+  if (e3) e3.onclick = () => {
+    /* จำหน้าที่กดมา (ดูงาน) เพื่อให้ปุ่มกลับในหน้า INVOICE กลับมาที่นี่ */
+    try { sessionStorage.setItem('nj-inv-from', location.hash); } catch (_) {}
+    location.hash = '#/invoice/' + j.invoice_id;
+  };
 }

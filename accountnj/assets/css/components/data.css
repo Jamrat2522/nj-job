@@ -49,3 +49,46 @@ textarea.inp{resize:vertical;min-height:70px}
 .fld.invalid .inp,.fld.invalid .sel{border-color:var(--red-600)}
 .fsec{border-top:1px dashed var(--line);margin-top:16px;padding-top:14px}
 .fsec-t{font-size:var(--fs-sm);font-weight:600;color:var(--navy-700);margin-bottom:10px}
+
+/* ══ COMPACT DATA GRID — ความหนาแน่นมาตรฐานเดียวกันทุกหน้ารายการ ══════════
+   แก้ที่ Shared Component (.tbl / .fbar / .pgn) เพราะทุกหน้ารายการต้อง Compact
+   เหมือนกันจริงตามข้อกำหนด · ตรวจแล้วไม่มีหน้าไหนต้องการ Row สูงเป็นพิเศษ
+   *** CSS ล้วน — ไม่แตะ Renderer / Data Mapping / Calculation / Logic ใด ๆ ***
+
+   Header  ~38px · font 13px      Row ~39-41px · padding 7px · font 13px
+   Filter  ทุก control 36px       Pagination ~45px
+   กฎเดิมที่คงไว้: เส้นแบ่งบาง · พื้นขาว · hover สีอ่อน · ไม่มี shadow/radius/margin ราย Row
+   ตัวเลขยังชิดขวา + tabular-nums ผ่าน .tbl .r เดิม (ไม่แตะการจัดรูปแบบตัวเลข) */
+
+/* Header — เตี้ยลง แต่ตัวอักษรอ่านง่ายขึ้น (11.5px -> 13px) */
+.tbl th{padding:10px 12px;font-size:13px;line-height:1.35;letter-spacing:.02em}
+/* Row — padding 9px -> 7px · height:26px ทำหน้าที่เป็นความสูงขั้นต่ำของเซลล์
+   แถวที่เนื้อหาสูงกว่า (badge 2 บรรทัด/ปุ่ม) ยังขยายเองได้ตามปกติ */
+.tbl td{padding:7px 12px;height:39px;font-size:13px;line-height:1.35}
+/* box-sizing:border-box (reset.css) -> height 39px = ความสูงรวมขั้นต่ำของเซลล์
+   แถวบรรทัดเดียวจึงได้ ~40px เท่ากันทุกหน้า · แถวที่เนื้อหาสูงกว่ายังขยายเองได้ */
+/* บรรทัดรองในเซลล์ (SRC: / ภายใน: / สถานะย่อย) — กระชับ ไม่ให้ดัน Row สูง */
+.tbl td .t-xs{line-height:1.15}
+.tbl td .bdg{padding:2px 9px;white-space:nowrap}   /* badge ตัดบรรทัด = Row สูงขึ้นโดยไม่จำเป็น */
+/* ปุ่มในคอลัมน์ Action ของหน้ารายการ — เตี้ยลงเพื่อไม่ให้ดัน Row สูง
+   *** จำกัดที่ .ch-act เท่านั้น *** ตาราง INVOICE ในโมดัล (.bm-items) ใช้ปุ่มเต็มความกว้าง
+   สูง 34px ของตัวเอง จึงไม่ถูกกระทบ */
+.ch-act .btn-sm{padding:4px 9px;line-height:1.25}
+
+/* Filter bar — ทุก control สูงเท่ากัน 36px */
+.fbar{padding:9px 12px;gap:8px;margin-bottom:12px}
+.fbar .inp,.fbar .sel,.fbar .btn{height:36px}
+.fbar .btn{padding-top:0;padding-bottom:0}
+.fbar textarea.inp{height:auto}
+
+/* Pagination footer — กระชับ อยู่ในกรอบตารางเดียวกัน */
+.pgn{padding:8px 14px;gap:7px}
+.pgn button{padding:4px 9px;line-height:1.25}
+.pgn .sel{height:30px;padding:3px 8px}
+
+/* Mobile — ลด padding เพิ่มได้ แต่ไม่บีบจนอ่านไม่ออก และไม่แตะ overflow ของ .tbl-wrap */
+@media(max-width:640px){
+  .tbl th{padding:8px 9px}
+  .tbl td{padding:6px 9px}
+  .fbar{padding:8px 10px}
+}

@@ -1,10 +1,10 @@
 BILLING NJ — CHANGELOG
-Version : 1.4.1   (BUILD KEY 1.4.1-local86)
-จาก     : local85 → local86
-งานล่าสุด : FINAL3 — preview-doc.html แท็บ 50 ทวิ ใช้ Renderer ผิด (ดูหัวข้อ 26)
+Version : 1.4.1   (BUILD KEY 1.4.1-local113)
+จาก     : local96 → local113
+งานล่าสุด : เลขเอกสารรายเดือน JOB/AD + แสดงเลข+วันที่ทุก Flow (หัวข้อ 50)
 
-เปิด/ทดสอบ : OPEN-CHECK_WHT-50TAWI-FINAL3.zip
-Deploy     : DEPLOY_WHT-50TAWI-FINAL3.zip
+เปิด/ทดสอบ : OPEN-CHECK_POST-STATE-FINAL.zip
+Deploy     : DEPLOY_POST-STATE-GITHUB-FINAL.zip
 SQL        : ดูตาราง FINAL STATUS ด้านล่าง (ยึดตารางนั้นเท่านั้น)
 
 
@@ -1518,3 +1518,1656 @@ Source: แก้ preview-doc.html ไฟล์เดียว (draw() 1 branch)
 
 ── NOT VERIFIED ────────────────────────────────────────────────────
   Browser Print Preview / A4 · Desktop / Mobile rendering จริง
+
+
+════════════════════════════════════════════════════════════════════
+27 · ดู INVOICE — Preview ในหน้า (CLEAN BASE · local90)
+════════════════════════════════════════════════════════════════════
+BASE  : OPEN-CHECK_WHT-50TAWI-FINAL3.zip (local86) — แตกใหม่เป็น working dir
+        *** ไม่ใช้ working dir เก่า · ไม่ใช้ local87/88/89 ***
+        *** ไม่นำโค้ด modal-flow จาก Scope อื่นติดมา ***
+SQL   : ไม่แตะ ไม่ต้องรัน · sql/ ทั้ง 46 ไฟล์ IDENTICAL กับ BASE
+Scope : ACCOUNTING > SERVICE / ADVANCE — ปุ่ม "ดู INVOICE"
+
+── SOURCE จริงที่ตรวจบน BASE ────────────────────────────────────────
+  ปุ่ม ดู INVOICE     charges/charge-table.js  data-act="viewinv" (บรรทัด 230/235/240)
+                     handler charges/charge-page.js บรรทัด 220
+                     + jobs/job-detail.js #jd-viewinv (บรรทัด 62)
+                     + receipts/receipt-page.js data-inv (บรรทัด 131/134)
+  Route              config/routes.js R['invoice/:id'] -> invoices/invoice-view.js
+                     R['accounting/service'] · R['accounting/advance']
+                     (charge-page.js · args mode:'accounting')
+  Invoice View       invoices/invoice-view.js  render()
+  Invoice Renderer   invoices/invoice-doc.js   invoiceDocHTML()  (.ivd*)
+  Job Detail Layout  jobs/job-detail.js (page-head + card card-pad + fgrid + .fld)
+  Print              invoice-view.js #ivv-print -> window.print()
+                     scope: css/pages/invoice.css @media print
+                            body *{visibility:hidden} + .print-area{visible}
+  Back (ของเดิม)      '#/charges/' + charge_type + '/' + company_group
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  1) *** ปุ่มกลับผิดหน้า (บั๊กจริง) ***
+     hardcode '#/charges/{charge}/{group}' = route เดิมของ DOCUMENT
+     -> กดจาก ACCOUNTING > SERVICE เด้งไป DOCUMENT > SERVICE
+        กดจาก ACCOUNTING > ADVANCE ก็เด้งผิดหน้าเช่นกัน
+  2) หน้าไม่มีข้อมูลงานประกอบ — มีแค่ page-head + เอกสาร
+  3) ไม่มีหัวข้อบอกว่าส่วนล่างคือ Preview ที่จะพิมพ์
+
+  *** ตรวจแล้วไม่ใช่ปัญหา จึงไม่แก้ ***
+     ไม่ได้เปิด Print ทันที (มีปุ่ม #ivv-print อยู่แล้ว ไม่มี auto print)
+     เป็นหน้าเต็มผ่าน route จริงอยู่แล้ว ไม่ใช่ Modal
+     ใช้ invoiceDocHTML() กลางอยู่แล้ว -> Preview = Print ชุดเดียวกัน
+     => ไม่สร้าง template ใหม่ ไม่เปลี่ยน renderer
+
+── FIX ─────────────────────────────────────────────────────────────
+  1) Origin-aware Back (ไม่ hardcode ปลายทาง)
+     บันทึก location.hash ปัจจุบันลง sessionStorage['nj-inv-from']
+     ตอนกด "ดู INVOICE" ที่ 3 จุดเข้า
+     invoice-view อ่านค่านี้เป็นปลายทางของ ← กลับ
+     ตรวจความปลอดภัย: ต้องขึ้นต้น '#/' และไม่ใช่ '#/invoice/' (กันวนซ้ำ)
+     ไม่มี origin -> ถอยไป route เดิม '#/charges/...'
+  2) การ์ดข้อมูล .iv-info — Pattern เดียวกับหน้าดูงาน
+     14 ฟิลด์ + NOTE : เลขที่งาน · Invoice No. · ประเภท · สถานะ · ลูกค้า ·
+     บริษัท Invoice · Customer Job No. · เลขใบขนสินค้า · Invoice ต้นทาง ·
+     House B/L · Master B/L · Invoice Date · Due Date · ผู้ออกใบ
+     *** ทุกช่องมาจาก njacc_invoice_view เดิม ไม่เรียก RPC เพิ่ม ***
+     Booking No. / Vessel / Reference ไม่แสดง เพราะ RPC ไม่ส่งมา
+     -> ไม่สร้าง Field ปลอม (ข้อ 6)
+  3) หัวข้อ INVOICE PREVIEW (.iv-pv-head) + ปุ่ม Print ตัวที่ 2 (#ivv-print2)
+     Print ยังเกิดจากการกดปุ่มเท่านั้น
+  4) Print scope: + @media print { .iv-info,.iv-pv-head{display:none} }
+
+── ไฟล์ที่แก้ (7) — เทียบ BASE ─────────────────────────────────────
+  File                                    Changed  เหตุผล
+  assets/js/invoices/invoice-view.js      YES      การ์ดข้อมูล + PREVIEW + back origin
+  assets/js/charges/charge-page.js        YES      บันทึก origin (act 'viewinv')
+  assets/js/jobs/job-detail.js            YES      บันทึก origin (#jd-viewinv)
+  assets/js/receipts/receipt-page.js      YES      บันทึก origin (data-inv)
+  assets/css/pages/invoice.css            YES      .iv-info / .iv-pv-head + print
+  index.html                              YES      BUILD KEY local86 -> local90
+  assets/js/app.bundle.js                 YES      rebuild จาก source ใหม่
+  CHANGELOG.txt                           YES      ไฟล์นี้
+  ──────────────────────────────────────────────────────────────────
+  assets/css/components/ui.css            NO       IDENTICAL กับ BASE (cmp ยืนยัน)
+  assets/js/components/modal.js           NO       IDENTICAL กับ BASE (cmp ยืนยัน)
+  assets/js/jobs/job-form.js              NO       IDENTICAL กับ BASE (cmp ยืนยัน)
+  sql/** (46 ไฟล์)                        NO       IDENTICAL ทุกไฟล์
+  RPC                                     NO       ไม่แตะเลย
+  *** ไม่มีไฟล์นอก Scope ปน · grep modal-flow ทั้งโปรเจกต์ = 0 ***
+
+── Function / Route ที่แก้ ─────────────────────────────────────────
+  invoices/invoice-view.js   render()
+  charges/charge-page.js     handler act 'viewinv'
+  jobs/job-detail.js         #jd-viewinv onclick
+  receipts/receipt-page.js   data-inv onclick
+  *** Route ไม่เปลี่ยน *** ยังเป็น R['invoice/:id'] เดิม
+
+── TEST — เปิดหน้าจริงใน jsdom (CSS ครบ 24 ไฟล์ + เรียก render() ตัวจริง) ──
+  ACCOUNTING > SERVICE — PASS 15/15
+    ไม่เปิด Print ทันที (print called = 0) · หน้าเต็มไม่ใช่ Modal
+    Pattern เดียวกับดูงาน · ข้อมูลครบ 15 ฟิลด์ · Shipment ครบ
+    เลขที่งานจริง JSVNJ26-0001 · มีหัวข้อ INVOICE PREVIEW
+    Preview = Renderer เดิม (.ivd + .ivd-tbl + .ivd-logo)
+    ตัวเลข 1,500.00 / 105.00 / 1,605.00
+    กด Print (บน) -> Dialog 1 ครั้ง · ปุ่มเหนือ Preview -> 2 ครั้ง
+    print-area ไม่มี sidebar/ปุ่ม/page-head ข้างใน
+    ← กลับ -> #/accounting/service
+  ACCOUNTING > ADVANCE — PASS 15/15 (เลขงาน JADNJ26-0007)
+    ← กลับ -> #/accounting/advance
+  fallback ไม่มี origin -> #/charges/SERVICE/NJ
+  origin DOCUMENT      -> #/document/service
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  diff invoice-view.js: บรรทัดที่แตะ POST/UNPOST/Void = 0
+  invoiceDocHTML ยังเป็น renderer เดียว · ไม่มี <table> ใหม่ในไฟล์
+  ชุดทดสอบเดิม 13 ชุด ผ่านหมดบน BASE ใหม่
+  ไม่แตะ: Save Draft · Delete Draft · VAT/WHT · Total · Running Number ·
+          Close Job · DOCUMENT · FINANCE · Receipt · Credit Note ·
+          Permission · Role · Customer/Service Setting · Job Form · Modal
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง (Chrome/Safari) + Print Preview A4
+  container เปิด Chromium ไม่ได้ — ทดสอบด้วย jsdom + CSS จริงเท่านั้น
+
+
+════════════════════════════════════════════════════════════════════
+28 · DOCUMENT — Scroll เดียว + Save ท้ายฟอร์ม (local91)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่แตะ ไม่สร้างเพิ่ม *** sql/ 46 ไฟล์ diff = 0
+Scope : DOCUMENT > SERVICE และ DOCUMENT > ADVANCE (เปิดงานใหม่ / แก้ไขงาน)
+
+── SOURCE จริงที่ตรวจก่อนแก้ ────────────────────────────────────────
+  1) หน้า DOCUMENT — SERVICE   config/routes.js  R['document/service']
+                               -> charges/charge-page.js (mode:'document')
+  2) หน้า DOCUMENT — ADVANCE   R['document/advance'] -> ไฟล์เดียวกัน
+  3) Function เปิด Modal       jobs/job-form.js  openNewJobModal() บรรทัด 264
+                               เรียกจาก charges/charge-tools.js บรรทัด 63
+                               (ส่ง mode: ctx.mode)
+                               shell: components/modal.js  openModal()
+  4) CSS ที่คุม Scroll          css/components/ui.css
+                               .modal-bk / .modal / .modal-b / .modal-f
+                               .modal-fs (บรรทัด 122-150) · .modal-w80 (176-211)
+  5) Root Cause "Scroll ซ้าย"  *** openModal() ไม่เคยล็อกหน้าเบื้องหลัง ***
+                               ตรวจ modal.js แล้วไม่มีโค้ดล็อกเลย
+                               -> documentElement ยังเลื่อนได้พร้อม Modal
+  6) Root Cause "Scroll ขวา"   .modal-fs .modal-b
+                               overflow-y:auto + flex:1 1 auto + min-height:0
+                               ประกอบกับ .modal-fs .modal position:fixed height:100dvh
+                               และ .modal-w80 position:absolute + overflow:hidden
+                               -> กล่องสูงเท่าจอเสมอ เนื้อหาจึงต้อง scroll ข้างใน
+  7) Footer ปุ่มบันทึก          job-form.js สร้าง f.innerHTML (#nj-save + data-close)
+                               ส่งเข้า openModal({footer:f}) -> .modal-f
+                               .modal-fs .modal-f  flex:none + box-shadow -> ตรึงแยก
+
+  จำนวน Scroll ก่อนแก้ = 2 ชุด (html ของหน้า + .modal-b)
+
+── FIX (แก้ที่โครงสร้าง ไม่ใช่ซ่อนแถบเลื่อน) ────────────────────────
+  1) modal.js — lockPageScroll() / unlockPageScroll()
+     ล็อก documentElement.style.overflow='hidden' เฉพาะช่วง Modal เปิด
+     จำค่าเดิมไว้ใน prevHtmlOverflow แล้วคืนให้ตรงเป๊ะตอน closeModal()
+     *** ไม่ใช่ body{overflow:hidden} ถาวรใน CSS · ไม่ใช้ !important ***
+     แก้ Root Cause ของแถบเลื่อนซ้ายโดยตรง
+     ใช้กับ Modal ทุกตัว (พฤติกรรมที่ถูกต้องอยู่แล้ว) แต่ไม่เปลี่ยน layout ใคร
+
+  2) modal.js — เพิ่มพารามิเตอร์ cls (optional)
+     ไม่ส่ง cls -> พฤติกรรมเดิมทุกประการ
+
+  3) job-form.js — const useFlow = mode === 'document';
+     ส่ง cls:'modal-flow' เฉพาะ DOCUMENT
+     แยกด้วย state จริงของระบบ *** ไม่ตรวจจากข้อความหัวจอ ***
+
+  4) ui.css — บล็อก .modal-flow (opt-in · เพิ่มใหม่ ไม่แก้ selector เดิม)
+     backdrop  overflow-y:auto + overflow-x:hidden -> Scroll Owner ชุดเดียว
+     .modal    position:relative · height:auto · overflow visible
+     .modal-b  flex:0 0 auto · overflow-y:visible (longhand ทับของเดิม)
+     .modal-f  position:static · box-shadow:none -> ท้ายฟอร์มจริง
+     + กระชับ padding/gap ของ .jm-* เฉพาะใน .modal-flow
+
+  จำนวน Scroll หลังแก้ = 1 ชุด (backdrop) · Horizontal = 0
+
+── ไฟล์ที่แก้ (5) ──────────────────────────────────────────────────
+  assets/js/components/modal.js   +cls  +lock/unlockPageScroll
+  assets/js/jobs/job-form.js      +gate useFlow (1 บรรทัดโค้ด)
+  assets/css/components/ui.css    +บล็อก .modal-flow
+  index.html                      BUILD KEY local90 -> local91
+  assets/js/app.bundle.js         rebuild จาก source
+  CHANGELOG.txt                   ไฟล์นี้
+  *** ไม่แตะ SQL / RPC / Validation / Permission / เลขที่งาน / Save Function ***
+
+── CSS Class ที่แก้ ────────────────────────────────────────────────
+  เพิ่มใหม่ทั้งหมด ไม่แก้ selector เดิมสักตัว:
+    @media(min-width:1101px) .modal-bk.modal-bk-w80.modal-flow
+    @media(min-width:1101px) .modal-fs .modal.modal-w80.modal-flow
+    @media(min-width:1101px) .modal-flow .modal-b
+    .modal-bk.modal-fs.modal-flow
+    .modal-fs .modal.modal-flow
+    .modal-fs .modal.modal-flow > .modal-b , .modal-flow .modal-b
+    .modal-fs .modal.modal-flow > .modal-f
+    .modal-flow .modal-b / .jm-auto / .jm-sec / .jm-sec-t / .jm-grid
+
+── TEST — เปิด Modal จริงใน jsdom (CSS ครบ 24 ไฟล์ + openModal ตัวจริง) ──
+  gate อ่านจาก source ด้วย regex ไม่ hardcode ในเทส
+
+  DOCUMENT — SERVICE : PASS 12/12
+    ได้ modal-flow · html ถูกล็อก (overflow=hidden) -> ไม่มีแถบเลื่อนซ้าย
+    Scroll Owner = 1 ชุด (backdrop) · .modal-b overflow-y=visible
+    Footer position=static ไม่ตรึง · ไม่มีเงาลอย
+    ไม่มี Horizontal Scroll (overflow-x=hidden)
+    .modal height=auto position=relative
+    Header→Body→Footer อยู่ Flow เดียวกัน
+    ปุ่ม 💾 บันทึกงาน + ✕ ยกเลิก ครบ · Field ครบ 15 input
+    ปิด Modal แล้วคืน scroll ให้หน้า (overflow กลับเป็นค่าเดิม)
+  DOCUMENT — ADVANCE : PASS 12/12 (เหมือน SERVICE ทุกข้อ)
+
+  ACCOUNTING — SERVICE : PASS 7/7  ไม่ได้ modal-flow
+    .modal-b overflow-y=auto (เดิม) · Footer flex:none ตรึงล่าง (เดิม)
+    ปุ่มครบ · Field ครบ · คืน scroll ถูก
+  ACCOUNTING — ADVANCE : PASS 7/7 (เหมือน ACCOUNTING SERVICE ทุกข้อ)
+
+  Responsive (DOCUMENT) — PASS ทั้ง 3 ขนาด
+    1920×1080 / 1600×900 / 1366×768
+    vertical scroll = 1 · horizontal = 0 · html ถูกล็อก · ปุ่มบันทึกกดได้
+
+  Modal อื่น 6 ตัว — PASS ทั้งหมด ยัง internal scroll เหมือนเดิม
+    ออกวางบิล · INVOICE · RECEIPT · CREDIT NOTE · ADVANCE · 50 ทวิ
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  diff job-form.js = เปลี่ยนเฉพาะบล็อก openModal (1 บรรทัดโค้ด + คอมเมนต์)
+  Field id ครบ 18 ตัว · saveJob 6 จุด · combobox 4 จุด
+  ใช้ Save Function เดิม ไม่เขียนใหม่
+  SQL diff = 0 ไฟล์ · ชุดทดสอบเดิม 14 ชุด ผ่านหมด
+  งาน INVOICE PREVIEW รอบก่อนยังทำงานปกติ (INVOICE VIEW: ALL PASS)
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง (Chrome/Safari) — container เปิด Chromium ไม่ได้
+  ทดสอบด้วย jsdom + CSS จริงเท่านั้น ยังไม่ได้เห็นภาพจริงและยังไม่ได้กดบันทึกงานจริง
+
+
+════════════════════════════════════════════════════════════════════
+29 · ACCOUNTING — ดู INVOICE เป็น Modal (local92)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่แตะ ไม่สร้างเพิ่ม *** sql/ diff = 0 ไฟล์
+Scope : ACCOUNTING > SERVICE และ ACCOUNTING > ADVANCE — ปุ่ม "ดู INVOICE"
+
+── SOURCE จริงที่ตรวจก่อนแก้ ────────────────────────────────────────
+  ปุ่ม ดู INVOICE   charges/charge-table.js  data-act="viewinv" data-inv=invoice_id
+                   handler charges/charge-page.js บรรทัด 220
+  Route ACCOUNTING config/routes.js R['accounting/service'] · R['accounting/advance']
+                   *** ทั้งสองใช้ mode:'accounting' ตัวเดียวกัน ***
+  Modal Component  components/modal.js openModal({fullscreen, wide, cls})
+  Invoice View     invoices/invoice-view.js  render()
+  Invoice Renderer invoices/invoice-doc.js   invoiceDocHTML()  (.ivd*)
+  RPC (ไม่แตะ)     njacc_invoice_view · njacc_post_invoice ·
+                   njacc_unpost_invoice · njacc_void_invoice
+  billing-modal    invoices/billing-modal.js openBillingModal()
+                   บรรทัด 70: if (j.invoice_id) { toast('งานนี้ออก INVOICE แล้ว','err'); return; }
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  charge-page.js บรรทัด 225 ทำ location.hash = '#/invoice/' + id
+  -> เปลี่ยน route ออกจากหน้า ACCOUNTING ทั้งหน้า
+  -> ผู้ใช้หลุดออกจากรายการ ต้องกดกลับแล้วหน้าโหลดใหม่
+
+── ทำไมห้ามใช้ billing-modal.js (สำคัญ) ────────────────────────────
+  billing-modal.js เป็น Modal "ออกวางบิล" (act 'bill') สำหรับงานที่ยังไม่มี Invoice
+  มี guard ตรวจ j.invoice_id แล้วเด้ง error ทันที
+  งานที่กด "ดู INVOICE" มี invoice_id เสมอ -> ถ้าใช้ตัวนั้นจะขึ้น
+  "งานนี้ออก INVOICE แล้ว" ทุกครั้ง
+  => สร้าง invoices/invoice-modal.js แยก แต่ *** ไม่ duplicate logic ***
+
+── FIX ─────────────────────────────────────────────────────────────
+  1) invoice-view.js — refactor เป็นตัวสร้างชุดเดียว
+     export renderInvoice(cnt, { id, view, onChanged })
+       view:'page'  -> หน้าเต็ม (มีปุ่ม ← กลับ)   ใช้โดย route #/invoice/:id
+       view:'modal' -> Modal (ไม่มีปุ่มกลับ)      ใช้โดย invoice-modal.js
+     export render() เดิมยังอยู่ -> เรียก renderInvoice({view:'page'})
+     *** Route เดิมพฤติกรรมไม่เปลี่ยน ***
+     POST/UNPOST/Void redraw ด้วย renderInvoice(cnt,{id,view,onChanged}) เดิม
+     + เรียก onChanged() ให้รายการเบื้องหลังรีเฟรชจาก server
+
+  2) invoices/invoice-modal.js (ใหม่ 1 ไฟล์)
+     openInvoiceModal({ id, onChanged })
+     ใช้ openModal() shell เดิม (fullscreen + wide) ตัวเดียวกับ
+     ออกวางบิล / เปิดงานใหม่ / เอกสารอื่น — ไม่สร้าง shell ใหม่
+     เปิด Modal ก่อนแล้วโหลด -> ตอบสนองทันที · error -> ปิด Modal + handleErr
+
+  3) charge-page.js — act 'viewinv'
+     mode === 'accounting'  -> openInvoiceModal({ id, onChanged: () => load() })
+     mode อื่น (document/closed) -> route เดิม #/invoice/:id ไม่เปลี่ยน
+     แยกด้วย mode จริงของระบบ *** ไม่ตรวจจากข้อความหัวจอ ***
+
+  4) invoice.css — เพิ่มบล็อก #nj-modal (เฉพาะ Modal นี้)
+     ปรับระยะ .iv-info / .iv-pv-head ใน Modal
+     @media print: ปลด position/overflow ของ Modal shell
+     และซ่อน .modal-h / .modal-f -> พิมพ์ได้เฉพาะ .print-area เหมือนหน้าเต็ม
+
+── ไฟล์ที่แก้ (5 · ใหม่ 1) ─────────────────────────────────────────
+  assets/js/invoices/invoice-modal.js   ใหม่ — Modal wrapper
+  assets/js/invoices/invoice-view.js    refactor เป็น renderInvoice ใช้ร่วม 2 โหมด
+  assets/js/charges/charge-page.js      act 'viewinv' แยกตาม mode
+  assets/css/pages/invoice.css          + #nj-modal + @media print
+  index.html                            BUILD KEY local91 -> local92
+  assets/js/app.bundle.js               rebuild
+  CHANGELOG.txt                         ไฟล์นี้
+  ── ไม่แตะ (cmp ยืนยัน IDENTICAL) ──
+  invoice-api.js · billing-modal.js · job-form.js · modal.js · ui.css · sql/**
+
+── TEST — เปิด Modal จริงใน jsdom (CSS ครบ 24 ไฟล์ + openInvoiceModal ตัวจริง) ──
+  Source-level : แยกด้วย mode จริง · ACCOUNTING -> invoice-modal ·
+                 หน้าอื่นยัง route เดิม · viewinv ไม่ใช้ billing-modal ·
+                 ใช้ renderInvoice ร่วม ไม่ duplicate · ส่ง onChanged
+
+  ACCOUNTING > SERVICE : PASS 19/19
+  ACCOUNTING > ADVANCE : PASS 19/19
+    เปิดเป็น Modal (#nj-modal พบ) · URL ไม่เปลี่ยน (ยังอยู่ #/accounting/...)
+    หน้าเบื้องหลังยังอยู่ ไม่ถูก render ใหม่
+    *** ไม่มี error "งานนี้ออก INVOICE แล้ว" ***
+    ข้อมูลงาน/ใบแจ้งหนี้ครบ 15 ฟิลด์ · มีหัวข้อ INVOICE PREVIEW
+    Preview = Renderer กลาง (.ivd + .ivd-tbl) · ตัวเลข 1,500 / 105 / 1,605
+    ไม่มีปุ่ม "← กลับ" ใน Modal · มีปุ่มปิด
+    มีปุ่ม POST + Print + Void ครบ
+    html ถูกล็อก · Scroll Owner = 1 ชุด (.modal-b)
+    ไม่ Print อัตโนมัติ (print=0) · กด Print แล้วจึงเปิด Dialog
+    print-area ครอบเฉพาะเอกสาร · CSS print ซ่อนหัว/ท้าย Modal
+    ปิดแล้วรายการยังอยู่ที่เดิม · คืน scroll ให้หน้า
+    ปิดเฉย ๆ ไม่ reload รายการ (reload=0)
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  DOCUMENT single scroll (local91) ยังทำงานปกติ
+  INVOICE VIEW หน้าเต็ม (route #/invoice/:id) ยัง PASS ทุกข้อ
+  ชุดทดสอบเดิม 15 ชุด ผ่านหมด
+  ไม่แตะ: ออกวางบิล · Draft · Close Job · DOCUMENT · FINANCE · Receipt ·
+          Credit Note · 50 ทวิ · VAT/WHT · Running Number · Permission · SQL/RPC
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง (Chrome/Safari) + Print Preview A4 จาก Modal
+  container เปิด Chromium ไม่ได้ — ทดสอบด้วย jsdom + CSS จริงเท่านั้น
+
+
+════════════════════════════════════════════════════════════════════
+30 · ACCOUNTING — ดู INVOICE เข้า Master Invoice Form (local93)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่แตะ ไม่สร้างเพิ่ม *** sql/ diff = 0
+Scope : ACCOUNTING > SERVICE / ADVANCE — หัวข้อ "จัดการ" > ดู INVOICE
+
+── MAPPING ที่ตรวจจาก Source จริงก่อนแก้ ────────────────────────────
+  Action        ก่อนแก้                                UI ที่เปิด
+  ออก INVOICE   charge-page act 'bill'
+                -> billing-modal.js openBillingModal()  Master Form (Modal)
+  ดู INVOICE    charge-page act 'viewinv'
+                -> invoice-modal.js openInvoiceModal()
+                -> invoice-view.js renderInvoice()      การ์ดสรุป + INVOICE PREVIEW
+  เปิดใบที่มีแล้ว billing-modal ถูก guard บล็อกไว้        เปิดไม่ได้เลย
+
+  Master UI จริง = assets/js/invoices/billing-modal.js  openBillingModal()
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  1) act 'viewinv' ชี้ไปคนละ UI กับ act 'bill' -> ได้หน้าตาคนละแบบ
+  2) billing-modal.js บรรทัด 70 มี guard
+       if (j.invoice_id) { toast('งานนี้ออก INVOICE แล้ว','err'); return; }
+     บล็อกทุกงานที่มีใบแล้ว -> Master Form เปิดใบเดิมไม่ได้
+     ทั้งที่ตัวมันเองรองรับอยู่แล้ว (reloadFromBackend + applyState)
+
+── หลักฐานว่า Backend พร้อมอยู่แล้ว (ไม่ต้องแก้ SQL) ────────────────
+  ตรวจ pg_get_functiondef บน Production:
+  njacc_invoice_draft_view(p_job) คืนใบสถานะ DRAFT *และ* POSTED
+    WHERE job_id=p_job AND status IN ('DRAFT','POSTED')
+    พร้อมคีย์ is_draft / has_real_no / items / customer / company_invoice
+  -> reloadFromBackend() ของ Master Form ใช้ RPC นี้อยู่แล้ว
+  => โหลดใบเดิมกลับเข้าฟอร์มได้ครบโดยไม่ต้องเพิ่ม RPC ใด
+
+── FIX ─────────────────────────────────────────────────────────────
+  1) billing-modal.js — เปลี่ยน guard เป็นการตัดสินโหมด (ข้อ 11)
+     โหลด invoiceDraftView(jobId) ก่อน แล้วเลือกโหมดจากสถานะจริง:
+       ไม่มีใบ            -> CREATE        ฟอร์มว่าง + ข้อมูลจาก Job
+       DRAFT              -> EDIT_EXISTING โหลดข้อมูลเดิมมาแก้ต่อ
+       POSTED             -> VIEW_POSTED   โหลดข้อมูลเดิม + ล็อกตาม applyState()
+     กรณีมี invoice_id แต่ RPC คืน null (ใบสถานะ ISSUED/VOID จาก route เดิม)
+       -> ไม่เปิดฟอร์มเปล่าให้เข้าใจผิด · แจ้งผู้ใช้ + เปิดหน้าดูใบแทน (fallback)
+     หัวหน้าต่างสะท้อนโหมด: 'ออกวางบิล' / 'แก้ไขใบวางบิล (ร่าง)' /
+       'INVOICE {เลขที่} (POSTED)'  — โครง/เนื้อหาเหมือนกันทุกโหมด
+
+  2) charge-page.js — act 'viewinv' (mode 'accounting')
+     -> openBillingModal({ jobId: id, charge, onSaved: () => load() })
+     *** ฟังก์ชันเดียวกับ act 'bill' ทุกประการ ***
+     mode อื่น (DOCUMENT / closed) ยังใช้ route เดิม #/invoice/:id (ข้อ 10)
+
+  *** ไม่แก้ Business Logic ใด ***
+  Load / Save Draft / Calculation / VAT / WHT / POST / UNPOST / VOID /
+  Preview / Print / Permission ใช้ของ Master Form เดิมทั้งหมด
+
+── ไฟล์ที่แก้ (4) ──────────────────────────────────────────────────
+  assets/js/invoices/billing-modal.js  guard -> mode resolution + title
+  assets/js/charges/charge-page.js     act 'viewinv' -> openBillingModal
+  index.html                           BUILD KEY local92 -> local93
+  assets/js/app.bundle.js              rebuild
+  CHANGELOG.txt                        ไฟล์นี้
+  ── เก็บไว้ไม่ลบ (ข้อ 10) ──
+  invoice-view.js · invoice-modal.js   ใช้กับ route #/invoice/:id (direct URL /
+                                       bookmark / DOCUMENT) และ fallback ISSUED/VOID
+
+── RPC ที่ใช้จริง (ไม่แตะ) ─────────────────────────────────────────
+  njacc_job_detail · njacc_invoice_draft_view · njacc_save_invoice_draft ·
+  njacc_post_draft_invoice · njacc_unpost_to_draft · njacc_delete_invoice_draft
+
+── TEST — เปิด Master Form จริงใน jsdom (CSS 24 ไฟล์ + openBillingModal ตัวจริง) ──
+  SERVICE : PASS 19/19   ·   ADVANCE : PASS 19/19
+
+  TEST A  ออก INVOICE -> Master Form  หัวข้อ 'ออกวางบิล' · ไม่เปลี่ยน Route
+  TEST B  ดู INVOICE (DRAFT) -> Master Form 'แก้ไขใบวางบิล (ร่าง)'
+          *** ไม่เจอการ์ดสรุป / INVOICE PREVIEW เป็นหน้าหลัก ***
+  TEST C  เปรียบเทียบ A vs B 1:1
+          Section เหมือนกัน 100%    DOCUMENT | วางบิล | INVOICE
+          Field เหมือนกัน 100%      18 ช่อง
+          คอลัมน์ตารางเหมือนกัน     ลำดับ|CODE|DESCRIPTION|ประเภท|QTY|PRICE|AMOUNT|ลบ
+          Modal class เดียวกัน      modal modal-w80
+          ชุดปุ่มเดียวกัน           bm-del,bm-draft,bm-preview,bm-print,bm-post,close,bm-unpost
+  ข้อ 17  โหลดข้อมูลเดิมครบ: Customer Job No. TEST001 ·
+          SV001 / TEST SERVICE / 1000 · Booking BK-77 · Vessel MV TEST · ETD
+  DRAFT   ปุ่ม: ลบร่าง · บันทึกร่าง · Preview · Print Draft · POST · ปิด
+  POSTED  เปิด Master Form เดิม (หัวข้อ INVOICE {เลข} (POSTED))
+          Section/Field เหมือน CREATE
+          ปุ่ม: Preview · Print Invoice · ปิด · UNPOST  (ซ่อน POST/ลบร่าง/บันทึกร่าง)
+          รายการถูกล็อกทุกช่องตาม Logic เดิม
+  ข้อ 8   Preview เป็นปุ่ม ไม่ใช่หน้าแรก
+  ข้อ 14  ไม่มีหน้า Full Screen INVOICE · ไม่มีการ์ด Summary
+  ปิด Modal แล้วรายการเดิมยังอยู่ · ไม่เปลี่ยน Route
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  DOCUMENT single scroll · INVOICE VIEW (route เดิม) · invoice-modal fallback
+  ชุดทดสอบเดิม 16 ชุด ผ่านหมด
+  ไม่แตะ: DOCUMENT · FINANCE · Receipt · Credit Note · 50 ทวิ ·
+          VAT/WHT · Invoice Number · Permission · Role · SQL/RPC
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง — container เปิด Chromium ไม่ได้
+  ยังไม่ได้กด ออก INVOICE / บันทึกร่าง / POST / UNPOST บนระบบจริง
+
+
+════════════════════════════════════════════════════════════════════
+31 · HOTFIX — ปุ่ม ดู INVOICE ขาด job_id (local94)
+════════════════════════════════════════════════════════════════════
+SQL   : ไม่แตะ · sql/ diff = 0
+
+── อาการที่ผู้ใช้เจอ ───────────────────────────────────────────────
+  ACCOUNTING > SERVICE  กด "ดู INVOICE"
+  Console: Could not find the function public.njacc_job_detail
+           without parameters in the schema cache   (HTTP 404)
+  at async Object.openBillingModal
+
+── ROOT CAUSE ──────────────────────────────────────────────────────
+  charge-page.js บรรทัด 154:  const act = b.dataset.act, id = b.dataset.id;
+  แต่ปุ่ม "ดู INVOICE" ใน charge-table.js มีแค่
+      data-act="viewinv" data-inv="${r.invoice_id}"
+  *** ไม่มี data-id (job_id) ***
+  -> id = undefined
+  -> openBillingModal({ jobId: undefined })
+  -> jobDetail(undefined) -> rpc('njacc_job_detail', { p_id: undefined })
+  -> JSON.stringify ตัด key ที่เป็น undefined ทิ้ง -> body = {}
+  -> PostgREST หา overload njacc_job_detail() แบบไม่มีพารามิเตอร์ไม่เจอ -> 404
+
+  เดิมปุ่มนี้ชี้ไป route #/invoice/:id ซึ่งใช้ invoice_id จึงไม่ต้องใช้ job_id
+  พอรอบ local93 เปลี่ยนให้ไป Master Form ที่ทำงานด้วย job_id จึงขาดข้อมูล
+
+── ช่องโหว่ในการทดสอบของผมเอง (บันทึกไว้กันซ้ำ) ────────────────────
+  รอบ local93 ผมทดสอบด้วยการเรียก openBillingModal({jobId:'job-1'}) ตรง ๆ
+  จึงข้ามขั้นตอน "อ่านค่าจากปุ่ม" ที่เป็นจุดพัง
+  รอบนี้เพิ่มชุดทดสอบ CLICK PATH ที่ render markup ปุ่มจาก charge-table.js จริง
+  แล้วเดิน logic เดียวกับ handler เพื่อดักปัญหาแบบนี้
+
+── FIX (2 จุด) ─────────────────────────────────────────────────────
+  1) charge-table.js — ปุ่ม viewinv พก job_id ด้วย (แก้ครบทั้ง 3 จุด:
+     คิว advance · closed · accounting)
+       data-act="viewinv" data-id="${r.id}" data-inv="${r.invoice_id}"
+     data-inv คงไว้ เพราะ route เดิม #/invoice/:id ยังใช้อยู่ (DOCUMENT/closed)
+  2) charge-page.js — guard ก่อนเปิด Master Form
+       if (!id) { toast('ไม่พบเลขที่งานของรายการนี้','err'); return; }
+     ไม่ยิง RPC ด้วยค่าว่างอีก แม้ปุ่มจากที่อื่นจะขาด data-id
+
+── TEST — CLICK PATH (ชุดใหม่) ─────────────────────────────────────
+  PASS  พบ template ปุ่ม ดู INVOICE 3 จุดใน charge-table
+  PASS  ทั้ง 3 ปุ่มมี data-id (job_id) จริง
+  PASS  handler อ่าน id ได้ ไม่ undefined
+  PASS  jobId ที่ส่งเข้า Master Form ไม่ว่าง
+  PASS  jobId เป็น job_id ไม่ใช่ invoice_id
+  PASS  charge-page มี guard เมื่อ id ว่าง
+  PASS  jobDetail ส่งพารามิเตอร์ { p_id: id } ให้ njacc_job_detail
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  MASTER INVOICE FORM (SERVICE/ADVANCE × CREATE/DRAFT/POSTED) ผ่านครบ
+  DOCUMENT single scroll · INVOICE VIEW · invoice-modal fallback
+  ชุดทดสอบเดิม 16 ชุด ผ่านหมด · SQL diff = 0
+
+── ไฟล์ที่แก้ (4) ──────────────────────────────────────────────────
+  assets/js/charges/charge-table.js   + data-id ที่ปุ่ม viewinv (3 จุด)
+  assets/js/charges/charge-page.js    + guard เมื่อ id ว่าง
+  index.html                          BUILD KEY local93 -> local94
+  assets/js/app.bundle.js             rebuild
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง — รบกวนกด "ดู INVOICE" อีกครั้งเพื่อยืนยันว่า error หาย
+
+
+════════════════════════════════════════════════════════════════════
+32 · DOCUMENT Queue + ปิดงานส่ง ACCOUNTING (local94 · SQL only)
+════════════════════════════════════════════════════════════════════
+BUILD KEY : *** ไม่ bump *** ยังเป็น local94
+            เพราะรอบนี้ไม่ได้แก้ JS/CSS/HTML แม้แต่ไฟล์เดียว
+            (cmp ยืนยัน assets/** · index.html · preview-doc.html IDENTICAL)
+            ไม่มีอะไรต้อง cache-bust
+
+── อาการ ───────────────────────────────────────────────────────────
+  กดบันทึกเปิดงาน -> Job เข้า DB จริง · มี CREATE_JOB จริง
+  แต่ไม่แสดงในหน้า DOCUMENT — SERVICE / ADVANCE
+
+── ROOT CAUSE (ตรวจ Production จริง ไม่ใช่เดา) ─────────────────────
+  Frontend  charge-page.js  QUEUE_BY_MODE.document = 'document'   ✅ ถูกอยู่แล้ว
+            charge-api.js   payload ส่ง queue ไป server           ✅
+            charge-api.js   closeJob -> njacc_document_close_job  ✅
+  Production
+    njacc_build_charge_set    ไม่มีเงื่อนไข queue='document'      ❌
+    njacc_document_close_job  ไม่มีฟังก์ชันนี้เลย                  ❌
+  => งานสถานะ OPEN ไม่เข้าคิวไหนเลยในหน้า DOCUMENT
+     ข้อมูลจริงตอนตรวจ: OPEN SERVICE 1 · CLOSE SERVICE 1 · รวม 2 แถว
+     -> มีงาน OPEN 1 งานที่ผู้ใช้มองไม่เห็น
+
+── ตัดสินใจตามข้อ 9 ของโจทย์ ───────────────────────────────────────
+  Frontend ส่ง contract ถูกต้องอยู่แล้ว -> *** ไม่แก้ Frontend ***
+  แก้ที่ SQL ให้รองรับ contract ที่ Frontend ใช้จริง
+  Contract test 21/21 MATCH (Frontend ↔ SQL)
+
+── ข้อ 11 · แก้โครงสร้างไฟล์ที่สับสน ────────────────────────────────
+  ไฟล์ที่ต้องรันจริงอยู่ผิดโฟลเดอร์:
+    เดิม  sql/LEGACY-DO-NOT-RUN/RUN-01_025_njacc_document_queue_and_close_handoff.sql
+    ใหม่  sql/RUN-NOW/07_RUN-01_025_DOCUMENT_QUEUE_AND_CLOSE.sql
+  cmp ยืนยันเนื้อหา IDENTICAL — ย้ายอย่างเดียว ไม่แก้แม้แต่บรรทัดเดียว
+  README ทั้ง 2 โฟลเดอร์อัปเดตให้ตรงกัน
+
+── ข้อ 10 · ตรวจ Migration 025 ครบ 8 ข้อ ───────────────────────────
+  1 เพิ่ม queue='document' (operational_status <> 'CLOSE')        ✅
+  2 เพิ่ม njacc_document_close_job(p_id uuid, p_note text)        ✅
+  3 ไม่ DROP table จริง                                          ✅
+    มี DROP TABLE IF EXISTS _njacc_l = TEMP TABLE ใน session ของ RPC
+    (ของเดิมในฟังก์ชันนี้ก็ทำแบบนี้อยู่แล้ว) ไม่ใช่ตารางข้อมูล
+  4 ไม่ DELETE / TRUNCATE / UPDATE ข้อมูลเดิม (นับหลังตัดคอมเมนต์ = 0) ✅
+  5 ไม่เปลี่ยน Business Logic อื่น · ไม่แก้ njacc_set_job_status   ✅
+  6 ACCOUNTING ไม่เห็น OPEN (pending_invoice ยังบังคับ = 'CLOSE')  ✅
+  7 DOCUMENT ไม่เห็น CLOSE                                        ✅
+  8 Permission/Audit: njacc_can(edit) · GRANT/REVOKE ครบ 2 ฟังก์ชัน
+    Audit ผ่าน njacc_set_job_status เดิม                          ✅
+
+  จุดเด่นของ RPC: handoff verify + rollback
+    ปิดงานแล้วตรวจซ้ำว่างานเข้าคิว pending_invoice จริง
+    ถ้าไม่เข้า -> NJACC_ACCOUNTING_HANDOFF_FAILED (rollback ทั้ง transaction)
+    -> ไม่มีสภาพ "หายจาก DOCUMENT แต่ ACCOUNTING ไม่รับ"
+  ใช้ p_id เดิม · ไม่มี INSERT INTO njacc_jobs · ไม่ copy/duplicate record
+
+── ผลหลังรัน SQL บน Production (ยืนยันแล้ว) ────────────────────────
+  V1 build_charge_set มี queue=document                    PASS
+  V2 document = operational_status <> 'CLOSE'              PASS
+  V3 pending_invoice ยังบังคับ = 'CLOSE'                    PASS
+  V4 njacc_document_close_job(p_id uuid, p_note text)      PASS
+  V5 authenticated=true · anon=false                       PASS
+  V6 SECURITY DEFINER + search_path                        PASS
+  V7 ข้อมูลครบเท่าเดิม jobs=2 OPEN=1 CLOSE=1                PASS
+  V11 (ผู้ใช้รัน) DOCUMENT 1 + ACCOUNTING 1 + ผ่านบัญชี 0 = 2  PASS
+
+  ข้อมูลจริงเข้าคิวถูกฝั่ง:
+    JSNJ26-0002  SERVICE  OPEN   ไม่มีใบ  -> DOCUMENT เห็น · ACCOUNTING ไม่เห็น
+    JSNJ26-0001  SERVICE  CLOSE  DRAFT   -> DOCUMENT ไม่เห็น · ACCOUNTING เห็น
+  งานที่เคยหายกลับมาแล้ว · ไม่มีงานอยู่ 2 ฝั่งพร้อมกัน · ไม่มีงานหายทั้ง 2 ฝั่ง
+
+── สถานะ SQL หลังรอบนี้ ────────────────────────────────────────────
+  01–07 = ALREADY APPLIED ทั้งหมด · ไม่มีไฟล์ที่ต้องรันแล้ว
+
+── NOT VERIFIED (ต้องดูบนหน้าจอจริง) ───────────────────────────────
+  TEST 1  DOCUMENT > SERVICE เห็น JSNJ26-0002 หลัง Refresh
+  TEST 2  สร้างงาน ADVANCE ใหม่ -> เห็นใน DOCUMENT > ADVANCE
+          (ยังไม่มีงาน ADVANCE ในระบบเลย จึงยืนยันจาก query ไม่ได้)
+  TEST 3  กดปิดงาน JSNJ26-0002 -> หายจาก DOCUMENT · เข้า ACCOUNTING ด้วย Job No. เดิม
+
+
+════════════════════════════════════════════════════════════════════
+33 · จัดปุ่ม Footer INVOICE + Print ผ่าน Preview (local95)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่มี ไม่ต้องรัน *** Backend มี njacc_unpost_to_draft อยู่แล้ว
+        sql/ diff = 0 ไฟล์
+Scope : ACCOUNTING — SERVICE / ADVANCE (Footer ของ Master Invoice Form)
+
+── MAPPING ปุ่ม (ตรวจ Source จริงก่อนแก้ · ข้อ 13) ──────────────────
+  ปุ่ม         Function จริงใน billing-modal.js
+  ลบร่าง       #bm-del     -> deleteInvoiceDraft()  (njacc_delete_invoice_draft)
+  บันทึกร่าง   #bm-draft   -> doSaveDraft()         (njacc_save_invoice_draft)
+  Preview      #bm-preview -> openDraftDoc(btn,false)   *** ลบปุ่มนี้ ***
+  Print Draft  #bm-print   -> openDraftDoc(btn,true)
+  POST         #bm-post    -> postDraftInvoice()    (njacc_post_draft_invoice)
+  UNPOST       #bm-unpost  -> unpostToDraft()       (njacc_unpost_to_draft)
+
+── ตรวจ Backend UNPOST (ข้อ 6/7/20) — มีอยู่แล้ว ไม่สร้าง SQL ใหม่ ──
+  njacc_unpost_to_draft(p_invoice uuid, p_reason text, p_request_id text)  PASS
+  ไม่ออกเลขใหม่ · ไม่เขียนทับ invoice_no -> เลข INVOICE เดิมถูกเก็บไว้      PASS
+  authenticated=true · anon=false                                          PASS
+
+── ROOT CAUSE ที่พบเพิ่ม (บั๊กจริง 2 ข้อ) ──────────────────────────
+  [A] ข้อ 2 · Print Draft เด้ง Print Dialog ทันที
+      openDraftDoc(btn, true) -> openInvoiceDoc(doc, { print:true })
+      -> invoice-doc.js บรรทัด 245: if (print) setTimeout(window.print, 60)
+      = ผู้ใช้ไม่ทันเห็น Preview
+
+  [B] ข้อ 14 · POSTED กด Print แล้วถูก Save กลับเป็นร่าง
+      openDraftDoc เรียก doSaveDraft() ก่อนเสมอ ไม่ว่าสถานะใด
+      doSaveDraft -> saveInvoiceDraft() + setDraftState(res.id)
+      = ใบที่ POST แล้วถูกเขียนทับเป็นร่างโดยไม่ได้ตั้งใจ
+
+  [C] บั๊กแฝงที่เจอตอนทดสอบ (มีมาก่อนรอบนี้)
+      btnBusy(btn,true) เขียนทับ innerHTML ของปุ่มเป็น "กำลังทำรายการ…"
+      ถ้า applyState ถูกเรียกจังหวะนั้น (Print -> doSaveDraft -> setDraftState)
+      B('#bm-print').querySelector('span') = null -> throw TypeError
+      -> Preview ไม่เปิดเลย
+
+── FIX ─────────────────────────────────────────────────────────────
+  1) ข้อ 1 · ลบปุ่ม 👁 Preview ออกจาก Footer (ทั้ง 2 หน้า)
+     *** ไม่ลบฟังก์ชัน *** openDraftDoc() ยังอยู่ ใช้เป็น Flow ของ Print
+  2) ข้อ 2 · #bm-print -> openDraftDoc(e.target)  ไม่ส่ง print
+     -> เปิด Preview เสมอ ผู้ใช้กดปุ่ม Print ในหน้า Preview เอง (#ivd-print)
+  3) ข้อ 14 · openDraftDoc แยกสถานะ
+       ร่าง   : บันทึกร่างล่าสุดก่อน แล้ว Preview
+       POSTED : *** ไม่ Save Draft *** อ่านเอกสารจริงจาก Backend แล้ว Preview
+                และส่ง draft:false -> หัวเรื่อง "ใบแจ้งหนี้" ไม่ใช่ "ร่าง"
+  4) [C] applyState เช็ค null ก่อนตั้งป้ายปุ่มพิมพ์
+  5) ข้อ 3/10 · จัดกลุ่ม Footer ใหม่
+       .mf-left  : 🗑 ลบร่าง · ↩ UNPOST
+       .mf-right : 🖨 Print Draft -> ⬆ POST -> 💾 บันทึกร่าง -> ✕ ปิด
+     ui.css ยกเลิกกฎเดิมที่ดันด้วย margin-left:auto ราย id
+     (ถ้าไม่ยกเลิก ปุ่มในกลุ่มขวาจะถูกดันแยกออกจากกัน)
+     flex-wrap:nowrap เดิมยังอยู่ -> ไม่ตกบรรทัดบน Desktop
+
+── การแสดงปุ่มตามสถานะ (ของเดิมใน applyState ไม่แก้ Logic) ──────────
+  DRAFT  ซ้าย 🗑 ลบร่าง        ขวา 🖨 Print Draft · ⬆ POST · 💾 บันทึกร่าง · ✕ ปิด
+         ไม่แสดง UNPOST
+  POSTED ซ้าย ↩ UNPOST        ขวา 🖨 Print Invoice · ✕ ปิด
+         ซ่อน ลบร่าง / บันทึกร่าง / POST · รายการถูกล็อกทุกช่อง
+
+── TEST (jsdom + CSS 24 ไฟล์ + openBillingModal ตัวจริง) ───────────
+  SERVICE : PASS 13/13   ·   ADVANCE : PASS 13/13
+  DRAFT  ซ้าย = 🗑 ลบร่าง
+         ขวา = 🖨 Print Draft → ⬆ POST → 💾 บันทึกร่าง → ✕ ปิด  (ลำดับตรงตามโจทย์)
+         ไม่มีปุ่ม Preview · ไม่แสดง UNPOST · ไม่ Print อัตโนมัติตอนเปิด
+         กด Print Draft -> เปิด "Preview — ร่างใบแจ้งหนี้" print=0
+         Preview มีปุ่ม Print -> กดแล้วจึง Print Dialog (print=1)
+  POSTED ซ้าย = ↩ UNPOST (ไม่มีลบร่าง)
+         ขวา = 🖨 Print Invoice → ✕ ปิด
+         รายการถูกล็อก
+         กด Print -> calls = njacc_invoice_draft_view เท่านั้น
+                     *** ไม่มี njacc_save_invoice_draft *** (ข้อ 14 ผ่าน)
+         เปิด Preview "ใบแจ้งหนี้" ไม่ Print ทันที
+
+── ไฟล์ที่แก้ (4) ──────────────────────────────────────────────────
+  assets/js/invoices/billing-modal.js  Footer markup · Print flow ·
+                                       POSTED guard · null-guard
+  assets/css/components/ui.css         .mf-left/.mf-right ใน .mf-row
+  index.html                           BUILD KEY local94 -> local95
+  assets/js/app.bundle.js              rebuild
+  ── ไม่แตะ ──
+  invoice-doc.js (openInvoiceDoc คงเดิม · ยังรองรับ print:true ให้ผู้เรียกอื่น)
+  ฟอร์มออก Invoice · Customer · Shipment · VAT · WHT · Invoice Number ·
+  Document Queue · ACCOUNTING Queue · Receipt · Credit Note · SQL
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  ชุดทดสอบเดิม 19 ชุด ผ่านหมด · SQL diff = 0
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง — ยังไม่ได้กด POST / UNPOST / Print บนระบบจริง
+
+
+════════════════════════════════════════════════════════════════════
+34 · POST แล้วต้องเห็นผลบนหน้าจอ (local96)
+════════════════════════════════════════════════════════════════════
+SQL   : *** ไม่มี ไม่ต้องรัน *** sql/ diff = 0 ไฟล์
+
+── ตรวจ Backend ก่อน (ข้อ 3/9/14) — สมบูรณ์อยู่แล้ว ทุกตัว ──────────
+  njacc_post_draft_invoice
+    ตั้ง status='POSTED'                                   YES
+    ตั้ง advance_status ให้งาน ADVANCE                      YES
+    *** ไม่ตั้ง jobs.invoice_id *** แต่ไม่เป็นปัญหา เพราะ
+    njacc_save_invoice_draft ตั้ง jobs.invoice_id ให้แล้ว   YES
+  njacc_build_charge_set  join i.id = j.invoice_id
+    queue receipt_active  = SERVICE + invoice_status='POSTED' + ยังไม่ PAID
+    queue advance_active  = ADVANCE + invoice_status='POSTED' + ยังไม่ SETTLED
+    queue pending_invoice = NOT njacc_inv_is_final(invoice_status)
+  njacc_inv_is_final : DRAFT=false · POSTED=true · ISSUED=true
+    -> POST แล้วหลุด ACCOUNTING และเข้า FINANCE อัตโนมัติ ถูกต้องแล้ว
+  njacc_unpost_to_draft(p_invoice, p_reason, p_request_id) มีจริง
+    ไม่ออกเลขใหม่ · ไม่เขียนทับ invoice_no -> เลขเดิมถูกเก็บไว้
+  => *** ไม่ต้องแก้ SQL ปัญหาอยู่ที่ Frontend ล้วน ***
+
+── ROOT CAUSE (พิสูจน์ด้วยการกด POST จริงใน jsdom ไม่ใช่อ่าน code เดา) ──
+  กด POST แล้ว Backend ทำงานถูกทุกอย่าง:
+    ปุ่มเปลี่ยนเป็น UNPOST · Print Invoice · รายการถูกล็อก · onSaved ถูกเรียก
+  แต่ *** หัวหน้าต่างยังเขียนว่า "แก้ไขใบวางบิล (ร่าง)" ***
+  เพราะ modalTitle ถูกคำนวณครั้งเดียวตอนเปิด Modal แล้วไม่เคยอัปเดตอีก
+  และในฟอร์มไม่มีที่ไหนแสดง "เลขที่ INVOICE" หรือ "สถานะ" เลย
+  -> ผู้ใช้เห็นหน้าเดิมทุกอย่าง จึงเข้าใจว่า POST ไม่ทำงาน
+     ทั้งที่ข้อมูลฝั่ง Backend เปลี่ยนไปแล้วจริง
+
+── FIX (Frontend เท่านั้น · ไม่แตะ Business Logic) ──────────────────
+  1) หัวหน้าต่างอัปเดตตามสถานะจริง
+     modalTitle (ค่าคงที่) -> titleOf(doc) (ฟังก์ชัน)
+     applyState เขียนทับ .modal-h h3 ทุกครั้งที่สถานะเปลี่ยน
+       ยังไม่มีใบ -> 'ออกวางบิล'
+       DRAFT      -> 'แก้ไขใบวางบิล (ร่าง)'
+       POSTED     -> 'INVOICE {เลขจริง} (POSTED)'
+  2) แถบสถานะในฟอร์ม #bm-state (ใหม่ · อยู่บนสุดของ body)
+       ยังไม่บันทึก : "กรอกรายการแล้วกดบันทึกร่าง"
+       ร่าง        : "ยังไม่ออกเลข INVOICE จริง · กด POST เพื่อออกเลขและส่งเข้าคิวถัดไป"
+       POSTED      : "POSTED · เลขที่ INVOICE {เลขจริง}
+                      · เข้าคิว FINANCE › Receipt/Advance แล้ว
+                      · แก้ไขต่อได้ต้องกด UNPOST ก่อน"
+     สีต่างกันชัด: เทา(ใหม่) / ส้ม(ร่าง) / เขียว(POSTED)
+  3) applyState รับ doc เพิ่ม (lastDoc) เพื่อรู้เลข INVOICE จริง
+     ค่ามาจาก njacc_invoice_draft_view เท่านั้น ไม่เดาฝั่ง browser
+  4) Toast ชัดขึ้น
+     POST   : "POST สำเร็จ — INVOICE {เลข} · งานเข้าคิว FINANCE › Receipt/Advance"
+     UNPOST : "UNPOST แล้ว — กลับเป็นร่าง แก้ไขต่อได้ (เลข INVOICE เดิมถูกเก็บไว้)"
+
+── ไฟล์ที่แก้ (4) ──────────────────────────────────────────────────
+  assets/js/invoices/billing-modal.js  titleOf() · #bm-state · applyState(doc) · toast
+  assets/css/pages/invoice.css         .bm-state (3 สถานะ)
+  index.html                           BUILD KEY local95 -> local96
+  assets/js/app.bundle.js              rebuild
+  ── ไม่แตะ ──
+  SQL/RPC · Invoice Number Logic · VAT/WHT · Queue Logic ·
+  Document/Accounting/Receipt/Advance · Permission · Save Draft · Print Flow
+
+── TEST — กด POST/UNPOST จริงใน jsdom (SERVICE + ADVANCE) ──────────
+  SERVICE : PASS 15/15   ·   ADVANCE : PASS 15/15
+  ก่อน POST  หัวข้อ "แก้ไขใบวางบิล (ร่าง)" · แถบสีส้ม "ร่าง" · ปุ่มครบ
+  หลัง POST  หัวข้อ -> "INVOICE NJ202608-00001 (POSTED)"  (ADVANCE: ADV202608-00001)
+             แถบเขียว "POSTED · เลขที่ INVOICE {เลข} · เข้าคิว FINANCE › Receipt/Advance"
+             ซ้าย = ↩ UNPOST · ขวา = 🖨 Print Invoice → ✕ ปิด
+             รายการถูกล็อก · onSaved ถูกเรียก (รายการเบื้องหลังรีเฟรช)
+             เรียก njacc_post_draft_invoice จริง
+  UNPOST     ถามเหตุผลก่อน · เรียก njacc_unpost_to_draft จริง
+             กลับเป็น "แก้ไขใบวางบิล (ร่าง)" · แถบส้ม
+             ปุ่มกลับชุด DRAFT ครบ · ปลดล็อกรายการ
+
+── REGRESSION — PASS ───────────────────────────────────────────────
+  ชุดทดสอบเดิม 20 ชุด ผ่านหมด · SQL diff = 0
+
+── NOT VERIFIED ────────────────────────────────────────────────────
+  Browser จริง — ยังไม่ได้กด POST บนระบบจริงและยังไม่ได้เปิดดู
+  FINANCE > Receipt / Advance ว่างานโผล่จริง
+
+
+═══════════════════════════════════════════════════════════════════
+35. Layout "กรอบเดียว" (Single-Frame) — DOCUMENT/ACCOUNTING × SERVICE/ADVANCE
+    BUILD KEY 1.4.1-local98   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── ROOT CAUSE ของกรอบซ้อนกรอบ ──
+    (ก) .modal-fs .modal-b / .fs-body  background:var(--bg) = เทา
+        -> กรอบ Modal สีขาวกลายเป็น "กรอบนอก" Section ข้างในกลายเป็น Card
+    (ข) .jm-auto   border + radius:12px + background   = Card ชั้นที่ 2
+    (ค) .jm-sec / .jm-doc / .jm-acc / .jm-inv          = Card ชั้นที่ 3
+    (ง) openBillingModal() ไม่ได้ส่ง cls -> ไม่ได้ modal-flow
+        -> .modal-b ยัง overflow-y:auto = Scroll Owner ตัวที่ 2 (Scroll ซ้อน)
+
+  ── ไฟล์ที่แก้ (5 ไฟล์) ──
+    assets/css/components/ui.css
+      .jm-auto / .jm-sec        -> ตัด border · border-radius · background
+      .jm-doc / .jm-acc / .jm-inv -> เหลือเฉพาะสีหัวข้อ (.jm-sec-t)
+      .jm-sec ~ .jm-sec         -> divider เส้นบน (general sibling · รองรับ
+                                   hidden input คั่นระหว่าง Section)
+      .modal-flow .modal-b,
+      .fs-page > .fs-body       -> background:var(--surface) (พื้นต่อเนื่องสีเดียว)
+    assets/js/jobs/job-form.js       openNewJobModal ส่ง cls:'modal-flow' ทุกโหมด
+    assets/js/invoices/billing-modal.js  เพิ่ม cls:'modal-flow' + reset scroll ที่ #nj-modal
+    assets/js/app.bundle.js          rebuild (esbuild 0.28.2)
+    index.html                       cache key local96 -> local97 (26 จุด)
+
+  ── ที่ไม่แตะ ──
+    APP_VERSION = 1.4.1 (ต้องตรง deploy_version ใน njacc_settings) · VERSION = 1.4.1
+    data.css .tbl-wrap (ใช้ร่วมกับหน้ารายการทุกหน้า) -> กรอบตาราง INVOICE คงเดิม
+    .modal-fs / .modal-w80 กลาง -> Modal เอกสาร A4 อีก 6 ตัวไม่กระทบ
+    Business Logic ทั้งหมด: เลขเอกสาร · lookup · Shipment · Items · VAT/WHT ·
+    Save · Close Job · Draft · POST · UNPOST · Print · RPC · Permission · Validation
+
+  ── VERIFY (Chromium 131 จริง · 3 viewport × 6 flow = 18 เคส) ──
+    Field count / Label / Field ID / ปุ่ม Footer  ก่อน-หลัง ตรงกันทุกเคส
+    Card ซ้อนในกรอบ  DOCUMENT 2 -> 0   ·   ACCOUNTING 4 -> 1 (.tbl-wrap เท่านั้น)
+    Scroll Owner     ACCOUNTING .modal-b -> backdrop ชุดเดียว · ไม่มี nested scroll
+    app.bundle.js diff เทียบของเดิม = เฉพาะ 3 จุดที่แก้ · node --check ผ่าน
+
+  ── รอบแก้เพิ่ม (local97 -> local98) : ยุบ "กรอบชั้นที่ 2" ที่ตัว Modal Shell ──
+    รอบ local97 แก้แค่ Section แต่ยังเห็น  เทา -> กล่องขาว -> Form
+    ROOT CAUSE ตัวจริง (Computed Style ของ Parent Chain):
+      .modal-bk.modal-bk-w80.modal-flow   background:rgba(13,31,60,.28)
+                                          padding:var(--modal-gap) = 20px
+                                          -> แถบเทาล้อมรอบ = กรอบชั้นนอก
+      .modal.modal-w80.modal-flow         border-radius:10px + box-shadow
+                                          -> กล่องขาวมนลอยบนเทา = Card ชั้นใน
+    แก้เป็น: backdrop background:transparent · padding:0
+             modal    border-radius:0 · box-shadow:none · min-height:100%
+    -> backdrop กับ modal ทับกันพอดี (rect 248,56 1288x844 เท่ากันทั้งคู่)
+       เหลือ Surface ขาวผืนเดียว: Header + Form + Footer
+    ทำทั้ง Desktop (min-width:1101px) และ <=1100px
+    *** ขอบเขต .modal-flow เท่านั้น *** — .modal-bk-w80 / .modal-w80 ตัวกลาง
+    ที่ Modal เอกสาร A4 อีก 6 ตัวใช้ ยังมีเทา + เงา + มุมโค้งเหมือนเดิม
+
+  ── Scrollbar ด้านซ้ายในภาพ: ไม่ใช่ Modal ──
+    ตรวจ scroll owner ทั้งหน้าแล้ว = #sb (Sidebar) bar@x=248 ตรงกับตำแหน่งในภาพ
+    มาจาก shell.css .sb{height:100vh;overflow-y:auto} ซึ่งมีมาก่อนหน้านี้
+    ภายใน #nj-modal มี scroll owner = 1 ตัวเสมอ (backdrop) ทุกโหมด ทุก viewport
+    ไม่ได้แก้ .sb เพราะ shell.css ใช้ร่วมทุกหน้า = นอกขอบเขตงานนี้
+
+
+═══════════════════════════════════════════════════════════════════
+36. หน้า List "กรอบเดียว" — Filter + Table + Total/Pagination
+    BUILD KEY 1.4.1-local99   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── ROOT CAUSE ของ 3 Card ──
+    charge-page.js render 3 ก้อนแยกกัน แต่ละก้อนมี chrome ของตัวเอง:
+      #ch-filter > .fbar    data.css:25  border + radius + margin-bottom:14px
+      .tbl-wrap             data.css:31  border + radius + box-shadow
+      #ch-pgn class="card mt-2"  ui.css:24  border + radius + shadow + margin-top
+
+  ── แก้ที่ไหน ──
+    assets/js/charges/charge-page.js
+      เพิ่ม const isPanel = (mode==='document' || mode==='accounting')
+      ครอบ #ch-filter + .tbl-wrap + #ch-pgn ด้วย <div class="ch-panel">
+      *** เฉพาะ 4 โหมดที่สั่ง *** — mode 'advance' / 'closed' และ route เดิม
+      #/charges/:charge/:group ไม่ถูกครอบ -> DOM และหน้าตาเดิม 100%
+      id/class ภายในไม่เปลี่ยนเลย -> querySelector / event binding เดิมทำงานเหมือนเดิม
+    assets/css/pages/charge-list.css   (ต่อท้ายไฟล์)
+      .ch-panel                      = กรอบเดียว (border + radius + shadow)
+      .ch-panel > #ch-filter .fbar   = ตัด chrome เหลือ border-bottom
+      .ch-panel > .tbl-wrap          = ตัด chrome (คง overflow:auto ไว้)
+      .ch-panel > #ch-pgn.card       = ตัด chrome เหลือ border-top · margin-top:0
+      *** ไม่แตะ data.css / ui.css .card *** -> หน้าอื่นที่ใช้ .fbar/.tbl-wrap/.card
+      (FINANCE > Advance · Close Job · Receipt · Report · Users ฯลฯ) ไม่กระทบ
+
+  ── ที่ไม่ได้รวมเข้ากรอบ (ตั้งใจ · อยู่นอกข้อร้องเรียน "3 Card") ──
+    .ch-tools (Toolbar) และ .kpi (KPI cards) ของหน้า ACCOUNTING
+    เป็นคนละ component อยู่เหนือกรอบ List ไม่ใช่ Filter/Table/Pagination
+
+  ── VERIFY (Chromium 131 จริง · 3 viewport × 4 โหมด = 12 เคส) ──
+    List Card 3 -> 1 ทุกเคส · .ch-panel เท่านั้นที่มี chrome
+    ช่องว่างระหว่าง Filter→Table = 0px · Table→Footer = 0px ทุกเคส
+    fbar/tbl-wrap/pgn : radius=0 · shadow=false · sides<=1 (เส้นแบ่งเท่านั้น)
+    Inventory ก่อน/หลังตรงกัน 100% : data-f · option ทุกตัว · หัวคอลัมน์ ·
+      data-sort · data-tool · ข้อความปุ่มทุกปุ่ม · data-act ในแถว ·
+      ปุ่ม Pagination · Page Size · "ทั้งหมด X รายการ" · จำนวนแถว
+    Scroller ในหน้า = .tbl-wrap[X] เท่านั้น (เลื่อนแนวนอนของตาราง) ไม่มี nested Y
+    Modal (หัวข้อ 35) รัน regression ซ้ำหลังแก้ CSS นี้ -> 18/18 ยังผ่าน
+
+
+═══════════════════════════════════════════════════════════════════
+37. MASTER UI REFERENCE — ปรับ Modal ให้ตรงภาพอ้างอิงครบ 4 โหมด
+    BUILD KEY 1.4.1-local100   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ⚠️ หมายเหตุความขัดแย้งของข้อกำหนด (บันทึกไว้เพื่อไม่ให้สลับไปมาอีก)
+     รอบ 35 (local98) : สั่งว่า "แถบเทาล้อมรอบต้องหายไป" -> ทำเป็นขาวเต็ม Content Area
+     รอบ 37 (local100): ภาพ MASTER REFERENCE มีแถบเทา + การ์ดขาวมุมโค้ง
+     -> ยึดคำสั่งล่าสุด = กลับไปเป็นการ์ดขาวลอยบน Backdrop เทา
+     สิ่งที่ "ไม่กลับ" คือ Card ซ้อนภายใน — .jm-auto / .jm-sec ยังแบนสนิท
+     (เทา = Backdrop นอกกรอบ ไม่ใช่ Container ของฟอร์ม · กรอบจริงมีใบเดียว)
+
+  ── ที่แก้ (ไฟล์เดียว) ── assets/css/components/ui.css
+    @media(min-width:1101px) .modal-bk.modal-bk-w80.modal-flow
+        background:transparent -> rgba(13,31,60,.28)
+        padding:0              -> var(--modal-gap)
+    @media(min-width:1101px) .modal-fs .modal.modal-w80.modal-flow
+        border-radius:0        -> var(--radius)
+        box-shadow:none        -> var(--shadow-lg)
+        min-height:100%        -> 0    (การ์ดสูงตามเนื้อหา จบที่ Footer ตามภาพ)
+    <=1100px .modal-bk.modal-fs.modal-flow / .modal.modal-flow
+        ถอด background:transparent · padding:0 · border-radius:0 · box-shadow:none
+        -> มือถือกลับไปเต็มจอตาม .modal-fs เดิม (ไม่เสียพื้นที่จอ)
+
+  ── ไม่แตะ ── JS ทุกไฟล์ · .jm-sec/.jm-auto (ยังแบน) · .ch-panel (หน้า List)
+    .modal-bk-w80 / .modal-w80 ตัวกลาง -> Modal เอกสาร A4 อีก 6 ตัวเหมือนเดิม
+
+  ── VERIFY (Chromium 131 · 3 viewport × 6 flow = 18 เคส) ──
+    Parent Chain 1536x900:
+      .modal-bk...modal-flow  rect 248,56 1288x844  bg rgba(13,31,60,.28) pad 20px
+      .modal.modal-w80.flow   rect 268,76 1248x445  bg #fff radius 10 shadow มี
+      .modal-b                bg #fff  border 0  radius 0  shadow none
+      .jm-sec.jm-doc          bg none  border 0  radius 0  -> ไม่มี Card ซ้อน
+    Nested Card ภายใน Modal = 0 ทุกเคส (ยกเว้น .tbl-wrap ตารางรายการ ตามที่สั่งให้คงไว้)
+    Scroll Owner ใน Modal = 1 ตัว (backdrop) ทุกเคส · ไม่มี nested scroll
+    Field/Label/ID/ปุ่ม ก่อน-หลัง ตรงกัน 100% : DOCUMENT .fld=13 · ACCOUNTING .fld=18
+    Footer ACCOUNTING: ลบร่าง · UNPOST | Print Draft -> POST -> บันทึกร่าง · ปิด
+      (ลำดับกลุ่มขวาตรงตามข้อกำหนด — ของเดิมถูกอยู่แล้ว ไม่ได้แก้)
+
+
+═══════════════════════════════════════════════════════════════════
+38. ACCOUNTING — Section DOCUMENT พับ/ขยายได้ · Default = พับเสมอ
+    BUILD KEY 1.4.1-local101   ·   NO SQL MIGRATION
+    ขอบเขต: ACCOUNTING > SERVICE และ ACCOUNTING > ADVANCE เท่านั้น
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ ──
+    assets/js/invoices/billing-modal.js
+      หัวข้อ DOCUMENT: <div class="jm-sec-t"> -> <button class="jm-sec-t jm-sec-tg">
+        + aria-expanded="false" · aria-controls="bm-doc-body" · คาเร็ต .jm-cav
+      หุ้ม 3 .jm-grid ของ DOCUMENT ด้วย <div class="jm-sec-body" id="bm-doc-body" hidden>
+      เพิ่ม toggle หลัง openModal(): setDoc(false) ทุกครั้งที่เปิด -> พับเสมอ
+    assets/css/components/ui.css   (ต่อท้ายไฟล์)
+      .jm-sec-tg · .jm-cav · .jm-sec-body[hidden]
+
+  ── Default = พับเสมอ (ไม่จำค่า) ──
+    openBillingModal() ถูกเรียกใหม่ทุกครั้ง (เปิดใหม่ / ดู / แก้ไข / เปลี่ยนงาน /
+    ปิดแล้วเปิดใหม่) และ markup ตั้ง hidden + aria-expanded="false" ไว้แต่ต้น
+    บวก setDoc(false) ซ้ำอีกชั้น
+    *** ไม่ใช้ localStorage / sessionStorage / module state เก็บสถานะเลย ***
+
+  ── ข้อมูลไม่หาย ──
+    พับ = ซ่อนเฉพาะ .jm-sec-body ด้วย [hidden] · ไม่ถอด node ออกจาก DOM
+    ไม่ clear / ไม่ reset / ไม่ reload / ไม่แตะ payload ของ
+    saveInvoiceDraft · postDraftInvoice · unpostToDraft · deleteInvoiceDraft
+
+  ── ไม่แตะ ── Section "วางบิล" และ "INVOICE" ไม่มี toggle -> เปิดแสดงตลอด
+    job-form.js (DOCUMENT 2 โหมด) ไม่แตะเลย · .jm-sec-t ที่ยังเป็น <div> ไม่กระทบ
+
+  ── VERIFY (Chromium 131 · 3 viewport × 2 โหมด · 17 ข้อ/เคส = 0 FAIL) ──
+    1. เข้าใหม่ -> พับ (aria-expanded=false · bodyH=0)      PASS
+    2. กด -> ขยาย (bodyH=393 @1536)                          PASS
+    3. กดอีกครั้ง -> พับ                                      PASS
+    4. ปิดแล้วเปิดใหม่ -> กลับมาพับ                            PASS
+    5. เปลี่ยนงาน -> กลับมาพับ                                PASS
+    6. field DOCUMENT 13 ช่อง + ค่าเดิมอยู่ครบทั้งตอนพับและขยาย  PASS
+    7. วางบิล + INVOICE เปิดตลอด                              PASS
+    8. Footer ครบ: ลบร่าง · UNPOST | Print Draft · POST · บันทึกร่าง · ปิด  PASS
+    กดได้ทั้งแถบ (w=1122px · cursor:pointer) · Enter/Space ใช้ได้
+    Card วางบิลขยับขึ้นจริง: top 639 -> 238 (@1536)
+    ความสูง Modal ลดลง 401px (Desktop) / 857px (Mobile 390)
+    Regression baseline 18/18 ยังผ่าน (label/id/ปุ่ม/field ตรงเดิม 100%)
+
+
+═══════════════════════════════════════════════════════════════════
+39. ตารางรายการ INVOICE — ลำดับเป็นเลขต่อเนื่อง 1..N
+    BUILD KEY 1.4.1-local102   ·   NO SQL MIGRATION
+    ขอบเขต: ACCOUNTING > SERVICE และ ACCOUNTING > ADVANCE
+    (ใช้ Renderer กลางตัวเดียวกัน = billing-modal.js -> แก้ที่เดียวได้ทั้งสองโหมด)
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ (ไฟล์เดียว) ── assets/js/invoices/billing-modal.js
+    ลบ const LINE_STEP = 10  -> เพิ่ม export function renumber(list)
+       (ไล่ line_no = index+1 ทั้งชุด)
+    items เริ่มต้น       newItem(LINE_STEP) -> newItem(1)
+    ปุ่ม #bm-sort        "⇅ เรียงลำดับ" -> "↕ เรียงน้อย → มาก"
+                         (ปุ่มเดิม · ฟังก์ชันเดิม sortByLineNo · ไม่ได้ลบของเดิม)
+                         onclick: sortByLineNo() แล้ว renumber() ต่อทันที
+    ปุ่ม #bm-add         เดิม max/10*10+10 -> items.length+1 แล้ว renumber()
+    ปุ่มลบแถว            splice แล้ว renumber() -> ไม่เหลือเลขขาดช่วง
+    reloadFromBackend()  ใบเก่า 10/20/30 -> renumber เป็น 1..N
+                         *** เฉพาะใบที่ยังไม่ POST ***
+                         ใบที่ POST แล้วคงเลขตาม DB เพื่อให้ตรงกับใบที่พิมพ์ออกไป
+
+  ── ทำไมปลอดภัยกับ DB ──
+    njacc_save_invoice_draft (sql/dev/022 บรรทัด 116) ทำ
+      DELETE FROM njacc_invoice_items WHERE invoice_id=... แล้ว INSERT ใหม่ทั้งชุด
+    -> เปลี่ยนเลขจาก 10/20/30 เป็น 1/2/3 ไม่ชน UNIQUE(invoice_id,line_no)
+    และ RPC มี fallback v_seq := v_line (1..N) อยู่แล้ว -> contract เดิมรองรับ
+
+  ── ไม่แตะ ── CODE · Description · Qty · Price · Amount · Cost · Charge ·
+    VAT · WHT · calcTotals · collect() · Save Draft · POST · UNPOST ·
+    Print Draft · RPC · SQL · Permission · Validation (validateLineNos คงเดิม)
+
+  ── VERIFY (Chromium 131 จริง · SERVICE + ADVANCE) ──
+    1. เปิดตารางใหม่ -> [1]                                    PASS
+    2. เพิ่มรายการ -> [1,2]                                     PASS
+    3. เพิ่มอีก -> [1,2,3]                                      PASS
+    4. ลบแถวที่ 2 -> [1,2] · ข้อมูลแถวที่เหลือ ["ITEM-1","ITEM-3"] PASS
+    5. เพิ่มใหม่ -> [1,2,3]                                     PASS
+    6. พิมพ์ 60/20/50 แล้วกดเรียง -> [1,2,3] และแถวเรียง 20,50,60 PASS
+    7. บันทึกร่าง -> line_no ที่ส่ง RPC = [1,2,3] · เปิดกลับมา = [1,2,3] PASS
+    8. POST -> DB = [1,2,3] · หน้าจอ = [1,2,3]                  PASS
+    เพิ่ม 10 แถว -> [1..10] ไม่ขาดช่วง · ไม่มี 10/20/30 อีก      PASS
+    ยอด Subtotal/VAT/WHT/Total ไม่เปลี่ยนหลังเรียง (300/21/0/321) PASS
+    Amount ผูกกับแถวเดิม ไม่สลับคอลัมน์ ["100","200",""]         PASS
+    ใบเก่า DRAFT 10/20/30 -> [1,2,3] · ใบ POSTED -> [10,20,30] คงเดิม PASS
+    Regression: DOCUMENT พับได้ (38) 0 FAIL · baseline 18/18 ผ่าน
+
+
+═══════════════════════════════════════════════════════════════════
+40. ACCOUNTING — ซ่อนข้อความ 2 จุดบนหน้าจอ (UI เท่านั้น)
+    BUILD KEY 1.4.1-local103   ·   NO SQL MIGRATION
+    ขอบเขต: ACCOUNTING > SERVICE และ ACCOUNTING > ADVANCE
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ (ไฟล์เดียว · CSS ล้วน) ── assets/css/pages/invoice.css  (ต่อท้ายไฟล์)
+      .bm-state.is-new{display:none}     ซ่อนแถบ "ยังไม่บันทึก"
+      #bm-due-pv{display:none}           ซ่อน Due Date Helper
+
+  *** ไม่แตะ JS แม้แต่ byte เดียว ***
+      billing-modal.js เทียบกับ ZIP local102 -> ไฟล์เหมือนกันทุกประการ
+
+  ── ทำไมต้องซ่อนด้วย CSS ห้ามลบ element ──
+    #bm-due-pv ไม่ใช่ข้อความประดับ — updDue() เขียนวันที่ที่คำนวณได้ลง
+    pv.dataset.calc และ collect() อ่านค่านั้นไปใช้เป็น due_date ของ payload:
+        const due = q('#bm-due').value || q('#bm-due-pv').dataset.calc || null;
+    ลบ element = due_date หายจาก payload ทันที
+    element ที่ display:none ยัง querySelector เจอและอ่าน dataset ได้ปกติ
+    .bm-state เช่นกัน — applyState() ยังคำนวณ className + innerHTML ครบทุกบรรทัด
+    -> Draft / Dirty State ภายในไม่เปลี่ยน
+
+  ── ที่ยังแสดงเหมือนเดิม (ไม่อยู่ในคำสั่งให้ซ่อน) ──
+    สถานะ "ร่าง" (.bm-state.is-draft) · สถานะ "POSTED" (.bm-state.is-posted)
+
+  ── ขอบเขตไม่รั่ว ── .bm-state / #bm-due-pv มีเฉพาะใน billing-modal.js
+    DOCUMENT ใช้ #jf-due-pv / #nj-due-pv คนละ id -> ตรวจแล้วยังแสดงปกติ
+
+  ── VERIFY (Chromium 131 จริง · SERVICE + ADVANCE) ──
+    ซ่อน "ยังไม่บันทึก"          display=none · h=0 · innerText ไม่พบข้อความ  PASS
+    ซ่อน Due Date Helper         display=none · h=0 · innerText ไม่พบ
+                                 "Due Date (คำนวณ)" และ "วันที่วางบิล + เทอม"  PASS
+    Due Date ยัง Auto Calculate  วางบิล 18/08/2026 + เทอม 30
+                                 -> dataset.calc = 2026-09-17                PASS
+    บันทึกร่างยังทำงาน            status=DRAFT · payload due_date=2026-09-17   PASS
+    POST ยังทำงาน                status=POSTED                               PASS
+    สถานะ "ร่าง" / "POSTED"      ยังแสดงตามเดิม                              PASS
+    Regression: DOCUMENT #nj-due-pv ยังแสดง (display=block)                  PASS
+    Regression รอบก่อน: seq(39) 0 FAIL · roundtrip(39) 0 FAIL ·
+                        collapse(38) 0 FAIL · baseline 18/18 ผ่าน
+
+
+═══════════════════════════════════════════════════════════════════
+41. DOCUMENT — เพิ่มช่อง "วันที่งาน" ต่อจาก "เลขที่งาน (อัตโนมัติ)"
+    BUILD KEY 1.4.1-local104   ·   NO SQL MIGRATION
+    ขอบเขต: DOCUMENT > SERVICE / ADVANCE (+ แสดงผลอ่านอย่างเดียวใน ACCOUNTING)
+═══════════════════════════════════════════════════════════════════
+
+  ── ตรวจก่อนสร้าง Field ใหม่ (ตามคำสั่ง) -> มีของเดิมอยู่แล้ว ใช้ซ้ำ ──
+    ตาราง  public.njacc_jobs
+    คอลัมน์ job_date date
+            sql/001_njacc_schema.sql:111
+            comment เดิม: "วันที่ JOB (default ตามวันที่เปิดงาน · ผู้ใช้แก้ได้)"
+    RPC    njacc_save_job  (sql/008_njacc_features_v11.sql)
+             INSERT : (p->>'job_date')::date
+             UPDATE : job_date = CASE WHEN p ? 'job_date'
+                                 THEN (p->>'job_date')::date ELSE job_date END
+           njacc_job_detail (sql/005_njacc_rpc.sql:413)
+             ใช้ to_jsonb(j) -> คืน job_date มาอยู่แล้ว ไม่ต้องแก้
+    RUN-NOW/02 ระบุชัดว่า "ไม่แตะ njacc_save_job" -> เวอร์ชันที่ใช้จริงคือ 008
+    => ไม่ต้องเพิ่มคอลัมน์ · ไม่ต้องแก้ RPC · NO SQL MIGRATION
+    *** ไม่ผูกกับ created_at *** (created_at แก้ไม่ได้ · job_date ผู้ใช้แก้ได้)
+
+  ── ที่แก้ ──
+    assets/js/jobs/job-form.js (openNewJobModal)
+      + const JOB_DATE  เปิดงานใหม่ = ymd(new Date())
+                         แก้ไข     = job.job_date || job.reference_date || ''
+      + <input type="date" id="nj-jobdate" class="inp jm-auto-date"> ใน .jm-auto
+      + payload  job_date: q('#nj-jobdate').value || null
+    assets/js/invoices/billing-modal.js
+      + ช่อง "วันที่งาน" readonly เป็นช่องแรกของ Section DOCUMENT
+        ${ro(dmy(j.job_date))} · แถวแรกเปลี่ยน jm-grid -> jm-grid-5
+        (ACCOUNTING แสดงค่าต้นทางเท่านั้น ไม่สร้าง/ไม่ทับค่าจาก DOCUMENT)
+    assets/css/components/ui.css
+      + .jm-auto .jm-auto-date{flex:0 0 190px;...}  (มือถือ flex:1 1 auto)
+
+  ── VERIFY (Chromium 131 จริง · SERVICE + ADVANCE) ──
+    1. เปิดงานใหม่ -> วันที่งาน = วันนี้ (2026-08-18) อัตโนมัติ        PASS
+    2. แก้ไขได้ (ไม่ readonly / ไม่ disabled)                          PASS
+    3./6. เปิดงานเดิม (job_date=2026-07-01) -> ไม่ Reset เป็นวันนี้     PASS
+       งานเก่าที่ job_date=null -> ใช้ reference_date (2026-08-01)     PASS
+    4. แก้วันที่แล้ว Save -> payload job_date = ค่าใหม่ (2026-06-15)    PASS
+       แก้ไขงานเดิมยังส่ง id เดิม (บันทึกทับ Record เดิม)              PASS
+    5. ACCOUNTING SERVICE/ADVANCE เห็น "วันที่งาน" = 01/07/2026
+       เป็น readonly · เป็นช่องแรกของ DOCUMENT (13 -> 14 ช่อง)         PASS
+    7. เปิดงานใหม่ไม่ส่ง id -> Running Number ยังออกจาก DB เหมือนเดิม   PASS
+    Layout Desktop: แถวเดียวกัน · เลขที่งาน 817px > วันที่งาน 190px     PASS
+    Mobile 390: ไม่หลุดจอ (354px)                                     PASS
+    Regression: label/id เดิมไม่หายแม้แต่ตัวเดียว · ปุ่มเดิมครบ ·
+      DOCUMENT input 14->15 · ACCOUNTING .fld 18->19 / input 25->26
+      (เพิ่มเฉพาะ nj-jobdate และ label "วันที่งาน" เท่านั้น)
+      hide(40) · seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL ทั้งหมด
+
+
+═══════════════════════════════════════════════════════════════════
+42. Section DOCUMENT — Grid 5 คอลัมน์ · เพิ่ม "หมายเหตุ" · Label "JOB NJ:"
+    BUILD KEY 1.4.1-local105   ·   NO SQL MIGRATION
+    ขอบเขต: DOCUMENT SERVICE/ADVANCE + ACCOUNTING SERVICE/ADVANCE
+═══════════════════════════════════════════════════════════════════
+
+  ── งานที่ 1 · Grid 5 คอลัมน์ ──
+    job-form.js (openNewJobModal) + billing-modal.js (openBillingModal)
+    เปลี่ยน .jm-grid -> .jm-grid.jm-grid-5 ทั้ง 3 แถว (ใช้ class เดิมที่มีอยู่แล้ว)
+      แถว 1  บริษัท Invoice | ลูกค้า | Customer Job No. | เลขใบขนสินค้า | Invoice ต้นทาง (Source)
+      แถว 2  House B/L No. | Master B/L No. | Booking No. | ชื่อเรือ / Vessel | จำนวนตู้
+      แถว 3  ETD | ETA | วันส่งมอบ | หมายเหตุ   (DOCUMENT — ช่อง 5 ปล่อยว่าง ไม่สร้างช่องปลอม)
+             ETD | ETA | วันส่งมอบ | หมายเหตุ | วันที่งาน   (ACCOUNTING — ช่อง 5 = field จริงที่มี)
+    Responsive ใช้ breakpoint เดิมของ .jm-grid-5 (ui.css) ไม่ได้เพิ่มกฎใหม่
+      >=1441px = 5 · 1101-1440px = 3 · <=1100px = 2 · <=640px = 1
+
+  ── งานที่ 2 · เพิ่ม "หมายเหตุ" หลัง "วันส่งมอบ" (ใช้ Field เดิม) ──
+    ตรวจแล้วมีของเดิม: public.njacc_jobs.note  type text (sql/001:132)
+      njacc_save_job  INSERT p->>'note' · UPDATE note=p->>'note'
+      njacc_job_detail คืน note มาแล้วผ่าน to_jsonb(j)
+    ชนิด input = textarea (ตรงกับ Source เดิมใน job-form.js render() #jf-note)
+    placeholder "กรอกหมายเหตุ" · id ใหม่ #nj-note (DOCUMENT) / #bm-note (ACCOUNTING readonly)
+    payload เพิ่ม  note: q('#nj-note').value.trim() || null
+    *** ผลพลอยได้ที่สำคัญ *** เดิม Modal ไม่มีช่องนี้จึงไม่ส่ง note ขึ้นไป
+    แต่ UPDATE เขียน note=p->>'note' ตรง ๆ -> บันทึกงานเดิมแล้ว note ถูกล้างเป็น NULL
+    ตอนนี้ส่งค่าจริงของฟอร์มขึ้นไป -> ปัญหานั้นหมดไป
+
+  ── งานที่ 2 · ไม่จำกัดจำนวนตัวอักษร (ตรวจแล้วไม่มีข้อจำกัดตั้งแต่ต้น) ──
+    grep ทั้งโปรเจกต์: ไม่พบ maxlength / maxLength เลยแม้แต่ที่เดียว
+    ไม่มี slice/substring/sanitizer ที่ตัดค่าของ field ในฟอร์มงาน
+      (slice ที่เจอทั้งหมดอยู่ใน export / import / audit / combobox render limit)
+    DB: คอลัมน์ข้อความของ njacc_jobs เป็น text ทั้งหมด ไม่มี varchar(n)
+        002_njacc_constraints.sql ไม่มี CHECK length บน njacc_jobs
+    => ไม่ต้องแก้อะไรเพื่อปลดล็อกความยาว · NO SQL MIGRATION
+    CSS ที่เพิ่ม: .jm-grid textarea.inp{height:auto;min-height:56px;resize:vertical}
+      (ยกเลิก height:36px ของ .jm-grid .inp ที่จะบีบ textarea — ไม่ได้จำกัดตัวอักษร)
+
+  ── งานที่ 3 · Label "JOB NJ:" ──
+    job-form.js  "เลขที่งาน (อัตโนมัติ)" / "เลขที่งาน" -> "JOB NJ:"
+                 Field ID #nj-autono และ logic เลขงานไม่เปลี่ยน
+    billing-modal.js เพิ่มแถว .jm-auto  "JOB NJ:" + #bm-jobno (readonly)
+                 แสดง j.job_no ของ DOCUMENT -> label ตรงกันทั้งระบบ
+                 เดิม ACCOUNTING ไม่แสดงเลขงานเลย จึงเป็นการเพิ่ม ไม่ใช่เปลี่ยน
+
+  ── VERIFY (Chromium 131 จริง · 4 โหมด) ──
+    Grid Desktop 5 คอลัมน์ · แถว 1/2/3 ตรงสเปกทุกโหมด               PASS
+    หมายเหตุอยู่หลังวันส่งมอบ · textarea · placeholder "กรอกหมายเหตุ"  PASS
+    Label "JOB NJ:" ครบ 4 โหมด · #nj-autono เดิมไม่เปลี่ยน            PASS
+    ไม่มี maxlength ในทุก input/textarea ของ Modal                    PASS
+    ข้อความยาว 435 ตัวอักษร: พิมพ์ครบ -> payload ครบ -> เปิดกลับมาครบ  PASS
+      text field อื่น (Customer Job No. / House B/L) 408 ตัวอักษร ครบ  PASS
+      ACCOUNTING เห็นหมายเหตุครบ 435 · หลัง Save Draft ยังครบ          PASS
+    Responsive: 1536=5 · 1100=2 · 390=1 คอลัมน์ · ไม่ล้นจอทุกขนาด      PASS
+    Regression: label/id เดิมไม่หายแม้แต่ตัวเดียว · ปุ่มเดิมครบ
+      DOCUMENT .fld 13->14 input 14->16 (+nj-jobdate +nj-note)
+      ACCOUNTING .fld 18->20 input 25->28 (+bm-jobno +bm-note +วันที่งาน)
+      jobdate(41) · hide(40) · seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL
+
+
+═══════════════════════════════════════════════════════════════════
+43. DOCUMENT — ย้าย "+ จัดการ" ไปอยู่ข้างช่องกรอก (แถวเดียวกัน)
+    BUILD KEY 1.4.1-local106   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── ตรวจ Source ก่อน ──
+    ปุ่ม .jm-link[data-master] มีอยู่ 4 จุด และอยู่ใน job-form.js ไฟล์เดียว
+      บรรทัด 66/69  = render() ฟอร์มเต็มหน้า (route #/job/:id/edit)
+      บรรทัด 312/315 = openNewJobModal() = ฟอร์มของ DOCUMENT SERVICE/ADVANCE
+    billing-modal.js (ACCOUNTING 2 โหมด) *** ไม่มีปุ่มนี้เลย ***
+      ช่อง บริษัท Invoice / ลูกค้า เป็น readonly (ro()) แสดงค่าจาก DOCUMENT
+      -> ไม่มีอะไรต้องย้าย · ตรวจแล้วว่าไม่พัง (ยืนยันด้วย data-master count = 0)
+    แก้เฉพาะ 312/315 (ฟอร์มของ 4 โหมดตามขอบเขต) · ไม่แตะ render()
+
+  ── ที่แก้ ──
+    assets/js/jobs/job-form.js
+      ครอบ comboboxHTML(...) + <button class="jm-link"> ด้วย <div class="fld-inline">
+      *** ตัวปุ่มไม่เปลี่ยนเลย *** class/data-master/ข้อความ เหมือนเดิมทุกตัวอักษร
+      -> delegate listener เดิม b.addEventListener('click', [data-master]) ทำงานเหมือนเดิม
+    assets/css/components/ui.css
+      .fld-inline{display:flex;align-items:center;gap:10px}
+      .fld-inline .cbx{flex:1 1 auto;min-width:0}
+      .fld-inline .jm-link{flex:0 0 auto;align-self:center;padding:0;white-space:nowrap}
+      @media(max-width:640px) -> flex-wrap:wrap · .cbx flex:1 1 100%
+
+  ── VERIFY (Chromium 131 จริง · 4 โหมด) ──
+    บริษัท Invoice / ลูกค้า : ปุ่มอยู่ขวาของ input · กึ่งกลางแนวตั้ง · gap 10px  PASS
+      input กินพื้นที่หลัก (inp 175px vs btn 48px @1536)                       PASS
+    Combobox เดิม: dropdown ยังกางใต้ช่องตรงตำแหน่ง · เลือกแล้วได้ id 'c1'      PASS
+    ปุ่มยังพาไปหน้าเดิม: #/settings/customers · #/masters?tab=companies         PASS
+      และยังปิด Modal ตาม logic เดิม                                          PASS
+    Grid 5 ช่องไม่พัง: 1536=5 · 1280=3 · 1100=2 · 390=1 คอลัมน์               PASS
+      อยู่แถวเดียวกันทุกขนาด ยกเว้น <=640px ที่ wrap ได้ · ไม่ล้นจอทุกขนาด      PASS
+    ACCOUNTING: ไม่มีปุ่ม + จัดการ (readonly) · ช่องยังแสดงครบ · grid 5 ไม่พัง  PASS
+    Regression: final3(42) · jobdate(41) · hide(40) · seq(39) · roundtrip(39) ·
+      collapse(38) -> 0 FAIL ทุกชุด · baseline label/id/ปุ่มเดิม 18/18 ผ่าน
+
+
+═══════════════════════════════════════════════════════════════════
+44. Keyboard Flow — กด Enter แล้วไปช่องถัดไป (4 โหมด)
+    BUILD KEY 1.4.1-local107   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ ── 3 ไฟล์ · เพิ่ม helper กลางตัวเดียว ไม่เขียนโค้ดซ้ำ
+    assets/js/components/modal.js   + export function enableEnterNav(scope)
+    assets/js/jobs/job-form.js      import + เรียก enableEnterNav(b) หลัง openModal()
+    assets/js/invoices/billing-modal.js  เหมือนกัน + ใส่ data-enter-skip ที่แถบ .bm-ask
+
+  ── วิธีทำงาน ──
+    listener เดียวที่ scope (delegate) -> ตารางรายการที่ draw() ใหม่ก็ยังใช้ได้
+    ลำดับ = DOM order ของ input/select ที่กรอกได้จริง
+      Grid วางลูกตาม DOM order -> ซ้าย→ขวา บน→ล่าง ตรงกับที่เห็นบนจอ
+      *** ไม่ hardcode ชื่อ field ใด ๆ ***
+    ข้ามอัตโนมัติ: disabled · readonly · type=hidden · offsetParent===null (ถูกซ่อน)
+    ไม่ intercept textarea -> Enter ขึ้นบรรทัดใหม่ตามปกติ
+    <button> ไม่อยู่ในลำดับ -> ไม่เด้งไป "+ จัดการ" แต่ยัง Tab/คลิกได้
+    ช่องสุดท้าย -> โฟกัสอยู่ที่เดิม · preventDefault เสมอ = กัน implicit submit
+
+  ── Combobox (ใช้ของเดิม ไม่แก้ combobox.js) ──
+    combobox.js มี keydown Enter ของตัวเองอยู่แล้ว (pick / create / close + preventDefault)
+    helper จึงเช็ค e.defaultPrevented:
+      ยังไม่เลือก (list เปิดอยู่ หรือ dataset.id ว่าง) -> ไม่ข้าม
+      เลือกสำเร็จ (list ปิด + มี dataset.id)          -> ข้ามไปช่องถัดไป
+    -> ไม่มีทางกด Enter ข้าม Dropdown โดยยังไม่ได้เลือก
+
+  ── ไม่แตะ ── combobox.js · Save · Validation · Lookup · Dropdown Data ·
+    Date Logic · Draft · POST · UNPOST · RPC · SQL · Permission
+    Modal อื่นอีก 22 จุดที่เรียก openModal() ไม่ได้เรียก enableEnterNav -> ไม่กระทบ
+
+  ── VERIFY (Chromium 131 · คีย์บอร์ดล้วน · 4 โหมด) ──
+    DOCUMENT (SERVICE/ADVANCE) เดินครบ 14/14 ช่องตามลำดับ:
+      nj-jobdate → nj-comp → nj-cust → nj-cjob → nj-decl → nj-srcinv →
+      nj-hbl → nj-mbl → nj-book → nj-vessel → nj-qtyc → nj-etd → nj-eta → nj-dlv
+    ACCOUNTING (SERVICE/ADVANCE):
+      bm-date → bm-case → bm-contact → bm-term → bm-due → เข้าตารางรายการต่อ
+      ช่อง readonly ของ DOCUMENT และ Section ที่พับอยู่ ถูกข้ามทั้งหมด
+      กาง DOCUMENT แล้วลำดับไม่เปลี่ยน (ยัง readonly)
+    6. Dropdown: ยังไม่เลือก -> Enter ไม่ข้าม · ArrowDown+Enter -> เลือก (id=k1/c1) แล้วจึงข้าม  PASS
+    7. Date: ETD -> Enter -> ETA · ไม่เปิด Calendar ซ้ำ                                      PASS
+    8. #nj-autono (disabled) / bm-jobno / bm-note (readonly) ถูกข้าม                        PASS
+    9. textarea: Enter ได้ "บรรทัด1\nบรรทัด2" · โฟกัสยังอยู่ในหมายเหตุ                        PASS
+    10. ช่องสุดท้าย Enter -> โฟกัสเดิม · ไม่เรียก njacc_save_job · Modal ไม่ปิด               PASS
+        ACCOUNTING: Enter ไม่ Save Draft / ไม่ POST                                          PASS
+    ปุ่ม "+ จัดการ" ถูกข้ามในลำดับ Enter แต่ยัง tabIndex>=0                                  PASS
+    Regression: manage(43) · final3(42) · jobdate(41) · hide(40) · seq(39) ·
+      roundtrip(39) · collapse(38) -> 0 FAIL ทุกชุด · baseline 18/18 ผ่าน
+
+
+═══════════════════════════════════════════════════════════════════
+45. หน้ารายการ — ระบบจัดการหัวคอลัมน์ (ลาก / ซ่อน-แสดง / จำค่า)
+    BUILD KEY 1.4.1-local108   ·   NO SQL MIGRATION
+    ขอบเขต: mode 'document' และ 'accounting' (4 โหมด) เท่านั้น
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ (3 ไฟล์) ──
+    assets/js/charges/charge-table.js  (ต่อท้ายไฟล์ · ไม่แตะโค้ดเดิม)
+      columnDefs / loadLayout / saveLayout / resetLayout / effectiveOrder
+      applyColumnLayout()   ย้าย/ซ่อน "โหนดจริง" ของ <th> และ <td>
+      enableHeaderDrag()    ลากหัวคอลัมน์ด้วยเมาส์
+      openColumnManager()   หน้าต่าง "จัดการคอลัมน์"
+    assets/js/charges/charge-page.js   เรียก relayout() ทุกครั้งหลัง render แถว
+      + ปุ่ม "⚙ คอลัมน์" ต่อท้าย .fbar-acts (DOCUMENT) / .ch-tools (ACCOUNTING)
+    assets/css/pages/charge-list.css   สไตล์ลากหัวคอลัมน์ + หน้าต่างจัดการ
+
+  ── ทำไมไม่แก้ headHTML()/rowHTML() ──
+    ทั้งสองสร้าง <th>/<td> เป็นสตริงคู่ขนานกัน ถ้าไปสลับลำดับในตัวสร้างสตริง
+    มีโอกาสหัวกับข้อมูลหลุดคนละช่อง จึงย้าย "โหนดจริง" หลัง render โดยอ้าง
+    data-ci (index เดิม) ชุดเดียวกันทั้งหัวและเซลล์
+    -> headHTML() / rowHTML() / COL_COUNT() ไม่ถูกแก้เลยแม้แต่บรรทัดเดียว
+    -> เป็นไปไม่ได้ที่ Cell จะไม่ย้ายตาม Header
+    (บั๊กที่เจอระหว่างทดสอบ: guard collay ทำให้แถวเดิมไม่ถูกจัดใหม่หลังลาก
+     แก้เป็นปั๊ม data-ci ให้ทุก <td> แล้วเรียงจาก data-ci -> เรียกซ้ำได้ไม่จำกัด)
+
+  ── Default columns ── อ่านจากหัวตารางที่ render จริงของแต่ละโหมด
+    ไม่ hardcode รายการเดียวใช้ 4 หน้า
+      DOCUMENT SERVICE / ADVANCE = 12 คอลัมน์
+      ACCOUNTING SERVICE = 26 · ACCOUNTING ADVANCE = 11 (คนละชุดจริง)
+
+  ── คอลัมน์บังคับ (ตรวจจาก Source ไม่ได้เดา) ──
+    "จัดการ" = th.col-act เป็นที่อยู่ของปุ่ม ดู/ปิดงาน/ลบ/ออกวางบิล/ดู INVOICE
+    ซึ่งเป็นทางเดียวที่สั่งงานแถวได้ และ CSS ตั้ง position:sticky;right:0
+    -> ซ่อนไม่ได้ · ลากไม่ได้ · ถูกบังคับอยู่ท้ายสุดเสมอ
+
+  ── ที่เก็บค่า ── ตรวจแล้วระบบไม่มี User Preference/Settings Storage เดิม
+    (ไม่มี localStorage สำหรับ preference · ไม่มีตาราง/RPC สำหรับ UI state)
+    ใช้ localStorage เป็น Phase แรกตามที่กำหนด
+      key = nj_columns_<userId>_<MODE>_<CHARGE>
+      เก็บ { sig, order[], hidden[] } · sig เปลี่ยน (อัปเดตชุดคอลัมน์) -> กลับ Default เอง
+    *** ต้องการ Sync ข้ามเครื่องต้องเพิ่ม Backend — ยังไม่ได้ทำ (ดูรายงาน) ***
+
+  ── Export Excel ── ตรวจแล้ว charge-export.js ไม่ได้อ้าง headHTML / DOC_LABELS เลย
+    ใช้รูปแบบ Business ของตัวเอง -> คงเดิม 100% ไม่ผูกกับคอลัมน์ที่มองเห็น
+
+  ── VERIFY (Chromium 131 จริง · 4 โหมด × 4 ชุดตรวจ · 0 FAIL) ──
+    1. Drag Header ได้ (mousedown -> move -> drop)                      PASS ทั้ง 4
+    2. ข้อมูลย้ายตาม Header ทุกเซลล์                                     PASS ทั้ง 4
+    3. ซ่อน Column ได้ · เซลล์ถูกซ่อนตามหัว · colspan Empty State ถูกต้อง  PASS ทั้ง 4
+    4. เปิด Column กลับได้                                              PASS ทั้ง 4
+    5. Drag ใน Column Manager ได้ · บันทึกแล้วหน้ารายการเรียงตามทันที      PASS ทั้ง 4
+    6. Reload แล้วยังจำค่า (ทั้งลำดับและข้อมูลตรงคอลัมน์)                  PASS ทั้ง 4
+    7. Reset Default ได้ (หัวและข้อมูลกลับเดิมทุกเซลล์)                    PASS ทั้ง 4
+    8. Filter/Search/ล้างตัวกรอง ไม่พัง · layout ยังอยู่ · ปุ่ม ⚙ ยังอยู่   PASS ทั้ง 4
+    9. Pagination ไม่พัง · data-sort ยังครบ · .tbl-wrap overflow-x auto   PASS ทั้ง 4
+    Preference แยกกันจริง: จัด DOCUMENT_SERVICE แล้ว ACCOUNTING_SERVICE ไม่เปลี่ยน
+      และไม่สร้าง key ข้ามโหมด                                          PASS
+    Regression หน้ารายการเทียบ ZIP ต้นฉบับ 12/12: filter · option · หัวคอลัมน์ ·
+      data-sort · row action · ปุ่ม pagination · page size · จำนวนแถว ตรงเดิมทุกตัว
+      ปุ่มที่เพิ่มมีเพียง "⚙ คอลัมน์" · กรอบเดียว (.ch-panel) ยังคงเดิม
+    Regression Modal: enter(44) · manage(43) · final3(42) · jobdate(41) ·
+      hide(40) · seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL ทุกชุด
+
+
+═══════════════════════════════════════════════════════════════════
+46. หน้ารายการ — "คลิกแถว = เปิดงาน" ทั้ง 4 โหมด
+    BUILD KEY 1.4.1-local109   ·   NO SQL MIGRATION
+    ขอบเขต: mode 'document' และ 'accounting' เท่านั้น
+═══════════════════════════════════════════════════════════════════
+
+  ── ตรวจ Source ก่อนตัดสินว่าจะลบคอลัมน์ "จัดการ" หรือไม่ ──
+    DOCUMENT  actionsHTML() มี  view · close(ปิดงาน) · delete(ลบ)
+              close/delete เป็นคนละหน้าที่กับการเปิดงาน + ผูก perms.edit / perms.delete
+              -> ลบเฉพาะปุ่ม "ดู" · *** คอลัมน์ "จัดการ" ยังอยู่ ***
+    ACCOUNTING actionsHTML() มี  bill(ออกวางบิล) · viewinv(ดู INVOICE)
+              ทั้งคู่เรียก openBillingModal(jobId) ตัวเดียวกันเป๊ะ
+              -> ถูกแทนด้วยคลิกแถวทั้งหมด ไม่มี Action เหลือ
+              -> ลบทั้งปุ่มและ *** คอลัมน์ "จัดการ" ***
+    NOTE ([data-act="note"]) เป็นคอลัมน์แยก ไม่ใช่คอลัมน์จัดการ -> คงไว้
+
+  ── ที่แก้ (3 ไฟล์) ──
+    assets/js/charges/charge-table.js
+      headHTML()  ACCOUNTING ไม่ต่อ ACT_HEAD (แยก ACC_TAIL_END_CELLS / ADV_HEAD_CELLS)
+                  mode 'advance' ใช้ ADV_HEAD_ACT ที่มี ACT_HEAD เหมือนเดิม
+      rowHTML()   ACCOUNTING ไม่ render actCell · ทุกแถวเพิ่ม data-inv="<invoice_id>"
+      actionsHTML() DOCUMENT ตัดปุ่ม "ดู" ออก (เหลือ ปิดงาน/ลบ · ว่าง = "—")
+    assets/js/charges/charge-page.js  + openRow(e) ผูกกับ listener เดิมของ #ch-tbody
+    assets/css/pages/charge-list.css  .tbl-charge.rowclick -> cursor:pointer + hover
+
+  ── ใช้ Flow เดิมทุกบรรทัด ไม่สร้าง Flow ใหม่ ──
+    DOCUMENT   ไม่มี INVOICE -> openNewJobModal({ jobId }) แก้ไขได้ทันที
+               มี INVOICE แล้ว -> location.hash '#/job/:id?from=document' (อ่านอย่างเดียว)
+               = เงื่อนไขเดียวกับ data-locked ของปุ่ม "ดู" เดิม (ย้ายมาอยู่ที่ <tr data-inv>)
+    ACCOUNTING openBillingModal({ jobId, charge })
+               billing-modal ตัดสินสถานะเองจาก Backend:
+                 ไม่มีใบ = CREATE · DRAFT = แก้ต่อ · POSTED = ล็อกตาม applyState()
+               เงื่อนไขกันเปิด: ไม่มีใบ + (ไม่มี perms.invoice หรือ status CANCELED)
+               = เงื่อนไขเดียวกับที่เคยใช้ตัดสินว่าจะ render ปุ่ม "ออกวางบิล" หรือไม่
+
+  ── กันชนกับ Control ในแถว ──
+    openRow() ออกทันทีถ้าคลิกโดน button / a / input / select / textarea / label /
+    [data-act] / .row-menu -> NOTE · ปิดงาน · ลบ ทำหน้าที่ตัวเองอย่างเดียว ไม่เปิดงานซ้ำ
+
+  ── VERIFY (Chromium 131 จริง · 4 โหมด · 0 FAIL) ──
+    | Mode              | คลิก Row เปิดงาน | ปุ่มซ้ำถูกลบ | เปิดถูก Job |
+      DOCUMENT SERVICE  | PASS | PASS (เหลือ ปิดงาน/ลบ) | PASS (j1 -> j1, j2 -> j2)
+      DOCUMENT ADVANCE  | PASS | PASS                   | PASS
+      ACCOUNTING SERVICE| PASS | PASS (เหลือ -)         | PASS
+      ACCOUNTING ADVANCE| PASS | PASS (เหลือ -)         | PASS
+    คลิกเดียว ไม่มี confirm · cursor:pointer · ตารางติด class rowclick
+    DOCUMENT เปิดเป็น Form ที่แก้ไขได้ทันที (JOB202608-00001) ไม่ต้องกด "แก้ไข" ซ้ำ
+    ACCOUNTING เปิดแล้ว: กรอบ 1 DOCUMENT พับอยู่ (▸) · กรอบ 2 วางบิล + INVOICE เปิดทันที
+    คลิก Control ในแถว (close / note) ไม่เปิดงานซ้ำ
+    หัวคอลัมน์ = เซลล์ต่อแถว: DOC 12/12 · ACC SERVICE 29/29 · ACC ADVANCE 10/10
+    Search / ล้างตัวกรอง / Pagination ยังทำงาน · หลัง re-render แถวยังคลิกเปิดได้
+    Regression หน้ารายการเทียบ ZIP ต้นฉบับ 12/12: filter · option · data-sort ·
+      ปุ่ม pagination · page size · จำนวนแถว ตรงเดิมทุกตัว
+      คอลัมน์ที่หายมีเพียง "จัดการ" ของ ACCOUNTING · DOCUMENT ไม่หายสักคอลัมน์
+    นอกขอบเขตไม่ถูกกระทบ: FINANCE > Advance (11/11) และ Close Job (30/30)
+      ยังมีคอลัมน์ "จัดการ" · ไม่ติด rowclick · cursor auto · data-act เดิมครบ
+    Regression อื่น: columns(45) · enter(44) · manage(43) · final3(42) ·
+      jobdate(41) · hide(40) · seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL
+
+
+═══════════════════════════════════════════════════════════════════
+47. คลิกแถว = เปิดข้อมูล — ขยายครบทุกหน้ารายการที่มี Detail Flow
+    BUILD KEY 1.4.1-local111   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── helper กลาง (ไม่เขียนโค้ดซ้ำ) ──
+    assets/js/components/table.js  + export function enableRowOpen(tbody, open)
+      delegate ที่ <tbody> · ใส่ .rowclick ที่ <table>
+      ข้ามอัตโนมัติเมื่อคลิกโดน button/a/input/select/textarea/label/[data-act]/.row-menu
+      และข้ามแถว colspan (ว่าง/กำลังโหลด)
+    assets/css/pages/charge-list.css  .tbl.rowclick / .tbl-charge.rowclick
+      cursor:pointer + hover เส้นน้ำเงินซ้าย (ตารางที่ไม่เรียก helper ไม่ได้ class นี้)
+
+  ── ผลการตรวจ Source แต่ละหน้า และสิ่งที่ทำ ──
+    DOCUMENT SERVICE/ADVANCE   ทำแล้วรอบ 46 · ลบปุ่ม "ดู" · คอลัมน์ "จัดการ" ยังอยู่
+                               (ปิดงาน / ลบ = Action ที่ Row Click แทนไม่ได้)
+    ACCOUNTING SERVICE/ADVANCE ทำแล้วรอบ 46 · ลบ ออกวางบิล + ดู INVOICE + คอลัมน์ "จัดการ"
+    FINANCE CREDIT NOTE        ลบปุ่ม "ดู / พิมพ์" -> คลิกแถวเปิด openCreditNoteDoc(cnView(id))
+                               (renderer เดียวกัน มีปุ่มพิมพ์อยู่ข้างใน)
+                               คอลัมน์ "จัดการ" ยังอยู่: แก้ไขร่าง · POST · ลบร่าง · Void
+    REPORT ใบหัก ณ ที่จ่าย     ลบปุ่ม "ดู / พิมพ์" -> คลิกแถวเปิด openWhtDoc(whtView(id))
+                               คอลัมน์ "จัดการ" ยังอยู่: แก้ไขร่าง · ยืนยันรับเอกสาร · ลบร่าง · Void
+    FINANCE RECEIPT (รอรับชำระ) ลบปุ่ม "ดู INVOICE" + คอลัมน์ "จัดการ" (9 -> 8 คอลัมน์)
+                               คลิกแถว -> sessionStorage 'nj-inv-from' + #/invoice/:id (เดิมเป๊ะ)
+    FINANCE RECEIPT (ใบเสร็จที่ออกแล้ว)
+                               *** เดิมไม่มีปุ่ม ดู/เปิด อยู่แล้ว -> ไม่มีปุ่มซ้ำให้ลบ ***
+                               เพิ่มคลิกแถว -> renderReceiptDoc(row) (renderer เดียวกับปุ่มพิมพ์)
+                               ปุ่ม "พิมพ์" และ "Void" คงไว้ตามข้อกำหนด (Row Click แทนไม่ได้)
+    FINANCE ADVANCE            ลบปุ่ม "ดู INVOICE" (ซ้ำ) · คงคอลัมน์ "จัดการ"
+                               เพราะยังมี settle (บันทึกจ่ายแล้ว/เคลียร์ครบ) และ 🖨 พิมพ์
+                               (ใบรับชำระเงินล่วงหน้า = เอกสารคนละใบ Row Click แทนไม่ได้)
+    FINANCE CLOSE JOB          เดิมมีแต่ ดู / ดู INVOICE -> ลบทั้งปุ่มและคอลัมน์ "จัดการ"
+                               (30 -> 29 คอลัมน์) · คลิกแถวใช้เงื่อนไข invoice_id ชุดเดิม
+    REPORT (รายงาน) / ประวัติการทำงาน   NOT APPLICABLE
+                               ไม่มีปุ่ม ดู/เปิด/รายละเอียด และไม่มี Detail Flow ใน Source
+    SYSTEM ผู้ใช้งาน / ข้อมูลหลัก        พบปุ่ม "แก้ไข" ในแถว แต่ยังไม่แตะ (ไม่อยู่ในรายการ
+                               ที่ระบุ · เป็นหน้า Master/Settings ของ ADMIN) — รอคำสั่ง
+
+  ── ปลายทางทั้งหมดใช้ Flow เดิม ไม่สร้าง Flow ใหม่ ──
+    ทุกหน้าเรียกฟังก์ชัน/ปลายทางตัวเดียวกับที่ปุ่มเดิมเรียก และใช้ ID จริงของแถว
+    (cn.id · wht.id · invoice_id · job_id) ไม่ใช้เลขลำดับแถว
+
+  ── VERIFY (Chromium 131 จริง · 0 FAIL) ──
+    | Mode                 | คลิก Row | เปิดถูก Record | ปุ่มซ้ำถูกลบ |
+      DOCUMENT SERVICE     | PASS | PASS (j1/j2) | PASS
+      DOCUMENT ADVANCE     | PASS | PASS         | PASS
+      ACCOUNTING SERVICE   | PASS | PASS         | PASS
+      ACCOUNTING ADVANCE   | PASS | PASS         | PASS
+      FINANCE CREDIT NOTE  | PASS | PASS (cn1/cn2) | PASS
+      FINANCE RECEIPT      | PASS | PASS (i1/i2 · RCP-00001/00002) | PASS
+      FINANCE ADVANCE      | PASS | PASS (i1/i2) | PASS
+      FINANCE CLOSE JOB    | PASS | PASS (i1/i2) | PASS
+      REPORT / AUDIT       | NOT APPLICABLE (ไม่มี Detail Flow ใน Source)
+    หัวคอลัมน์ = เซลล์ต่อแถว ทุกหน้า: CN 8/8 · WHT 9/9 · RCP pending 8/8 ·
+      ADVANCE 11/11 · CLOSE JOB 29/29 · DOC 12/12 · ACC SERVICE 29/29 · ACC ADV 10/10
+    คลิกปุ่ม POST ในแถว Credit Note -> ไม่เปิดเอกสารซ้ำ (stopPropagation ผ่าน guard ของ helper)
+    sessionStorage 'nj-inv-from' ยังถูกตั้งเหมือนเดิม
+    Regression: columns(45) · rowclick(46) · enter(44) · manage(43) · final3(42) ·
+      jobdate(41) · hide(40) · seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL
+      list baseline (filter · option · sort · pagination · page size · จำนวนแถว) 12/12 ตรงเดิม
+
+
+═══════════════════════════════════════════════════════════════════
+48. จัดการหัวคอลัมน์ — ขยายครบทุกหน้ารายการที่มี Column Definition จริง
+    BUILD KEY 1.4.1-local111   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── ย้ายเป็น Component กลาง (ไม่ hardcode ข้ามโหมด · ไม่เขียนโค้ดซ้ำ) ──
+    ย้ายทั้งบล็อกจาก charges/charge-table.js -> components/table.js
+      columnDefs · loadLayout · saveLayout · resetLayout · effectiveOrder
+      applyColumnLayout(table, modeKey) · enableHeaderDrag(table, modeKey, cb)
+      openColumnManager(table, modeKey, cb)
+      initColumns({ table, modeKey, host })   <- ตัวเรียกใช้จริงของทุกหน้า
+    charge-table.js กลับไปเหลือเฉพาะ Renderer เดิม (297 บรรทัด)
+    *** ไม่เพิ่ม Library ใด ๆ *** ใช้ mousedown/mousemove/mouseup ของเบราว์เซอร์
+
+  ── หน้าที่รองรับแล้ว (Mode key แยกกันทุกหน้า) ──
+    DOCUMENT_SERVICE · DOCUMENT_ADVANCE            charge-page.js
+    ACCOUNTING_SERVICE · ACCOUNTING_ADVANCE        charge-page.js
+    FINANCE_ADVANCE · FINANCE_CLOSE_JOB            charge-page.js
+    FINANCE_CREDIT_NOTE                            finance/credit-note.js
+    FINANCE_RECEIPT_PENDING · FINANCE_RECEIPT_ISSUED  receipts/receipt-page.js
+                                                   (2 แท็บ = คนละ Column Definition)
+    REPORT_MAIN                                    reports/report-page.js
+    REPORT_WHT                                     withholding/withholding-page.js
+    key = nj_columns_<userId>_<MODE_KEY>  (localStorage · แยกทั้ง User และ Mode)
+
+  ── หน้าที่ไม่รองรับ ── NOT APPLICABLE
+    ประวัติการทำงาน (audit) · หน้า picker ภายใน Credit Note / 50 ทวิ
+    SYSTEM ผู้ใช้งาน / ข้อมูลหลัก — เป็นหน้า Master/Settings ไม่อยู่ในรายการที่ระบุ
+
+  ── คอลัมน์บังคับ (อิง Source จริง) ──
+    th.col-act (ตารางงาน · sticky right) หรือหัวข้อ "จัดการ" (FINANCE/REPORT)
+    = ที่อยู่ของ POST / ลบร่าง / Void / แก้ไขร่าง / settle / พิมพ์
+    -> locked: ซ่อนไม่ได้ · ลากไม่ได้ · อยู่ท้ายสุดเสมอ
+    หน้าที่ Row Click แทนปุ่มหมดแล้ว (ACCOUNTING · CLOSE JOB · RECEIPT pending ·
+    REPORT) ไม่มีคอลัมน์ "จัดการ" -> ไม่มีคอลัมน์บังคับเลย ซ่อน/ลากได้ทุกคอลัมน์
+
+  ── 🐛 บั๊กที่เจอระหว่างทดสอบและแก้แล้ว ──
+    enableHeaderDrag() เดิมผูก listener "กลืน click หลังลาก" ไว้ที่ document
+    -> หลังลากหัวคอลัมน์ 1 ครั้ง คลิกถัดไป *ที่ใดก็ได้ในหน้า* ถูกกลืน
+       (เช่น กดปุ่ม "⚙ คอลัมน์" แล้วไม่มีอะไรเกิดขึ้น)
+    แก้เป็นผูกที่แถวหัวตาราง (hr) เท่านั้น -> กลืนเฉพาะคลิกบนหัวตารางตามเจตนาเดิม
+
+  ── VERIFY (Chromium 131 จริง · 0 FAIL ทุกหน้า) ──
+    | Mode | Drag Header | Hide/Show | Manager Drag | Remember | Reset |
+      DOCUMENT SERVICE / ADVANCE        PASS PASS PASS PASS PASS  (12 คอลัมน์)
+      ACCOUNTING SERVICE (29) / ADVANCE (10)  PASS PASS PASS PASS PASS
+      FINANCE CREDIT NOTE (8)           PASS PASS PASS PASS PASS
+      FINANCE RECEIPT รอรับชำระ (8)      PASS PASS PASS PASS PASS
+      FINANCE ADVANCE (11)              PASS PASS PASS PASS PASS
+      FINANCE CLOSE JOB (29)            PASS PASS PASS PASS PASS
+      REPORT REPORT (13)                PASS PASS PASS PASS PASS
+      REPORT ใบหัก ณ ที่จ่าย (9)         PASS PASS PASS PASS PASS
+      audit / picker / SYSTEM           NOT APPLICABLE
+    ทุกหน้า: หัว = เซลล์ต่อแถว ตรงกันเสมอ · ซ่อนแล้วเซลล์ซ่อนตาม · colspan ถูกปรับ
+    Preference ไม่ข้าม Mode: จัด FINANCE_CREDIT_NOTE แล้ว REPORT_WHT ไม่เปลี่ยน
+      และไม่สร้าง key ของหน้าอื่น
+    Row Click ยังทำงาน · ลาก Header ไม่ trigger Row Click / ไม่ trigger Sort
+    Regression: rowclick(47) · columns(45) · list baseline 12/12 ·
+      enter(44) · manage(43) · final3(42) · jobdate(41) · hide(40) ·
+      seq(39) · roundtrip(39) · collapse(38) -> 0 FAIL ทุกชุด
+    Export Excel: charge-export.js ไม่เปลี่ยน (ไม่ผูกกับคอลัมน์ที่มองเห็น)
+
+
+═══════════════════════════════════════════════════════════════════
+48. Compact Data Grid — ปรับความหนาแน่นทุกหน้ารายการให้เป็นมาตรฐานเดียว
+    BUILD KEY 1.4.1-local111   ·   NO SQL MIGRATION   ·   CSS ล้วน
+═══════════════════════════════════════════════════════════════════
+
+  ── ที่แก้ (2 ไฟล์ CSS · ไม่แตะ JS แม้แต่บรรทัดเดียว) ──
+    assets/css/components/data.css   (Shared: .tbl / .fbar / .pgn)
+      .tbl th   padding 10px 12px · font 11.5px -> 13px · line-height 1.35
+      .tbl td   padding 9px -> 7px · height:39px (border-box = ความสูงขั้นต่ำ)
+                font 12.8px -> 13px · line-height 1.35
+      .tbl td .t-xs{line-height:1.15} · .tbl td .bdg{padding:2px 9px;white-space:nowrap}
+      .ch-act .btn-sm{padding:4px 9px}   (จำกัดที่คอลัมน์ Action ของหน้ารายการ
+                                          -> .bm-items ในโมดัล INVOICE ไม่ถูกกระทบ)
+      .fbar     padding 12px -> 9px · .fbar .inp/.sel/.btn{height:36px} เท่ากันหมด
+      .pgn      padding 11px -> 8px · button padding 4px 9px · .sel height 30px
+      @media<=640px  ลด padding เพิ่มอีกขั้น (ไม่แตะ overflow ของ .tbl-wrap)
+    assets/css/pages/charge-list.css
+      .fbar-doc ปุ่มในแถบตัวกรอง 32px -> 36px (ให้เท่ากับ control อื่น)
+      .col-status  แสดง badge + สถานะย่อยบรรทัดเดียว (ข้อมูลเท่าเดิมทุกตัว)
+      .col-inv .inv-src  font 11px · line-height 1.05 · margin-top 0
+
+  ── ทำไมแก้ Shared Component ได้ (ตามข้อ 12) ──
+    ตรวจผู้ใช้ .tbl ทั้งหมดแล้ว: หน้ารายการ 9 หน้า + ตารางพรีวิว import/export +
+    master-admin + payment-form + .bm-items ในโมดัล INVOICE
+    ทุกตัวต้องการ Compact เหมือนกัน ไม่มีหน้าไหนต้องการ Row สูงเป็นพิเศษ
+    ยกเว้นปุ่มใน .bm-items ที่มีขนาดของตัวเอง -> จึง scope ปุ่มไว้ที่ .ch-act เท่านั้น
+
+  ── VERIFY (Chromium 131 จริง · วัด computed style/geometry ทุกหน้า · 0 FAIL) ──
+    หน่วย: headerH / rowH / filter control / pagination   (ก่อน -> หลัง)
+      DOCUMENT SERVICE     39->38  49->39  31-33->36  55->46   PASS
+      DOCUMENT ADVANCE     39->38  49->39  31-33->36  55->46   PASS
+      ACCOUNTING SERVICE   39->38  74->43  30-33->36  55->46   PASS
+      ACCOUNTING ADVANCE   39->38  60->39  30-33->36  55->46   PASS
+      FINANCE CREDIT NOTE  39->38  45->39  30-33->36  55->46   PASS
+      FINANCE RECEIPT      39->38  34->39  30-31->36  55->46   PASS
+      FINANCE ADVANCE      39->38  56->39  30-33->36  55->46   PASS
+      FINANCE CLOSE JOB    39->38  57->43  30-33->36  55->46   PASS
+      REPORT ใบหัก ณ ที่จ่าย 39->38  52->46  30-33->36  55->46   PASS
+      REPORT (รายงาน)      NOT APPLICABLE — ไม่มีตารางรายการแบบ .tbl ในหน้านี้
+    font: header 11.5 -> 13px · row 12.8 -> 13px (อ่านง่ายขึ้นแต่แถวเตี้ยลง)
+    padding แนวตั้งของ cell = 7px (อยู่ในช่วง 6-8px ที่กำหนด)
+    ไม่มี shadow / border-radius / margin ราย Row (ตรวจ computed แล้ว)
+    ตัวเลขยังชิดขวา + tabular-nums ผ่าน .tbl .r เดิม · ไม่แตะการจัดรูปแบบตัวเลข
+
+  ── Regression (0 FAIL ทุกชุด) ──
+    rowclick(46) · rowclick FINANCE(47) · columns(45) — Drag Header / ซ่อน-แสดง /
+      Column Manager / Reset Default ยังทำงานครบ · cursor:pointer + hover ยังอยู่
+    enter(44) · manage(43) · final3(42) · jobdate(41) · hide(40) · seq(39) ·
+      roundtrip(39) · collapse(38)
+    list baseline 12/12: filter · option · data-sort · ปุ่ม pagination · page size ·
+      จำนวนแถว ตรงเดิมทุกตัว
+
+
+═══════════════════════════════════════════════════════════════════
+49. Column Manager ครบทุกโหมด — ตรวจ Source + VERIFY เต็มรูปแบบ 11 ตาราง
+    BUILD KEY 1.4.1-local112   ·   NO SQL MIGRATION
+═══════════════════════════════════════════════════════════════════
+
+  ── สถานะจริงของ Source (ตรวจแล้ว ไม่ได้เดา) ──
+    โค้ดกลางอยู่ที่ assets/js/components/table.js (ไม่ใช่ charge-table.js)
+      columnDefs · loadLayout · saveLayout · resetLayout · effectiveOrder
+      applyColumnLayout · enableHeaderDrag · openColumnManager · initColumns
+    เชื่อมเข้าหน้ารายการผ่าน initColumns({table, modeKey, host}) ที่:
+      charges/charge-page.js        DOCUMENT_SERVICE / DOCUMENT_ADVANCE /
+                                    ACCOUNTING_SERVICE / ACCOUNTING_ADVANCE /
+                                    FINANCE_ADVANCE / FINANCE_CLOSE_JOB
+      finance/credit-note.js        FINANCE_CREDIT_NOTE
+      receipts/receipt-page.js      FINANCE_RECEIPT_PENDING · FINANCE_RECEIPT_ISSUED
+      reports/report-page.js        REPORT_MAIN
+      withholding/withholding-page.js  REPORT_WHT
+    => 11 ตาราง (มากกว่ารายการ 10 ในโจทย์ เพราะ FINANCE > RECEIPT มี 2 แท็บ
+       คนละ Column Definition จริง จึงต้องแยก Mode key)
+
+  ── ตารางที่ "ไม่ใส่" ระบบนี้ (มีเหตุผลจาก Source) ──
+    ตารางในโมดัล/เครื่องมือ: billing-modal (.bm-items) · payment-form ·
+      charge-import / charge-export preview · charge-tools
+      -> เป็นตารางทำงานภายในฟอร์ม ไม่ใช่หน้ารายการ
+    ตาราง picker "เลือก INVOICE" ในหน้า CN / WHT
+      -> เป็นขั้นตอนเลือกข้อมูล ไม่ใช่ List View
+    SYSTEM > ผู้ใช้งาน · ข้อมูลหลัก · ประวัติการทำงาน
+      -> เป็นหน้า Master/Settings/Audit ของ ADMIN ไม่อยู่ในรายการที่กำหนด
+         *** ยังไม่ใส่ · รอคำสั่ง ***
+
+  ── คอลัมน์บังคับ (อิง Source จริง) ──
+    required = th.col-act หรือ label === 'จัดการ'
+      -> ที่อยู่ของ ปิดงาน/ลบ (DOCUMENT) · POST/ลบร่าง/Void/แก้ไขร่าง (CN/WHT) ·
+         settle/พิมพ์ (FINANCE ADVANCE) = ทางเดียวที่สั่งงานแถวได้ -> ซ่อนไม่ได้ · ท้ายสุดเสมอ
+    หน้าที่ Row Click แทน Action หมดแล้ว (ACCOUNTING · CLOSE JOB · RECEIPT pending ·
+      REPORT) ไม่มีคอลัมน์บังคับเลย
+
+  ── Storage ── ตรวจแล้วระบบไม่มี User Preference Storage เดิม
+    ใช้ localStorage: nj_columns_<userId>_<MODE_KEY>  เก็บ {sig, order[], hidden[]}
+    sig เปลี่ยน (ชุดคอลัมน์อัปเดต) -> ทิ้งค่าเก่า กลับ Default อัตโนมัติ
+    *** ไม่แตะ SQL / RPC / Database ***  Sync ข้ามเครื่อง = Phase ถัดไป (ดูรายงาน)
+
+  ── ไม่เพิ่ม Library ── ใช้ mousedown/mousemove/mouseup ของเบราว์เซอร์ล้วน
+
+  ── VERIFY (Chromium 131 จริง · 11 ตาราง × 13 ขั้นตอน · 0 FAIL) ──
+    MODE                          Drag  Hide/Show  MgrDrag  Remember  Reset
+    DOCUMENT — SERVICE            PASS  PASS       PASS     PASS      PASS
+    DOCUMENT — ADVANCE            PASS  PASS       PASS     PASS      PASS
+    ACCOUNTING — SERVICE          PASS  PASS       PASS     PASS      PASS
+    ACCOUNTING — ADVANCE          PASS  PASS       PASS     PASS      PASS
+    FINANCE — CREDIT NOTE         PASS  PASS       PASS     PASS      PASS
+    FINANCE — RECEIPT (รอรับชำระ) PASS  PASS       PASS     PASS      PASS
+    FINANCE — RECEIPT (ออกแล้ว)   PASS  PASS       PASS     PASS      PASS
+    FINANCE — ADVANCE             PASS  PASS       PASS     PASS      PASS
+    FINANCE — CLOSE JOB           PASS  PASS       PASS     PASS      PASS
+    REPORT — REPORT               PASS  PASS       PASS     PASS      PASS
+    REPORT — ใบหัก ณ ที่จ่าย      PASS  PASS       PASS     PASS      PASS
+    ทุกเคสยืนยันเพิ่ม: Cell ย้ายตาม Header · เซลล์ = หัวเสมอ ·
+      Empty State colspan ถูกต้อง · หน้าต่างดึงหัวข้อจาก Column Definition ของ Mode นั้น ·
+      Visual Feedback cursor:grab + opacity 0.5 ตอนลาก · แถบ Filter ยังครบ · Pagination ยังทำงาน
+    ── ตรวจแยกเพิ่ม ──
+    Preference แยกจริง: จัด DOCUMENT_SERVICE แล้ว DOCUMENT_ADVANCE และ
+      ACCOUNTING_SERVICE ไม่เปลี่ยน · ไม่สร้าง key ข้าม Mode                 PASS
+    Sort vs Drag: คลิกสั้นที่หัว = Sort เดิมทำงาน · Hold+Drag = ย้ายคอลัมน์
+      และไม่ trigger Sort                                                    PASS
+    Row Click: ลาก Header ไม่เปิด Record · คลิกแถวยังเปิดข้อมูลได้ตามปกติ      PASS
+    .tbl-wrap overflow-x:auto · scrollLeft ขยับได้จริง (เลื่อนตารางไม่พัง)      PASS
+    Export: charge-export.js ไม่อ้าง headHTML/Column Definition -> Export Business
+      Format เดิมไม่เปลี่ยนตามคอลัมน์ที่มองเห็น (ยืนยันด้วย cmp ว่าไฟล์ไม่ถูกแก้)
+    Regression 0 FAIL: density(48) · rowclick(46,47) · columns(45) · enter(44) ·
+      manage(43) · final3(42) · jobdate(41) · hide(40) · seq(39) · roundtrip(39) ·
+      collapse(38) · list baseline 12/12
+
+
+═══════════════════════════════════════════════════════════════════
+50. เลขเอกสารรายเดือนครบ 6 ชุด + แสดง "เลขเอกสาร + วันที่" ทุก Flow
+    BUILD KEY 1.4.1-local113
+    *** มี SQL MIGRATION — ยังไม่ได้รัน ต้องรันเองตามลำดับด้านล่าง ***
+═══════════════════════════════════════════════════════════════════
+
+  ── ข้อมูลจริงที่สำรวจก่อนออกแบบ (read-only ผ่าน Supabase MCP) ──
+    njacc_jobs 2 แถว: JSNJ26-0001 (ref 2026-08-15) · JSNJ26-0002 (ref 2026-08-18)
+      ทั้งคู่ SERVICE/NJ · job_date NULL · ADVANCE 0 แถว
+    njacc_invoices 1 แถว = DRAFT-xxxx (ยังไม่มี NJ/ADV จริง)
+    njacc_receipts 0 · njacc_credit_notes 0 (ไม่มี CD เก่าหลงเหลือ)
+    counters: JOB/SERVICE-NJ-2026 = 2 · JOB_OPEN/SERVICE-NJ-2026 = 2
+    => backfill แตะเฉพาะ njacc_jobs 2 แถว · ตารางอื่นไม่ต้องแตะ
+
+  ── SQL (ส่งไฟล์ · ห้ามรันเอง) ลำดับ: RUN-01 -> RUN-03 -> RUN-02 ──
+    sql/RUN-NOW/RUN-01_document_number_migration.sql
+      + njacc_next_month_no(type,prefix,date,pad)  ตัวออกเลขรายเดือนกำหนดหลักได้
+        (ของใหม่คนละชื่อ — njacc_next_month_doc_no เดิมที่ NJ/ADV/RCP/CN ใช้ ไม่ถูกแตะ)
+      ~ njacc_save_job  ยกนิยามจาก Production มาทั้งตัว เปลี่ยนเฉพาะบล็อกออกเลข:
+          SERVICE -> JOB_MONTH / 'JOB' / pad 5   = JOB202608-00001
+          ADVANCE -> AD_MONTH  / 'AD'  / pad 4   = AD202608-0001
+          ฐานเดือน = coalesce(job_date, reference_date, current_date) = วันที่เอกสารจริง
+          ออกเลขเฉพาะ v_new (บันทึกครั้งแรก) — แก้ไข/บันทึกซ้ำไม่แตะ job_no
+    sql/RUN-NOW/RUN-03_document_number_backfill_testdata.sql
+      สำรอง njacc_jobs_no_backup_<ts> -> mapping (ORDER BY created_at, job_no)
+      -> กันชน (ซ้ำกันเอง / ชนของเดิม = RAISE ยกเลิกทั้งชุด) -> UPDATE job_no
+      -> ตั้ง counter JOB_MONTH/AD_MONTH ให้ต่อจากเลขล่าสุดของเดือนนั้น
+      คาดผล: JSNJ26-0001 -> JOB202608-00001 · JSNJ26-0002 -> JOB202608-00002
+             JOB_MONTH/202608 = 2
+    sql/RUN-NOW/RUN-02_document_number_verify.sql   อ่านอย่างเดียว V1-V18 ต้อง PASS หมด
+
+  ── ทำไมไม่เปลี่ยนชื่อ counter เป็น NJ_MONTH/ADV_MONTH/RCP_MONTH/CN_MONTH ──
+    Production ใช้ INVOICE_MONTH / ADVANCE_MONTH / RECEIPT_MONTH / CREDIT_NOTE_MONTH
+    ซึ่ง "แยกกันครบทุก prefix" ตามข้อกำหนดข้อ 4 อยู่แล้ว
+    เปลี่ยนชื่อ = เกิดแถว counter ใหม่ last_number=0 -> เลขเริ่มที่ 1 ใหม่และชนกับ
+    เอกสารที่ออกไปแล้วในเดือนเดียวกัน จึงคงชื่อเดิม เพิ่มเฉพาะ JOB_MONTH / AD_MONTH
+
+  ── Frontend (5 ไฟล์) ──
+    jobs/job-form.js       AUTO 'ระบบออกเลขให้อัตโนมัติเมื่อบันทึก' -> 'ยังไม่ได้ออกเลข'
+                           ป้าย: SERVICE = 'JOB NJ:' · ADVANCE = 'AD:'
+                           บันทึกสำเร็จ -> เขียน res.job_no ลง #nj-autono ทันที
+                           *** ไม่ปิด Modal *** และเปลี่ยนเป็นโหมดแก้ไข (isEdit/jobId = res.id)
+                           -> กดบันทึกซ้ำอัปเดต Record เดิม ไม่ออกเลขใหม่
+    invoices/billing-modal.js  + #bm-invno (INVOICE NJ:/INVOICE ADV:) + #bm-invdate
+                           อัปเดตใน applyState() จาก doc.invoice_no / doc.invoice_date
+                           DRAFT-xxxx ถือว่ายังไม่ใช่เลขจริง -> แสดง 'ยังไม่ได้ออกเลข'
+                           แก้ #bm-date -> หัวสะท้อนวันที่ทันที
+    payments/payment-form.js   + RECEIPT: #pm-rcno / วันที่ใบเสร็จ #pm-rcdate
+                           อัปเดตจาก res.receipt_no + วันที่รับชำระที่ผู้ใช้กรอก
+    finance/credit-note.js     + CREDIT NOTE: #cn-no-out / วันที่เอกสาร #cn-date-out
+                           อัปเดตจาก r.credit_note_no หลัง POST · แก้ #cn-date สะท้อนทันที
+    แก้ bug prefix เก่า CD -> CN ครบทุกจุด (credit-note.js x3 · -api.js · -doc.js)
+      grep 'CD{' ทั้งโปรเจกต์เหลือ 0
+
+  ── VERIFY Frontend (Chromium 131 · stub Backend คืนเลขรูปแบบใหม่) 0 FAIL ──
+    DOCUMENT SERVICE  ป้าย JOB NJ: · ก่อนบันทึก 'ยังไม่ได้ออกเลข' ·
+      บันทึก -> JOB202608-00001 บน Modal เดิม (ไม่ปิด) · วันที่งาน = ค่าที่กรอก ·
+      payload มี job_date · ไม่มี job_no ใน payload · บันทึกซ้ำส่ง id เดิม เลขไม่เปลี่ยน
+    DOCUMENT ADVANCE  ป้าย AD: · บันทึก -> AD202608-0001 · เงื่อนไขอื่นเหมือน SERVICE
+    ACCOUNTING SERVICE  INVOICE NJ: ยังไม่ได้ออกเลข -> NJ202608-00001 · วันที่วางบิล 15/08/2026
+    ACCOUNTING ADVANCE  INVOICE ADV: -> ADV202608-00001 · วันที่วางบิล 15/08/2026
+    วันที่ทุกจุด = ค่าที่ผู้ใช้กรอก ไม่ใช่ posted_at / วันปัจจุบัน
+    Regression 0 FAIL ทุกชุด (17 suites)

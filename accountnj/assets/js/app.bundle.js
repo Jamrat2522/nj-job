@@ -320,15 +320,17 @@
   });
 
   // assets/js/components/modal.js
-  function openModal({ title, body, footer, large, fullscreen, wide }) {
+  function openModal({ title, body, footer, large, fullscreen, wide, cls }) {
     closeModal();
     const bk = document.createElement("div");
-    bk.className = "modal-bk" + (fullscreen ? " modal-fs" : "") + (wide ? " modal-bk-w80" : "");
+    const extra = cls ? " " + cls : "";
+    bk.className = "modal-bk" + (fullscreen ? " modal-fs" : "") + (wide ? " modal-bk-w80" : "") + extra;
     bk.id = "nj-modal";
     const mCls = [
       "modal",
       fullscreen ? "" : large ? "modal-lg" : "",
-      wide ? "modal-w80" : ""
+      wide ? "modal-w80" : "",
+      cls || ""
     ].filter(Boolean).join(" ");
     bk.innerHTML = `<div class="${mCls}">
     <div class="modal-h"><h3>${esc(title)}</h3>
@@ -341,10 +343,46 @@
       if (e.target === bk || e.target.closest("[data-close]")) closeModal();
     });
     document.body.appendChild(bk);
+    lockPageScroll();
     return bk;
   }
+  function lockPageScroll() {
+    if (prevHtmlOverflow !== null) return;
+    prevHtmlOverflow = document.documentElement.style.overflow || "";
+    document.documentElement.style.overflow = "hidden";
+  }
+  function unlockPageScroll() {
+    if (prevHtmlOverflow === null) return;
+    document.documentElement.style.overflow = prevHtmlOverflow;
+    prevHtmlOverflow = null;
+  }
   function closeModal() {
-    document.getElementById("nj-modal")?.remove();
+    const el = document.getElementById("nj-modal");
+    if (el) el.remove();
+    unlockPageScroll();
+  }
+  function enableEnterNav(scope) {
+    if (!scope || scope.dataset.enterNav === "1") return;
+    scope.dataset.enterNav = "1";
+    const usable = (el) => !el.disabled && !el.readOnly && el.type !== "hidden" && el.offsetParent !== null;
+    scope.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+      const el = e.target;
+      if (!el || el.tagName !== "INPUT" && el.tagName !== "SELECT") return;
+      if (el.closest("[data-enter-skip]")) return;
+      if (e.defaultPrevented) {
+        const cbx = el.closest(".cbx");
+        if (!cbx) return;
+        const list = cbx.querySelector(".cbx-list");
+        if (!list || !list.hidden || !el.dataset.id) return;
+      } else {
+        e.preventDefault();
+      }
+      const all = [...scope.querySelectorAll("input, select")].filter(usable);
+      const i = all.indexOf(el);
+      if (i < 0 || i >= all.length - 1) return;
+      all[i + 1].focus();
+    });
   }
   function confirmModal(title, msg, okLabel = "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19") {
     return new Promise((res) => {
@@ -384,9 +422,11 @@
       });
     });
   }
+  var prevHtmlOverflow;
   var init_modal = __esm({
     "assets/js/components/modal.js"() {
       init_formatter();
+      prevHtmlOverflow = null;
     }
   });
 
@@ -619,9 +659,11 @@
 
   // assets/js/charges/charge-table.js
   function headHTML(charge, mode) {
+    const noAct = mode === "accounting" || mode === "closed";
     if (mode === "document") return DOC_HEAD;
-    if (mode === "accounting" && charge === "ADVANCE") return ADV_HEAD;
-    return DOC_HEAD_CELLS + ACC_TAIL_COMMON + (charge === "SERVICE" ? MONEY_SVC : MONEY_ADV) + ACC_TAIL_END;
+    if (charge === "ADVANCE" && mode === "accounting") return ADV_HEAD_CELLS;
+    if (charge === "ADVANCE" && mode === "advance") return ADV_HEAD_ACT;
+    return DOC_HEAD_CELLS + ACC_TAIL_COMMON + (charge === "SERVICE" ? MONEY_SVC : MONEY_ADV) + (noAct ? ACC_TAIL_END_CELLS : ACC_TAIL_END);
   }
   function statusCell(r) {
     let acc;
@@ -673,7 +715,7 @@
          <button class="btn-dots" data-rowmenu aria-label="\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23">\u22EE</button>
          <div class="row-drop">${actionsHTML(r, perms, mode)}</div>
        </div></td>` : `<td class="col-act"><div class="ch-act">${actionsHTML(r, perms, mode)}</div></td>`;
-    if (mode === "document") return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}">${docCellsList + actCell(false)}</tr>`;
+    if (mode === "document") return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}" data-inv="${esc(r.invoice_id || "")}">${docCellsList + actCell(false)}</tr>`;
     const accCommon = statusCell(r) + `<td>${remainingBadge(r.due_date, r)}</td>
      <td class="nowrap">${dmy(r.date)}</td>` + invoiceCell(r) + `<td>${esc(r.case_no || "-")}</td>
      <td class="ellip" style="max-width:140px" title="${esc(r.contact || "")}">${esc(r.contact || "-")}</td>`;
@@ -691,14 +733,14 @@
     const accEnd = `<td>${esc(r.i_billing_apl || "-")}</td>
       <td class="nowrap" title="${r.invoice_status === "ISSUED" ? "Due \u0E08\u0E32\u0E01 INVOICE" : "Due \u0E08\u0E32\u0E01\u0E07\u0E32\u0E19"}">${dmy(r.due_date)}</td>
       <td class="ch-note"><span class="note-txt ellip" data-act="note" data-id="${r.id}"
-        title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + actCell(false);
+        title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + (mode === "accounting" || mode === "closed" ? "" : actCell(false));
     if (charge === "ADVANCE") {
       const advBody = `<td class="nowrap"><b>${esc(r.job_no || "-")}</b></td>` + txt6(r.customer_name, 200) + txt6(r.customer_job_no, 130) + `<td class="nowrap">${dmy(r.date)}</td>` + statusCell(r) + `<td class="r">${money(r.advance_amount)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.cost == null ? "-" : money(r.cost)}</td><td class="r t-3" title="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E07\u0E32\u0E19 \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E48 INVOICE">${r.charge == null ? "-" : money(r.charge)}</td><td class="r t-b" title="Gross ${money(r.gross_total)} \u2212 WHT ${money(r.wht_amount)}">${money(r.net_payable)}</td><td class="ch-note"><span class="note-txt ellip" data-act="note" data-id="${r.id}"
-        title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + actCell(false);
-      return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}">${advBody}</tr>`;
+        title="${esc(r.note || "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E01\u0E49 NOTE")}">${esc(r.note || "\uFF0B NOTE")}</span></td>` + (mode === "accounting" || mode === "closed" ? "" : actCell(false));
+      return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}" data-inv="${esc(r.invoice_id || "")}">${advBody}</tr>`;
     }
     const body = docCells + accCommon + (charge === "SERVICE" ? moneySvc : moneyAdv) + accEnd;
-    return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}">${body}</tr>`;
+    return `<tr data-row="${r.id}" data-status="${esc(r.operational_status)}" data-inv="${esc(r.invoice_id || "")}">${body}</tr>`;
   }
   function actionsHTML(r, perms, mode) {
     if (mode === "advance") {
@@ -709,27 +751,27 @@
          อ่านอย่างเดียว: ไม่เปลี่ยนสถานะ ไม่ออกเลขเอกสารใหม่
          คิว advance_active บังคับ invoice_status='POSTED' อยู่แล้ว → invoice_id มีเสมอ
          แต่ยังเช็ค r.invoice_id กันไว้ ไม่ render ปุ่มที่กดแล้วไม่มีข้อมูล */
-      (r.invoice_id ? `<button class="btn btn-print btn-sm" data-act="apdoc" data-inv="${r.invoice_id}" data-adv="${esc(r.advance_status || "PENDING")}" title="\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32">\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C</button>` : "") + (r.invoice_id ? `<button class="btn btn-o btn-sm" data-act="viewinv" data-inv="${r.invoice_id}">\u0E14\u0E39 INVOICE</button>` : "");
+      /* ปุ่ม "ดู INVOICE" ถูกแทนด้วยคลิกแถว (ปลายทางเดิม #/invoice/:id)
+         ปุ่มพิมพ์ใบรับชำระเงินล่วงหน้า = เอกสารคนละใบ Row Click แทนไม่ได้ -> คงไว้ */
+      (r.invoice_id ? `<button class="btn btn-print btn-sm" data-act="apdoc" data-inv="${r.invoice_id}" data-adv="${esc(r.advance_status || "PENDING")}" title="\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32">\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C</button>` : "");
     }
-    if (mode === "closed") {
-      return r.invoice_id ? `<button class="btn btn-o btn-sm" data-act="viewinv" data-inv="${r.invoice_id}">\u0E14\u0E39 INVOICE</button>` : `<button class="btn btn-o btn-sm" data-act="view" data-id="${r.id}">\u0E14\u0E39</button>`;
-    }
+    if (mode === "closed") return "";
     if (mode === "accounting") {
       if (r.invoice_id)
-        return `<button class="btn btn-o btn-sm" data-act="viewinv" data-inv="${r.invoice_id}">\u0E14\u0E39 INVOICE</button>`;
+        return `<button class="btn btn-o btn-sm" data-act="viewinv" data-id="${r.id}" data-inv="${r.invoice_id}">\u0E14\u0E39 INVOICE</button>`;
       if (perms.invoice && r.operational_status !== "CANCELED")
         return `<button class="btn btn-p btn-sm" data-act="bill" data-id="${r.id}">\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25</button>`;
       return '<span class="t-xs t-3">\u2014</span>';
     }
-    const a = [`<button class="btn btn-o btn-sm" data-act="view" data-id="${r.id}"${r.invoice_id ? ' data-locked="1"' : ""}>\u{1F441} \u0E14\u0E39</button>`];
+    const a = [];
     const st6 = r.operational_status;
     if (perms.edit && (st6 === "OPEN" || st6 === "PROCESSING"))
       a.push(`<button class="btn btn-green btn-sm" data-act="close" data-id="${r.id}">\u2705 \u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19</button>`);
     if (perms.delete && !r.invoice_id)
       a.push(`<button class="btn btn-danger-soft btn-sm" data-act="delete" data-id="${r.id}">\u{1F5D1} \u0E25\u0E1A</button>`);
-    return a.join("");
+    return a.length ? a.join("") : '<span class="t-xs t-3">\u2014</span>';
   }
-  var SORT_DATE, SORT_INV, DOC_LABELS, DOC_HIDDEN_IN_LIST, DOC_HIDDEN_IDX, thOf, DOC_HEAD_CELLS, DOC_HEAD_CELLS_LIST, ACT_HEAD, DOC_HEAD, ACC_TAIL_COMMON, MONEY_SVC, MONEY_ADV, ACC_TAIL_END, ADV_HEAD, COL_COUNT;
+  var SORT_DATE, SORT_INV, DOC_LABELS, DOC_HIDDEN_IN_LIST, DOC_HIDDEN_IDX, thOf, DOC_HEAD_CELLS, DOC_HEAD_CELLS_LIST, ACT_HEAD, DOC_HEAD, ACC_TAIL_COMMON, MONEY_SVC, MONEY_ADV, ACC_TAIL_END_CELLS, ACC_TAIL_END, ADV_HEAD_CELLS, ADV_HEAD_ACT, COL_COUNT;
   var init_charge_table = __esm({
     "assets/js/charges/charge-table.js"() {
       init_formatter();
@@ -775,9 +817,301 @@
       ACC_TAIL_COMMON = "<th>Status</th><th>Remaining</th>" + SORT_DATE + SORT_INV + "<th>Case</th><th>Contact</th>";
       MONEY_SVC = '<th class="r">Service charge</th><th class="r">Advance</th><th class="r">VAT 7%</th><th class="r">Amount</th><th class="r">WHT 3%</th><th class="r" title="Net Payable = Gross \u2212 WHT">Total Amount</th>';
       MONEY_ADV = '<th class="r">Advance</th><th class="r">VAT 7%</th><th class="r">Amount</th><th class="r">WHT 3%</th><th class="r" title="Net Payable = Gross \u2212 WHT">Total Amount</th>';
-      ACC_TAIL_END = "<th>I BILLING APL</th><th>Due Date</th><th>NOTE</th>" + ACT_HEAD;
-      ADV_HEAD = "<th>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>Customer Job No.</th>" + SORT_DATE + '<th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th class="r">Advance</th><th class="r">Cost</th><th class="r">Charge</th><th class="r" title="Net Payable = Gross \u2212 WHT">Total</th><th>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</th>' + ACT_HEAD;
+      ACC_TAIL_END_CELLS = "<th>I BILLING APL</th><th>Due Date</th><th>NOTE</th>";
+      ACC_TAIL_END = ACC_TAIL_END_CELLS + ACT_HEAD;
+      ADV_HEAD_CELLS = "<th>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>Customer Job No.</th>" + SORT_DATE + '<th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th class="r">Advance</th><th class="r">Cost</th><th class="r">Charge</th><th class="r" title="Net Payable = Gross \u2212 WHT">Total</th><th>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</th>';
+      ADV_HEAD_ACT = ADV_HEAD_CELLS + ACT_HEAD;
       COL_COUNT = (charge, mode) => (headHTML(charge, mode).match(/<th/g) || []).length;
+    }
+  });
+
+  // assets/js/components/table.js
+  function enableRowOpen(tbody, open) {
+    if (!tbody || tbody.dataset.rowopen === "1") return;
+    tbody.dataset.rowopen = "1";
+    const table = tbody.closest("table");
+    if (table) table.classList.add("rowclick");
+    tbody.addEventListener("click", (e) => {
+      if (e.target.closest("button, a, input, select, textarea, label, [data-act], .row-menu")) return;
+      const tr = e.target.closest("tr");
+      if (!tr || tr.parentElement !== tbody) return;
+      if (tr.querySelector("td[colspan]")) return;
+      open(tr, e);
+    });
+  }
+  function headRow(table) {
+    return table && table.tHead && table.tHead.rows[0] || null;
+  }
+  function tagColumns(table) {
+    const hr = headRow(table);
+    if (!hr) return [];
+    if (hr.dataset.ciTagged !== "1") {
+      [...hr.cells].forEach((th, i) => {
+        th.dataset.ci = String(i);
+      });
+      hr.dataset.ciTagged = "1";
+    }
+    return [...hr.cells].sort((a, b) => Number(a.dataset.ci) - Number(b.dataset.ci));
+  }
+  function columnDefs(table) {
+    return tagColumns(table).map((th) => {
+      const label = (th.textContent || "").replace(/⇅/g, "").replace(/\s+/g, " ").trim();
+      return {
+        i: Number(th.dataset.ci),
+        label: label || "\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C " + (Number(th.dataset.ci) + 1),
+        /* คอลัมน์บังคับ (อิง Source จริง ไม่เดา):
+           .col-act = คอลัมน์ "จัดการ" ของตารางงาน (sticky right · ที่อยู่ของปุ่มสั่งงานแถว)
+           หัวข้อ "จัดการ" ของหน้า FINANCE/REPORT = ที่อยู่ของ POST/ลบร่าง/Void/แก้ไขร่าง
+           ทั้งสองเป็นทางเดียวที่สั่งงานแถวได้ -> ซ่อนไม่ได้ · อยู่ท้ายสุดเสมอ
+           หน้าที่ไม่มีคอลัมน์นี้แล้ว (Row Click แทนหมด) จะไม่มีคอลัมน์บังคับเลย */
+        required: th.classList.contains("col-act") || label === "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23"
+      };
+    });
+  }
+  function loadLayout(modeKey, defs) {
+    try {
+      const raw2 = localStorage.getItem(layKey(modeKey));
+      if (!raw2) return null;
+      const o = JSON.parse(raw2);
+      if (!o || !Array.isArray(o.order) || o.sig !== sigOf(defs)) return null;
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+  function saveLayout(modeKey, defs, order, hidden) {
+    try {
+      localStorage.setItem(layKey(modeKey), JSON.stringify({
+        sig: sigOf(defs),
+        order: order.slice(),
+        hidden: (hidden || []).slice()
+      }));
+    } catch (_) {
+    }
+  }
+  function resetLayout(modeKey) {
+    try {
+      localStorage.removeItem(layKey(modeKey));
+    } catch (_) {
+    }
+  }
+  function effectiveOrder(defs, lay) {
+    const req = defs.filter((d) => d.required).map((d) => d.i);
+    const valid = new Set(defs.map((d) => d.i));
+    let order = (lay && lay.order ? lay.order : defs.map((d) => d.i)).filter((i) => valid.has(i));
+    defs.forEach((d) => {
+      if (!order.includes(d.i)) order.push(d.i);
+    });
+    order = order.filter((i) => !req.includes(i)).concat(req);
+    const hidden = new Set((lay && lay.hidden || []).filter((i) => valid.has(i) && !req.includes(i)));
+    return { order, hidden };
+  }
+  function applyColumnLayout(table, modeKey) {
+    const hr = headRow(table);
+    if (!hr) return;
+    const defs = columnDefs(table);
+    const { order, hidden } = effectiveOrder(defs, loadLayout(modeKey, defs));
+    const visN = order.filter((i) => !hidden.has(i)).length;
+    const byCi = {};
+    [...hr.cells].forEach((th) => {
+      byCi[th.dataset.ci] = th;
+    });
+    order.forEach((i) => {
+      const th = byCi[i];
+      if (th) {
+        th.hidden = hidden.has(i);
+        hr.appendChild(th);
+      }
+    });
+    [...table.tBodies].forEach((tb) => {
+      [...tb.rows].forEach((tr) => {
+        const cells = [...tr.cells];
+        if (cells.length === 1 && cells[0].hasAttribute("colspan")) {
+          cells[0].colSpan = visN;
+          return;
+        }
+        if (cells.length !== defs.length) return;
+        if (tr.dataset.collay !== "1") {
+          cells.forEach((td, i) => {
+            td.dataset.ci = String(i);
+          });
+          tr.dataset.collay = "1";
+        }
+        const byTd = {};
+        cells.forEach((td) => {
+          byTd[td.dataset.ci] = td;
+        });
+        order.forEach((i) => {
+          const td = byTd[i];
+          if (td) {
+            td.hidden = hidden.has(i);
+            tr.appendChild(td);
+          }
+        });
+      });
+    });
+  }
+  function enableHeaderDrag(table, modeKey, onChange) {
+    if (!table || !table.tHead || table.tHead.dataset.dragOn === "1") return;
+    table.tHead.dataset.dragOn = "1";
+    const hr = table.tHead.rows[0];
+    let src = null, startX = 0, moved = false, target = null;
+    const clearMarks = () => [...hr.cells].forEach((th) => th.classList.remove("th-drag", "th-drop-b", "th-drop-a"));
+    const isLocked = (th) => th.classList.contains("col-act") || (th.textContent || "").replace(/\s+/g, " ").trim() === "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23";
+    function onMove(e) {
+      if (!src) return;
+      if (!moved && Math.abs(e.clientX - startX) < 5) return;
+      if (!moved) {
+        moved = true;
+        src.classList.add("th-drag");
+        document.body.classList.add("is-coldrag");
+      }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const cell4 = el && el.closest ? el.closest("th") : null;
+      clearMarks();
+      src.classList.add("th-drag");
+      if (!cell4 || cell4 === src || cell4.parentElement !== hr || isLocked(cell4)) {
+        target = null;
+        return;
+      }
+      const r = cell4.getBoundingClientRect();
+      const after = e.clientX > r.left + r.width / 2;
+      cell4.classList.add(after ? "th-drop-a" : "th-drop-b");
+      target = { cell: cell4, after };
+    }
+    function onUp() {
+      const didMove = moved, tg = target, s = src;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.classList.remove("is-coldrag");
+      clearMarks();
+      src = null;
+      target = null;
+      moved = false;
+      if (!didMove || !s) return;
+      const eat = (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+      };
+      hr.addEventListener("click", eat, { capture: true, once: true });
+      if (!tg) return;
+      if (tg.after) tg.cell.after(s);
+      else tg.cell.before(s);
+      const defs = columnDefs(table);
+      const order = [...hr.cells].map((th) => Number(th.dataset.ci));
+      const hidden = [...hr.cells].filter((th) => th.hidden).map((th) => Number(th.dataset.ci));
+      saveLayout(modeKey, defs, order, hidden);
+      if (typeof onChange === "function") onChange();
+    }
+    hr.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const th = e.target.closest("th");
+      if (!th || th.parentElement !== hr || isLocked(th)) return;
+      src = th;
+      startX = e.clientX;
+      moved = false;
+      target = null;
+      e.preventDefault();
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  }
+  function openColumnManager(table, modeKey, onSaved) {
+    const defs = columnDefs(table);
+    const cur = effectiveOrder(defs, loadLayout(modeKey, defs));
+    const byI = {};
+    defs.forEach((d) => {
+      byI[d.i] = d;
+    });
+    const itemHTML = (d, on) => `<li class="colmg-it${d.required ? " is-req" : ""}" data-ci="${d.i}">
+      <span class="colmg-h" title="\u0E25\u0E32\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E25\u0E33\u0E14\u0E31\u0E1A">\u2630</span>
+      <label class="colmg-lb"><input type="checkbox" ${on ? "checked" : ""}
+        ${d.required ? "disabled" : ""}> <span>${esc(d.label)}</span></label>
+      ${d.required ? '<span class="colmg-req">\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A</span>' : ""}</li>`;
+    const b = document.createElement("div");
+    const hasReq = defs.some((d) => d.required);
+    const draw = (order, hidden) => {
+      b.innerHTML = `<div class="colmg">
+      <div class="colmg-hint">\u0E25\u0E32\u0E01\u0E17\u0E35\u0E48 <b>\u2630</b> \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E25\u0E33\u0E14\u0E31\u0E1A \xB7 \u0E15\u0E34\u0E4A\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E2A\u0E14\u0E07 / \u0E40\u0E2D\u0E32\u0E15\u0E34\u0E4A\u0E01\u0E2D\u0E2D\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0B\u0E48\u0E2D\u0E19${hasReq ? "<br>\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C <b>\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</b> \u0E40\u0E1B\u0E47\u0E19\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A (\u0E1B\u0E38\u0E48\u0E21\u0E2A\u0E31\u0E48\u0E07\u0E07\u0E32\u0E19\u0E41\u0E16\u0E27\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E19\u0E31\u0E49\u0E19) \u0E0B\u0E48\u0E2D\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E25\u0E30\u0E2D\u0E22\u0E39\u0E48\u0E17\u0E49\u0E32\u0E22\u0E2A\u0E38\u0E14\u0E40\u0E2A\u0E21\u0E2D" : ""}</div>
+      <ul class="colmg-list">${order.map((i) => itemHTML(byI[i], !hidden.has(i))).join("")}</ul></div>`;
+      bindDrag();
+    };
+    function bindDrag() {
+      const ul = b.querySelector(".colmg-list");
+      ul.addEventListener("mousedown", (e) => {
+        const h = e.target.closest(".colmg-h");
+        if (!h) return;
+        const src = h.closest(".colmg-it");
+        if (!src || src.classList.contains("is-req")) return;
+        e.preventDefault();
+        src.classList.add("is-drag");
+        const move = (ev) => {
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          const li = el && el.closest ? el.closest(".colmg-it") : null;
+          if (!li || li === src || li.classList.contains("is-req")) return;
+          const r = li.getBoundingClientRect();
+          if (ev.clientY > r.top + r.height / 2) li.after(src);
+          else li.before(src);
+        };
+        const up = () => {
+          document.removeEventListener("mousemove", move);
+          document.removeEventListener("mouseup", up);
+          src.classList.remove("is-drag");
+        };
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", up);
+      });
+    }
+    draw(cur.order, cur.hidden);
+    const f = document.createElement("div");
+    f.style.display = "contents";
+    f.innerHTML = `<div class="mf-left">
+      <button class="btn btn-o" id="colmg-reset">\u21BA \u0E04\u0E37\u0E19\u0E04\u0E48\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19</button></div>
+    <div class="mf-right">
+      <button class="btn btn-p" id="colmg-save">\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</button>
+      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`;
+    openModal({ title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C", body: b, footer: f, large: true });
+    f.querySelector("#colmg-reset").onclick = () => {
+      resetLayout(modeKey);
+      const d2 = effectiveOrder(defs, null);
+      draw(d2.order, d2.hidden);
+    };
+    f.querySelector("#colmg-save").onclick = () => {
+      const items = [...b.querySelectorAll(".colmg-it")];
+      const order = items.map((li) => Number(li.dataset.ci));
+      const hidden = items.filter((li) => {
+        const cb = li.querySelector("input[type=checkbox]");
+        return cb && !cb.checked;
+      }).map((li) => Number(li.dataset.ci));
+      saveLayout(modeKey, defs, order, hidden);
+      closeModal();
+      if (typeof onSaved === "function") onSaved();
+    };
+  }
+  function initColumns({ table, modeKey, host }) {
+    if (!table || !modeKey) return;
+    const relayout = () => applyColumnLayout(table, modeKey);
+    enableHeaderDrag(table, modeKey, relayout);
+    if (host && !host.querySelector("[data-colmg]")) {
+      const btn2 = document.createElement("button");
+      btn2.className = "btn btn-o btn-sm";
+      btn2.type = "button";
+      btn2.setAttribute("data-colmg", "");
+      btn2.textContent = "\u2699 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C";
+      btn2.title = "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C \u2014 \u0E25\u0E32\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E23\u0E35\u0E22\u0E07 \xB7 \u0E15\u0E34\u0E4A\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E0B\u0E48\u0E2D\u0E19/\u0E41\u0E2A\u0E14\u0E07";
+      btn2.onclick = () => openColumnManager(table, modeKey, relayout);
+      host.appendChild(btn2);
+    }
+    relayout();
+  }
+  var layKey, sigOf;
+  var init_table = __esm({
+    "assets/js/components/table.js"() {
+      init_formatter();
+      init_state();
+      init_modal();
+      layKey = (modeKey) => "nj_columns_" + (AppState.profile && AppState.profile.id || "anon") + "_" + String(modeKey || "").toUpperCase();
+      sigOf = (defs) => defs.length + "|" + defs.map((d) => d.label).join("|");
     }
   });
 
@@ -2401,50 +2735,59 @@
       charge = job.charge_type;
       group = job.company_group;
     }
-    const isEdit = !!jobId;
+    let isEdit = !!jobId;
     const isAcc = mode === "accounting";
-    const AUTO = "\u0E23\u0E30\u0E1A\u0E1A\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01";
+    const AUTO = "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02";
     const q2 = (sel) => b.querySelector(sel);
     const REF_DATE = job && job.reference_date || ymd(/* @__PURE__ */ new Date());
+    const JOB_DATE = isEdit ? job && (job.job_date || job.reference_date) || "" : ymd(/* @__PURE__ */ new Date());
     const b = document.createElement("div");
     b.innerHTML = `
     <div class="jm-auto">
-      <span class="jm-auto-lb">${isEdit ? "\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19" : "\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 (\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)"}</span>
-      <input class="inp" id="nj-autono" value="${isEdit ? esc(job.job_no || "-") : AUTO}" readonly disabled>
+      <span class="jm-auto-lb">${charge === "ADVANCE" ? "AD:" : "JOB NJ:"}</span>
+      <input class="inp" id="nj-autono" value="${job && job.job_no ? esc(job.job_no) : AUTO}" readonly disabled>
+      <span class="jm-auto-lb">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</span>
+      <input class="inp jm-auto-date" type="date" id="nj-jobdate" value="${JOB_DATE}">
     </div>
 
     <div class="jm-sec jm-doc">
       <div class="jm-sec-t">DOCUMENT</div>
-      <div class="jm-grid">
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 Invoice</label>
-          ${comboboxHTML("nj-comp", activeCompanies(), job && job.company_invoice_id || "", "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")}
-          ${isAdmin() ? '<button type="button" class="jm-link" data-master="companies">+ \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</button>' : ""}</div>
+          <div class="fld-inline">
+            ${comboboxHTML("nj-comp", activeCompanies(), job && job.company_invoice_id || "", "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")}
+            ${isAdmin() ? '<button type="button" class="jm-link" data-master="companies">+ \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</button>' : ""}
+          </div></div>
         <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 <span class="req">*</span></label>
-          ${comboboxHTML("nj-cust", activeCustomers(), job && job.customer_id || "", "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 \u0E2B\u0E23\u0E37\u0E2D CODE \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32", CUST_DISPLAY)}
-          ${isAdmin() ? '<button type="button" class="jm-link" data-master="customers">+ \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</button>' : ""}</div>
+          <div class="fld-inline">
+            ${comboboxHTML("nj-cust", activeCustomers(), job && job.customer_id || "", "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 \u0E2B\u0E23\u0E37\u0E2D CODE \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32", CUST_DISPLAY)}
+            ${isAdmin() ? '<button type="button" class="jm-link" data-master="customers">+ \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</button>' : ""}
+          </div></div>
         <div class="fld"><label>Customer Job No.</label>
           <input class="inp" id="nj-cjob" placeholder="\u0E01\u0E23\u0E2D\u0E01 Customer Job No." value="${job ? esc(job.customer_job_no || "") : ""}"></div>
         <div class="fld"><label>\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32</label>
           <input class="inp" id="nj-decl" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32" value="${job ? esc(job.customs_declaration_no || "") : ""}"></div>
-      </div>
-      <div class="jm-grid">
         <div class="fld"><label>Invoice \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07 (Source)</label>
           <input class="inp" id="nj-srcinv" placeholder="\u0E01\u0E23\u0E2D\u0E01 Invoice \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07" value="${job ? esc(job.source_invoice_no || "") : ""}"></div>
+      </div>
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>House B/L No.</label>
           <input class="inp" id="nj-hbl" placeholder="\u0E01\u0E23\u0E2D\u0E01 House B/L No." value="${job ? esc(job.house_bl_no || "") : ""}"></div>
         <div class="fld"><label>Master B/L No.</label>
           <input class="inp" id="nj-mbl" placeholder="\u0E01\u0E23\u0E2D\u0E01 Master B/L No." value="${job ? esc(job.master_bl_no || "") : ""}"></div>
         <div class="fld"><label>Booking No.</label>
           <input class="inp" id="nj-book" placeholder="\u0E01\u0E23\u0E2D\u0E01 Booking No." value="${job ? esc(job.booking_no || "") : ""}"></div>
-      </div>
-      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E23\u0E37\u0E2D / Vessel</label>
           <input class="inp" id="nj-vessel" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E23\u0E37\u0E2D / Vessel" value="${job ? esc(job.vessel_name || "") : ""}"></div>
         <div class="fld"><label>\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49</label>
           <input class="inp" type="number" min="0" id="nj-qtyc" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49" value="${job && job.qty_container != null ? job.qty_container : ""}"></div>
+      </div>
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>ETD</label><input class="inp" type="date" id="nj-etd" value="${job && job.etd || ""}"></div>
         <div class="fld"><label>ETA</label><input class="inp" type="date" id="nj-eta" value="${job && job.eta || ""}"></div>
         <div class="fld"><label>\u0E27\u0E31\u0E19\u0E2A\u0E48\u0E07\u0E21\u0E2D\u0E1A</label><input class="inp" type="date" id="nj-dlv" value="${job && job.delivery_date || ""}"></div>
+        <div class="fld"><label>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</label>
+          <textarea class="inp" id="nj-note" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38">${job ? esc(job.note || "") : ""}</textarea></div>
       </div>
     </div>
 
@@ -2468,7 +2811,15 @@
       <button class="btn btn-p" id="nj-save">\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E07\u0E32\u0E19</button>
       <button class="btn btn-o" data-close>\u2715 \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</button>
     </div>`;
-    openModal({ title: isEdit ? "\u0E41\u0E01\u0E49\u0E44\u0E02\u0E07\u0E32\u0E19" : "\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48", body: b, footer: f, fullscreen: true, wide: true });
+    openModal({
+      title: isEdit ? "\u0E41\u0E01\u0E49\u0E44\u0E02\u0E07\u0E32\u0E19" : "\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48",
+      body: b,
+      footer: f,
+      fullscreen: true,
+      wide: true,
+      cls: "modal-flow"
+    });
+    enableEnterNav(b);
     const refreshMasters = () => masters(true);
     bindCombobox(b, "nj-comp", {
       getItems: activeCompanies,
@@ -2564,6 +2915,8 @@
         data_type: job && job.data_type || null,
         reference_date: REF_DATE,
         reference_no: job && job.reference_no || null,
+        /* วันที่งาน — คอลัมน์เดิม njacc_jobs.job_date (ไม่ใช่ created_at) */
+        job_date: q2("#nj-jobdate").value || null,
         company_invoice_id: comboValue(q2("#nj-comp")) || null,
         customer_id: comboValue(q2("#nj-cust")),
         customer_job_no: q2("#nj-cjob").value.trim() || null,
@@ -2577,13 +2930,23 @@
         etd: q2("#nj-etd").value || null,
         eta: q2("#nj-eta").value || null,
         delivery_date: q2("#nj-dlv").value || null,
+        /* หมายเหตุ — คอลัมน์เดิม njacc_jobs.note (type text · ไม่จำกัดความยาว)
+           เดิม Modal ไม่มีช่องนี้จึงไม่ส่งขึ้นไป ตอนนี้ส่งค่าจริงของฟอร์ม
+           ไม่ตัดข้อความ (trim = ตัดช่องว่างหัว-ท้ายเท่านั้น เหมือน field อื่นทุกช่อง) */
+        note: q2("#nj-note").value.trim() || null,
         ...acc
       };
       btnBusy(e.target, true);
       try {
         const res = await once(isEdit ? "edit-job-" + jobId : "save-job", () => saveJob(payload2));
-        closeModal();
+        const noEl = q2("#nj-autono");
+        if (noEl && res && res.job_no) noEl.value = res.job_no;
+        if (!isEdit && res && res.id) {
+          isEdit = true;
+          jobId = res.id;
+        }
         toast(isEdit ? "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E41\u0E01\u0E49\u0E44\u0E02\u0E41\u0E25\u0E49\u0E27" + (res && res.job_no ? " \u2014 " + res.job_no : "") : "\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27" + (res && res.job_no ? " \u2014 " + res.job_no : ""), "ok");
+        btnBusy(e.target, false);
         if (typeof onSaved === "function") onSaved();
       } catch (ex) {
         handleErr(ex);
@@ -2929,302 +3292,6 @@
     }
   });
 
-  // assets/js/core/baht-text.js
-  function readGroup(n) {
-    let s = "";
-    const str = String(n);
-    const len = str.length;
-    for (let i = 0; i < len; i++) {
-      const d = Number(str[i]);
-      const place = len - i - 1;
-      if (d === 0) continue;
-      if (place === 1 && d === 1) s += "\u0E2A\u0E34\u0E1A";
-      else if (place === 1 && d === 2) s += "\u0E22\u0E35\u0E48\u0E2A\u0E34\u0E1A";
-      else if (place === 0 && d === 1 && len > 1) s += "\u0E40\u0E2D\u0E47\u0E14";
-      else s += DIGIT[d] + PLACE[place];
-    }
-    return s;
-  }
-  function readInt(n) {
-    if (n === 0) return "\u0E28\u0E39\u0E19\u0E22\u0E4C";
-    const groups = [];
-    let x = n;
-    while (x > 0) {
-      groups.unshift(x % 1e6);
-      x = Math.floor(x / 1e6);
-    }
-    return groups.map((g, i) => {
-      if (g === 0) return i === groups.length - 1 ? "" : "";
-      return readGroup(g) + "\u0E25\u0E49\u0E32\u0E19".repeat(groups.length - 1 - i);
-    }).join("");
-  }
-  function bahtText(amount) {
-    const v = Number(amount);
-    if (!Number.isFinite(v)) return "";
-    const neg = v < 0;
-    const cents = Math.round(Math.abs(v) * 100);
-    const baht = Math.floor(cents / 100);
-    const satang = cents % 100;
-    let s = readInt(baht) + "\u0E1A\u0E32\u0E17";
-    s += satang === 0 ? "\u0E16\u0E49\u0E27\u0E19" : readGroup(satang) + "\u0E2A\u0E15\u0E32\u0E07\u0E04\u0E4C";
-    return (neg ? "\u0E25\u0E1A" : "") + s;
-  }
-  var DIGIT, PLACE;
-  var init_baht_text = __esm({
-    "assets/js/core/baht-text.js"() {
-      DIGIT = ["", "\u0E2B\u0E19\u0E36\u0E48\u0E07", "\u0E2A\u0E2D\u0E07", "\u0E2A\u0E32\u0E21", "\u0E2A\u0E35\u0E48", "\u0E2B\u0E49\u0E32", "\u0E2B\u0E01", "\u0E40\u0E08\u0E47\u0E14", "\u0E41\u0E1B\u0E14", "\u0E40\u0E01\u0E49\u0E32"];
-      PLACE = ["", "\u0E2A\u0E34\u0E1A", "\u0E23\u0E49\u0E2D\u0E22", "\u0E1E\u0E31\u0E19", "\u0E2B\u0E21\u0E37\u0E48\u0E19", "\u0E41\u0E2A\u0E19"];
-    }
-  });
-
-  // assets/js/config/company-doc.js
-  var ISSUER;
-  var init_company_doc = __esm({
-    "assets/js/config/company-doc.js"() {
-      ISSUER = {
-        nameEn: "N.J. LOGISTICS & FRUITS CO., LTD.",
-        address: "62/165 Moo 10, T. Thungsukla, A. Sriracha, Chonburi 20230 (HEAD OFFICE)",
-        tel: "033-000870",
-        fax: "033-000870",
-        taxId: "0205557004651",
-        /* โลโก้จริง — ไฟล์ภาพ ไม่ได้วาดใหม่ ไม่ได้แปลงเป็น path
-           แสดงด้วย object-fit:contain เสมอ เพื่อคงสัดส่วนเดิม (426x231 = 1.844) */
-        logo: "assets/img/nj-logo.png"
-      };
-    }
-  });
-
-  // assets/js/finance/advance-doc.js
-  var advance_doc_exports = {};
-  __export(advance_doc_exports, {
-    advanceDocHTML: () => advanceDocHTML,
-    openAdvanceDoc: () => openAdvanceDoc
-  });
-  function summarize(inv, items) {
-    let sub = 0;
-    const rates = /* @__PURE__ */ new Set();
-    for (const it of items) {
-      sub = r2(sub + num(it.amount));
-      if (num(it.vat_rate) > 0) rates.add(num(it.vat_rate));
-    }
-    const vat = r2(inv.vat_amount);
-    const wht = r2(inv.wht_amount);
-    const vatRate = rates.size === 1 ? [...rates][0] : rates.size === 0 ? num(inv.vat_rate) : null;
-    const total = r2(sub + vat);
-    return { sub, vat, wht, vatRate, total, received: r2(total - wht) };
-  }
-  function advanceDocHTML(inv, { advanceStatus = null } = {}) {
-    const items = inv.items || [];
-    const S = summarize(inv, items);
-    const c = inv.customer || {};
-    const j = inv.job || {};
-    const isVoid = String(inv.status || "").toUpperCase() === "VOID";
-    const D = {
-      cusName: inv.customer_name || c.name,
-      cusTax: inv.customer_tax_id || c.tax_id,
-      cusBranch: inv.customer_branch_code || c.branch_code,
-      cusAddr: inv.customer_address || c.address,
-      cusTel: inv.customer_phone || c.phone,
-      apNo: inv.invoice_no,
-      apDate: inv.invoice_date,
-      jobNo: inv.job_no || j.job_no,
-      invRef: inv.source_invoice_no || j.source_invoice_no,
-      note: inv.job_note || j.note
-    };
-    const payFor = String(inv.charge_type || "").toUpperCase() === "ADVANCE" ? "Advance Payment / \u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E08\u0E48\u0E32\u0E22\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32" : null;
-    const stKey = String(advanceStatus || "").toUpperCase();
-    const st6 = ADV_ST[stKey] || null;
-    const rows = items.map((it, i) => `<tr>
-      <td class="apd-c apd-no">${it.line_no ?? i + 1}</td>
-      <td class="apd-ds">${txt(it.description, "-")}</td>
-      <td class="apd-c">${it.qty === null || it.qty === void 0 || it.qty === "" ? "-" : esc(String(Number(it.qty)))}</td>
-      <td class="apd-r">${cell2(it.unit_price)}</td>
-      <td class="apd-r">${money(it.amount)}</td>
-    </tr>`).join("") || '<tr><td colspan="5" class="apd-empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E19\u0E35\u0E49</td></tr>';
-    const vatLbl = S.vatRate === null ? "VAT" : `VAT ${S.vatRate}%`;
-    const noteTxt = raw(D.note);
-    const signBlock = (icon, en, th) => `
-    <div class="apd-sg">
-      ${bub(icon)}
-      <div class="apd-sg-b">
-        <div class="apd-sg-t"><i></i>${en} / ${th}</div>
-        <div class="apd-sg-ln"></div>
-        <div class="apd-sg-f"><label>Name / \u0E0A\u0E37\u0E48\u0E2D</label><span class="apd-dot"></span></div>
-        <div class="apd-sg-f"><label>Date / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</label>
-          <span class="apd-dot apd-dot-s"></span><b>/</b>
-          <span class="apd-dot apd-dot-s"></span><b>/</b>
-          <span class="apd-dot apd-dot-s"></span></div>
-      </div>
-    </div>`;
-    return `
-    <div class="apd print-area${isVoid ? " apd-void" : ""}">
-      ${isVoid ? '<div class="apd-badge">VOID / \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</div>' : ""}
-
-      <header class="apd-head">
-        <div class="apd-head-l">
-          <img class="apd-logo" src="${ISSUER.logo}" alt="N.J. Logistics">
-          <div class="apd-co">
-            <div class="apd-co-nm">${esc(ISSUER.nameEn)}</div>
-            <div class="apd-co-ad">${esc(ISSUER.address)}</div>
-            <div class="apd-co-tl">Tel : ${esc(ISSUER.tel)} <i>|</i> Fax : ${esc(ISSUER.fax)}</div>
-            <div class="apd-co-tl">Tax ID : ${esc(ISSUER.taxId)}</div>
-          </div>
-        </div>
-        <div class="apd-head-r">
-          <div class="apd-title">ADVANCE PAYMENT</div>
-          <div class="apd-title-th">\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</div>
-          <div class="apd-chip">ADVANCE RECEIPT</div>
-          ${st6 ? `<div class="apd-st ${st6[0]}">${esc(st6[1])}</div>` : ""}
-        </div>
-      </header>
-      <div class="apd-band"></div>
-
-      <section class="apd-grid">
-        <div class="apd-box">
-          <div class="apd-box-t">${bub("user")}<span>CUSTOMER / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</span></div>
-          <div class="apd-box-b">
-            <div class="apd-row"><label>Customer Name / \u0E0A\u0E37\u0E48\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</label>
-              <i>:</i><div class="apd-v apd-v-b">${txt(D.cusName)}</div></div>
-            <div class="apd-row"><label>Tax ID / \u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35</label>
-              <i>:</i><div class="apd-v">${txt(D.cusTax)}</div></div>
-            <div class="apd-row"><label>Branch / \u0E2A\u0E32\u0E02\u0E32</label>
-              <i>:</i><div class="apd-v">${txt(D.cusBranch)}</div></div>
-            <div class="apd-row apd-row-ml"><label>Address / \u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</label>
-              <i>:</i><div class="apd-v">${txt(D.cusAddr, "-")}</div></div>
-            <div class="apd-row apd-row-last"><label>Tel. / \u0E42\u0E17\u0E23.</label>
-              <i>:</i><div class="apd-v">${txt(D.cusTel)}</div></div>
-          </div>
-        </div>
-
-        <div class="apd-box">
-          <div class="apd-box-t">${bub("form")}<span>ADVANCE PAYMENT DETAILS / \u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</span></div>
-          <div class="apd-box-b">
-            <div class="apd-row"><label>Advance Payment No.</label>
-              <i>:</i><div class="apd-v apd-v-key">${txt(D.apNo)}</div></div>
-            <div class="apd-row"><label>Date</label>
-              <i>:</i><div class="apd-v apd-v-b">${dmy(D.apDate)}</div></div>
-            <div class="apd-row"><label>Job No.</label>
-              <i>:</i><div class="apd-v apd-v-b">${txt(D.jobNo)}</div></div>
-            <div class="apd-row"><label>Invoice Reference</label>
-              <i>:</i><div class="apd-v apd-v-b">${txt(D.invRef)}</div></div>
-            <div class="apd-row apd-row-last"><label>Payment For /<br>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19</label>
-              <i>:</i><div class="apd-v">${payFor ? esc(payFor) : "-"}</div></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="apd-items">
-        <div class="apd-items-t">${bub("list")}<span>ADVANCE PAYMENT ITEMS / \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</span></div>
-        <table class="apd-tbl">
-          <colgroup><col class="w-no"><col class="w-ds"><col class="w-qty">
-            <col class="w-up"><col class="w-amt"></colgroup>
-          <thead><tr>
-            <th class="apd-c">No.</th>
-            <th>Description / \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th>
-            <th class="apd-c">Qty</th>
-            <th class="apd-r">Unit Price</th>
-            <th class="apd-r">Amount (THB)</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr class="apd-total">
-            <td colspan="4" class="apd-r">TOTAL ADVANCE AMOUNT / \u0E23\u0E27\u0E21\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</td>
-            <td class="apd-r apd-total-v">${money(S.sub)}</td>
-          </tr></tfoot>
-        </table>
-      </section>
-
-      <section class="apd-mid">
-        <div class="apd-mid-l">
-          <div class="apd-mini">
-            ${bub("abc")}
-            <div class="apd-mini-b">
-              <div class="apd-mini-t">Amount in words / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23</div>
-              <div class="apd-mini-v">(${esc(bahtText(S.received))})</div>
-            </div>
-          </div>
-          ${noteTxt ? `<div class="apd-mini">
-            ${bub("pen")}
-            <div class="apd-mini-b">
-              <div class="apd-mini-t apd-mini-t2">NOTE / \u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</div>
-              <div class="apd-mini-n">${esc(noteTxt)}</div>
-            </div>
-          </div>` : ""}
-        </div>
-        <div class="apd-sum">
-          <div class="apd-sl"><span>SubTotal</span><span>${money(S.sub)}</span></div>
-          <div class="apd-sl"><span>${esc(vatLbl)}</span><span>${money(S.vat)}</span></div>
-          ${S.wht > 0 ? `<div class="apd-sl apd-sl-w"><span>Withholding Tax / \u0E20\u0E32\u0E29\u0E35\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span>
-            <span>-${money(S.wht)}</span></div>` : ""}
-          <div class="apd-sl apd-sl-m"><span>Total Advance Amount</span><span>${money(S.total)}</span></div>
-          <div class="apd-sl apd-sl-g"><span>AMOUNT RECEIVED /<i>\u0E22\u0E2D\u0E14\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</i></span>
-            <span>${money(S.received)}</span></div>
-        </div>
-      </section>
-
-      <section class="apd-signs">
-        ${signBlock("hand", "RECEIVED BY", "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19")}
-        ${signBlock("shield", "AUTHORIZED BY", "\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")}
-      </section>
-
-      <div class="apd-edge"></div>
-    </div>`;
-  }
-  function openAdvanceDoc(inv, { advanceStatus = null, print = false } = {}) {
-    const b = document.createElement("div");
-    b.innerHTML = advanceDocHTML(inv, { advanceStatus });
-    const f = document.createElement("div");
-    f.innerHTML = `<div class="mf-left"></div><div class="mf-right">
-      <button class="btn btn-print" id="apd-print">\u{1F5A8} Print Advance Payment</button>
-      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`;
-    openModal({
-      title: "\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32 " + (inv.invoice_no || ""),
-      body: b,
-      footer: f,
-      fullscreen: true,
-      wide: true
-    });
-    f.querySelector("#apd-print").onclick = () => window.print();
-    if (print) setTimeout(() => window.print(), 60);
-  }
-  var txt, raw, num, r2, cell2, ICON2, bub, ADV_ST;
-  var init_advance_doc = __esm({
-    "assets/js/finance/advance-doc.js"() {
-      init_formatter();
-      init_modal();
-      init_baht_text();
-      init_company_doc();
-      txt = (v, fb = "-") => {
-        const s = v === null || v === void 0 ? "" : String(v).trim();
-        return esc(s || fb);
-      };
-      raw = (v) => {
-        const s = v === null || v === void 0 ? "" : String(v).trim();
-        return s;
-      };
-      num = (v) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-      };
-      r2 = (n) => Math.round((num(n) + Number.EPSILON) * 100) / 100;
-      cell2 = (v) => v === null || v === void 0 || v === "" ? "-" : money(v);
-      ICON2 = {
-        user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',
-        form: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4.4" y="3" width="15.2" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
-        list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg>',
-        abc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v7.2a2.6 2.6 0 0 1-2.6 2.6H9l-5 3.6z"/></svg>',
-        pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16.6 3.8 20.2 7.4 8 19.6l-4.4.8.8-4.4z"/><path d="M14.4 6l3.6 3.6"/></svg>',
-        hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8.4" r="3.2"/><path d="M3.6 19.4c1.4-1.2 3-1.2 4.4-.4l2 1.1c.7.4 1.6.4 2.3 0l5.2-2.8c.9-.5 1.2-1.6.7-2.5-.5-.8-1.5-1.1-2.3-.7l-3.3 1.5"/></svg>',
-        shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3.2 19.2 6v5.6c0 4.4-3 7.6-7.2 9.2-4.2-1.6-7.2-4.8-7.2-9.2V6z"/><path d="M9 12.2l2.1 2.1 4-4.2"/></svg>'
-      };
-      bub = (k) => `<span class="apd-bub">${ICON2[k] || ""}</span>`;
-      ADV_ST = {
-        PENDING: ["apd-st-pending", "PENDING / \u0E23\u0E2D\u0E08\u0E48\u0E32\u0E22"],
-        PAID: ["apd-st-paid", "PAID / \u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27"],
-        SETTLED: ["apd-st-settled", "SETTLED / \u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C\u0E04\u0E23\u0E1A"]
-      };
-    }
-  });
-
   // assets/js/invoices/invoice-calc.js
   function calcLine(item2, vatRate) {
     const amt = round2(item2.amount || 0);
@@ -3255,31 +3322,48 @@
     }
   });
 
+  // assets/js/config/company-doc.js
+  var ISSUER;
+  var init_company_doc = __esm({
+    "assets/js/config/company-doc.js"() {
+      ISSUER = {
+        nameEn: "N.J. LOGISTICS & FRUITS CO., LTD.",
+        address: "62/165 Moo 10, T. Thungsukla, A. Sriracha, Chonburi 20230 (HEAD OFFICE)",
+        tel: "033-000870",
+        fax: "033-000870",
+        taxId: "0205557004651",
+        /* โลโก้จริง — ไฟล์ภาพ ไม่ได้วาดใหม่ ไม่ได้แปลงเป็น path
+           แสดงด้วย object-fit:contain เสมอ เพื่อคงสัดส่วนเดิม (426x231 = 1.844) */
+        logo: "assets/img/nj-logo.png"
+      };
+    }
+  });
+
   // assets/js/invoices/invoice-doc.js
   var invoice_doc_exports = {};
   __export(invoice_doc_exports, {
     invoiceDocHTML: () => invoiceDocHTML,
     openInvoiceDoc: () => openInvoiceDoc
   });
-  function summarize2(inv, items) {
+  function summarize(inv, items) {
     let vatBase = 0, nonVat = 0;
     for (const it of items) {
-      const hasVat = num2(it.vat_amount) > 0 || num2(it.vat_rate) > 0;
-      if (hasVat) vatBase = r22(vatBase + num2(it.amount));
-      else nonVat = r22(nonVat + num2(it.amount));
+      const hasVat = num(it.vat_amount) > 0 || num(it.vat_rate) > 0;
+      if (hasVat) vatBase = r2(vatBase + num(it.amount));
+      else nonVat = r2(nonVat + num(it.amount));
     }
-    const vat = r22(inv.vat_amount);
-    const rates = [...new Set(items.map((it) => num2(it.vat_rate)).filter((x) => x > 0))];
-    const vatRate = rates.length === 1 ? rates[0] : num2(inv.vat_rate) || 7;
-    const total = r22(vatBase + vat);
-    return { vatBase, nonVat, vat, vatRate, total, grand: r22(total + nonVat) };
+    const vat = r2(inv.vat_amount);
+    const rates = [...new Set(items.map((it) => num(it.vat_rate)).filter((x) => x > 0))];
+    const vatRate = rates.length === 1 ? rates[0] : num(inv.vat_rate) || 7;
+    const total = r2(vatBase + vat);
+    return { vatBase, nonVat, vat, vatRate, total, grand: r2(total + nonVat) };
   }
   function whtRows(items) {
     const by = /* @__PURE__ */ new Map();
     for (const it of items) {
-      const rate = num2(it.wht_rate);
+      const rate = num(it.wht_rate);
       if (rate <= 0) continue;
-      by.set(rate, r22((by.get(rate) || 0) + num2(it.wht_amount)));
+      by.set(rate, r2((by.get(rate) || 0) + num(it.wht_amount)));
     }
     const out = [
       { rate: 1, label: "Transportation", amt: by.get(1) || 0 },
@@ -3292,7 +3376,7 @@
   }
   function invoiceDocHTML(inv, { draft = false } = {}) {
     const items = inv.items || [];
-    const S = summarize2(inv, items);
+    const S = summarize(inv, items);
     const c = inv.customer || {};
     const j = inv.job || {};
     const D = {
@@ -3313,16 +3397,16 @@
       createdBy: inv.created_by_name || inv.issued_by_name
     };
     const rows = items.map((it, i) => {
-      const isAdv = num2(it.vat_amount) <= 0 && num2(it.vat_rate) <= 0;
-      const amt = num2(it.amount);
+      const isAdv = num(it.vat_amount) <= 0 && num(it.vat_rate) <= 0;
+      const amt = num(it.amount);
       return `<tr>
       <!-- \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C No. \u0E16\u0E39\u0E01\u0E15\u0E31\u0E14\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 Final \u0E15\u0E32\u0E21\u0E04\u0E33\u0E2A\u0E31\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49
            line_no \u0E22\u0E31\u0E07\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E41\u0E25\u0E30\u0E43\u0E0A\u0E49\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 \u0E40\u0E1E\u0E35\u0E22\u0E07\u0E44\u0E21\u0E48\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E25\u0E07\u0E01\u0E23\u0E30\u0E14\u0E32\u0E29 -->
-      <td class="ivd-desc">${txt2(it.description, "")}</td>
-      <td class="r">${isAdv ? "-" : cell3(amt)}</td>
-      <td class="r">${isAdv ? cell3(amt) : "-"}</td>
-      <td class="r">${cell3(it.unit_price)}</td>
-      <td class="r">${cell3(amt)}</td></tr>`;
+      <td class="ivd-desc">${txt(it.description, "")}</td>
+      <td class="r">${isAdv ? "-" : cell2(amt)}</td>
+      <td class="r">${isAdv ? cell2(amt) : "-"}</td>
+      <td class="r">${cell2(it.unit_price)}</td>
+      <td class="r">${cell2(amt)}</td></tr>`;
     }).join("") || '<tr><td colspan="5" class="ivd-empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</td></tr>';
     const wht = whtRows(items).map((w) => `<div class="ivd-wl"><span>${w.rate} % ${w.label}</span><span>${money(w.amt)}</span></div>`).join("");
     const sign = (title) => `<div class="ivd-sign">
@@ -3352,15 +3436,15 @@
           <div class="ivd-card-t">CUSTOMER</div>
           <div class="ivd-card-b">
             <div class="ivd-f">${ic("user")}<div class="ivd-fb"><label>Customer Name</label>
-              <div class="v v-b">${txt2(D.cusName)}</div></div></div>
+              <div class="v v-b">${txt(D.cusName)}</div></div></div>
             <div class="ivd-f">${ic("tax")}<div class="ivd-fb ivd-2col">
-              <div><label>Tax ID</label><div class="v v-b">${txt2(D.cusTax)}</div></div>
-              <div><label>Branch</label><div class="v v-b">${txt2(D.cusBranch)}</div></div>
+              <div><label>Tax ID</label><div class="v v-b">${txt(D.cusTax)}</div></div>
+              <div><label>Branch</label><div class="v v-b">${txt(D.cusBranch)}</div></div>
             </div></div>
             <div class="ivd-f">${ic("pin")}<div class="ivd-fb"><label>Address</label>
-              <div class="v">${txt2(D.cusAddr, "")}</div></div></div>
+              <div class="v">${txt(D.cusAddr, "")}</div></div></div>
             <div class="ivd-f ivd-f-last">${ic("tel")}<div class="ivd-fb"><label>Tel.</label>
-              <div class="v v-b">${txt2(D.cusTel)}</div></div></div>
+              <div class="v v-b">${txt(D.cusTel)}</div></div></div>
           </div>
         </div>
         <div class="ivd-card">
@@ -3371,16 +3455,16 @@
             <div class="ivd-f">${ic("cal")}<div class="ivd-fb ivd-kv">
               <label>Date</label><div class="v v-b v-lg">${dmy(D.invDate)}</div></div></div>
             <div class="ivd-f ivd-f-last">${ic("job")}<div class="ivd-fb ivd-kv">
-              <label>Job No.</label><div class="v v-b v-lg">${txt2(D.jobNo)}</div></div></div>
+              <label>Job No.</label><div class="v v-b v-lg">${txt(D.jobNo)}</div></div></div>
           </div>
         </div>
       </section>
 
       <section class="ivd-ref">
-        <div class="ivd-rf"><label>Decl No.</label><span>${txt2(D.declNo)}</span></div>
-        <div class="ivd-rf"><label>Customer PO</label><span>${txt2(D.cusPo)}</span></div>
-        <div class="ivd-rf"><label>Master</label><span>${txt2(D.master)}</span></div>
-        <div class="ivd-rf"><label>House</label><span>${txt2(D.house)}</span></div>
+        <div class="ivd-rf"><label>Decl No.</label><span>${txt(D.declNo)}</span></div>
+        <div class="ivd-rf"><label>Customer PO</label><span>${txt(D.cusPo)}</span></div>
+        <div class="ivd-rf"><label>Master</label><span>${txt(D.master)}</span></div>
+        <div class="ivd-rf"><label>House</label><span>${txt(D.house)}</span></div>
       </section>
 
       <table class="ivd-tbl">
@@ -3395,18 +3479,18 @@
         <tbody>${rows}</tbody>
         <tfoot><tr class="ivd-trow">
           <td class="ivd-trow-l">${ic("sum")}<b>TOTAL</b></td>
-          <td class="r">${cell3(S.vatBase)}</td>
-          <td class="r">${cell3(S.nonVat)}</td>
+          <td class="r">${cell2(S.vatBase)}</td>
+          <td class="r">${cell2(S.nonVat)}</td>
           <td></td>
-          <td class="r ivd-trow-g">${money(r22(S.vatBase + S.nonVat))}</td>
+          <td class="r ivd-trow-g">${money(r2(S.vatBase + S.nonVat))}</td>
         </tr></tfoot>
       </table>
 
       <section class="ivd-mid">
         <div class="ivd-remark">
-          <div class="ivd-rm-t">REMARKS : <span>${txt2(D.remarks, "")}</span></div>
+          <div class="ivd-rm-t">REMARKS : <span>${txt(D.remarks, "")}</span></div>
           <div class="ivd-rm-l"></div><div class="ivd-rm-l"></div><div class="ivd-rm-l"></div>
-          <div class="ivd-ci"><b>Company Invoice :</b> ${txt2(D.companyInvoice, "")}</div>
+          <div class="ivd-ci"><b>Company Invoice :</b> ${txt(D.companyInvoice, "")}</div>
         </div>
         <div class="ivd-sum">
           <div class="ivd-sl"><span>SubTotal ${S.vatRate} %</span><span>${money(S.vatBase)}</span></div>
@@ -3424,7 +3508,7 @@
       </section>
 
       <footer class="ivd-bar">
-        <div>${ic("user")}Created By : <b>${txt2(D.createdBy)}</b></div>
+        <div>${ic("user")}Created By : <b>${txt(D.createdBy)}</b></div>
         <div>${ic("print")}Printed Date : <b>${dmy((/* @__PURE__ */ new Date()).toISOString().slice(0, 10))}</b></div>
       </footer>
       <div class="ivd-edge"></div>
@@ -3447,23 +3531,23 @@
     f.querySelector("#ivd-print").onclick = () => window.print();
     if (print) setTimeout(() => window.print(), 60);
   }
-  var cell3, txt2, num2, r22, ICON3, ic;
+  var cell2, txt, num, r2, ICON2, ic;
   var init_invoice_doc = __esm({
     "assets/js/invoices/invoice-doc.js"() {
       init_formatter();
       init_modal();
       init_company_doc();
-      cell3 = (n) => n === null || n === void 0 || n === "" || Number(n) === 0 ? "-" : money(n);
-      txt2 = (v, fb = "-") => {
+      cell2 = (n) => n === null || n === void 0 || n === "" || Number(n) === 0 ? "-" : money(n);
+      txt = (v, fb = "-") => {
         const s = v === null || v === void 0 ? "" : String(v).trim();
         return esc(s || fb);
       };
-      num2 = (v) => {
+      num = (v) => {
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
       };
-      r22 = (n) => Math.round((num2(n) + Number.EPSILON) * 100) / 100;
-      ICON3 = {
+      r2 = (n) => Math.round((num(n) + Number.EPSILON) * 100) / 100;
+      ICON2 = {
         user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',
         tax: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.8" y="5" width="18.4" height="14" rx="2"/><circle cx="8.4" cy="11" r="2"/><path d="M5 16.4c.5-1.5 1.8-2.3 3.4-2.3s2.9.8 3.4 2.3M14.6 10h4.2M14.6 13.4h4.2"/></svg>',
         pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s6.4-6 6.4-10.4A6.4 6.4 0 0 0 5.6 10.6C5.6 15 12 21 12 21z"/><circle cx="12" cy="10.4" r="2.4"/></svg>',
@@ -3474,7 +3558,172 @@
         sum: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/></svg>',
         print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 9V3.6h10V9M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="6.4"/></svg>'
       };
-      ic = (k) => `<span class="ivd-ic">${ICON3[k] || ""}</span>`;
+      ic = (k) => `<span class="ivd-ic">${ICON2[k] || ""}</span>`;
+    }
+  });
+
+  // assets/js/invoices/invoice-view.js
+  var invoice_view_exports = {};
+  __export(invoice_view_exports, {
+    render: () => render2,
+    renderInvoice: () => renderInvoice
+  });
+  async function renderInvoice(cnt, { id, view = "page", onChanged } = {}) {
+    const isModal = view === "modal";
+    const inv = await invoiceView(id);
+    const isVoid = inv.status === "VOID";
+    const isPosted = inv.status === "POSTED";
+    const canPost = can("invoice", inv.charge_type, inv.company_group);
+    const j = inv.job || {};
+    const c = inv.customer || {};
+    const f = (lb, v) => `<div class="fld"><label>${lb}</label><div>${v || "-"}</div></div>`;
+    cnt.innerHTML = `
+    <div class="page-head"><div class="page-title"><span class="dot"></span>
+      <h2>INVOICE ${esc(inv.invoice_no)}</h2>
+      ${isVoid ? '<span class="bdg bdg-void">VOID</span>' : payBadge(inv.payment_status)}
+      ${isVoid ? "" : `<span class="bdg ${isPosted ? "bdg-paid" : "bdg-due-ok"}">${isPosted ? "POSTED" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48 POST"}</span>`}</div>
+      <div class="row">
+        ${!isVoid && canPost && !isPosted ? '<button class="btn btn-p" id="ivv-post">\u21E7 POST</button>' : ""}
+        ${!isVoid && canPost && isPosted ? '<button class="btn btn-o" id="ivv-unpost">\u21E9 UNPOST</button>' : ""}
+        <button class="btn btn-print" id="ivv-print">\u{1F5A8} ${isPosted ? "Print Invoice" : "Print Draft"}</button>
+        ${!isVoid && can("void", inv.charge_type, inv.company_group) && Number(inv.paid) === 0 ? '<button class="btn btn-danger-soft" id="ivv-void">\u{1F5D1} Void</button>' : ""}
+        ${isModal ? "" : '<button class="btn btn-o" id="ivv-back">\u2190 \u0E01\u0E25\u0E31\u0E1A</button>'}</div></div>
+
+    <div class="card card-pad iv-info">
+      <div class="fgrid">
+        ${f("\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19", esc(j.job_no))}
+        ${f("Invoice No.", esc(inv.invoice_no))}
+        ${f("\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17", chargeLabel(inv.charge_type) + " \xB7 " + groupLabel(inv.company_group))}
+        ${f("\u0E2A\u0E16\u0E32\u0E19\u0E30", isVoid ? "VOID" : isPosted ? "POSTED" : "ISSUED \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48 POST")}
+        ${f("\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", esc(c.name))}
+        ${f("\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 Invoice", esc(inv.company_invoice))}
+        ${f("Customer Job No.", esc(j.customer_job_no))}
+        ${f("\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32", esc(j.customs_declaration_no))}
+        ${f("Invoice \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07", esc(j.source_invoice_no))}
+        ${f("House B/L", esc(j.house_bl_no))}
+        ${f("Master B/L", esc(j.master_bl_no))}
+        ${f("Invoice Date", dmy(inv.invoice_date))}
+        ${f("Due Date", dmy(inv.due_date))}
+        ${f("\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01\u0E43\u0E1A", esc(inv.created_by_name))}
+      </div>
+      ${j.note ? `<div class="fld mt-2"><label>NOTE</label><div>${esc(j.note)}</div></div>` : ""}
+    </div>
+
+    <div class="page-head iv-pv-head"><div class="page-title"><span class="dot"></span>
+      <h2>INVOICE PREVIEW</h2>
+      <span class="t-xs t-3">\u0E15\u0E23\u0E27\u0E08\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E01\u0E48\u0E2D\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E08\u0E36\u0E07\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21
+        ${isPosted ? "Print Invoice" : "Print Draft"} \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E31\u0E48\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C</span></div>
+      <div class="row">
+        <button class="btn btn-print" id="ivv-print2">\u{1F5A8} ${isPosted ? "Print Invoice" : "Print Draft"}</button>
+      </div></div>
+
+    ${invoiceDocHTML(inv, { draft: false })}
+    ${isVoid ? `<div class="card card-pad mt-2 t-sm" style="color:var(--red-600)">VOID \u0E40\u0E21\u0E37\u0E48\u0E2D: ${dmy(inv.voided_at)} \xB7 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25: ${esc(inv.void_reason || "-")}</div>` : ""}
+    ${Number(inv.paid) > 0 ? `<div class="card card-pad mt-2 iv-paid-note"><div class="r-line"><span>\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27</span><span class="money-pos">${money(inv.paid)}</span></div><div class="r-line"><span>\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07</span><span class="money-neg">${money(inv.total_amount - inv.paid)}</span></div></div>` : ""}`;
+    const bb = cnt.querySelector("#ivv-back");
+    if (bb) {
+      let backTo = "";
+      try {
+        backTo = sessionStorage.getItem("nj-inv-from") || "";
+      } catch (_) {
+        backTo = "";
+      }
+      if (!backTo.startsWith("#/") || backTo.startsWith("#/invoice/")) {
+        backTo = "#/charges/" + inv.charge_type + "/" + inv.company_group;
+      }
+      bb.onclick = () => {
+        location.hash = backTo;
+      };
+    }
+    const doPrint = () => window.print();
+    cnt.querySelector("#ivv-print").onclick = doPrint;
+    const p2 = cnt.querySelector("#ivv-print2");
+    if (p2) p2.onclick = doPrint;
+    const pb = cnt.querySelector("#ivv-post");
+    if (pb) pb.onclick = async () => {
+      const ok = await confirmModal(
+        "POST INVOICE " + inv.invoice_no,
+        "\u0E40\u0E21\u0E37\u0E48\u0E2D POST \u0E41\u0E25\u0E49\u0E27\u0E07\u0E32\u0E19\u0E08\u0E30\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 <b>" + (inv.charge_type === "ADVANCE" ? "FINANCE &gt; Advance (\u0E23\u0E2D\u0E08\u0E48\u0E32\u0E22/\u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C)" : "FINANCE &gt; Receipt (\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30)") + "</b><br>\u0E41\u0E25\u0E30\u0E2B\u0E25\u0E38\u0E14\u0E08\u0E32\u0E01\u0E04\u0E34\u0E27\u0E23\u0E2D\u0E2D\u0E2D\u0E01 Invoice",
+        "POST"
+      );
+      if (!ok) return;
+      try {
+        const res = await once("post-inv-" + id, () => postInvoice(id, newRequestId()));
+        toast("POST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E07\u0E32\u0E19\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 " + (res && res.queue === "advance_active" ? "Advance" : "Receipt"), "ok");
+        if (onChanged) onChanged();
+        renderInvoice(cnt, { id, view, onChanged });
+      } catch (e) {
+        handleErr(e);
+      }
+    };
+    const ub = cnt.querySelector("#ivv-unpost");
+    if (ub) ub.onclick = async () => {
+      const reason = await reasonModal("UNPOST INVOICE " + inv.invoice_no + " (\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25)");
+      if (!reason) return;
+      try {
+        await once("unpost-inv-" + id, () => unpostInvoice(id, reason, newRequestId()));
+        toast("UNPOST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E2A\u0E16\u0E32\u0E19\u0E30 ISSUED", "ok");
+        if (onChanged) onChanged();
+        renderInvoice(cnt, { id, view, onChanged });
+      } catch (e) {
+        handleErr(e);
+      }
+    };
+    const vb = cnt.querySelector("#ivv-void");
+    if (vb) vb.onclick = async () => {
+      const reason = await reasonModal("Void INVOICE " + inv.invoice_no + " (\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25)");
+      if (!reason) return;
+      try {
+        await once("void-inv-" + id, () => voidInvoice(id, reason, newRequestId()));
+        toast("Void INVOICE \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E07\u0E32\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INVOICE", "ok");
+        if (onChanged) onChanged();
+        renderInvoice(cnt, { id, view, onChanged });
+      } catch (e) {
+        handleErr(e);
+      }
+    };
+  }
+  async function render2(cnt, { id }) {
+    return renderInvoice(cnt, { id, view: "page" });
+  }
+  var init_invoice_view = __esm({
+    "assets/js/invoices/invoice-view.js"() {
+      init_invoice_api();
+      init_formatter();
+      init_charge_groups();
+      init_invoice_doc();
+      init_permissions();
+      init_modal();
+      init_toast();
+      init_error_handler();
+      init_request_manager();
+    }
+  });
+
+  // assets/js/invoices/invoice-modal.js
+  var invoice_modal_exports = {};
+  __export(invoice_modal_exports, {
+    openInvoiceModal: () => openInvoiceModal
+  });
+  async function openInvoiceModal({ id, onChanged }) {
+    const body = document.createElement("div");
+    const footer = document.createElement("div");
+    footer.innerHTML = `<div class="mf-left"></div>
+    <div class="mf-right"><button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`;
+    openModal({ title: "\u0E14\u0E39 INVOICE", body, footer, fullscreen: true, wide: true });
+    body.innerHTML = '<div class="load-row"><div class="spin"></div></div>';
+    try {
+      await renderInvoice(body, { id, view: "modal", onChanged });
+    } catch (e) {
+      closeModal();
+      handleErr(e);
+    }
+  }
+  var init_invoice_modal = __esm({
+    "assets/js/invoices/invoice-modal.js"() {
+      init_modal();
+      init_invoice_view();
+      init_error_handler();
     }
   });
 
@@ -3482,9 +3731,16 @@
   var billing_modal_exports = {};
   __export(billing_modal_exports, {
     openBillingModal: () => openBillingModal,
+    renumber: () => renumber,
     sortByLineNo: () => sortByLineNo,
     validateLineNos: () => validateLineNos
   });
+  function renumber(list) {
+    list.forEach((it, i) => {
+      it.line_no = i + 1;
+    });
+    return list;
+  }
   function validateLineNos(items) {
     const errors = [];
     const seen = /* @__PURE__ */ new Map();
@@ -3524,8 +3780,16 @@
   async function openBillingModal({ jobId, charge, onSaved }) {
     await masters();
     const j = await jobDetail(jobId);
-    if (j.invoice_id) {
-      toast("\u0E07\u0E32\u0E19\u0E19\u0E35\u0E49\u0E2D\u0E2D\u0E01 INVOICE \u0E41\u0E25\u0E49\u0E27", "err");
+    let existing = null;
+    try {
+      existing = await invoiceDraftView(jobId);
+    } catch (_) {
+      existing = null;
+    }
+    if (!existing && j.invoice_id) {
+      toast("\u0E43\u0E1A\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E23\u0E48\u0E32\u0E07/POSTED \u2014 \u0E40\u0E1B\u0E34\u0E14\u0E41\u0E1A\u0E1A\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27", "err");
+      const m = await Promise.resolve().then(() => (init_invoice_modal(), invoice_modal_exports));
+      await m.openInvoiceModal({ id: j.invoice_id, onChanged: onSaved });
       return;
     }
     const vatRate = Number(AppState.masters.vat_rate || 7);
@@ -3545,30 +3809,49 @@
       vat_applicable: true,
       wht_applicable: false
     });
-    let items = [newItem(LINE_STEP)];
+    let items = [newItem(1)];
     const ro = (v) => `<input class="inp" value="${esc(v ?? "")}" readonly disabled>`;
     const b = document.createElement("div");
     b.innerHTML = `
+    <div class="bm-state is-new" id="bm-state"></div>
+
+    <div class="jm-auto">
+      <span class="jm-auto-lb">JOB NJ:</span>
+      <input class="inp" id="bm-jobno" value="${esc(j.job_no || "-")}" readonly disabled>
+      <span class="jm-auto-lb">${kindDefault === "ADVANCE" ? "INVOICE ADV:" : "INVOICE NJ:"}</span>
+      <input class="inp" id="bm-invno" value="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02" readonly disabled>
+      <span class="jm-auto-lb">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25</span>
+      <input class="inp jm-auto-date" id="bm-invdate" value="-" readonly disabled>
+    </div>
+
     <div class="jm-sec jm-doc">
-      <div class="jm-sec-t">DOCUMENT</div>
-      <div class="jm-grid">
+      <button type="button" class="jm-sec-t jm-sec-tg" id="bm-doc-tg"
+        aria-expanded="false" aria-controls="bm-doc-body">
+        <span class="jm-sec-lb">DOCUMENT</span><span class="jm-cav" aria-hidden="true">\u25B8</span>
+      </button>
+      <div class="jm-sec-body" id="bm-doc-body" hidden>
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 Invoice</label>${ro(j.company_invoice)}</div>
         <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</label>${ro(j.customer_name)}</div>
         <div class="fld"><label>Customer Job No.</label>${ro(j.customer_job_no)}</div>
         <div class="fld"><label>\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32</label>${ro(j.customs_declaration_no)}</div>
-      </div>
-      <div class="jm-grid">
         <div class="fld"><label>Invoice \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07 (Source)</label>${ro(j.source_invoice_no)}</div>
+      </div>
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>House B/L No.</label>${ro(j.house_bl_no)}</div>
         <div class="fld"><label>Master B/L No.</label>${ro(j.master_bl_no)}</div>
         <div class="fld"><label>Booking No.</label>${ro(j.booking_no)}</div>
-      </div>
-      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E23\u0E37\u0E2D / Vessel</label>${ro(j.vessel_name)}</div>
         <div class="fld"><label>\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49</label>${ro(j.qty_container)}</div>
+      </div>
+      <div class="jm-grid jm-grid-5">
         <div class="fld"><label>ETD</label>${ro(dmy(j.etd))}</div>
         <div class="fld"><label>ETA</label>${ro(dmy(j.eta))}</div>
         <div class="fld"><label>\u0E27\u0E31\u0E19\u0E2A\u0E48\u0E07\u0E21\u0E2D\u0E1A</label>${ro(dmy(j.delivery_date))}</div>
+        <div class="fld"><label>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</label>
+          <textarea class="inp" id="bm-note" readonly disabled>${esc(j.note || "")}</textarea></div>
+        <div class="fld"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</label>${ro(dmy(j.job_date))}</div>
+      </div>
       </div>
     </div>
 
@@ -3594,8 +3877,8 @@
       <div class="jm-sec-t">INVOICE</div>
       <div class="row mb-2">
         <button type="button" class="btn btn-p btn-sm" id="bm-add">+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</button>
-        <button type="button" class="btn btn-o btn-sm" id="bm-sort">\u21C5 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A</button>
-        <span class="t-xs t-3">\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E25\u0E02\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07 \u201C\u0E25\u0E33\u0E14\u0E31\u0E1A\u201D \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u201C\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A\u201D \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48\u0E08\u0E32\u0E01\u0E19\u0E49\u0E2D\u0E22\u0E44\u0E1B\u0E21\u0E32\u0E01</span>
+        <button type="button" class="btn btn-o btn-sm" id="bm-sort">\u2195 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E19\u0E49\u0E2D\u0E22 \u2192 \u0E21\u0E32\u0E01</button>
+        <span class="t-xs t-3">\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E25\u0E02\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07 \u201C\u0E25\u0E33\u0E14\u0E31\u0E1A\u201D \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48\u0E08\u0E32\u0E01\u0E19\u0E49\u0E2D\u0E22\u0E44\u0E1B\u0E21\u0E32\u0E01 \u0E41\u0E25\u0E49\u0E27\u0E44\u0E25\u0E48\u0E40\u0E25\u0E02\u0E40\u0E1B\u0E47\u0E19 1, 2, 3 \u2026</span>
       </div>
       <div class="bm-err" id="bm-err" hidden></div>
       <div class="bm-locked" id="bm-locked" hidden>
@@ -3621,23 +3904,42 @@
     const f = document.createElement("div");
     f.style.display = "contents";
     f.innerHTML = `
-    <button class="btn btn-del"  id="bm-del"     hidden>\u{1F5D1} <span>\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07</span></button>
-    <button class="btn btn-save" id="bm-draft"          >\u{1F4BE} <span>\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07</span></button>
-    <button class="btn btn-view" id="bm-preview" disabled>\u{1F441} <span>Preview</span></button>
-    <button class="btn btn-prn"  id="bm-print"   disabled>\u{1F5A8} <span>Print Draft</span></button>
-    <button class="btn btn-post" id="bm-post"    disabled>\u2B06 <span>POST</span></button>
-    <button class="btn btn-gray" data-close             >\u2715 <span>\u0E1B\u0E34\u0E14</span></button>
-    <button class="btn btn-unpost" id="bm-unpost" hidden>\u21A9 <span>UNPOST</span></button>`;
-    openModal({ title: "\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25", body: b, footer: f, fullscreen: true, wide: true });
+    <div class="mf-left">
+      <button class="btn btn-del"  id="bm-del"     hidden>\u{1F5D1} <span>\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07</span></button>
+      <button class="btn btn-unpost" id="bm-unpost" hidden>\u21A9 <span>UNPOST</span></button>
+    </div>
+    <div class="mf-right">
+      <button class="btn btn-prn"  id="bm-print"   disabled>\u{1F5A8} <span>Print Draft</span></button>
+      <button class="btn btn-post" id="bm-post"    disabled>\u2B06 <span>POST</span></button>
+      <button class="btn btn-save" id="bm-draft"          >\u{1F4BE} <span>\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07</span></button>
+      <button class="btn btn-gray" data-close             >\u2715 <span>\u0E1B\u0E34\u0E14</span></button>
+    </div>`;
+    const titleOf = (doc) => !doc ? "\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25" : doc.status === "POSTED" ? "INVOICE " + (doc.invoice_no || "") + " (POSTED)" : "\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E1A\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 (\u0E23\u0E48\u0E32\u0E07)";
+    openModal({ title: titleOf(existing), body: b, footer: f, fullscreen: true, wide: true, cls: "modal-flow" });
     document.querySelector("#nj-modal .modal-f").classList.add("mf-row");
+    enableEnterNav(b);
+    const mbk = document.getElementById("nj-modal");
+    if (mbk) mbk.scrollTop = 0;
     const mb = document.querySelector("#nj-modal .modal-b");
     if (mb) mb.scrollTop = 0;
     const q2 = (s) => b.querySelector(s);
     const tbody = q2("#bm-tbody");
+    const docTg = q2("#bm-doc-tg"), docBody = q2("#bm-doc-body");
+    if (docTg && docBody) {
+      const setDoc = (open) => {
+        docBody.hidden = !open;
+        docTg.setAttribute("aria-expanded", open ? "true" : "false");
+        const cav = docTg.querySelector(".jm-cav");
+        if (cav) cav.textContent = open ? "\u25BE" : "\u25B8";
+      };
+      setDoc(false);
+      docTg.addEventListener("click", () => setDoc(docBody.hidden));
+    }
     function askInline(msg, { reason = false, okLabel = "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19", danger = false } = {}) {
       return new Promise((res) => {
         const bar = document.createElement("div");
         bar.className = "bm-ask" + (danger ? " bm-ask-danger" : "");
+        bar.setAttribute("data-enter-skip", "");
         bar.innerHTML = `<div class="bm-ask-msg">${msg}</div>
         ${reason ? '<input class="inp" id="bm-ask-reason" placeholder="\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19)">' : ""}
         <div class="bm-ask-act">
@@ -3691,6 +3993,10 @@
       }
     }
     ["#bm-date", "#bm-term", "#bm-due"].forEach((s) => q2(s).addEventListener("input", updDue));
+    q2("#bm-date").addEventListener("input", () => {
+      const el = b.querySelector("#bm-invdate");
+      if (el) el.value = q2("#bm-date").value ? dmy(q2("#bm-date").value) : "-";
+    });
     if (q2("#bm-term").value === "" && custTerm() != null) q2("#bm-term").value = custTerm();
     updDue();
     function rowHTML2(it, i, dupes) {
@@ -3822,13 +4128,14 @@
       const i = Number(del.closest("tr").dataset.i);
       tbody.querySelectorAll("tr").forEach((tr) => readRow(tr, Number(tr.dataset.i)));
       items.splice(i, 1);
-      if (!items.length) items.push(newItem(LINE_STEP));
+      if (!items.length) items.push(newItem(1));
+      renumber(items);
       draw();
     });
     q2("#bm-add").onclick = () => {
       tbody.querySelectorAll("tr").forEach((tr) => readRow(tr, Number(tr.dataset.i)));
-      const max = items.reduce((m, x) => Math.max(m, Number(x.line_no) || 0), 0);
-      items.push(newItem(Math.floor(max / LINE_STEP) * LINE_STEP + LINE_STEP));
+      items.push(newItem(items.length + 1));
+      renumber(items);
       draw();
       const last = tbody.querySelector('tr:last-child [data-k="description"]');
       if (last) last.focus();
@@ -3836,26 +4143,49 @@
     q2("#bm-sort").onclick = () => {
       tbody.querySelectorAll("tr").forEach((tr) => readRow(tr, Number(tr.dataset.i)));
       const v = validateLineNos(items);
-      items = sortByLineNo(items);
+      items = renumber(sortByLineNo(items));
       draw();
-      toast(v.ok ? "\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27" : "\u0E40\u0E23\u0E35\u0E22\u0E07\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E21\u0E35\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07", v.ok ? "ok" : "err");
+      toast(v.ok ? "\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E43\u0E2B\u0E21\u0E48\u0E40\u0E1B\u0E47\u0E19 1\u2013" + items.length + " \u0E41\u0E25\u0E49\u0E27" : "\u0E40\u0E23\u0E35\u0E22\u0E07\u0E41\u0E25\u0E30\u0E44\u0E25\u0E48\u0E40\u0E25\u0E02\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E15\u0E23\u0E27\u0E08\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E23\u0E2D\u0E01\u0E44\u0E27\u0E49\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", v.ok ? "ok" : "err");
     };
     let draftId = null;
     let invStatus = null;
+    let lastDoc = existing || null;
     const B = (sel) => f.querySelector(sel);
-    function applyState(id, status) {
+    function applyState(id, status, doc) {
       draftId = id;
       invStatus = status || (id ? "DRAFT" : null);
       const posted = invStatus === "POSTED";
       const hasDoc = !!id;
+      if (doc !== void 0) lastDoc = doc;
+      const h3 = document.querySelector("#nj-modal .modal-h h3");
+      if (h3) h3.textContent = titleOf(lastDoc);
+      const realNo = lastDoc && lastDoc.invoice_no && !/^DRAFT-/.test(lastDoc.invoice_no) ? lastDoc.invoice_no : null;
+      const invNoEl = b.querySelector("#bm-invno");
+      if (invNoEl) invNoEl.value = realNo || "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02";
+      const invDtEl = b.querySelector("#bm-invdate");
+      if (invDtEl) {
+        const d = lastDoc && lastDoc.invoice_date || q2("#bm-date").value || "";
+        invDtEl.value = d ? dmy(d) : "-";
+      }
+      const bar = b.querySelector("#bm-state");
+      if (bar) {
+        const no = realNo;
+        bar.className = "bm-state " + (posted ? "is-posted" : hasDoc ? "is-draft" : "is-new");
+        bar.innerHTML = posted ? `<span class="bm-state-b">POSTED</span>
+           <span>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE <b>${esc(no || "-")}</b></span>
+           <span class="bm-state-n">\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 ${kindDefault === "ADVANCE" ? "FINANCE \u203A Advance (\u0E23\u0E2D\u0E08\u0E48\u0E32\u0E22/\u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C)" : "FINANCE \u203A Receipt (\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30)"} \u0E41\u0E25\u0E49\u0E27
+             \xB7 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E15\u0E48\u0E2D\u0E44\u0E14\u0E49\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E14 UNPOST \u0E01\u0E48\u0E2D\u0E19</span>` : hasDoc ? `<span class="bm-state-b">\u0E23\u0E48\u0E32\u0E07</span>
+             <span class="bm-state-n">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02 INVOICE \u0E08\u0E23\u0E34\u0E07 \xB7 \u0E01\u0E14 POST \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E41\u0E25\u0E30\u0E2A\u0E48\u0E07\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27\u0E16\u0E31\u0E14\u0E44\u0E1B</span>` : `<span class="bm-state-b">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</span>
+             <span class="bm-state-n">\u0E01\u0E23\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E48\u0E32\u0E07</span>`;
+      }
       B("#bm-del").hidden = posted || !hasDoc;
       B("#bm-draft").hidden = posted;
       B("#bm-post").hidden = posted;
       B("#bm-unpost").hidden = !posted;
-      B("#bm-preview").disabled = !hasDoc;
       B("#bm-print").disabled = !hasDoc;
       B("#bm-post").disabled = !hasDoc;
-      B("#bm-print").querySelector("span").textContent = posted ? "Print Invoice" : "Print Draft";
+      const prnLabel = B("#bm-print").querySelector("span");
+      if (prnLabel) prnLabel.textContent = posted ? "Print Invoice" : "Print Draft";
       b.querySelectorAll("#bm-tbody input, #bm-tbody select, #bm-add, #bm-sort").forEach((el) => {
         el.disabled = posted;
       });
@@ -3957,7 +4287,7 @@
       try {
         await once("bm-unpost-" + draftId, () => unpostToDraft(draftId, reason, newRequestId()));
         await reloadFromBackend();
-        toast("UNPOST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E23\u0E48\u0E32\u0E07 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E15\u0E48\u0E2D\u0E44\u0E14\u0E49", "ok");
+        toast("UNPOST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E23\u0E48\u0E32\u0E07 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E15\u0E48\u0E2D\u0E44\u0E14\u0E49 (\u0E40\u0E25\u0E02 INVOICE \u0E40\u0E14\u0E34\u0E21\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49)", "ok");
         if (typeof onSaved === "function") onSaved();
       } catch (ex) {
         handleErr(ex);
@@ -3965,22 +4295,28 @@
         btnBusy(e.target, false);
       }
     };
-    async function openDraftDoc(btn2, print) {
-      if (!await doSaveDraft(btn2, true)) return;
+    async function openDraftDoc(btn2) {
+      const posted = invStatus === "POSTED";
+      if (!posted) {
+        if (!await doSaveDraft(btn2, true)) return;
+      } else if (btn2) {
+        btnBusy(btn2, true);
+      }
       try {
         const doc = await invoiceDraftView(jobId);
         if (!doc) {
-          toast("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E48\u0E32\u0E07", "err");
+          toast(posted ? "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E48\u0E32\u0E07", "err");
           return;
         }
         const m = await Promise.resolve().then(() => (init_invoice_doc(), invoice_doc_exports));
-        m.openInvoiceDoc(doc, { draft: true, print });
+        m.openInvoiceDoc(doc, { draft: !posted });
       } catch (ex) {
         handleErr(ex);
+      } finally {
+        if (posted && btn2) btnBusy(btn2, false);
       }
     }
-    f.querySelector("#bm-preview").onclick = (e) => openDraftDoc(e.target, false);
-    f.querySelector("#bm-print").onclick = (e) => openDraftDoc(e.target, true);
+    f.querySelector("#bm-print").onclick = (e) => openDraftDoc(e.target);
     f.querySelector("#bm-post").onclick = async (e) => {
       const saved = await doSaveDraft(e.target, true);
       if (!saved) return;
@@ -3997,7 +4333,7 @@
       try {
         const res = await once("bm-post-" + saved.id, () => postDraftInvoice(saved.id, requestId));
         await reloadFromBackend();
-        toast("POST \u0E41\u0E25\u0E49\u0E27 \u2014 INVOICE " + res.invoice_no, "ok");
+        toast("POST \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 INVOICE " + res.invoice_no + " \xB7 \u0E07\u0E32\u0E19\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 " + (kindDefault === "ADVANCE" ? "FINANCE \u203A Advance" : "FINANCE \u203A Receipt"), "ok");
         if (typeof onSaved === "function") onSaved();
       } catch (ex) {
         handleErr(ex);
@@ -4009,10 +4345,10 @@
       try {
         const doc = await invoiceDraftView(jobId);
         if (!doc) {
-          applyState(null, null);
+          applyState(null, null, null);
           return;
         }
-        applyState(doc.id, doc.status);
+        applyState(doc.id, doc.status, doc);
         if (doc.invoice_date) q2("#bm-date").value = doc.invoice_date;
         if (doc.due_date) q2("#bm-due").value = doc.due_date;
         const list = (doc.items || []).map((x) => ({
@@ -4034,9 +4370,10 @@
         }));
         if (list.length) {
           items = list;
+          if (doc.status !== "POSTED") renumber(items);
           draw();
         }
-        applyState(doc.id, doc.status);
+        applyState(doc.id, doc.status, doc);
         updDue();
       } catch (ex) {
         handleErr(ex);
@@ -4045,7 +4382,7 @@
     reloadFromBackend();
     draw();
   }
-  var LINE_STEP, CODE_DISPLAY;
+  var CODE_DISPLAY;
   var init_billing_modal = __esm({
     "assets/js/invoices/billing-modal.js"() {
       init_job_api();
@@ -4060,17 +4397,295 @@
       init_loading();
       init_error_handler();
       init_request_manager();
-      LINE_STEP = 10;
       CODE_DISPLAY = (it) => it ? it.code || "" : "";
+    }
+  });
+
+  // assets/js/core/baht-text.js
+  function readGroup(n) {
+    let s = "";
+    const str = String(n);
+    const len = str.length;
+    for (let i = 0; i < len; i++) {
+      const d = Number(str[i]);
+      const place = len - i - 1;
+      if (d === 0) continue;
+      if (place === 1 && d === 1) s += "\u0E2A\u0E34\u0E1A";
+      else if (place === 1 && d === 2) s += "\u0E22\u0E35\u0E48\u0E2A\u0E34\u0E1A";
+      else if (place === 0 && d === 1 && len > 1) s += "\u0E40\u0E2D\u0E47\u0E14";
+      else s += DIGIT[d] + PLACE[place];
+    }
+    return s;
+  }
+  function readInt(n) {
+    if (n === 0) return "\u0E28\u0E39\u0E19\u0E22\u0E4C";
+    const groups = [];
+    let x = n;
+    while (x > 0) {
+      groups.unshift(x % 1e6);
+      x = Math.floor(x / 1e6);
+    }
+    return groups.map((g, i) => {
+      if (g === 0) return i === groups.length - 1 ? "" : "";
+      return readGroup(g) + "\u0E25\u0E49\u0E32\u0E19".repeat(groups.length - 1 - i);
+    }).join("");
+  }
+  function bahtText(amount) {
+    const v = Number(amount);
+    if (!Number.isFinite(v)) return "";
+    const neg = v < 0;
+    const cents = Math.round(Math.abs(v) * 100);
+    const baht = Math.floor(cents / 100);
+    const satang = cents % 100;
+    let s = readInt(baht) + "\u0E1A\u0E32\u0E17";
+    s += satang === 0 ? "\u0E16\u0E49\u0E27\u0E19" : readGroup(satang) + "\u0E2A\u0E15\u0E32\u0E07\u0E04\u0E4C";
+    return (neg ? "\u0E25\u0E1A" : "") + s;
+  }
+  var DIGIT, PLACE;
+  var init_baht_text = __esm({
+    "assets/js/core/baht-text.js"() {
+      DIGIT = ["", "\u0E2B\u0E19\u0E36\u0E48\u0E07", "\u0E2A\u0E2D\u0E07", "\u0E2A\u0E32\u0E21", "\u0E2A\u0E35\u0E48", "\u0E2B\u0E49\u0E32", "\u0E2B\u0E01", "\u0E40\u0E08\u0E47\u0E14", "\u0E41\u0E1B\u0E14", "\u0E40\u0E01\u0E49\u0E32"];
+      PLACE = ["", "\u0E2A\u0E34\u0E1A", "\u0E23\u0E49\u0E2D\u0E22", "\u0E1E\u0E31\u0E19", "\u0E2B\u0E21\u0E37\u0E48\u0E19", "\u0E41\u0E2A\u0E19"];
+    }
+  });
+
+  // assets/js/finance/advance-doc.js
+  var advance_doc_exports = {};
+  __export(advance_doc_exports, {
+    advanceDocHTML: () => advanceDocHTML,
+    openAdvanceDoc: () => openAdvanceDoc
+  });
+  function summarize2(inv, items) {
+    let sub = 0;
+    const rates = /* @__PURE__ */ new Set();
+    for (const it of items) {
+      sub = r22(sub + num2(it.amount));
+      if (num2(it.vat_rate) > 0) rates.add(num2(it.vat_rate));
+    }
+    const vat = r22(inv.vat_amount);
+    const wht = r22(inv.wht_amount);
+    const vatRate = rates.size === 1 ? [...rates][0] : rates.size === 0 ? num2(inv.vat_rate) : null;
+    const total = r22(sub + vat);
+    return { sub, vat, wht, vatRate, total, received: r22(total - wht) };
+  }
+  function advanceDocHTML(inv, { advanceStatus = null } = {}) {
+    const items = inv.items || [];
+    const S = summarize2(inv, items);
+    const c = inv.customer || {};
+    const j = inv.job || {};
+    const isVoid = String(inv.status || "").toUpperCase() === "VOID";
+    const D = {
+      cusName: inv.customer_name || c.name,
+      cusTax: inv.customer_tax_id || c.tax_id,
+      cusBranch: inv.customer_branch_code || c.branch_code,
+      cusAddr: inv.customer_address || c.address,
+      cusTel: inv.customer_phone || c.phone,
+      apNo: inv.invoice_no,
+      apDate: inv.invoice_date,
+      jobNo: inv.job_no || j.job_no,
+      invRef: inv.source_invoice_no || j.source_invoice_no,
+      note: inv.job_note || j.note
+    };
+    const payFor = String(inv.charge_type || "").toUpperCase() === "ADVANCE" ? "Advance Payment / \u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E08\u0E48\u0E32\u0E22\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32" : null;
+    const stKey = String(advanceStatus || "").toUpperCase();
+    const st6 = ADV_ST[stKey] || null;
+    const rows = items.map((it, i) => `<tr>
+      <td class="apd-c apd-no">${it.line_no ?? i + 1}</td>
+      <td class="apd-ds">${txt2(it.description, "-")}</td>
+      <td class="apd-c">${it.qty === null || it.qty === void 0 || it.qty === "" ? "-" : esc(String(Number(it.qty)))}</td>
+      <td class="apd-r">${cell3(it.unit_price)}</td>
+      <td class="apd-r">${money(it.amount)}</td>
+    </tr>`).join("") || '<tr><td colspan="5" class="apd-empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E19\u0E35\u0E49</td></tr>';
+    const vatLbl = S.vatRate === null ? "VAT" : `VAT ${S.vatRate}%`;
+    const noteTxt = raw(D.note);
+    const signBlock = (icon, en, th) => `
+    <div class="apd-sg">
+      ${bub(icon)}
+      <div class="apd-sg-b">
+        <div class="apd-sg-t"><i></i>${en} / ${th}</div>
+        <div class="apd-sg-ln"></div>
+        <div class="apd-sg-f"><label>Name / \u0E0A\u0E37\u0E48\u0E2D</label><span class="apd-dot"></span></div>
+        <div class="apd-sg-f"><label>Date / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</label>
+          <span class="apd-dot apd-dot-s"></span><b>/</b>
+          <span class="apd-dot apd-dot-s"></span><b>/</b>
+          <span class="apd-dot apd-dot-s"></span></div>
+      </div>
+    </div>`;
+    return `
+    <div class="apd print-area${isVoid ? " apd-void" : ""}">
+      ${isVoid ? '<div class="apd-badge">VOID / \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</div>' : ""}
+
+      <header class="apd-head">
+        <div class="apd-head-l">
+          <img class="apd-logo" src="${ISSUER.logo}" alt="N.J. Logistics">
+          <div class="apd-co">
+            <div class="apd-co-nm">${esc(ISSUER.nameEn)}</div>
+            <div class="apd-co-ad">${esc(ISSUER.address)}</div>
+            <div class="apd-co-tl">Tel : ${esc(ISSUER.tel)} <i>|</i> Fax : ${esc(ISSUER.fax)}</div>
+            <div class="apd-co-tl">Tax ID : ${esc(ISSUER.taxId)}</div>
+          </div>
+        </div>
+        <div class="apd-head-r">
+          <div class="apd-title">ADVANCE PAYMENT</div>
+          <div class="apd-title-th">\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</div>
+          <div class="apd-chip">ADVANCE RECEIPT</div>
+          ${st6 ? `<div class="apd-st ${st6[0]}">${esc(st6[1])}</div>` : ""}
+        </div>
+      </header>
+      <div class="apd-band"></div>
+
+      <section class="apd-grid">
+        <div class="apd-box">
+          <div class="apd-box-t">${bub("user")}<span>CUSTOMER / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</span></div>
+          <div class="apd-box-b">
+            <div class="apd-row"><label>Customer Name / \u0E0A\u0E37\u0E48\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</label>
+              <i>:</i><div class="apd-v apd-v-b">${txt2(D.cusName)}</div></div>
+            <div class="apd-row"><label>Tax ID / \u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E35\u0E22\u0E20\u0E32\u0E29\u0E35</label>
+              <i>:</i><div class="apd-v">${txt2(D.cusTax)}</div></div>
+            <div class="apd-row"><label>Branch / \u0E2A\u0E32\u0E02\u0E32</label>
+              <i>:</i><div class="apd-v">${txt2(D.cusBranch)}</div></div>
+            <div class="apd-row apd-row-ml"><label>Address / \u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48</label>
+              <i>:</i><div class="apd-v">${txt2(D.cusAddr, "-")}</div></div>
+            <div class="apd-row apd-row-last"><label>Tel. / \u0E42\u0E17\u0E23.</label>
+              <i>:</i><div class="apd-v">${txt2(D.cusTel)}</div></div>
+          </div>
+        </div>
+
+        <div class="apd-box">
+          <div class="apd-box-t">${bub("form")}<span>ADVANCE PAYMENT DETAILS / \u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</span></div>
+          <div class="apd-box-b">
+            <div class="apd-row"><label>Advance Payment No.</label>
+              <i>:</i><div class="apd-v apd-v-key">${txt2(D.apNo)}</div></div>
+            <div class="apd-row"><label>Date</label>
+              <i>:</i><div class="apd-v apd-v-b">${dmy(D.apDate)}</div></div>
+            <div class="apd-row"><label>Job No.</label>
+              <i>:</i><div class="apd-v apd-v-b">${txt2(D.jobNo)}</div></div>
+            <div class="apd-row"><label>Invoice Reference</label>
+              <i>:</i><div class="apd-v apd-v-b">${txt2(D.invRef)}</div></div>
+            <div class="apd-row apd-row-last"><label>Payment For /<br>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19</label>
+              <i>:</i><div class="apd-v">${payFor ? esc(payFor) : "-"}</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="apd-items">
+        <div class="apd-items-t">${bub("list")}<span>ADVANCE PAYMENT ITEMS / \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</span></div>
+        <table class="apd-tbl">
+          <colgroup><col class="w-no"><col class="w-ds"><col class="w-qty">
+            <col class="w-up"><col class="w-amt"></colgroup>
+          <thead><tr>
+            <th class="apd-c">No.</th>
+            <th>Description / \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th>
+            <th class="apd-c">Qty</th>
+            <th class="apd-r">Unit Price</th>
+            <th class="apd-r">Amount (THB)</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="apd-total">
+            <td colspan="4" class="apd-r">TOTAL ADVANCE AMOUNT / \u0E23\u0E27\u0E21\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32</td>
+            <td class="apd-r apd-total-v">${money(S.sub)}</td>
+          </tr></tfoot>
+        </table>
+      </section>
+
+      <section class="apd-mid">
+        <div class="apd-mid-l">
+          <div class="apd-mini">
+            ${bub("abc")}
+            <div class="apd-mini-b">
+              <div class="apd-mini-t">Amount in words / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23</div>
+              <div class="apd-mini-v">(${esc(bahtText(S.received))})</div>
+            </div>
+          </div>
+          ${noteTxt ? `<div class="apd-mini">
+            ${bub("pen")}
+            <div class="apd-mini-b">
+              <div class="apd-mini-t apd-mini-t2">NOTE / \u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</div>
+              <div class="apd-mini-n">${esc(noteTxt)}</div>
+            </div>
+          </div>` : ""}
+        </div>
+        <div class="apd-sum">
+          <div class="apd-sl"><span>SubTotal</span><span>${money(S.sub)}</span></div>
+          <div class="apd-sl"><span>${esc(vatLbl)}</span><span>${money(S.vat)}</span></div>
+          ${S.wht > 0 ? `<div class="apd-sl apd-sl-w"><span>Withholding Tax / \u0E20\u0E32\u0E29\u0E35\u0E2B\u0E31\u0E01 \u0E13 \u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22</span>
+            <span>-${money(S.wht)}</span></div>` : ""}
+          <div class="apd-sl apd-sl-m"><span>Total Advance Amount</span><span>${money(S.total)}</span></div>
+          <div class="apd-sl apd-sl-g"><span>AMOUNT RECEIVED /<i>\u0E22\u0E2D\u0E14\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</i></span>
+            <span>${money(S.received)}</span></div>
+        </div>
+      </section>
+
+      <section class="apd-signs">
+        ${signBlock("hand", "RECEIVED BY", "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19")}
+        ${signBlock("shield", "AUTHORIZED BY", "\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")}
+      </section>
+
+      <div class="apd-edge"></div>
+    </div>`;
+  }
+  function openAdvanceDoc(inv, { advanceStatus = null, print = false } = {}) {
+    const b = document.createElement("div");
+    b.innerHTML = advanceDocHTML(inv, { advanceStatus });
+    const f = document.createElement("div");
+    f.innerHTML = `<div class="mf-left"></div><div class="mf-right">
+      <button class="btn btn-print" id="apd-print">\u{1F5A8} Print Advance Payment</button>
+      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`;
+    openModal({
+      title: "\u0E43\u0E1A\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32 " + (inv.invoice_no || ""),
+      body: b,
+      footer: f,
+      fullscreen: true,
+      wide: true
+    });
+    f.querySelector("#apd-print").onclick = () => window.print();
+    if (print) setTimeout(() => window.print(), 60);
+  }
+  var txt2, raw, num2, r22, cell3, ICON3, bub, ADV_ST;
+  var init_advance_doc = __esm({
+    "assets/js/finance/advance-doc.js"() {
+      init_formatter();
+      init_modal();
+      init_baht_text();
+      init_company_doc();
+      txt2 = (v, fb = "-") => {
+        const s = v === null || v === void 0 ? "" : String(v).trim();
+        return esc(s || fb);
+      };
+      raw = (v) => {
+        const s = v === null || v === void 0 ? "" : String(v).trim();
+        return s;
+      };
+      num2 = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      r22 = (n) => Math.round((num2(n) + Number.EPSILON) * 100) / 100;
+      cell3 = (v) => v === null || v === void 0 || v === "" ? "-" : money(v);
+      ICON3 = {
+        user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',
+        form: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4.4" y="3" width="15.2" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+        list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg>',
+        abc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v7.2a2.6 2.6 0 0 1-2.6 2.6H9l-5 3.6z"/></svg>',
+        pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16.6 3.8 20.2 7.4 8 19.6l-4.4.8.8-4.4z"/><path d="M14.4 6l3.6 3.6"/></svg>',
+        hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8.4" r="3.2"/><path d="M3.6 19.4c1.4-1.2 3-1.2 4.4-.4l2 1.1c.7.4 1.6.4 2.3 0l5.2-2.8c.9-.5 1.2-1.6.7-2.5-.5-.8-1.5-1.1-2.3-.7l-3.3 1.5"/></svg>',
+        shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3.2 19.2 6v5.6c0 4.4-3 7.6-7.2 9.2-4.2-1.6-7.2-4.8-7.2-9.2V6z"/><path d="M9 12.2l2.1 2.1 4-4.2"/></svg>'
+      };
+      bub = (k) => `<span class="apd-bub">${ICON3[k] || ""}</span>`;
+      ADV_ST = {
+        PENDING: ["apd-st-pending", "PENDING / \u0E23\u0E2D\u0E08\u0E48\u0E32\u0E22"],
+        PAID: ["apd-st-paid", "PAID / \u0E08\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27"],
+        SETTLED: ["apd-st-settled", "SETTLED / \u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C\u0E04\u0E23\u0E1A"]
+      };
     }
   });
 
   // assets/js/charges/charge-page.js
   var charge_page_exports = {};
   __export(charge_page_exports, {
-    render: () => render2
+    render: () => render3
   });
-  async function render2(cnt, { charge, group, mode, scope: scopeArg }) {
+  async function render3(cnt, { charge, group, mode, scope: scopeArg }) {
     const QUEUE_BY_MODE = {
       /* ── document (025) ── งานที่ยังค้างฝั่งเอกสาร = ยังไม่ถูกกด "ปิดงาน"
          เงื่อนไขที่ server: operational_status <> 'CLOSE'
@@ -4099,15 +4714,37 @@
     const cols = COL_COUNT(charge, mode || "document");
     const key = "charge-" + charge + "-" + group + "-" + (mode || "document");
     const ctx = { charge, group, queue, scope, mode: mode || "document", filters: st6.filters, refresh: () => load() };
+    const isPanel = mode === "document" || mode === "accounting";
+    const rowOpen = isPanel || mode === "advance" || mode === "closed";
     cnt.innerHTML = `
     ${toolbarHTML(charge, group, perms, mode || "document")}
     ${(mode || "document") === "document" ? "" : `<div id="ch-kpi" class="mt-2"><div class="kpi-row">${'<div class="kpi"><div class="skel"></div></div>'.repeat(KPI_COUNT(charge, mode || "document"))}</div></div>`}
+    ${isPanel ? '<div class="ch-panel">' : ""}
     <div id="ch-filter">${filterBarHTML(st6.filters, st6.options || {}, mode || "document", perms)}</div>
     <div class="tbl-wrap"><table class="tbl tbl-charge"><thead><tr>${headHTML(charge, mode || "document")}</tr></thead>
       <tbody id="ch-tbody"><tr><td colspan="${cols}" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
-    <div class="card mt-2" id="ch-pgn"></div>`;
+    <div class="card mt-2" id="ch-pgn"></div>
+    ${isPanel ? "</div>" : ""}`;
     cnt.dataset.chPage = key;
+    const COL_MODE = {
+      document: "DOCUMENT_" + charge,
+      accounting: "ACCOUNTING_" + charge,
+      advance: "FINANCE_ADVANCE",
+      closed: "FINANCE_CLOSE_JOB"
+    }[mode] || null;
+    function mountColBtn() {
+      if (!COL_MODE) return;
+      const table = cnt.querySelector("table.tbl-charge");
+      const host = cnt.querySelector(".fbar-acts") || cnt.querySelector(".ch-tools") || cnt.querySelector("#ch-fbar") || null;
+      initColumns({ table, modeKey: COL_MODE, host });
+    }
+    const relayout = () => mountColBtn();
+    if (rowOpen) {
+      const tb0 = cnt.querySelector("table.tbl-charge");
+      if (tb0) tb0.classList.add("rowclick");
+    }
+    mountColBtn();
     async function load() {
       const t = nextToken(key);
       try {
@@ -4148,6 +4785,8 @@
             load();
           }
         );
+        relayout();
+        mountColBtn();
       } catch (e) {
         if (isCurrent(key, t)) handleErr(e);
       }
@@ -4169,6 +4808,7 @@
         st6.page = 1;
         wrap.innerHTML = filterBarHTML(st6.filters, st6.options || {}, mode || "document", perms);
         bindFilterBar();
+        mountColBtn();
         load();
       };
     }
@@ -4185,6 +4825,45 @@
       st6.page = 1;
       load();
     });
+    function openRow(e) {
+      if (!rowOpen) return;
+      if (e.target.closest("button, a, input, select, textarea, label, [data-act], .row-menu")) return;
+      const tr = e.target.closest("tr[data-row]");
+      if (!tr || !tr.dataset.row) return;
+      const id = tr.dataset.row;
+      const inv = tr.dataset.inv || "";
+      if (mode === "closed") {
+        if (inv) {
+          try {
+            sessionStorage.setItem("nj-inv-from", location.hash);
+          } catch (_) {
+          }
+          location.hash = "#/invoice/" + inv;
+        } else {
+          location.hash = "#/job/" + id + "?from=closed";
+        }
+        return;
+      }
+      if (mode === "advance") {
+        if (!inv) return;
+        try {
+          sessionStorage.setItem("nj-inv-from", location.hash);
+        } catch (_) {
+        }
+        location.hash = "#/invoice/" + inv;
+        return;
+      }
+      if (mode === "document") {
+        if (!inv) {
+          Promise.resolve().then(() => (init_job_form(), job_form_exports)).then((m) => m.openNewJobModal({ charge, group, mode: "document", jobId: id, onSaved: () => load() })).catch(handleErr);
+        } else {
+          location.hash = "#/job/" + id + "?from=document";
+        }
+        return;
+      }
+      if (!inv && (!perms.invoice || tr.dataset.status === "CANCELED")) return;
+      Promise.resolve().then(() => (init_billing_modal(), billing_modal_exports)).then((m) => m.openBillingModal({ jobId: id, charge, onSaved: () => load() })).catch(handleErr);
+    }
     cnt.querySelector("#ch-tbody").addEventListener("click", (e) => {
       const dots = e.target.closest("[data-rowmenu]");
       if (dots) {
@@ -4195,7 +4874,10 @@
         return;
       }
       const b = e.target.closest("[data-act]");
-      if (!b) return;
+      if (!b) {
+        openRow(e);
+        return;
+      }
       cnt.querySelectorAll(".row-menu.open").forEach((x) => x.classList.remove("open"));
       const act = b.dataset.act, id = b.dataset.id;
       const ALLOW = {
@@ -4246,8 +4928,21 @@
       } else if (act === "edit") location.hash = "#/job/" + id + "/edit?mode=" + (mode || "document");
       else if (act === "bill") {
         Promise.resolve().then(() => (init_billing_modal(), billing_modal_exports)).then((m) => m.openBillingModal({ jobId: id, charge, onSaved: () => load() })).catch(handleErr);
-      } else if (act === "viewinv") location.hash = "#/invoice/" + b.dataset.inv;
-      else if (act === "note") editNote(id, b.textContent.trim() === "\uFF0B NOTE" ? "" : b.textContent.trim(), () => load());
+      } else if (act === "viewinv") {
+        if (mode === "accounting") {
+          if (!id) {
+            toast("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49", "err");
+            return;
+          }
+          Promise.resolve().then(() => (init_billing_modal(), billing_modal_exports)).then((m) => m.openBillingModal({ jobId: id, charge, onSaved: () => load() })).catch(handleErr);
+        } else {
+          try {
+            sessionStorage.setItem("nj-inv-from", location.hash);
+          } catch (_) {
+          }
+          location.hash = "#/invoice/" + b.dataset.inv;
+        }
+      } else if (act === "note") editNote(id, b.textContent.trim() === "\uFF0B NOTE" ? "" : b.textContent.trim(), () => load());
       else handleAction(act, id, () => load());
     });
     const tools = cnt.querySelector(".ch-tools");
@@ -4273,6 +4968,7 @@
       init_charge_kpi();
       init_charge_filter();
       init_charge_table();
+      init_table();
       init_charge_list();
       init_charge_actions();
       init_charge_toolbar();
@@ -4292,9 +4988,9 @@
   // assets/js/jobs/job-detail.js
   var job_detail_exports = {};
   __export(job_detail_exports, {
-    render: () => render3
+    render: () => render4
   });
-  async function render3(cnt, { id, from }) {
+  async function render4(cnt, { id, from }) {
     const j = await jobDetail(id);
     const f = (lb, v) => `<div class="fld"><label>${lb}</label><div>${v || "-"}</div></div>`;
     cnt.innerHTML = `
@@ -4342,7 +5038,13 @@
     const e1 = cnt.querySelector("#jd-edit");
     if (e1) e1.onclick = () => location.hash = "#/job/" + id + "/edit" + (src ? "?mode=" + src : "");
     const e3 = cnt.querySelector("#jd-viewinv");
-    if (e3) e3.onclick = () => location.hash = "#/invoice/" + j.invoice_id;
+    if (e3) e3.onclick = () => {
+      try {
+        sessionStorage.setItem("nj-inv-from", location.hash);
+      } catch (_) {
+      }
+      location.hash = "#/invoice/" + j.invoice_id;
+    };
   }
   var init_job_detail = __esm({
     "assets/js/jobs/job-detail.js"() {
@@ -4356,9 +5058,9 @@
   // assets/js/invoices/invoice-form.js
   var invoice_form_exports = {};
   __export(invoice_form_exports, {
-    render: () => render4
+    render: () => render5
   });
-  async function render4(cnt, { jobId }) {
+  async function render5(cnt, { jobId }) {
     let j = null;
     try {
       j = await jobDetail(jobId);
@@ -4395,86 +5097,6 @@
       init_job_api();
       init_formatter();
       init_error_handler();
-    }
-  });
-
-  // assets/js/invoices/invoice-view.js
-  var invoice_view_exports = {};
-  __export(invoice_view_exports, {
-    render: () => render5
-  });
-  async function render5(cnt, { id }) {
-    const inv = await invoiceView(id);
-    const isVoid = inv.status === "VOID";
-    const isPosted = inv.status === "POSTED";
-    const canPost = can("invoice", inv.charge_type, inv.company_group);
-    cnt.innerHTML = `
-    <div class="page-head"><div class="page-title"><span class="dot"></span>
-      <h2>INVOICE ${esc(inv.invoice_no)}</h2>
-      ${isVoid ? '<span class="bdg bdg-void">VOID</span>' : payBadge(inv.payment_status)}
-      ${isVoid ? "" : `<span class="bdg ${isPosted ? "bdg-paid" : "bdg-due-ok"}">${isPosted ? "POSTED" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48 POST"}</span>`}</div>
-      <div class="row">
-        ${!isVoid && canPost && !isPosted ? '<button class="btn btn-p" id="ivv-post">\u21E7 POST</button>' : ""}
-        ${!isVoid && canPost && isPosted ? '<button class="btn btn-o" id="ivv-unpost">\u21E9 UNPOST</button>' : ""}
-        <button class="btn btn-print" id="ivv-print">\u{1F5A8} ${isPosted ? "Print Invoice" : "Print Draft"}</button>
-        ${!isVoid && can("void", inv.charge_type, inv.company_group) && Number(inv.paid) === 0 ? '<button class="btn btn-danger-soft" id="ivv-void">\u{1F5D1} Void</button>' : ""}
-        <button class="btn btn-o" id="ivv-back">\u2190 \u0E01\u0E25\u0E31\u0E1A</button></div></div>
-    ${invoiceDocHTML(inv, { draft: false })}
-    ${isVoid ? `<div class="card card-pad mt-2 t-sm" style="color:var(--red-600)">VOID \u0E40\u0E21\u0E37\u0E48\u0E2D: ${dmy(inv.voided_at)} \xB7 \u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25: ${esc(inv.void_reason || "-")}</div>` : ""}
-    ${Number(inv.paid) > 0 ? `<div class="card card-pad mt-2 iv-paid-note"><div class="r-line"><span>\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27</span><span class="money-pos">${money(inv.paid)}</span></div><div class="r-line"><span>\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07</span><span class="money-neg">${money(inv.total_amount - inv.paid)}</span></div></div>` : ""}`;
-    cnt.querySelector("#ivv-back").onclick = () => location.hash = "#/charges/" + inv.charge_type + "/" + inv.company_group;
-    cnt.querySelector("#ivv-print").onclick = () => window.print();
-    const pb = cnt.querySelector("#ivv-post");
-    if (pb) pb.onclick = async () => {
-      const ok = await confirmModal(
-        "POST INVOICE " + inv.invoice_no,
-        "\u0E40\u0E21\u0E37\u0E48\u0E2D POST \u0E41\u0E25\u0E49\u0E27\u0E07\u0E32\u0E19\u0E08\u0E30\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 <b>" + (inv.charge_type === "ADVANCE" ? "FINANCE &gt; Advance (\u0E23\u0E2D\u0E08\u0E48\u0E32\u0E22/\u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C)" : "FINANCE &gt; Receipt (\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30)") + "</b><br>\u0E41\u0E25\u0E30\u0E2B\u0E25\u0E38\u0E14\u0E08\u0E32\u0E01\u0E04\u0E34\u0E27\u0E23\u0E2D\u0E2D\u0E2D\u0E01 Invoice",
-        "POST"
-      );
-      if (!ok) return;
-      try {
-        const res = await once("post-inv-" + id, () => postInvoice(id, newRequestId()));
-        toast("POST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E07\u0E32\u0E19\u0E40\u0E02\u0E49\u0E32\u0E04\u0E34\u0E27 " + (res && res.queue === "advance_active" ? "Advance" : "Receipt"), "ok");
-        render5(cnt, { id });
-      } catch (e) {
-        handleErr(e);
-      }
-    };
-    const ub = cnt.querySelector("#ivv-unpost");
-    if (ub) ub.onclick = async () => {
-      const reason = await reasonModal("UNPOST INVOICE " + inv.invoice_no + " (\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25)");
-      if (!reason) return;
-      try {
-        await once("unpost-inv-" + id, () => unpostInvoice(id, reason, newRequestId()));
-        toast("UNPOST \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E2A\u0E16\u0E32\u0E19\u0E30 ISSUED", "ok");
-        render5(cnt, { id });
-      } catch (e) {
-        handleErr(e);
-      }
-    };
-    const vb = cnt.querySelector("#ivv-void");
-    if (vb) vb.onclick = async () => {
-      const reason = await reasonModal("Void INVOICE " + inv.invoice_no + " (\u0E15\u0E49\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25)");
-      if (!reason) return;
-      try {
-        await once("void-inv-" + id, () => voidInvoice(id, reason, newRequestId()));
-        toast("Void INVOICE \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E07\u0E32\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INVOICE", "ok");
-        render5(cnt, { id });
-      } catch (e) {
-        handleErr(e);
-      }
-    };
-  }
-  var init_invoice_view = __esm({
-    "assets/js/invoices/invoice-view.js"() {
-      init_invoice_api();
-      init_formatter();
-      init_invoice_doc();
-      init_permissions();
-      init_modal();
-      init_toast();
-      init_error_handler();
-      init_request_manager();
     }
   });
 
@@ -4752,8 +5374,8 @@
         <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr>
         <th>INVOICE</th><th>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</th><th>Customer Job No.</th>
-        <th>Due Date</th><th class="r">\u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34</th><th class="r">\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07</th><th class="center">\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</th>
-      </tr></thead><tbody id="rp-tbody"><tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr></tbody>
+        <th>Due Date</th><th class="r">\u0E22\u0E2D\u0E14\u0E2A\u0E38\u0E17\u0E18\u0E34</th><th class="r">\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07</th>
+      </tr></thead><tbody id="rp-tbody"><tr><td colspan="8" class="load-row"><div class="spin"></div></td></tr></tbody>
       </table></div><div class="card mt-2" id="rp-pgn"></div>
     </div>
     <div id="rc-issued" ${tab === "issued" ? "" : "hidden"}>
@@ -4796,7 +5418,7 @@
         if (!isCurrent("receipts", t)) return;
         const tb = cnt.querySelector("#rc-tbody");
         const rows = res.rows || [];
-        tb.innerHTML = rows.length ? rows.map((r) => `<tr>
+        tb.innerHTML = rows.length ? rows.map((r) => `<tr data-rc='${JSON.stringify(r).replace(/'/g, "&#39;")}'>
         <td class="t-b">${esc(r.receipt_no)}</td><td>${dmy(r.receipt_date)}</td>
         <td class="ellip" style="max-width:200px">${esc(r.customer_name)}</td>
         <td>${esc(r.method || "-")}</td>
@@ -4816,6 +5438,7 @@
             load();
           }
         );
+        if (cnt.__njCols) cnt.__njCols.issued();
       } catch (e) {
         if (isCurrent("receipts", t)) handleErr(e);
       }
@@ -4825,6 +5448,29 @@
       st.page = 1;
       load();
     };
+    function mountColsPending() {
+      const tb = cnt.querySelector("#rp-tbody");
+      initColumns({
+        table: tb && tb.closest("table"),
+        modeKey: "FINANCE_RECEIPT_PENDING",
+        host: cnt.querySelector("#rc-pending .fbar")
+      });
+    }
+    function mountColsIssued() {
+      const tb = cnt.querySelector("#rc-tbody");
+      initColumns({
+        table: tb && tb.closest("table"),
+        modeKey: "FINANCE_RECEIPT_ISSUED",
+        host: cnt.querySelector("#rc-issued .fbar")
+      });
+    }
+    cnt.__njCols = { pending: mountColsPending, issued: mountColsIssued };
+    mountColsPending();
+    mountColsIssued();
+    enableRowOpen(cnt.querySelector("#rc-tbody"), (tr) => {
+      if (!tr.dataset.rc) return;
+      renderReceiptDoc(JSON.parse(tr.dataset.rc));
+    });
     cnt.querySelector("#rc-tbody").addEventListener("click", async (e) => {
       const pb = e.target.closest("[data-print]");
       if (pb) {
@@ -4860,7 +5506,7 @@
       });
       if (!isCurrent("rc-pending", t)) return;
       const rows = res && res.rows || [];
-      tb.innerHTML = rows.map((r) => `<tr>
+      tb.innerHTML = rows.map((r) => `<tr data-inv="${esc(r.invoice_id)}">
       <td class="t-b">${esc(r.invoice_no || "-")}</td>
       <td class="nowrap">${dmy(r.invoice_date)}</td>
       <td class="ellip" style="max-width:180px" title="${esc(r.customer_name || "")}">${esc(r.customer_name || "-")}</td>
@@ -4869,10 +5515,15 @@
       <td class="nowrap">${dmy(r.due_date)}</td>
       <td class="r">${money(Number(r.total_amount) - Number(r.wht_amount))}</td>
       <td class="r t-b">${money(r.outstanding)}</td>
-      <td class="center"><button class="btn btn-o btn-sm" data-inv="${esc(r.invoice_id)}">\u0E14\u0E39 INVOICE</button></td>
-    </tr>`).join("") || '<tr><td colspan="9" class="empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</td></tr>';
-      tb.querySelectorAll("[data-inv]").forEach((b) => {
-        b.onclick = () => location.hash = "#/invoice/" + b.dataset.inv;
+    </tr>`).join("") || '<tr><td colspan="8" class="empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</td></tr>';
+      enableRowOpen(tb, (tr) => {
+        const inv = tr.dataset.inv;
+        if (!inv) return;
+        try {
+          sessionStorage.setItem("nj-inv-from", location.hash);
+        } catch (_) {
+        }
+        location.hash = "#/invoice/" + inv;
       });
       renderPagination(cnt.querySelector("#rp-pgn"), {
         page: res.page,
@@ -4883,6 +5534,7 @@
           loadPending(cnt);
         }
       });
+      if (cnt.__njCols) cnt.__njCols.pending();
     } catch (e) {
       if (isCurrent("rc-pending", t)) handleErr(e);
     }
@@ -4891,6 +5543,7 @@
   var init_receipt_page = __esm({
     "assets/js/receipts/receipt-page.js"() {
       init_receipt_api();
+      init_table();
       init_charge_api();
       init_master_cache();
       init_formatter();
@@ -5278,6 +5931,23 @@
       load();
     };
     cnt.querySelector("#cn-tbody").addEventListener("click", (e) => onRowAction(e, cnt, load));
+    function mountCols() {
+      initColumns({
+        table: cnt.querySelector("#cn-tbody") && cnt.querySelector("#cn-tbody").closest("table"),
+        modeKey: "FINANCE_CREDIT_NOTE",
+        host: cnt.querySelector(".fbar")
+      });
+    }
+    mountCols();
+    enableRowOpen(cnt.querySelector("#cn-tbody"), async (tr) => {
+      const id = tr.dataset.cnid;
+      if (!id) return;
+      try {
+        openCreditNoteDoc(await cnView(id));
+      } catch (ex) {
+        toast(cnErrMessage(ex), "err");
+      }
+    });
     async function load() {
       const t = nextToken("cn-list");
       const tb = cnt.querySelector("#cn-tbody");
@@ -5297,7 +5967,7 @@
         tb.innerHTML = rows.length ? rows.map((r) => {
           const s = String(r.status || "").toUpperCase();
           const no = String(r.credit_note_no || "");
-          return `<tr>
+          return `<tr data-cnid="${esc(r.id)}">
         <td class="t-b">${/^CNDRAFT-/.test(no) ? '<span class="t-3">\u2014 \u0E23\u0E48\u0E32\u0E07 \u2014</span>' : esc(no)}</td>
         <td>${dmy(r.credit_note_date)}</td>
         <td class="ellip" style="max-width:200px">${esc(r.customer_name || "-")}</td>
@@ -5306,7 +5976,6 @@
         <td class="r t-b">${money(r.total_amount)}</td>
         <td>${stBadge(s)}</td>
         <td><div class="ch-act">
-          <button class="btn btn-o btn-sm" data-doc="${r.id}">\u0E14\u0E39 / \u0E1E\u0E34\u0E21\u0E1E\u0E4C</button>
           ${s === "DRAFT" && can("invoice") ? `<button class="btn btn-o btn-sm" data-edit="${r.invoice_id}" data-cn="${r.id}">\u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E48\u0E32\u0E07</button>
                <button class="btn btn-p btn-sm" data-post="${r.id}">POST</button>
                <button class="btn btn-danger btn-sm" data-del="${r.id}">\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07</button>` : ""}
@@ -5322,6 +5991,7 @@
             load();
           }
         );
+        mountCols();
       } catch (e) {
         if (!isCurrent("cn-list", t)) return;
         if (isBackendMissing(e)) {
@@ -5353,7 +6023,7 @@
     if (pb) {
       if (!await confirmModal(
         "POST \u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49",
-        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E08\u0E23\u0E34\u0E07 (CD{\u0E1B\u0E35\u0E40\u0E14\u0E37\u0E2D\u0E19}-#####) \u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
+        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E08\u0E23\u0E34\u0E07 (CN{\u0E1B\u0E35\u0E40\u0E14\u0E37\u0E2D\u0E19}-#####) \u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
         "POST"
       )) return;
       try {
@@ -5565,8 +6235,10 @@
           </datalist>
           <p class="t-xs t-3">\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E19\u0E35\u0E49\u0E08\u0E30\u0E16\u0E39\u0E01\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E25\u0E07\u0E1A\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E40\u0E15\u0E34\u0E21\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E43\u0E2B\u0E49\u0E40\u0E2D\u0E07</p>
         </div>
-        <div class="cnp-kv"><label>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49</label>
-          <span class="t-3">\u0E2D\u0E2D\u0E01\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E15\u0E2D\u0E19 POST</span></div>
+        <div class="cnp-kv"><label>CREDIT NOTE</label>
+          <span class="t-b" id="cn-no-out">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02</span></div>
+        <div class="cnp-kv"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</label>
+          <span id="cn-date-out">${esc(dmy(ed.date) || "-")}</span></div>
       </div>
     </div>
 
@@ -5603,6 +6275,8 @@
     cnt.querySelector("#cn-back").onclick = () => renderList(cnt);
     cnt.querySelector("#cn-date").onchange = (e) => {
       ed.date = e.target.value;
+      const dt = cnt.querySelector("#cn-date-out");
+      if (dt) dt.textContent = ed.date ? dmy(ed.date) : "-";
     };
     cnt.querySelector("#cn-reason").oninput = (e) => {
       ed.reason = e.target.value;
@@ -5643,13 +6317,18 @@
       if (!ed.cnId) return;
       if (!await confirmModal(
         "POST \u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49",
-        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E08\u0E23\u0E34\u0E07 (CD{\u0E1B\u0E35\u0E40\u0E14\u0E37\u0E2D\u0E19}-#####) \u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
+        "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E08\u0E23\u0E34\u0E07 (CN{\u0E1B\u0E35\u0E40\u0E14\u0E37\u0E2D\u0E19}-#####) \u0E41\u0E25\u0E30\u0E25\u0E47\u0E2D\u0E01\u0E22\u0E2D\u0E14\u0E44\u0E27\u0E49<br>INVOICE \u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E14 \u0E46",
         "POST"
       )) return;
       try {
         const r = await once("cn-post-" + ed.cnId, () => cnPost(ed.cnId, newRequestId()));
+        const noEl = cnt.querySelector("#cn-no-out");
+        if (noEl && r && r.credit_note_no) noEl.textContent = r.credit_note_no;
+        const dtEl = cnt.querySelector("#cn-date-out");
+        const cnd = r && r.credit_note_date || (cnt.querySelector("#cn-date") || {}).value || "";
+        if (dtEl && cnd) dtEl.textContent = dmy(cnd);
         if (r) toast("POST \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E25\u0E14\u0E2B\u0E19\u0E35\u0E49 " + (r.credit_note_no || ""), "ok");
-        renderList(cnt);
+        setTimeout(() => renderList(cnt), 1200);
       } catch (ex) {
         toast(cnErrMessage(ex), "err");
       }
@@ -5751,6 +6430,7 @@
   var init_credit_note = __esm({
     "assets/js/finance/credit-note.js"() {
       init_credit_note_api();
+      init_table();
       init_credit_note_doc();
       init_master_cache();
       init_formatter();
@@ -5828,6 +6508,16 @@
     cnt.innerHTML = `
     <div class="page-head"><div class="page-title"><span class="dot"></span><h2>\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19</h2></div>
       <button class="btn btn-o" id="pm-back">\u2190 \u0E01\u0E25\u0E31\u0E1A</button></div>
+    <!-- \u0E40\u0E25\u0E02\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 + \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (Header Info \xB7 \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48 Card \u0E43\u0E2B\u0E21\u0E48)
+         \u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01 Backend \u0E15\u0E2D\u0E19 POST \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 (njacc_receive_payment ->
+         njacc_next_month_doc_no('RECEIPT_MONTH','RCP', p_date)) \u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A RCP{YYYYMM}-#####
+         *** \u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 Frontend *** \u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E41\u0E2A\u0E14\u0E07 "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02" -->
+    <div class="jm-auto">
+      <span class="jm-auto-lb">RECEIPT:</span>
+      <input class="inp" id="pm-rcno" value="\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02" readonly disabled>
+      <span class="jm-auto-lb">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</span>
+      <input class="inp jm-auto-date" id="pm-rcdate" value="-" readonly disabled>
+    </div>
     <div class="card card-pad mb-2"><div class="fgrid">
       <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 <span class="req">*</span></label>
         <select class="sel" id="pm-cust">${customerOpts("")}</select></div>
@@ -5964,8 +6654,15 @@
           p_note: cnt.querySelector("#pm-note").value.trim() || null,
           p_issue_receipt: true
         }));
-        toast("\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 " + (res.receipt_no || "-"), "ok");
-        location.hash = "#/receipts";
+        const noEl = cnt.querySelector("#pm-rcno");
+        if (noEl && res && res.receipt_no) noEl.value = res.receipt_no;
+        const dtEl = cnt.querySelector("#pm-rcdate");
+        const rcd = res && res.receipt_date || cnt.querySelector("#pm-date").value || "";
+        if (dtEl) dtEl.value = rcd ? dmy(rcd) : "-";
+        toast("\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 " + (res && res.receipt_no || "-"), "ok");
+        setTimeout(() => {
+          location.hash = "#/receipts";
+        }, 1200);
       } catch (ex) {
         handleErr(ex);
         btnBusy(e.target, false);
@@ -6062,6 +6759,15 @@
     </tr></thead><tbody id="rep-tbody"><tr><td colspan="13" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div><div class="card mt-2" id="rep-pgn"></div>
     ${can("export") ? '<p class="t-xs t-3 mt-1">* Export Excel \u0E08\u0E30\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E19 Release \u0E16\u0E31\u0E14\u0E44\u0E1B (\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 lazy-loader \u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27)</p>' : ""}`;
+    function mountCols() {
+      const tb = cnt.querySelector("#rep-tbody");
+      initColumns({
+        table: tb && tb.closest("table"),
+        modeKey: "REPORT_MAIN",
+        host: cnt.querySelector(".fbar")
+      });
+    }
+    mountCols();
     async function load() {
       const t = nextToken("report");
       try {
@@ -6089,6 +6795,7 @@
             load();
           }
         );
+        mountCols();
       } catch (e) {
         if (isCurrent("report", t)) handleErr(e);
       }
@@ -6104,6 +6811,7 @@
   var init_report_page = __esm({
     "assets/js/reports/report-page.js"() {
       init_report_api();
+      init_table();
       init_report_views();
       init_master_cache();
       init_pagination();
@@ -6463,6 +7171,23 @@
       load();
     };
     cnt.querySelector("#wh-tbody").addEventListener("click", (e) => onRowAction2(e, cnt, load));
+    function mountCols() {
+      initColumns({
+        table: cnt.querySelector("#wh-tbody") && cnt.querySelector("#wh-tbody").closest("table"),
+        modeKey: "REPORT_WHT",
+        host: cnt.querySelector(".fbar")
+      });
+    }
+    mountCols();
+    enableRowOpen(cnt.querySelector("#wh-tbody"), async (tr) => {
+      const id = tr.dataset.whtid;
+      if (!id) return;
+      try {
+        openWhtDoc(await whtView(id));
+      } catch (ex) {
+        isWhtBackendMissing(ex) ? backendPanel2(cnt) : toast(whtErrMessage(ex), "err");
+      }
+    });
     async function load() {
       const t = nextToken("wht");
       const tb = cnt.querySelector("#wh-tbody");
@@ -6486,7 +7211,7 @@
           const no = String(r.document_no || "");
           const isDraft = s === "DRAFT" || /^WHTDRAFT-/.test(no);
           const cert = String(r.certificate_no || "").trim();
-          return `<tr>
+          return `<tr data-whtid="${esc(r.id)}">
         <td class="t-b">${cert ? esc(cert) : isDraft ? '<span class="t-3">\u2014 \u0E23\u0E48\u0E32\u0E07 \u2014</span>' : '<span class="t-3">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E25\u0E02</span>'}
           ${!isDraft && no ? `<div class="t-xs t-3">\u0E20\u0E32\u0E22\u0E43\u0E19: ${esc(no)}</div>` : ""}</td>
         <td>${dmy(r.document_date)}</td>
@@ -6497,7 +7222,6 @@
         <td class="r t-b">${money(r.amount)}</td>
         <td>${stBadge2(s)}</td>
         <td><div class="ch-act">
-          <button class="btn btn-o btn-sm" data-doc="${r.id}">\u0E14\u0E39 / \u0E1E\u0E34\u0E21\u0E1E\u0E4C</button>
           ${isDraft && (isAdmin() || can("issue_receipt")) ? `<button class="btn btn-o btn-sm" data-edit="${r.id}">\u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E48\u0E32\u0E07</button>
                <button class="btn btn-p btn-sm" data-post="${r.id}">\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23</button>
                <button class="btn btn-danger btn-sm" data-del="${r.id}">\u0E25\u0E1A\u0E23\u0E48\u0E32\u0E07</button>` : ""}
@@ -6513,6 +7237,7 @@
             load();
           }
         );
+        mountCols();
       } catch (e) {
         if (!isCurrent("wht", t)) return;
         if (isWhtBackendMissing(e)) {
@@ -7010,6 +7735,7 @@
     "assets/js/withholding/withholding-page.js"() {
       init_withholding_api();
       init_wht_doc();
+      init_table();
       init_master_cache();
       init_formatter();
       init_company_doc();
