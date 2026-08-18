@@ -18,6 +18,12 @@
 <meta name="apple-mobile-web-app-title" content="SHIPPING AIR">
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- ลด browser cache — หมายเหตุ: meta เหล่านี้ "ไม่" บังคับ GitHub Pages ได้
+     เว็บจริงส่ง header cache-control: max-age=600 กลับมา
+     การบังคับเวอร์ชันจริงจึงอาศัย Version Guard + URL ที่มี ?v= ร่วมกัน -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>SHIPPING AIR — N.J. Logistics</title>
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
@@ -574,6 +580,15 @@ body:has(.modal-back.show){overflow:hidden}
 .bar-line .bl-val{font-size:14px;font-weight:800;text-align:right}
 @media (max-width:560px){ .bar-line{grid-template-columns:96px 1fr 40px;gap:8px} .bar-line .bl-lbl{font-size:11.5px} }
 
+/* #P0-1 fail-closed — ปิดปุ่มที่ทำให้เกิดการเขียนข้อมูล ระหว่าง CHECKING/BLOCKED */
+body.sa-mut-blocked .doc-sp-act,
+body.sa-mut-blocked #f-save,
+body.sa-mut-blocked .row-act.act-done,
+body.sa-mut-blocked .row-act.act-recv{
+  opacity:.45; pointer-events:none; cursor:not-allowed;
+}
+body.sa-mut-blocked #view-root{ padding-top:38px }
+
 /* ============ TOAST ============ */
 .toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:100070;max-width:340px;pointer-events:none}
 .toast-wrap>*{pointer-events:auto}
@@ -849,6 +864,9 @@ const SUPABASE_URL = 'https://sytgqjglcnsabcszbngg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp';
 const LOGIN_APP_CODE = 'massenger';      // login ใช้บัญชีเดิมของ MASSERGER
 const WORK_APP_CODE  = 'shipping_air';   // งานเก็บในตารางของ SHIPPING AIR เอง
+const APP_VERSION = "2026.08.18.2";                       // ⚠️ ต้องตรงกับ version.json ทุกครั้งที่ deploy
+const VERSION_URL  = './version.json';
+const VERSION_POLL_MS = 60000;                             // ตรวจทุก 60 วินาที
 const SESSION_KEY = 'shipping_air_session';
 const DOC_TABLE = 'sa_documents';
 const LOG_TABLE = 'sa_document_logs';
@@ -1198,9 +1216,55 @@ async function _ensureCount(view){
     if(!error && typeof count==='number'){ S.counts[view]=count; _vc(view).count=count; }
   }catch(e){ console.warn('[count '+view+']', e); }
 }
-function _ensureCounts(){ const ps=DOC_MODES.filter(canView).map(v=>_ensureCount(v)); Promise.all(ps).then(()=>{ renderSidebar(); renderMobileTabbar(); }); }   // ทุกโหมด (badge sidebar) → re-render เมื่อ count มาครบ
+function _ensureCounts(){ return _ensureCountsAll(); }
+
+/* ============================================================
+   #D Count — เดิมยิง count query สูงสุด 8 คำขอทุกครั้ง แล้ว render sidebar/tabbar
+       ซ้ำ 2 รอบ (ทั้งใน _recountSoon และใน .then ของ _ensureCounts)
+   ใหม่: RPC sa_view_counts() คำขอเดียวได้ครบทุกโหมด · in-flight lock ·
+         render เฉพาะเมื่อ "ค่าที่มองเห็นได้" เปลี่ยนจริง
+   ============================================================ */
+let _countsInflight=null, _countsRpcMissing=false;
+function _countsSig(){ return DOC_MODES.filter(canView).map(v=>v+':'+(S.counts[v]==null?'-':S.counts[v])).join('|'); }
+function _renderCountsIfChanged(sigBefore){
+  if(_countsSig()===sigBefore) return false;          // badge ไม่เปลี่ยน → ไม่ต้องวาดใหม่
+  renderSidebar(); renderMobileTabbar(); return true;
+}
+async function _ensureCountsAll(){
+  if(_countsInflight) return _countsInflight;         // #D กันยิงซ้อน
+  const sig=_countsSig();
+  _countsInflight=(async()=>{
+    if(!_countsRpcMissing){
+      try{
+        const { data, error }=await sb.rpc('sa_view_counts');
+        if(!error && data && typeof data==='object'){
+          DOC_MODES.forEach(v=>{ if(typeof data[v]==='number'){ S.counts[v]=data[v]; _vc(v).count=data[v]; } });
+          if(data.server_now) S._serverNow=data.server_now;   // เวลาอ้างอิงจากฐานข้อมูล
+          return;
+        }
+        if(error) _countsRpcMissing=true;             // ยังไม่ได้รัน RUN-01_002 → fallback ถาวรในรอบนี้
+      }catch(e){ _countsRpcMissing=true; console.warn('[sa_view_counts]', e); }
+    }
+    await Promise.all(DOC_MODES.filter(canView).map(v=>_ensureCount(v)));   // fallback เดิม
+  })();
+  try{ await _countsInflight; } finally { _countsInflight=null; }
+  _renderCountsIfChanged(sig);
+}
+/* #D นับใหม่เฉพาะโหมดต้นทาง/ปลายทางที่ได้รับผลจริง (ใช้หลังจบงาน/ย้ายสถานะ) */
+async function _saRecountModes(statuses){
+  const modes=new Set();
+  (statuses||[]).filter(Boolean).forEach(st=>{
+    DOC_MODES.forEach(m=>{ const v=VIEWS[m]; if(!v) return; try{ if(v.test({doc_status:st, completed_at:new Date().toISOString(), shipping_date:null})) modes.add(m); }catch(_){} });
+  });
+  modes.add('all');
+  const list=[...modes].filter(canView);
+  if(!list.length) return;
+  const sig=_countsSig();
+  await Promise.all(list.map(v=>_ensureCount(v)));
+  _renderCountsIfChanged(sig);
+}
 let _recountTimer=null;
-function _recountSoon(){ clearTimeout(_recountTimer); _recountTimer=setTimeout(()=>{ _ensureCounts(); renderSidebar(); renderMobileTabbar(); }, 1200); }   // #9 ตรวจ count ใหม่หลัง realtime burst
+function _recountSoon(){ clearTimeout(_recountTimer); _recountTimer=setTimeout(()=>{ _ensureCountsAll(); }, 1200); }   // #D coalesce realtime burst · ไม่ render ซ้ำสองรอบแล้ว
 // ตรวจว่าเอกสารมองเห็นได้ตามสิทธิ์ (mirror _visibleDocs) — ใช้ตอน route realtime เข้า cache
 function _docVisibleToUser(row){
   if(!isOwnOnly()) return true;
@@ -1218,25 +1282,86 @@ function _cacheUpsert(mode, row){
 }
 function _cacheRemove(mode, id){ const c=_vc(mode); const i=c.docs.findIndex(d=>d.id===id); if(i>=0) c.docs.splice(i,1); }
 
+/* ============================================================
+   #A Per-document mutation lock — งานหนึ่งใบทำ transition ได้ครั้งเดียวในเครื่องนี้
+       กันกดจบงานรัว ๆ สองครั้ง และกัน realtime ของตัวเองเอาข้อมูลเก่าทับ
+   ============================================================ */
+const _saMutating = new Set();
+function _saLockDoc(id){ if(_saMutating.has(id)) return false; _saMutating.add(id); return true; }
+function _saUnlockDoc(id){ _saMutating.delete(id); }
+
+/* #A แถวไหนใหม่กว่า — ตัดสินด้วย updated_at จากฐานข้อมูล (ไม่ใช่เวลาเครื่อง) */
+function _saRowIsNewer(incoming, current){
+  if(!current) return true;
+  const a=String(incoming&&incoming.updated_at||''), b=String(current&&current.updated_at||'');
+  if(!a) return false; if(!b) return true;
+  return a >= b;
+}
+
+/* ============================================================
+   #B Route แถวจริงจาก DB เข้า cache ทุกโหมดด้วยกติกาเดียวกับ realtime
+       แล้ว "DOM diff เฉพาะแถวที่เปลี่ยน" — ไม่เรียก loadDocuments/routeRender/
+       renderDocView/_renderDocBody ถ้าไม่จำเป็น
+       คืน true เมื่อจัดการ DOM ครบแล้ว · false = ผู้เรียกต้อง fallback
+   ============================================================ */
+function _saApplyDocRow(row){
+  if(!row || !row.id) return false;
+  const id=row.id;
+  const cur=(S.docs||[]).find(x=>x.id===id) || null;
+  if(cur && !_saRowIsNewer(row, cur)) return true;                  // ข้อมูลเก่ากว่าที่มีอยู่ → ทิ้ง (กัน race)
+  const onPageBefore = !!_rowEl(id);
+  DOC_MODES.forEach(m=>{ if(_docInMode(row,m)) _cacheUpsert(m,row); else _cacheRemove(m,id); });
+  if(S.view && _vc(S.view)) S.docs=_vc(S.view).docs;                // sync ref โหมดปัจจุบัน
+  _invalidateDocsCache();
+  renderSidebar();
+  try{
+    const onPageAfter=_currentPageIds().has(id);
+    if(onPageBefore && !onPageAfter){ _removeDocumentRow(id); return true; }   // ออกจากหน้านี้ → ลบเฉพาะแถวนั้น
+    if(onPageAfter && onPageBefore) return _patchDocumentRow(id) ? (_updateCurrentViewCounters(), true) : false;
+    if(onPageAfter && !onPageBefore) return false;                             // แถวต้องเข้ามาใหม่ → ให้ผู้เรียก rebuild body
+    _updateCurrentViewCounters(); return true;                                 // ไม่อยู่หน้านี้ทั้งก่อนและหลัง → แตะแค่ตัวเลข
+  }catch(_){ return false; }
+}
+
 // คืนค่าเอกสารที่เลื่อน (POSTPONED) ข้ามวันกลับเป็น NEW อัตโนมัติหลังเที่ยงคืน · query POSTPONED โดยตรง (ไม่พึ่ง S.docs โหมดปัจจุบัน)
 async function resetExpiredPostponedDocuments(){
   try{
+    // #E ทางหลัก: RPC set-based ครั้งเดียว (UPDATE ทุกงาน + INSERT log ครบ ใน transaction เดียว)
+    //    · advisory lock ฝั่ง DB กันหลายเครื่อง reset ซ้ำ
+    //    · ไม่ส่ง delivery_status — ยืนยันจาก information_schema แล้วว่าไม่มีคอลัมน์นี้จริง
+    try{
+      if(!SA_CAPS.reset) throw new Error('RESET_RPC_NOT_READY');   // #P0-1 ตรวจ capability ของ reset เอง ไม่ใช่ของ complete
+      const { data:r, error:rpcErr } = await sb.rpc('sa_reset_expired_postponed');
+      if(!rpcErr && r && r.ok){
+        if(!r.moved) return false;                     // ไม่มีงานถึงกำหนด → ไม่แตะ cache/หน้าจอเลย
+        await Promise.all([ loadView('POSTPONED',{force:true}), loadView('NEW',{force:true}) ]);
+        await _saRecountModes(['POSTPONED','NEW']);    // #D นับใหม่แค่ 2 โหมดที่เปลี่ยน (ไม่ใช่ทั้ง 8)
+        return true;
+      }
+      if(rpcErr) console.warn('[sa_reset_expired_postponed] fallback:', rpcErr.message||rpcErr);
+    }catch(_r){ console.warn('[sa_reset_expired_postponed]', _r); }
+
+    // FALLBACK (ใช้เมื่อยังไม่ได้รัน RUN-01_004) — เหมือนเดิมทุกอย่าง ยกเว้นตัด delivery_status ออก
     const today = todayYMD();
     let { data:_pd } = await sb.from(DOC_TABLE).select('id,doc_status,postponed_at').eq('app_code',WORK_APP_CODE).eq('doc_status','POSTPONED').limit(VIEW_LIMIT);
     const expired = (_pd||[]).filter(d => d.postponed_at && ymd(d.postponed_at) < today);
     if(!expired.length) return false;
     for(const d of expired){
-      const patch = { doc_status:'NEW', received_at:null, assigned_user:null, assigned_name:null, delivery_status:'READY_FOR_SHIPPING' };
-      let { error } = await sb.from(DOC_TABLE).update(patch).eq('id', d.id).eq('app_code', WORK_APP_CODE);
-      if(error && /delivery_status/i.test(error.message||'')){   // คอลัมน์ไม่มีในสคีมา → คืนค่าโดยไม่แตะ delivery_status
-        const p={...patch}; delete p.delivery_status;
-        ({ error } = await sb.from(DOC_TABLE).update(p).eq('id', d.id).eq('app_code', WORK_APP_CODE));
-      }
+      const patch = { doc_status:'NEW', received_at:null, assigned_user:null, assigned_name:null, postponed_at:null };
+      // 🛑 ROOT CAUSE ของ "งานเด้งกลับ": UPDATE เดิมไม่มี guard สถานะ
+      //    ระหว่าง SELECT (บรรทัดบน) กับ UPDATE นี้ งานอาจถูกอีกเครื่องปิดไปเป็น COMPLETED แล้ว
+      //    แต่ UPDATE จะเขียนทับเป็น NEW อยู่ดี → งานที่จบแล้วเด้งกลับ "รอรับงาน"
+      //    หลักฐานจริง: 20260803-00020 ถูก doc_completed 4 ครั้ง แล้วถูก postponed_reset ทับทุกครั้ง
+      //    แก้: บังคับ .eq('doc_status','POSTPONED') = compare-and-set → ถ้าสถานะเปลี่ยนไปแล้ว จะไม่แตะเลย
+      const { data:_upd, error } = await sb.from(DOC_TABLE)
+        .update(patch)
+        .eq('id', d.id).eq('app_code', WORK_APP_CODE)
+        .eq('doc_status','POSTPONED')
+        .select('id');
+      if(!error && (!_upd || !_upd.length)){ console.warn('[postponed_reset] ข้ามงาน', d.id, '— สถานะเปลี่ยนไปแล้ว'); continue; }
       if(!error){
-        // #4 patch local S.docs ทันที (mirror ค่าที่เขียน DB) — แทนการ refetch 1000 แถว
-        //     ใช้เฉพาะฟิลด์ที่อยู่ใน DOC_COLS (delivery_status ไม่ได้ถูก select จึงไม่ตั้งใน local)
         const _li=(S.docs||[]).findIndex(x=>x.id===d.id);
-        if(_li>=0){ S.docs[_li]={ ...S.docs[_li], doc_status:'NEW', received_at:null, assigned_user:null, assigned_name:null }; }
+        if(_li>=0){ S.docs[_li]={ ...S.docs[_li], ...patch }; }
         // 🔄 Timeline อัตโนมัติ · บันทึกเป็น SYSTEM (ไม่ใช่ user ปัจจุบัน) · created_at = วันที่/เวลา
         try{
           await sb.from(LOG_TABLE).insert({
@@ -1250,7 +1375,7 @@ async function resetExpiredPostponedDocuments(){
       else { console.warn('[postponed_reset]', error); }
     }
     // per-mode: POSTPONED/NEW cache + count เปลี่ยน → โหลดใหม่เฉพาะ 2 โหมดนี้ (ไม่โหลดรวม)
-    try{ await loadView('POSTPONED',{force:true}); await loadView('NEW',{force:true}); _ensureCount('POSTPONED'); _ensureCount('NEW'); }catch(_){}
+    try{ await loadView('POSTPONED',{force:true}); await loadView('NEW',{force:true}); await _saRecountModes(['POSTPONED','NEW']); }catch(_){}
     return true;
   }catch(e){ console.warn('[resetExpiredPostponed]', e); return false; }
 }
@@ -1517,9 +1642,10 @@ async function enterApp(){
   S.docs = _vc(S.view).docs;
   renderSidebar();
   renderMobileTabbar();
-  refreshIcons();
+  refreshIcons($('screen-app') || undefined);     // #H scope เฉพาะ shell ที่เพิ่งวาด (ไม่สแกนทั้ง document)
   S._lastSyncAt = new Date().toISOString();   // #3 มาร์คเวลาก่อน subscribe → delta sync ครอบคลุมช่วงโหลดหน้าแรก
   subscribeRealtime();                         // subscribe ก่อน initial load (event ที่เปลี่ยนระหว่างโหลดไม่ตกหล่น)
+  _saPreflight();                              // #P0-1 ตรวจความพร้อม RPC (background · ไม่ block การเปิดแอป)
   const _t0=performance.now();
   if(DOC_MODES.includes(S.view)) await loadView(S.view,{force:true});   // #1 โหลดเฉพาะโหมดปัจจุบัน (≤200) · ไม่โหลดรวมทุกสถานะ
   _perfMark('initialLoad', _t0);
@@ -1528,8 +1654,7 @@ async function enterApp(){
   _scheduleMidnightReset();   // ⏰ เข้าสู่วันใหม่ 00:00 → เช็ค POSTPONED ข้ามวันอัตโนมัติ (แม้แอปเปิดค้าง)
   S._lastSyncAt = new Date().toISOString();
   S.docs = _vc(S.view).docs; _invalidateDocsCache();
-  renderSidebar(); renderMobileTabbar();
-  routeRender();
+  routeRender();                                  // #H sidebar/tabbar วาดไปแล้วด้านบน · _ensureCounts จะวาดซ้ำเฉพาะตอน badge เปลี่ยนจริง
 }
 function viewCount(key){
   if(S.counts[key]!=null) return S.counts[key];                  // #9 จำนวนจริงจาก count query
@@ -1607,16 +1732,24 @@ function _renderShipTabbar(bar){
 function toggleSidebar(){ $('sidebar').classList.toggle('open'); $('sb-overlay').classList.toggle('show'); }
 function closeSidebar(){ $('sidebar').classList.remove('open'); $('sb-overlay').classList.remove('show'); }
 
+const VIEW_TTL_MS = 30000;   // #F cache สดภายใน 30 วิ → กดสลับเมนูไป-กลับไม่ยิง query ซ้ำ
 function setView(v){
   if(!canView(v)){ const fb=_firstAllowedView(); if(!fb){ v='__noaccess'; } else { v=fb; } }
+  const sameView = (S.view===v);                                       // #F กด view เดิมซ้ำ
   S.view = v; S.page = 1; S.filters = { search:'', terminal:'', category:'', priority:'', customer:'', cs:'', dateFrom:'', dateTo:'' };
   if(DOC_MODES.includes(v)){ S.docs = _vc(v).docs; } _invalidateDocsCache();   // #4 ชี้ cache โหมดใหม่
   closeSidebar();
   renderSidebar(); renderMobileTabbar();
   routeRender();                 // #5 แสดง cache ทันที (ถ้าเคยโหลด) · ไม่ล็อกทั้งหน้า
   window.scrollTo(0,0);
-  if(DOC_MODES.includes(v)){     // #5 sync เบื้องหลัง แล้ว patch เฉพาะส่วน
-    loadView(v,{force:true}).then(()=>{ if(S.view===v){ S.docs=_vc(v).docs; _invalidateDocsCache(); renderSidebar(); const r=$('view-root'); if(r && r.querySelector('tbody')) _renderDocBody(); else routeRender(); } });
+  if(DOC_MODES.includes(v)){
+    const c=_vc(v);
+    const fresh = c.loaded && (Date.now()-(c.lastLoadedAt||0) < VIEW_TTL_MS);
+    if(sameView && fresh) return;                                      // #F view เดิม + cache สด → ไม่ query เลย
+    if(fresh) return;                                                  // #F cache ยังสด → แสดงจาก cache อย่างเดียว
+    // #F cache เก่า/ยังไม่เคยโหลด → refresh เบื้องหลัง แล้ว patch เฉพาะส่วน
+    //     ไม่ใช้ force:true เพื่อให้ _viewLoadPromises ทำ in-flight dedup ได้จริง
+    loadView(v).then(()=>{ if(S.view===v){ S.docs=_vc(v).docs; _invalidateDocsCache(); renderSidebar(); const r=$('view-root'); if(r && r.querySelector('tbody')) _renderDocBody(); else routeRender(); } });
     _ensureCount(v);
   }
 }
@@ -2110,7 +2243,7 @@ function docClearDates(){
   const r=$('view-root'); if(r){ r.querySelectorAll('.sa-fl-d').forEach(x=>{ x.value=''; }); }  // เคลียร์ค่าใน input โดยไม่ rebuild filter row
   _renderDocBody();
 }
-async function docRefresh(){ const v=S.view; _shipNamesCache=null; _shipSetsCache=null; if(DOC_MODES.includes(v)){ await loadView(v,{force:true}); _ensureCount(v); } renderSidebar(); renderDocView(); try{ _loadStatusForRows(computeRows().rows||[], {force:true}); }catch(_){}   /* force refresh สถานะโดยไม่ล้าง cache ก่อน (ค่าเดิมค้างบนจอ ไม่กระพริบ) */ toast('อัปเดตเฉพาะโหมดนี้แล้ว','success'); }   // #13 โหลดใหม่เฉพาะโหมดปัจจุบัน ≤200 · ไม่ล้าง cache โหมดอื่น
+async function docRefresh(){ const v=S.view; _shipNamesCache=null; _shipSetsCache=null; if(DOC_MODES.includes(v)){ await loadView(v,{force:true}); _ensureCount(v); } renderSidebar(); routeRender(); try{ if(S.view!=='graph' && S.view!=='users') _loadStatusForRows(computeRows().rows||[], {force:true}); }catch(_){}   /* #H เดิมเรียก renderDocView() เสมอ → กด Refresh บนหน้ากราฟแล้วกลายเป็นตารางเอกสาร */   /* force refresh สถานะโดยไม่ล้าง cache ก่อน (ค่าเดิมค้างบนจอ ไม่กระพริบ) */ toast('อัปเดตเฉพาะโหมดนี้แล้ว','success'); }   // #13 โหลดใหม่เฉพาะโหมดปัจจุบัน ≤200 · ไม่ล้าง cache โหมดอื่น
 /* ✚ Searchable dropdown (Combobox) สำหรับ Filter Customer / CS — เรียก docSetCustomer/docSetCS เดิม 100% · filter ในเบราว์เซอร์ (ไม่ query Supabase) · ไม่แตะ filter logic */
 const _FLDD = { open:null, kind:null, trigger:null, data:[], filtered:[], hi:-1, q:'', timer:null, w:0, openAt:0 };
 function _flddList(kind){ return kind==='customer' ? _customerList() : _csList(); }
@@ -2500,7 +2633,10 @@ async function docEditSubmit(id){
     await logDoc(id, termChanged?'reassign':'edited', d.doc_status, note);
     document.getElementById('sa-docedit')?.remove();
     toast(termChanged?'เปลี่ยนท่านำเข้าแล้ว':'บันทึกการแก้ไขแล้ว','success');
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; _invalidateDocsCache(); renderSidebar(); routeRender(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   // #1 patch local + ล้าง cache — ไม่ refetch 1000 (realtime reconcile)
+    // #H patch เฉพาะแถวที่เปลี่ยน (route เข้า cache ทุกโหมด) · fallback เป็นพฤติกรรมเดิมเมื่อ patch ไม่ได้
+    const _i=S.docs.findIndex(x=>x.id===id);
+    if(_i>=0){ const _row={ ...S.docs[_i], ...update }; if(!_saApplyDocRow(_row)){ _invalidateDocsCache(); renderSidebar(); routeRender(); } }
+    else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }
   }catch(e){ console.error(e); toast('ผิดพลาด: '+(e.message||''),'error'); if(btn){ btn.disabled=false; btn.innerHTML='บันทึกการแก้ไข'; } }
 }
 function openModal(id){ $(id).classList.add('show'); refreshIcons(); }
@@ -2793,27 +2929,19 @@ async function saveForm(editId){
       toast('บันทึกการแก้ไขแล้ว','success');
     }else{
       payload.app_code = WORK_APP_CODE;
-      // 🔒 กันเลขรัน doc_no ซ้ำ: gen ใหม่ตอนบันทึก + ตรวจชนกับ sa_documents ก่อน insert (วนสูงสุด 5 ครั้ง)
-      let _docNo = await nextDocNo();
-      const _ymd = String(_docNo).split('-')[0];
-      let _seq = parseInt(String(_docNo).split('-').pop(),10) || 1;
-      let _free = false;
-      for(let _i=0; _i<5; _i++){
-        const _cand = _ymd + '-' + String(_seq).padStart(5,'0');
-        let _dup = false;
-        try{
-          const { data:_ex } = await sb.from(DOC_TABLE).select('id').eq('app_code',WORK_APP_CODE).eq('doc_no',_cand).limit(1);
-          _dup = !!(_ex && _ex.length);
-        }catch(_qe){ _dup = false; }   // query error → best-effort ใช้ candidate
-        if(!_dup){ _docNo = _cand; _free = true; break; }   // ว่าง → ใช้เลขนี้
-        // ชน → ขยับไปเลขถัดจาก max จริงใน DB (กัน S.docs เก่า / หลายคนสร้างพร้อมกัน)
-        try{
-          const { data:_mx } = await sb.from(DOC_TABLE).select('doc_no').eq('app_code',WORK_APP_CODE).like('doc_no', _ymd+'-%').order('doc_no',{ascending:false}).limit(1);
-          const _mseq = (_mx&&_mx.length) ? (parseInt(String(_mx[0].doc_no).split('-').pop(),10)||_seq) : _seq;
-          _seq = Math.max(_seq+1, _mseq+1);
-        }catch(_me){ _seq++; }
-      }
-      if(!_free){ toast('ไม่สามารถสร้างเลขงานใหม่ได้ กรุณากดบันทึกอีกครั้ง','error'); return; }
+      // #G เลขงาน: จองจาก SQL แบบ atomic (RUN-01_003) — หลายเครื่องพร้อมกันได้เลขคนละตัวเสมอ
+      //     พบเลขซ้ำจริงบน Production 3 คู่จากวิธีเดิมที่นับจาก S.docs (cache โหมดปัจจุบัน)
+      let _docNo = null;
+      try{
+        if(!(await _saMutationReady('docNo'))) throw new Error('DOCNO_RPC_NOT_READY');   // #P0-1 ห้าม fallback คำนวณเลขที่ client
+        const { data:_r, error:_re } = await sb.rpc('sa_next_doc_no', { p_ymd: todayYMD().replace(/-/g,'') });
+        if(!_re && _r && _r.ok && _r.doc_no) _docNo = _r.doc_no;
+        else if(_re) console.warn('[sa_next_doc_no] fallback:', _re.message||_re);
+      }catch(_ne){ console.warn('[sa_next_doc_no]', _ne); }
+
+      // 🛑 ห้าม fallback คำนวณเลขเอกสารฝั่ง client — เป็นต้นเหตุเลขซ้ำ 3 กลุ่มบน Production
+      //    ถ้า RPC ใช้ไม่ได้ ต้องหยุดและแจ้งผู้ใช้ (ไม่สร้างงานด้วยเลขที่อาจชน)
+      if(!_docNo){ toast('สร้างงานไม่ได้ — ระบบออกเลขเอกสารยังไม่พร้อม กรุณาแจ้งผู้ดูแลระบบ','error'); return; }
       payload.doc_no = _docNo;
       payload.doc_status = 'NEW';
       payload.creator_user = (S.user&&S.user.id)||null;
@@ -2938,7 +3066,10 @@ async function _docUpdate(id, patch, action, logNote){
   const { error } = await sb.from(DOC_TABLE).update(patch).eq('app_code',WORK_APP_CODE).eq('id',id);
   if(error){ toast('ดำเนินการไม่สำเร็จ: '+(error.message||''),'error'); throw error; }
   await logDoc(id, action, patch.doc_status||null, logNote||null);
-  const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...patch }; _invalidateDocsCache(); renderSidebar(); routeRender(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   // #1 patch local + ล้าง cache — ไม่ refetch 1000 (realtime reconcile)
+  // #H patch เฉพาะแถวที่เปลี่ยน (route เข้า cache ทุกโหมด) · fallback เป็นพฤติกรรมเดิมเมื่อ patch ไม่ได้
+  const _i=S.docs.findIndex(x=>x.id===id);
+  if(_i>=0){ const _row={ ...S.docs[_i], ...patch }; if(!_saApplyDocRow(_row)){ _invalidateDocsCache(); renderSidebar(); routeRender(); } }
+  else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }
 }
 
 // NEW → RECEIVED (รับงาน)
@@ -3281,6 +3412,7 @@ function openDocStatusUpdate(id){
   const d = S.docs.find(x=>x.id===id);
   if(!d){ toast('ไม่พบเอกสาร','error'); return; }
   if(d.doc_status==='COMPLETED'){ toast('งานปิดแล้ว แก้ไขสถานะไม่ได้','error'); return; }
+  try{ Object.keys(_saImgUrls).forEach(k=>_saRevokeUrls(k)); }catch(_){}   // #C คืน memory ของ preview งานก่อนหน้า
   for(const k in _saImgs) delete _saImgs[k];
   document.getElementById('sa-docstatus')?.remove();
   const cmpRows = SA_DOCSTATUS_COMPLETE.map((t,i)=>`
@@ -3293,7 +3425,7 @@ function openDocStatusUpdate(id){
     </div>`).join('');
   const el=document.createElement('div'); el.id='sa-docstatus'; el.className='modal-back show'; el.style.zIndex='99996';
   el.innerHTML=`<div class="modal" style="max-width:560px">
-    <div class="modal-head"><h2 style="font-size:16px;margin:0">📋 \u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23</h2><button class="x" onclick="document.getElementById('sa-docstatus').remove()"><i data-lucide="x"></i></button></div>
+    <div class="modal-head"><h2 style="font-size:16px;margin:0">📋 \u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23</h2><button class="x" onclick="_saCloseDocStatusModal()"><i data-lucide="x"></i></button></div>
     <div class="modal-body">
       <p style="color:var(--muted);font-size:13px;margin:0 0 14px">JOB NO: <b style="color:#10B981">${esc(d.doc_no||'\u2014')}</b></p>
       <div style="font-size:13px;font-weight:700;color:#fff;margin:0 0 8px">\u23f1 Timeline \u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23</div>
@@ -3320,7 +3452,7 @@ function openDocStatusUpdate(id){
       </div>
     </div>
   </div>`;
-  el.addEventListener('click',(e)=>{ if(e.target===el) el.remove(); });
+  el.addEventListener('click',(e)=>{ if(e.target===el && el.dataset.busy!=='1') _saCloseDocStatusModal(); });   // #A กำลังอัปโหลด/RPC → แตะพื้นหลังไม่ปิด
   document.body.appendChild(el);
   refreshIcons();
   _sa.docId=id; _saLoadDocTimeline(id);   // Document Timeline (เฉพาะ entry ที่มีรูป) แยกจาก 📋 งาน
@@ -3332,6 +3464,14 @@ function _saImgName(inputId, labelId){
 }
 /* ===== แนบรูปหลายใบ (📋 อัปเดตสถานะเอกสาร) — เก็บไฟล์ใน array ต่อ input เพื่อให้ลบทีละรูปได้ ===== */
 const _saImgs = {};   // { inputId: [File, ...] }
+/* #C Object URL registry — เดิมสร้าง URL.createObjectURL() ทุกรอบ render แต่ไม่เคย revoke
+      → รูปค้างใน RAM สะสม (Android/iOS ค้างเมื่อแนบรูปใหญ่หลายใบ) */
+const _saImgUrls = {};   // { inputId: [objectURL, ...] }
+function _saRevokeUrls(inputId){
+  const arr=_saImgUrls[inputId]||[];
+  arr.forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(_){} });
+  _saImgUrls[inputId]=[];
+}
 function _saImgFiles(inputId){ return _saImgs[inputId] || []; }
 function _saImgPick(inputId, previewId){
   const inp = document.getElementById(inputId); if(!inp) return;
@@ -3342,21 +3482,24 @@ function _saImgPick(inputId, previewId){
 }
 function _saImgRender(inputId, previewId){
   const box = document.getElementById(previewId); if(!box) return;
+  _saRevokeUrls(inputId);                                   // #C คืน URL ของรอบก่อนก่อนสร้างใหม่
   const files = _saImgs[inputId] || [];
   if(!files.length){ box.innerHTML=''; return; }
+  const urls=[];
   const fmt = b => b<1024 ? b+' B' : b<1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(1)+' MB';
   box.innerHTML = `<div class="sa-img-grid">` + files.map((f,i)=>{
-    const url = URL.createObjectURL(f);
+    const url = URL.createObjectURL(f); urls.push(url);
     return `<div class="sa-img-cell">
       <button class="sa-img-x" onclick="_saImgRemove('${inputId}','${previewId}',${i})" title="\u0e25\u0e1a\u0e23\u0e39\u0e1b\u0e19\u0e35\u0e49">\u00d7</button>
-      <img src="${url}" class="sa-img-thumb" alt="">
+      <img src="${url}" class="sa-img-thumb" alt="" loading="lazy" decoding="async">
       <div class="sa-img-meta"><div class="sa-img-fn" title="${esc(f.name)}">${esc(f.name)}</div><div class="sa-img-sz">${fmt(f.size||0)}</div></div>
     </div>`;
   }).join('') + `</div>`;
+  _saImgUrls[inputId]=urls;
 }
 function _saImgRemove(inputId, previewId, idx){
   if(_saImgs[inputId]) _saImgs[inputId].splice(idx,1);
-  _saImgRender(inputId, previewId);
+  _saImgRender(inputId, previewId);   // #C _saImgRender revoke ของเดิมให้แล้ว
 }
 // ย่อรูปก่อนอัปโหลด (เฉพาะรูป > 500KB) · canvas → JPEG q0.75 · ยาวสุด 1600px · ชื่อไฟล์เดิม
 // fallback คืนไฟล์เดิมเสมอถ้า: ไม่ใช่รูป / <500KB / error / บีบแล้วไม่เล็กลง → upload ไม่มีทางพัง, ครบทุกรูป
@@ -3394,40 +3537,108 @@ async function _mapLimit(arr, limit, fn){
 async function _saUploadStatusImage(id, file){
   file = await _saCompressImage(file);   // ย่อรูปก่อนอัป (มือถือ/ไฟล์ใหญ่) · multi-image ผ่านทีละไฟล์ครบทุกใบ
   const safeName = String(file.name||'image.jpg').replace(/[^\w.\-]/g,'_');
-  const path = `shipping_air/status/${id}/${Date.now()}_${safeName}`;
+  // #C ชื่อไฟล์ไม่ซ้ำแน่นอน — Date.now() ชนได้เมื่ออัปหลายใบในมิลลิวินาทีเดียวกัน
+  const uid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+            : (Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));
+  const path = `shipping_air/status/${id}/${uid}_${safeName}`;
   const { error } = await sb.storage.from('job-attachments').upload(path, file, { contentType: file.type||'image/jpeg', upsert:false });
   if(error){ throw new Error('\u0e2d\u0e31\u0e1b\u0e42\u0e2b\u0e25\u0e14\u0e23\u0e39\u0e1b\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08: '+error.message); }
   const { data } = sb.storage.from('job-attachments').getPublicUrl(path);
-  return data.publicUrl;
+  return { url: data.publicUrl, path };   // #C คืน path ด้วย → ลบเฉพาะไฟล์ของรอบนี้ได้เมื่อ RPC ล้มเหลว
+}
+// #C ลบเฉพาะไฟล์ที่เพิ่งอัปในรอบนี้ (best-effort) — ห้ามแตะรูปเก่าของงาน
+async function _saRollbackUploads(paths){
+  const list=(paths||[]).filter(Boolean);
+  if(!list.length) return;
+  try{ await sb.storage.from('job-attachments').remove(list); }
+  catch(e){ console.warn('[uploadRollback]', e); }
 }
 async function _saSaveStatusWithImage({ id, text, files, complete }){
   const d = S.docs.find(x=>x.id===id);
   if(!d){ toast('\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23','error'); return; }
+  if(!(await _saMutationReady('write'))) return;   // #P0-1 fail-closed: ต้องรอผล preflight ก่อน
+  // #A per-document lock — งานใบเดียวกันบันทึกได้ครั้งเดียวในเครื่องนี้ (กันกดรัว/กดซ้ำ)
+  if(!_saLockDoc(id)){ toast('\u0e01\u0e33\u0e25\u0e31\u0e07\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e07\u0e32\u0e19\u0e19\u0e35\u0e49\u0e2d\u0e22\u0e39\u0e48','info'); return; }
   const pop = document.getElementById('sa-docstatus');
-  if(pop){ pop.querySelectorAll('button,input').forEach(b=>b.disabled=true); }
+  // #A ปิดปุ่ม/ช่องกรอกทั้งหมด + กันปิด modal ด้วยการแตะพื้นหลังระหว่างอัปโหลด/RPC
+  if(pop){ pop.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=true); pop.dataset.busy='1'; }
+  const _sv = _saSavingBadge(pop, complete);   // #A feedback ทันที (< 100ms)
+  const upPaths = [];
+  const _tClick = performance.now();
   try{
-    const now = new Date().toISOString();
-    const _u0=performance.now(); const urls = await _mapLimit(files||[], _vpMobile()?2:3, f=>_saUploadStatusImage(id, f)); _perfMark('imageUpload', _u0);   // upload \u0e17\u0e38\u0e01\u0e23\u0e39\u0e1b\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e01\u0e31\u0e19
+    const ups = await _mapLimit(files||[], _vpMobile()?1:3, f=>_saUploadStatusImage(id, f));   // #C มือถืออัป/บีบทีละใบ → กัน canvas หลายก้อนกิน RAM
+    ups.forEach(u=>{ if(u && u.path) upPaths.push(u.path); });
+    _perfMark('imageUpload', _tClick);
+    const urls = ups.map(u=>u&&u.url).filter(Boolean);
     const note = `${text}\n\u0e23\u0e39\u0e1b\u0e20\u0e32\u0e1e\u0e1b\u0e23\u0e30\u0e01\u0e2d\u0e1a:\n${urls.join('\n')}`;
-    const completeStatus = (d.category===EDIT_CATEGORY) ? 'EDIT_COMPLETED' : 'COMPLETED';
-    const nextStatus = complete ? completeStatus : (d.doc_status||'RECEIVED');
-    const { error: logErr } = await sb.from(LOG_TABLE).insert({
-      app_code: WORK_APP_CODE, document_id: id, action: complete ? 'doc_completed' : 'doc_status', doc_status: nextStatus,
-      user_id:(S.user&&S.user.id)||null, user_name: uname(), note, created_at: now
-    });
-    if(logErr) throw logErr;
-    if(complete) _refreshStatusCell(id,'sys');   // ✚ doc_completed อยู่ใน Timeline ระบบ → refresh แบบ SWR (ไม่ล้างค่าเดิม → ไม่วูบ)
-    const update = { card_status: text, note, updated_at: now };
-    if(complete){ update.doc_status=completeStatus; update.completed_at=now; }
-    const { error: docErr } = await sb.from(DOC_TABLE).update(update).eq('app_code',WORK_APP_CODE).eq('id',id);
-    if(docErr) throw docErr;
-    document.getElementById('sa-docstatus')?.remove();
+
+    // #B จบงาน/อัปเดตสถานะ = RPC เดียว (UPDATE + INSERT log ใน transaction เดียว)
+    const _tRpc = performance.now();
+    const { data:res, error:rpcErr } = complete
+      ? await sb.rpc('sa_complete_job', {
+          p_id:id, p_user_id:(S.user&&S.user.id)||null, p_user_name:uname(),
+          p_action:'doc_completed', p_log_note:note, p_card_status:text, p_doc_note:note,
+          p_write_card:true, p_write_note:true, p_expect_status:(d.doc_status||null)
+        })
+      : await sb.rpc('sa_log_job_status', {
+          p_id:id, p_user_id:(S.user&&S.user.id)||null, p_user_name:uname(),
+          p_card_status:text, p_doc_note:note
+        });
+    if(rpcErr) throw rpcErr;
+    // ⚠️ sa_complete_job คืน { ok:true, code:'ALREADY_DONE' } เมื่องานถูกปิดไปแล้ว
+    //    ถ้าเช็คแค่ res.ok===false จะหลุดเข้าเส้นทาง success → รูปที่เพิ่งอัปกลายเป็นไฟล์กำพร้า
+    //    จึงต้องตัดสินจาก code เป็นหลัก
+    const code = res ? ((res.code)||'UNKNOWN') : 'NO_RESPONSE';
+    if(!res || res.ok===false || code==='ALREADY_DONE' || code==='CONFLICT'){
+      if(code==='CONFLICT' || code==='ALREADY_DONE'){
+        if(res.doc) _saApplyDocRow(res.doc) || _renderDocBody();   // โหลดเฉพาะงานใบนี้จากผลลัพธ์ RPC · ไม่ reload ทั้งหน้า
+        await _saRollbackUploads(upPaths);
+        toast(code==='ALREADY_DONE'
+          ? '\u0e07\u0e32\u0e19\u0e19\u0e35\u0e49\u0e16\u0e39\u0e01\u0e1b\u0e34\u0e14\u0e44\u0e1b\u0e41\u0e25\u0e49\u0e27\u0e08\u0e32\u0e01\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e2d\u0e37\u0e48\u0e19'
+          : '\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e07\u0e32\u0e19\u0e16\u0e39\u0e01\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e08\u0e32\u0e01\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e2d\u0e37\u0e48\u0e19 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2d\u0e35\u0e01\u0e04\u0e23\u0e31\u0e49\u0e07','error');
+        _saCloseDocStatusModal();
+        return;
+      }
+      throw new Error(code);
+    }
+    _perfMark('rpc·saveStatus', _tRpc);
+
+    _saCloseDocStatusModal();
     toast(complete ? '\u0e08\u0e1a\u0e07\u0e32\u0e19\u0e41\u0e25\u0e49\u0e27 \u2705 \u0e22\u0e49\u0e32\u0e22\u0e44\u0e1b\u0e07\u0e32\u0e19\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e41\u0e25\u0e49\u0e27' : '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e17\u0e32\u0e07\u0e41\u0e25\u0e49\u0e27 \u2705','success');
-    const _i=S.docs.findIndex(x=>x.id===id); if(_i>=0){ S.docs[_i]={ ...S.docs[_i], ...update }; _invalidateDocsCache(); renderSidebar(); _renderDocBody(); } else { await loadDocuments(); _invalidateDocsCache(); renderSidebar(); routeRender(); }   /* #1 ปิดงาน: patch local + ล้าง cache -> _renderDocBody (body-only ลบแถว) */
+
+    // #B ใช้แถวจริงจาก DB → route เข้า cache ทุกโหมด → DOM diff เฉพาะแถวที่เปลี่ยน
+    const _tDom = performance.now();
+    if(!_saApplyDocRow(res.doc)) _renderDocBody();   // fallback เฉพาะกรณีต้องแทรกแถวใหม่เข้าหน้าปัจจุบัน
+    _perfMark('rpc\u2192DOM', _tDom);
+    _saRecountModes(complete ? [d.doc_status, (res.doc&&res.doc.doc_status)] : [d.doc_status]);
+    _refreshStatusCell(id, complete ? 'sys' : 'sys');   // สถานะเอกสารล่าสุด (SWR · ไม่ล้างค่าเดิม → ไม่วูบ)
   }catch(e){
-    console.error(e); toast('\u0e1c\u0e34\u0e14\u0e1e\u0e25\u0e32\u0e14: '+(e.message||e),'error');
-    if(pop){ pop.querySelectorAll('button,input').forEach(b=>b.disabled=false); }
+    console.error(e);
+    await _saRollbackUploads(upPaths);   // #C RPC/upload ล้มเหลว → ลบเฉพาะไฟล์ของรอบนี้ ไม่แตะรูปเก่า
+    toast('\u0e1c\u0e34\u0e14\u0e1e\u0e25\u0e32\u0e14: '+(e.message||e),'error');
+    if(pop){ pop.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=false); delete pop.dataset.busy; }
+  }finally{
+    _saUnlockDoc(id);
+    if(_sv) _sv.remove();
   }
+}
+// #A แถบ "กำลังบันทึก..." — ขึ้นทันทีที่กด (ไม่รอ network)
+function _saSavingBadge(pop, complete){
+  try{
+    if(!pop) return null;
+    const b=document.createElement('div');
+    b.className='sa-saving';
+    b.style.cssText='position:absolute;left:0;right:0;top:0;padding:8px 12px;background:#0EA672;color:#fff;font-size:12px;font-weight:700;text-align:center;z-index:5';
+    b.textContent = complete ? '\u23f3 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e08\u0e1a\u0e07\u0e32\u0e19...' : '\u23f3 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01...';
+    const m=pop.querySelector('.modal'); if(!m) return null;
+    m.style.position='relative'; m.appendChild(b);
+    return b;
+  }catch(_){ return null; }
+}
+// #C ปิด modal สถานะเอกสาร + คืน memory ของ preview ทั้งหมด
+function _saCloseDocStatusModal(){
+  try{ Object.keys(_saImgUrls).forEach(k=>_saRevokeUrls(k)); }catch(_){}
+  document.getElementById('sa-docstatus')?.remove();
 }
 async function _saSaveOngoingWithImage(id){
   const text = (document.getElementById('sa-ongoing-text')?.value||'').trim();
@@ -3508,7 +3719,24 @@ async function _saDeleteEntry(logId){
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||e),'error'); }
 }
 
-async function _saRefreshList(){ try{ _invalidateDocsCache(); renderSidebar(); const _root=$('view-root'); if(_root && _root.querySelector('tbody') && S.view!=='graph' && S.view!=='users') _renderDocBody(); else if(typeof S.view==='string') routeRender(); }catch(_){} }   // #7 หลังเพิ่ม/แก้/ลบ Timeline: local patch แล้ว → render เฉพาะส่วน (ไม่ refetch 1000 · realtime reconcile เครื่องอื่น)
+/* #H หลังเพิ่ม/แก้/ลบ Timeline: เปลี่ยนเฉพาะ "สถานะล่าสุด" ของงานใบเดียว
+      → patch เฉพาะเซลล์ (.st-sys/.js-txt) ไม่ rebuild tbody · ไม่ routeRender
+      fallback เป็นพฤติกรรมเดิมเมื่อไม่รู้ว่าเป็นงานใบไหน */
+async function _saRefreshList(){
+  try{
+    _invalidateDocsCache();
+    const id=_sa && _sa.docId;
+    const _root=$('view-root');
+    const isDocList = _root && _root.querySelector('tbody') && S.view!=='graph' && S.view!=='users';
+    if(id && isDocList && _rowEl(id)){
+      _refreshStatusCell(id,'sys'); _refreshStatusCell(id,'job');
+      _updateCurrentViewCounters();
+      return;
+    }
+    renderSidebar();
+    if(isDocList) _renderDocBody(); else if(typeof S.view==='string') routeRender();
+  }catch(_){}
+}
 
 /* RECEIVED row → 📋 งาน (timeline) + 🖥️ ระบบ (admin) + ⋮ เมนู */
 function _saReceivedActions(d){
@@ -3723,15 +3951,35 @@ async function openClearedPrompt(id){
   }catch(_){}
 }
 
-// CLEARED → COMPLETED (งานเสร็จแล้ว)
+// CLEARED → COMPLETED (งานเสร็จแล้ว)  ·  #B ผ่าน RPC atomic (UPDATE + log ใน transaction เดียว)
 async function docComplete(id){
   const d = S.docs.find(x=>x.id===id); if(!d) return;
   const ok = await confirmDialog({ title:'ปิดงาน', message:`ยืนยันปิดงาน <b>${esc(d.doc_no||'')}</b> เป็น "ปล่อยเสร็จ"?`, okLabel:'✅ ปิดงาน', okClass:'btn-primary' });
   if(!ok) return;
+  if(!(await _saMutationReady('write'))) return;   // #P0-1 fail-closed
+  if(!_saLockDoc(id)){ toast('กำลังดำเนินการงานนี้อยู่','info'); return; }   // #A กันกดซ้ำ
+  const prev=d.doc_status||null;
   try{
-    await _docUpdate(id, { doc_status:'COMPLETED', completed_at:new Date().toISOString() }, 'completed', 'งานเสร็จสมบูรณ์');
-    toast('ปิดงานเรียบร้อย','success');
-  }catch(_){}
+    const { data:res, error } = await sb.rpc('sa_complete_job', {
+      p_id:id, p_user_id:(S.user&&S.user.id)||null, p_user_name:uname(),
+      p_action:'completed', p_log_note:'งานเสร็จสมบูรณ์',
+      p_card_status:null, p_doc_note:null, p_write_card:false, p_write_note:false,
+      p_expect_status:prev
+    });
+    if(error) throw error;
+    if(!res || res.ok===false){
+      if(res && res.doc && !_saApplyDocRow(res.doc)) _renderDocBody();
+      toast(res && res.code==='CONFLICT'
+        ? 'สถานะงานถูกเปลี่ยนจากเครื่องอื่น กรุณาตรวจสอบอีกครั้ง'
+        : 'ปิดงานไม่สำเร็จ: '+((res&&res.code)||'UNKNOWN'),'error');
+      return;
+    }
+    if(!_saApplyDocRow(res.doc)) _renderDocBody();   // #B DOM diff เฉพาะแถวที่เปลี่ยน
+    _saRecountModes([prev, res.doc && res.doc.doc_status]);
+    _refreshStatusCell(id,'sys');
+    toast(res.code==='ALREADY_DONE' ? 'งานนี้ถูกปิดไปแล้ว' : 'ปิดงานเรียบร้อย','success');
+  }catch(e){ console.error(e); toast('ปิดงานไม่สำเร็จ: '+(e.message||e),'error'); }
+  finally{ _saUnlockDoc(id); }
 }
 
 // ADMIN — ลบเอกสาร
@@ -4060,6 +4308,273 @@ async function deleteUserConfirm(id){
 }
 
 /* ---------------- boot ---------------- */
+/* ============================================================
+   #P0-1 PREFLIGHT — ตรวจว่า RPC ฝั่ง DB พร้อมใช้งานก่อนเปิด mutation
+   ------------------------------------------------------------
+   ถ้าอัปโหลด HTML ก่อนรัน SQL migration → RPC จะไม่มี (PostgREST คืน PGRST202)
+   ต้องหยุด "เฉพาะการบันทึก" พร้อมข้อความชัดเจน · การ "อ่าน" ยังใช้ได้ปกติ
+   และห้ามยิง RPC ที่ไม่มีซ้ำ ๆ ทุกครั้งที่กด
+
+   probe ที่ใช้ปลอดภัย 100% (ไม่เขียนข้อมูลใด ๆ):
+     sa_complete_job(p_id=null)     → { ok:false, code:'BAD_ID' }
+     sa_log_job_status(p_id=null)   → { ok:false, code:'BAD_ID' }
+     sa_next_doc_no(p_ymd='0')      → { ok:false, code:'BAD_YMD' }  (ไม่แตะตัวนับ)
+   ============================================================ */
+/* ============================================================
+   #P0-1 PREFLIGHT — state machine  CHECKING / READY / BLOCKED
+   ------------------------------------------------------------
+   FAIL-CLOSED: ตราบใดที่ยังไม่ได้ผลยืนยันว่า "พร้อม" → ปุ่มบันทึกทุกตัวถูกปิด
+   · network error / timeout / permission error / unknown error
+     → ถือว่า BLOCKED ทั้งหมด ห้ามตีความว่า RPC พร้อม
+   · ตรวจแยกครบทั้ง 5 RPC (helper sa_doc_json ตรวจทางอ้อมผ่าน sa_complete_job
+     เพราะ sa_complete_job เรียกใช้ helper ภายใน)
+   · reset ตรวจ capability ของ sa_reset_expired_postponed เอง ไม่ใช่ของ complete
+
+   probe ที่ใช้ — ไม่เขียนข้อมูลใด ๆ (ยืนยันกับ Production แล้ว):
+     sa_complete_job(p_id=NULL)   → {ok:false, code:'BAD_ID'}
+     sa_log_job_status(p_id=NULL) → {ok:false, code:'BAD_ID'}
+     sa_next_doc_no(p_ymd='0')    → {ok:false, code:'BAD_YMD'}  (ไม่แตะ sa_doc_no_seq)
+     sa_view_counts()             → read-only
+   sa_reset_expired_postponed ไม่มี probe ที่ไม่เขียนข้อมูล
+     → ตรวจจาก pg catalog ทางอ้อมไม่ได้ฝั่ง client จึงใช้ "ผลลัพธ์ของการเรียกจริงครั้งแรก"
+       และตั้งต้นเป็น BLOCKED ไว้ก่อน (fail-closed)
+   ============================================================ */
+const SA_PF = { state:'CHECKING', at:0, error:null };   // CHECKING | READY | BLOCKED
+const SA_CAPS = { complete:false, logStatus:false, docNo:false, counts:false, reset:false };
+const SA_RPC_LABEL = { complete:'sa_complete_job', logStatus:'sa_log_job_status',
+                       docNo:'sa_next_doc_no', counts:'sa_view_counts',
+                       reset:'sa_reset_expired_postponed' };
+let _pfPromise = null;
+
+function _isMissingRpc(err){
+  const c=String(err&&err.code||''), m=String(err&&err.message||'');
+  return c==='PGRST202' || /could not find the function|does not exist|schema cache/i.test(m);
+}
+// คืน true = "ยืนยันว่ามีฟังก์ชันนี้" เท่านั้น
+// ทุกกรณีอื่น (network / timeout / permission / unknown) → false = fail-closed
+function _saProbeRpc(name, args, timeoutMs){
+  return new Promise(resolve=>{
+    let done=false;
+    const t=setTimeout(()=>{ if(!done){ done=true; console.warn('[preflight] timeout:', name); resolve(false); } }, timeoutMs||8000);
+    (async()=>{
+      try{
+        const { data, error } = await sb.rpc(name, args);
+        if(done) return;
+        if(error){
+          if(_isMissingRpc(error)) { console.warn('[preflight] ไม่พบฟังก์ชัน:', name); resolve(false); }
+          else { console.warn('[preflight] error (ถือว่าไม่พร้อม):', name, error.code||'', error.message||''); resolve(false); }
+          return;
+        }
+        resolve(data !== undefined && data !== null);   // ต้องได้ payload จริงจึงนับว่าพร้อม
+      }catch(e){
+        if(done) return;
+        console.warn('[preflight] exception (ถือว่าไม่พร้อม):', name, e && e.message);
+        resolve(false);
+      }finally{ done=true; clearTimeout(t); }
+    })();
+  });
+}
+
+async function _saPreflight(){
+  if(_pfPromise) return _pfPromise;
+  SA_PF.state='CHECKING'; SA_PF.error=null;
+  _saApplyPreflightUI();
+  _pfPromise=(async()=>{
+    const [c, l, n, v] = await Promise.all([
+      _saProbeRpc('sa_complete_job',   { p_id:null, p_user_id:null, p_user_name:null, p_action:null, p_log_note:null, p_card_status:null, p_doc_note:null, p_write_card:false, p_write_note:false, p_expect_status:null }),
+      _saProbeRpc('sa_log_job_status', { p_id:null, p_user_id:null, p_user_name:null, p_card_status:null, p_doc_note:null }),
+      _saProbeRpc('sa_next_doc_no',    { p_ymd:'0' }),
+      _saProbeRpc('sa_view_counts',    {})
+    ]);
+    SA_CAPS.complete=c; SA_CAPS.logStatus=l; SA_CAPS.docNo=n; SA_CAPS.counts=v;
+    // sa_reset_expired_postponed: ไม่มี probe ที่ไม่เขียนข้อมูล
+    //   ถ้า 4 ตัวข้างบนมาครบ = migration ชุดเดียวกันถูกติดตั้งแล้ว → อนุญาตให้ "ลองเรียก" ได้
+    //   ถ้าไม่ครบ → คงเป็น false (fail-closed) และจะไม่ยิงเลย
+    SA_CAPS.reset = (c && l && n && v);
+    if(!v) _countsRpcMissing=true;                       // ไม่ต้องลอง sa_view_counts ซ้ำ
+
+    const allReady = c && l && n && v;
+    SA_PF.state = allReady ? 'READY' : 'BLOCKED';
+    SA_PF.at = Date.now();
+    if(!allReady){
+      SA_PF.error = Object.keys(SA_CAPS).filter(k=>!SA_CAPS[k]).map(k=>SA_RPC_LABEL[k]).join(', ');
+      console.error('[preflight] BLOCKED — ฟังก์ชันที่ยังไม่พร้อม:', SA_PF.error);
+    }
+    _saApplyPreflightUI();
+    return SA_PF.state;
+  })();
+  return _pfPromise;
+}
+
+/* แถบสถานะ + ปิด/เปิดปุ่มบันทึกทั้งหน้า */
+function _saApplyPreflightUI(){
+  try{
+    let b=document.getElementById('sa-pfbar');
+    if(SA_PF.state==='READY'){ if(b) b.remove(); document.body.classList.remove('sa-mut-blocked'); return; }
+    if(!b){
+      b=document.createElement('div'); b.id='sa-pfbar';
+      b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;padding:9px 14px;'
+        +'font-size:12.5px;font-weight:700;text-align:center;line-height:1.45;color:#fff;'
+        +'padding-top:calc(9px + env(safe-area-inset-top,0px))';
+      document.body.appendChild(b);
+    }
+    if(SA_PF.state==='CHECKING'){
+      b.style.background='#334155';
+      b.textContent='⏳ กำลังตรวจสอบความพร้อมของระบบ — ปุ่มบันทึกจะเปิดใช้งานเมื่อตรวจเสร็จ';
+    }else{
+      b.style.background='#B45309';
+      b.textContent='⚠️ ยังบันทึกข้อมูลไม่ได้ — ฐานข้อมูลยังไม่ได้ติดตั้งส่วนที่จำเป็น (RUN-01) · ดูข้อมูลได้ตามปกติ · กรุณาแจ้งผู้ดูแลระบบ';
+    }
+    document.body.classList.add('sa-mut-blocked');
+  }catch(_){}
+}
+
+/* ประตูเดียวของทุกจุดที่จะเขียนข้อมูล — ต้อง await ผล preflight ก่อนเสมอ (fail-closed) */
+async function _saMutationReady(kind){
+  if(SA_PF.state==='CHECKING'){
+    try{ await Promise.race([ _saPreflight(), new Promise(r=>setTimeout(()=>r('BLOCKED'), 9000)) ]); }
+    catch(_){ SA_PF.state='BLOCKED'; }
+  }
+  if(SA_PF.state!=='READY'){
+    _saApplyPreflightUI();
+    toast('ยังบันทึกไม่ได้ — ระบบฐานข้อมูลยังไม่พร้อม (' + (SA_PF.error||'preflight ยังไม่ผ่าน') + ')','error');
+    return false;
+  }
+  const map = { write:['complete','logStatus'], docNo:['docNo'], reset:['reset'], counts:['counts'] };
+  const need = map[kind] || map.write;
+  const missing = need.filter(k=>!SA_CAPS[k]);
+  if(missing.length){
+    toast('ยังบันทึกไม่ได้ — ขาดฟังก์ชัน: '+missing.map(k=>SA_RPC_LABEL[k]).join(', '),'error');
+    return false;
+  }
+  return true;
+}
+
+/* ============================================================
+   VERSION GUARD — บังคับผู้ใช้เข้าสู่เวอร์ชันใหม่
+   ------------------------------------------------------------
+   · fetch ./version.json?t=<ts> แบบ no-store พร้อม timeout
+   · ตรวจตอน boot (ก่อนเปิด session) · ทุก 60 วิ · visibilitychange
+     · pageshow · online
+   · network error ห้าม logout ทันที → ปล่อยผ่าน แล้วลองรอบถัดไป
+   · ถ้า minimumVersion ≠ APP_VERSION → VERSION_BLOCKED:
+       ปิดปุ่ม mutation · หยุด realtime + timer · ลบเฉพาะ
+       shipping_air_session (ห้าม localStorage.clear()) · overlay ·
+       location.replace ไป URL เวอร์ชันใหม่
+   · กัน reload loop ด้วยตัวนับใน sessionStorage (เกิน 2 ครั้ง/30 วิ → หยุด)
+   ============================================================ */
+const SA_VG = { state:'OK', checking:false, remote:null, blocked:false };
+const VG_LOOP_KEY = 'sa_vg_redirects';
+const VG_LOOP_MAX = 2;
+const VG_LOOP_WINDOW_MS = 30000;
+
+function _vgLoopRecord(){
+  try{
+    const now=Date.now();
+    let arr=[];
+    try{ arr=JSON.parse(sessionStorage.getItem(VG_LOOP_KEY)||'[]'); }catch(_){ arr=[]; }
+    arr=arr.filter(t=>now-t < VG_LOOP_WINDOW_MS);
+    arr.push(now);
+    sessionStorage.setItem(VG_LOOP_KEY, JSON.stringify(arr));
+    return arr.length;
+  }catch(_){ return 1; }   // sessionStorage ใช้ไม่ได้ (private mode) → ยอมให้ redirect ครั้งเดียว
+}
+
+async function _vgFetchVersion(timeoutMs){
+  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const t = setTimeout(()=>{ try{ ctrl && ctrl.abort(); }catch(_){} }, timeoutMs||6000);
+  try{
+    const res = await fetch(VERSION_URL + '?t=' + Date.now(), {
+      cache:'no-store', credentials:'omit', signal: ctrl ? ctrl.signal : undefined
+    });
+    if(!res.ok) return null;                       // 404/5xx → ถือว่าตรวจไม่ได้ ไม่ logout
+    const j = await res.json();
+    return (j && typeof j==='object') ? j : null;
+  }catch(_){ return null; }                        // network error / timeout / JSON เสีย → ไม่ logout
+  finally{ clearTimeout(t); }
+}
+
+// คืน true เมื่อพบว่าเวอร์ชันไม่ตรง (และได้เข้าโหมด blocked แล้ว)
+async function checkVersion(){
+  if(SA_VG.blocked) return true;
+  if(SA_VG.checking) return false;                 // ห้ามยิงซ้อน
+  SA_VG.checking = true;
+  try{
+    const v = await _vgFetchVersion(6000);
+    if(!v) return false;                           // ตรวจไม่ได้ → ปล่อยผ่าน ลองรอบหน้า
+    const min = String(v.minimumVersion||'');
+    if(!min) return false;
+    SA_VG.remote = String(v.currentVersion||min);
+    if(min === APP_VERSION) return false;          // ตรงกัน → ปกติ
+    _vgEnterBlocked(v);
+    return true;
+  } finally { SA_VG.checking = false; }
+}
+
+function _vgEnterBlocked(v){
+  if(SA_VG.blocked) return;
+  SA_VG.blocked = true; SA_VG.state = 'VERSION_BLOCKED';
+
+  // 1) ปิดปุ่มบันทึก/แก้ไขทั้งหมดทันที (ใช้คลาสเดียวกับ preflight fail-closed)
+  try{ document.body.classList.add('sa-mut-blocked'); }catch(_){}
+  try{ SA_PF.state='BLOCKED'; }catch(_){}
+  try{ document.querySelectorAll('button,input,textarea,select').forEach(el=>{ el.disabled=true; }); }catch(_){}
+
+  // 2) หยุด Realtime + timer ทั้งหมด
+  try{ if(S._rt){ sb.removeChannel(S._rt); S._rt=null; } }catch(_){}
+  try{ clearTimeout(S._rtRetry); }catch(_){}
+  try{ clearTimeout(_midnightTimer); }catch(_){}
+  try{ clearTimeout(_recountTimer); }catch(_){}
+  try{ clearInterval(_vgTimer); }catch(_){}
+
+  // 3) ลบเฉพาะ session ของแอปนี้ — ห้าม localStorage.clear()
+  try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
+
+  // 4) Overlay เต็มจอ
+  _vgOverlay('ระบบอัปเดตเป็นเวอร์ชันใหม่ กำลังออกจากระบบและโหลดหน้าใหม่');
+
+  // 5) กัน reload loop — version.json อาจถูกอัปก่อน index.html พร้อมใช้งาน
+  const n = _vgLoopRecord();
+  const remote = SA_VG.remote || String(v && (v.currentVersion||v.minimumVersion) || '');
+  const base = (v && v.url) ? String(v.url).split('?')[0] : 'https://njl-logistic.com/shippingair/';
+  const target = base + '?v=' + encodeURIComponent(remote) + '&reload=' + Date.now();
+
+  if(n > VG_LOOP_MAX){
+    _vgOverlay('ระบบอัปเดตเป็นเวอร์ชันใหม่ แต่โหลดหน้าใหม่ไม่สำเร็จหลายครั้ง<br>กรุณากดปุ่มด้านล่างเพื่อเปิดเวอร์ชันใหม่', target);
+    return;   // หยุด ไม่ redirect ต่อ
+  }
+  setTimeout(()=>{ try{ location.replace(target); }catch(_){ location.href = target; } }, 1200);
+}
+
+function _vgOverlay(html, manualUrl){
+  try{
+    let o=document.getElementById('sa-vgoverlay');
+    if(!o){
+      o=document.createElement('div'); o.id='sa-vgoverlay';
+      o.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#0B1018;color:#F3F4F6;'
+        +'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;'
+        +'text-align:center;padding:28px calc(24px + env(safe-area-inset-right,0px)) '
+        +'calc(28px + env(safe-area-inset-bottom,0px)) calc(24px + env(safe-area-inset-left,0px));'
+        +"font-family:'Sarabun','Inter',-apple-system,sans-serif;font-size:15px;line-height:1.7;font-weight:700";
+      document.body.appendChild(o);
+    }
+    o.innerHTML = '<div style="font-size:40px">🔄</div><div style="max-width:520px">'+html+'</div>'
+      + (manualUrl ? '<a href="'+manualUrl+'" style="margin-top:6px;background:#0EA672;color:#fff;'
+          +'padding:13px 26px;border-radius:10px;font-weight:800;font-size:15px;min-height:44px;'
+          +'display:inline-flex;align-items:center;text-decoration:none">เปิดเวอร์ชันใหม่</a>' : '');
+  }catch(_){}
+}
+
+let _vgTimer = null, _vgWakeBound = false;
+function _vgStartWatch(){
+  if(_vgTimer) return;
+  _vgTimer = setInterval(()=>{ checkVersion(); }, VERSION_POLL_MS);
+  if(_vgWakeBound) return; _vgWakeBound = true;
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkVersion(); });
+  window.addEventListener('pageshow', ()=>{ checkVersion(); });
+  window.addEventListener('online',   ()=>{ checkVersion(); });
+}
+
 async function boot(){
   // #1 boot รอ DOM + library (Supabase) พร้อมก่อน createClient — กัน defer/network race
   //    (ปกติ deferred scripts รันเสร็จก่อน DOMContentLoaded อยู่แล้ว · loop นี้เป็น safety net)
@@ -4075,7 +4590,8 @@ async function boot(){
   }
   try{
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth:{ persistSession:false, autoRefreshToken:false }
+      auth:{ persistSession:false, autoRefreshToken:false },   // config Auth เดิม ไม่แตะ
+      global:{ headers:{ 'x-sa-client-version': APP_VERSION } }   // ส่งเวอร์ชัน client ไปกับทุก Data API/RPC request
     });
   }catch(e){
     console.error('[boot] supabase init failed', e);
@@ -4083,6 +4599,11 @@ async function boot(){
     authAlert('โหลดไลบรารีไม่สำเร็จ กรุณารีเฟรชหน้าใหม่','error');
     return;
   }
+  // ⛔ Version Guard — ตรวจก่อนเปิด session เสมอ
+  //    ถ้าเวอร์ชันไม่ตรง จะ logout + redirect ให้เอง และหยุดที่นี่ (ไม่เปิดแอปรุ่นเก่า)
+  if(await checkVersion()) return;
+  _vgStartWatch();
+
   const sess = loadSession();
   if(sess && sess.id){
     S.user = sess;
