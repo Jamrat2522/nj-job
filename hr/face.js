@@ -815,6 +815,10 @@
       },
       timings_ms: {
         camera_open_ms:            perfNum(ms.camera_open_ms),
+        camera_request_ms:         perfNum(ms.camera_request_ms),
+        camera_play_ms:            perfNum(ms.camera_play_ms),
+        video_ready_ms:            perfNum(ms.video_ready_ms),
+        face_detect_first_ms:      perfNum(ms.face_detect_first_ms),
         guide_visible_ms:          perfNum(ms.guide_visible_ms),
         guide_model_load_ms:       perfNum(ms.guide_model_load_ms),
         recognition_model_load_ms: perfNum(ms.recognition_model_load_ms),
@@ -864,6 +868,15 @@
         long_task_count:                   perfNum(ct.long_task_count),
         boot_long_task_count:              perfNum(ct.boot_long_task_count),
         long_task_supported: (ct.long_task_supported == null ? null : ct.long_task_supported)
+      },
+      video: {
+        video_width:        perfNum(ct.video_width),
+        video_height:       perfNum(ct.video_height),
+        video_ready_state:  perfNum(ct.video_ready_state),
+        track_ready_state:  (ct.track_ready_state == null ? null : ct.track_ready_state),
+        face_detect_attempts:  perfNum(ct.face_detect_attempts),
+        face_frames_collected: perfNum(ct.face_frames_collected),
+        failure_stage:      (ct.failure_stage == null ? null : ct.failure_stage)
       },
       runtime: {
         tf_backend:      (ct.tf_backend == null ? null : ct.tf_backend),
@@ -1398,10 +1411,14 @@
         rej(camError('CAM_TIMEOUT',
           'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่'));
       }, CAM_OPEN_TIMEOUT_MS);
+      var tReq = perfNow();
+      /* [SAMSUNG] ใช้ ideal ทั้งคู่ ไม่ใช่ exact — ไม่บังคับความละเอียดที่กล้องอาจทำไม่ได้
+         และเปิด Stream ชุดเดียวเท่านั้น ไม่สลับกล้อง ไม่เปิดซ้ำ */
       navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       }).then(function (st) {
+        perfMark('camera_request_ms', tReq);
         if (done || myGen !== CAM.gen) {     // มาช้า/หมดอายุ = ปิด Track ทิ้งทันที
           try { st.getTracks().forEach(function (tr) { try { tr.stop(); } catch (e2) {} }); } catch (e3) {}
           if (!done) { done = true; clearTimeout(timer); rej(AbortAttendanceError()); }
@@ -1418,43 +1435,137 @@
   /* รอให้วิดีโอพร้อมจริงก่อนเริ่มตรวจใบหน้า:
      loadedmetadata → videoWidth/videoHeight > 0 → play() สำเร็จ
      ขาดข้อใดข้อหนึ่ง = CAM_PLAYBACK_FAILED (เดิมไม่ตรวจ ทำให้ detect() ทำงานบนเฟรมว่าง) */
+  /* ---------- [SAMSUNG FIX] Video Ready Gate ----------
+     Root Cause ที่ตรวจพบ: ของเดิมถือว่า "กล้องพร้อม" เมื่อ
+       videoWidth > 0  +  play() resolve
+     แต่บน Samsung/Android ทั้งสองอย่างนี้เกิดตั้งแต่ readyState = 1 (HAVE_METADATA)
+     ซึ่งยัง "ไม่มีข้อมูลภาพจริง" — detectAllFaces() จึงวิ่งบนเฟรมดำหลายสิบเฟรม
+     จนโควตา 96 tries หมด แล้วขึ้น "ตรวจใบหน้าไม่สำเร็จ" ทั้งที่กล้องเปิดได้
+
+     ของใหม่ต้องผ่านครบทุกข้อจึงถือว่าพร้อม:
+       · videoWidth > 0 และ videoHeight > 0
+       · readyState >= HAVE_CURRENT_DATA (2)  ← ข้อที่ขาดไปเดิม
+       · video track ของ stream อยู่ในสถานะ 'live'
+       · ผ่าน rAF จริงอีก 2 เฟรมเพื่อเลี่ยงเฟรมแรกที่ยังไม่นิ่ง
+
+     ⚠ ใช้สถานะจริงของ Video เป็น Gate ไม่ใช่ setTimeout เดาสุ่ม
+        เครื่องที่พร้อมเร็ว (iPhone/Chrome ทั่วไป) จะผ่าน Gate ทันทีไม่ถูกหน่วง
+        Timeout มีไว้เป็น Safety เท่านั้น
+     ⚠ ไม่แตะ Threshold / Liveness / Descriptor 6 รอบ / Geofence */
+  var VIDEO_READY_STATE_MIN = 2;    // HAVE_CURRENT_DATA
+  var VIDEO_STABLE_FRAMES = 2;      // เฟรมจริงที่ต้องผ่านก่อนเริ่มตรวจใบหน้า
+
+  /* สถานะ track ของ stream ปัจจุบัน — ใช้ทั้ง Gate และ Diagnostic */
+  function camTrackState() {
+    try {
+      var ts = S.stream && S.stream.getVideoTracks ? S.stream.getVideoTracks() : null;
+      if (!ts || !ts.length) return 'none';
+      return String(ts[0].readyState || 'unknown');
+    } catch (e) { return 'unknown'; }
+  }
+
+  /* ตรวจแบบ synchronous ว่า "ตอนนี้" วิดีโอพร้อมให้ตรวจใบหน้าหรือยัง
+     ใช้ซ้ำได้ทุกเฟรมโดยไม่มีค่าใช้จ่าย — ไม่มี Side Effect */
+  function camVideoReady() {
+    var v = S.video;
+    if (!v || !S.stream) return false;
+    if (!v.videoWidth || !v.videoHeight) return false;
+    if ((v.readyState || 0) < VIDEO_READY_STATE_MIN) return false;
+    if (camTrackState() !== 'live') return false;
+    return true;
+  }
+
+  /* บันทึกสภาพวิดีโอ ณ จุดที่พร้อม — ไม่มีรูป ไม่มี Descriptor ไม่มี Token */
+  function camMarkVideoDiag() {
+    try {
+      var v = S.video;
+      perfSet('video_width', v ? (v.videoWidth || 0) : 0);
+      perfSet('video_height', v ? (v.videoHeight || 0) : 0);
+      perfSet('video_ready_state', v ? (v.readyState || 0) : 0);
+      perfSet('track_ready_state', camTrackState());
+    } catch (e) {}
+  }
+
   function camAwaitPlayback(myGen) {
     var v = S.video;
     if (!v) return Promise.reject(AbortAttendanceError());
+    var tPlay = perfNow();
     return new Promise(function (res, rej) {
       var done = false;
+      var raf = 0;
+      var playSettled = false;        // play() ตอบแล้ว (สำเร็จหรือถูกปฏิเสธก็ตาม)
+      var EV = ['loadedmetadata', 'loadeddata', 'canplay', 'playing'];
       var timer = setTimeout(function () {
         if (done) return;
         done = true; cleanup();
+        camMarkVideoDiag();
         rej(camError('CAM_PLAYBACK_FAILED',
           'กล้องเปิดแล้วแต่ยังไม่มีภาพ — ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่'));
       }, CAM_PLAY_TIMEOUT_MS);
+
       function cleanup() {
         clearTimeout(timer);
-        try { v.removeEventListener('loadedmetadata', onMeta); } catch (e) {}
+        if (raf) { try { cancelAnimationFrame(raf); } catch (e) {} raf = 0; }
+        for (var i = 0; i < EV.length; i++) {
+          try { v.removeEventListener(EV[i], onEvt); } catch (e) {}
+        }
       }
-      function onMeta() { check(); }
+      function onEvt() { check(); }
+
+      /* ผ่านเงื่อนไขครบแล้ว → รอเฟรมจริงอีก VIDEO_STABLE_FRAMES เฟรม
+         เพื่อไม่ให้ Detector เจอเฟรมแรกที่กล้องยังปรับแสง/โฟกัสไม่เสร็จ */
+      function settleFrames(left) {
+        if (done) return;
+        if (myGen !== CAM.gen) { done = true; cleanup(); rej(AbortAttendanceError()); return; }
+        if (left <= 0) {
+          done = true; cleanup();
+          perfMark('camera_play_ms', tPlay);
+          perfMark('video_ready_ms', tPlay);
+          camMarkVideoDiag();
+          res(true);
+          return;
+        }
+        raf = requestAnimationFrame(function () { settleFrames(left - 1); });
+      }
+
       function check() {
         if (done) return;
         if (myGen !== CAM.gen) { done = true; cleanup(); rej(AbortAttendanceError()); return; }
-        if (!v.videoWidth || !v.videoHeight) return;    // ยังไม่มีขนาดจริง = รอ loadedmetadata ต่อ
-        done = true; cleanup();
-        var p = null;
-        try { p = v.play(); } catch (e) { p = null; }
-        Promise.resolve(p).then(function () {
-          if (myGen !== CAM.gen) { rej(AbortAttendanceError()); return; }
-          if (!v.videoWidth || !v.videoHeight) {
-            rej(camError('CAM_PLAYBACK_FAILED', 'กล้องเปิดแล้วแต่ยังไม่มีภาพ กรุณาลองใหม่'));
-            return;
-          }
-          res(true);
-        }, function () {
-          if (myGen !== CAM.gen) { rej(AbortAttendanceError()); return; }
-          rej(camError('CAM_PLAYBACK_FAILED', 'เริ่มแสดงภาพจากกล้องไม่สำเร็จ กรุณาลองใหม่'));
-        });
+        if (!playSettled) return;          // ยังไม่เริ่มเล่นจริง = ยังไม่ถือว่าพร้อม
+        if (!camVideoReady()) return;      // ยังไม่พร้อม = รอ Event/รอบถัดไป
+        settleFrames(VIDEO_STABLE_FRAMES);
       }
-      try { v.addEventListener('loadedmetadata', onMeta); } catch (e) {}
-      check();                                  // metadata อาจมาก่อนผูก listener แล้ว
+
+      /* เริ่ม play() ก่อน แล้วจึงเฝ้าสถานะ — บาง Android ไม่ยิง canplay ถ้าไม่ play */
+      var p = null;
+      try { p = v.play(); } catch (e) { p = null; }
+      Promise.resolve(p).then(function () {
+        playSettled = true;
+        if (done) return;
+        if (myGen !== CAM.gen) { done = true; cleanup(); rej(AbortAttendanceError()); return; }
+        check();
+      }, function () {
+        /* play() ถูกปฏิเสธ (autoplay policy) แต่บางเครื่องยังส่งเฟรมมา
+           จึงไม่ Fail ทันที ให้ Gate ตัดสินจากสถานะจริงของ Video แทน */
+        playSettled = true;
+        if (done) return;
+        if (myGen !== CAM.gen) { done = true; cleanup(); rej(AbortAttendanceError()); return; }
+        check();
+      });
+
+      for (var k = 0; k < EV.length; k++) {
+        try { v.addEventListener(EV[k], onEvt); } catch (e) {}
+      }
+      check();                              // สถานะอาจพร้อมก่อนผูก listener แล้ว
+
+      /* Poll เบา ๆ เป็นตาข่ายรองรับเครื่องที่ไม่ยิง Event ครบ
+         (ไม่ใช่ Gate หลัก — Gate หลักคือสถานะจริงของ Video) */
+      (function poll() {
+        if (done) return;
+        check();
+        if (done) return;
+        setTimeout(poll, 100);
+      })();
     });
   }
 
@@ -1747,35 +1858,91 @@
      ⚠ ไม่แตะ passiveLiveness · ไม่แตะ Threshold · ไม่แตะเกณฑ์ q.ratio 0.035 เดิม
      ⚠ ข้อความ onTick เดิมทุกตัวอักษร และ out.length = 0 เมื่อพบหลายหน้ายังคงเดิม */
   var GRAB_STABLE_MIN = 2;    // ต้องนิ่งอย่างน้อย 2 เฟรมติดกันก่อนจ่ายค่า Descriptor
+  /* [SAMSUNG FIX] เฟรมที่ตรวจไม่เจอกี่เฟรมติดกันจึงจะถือว่า "ไม่นิ่งแล้ว"
+     Detector บนมือถือสะดุดเป็นระยะ ถ้ารีเซ็ตความนิ่งทันทีที่พลาดเฟรมเดียว
+     เครื่องที่ Detector ไม่เสถียรจะไม่มีวันสะสม Descriptor ครบ 6 เฟรม
+     ⚠ ไม่ได้ลดจำนวนหลักฐาน — ยังต้องได้ Descriptor จริงครบ 6 เฟรมเหมือนเดิม */
+  var GRAB_BAD_RESET = 3;
 
   function grabFramesLoop(count, onTick, live, out, stopWhen) {
     return new Promise(function (res, rej) {
-      var tries = 0, stable = 0;
+      var tries = 0, stable = 0, badRun = 0;
+      var notReady = 0;                       // จำนวนรอบที่วิดีโอยังไม่พร้อม (ไม่นับเป็น tries)
+      var tLoop = perfNow();
+      var firstDetect = 0;
+
+      /* [SAMSUNG FIX] แยกสาเหตุที่ล้มจริง แทนการโยนทุกกรณีเป็นข้อความเดียว
+         ผู้ใช้ยังเห็นข้อความเข้าใจง่ายเหมือนเดิม แต่ระบบรู้ว่าตายที่ขั้นไหน */
+      function failWith(stage, msg, code) {
+        perfSet('failure_stage', stage);
+        perfSet('face_detect_attempts', tries);
+        perfSet('face_frames_collected', out.length);
+        try {
+          var dv = deviceInfo();
+          njfReport('FACE_CLIENT_FAIL', 'attendance_face',
+            { message: stage },
+            'stage=' + stage +
+            ' attempts=' + tries + ' not_ready=' + notReady +
+            ' frames=' + out.length + '/' + count +
+            ' vw=' + (S.video ? (S.video.videoWidth || 0) : 0) +
+            ' vh=' + (S.video ? (S.video.videoHeight || 0) : 0) +
+            ' rs=' + (S.video ? (S.video.readyState || 0) : 0) +
+            ' track=' + camTrackState() +
+            ' browser=' + dv.browser + ' os=' + dv.os + ' device=' + dv.device +
+            ' build=' + String(w.NJHR_BUILD_VERSION || ''));
+        } catch (e2) {}
+        var e3 = new Error(msg);
+        e3.faceStage = stage;
+        if (code) e3.faceCode = code;      // คง Error Code จริงไว้ให้ Export อ่านได้
+        rej(e3);
+      }
+
       (function loop() {
         if (!S.running || !live()) return rej(AbortAttendanceError());
+
+        /* [SAMSUNG FIX · ข้อสำคัญที่สุด]
+           ถ้าวิดีโอยังไม่พร้อมจริง ห้ามเรียก Detector และ "ห้ามนับ tries"
+           ของเดิมนับทุกเฟรมรวมเฟรมดำ → Samsung เผาโควตา 96 รอบก่อนกล้องพร้อม
+           แล้วขึ้นว่าตรวจใบหน้าไม่สำเร็จทั้งที่ยังไม่เคยได้ภาพจริงเลยสักเฟรม */
+        if (!camVideoReady()) {
+          notReady++;
+          if (notReady > 600) {              // ~10 วินาทีที่ 60fps = กล้องไม่ส่งภาพจริง
+            return failWith('VIDEO_NOT_READY',
+              'กล้องยังไม่ส่งภาพ — ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่');
+          }
+          S.raf = requestAnimationFrame(loop);
+          return;
+        }
+
         /* Stage A ก่อนเสมอ · Stage B เฉพาะเมื่อนิ่งครบแล้ว */
         var capturing = stable >= GRAB_STABLE_MIN;
         (capturing ? detect() : detectGuide()).then(function (res2) {
           if (!live()) return rej(AbortAttendanceError());   // detect ตอบหลังหมดอายุ = หยุดทันที
           tries++;
+          if (!firstDetect) { firstDetect = 1; perfMark('face_detect_first_ms', tLoop); }
           if (!res2.length) {
-            stable = 0;
+            badRun++;
+            /* [SAMSUNG FIX] เฟรมเสียเดี่ยว ๆ ไม่ควรล้างความนิ่งทั้งหมด
+               Detector บนมือถือสะดุดเป็นระยะ ถ้ารีเซ็ตทุกครั้งจะไม่มีวันครบ 6 เฟรม */
+            if (badRun >= GRAB_BAD_RESET) stable = 0;
             if (onTick) onTick('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
           } else if (res2.length > 1) {
-            stable = 0;
+            badRun = 0; stable = 0;
             if (onTick) onTick('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
             out.length = 0;
           } else {
             var f0 = res2[0], box = f0.detection.box;
             var q = frameQuality(box);
             if (!q || q.ratio < 0.035) {
-              stable = 0;
+              badRun++;
+              if (badRun >= GRAB_BAD_RESET) stable = 0;
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
             } else if (!capturing || !f0.descriptor) {
               /* Stage A ผ่าน แต่ยังไม่ถึงคิวสร้าง Descriptor — นับความนิ่งไว้ก่อน */
-              stable++;
+              badRun = 0; stable++;
               if (onTick) onTick(null, out.length / count);
             } else {
+              badRun = 0;
               out.push({ box: box, desc: Array.from(f0.descriptor), q: q,
                          ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) });
               if (onTick) onTick(null, out.length / count);
@@ -1783,14 +1950,26 @@
           }
           if (!live()) return rej(AbortAttendanceError());
           if (stopWhen) { try { if (stopWhen(out)) return res(out); } catch (e2) {} }
-          if (out.length >= count) return res(out);
-          /* เพดานจำนวนรอบต้องเผื่อเฟรมนำทางที่เพิ่มเข้ามา (ราคาถูกกว่า Descriptor มาก)
-             ไม่งั้นเส้นทางปกติจะชน 'ตรวจใบหน้าไม่สำเร็จ' ทั้งที่ยังตรวจได้อยู่ */
+          if (out.length >= count) {
+            perfSet('face_detect_attempts', tries);
+            perfSet('face_frames_collected', out.length);
+            return res(out);
+          }
+          /* เพดานนับเฉพาะรอบที่ "ได้ภาพจริง" แล้วเท่านั้น */
           if (tries > count * 12 + GRAB_STABLE_MIN * 12) {
-            return rej(new Error('ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่'));
+            return failWith(out.length ? 'FRAME_TIMEOUT' : 'NO_FACE',
+              'ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่');
           }
           S.raf = requestAnimationFrame(loop);
-        }).catch(function (e) { rej(live() ? e : AbortAttendanceError()); });
+        }).catch(function (e) {
+          if (!live()) return rej(AbortAttendanceError());
+          if (isAborted(e)) return rej(e);
+          if (e && e.faceCode === 'FACE_INFER_TIMEOUT') {
+            return failWith('DETECT_TIMEOUT',
+              e.message || 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่', 'FACE_INFER_TIMEOUT');
+          }
+          return failWith('DETECT_ERROR', (e && e.message) || 'ตรวจใบหน้าไม่สำเร็จ กรุณาลองใหม่');
+        });
       })();
     });
   }
