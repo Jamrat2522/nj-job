@@ -1655,6 +1655,12 @@
     .job-pager { gap: 6px; margin: 10px 0 84px; }
     .job-pager .pg-info { width: 100%; text-align: center; margin: 4px 0 0; }
   }
+  /* Pagination ตัวบน — เฉพาะระยะห่าง (ปุ่ม/สี/ขนาด/พฤติกรรม เหมือนตัวล่างทุกอย่าง)
+     ตัวล่างมี margin-bottom 84px บนมือถือไว้เลี่ยงแถบล่าง — ตัวบนไม่ต้องการช่องว่างนั้น */
+  .job-pager-top { margin: 4px 0 10px; }
+  @media (max-width: 900px) {
+    .job-pager-top { margin: 6px 0 10px; }
+  }
   .btn-tl-add {
     background: linear-gradient(135deg, #f97316, #ea580c);
     color: #fff;
@@ -3159,6 +3165,10 @@
       </div>
     </div>
 
+    <!-- ⚡ Render Pagination (บน) — เห็นเลขหน้าทันทีโดยไม่ต้องเลื่อนลง
+         ใช้ state.tablePage / RENDER_PAGE_SIZE / goJobPage() ชุดเดียวกับตัวล่าง -->
+    <div class="job-pager job-pager-top" id="jobPagerTop"></div>
+
     <!-- Table (Desktop) -->
     <div class="table-wrap desktop-table-premium">
       <div class="table-scroll">
@@ -3192,8 +3202,8 @@
     <!-- Card View (Mobile) -->
     <div class="job-cards-mobile" id="jobCardsMobile"></div>
 
-    <!-- ⚡ Render Pagination (ไม่กระทบยอดรวม/สถิติ — แบ่งแสดงผลเท่านั้น) -->
-    <div class="job-pager" id="jobPager"></div>
+    <!-- ⚡ Render Pagination (ล่าง) — ตำแหน่ง/สไตล์เดิมทุกอย่าง -->
+    <div class="job-pager job-pager-bottom" id="jobPagerBottom"></div>
   </main>
 
   <!-- ============ USERS MANAGEMENT PAGE ============ -->
@@ -4244,6 +4254,8 @@ const FETCH_FIRST_PAGE = 100;   // FULL: หน้าแรก → render ทั
 const FETCH_CHUNK      = 500;   // FULL: ที่เหลือ → ทยอยดึง
 const DELTA_IN_CHUNK   = 200;   // DELTA: ดึงแถวที่เปลี่ยน ครั้งละกี่ id
 const DELTA_MAX_RATIO  = 0.6;   // DELTA: ถ้าเปลี่ยนเกิน 60% → สู้ FULL ไม่ได้ ใช้ FULL แทน
+const MANIFEST_PAGE      = 500; // DELTA: manifest ดึงครั้งละกี่แถว (ต้อง ≤ Supabase max_rows)
+const MANIFEST_MAX_PAGES = 400; // DELTA: guard กัน loop ไม่รู้จบ (500×400 = 200,000 แถว)
 
 /* 📊 สถิติ network รอบล่าสุด — ใช้ตรวจสอบ/ทดสอบ ไม่กระทบ business logic */
 let _lastSyncStats = null;
@@ -4351,10 +4363,84 @@ async function _retryDirtyJob(local, remoteStamp) {
   }
 }
 
+/**
+ * 📋 MANIFEST — ดึง (id + updated_at) ของทุกแถวแบบ "แบ่งหน้าจริง"
+ * ------------------------------------------------------------------
+ * ⚠️ ROOT CAUSE เดิม: query manifest ไม่มี .range() → Supabase ตัดที่ max_rows (ค่าเริ่มต้น 1000)
+ *    เมื่อ dataset > max_rows แถวที่เกินจะไม่อยู่ใน manifest
+ *    แล้ว _classifyMissingLocal() ตีความว่า "ถูกลบบน Cloud" → งานหายจากเครื่อง
+ *
+ * กติกาใหม่ (P0):
+ *   • แบ่งหน้าด้วย .range() ครั้งละ MANIFEST_PAGE แถว
+ *   • ORDER ต้อง deterministic → ใช้ id (PK · UNIQUE btree advance_jobs_pkey)
+ *     ห้ามใช้ created_at อย่างเดียว เพราะมีค่าซ้ำได้ → pagination กระโดด/ซ้ำ
+ *   • เทียบกับ count(exact) จาก Server — ไม่ครบ = ถือว่า "ล้มเหลว"
+ *   • ล้มเหลวเมื่อไหร่ → คืน null ให้ผู้เรียก fallback ไป FULL
+ *     ❌ ห้ามคืน manifest ที่ไม่ครบออกไปเด็ดขาด
+ *
+ * @returns {Promise<Array<{id:string,updated_at:string}>|null>} null = ไม่ครบ/ล้มเหลว
+ */
+async function _fetchJobsManifestAll(stats) {
+  // [A] จำนวนแถวจริงบน Server — head request (ไม่โหลด payload)
+  const { count: serverCount, error: cErr } = await sb
+    .from('advance_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('app_code', APP_CODE);
+  if (stats) stats.requests++;
+  if (cErr || typeof serverCount !== 'number') {
+    console.warn('[advance_jobs] manifest count failed → ใช้ FULL แทน:', cErr);
+    return null;
+  }
+  if (stats) stats.manifestServerCount = serverCount;
+
+  // [B] ไล่ดึงทีละหน้าจนครบตาม serverCount
+  //     ⚠️ เลื่อน cursor ด้วย "จำนวนแถวที่ได้จริง" ไม่ใช่ขนาดหน้าที่ขอ
+  //        → ถูกต้องแม้ Server จะตัดหน้าให้เล็กกว่าที่ขอ (max_rows เท่าไหร่ก็ทำงานได้)
+  const rows = [], seen = new Set();
+  let from = 0;
+  for (let guard = 0; guard < MANIFEST_MAX_PAGES && rows.length < serverCount; guard++) {
+    const { data, error } = await sb
+      .from('advance_jobs')
+      .select('id,updated_at')
+      .eq('app_code', APP_CODE)
+      .order('id', { ascending: true })                 // 🔒 deterministic (PK · UNIQUE)
+      .range(from, from + MANIFEST_PAGE - 1);
+    if (stats) stats.requests++;
+    if (error) {
+      console.warn('[advance_jobs] manifest page failed → ใช้ FULL แทน:', error);
+      return null;                                       // 🛡 ห้าม classify missing
+    }
+    const batch = data || [];
+    if (!batch.length) {
+      console.warn(`[advance_jobs] manifest ได้ 0 แถวก่อนครบ (${rows.length}/${serverCount}) → ใช้ FULL แทน`);
+      return null;                                       // 🛡 กัน loop ไม่รู้จบ
+    }
+    batch.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); } });
+    from += batch.length;
+  }
+
+  // [C] ยืนยันความครบถ้วนกับ count(exact) — ไม่ตรง = ห้ามใช้
+  if (rows.length !== serverCount) {
+    console.warn(`[advance_jobs] manifest ไม่ครบ (${rows.length}/${serverCount}) → ใช้ FULL แทน`);
+    return null;                                         // 🛡 ห้าม classify missing
+  }
+  if (stats) stats.manifestRows = rows.length;
+  return rows;
+}
+
 /** FULL MODE — ดึงทุกแถวแบบแบ่งหน้า (ใช้เมื่อไม่มี cache เท่านั้น) */
 async function _loadJobsFull(localBefore, stats) {
-  const rows = [];
+  const rows = [], seenIds = new Set();
   let from = 0, size = FETCH_FIRST_PAGE, complete = false;
+
+  // 🛡 จำนวนแถวจริงบน Server — ใช้เป็นเงื่อนไข "ครบ" แทนการเดาจากขนาดหน้า
+  const { count: serverCount0, error: cErr0 } = await sb
+    .from('advance_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('app_code', APP_CODE);
+  stats.requests++;
+  const serverTotal = (!cErr0 && typeof serverCount0 === 'number') ? serverCount0 : null;
+  stats.fullServerCount = serverTotal;
 
   for (let guard = 0; guard < 200; guard++) {
     const { data, error } = await sb
@@ -4362,15 +4448,21 @@ async function _loadJobsFull(localBefore, stats) {
       .select('*')
       .eq('app_code', APP_CODE)
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })      // 🔒 tiebreaker: created_at มีค่าซ้ำได้ → ถ้าไม่มี key นี้
+                                             //    .range() แต่ละหน้าอาจสลับลำดับ → แถวข้าม/ซ้ำ
       .range(from, from + size - 1);
     if (error) { console.warn('[advance_jobs] full load failed:', error); return false; }
 
     const batch = data || [];
-    rows.push(...batch);
+    batch.forEach(r => { if (!seenIds.has(r.id)) { seenIds.add(r.id); rows.push(r); } });
     stats.requests++; stats.rowsFetched += batch.length;
 
     const isFirstBatch = (from === 0);
-    const isLastBatch  = (batch.length < size);
+    // ✅ "หน้าสุดท้าย" ตัดสินจาก serverCount ก่อน — ถ้า Server ตัดหน้าให้เล็กกว่าที่ขอ
+    //    (max_rows < size) การเดาจาก batch.length < size จะหยุดกลางคัน = ข้อมูลขาด
+    const isLastBatch  = (serverTotal !== null)
+      ? (rows.length >= serverTotal || batch.length === 0)
+      : (batch.length < size);
 
     // ✅ วาดชุดแรกทันที (first paint) ชุดกลางสะสมเงียบๆ
     if (batch.length && (isFirstBatch || isLastBatch) && state.page === 'jobs' && state.user) {
@@ -4382,13 +4474,22 @@ async function _loadJobsFull(localBefore, stats) {
     }
 
     if (isLastBatch) { complete = true; break; }
-    from += size;
+    from += batch.length;      // ⚠️ เลื่อนตามจำนวนแถวที่ได้จริง ไม่ใช่ขนาดหน้าที่ขอ
     size = FETCH_CHUNK;
+  }
+
+  // 🛡 ยืนยันความครบถ้วนกับ count(exact) ก่อนตัดสินว่าแถวไหน "ถูกลบบน Cloud"
+  //    (ถ้านับไม่ได้ / ไม่ตรง → ถือว่าโหลดไม่ครบ · เก็บงานในเครื่องไว้ทั้งหมด)
+  if (complete) {
+    if (serverTotal === null || rows.length !== serverTotal) {
+      console.warn(`[advance_jobs] full load ไม่ครบ (${rows.length}/${serverTotal === null ? '?' : serverTotal}) — ข้าม orphan/delete check`);
+      complete = false;
+    }
   }
 
   if (!complete) {
     // 🛡 โหลดไม่ครบ → ห้ามสรุปว่าอะไรเป็น orphan และห้ามทิ้งงานในเครื่อง
-    console.warn('[advance_jobs] fetch guard hit — ยังโหลดไม่ครบ, ข้าม orphan/delete check');
+    console.warn('[advance_jobs] ยังโหลดไม่ครบ — ข้าม orphan/delete check (คงงานในเครื่องไว้)');
     const gotIds = new Set(rows.map(r => r.id));
     const keepLocal = localBefore.filter(j => !gotIds.has(j.id));   // เก็บของเดิมไว้ทั้งหมด
     state.jobs = _sortJobsDesc(rows.map(jobFromDb)).concat(keepLocal);
@@ -4426,13 +4527,11 @@ async function _loadJobsFull(localBefore, stats) {
  * คืน false ถ้าไม่เหมาะกับ delta (ให้ผู้เรียก fallback ไป FULL)
  */
 async function _loadJobsDelta(localBefore, stats) {
-  // [1] manifest — เบามาก (id + updated_at เท่านั้น)
-  const { data: manifest, error: mErr } = await sb
-    .from('advance_jobs')
-    .select('id,updated_at')
-    .eq('app_code', APP_CODE);
-  if (mErr) { console.warn('[advance_jobs] manifest failed:', mErr); return null; }
-  stats.requests++; stats.manifestRows = (manifest || []).length;
+  // [1] manifest — เบามาก (id + updated_at เท่านั้น) · ต้อง "ครบทุกแถว" เท่านั้น
+  //     🛡 P0: ถ้าไม่ครบ → คืน null ให้ orchestrator ไป FULL
+  //     ห้ามเดินต่อไป _classifyMissingLocal() ด้วย manifest ที่ขาด (= ทำงานหาย)
+  const manifest = await _fetchJobsManifestAll(stats);
+  if (manifest === null) return null;
 
   const localById = new Map(localBefore.map(j => [j.id, j]));
   const remoteStamp = new Map((manifest || []).map(r => [r.id, r.updated_at]));
@@ -4515,6 +4614,7 @@ async function loadJobsFromSupabase(opts) {
     try {
       const localBefore = Array.isArray(state.jobs) ? state.jobs.slice() : [];
       const stats = { mode: 'full', requests: 0, rowsFetched: 0, manifestRows: 0,
+                      manifestServerCount: null, fullServerCount: null,
                       changed: null, dirty: 0, reusedFromCache: 0,
                       dirtyRetryOk: 0, dirtyRetryFail: 0,
                       orphansPushed: 0, removedByServer: 0 };
@@ -5072,25 +5172,33 @@ function statusBadgeClass(s) {
 }
 
 function jobsByMode(mode) { return visibleJobs().filter(j => j.mode === mode); }
+
+/* 🔎 SEARCH — logic กลางชุดเดียว ใช้ทั้งสถานะเฉพาะ และ "📋 ทั้งหมด"
+   เดิมสาขา status==='all' ค้นไม่ครบ field (ขาด jobNj / declar)
+   → เลือก "ทั้งหมด" แล้วค้น JOB NJ ไม่เจอ แต่เลือกสถานะแล้วเจอ */
+const JOB_SEARCH_FIELDS = ['jobNo','jobNj','declar','customer','invoice','bl','detail'];
+function matchesJobSearch(j, q) {
+  if (!q) return true;
+  for (const k of JOB_SEARCH_FIELDS) {
+    if (String(j[k] || '').toLowerCase().includes(q)) return true;
+  }
+  return false;
+}
+
 function jobsFiltered() {
   const list = visibleJobs().filter(j => j.mode === state.view.mode && j.status === state.view.status);
   const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
   if (!q) return list;
-  return list.filter(j =>
-    (j.jobNo||'').toLowerCase().includes(q) ||
-    (j.jobNj||'').toLowerCase().includes(q) ||
-    (j.customer||'').toLowerCase().includes(q) ||
-    (j.invoice||'').toLowerCase().includes(q) ||
-    (j.bl||'').toLowerCase().includes(q) ||
-    (j.declar||'').toLowerCase().includes(q) ||
-    (j.detail||'').toLowerCase().includes(q)
-  );
+  return list.filter(j => matchesJobSearch(j, q));
 }
 
 function updateCounts() {
   const ms = ['advance','extra'];
+  // 🛡 ใช้ชุดข้อมูลเดียวกับตาราง (visibleJobs) — role USER/STAFF จะได้จำนวนตรงกับที่มองเห็นจริง
+  //    role AC/ACCOUNT/ADMIN/SUPER_ADMIN → visibleJobs() === state.jobs (จำนวนเท่าเดิมทุกประการ)
+  const vis = visibleJobs();
   ms.forEach(m => {
-    const list = jobsByMode(m);
+    const list = vis.filter(j => j.mode === m);
     document.getElementById('cnt-'+m+'-all').textContent = list.length;
   });
   const statusList = {
@@ -5099,7 +5207,7 @@ function updateCounts() {
   };
   ms.forEach(m => statusList[m].forEach(s => {
     const el = document.getElementById('cnt-'+m+'-'+s);
-    if (el) el.textContent = state.jobs.filter(j=>j.mode===m && j.status===s).length;
+    if (el) el.textContent = vis.filter(j=>j.mode===m && j.status===s).length;
   }));
 }
 
@@ -5166,10 +5274,12 @@ function renderPills() {
     ]
   };
   const list = map[state.view.mode];
-  const total = state.jobs.filter(j=>j.mode===state.view.mode).length;
+  // 🛡 นับจากชุดเดียวกับตาราง (visibleJobs) — ตรงกับ Sidebar และ KPI
+  const vis = visibleJobs();
+  const total = vis.filter(j=>j.mode===state.view.mode).length;
   let html = `<button class="pill ${state.view.status==='all'?'active':''}" data-status="all" onclick="setStatus('all')">📋 ทั้งหมด <span class="count">${total}</span></button>`;
   list.forEach(s => {
-    const n = state.jobs.filter(j=>j.mode===state.view.mode && j.status===s.k).length;
+    const n = vis.filter(j=>j.mode===state.view.mode && j.status===s.k).length;
     html += `<button class="pill ${state.view.status===s.k?'active':''}" data-status="${s.k}" onclick="setStatus('${s.k}')">${s.label} <span class="count">${n}</span></button>`;
   });
   document.getElementById('pillRow').innerHTML = html;
@@ -5193,10 +5303,14 @@ function goJobPage(p) {
   if (tw) tw.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/* ⚡ Pagination 2 ตำแหน่ง (บน/ล่าง) — HTML ชุดเดียวกัน · state ชุดเดียวกัน
+   ห้าม duplicate logic: build html ครั้งเดียว แล้วใส่ให้ทั้งสอง container */
+const JOB_PAGER_IDS = ['jobPagerTop', 'jobPagerBottom'];
+
 function renderJobPager(page, totalPages, totalRows, startIdx, shown) {
-  const el = document.getElementById('jobPager');
-  if (!el) return;
-  if (!totalPages || totalPages <= 1) { el.innerHTML = ''; return; }
+  const els = JOB_PAGER_IDS.map(id => document.getElementById(id)).filter(Boolean);
+  if (!els.length) return;
+  if (!totalPages || totalPages <= 1) { els.forEach(el => { el.innerHTML = ''; }); return; }
 
   // แสดงหมายเลขหน้าแบบย่อ: 1 … (p-1) p (p+1) … last
   const nums = new Set([1, totalPages, page, page - 1, page + 1]);
@@ -5211,7 +5325,7 @@ function renderJobPager(page, totalPages, totalRows, startIdx, shown) {
   });
   html += `<button class="pg-btn" onclick="goJobPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>›</button>`;
   html += `<span class="pg-info">แสดง ${startIdx + 1}–${startIdx + shown} จาก ${totalRows} งาน</span>`;
-  el.innerHTML = html;
+  els.forEach(el => { el.innerHTML = html; });     // ✅ บน/ล่าง active ตรงกันเสมอ
 }
 
 function renderTable() {
@@ -5230,12 +5344,7 @@ function renderTable() {
   if (state.view.status === 'all') {
     list = visibleJobs().filter(j => j.mode === state.view.mode);
     const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    if (q) list = list.filter(j =>
-      (j.jobNo||'').toLowerCase().includes(q) ||
-      (j.customer||'').toLowerCase().includes(q) ||
-      (j.invoice||'').toLowerCase().includes(q) ||
-      (j.bl||'').toLowerCase().includes(q) ||
-      (j.detail||'').toLowerCase().includes(q));
+    if (q) list = list.filter(j => matchesJobSearch(j, q));   // ✅ field ชุดเดียวกับ jobsFiltered()
   } else {
     list = jobsFiltered();
   }
