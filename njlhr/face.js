@@ -1111,7 +1111,12 @@
      ⚠ Timeout ห้ามแปลงเป็น PASS — ต้องโยน Error ที่มี .faceCode จริงเสมอ */
   var LIB_TIMEOUT_MS   = 12000;   // โหลด face-api.js ต่อ 1 แหล่ง
   var MODEL_TIMEOUT_MS = 15000;   // loadFromUri ต่อ 1 แหล่ง
-  var INFER_TIMEOUT_MS = 8000;    // 1 เฟรมของ detect()/detectGuide()
+  var INFER_TIMEOUT_MS = 8000;    // ใช้งานปกติ: 1 เฟรมของ detect()/detectGuide()
+  /* [ANDROID ENROLLMENT] ลงทะเบียนใบหน้าต้องเก็บหลายเฟรมต่อเนื่องและบางเครื่อง Android
+     (เช่น Samsung A56) ใช้เวลา inference สูงกว่า 8s เป็นบางเฟรม ทำให้เกิด false timeout
+     ทั้งที่กล้อง/ใบหน้ายังปกติ จึงขยายเฉพาะ Enrollment เป็น 12s
+     ⚠ ไม่ลด Threshold · Liveness · Quality · จำนวนเฟรม · Face Match ใด ๆ */
+  var ENROLL_INFER_TIMEOUT_MS = 12000;
   /* [TOTAL DEADLINE] เพดานรวมของทั้งเส้นทาง Local → CDN
      ปัญหาเดิม: 20s (lib local) + 20s (lib CDN) + 25s (model local) + 25s (model CDN) ≈ 90 วินาที
      ผู้ใช้จะยืนรอเกือบนาทีครึ่งก่อนเห็น Error ซึ่งใช้ไม่ได้บนหน้างานจริง
@@ -1645,13 +1650,14 @@
   }
   /* CAPTURE — Detection + Landmarks + Descriptor (ของเดิม ไม่เปลี่ยนพฤติกรรม)
      ใช้โดย Face Login / Face Attendance / Blink Challenge / ทดสอบใบหน้า ตามเดิมทุกจุด */
-  function detect() {
+  function detect(timeoutMs) {
     var f = w.faceapi;
     perfCount('descriptor_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var t = perfNow();
+    var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
     var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
-    return withTimeout(Promise.resolve(task), INFER_TIMEOUT_MS, 'FACE_INFER_TIMEOUT',
+    return withTimeout(Promise.resolve(task), inferMs, 'FACE_INFER_TIMEOUT',
       'ประมวลผลใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
       /* กล้องถูกปิด/เปลี่ยนรอบระหว่างรอ inference = ผลนี้ใช้ไม่ได้ ต้องยกเลิกเงียบ */
@@ -1663,14 +1669,15 @@
   /* GUIDANCE — Detection + Landmarks เท่านั้น ห้ามคำนวณ Descriptor
      ใช้เฉพาะลูปนำทางท่าทางของ \"ลงทะเบียนใบหน้า\" (enroll) เท่านั้น
      Descriptor เป็นขั้นที่แพงที่สุดของ face-api การไม่คำนวณทุกเฟรมทำให้ลูปนำทางลื่นขึ้นมาก */
-  function detectGuide() {
+  function detectGuide(timeoutMs) {
     var f = w.faceapi;
     perfCount('guide_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var tG = perfNow();
+    var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
     return withTimeout(
       Promise.resolve(f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks()),
-      INFER_TIMEOUT_MS, 'FACE_INFER_TIMEOUT', 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่'
+      inferMs, 'FACE_INFER_TIMEOUT', 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
       if (myGen !== CAM.gen) throw AbortAttendanceError();
       perfAdd('guide_inference_ms', perfNow() - tG);   // [PERF] แยกจาก descriptor_ms
@@ -2005,7 +2012,7 @@
      ⚠ เกณฑ์และ Logic เดิมคงไว้ครบ: seenOpen ที่ ear > 0.26 · seenClose ที่ ear < 0.17 ·
         Timeout 9000 ms · ต้องพบใบหน้าเดียว · ข้อความ onTick เดิมทุกตัวอักษร
      ผลพลอยได้: Blink ไม่ต้องรอ Recognition Model อีกต่อไป */
-  function blinkChallenge(onTick, alive) {
+  function blinkChallenge(onTick, alive, inferTimeoutMs) {
     var live = (typeof alive === 'function') ? alive : null;
     var seenOpen = false, seenClose = false, t0 = Date.now();
     return new Promise(function (res, rej) {
@@ -2013,7 +2020,7 @@
         if (!S.running) return rej(new Error('ยกเลิกแล้ว'));
         if (live && !live()) return rej(AbortAttendanceError());   // ก่อน detect
         if (Date.now() - t0 > 9000) return res(false);
-        detectGuide().then(function (r) {
+        detectGuide(inferTimeoutMs).then(function (r) {
           if (live && !live()) return rej(AbortAttendanceError()); // detect ตอบหลังหมดอายุ
           if (r.length === 1) {
             var e = eyeOpen(r[0].landmarks);
@@ -3550,7 +3557,7 @@
         msg(reason || 'ตรวจสอบบุคคลจริงไม่แน่ใจ กรุณากระพริบตา 1 ครั้ง', true);
         blinkChallenge(function (t) {
           if (S.running && enAlive()) msg(t, true);
-        }, enAlive).then(function (ok) {
+        }, enAlive, ENROLL_INFER_TIMEOUT_MS).then(function (ok) {
           if (!S.running || !enAlive()) return;          // Async Boundary หลัง Challenge
           if (!ok) {                                     // ไม่ผ่าน/หมดเวลา = ตรวจมุมเดิมต่อ
             resetPose('ยืนยันบุคคลจริงไม่สำเร็จ — กรุณาลองทำท่าเดิมอีกครั้ง');
@@ -3579,7 +3586,7 @@
         /* stable ครบ "และ" Recognition พร้อม เท่านั้นจึงยอมจ่ายค่า Descriptor ของเฟรมนี้ */
         var capturing = (stable >= STABLE_MIN) && !!S.recogReady;
         if (waitRecog) recogPrefetch();       // เผื่อยังไม่ได้เริ่ม (Single-flight ไม่โหลดซ้ำ)
-        (capturing ? detect() : detectGuide()).then(function (r) {
+        (capturing ? detect(ENROLL_INFER_TIMEOUT_MS) : detectGuide(ENROLL_INFER_TIMEOUT_MS)).then(function (r) {
           if (!S.running || !enAlive()) return;                    // ตอบหลังหมดอายุ = หยุดเงียบ
           errRun = 0; errFirst = 0;
           if (!r.length) { stable = 0; msg('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', true); return again(); }
