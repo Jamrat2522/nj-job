@@ -60,7 +60,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "attendance": {
-      "url": "views/attendance/main.js?v=0041aac8",
+      "url": "views/attendance/main.js?v=a8576a02",
       "deps": [
         "shared-report",
         "shared-requests"
