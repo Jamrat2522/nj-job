@@ -1,10 +1,10 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-ae71811a",
+  "buildId": "njhr-v2-29b365d9",
   "runtime": {
     "namespace": "runtime/namespace.js?v=d90cf028",
-    "core": "runtime/core.js?v=7219c43f"
+    "core": "runtime/core.js?v=6201d2df"
   },
   "modules": {
     "dashboard": {

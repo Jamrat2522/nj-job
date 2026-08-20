@@ -1241,9 +1241,37 @@
     return S.recogLoading;
   }
 
-  /* เริ่มโหลด Recognition แบบไม่บล็อกใคร — เรียกได้บ่อยเท่าไหร่ก็ได้ ไม่โหลดซ้ำ */
+  /* เริ่มโหลด Recognition แบบไม่บล็อกใคร — เรียกได้บ่อยเท่าไหร่ก็ได้ ไม่โหลดซ้ำ
+     ⚠ ตัวนี้ \"สร้าง Model Graph\" ด้วย = งานหนักบน Main Thread */
   function recogPrefetch() {
     try { recogLoad()['catch'](function () {}); } catch (e) {}
+  }
+
+  /* [ANDROID ENROLL] ดึงเฉพาะ \"ไฟล์\" Recognition เข้า HTTP/Service Worker Cache
+     ไม่แตะ faceapi · ไม่สร้าง/คอมไพล์ Model Graph · ไม่กิน Main Thread
+     ใช้ให้ดาวน์โหลด 6.44 MB เดินคู่ไปกับการเปิดกล้อง โดยไม่แย่ง CPU/GPU จาก detectGuide()
+     ⚠ เป็นตัวเดียวกับที่ NJHRFace.prefetchRecognitionBytes() ใช้ พฤติกรรมไม่เปลี่ยน */
+  function recogBytesPrefetch() {
+    swModelBind();
+    swModelBeginLoad();
+    var urls = [MODEL_URL_LOCAL + '/face_recognition_model-weights_manifest.json',
+                MODEL_URL_LOCAL + '/face_recognition_model.bin'];
+    var t0 = perfNow();
+    return Promise.all(urls.map(function (u) {
+      return fetch(u, { cache: 'force-cache' })['catch'](function () { return null; });
+    })).then(function () {
+      perfDur('recognition_bytes_prefetch_ms', t0);
+    })['catch'](function () {});
+  }
+
+  /* [ANDROID ENROLL] Android เท่านั้นที่เลื่อนการสร้าง Model Graph ออกไป
+     เหตุผลจาก Source: enroll() เดิมเรียก recogPrefetch() ตั้งแต่วินาทีแรก
+     ซึ่งคอมไพล์ faceRecognitionNet (6.44 MB) แข่งกับ detectGuide() บน Main Thread เดียวกัน
+     บน Samsung A55/A56 ทำให้ inference ต่อเฟรมทะลุ ENROLL_INFER_TIMEOUT_MS (12s)
+     แล้วขึ้น \"ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่\" ทั้งที่กล้อง/ใบหน้าปกติ
+     ⚠ iOS / Desktop คืน false = พฤติกรรมเดิมทุกประการ (ไม่กระทบ iOS tuning ที่ทำไว้) */
+  function enrollDeferRecog() {
+    try { return deviceInfo().os === 'Android'; } catch (e) { return false; }
   }
 
   /* [COMPAT] loadModels() เดิม = "พร้อมครบทั้ง 2 เฟส"
@@ -3261,6 +3289,18 @@
        ผู้เรียกที่เหลือทั้งหมดไม่ส่ง password: หน้า Login (njFaceEntryEnsure) และหน้าจัดการพนักงานของ HR */
     shell('ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
     var got = [], idx = 0, snapPath = null;
+    /* [ANDROID ENROLL] ตัวเริ่ม \"สร้าง Model Graph\" แบบครั้งเดียวต่อ Enrollment Run
+       enDeferRecog=false (iOS/Desktop) → ถือว่าเริ่มไปแล้วตั้งแต่ต้น ฟังก์ชันนี้จึงไม่ทำอะไรเลย
+       enDeferRecog=true  (Android)     → ถูกเรียกจากลูปนำทาง เมื่อ detectGuide() ยืนยันว่า
+                                          เห็นใบหน้าเดียว ผ่านเกณฑ์ขนาด/แสง/ความคม แล้วเท่านั้น
+       ⚠ recogPrefetch() เป็น Single-flight อยู่แล้ว เรียกซ้ำไม่โหลดซ้ำ · flag นี้กันการเรียกถี่ทุกเฟรม */
+    var enDeferRecog = enrollDeferRecog();
+    var enRecogStarted = !enDeferRecog;
+    function enRecogStart() {
+      if (enRecogStarted) return;
+      enRecogStarted = true;
+      recogPrefetch();
+    }
     /* [FACE_ENTRY_ENROLL_20260820] ลบ enKind / enPunch (Handoff หลักฐานไปลงเวลาต่อทันที) ออกแล้ว
        Handoff ถูกสร้างเฉพาะตอน enAtt ซึ่งมีผู้ส่งรายเดียวคือ enrollThenPunch() ที่ถูกลบไปแล้ว
        ⚠ ENROLL Snapshot (มุมแรก) ยังทำงานเหมือนเดิมทุกประการ */
@@ -3540,6 +3580,12 @@
           if (!pose.test(y))         { stable = 0; msg(pose.hint, false); return again(); }
 
           stable++;
+          /* [ANDROID ENROLL] ถึงจุดนี้ = GUIDE ยืนยันครบแล้วว่า เห็นใบหน้าเดียว · ผ่านเกณฑ์
+             ขนาด/แสง/ความคม · ท่าถูกต้อง · และนิ่งติดกันครบ STABLE_MIN เฟรม
+             จึงเริ่มสร้าง Model Graph ได้อย่างปลอดภัย — ก่อนหน้านี้ detectGuide() ได้ CPU/GPU เต็ม
+             ไม่ถูก Recognition แย่งระหว่าง Samsung A55/A56 กำลังจับท่าแรก
+             ⚠ ไม่แตะเกณฑ์ใด ๆ ด้านบน · เครื่องที่ไม่ใช่ Android บรรทัดนี้เป็น no-op */
+          if (stable >= STABLE_MIN) enRecogStart();
           if (!capturing || !f0.descriptor) {   // ยังเป็นเฟรมนำทาง — ไม่มี/ไม่คำนวณ Descriptor
             msg(waitRecog ? 'ท่าถูกต้องแล้ว — กำลังเตรียมระบบยืนยันใบหน้า…'
                              : 'ท่าถูกต้องแล้ว — นิ่งไว้สักครู่');
@@ -3697,7 +3743,10 @@
     /* [PERF] เริ่มนำทาง 3 มุมได้ทันทีเมื่อ GUIDE พร้อม ไม่ต้องรอ Recognition 6.44 MB
        Recognition โหลด Background · capturePose() จะรอเองตอน stable ผ่านและถึงคิวทำ Descriptor */
     var modelE = guideLoad();
-    recogPrefetch();
+    /* [ANDROID ENROLL] Android = ดาวน์โหลดไฟล์ Recognition ล่วงหน้าได้ (ไม่กิน Main Thread)
+       แต่ยัง **ไม่** สร้าง Model Graph — รอให้ detectGuide() เห็นใบหน้าชัดในกรอบก่อน (enRecogStart)
+       เครื่องอื่น (iOS/Desktop) = เรียก recogPrefetch() ตั้งแต่ต้นเหมือนเดิมทุกประการ */
+    if (enDeferRecog) recogBytesPrefetch(); else recogPrefetch();
     camE.then(function () { if (!S.guideReady) drawPoses('กำลังเตรียมระบบตรวจสอบใบหน้า…'); }, function () {});
     modelE['catch'](function () {});
     Promise.all([camE, modelE]).then(function () {
@@ -3883,16 +3932,7 @@
        ⚠ ไม่ได้ถูกเรียกโดยค่าเริ่มต้น — กลยุทธ์ warmup ปัจจุบันยังเป็น Full parallel เหมือนเดิม
           จะเปลี่ยนค่าเริ่มต้นได้ต่อเมื่อมีตัวเลขจากเครื่องจริงยืนยันตามเกณฑ์ที่กำหนดไว้ */
     prefetchRecognitionBytes: function () {
-      swModelBind();
-      swModelBeginLoad();
-      var urls = [MODEL_URL_LOCAL + '/face_recognition_model-weights_manifest.json',
-                  MODEL_URL_LOCAL + '/face_recognition_model.bin'];
-      var t0 = perfNow();
-      return Promise.all(urls.map(function (u) {
-        return fetch(u, { cache: 'force-cache' })['catch'](function () { return null; });
-      })).then(function () {
-        perfDur('recognition_bytes_prefetch_ms', t0);
-      })['catch'](function () {});
+      return recogBytesPrefetch();
     },
     /* [GPS WARMUP] เรียกจากหน้าลงเวลาเท่านั้น (Mobile · attendance_required === true)
        เริ่ม watchPosition ล่วงหน้าเพื่อให้ตอนกดปุ่มมี Fix พร้อมใช้ทันที
