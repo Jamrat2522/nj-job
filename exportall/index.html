@@ -634,6 +634,7 @@ td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
     <div class="sb-item" data-mode="goodyear">🛞 Goodyear</div>
     <div class="sb-item" data-mode="tpv">🖥️ TPV</div>
     <div class="sb-item" data-mode="karwin">🏭 KARWIN</div>
+    <div class="sb-item" data-mode="billnote">📄 ใบวางบิล</div>
     <div class="sb-sec" id="secTools">🛠️ เครื่องมือ</div>
     <div class="sb-item" id="miUsers" data-page="users">👤 จัดการผู้ใช้</div>
     <div class="sb-bottom">
@@ -1003,7 +1004,8 @@ function enterApp(){
 const MODE_RENDER = { anca: 'ancaRenderView', wisdom: 'wisdomRenderView', sig: 'sigRenderView',
   tyrolit: 'tyrolitRenderView', united: 'unitedRenderView', diam: 'diamRenderView',
   firstmat: 'fmRenderView', autostore: 'autostoreRenderView', lecreuset: 'lecreusetRenderView',
-  zhenwestern: 'zhenwesternRenderView', goodyear: 'goodyearRenderView', tpv: 'tpvRenderView', karwin: 'karwinRenderView' };
+  zhenwestern: 'zhenwesternRenderView', goodyear: 'goodyearRenderView', tpv: 'tpvRenderView', karwin: 'karwinRenderView',
+  billnote: 'bvRenderView' };
 
 function showPage(p){
   if (p === 'users' && !canManageUsers(currentUser)) { toast('ไม่มีสิทธิ์ใช้งานเมนูนี้', 'err'); p = 'conti'; }
@@ -6566,6 +6568,656 @@ async function kwExport(){
       +(warnings.length?'<ul style="margin:8px 0 0;padding-left:20px">'+warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':''),'err');
     toast('ล้มเหลว: '+(e&&e.message||e),'err');
   }finally{ KWS.busy=false; if(btn) btn.textContent=old||'📤 EXPORT EXCEL'; kwUpdateBtn(); }
+}
+
+/* ==================== 📄 ใบวางบิล (BILL NOTE) — โหมดใหม่ แยกอิสระ 100%
+   ห้ามกระทบโหมดเดิม / ไม่แตะ Supabase / ไม่แตะ SQL-RPC / ทำงานฝั่ง Browser ล้วน
+   Flow: Upload PDF (สูงสุด 20/รอบ) → Text Layer → (ไม่ครบ) OCR → Preview แก้ไขได้ → EXPORT EXCEL
+==================== */
+const BV = {
+  MAX_FILES : 20,
+  POOL      : 3,     /* อ่านพร้อมกันสูงสุด 3 ไฟล์ */
+  OCR_POOL  : 2,     /* OCR พร้อมกันสูงสุด 2 ไฟล์ (กัน Browser ค้าง) */
+  TEXT_MAX_PAGES : 10,
+  OCR_MAX_PAGES  : 3,
+  REPAIR_SCALES  : [2.5, 3.5],   /* 2 raster cross-verify ตอนซ่อม Text Layer ที่เสียหาย */
+  COLS : ['ลำดับ','JOB NJ:','บริษัท:','เลขที่ใบขนฯ:','สถานที่วางบิล:','MODE:','Name Cs'],
+  WIDTHS : [8, 20, 44, 22, 40, 20, 13],
+  KEYS : ['job','company','declNo','place','mode','nameCs'],
+  LABEL: { job:'JOB NJ:', company:'บริษัท:', declNo:'เลขที่ใบขนฯ:', place:'สถานที่วางบิล:', mode:'MODE:', nameCs:'Name Cs' }
+};
+const BVS = { rows:[], busy:false, done:0, total:0, lastMsg:'' };
+const BV_SEP = '\u0001';                 /* ตัวคั่นคอลัมน์ (ช่องว่างแนวนอนกว้าง) */
+let _bvUid = 0;
+
+/* ---------- Label จริงในเอกสาร (อ่านตาม Label เท่านั้น ห้ามเดา) ---------- */
+const BV_LABELS = [
+  { key:'job',     re:/JOB\s*NJ\s*[:：]/i },
+  { key:'company', re:/บริษัท\s*[:：]/ },
+  { key:'declNo',  re:/เลขที่\s*ใบขน\s*ฯ?\s*[:：]/ },
+  { key:'place',   re:/สถานที่\s*วางบิล\s*[:：]/ },
+  { key:'mode',    re:/\bMODE\s*[:：]/i },
+  { key:'nameCs',  re:/\bName\s*Cs\s*[:：]?/i }
+];
+function bvBlankFields(){ return { job:'', company:'', declNo:'', place:'', mode:'', nameCs:'' }; }
+function bvComplete(f){ return BV.KEYS.every(k => !!(f && String(f[k]||'').trim())); }
+function bvCleanVal(s){ return String(s==null?'':s).split(BV_SEP).join(' ').replace(/\s+/g,' ').trim(); }
+function bvLineHasAnyLabel(s){ return BV_LABELS.some(L => L.re.test(s)); }
+
+/* ตัดค่าที่ Label ถัดไปที่รู้จัก (กรณีหลาย Label อยู่บรรทัดเดียวกัน) */
+function bvCutAtKnownLabel(s){
+  let cut = -1;
+  for(const L of BV_LABELS){
+    const m = L.re.exec(s);
+    if(m && (cut < 0 || m.index < cut)) cut = m.index;
+  }
+  return cut >= 0 ? s.slice(0, cut) : s;
+}
+/* ตัดค่าที่ ":" ถัดไป (Label อื่นที่ไม่อยู่ในรายการ) — ตัดคำท้าย 1 คำที่เป็นชื่อ Label นั้นออก */
+function bvCutAtGenericLabel(s){
+  const p = s.search(/[:：]/);
+  if(p < 0) return s;
+  const head = s.slice(0, p).replace(/\s+$/,'');
+  const i = head.lastIndexOf(' ');
+  return i >= 0 ? head.slice(0, i) : '';
+}
+
+/* ---------- รวม text items เป็นบรรทัด + ใส่ตัวคั่นเมื่อเว้นวรรคแนวนอนกว้าง ---------- */
+function bvGroupLinesXY(items){
+  const its = [];
+  for(const it of (items||[])){
+    const s = it && it.str != null ? String(it.str) : '';
+    if(!s.trim()) continue;
+    const tr = it.transform || [1,0,0,1,0,0];
+    const h  = Math.abs(it.height || tr[3] || 10) || 10;
+    its.push({ s, x:tr[4], y:tr[5], w:(it.width!=null?it.width:0), h });
+  }
+  its.sort((a,b)=> Math.abs(a.y-b.y) > 3 ? b.y-a.y : a.x-b.x);
+  const lines = []; let cur = null, cy = null;
+  for(const it of its){
+    if(cy === null || Math.abs(it.y-cy) > 3){ cur = []; lines.push(cur); cy = it.y; }
+    cur.push(it);
+  }
+  return lines.map(parts => {
+    let out = '', prev = null; const segs = [];
+    for(const p of parts){
+      if(prev){
+        const gap = p.x - (prev.x + (prev.w||0));
+        const th  = Math.max(12, (prev.h||10) * 1.2);
+        if(gap >= th) out += BV_SEP;
+        else if(gap > 0.6 && !/\s$/.test(out) && !/^\s/.test(p.s)) out += ' ';
+      }
+      const st = out.length; out += p.s;
+      segs.push({ s:st, e:out.length, x:p.x, y:p.y, w:p.w, h:p.h });
+      prev = p;
+    }
+    return { text: out, segs };
+  });
+}
+/* แปลงบรรทัด (string หรือ object) ให้อยู่รูปเดียวกัน */
+function bvLineOf(v){ return (v && typeof v === 'object') ? v : { text: String(v==null?'':v), segs: null }; }
+/* หา bbox (PDF space) ของช่วงตัวอักษร [a,b) ในบรรทัด — ใช้ครอปภาพตอนซ่อม OCR */
+function bvBoxOf(L, a, b){
+  if(!L || !L.segs) return null;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, found = false;
+  for(const g of L.segs){
+    if(g.e <= a || g.s >= b) continue;
+    const len = Math.max(1, g.e - g.s);
+    const ga = Math.max(a, g.s), gb = Math.min(b, g.e);
+    const gx0 = g.x + (g.w||0) * ((ga - g.s) / len);
+    const gx1 = g.x + (g.w||0) * ((gb - g.s) / len);
+    x0 = Math.min(x0, gx0); x1 = Math.max(x1, gx1);
+    y0 = Math.min(y0, g.y); y1 = Math.max(y1, g.y + (g.h||0));
+    found = true;
+  }
+  return found ? { x:x0, y:y0, w:Math.max(1, x1-x0), h:Math.max(1, y1-y0) } : null;
+}
+
+/* ---------- ดึงเฉพาะ 5 หัวข้อจากบรรทัด (เติมเฉพาะช่องที่ยังว่าง) ---------- */
+function bvExtractFromLines(lines, fields, meta){
+  for(let i=0;i<lines.length;i++){
+    const LN = bvLineOf(lines[i]);
+    const line = LN.text;
+    for(const L of BV_LABELS){
+      if(String(fields[L.key]||'').trim()) continue;
+      L.re.lastIndex = 0;
+      const m = L.re.exec(line);
+      if(!m) continue;
+      const base = m.index + m[0].length;
+      let rest = line.slice(base);
+      const lead = rest.match(/^[\u0001\s]+/); const k = lead ? lead[0].length : 0;
+      rest = rest.slice(k);
+      const sp = rest.indexOf(BV_SEP);
+      if(sp >= 0) rest = rest.slice(0, sp);
+      rest = bvCutAtGenericLabel(bvCutAtKnownLabel(rest));
+      let v = bvCleanVal(rest);
+      let src = LN, a = base + k, b = a + rest.length;
+      if(!v && i+1 < lines.length){                    /* Label อยู่บรรทัดเดียว ค่าอยู่บรรทัดถัดไป */
+        const NX = bvLineOf(lines[i+1]);
+        if(!bvLineHasAnyLabel(NX.text)){
+          const q0 = NX.text; const ld = q0.match(/^[\u0001\s]+/); const k2 = ld ? ld[0].length : 0;
+          let q = q0.slice(k2);
+          const s2 = q.indexOf(BV_SEP);
+          if(s2 >= 0) q = q.slice(0, s2);
+          q = bvCutAtGenericLabel(q);
+          v = bvCleanVal(q);
+          src = NX; a = k2; b = a + q.length;
+        }
+      }
+      if(L.key === 'job' && v){                        /* คงคำว่า JOB ไว้ตามต้นฉบับ */
+        const j = v.match(/JOB\s*\d{3,8}\s*-\s*\d{3,8}/i);
+        if(j) v = j[0].replace(/\s+/g,'');
+      }
+      if(v){
+        fields[L.key] = v;
+        if(meta){
+          meta.from[L.key] = meta.stage || 'text';
+          const bx = bvBoxOf(src, a, b);
+          if(bx) meta.box[L.key] = bx;
+        }
+      }
+    }
+    if(bvComplete(fields)) break;
+  }
+  return fields;
+}
+
+/* ---------- ตรวจ/ซ่อม Text Layer ที่เสียหาย (glyph ไม่มี ToUnicode → อักขระควบคุม) ---------- */
+const BV_BADCH = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/;
+function bvIsDamaged(s){ return BV_BADCH.test(String(s==null?'':s)); }
+/* ใช้ค่าจาก Text Layer เป็นโครงหลัก แทนที่เฉพาะ "อักขระที่เสีย" ด้วยผล OCR (ไม่เดาส่วนที่อ่านได้อยู่แล้ว) */
+function bvSkeletonMerge(skel, ocrText){
+  const S = String(skel==null?'':skel);
+  let pat = '';
+  for(const ch of S){
+    const c = ch.charCodeAt(0);
+    if(c < 0x20 || ch === '\uFFFD') pat += '(.)';
+    else if(ch === ' ') pat += '\\s*';
+    else pat += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  const target = String(ocrText==null?'':ocrText).replace(/\s+/g,' ').trim();
+  let m = null;
+  try { m = new RegExp('^' + pat + '$').exec(target); } catch(e){ return null; }
+  if(!m) return null;
+  const g = m.slice(1);
+  let out = '', gi = 0;
+  for(const ch of S){
+    const c = ch.charCodeAt(0);
+    out += (c < 0x20 || ch === '\uFFFD') ? g[gi++] : ch;
+  }
+  if(bvIsDamaged(out)) return null;
+  return { value: out.replace(/\s+/g,' ').trim(), groups: g.join('\u0002') };
+}
+/* Render หน้า PDF เป็น canvas (cache ต่อ scale) */
+async function bvPageCanvas(page, scale){
+  const vp = page.getViewport({ scale });
+  const c = document.createElement('canvas');
+  c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+  const ctx = c.getContext('2d', { willReadFrequently:true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+  await page.render({ canvasContext:ctx, viewport:vp }).promise;
+  return { canvas:c, scale };
+}
+/* ครอปเฉพาะกรอบค่า + แยกหมึกสี (ตัดเส้นจุดนำสีดำ/เทาออก) เพื่อให้ OCR อ่านแม่น */
+function bvInkCrop(pc, box, pageH){
+  const s = pc.scale, pad = 2;
+  const L = Math.max(0, Math.floor((box.x - pad) * s));
+  const R = Math.min(pc.canvas.width,  Math.ceil((box.x + box.w + pad) * s));
+  const T = Math.max(0, Math.floor((pageH - (box.y + box.h)) * s) - Math.round(3 * s));
+  const B = Math.min(pc.canvas.height, Math.ceil((pageH - box.y) * s) + Math.round(5 * s));
+  const w = Math.max(1, R - L), h = Math.max(1, B - T);
+  const src = pc.canvas.getContext('2d', { willReadFrequently:true }).getImageData(L, T, w, h);
+  const d = src.data;
+  let colored = 0;
+  for(let i=0;i<d.length;i+=4){
+    const mx = Math.max(d[i],d[i+1],d[i+2]), mn = Math.min(d[i],d[i+1],d[i+2]);
+    if(mx - mn > 40 && mx > 60) colored++;
+  }
+  const useColor = colored > (w * h) * 0.005;
+  const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+  const tctx = tmp.getContext('2d');
+  const img = tctx.createImageData(w, h); const o = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i], g=d[i+1], b=d[i+2];
+    const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+    const ink = useColor ? (mx - mn > 40 && mx > 60) : (((r+g+b)/3) < 150);
+    const v = ink ? 0 : 255;
+    o[i]=v; o[i+1]=v; o[i+2]=v; o[i+3]=255;
+  }
+  tctx.putImageData(img, 0, 0);
+  const out = document.createElement('canvas'); out.width = w * 2; out.height = h * 2;
+  const octx = out.getContext('2d');
+  octx.fillStyle = '#fff'; octx.fillRect(0,0,out.width,out.height);
+  octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
+  octx.drawImage(tmp, 0, 0, out.width, out.height);
+  tmp.width = 1; tmp.height = 1;
+  return out;
+}
+/* ซ่อม 1 ช่อง: OCR 2 raster (คนละ scale) ต้องได้อักขระที่ซ่อมตรงกันจึงยอมรับ */
+async function bvRepairField(page, pageH, box, skel, worker, cache){
+  const res = [];
+  for(const sc of BV.REPAIR_SCALES){
+    let pc = cache['s' + sc];
+    if(!pc){ pc = await bvPageCanvas(page, sc); cache['s' + sc] = pc; }
+    const cv = bvInkCrop(pc, box, pageH);
+    let txt = '';
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode:'7', tessedit_char_whitelist:'' });
+      const r = await worker.recognize(cv);
+      txt = (r && r.data && r.data.text) || '';
+    } finally { cv.width = 1; cv.height = 1; }
+    res.push(bvSkeletonMerge(skel, txt));
+  }
+  if(res.length === 2 && res[0] && res[1] && res[0].groups === res[1].groups) return res[0].value;
+  return null;
+}
+function bvFreeCache(cache){
+  Object.keys(cache).forEach(k => { const pc = cache[k]; if(pc && pc.canvas){ pc.canvas.width = 1; pc.canvas.height = 1; } delete cache[k]; });
+}
+
+/* ---------- OCR worker pool (สูงสุด BV.OCR_POOL ตัว) ---------- */
+let _bvWorkers = [], _bvFree = [], _bvWaiters = [], _bvWCount = 0;
+async function bvCreateWorker(){
+  try { return await Tesseract.createWorker('tha+eng'); }
+  catch(e){ return await Tesseract.createWorker('eng'); }
+}
+async function bvAcquireWorker(){
+  if(_bvFree.length) return _bvFree.pop();
+  if(_bvWCount < BV.OCR_POOL){
+    _bvWCount++;
+    try { const w = await bvCreateWorker(); _bvWorkers.push(w); return w; }
+    catch(e){ _bvWCount--; throw e; }
+  }
+  return await new Promise(res => _bvWaiters.push(res));
+}
+function bvReleaseWorker(w){ const f = _bvWaiters.shift(); if(f) f(w); else _bvFree.push(w); }
+async function bvTerminateWorkers(){
+  const ws = _bvWorkers.slice();
+  _bvWorkers = []; _bvFree = []; _bvWaiters = []; _bvWCount = 0;
+  for(const w of ws){ try { await w.terminate(); } catch(e){} }
+}
+
+/* ---------- OCR ทีละหน้า (เรียกเฉพาะเมื่อ Text Layer ไม่ครบ) ---------- */
+async function bvOcrPage(doc, pageNo, worker){
+  const page = await doc.getPage(pageNo);
+  let vp = page.getViewport({ scale:1 });
+  const scale = Math.min(3.2, Math.max(2, 2200 / vp.width));
+  vp = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  await page.render({ canvasContext:ctx, viewport:vp }).promise;
+  let text = '';
+  try { const r = await worker.recognize(canvas); text = (r && r.data && r.data.text) || ''; }
+  finally { canvas.width = 1; canvas.height = 1; }
+  return String(text).split('\n');
+}
+
+/* ---------- อ่าน 1 ไฟล์: Text Layer ก่อน → ไม่ครบจึง OCR ---------- */
+async function bvProcessFile(rec){
+  rec.status = 'reading'; rec.via = 'text'; rec.note = ''; rec.err = '';
+  let doc = null;
+  try {
+    if(typeof pdfjsLib === 'undefined') throw new Error('ไม่พบไลบรารี pdf.js');
+    const ab = await rec.file.arrayBuffer();
+    doc = await pdfjsLib.getDocument({ data:ab }).promise;
+    const fields = bvBlankFields();
+    const meta = { from:{}, box:{}, page:{}, stage:'text' };
+    const nT = Math.min(doc.numPages, BV.TEXT_MAX_PAGES);
+    const pageOf = {};
+    for(let p=1; p<=nT; p++){
+      const pg = await doc.getPage(p);
+      const tc = await pg.getTextContent();
+      const before = BV.KEYS.filter(k => !String(fields[k]||'').trim());
+      bvExtractFromLines(bvGroupLinesXY(tc.items), fields, meta);
+      before.forEach(k => { if(String(fields[k]||'').trim()) pageOf[k] = p; });
+      if(bvComplete(fields)) break;
+    }
+    const foundInText = BV.KEYS.filter(k => String(fields[k]||'').trim());
+
+    /* ---- PHASE 2: ซ่อมช่องที่ Text Layer เสียหาย (glyph ไม่มี ToUnicode) ---- */
+    const damaged = BV.KEYS.filter(k => bvIsDamaged(fields[k]));
+    if(damaged.length){
+      rec.damaged = {}; damaged.forEach(k => { rec.damaged[k] = fields[k]; });
+      if(typeof Tesseract === 'undefined'){
+        damaged.forEach(k => { fields[k] = ''; });
+        rec.note = 'Text Layer เสียหายบางช่อง และไม่พบไลบรารี OCR';
+      } else {
+        let w = null; const cache = {};
+        try {
+          w = await bvAcquireWorker();
+          rec.via = 'text+repair';
+          for(const k of damaged){
+            const bx = meta.box[k], pn = pageOf[k] || 1;
+            let fixed = null;
+            if(bx){
+              const pg = await doc.getPage(pn);
+              const pageH = pg.getViewport({ scale:1 }).height;
+              fixed = await bvRepairField(pg, pageH, bx, fields[k], w, cache);
+            }
+            fields[k] = fixed || '';
+            if(!fixed) rec.note = (rec.note ? rec.note + ' · ' : '') + 'ซ่อมไม่สำเร็จ: ' + BV.LABEL[k] + ' (Text Layer เสียหาย)';
+          }
+        } catch(e){
+          damaged.forEach(k => { if(bvIsDamaged(fields[k])) fields[k] = ''; });
+          rec.note = (rec.note ? rec.note + ' · ' : '') + 'ซ่อม OCR ไม่สำเร็จ: ' + ((e && e.message) || e);
+        } finally { bvFreeCache(cache); if(w) bvReleaseWorker(w); }
+      }
+    }
+
+    /* ---- PHASE 3: OCR ทั้งหน้า เฉพาะช่องที่ Text Layer ไม่เจอเลย (ไฟล์ Scan) ---- */
+    const neverFound = BV.KEYS.filter(k => foundInText.indexOf(k) < 0);
+    if(!bvComplete(fields) && neverFound.some(k => !String(fields[k]||'').trim())){
+      if(typeof Tesseract === 'undefined'){
+        rec.note = (rec.note ? rec.note + ' · ' : '') + 'Text Layer อ่านไม่ครบ และไม่พบไลบรารี OCR';
+      } else {
+        rec.via = (rec.via === 'text+repair') ? 'text+repair+ocr' : 'text+ocr';
+        let w = null;
+        try {
+          w = await bvAcquireWorker();
+          await w.setParameters({ tessedit_pageseg_mode:'3', tessedit_char_whitelist:'' });
+          const scan = bvBlankFields();
+          const nO = Math.min(doc.numPages, BV.OCR_MAX_PAGES);
+          for(let p=1; p<=nO; p++){
+            bvExtractFromLines(await bvOcrPage(doc, p, w), scan, null);
+            if(neverFound.every(k => String(scan[k]||'').trim())) break;
+          }
+          /* เติมเฉพาะช่องที่ Text Layer ไม่เคยเจอ และผล OCR ต้องไม่เสียหาย */
+          neverFound.forEach(k => {
+            if(!String(fields[k]||'').trim() && String(scan[k]||'').trim() && !bvIsDamaged(scan[k])) fields[k] = scan[k];
+          });
+        } catch(e){ rec.note = (rec.note ? rec.note + ' · ' : '') + 'OCR ไม่สำเร็จ: ' + ((e && e.message) || e); }
+        finally { if(w) bvReleaseWorker(w); }
+      }
+    }
+    rec.fields = fields;
+    rec.status = bvComplete(fields) ? 'ok' : 'partial';
+  } catch(e){
+    rec.status = 'error';
+    rec.err = (e && e.message) || String(e);
+    if(!rec.fields) rec.fields = bvBlankFields();
+  } finally {
+    if(doc){ try { await doc.destroy(); } catch(e){} }
+  }
+}
+
+/* ---------- State <-> DOM ---------- */
+function bvSyncFromDom(){
+  const tb = document.getElementById('bvBody');
+  if(!tb) return;
+  tb.querySelectorAll('td[data-uid][data-k]').forEach(td => {
+    const r = BVS.rows.find(x => x.uid === td.dataset.uid);
+    if(r && r.fields) r.fields[td.dataset.k] = String(td.textContent||'').replace(/\s+/g,' ').trim();
+  });
+}
+function bvDupMap(){
+  const m = new Map();
+  BVS.rows.forEach(r => {
+    const k = String((r.fields && r.fields.job) || '').replace(/\s+/g,'').toUpperCase();
+    if(!k) return;
+    m.set(k, (m.get(k)||0) + 1);
+  });
+  return m;
+}
+function bvDupList(){
+  const out = [];
+  bvDupMap().forEach((n,k) => { if(n > 1) out.push(k + ' (' + n + ' ไฟล์)'); });
+  return out;
+}
+function bvReseq(){ BVS.rows.forEach((r,i) => { r.seq = i + 1; }); }
+
+/* ---------- Actions ---------- */
+function bvDel(uid){
+  bvSyncFromDom();
+  const i = BVS.rows.findIndex(r => r.uid === uid);
+  if(i < 0) return;
+  BVS.rows.splice(i, 1);
+  bvReseq(); bvRender();
+  toast('ลบรายการแล้ว — รันลำดับใหม่อัตโนมัติ', 'ok');
+}
+function bvReset(){
+  if(BVS.busy){ toast('กำลังอ่านไฟล์อยู่ กรุณารอให้เสร็จก่อน', 'err'); return; }
+  BVS.rows = []; BVS.done = 0; BVS.total = 0; BVS.lastMsg = '';
+  const inp = document.getElementById('bvInput'); if(inp) inp.value = '';
+  bvRender(); toast('ล้างข้อมูลแล้ว', 'ok');
+}
+async function bvAdd(fileList){
+  if(BVS.busy){ toast('กำลังอ่านไฟล์อยู่ กรุณารอสักครู่', 'err'); return; }
+  const raw = Array.from(fileList || []);
+  if(!raw.length) return;
+  let arr = raw.filter(f => f && /\.pdf$/i.test(f.name || ''));
+  const skipped = raw.length - arr.length;
+  if(skipped > 0) toast('ข้ามไฟล์ที่ไม่ใช่ PDF ' + skipped + ' ไฟล์', 'err');
+  if(!arr.length) return;
+  if(arr.length > BV.MAX_FILES){
+    const over = arr.length - BV.MAX_FILES;
+    arr = arr.slice(0, BV.MAX_FILES);
+    toast('⚠️ รับได้สูงสุด ' + BV.MAX_FILES + ' ไฟล์ต่อรอบ — ไม่รับไฟล์ส่วนที่เกิน ' + over + ' ไฟล์', 'err', 8000);
+  }
+  bvSyncFromDom();
+  const recs = arr.map(f => ({
+    uid: 'bv' + (++_bvUid), file: f, name: f.name, size: f.size,
+    status: 'wait', via: '', note: '', err: '', fields: bvBlankFields()
+  }));
+  recs.forEach(r => BVS.rows.push(r));
+  bvReseq();
+  BVS.busy = true; BVS.total = recs.length; BVS.done = 0; BVS.lastMsg = '';
+  bvRender();
+  let idx = 0;
+  const runner = async () => {
+    while(idx < recs.length){
+      const rec = recs[idx++];
+      await bvProcessFile(rec);
+      BVS.done++; bvRender();
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(BV.POOL, recs.length) }, runner));
+  } finally {
+    await bvTerminateWorkers();
+    BVS.busy = false;
+    const okN = recs.filter(r => r.status === 'ok').length;
+    BVS.lastMsg = 'อ่านสำเร็จ ' + okN + '/' + recs.length + ' ไฟล์';
+    bvRender();
+    const dups = bvDupList();
+    if(dups.length) toast('⚠️ พบ JOB ซ้ำ: ' + dups.join(', '), 'err', 9000);
+    const bad = recs.filter(r => r.status !== 'ok').length;
+    if(bad) toast('มี ' + bad + ' ไฟล์ที่อ่านข้อมูลไม่ครบ — โปรดตรวจ/แก้ไขในตาราง', 'err', 7000);
+    else toast(BVS.lastMsg, 'ok');
+  }
+}
+
+/* ---------- Render ---------- */
+function bvStatusHtml(){
+  if(BVS.busy) return '<span class="bv-spin">⏳</span> กำลังอ่าน ' + BVS.done + '/' + BVS.total + ' ไฟล์...';
+  if(!BVS.rows.length) return 'ยังไม่มีไฟล์ — เลือกหรือลาก PDF มาวาง (สูงสุด ' + BV.MAX_FILES + ' ไฟล์ต่อรอบ)';
+  const okN = BVS.rows.filter(r => r.status === 'ok').length;
+  return '✅ ' + (BVS.lastMsg || ('อ่านสำเร็จ ' + okN + '/' + BVS.rows.length + ' ไฟล์')) +
+         ' · รวมในตาราง ' + BVS.rows.length + ' รายการ';
+}
+function bvRender(){
+  const st = document.getElementById('bvStatus');
+  if(st) st.innerHTML = bvStatusHtml();
+  const btn = document.getElementById('bvExpBtn');
+  if(btn) btn.disabled = BVS.busy || !BVS.rows.length;
+
+  const dup = bvDupMap();
+  const warn = document.getElementById('bvWarn');
+  if(warn){
+    const list = [];
+    const d = bvDupList();
+    if(d.length) list.push('พบ JOB ซ้ำ: ' + escapeHtml(d.join(', ')));
+    const miss = BVS.rows.filter(r => !bvComplete(r.fields)).length;
+    if(miss) list.push('มี ' + miss + ' แถวที่อ่านข้อมูลไม่ครบ (ช่องสีแดง) — โปรดกรอก/แก้ไขก่อน Export');
+    const er = BVS.rows.filter(r => r.status === 'error');
+    er.forEach(r => list.push('อ่านไฟล์ไม่สำเร็จ: ' + escapeHtml(r.name) + ' — ' + escapeHtml(r.err || '')));
+    warn.innerHTML = list.length
+      ? '<div class="bv-warnbox"><b>⚠️ ต้องตรวจสอบ</b><ul>' + list.map(x => '<li>' + x + '</li>').join('') + '</ul></div>'
+      : '';
+  }
+
+  const tb = document.getElementById('bvBody');
+  if(!tb) return;
+  if(!BVS.rows.length){
+    tb.innerHTML = '<tr><td colspan="8" class="bv-empty">ยังไม่มีข้อมูล</td></tr>';
+    return;
+  }
+  tb.innerHTML = BVS.rows.map((r,i) => {
+    const f = r.fields || bvBlankFields();
+    const jk = String(f.job||'').replace(/\s+/g,'').toUpperCase();
+    const isDup = jk && (dup.get(jk)||0) > 1;
+    const cell = (k, extra) => {
+      const v = String(f[k]||'');
+      const cls = 'bv-ed' + (v.trim() ? '' : ' bv-miss') + (extra || '');
+      return '<td class="' + cls + '" contenteditable="true" spellcheck="false" data-uid="' + r.uid +
+             '" data-k="' + k + '">' + escapeHtml(v) + '</td>';
+    };
+    const stIcon = r.status === 'ok' ? '' :
+      (r.status === 'reading' ? ' <span class="bv-spin">⏳</span>' :
+       r.status === 'wait' ? ' <span class="bv-wait">…</span>' :
+       r.status === 'error' ? ' <span class="bv-bad">✗</span>' : ' <span class="bv-part">!</span>');
+    return '<tr>' +
+      '<td class="bv-seq" title="' + escapeHtml(r.name + (r.via ? ' · ' + r.via : '') + (r.note ? ' · ' + r.note : '')) + '">' + (i+1) + stIcon + '</td>' +
+      cell('job', isDup ? ' bv-dup' : '') +
+      cell('company') + cell('declNo') + cell('place') + cell('mode') + cell('nameCs') +
+      '<td class="bv-act"><button class="bv-del" onclick="bvDel(\'' + r.uid + '\')" title="ลบรายการ">✕</button></td>' +
+    '</tr>';
+  }).join('');
+
+  tb.querySelectorAll('td[data-uid][data-k]').forEach(td => {
+    td.addEventListener('blur', () => {
+      const r = BVS.rows.find(x => x.uid === td.dataset.uid);
+      if(!r) return;
+      const v = String(td.textContent||'').replace(/\s+/g,' ').trim();
+      r.fields[td.dataset.k] = v;
+      td.classList.toggle('bv-miss', !v);
+      const d = bvDupMap();
+      const jk = String(r.fields.job||'').replace(/\s+/g,'').toUpperCase();
+      if(td.dataset.k === 'job') td.classList.toggle('bv-dup', !!jk && (d.get(jk)||0) > 1);
+    });
+    td.addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); td.blur(); } });
+  });
+}
+
+/* ---------- EXPORT EXCEL ---------- */
+function bvPad2(n){ return String(n).padStart(2,'0'); }
+function bvStamp(){ const d = new Date();
+  return d.getFullYear() + bvPad2(d.getMonth()+1) + bvPad2(d.getDate()) + '_' + bvPad2(d.getHours()) + bvPad2(d.getMinutes()); }
+async function bvExport(){
+  if(BVS.busy){ toast('กำลังอ่านไฟล์อยู่ กรุณารอให้เสร็จก่อน', 'err'); return; }
+  bvSyncFromDom();
+  if(!BVS.rows.length){ toast('ยังไม่มีข้อมูลสำหรับ Export', 'err'); return; }
+  if(typeof ExcelJS === 'undefined'){ toast('ไม่พบไลบรารี ExcelJS', 'err'); return; }
+  const btn = document.getElementById('bvExpBtn'); const old = btn ? btn.textContent : '';
+  try {
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังสร้าง Excel...'; }
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('ใบวางบิล', { views:[{ state:'frozen', ySplit:5 }] });
+    ws.columns = BV.WIDTHS.map(w => ({ width:w }));
+    const thin = { style:'thin' }, med = { style:'medium' };
+    const bd = { top:thin, left:thin, bottom:thin, right:thin };
+    const headStyle = c => {
+      c.font = { bold:true };
+      c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFFC000' } };
+      c.border = bd;
+    };
+    /* ---- หัวกระดาษ: วันที่ / ผู้รับวางบิล (เว้นว่างให้กรอกเอง) ---- */
+    ws.getRow(1).height = 26.5; ws.getRow(2).height = 15; ws.getRow(3).height = 26.5;
+    const b1 = ws.getCell('B1'); b1.value = 'วันที่'; headStyle(b1);
+    const b3 = ws.getCell('B3'); b3.value = 'ผู้รับวางบิล'; headStyle(b3);
+    ws.getCell('C1').border = { bottom:med };
+    ws.getCell('C3').border = { bottom:med };
+    /* ---- หัวตาราง (แถว 5) ---- */
+    const head = ws.getRow(5);
+    BV.COLS.forEach((t, i) => {
+      const c = head.getCell(i + 1);
+      c.value = t; headStyle(c);
+      c.alignment = { horizontal:'center', vertical:'middle' };
+    });
+    /* ---- ข้อมูล (เริ่มแถว 6) ---- */
+    BVS.rows.forEach((r, i) => {
+      const f = r.fields || bvBlankFields();
+      const row = ws.getRow(6 + i);
+      row.getCell(1).value = i + 1;
+      BV.KEYS.forEach((k, j) => { row.getCell(j + 2).value = String(f[k]||''); });
+      for(let c=1; c<=BV.COLS.length; c++){
+        const cell = row.getCell(c);
+        cell.border = bd;
+        if(c === 1) cell.alignment = { horizontal:'center', vertical:'middle' };
+        else { cell.numFmt = '@'; cell.alignment = { horizontal:'left', vertical:'middle' }; }
+      }
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const name = 'ใบวางบิล_' + bvStamp() + '.xlsx';
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    const dups = bvDupList();
+    const miss = BVS.rows.filter(r => !bvComplete(r.fields)).length;
+    toast('Export สำเร็จ: ' + name + ' (' + BVS.rows.length + ' แถว)' +
+          (dups.length ? ' · ⚠️ มี JOB ซ้ำ' : '') + (miss ? ' · ⚠️ มี ' + miss + ' แถวไม่ครบ' : ''),
+          dups.length || miss ? 'err' : 'ok', 7000);
+  } catch(e){
+    toast('Export ล้มเหลว: ' + ((e && e.message) || e), 'err', 7000);
+  } finally {
+    if(btn){ btn.textContent = old || '📊 EXPORT EXCEL'; }
+    bvRender();
+  }
+}
+
+/* ---------- View ---------- */
+function bvRenderView(){
+  document.getElementById('pageTitle').textContent = 'ใบวางบิล';
+  document.getElementById('pageSub').textContent = 'อัปโหลด PDF (สูงสุด ' + BV.MAX_FILES + ' ไฟล์ต่อรอบ) → อ่านข้อมูลอัตโนมัติ → ตรวจ/แก้ไขใน Preview → EXPORT EXCEL';
+  document.getElementById('pageActions').innerHTML = '';
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="anca-view">'
+    + '<style id="bvCss">'
+      + '.bv-spin{display:inline-block;animation:bvspin 1s linear infinite}'
+      + '@keyframes bvspin{to{transform:rotate(360deg)}}'
+      + '.bv-statusbar{margin:6px 0 12px;padding:11px 14px;border:1px solid #30363d;border-radius:10px;background:#161b22;color:#c9d1d9;font-size:13.5px}'
+      + '.bv-warnbox{margin:0 0 12px;padding:11px 14px;border:1px solid #d29922;border-radius:10px;background:rgba(210,153,34,.10);color:#e3b341;font-size:12.5px}'
+      + '.bv-warnbox ul{margin:6px 0 0;padding-left:20px;color:#d4a72c;max-height:180px;overflow:auto}'
+      + '.bv-tblwrap{border:1px solid #30363d;border-radius:10px;overflow:auto;max-height:62vh;background:#1c2128;-webkit-overflow-scrolling:touch}'
+      + '.bv-tblwrap table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1060px}'
+      + '.bv-tblwrap thead th{position:sticky;top:0;z-index:3;background:#22272e;color:#8b949e;padding:9px 10px;border-bottom:2px solid #009640;text-align:left;font-weight:700;white-space:nowrap}'
+      + '.bv-tblwrap td{padding:7px 10px;border-bottom:1px solid #30363d;color:#e6edf3;vertical-align:middle}'
+      + '.bv-tblwrap tr:hover td{background:#22272e}'
+      + '.bv-tblwrap td.bv-seq{width:70px;text-align:center;color:#8b949e;white-space:nowrap}'
+      + '.bv-tblwrap td.bv-ed{cursor:text;border-left:1px dashed rgba(0,150,64,.35);min-width:120px;white-space:pre-wrap;word-break:break-word}'
+      + '.bv-tblwrap td.bv-ed:focus{outline:2px solid #009640;background:#132b1c}'
+      + '.bv-tblwrap td.bv-miss{background:rgba(248,81,73,.12);box-shadow:0 0 0 1px rgba(248,81,73,.45) inset}'
+      + '.bv-tblwrap td.bv-dup{color:#e3b341;font-weight:700;background:rgba(227,179,65,.12)}'
+      + '.bv-tblwrap td.bv-act{width:48px;text-align:center}'
+      + '.bv-tblwrap td.bv-empty{text-align:center;color:#8b949e;padding:22px}'
+      + '.bv-del{background:rgba(248,81,73,.10);border:1px solid rgba(248,81,73,.40);color:#f85149;border-radius:6px;width:26px;height:26px;cursor:pointer;line-height:1}'
+      + '.bv-del:hover{background:rgba(248,81,73,.22)}'
+      + '.bv-wait{color:#8b949e}.bv-bad{color:#f85149;font-weight:700}.bv-part{color:#e3b341;font-weight:700}'
+      + '.bv-hintline{color:#8b949e;font-size:12px;margin-top:8px}'
+      + '@media (max-width:768px){.bv-tblwrap{max-height:52vh}.bv-tblwrap table{font-size:12px;min-width:940px}}'
+    + '</style>'
+    + '<div class="drop anca-upload-card" id="bvDrop" style="min-height:auto">'
+      + '<h4>📄 PDF ใบวางบิล</h4>'
+      + '<label class="pick">➕ เลือก PDF / ลาก PDF มาวาง'
+        + '<input id="bvInput" type="file" accept=".pdf,application/pdf" multiple style="display:none" onchange="bvAdd(this.files); this.value=\'\'"></label>'
+      + '<span class="hint">1 PDF = 1 JOB = 1 แถว · สูงสุด ' + BV.MAX_FILES + ' ไฟล์ต่อรอบ · อ่าน Text Layer ก่อน ถ้าไม่ครบจึงใช้ OCR</span>'
+    + '</div>'
+    + '<div class="bv-statusbar" id="bvStatus"></div>'
+    + '<div id="bvWarn"></div>'
+    + '<div class="actions">'
+      + '<button class="abtn export primary" id="bvExpBtn" onclick="bvExport()" disabled>📊 EXPORT EXCEL</button>'
+      + '<button class="abtn" id="bvResetBtn" onclick="bvReset()">🗑️ ล้างข้อมูลทั้งหมด</button>'
+    + '</div>'
+    + '<div class="bv-tblwrap"><table>'
+      + '<thead><tr><th>ลำดับ</th><th>JOB NJ:</th><th>บริษัท:</th><th>เลขที่ใบขนฯ:</th><th>สถานที่วางบิล:</th><th>MODE:</th><th>Name Cs</th><th></th></tr></thead>'
+      + '<tbody id="bvBody"></tbody>'
+    + '</table></div>'
+    + '<div class="bv-hintline">คลิกที่ช่องในตารางเพื่อแก้ไขได้ · ช่องแดง = อ่านไม่ได้ (ระบบไม่เดาข้อมูล) · ช่องเหลือง = JOB ซ้ำ · ข้อมูลใน Excel ตรงกับตารางล่าสุดเสมอ</div>'
+  + '</div>';
+  if(typeof ancaBindDrop === 'function') ancaBindDrop('bvDrop', f => bvAdd(f));
+  bvRender();
 }
 </script>
 
