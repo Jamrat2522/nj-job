@@ -93,7 +93,7 @@
     delete NET.map[ownerId];
     a.forEach(function (c) { try { c.abort(); } catch (e) {} });
   }
-  /* ยกเลิกของ Owner ปัจจุบันเท่านั้น — ใช้ตอน close()/closeSoft() */
+  /* ยกเลิกของ Owner ปัจจุบันเท่านั้น — ใช้ตอน close() */
   function attAbortAll() { abortAttempt(NET.owner); }
 
   function fetchT(url, opt, label) {
@@ -635,7 +635,9 @@
     if (!(ms >= 0)) ms = 0;
     PERF.boot.marks[key] = Math.round(ms * 10) / 10;
   }
-  function perfPressFlagFirst() { if (perfOn()) PERF.pressFirst = true; }
+  /* [FACE_ENTRY_ENROLL_20260820] perfPressFlagFirst() ถูกลบพร้อม enrollThenPunch()
+     ผู้ตั้งค่าเพียงรายเดียวคือ enrollThenPunch จึงไม่มี Caller เหลืออยู่
+     ⚠ คง PERF.pressFirst และผู้อ่าน (total_first_attendance_ms) ไว้ตามเดิม ไม่แตะ Perf Schema */
   /* [PRESS] จบรอบการกดปุ่มลงเวลา — ล้างฐานเวลาทั้งชุด
      ห้ามเรียกระหว่าง Enrollment→Punch handoff เพราะยังเป็นการกดครั้งเดียวกัน */
   function perfPressReset() {
@@ -2616,18 +2618,10 @@
       if (h && h.on) h.on();
     };
   }
-  /* [ข้อ 1] Handoff Close — ใช้เฉพาะตอน "ลงทะเบียนใบหน้าจากการลงเวลา" สำเร็จ
-     แล้วต้องส่งต่อไป doPunch() ด้วย Operation ID เดิม
-     ปิดกล้อง · cancel RAF · เอา Overlay ออก · reset S.busy
-     แต่ **ไม่** opInvalidate() และ **ไม่** เปลี่ยน S.mode ออกจาก 'ATTENDANCE'
-     (ต่างจาก close() ปกติที่ใช้กับ Cancel/Manual Enroll/Face Login/Route/Logout/Error) */
-  function closeSoft() {
-    closeCam();
-    attAbortAll();                            // [ข้อ 4] Network ของขั้นลงทะเบียนต้องไม่ค้าง
-    if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
-    S.root = null; S.busy = false;
-    /* คง S.mode = 'ATTENDANCE' และ OP.id เดิมไว้ */
-  }
+  /* [FACE_ENTRY_ENROLL_20260820] ลบ closeSoft() (Handoff Close) ออกแล้ว
+     ใช้เฉพาะตอน Enrollment จากการลงเวลาสำเร็จแล้วส่งต่อ doPunch() ซึ่งไม่มีเส้นทางนั้นอีก
+     ผู้เรียกรายเดียวคือ enroll() โหมด attendance ที่ถูกลบไปพร้อม enrollThenPunch()
+     ⚠ close() ตัวปกติไม่ถูกแตะ */
 
   function close() {
     closeCam();                               // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
@@ -2662,8 +2656,19 @@
   var FLOW = { id: 0, kind: '', op: -1 };
   /* [ข้อ 5] Enrollment Run generation — แยกจาก Attendance Operation
      ใช้กับทั้ง Manual Enrollment (Profile/HR) และ Enrollment ที่เกิดจากการลงเวลา */
-  var EN = { id: 0 };
-  function enInvalidate() { EN.id++; }
+  /* [FACE_ENTRY_CANCEL_20260820] EN.cancel = callback ของ Enrollment Run ที่กำลังเปิดอยู่
+     ปัญหาเดิม: opts.onCancel ถูกเรียกจาก enrollCancel() เท่านั้น แต่ Enrollment ถูกปิดได้อีก
+     หลายทางที่เรียก close() ตรง ๆ — ปุ่ม X บนหัวจอ · hashchange · pagehide/visibilitychange ·
+     ปุ่ม \"ปิด\" ตอนเปิดกล้อง/บันทึกล้มเหลว — ทางเหล่านั้นจะไม่แจ้งผู้เรียกเลย
+     ผลคือ Promise ของด่านลงทะเบียนหน้า Login ค้างไม่มีกำหนด (ปุ่มหมุนตลอด)
+     ของใหม่: ผูก callback ไว้ที่ EN แล้วยิงครั้งเดียวเมื่อ Run ถูก invalidate ไม่ว่าทางใด
+     ⚠ ไม่แตะ Liveness · Snapshot · GPS · Geofence · เกณฑ์มุม · จำนวนเฟรม · RPC ใด ๆ */
+  var EN = { id: 0, cancel: null };
+  function enFireCancel() {
+    var f = EN.cancel; EN.cancel = null;
+    if (typeof f === 'function') { try { f(); } catch (e) {} }
+  }
+  function enInvalidate() { EN.id++; enFireCancel(); }
   function opStart() { S.mode = 'ATTENDANCE'; return ++OP.id; }
   function opAlive(myOp) { return myOp === OP.id && S.mode === 'ATTENDANCE'; }
   function opInvalidate() { OP.id++; }
@@ -2701,79 +2706,10 @@
       });
   }
 
-  /* ลงทะเบียนใบหน้าต้นแบบครั้งแรก แล้วต่อด้วยการลงเวลาทันที
-     ⚠ ลงทะเบียนสำเร็จ ≠ ลงเวลาสำเร็จ — ยังต้องผ่าน Face + Liveness + GPS + Geofence
-       ถ้า GPS/Geofence ไม่ผ่าน ใบหน้าต้นแบบยังถูกเก็บไว้ ครั้งหน้าไม่ต้องลงทะเบียนใหม่ */
-  /* [ROOT CAUSE 5+7] หน้าจอแจ้งผล Preflight ที่ไม่ผ่าน — ไม่เปิดกล้องเลย
-     ผู้ใช้ไม่ต้องเสียเวลาสแกนหน้าจนครบแล้วค่อย Fail */
-  function preflightFail(kind, msg, retry) {
-    var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
-    shell('ตรวจตำแหน่ง', title);
-    panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'bad' }, msg, true));
-    actions([
-      { label: 'ปิด', style: 'plain', on: close },
-      { label: '↻ ตรวจตำแหน่งอีกครั้ง', style: 'primary', on: function () {
-        close();
-        if (typeof retry === 'function') setTimeout(retry, 60);
-      } }
-    ]);
-  }
-
-  function enrollThenPunch(kind, onDone, myOp) {
-    /* [ข้อ 1] ลงทะเบียนใบหน้าครั้งแรกที่เกิดจากการลงเวลา = ยังอยู่ใน Attendance Context
-       ส่ง { attendance: true } เข้า enroll() เพื่อคง S.mode='ATTENDANCE'
-       Route Change / Logout จึงปิดกล้องและยกเลิก Flow นี้ได้
-       ส่วน Manual Enrollment จากหน้า Profile/HR ไม่ส่ง flag นี้ = Enrollment ปกติ */
-    /* [ROOT CAUSE 5] GPS/Geofence Preflight ต้องผ่านก่อนเปิด Enrollment Camera
-       รักษา GPS Watcher เดิมไว้ตลอด Enrollment (ไม่เรียก gpsStop) เพื่อให้ตอน Punch
-       ยังมี Fix สดพร้อมใช้ทันที ไม่ต้อง Cold Start ใหม่ */
-    perfPressFlagFirst();      // [E2E] รอบนี้ต้องลงทะเบียนใบหน้าก่อน = First Attendance
-    var aid = gpsWarmStart();
-    var alive = function () { return aid === G.sid && opAlive(myOp); };
-    var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
-    shell('ตรวจตำแหน่ง', title);
-    panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'wait' }, 'กำลังค้นหาตำแหน่ง…'));
-    actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
-
-    gpsFresh(aid).then(function (g) {
-      if (!alive()) throw AbortAttendanceError();
-      if (!g || !g.ok) throw new Error(g && g.reason ? g.reason : 'GPS ยังไม่พร้อม');
-      panel(stepsHtml({ live: 'wait', match: 'wait', gps: 'run' }, 'กำลังตรวจพื้นที่ลงเวลา…'));
-      actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
-      /* [GF CACHE] ใช้ผลที่ยังสดได้ (sid เดิม + gfKey เดิม + pass=true + อายุ ≤ 3 วินาที)
-         หน้าลงเวลาเพิ่งถามไปเมื่อครู่ ไม่จำเป็นต้องยิงซ้ำทันทีที่กดปุ่ม
-         ⚠ ไม่ผ่านเงื่อนไขข้อใดข้อหนึ่ง = ยิง RPC ใหม่และ Fail Closed
-            และ njhr_att_punch_face ยังตรวจ Geofence ซ้ำฝั่ง Server ก่อนบันทึกเสมอ */
-      return gfCheck(g, false);
-    }).then(function (r) {
-      if (!alive()) throw AbortAttendanceError();
-      if (!r) throw new Error(GF.err || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ กรุณาลองใหม่');
-      if (!r.pass) throw new Error(r.reason || 'ยังลงเวลาจากตำแหน่งนี้ไม่ได้');
-      /* ผ่านด่านแล้วจึงเปิดกล้องลงทะเบียน */
-      if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
-      S.root = null;
-      enroll(null, function (r2, handoff) {
-        /* มาถึงที่นี่ได้เฉพาะเมื่อ Enrollment สำเร็จและยังเป็น Operation เดิม
-           (enroll ใช้ closeSoft() ในโหมด attendance จึงไม่ถูก opInvalidate) */
-        if (!opAlive(myOp)) return;             // ถูกยกเลิกจริง (Route/Logout) = ไม่ต่อ
-        setTimeout(function () {
-          if (!opAlive(myOp)) return;
-          /* [ROOT CAUSE 7] ส่งหลักฐานสดจาก Enrollment Run เดิมต่อเข้า doPunch
-             ไม่ปิดแล้วเปิดกล้องเพื่อสแกนรอบใหม่
-             njhr_att_punch_face ยังตรวจ Face Match + Liveness + GPS + Geofence
-             และบันทึก Attendance ครบเหมือนเดิมทุกประการ */
-          doPunch(kind, onDone, myOp, handoff || null);
-        }, 60);
-      }, { attendance: true, attendanceOp: myOp, attendanceKind: kind });
-    })['catch'](function (e) {
-      if (isAborted(e) || !alive()) return;
-      njfReport('JS_ERROR', 'face/gps-preflight', e,
-                'stage=enroll-preflight build=' + String(w.NJHR_BUILD_VERSION || ''));
-      preflightFail(kind, (e && e.message) || 'ตรวจตำแหน่งไม่สำเร็จ', function () {
-        punch(kind, onDone);
-      });
-    });
-  }
+  /* [FACE_ENTRY_ENROLL_20260820] ลบ enrollThenPunch() + preflightFail() ออกแล้ว
+     Enrollment ครั้งแรกมีจุดเดียวคือหน้า Login (njFaceEntryEnsure ใน runtime/core.js)
+     punch() จึงไม่มีเส้นทางเปิดกล้องลงทะเบียนอีกต่อไป — ไม่มีใบหน้า = แจ้งให้ไปลงทะเบียนที่หน้า Login
+     ⚠ ไม่แตะ doPunch() · Liveness · Snapshot · GPS · Geofence · njhr_att_punch_face */
 
   /* [ROOT CAUSE 7] handoff = หลักฐานสดจาก Enrollment Run เดียวกัน
        { op, kind, desc, method, snapshotP }
@@ -3295,40 +3231,49 @@
   ];
 
   function enroll(employeeId, onDone, opts) {
-    /* [ข้อ 1] opts.attendance = true → ลงทะเบียนนี้เกิดจากการลงเวลา
-       คง S.mode='ATTENDANCE' ให้ Route Change / Logout ปิดกล้องและยกเลิกได้
-       Manual Enrollment จากหน้า Profile/HR ไม่ส่ง flag นี้ → S.mode='ENROLL'
-       cancelAttendance() จึงไม่แตะ และ Face Login (mode 'LOGIN') ก็ไม่ถูกกระทบ */
-    var enAtt = !!(opts && opts.attendance);
-    var enOp = (opts && typeof opts.attendanceOp === 'number') ? opts.attendanceOp : null;
-    /* [ข้อ 4] ยังมีชีวิตอยู่ไหม — โหมด Attendance ผูกกับ Operation ID จริง
-       โหมด Manual (Profile/HR) ไม่ผูก จึงทำงานแบบเดิมทุกประการ */
-    /* [ข้อ 5] Enrollment Run ID — Manual Enrollment ก็ต้องมีเจ้าของจริง
-       เดิม Manual คืน true ตลอด ทำให้ Run เก่ายัง capture/upload/ส่ง RPC ต่อได้หลังปิดหน้าจอ
-       ตอนนี้ทุก Run มีหมายเลขของตัวเอง · ปิด/เปลี่ยน Route/Background = Run หมดสิทธิ์ทันที */
+    /* [FACE_ENTRY_ENROLL_20260820] ลบ opts.attendance / attendanceOp / attendanceKind ออกแล้ว
+       ผู้ส่ง flag ชุดนี้มีรายเดียวคือ enrollThenPunch() ซึ่งถูกลบไปแล้ว
+       enroll() จึงเป็นโหมด ENROLL อย่างเดียว · S.mode='ENROLL' เสมอ
+       ⚠ cancelAttendance() ยังไม่แตะ Enrollment (ตรวจ S.mode==='ATTENDANCE') เหมือนเดิม
+       ⚠ Face Login (mode 'LOGIN') ไม่ถูกกระทบเหมือนเดิม */
+    /* [ข้อ 5] Enrollment Run ID — ทุก Run มีหมายเลขของตัวเอง
+       ปิด/เปลี่ยน Route/Background = Run หมดสิทธิ์ทันที (capture/upload/RPC ที่ค้างเขียน State ไม่ได้) */
     var myRun = ++EN.id;
     netOwn('E' + myRun);                      // [ข้อ 4] Network ของ Enrollment Run นี้
     var enAlive = function () {
-      if (myRun !== EN.id) return false;                 // Run เก่า = ตายทันที
-      return enAtt ? (enOp === null || opAlive(enOp)) : true;
+      return myRun === EN.id;                 // Run เก่า = ตายทันที
     };
-    S.mode = enAtt ? 'ATTENDANCE' : 'ENROLL';
-    if (S.busy) return;
-    S.busy = true;
-    /* opts.password มีค่า = "ลงทะเบียนใบหน้าใหม่" (ทับของเดิม)
-       ต้องยืนยันรหัสผ่านมาแล้วจากหน้าข้อมูลส่วนตัว และฐานข้อมูลตรวจซ้ำอีกชั้น
-       ⚠ ของเดิมจะถูกแทนที่ก็ต่อเมื่อ RPC สำเร็จเท่านั้น — ระหว่างถ่าย 3 มุมไม่แตะของเดิมเลย */
-    var reNew = !!(opts && opts.password);
-    shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
-    var got = [], idx = 0, snapPath = null;
-    /* [ROOT CAUSE 7] หลักฐานสำหรับ "ลงเวลาต่อทันที" ที่เก็บจากกล้องรอบเดียวกันนี้
-       เก็บเฉพาะเมื่อ Enrollment ถูกเรียกจากการลงเวลา (enAtt) เท่านั้น
-       Manual Enrollment จาก Profile/HR ไม่แตะส่วนนี้เลย และไม่บังคับ GPS ใด ๆ */
-    var enKind = (opts && opts.attendanceKind) || '';
-    var enPunch = null;
-    function enrollCancel() {
-      close();
+    S.mode = 'ENROLL';
+    if (S.busy) {
+      /* [FACE_ENTRY_CANCEL_20260820] เปิดจอไม่ได้เพราะมีงานอื่นค้าง — ต้องแจ้งผู้เรียกเสมอ
+         ไม่งั้นด่านลงทะเบียนหน้า Login จะรอ Promise ที่ไม่มีวัน settle */
       try { if (opts && typeof opts.onCancel === 'function') opts.onCancel(); } catch (e) {}
+      return;
+    }
+    S.busy = true;
+    /* [FACE_ENTRY_CANCEL_20260820] ผูก onCancel ของ Run นี้ไว้ที่ EN
+       ทุกเส้นทางที่ปิด Enrollment จะผ่าน close() → enInvalidate() → enFireCancel()
+       จึงแจ้งผู้เรียกครบทุกกรณี และยิงได้ครั้งเดียวเท่านั้น */
+    EN.cancel = (opts && typeof opts.onCancel === 'function')
+      ? function () { opts.onCancel(); } : null;
+    /* [FACE_ENTRY_ENROLL_20260820] ลบ opts.password / reNew ออกแล้ว
+       ผู้เรียกเพียงรายเดียวคือหน้าตั้งค่า Face Login ใน Profile ซึ่งถูกลบไปแล้ว
+       ผู้เรียกที่เหลือทั้งหมดไม่ส่ง password: หน้า Login (njFaceEntryEnsure) และหน้าจัดการพนักงานของ HR */
+    shell('ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
+    var got = [], idx = 0, snapPath = null;
+    /* [FACE_ENTRY_ENROLL_20260820] ลบ enKind / enPunch (Handoff หลักฐานไปลงเวลาต่อทันที) ออกแล้ว
+       Handoff ถูกสร้างเฉพาะตอน enAtt ซึ่งมีผู้ส่งรายเดียวคือ enrollThenPunch() ที่ถูกลบไปแล้ว
+       ⚠ ENROLL Snapshot (มุมแรก) ยังทำงานเหมือนเดิมทุกประการ */
+    /* [FACE_ENTRY_CANCEL_20260820] close() → enInvalidate() → enFireCancel() แจ้ง onCancel ให้แล้ว
+       จึงห้ามเรียก opts.onCancel() ซ้ำที่นี่อีก (เดิมเรียกเอง ตอนนี้จะกลายเป็นยิงสองครั้ง) */
+    function enrollCancel() { close(); }
+
+    /* [FACE_ENTRY_CANCEL_20260820] \"ลองใหม่\" = ยังไม่ยอมแพ้ ห้ามแจ้ง onCancel
+       ปลด EN.cancel ก่อน close() แล้ว Run ใหม่จะผูก onCancel ตัวเดิมกลับเข้าไปเอง */
+    function enrollRetry() {
+      EN.cancel = null;
+      close();
+      setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
     }
 
     /* [UI] หน้าจอลงทะเบียนแนวใหม่
@@ -3516,9 +3461,7 @@
         drawPoses(reason, true);
         actions([
           { label: 'ปิด', style: 'plain', on: enrollCancel },
-          { label: 'ลองใหม่', style: 'primary', on: function () {
-            close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
-          } }
+          { label: 'ลองใหม่', style: 'primary', on: enrollRetry }
         ]);
       }
 
@@ -3529,17 +3472,6 @@
         if (!enAlive()) { closeCam(); return; }
         perfMark('enroll_' + pose.key.toLowerCase() + '_ms', poseT0);
         got.push(buf[buf.length - 1].desc);
-        /* [ROOT CAUSE 7] มุมสุดท้ายที่ผ่าน Liveness จริง = หลักฐานสดของ Run นี้
-           เก็บ Descriptor ตัวล่าสุด + Liveness Method จริงที่ผ่าน (PASSIVE หรือ BLINK)
-           ไม่ Clone · ไม่ Reuse ข้ามมุม · ผูกกับ Attendance Operation เดียวกันเท่านั้น */
-        if (enAtt && enOp !== null && enKind && idx === POSES.length - 1) {
-          enPunch = {
-            op: enOp, kind: enKind,
-            desc: buf[buf.length - 1].desc,
-            method: lvMethod || 'PASSIVE',
-            snapshotP: null
-          };
-        }
         if (idx === 0) {
           snapshotBlob().then(function (b) {
             if (!enAlive()) return null;          // [ข้อ 6] ยกเลิกระหว่างสร้าง Blob
@@ -3684,22 +3616,11 @@
     }
     function saveProgressStop() { if (saveTick) { clearInterval(saveTick); saveTick = 0; } }
 
-    /* [ROOT CAUSE 7] ถ่ายหลักฐานสำหรับ "การลงเวลา" ก่อนปิดกล้อง
-       ต้องเป็น Snapshot คนละใบกับ ENROLL Snapshot และเป็นชนิด PUNCH จริง
-       (edge njhr-face-file รับ p_kind แยก PUNCH/ENROLL/REQUEST อยู่แล้ว)
-       ล้มเหลว = ปล่อยเป็น null แล้วลงเวลาต่อได้ตามเดิม ไม่บล็อก Flow */
-    function finish() {
-      var canShoot = !!(enPunch && camUsable() && S.video && S.video.videoWidth);
-      var shotP = canShoot ? snapshotBlob()['catch'](function () { return null; })
-                           : Promise.resolve(null);
-      shotP.then(function (b) {
-        if (b && enPunch && enAlive()) {
-          enPunch.snapshotP = uploadSnapshot(b, 'PUNCH', enPunch.kind, null)
-            ['catch'](function () { return null; });
-        }
-        finishSave();
-      }, function () { finishSave(); });
-    }
+    /* [FACE_ENTRY_ENROLL_20260820] ลบขั้นถ่าย PUNCH Snapshot ก่อนปิดกล้องออกแล้ว
+       ขั้นนี้ทำงานเฉพาะตอนมี enPunch (Handoff ไปลงเวลาต่อ) ซึ่งไม่มีทางเกิดขึ้นอีก
+       เก็บครบ 3 มุมแล้วเข้าสู่การบันทึกทันที
+       ⚠ ไม่แตะ PUNCH Snapshot ของการลงเวลาจริง — ตัวนั้นอยู่ใน doPunch() ตามเดิม */
+    function finish() { finishSave(); }
 
     function finishSave() {
       closeCam();
@@ -3720,10 +3641,6 @@
         fnName = 'njhr_face_enroll';
         body = { p_token: token(), p_employee: employeeId, p_descriptors: got,
                  p_quality: q, p_snapshot: snapPath };
-      } else if (reNew) {
-        fnName = 'njhr_face_self_reenroll';
-        body = { p_token: token(), p_password: opts.password, p_descriptors: got,
-                 p_quality: q, p_snapshot: snapPath };
       } else {
         fnName = 'njhr_face_self_enroll';
         body = { p_token: token(), p_descriptors: got, p_quality: q, p_snapshot: snapPath };
@@ -3733,6 +3650,10 @@
       if (fnName === 'njhr_face_self_enroll') perfBootCount('njhr_face_self_enroll_calls');
       rpc(fnName, body).then(function (r) {
         if (!enAlive()) { closeCam(); return; }   // [ข้อ 4] ถูกยกเลิกหลังส่ง = ไม่แสดงผล ไม่ Handoff
+        /* [FACE_ENTRY_CANCEL_20260820] บันทึกขึ้นฐานข้อมูลสำเร็จแล้ว = ไม่ใช่การยกเลิกอีกต่อไป
+           ต้องปลด EN.cancel ก่อนถึงปุ่ม "เสร็จสิ้น" เพราะปุ่มนั้นเรียก close()
+           ถ้าไม่ปลด close() จะไป enFireCancel() แล้วแจ้ง onCancel ทั้งที่ลงทะเบียนสำเร็จ */
+        EN.cancel = null;
         faceStatusReset();     // [PERF/ถูกต้อง] Enrollment เปลี่ยน = Cache เดิมใช้ไม่ได้
         saveProgressStop();
         perfEnd('total_enrollment_ms');
@@ -3742,7 +3663,7 @@
           '<div class="njf-done">' +
           '<div class="njf-done-ic">&#10003;</div>' +
           '<div class="njf-done-t">' +
-            esc(reNew ? 'ลงทะเบียนใบหน้าใหม่ สำเร็จ!' : 'ลงทะเบียนใบหน้า สำเร็จ!') + '</div>' +
+            esc('ลงทะเบียนใบหน้า สำเร็จ!') + '</div>' +
           '<div class="njf-done-s">พร้อมใช้งานสแกนหน้าเข้าสู่ระบบ</div>' +
           '<div class="njf-done-tags">' + POSES.map(function (p) {
             return '<span class="njf-done-tag"><b>&#10003;</b>' + esc(p.label) + '</span>';
@@ -3752,22 +3673,18 @@
           '</div>' +
           '<div class="njf-actions" id="njf-act"></div>');
         actions([{ label: 'เสร็จสิ้น', style: 'primary', on: function () {
-          /* [ข้อ 1] โหมด Attendance → Handoff (ไม่ฆ่า Operation) แล้วต่อไป doPunch()
-             โหมด Manual → close() ปกติเหมือนเดิมทุกประการ */
-          if (enAtt) closeSoft(); else close();
-          /* [ROOT CAUSE 7] ส่งหลักฐานสดของ Run นี้ต่อให้ enrollThenPunch
-             โหมด Manual (Profile/HR) enPunch เป็น null เสมอ → onDone(r) เหมือนเดิมทุกประการ */
-          if (typeof onDone === 'function') onDone(r, enAtt ? enPunch : null);
+          /* [FACE_ENTRY_ENROLL_20260820] Enrollment จบที่นี่เสมอ — ปิดจอแล้วแจ้งผู้เรียก
+             ไม่มี Handoff ไปลงเวลาต่ออีกแล้ว */
+          close();
+          if (typeof onDone === 'function') onDone(r);
         } }]);
       }).catch(function (e) {
         saveProgressStop();
         if (isAborted(e) || !enAlive()) return;   // [ข้อ 5] Run ถูกยกเลิก = เงียบ
         drawPoses((e && e.message) || 'บันทึกไม่สำเร็จ', true);
         actions([
-          { label: 'ปิด', style: 'plain', on: close },
-          { label: 'ลองใหม่', style: 'primary', on: function () {
-            close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
-          } }
+          { label: 'ปิด', style: 'plain', on: enrollCancel },
+          { label: 'ลองใหม่', style: 'primary', on: enrollRetry }
         ]);
       });
     }
