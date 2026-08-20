@@ -1361,12 +1361,12 @@ html, body { overflow-x: hidden !important; }
     </style>
     <div class="tab-panel" id="tab-pdfrename">
       <div class="card" style="padding:12px 18px;">
-        <div class="ctitle" style="margin-bottom:8px;">📄 เปลี่ยนชื่อไฟล์ PDF <span>— อัปโหลดเอกสาร PDF → OCR → ตั้งชื่อใหม่ → Export PDF โดยตรง</span></div>
+        <div class="ctitle" style="margin-bottom:8px;">📄 เปลี่ยนชื่อไฟล์ PDF <span>— อัปโหลดเอกสาร PDF → OCR → ตั้งชื่อใหม่ → Export ZIP แยกตาม Customer Name</span></div>
 
         <div class="pdfr-drop" id="pdfrDrop">
           <div class="pdfr-drop-ic">📄</div>
           <div class="pdfr-drop-t">ลากไฟล์ PDF มาวางที่นี่ หรือกดปุ่มด้านล่าง</div>
-          <div class="pdfr-drop-s">รองรับเฉพาะไฟล์ PDF · สูงสุด 5 ไฟล์ต่อครั้ง · ไม่เกิน 25 MB ต่อไฟล์<br>ระบบใช้ OCR ช่วยกรอก · ตั้งชื่อใหม่ · กด Export PDF เพื่อดาวน์โหลดไฟล์ PDF โดยตรง</div>
+          <div class="pdfr-drop-s">รองรับเฉพาะไฟล์ PDF · สูงสุด 10 ไฟล์ต่อครั้ง · ไม่เกิน 25 MB ต่อไฟล์<br>ระบบใช้ OCR ช่วยกรอก · ตั้งชื่อใหม่ · กด Export ZIP เพื่อรวม PDF แยก Folder ตาม Customer Name</div>
           <input type="file" id="pdfrFile" accept="application/pdf,.pdf" multiple style="display:none;">
           <button type="button" class="btn btn-g" id="pdfrPickBtn">📂 เลือกไฟล์</button>
           <div class="pdfr-count" id="pdfrCount">ยังไม่ได้เลือกไฟล์</div>
@@ -1377,7 +1377,7 @@ html, body { overflow-x: hidden !important; }
 
         <div class="br" style="justify-content:flex-start;margin-top:8px;">
           <button type="button" class="btn btn-g" id="pdfrCancelBtn" style="padding:11px 22px;">ยกเลิก</button>
-          <button type="button" class="btn btn-p" id="pdfrExportBtn" style="padding:11px 26px;box-shadow:0 4px 16px rgba(245,166,35,.25);">📄 Export PDF</button>
+          <button type="button" class="btn btn-p" id="pdfrExportBtn" style="padding:11px 26px;box-shadow:0 4px 16px rgba(245,166,35,.25);">📦 Export ZIP</button>
         </div>
       </div>
     </div>
@@ -7019,6 +7019,9 @@ async function _sacShipAddSaveDo(){
 // ═══════════════════════════════════════════════════════════════
 const SAC_OWNER_SEED = [
   "ธนาดิษย์ (เอ็ม)",
+  "นนท์",
+  "เต๋ย",
+  "แจ๊ค",
   "ประยงค์ (ยงค์)",
   "ประยงค์ (ยงค์)1",
   "วันชนะ (เมย์)",
@@ -7526,17 +7529,19 @@ window.renderShipClose = renderShipClose;
 
 
 // ═══════════════════════════════════════════════════════════════
-// 📄 เปลี่ยนชื่อไฟล์ PDF  (PDF → OCR → RENAME → DIRECT PDF EXPORT)
+// 📄 เปลี่ยนชื่อไฟล์ PDF  (PDF → OCR → RENAME → CUSTOMER FOLDER ZIP EXPORT)
 // ── โมดูลอิสระ: ใช้ Supabase เฉพาะ Company Invoice Memory; ไม่แตะ Business Logic / tab อื่น ──
 // ═══════════════════════════════════════════════════════════════
 const PDFR = {
-  MAX_FILES : 5,
+  MAX_FILES : 10,
   OCR_POOL_SIZE: 2,              // อ่านพร้อมกันสูงสุด 2 ไฟล์
   MAX_SIZE  : 25 * 1024 * 1024,
   OCR_PSM   : '11',                 // SPARSE_TEXT — วัดผลแล้วดีที่สุดกับฟอร์มจริง
-  TARGET_DPI: 300,
+  DETECT_DPI: 220,          // Fast Path: ใช้หา layout/template เท่านั้น
+  DETECT_MAX_W: 2000,
+  TARGET_DPI: 300,          // ค่าที่นำไปใช้จริงยัง OCR จาก crop 300 DPI
   MAX_W     : 2600,
-  VERIFY_DPI: 450,          // raster อิสระสำหรับตรวจ Invoice
+  VERIFY_DPI: 450,          // fallback อิสระสำหรับตรวจ Invoice เมื่อหลักฐานยังไม่ตรง
   VERIFY_MAX_W: 3800,
   files     : [],
   busy      : false,
@@ -7551,7 +7556,9 @@ const PDFR = {
   companyMasterError: '',
   companyMasterUserId: '',
   COMPANY_MATCH_MIN: 0.80,
-  COMPANY_MATCH_MARGIN: 0.08
+  COMPANY_MATCH_MARGIN: 0.08,
+  JSZip     : null,
+  zipInitPromise: null
 };
 
 const PDFR_FIELDS = [
@@ -7560,12 +7567,14 @@ const PDFR_FIELDS = [
   { k:'job_no',          t:'Job No'          },
   { k:'invoice',         t:'Invoice'         },
   { k:'customer_po',     t:'Customer PO'     },
-  { k:'company_invoice', t:'Company Invoice' }
+  { k:'company_invoice', t:'Company Invoice' },
+  { k:'customer_name',   t:'Customer Name'   }
 ];
 
 // label ที่ต้องดึงค่า (เรียงยาว→สั้น เพื่อไม่ให้ "Invoice" กิน "Invoice No"/"Company Invoice")
 const _PDFR_LBL = [
   { k:'company_invoice', re:/^companyinvoice$/ },
+  { k:'customer_name',   re:/^customername$/ },
   { k:'customer_po',     re:/^customerpo$/ },
   { k:'invoice_no',      re:/^invoiceno$/ },
   { k:'decl_no',         re:/^declno$/ },
@@ -7734,7 +7743,7 @@ function _pdfrBox(toks){
   };
 }
 
-// ═══ ดึง 6 ฟิลด์แบบ geometry ═══
+// ═══ ดึง 7 ฟิลด์แบบ geometry ═══
 // คืน { vals, boxes, template }
 function _pdfrExtractGeo(rows, dims){
   const vals = {}, boxes = {};
@@ -7872,6 +7881,8 @@ function _pdfrSanitizePart(v, key){
 function _pdfrBuildName(vals){
   const parts = [];
   PDFR_FIELDS.forEach(f => {
+    // Customer Name ใช้เฉพาะจัด Folder ตอน Export ZIP — ห้ามนำไปต่อท้ายชื่อ PDF
+    if(f.k === 'customer_name') return;
     const raw = vals ? vals[f.k] : '';
     if(_pdfrIsEmptyVal(raw)) return;
     const p = _pdfrSanitizePart(raw, f.k);
@@ -7892,6 +7903,28 @@ function _pdfrLoadScript(src){
     s.onerror = () => rej(new Error('โหลดไลบรารีไม่สำเร็จ: ' + src));
     document.head.appendChild(s);
   });
+}
+async function _pdfrEnsureZip(){
+  if(PDFR.JSZip) return PDFR.JSZip;
+  if(PDFR.zipInitPromise) return PDFR.zipInitPromise;
+  PDFR.zipInitPromise=(async()=>{
+    const prev=window.JSZip;
+    if(typeof prev==='function' && prev.prototype && typeof prev.prototype.generateAsync==='function'){
+      PDFR.JSZip=prev; return PDFR.JSZip;
+    }
+    await _pdfrLoadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    const loaded=window.JSZip;
+    if(typeof loaded!=='function' || !loaded.prototype || typeof loaded.prototype.generateAsync!=='function'){
+      throw new Error('JSZip ไม่พร้อมใช้งาน');
+    }
+    PDFR.JSZip=loaded;
+    // ไม่ทิ้ง global ใหม่ไว้ให้กระทบโมดูลอื่น
+    if(typeof prev==='undefined'){ try{ delete window.JSZip; }catch(e){ window.JSZip=undefined; } }
+    else window.JSZip=prev;
+    return PDFR.JSZip;
+  })();
+  try{ return await PDFR.zipInitPromise; }
+  finally{ PDFR.zipInitPromise=null; }
 }
 async function _pdfrEnsurePdfjs(){
   if(window.pdfjsLib) return window.pdfjsLib;
@@ -7939,7 +7972,8 @@ async function _pdfrRenderPage(doc, pageNo, dpi){
   const page = await doc.getPage(pageNo);
   const base = page.getViewport({ scale: 1 });
   const useDpi = dpi || PDFR.TARGET_DPI;
-  const maxW   = (dpi && dpi > PDFR.TARGET_DPI) ? PDFR.VERIFY_MAX_W : PDFR.MAX_W;
+  const maxW   = (dpi && dpi > PDFR.TARGET_DPI) ? PDFR.VERIFY_MAX_W
+               : ((dpi && dpi < PDFR.TARGET_DPI) ? (PDFR.DETECT_MAX_W || PDFR.MAX_W) : PDFR.MAX_W);
   let scale = useDpi / 72;
   if(base.width * scale > maxW) scale = maxW / base.width;
   const viewport = page.getViewport({ scale: scale });
@@ -8068,7 +8102,8 @@ const _PDFR_RECT = {
     job_no          :[ 0.086,-0.0065, 0.240, 0.0105],
     invoice         :[-0.560, 0.0350,-0.285, 0.0700],   // รองรับหลายบรรทัด
     customer_po     :[-0.088, 0.0345, 0.075, 0.0495],
-    company_invoice :[-0.485, 0.5700,-0.140, 0.5885]
+    company_invoice :[-0.485, 0.5700,-0.140, 0.5885],
+    customer_name   :[-0.435,-0.0520,-0.025,-0.0340]
   },
   SERVICE:{
     invoice_no      :[ 0.086,-0.0555, 0.240,-0.0385],
@@ -8076,7 +8111,8 @@ const _PDFR_RECT = {
     job_no          :[ 0.086,-0.0110, 0.240, 0.0060],
     invoice         : null,                              // SERVICE ไม่มีช่องนี้
     customer_po     :[-0.088, 0.0340, 0.075, 0.0490],
-    company_invoice :[-0.475, 0.5345,-0.140, 0.5530]
+    company_invoice :[-0.475, 0.5345,-0.140, 0.5530],
+    customer_name   :[-0.435,-0.0520,-0.025,-0.0340]
   }
 };
 const _PDFR_WL = {
@@ -8086,7 +8122,8 @@ const _PDFR_WL = {
   invoice         : '0123456789,+',
   source_invoice  : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.-_/',
   customer_po     : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.',
-  company_invoice : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()&.,-'
+  company_invoice : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()&.,-',
+  customer_name   : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()&.,-'
 };
 // ลำดับ preprocessing ที่ให้ผลดีที่สุดของแต่ละฟิลด์ (วัดจาก 9 สูตร × 12 เอกสารจริง)
 const _PDFR_FIELD_PRE = {
@@ -8095,7 +8132,8 @@ const _PDFR_FIELD_PRE = {
   decl_no         : ['ERODE4','THR65','NORM2'],
   invoice         : ['NORM2','CLOSE3','NORM3'],
   customer_po     : ['NORM2','NORM3','THR65'],
-  company_invoice : ['NORM3','THR65','CLOSE3']
+  company_invoice : ['NORM3','THR65','CLOSE3'],
+  customer_name   : ['NORM2','NORM3','THR65']
 };
 
 // ── preprocessing (ทำบน canvas ชั่วคราวเท่านั้น ไม่แตะ PDF ต้นฉบับ) ──
@@ -8214,6 +8252,10 @@ function _pdfrDetectTemplateGeo(tokens, A, dims){
 function _pdfrRectPx(A, r, dims){
   return { x:Math.round(A.x + r[0]*dims.w), y:Math.round(A.y + r[1]*dims.h),
            w:Math.round((r[2]-r[0])*dims.w), h:Math.round((r[3]-r[1])*dims.h) };
+}
+function _pdfrScaleAnchor(A, fromDims, toDims){
+  if(!A || !fromDims || !toDims || !fromDims.w || !fromDims.h) return A;
+  return { x:A.x*(toDims.w/fromDims.w), y:A.y*(toDims.h/fromDims.h), src:A.src };
 }
 // Adapter ชัดเจน: {x,y,w,h} → {x0,y0,x1,y1}
 function _pdfrRectToBox(rect){
@@ -8525,7 +8567,7 @@ async function _pdfrReadField(canvas, rect, key, pat, worker){
   const outs = [];
   for(let i = 0; i < order.length; i++){
     const raw = await _pdfrOcrFieldCrop(canvas, rect, key, order[i], null, worker);
-    let v = (key === 'company_invoice' || key === 'customer_po')
+    let v = (key === 'company_invoice' || key === 'customer_po' || key === 'customer_name')
               ? raw.replace(/\s+/g,' ').trim() : raw.replace(/\s+/g,'');
     if(isInvoice) v = _pdfrNormInvoice(v);
     outs.push({ v:v, pre:order[i] });
@@ -8775,41 +8817,84 @@ async function _pdfrReadFile(f, onStatus, worker){
   try {
     doc = await pdfjs.getDocument({ data:new Uint8Array(buf.slice(0)), isEvalSupported:false }).promise;
   } catch(e){ throw new Error('ไม่สามารถอ่านไฟล์ PDF นี้ได้'); }
-  let rendered = null;
-  try {
-    if(onStatus) onStatus('กำลังเรนเดอร์หน้าแรก...');
-    rendered = await _pdfrRenderPage(doc, 1);
 
-    const dims = { w:rendered.canvas.width, h:rendered.canvas.height };
-    let tokens = await _pdfrTextTokens(rendered.page, rendered.viewport);
-    const textCheck = tokens.length >= 10 ? _pdfrAssessTextLayer(tokens, dims) : { usable:false };
-    if(tokens.length >= 10 && textCheck.usable){
-      f.source = 'TEXT'; f.conf = 100;
-    } else {
-      // PDF scan บางไฟล์มี hidden/garbled text layer: token เยอะไม่ได้แปลว่าใช้ได้
-      if(onStatus) onStatus(tokens.length >= 10 ? 'Text layer อ่านเลขหลักไม่ครบ — fallback OCR...' : 'กำลัง OCR...');
-      const o = await _pdfrOcrTokens(rendered.canvas, worker); // worker แยกต่อ runner; reset PSM/whitelist ภายในทุกครั้ง
-      tokens = o.tokens; f.source = 'OCR'; f.conf = o.conf;
+  let rendered = null;
+  let fieldRendered = null;
+  try {
+    const analyze = async (dpi, statusText) => {
+      if(onStatus) onStatus(statusText || 'กำลังเรนเดอร์หน้าแรก...');
+      const rr = await _pdfrRenderPage(doc, 1, dpi);
+      const dd = { w:rr.canvas.width, h:rr.canvas.height };
+      let tt = await _pdfrTextTokens(rr.page, rr.viewport);
+      const textCheck = tt.length >= 10 ? _pdfrAssessTextLayer(tt, dd) : { usable:false };
+      let source = 'TEXT', conf = 100;
+      if(!(tt.length >= 10 && textCheck.usable)){
+        if(onStatus) onStatus(tt.length >= 10 ? 'Text layer อ่านเลขหลักไม่ครบ — fallback OCR...' : 'กำลัง OCR หาแบบฟอร์ม...');
+        const o = await _pdfrOcrTokens(rr.canvas, worker);
+        tt = o.tokens; source = 'OCR'; conf = o.conf;
+      }
+      const rows = _pdfrTokensToRows(tt);
+      const ex   = _pdfrExtractGeo(rows, dd);
+      const A    = _pdfrFindFormAnchor(tt, dd);
+      const det  = _pdfrDetectTemplateGeo(tt, A, dd);
+      const tr   = (source === 'OCR')
+        ? await _pdfrResolveTemplate(rr.canvas, A, dd, det, ex, onStatus, worker)
+        : { template:(_pdfrTemplateFromValues(ex.vals) || det.template || ex.template || 'AMBIGUOUS'),
+            readTemplate:(_pdfrTemplateFromValues(ex.vals) || det.template || ex.template || ''), source:'text-layer', probes:null };
+      return { rendered:rr, dims:dd, source:source, conf:conf, ex:ex, A:A, det:det, tr:tr };
+    };
+
+    // Fast Path: OCR ทั้งหน้าใช้ 220 DPI เพื่อหา layout/template เท่านั้น
+    let ctx = await analyze(PDFR.DETECT_DPI, 'กำลังวิเคราะห์หน้าแรกแบบเร็ว...');
+
+    // Fail-safe: ถ้าภาพ 220 DPI ยังบอก template/anchor ไม่พอ ให้กลับไปใช้ 300 DPI แบบเดิม
+    const fastStrongTpl = _pdfrTemplateFromValues(ctx.ex && ctx.ex.vals);
+    const fastWeak = ctx.source === 'OCR' && (
+      !(ctx.tr && (ctx.tr.readTemplate || (ctx.tr.template && ctx.tr.template !== 'AMBIGUOUS'))) ||
+      (ctx.A && ctx.A.src === 'absolute' && ctx.det && ctx.det.template === 'AMBIGUOUS' &&
+       (!ctx.ex || ctx.ex.template === 'AMBIGUOUS') && !fastStrongTpl)
+    );
+    if(fastWeak){
+      if(ctx.rendered && ctx.rendered.canvas){ ctx.rendered.canvas.width=0; ctx.rendered.canvas.height=0; }
+      try{ if(ctx.rendered && ctx.rendered.page) ctx.rendered.page.cleanup(); }catch(e){}
+      ctx = await analyze(PDFR.TARGET_DPI, 'Fast Path ไม่ชัด — ตรวจหน้าแรกด้วย 300 DPI...');
     }
 
-    const rows = _pdfrTokensToRows(tokens);
-    const ex   = _pdfrExtractGeo(rows, dims);
-    const A    = _pdfrFindFormAnchor(tokens, dims);
-    const det  = _pdfrDetectTemplateGeo(tokens, A, dims);
-    const tr   = (f.source === 'OCR')
-      ? await _pdfrResolveTemplate(rendered.canvas, A, dims, det, ex, onStatus, worker)
-      : { template:(_pdfrTemplateFromValues(ex.vals) || det.template || ex.template || 'AMBIGUOUS'),
-          readTemplate:(_pdfrTemplateFromValues(ex.vals) || det.template || ex.template || ''), source:'text-layer', probes:null };
+    rendered = ctx.rendered;
+    const dims = ctx.dims;
+    const ex   = ctx.ex;
+    const A    = ctx.A;
+    const det  = ctx.det;
+    const tr   = ctx.tr;
+    f.source   = ctx.source;
+    f.conf     = ctx.conf;
 
     f.template         = tr.template || 'AMBIGUOUS';
     f.templateRead     = tr.readTemplate || '';
-    f.templateEvidence = { detector:det, extractor:ex.templateScore || null, source:tr.source, probes:tr.probes || null };
+    f.templateEvidence = { detector:det, extractor:ex.templateScore || null, source:tr.source, probes:tr.probes || null,
+                           detectDpi:(rendered && rendered.viewport ? Math.round(rendered.viewport.scale*72) : null) };
     f.anchor           = A.src;
     f.vals             = {};
     f.origin           = {};
     f.uncertain        = {};
     f.evidence         = {};
     f.invoiceEvidence  = null;
+
+    // Scan PDF: ค่าที่ใช้จริง OCR จาก crop 300 DPI เสมอ
+    // PDF ที่มี text layer ใช้ text จริงจาก PDF จึงไม่ต้อง render 300 DPI ซ้ำ
+    let fieldCanvas = rendered.canvas;
+    let fieldDims   = dims;
+    let fieldA      = A;
+    if(f.source === 'OCR'){
+      const currentDpi = rendered && rendered.viewport ? rendered.viewport.scale * 72 : PDFR.DETECT_DPI;
+      if(Math.abs(currentDpi - PDFR.TARGET_DPI) > 1){
+        if(onStatus) onStatus('กำลังเตรียมภาพ 300 DPI สำหรับอ่านช่องข้อมูล...');
+        fieldRendered = await _pdfrRenderPage(doc, 1, PDFR.TARGET_DPI);
+        fieldCanvas = fieldRendered.canvas;
+        fieldDims = { w:fieldCanvas.width, h:fieldCanvas.height };
+        fieldA = _pdfrScaleAnchor(A, dims, fieldDims);
+      }
+    }
 
     const readTpl = f.templateRead || (f.template !== 'AMBIGUOUS' ? f.template : '');
     const rects = readTpl ? (_PDFR_RECT[readTpl] || {}) : {};
@@ -8820,9 +8905,9 @@ async function _pdfrReadFile(f, onStatus, worker){
 
       if(r && f.source === 'OCR'){
         if(onStatus) onStatus('กำลังอ่าน ' + PDFR_FIELDS[i].t + '...');
-        const R = _pdfrRectPx(A, r, dims);
+        const R = _pdfrRectPx(fieldA, r, fieldDims);
         if(key === 'invoice'){
-          const got = await _pdfrReadInvoiceIndependent(rendered.canvas, R, dims, {
+          const got = await _pdfrReadInvoiceIndependent(fieldCanvas, R, fieldDims, {
             relRect:r,
             labelCandidate:(ex.vals && ex.vals.invoice) || '',
             worker:worker,
@@ -8842,19 +8927,17 @@ async function _pdfrReadFile(f, onStatus, worker){
           else unc = true;
         } else {
           const pat = _pdfrFieldPattern(key, readTpl);
-          const got = await _pdfrReadField(rendered.canvas, R, key, pat, worker);
+          const got = await _pdfrReadField(fieldCanvas, R, key, pat, worker);
           if(got.value){ val = got.value; origin = 'CROP'; unc = got.uncertain; }
 
           // Rescue เฉพาะ Invoice No: ถ้า PSM7 ยังผิด Pattern ลอง ERODE4 + PSM6 อีกครั้ง
           // รับค่าใหม่เฉพาะเมื่อผ่าน Pattern จริง ห้ามแก้ตัวอักษร/ตัวเลขเอง
           if(key === 'invoice_no' && pat && (!val || !pat.test(String(val).replace(/\s+/g,'')))){
-            const rr = await _pdfrOcrFieldCropEx(rendered.canvas, R, key, 'ERODE4', { psm:'6' }, worker);
+            const rr = await _pdfrOcrFieldCropEx(fieldCanvas, R, key, 'ERODE4', { psm:'6' }, worker);
             const rv = String(rr.text || '').replace(/\s+/g,'');
             if(rv && pat.test(rv)){ val = rv; origin = 'CROP'; unc = false; }
           }
 
-          // ถ้า crop มีค่าแต่ผิด Pattern ขณะที่ full-page/label candidate ผ่าน Pattern ให้ใช้ candidate ที่พิสูจน์รูปแบบได้
-          // นี่คือการเลือกผล OCR อีกเส้นทาง ไม่ใช่การ auto-correct อักขระ
           const lv = ex.vals && ex.vals[key] ? String(ex.vals[key]).replace(/\s+/g,'') : '';
           if(pat && lv && pat.test(lv) && (!val || !pat.test(String(val).replace(/\s+/g,'')))){
             val = ex.vals[key]; origin = 'LABEL'; unc = false;
@@ -8862,12 +8945,8 @@ async function _pdfrReadFile(f, onStatus, worker){
         }
       }
 
-      // fallback จาก label OCR/text layer — ไม่สร้างภาพ Preview
       if(!val && ex.vals[key]){ val = ex.vals[key]; origin = 'LABEL'; }
 
-      // Company Invoice เท่านั้น: เทียบ Company Master ที่โหลดจาก Supabase
-      // ถ้า Exact/Fuzzy match ชัดเจนจึงใช้ชื่อมาตรฐาน; ถ้าไม่ชัดคง OCR เดิมและให้ผู้ใช้ตรวจ
-      // Invoice No / Decl No / Job No / Invoice / Customer PO ไม่ใช้ Memory และยัง OCR ใหม่ทุกครั้ง
       if(val && origin !== 'MANUAL' && key === 'company_invoice'){
         const mm = _pdfrCompanyMasterMatch(val);
         if(mm){
@@ -8884,8 +8963,6 @@ async function _pdfrReadFile(f, onStatus, worker){
     }
 
     // Invoice ใช้ข้อมูลจากหน้าแรกเท่านั้น หากไม่พบให้คงค่าว่าง
-
-    // Final values สามารถยืนยันประเภทได้อีกชั้น; ถ้าขัดกับประเภทที่เลือกให้เตือน AMBIGUOUS แทนการเดา
     const finalTpl = _pdfrTemplateFromValues(f.vals);
     if(f.template === 'AMBIGUOUS' && finalTpl){ f.template = finalTpl; f.templateRead = finalTpl; }
     else if(finalTpl && f.template !== 'AMBIGUOUS' && finalTpl !== f.template){
@@ -8893,6 +8970,8 @@ async function _pdfrReadFile(f, onStatus, worker){
       f.template = 'AMBIGUOUS';
     } else f.templateConflict = '';
   } finally {
+    if(fieldRendered && fieldRendered.canvas){ fieldRendered.canvas.width = 0; fieldRendered.canvas.height = 0; }
+    try{ if(fieldRendered && fieldRendered.page) fieldRendered.page.cleanup(); }catch(e){}
     if(rendered && rendered.canvas){ rendered.canvas.width = 0; rendered.canvas.height = 0; }
     try{ if(rendered && rendered.page) rendered.page.cleanup(); }catch(e){}
     try{ if(doc) await doc.destroy(); }catch(e){}
@@ -9059,30 +9138,25 @@ function _pdfrApplyBatchCompanyWarnings(){
 }
 
 function _pdfrRecompute(){
-  const seen = Object.create(null);
   PDFR.files.forEach(f => {
     // ถ้าคนแก้ Invoice No + Job No จนบอกประเภทได้ชัด ให้คลาย AMBIGUOUS ได้โดยไม่ต้อง OCR ใหม่
     const strongTpl = _pdfrTemplateFromValues(f.vals);
     if(f.template === 'AMBIGUOUS' && strongTpl){ f.template = strongTpl; f.templateRead = strongTpl; }
     f.newName = _pdfrBuildName(f.vals);
-    if(f.newName){ const k = f.newName.toLowerCase(); seen[k] = (seen[k] || 0) + 1; }
-  });
-  PDFR.files.forEach(f => {
-    f.dup = !!(f.newName && seen[f.newName.toLowerCase()] > 1);
+    // ZIP รองรับชื่อ PDF ซ้ำใน Folder เดียวกันด้วย suffix _2, _3 จึงไม่ Hard Block ที่ชั้นนี้
+    f.dup = false;
     f.vld = _pdfrValidateFields(f.vals, f.template, { uncertain:f.uncertain, templateConflict:f.templateConflict });
   });
   _pdfrApplyBatchCompanyWarnings();
   PDFR.files.forEach(f => {
     if(f.readErr){ f.st='err'; f.stMsg=f.readErr; return; }
     if(!f.newName){ f.st='hard'; f.stMsg='ยังไม่มีข้อมูลสำหรับสร้างชื่อไฟล์'; return; }
-    if(f.dup){ f.st='dup'; f.stMsg='ชื่อไฟล์ซ้ำ กรุณาแก้ก่อน Export'; return; }
     if(!f.vld.valid){ f.st='review'; f.stMsg='พบข้อมูลที่ควรตรวจสอบ — Export ได้หลังอ่านคำเตือน'; return; }
     f.st='ok'; f.stMsg='พร้อม Export';
   });
 }
 function _pdfrStatusText(f){
   if(f.st === 'ok')     return '✅ พร้อม Export';
-  if(f.st === 'dup')    return '❌ ชื่อไฟล์ซ้ำ';
   if(f.st === 'err')    return '❌ อ่านไฟล์ไม่สำเร็จ';
   if(f.st === 'hard')   return '❌ ยังสร้างชื่อไฟล์ไม่ได้';
   return '⚠️ มีข้อมูลควรตรวจสอบ';
@@ -9104,8 +9178,8 @@ function _pdfrSyncExportBtn(){
   const btn=document.getElementById('pdfrExportBtn'); if(!btn) return;
   const ready=!PDFR.busy && PDFR.files.length>0;
   btn.disabled=!ready;
-  btn.title=PDFR.busy ? 'กำลังอ่านไฟล์ กรุณารอให้เสร็จก่อน Export' : (PDFR.files.length ? 'กด Export PDF ได้เลย — ถ้ามีข้อมูลควรตรวจสอบ ระบบจะแจ้งก่อน Export' : 'ยังไม่ได้เลือกไฟล์ PDF');
-  btn.textContent='📄 Export PDF' + (PDFR.files.length ? ' (' + PDFR.files.length + ' ไฟล์)' : '');
+  btn.title=PDFR.busy ? 'กำลังอ่านไฟล์ กรุณารอให้เสร็จก่อน Export' : (PDFR.files.length ? 'กด Export ZIP ได้เลย — ระบบจะแยก Folder ตาม Customer Name' : 'ยังไม่ได้เลือกไฟล์ PDF');
+  btn.textContent='📦 Export ZIP' + (PDFR.files.length ? ' (' + PDFR.files.length + ' ไฟล์)' : '');
 }
 function _pdfrUpdateCount(){
   const el=document.getElementById('pdfrCount'); if(!el) return;
@@ -9276,7 +9350,7 @@ async function _pdfrAddFiles(fileList){
       uid : 'pf' + PDFR.seq,
       file: file,
       inputSha: item.inputSha || '',
-      vals: { invoice_no:'', decl_no:'', job_no:'', invoice:'', customer_po:'', company_invoice:'' },
+      vals: { invoice_no:'', decl_no:'', job_no:'', invoice:'', customer_po:'', company_invoice:'', customer_name:'' },
       newName:'', st:'warn', stMsg:'', source:'', conf:null,
       companyMasterMatch:null,
       template:'AMBIGUOUS', templateRead:'', templateEvidence:null, templateConflict:'', readErr:'', done:false
@@ -9326,7 +9400,7 @@ async function _pdfrProcessQueue(){
     }
 
     await Promise.all(pool.slice(0, workerCount).map(w => runWorker(w)));
-    _pdfrSetStatus('อ่านเสร็จ ' + total + ' ไฟล์ — กด 📄 Export PDF ได้เลย', 'ok');
+    _pdfrSetStatus('อ่านเสร็จ ' + total + ' ไฟล์ — กด 📦 Export ZIP ได้เลย', 'ok');
   } finally {
     _pdfrSetBusy(false);
     _pdfrRenderRows();
@@ -9339,13 +9413,12 @@ async function _pdfrSha256(buf){
   return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// ═══ Export PDF โดยตรง — Soft Warning: OCR/Pattern เตือนแต่ผู้ใช้เลือก Export ต่อได้ ═══
+// ═══ Export ZIP แยก Folder ตาม Customer Name — Soft Warning ก่อน Export ═══
 function _pdfrCollectHardBlocks(){
   const out=[];
   PDFR.files.forEach((f,i)=>{
     if(f.readErr) out.push({i:i, file:f.file.name, field:'ไฟล์ PDF', value:'', msg:f.readErr});
     if(!f.newName) out.push({i:i, file:f.file.name, field:'ชื่อไฟล์ใหม่', value:'', msg:'ยังไม่มีข้อมูลสำหรับสร้างชื่อไฟล์'});
-    if(f.dup) out.push({i:i, file:f.file.name, field:'ชื่อไฟล์ใหม่', value:f.newName||'', msg:'ชื่อไฟล์ใหม่ซ้ำกับไฟล์อื่น'});
   });
   return out;
 }
@@ -9375,14 +9448,14 @@ function _pdfrShowIssueModal(items, opt){
     ov.innerHTML='<div class="pdfr-warn-modal"><div class="pdfr-warn-title">'+_pdfrEsc(o.title||'⚠️ พบข้อมูลที่ควรตรวจสอบ')+'</div>'+
       '<div class="pdfr-warn-sub">'+_pdfrEsc(o.sub||'ตรวจรายการด้านล่างก่อน Export')+'</div>'+body+
       '<div class="pdfr-warn-actions"><button type="button" class="btn btn-g" data-back>ยกเลิก</button>'+
-      (allow?'<button type="button" class="btn btn-p" data-go>📄 Export PDF</button>':'')+'</div></div>';
+      (allow?'<button type="button" class="btn btn-p" data-go>📦 Export ZIP</button>':'')+'</div></div>';
     document.body.appendChild(ov);
     const done=v=>{ ov.remove(); resolve(v); };
     ov.querySelector('[data-back]').addEventListener('click',()=>done(false));
     const go=ov.querySelector('[data-go]'); if(go) go.addEventListener('click',()=>done(true));
   });
 }
-function _pdfrDownloadPdf(blob, fileName){
+function _pdfrDownloadBlob(blob, fileName){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
@@ -9393,63 +9466,139 @@ function _pdfrDownloadPdf(blob, fileName){
   a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
-async function _pdfrExportPdf(){
+function _pdfrCustomerKey(v){
+  if(_pdfrIsEmptyVal(v)) return '';
+  return String(v==null?'':v).replace(/\s+/g,' ').trim();
+}
+// ใช้เฉพาะเป็น key สำหรับรวม Folder ลูกค้าใน ZIP — ไม่แก้ Customer Name ที่แสดง/บันทึก
+// กฎล่าสุด: normalize ตัวอักษร/ตัวเลข แล้วถ้า 8 ตัวแรกตรงกันให้ถือเป็นกลุ่มเดียวกัน
+function _pdfrCustomerGroupKey(v){
+  const s=_pdfrCustomerKey(v);
+  if(!s) return '__UNKNOWN_CUSTOMER__';
+  const norm=s.toUpperCase().replace(/[^A-Z0-9\u0E00-\u0E7F]/g,'');
+  if(!norm) return '__UNKNOWN_CUSTOMER__';
+  return norm.length>=8 ? norm.slice(0,8) : norm;
+}
+function _pdfrSanitizeFolderName(v){
+  let s=_pdfrCustomerKey(v);
+  if(!s) return 'UNKNOWN_CUSTOMER';
+  // Windows/ZIP path forbidden chars เท่านั้น; คง comma / จุด / วงเล็บ / ชื่ออื่นไว้
+  s=s.replace(/[\u0000-\u001f\u007f]/g,' ')
+     .replace(/[\/\\:*?"<>|]/g,' ')
+     .replace(/\s+/g,' ').trim()
+     .replace(/[. ]+$/g,'');
+  return s || 'UNKNOWN_CUSTOMER';
+}
+function _pdfrZipUniquePdfName(fileName, used){
+  let name=String(fileName||'').replace(/[\/\\:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+  if(!name) name='document.pdf';
+  if(!/\.pdf$/i.test(name)) name += '.pdf';
+  const dot=name.toLowerCase().lastIndexOf('.pdf');
+  const stem=name.slice(0,dot), ext=name.slice(dot);
+  const key=x=>x.toLowerCase();
+  let out=name, n=2;
+  while(used.has(key(out))){ out=stem+'_'+n+ext; n++; }
+  used.add(key(out));
+  return out;
+}
+function _pdfrBuildCustomerZipPlan(prepared){
+  const byCustomer=new Map();       // normalized Customer identity → one folder
+  const usedFolderNames=new Set();  // protect sanitized-name collisions between different customers
+  const usedNamesByFolder=new Map();
+  const plan=[];
+  for(const item of prepared){
+    const customerKey=_pdfrCustomerKey(item.customerName);      // display/original value
+    const groupKey=_pdfrCustomerGroupKey(customerKey);          // grouping only
+    let folder=byCustomer.get(groupKey);
+    if(!folder){
+      const base=_pdfrSanitizeFolderName(customerKey);
+      let candidate=base, n=2;
+      while(usedFolderNames.has(candidate.toLowerCase())){ candidate=base+'_'+n; n++; }
+      folder=candidate;
+      byCustomer.set(groupKey,folder);
+      usedFolderNames.add(folder.toLowerCase());
+      usedNamesByFolder.set(folder,new Set());
+    }
+    const used=usedNamesByFolder.get(folder);
+    const pdfName=_pdfrZipUniquePdfName(item.name,used);
+    plan.push({folder:folder,pdfName:pdfName,path:folder+'/'+pdfName,item:item});
+  }
+  return plan;
+}
+async function _pdfrExportCustomerZip(){
   if(PDFR.busy) return;
   if(!PDFR.files.length){ if(typeof toast==='function') toast('ยังไม่ได้เลือกไฟล์ PDF','err'); return; }
   _pdfrPaintComputed();
   const hard=_pdfrCollectHardBlocks();
   if(hard.length){
     _pdfrSetStatus('Export ถูกระงับ — พบปัญหาทางเทคนิค '+hard.length+' จุด กรุณาแก้ก่อน','err');
-    await _pdfrShowIssueModal(hard,{title:'❌ ยัง Export ไม่ได้',sub:'Hard Block: อ่านไฟล์ไม่ได้ / ไม่มีชื่อไฟล์ใหม่ / ชื่อซ้ำ ต้องแก้ก่อน',allowProceed:false});
+    await _pdfrShowIssueModal(hard,{title:'❌ ยัง Export ไม่ได้',sub:'Hard Block: อ่านไฟล์ไม่ได้ / ไม่มีชื่อไฟล์ใหม่ ต้องแก้ก่อน',allowProceed:false});
     return;
   }
   const warnings=_pdfrCollectExportWarnings();
   if(warnings.length){
-    const go=await _pdfrShowIssueModal(warnings,{title:'⚠️ พบข้อมูลที่ควรตรวจสอบก่อน Export',sub:'พบ '+warnings.length+' จุด — ตรวจรายการด้านล่าง แล้วกด Export PDF ได้เลยหากต้องการใช้ค่าปัจจุบัน',allowProceed:true});
+    const go=await _pdfrShowIssueModal(warnings,{title:'⚠️ พบข้อมูลที่ควรตรวจสอบก่อน Export',sub:'พบ '+warnings.length+' จุด — ตรวจรายการด้านล่าง แล้วกด Export ZIP ได้เลยหากต้องการใช้ค่าปัจจุบัน',allowProceed:true});
     if(!go){ _pdfrSetStatus(''); return; }
   }
 
   _pdfrSetBusy(true);
   try{
-    // ตรวจทุกไฟล์ให้ครบก่อนเริ่มดาวน์โหลด เพื่อไม่ให้เกิดการ Export บางส่วนถ้า SHA ผิด
-    // สร้าง Blob จาก bytes เดิมโดยตรง: ไม่ render / ไม่ recompress / ไม่แก้เนื้อหา PDF
+    // ตรวจ SHA ทุก PDF ก่อนสร้าง ZIP; ใช้ bytes ต้นฉบับโดยตรง ไม่ render / recompress PDF
     const prepared=[];
     for(let i=0;i<PDFR.files.length;i++){
       const f=PDFR.files[i];
-      _pdfrSetStatus('กำลังตรวจ PDF ก่อน Export... ('+(i+1)+'/'+PDFR.files.length+')');
+      _pdfrSetStatus('กำลังตรวจ PDF ก่อนสร้าง ZIP... ('+(i+1)+'/'+PDFR.files.length+')');
       const bytes=await f.file.arrayBuffer();
       const shaBefore=await _pdfrSha256(bytes);
-      const blob=new Blob([bytes],{type:'application/pdf'});
-      const shaAfter=await _pdfrSha256(await blob.arrayBuffer());
-      console.log('[pdfr] SHA-256',f.newName,shaBefore,shaAfter===shaBefore?'MATCH':'MISMATCH');
+      const copy=bytes.slice(0);
+      const shaAfter=await _pdfrSha256(copy);
       if(shaAfter!==shaBefore){
         _pdfrSetStatus('❌ ตรวจ SHA-256 ไม่ผ่าน — ยกเลิกการ Export','err');
         if(typeof toast==='function') toast('❌ SHA-256 ไม่ตรง ยกเลิก Export','err');
         return;
       }
-      prepared.push({blob:blob,name:f.newName});
+      prepared.push({bytes:copy,name:f.newName,customerName:(f.vals&&f.vals.customer_name)||'',sha:shaBefore,sourceFile:f.file.name});
     }
 
-    // จุดยืนยัน Company Invoice = หลังผู้ใช้กด Export และ SHA ผ่านแล้วเท่านั้น
-    // บันทึก Company Master ไม่สำเร็จต้องไม่ทำให้ PDF Export ล้ม
+    const plan=_pdfrBuildCustomerZipPlan(prepared);
+    const JSZip=await _pdfrEnsureZip();
+    const zip=new JSZip();
+    plan.forEach(x=>zip.file(x.path,new Uint8Array(x.item.bytes),{binary:true,compression:'STORE'}));
+
+    _pdfrSetStatus('กำลังสร้าง ZIP แยก Folder ตาม Customer Name...');
+    // STORE เร็วกว่าและไม่เปลี่ยน bytes ของ PDF; ZIP เป็นเพียง container
+    const zipBlob=await zip.generateAsync({type:'blob',compression:'STORE'});
+
+    // Verify ZIP จริงก่อนดาวน์โหลด: count + path + SHA ของ PDF หลังแตกจาก ZIP ต้องตรงต้นฉบับ
+    _pdfrSetStatus('กำลังตรวจ ZIP ก่อนดาวน์โหลด...');
+    const verifyZip=await JSZip.loadAsync(zipBlob);
+    const pdfEntries=Object.keys(verifyZip.files).filter(k=>!verifyZip.files[k].dir && /\.pdf$/i.test(k));
+    if(pdfEntries.length!==plan.length) throw new Error('จำนวน PDF ใน ZIP ไม่ตรงกับต้นฉบับ');
+    for(let i=0;i<plan.length;i++){
+      const x=plan[i], entry=verifyZip.file(x.path);
+      if(!entry) throw new Error('ไม่พบ PDF ใน ZIP: '+x.path);
+      const outBytes=await entry.async('arraybuffer');
+      const outSha=await _pdfrSha256(outBytes);
+      if(outSha!==x.item.sha) throw new Error('SHA-256 PDF ใน ZIP ไม่ตรง: '+x.path);
+    }
+
+    // จุดยืนยัน Company Invoice = หลังผู้ใช้กด Export และ ZIP ผ่านการ verify แล้ว
+    // บันทึก Company Master ไม่สำเร็จต้องไม่ทำให้ ZIP Export ล้ม
     const masterSave=await _pdfrCompanyMasterConfirmExport();
 
-    // ดาวน์โหลด PDF โดยตรงทีละไฟล์ด้วยชื่อใหม่จาก OCR
-    for(let i=0;i<prepared.length;i++){
-      _pdfrDownloadPdf(prepared[i].blob,prepared[i].name);
-      if(i < prepared.length-1) await new Promise(r=>setTimeout(r,180));
-    }
+    _pdfrDownloadBlob(zipBlob,'EXPORT_CUSTOMER_PDF.zip');
+    const folders=new Set(plan.map(x=>x.folder)).size;
     if(masterSave.ok){
-      _pdfrSetStatus('Export PDF สำเร็จ ✓ '+prepared.length+' ไฟล์ · SHA-256 ตรงทุกไฟล์ · Company Master พร้อมใช้','ok');
-      if(typeof toast==='function') toast('Export PDF สำเร็จ ✓ '+prepared.length+' ไฟล์');
+      _pdfrSetStatus('Export ZIP สำเร็จ ✓ '+plan.length+' PDF · '+folders+' Folder · SHA-256 ตรงทุกไฟล์','ok');
+      if(typeof toast==='function') toast('Export ZIP สำเร็จ ✓ '+plan.length+' PDF');
     }else{
-      _pdfrSetStatus('Export PDF สำเร็จ ✓ '+prepared.length+' ไฟล์ · แต่บันทึก Company Master ไม่สำเร็จ '+masterSave.failed+' รายการ','err');
-      if(typeof toast==='function') toast('PDF Export สำเร็จ แต่ Company Master บันทึกไม่สำเร็จ','err');
+      _pdfrSetStatus('Export ZIP สำเร็จ ✓ '+plan.length+' PDF · แต่บันทึก Company Master ไม่สำเร็จ '+masterSave.failed+' รายการ','err');
+      if(typeof toast==='function') toast('ZIP Export สำเร็จ แต่ Company Master บันทึกไม่สำเร็จ','err');
     }
   }catch(e){
-    console.error('[pdfr] pdf export error:',e);
-    _pdfrSetStatus('❌ ไม่สามารถ Export PDF ได้ กรุณาลองใหม่','err');
-    if(typeof toast==='function') toast('❌ ไม่สามารถ Export PDF ได้ กรุณาลองใหม่','err');
+    console.error('[pdfr] customer zip export error:',e);
+    _pdfrSetStatus('❌ ไม่สามารถ Export ZIP ได้: '+((e&&e.message)?e.message:'กรุณาลองใหม่'),'err');
+    if(typeof toast==='function') toast('❌ ไม่สามารถ Export ZIP ได้','err');
   }finally{ _pdfrSetBusy(false); }
 }
 
@@ -9493,7 +9642,7 @@ async function _pdfrClearAll(){
       if(dt && dt.files && dt.files.length) await _pdfrAddFiles(dt.files);
     });
     cancel && cancel.addEventListener('click', _pdfrClearAll);
-    exportBtn && exportBtn.addEventListener('click', _pdfrExportPdf);
+    exportBtn && exportBtn.addEventListener('click', _pdfrExportCustomerZip);
     _pdfrSyncExportBtn();
   };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -9508,7 +9657,7 @@ function _pdfrOnTabOpen(){
   }
   // โหลด Company Master 1 ครั้งต่อ session แล้วใช้ cache; ถ้าโหลดไม่ได้ไม่บล็อก OCR/Export
   _pdfrCompanyMasterLoad(false).then(ok=>{
-    if(!ok && !PDFR.files.length) _pdfrSetStatus('Company Master ไม่พร้อมใช้งาน — OCR และ Export PDF ยังใช้งานได้ตามปกติ');
+    if(!ok && !PDFR.files.length) _pdfrSetStatus('Company Master ไม่พร้อมใช้งาน — OCR และ Export ZIP ยังใช้งานได้ตามปกติ');
   }).catch(()=>{});
 }
 
