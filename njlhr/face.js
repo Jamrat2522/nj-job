@@ -2689,7 +2689,10 @@
         if (!opAlive(myOp)) { S.busy = false; return; }   // ถูกยกเลิกระหว่างรอ = หยุดเงียบ
         if (has) { S.busy = false; return doPunch(kind, onDone, myOp); }
         S.busy = false;
-        enrollThenPunch(kind, onDone, myOp);
+        /* FACE_ENTRY_ENROLL_20260820: Enrollment ครั้งแรกต้องทำจากหน้า Login เท่านั้น */
+        opInvalidate();
+        S.mode = '';
+        attendanceStatusError(new Error('ยังไม่ได้ลงทะเบียนใบหน้า กรุณาออกจากระบบแล้วลงทะเบียนจากหน้าเข้าสู่ระบบก่อน'));
       })
       ['catch'](function (e) {
         S.busy = false;
@@ -3323,6 +3326,10 @@
        Manual Enrollment จาก Profile/HR ไม่แตะส่วนนี้เลย และไม่บังคับ GPS ใด ๆ */
     var enKind = (opts && opts.attendanceKind) || '';
     var enPunch = null;
+    function enrollCancel() {
+      close();
+      try { if (opts && typeof opts.onCancel === 'function') opts.onCancel(); } catch (e) {}
+    }
 
     /* [UI] หน้าจอลงทะเบียนแนวใหม่
          · Stepper วงกลม 1-2-3 (ผ่านแล้วเป็น ✓ เขียว · ขั้นปัจจุบันเป็นวงน้ำเงิน)
@@ -3435,7 +3442,7 @@
 
         '<div class="njf-msg' + (err ? ' err' : '') + '" id="njf-msg">' + esc(msg || '') + '</div>' +
         '<div class="njf-actions" id="njf-act"></div>');
-      actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
+      actions([{ label: 'ยกเลิก', style: 'ghost', on: enrollCancel }]);
     }
 
     /* ค่าคงที่ของลูปเก็บภาพหนึ่งมุม
@@ -3508,7 +3515,7 @@
         S.busy = false;
         drawPoses(reason, true);
         actions([
-          { label: 'ปิด', style: 'plain', on: close },
+          { label: 'ปิด', style: 'plain', on: enrollCancel },
           { label: 'ลองใหม่', style: 'primary', on: function () {
             close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
           } }
