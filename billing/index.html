@@ -5622,6 +5622,20 @@ async function processBulkCase(){
    ─ ไม่แตะ case_no / eta / status / ยอดเงิน / field อื่น · ไม่ insert/delete
    ════════════════════════════════════════════════════════════════════════ */
 let _etdPrefix = 'sc';   /* เติม ETD modal ใช้ร่วม SC/AC — default 'sc' (ปุ่ม SC เดิมเรียกไม่มี arg) */
+
+/* ── MAERSK Hard Gate (เมนู 🚢 MAERSK → ETD เท่านั้น) ──
+   ─ ใช้กับทั้ง lookup / update / verify · ทั้ง SC และ AC
+   ─ Update จริงต้องมี .eq('customer_name', ETD_CUSTOMER_GATE) เสมอ
+     → ลูกค้าอื่นถูกกันที่ระดับ query ไม่ใช่แค่ที่ UI                    */
+const ETD_CUSTOMER_GATE = 'MAERSK LOGISTICS';
+/* normalize วันที่ก่อนเทียบ verify: 'YYYY-MM-DD...' → 'YYYY-MM-DD' · null/'' → '' */
+function _etdNormDate(v){
+  if(v == null) return '';
+  const s = String(v).trim();
+  if(!s) return '';
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[1]+'-'+m[2]+'-'+m[3]) : s;
+}
 function openETDModal(prefix){
   _etdPrefix = (prefix === 'ac') ? 'ac' : 'sc';
   $('etd-input-section').style.display = '';
@@ -5665,6 +5679,8 @@ async function processBulkETD(){
   if(!confirm('เติม ETD → '+pageLabel+'\n\n'
     +'ETD: '+etdVal+'\n'
     +'Invoice (NJ) ที่ดึงได้: '+njTokens.length+' รายการ (unique: '+uniqueTokens.length+')\n\n'
+    +'⚠ อัปเดตเฉพาะลูกค้า '+ETD_CUSTOMER_GATE+' เท่านั้น\n'
+    +'Invoice ของลูกค้าอื่นจะถูกข้าม (ไม่แก้ไข)\n\n'
     +'จับชน Invoice No. ที่ตรง → เติม ETD ให้แถวนั้น\n'
     +'ห้าม: insert / delete / เปลี่ยน status / ยอดเงิน\n'
     +'อนุญาตให้ update แค่ field etd เท่านั้น')) return;
@@ -5676,12 +5692,21 @@ async function processBulkETD(){
   const btn = $('etd-submit-btn');
   btn.disabled = true; btn.textContent = 'กำลังค้นหา...';
 
-  /* ── Lookup invoice_no ใน DB (server-side, chunk 500) ── */
+  /* ── Lookup invoice_no ใน DB (server-side, chunk 500) ──
+     select customer_name เพิ่ม → แยกได้ว่า "ไม่พบเลย" กับ "พบแต่เป็นลูกค้าอื่น" */
   const invMap = new Map();
+  /* Normalize ก่อน match: trim (ทำแล้วตอน split) + uppercase
+     ─ ส่งทั้งค่าที่ผู้ใช้วาง และค่า uppercase → ครอบคลุมทั้ง 2 แบบ
+     ─ exact match เท่านั้น · ไม่มี fuzzy/like · ไม่แก้เลข invoice ใน DB */
+  const lookupTokens = [];
+  const _lseen = new Set();
+  uniqueTokens.forEach(t=>{
+    [t, t.toUpperCase()].forEach(v=>{ if(!_lseen.has(v)){ _lseen.add(v); lookupTokens.push(v); } });
+  });
   const LOOKUP_CHUNK = 500;
-  for(let i=0; i<uniqueTokens.length; i+=LOOKUP_CHUNK){
-    const chunk = uniqueTokens.slice(i, i+LOOKUP_CHUNK);
-    const {data, error} = await sb.from(tbl).select('id,invoice_no').in('invoice_no', chunk);
+  for(let i=0; i<lookupTokens.length; i+=LOOKUP_CHUNK){
+    const chunk = lookupTokens.slice(i, i+LOOKUP_CHUNK);
+    const {data, error} = await sb.from(tbl).select('id,invoice_no,customer_name').in('invoice_no', chunk);
     if(error){
       console.error('bulk-etd lookup error:', error);
       toast('lookup error: '+error.message,'err');
@@ -5691,36 +5716,92 @@ async function processBulkETD(){
     (data||[]).forEach(r=>{
       const u = String(r.invoice_no||'').trim().toUpperCase();
       if(!invMap.has(u)) invMap.set(u, []);
-      invMap.get(u).push(r.id);
+      const arr = invMap.get(u);
+      if(!arr.some(x => x.id === r.id)){   /* กัน id ซ้ำจาก token 2 แบบ */
+        arr.push({ id: r.id, cust: String(r.customer_name==null?'':r.customer_name).trim() });
+      }
     });
   }
 
-  const idsToTag = [];
-  const matchedInv = [];
-  const notFound = [];
+  /* ── แยก 3 กลุ่ม: MAERSK / ลูกค้าอื่น (blocked) / ไม่พบ ── */
+  const idsToTag  = [];       /* id ของ MAERSK เท่านั้น */
+  const matchedInv = [];      /* invoice ของ MAERSK ที่จะ update */
+  const blocked   = [];       /* {inv, cust} ลูกค้าอื่น — ห้าม update */
+  const notFound  = [];
+  const idToInv   = new Map();
   uniqueTokens.forEach(t=>{
     const found = invMap.get(t.toUpperCase());
-    if(!found || !found.length){ notFound.push(t); }
-    else { matchedInv.push(t); found.forEach(id => idsToTag.push(id)); }
+    if(!found || !found.length){ notFound.push(t); return; }
+    const mine = found.filter(x => x.cust.toUpperCase() === ETD_CUSTOMER_GATE.toUpperCase());
+    if(!mine.length){
+      blocked.push({ inv: t, cust: found[0].cust || '(ไม่ระบุ)' });
+      return;
+    }
+    matchedInv.push(t);
+    mine.forEach(x => { idsToTag.push(x.id); idToInv.set(x.id, t); });
   });
 
-  /* ── Update DB — เฉพาะ field etd เท่านั้น ── */
+  /* ── Update DB — เฉพาะ field etd · Hard Gate ที่ query: customer_name = MAERSK ── */
   btn.textContent = 'กำลังบันทึก...';
-  let ok=0, fail=0;
+  let fail=0;
   const errs=[];
   if(idsToTag.length){
     const BATCH = 500;
     for(let i=0; i<idsToTag.length; i+=BATCH){
       const chunk = idsToTag.slice(i, i+BATCH);
-      const {error} = await sb.from(tbl).update({ etd: etdVal }).in('id', chunk);
+      const {error} = await sb.from(tbl)
+        .update({ etd: etdVal })
+        .in('id', chunk)
+        .eq('customer_name', ETD_CUSTOMER_GATE);   /* ← Hard Gate: ลูกค้าอื่นแตะไม่ได้แม้ id หลุดมา */
       if(error){
         console.error('bulk-etd update error:', error);
         if(errs.length<3) errs.push(error.message);
         fail += chunk.length;
-      } else {
-        ok += chunk.length;
       }
     }
+  }
+
+  /* ── VERIFY: อ่านค่ากลับจาก DB จริง → เทียบ etd ก่อนนับ Success ──
+     ไม่มี error ≠ บันทึกสำเร็จ · ต้อง SELECT กลับมาแล้วค่าตรงเท่านั้นจึงนับ */
+  btn.textContent = 'กำลังตรวจสอบ...';
+  const wantETD = _etdNormDate(etdVal);
+  const verifiedIds = new Set();
+  let verifyErr = '';
+  if(idsToTag.length){
+    const VBATCH = 500;
+    for(let i=0; i<idsToTag.length; i+=VBATCH){
+      const chunk = idsToTag.slice(i, i+VBATCH);
+      const {data, error} = await sb.from(tbl)
+        .select('id,invoice_no,customer_name,etd')
+        .in('id', chunk)
+        .eq('customer_name', ETD_CUSTOMER_GATE);
+      if(error){
+        console.error('bulk-etd verify error:', error);
+        if(!verifyErr) verifyErr = error.message;
+        continue;
+      }
+      (data||[]).forEach(r=>{
+        if(_etdNormDate(r.etd) === wantETD) verifiedIds.add(r.id);
+      });
+    }
+  }
+
+  /* invoice ที่ verify ผ่าน = ทุก id ของ invoice นั้นอ่านกลับมาแล้วค่าตรง */
+  const verifiedInvSet = new Set();
+  const failedInvSet   = new Set();
+  idsToTag.forEach(id=>{
+    const inv = idToInv.get(id);
+    if(verifiedIds.has(id)) verifiedInvSet.add(inv);
+    else                    failedInvSet.add(inv);
+  });
+  failedInvSet.forEach(inv => verifiedInvSet.delete(inv));   /* มี id ใดไม่ผ่าน = ทั้ง invoice ไม่ผ่าน */
+  const verifiedInv   = Array.from(verifiedInvSet);
+  const verifyFailInv = Array.from(failedInvSet);
+  const ok = verifiedInv.length;   /* ← นับจาก DB จริงเท่านั้น */
+
+  /* ── Validation กันตกหล่น: matched = verified + verifyFailed ── */
+  if(matchedInv.length !== verifiedInv.length + verifyFailInv.length){
+    console.error('bulk-etd count mismatch:', matchedInv.length, verifiedInv.length, verifyFailInv.length);
   }
 
   /* ── Missing column guard — etd ── */
@@ -5745,15 +5826,34 @@ async function processBulkETD(){
   $('etd-result-section').style.display = '';
   $('etd-result-actions').style.display = '';
 
-  let html = '<div class="paste-result-summary">';
-  html += '<div class="paste-result-card ok"><div class="paste-result-num">'+ok+'</div><div class="paste-result-lbl">เติม ETD สำเร็จ<br>('+matchedInv.length+' Invoice)</div></div>';
-  html += '<div class="paste-result-card '+(notFound.length?'err':'ok')+'"><div class="paste-result-num">'+notFound.length+'</div><div class="paste-result-lbl">ไม่พบใน<br>'+pageLabel+'</div></div>';
-  if(fail){
-    html += '<div class="paste-result-card err"><div class="paste-result-num">'+fail+'</div><div class="paste-result-lbl">ผิดพลาด</div></div>';
+  const notFoundTotal = notFound.length + blocked.length;   /* ไม่พบ = ไม่มีจริง + ไม่ใช่ MAERSK */
+
+  let html = '<div class="paste-result-list-head" style="margin-bottom:10px">'
+    +'🚢 เติม ETD — '+esc(ETD_CUSTOMER_GATE)+' &nbsp;·&nbsp; ETD: <b>'+esc(fmtDateExport(etdVal) || etdVal)+'</b></div>';
+  html += '<div class="paste-result-summary">';
+  html += '<div class="paste-result-card '+(ok?'ok':'err')+'"><div class="paste-result-num">'+ok+'</div><div class="paste-result-lbl">สำเร็จจริง<br>(ตรวจจาก Database)</div></div>';
+  html += '<div class="paste-result-card '+(notFoundTotal?'err':'ok')+'"><div class="paste-result-num">'+notFoundTotal+'</div><div class="paste-result-lbl">ไม่พบ<br>('+esc(ETD_CUSTOMER_GATE)+')</div></div>';
+  if(verifyFailInv.length){
+    html += '<div class="paste-result-card err"><div class="paste-result-num">'+verifyFailInv.length+'</div><div class="paste-result-lbl">บันทึกไม่สำเร็จ<br>/ Verify Failed</div></div>';
   }
   html += '</div>';
-  html += '<div class="paste-hint" style="margin-bottom:10px">ETD ที่ใช้: <b>'+esc(etdVal)+'</b></div>';
 
+  if(verifyFailInv.length){
+    html += '<div class="paste-result-list-head">⚠ ETD ยังไม่ถูกบันทึกใน Database ('+verifyFailInv.length+'):</div>';
+    html += '<div class="paste-result-list-body">';
+    verifyFailInv.slice(0,300).forEach(inv => { html += esc(inv) + '<br>'; });
+    if(verifyFailInv.length > 300) html += '<br>... และอีก '+(verifyFailInv.length-300)+' รายการ';
+    if(errs.length)   html += '<br><br>Update error: '+esc(errs[0]);
+    if(verifyErr)     html += '<br>Verify error: '+esc(verifyErr);
+    html += '</div>';
+  }
+  if(blocked.length){
+    html += '<div class="paste-result-list-head">⛔ ข้าม — ไม่ใช่ '+esc(ETD_CUSTOMER_GATE)+' ('+blocked.length+') · ไม่ถูกแก้ไข:</div>';
+    html += '<div class="paste-result-list-body">';
+    blocked.slice(0,300).forEach(b => { html += esc(b.inv) + ' &nbsp;→&nbsp; ' + esc(b.cust) + '<br>'; });
+    if(blocked.length > 300) html += '<br>... และอีก '+(blocked.length-300)+' รายการ';
+    html += '</div>';
+  }
   if(notFound.length){
     html += '<div class="paste-result-list-head">⚠ ไม่พบ Invoice No. นี้ใน '+pageLabel+' ('+notFound.length+'):</div>';
     html += '<div class="paste-result-list-body">';
@@ -5763,10 +5863,10 @@ async function processBulkETD(){
   }
   $('etd-result-section').innerHTML = html;
 
-  let msg = '🚢 เติม ETD · สำเร็จ '+ok;
-  if(notFound.length) msg += ' · ไม่พบ '+notFound.length;
-  if(fail)            msg += ' · ผิดพลาด '+fail;
-  toast(msg, fail ? 'warn' : (notFound.length ? 'warn' : 'ok'));
+  let msg = '🚢 เติม ETD · สำเร็จจริง '+ok;
+  if(notFoundTotal)          msg += ' · ไม่พบ '+notFoundTotal;
+  if(verifyFailInv.length)   msg += ' · Verify Failed '+verifyFailInv.length;
+  toast(msg, verifyFailInv.length ? 'err' : (notFoundTotal ? 'warn' : 'ok'));
 
   await reloadLight(prefix);
 }
@@ -6542,12 +6642,22 @@ async function billingImport(input, prefix){
       }
     }
 
-    /* ── UPDATE: invoice ซ้ำ → ทับทุก field ด้วยข้อมูลจากไฟล์ล่าสุด ──
-       ✅ ทับทุก field ที่อยู่ในไฟล์: date, customer, job, amount, vat, wht,
-          total, cs, apl, status, service_charge/advance + optional fields
+    /* ── UPDATE: invoice ซ้ำ → ทับ field ที่อนุญาต ด้วยข้อมูลจากไฟล์ล่าสุด ──
+       ✅ ทับ field ที่อยู่ในไฟล์: date, customer, job, amount, vat, wht,
+          total, cs, status, service_charge/advance + optional fields
        ─ update by id — ไม่แตะ record อื่น
        ─ invoice ที่ไม่อยู่ในไฟล์ → ไม่ถูกแตะ (ไม่ลบข้อมูลเก่า)
-       ─ ไม่เขียน id / invoice_no (key) ลง payload                          */
+       ─ ไม่เขียน id / invoice_no (key) ลง payload
+       ─ 🔒 PROTECTED FIELDS (Hard Lock) — ดูรายละเอียดใน IMPORT_PROTECTED_FIELDS */
+    /* 🔒 HARD LOCK — Invoice ที่มีอยู่แล้วใน DB ห้ามปุ่ม Upload หลักทับ 5 field นี้
+       ─ ตัดออกจาก payload เสมอ ไม่ว่าไฟล์จะมีค่าใหม่ / ว่าง / NULL / 'N/A' / 'NA' / '-'
+       ─ ไม่พึ่งว่า Excel ไม่มี header → อนาคตเพิ่ม header มาก็ยังทับไม่ได้
+       ─ company_invoice ถูกล็อกด้วย เพราะ Contact แสดงจาก contactFor(company_invoice)
+         → ถ้า company_invoice เปลี่ยน Contact จะเปลี่ยนตาม
+       ─ ใช้เฉพาะ UPDATE (invoice เดิม) เท่านั้น · INSERT (invoice ใหม่) ยังบันทึกครบตาม Excel
+       ─ Scope: อยู่ใน billingImport() เท่านั้น — ไม่กระทบ aplImport / processBulkCase /
+         processBulkETD / billingUpload19 / Contact List ซึ่งมี update logic ของตัวเอง */
+    const IMPORT_PROTECTED_FIELDS = ['company_invoice','i_billing_apl','case_no','etd','eta'];
     function buildUpdatePayload(data){
       const p = {...data};
       delete p.id;
@@ -6557,6 +6667,8 @@ async function billingImport(input, prefix){
         /* SC: update เฉพาะ field ที่ Excel มี header จริง → field อื่นคงค่าเดิมใน DB 100% */
         Object.keys(p).forEach(k => { if(!fieldsFromExcel.has(k)) delete p[k]; });
       }
+      /* 🔒 Hard Lock — ทำหลังสุดเสมอ เพื่อให้ไม่มีทางหลุด */
+      IMPORT_PROTECTED_FIELDS.forEach(k => { delete p[k]; });
       return p;
     }
 
@@ -6590,9 +6702,9 @@ async function billingImport(input, prefix){
             okU++;
           }
         }));
-        updateProgress(Math.min(i+UB, toUpdate.length), toUpdate.length, 'อัปเดต (ยึดไฟล์ล่าสุด — ทับทุก field)');
+        updateProgress(Math.min(i+UB, toUpdate.length), toUpdate.length, 'อัปเดต (ยึดไฟล์ล่าสุด — ยกเว้น Protected Fields)');
       }
-      dlog('[Import] 🔄 Update ยึดไฟล์ล่าสุด (ทับทุก field): สำเร็จ '+okU+' · ล้มเหลว '+failU);
+      dlog('[Import] 🔄 Update ยึดไฟล์ล่าสุด (ยกเว้น Protected: '+IMPORT_PROTECTED_FIELDS.join(', ')+'): สำเร็จ '+okU+' · ล้มเหลว '+failU);
     }
 
     /* แสดง SQL hint ถ้ามีฟิลด์ที่ DB ไม่รองรับ */
@@ -7306,15 +7418,22 @@ async function exportExcelCase(prefix){
       from += PAGE;
       await new Promise(rs=>setTimeout(rs,0));
     }
-    /* ── เงื่อนไขเฉพาะ Export CASE: เอาเฉพาะแถวที่ Customer Job No. (customer_job) = 'N/A' หรือ ว่าง (NULL/''/whitespace) ──
+    /* ── เงื่อนไขเฉพาะ Export CASE: เอาเฉพาะแถวที่ Customer Job No. (customer_job) = 'N/A' / 'NA' หรือ ว่าง (NULL/''/whitespace) ──
        ─ ถ้ามีข้อมูลอื่น (เช่น IA26060042 / KW-12345) → ไม่ export แถวนั้น
+       ─ 'NA' และ 'N/A' ถือเป็นค่าเดียวกัน (รวม 'n/a','na','N / A' — ตัดช่องว่าง/ขีดออกก่อนเทียบ)
+         → ห้ามตัด Invoice ออกเพียงเพราะรูปแบบ NA ต่างจาก N/A
        ─ กรองฝั่ง client หลัง fetch → Item รันเลขใหม่ 1..n บนชุดที่เหลือ (ไม่ยุ่ง query/mapping เดิม) */
     const _jobEmptyOrNA = v => {
       if(v === null || v === undefined) return true;
       const s = String(v).trim();
-      return s === '' || s.toUpperCase() === 'N/A';
+      if(s === '') return true;
+      const k = s.toUpperCase().replace(/[\s./\-]/g,'');   /* 'N/A' 'N / A' 'N.A.' 'NA' → 'NA' */
+      return k === 'NA';
     };
+    const _cntFetched = rows.length;                       /* ผ่าน Customer/Date/Status filter แล้ว */
     rows = rows.filter(r => _jobEmptyOrNA(r.customer_job));
+    const _cntFiltered = rows.length;                      /* หลังกรอง customer_job (เงื่อนไขเฉพาะโหมดนี้) */
+    const _cntDropped  = _cntFetched - _cntFiltered;
     rows = _sortExportRows(rows);   /* Export CASE/ZIP: Date ↑ (เก่าสุดบน) → Invoice ↑ natural (ก่อนแยกไฟล์ + รันเลข Item) */
     if(!rows.length){ toast('ไม่มีข้อมูลสำหรับ Export','warn'); return; }
 
@@ -7338,6 +7457,22 @@ async function exportExcelCase(prefix){
     /* สร้าง workbook แยก 2 ไฟล์ (รูปแบบ/mapping/format เดิมทุกอย่าง) → zip เป็นไฟล์เดียว */
     const noWb   = await _buildCaseWorkbook(noCaseRows);
     const caseWb = await _buildCaseWorkbook(caseRows);
+
+    /* ── Validation กันตกหล่น (ปลายทาง): จำนวนแถวจริงใน Excel ทุกไฟล์ = จำนวนแถวหลัง filter ──
+       นับจาก worksheet จริง (rowCount − 1 header) ไม่ใช่จากตัวแปรกลางทาง
+       Query → Filter → Split → Workbook → Excel : ห้ามหายแม้แถวเดียว */
+    const _wsDataRows = wb => { try{ return Math.max((wb.getWorksheet('CASE').rowCount || 0) - 1, 0); }catch(e){ return -1; } };
+    const _xlNo = _wsDataRows(noWb), _xlCase = _wsDataRows(caseWb);
+    const _xlTotal = _xlNo + _xlCase;
+    console.log('[ExportCase] fetched='+_cntFetched+' filtered='+_cntFiltered+' dropped='+_cntDropped
+      +' | split NO CASE='+noCaseRows.length+' CASE='+caseRows.length
+      +' | excel NO CASE='+_xlNo+' CASE='+_xlCase+' total='+_xlTotal);
+    if(_xlNo < 0 || _xlCase < 0 || _xlTotal !== _cntFiltered){
+      console.error('[ExportCase] row count mismatch:', {fetched:_cntFetched, filtered:_cntFiltered,
+        noCaseRows:noCaseRows.length, caseRows:caseRows.length, excelNoCase:_xlNo, excelCase:_xlCase, excelTotal:_xlTotal});
+      toast('❌ Export Failed : Row Count Validation Error ('+_xlTotal+' ≠ '+_cntFiltered+') — ไม่ดาวน์โหลดไฟล์','err');
+      return;
+    }
     const [noBuf, caseBuf] = await Promise.all([ noWb.xlsx.writeBuffer(), caseWb.xlsx.writeBuffer() ]);
 
     const zip = new JSZip();
