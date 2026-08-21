@@ -10078,7 +10078,24 @@ const HGS_MON = {JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',
 const HGS_COUNTRY = {'CHINA':'CN','P.R.CHINA':'CN','PR CHINA':'CN','CHINA (MAINLAND)':'CN',
   'THAILAND':'TH','VIETNAM':'VN','JAPAN':'JP','KOREA':'KR','SOUTH KOREA':'KR','TAIWAN':'TW',
   'MALAYSIA':'MY','SINGAPORE':'SG','INDONESIA':'ID','INDIA':'IN','GERMANY':'DE','USA':'US'};
-const HGS_INCOTERMS = ['CIF','CFR','FOB','EXW','FCA','CPT','CIP','DAP','DDP','DDU','FAS','DAT','DPU'];
+const HGS_INCOTERMS = ['CIF','CFR','FOB','EXW','FCA','CPT','CIP','DAP','DDP','DDU','FAS','DAT','DPU','C&F'];
+/* ── [FALLBACK v2] ใช้ต่อเมื่อ Parser เดิมอ่านไม่ได้เท่านั้น · ไม่แทนที่ของเดิม ──
+ * CI ALT : DESC QTY UNIT UNITPRICE TOTAL   (ไม่มี CNY คั่น — เช่น 2608IVTG537)
+ * PL ALT : [PKGS] DESC QTY NW GW [MEAS] [ข้อความจีนต่อท้าย]  (3 ตัวเลข — เช่น 2608IVTG518) */
+const HGS_CI_ITEM_ALT = /^(.+?)\s+([\d,]+(?:\.\d+)?)\s+([A-Za-z]{2,6})\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)$/;
+const HGS_PL_ITEM_ALT = /^(?:(\d+)\s+)?(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\s+([\d,]+(?:\.\d+)?))?\s*(.*)$/;
+/* อ่าน Currency จากหัวเอกสาร เช่น UNIT PRICE(CNY) / AMOUNT(CNY) หรือบรรทัดยอดรวม "CNY 48,122.19" */
+function hgsScanCurrency(lines){
+  for(const l of lines){
+    const m = l.text.match(/(?:UNIT\s*PRICE|AMOUNT|TOTAL)\s*\(\s*([A-Z]{3})\s*\)/i);
+    if(m) return m[1].toUpperCase();
+  }
+  for(const l of lines){
+    const m = l.text.match(/^([A-Z]{3})\s+[\d,]+(?:\.\d+)?$/);
+    if(m) return m[1].toUpperCase();
+  }
+  return '';
+}
 const HGS_HEADERS = ['No','Invoice No.','Invoice Date','Product Code','English Description','Quantity','Unit',
   'Unit Price','Total Price','Currency','Origin','Incoterm','Article','Material No','Desc 2',
   'Net Weight','Gross Weight','Page #'];
@@ -10131,7 +10148,7 @@ function hgsParseDate(raw){
 }
 function hgsParsePages(pages){
   const err=[]; let invoiceNo='', invoiceDateRaw='', incoterm='', originRaw='', currency='';
-  const ciItems=[], plItems=[];
+  const ciItems=[], plItems=[], plItemsAlt=[];
   for(const lines of pages){
     const joined = lines.map(l=>l.text);
     const isPL = joined.some(t=>/^PACKING\s+LIST$/i.test(t));
@@ -10160,6 +10177,21 @@ function hgsParsePages(pages){
         if(!currency) currency=cur;
         ciItems.push({desc, qty, unitRaw:m[3].toUpperCase(), currency:cur, unitPrice:up, total:tot});
       }
+      /* [FALLBACK v2] เฉพาะเมื่อ Parser เดิมอ่าน Item ในหน้านี้ไม่ได้เลย จึงลองรูปแบบไม่มี CNY คั่น */
+      if(!ciItems.length){
+        const curHdr = hgsScanCurrency(lines);
+        for(const l of lines){
+          if(HGS_SKIP.test(l.text)) continue;
+          if(HGS_CI_ITEM.test(l.text)) continue;                 // ของเดิมอ่านได้ → ไม่แตะ
+          const m = l.text.match(HGS_CI_ITEM_ALT); if(!m) continue;
+          const desc=hgsTidy(m[1]), qty=hgsNum(m[2]), up=hgsNum(m[4]), tot=hgsNum(m[5]);
+          if(!desc || qty==null || up==null || tot==null) continue;
+          if(!/[A-Za-z]/.test(desc)) continue;
+          if(!curHdr) continue;                                   // ไม่รู้ Currency → ไม่เดา
+          if(!currency) currency=curHdr;
+          ciItems.push({desc, qty, unitRaw:m[3].toUpperCase(), currency:curHdr, unitPrice:up, total:tot});
+        }
+      }
     }
     if(isPL){
       for(const l of lines){
@@ -10169,6 +10201,17 @@ function hgsParsePages(pages){
         if(!desc || qty==null || nw==null) continue;
         if(!/[A-Za-z]/.test(desc)) continue;
         plItems.push({desc, qty, nw});   // G.W. ในไฟล์เป็นยอดรวมทั้ง shipment — ไม่ผูกกับรายการ
+      }
+      /* [FALLBACK v2] รูปแบบ PACKAGES | DESC | QTY | NW | GW | [MEAS] | [ข้อความจีน]
+         เก็บคู่ขนานไว้เฉย ๆ — จะถูกใช้ก็ต่อเมื่อผลของ Parser เดิม Match กับ CI ไม่ครบ */
+      for(const l of lines){
+        if(HGS_SKIP.test(l.text)) continue;
+        const m = l.text.match(HGS_PL_ITEM_ALT); if(!m) continue;
+        const desc=hgsTidy(m[2]), qty=hgsNum(m[3]), nw=hgsNum(m[4]);
+        if(!desc || qty==null || nw==null) continue;
+        if(!/[A-Za-z]/.test(desc)) continue;
+        if(/[\d,]+\.\d{2}$/.test(desc)) continue;                 // desc ห้ามลงท้ายด้วยตัวเลข = อ่านเพี้ยน
+        plItemsAlt.push({desc, qty, nw});
       }
     }
   }
@@ -10190,7 +10233,7 @@ function hgsParsePages(pages){
     if(!isFinite(it.unitPrice)) err.push('รายการที่ '+(i+1)+' Unit Price ไม่ใช่ตัวเลข');
     if(!isFinite(it.total))     err.push('รายการที่ '+(i+1)+' Total Price ไม่ใช่ตัวเลข');
   });
-  return {invoiceNo, invoiceDate, incoterm, origin, currency, ciItems, plItems, errors:err};
+  return {invoiceNo, invoiceDate, incoterm, origin, currency, ciItems, plItems, plItemsAlt, errors:err};
 }
 /* จับคู่ Packing List กับ Commercial Invoice ด้วย Description + Quantity + ลำดับ */
 function hgsMatchPL(ciItems, plItems){
@@ -10210,7 +10253,13 @@ function hgsMatchPL(ciItems, plItems){
   return {nw, miss};
 }
 function hgsBuildRows(parsed){
-  const {nw, miss} = hgsMatchPL(parsed.ciItems, parsed.plItems);
+  /* Parser เดิมมาก่อนเสมอ — ถ้า Match ครบ ใช้ผลเดิมทันที (PDF เก่าไม่มีทางเปลี่ยนผล) */
+  let res = hgsMatchPL(parsed.ciItems, parsed.plItems);
+  if(res.miss.length && parsed.plItemsAlt && parsed.plItemsAlt.length){
+    const alt = hgsMatchPL(parsed.ciItems, parsed.plItemsAlt);   // [FALLBACK v2]
+    if(!alt.miss.length) res = alt;                              // ใช้ต่อเมื่อ Match ครบ 100% เท่านั้น
+  }
+  const {nw, miss} = res;
   const rows = parsed.ciItems.map((ci,i)=>[
     String(i+1), parsed.invoiceNo, parsed.invoiceDate, ci.desc, ci.desc,
     ci.qty, 'C62', ci.unitPrice, ci.total, ci.currency, parsed.origin, parsed.incoterm,
