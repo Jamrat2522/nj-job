@@ -4661,6 +4661,14 @@ function cvtMatchKey(invoice, delivery, sap, batch){
 }
 CVT.matchKey=cvtMatchKey;
 
+/* ข้อ 7: ค่าที่แปลว่า "Master ยังไม่สมบูรณ์" — ไม่ใช่ค่าจริงที่จะ Export
+   ยืนยันจากไฟล์จริง RA DATA(27Dec24): คอลัมน์ DKSH SAP = "TBA" (ฟอนต์แดง), Mat Desc(TH) = "#N/A" (พื้นเหลือง) */
+function isMasterPlaceholder(v){
+  const t=trim(v).toUpperCase();
+  return t==='TBA' || t==='#N/A' || t==='N/A' || t==='#REF!' || t==='#VALUE!' || t==='NA';
+}
+CVT.isMasterPlaceholder=isMasterPlaceholder;
+
 /* ข้อ 1/2: Normalize HS กลาง — ใช้ชุดเดียวกันทั้ง TH Ship, RA DATA และ STA Master
    ข้อความ · trim · ตัด .0 จาก Excel · ลบจุด/ขีด/ช่องว่าง · เก็บเฉพาะตัวเลข
    ตัวอย่าง 3214.10.10 → 32141010 · 3304.99.00 → 33049900 */
@@ -4718,8 +4726,23 @@ CVT.parseInvoice=function(pageLines){
   for(let i=0;i<flat.length;i++){
     const T=toks(flat[i]);
     if(!T.length) continue;
-    // invoice number: token '3038787xxx' following pattern; capture first 10-digit starting 3038
-    if(!invoiceNo){ const m=flat[i].match(/\b(30387871\d{2})\b/); if(m) invoiceNo=m[1]; }
+    // Invoice Number — ยืนยันจาก Text Extraction จริง (PDF.js groupLines):
+    //   บรรทัดหัวข้อ : "Convatec Limited||Invoice Number||Date||Page No."
+    //   บรรทัดค่าจริง: "|3038811267||02.08.2026||1 of 3"   (10 หลัก + วันที่ dd.mm.yyyy + "n of m")
+    //   บรรทัด P.O.   : "|4700189254||32371514||13.08.2026" (10 หลักเหมือนกัน แต่ไม่มี "n of m")
+    // 1) อ่านแบบยึดหัวข้อก่อน · ต้องมีทั้งวันที่และเลขหน้า "n of m" จึงจะเป็นบรรทัด Invoice · ตัด P.O. (47…) ทิ้ง
+    if(!invoiceNo && /Invoice\s*Number/i.test(flat[i])){
+      for(let j=i+1;j<Math.min(i+6,flat.length);j++){
+        if(!/\b\d+\s+of\s+\d+\b/i.test(flat[j])) continue;
+        if(!/\b\d{2}\.\d{2}\.\d{4}\b/.test(flat[j])) continue;
+        const im=flat[j].match(/\b(\d{10})\b/);
+        if(im && !/^47/.test(im[1])){ invoiceNo=im[1]; break; }
+      }
+    }
+    // 2) Fallback — เลข 10 หลักขึ้นต้น 3038 (รูปแบบเลข Invoice Convatec ที่ยืนยันจากไฟล์จริง)
+    //    ไม่ชนกับ P.O.(47…10หลัก) · Delivery(8หลัก) · Item Code(6-8หลัก) · Batch(ตัวอักษรผสม) · Qty
+    //    ครอบคลุมเลขชุดเก่า 30387871xx เดิมด้วย
+    if(!invoiceNo){ const m=flat[i].match(/\b(3038\d{6})\b/); if(m) invoiceNo=m[1]; }
     // delivery: appears on the line after 'P.O.Number' row: value like 32315737 (8 digit) near '16.07.2026'
     if(!deliveryNo){
       // the row: |4700188673||32315737||16.07.2026  -> pick 8-digit not starting 47
@@ -4877,10 +4900,10 @@ CVT.parseFillIn=function(aoa){
       billingDate:row[idx.billingDate], manuf:(idx.manuf>=0?row[idx.manuf]:null),
       expiry:(idx.expiry>=0?row[idx.expiry]:null),
       matDesc:(idx.matDesc>=0?trim(row[idx.matDesc]):''),
-      matDescTH:(idx.matDescTH>=0?trim(row[idx.matDescTH]):''),
+      matDescTH:(idx.matDescTH>=0?(isMasterPlaceholder(row[idx.matDescTH])?'':trim(row[idx.matDescTH])):''),
       // ข้อ 2/7: CFS/LPI ที่มาพร้อม TH Ship เอง (คอลัมน์ License และ U) — ใช้เป็นแหล่งยืนยันเมื่อ RA DATA ไม่มี
-      license:(idx.license>=0?trim(row[idx.license]):''),
-      lpiU:(idx.lpiU>=0?trim(row[idx.lpiU]):''),
+      license:(idx.license>=0?(isMasterPlaceholder(row[idx.license])?'':trim(row[idx.license])):''),
+      lpiU:(idx.lpiU>=0?(isMasterPlaceholder(row[idx.lpiU])?'':trim(row[idx.lpiU])):''),
       cooTH:(idx.coo>=0?trim(row[idx.coo]):''),
       _used:0
     });
@@ -4895,18 +4918,29 @@ CVT.parseRAData=function(aoa){
     descEN:['Mat Desc(EN-CTEC SAP)'], descTH:['Mat Desc(TH)'], descTHlic:['Mat Desc(TH) in License'],
     hs:['HS CODE - regional'], tariff:['Tariff code']
   });
-  const byS={};
+  const byS={}; const masterIssues=[];
   for(let r=1;r<aoa.length;r++){
     const row=aoa[r]; if(!row) continue;
     const sap=normText(row[idx.cvtSap]); if(!sap) continue;
-    (byS[sap]=byS[sap]||[]).push({
-      sap, license:trim(row[idx.license]), coo:trim(row[idx.coo]),
-      lpi:trim(row[idx.lpi]), descEN:trim(row[idx.descEN]),
-      descTH:trim(row[idx.descTH]), descTHlic:trim(row[idx.descTHlic]),
-      hs:normText(row[idx.hs])
-    });
+    const rowNo=r+1;
+    // ข้อ 7: TBA / #N/A = Master ยังไม่สมบูรณ์ → ถือเป็น Missing ของ field นั้น (ไม่ใช่ค่าจริง)
+    //        บันทึกไว้เป็น Warning · ห้ามลบทั้งแถว · ห้ามสร้างค่าขึ้นเอง
+    const flags=[];
+    const mv=(v,fieldName)=>{ const t=trim(v);
+      if(isMasterPlaceholder(t)){ flags.push({field:fieldName, value:t, row:rowNo}); return ''; }
+      return t; };
+    const rec={
+      sap, srcRow:rowNo,
+      license:mv(row[idx.license],'License Number'), coo:mv(row[idx.coo],'Country of Origin'),
+      lpi:mv(row[idx.lpi],'LPI Number'), descEN:mv(row[idx.descEN],'Mat Desc(EN)'),
+      descTH:mv(row[idx.descTH],'Mat Desc(TH)'), descTHlic:mv(row[idx.descTHlic],'Mat Desc(TH) in License'),
+      hs:normText(row[idx.hs]), flags
+    };
+    if(isMasterPlaceholder(trim(row[idx.hs]))){ rec.hs=''; flags.push({field:'HS CODE - regional', value:trim(row[idx.hs]), row:rowNo}); }
+    if(flags.length) masterIssues.push({sap, row:rowNo, fields:flags.map(f=>f.field+'='+f.value)});
+    (byS[sap]=byS[sap]||[]).push(rec);
   }
-  return {byS, idx};
+  return {byS, idx, masterIssues};
 };
 function num(v){ if(v==null||v==='') return 0; if(typeof v==='number') return v; const n=parseFloat(s(v).replace(/,/g,'')); return isNaN(n)?0:n; }
 CVT.num=num;
@@ -4923,11 +4957,32 @@ function toJsDate(v){
   return null;
 }
 CVT.toJsDate=toJsDate;
-function fmtDMY(v){ const d=toJsDate(v); if(!d||isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); }
+/* ข้อ 9: Calendar Date — ไม่ขึ้นกับ Timezone
+   Root Cause ที่พิสูจน์จากไฟล์จริง: XLSX.read(...,{cellDates:true}) คืน Date ที่เป็น
+   "เที่ยงคืนตามเวลาท้องถิ่น ลบเศษวินาทีจาก epoch 1899" เช่น Manuf Date จริง 19/03/2026
+   ได้ Date = 2026-03-18T16:59:56Z → getDate() ในโซน +07:00 = 18 → เลื่อน -1 วัน
+   วิธีแก้: ดึงเวลา wall-clock ออกมา แล้วปัดเข้าเที่ยงคืนที่ใกล้ที่สุด (ปัดเศษวินาทีทิ้ง)
+   → คืน Date ที่เป็นเที่ยงคืน UTC ของ "วันตามปฏิทินจริง" · อ่านค่าด้วย getUTC* เท่านั้น */
+const _DAY=86400000;
+function toCalDate(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){                       // Excel serial → arithmetic ล้วน ไม่ผ่าน timezone
+    if(!isFinite(v)) return null;
+    return new Date((Math.round(v)-25569)*_DAY);
+  }
+  const d=toJsDate(v);
+  if(!d||isNaN(d)) return null;
+  // wall-clock ของ Date นั้น (ตามโซนเครื่อง) → ปัดเข้าเที่ยงคืนที่ใกล้ที่สุด
+  return new Date(Math.round((d.getTime()-d.getTimezoneOffset()*60000)/_DAY)*_DAY);
+}
+CVT.toCalDate=toCalDate;
+function fmtDMY(v){ const d=toCalDate(v); if(!d||isNaN(d)) return '';
+  const p=n=>String(n).padStart(2,'0');
+  return p(d.getUTCDate())+'/'+p(d.getUTCMonth()+1)+'/'+d.getUTCFullYear(); }
 CVT.fmtDMY=fmtDMY;
 /* คีย์เปรียบเทียบ "วันที่" ตามค่า — Date คนละ object ที่ค่าตรงกันต้องนับเป็นค่าเดียว
    (ไม่งั้น LINE ที่มีหลาย Batch จะได้ INVOICE DATE / Year ว่างทั้งที่ TH Ship ตรงกัน) */
-function _dateKey(v){ const d=toJsDate(v); return (d&&!isNaN(d)) ? 'T'+d.getTime() : 'S'+String(v); }
+function _dateKey(v){ const d=toCalDate(v); return (d&&!isNaN(d)) ? 'T'+d.getTime() : 'S'+String(v); }
 
 /* ==================================================================
    BUILD MAPPING (main + LPI) + validation
@@ -4950,19 +5005,28 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   // ข้อ 1: เก็บ GW ต่อแถวใน Map ภายในฟังก์ชัน — ห้ามเขียนทับ pl.rows ต้นฉบับ (สูตรเดิมทุกประการ)
   const gwOf=new Map();
   const pkgGroups={};
-  pl.rows.forEach(r=>{ (pkgGroups[r.package]=pkgGroups[r.package]||[]).push(r); });
+  // ข้อ 10: รองรับ PL หลายไฟล์ — group ด้วย (PL source | package) เพื่อไม่ให้ Package ID ซ้ำข้ามไฟล์เอา GW มารวมกันผิด
+  // ใช้ภายในเท่านั้น · ไม่แตะค่า r.package ต้นฉบับ · PL ไฟล์เดียว (_plSource ว่าง) ให้ผลเท่าเดิมทุกประการ
+  pl.rows.forEach(r=>{ const pk=String(r._plSource||'')+'|'+String(r.package||''); (pkgGroups[pk]=pkgGroups[pk]||[]).push(r); });
   Object.keys(pkgGroups).forEach(pk=>{
     const g=pkgGroups[pk]; const sumNW=g.reduce((a,r)=>a+r.netWeight,0);
     const pw=g[0].packageWeight||0;
     g.forEach(r=>{ gwOf.set(r, sumNW>0 ? pw*r.netWeight/sumNW : 0); });
   });
 
-  // ---- index PL rows by (deliveryCmp, slNo, itemCode) ----
-  const plByLine={};
+  // ---- index PL rows by (deliveryCmp, slNo, itemCode) [Stage A] และ (deliveryCmp, itemCode) [Stage B] ----
+  const plLineKey=r=>cmpNum(r.delivery)+'|'+r.slNo+'|'+r.itemCode;
+  const plByLine={}, plByDelItem={}, plByDelItemBatch={};
   pl.rows.forEach(r=>{
-    const k=cmpNum(r.delivery)+'|'+r.slNo+'|'+r.itemCode;
-    (plByLine[k]=plByLine[k]||[]).push(r);
+    (plByLine[plLineKey(r)]=plByLine[plLineKey(r)]||[]).push(r);
+    const k2=cmpNum(r.delivery)+'|'+r.itemCode;
+    (plByDelItem[k2]=plByDelItem[k2]||[]).push(r);
+    const k3=k2+'|'+normBatch(r.batch);
+    (plByDelItemBatch[k3]=plByDelItemBatch[k3]||[]).push(r);
   });
+  // PL Line ที่ถูกใช้ไปแล้ว — กัน PL Line เดียวถูกดึงซ้ำโดย Invoice Line อื่น (รักษา 1:1)
+  const usedPlLine=new Set();
+  let plFallbackCount=0, plAmbiguousCount=0;
 
   // ---- index Fill-in rows into a consumable pool (คีย์กลาง: Invoice+Delivery+SAP+Batch) ----
   const fiPool={};
@@ -5006,8 +5070,39 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
     const lines=iv.lines.slice();   // ข้อ 2: คงลำดับตาม PDF Parser (ไม่ sort Sl.No)
     let invLineNo=0;
     lines.forEach(li=>{
-      const key=cmpNum(iv.deliveryNo)+'|'+li.slNo+'|'+li.itemCode;
-      const plRows=plByLine[key]||[];
+      // ---- ข้อ 1/2: 2-stage PL matching (Invoice Line ≠ PL Line ต้องไม่ทำให้ Batch/Qty ตกหล่น) ----
+      // Stage A : Delivery + Sl.No + Item Code (เดิม) — พบ = ใช้เลย
+      // Stage B : Safe Fallback — Delivery + Item + Batch (Batch จาก Invoice PDF เป็นหลักฐานยืนยัน)
+      //           ถ้า Batch ชี้ไป PL Line เดียว = จับคู่ได้ · ชี้หลาย Line หรือไม่มี Batch แล้วเหลือหลาย Line = ห้ามเดา
+      const dKey=cmpNum(iv.deliveryNo)+'|'+li.itemCode;
+      const keyA=cmpNum(iv.deliveryNo)+'|'+li.slNo+'|'+li.itemCode;
+      let plRows=(plByLine[keyA]||[]).filter(r=>!usedPlLine.has(plLineKey(r)));
+      let plUsedKey=keyA, plMode='exact', plLineUsed=li.slNo;
+      if(!plRows.length){
+        const free=r=>!usedPlLine.has(plLineKey(r));
+        const invB=[...new Set((li.invBatches||[]).map(x=>normBatch(x.batch)).filter(Boolean))];
+        // B-1: Delivery + Item + Batch
+        let hitLines=new Set(), via='Delivery+Item+Batch';
+        invB.forEach(b=>{ (plByDelItemBatch[dKey+'|'+b]||[]).filter(free).forEach(r=>hitLines.add(plLineKey(r))); });
+        // B-2: ไม่มี Batch ให้ยืนยัน (Invoice PDF อ่าน Batch ไม่ได้) → Delivery + Item ต้องเหลือ Line เดียวเท่านั้น
+        if(!hitLines.size && !invB.length){
+          via='Delivery+Item';
+          (plByDelItem[dKey]||[]).filter(free).forEach(r=>hitLines.add(plLineKey(r)));
+        }
+        const keys=[...hitLines];
+        if(keys.length===1){
+          plRows=(plByDelItem[dKey]||[]).filter(r=>free(r)&&plLineKey(r)===keys[0]);
+          plUsedKey=keys[0]; plMode='fallback'; plLineUsed=plRows.length?plRows[0].slNo:''; plFallbackCount++;
+          warnings.push(`PL Line fallback (${via}): Invoice ${invNo} · Delivery ${iv.deliveryNo} · SAP ${li.itemCode} · Invoice Line ${li.slNo} → PL Line ${plLineUsed} · Batch ${invB.join(',')||'-'} (Candidate เดียว · ยืนยันได้)`);
+        } else if(keys.length>1){
+          plAmbiguousCount++;
+          const lns=keys.map(k=>k.split('|')[1]).join(', ');
+          warnings.push(`PL Line fallback ambiguous: Invoice ${invNo} · Delivery ${iv.deliveryNo} · SAP ${li.itemCode} · Invoice Line ${li.slNo} · PL Lines ${lns} — ไม่จับคู่ (ห้ามเดา)`);
+          validation.ambiguous.push({invoice:invNo, delivery:iv.deliveryNo, sap:li.itemCode, invLine:li.slNo, plLines:lns});
+          addIssue({invoice:invNo,delivery:iv.deliveryNo,line:li.slNo,item:li.itemCode},`PL Line fallback ambiguous (PL Lines ${lns})`);
+        }
+      }
+      if(plRows.length) usedPlLine.add(plUsedKey);
       if(!plRows.length){
         // ข้อ 3/4: ทุก Sl.No สร้าง Main Row · ไม่มี PL → ไม่มี Batch → ยืนยัน TH Ship ไม่ได้ → A/C และค่าอื่นว่าง (ไม่ใช้ PDF/RA แทน)
         warnings.push(`ไม่พบ PL: Inv ${invNo} Sl.No ${li.slNo} Item ${li.itemCode} — เว้นค่าว่าง (ยืนยัน TH Ship ไม่ได้)`);
@@ -5055,7 +5150,8 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
           warnings.push(`ยืนยัน TH Ship ไม่ได้ (เว้นว่าง): Inv ${invNo} SAP ${li.itemCode} Batch ${b}`);   // ข้อ 9: ระบุ Invoice/SAP/Batch
         }
         nwSum+=bb.nw; gwSum+=bb.gw;
-        lpiForLine.push({batch:b, qty:(fi?fi.qty:null), manuf:(fi?fi.manuf:null), expiry:(fi?fi.expiry:null), uom:(fi?fi.uom:''), matched:!!fi});   // ข้อ 3/6: LPI จาก TH Ship เฉพาะ batch ที่ยืนยัน
+        lpiForLine.push({batch:b, qty:(fi?fi.qty:null), manuf:(fi?fi.manuf:null), expiry:(fi?fi.expiry:null), uom:(fi?fi.uom:''), matched:!!fi,
+          srcRow:(fi?fi.srcRow:null)});   // ข้อ 3/6: LPI จาก TH Ship เฉพาะ batch ที่ยืนยัน · srcRow = ผูกกลับถึงแถวต้นทาง (ข้อ 4)
       });
       // ข้อ 4/5: A/C/SAP จาก matched TH Ship (ค่าเดียวที่ยืนยัน · ไม่เลือกแถวแรก · ไม่ตรงกัน → เว้น)
       const thInv = thInvSet.size===1 ? [...thInvSet][0] : '';
@@ -5148,7 +5244,7 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
 
       // billing date — matched TH Ship ค่าเดียวที่ยืนยัน (ข้อ 6: ไม่ล้างทั้ง LINE เพราะบาง Batch ไม่ตรง)
       const billDate=(thDateMap.size===1) ? [...thDateMap.values()][0] : null;
-      const bd=toJsDate(billDate); const year=bd&&!isNaN(bd)?bd.getFullYear():'';
+      const bd=toCalDate(billDate); const year=bd&&!isNaN(bd)?bd.getUTCFullYear():'';
 
       // ข้อ 2/7: CFS + LPI — RA DATA ก่อน · ถ้า RA ไม่มี/ยืนยันไม่ได้ ใช้ค่าจริงจาก TH Ship (คอลัมน์ License / U)
       // ของแถวที่จับคู่แล้วและต้องเป็นค่าเดียวที่ยืนยันได้ · ห้ามสร้างค่าขึ้นเอง · ไม่พบจริง = เว้นว่าง + Warning
@@ -5175,7 +5271,9 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
         bi++;
         lpiRows.push({
           A:entryLine, B:bi, C:b, D:lp.manuf||null, E:lp.expiry||null,
-          F:1, G:(lp.uom||uom), H:round(lp.qty||0,3), I:(lp.uom||uom)
+          F:1, G:(lp.uom||uom), H:round(lp.qty||0,3), I:(lp.uom||uom),
+          // ข้อ 4: metadata ภายในสำหรับ Date Validation เท่านั้น — exportLPI เขียนเฉพาะคอลัมน์ A..I จึงไม่ลง Excel
+          _srcRow:(lp.srcRow!=null?lp.srcRow:null), _inv:invNo, _del:iv.deliveryNo, _sap:li.itemCode
         });
       });
     });
@@ -5187,7 +5285,83 @@ CVT.buildMapping=function(invoices, pl, fillIn, ra, staLookup){
   const sumGW =round(mainRows.reduce((a,r)=>a+(Number(r.U)||0),0),3);
   const sumValue =round(mainRows.reduce((a,r)=>a+(Number(r.J)||0),0),2);
   validation.sumQty=sumQty; validation.sumNW=sumNW; validation.sumGW=sumGW; validation.sumValue=sumValue;
+  // ---- ข้อ 10/11/12/13: Scope + Missing Row validation ----
+  // Scope กำหนดจาก Invoice PDF ที่ผู้ใช้เลือกจริงเท่านั้น (ไม่ใช่ทั้ง Sheet ของ TH Ship)
+  const selInv=new Set(invoices.map(iv=>normText(iv.invoiceNo)).filter(Boolean));
+  const selDel=new Set(invoices.map(iv=>cmpNum(iv.deliveryNo)).filter(Boolean));
+  const thIn=[], thOut=[];
+  (fillIn.rows||[]).forEach(r=>{ (selInv.has(normText(r.invoice))?thIn:thOut).push(r); });
+  const plIn=[], plOut=[];
+  (pl.rows||[]).forEach(r=>{ (selDel.has(cmpNum(r.delivery))?plIn:plOut).push(r); });
+
+  // แถว TH Ship in-scope ที่ยังไม่ถูก consume = Missing (identity = Invoice+Delivery+SAP+Batch+srcRow → 1:1)
+  const missing=thIn.filter(r=>!usedFillInRows.has(fiRowId(r)));
+  const extra  =thOut.filter(r=> usedFillInRows.has(fiRowId(r)));   // ต้องเป็น 0 เสมอ
+  const qsum=a=>round(a.reduce((x,r)=>x+(Number(r.qty)||0),0),3);
+
+  validation.scope={
+    invoiceInScope: selInv.size,
+    plRowsInScope: plIn.length,   plRowsOutOfScope: plOut.length,
+    thRowsInScope: thIn.length,   thRowsOutOfScope: thOut.length,
+    expectedRows: thIn.length,
+    matchedRows:  thIn.length-missing.length,
+    missingRows:  missing.length,
+    extraRows:    extra.length,
+    expectedQty:  qsum(thIn),
+    matchedQty:   round(qsum(thIn)-qsum(missing),3),
+    missingQty:   qsum(missing),
+    plFallback:   plFallbackCount,
+    plAmbiguous:  plAmbiguousCount,
+    outOfScopeInvoices: [...new Set(thOut.map(r=>normText(r.invoice)))],
+    missingByInvoice: (function(){ const m={}; missing.forEach(r=>{ const k=normText(r.invoice);
+      m[k]=m[k]||{rows:0,qty:0}; m[k].rows++; m[k].qty+=(Number(r.qty)||0); }); return m; })(),
+    missingSamples: missing.slice(0,50).map(r=>({
+      invoice:r.invoice, delivery:r.delivery, sap:r.sap, batch:r.batch, qty:r.qty, srcRow:r.srcRow }))
+  };
+  missing.slice(0,80).forEach(r=>warnings.push(
+    `❌ MISSING (In-Scope): Invoice ${r.invoice} · Delivery ${r.delivery} · SAP ${r.sap} · Batch ${r.batch} · Qty ${r.qty} · TH Ship row ${r.srcRow}`));
+  if(missing.length) addIssue({},`In-Scope TH Ship ตกหล่น ${missing.length} แถว · Qty ${qsum(missing)}`);
+  if(extra.length)   addIssue({},`ใช้ TH Ship นอก Scope ${extra.length} แถว`);
+  // ข้อ 8: SAP ที่ไม่มีใน RA DATA (เฉพาะที่อยู่ใน Run นี้) — แจ้งเป็น Warning ห้ามทำให้แถวหาย
+  const sapInRun=new Set(thIn.map(r=>normText(r.sap)).filter(Boolean));
+  const raMissSap=[...sapInRun].filter(s=>!(ra.byS&&ra.byS[s]&&ra.byS[s].length));
+  validation.raMissingSap=raMissSap;
+  raMissSap.forEach(s=>warnings.push(`⚠ RA DATA MISSING · SAP ${s} — ไม่มีใน RA DATA(27Dec24) · เว้นเฉพาะ field จาก RA (Main/LPI ยังอยู่)`));
+  // ข้อ 7: Master field ที่เป็น TBA / #N/A (เฉพาะ SAP ที่อยู่ใน Run นี้)
+  const raPlaceholder=(ra.masterIssues||[]).filter(x=>sapInRun.has(normText(x.sap)));
+  validation.raPlaceholder=raPlaceholder;
+  raPlaceholder.forEach(x=>warnings.push(`⚠ RA DATA ยังไม่สมบูรณ์ · SAP ${x.sap} (แถว ${x.row}) · ${x.fields.join(' · ')} → เว้นเฉพาะ field นั้น`));
+
   validation.plMeta=pl.meta;
+  // ---- ข้อ 1: สถานะ Validation กลาง — ใช้ tolerance ชุดเดียวกับ Dashboard (ไม่เพิ่ม tolerance ใหม่) ----
+  const _pm=pl.meta||{};
+  validation.qtyMismatch = (_pm.totalQty!=null) ? !(Math.abs(sumQty-_pm.totalQty)<0.5)   : false;
+  validation.nwMismatch  = (_pm.totalNW !=null) ? !(Math.abs(sumNW -_pm.totalNW )<=0.001): false;
+  validation.gwMismatch  = (_pm.totalGW !=null) ? !(Math.abs(sumGW -_pm.totalGW )<=0.001): false;
+
+  // ---- ข้อ 4/5/6: Date Validation — LPI ทุกแถวต้องผูกกลับถึง TH Ship row ต้นทางและวันที่ต้องตรงกัน
+  //      เทียบเป็น Calendar Date string ด้วย helper เดียวกัน (fmtDMY) · ไม่เทียบ Date object / ไม่ใช้ local timezone
+  const _fiByRow={}; (fillIn.rows||[]).forEach(r=>{ _fiByRow[String(r.srcRow)]=r; });
+  let dateMismatch=0; const dateMismatchSamples=[];
+  lpiRows.forEach(l=>{
+    const src=(l._srcRow!=null)?_fiByRow[String(l._srcRow)]:null;
+    const outManuf=fmtDMY(l.D),  outExpiry=fmtDMY(l.E);
+    const srcManuf=src?fmtDMY(src.manuf):'', srcExpiry=src?fmtDMY(src.expiry):'';
+    if(!src || srcManuf!==outManuf || srcExpiry!==outExpiry){
+      dateMismatch++;
+      if(dateMismatchSamples.length<50) dateMismatchSamples.push({
+        invoice:l._inv, delivery:l._del, sap:l._sap, batch:l.C,
+        sourceManuf:srcManuf, outputManuf:outManuf,
+        sourceExpiry:srcExpiry, outputExpiry:outExpiry,
+        reason:(!src?'ผูกกลับ TH Ship row ไม่ได้':'วันที่ไม่ตรง')
+      });
+    }
+  });
+  validation.dateMismatch=dateMismatch;
+  validation.dateMismatchSamples=dateMismatchSamples;
+  dateMismatchSamples.forEach(x=>warnings.push(
+    `❌ DATE MISMATCH: Invoice ${x.invoice} · Delivery ${x.delivery} · SAP ${x.sap} · Batch ${x.batch} · Manuf ${x.sourceManuf}→${x.outputManuf} · Expiry ${x.sourceExpiry}→${x.outputExpiry} (${x.reason})`));
+  if(dateMismatch) addIssue({},`วันที่ LPI ไม่ตรงกับ TH Ship ${dateMismatch} แถว`);
   validation.rowCount=mainRows.length; validation.lpiCount=lpiRows.length;
   // ข้อ 8: ตัวเลขจับคู่ + คีย์ตัวอย่างจาก 3 แหล่ง (ไว้แจ้งเตือนกรณีจับคู่ = 0)
   validation.matchedBatches=matchedBatchesTotal; validation.totalBatches=totalBatchesAll;
@@ -5226,7 +5400,7 @@ CVT.buildStaLookup=function(sampleRows){ // sampleRows: [{itemCode,hs,sta}]
 ================================================================== */
 function colLetter(n){ let s=''; n=n-1; do{ s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26)-1; }while(n>=0); return s; }
 CVT.colLetter=colLetter;
-function excelSerial(v){ const d=toJsDate(v); if(!d||isNaN(d)) return null; const utc=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()); return utc/86400000 + 25569; }
+function excelSerial(v){ const d=toCalDate(v); if(!d||isNaN(d)) return null; return d.getTime()/86400000 + 25569; }
 
 /* explicit style builders (do NOT read .s from template — unreliable) */
 const _bthin={style:'thin',color:{rgb:'000000'}};
@@ -5315,7 +5489,7 @@ const convatecStaLookup = (function(){
 })();
 /* --- UI + wiring --- */
 /* ============ CONVATEC IMPORT — UI + wiring (Zero-Impact add-on) ============ */
-const CS = { invPdfs:[], pl:null, th:null, result:null, busy:false };
+const CS = { invPdfs:[], pls:[], th:null, result:null, busy:false };
 
 /* inject spinner CSS once */
 (function(){ if(document.getElementById('cvtStyle')) return;
@@ -7757,11 +7931,11 @@ function convatecRenderView(){
         <div class="flist" id="cvtInvList" style="max-height:270px;overflow-y:auto"></div>
       </div>
       <div class="drop anca-upload-card" id="cvtPlDrop">
-        <h4>2. PACKING LIST PDF (1 ไฟล์)</h4>
+        <h4>2. PACKING LIST PDF (หลายไฟล์)</h4>
         <label class="pick">📄 เลือกไฟล์ PL PDF
-          <input id="cvtPlInput" type="file" accept=".pdf" style="display:none" onchange="cvtSetPl(this.files[0])"></label>
-        <span class="hint">อ่านทุกหน้า · Net/Package Weight</span>
-        <div class="flist" id="cvtPlList"></div>
+          <input id="cvtPlInput" type="file" accept=".pdf" multiple style="display:none" onchange="cvtAddPl(this.files)"></label>
+        <span class="hint">รองรับหลายไฟล์ · ลากวางได้ · อ่านทุกหน้าอัตโนมัติ</span>
+        <div class="flist" id="cvtPlList" style="max-height:270px;overflow-y:auto"></div>
       </div>
       <div class="drop anca-upload-card" id="cvtThDrop">
         <h4>3. TH SHIP (Excel)</h4>
@@ -7781,7 +7955,7 @@ function convatecRenderView(){
     <div id="cvtPreview"></div>
   </div>`;
   ancaBindDrop('cvtInvDrop', f=>cvtAddInv(f));
-  ancaBindDrop('cvtPlDrop', f=>cvtSetPl(f[0]));
+  ancaBindDrop('cvtPlDrop', files=>cvtAddPl(files));
   ancaBindDrop('cvtThDrop', f=>cvtSetTh(f[0]));
   cvtRenderFiles();
 }
@@ -7797,9 +7971,29 @@ async function cvtAddInv(files){
   }
 }
 function cvtDelInv(i){ CS.invPdfs.splice(i,1); cvtResetOutput(); cvtRenderFiles(); }
-async function cvtSetPl(f){ if(!f) return; const buf=await f.arrayBuffer();
-  try{ const {pages,numPages}=await cvtPdfPages(buf); const pl=CVT.parsePL(pages); CS.pl={name:f.name,size:f.size,data:pl,pages:numPages}; toast('อ่าน PL สำเร็จ '+pl.rows.length+' รายการ','ok'); }
-  catch(e){ CS.pl=null; toast('อ่าน PL ไม่ได้: '+e.message,'err'); }
+/* PL หลายไฟล์ · กันซ้ำด้วย name+size · ไฟล์ที่อ่านไม่ได้ต้องไม่ทำให้ไฟล์อื่นหาย */
+async function cvtAddPl(files){
+  if(!files) return;
+  const list=Array.prototype.slice.call(files);
+  let dup=0;
+  for(const f of list){
+    if(!f || !/\.pdf$/i.test(f.name)) continue;
+    if(CS.pls.some(x=>x.name===f.name && x.size===f.size)){ dup++; continue; }   // ข้อ 6: ห้ามเพิ่มซ้ำ · ห้าม parse ซ้ำ
+    const rec={name:f.name,size:f.size,data:null,pages:null,error:null};
+    CS.pls.push(rec); cvtResetOutput(); cvtRenderFiles();
+    try{
+      const buf=await f.arrayBuffer();
+      const {pages,numPages}=await cvtPdfPages(buf);
+      const pl=CVT.parsePL(pages);
+      rec.data=pl; rec.pages=numPages;
+      toast('อ่าน PL สำเร็จ '+f.name+' · '+pl.rows.length+' รายการ','ok');
+    }catch(e){
+      rec.error=e.message||String(e);
+      toast('อ่าน PL ไม่ได้ ('+f.name+'): '+rec.error,'err');
+    }
+    cvtRenderFiles();
+  }
+  if(dup) toast('ข้ามไฟล์ PL ซ้ำ '+dup+' ไฟล์','info');
   cvtResetOutput(); cvtRenderFiles();
 }
 async function cvtSetTh(f){ if(!f) return; const buf=await f.arrayBuffer();
@@ -7816,7 +8010,7 @@ async function cvtSetTh(f){ if(!f) return; const buf=await f.arrayBuffer();
   }catch(e){ CS.th=null; toast('อ่าน TH Ship ไม่ได้: '+e.message,'err'); }
   cvtResetOutput(); cvtRenderFiles();
 }
-function cvtDelPl(){ CS.pl=null; cvtResetOutput(); cvtRenderFiles(); }
+function cvtDelPl(i){ CS.pls.splice(i,1); cvtResetOutput(); cvtRenderFiles(); }
 function cvtDelTh(){ CS.th=null; cvtResetOutput(); cvtRenderFiles(); }
 function cvtFmtBytes(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
 
@@ -7833,7 +8027,10 @@ function cvtRenderFiles(){
     return `<div class="frow" draggable="true" data-cvti="${i}" ondragstart="cvtInvDragStart(event,${i})" ondragover="event.preventDefault()" ondrop="cvtInvDrop(event,${i})" style="cursor:grab;padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(p.name)}" style="flex:1;min-width:0;max-width:none">☰ 📄 ${escapeHtml(p.name)}</span><span class="fmeta" style="flex:0 0 auto">${st}</span><button class="del" onclick="cvtDelInv(${i})">✕</button></div>`;
   }).join('')||'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   const pl=document.getElementById('cvtPlList');
-  if(pl) pl.innerHTML = CS.pl?`<div class="frow" style="padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(CS.pl.name)}" style="flex:1;min-width:0;max-width:none">📄 ${escapeHtml(CS.pl.name)}</span><span class="fmeta" style="flex:0 0 auto"><span class="fok">● พร้อม</span></span><button class="del" onclick="cvtDelPl()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
+  if(pl) pl.innerHTML = CS.pls.map((p,i)=>{
+    const st=p.error?'<span class="ferr">อ่านไม่ได้</span>':(p.data?'<span class="fok">● พร้อม</span>':'⏳ กำลังอ่าน');
+    return `<div class="frow" style="padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(p.error?(p.name+' — '+p.error):p.name)}" style="flex:1;min-width:0;max-width:none">📄 ${escapeHtml(p.name)}</span><span class="fmeta" style="flex:0 0 auto">${st}</span><button class="del" onclick="cvtDelPl(${i})">✕</button></div>`;
+  }).join('')||'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   const th=document.getElementById('cvtThList');
   if(th) th.innerHTML = CS.th?`<div class="frow" style="padding:8px 10px;min-height:32px"><span class="fn" title="${escapeHtml(CS.th.name)}" style="flex:1;min-width:0;max-width:none">📊 ${escapeHtml(CS.th.name)}</span><span class="fmeta" style="flex:0 0 auto"><span class="fok">● พร้อม</span></span><button class="del" onclick="cvtDelTh()">✕</button></div>`:'<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
   cvtUpdateButtons();
@@ -7842,9 +8039,37 @@ function cvtRenderFiles(){
 function cvtFmtNum(v,d){ const n=Number(v)||0; return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 /* ข้อ 5: ฟังก์ชันกลาง — Preview / EXPORT EXCEL / EXPORT LPI ต้องเรียกทางเดียวกันเสมอ
    CVT.buildMapping เป็น Pure Function (ไม่แก้ข้อมูลต้นฉบับ) จึงให้ผลเท่ากันทุกครั้งที่เรียก */
+/* ข้อ 8/9/12: รวม PL ทุกไฟล์เป็นชุดเดียวก่อน buildMapping
+   - rows: clone + ติด _plSource (ชื่อไฟล์ต้นทาง) · ไม่แตะ CS.pls[].data ต้นฉบับ
+   - meta: ผลรวมทุกไฟล์ · ค่าที่เป็น null ข้ามไป (ไม่ทำให้เกิด NaN) · ไม่มีเลยคืน null
+   - warnings: รวมทุกไฟล์ พร้อม prefix ชื่อไฟล์ */
+function cvtAggregatePl(){
+  const rows=[], warnings=[];
+  let pk=0,qty=0,nw=0,gw=0, hasPk=false,hasQty=false,hasNW=false,hasGW=false, any=false;
+  const num=v=>{ const n=Number(v); return (v==null||v===''||isNaN(n))?null:n; };
+  CS.pls.forEach(p=>{
+    if(!p || p.error || !p.data) return;
+    any=true;
+    (p.data.rows||[]).forEach(r=>{ const c=Object.assign({},r); c._plSource=p.name; rows.push(c); });
+    (p.data.warnings||[]).forEach(w=>warnings.push('['+p.name+'] '+w));
+    const m=p.data.meta||{};
+    const a=num(m.totalPackages); if(a!=null){ pk+=a; hasPk=true; }
+    const b=num(m.totalQty);      if(b!=null){ qty+=b; hasQty=true; }
+    const c=num(m.totalNW);       if(c!=null){ nw+=c;  hasNW=true; }
+    const d=num(m.totalGW);       if(d!=null){ gw+=d;  hasGW=true; }
+  });
+  if(!any) return {rows:[],meta:null,warnings:[]};   // คงพฤติกรรมเดิมตอนไม่มี PL
+  const r3=x=>Math.round((x+Number.EPSILON)*1000)/1000;
+  return { rows, warnings, meta:{
+    totalPackages: hasPk?pk:null,
+    totalQty:      hasQty?qty:null,
+    totalNW:       hasNW?r3(nw):null,
+    totalGW:       hasGW?r3(gw):null
+  }};
+}
 function cvtBuildFreshResult(){
   const invoices=CS.invPdfs.filter(p=>p.parsed).map(p=>p.parsed);
-  const plData=(CS.pl&&CS.pl.data)?CS.pl.data:{rows:[],meta:null};
+  const plData=cvtAggregatePl();
   const thFi=(CS.th&&CS.th.fi)?CS.th.fi:{rows:[]};
   const thRa=(CS.th&&CS.th.ra)?CS.th.ra:{byS:{}};
   return CVT.buildMapping(invoices, plData, thFi, thRa, convatecStaLookup);
@@ -7881,7 +8106,9 @@ function cvtResetOutput(){ CS.result=null; const d=document.getElementById('cvtD
 function cvtFilesComplete(){
   const pending=CS.invPdfs.some(p=>!p.parsed&&!p.error);
   const okInv=CS.invPdfs.filter(p=>p.parsed).length>=1;
-  return okInv && !!CS.pl && !!CS.th && !pending;
+  const okPl=CS.pls.some(p=>p&&!p.error&&p.data);
+  const plPending=CS.pls.some(p=>p&&!p.error&&!p.data);
+  return okInv && okPl && !!CS.th && !pending && !plPending;
 }
 function cvtUpdateButtons(){
   const on=!CS.busy;   // ข้อ 1: Export ได้ตลอด · Disabled เฉพาะขณะสร้างไฟล์ (CS.busy)
@@ -7927,7 +8154,7 @@ async function cvtExport(kind){
     // ข้อ 7: ไฟล์ครบทั้ง 3 แหล่ง แต่จับคู่ TH Ship = 0 → หยุดก่อนสร้างไฟล์ (ห้ามดาวน์โหลดไฟล์ว่าง/ห้ามแจ้งสำเร็จ)
     const v=res.validation||{};
     const allSrc = (CS.invPdfs.filter(p=>p.parsed).length>=1)
-                 && (CS.pl&&CS.pl.data&&CS.pl.data.rows&&CS.pl.data.rows.length>0)
+                 && (CS.pls.some(p=>p&&!p.error&&p.data&&p.data.rows&&p.data.rows.length>0))
                  && (CS.th&&CS.th.fi&&CS.th.fi.rows&&CS.th.fi.rows.length>0);
     const zeroMatch = allSrc && (v.totalBatches>0) && (v.matchedBatches===0);
     if(zeroMatch){
@@ -7937,10 +8164,20 @@ async function cvtExport(kind){
       (sk.packingList||[]).forEach(k=>res.warnings.push('  Packing List: Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
       (sk.thShip||[]).forEach(k=>res.warnings.push('  TH Ship: Invoice '+k.invoice+' · Delivery '+k.delivery+' · SAP '+k.sap+' · Batch '+k.batch+' · Qty '+k.qty));
       try{ console.warn('CVT zero-match sampleKeys',sk); }catch(_){}
-      cvtRenderDash(res);
+      cvtRenderDash(res,'blocked');
       restore();
       toast('จับคู่ข้อมูล TH Ship ไม่สำเร็จทั้งหมด กรุณาตรวจสอบ Invoice + Delivery + SAP + Batch','err');
       return;   // ข้อ 7: ไม่สร้างไฟล์
+    }
+    // ข้อ 18: Fatal Gate — ข้อมูลใน Scope ตกหล่น / นอก Scope ถูกใช้ / fallback กำกวม = ไม่สร้างไฟล์
+    // (RA DATA ไม่ครบ · CFS/LPI/Description Master ไม่ครบ = Warning เท่านั้น Export ได้ตามเดิม)
+    const fatal=cvtFatalReasons(res);
+    if(fatal.length){
+      fatal.forEach(m=>res.warnings.unshift('❌ FATAL: '+m));
+      cvtRenderDash(res,'fatal');
+      restore();
+      toast('ข้อมูล Mapping ยังไม่ครบ — ไม่ได้สร้างไฟล์ · '+fatal[0],'err');
+      return;
     }
     await cvtStep(btn,'กำลังสร้าง Excel...');
     if(kind==='main'){ const bytes=CVT.exportMain(XLSX,null,res.mainRows); cvtDownload(bytes,'MAPPING_CONVATEC_'+cvtTs()+'.xlsx'); }
@@ -7974,19 +8211,83 @@ function cvtRenderErrorTable(res){
 
 /* ---------------- SUCCESS DASHBOARD ---------------- */
 function cvtBadge(ok,txt){ return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:600;background:${ok?'#132e1e':'#3a1416'};color:${ok?'#3fb950':'#f85149'};border:1px solid ${ok?'#238636':'#a5232c'}">${ok?'✓':'✕'} ${txt}</span>`; }
-function cvtRenderDash(res){
+/* ข้อ 15: บล็อกตรวจสอบ Scope + จำนวนตกหล่น */
+function cvtScopeBlock(v){
+  const s=v&&v.scope; if(!s) return '';
+  const m=v.plMeta||{};
+  const fatalN=(s.missingRows>0?1:0)+(s.extraRows>0?1:0)+(s.plAmbiguous>0?1:0)
+    +(v.qtyMismatch?1:0)+(v.nwMismatch?1:0)+(v.gwMismatch?1:0)+((v.dateMismatch>0)?1:0);
+  const ok=(fatalN===0);
+  const c=ok?'#3fb950':'#f85149';
+  const kv=(k,val,bad)=>`<div style="min-width:170px"><span style="color:#8b949e">${k}:</span> <b style="color:${bad?'#f85149':'#e6edf3'}">${val}</b></div>`;
+  const miss=(s.missingSamples||[]).map(x=>`Invoice ${escapeHtml(String(x.invoice))} · Delivery ${escapeHtml(String(x.delivery))} · SAP ${escapeHtml(String(x.sap))} · Batch ${escapeHtml(String(x.batch))} · Qty ${escapeHtml(String(x.qty))} · TH Ship row ${x.srcRow}`);
+  const dms=(v.dateMismatchSamples||[]).map(x=>`Invoice ${escapeHtml(String(x.invoice))} · SAP ${escapeHtml(String(x.sap))} · Batch ${escapeHtml(String(x.batch))} · Manuf ${escapeHtml(x.sourceManuf)}→${escapeHtml(x.outputManuf)} · Expiry ${escapeHtml(x.sourceExpiry)}→${escapeHtml(x.outputExpiry)}`);
+  return `<div style="margin-top:10px;border:1px solid ${c};border-radius:8px;padding:9px 11px;background:#0d1117">
+    <div style="font-weight:600;color:${c};margin-bottom:6px">${ok?'✅ ข้อมูลครบ — พร้อม Export':'❌ ข้อมูลยังไม่ครบ — ไม่สร้างไฟล์'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px">
+      ${kv('Invoice in scope',s.invoiceInScope)}
+      ${kv('PL rows in scope',s.plRowsInScope)}
+      ${kv('TH Ship rows in scope',s.thRowsInScope)}
+      ${kv('Matched Batch',s.matchedRows+' / '+s.expectedRows)}
+      ${kv('Missing Batch',s.missingRows,s.missingRows>0)}
+      ${kv('Extra Batch',s.extraRows,s.extraRows>0)}
+      ${kv('Matched Qty',s.matchedQty+' / '+s.expectedQty)}
+      ${kv('Missing Qty',s.missingQty,s.missingQty>0)}
+      ${kv('SUM QTY',v.sumQty+(m.totalQty!=null?' / PL '+m.totalQty:''),v.qtyMismatch)}
+      ${kv('SUM NW',v.sumNW+(m.totalNW!=null?' / PL '+m.totalNW:''),v.nwMismatch)}
+      ${kv('SUM GW',v.sumGW+(m.totalGW!=null?' / PL '+m.totalGW:''),v.gwMismatch)}
+      ${kv('Date mismatch',(v.dateMismatch||0),(v.dateMismatch>0))}
+      ${kv('PL Fallback',s.plFallback)}
+      ${kv('PL Ambiguous',s.plAmbiguous,s.plAmbiguous>0)}
+      ${kv('PL rows out of scope',s.plRowsOutOfScope)}
+      ${kv('TH Ship rows out of scope',s.thRowsOutOfScope)}
+    </div>
+    ${s.outOfScopeInvoices&&s.outOfScopeInvoices.length?`<div style="margin-top:5px;font-size:12px;color:#8b949e">TH Ship มี Invoice นอก Scope: ${s.outOfScopeInvoices.map(escapeHtml).join(', ')} (ไม่นับเป็น Missing ของ Run นี้)</div>`:''}
+    ${miss.length?`<div style="margin-top:6px;font-size:12px;color:#f85149;max-height:130px;overflow:auto">${miss.join('<br>')}</div>`:''}
+    ${dms.length?`<div style="margin-top:6px;font-size:12px;color:#f85149;max-height:130px;overflow:auto">${dms.join('<br>')}</div>`:''}
+  </div>`;
+}
+/* ข้อ 18: แยก Fatal / Warning — Fatal = ไม่สร้างไฟล์ */
+function cvtFatalReasons(res){
+  const v=res.validation||{}, s=v.scope||{}, m=v.plMeta||{}; const out=[];
+  const allSrc=(CS.invPdfs.filter(p=>p.parsed).length>=1)
+    && CS.pls.some(p=>p&&!p.error&&p.data&&p.data.rows&&p.data.rows.length>0)
+    && (CS.th&&CS.th.fi&&CS.th.fi.rows&&CS.th.fi.rows.length>0);
+  if(allSrc && v.totalBatches>0 && v.matchedBatches===0) out.push('จับคู่ TH Ship ไม่สำเร็จทั้งหมด (0/'+v.totalBatches+')');
+  if(s.missingRows>0)  out.push('Batch ใน Scope ตกหล่น '+s.missingRows+' แถว · Qty '+s.missingQty);
+  if(s.extraRows>0)    out.push('ใช้ TH Ship นอก Scope '+s.extraRows+' แถว');
+  if(s.plAmbiguous>0)  out.push('PL Line fallback กำกวม '+s.plAmbiguous+' รายการ');
+  // ข้อ 2: ยอดรวมไม่ตรง PL = Fatal (ใช้ tolerance เดิม ไม่เพิ่มใหม่)
+  if(v.qtyMismatch) out.push('QTY ไม่ตรง: Mapping '+v.sumQty+' / PL '+m.totalQty);
+  if(v.nwMismatch)  out.push('NW ไม่ตรง: Mapping '+v.sumNW+' / PL '+m.totalNW);
+  if(v.gwMismatch)  out.push('GW ไม่ตรง: Mapping '+v.sumGW+' / PL '+m.totalGW);
+  // ข้อ 7: วันที่ LPI ไม่ตรง TH Ship = Fatal
+  if(v.dateMismatch>0) out.push('วันที่ LPI ไม่ตรงกับ TH Ship '+v.dateMismatch+' แถว');
+  return out;
+}
+/* ข้อ 7/18: หัวข้อ Dashboard ต้องสะท้อนสถานะจริง
+   status='ok'      → สร้างไฟล์สำเร็จจริงเท่านั้น
+   status='blocked' → หยุดก่อนสร้างไฟล์ (zeroMatch) — ห้ามขึ้น "Export สำเร็จ"
+   status='fatal'   → ข้อมูลใน Scope ไม่ครบ — ไม่ได้สร้างไฟล์
+   Badge / Warning / Preview คงเดิมทุกประการ (ไม่ซ่อน ไม่เปลี่ยนสี ไม่เพิ่ม tolerance) */
+function cvtRenderDash(res, status){
   const v=res.validation, meta=v.plMeta||{};
-  const chkQ = meta.totalQty!=null ? Math.abs(v.sumQty-meta.totalQty)<0.5 : true;
-  const chkN = meta.totalNW!=null ? Math.abs(v.sumNW-meta.totalNW)<=0.001 : true;
-  const chkG = meta.totalGW!=null ? Math.abs(v.sumGW-meta.totalGW)<=0.001 : true;
+  const st = status==='blocked'
+    ? {txt:'⚠️ ไม่ได้สร้างไฟล์ — จับคู่ TH Ship ไม่สำเร็จ', col:'#f85149', bd:'#f85149'}
+    : status==='fatal'
+    ? {txt:'❌ ข้อมูล Mapping ยังไม่ครบ — ไม่ได้สร้างไฟล์', col:'#f85149', bd:'#f85149'}
+    : {txt:'✅ Export สำเร็จ — สรุปผล',                      col:'#e6edf3', bd:'#30363d'};
+  const chkQ = (v.qtyMismatch!=null) ? !v.qtyMismatch : (meta.totalQty!=null ? Math.abs(v.sumQty-meta.totalQty)<0.5 : true);
+  const chkN = (v.nwMismatch !=null) ? !v.nwMismatch  : (meta.totalNW !=null ? Math.abs(v.sumNW -meta.totalNW )<=0.001 : true);
+  const chkG = (v.gwMismatch !=null) ? !v.gwMismatch  : (meta.totalGW !=null ? Math.abs(v.sumGW -meta.totalGW )<=0.001 : true);
   const per={}; res.mainRows.forEach(r=>per[r.A]=(per[r.A]||0)+1);
   const perHtml=Object.keys(per).map(k=>`${escapeHtml(k)}: <b>${per[k]}</b>`).join(' · ');
   const box=(title,color,items)=> items&&items.length?`<div style="margin-top:8px;border:1px solid ${color};border-radius:8px;padding:8px 10px;background:#0d1117">
     <div style="font-weight:600;color:${color};margin-bottom:4px">${title} (${items.length})</div>
     <div style="font-size:12.5px;color:#c9d1d9;max-height:140px;overflow:auto">${items.map(escapeHtml).join('<br>')}</div></div>`:'';
   document.getElementById('cvtDash').innerHTML=`
-  <div style="margin-top:14px;border:1px solid #30363d;border-radius:10px;padding:12px 14px;background:#161b22">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px">✅ Export สำเร็จ — สรุปผล</div>
+  <div style="margin-top:14px;border:1px solid ${st.bd};border-radius:10px;padding:12px 14px;background:#161b22">
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${st.col}">${st.txt}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       ${cvtBadge(chkQ,`SUM QTY ${v.sumQty}${meta.totalQty!=null?' / PL '+meta.totalQty:''}`)}
       ${cvtBadge(chkN,`SUM NW ${v.sumNW.toFixed(3)}${meta.totalNW!=null?' / PL '+meta.totalNW:''}`)}
@@ -7996,6 +8297,7 @@ function cvtRenderDash(res){
       ${cvtBadge(meta.totalPackages!=null,`Packages ${meta.totalPackages!=null?meta.totalPackages:'-'}`)}
     </div>
     <div style="font-size:12.5px;color:#8b949e">รายการต่อ Invoice: ${perHtml}</div>
+    ${cvtScopeBlock(v)}
     ${box('⚠️ Warnings','#d29922',res.warnings)}
   </div>`;
   const cols=['A','C','D','E','H','I','J','K','L','O','P','U'];
@@ -8009,7 +8311,7 @@ function cvtRenderDash(res){
 /* ---------------- RESET + MEMORY ---------------- */
 function cvtReset(){
   if(CS.busy) return;
-  CS.invPdfs=[]; CS.pl=null; CS.th=null; CS.result=null;
+  CS.invPdfs=[]; CS.pls=[]; CS.th=null; CS.result=null;
   const i1=document.getElementById('cvtInvInput'),i2=document.getElementById('cvtPlInput'),i3=document.getElementById('cvtThInput');
   if(i1)i1.value='';if(i2)i2.value='';if(i3)i3.value='';
   cvtResetOutput(); cvtRenderFiles();
