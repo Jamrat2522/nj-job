@@ -1,0 +1,21 @@
+NJHR Employee Export EN Patch
+
+Build: njhr-v2-f21a1c60
+
+Changed behavior:
+- views/employees/export.js now calls existing RPC njhr_emp_list_en
+- adds 2 columns after ชื่อ-นามสกุล:
+  * First Name (ภาษาอังกฤษ)
+  * Last Name (ภาษาอังกฤษ)
+- width E=18, F=22
+- uses DB values first_name_en / last_name_en only; no transliteration
+- original filters/sort/paging remain unchanged via njhr_emp_list_en
+
+Files in this patch:
+- views/employees/export.js
+- asset-manifest.js (new export cache hash)
+- index.html (new manifest cache hash)
+- sw.js (new build cache)
+- config.js (new build version)
+
+No SQL is required: production already has public.njhr_emp_list_en with the EN fields and matching list behavior.
