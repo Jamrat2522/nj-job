@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>BILLING NJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- BUILD CACHE KEY: ใช้บังคับโหลด JS ใหม่ได้โดยไม่เปลี่ยน semantic APP_VERSION; APP_VERSION ต้องตรง deploy_version ใน DB -->
+<script>window.__BUILD='1.4.1-local240';</script>
+<!-- ══ MOBILE BLOCK — ต้องอยู่ใน <head> ก่อน CSS/HTML ใด ๆ ══════════════════
+     ทำงานก่อน app.bundle.js (ซึ่งเป็น defer = รันหลัง HTML parse เสร็จ)
+     -> ผู้ใช้มือถือไม่มีทางเห็นหน้า Login หรือ UI แวบขึ้นมาก่อน (ข้อกำหนดข้อ 7)
+     inline ในไฟล์เดียว ไม่ใช่ไฟล์แยก เพราะไฟล์แยกอาจโหลดช้ากว่า render
+     *** บล็อกเฉพาะ "โทรศัพท์มือถือ" *** Tablet / iPad ไม่บล็อก
+     (ตรวจ Source แล้วระบบมี Responsive CSS รองรับ Tablet อยู่ ไม่มีคำสั่งให้ตัด) -->
+<script>
+(function () {
+  var UA = navigator.userAgent || '';
+  var CH = navigator.userAgentData || null;
+
+  /* ── ชั้นที่ 1: Client Hints (Chrome/Edge/Samsung Internet ยุคใหม่) ──
+     ค่านี้ *** ไม่เปลี่ยนตาม Request Desktop Site *** จึงเชื่อถือได้ที่สุด
+     true = โทรศัพท์ · false = ไม่ใช่โทรศัพท์ (รวม Tablet) */
+  if (CH && typeof CH.mobile === 'boolean') {
+    if (CH.mobile === true) return block();
+    /* CH บอกว่าไม่ใช่มือถือ -> เชื่อทันที (กัน false positive บน Desktop) */
+    return;
+  }
+
+  /* ── ชั้นที่ 2: User Agent (Safari iOS / เบราว์เซอร์ที่ไม่มี Client Hints) ──
+     iPad ต้องไม่ติด -> เช็ค iPad ก่อน แล้วค่อยเช็คโทรศัพท์ */
+  var isTabletUA = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(UA);
+  var isPhoneUA  = /iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|BlackBerry|Opera Mini|Mobile.*Firefox/i.test(UA);
+  if (isTabletUA) return;
+  if (isPhoneUA) return block();
+
+  /* ── ชั้นที่ 3: กัน "Request Desktop Site" ──
+     โหมดนี้ปลอม UA เป็น Desktop แต่ *** ปลอมความสามารถของเครื่องไม่ได้ ***
+     ต้องเข้าเงื่อนไขครบทั้ง 3 ข้อจึงถือว่าเป็นโทรศัพท์:
+       1) จอสัมผัสจริง (coarse pointer + ไม่มี hover)
+       2) รองรับ multi-touch
+       3) ด้านสั้นของ "หน้าจอเครื่อง" เล็กระดับโทรศัพท์
+     *** ใช้ screen ไม่ใช่ window *** -> ย่อหน้าต่างบน Desktop ไม่ถูกบล็อก
+     iPadOS 13+ ที่ปลอมเป็น Mac จะไม่ติด เพราะด้านสั้น >= 768 */
+  var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
+  var coarse = mq('(pointer: coarse)') && mq('(hover: none)');
+  var touch  = (navigator.maxTouchPoints || 0) > 1;
+  var shortSide = Math.min(screen.width || 9999, screen.height || 9999);
+  if (coarse && touch && shortSide > 0 && shortSide < 600) return block();
+
+  function block() {
+    window.__NJ_MOBILE_BLOCKED = true;
+    /* หยุดโหลด/รัน bundle: ตัด <script> ของแอปทิ้งก่อน parser จะไปถึง
+       (bundle เป็น defer จึงยังไม่ถูกรัน ณ จุดนี้) */
+    document.addEventListener('DOMContentLoaded', paint);
+    document.write(
+      '<style>html,body{margin:0;height:100%;background:#0d1f3c;' +
+      'font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}' +
+      '#njblk{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}' +
+      '#njblk .b{max-width:420px;text-align:center;color:#e8eef8}' +
+      '#njblk .i{width:64px;height:64px;margin:0 auto 18px;border-radius:16px;' +
+      'background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center}' +
+      '#njblk h1{font-size:19px;line-height:1.5;margin:0 0 10px;font-weight:700}' +
+      '#njblk p{font-size:15px;line-height:1.6;margin:0;color:rgba(232,238,248,.75)}' +
+      '</style>');
+    paint();
+  }
+  function paint() {
+    if (!document.body) return;
+    document.body.innerHTML =
+      '<div id="njblk"><div class="b"><div class="i">' +
+      '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#e8eef8" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>' +
+      '<path d="M3 3l18 18"/></svg></div>' +
+      '<h1>ไม่รองรับการใช้งานบนโทรศัพท์มือถือ</h1>' +
+      '<p>กรุณาเข้าใช้งานระบบผ่านคอมพิวเตอร์เท่านั้น</p></div></div>';
+  }
+})();
+</script>
+<!-- ══ CSS รวมไฟล์เดียว (V.186) ══════════════════════════════════════════
+     เดิม 25 <link> = 25 HTTP request แบบ render-blocking ก่อนวาดจอ
+     รวมด้วย build-css.js ตามลำดับเดิมเป๊ะ -> cascade ไม่เปลี่ยนแม้แต่กฎเดียว
+     (1,492 กฎ ก่อน/หลังเท่ากัน · responsive.css ยังท้ายสุด)
+     228 KB -> 104 KB · 25 requests -> 1 -->
+<!-- เปิดการเชื่อมต่อ CDN ล่วงหน้า (DNS+TLS) ระหว่างที่ยัง parse HTML อยู่ -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local240">
+<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local240">
+<link rel="preload" as="script" href="assets/js/app.bundle.js?v=1.4.1-local240">
+<!-- defer: เดิมไม่มี -> บล็อก HTML parser จนกว่าจะโหลด SDK เสร็จ
+     ใส่ defer แล้วยังรันก่อน app.bundle.js เสมอ (defer รักษาลำดับตามเอกสาร)
+     app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div class="login-wrap"><div class="login-card">
+  <div class="login-logo">NJ</div>
+  <h2 class="login-t">BILLING NJ</h2>
+  <p class="login-s">กำลังเปิดระบบ…</p>
+  <div class="load-row"><div class="spin"></div></div>
+</div></div>
+<!-- Classic script bundle: รวม JS ทั้งแอปไฟล์เดียว → เปิดจาก file:// ได้โดยไม่มี ES Module request
+     ใช้ไฟล์เดียวกันทั้ง Local (file://) และ Production (https://) -->
+<script defer src="assets/js/app.bundle.js?v=1.4.1-local240"></script>
+</body>
+</html>

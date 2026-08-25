@@ -1,0 +1,201 @@
+.ch-head-badge{font-size:var(--fs-xs);padding:3px 10px;border-radius:99px;color:#fff}
+.ch-head-badge.service{background:var(--acc-service)}
+.ch-head-badge.advance{background:var(--acc-advance)}
+.ch-tools{display:flex;gap:8px;flex-wrap:wrap}
+.ch-note{max-width:180px}
+.ch-note .note-txt{cursor:pointer;color:var(--text-2)}
+.ch-note .note-txt:hover{color:var(--blue-600)}
+.ch-act{display:flex;gap:5px;justify-content:flex-end}
+.ch-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow)}
+/* dropdown เครื่องมือ */
+.tool-menu{position:relative}
+.tool-drop{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:230px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);padding:6px}
+.tool-drop.open{display:block}
+.tool-item{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:6px;
+  font-size:var(--fs-sm);color:var(--text)}
+.tool-item:hover{background:var(--blue-50);color:var(--blue-700)}
+.quick-close{display:flex;gap:6px;align-items:center;margin-left:auto}
+.quick-close .inp{width:190px}
+/* filter grid — เดสก์ท็อปแถวเดียว */
+.fbar-grid{display:grid;grid-template-columns:minmax(230px,1.6fr) repeat(4,minmax(130px,1fr)) repeat(2,145px) auto;
+  gap:8px;align-items:center}
+@media (max-width:1365px){.fbar-grid{grid-template-columns:repeat(4,minmax(140px,1fr))}}
+@media (max-width:900px){.fbar-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+/* ปุ่มที่ย้ายมาต่อท้าย "ล้างตัวกรอง" (หน้า DOCUMENT) */
+/* DOCUMENT มี 6 ช่อง (ค้นหา/ลูกค้า/from/to/ล้างตัวกรอง/ปุ่ม) — กำหนด grid ให้พอดีแถวเดียว */
+.fbar-grid.fbar-doc{grid-template-columns:minmax(230px,1.6fr) minmax(150px,1fr) 145px 145px auto auto}
+@media (max-width:1365px){.fbar-grid.fbar-doc{grid-template-columns:repeat(4,minmax(140px,1fr))}}
+@media (max-width:900px){.fbar-grid.fbar-doc{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+.fbar-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* ปุ่มในแถบตัวกรองสูงเท่ากันทุกตัว เพื่อให้อยู่ระดับเดียวกัน */
+.fbar-doc #ch-clear,.fbar-doc .fbar-acts .btn{height:36px;display:inline-flex;align-items:center}
+@media (max-width:900px){.fbar-acts{grid-column:1/-1}}
+/* status 2 ชั้น */
+.col-status .st-sub{font-size:var(--fs-xs);display:inline-block;margin-top:3px}
+.st-sub-none{color:var(--text-3)}
+.st-sub-void{color:var(--text-3);text-decoration:line-through}
+.st-sub-unpaid{color:var(--red-600)}
+.st-sub-partial{color:var(--amber-600)}
+.st-sub-paid{color:var(--green-600)}
+/* invoice / source */
+.col-inv .inv-src{font-size:var(--fs-xs);color:var(--text-3);margin-top:2px}
+/* คอลัมน์จัดการ sticky ขวา (คอลัมน์เดียวเท่านั้น) */
+.tbl-charge th.col-act,.tbl-charge td.col-act{position:sticky;right:0;background:var(--surface);
+  box-shadow:-6px 0 6px -6px rgba(15,23,42,.18);z-index:2}
+.tbl-charge thead th.col-act{z-index:3;background:var(--surface-2)}
+.tbl-charge tbody tr:hover td.col-act{background:var(--blue-50)}
+.tbl-charge td.r{font-variant-numeric:tabular-nums}
+.ch-act{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ── เมนู "จัดการ" แบบ 3 จุด (หน้า DOCUMENT) ──
+   คำสั่งเดิมทั้งหมดยังอยู่ครบ แค่ย้ายเข้า dropdown เพื่อไม่ให้ปุ่มเรียงเต็มแถว */
+.row-menu{position:relative;display:inline-block}
+.btn-dots{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--surface);
+  color:var(--text-2);font-size:1rem;line-height:1;cursor:pointer;transition:background .12s,border-color .12s}
+.btn-dots:hover{background:var(--surface-2);border-color:var(--line-2)}
+.row-menu.open .btn-dots{background:var(--surface-2);border-color:var(--blue-600);color:var(--text-1)}
+.row-drop{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:40;min-width:150px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);
+  padding:5px;flex-direction:column;gap:3px}
+.row-menu.open .row-drop{display:flex}
+.row-drop .btn{width:100%;justify-content:flex-start;text-align:left;border-radius:6px}
+
+/* ป้ายประเภทงานในตาราง (Service / Advance) */
+.bdg-svc{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+.bdg-adv{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4}
+
+/* ── DOCUMENT: 3 ปุ่ม (ดู | ปิดงาน | ลบ) ต้องอยู่แถวเดียวบน Desktop ──
+   .ch-act เดิมตั้ง flex-wrap:wrap ไว้ ทำให้ปุ่มตกแถวเมื่อคอลัมน์แคบ
+   คอลัมน์จัดการเป็น sticky right อยู่แล้ว จึงกำหนดความกว้างขั้นต่ำให้พอ */
+.tbl-charge td.col-act .ch-act{flex-wrap:nowrap}
+.tbl-charge th.col-act,.tbl-charge td.col-act{min-width:250px}
+.tbl-charge td.col-act .btn-sm{white-space:nowrap;flex:0 0 auto}
+@media(max-width:640px){
+  .tbl-charge td.col-act .ch-act{flex-wrap:wrap}
+  .tbl-charge th.col-act,.tbl-charge td.col-act{min-width:0}
+}
+
+/* ══ MAIN LIST CONTAINER — Filter + Table + Footer กรอบเดียว ══════════════
+   ขอบเขต: .ch-panel เท่านั้น (charge-page.js ใส่ให้เฉพาะ mode
+           'document' และ 'accounting' = DOCUMENT/ACCOUNTING × SERVICE/ADVANCE)
+
+   ── ROOT CAUSE ของ 3 Card ──
+     .fbar      (data.css:25)  border + radius + margin-bottom:14px
+     .tbl-wrap  (data.css:31)  border + radius + box-shadow
+     #ch-pgn    class="card mt-2"  border + radius + box-shadow + margin-top
+     ทั้ง 3 เป็น Shared Component ที่หน้าอื่นใช้ด้วย จึง *** ห้ามแก้ Global ***
+     -> ปิด chrome ของลูกโดย scope ใต้ .ch-panel เท่านั้น
+        FINANCE > Advance · Close Job · route เดิม #/charges/:charge/:group
+        และหน้าอื่นที่ใช้ .fbar / .tbl-wrap / .card ไม่ถูกกระทบเลย */
+.ch-panel{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+
+/* Filter = พื้นที่บนสุดของกรอบ · แบ่งด้วย border-bottom เท่านั้น */
+.ch-panel > #ch-filter .fbar,
+.ch-panel > .fbar{background:none;border:0;border-radius:0;
+  box-shadow:none;margin-bottom:0;border-bottom:1px solid var(--line)}
+
+/* Table = กลางกรอบ · overflow:auto ของเดิมคงไว้ (ตารางกว้างเกินต้องเลื่อนแนวนอนได้) */
+.ch-panel > .tbl-wrap{background:none;border:0;border-radius:0;box-shadow:none}
+
+/* Footer (ทั้งหมด X รายการ + Pagination) = ท้ายกรอบ · มีได้แค่ border-top
+   ใช้ .card ทั่วไปเพื่อรองรับหน้า FINANCE ที่ id ของ pagination คนละชื่อ
+   (#ch-pgn · #cn-pgn · #rc-pgn · #rp-pgn) — ทุกหน้าใช้ <div class="card mt-2"> เหมือนกัน */
+.ch-panel > .card{background:none;border:0;border-radius:0;
+  box-shadow:none;margin-top:0;border-top:1px solid var(--line)}
+.ch-panel > .card .pgn{margin:0}
+/* หน้า FINANCE ที่ไม่มีแถบตัวกรองอยู่ในกรอบ — ตารางเป็นก้อนแรก ไม่ต้องมีเส้นบน */
+.ch-panel > .tbl-wrap:first-child > table > thead > tr > th{border-top:0}
+
+/* ══ จัดการคอลัมน์ — ลากหัวคอลัมน์ + หน้าต่างเลือกหัวข้อ ══════════════════
+   ขอบเขต: .tbl-charge (ตารางรายการ) และ .colmg (หน้าต่างจัดการคอลัมน์) เท่านั้น
+   ไม่แตะ .tbl-wrap / overflow -> เลื่อนแนวนอนของตารางยังใช้ได้เหมือนเดิม */
+.tbl-charge thead th{cursor:grab;user-select:none;-webkit-user-select:none}
+.tbl-charge thead th.col-act{cursor:default}          /* คอลัมน์บังคับ ลากไม่ได้ */
+body.is-coldrag,body.is-coldrag .tbl-charge thead th{cursor:grabbing}
+.tbl-charge thead th.th-drag{opacity:.45;background:var(--blue-100)}
+.tbl-charge thead th.th-drop-b{box-shadow:inset 3px 0 0 var(--blue-600)}
+.tbl-charge thead th.th-drop-a{box-shadow:inset -3px 0 0 var(--blue-600)}
+
+/* หน้าต่างจัดการคอลัมน์ */
+.colmg-hint{font-size:var(--fs-xs);color:var(--text-2);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:12px;line-height:1.5}
+.colmg-list{list-style:none;margin:0;padding:0;max-height:52vh;overflow-y:auto}
+.colmg-it{display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--surface)}
+.colmg-it.is-drag{opacity:.5;border-color:var(--blue-600)}
+.colmg-h{cursor:grab;color:var(--text-3);font-size:1rem;line-height:1;user-select:none}
+.colmg-it.is-req .colmg-h{cursor:not-allowed;opacity:.35}
+.colmg-lb{display:flex;align-items:center;gap:8px;flex:1;min-width:0;
+  font-size:var(--fs-sm);cursor:pointer}
+.colmg-lb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colmg-req{flex:none;font-size:var(--fs-xs);color:var(--text-3);
+  border:1px solid var(--line-2);border-radius:99px;padding:1px 8px}
+
+/* ══ คลิกแถว = เปิดงาน (4 โหมด) ══════════════════════════════════════════
+   ใส่ class .rowclick ที่ตารางจาก charge-page.js เฉพาะ mode document/accounting
+   -> FINANCE > Advance / Close Job ไม่ได้ class นี้ จึงไม่เปลี่ยนพฤติกรรม
+   Hover ใช้ .tbl tbody tr:hover ของเดิมอยู่แล้ว เพิ่มแค่เส้นซ้ายบอกว่ากดได้ */
+.tbl-charge.rowclick tbody tr{cursor:pointer}
+.tbl-charge.rowclick tbody tr:hover{box-shadow:inset 3px 0 0 var(--blue-600)}
+/* Control ในแถวต้องไม่ดูเหมือนพื้นที่คลิกเปิดงาน */
+.tbl-charge.rowclick tbody tr .note-txt,
+.tbl-charge.rowclick tbody tr button{cursor:pointer}
+.tbl-charge.rowclick tbody tr td.load-row,
+.tbl-charge.rowclick tbody tr td.empty{cursor:default}
+
+/* คลิกแถวในหน้ารายการอื่น (FINANCE / REPORT) — ใช้ class เดียวกันจาก enableRowOpen()
+   ตารางที่ไม่ได้เรียก enableRowOpen จะไม่มี .rowclick จึงไม่เปลี่ยนพฤติกรรม */
+.tbl.rowclick tbody tr{cursor:pointer}
+.tbl.rowclick tbody tr:hover{box-shadow:inset 3px 0 0 var(--blue-600)}
+.tbl.rowclick tbody tr td.load-row,
+.tbl.rowclick tbody tr td.empty{cursor:default}
+
+/* Compact: สถานะ 2 ชั้นให้อยู่บรรทัดเดียว -> Row ไม่สูงเกิน
+   ข้อมูลเท่าเดิมทุกตัว (Operational badge + Accounting sub) แค่จัดวางแนวนอน */
+.tbl .col-status{white-space:nowrap}
+.tbl .col-status > div{display:inline;margin-left:6px}
+.col-status .st-sub{margin-top:0}
+/* Invoice No. + SRC: บรรทัดเล็ก — กระชับระยะ (เซลล์ 2 บรรทัดคือตัวกำหนดความสูงแถว) */
+.col-inv .inv-src{margin-top:0;line-height:1.05}
+.col-inv .inv-src{font-size:11px}
+.tbl td.col-inv,.tbl td.col-status{line-height:1.25}
+
+/* ══ หัวตาราง DOCUMENT — ใช้ตัวพิมพ์ตามข้อความจริง ไม่บังคับเป็นตัวใหญ่ ══════
+   ── ROOT CAUSE ──
+     data.css:32  .tbl th{...text-transform:uppercase;letter-spacing:.04em;...}
+     -> บังคับหัวตาราง "ทุกตาราง" ในระบบเป็นตัวพิมพ์ใหญ่
+        แม้ label ใน DOC_LIST_COLS จะเขียนถูกแล้ว (House B/L No. · Invoice No. ฯลฯ)
+        ก็ถูกแสดงเป็น HOUSE B/L NO. · INVOICE NO.
+     *** text-transform เป็นการแปลงเฉพาะ "การแสดงผล" ***
+     th.textContent ไม่เปลี่ยน -> Column Manager (components/table.js:68 อ่าน
+     th.textContent) จึงแสดงข้อความถูกต้องอยู่แล้ว = ปัญหาอยู่ที่หัวตารางจุดเดียว
+
+   ── ทำไมต้อง scope ด้วย #app-shell.doc-hd ──
+     charge-page.js render ตารางเป็น <table class="tbl tbl-charge"> ทุกโหมด
+     -> ACCOUNTING ก็ใช้ .tbl-charge เหมือนกัน · scope แค่ .tbl-charge จะกระทบด้วย
+     class doc-hd ถูกใส่ที่ #app-shell โดย charge-page.js เมื่อ mode === 'document'
+     และถูกถอดโดย core/router.js ทุกครั้งที่เปลี่ยนหน้า
+     -> ได้เฉพาะหน้ารายการ DOCUMENT (SERVICE/ADVANCE) เท่านั้น
+   Specificity (1,3,1) ชนะ .tbl th (0,1,1) แน่นอน — ไม่ต้องใช้ !important
+   ไม่แตะ .tbl th กลาง -> ACCOUNTING · REPORT · SYSTEM · FINANCE · ตารางอื่น
+   ยังเป็นตัวพิมพ์ใหญ่เหมือนเดิมทุกตาราง */
+#app-shell.doc-hd .tbl-charge th{text-transform:none;letter-spacing:normal}
+
+/* ── Tab SERVICE / ADVANCE ในหน้า — *** ลบแล้ว (V.180) *** ────────────────
+   .ch-modetabs / .ch-mtab ถูกถอดออกจาก charge-page.js
+   ตรวจแล้วไม่มีไฟล์อื่นใน assets/js อ้างถึงคลาสนี้ -> ลบ CSS ได้ปลอดภัย
+   (ui.css บรรทัด 871 มีชื่อ .ch-mtab อยู่ในคอมเมนต์อธิบายเท่านั้น ไม่ใช่กฎ)
+   เลือกโหมดจาก Sidebar > DOCUMENT/ACCOUNTING > SERVICE/ADVANCE แทน */
+
+/* ══ V.190 — Tab [SERVICE] [ADVANCE] ของ JOB CONTROL > CLOSE JOB ══════════
+   ใช้ .rep-tabs/.rep-tab ที่มีอยู่แล้ว (pages/report.css) ไม่สร้างชุดใหม่
+   เพิ่มเฉพาะตัวเลขจำนวนรายการบนหัว Tab */
+.rep-tab .cj-n{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:99px;
+  background:var(--surface-2);border:1px solid var(--line);
+  color:var(--text-2);font-size:var(--fs-xs);font-weight:700;
+  font-variant-numeric:tabular-nums}
+.rep-tab.active .cj-n{background:rgba(255,255,255,.16);border-color:transparent;color:#fff}

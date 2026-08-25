@@ -1,0 +1,574 @@
+.wht-rate-chip{display:inline-block;padding:2px 9px;border-radius:99px;background:var(--purple-100);color:var(--purple-600);font-size:var(--fs-xs)}
+
+/* ══ หน้า 50 ทวิ (ฟอร์ม/รายการ — ไม่ใช่ตัวเอกสาร) ══
+   namespace .whp* เท่านั้น · ตัวเอกสาร A4 อยู่ที่ wht-doc.css (.whd*)
+   ใช้คลาสร่วมของระบบเป็นหลัก (card / fbar / tbl / btn / bdg / fld)
+   เพิ่มเฉพาะ layout ที่ของเดิมไม่มี */
+.whp-req-l{margin:10px 0 0;padding-left:20px}
+.whp-req-l li{margin-bottom:4px;font-size:13px;color:var(--t2,#5d6a82)}
+.whp-req code,.whp-req-f code{background:#f1f4fa;border:1px solid #dde4f0;border-radius:4px;
+  padding:1px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.whp-req-f{margin-top:6px}
+.whp-req-f code{display:inline-block;padding:6px 10px;font-size:13px;font-weight:600}
+
+/* 2 การ์ดบนสุด: ผู้หักภาษี (ลูกค้า) / ข้อมูลเอกสาร */
+/* .whp-top — *** เลิกใช้ในหน้าเปิดงานแล้ว *** (เคยแบ่งซ้าย/ขวาจนเห็นเป็นหลายกรอบ)
+   คงกฎไว้เผื่อหน้าอื่นอ้างถึง แต่บังคับเป็นคอลัมน์เดียวเสมอ */
+.whp-top{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+.whp-payee{margin-top:10px;border-top:1px dotted #e2e8f2;padding-top:8px}
+.whp-kv{display:flex;gap:10px;align-items:flex-start;padding:5px 0;
+  border-bottom:1px dotted #e2e8f2;font-size:13px}
+.whp-kv:last-child{border-bottom:0}
+.whp-kv label{flex:0 0 42%;color:var(--t3,#7c879b);font-size:12.5px}
+.whp-kv span{flex:1;min-width:0;word-break:break-word}
+/* Tax ID + สาขา อยู่บรรทัดเดียวกัน */
+.whp-kv-2{display:flex;gap:16px}
+.whp-kv-2>div{flex:1;min-width:0}
+.whp-kv-2 label{display:block;flex:none;margin-bottom:2px}
+
+.whp-ihead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+
+.whp-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.whp-tot{display:flex;flex-direction:column;gap:4px;min-width:300px}
+.whp-tot div{display:flex;justify-content:space-between;gap:24px;font-size:13px;
+  padding:4px 10px;border-bottom:1px dotted #e2e8f2}
+.whp-tot b{font-variant-numeric:tabular-nums}
+.whp-tot-g{border-bottom:0 !important;background:#f3f6fc;border-radius:6px;padding:8px 10px !important}
+.whp-tot-g span{font-weight:700;color:#d81f2a}
+.whp-tot-g b{font-size:16px;font-weight:800;color:#d81f2a}
+.whp-btn{display:flex;gap:8px;flex-wrap:wrap}
+
+@media (max-width:980px){
+  .whp-top{grid-template-columns:1fr}   /* คงไว้ — ตอนนี้เป็น 1 คอลัมน์ทุกขนาดจออยู่แล้ว */
+  .whp-foot{flex-direction:column;align-items:stretch}
+  .whp-tot{min-width:0}
+  .whp-kv label{flex:0 0 46%}
+}
+/* กล่อง ข. ผู้ถูกหัก = N.J. (อ่านอย่างเดียว) */
+.whp-nj{margin-top:12px;border-top:1px dotted #e2e8f2;padding-top:10px}
+.whp-nj-t{font-size:12.5px;font-weight:700;color:#122a63}
+.whp-nj-v{font-size:13.5px;font-weight:700;margin-top:3px}
+.whp-nj-s{font-size:12px;color:var(--t2,#5d6a82);margin-top:2px}
+/* เตือนเมื่อ Invoice มีการรับชำระหลายครั้ง — ระบบไม่เลือกวันที่ให้ */
+.whp-warn{color:#b26a00;background:#fff8ec;border:1px solid #f0dcb8;border-radius:5px;
+  padding:6px 8px;margin-top:4px;line-height:1.45}
+
+/* ══ ฟอร์ม 50 ทวิ ชุดเต็ม (RUN-08) ══════════════════════════════════════════
+   ขอบเขต .whp* เท่านั้น — ไม่ทับ .ivd/.rcd/.apd/.cnd/.whd ของหน้าอื่น
+   ใช้ .fld / .inp / .sel / .card กลางที่มีอยู่แล้ว ไม่สร้าง component ใหม่ */
+
+/* 2 ช่องต่อแถวบน Desktop · จอแคบยุบเป็นแถวเดียว */
+/* .whp-g2 / .whp-g3 นิยามรวมไว้ท้ายไฟล์ (Desktop 3 / Tablet 2 / Mobile 1) */
+
+/* .whp-agent — *** เลิกใช้ *** "กระทำการแทนโดย" เป็น Section ปกติใน Card เดียวแล้ว
+   กรอบ dashed เดิมทำให้ดูเหมือนการ์ดอีกใบ · ถอดกรอบ/พื้นหลัง/มุมโค้งออกทั้งหมด */
+.whp-agent{margin-top:14px}
+
+/* §7-§8 — 3 คอลัมน์เท่ากัน (แบบที่นำส่ง · วิธีการจ่ายภาษี · ผู้ลงนาม) */
+/* .whp-sec / .whp-sec-c — *** เลิกใช้ *** เดิมเป็น 3 กล่องมีกรอบซ้อนใน Card
+   ตอนนี้ "ข้อมูล 50 ทวิ" เป็น Section เดียวแบ่งซ้าย/ขวาด้วย .whp-g2 เฉพาะ input */
+.whp-sec{display:grid;grid-template-columns:1fr;gap:12px}
+.whp-sec-c{padding:0;border:0;border-radius:0;background:none}
+.whp-sec-t{font-weight:600;color:var(--blue-600);margin-bottom:8px}
+
+/* radio list — เลือกได้กลุ่มละ 1 ค่า (บังคับด้วย name เดียวกัน ไม่ใช้ JS กันซ้ำ) */
+.whp-rds{display:flex;flex-direction:column;gap:6px}
+.whp-rd{display:flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:var(--fs-sm);padding:4px 6px;border-radius:7px}
+.whp-rd:hover{background:var(--blue-50)}
+.whp-rd input{flex:none;width:16px;height:16px;accent-color:var(--blue-600);cursor:pointer}
+.whp-rd span{min-width:0}
+
+/* ══ ปุ่ม ↩ UNPOST (RUN-09) ═══════════════════════════════════════════════
+   สีส้ม/Warning เหมือนปุ่ม Unpost ของ ACCOUNTING (.btn-unpost ใน ui.css)
+   ถ้าคลาสกลางมีอยู่แล้วกฎนี้จะไม่ทับสี — ประกาศไว้กันกรณีหน้านี้โหลด CSS คนละชุด
+   disabled = จาง กดไม่ได้ (เอกสารที่ยังไม่ POST) */
+.whp-btn .btn-unpost:disabled{opacity:.5;cursor:not-allowed}
+
+
+
+/* ══ ฟอร์มเดียว 1 การ์ด (หน้าเปิดงาน 50 ทวิ) ═══════════════════════════════
+   หลักการ: 1 Outer Card + Section Divider — ห้ามมี .card ซ้อนข้างใน
+   .whp-block คั่นด้วยเส้นบาง ๆ · อันแรกไม่มี padding บน · อันสุดท้ายไม่มีเส้น */
+.whp-form{width:100%}
+.whp-block{padding:18px 0;border-bottom:1px solid var(--line)}
+.whp-block:first-child{padding-top:0}
+.whp-block:last-child{border-bottom:0;padding-bottom:0}
+/* หัวข้อ Section — ตัวหนา ไม่ใช้กรอบ/พื้นหลัง */
+.whp-bt{font-size:var(--fs-md);font-weight:700;color:var(--text);margin:0 0 10px}
+/* หัวข้อ + ปุ่มขวา (เช่น "＋ เพิ่มรายการ" / "🔎 ดึงข้อมูลจาก INVOICE") */
+.whp-bh{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.whp-bh .whp-bt{margin:0}
+/* หัวข้อย่อยใน Section (แบบที่นำส่ง / วิธีการจ่ายภาษี) */
+.whp-sub{font-weight:600;color:var(--blue-600);margin-bottom:8px}
+
+/* Footer ของฟอร์ม — Summary ซ้าย · ปุ่มขวา · อยู่ใน Card เดียวกัน */
+.whp-form .whp-foot{margin-top:0}
+
+/* Input Grid — Desktop 3 ช่อง · Tablet 2 · Mobile 1
+   minmax(0,1fr) กัน input ดันคอลัมน์จนล้น (ไม่มี Horizontal Scroll ของฟอร์ม) */
+.whp-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.whp-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+@media(max-width:1100px){ .whp-g3{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:760px){
+  .whp-g3,.whp-g2{grid-template-columns:1fr}
+  .whp-block{padding:14px 0}
+}
+
+
+/* ══ UI Polish หน้าเปิดงาน (V.160) — Layout/Spacing เท่านั้น ═══════════════
+   ไม่แตะ Logic ใด ๆ · ไม่ใช้ grid-template-columns:1fr 1fr ที่ระดับ Section หลัก
+   (Grid 2-3 คอลัมน์ใช้เฉพาะ Field ภายใน Section) */
+
+/* ── ความกว้างที่อ่านสบายบน Desktop ──
+   จอ 1920 ถ้าปล่อยเต็มความกว้าง input จะยาวจนสายตาไล่ label->ค่าไม่ทัน
+   จำกัดที่ 1280px และจัดกึ่งกลาง · จอ 1366/1600 ยังเต็มพื้นที่ตามปกติ */
+.whp-form{width:100%;max-width:1280px;margin-inline:auto}
+
+/* ── ระยะระหว่าง Section ── หัวข้อชิดเนื้อหาของตัวเอง ไม่เบียด Section ก่อนหน้า */
+.whp-block{padding:20px 0}
+.whp-bt{font-size:15px;letter-spacing:.01em}
+/* ข้อความช่วยต้องเล็กและจางกว่า Label เสมอ ไม่แย่งความสนใจจากข้อมูลหลัก */
+.whp-block .t-xs{margin-top:4px;line-height:1.45}
+
+/* ── Field: label กับ input ตรงแนวทุกคอลัมน์ ──
+   .fld มี margin-bottom กลางอยู่แล้ว · เพิ่มระยะแนวตั้งในกริดให้เท่ากันทุกช่อง */
+.whp-g3 > .fld, .whp-g2 > .fld, .whp-g13 > .fld{margin-bottom:12px}
+.whp-block .fld > label{display:block;margin-bottom:4px}
+
+/* รหัส | ชื่อ — ช่องรหัสสั้น ช่องชื่อยาว (1:3) */
+.whp-g13{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:0 12px}
+
+/* ── Radio: วงกลมกับข้อความอยู่แนวเดียวกัน · ระยะเท่ากันทุกรายการ ──
+   จอกว้างจัด 2 คอลัมน์เพื่อไม่ให้ฟอร์มยาวเกินจำเป็น (7 แบบ + 4 วิธีจ่าย) */
+.whp-rds{gap:2px}
+.whp-rd{padding:5px 6px;line-height:1.35;align-items:flex-start}
+.whp-rd input{margin-top:1px}
+.whp-rd span{white-space:normal}          /* Mobile ไม่ตัดข้อความ */
+@media(min-width:1200px){
+  .whp-rds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px}
+}
+
+/* ── ตารางรายการเงินได้ ──
+   Desktop เต็มความกว้าง Card · Mobile ให้ *** เฉพาะตาราง *** เลื่อนแนวนอนได้
+   ตัวฟอร์มทั้งหน้าไม่มี Horizontal Scroll เพราะทุกกริดใช้ minmax(0,1fr) */
+.whp-block .tbl-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.whp-block .tbl-wrap > table{width:100%}
+@media(max-width:760px){
+  .whp-block .tbl-wrap > table{min-width:720px}   /* กัน column บีบจน label หาย */
+}
+
+/* ── Footer: ซ้าย = ลบร่าง/UNPOST · ขวา = Preview/บันทึก/POST ── */
+.whp-btn{width:100%;display:flex;justify-content:space-between;align-items:center;
+  gap:10px;flex-wrap:wrap}
+.whp-btn-l,.whp-btn-r{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.whp-btn-l:empty{display:none}
+.whp-foot{align-items:center}
+/* ยอดรวมต้องเห็นก่อนปุ่ม · ตัวเลขชิดขวาและเรียงหลักตรงกัน */
+.whp-tot{min-width:320px}
+.whp-tot b{text-align:right;min-width:110px}
+@media(max-width:900px){
+  .whp-tot{min-width:0;width:100%}
+  .whp-btn{justify-content:stretch}
+  .whp-btn-l,.whp-btn-r{width:100%}
+  .whp-btn-r{justify-content:flex-end}
+}
+@media(max-width:520px){
+  /* จอเล็กมาก: ปุ่มยืดเต็มแถวเพื่อกดง่าย และ Wrap หลายแถวได้โดยไม่ล้นจอ */
+  .whp-btn-l .btn,.whp-btn-r .btn{flex:1 1 auto;justify-content:center}
+}
+
+/* ══ ตารางหน้ารายการ 50 ทวิ — 35 คอลัมน์ แสดงครบตั้งแต่เปิดหน้า ═══════════
+   .tbl-wrap มี overflow:auto อยู่แล้ว (components/data.css)
+   -> เลื่อนแนวนอน "ในกรอบตาราง" เท่านั้น หน้าเว็บไม่มี Horizontal Scroll
+   เพิ่ม white-space:nowrap กันหัวคอลัมน์ตัดบรรทัดจนแถวสูงผิดปกติ
+   คอลัมน์ที่ยาว (ชื่อ/ที่อยู่) ใช้ .ellip + max-width ที่ตัว <td> อยู่แล้ว */
+.tbl-wrap > table.tbl > thead th{white-space:nowrap}
+#wh-tbody > tr > td{white-space:nowrap}
+/* ช่องที่อนุญาตให้ยาวได้ ตัดด้วย ellipsis แทนการดันตารางบาน */
+#wh-tbody > tr > td.ellip{overflow:hidden;text-overflow:ellipsis}
+/* ปุ่มจัดการห้ามถูกบีบ */
+#wh-tbody > tr > td .ch-act{display:flex;gap:6px;flex-wrap:nowrap}
+
+/* ══ Compact เฉพาะ Desktop — หน้าเปิดงาน 50 ทวิ (V.173) ═══════════════════
+   *** ลดเฉพาะ "ระยะแนวตั้ง" *** ไม่รื้อ Layout · ไม่ย่อ Control จนกดยาก
+   ROOT CAUSE: ระยะสะสมของ 8 Section (padding 20px×2 + margin หัวข้อ/field/label)
+   ไม่ใช่ความสูง Input (Source ไม่มี fixed height) และไม่ใช่ max-width
+
+   วางไว้ "ท้ายไฟล์" เพื่อให้ชนะ cascade ของบรรทัด 130/131/133/137/138/145/146
+   ซึ่งเป็นค่าที่ทำงานจริงอยู่เดิม (ตรวจแล้วไม่มี rule ใดอยู่หลังบล็อกนี้อีก)
+   Scope ที่ .whp-form ทั้งหมด -> หน้าอื่นและ Shared Component ไม่ถูกกระทบ
+   min-width:1101px -> Tablet (<=1100px 2 คอลัมน์) และ Mobile ไม่โดนย่อ */
+@media (min-width:1101px){
+  /* Outer Card — Override .card-pad เฉพาะฟอร์มนี้ (ไม่แก้ Shared) */
+  .whp-form.card-pad{padding:12px 16px}
+
+  /* Section: 20px -> 12px (ประหยัด ~128px รวม 8 Section) */
+  .whp-form .whp-block{padding:12px 0}
+  .whp-form .whp-block:first-child{padding-top:0}
+  .whp-form .whp-block:last-child{border-bottom:0;padding-bottom:0}
+
+  /* หัวข้อ Section: 10px -> 6px · ไม่ลด font-size (15px อ่านง่ายอยู่แล้ว) */
+  .whp-form .whp-bt{margin:0 0 6px}
+  .whp-form .whp-bh{margin-bottom:6px}
+  .whp-form .whp-bh .whp-bt{margin:0}
+  .whp-form .whp-sub{margin-bottom:5px}
+
+  /* Field: 12px -> 7px · Label 4px -> 3px (ยังไม่ติด Input) */
+  .whp-form .whp-g3 > .fld,
+  .whp-form .whp-g2 > .fld,
+  .whp-form .whp-g13 > .fld{margin-bottom:7px}
+  .whp-form .whp-block .fld > label{margin-bottom:3px}
+
+  /* Helper text: ยังแสดงครบทุกข้อความ แค่ไม่ดันฟอร์มลง */
+  .whp-form .whp-block .t-xs{margin-top:2px;line-height:1.3}
+
+  /* Radio: ลดเฉพาะระยะภายใน — 2 คอลัมน์เดิมไม่ถูกแตะ · ข้อความไม่ถูกตัด */
+  .whp-form .whp-rd{padding:3px 5px;line-height:1.3}
+
+  /* ตารางรายการเงินได้: ลดระยะแถวเล็กน้อย เฉพาะในฟอร์มนี้
+     Shared .tbl/.tbl-wrap ไม่ถูกแก้ · ยังเลื่อนแนวนอนในกรอบตัวเองเหมือนเดิม */
+  .whp-form .whp-block .tbl-wrap td{padding-top:4px;padding-bottom:4px}
+}
+
+/* ══ แถว "ชื่อ | สาขา | Tax ID" (V.182) ═══════════════════════════════════
+   *** ห้าม 3 ช่องกว้างเท่ากัน *** ชื่อกว้างสุด · สาขาสั้นสุด (6 หลัก) ·
+   Tax ID พอดี 13 หลัก · ที่อยู่อยู่แถวถัดไปเต็มความกว้าง (.fld ปกติ)
+   ทุกช่องยังเป็น .inp ตัวเดิม -> height/border/radius/padding เท่ากันอยู่แล้ว
+   minmax(0,...) กันช่องดันจนล้น -> ไม่เกิด Horizontal Scroll */
+.whp-gname{display:grid;
+  grid-template-columns:minmax(0,2fr) minmax(110px,.45fr) minmax(190px,.75fr);
+  gap:0 12px}
+/* ผู้ถูกหักภาษีมี "รหัสผู้ถูกหักฯ" เพิ่ม -> สาขา/Tax ID สัดส่วนเท่ากับด้านบน */
+.whp-gname4{display:grid;
+  grid-template-columns:minmax(120px,.6fr) minmax(0,2fr) minmax(110px,.45fr) minmax(190px,.75fr);
+  gap:0 12px}
+.whp-gname > .fld, .whp-gname4 > .fld{margin-bottom:12px}
+/* ตัวเลขอ่านง่าย เรียงหลักตรงกัน (ไม่เปลี่ยนขนาด/ความสูงช่อง) */
+.whp-gname #wh-payer-branch, .whp-gname #wh-agent-branch,
+.whp-gname4 #wh-payee-branch,
+.whp-gname #wh-payer-tax, .whp-gname #wh-agent-tax,
+.whp-gname4 #wh-payee-tax{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+
+@media(max-width:1100px){
+  /* Tablet: ชื่อขึ้นแถวเต็ม · สาขา+Tax ID แถวถัดมา -> Tax ID ยังเห็นครบ 13 หลัก */
+  .whp-gname{grid-template-columns:minmax(0,1fr) minmax(190px,1fr)}
+  .whp-gname > .fld:first-child{grid-column:1 / -1}
+  .whp-gname4{grid-template-columns:minmax(120px,.7fr) minmax(0,1fr)}
+  .whp-gname4 > .fld:nth-child(2){grid-column:1 / -1}
+}
+@media(max-width:640px){
+  .whp-gname, .whp-gname4{grid-template-columns:1fr}
+  .whp-gname > .fld:first-child,
+  .whp-gname4 > .fld:nth-child(2){grid-column:auto}
+}
+
+/* ══ V.191 — WHT 50 ทวิ: Split Screen [FORM | PREVIEW A4] ══════════════════
+   *** Scope .whp* เท่านั้น *** ไม่แตะ Global .inp/.sel/.btn/.card/.card-pad
+   และไม่แตะ .whd* (ตัวเอกสาร) — Preview ใช้ CSS ของเอกสารชุดเดิมทั้งหมด */
+
+/* ── โครงหลัก ──
+   ── V.195 ── หน้ากรอกเลิกแบ่ง 2 คอลัมน์แล้ว ฟอร์มใช้พื้นที่เต็ม Content Area
+   *** ไม่ลบกฎของกรอบ Preview (.whp-prev*) ที่อยู่ด้านล่าง ***
+   เผื่อ Layout อื่นเรียกใช้ · ในหน้ากรอกไม่มี element เหล่านั้นแล้ว
+   กฎ .whp-ws / .whp-col-* คงไว้และบังคับเป็นคอลัมน์เดียวเสมอ
+   เผื่อมี markup เก่าค้างอยู่ที่ไหน จะได้ไม่แตกเป็น 2 คอลัมน์ */
+.whp-ws{display:block}
+.whp-col-form,.whp-col-prev{min-width:0}
+
+/* ── Header ของฟอร์ม ── */
+.whp-hd{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:2px solid var(--line)}
+.whp-hd-t{margin:0;font-size:var(--fs-lg);font-weight:700;color:var(--navy-800)}
+.whp-hd-s{margin:2px 0 0;font-size:var(--fs-xs);color:var(--text-3)}
+.whp-hd-r{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.whp-hd-st{font-size:var(--fs-xs);color:var(--text-2)}
+
+/* ── Section: Divider บาง ๆ · ไม่ใช่ Card ซ้อน (ข้อกำหนดข้อ 24) ──
+   Compact spacing: section 11px · field 7px · label 3px */
+.whp-blk{padding:11px 0;border-bottom:1px solid var(--line)}
+.whp-blk:last-of-type{border-bottom:0}
+.whp-form .whp-bt{font-size:var(--fs-sm);font-weight:700;color:var(--blue-600);
+  margin:0 0 7px;letter-spacing:.01em}
+.whp-hint{font-weight:400;color:var(--text-3);font-size:var(--fs-xs);margin-left:6px}
+.whp-form .fld{margin-bottom:7px}
+.whp-form .fld>label{display:block;margin-bottom:3px;
+  font-size:var(--fs-xs);color:var(--text-2);line-height:1.25}
+.whp-form .inp,.whp-form .sel{height:32px;padding:4px 9px;font-size:var(--fs-sm)}
+.whp-form .whp-bh{margin-bottom:7px}
+
+/* ── Grid ของฟอร์ม ──
+   ── V.196.1 ── ความกว้างฟอร์ม (แทนที่กฎของ V.195 ที่ให้เต็ม 100%)
+   *** ลดความกว้าง ไม่ใช่ลด Scale *** ไม่มี transform:scale() ที่ใดในไฟล์นี้
+   Font / Label / Input / Select / Checkbox / Button คงขนาดเดิมทุกตัว
+   ปรับเฉพาะ Container (.whp-form) แล้วจัดกึ่งกลางด้วย margin-inline:auto
+
+     Desktop ใหญ่ (> 1500px)   -> 65% ของ Content Area · ไม่เกิน 1280px
+     Desktop กลาง (≤ 1500px)   -> 80%   (พื้นที่เริ่มไม่พอ ต้องขยาย)
+     Desktop เล็ก  (≤ 1280px)   -> 95%
+     แคบกว่านั้น                 -> 100% (กันช่องกรอกชนกัน) */
+.whp-form{width:65%;max-width:1280px;margin-inline:auto}
+@media (max-width:1500px){ .whp-form{width:80%} }
+@media (max-width:1280px){ .whp-form{width:95%} }
+@media (max-width:900px){ .whp-form{width:100%} }
+.whp-r3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.whp-sp2{grid-column:span 2}
+/* ชื่อกว้างสุด · สาขาสั้นสุด · Tax ID พอดี 13 หลัก (ห้ามเท่ากัน) */
+.whp-rname{display:grid;grid-template-columns:minmax(0,2fr) 120px 200px;gap:0 12px}
+/* ผู้ถูกหักฯ มี "รหัส" เพิ่ม — สาขา/Tax ID กว้างเท่ากับอีก 2 Section เป๊ะ */
+.whp-rname4{display:grid;grid-template-columns:120px minmax(0,2fr) 120px 200px;gap:0 12px}
+
+/* ── แถวเลือกลูกค้า — Compact ไม่กินแนวตั้ง ── */
+.whp-pick{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.whp-pick label{flex:none;font-size:var(--fs-xs);color:var(--text-2)}
+.whp-pick .sel{flex:1;min-width:0}
+
+/* ── ข้อมูลอ้างอิงภายใน — ยุบไว้เป็นค่าเริ่มต้น ── */
+/* ══ V.212 — "ข้อมูลอ้างอิงภายใน" เปลี่ยนจาก Accordion เป็น Checkbox ═══════
+   *** ถอดกฎของ <summary> และลูกศร ▾▴ ออกทั้งหมด *** ไม่มี Accordion แล้ว
+   .whp-ref เหลือเป็นกรอบบางของ "รายละเอียดด้านใน" อย่างเดียว
+   หัวข้อใช้ .whp-bt เดิม -> ได้สีน้ำเงิน var(--blue-600) ตัวเดียวกับ Section อื่น
+   *** ไม่สร้างสีใหม่ · ไม่แตะ .whp-bt กลาง ***
+   คลิกได้ทั้งกล่องติ๊กและข้อความ เพราะ <label> ครอบทั้งคู่ (ข้อ 14) */
+.whp-refchk{display:inline-flex;align-items:center;gap:7px;cursor:pointer;margin:11px 0 0}
+.whp-refchk input{width:15px;height:15px;accent-color:var(--blue-600);cursor:pointer;flex:none}
+.whp-refchk .whp-bt{margin:0;cursor:pointer}
+.whp-ref{border:1px dashed var(--line-2);border-radius:var(--radius-sm);
+  padding:7px 10px;margin:6px 0 11px}
+.whp-ref[hidden]{display:none}
+
+/* ── Radio แนวนอน (ลำดับที่ในแบบ · ผู้จ่ายเงิน) ──
+   *** ต้องประกาศ display:flex ซ้ำ *** เพราะ .whp-rds ถูก override เป็น grid
+   ในบล็อก UI Polish (V.160) ด้านบน — ถ้าไม่ประกาศ flex-direction จะไม่มีผล */
+.whp-rds-h{display:flex;flex-direction:row;flex-wrap:wrap;gap:2px 4px}
+.whp-rds-h .whp-rd{flex:0 0 auto}
+.whp-rds-h .whp-rd{font-size:var(--fs-xs);padding:3px 7px;
+  border:1px solid transparent;border-radius:6px}
+.whp-rds-h .whp-rd input{width:14px;height:14px}
+.whp-rds-h .whp-rd:has(input:checked){background:var(--blue-50);border-color:#c3d8f7}
+
+/* ── ตารางรายการเงินได้ — Compact ──
+   9 คอลัมน์ในพื้นที่ 48% ของจอ -> ตารางเลื่อนแนวนอน "ภายในกรอบของตัวเอง" เท่านั้น
+   (.tbl-wrap overflow:auto ของระบบเดิม) *** ทั้งหน้าไม่มี Horizontal Scroll *** */
+.whp-items{overflow:auto}
+/* 6 คอลัมน์ตาม Mockup -> พอดีกรอบตั้งแต่ 1366px ขึ้นไป ไม่ต้องเลื่อน */
+.whp-items table{min-width:0}
+/* บรรทัดที่ 2 ของแต่ละรายการ — ฟิลด์ที่ระบบบังคับแต่ Mockup ไม่ได้แสดง
+   (ประเภทเงินได้ของระบบ · อัตรา % · รายละเอียด) — ไม่ได้ลบ แค่ลดความเด่น */
+.whp-items tr.whp-ln>td{border-bottom:0}
+.whp-items tr.whp-ln2>td{padding-top:0;padding-bottom:7px;background:var(--surface-2)}
+.whp-ln2-g{display:grid;grid-template-columns:minmax(0,1.15fr) 84px minmax(0,1.4fr);gap:6px}
+.whp-ln2-g label{display:flex;flex-direction:column;gap:2px;
+  font-size:10px;color:var(--text-3);min-width:0}
+.whp-ln2-g .inp,.whp-ln2-g .sel{height:26px;padding:2px 6px;font-size:var(--fs-xs)}
+.whp-items .tbl th{padding:5px 6px;font-size:10.5px;letter-spacing:0}
+.whp-items .tbl td{padding:4px 6px}
+.whp-items .inp,.whp-items .sel{height:29px;padding:3px 7px;font-size:var(--fs-xs)}
+.whp-items .btn-sm{padding:2px 7px}
+
+/* ── ช่องรวมยอด (อ่านอย่างเดียว) ── */
+.whp-form .inp[readonly]{background:var(--surface-2);color:var(--text)}
+.whp-form .whp-hi[readonly]{font-weight:700;color:#d81f2a;background:#fff5f5}
+
+/* ── แถบปุ่ม ── */
+.whp-act{display:flex;justify-content:space-between;align-items:center;
+  gap:10px;flex-wrap:wrap;padding-top:11px;border-top:2px solid var(--line)}
+.whp-act-l,.whp-act-r{display:flex;gap:7px;flex-wrap:wrap}
+
+/* ══ Preview A4 (ขวา) — เอกสารอย่างเดียว ไม่มี input/ปุ่มในกระดาษ ══ */
+.whp-prev{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.whp-prev-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+.whp-prev-t{font-size:var(--fs-sm);font-weight:700;color:var(--navy-800)}
+.whp-prev-body{padding:12px;background:#eef1f6;overflow:auto;
+  max-height:calc(100vh - 150px)}
+/* stage รับความสูงหลังย่อ -> ไม่มีพื้นที่ว่างค้างใต้กระดาษ */
+.whp-prev-stage{margin:0 auto;position:relative}
+.whp-prev-page{transform-origin:top left;position:absolute;top:0;left:0;
+  box-shadow:0 2px 12px rgba(15,23,42,.18);background:#fff}
+/* กันไม่ให้กระดาษกลายเป็นฟอร์ม — ไม่มี input/ปุ่มอยู่แล้ว แต่ล็อกไว้อีกชั้น */
+.whp-prev-page input,.whp-prev-page select,.whp-prev-page button{display:none}
+
+/* ══ Responsive ══ */
+/* ── V.195 ── ไม่มี Preview ในหน้ากรอกแล้ว จึงไม่ต้องมี breakpoint ยุบ Preview */
+@media (max-width:1100px){
+  .whp-rname{grid-template-columns:minmax(0,1.6fr) 96px 165px}
+  .whp-rname4{grid-template-columns:86px minmax(0,1.6fr) 96px 165px}
+}
+/* Mobile: ฟอร์ม 1 คอลัมน์ · ไม่บังคับ A4 อยู่ข้าง ๆ (ใช้ปุ่มพิมพ์เดิมแทน) */
+@media (max-width:760px){
+  .whp-r3,.whp-rname,.whp-rname4{grid-template-columns:1fr}
+  .whp-sp2{grid-column:auto}
+  .whp-pick{flex-direction:column;align-items:stretch;gap:3px}
+  .whp-blk{padding:9px 0}
+}
+
+/* ══ V.196 — Checkbox "กระทำการแทนโดย" ข้างหัวข้อผู้มีหน้าที่หักภาษี ══════
+   Scope .whp* · ไม่ทำเป็นกรอบใหญ่แยกตามข้อกำหนดข้อ 7 */
+/* ── V.208 ── ตัวหนังสือเป็นสีน้ำเงินตั้งแต่ยังไม่ติ๊ก
+   เดิม color:var(--text-2) (เทา) -> เห็นยากและดูเป็นข้อความรอง
+   เปลี่ยนเป็น var(--blue-600) ตัวแปรกลางเดิมของระบบ (#1d5fd6)
+   *** ไม่สร้างสีใหม่ · ไม่แตะ Layout/ขนาด/ระยะ/เส้นขอบ ***
+   สถานะ "ติ๊กแล้ว" ด้านล่างยังเป็นสีเดียวกัน + พื้นหลังฟ้าอ่อนตามเดิม
+   ใช้ร่วมกัน 2 จุด : "กระทำการแทนโดย" · "เงินกองทุน / ประกันสังคม" */
+.whp-agchk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  padding:2px 8px;border:1px solid var(--line);border-radius:99px;
+  font-size:var(--fs-xs);color:var(--blue-600);white-space:nowrap}
+.whp-agchk input{width:14px;height:14px;accent-color:var(--blue-600);cursor:pointer;flex:none}
+.whp-agchk:has(input:checked){background:var(--blue-50);border-color:#c3d8f7;
+  color:var(--blue-600);font-weight:600}
+
+/* ══ V.208 — ปุ่ม "＋ เพิ่มรายการ" ตัวหนังสือสีน้ำเงิน ═══════════════════════
+   *** ห้ามแก้ .btn-o กลาง *** (ui.css:6 color:var(--text-2)) เพราะปุ่มรอง
+   ทั้งแอปใช้คลาสนี้ร่วมกัน — จะเปลี่ยนสีปุ่มทุกหน้าโดยไม่ได้สั่ง
+   จึงเจาะจงด้วย id เดียว -> กระทบเฉพาะปุ่มนี้ปุ่มเดียว
+   ＋ เป็น U+FF0B (อักขระข้อความปกติ ไม่ใช่ Emoji) จึงรับสีจาก color ได้จริง
+   ไม่แตะ background / border / ขนาด / ระยะ / :hover ของ .btn-o เดิม */
+#wh-add{color:var(--blue-600)}
+
+/* ══ V.197 — ปุ่มปิด ✕ มุมขวาบนของฟอร์ม ═══════════════════════════════════
+   ใช้ .btn/.btn-o กลางเป็นฐาน (สี/เส้นขอบเดียวกับ UI เดิม) เพิ่มแค่ทรงสี่เหลี่ยมมน
+   *** ไม่ใช่ปุ่มลบ *** จึงไม่ใช้สีแดง — สีเดียวกับปุ่มรองอื่น ๆ ในหัวฟอร์ม */
+.whp-x{width:40px;height:40px;min-width:40px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-sm);font-size:16px;line-height:1}
+.whp-x:hover{background:var(--surface-2);border-color:var(--line-2);color:var(--text)}
+
+/* ══ V.198 — แถวหัวข้อที่เป็น Checkbox ล้วน (เงินกองทุน / ประกันสังคม) ══════
+   ใช้ .whp-agchk ตัวเดียวกับ "กระทำการแทนโดย" -> UI แนวทางเดียวกัน
+   ไม่ติ๊ก = เหลือแค่บรรทัด Checkbox บรรทัดเดียว ไม่มีการ์ดใหญ่ */
+.whp-blk-chk{padding:11px 0;border-bottom:1px solid var(--line)}
+.whp-blk-chk+#wh-fund-sec{padding-top:0;border-top:0}
+
+/* ══ V.199 — "ลำดับที่ในแบบยื่นรายการ" อยู่แถวแนวนอนเดียว ══════════════════
+   หัวข้อ | radio 7 ตัว | ช่องลำดับที่  — Layout/CSS เท่านั้น
+   *** ไม่ใช้ transform:scale() และไม่ลดขนาดตัวหนังสือ ***
+   ตัวอักษรของ radio ยังเป็น var(--fs-xs) ชุดเดิมของ .whp-rds-h */
+.whp-fmrow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+.whp-fmrow .whp-bt{margin:0;flex:none;white-space:nowrap}
+/* *** ข้อบังคับ: radio 7 ตัวอยู่บรรทัดเดียวเสมอ ห้ามแตกกลางกลุ่ม ***
+   flex:0 1 auto -> กลุ่มกินความกว้างเท่าที่ต้องการ ไม่ยืดเต็มแถว
+   ช่อง "ลำดับที่" จึงต่อท้ายแถวเดียวกันได้เมื่อพื้นที่พอ */
+.whp-fmrow .whp-rds-h{flex:0 1 auto;min-width:0;flex-wrap:nowrap;gap:0 1px}
+.whp-fmrow .whp-rds-h .whp-rd{white-space:nowrap;padding:3px 4px;gap:4px}
+/* ลำดับความสำคัญเมื่อพื้นที่ไม่พอ (ตามข้อกำหนด):
+     1. กลุ่ม radio ต้องอยู่บรรทัดเดียวเสมอ
+     2. ช่อง "ลำดับที่" ตกลงบรรทัดถัดไปได้
+     3. หัวข้อขึ้นบรรทัดของตัวเองได้ (จอที่แคบกว่า ~1700px) */
+.whp-seq{flex:none;display:inline-flex;align-items:center;gap:6px;
+  font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap}
+.whp-seq .inp{width:90px}
+/* จอแคบจริง -> ยอมให้ radio wrap อย่างเป็นระเบียบ */
+/* จอแคบจริง -> ยอมให้ radio wrap อย่างเป็นระเบียบ */
+@media (max-width:1200px){
+  .whp-fmrow .whp-rds-h{flex-wrap:wrap;gap:2px 4px}
+}
+
+/* ══ V.200 — "ผู้จ่ายเงิน" อยู่แถวแนวนอนเดียว ══════════════════════════════
+   ใช้ .whp-fmrow ตัวเดียวกับ "ลำดับที่ในแบบยื่นรายการ" -> UI แนวทางเดียวกัน
+   *** ไม่ใช้ transform:scale() · ไม่ลดขนาดตัวหนังสือ *** */
+.whp-pmo{flex:none;display:inline-flex;align-items:center}
+/* ต้องมีกฎนี้ เพราะ display:inline-flex ชนะ attribute hidden
+   -> ถ้าไม่ประกาศ ช่องระบุจะโผล่ตลอดแม้ยังไม่ได้เลือก "อื่น ๆ" */
+.whp-pmo[hidden]{display:none}
+/* กว้างพอดี ไม่ยาวเต็มแถว (ข้อกำหนด 220-300px) */
+.whp-pmo .inp{width:240px}
+@media (max-width:1200px){ .whp-pmo .inp{width:220px} }
+
+/* ══ V.202 — ข้อมูลอ้างอิงภายใน เหลือ 2 ช่อง ══════════════════════════════
+   ถอด Invoice No. / เลขที่งาน / หมายเหตุ ออกจากหน้าฟอร์ม
+   ใช้ grid 2 คอลัมน์เฉพาะกรอบนี้ -> ไม่เหลือช่องว่างจาก grid 3 คอลัมน์เดิม
+   จำกัดความกว้างไม่ให้ยืดเต็มฟอร์มโดยไม่จำเป็น */
+.whp-refg{display:grid;grid-template-columns:minmax(0,1fr) 190px;
+  gap:0 12px;max-width:620px}
+@media (max-width:760px){ .whp-refg{grid-template-columns:1fr;max-width:none} }
+
+/* ══ V.203 — เลขประจำตัวบัตรประชาชน ต่อจาก Dropdown เลือกลูกค้า ══════════
+   แถวเดียว: [เลือกลูกค้า (ยืดได้)] [ป้าย] [ช่องเลข 13 หลัก กว้างพอดี]
+   *** Dropdown ยังยืดได้เหมือนเดิม (flex:1) ไม่ถูกบีบ *** */
+.whp-cid-l{flex:none;font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap}
+.whp-cid{flex:none;width:170px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.whp-pick .sel{min-width:220px}
+@media (max-width:1100px){
+  .whp-pick{flex-wrap:wrap}
+  .whp-cid{width:150px}
+}
+
+/* ══ V.204 — CODE Master ของผู้หักฯ / ผู้ถูกหักฯ ═══════════════════════════
+   ใช้ .whp-pick เดิมเป็นฐาน (แถวแนวนอน) เพิ่มเฉพาะช่อง CODE + ปุ่ม
+   *** ไม่สร้าง Theme ใหม่ *** ปุ่มใช้ .btn/.btn-o/.btn-p กลางของระบบ */
+.whp-coderow .whp-code{flex:none;width:150px;font-weight:600;letter-spacing:.02em}
+.whp-code-go{flex:none;padding:4px 9px}
+.whp-coderow{margin-bottom:9px}
+
+/* ══ V.209 — แถว CODE รวมเลขบัตรประชาชนไว้แถวเดียวกัน ═════════════════════
+   หลังถอด Dropdown "เลือกลูกค้า" ออก แถวนี้ยาวขึ้น (CODE · 🔍 · เลือกจากรายชื่อ
+   · เลขบัตรประชาชน) จอแคบจึงต้อง wrap ได้ *** ห้ามบีบช่องจนอ่านยาก ***
+   .whp-pick เดิมเป็น flex ไม่ wrap -> เพิ่ม flex-wrap เฉพาะ .whp-coderow
+   row-gap 6px ให้บรรทัดที่ตกลงมาไม่ติดกัน · ไม่แตะ .whp-pick กลาง
+   margin-left:auto ดัน "เลขบัตรประชาชน" ไปชิดขวาเมื่อพื้นที่เหลือ
+   -> จอกว้างได้แถวเดียวตามที่ต้องการ · จอแคบตกลงบรรทัดใหม่ทั้งคู่พร้อมกัน */
+.whp-coderow{flex-wrap:wrap;row-gap:6px}
+.whp-coderow .whp-cid-l{margin-left:auto}
+@media (max-width:820px){
+  .whp-coderow .whp-cid-l{margin-left:0}
+  .whp-coderow .whp-cid{flex:1;min-width:150px}
+}
+
+/* ══ V.210 — 2 วันที่วางคู่กัน (จ่ายเงินจริง | ออกหนังสือรับรอง) ═══════════
+   .whp-r3 เดิมเป็น 3 คอลัมน์ · แถวนี้มี 2 ช่อง ถ้าปล่อยไว้ช่องจะกว้างผิดสัดส่วน
+   บังคับ 2 คอลัมน์เฉพาะแถวนี้ และจำกัดความกว้างไม่ให้ยืดเต็มฟอร์ม
+   *** ไม่แตะ .whp-r3 กลาง *** (บล็อกอื่นยังเป็น 3 คอลัมน์เหมือนเดิม)
+   จอแคบตกเป็นคอลัมน์เดียวตาม media query เดิมของ .whp-r3 */
+.whp-dates{grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:640px}
+
+/* Modal ค้นหาข้อมูลลูกค้า / ผู้ขาย */
+/* ══ V.214 — Checkbox หัวข้อ Section (ลำดับที่ในแบบยื่นรายการ · ผู้จ่ายเงิน) ═
+   ใช้โครงเดียวกับ .whp-refchk (V.212) — หัวข้อใช้ .whp-bt เดิม
+   -> ได้สีน้ำเงิน var(--blue-600) ตัวเดียวกับ Section อื่น *** ไม่สร้างสีใหม่ ***
+   คลิกได้ทั้งกล่องติ๊กและข้อความ เพราะ <label> ครอบทั้งคู่
+   .whp-sbody[hidden] -> display:none ไม่เหลือพื้นที่ว่างของ section เดิม */
+.whp-mst{display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.whp-mst .btn{white-space:nowrap}
+@media (max-width:760px){.whp-mst{margin-left:0;width:100%}}
+.whp-schk{display:inline-flex;align-items:center;gap:7px;cursor:pointer;margin:0 0 7px}
+.whp-schk input{width:15px;height:15px;accent-color:var(--blue-600);cursor:pointer;flex:none}
+.whp-schk .whp-bt{margin:0;cursor:pointer}
+.whp-sbody[hidden]{display:none}
+
+.whp-pk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.whp-pk-bar label{flex:none;font-size:var(--fs-xs);color:var(--text-2)}
+.whp-pk-bar .inp{flex:1;min-width:220px}
+.whp-pk-bar .btn-p{margin-left:auto}
+.whp-pk-tbl{max-height:46vh;overflow:auto}
+.whp-pk-tbl .tbl th{position:sticky;top:0;z-index:1}
+.whp-pk-tbl .tbl td{padding:5px 8px}
+/* ชื่อ/ที่อยู่ยาว -> ตัดด้วย ellipsis (มี title ให้ hover ดูเต็ม)
+   ตารางจึงพอดีความกว้าง Modal ไม่ต้องเลื่อนแนวนอน */
+.whp-pk-tbl .tbl{table-layout:fixed;width:100%}
+.whp-pk-tbl .tbl td.ellip{max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whp-pk-tbl input[type=radio]{width:15px;height:15px;accent-color:var(--blue-600);cursor:pointer}
+.whp-pk-tbl tr:hover td{background:var(--surface-2);cursor:pointer}
+.whp-pk-form{margin-top:12px;padding-top:12px;border-top:2px solid var(--line)}
+.whp-pk-ft{margin:0 0 8px;font-size:var(--fs-sm);font-weight:700;color:var(--blue-600)}
+.whp-pk-fb{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+@media (max-width:1100px){ .whp-coderow .whp-code{width:130px} }
+
+/* ══ Autocomplete ช่อง "ชื่อ" (V.206) ═════════════════════════════════════
+   เพิ่มใหม่ทั้งบล็อก — ไม่แก้ selector เดิมของ WHT แม้แต่ตัวเดียว
+   .whp-ac-host ใส่ที่ .fld ของช่องชื่อ "ด้วย JS ตอน render" เท่านั้น
+   -> .fld ตัวอื่นทั้งระบบไม่ได้รับผลกระทบ */
+.whp-ac-host{position:relative}
+.whp-ac{position:absolute;left:0;right:0;top:100%;z-index:60;
+  margin-top:2px;max-height:260px;overflow-y:auto;
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  box-shadow:0 6px 18px rgba(0,0,0,.14)}
+.whp-ac-i{padding:6px 9px;cursor:pointer;border-bottom:1px solid var(--line)}
+.whp-ac-i:last-child{border-bottom:0}
+.whp-ac-i.on,.whp-ac-i:hover{background:var(--surface-2)}
+.whp-ac-n{font-size:var(--fs-sm);font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whp-ac-m{margin-top:1px;font-size:var(--fs-xs);color:var(--text-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

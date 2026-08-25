@@ -1,0 +1,177 @@
+.rep-tabs{display:flex;gap:6px;margin-bottom:14px}
+.rep-tab{padding:7px 15px;border-radius:99px;font-size:var(--fs-sm);border:1px solid var(--line-2);background:var(--surface);color:var(--text-2)}
+.rep-tab.active{background:var(--navy-800);color:#fff;border-color:var(--navy-800)}
+
+/* ══ REPORT Landing — การ์ดเลือกประเภทรายงาน (V.179) ══════════════════════
+   *** CSS + คลาสสีที่ <section> เท่านั้น ***
+   ไม่แตะ SQL/RPC/Route/Business Logic/จำนวนรายงาน/สถานะ ready
+
+   สีประจำหมวด — ประกาศเป็นตัวแปรที่ .rpt-sec แล้วทุกส่วนข้างในอ้างถึง
+   -> เพิ่มหมวดใหม่ในอนาคตแค่ประกาศ 4 ตัวแปร ไม่ต้องเขียนกฎซ้ำ */
+.rpt-sec{--c: var(--blue-600); --cb: #B9D3FF; --cd: #9FC3FF; --cs: rgba(37,99,235,.025);
+  border:1px solid var(--cb); background:var(--cs);
+  border-radius:var(--radius); padding:14px 16px; margin-bottom:14px}
+.rpt-document{--c:var(--blue-600);  --cb:#B9D3FF; --cd:#9FC3FF; --cs:rgba(37,99,235,.025)}
+.rpt-accounting{--c:var(--green-600); --cb:#B8DEC2; --cd:#9ED3AA; --cs:rgba(34,139,72,.025)}
+.rpt-finance{--c:var(--purple-600,#7c3aed); --cb:#D6C2F5; --cd:#C8ACF0; --cs:rgba(124,58,237,.025)}
+
+/* หัวข้อหมวด — ตัวอักษร + จุดนำหน้าใช้สีเข้มของหมวด */
+.rpt-sec-t{font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;
+  color:var(--c);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.rpt-sec-t::before{content:'';width:9px;height:9px;border-radius:3px;background:var(--c)}
+
+/* ── Grid ──
+   auto-fill + minmax -> ACCOUNTING (3 ใบ) และ FINANCE (4 ใบ) เรียงแถวเดียว
+   บนจอกว้าง และตัดบรรทัดเองเมื่อจอแคบ *** ไม่มี Horizontal Scroll ***
+   DOCUMENT มีใบเดียว -> ไม่ยืดเต็มความกว้าง (auto-fill ไม่ใช่ auto-fit) */
+.rpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+
+/* ── การ์ดรายงาน — เส้นประสีหมวด · พื้นขาว · ไม่ลงสีเต็มใบ ── */
+.rpt-card{display:flex;flex-direction:column;
+  min-height:120px;padding:16px 18px;
+  background:#fff;border:1px dashed var(--cd);border-radius:var(--radius);
+  text-decoration:none;color:inherit;
+  transition:border-color .15s,box-shadow .15s}
+.rpt-card:hover{border-color:var(--c);box-shadow:0 3px 12px rgba(13,31,60,.08)}
+
+/* หัวการ์ด: [เลข] ชื่อรายงาน ......... [Icon] */
+.rpt-card-h{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.rpt-no{flex:none;width:24px;height:24px;border-radius:7px;
+  background:color-mix(in srgb, var(--c) 12%, #fff);
+  color:var(--c);font-size:var(--fs-xs);font-weight:700;
+  display:flex;align-items:center;justify-content:center}
+.rpt-ic{flex:none;width:22px;height:22px;color:var(--c);margin-left:auto}
+.rpt-ic svg{width:100%;height:100%;display:block}
+.rpt-t{font-size:var(--fs-md);font-weight:700;color:var(--text);line-height:1.35;
+  flex:1;min-width:0}
+.rpt-d{font-size:var(--fs-xs);color:var(--text-2);line-height:1.45;flex:1;
+  margin-bottom:8px;overflow-wrap:anywhere}
+.rpt-go{font-size:var(--fs-xs);font-weight:700;color:var(--c);margin-top:auto}
+
+/* รายงานที่ยังไม่พร้อม — สีส้มแยกจากสีหมวด (สถานะ ไม่ใช่หมวด) */
+.rpt-card-soon{border-style:dashed;background:#fff}
+.rpt-card-soon .rpt-t,.rpt-card-soon .rpt-d{color:var(--text-2)}
+.rpt-card-soon .rpt-go{color:#b26a00;display:flex;align-items:center;gap:6px}
+.rpt-card-soon .rpt-go::before{content:'';width:7px;height:7px;border-radius:50%;
+  background:#b26a00;flex:none}
+.rpt-card-soon:hover{border-color:#e0c48a;box-shadow:none}
+
+/* ── Fallback: เบราว์เซอร์ที่ยังไม่รองรับ color-mix ── */
+@supports not (background: color-mix(in srgb, red 10%, #fff)){
+  .rpt-document .rpt-no{background:var(--blue-50)}
+  .rpt-accounting .rpt-no{background:#e8f6ec}
+  .rpt-finance .rpt-no{background:#f3ecfd}
+}
+
+@media(max-width:1400px){ .rpt-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))} }
+@media(max-width:900px){ .rpt-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))} }
+@media(max-width:620px){ .rpt-grid{grid-template-columns:1fr} }
+
+/* ══ REPORT V.189 — Accordion + ตัวกรองแถวเดียว + Export อย่างเดียว ════════
+   *** ไม่ลบกฎเดิมข้างบนแม้แต่กฎเดียว *** (.rep-tabs / .rpt-* ยังอยู่ครบ)
+   ทุก selector ใหม่ขึ้นต้นด้วย .rpt2 -> ไม่ทับหน้าใดในระบบ */
+
+.rpt2{max-width:1600px}
+
+/* ── หัวข้อหมวด: เด่นกว่ารายการย่อยชัดเจน (ข้อกำหนดข้อ 8) ── */
+.rpt2-sec{--c:var(--blue-600); --cb:#dbe6f8; --cs:rgba(29,95,214,.04);
+  border:1px solid var(--line);background:var(--surface);
+  border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+.rpt2-document{--c:var(--blue-600);  --cb:#dbe6f8; --cs:rgba(29,95,214,.04)}
+.rpt2-accounting{--c:var(--green-600); --cb:#d6ecdd; --cs:rgba(21,128,61,.04)}
+.rpt2-finance{--c:var(--purple-600); --cb:#e4dcf8; --cs:rgba(124,58,237,.04)}
+.rpt2-sec.open{border-color:var(--cb)}
+
+.rpt2-h{width:100%;display:flex;align-items:center;gap:10px;
+  padding:14px 16px;background:var(--surface);border:0;cursor:pointer;
+  font-family:inherit;text-align:left;color:var(--text)}
+.rpt2-sec.open .rpt2-h{background:var(--cs);border-bottom:1px solid var(--cb)}
+.rpt2-h:hover{background:var(--cs)}
+.rpt2-h-t{font-size:var(--fs-lg);font-weight:700;letter-spacing:.06em;color:var(--c)}
+.rpt2-ic{flex:none;width:20px;height:20px;color:var(--c)}
+.rpt2-ic svg{width:100%;height:100%;display:block}
+.rpt2-caret{margin-left:auto;flex:none;width:9px;height:9px;
+  border-right:2px solid var(--text-3);border-bottom:2px solid var(--text-3);
+  transform:rotate(45deg);transition:transform .15s}
+.rpt2-sec.open .rpt2-caret{transform:rotate(-135deg);border-color:var(--c)}
+
+/* ── รายการรายงานย่อย: เยื้องเข้า · ปิดอยู่ = ไม่กินพื้นที่ ── */
+.rpt2-body{display:none;padding:8px 12px 12px 34px}
+.rpt2-sec.open .rpt2-body{display:block}
+.rpt2-item{display:flex;align-items:center;gap:10px;width:100%;
+  padding:9px 12px;margin-bottom:4px;cursor:pointer;text-align:left;
+  background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);
+  font-family:inherit;font-size:var(--fs-md);color:var(--text-2)}
+.rpt2-item:hover{background:var(--surface-2);border-color:var(--line)}
+.rpt2-item.on{background:var(--cs);border-color:var(--cb);color:var(--text);font-weight:600}
+.rpt2-no{flex:none;min-width:30px;height:22px;padding:0 6px;border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--line);
+  color:var(--text-2);font-size:var(--fs-xs);font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums}
+.rpt2-item.on .rpt2-no{background:#fff;border-color:var(--cb);color:var(--c)}
+.rpt2-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── แผงตัวกรองของรายงานที่เลือก (อยู่ใต้รายการ ในหน้าเดิม) ── */
+.rpt2-panel:empty{display:none}
+.rpt2-panel{margin-top:14px}
+.rpt2-panel-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rpt2-panel-t{font-size:var(--fs-lg);font-weight:700;color:var(--text)}
+.rpt2-note{font-size:var(--fs-xs);color:var(--text-3);margin:0 0 2px;line-height:1.5}
+.rpt2-status{font-size:var(--fs-sm);color:var(--text-2);margin:6px 0 0;min-height:18px}
+
+/* ── ตัวกรอง 8 ช่อง: 1 แถวบน Desktop (1920 / 1600 / 1366) ──
+   5 ช่องยืดหยุ่น + วันที่ 2 ช่องความกว้างคงที่ + ปุ่ม
+   ที่ 1366px: 1366 − sidebar 248 − padding 48 − กรอบ 24 ≈ 1046px
+               ปุ่ม ~96 + วันที่ 2×124 + gap 7×8 = 400 -> เหลือ 646/5 ≈ 129px ต่อช่อง */
+.rpt2-fbar{display:grid;align-items:center;
+  grid-template-columns:repeat(5,minmax(0,1fr)) 130px 130px max-content;gap:8px}
+.rpt2-fbar .sel,.rpt2-fbar .inp{width:100%;min-width:0}
+.rpt2-fbar .sel{text-overflow:ellipsis}
+.rpt2-fbar .sel:disabled,.rpt2-fbar .inp:disabled{
+  background:var(--surface-2);color:var(--text-3);cursor:not-allowed}
+.rpt2-fbar .btn{white-space:nowrap}
+@media (max-width:1500px){
+  .rpt2-fbar{grid-template-columns:repeat(5,minmax(0,1fr)) 122px 122px max-content;gap:7px}
+  .rpt2-fbar .sel,.rpt2-fbar .inp{padding-left:8px;padding-right:6px;font-size:var(--fs-xs)}
+}
+/* ต่ำกว่าช่วงที่กำหนด (< 1280px) จึงยอมให้ตัดเป็น 2 แถว — ไม่มี Horizontal Scroll */
+@media (max-width:1279px){
+  .rpt2-fbar{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .rpt2-fbar .btn{grid-column:1/-1}
+}
+@media (max-width:820px){
+  .rpt2-fbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rpt2-body{padding-left:16px}
+}
+
+
+/* ══ V.205 — REPORT: เมนูซ้าย + รายละเอียดรายงานด้านขวา ═══════════════════
+   *** ไม่ลบกฎเดิม *** ทับเฉพาะที่จำเป็นด้วย selector ที่เจาะจงกว่า */
+.rpt2-ws{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.rpt2-menu{min-width:0;position:sticky;top:12px}
+.rpt2-ws .rpt2-panel{min-width:0;margin-top:0}
+.rpt2-ws .rpt2-panel:empty{display:block;min-height:120px}
+.rpt2-ws .rpt2-panel:empty::before{content:'เลือกรายงานจากเมนูด้านซ้าย';
+  display:block;padding:28px 12px;text-align:center;color:var(--text-3);font-size:var(--fs-sm)}
+
+/* Filter Bar — 6 ช่อง + ปุ่ม (ถอด "ทุกประเภท" ออกแล้ว) · ปุ่มอยู่ขวาสุด */
+.rpt2-ws .rpt2-fbar{grid-template-columns:repeat(4,minmax(0,1fr)) 130px 130px max-content}
+@media (max-width:1500px){
+  .rpt2-ws .rpt2-fbar{grid-template-columns:repeat(4,minmax(0,1fr)) 122px 122px max-content}
+}
+@media (max-width:1279px){
+  .rpt2-ws{grid-template-columns:1fr}
+  .rpt2-menu{position:static}
+  .rpt2-ws .rpt2-fbar{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* พื้นที่ผลลัพธ์ */
+.rpt2-res{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.rpt2-res-h{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.rpt2-res-t{font-size:var(--fs-sm);font-weight:700;color:var(--text)}
+.rpt2-tbl{max-height:calc(100vh - 330px);overflow:auto}
+.rpt2-tbl .tbl th{position:sticky;top:0;z-index:1;white-space:nowrap;
+  padding:5px 8px;font-size:10.5px}
+.rpt2-tbl .tbl td{padding:4px 8px;white-space:nowrap}
