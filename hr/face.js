@@ -1118,9 +1118,22 @@
      ⚠ ไม่แก้ค่า Global 8s เพื่อไม่กระทบ Face Login / iOS / Desktop / Flow อื่น
      ⚠ ไม่ลดจำนวนเฟรม · Threshold · Liveness · Quality · Face Match ใด ๆ */
   var ANDROID_ATT_INFER_TIMEOUT_MS = 20000;
+  var ANDROID_ATT_LITE_INPUT_SIZE = 224;
+  var ANDROID_ATT_LITE_KEY = 'njhr_android_att_face_lite_v1';
   function attendanceInferTimeoutMs() {
     try { return deviceInfo().os === 'Android' ? ANDROID_ATT_INFER_TIMEOUT_MS : INFER_TIMEOUT_MS; }
     catch (e) { return INFER_TIMEOUT_MS; }
+  }
+  /* [ANDROID SLOW-PATH] ไม่จับชื่อรุ่นจาก UA เพราะ Chrome รุ่นใหม่ซ่อนรุ่นเครื่องเป็น Android ... K
+     เปิดโหมดเบาเฉพาะเครื่อง Android ที่เคยเกิด FACE_INFER_TIMEOUT จริงเท่านั้น
+     จึงไม่เปลี่ยน Flow ของ Android เครื่องปกติ / iOS / Desktop
+     localStorage เก็บเพียง flag ประสิทธิภาพของอุปกรณ์ ไม่มีใบหน้า/Descriptor/Token */
+  function androidAttLiteEnabled() {
+    try { return deviceInfo().os === 'Android' && localStorage.getItem(ANDROID_ATT_LITE_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+  function androidAttLiteEnable() {
+    try { if (deviceInfo().os === 'Android') localStorage.setItem(ANDROID_ATT_LITE_KEY, '1'); } catch (e) {}
   }
   /* [ANDROID ENROLLMENT] ลงทะเบียนใบหน้าต้องเก็บหลายเฟรมต่อเนื่องและบางเครื่อง Android
      (เช่น Samsung A56) ใช้เวลา inference สูงกว่า 8s เป็นบางเฟรม ทำให้เกิด false timeout
@@ -1654,19 +1667,20 @@
   }
 
   /* ---------- ตรวจใบหน้าหนึ่งเฟรม ---------- */
-  function detectOpt() {
+  function detectOpt(inputSize) {
     var f = w.faceapi;
-    return new f.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+    var sz = Number(inputSize) > 0 ? Number(inputSize) : 320;
+    return new f.TinyFaceDetectorOptions({ inputSize: sz, scoreThreshold: 0.45 });
   }
   /* CAPTURE — Detection + Landmarks + Descriptor (ของเดิม ไม่เปลี่ยนพฤติกรรม)
      ใช้โดย Face Login / Face Attendance / Blink Challenge / ทดสอบใบหน้า ตามเดิมทุกจุด */
-  function detect(timeoutMs) {
+  function detect(timeoutMs, inputSize) {
     var f = w.faceapi;
     perfCount('descriptor_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var t = perfNow();
     var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
-    var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
+    var task = f.detectAllFaces(S.video, detectOpt(inputSize)).withFaceLandmarks().withFaceDescriptors();
     return withTimeout(Promise.resolve(task), inferMs, 'FACE_INFER_TIMEOUT',
       'ประมวลผลใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
@@ -1679,14 +1693,14 @@
   /* GUIDANCE — Detection + Landmarks เท่านั้น ห้ามคำนวณ Descriptor
      ใช้เฉพาะลูปนำทางท่าทางของ \"ลงทะเบียนใบหน้า\" (enroll) เท่านั้น
      Descriptor เป็นขั้นที่แพงที่สุดของ face-api การไม่คำนวณทุกเฟรมทำให้ลูปนำทางลื่นขึ้นมาก */
-  function detectGuide(timeoutMs) {
+  function detectGuide(timeoutMs, inputSize) {
     var f = w.faceapi;
     perfCount('guide_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var tG = perfNow();
     var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
     return withTimeout(
-      Promise.resolve(f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks()),
+      Promise.resolve(f.detectAllFaces(S.video, detectOpt(inputSize)).withFaceLandmarks()),
       inferMs, 'FACE_INFER_TIMEOUT', 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
       if (myGen !== CAM.gen) throw AbortAttendanceError();
@@ -2023,15 +2037,16 @@
      ⚠ เกณฑ์และ Logic เดิมคงไว้ครบ: seenOpen ที่ ear > 0.26 · seenClose ที่ ear < 0.17 ·
         Timeout 9000 ms · ต้องพบใบหน้าเดียว · ข้อความ onTick เดิมทุกตัวอักษร
      ผลพลอยได้: Blink ไม่ต้องรอ Recognition Model อีกต่อไป */
-  function blinkChallenge(onTick, alive, inferTimeoutMs) {
+  function blinkChallenge(onTick, alive, inferTimeoutMs, inputSize, challengeMs) {
     var live = (typeof alive === 'function') ? alive : null;
     var seenOpen = false, seenClose = false, t0 = Date.now();
+    var limitMs = Number(challengeMs) > 0 ? Number(challengeMs) : 9000;
     return new Promise(function (res, rej) {
       (function loop() {
         if (!S.running) return rej(new Error('ยกเลิกแล้ว'));
         if (live && !live()) return rej(AbortAttendanceError());   // ก่อน detect
-        if (Date.now() - t0 > 9000) return res(false);
-        detectGuide(inferTimeoutMs).then(function (r) {
+        if (Date.now() - t0 > limitMs) return res(false);
+        detectGuide(inferTimeoutMs, inputSize).then(function (r) {
           if (live && !live()) return rej(AbortAttendanceError()); // detect ตอบหลังหมดอายุ
           if (r.length === 1) {
             var e = eyeOpen(r[0].landmarks);
@@ -2046,6 +2061,67 @@
           S.raf = requestAnimationFrame(loop);
         }).catch(rej);
       })();
+    });
+  }
+
+  /* ---------- Android Attendance Lite หลังเกิด Timeout จริง ----------
+     เป้าหมาย: ตัดงาน Recognition ที่แพงจาก 6–14 Descriptor เหลือ 1 Descriptor สด
+     ความปลอดภัยยัง Fail Closed: ต้องพบ 1 ใบหน้า + คุณภาพภาพ + Active Blink Liveness
+     แล้วจึงสร้าง Descriptor สด 1 ครั้งและส่งให้ RPC เดิมเทียบ Threshold เดิมบน Server
+     TinyFaceDetector ใช้ inputSize 224 เฉพาะ Slow-path นี้ เพราะใบหน้าถูกบังคับให้อยู่เต็มกรอบ
+     Flow ปกติทุกอุปกรณ์ยังใช้ inputSize 320 และ Passive Liveness เดิม */
+  function androidAttendanceLiteScan(onTick, alive, inferTimeoutMs) {
+    var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
+    var ms = Number(inferTimeoutMs) > 0 ? Number(inferTimeoutMs) : ANDROID_ATT_INFER_TIMEOUT_MS;
+    var input = ANDROID_ATT_LITE_INPUT_SIZE;
+    if (!live()) return Promise.reject(AbortAttendanceError());
+    if (onTick) onTick('กำลังเตรียมโหมดสำรองสำหรับเครื่องนี้');
+
+    /* 1) Guide-only 1 เฟรม: ยังไม่โหลด/คำนวณ Recognition */
+    return guideLoad().then(function () {
+      if (!live()) throw AbortAttendanceError();
+      return detectGuide(ms, input);
+    }).then(function (r) {
+      if (!live()) throw AbortAttendanceError();
+      if (!r || r.length !== 1) {
+        if (r && r.length > 1) throw new Error('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
+        throw new Error('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
+      }
+      var q = frameQuality(r[0].detection.box);
+      if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      if (q.brightness < 45) throw new Error('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น');
+      if (q.brightness > 232) throw new Error('แสงจ้าเกินไป กรุณาเลี่ยงแสงย้อน');
+      if (q.sharpness < 8) throw new Error('ภาพไม่ชัด กรุณาถือนิ่งและลองใหม่');
+
+      /* 2) Active Liveness ด้วย Landmark เท่านั้น — ไม่แตะ Recognition Model */
+      if (onTick) onTick('เครื่องนี้ใช้โหมดสำรอง — กรุณากระพริบตา 1 ครั้ง');
+      return blinkChallenge(function (t) { if (onTick) onTick(t); }, live, ms, input, 15000);
+    }).then(function (ok) {
+      if (!live()) throw AbortAttendanceError();
+      if (!ok) throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณากระพริบตาแล้วลองใหม่');
+
+      /* 3) Liveness ผ่านแล้วค่อยโหลด Recognition 6.44 MB — ไม่แข่งกับ Guide Detection */
+      if (onTick) onTick('กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…');
+      return recogLoad();
+    }).then(function () {
+      if (!live()) throw AbortAttendanceError();
+      /* สร้าง Descriptor สดเพียงครั้งเดียวสำหรับ Server Face Match */
+      return detect(ms, input);
+    }).then(function (r) {
+      if (!live()) throw AbortAttendanceError();
+      if (!r || r.length !== 1) {
+        if (r && r.length > 1) throw new Error('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
+        throw new Error('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
+      }
+      var f0 = r[0], q = frameQuality(f0.detection.box);
+      if (!f0.descriptor) throw new Error('สร้างข้อมูลใบหน้าไม่สำเร็จ กรุณาลองใหม่');
+      if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      return {
+        frames: [{ box: f0.detection.box, desc: Array.from(f0.descriptor), q: q,
+                   ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) }],
+        live: { pass: true, score: 1, method: 'BLINK' },
+        lite: true
+      };
     });
   }
 
@@ -2900,8 +2976,11 @@
     /* [PERF] โมเดลโหลดขนานกับ GPS ได้เสมอ — ไม่ถูก Gate
        รอเฉพาะ GUIDE (550 KB) ก่อนเริ่มตรวจหน้า
        RECOGNITION (6.44 MB) โหลด Background แล้วไปรอเอาตอนสร้าง Descriptor ใน grabFrames() */
+    var attLite = androidAttLiteEnabled();
     var modelP = guideLoad();
-    recogPrefetch();
+    /* Slow-path ที่ถูกจดจำจาก Timeout ก่อนหน้า: ห้าม compile Recognition 6.44 MB แข่งกับ Guide
+       เครื่องปกติยัง prefetch เหมือนเดิมทุกประการ */
+    if (!attLite) recogPrefetch();
 
     /* [GPS GATE] กล้องเปิด "หลัง" GPS พร้อมเท่านั้น
        เมื่อ Warmup ทำงานสำเร็จ gpsGate จะ resolve ทันที (0 ms) กล้องจึงเปิดต่อเนื่อง
@@ -2964,13 +3043,27 @@
         S.running = true;
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
-        hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
+        hint('มองกล้องให้อยู่ในกรอบ', attLite ? 'หากระบบแจ้ง กรุณากระพริบตา 1 ครั้ง' : 'กรุณาอย่าขยับใบหน้า');
+
+        /* เครื่อง Android ที่เคย Timeout จริง → ใช้ Low-load Active Liveness + Descriptor 1 ครั้ง
+           เครื่องอื่นทุกเครื่องเดิน Flow เดิมด้านล่าง */
+        if (attLite) {
+          perfSet('android_att_lite', 1);
+          return androidAttendanceLiteScan(function (warn) {
+            if (!mine()) return;
+            if (warn) setMsg(warn, false);
+          }, mine, attInferMs);
+        }
+
         return grabFrames(6, function (warn) {
           if (!mine()) return;                  // [ข้อ 2] ห้าม Attempt เก่าเขียน UI
           if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…');
         }, mine, attInferMs);
       })
-      .then(function (frames) {
+      .then(function (framesOrCtx) {
+        /* Slow-path คืน Context ที่ผ่าน Active Blink แล้ว ไม่ต้องรัน Passive Liveness ซ้ำ */
+        if (framesOrCtx && framesOrCtx.lite === true) return framesOrCtx;
+        var frames = framesOrCtx;
         /* ---------- ตรวจบุคคลจริงแบบไม่ต้องทำท่าทาง ----------
            ⚠ การลงเวลาปกติต้องไม่บังคับกระพริบตา / หันซ้าย / หันขวา
              พนักงานแค่มองกล้อง ระบบตรวจเอง
@@ -3091,6 +3184,11 @@
            ไม่ Upload หลักฐาน ไม่แตะ State ใด ๆ */
         if (isAborted(e) || !mine()) return;
         var msg = (e && e.message) || 'สแกนไม่สำเร็จ';
+        var androidTimedOut = !!(e && e.faceCode === 'FACE_INFER_TIMEOUT' && deviceInfo().os === 'Android');
+        if (androidTimedOut) {
+          /* จำเฉพาะเครื่องที่ Timeout จริง: กด Retry รอบถัดไปจะไม่เดินเส้นหนักเดิมอีก */
+          androidAttLiteEnable();
+        }
         /* [FIX 2] มาถึงที่นี่ขณะ PERF.t ยังไม่เป็น null เสมอ เพราะ .then แรกไม่ปิด Flow แล้ว
            บันทึก outcome จากผลจริงก่อน แล้วจึงปิด Flow ครั้งเดียว (perfEnd มี guard กันซ้ำ)
            error_code = รหัสจริง ไม่เก็บข้อความที่ผู้ใช้เห็น (อาจมีชื่อพื้นที่/ระยะทาง) */
@@ -3134,7 +3232,7 @@
         var acts = [{ label: 'ยกเลิก', style: 'plain', on: close }];
         var maxTry = Number(w.NJHR_FACE_MAX_ATTEMPTS || 3);
         if (S.attempts < maxTry) {
-          acts.unshift({ label: 'ลองใหม่ (' + S.attempts + '/' + maxTry + ')', style: 'primary',
+          acts.unshift({ label: (androidTimedOut ? 'ลองใหม่ · โหมดสำรอง (' : 'ลองใหม่ (') + S.attempts + '/' + maxTry + ')', style: 'primary',
             on: function () {
               close();                        // close() เรียก opInvalidate() + gpsStop() ให้แล้ว
               setTimeout(function () { punch(kind, onDone); }, 60);
