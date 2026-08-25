@@ -1118,7 +1118,7 @@
      ⚠ ไม่แก้ค่า Global 8s เพื่อไม่กระทบ Face Login / iOS / Desktop / Flow อื่น
      ⚠ ไม่ลดจำนวนเฟรม · Threshold · Liveness · Quality · Face Match ใด ๆ */
   var ANDROID_ATT_INFER_TIMEOUT_MS = 20000;
-  var ANDROID_ATT_LITE_INPUT_SIZE = 224;
+  var ANDROID_ATT_LITE_INPUT_SIZE = 160;
   var ANDROID_ATT_LITE_KEY = 'njhr_android_att_face_lite_v1';
   function attendanceInferTimeoutMs() {
     try { return deviceInfo().os === 'Android' ? ANDROID_ATT_INFER_TIMEOUT_MS : INFER_TIMEOUT_MS; }
@@ -1134,6 +1134,37 @@
   }
   function androidAttLiteEnable() {
     try { if (deviceInfo().os === 'Android') localStorage.setItem(ANDROID_ATT_LITE_KEY, '1'); } catch (e) {}
+  }
+  /* [ANDROID COMPAT BACKEND]
+     เมื่อเครื่องเคย FACE_INFER_TIMEOUT แล้ว Slow-path จะย้าย TensorFlow จาก WebGL -> CPU
+     ก่อนรัน Detector ใหม่ เพื่อหลีกเลี่ยง GPU/WebGL driver stall ที่การลดเฟรม/เพิ่มเวลาแก้ไม่ได้
+     ทำเฉพาะ Android ที่มี slow-path flag เท่านั้น; เครื่องปกติ/iOS/Desktop ไม่แตะ backend
+     หลังสลับ backend ต้อง dispose + reload nets เพื่อไม่ใช้ weight tensor ที่สร้างบน backend เดิม */
+  function androidAttCpuPrepare(onTick) {
+    if (!androidAttLiteEnabled()) return Promise.resolve(false);
+    return libLoad().then(function () {
+      var f = w.faceapi, tf = f && f.tf;
+      if (!tf || typeof tf.setBackend !== 'function') return false;
+      var cur = '';
+      try { cur = typeof tf.getBackend === 'function' ? String(tf.getBackend() || '') : ''; } catch (e) {}
+      if (cur === 'cpu') return true;
+      if (onTick) onTick('กำลังเปิดโหมดเข้ากันได้สำหรับเครื่องนี้…');
+
+      /* โมเดลอาจถูกโหลดบน WebGL จาก Attempt แรกแล้ว — dispose ก่อนเปลี่ยน backend */
+      try { if (f.nets.tinyFaceDetector && typeof f.nets.tinyFaceDetector.dispose === 'function') f.nets.tinyFaceDetector.dispose(); } catch (e1) {}
+      try { if (f.nets.faceLandmark68Net && typeof f.nets.faceLandmark68Net.dispose === 'function') f.nets.faceLandmark68Net.dispose(); } catch (e2) {}
+      try { if (f.nets.faceRecognitionNet && typeof f.nets.faceRecognitionNet.dispose === 'function') f.nets.faceRecognitionNet.dispose(); } catch (e3) {}
+      S.guideReady = false; S.recogReady = false; S.ready = false;
+      S.guideLoading = null; S.recogLoading = null;
+
+      return Promise.resolve(tf.setBackend('cpu')).then(function (ok) {
+        if (ok === false) throw faceErr('FACE_CPU_BACKEND_FAILED', 'เปิดโหมดเข้ากันได้ของระบบตรวจใบหน้าไม่สำเร็จ');
+        return (typeof tf.ready === 'function') ? tf.ready() : null;
+      }).then(function () {
+        perfSet('android_att_cpu_backend', 1);
+        return true;
+      });
+    });
   }
   /* [ANDROID ENROLLMENT] ลงทะเบียนใบหน้าต้องเก็บหลายเฟรมต่อเนื่องและบางเครื่อง Android
      (เช่น Samsung A56) ใช้เวลา inference สูงกว่า 8s เป็นบางเฟรม ทำให้เกิด false timeout
@@ -2077,8 +2108,12 @@
     if (!live()) return Promise.reject(AbortAttendanceError());
     if (onTick) onTick('กำลังเตรียมโหมดสำรองสำหรับเครื่องนี้');
 
-    /* 1) Guide-only 1 เฟรม: ยังไม่โหลด/คำนวณ Recognition */
-    return guideLoad().then(function () {
+    /* Samsung/Android ที่เคย Timeout: เปลี่ยน backend ก่อน แล้วโหลด Guide nets ใหม่บน CPU
+       จุดนี้คือความต่างหลักจากรุ่นก่อนที่ยังรัน detectGuide บน WebGL เดิม */
+    return androidAttCpuPrepare(onTick).then(function () {
+      if (!live()) throw AbortAttendanceError();
+      return guideLoad();
+    }).then(function () {
       if (!live()) throw AbortAttendanceError();
       return detectGuide(ms, input);
     }).then(function (r) {
@@ -2094,7 +2129,7 @@
       if (q.sharpness < 8) throw new Error('ภาพไม่ชัด กรุณาถือนิ่งและลองใหม่');
 
       /* 2) Active Liveness ด้วย Landmark เท่านั้น — ไม่แตะ Recognition Model */
-      if (onTick) onTick('เครื่องนี้ใช้โหมดสำรอง — กรุณากระพริบตา 1 ครั้ง');
+      if (onTick) onTick('โหมดสำรองเข้ากันได้ — กรุณากระพริบตา 1 ครั้ง');
       return blinkChallenge(function (t) { if (onTick) onTick(t); }, live, ms, input, 15000);
     }).then(function (ok) {
       if (!live()) throw AbortAttendanceError();
