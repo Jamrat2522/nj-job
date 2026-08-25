@@ -1112,6 +1112,16 @@
   var LIB_TIMEOUT_MS   = 12000;   // โหลด face-api.js ต่อ 1 แหล่ง
   var MODEL_TIMEOUT_MS = 15000;   // loadFromUri ต่อ 1 แหล่ง
   var INFER_TIMEOUT_MS = 8000;    // ใช้งานปกติ: 1 เฟรมของ detect()/detectGuide()
+  /* [ANDROID ATTENDANCE] Samsung A55/A56/A32 และ Android บางเครื่องใช้เวลา
+     Detector/Descriptor ต่อเฟรมเกิน 8s ได้ แม้กล้องและใบหน้าปกติ
+     ขยายเฉพาะ Flow ลงเวลาเป็น 20s ผ่าน parameter ของ grabFrames เท่านั้น
+     ⚠ ไม่แก้ค่า Global 8s เพื่อไม่กระทบ Face Login / iOS / Desktop / Flow อื่น
+     ⚠ ไม่ลดจำนวนเฟรม · Threshold · Liveness · Quality · Face Match ใด ๆ */
+  var ANDROID_ATT_INFER_TIMEOUT_MS = 20000;
+  function attendanceInferTimeoutMs() {
+    try { return deviceInfo().os === 'Android' ? ANDROID_ATT_INFER_TIMEOUT_MS : INFER_TIMEOUT_MS; }
+    catch (e) { return INFER_TIMEOUT_MS; }
+  }
   /* [ANDROID ENROLLMENT] ลงทะเบียนใบหน้าต้องเก็บหลายเฟรมต่อเนื่องและบางเครื่อง Android
      (เช่น Samsung A56) ใช้เวลา inference สูงกว่า 8s เป็นบางเฟรม ทำให้เกิด false timeout
      ทั้งที่กล้อง/ใบหน้ายังปกติ จึงขยายเฉพาะ Enrollment เป็น 12s
@@ -1828,7 +1838,7 @@
      ก่อน RAF · ก่อน resolve · ก่อน reject
      Attempt เก่าที่ detect ตอบทีหลัง จะ reject เงียบด้วย Cancellation Sentinel
      และจะไม่ schedule RAF · ไม่ inference รอบต่อไป · ไม่แตะ UI */
-  function grabFrames(count, onTick, alive) {
+  function grabFrames(count, onTick, alive, inferTimeoutMs) {
     var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     var out = [];
     /* [PERF] grabFrames สร้าง Descriptor ทุกเฟรม (passiveLiveness ใช้ค่า dd จริง)
@@ -1840,7 +1850,7 @@
       if (!S.running || !live()) throw AbortAttendanceError();
       if (onTick) onTick(null, 0);
       var tF = perfNow();
-      return grabFramesLoop(count, onTick, live, out).then(function (r) {
+      return grabFramesLoop(count, onTick, live, out, null, inferTimeoutMs).then(function (r) {
         perfMark('grab_frames_ms', tF);
         return r;
       });
@@ -1871,9 +1881,10 @@
      ⚠ ไม่ได้ลดจำนวนหลักฐาน — ยังต้องได้ Descriptor จริงครบ 6 เฟรมเหมือนเดิม */
   var GRAB_BAD_RESET = 3;
 
-  function grabFramesLoop(count, onTick, live, out, stopWhen) {
+  function grabFramesLoop(count, onTick, live, out, stopWhen, inferTimeoutMs) {
     return new Promise(function (res, rej) {
       var tries = 0, stable = 0, badRun = 0;
+      var frameInferMs = Number(inferTimeoutMs) > 0 ? Number(inferTimeoutMs) : null;
       var notReady = 0;                       // จำนวนรอบที่วิดีโอยังไม่พร้อม (ไม่นับเป็น tries)
       var tLoop = perfNow();
       var firstDetect = 0;
@@ -1923,7 +1934,7 @@
 
         /* Stage A ก่อนเสมอ · Stage B เฉพาะเมื่อนิ่งครบแล้ว */
         var capturing = stable >= GRAB_STABLE_MIN;
-        (capturing ? detect() : detectGuide()).then(function (res2) {
+        (capturing ? detect(frameInferMs) : detectGuide(frameInferMs)).then(function (res2) {
           if (!live()) return rej(AbortAttendanceError());   // detect ตอบหลังหมดอายุ = หยุดทันที
           tries++;
           if (!firstDetect) { firstDetect = 1; perfMark('face_detect_first_ms', tLoop); }
@@ -1993,11 +2004,11 @@
        · เพดานรวมยังเป็น maxTotal (14) เท่าเดิม → กรณีแย่สุดเท่าเดิมเป๊ะ
        · หยุดทันทีที่ passiveLiveness() ตัวเดิมบอกว่าผ่าน → ไม่จ่าย Descriptor ที่ไม่ได้ใช้
      ⚠ ไม่แตะ passiveLiveness · ไม่แตะเกณฑ์ · ไม่แตะ Threshold · ไม่แตะ PASS/FAIL criteria */
-  function grabFramesMore(seed, maxTotal, onTick, alive, stopWhen) {
+  function grabFramesMore(seed, maxTotal, onTick, alive, stopWhen, inferTimeoutMs) {
     var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     return recogLoad().then(function () {
       if (!S.running || !live()) throw AbortAttendanceError();
-      return grabFramesLoop(maxTotal, onTick, live, seed, stopWhen);
+      return grabFramesLoop(maxTotal, onTick, live, seed, stopWhen, inferTimeoutMs);
     });
   }
 
@@ -2942,6 +2953,11 @@
       });
     });
 
+    /* [ANDROID ATTENDANCE TIMEOUT] เลือกเพดานเฉพาะ Attempt ลงเวลานี้
+       Android = 20s ต่อ inference; iOS/Desktop = 8s เดิม
+       ไม่เปลี่ยน Face Login/Enrollment เพราะส่งค่าเฉพาะจาก doPunch() เท่านั้น */
+    var attInferMs = attendanceInferTimeoutMs();
+
     (handScanP || Promise.all([camP, modelP])
       .then(function () {
         perfMark('guide_visible_ms');          // กดปุ่ม → เห็นกล้อง+กรอบนำทาง
@@ -2952,7 +2968,7 @@
         return grabFrames(6, function (warn) {
           if (!mine()) return;                  // [ข้อ 2] ห้าม Attempt เก่าเขียน UI
           if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…');
-        }, mine);
+        }, mine, attInferMs);
       })
       .then(function (frames) {
         /* ---------- ตรวจบุคคลจริงแบบไม่ต้องทำท่าทาง ----------
@@ -2976,7 +2992,7 @@
           var r = passiveLiveness(all);
           if (r.pass) { lvMore = r; return true; }
           return false;
-        }).then(function (all) {
+        }, attInferMs).then(function (all) {
           if (!mine()) throw AbortAttendanceError();  // [ข้อ 2] ยกเลิกระหว่างเก็บเพิ่ม
           perfMark('borderline_extra_ms', tBorder);
           perfSet('borderline_extra_descriptor_count', Math.max(0, all.length - extra0));
