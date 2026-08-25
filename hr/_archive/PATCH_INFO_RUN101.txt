@@ -1,0 +1,24 @@
+NJHR Shift ↔ Geofence + iOS GPS UI Patch
+
+Build: njhr-v2-fce54dae
+
+Source fixes:
+- compat/approvals-reports.js
+  * Shift screen loads mapped Geofence from production RPCs
+  * Shift card shows real geofence name/radius from njhr_geofences
+  * Add/Edit Shift requires selecting an existing active Geofence
+  * Shift menu can change the mapped Geofence without creating a duplicate place
+  * Copy Shift also copies its mapped Geofence
+- views/attendance/main.js
+  * GPS fail state is latched to prevent iOS watchPosition fixes from flashing bad -> checking -> bad
+  * terminal configuration failures stay visible until explicit retry
+  * non-terminal failures recheck in background while keeping the red state stable
+  * GPS/Geofence security checks are unchanged
+
+Database migration:
+- _archive/RUN-101_shift_geofence_runtime_ios.sql
+- Runtime Geofence permission = manual membership + mapped area from CURRENT effective shift
+- AUTO/BACKFILL rows are UI mirrors only, so stale rows do not grant access after shift changes
+- Geofence admin list includes current shift-derived members
+- No geofence named NJLOGISTIC is created
+- N.J.LOGISTIC & FRUITS CO.,LTD. radius remains sourced from DB (40 m in production)

@@ -1,0 +1,13 @@
+RUN-102 — REMOVE UPDATE_REQUIRED / FORCED BUILD BLOCK
+Build: njhr-v2-1231bb7c
+
+Changed:
+- Production build gate disabled (login + session).
+- required_client_build cleared.
+- Client runtime no longer parses UPDATE_REQUIRED.
+- Client runtime no longer logs out, clears local session, stops face/GPS, displays update overlay, updates SW, or redirects because of a build mismatch.
+- NJHR_forceUpdate remains only as a compatibility no-op to avoid breaking old external callers.
+
+Not changed:
+- Authentication / account status / password / face matching / liveness / attendance / GPS / geofence rules.
+- Shipping Air version enforcement (separate system) untouched.
