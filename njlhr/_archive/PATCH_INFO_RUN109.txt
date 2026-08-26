@@ -1,0 +1,52 @@
+RUN-109 — HOME "สถานะวันนี้": BOTTOM LINE MUST SHOW THE RECORDED CHECK-IN TIME
+Build: njhr-v2-1f78abb1
+Base:  njhr-v2-c5fba221 (RUN-108)
+
+Scope (ONLY): views/dashboard.js, mobile home "สถานะวันนี้" card, plus build metadata.
+
+Root cause (verified against production, not assumed):
+- Field: public.attendance.check_in / check_out, type timestamp with time zone.
+- Raw value for emp 0155 on 2026-08-26:
+    check_in  = "2026-08-26T00:59:06.790788+00:00"  = 07:59 Asia/Bangkok
+    check_out = null
+- BEFORE, the two lines came from two different sources:
+    top    "เข้างานแล้ว HH:MM" -> Date.now() - new Date(check_in)   (correct since RUN-106)
+    bottom "<date> · HH:MM"    -> fmtDate(todayISO()) + #mh-clock, where #mh-clock was
+                                  written by dashHomeClock()'s tick from `new Date()`.
+  So the bottom line was the device clock, never the recorded punch time. That is why
+  the screen showed "เข้างานแล้ว 03:39" next to "26 ส.ค. 2569 · 11:38".
+
+Fix — one raw timestamp is the single source of truth for both lines:
+- dashHomeBkkDate(ts): converts the raw timestamp to a Bangkok Y-M-D via
+  Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }) and then feeds the
+  EXISTING fmtDate() utility. No second date formatter was created; the same
+  en-CA/Asia/Bangkok pattern already used by dashHomeMonth() is reused.
+- dashHome.today now carries dateTxt + timeTxt derived from the same check_in
+  (and check_out) values used for the duration.
+- dashHomeTodayPaint() owns BOTH lines and writes the bottom line only from the
+  recorded timestamps.
+- dashHomeClock()'s tick writes the live clock ONLY when there is no recorded time
+  to display, so the timer can no longer overwrite the check-in time.
+
+Resulting states:
+- checked in, not out : top "เข้างานแล้ว HH:MM" (ticks) · bottom "<date> · 07:59" (fixed)
+- checked out         : top "รวมเวลาทำงาน HH:MM" = check_out - check_in (static)
+                        bottom "<date> · 07:59 – 17:30" (static, timer does not move it)
+- not punched         : unchanged — "ยังไม่ได้ลงเวลา" + today's date + live clock
+- unparseable check_in: no duration is shown; the time is rendered statically instead
+
+Guarantees:
+- Date.now() occurs exactly once in the whole file, inside the elapsed calculation only.
+- No hardcoded +7, no setHours(+7), no Math.abs(), no parsing of Thai display strings.
+- setInterval count unchanged (1). setTimeout count unchanged (6). todayISO() count
+  unchanged (4).
+
+Not changed:
+- Attendance business logic, face scan, GPS, geofence, shifts, RPCs, SQL, schema,
+  production data, and every other view.
+
+Database: no migration, no DDL, no data mutation. Read-only verification only.
+
+Testing: Chrome 131 headless, driving the shipped functions extracted from
+views/dashboard.js, with the device timezone emulated as Asia/Bangkok, UTC,
+America/Los_Angeles and Australia/Sydney. Real iPhone/Android not tested here.
