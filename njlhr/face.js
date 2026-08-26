@@ -1112,6 +1112,60 @@
   var LIB_TIMEOUT_MS   = 12000;   // โหลด face-api.js ต่อ 1 แหล่ง
   var MODEL_TIMEOUT_MS = 15000;   // loadFromUri ต่อ 1 แหล่ง
   var INFER_TIMEOUT_MS = 8000;    // ใช้งานปกติ: 1 เฟรมของ detect()/detectGuide()
+  /* [ANDROID ATTENDANCE] Samsung A55/A56/A32 และ Android บางเครื่องใช้เวลา
+     Detector/Descriptor ต่อเฟรมเกิน 8s ได้ แม้กล้องและใบหน้าปกติ
+     ขยายเฉพาะ Flow ลงเวลาเป็น 20s ผ่าน parameter ของ grabFrames เท่านั้น
+     ⚠ ไม่แก้ค่า Global 8s เพื่อไม่กระทบ Face Login / iOS / Desktop / Flow อื่น
+     ⚠ ไม่ลดจำนวนเฟรม · Threshold · Liveness · Quality · Face Match ใด ๆ */
+  var ANDROID_ATT_INFER_TIMEOUT_MS = 20000;
+  var ANDROID_ATT_LITE_INPUT_SIZE = 160;
+  var ANDROID_ATT_LITE_KEY = 'njhr_android_att_face_lite_v1';
+  function attendanceInferTimeoutMs() {
+    try { return deviceInfo().os === 'Android' ? ANDROID_ATT_INFER_TIMEOUT_MS : INFER_TIMEOUT_MS; }
+    catch (e) { return INFER_TIMEOUT_MS; }
+  }
+  /* [ANDROID SLOW-PATH] ไม่จับชื่อรุ่นจาก UA เพราะ Chrome รุ่นใหม่ซ่อนรุ่นเครื่องเป็น Android ... K
+     เปิดโหมดเบาเฉพาะเครื่อง Android ที่เคยเกิด FACE_INFER_TIMEOUT จริงเท่านั้น
+     จึงไม่เปลี่ยน Flow ของ Android เครื่องปกติ / iOS / Desktop
+     localStorage เก็บเพียง flag ประสิทธิภาพของอุปกรณ์ ไม่มีใบหน้า/Descriptor/Token */
+  function androidAttLiteEnabled() {
+    try { return deviceInfo().os === 'Android' && localStorage.getItem(ANDROID_ATT_LITE_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+  function androidAttLiteEnable() {
+    try { if (deviceInfo().os === 'Android') localStorage.setItem(ANDROID_ATT_LITE_KEY, '1'); } catch (e) {}
+  }
+  /* [ANDROID COMPAT BACKEND]
+     เมื่อเครื่องเคย FACE_INFER_TIMEOUT แล้ว Slow-path จะย้าย TensorFlow จาก WebGL -> CPU
+     ก่อนรัน Detector ใหม่ เพื่อหลีกเลี่ยง GPU/WebGL driver stall ที่การลดเฟรม/เพิ่มเวลาแก้ไม่ได้
+     ทำเฉพาะ Android ที่มี slow-path flag เท่านั้น; เครื่องปกติ/iOS/Desktop ไม่แตะ backend
+     หลังสลับ backend ต้อง dispose + reload nets เพื่อไม่ใช้ weight tensor ที่สร้างบน backend เดิม */
+  function androidAttCpuPrepare(onTick) {
+    if (!androidAttLiteEnabled()) return Promise.resolve(false);
+    return libLoad().then(function () {
+      var f = w.faceapi, tf = f && f.tf;
+      if (!tf || typeof tf.setBackend !== 'function') return false;
+      var cur = '';
+      try { cur = typeof tf.getBackend === 'function' ? String(tf.getBackend() || '') : ''; } catch (e) {}
+      if (cur === 'cpu') return true;
+      if (onTick) onTick('กำลังเปิดโหมดเข้ากันได้สำหรับเครื่องนี้…');
+
+      /* โมเดลอาจถูกโหลดบน WebGL จาก Attempt แรกแล้ว — dispose ก่อนเปลี่ยน backend */
+      try { if (f.nets.tinyFaceDetector && typeof f.nets.tinyFaceDetector.dispose === 'function') f.nets.tinyFaceDetector.dispose(); } catch (e1) {}
+      try { if (f.nets.faceLandmark68Net && typeof f.nets.faceLandmark68Net.dispose === 'function') f.nets.faceLandmark68Net.dispose(); } catch (e2) {}
+      try { if (f.nets.faceRecognitionNet && typeof f.nets.faceRecognitionNet.dispose === 'function') f.nets.faceRecognitionNet.dispose(); } catch (e3) {}
+      S.guideReady = false; S.recogReady = false; S.ready = false;
+      S.guideLoading = null; S.recogLoading = null;
+
+      return Promise.resolve(tf.setBackend('cpu')).then(function (ok) {
+        if (ok === false) throw faceErr('FACE_CPU_BACKEND_FAILED', 'เปิดโหมดเข้ากันได้ของระบบตรวจใบหน้าไม่สำเร็จ');
+        return (typeof tf.ready === 'function') ? tf.ready() : null;
+      }).then(function () {
+        perfSet('android_att_cpu_backend', 1);
+        return true;
+      });
+    });
+  }
   /* [ANDROID ENROLLMENT] ลงทะเบียนใบหน้าต้องเก็บหลายเฟรมต่อเนื่องและบางเครื่อง Android
      (เช่น Samsung A56) ใช้เวลา inference สูงกว่า 8s เป็นบางเฟรม ทำให้เกิด false timeout
      ทั้งที่กล้อง/ใบหน้ายังปกติ จึงขยายเฉพาะ Enrollment เป็น 12s
@@ -1256,7 +1310,7 @@
   /* [ข้อ 2] Camera Generation — กัน getUserMedia ที่ Resolve หลัง Cancel/Logout/Route Change
      เอา Stream กลับมาใส่ S.stream (Camera resurrection)
      ทุกจุดที่ปิดกล้องจะ ++CAM.gen ทำให้คำขอที่ค้างอยู่หมดสิทธิ์ทันที */
-  var CAM = { gen: 0 };
+  var CAM = { gen: 0, resuming: false };
   function camInvalidate() { CAM.gen++; }
 
   /* Sentinel สำหรับ Flow ที่ถูกยกเลิก — .catch() ต้องเงียบ ไม่ขึ้น Error UI */
@@ -1575,7 +1629,14 @@
   }
 
   function openCam() {
-    if (S.stream) return Promise.resolve(S.stream);   // กันเปิดซ้ำ
+    /* [ข้อ 6] Single Stream Guard — คงไว้ แต่ต้องพิสูจน์ว่า Stream เดิม "ยังใช้ได้จริง"
+       Track live = คืน Stream เดิม ห้ามเรียก getUserMedia() ใหม่
+       Track ended = Stream ตายจริง จึงล้าง State เดิมอย่างปลอดภัยก่อนเปิดใหม่ */
+    if (S.stream) {
+      if (camStreamLive()) return Promise.resolve(S.stream);
+      camLifeLog('STREAM_ENDED_REOPEN');
+      closeCam('STREAM_ENDED_REOPEN');
+    }
     var env = camEnv();
     var pre = camPrecheck(env);
     if (pre) {
@@ -1606,6 +1667,7 @@
         /* [E2E] นับ "กล้องพร้อมใช้จริง" หลัง loadedmetadata + videoWidth>0 + play() สำเร็จ
            ไม่ใช่ตอนได้ MediaStream — บนมือถือสองจังหวะนี้ห่างกันได้หลายร้อย ms */
         perfPressMark('button_to_camera_ms');
+        camStreamDiag();
         return st;
       });
     })['catch'](function (e) {
@@ -1617,7 +1679,97 @@
     });
   }
 
-  function closeCam() {
+  /* ---------- [CAMERA STREAM DIAGNOSTIC] ----------
+     วัตถุประสงค์: พิสูจน์จาก Log จริงว่ากล้องถูกปิด/เปิดใหม่ "เพราะอะไร"
+     แทนการเดาว่าเป็น visibilitychange หรือ resize
+     ⚠ ไม่เก็บภาพ · ไม่เก็บ Descriptor · ไม่เก็บค่า deviceId (เก็บแค่ว่าอ่านได้ไหม)
+     ⚠ ไม่เปลี่ยนพฤติกรรมใด ๆ — บันทึกอย่างเดียว */
+  var CAM_CLOSE_REASONS = ['USER_CANCEL_CLOSE', 'ROUTE_CHANGE_CLOSE', 'PAGEHIDE_REAL_CLOSE',
+                           'VISIBILITY_HIDDEN', 'CAMERA_ERROR', 'FLOW_COMPLETE_CLOSE',
+                           'CANCEL', 'HANDOFF', 'STREAM_ENDED_REOPEN', 'UNSPECIFIED'];
+  function camCloseReason(reason) {
+    var r = String(reason || 'UNSPECIFIED');
+    return CAM_CLOSE_REASONS.indexOf(r) >= 0 ? r : 'UNSPECIFIED';
+  }
+
+  /* ---------- [CAMERA LIFECYCLE LOG] ----------
+     บันทึกว่า Lifecycle Event แต่ละครั้ง "ระบบตัดสินใจทำอะไร" เพื่อพิสูจน์จาก Log จริง
+     ว่ากล้องถูกเก็บไว้หรือถูกปิด และถูกเปิดใหม่เพราะอะไร
+     ⚠ ไม่เก็บภาพ · ไม่เก็บ Descriptor · บันทึกเฉพาะชื่อเหตุการณ์กับจำนวนครั้ง */
+  var CAM_LIFE_EVENTS = ['VISIBILITY_HIDDEN_KEEP_STREAM', 'VISIBILITY_VISIBLE_REUSE_STREAM',
+                         'VISIBILITY_VISIBLE_PLAY_RESUME', 'STREAM_ENDED_REOPEN',
+                         'PAGEHIDE_BFCACHE_KEEP', 'PAGEHIDE_REAL_CLOSE', 'ROUTE_CHANGE_CLOSE',
+                         'USER_CANCEL_CLOSE', 'FLOW_COMPLETE_CLOSE'];
+  function camLifeLog(evt) {
+    var e = String(evt || '');
+    if (CAM_LIFE_EVENTS.indexOf(e) < 0) return;
+    try {
+      perfSet('camera_life_last', e);
+      perfBootCount('camera_life_' + e.toLowerCase());
+    } catch (err) {}
+  }
+
+  /* Stream ปัจจุบันยังใช้ได้จริงไหม — ใช้ Track จริงเป็นหลักฐาน ไม่เดา */
+  function camStreamLive() {
+    try {
+      if (!S.stream) return false;
+      var ts = S.stream.getVideoTracks ? S.stream.getVideoTracks() : null;
+      if (!ts || !ts.length) return false;
+      return ts[0] && ts[0].readyState === 'live';
+    } catch (e) { return false; }
+  }
+
+  /* Face Flow ยังทำงานอยู่จริงไหม — Overlay ยังอยู่ + มี Stream ที่ Track ยัง live
+     ใช้เป็น Gate ว่า visibilitychange/pagehide ครั้งนี้เป็น "ชั่วคราว" หรือ "ออกจริง" */
+  function camFlowActive() {
+    return !!(S.root && S.video && camStreamLive());
+  }
+
+  /* สภาพ Stream/Video/Viewport ณ ขณะที่กล้องพร้อมใช้จริง */
+  function camStreamDiag() {
+    try {
+      var v = S.video;
+      var t = null;
+      try {
+        var ts = S.stream && S.stream.getVideoTracks ? S.stream.getVideoTracks() : null;
+        t = ts && ts.length ? ts[0] : null;
+      } catch (e) {}
+      var st = {};
+      try { st = (t && t.getSettings) ? (t.getSettings() || {}) : {}; } catch (e) { st = {}; }
+      perfSet('video_width', v ? (v.videoWidth || 0) : 0);
+      perfSet('video_height', v ? (v.videoHeight || 0) : 0);
+      perfSet('video_ready_state', v ? (v.readyState || 0) : 0);
+      perfSet('video_paused', v ? !!v.paused : null);
+      perfSet('track_ready_state', camTrackState());
+      perfSet('track_label', t ? String(t.label || '') : '');
+      perfSet('track_facing_mode', st.facingMode == null ? null : String(st.facingMode));
+      perfSet('track_settings_w', st.width == null ? null : st.width);
+      perfSet('track_settings_h', st.height == null ? null : st.height);
+      /* ค่า deviceId เป็น Fingerprint ของเครื่อง จึงบันทึกเฉพาะว่าอ่านได้หรือไม่ */
+      perfSet('track_device_id_readable', !!st.deviceId);
+      try { perfSet('visibility_state', String(d.visibilityState || '')); } catch (e) {}
+      try {
+        perfSet('viewport_w', w.innerWidth || 0);
+        perfSet('viewport_h', w.innerHeight || 0);
+      } catch (e) {}
+      /* ขนาดกล่อง Preview จริง — ใช้พิสูจน์ว่ากรอบภาพนิ่งหรือเปลี่ยนสัดส่วนระหว่างสแกน */
+      try {
+        var cam = S.root && S.root.querySelector('.njf-cam');
+        if (cam) {
+          var b = cam.getBoundingClientRect();
+          perfSet('preview_box_w', Math.round(b.width));
+          perfSet('preview_box_h', Math.round(b.height));
+        }
+      } catch (e) {}
+    } catch (e) {}
+  }
+
+  function closeCam(reason) {
+    /* บันทึกก่อนปิด ขณะที่ยังอ่านสถานะ Stream ได้ */
+    if (S.stream) {
+      perfSet('camera_close_reason', camCloseReason(reason));
+      perfBootCount('camera_close_count');
+    }
     camInvalidate();                            // [ข้อ 2] คำขอกล้องที่ค้างอยู่หมดสิทธิ์ทันที
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
     S.running = false;
@@ -1644,19 +1796,20 @@
   }
 
   /* ---------- ตรวจใบหน้าหนึ่งเฟรม ---------- */
-  function detectOpt() {
+  function detectOpt(inputSize) {
     var f = w.faceapi;
-    return new f.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+    var sz = Number(inputSize) > 0 ? Number(inputSize) : 320;
+    return new f.TinyFaceDetectorOptions({ inputSize: sz, scoreThreshold: 0.45 });
   }
   /* CAPTURE — Detection + Landmarks + Descriptor (ของเดิม ไม่เปลี่ยนพฤติกรรม)
      ใช้โดย Face Login / Face Attendance / Blink Challenge / ทดสอบใบหน้า ตามเดิมทุกจุด */
-  function detect(timeoutMs) {
+  function detect(timeoutMs, inputSize) {
     var f = w.faceapi;
     perfCount('descriptor_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var t = perfNow();
     var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
-    var task = f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks().withFaceDescriptors();
+    var task = f.detectAllFaces(S.video, detectOpt(inputSize)).withFaceLandmarks().withFaceDescriptors();
     return withTimeout(Promise.resolve(task), inferMs, 'FACE_INFER_TIMEOUT',
       'ประมวลผลใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
@@ -1669,14 +1822,14 @@
   /* GUIDANCE — Detection + Landmarks เท่านั้น ห้ามคำนวณ Descriptor
      ใช้เฉพาะลูปนำทางท่าทางของ \"ลงทะเบียนใบหน้า\" (enroll) เท่านั้น
      Descriptor เป็นขั้นที่แพงที่สุดของ face-api การไม่คำนวณทุกเฟรมทำให้ลูปนำทางลื่นขึ้นมาก */
-  function detectGuide(timeoutMs) {
+  function detectGuide(timeoutMs, inputSize) {
     var f = w.faceapi;
     perfCount('guide_calls');
     var myGen = CAM.gen;                        // [TIMEOUT] Generation guard
     var tG = perfNow();
     var inferMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : INFER_TIMEOUT_MS;
     return withTimeout(
-      Promise.resolve(f.detectAllFaces(S.video, detectOpt()).withFaceLandmarks()),
+      Promise.resolve(f.detectAllFaces(S.video, detectOpt(inputSize)).withFaceLandmarks()),
       inferMs, 'FACE_INFER_TIMEOUT', 'ตรวจใบหน้าไม่ทันเวลา กรุณาลองใหม่'
     ).then(function (r) {
       if (myGen !== CAM.gen) throw AbortAttendanceError();
@@ -1828,7 +1981,7 @@
      ก่อน RAF · ก่อน resolve · ก่อน reject
      Attempt เก่าที่ detect ตอบทีหลัง จะ reject เงียบด้วย Cancellation Sentinel
      และจะไม่ schedule RAF · ไม่ inference รอบต่อไป · ไม่แตะ UI */
-  function grabFrames(count, onTick, alive) {
+  function grabFrames(count, onTick, alive, inferTimeoutMs) {
     var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     var out = [];
     /* [PERF] grabFrames สร้าง Descriptor ทุกเฟรม (passiveLiveness ใช้ค่า dd จริง)
@@ -1840,7 +1993,7 @@
       if (!S.running || !live()) throw AbortAttendanceError();
       if (onTick) onTick(null, 0);
       var tF = perfNow();
-      return grabFramesLoop(count, onTick, live, out).then(function (r) {
+      return grabFramesLoop(count, onTick, live, out, null, inferTimeoutMs).then(function (r) {
         perfMark('grab_frames_ms', tF);
         return r;
       });
@@ -1871,9 +2024,10 @@
      ⚠ ไม่ได้ลดจำนวนหลักฐาน — ยังต้องได้ Descriptor จริงครบ 6 เฟรมเหมือนเดิม */
   var GRAB_BAD_RESET = 3;
 
-  function grabFramesLoop(count, onTick, live, out, stopWhen) {
+  function grabFramesLoop(count, onTick, live, out, stopWhen, inferTimeoutMs) {
     return new Promise(function (res, rej) {
       var tries = 0, stable = 0, badRun = 0;
+      var frameInferMs = Number(inferTimeoutMs) > 0 ? Number(inferTimeoutMs) : null;
       var notReady = 0;                       // จำนวนรอบที่วิดีโอยังไม่พร้อม (ไม่นับเป็น tries)
       var tLoop = perfNow();
       var firstDetect = 0;
@@ -1923,7 +2077,7 @@
 
         /* Stage A ก่อนเสมอ · Stage B เฉพาะเมื่อนิ่งครบแล้ว */
         var capturing = stable >= GRAB_STABLE_MIN;
-        (capturing ? detect() : detectGuide()).then(function (res2) {
+        (capturing ? detect(frameInferMs) : detectGuide(frameInferMs)).then(function (res2) {
           if (!live()) return rej(AbortAttendanceError());   // detect ตอบหลังหมดอายุ = หยุดทันที
           tries++;
           if (!firstDetect) { firstDetect = 1; perfMark('face_detect_first_ms', tLoop); }
@@ -1993,11 +2147,11 @@
        · เพดานรวมยังเป็น maxTotal (14) เท่าเดิม → กรณีแย่สุดเท่าเดิมเป๊ะ
        · หยุดทันทีที่ passiveLiveness() ตัวเดิมบอกว่าผ่าน → ไม่จ่าย Descriptor ที่ไม่ได้ใช้
      ⚠ ไม่แตะ passiveLiveness · ไม่แตะเกณฑ์ · ไม่แตะ Threshold · ไม่แตะ PASS/FAIL criteria */
-  function grabFramesMore(seed, maxTotal, onTick, alive, stopWhen) {
+  function grabFramesMore(seed, maxTotal, onTick, alive, stopWhen, inferTimeoutMs) {
     var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
     return recogLoad().then(function () {
       if (!S.running || !live()) throw AbortAttendanceError();
-      return grabFramesLoop(maxTotal, onTick, live, seed, stopWhen);
+      return grabFramesLoop(maxTotal, onTick, live, seed, stopWhen, inferTimeoutMs);
     });
   }
 
@@ -2012,15 +2166,16 @@
      ⚠ เกณฑ์และ Logic เดิมคงไว้ครบ: seenOpen ที่ ear > 0.26 · seenClose ที่ ear < 0.17 ·
         Timeout 9000 ms · ต้องพบใบหน้าเดียว · ข้อความ onTick เดิมทุกตัวอักษร
      ผลพลอยได้: Blink ไม่ต้องรอ Recognition Model อีกต่อไป */
-  function blinkChallenge(onTick, alive, inferTimeoutMs) {
+  function blinkChallenge(onTick, alive, inferTimeoutMs, inputSize, challengeMs) {
     var live = (typeof alive === 'function') ? alive : null;
     var seenOpen = false, seenClose = false, t0 = Date.now();
+    var limitMs = Number(challengeMs) > 0 ? Number(challengeMs) : 9000;
     return new Promise(function (res, rej) {
       (function loop() {
         if (!S.running) return rej(new Error('ยกเลิกแล้ว'));
         if (live && !live()) return rej(AbortAttendanceError());   // ก่อน detect
-        if (Date.now() - t0 > 9000) return res(false);
-        detectGuide(inferTimeoutMs).then(function (r) {
+        if (Date.now() - t0 > limitMs) return res(false);
+        detectGuide(inferTimeoutMs, inputSize).then(function (r) {
           if (live && !live()) return rej(AbortAttendanceError()); // detect ตอบหลังหมดอายุ
           if (r.length === 1) {
             var e = eyeOpen(r[0].landmarks);
@@ -2035,6 +2190,71 @@
           S.raf = requestAnimationFrame(loop);
         }).catch(rej);
       })();
+    });
+  }
+
+  /* ---------- Android Attendance Lite หลังเกิด Timeout จริง ----------
+     เป้าหมาย: ตัดงาน Recognition ที่แพงจาก 6–14 Descriptor เหลือ 1 Descriptor สด
+     ความปลอดภัยยัง Fail Closed: ต้องพบ 1 ใบหน้า + คุณภาพภาพ + Active Blink Liveness
+     แล้วจึงสร้าง Descriptor สด 1 ครั้งและส่งให้ RPC เดิมเทียบ Threshold เดิมบน Server
+     TinyFaceDetector ใช้ inputSize 224 เฉพาะ Slow-path นี้ เพราะใบหน้าถูกบังคับให้อยู่เต็มกรอบ
+     Flow ปกติทุกอุปกรณ์ยังใช้ inputSize 320 และ Passive Liveness เดิม */
+  function androidAttendanceLiteScan(onTick, alive, inferTimeoutMs) {
+    var live = (typeof alive === 'function') ? alive : function () { return !!S.running; };
+    var ms = Number(inferTimeoutMs) > 0 ? Number(inferTimeoutMs) : ANDROID_ATT_INFER_TIMEOUT_MS;
+    var input = ANDROID_ATT_LITE_INPUT_SIZE;
+    if (!live()) return Promise.reject(AbortAttendanceError());
+    if (onTick) onTick('กำลังเตรียมโหมดสำรองสำหรับเครื่องนี้');
+
+    /* Samsung/Android ที่เคย Timeout: เปลี่ยน backend ก่อน แล้วโหลด Guide nets ใหม่บน CPU
+       จุดนี้คือความต่างหลักจากรุ่นก่อนที่ยังรัน detectGuide บน WebGL เดิม */
+    return androidAttCpuPrepare(onTick).then(function () {
+      if (!live()) throw AbortAttendanceError();
+      return guideLoad();
+    }).then(function () {
+      if (!live()) throw AbortAttendanceError();
+      return detectGuide(ms, input);
+    }).then(function (r) {
+      if (!live()) throw AbortAttendanceError();
+      if (!r || r.length !== 1) {
+        if (r && r.length > 1) throw new Error('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
+        throw new Error('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
+      }
+      var q = frameQuality(r[0].detection.box);
+      if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      if (q.brightness < 45) throw new Error('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น');
+      if (q.brightness > 232) throw new Error('แสงจ้าเกินไป กรุณาเลี่ยงแสงย้อน');
+      if (q.sharpness < 8) throw new Error('ภาพไม่ชัด กรุณาถือนิ่งและลองใหม่');
+
+      /* 2) Active Liveness ด้วย Landmark เท่านั้น — ไม่แตะ Recognition Model */
+      if (onTick) onTick('โหมดสำรองเข้ากันได้ — กรุณากระพริบตา 1 ครั้ง');
+      return blinkChallenge(function (t) { if (onTick) onTick(t); }, live, ms, input, 15000);
+    }).then(function (ok) {
+      if (!live()) throw AbortAttendanceError();
+      if (!ok) throw new Error('ตรวจสอบบุคคลจริงไม่ผ่าน กรุณากระพริบตาแล้วลองใหม่');
+
+      /* 3) Liveness ผ่านแล้วค่อยโหลด Recognition 6.44 MB — ไม่แข่งกับ Guide Detection */
+      if (onTick) onTick('กำลังเทียบใบหน้ากับข้อมูลที่ลงทะเบียน…');
+      return recogLoad();
+    }).then(function () {
+      if (!live()) throw AbortAttendanceError();
+      /* สร้าง Descriptor สดเพียงครั้งเดียวสำหรับ Server Face Match */
+      return detect(ms, input);
+    }).then(function (r) {
+      if (!live()) throw AbortAttendanceError();
+      if (!r || r.length !== 1) {
+        if (r && r.length > 1) throw new Error('พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง');
+        throw new Error('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ');
+      }
+      var f0 = r[0], q = frameQuality(f0.detection.box);
+      if (!f0.descriptor) throw new Error('สร้างข้อมูลใบหน้าไม่สำเร็จ กรุณาลองใหม่');
+      if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      return {
+        frames: [{ box: f0.detection.box, desc: Array.from(f0.descriptor), q: q,
+                   ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) }],
+        live: { pass: true, score: 1, method: 'BLINK' },
+        lite: true
+      };
     });
   }
 
@@ -2567,7 +2787,7 @@
     S.root = el;
     S.video = el.querySelector('#njf-v');
     S.canvas = el.querySelector('#njf-c');
-    el.querySelector('#njf-x').onclick = close;
+    el.querySelector('#njf-x').onclick = function () { camLifeLog('USER_CANCEL_CLOSE'); close('USER_CANCEL_CLOSE'); };
     return el;
   }
   function hint(a, b) {
@@ -2622,15 +2842,15 @@
      แต่ **ไม่** opInvalidate() และ **ไม่** เปลี่ยน S.mode ออกจาก 'ATTENDANCE'
      (ต่างจาก close() ปกติที่ใช้กับ Cancel/Manual Enroll/Face Login/Route/Logout/Error) */
   function closeSoft() {
-    closeCam();
+    closeCam('HANDOFF');
     attAbortAll();                            // [ข้อ 4] Network ของขั้นลงทะเบียนต้องไม่ค้าง
     if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
     S.root = null; S.busy = false;
     /* คง S.mode = 'ATTENDANCE' และ OP.id เดิมไว้ */
   }
 
-  function close() {
-    closeCam();                               // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
+  function close(reason) {
+    closeCam(reason);                         // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
     G.sid++;                                  // Attempt (GPS) ปัจจุบันหมดสิทธิ์ทันที
     opInvalidate();                           // Attendance Operation หมดอายุทันที
     enInvalidate();                           // Enrollment Run ปัจจุบันหมดสิทธิ์
@@ -2889,8 +3109,11 @@
     /* [PERF] โมเดลโหลดขนานกับ GPS ได้เสมอ — ไม่ถูก Gate
        รอเฉพาะ GUIDE (550 KB) ก่อนเริ่มตรวจหน้า
        RECOGNITION (6.44 MB) โหลด Background แล้วไปรอเอาตอนสร้าง Descriptor ใน grabFrames() */
+    var attLite = androidAttLiteEnabled();
     var modelP = guideLoad();
-    recogPrefetch();
+    /* Slow-path ที่ถูกจดจำจาก Timeout ก่อนหน้า: ห้าม compile Recognition 6.44 MB แข่งกับ Guide
+       เครื่องปกติยัง prefetch เหมือนเดิมทุกประการ */
+    if (!attLite) recogPrefetch();
 
     /* [GPS GATE] กล้องเปิด "หลัง" GPS พร้อมเท่านั้น
        เมื่อ Warmup ทำงานสำเร็จ gpsGate จะ resolve ทันที (0 ms) กล้องจึงเปิดต่อเนื่อง
@@ -2942,19 +3165,38 @@
       });
     });
 
+    /* [ANDROID ATTENDANCE TIMEOUT] เลือกเพดานเฉพาะ Attempt ลงเวลานี้
+       Android = 20s ต่อ inference; iOS/Desktop = 8s เดิม
+       ไม่เปลี่ยน Face Login/Enrollment เพราะส่งค่าเฉพาะจาก doPunch() เท่านั้น */
+    var attInferMs = attendanceInferTimeoutMs();
+
     (handScanP || Promise.all([camP, modelP])
       .then(function () {
         perfMark('guide_visible_ms');          // กดปุ่ม → เห็นกล้อง+กรอบนำทาง
         S.running = true;
         st.live = 'run'; panel(stepsHtml(st, 'กำลังตรวจสอบบุคคลจริง…'));
         actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);
-        hint('มองกล้องให้อยู่ในกรอบ', 'กรุณาอย่าขยับใบหน้า');
+        hint('มองกล้องให้อยู่ในกรอบ', attLite ? 'หากระบบแจ้ง กรุณากระพริบตา 1 ครั้ง' : 'กรุณาอย่าขยับใบหน้า');
+
+        /* เครื่อง Android ที่เคย Timeout จริง → ใช้ Low-load Active Liveness + Descriptor 1 ครั้ง
+           เครื่องอื่นทุกเครื่องเดิน Flow เดิมด้านล่าง */
+        if (attLite) {
+          perfSet('android_att_lite', 1);
+          return androidAttendanceLiteScan(function (warn) {
+            if (!mine()) return;
+            if (warn) setMsg(warn, false);
+          }, mine, attInferMs);
+        }
+
         return grabFrames(6, function (warn) {
           if (!mine()) return;                  // [ข้อ 2] ห้าม Attempt เก่าเขียน UI
           if (warn) setMsg(warn, true); else setMsg('กำลังตรวจสอบบุคคลจริง…');
-        }, mine);
+        }, mine, attInferMs);
       })
-      .then(function (frames) {
+      .then(function (framesOrCtx) {
+        /* Slow-path คืน Context ที่ผ่าน Active Blink แล้ว ไม่ต้องรัน Passive Liveness ซ้ำ */
+        if (framesOrCtx && framesOrCtx.lite === true) return framesOrCtx;
+        var frames = framesOrCtx;
         /* ---------- ตรวจบุคคลจริงแบบไม่ต้องทำท่าทาง ----------
            ⚠ การลงเวลาปกติต้องไม่บังคับกระพริบตา / หันซ้าย / หันขวา
              พนักงานแค่มองกล้อง ระบบตรวจเอง
@@ -2976,7 +3218,7 @@
           var r = passiveLiveness(all);
           if (r.pass) { lvMore = r; return true; }
           return false;
-        }).then(function (all) {
+        }, attInferMs).then(function (all) {
           if (!mine()) throw AbortAttendanceError();  // [ข้อ 2] ยกเลิกระหว่างเก็บเพิ่ม
           perfMark('borderline_extra_ms', tBorder);
           perfSet('borderline_extra_descriptor_count', Math.max(0, all.length - extra0));
@@ -2996,7 +3238,8 @@
              ยกเลิกแล้ว = ห้าม PUT · ห้าม GPS Fresh · ห้าม Punch RPC
              Signed Reservation ที่ไม่ได้ใช้ปล่อยหมดอายุได้ เพราะยังไม่มี Object ถูกสร้าง */
           if (!mine()) { closeCam(); throw AbortAttendanceError(); }
-          closeCam();                          // ปิดกล้องทันทีเมื่อได้ภาพครบ
+          camLifeLog('FLOW_COMPLETE_CLOSE');
+          closeCam('FLOW_COMPLETE_CLOSE');     // ปิดกล้องทันทีเมื่อได้ภาพครบ
           /* [UPLOAD] ถ้าการจองยังไม่เสร็จตอนสแกนจบ ต้องรู้ว่ารออีกกี่มิลลิวินาที */
           var tWaitResv = perfNow();
           return resvP.then(function (resv) {
@@ -3075,6 +3318,11 @@
            ไม่ Upload หลักฐาน ไม่แตะ State ใด ๆ */
         if (isAborted(e) || !mine()) return;
         var msg = (e && e.message) || 'สแกนไม่สำเร็จ';
+        var androidTimedOut = !!(e && e.faceCode === 'FACE_INFER_TIMEOUT' && deviceInfo().os === 'Android');
+        if (androidTimedOut) {
+          /* จำเฉพาะเครื่องที่ Timeout จริง: กด Retry รอบถัดไปจะไม่เดินเส้นหนักเดิมอีก */
+          androidAttLiteEnable();
+        }
         /* [FIX 2] มาถึงที่นี่ขณะ PERF.t ยังไม่เป็น null เสมอ เพราะ .then แรกไม่ปิด Flow แล้ว
            บันทึก outcome จากผลจริงก่อน แล้วจึงปิด Flow ครั้งเดียว (perfEnd มี guard กันซ้ำ)
            error_code = รหัสจริง ไม่เก็บข้อความที่ผู้ใช้เห็น (อาจมีชื่อพื้นที่/ระยะทาง) */
@@ -3118,7 +3366,7 @@
         var acts = [{ label: 'ยกเลิก', style: 'plain', on: close }];
         var maxTry = Number(w.NJHR_FACE_MAX_ATTEMPTS || 3);
         if (S.attempts < maxTry) {
-          acts.unshift({ label: 'ลองใหม่ (' + S.attempts + '/' + maxTry + ')', style: 'primary',
+          acts.unshift({ label: (androidTimedOut ? 'ลองใหม่ · โหมดสำรอง (' : 'ลองใหม่ (') + S.attempts + '/' + maxTry + ')', style: 'primary',
             on: function () {
               close();                        // close() เรียก opInvalidate() + gpsStop() ให้แล้ว
               setTimeout(function () { punch(kind, onDone); }, 60);
@@ -3316,7 +3564,17 @@
        ต้องยืนยันรหัสผ่านมาแล้วจากหน้าข้อมูลส่วนตัว และฐานข้อมูลตรวจซ้ำอีกชั้น
        ⚠ ของเดิมจะถูกแทนที่ก็ต่อเมื่อ RPC สำเร็จเท่านั้น — ระหว่างถ่าย 3 มุมไม่แตะของเดิมเลย */
     var reNew = !!(opts && opts.password);
-    shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า', 'เก็บใบหน้า 3 มุม');
+    /* [ANDROID TIMEOUT FALLBACK]
+       เปิดได้เฉพาะ Enrollment รอบที่ผู้ใช้กด "ลองใหม่" หลัง FACE_INFER_TIMEOUT บน Android
+       เท่านั้น — รอบปกติ / iOS / Desktop / Android ที่ไม่ Timeout ไม่เข้าเส้นนี้เด็ดขาด
+       โหมดสำรองเก็บหน้าตรง 4 Descriptor จาก 4 เฟรมจริง และยังผ่าน Liveness/Quality ครบ */
+    var fallbackFront = !!(opts && opts.androidTimeoutFallback) &&
+                        (function () { try { return deviceInfo().os === 'Android'; } catch (e) { return false; } })();
+    var poses = fallbackFront ? [POSES[0]] : POSES;
+    var FALLBACK_SAMPLES = 4;
+    var FALLBACK_INFER_TIMEOUT_MS = 20000;
+    shell(reNew ? 'ลงทะเบียนใบหน้าใหม่' : 'ลงทะเบียนใบหน้า',
+          fallbackFront ? 'โหมดสำรอง · มองตรง 4 ตัวอย่าง' : 'เก็บใบหน้า 3 มุม');
     var got = [], idx = 0, snapPath = null;
     /* [ROOT CAUSE 7] หลักฐานสำหรับ "ลงเวลาต่อทันที" ที่เก็บจากกล้องรอบเดียวกันนี้
        เก็บเฉพาะเมื่อ Enrollment ถูกเรียกจากการลงเวลา (enAtt) เท่านั้น
@@ -3411,14 +3669,14 @@
     }
 
     function drawPoses(msg, err, stepDone) {
-      var cur = POSES[idx] || POSES[POSES.length - 1];
-      var shown = Math.min(idx + (stepDone ? 1 : 0), POSES.length);
-      var pct = Math.round((shown / POSES.length) * 100);
-      ringSet(shown / POSES.length, !!stepDone);
+      var cur = poses[idx] || poses[poses.length - 1];
+      var shown = Math.min(idx + (stepDone ? 1 : 0), poses.length);
+      var pct = Math.round((shown / poses.length) * 100);
+      ringSet(shown / poses.length, !!stepDone);
       poseVisual(cur, !!stepDone);
 
       panel(
-        '<div class="njf-steps">' + POSES.map(function (p, i) {
+        '<div class="njf-steps">' + poses.map(function (p, i) {
           var st = (i < idx || (i === idx && stepDone)) ? 'done' : (i === idx ? 'on' : '');
           return '<div class="njf-step ' + st + '"><span>' +
                  (st === 'done' ? '&#10003;' : String(i + 1)) + '</span></div>';
@@ -3431,7 +3689,7 @@
         '</div>' +
 
         '<div class="njf-prog"><div class="njf-prog-bar" style="width:' + pct + '%"></div></div>' +
-        '<div class="njf-prog-txt">' + shown + '/' + POSES.length + '</div>' +
+        '<div class="njf-prog-txt">' + shown + '/' + poses.length + '</div>' +
 
         '<div class="njf-msg' + (err ? ' err' : '') + '" id="njf-msg">' + esc(msg || '') + '</div>' +
         '<div class="njf-actions" id="njf-act"></div>');
@@ -3447,6 +3705,10 @@
        ERR_MAX / ERR_WINDOW = หลักฐานของ Fatal: ต้องพังติดกันครบจำนวน "และ" ต่อเนื่องนานพอ
                       Error ชั่วคราวเพียงไม่กี่เฟรมห้ามถูกยกระดับเป็น Fatal เด็ดขาด */
     var STABLE_MIN = 2, LIVE_FRAMES = 6, POSE_TIMEOUT = 25000, ERR_MAX = 30, ERR_WINDOW = 5000;
+    /* โหมดสำรองลดงานเฉพาะ Enrollment รอบสำรอง: 4 เฟรมจริง = 4 Descriptor
+       passiveLivenessCore รองรับตั้งแต่ 4 เฟรมขึ้นไปอยู่แล้ว; Threshold อื่นไม่เปลี่ยน */
+    var liveFrames = fallbackFront ? FALLBACK_SAMPLES : LIVE_FRAMES;
+    var enrollInferMs = fallbackFront ? FALLBACK_INFER_TIMEOUT_MS : ENROLL_INFER_TIMEOUT_MS;
     /* [PERF] เดิมหน่วง setTimeout(700) ก่อนเริ่มมุมถัดไป = เวลาตายล้วน 700 x 2 = 1.4 วินาที
        ตรวจแล้วว่าไม่จำเป็นเชิงเทคนิค:
          · ผู้ใช้ต้องหมุนศีรษะเองซึ่งนานกว่า 700 ms อยู่แล้ว
@@ -3459,7 +3721,7 @@
     var DONE_HOLD = 320;
 
     function capturePose(opt) {
-      var pose = POSES[idx];
+      var pose = poses[idx];
       /* holding = ยังโชว์ ✓ ของมุมก่อนหน้าอยู่ — ตรวจจับเดินแล้ว แต่ยังไม่เขียนทับจอ */
       var holding = !!(opt && opt.holdMs > 0);
       function paintPose() {
@@ -3469,7 +3731,7 @@
       }
       if (holding) {
         setTimeout(function () {
-          if (!S.running || !enAlive() || POSES[idx] !== pose) return;
+          if (!S.running || !enAlive() || poses[idx] !== pose) return;
           paintPose();
         }, opt.holdMs);
       } else {
@@ -3479,6 +3741,7 @@
       function msg(t, err) { if (!holding) setMsg(t, err); }
       function live(p, y) { if (!holding) poseLive(p, y); }
       var t0 = Date.now(), buf = [], stable = 0, errRun = 0, errFirst = 0;
+      var fallbackWaitingRecog = false;
       var poseT0 = perfNow();
 
       /* ลูปจะเดินต่อได้ก็ต่อเมื่อยังมีเจ้าของอยู่จริง
@@ -3499,7 +3762,7 @@
            ++EN.id     = Run นี้ตายทันที · Async ที่ค้างอยู่ (detect/blink/snapshot/upload) เขียน UI/State ไม่ได้อีก
            netOwn(0)   = คำขอเครือข่ายของ Run นี้หมดสิทธิ์
          แล้วแสดง Error ชัดเจนพร้อมทางเลือก ลองใหม่ / ปิด */
-      function fatal(reason) {
+      function fatal(reason, useAndroidFallback) {
         closeCam();
         EN.id++;
         netOwn(0);
@@ -3510,7 +3773,15 @@
         actions([
           { label: 'ปิด', style: 'plain', on: close },
           { label: 'ลองใหม่', style: 'primary', on: function () {
-            close(); setTimeout(function () { enroll(employeeId, onDone, opts); }, 60);
+            var nextOpts = opts;
+            if (useAndroidFallback) {
+              nextOpts = {};
+              if (opts) {
+                Object.keys(opts).forEach(function (k) { nextOpts[k] = opts[k]; });
+              }
+              nextOpts.androidTimeoutFallback = true;
+            }
+            close(); setTimeout(function () { enroll(employeeId, onDone, nextOpts); }, 60);
           } }
         ]);
       }
@@ -3521,11 +3792,17 @@
         /* [ข้อ 6] ตรวจ Owner ก่อนเขียน State / Upload / ไป Pose ถัดไป */
         if (!enAlive()) { closeCam(); return; }
         perfMark('enroll_' + pose.key.toLowerCase() + '_ms', poseT0);
-        got.push(buf[buf.length - 1].desc);
+        if (fallbackFront) {
+          /* 4 ตัวอย่างต้องมาจาก 4 เฟรมจริงคนละเวลา — ไม่ clone/reuse Descriptor */
+          var takeFrom = Math.max(0, buf.length - FALLBACK_SAMPLES);
+          for (var gi = takeFrom; gi < buf.length; gi++) got.push(buf[gi].desc);
+        } else {
+          got.push(buf[buf.length - 1].desc);
+        }
         /* [ROOT CAUSE 7] มุมสุดท้ายที่ผ่าน Liveness จริง = หลักฐานสดของ Run นี้
            เก็บ Descriptor ตัวล่าสุด + Liveness Method จริงที่ผ่าน (PASSIVE หรือ BLINK)
            ไม่ Clone · ไม่ Reuse ข้ามมุม · ผูกกับ Attendance Operation เดียวกันเท่านั้น */
-        if (enAtt && enOp !== null && enKind && idx === POSES.length - 1) {
+        if (enAtt && enOp !== null && enKind && idx === poses.length - 1) {
           enPunch = {
             op: enOp, kind: enKind,
             desc: buf[buf.length - 1].desc,
@@ -3546,7 +3823,7 @@
         drawPoses('กำลังขึ้นขั้นตอนถัดไป…', false, true);
         idx++;
         if (!enAlive()) { closeCam(); return; }
-        if (idx >= POSES.length) return finish();
+        if (idx >= poses.length) return finish();
         /* [PERF] เริ่มตรวจมุมถัดไปทันที ไม่หน่วง 700 ms — จอยังค้าง ✓ ไว้ DONE_HOLD */
         capturePose({ holdMs: DONE_HOLD });
       }
@@ -3557,7 +3834,7 @@
         msg(reason || 'ตรวจสอบบุคคลจริงไม่แน่ใจ กรุณากระพริบตา 1 ครั้ง', true);
         blinkChallenge(function (t) {
           if (S.running && enAlive()) msg(t, true);
-        }, enAlive, ENROLL_INFER_TIMEOUT_MS).then(function (ok) {
+        }, enAlive, enrollInferMs).then(function (ok) {
           if (!S.running || !enAlive()) return;          // Async Boundary หลัง Challenge
           if (!ok) {                                     // ไม่ผ่าน/หมดเวลา = ตรวจมุมเดิมต่อ
             resetPose('ยืนยันบุคคลจริงไม่สำเร็จ — กรุณาลองทำท่าเดิมอีกครั้ง');
@@ -3577,7 +3854,26 @@
         if (!S.running || !enAlive()) return;
         /* [PERF] ถ้าท่าถูกแล้วแต่ Recognition ยังโหลดไม่เสร็จ ห้ามนับเวลาหมดอายุใส่ผู้ใช้
            ลูปนำทางยังเดินต่อด้วย detectGuide() ตามปกติ ไม่ค้าง ไม่ปิดกล้อง */
+        /* โหมดสำรอง: เมื่อท่าหน้าตรงนิ่งครบแล้ว ให้หยุด Guide Inference ชั่วคราวระหว่าง
+           เตรียม Recognition Model เพื่อไม่ให้สองงานหนักแข่ง Main Thread บน Android รุ่นช้า */
+        if (fallbackFront && fallbackWaitingRecog) {
+          if (!S.recogReady) {
+            msg('ท่าถูกต้องแล้ว — กำลังเตรียมระบบยืนยันใบหน้า…');
+            setTimeout(again, 120);
+            return;
+          }
+          fallbackWaitingRecog = false;
+          stable = 0; t0 = Date.now();
+        }
         var waitRecog = (stable >= STABLE_MIN) && !S.recogReady;
+        if (fallbackFront && waitRecog) {
+          fallbackWaitingRecog = true;
+          t0 = Date.now();
+          recogPrefetch();
+          msg('ท่าถูกต้องแล้ว — กำลังเตรียมระบบยืนยันใบหน้า…');
+          setTimeout(again, 120);
+          return;
+        }
         if (waitRecog) t0 = Date.now();
         if (!waitRecog && Date.now() - t0 > POSE_TIMEOUT) {
           resetPose('ยังจับภาพ' + pose.label + 'ไม่สำเร็จ — ปรับแสงและระยะ แล้วทำท่าเดิมต่อได้เลย');
@@ -3586,7 +3882,7 @@
         /* stable ครบ "และ" Recognition พร้อม เท่านั้นจึงยอมจ่ายค่า Descriptor ของเฟรมนี้ */
         var capturing = (stable >= STABLE_MIN) && !!S.recogReady;
         if (waitRecog) recogPrefetch();       // เผื่อยังไม่ได้เริ่ม (Single-flight ไม่โหลดซ้ำ)
-        (capturing ? detect(ENROLL_INFER_TIMEOUT_MS) : detectGuide(ENROLL_INFER_TIMEOUT_MS)).then(function (r) {
+        (capturing ? detect(enrollInferMs) : detectGuide(enrollInferMs)).then(function (r) {
           if (!S.running || !enAlive()) return;                    // ตอบหลังหมดอายุ = หยุดเงียบ
           errRun = 0; errFirst = 0;
           if (!r.length) { stable = 0; msg('ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ', true); return again(); }
@@ -3608,8 +3904,8 @@
           }
 
           buf.push({ desc: Array.from(f0.descriptor), q: q, box: box, ear: eyeOpen(f0.landmarks) });
-          msg('กำลังจับภาพ ' + pose.label + ' (' + buf.length + '/' + LIVE_FRAMES + ')');
-          if (buf.length < LIVE_FRAMES) return again();
+          msg('กำลังจับภาพ ' + pose.label + ' (' + buf.length + '/' + liveFrames + ')');
+          if (buf.length < liveFrames) return again();
 
           /* เฟรมจริงจากกล้อง คนละเวลา ครบจำนวนแล้วจึงตรวจ Liveness
              ผ่าน       → ยอมรับมุมนี้
@@ -3624,6 +3920,20 @@
         }).catch(function (e) {
           if (!S.running || !enAlive()) return;
           if (isAborted(e)) return;                 // ยกเลิกโดยระบบ = หยุดเงียบ
+          /* รอบปกติ Android ถ้าเจอ FACE_INFER_TIMEOUT จริง → หยุดรอบนี้และให้ผู้ใช้กด
+             "ลองใหม่" เพื่อเข้าโหมดหน้าตรง 4 ตัวอย่างอัตโนมัติ
+             ไม่ใช้กับ Face mismatch / Liveness / แสง / กล้อง / GPS และไม่แตะอุปกรณ์อื่น */
+          if (e && e.faceCode === 'FACE_INFER_TIMEOUT') {
+            if (!fallbackFront) {
+              var isAndroid = false;
+              try { isAndroid = deviceInfo().os === 'Android'; } catch (e0) {}
+              if (isAndroid) {
+                return fatal('ตรวจใบหน้าไม่ทันเวลา — กด “ลองใหม่” เพื่อใช้โหมดสำรอง มองตรง 4 ตัวอย่าง', true);
+              }
+            } else {
+              return fatal('โหมดสำรองยังประมวลผลใบหน้าไม่ทันเวลา — กรุณากด “ลองใหม่” อีกครั้ง', true);
+            }
+          }
           errRun++;
           if (!errFirst) errFirst = Date.now();
           msg((e && e.message) || 'ตรวจใบหน้าไม่สำเร็จ', true);
@@ -3643,9 +3953,11 @@
 
     /* [UI] หน้าจอกำลังบันทึก — pct 0..100 (ใช้เป็นภาพเท่านั้น ไม่ผูกกับความคืบหน้าจริงของ RPC) */
     function saveScreen(pct) {
-      var items = POSES.map(function (p) {
-        return '<div class="njf-save-li"><b>&#10003;</b>' + esc('บันทึกมุม' + p.label) + '</div>';
-      }).join('') +
+      var items = (fallbackFront
+        ? '<div class="njf-save-li"><b>&#10003;</b>' + esc('บันทึกหน้าตรง ' + FALLBACK_SAMPLES + ' ตัวอย่าง') + '</div>'
+        : poses.map(function (p) {
+            return '<div class="njf-save-li"><b>&#10003;</b>' + esc('บันทึกมุม' + p.label) + '</div>';
+          }).join('')) +
       '<div class="njf-save-li' + (pct >= 100 ? '' : ' wait') + '">' +
         (pct >= 100 ? '<b>&#10003;</b>' : '<i class="njf-dot"></i>') + 'ตรวจสอบความถูกต้อง</div>';
 
@@ -3707,7 +4019,7 @@
          พนักงานเป้าหมายมาจาก session ฝั่งฐานข้อมูลเท่านั้น จึงลงทะเบียนแทนคนอื่นไม่ได้
          ถ้าระบุ employeeId (หน้าจัดการพนักงานของ HR) ยังใช้ njhr_face_enroll เดิม */
       var isSelf = !employeeId;
-      var q = { samples: got.length, captured_at: new Date().toISOString() };
+      var q = { samples: got.length, captured_at: new Date().toISOString(), capture_mode: fallbackFront ? 'ANDROID_TIMEOUT_FRONT_4' : 'THREE_POSE' };
       var fnName, body;
       if (!isSelf) {
         fnName = 'njhr_face_enroll';
@@ -3737,11 +4049,13 @@
           '<div class="njf-done-t">' +
             esc(reNew ? 'ลงทะเบียนใบหน้าใหม่ สำเร็จ!' : 'ลงทะเบียนใบหน้า สำเร็จ!') + '</div>' +
           '<div class="njf-done-s">พร้อมใช้งานสแกนหน้าเข้าสู่ระบบ</div>' +
-          '<div class="njf-done-tags">' + POSES.map(function (p) {
-            return '<span class="njf-done-tag"><b>&#10003;</b>' + esc(p.label) + '</span>';
-          }).join('') + '</div>' +
+          '<div class="njf-done-tags">' + (fallbackFront
+            ? '<span class="njf-done-tag"><b>&#10003;</b>' + esc('หน้าตรง ' + FALLBACK_SAMPLES + ' ตัวอย่าง') + '</span>'
+            : poses.map(function (p) {
+                return '<span class="njf-done-tag"><b>&#10003;</b>' + esc(p.label) + '</span>';
+              }).join('')) + '</div>' +
           '<div class="njf-done-n">เก็บใบหน้าไว้ ' +
-            ((r && r.sample_count) || got.length) + ' มุม</div>' +
+            ((r && r.sample_count) || got.length) + (fallbackFront ? ' ตัวอย่าง' : ' มุม') + '</div>' +
           '</div>' +
           '<div class="njf-actions" id="njf-act"></div>');
         actions([{ label: 'เสร็จสิ้น', style: 'primary', on: function () {
@@ -3773,7 +4087,9 @@
     /* [PERF] เริ่มนำทาง 3 มุมได้ทันทีเมื่อ GUIDE พร้อม ไม่ต้องรอ Recognition 6.44 MB
        Recognition โหลด Background · capturePose() จะรอเองตอน stable ผ่านและถึงคิวทำ Descriptor */
     var modelE = guideLoad();
-    recogPrefetch();
+    /* รอบปกติคงพฤติกรรมเดิมทุกอุปกรณ์; รอบ fallback เท่านั้นเลื่อน Recognition
+       ไปเริ่มหลังหน้าตรงนิ่งครบ เพื่อไม่ให้ compile แข่งกับ Guide Detection */
+    if (!fallbackFront) recogPrefetch();
     camE.then(function () { if (!S.guideReady) drawPoses('กำลังเตรียมระบบตรวจสอบใบหน้า…'); }, function () {});
     modelE['catch'](function () {});
     Promise.all([camE, modelE]).then(function () {
@@ -3793,7 +4109,7 @@
   }
 
   /* ---------- ปิดกล้องเมื่อออกจากหน้า ---------- */
-  w.addEventListener('hashchange', close);
+  w.addEventListener('hashchange', function () { camLifeLog('ROUTE_CHANGE_CLOSE'); close('ROUTE_CHANGE_CLOSE'); });
   /* ---------- [ข้อ 6] Background Cleanup แบบรู้โหมด ----------
      เดิม pagehide / visibilitychange เรียกแค่ closeCam() ซึ่งไม่พอสำหรับการลงเวลา
      เพราะ GPS Watch · Attendance Operation · Network ของ Attempt ยังทำงานต่อ
@@ -3803,12 +4119,67 @@
      LOGIN (Face Login) → คงพฤติกรรมเดิมทุกประการ: ปิดกล้องอย่างเดียว ไม่แตะ Logic
         เหตุผล: Face Login ไม่มี GPS/Operation และการปิด Flow ทิ้งจะทำให้ผู้ใช้
         กลับมาแล้วเจอหน้าจอค้าง — เดิมทำงานถูกอยู่แล้วจึงไม่แตะ */
-  function bgCleanup() {
-    if (S.mode === 'ATTENDANCE' || S.mode === 'ENROLL') { close(); return; }
-    closeCam();
+  function bgCleanup(reason) {
+    if (S.mode === 'ATTENDANCE' || S.mode === 'ENROLL') { close(reason); return; }
+    closeCam(reason);
   }
-  w.addEventListener('pagehide', bgCleanup);
-  d.addEventListener('visibilitychange', function () { if (d.hidden) bgCleanup(); });
+
+  /* ---------- [LIFECYCLE] กลับมา visible ----------
+     ลำดับตัดสินใจใช้ "สถานะจริง" ทั้งหมด ไม่มี setTimeout เดาสุ่ม:
+       1. Overlay ยังอยู่ไหม        -> ไม่อยู่ = ไม่ใช่ Flow เดิม ไม่ต้องทำอะไร
+       2. มี Stream ไหม             -> ไม่มี = ยังไม่เคยเปิดกล้อง
+       3. Track ยัง live ไหม        -> ไม่ live = ตายจริง จึงเปิดใหม่ได้ (ทางเดียวที่อนุญาต)
+       4. srcObject ยังผูกอยู่ไหม   -> หลุด = ผูกกลับกับ Stream เดิม ไม่เปิดใหม่
+       5. <video> paused ไหม        -> paused = play() กับ Stream เดิมก่อนเสมอ */
+  function camResumeVisible() {
+    if (!S.root || !S.video) return;
+    if (!S.stream) return;
+    if (!camStreamLive()) {
+      /* Stream ตายจริง = ทางเดียวที่อนุญาตให้เปิดกล้องใหม่
+         การ Log STREAM_ENDED_REOPEN ทำที่ openCam() ที่เดียว เพื่อไม่ให้นับซ้ำ */
+      if (CAM.resuming) return;
+      CAM.resuming = true;
+      try {
+        openCam().then(function () { CAM.resuming = false; },
+                       function () { CAM.resuming = false; });
+      } catch (e) { CAM.resuming = false; }
+      return;
+    }
+    var v = S.video;
+    if (v.srcObject !== S.stream) { try { v.srcObject = S.stream; } catch (e) {} }
+    if (v.paused) {
+      camLifeLog('VISIBILITY_VISIBLE_PLAY_RESUME');
+      try {
+        var p = v.play();
+        if (p && typeof p['catch'] === 'function') p['catch'](function () {});
+      } catch (e) {}
+      return;
+    }
+    camLifeLog('VISIBILITY_VISIBLE_REUSE_STREAM');
+  }
+
+  w.addEventListener('pagehide', function (e) {
+    /* [ข้อ 4] pagehide ที่ persisted = เข้า bfcache ยังมีโอกาสกลับหน้าเดิม
+       ถ้า Flow ยัง Active ห้ามทำลาย State — เบราว์เซอร์เป็นผู้ระงับ Track เองระหว่างถูก Freeze */
+    if (e && e.persisted === true && camFlowActive()) {
+      camLifeLog('PAGEHIDE_BFCACHE_KEEP');
+      return;
+    }
+    camLifeLog('PAGEHIDE_REAL_CLOSE');
+    bgCleanup('PAGEHIDE_REAL_CLOSE');
+  });
+
+  d.addEventListener('visibilitychange', function () {
+    if (d.hidden) {
+      /* [ข้อ 1] ซ่อนชั่วคราวขณะ Flow ยังทำงาน = ห้าม track.stop() / srcObject=null
+         GPS ไม่ได้ถูกยืดอายุจากตรงนี้: gpsPickFresh() ยังกรอง Fix ด้วย GPS_FRESH_MS/GPS_LIVE_MS
+         ตามเดิม Fix เก่าก่อนสลับแอปจึงใช้ลงเวลาไม่ได้อยู่แล้ว */
+      if (camFlowActive()) { camLifeLog('VISIBILITY_HIDDEN_KEEP_STREAM'); return; }
+      bgCleanup('VISIBILITY_HIDDEN');
+      return;
+    }
+    camResumeVisible();
+  });
 
   /* ---------- สแกนใบหน้าเข้าสู่ระบบ ----------
      ⚠ ไม่ขอ GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น
@@ -3874,7 +4245,8 @@
       })
       .then(function (ctx) {
         st.live = 'ok'; st.match = 'run';
-        closeCam();                            // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
+        camLifeLog('FLOW_COMPLETE_CLOSE');
+        closeCam('FLOW_COMPLETE_CLOSE');       // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
         panel(stepsHtml(st, 'กำลังยืนยันตัวตน…'));
         var best = ctx.frames[ctx.frames.length - 1];
         if (typeof w.NJHR_faceLogin !== 'function') {
@@ -4069,7 +4441,7 @@
        Face Login (mode ว่าง หรือโหมดอื่น) จะไม่ถูกปิดโดยไม่ตั้งใจเด็ดขาด */
     cancelAttendance: function () {
       if (S.mode !== 'ATTENDANCE') return false;
-      close();                                 // closeCam + cancelAnimationFrame + clearWatch + invalidate aid
+      close('CANCEL');                         // closeCam + cancelAnimationFrame + clearWatch + invalidate aid
       return true;
     },
     mode: function () { return S.mode || ''; }

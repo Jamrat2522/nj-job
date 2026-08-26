@@ -1,0 +1,42 @@
+RUN-106 — HOME "สถานะวันนี้" ELAPSED DURATION + Asia/Bangkok FIX
+Build: njhr-v2-911d8a1f
+Base:  njhr-v2-ca4ee74e_ANDROID-CPU-COMPAT-FALLBACK
+
+Root cause (verified against Production DB, not assumed):
+- public.attendance.check_in / check_out are timestamptz; DB TimeZone = UTC,
+  so PostgREST serializes them as "...+00:00".
+- dashboard.js dashHomeHM() sliced the raw ISO string with /T(\d{2}):(\d{2})/
+  and never converted the zone, so the UTC HH:MM was rendered directly.
+- Evidence: emp 0155, work_date 2026-08-26,
+  check_in = 2026-08-26T00:59:06.790788+00:00 = 07:59 Asia/Bangkok.
+  Screen showed "เข้างานแล้ว 00:59" = the UTC HH:MM. Off by exactly -7h.
+- The second line "26 ส.ค. 2569 · 08:18" was never the punch time: it is
+  fmtDate(todayISO()) plus the live device clock in #mh-clock.
+- Original label was a clock time, not an elapsed duration. No timer existed.
+
+Scope (ONLY):
+- views/dashboard.js — mobile home "สถานะวันนี้" card (#mh-today / #mh-st).
+- Build/cache metadata: asset-manifest.js, index.html, sw.js, config.js.
+
+Behavior:
+- Checked in, not out : "เข้างานแล้ว HH:MM" now = now - check_in (elapsed),
+  computed from raw timestamp ms, refreshed by the EXISTING dashHome.t
+  interval (10s). No new timer, no nested interval.
+- Checked out         : "เข้างาน HH:MM · ออกงาน HH:MM" — original format kept,
+  now rendered in Asia/Bangkok. Static; the tick does not touch it.
+- Not punched         : "ยังไม่ได้ลงเวลา" — unchanged.
+- RPC failure         : "โหลดสถานะไม่สำเร็จ" — state cleared so the tick
+  cannot overwrite the error text.
+- Unparseable check_in: falls back to a static Asia/Bangkok clock time
+  instead of rendering a wrong duration.
+- Clock skew (now < check_in): floors to 00:00. Math.abs() not used.
+
+Not changed:
+- dashHomeHM() kept intact for its out-of-scope caller (#mh-pend row).
+- dashHM2() (desktop de-status) still renders UTC — known, left untouched.
+- Attendance business logic, punch flow, face scan, GPS/Geofence, shifts,
+  roles, sessions, RPCs, SQL, schema, Production data.
+- RUN-102 UPDATE_REQUIRED removal remains removed; no maintenance gate added.
+
+Database:
+- No migration. No DDL. No data mutation. Read-only verification only.

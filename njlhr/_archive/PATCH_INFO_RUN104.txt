@@ -1,0 +1,19 @@
+PATCH INFO RUN104 — Android Attendance Face Inference Timeout
+Build: njhr-v2-2ff71297
+Base: njhr-v2-ff50bb02_ANDROID-ENROLL-TIMEOUT-FALLBACK
+
+Scope (ONLY):
+- face.js: Face scan during Attendance IN/OUT on Android.
+- Android attendance inference timeout: 8s -> 20s per detect/detectGuide call.
+- Applied via parameter from doPunch() only; global INFER_TIMEOUT_MS remains 8000.
+- iOS/Desktop Attendance remain 8s.
+- Face Login remains 8s.
+- Enrollment behavior/fallback remains unchanged.
+- Face thresholds, liveness, quality, frame counts, RPC verification, GPS, Geofence, shifts, roles unchanged.
+
+Reason:
+- Production symptoms on Samsung A55/A56/A32: FACE_INFER_TIMEOUT / "ตรวจใบหน้าไม่ทันเวลา" before server face verification.
+- Existing source already documents Android/Samsung inference can exceed 8s while camera/face are normal.
+
+Database:
+- No migration. No data mutation.

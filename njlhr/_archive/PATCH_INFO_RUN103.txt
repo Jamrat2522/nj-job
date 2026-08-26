@@ -1,0 +1,20 @@
+RUN-103 — ANDROID ENROLLMENT TIMEOUT FALLBACK
+Build: njhr-v2-ff50bb02
+
+Scope:
+- face.js only for runtime behavior; build metadata/cache keys updated.
+- No SQL migration required.
+
+Behavior:
+- Normal Enrollment remains 3 poses: FRONT -> LEFT -> RIGHT.
+- Only when Android Enrollment receives real FACE_INFER_TIMEOUT, current run stops and shows Retry.
+- Pressing Retry starts fallback automatically: FRONT only, 4 real frames / 4 descriptors.
+- Fallback still requires 1 face, existing quality checks, passive liveness or blink challenge, and existing DB face-match thresholds.
+- Fallback uses 20s inference ceiling and pauses guide inference while recognition model is being prepared to avoid main-thread contention on slower Android devices.
+- iOS/Desktop/Android without FACE_INFER_TIMEOUT stay on the original flow.
+- Face Login, Attendance verification, GPS, Geofence, role, auth, and UPDATE_REQUIRED removal are unchanged.
+
+DB compatibility verified on Production:
+- system_settings.face_enroll_samples = 3
+- fallback sends 4 descriptors, so existing njhr_face_self_enroll / njhr_face_enroll minimum is satisfied.
+- njhr_face_verify still uses the minimum distance across stored descriptors and existing threshold/liveness rules.

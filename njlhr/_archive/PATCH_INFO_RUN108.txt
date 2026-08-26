@@ -1,0 +1,76 @@
+RUN-108 — CAMERA LIFECYCLE: KEEP LIVE STREAM ON TRANSIENT HIDE
+             + CROP LOCK WITHOUT CONTAINER QUERY
+Build: njhr-v2-c5fba221
+Base:  njhr-v2-59f32fc2 (RUN-107)
+
+Scope (ONLY): face.js camera lifecycle, face.css .njf-cam box, build metadata.
+
+1) visibilitychange
+BEFORE: d.addEventListener('visibilitychange', function () {
+          if (d.hidden) bgCleanup('VISIBILITY_HIDDEN'); });
+        -> ATTENDANCE/ENROLL reached close() -> closeCam() -> track.stop(),
+           video.pause(), srcObject = null on ANY hide, including a transient one.
+AFTER : hidden + camFlowActive()  -> VISIBILITY_HIDDEN_KEEP_STREAM, return.
+                                     No track.stop(), no srcObject = null.
+        hidden + flow not active  -> bgCleanup('VISIBILITY_HIDDEN') as before.
+        visible                   -> camResumeVisible(), state-driven only.
+
+2) camResumeVisible() decision order — all real state, no setTimeout guessing:
+   overlay present -> stream present -> track live? -> srcObject bound? -> paused?
+   - track live + playing -> VISIBILITY_VISIBLE_REUSE_STREAM (reuse, no gUM)
+   - track live + paused  -> VISIBILITY_VISIBLE_PLAY_RESUME  (video.play() on the
+                             SAME stream, no gUM)
+   - srcObject detached   -> rebound to the same S.stream, no gUM
+   - track ended          -> openCam() once, guarded by CAM.resuming
+
+3) pagehide
+BEFORE: w.addEventListener('pagehide', function () { bgCleanup('PAGEHIDE'); });
+        -> every pagehide treated as a permanent leave.
+AFTER : event.persisted === true AND camFlowActive() -> PAGEHIDE_BFCACHE_KEEP,
+        state preserved. Otherwise PAGEHIDE_REAL_CLOSE -> bgCleanup as before.
+
+4) Single Stream Guard hardened (openCam)
+BEFORE: if (S.stream) return Promise.resolve(S.stream);
+AFTER : live track  -> return the same stream (unchanged behaviour)
+        ended track -> log STREAM_ENDED_REOPEN, closeCam('STREAM_ENDED_REOPEN')
+                       to clear dead state, then open once.
+
+closeCam() is now reachable only from: USER_CANCEL_CLOSE, ROUTE_CHANGE_CLOSE,
+FLOW_COMPLETE_CLOSE, CANCEL, HANDOFF, PAGEHIDE_REAL_CLOSE, VISIBILITY_HIDDEN
+(only when the flow is NOT active), STREAM_ENDED_REOPEN, CAMERA_ERROR.
+getUserMedia() is now reachable only from: first open of a flow, or a proven
+dead stream (no stream, or track.readyState === 'ended').
+
+5) Preview crop lock no longer depends on container queries (RUN-107 §7 gap)
+BEFORE: .njf-cam { flex: 1; min-height: 0; }  + @supports (container-type: size)
+        -> browsers without container queries fell back to dynamic full-height crop.
+AFTER : base CSS locks the box itself —
+        .njf-cam { flex: none; width: 100%; aspect-ratio: 3/4; max-height: 100%;
+                   margin-inline: auto; }
+        @media (orientation: landscape) { .njf-cam { flex: 1 1 auto; width: auto;
+                   height: auto; aspect-ratio: 3/4; } }
+        The @supports block and all cqw/cqh units are removed entirely.
+        <video> and .njf-guide keep their ORIGINAL rules (100%/100%, cover,
+        scaleX(-1) mirror, inset: 0) — untouched.
+        Requires aspect-ratio (iOS Safari 15+, Chrome 88+).
+
+GPS note (resolves the concern raised in RUN-107):
+gpsPickFresh() filters fixes by GPS_LIVE_MS / GPS_FRESH_MS (3000 ms) at pick
+time, so a fix taken before the user switched away is already outside the
+window and cannot be used. Keeping the camera stream alive across a transient
+hide therefore does NOT extend geofence validity. No GPS code was modified.
+
+Not changed:
+- getUserMedia constraint (facingMode 'user', ideal 640/480), Video Ready Gate
+  (videoWidth/Height > 0, readyState >= 2, track live, 2 rAF), CAM_OPEN_TIMEOUT_MS,
+  CAM_PLAY_TIMEOUT_MS, Camera Generation model, <canvas>, preview mirror.
+- Face detection, descriptors, matching thresholds, liveness, head pose, blink,
+  capture, attendance save, GPS, geofence, RPCs, SQL, schema, production data.
+- Line diff vs the original upload: 172 added, 17 removed; every removed line is
+  a rewrite of the same camera-lifecycle statement. Zero protected-keyword hits.
+
+Database: no migration, no DDL, no data mutation.
+
+Testing: Chrome 131 headless with --use-fake-device-for-media-stream, driving the
+shipped functions themselves (extracted from face.js, not reimplemented).
+iPhone Safari and Android/Samsung: NOT tested — no real camera available here.

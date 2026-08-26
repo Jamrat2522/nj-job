@@ -1,0 +1,26 @@
+RUN-105 — ANDROID ATTENDANCE ADAPTIVE LITE FALLBACK
+Build: njhr-v2-15647e5b
+Base: njhr-v2-2ff71297
+
+Scope:
+- face.js only for runtime behavior.
+- build/cache metadata updated.
+
+Root cause confirmed from source:
+- Increasing timeout 8s -> 20s did not reduce work. Normal Attendance still builds 6-14 live descriptors and recognition model can be prefetched before scan.
+- On Android devices that actually throw FACE_INFER_TIMEOUT, retry must change the work path, not only wait longer.
+
+Fix:
+1. Android device is NOT selected by model name/UA.
+2. Only after a real FACE_INFER_TIMEOUT, a local performance flag is set.
+3. Next Retry on that same Android device uses adaptive Lite path:
+   - TinyFaceDetector inputSize 224 only in Lite path.
+   - no recognition prefetch competing with guide.
+   - 1-face + frame quality checks remain.
+   - active BLINK liveness required.
+   - recognition model loads only after liveness passed.
+   - exactly one fresh descriptor is produced and sent to existing server RPC.
+4. Server Face Match threshold/RPC/GPS/Geofence/Shift/Role/Session unchanged.
+5. iOS/Desktop and Android devices without timeout keep original path.
+
+No SQL migration required.

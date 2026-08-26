@@ -1,0 +1,67 @@
+RUN-107 — FACE PREVIEW CROP LOCK + CAMERA STREAM DIAGNOSTIC
+Build: njhr-v2-59f32fc2
+Base:  njhr-v2-911d8a1f (RUN-106)
+
+Root cause (measured in real Chrome with a fake capture device, not assumed):
+- .njf-overlay is position:fixed;inset:0 and .njf-cam is flex:1;min-height:0,
+  so .njf-cam height follows the viewport (Safari toolbar collapse/expand).
+- The stream is a fixed 4:3 (640x480). object-fit:cover recomputes the crop
+  every time the box ratio changes.
+- Measured at 390px wide:
+    box 390x572 -> visible source 327x480 (51.1% of frame)
+    box 390x658 -> visible source 284x480 (44.5% of frame)
+  = 1.15x zoom swing, and .njf-oval moved 40px, with no zoom code anywhere.
+- Confirmed absent in source: applyConstraints, zoom, deviceId, exact:,
+  orientationchange, resize, visualViewport, landscape media query,
+  rotate(90deg). The symptom is pure CSS crop math.
+
+Fix (face.css only for layout):
+- @supports (container-type: size): .njf-cam becomes a size container and both
+  <video> and .njf-guide are pinned to the same 3:4 box,
+  width  = min(100cqw, 75cqh), height = min(133.3333cqw, 100cqh),
+  anchored to the top edge so growing/shrinking space lands at the bottom.
+- .njf-guide holds every overlay (corners, oval, ring, turn, ok, hint), so the
+  whole guide stays locked to the image.
+- Browsers without container queries fall through to the original rules
+  unchanged.
+- Result measured: crop swing 1.15x -> 1.0000x, oval top 168/208/185 -> 143
+  constant, and the preview is now LESS cropped (56.3% vs 44.5-51.1%).
+- Landscape now keeps the same portrait 3:4 crop instead of a different one.
+- Trade-off: a stable black band below the hint bar (52px with the toolbar
+  expanded, 138px collapsed). A constant crop inside a variable-height box is
+  not otherwise possible.
+
+Diagnostic (face.js, additive only):
+- closeCam(reason) records camera_close_reason + camera_close_count.
+  Reasons wired: USER_CLOSE, ROUTE_CHANGE, PAGEHIDE, VISIBILITY_HIDDEN,
+  FLOW_COMPLETE, CANCEL, HANDOFF; anything else records UNSPECIFIED.
+- camStreamDiag() runs once the video ready gate passes and records
+  video w/h, readyState, paused, track.readyState, track.label, facingMode,
+  track settings w/h, whether deviceId is readable (value NOT stored),
+  visibilityState, viewport w/h, and the live preview box size.
+- No image, no descriptor, no token, no deviceId value.
+
+Not changed:
+- getUserMedia constraint: facingMode 'user', width/height ideal 640/480.
+- Video Ready Gate (videoWidth/Height > 0, readyState >= 2, track live,
+  2 rAF), CAM_OPEN_TIMEOUT_MS 15000, CAM_PLAY_TIMEOUT_MS 8000.
+- openCam() single-stream guard: if (S.stream) return Promise.resolve(S.stream).
+- Camera Generation (CAM.gen) cancellation model.
+- <canvas> and every detection path (detection reads raw video pixels through
+  canvas, independent of CSS box size - this is why the CSS change cannot
+  affect matching).
+- Thresholds, liveness, descriptors, face RPCs, GPS, geofence, shifts, roles,
+  sessions, attendance business logic, SQL, schema, production data.
+- visibilitychange / pagehide SEMANTICS are deliberately unchanged. Making a
+  transient hide resume an ATTENDANCE flow would let a punch continue against a
+  GPS fix taken before the user left, which touches geofence guarantees. The
+  diagnostic above is shipped first so the decision can be made from real
+  device logs instead of a guess.
+
+Database:
+- No migration. No DDL. No data mutation.
+
+Testing:
+- Desktop Chrome 131 headless with --use-fake-device-for-media-stream:
+  crop stability, oval stability, rotation, single-stream reuse - all measured.
+- Android and iPhone Safari: NOT tested here. No real camera was available.
