@@ -1310,7 +1310,7 @@
   /* [ข้อ 2] Camera Generation — กัน getUserMedia ที่ Resolve หลัง Cancel/Logout/Route Change
      เอา Stream กลับมาใส่ S.stream (Camera resurrection)
      ทุกจุดที่ปิดกล้องจะ ++CAM.gen ทำให้คำขอที่ค้างอยู่หมดสิทธิ์ทันที */
-  var CAM = { gen: 0 };
+  var CAM = { gen: 0, resuming: false };
   function camInvalidate() { CAM.gen++; }
 
   /* Sentinel สำหรับ Flow ที่ถูกยกเลิก — .catch() ต้องเงียบ ไม่ขึ้น Error UI */
@@ -1629,7 +1629,14 @@
   }
 
   function openCam() {
-    if (S.stream) return Promise.resolve(S.stream);   // กันเปิดซ้ำ
+    /* [ข้อ 6] Single Stream Guard — คงไว้ แต่ต้องพิสูจน์ว่า Stream เดิม "ยังใช้ได้จริง"
+       Track live = คืน Stream เดิม ห้ามเรียก getUserMedia() ใหม่
+       Track ended = Stream ตายจริง จึงล้าง State เดิมอย่างปลอดภัยก่อนเปิดใหม่ */
+    if (S.stream) {
+      if (camStreamLive()) return Promise.resolve(S.stream);
+      camLifeLog('STREAM_ENDED_REOPEN');
+      closeCam('STREAM_ENDED_REOPEN');
+    }
     var env = camEnv();
     var pre = camPrecheck(env);
     if (pre) {
@@ -1660,6 +1667,7 @@
         /* [E2E] นับ "กล้องพร้อมใช้จริง" หลัง loadedmetadata + videoWidth>0 + play() สำเร็จ
            ไม่ใช่ตอนได้ MediaStream — บนมือถือสองจังหวะนี้ห่างกันได้หลายร้อย ms */
         perfPressMark('button_to_camera_ms');
+        camStreamDiag();
         return st;
       });
     })['catch'](function (e) {
@@ -1671,7 +1679,97 @@
     });
   }
 
-  function closeCam() {
+  /* ---------- [CAMERA STREAM DIAGNOSTIC] ----------
+     วัตถุประสงค์: พิสูจน์จาก Log จริงว่ากล้องถูกปิด/เปิดใหม่ "เพราะอะไร"
+     แทนการเดาว่าเป็น visibilitychange หรือ resize
+     ⚠ ไม่เก็บภาพ · ไม่เก็บ Descriptor · ไม่เก็บค่า deviceId (เก็บแค่ว่าอ่านได้ไหม)
+     ⚠ ไม่เปลี่ยนพฤติกรรมใด ๆ — บันทึกอย่างเดียว */
+  var CAM_CLOSE_REASONS = ['USER_CANCEL_CLOSE', 'ROUTE_CHANGE_CLOSE', 'PAGEHIDE_REAL_CLOSE',
+                           'VISIBILITY_HIDDEN', 'CAMERA_ERROR', 'FLOW_COMPLETE_CLOSE',
+                           'CANCEL', 'HANDOFF', 'STREAM_ENDED_REOPEN', 'UNSPECIFIED'];
+  function camCloseReason(reason) {
+    var r = String(reason || 'UNSPECIFIED');
+    return CAM_CLOSE_REASONS.indexOf(r) >= 0 ? r : 'UNSPECIFIED';
+  }
+
+  /* ---------- [CAMERA LIFECYCLE LOG] ----------
+     บันทึกว่า Lifecycle Event แต่ละครั้ง "ระบบตัดสินใจทำอะไร" เพื่อพิสูจน์จาก Log จริง
+     ว่ากล้องถูกเก็บไว้หรือถูกปิด และถูกเปิดใหม่เพราะอะไร
+     ⚠ ไม่เก็บภาพ · ไม่เก็บ Descriptor · บันทึกเฉพาะชื่อเหตุการณ์กับจำนวนครั้ง */
+  var CAM_LIFE_EVENTS = ['VISIBILITY_HIDDEN_KEEP_STREAM', 'VISIBILITY_VISIBLE_REUSE_STREAM',
+                         'VISIBILITY_VISIBLE_PLAY_RESUME', 'STREAM_ENDED_REOPEN',
+                         'PAGEHIDE_BFCACHE_KEEP', 'PAGEHIDE_REAL_CLOSE', 'ROUTE_CHANGE_CLOSE',
+                         'USER_CANCEL_CLOSE', 'FLOW_COMPLETE_CLOSE'];
+  function camLifeLog(evt) {
+    var e = String(evt || '');
+    if (CAM_LIFE_EVENTS.indexOf(e) < 0) return;
+    try {
+      perfSet('camera_life_last', e);
+      perfBootCount('camera_life_' + e.toLowerCase());
+    } catch (err) {}
+  }
+
+  /* Stream ปัจจุบันยังใช้ได้จริงไหม — ใช้ Track จริงเป็นหลักฐาน ไม่เดา */
+  function camStreamLive() {
+    try {
+      if (!S.stream) return false;
+      var ts = S.stream.getVideoTracks ? S.stream.getVideoTracks() : null;
+      if (!ts || !ts.length) return false;
+      return ts[0] && ts[0].readyState === 'live';
+    } catch (e) { return false; }
+  }
+
+  /* Face Flow ยังทำงานอยู่จริงไหม — Overlay ยังอยู่ + มี Stream ที่ Track ยัง live
+     ใช้เป็น Gate ว่า visibilitychange/pagehide ครั้งนี้เป็น "ชั่วคราว" หรือ "ออกจริง" */
+  function camFlowActive() {
+    return !!(S.root && S.video && camStreamLive());
+  }
+
+  /* สภาพ Stream/Video/Viewport ณ ขณะที่กล้องพร้อมใช้จริง */
+  function camStreamDiag() {
+    try {
+      var v = S.video;
+      var t = null;
+      try {
+        var ts = S.stream && S.stream.getVideoTracks ? S.stream.getVideoTracks() : null;
+        t = ts && ts.length ? ts[0] : null;
+      } catch (e) {}
+      var st = {};
+      try { st = (t && t.getSettings) ? (t.getSettings() || {}) : {}; } catch (e) { st = {}; }
+      perfSet('video_width', v ? (v.videoWidth || 0) : 0);
+      perfSet('video_height', v ? (v.videoHeight || 0) : 0);
+      perfSet('video_ready_state', v ? (v.readyState || 0) : 0);
+      perfSet('video_paused', v ? !!v.paused : null);
+      perfSet('track_ready_state', camTrackState());
+      perfSet('track_label', t ? String(t.label || '') : '');
+      perfSet('track_facing_mode', st.facingMode == null ? null : String(st.facingMode));
+      perfSet('track_settings_w', st.width == null ? null : st.width);
+      perfSet('track_settings_h', st.height == null ? null : st.height);
+      /* ค่า deviceId เป็น Fingerprint ของเครื่อง จึงบันทึกเฉพาะว่าอ่านได้หรือไม่ */
+      perfSet('track_device_id_readable', !!st.deviceId);
+      try { perfSet('visibility_state', String(d.visibilityState || '')); } catch (e) {}
+      try {
+        perfSet('viewport_w', w.innerWidth || 0);
+        perfSet('viewport_h', w.innerHeight || 0);
+      } catch (e) {}
+      /* ขนาดกล่อง Preview จริง — ใช้พิสูจน์ว่ากรอบภาพนิ่งหรือเปลี่ยนสัดส่วนระหว่างสแกน */
+      try {
+        var cam = S.root && S.root.querySelector('.njf-cam');
+        if (cam) {
+          var b = cam.getBoundingClientRect();
+          perfSet('preview_box_w', Math.round(b.width));
+          perfSet('preview_box_h', Math.round(b.height));
+        }
+      } catch (e) {}
+    } catch (e) {}
+  }
+
+  function closeCam(reason) {
+    /* บันทึกก่อนปิด ขณะที่ยังอ่านสถานะ Stream ได้ */
+    if (S.stream) {
+      perfSet('camera_close_reason', camCloseReason(reason));
+      perfBootCount('camera_close_count');
+    }
     camInvalidate();                            // [ข้อ 2] คำขอกล้องที่ค้างอยู่หมดสิทธิ์ทันที
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
     S.running = false;
@@ -2689,7 +2787,7 @@
     S.root = el;
     S.video = el.querySelector('#njf-v');
     S.canvas = el.querySelector('#njf-c');
-    el.querySelector('#njf-x').onclick = close;
+    el.querySelector('#njf-x').onclick = function () { camLifeLog('USER_CANCEL_CLOSE'); close('USER_CANCEL_CLOSE'); };
     return el;
   }
   function hint(a, b) {
@@ -2744,15 +2842,15 @@
      แต่ **ไม่** opInvalidate() และ **ไม่** เปลี่ยน S.mode ออกจาก 'ATTENDANCE'
      (ต่างจาก close() ปกติที่ใช้กับ Cancel/Manual Enroll/Face Login/Route/Logout/Error) */
   function closeSoft() {
-    closeCam();
+    closeCam('HANDOFF');
     attAbortAll();                            // [ข้อ 4] Network ของขั้นลงทะเบียนต้องไม่ค้าง
     if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
     S.root = null; S.busy = false;
     /* คง S.mode = 'ATTENDANCE' และ OP.id เดิมไว้ */
   }
 
-  function close() {
-    closeCam();                               // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
+  function close(reason) {
+    closeCam(reason);                         // ปิดกล้อง + cancelAnimationFrame (ดู closeCam)
     G.sid++;                                  // Attempt (GPS) ปัจจุบันหมดสิทธิ์ทันที
     opInvalidate();                           // Attendance Operation หมดอายุทันที
     enInvalidate();                           // Enrollment Run ปัจจุบันหมดสิทธิ์
@@ -3140,7 +3238,8 @@
              ยกเลิกแล้ว = ห้าม PUT · ห้าม GPS Fresh · ห้าม Punch RPC
              Signed Reservation ที่ไม่ได้ใช้ปล่อยหมดอายุได้ เพราะยังไม่มี Object ถูกสร้าง */
           if (!mine()) { closeCam(); throw AbortAttendanceError(); }
-          closeCam();                          // ปิดกล้องทันทีเมื่อได้ภาพครบ
+          camLifeLog('FLOW_COMPLETE_CLOSE');
+          closeCam('FLOW_COMPLETE_CLOSE');     // ปิดกล้องทันทีเมื่อได้ภาพครบ
           /* [UPLOAD] ถ้าการจองยังไม่เสร็จตอนสแกนจบ ต้องรู้ว่ารออีกกี่มิลลิวินาที */
           var tWaitResv = perfNow();
           return resvP.then(function (resv) {
@@ -4010,7 +4109,7 @@
   }
 
   /* ---------- ปิดกล้องเมื่อออกจากหน้า ---------- */
-  w.addEventListener('hashchange', close);
+  w.addEventListener('hashchange', function () { camLifeLog('ROUTE_CHANGE_CLOSE'); close('ROUTE_CHANGE_CLOSE'); });
   /* ---------- [ข้อ 6] Background Cleanup แบบรู้โหมด ----------
      เดิม pagehide / visibilitychange เรียกแค่ closeCam() ซึ่งไม่พอสำหรับการลงเวลา
      เพราะ GPS Watch · Attendance Operation · Network ของ Attempt ยังทำงานต่อ
@@ -4020,12 +4119,67 @@
      LOGIN (Face Login) → คงพฤติกรรมเดิมทุกประการ: ปิดกล้องอย่างเดียว ไม่แตะ Logic
         เหตุผล: Face Login ไม่มี GPS/Operation และการปิด Flow ทิ้งจะทำให้ผู้ใช้
         กลับมาแล้วเจอหน้าจอค้าง — เดิมทำงานถูกอยู่แล้วจึงไม่แตะ */
-  function bgCleanup() {
-    if (S.mode === 'ATTENDANCE' || S.mode === 'ENROLL') { close(); return; }
-    closeCam();
+  function bgCleanup(reason) {
+    if (S.mode === 'ATTENDANCE' || S.mode === 'ENROLL') { close(reason); return; }
+    closeCam(reason);
   }
-  w.addEventListener('pagehide', bgCleanup);
-  d.addEventListener('visibilitychange', function () { if (d.hidden) bgCleanup(); });
+
+  /* ---------- [LIFECYCLE] กลับมา visible ----------
+     ลำดับตัดสินใจใช้ "สถานะจริง" ทั้งหมด ไม่มี setTimeout เดาสุ่ม:
+       1. Overlay ยังอยู่ไหม        -> ไม่อยู่ = ไม่ใช่ Flow เดิม ไม่ต้องทำอะไร
+       2. มี Stream ไหม             -> ไม่มี = ยังไม่เคยเปิดกล้อง
+       3. Track ยัง live ไหม        -> ไม่ live = ตายจริง จึงเปิดใหม่ได้ (ทางเดียวที่อนุญาต)
+       4. srcObject ยังผูกอยู่ไหม   -> หลุด = ผูกกลับกับ Stream เดิม ไม่เปิดใหม่
+       5. <video> paused ไหม        -> paused = play() กับ Stream เดิมก่อนเสมอ */
+  function camResumeVisible() {
+    if (!S.root || !S.video) return;
+    if (!S.stream) return;
+    if (!camStreamLive()) {
+      /* Stream ตายจริง = ทางเดียวที่อนุญาตให้เปิดกล้องใหม่
+         การ Log STREAM_ENDED_REOPEN ทำที่ openCam() ที่เดียว เพื่อไม่ให้นับซ้ำ */
+      if (CAM.resuming) return;
+      CAM.resuming = true;
+      try {
+        openCam().then(function () { CAM.resuming = false; },
+                       function () { CAM.resuming = false; });
+      } catch (e) { CAM.resuming = false; }
+      return;
+    }
+    var v = S.video;
+    if (v.srcObject !== S.stream) { try { v.srcObject = S.stream; } catch (e) {} }
+    if (v.paused) {
+      camLifeLog('VISIBILITY_VISIBLE_PLAY_RESUME');
+      try {
+        var p = v.play();
+        if (p && typeof p['catch'] === 'function') p['catch'](function () {});
+      } catch (e) {}
+      return;
+    }
+    camLifeLog('VISIBILITY_VISIBLE_REUSE_STREAM');
+  }
+
+  w.addEventListener('pagehide', function (e) {
+    /* [ข้อ 4] pagehide ที่ persisted = เข้า bfcache ยังมีโอกาสกลับหน้าเดิม
+       ถ้า Flow ยัง Active ห้ามทำลาย State — เบราว์เซอร์เป็นผู้ระงับ Track เองระหว่างถูก Freeze */
+    if (e && e.persisted === true && camFlowActive()) {
+      camLifeLog('PAGEHIDE_BFCACHE_KEEP');
+      return;
+    }
+    camLifeLog('PAGEHIDE_REAL_CLOSE');
+    bgCleanup('PAGEHIDE_REAL_CLOSE');
+  });
+
+  d.addEventListener('visibilitychange', function () {
+    if (d.hidden) {
+      /* [ข้อ 1] ซ่อนชั่วคราวขณะ Flow ยังทำงาน = ห้าม track.stop() / srcObject=null
+         GPS ไม่ได้ถูกยืดอายุจากตรงนี้: gpsPickFresh() ยังกรอง Fix ด้วย GPS_FRESH_MS/GPS_LIVE_MS
+         ตามเดิม Fix เก่าก่อนสลับแอปจึงใช้ลงเวลาไม่ได้อยู่แล้ว */
+      if (camFlowActive()) { camLifeLog('VISIBILITY_HIDDEN_KEEP_STREAM'); return; }
+      bgCleanup('VISIBILITY_HIDDEN');
+      return;
+    }
+    camResumeVisible();
+  });
 
   /* ---------- สแกนใบหน้าเข้าสู่ระบบ ----------
      ⚠ ไม่ขอ GPS และไม่อ่านตำแหน่งใด ๆ — ตำแหน่งใช้เฉพาะการลงเวลาเท่านั้น
@@ -4091,7 +4245,8 @@
       })
       .then(function (ctx) {
         st.live = 'ok'; st.match = 'run';
-        closeCam();                            // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
+        camLifeLog('FLOW_COMPLETE_CLOSE');
+        closeCam('FLOW_COMPLETE_CLOSE');       // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
         panel(stepsHtml(st, 'กำลังยืนยันตัวตน…'));
         var best = ctx.frames[ctx.frames.length - 1];
         if (typeof w.NJHR_faceLogin !== 'function') {
@@ -4286,7 +4441,7 @@
        Face Login (mode ว่าง หรือโหมดอื่น) จะไม่ถูกปิดโดยไม่ตั้งใจเด็ดขาด */
     cancelAttendance: function () {
       if (S.mode !== 'ATTENDANCE') return false;
-      close();                                 // closeCam + cancelAnimationFrame + clearWatch + invalidate aid
+      close('CANCEL');                         // closeCam + cancelAnimationFrame + clearWatch + invalidate aid
       return true;
     },
     mode: function () { return S.mode || ''; }

@@ -19,7 +19,7 @@ window.NJHR_ENV_NAME = 'production';
 
 /* ---------- 2) Build Version ---------- */
 /* ใช้แสดงในหน้า Diagnostic เท่านั้น ห้ามแสดงบน Sidebar/Header */
-window.NJHR_BUILD_VERSION = 'njhr-v2-ca4ee74e';
+window.NJHR_BUILD_VERSION = 'njhr-v2-c5fba221';
 
 /* ---------- 3) Supabase ---------- */
 window.NJHR_SUPABASE_URL      = 'https://sytgqjglcnsabcszbngg.supabase.co';
