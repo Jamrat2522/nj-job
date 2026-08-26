@@ -1,0 +1,50 @@
+RUN-110 — HOME "สถานะวันนี้": SHOW THE ACTUAL FACE-SCAN TIME (Asia/Bangkok)
+Build: njhr-v2-48ecea9f
+Base:  njhr-v2-c5fba221 (RUN-108)
+
+Final agreed behaviour (confirmed by the user with concrete examples):
+  top    = the real face-scan times           "เข้า 07:59"  /  "เข้า 07:59 · ออก 17:30"
+  bottom = today's date + the current clock   "26 สิง. 2569 · 12:13"
+
+Root cause (verified against production):
+- Field: public.attendance.check_in / check_out, type timestamp with time zone.
+- Raw value for emp 0155 on 2026-08-26:
+    check_in = "2026-08-26T00:59:06.790788+00:00" = 07:59 Asia/Bangkok
+- dashHomeHM() sliced the raw ISO string with /T(\d{2}):(\d{2})/ and never converted
+  the zone, so the UTC HH:MM (00:59) was rendered instead of 07:59. Off by exactly -7h.
+- That timezone defect was the ONLY real bug on this card.
+
+Fix:
+- dashHomeMs(ts)     : raw timestamp -> epoch ms, null when unparseable.
+- dashHomeBkkHM(ts)  : renders HH:MM in Asia/Bangkok via toLocaleTimeString with
+                       timeZone: 'Asia/Bangkok' — the same formula already proven in
+                       views/attendance/main.js attHM(). Falls back to the original
+                       dashHomeHM() if the value cannot be parsed, so nothing can crash.
+- The three "สถานะวันนี้" call sites now use dashHomeBkkHM instead of dashHomeHM.
+- Labels shortened to "เข้า" / "ออก" per the user's examples.
+
+Reverted from RUN-106/RUN-109 (superseded by the user's decision):
+- The elapsed-duration text on the top line and its shared-timer repaint.
+- Writing the bottom line from the check-in timestamp.
+- Helpers dashHomeDur, dashHomeBkkDate, dashHomeTodayPaint and the dashHome.today
+  state object are removed entirely — no dead code left behind.
+- dashHomeClock()'s tick is byte-identical to the original again.
+
+Diff vs the original upload: 7 hunks, +343 bytes. One inserted helper pair, three
+call sites switched from dashHomeHM to dashHomeBkkHM, two label edits.
+Counts unchanged: setInterval 1, setTimeout 6, todayISO() 4, Date.now() 0,
+Math.abs 0, setHours 0. No hardcoded +7. dashHomeHM() is kept intact for its
+remaining caller (the #mh-pend correction row).
+
+Not changed:
+- Attendance business logic, face scan, GPS, geofence, shifts, RPCs, SQL, schema,
+  production data, and every other view.
+- Note: the date is rendered by the existing shared fmtDate(), which abbreviates
+  สิงหาคม as "สิง." (not "ส.ค."). That formatter is used across the whole app and
+  was deliberately left untouched.
+
+Database: no migration, no DDL, no data mutation. Read-only verification only.
+
+Testing: Chrome 131 headless, driving the shipped code with the device timezone
+emulated as Asia/Bangkok, UTC, America/Los_Angeles and Australia/Sydney.
+Real iPhone/Android not tested here.
