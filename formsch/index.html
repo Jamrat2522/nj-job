@@ -8770,7 +8770,9 @@ async function exportMappingCombined(){
       const eng = (ie ? String(ie.desc||'').trim() : '').toUpperCase();
       // ── Desc ALL = Description(ตัดตั้งแต่ # ออกทั้งหมด) / UPPER(Eng).Qty PCS. · ไม่พบ Eng → เฉพาะ Description ก่อน # ──
       const _descCut = descOut.replace(/#.*$/s,'').trim();
-      const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + (invQty===''?'':_mapNum(invQty)) + ' PCS.') : _descCut;
+      // qty text ของ "แถวนี้" — ใช้ helper เดิม (_mapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000" · เก็บไว้ให้ Country Sheet ใช้ซ้ำแถวเดียวกัน
+      const _invQtyTxt = (invQty===''?'':_mapNum(invQty));
+      const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + _invQtyTxt + ' PCS.') : _descCut;
 
       // ── Billing Document Date (from PDF header, join by Billing Document only) ──
       const bdate = _dateFor(billing);
@@ -8779,7 +8781,7 @@ async function exportMappingCombined(){
         billing, item:itemNo, bdate, matTrim, eng, invQty:_mapNum(invQty), netVal:_mapNum(netVal),
         country, hsCode:String(hsCode),
         qty:ie?round3(ieQty):'', nw:ie?round3(ieNW):'', gw:ie?round3(ieGW):'', fob:ie?round3(ieFOB):'',
-        descAll, descOut
+        descAll, descOut, invQtyTxt:_invQtyTxt
       };
       (outByCountry[country] = outByCountry[country] || []).push(rowObj);
 
@@ -8823,7 +8825,12 @@ async function exportMappingCombined(){
     const _rrLookup=(billing,item,qty)=>{
       const arr=rmRefMap.get(_rrKey(billing,item,qty));
       if(!arr)         return {status:'none',  entry:'', itemNo:'', matTrim:''};   // ไม่พบ → เว้นว่าง
-      if(arr.length>1) return {status:'multi', entry:'', itemNo:'', matTrim:''};   // หลายแถว → เว้นว่าง (ห้าม join / ห้ามเดา)
+      if(arr.length>1){
+        // หลายแถว → Import entry no./Item no. ต้องเว้นว่างเสมอ (ห้ามเดา / ห้าม join)
+        // แต่ถ้า Material (Trim) ของทุกแถวที่ match "ตรงกันหมด" ถือว่าไม่กำกวม → ใช้เป็น Material ได้ (ไม่ใช่การเดา)
+        const _mSet = Array.from(new Set(arr.map(x=>_mapBaseMat(x.matTrim)).filter(s=>s!=='')));
+        return {status:'multi', entry:'', itemNo:'', matTrim:(_mSet.length===1 ? _mSet[0] : '')};
+      }
       return {status:'one', entry:arr[0].entry, itemNo:arr[0].itemNo, matTrim:arr[0].matTrim}; // 1 แถว → เติม
     };
     let _rrMatched=0, _rrNotFound=0, _rrMultiHit=0, _rrSheets=0;   // สถิติสำหรับรายงาน
@@ -8859,13 +8866,18 @@ async function exportMappingCombined(){
         let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
         chunk.forEach(ro=>{
           const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
-          const _mt = _rh.matTrim || '';   // Material (Trim): ดึงจาก 📦 RM มีเลขอ้างอิง เท่านั้น (Description ตัด # → Material name 2 → ว่าง) · ไม่ดึงจากไฟล์อื่น
-          // Desc ALL: ใช้ Material (Trim) เป็นส่วนหน้าแทน Description → "Material(Trim) / UPPER(Eng).Qty PCS." · คง suffix เดิมเป๊ะ · ถ้า Material (Trim) ว่าง ใช้ logic เดิม
-          const _dcFront = (ro.descOut||'').replace(/#.*$/s,'').trim();
-          const _descAll = (_mt && ro.descAll.startsWith(_dcFront)) ? (_mt + ro.descAll.slice(_dcFront.length)) : ro.descAll;
-          aoa.push([ ro.billing, ro.bdate, _mt, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
+          // ── Final Material (1 ค่า ต่อ 1 output row) ──────────────────────────────
+          // fallback: (1) 📦 RM มีเลขอ้างอิง → (2) Material (Trim) ของ "แถว RM เดียวกัน" → (3) Description ของ "แถว RM เดียวกัน" → ว่าง
+          // _mapBaseMat() = trim + ตัดตั้งแต่ '#' เป็นต้นไป · ไม่เติม #N · ไม่แก้ Material Code จริง
+          // ทุกค่าอ้างอิง ro (output row เดียวกัน) เท่านั้น — ไม่มีการดึงจาก previous/next row
+          const finalMaterial = _mapBaseMat(_rh.matTrim) || _mapBaseMat(ro.matTrim) || _mapBaseMat(ro.descOut) || '';
+          // ── Desc ALL: ประกอบใหม่จากข้อมูลแถวเดียวกัน "Material/ UPPER(Eng).Qty PCS." ──
+          // ไม่ใช้วิธี replace prefix จาก ro.descAll อีกต่อไป (เดิมทำให้ Material กับ Qty หลุดแถวกันได้)
+          const _engFinal = String(ro.eng||'').trim().toUpperCase();
+          const _descAll  = _engFinal ? (finalMaterial + '/ ' + _engFinal + '.' + ro.invQtyTxt + ' PCS.') : finalMaterial;
+          aoa.push([ ro.billing, ro.bdate, finalMaterial, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
                      _mapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
-                     numOrBlank(ro.fob), _descAll, _mt, _rh.entry, _rh.itemNo ]);
+                     numOrBlank(ro.fob), _descAll, finalMaterial, _rh.entry, _rh.itemNo ]);
           tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
           tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
         });
