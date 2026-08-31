@@ -629,16 +629,16 @@ input[type=file]{display:none}
 .rpt-table thead tr:nth-child(1) th{top:0;height:48px;padding:14px 4px;font-size:15px;font-weight:700;letter-spacing:0;}
 .rpt-table thead tr:nth-child(2) th{top:var(--rpt-h1,48px);height:42px;padding:10px 4px;font-size:12px;font-weight:600;letter-spacing:0;white-space:nowrap;}
 /* กลุ่มเอกสารลูกค้า = เขียว · NJ = น้ำเงิน (หัวกลุ่ม row1) — +1 หลังเพิ่มคอลัมน์ "อัปเดตสถานะ" + "เลข INVOICE" */
-.rpt-table thead tr:nth-child(1) th:nth-child(12){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
+.rpt-table thead tr:nth-child(1) th:nth-child(13){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
 /* หัวข้อกลุ่ม "✓ เอกสารที่ลูกค้าส่งมา" (row1) = เขียว */
-.rpt-table thead tr:nth-child(1) th:nth-child(11){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
+.rpt-table thead tr:nth-child(1) th:nth-child(12){background:linear-gradient(180deg,#4A9A4E 0%,#2C6A30 100%);color:#fff;}
 .rpt-table thead tr:nth-child(2) th:nth-child(-n+7){background:linear-gradient(180deg,#3A6BB0 0%,#244E86 100%);color:#fff;}
 .rpt-table thead tr:nth-child(2) th:nth-child(n+8){background:linear-gradient(180deg,#8C6827 0%,#6F4F18 100%);color:#fff;}
 /* เส้นแบ่งกลุ่ม = เส้นจาง (ไม่ใช้เส้นดำเข้ม) */
-.rpt-table thead tr:nth-child(1) th:nth-child(12),
+.rpt-table thead tr:nth-child(1) th:nth-child(13),
 .rpt-table thead tr:nth-child(2) th:nth-child(8){border-left:1px solid rgba(255,255,255,.24);}
-.rpt-table tbody td:nth-child(18),
-.rpt-table thead tr.rpt-frow th:nth-child(18){border-left:1px solid rgba(255,255,255,.10);}
+.rpt-table tbody td:nth-child(19),
+.rpt-table thead tr.rpt-frow th:nth-child(19){border-left:1px solid rgba(255,255,255,.10);}
 /* sort arrow + hover (อ่อนขึ้น ~5%) */
 .rpt-table thead th .rpt-ar{color:inherit;opacity:.7;font-size:10px;}
 .rpt-table thead th.rpt-sort{cursor:pointer;user-select:none;}
@@ -646,10 +646,73 @@ input[type=file]{display:none}
 .rpt-frow th{background:var(--s2) !important;position:sticky;top:var(--rpt-h12,84px);padding:3px 4px;z-index:2;}
 .rpt-fi,.rpt-fs{width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:5px;padding:3px 5px;font-size:11px;color:var(--t1);outline:none;font-family:var(--font);}
 .rpt-fi:focus,.rpt-fs:focus{border-color:var(--g);}
+/* ════════ ⚖️ ตรวจน้ำหนัก SCH — scope เฉพาะ #page-sch-weight / .schw-* (ไม่แตะโหมดอื่น) ════════ */
+#page-sch-weight .schw-view{color:var(--t1)}
+#page-sch-weight .schw-drop{background:var(--s1);border:1.5px dashed var(--bd);border-radius:12px;padding:20px;transition:.16s;margin-bottom:14px}
+#page-sch-weight .schw-drop.over{border-color:var(--g);background:#132b1c}
+#page-sch-weight .schw-drop h4{font-size:13px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+#page-sch-weight .schw-hint{color:var(--t2);font-size:12.5px;margin-top:8px;display:inline-block}
+#page-sch-weight .schw-pick{display:inline-flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t1);border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:600;font-size:13px}
+#page-sch-weight .schw-pick:hover{border-color:var(--g)}
+#page-sch-weight .schw-flist{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+#page-sch-weight .schw-frow{display:flex;align-items:center;gap:12px;background:var(--sb);border:1px solid var(--bd);border-radius:8px;padding:9px 12px;font-size:12.5px}
+#page-sch-weight .schw-frow .fn{font-weight:600;color:var(--t1);flex:0 0 auto;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-sch-weight .schw-frow .fmeta{color:var(--t2);flex:1}
+#page-sch-weight .schw-frow .del{margin-left:auto;background:rgba(248,81,73,.10);border:1px solid rgba(248,81,73,.40);color:var(--red);border-radius:6px;width:28px;height:28px;cursor:pointer;flex:0 0 auto}
+#page-sch-weight .schw-frow .del:hover{background:rgba(248,81,73,.2)}
+#page-sch-weight .schw-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+#page-sch-weight .schw-btn{border-radius:8px;padding:10px 18px;font-weight:700;font-size:13.5px;cursor:pointer;border:1px solid var(--bd);background:var(--s2);color:var(--t1);transition:.16s;font-family:var(--font)}
+#page-sch-weight .schw-btn:hover:not(:disabled){border-color:var(--g)}
+#page-sch-weight .schw-btn.primary{background:var(--g);border-color:var(--g);color:#fff}
+#page-sch-weight .schw-btn.primary:hover:not(:disabled){background:var(--gm)}
+#page-sch-weight .schw-btn.export{background:linear-gradient(180deg,#28a745,#1f8e3d);border:none;color:#fff}
+#page-sch-weight .schw-btn:disabled{opacity:.4;cursor:not-allowed}
+#page-sch-weight .schw-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0;max-width:720px}
+#page-sch-weight .schw-stat{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+#page-sch-weight .schw-stat .k{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}
+#page-sch-weight .schw-stat .v{font-size:20px;font-weight:700;margin-top:4px}
+#page-sch-weight .schw-stat.err .v{color:var(--red)}
+#page-sch-weight .schw-msgbox{border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12.5px;border:1px solid var(--bd);color:var(--t1)}
+#page-sch-weight .schw-msgbox.err{background:rgba(248,81,73,.10);border-color:rgba(248,81,73,.4);color:var(--red)}
+/* Modal เฉพาะโหมดนี้ — ไม่ใช้ #modal-bg / closeModal() ของระบบเดิม */
+.schw-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:9000;padding:20px}
+.schw-modal-bg.on{display:flex}
+.schw-modal{width:min(560px,94vw);max-height:88vh;display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--bd);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.schw-modal .mh{padding:16px 22px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+.schw-modal .mh h3{font-size:16px;font-weight:700;color:var(--red)}
+.schw-modal .xbtn{width:34px;height:34px;border:1px solid var(--bd);background:transparent;color:var(--t2);border-radius:8px;cursor:pointer;font-size:15px}
+.schw-modal .xbtn:hover{border-color:var(--red);color:var(--red)}
+.schw-modal .mb{padding:16px 22px;overflow:auto}
+.schw-tablewrap{border:1px solid var(--bd);border-radius:10px;overflow:auto;max-height:60vh;background:var(--s1)}
+.schw-tablewrap table{border-collapse:collapse;font-size:11.5px;white-space:nowrap;width:100%}
+.schw-tablewrap thead th{position:sticky;top:0;background:var(--s2);color:var(--t2);padding:8px;border-bottom:2px solid var(--g);text-align:left;font-weight:700;z-index:3}
+.schw-tablewrap td{padding:6px 8px;border-bottom:1px solid var(--bd);color:var(--t1)}
+.schw-tablewrap tr:hover td{background:var(--s2)}
+.schw-tablewrap td.err{color:var(--red);font-weight:700}
 .rpt-tr{background:transparent;cursor:default;transition:background .1s;}
 .rpt-tr:nth-child(even){background:rgba(255,255,255,.012);}
 .rpt-tr:hover{background:var(--s2) !important;}
 .rpt-tr.rpt-sel{background:rgba(0,150,64,.14) !important;box-shadow:inset 0 0 0 1px rgba(0,150,64,.45);}
+/* ── ปิดงานแล้ว (is_closed) — ทั้งแถวเป็นโทนเทา ลดความเด่น (แสดงผลเท่านั้น · ข้อมูลยังอยู่ครบ) ── */
+/* ใช้สีเทาโดยตรง ไม่ใช้ opacity/grayscale บนทั้งแถว — เพื่อให้ badge "วางบิลแล้ว" (น้ำตาล) ยังเห็นชัดเต็มสี */
+.rpt-tr.rpt-closed>.rpt-td{color:var(--t3) !important;}
+.rpt-tr.rpt-closed{background:rgba(110,118,129,.10);}
+.rpt-tr.rpt-closed:hover{background:rgba(110,118,129,.18) !important;}
+.rpt-tr.rpt-closed .rpt-chk{cursor:default;color:var(--t3);}
+.rpt-tr.rpt-closed .rpt-chk.on{color:#8b949e;}
+.rpt-tr.rpt-closed .rpt-chk:hover{background:transparent;}
+.rpt-act.close.done{width:auto;padding:0 8px;font-size:11px;font-weight:600;}
+/* ── ☑ เลือกเพื่อปิดงานหลายรายการ (bulk) ── */
+.rpt-selcell{text-align:center;padding:2px;}
+.rpt-selbox{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-size:16px;color:var(--t3);cursor:pointer;border-radius:5px;user-select:none;transition:.1s;}
+.rpt-selbox:hover{background:var(--bd);}
+.rpt-selbox.on{color:var(--g);font-weight:700;}
+.rpt-selbox.some{color:var(--amber);font-weight:700;}
+.rpt-selbox.lock{color:var(--t3);opacity:.35;cursor:default;}
+.rpt-selbox.lock:hover{background:transparent;}
+#rpt-selall{color:#fff;}
+#rpt-selall.on{color:#fff;}
+#rpt-selall.some{color:#FFD98A;}
 .rpt-td{text-align:center;color:var(--t1);}
 .rpt-cc{text-align:center;padding:2px;}
 .rpt-chk{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;font-size:16px;color:var(--t3);cursor:pointer;border-radius:5px;user-select:none;transition:.1s;}
@@ -668,6 +731,7 @@ input[type=file]{display:none}
 .rpt-badge.ss-ok{background:#2ea043;}
 .rpt-badge.ss-no{background:#d9342b;}
 .rpt-badge.ss-cancel{background:#8B5CF6;}
+.rpt-badge.ss-billed{background:#8B5A2B;color:#fff;}   /* ปิดงานแล้ว → "วางบิลแล้ว" พื้นน้ำตาล (ไม่ชนสีแดงของ "ไม่อนุมัติ") · แสดงผลเฉพาะในตาราง ไม่ใช่ตัวเลือกใน dropdown/KPI */
 .rpt-act{width:30px;height:28px;margin:0 2px;border:1px solid var(--bd);background:var(--s2);color:var(--t1);border-radius:6px;font-size:13px;line-height:1;cursor:pointer;transition:.12s;vertical-align:middle;}
 .rpt-act:hover{background:var(--s1);}
 .rpt-act.edit:hover{border-color:#58a6ff;}
@@ -913,6 +977,11 @@ input[type=file]{display:none}
       <button class="sbi" id="nav-thaiglico" onclick="navTo('thaiglico')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
         🇹🇭 Thai Glico
+      </button>
+
+      <button class="sbi" id="nav-sch-weight" onclick="navTo('sch-weight')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
+        ⚖️ ตรวจน้ำหนัก SCH
       </button>
 
       <div class="sb-sec" id="sec-report">Report</div>
@@ -1901,6 +1970,29 @@ input[type=file]{display:none}
       </div>
 
       <!-- ════════ REPORT FORMSCH MANAGEMENT ════════ -->
+      <!-- ════════ ⚖️ ตรวจน้ำหนัก SCH (ย้ายจาก Source เดิม · browser-only · prefix schw) ════════ -->
+      <div class="pview" id="page-sch-weight" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <span>⚖️</span> ตรวจน้ำหนัก SCH
+        </div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">ตรวจ Net Weight ห้ามมากกว่า Gross Weight · อ่านทุกชีต · Export เฉพาะรายการผิด</div>
+        <div class="schw-view">
+          <div class="schw-drop" id="schwDrop">
+            <h4>อัปโหลดไฟล์ Excel (อ่านทุกชีต · หลายไฟล์ได้)</h4>
+            <label class="schw-pick">📥 อัปโหลดไฟล์ Excel
+              <input id="schwInput" type="file" accept=".xlsx,.xls" multiple style="display:none" onchange="schwAddFiles(this.files)"></label>
+            <span class="schw-hint">ตรวจอัตโนมัติจากหัวคอลัมน์ Net Weight / Gross Weight (NW / GW)</span>
+            <div class="schw-flist" id="schwList"></div>
+          </div>
+          <div class="schw-actions">
+            <button class="schw-btn primary" onclick="schwAnalyze()">🔍 ตรวจสอบน้ำหนัก</button>
+            <button class="schw-btn export" id="schwExportBtn" onclick="exportSchwErrors()" disabled>📤 Export Excel รายการผิดพลาด</button>
+            <button class="schw-btn" onclick="resetSchwFiles()">🗑️ ล้างข้อมูล</button>
+          </div>
+          <div id="schwResult"></div>
+        </div>
+      </div>
+
       <div class="pview" id="page-report">
         <!-- Premium Enterprise Header -->
         <div class="rpt-hero">
@@ -1910,10 +2002,11 @@ input[type=file]{display:none}
           <div class="rpt-hero-r">
             <div class="rpt-search-wrap"><span>🔍</span><input id="rpt-search" type="text" placeholder="ค้นหาทุกคอลัมน์…"></div>
             <div id="rpt-cust-ms" class="rpt-ms" title="กรองตามลูกค้า"><button type="button" id="rpt-cust-btn" class="rpt-ms-btn">👥 ลูกค้าทั้งหมด <span class="rpt-ms-caret">▾</span></button><div id="rpt-cust-panel" class="rpt-ms-panel"></div></div>
-            <div id="rpt-sf-ms" class="rpt-ms" title="กรองตามสถานะ (ผลการยื่นระบบ)"><button type="button" id="rpt-sf-btn" class="rpt-ms-btn">3 สถานะที่เลือก <span class="rpt-ms-caret">▾</span></button><div id="rpt-sf-panel" class="rpt-ms-panel"><label class="rpt-ms-row rpt-ms-all"><input type="checkbox" id="rpt-sf-all"><span>📋 ทั้งหมด</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="WAIT_SUBMIT" checked><span>🔵 รอส่งข้อมูล</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="WAIT_APPROVAL" checked><span>🟡 รออนุมัติ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="APPROVED"><span>🟢 อนุมัติจากระบบ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="REJECTED" checked><span>🔴 ไม่อนุมัติ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="CANCELLED"><span>🟣 ยกเลิก</span></label><div class="rpt-ms-foot"><button type="button" id="rpt-sf-close" class="rpt-ms-close">ปิด</button></div></div></div>
+            <div id="rpt-sf-ms" class="rpt-ms" title="กรองตามสถานะ (ผลการยื่นระบบ)"><button type="button" id="rpt-sf-btn" class="rpt-ms-btn">3 สถานะที่เลือก <span class="rpt-ms-caret">▾</span></button><div id="rpt-sf-panel" class="rpt-ms-panel"><label class="rpt-ms-row rpt-ms-all"><input type="checkbox" id="rpt-sf-all"><span>📋 ทั้งหมด</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="WAIT_SUBMIT" checked><span>🔵 รอส่งข้อมูล</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="WAIT_APPROVAL" checked><span>🟡 รออนุมัติ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="APPROVED"><span>🟢 อนุมัติจากระบบ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="REJECTED" checked><span>🔴 ไม่อนุมัติ</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="CANCELLED"><span>🟣 ยกเลิก</span></label><label class="rpt-ms-row"><input type="checkbox" class="rpt-sf-cb" value="BILLED"><span>🟤 วางบิลแล้ว</span></label><div class="rpt-ms-foot"><button type="button" id="rpt-sf-close" class="rpt-ms-close">ปิด</button></div></div></div>
             <button class="rpt-btn" id="rpt-btn-refresh" title="รีเฟรชข้อมูลจากฐานข้อมูล">🔄 รีเฟรช</button>
             <button class="rpt-btn" id="rpt-btn-filter">🔽 ตัวกรอง</button>
             <button class="rpt-btn primary" id="rpt-btn-add">➕ เปิดงาน</button>
+            <button class="rpt-btn" id="rpt-btn-bulkclose" title="ปิดงานรายการที่ติ๊กเลือกไว้" disabled>🔒 ปิดงานที่เลือก</button>
             <button class="rpt-btn gold" id="rpt-btn-export">📤 Export Excel</button>
           </div>
         </div>
@@ -2001,6 +2094,17 @@ input[type=file]{display:none}
       <button class="rpt-btn" id="rpt-cfm-no">ยกเลิก</button>
       <button class="rpt-btn" id="rpt-cfm-yes" style="background:#c0392b;border-color:#a93226;color:#fff">ลบ</button>
     </div>
+  </div>
+</div>
+
+<!-- ════════ ⚖️ ตรวจน้ำหนัก SCH · MODAL (แยกจาก #modal-bg / closeModal() ของระบบเดิม) ════════ -->
+<div class="schw-modal-bg" id="schw-modal-bg" onclick="if(event.target===this)schwCloseModal()">
+  <div class="schw-modal">
+    <div class="mh">
+      <h3>⚠️ พบรายการน้ำหนักไม่ถูกต้อง</h3>
+      <button class="xbtn" type="button" onclick="schwCloseModal()">✕</button>
+    </div>
+    <div class="mb" id="schw-modal-body"></div>
   </div>
 </div>
 
@@ -2498,7 +2602,7 @@ function navTo(page){
   }
   const shownPage = (page==='report-form') ? 'report' : page;   // REPORT FORM = ใช้หน้า/ข้อมูล (page-report · RPT_DATA · report_formsch) ชุดเดียวกับ REPORT FORMSCH — ไม่แยกระบบ/ตาราง/state
   window.rptFormMode = (page==='report-form');                  // REPORT FORM: ซ่อนลูกค้า SCH ทุกจุด (แสดงผลเท่านั้น) · REPORT FORMSCH: แสดงครบ
-  ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','report'].forEach(p=>{
+  ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','sch-weight','report'].forEach(p=>{
     document.getElementById('page-'+p)?.classList.toggle('on',p===shownPage);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
@@ -2512,13 +2616,15 @@ function navTo(page){
     'prename':'เปลี่ยนชื่อ PDF',
     'pdf2img':'PDF → Image',
     'thaiglico':'🇹🇭 Thai Glico',
+    'sch-weight':'ตรวจน้ำหนัก SCH',
     'report':'REPORT FORMSCH MANAGEMENT',
     'report-form':'REPORT FORM'
   };
-  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','report':'REPORT','report-form':'REPORT'};
+  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   const tagEl=document.getElementById('tb-tag');
   if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':(page==='report'||page==='report-form')?'#8a6d3b':'';}
+  if(page==='sch-weight' && typeof schwBind==='function') schwBind();   // ⚖️ ตรวจน้ำหนัก SCH — ผูก Drag&Drop + วาดรายการไฟล์
   if(page==='pmerge' && typeof _pmBind==='function') _pmBind();
   if(page==='mci' && typeof _mciBind==='function') _mciBind();
   if(page==='prename' && typeof _prBind==='function') _prBind();
@@ -6934,6 +7040,82 @@ function _impNorm(s){
   return String(s||'').replace(/[^\d]/g,'').replace(/^0+/,'') || '';
 }
 
+// ── Invoice Match Packing — Key จับคู่จริง: Invoice "Delivery Note No." ↔ Packing List "DN" ──
+// Normalize DN: String → trim → เอาเฉพาะตัวเลข → ตัด 0 นำหน้า → คืน String (ไม่แปลงเป็น Number กัน precision)
+//   "0053407589" → "53407589"   ·   "53407589" → "53407589"
+function _impNormDN(s){
+  return String(s==null?'':s).trim().replace(/[^\d]/g,'').replace(/^0+/,'');
+}
+// Normalize Material/Article: String → trim → UPPER → ตัดอักขระที่ไม่ใช่ A-Z0-9 (ไม่ตัด 0 นำหน้า)
+//   "016705696-0000-13" → "016705696000013"
+function _impNormMat(s){
+  return String(s==null?'':s).trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+function _impQtyNum(v){
+  const n = Number(String(v==null?'':v).replace(/,/g,'').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+// อ่าน "Delivery Note No. / Date  53407589 / 07.07.2026" (pdf.js แยกบรรทัด → ยอมให้มีอักขระคั่นได้)
+function _impFindDeliveryNote(text){
+  const m = /Delivery\s*Note\s*No\.?[^0-9]{0,60}(\d{5,15})/i.exec(String(text||''));
+  return m ? m[1] : '';
+}
+// อ่านรายการสินค้าในใบ Invoice: หัวรายการ "000001 <Material No.> ... <qty> PC"
+// (pdf.js อาจแยกเป็นคนละบรรทัด และอาจมีข้อความแทรก เช่น "/ REPLACE ITEM 230 /")
+// → รวมเป็น Map: normalizedMaterial => SUM(qty)
+function _impParseInvItems(text){
+  const flat = String(text||'').replace(/\n/g,' ');
+  const re = /\b0{2}\d{4}\s+(\d{9}-\d{4}-\d{2})\b/g;
+  const hdr = [];
+  let m;
+  while((m = re.exec(flat)) !== null) hdr.push({pos:m.index, mat:m[1]});
+  const map = new Map();
+  for(let i=0;i<hdr.length;i++){
+    const end = (i+1<hdr.length) ? hdr[i+1].pos : Math.min(flat.length, hdr[i].pos+1200);
+    const qm  = /(\d[\d.,]*)\s*PC\b/.exec(flat.slice(hdr[i].pos, end));
+    const k   = _impNormMat(hdr[i].mat);
+    map.set(k, (map.get(k)||0) + (qm ? _impQtyNum(qm[1]) : 0));
+  }
+  return map;
+}
+// เทียบสินค้า Invoice ↔ Packing List (SUM ก่อน compare — Material ซ้ำหลายบรรทัดต้องรวมกันก่อน)
+function _impCompareItems(invMap, pkMap){
+  const out = {match:[], qtyMismatch:[], missingInPk:[], extraInPk:[]};
+  const keys = new Set([...(invMap?invMap.keys():[]), ...(pkMap?pkMap.keys():[])]);
+  for(const k of keys){
+    const hasI = invMap && invMap.has(k), hasP = pkMap && pkMap.has(k);
+    const qi = hasI ? invMap.get(k) : 0, qp = hasP ? pkMap.get(k) : 0;
+    if(hasI && hasP)      (Math.abs(qi-qp) < 1e-9 ? out.match : out.qtyMismatch).push({mat:k, inv:qi, pk:qp});
+    else if(hasI)         out.missingInPk.push({mat:k, inv:qi, pk:0});
+    else                  out.extraInPk.push({mat:k, inv:0, pk:qp});
+  }
+  return out;
+}
+// จับคู่ไฟล์: Invoice 1 ใบ → หา PL ที่ "ภายในไฟล์" มี DN ตรงกับ Delivery Note ของ Invoice
+//   เจอ 1 → Match · เจอ 0 → ไม่พบ Packing List · เจอ >1 → พบ Packing List ซ้ำ (ห้ามเดา)
+// คืนโครงสร้าง groups แบบเดิม (key → {inv:[], pk:[]}) เพื่อไม่กระทบโค้ดสร้าง ZIP/JPG เดิม
+function _impBuildGroups(){
+  const groups = new Map();
+  const blankInv = [], usedPk = new Set(), pairInfo = new Map();
+  for(const it of _impInv){
+    const dn = _impNormDN(it.dn);
+    if(!dn){ blankInv.push(it); continue; }
+    const hits = _impPk.filter(p => p.dnSet && p.dnSet.has(dn));
+    const key  = 'INV#' + it.file.name;                    // 1 invoice = 1 group (ไม่จับตามลำดับไฟล์)
+    groups.set(key, {inv:[it], pk:[], rawShip:dn, dn});
+    pairInfo.set(key, {dn, hits:hits.length});
+    if(hits.length === 1){ groups.get(key).pk.push(hits[0]); usedPk.add(hits[0]); }
+  }
+  const blankPk = [];
+  for(const p of _impPk){
+    if(usedPk.has(p)) continue;
+    if(!p.dnSet || p.dnSet.size === 0){ blankPk.push(p); continue; }
+    const key = 'PK#' + p.file.name;
+    groups.set(key, {inv:[], pk:[p], rawShip:Array.from(p.dnSet)[0]||'', dn:Array.from(p.dnSet)[0]||''});
+  }
+  return {groups, blankInv, blankPk, pairInfo};
+}
+
 // Prevent browser from opening files when dropped OUTSIDE the dropzones
 // (otherwise stray drops would navigate away from the app)
 ['dragover','drop'].forEach(ev=>{
@@ -6966,11 +7148,13 @@ async function impLoadInvoices(files){
       }
       const shipNo = _impFindShipmentNo(allText);
       const docNo  = _impFindDocumentNo(allText);
-      _impInv.push({file:f, shipNo, docNo});
+      const dn     = _impFindDeliveryNote(allText);          // Key จับคู่จริง
+      const items  = _impParseInvItems(allText);             // Material No. → SUM(qty)
+      _impInv.push({file:f, shipNo, docNo, dn, items});
       added++;
     }catch(err){
       console.warn('Invoice parse error', f.name, err);
-      _impInv.push({file:f, shipNo:'', docNo:''});
+      _impInv.push({file:f, shipNo:'', docNo:'', dn:'', items:new Map()});
       added++;
     }
   }
@@ -7031,29 +7215,59 @@ async function impLoadPackings(files){
       const buf = await f.arrayBuffer();
       const wb = XLSX.read(buf, {type:'array'});
       let packNo = '';
+      const dnSet = new Set();          // DN ทุกค่าในไฟล์ (1 PL อาจมีหลาย DN)
+      const items = new Map();          // Article No. → SUM(qty) — ของ "ทั้งไฟล์" ไม่กรองตาม DN
+      let rawCount = 0;
       for(const sn of wb.SheetNames){
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:''});
-        for(const row of rows){
-          for(let c=0; c<row.length; c++){
-            const cell = String(row[c]||'').trim();
-            if(/Packing\s*No\s*:?/i.test(cell)){
-              for(let cc=c+1; cc<Math.min(c+6, row.length); cc++){
-                const v = String(row[cc]||'').trim();
-                const m = v.match(/\b(\d{6,12})\b/);
-                if(m){ packNo = m[1]; break; }
+        // ── Packing No: (คงเดิม ใช้แสดงผล/ตั้งชื่อ ไม่ใช่ Key จับคู่) ──
+        if(!packNo){
+          for(const row of rows){
+            for(let c=0; c<row.length; c++){
+              const cell = String(row[c]||'').trim();
+              if(/Packing\s*No\s*:?/i.test(cell)){
+                for(let cc=c+1; cc<Math.min(c+6, row.length); cc++){
+                  const v = String(row[cc]||'').trim();
+                  const m = v.match(/\b(\d{6,12})\b/);
+                  if(m){ packNo = m[1]; break; }
+                }
+                if(packNo) break;
               }
-              if(packNo) break;
+            }
+            if(packNo) break;
+          }
+        }
+        // ── หาแถวหัวตารางที่มีทั้ง "DN" และ "Article No" แล้วอ่านทุกแถวใต้หัว (ไม่ splice/ไม่ลบ rows เดิม) ──
+        let hIdx=-1, cDN=-1, cArt=-1, cQty=-1;
+        for(let i=0;i<rows.length;i++){
+          const cells=(rows[i]||[]).map(x=>String(x==null?'':x).trim().toLowerCase());
+          const dnI=cells.indexOf('dn');
+          const arI=cells.findIndex(x=>x.replace(/\s+/g,'')==='articleno'||x.replace(/\s+/g,'')==='articleno.');
+          if(dnI>=0 && arI>=0){
+            hIdx=i; cDN=dnI; cArt=arI;
+            cQty=cells.findIndex(x=>x==='qty'||x==='qty.'||x==='quantity');
+            break;
+          }
+        }
+        if(hIdx>=0){
+          for(let i=hIdx+1;i<rows.length;i++){
+            const row = rows[i]||[];
+            const dnV = _impNormDN(cDN<row.length?row[cDN]:'');
+            if(dnV) dnSet.add(dnV);
+            const arV = _impNormMat(cArt<row.length?row[cArt]:'');
+            if(arV){
+              const q = _impQtyNum(cQty>=0 && cQty<row.length ? row[cQty] : 0);
+              items.set(arV, (items.get(arV)||0) + q);
+              rawCount++;
             }
           }
-          if(packNo) break;
         }
-        if(packNo) break;
       }
-      _impPk.push({file:f, packNo});
+      _impPk.push({file:f, packNo, dnSet, items, rawCount});
       added++;
     }catch(err){
       console.warn('Packing parse error', f.name, err);
-      _impPk.push({file:f, packNo:''});
+      _impPk.push({file:f, packNo:'', dnSet:new Set(), items:new Map(), rawCount:0});
       added++;
     }
   }
@@ -7078,31 +7292,24 @@ function impUpdateUI(){
     status.style.color = 'var(--t3)';
     status.style.fontStyle = 'italic';
   } else {
-    // Compute match preview
-    const map = new Map();   // norm shipNo → {inv:[], pk:[]}
-    for(const it of _impInv){
-      const k = _impNorm(it.shipNo);
-      if(!map.has(k)) map.set(k, {inv:[], pk:[]});
-      map.get(k).inv.push(it);
+    // Compute match preview — ใช้ Key เดียวกับตอน Run: Delivery Note ↔ DN
+    const _pv = _impBuildGroups();
+    let matched=0, noPk=0, dupPk=0, noInv=0;
+    for(const [k,g] of _pv.groups.entries()){
+      if(g.inv.length && g.pk.length) matched++;
+      else if(g.inv.length){ ((_pv.pairInfo.get(k)||{}).hits>1) ? dupPk++ : noPk++; }
+      else if(g.pk.length) noInv++;
     }
-    for(const it of _impPk){
-      const k = _impNorm(it.packNo);
-      if(!map.has(k)) map.set(k, {inv:[], pk:[]});
-      map.get(k).pk.push(it);
-    }
-    const matched = [...map.values()].filter(g=>g.inv.length && g.pk.length).length;
-    const noPk    = [...map.values()].filter(g=>g.inv.length && !g.pk.length).length;
-    const noInv   = [...map.values()].filter(g=>!g.inv.length && g.pk.length).length;
+    const blankInv = _pv.blankInv.length;
+    const blankPk  = _pv.blankPk.length;
     let html = `<div style="font-size:12px;color:var(--t1);font-style:normal">`;
     html += `📊 <strong>${_impInv.length}</strong> Invoice · <strong>${_impPk.length}</strong> Packing`;
     html += `<br><span style="color:#2ea043">✓ จับคู่ได้: ${matched}</span>`;
-    if(noPk)  html += ` · <span style="color:var(--amber)">⚠ Invoice ไม่มี Packing: ${noPk}</span>`;
+    if(noPk)  html += ` · <span style="color:var(--amber)">⚠ Invoice ไม่พบ Packing List: ${noPk}</span>`;
+    if(dupPk) html += ` · <span style="color:var(--amber)">⚠ พบ Packing List ซ้ำ: ${dupPk}</span>`;
     if(noInv) html += ` · <span style="color:var(--amber)">⚠ Packing ไม่มี Invoice: ${noInv}</span>`;
-    // Also show items missing shipment number entirely
-    const blankInv = _impInv.filter(i=>!_impNorm(i.shipNo)).length;
-    const blankPk  = _impPk.filter(p=>!_impNorm(p.packNo)).length;
-    if(blankInv) html += `<br><span style="color:#f85149">❌ Invoice อ่าน Shipment ไม่ได้: ${blankInv}</span>`;
-    if(blankPk)  html += `<br><span style="color:#f85149">❌ Packing อ่าน Packing No ไม่ได้: ${blankPk}</span>`;
+    if(blankInv) html += `<br><span style="color:#f85149">❌ Invoice อ่าน Delivery Note No. ไม่ได้: ${blankInv}</span>`;
+    if(blankPk)  html += `<br><span style="color:#f85149">❌ Packing อ่าน DN ไม่ได้: ${blankPk}</span>`;
     html += `</div>`;
     status.innerHTML = html;
     status.style.color = '';
@@ -7145,27 +7352,16 @@ async function impRun(){
     if(typeof JSZip === 'undefined') throw new Error('JSZip ยังไม่โหลด');
     const zip = new JSZip();
 
-    // Build map: shipNo → {inv:[], pk:[]}
-    const groups = new Map();
-    for(const it of _impInv){
-      const k = _impNorm(it.shipNo);
-      if(!k) continue;
-      if(!groups.has(k)) groups.set(k, {inv:[], pk:[], rawShip: it.shipNo});
-      groups.get(k).inv.push(it);
-    }
-    for(const it of _impPk){
-      const k = _impNorm(it.packNo);
-      if(!k) continue;
-      if(!groups.has(k)) groups.set(k, {inv:[], pk:[], rawShip: it.packNo});
-      groups.get(k).pk.push(it);
-    }
+    // จับคู่ด้วย Invoice "Delivery Note No." ↔ Packing List "DN" (ห้ามใช้ชื่อไฟล์/ลำดับ/Document No.)
+    const {groups, blankInv, blankPk, pairInfo} = _impBuildGroups();
 
     // Build a sub-folder per shipment containing both files
     const matched = [];
     const unmatched = { inv:[], pk:[], blank:[] };
-    for(const [shipNo, g] of groups.entries()){
-      // Folder name: prefer Document No. from invoice; fall back to shipNo if not found
-      let folderName = shipNo;
+    for(const [gKey, g] of groups.entries()){
+      const dn = g.dn || '';
+      // Folder name: prefer Document No. from invoice; fall back to DN if not found
+      let folderName = dn || gKey.replace(/^(INV|PK)#/,'');
       for(const it of g.inv){
         if(it.docNo){ folderName = it.docNo; break; }
       }
@@ -7178,15 +7374,22 @@ async function impRun(){
         const buf = await it.file.arrayBuffer();
         folder.file(it.file.name, buf);
       }
-      if(g.inv.length && g.pk.length) matched.push({shipNo, invCount:g.inv.length, pkCount:g.pk.length});
-      else if(g.inv.length) unmatched.inv.push({shipNo, files:g.inv.map(i=>i.file.name)});
-      else if(g.pk.length)  unmatched.pk.push({shipNo, files:g.pk.map(i=>i.file.name)});
+      if(g.inv.length && g.pk.length){
+        // เทียบสินค้า: Material No. ↔ Article No. (SUM ก่อน compare) · ใช้สินค้า "ทั้ง PL ไฟล์นั้น"
+        const cmp = _impCompareItems(g.inv[0].items, g.pk[0].items);
+        matched.push({shipNo:dn, invCount:g.inv.length, pkCount:g.pk.length,
+                      invName:g.inv[0].file.name, pkName:g.pk[0].file.name, cmp});
+      }
+      else if(g.inv.length){
+        const info = pairInfo.get(gKey) || {hits:0};
+        unmatched.inv.push({shipNo:dn, files:g.inv.map(i=>i.file.name),
+          reason: info.hits>1 ? ('พบ Packing List ซ้ำ '+info.hits+' ไฟล์') : 'ไม่พบ Packing List'});
+      }
+      else if(g.pk.length) unmatched.pk.push({shipNo:dn, files:g.pk.map(i=>i.file.name)});
     }
 
     // Files that had no extractable number
     const _UNMATCHED_FOLDER = '_UNMATCHED';
-    const blankInv = _impInv.filter(i=>!_impNorm(i.shipNo));
-    const blankPk  = _impPk.filter(p=>!_impNorm(p.packNo));
     if(blankInv.length || blankPk.length){
       const um = zip.folder(_UNMATCHED_FOLDER);
       for(const it of blankInv){
@@ -7223,20 +7426,36 @@ function impShowResult(matched, unmatched, blob){
       </button>`:''}
     </div>`;
   for(const m of matched){
-    html += `<div style="background:var(--s2);border:1px solid rgba(46,160,67,.3);border-radius:6px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:12px;font-weight:600;color:#2ea043;font-family:'IBM Plex Mono',monospace">${m.shipNo}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">${m.invCount} Invoice + ${m.pkCount} Packing</div>
-      </div>
-      <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(46,160,67,.15);color:#2ea043;font-weight:700">✓ จับคู่ครบ</span>
-    </div>`;
+    const c = m.cmp || null;
+    const bad = c ? (c.qtyMismatch.length + c.missingInPk.length + c.extraInPk.length) : 0;
+    const okColor = bad ? 'var(--amber)' : '#2ea043';
+    html += `<div style="background:var(--s2);border:1px solid ${bad?'rgba(210,153,34,.35)':'rgba(46,160,67,.3)'};border-radius:6px;padding:10px 14px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:${okColor};font-family:'IBM Plex Mono',monospace">DN ${m.shipNo}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${m.invName?esc(m.invName):(m.invCount+' Invoice')} ↔ ${m.pkName?esc(m.pkName):(m.pkCount+' Packing')}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${bad?'rgba(210,153,34,.15)':'rgba(46,160,67,.15)'};color:${okColor};font-weight:700">${bad?'⚠ ตรวจสินค้า':'✓ จับคู่ครบ'}</span>
+      </div>`;
+    if(c){
+      html += `<div style="margin-top:6px;font-size:10px;color:var(--t2);font-family:'IBM Plex Mono',monospace">
+        MATCH ${c.match.length} · QTY MISMATCH ${c.qtyMismatch.length} · MISSING IN PL ${c.missingInPk.length} · EXTRA IN PL ${c.extraInPk.length}</div>`;
+      const rows = []
+        .concat(c.qtyMismatch.map(x=>['QTY MISMATCH', x.mat, x.inv, x.pk]))
+        .concat(c.missingInPk.map(x=>['MISSING IN PL', x.mat, x.inv, '-']))
+        .concat(c.extraInPk.map(x=>['EXTRA IN PL', x.mat, '-', x.pk]));
+      for(const r of rows){
+        html += `<div style="font-size:10px;color:var(--amber);font-family:'IBM Plex Mono',monospace">• ${r[0]} — ${esc(String(r[1]))} (Inv ${r[2]} / PL ${r[3]})</div>`;
+      }
+    }
+    html += `</div>`;
   }
   // Unmatched warnings
   if(unmatched.inv.length){
     html += `<div style="margin-top:10px;padding:10px 14px;background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);border-radius:6px">
       <div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">⚠ Invoice ที่ไม่มี Packing คู่ (${unmatched.inv.length})</div>`;
     for(const u of unmatched.inv){
-      html += `<div style="font-size:10px;color:var(--t2);font-family:'IBM Plex Mono',monospace">${u.shipNo}: ${u.files.join(', ')}</div>`;
+      html += `<div style="font-size:10px;color:var(--t2);font-family:'IBM Plex Mono',monospace">DN ${u.shipNo||'-'}: ${u.files.join(', ')}${u.reason?(' — '+esc(u.reason)):''}</div>`;
     }
     html += `</div>`;
   }
@@ -7568,20 +7787,8 @@ async function impRunJpg(){
     const pdfjs = getPdfJs();
     if(!pdfjs) throw new Error('pdf.js ยังไม่โหลด');
 
-    // Group by shipment
-    const groups = new Map();
-    for(const it of _impInv){
-      const k = _impNorm(it.shipNo);
-      if(!k) continue;
-      if(!groups.has(k)) groups.set(k, {inv:[], pk:[]});
-      groups.get(k).inv.push(it);
-    }
-    for(const it of _impPk){
-      const k = _impNorm(it.packNo);
-      if(!k) continue;
-      if(!groups.has(k)) groups.set(k, {inv:[], pk:[]});
-      groups.get(k).pk.push(it);
-    }
+    // จับคู่ด้วย Invoice "Delivery Note No." ↔ Packing List "DN" (ชุดเดียวกับ impRun)
+    const {groups, blankInv, blankPk} = _impBuildGroups();
 
     const zip = new JSZip();
     const matched = [];
@@ -7589,9 +7796,10 @@ async function impRunJpg(){
     let done = 0;
     const updateProg = msg => { result.innerHTML = `<div style="background:rgba(46,160,67,.1);border:1px solid rgba(46,160,67,.3);padding:14px;border-radius:8px;color:var(--t1);font-size:12px">⏳ ${msg}</div>`; };
 
-    for(const [shipNo, g] of groups.entries()){
-      // Folder name: prefer Document No. from invoice; fall back to shipNo if not found
-      let folderName = shipNo;
+    for(const [gKey, g] of groups.entries()){
+      const shipNo = g.dn || '';
+      // Folder name: prefer Document No. from invoice; fall back to DN if not found
+      let folderName = shipNo || gKey.replace(/^(INV|PK)#/,'');
       for(const it of g.inv){
         if(it.docNo){ folderName = it.docNo; break; }
       }
@@ -7649,8 +7857,6 @@ async function impRunJpg(){
     }
 
     // _UNMATCHED for blanks (PDF + JPG inside)
-    const blankInv = _impInv.filter(i=>!_impNorm(i.shipNo));
-    const blankPk  = _impPk.filter(p=>!_impNorm(p.packNo));
     if(blankInv.length || blankPk.length){
       const um = zip.folder('_UNMATCHED');
       const umPdf = um.folder('PDF');
@@ -8510,6 +8716,35 @@ function _mapKey4(billing, matTrim, qty, netval){
 function _mapKeyIE(billing, productCode){
   return [_rmNorm(billing), _rmNorm(productCode).toUpperCase()].join('|');
 }
+// ── Mapping Excel · EXPORT เท่านั้น: ตั้ง Number Format ให้แสดงทศนิยม 3 ตำแหน่ง ──
+// แก้เฉพาะ "การแสดงผล" (cell.z) — ค่าใน cell ยังเป็น Number เดิม ไม่ปัด ไม่ลด precision
+const _MAP_Z3 = '#,##0.000';
+// ใช้กับ sheet ที่เราสร้างเอง (aoa_to_sheet): ระบุคอลัมน์ตัวเลขที่ต้องการ 3 ตำแหน่ง (0-based)
+// ข้ามแถวหัวตาราง · แตะเฉพาะ cell ที่เป็นตัวเลข (t==='n') → คอลัมน์รหัส/เลขเอกสารที่เป็น text ไม่ถูกแตะ
+function _mapZ3Cols(ws, cols, startRow){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
+    for(const c of cols){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(cell && cell.t === 'n') cell.z = _MAP_Z3;
+    }
+  }
+}
+// ใช้กับ RM FINAL (มาจากไฟล์ RM ต้นฉบับ): อัปเกรดเฉพาะ cell ที่ "ไฟล์ต้นฉบับกำหนดเป็นทศนิยม 1-2 ตำแหน่งอยู่แล้ว"
+// → ไม่แตะ General / วันที่ / ข้อความ ⇒ Billing Document · Item · Material · HS Code · Import Entry ไม่ถูกเติม .000
+function _mapZ3Existing(ws){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=rg.s.r; r<=rg.e.r; r++){
+    for(let c=rg.s.c; c<=rg.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(!cell || cell.t !== 'n') continue;
+      const z = String(cell.z == null ? '' : cell.z);
+      if(/\.0{1,2}(?!0)/.test(z)) cell.z = _MAP_Z3;   // "#,##0.00" / "0.0" → "#,##0.000" (ที่เป็น .000 อยู่แล้วไม่แตะ)
+    }
+  }
+}
 // PDF country name → 2-letter code (covers the country set seen in production).
 const _MAP_CTRY = {
   'germany':'DE','india':'IN','brazil':'BR','slovakia':'SK','thailand':'TH',
@@ -8884,6 +9119,8 @@ async function exportMappingCombined(){
         // TOTAL row — numbers only; text columns blank (incl. Billing Document Date + คอลัมน์ที่เพิ่มท้าย)
         aoa.push(['TOTAL','','','', round3(tQ), round3(tV), '', '', round3(tQty), round3(tNW), round3(tGW), round3(tFOB), '', '', '', '']);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
+        // ทศนิยม 3 ตำแหน่ง: Invoiced Qty(4) · Net Value(5) · Qty.(8) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
+        _mapZ3Cols(ws, [4,5,8,9,10,11], 1);
         ws['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
         _rrSheets++;   // country sheet นี้เติมคอลัมน์แล้ว
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -8902,6 +9139,9 @@ async function exportMappingCombined(){
     });
     sumAoa.push(['GRAND TOTAL', gI, round3(gQ), round3(gV), round3(gNW), round3(gGW), round3(gFOB)]);
     const sumWs = XLSX.utils.aoa_to_sheet(sumAoa);
+    // ทศนิยม 3 ตำแหน่ง: Total Invoiced Qty(2) · Net Value(3) · NW(4) · GW(5) · FOB(6) — รวมแถว GRAND TOTAL
+    // คอลัมน์ Items(1) = จำนวนรายการ (นับเป็นจำนวนเต็ม) → ไม่เติมทศนิยม
+    _mapZ3Cols(sumWs, [2,3,4,5,6], 1);
     sumWs['!cols']=[{wch:16},{wch:8},{wch:18},{wch:20},{wch:18},{wch:18},{wch:16}];
     XLSX.utils.book_append_sheet(wb, sumWs, 'SUMMARY');
 
@@ -8946,6 +9186,7 @@ async function exportMappingCombined(){
         setStr(r,cItemNoF, _rh.itemNo);
       }
       rmWs['!ref']=XLSX.utils.encode_range(rng);
+      _mapZ3Existing(rmWs);   // RM FINAL: อัปเกรดเฉพาะ cell ทศนิยม 1-2 ตำแหน่งของไฟล์ต้นฉบับ → 3 ตำแหน่ง
       _rrSheets++;   // RM FINAL เติมคอลัมน์แล้ว
     }
 
@@ -9014,6 +9255,203 @@ async function exportMappingCombined(){
 function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
 
 
+</script>
+<script>
+/* ==================================================================
+   ⚖️ ตรวจน้ำหนัก SCH — เช็ค Net Weight ห้ามมากกว่า Gross Weight
+   ย้ายจาก Source เดิมครบทุก Logic · browser-only · prefix schw เท่านั้น
+   ไม่แตะ toast() / closeModal() / #modal-bg / Supabase ของระบบเดิม
+================================================================== */
+const SCHW = { files:[], results:[], page:1, filter:'err', search:'' };
+const SCHW_NW = ['NET WEIGHT','NW','NW.','NETWEIGHT','N.W.','N.W'];
+const SCHW_GW = ['GROSS WEIGHT','GW','GW.','GROSSWEIGHT','G.W.','G.W'];
+const SCHW_ITEM = ['ITEM NO.','ITEM NO','ITEM','ITEM NUMBER','NO.','LN'];
+const SCHW_PROD = ['PRODUCT CODE','PART NO.','PART NO','PRODUCTCODE','ITEM NUMBER','PART NUMBER'];
+const SCHW_DESC = ['DESC.','DESCRIPTION','DESC','PART NAME','PART DESC','DESC1','ENGLISH DESCRIPTION'];
+/* ── helper scoped (แทน escapeHtml / ancaFmtBytes / ancaBindDrop / _ancaPad2 ของต้นทาง) ── */
+function schwEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function schwFmtBytes(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function schwPad2(n){ return String(n).padStart(2,'0'); }
+function schwBindDrop(id,cb){ const el=document.getElementById(id); if(!el||el.dataset.schwBound) return; el.dataset.schwBound='1';
+  ['dragover','dragenter'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();el.classList.add('over');}));
+  ['dragleave','drop'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();el.classList.remove('over');}));
+  el.addEventListener('drop',ev=>{ if(ev.dataTransfer&&ev.dataTransfer.files.length) cb(ev.dataTransfer.files); });
+}
+function schwNum(v){ if(v==null||v==='') return null; if(typeof v==='number') return isFinite(v)?v:null; const n=parseFloat(String(v).replace(/,/g,'').trim()); return isFinite(n)?n:null; }
+function schwHeaderMatch(cell,list){ const s=String(cell==null?'':cell).replace(/\s+/g,' ').trim().toUpperCase(); return list.includes(s); }
+function schwFindCol(headerRow,list){ for(let i=0;i<headerRow.length;i++){ if(schwHeaderMatch(headerRow[i],list)) return i; } return -1; }
+
+function schwParseWeightWorkbook(name, arrayBuffer){
+  const wb=XLSX.read(arrayBuffer,{type:'array',cellDates:false});
+  const out=[];
+  wb.SheetNames.forEach(sn=>{
+    const ws=wb.Sheets[sn]; if(!ws) return;
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+    if(!aoa.length) return;
+    // หาแถวหัวตาราง: แถวที่มีทั้ง NW และ GW (ค้นไม่เกิน 30 แถวแรก)
+    let hr=-1,nwCol=-1,gwCol=-1;
+    for(let i=0;i<Math.min(aoa.length,30);i++){ const nw=schwFindCol(aoa[i],SCHW_NW), gw=schwFindCol(aoa[i],SCHW_GW);
+      if(nw>=0&&gw>=0){ hr=i; nwCol=nw; gwCol=gw; break; } }
+    if(hr<0) return; // ชีตนี้ไม่มีคอลัมน์น้ำหนัก → ข้าม
+    const H=aoa[hr];
+    const itemCol=schwFindCol(H,SCHW_ITEM), prodCol=schwFindCol(H,SCHW_PROD), descCol=schwFindCol(H,SCHW_DESC);
+    let invCol=H.findIndex(c=>/invoice/i.test(String(c==null?'':c)));
+    let lastInv='';
+    for(let r=hr+1;r<aoa.length;r++){ const row=aoa[r]; if(!row||!row.length) continue;
+      // invoice: จากคอลัมน์ invoice หรือสแกนทั้งแถว ("Invoice No. :xxxx") แล้ว forward-fill
+      let invHere='';
+      const scan=(invCol>=0)?[row[invCol]]:row;
+      for(const c of scan){ const m=String(c==null?'':c).match(/invoice\s*no\.?\s*:?\s*([A-Za-z0-9\-\/]+)/i); if(m){ invHere=m[1]; break; } }
+      if(invHere) lastInv=invHere;
+      const nw=schwNum(row[nwCol]), gw=schwNum(row[gwCol]);
+      if(nw==null||gw==null) continue;                 // ข้ามแถวที่น้ำหนักว่าง/ไม่ใช่ตัวเลข
+      out.push({ file:name, sheet:sn, excelRow:r+1, invoice:lastInv,
+        item:String(row[itemCol]==null?'':row[itemCol]).trim(),
+        product:String(row[prodCol]==null?'':row[prodCol]).trim(),
+        desc:String(row[descCol]==null?'':row[descCol]).replace(/\s+/g,' ').trim(),
+        nw, gw, diff:Math.round((nw-gw+Number.EPSILON)*1000)/1000, isError:nw>gw });
+    }
+  });
+  return out;
+}
+
+function schwRenderFiles(){
+  const el=document.getElementById('schwList'); if(!el) return;
+  el.innerHTML=SCHW.files.map((f,i)=>`<div class="schw-frow"><span class="fn">📊 ${schwEsc(f.name)}</span><span class="fmeta">${schwFmtBytes(f.size)}</span><button class="del" type="button" onclick="schwDelFile(${i})">✕</button></div>`).join('')||'<div style="color:var(--t2);font-size:12.5px">ยังไม่มีไฟล์</div>';
+}
+async function schwAddFiles(files){
+  for(const f of files){ if(!/\.xlsx?$/i.test(f.name)) continue; SCHW.files.push({name:f.name,size:f.size,buf:await f.arrayBuffer()}); }
+  schwRenderFiles(); schwResetOutput();
+}
+function schwDelFile(i){ SCHW.files.splice(i,1); schwRenderFiles(); schwResetOutput(); }
+function schwResetOutput(){ SCHW.results=[]; const b=document.getElementById('schwExportBtn'); if(b)b.disabled=true; const r=document.getElementById('schwResult'); if(r)r.innerHTML=''; }
+function schwAnalyze(){
+  if(!SCHW.files.length){ toast('ยังไม่ได้อัปโหลดไฟล์','error'); return; }
+  const all=[];
+  try{ SCHW.files.forEach(f=>{ all.push(...schwParseWeightWorkbook(f.name,f.buf)); }); }
+  catch(e){ toast('อ่านไฟล์ไม่ได้: '+e.message,'error'); return; }
+  if(!all.length){ toast('ไม่พบคอลัมน์ Net Weight / Gross Weight ในไฟล์','error'); document.getElementById('schwResult').innerHTML='<div class="schw-msgbox err">ไม่พบหัวคอลัมน์ Net Weight / Gross Weight (NW / GW) ในทุกชีต</div>'; return; }
+  SCHW.results=all;
+  const nErr=all.filter(r=>r.isError).length;
+  document.getElementById('schwExportBtn').disabled=(nErr===0);
+  schwRenderResults();
+  if(nErr>0){ schwShowErrorModal(); toast(`พบ ${nErr} รายการที่ Net Weight มากกว่า Gross Weight`,'error'); }
+  else toast('ตรวจสอบเรียบร้อย ไม่พบรายการผิด','success');
+}
+function schwRenderResults(){
+  const box=document.getElementById('schwResult'); if(!box) return;
+  const all=SCHW.results, total=all.length, nErr=all.filter(r=>r.isError).length, nOk=total-nErr;
+  let h=`<div class="schw-stats">
+      <div class="schw-stat"><div class="k">ตรวจทั้งหมด</div><div class="v">${total}</div></div>
+      <div class="schw-stat"><div class="k">ถูกต้อง</div><div class="v" style="color:#3fb950">${nOk}</div></div>
+      <div class="schw-stat err"><div class="k">ผิดพลาด (NW&gt;GW)</div><div class="v">${nErr}</div></div>
+    </div>`;
+  if(nErr===0){
+    h+=`<div class="schw-msgbox" style="background:rgba(46,160,67,.12);border:1px solid #3fb950;color:#3fb950;font-size:14px;font-weight:600">✅ ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>`;
+  } else {
+    h+=`<div class="schw-msgbox err" style="font-size:13.5px">พบรายการที่ Net Weight (NW) มากกว่า Gross Weight (GW) จำนวน <b>${nErr}</b> รายการ · <a href="#" onclick="schwShowErrorModal();return false" style="color:#f85149;text-decoration:underline">เปิดหน้าต่างรายงานผล</a></div>`;
+  }
+  box.innerHTML=h;
+}
+// หน้าต่างรายงานผล (เปิดอัตโนมัติเมื่อพบ NW>GW) — แสดงเฉพาะ ITEM | NW | GW | ผลการตรวจสอบ
+function schwShowErrorModal(){
+  const errs=SCHW.results.filter(r=>r.isError);
+  if(!errs.length) return;
+  const fnum=n=>Number(n).toLocaleString(undefined,{maximumFractionDigits:3});
+  const body=document.getElementById('schw-modal-body'); if(!body) return;
+  body.innerHTML=`
+    <div class="schw-msgbox err" style="font-size:13.5px;margin-bottom:12px">พบรายการที่ Net Weight (NW) มากกว่า Gross Weight (GW) จำนวน <b>${errs.length}</b> รายการ</div>
+    <div class="schw-tablewrap">
+      <table>
+        <thead><tr><th>ITEM</th><th>NW</th><th>GW</th><th>ผลการตรวจสอบ</th></tr></thead>
+        <tbody>${errs.map(r=>`<tr>
+          <td>${schwEsc(r.item)}</td>
+          <td class="err">${fnum(r.nw)}</td>
+          <td class="err">${fnum(r.gw)}</td>
+          <td class="err" style="font-weight:700">❌ NW มากกว่า GW</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  document.getElementById('schw-modal-bg').classList.add('on');
+}
+function schwCloseModal(){ document.getElementById('schw-modal-bg')?.classList.remove('on'); }
+// Export Excel รายการผิดพลาด — ใช้ ExcelJS (Style ออกจริง) · XLSX เดิมยังใช้ parse/โหมดอื่นตามปกติ
+async function exportSchwErrors(){
+  const errs=SCHW.results.filter(r=>r.isError);
+  if(!errs.length){ toast('ไม่มีรายการผิดให้ Export','error'); return; }
+  if(typeof ExcelJS==='undefined'){ toast('ExcelJS ยังไม่พร้อม กรุณารีเฟรชหน้าใหม่','error'); return; }
+  const btn=document.getElementById('schwExportBtn');
+  if(btn) btn.disabled=true;
+  try{
+    const head=['ITEM','Sheet','Row','Invoice','Product Code','Description','NW','GW','Difference'];
+    const WIDTHS=[8,12,10,14,20,38,12,12,14];
+    const BD={style:'thin',color:{argb:'FFB0B0B0'}};
+    const border={top:BD,left:BD,bottom:BD,right:BD};
+
+    const workbook=new ExcelJS.Workbook();
+    workbook.creator='N.J. Logistics';
+    workbook.created=new Date();
+    const ws=workbook.addWorksheet('Sheet1');
+    ws.columns=head.map((h,i)=>({header:h,key:'c'+i,width:WIDTHS[i]}));
+
+    // ── Header row: Tahoma 11 bold ขาวบนพื้นแดง C0392B · center/middle · border ──
+    const hr=ws.getRow(1);
+    hr.height=26;
+    head.forEach((h,i)=>{ const c=hr.getCell(i+1);
+      c.value=h;
+      c.font={name:'Tahoma',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC0392B'}};
+      c.alignment={horizontal:'center',vertical:'middle'};
+      c.border=border;
+    });
+
+    // ── Body: ค่าจาก SCHW.results เดิมทั้งหมด (ไม่คำนวณใหม่) ──
+    errs.forEach((r,ri)=>{
+      const vals=[
+        String(r.item==null?'':r.item),
+        String(r.sheet==null?'':r.sheet),
+        Number(r.excelRow)||0,
+        String(r.invoice==null?'':r.invoice),
+        String(r.product==null?'':r.product),
+        String(r.desc==null?'':r.desc),
+        Number(r.nw)||0,
+        Number(r.gw)||0,
+        Number(r.diff)||0
+      ];
+      const row=ws.getRow(ri+2);
+      for(let i=1;i<=9;i++){ const c=row.getCell(i);
+        c.value=vals[i-1];                 // set ทีละ cell (ชัดเจน · ไม่พึ่ง addRow(array))
+        c.font={name:'Tahoma',size:10};
+        c.alignment={vertical:'middle',wrapText:(i===6)};
+        c.border=border;
+        if(i>=7) c.numFmt='#,##0.000';     // NW / GW / Difference
+      }
+    });
+
+    ws.views=[{state:'frozen',ySplit:1}];                                  // Freeze หัวตาราง
+    ws.autoFilter={from:{row:1,column:1},to:{row:1,column:9}};             // A1:I1
+
+    const buffer=await workbook.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const now=new Date(); const ts=now.getFullYear()+schwPad2(now.getMonth()+1)+schwPad2(now.getDate())+'_'+schwPad2(now.getHours())+schwPad2(now.getMinutes())+schwPad2(now.getSeconds());
+    const fname=`SCH_WEIGHT_ERROR_${ts}.xlsx`;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    toast(`Export สำเร็จ · ${errs.length} รายการผิด · ${fname}`,'success');
+  }catch(err){
+    console.error('[SCHW export]',err);
+    toast('Export Excel ไม่สำเร็จ: '+err.message,'error');
+  }finally{
+    if(btn) btn.disabled = !SCHW.results.some(r=>r.isError);
+  }
+}
+function resetSchwFiles(){ SCHW.files=[]; SCHW.results=[]; SCHW.page=1; SCHW.filter='err'; SCHW.search='';
+  const inp=document.getElementById('schwInput'); if(inp) inp.value='';
+  schwRenderFiles(); schwResetOutput(); schwCloseModal(); toast('ล้างข้อมูลแล้ว','info'); }
+// เปิดหน้า (navTo) → ผูก Drag&Drop + วาดรายการไฟล์ (แทน schwRenderView() ของต้นทางที่ใช้ switchView)
+function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRenderFiles(); }
 </script>
 <script>
 /* ===== REPORT FORMSCH MANAGEMENT (PATCH-ONLY) ===== */
@@ -9127,6 +9565,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     REJECTED:      {lbl:'ไม่อนุมัติ',     cls:'ss-no',   txt:'🔴 ไม่อนุมัติ',   rmk:''},
     CANCELLED:     {lbl:'ยกเลิก',         cls:'ss-cancel',txt:'🟣 ยกเลิก',      rmk:'ยกเลิก'}
   };
+  const RPT_CLOSED_LBL = 'วางบิลแล้ว';   // ป้ายที่แสดงในคอลัมน์ "สถานะ" เมื่อ is_closed=true (display เท่านั้น)
   // canonical state (backward-compat): APPROVED/REJECTED เดิม → คงเดิม · legacy null+เหตุผล → REJECTED · null → WAIT_SUBMIT
   function _rptSS(r){
     const s=r&&r.system_approval_status;
@@ -9147,8 +9586,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   let rptSort  = {k:null, dir:1};
   let rptSearch= '';
   let rptStatusFilter = '';   // '' ทั้งหมด | 'APPROVED' | 'REJECTED' — กรองสถานะจาก toolbar
-  const RPT_SF_ORDER = ['WAIT_SUBMIT','WAIT_APPROVAL','APPROVED','REJECTED','CANCELLED'];
-  const RPT_SF_NAME  = { WAIT_SUBMIT:'รอส่งข้อมูล', WAIT_APPROVAL:'รออนุมัติ', APPROVED:'อนุมัติจากระบบ', REJECTED:'ไม่อนุมัติ', CANCELLED:'ยกเลิก' };
+  // BILLED = สถานะเสมือน (pseudo status) ของงานที่ปิดงานแล้ว (is_closed=true) — ใช้เฉพาะ "ตัวกรอง + แสดงผล"
+  // ไม่ใช่ค่าใน system_approval_status · ไม่เขียนทับ Approval Workflow เดิม
+  const RPT_SF_ORDER = ['WAIT_SUBMIT','WAIT_APPROVAL','APPROVED','REJECTED','CANCELLED','BILLED'];
+  const RPT_SF_NAME  = { WAIT_SUBMIT:'รอส่งข้อมูล', WAIT_APPROVAL:'รออนุมัติ', APPROVED:'อนุมัติจากระบบ', REJECTED:'ไม่อนุมัติ', CANCELLED:'ยกเลิก', BILLED:RPT_CLOSED_LBL };
   const RPT_SF_DEFAULT = ['WAIT_SUBMIT','WAIT_APPROVAL','REJECTED'];   // ค่าเริ่มต้น 3 สถานะ
   let rptStatusAll = false;                                           // true = 📋 ทั้งหมด (แสดงทุกสถานะ)
   let rptStatusSet = new Set(RPT_SF_DEFAULT);                         // สถานะที่เลือก (multi-select, OR)
@@ -9177,6 +9618,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   let rptFilters = {};      // {colKey: value}  (checkbox: '', 'y', 'n')
   let rptFilterOn = false;
   let rptSelId = null;
+  let rptSelSet = new Set();   // id (string) ที่ติ๊กไว้สำหรับ 🔒 ปิดงานที่เลือก — ไม่ผูกกับ DOM (ตารางเป็น virtual scroll)
   let rptEditId = null;     // null = เปิดงานใหม่/คัดลอก (บันทึก = INSERT)
   let _rptModalSeq = 0;     // token กัน fetch ค้างเขียนทับ modal ที่เปิดใหม่
   // วัดความกว้างข้อความสำหรับ auto-fit คอลัมน์ Excel (รองรับไทย: วรรณยุกต์/สระบน-ล่าง ไม่กินความกว้าง)
@@ -9349,10 +9791,20 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     _rptFillCustomerFilter();                               // sync dropdown ลูกค้าจากข้อมูลล่าสุด (คงค่าที่เลือก)
     let v=_rptFilterNoStatus(RPT_DATA);                     // base: search + ลูกค้า + คอลัมน์
     if(!rptStatusAll && rptStatusSet.size){                // สถานะ (KPI/filter) — AND ทับ base
-      v=v.filter(r=>rptStatusSet.has(_rptSS(r)));
+      // BILLED (วางบิลแล้ว) = งานที่ปิดงานแล้ว (is_closed) · ตรวจจาก field จริงใน DB ไม่ใช่ approval_status
+      // งานที่ปิดแล้วอาจยังมี approval_status = APPROVED → จับได้ทั้งจากสถานะเดิมและจาก "วางบิลแล้ว"
+      const _wantBilled = rptStatusSet.has('BILLED');
+      v=v.filter(r=>(_wantBilled && !!r.is_closed) || rptStatusSet.has(_rptSS(r)));
     }
     v=_rptGroupSort(v);                  // เรียง RM → PACK เสมอ (จัดกลุ่ม)
     RPT_VIEW=v;
+    // Selection: ตัดเฉพาะ id ที่ "ไม่แสดงแล้ว/ปิดไปแล้ว" ออก — ไม่ล้างทั้งชุดโดยไม่จำเป็น
+    // (กันปิดรายการที่ถูก Filter ซ่อน · แต่รายการที่ปิดไม่สำเร็จยังคงติ๊กไว้ให้ตรวจต่อได้)
+    if(rptSelSet.size){
+      const _vis=new Set(RPT_VIEW.filter(r=>_rptCanClose(r)).map(r=>String(r.id)));
+      Array.from(rptSelSet).forEach(k=>{ if(!_vis.has(k)) rptSelSet.delete(k); });
+    }
+    _rptSyncBulk();
     RPT_DISP=_rptDisplayList(v);          // แทรกแถวว่างคั่นกลุ่ม
     const cnt=document.getElementById('rpt-count');
     if(cnt) cnt.textContent=RPT_VIEW.length.toLocaleString()+' รายการ';
@@ -9386,12 +9838,13 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   /* ── สร้าง colgroup (กำหนดความกว้างคงที่ของ 26 คอลัมน์) ──── */
   function _rptBuildCols(){
     const widths = [
+      42,    // ☑ เลือก (bulk close) — คอลัมน์ซ้ายสุด
       ...RPT_MAIN_VIS.map(c=>c.w),
       165,
       150,
       _rptRemarkCol.w,
       200,
-      150,
+      200,   // จัดการ: [📄][✏][🔒][🗑] — ความกว้างเดียวกันทั้ง 2 โหมด
       ...(window.rptFormMode?[]:RPT_CHK).map(c=>c.w)
     ];
     const html = widths.map(w=>`<col style="width:${w}px">`).join('');
@@ -9426,6 +9879,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const CUST=window.rptFormMode?[]:RPT_CUST, NJ=window.rptFormMode?[]:RPT_NJ, CHK=window.rptFormMode?[]:RPT_CHK;
     const has2=CHK.length>0, rs=has2?' rowspan="2"':'';
     let r1='<tr>';
+    r1+=`<th${rs} class="rpt-main rpt-selcell" title="เลือกทั้งหมดเฉพาะรายการที่แสดงอยู่ตอนนี้"><span class="rpt-selbox" id="rpt-selall">☐</span></th>`;
     RPT_MAIN_VIS.forEach(c=>{ r1+=`<th${rs} class="rpt-main" data-k="${c.k}">${_esc(_hdr(c))}</th>`; });
     r1+=`<th${rs} class="rpt-main rpt-col-status">สถานะ</th>`;
     r1+=`<th${rs} class="rpt-main" data-k="nj_submit_system_date">วันที่ NJ ส่งข้อมูลเข้าระบบ</th>`;
@@ -9446,6 +9900,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     let r3='';
     if(rptFilterOn){
       r3='<tr class="rpt-frow">';
+      r3+='<th></th>';   // ☑ เลือก (ไม่มีตัวกรอง)
       RPT_MAIN_VIS.forEach(c=>{ r3+= c.nf ? '<th></th>' : `<th><input class="rpt-fi" data-k="${c.k}" value="${_esc(rptFilters[c.k]||'')}" placeholder="กรอง"></th>`; });
       r3+='<th></th>';   // สถานะ (ไม่มีตัวกรอง)
       r3+='<th></th>';   // วันที่ NJ ส่งข้อมูลเข้าระบบ (ไม่มีตัวกรอง)
@@ -9473,13 +9928,13 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   }
 
   /* ── virtual render TBODY ───────────────────────────────── */
-  function _rptRender(){ RPT_MAIN_VIS=_rptComputeVis(); _rptBuildHead(); _rptBuildCols(); _rptRenderBody(true); _rptSyncHeadPad(); }   // recompute VIS ตามโหมด (FORMSCH MANAGEMENT/FORM) → build head + body + sync
+  function _rptRender(){ RPT_MAIN_VIS=_rptComputeVis(); _rptBuildHead(); _rptBuildCols(); _rptRenderBody(true); _rptSyncHeadPad(); _rptSyncBulk(); }   // recompute VIS ตามโหมด (FORMSCH MANAGEMENT/FORM) → build head + body + sync (รวม ☑ เลือกทั้งหมด/ปุ่ม Bulk — _rptBuildHead สร้าง #rpt-selall ใหม่ทุกครั้ง ต้อง sync ตาม)
   let _rptLastStart=-1,_rptLastEnd=-1,_rptLastN=-1,_rptLastScrollTop=-1;
   function _rptRenderBody(force){                                    // scroll → เฉพาะ tbody เท่านั้น
     const sc=document.getElementById('rpt-scroll'), tb=document.getElementById('rpt-tbody');
     if(!sc||!tb) return;
     const n=RPT_VIEW.length;
-    const NCOL=RPT_MAIN_VIS.length+(window.rptFormMode?0:RPT_CHK.length)+5;   // +สถานะ +วันที่ NJ ส่งข้อมูลเข้าระบบ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ (FORM: ไม่มี checkbox)
+    const NCOL=1+RPT_MAIN_VIS.length+(window.rptFormMode?0:RPT_CHK.length)+5;   // ☑เลือก +สถานะ +วันที่ NJ ส่งข้อมูลเข้าระบบ +สถานะติดปัญหา +แก้ไขล่าสุด +จัดการ (FORM: ไม่มี checkbox)
     if(n===0){ tb.innerHTML='<tr><td colspan="'+NCOL+'" class="rpt-empty">— ไม่มีข้อมูล —</td></tr>'; _rptLastStart=_rptLastEnd=-1; _rptLastN=0; return; }
     const vh=sc.clientHeight||600;
     let start=Math.floor(sc.scrollTop/ROWH)-BUF; if(start<0) start=0;
@@ -9492,7 +9947,12 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     for(let i=start;i<end;i++){
       const r=RPT_VIEW[i];                              // แสดงต่อเนื่อง ไม่เว้นแถว (เรียง RM→PACK)
       const sel=(r.id===rptSelId)?' rpt-sel':'';
-      html+=`<tr class="rpt-tr${sel}" data-id="${_esc(r.id)}" style="height:${ROWH}px">`;
+      const _cl=!!r.is_closed;                            // 🔒 ปิดงานแล้ว — lock แยกชั้น ไม่เกี่ยวกับสถานะอนุมัติเดิม
+      html+=`<tr class="rpt-tr${sel}${_cl?' rpt-closed':''}" data-id="${_esc(r.id)}" style="height:${ROWH}px">`;
+      // ☑ เลือกเพื่อปิดงาน — เลือกได้เฉพาะ "อนุมัติจากระบบ + ยังไม่ปิดงาน" (กฎเดียวกับปุ่มปิดงาน)
+      const _canC=_rptCanClose(r);
+      const _sOn=_canC && rptSelSet.has(String(r.id));
+      html+=`<td class="rpt-td rpt-selcell"><span class="rpt-selbox${_canC?'':' lock'}${_sOn?' on':''}" data-id="${_esc(r.id)}" title="${_canC?'เลือกเพื่อปิดงาน':_esc(_rptWhyNoClose(r))}">${_canC?(_sOn?'☑':'☐'):(_cl?'🔒':'—')}</span></td>`;
       RPT_MAIN_VIS.forEach(c=>{
         const raw=r[c.k]==null?'':r[c.k];
         const disp=(c.dash && !raw)?'-':((c.t==='date')?_rptDate(raw):(c.t==='select'?_rptUsLbl(raw):raw));
@@ -9500,7 +9960,10 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
         html+=`<td class="rpt-td" style="text-align:${align}" title="${_esc(disp)}">${_esc(disp)}</td>`;
       });
       const _ssM=RPT_SS[_rptSS(r)];                        // ผลการยื่นระบบ 4 สถานะ (แทน DONE/PENDING)
-      html+=`<td class="rpt-td rpt-stcell"><span class="rpt-badge ${_ssM.cls}">${_esc(_ssM.lbl)}</span></td>`;
+      // ปิดงานแล้ว → คอลัมน์ "สถานะ" แสดง "วางบิลแล้ว" (display logic เท่านั้น)
+      // system_approval_status / _rptSS() / KPI / Filter / Export ยังใช้ค่าเดิมทุกประการ
+      const _stCls=_cl?'ss-billed':_ssM.cls, _stLbl=_cl?RPT_CLOSED_LBL:_ssM.lbl;
+      html+=`<td class="rpt-td rpt-stcell"><span class="rpt-badge ${_stCls}" title="${_cl?_esc('สถานะเดิม: '+_ssM.lbl):''}">${_esc(_stLbl)}</span></td>`;
       const _njs=r.nj_submit_system_date;                  // วันที่ NJ ส่งข้อมูลเข้าระบบ
       html+=`<td class="rpt-td" style="text-align:center;white-space:nowrap">${_njs?_esc(_rptDate(_njs)):'-'}</td>`;
       const _rmk=r.remark==null?'':r.remark;                // สถานะติดปัญหา (remark)
@@ -9509,7 +9972,12 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       html+=`<td class="rpt-td" style="text-align:center;white-space:nowrap" title="${_esc(_et)}">${_et?_esc(_et):'—'}</td>`;
       html+=`<td class="rpt-td rpt-actcell">`
         +`<button class="rpt-act copy"  data-act="copy"  data-id="${_esc(r.id)}" title="คัดลอกเป็นงานใหม่">📄</button>`
-        +`<button class="rpt-act edit"  data-act="edit"  data-id="${_esc(r.id)}" title="แก้ไข">✏</button>`
+        +`<button class="rpt-act edit"  data-act="edit"  data-id="${_esc(r.id)}" title="${_cl?'ปิดงานแล้ว — แก้ไขไม่ได้':'แก้ไข'}"${_cl?' disabled':''}>✏</button>`
+        // 🔒 ปิดงาน — ใช้ชุดเดียวกันทั้ง REPORT FORMSCH MANAGEMENT และ REPORT FORM (โหมดเดียวกัน · โค้ดเดียวกัน)
+        // กฎเดียวกับ Bulk: กดได้เฉพาะ "อนุมัติจากระบบ + ยังไม่ปิดงาน"
+        +(_cl
+            ? `<button class="rpt-act close done" data-act="close" data-id="${_esc(r.id)}" title="ปิดงานแล้ว" disabled>🔒 ปิดงานแล้ว</button>`
+            : `<button class="rpt-act close"      data-act="close" data-id="${_esc(r.id)}" title="${_canC?'ปิดงาน':_esc(_rptWhyNoClose(r))}"${_canC?'':' disabled'}>🔒</button>`)
         +`<button class="rpt-act del"   data-act="del"   data-id="${_esc(r.id)}" title="ลบ">🗑</button>`
         +`</td>`;
       (window.rptFormMode?[]:RPT_CHK).forEach(c=>{
@@ -9525,6 +9993,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
   /* ── inline checkbox toggle → PATCH ─────────────────────── */
   async function _rptToggle(id, field, spanEl){
     const row=_byId(id); if(!row) return;
+    if(row.is_closed){ toast('รายการนี้ปิดงานแล้ว ไม่สามารถแก้ไขข้อมูลได้','error'); return; }   // ปิดงานแล้ว → ห้ามติ๊ก (DB ก็ reject ซ้ำอีกชั้น)
     const next=!row[field];
     row[field]=next;                                       // optimistic UI
     if(spanEl){ spanEl.classList.toggle('on',next); spanEl.textContent=next?'☑':'☐'; }
@@ -9640,14 +10109,21 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const el2=document.getElementById('mf-nj_submit_system_date');   // 2. วันที่ NJ ส่งข้อมูลเข้าระบบ
     if(el2) el2.value='';
   }
-  // แก้ไขรายการ + สถานะ "อนุมัติจากระบบ" (APPROVED) → กรอก "วันที่อนุมัติในระบบ" = วันนี้ (ทับค่าเดิม) · save อ่านจาก picker
+  // ผู้ใช้กดเปลี่ยนสถานะเป็น "อนุมัติจากระบบ" (APPROVED) เอง → เติม "วันที่อนุมัติในระบบ" = วันนี้
+  // ❗ เฉพาะกรณีที่ยังไม่เคยมีวันที่เท่านั้น — ห้ามทับค่าที่ Save ไว้แล้ว (เช่น 20/08/2026)
   function _rptAutoApproveDate(){
     if(rptEditId==null) return;                                              // เฉพาะโหมดแก้ไข (เปิดใหม่/คัดลอก → ข้าม)
     if(document.querySelector('input[name="rpt-appr"]:checked')?.value!=='APPROVED') return;   // เฉพาะอนุมัติจากระบบ
-    const iso=_rptTodayISO();
     const pk=document.getElementById('mf-appr-date');            // picker (ค่าที่บันทึกลง system_approve_date)
+    const dEl=document.getElementById('mf-system_approve_date'); // ฟิลด์ "วันที่อนุมัติในระบบ" แสดง DD/MM/YYYY (= ค่าที่ Save ไว้)
+    if(dEl && dEl.value){                                        // มีวันที่ที่ Save แล้ว → คงเดิม ห้ามเปลี่ยนเป็นวันนี้
+      // _rptApprDate() เพิ่งตั้ง default "วันนี้" ให้ picker เมื่อกลับมาเลือก 🟢 อนุมัติ → คืนค่าที่ Save ไว้
+      const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dEl.value);
+      if(pk && m) pk.value=m[3]+'-'+m[2]+'-'+m[1];
+      return;
+    }
+    const iso=_rptTodayISO();
     if(pk) pk.value=iso;
-    const dEl=document.getElementById('mf-system_approve_date'); // ฟิลด์ "วันที่อนุมัติในระบบ" แสดง DD/MM/YYYY
     if(dEl) dEl.value=_rptDate(iso);
   }
   // เลือก 🟡 รออนุมัติ / 🟢 อนุมัติ → ติ๊กเอกสารครบทุกช่องทันที (RPT_CUST + RPT_NJ = true) · save อ่าน el.checked เดิม · เปลี่ยนสถานะอื่นไม่ล้าง
@@ -9717,9 +10193,16 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       if(wrap) wrap.style.display = src ? '' : 'none';
     });
     _rptClearFullDocsIfRejected();   // เปิดแก้ไขรายการที่สถานะ "ไม่อนุมัติ" → ล้างวันที่ลูกค้าส่งเอกสารครบทันที
-    _rptAutoApproveDate();           // เปิดแก้ไขรายการที่สถานะ "อนุมัติจากระบบ" → กรอกวันที่อนุมัติในระบบ = วันนี้ทันที
+    // ❗ ไม่เรียก _rptAutoApproveDate() ตอนเปิด Modal อีกต่อไป
+    //    เดิม: เปิด ✏ แก้ไข รายการที่ APPROVED → ทับ "วันที่อนุมัติในระบบ" ด้วยวันนี้ ทำให้ค่าที่ Save ไว้ (เช่น 20/08/2026) หายไป
+    //    ตอนนี้: เปิด Edit = โหลดค่าที่ Save ล่าสุดเท่านั้น (ตั้งไว้แล้วที่ pk / _dEl ด้านบน) · ไม่มี today fallback
+    //    การเติม "วันนี้" ยังทำงานเฉพาะตอนผู้ใช้กดเปลี่ยนสถานะเป็น 🟢 อนุมัติ เอง และเฉพาะเมื่อยังไม่เคยมีวันที่ (ดู _rptAutoApproveDate)
   }
   async function _rptOpenModal(mode, srcId){
+    if(mode==='edit'){                                   // ปิดงานแล้ว → เข้าแก้ไขไม่ได้ (คัดลอก/เปิดงานใหม่ ยังใช้ได้ปกติ)
+      const _r=_byId(srcId);
+      if(_r && _r.is_closed){ toast('รายการนี้ปิดงานแล้ว ไม่สามารถแก้ไขข้อมูลได้','error'); return; }
+    }
     _rptBuildModalFields();
     rptEditId=(mode==='edit')?srcId:null;                   // copy/add → null → บันทึก = INSERT
     const src=(srcId!=null)?_byId(srcId):null;
@@ -9784,7 +10267,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       }
       _rptCloseModal(); _rptApplyView(); _rptRender();
     }catch(e){
-      toast('บันทึกไม่สำเร็จ — ตรวจสอบตาราง report_formsch','error');
+      toast(_rptErrMsg(e,'บันทึกไม่สำเร็จ — ตรวจสอบตาราง report_formsch'),'error');
       console.error('[REPORT FORMSCH] save failed:', e.message);
     }finally{ if(btn) btn.disabled=false; }
   }
@@ -9829,12 +10312,120 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     }
   }
 
+  /* ── 🔒 ปิดงาน (is_closed) — lock แยกชั้น ไม่ทับ status / system_approval_status / update_status ── */
+  // ดึงข้อความจริงจาก error ของ PostgREST (ใช้แสดงข้อความ reject ที่มาจาก trigger ฝั่ง DB)
+  function _rptErrMsg(e, fb){
+    try{ const j=JSON.parse(e && e.message); if(j && j.message) return j.message; }catch(_){}
+    return fb;
+  }
+  // ── กฎการปิดงาน (ใช้ร่วมกันทั้งปิดเดี่ยวและปิดหลายรายการ — ห้ามมีกฎคนละแบบ) ──
+  // ปิดได้เฉพาะ "อนุมัติจากระบบ" (system_approval_status ผ่าน _rptSS) และยังไม่ปิดงาน
+  function _rptCanClose(r){ return !!r && !r.is_closed && _rptSS(r)==='APPROVED'; }
+  function _rptWhyNoClose(r){                              // เหตุผลที่ปิดไม่ได้ (ใช้แจ้งผู้ใช้)
+    if(!r) return 'ไม่พบรายการ';
+    if(r.is_closed) return 'รายการนี้ปิดงานแล้ว';
+    return 'ปิดงานได้เฉพาะรายการที่มีสถานะอนุมัติจากระบบเท่านั้น';
+  }
+  async function _rptCloseOne(id){                        // เขียนลง DB จริง 1 record · โยน error ถ้าไม่สำเร็จ
+    const row=_byId(id); if(!row) throw new Error('ไม่พบรายการ');
+    if(!_rptCanClose(row)) throw new Error(_rptWhyNoClose(row));   // ตรวจซ้ำก่อน Save เสมอ (กัน stale/selection เก่า/เรียกตรง)
+    const at=new Date().toISOString();
+    const who=(typeof me!=='undefined' && me && me.username) ? me.username : '';
+    await _rptFetch('report_formsch?id=eq.'+encodeURIComponent(id),'PATCH',
+      {is_closed:true, closed_at:at, closed_by:who});     // ไม่แตะ updated_at → คอลัมน์ "แก้ไขล่าสุด" ไม่เปลี่ยน
+    row.is_closed=true; row.closed_at=at; row.closed_by=who;
+    rptSelSet.delete(String(id));
+    return row;
+  }
+  function _rptCloseTask(id){
+    const row=_byId(id);
+    if(!_rptCanClose(row)){ toast(_rptWhyNoClose(row),'error'); return; }   // กฎเดียวกับ Bulk
+    _rptConfirm('ยืนยันปิดงานรายการนี้หรือไม่?\nเมื่อปิดงานแล้วจะไม่สามารถแก้ไขรายการนี้ได้', async ()=>{
+      try{
+        await _rptCloseOne(id);
+        _rptApplyView(); _rptRender();
+        toast('ปิดงานแล้ว','success');
+      }catch(e){
+        toast(_rptErrMsg(e,'ปิดงานไม่สำเร็จ'),'error');
+        console.error('[REPORT FORMSCH] close failed:', e.message);
+      }
+    }, {title:'ยืนยันปิดงาน', yes:'ยืนยันปิดงาน', yesBg:'#8a6d1f', yesBd:'#6d5518'});
+  }
+
+  /* ── ☑ Selection + 🔒 ปิดงานที่เลือก (bulk) ─────────────── */
+  function _rptSyncBulk(){
+    const n=rptSelSet.size;
+    const btn=document.getElementById('rpt-btn-bulkclose');
+    if(btn && !btn.dataset.busy){ btn.disabled=(n===0); btn.textContent = n ? ('🔒 ปิดงานที่เลือก ('+n+')') : '🔒 ปิดงานที่เลือก'; }
+    const all=document.getElementById('rpt-selall');
+    if(all){
+      const pick=RPT_VIEW.filter(r=>_rptCanClose(r));               // เฉพาะรายการที่แสดงอยู่จาก Filter ปัจจุบัน
+      const sel=pick.filter(r=>rptSelSet.has(String(r.id))).length;
+      const st=(!pick.length||sel===0)?'none':(sel===pick.length?'all':'some');   // 3 สถานะ: ไม่เลือก / เลือกบางส่วน / เลือกครบ
+      all.classList.toggle('on', st==='all');
+      all.classList.toggle('some', st==='some');
+      all.classList.toggle('lock', pick.length===0);
+      all.textContent = st==='all' ? '☑' : (st==='some' ? '⊟' : '☐');
+      all.title = st==='all' ? 'ยกเลิกการเลือกทั้งหมด' : ('เลือกทั้งหมด '+pick.length+' รายการที่แสดงอยู่');
+    }
+  }
+  function _rptSelToggle(id, el){
+    const r=_byId(id); if(!_rptCanClose(r)) return;                 // ปิดแล้ว → ติ๊กไม่ได้
+    const k=String(id), on=!rptSelSet.has(k);
+    if(on) rptSelSet.add(k); else rptSelSet.delete(k);
+    if(el){ el.classList.toggle('on',on); el.textContent=on?'☑':'☐'; }
+    _rptSyncBulk();
+  }
+  function _rptSelectAllToggle(){
+    const pick=RPT_VIEW.filter(r=>_rptCanClose(r));                 // "ทั้งหมด" = เฉพาะผลลัพธ์ของ Filter ปัจจุบันเท่านั้น
+    if(!pick.length) return;
+    const on=pick.every(r=>rptSelSet.has(String(r.id)));
+    pick.forEach(r=>{ if(on) rptSelSet.delete(String(r.id)); else rptSelSet.add(String(r.id)); });
+    _rptRenderBody(true); _rptSyncBulk();
+  }
+  function _rptBulkClose(){
+    const ids=Array.from(rptSelSet).filter(k=>_rptCanClose(_byId(k)));
+    const n=ids.length;
+    if(!n){ toast('ยังไม่ได้เลือกรายการ','warning'); return; }
+    _rptConfirm('ยืนยันปิดงาน '+n+' รายการหรือไม่?\nเมื่อปิดงานแล้ว รายการเหล่านี้จะเปลี่ยนเป็น "วางบิลแล้ว" และไม่สามารถแก้ไขข้อมูลได้', async ()=>{
+      const btn=document.getElementById('rpt-btn-bulkclose');
+      if(btn){ btn.dataset.busy='1'; btn.disabled=true; }
+      let ok=0; const fail=[];
+      for(const id of ids){                                          // ทีละ record · ตัวไหนพลาดไม่ล้มทั้งชุด
+        try{ await _rptCloseOne(id); ok++; }
+        catch(e){ const r=_byId(id); fail.push({rm:(r&&r.rm)||('id '+id), why:_rptErrMsg(e, e.message||'ไม่ทราบสาเหตุ')}); }
+        if(btn) btn.textContent='🔒 กำลังปิดงาน… '+(ok+fail.length)+'/'+n;   // แสดงความคืบหน้า (ชุดใหญ่จะได้ไม่ดูค้าง)
+      }
+      if(btn) delete btn.dataset.busy;
+      _rptApplyView(); _rptRender();
+      if(!fail.length){ toast('ปิดงานสำเร็จ '+ok+' รายการ','success'); }
+      else{
+        toast('ปิดงานสำเร็จ '+ok+' รายการ · ไม่สำเร็จ '+fail.length+' รายการ','error');
+        const detail=fail.map(f=>'• '+f.rm+' — '+f.why).join('\n');
+        console.error('[REPORT FORMSCH] bulk close failed:\n'+detail);
+        _rptConfirm('ปิดงานสำเร็จ '+ok+' รายการ\nไม่สำเร็จ '+fail.length+' รายการ:\n'+detail,
+          null, {title:'ผลการปิดงาน', yes:'ตกลง', yesBg:'#8a6d1f', yesBd:'#6d5518', hideNo:true});
+      }
+    }, {title:'ยืนยันปิดงานหลายรายการ', yes:'🔒 ยืนยันปิด '+n+' รายการ', yesBg:'#8a6d1f', yesBd:'#6d5518'});
+  }
+
   /* ── confirm dialog (scoped) ────────────────────────────── */
   let _rptConfirmCb=null;
-  function _rptConfirm(msg, cb){
+  function _rptConfirm(msg, cb, opts){
     _rptConfirmCb=cb;
-    document.getElementById('rpt-cfm-body').textContent=msg;
-    document.getElementById('rpt-cfm').classList.add('on');
+    const o=opts||{};
+    const box=document.getElementById('rpt-cfm');
+    const h=box?box.querySelector('h3'):null, yes=document.getElementById('rpt-cfm-yes');
+    if(h) h.textContent = o.title || 'ยืนยันการลบ';                 // ไม่ส่ง opts → ค่าเดิมทุกประการ (ลบ)
+    if(yes){ yes.textContent = o.yes || 'ลบ';
+             yes.style.background  = o.yesBg || '#c0392b';
+             yes.style.borderColor = o.yesBd || '#a93226'; }
+    const no=document.getElementById('rpt-cfm-no');
+    if(no) no.style.display = o.hideNo ? 'none' : '';     // hideNo = กล่องแจ้งผล (ปุ่มเดียว)
+    const bd=document.getElementById('rpt-cfm-body');
+    bd.style.whiteSpace='pre-line';
+    bd.textContent=msg;
+    box.classList.add('on');
   }
 
   /* ── context menu ───────────────────────────────────────── */
@@ -10007,6 +10598,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
 
     // ปุ่มหัวเพจ
     document.getElementById('rpt-btn-add')   ?.addEventListener('click',()=>_rptOpenModal('add'));
+    document.getElementById('rpt-btn-bulkclose')?.addEventListener('click',()=>_rptBulkClose());
     document.getElementById('rpt-btn-refresh')?.addEventListener('click',async()=>{
       const b=document.getElementById('rpt-btn-refresh'); if(b){ b.disabled=true; b.classList.add('rpt-spin'); }
       try{ await _rptLoad(); toast('รีเฟรชข้อมูลแล้ว','success'); }
@@ -10022,6 +10614,7 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
     const si=document.getElementById('rpt-search');
     if(si){ let t; si.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{ rptSearch=si.value.trim(); _rptApplyView(); _rptRender(); },180); }); }
     document.getElementById('rpt-thead')?.addEventListener('click',e=>{   // เรียงตามวันเวลาแก้ไขล่าสุด (คลิกหัว): ล่าสุดก่อน → เก่าก่อน → ยกเลิก
+      if(e.target.closest('#rpt-selall')){ _rptSelectAllToggle(); return; }   // ☑ เลือกทั้งหมด (เฉพาะผล Filter ปัจจุบัน)
       if(!e.target.closest('#rpt-th-edit')) return;
       if(rptSort.k!=='updated_at'){ rptSort.k='updated_at'; rptSort.dir=-1; }
       else if(rptSort.dir<0){ rptSort.dir=1; }
@@ -10117,12 +10710,15 @@ function round3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
       // คลิก: ติ๊ก checkbox หรือกดปุ่มในคอลัมน์ "จัดการ" เท่านั้น
       // (คลิกแถว / เซลล์ / ช่องว่าง = ไม่เปิดข้อมูล ไม่เด้ง Modal)
       tb.addEventListener('click',e=>{
+        const sb=e.target.closest('.rpt-selbox');
+        if(sb){ _rptSelToggle(sb.dataset.id, sb); return; }
         const chk=e.target.closest('.rpt-chk');
         if(chk){ _rptToggle(chk.dataset.id, chk.dataset.k, chk); return; }
         const act=e.target.closest('.rpt-act'); if(!act) return;
         const id=act.dataset.id;
         if(act.dataset.act==='copy')       _rptOpenModal('copy', id);
         else if(act.dataset.act==='edit')  _rptOpenModal('edit', id);
+        else if(act.dataset.act==='close') _rptCloseTask(id);
         else if(act.dataset.act==='del')   _rptDelete(id);
       });
       // ปิด Double Click และ Right Click ทั้งหมด (ห้ามเปิด Modal / เมนูคลิกขวา)
