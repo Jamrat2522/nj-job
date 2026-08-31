@@ -36,8 +36,13 @@ export const exportCharges = (a) => rpc('njacc_export_charges', { p: payload(a) 
 export const contactList = (charge, group) =>
   rpc('njacc_contact_list', { p: { charge_type: charge, company_group: group } });
 
-export const bulkSetField = (charge, group, keys, field, value) =>
-  rpc('njacc_bulk_set_field', { p: { charge_type: charge, company_group: group, keys, field, value } });
+export const bulkSetField = (charge, group, keys, field, value, customerGate) =>
+  rpc('njacc_bulk_set_field', { p: { charge_type: charge, company_group: group, keys, field, value,
+    customer_gate: customerGate || null } });
+/* Bulk Case: case_no (+ eta ถ้ามีค่า) ใน operation เดียวตาม BILLING เดิม · eta ว่าง = ไม่ล้างของเดิม */
+export const bulkSetCase = (charge, group, keys, caseNo, eta) =>
+  rpc('njacc_bulk_set_case', { p: { charge_type: charge, company_group: group, keys,
+    case_no: caseNo, eta: eta || null } });
 export const bulkSetStatus = (charge, group, keys, status) =>
   rpc('njacc_bulk_set_status', { p: { charge_type: charge, company_group: group, keys, status } });
 export const quickCloseLookup = (charge, group, key) =>
@@ -50,6 +55,16 @@ export const importCreateMasters = (customers, companies) =>
   rpc('njacc_import_create_masters', { p: { customers, companies } });
 export const importJobsBatch = (charge, group, rows) =>
   rpc('njacc_import_jobs_batch', { p: { charge_type: charge, company_group: group, rows } });
+/* ── V.298 ── ACCOUNTING Upload (RUN-50) — คนละ RPC กับ DOCUMENT โดยเจตนา
+   njacc_import_* เดิมถูก RUN-35 ผูกไว้กับ Module 'DOCUMENT' -> Role ACCOUNT
+   ยิงแล้วได้ NJACC_MODULE_FORBIDDEN และตัว njacc_import_jobs_batch ยังมี
+   branch INSERT INTO njacc_jobs ซึ่ง ACCOUNT ห้ามใช้
+   njacc_acc_import_* = Module 'ACCOUNTING' + njacc_can(...,'edit')
+   + UPDATE EXISTING ONLY (ไม่พบงาน -> not_found ไม่สร้าง Job/Master ใหม่) */
+export const accImportResolveMasters = (charge, group, customers, companies) =>
+  rpc('njacc_acc_import_resolve_masters', { p: { charge_type: charge, company_group: group, customers, companies } });
+export const accImportJobsBatch = (charge, group, rows) =>
+  rpc('njacc_acc_import_jobs_batch', { p: { charge_type: charge, company_group: group, rows } });
 export const uploadAplBatch = (charge, group, pairs) =>
   rpc('njacc_upload_apl_batch', { p: { charge_type: charge, company_group: group, pairs } });
 export const upload19Batch = (charge, group, rows) =>
