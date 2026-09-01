@@ -2,3 +2,210 @@
 .att-flow-blocked{opacity:.45!important;cursor:not-allowed!important;box-shadow:none!important;filter:saturate(.55)}.att-mb-daystatus{margin-top:2px;padding:11px 13px;border-radius:12px;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;font-size:14px;font-weight:700;text-align:center}.att-mb-daystatus.warn{background:#fff7ed;color:#c2410c;border-color:#fdba74}.att-mb-daystatus[hidden]{display:none!important}
 /* HRDOC_APPROVER_2_20260819 */
 .doc-approver-panel{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:2px 0 12px;background:#fbfcfe}.doc-approver-panel .field{margin-bottom:10px}.doc-approver-panel .field:last-child{margin-bottom:0}.doc-appr-picked{margin-top:6px;background:#fff}.doc-appr-picked b{display:block}.doc-appr-picked small{margin-top:2px}.doc-signs.doc-signs-2{grid-template-columns:repeat(2,minmax(0,1fr))}.doc-signs.doc-signs-3{grid-template-columns:repeat(3,minmax(0,1fr))}@media (max-width:900px){.doc-signs.doc-signs-2{grid-template-columns:repeat(2,minmax(0,1fr))}.doc-signs.doc-signs-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@media print{body.printing-doc #doc-print-area .doc-signs.doc-signs-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}body.printing-doc #doc-print-area .doc-signs.doc-signs-3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+
+/* ===== หน้าอนุมัติรายการ — ตัวกรอง/ประวัติ/ผังอนุมัติ (RUN-111) ===== */
+.apr-flt{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.apr-chip{border:1px solid var(--line);background:#fff;color:var(--ink-2);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.apr-chip:hover{border-color:var(--navy);color:var(--navy)}
+.apr-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.apr-flt-note{margin:10px 0 4px;font-size:12px}
+.apr-strip{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.apr-mine{display:inline-flex;align-items:center;gap:4px;border-radius:8px;padding:3px 9px;font-size:12px;font-weight:600;background:var(--bg);color:var(--ink-2)}
+.apr-mine.ok{background:rgba(22,163,74,.10);color:var(--green)}
+.apr-mine.bad{background:rgba(220,38,38,.10);color:var(--red)}
+.apr-mine.info{background:rgba(37,99,235,.10);color:var(--blue)}
+.apr-mine.wait{background:rgba(202,138,4,.12);color:#a16207}
+.apr-mine.reason{background:transparent;color:var(--ink-2);font-weight:500;padding-left:0}
+.apr-steps{display:flex;flex-direction:column;gap:10px}
+.apr-step{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.apr-step-h{font-size:13px;margin-bottom:6px}
+.apr-cur{display:inline-block;background:rgba(37,99,235,.12);color:var(--blue);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700}
+.apr-step ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.apr-step li{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink)}
+.apr-step li.wait{color:var(--ink-2)}
+.apr-mk{display:inline-flex;width:18px;justify-content:center;font-weight:700}
+.apr-step li.ok .apr-mk{color:var(--green)}
+.apr-step li.bad .apr-mk{color:var(--red)}
+.apr-step li.wait .apr-mk{color:var(--ink-2)}
+.apr-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.apr-files li{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:13px;background:#fff}
+.apr-files li .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apr-nofile{margin:0;font-size:13px}
+.apr-job{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.apr-job-h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:13px}
+.apr-job p{margin:6px 0;font-size:13px;color:var(--ink-2)}
+.apr-more{display:flex;justify-content:center;margin:12px 0}
+.apr-review .apm-h{margin:16px 0 8px;font-size:14px}
+.apr-rejbox{margin-top:14px}
+.fp-foot{gap:8px}
+.fp-load{display:flex;flex-direction:column;align-items:center;gap:10px;padding:36px 16px;color:var(--ink-2)}
+.fp-load p{margin:0;font-size:14px}
+.fp-hint{margin:8px 0 0;font-size:12px;text-align:center}
+
+/* ===== หน้าอนุมัติรายการ — ตารางเต็มความกว้าง ===== */
+.apr-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:10px}
+.apr-table{width:100%;min-width:1240px;border-collapse:separate;border-spacing:0;font-size:13px}
+.apr-table thead th{position:sticky;top:0;z-index:2;background:var(--bg);color:var(--ink-2);font-weight:700;font-size:12px;text-align:left;white-space:nowrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.apr-table tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink)}
+.apr-table tbody tr:last-child td{border-bottom:0}
+.apr-table tbody tr:hover td{background:rgba(15,23,42,.025)}
+.apr-table td.apr-code{font-variant-numeric:tabular-nums;white-space:nowrap}
+.apr-table td.apr-nm{font-weight:600;min-width:190px}
+.apr-table td.apr-dt{white-space:nowrap;font-variant-numeric:tabular-nums}
+.apr-table td.apr-apc{min-width:230px}
+.apr-table td.apr-st{white-space:nowrap}
+.apr-table th.apr-mg,.apr-table td.apr-mg{position:sticky;right:0;z-index:1;background:#fff;border-left:1px solid var(--line);min-width:300px}
+.apr-table thead th.apr-mg{z-index:3;background:var(--bg)}
+.apr-table tbody tr:hover td.apr-mg{background:#fbfcfe}
+.apr-acts{display:flex;flex-wrap:wrap;gap:6px}
+.apr-acts .apr-act{white-space:nowrap}
+.apr-wait{display:block;width:100%;font-size:11px;margin-top:2px}
+.apr-aplist{display:flex;flex-direction:column;gap:2px}
+.apr-ap{display:block;font-size:12px;line-height:1.55}
+.apr-ap.ok{color:var(--green)}
+.apr-ap.bad{color:var(--red)}
+.apr-ap.wait{color:var(--ink-2)}
+.apr-ap.mut{color:var(--ink-2)}
+.apr-st .apr-mine{display:block;margin-top:4px}
+.apr-msg{padding:18px 12px !important;text-align:center}
+
+/* ===== หน้าอนุมัติรายการ — คอลัมน์ "การอนุมัติ" (Work Queue) ===== */
+.apr-table{min-width:1120px}
+.apr-table td.apr-apc{min-width:270px}
+.apr-ap.info{color:var(--blue)}
+.apr-stepsum{font-size:11px;padding-left:2px}
+
+/* ===== หน้าอนุมัติรายการ — เมนูสามจุดในคอลัมน์จัดการ ===== */
+.apr-table th.apr-mg,.apr-table td.apr-mg{min-width:240px}
+.apr-acts{align-items:center}
+.apr-kebab{width:36px;height:36px;flex:0 0 36px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.apr-kebab:hover{border-color:var(--navy);color:var(--navy);background:var(--bg)}
+.apr-kebab:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.apr-kebab:active{transform:scale(.96)}
+.apr-kebab[aria-expanded="true"]{border-color:var(--navy);color:var(--navy);background:var(--bg)}
+.apr-menu{position:fixed;z-index:1400;min-width:190px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(17,24,39,.18);padding:6px;display:flex;flex-direction:column;gap:2px}
+.apr-menu button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;border-radius:8px;padding:9px 10px;font-size:13px;color:var(--ink);text-align:left;cursor:pointer}
+.apr-menu button:hover{background:var(--bg)}
+.apr-menu button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.apr-menu button:active{background:#EEF2F7}
+
+/* ===== หน้าอนุมัติรายการ — คอลัมน์ตามหัวข้อ + วันที่ DD/MM/YYYY ===== */
+.apr-table{min-width:1280px}
+.apr-table td.apr-lt{white-space:nowrap}
+.apr-table td.apr-apc{min-width:250px}
+
+/* ===== Layout Fix — คอลัมน์ขวาของตารางอนุมัติซ้อนกัน =====
+   Root cause: คอลัมน์ "จัดการ" ใช้ position:sticky;right:0 → ตอนเลื่อนตารางแนวนอน
+   คอลัมน์นี้ลอยทับ "สถานะ"/"ชื่อคนอนุมัติ" ที่อยู่ด้านซ้าย  ประกอบกับ
+   .apr-acts{flex-wrap:wrap} + min-width ที่แคบลง ทำให้ปุ่ม "อนุมัติ" ตกบรรทัด
+   แก้: เอา sticky ของคอลัมน์จัดการออก (คงเฉพาะ sticky header แนวตั้ง)
+        + กำหนด min-width รายคอลัมน์ + ห้ามปุ่ม wrap */
+.apr-wrap{overflow-x:auto;overflow-y:visible}
+.apr-table{width:100%;min-width:1180px}
+
+.apr-table td.apr-mg{position:static;right:auto;z-index:auto;background:#fff}
+.apr-table thead th.apr-mg{position:sticky;top:0;right:auto;z-index:2;background:var(--bg)}
+.apr-table tbody tr:hover td.apr-mg{background:rgba(15,23,42,.025)}
+
+.apr-table th.c-date,.apr-table td.c-date{min-width:150px}
+.apr-table th.c-code,.apr-table td.c-code{min-width:120px}
+.apr-table th.c-name,.apr-table td.c-name{min-width:220px}
+.apr-table th.c-nick,.apr-table td.c-nick{min-width:100px}
+.apr-table th.c-dept,.apr-table td.c-dept{min-width:150px}
+.apr-table th.c-lt,.apr-table td.c-lt{min-width:120px}
+.apr-table th.c-sub,.apr-table td.c-sub{min-width:140px}
+.apr-table th.c-apd,.apr-table td.c-apd{min-width:140px}
+.apr-table th.c-apn,.apr-table td.c-apn{min-width:220px;white-space:normal;word-break:break-word}
+.apr-table th.c-st,.apr-table td.c-st{min-width:130px;white-space:nowrap}
+.apr-table th.apr-mg,.apr-table td.apr-mg{min-width:300px;width:300px}
+
+.apr-acts{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.apr-acts .apr-act{white-space:nowrap;flex:0 0 auto;width:auto}
+.apr-acts .apr-kebab{flex:0 0 36px}
+.apr-wait{flex:1 1 auto;min-width:0;white-space:normal}
+
+/* ===== คำขอลา — คอลัมน์ "จำนวนวัน" และ "ไฟล์แนบ" ===== */
+.apr-table th.c-qty,.apr-table td.c-qty{min-width:110px;white-space:nowrap}
+.apr-table th.c-file,.apr-table td.c-file{min-width:120px;white-space:nowrap}
+.apr-file{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:4px 9px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.apr-file:hover{border-color:var(--navy);color:var(--navy);background:var(--bg)}
+.apr-file:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.apr-file:active{transform:scale(.97)}
+
+/* คอลัมน์ชื่อคนอนุมัติ — แสดงครบทุกคน ห้ามซ่อน */
+.apr-table td.c-apn{white-space:normal;line-height:1.6}
+.apr-aplist{gap:3px}
+
+/* ===== Modal "ตรวจสอบก่อนอนุมัติ" — Scope เฉพาะหน้าอนุมัติรายการ =====
+   Root cause เดิม: .apm/.apm-row/.apm-box ถูกประกาศไว้ใน @media (max-width:767px)
+   เท่านั้น บน Desktop จึงไม่มีสไตล์ ทำให้หัวข้อกับข้อมูลติดกันเป็นบรรทัดเดียว */
+.modal:has(.apr-rv){max-width:min(880px,calc(100vw - 40px))}
+.apr-rv{display:flex;flex-direction:column;gap:14px}
+.apr-rv-head{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:14px;padding:13px 15px;background:#f8fafc}
+.apr-rv-who{flex:1 1 auto;min-width:0}
+.apr-rv-who b{display:block;font-size:16.5px;color:var(--ink);overflow-wrap:anywhere}
+.apr-rv-who small{display:block;font-size:13px;color:var(--ink-2);margin-top:2px}
+.apr-rv-st{flex:none}
+.apr-rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;border:1px solid var(--line);border-radius:14px;padding:6px 16px;background:#fff}
+.apr-rv-item{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;min-width:0}
+.apr-rv-item:last-child{border-bottom:0}
+.apr-rv-l{flex:0 0 auto;font-size:13.5px;color:var(--ink-2);white-space:nowrap}
+.apr-rv-v{flex:1 1 auto;min-width:0;text-align:right;font-size:14.5px;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.apr-rv-sec{display:flex;flex-direction:column;gap:8px}
+.apr-rv-h{font-size:14.5px;color:var(--ink);margin:0}
+.apr-rv-text{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:14px;line-height:1.75;white-space:pre-line;overflow-wrap:anywhere}
+.apr-steps .apr-step ul{gap:6px}
+.apr-step li{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.apr-step li .apr-mk{width:auto;min-width:18px;color:var(--ink-2);font-weight:600}
+.apr-nm2{overflow-wrap:anywhere}
+.apr-sep{color:var(--ink-2)}
+.apr-step li b{font-weight:600}
+.modal-foot .apr-foot-gap{flex:1 1 auto}
+
+/* ===== คอลัมน์สถานะกดได้ + Popover "ผู้อนุมัติ" (scope หน้าอนุมัติ) ===== */
+.apr-table th.c-st,.apr-table td.c-st{min-width:170px;white-space:normal}
+.apr-stbtn{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid transparent;background:transparent;border-radius:9px;padding:3px 6px;cursor:pointer;font-family:inherit;text-align:left}
+.apr-stbtn:hover{border-color:var(--line);background:var(--bg)}
+.apr-stbtn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.apr-stbtn[aria-expanded="true"]{border-color:var(--navy);background:var(--bg)}
+.apr-stn{display:inline;font-size:11.5px;color:var(--ink-2);white-space:nowrap}
+.apr-pop{min-width:270px;max-width:340px;max-height:min(70vh,460px);overflow:auto;padding:12px 14px;gap:0}
+.apr-pop-h{margin:0 0 8px;font-size:14px;color:var(--ink)}
+.apr-pop-step{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin:8px 0 6px}
+.apr-pop-p{border:1px solid var(--line);border-left-width:3px;border-radius:10px;padding:8px 11px;margin-bottom:6px;background:#fff}
+.apr-pop-p.ok{border-left-color:var(--green)}
+.apr-pop-p.bad{border-left-color:var(--red-strong)}
+.apr-pop-p.wait{border-left-color:var(--yellow)}
+.apr-pop-p.none{border-left-color:#cbd5e1}
+.apr-pop-row{display:flex;align-items:baseline;gap:8px;font-size:12.5px;line-height:1.7}
+.apr-pop-row>span{flex:0 0 auto;color:var(--ink-2)}
+.apr-pop-row>b{flex:1 1 auto;min-width:0;color:var(--ink);overflow-wrap:anywhere}
+
+/* ===== ปฏิทินองค์กร (Dashboard) — Activity รายวัน · scope .mcal ===== */
+.mcal-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.mcal-bar b{font-size:14.5px;color:var(--ink)}
+.mcal-bar .btn-icon{width:34px;height:34px}
+.mcal-grid .mcal-d{position:relative;font-family:inherit;font-size:12.5px;color:var(--ink);background:transparent;border:0;border-radius:8px;padding:5px 0 11px;cursor:pointer;min-height:34px}
+.mcal-grid .mcal-d:hover{background:var(--bg)}
+.mcal-grid .mcal-d:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.mcal-grid .mcal-d.today{background:var(--red);color:#fff;font-weight:600}
+.mcal-grid .mcal-d.holiday{color:var(--red-strong);font-weight:600}
+.mcal-grid .mcal-d.today.holiday{color:#fff}
+.mcal-dots{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:3px;pointer-events:none}
+.mcal-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex:none}
+.mcal-dot.d-green{background:var(--green)}
+.mcal-dot.d-red{background:var(--red-strong)}
+.mcal-dot.d-leave{background:var(--yellow)}
+.mcal-dot.d-holiday{background:var(--blue)}
+.mcal-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--ink-2)}
+.mcal-legend span{display:inline-flex;align-items:center;gap:5px}
+#mcal-err:empty{display:none;min-height:0}
+.mcal-detail{display:flex;flex-direction:column;gap:12px;max-width:520px}
+.mcal-warn{background:#fef2f2;border:1px solid #fecaca;color:var(--red-strong);border-radius:12px;padding:10px 13px;font-size:14px;font-weight:600}
+.mcal-okbar{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green);border-radius:12px;padding:10px 13px;font-size:14px;font-weight:600}
+.mcal-box{border:1px solid var(--line);border-radius:12px;padding:4px 14px;background:#fff}
+.mcal-row{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9}
+.mcal-row:last-child{border-bottom:0}
+.mcal-row>span{flex:0 0 auto;font-size:13.5px;color:var(--ink-2)}
+.mcal-row>b{flex:1 1 auto;min-width:0;text-align:right;font-size:14.5px;color:var(--ink);overflow-wrap:anywhere}
+.modal:has(.mcal-detail){max-width:min(520px,calc(100vw - 40px))}

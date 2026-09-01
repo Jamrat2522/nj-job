@@ -1,21 +1,83 @@
-NJHR Employee Export EN Patch
+NJHR V2 — หน้า "อนุมัติรายการ": Work Queue ตาราง + ตรวจสอบก่อนอนุมัติ + PDF Preview
+Build: njhr-v2-1461872a
 
-Build: njhr-v2-f21a1c60
+ต้องรัน SQL ตามลำดับ:
+  1) _archive/RUN-111_approval_history_review.sql
+  2) _archive/RUN-112_approval_queue_only.sql
+  3) RUN-113 — รันบน Production แล้ว (ดู _archive/PATCH_INFO_RUN113.txt)
+  4) RUN-114 — รันบน Production แล้ว (ดู _archive/PATCH_INFO_RUN114.txt)
+  5) RUN-115 — รันบน Production แล้ว (ดู _archive/PATCH_INFO_RUN115.txt)
+  6) RUN-115b — รันบน Production แล้ว (ดู _archive/PATCH_INFO_RUN115b.txt)
+  (ถ้ายังไม่รัน แอปจะ Fallback ไป RPC เดิมและแสดงเฉพาะรายการรออนุมัติ — ไม่พัง)
 
-Changed behavior:
-- views/employees/export.js now calls existing RPC njhr_emp_list_en
-- adds 2 columns after ชื่อ-นามสกุล:
-  * First Name (ภาษาอังกฤษ)
-  * Last Name (ภาษาอังกฤษ)
-- width E=18, F=22
-- uses DB values first_name_en / last_name_en only; no transliteration
-- original filters/sort/paging remain unchanged via njhr_emp_list_en
+ไฟล์ที่เปลี่ยน:
+  views/dashboard.js           — ปฏิทินองค์กร: กดวันที่ดู Activity รายวัน + จุดสี + เปลี่ยนเดือน
+  compat/approvals-reports.js  — เขียนบล็อกหน้าอนุมัติใหม่ทั้งบล็อก
+  runtime/core.js              — filePreviewOpen/Close: PDF ผ่าน Blob + ปุ่ม Preview/Download แยก
+  styles.css / mobile.css      — เพิ่มสไตล์ใหม่ (append เท่านั้น ไม่แก้ของเดิม)
+  asset-manifest.js / sw.js / index.html / config.js — Deployment Version ชุดใหม่
 
-Files in this patch:
-- views/employees/export.js
-- asset-manifest.js (new export cache hash)
-- index.html (new manifest cache hash)
-- sw.js (new build cache)
-- config.js (new build version)
-
-No SQL is required: production already has public.njhr_emp_list_en with the EN fields and matching list behavior.
+พฤติกรรมใหม่:
+  · Dashboard > ปฏิทินองค์กร: กดวันที่เปิด "รายละเอียดประจำวัน : DD/MM/YYYY"
+    (สแกนเข้า/ออก HH:mm · ลางาน + รูปแบบ + ช่วงวันลา · วันหยุด · กะทำงาน)
+    จุดสีในช่องวัน: 🟢 สแกนครบ · 🔴 สแกนไม่ครบในวันที่ต้องสแกน · 🟡 ลา · 🔵 วันหยุด
+    เปลี่ยนเดือน/ข้ามปีย้อนหลังได้ · แสดงเฉพาะข้อมูลของผู้ใช้ที่ล็อกอิน (ไม่มีชื่อ/รหัส/แผนก)
+    มีทั้ง Desktop และ Mobile Home
+    กะข้ามวัน (เช่น 20:00–05:00) ถือเวลาสิ้นสุดกะเป็น 05:00 ของวันถัดไป จึงไม่ขึ้นแดงก่อนเวลา
+    ผู้ดูแลระบบ (ADMIN/SUPER_ADMIN) ไม่ต้องลงเวลาตาม njhr_att_role_gate จึงไม่ขึ้นแดง
+  · Modal "ตรวจสอบก่อนอนุมัติ" ทั้ง 3 แท็บใช้ Design เดียวกัน (class .apr-rv-* scope เฉพาะหน้านี้)
+    ทุก Field เป็น "หัวข้อ : ข้อมูล" · Desktop 2 คอลัมน์ (กว้าง 880px) · Mobile 1 คอลัมน์
+    เหตุผลแยกเป็น Section เต็มความกว้าง · Status แสดงภาษาไทย ไม่โชว์ค่าดิบ
+    ใน Modal ส่วน "ผู้อนุมัติ" แสดง "n. ชื่อ (ชื่อเล่น) : สถานะ" ครบทุกคนทุกขั้น
+    Field แยกตามประเภทจริง: ลา = ประเภทลา/วันที่เริ่ม-สิ้นสุด/รูปแบบ/จำนวนวัน/คงเหลือ ·
+    OT = วันที่ OT/เวลา/จำนวน OT/วันหยุด/จำนวนรายการงาน ·
+    ลงชื่อย้อนหลัง = วันที่ขอลงย้อนหลัง/ประเภท(เข้า-ออก)/เวลาเดิม-ใหม่/ผัง/ขั้นปัจจุบัน
+    Footer: [ปิด][ไม่อนุมัติ][ขอข้อมูลเพิ่ม] ซ้าย · [ยืนยันอนุมัติ] ขวา
+  · หน้าอนุมัติเปลี่ยนจาก Card เป็น "ตารางเต็มความกว้าง" คอลัมน์ตามหัวข้อ:
+    คำขอลา (12): วันที่รายการ · รหัสพนักงาน · ชื่อ · ชื่อเล่น · แผนก · ประเภทลา ·
+                 จำนวนวัน · ไฟล์แนบ · ส่งคำขอวันที่ · วันที่อนุมัติ · สถานะ · จัดการ
+    OT / ลงชื่อย้อนหลัง (9): เหมือนกันแต่ไม่มี ประเภทลา/จำนวนวัน/ไฟล์แนบ
+    ยกเลิกคอลัมน์ "ชื่อคนอนุมัติ" ออกจากตารางหลักทั้ง 3 แท็บ (แถวเตี้ยลง อ่านง่ายขึ้น)
+    คอลัมน์ "สถานะ" กดได้ แสดง Badge + n/m คน → เปิด Popover "ผู้อนุมัติ" แยกเป็นรายคน
+    (ชื่อ · สถานะ · ขั้น ALL/ANY · อนุมัติแล้ว x/y คน) ใช้ Popover Core ตัวเดียวกับเมนู ⋮
+    จึงเปิดได้ทีละอันเดียว · มือถือเป็น Bottom Sheet ไม่ล้นจอ
+    จำนวนวัน/ชั่วโมง ใช้ค่าที่บันทึกไว้จริง (total_days / hours) ไม่คำนวณใหม่
+    ไฟล์แนบแสดงเป็น "N ไฟล์" กดแล้วเปิด Modal รายละเอียด (Preview/Download Flow เดิม)
+  · วันที่ทุกจุดในหน้าอนุมัติ (ตาราง · Modal · Timeline · ผู้อนุมัติรายขั้น · แถบ "คุณอนุมัติแล้ว")
+    ใช้ DD/MM/YYYY (วันที่) และ DD/MM/YYYY HH:mm (วันที่+เวลา) ค.ศ. ทั้งหมด
+    Formatter กลาง 2 ตัว: apprDateOnly (DATE-only อ่านจากสตริง) / apprTSDateTime
+    (รองรับทั้ง 'YYYY-MM-DD HH:MI' ที่ RPC แปลง Asia/Bangkok มาแล้ว และ ISO timestamptz
+     โดยไม่แปลง Timezone ซ้ำ) — ไม่มี timestamp ดิบเหลือในหน้าอนุมัติ
+    Modal คำขอลารวมเป็นแถวเดียว Label "วันที่ลา" · ลาวันเดียวไม่แสดงซ้ำ
+    วันที่ยื่นใน Modal = DD/MM/YYYY HH:MM · ไม่มี พ.ศ./เดือนไทยย่อเหลืออยู่
+  · วันที่ทุกคอลัมน์ใช้ DD/MM/YYYY (ค.ศ.) — DATE-only อ่านจากสตริงตรง ๆ ไม่ผ่าน new Date()
+    จึงไม่มีวันเลื่อน ±1 จาก Timezone · ไม่แสดงเวลาในตาราง (ดูเวลาเต็มใน "ดูรายละเอียด")
+  · ประเภทลาใช้ Leave Type Master เดิม (lvType) ไม่ Hardcode · ไม่มีค่า = "-"
+    ครอบคลุมทุกค่าใน enum leave_type จริง (SICK/PERSONAL/VACATION/MATERNITY/
+    ORDINATION/HALFDAY/OTHER) และตรงกับ label_th ในตาราง leave_types ทุกตัว
+    Detail Modal ใช้ Master ตัวเดียวกัน (ป้ายชื่อ "ประเภทลา") จึงไม่มีทางแสดง code ดิบ
+  · คอลัมน์ "จัดการ" = [⋮] [ไม่อนุมัติ] [อนุมัติ]
+    ⋮ เปิด Dropdown (role=menu): ดูรายละเอียด · ขอข้อมูลเพิ่ม
+    เมนูเรนเดอร์บน body แบบ position:fixed จึงไม่ถูก overflow ของตารางตัด
+    ปิดด้วย click outside / ESC / เปิดเมนูอื่น / re-render · เปิดได้ทีละเมนูเดียว
+    ยกเลิก sticky ของคอลัมน์จัดการ (เดิมลอยทับคอลัมน์ทางซ้ายตอนเลื่อนแนวนอน)
+    กำหนด min-width รายคอลัมน์ทุกช่อง
+    ตารางเลื่อนแนวนอนแทนการบีบ · ปุ่มใน "จัดการ" อยู่บรรทัดเดียวเสมอ (flex-wrap:nowrap)
+  · ยังไม่ถึงขั้นของผู้ใช้ = ไม่มีปุ่มอนุมัติ/ไม่อนุมัติ เหลือ "ดูรายละเอียด"
+  · วันที่รายการใช้วันที่ตามประเภทจริง (วันลา / วัน OT / วันที่ต้องการแก้เวลา) ไม่ใช่วันที่สร้าง
+  · หน้าอนุมัติเป็น WORK QUEUE — แสดงเฉพาะรายการที่ยังอนุมัติไม่ครบ (PENDING)
+    อนุมัติครบตาม Workflow → Row หายจากหน้าอนุมัติ ไปใช้ใน REPORT ตาม Flow เดิม
+  · ไม่มี Filter ประวัติในหน้าอนุมัติ เหลือ 3 Tab: คำขอลา / คำขอ OT / ลงชื่อย้อนหลัง
+  · คำขอลา/OT เดินตาม Approval Setting จริงแล้ว (Multi-step ALL/ANY) — คนแรกอนุมัติ
+    รายการไม่หาย จนกว่าจะครบ Final Step
+  · แยก can_view / can_act: คนที่อนุมัติไปแล้วยังเห็นรายการ แต่เหลือปุ่ม [⋮] กดซ้ำไม่ได้
+  · ตารางหลักไม่มีคอลัมน์ "ชื่อคนอนุมัติ" แล้ว — ดูรายชื่อผู้อนุมัติทุกคนตามผังจริง
+    ได้จากการกดที่คอลัมน์ "สถานะ" (Popover "ผู้อนุมัติ") ใช้กับทั้งคำขอลา · คำขอ OT ·
+    ลงชื่อย้อนหลัง
+  · PNG/JPG/WEBP Preview ผ่าน Blob เหมือน PDF (แก้เปิดไม่ได้บนมือถือ) + fallback + ข้อความ error
+  · Badge นับเฉพาะรายการที่ผู้ใช้ดำเนินการได้จริงตอนนี้
+  · กดอนุมัติ/ไม่อนุมัติ = เปิด Modal ตรวจสอบก่อน · Decide RPC ยิงเมื่อกดยืนยันเท่านั้น
+  · ไม่อนุมัติต้องระบุเหตุผล (trim แล้วว่าง = Submit ไม่ได้)
+  · แสดง "ชื่อจริง (ชื่อเล่น)" ทุกจุด · ไม่มีชื่อเล่นแสดงชื่อจริงอย่างเดียว
+  · ลงชื่อย้อนหลังแสดงผังทุกขั้น + n/m + ผู้อนุมัติแล้ว/ผู้ที่ยังรอ
+  · PDF Preview: Signed URL → fetch → Blob → Object URL → revoke ตอนปิด
