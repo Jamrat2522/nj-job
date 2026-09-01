@@ -1711,6 +1711,21 @@ input[type=file]{display:none}
 
       <!-- ── MCI PDF PAGE (standalone: Invoice PDF → Excel via text layer) ── -->
       <div class="pview" id="page-mci" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
+        <style>
+          /* ── กรอบ Upload ของ MCI PDF: จัดเป็นแถวแนวนอน ลดความสูง ~50% ──
+             scope เฉพาะ #page-mci — ไม่แตะ .hl-upload-card ส่วนกลางที่โหมดอื่นใช้ร่วมกัน
+             คงเดิม: ความกว้าง · dashed border · radius · สี · icon · ข้อความ · click/drop */
+          #page-mci .hl-upload-card{
+            padding:10px 12px;text-align:left;
+            display:grid;grid-template-columns:auto minmax(0,1fr);
+            grid-template-areas:"icon title" "icon sub" "fname fname";
+            align-items:center;column-gap:10px;row-gap:0;
+          }
+          #page-mci .hl-dz-icon{grid-area:icon;width:32px;height:32px;margin:0;align-self:center}
+          #page-mci .hl-dz-title{grid-area:title;margin:0;align-self:end;line-height:1.2}
+          #page-mci .hl-dz-sub{grid-area:sub;margin:0;align-self:start;line-height:1.2}
+          #page-mci .hl-dz-fname{grid-area:fname;margin-top:7px}
+        </style>
         <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:16px;display:flex;align-items:center;gap:8px">
           <span style="color:#d29922">📄</span> MCI PDF
         </div>
@@ -1829,32 +1844,51 @@ input[type=file]{display:none}
       <!-- ════════ PDF → Image (standalone) ════════ -->
       <div class="pview" id="page-pdf2img" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
         <style>
-          #page-pdf2img .p2i-r{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);cursor:pointer;padding:3px 0;user-select:none}
+          #page-pdf2img .p2i-r{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);cursor:pointer;padding:2px 0;user-select:none}
           #page-pdf2img .p2i-r input{accent-color:#e0679a;cursor:pointer;margin:0}
           #page-pdf2img .p2i-r:hover{color:var(--t1)}
+          /* ── OUTPUT FORMAT: กรอบยาวแนวนอน (UI เท่านั้น · ชื่อ/ค่า/default ของ option ไม่เปลี่ยน) ── */
+          #page-pdf2img .p2i-card{max-width:1100px;border:1px solid var(--bd);border-radius:10px;padding:12px 16px;margin-bottom:12px;background:var(--s2)}
+          #page-pdf2img .p2i-card-h{font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px}
+          #page-pdf2img .p2i-fmt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 18px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--bd)}
+          #page-pdf2img .p2i-set{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px;align-items:start}
+          #page-pdf2img .p2i-set-t{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px}
+          @media(max-width:1000px){ #page-pdf2img .p2i-fmt{grid-template-columns:repeat(3,minmax(0,1fr))} #page-pdf2img .p2i-set{grid-template-columns:repeat(2,minmax(0,1fr))} }
+          @media(max-width:640px){ #page-pdf2img .p2i-fmt,#page-pdf2img .p2i-set{grid-template-columns:1fr} }
+          /* ── LOG / History: พับได้ · default ปิด (ซ่อน UI เท่านั้น ไม่ล้างข้อมูล) ── */
+          #page-pdf2img .p2i-panes{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px}
+          @media(max-width:720px){ #page-pdf2img .p2i-panes{grid-template-columns:1fr} }
+          #page-pdf2img .p2i-fold{border:1px solid var(--bd);border-radius:8px;background:var(--s2);overflow:hidden;align-self:start}
+          #page-pdf2img .p2i-fold-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--t2);padding:8px 12px;cursor:pointer;user-select:none;transition:color .12s,background .12s}
+          #page-pdf2img .p2i-fold-h:hover{color:var(--t1);background:rgba(255,255,255,.03)}
+          #page-pdf2img .p2i-arw{display:inline-block;color:#e0679a;font-size:10px;width:12px}
+          #page-pdf2img .p2i-fold-b{display:none;padding:0 10px 10px}
+          #page-pdf2img .p2i-fold.open .p2i-fold-b{display:block;animation:p2iFold .14s ease-out}
+          @keyframes p2iFold{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
         </style>
         <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
           <span style="color:#e0679a">📷</span> PDF → Image
         </div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">แปลง PDF เป็นรูปภาพต่อหน้า (JPG / JPEG / PNG) · render ครั้งเดียวต่อหน้า · ตั้งชื่อ <code>PDFNAME_0001.jpg</code> · verify ลำดับหน้าก่อนสร้าง ZIP · ดาวน์โหลด ZIP ต่อ format</div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">แปลง PDF เป็นรูปภาพต่อหน้า (JPG / JPEG / PNG) · เลือกได้หลายไฟล์ · render ครั้งเดียวต่อหน้า · ตั้งชื่อ <code>PDFNAME_0001.jpg</code> · verify ลำดับหน้าก่อนสร้าง ZIP · ดาวน์โหลด ZIP ต่อ format</div>
 
         <div style="max-width:560px;margin-bottom:14px">
           <div class="hl-upload-card pdf-card" id="p2i-card" onclick="document.getElementById('p2i-inp').click()">
             <div class="hl-dz-icon pdf">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e0679a" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </div>
-            <div class="hl-dz-title">ลาก & วางไฟล์ PDF (1 ไฟล์)</div>
-            <div class="hl-dz-sub">PDF เท่านั้น · render ด้วย pdf.js</div>
+            <div class="hl-dz-title">ลาก &amp; วางไฟล์ PDF (หลายไฟล์)</div>
+            <div class="hl-dz-sub">PDF เท่านั้น · เลือกได้หลายไฟล์ · render ด้วย pdf.js</div>
             <div class="hl-dz-fname" id="p2i-count">ยังไม่ได้เลือกไฟล์</div>
-            <input type="file" id="p2i-inp" accept="application/pdf,.pdf" style="display:none">
+            <input type="file" id="p2i-inp" accept="application/pdf,.pdf" multiple style="display:none">
           </div>
           <div id="p2i-fname" style="font-size:11px;color:#e0679a;margin-top:5px;font-family:'IBM Plex Mono',monospace"></div>
+          <div id="p2i-list" style="margin-top:8px"></div>
         </div>
 
-        <!-- 📷 OUTPUT FORMAT card -->
-        <div style="max-width:640px;border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:var(--s2)">
-          <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px">📷 OUTPUT FORMAT</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin-bottom:14px">
+        <!-- 📷 OUTPUT FORMAT card (กรอบยาวแนวนอน) -->
+        <div class="p2i-card">
+          <div class="p2i-card-h">📷 OUTPUT FORMAT</div>
+          <div class="p2i-fmt">
             <label class="p2i-r"><input type="radio" name="p2i-fmt" value="jpg" checked> JPG (.jpg)</label>
             <label class="p2i-r"><input type="radio" name="p2i-fmt" value="jpeg"> JPEG (.jpeg)</label>
             <label class="p2i-r"><input type="radio" name="p2i-fmt" value="png"> PNG (.png)</label>
@@ -1863,28 +1897,29 @@ input[type=file]{display:none}
             <label class="p2i-r"><input type="radio" name="p2i-fmt" value="jpeg_png"> JPEG + PNG</label>
             <label class="p2i-r"><input type="radio" name="p2i-fmt" value="jpg_jpeg_png"> JPG + JPEG + PNG</label>
           </div>
-          <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <div class="p2i-set">
             <div>
-              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">Quality</div>
+              <div class="p2i-set-t">Quality</div>
               <label class="p2i-r"><input type="radio" name="p2i-q" value="85"> Standard (85%)</label>
               <label class="p2i-r"><input type="radio" name="p2i-q" value="95"> High (95%)</label>
               <label class="p2i-r"><input type="radio" name="p2i-q" value="100" checked> Maximum (100%)</label>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">Resolution</div>
+              <div class="p2i-set-t">Resolution</div>
               <label class="p2i-r"><input type="radio" name="p2i-dpi" value="150"> 150 DPI</label>
               <label class="p2i-r"><input type="radio" name="p2i-dpi" value="300" checked> 300 DPI</label>
               <label class="p2i-r"><input type="radio" name="p2i-dpi" value="600"> 600 DPI</label>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">Background</div>
+              <div class="p2i-set-t">Background</div>
               <label class="p2i-r"><input type="radio" name="p2i-bg" value="white" checked> White</label>
               <label class="p2i-r"><input type="radio" name="p2i-bg" value="transparent"> Transparent (PNG Only)</label>
             </div>
-          </div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">
-            <label class="p2i-r" style="font-weight:700;color:var(--t1)"><input type="checkbox" id="p2i-thai"> 🇹🇭 Thai Chamber CO — Sequential + Order Lock (Default OFF)</label>
-            <div style="font-size:10px;color:var(--t3);margin-top:3px;padding-left:24px">render ทีละหน้า (Sequential) · ชื่อ <code>PDFNAME_PAGE_0001_OF_0043.jpeg</code> · ORDER_INDEX + verify ลำดับ 2 ชั้น (ก่อน + หลัง ZIP)</div>
+            <div>
+              <div class="p2i-set-t">Thai Chamber CO</div>
+              <label class="p2i-r" style="font-weight:700;color:var(--t1)"><input type="checkbox" id="p2i-thai"> 🇹🇭 Sequential + Order Lock (Default OFF)</label>
+              <div style="font-size:10px;color:var(--t3);margin-top:2px;padding-left:22px">ชื่อ <code>PDFNAME_PAGE_0001_OF_0043.jpeg</code> · ORDER_INDEX + verify 2 ชั้น</div>
+            </div>
           </div>
         </div>
 
@@ -1909,14 +1944,18 @@ input[type=file]{display:none}
 
         <div id="p2i-result" style="max-width:640px;margin-bottom:14px"></div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px">
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📜 LOG</div>
-            <div id="p2i-log" style="height:150px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
+        <div class="p2i-panes">
+          <div class="p2i-fold" id="p2i-fold-log">
+            <div class="p2i-fold-h" onclick="_p2iFold('log')"><span class="p2i-arw" id="p2i-arw-log">▶</span> 📜 LOG</div>
+            <div class="p2i-fold-b">
+              <div id="p2i-log" style="height:150px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s1)"></div>
+            </div>
           </div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">🕘 History (ดาวน์โหลดซ้ำ)</div>
-            <div id="p2i-hist" style="height:150px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
+          <div class="p2i-fold" id="p2i-fold-hist">
+            <div class="p2i-fold-h" onclick="_p2iFold('hist')"><span class="p2i-arw" id="p2i-arw-hist">▶</span> 🕘 History (ดาวน์โหลดซ้ำ)</div>
+            <div class="p2i-fold-b">
+              <div id="p2i-hist" style="height:150px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s1)"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -11023,7 +11062,7 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
 // ══════════════════════════════════════════════════════════════════
 (function(){
   'use strict';
-  let _p2iFile=null, _p2iBusy=false, _p2iBound=false;
+  let _p2iFiles=[], _p2iBusy=false, _p2iBound=false, _p2iSeq=0;   // รองรับหลายไฟล์ (queue)
   const _p2iHist=[];
   const _el=id=>document.getElementById(id);
   const _toast=(m,t)=>{ if(typeof toast==='function') toast(m,t); };
@@ -11055,21 +11094,85 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
   window._p2iBind=function(){
     if(_p2iBound) return; _p2iBound=true;
     const card=_el('p2i-card'), inp=_el('p2i-inp');
-    if(inp) inp.addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; _p2iSet(f); e.target.value=''; });
+    // อ่าน FileList ทั้งก้อน (ห้ามใช้ files[0])
+    if(inp) inp.addEventListener('change',e=>{ _p2iAdd(e.target.files); e.target.value=''; });
     if(card){
       card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('has-file');});
       card.addEventListener('dragleave',()=>card.classList.remove('has-file'));
-      card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('has-file'); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; _p2iSet(f);});
+      card.addEventListener('drop',e=>{e.preventDefault();card.classList.remove('has-file'); _p2iAdd(e.dataTransfer&&e.dataTransfer.files);});
     }
     _p2iRenderHist();
   };
 
-  function _p2iSet(f){
-    if(!f) return;
-    if(!/\.pdf$/i.test(f.name)){ _toast('เลือกไฟล์ .pdf เท่านั้น','warning'); return; }
-    _p2iFile=f;
-    const a=_el('p2i-fname'); if(a) a.textContent='✓ '+f.name;
-    const b=_el('p2i-count'); if(b) b.textContent=f.name;
+  const _p2iFmtBytes=b=>b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';
+  // base ที่ไม่ชนกัน: ไฟล์ชื่อซ้ำ → NAME, NAME_2, NAME_3 (deterministic ตามลำดับที่เพิ่ม)
+  function _p2iUniqueBase(name){
+    const raw=String(name).replace(/\.pdf$/i,'');
+    const used=new Set(_p2iFiles.map(x=>x.base));
+    if(!used.has(raw)) return raw;
+    let k=2; while(used.has(raw+'_'+k)) k++;
+    return raw+'_'+k;
+  }
+  function _p2iAdd(list){
+    if(_p2iBusy){ _toast('กำลังแปลงอยู่ — รอให้เสร็จก่อน','warning'); return; }
+    const files=Array.from(list||[]);
+    if(!files.length) return;
+    const bad=[];
+    let added=0;
+    files.forEach(f=>{
+      if(!/\.pdf$/i.test(f.name)){ bad.push(f.name); return; }        // ข้ามเฉพาะไฟล์ที่ไม่ใช่ PDF
+      _p2iFiles.push({id:++_p2iSeq, file:f, base:_p2iUniqueBase(f.name), pages:null, status:'รอแปลง', err:''});
+      added++;
+    });
+    if(bad.length) _toast('ข้ามไฟล์ที่ไม่ใช่ PDF: '+bad.join(', '),'warning');
+    if(added) _toast('เพิ่ม '+added+' ไฟล์','success');
+    _p2iRenderList();
+    _p2iCountPages();     // อ่านจำนวนหน้าแบบไม่บล็อก UI
+  }
+  window._p2iDel=function(id){
+    if(_p2iBusy) return;
+    const i=_p2iFiles.findIndex(x=>x.id===id);
+    if(i>=0) _p2iFiles.splice(i,1);
+    _p2iRenderList();
+  };
+  // อ่านจำนวนหน้าของไฟล์ที่ยังไม่รู้ (ทีละไฟล์ ไม่พร้อมกัน) — ล้มเหลว = ทำเครื่องหมายผิดพลาด แต่ไฟล์อื่นเดินต่อ
+  async function _p2iCountPages(){
+    const pdfjs=(typeof getPdfJs==='function')?getPdfJs():null;
+    if(!pdfjs) return;
+    for(const it of _p2iFiles){
+      if(it.pages!=null || it.status==='ผิดพลาด') continue;
+      it.status='กำลังอ่าน PDF'; _p2iRenderList();
+      try{
+        const buf=await it.file.arrayBuffer();
+        const doc=await pdfjs.getDocument({data:buf.slice(0)}).promise;
+        it.pages=doc.numPages; it.status='รอแปลง';
+        if(doc.destroy) await doc.destroy();
+      }catch(e){ it.pages=0; it.status='ผิดพลาด'; it.err='ไม่สามารถอ่าน PDF ได้'; }
+      _p2iRenderList();
+    }
+  }
+  function _p2iRenderList(){
+    const box=_el('p2i-list'), cnt=_el('p2i-count'), fn=_el('p2i-fname');
+    const n=_p2iFiles.length;
+    const tp=_p2iFiles.reduce((a,b)=>a+(b.pages||0),0);
+    if(cnt) cnt.textContent = n? (n+' ไฟล์') : 'ยังไม่ได้เลือกไฟล์';
+    if(fn)  fn.textContent  = n? ('✓ เลือกแล้ว '+n+' PDF · รวม '+tp+' หน้า') : '';
+    if(!box) return;
+    if(!n){ box.innerHTML=''; return; }
+    let h='<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden">';
+    _p2iFiles.forEach((it,i)=>{
+      const col = it.status==='สำเร็จ'?'#3fb950' : it.status==='ผิดพลาด'?'#f85149' : it.status==='รอแปลง'?'var(--t3)':'#e0679a';
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px">'
+        +'<span style="color:var(--t3);width:22px;flex:0 0 auto">'+(i+1)+'.</span>'
+        +'<span style="color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(it.file.name)+(it.base!==String(it.file.name).replace(/\.pdf$/i,'')?' <span style="color:#d29922">→ '+_esc(it.base)+'</span>':'')+'</span>'
+        +'<span style="color:var(--t3);flex:0 0 auto;font-family:IBM Plex Mono,monospace">'+_p2iFmtBytes(it.file.size)+'</span>'
+        +'<span style="color:var(--t2);flex:0 0 auto;width:64px;text-align:right;font-family:IBM Plex Mono,monospace">'+(it.pages==null?'—':it.pages+' หน้า')+'</span>'
+        +'<span style="color:'+col+';flex:0 0 auto;width:150px;text-align:right">'+_esc(it.status+(it.err?(' — '+it.err):''))+'</span>'
+        +'<button onclick="_p2iDel('+it.id+')" style="background:rgba(248,81,73,.10);border:1px solid rgba(248,81,73,.35);color:#f85149;border-radius:5px;padding:1px 7px;cursor:pointer;flex:0 0 auto">ลบ</button>'
+        +'</div>';
+    });
+    h+='</div>';
+    box.innerHTML=h;
   }
 
   function _fmts(){
@@ -11084,136 +11187,157 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
   function _log(msg,color){ const box=_el('p2i-log'); if(!box)return; const d=document.createElement('div'); d.style.cssText='font-size:11px;font-family:IBM Plex Mono,monospace;padding:2px 0;color:'+(color||'var(--t2)'); d.textContent='['+new Date().toLocaleTimeString('th-TH')+'] '+msg; box.appendChild(d); box.scrollTop=box.scrollHeight; }
   function _dl(blob,name){ const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),2000); }
 
+  // ── แปลง PDF 1 ไฟล์ → images ต่อ format (logic เดิมทุกอย่าง: render ครั้งเดียว/หน้า · zero-pad · ORDER VERIFY) ──
+  async function _p2iRenderOne(pdfjs, item, formats, quality, dpi, transparent, thai, onPage){
+    const base=item.base;
+    const buf=await item.file.arrayBuffer();
+    const pdf=await pdfjs.getDocument({data:buf.slice(0)}).promise;
+    const numPages=pdf.numPages;
+    const images={}; formats.forEach(f=>images[f]=[]);
+    for(let p=1;p<=numPages;p++){
+      if(onPage) onPage(p,numPages);
+      const page=await pdf.getPage(p);
+      const vp=page.getViewport({scale:dpi/72});
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.ceil(vp.width); canvas.height=Math.ceil(vp.height);
+      const ctx=canvas.getContext('2d');
+      if(!transparent){ ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+      await page.render({canvasContext:ctx, viewport:vp}).promise;      // render ครั้งเดียวต่อหน้า
+      for(const fmt of formats){
+        let src=canvas;
+        if(transparent && fmt!=='png'){
+          const c2=document.createElement('canvas'); c2.width=canvas.width; c2.height=canvas.height;
+          const x2=c2.getContext('2d'); x2.fillStyle='#ffffff'; x2.fillRect(0,0,c2.width,c2.height); x2.drawImage(canvas,0,0); src=c2;
+          const blob2=await new Promise(res=>src.toBlob(res,_mime(fmt), fmt==='png'?undefined:quality));
+          images[fmt].push({page:p, name:_p2iName(base,p,numPages,fmt,thai), blob:blob2});
+          c2.width=0; c2.height=0;
+          continue;
+        }
+        const blob=await new Promise(res=>src.toBlob(res,_mime(fmt), fmt==='png'?undefined:quality));
+        images[fmt].push({page:p, name:_p2iName(base,p,numPages,fmt,thai), blob});
+      }
+      canvas.width=0; canvas.height=0; if(page.cleanup)page.cleanup();   // release canvas ทุกหน้า
+      await new Promise(r=>setTimeout(r,0));
+    }
+    if(pdf.destroy) await pdf.destroy();                                  // release PDF ก่อนไปไฟล์ถัดไป
+    // ── ORDER VERIFY: page=filename, ครบ 1..N, ไม่หาย/ซ้ำ/สลับ ──
+    for(const fmt of formats){
+      const arr=images[fmt];
+      if(arr.length!==numPages) throw new Error('จำนวนไฟล์ '+fmt.toUpperCase()+' ('+arr.length+') ≠ จำนวนหน้า ('+numPages+')');
+      for(let i=0;i<arr.length;i++){
+        if(arr[i].page!==i+1 || arr[i].name!==_p2iName(base,i+1,numPages,fmt,thai)) throw new Error('ลำดับหน้าผิดที่ '+arr[i].name);
+      }
+    }
+    // ── ORDER_INDEX (Thai Chamber CO) ──
+    if(thai){
+      for(const fmt of formats){
+        const list=images[fmt].slice().sort((a,b)=>a.page-b.page); let prev=0;
+        for(let i=0;i<list.length;i++){
+          const cks=await _p2iCksum(list[i].blob);
+          if(list[i].page!==i+1 || list[i].name!==_p2iName(base,i+1,numPages,fmt,thai) || list[i].page<=prev || !cks) throw new Error('ORDER_INDEX ผิดลำดับ: '+list[i].name);
+          prev=list[i].page;
+        }
+      }
+    }
+    return {images, numPages};
+  }
+
   window._p2iRun=async function(){
     if(_p2iBusy) return;
-    if(!_p2iFile){ _toast('อัปโหลด PDF ก่อน','warning'); return; }
+    if(!_p2iFiles.length){ _toast('อัปโหลด PDF ก่อน','warning'); return; }
     const pdfjs=(typeof getPdfJs==='function')?getPdfJs():null;
     if(!pdfjs){ _toast('pdf.js ยังไม่โหลด — รอสักครู่','error'); return; }
     if(typeof JSZip==='undefined'){ _toast('JSZip ยังไม่โหลด','error'); return; }
     const formats=_fmts(), quality=_quality(), dpi=_dpi(), bg=_bg();
-    const thai=!!(_el('p2i-thai')&&_el('p2i-thai').checked);   // Thai Chamber CO mode
+    const thai=!!(_el('p2i-thai')&&_el('p2i-thai').checked);
     const transparent=(bg==='transparent');
-    const base=_p2iFile.name.replace(/\.pdf$/i,'');
     _p2iBusy=true;
     const runBtn=_el('p2i-run-btn'); if(runBtn){runBtn.disabled=true;runBtn.style.opacity='.6';}
     const w=_el('p2i-prog-wrap'); if(w)w.style.display='block';
     _el('p2i-result').innerHTML='';
     const t0=performance.now();
+    const okFiles=[], failFiles=[];
+    let donePages=0, totalFiles=0;
     try{
-      _prog(2,'Preparing PDF...'); _log('Preparing PDF: '+_p2iFile.name);
-      const buf=await _p2iFile.arrayBuffer();
-      const pdf=await pdfjs.getDocument({data:buf.slice(0)}).promise;
-      const numPages=pdf.numPages;
-      _log('Pages: '+numPages+' · Format: '+formats.join('+').toUpperCase()+' · Q'+Math.round(quality*100)+' · '+dpi+'DPI · BG:'+bg);
-      const scale=dpi/72;
-      const images={}; formats.forEach(f=>images[f]=[]);
+      await _p2iCountPages();                                          // ให้รู้จำนวนหน้ารวมก่อนคิด Progress
+      const totalPages=_p2iFiles.reduce((a,b)=>a+(b.pages||0),0) || 1;
+      _log('BATCH START · '+_p2iFiles.length+' PDF · รวม '+totalPages+' หน้า · '+formats.join('+').toUpperCase()+' · Q'+Math.round(quality*100)+' · '+dpi+'DPI · BG:'+bg);
 
-      for(let p=1;p<=numPages;p++){
-        _prog(2+Math.round((p-1)/numPages*70),'Rendering Page '+p+' / '+numPages);
-        const page=await pdf.getPage(p);
-        const vp=page.getViewport({scale});
-        const canvas=document.createElement('canvas');
-        canvas.width=Math.ceil(vp.width); canvas.height=Math.ceil(vp.height);
-        const ctx=canvas.getContext('2d');
-        if(!transparent){ ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
-        // ── render ครั้งเดียวต่อหน้า ──
-        await page.render({canvasContext:ctx, viewport:vp}).promise;
-        // สร้างทุก format จาก canvas เดียว (ห้าม render ซ้ำ)
-        for(const fmt of formats){
-          let src=canvas;
-          if(transparent && fmt!=='png'){   // jpg/jpeg ไม่มี alpha → แปะพื้นขาว
-            const c2=document.createElement('canvas'); c2.width=canvas.width; c2.height=canvas.height;
-            const x2=c2.getContext('2d'); x2.fillStyle='#ffffff'; x2.fillRect(0,0,c2.width,c2.height); x2.drawImage(canvas,0,0); src=c2;
-          }
-          const blob=await new Promise(res=>src.toBlob(res,_mime(fmt), fmt==='png'?undefined:quality));
-          images[fmt].push({page:p, name:_p2iName(base,p,numPages,fmt,thai), blob});
+      for(let fi=0; fi<_p2iFiles.length; fi++){                        // Sequential: กัน RAM พุ่ง
+        const item=_p2iFiles[fi];
+        item.status='กำลังแปลง'; item.err=''; _p2iRenderList();
+        try{
+          const res=await _p2iRenderOne(pdfjs, item, formats, quality, dpi, transparent, thai, (p,n)=>{
+            item.status='กำลังแปลง '+p+' / '+n+' หน้า';
+            if(p===1||p===n||p%3===0) _p2iRenderList();
+            _prog(Math.round((donePages+p-1)/totalPages*95),
+                  'กำลังแปลง PDF '+(fi+1)+' / '+_p2iFiles.length+' · '+item.file.name+' · หน้า '+p+' / '+n+' · รวม '+(donePages+p)+' / '+totalPages+' หน้า');
+          });
+          donePages+=res.numPages;
+          item.pages=res.numPages; item.status='สำเร็จ'; _p2iRenderList();
+          okFiles.push({item, images:res.images, numPages:res.numPages});
+          _log('✅ '+item.file.name+' — '+res.numPages+' หน้า','#3fb950');
+        }catch(err){
+          item.status='ผิดพลาด'; item.err=(err&&err.message)||'ไม่สามารถอ่าน PDF ได้'; _p2iRenderList();
+          failFiles.push({name:item.file.name, why:item.err});
+          _log('❌ '+item.file.name+' — '+item.err,'#f85149');
+          donePages+=(item.pages||0);
+          // ไฟล์ถัดไปต้องทำงานต่อ (ห้ามหยุดทั้ง batch)
         }
-        canvas.width=0; canvas.height=0; if(page.cleanup)page.cleanup();
-        await new Promise(r=>setTimeout(r,0));
       }
-      _prog(76,'Generating Images...');
 
-      // ── ORDER VERIFY: page=filename, ครบ 1..N, ไม่หาย/ซ้ำ/สลับ ──
-      _prog(82,'Verifying Order...');
-      let ok=true, vmsg='';
-      for(const fmt of formats){
-        const arr=images[fmt];
-        if(arr.length!==numPages){ ok=false; vmsg='จำนวนไฟล์ '+fmt.toUpperCase()+' ('+arr.length+') ≠ จำนวนหน้า ('+numPages+')'; break; }
-        for(let i=0;i<arr.length;i++){
-          const expect=_p2iName(base,i+1,numPages,fmt,thai);
-          if(arr[i].page!==i+1 || arr[i].name!==expect){ ok=false; vmsg='ลำดับหน้าผิดที่ '+arr[i].name; break; }
-        }
-        if(!ok) break;
-      }
-      if(!ok){
-        _log('ORDER FAILED: '+vmsg,'#f85149');
-        _toast('พบลำดับหน้าผิด — ยกเลิกการ Export','error');
-        _el('p2i-result').innerHTML='<div style="color:#f85149;font-size:12px;padding:10px 12px;border:1px solid rgba(248,81,73,.3);border-radius:6px">❌ ORDER FAILED — '+_esc(vmsg)+' · ยกเลิก Export</div>';
-        _p2iAddHist({name:_p2iFile.name, fmts:formats, pages:numPages, files:0, status:'ORDER FAILED', zips:null, base, ms:Math.round(performance.now()-t0)});
+      if(!okFiles.length){
+        _prog(100,'ไม่มีไฟล์ที่แปลงสำเร็จ');
+        _toast('ไม่มี PDF ที่แปลงสำเร็จ','error');
+        _el('p2i-result').innerHTML='<div style="color:#f85149;font-size:12px;padding:10px 12px;border:1px solid rgba(248,81,73,.3);border-radius:6px">❌ ไม่มี PDF ที่แปลงสำเร็จ</div>';
         return;
       }
-      _log('ORDER VERIFIED ('+numPages+' หน้า × '+formats.length+' format)','#3fb950');
 
-      // ── ORDER_INDEX (Thai Chamber CO): Page / Filename / SortKey / Checksum ──
-      const orderIndex={};
-      if(thai){
-        _prog(84,'Building ORDER_INDEX...');
+      _prog(96,'Creating ZIP...');
+      const zips={}; const dlNames=[];
+      if(okFiles.length===1){
+        // ── 1 ไฟล์: คงพฤติกรรมเดิม 100% — ZIP ต่อ format ชื่อ base_FMT.zip ──
+        const o=okFiles[0], base=o.item.base;
         for(const fmt of formats){
-          const list=images[fmt].slice().sort((a,b)=>a.page-b.page);   // เรียง 0001,0002,...
-          const idx=[];
-          for(const it of list){ idx.push({page:it.page, filename:it.name, sortKey:_pad(it.page), checksum:await _p2iCksum(it.blob)}); }
-          orderIndex[fmt]=idx;
+          const ordered=o.images[fmt].slice().sort((a,b)=>a.page-b.page);
+          const expected=ordered.map(it=>it.name);
+          const build=async()=>{ const z=new JSZip(); ordered.forEach(it=>z.file(it.name,it.blob)); return await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}}); };
+          let blob=await build();
+          if(thai && !(await _p2iVerifyZipOrder(blob, expected))){
+            _log('ZIP order mismatch ('+fmt.toUpperCase()+') — rebuild','#d29922');
+            blob=await build();
+            if(!(await _p2iVerifyZipOrder(blob, expected))) throw new Error('ZIP ลำดับผิดหลัง rebuild ('+fmt.toUpperCase()+')');
+          }
+          zips[fmt]=blob; totalFiles+=ordered.length; dlNames.push(base+'_'+fmt.toUpperCase()+'.zip');
         }
-        // verify ORDER_INDEX: page=i+1, sortKey ตรง, filename ตรง, ascending unique
-        for(const fmt of formats){
-          const idx=orderIndex[fmt]; let prev=0;
-          for(let i=0;i<idx.length;i++){
-            if(idx[i].page!==i+1 || idx[i].sortKey!==_pad(i+1) || idx[i].filename!==_p2iName(base,i+1,numPages,fmt,thai) || idx[i].page<=prev){
-              _log('ORDER FAILED (index): '+idx[i].filename,'#f85149');
-              _toast('ORDER_INDEX ผิดลำดับ — ยกเลิก Export','error');
-              _el('p2i-result').innerHTML='<div style="color:#f85149;font-size:12px;padding:10px 12px;border:1px solid rgba(248,81,73,.3);border-radius:6px">❌ ORDER FAILED (index) — '+_esc(idx[i].filename)+'</div>';
-              _p2iAddHist({name:_p2iFile.name, fmts:formats, pages:numPages, files:0, status:'ORDER FAILED', zips:null, base, ms:Math.round(performance.now()-t0)});
-              return;
-            }
-            prev=idx[i].page;
+        formats.forEach(fmt=>_dl(zips[fmt], base+'_'+fmt.toUpperCase()+'.zip'));
+        _p2iAddHist({name:o.item.file.name, fmts:formats, pages:o.numPages, files:totalFiles, status:'ORDER VERIFIED', zips, base, ms:Math.round(performance.now()-t0)});
+      } else {
+        // ── หลายไฟล์: รวมเป็น ZIP เดียว โฟลเดอร์ตามชื่อ PDF (ห้ามเด้งดาวน์โหลดทีละร้อยไฟล์) ──
+        const z=new JSZip(); const expected=[];
+        for(const o of okFiles){
+          const folder=z.folder(o.item.base);
+          for(const fmt of formats){
+            const ordered=o.images[fmt].slice().sort((a,b)=>a.page-b.page);
+            ordered.forEach(it=>{ folder.file(it.name,it.blob); expected.push(o.item.base+'/'+it.name); });
+            totalFiles+=ordered.length;
           }
         }
-        _log('ORDER_INDEX ✓ '+formats.map(f=>f.toUpperCase()+':'+orderIndex[f].length).join(' · '),'#3fb950');
+        let blob=await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+        const okOrder=await _p2iVerifyZipOrder(blob, expected);
+        _log(okOrder?('ZIP order ✓ '+expected.length+' ไฟล์'):'ZIP order mismatch', okOrder?'#3fb950':'#d29922');
+        const pad2=v=>String(v).padStart(2,'0'); const d=new Date();
+        const zipName='PDF-IMAGE_'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'_'+pad2(d.getHours())+pad2(d.getMinutes())+pad2(d.getSeconds())+'.zip';
+        zips.all=blob; dlNames.push(zipName);
+        _dl(blob, zipName);
+        _p2iAddHist({name:okFiles.length+' PDF (batch)', fmts:formats, pages:donePages, files:totalFiles, status:'ORDER VERIFIED', zips:{all:blob}, base:zipName.replace(/\.zip$/,''), ms:Math.round(performance.now()-t0)});
       }
 
-      // ── ZIP ต่อ format (เรียง 0001→หน้าสุดท้าย ก่อน compress) ──
-      _prog(88,'Creating ZIP...');
-      const zips={}; let totalFiles=0;
-      for(const fmt of formats){
-        const ordered=images[fmt].slice().sort((a,b)=>a.page-b.page);
-        const expectedNames=ordered.map(it=>it.name);
-        const buildZip=async()=>{ const z=new JSZip(); ordered.forEach(it=>z.file(it.name,it.blob)); return await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}}); };
-        let blob=await buildZip();
-        if(thai){   // verify หลังสร้าง ZIP: อ่านชื่อไฟล์จาก ZIP จริง เทียบลำดับ · ไม่ตรง = สร้างใหม่
-          _prog(92,'Verifying ZIP order...');
-          if(!(await _p2iVerifyZipOrder(blob, expectedNames))){
-            _log('ZIP order mismatch ('+fmt.toUpperCase()+') — rebuild','#d29922');
-            blob=await buildZip();
-            if(!(await _p2iVerifyZipOrder(blob, expectedNames))){
-              _log('ORDER FAILED (zip): '+fmt.toUpperCase(),'#f85149');
-              _toast('ZIP ลำดับผิดหลัง rebuild — ยกเลิก Export','error');
-              _el('p2i-result').innerHTML='<div style="color:#f85149;font-size:12px;padding:10px 12px;border:1px solid rgba(248,81,73,.3);border-radius:6px">❌ ORDER FAILED (ZIP '+fmt.toUpperCase()+') หลัง rebuild</div>';
-              _p2iAddHist({name:_p2iFile.name, fmts:formats, pages:numPages, files:0, status:'ORDER FAILED', zips:null, base, ms:Math.round(performance.now()-t0)});
-              return;
-            }
-            _log('ZIP order ✓ หลัง rebuild ('+fmt.toUpperCase()+')','#3fb950');
-          } else { _log('ZIP order ✓ ('+fmt.toUpperCase()+')','#3fb950'); }
-        }
-        zips[fmt]=blob; totalFiles+=ordered.length;
-      }
       _prog(100,'Completed');
       const ms=Math.round(performance.now()-t0);
-      _log('Completed · '+totalFiles+' ไฟล์ · '+ms+' ms','#3fb950');
-
-      formats.forEach(fmt=>_dl(zips[fmt], base+'_'+fmt.toUpperCase()+'.zip'));
-      _p2iAddHist({name:_p2iFile.name, fmts:formats, pages:numPages, files:totalFiles, status:'ORDER VERIFIED', zips, base, ms});
-      _p2iResult(base, formats, numPages, totalFiles, ms);
-      _toast('แปลงเสร็จ '+numPages+' หน้า → '+formats.join('+').toUpperCase(),'success');
+      _log('BATCH DONE · สำเร็จ '+okFiles.length+' / ล้มเหลว '+failFiles.length+' · '+totalFiles+' ไฟล์ · '+ms+' ms','#3fb950');
+      _p2iResultBatch(okFiles, failFiles, formats, totalFiles, ms, dlNames);
+      _toast('แปลงเสร็จ '+okFiles.length+' PDF → '+totalFiles+' ไฟล์'+(failFiles.length?(' · ล้มเหลว '+failFiles.length):''), failFiles.length?'warning':'success');
     }catch(err){
       console.error('p2i error',err); _log('ERROR: '+(err.message||err),'#f85149');
       _toast('เกิดข้อผิดพลาด: '+(err.message||err),'error');
@@ -11223,6 +11347,19 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
       setTimeout(()=>{ const w2=_el('p2i-prog-wrap'); if(w2)w2.style.display='none'; },900);
     }
   };
+
+  function _p2iResultBatch(okFiles, failFiles, formats, files, ms, dlNames){
+    const el=_el('p2i-result'); if(!el)return;
+    const pages=okFiles.reduce((a,b)=>a+b.numPages,0);
+    let h='<div style="background:rgba(46,160,67,.06);border:1px solid rgba(46,160,67,.25);border-radius:8px;padding:12px 14px;font-size:12px">';
+    h+='<div style="color:#3fb950;font-weight:700;margin-bottom:6px">✅ Completed — '+okFiles.length+' PDF · '+pages+' หน้า → '+files+' ไฟล์ · '+ms+' ms · ORDER VERIFIED</div>';
+    okFiles.forEach(o=>{ h+='<div style="color:var(--t2);font-family:IBM Plex Mono,monospace">✅ '+_esc(o.item.file.name)+' — '+o.numPages+' หน้า → '+_esc(o.item.base)+'_0001.'+_ext(formats[0])+' …</div>'; });
+    failFiles.forEach(f=>{ h+='<div style="color:#f85149;font-family:IBM Plex Mono,monospace">❌ '+_esc(f.name)+' — '+_esc(f.why)+'</div>'; });
+    h+='<div style="display:flex;gap:10px;flex-wrap:wrap;color:var(--t2);font-family:IBM Plex Mono,monospace;margin-top:6px">';
+    dlNames.forEach(n=>{ h+='<span>📦 '+_esc(n)+'</span>'; });
+    h+='</div></div>';
+    el.innerHTML=h;
+  }
 
   function _p2iResult(base,formats,pages,files,ms){
     const el=_el('p2i-result'); if(!el)return;
@@ -11254,12 +11391,24 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
     h+='</tbody></table>';
     el.innerHTML=h;
   }
-  window._p2iRedl=function(i){ const r=_p2iHist[i]; if(!r||!r.zips)return; r.fmts.forEach(f=>{ if(r.zips[f]) _dl(r.zips[f], r.base+'_'+f.toUpperCase()+'.zip'); }); };
+  window._p2iRedl=function(i){ const r=_p2iHist[i]; if(!r||!r.zips)return;
+    if(r.zips.all){ _dl(r.zips.all, r.base+'.zip'); return; }                 // batch = ZIP เดียว
+    r.fmts.forEach(f=>{ if(r.zips[f]) _dl(r.zips[f], r.base+'_'+f.toUpperCase()+'.zip'); }); };
 
-  window._p2iClear=function(){
-    _p2iFile=null;
+  // พับ/กาง 📜 LOG และ 🕘 History — ซ่อน UI เท่านั้น ไม่ล้าง log/history/download record
+  window._p2iFold=function(k){
+    const box=_el('p2i-fold-'+k), arw=_el('p2i-arw-'+k);
+    if(!box) return;
+    const open=box.classList.toggle('open');
+    if(arw) arw.textContent = open ? '▼' : '▶';
+  };
+
+  window._p2iClear=function(){                                               // [ล้างทั้งหมด]
+    if(_p2iBusy) return;
+    _p2iFiles=[];
     const a=_el('p2i-fname'); if(a)a.textContent='';
     const b=_el('p2i-count'); if(b)b.textContent='ยังไม่ได้เลือกไฟล์';
+    const l=_el('p2i-list'); if(l)l.innerHTML='';
     const r=_el('p2i-result'); if(r)r.innerHTML='';
     const inp=_el('p2i-inp'); if(inp)inp.value='';
   };
