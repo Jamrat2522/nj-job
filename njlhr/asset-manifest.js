@@ -1,14 +1,14 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-1461872a",
+  "buildId": "njhr-v2-d0b51bd4",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
     "core": "runtime/core.js?v=b47cdce5"
   },
   "modules": {
     "dashboard": {
-      "url": "views/dashboard.js?v=cd980dae",
+      "url": "views/dashboard.js?v=00aac18c",
       "deps": [
         "shared-leave-meta"
       ],
