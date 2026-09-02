@@ -8894,6 +8894,13 @@ async function exportMappingCombined(){
       (pdfIdx3.get(k3) || pdfIdx3.set(k3,[]).get(k3)).push(e);
       (pdfIdx2.get(k2) || pdfIdx2.set(k2,[]).get(k2)).push(e);
     });
+    // ── Index เพิ่ม: Billing Document + Item → รายการสินค้าใน PDF (ใช้เป็น Source ของคอลัมน์ C และ D เท่านั้น) ──
+    const _pkBI = (b,i)=>[_rmNorm(b), String(parseInt(i,10)||'')].join('|');
+    const pdfIdxBI = new Map();
+    allPdfEntries.forEach(e=>{ const k=_pkBI(e.billing, e.item); if(k && !pdfIdxBI.has(k)) pdfIdxBI.set(k, e); });
+    // ไม่ตั้ง used → ไม่รบกวน logic การนับ UNMATCHED ของ _takeEng เดิม
+    const _takePdfByItem = (billing, item)=> pdfIdxBI.get(_pkBI(billing, item)) || null;
+
     const _takeEng = (billing, matTrim, qty)=>{
       // 1) precise: Billing+Material+Qty   2) fallback: Billing+Material
       let lst = pdfIdx3.get(_pk3(billing,matTrim,qty));
@@ -9040,8 +9047,12 @@ async function exportMappingCombined(){
       const ieGW  = ie ? ie.gw *ieShare : '';
       const ieFOB = ie ? ie.fob*ieShare : '';
 
-      // ── Eng Description = Desc. จากไฟล์ใบขน (Billing+Material ↔ Invoice+Product Code) — ไม่ใช้ PDF · แปลงเป็นตัวพิมพ์ใหญ่ทั้งหมดเสมอ ──
-      const eng = (ie ? String(ie.desc||'').trim() : '').toUpperCase();
+      // ── คอลัมน์ C (Material (Trim)) + D (Eng Description) = ดึงจาก PDF Invoice เท่านั้น ──
+      // จับคู่ด้วย Billing Document + Item ของแถวเดียวกัน · C = ข้อความก่อน '#' · D = ข้อความหลัง '/'
+      // ห้าม fallback ไป RM (Description / Material name 2 / Material - Trim / Material) หรือใบขน
+      const _pdfBI      = _takePdfByItem(billing, itemNo);
+      const pdfMatTrim  = _pdfBI ? _mapBaseMat(_pdfBI.mat) : '';        // "625-2RSR-HLN#N10>1" → "625-2RSR-HLN"
+      const eng         = _pdfBI ? String(_pdfBI.eng||'').replace(/\s+/g,' ').trim() : '';   // "Deep groove ball bearing"
       // ── Desc ALL = Description(ตัดตั้งแต่ # ออกทั้งหมด) / UPPER(Eng).Qty PCS. · ไม่พบ Eng → เฉพาะ Description ก่อน # ──
       const _descCut = descOut.replace(/#.*$/s,'').trim();
       // qty text ของ "แถวนี้" — ใช้ helper เดิม (_mapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000" · เก็บไว้ให้ Country Sheet ใช้ซ้ำแถวเดียวกัน
@@ -9052,7 +9063,7 @@ async function exportMappingCombined(){
       const bdate = _dateFor(billing);
 
       const rowObj = {
-        billing, item:itemNo, bdate, matTrim, eng, invQty:_mapNum(invQty), netVal:_mapNum(netVal),
+        billing, item:itemNo, bdate, matTrim, pdfMatTrim, eng, invQty:_mapNum(invQty), netVal:_mapNum(netVal),
         country, hsCode:String(hsCode),
         qty:ie?round3(ieQty):'', nw:ie?round3(ieNW):'', gw:ie?round3(ieGW):'', fob:ie?round3(ieFOB):'',
         descAll, descOut, invQtyTxt:_invQtyTxt
@@ -9061,7 +9072,8 @@ async function exportMappingCombined(){
 
       // ── UNMATCHED diagnostics for this RM row ──
       const reasons=[];
-      if(eng==='') reasons.push('Missing Desc. from Export Declaration Excel');
+      if(pdfMatTrim==='') reasons.push('Missing Material (Trim) from PDF Invoice');
+      if(eng==='') reasons.push('Missing Eng Description from PDF Invoice');
       if(bdate==='') reasons.push('Missing Billing Document Date');
       if(!ie){ reasons.push('Missing Qty','Missing Net Weight','Missing Gross Weight','Missing FOB THB'); }
       if(reasons.length) rmUnmatched.push({billing, item:itemNo, matTrim, reason:reasons.join(', ')});
@@ -9140,11 +9152,10 @@ async function exportMappingCombined(){
         let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
         chunk.forEach(ro=>{
           const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
-          // ── Final Material (1 ค่า ต่อ 1 output row) ──────────────────────────────
-          // fallback: (1) 📦 RM มีเลขอ้างอิง → (2) Material (Trim) ของ "แถว RM เดียวกัน" → (3) Description ของ "แถว RM เดียวกัน" → ว่าง
-          // _mapBaseMat() = trim + ตัดตั้งแต่ '#' เป็นต้นไป · ไม่เติม #N · ไม่แก้ Material Code จริง
-          // ทุกค่าอ้างอิง ro (output row เดียวกัน) เท่านั้น — ไม่มีการดึงจาก previous/next row
-          const finalMaterial = _mapBaseMat(_rh.matTrim) || _mapBaseMat(ro.matTrim) || _mapBaseMat(ro.descOut) || '';
+          // ── คอลัมน์ C Material (Trim) — มาจาก PDF Invoice เท่านั้น (แถวเดียวกัน: Billing Document + Item) ──
+          // ไม่ fallback ไป RM มีเลขอ้างอิง / RM Master (Description · Material name 2 · Material - Trim · Material)
+          // หา PDF ไม่เจอ → เว้นว่าง และแจ้งใน UNMATCHED
+          const finalMaterial = ro.pdfMatTrim || '';
           // ── Desc ALL: ประกอบใหม่จากข้อมูลแถวเดียวกัน "Material/ UPPER(Eng).Qty PCS." ──
           // ไม่ใช้วิธี replace prefix จาก ro.descAll อีกต่อไป (เดิมทำให้ Material กับ Qty หลุดแถวกันได้)
           const _engFinal = String(ro.eng||'').trim().toUpperCase();
