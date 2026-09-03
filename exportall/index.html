@@ -6739,6 +6739,19 @@ const TIN = (function(){
     if(m) return m[1]+m[2].toLowerCase();
     return '';
   }
+  /* เทียบชื่อสินค้า: ใช้ได้เฉพาะหลัง CODE ตรง 100% แล้วเท่านั้น
+     - exact  : ชื่อหลัง Normalize ตรงกันทั้งหมด
+     - variant: Master เป็นชื่อเดียวกันแต่แทรกคำชนิดสินค้า เช่น Tuna / Chicken
+                คำของ Invoice ต้องอยู่ครบและเรียงลำดับถูกต้องใน Master */
+  function nameTokens(s){ return nkey(s).split(/[^a-z0-9&+.]+/).filter(Boolean); }
+  function orderedSubset(a,b){ let i=0; for(let j=0;j<b.length&&i<a.length;j++){ if(b[j]===a[i]) i++; } return i===a.length; }
+  function nameMatch(invName,masName){
+    if(nkey(invName)===nkey(masName)) return 'exact';
+    const ta=nameTokens(invName), tb=nameTokens(masName);
+    if(ta.length>=3 && tb.length>ta.length && (tb.length-ta.length)<=2
+       && ta[0]===tb[0] && ta[ta.length-1]===tb[tb.length-1] && orderedSubset(ta,tb)) return 'variant';
+    return '';
+  }
   function splitPikad(p){ const m=S(p).match(/^\s*(\d+)\s*-\s*(\d+)/); return m?{tariff:Number(m[1]),stat:m[2]}:null; }
 
   /* ---------- FIX ตาม Template ---------- */
@@ -6765,7 +6778,12 @@ const TIN = (function(){
       const cands=master.byCode[it.code];
       if(!cands||!cands.length){ st.noCode++; errs.push('ไม่พบ CODE ใน Master: '+it.code); return; }
       st.codeHit++;
-      const hit=cands.filter(m=>nkey(m.name)===nkey(base));
+      let hit=cands.filter(m=>nkey(m.name)===nkey(base));
+      if(!hit.length){
+        const v=cands.filter(m=>nameMatch(base,m.name)==='variant');
+        if(v.length===1) hit=v;
+        else if(v.length>1){ errs.push('MASTER_AMBIGUOUS — CODE: '+it.code+' | Invoice Product: '+base+' | พบ Master ที่ใกล้เคียงมากกว่า 1 รายการ'); return; }
+      }
       if(!hit.length){ st.nameMiss++;
         errs.push('MASTER_MISMATCH — CODE: '+it.code+' | Invoice Product: '+base+' | Master Product: '+cands[0].name+' | CODE พบใน Master แต่ชื่อสินค้าไม่ตรง');
         return; }
@@ -6782,7 +6800,7 @@ const TIN = (function(){
       if(p.gross==null){ errs.push(tag+': ไม่พบ Gross WT. ใน Packing List'); return; }
       st.packHit++;
       rows.push({ A:inv.invoiceNo, B:inv.date, C:no,
-        D:'('+it.code+') '+so.toUpperCase(),   /* (CODE) SIZE — หน่วยเป็นตัวพิมพ์ใหญ่เสมอ เช่น (USA505) 15G */
+        D:'('+m.code+') '+S(m.size).toUpperCase(),   /* Product Code เต็มจาก MASTER — เช่น (EU631) 14G */
         E:base,                                /* ชื่อสินค้าอังกฤษจาก Invoice — ตัดตั้งแต่ (CODE) เป็นต้นไป */
         F:m.th, G:it.ctn, H:FIX.H, I:it.pcs, J:FIX.J, K:it.price, L:it.amount, M:FIX.M,
         N:(idx===0?pl.pallets:null), O:FIX.O, P:p.net, Q:p.gross, R:inv.marks,
@@ -6980,7 +6998,7 @@ async function tinAddInvoices(fileList){
       q.pl=TIN.parsePacking(wb,q.inv.sheet);
       if(!q.inv.invoiceNo) throw new Error('ไม่พบ Invoice No. ในไฟล์');
       ok++;
-    }catch(e){ q.err=e.message; bad++; }
+    }catch(e){ q.err=e.message; bad++; }   /* q.err = อ่าน Workbook ไม่ได้จริงเท่านั้น */
     TINS.invoices.push(q);
   }
   const inp=document.getElementById('tinInvInput'); if(inp) inp.value='';
@@ -7016,7 +7034,7 @@ function tinRenderFiles(){
     else il.innerHTML='<div style="color:#8b949e;font-size:12.5px;margin-bottom:6px">Invoice Excel · '+TINS.invoices.length+' ไฟล์</div>'
       + TINS.invoices.map(function(q){
           const head = q.err ? ('❌ '+escapeHtml(q.name)) : ('✅ '+escapeHtml(q.inv.invoiceNo));
-          const meta = q.err ? ('<span class="ferr">'+escapeHtml(q.err)+'</span>')
+          const meta = q.err ? ('<span class="ferr">อ่านไฟล์ไม่สำเร็จ: '+escapeHtml(q.err)+'</span>')
                             : (q.inv.items.length+' รายการ');
           return '<div class="frow"><span class="fn">'+head+'</span><span class="fmeta">'+meta
                +' <button class="abtn" style="padding:1px 8px;font-size:12px;margin-left:8px" onclick="tinRemoveInvoice(\''+q.id+'\')">✕ ลบ</button></span></div>';
@@ -7051,7 +7069,7 @@ function tinExportZip(){
   const addErr=(t,l)=>groups.push({title:t, lines:l});
 
   /* 1) ไฟล์ที่อ่านไม่ได้ */
-  TINS.invoices.forEach(function(q){ if(q.err) addErr(q.name, ['อ่านไฟล์ไม่ได้: '+q.err]); });
+  TINS.invoices.forEach(function(q){ if(q.err) addErr(q.name, ['อ่านไฟล์ไม่สำเร็จ: '+q.err]); });
 
   /* 2) Invoice No. ซ้ำ — ห้าม Rename อัตโนมัติ */
   const seen={}, dup=[];
@@ -7063,11 +7081,12 @@ function tinExportZip(){
   const built=[];
   TINS.invoices.forEach(function(q){
     if(q.err) return;
+    const MERR='อ่าน Invoice สำเร็จ แต่ Mapping Master ไม่สำเร็จ';
     let R;
     try{ R=TIN.buildMapping(q.inv,q.pl,TINS.master); }
-    catch(e){ addErr(q.inv.invoiceNo, [e.message]); return; }
-    if(R.errors.length){ addErr(q.inv.invoiceNo, R.errors); return; }
-    if(!R.rows.length){ addErr(q.inv.invoiceNo, ['ไม่พบรายการสินค้าที่ Mapping ได้']); return; }
+    catch(e){ addErr(q.inv.invoiceNo, [MERR, e.message]); return; }
+    if(R.errors.length){ addErr(q.inv.invoiceNo, [MERR].concat(R.errors)); return; }
+    if(!R.rows.length){ addErr(q.inv.invoiceNo, [MERR,'ไม่พบรายการสินค้าที่ Mapping ได้']); return; }
     built.push({ invoiceNo:q.inv.invoiceNo, R:R });
   });
 
