@@ -366,7 +366,14 @@
   /* [INSTRUMENTATION] boot = ตัวชี้วัดที่เกิด "ก่อน" perfStart() เช่น Model Warmup / GPS First Fix
      เก็บแยกจาก Flow แล้วรวมตอน perfEnd()/Export — ไม่งั้น Cold Load จะหายไปทุกครั้ง
      ⚠ เก็บเฉพาะตัวเลขเวลา/จำนวนครั้ง ไม่มี Token · lat/lng · Descriptor · รูป · Signed URL · Device ID */
-  var PERF = { on: null, t: null, boot: { marks: {}, counters: {} },
+  /* [STEP-0C ข้อ 10] Factory เดียว — Initial State กับ Reset State ต้อง Schema ตรงกัน 100%
+     ถ้าเพิ่ม field ใหม่ ให้เพิ่มที่นี่ที่เดียว clear()/resetRun() จะได้ครบเสมอ */
+  function newPerfBootState() {
+    return { marks: {}, counters: {}, timeline: [], gps: [] };
+  }
+  var PERF = { on: null, t: null, boot: newPerfBootState(),
+               /* [STEP-0] COLD = เปิด Attendance ครั้งแรกของ Session · WARM = เข้าซ้ำ */
+               runType: '',
                /* [FIX 3] true = มี Model Load ที่ยังไม่ถูก Flow ใดรับไปเป็นของตัวเอง
                   Flow แรกหลังโหลดโมเดลจริงจะ "กิน" ค่านี้ไป → cold
                   Flow ถัดไปที่ใช้โมเดลเดิมจะไม่ได้รับค่าอีก → warm */
@@ -479,6 +486,144 @@
     if (!perfOn()) return;
     var c = PERF.boot.counters;
     c[key] = (c[key] || 0) + (typeof n === 'number' ? n : 1);
+  }
+  /* ---------- [STEP-0 INSTRUMENTATION] Timeline · GPS Ledger · RPC ----------
+     รอบนี้ "วัดอย่างเดียว" ไม่แก้ Timing / Threshold / Liveness / Cache / Strategy ใด ๆ
+     ปิดอยู่ (ค่าเริ่มต้น Production) = ทุกฟังก์ชันคืนทันที ไม่สร้าง Object ไม่มี overhead
+
+     ⚠ ความเป็นส่วนตัว: ค่าเริ่มต้น "ไม่เก็บพิกัดดิบ"
+        เก็บเป็น d_m = ระยะห่างจาก Fix แรกของ Session (เมตร) + accuracy + อายุ เท่านั้น
+        ถ้าต้องการ lat/lng ดิบเพื่อวิเคราะห์ ต้องเปิด Flag ที่ 2 แยกต่างหาก:
+          localStorage.setItem('njhr_face_perf_gps','1')
+        ยังคงห้ามเก็บ Descriptor · รูปใบหน้า · Token · Signed URL เด็ดขาด */
+  var PERF_TL_MAX = 400, PERF_GPS_MAX = 200;
+  function perfGpsRaw() {
+    try { return localStorage.getItem('njhr_face_perf_gps') === '1'; } catch (e) { return false; }
+  }
+  /* บันทึกเหตุการณ์ลง Timeline เดียวของ Session — ใช้ประกอบลำดับตามข้อ 2 */
+  /* [STEP-0B] atMs = เวลาที่ Event เกิดจริง (monotonic เดียวกับ perfNow)
+     ผู้เรียกจาก Early Boot ต้องส่งมาเสมอ — ห้ามประทับเวลาใหม่ตอน Flush
+     bseq = ลำดับจาก Buffer ใช้กัน Duplicate ถ้า Flush ซ้ำ */
+  function perfEvent(name, extra, atMs, bseq) {
+    if (!perfOn()) return;
+    var tl = PERF.boot.timeline;
+    if (tl.length >= PERF_TL_MAX) return;
+    if (bseq != null) {
+      if (!PERF.seen) PERF.seen = {};
+      if (PERF.seen['b' + bseq]) return;
+      PERF.seen['b' + bseq] = 1;
+    }
+    var o = { t_ms: (typeof atMs === 'number' && isFinite(atMs))
+                      ? Math.round(atMs * 10) / 10
+                      : Math.round(perfNow() * 10) / 10,
+              name: String(name) };
+    if (extra) { for (var k in extra) { if (Object.prototype.hasOwnProperty.call(extra, k)) o[k] = extra[k]; } }
+    tl.push(o);
+    tl.sort(function (a, b) { return a.t_ms - b.t_ms; });   // [ข้อ 18] เรียงตามเวลาจริงเสมอ
+  }
+  /* [STEP-0B] รับ Buffer จาก Early Boot ครั้งเดียว — เวลาเดิมทุกรายการ */
+  function perfFlushBoot(p) {
+    if (!perfOn() || !p || PERF.bootFlushed) return;
+    PERF.bootFlushed = true;
+    var i;
+    /* [STEP-0C] Run นี้ยังไม่ได้เริ่มฝั่ง face.js (Cold path: face.js โหลดหลัง route)
+       จึงเริ่มให้ที่นี่ด้วยข้อมูลของ Run เดียวกัน — ห้ามใช้ค่าค้างจาก Run ก่อน */
+    if (p.run_id != null && (!PERF.run || PERF.run.run_id !== p.run_id)) {
+      var keepEv = PERF.boot.timeline, keepMk = PERF.boot.marks, keepGps = PERF.boot.gps;
+      perfRunStart({ run_id: p.run_id, run_type: p.run_type,
+                     start_epoch: p.start_epoch, start_ms: p.start_ms });
+      PERF.boot.timeline = keepEv; PERF.boot.marks = keepMk; PERF.boot.gps = keepGps;
+      PERF.bootFlushed = true;
+    }
+    if (p.run_type) perfRunType(p.run_type);
+    if (p.gps) {
+      if (p.gps.boot_epoch) PERF.gpsBootEpoch = p.gps.boot_epoch;
+      if (p.gps.first_fix) PERF.gpsBootFix = p.gps.first_fix;
+    }
+    if (p.marks) for (i = 0; i < p.marks.length; i++) {
+      if (p.marks[i] && p.marks[i].key != null) PERF.boot.marks[p.marks[i].key] = p.marks[i].ms;
+    }
+    if (p.events) for (i = 0; i < p.events.length; i++) {
+      var e = p.events[i];
+      if (e) perfEvent(e.name, e.extra, e.t, e.seq);
+    }
+  }
+  /* COLD / WARM — ผู้เรียก (หน้าลงเวลา) เป็นคนกำหนดจากสถานะจริง */
+  function perfRunType(v) {
+    if (typeof v === 'string' && v) PERF.runType = v;
+    return PERF.runType;
+  }
+  /* ระยะห่างโดยประมาณ (เมตร) — ใช้เพื่อวัด Jitter/การเคลื่อนที่เท่านั้น */
+  function perfGeoDist(a, b) {
+    try {
+      var R = 6371000, rad = Math.PI / 180;
+      var dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+      var la = a.lat * rad, lb = b.lat * rad;
+      var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(la) * Math.cos(lb) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    } catch (e) { return 0; }
+  }
+  /* บันทึก Fix 1 รายการ — คืน seq ไว้ผูกกับผล RPC ภายหลัง */
+  function perfGpsFix(fx, source) {
+    if (!perfOn() || !fx) return null;
+    var arr = PERF.boot.gps;
+    if (arr.length >= PERF_GPS_MAX) return null;
+    var seq = arr.length + 1;
+    var base = PERF.gpsBase || null;
+    if (!base) { base = PERF.gpsBase = { lat: fx.lat, lng: fx.lng }; }
+    var rec = {
+      seq: seq,
+      t_ms: Math.round(perfNow() * 10) / 10,
+      accuracy: Math.round(fx.accuracy),
+      age_ms: Math.max(0, Date.now() - (fx.at || Date.now())),
+      d_m: Math.round(perfGeoDist(base, fx)),
+      source: source || 'watcher',
+      original_timestamp: fx.at || null,
+      received_by_perf_at: Math.round(perfNow() * 10) / 10,
+      selected_as_current: false,
+      selected_seq: null,
+      sent_to_rpc: false,
+      rpc_result: null,
+      stale_result: false
+    };
+    if (perfGpsRaw()) { rec.latitude = fx.lat; rec.longitude = fx.lng; }
+    arr.push(rec);
+    return seq;
+  }
+  /* [STEP-0B ข้อ 10-11-14] ปิด timing ของ RPC หนึ่ง Request — ใช้ทั้งเส้นทางสำเร็จและ error
+     บันทึก rpc_fix_seq กับ current_fix_seq_at_response เพื่อให้เห็น stale จริง
+     ⚠ ไม่ตัดสินใจแทน Flow — Business Logic ว่าจะใช้ผลเก่าหรือไม่ ยังเป็นของเดิมทั้งหมด */
+  function perfRpcEnd(rseq, t0, fix, result, err) {
+    if (!perfOn()) return;
+    var ms = Math.round((perfNow() - t0) * 10) / 10;
+    var fseq = (fix && fix.__pseq != null) ? fix.__pseq : null;
+    var cur = (PERF.curSeq == null ? null : PERF.curSeq);
+    var stale = !!(fseq != null && cur != null && cur !== fseq);
+    if (!PERF.rpc) PERF.rpc = [];
+    if (PERF.rpc.length < 200) {
+      PERF.rpc.push({ rpc_seq: rseq, ms: ms, result: result, error: err || null,
+                      rpc_fix_seq: fseq, current_fix_seq_at_response: cur, stale: stale });
+    }
+    perfBootSet('gf_rpc_ms', ms);
+    if (ms > (PERF.boot.marks.gf_rpc_max_ms || 0)) perfBootSet('gf_rpc_max_ms', ms);
+    perfEvent('gf_rpc_end', { rpc_seq: rseq, ms: ms, result: result,
+                              rpc_fix_seq: fseq, current_fix_seq_at_response: cur, stale: stale });
+    if (stale) {
+      perfBootCount('gps_stale_result_count');
+      perfGpsTag(fseq, { stale_result: true });
+    }
+    if (result !== 'ERROR') perfGpsTag(fseq, { rpc_result: result });
+  }
+  function perfGpsTag(seq, patch) {
+    if (!perfOn() || seq == null || !patch) return;
+    var arr = PERF.boot.gps, i;
+    for (i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].seq === seq) {
+        for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) arr[i][k] = patch[k]; }
+        return;
+      }
+    }
   }
   /* [DESCRIPTOR] เก็บเวลาต่อรอบเพื่อหาคอขวดจริง — ยังคง Descriptor จริง 6 รอบเท่าเดิม
      ไม่ Clone · ไม่ Reuse · ไม่ลดจำนวน — เพิ่มเฉพาะการวัด */
@@ -600,12 +745,60 @@
   /* คงค่า tf_backend/webgl_available ไว้ใน counters ของ Flow (ตั้งไว้แล้วที่ perfStart) */
   function env2Backend(t) { return !!(t && t.counters); }
 
-  function perfBootReset() {
-    PERF.boot = { marks: {}, counters: {} };
+  /* [STEP-0C] ล้างเฉพาะ State ที่เป็นของ "Run" — ใช้ร่วมกันทั้ง clear() และ resetRun()
+     ⚠ ไม่แตะ PERF.on (Flag) และไม่แตะสถานะ COLD/WARM ระดับ Session ซึ่งอยู่ที่หน้าลงเวลา */
+  function perfRunScopedReset() {
+    PERF.boot = newPerfBootState();
     PERF.modelPending = false;
     PERF.press = null;
     PERF.pressEpoch = null;
     PERF.pressFirst = false;
+    PERF.seen = {};            // กัน Duplicate ของ Early Event — ต่อ Run
+    PERF.rpc = [];             // RPC ledger — ต่อ Run
+    PERF.rpcN = 0;
+    PERF.selN = 0;
+    PERF.curSeq = null;
+    PERF.gpsBase = null;       // จุดอ้างอิงระยะทางของ Ledger
+    PERF.gpsBootEpoch = 0;     // [ROOT CAUSE #2] ห้าม reuse ของ Run ก่อน
+    PERF.gpsBootFix = null;
+    PERF.bootFlushed = false;  // [ROOT CAUSE #1] Run ใหม่ต้อง Flush ได้อีก
+    /* [STEP-0D ROOT CAUSE #3] Measurement State ของ Face Flow ต้องไม่ค้างข้าม Run
+       ⚠ Reset เฉพาะตัววัด — ไม่แตะ S.guideReady / S.recogReady / Model Cache
+          เพื่อให้ COLD/WARM ยังวัดของจริงตาม Behavior เดิม */
+    PERF.t = null;
+    /* [STEP-0E] Snapshot ของ Face Flow ที่จบไปแล้วในรอบก่อน ต้องไม่ค้างข้าม Run */
+    PERF.completed = null;
+    /* [STEP-0D ROOT CAUSE #2] Long Task ต้อง Reset ทั้งถัง Run และถัง Boot
+       Observer เป็น Global singleton — ไม่สร้างใหม่ ไม่ทำลาย */
+    try { perfLongTaskReset(); } catch (e) {}
+    try { perfLongTaskBootReset(); } catch (e) {}
+  }
+  /* clear() เดิม = ล้างประวัติ Debug (คง run_id/run_type ปัจจุบันไว้) */
+  function perfBootReset() {
+    perfRunScopedReset();
+  }
+  /* [STEP-0C ข้อ 2-3] เริ่ม Measurement Run ใหม่ — เรียกจากจุดเริ่ม Attendance Run จริง
+     ห้ามเรียกตอน face.js โหลด / gpsSeedFix / เปิดกล้อง / กดสแกน */
+  function perfRunStart(info) {
+    if (!perfOn()) return;
+    perfRunScopedReset();
+    info = info || {};
+    PERF.run = {
+      run_id: info.run_id != null ? info.run_id : ((PERF.run && PERF.run.run_id || 0) + 1),
+      run_type: info.run_type || '',
+      start_epoch: info.start_epoch || null,
+      start_ms: info.start_ms != null ? info.start_ms : Math.round(perfNow() * 10) / 10
+    };
+    if (info.run_type) PERF.runType = info.run_type;
+  }
+  /* [ข้อ 7-8] ฐานเวลาเดียวของ Run นี้ = GPS Bootstrap Start จริง (epoch)
+     ใช้ทั้ง gps_first_fix_ms และ gps_usable_fix_ms · ไม่ Clamp · ไม่ถูกต้อง = INVALID */
+  function perfGpsDelta(atEpoch) {
+    var b = PERF.gpsBootEpoch || 0;
+    if (!b || !atEpoch) return 'INVALID_NO_BASE';
+    var dd = atEpoch - b;
+    if (dd < 0) return 'INVALID_NEGATIVE';
+    return Math.round(dd * 10) / 10;
   }
   /* [E2E] เริ่มจับเวลาตั้งแต่ "ผู้ใช้กดปุ่มลงเวลา" — ก่อน njExemptCheck / faceStatus / perfStart
      เก็บนอก PERF.t เพราะ Flow ยังไม่ถูกเปิดในจังหวะนั้น */
@@ -718,6 +911,19 @@
       }
     }
     var out = { flow: t.flow, platform: t.platform, ms: t.marks, count: t.counters };
+    /* [STEP-0E] Freeze Snapshot ของ Run ปัจจุบัน "ก่อน" ปล่อย PERF.t
+       ไม่งั้น Export หลัง perfEnd() จะไม่เหลือ Face Metrics ของรอบนี้เลย
+       คัดลอกค่าออกมาใหม่ (perfCloneFlat) จึงไม่เปลี่ยนตามถ้ามีใครแก้ t.marks ทีหลัง
+       ⚠ ไม่มีรูปใบหน้า · ไม่มี Descriptor จริง — เก็บเฉพาะชื่อขั้นตอนกับตัวเลข */
+    PERF.completed = {
+      run_id: (PERF.run && PERF.run.run_id != null) ? PERF.run.run_id : null,
+      run_type: (PERF.run && PERF.run.run_type) || PERF.runType || '',
+      flow: t.flow,
+      platform: t.platform,
+      ms: perfCloneFlat(t.marks),
+      count: perfCloneFlat(t.counters),
+      completed_at: Math.round(perfNow() * 10) / 10
+    };
     try { console.log('[FACE PERF] ' + t.flow + ' · ' + t.platform, out); } catch (e) {}
     try { perfPush(out); perfPanel(); } catch (e) {}
     PERF.t = null;
@@ -756,9 +962,77 @@
      status = PENDING_REAL_DEVICE เสมอ · ห้ามตั้ง COMPLETE/PASS อัตโนมัติ
      ⚠ ไม่มี Token · lat/lng · Descriptor · รูป · Signed URL · รหัสผ่าน · Device ID */
   function perfNum(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+  /* [STEP-0D ROOT CAUSE #4] แยกให้ออกว่า metric "ยังไม่เกิด" กับ "ฐานเวลาผิด" ต่างกัน
+     VALID · NOT_OBSERVED · INVALID_NO_BASE · INVALID_NEGATIVE
+     ⚠ Invalid ต้องเป็น null + status เสมอ ห้ามรายงาน 0ms */
+  function perfStatus(v) {
+    if (typeof v === 'number' && isFinite(v)) return 'VALID';
+    if (typeof v === 'string' && v.indexOf('INVALID') === 0) return v;
+    return 'NOT_OBSERVED';
+  }
+  function perfErr(v) {
+    var st = perfStatus(v);
+    return st === 'VALID' ? null : st;
+  }
 
-  /* รวมตัวชี้วัดของ Flow ล่าสุดที่เกี่ยวข้อง + Boot/Warmup metrics */
-  function perfMerged() {
+  /* [STEP-0E] คัดลอกค่าออกมาเป็น Object ใหม่ — Snapshot ต้องไม่อ้าง reference เดิม
+     ไม่งั้นแก้ t.marks ทีหลังแล้ว Export เปลี่ยนตาม (ค่าที่เก็บเป็น number/string/boolean ล้วน) */
+  function perfCloneFlat(o) {
+    var out = {}, k;
+    if (!o) return out;
+    for (k in o) { if (Object.prototype.hasOwnProperty.call(o, k)) out[k] = o[k]; }
+    return out;
+  }
+  /* [STEP-0E] Face Flow ที่จบแล้วของ "Run ปัจจุบัน" — ใช้ได้เฉพาะเมื่อ run_id ตรง และ Flow ถูกประเภท
+     ⚠ ไม่ใช่ Historical Log · ไม่มีการหยิบ Run อื่นหรือ Session อื่นมาใช้เด็ดขาด */
+  function perfCompletedForRun() {
+    var c = PERF.completed;
+    if (!c) return null;
+    var cur = (PERF.run && PERF.run.run_id != null) ? PERF.run.run_id : null;
+    if (cur == null || c.run_id !== cur) return null;              // คนละ Run = ห้ามใช้
+    if (String(c.flow || '').indexOf('ATTENDANCE') !== 0) return null;  // Flow ผิดประเภท = ห้ามใช้
+    return c;
+  }
+
+  /* [STEP-0D] สถานะของ "Run ปัจจุบัน" เท่านั้น — boot marks + marks ของ Flow ที่กำลังวัดอยู่
+     ลำดับความสำคัญ: PERF.t (Flow ปัจจุบัน) > PERF.boot (Run ปัจจุบัน) */
+  function perfCurrentRun() {
+    var ms = {}, ct = {}, k;
+    for (k in PERF.boot.marks) {
+      if (Object.prototype.hasOwnProperty.call(PERF.boot.marks, k)) ms[k] = PERF.boot.marks[k];
+    }
+    for (k in PERF.boot.counters) {
+      if (Object.prototype.hasOwnProperty.call(PERF.boot.counters, k)) ct[k] = PERF.boot.counters[k];
+    }
+    /* [STEP-0E] ลำดับของ Face Data ใน Run ปัจจุบัน
+         1) Active Flow (PERF.t) — Face Flow ยังไม่จบ
+         2) Completed Snapshot ของ run_id เดียวกัน — จบแล้ว (PERF.t = null)
+         3) ไม่มีทั้งคู่ = ไม่เติมอะไร → null / 0 / NOT_OBSERVED
+       ห้ามถอยไปใช้ Historical Log เด็ดขาด */
+    var face = PERF.t || perfCompletedForRun();
+    if (face) {
+      var fms = PERF.t ? face.marks : face.ms;
+      var fct = PERF.t ? face.counters : face.count;
+      for (k in fms) {
+        if (Object.prototype.hasOwnProperty.call(fms, k)) ms[k] = fms[k];
+      }
+      for (k in fct) {
+        if (Object.prototype.hasOwnProperty.call(fct, k)) ct[k] = fct[k];
+      }
+    }
+    return { ms: ms, ct: ct };
+  }
+
+  /* รวมตัวชี้วัดของ Flow ล่าสุดที่เกี่ยวข้อง + Boot/Warmup metrics
+     [STEP-0D ROOT CAUSE #1] currentOnly = true → Baseline ใช้ Current Run เท่านั้น
+     ของเดิมเอา ATTENDANCE Log รอบก่อนมา Merge "ทีหลัง" จึงทับค่าของ Run ปัจจุบัน
+     (เช่น Current 1300ms ถูก Log เก่า 700ms ทับ) — ห้ามเกิดอีก
+     โหมดรวมประวัติยังคงไว้ให้ผู้เรียกเดิม แต่ Historical จะไม่ override Current แล้ว */
+  function perfMerged(currentOnly) {
+    if (currentOnly === true) {
+      var cur = perfCurrentRun();
+      return { ms: cur.ms, ct: cur.ct, att: null, enr: null };
+    }
     var log = perfLoad();
     function last(flow) {
       for (var i = log.length - 1; i >= 0; i--) {
@@ -780,17 +1054,82 @@
     for (k in PERF.boot.counters) {
       if (Object.prototype.hasOwnProperty.call(PERF.boot.counters, k)) ct[k] = PERF.boot.counters[k];
     }
+    /* [STEP-0D] Historical เติมได้เฉพาะ field ที่ Current Run "ไม่มีจริง"
+       ห้าม override ค่าที่ Run ปัจจุบันวัดไว้แล้วเด็ดขาด */
     [enr, att].forEach(function (e) {
       if (!e) return;
-      for (var a in e.ms) { if (Object.prototype.hasOwnProperty.call(e.ms, a)) ms[a] = e.ms[a]; }
-      for (var b in e.count) { if (Object.prototype.hasOwnProperty.call(e.count, b)) ct[b] = e.count[b]; }
+      for (var a in e.ms) {
+        if (Object.prototype.hasOwnProperty.call(e.ms, a) && ms[a] == null) ms[a] = e.ms[a];
+      }
+      for (var b in e.count) {
+        if (Object.prototype.hasOwnProperty.call(e.count, b) && ct[b] == null) ct[b] = e.count[b];
+      }
     });
+    var curT = perfCurrentRun();
+    for (var c1 in curT.ms) {
+      if (Object.prototype.hasOwnProperty.call(curT.ms, c1)) ms[c1] = curT.ms[c1];
+    }
+    for (var c2 in curT.ct) {
+      if (Object.prototype.hasOwnProperty.call(curT.ct, c2)) ct[c2] = curT.ct[c2];
+    }
     return { ms: ms, ct: ct, att: att, enr: enr };
+  }
+
+  /* [STEP-0D] ชุดตัวเลขสำหรับ Baseline — Current Run เท่านั้น
+     Long Task อ่านจาก LT สด ซึ่งถูก Reset ทุก Run แล้ว จึงไม่มีทางปนข้าม Run
+     Invalid timing → value = null พร้อม *_error บอกสาเหตุ */
+  function perfBaselineMetrics() {
+    var m = perfMerged(true), ms = m.ms, ct = m.ct;
+    var ltOff = (LT.supported === false);
+    return {
+      policy: 'CURRENT_RUN_ONLY',
+      face_source: PERF.t ? 'ACTIVE_FLOW'
+                   : (perfCompletedForRun() ? 'COMPLETED_SNAPSHOT' : 'NOT_OBSERVED'),
+      face_completed_at: (function () { var c = perfCompletedForRun(); return c ? c.completed_at : null; })(),
+      gps_boot_start_ms:        perfNum(ms.gps_boot_start_ms),
+      gps_boot_start_error:     perfErr(ms.gps_boot_start_ms),
+      gps_first_fix_ms:         perfNum(ms.gps_first_fix_ms),
+      gps_first_fix_error:      perfErr(ms.gps_first_fix_ms),
+      gps_usable_fix_ms:        perfNum(ms.gps_usable_fix_ms),
+      gps_usable_fix_error:     perfErr(ms.gps_usable_fix_ms),
+      gps_preflight_start_ms:   perfNum(ms.gps_preflight_start_ms),
+      gps_preflight_ms:         perfNum(ms.gps_preflight_ms),
+      gps_gate_wait_ms:         perfNum(ms.gps_gate_wait_ms),
+      gf_rpc_ms:                perfNum(ms.gf_rpc_ms),
+      gf_rpc_max_ms:            perfNum(ms.gf_rpc_max_ms),
+      gf_rpc_count:             (ct.gf_rpc_count || 0),
+      gps_fix_count:            (ct.gps_fix_count || 0),
+      gf_retry_count:           (ct.gf_retry_count || 0),
+      gps_stale_result_count:   (ct.gps_stale_result_count || 0),
+      gf_cache_hits:            (ct.gf_cache_hits || 0),
+      face_warmup_start_ms:     perfNum(ms.face_warmup_start_ms),
+      guide_model_load_ms:      perfNum(ms.guide_model_load_ms),
+      recognition_bytes_prefetch_ms: perfNum(ms.recognition_bytes_prefetch_ms),
+      recognition_model_load_ms: perfNum(ms.recognition_model_load_ms),
+      recognition_wait_ms:      perfNum(ms.recognition_wait_ms),
+      button_to_camera_ms:      perfNum(ms.button_to_camera_ms),
+      camera_ready_ms:          perfNum(ms.video_ready_ms),
+      face_detect_first_ms:     perfNum(ms.face_detect_first_ms),
+      descriptor_count:         (ct.descriptor_samples != null ? ct.descriptor_samples
+                                 : (ct.descriptor_calls || 0)),
+      descriptor_p50_ms:        perfNum(ms.descriptor_p50_ms),
+      descriptor_max_ms:        perfNum(ms.descriptor_max_ms),
+      button_to_result_ms:      perfNum(ms.button_to_result_ms),
+      route_start_ms:           perfNum(ms.route_start_ms),
+      route_to_attendance_ready_ms: perfNum(ms.route_to_attendance_ready_ms),
+      route_to_gate_ready_ms:   perfNum(ms.route_to_gate_ready_ms),
+      long_task_total_ms:       ltOff ? null : LT.total,
+      long_task_max_ms:         ltOff ? null : LT.max,
+      long_task_count:          ltOff ? null : LT.count,
+      boot_long_task_total_ms:  ltOff ? null : LT.bootTotal,
+      boot_long_task_max_ms:    ltOff ? null : LT.bootMax,
+      boot_long_task_count:     ltOff ? null : LT.bootCount
+    };
   }
 
   function perfExportTemplate() {
     var dev = perfDevice();
-    var m = perfMerged(), ms = m.ms, ct = m.ct;
+    var m = perfMerged(true), ms = m.ms, ct = m.ct;
     var env = null;
     try { env = camEnv(); } catch (e) { env = null; }
     function box(keys) {
@@ -920,6 +1259,46 @@
         '8_buttons_disable_again_when_outside_geofence']),
       sql_verification: box(['njhr_att_punch_log_row_written', 'njhr_face_attempts_row_written',
         'snapshot_path_kind_punch', 'gps_lat_lng_accuracy_recorded']),
+      /* [STEP-0] ข้อมูลสำหรับเก็บ Baseline — วัดอย่างเดียว ไม่มีผลต่อ Flow */
+      run: {
+        run_id: (PERF.run && PERF.run.run_id != null) ? PERF.run.run_id : null,
+        start_time: (PERF.run && PERF.run.start_epoch)
+                      ? new Date(PERF.run.start_epoch).toISOString() : null,
+        run_type: (PERF.run && PERF.run.run_type) || PERF.runType || 'UNKNOWN',
+        screen: (function () {
+          try { return (w.screen ? (w.screen.width + 'x' + w.screen.height) : '') +
+                       ' @' + (w.devicePixelRatio || 1) + 'x'; } catch (e) { return ''; }
+        })(),
+        viewport: (function () {
+          try { return (w.innerWidth || 0) + 'x' + (w.innerHeight || 0); } catch (e) { return ''; }
+        })(),
+        network_detail: (function () {
+          try {
+            var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (!c) return null;
+            return { effective_type: c.effectiveType || null,
+                     downlink_mbps: (typeof c.downlink === 'number') ? c.downlink : null,
+                     rtt_ms: (typeof c.rtt === 'number') ? c.rtt : null,
+                     save_data: !!c.saveData };
+          } catch (e) { return null; }
+        })(),
+        gps_raw_coords_enabled: perfGpsRaw()
+      },
+      step0_metrics: perfBaselineMetrics(),
+      gf_rpc: (function () {
+        var a = (PERF.rpc || []).map(function (x) {
+          var o = {}; for (var kk in x) { if (Object.prototype.hasOwnProperty.call(x, kk)) o[kk] = x[kk]; }
+          return o;
+        });
+        var v = a.map(function (x) { return x.ms; }).sort(function (p, q) { return p - q; });
+        function pick(f) { return v.length ? v[Math.min(v.length - 1, Math.floor(f * (v.length - 1)))] : null; }
+        return { count: a.length, p50_ms: pick(0.5), p95_ms: pick(0.95),
+                 max_ms: v.length ? v[v.length - 1] : null, requests: a };
+      })(),
+      timeline: PERF.boot.timeline.slice(),
+      gps_fixes: PERF.boot.gps.map(function (r) {
+        var o = {}; for (var k in r) { if (k.charAt(0) !== '_') o[k] = r[k]; } return o;
+      }),
       notes: []
     };
   }
@@ -1062,6 +1441,19 @@
     pressReset: function () { try { perfPressReset(); } catch (e) {} },
     /* [BOOT JANK] ให้ผู้เรียกสั่งเริ่ม Observer เองได้ก่อน warmup (idempotent) */
     bootObserve: function () { try { perfLongTaskStart(); } catch (e) {} },
+    /* [STEP-0] Timeline / COLD-WARM — วัดอย่างเดียว ไม่มีผลต่อ Flow */
+    event: function (name, extra, atMs, bseq) { try { perfEvent(name, extra, atMs, bseq); } catch (e) {} },
+    flushBoot: function (p) { try { perfFlushBoot(p); } catch (e) {} },
+    /* [STEP-0C] เริ่ม Measurement Run ใหม่ — ล้าง State ของ Run ก่อนทั้งหมด */
+    runStart: function (info) { try { perfRunStart(info); } catch (e) {} },
+    runInfo: function () { try { return PERF.run ? JSON.parse(JSON.stringify(PERF.run)) : null; }
+                           catch (e) { return null; } },
+    /* [STEP-0D] ตัวเลข Baseline ของ Run ปัจจุบันล้วน ๆ (ไม่ปนประวัติรอบก่อน) */
+    baseline: function () { try { return perfBaselineMetrics(); } catch (e) { return null; } },
+    rpcLog: function () { try { return (PERF.rpc || []).slice(); } catch (e) { return []; } },
+    runType: function (v) { try { return perfRunType(v); } catch (e) { return ''; } },
+    gpsLedger: function () { try { return PERF.boot.gps.slice(); } catch (e) { return []; } },
+    timeline: function () { try { return PERF.boot.timeline.slice(); } catch (e) { return []; } },
     /* บันทึกค่าที่วัดจากฝั่งหน้าเว็บลงถัง Boot (เช่น route_to_gate_ready_ms) */
     bootMark: function (key, ms) {
       try {
@@ -2513,6 +2905,10 @@
       if (GF.inflightSid === mySid && GF.inflightKey === k && GF.inflightGen === myGen) {
         return GF.inflight;
       }
+    /* [STEP-0B ข้อ 12] ชื่อเดิม gps_retry_count กว้างเกินจริง — นี่คือ "Geofence retry"
+       เท่านั้น (Fix เปลี่ยนขณะ RPC ค้าง) ไม่ใช่ GPS acquisition retry */
+      perfBootCount('gf_retry_count');
+      perfEvent('gf_rpc_queued', { reason: 'fix_changed_while_inflight' });
       return GF.inflight['catch'](function () { return null; }).then(function () {
         if (myGen !== GF.gen || mySid !== G.sid) return null;   // Session/Generation เปลี่ยน
         var c2 = force ? null : gfCacheValid(fix);
@@ -2522,21 +2918,37 @@
     }
     var t0 = perfNow();
     perfBootCount('njhr_gf_check_calls');                      // นับก่อนยิงจริง
+    perfBootCount('gf_rpc_count');
+    var __rseq = (PERF.rpcN = (PERF.rpcN || 0) + 1);
+    perfEvent('gf_rpc_start', { rpc_seq: __rseq, fix_seq: (fix.__pseq == null ? null : fix.__pseq),
+                                accuracy: Math.round(fix.accuracy) });
+    /* [ข้อ 13] sent_to_rpc แยกจาก selected_as_current เด็ดขาด */
+    perfGpsTag(fix.__pseq, { sent_to_rpc: true });
     GF.inflightSid = mySid; GF.inflightKey = k; GF.inflightGen = myGen;
     GF.inflight = rpcRows('njhr_gf_check', {
       p_token: token(), p_lat: fix.lat, p_lng: fix.lng, p_accuracy: fix.accuracy
     }).then(function (rows) {
       GF.inflight = null; GF.inflightKey = ''; GF.at = Date.now();
       var r = (rows && rows.length) ? rows[0] : null;
-      if (myGen !== GF.gen) return null;                       // Generation เปลี่ยน = ทิ้งผล
-      if (mySid !== G.sid) return null;                        // Session เปลี่ยน = ทิ้งผล
-      perfMark('gps_preflight_ms', t0);
+      perfRpcEnd(__rseq, t0, fix, (r ? (r.pass === true ? 'PASS' : 'FAIL') : 'NULL'), null);
+      if (myGen !== GF.gen) {                                  // Generation เปลี่ยน = ทิ้งผล
+        perfEvent('gf_rpc_dropped', { rpc_seq: __rseq, reason: 'generation' });
+        return null;
+      }
+      if (mySid !== G.sid) {                                   // Session เปลี่ยน = ทิ้งผล
+        perfEvent('gf_rpc_dropped', { rpc_seq: __rseq, reason: 'session' });
+        return null;
+      }
+      perfDur('gps_preflight_ms', t0);   /* [STEP-0B ข้อ 9] ลง boot ด้วย ไม่ผูกกับ Face Flow */
       GF.key = k; GF.sid = mySid; GF.err = '';
       /* [GPS] Fix แรกของ Session นี้ที่ผ่านการตรวจของเซิร์ฟเวอร์จริง (pass=true)
          แยกจาก gps_first_fix_ms ซึ่งเป็น Fix แรกที่อ่านได้เฉย ๆ
          ไม่ hardcode max_accuracy ฝั่ง Client — ใช้คำตอบจริงจาก njhr_gf_check */
+      /* [STEP-0C ROOT CAUSE #3] เดิมใช้ Math.max(0, fix.at - G.startedAt)
+         G.startedAt ตั้งตอน face.js โหลด ซึ่งช้ากว่า GPS Bootstrap เสมอ → ติดลบ → Clamp เป็น 0 หลอก
+         ของใหม่ใช้ฐานเดียวกับ gps_first_fix_ms คือ GPS Bootstrap Start จริง */
       if (r && r.pass === true && PERF.boot.marks.gps_usable_fix_ms == null) {
-        perfBootSet('gps_usable_fix_ms', Math.max(0, (fix.at || Date.now()) - (G.startedAt || Date.now())));
+        perfBootSet('gps_usable_fix_ms', perfGpsDelta(fix.at || Date.now()));
       }
       GF.val = r ? {
         pass: r.pass === true,
@@ -2549,6 +2961,8 @@
       return GF.val;
     }, function (e) {
       GF.inflight = null; GF.inflightKey = ''; GF.at = Date.now();
+      /* [STEP-0B ข้อ 10] เส้นทาง Error ต้องปิด timing เสมอ ไม่งั้น Baseline ไม่ครบ */
+      perfRpcEnd(__rseq, t0, fix, 'ERROR', (e && e.message) ? String(e.message).slice(0, 120) : 'error');
       GF.err = (e && e.message) || 'ตรวจพื้นที่ลงเวลาไม่สำเร็จ';
       njfReport('JS_ERROR', 'face/gps-preflight', e,
                 'gps error_code=- accuracy_m=' + Math.round(fix.accuracy) +
@@ -2563,6 +2977,10 @@
      ไม่มี Fix → คืน { stage:'GPS' } ให้ UI แสดงว่ายังหาตำแหน่งอยู่ */
   function gpsPreflight(force) {
     var sid = G.sid;
+    if (PERF.boot.marks.gps_preflight_start_ms == null) {
+      perfBootSet('gps_preflight_start_ms', Math.round(perfNow() * 10) / 10);
+    }
+    perfEvent('gps_preflight_start', { force: force === true });
     if (G.denied) {
       return Promise.resolve({ stage: 'GPS', pass: false, denied: true,
         reason: G.err || 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง' });
@@ -2615,6 +3033,9 @@
     G.warm = true;
     G.owner = key;
     G.startedAt = Date.now();
+    /* [STEP-0B ข้อ 3] gps_boot_start_ms มาจาก attGpsBootStart() เท่านั้น
+       ที่นี่คือตอน watcher ของ face.js เริ่ม ซึ่งเกิดทีหลัง — บันทึกเป็นเหตุการณ์แยก */
+    perfEvent('gps_watch_start');
     return sid;
   }
 
@@ -2657,7 +3078,16 @@
                  accuracy: p.coords.accuracy, at: at, sid: mySid };
       /* [INSTRUMENTATION] gps_first_fix_ms = Fix แรกจริงของ Session นี้
          คิดจาก G.startedAt (ตอน watcher เริ่มเดิน = ตอน Warmup) ไม่ใช่ตอนกดปุ่ม */
-      if (!G.fixes.length) perfBootSet('gps_first_fix_ms', Math.max(0, at - (G.startedAt || at)));
+      /* [STEP-0B] ตั้งค่าเฉพาะเมื่อยังไม่มีใครตั้ง — Bootstrap/Seed มาก่อนเสมอ
+         ฐานเวลาใช้ gps_boot_start จริงถ้ามี · ไม่มีจึงถอยไปใช้ G.startedAt · ไม่ Clamp */
+      if (perfOn() && PERF.boot.marks.gps_first_fix_ms == null) {
+        perfBootSet('gps_first_fix_ms', perfGpsDelta(at));
+      }
+      if (perfOn()) {
+        perfBootCount('gps_fix_count');
+        fx.__pseq = perfGpsFix(fx);
+        perfEvent('gps_fix', { seq: fx.__pseq, accuracy: Math.round(fx.accuracy) });
+      }
       G.fixes.push(fx);
       if (G.fixes.length > 20) G.fixes.shift();  // กันหน่วยความจำโตไม่จำกัด
       if (settle) { settle(fx); settle = null; } // Fix แรก = แจ้งสถานะบนจอ
@@ -2706,6 +3136,14 @@
     for (var i = 1; i < fresh.length; i++) {
       var f = fresh[i];
       if (f.accuracy < best.accuracy || (f.accuracy === best.accuracy && f.at > best.at)) best = f;
+    }
+    /* [STEP-0B ข้อ 13] จุดนี้คือ "Selection จริง" — ไม่ใช่ตอนส่ง RPC
+       ตรรกะการเลือกไม่เปลี่ยนแม้แต่บรรทัดเดียว เพิ่มเฉพาะการบันทึก */
+    if (perfOn() && best && best.__pseq != null && PERF.curSeq !== best.__pseq) {
+      PERF.selN = (PERF.selN || 0) + 1;
+      PERF.curSeq = best.__pseq;
+      perfGpsTag(best.__pseq, { selected_as_current: true, selected_seq: PERF.selN });
+      perfEvent('gps_fix_selected', { seq: best.__pseq, order: PERF.selN });
     }
     return best;
   }
@@ -4301,6 +4739,8 @@
        ล้มเหลวก็เงียบ — ตอนกดสแกนจริงจะโหลดใหม่ตามเส้นทางเดิม */
     warmup: function () {
       addCss();
+      perfBootSet('face_warmup_start_ms', Math.round(perfNow() * 10) / 10);
+      perfEvent('face_warmup_start');
       swModelBind();            // ผูกก่อน warmup เสมอ ไม่งั้นสัญญาณรอบแรกหลุด
       /* [ข้อ 3] warmup() = โมเดลอย่างเดียว — Face Status ถูก Preload แยกต่างหาก
          ผ่าน statusPreload() เพื่อไม่ให้ติด flag "อุ่นแล้ว" ตอนสลับบัญชี
@@ -4390,9 +4830,20 @@
         if (at < (G.startedAt || now) - GPS_FRESH_MS) return false;
         var acc = Number(fix.accuracy);
         if (!isFinite(acc) || acc <= 0) return false;
-        G.fixes.push({ ok: true, lat: Number(fix.lat), lng: Number(fix.lng),
-                       accuracy: acc, at: at, sid: G.sid });
-        perfBootSet('gps_first_fix_ms', Math.max(0, at - (G.startedAt || at)));
+        var seeded = { ok: true, lat: Number(fix.lat), lng: Number(fix.lng),
+                       accuracy: acc, at: at, sid: G.sid };
+        G.fixes.push(seeded);
+        /* [STEP-0B ข้อ 4-7] Fix นี้เกิดก่อน face.js — ต้องใช้เวลาเดิมของมัน
+           ฐานเวลาคือจุดที่ GPS Bootstrap เริ่มจริง (ส่งมาจาก attGpsBootStart)
+           ถ้าไม่มีฐาน หรือคำนวณได้ติดลบ = รายงาน INVALID ห้าม Clamp เป็น 0 */
+        if (perfOn()) {
+          seeded.__pseq = perfGpsFix(seeded, 'bootstrap_seed');
+          if (PERF.boot.marks.gps_first_fix_ms == null) {
+            perfBootSet('gps_first_fix_ms', perfGpsDelta(at));
+          }
+          perfBootCount('gps_fix_count');
+          perfEvent('gps_first_fix', { accuracy: Math.round(acc), source: 'bootstrap_seed' });
+        }
         perfBootCount('gps_seed_accepted');
         gpsNotify();
         return true;

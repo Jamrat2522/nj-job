@@ -209,3 +209,84 @@
 .mcal-row>span{flex:0 0 auto;font-size:13.5px;color:var(--ink-2)}
 .mcal-row>b{flex:1 1 auto;min-width:0;text-align:right;font-size:14.5px;color:var(--ink);overflow-wrap:anywhere}
 .modal:has(.mcal-detail){max-width:min(520px,calc(100vw - 40px))}
+
+/* ===== RUN-117 · พื้นที่ลงเวลารายพนักงาน (M2M) — Append เท่านั้น ===== */
+.shgeo{display:block}
+.shgeo-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px;min-height:26px;align-items:center}
+.shgeo-tag{display:inline-flex;align-items:center;gap:4px;background:#EEF2FF;color:#1E3A8A;
+  border:1px solid #C7D2FE;border-radius:999px;padding:3px 6px 3px 10px;font-size:12px;line-height:1.6}
+.shgeo-tag b{font-weight:600}
+.shgeo-search{margin-bottom:6px}
+.shgeo-list{max-height:220px;overflow:auto;border:1px solid #E2E8F0;border-radius:10px;background:#fff}
+.shgeo-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:1px solid #F1F5F9;cursor:pointer}
+.shgeo-item:last-child{border-bottom:0}
+.shgeo-item:hover{background:#F8FAFC}
+.shgeo-item input{margin-top:3px;flex:none}
+.shgeo-item small{display:block;color:#64748B;font-size:11px;line-height:1.5}
+.sh-actgeo{padding:10px 14px;border-top:1px solid #F1F5F9}
+.sh-c-geo{min-width:220px}
+.sh-geo-cell{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.sh-geo-tag{display:inline-block;background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;
+  border-radius:999px;padding:2px 9px;font-size:11px;line-height:1.7;white-space:nowrap}
+.sh-geo-tag.off{background:#F1F5F9;color:#64748B;border-color:#E2E8F0}
+.sh-geo-none{color:#B91C1C;font-size:12px}
+.sh-geo-edit{flex:none}
+.gf-masternote{display:flex;gap:10px;align-items:flex-start;background:#F8FAFC;border:1px solid #E2E8F0;
+  border-radius:10px;padding:12px 14px;margin:6px 0 4px}
+.gf-masternote small{display:block;color:#64748B;line-height:1.8;margin-top:3px}
+
+/* ===== RUN-118 · หน้า "อนุมัติรายการ → คำขอลา" ซ่อน 4 คอลัมน์ — Append เท่านั้น =====
+   แผนก · ไฟล์แนบ · ส่งคำขอวันที่ · วันที่อนุมัติ ถูกถอด th/td ออกจาก DOM แล้ว
+   ที่นี่แค่ปลดเพดานความกว้างเดิม เพื่อให้ตารางจัดความกว้างใหม่เต็มพื้นที่
+   และลด Scroll แนวนอน · ไม่แตะ Tab คำขอ OT / ลงชื่อย้อนหลัง */
+.apr-table.apr-t-leave{min-width:0}
+
+/* ===== RUN-120 · สถานะ Approval (ยังไม่ครบ = แดง · ครบทุก Step = เขียว) — Append เท่านั้น ===== */
+.ap-chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 11px;
+  font-size:12px;font-weight:600;white-space:nowrap;line-height:1.7}
+.ap-chip.ap-red{background:#FEE2E2;color:#B91C1C;border:1px solid #FECACA}
+.ap-chip.ap-green{background:#DCFCE7;color:#15803D;border:1px solid #BBF7D0}
+.ap-chip.ap-mut{background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0}
+.ap-miss-line{display:block;margin-top:4px;font-size:11px;color:#B91C1C;line-height:1.6}
+.ap-sum{border:1px solid #FECACA;background:#FEF2F2;border-radius:12px;padding:10px 13px;margin:8px 0}
+.ap-sum.ap-green{border-color:#BBF7D0;background:#F0FDF4}
+.ap-sum.ap-mut{border-color:#E2E8F0;background:#F8FAFC}
+.ap-sum-h{font-size:14px;margin-bottom:4px}
+.ap-sum-h b{font-weight:700}
+.ap-sum-r{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:13px;padding:2px 0;align-items:baseline}
+.ap-sum-r>span{color:var(--ink-2)}
+.ap-sum-r>b{font-weight:600;overflow-wrap:anywhere}
+.ap-sum-r.ap-miss>b{color:#B91C1C}
+.ap-mode{font-style:normal;font-size:11px;color:var(--ink-2);border:1px solid var(--line);
+  border-radius:6px;padding:0 6px;margin-left:4px}
+.ap-steps{display:flex;flex-direction:column;gap:8px}
+.ap-step{border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:#fff}
+.ap-step.on{border-color:#FCA5A5;background:#FFF7F7}
+.ap-step-h{font-size:13.5px;font-weight:600;margin-bottom:5px}
+.ap-cur{background:#FEE2E2;color:#B91C1C;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:600}
+.ap-step ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.ap-step li{display:flex;align-items:baseline;gap:6px;font-size:13px;line-height:1.75;flex-wrap:wrap}
+.ap-step li .ap-mk{color:var(--ink-2);min-width:18px}
+.ap-step li .ap-nm{font-weight:500;overflow-wrap:anywhere}
+.ap-step li .ap-sep{color:var(--ink-2)}
+.ap-step li.ok b{color:#15803D}
+.ap-step li.bad b{color:#B91C1C}
+.ap-step li.wait b{color:#B91C1C}
+.ap-step li.idle b{color:var(--ink-2)}
+
+/* ===== RUN-121 · Geo Picker (ตั้งค่ากะทำงาน) — Scoped Override เท่านั้น =====
+   Root Cause: .field input,.field select,.field textarea{...width:100%} ของระบบ
+   ไปโดน input[type=checkbox] ใน shGeoPickerHtml() เพราะ Picker ครอบด้วย <div class="field shgeo">
+   ห้ามแก้ .field input กลาง (ใช้กับฟอร์มทั้งระบบ) จึง Override เฉพาะใต้ .shgeo เท่านั้น */
+.shgeo .shgeo-list input[type="checkbox"]{width:18px;min-width:18px;max-width:18px;
+  height:18px;min-height:18px;padding:0;margin:3px 0 0;border-radius:4px;
+  flex:0 0 18px;accent-color:var(--red)}
+.shgeo .shgeo-list{overflow-x:hidden;overflow-y:auto;max-width:100%}
+.shgeo .shgeo-item{align-items:flex-start}
+.shgeo .shgeo-item .grow{min-width:0;overflow-wrap:anywhere}
+.shgeo .shgeo-item b{display:block;overflow-wrap:anywhere}
+.shgeo .shgeo-item small{white-space:normal;overflow-wrap:anywhere}
+.shgeo .shgeo-search{max-width:100%}
+.shgeo .shgeo-search input{padding:10px 0;border:0;border-radius:0;background:0 0;font-size:14px}
+.shgeo .shgeo-tags{max-width:100%}
+.shgeo .shgeo-tag{max-width:100%;overflow-wrap:anywhere}
