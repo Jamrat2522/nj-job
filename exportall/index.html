@@ -6646,7 +6646,9 @@ const TIN = (function(){
         ctn:toNum(cell(a,r,cCTN)), pcs:toNum(cell(a,r,cPCS)),
         price:toNum(cell(a,r,cUP)), amount:toNum(cell(a,r,cAmt)), srcRow:r+1 });
     }
-    return {sheet:f.name, invoiceNo:invoiceNo, date:date, dateRaw:dateRaw, marks:marks, items:items};
+    const soldTo=parseSoldTo(a,hdr);
+    return {sheet:f.name, invoiceNo:invoiceNo, date:date, dateRaw:dateRaw, marks:marks,
+            soldTo:soldTo, purchaseCountry:findCountry(soldTo), items:items};
   }
 
   /* ---------- PACKING LIST (Sheet ที่มี Code / Net Weight / Gross Weight + Total Net / Total gross) ---------- */
@@ -6754,8 +6756,66 @@ const TIN = (function(){
   }
   function splitPikad(p){ const m=S(p).match(/^\s*(\d+)\s*-\s*(\d+)/); return m?{tariff:Number(m[1]),stat:m[2]}:null; }
 
+  /* ---------- ประเทศ: ISO 3166-1 alpha-2 (ชื่อประเทศ + ชื่อพ้องที่พบบ่อย) ---------- */
+  const ISO2_RAW=
+    'AE:UNITED ARAB EMIRATES|UAE;AR:ARGENTINA;AT:AUSTRIA;AU:AUSTRALIA;BD:BANGLADESH;BE:BELGIUM;'
+   +'BG:BULGARIA;BH:BAHRAIN;BR:BRAZIL;BN:BRUNEI|BRUNEI DARUSSALAM;CA:CANADA;CH:SWITZERLAND;'
+   +'CL:CHILE;CN:CHINA|PEOPLES REPUBLIC OF CHINA|P.R. CHINA|PR CHINA;CO:COLOMBIA;CZ:CZECH REPUBLIC|CZECHIA;'
+   +'DE:GERMANY|DEUTSCHLAND;DK:DENMARK;EE:ESTONIA;EG:EGYPT;ES:SPAIN;FI:FINLAND;FR:FRANCE;'
+   +'GB:UNITED KINGDOM|UK|GREAT BRITAIN|ENGLAND|SCOTLAND|WALES|NORTHERN IRELAND;GR:GREECE;'
+   +'HK:HONG KONG|HONGKONG;HR:CROATIA;HU:HUNGARY;ID:INDONESIA;IE:IRELAND;IL:ISRAEL;IN:INDIA;'
+   +'IS:ICELAND;IT:ITALY;JP:JAPAN;KH:CAMBODIA;KR:SOUTH KOREA|KOREA|REPUBLIC OF KOREA|KOREA REP;'
+   +'KW:KUWAIT;LA:LAOS|LAO PDR;LK:SRI LANKA;LT:LITHUANIA;LU:LUXEMBOURG;LV:LATVIA;MA:MOROCCO;'
+   +'MM:MYANMAR|BURMA;MO:MACAU|MACAO;MX:MEXICO;MY:MALAYSIA;NG:NIGERIA;NL:NETHERLANDS|HOLLAND;'
+   +'NO:NORWAY;NP:NEPAL;NZ:NEW ZEALAND;OM:OMAN;PA:PANAMA;PE:PERU;PH:PHILIPPINES;PK:PAKISTAN;'
+   +'PL:POLAND;PT:PORTUGAL;QA:QATAR;RO:ROMANIA;RS:SERBIA;RU:RUSSIA|RUSSIAN FEDERATION;'
+   +'SA:SAUDI ARABIA;SE:SWEDEN;SG:SINGAPORE;SI:SLOVENIA;SK:SLOVAKIA;TH:THAILAND;TR:TURKEY|TURKIYE;'
+   +'TW:TAIWAN|CHINESE TAIPEI;UA:UKRAINE;'
+   +'US:UNITED STATES|UNITED STATES OF AMERICA|USA|U.S.A|U.S.A.|U.S.|AMERICA;'
+   +'VN:VIETNAM|VIET NAM;ZA:SOUTH AFRICA';
+  const ISO2=(function(){ const m={}; ISO2_RAW.split(';').forEach(function(pair){
+      const i=pair.indexOf(':'); if(i<0) return; const code=pair.slice(0,i);
+      pair.slice(i+1).split('|').forEach(function(nm){ if(nm) m[nm]=code; });
+    }); return m; })();
+  /* อ่านประเทศจากบล็อก "Sold to:" ของ Invoice เท่านั้น — ห้ามเดาจาก Invoice No./ชื่อไฟล์ */
+  function findCountry(text){
+    const t=S(text).replace(/\u00a0/g,' ').toUpperCase().replace(/[.\u2019']/g,function(ch){ return ch==='.'?'.':''; });
+    const segs=t.split(/[,;\n\r()\/]+/).map(function(x){ return x.replace(/\s+/g,' ').trim(); }).filter(Boolean);
+    let found='';
+    segs.forEach(function(sg){
+      const cands=[sg]; const w=sg.split(' ');
+      for(let k=1;k<=3&&k<=w.length;k++) cands.push(w.slice(w.length-k).join(' '));
+      cands.forEach(function(c){
+        const key=c.replace(/[^A-Z. ]/g,'').replace(/\s+/g,' ').trim();
+        if(key && ISO2[key]) found=ISO2[key];          /* เอาตัวที่พบท้ายสุด (ประเทศอยู่ท้าย Address) */
+      });
+    });
+    return found;
+  }
+  function parseSoldTo(a,hdr){
+    for(let r=0;r<Math.min(hdr,a.length);r++){ const row=a[r]||[];
+      for(let c=0;c<row.length;c++){
+        if(/^Sold\s*to\s*:?$/i.test(norm(row[c]))){
+          const lines=[];
+          for(let rr=r;rr<Math.min(r+7,a.length);rr++){
+            const seg=[]; let stop=false;
+            for(let cc=c;cc<c+6;cc++){
+              const v=norm(cell(a,rr,cc)); if(!v) continue;
+              if(rr>r && /^(Ship\s*to|Notify|Consignee|Deliver\s*to)\s*:?/i.test(v)){ stop=true; break; }
+              if(/^Sold\s*to\s*:?$/i.test(v)) continue;
+              seg.push(v);
+            }
+            if(stop) break;
+            if(seg.length) lines.push(seg.join(' '));
+          }
+          return lines.join('\n');
+        }
+      }
+    }
+    return '';
+  }
   /* ---------- FIX ตาม Template ---------- */
-  const FIX={ H:'CT', J:'C62', M:'USD', O:'PX', S:'TH', T:'US', W:'Y',
+  const FIX={ H:'CT', J:'C62', M:'USD', O:'PX', S:'TH', W:'Y',
     X:'66-0858-2-04-1-0 ลว. 28 มิ.ย 2566', Y:'NO BRAND', Z:'BOI0105554151875 ',
     AA:'2026-00-00', AB:'0994000740964', AC:'01' };
 
@@ -6767,6 +6827,7 @@ const TIN = (function(){
     if(!inv.marks) errs.push('ไม่พบ MARKS & NOS ใน Invoice');
     if(!inv.items.length) errs.push('ไม่พบรายการสินค้าใน Invoice');
     if(pl.pallets==null) errs.push('ไม่พบ Package Amount (TOTAL : xx Pallets) ใน Packing List');
+    if(!inv.purchaseCountry) errs.push('ไม่พบ Purchase Country จาก Sold to: '+(inv.invoiceNo||'(ไม่ทราบ Invoice No.)'));
     inv.items.forEach(function(it,idx){
       const no=idx+1, tag='แถวที่ '+no+' ('+it.code+')';
       if(!it.desc){ errs.push(tag+': ไม่พบ DESCRIPTION EN'); return; }
@@ -6803,8 +6864,8 @@ const TIN = (function(){
         D:'('+m.code+') '+S(m.size).toUpperCase(),   /* Product Code เต็มจาก MASTER — เช่น (EU631) 14G */
         E:base,                                /* ชื่อสินค้าอังกฤษจาก Invoice — ตัดตั้งแต่ (CODE) เป็นต้นไป */
         F:m.th, G:it.ctn, H:FIX.H, I:it.pcs, J:FIX.J, K:it.price, L:it.amount, M:FIX.M,
-        N:(idx===0?pl.pallets:null), O:FIX.O, P:p.net, Q:p.gross, R:inv.marks,
-        S:FIX.S, T:FIX.T, U:pk.tariff, V:pk.stat, W:FIX.W, X:FIX.X, Y:FIX.Y, Z:FIX.Z,
+        N:(idx===0?pl.pallets:null), O:(idx===0?FIX.O:null), P:p.net, Q:p.gross, R:inv.marks,
+        S:FIX.S, T:inv.purchaseCountry, U:pk.tariff, V:pk.stat, W:FIX.W, X:FIX.X, Y:FIX.Y, Z:FIX.Z,
         AA:FIX.AA, AB:FIX.AB, AC:FIX.AC });
     });
     const sum=k=>rows.reduce((s,r)=>s+(typeof r[k]==='number'?r[k]:0),0);
