@@ -634,6 +634,7 @@ td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
     <div class="sb-item" data-mode="goodyear">🛞 Goodyear</div>
     <div class="sb-item" data-mode="tpv">🖥️ TPV</div>
     <div class="sb-item" data-mode="karwin">🏭 KARWIN</div>
+    <div class="sb-item" data-mode="thaiinaba">🐟 THAI INABA</div>
     <div class="sb-item" data-mode="billnote">📄 ใบวางบิล</div>
     <div class="sb-sec" id="secTools">🛠️ เครื่องมือ</div>
     <div class="sb-item" id="miUsers" data-page="users">👤 จัดการผู้ใช้</div>
@@ -1004,7 +1005,7 @@ function enterApp(){
 const MODE_RENDER = { anca: 'ancaRenderView', wisdom: 'wisdomRenderView', sig: 'sigRenderView',
   tyrolit: 'tyrolitRenderView', united: 'unitedRenderView', diam: 'diamRenderView',
   firstmat: 'fmRenderView', autostore: 'autostoreRenderView', lecreuset: 'lecreusetRenderView',
-  zhenwestern: 'zhenwesternRenderView', goodyear: 'goodyearRenderView', tpv: 'tpvRenderView', karwin: 'karwinRenderView',
+  zhenwestern: 'zhenwesternRenderView', goodyear: 'goodyearRenderView', tpv: 'tpvRenderView', karwin: 'karwinRenderView', thaiinaba: 'tinRenderView',
   billnote: 'bvRenderView' };
 
 function showPage(p){
@@ -6568,6 +6569,550 @@ async function kwExport(){
       +(warnings.length?'<ul style="margin:8px 0 0;padding-left:20px">'+warnings.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul>':''),'err');
     toast('ล้มเหลว: '+(e&&e.message||e),'err');
   }finally{ KWS.busy=false; if(btn) btn.textContent=old||'📤 EXPORT EXCEL'; kwUpdateBtn(); }
+}
+
+const TINABA_TPL_B64 = "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";
+/* ==================== THAI INABA (INVOICE .xlsx/.xls + MASTER → Excel ตาม Template MAPPING TPV THAI INABA)
+   แยกอิสระ 100% — ไม่แตะโหมดอื่น / ไม่แตะ Supabase / ไม่แตะ SQL-RPC / ทำงานฝั่ง Browser ล้วน
+   Flow: Upload Invoice Excel + Master → MAPPING EXCEL → ตรวจครบ → EXPORT EXCEL → ดาวน์โหลด {INVOICE_NO}.xlsx
+==================== */
+const TIN = (function(){
+  const S=v=>(v==null?'':String(v));
+  const norm=s=>S(s).replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  const nkey=s=>norm(s).toLowerCase();
+  const escRe=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const codeKey=s=>norm(s).toUpperCase().replace(/\s+/g,'');
+  function toNum(v){ if(v==null||S(v).trim()==='')return null; const n=Number(S(v).replace(/,/g,'')); return isFinite(n)?n:null; }
+  function parseDate(v){
+    if(v==null||S(v).trim()==='')return null;
+    if(typeof v==='number'&&isFinite(v)) return v;
+    if(v instanceof Date) return Math.floor((Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())-Date.UTC(1899,11,30))/86400000);
+    const m=S(v).trim().match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    if(!m) return null;
+    return Math.floor((Date.UTC(+m[3],+m[2]-1,+m[1])-Date.UTC(1899,11,30))/86400000);
+  }
+  function sheetOrder(wb){
+    const meta=(wb.Workbook&&wb.Workbook.Sheets)||[]; const vis=[],hid=[];
+    wb.SheetNames.forEach(function(n,i){ (meta[i]&&meta[i].Hidden?hid:vis).push(n); });
+    return vis.concat(hid);
+  }
+  const aoaOf=ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const cell=(a,r,c)=>(a[r]&&a[r][c]!=null)?a[r][c]:null;
+  function colOf(a,r,pred){ const row=a[r]||[]; for(let c=0;c<row.length;c++){ if(pred(nkey(row[c])))return c; } return -1; }
+  function rowKeys(a,r){ return (a[r]||[]).map(nkey); }
+
+  /* ---------- INVOICE (Sheet ที่มีหัวตาราง Code / Description of Goods / CTN. / PCS.) ---------- */
+  function findInvoiceSheet(wb){
+    const order=sheetOrder(wb);
+    for(let i=0;i<order.length;i++){
+      const a=aoaOf(wb.Sheets[order[i]]);
+      for(let r=0;r<a.length;r++){
+        const t=rowKeys(a,r);
+        if(t.indexOf('code')>=0 && t.some(x=>x.indexOf('description of goods')===0)){
+          const n=rowKeys(a,r+1);
+          if(n.indexOf('ctn.')>=0 && n.indexOf('pcs.')>=0) return {name:order[i],a:a,hdr:r};
+        }
+      }
+    }
+    throw new Error('ไม่พบหัวตารางสินค้าใน Invoice (Code / Description of Goods / CTN. / PCS.)');
+  }
+  function labelValue(a,r0,r1,re){
+    for(let r=r0;r<Math.min(r1,a.length);r++){ const row=a[r]||[];
+      for(let c=0;c<row.length;c++){
+        if(re.test(norm(row[c]))){ for(let cc=c+1;cc<row.length;cc++){ const v=cell(a,r,cc); if(v!=null&&S(v).trim()!=='')return v; } }
+      } }
+    return null;
+  }
+  function parseInvoice(wb){
+    const f=findInvoiceSheet(wb), a=f.a, hdr=f.hdr;
+    const cCode=colOf(a,hdr,t=>t==='code');
+    const cDesc=colOf(a,hdr,t=>t.indexOf('description of goods')===0);
+    const cMark=colOf(a,hdr,t=>t.replace(/\s/g,'').indexOf('marks&nos')===0);
+    const cUP  =colOf(a,hdr,t=>t.indexOf('unit price')===0);
+    const cAmt =colOf(a,hdr,t=>t.indexOf('amount')===0);
+    const cCTN =colOf(a,hdr+1,t=>t==='ctn.');
+    const cPCS =colOf(a,hdr+1,t=>t==='pcs.');
+    if(cCode<0||cDesc<0||cUP<0||cAmt<0||cCTN<0||cPCS<0) throw new Error('หัวตาราง Invoice ไม่ครบ (Code/Description/Unit Price/Amount/CTN./PCS.)');
+    const invoiceNo=norm(labelValue(a,0,hdr,/^Invoice\s*:?$/i));
+    const dateRaw=labelValue(a,0,hdr,/^Date\s*:?$/i);
+    const date=parseDate(dateRaw);
+    let marks='';
+    if(cMark>=0){ for(let r=hdr+1;r<a.length;r++){ const v=norm(cell(a,r,cMark)); if(v){ marks=v; break; } } }
+    const items=[];
+    for(let r=hdr+2;r<a.length;r++){
+      if(/^TOTAL/i.test(norm(cell(a,r,0)))) break;
+      const code=norm(cell(a,r,cCode)); if(!code) continue;
+      items.push({ code:codeKey(code), desc:norm(cell(a,r,cDesc)),
+        ctn:toNum(cell(a,r,cCTN)), pcs:toNum(cell(a,r,cPCS)),
+        price:toNum(cell(a,r,cUP)), amount:toNum(cell(a,r,cAmt)), srcRow:r+1 });
+    }
+    return {sheet:f.name, invoiceNo:invoiceNo, date:date, dateRaw:dateRaw, marks:marks, items:items};
+  }
+
+  /* ---------- PACKING LIST (Sheet ที่มี Code / Net Weight / Gross Weight + Total Net / Total gross) ---------- */
+  function parsePacking(wb,invSheet){
+    const order=sheetOrder(wb);
+    for(let i=0;i<order.length;i++){
+      const nm=order[i]; if(nm===invSheet) continue;
+      const a=aoaOf(wb.Sheets[nm]);
+      for(let r=0;r<a.length;r++){
+        const t=rowKeys(a,r);
+        if(t.indexOf('code')>=0 && t.indexOf('net weight')>=0 && t.indexOf('gross weight')>=0){
+          const cCode=colOf(a,r,x=>x==='code');
+          let cTN=-1,cTG=-1;
+          for(let rr=r;rr<Math.min(r+3,a.length);rr++){
+            if(cTN<0) cTN=colOf(a,rr,x=>x==='total net');
+            if(cTG<0) cTG=colOf(a,rr,x=>x==='total gross');
+          }
+          if(cTN<0||cTG<0) throw new Error('ไม่พบคอลัมน์ Total Net / Total gross ใน Packing List');
+          const map={};
+          for(let rr=r+1;rr<a.length;rr++){
+            if(/^TOTAL/i.test(norm(cell(a,rr,0)))) break;
+            const c=norm(cell(a,rr,cCode)); if(!c) continue;
+            map[codeKey(c)]={net:toNum(cell(a,rr,cTN)), gross:toNum(cell(a,rr,cTG))};
+          }
+          let pallets=null;
+          outer: for(let rr=0;rr<a.length;rr++){ const row=a[rr]||[];
+            for(let cc=0;cc<row.length;cc++){ const m=S(row[cc]).match(/TOTAL\s*:?\s*(\d+(?:\.\d+)?)\s*Pallet/i); if(m){ pallets=Number(m[1]); break outer; } } }
+          return {sheet:nm, map:map, pallets:pallets};
+        }
+      }
+    }
+    throw new Error('ไม่พบ Packing List ใน Invoice Workbook (Code / Net Weight / Gross Weight)');
+  }
+
+  /* ---------- MASTER (Code / Product name / Thai name / พิกัด) ---------- */
+  function splitMasterCode(raw){
+    const t=norm(raw); let code=t,size='';
+    const m=t.match(/^\(([^)]*)\)\s*(.*)$/);
+    if(m){ code=m[1]; size=m[2]; }
+    else { const m2=t.match(/^(.*?)\s+([\d.]+\s*[A-Za-z]{1,3})$/); if(m2){ code=m2[1]; size=m2[2]; } }
+    return {code:codeKey(code), size:S(size).replace(/\s+/g,'')};
+  }
+  function sizeOut(sz){ const m=S(sz).match(/^([\d.]+)\s*([A-Za-z]+)$/); return m?(m[1]+m[2].toLowerCase()):S(sz); }
+  function parseMaster(wb){
+    const order=sheetOrder(wb);
+    for(let i=0;i<order.length;i++){
+      const a=aoaOf(wb.Sheets[order[i]]);
+      for(let r=0;r<Math.min(10,a.length);r++){
+        const t=rowKeys(a,r);
+        if(t.indexOf('code')>=0&&t.indexOf('product name')>=0&&t.indexOf('thai name')>=0&&t.indexOf('พิกัด')>=0){
+          const cC=colOf(a,r,x=>x==='code'), cP=colOf(a,r,x=>x==='product name'),
+                cT=colOf(a,r,x=>x==='thai name'), cK=colOf(a,r,x=>x==='พิกัด');
+          const byCode={}; let n=0;
+          for(let rr=r+1;rr<a.length;rr++){
+            const raw=norm(cell(a,rr,cC)); if(!raw) continue;
+            const sc=splitMasterCode(raw);
+            const rec={raw:raw, code:sc.code, size:sc.size, name:norm(cell(a,rr,cP)),
+                       th:norm(cell(a,rr,cT)), pikad:norm(cell(a,rr,cK)), srcRow:rr+1};
+            (byCode[sc.code]=byCode[sc.code]||[]).push(rec); n++;
+          }
+          return {sheet:order[i], byCode:byCode, count:n};
+        }
+      }
+    }
+    throw new Error('ไม่พบหัวตาราง MASTER (Code / Product name / Thai name / พิกัด)');
+  }
+
+  /* ---------- ทำความสะอาดชื่อสินค้าจาก Invoice (ไม่เปลี่ยนคำ) ---------- */
+  const PACK_CHAIN=/\d+(?:\.\d+)?\s*(?:g|kg|mg|oz|ml|l)?\s*(?:x\s*\d+(?:\.\d+)?\s*(?:g|kg|mg|oz|ml|l)?\s*)+/gi;
+  const PAREN_SIZE=/\(\s*\d+(?:\.\d+)?\s*(?:g|kg|mg|oz|ml|l)\s*\)/gi;
+  const SOLO_SIZE=/(^|\s)\d+(?:\.\d+)?\s*(?:g|kg|mg|oz|ml|l)(?=\s|$)/gi;   /* ขนาดเดี่ยว เช่น 65g / 40g (ตัวเลขต้องติดหน่วย จึงไม่กิน "10 Tubes") */
+  const SOLO_MULT=/(^|\s)x\s*\d+(?=\s|$)/gi;                                  /* ตัวคูณแพ็กเดี่ยว เช่น X3 */
+  const EMPTY_PAREN=/\(\s*\)/g;                                               /* วงเล็บว่างที่เหลือหลังตัดขนาด เช่น (14gX10) */
+  function cleanBase(desc,code){
+    let t=S(desc).replace(/\u00a0/g,' ');
+    t=t.replace(/SID\s*No\.?\s*[0-9A-Za-z\-\/]*/gi,' ');
+    t=t.replace(new RegExp('\\(\\s*'+escRe(code)+'\\s*\\)','gi'),' ');
+    t=t.replace(new RegExp('(^|\\s)'+escRe(code)+'(?=\\s|$)','gi'),' ');
+    t=t.replace(PACK_CHAIN,' ');
+    t=t.replace(PAREN_SIZE,' ');
+    t=t.replace(SOLO_SIZE,' ');
+    t=t.replace(SOLO_MULT,' ');
+    t=t.replace(EMPTY_PAREN,' ');
+    return t.replace(/\s+/g,' ').trim();
+  }
+  function invSize(desc){
+    let m=S(desc).match(/\(\s*(\d+(?:\.\d+)?)\s*(g|kg|mg|oz|ml|l)\s*\)/i);
+    if(m) return m[1]+m[2].toLowerCase();
+    m=S(desc).match(/(?:^|\s)(\d+(?:\.\d+)?)\s*(g|kg|mg|oz|ml|l)\s*x/i);
+    if(m) return m[1]+m[2].toLowerCase();
+    return '';
+  }
+  function splitPikad(p){ const m=S(p).match(/^\s*(\d+)\s*-\s*(\d+)/); return m?{tariff:Number(m[1]),stat:m[2]}:null; }
+
+  /* ---------- FIX ตาม Template ---------- */
+  const FIX={ H:'CT', J:'C62', M:'USD', O:'PX', S:'TH', T:'US', W:'Y',
+    X:'66-0858-2-04-1-0 ลว. 28 มิ.ย 2566', Y:'NO BRAND', Z:'BOI0105554151875 ',
+    AA:'2026-00-00', AB:'0994000740964', AC:'01' };
+
+  function buildMapping(inv,pl,master){
+    const errs=[], rows=[];
+    const st={items:inv.items.length, codeHit:0, nameHit:0, noCode:0, nameMiss:0, packHit:0};
+    if(!inv.invoiceNo) errs.push('ไม่พบ Invoice No. ใน Invoice');
+    if(inv.date==null) errs.push('ไม่พบ/อ่าน Invoice Date ไม่ได้');
+    if(!inv.marks) errs.push('ไม่พบ MARKS & NOS ใน Invoice');
+    if(!inv.items.length) errs.push('ไม่พบรายการสินค้าใน Invoice');
+    if(pl.pallets==null) errs.push('ไม่พบ Package Amount (TOTAL : xx Pallets) ใน Packing List');
+    inv.items.forEach(function(it,idx){
+      const no=idx+1, tag='แถวที่ '+no+' ('+it.code+')';
+      if(!it.desc){ errs.push(tag+': ไม่พบ DESCRIPTION EN'); return; }
+      if(it.ctn==null){ errs.push(tag+': ไม่พบ/อ่าน CTN. ไม่ได้'); return; }
+      if(it.pcs==null){ errs.push(tag+': ไม่พบ/อ่าน PCS. ไม่ได้'); return; }
+      if(it.price==null){ errs.push(tag+': ไม่พบ/อ่าน Unit Price ไม่ได้'); return; }
+      if(it.amount==null){ errs.push(tag+': ไม่พบ/อ่าน Amount ไม่ได้'); return; }
+      const base=cleanBase(it.desc,it.code);
+      const cands=master.byCode[it.code];
+      if(!cands||!cands.length){ st.noCode++; errs.push('ไม่พบ CODE ใน Master: '+it.code); return; }
+      st.codeHit++;
+      const hit=cands.filter(m=>nkey(m.name)===nkey(base));
+      if(!hit.length){ st.nameMiss++;
+        errs.push('MASTER_MISMATCH — CODE: '+it.code+' | Invoice Product: '+base+' | Master Product: '+cands[0].name+' | CODE พบใน Master แต่ชื่อสินค้าไม่ตรง');
+        return; }
+      st.nameHit++;
+      const m=hit[0], so=sizeOut(m.size), isz=invSize(it.desc);
+      if(!so){ errs.push(tag+': Master Code ไม่มีขนาดสินค้า ('+m.raw+')'); return; }
+      if(isz&&isz!==so){ errs.push('SIZE_MISMATCH — CODE: '+it.code+' | Invoice: '+isz+' | Master: '+so); return; }
+      if(!m.th){ errs.push(tag+': ไม่พบ Thai name ใน Master'); return; }
+      const pk=splitPikad(m.pikad);
+      if(!pk){ errs.push(tag+': แยก Tariff/Stat จากพิกัดไม่ได้ ('+m.pikad+')'); return; }
+      const p=pl.map[it.code];
+      if(!p){ errs.push(tag+': ไม่พบ CODE ใน Packing List'); return; }
+      if(p.net==null){ errs.push(tag+': ไม่พบ Net WT. ใน Packing List'); return; }
+      if(p.gross==null){ errs.push(tag+': ไม่พบ Gross WT. ใน Packing List'); return; }
+      st.packHit++;
+      rows.push({ A:inv.invoiceNo, B:inv.date, C:no,
+        D:'('+it.code+') '+so.toUpperCase(),   /* (CODE) SIZE — หน่วยเป็นตัวพิมพ์ใหญ่เสมอ เช่น (USA505) 15G */
+        E:base,                                /* ชื่อสินค้าอังกฤษจาก Invoice — ตัดตั้งแต่ (CODE) เป็นต้นไป */
+        F:m.th, G:it.ctn, H:FIX.H, I:it.pcs, J:FIX.J, K:it.price, L:it.amount, M:FIX.M,
+        N:(idx===0?pl.pallets:null), O:FIX.O, P:p.net, Q:p.gross, R:inv.marks,
+        S:FIX.S, T:FIX.T, U:pk.tariff, V:pk.stat, W:FIX.W, X:FIX.X, Y:FIX.Y, Z:FIX.Z,
+        AA:FIX.AA, AB:FIX.AB, AC:FIX.AC });
+    });
+    const sum=k=>rows.reduce((s,r)=>s+(typeof r[k]==='number'?r[k]:0),0);
+    const rnd=n=>Math.round(n*1e6)/1e6;
+    const totals={G:rnd(sum('G')),I:rnd(sum('I')),L:rnd(sum('L')),N:rnd(sum('N')),P:rnd(sum('P')),Q:rnd(sum('Q'))};
+    return {rows:rows, errors:errs, stat:st, totals:totals};
+  }
+
+  /* ---------- EXPORT: ใช้ Template เดิม เปลี่ยนเฉพาะข้อมูลใน Data Row ---------- */
+  const COLS=[
+    {k:'A',s:3,t:'str'},{k:'B',s:4,t:'num'},{k:'C',s:2,t:'num'},{k:'D',s:2,t:'str'},{k:'E',s:2,t:'str'},
+    {k:'F',s:2,t:'str'},{k:'G',s:5,t:'num'},{k:'H',s:2,t:'str'},{k:'I',s:5,t:'num'},{k:'J',s:2,t:'str'},
+    {k:'K',s:2,t:'num'},{k:'L',s:5,t:'num'},{k:'M',s:2,t:'str'},{k:'N',s:5,t:'num'},{k:'O',s:5,t:'str'},
+    {k:'P',s:5,t:'num'},{k:'Q',s:5,t:'num'},{k:'R',s:6,t:'str'},{k:'S',s:2,t:'str'},{k:'T',s:2,t:'str'},
+    {k:'U',s:2,t:'num'},{k:'V',s:3,t:'str'},{k:'W',s:2,t:'str'},{k:'X',s:2,t:'str'},{k:'Y',s:2,t:'str'},
+    {k:'Z',s:2,t:'str'},{k:'AA',s:2,t:'str'},{k:'AB',s:2,t:'str'},{k:'AC',s:3,t:'str'}];
+  const TOT_S={A:2,B:2,C:2,D:2,E:2,F:2,G:7,H:8,I:7,J:8,K:8,L:7,M:8,N:7,O:7,P:7,Q:7,
+    R:2,S:2,T:2,U:2,V:2,W:2,X:2,Y:2,Z:2,AA:2,AB:2,AC:2};
+  const SUMC=['G','I','L','N','P','Q'];
+  const xmlEsc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\n/g,'&#10;');
+  function cellXml(ref,cd,val){
+    if(val==null||val==='') return '<c r="'+ref+'" s="'+cd.s+'"/>';
+    if(cd.t==='num'){ const n=Number(val); if(!isFinite(n))return '<c r="'+ref+'" s="'+cd.s+'"/>'; return '<c r="'+ref+'" s="'+cd.s+'"><v>'+n+'</v></c>'; }
+    return '<c r="'+ref+'" s="'+cd.s+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(val)+'</t></is></c>';
+  }
+  function exportTemplate(templateBytes,rows,totals){
+    const files=fflate.unzipSync(new Uint8Array(templateBytes));
+    const dec=new TextDecoder(), enc=new TextEncoder();
+    let sheet=dec.decode(files['xl/worksheets/sheet1.xml']);
+    const N=rows.length, lastData=N+1, tr=N+2;
+    sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:AC'+tr+'"/>');
+    const row1=sheet.match(/<row[^>]*r="1"[^>]*>[\s\S]*?<\/row>/)[0];
+    let body='';
+    rows.forEach(function(row,i){ const R=i+2; let cells='';
+      COLS.forEach(function(cd){ cells+=cellXml(cd.k+R,cd,row[cd.k]); });
+      body+='<row r="'+R+'" spans="1:29">'+cells+'</row>'; });
+    let tc='';
+    COLS.forEach(function(cd){ const s=TOT_S[cd.k];
+      if(SUMC.indexOf(cd.k)>=0){ const v=(totals&&totals[cd.k]!=null)?totals[cd.k]:'';
+        tc+='<c r="'+cd.k+tr+'" s="'+s+'"><f>SUM('+cd.k+'2:'+cd.k+lastData+')</f>'+(v===''?'':'<v>'+v+'</v>')+'</c>'; }
+      else tc+='<c r="'+cd.k+tr+'" s="'+s+'"/>'; });
+    body+='<row r="'+tr+'" spans="1:29">'+tc+'</row>';
+    sheet=sheet.replace(/<sheetData>[\s\S]*?<\/sheetData>/,'<sheetData>'+row1+body+'</sheetData>');
+    files['xl/worksheets/sheet1.xml']=enc.encode(sheet);
+    /* สูตรถูกสร้างใหม่ → ตัด calcChain ทิ้ง (ไม่กระทบ Style/Format/Header/Column) */
+    if(files['xl/calcChain.xml']){
+      delete files['xl/calcChain.xml'];
+      files['[Content_Types].xml']=enc.encode(dec.decode(files['[Content_Types].xml']).replace(/<Override PartName="\/xl\/calcChain\.xml"[^>]*\/>/,''));
+      files['xl/_rels/workbook.xml.rels']=enc.encode(dec.decode(files['xl/_rels/workbook.xml.rels']).replace(/<Relationship[^>]*Target="calcChain\.xml"[^>]*\/>/,''));
+    }
+    return fflate.zipSync(files);
+  }
+  return {parseInvoice:parseInvoice, parsePacking:parsePacking, parseMaster:parseMaster,
+          buildMapping:buildMapping, exportTemplate:exportTemplate, cleanBase:cleanBase,
+          sizeOut:sizeOut, parseDate:parseDate, COLS:COLS};
+})();
+
+const TINS={ invoices:[], mName:null, master:null, mErr:null,
+             mSaved:false, mSavedAt:'', mHasSaved:false, store:'', busy:false };
+let _tinUid=0;
+/* ---------- MASTER Persistent (IndexedDB + localStorage fallback) — ใช้เฉพาะโหมด THAI INABA ---------- */
+const TIN_DB_NAME='tin_thaiinaba', TIN_DB_VER=1, TIN_STORE='master', TIN_KEY='current';
+function tinIdbOpen(){
+  return new Promise(function(res,rej){
+    if(!window.indexedDB){ rej(new Error('เบราว์เซอร์นี้ไม่รองรับ IndexedDB')); return; }
+    const rq=indexedDB.open(TIN_DB_NAME,TIN_DB_VER);
+    rq.onupgradeneeded=function(){ const db=rq.result; if(!db.objectStoreNames.contains(TIN_STORE)) db.createObjectStore(TIN_STORE); };
+    rq.onsuccess=function(){ res(rq.result); };
+    rq.onerror=function(){ rej(rq.error||new Error('เปิด IndexedDB ไม่สำเร็จ')); };
+  });
+}
+function tinIdbRun(mode,fn){
+  return tinIdbOpen().then(function(db){
+    return new Promise(function(res,rej){
+      let rq; const tx=db.transaction(TIN_STORE,mode);
+      try{ rq=fn(tx.objectStore(TIN_STORE)); }catch(e){ db.close(); rej(e); return; }
+      tx.oncomplete=function(){ db.close(); res(rq?rq.result:undefined); };
+      tx.onerror=function(){ db.close(); rej(tx.error||new Error('IndexedDB error')); };
+      tx.onabort=function(){ db.close(); rej(tx.error||new Error('IndexedDB aborted')); };
+    });
+  });
+}
+/* Fallback: บาง Browser ปิด IndexedDB เมื่อเปิดไฟล์แบบ file:// (opaque origin) → ใช้ localStorage แทน
+   เก็บเฉพาะ Master ที่ Parse แล้ว (ไม่เก็บไฟล์ Excel) */
+const TIN_LS_KEY='tin_thaiinaba_master';
+function tinLsPut(rec){
+  const t=JSON.stringify(rec);
+  if(t.length>4500000) throw new Error('ข้อมูล MASTER ใหญ่เกินไปสำหรับ localStorage — กรุณาเปิดผ่าน http/https');
+  localStorage.setItem(TIN_LS_KEY,t); return true;
+}
+function tinLsGet(){ const t=localStorage.getItem(TIN_LS_KEY); if(!t)return undefined; try{ return JSON.parse(t); }catch(e){ return undefined; } }
+function tinLsDel(){ try{ localStorage.removeItem(TIN_LS_KEY); }catch(e){} }
+function tinMasterPut(rec){
+  return tinIdbRun('readwrite',function(st){ return st.put(rec,TIN_KEY); })
+    .then(function(r){ TINS.store='IndexedDB'; tinLsDel(); return r; })
+    .catch(function(e){ console.warn('THAI INABA: IndexedDB ใช้ไม่ได้ → localStorage',e); TINS.store='localStorage'; return tinLsPut(rec); });
+}
+function tinMasterGet(){
+  return tinIdbRun('readonly',function(st){ return st.get(TIN_KEY); })
+    .then(function(rec){ if(rec&&rec.byCode){ TINS.store='IndexedDB'; return rec; }
+      const ls=tinLsGet(); if(ls&&ls.byCode) TINS.store='localStorage'; return ls; })
+    .catch(function(e){ console.warn('THAI INABA: IndexedDB ใช้ไม่ได้ → localStorage',e);
+      const ls=tinLsGet(); if(ls&&ls.byCode) TINS.store='localStorage'; return ls; });
+}
+function tinMasterDel(){
+  return tinIdbRun('readwrite',function(st){ return st.delete(TIN_KEY); })
+    .catch(function(){ return true; })
+    .then(function(){ tinLsDel(); return true; });
+}
+function tinB64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u; }
+function tinSafeName(s){ return String(s==null?'':s).replace(/[\\\/:*?"<>|]/g,'_'); }
+function tinRenderView(){
+  document.getElementById('pageTitle').textContent='THAI INABA';
+  document.getElementById('pageSub').textContent='อัปโหลด Invoice Excel + Master → กด EXPORT EXCEL (ประมวลผลในเบราว์เซอร์ ไม่อัปโหลดขึ้นเซิร์ฟเวอร์)';
+  document.getElementById('pageActions').innerHTML='';
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="anca-view">'
+    +'<div class="tyrolit-upload-grid">'
+      +'<div class="drop anca-upload-card" id="tinInvDrop"><h4>1. INVOICE EXCEL</h4>'
+        +'<label class="pick">📄 เลือก Invoice Excel (หลายไฟล์ได้)<input id="tinInvInput" type="file" accept=".xlsx,.xls" multiple style="display:none" onchange="tinAddInvoices(this.files)"></label>'
+        +'<span class="hint">เลือกได้หลายไฟล์ · เพิ่มรอบถัดไปได้โดยไม่ล้างของเดิม · Packing List อยู่ในไฟล์เดียวกัน</span>'
+        +'<div class="flist" id="tinInvList"></div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+          +'<button class="abtn" id="tinClearInvBtn" onclick="tinClearInvoices()" disabled>🗑️ ล้าง Invoice ทั้งหมด</button>'
+        +'</div></div>'
+      +'<div class="drop anca-upload-card" id="tinMDrop"><h4>2. MASTER</h4>'
+        +'<label class="pick">📚 เลือก MASTER<input id="tinMInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="tinLoadMaster(this.files[0])"></label>'
+        +'<span class="hint">Code / Product name / Thai name / พิกัด · บันทึกแล้วใช้ได้ทุก Invoice</span>'
+        +'<div class="flist" id="tinMList"></div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+          +'<button class="abtn primary" id="tinSaveMBtn" onclick="tinSaveMaster()" disabled>💾 บันทึก MASTER</button>'
+          +'<button class="abtn" id="tinDelMBtn" onclick="tinDeleteMaster()" disabled>🗑️ ลบ MASTER</button>'
+        +'</div></div>'
+    +'</div>'
+    +'<div class="actions">'
+      +'<button class="abtn export primary" id="tinExpBtn" onclick="tinExportZip()" disabled>📦 EXPORT ZIP</button>'
+    +'</div>'
+    +'<div id="tinSummary"></div>'
+  +'</div>';
+  if(typeof ancaBindDrop==='function'){ ancaBindDrop('tinInvDrop',f=>tinAddInvoices(f)); ancaBindDrop('tinMDrop',f=>tinLoadMaster(f[0])); }
+  tinRenderFiles(); tinUpdateBtn(); tinRestoreMaster();
+}
+/* เปิดโหมด → โหลด MASTER ที่บันทึกไว้กลับมาอัตโนมัติ (ถ้ามี) */
+function tinRestoreMaster(){
+  return tinMasterGet().then(function(rec){
+    TINS.mHasSaved = !!(rec && rec.byCode);
+    if(rec && rec.byCode && !TINS.master){
+      TINS.master={ sheet:rec.sheet||'', byCode:rec.byCode, count:rec.count||0 };
+      TINS.mName=rec.name||'MASTER'; TINS.mErr=null; TINS.mSaved=true; TINS.mSavedAt=rec.savedAt||'';
+    }
+    tinRenderFiles(); tinUpdateBtn();
+  }).catch(function(e){
+    console.error('THAI INABA restore master:',e);
+    TINS.mHasSaved=false; tinRenderFiles(); tinUpdateBtn();
+  });
+}
+function tinSaveMaster(){
+  if(!TINS.master){ toast('ยังไม่ได้เลือกไฟล์ MASTER','err'); return; }
+  const rec={ name:TINS.mName||'MASTER', sheet:TINS.master.sheet||'', count:TINS.master.count||0,
+              byCode:TINS.master.byCode, savedAt:new Date().toLocaleString('th-TH') };
+  tinMasterPut(rec).then(function(){
+    TINS.mSaved=true; TINS.mSavedAt=rec.savedAt; TINS.mHasSaved=true;
+    tinRenderFiles(); tinUpdateBtn();
+    toast('บันทึก MASTER แล้ว · '+rec.count+' รายการ','ok');
+  }).catch(function(e){ toast('บันทึก MASTER ไม่สำเร็จ: '+e.message,'err',6000); });
+}
+async function tinDeleteMaster(){
+  if(!TINS.mHasSaved && !TINS.master){ toast('ยังไม่มี MASTER ที่บันทึกไว้','err'); return; }
+  const ok=await confirmModal('ต้องการลบ MASTER ที่บันทึกไว้หรือไม่?',
+    '<div style="font-size:13.5px">ไฟล์: <b>'+escapeHtml(TINS.mName||'-')+'</b><br>ข้อมูลที่บันทึกไว้จะถูกลบทั้งหมด และต้องอัปโหลด MASTER ใหม่</div>',
+    'ลบ MASTER','btn-red');
+  if(!ok) return;
+  try{ await tinMasterDel(); }
+  catch(e){ toast('ลบ MASTER ไม่สำเร็จ: '+e.message,'err',6000); return; }
+  TINS.master=null; TINS.mName=null; TINS.mErr=null; TINS.mSaved=false; TINS.mSavedAt=''; TINS.mHasSaved=false; TINS.store='';
+  const mi=document.getElementById('tinMInput'); if(mi) mi.value='';
+  tinRenderFiles(); tinUpdateBtn(); toast('ลบ MASTER แล้ว','ok');
+}
+/* เพิ่ม Invoice ได้หลายไฟล์ · กดเพิ่มรอบถัดไปไม่ล้างของเดิม */
+async function tinAddInvoices(fileList){
+  const files=Array.prototype.slice.call(fileList||[]);
+  if(!files.length) return;
+  tinClearSummary();
+  TINS.busy=true; tinUpdateBtn();
+  let ok=0, bad=0;
+  for(let i=0;i<files.length;i++){
+    const f=files[i]; const q={ id:'q'+(++_tinUid), name:f.name, inv:null, pl:null, err:null };
+    try{
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false});
+      q.inv=TIN.parseInvoice(wb);
+      q.pl=TIN.parsePacking(wb,q.inv.sheet);
+      if(!q.inv.invoiceNo) throw new Error('ไม่พบ Invoice No. ในไฟล์');
+      ok++;
+    }catch(e){ q.err=e.message; bad++; }
+    TINS.invoices.push(q);
+  }
+  const inp=document.getElementById('tinInvInput'); if(inp) inp.value='';
+  TINS.busy=false; tinRenderFiles(); tinUpdateBtn();
+  toast('เพิ่ม Invoice '+ok+' ไฟล์'+(bad?(' · อ่านไม่ได้ '+bad+' ไฟล์'):''), bad?'err':'ok', bad?6000:3500);
+}
+function tinRemoveInvoice(id){
+  const n=TINS.invoices.length;
+  TINS.invoices=TINS.invoices.filter(function(q){ return q.id!==id; });
+  if(TINS.invoices.length!==n){ tinClearSummary(); tinRenderFiles(); tinUpdateBtn(); toast('ลบ Invoice แล้ว','ok'); }
+}
+/* ล้างเฉพาะ Invoice — ห้ามแตะ MASTER ที่บันทึกไว้ (ลบได้ที่ปุ่ม 🗑️ ลบ MASTER เท่านั้น) */
+function tinClearInvoices(){
+  TINS.invoices=[];
+  const i=document.getElementById('tinInvInput'); if(i)i.value='';
+  tinClearSummary(); tinRenderFiles(); tinUpdateBtn(); toast('ล้าง Invoice ทั้งหมดแล้ว','ok');
+}
+async function tinLoadMaster(f){ if(!f)return;
+  tinClearSummary();
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false});
+    const m=TIN.parseMaster(wb);
+    if(!m.count) throw new Error('MASTER ว่าง (ไม่พบข้อมูลในคอลัมน์ Code)');
+    TINS.master=m; TINS.mName=f.name; TINS.mErr=null; TINS.mSaved=false; TINS.mSavedAt='';
+    toast('อ่าน MASTER: '+m.count+' รายการ · กด 💾 บันทึก MASTER เพื่อใช้ถาวร','ok',5000);
+  }catch(e){ TINS.master=null; TINS.mErr=e.message; TINS.mSaved=false; TINS.mSavedAt=''; toast('อ่าน MASTER ไม่ได้: '+e.message,'err',6000); }
+  tinRenderFiles(); tinUpdateBtn();
+}
+function tinRenderFiles(){
+  const il=document.getElementById('tinInvList');
+  if(il){
+    if(!TINS.invoices.length) il.innerHTML='<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>';
+    else il.innerHTML='<div style="color:#8b949e;font-size:12.5px;margin-bottom:6px">Invoice Excel · '+TINS.invoices.length+' ไฟล์</div>'
+      + TINS.invoices.map(function(q){
+          const head = q.err ? ('❌ '+escapeHtml(q.name)) : ('✅ '+escapeHtml(q.inv.invoiceNo));
+          const meta = q.err ? ('<span class="ferr">'+escapeHtml(q.err)+'</span>')
+                            : (q.inv.items.length+' รายการ');
+          return '<div class="frow"><span class="fn">'+head+'</span><span class="fmeta">'+meta
+               +' <button class="abtn" style="padding:1px 8px;font-size:12px;margin-left:8px" onclick="tinRemoveInvoice(\''+q.id+'\')">✕ ลบ</button></span></div>';
+        }).join('');
+  }
+  const ml=document.getElementById('tinMList');
+  const mTag=TINS.mSaved?('<span class="fok">บันทึกแล้ว</span>'+(TINS.mSavedAt?(' · '+escapeHtml(TINS.mSavedAt)):'')+(TINS.store?(' · '+escapeHtml(TINS.store)):''))
+                        :'<span style="color:#d29922">ยังไม่บันทึก</span>';
+  if(ml) ml.innerHTML = TINS.mErr?('<span class="ferr">อ่านไม่ได้: '+escapeHtml(TINS.mErr)+'</span>')
+    : (TINS.master?('<div class="frow"><span class="fn">📚 '+escapeHtml(TINS.mName)+'</span><span class="fmeta"><span class="fok">พร้อม</span> · '+TINS.master.count+' รายการ · '+mTag+'</span></div>')
+    : '<div style="color:#8b949e;font-size:12.5px">ยังไม่มีไฟล์</div>');
+}
+function tinUpdateBtn(){
+  const eb=document.getElementById('tinExpBtn'); if(eb) eb.disabled = TINS.busy || !TINS.invoices.length || !TINS.master;
+  const cb=document.getElementById('tinClearInvBtn'); if(cb) cb.disabled = TINS.busy || !TINS.invoices.length;
+  const sb=document.getElementById('tinSaveMBtn'); if(sb) sb.disabled = TINS.busy || !TINS.master || TINS.mSaved;
+  const db=document.getElementById('tinDelMBtn'); if(db) db.disabled = TINS.busy || (!TINS.mHasSaved && !TINS.master);
+}
+function tinClearSummary(){ const d=document.getElementById('tinSummary'); if(d) d.innerHTML=''; }
+function tinShowErr(title,list){ const d=document.getElementById('tinSummary'); if(!d)return;
+  d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #f85149;border-radius:10px;background:rgba(248,81,73,.08)">'
+    +'<div style="color:#f85149;font-weight:600;margin-bottom:8px">⚠️ '+escapeHtml(title)+'</div>'
+    +'<ul style="margin:0;padding-left:20px;color:#c9d1d9;font-size:13px;max-height:280px;overflow:auto">'+list.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ul></div>'; }
+/* EXPORT ZIP — Mapping ทุก Invoice อัตโนมัติ · ALL OR NOTHING · ZIP แบน ไม่มีโฟลเดอร์ */
+function tinExportZip(){
+  if(TINS.busy)return;
+  if(!TINS.invoices.length){ toast('ยังไม่ได้เลือก Invoice','err'); return; }
+  if(!TINS.master){ toast('ยังไม่มี MASTER','err'); return; }
+  tinClearSummary();
+
+  const groups=[];                       /* [{title, lines[]}] — แยก Error ตาม Invoice */
+  const addErr=(t,l)=>groups.push({title:t, lines:l});
+
+  /* 1) ไฟล์ที่อ่านไม่ได้ */
+  TINS.invoices.forEach(function(q){ if(q.err) addErr(q.name, ['อ่านไฟล์ไม่ได้: '+q.err]); });
+
+  /* 2) Invoice No. ซ้ำ — ห้าม Rename อัตโนมัติ */
+  const seen={}, dup=[];
+  TINS.invoices.forEach(function(q){ if(q.err)return; const k=q.inv.invoiceNo;
+    if(seen[k]){ if(dup.indexOf(k)<0) dup.push(k); } else seen[k]=true; });
+  dup.forEach(function(k){ addErr(k, ['พบ Invoice No. ซ้ำ: '+k]); });
+
+  /* 3) Mapping ทีละ Invoice */
+  const built=[];
+  TINS.invoices.forEach(function(q){
+    if(q.err) return;
+    let R;
+    try{ R=TIN.buildMapping(q.inv,q.pl,TINS.master); }
+    catch(e){ addErr(q.inv.invoiceNo, [e.message]); return; }
+    if(R.errors.length){ addErr(q.inv.invoiceNo, R.errors); return; }
+    if(!R.rows.length){ addErr(q.inv.invoiceNo, ['ไม่พบรายการสินค้าที่ Mapping ได้']); return; }
+    built.push({ invoiceNo:q.inv.invoiceNo, R:R });
+  });
+
+  if(groups.length){
+    tinShowErrGroups('EXPORT ไม่สำเร็จ', groups);
+    toast('EXPORT ไม่สำเร็จ — มี Invoice ผิด '+groups.length+' ไฟล์','err',6000);
+    return;                              /* ALL OR NOTHING — ไม่สร้าง ZIP */
+  }
+
+  TINS.busy=true; tinUpdateBtn();
+  try{
+    const zipFiles={};
+    built.forEach(function(b){
+      const name=tinSafeName(b.invoiceNo)+'.xlsx';
+      zipFiles[name]=TIN.exportTemplate(tinB64ToBytes(TINABA_TPL_B64), b.R.rows, b.R.totals);
+    });
+    const zip=fflate.zipSync(zipFiles,{level:6});
+    const blob=new Blob([zip],{type:'application/zip'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='INVOICE.zip'; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },1500);
+    tinShowOk(built);
+    toast('EXPORT ZIP สำเร็จ '+built.length+' ไฟล์','ok');
+  }catch(e){ tinShowErrGroups('สร้าง ZIP ไม่สำเร็จ',[{title:'ZIP', lines:[e.message]}]); toast('Export ล้มเหลว: '+e.message,'err',6000); }
+  finally{ TINS.busy=false; tinUpdateBtn(); }
+}
+function tinShowErrGroups(title,groups){
+  const d=document.getElementById('tinSummary'); if(!d)return;
+  d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #f85149;border-radius:10px;background:rgba(248,81,73,.08)">'
+    +'<div style="color:#f85149;font-weight:600;margin-bottom:8px">⚠️ '+escapeHtml(title)+'</div>'
+    +'<div style="max-height:300px;overflow:auto">'
+    + groups.map(function(g){
+        return '<div style="margin-bottom:8px"><div style="color:#f0f6fc;font-weight:600;font-size:13px">'+escapeHtml(g.title)+'</div>'
+          +'<ul style="margin:2px 0 0;padding-left:20px;color:#c9d1d9;font-size:12.5px">'
+          + g.lines.map(function(x){ return '<li>'+escapeHtml(x)+'</li>'; }).join('')+'</ul></div>';
+      }).join('')
+    +'</div></div>';
+}
+function tinShowOk(built){
+  const d=document.getElementById('tinSummary'); if(!d)return;
+  d.innerHTML='<div style="margin-top:16px;padding:14px 16px;border:1px solid #3fb950;border-radius:10px;background:rgba(63,185,80,.08)">'
+    +'<div style="color:#3fb950;font-weight:600">✅ EXPORT ZIP สำเร็จ — INVOICE.zip ('+built.length+' ไฟล์)</div>'
+    +'<ul style="margin:6px 0 0;padding-left:20px;color:#c9d1d9;font-size:12.5px;max-height:240px;overflow:auto">'
+    + built.map(function(b){ return '<li>'+escapeHtml(b.invoiceNo)+'.xlsx · '+b.R.rows.length+' รายการ</li>'; }).join('')
+    +'</ul></div>';
 }
 
 /* ==================== 📄 ใบวางบิล (BILL NOTE) — โหมดใหม่ แยกอิสระ 100%
