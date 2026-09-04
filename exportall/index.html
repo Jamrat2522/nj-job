@@ -6896,15 +6896,56 @@ const TIN = (function(){
     const dec=new TextDecoder(), enc=new TextEncoder();
     let sheet=dec.decode(files['xl/worksheets/sheet1.xml']);
     const N=rows.length, lastData=N+1, tr=N+2;
+    /* G (Qty. ใบขน) / I (Qty.2) / N (Package Amount) ต้องเป็นจำนวนเต็ม ไม่มี .00 ไม่มี comma
+       → เพิ่ม cellXf ใหม่ที่ใช้ numFmtId="1" (รูปแบบ "0") โดย Copy ฟอนต์/เส้นขอบ/พื้นจาก Style เดิมของคอลัมน์นั้น
+       Style เดิมของคอลัมน์อื่นไม่ถูกแตะต้อง */
+    const INTC=['G','I','N'];          /* จำนวนเต็มล้วน — numFmtId 1 ("0") */
+    const NUMC=['L','P','Q'];          /* ตัวเลขมีทศนิยมได้ — numFmtId 0 (General) ไม่มีคั่นหลักพัน */
+    const intS={};
+    (function(){
+      let st=dec.decode(files['xl/styles.xml']);
+      const mBlk=st.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
+      if(!mBlk) return;
+      const base=parseInt(mBlk[1],10);
+      const list=mBlk[2].match(/<xf\b[^>]*\/>|<xf\b[^>]*>[\s\S]*?<\/xf>/g)||[];
+      const swap=function(src,id){
+        let x=String(src||'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>');
+        x=x.replace(/numFmtId="\d+"/,'numFmtId="'+id+'"');
+        if(x.indexOf('applyNumberFormat=')<0) x=x.replace('numFmtId="'+id+'"','numFmtId="'+id+'" applyNumberFormat="1"');
+        return x;
+      };
+      const gCol=COLS.filter(function(c){ return c.k==='G'; })[0];
+      const srcD=list[gCol?gCol.s:5], srcT=list[TOT_S.G];   /* Copy ฟอนต์/เส้นขอบ/พื้น จาก Style เดิมของคอลัมน์ตัวเลข */
+      const add=swap(srcD,'1')+swap(srcT,'1')+swap(srcD,'0')+swap(srcT,'0');
+      intS.iData=base; intS.iTotal=base+1; intS.nData=base+2; intS.nTotal=base+3;
+      st=st.replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(base+4)+'">')
+           .replace('</cellXfs>', add+'</cellXfs>');
+      files['xl/styles.xml']=enc.encode(st);
+    })();
+    const dS=function(cd){ if(intS.iData==null) return cd.s;
+      if(INTC.indexOf(cd.k)>=0) return intS.iData;
+      if(NUMC.indexOf(cd.k)>=0) return intS.nData;
+      return cd.s; };
+    const tS=function(k){ if(intS.iTotal==null) return TOT_S[k];
+      if(INTC.indexOf(k)>=0) return intS.iTotal;
+      if(NUMC.indexOf(k)>=0) return intS.nTotal;
+      return TOT_S[k]; };
+    /* G/I/N = ปัดเป็นจำนวนเต็ม · ตัวเลขอื่น = ตัดเศษลอยตัว (float noise) ที่ต่ำกว่า 1e-6 ทิ้ง ค่าไม่เปลี่ยน */
+    const asInt=function(k,v){
+      if(v==null||v===''||!isFinite(Number(v))) return v;
+      if(INTC.indexOf(k)>=0) return Math.round(Number(v));
+      if(NUMC.indexOf(k)>=0) return Math.round(Number(v)*1e6)/1e6;
+      return v; };
     sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:AC'+tr+'"/>');
     const row1=sheet.match(/<row[^>]*r="1"[^>]*>[\s\S]*?<\/row>/)[0];
     let body='';
     rows.forEach(function(row,i){ const R=i+2; let cells='';
-      COLS.forEach(function(cd){ cells+=cellXml(cd.k+R,cd,row[cd.k]); });
+      COLS.forEach(function(cd){ cells+=cellXml(cd.k+R,{k:cd.k,s:dS(cd),t:cd.t},asInt(cd.k,row[cd.k])); });
       body+='<row r="'+R+'" spans="1:29">'+cells+'</row>'; });
     let tc='';
-    COLS.forEach(function(cd){ const s=TOT_S[cd.k];
-      if(SUMC.indexOf(cd.k)>=0){ const v=(totals&&totals[cd.k]!=null)?totals[cd.k]:'';
+    COLS.forEach(function(cd){ const s=tS(cd.k);
+      if(SUMC.indexOf(cd.k)>=0){ let v=(totals&&totals[cd.k]!=null)?totals[cd.k]:'';
+        if(v!=='') v=asInt(cd.k,v);
         tc+='<c r="'+cd.k+tr+'" s="'+s+'"><f>SUM('+cd.k+'2:'+cd.k+lastData+')</f>'+(v===''?'':'<v>'+v+'</v>')+'</c>'; }
       else tc+='<c r="'+cd.k+tr+'" s="'+s+'"/>'; });
     body+='<row r="'+tr+'" spans="1:29">'+tc+'</row>';
