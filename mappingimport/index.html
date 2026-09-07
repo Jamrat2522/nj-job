@@ -12224,13 +12224,29 @@ function spParsePdfText(txt, fname){
                hasValueLine, hasCountryLine, hasDesigLine,
                _unparsedItemLines: unparsedItemLines });
   }
+  out._pdfPageCount = pageAt.length ? pageAt[pageAt.length - 1] : 0;   // §6 จำนวนหน้าทั้งไฟล์
   return out;
 }
 
 /* อ่านทุกไฟล์ PDF + Validation */
 async function spReadPdfs(files){
   const all = [];
-  for(const f of files) all.push(...spParsePdfText(await spPdfText(f), f.name));
+  /* §6 — Page # ต้องเป็น cumulative ทั้ง batch (ห้าม reset เป็น 1 เมื่อเปลี่ยนไฟล์/Invoice)
+     globalPage = localPdfPage + จำนวนหน้ารวมของ PDF ก่อนหน้าในลำดับเดียวกัน */
+  let pageOffset = 0;
+  for(const f of files){
+    const items = spParsePdfText(await spPdfText(f), f.name);
+    let maxLocal = 0;
+    for(const it of items){
+      const lp = (it.pdfPageNo != null) ? it.pdfPageNo : 1;
+      it.pdfLocalPageNo = lp;
+      it.pdfPageNo = lp + pageOffset;
+      if(lp > maxLocal) maxLocal = lp;
+    }
+    pageOffset += (items.length ? (items._pdfPageCount || maxLocal) : 0);
+    all.push(...items);
+  }
+  if(false) for(const f of files) all.push(...spParsePdfText(await spPdfText(f), f.name));
   if(!all.length) throw new Error('ไม่พบรายการสินค้าในไฟล์ PDF');
   /* §B — ที่นี่ตรวจเฉพาะ "โครงสร้าง Item ผิดจนระบุ Invoice/Item ไม่ได้" (FATAL ตาม §F)
      ส่วนค่าที่ว่าง จะถูกจำแนกเป็น PDF_PARSE_ERROR (PDF มีบรรทัดแต่อ่านไม่ออก → FATAL)
@@ -12522,6 +12538,13 @@ function spApplyPdfSource(invRows, pdfItems){
     row.unit     = FV('Unit');                            // §3 Unit — final จาก PDF
     row.unitCode = spUnitCode(row.unit);                  // §2 map เป็น Customs Unit Code (PC → C62)
     row.pageno   = (it.pdfPageNo != null) ? it.pdfPageNo : '';   // Page # จาก PDF จริง
+    /* RULE-02 — ลำดับต้องเดินตาม PDF Item จริง (บน → ล่าง) ไม่ใช่ลำดับของ CLC
+       _pdfItemNo = เลข Item ใน PDF · _pdfOrd = ลำดับที่ปรากฏจริงใน PDF (top → bottom) */
+    row._pdfItemNo = nSeq(it.itemNo);
+    row._pdfOrd    = idx;
+    /* MATCHING KEY — Delivery ต้องมาจาก PDF ("Delivery 53822149" ใต้แต่ละ Item) เป็นหลัก
+       CLC refdoc เป็น fallback เฉพาะเมื่อ PDF ไม่มีบรรทัด Delivery */
+    row._pdfDelivery = (it.deliveryNo != null && String(it.deliveryNo).trim() !== '') ? String(it.deliveryNo).trim() : '';
     row._matched = true;                                          // ผ่าน Matching Logic จริง → Mapping = 'Match'
     if(row.unit && !row.unitCode)
       xcUnitMiss.push('UNIT_MAPPING_MISSING · Unit "' + row.unit + '" ไม่มี Mapping เป็น Customs Unit Code'
@@ -12628,14 +12651,24 @@ async function spComputeMapping(){
         src, rid: i,
         inv: String(src.billing == null ? '' : src.billing).trim(),
         itemNo: (src.item !== '' && src.item != null && isFinite(Number(src.item))) ? Number(src.item) : null,
-        dlv: spNormDlv(src.refdoc),
+        /* DELIVERY NORMALIZATION — trim → string → ตัด leading zero เฉพาะเพื่อ Compare
+           (spNormDlv) · ค่า Raw ของ Source ไม่ถูกแก้ · PDF Delivery ก่อน CLC refdoc */
+        dlv: spNormDlv((src._pdfDelivery != null && src._pdfDelivery !== '') ? src._pdfDelivery : src.refdoc),
         pc:  matchPC,
         qty: src.qty || 0, lots: null,
         priceUnit, unitRaw, displayedUnitPrice
       };
     });
+    /* RULE-01 + RULE-02 — Invoice ASC → PDF Item บนลงล่าง
+       ลำดับหลักมาจาก PDF (_pdfItemNo / _pdfOrd) · CLC Item เป็น fallback เฉพาะเมื่อ PDF ไม่มีค่า */
     const _clcOrd = (a, b) => {
-      if(a.inv !== b.inv) return a.inv < b.inv ? -1 : 1;
+      if(a.inv !== b.inv) return a.inv < b.inv ? -1 : 1;                       // RULE-01
+      const pna = (a.src && a.src._pdfItemNo != null) ? a.src._pdfItemNo : null;
+      const pnb = (b.src && b.src._pdfItemNo != null) ? b.src._pdfItemNo : null;
+      if(pna != null && pnb != null && pna !== pnb) return pna - pnb;          // RULE-02
+      const poa = (a.src && a.src._pdfOrd != null) ? a.src._pdfOrd : null;
+      const pob = (b.src && b.src._pdfOrd != null) ? b.src._pdfOrd : null;
+      if(poa != null && pob != null && poa !== pob) return poa - pob;          // RULE-02
       const ia = (a.itemNo == null) ? Number.MAX_SAFE_INTEGER : a.itemNo;
       const ib = (b.itemNo == null) ? Number.MAX_SAFE_INTEGER : b.itemNo;
       if(ia !== ib) return ia - ib;
@@ -12644,11 +12677,14 @@ async function spComputeMapping(){
     const clcSeq = clcRows.slice().sort(_clcOrd);
     clcSeq.forEach((c, i) => { c.no = i + 1; c.seq = i; });
 
-    // ── (2) RM Lots: _rmRowId + Import Entry / Item (Item = ข้อความ คงศูนย์นำหน้า) ──
+    // ── (2) RM Lots: rmSourceIndex + Import Entry / Item (Item = ข้อความ คงศูนย์นำหน้า) ──
+    //   RULE-05 — เก็บลำดับแถวต้นฉบับของ RM ไว้ที่ rmSourceIndex · ห้าม Sort ใหม่
+    //   RULE-08 — remainingQty เริ่มต้น = RM Original Quantity
     const rmList = rmRows.map((rm, i) => {
       const raw = String(rm.refent == null ? '' : rm.refent).replace(/\s+/g, ' ').trim();
+      /* RULE-14 — Total - Vehicle Invoice → Import Entry + Item  (เช่น A024D690300487X15) */
       const m = raw.match(/^(.+)X(\d+)$/i);
-      return { rid: i, dlv: spNormDlv(rm.outbound), pc: spNormPC(rm.part),
+      return { rid: i, rmSourceIndex: i, dlv: spNormDlv(rm.outbound), pc: spNormPC(rm.part),
                qty: rm.qty || 0, remaining: rm.qty || 0, used: false,
                ent: m ? m[1] : raw, it: m ? m[2] : '', raw, partRaw: rm.part };
     });
@@ -12667,232 +12703,202 @@ async function spComputeMapping(){
       if(errs.length) throw new Error('ยอดไม่ตรงระหว่าง CLC กับ RM — หยุด Export\n' + errs.join('\n'));
     }
 
-    // ── (4) Exact-Fit Partition (memo แบบยุบ state สมมาตร) ──
-    // ── ข้อความเมื่อค้นหาไม่ครบ (§5) ──
-    function spIncompleteMsg(res, bins, items, tag){
-      const b0 = bins[0] || {};
-      return 'RM EXACT-FIT OPTIMIZATION INCOMPLETE — หยุด Export' + (tag ? ' (' + tag + ')' : '') + '\n' +
-        'Invoice: ' + (b0.inv || '-') +
-        ' · Product Code: ' + ((b0.src && (b0.src.prodcode || b0.src.material)) || '-') +
-        ' · Delivery: ' + (b0.dlv || '-') + '\n' +
-        'Mode: ' + (res.mode || '-') + ' · CLC Row: ' + bins.length + ' · RM Lot: ' + items.length + '\n' +
-        'State ที่ตรวจ: ' + (res.steps != null ? res.steps : '-') +
-        ' · Exact Solution ที่พบ: ' + (res.sols != null ? res.sols : '-') + '\n' +
-        'Step Limit: ' + (res.stepLimit != null ? res.stepLimit : '-') +
-        ' · Solution Limit: ' + (res.solLimit != null ? res.solLimit : '-') + '\n' +
-        'Primary Score: [' + (res.score ? res.score.slice(0,3).join(', ') : '-') + '] · Lower Bound: [' + (res.lb ? res.lb.join(', ') : '-') + ']\n' +
-        'Reason: ' + (res.reason || 'OPTIMIZATION_LIMIT');
-    }
+    // ══════════════════════════════════════════════════════════════════
+    // (4) RM ALLOCATION — Product Code + Delivery + PDF Quantity
+    //   PDF Item เป็นตัวตั้ง · Pool = Product Code + Normalize(Delivery)
+    //   PHASE 1 Exact Qty ภายใน Pool → PHASE 2 Split ตาม rmSourceIndex ASC
+    //   remainingQty ต่อเนื่องทั้งชุด (ห้าม reset เมื่อเปลี่ยน PDF Item / Invoice)
+    //   ห้ามข้าม Delivery · ห้ามข้าม Product · ห้าม Sort Split Row หลัง Allocate
+    // ══════════════════════════════════════════════════════════════════
+    for(const x of rmList){ x.qty0 = x.qty; x.usedQty = 0; }
 
-    // ── Exact-Fit Partition + ระบบคะแนน 4 ลำดับ (ใช้กับทุกขนาดกลุ่ม) ──
-    //   คืน { asg, optimalConfirmed, stats } · ห้ามใช้คำตอบแรกถ้ายังพิสูจน์ไม่ได้ว่าดีที่สุด
-    function spPartitionCore(bins, items, cap, wantTieOpt){
-      const n = items.length, nb = bins.length;
-      const up = bins.map(b => (b.unitRaw != null ? b.unitRaw : null));   // ★ unitRaw ค่าเต็ม
-      const gkey = items.map(x => String(x.ent) + '\u0001' + String(x.it));
-      const keySet = new Set(gkey);
-      const scoreOf = p => {
-        const byKey = new Map(), perBin = [];
-        for(let k = 0; k < nb; k++) perBin.push(new Set());
-        for(let i = 0; i < n; i++){
-          let e = byKey.get(gkey[i]);
-          if(!e){ e = { bins: new Set(), prices: new Set() }; byKey.set(gkey[i], e); }
-          e.bins.add(p[i]); e.prices.add(up[p[i]]);
-          perBin[p[i]].add(gkey[i]);
-        }
-        let ps = 0, sp = 0;
-        for(const e of byKey.values()){ if(e.prices.size > 1) ps++; if(e.bins.size > 1) sp++; }
-        let rows = 0; for(const s2 of perBin) rows += s2.size;
-        const per = []; for(let k = 0; k < nb; k++) per.push([]);
-        for(let i = 0; i < n; i++) for(const rr of (items[i].rids || [items[i].rid])) per[p[i]].push(rr);
-        const tie = [];
-        for(let k = 0; k < nb; k++){ per[k].sort((x, y) => x - y); for(const r of per[k]) tie.push(r); tie.push(-1); }
-        return [ps, tie, rows, sp];      // §7 source order (tie) เป็นเกณฑ์รองจากราคา — เหนือกว่า rows/sp
-      };
-      const better = (x, y) => {
-        if(x[0] !== y[0]) return x[0] < y[0];
-        const A = x[1], B = y[1], L = Math.min(A.length, B.length);
-        for(let i = 0; i < L; i++){ if(A[i] !== B[i]) return A[i] < B[i]; }
-        if(A.length !== B.length) return A.length < B.length;
-        for(let i = 2; i < 4; i++){ if(x[i] !== y[i]) return x[i] < y[i]; }
-        return false;
-      };
-      const LB = [0];                                       // Lower Bound: [ps]
-      // เรียง: qty มาก→น้อย (memo ตัดกิ่งดีที่สุด)
-      const it = items.slice().sort((x, y) => (y.qty - x.qty) || (x.rid - y.rid));
-      const idxOf = new Map(); items.forEach((x, i) => idxOf.set(x, i));   // ★ map → index ของ items ต้นฉบับ
-      const gk2 = it.map(x => String(x.ent) + '\u0001' + String(x.it));
-      const rem = bins.map(b => b.qty), path = new Array(n);
-      let steps = 0, sols = 0, hitLimit = false, searchCompleted = false;
-      let best = null, bestScore = null;
-      const SOL_CAP = wantTieOpt ? 20000 : 4000;
-      const scoreOf2 = p => {   // แปลง path (เรียงตาม it) → path ตามลำดับ items เดิม
-        const q = new Array(n);
-        for(let i = 0; i < n; i++) q[idxOf.get(it[i])] = p[i];
-        return { s: scoreOf(q), q };
-      };
-      // ── รอบ A: ตรวจว่ามี Exact-Fit หรือไม่ (memo ได้ เพราะไม่ใช้ตัดสินคะแนน) ──
-      let firstPassHitLimit = false, st0 = 0;
-      {
-        const rem0 = bins.map(b => b.qty), p0 = new Array(n), seen0 = new Set();
-        const dfsA = i => {
-          if(i === n) return rem0.every(r => Math.abs(r) < 1e-9);
-          if(++st0 > cap){ firstPassHitLimit = true; return false; }
-          const key = i + '|' + rem0.slice().sort((x, y) => x - y).join(',');
-          if(seen0.has(key)) return false;
-          const q = it[i].qty, tried = new Set();
-          for(let k = 0; k < nb; k++){
-            if(rem0[k] < q - 1e-9 || tried.has(rem0[k])) continue;
-            tried.add(rem0[k]);
-            rem0[k] -= q; p0[i] = k;
-            if(dfsA(i + 1)) return true;
-            rem0[k] += q;
-          }
-          seen0.add(key); return false;
-        };
-        const firstFound = dfsA(0);
-        // ★ แยก "ไม่มีคำตอบ" ออกจาก "ค้นหาไม่ครบเพราะ Limit"
-        if(!firstFound && firstPassHitLimit)
-          return { asg: null, optimalConfirmed: false, hitLimit: true, reason: 'FIRST_PASS_LIMIT',
-                   score: null, lb: LB, steps: st0, sols: 0, stepLimit: cap, solLimit: SOL_CAP };
-        if(!firstFound) return null;                    // ค้นครบแล้ว = ไม่มี Exact-Fit จริง
-        const { s, q } = scoreOf2(p0);
-        best = q; bestScore = s;
-        // ★ คะแนนหลัก 3 ข้อแรกถึง Lower Bound = ดีที่สุดตามกฎธุรกิจแล้ว → ยอมรับทันที (ไม่ต้องค้นต่อ)
-        if(false){
-          const asg0 = bins.map(() => []);
-          for(let i2 = 0; i2 < n; i2++) asg0[best[i2]].push(items[i2]);
-          return { asg: asg0, optimalConfirmed: true, primaryOptimalConfirmed: true, tieOptimalConfirmed: false,
-                   score: bestScore, lb: LB, steps: st0, sols: 1, hitLimit: false,
-                   reason: 'PRIMARY_LOWER_BOUND_REACHED', stepLimit: cap, solLimit: SOL_CAP };
-        }
-      }
-      // ── รอบ B: ค้นหาคำตอบที่คะแนนดีกว่า (มีขอบเขต) ──
-      const dfs = i => {
-        if(steps > cap || sols > SOL_CAP){ hitLimit = true; return; }
-        if(i === n){
-          if(rem.every(r => Math.abs(r) < 1e-9)){
-            sols++;
-            const { s, q } = scoreOf2(path);
-            if(!best || better(s, bestScore)){ best = q; bestScore = s; }
-            // ★ ห้ามหยุดเมื่อคะแนน 1–3 ต่ำสุด — ต้องเทียบคะแนนที่ 4 (Tie Vector) ให้ครบด้วย
-          }
-          return;
-        }
-        steps++;
-        // ★ ไม่ใช้ Memo ในรอบ Optimization — path ที่ rem เท่ากันอาจมีคะแนนต่างกัน
-        const q = it[i].qty;
-        for(let k = 0; k < nb; k++){                          // ★ ไม่ตัด bin ที่ remaining เท่ากัน (กันตัดคำตอบ _rmRowId ต่ำกว่า)
-          if(rem[k] < q - 1e-9) continue;
-          rem[k] -= q; path[i] = k;
-          dfs(i + 1);
-          rem[k] += q;
-          if(steps > cap || sols > SOL_CAP){ hitLimit = true; return; }
-        }
-      };
-      dfs(0);
-      if(!hitLimit) searchCompleted = true;
-      const solsReal = Math.max(sols, 1);                 // ★ รอบ A พบคำตอบแล้วอย่างน้อย 1
-      const primaryLowerBoundReached = (bestScore != null) &&
-        false;
-      const optimalConfirmed = primaryLowerBoundReached || ((!hitLimit) && searchCompleted);
-      if(!optimalConfirmed)
-        return { asg: null, optimalConfirmed: false, primaryOptimalConfirmed: false, tieOptimalConfirmed: false,
-                 hitLimit: true, reason: 'OPTIMIZATION_LIMIT',
-                 score: bestScore, lb: LB, steps: steps + st0, sols: solsReal, stepLimit: cap, solLimit: SOL_CAP };
-      const asg = bins.map(() => []);
-      for(let i = 0; i < n; i++) asg[best[i]].push(items[i]);
-      return { asg, optimalConfirmed: true,
-               primaryOptimalConfirmed: primaryLowerBoundReached,
-               tieOptimalConfirmed: (!hitLimit) && searchCompleted,
-               hitLimit: false, reason: primaryLowerBoundReached ? 'PRIMARY_LOWER_BOUND_REACHED' : 'SEARCH_COMPLETED',
-               score: bestScore, lb: LB, steps: steps + st0, sols: solsReal, stepLimit: cap, solLimit: SOL_CAP };
+    /* MATCHING KEY = Product Code + Delivery + PDF Quantity
+       STEP-04 — Candidate Pool = RM rows ที่ Product Code ตรง AND Normalize(Delivery) ตรง
+       STEP-06 — Exact Qty ภายใน Pool เดียวกัน (remainingQty == requiredQty) → ใช้ Row นั้นก่อน
+       STEP-07 — ไม่มี Exact → Split ตาม rmSourceIndex ASC จนครบ (ตัดกลางก้อนได้)
+       STEP-08 — remainingQty ต่อเนื่อง ห้าม Reset · ห้ามข้าม Delivery · ห้ามข้าม Product */
+    const rmByKey = new Map(), rmByPc = new Map();
+    const _ak = (pc, dlv) => pc + '\u0001' + dlv;
+    for(const x of rmList){
+      const k = _ak(x.pc, x.dlv);
+      if(!rmByKey.has(k)) rmByKey.set(k, []);
+      rmByKey.get(k).push(x);
+      if(!rmByPc.has(x.pc)) rmByPc.set(x.pc, []);
+      rmByPc.get(x.pc).push(x);
     }
+    for(const arr of rmByKey.values()) arr.sort((a, b) => a.rmSourceIndex - b.rmSourceIndex);
 
-    // Wrapper: ลองจัดแบบ "Entry+Item ทั้งก้อน" ก่อน (ถ้าลงตัว = คะแนน (0,0,keys) = Lower Bound พิสูจน์ได้)
-    function spPartition(bins, items, cap){
-      /* §6 — ห้าม merge RM source row (Entry+Item เดียวกัน) ก่อน allocation
-         ใช้ RM source row ทีละแถวตรง ๆ เข้าสู่ระบบคะแนน */
-      return spPartitionCore(bins, items, cap, true);
-    }
-
-    for(const x of rmList){ x.qty0 = x.qty; x.usedQty = 0; }   // §6 trace
-    const _k = (d, p) => d + '\u0001' + p;
-    const cByK = new Map(), rByK = new Map();
-    for(const c of clcRows){ const k = _k(c.dlv, c.pc); if(!cByK.has(k)) cByK.set(k, []); cByK.get(k).push(c); }
-    for(const x of rmList){ const k = _k(x.dlv, x.pc); if(!rByK.has(k)) rByK.set(k, []); rByK.get(k).push(x); }
-    for(const [k, bins] of cByK){
-      const items = rByK.get(k) || [];
-      if(!items.length) continue;
-      const sb = bins.reduce((s, b) => s + b.qty, 0), si = items.reduce((s, x) => s + x.qty, 0);
-      if(Math.abs(sb - si) > 1e-9) continue;
-      bins.sort(_clcOrd);
-      const res = spPartition(bins, items, 4000000);
-      if(!res) continue;                                  // ไม่มี Exact-Fit จริง → ไป Residual
-      if(!res.optimalConfirmed) throw new Error(spIncompleteMsg(res, bins, items));
-      if(!res.asg || res.asg.length !== bins.length) throw new Error('RM EXACT-FIT ASSIGNMENT INVALID — หยุด Export\n' + spIncompleteMsg(res, bins, items));
-      bins.forEach((b, i) => { b.lots = res.asg[i]; res.asg[i].forEach(x => { x.used = true; x.remaining = 0; }); });
-    }
-
-    // ── (5) Residual: Global Exact-Fit ของ CLC ที่ยังไม่ครบ ทั้งหมดใน Product Code เดียวกันพร้อมกัน ──
-    //     ★ ข้าม Delivery ได้ · Product Code Exact · RM เต็มก้อน · ใช้ระบบคะแนน 4 ลำดับเดิม (ไม่เลือกชุดแรก)
-    let spCross = 0;
-    {
-      const pend = new Map();
-      for(const c of clcSeq){ if(c.lots) continue; if(!pend.has(c.pc)) pend.set(c.pc, []); pend.get(c.pc).push(c); }
-      for(const [pc, bins] of pend){
-        const items = rmList.filter(x => !x.used && x.pc === pc);   // ★ Exact Product Code เท่านั้น (ข้าม Delivery ได้)
-        const sb = bins.reduce((v, b) => v + b.qty, 0), si = items.reduce((v, x) => v + x.qty, 0);
-        if(!items.length || Math.abs(sb - si) > 1e-9) continue;
-        bins.sort(_clcOrd);
-        const res = spPartition(bins, items, 6000000);
-        if(!res) continue;                                // ไม่มี Exact-Fit จริง → ไปตรวจ Quantity Not Match
-        if(!res.optimalConfirmed) throw new Error(spIncompleteMsg(res, bins, items, 'Residual'));
-        if(!res.asg || res.asg.length !== bins.length) throw new Error('RM EXACT-FIT ASSIGNMENT INVALID — หยุด Export (Residual)\n' + spIncompleteMsg(res, bins, items, 'Residual'));
-        bins.forEach((b, i) => {
-          b.lots = res.asg[i];
-          res.asg[i].forEach(x => { x.used = true; x.remaining = 0; if(x.dlv !== b.dlv) spCross++; });
-        });
-      }
-    }
-    if(spCross) console.warn('[FZ] Residual Cross-Delivery:', spCross, 'ก้อน');
-
-    // ── (6) ห้าม Fallback แบ่ง RM กลางก้อน — จัดสรรไม่ได้ = หยุด Export ──
-    for(const c of clcSeq){
-      if(c.lots && c.lots.length) continue;
-      const left = rmList.filter(x => !x.used && x.pc === c.pc);
-      const detail = left.slice(0, 8).map(x => '_rmRowId ' + x.rid + ' · ' + (x.ent || '(ว่าง)') + (x.it !== '' ? ' #' + x.it : '') + ' · Qty ' + x.qty).join('\n  ');
-      throw new Error('RM EXACT QUANTITY NOT MATCH — หยุด Export\n' +
-        'Invoice ' + c.inv + ' · No. ' + c.no + ' · Product Code ' + (c.src.prodcode || c.src.material) +
-        ' · CLC Quantity = ' + c.qty + '\n' +
-        'RM ที่เหลือ (' + left.reduce((v, x) => v + x.qty, 0) + ' หน่วย):\n  ' + (detail || '(ไม่มี)'));
-    }
-
-    // ── (7) รวม Run ต่อเนื่อง (Entry+Item+Delivery เดียวกัน · _rmRowId ติดกัน) + คำนวณราคา ──
-    const result = [];
-    let matched = 0, unmatched = 0;
-    for(const c of clcSeq){
-      const lots = (c.lots || []).slice().sort((x, y) => x.rid - y.rid);
-      if(lots.length) matched++; else unmatched++;
-      // ★ §4: รวมภายใน CLC Row เดียวกันเมื่อ Import Entry + Item ตรงกัน (ไม่ต้องอยู่ติดกัน)
-      const groups = []; const gmap = new Map();
-      for(const x of lots){
+    /* ── STEP-01 — GROUP RM ที่ Import Entry + Item ซ้ำกัน (ก่อนนำไป Match กับ PDF Quantity) ──
+       Group Key = Product Code + Normalized Delivery + Import Entry + Item
+       groupQty  = SUM(Qty ของ RM Rows ทุกแถวใน Group)
+       ★ ห้าม Sort Group ใหม่ — เรียงตาม First Occurrence ของ RM เดิม (rmSourceIndex ต่ำสุด)
+       ★ ห้ามทำ Trace หาย — เก็บ RM Row ต้นทางไว้ที่ g.rows ทั้งหมด                        */
+    const rmGroupsByKey = new Map();
+    for(const [k, arr] of rmByKey){
+      const groups = [], gmap = new Map();
+      for(const x of arr){                                    // arr เรียงตาม rmSourceIndex เดิม
         const gk = String(x.ent) + '\u0001' + String(x.it);
         let g = gmap.get(gk);
-        if(!g){ g = []; gmap.set(gk, g); groups.push(g); }
-        g.push(x);
+        if(!g){
+          g = { pc: x.pc, dlv: x.dlv, ent: x.ent, it: x.it, raw: x.raw,
+                rows: [], groupQty0: 0, firstIndex: x.rmSourceIndex };
+          gmap.set(gk, g); groups.push(g);                     // First Occurrence → ตำแหน่งคงเดิม
+        }
+        g.rows.push(x);
+        g.groupQty0 = r6(g.groupQty0 + x.qty);
       }
-      if(!groups.length) groups.push([{ rid: Number.MAX_SAFE_INTEGER, dlv: c.dlv, ent: '', it: '', raw: '', qty: c.qty }]);
-      // เรียงภายใน No.: Import Entry A–Z → Item น้อย→มาก → _rmRowId
-      groups.sort((g1, g2) => {
-        const e1 = String(g1[0].ent || ''), e2 = String(g2[0].ent || '');
-        if(e1 !== e2) return e1 < e2 ? -1 : 1;
-        const i1 = g1[0].it === '' ? Number.MAX_SAFE_INTEGER : Number(g1[0].it);
-        const i2 = g2[0].it === '' ? Number.MAX_SAFE_INTEGER : Number(g2[0].it);
-        if(i1 !== i2) return i1 - i2;
-        return g1[0].rid - g2[0].rid;
-      });
-      const parts = groups.map(g => ({ ent: g[0].ent, it: g[0].it, rid: g[0].rid, qty: g.reduce((s, x) => s + x.qty, 0) }));
+      rmGroupsByKey.set(k, groups);
+    }
+    /* remainingGroupQty = SUM(remaining ของ RM Rows ใน Group) — ไม่เก็บ Counter แยก
+       จึงไม่มีทางหลุดจาก remainingQty รายแถว (STEP-11) */
+    const groupRemaining = g => r6(g.rows.reduce((v, x) => v + x.remaining, 0));
+
+    for(const c of clcSeq){                                  // STEP-02: Invoice ASC → PDF Item บนลงล่าง (ห้าม Sort PDF)
+      const pdfItemLabel = (c.src && c.src._pdfItemNo != null) ? c.src._pdfItemNo : (c.src ? c.src.item : '-');
+      const pdfDelivery  = (c.src && c.src._pdfDelivery) ? c.src._pdfDelivery : (c.src ? c.src.refdoc : '');
+      let requiredQty = c.qty;                               // STEP-03: PDF Quantity = Target
+      const pool = rmByKey.get(_ak(c.pc, c.dlv)) || [];
+      const allGroups = rmGroupsByKey.get(_ak(c.pc, c.dlv)) || [];
+      const cands = allGroups.filter(g => groupRemaining(g) > 1e-9);   // ลำดับ Group เดิม — ไม่ Sort
+      const availableQty = r6(cands.reduce((v, g) => v + groupRemaining(g), 0));
+
+      /* ERROR — Product Code ตรง แต่ไม่มี Delivery ตรง */
+      if(!pool.length && (rmByPc.get(c.pc) || []).length)
+        throw new Error('RM_DELIVERY_NOT_FOUND — หยุด Export\n' +
+          'Invoice : '      + c.inv + '\n' +
+          'PDF Item : '     + pdfItemLabel + '\n' +
+          'Product Code : ' + (c.src.prodcode || c.src.material) + '\n' +
+          'PDF Delivery : ' + pdfDelivery + '\n' +
+          'PDF Quantity : ' + c.qty + '\n' +
+          'RM Delivery ที่มีของ Product นี้ : ' +
+            [...new Set((rmByPc.get(c.pc) || []).map(x => x.dlv))].join(', '));
+
+      const alloc = [];
+      let allocatedTotal = 0;
+      /* ตัดจาก Group → ไล่ RM Row ภายใน Group ตามลำดับเดิม (STEP-12 Trace RM Row จริง) */
+      const takeGroup = (g, q) => {
+        let need = q;
+        for(const x of g.rows){
+          if(need <= 1e-9) break;
+          if(x.remaining <= 1e-9) continue;
+          const a = Math.min(need, x.remaining);
+          alloc.push({ rid: x.rid, rmSourceIndex: x.rmSourceIndex, ent: x.ent, it: x.it, raw: x.raw, dlv: x.dlv, qty: a });
+          x.remaining = r6(x.remaining - a);                 // STEP-07/STEP-11 — remainingQty รายแถวคงเดิม
+          x.usedQty   = r6(x.usedQty + a);
+          need        = r6(need - a);
+        }
+        const used = r6(q - need);
+        requiredQty    = r6(requiredQty - used);
+        allocatedTotal = r6(allocatedTotal + used);
+      };
+      // STEP-03 PHASE 1 — Exact Quantity Match บน RM Group (remainingGroupQty == PDF Quantity)
+      const exactG = cands.find(g => Math.abs(groupRemaining(g) - requiredQty) < 1e-9);
+      if(exactG && requiredQty > 1e-9){
+        takeGroup(exactG, requiredQty);                      // STEP-04 — ใช้หมด Group → remainingGroupQty = 0
+      } else {
+        // STEP-05/06 PHASE 2 — ไม่มี Exact → Split ตามลำดับ Group เดิม จนครบ
+        for(const g of cands){
+          if(requiredQty <= 1e-9) break;
+          const gr = groupRemaining(g);
+          if(gr <= 1e-9) continue;
+          takeGroup(g, Math.min(requiredQty, gr));
+        }
+      }
+      /* ERROR — Product + Delivery ตรง แต่ Quantity รวมไม่พอ (ห้ามเดา / ห้ามใช้ Delivery หรือ Product อื่น) */
+      if(Math.abs(requiredQty) > 1e-9)
+        throw new Error('RM_INSUFFICIENT_QTY — หยุด Export\n' +
+          'Invoice : '               + c.inv + '\n' +
+          'PDF Item : '              + pdfItemLabel + '\n' +
+          'Product Code : '          + (c.src.prodcode || c.src.material) + '\n' +
+          'PDF Delivery : '          + pdfDelivery + '\n' +
+          'PDF Quantity : '          + c.qty + '\n' +
+          'Available RM Quantity : ' + availableQty + '\n' +
+          'Allocated Quantity : '    + allocatedTotal + '\n' +
+          'Missing Quantity : '      + r6(requiredQty));
+      c.alloc = alloc;
+      c.lots  = alloc;
+    }
+
+    // ── (5) ตรวจ RM หลัง Allocation: ห้ามใช้เกินก้อน · remainingQty ห้ามติดลบ · ยอดต้องสมดุล ──
+    {
+      const useQty = new Map();
+      for(const c of clcSeq) for(const x of (c.alloc || []))
+        useQty.set(x.rid, r6((useQty.get(x.rid) || 0) + x.qty));
+      const errs = [];
+      for(const x of rmList){
+        const uq = useQty.get(x.rid) || 0;
+        if(uq - x.qty0 > 1e-9)  errs.push('rmSourceIndex ' + x.rmSourceIndex + ' ใช้ ' + uq + ' เกินจาก ' + x.qty0);
+        if(x.remaining < -1e-9) errs.push('rmSourceIndex ' + x.rmSourceIndex + ' remainingQty ติดลบ (' + x.remaining + ')');
+        if(Math.abs(r6(uq + x.remaining) - r6(x.qty0)) > 1e-9)
+          errs.push('rmSourceIndex ' + x.rmSourceIndex + ' ยอดไม่สมดุล: used ' + uq + ' + remaining ' + x.remaining + ' ≠ ' + x.qty0);
+      }
+      if(errs.length) throw new Error('RM ALLOCATION INVALID — หยุด Export\n' + errs.slice(0, 12).join('\n') +
+        (errs.length > 12 ? '\n… รวม ' + errs.length + ' รายการ' : ''));
+    }
+
+    // ── (6) RM ที่ยังเหลือหลัง Allocation (รายงานอย่างเดียว · ไม่ block Export) ──
+    {
+      const leftRm = rmList.filter(x => x.remaining > 1e-9);
+      if(leftRm.length) console.warn('[SCH PDF] RM remaining after FIFO:',
+        leftRm.map(x => 'rmSourceIndex ' + x.rmSourceIndex + ' · ' + (x.partRaw || x.pc) + ' · ' + x.remaining).slice(0, 20));
+    }
+
+    /* ── (7) MERGE DUPLICATE IMPORT ENTRY + ITEM (หลัง Allocation เท่านั้น) + คำนวณราคา ──
+       ★ Allocation (ข้อ 4) จบไปแล้ว — RM ถูกตัดทีละแถวจริง remainingQty ถูกหักครบแล้ว
+         ขั้นนี้เป็นการ "รวมเพื่อ Output" ไม่แตะ RM ไม่แตะ remainingQty
+       Merge Key = Invoice + PDF Item + Product Code + Normalized Delivery + Import Entry + Item
+       ลำดับ = First Occurrence ของ Key (ห้าม Sort Entry/Item ใหม่)
+       Traceability = sourceRmRowIds เก็บ RM Row จริงที่ถูกรวม */
+    const result = [];
+    let matched = 0, unmatched = 0;
+    let mergedKeyCount = 0, mergedRowsSaved = 0;
+    const mergeAudit = [];
+    for(const c of clcSeq){
+      const lots = (c.alloc || []);                      // ★ ลำดับ Allocation จริง — ห้าม sort
+      if(lots.length) matched++; else unmatched++;
+      const pdfItemLbl = (c.src && c.src._pdfItemNo != null) ? c.src._pdfItemNo : (c.src ? c.src.item : '');
+      const mergeKeyOf = x => [String(c.inv), String(pdfItemLbl), String(c.pc), String(c.dlv),
+                               String(x.ent), String(x.it)].join('\u0001');
+      const preMergeQty = r6(lots.reduce((v, x) => v + x.qty, 0));     // CHECK-01
+      const parts = []; const pmap = new Map();
+      for(const x of lots){
+        const mk = mergeKeyOf(x);
+        let g = pmap.get(mk);
+        if(!g){
+          g = { ent: x.ent, it: x.it, rid: x.rid, qty: 0, mergeKey: mk, sourceRmRowIds: [], sourceRmSourceIndexes: [] };
+          pmap.set(mk, g); parts.push(g);                 // First Occurrence → ตำแหน่งคงเดิม
+        } else mergedRowsSaved++;
+        g.qty = r6(g.qty + x.qty);
+        g.sourceRmRowIds.push(x.rid);
+        g.sourceRmSourceIndexes.push(x.rmSourceIndex);
+      }
+      for(const g of parts) if(g.sourceRmRowIds.length > 1){
+        mergedKeyCount++;
+        mergeAudit.push({ invoice: c.inv, pdfItem: pdfItemLbl,
+          productCode: c.src.prodcode || c.src.material, delivery: c.dlv,
+          importEntry: g.ent, item: g.it, mergedQty: g.qty, sourceRmRowIds: g.sourceRmRowIds.slice() });
+      }
+      if(!parts.length) parts.push({ ent: '', it: '', rid: Number.MAX_SAFE_INTEGER, qty: c.qty, sourceRmRowIds: [], sourceRmSourceIndexes: [] });
+      /* ── VALIDATION หลัง Merge (CHECK-01 / 02 / 03 / 06) ── */
+      if(lots.length){
+        const where = 'Invoice No. : ' + c.inv + '\n' +
+          'PDF Item : '     + pdfItemLbl + '\n' +
+          'Product Code : ' + (c.src.prodcode || c.src.material) + '\n' +
+          'Delivery : '     + c.dlv + '\n' +
+          'PDF Quantity : ' + c.qty + '\n';
+        if(Math.abs(preMergeQty - c.qty) > 1e-9)
+          throw new Error('ALLOCATED_QTY_MISMATCH — หยุด Export\n' + where + 'Allocated Quantity (ก่อน Merge) : ' + preMergeQty);
+        const postMergeQty = r6(parts.reduce((v, p) => v + p.qty, 0));
+        const worst = parts.reduce((a, b) => (a && a.qty >= b.qty) ? a : b, null) || {};
+        if(postMergeQty - c.qty > 1e-9)
+          throw new Error('MERGED_QTY_EXCEEDS_PDF_QTY — หยุด Export\n' + where +
+            'Merged Quantity : ' + postMergeQty + '\nImport Entry : ' + (worst.ent || '') + '\nItem : ' + (worst.it || ''));
+        if(c.qty - postMergeQty > 1e-9)
+          throw new Error('MERGED_QTY_BELOW_PDF_QTY — หยุด Export\n' + where +
+            'Merged Quantity : ' + postMergeQty + '\nImport Entry : ' + (worst.ent || '') + '\nItem : ' + (worst.it || ''));
+        if(new Set(parts.map(p => p.mergeKey)).size !== parts.length)     // CHECK-06
+          throw new Error('MERGE_KEY_DUPLICATED — หยุด Export\n' + where + 'Final Row : ' + parts.length);
+      }
       // §1/§6/§7: Unit Price = CLC Total Price ÷ CLC Quantity (ก่อนแตกรายการ · ไม่ปัดตอนคูณ)
       //   ถ้า CLC มี Price Unit (ราคาต่อ 100/1,000 หน่วย) → แสดง Unit Price × Price Unit
       //   Output Total = Qty × Unit Price ÷ Price Unit  (เท่ากับ Qty × unitRaw เสมอ)
@@ -12934,6 +12940,8 @@ async function spComputeMapping(){
              splitNW = CLC item NW × splitQty ÷ CLC item Qty */
           netwt: (c.qty > 0 && (c.src.netwt || 0) > 0) ? ((c.src.netwt || 0) * (p.qty / c.qty)) : '',
           _rmSourceRowId: p.rid,
+          _sourceRmRowIds: (p.sourceRmRowIds || []).slice(),          // Traceability — RM Row จริงที่ถูกรวม
+          _sourceRmSourceIndexes: (p.sourceRmSourceIndexes || []).slice(),
           gross: (c.qty > 0 && (c.src.grosswt || 0) > 0) ? r6((c.src.grosswt || 0) * (p.qty / c.qty)) : '',
           amt: p.amt, unitPrice, _rmRid: p.rid, _split: si,
           material: c.src.material, desc2: c.src.desc2,
@@ -12945,21 +12953,27 @@ async function spComputeMapping(){
       });
     }
 
-    // ── Validation RM ขั้นสุดท้าย: ใช้ครบ 1 ครั้ง · เต็มก้อน · ไม่เหลือ · ไม่ซ้ำ ──
+    // ── Validation ขั้นสุดท้าย: SUM(Split Qty) ต่อ PDF Item = PDF Qty · Split Row ต้องติดกัน ──
     {
-      const useCount = new Map(), useQty = new Map();
-      for(const c of clcSeq) for(const x of (c.lots || [])){
-        useCount.set(x.rid, (useCount.get(x.rid) || 0) + 1);
-        useQty.set(x.rid, (useQty.get(x.rid) || 0) + x.qty);
-      }
       const errs = [];
-      for(const x of rmList){
-        const cnt = useCount.get(x.rid) || 0, uq = useQty.get(x.rid) || 0;
-        if(cnt === 0) errs.push('_rmRowId ' + x.rid + ' · ' + (x.partRaw || x.pc) + ' · Qty ' + x.qty + ' ไม่ถูกจัดสรร');
-        else if(cnt > 1) errs.push('_rmRowId ' + x.rid + ' ถูกใช้ ' + cnt + ' ครั้ง');
-        else if(Math.abs(uq - x.qty) > 1e-9) errs.push('_rmRowId ' + x.rid + ' ใช้ ' + uq + ' จาก ' + x.qty + ' (ถูกแบ่งกลางก้อน)');
+      // RULE-11 — SUM(Split Quantity) ของแต่ละ PDF Item ต้องเท่ากับ PDF Quantity 100%
+      for(const c of clcSeq){
+        const sq = (c.alloc || []).reduce((v, x) => v + x.qty, 0);
+        if(Math.abs(r6(sq) - r6(c.qty)) > 1e-9)
+          errs.push('Invoice ' + c.inv + ' · No. ' + c.no + ' · ' + (c.src.prodcode || c.src.material) +
+                    ' : PDF Qty ' + c.qty + ' ≠ SUM(Split) ' + r6(sq));
       }
-      if(errs.length) throw new Error('RM EXACT QUANTITY NOT MATCH — หยุด Export\n' + errs.slice(0, 12).join('\n') +
+      // RULE-12 — ทุก Split Row ของ PDF Item เดียวกันต้องอยู่ติดกัน (ห้าม Product อื่นคั่นกลาง)
+      {
+        const seen = new Set(); let prev = null;
+        for(const r of result){
+          if(r.rowIndex !== prev){
+            if(seen.has(r.rowIndex)) errs.push('Split Row ของ rowIndex ' + r.rowIndex + ' ไม่ติดกัน');
+            seen.add(r.rowIndex); prev = r.rowIndex;
+          }
+        }
+      }
+      if(errs.length) throw new Error('SPLIT VALIDATION FAILED — หยุด Export\n' + errs.slice(0, 12).join('\n') +
         (errs.length > 12 ? '\n… รวม ' + errs.length + ' รายการ' : ''));
     }
 
@@ -12988,15 +13002,11 @@ async function spComputeMapping(){
       }
     }
 
-    // ── SORT (§14): Invoice → No. → _clcRowId → _rmRowId → Split Sequence ──
+    /* FINAL ORDER (RULE-13) — Invoice ASC → PDF Item บนลงล่าง → Split RM FIFO
+       ห้าม Sort ด้วย Import Entry / Item / Product Code / Quantity / Delivery
+       rowIndex = ลำดับ PDF Item (จาก clcSeq) · _split = ลำดับ Split ที่ Allocate จริง */
     result.sort((a, b) => {
       if(a.rowIndex !== b.rowIndex) return a.rowIndex - b.rowIndex;
-      const ea = String(a.refent || ''), eb = String(b.refent || '');
-      if(ea !== eb) return ea < eb ? -1 : 1;                      // Import Entry A–Z ภายใน No. เดียวกัน
-      const ia = (a.refitem === '' || a.refitem == null) ? Number.MAX_SAFE_INTEGER : Number(a.refitem);
-      const ib = (b.refitem === '' || b.refitem == null) ? Number.MAX_SAFE_INTEGER : Number(b.refitem);
-      if(ia !== ib) return ia - ib;                                // Item น้อย→มาก
-      if(a._rmRid !== b._rmRid) return a._rmRid - b._rmRid;
       return a._split - b._split;
     });
   // ── Audit สำหรับ Validation หลัง Merge (จุดที่ 4) ──
@@ -13008,11 +13018,23 @@ async function spComputeMapping(){
     netwt: c.src.netwt || 0
   }));
   const rmAudit = [];
-  for(const c of clcSeq) for(const x of (c.lots || [])) rmAudit.push({
-    rmRowId: x.rid, productCode: x.partRaw || x.pc, delivery: x.dlv,
-    importEntry: x.ent, item: x.it, originalQuantity: x.qty, assignedClcRowId: c.rid
-  });
-  return { result, clcAudit, rmAudit, matched, unmatched, rmCount: rmRows.length, invCount: invRows.length };
+  {
+    const rmById = new Map(rmList.map(x => [x.rid, x]));
+    for(const c of clcSeq) for(const x of (c.alloc || [])){
+      const src = rmById.get(x.rid);
+      rmAudit.push({
+        rmRowId: x.rid, rmSourceIndex: x.rmSourceIndex,
+        productCode: (src && (src.partRaw || src.pc)) || '', delivery: x.dlv,
+        importEntry: x.ent, item: x.it, totalVehicleInvoice: x.raw,
+        originalQuantity: src ? src.qty0 : x.qty, allocatedQuantity: x.qty,
+        remainingQuantity: src ? src.remaining : 0, assignedClcRowId: c.rid
+      });
+    }
+  }
+  console.log('[SCH PDF] MERGE duplicate Import Entry+Item — Key ที่ถูกรวม:', mergedKeyCount,
+              '· Split Row ที่ยุบไป:', mergedRowsSaved);
+  return { result, clcAudit, rmAudit, mergeAudit, mergedKeyCount, mergedRowsSaved,
+           matched, unmatched, rmCount: rmRows.length, invCount: invRows.length };
 }
 
 
@@ -13024,8 +13046,9 @@ function spRenderCrossCheck(){
   if(!xc){ box.style.display='none'; box.innerHTML=''; return; }
   const c = xc.counts, ready = xc.exportStatus !== 'BLOCKED';
   const esc = t => String(t).replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
-  const chip = (label, n, col) =>
-    '<span style="display:inline-block;padding:4px 11px;margin:0 6px 6px 0;border-radius:99px;font-size:11.5px;font-weight:700;'
+  const chip = (label, n, col, anchor) =>
+    '<span' + (anchor ? ' data-sp-xc-jump="' + anchor + '" title="คลิกเพื่อดูรายละเอียด" style="cursor:pointer;text-decoration:underline;' : ' style="')
+    + 'display:inline-block;padding:4px 11px;margin:0 6px 6px 0;border-radius:99px;font-size:11.5px;font-weight:700;'
     + 'background:' + col.bg + ';color:' + col.fg + ';border:1px solid ' + col.bd + '">' + label + ': ' + (n||0) + '</span>';
   const block = (title, list, col, bg) => !list.length ? '' :
     '<div style="margin-top:10px;border-left:3px solid ' + col + ';background:' + bg + ';padding:8px 10px;border-radius:0 8px 8px 0">'
@@ -13034,6 +13057,47 @@ function spRenderCrossCheck(){
     + list.slice(0,200).map(t => '• ' + esc(t)).join('<br>') + '</div></div>';
   const pdfCount = xc.rows.filter(x => x.source === 'PDF').length;
   const clcCount = xc.rows.filter(x => x.source === 'CLC').length;
+  /* ── MISMATCH DETAIL ──
+     ★ ใช้ xc.rows ชุดเดียวกับที่ counts.MISMATCH นับ (ห้ามคำนวณ Counter แยกอีกชุด)
+       counts.MISMATCH = xc.rows.filter(status==='MISMATCH').length เสมอ
+       แสดงแยกรายบรรทัด 1 Field = 1 Record (ไม่ยุบรวมต่อ Product) */
+  const mismatchDetails = xc.rows.filter(x => x.status === 'MISMATCH').map(x => ({
+    invoiceNo:    x.invoice,
+    pdfItem:      x.item,
+    productCode:  x.product,
+    field:        x.field,
+    pdfValue:     x.pdfValue,
+    clcValue:     x.clcValue,
+    exportSource: x.source,
+    exportValue:  x.finalValue,
+    status:       'MISMATCH'
+  }));
+  if(mismatchDetails.length !== (c.MISMATCH || 0))
+    console.warn('[SCH PDF] MISMATCH counter/detail ไม่ตรงกัน:', c.MISMATCH, 'vs', mismatchDetails.length);
+  const sv = v => (v == null || String(v).trim() === '') ? '(ว่าง)' : esc(v);
+  const mismatchBlock = !mismatchDetails.length ? '' :
+      '<div id="sp-xc-mismatch" style="margin-top:12px;border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:10px 12px">'
+    + '<div style="font-size:12.5px;font-weight:700;color:#b45309;margin-bottom:6px">'
+    + '⚠️ รายการข้อมูลไม่ตรงกัน (' + mismatchDetails.length + ')</div>'
+    + '<div style="overflow:auto;max-height:340px"><table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+    + '<thead><tr style="background:#fef3c7;color:#78350f">'
+    + ['#','Invoice No.','PDF Item','Product Code','Field','PDF Value','CLC Value','Export Source','Status']
+        .map(h => '<th style="text-align:left;padding:5px 7px;border:1px solid #fde68a;white-space:nowrap">' + h + '</th>').join('')
+    + '</tr></thead><tbody>'
+    + mismatchDetails.map((d, i) =>
+        '<tr style="background:' + (i % 2 ? '#fffdf5' : '#fff') + '">'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;color:#92400e">' + (i + 1) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;white-space:nowrap">' + sv(d.invoiceNo) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;white-space:nowrap">' + sv(d.pdfItem) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;white-space:nowrap">' + sv(d.productCode) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;font-weight:700;color:#b45309">' + sv(d.field) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;color:#1d4ed8">' + sv(d.pdfValue) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;color:#b45309">' + sv(d.clcValue) + '</td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;font-weight:700;white-space:nowrap">' + sv(d.exportSource)
+      + ' <span style="font-weight:400;color:#64748b">(ใช้จริง ' + sv(d.exportValue) + ')</span></td>'
+      + '<td style="padding:5px 7px;border:1px solid #fde68a;font-weight:700;color:#b45309;white-space:nowrap">MISMATCH</td>'
+      + '</tr>').join('')
+    + '</tbody></table></div></div>';
   box.innerHTML =
       '<div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px 16px;box-shadow:0 2px 8px rgba(15,23,42,.06)">'
     + '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">🔎 CROSS-CHECK PDF ↔ CLC — '
@@ -13041,7 +13105,7 @@ function spRenderCrossCheck(){
     + chip('PDF SOURCE',   pdfCount,           {bg:'#eff6ff',fg:'#1d4ed8',bd:'#bfdbfe'})
     + chip('CLC FALLBACK', clcCount,           {bg:'#fff7ed',fg:'#b45309',bd:'#fed7aa'})
     + chip('MATCH',        c.MATCH,            {bg:'#f0fdf4',fg:'#15803d',bd:'#bbf7d0'})
-    + chip('MISMATCH',     c.MISMATCH,         {bg:'#fffbeb',fg:'#b45309',bd:'#fde68a'})
+    + chip('MISMATCH',     c.MISMATCH,         {bg:'#fffbeb',fg:'#b45309',bd:'#fde68a'}, mismatchDetails.length ? 'sp-xc-mismatch' : '')
     + chip('MISSING',      c.MISSING,          {bg:'#f1f5f9',fg:'#475569',bd:'#cbd5e1'})
     + chip('PARSE ERROR',  c.PDF_PARSE_ERROR,  {bg:'#fef2f2',fg:'#b91c1c',bd:'#fecaca'})
     + chip('COUNTRY MAPPING MISSING', c.COUNTRY_MAPPING_MISSING, {bg:'#fdf4ff',fg:'#a21caf',bd:'#f5d0fe'})
@@ -13049,7 +13113,7 @@ function spRenderCrossCheck(){
     + 'EXPORT STATUS: ' + xc.exportStatus
     + (ready && c.MISMATCH ? ' <span style="font-weight:600;color:#b45309">(มี MISMATCH — เป็นคำเตือน ไม่บล็อก Export · ค่าที่ Export ใช้จาก PDF)</span>' : '')
     + '</div>'
-    + block('⚠ MISMATCH — ใช้ค่า PDF (CLC ห้าม overwrite) · ไม่บล็อก Export', xc.mismatch,   '#b45309', '#fffbeb')
+    + mismatchBlock
     + block('FALLBACK_CLC — PDF ไม่พบข้อมูล จึงใช้ CLC · ไม่บล็อก Export',    xc.fallback,   '#b45309', '#fff7ed')
     + block('PDF_PARSE_ERROR — PDF มีข้อมูลแต่ Parser อ่านไม่ได้',             xc.parseError, '#b91c1c', '#fef2f2')
     + block('MISSING — ไม่มีทั้ง PDF และ CLC',                                  xc.missing,    '#475569', '#f1f5f9')
@@ -13060,6 +13124,19 @@ function spRenderCrossCheck(){
     + block('ITEM_NOT_IN_PDF — ตรวจ PDF ครบแล้วไม่มี Item นี้จริง',              xc.itemNotInPdf   || [], '#7c3aed', '#f5f3ff')
     + '</div>';
   box.style.display = '';
+  /* BADGE CLICK — เลื่อนไปยัง Section รายละเอียด Mismatch (ต้องไม่กดแล้วเงียบ) */
+  box.querySelectorAll('[data-sp-xc-jump]').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = document.getElementById(el.getAttribute('data-sp-xc-jump'));
+      if(t){
+        t.scrollIntoView({ behavior:'smooth', block:'center' });
+        t.style.boxShadow = '0 0 0 3px #f59e0b';
+        setTimeout(() => { t.style.boxShadow = ''; }, 1600);
+      } else {
+        alert('ไม่มีรายการ MISMATCH ในผลตรวจครั้งนี้');
+      }
+    });
+  });
 }
 function spXcSummary(){
   const xc = spState.crossCheck;
@@ -13236,6 +13313,14 @@ function spB64ToU8(b64){
   for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
   return u8;
 }
+/* ══ PROFILE B (SCH PDF / แตกรายการ) — schema constants ══
+   ARTICLE_SOURCE = SCH_PDF_TARGET_SCHEMA_CONSTANT
+     ตรวจแล้วไม่มี field 'Article' ใน PDF / CLC (SD for draft entry) / RM
+     จึงเป็นค่าคงที่ของ schema Target ไม่ได้อ่านจาก Source ใด
+   ORDER_KITTING_ITEM = ค่าคงที่ schema เดียวกัน (RM ไม่มีเลขใบขนอ้างอิง → ไม่มี Item จริง) */
+const SP_ARTICLE_CONST      = '';   // Target (2) = blank
+const SP_ORDER_KITTING_ITEM = '';   // Target (2) = blank
+function SP_IS_ORDER_KITTING(ent){ return /Order\s*kitting/i.test(String(ent == null ? '' : ent)); }
 function spFmtDMY(d){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear(); }
 async function spBuildKNWorkbook(rows, incoterm){
   // XML surgery: แกะ template (JSZip) → คัดลอก style-index (s) ของแถวข้อมูลตัวอย่าง (row2)
@@ -13369,7 +13454,10 @@ async function spBuildKNWorkbook(rows, incoterm){
     p += txt('O',r,S(''), d.thdesc);                                             // O Thai Description
     p += (hsVal==='' ? cEmpty('P',r,S('')) : cStr('P',r,S(''), String(hsVal)));     // P Hs code (Text)
     p += (RATE_BLANK ? cEmpty('Q',r,S('14')) : (rateT===''? cEmpty('Q',r,S('14')) : cNum('Q',r,S('14'), rateT)));   // Q Tariff rate
-    p += cStr('R',r,S('12'), String(d.article==null?'':d.article));               // R Article (TEXT ตาม Target)
+    /* §2 Target (2) — Article = BLANK ทุกแถว (ยกเลิก constant '37' ของรอบก่อน)
+       ARTICLE_SOURCE = SCH_PDF_TARGET_SCHEMA_CONSTANT (ค่า = "")
+       ไม่มี field Article ใน PDF / CLC / RM — ไม่ได้อ่านจาก Source ใด */
+    p += cStr('R',r,S('12'), SP_ARTICLE_CONST);                                  // R Article (TEXT · blank)
     p += txt('S',r,S('12'), d.prodcode);                                         // S Material No
     p += txt('T',r,S('12'), d.desc2);                                            // T Desc 2
     p += cEmpty('U',r,S('15'));                                                  // U Net Weight = blank (Target schema)
@@ -13379,7 +13467,10 @@ async function spBuildKNWorkbook(rows, incoterm){
     p += (RATE_BLANK ? cEmpty('Y',r,S('17')) : (rateE===''? cEmpty('Y',r,S('17')) : cNum('Y',r,S('17'), rateE)));   // Y Excise_rate
     p += (RATE_BLANK ? cEmpty('Z',r,S('17')) : (rateL===''? cEmpty('Z',r,S('17')) : cNum('Z',r,S('17'), rateL)));   // Z Local_rate
     p += txt('AA',r,S('16'), d.refent);                                          // AA Import Entry
-    p += cStr('AB',r,S('11'), (item==null?'':String(item)));                       // AB Item (TEXT · รักษา leading zero · ว่าง = '' ตาม Target)
+    /* §3 Target (2) — Order kitting row ไม่มี Item จาก RM จริง → Item = BLANK
+       (ยกเลิกการเติม '37' ของรอบก่อน) · row ปกติที่มี Item จาก RM ห้ามเปลี่ยน */
+    const itemOut = SP_IS_ORDER_KITTING(d.refent) ? SP_ORDER_KITTING_ITEM : (item==null?'':String(item));
+    p += cStr('AB',r,S('11'), itemOut);                                          // AB Item (TEXT · รักษา leading zero)
     p += txt('AC',r,S('15'), totalVeh);                                          // AC Total - Vehicle Invoice
     p += '</row>';
     body += p;
@@ -13395,7 +13486,9 @@ async function spBuildKNWorkbook(rows, incoterm){
   sum += '<c r="U'+sr+'" s="22"><f>SUM(U2:U'+(N+1)+')</f><v>'+xmlNum(sumT)+'</v></c>';
   if(sumU) sum += '<c r="V'+sr+'" s="22"><f>SUM(V2:V'+(N+1)+')</f><v>'+xmlNum(sumU)+'</v></c>';
   sum += '</row>';
-  sheet = sheet.replace(/<sheetData>[\s\S]*<\/sheetData>/, '<sheetData>'+row1+body+sum+'</sheetData>');
+  /* §5 — Target แตกรายการ มีเฉพาะ 29 data rows ไม่มีแถวยอดรวม
+     PROFILE B จึงไม่ผนวก sum row (ตัวแปร sum ยังคำนวณไว้เพื่อ validation ภายใน) */
+  sheet = sheet.replace(/<sheetData>[\s\S]*<\/sheetData>/, '<sheetData>'+row1+body+'</sheetData>');
   sheet = sheet.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:AC'+sr+'"/>');
   sheet = sheet.replace(/<selection [^>]*\/>/, '<selection activeCell="A1" sqref="A1"/>');
   zip.file('xl/worksheets/sheet1.xml', sheet);
@@ -13559,17 +13652,55 @@ async function spDownload(){
         const g = byClc.get(a.rowIndex);
         if(!g){ errs.push('Invoice ' + a.invoice + ' · No. ' + a.no + ' · ' + a.productCode + ' : ไม่มีรายการใน canonicalRows'); continue; }
         if(Math.abs(g.qty - a.quantity) > 1e-9)
-          errs.push('Invoice ' + a.invoice + ' · No. ' + a.no + ' · ' + a.productCode + ' : Final(PDF-first) Qty ' + a.quantity + ' ≠ Output Qty ' + g.qty + ' (ต่าง ' + (g.qty - a.quantity) + ')');
+          errs.push('PDF_QTY_MISMATCH · Invoice ' + a.invoice + ' · PDF Item ' + a.no + ' · ' + a.productCode + ' : PDF Quantity ' + a.quantity + ' ≠ SUM(Split Quantity) ' + g.qty + ' (ต่าง ' + (g.qty - a.quantity) + ')');
         if(Math.abs(R2(g.amt) - R2(a.totalPrice)) > 0.011)
           errs.push('Invoice ' + a.invoice + ' · No. ' + a.no + ' · ' + a.productCode + ' : Final(PDF-first) Total ' + R2(a.totalPrice) + ' ≠ Output Total ' + R2(g.amt));
         const want = (a.displayedUnitPrice != null) ? Math.round(a.displayedUnitPrice * 1e6) / 1e6 : null;
         if(want != null) for(const u of g.ups) if(Math.abs(u - want) > 1e-6)
           errs.push('Invoice ' + a.invoice + ' · No. ' + a.no + ' · ' + a.productCode + ' : Final(PDF-first) Unit Price ' + want + ' ≠ Output Unit Price ' + u);
       }
-      // RM หลัง Merge
-      const cnt = new Map(), sum = new Map();
-      for(const x of (c.rmAudit || [])){ cnt.set(x.rmRowId, (cnt.get(x.rmRowId) || 0) + 1); sum.set(x.rmRowId, (sum.get(x.rmRowId) || 0) + x.originalQuantity); }
-      for(const [rid, n2] of cnt) if(n2 > 1) errs.push('_rmRowId ' + rid + ' ถูกใช้ ' + n2 + ' CLC Row');
+      /* ── RM VALIDATION (FIFO remainingQty model) ──
+         ★ ลบ Invariant เก่า "1 _rmRowId = 1 CLC Row" ออกแล้ว
+           FIFO รองรับ RM Row เดียวถูกตัดหลายครั้งข้าม PDF Item / Invoice
+           จึงตรวจด้วย "ยอดรวมที่ถูก Allocate" แทน "จำนวนครั้งที่ถูกใช้"
+         RM_OVER_ALLOCATED     : SUM(allocatedQty) > originalQty
+         RM_REMAINING_NEGATIVE : remainingQty < 0
+         หมายเหตุ: CLC เป็น Lookup 3 Field (Thai Description / Hs code / Brand)
+                   ห้ามใช้ CLC Row เป็นตัวกำหนด Ownership ของ RM Row      */
+      {
+        const clcByRowId = new Map();
+        for(const a of (c.clcAudit || [])) clcByRowId.set(a.clcRowId, a);
+        const rmAgg = new Map();
+        for(const x of (c.rmAudit || [])){
+          let g = rmAgg.get(x.rmRowId);
+          if(!g){
+            g = { rmRowId: x.rmRowId, rmSourceIndex: x.rmSourceIndex,
+                  productCode: x.productCode, originalQty: (+x.originalQuantity || 0),
+                  allocatedQtyTotal: 0, remainingQty: (+x.remainingQuantity || 0), uses: [] };
+            rmAgg.set(x.rmRowId, g);
+          }
+          g.allocatedQtyTotal = Math.round((g.allocatedQtyTotal + (+x.allocatedQuantity || 0)) * 1e6) / 1e6;
+          const ca = clcByRowId.get(x.assignedClcRowId);
+          g.uses.push({ invoice: ca ? ca.invoice : '-', pdfItem: ca ? ca.no : '-', qty: x.allocatedQuantity });
+        }
+        for(const g of rmAgg.values()){
+          const where = g.uses.map(u => 'Invoice ' + u.invoice + ' / PDF Item ' + u.pdfItem + ' / Qty ' + u.qty).join(' · ');
+          if(g.allocatedQtyTotal - g.originalQty > 1e-9)
+            errs.push('RM_OVER_ALLOCATED · _rmRowId ' + g.rmRowId + ' · Product Code ' + g.productCode +
+                      ' · Original Qty ' + g.originalQty + ' · Allocated Qty ' + g.allocatedQtyTotal +
+                      ' · Over Qty ' + (Math.round((g.allocatedQtyTotal - g.originalQty) * 1e6) / 1e6) +
+                      ' · Remaining Qty ' + g.remainingQty + ' · [' + where + ']');
+          const wantRemain = Math.round((g.originalQty - g.allocatedQtyTotal) * 1e6) / 1e6;
+          if(wantRemain < -1e-9)
+            errs.push('RM_REMAINING_NEGATIVE · _rmRowId ' + g.rmRowId + ' · Product Code ' + g.productCode +
+                      ' · Original Qty ' + g.originalQty + ' · Allocated Qty ' + g.allocatedQtyTotal +
+                      ' · Remaining Qty ' + wantRemain + ' · [' + where + ']');
+          if(Math.abs(wantRemain - g.remainingQty) > 1e-9)
+            errs.push('RM_REMAINING_MISMATCH · _rmRowId ' + g.rmRowId + ' · Product Code ' + g.productCode +
+                      ' · Original Qty ' + g.originalQty + ' · Allocated Qty ' + g.allocatedQtyTotal +
+                      ' · Remaining Qty ' + g.remainingQty + ' ≠ ' + wantRemain + ' · [' + where + ']');
+        }
+      }
       // ระดับ Invoice
       const invC = new Map(), invO = new Map();
       for(const a of (c.clcAudit || [])){ const k = String(a.invoice); const g = invC.get(k) || { q: 0, a: 0, w: 0 }; g.q += a.quantity; g.a += a.totalPrice; g.w += a.netwt; invC.set(k, g); }
