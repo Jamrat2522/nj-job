@@ -8,9 +8,19 @@
 <title>BILLING NJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- ══ V.334 · Font ห้ามบล็อกการวาดจอแรก ═════════════════════════════════
+     เดิม <link rel="stylesheet"> ของ fonts.googleapis.com เป็น render-blocking
+     -> เบราว์เซอร์รอ CSS ก้อนนี้เสร็จก่อนจึงวาดจอ ทั้งที่ Prompt ไม่จำเป็นต่อ first paint
+     media="print" -> เบราว์เซอร์โหลดแบบไม่บล็อก · onload สลับกลับเป็น all แล้วใช้งานได้ปกติ
+     display=swap เดิมยังอยู่ -> ระหว่างรอ แสดงด้วย fallback ก่อน ไม่มีข้อความหาย
+     <noscript> = fallback เมื่อปิด JavaScript -> Font ยังโหลดครบเหมือนเดิม
+     *** ไม่เปลี่ยน URL / น้ำหนัก / ชุดตัวอักษร *** print ยังใช้ Font เดิมทุกประการ -->
+<link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+      href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap">
+<noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"></noscript>
 <!-- BUILD CACHE KEY: ใช้บังคับโหลด JS ใหม่ได้โดยไม่เปลี่ยน semantic APP_VERSION; APP_VERSION ต้องตรง deploy_version ใน DB -->
-<script>window.__BUILD='1.4.1-local332';</script>
+<script>window.__BUILD='1.4.1-local338';</script>
 <!-- ══ MOBILE BLOCK — ต้องอยู่ใน <head> ก่อน CSS/HTML ใด ๆ ══════════════════
      ทำงานก่อน app.bundle.js (ซึ่งเป็น defer = รันหลัง HTML parse เสร็จ)
      -> ผู้ใช้มือถือไม่มีทางเห็นหน้า Login หรือ UI แวบขึ้นมาก่อน (ข้อกำหนดข้อ 7)
@@ -89,9 +99,14 @@
      228 KB -> 104 KB · 25 requests -> 1 -->
 <!-- เปิดการเชื่อมต่อ CDN ล่วงหน้า (DNS+TLS) ระหว่างที่ยัง parse HTML อยู่ -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local332">
-<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local332">
-<link rel="preload" as="script" href="assets/js/app.bundle.js?v=1.4.1-local332">
+<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local338">
+<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local338">
+<!-- ══ V.334 · Code Splitting (ESM) ══════════════════════════════════════
+     เดิม app.bundle.js = IIFE ก้อนเดียว 653 KB -> ทุกคนโหลด WHT 239 KB ทิ้งเปล่า
+     ตอนนี้ entry = assets/js/app/app.js (~26 KB) · หน้าอื่นเป็น chunk แยก
+     โหลดเมื่อ router เรียก import() ของหน้านั้นจริงเท่านั้น
+     ชื่อ chunk มี hash -> เนื้อหาเปลี่ยน = ชื่อเปลี่ยน = ไม่มีทางติด cache เก่า -->
+<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local338">
 <!-- defer: เดิมไม่มี -> บล็อก HTML parser จนกว่าจะโหลด SDK เสร็จ
      ใส่ defer แล้วยังรันก่อน app.bundle.js เสมอ (defer รักษาลำดับตามเอกสาร)
      app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow -->
@@ -104,8 +119,10 @@
   <p class="login-s">กำลังเปิดระบบ…</p>
   <div class="load-row"><div class="spin"></div></div>
 </div></div>
-<!-- Classic script bundle: รวม JS ทั้งแอปไฟล์เดียว → เปิดจาก file:// ได้โดยไม่มี ES Module request
-     ใช้ไฟล์เดียวกันทั้ง Local (file://) และ Production (https://) -->
-<script defer src="assets/js/app.bundle.js?v=1.4.1-local332"></script>
+<!-- ══ V.334 ══ ES Module entry — chunk อื่นถูกโหลดตอนเปิดหน้านั้นจริงเท่านั้น
+     type="module" = defer โดยปริยาย -> ยังรันหลัง Supabase SDK (defer) เสมอ ลำดับเดิมไม่เปลี่ยน
+     *** ต้องเปิดผ่าน http(s) หรือ Local Server *** — ES Module เปิดจาก file:// ตรง ๆ ไม่ได้
+     (ข้อจำกัดของเบราว์เซอร์เอง ไม่ใช่ของแอป) ดูวิธีรันใน README ของชุด Open check -->
+<script type="module" src="assets/js/app/app.js?v=1.4.1-local338"></script>
 </body>
 </html>
