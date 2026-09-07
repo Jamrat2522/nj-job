@@ -1,3 +1,76 @@
+NJHR V2 — RUN-122 · Web App Icon / PWA (Add to Home Screen)
+Build: njhr-v2-2ad787b9   (ก่อนหน้า: njhr-v2-5925db39)
+สถานะ: ICON_PWA_ADDED · REAL_DEVICE_VERIFICATION = NOT_RUN
+        (STEP-0 Instrumentation คงสถานะเดิม: REAL_DEVICE_BASELINE = NOT_RUN)
+
+SQL: ไม่มี — ไม่แตะฐานข้อมูล ไม่แตะ RPC (0 ไฟล์)
+
+Root Cause
+  ระบบไม่เคยมี Web App Icon เลย ตรวจ Source จริงแล้วพบว่า:
+    · ไม่มี manifest ใด ๆ (asset-manifest.js เป็นคนละเรื่อง — เป็น Module Registry)
+    · index.html <head> ไม่มี <link rel="manifest"> · ไม่มี apple-touch-icon
+      · ไม่มี apple-mobile-web-app-* เลยแม้แต่ตัวเดียว
+    · assets/ มีเพียง nj-logistic-logo.png (4 KB) ซึ่งใช้ในหน้า Login และ
+      Web Push Notification เท่านั้น ไม่ใช่ไอคอนแอป
+  → iOS/Android จึงสร้าง Icon จาก Screenshot ของหน้าเว็บ และตั้งชื่อจาก <title>
+    ("NJ LOGISTIC HR SYSTEM") ให้เอง
+
+สิ่งที่เพิ่ม (Icon Scope เท่านั้น)
+  + manifest.webmanifest        name=NJL LOGISTIC HR · short_name=NJ HR
+                                display=standalone · start_url=./ · scope=./
+                                theme_color/background_color = #101827 (ค่าเดิมของแอป)
+                                icons: 192 · 512 · 512 maskable
+  + assets/apple-touch-icon.png       180x180  RGB PNG
+  + assets/icon-192.png              192x192  RGB PNG
+  + assets/icon-512.png              512x512  PNG
+  + assets/icon-512-maskable.png     512x512  PNG (Android adaptive · safe area 78%)
+  ~ index.html <head>           เพิ่มบล็อก PWA ICON ต่อจาก meta theme-color
+                                link manifest / icon 192 / icon 512 /
+                                apple-touch-icon (มีและไม่มี sizes) ·
+                                apple-mobile-web-app-capable · mobile-web-app-capable ·
+                                apple-mobile-web-app-title=NJ HR ·
+                                apple-mobile-web-app-status-bar-style=default ·
+                                application-name=NJ HR
+  ~ config.js / sw.js / asset-manifest.js / index.html?v=
+                                เฉพาะ Deployment Version chain ที่ rebuild-version.py
+                                เขียนให้อัตโนมัติ — ไม่มีบรรทัด Logic ใดถูกแก้
+
+ทำไมต้อง Relative Path
+  แอปถูกเสิร์ฟใต้โฟลเดอร์ย่อย ไม่ใช่ Origin Root
+  ทุก href และ manifest.start_url / scope จึงเป็น './' ทั้งหมด
+  ถ้าใช้ '/' ไอคอนจะ 404 และ start_url จะพาออกนอก App → Routing พัง
+  test-icon.js บังคับข้อนี้ไว้แล้ว (IC-06 · IC-07 · IC-17 · IC-31)
+
+Service Worker / Cache — ไม่ถูกแตะ
+  ไฟล์ Icon และ manifest ไม่ถูกใส่ใน CORE และไม่อยู่ใน LAZY_PATHS
+  fetch handler เดิมมีบรรทัด `if (!isCore && !isLazy) return;`
+  → คำขอ Icon/manifest ผ่าน Service Worker ไปที่ Network ตรง ๆ
+    หลัง Deploy จึงได้ไฟล์ใหม่ทันทีโดยไม่ต้องแตะ Cache Strategy เลย
+  MODEL_CACHE ('njhr-face-models-v1') · network-first ของ navigate ·
+  no-store ของ config.js · activate ที่ลบเฉพาะ 'njhr-v2-*' — คงเดิมทุกบรรทัด
+
+Deployment Version
+  _check/rebuild-version.py เดิมคำนวณ buildId จาก asset-manifest refs + face.js/face.css
+  manifest/icon ไม่อยู่ในชุดนั้น → แก้ Icon แล้ว Build จะไม่ขยับ = Force Update ไม่ทำงาน
+  จึงเพิ่ม manifest.webmanifest และไฟล์ Icon ทั้ง 4 เข้า EXTRA ของ digest
+  (ไฟล์กลุ่มนี้สคริปต์ไม่เคยเขียนทับ จึงยัง deterministic — รันซ้ำได้ค่าเดิม)
+  ยืนยันแล้ว: รัน rebuild-version.py สองครั้งได้ njhr-v2-2ad787b9 เท่ากัน
+
+ยืนยันไม่แตะ
+  Login · Face Login · Face Attendance · GPS · Geofence · Supabase · RPC · SQL ·
+  Role/Permission · Navigation/Sidebar/Menu · URL/Routing · Business Logic ·
+  styles.css · mobile.css · face.js · face.css · runtime/* · views/* · compat/*
+  → ยืนยันด้วย byte-compare: มีเพียง index.html · config.js · sw.js ·
+    asset-manifest.js ที่เปลี่ยน และทั้ง 3 ไฟล์หลังเปลี่ยนเฉพาะสตริงเวอร์ชัน
+
+การตรวจสอบ
+  node _check/test-icon.js          IC-01..IC-47 (65 เคส · manifest/icon/meta/version/cache)
+  Regression ครบทุกชุดเดิม 14 ชุด ผ่านทั้งหมด 0 FAIL
+
+======================================================================
+ประวัติรอบก่อนหน้า (Build njhr-v2-5925db39 · STEP-0E)
+======================================================================
+
 NJHR V2 — STEP-0E · Completed Face Snapshot หลัง perfEnd()
 Build: njhr-v2-5925db39   (ก่อนหน้า: njhr-v2-3604683c)
 สถานะ: STEP0_INSTRUMENTATION_FIXED · READY_FOR_REAL_BASELINE
