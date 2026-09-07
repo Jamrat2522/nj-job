@@ -1,0 +1,1 @@
+var o={nameEn:"N.J. LOGISTICS & FRUITS CO., LTD.",address:"62/165 Moo 10, T. Thungsukla, A. Sriracha, Chonburi 20230 (HEAD OFFICE)",tel:"033-000870",fax:"033-000870",taxId:"0205557004651",logo:"assets/img/nj-logo.png"};export{o as a};

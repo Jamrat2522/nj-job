@@ -1,0 +1,1 @@
+var t=new Map;function d(e){if(t.has(e))return t.get(e);let o=new Promise((r,c)=>{let n=document.createElement("script");n.src=e,n.onload=()=>r(!0),n.onerror=()=>c(new Error("\u0E42\u0E2B\u0E25\u0E14\u0E2A\u0E04\u0E23\u0E34\u0E1B\u0E15\u0E4C\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: "+e)),document.head.appendChild(n)});return t.set(e,o),o}export{d as a};

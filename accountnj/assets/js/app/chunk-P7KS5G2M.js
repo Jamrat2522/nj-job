@@ -1,0 +1,1 @@
+import{i as c}from"./chunk-37ELUCVE.js";var e=o=>c("njacc_save_job",{p:o}),i=o=>c("njacc_job_detail",{p_id:o}),s=o=>c("njacc_job_detail_billing",{p_id:o}),a=(o,t)=>c("njacc_post_job",{p_id:o,p_request_id:t}),p=o=>c("njacc_save_job_doc_fields",{p:o});export{e as a,i as b,s as c,a as d,p as e};

@@ -1,0 +1,1 @@
+function n(o,a=""){let t=document.querySelector(".toast-wrap");t||(t=document.createElement("div"),t.className="toast-wrap",document.body.appendChild(t));let e=document.createElement("div");e.className="toast "+a,e.textContent=o,t.appendChild(e),setTimeout(()=>e.remove(),4200)}export{n as a};
