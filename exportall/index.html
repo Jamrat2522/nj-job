@@ -6916,15 +6916,27 @@ const TIN = (function(){
       };
       const gCol=COLS.filter(function(c){ return c.k==='G'; })[0];
       const srcD=list[gCol?gCol.s:5], srcT=list[TOT_S.G];   /* Copy ฟอนต์/เส้นขอบ/พื้น จาก Style เดิมของคอลัมน์ตัวเลข */
-      const add=swap(srcD,'1')+swap(srcT,'1')+swap(srcD,'0')+swap(srcT,'0');
+      /* Package Unit (O): บังคับชิดซ้าย + ห้าม Wrap ทั้งหัวคอลัมน์และค่าข้อมูล — Copy ฟอนต์/เส้นขอบ/พื้นเดิม */
+      const alignLeft=function(src){
+        const mm=String(src||'').match(/^<xf\b([^>]*?)\/?>/);
+        let at=mm?mm[1]:' numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"';
+        at=at.replace(/\s*applyAlignment="[^"]*"/g,'');
+        return '<xf'+at+' applyAlignment="1"><alignment horizontal="left" wrapText="0"/></xf>';
+      };
+      const oHdrSrc=list[parseInt((sheet.match(/<c r="O1"[^>]*\bs="(\d+)"/)||[])[1],10)||0];
+      const oCol=COLS.filter(function(c){ return c.k==='O'; })[0];
+      const add=swap(srcD,'1')+swap(srcT,'1')+swap(srcD,'0')+swap(srcT,'0')
+               +alignLeft(oHdrSrc)+alignLeft(list[oCol?oCol.s:5]);
       intS.iData=base; intS.iTotal=base+1; intS.nData=base+2; intS.nTotal=base+3;
-      st=st.replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(base+4)+'">')
+      intS.oHdr=base+4; intS.oData=base+5;
+      st=st.replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(base+6)+'">')
            .replace('</cellXfs>', add+'</cellXfs>');
       files['xl/styles.xml']=enc.encode(st);
     })();
     const dS=function(cd){ if(intS.iData==null) return cd.s;
       if(INTC.indexOf(cd.k)>=0) return intS.iData;
       if(NUMC.indexOf(cd.k)>=0) return intS.nData;
+      if(cd.k==='O'&&intS.oData!=null) return intS.oData;
       return cd.s; };
     const tS=function(k){ if(intS.iTotal==null) return TOT_S[k];
       if(INTC.indexOf(k)>=0) return intS.iTotal;
@@ -6937,7 +6949,12 @@ const TIN = (function(){
       if(NUMC.indexOf(k)>=0) return Math.round(Number(v)*1e6)/1e6;
       return v; };
     sheet=sheet.replace(/<dimension ref="[^"]*"\/>/,'<dimension ref="A1:AC'+tr+'"/>');
-    const row1=sheet.match(/<row[^>]*r="1"[^>]*>[\s\S]*?<\/row>/)[0];
+    let row1=sheet.match(/<row[^>]*r="1"[^>]*>[\s\S]*?<\/row>/)[0];
+    if(intS.oHdr!=null){   /* หัวคอลัมน์ Package Unit — ชิดซ้าย บรรทัดเดียว (ข้อความและคอลัมน์อื่นไม่เปลี่ยน) */
+      row1=/<c r="O1"[^>]*\bs="\d+"/.test(row1)
+        ? row1.replace(/(<c r="O1"[^>]*\bs=")\d+(")/,'$1'+intS.oHdr+'$2')
+        : row1.replace(/<c r="O1"/,'<c r="O1" s="'+intS.oHdr+'"');
+    }
     let body='';
     rows.forEach(function(row,i){ const R=i+2; let cells='';
       COLS.forEach(function(cd){ cells+=cellXml(cd.k+R,{k:cd.k,s:dS(cd),t:cd.t},asInt(cd.k,row[cd.k])); });
