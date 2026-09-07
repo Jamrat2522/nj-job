@@ -1402,32 +1402,39 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ══ 2. ตรวจใบขน SCH FZ (ย้ายระบบจากโหมด sch_fz_check มาติดตั้งเพิ่ม · prefix msp) ══ -->
   <div id="msp-view">
   <div class="doa-panel">
-    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (ครบทั้ง 4 ไฟล์)</h2>
+    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (ครบทั้ง 5 Source)</h2>
     <div class="doa-uploads">
+      <label class="doa-drop" id="msp-pdf-drop">
+        <div class="dico">📕</div>
+        <div class="dlabel">1. PDF INVOICE</div>
+        <div class="dhint">Schaeffler Tax Invoice — Source หลักสำหรับตรวจข้อมูลสินค้า / Invoice (เลือกได้หลายไฟล์)</div>
+        <div class="doa-file-list" id="msp-pdf-list"></div>
+        <input type="file" id="msp-pdf-input" accept=".pdf" multiple/>
+      </label>
       <label class="doa-drop" id="msp-clc-drop">
         <div class="dico">📗</div>
-        <div class="dlabel">1. CLC — INVOICE ลูกค้า</div>
-        <div class="dhint">MASTER สำหรับข้อมูลทั่วไปทั้งหมด</div>
+        <div class="dlabel">2. CLC — INVOICE ลูกค้า</div>
+        <div class="dhint">Source ของ Thai Description / Hs code / Brand</div>
         <div class="doa-file-list" id="msp-clc-list"></div>
         <input type="file" id="msp-clc-input" accept=".xlsx,.xls,.xlsm"/>
       </label>
       <label class="doa-drop" id="msp-rmdn-drop">
         <div class="dico">📋</div>
-        <div class="dlabel">2. RM DN</div>
+        <div class="dlabel">3. RM DN</div>
         <div class="dhint">MASTER สำหรับเลขที่ใบขนอ้าง + รายการที่</div>
         <div class="doa-file-list" id="msp-rmdn-list"></div>
         <input type="file" id="msp-rmdn-input" accept=".xlsx,.xls,.xlsm"/>
       </label>
       <label class="doa-drop" id="msp-map-drop">
         <div class="dico">📘</div>
-        <div class="dlabel">3. MAPPING</div>
+        <div class="dlabel">4. MAPPING</div>
         <div class="dhint">ไฟล์ที่ต้องตรวจสอบ</div>
         <div class="doa-file-list" id="msp-map-list"></div>
         <input type="file" id="msp-map-input" accept=".xlsx,.xls,.xlsm"/>
       </label>
       <label class="doa-drop" id="msp-dwk-drop">
         <div class="dico">📙</div>
-        <div class="dlabel">4. DWAK</div>
+        <div class="dlabel">5. DWAK</div>
         <div class="dhint">ไฟล์ที่ต้องตรวจสอบ</div>
         <div class="doa-file-list" id="msp-dwk-list"></div>
         <input type="file" id="msp-dwk-input" accept=".xlsx,.xls,.xlsm"/>
@@ -1438,7 +1445,7 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-success" id="msp-btn-export" onclick="mspExport()" style="display:none">📥 Export Difference Report</button>
       <button class="btn btn-ghost" onclick="mspReset()">🔄 รีเซ็ต</button>
     </div>
-    <div class="doa-status" id="msp-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (CLC / RM DN / MAPPING / DWAK)</div>
+    <div class="doa-status" id="msp-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 5 Source (PDF / CLC / RM DN / MAPPING / DWAK)</div>
   </div>
 
   <div class="doa-panel" id="msp-result-panel" style="display:none">
@@ -1459,8 +1466,8 @@ body.legacy-active .content-area { display: none !important; }
     <div class="doa-preview-wrap" id="msp-tbl-wrap" style="max-height:560px">
       <table class="doa-tbl">
         <thead><tr>
-          <th>หัวข้อตรวจสอบ</th><th>Invoice</th><th>Material</th>
-          <th>RM DN</th><th>CLC</th><th>MAPPING</th><th>DWAK</th><th>สถานะ</th><th>สาเหตุ</th>
+          <th>หัวข้อตรวจสอบ</th><th>Invoice</th><th>PDF Item</th><th>Material</th><th>Delivery</th>
+          <th>PDF</th><th>RM DN</th><th>CLC</th><th>MAPPING</th><th>DWAK</th><th>Source</th><th>สถานะ</th><th>สาเหตุ</th>
         </tr></thead>
         <tbody id="msp-tbody"></tbody>
       </table>
@@ -11774,6 +11781,9 @@ async function spReadInvoice(file){
     pono:     spFindCol(headers, 'Purchase order', '^PO No'),
     netwt:    spFindCol(headers, '^Net Weight', '^N\\.?W\\.?'),
     grosswt:  spFindCol(headers, '^Gross Weight', '^G\\.?W\\.?', 'gross.*wt'),
+    /* [SP WEIGHT CHECK] หน่วยน้ำหนัก — คอลัมน์เสริม (ไม่บังคับ · ไม่มี = ไม่ตรวจหน่วย) */
+    netwtunit:   spFindCol(headers, '^Unit of Weight', '^Netweight Unit', '^NW Unit'),
+    grosswtunit: spFindCol(headers, '^Grossweight Unit', '^Unit of Gross', '^GW Unit'),
     hs:       spFindCol(headers, 'Comm.*code', 'comm.*imp'),
     origin:   spFindCol(headers, 'Country of origin', '^Origin'),
     prodcode: spFindCol(headers, '^Product Code'),
@@ -11840,6 +11850,8 @@ async function spReadInvoice(file){
       pono:     String(r[col.pono]||'').trim(),
       netwt:    parseFloat(String(r[col.netwt]||'0').replace(/,/g,'')) || 0,
       grosswt:  col.grosswt>=0 ? (parseFloat(String(r[col.grosswt]||'0').replace(/,/g,'')) || 0) : 0,
+      netwtunit:   col.netwtunit  >= 0 ? String(r[col.netwtunit]  ?? '').trim().toUpperCase() : '',
+      grosswtunit: col.grosswtunit>= 0 ? String(r[col.grosswtunit]?? '').trim().toUpperCase() : '',
       hsRaw, hsShort, stat,
       origin:   String(r[col.origin]||'').trim(),
       prodcode: (col.prodcode>=0 ? String(r[col.prodcode]||'').trim() : material) || material,
@@ -13033,6 +13045,40 @@ async function spComputeMapping(){
   }
   console.log('[SCH PDF] MERGE duplicate Import Entry+Item — Key ที่ถูกรวม:', mergedKeyCount,
               '· Split Row ที่ยุบไป:', mergedRowsSaved);
+  /* ══════════════════════════════════════════════════════════════════════
+     [SP WEIGHT CHECK] Net Weight ต้องไม่มากกว่า Gross Weight (เฉพาะโหมด SCH PDF)
+       · ใช้ค่าตัวเลขจริงจาก CLC ก่อน Format/ปัดเศษ (c.src.netwt / c.src.grosswt)
+       · เท่ากัน = PASS · มากกว่าแม้ 0.001 = FAIL (ไม่มี tolerance)
+       · หน่วยไม่ตรงกัน = FAIL (ห้ามเทียบตัวเลขข้ามหน่วย · ห้ามเดา Conversion)
+       · ค่าว่าง / ไม่มี Gross Weight = ใช้พฤติกรรมเดิม (Export เว้นว่าง) ไม่บังคับเป็น 0
+       · ตรวจอย่างเดียว — ไม่แก้ค่า Weight ใด ๆ                                   */
+  {
+    const wIssues = [];
+    for(const c of clcSeq){
+      const src = c.src || {};
+      const nw = (typeof src.netwt   === 'number' && isFinite(src.netwt))   ? src.netwt   : null;
+      const gw = (typeof src.grosswt === 'number' && isFinite(src.grosswt)) ? src.grosswt : null;
+      if(nw === null || gw === null) continue;          // Missing → Validation เดิม
+      if(!(nw > 0) || !(gw > 0)) continue;              // ไม่มีค่า → พฤติกรรมเดิม (เว้นว่าง)
+      const nu = String(src.netwtunit || '').trim().toUpperCase();
+      const gu = String(src.grosswtunit || '').trim().toUpperCase();
+      const where = 'Item ' + ((src._pdfItemNo != null) ? src._pdfItemNo : (src.item != null ? src.item : '-'))
+                  + ' | Material ' + (src.prodcode || src.material || '-');
+      if(nu && gu && nu !== gu){
+        wIssues.push(where + ' | หน่วย Net Weight และ Gross Weight ไม่ตรงกัน (NW=' + nu + ' / GW=' + gu + ')');
+        continue;                                       // ห้ามเทียบตัวเลขต่างหน่วย
+      }
+      if(nw > gw)
+        wIssues.push(where + ' | Net Weight ' + nw + (nu ? ' ' + nu : '')
+                   + ' มากกว่า Gross Weight ' + gw + (gu ? ' ' + gu : ''));
+    }
+    if(wIssues.length)
+      throw new Error('NET_WEIGHT_EXCEEDS_GROSS_WEIGHT — หยุด Export\n' +
+        '✗ Net Weight มากกว่า Gross Weight (พบ ' + wIssues.length + ' รายการ)\n' +
+        wIssues.slice(0, 20).map((t, i) => (i + 1) + '. ' + t).join('\n') +
+        (wIssues.length > 20 ? '\n… อีก ' + (wIssues.length - 20) + ' รายการ' : ''));
+  }
+
   return { result, clcAudit, rmAudit, mergeAudit, mergedKeyCount, mergedRowsSaved,
            matched, unmatched, rmCount: rmRows.length, invCount: invRows.length };
 }
@@ -19407,7 +19453,7 @@ const S = { master:null, mapping:null, dwak:null, result:null, search:'', weight
 /* ---- Header ที่ตายตัวต่อไฟล์ (normalize = trim + ลบ line break + ยุบช่องว่าง + lowercase) ---- */
 const HDR = {
   master: {
-    invoice:['Billing Document'], item:['Item'], material:['Material'], desc:['Eng des','Eng Des','ENG DES','EN Description'],
+    invoice:['Billing Document'], item:['Item'], material:['Material'], desc:['Eng des','Eng Des','ENG DES','EN Description','Master_ Des.en','Master_Des.en'],
     qty:['Invoiced Quantity','Billing qty in SKU'], curr:['Document Currency'], netwt:['Net Weight'],
     netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'], grosswt:['GW'], invdate:['Billing Date','Billing date','Bill. Date']
   },
@@ -19530,7 +19576,7 @@ async function readFile(file, kind){
     if(!best || missing.length<best.missing.length || (missing.length===best.missing.length && bestScore>best._score)) best=cand;
   }
   if(!best) throw new Error('['+file.name+'] ไม่พบแถว Header ที่มีคอลัมน์ Material/Product Code ใน 50 แถวแรกของทุก Sheet');
-  if(kind==='master' && !(best.cols.desc>=0)) throw new Error('ไม่พบคอลัมน์ Eng des ในไฟล์ INVOICE MASTER');
+  if(kind==='master' && !(best.cols.desc>=0)) throw new Error('ไม่พบคอลัมน์ English Description ในไฟล์ INVOICE MASTER');
   if(best.missing.length) throw new Error('['+file.name+' · sheet "'+best.sheet+'"] หา Header ไม่พบ: '+best.missing.map(f=>FIELD_LABEL[f]||f).join(', '));
   const rows=extractRows(best,kind);
   if(!rows.length) throw new Error('['+file.name+' · sheet "'+best.sheet+'"] อ่านข้อมูลได้ 0 รายการ');
@@ -19730,9 +19776,15 @@ function mnnwCheck(){
       if(r.grosswt===null){ probs.push(at+' — Gross Weight ไม่ใช่ตัวเลข ("'+normText(r._gwRaw)+'")'); return; }
       if(r.netwt<0){ probs.push(at+' — Net Weight ติดลบ ('+fmt(r.netwt,3)+')'); return; }
       if(r.grosswt<0){ probs.push(at+' — Gross Weight ติดลบ ('+fmt(r.grosswt,3)+')'); return; }
-      if(r._nwUnit && r._gwUnit && r._nwUnit!==r._gwUnit)
-        probs.push(at+' — หน่วยน้ำหนักไม่ตรงกัน (NW='+r._nwUnit+' / GW='+r._gwUnit+')');
-      if(r.grosswt < r.netwt - TOL_W)
+      /* [WEIGHT CHECK] หน่วยต้องตรงกันก่อนเทียบ — ห้ามเดาแปลงหน่วยเอง · ห้ามเทียบตัวเลขต่างหน่วย */
+      if(r._nwUnit && r._gwUnit && r._nwUnit!==r._gwUnit){
+        issues.push({ file:label, seq:issues.length+1, row:r._row, invoice:r.invoice, item:r.item,
+                      material:r.material, desc:r.desc, nw:r.netwt, gw:r.grosswt, diff:null,
+                      unitBad:true, nwUnit:r._nwUnit, gwUnit:r._gwUnit });
+        return;
+      }
+      /* Net Weight > Gross Weight = ERROR ทันที (เท่ากัน = PASS · ห้ามใช้ tolerance) */
+      if(r.netwt > r.grosswt)
         issues.push({ file:label, seq:issues.length+1, row:r._row, invoice:r.invoice, item:r.item,
                       material:r.material, desc:r.desc, nw:r.netwt, gw:r.grosswt, diff:r.netwt-r.grosswt });
     });
@@ -19755,7 +19807,10 @@ function mnnwRender(){
   const iss=w.issues, prb=w.probs;
   if(iss.length){
     box.className='mnnw-box bad'; box.style.display='';
-    box.innerHTML='❌ พบ Gross Weight น้อยกว่า Net Weight จำนวน '+iss.length+' รายการ'
+    const nUnit=iss.filter(x=>x.unitBad).length, nGw=iss.length-nUnit;
+    box.innerHTML='❌ พบข้อมูลน้ำหนักผิด '+iss.length+' รายการ'
+      +(nGw?' · Net Weight มากกว่า Gross Weight '+nGw+' รายการ':'')
+      +(nUnit?' · หน่วย Net Weight และ Gross Weight ไม่ตรงกัน '+nUnit+' รายการ':'')
       +'<span class="sub">กรุณาตรวจสอบข้อมูลก่อน Export Excel · คลิกที่นี่เพื่อไปยังรายการที่ผิด</span>'
       +(prb.length?'<span class="sub">⚠ ข้อมูลผิดปกติอื่นอีก '+prb.length+' รายการ (ดูใต้ตาราง)</span>':'');
   } else if(prb.length){
@@ -19774,9 +19829,10 @@ function mnnwRender(){
         + iss.map((d,i)=>'<tr class="bad" data-i="'+i+'">'
             +'<td>'+(i+1)+'</td><td>'+esc(d.file)+'</td><td>'+esc(d.invoice||'—')+'</td><td>'+esc(d.item||'—')+'</td>'
             +'<td>'+esc(d.material||'—')+'</td><td>'+esc(d.desc||'—')+'</td>'
-            +'<td>'+fmt(d.nw,3)+' KGM</td>'
-            +'<td class="gwbad">'+fmt(d.gw,3)+' KGM ⚠ GW น้อยกว่า NW</td>'
-            +'<td>'+fmt(d.diff,3)+' KGM</td></tr>').join('')
+            +'<td>'+fmt(d.nw,3)+' '+esc(d.nwUnit||'KGM')+'</td>'
+            +'<td class="gwbad">'+fmt(d.gw,3)+' '+esc(d.gwUnit||'KGM')
+              +(d.unitBad?' ✗ หน่วย Net Weight และ Gross Weight ไม่ตรงกัน':' ✗ Net Weight มากกว่า Gross Weight')+'</td>'
+            +'<td>'+(d.unitBad?'—':fmt(d.diff,3)+' KGM')+'</td></tr>').join('')
         + '</tbody>';
   }
   if(prb.length){
@@ -20955,14 +21011,15 @@ else wireDrops();
 'use strict';
 
 const TOL_W=0.01, TOL_V=0.02;               // KG / Net Value tolerance
-const S={ clc:null, rmdn:null, mapping:null, dwak:null, result:null, search:'' };
+const S={ pdf:null, clc:null, rmdn:null, mapping:null, dwak:null, result:null, search:'' };
 
 /* ---- Header ตายตัวต่อไฟล์ (normalize = trim + ลบ line break + ยุบช่องว่าง + lowercase) ---- */
 const HDR={
   clc:{ invoice:['Billing Document'], invdate:['Billing Date','Billing date','Bill. Date'], material:['Product Code','Material'],
         desc:['EN Description','Description'], qty:['Billing qty in SKU'], curr:['Document Currency'],
         netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'] },
-  rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'] },
+  rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'],
+        delivery:['Outbound Delivery No.','Outbound Delivery No','Delivery No.','Delivery'] },
   mapping:{ invoice:['INVOICE NO.','invoice no.'], invdate:['DATE INV','invoice date.','invoice date','Invoice Date','Date Inv.'],
         material:['PRODUCT CODE','Product Code'], desc:['Description (EN Description) 1','English Description'],
         qty:['qty.inv.','Qty. Inv.และQty. ใบขน'], curr:['Ccy','Currency'], netwt:['Net W.','N.W.'], grosswt:['Gross W.','G.W.'],
@@ -20973,7 +21030,9 @@ const HDR={
 };
 const REQ={ clc:['invoice','material','qty','netval'], rmdn:['material','refinbound'],
            mapping:['invoice','material','qty','netval','declref'], dwak:['material','qty','netval','declref'] };
-const FILE_LABEL={ clc:'CLC (INVOICE ลูกค้า)', rmdn:'RM DN', mapping:'MAPPING', dwak:'DWAK' };
+const FILE_LABEL={ pdf:'PDF INVOICE', clc:'CLC (INVOICE ลูกค้า)', rmdn:'RM DN', mapping:'MAPPING', dwak:'DWAK' };
+/* Delivery Normalization — trim → string → ตัด .0 → ตัด leading zero (ใช้เฉพาะ Compare · ไม่แก้ Raw Value) */
+function mspNormDlv(v){ let t=String(v==null?'':v).trim(); if(/\.0$/.test(t)) t=t.slice(0,-2); t=t.replace(/^0+/,''); return t; }
 const FIELD_LABEL={ invoice:'Invoice', material:'Material/Product Code', desc:'Description', qty:'Quantity',
   curr:'Currency', netwt:'Net Weight', netval:'Net Value', country:'Country', declref:'เลขที่ใบขนอ้าง', refinbound:'Ref # Inbound' };
 
@@ -21085,7 +21144,8 @@ function extractRows(best,kind){
     let grosswt;
     if(kind==='dwak') grosswt = cols.grosswt>=0? toKg(r[cols.grosswt], cols.grosswtunit>=0?r[cols.grosswtunit]:'') : null;
     else grosswt = num(r,'grosswt');
-    out.push({ _row:i+1, invoice:inv, material, ref, item,
+    const delivery = (kind==='rmdn' && cols.delivery>=0) ? mspNormDlv(r[cols.delivery]) : '';
+    out.push({ _row:i+1, invoice:inv, material, ref, item, delivery,
       desc:txt(r,'desc'), qty:num(r,'qty'), netval:num(r,'netval'),
       curr: cols.curr>=0? normUpper(r[cols.curr]) : '', netwt, grosswt,
       invdate: cols.invdate>=0 ? r[cols.invdate] : null,
@@ -21095,9 +21155,13 @@ function extractRows(best,kind){
 }
 
 /* ---------- compare (dual-master) ---------- */
-function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong){ return {field,invoice,material,rmdn,clc,mapping,dwak,wrong}; }
+function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong,extra){
+  return Object.assign({field,invoice,material,rmdn,clc,mapping,dwak,wrong,
+                        pdf:'\u2014', pdfItem:'\u2014', delivery:'\u2014', source:'CLC'}, extra||{});
+}
 function compare(){
   const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=S.mapping.rows, dwak=S.dwak.rows;
+  const pdfItems=(S.pdf&&S.pdf.rows)||[];
   const diffs=[];
   const invM=(clc[0]&&clc[0].invoice)||(mapping[0]&&mapping[0].invoice)||'\u2014';
 
@@ -21130,6 +21194,79 @@ function compare(){
   const itemOk=itemReasons.length===0;
   if(!itemOk) diffs.push(D0('รายการที่',invM,'\u2014',F(mC),'\u2014',F(pC),F(dC),itemReasons.join(' | ')));
   const itemChk={ rmdn:F(mC), mapping:F(pC), dwak:F(dC), ok:itemOk };
+
+  /* ═════ (B2) PDF CROSS-CHECK — PDF เป็น Source หลัก =====================
+     Matching: Invoice No. + Product Code (+ Delivery ประกอบ) · ห้ามจับข้าม Invoice / Delivery
+     PDF เป็น Master ของ: Description · Quantity · Currency · Origin · Net Value (Total Price)
+     CLC ใช้เฉพาะ Thai Description / Hs code / Brand จึงไม่นำมา Override ช่องเหล่านี้        */
+  const pdfAgg=new Map();
+  for(const it of pdfItems){
+    const inv=normText(it.invoice), mat=normMaterial(it.material);
+    const k=inv+'\u0001'+mat;
+    let x=pdfAgg.get(k);
+    if(!x){ x={ invoice:inv, material:mat, qty:0, netval:0,
+                desc:normText(it.endesc), curr:normUpper(it.currency),
+                country:normUpper(it.origin||''), invdate:it.invDate,
+                delivery:mspNormDlv(it.deliveryNo), items:[] };
+            pdfAgg.set(k,x); }
+    if(it.qty!=null) x.qty+=Number(it.qty)||0;
+    if(it.totalPrice!=null) x.netval+=Number(it.totalPrice)||0;
+    if(!x.desc && it.endesc) x.desc=normText(it.endesc);
+    if(!x.curr && it.currency) x.curr=normUpper(it.currency);
+    if(!x.country && it.origin) x.country=normUpper(it.origin);
+    const dv=mspNormDlv(it.deliveryNo);
+    if(dv && x.delivery && dv!==x.delivery) x.delivery=x.delivery+', '+dv;
+    else if(dv && !x.delivery) x.delivery=dv;
+    x.items.push(normText(it.itemNo));
+  }
+  const _pdfItemLbl=x=>x&&x.items&&x.items.length?x.items.join(', '):'\u2014';
+  let pdfBad=0;
+  if(pdfAgg.size){
+    const aggFor=a=>{ const m=new Map(); a.forEach(r=>{ const k=normText(r.invoice)+'\u0001'+r.material; let x=m.get(k);
+      if(!x){ x={invoice:normText(r.invoice),material:r.material,qty:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,delivery:r.delivery||''}; m.set(k,x); }
+      if(r.qty!=null)x.qty=(x.qty||0)+r.qty; if(r.netval!=null)x.netval=(x.netval||0)+r.netval;
+      if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country;
+      if(!x.delivery&&r.delivery)x.delivery=r.delivery; }); return m; };
+    const cX=aggFor(clc), pX=aggFor(mapping), dX=aggFor(dwak), rX=aggFor(rmdn);
+    const ndP=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
+    for(const [k,P] of pdfAgg){
+      const c=cX.get(k), m2=pX.get(k), d=dX.get(k), rm=rX.get(k);
+      const base={ pdfItem:_pdfItemLbl(P), delivery:P.delivery||'\u2014', source:'PDF' };
+      /* PDF มีรายการนี้ แต่ปลายทางไม่มี → MISSING */
+      if(!m2){ diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014','(ไม่พบ)',d?'มี':'\u2014','MISSING — ไม่พบใน MAPPING (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
+      if(!d){  diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014',m2?'มี':'\u2014','(ไม่พบ)','MISSING — ไม่พบใน DWAK (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
+      const numP=(field,pr,tol)=>{ const bad=[];
+        if(m2&&ndP(P[pr],m2[pr],tol)) bad.push('MAPPING='+fmtN(m2[pr]));
+        if(d &&ndP(P[pr],d[pr],tol))  bad.push('DWAK='+fmtN(d[pr]));
+        if(c &&ndP(P[pr],c[pr],tol))  bad.push('CLC='+fmtN(c[pr]));
+        if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?fmtN(c[pr]):'\u2014',m2?fmtN(m2[pr]):'\u2014',d?fmtN(d[pr]):'\u2014',
+          'MISMATCH — PDF \u2260 '+bad.join(', '),Object.assign({pdf:fmtN(P[pr])},base))); pdfBad++; } };
+      const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return; const bad=[];
+        if(m2&&normCmp(m2[pr])&&normCmp(m2[pr])!==pv) bad.push('MAPPING');
+        if(d &&normCmp(d[pr]) &&normCmp(d[pr]) !==pv) bad.push('DWAK');
+        if(c &&normCmp(c[pr]) &&normCmp(c[pr]) !==pv) bad.push('CLC');
+        if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',
+          'MISMATCH — PDF \u2260 '+bad.join(' / '),Object.assign({pdf:P[pr]||'(ว่าง)'},base))); pdfBad++; } };
+      strP('Description (PDF)','desc');
+      numP('Quantity (PDF)','qty',1e-9);
+      strP('Currency (PDF)','curr');
+      strP('Origin (PDF)','country');           /* USA → US ถูก normalize โดย Parser เดิมแล้ว */
+      numP('Net Value (PDF)','netval',TOL_V);
+      /* Delivery — เทียบหลัง Normalize (53862052 == 0053862052) · ตรวจเมื่อ RM DN มีคอลัมน์ Delivery */
+      if(rm && rm.delivery && P.delivery && mspNormDlv(rm.delivery)!==mspNormDlv(P.delivery)){
+        diffs.push(D0('Delivery (PDF)',P.invoice,P.material,rm.delivery,'\u2014','\u2014','\u2014',
+          'MISMATCH — PDF \u2260 RM DN',Object.assign({pdf:P.delivery},base))); pdfBad++; }
+    }
+    /* MAPPING มีรายการที่ PDF ไม่มี → ส่วนเกิน */
+    const pKeys=new Set(pdfAgg.keys());
+    for(const r of mapping){
+      const k=normText(r.invoice)+'\u0001'+r.material;
+      if(!pKeys.has(k) && !diffs.some(x=>x.field==='Material (เกินจาก PDF)'&&x.material===r.material&&x.invoice===normText(r.invoice))){
+        diffs.push(D0('Material (เกินจาก PDF)',normText(r.invoice),r.material,'\u2014','\u2014','มี','\u2014',
+          'MISSING — ไม่พบใน PDF',{pdf:'(ไม่พบ)',source:'PDF'})); pdfBad++; }
+    }
+  }
+  const pdfOk=pdfBad===0;
 
   /* ===== (C) ข้อมูลทั่วไป — MASTER = CLC · รวมยอดตาม invoice+product ===== */
   const key=r=>r.invoice+'\u0001'+r.material;
@@ -21187,15 +21324,39 @@ function compare(){
   const errorCount=diffs.length;
   const verdict=errorCount===0?'PASS':'FAIL';
   const firstInv=(clc[0]&&clc[0].invoice)? String(clc[0].invoice).replace(/[^0-9A-Za-z_-]/g,'') : '';
-  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk,
-    meta:{ clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
+  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length,
+    meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
            clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:S.mapping.sheet, dwakSheet:S.dwak.sheet,
            invoice:firstInv, at:stampHuman() } };
 }
 
-/* ---------- upload wiring (4 ไฟล์) ---------- */
+/* ---------- upload wiring (5 Source · PDF รองรับหลายไฟล์) ---------- */
 const DROPS={ clc:['msp-clc-drop','msp-clc-input','msp-clc-list'], rmdn:['msp-rmdn-drop','msp-rmdn-input','msp-rmdn-list'],
               mapping:['msp-map-drop','msp-map-input','msp-map-list'], dwak:['msp-dwk-drop','msp-dwk-input','msp-dwk-list'] };
+const PDF_DROP=['msp-pdf-drop','msp-pdf-input','msp-pdf-list'];
+/* ★ Reuse PDF Parser เดิมของโหมด ① (spReadPdfs → spParsePdfText → spPdfText) — ไม่สร้าง Parser ใหม่ */
+async function mspLoadPdfs(files){
+  const [dropId,,listId]=PDF_DROP;
+  const listEl=document.getElementById(listId), dropEl=document.getElementById(dropId);
+  const list=Array.from(files||[]); if(!list.length) return;
+  listEl.innerHTML='<div class="doa-file-entry" style="font-size:11px;color:var(--text3)">⏳ กำลังอ่าน PDF '+list.length+' ไฟล์…</div>';
+  try{
+    if(typeof spReadPdfs!=='function') throw new Error('ไม่พบ PDF Parser ของระบบ (spReadPdfs)');
+    const items=await spReadPdfs(list);
+    const invs=[...new Set(items.map(x=>String(x.invoice)))].sort();
+    S.pdf={ rows:items, name:list.map(f=>f.name).join(', '), sheet:'PDF', count:items.length, invoices:invs, files:list.length };
+    dropEl.classList.add('loaded');
+    listEl.innerHTML=list.map(f=>'<div class="doa-file-entry"><span style="font-size:11px">✓ '+esc(f.name)+'</span></div>').join('')
+      +'<div class="doa-file-entry"><span style="font-size:11px">Invoice: <b>'+esc(invs.join(', '))+'</b> · '+items.length+' รายการ</span>'
+      +'<button class="drm" onclick="mspClear(\'pdf\')">×</button></div>';
+    setStatus('อ่าน PDF INVOICE สำเร็จ — '+list.length+' ไฟล์ · '+invs.length+' Invoice · '+items.length+' รายการ');
+  }catch(e){
+    S.pdf=null; dropEl.classList.remove('loaded');
+    listEl.innerHTML='<div class="doa-file-entry" style="color:var(--red2);font-size:11px">✗ '+esc(e.message||e)+'</div>';
+    setStatus('อ่าน PDF INVOICE ไม่สำเร็จ: '+(e.message||e), true);
+  }
+  checkReady();
+}
 async function loadInto(kind,file){
   const [dropId,,listId]=DROPS[kind];
   const listEl=document.getElementById(listId), dropEl=document.getElementById(dropId);
@@ -21215,12 +21376,21 @@ async function loadInto(kind,file){
 }
 function checkReady(){
   const b=document.getElementById('msp-btn-run'); if(!b) return;
-  const missing=['clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
   b.disabled=missing.length>0;
   if(missing.length && !document.getElementById('msp-status').classList.contains('err'))
     setStatus('รอไฟล์ — ยังขาด: '+missing.map(k=>FILE_LABEL[k]).join(' · '));
 }
 function wireDrops(){
+  { const [dropId,inputId]=PDF_DROP;
+    const drop=document.getElementById(dropId), input=document.getElementById(inputId);
+    if(drop&&input){
+      input.addEventListener('change',e=>{ if(e.target.files&&e.target.files.length) mspLoadPdfs(e.target.files); });
+      drop.addEventListener('dragover',e=>{ e.preventDefault(); drop.classList.add('drag'); });
+      drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+      drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('drag');
+        if(e.dataTransfer.files&&e.dataTransfer.files.length) mspLoadPdfs(e.dataTransfer.files); });
+    } }
   for(const kind in DROPS){
     const [dropId,inputId]=DROPS[kind];
     const drop=document.getElementById(dropId), input=document.getElementById(inputId);
@@ -21234,7 +21404,7 @@ function wireDrops(){
 
 /* ---------- run ---------- */
 window.mspRun=function(){
-  const missing=['clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
   if(missing.length){ setStatus('ยังขาดไฟล์: '+missing.map(k=>FILE_LABEL[k]).join(' · '), true); return; }
   const btn=document.getElementById('msp-btn-run'), exp=document.getElementById('msp-btn-export');
   btn.disabled=true; if(exp) exp.style.display='none';
@@ -21269,6 +21439,7 @@ function renderCards(){
   el.innerHTML =
       card3('เลขที่ใบขนอ้าง', r.refChk, 'RM DN')
     + card3('รายการที่', r.itemChk, 'RM DN')
+    + '<div class="msp-card '+(r.pdfOk?'ok':'err')+'" title="Cross-check PDF (Source หลัก) · '+(r.pdfCount||0)+' รายการ"><div class="v">'+(r.pdfOk?'\u2705':'\u274c')+'</div><div class="l">PDF SOURCE</div></div>'
     + '<div class="msp-card '+(r.genOk?'ok':'err')+'" title="ข้อมูลทั่วไป (CLC master)"><div class="v">'+(r.genOk?'\u2705':'\u274c')+'</div><div class="l">ข้อมูลทั่วไป</div></div>'
     + card3('Invoice No.', r.invNoChk, 'CLC')
     + card3('Invoice Date', r.invDateChk, 'CLC');
@@ -21285,15 +21456,20 @@ function renderTable(){
   const body=rows.slice(0,cap).map(d=>{
     const w=String(d.wrong||'');
     const mapBad=/MAPPING/.test(w), dwkBad=/DWAK/.test(w);
+    const clcBad=/CLC/.test(w), isMissing=/MISSING/.test(w);
     return '<tr>'
     +'<td class="st-bad">'+esc(d.field)+'</td>'
     +'<td>'+esc(d.invoice)+'</td>'
+    +'<td>'+esc(d.pdfItem==null?'\u2014':d.pdfItem)+'</td>'
     +'<td>'+esc(d.material)+'</td>'
+    +'<td>'+esc(d.delivery==null?'\u2014':d.delivery)+'</td>'
+    +'<td'+(d.source==='PDF'?' style="font-weight:700"':'')+'>'+esc(d.pdf==null?'\u2014':d.pdf)+'</td>'
     +'<td>'+esc(d.rmdn)+'</td>'
-    +'<td>'+esc(d.clc)+'</td>'
+    +'<td'+(clcBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.clc)+'</td>'
     +'<td'+(mapBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.mapping)+'</td>'
     +'<td'+(dwkBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.dwak)+'</td>'
-    +'<td class="st-bad">\u274c ไม่ตรง</td>'
+    +'<td>'+esc(d.source||'CLC')+'</td>'
+    +'<td class="st-bad">'+(isMissing?'\u2757 MISSING':'\u274c MISMATCH')+'</td>'
     +'<td class="st-bad">'+esc(d.wrong)+'</td></tr>';
   }).join('');
   document.getElementById('msp-tbody').innerHTML=body;
@@ -21302,7 +21478,7 @@ function renderTable(){
 window.mspOnSearch=function(v){ S.search=v; renderTable(); };
 window.mspSetFilter=function(){};
 window.mspClear=function(kind){
-  const [dropId,inputId,listId]=DROPS[kind];
+  const [dropId,inputId,listId]=(kind==='pdf')?PDF_DROP:DROPS[kind];
   S[kind]=null;
   const l=document.getElementById(listId); if(l) l.innerHTML='';
   const dp=document.getElementById(dropId); if(dp) dp.classList.remove('loaded');
@@ -21310,7 +21486,7 @@ window.mspClear=function(kind){
   checkReady();
 };
 window.mspReset=function(){
-  ['clc','rmdn','mapping','dwak'].forEach(k=>mspClear(k));
+  ['pdf','clc','rmdn','mapping','dwak'].forEach(k=>mspClear(k));
   S.result=null; S.search='';
   const rp=document.getElementById('msp-result-panel'); if(rp) rp.style.display='none';
   const exp=document.getElementById('msp-btn-export'); if(exp) exp.style.display='none';
@@ -21326,7 +21502,7 @@ window.mspExport=async function(){
   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('ตรวจ SCH FZ', {views:[{state:'frozen',ySplit:1}]});
-    const HEAD=['หัวข้อตรวจสอบ','INVOICE','MATERIAL','MASTER','MAPPING','DWAK','สถานะ','สาเหตุที่ไม่ตรง'];
+    const HEAD=['หัวข้อตรวจสอบ','INVOICE','PDF ITEM','MATERIAL','DELIVERY','PDF','RM DN','CLC','MAPPING','DWAK','SOURCE','สถานะ','สาเหตุที่ไม่ตรง'];
     const thin={style:'thin',color:{argb:'FFBFBFBF'}}, border={top:thin,left:thin,bottom:thin,right:thin};
     const HEAD_FILL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}};
     const RED={type:'pattern',pattern:'solid',fgColor:{argb:'FFF9D0D0'}};
@@ -21337,26 +21513,29 @@ window.mspExport=async function(){
     const colorCell=(cell,text,flagged,extra)=>{ if(String(text)==='—'||String(text)==='\u2014'){ cell.fill=YEL; return; } if(flagged){ cell.fill=extra?ORG:RED; } };
     const REFITEM={ 'เลขที่ใบขนอ้าง':1, 'รายการที่':1 };
     if(!r.diffs.length){
-      ws.addRow(['']); ws.mergeCells('A2:H2');
+      ws.addRow(['']); ws.mergeCells('A2:M2');
       const cell=ws.getCell('A2'); cell.value='ตรวจสอบเรียบร้อย ไม่พบข้อมูลที่ไม่ตรงกัน';
       cell.alignment={horizontal:'center',vertical:'middle',wrapText:true}; cell.font={bold:true,color:{argb:'FF1B7A43'}};
-      ['A','B','C','D','E','F','G','H'].forEach(col=>{ ws.getCell(col+'2').border=border; });
+      ['A','B','C','D','E','F','G','H','I','J','K','L','M'].forEach(col=>{ ws.getCell(col+'2').border=border; });
     } else {
       for(const d of r.diffs){
         const w=d.wrong||'', isExtra=/เกิน/.test(w);
-        const master = REFITEM[d.field] ? d.rmdn : d.clc;   // ref/item → RM DN, อื่น → CLC
-        const row=ws.addRow([d.field,d.invoice,d.material,master,d.mapping,d.dwak,'ไม่ตรง',w]);
+        const status = /MISSING/.test(w) ? 'MISSING' : 'ไม่ตรง';
+        const row=ws.addRow([d.field,d.invoice,(d.pdfItem==null?'\u2014':d.pdfItem),d.material,
+                             (d.delivery==null?'\u2014':d.delivery),(d.pdf==null?'\u2014':d.pdf),
+                             d.rmdn,d.clc,d.mapping,d.dwak,(d.source||'CLC'),status,w]);
         row.eachCell(c=>{ c.border=border; c.alignment={vertical:'middle',wrapText:true,horizontal:'left'}; });
         row.getCell(2).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        row.getCell(7).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        colorCell(row.getCell(4), master, false, false);
-        colorCell(row.getCell(5), d.mapping, /MAPPING/.test(w), isExtra);
-        colorCell(row.getCell(6), d.dwak, /DWAK/.test(w), false);
+        row.getCell(12).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
+        colorCell(row.getCell(8),  d.clc,     /CLC/.test(w), false);
+        colorCell(row.getCell(9),  d.mapping, /MAPPING/.test(w), isExtra);
+        colorCell(row.getCell(10), d.dwak,    /DWAK/.test(w), false);
       }
     }
-    ws.getColumn(1).width=22; ws.getColumn(2).width=14; ws.getColumn(3).width=20;
-    ws.getColumn(4).width=30; ws.getColumn(5).width=30; ws.getColumn(6).width=30; ws.getColumn(7).width=10; ws.getColumn(8).width=40;
-    ws.autoFilter='A1:H1';
+    ws.getColumn(1).width=22; ws.getColumn(2).width=14; ws.getColumn(3).width=12; ws.getColumn(4).width=20;
+    ws.getColumn(5).width=14; ws.getColumn(6).width=26; ws.getColumn(7).width=26; ws.getColumn(8).width=26;
+    ws.getColumn(9).width=26; ws.getColumn(10).width=26; ws.getColumn(11).width=10; ws.getColumn(12).width=12; ws.getColumn(13).width=40;
+    ws.autoFilter='A1:M1';
     const invs=[...new Set(S.clc.rows.map(x=>String(x.invoice||'').trim()).filter(Boolean))];
     let base = invs.length<=1 ? (invs[0]?('ตรวจใบขน_SCH_FZ_'+invs[0]):'ตรวจใบขน_SCH_FZ') : ('ตรวจใบขน_SCH_FZ_'+invs[0]+'-'+invs[invs.length-1]);
     const fname=base.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
@@ -21591,7 +21770,8 @@ table.doa-tbl tbody td{color:#475569}
 /* ── ตรวจใบขน SCH FZ (sch_fz_check) — clone ของ SCH NON · scoped · แยกสมบูรณ์ ── */
 /* ── ตรวจใบขน SCH FZ (sch_fz_check) — self-contained · scoped ── */
 /* แท็บ ② ตรวจใบขน SCH FZ — 4 กรอบเท่ากัน แถวเดียว (scope เฉพาะ #msp-view · ไม่กระทบแท็บ① #fz-view .doa-drop) */
-#msp-view .doa-uploads{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;width:100%;max-width:none;margin:0}
+#msp-view .doa-uploads{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;width:100%;max-width:none;margin:0}
+@media (min-width:1500px){#msp-view .doa-uploads{grid-template-columns:repeat(5,minmax(0,1fr))}}
 #msp-view .doa-drop{width:100%;min-width:0;min-height:62px;height:100%;padding:8px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 @media (max-width:1200px){#msp-view .doa-uploads{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:768px){#msp-view .doa-uploads{grid-template-columns:1fr}}
