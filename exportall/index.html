@@ -6921,6 +6921,10 @@ const TIN = (function(){
         const mm=String(src||'').match(/^<xf\b([^>]*?)\/?>/);
         let at=mm?mm[1]:' numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"';
         at=at.replace(/\s*applyAlignment="[^"]*"/g,'');
+        /* บังคับ numFmtId="0" (General): รูปแบบ Accounting เดิมมีส่วนข้อความ _-@_- ซึ่ง _- สั่งให้ Excel
+           เว้นช่องว่างหน้า/หลังข้อความ ทำให้ PX ถูกเคาะวรรค — เปลี่ยนเป็น General จึงไม่มีวรรคใด ๆ */
+        at=at.replace(/numFmtId="\d+"/,'numFmtId="0"');
+        if(at.indexOf('applyNumberFormat=')<0) at=at.replace('numFmtId="0"','numFmtId="0" applyNumberFormat="1"');
         return '<xf'+at+' applyAlignment="1"><alignment horizontal="left" wrapText="0"/></xf>';
       };
       const oHdrSrc=list[parseInt((sheet.match(/<c r="O1"[^>]*\bs="(\d+)"/)||[])[1],10)||0];
