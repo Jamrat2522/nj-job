@@ -11919,6 +11919,8 @@ function spFindCol(headers, ...keys){
 }
 
 /* ── Read INVOICE CLC (.xlsx) — Sheet1 มี Billing Document, Material, Reference Document, etc. ── */
+/* [CLC SUMMARY] ยอดสรุปจากไฟล์ CLC — ใช้เฉพาะแถวแรกของ Export (Gross W. / PACKAGE) */
+const SP_CLC_SUMMARY = { gw: null, pallet: null };
 async function spReadInvoice(file){
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(buf), { type:'array', cellDates:true });
@@ -12032,6 +12034,37 @@ async function spReadInvoice(file){
       thdesc:   col.thdesc>=0 ? String(r[col.thdesc]||'').trim() : '',
       brand:    col.brand>=0  ? String(r[col.brand]||'').trim().toUpperCase() : ''
     });
+  }
+  /* ── [CLC SUMMARY] ดึงยอดสรุปท้ายไฟล์ CLC (Total GW / Total ... Pallet) ──
+     อ่านจากไฟล์ CLC เท่านั้น · สแกนทุกแถว/ทุกคอลัมน์ ไม่ผูกตำแหน่งตายตัว
+     'Total GW' → ตัวเลขในเซลล์ถัดไปทางขวา (ตัด comma)
+     'Total' + หน่วย 'Pallet' → ตัวเลขในเซลล์ถัดไปทางขวา
+     ไม่พบ = null (ปล่อยว่าง · ห้ามเดา)                                        */
+  SP_CLC_SUMMARY.gw = null; SP_CLC_SUMMARY.pallet = null;
+  {
+    const _t   = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const _key = v => _t(v).toLowerCase().replace(/[.\s]/g, '');
+    const _num = v => {
+      const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '').trim());
+      return isFinite(n) ? n : null;
+    };
+    for(const row of aoa){
+      if(!row) continue;
+      for(let c = 0; c < row.length; c++){
+        const k = _key(row[c]);
+        if(k !== 'totalgw' && k !== 'total') continue;
+        let vi = -1;
+        for(let j = c + 1; j < row.length; j++){ if(_t(row[j]) !== ''){ vi = j; break; } }
+        if(vi < 0) continue;
+        const val = _num(row[vi]);
+        if(val == null) continue;
+        let ui = -1;
+        for(let j = vi + 1; j < row.length; j++){ if(_t(row[j]) !== ''){ ui = j; break; } }
+        const unit = ui >= 0 ? _t(row[ui]).toLowerCase() : '';
+        if(k === 'totalgw'){ if(SP_CLC_SUMMARY.gw == null) SP_CLC_SUMMARY.gw = val; }
+        else if(/pallet/.test(unit)){ if(SP_CLC_SUMMARY.pallet == null) SP_CLC_SUMMARY.pallet = val; }
+      }
+    }
   }
   return rows;
 }
@@ -13784,9 +13817,22 @@ function spBuildMappingBuf(rows){
   const SP_FIX_PERMIT_DATE    = new Date(2024, 6, 24);  // col 28 Permit date = 24/7/2024
   const SP_FIX_TAX_ID         = '0994000163011';        // col 29 เลขประจำตัวผู้เสียภาษีของหน่วยงาน
   const SP_FIX_TAMNAENG       = '02';                   // col 30 ตำแหน่ง
+  /* ── [DUI] ใบอนุญาตกรมการค้า KN — ประกาศ 30/06/2026 (คอลัมน์ AE–AH) ──
+     ตรวจจาก HS Code ของรายการเท่านั้น (Normalize เหลือเฉพาะตัวเลขก่อนเทียบ)
+     ห้ามตัดสินจาก Product Code / Description / CLC No.                        */
+  const SP_DUI_HS = new Set([
+    '84798969','84798970','84799090','84821000','84823000',
+    '84825000','84828000','84829900','84833090','85144000'
+  ]);
+  const SP_DUI_AE = 'EXEMPT99';        // AE เลขที่ใบอนุญาต
+  const SP_DUI_AF = '2017-11-13';      // AF วันที่ออกใบอนุญาต
+  const SP_DUI_AG = '0994000159561';   // AG เลขประจำตัวผู้เสียภาษีของหน่วยงาน
+  const SP_DUI_AH = '03';              // AH ตำแหน่ง
+  const spDuiHs = v => String(v == null ? '' : v).replace(/[^0-9]/g, '');   // ตัดวรรค/จุด/ขีด
+  const spIsDui = v => SP_DUI_HS.has(spDuiHs(v));
   // ════════════════════════════════════════════════════════════════════
 
-  // ── Sheet: mapping (30 cols) ──
+  // ── Sheet: mapping (34 cols) ──
   const HDR2 = [
     'INVOICE NO.','DATE INV','NO.','PRODUCT CODE',
     'Description (EN Description) 1','Description (EN Description) 2',
@@ -13795,7 +13841,10 @@ function spBuildMappingBuf(rows){
     'Thai Description','Tariff Code','Stat','Brand','Origin',
     'Package','Package (หน่วย)','เลขที่ใบขนอ้าง','รายการที่',
     'สิทธิประโยชน์ IEAT','import Tax incentive','Permit No.','Permit date',
-    ' เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\t'
+    ' เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\t',
+    /* AE–AH — ใบอนุญาตกรมการค้า KN (DUI) */
+    'เลขที่ใบอนุญาต','วันที่ออกใบอนุญาต',
+    'เลขประจำตัวผู้เสียภาษีของหน่วยงาน (ใบอนุญาต)','ตำแหน่ง (ใบอนุญาต)'
   ];
   // ── Build mapping rows ── 1 RM row → 1 mapping row (ตาม FULL SPLIT BY RM ROW)
   //   Invoice fields = จาก Invoice match (อาจ blank ถ้าไม่ match)
@@ -13815,7 +13864,9 @@ function spBuildMappingBuf(rows){
     r.qty,                        // col 9  qty.ใบขน           ★ จาก RM QTY
     SP_FIX_QTY_UNIT,              // col 10 qty.ใบขน(หน่วย)   ★ FIX FIELD
     r.netwt,                      // col 11 Net W.             (split: Invoice NW × ratio)
-    r.gross,                      // col 12 Gross W.           (split — blank ถ้า Invoice ไม่มี GW)
+    /* col 12 Gross W. — ★ Total GW จาก CLC · ใส่เฉพาะแถวแรกของ Export เท่านั้น
+       ไม่มีค่าใน CLC = เว้นว่าง (ห้ามเดา · ห้ามดึงจาก PDF/RM) */
+    (idx === 0 && SP_CLC_SUMMARY.gw != null) ? SP_CLC_SUMMARY.gw : '',
     r.unitPrice,                  // col 13 Unit price         (= Item net price / RM QTY)
     r.amt,                        // col 14 Item net price     (split: Invoice NetVal × ratio)
     r.currency,                   // col 15 Ccy                (จาก Invoice)
@@ -13823,7 +13874,9 @@ function spBuildMappingBuf(rows){
     parseInt(r.hsShort,10) || r.hsShort || '',  // col 17 Tariff Code (จาก Invoice HS)
     (r.stat != null ? r.stat : ''),  // col 18 Stat  ★ 3 หลักท้าย Comm./imp. code no. (INVOICE CLC, string คง leading zero เช่น "000")
     r.brand, r.origin,            // col 19,20 Brand / Origin  (จาก Invoice)
-    '', '',                       // col 21,22 Package / Package (หน่วย)
+    /* col 21 PACKAGE — ★ Total (Pallet) จาก CLC · ใส่เฉพาะแถวแรกของ Export เท่านั้น */
+    (idx === 0 && SP_CLC_SUMMARY.pallet != null) ? SP_CLC_SUMMARY.pallet : '',
+    '',                           // col 22 Package (หน่วย)
     r.refent || '',               // col 23 เลขที่ใบขนอ้าง   ★ จาก RM (split: ก่อน X)
     r.refitem || '',              // col 24 รายการที่         ★ จาก RM (split: หลัง X เป็น integer)
     SP_FIX_IEAT,                  // col 25 สิทธิประโยชน์ IEAT  ★ FIX FIELD
@@ -13831,7 +13884,12 @@ function spBuildMappingBuf(rows){
     SP_FIX_PERMIT_NO,             // col 27 Permit No.          ★ FIX FIELD
     SP_FIX_PERMIT_DATE,           // col 28 Permit date         ★ FIX FIELD
     SP_FIX_TAX_ID,                // col 29 เลขประจำตัวผู้เสียภาษี ★ FIX FIELD
-    SP_FIX_TAMNAENG               // col 30 ตำแหน่ง             ★ FIX FIELD
+    SP_FIX_TAMNAENG,              // col 30 ตำแหน่ง             ★ FIX FIELD
+    /* col 31–34 = AE–AH · เติมเฉพาะเมื่อ HS Code เข้าเงื่อนไข DUI · ไม่เข้าเงื่อนไข = เว้นว่าง */
+    spIsDui(r.hsShort) ? SP_DUI_AE : '',   // col 31 AE เลขที่ใบอนุญาต
+    spIsDui(r.hsShort) ? SP_DUI_AF : '',   // col 32 AF วันที่ออกใบอนุญาต
+    spIsDui(r.hsShort) ? SP_DUI_AG : '',   // col 33 AG เลขประจำตัวผู้เสียภาษีของหน่วยงาน
+    spIsDui(r.hsShort) ? SP_DUI_AH : ''    // col 34 AH ตำแหน่ง
   ]);
 
   // ── แถวสรุปยอดรวม (Mapping Schaeffler FZ เท่านั้น) ──
@@ -13852,7 +13910,7 @@ function spBuildMappingBuf(rows){
     _sNetW    += _snum(d[10]);   // col 11 Net W.
     _sItemNet += _snum(d[13]);   // col 14 Item net price
   }
-  const sumRow = new Array(30).fill('');
+  const sumRow = new Array(34).fill('');   // ★ 34 คอลัมน์ (เพิ่ม AE–AH) · แถวสรุปเว้นว่าง AE–AH
   sumRow[4]  = 'รวม';           // col 5  Description (EN Description) 1
   sumRow[6]  = _r6(_sQtyInv);   // col 7  qty.inv.
   sumRow[8]  = _r6(_sQtyDoc);   // col 9  qty.ใบขน
@@ -13868,7 +13926,8 @@ function spBuildMappingBuf(rows){
     {wch:18},{wch:12},{wch:6},{wch:8},{wch:8},
     {wch:10},{wch:12},{wch:18},{wch:10},
     {wch:14},{wch:18},{wch:12},{wch:12},
-    {wch:18},{wch:10}
+    {wch:18},{wch:10},
+    {wch:16},{wch:16},{wch:26},{wch:14}
   ];
   // Date format col B (DATE INV) + col AB (Permit date, index 27)
   for(let i=1; i<=data2.length; i++){
@@ -13879,7 +13938,7 @@ function spBuildMappingBuf(rows){
       }
     }
     // ★ บังคับเป็น Text (เก็บเลขศูนย์นำหน้า): col 1 INVOICE NO. · col 4 PRODUCT CODE · col 18 Stat · col 24 รายการที่ · col 29 Tax ID · col 30 ตำแหน่ง
-    for(const c of [0, 3, 17, 23, 28, 29]){
+    for(const c of [0, 3, 17, 23, 28, 29, 30, 31, 32, 33]){   // ★ +AE–AH เป็น Text (คงศูนย์นำหน้า เช่น '03')
       const addr = XLSX.utils.encode_cell({ r:i, c });
       const cell = ws2[addr];
       if(cell && cell.v !== '' && cell.v != null){ cell.t = 's'; cell.v = String(cell.v); cell.z = '@'; }
@@ -14164,6 +14223,8 @@ function sp2FindCol(headers, ...keys){
 }
 
 /* ── Read INVOICE CLC (.xlsx) — Sheet1 มี Billing Document, Material, Reference Document, etc. ── */
+/* [CLC SUMMARY] ยอดสรุปจากไฟล์ CLC — ใช้เฉพาะแถวแรกของ Export (Gross W. / PACKAGE) */
+const SP2_CLC_SUMMARY = { gw: null, pallet: null };
 async function sp2ReadInvoice(file){
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(buf), { type:'array', cellDates:true });
@@ -14277,6 +14338,37 @@ async function sp2ReadInvoice(file){
       thdesc:   col.thdesc>=0 ? String(r[col.thdesc]||'').trim() : '',
       brand:    col.brand>=0  ? String(r[col.brand]||'').trim().toUpperCase() : ''
     });
+  }
+  /* ── [CLC SUMMARY] ดึงยอดสรุปท้ายไฟล์ CLC (Total GW / Total ... Pallet) ──
+     อ่านจากไฟล์ CLC เท่านั้น · สแกนทุกแถว/ทุกคอลัมน์ ไม่ผูกตำแหน่งตายตัว
+     'Total GW' → ตัวเลขในเซลล์ถัดไปทางขวา (ตัด comma)
+     'Total' + หน่วย 'Pallet' → ตัวเลขในเซลล์ถัดไปทางขวา
+     ไม่พบ = null (ปล่อยว่าง · ห้ามเดา)                                        */
+  SP2_CLC_SUMMARY.gw = null; SP2_CLC_SUMMARY.pallet = null;
+  {
+    const _t   = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const _key = v => _t(v).toLowerCase().replace(/[.\s]/g, '');
+    const _num = v => {
+      const n = parseFloat(String(v == null ? '' : v).replace(/,/g, '').trim());
+      return isFinite(n) ? n : null;
+    };
+    for(const row of aoa){
+      if(!row) continue;
+      for(let c = 0; c < row.length; c++){
+        const k = _key(row[c]);
+        if(k !== 'totalgw' && k !== 'total') continue;
+        let vi = -1;
+        for(let j = c + 1; j < row.length; j++){ if(_t(row[j]) !== ''){ vi = j; break; } }
+        if(vi < 0) continue;
+        const val = _num(row[vi]);
+        if(val == null) continue;
+        let ui = -1;
+        for(let j = vi + 1; j < row.length; j++){ if(_t(row[j]) !== ''){ ui = j; break; } }
+        const unit = ui >= 0 ? _t(row[ui]).toLowerCase() : '';
+        if(k === 'totalgw'){ if(SP2_CLC_SUMMARY.gw == null) SP2_CLC_SUMMARY.gw = val; }
+        else if(/pallet/.test(unit)){ if(SP2_CLC_SUMMARY.pallet == null) SP2_CLC_SUMMARY.pallet = val; }
+      }
+    }
   }
   return rows;
 }
@@ -16029,9 +16121,22 @@ function sp2BuildMappingBuf(rows){
   const SP2_FIX_PERMIT_DATE    = new Date(2024, 6, 24);  // col 28 Permit date = 24/7/2024
   const SP2_FIX_TAX_ID         = '0994000163011';        // col 29 เลขประจำตัวผู้เสียภาษีของหน่วยงาน
   const SP2_FIX_TAMNAENG       = '02';                   // col 30 ตำแหน่ง
+  /* ── [DUI] ใบอนุญาตกรมการค้า KN — ประกาศ 30/06/2026 (คอลัมน์ AE–AH) ──
+     ตรวจจาก HS Code ของรายการเท่านั้น (Normalize เหลือเฉพาะตัวเลขก่อนเทียบ)
+     ห้ามตัดสินจาก Product Code / Description / CLC No.                        */
+  const SP2_DUI_HS = new Set([
+    '84798969','84798970','84799090','84821000','84823000',
+    '84825000','84828000','84829900','84833090','85144000'
+  ]);
+  const SP2_DUI_AE = 'EXEMPT99';        // AE เลขที่ใบอนุญาต
+  const SP2_DUI_AF = '2017-11-13';      // AF วันที่ออกใบอนุญาต
+  const SP2_DUI_AG = '0994000159561';   // AG เลขประจำตัวผู้เสียภาษีของหน่วยงาน
+  const SP2_DUI_AH = '03';              // AH ตำแหน่ง
+  const sp2DuiHs = v => String(v == null ? '' : v).replace(/[^0-9]/g, '');   // ตัดวรรค/จุด/ขีด
+  const sp2IsDui = v => SP2_DUI_HS.has(sp2DuiHs(v));
   // ════════════════════════════════════════════════════════════════════
 
-  // ── Sheet: mapping (30 cols) ──
+  // ── Sheet: mapping (34 cols) ──
   const HDR2 = [
     'INVOICE NO.','DATE INV','NO.','PRODUCT CODE',
     'Description (EN Description) 1','Description (EN Description) 2',
@@ -16040,7 +16145,10 @@ function sp2BuildMappingBuf(rows){
     'Thai Description','Tariff Code','Stat','Brand','Origin',
     'Package','Package (หน่วย)','เลขที่ใบขนอ้าง','รายการที่',
     'สิทธิประโยชน์ IEAT','import Tax incentive','Permit No.','Permit date',
-    ' เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\t'
+    ' เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน','ตำแหน่ง\t',
+    /* AE–AH — ใบอนุญาตกรมการค้า KN (DUI) */
+    'เลขที่ใบอนุญาต','วันที่ออกใบอนุญาต',
+    'เลขประจำตัวผู้เสียภาษีของหน่วยงาน (ใบอนุญาต)','ตำแหน่ง (ใบอนุญาต)'
   ];
   // ── Build mapping rows ── 1 RM row → 1 mapping row (ตาม FULL SPLIT BY RM ROW)
   //   Invoice fields = จาก Invoice match (อาจ blank ถ้าไม่ match)
@@ -16060,7 +16168,9 @@ function sp2BuildMappingBuf(rows){
     r.qty,                        // col 9  qty.ใบขน           ★ จาก RM QTY
     SP2_FIX_QTY_UNIT,              // col 10 qty.ใบขน(หน่วย)   ★ FIX FIELD
     r.netwt,                      // col 11 Net W.             (split: Invoice NW × ratio)
-    r.gross,                      // col 12 Gross W.           (split — blank ถ้า Invoice ไม่มี GW)
+    /* col 12 Gross W. — ★ Total GW จาก CLC · ใส่เฉพาะแถวแรกของ Export เท่านั้น
+       ไม่มีค่าใน CLC = เว้นว่าง (ห้ามเดา · ห้ามดึงจาก PDF/RM) */
+    (idx === 0 && SP2_CLC_SUMMARY.gw != null) ? SP2_CLC_SUMMARY.gw : '',
     r.unitPrice,                  // col 13 Unit price         (= Item net price / RM QTY)
     r.amt,                        // col 14 Item net price     (split: Invoice NetVal × ratio)
     r.currency,                   // col 15 Ccy                (จาก Invoice)
@@ -16068,7 +16178,9 @@ function sp2BuildMappingBuf(rows){
     parseInt(r.hsShort,10) || r.hsShort || '',  // col 17 Tariff Code (จาก Invoice HS)
     (r.stat != null ? r.stat : ''),  // col 18 Stat  ★ 3 หลักท้าย Comm./imp. code no. (INVOICE CLC, string คง leading zero เช่น "000")
     r.brand, r.origin,            // col 19,20 Brand / Origin  (จาก Invoice)
-    '', '',                       // col 21,22 Package / Package (หน่วย)
+    /* col 21 PACKAGE — ★ Total (Pallet) จาก CLC · ใส่เฉพาะแถวแรกของ Export เท่านั้น */
+    (idx === 0 && SP2_CLC_SUMMARY.pallet != null) ? SP2_CLC_SUMMARY.pallet : '',
+    '',                           // col 22 Package (หน่วย)
     r.refent || '',               // col 23 เลขที่ใบขนอ้าง   ★ จาก RM (split: ก่อน X)
     r.refitem || '',              // col 24 รายการที่         ★ จาก RM (split: หลัง X เป็น integer)
     SP2_FIX_IEAT,                  // col 25 สิทธิประโยชน์ IEAT  ★ FIX FIELD
@@ -16076,7 +16188,12 @@ function sp2BuildMappingBuf(rows){
     SP2_FIX_PERMIT_NO,             // col 27 Permit No.          ★ FIX FIELD
     SP2_FIX_PERMIT_DATE,           // col 28 Permit date         ★ FIX FIELD
     SP2_FIX_TAX_ID,                // col 29 เลขประจำตัวผู้เสียภาษี ★ FIX FIELD
-    SP2_FIX_TAMNAENG               // col 30 ตำแหน่ง             ★ FIX FIELD
+    SP2_FIX_TAMNAENG,              // col 30 ตำแหน่ง             ★ FIX FIELD
+    /* col 31–34 = AE–AH · เติมเฉพาะเมื่อ HS Code เข้าเงื่อนไข DUI · ไม่เข้าเงื่อนไข = เว้นว่าง */
+    sp2IsDui(r.hsShort) ? SP2_DUI_AE : '',   // col 31 AE เลขที่ใบอนุญาต
+    sp2IsDui(r.hsShort) ? SP2_DUI_AF : '',   // col 32 AF วันที่ออกใบอนุญาต
+    sp2IsDui(r.hsShort) ? SP2_DUI_AG : '',   // col 33 AG เลขประจำตัวผู้เสียภาษีของหน่วยงาน
+    sp2IsDui(r.hsShort) ? SP2_DUI_AH : ''    // col 34 AH ตำแหน่ง
   ]);
 
   // ── แถวสรุปยอดรวม (Mapping Schaeffler FZ เท่านั้น) ──
@@ -16097,7 +16214,7 @@ function sp2BuildMappingBuf(rows){
     _sNetW    += _snum(d[10]);   // col 11 Net W.
     _sItemNet += _snum(d[13]);   // col 14 Item net price
   }
-  const sumRow = new Array(30).fill('');
+  const sumRow = new Array(34).fill('');   // ★ 34 คอลัมน์ (เพิ่ม AE–AH) · แถวสรุปเว้นว่าง AE–AH
   sumRow[4]  = 'รวม';           // col 5  Description (EN Description) 1
   sumRow[6]  = _r6(_sQtyInv);   // col 7  qty.inv.
   sumRow[8]  = _r6(_sQtyDoc);   // col 9  qty.ใบขน
@@ -16113,7 +16230,8 @@ function sp2BuildMappingBuf(rows){
     {wch:18},{wch:12},{wch:6},{wch:8},{wch:8},
     {wch:10},{wch:12},{wch:18},{wch:10},
     {wch:14},{wch:18},{wch:12},{wch:12},
-    {wch:18},{wch:10}
+    {wch:18},{wch:10},
+    {wch:16},{wch:16},{wch:26},{wch:14}
   ];
   // Date format col B (DATE INV) + col AB (Permit date, index 27)
   for(let i=1; i<=data2.length; i++){
@@ -16124,7 +16242,7 @@ function sp2BuildMappingBuf(rows){
       }
     }
     // ★ บังคับเป็น Text (เก็บเลขศูนย์นำหน้า): col 1 INVOICE NO. · col 4 PRODUCT CODE · col 18 Stat · col 24 รายการที่ · col 29 Tax ID · col 30 ตำแหน่ง
-    for(const c of [0, 3, 17, 23, 28, 29]){
+    for(const c of [0, 3, 17, 23, 28, 29, 30, 31, 32, 33]){   // ★ +AE–AH เป็น Text (คงศูนย์นำหน้า เช่น '03')
       const addr = XLSX.utils.encode_cell({ r:i, c });
       const cell = ws2[addr];
       if(cell && cell.v !== '' && cell.v != null){ cell.t = 's'; cell.v = String(cell.v); cell.z = '@'; }
