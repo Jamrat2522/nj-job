@@ -12913,96 +12913,144 @@ async function spComputeMapping(){
     }
     for(const arr of rmByKey.values()) arr.sort((a, b) => a.rmSourceIndex - b.rmSourceIndex);
 
-    /* ── STEP-01 — GROUP RM ที่ Import Entry + Item ซ้ำกัน (ก่อนนำไป Match กับ PDF Quantity) ──
-       Group Key = Product Code + Normalized Delivery + Import Entry + Item
-       groupQty  = SUM(Qty ของ RM Rows ทุกแถวใน Group)
-       ★ ห้าม Sort Group ใหม่ — เรียงตาม First Occurrence ของ RM เดิม (rmSourceIndex ต่ำสุด)
-       ★ ห้ามทำ Trace หาย — เก็บ RM Row ต้นทางไว้ที่ g.rows ทั้งหมด                        */
-    const rmGroupsByKey = new Map();
-    for(const [k, arr] of rmByKey){
-      const groups = [], gmap = new Map();
-      for(const x of arr){                                    // arr เรียงตาม rmSourceIndex เดิม
-        const gk = String(x.ent) + '\u0001' + String(x.it);
-        let g = gmap.get(gk);
-        if(!g){
-          g = { pc: x.pc, dlv: x.dlv, ent: x.ent, it: x.it, raw: x.raw,
-                rows: [], groupQty0: 0, firstIndex: x.rmSourceIndex };
-          gmap.set(gk, g); groups.push(g);                     // First Occurrence → ตำแหน่งคงเดิม
-        }
-        g.rows.push(x);
-        g.groupQty0 = r6(g.groupQty0 + x.qty);
-      }
-      rmGroupsByKey.set(k, groups);
+    /* ══════════════════════════════════════════════════════════════════
+       [SCH PDF] GLOBAL FULL-LOT EXACT-FIT ALLOCATION
+         Priority 1  Delivery EXACT (ห้าม Cross-Delivery · ห้าม fallback)
+         Priority 2  Product Code EXACT
+         Priority 3  Global QTY Exact-Fit — จัดทั้งกลุ่มพร้อมกัน (ห้าม Greedy)
+         Priority 4  รักษา identity ของ RM Source Row (Entry + Item + Source Row + QTY)
+         Priority 5  ถ้า Lot เดียวไม่พอ → ใช้หลาย Lot (Full Lot เท่านั้น · ห้าม Partial Consume)
+         Priority 6  Tie-break 5 ชั้น (T1–T5) ใช้เมื่อผ่าน Priority 1–5 เท่ากันทุกข้อเท่านั้น
+       ══════════════════════════════════════════════════════════════════ */
+    const spItemNum = v => { const n = parseInt(String(v == null ? '' : v), 10); return isFinite(n) ? n : -1; };
+    const spGroupKey = (pc, dlv) => pc + '\u0001' + dlv;
+    const spClcByKey = new Map();
+    for(const c of clcSeq){
+      const k = spGroupKey(c.pc, c.dlv);
+      if(!spClcByKey.has(k)) spClcByKey.set(k, []);
+      spClcByKey.get(k).push(c);                            // ลำดับ CLC No. เดิม (Invoice ASC → PDF Item)
     }
-    /* remainingGroupQty = SUM(remaining ของ RM Rows ใน Group) — ไม่เก็บ Counter แยก
-       จึงไม่มีทางหลุดจาก remainingQty รายแถว (STEP-11) */
-    const groupRemaining = g => r6(g.rows.reduce((v, x) => v + x.remaining, 0));
-
-    for(const c of clcSeq){                                  // STEP-02: Invoice ASC → PDF Item บนลงล่าง (ห้าม Sort PDF)
-      const pdfItemLabel = (c.src && c.src._pdfItemNo != null) ? c.src._pdfItemNo : (c.src ? c.src.item : '-');
-      const pdfDelivery  = (c.src && c.src._pdfDelivery) ? c.src._pdfDelivery : (c.src ? c.src.refdoc : '');
-      let requiredQty = c.qty;                               // STEP-03: PDF Quantity = Target
-      const pool = rmByKey.get(_ak(c.pc, c.dlv)) || [];
-      const allGroups = rmGroupsByKey.get(_ak(c.pc, c.dlv)) || [];
-      const cands = allGroups.filter(g => groupRemaining(g) > 1e-9);   // ลำดับ Group เดิม — ไม่ Sort
-      const availableQty = r6(cands.reduce((v, g) => v + groupRemaining(g), 0));
-
-      /* ERROR — Product Code ตรง แต่ไม่มี Delivery ตรง */
-      if(!pool.length && (rmByPc.get(c.pc) || []).length)
+    const SP_MAX_NODES = 300000;
+    for(const [gk, clcList] of spClcByKey){
+      const lots = (rmByKey.get(gk) || []).slice().sort((a, b) => a.rmSourceIndex - b.rmSourceIndex);
+      const c0 = clcList[0];
+      const pdfItemLabel0 = (c0.src && c0.src._pdfItemNo != null) ? c0.src._pdfItemNo : (c0.src ? c0.src.item : '-');
+      const pdfDelivery0  = (c0.src && c0.src._pdfDelivery) ? c0.src._pdfDelivery : (c0.src ? c0.src.refdoc : '');
+      const wantTotal = r6(clcList.reduce((v, c) => v + c.qty, 0));
+      const haveTotal = r6(lots.reduce((v, x) => v + x.qty, 0));
+      const rmByPcAll = rmByPc.get(c0.pc) || [];
+      if(!lots.length && rmByPcAll.length)
         throw new Error('RM_DELIVERY_NOT_FOUND — หยุด Export\n' +
-          'Invoice : '      + c.inv + '\n' +
-          'PDF Item : '     + pdfItemLabel + '\n' +
-          'Product Code : ' + (c.src.prodcode || c.src.material) + '\n' +
-          'PDF Delivery : ' + pdfDelivery + '\n' +
-          'PDF Quantity : ' + c.qty + '\n' +
-          'RM Delivery ที่มีของ Product นี้ : ' +
-            [...new Set((rmByPc.get(c.pc) || []).map(x => x.dlv))].join(', '));
+          'Delivery : ' + c0.dlv + '\nProduct Code : ' + (c0.src.prodcode || c0.src.material) + '\n' +
+          'RM Delivery ที่มีของ Product นี้ : ' + [...new Set(rmByPcAll.map(x => x.dlv))].join(', '));
+      if(Math.abs(wantTotal - haveTotal) > 1e-9)
+        throw new Error('RM_QTY_NOT_EXACT — หยุด Export\n' +
+          'Delivery : '          + c0.dlv + '\n' +
+          'Product Code : '      + (c0.src.prodcode || c0.src.material) + '\n' +
+          'CLC No. : '           + clcList.map(c => c.no).join(', ') + '\n' +
+          'CLC QTY รวม : '       + wantTotal + '\n' +
+          'RM QTY รวม : '        + haveTotal + '\n' +
+          'RM Source Row : '     + lots.map(x => '#' + x.rmSourceIndex + ' ' + x.raw + ' Qty ' + x.qty).join(' · '));
 
-      const alloc = [];
-      let allocatedTotal = 0;
-      /* ตัดจาก Group → ไล่ RM Row ภายใน Group ตามลำดับเดิม (STEP-12 Trace RM Row จริง) */
-      const takeGroup = (g, q) => {
-        let need = q;
-        for(const x of g.rows){
-          if(need <= 1e-9) break;
-          if(x.remaining <= 1e-9) continue;
-          const a = Math.min(need, x.remaining);
-          alloc.push({ rid: x.rid, rmSourceIndex: x.rmSourceIndex, ent: x.ent, it: x.it, raw: x.raw, dlv: x.dlv, qty: a });
-          x.remaining = r6(x.remaining - a);                 // STEP-07/STEP-11 — remainingQty รายแถวคงเดิม
-          x.usedQty   = r6(x.usedQty + a);
-          need        = r6(need - a);
+      /* ── ค้นหา Global Solution แบบ Full-Lot (DFS + backtracking) ── */
+      let bestSol = null, bestScore = null, nodes = 0, solCount = 0;
+      const used = new Array(lots.length).fill(false);
+      const acc  = [];
+      /* ── Tie-break 5 ชั้น (ใช้เฉพาะเมื่อผ่าน Priority 1–5 เท่ากันทุกข้อ) ──
+         T1 จำนวน Output Row น้อยสุด
+         T2 ไล่ CLC No. จากท้าย→ต้น : Lot ก้อนใหญ่สุดมากสุด
+         T3 ไล่ CLC No. จากท้าย→ต้น : จำนวน RM Source Row น้อยสุด
+         T4 ไล่ CLC No. จากต้น→ท้าย : ผลรวมลำดับ RM Source Row น้อยสุด
+         T5 ไล่ CLC No. จากต้น→ท้าย : Item สูงสุด                                  */
+      const scoreOf = sol => {
+        let rows = 0;
+        const maxQty = [], nLots = [], sumIdx = [], maxItems = [];
+        for(const ks of sol){
+          const seen = new Set(); let mx = -1, mq = -Infinity, si = 0;
+          for(const k of ks){
+            seen.add(String(lots[k].ent) + '\u0001' + String(lots[k].it));
+            const it = spItemNum(lots[k].it); if(it > mx) mx = it;
+            if(lots[k].qty > mq) mq = lots[k].qty;
+            si += lots[k].rmSourceIndex;
+          }
+          rows += seen.size; maxQty.push(mq); nLots.push(ks.length); sumIdx.push(si); maxItems.push(mx);
         }
-        const used = r6(q - need);
-        requiredQty    = r6(requiredQty - used);
-        allocatedTotal = r6(allocatedTotal + used);
+        return { rows, maxQty, nLots, sumIdx, maxItems };
       };
-      // STEP-03 PHASE 1 — Exact Quantity Match บน RM Group (remainingGroupQty == PDF Quantity)
-      const exactG = cands.find(g => Math.abs(groupRemaining(g) - requiredQty) < 1e-9);
-      if(exactG && requiredQty > 1e-9){
-        takeGroup(exactG, requiredQty);                      // STEP-04 — ใช้หมด Group → remainingGroupQty = 0
-      } else {
-        // STEP-05/06 PHASE 2 — ไม่มี Exact → Split ตามลำดับ Group เดิม จนครบ
-        for(const g of cands){
-          if(requiredQty <= 1e-9) break;
-          const gr = groupRemaining(g);
-          if(gr <= 1e-9) continue;
-          takeGroup(g, Math.min(requiredQty, gr));
+      const cmpSeq = (a, b, rev, dir) => {                     // dir=+1 น้อยกว่าดีกว่า · dir=-1 มากกว่าดีกว่า
+        const n = a.length;
+        for(let t = 0; t < n; t++){
+          const i = rev ? (n - 1 - t) : t;
+          if(a[i] !== b[i]) return (a[i] < b[i] ? -1 : 1) * dir;
         }
-      }
-      /* ERROR — Product + Delivery ตรง แต่ Quantity รวมไม่พอ (ห้ามเดา / ห้ามใช้ Delivery หรือ Product อื่น) */
-      if(Math.abs(requiredQty) > 1e-9)
-        throw new Error('RM_INSUFFICIENT_QTY — หยุด Export\n' +
-          'Invoice : '               + c.inv + '\n' +
-          'PDF Item : '              + pdfItemLabel + '\n' +
-          'Product Code : '          + (c.src.prodcode || c.src.material) + '\n' +
-          'PDF Delivery : '          + pdfDelivery + '\n' +
-          'PDF Quantity : '          + c.qty + '\n' +
-          'Available RM Quantity : ' + availableQty + '\n' +
-          'Allocated Quantity : '    + allocatedTotal + '\n' +
-          'Missing Quantity : '      + r6(requiredQty));
-      c.alloc = alloc;
-      c.lots  = alloc;
+        return 0;
+      };
+      const better = (a, b) => {
+        if(a.rows !== b.rows) return a.rows < b.rows;                      // T1
+        let c = cmpSeq(a.maxQty,   b.maxQty,   true,  -1); if(c) return c < 0;   // T2
+        c     = cmpSeq(a.nLots,    b.nLots,    true,   1); if(c) return c < 0;   // T3
+        c     = cmpSeq(a.sumIdx,   b.sumIdx,   false,  1); if(c) return c < 0;   // T4
+        c     = cmpSeq(a.maxItems, b.maxItems, false, -1); if(c) return c < 0;   // T5
+        return false;
+      };
+      const dfs = ci => {
+        if(nodes++ > SP_MAX_NODES) return;
+        if(ci === clcList.length){
+          if(used.some(u => !u)) return;                       // ทุก Lot ต้องถูกใช้ (ห้ามเหลือค้าง)
+          solCount++;
+          const sol = acc.map(a => a.slice()), sc = scoreOf(sol);
+          if(!bestSol || better(sc, bestScore)){ bestSol = sol; bestScore = sc; }
+          return;
+        }
+        const need = clcList[ci].qty, cur = [];
+        const pick = (pos, rem) => {
+          if(nodes > SP_MAX_NODES) return;
+          if(Math.abs(rem) < 1e-9){
+            acc.push(cur.slice()); dfs(ci + 1); acc.pop(); return;
+          }
+          if(pos >= lots.length || rem < -1e-9) return;
+          if(!used[pos] && lots[pos].qty <= rem + 1e-9){       // Full Lot เท่านั้น
+            used[pos] = true; cur.push(pos);
+            pick(pos + 1, r6(rem - lots[pos].qty));
+            cur.pop(); used[pos] = false;
+          }
+          pick(pos + 1, rem);
+        };
+        pick(0, need);
+      };
+      dfs(0);
+      if(!bestSol)
+        throw new Error('RM_QTY_NOT_EXACT — หยุด Export\n' +
+          'Delivery : '      + c0.dlv + '\n' +
+          'Product Code : '  + (c0.src.prodcode || c0.src.material) + '\n' +
+          'CLC No. / QTY : ' + clcList.map(c => c.no + '=' + c.qty).join(', ') + '\n' +
+          'RM Source Row : ' + lots.map(x => '#' + x.rmSourceIndex + ' ' + x.raw + ' Qty ' + x.qty).join(' · ') + '\n' +
+          'ไม่มี Combination ใดที่จัด Full-Lot ให้ครบทุก CLC No. ได้');
+      if(nodes > SP_MAX_NODES) console.warn('[SCH PDF] AMBIGUOUS_RM_ALLOCATION — ค้นไม่ครบทุก Combination:',
+        c0.pc, c0.dlv, 'nodes >', SP_MAX_NODES);
+      if(solCount > 1) console.warn('[SCH PDF] AMBIGUOUS_RM_ALLOCATION — มี ' + solCount +
+        ' Solution ที่ถูกต้อง · เลือกด้วย Tie-break (Row น้อยสุด → Item สูงสุด):',
+        c0.pc, 'Delivery ' + c0.dlv, 'CLC No. ' + clcList.map(c => c.no).join('/'));
+
+      clcList.forEach((c, ci) => {
+        const alloc = [];
+        for(const k of bestSol[ci]){
+          const x = lots[k];
+          alloc.push({ rid: x.rid, rmSourceIndex: x.rmSourceIndex, ent: x.ent, it: x.it, raw: x.raw, dlv: x.dlv, qty: x.qty });
+          x.remaining = r6(x.remaining - x.qty);               // Full Lot → remaining = 0
+          x.usedQty   = r6(x.usedQty + x.qty);
+        }
+        /* ลำดับแถวภายใน CLC No. — Import Entry ASC → Item ASC */
+        alloc.sort((a, b) => {
+          const ea = String(a.ent || ''), eb = String(b.ent || '');
+          if(ea !== eb) return ea < eb ? -1 : 1;
+          return spItemNum(a.it) - spItemNum(b.it);
+        });
+        c.alloc = alloc;
+        c.lots  = alloc;
+      });
     }
+    for(const c of clcSeq) if(!c.alloc){ c.alloc = []; c.lots = []; }
 
     // ── (5) ตรวจ RM หลัง Allocation: ห้ามใช้เกินก้อน · remainingQty ห้ามติดลบ · ยอดต้องสมดุล ──
     {
