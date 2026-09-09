@@ -12112,6 +12112,46 @@ async function spReadIncoterm(file){
   return distinct;
 }
 
+/* ══ [FZ AKO 2 ONLY · sp*] Incoterms ราย INVOICE จากไฟล์ INVOICE CLC ══
+   ยึด CLC 100% · ผูกกับ Billing Document แต่ละเลข
+   คนละ INVOICE มีคนละ Incoterm ได้ = ปกติ (เช่น 113986657=FCA · 113986660=EXW)
+   ★ ห้ามเอา Incoterm จาก PDF มา override · ห้ามรวมหลาย INVOICE เป็นค่าเดียว
+   ★ อ่านจาก Sheet แรกที่มีทั้งคอลัมน์ 'Billing Document' และ 'Incoterms' (เป๊ะ —
+     ไม่จับ 'Incoterms (Part 2)') แล้วหยุด → ผลลัพธ์ deterministic
+   ★ INVOICE เดียวกันแต่ CLC ให้ค่าต่างกัน → throw (ห้ามเดา)
+   ★ ไม่พบคอลัมน์ = Map ว่าง → caller ใช้ตรรกะเดิม (ไม่กระทบพฤติกรรมเดิม)
+   ★ fz* (Mapping Schaeffler FZ) และ sp2* (FZ AKO 1) ไม่เรียกฟังก์ชันนี้            */
+async function spReadIncotermByInvoice(file){
+  const map = new Map();
+  if(!file) return map;
+  const buf = await file.arrayBuffer();
+  const wb  = XLSX.read(new Uint8Array(buf), { type:'array', cellDates:false });
+  const norm = v => String(v==null?'':v).replace(/\s+/g,' ').trim();
+  for(const name of wb.SheetNames){
+    const sh = wb.Sheets[name]; if(!sh || !sh['!ref']) continue;
+    const aoa = XLSX.utils.sheet_to_json(sh, { header:1, defval:null, raw:false });
+    let hdrIdx=-1, bi=-1, ii=-1;
+    for(let i=0; i<Math.min(10, aoa.length); i++){
+      const hdr = (aoa[i]||[]).map(h => norm(h));
+      const b = hdr.findIndex(h => /^billing\s*document$/i.test(h));
+      const c = hdr.findIndex(h => /^incoterms$/i.test(h));
+      if(b>=0 && c>=0){ hdrIdx=i; bi=b; ii=c; break; }
+    }
+    if(hdrIdx < 0) continue;
+    for(let r=hdrIdx+1; r<aoa.length; r++){
+      const row = aoa[r]||[];
+      const inv = norm(row[bi]), ico = norm(row[ii]);
+      if(inv==='' || ico==='') continue;
+      const prev = map.get(inv);
+      if(prev != null && prev.toUpperCase() !== ico.toUpperCase())
+        throw new Error('พบ Incoterms ไม่ตรงกันภายใน INVOICE '+inv+' ในไฟล์ INVOICE CLC: '+prev+', '+ico);
+      if(prev == null) map.set(inv, ico);
+    }
+    break;   // ใช้ Sheet แรกที่มีทั้งสองคอลัมน์เท่านั้น
+  }
+  return map;
+}
+
 /* ── Read RM (.xlsx) — Outbound Delivery + Part No → Ref# Inbound Customs Entry ── */
 async function spReadRm(file){
   if(!file) return [];
@@ -13589,12 +13629,20 @@ const SP_ARTICLE_CONST      = '';   // Target (2) = blank
 const SP_ORDER_KITTING_ITEM = '';   // Target (2) = blank
 function SP_IS_ORDER_KITTING(ent){ return /Order\s*kitting/i.test(String(ent == null ? '' : ent)); }
 function spFmtDMY(d){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear(); }
-async function spBuildKNWorkbook(rows, incoterm){
+async function spBuildKNWorkbook(rows, incoterm, incoByInv){
   // XML surgery: แกะ template (JSZip) → คัดลอก style-index (s) ของแถวข้อมูลตัวอย่าง (row2)
   // และแถวสรุป (row8) ตรง ๆ → styles.xml ไม่ถูกแตะเลย = ฟอนต์/สี/เส้นขอบ/รูปแบบตัวเลข ตรง template 100%
   if(typeof JSZip === 'undefined') throw new Error('JSZip \u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e1e\u0e23\u0e49\u0e2d\u0e21 (MAPPING KN)');
   const INCO = String(incoterm==null?'':incoterm).trim();   // M = Incoterms จาก INVOICE CLC (ไม่ใช่ DDP)
-  if(INCO === '') throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
+  /* [FZ AKO 2 · INCOTERM ราย INVOICE] incoByInv = Map(Billing Document → Incoterms) จาก CLC
+     ไม่ส่ง Map มา = ใช้ค่ารวมเดิมทุกแถว → พฤติกรรมเดิม 100% */
+  const INCO_MAP = (incoByInv instanceof Map && incoByInv.size > 0) ? incoByInv : null;
+  const incoOf = inv => {
+    if(INCO_MAP){ const v = INCO_MAP.get(inv); if(v!=null && String(v).trim()!=='') return String(v).trim(); }
+    if(INCO !== '') return INCO;
+    throw new Error('ไม่พบ Incoterms ของ INVOICE '+(inv||'(ไม่ระบุ)')+' ในไฟล์ INVOICE CLC');
+  };
+  if(INCO === '' && !INCO_MAP) throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
   const KO = 'Order kitting \u0e44\u0e21\u0e48\u0e21\u0e35\u0e40\u0e25\u0e02\u0e43\u0e1a\u0e02\u0e19\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32\u0e2d\u0e49\u0e32\u0e07\u0e2d\u0e34\u0e07\u0e02\u0e32\u0e40\u0e02\u0e49\u0e32';
   const num = v => { if(v==null||v==='') return null; if(typeof v==='number') return isFinite(v)?v:null; const n=parseFloat(String(v).replace(/,/g,'').trim()); return isFinite(n)?n:null; };
   const toSerial = dt => { const e=Date.UTC(1899,11,30); const u=Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate(),dt.getHours(),dt.getMinutes(),dt.getSeconds()); return (u-e)/86400000; };
@@ -13717,7 +13765,7 @@ async function spBuildKNWorkbook(rows, incoterm){
     p += (am==null ? cEmpty('K',r,S('13')) : cNum('K',r,S('13'), am));              // K Total Price
     p += txt('L',r,S('10'), d.currency);                                         // L Currency
     p += txt('M',r,S('10'), d.origin);                                           // M Origin
-    p += cStr('N',r,S('10'), INCO);                                              // N Incoterm
+    p += cStr('N',r,S('10'), incoOf(invRaw));                                    // N Incoterm — ต่อ INVOICE จาก CLC
     p += txt('O',r,S(''), d.thdesc);                                             // O Thai Description
     p += (hsVal==='' ? cEmpty('P',r,S('')) : cStr('P',r,S(''), String(hsVal)));     // P Hs code (Text)
     p += (RATE_BLANK ? cEmpty('Q',r,S('14')) : (rateT===''? cEmpty('Q',r,S('14')) : cNum('Q',r,S('14'), rateT)));   // Q Tariff rate
@@ -14014,6 +14062,9 @@ async function spDownload(){
     // ── อ่านค่า Incoterms จาก INVOICE CLC (คงตรรกะเดิม) ──
     const incoList = await spReadIncoterm(spState.inv);
     if(incoList.length === 0) throw new Error('ไม่พบข้อมูล Incoterms ในไฟล์ INVOICE CLC กรุณาตรวจสอบไฟล์');
+    /* [FZ AKO 2 · INCOTERM] ยึด CLC 100% · ผูกแยกตาม Billing Document แต่ละเลข
+       คนละ INVOICE มีคนละ Incoterm ได้ = ปกติ ห้าม Error */
+    const spIncoByInv = await spReadIncotermByInvoice(spState.inv);
 
     // ── แยกตาม INVOICE NO. (คงเลขยาว/ศูนย์นำหน้า) — ห้ามปะปน (spec #2,#4,#10) ──
     const invSet = [...new Set(allRows.map(r => String(r.billing||'').trim()).filter(x => x !== ''))];
@@ -14034,11 +14085,14 @@ async function spDownload(){
 
     if(invSet.length <= 1){
       // ═══ 1 INVOICE — คงพฤติกรรมเดิมทุกประการ (spec #8) ═══
-      if(incoList.length > 1) throw new Error('พบค่า Incoterms ไม่ตรงกันหลายค่า: ' + incoList.join(', ') + ' — กรุณาตรวจสอบไฟล์ INVOICE CLC');
       const invNo = invSet[0] || 'output';
-      const incoterm = incoList[0];
+      /* [FZ AKO 2] มี Incoterms ของ INVOICE นี้ใน CLC → ใช้ค่านั้นตรง ๆ
+         ไม่มี → คงการตรวจเดิม (ไฟล์มีหลายค่า = Error) */
+      const invInco = spIncoByInv.get(invNo);
+      if(!invInco && incoList.length > 1) throw new Error('พบค่า Incoterms ไม่ตรงกันหลายค่า: ' + incoList.join(', ') + ' — กรุณาตรวจสอบไฟล์ INVOICE CLC');
+      const incoterm = invInco || incoList[0];
       const mapBuf = spBuildMappingBuf(allRows);
-      const knBuf = await spBuildKNWorkbook(allRows, incoterm);
+      const knBuf = await spBuildKNWorkbook(allRows, incoterm, spIncoByInv);
       const sQty=allRows.reduce((s,r)=>s+_n(r.qty),0), sAmt=allRows.reduce((s,r)=>s+_n(r.amt),0), sNet=allRows.reduce((s,r)=>s+_n(r.netwt),0);
       console.log('[FZ+KN] invNo', invNo, '| rows', allRows.length, '| \u03a3Qty', sQty, '| \u03a3ItemNet', sAmt, '| \u03a3NetW', sNet);
       const zip = new JSZip();
@@ -14064,10 +14118,19 @@ async function spDownload(){
         if(isFinite(na)&&isFinite(nb)) return na-nb;
         return ba.localeCompare(bb);
       });
-      // incoterm (รวม): ไฟล์ค่าเดียว → ใช้ค่านั้น · หลายค่า → ต้องเป็นค่าเดียวจริงในชุดที่รวม
-      const incoterm = incotermFor(sorted, range) || ((incoList.length===1) ? incoList[0] : '');
+      /* ══ [FZ AKO 2 · INCOTERM] Root Cause เดิม ══
+         incotermFor(sorted, range) ยุบทุก INVOICE เป็นค่าเดียว → 113986657=FCA + 113986660=EXW
+         ทำให้ throw 'พบ Incoterms หลายค่าใน INVOICE 113986657-113986660: FCA, EXW'
+         ทั้งที่เป็นคนละ Invoice = ถูกต้องตามจริง
+         ใหม่: ผูก Incoterm ราย INVOICE จาก CLC (spIncoByInv) แล้วเขียนลง KN คอลัมน์ N ต่อแถว
+               ตรวจเพียงว่าครบทุก INVOICE เท่านั้น · ไม่ยุบเป็นค่าเดียวอีก
+         ★ incotermFor ยังคงอยู่ (ไม่ลบ/ไม่แก้) แต่ไม่ถูกเรียกในสาขานี้แล้ว */
+      const missInco = sortedInv.filter(v => !spIncoByInv.get(v));
+      if(missInco.length && incoList.length !== 1)
+        throw new Error('ไม่พบ Incoterms ของ INVOICE ' + missInco.join(', ') + ' ในไฟล์ INVOICE CLC');
+      const incoterm = (incoList.length === 1) ? incoList[0] : (spIncoByInv.get(sortedInv[0]) || '');
       const mapBuf = spBuildMappingBuf(sorted);                 // ★ 1 Worksheet · 1 หัวตาราง · 1 ยอดรวมท้าย (รวมทุก INVOICE)
-      const knBuf  = await spBuildKNWorkbook(sorted, incoterm); // ★ 1 Worksheet KN · 1 หัวตาราง · 1 ยอดรวมท้าย
+      const knBuf  = await spBuildKNWorkbook(sorted, incoterm, spIncoByInv); // ★ 1 Worksheet KN · 1 หัวตาราง · 1 ยอดรวมท้าย
       const sQty=sorted.reduce((s,r)=>s+_n(r.qty),0), sAmt=sorted.reduce((s,r)=>s+_n(r.amt),0), sNet=sorted.reduce((s,r)=>s+_n(r.netwt),0);
       console.log('[FZ+KN·รวม] INVOICE', sortedInv.join(','), '| rows', sorted.length, '| ΣQty', sQty, '| ΣItemNet', sAmt, '| ΣNetW', sNet);
       const zip = new JSZip();
