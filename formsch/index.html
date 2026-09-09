@@ -8818,6 +8818,7 @@ function _mapKeyIE(billing, productCode){
 // ── Mapping Excel · EXPORT เท่านั้น: ตั้ง Number Format ให้แสดงทศนิยม 3 ตำแหน่ง ──
 // แก้เฉพาะ "การแสดงผล" (cell.z) — ค่าใน cell ยังเป็น Number เดิม ไม่ปัด ไม่ลด precision
 const _MAP_Z3 = '#,##0.000';
+const _MAP_Z0 = '#,##0';
 // ใช้กับ sheet ที่เราสร้างเอง (aoa_to_sheet): ระบุคอลัมน์ตัวเลขที่ต้องการ 3 ตำแหน่ง (0-based)
 // ข้ามแถวหัวตาราง · แตะเฉพาะ cell ที่เป็นตัวเลข (t==='n') → คอลัมน์รหัส/เลขเอกสารที่เป็น text ไม่ถูกแตะ
 function _mapZ3Cols(ws, cols, startRow){
@@ -8827,6 +8828,18 @@ function _mapZ3Cols(ws, cols, startRow){
     for(const c of cols){
       const cell = ws[XLSX.utils.encode_cell({r, c})];
       if(cell && cell.t === 'n') cell.z = _MAP_Z3;
+    }
+  }
+}
+// Mapping Excel · Qty. ตอน EXPORT: แสดงเป็นจำนวนเต็ม ไม่มีจุดทศนิยม
+// เปลี่ยนเฉพาะ Number Format (cell.z) ไม่เปลี่ยนค่าตัวเลข/การคำนวณเดิม
+function _mapZ0Cols(ws, cols, startRow){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
+    for(const c of cols){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(cell && cell.t === 'n') cell.z = _MAP_Z0;
     }
   }
 }
@@ -9282,8 +9295,9 @@ async function exportMappingCombined(){
         // TOTAL row — numbers only; text columns blank (incl. Billing Document Date + คอลัมน์ที่เพิ่มท้าย)
         aoa.push(['TOTAL','','','', round3(tQ), round3(tV), '', '', round3(tQty), round3(tNW), round3(tGW), round3(tFOB), '', '', '', '']);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        // ทศนิยม 3 ตำแหน่ง: Invoiced Qty(4) · Net Value(5) · Qty.(8) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
-        _mapZ3Cols(ws, [4,5,8,9,10,11], 1);
+        // Mapping Excel EXPORT: Qty.(8) = จำนวนเต็มไม่มีจุดทศนิยม; คอลัมน์ตัวเลขอื่นคง 3 ตำแหน่งเหมือนเดิม
+        _mapZ3Cols(ws, [4,5,9,10,11], 1);
+        _mapZ0Cols(ws, [8], 1);
         ws['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
         _rrSheets++;   // country sheet นี้เติมคอลัมน์แล้ว
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
