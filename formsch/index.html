@@ -8843,6 +8843,29 @@ function _mapZ0Cols(ws, cols, startRow){
     }
   }
 }
+// Mapping Excel EXPORT: บังคับคอลัมน์ QTY ทุกชีต (รวม SUMMARY หน้าแรก / Country / RM FINAL / UNMATCHED) ให้แสดงจำนวนเต็ม
+// ตรวจจากชื่อหัวคอลัมน์ที่อนุญาตเท่านั้น เพื่อไม่แตะคอลัมน์อื่นหรือข้อความที่มีคำว่า Qty โดยบังเอิญ
+function _mapZ0AllQtyHeaders(ws){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  const qtyHdrs = new Set(['qty','invoiced qty','invoiced quantity','billing qty in sku','matched qty','total invoiced qty','total qty']);
+  const qtyCols = new Set();
+  for(let r=rg.s.r; r<=Math.min(rg.e.r, rg.s.r+40); r++){
+    for(let c=rg.s.c; c<=rg.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({r,c})];
+      if(!cell || cell.v==null) continue;
+      const h = String(cell.v).toLowerCase().replace(/[.]/g,'').replace(/\s+/g,' ').trim();
+      if(qtyHdrs.has(h)) qtyCols.add(c);
+    }
+  }
+  if(!qtyCols.size) return;
+  for(let r=rg.s.r; r<=rg.e.r; r++){
+    for(const c of qtyCols){
+      const cell = ws[XLSX.utils.encode_cell({r,c})];
+      if(cell && cell.t==='n') cell.z = _MAP_Z0;
+    }
+  }
+}
 // ใช้กับ RM FINAL (มาจากไฟล์ RM ต้นฉบับ): อัปเกรดเฉพาะ cell ที่ "ไฟล์ต้นฉบับกำหนดเป็นทศนิยม 1-2 ตำแหน่งอยู่แล้ว"
 // → ไม่แตะ General / วันที่ / ข้อความ ⇒ Billing Document · Item · Material · HS Code · Import Entry ไม่ถูกเติม .000
 function _mapZ3Existing(ws){
@@ -9410,6 +9433,9 @@ async function exportMappingCombined(){
     // -- Final order: SUMMARY · country sheets (A-Z) · RM FINAL · UNMATCHED --
     const tail=['RM FINAL','UNMATCHED'].filter(n=>wb.SheetNames.includes(n));
     wb.SheetNames = ['SUMMARY', ...sheetOrder, ...tail].filter(n=>wb.SheetNames.includes(n));
+
+    // Mapping Excel EXPORT: QTY ทุกชีต รวม SUMMARY หน้าแรก = ไม่มีจุดทศนิยม
+    wb.SheetNames.forEach(sn=>_mapZ0AllQtyHeaders(wb.Sheets[sn]));
 
     // -- Download --
     const rmName=(mappingState.rmFile.name||'RM').replace(/\.[^.]+$/,'');
