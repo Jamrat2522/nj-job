@@ -8713,8 +8713,11 @@ async function schnParseRM(file){
  *    ใช้เฉพาะ Schaeffler Non → ① สร้าง Mapping */
 const SCHN_DUI_HS = new Set([
   '84798969','84798970','84799090','84821000','84823000',
-  '84825000','84828000','84829900','84833090','85144000'
+  '84825000','84828000','84829900','84833090','85144000',
+  '85371099'                                   // ★ เพิ่ม 85371099 · 84824000 ไม่อยู่ใน List (ไม่ฟิก)
 ]);
+/* Normalize HS ก่อนเทียบ — ตัดช่องว่าง/จุด/ขีด เหลือเฉพาะตัวเลข (8482.40.00 → 84824000) */
+const schnDuiNorm = v => String(v == null ? '' : v).replace(/[^0-9]/g, '');
 const SCHN_DUI_VALUES = { date:'2017-11-13', license:'EXEMPT99', taxid:'0994000159561', pos:'03' };
 
 /* ── Core mapping compute (logic เดียวกับ Analyze เดิม 100% · ไม่มี UI) ── */
@@ -8775,9 +8778,11 @@ async function schnComputeMapping(){
     }
     /* [DUI] duiHs = HS 8 หลักจาก Master (กติกา Normalize เดียวกับ hsShort)
      *       fallback = hsShort เดิม เมื่อ Product Code ไม่มีใน Master (คงพฤติกรรมเดิมไว้ ไม่ทำให้รายการเดิมหลุด) */
-    let duiHs = masterHs;
+    /* ★ Normalize ก่อน (ตัดช่องว่าง/จุด/ขีด เหลือเฉพาะตัวเลข) แล้วจึงตัด 11 → 8 หลัก
+       ค่าที่เป็นตัวเลขล้วนอยู่แล้วให้ผลเหมือนเดิมทุกประการ */
+    let duiHs = schnDuiNorm(masterHs);
     if(duiHs && duiHs.length >= 11) duiHs = duiHs.slice(0, -3);
-    if(!duiHs) duiHs = String(hsShort == null ? '' : hsShort);
+    if(!duiHs) duiHs = schnDuiNorm(hsShort);
     return {
       billing: r.billing,
       item:    parseInt(r.item, 10) || (i+1),
@@ -8791,7 +8796,7 @@ async function schnComputeMapping(){
       en, th, brand,
       curr: r.currency,
       gw: '',
-      dui: SCHN_DUI_HS.has(String(duiHs == null ? '' : duiHs).trim()),
+      dui: SCHN_DUI_HS.has(duiHs),               // ★ duiHs ผ่าน Normalize มาแล้ว
     };
   });
 
@@ -13822,7 +13827,8 @@ function spBuildMappingBuf(rows){
      ห้ามตัดสินจาก Product Code / Description / CLC No.                        */
   const SP_DUI_HS = new Set([
     '84798969','84798970','84799090','84821000','84823000',
-    '84825000','84828000','84829900','84833090','85144000'
+    '84825000','84828000','84829900','84833090','85144000',
+    '85371099'                                 // ★ เพิ่ม 85371099 · 84824000 ไม่อยู่ใน List (ไม่ฟิก)
   ]);
   const SP_DUI_AE = 'EXEMPT99';        // AE เลขที่ใบอนุญาต
   const SP_DUI_AF = '2017-11-13';      // AF วันที่ออกใบอนุญาต
@@ -16103,7 +16109,8 @@ function sp2BuildMappingBuf(rows){
      ห้ามตัดสินจาก Product Code / Description / CLC No.                        */
   const SP2_DUI_HS = new Set([
     '84798969','84798970','84799090','84821000','84823000',
-    '84825000','84828000','84829900','84833090','85144000'
+    '84825000','84828000','84829900','84833090','85144000',
+    '85371099'                                 // ★ เพิ่ม 85371099 · 84824000 ไม่อยู่ใน List (ไม่ฟิก)
   ]);
   const SP2_DUI_AE = 'EXEMPT99';        // AE เลขที่ใบอนุญาต
   const SP2_DUI_AF = '2017-11-13';      // AF วันที่ออกใบอนุญาต
