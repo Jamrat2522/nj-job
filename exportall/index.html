@@ -6642,7 +6642,7 @@ const TIN = (function(){
     for(let r=hdr+2;r<a.length;r++){
       if(/^TOTAL/i.test(norm(cell(a,r,0)))) break;
       const code=norm(cell(a,r,cCode)); if(!code) continue;
-      items.push({ code:codeKey(code), desc:norm(cell(a,r,cDesc)),
+      items.push({ code:normCode(code), desc:norm(cell(a,r,cDesc)),
         ctn:toNum(cell(a,r,cCTN)), pcs:toNum(cell(a,r,cPCS)),
         price:toNum(cell(a,r,cUP)), amount:toNum(cell(a,r,cAmt)), srcRow:r+1 });
     }
@@ -6684,12 +6684,24 @@ const TIN = (function(){
   }
 
   /* ---------- MASTER (Code / Product name / Thai name / พิกัด) ---------- */
+  /* Normalize CODE กลาง — ใช้ทั้งฝั่ง Invoice และ MASTER
+     trim / uppercase / ตัดวงเล็บเปิด-ปิดที่ไม่จำเป็น / ตัดน้ำหนักที่ต่อท้าย (15G, 35G, 11.3G, 156G)
+     ห้ามลบ '-' ที่เป็นส่วนหนึ่งของ CODE · ไม่ใช้ contains/startsWith */
+  function normCode(raw){
+    const t=norm(raw);
+    const m=t.match(/^\(?\s*([A-Za-z0-9-]+)\s*\)?(?:\s*[\d.]+\s*[A-Za-z]{1,4})?\s*$/);
+    return codeKey(m ? m[1] : t.replace(/[()]/g,''));
+  }
   function splitMasterCode(raw){
     const t=norm(raw); let code=t,size='';
     const m=t.match(/^\(([^)]*)\)\s*(.*)$/);
     if(m){ code=m[1]; size=m[2]; }
-    else { const m2=t.match(/^(.*?)\s+([\d.]+\s*[A-Za-z]{1,3})$/); if(m2){ code=m2[1]; size=m2[2]; } }
-    return {code:codeKey(code), size:S(size).replace(/\s+/g,'')};
+    else {
+      /* ทนกรณี Master พิมพ์วงเล็บตกหล่น เช่น "INA162) 35G" หรือ "(INA162 35G" */
+      const m2=t.match(/^\(?\s*([A-Za-z0-9\-]+)\s*\)?\s*(.*)$/);
+      if(m2){ code=m2[1]; size=m2[2]; }
+    }
+    return {code:normCode(code), size:S(size).replace(/[()]/g,'').replace(/\s+/g,'')};
   }
   function sizeOut(sz){ const m=S(sz).match(/^([\d.]+)\s*([A-Za-z]+)$/); return m?(m[1]+m[2].toLowerCase()):S(sz); }
   function parseMaster(wb){
@@ -6722,8 +6734,13 @@ const TIN = (function(){
   const SOLO_SIZE=/(^|\s)\d+(?:\.\d+)?\s*(?:g|kg|mg|oz|ml|l)(?=\s|$)/gi;   /* ขนาดเดี่ยว เช่น 65g / 40g (ตัวเลขต้องติดหน่วย จึงไม่กิน "10 Tubes") */
   const SOLO_MULT=/(^|\s)x\s*\d+(?=\s|$)/gi;                                  /* ตัวคูณแพ็กเดี่ยว เช่น X3 */
   const EMPTY_PAREN=/\(\s*\)/g;                                               /* วงเล็บว่างที่เหลือหลังตัดขนาด เช่น (14gX10) */
+  const CODE_PAREN=/\(\s*[A-Za-z]{2,5}[A-Za-z0-9-]*\d{2,6}\s*\)/;
   function cleanBase(desc,code){
     let t=S(desc).replace(/\u00a0/g,' ');
+    /* กฎ: เมื่อพบ (CODE) ใน Description ให้ตัดตั้งแต่วงเล็บเปิดเป็นต้นไปทั้งหมด
+       ถ้าไม่พบ CODE ของตัวเอง ให้ตัดที่วงเล็บที่มีรูปแบบเป็นรหัสสินค้า (กันกรณี Invoice พิมพ์รหัสผิด) */
+    let mm=t.match(new RegExp('\\(\\s*'+escRe(code)+'\\s*\\)','i')) || t.match(CODE_PAREN);
+    if(mm && mm.index>0) t=t.slice(0,mm.index);
     t=t.replace(/SID\s*No\.?\s*[0-9A-Za-z\-\/]*/gi,' ');
     t=t.replace(new RegExp('\\(\\s*'+escRe(code)+'\\s*\\)','gi'),' ');
     t=t.replace(new RegExp('(^|\\s)'+escRe(code)+'(?=\\s|$)','gi'),' ');
@@ -6750,6 +6767,13 @@ const TIN = (function(){
   function nameMatch(invName,masName){
     if(nkey(invName)===nkey(masName)) return 'exact';
     const ta=nameTokens(invName), tb=nameTokens(masName);
+    /* ต่างกันแค่ s ท้ายคำ (เอกพจน์/พหูพจน์) โดยจำนวนคำและคำอื่นตรงกันทั้งหมด */
+    if(ta.length===tb.length && ta.length>=3){
+      const sg=function(w){ return w.replace(/s$/,''); };
+      let same=true;
+      for(let i=0;i<ta.length;i++){ if(ta[i]!==tb[i] && sg(ta[i])!==sg(tb[i])){ same=false; break; } }
+      if(same) return 'plural';
+    }
     if(ta.length>=3 && tb.length>ta.length && (tb.length-ta.length)<=2
        && ta[0]===tb[0] && ta[ta.length-1]===tb[tb.length-1] && orderedSubset(ta,tb)) return 'variant';
     return '';
@@ -6841,13 +6865,22 @@ const TIN = (function(){
       st.codeHit++;
       let hit=cands.filter(m=>nkey(m.name)===nkey(base));
       if(!hit.length){
-        const v=cands.filter(m=>nameMatch(base,m.name)==='variant');
-        if(v.length===1) hit=v;
-        else if(v.length>1){ errs.push('MASTER_AMBIGUOUS — CODE: '+it.code+' | Invoice Product: '+base+' | พบ Master ที่ใกล้เคียงมากกว่า 1 รายการ'); return; }
+        const v=cands.filter(function(m){ const k=nameMatch(base,m.name); return k==='plural'||k==='variant'; });
+        if(v.length) hit=v;
       }
       if(!hit.length){ st.nameMiss++;
         errs.push('MASTER_MISMATCH — CODE: '+it.code+' | Invoice Product: '+base+' | Master Product: '+cands[0].name+' | CODE พบใน Master แต่ชื่อสินค้าไม่ตรง');
         return; }
+      if(hit.length>1){
+        /* แยกด้วย Product Name แล้วยังเหลือหลายแถว — ถ้าข้อมูลที่ใช้ (ขนาด/Thai name/พิกัด) ตรงกันทุกแถว
+           ถือว่าเป็นแถวซ้ำที่ให้ผลเหมือนกัน ใช้ได้; ถ้าขัดกัน ห้ามสุ่มเลือก ให้แจ้ง DUPLICATE */
+        const sig=hit.map(function(x){ return S(x.size).toUpperCase()+'|'+nkey(x.th)+'|'+nkey(x.pikad); });
+        if(sig.filter(function(x,i){ return sig.indexOf(x)===i; }).length>1){
+          errs.push('MASTER DUPLICATE CODE: '+it.code+' — แยกด้วย Product Name ไม่ได้ ('+hit.length+' แถว) | '
+            + hit.map(function(x){ return 'แถว '+x.srcRow+': '+x.raw+' / '+x.name+' / '+x.th+' / '+x.pikad; }).join('  ||  '));
+          return;
+        }
+      }
       st.nameHit++;
       const m=hit[0], so=sizeOut(m.size), isz=invSize(it.desc);
       if(!so){ errs.push(tag+': Master Code ไม่มีขนาดสินค้า ('+m.raw+')'); return; }
@@ -6980,7 +7013,8 @@ const TIN = (function(){
     }
     return fflate.zipSync(files);
   }
-  return {parseInvoice:parseInvoice, parsePacking:parsePacking, parseMaster:parseMaster,
+  return {normCode:normCode, splitMasterCode:splitMasterCode,
+          parseInvoice:parseInvoice, parsePacking:parsePacking, parseMaster:parseMaster,
           buildMapping:buildMapping, exportTemplate:exportTemplate, cleanBase:cleanBase,
           sizeOut:sizeOut, parseDate:parseDate, COLS:COLS};
 })();
