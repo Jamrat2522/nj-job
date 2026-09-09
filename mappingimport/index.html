@@ -15293,55 +15293,26 @@ async function sp2ComputeMapping(){
       let bestSol = null, bestScore = null, nodes = 0, solCount = 0;
       const used = new Array(lots.length).fill(false);
       const acc  = [];
-      /* ── Tie-break 5 ชั้น (ใช้เฉพาะเมื่อผ่าน Priority 1–5 เท่ากันทุกข้อ) ──
-         T1 จำนวน Output Row น้อยสุด
-         T2 ไล่ CLC No. จากท้าย→ต้น : Lot ก้อนใหญ่สุดมากสุด
-         T3 ไล่ CLC No. จากท้าย→ต้น : จำนวน RM Source Row น้อยสุด
-         T4 ไล่ CLC No. จากต้น→ท้าย : ผลรวมลำดับ RM Source Row น้อยสุด
-         T5 ไล่ CLC No. จากต้น→ท้าย : Item สูงสุด                                  */
-      const scoreOf = sol => {
-        let rows = 0;
-        const maxQty = [], nLots = [], sumIdx = [], maxItems = [];
-        for(const ks of sol){
-          const seen = new Set(); let mx = -1, mq = -Infinity, si = 0;
-          for(const k of ks){
-            seen.add(String(lots[k].ent) + '\u0001' + String(lots[k].it));
-            const it = sp2ItemNum(lots[k].it); if(it > mx) mx = it;
-            if(lots[k].qty > mq) mq = lots[k].qty;
-            si += lots[k].rmSourceIndex;
-          }
-          rows += seen.size; maxQty.push(mq); nLots.push(ks.length); sumIdx.push(si); maxItems.push(mx);
-        }
-        return { rows, maxQty, nLots, sumIdx, maxItems };
-      };
-      const cmpSeq = (a, b, rev, dir) => {                     // dir=+1 น้อยกว่าดีกว่า · dir=-1 มากกว่าดีกว่า
-        const n = a.length;
-        for(let t = 0; t < n; t++){
-          const i = rev ? (n - 1 - t) : t;
-          if(a[i] !== b[i]) return (a[i] < b[i] ? -1 : 1) * dir;
-        }
-        return 0;
-      };
-      const better = (a, b) => {
-        if(a.rows !== b.rows) return a.rows < b.rows;                      // T1
-        let c = cmpSeq(a.maxQty,   b.maxQty,   true,  -1); if(c) return c < 0;   // T2
-        c     = cmpSeq(a.nLots,    b.nLots,    true,   1); if(c) return c < 0;   // T3
-        c     = cmpSeq(a.sumIdx,   b.sumIdx,   false,  1); if(c) return c < 0;   // T4
-        c     = cmpSeq(a.maxItems, b.maxItems, false, -1); if(c) return c < 0;   // T5
-        return false;
-      };
+      /* ── [FZ AKO 1] FIFO ตาม RM Source Row จริง ──
+         ★ ไม่ใช้ minRows / จำนวน Output Row เป็นตัวเลือกใด ๆ
+         ★ ไม่ใช้ Item สูงสุด / Qty / Ref ซ้ำ เป็น Tie-break
+         DFS เดิน lot ตาม rmSourceIndex ASC แบบ "ลองใช้ก่อนเสมอ" (take-before-skip)
+         → คำตอบแรกที่เจอ = ลำดับ Source Row น้อยที่สุดตามพจนานุกรม (lex-min)
+         → PDF Item ปัจจุบันได้ RM Row ต่อเนื่องจากบนลงล่าง · QTY ครบแล้วหยุดทันที
+         → RM Row ถัดไปเหลือให้ PDF Item ถัดไป
+         → ข้าม RM Row ได้เฉพาะเมื่อ Full-Lot ไม่ลงตัวทางคณิตศาสตร์เท่านั้น
+           ไม่มีทางข้าม/รวมเพราะ Ref ซ้ำ หรือเพื่อให้ Output Row น้อยลง            */
       const dfs = ci => {
+        if(bestSol) return;                                    // ได้ lex-min แล้ว หยุดค้นทันที
         if(nodes++ > SP2_MAX_NODES) return;
         if(ci === clcList.length){
           if(used.some(u => !u)) return;                       // ทุก Lot ต้องถูกใช้ (ห้ามเหลือค้าง)
-          solCount++;
-          const sol = acc.map(a => a.slice()), sc = scoreOf(sol);
-          if(!bestSol || better(sc, bestScore)){ bestSol = sol; bestScore = sc; }
+          if(!bestSol){ bestSol = acc.map(a => a.slice()); solCount++; }   // ★ คำตอบแรก = lex-min Source Row
           return;
         }
         const need = clcList[ci].qty, cur = [];
         const pick = (pos, rem) => {
-          if(nodes > SP2_MAX_NODES) return;
+          if(bestSol || nodes > SP2_MAX_NODES) return;
           if(Math.abs(rem) < 1e-9){
             acc.push(cur.slice()); dfs(ci + 1); acc.pop(); return;
           }
@@ -15365,9 +15336,15 @@ async function sp2ComputeMapping(){
           'ไม่มี Combination ใดที่จัด Full-Lot ให้ครบทุก CLC No. ได้');
       if(nodes > SP2_MAX_NODES) console.warn('[SCH 2 PDF] AMBIGUOUS_RM_ALLOCATION — ค้นไม่ครบทุก Combination:',
         c0.pc, c0.dlv, 'nodes >', SP2_MAX_NODES);
-      if(solCount > 1) console.warn('[SCH 2 PDF] AMBIGUOUS_RM_ALLOCATION — มี ' + solCount +
-        ' Solution ที่ถูกต้อง · เลือกด้วย Tie-break (Row น้อยสุด → Item สูงสุด):',
-        c0.pc, 'Delivery ' + c0.dlv, 'CLC No. ' + clcList.map(c => c.no).join('/'));
+      /* รายงานเมื่อมีการข้าม RM Row ที่ "จำเป็น" (Full-Lot ไม่ลงตัว) */
+      {
+        let seq = [], jump = 0;
+        bestSol.forEach(ks => { ks.slice().sort((a, b) => a - b).forEach(k => seq.push(k)); });
+        for(let t = 1; t < seq.length; t++) if(seq[t] < seq[t - 1]) jump++;
+        if(jump) console.warn('[SCH 2 PDF] RM_ORDER_JUMP (จำเป็นเพื่อให้ Full-Lot ลงตัว) —',
+          c0.pc, 'Delivery ' + c0.dlv, 'CLC No. ' + clcList.map(c => c.no).join('/'),
+          '· ลำดับ Source Row ที่ใช้: ' + seq.map(k => lots[k].rmSourceIndex).join(' → '));
+      }
 
       clcList.forEach((c, ci) => {
         const alloc = [];
