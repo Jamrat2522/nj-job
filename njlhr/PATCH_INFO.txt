@@ -1,3 +1,59 @@
+NJHR V2 — RUN-127 · Layout ตาราง "อนุมัติรายการ → คำขอลา" (Desktop)
+Build: njhr-v2-45185d41  (ก่อนหน้า: njhr-v2-ae892ed1)
+สถานะ: CSS_ONLY · NO_SQL · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+รอบนี้ไม่มี SQL — Deploy ไฟล์อย่างเดียว
+
+Root Cause ของ Scroll แนวนอน
+  คอลัมน์ทั้ง 8 ของ Tab คำขอลาใช้ min-width เป็น px รวมกัน
+    c-date 150 + c-code 120 + c-name 220 + c-nick 100 + c-lt 120
+    + c-qty 110 + c-st 170 + apr-mg 300 = 1290px
+  พื้นที่จริงบนจอ 1366 (หัก Sidebar 270 + padding 48) เหลือ ~1048px จึงล้นเสมอ
+  และ RUN-118 ปลด min-width ของตาราง (.apr-t-leave{min-width:0}) ไปแล้ว
+  แต่ min-width รายคอลัมน์ยังอยู่ครบ ตารางจึงยังกว้างเกินและมีช่องว่างไม่สมดุล
+
+สิ่งที่แก้ — styles.css ไฟล์เดียว (Append เท่านั้น)
+  @media screen and (min-width:1200px) + scope .apr-t-leave
+    table-layout:fixed · width:100% · min-width:1040px
+    ความกว้างเป็น % รวม 100% พอดี:
+      c-date 9.5% · c-code 7% · c-name 15.5% · c-nick 7.5%
+      c-lt 8.5% · c-qty 7% · c-st 30% · apr-mg 15%
+    padding แนวนอน td/th ลดจาก 12px เหลือ 10px
+    ชื่อยาว: white-space:normal + word-break (ตัดบรรทัด ไม่ซ่อนข้อมูล)
+    สถานะ: stbtn เป็น inline-flex + nowrap · "คุณอนุมัติแล้ว" ต่อท้ายบรรทัดเดียวกัน
+    จัดการ: ปุ่มชิดซ้าย · .apr-wait เป็น flex:0 1 auto ไม่ยืดเต็มช่อง
+  @media screen and (min-width:1700px)  ปรับ c-st 28% · c-name 17.5% (รวมยัง 100%)
+
+  ผลบนจอ 1920 (content ~1602px)
+    วันที่ 152 · รหัส 112 · ชื่อ 248 · ชื่อเล่น 120 · ประเภท 136
+    จำนวนวัน 112 · สถานะ 481 · จัดการ 240   → ตรงช่วงที่กำหนดทุกคอลัมน์
+  ผลบนจอ 1366 (content ~1048px)
+    ทุกคอลัมน์ >= 73px · ชื่อ 162 · จัดการ 157 · ไม่ต้อง scroll แนวนอน
+
+หมายเหตุทางเทคนิค
+  ไม่ทำ td เป็น display:flex เด็ดขาด เพราะจะทำให้ table-layout:fixed
+  จัดคอลัมน์เพี้ยน (เบราว์เซอร์จะสร้าง anonymous table-cell ครอบ)
+  ใช้ inline-flex ที่ลูกแทน จึงคง table semantics ไว้ครบ
+
+ไม่แตะ
+  HTML / JS ทุกไฟล์ (compat/approvals-reports.js ไม่เปลี่ยนแม้แต่ไบต์เดียว)
+  mobile.css · Tab คำขอ OT · Tab ลงชื่อย้อนหลัง · Tablet (768–1199px)
+  ลำดับคอลัมน์ · จำนวนคอลัมน์ · ปุ่ม · Approval count · Status logic
+  can_act / act_reason / my_action · RUN-118 ที่ซ่อน 4 คอลัมน์
+  ไม่มี SQL · ไม่แตะข้อมูล
+
+การตรวจสอบ
+  node _check/test-run127-appr-layout.js   46 เคส PASS · 0 FAIL
+  Regression 19 ชุดเดิม                    PASS ทั้งหมด
+  ~ _check/test-css.js  ปรับให้ตรวจเฉพาะกฎกลาง (ไม่รวมกฎ scope .apr-t-leave)
+    เพราะชุดนั้นเขียนไว้ตรวจ min-width px ของทุก Tab — 27/27 PASS เท่าเดิม
+
+  TEST-01/02 (จอ 1920 / 1366 จริง) ยังไม่ได้ยืนยันบนเครื่องจริง
+
+======================================================================
+ประวัติรอบก่อนหน้า
+======================================================================
+
 NJHR V2 — RUN-126 · "ลืมรหัสผ่าน" บนหน้า Login
 Build: njhr-v2-ae892ed1  (ก่อนหน้า: njhr-v2-3d75cca8)
 สถานะ: SQL_APPLIED (2026-09-09 · migration run126_forgot_password) · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN

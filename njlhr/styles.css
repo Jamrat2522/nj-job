@@ -292,3 +292,64 @@
 .shgeo .shgeo-tag{max-width:100%;overflow-wrap:anywhere}
 /* [RUN-123] ส่งข้อมูลเพิ่มเติม — ปุ่มของผู้ยื่นคำขอ + จุด Timeline ของ INFO_REPLY */.btn-warn{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}.btn-warn:hover:not(:disabled){background:#fde68a}.lvir-bar{display:flex;justify-content:flex-end;margin:0 0 12px}.lvir-ask{margin-bottom:14px}.tl-reply .tl-dot{background:var(--yellow)}.rh-tl-row.reply .rh-tl-dot{background:var(--yellow)}
 /* [RUN-126] ลืมรหัสผ่าน — Text Button ชิดขวาใต้ช่องรหัสผ่าน ใช้ได้ทั้ง Desktop / Android / iOS · touch target >= 44px · ไม่ล้น login-card */.lg-fgrow{display:flex;justify-content:flex-end;align-items:center;margin:-6px 0 10px;width:100%;min-width:0}.lg-forgot{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 4px;max-width:100%;background:0 0;border:0;cursor:pointer;font-family:inherit;font-size:13.5px;line-height:1.3;color:var(--blue);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lg-forgot:hover{text-decoration:underline}.lg-forgot:active{opacity:.7}
+/* ===== RUN-127 · หน้า "อนุมัติรายการ → คำขอลา" — Layout ตารางบน Desktop =====
+   ขอบเขต: .apr-t-leave (Tab คำขอลาเท่านั้น) และเฉพาะจอ >= 1200px
+   Tab คำขอ OT / ลงชื่อย้อนหลัง · Tablet · Mobile ใช้กติกาเดิมทุกบรรทัด
+   แก้เฉพาะความกว้าง/ระยะห่าง — ไม่แตะลำดับคอลัมน์ ไม่ลบคอลัมน์
+   ไม่แตะ HTML/JS จึงไม่กระทบ Business Logic / Approval Logic / ข้อมูล
+
+   Root cause ของ Scroll แนวนอน: คอลัมน์ทั้ง 8 ใช้ min-width เป็น px รวมกัน
+     c-date 150 + c-code 120 + c-name 220 + c-nick 100 + c-lt 120
+     + c-qty 110 + c-st 170 + apr-mg 300 = 1290px
+   พื้นที่จริงบนจอ 1366 (หัก Sidebar 270 + padding 48) เหลือ ~1048px จึงล้นเสมอ
+
+   วิธีแก้: เปลี่ยนมาใช้ table-layout:fixed + ความกว้างเป็น % รวม 100%
+   ตารางจึงพอดีความกว้างที่มีอยู่เสมอ ไม่มีช่องว่างเหลือและไม่ล้น */
+@media screen and (min-width:1200px){
+  .apr-table.apr-t-leave{table-layout:fixed;width:100%;min-width:1040px}
+
+  /* % คิดจากพื้นที่จริง — จอ 1920 (content ~1600px) จะได้ใกล้เคียงค่าที่กำหนด */
+  .apr-table.apr-t-leave th.c-date,.apr-table.apr-t-leave td.c-date{width:9.5%;min-width:0}
+  .apr-table.apr-t-leave th.c-code,.apr-table.apr-t-leave td.c-code{width:7%;min-width:0}
+  .apr-table.apr-t-leave th.c-name,.apr-table.apr-t-leave td.c-name{width:15.5%;min-width:0}
+  .apr-table.apr-t-leave th.c-nick,.apr-table.apr-t-leave td.c-nick{width:7.5%;min-width:0}
+  .apr-table.apr-t-leave th.c-lt,.apr-table.apr-t-leave td.c-lt{width:8.5%;min-width:0}
+  .apr-table.apr-t-leave th.c-qty,.apr-table.apr-t-leave td.c-qty{width:7%;min-width:0}
+  .apr-table.apr-t-leave th.c-st,.apr-table.apr-t-leave td.c-st{width:30%;min-width:0}
+  .apr-table.apr-t-leave th.apr-mg,.apr-table.apr-t-leave td.apr-mg{width:15%;min-width:0}
+
+  /* ลดระยะห่างแนวนอนที่กว้างเกินจำเป็น */
+  .apr-table.apr-t-leave thead th{padding:10px 10px}
+  .apr-table.apr-t-leave tbody td{padding:10px 10px;vertical-align:middle}
+
+  /* ชื่อยาวให้ตัดบรรทัดแทนการดันตารางล้น — ไม่ซ่อนข้อมูล */
+  .apr-table.apr-t-leave td.c-name,.apr-table.apr-t-leave td.apr-nm{
+    white-space:normal;word-break:break-word;line-height:1.45}
+  .apr-table.apr-t-leave td.c-nick{white-space:normal;word-break:break-word}
+  .apr-table.apr-t-leave td.c-lt .chip{max-width:100%;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+
+  /* คอลัมน์สถานะ — พยายามอยู่บรรทัดเดียว
+     [chip สถานะ] [x/y คน] [คุณอนุมัติแล้ว] */
+  /* คง td เป็น table-cell ตามเดิม (ห้ามทำ td เป็น flex เพราะจะทำให้
+     table-layout:fixed จัดคอลัมน์เพี้ยน) — ใช้ inline-flex ที่ลูกแทน */
+  .apr-table.apr-t-leave td.c-st{white-space:normal;line-height:1.7}
+  .apr-table.apr-t-leave .apr-stbtn{display:inline-flex;flex-wrap:nowrap;
+    gap:6px;padding:3px 6px;max-width:100%;vertical-align:middle}
+  .apr-table.apr-t-leave .apr-stbtn .ap-chip{white-space:nowrap}
+  .apr-table.apr-t-leave .apr-stbtn .apr-stn{white-space:nowrap}
+  .apr-table.apr-t-leave td.apr-st .apr-mine{display:inline-flex;margin-top:0;
+    margin-left:6px;white-space:nowrap;vertical-align:middle}
+
+  /* คอลัมน์จัดการ — กว้างตามปุ่มจริง ไม่ปล่อยว่างยาวด้านขวา */
+  .apr-table.apr-t-leave .apr-acts{justify-content:flex-start;gap:6px}
+  .apr-table.apr-t-leave .apr-acts .apr-act{padding:0 10px}
+  .apr-table.apr-t-leave .apr-wait{flex:0 1 auto;min-width:0;font-size:11.5px;
+    line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+}
+
+/* จอกว้างมาก — กันไม่ให้คอลัมน์สถานะยืดจนเวิ้งว้าง */
+@media screen and (min-width:1700px){
+  .apr-table.apr-t-leave th.c-st,.apr-table.apr-t-leave td.c-st{width:28%}
+  .apr-table.apr-t-leave th.c-name,.apr-table.apr-t-leave td.c-name{width:17.5%}
+}
