@@ -31,7 +31,31 @@
 }
 
 /* ---------- กล้อง ---------- */
-.njf-cam { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
+/* ---------- [PREVIEW CROP LOCK — BASE, ไม่พึ่ง Container Query] ----------
+   Root Cause ที่วัดได้จริง: .njf-overlay เป็น position:fixed;inset:0 และเดิม .njf-cam เป็น flex:1
+   ความสูงของ .njf-cam จึงเปลี่ยนตาม viewport (Safari toolbar ยุบ/ขยาย · แถบ Android)
+   Stream เป็น 4:3 คงที่ แต่ object-fit:cover คำนวณ crop ใหม่ทุกครั้งที่กล่องเปลี่ยนสัดส่วน
+   วัดได้: กล่อง 390x572 -> เห็นภาพต้นทาง 327x480 · กล่อง 390x658 -> เห็น 284x480
+   = ภาพซูมเข้า/ออก 1.15x และ .njf-oval ขยับ 40px ทั้งที่ Source ไม่มีคำสั่ง Zoom เลย
+
+   แก้ที่ "กล่อง" ไม่ใช่ที่ <video>: ล็อก .njf-cam เป็น 3:4 ด้วย aspect-ratio ใน Base CSS
+   -> ทุกเบราว์เซอร์ที่รองรับ aspect-ratio (iOS Safari 15+ / Chrome 88+) ได้ Ratio คงที่ทันที
+      โดยไม่ต้องมี Container Query
+   -> <video> และ .njf-guide ยังใช้กฎเดิมทุกประการ (width/height 100% · cover · scaleX(-1) · inset:0)
+      จึงไม่แตะกระจกเงาและไม่แตะ overlay ใด ๆ
+   ⚠ ไม่แตะ <canvas> และไม่แตะ videoWidth/videoHeight — Face Detection อ่านพิกเซลดิบจาก
+     <video> ผ่าน canvas โดยตรง ไม่เกี่ยวกับ CSS box จึงไม่กระทบ Descriptor/Liveness/Threshold */
+.njf-cam {
+  position: relative; background: #000; overflow: hidden;
+  flex: none;                     /* เดิม flex:1 = ยืดตามที่เหลือ -> ต้นเหตุของ Dynamic Crop */
+  width: 100%; aspect-ratio: 3 / 4; max-height: 100%; min-height: 0;
+  margin-inline: auto;
+}
+/* แนวนอน: พื้นที่เตี้ยมาก ให้ยึดความสูงแล้วคำนวณความกว้างจาก Ratio เดิม
+   UI จึงคง Portrait 3:4 ไม่กลายเป็น Layout แนวนอน และ Crop ยังเท่ากับ Portrait */
+@media (orientation: landscape) {
+  .njf-cam { flex: 1 1 auto; width: auto; height: auto; aspect-ratio: 3 / 4; }
+}
 .njf-cam video {
   width: 100%; height: 100%; object-fit: cover;
   transform: scaleX(-1);                 /* กระจกเงา ให้ผู้ใช้จัดหน้าง่าย */

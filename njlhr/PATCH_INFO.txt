@@ -1,3 +1,153 @@
+NJHR V2 — RUN-125 · ใบลาไม่แสดงชื่อผู้อนุมัติ (ผูกผังตั้งแต่ตอนยื่น)
+Build: njhr-v2-3d75cca8  (ไม่เปลี่ยน — SQL ล้วน)
+สถานะ: SQL_APPLIED (2026-09-09) · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+SQL: njlhr/_archive/RUN-125_leave_bind_workflow_on_submit.sql
+     อิสระจาก RUN-123 / RUN-124 รันก่อนหรือหลังก็ได้
+     รายละเอียด + หลักฐาน + ผลทดสอบ 30 เคส: _archive/PATCH_INFO_RUN125.txt
+
+Root Cause
+  njhr_leave_submit_core_v145 ไม่เคยเขียน workflow_id / current_step ตอน INSERT
+  ผังถูกผูกแบบ Lazy ใน njhr_leave_decide เท่านั้น (RUN-113)
+  → ใบที่ยังไม่มีใครกดอนุมัติ workflow_id = NULL เสมอ
+  → njhr_appr_steps_attc(NULL,...) คืน '[]' → apprApprCount() = null
+  → หน้าอนุมัติแสดงแค่ Badge "ยังอนุมัติไม่ครบ" ไม่มีรายชื่อผู้อนุมัติ
+
+หลักฐาน (Production)
+  0434 / 0423 : department SHIPPING LCB · njhr_wf_pick คืน 4ca61e10 ถูกต้องทั้งคู่
+  Workflow 4ca61e10 'SHIPPING LCB' สร้าง 2026-08-03 · 2 ขั้น · 3 คน
+    ขั้น 1 ALL : 0004 นายจำลอง ผาเทพ
+    ขั้น 2 ALL : 0001 นายจำรัส ผาเทพ · 0002 นางสาวสุนทรี ทิรานุกูล
+  ใบ PENDING 260903-0008 (0434) และ 260908-0020 (0423)
+    workflow_id NULL · current_step NULL · approvals = [SUBMIT]
+    ยื่นหลัง Workflow ถูกสร้าง → ไม่ใช่ปัญหา Routing
+
+สิ่งที่แก้
+  ~ njhr_leave_submit_core_v145  + ผูกผังด้วย njhr_wf_pick ตั้งแต่ตอนยื่น
+                                 + INSERT workflow_id / current_step
+  ~ njhr_leave_submit            + current_step = null ในเส้นทาง AUTO_APPROVE_EXEMPT
+  + Backfill ใบ PENDING ที่ workflow_id NULL และยังไม่มี Approval Action ใด ๆ
+    เขียนเฉพาะ 2 คอลัมน์ ไม่แตะ approvals / status / ข้อมูลใบลา
+
+ไม่แตะ
+  decide · can_act · feed · list · detail · steps_attc · view_leave · wf_pick
+  pending_counts · acted_before · quota · workdays · next_request_no
+  OT · ลงชื่อย้อนหลัง · ALL/ANY · ลำดับ Step · enum · โครงสร้างตาราง
+  ไม่มี DROP / DELETE / TRUNCATE
+
+Frontend: ไม่ต้องแก้ — apprApprCount / apprApproversHTML / apprStepsHTML
+  อ่านจาก r.steps อยู่แล้ว ไม่ hardcode ไม่ยิง RPC แยก รอแค่ข้อมูลจาก RPC
+
+การตรวจสอบ
+  Flow จริงบน Production DB  30/30 PASS (Backfill+TEST-01..10 = 21 · ยื่นใบใหม่ = 9)
+                             รันในธุรกรรมแล้ว ROLLBACK — ไม่แตะข้อมูลจริง
+  node _check/test-run125-workflow-bind.js   72 เคส PASS · 0 FAIL
+  Regression 18 ชุดเดิม                      PASS ทั้งหมด
+
+======================================================================
+ประวัติรอบก่อนหน้า
+======================================================================
+
+NJHR V2 — RUN-124 · "อนุมัติรายการ > คำขอลา" ค้างจนคำขอ Final
+Build: njhr-v2-3d75cca8  (ไม่เปลี่ยน — SQL ล้วน ไม่มี HTML/JS/CSS เปลี่ยน)
+สถานะ: SQL_APPLIED (2026-09-09) · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+SQL ที่ต้องรัน (ตามลำดับ)
+  1) njlhr/_archive/RUN-123_leave_info_reply.sql
+  2) njlhr/_archive/RUN-124_queue_until_final.sql   ← มี Guard กันรันผิดลำดับ
+  รายละเอียด + ผลทดสอบเต็ม: njlhr/_archive/PATCH_INFO_RUN124.txt
+
+Root Cause
+  RUN-119 เติม `where b.act` ลงใน njhr_leave_feed · b.act = can_act.allowed
+  หลัง RUN-121 can_act เป็น false ทันทีที่ผู้ใช้คนนั้น APPROVE/REJECT
+  → แถวถูกตัดทิ้ง = ใช้ "ฉันกดได้ไหม" ตัดสินการมองเห็น
+  ตรงกับที่ข้อกำหนดห้าม: "ห้ามซ่อนเพียงเพราะ current user approved = true"
+
+ข้อเท็จจริงที่ต่างจากที่เข้าใจกัน (ตรวจบน Production แล้ว)
+  SUPER_ADMIN เจอปัญหาเดียวกัน ไม่ได้ทำงานถูกอยู่แล้ว
+  คำขอ 260902-0007: jamrat/soontaree (SUPER_ADMIN) และ 0010 (ADMIN)
+  can_act=false เหมือนกันหมด reason "คุณดำเนินการคำขอนี้ไปแล้ว"
+  → แก้ที่ Feed จุดเดียว ได้ผลกับทุก Role พร้อมกัน
+
+สิ่งที่แก้ — njhr_leave_feed ฟังก์ชันเดียว
+  + acted_mine (ใช้ njhr_appr_acted_before ตัวเดียวกับ RUN-121)
+  ~ where b.act or b.wait_info  →  or b.acted_mine
+  ~ cnt (total_count) นับตามเงื่อนไขเดียวกับ where
+  · pnd (Badge) ยังนับเฉพาะ raw.act เท่าเดิม
+  RUN-124 "เพิ่มแถว" ได้อย่างเดียว ไม่มีเงื่อนไขใดตัดแถวออกเพิ่ม
+  → เป็นไปไม่ได้ที่ Role ใดจะเห็นน้อยลง (รับประกัน "ห้ามกระทบ SUPER_ADMIN")
+
+ไม่แตะ
+  njhr_leave_can_act · njhr_leave_decide · njhr_leave_info_reply
+  njhr_appr_acted_before · njhr_appr_pending_counts · njhr_appr_steps_attc
+  njhr_leave_list · njhr_leave_detail · OT · ลงชื่อย้อนหลัง
+  ALL/ANY · ลำดับ Step · current_step · enum · โครงสร้างตาราง
+  ไม่มี DROP / DELETE / TRUNCATE · ไม่มี UPDATE/INSERT (read-path ล้วน)
+
+Frontend: ไม่ต้องแก้แม้แต่ไฟล์เดียว
+  หน้าอนุมัติขับด้วย can_act / act_reason / my_action / steps จาก Feed ล้วน
+  ไม่มีเงื่อนไข Role ในโค้ด → แถวกลับมาแล้ว ADMIN ได้ข้อมูลเท่า SUPER_ADMIN ทันที
+
+การตรวจสอบ
+  Flow จริงบน Production DB   34 PASS / 1 FAIL(ค่าคาดหวังในสคริปต์ตั้งผิด)
+                               + Baseline 3/3 ยืนยันบั๊กเดิม
+                               รันในธุรกรรมแล้ว ROLLBACK — ไม่แตะข้อมูลจริง
+  node _check/test-run124-queue.js   65 เคส PASS · 0 FAIL
+  Regression 17 ชุดเดิม              PASS ทั้งหมด
+
+======================================================================
+ประวัติรอบก่อนหน้า
+======================================================================
+
+NJHR V2 — RUN-123 · LEAVE "ขอข้อมูลเพิ่ม → พนักงานตอบกลับ"
+Build: njhr-v2-3d75cca8   (ก่อนหน้า: njhr-v2-2ad787b9)
+สถานะ: LEAVE_INFO_REPLY_READY · SQL_APPLIED (2026-09-09) · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+SQL: ต้องรัน 1 ไฟล์ — njlhr/_archive/RUN-123_leave_info_reply.sql
+     รายละเอียดเต็ม + ผลทดสอบ Flow จริง 35 เคส อยู่ที่
+     njlhr/_archive/PATCH_INFO_RUN123.txt
+
+Root Cause (ยืนยันจาก pg_get_functiondef ของ Production จริง)
+  1. njhr_leave_decide รับ INFO ได้ แต่ไม่มี RPC ฝั่งพนักงานตอบกลับ
+     → คำขอค้างที่ NEED_MORE_INFO ตลอดไป
+  2. njhr_leave_can_act ไม่รู้จักสถานะ "รอพนักงานตอบ"
+     ผู้อนุมัติจึงกด อนุมัติ/ไม่อนุมัติ/ขอข้อมูลเพิ่ม ได้ทั้งที่เพิ่งถามไป
+  3. njhr_leave_feed หลัง RUN-119 มี `where b.act`
+     ล็อกอย่างเดียวทำให้ "แถวหายทั้งแถว" ต้องมีธง wait_info แยกจาก can_act
+  ⚠ RUN-120/121 ใน _archive เป็นเอกสารเปล่า (DDL อยู่บน Production เท่านั้น)
+    ถ้าเขียนทับจากไฟล์ RUN-113 จะลบงาน RUN-119/120/121 ทิ้งทั้งชุด
+
+SQL ที่เปลี่ยน (LEAVE เท่านั้น)
+  + njhr_leave_info_pending · njhr_leave_step_member · njhr_leave_info_reply
+  ~ njhr_leave_can_act · njhr_leave_decide · njhr_leave_feed · njhr_appr_view_leave
+  ไม่แตะ OT / ลงชื่อย้อนหลัง / RUN-121 / ALL-ANY / Step / enum / โครงสร้างตาราง
+  ไม่มี DROP / DELETE / TRUNCATE · leave_attachments ใช้ INSERT อย่างเดียว
+
+Frontend ที่แก้
+  runtime/shared/requests.js   + lvNeedInfo · lvInfoAsk · lvInfoReplyOpen · lvInfoReplyBtn
+                               ~ lvShowTimeline รู้จัก INFO_REPLY
+  views/leave/main.js          ปุ่ม [ตอบกลับ / แนบไฟล์เพิ่ม] Desktop + Mobile
+  views/leave/detail.js        ปุ่มใน Modal + Timeline รู้จัก INFO_REPLY
+  compat/approvals-reports.js  class ของ INFO_REPLY ใน Timeline เท่านั้น
+  styles.css                   คลาสใหม่ล้วน .btn-warn .lvir-bar .lvir-ask .tl-reply
+  ฝั่งผู้อนุมัติขับด้วย can_act / act_reason / ui_status จาก RPC — ไม่ hardcode
+
+Badge กับจำนวนแถว
+  แถว NEED_MORE_INFO ยังแสดงแต่กดไม่ได้ → total_count > pending_count ได้
+  Badge = "รายการที่ฉันต้องดำเนินการตอนนี้" จึงไม่นับรายการที่รอพนักงานตอบ
+  ยืนยันด้วยเคสจริง T02h (badge=0 · rows=1) และ T02i (badge=1 หลังตอบกลับ)
+
+การตรวจสอบ
+  Flow จริงบน Production Database  35 PASS / 1 FAIL(ตัวเลขคาดหวังใน Test นับผิด)
+                                   รันในธุรกรรมแล้ว ROLLBACK — ไม่แตะข้อมูลจริง
+  node _check/test-leave-info-reply.js   108 เคส PASS · 0 FAIL
+  node --check 4 ไฟล์ที่แก้              OK
+  Regression 15 ชุดเดิม                  PASS ทั้งหมด
+
+======================================================================
+ประวัติรอบก่อนหน้า (Build njhr-v2-2ad787b9 · RUN-122 Web App Icon / PWA)
+======================================================================
+
 NJHR V2 — RUN-122 · Web App Icon / PWA (Add to Home Screen)
 Build: njhr-v2-2ad787b9   (ก่อนหน้า: njhr-v2-5925db39)
 สถานะ: ICON_PWA_ADDED · REAL_DEVICE_VERIFICATION = NOT_RUN

@@ -5,13 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>NJ LOGISTIC HR SYSTEM</title>
   <meta name="theme-color" content="#101827">
+  <!-- ================= WEB APP ICON / PWA =================
+       ขอบเขต: ไอคอน Add to Home Screen เท่านั้น
+       ห้ามใส่ค่า absolute path ('/...') — แอปถูกเสิร์ฟใต้โฟลเดอร์ย่อย
+       ใช้ Relative Path ('./') เท่านั้น เพื่อคง Routing / scope เดิมทุกประการ
+       manifest.start_url / scope = './' → กดไอคอนแล้วเปิด index.html เดิม
+       Hash Routing (#/...) และ Remember Login ทำงานเหมือนเดิม
+       ไฟล์เหล่านี้ไม่อยู่ใน CORE / LAZY ของ sw.js จึงไม่ผ่าน Cache Strategy เดิม
+       (Service Worker ปล่อยผ่านไป Network ตรง ๆ) — ไม่แตะ Offline Cache -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NJ HR">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="application-name" content="NJ HR">
+  <!-- ====================================================== -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- CSS ของระบบ (Critical) มาก่อนฟอนต์ภายนอก — ฟอนต์ใช้ display=swap อยู่แล้ว
        จึงวาดหน้าด้วยฟอนต์สำรองได้ทันทีระหว่างรอ ไม่บล็อกการเรนเดอร์บนเน็ตช้า -->
-  <link rel="stylesheet" href="styles.css?v=e9c42eb7">
+  <link rel="stylesheet" href="styles.css?v=c1f83246">
   <!-- ส่วนเพิ่มสำหรับมือถือ (ไม่แก้ styles.css เดิม) -->
-  <link rel="stylesheet" href="mobile.css?v=eff25e8d">
+  <link rel="stylesheet" href="mobile.css?v=a54fec67">
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -118,7 +137,7 @@
           if (el) el.innerHTML = '<div style="padding:24px;font-family:system-ui">' +
             'โหลดไฟล์ระบบไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง</div>';
         };
-        window.NJHR_loadBootScript('asset-manifest.js?v=ae9f770e')
+        window.NJHR_loadBootScript('asset-manifest.js?v=b370a329')
           .then(function () {
             var A = window.NJHR_ASSETS;
             if (!A || !A.runtime || !A.runtime.namespace || !A.runtime.core) throw new Error('ASSET_MANIFEST_MISSING');
