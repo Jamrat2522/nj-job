@@ -1,3 +1,42 @@
+NJHR V2 — RUN-126 · "ลืมรหัสผ่าน" บนหน้า Login
+Build: njhr-v2-ae892ed1  (ก่อนหน้า: njhr-v2-3d75cca8)
+สถานะ: SQL_APPLIED (2026-09-09 · migration run126_forgot_password) · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+SQL: njlhr/_archive/RUN-126_forgot_password.sql (อิสระ รันตอนไหนก็ได้)
+     รายละเอียด + ผลทดสอบ 26 เคส: _archive/PATCH_INFO_RUN126.txt
+
+Root Cause
+  renderLogin() ไม่มีคำว่า "ลืมรหัสผ่าน" อยู่ในไฟล์เลย — ไม่ใช่ CSS ซ่อน
+  ฝั่ง DB ก็ไม่มี RPC ให้พนักงาน Reset เอง มีแต่ของ Admin (njhr_user_password)
+
+RPC ใหม่ 2 ตัว
+  njhr_pw_reset_verify(emp_code, username, last_name_en)
+  njhr_pw_reset_apply(emp_code, username, last_name_en, new_password)
+  ยืนยันตัวตนชุดเดียวกับ njhr_activation_submit + username
+  Hash/Session คัดจาก njhr_user_password: bcrypt + revoke ทุกเซสชัน
+  ไม่มี Ticket ระหว่างขั้น — ขั้นที่ 2 ตรวจตัวตนซ้ำเองทั้งหมด
+  ข้อความกลางชุดเดียวกัน Account Enumeration
+
+ไฟล์ที่แก้
+  runtime/core.js  + ปุ่มใน renderLogin · njPwPolicy (Policy ชุดเดียว)
+                   · fpOpenForm/fpOpenStep2 · actCheck เรียก njPwPolicy
+  styles.css       + .lg-fgrow / .lg-forgot (คลาสใหม่ล้วน)
+
+ไม่แตะ
+  face.js · Face Login · Remember 30 วัน · สมัครสมาชิกครั้งแรก
+  njhr_login/logout/session_check/face_login · njhr_activation_* · njhr_user_password
+  mobile.css · views/* · compat/* · runtime/shared/*
+  ไม่มี DROP / DELETE / TRUNCATE · เปิดหน้า Login ไม่มี Network Call เพิ่ม
+
+การตรวจสอบ
+  Flow จริงบน Production DB  26/26 PASS (รันในธุรกรรมแล้ว ROLLBACK)
+  node _check/test-run126-forgot-password.js  81 เคส PASS · 0 FAIL
+  node --check runtime/core.js  OK · Regression 18 ชุดเดิม PASS ทั้งหมด
+
+======================================================================
+ประวัติรอบก่อนหน้า
+======================================================================
+
 NJHR V2 — RUN-125 · ใบลาไม่แสดงชื่อผู้อนุมัติ (ผูกผังตั้งแต่ตอนยื่น)
 Build: njhr-v2-3d75cca8  (ไม่เปลี่ยน — SQL ล้วน)
 สถานะ: SQL_APPLIED (2026-09-09) · REAL_DEVICE_VERIFICATION = NOT_RUN
