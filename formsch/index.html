@@ -8006,6 +8006,9 @@ function handleMappingPdfMultiUpload(event){
   if(_dupCount > 0 && typeof toast === 'function') toast('ข้ามไฟล์ซ้ำ ' + _dupCount + ' ไฟล์', 'info');
   const inp = document.getElementById('mappingPdfMultiInput');
   if(inp) inp.value = '';   // reset so same filename can be re-selected later
+  // ADDITIVE ONLY: if RM is already loaded, compare RM Billing Document vs PDF
+  // and WARN about missing invoice numbers. Never blocks mapping/export.
+  if(mappingRmFile && typeof checkMappingMissingInvoices === 'function') checkMappingMissingInvoices();
 }
 
 function renderMappingPdfMultiList(){
@@ -8409,6 +8412,61 @@ function _rmBuildKey3(billing, qty, netVal){
   ].join('|');
 }
 
+// ── Missing-INVOICE warning (RM Billing Document is MASTER) ──────────────
+// Compare UNIQUE RM[Billing Document] against Billing Document extracted from
+// uploaded PDFs (Document No./Date). WARN ONLY — do not mutate mapping rows,
+// do not block export, and do not alter any existing match/business logic.
+let mappingMissingInvoiceCheckSeq = 0;
+async function checkMappingMissingInvoices(){
+  const seq = ++mappingMissingInvoiceCheckSeq;
+  if(!mappingRmFile || !mappingPdfFiles || mappingPdfFiles.length === 0 || typeof XLSX === 'undefined') return;
+  try{
+    const rmBuf = await mappingRmFile.arrayBuffer();
+    if(seq !== mappingMissingInvoiceCheckSeq) return;
+    const wb = XLSX.read(rmBuf, {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if(!ws || !ws['!ref']) return;
+    const rng = XLSX.utils.decode_range(ws['!ref']);
+    const hr = rng.s.r;
+    let cBilling = -1;
+    for(let c=rng.s.c; c<=rng.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({r:hr,c})];
+      const h = cell ? String(cell.v == null ? '' : cell.v).trim().toLowerCase().replace(/\s+/g,' ') : '';
+      if(h === 'billing document'){ cBilling = c; break; }
+    }
+    if(cBilling < 0){
+      if(typeof toast === 'function') toast('ตรวจ INVOICE ไม่ได้: RM ไม่มีหัวข้อ Billing Document', 'warning');
+      return;
+    }
+    const rmDocs = new Set();
+    for(let r=hr+1; r<=rng.e.r; r++){
+      const cell = ws[XLSX.utils.encode_cell({r,c:cBilling})];
+      const raw = cell ? cell.v : '';
+      const n = String(raw == null ? '' : raw).trim().replace(/\.0+$/,'');
+      if(n) rmDocs.add(n);
+    }
+
+    const built = await buildMappingRowsFromPdfFiles(mappingPdfFiles);
+    if(seq !== mappingMissingInvoiceCheckSeq) return;
+    const pdfDocs = new Set();
+    for(const row of (built && built.dataRows ? built.dataRows : [])){
+      const n = String(row && row[1] != null ? row[1] : '').trim();
+      if(n) pdfDocs.add(n);
+    }
+    const missing = [...rmDocs].filter(n => !pdfDocs.has(n)).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
+    if(missing.length){
+      const msg = 'INVOICE PDF ขาด ' + missing.length + ' เลข จาก RM Billing Document:\n' + missing.join(', ');
+      if(typeof toast === 'function') toast('INVOICE PDF ขาด ' + missing.length + ' เลข: ' + missing.join(', '), 'warning');
+      alert(msg);
+    } else {
+      if(typeof toast === 'function') toast('ตรวจ INVOICE ครบ — Billing Document ใน RM มี PDF ครบทุกเลข', 'success');
+    }
+  }catch(err){
+    console.warn('[Mapping Excel] missing invoice check failed', err);
+    if(typeof toast === 'function') toast('ตรวจ INVOICE ไม่สำเร็จ — Mapping/Export ยังทำงานต่อได้ตามเดิม', 'warning');
+  }
+}
+
 function handleMappingRmUpload(event){
   const fl = (event && event.target && event.target.files) ? event.target.files : [];
   const file = fl && fl.length ? fl[0] : null;
@@ -8422,6 +8480,8 @@ function handleMappingRmUpload(event){
   if(lbl) lbl.textContent = '✓ ' + file.name;
   const inp = document.getElementById('mappingRmInput');
   if(inp) inp.value = '';
+  // ADDITIVE ONLY: compare immediately when PDFs were uploaded first.
+  if(mappingPdfFiles && mappingPdfFiles.length > 0) checkMappingMissingInvoices();
 }
 
 // ── กล่อง RM (อ้างอิง) — ใช้เติม Import entry no. / Item no. ก่อน Export Final ──
@@ -8969,6 +9029,9 @@ async function exportMappingCombined(){
     const cCtry    = rmFind(['country of origin']);
     const cHS      = rmFind(['hs','hs code','comm./imp. code no.']);
     const cItem    = rmFind(['item']);
+    const cRef     = rmFind(['reference document','delivery']);            // Delivery — ใช้จับคู่ COO_RM (RM อ้างอิง)
+    const cBatch   = rmFind(['batch']);                                     // Batch — narrow COO_RM
+    const cNetWt   = rmFind(['net weight']);                                // ใช้หารตามสัดส่วนเมื่อแตกบรรทัด (RM FINAL)
     // Accept either schema: needs Description (CLC) OR Material-Trim/Material (EXPORT_RM)
     const _hasMatSource = (cDesc>=0 || cMatTrim>=0 || cMaterial>=0);
     if(cBilling<0 || cQty<0 || cNetVal<0 || !_hasMatSource){
@@ -8988,18 +9051,88 @@ async function exportMappingCombined(){
       ieKeyRmCnt.set(kie,(ieKeyRmCnt.get(kie)||0)+1);
     }
 
+    // ════ STEP 4b: อ่านไฟล์ RM (อ้างอิง / COO_RM) → index: Billing Document + Delivery + Material ════
+    //   narrow: Batch → Delivery quantity · ใช้เติม Import entry no. / Item no.
+    //   1 แถว/ค่าตรงกันทุกแถว → เติมปกติ
+    //   หลายแถว + Σ Delivery quantity = Invoiced Qty → แตกบรรทัด (หารตัวเลขตามสัดส่วน Delivery quantity)
+    //   หลายแถว + Σ ไม่ตรง → เว้นว่าง + แจ้ง AMBIGUOUS COO_RM MATCH
+    const _rrEnd=(msg)=>{ if(typeof toast==='function') toast(msg,'error'); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; } if(load) load.style.display='none'; };
+    const rmRefBuf = await mappingRmRefFile.arrayBuffer();
+    const rmRefWb  = XLSX.read(rmRefBuf, {type:'array'});
+    const rmRefWs  = rmRefWb.Sheets[rmRefWb.SheetNames[0]];
+    const rmRefAoa = XLSX.utils.sheet_to_json(rmRefWs, {header:1, defval:''});
+    const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
+    const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
+    const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
+          rrDeliv=rrFind(['delivery']), rrMat=rrFind(['material']), rrBatch=rrFind(['batch']),
+          rrDq=rrFind(['delivery quantity','delivery qty']),
+          rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no','รายการ']);
+    // Material (Trim) source ในไฟล์ RM มีเลขอ้างอิง — Description(ตัด #) → Material name 2 (optional · ไม่บังคับ)
+    const rrDesc=rrFind(['description']), rrMatName2=rrFind(['material name 2','material name2','materialname2']);
+    if(rrBill<0||rrMat<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง ต้องมีคอลัมน์ • Billing Document • Material • Import entry no. • Item no.'); return; }
+    const _rrMatK=v=>_rmNorm(v).toUpperCase();
+    const _rrKey =(b,d,m)=>_rmNorm(b)+'|'+_rmNorm(d)+'|'+_rrMatK(m);   // Billing + Delivery + Material
+    const _rrKey2=(b,m)  =>_rmNorm(b)+'|'+_rrMatK(m);                  // Billing + Material (ใช้เมื่อไม่มี Delivery)
+    const rmRefIdx=new Map(), rmRefIdx2=new Map(); let _rmRefRows=0;
+    for(let r=1;r<rmRefAoa.length;r++){
+      const row=rmRefAoa[r]||[];
+      const b=_rmNorm(row[rrBill]), m=_rrMatK(row[rrMat]);
+      if(b==='' || m==='') continue;
+      _rmRefRows++;
+      const _rdesc=rrDesc>=0?_rmNorm(row[rrDesc]):'', _rmn2=rrMatName2>=0?_rmNorm(row[rrMatName2]):'';
+      const rec={ entry:_rmNorm(row[rrEntry]), itemNo:_rmNorm(row[rrItemNo]),
+                  matTrim:(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'',
+                  deliv:_rmNorm(rrDeliv>=0?row[rrDeliv]:''), batch:_rmNorm(rrBatch>=0?row[rrBatch]:''),
+                  dq:(rrDq>=0?row[rrDq]:'') };
+      const k1=_rrKey(b,rec.deliv,m), k2=_rrKey2(b,m);
+      if(rmRefIdx.has(k1)) rmRefIdx.get(k1).push(rec); else rmRefIdx.set(k1,[rec]);
+      if(rmRefIdx2.has(k2)) rmRefIdx2.get(k2).push(rec); else rmRefIdx2.set(k2,[rec]);
+    }
+    // Candidates = Billing + Delivery + Material → narrow ด้วย Batch (ถ้ามี) → narrow ด้วย Delivery quantity
+    // ไม่มี Delivery ฝั่ง master (คอลัมน์ไม่มี/ค่าว่าง) → ใช้ Billing + Material · ไม่ข้าม Delivery เมื่อ master ระบุ Delivery มาแล้ว
+    const _rrCand=(billing,deliv,mat,batch,qty)=>{
+      const d=_rmNorm(deliv);
+      let arr=(d!=='' ? (rmRefIdx.get(_rrKey(billing,d,mat))||[]) : (rmRefIdx2.get(_rrKey2(billing,mat))||[])).slice();
+      if(arr.length>1){
+        const bt=_rmNorm(batch);
+        if(bt!==''){ const f=arr.filter(x=>x.batch===bt); if(f.length) arr=f; }
+      }
+      if(arr.length>1){
+        const f=arr.filter(x=>_rmNormNum(x.dq)===_rmNormNum(qty));
+        if(f.length===1) arr=f;
+      }
+      return arr;
+    };
+    // parts = จำนวนบรรทัดที่ต้อง Export สำหรับ RM 1 แถว (share = สัดส่วนตัวเลขของบรรทัดนั้น)
+    const _rrResolve=(billing,deliv,mat,batch,qty)=>{
+      const arr=_rrCand(billing,deliv,mat,batch,qty);
+      const _blank={status:'none', parts:[{entry:'',itemNo:'',share:1}]};
+      if(arr.length===0) return _blank;
+      if(arr.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};
+      const uniq=Array.from(new Set(arr.map(x=>x.entry+'\u0000'+x.itemNo)));
+      if(uniq.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};   // ทุกแถวให้ค่าเดียวกัน → ไม่ต้องแตก
+      const dqs=arr.map(x=>_mapNum(x.dq)), sum=dqs.reduce((a,b)=>a+b,0), q=_mapNum(qty);
+      if(sum>0 && q>0 && dqs.every(v=>v>0) && Math.abs(sum-q)<1e-6){
+        return {status:'split', parts:arr.map((x,i)=>({entry:x.entry,itemNo:x.itemNo,share:dqs[i]/sum}))};
+      }
+      return {status:'ambiguous', parts:[{entry:'',itemNo:'',share:1}], cand:arr};   // ห้ามเดา / ห้ามหยิบแถวแรก
+    };
+    let _rrMatched=0, _rrNotFound=0, _rrAmbig=0, _rrSplit=0, _rrSplitRows=0, _rrSheets=0;   // สถิติสำหรับรายงาน
+
     // ════ STEP 4: Build output rows per RM row (master order) ════
     const OUT_HDR = ['Billing Document','Billing Document Date','Material (Trim)','Eng Description','Invoiced Qty','Net Value (USD)',
                      'Country of Origin','HS Code','Qty.','Net Weight','Gross Weight','FOB THB.','Desc ALL','Description'];
+    OUT_HDR.push('Import entry no.','Item no.');     // เพิ่มท้ายคอลัมน์ของทุก Country Sheet
     const outByCountry = {};        // country -> [ rowObj ]
     const rmUnmatched = [];         // {billing,item,matTrim,reason}
     const rmStatus = [];            // per RM data row (for RM FINAL): {status,src,mBill,mQty,mNet}
+    const rmParts  = [];            // per RM data row (aligned with rmStatus): [ {entry,itemNo,share} ] — >1 = แตกบรรทัด
 
     for(let r=headerRow+1;r<=rng.e.r;r++){
       const bRaw = getV(r,cBilling);
       const itemNo = String(getV(r,cItem)).trim();
       const isEmpty = (String(bRaw).trim()==='' && itemNo==='');
-      if(isEmpty){ rmStatus.push({status:'',src:'',mBill:'',mQty:'',mNet:''}); continue; }
+      if(isEmpty){ rmStatus.push({status:'',src:'',mBill:'',mQty:'',mNet:''}); rmParts.push([{entry:'',itemNo:'',share:1}]); continue; }
 
       const billing = String(bRaw).trim();
       const rmMatFull = String(getV(r,cMaterial)).trim();
@@ -9056,19 +9189,42 @@ async function exportMappingCombined(){
       // ── Desc ALL = Description(ตัดตั้งแต่ # ออกทั้งหมด) / UPPER(Eng).Qty PCS. · ไม่พบ Eng → เฉพาะ Description ก่อน # ──
       const _descCut = descOut.replace(/#.*$/s,'').trim();
       // qty text ของ "แถวนี้" — ใช้ helper เดิม (_mapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000" · เก็บไว้ให้ Country Sheet ใช้ซ้ำแถวเดียวกัน
-      const _invQtyTxt = (invQty===''?'':_mapNum(invQty));
-      const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + _invQtyTxt + ' PCS.') : _descCut;
-
       // ── Billing Document Date (from PDF header, join by Billing Document only) ──
       const bdate = _dateFor(billing);
 
-      const rowObj = {
-        billing, item:itemNo, bdate, matTrim, pdfMatTrim, eng, invQty:_mapNum(invQty), netVal:_mapNum(netVal),
-        country, hsCode:String(hsCode),
-        qty:ie?round3(ieQty):'', nw:ie?round3(ieNW):'', gw:ie?round3(ieGW):'', fob:ie?round3(ieFOB):'',
-        descAll, descOut, invQtyTxt:_invQtyTxt
-      };
-      (outByCountry[country] = outByCountry[country] || []).push(rowObj);
+      // ── COO_RM (RM อ้างอิง): Billing + Delivery + Material (+Batch +Qty) → Import entry no. / Item no. ──
+      const rmRefNo   = (cRef>=0)   ? String(getV(r,cRef)).trim()   : '';
+      const rmBatchNo = (cBatch>=0) ? String(getV(r,cBatch)).trim() : '';
+      const _rr = _rrResolve(billing, rmRefNo, rmMatFull, rmBatchNo, invQty);
+      if(_rr.status==='one')            _rrMatched++;
+      else if(_rr.status==='split'){    _rrSplit++; _rrSplitRows += _rr.parts.length; }
+      else if(_rr.status==='ambiguous'){_rrAmbig++;
+        const _c=(_rr.cand||[]).map(x=>x.entry+'/'+x.itemNo).join(' | ');
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_mapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c});
+      }
+      else                              _rrNotFound++;
+      rmParts.push(_rr.parts);
+
+      // ── 1 part = 1 บรรทัดใน Export · แตกบรรทัด → หารตัวเลขตามสัดส่วน Delivery quantity (ยอดรวมเท่าเดิม) ──
+      const _isSplit = _rr.parts.length>1;
+      const _baseQty = _mapNum(invQty), _baseNet = _mapNum(netVal);
+      _rr.parts.forEach(pt=>{
+        const sh = pt.share;
+        const _q  = _isSplit ? round3(_baseQty*sh) : _baseQty;
+        const _nv = _isSplit ? round3(_baseNet*sh) : _baseNet;
+        // qty text ของ "แถวนี้" — ใช้ helper เดิม (_mapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000"
+        const _invQtyTxt = (invQty===''?'':_q);
+        const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + _invQtyTxt + ' PCS.') : _descCut;
+        const rowObj = {
+          billing, item:itemNo, bdate, matTrim, pdfMatTrim, eng, invQty:_q, netVal:_nv,
+          country, hsCode:String(hsCode),
+          qty:ie?round3(_isSplit?ieQty*sh:ieQty):'', nw:ie?round3(_isSplit?ieNW*sh:ieNW):'',
+          gw:ie?round3(_isSplit?ieGW*sh:ieGW):'', fob:ie?round3(_isSplit?ieFOB*sh:ieFOB):'',
+          descAll, descOut, invQtyTxt:_invQtyTxt,
+          rrEntry:pt.entry, rrItemNo:pt.itemNo
+        };
+        (outByCountry[country] = outByCountry[country] || []).push(rowObj);
+      });
 
       // ── UNMATCHED diagnostics for this RM row ──
       const reasons=[];
@@ -9078,49 +9234,6 @@ async function exportMappingCombined(){
       if(!ie){ reasons.push('Missing Qty','Missing Net Weight','Missing Gross Weight','Missing FOB THB'); }
       if(reasons.length) rmUnmatched.push({billing, item:itemNo, matTrim, reason:reasons.join(', ')});
     }
-
-    // ════ STEP 4b: อ่านไฟล์ RM (อ้างอิง) → map Billing Document + Item → {entry,itemNo} · ใช้เติมทุก Sheet ที่มี Billing+Item ════
-    const _rrEnd=(msg)=>{ if(typeof toast==='function') toast(msg,'error'); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; } if(load) load.style.display='none'; };
-    const rmRefBuf = await mappingRmRefFile.arrayBuffer();
-    const rmRefWb  = XLSX.read(rmRefBuf, {type:'array'});
-    const rmRefWs  = rmRefWb.Sheets[rmRefWb.SheetNames[0]];
-    const rmRefAoa = XLSX.utils.sheet_to_json(rmRefWs, {header:1, defval:''});
-    const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
-    const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
-    const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
-          rrQty=rrFind(['billing qty in sku','invoiced quantity','invoiced qty']),
-          rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no','รายการ']);
-    // Material (Trim) source ในไฟล์ RM มีเลขอ้างอิง — Description(ตัด #) → Material name 2 · ใช้เติม Material (Trim) เมื่อ master (RM ไม่มีเลขอ้างอิง) ไม่มีค่า (optional · ไม่บังคับ)
-    const rrDesc=rrFind(['description']), rrMatName2=rrFind(['material name 2','material name2','materialname2']);
-    if(rrBill<0||rrItem<0||rrEntry<0||rrItemNo<0){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง ต้องมีคอลัมน์ • Billing Document • Item • Import Entry (Import entry no. หรือ Import Entry) • Item No. (Item no. หรือ รายการ)'); return; }
-    // Composite Key = Billing Document + Item + Qty (qty ตรงกันทุกไฟล์) · Lookup เติม entry/itemNo เฉพาะเมื่อ match ได้ 1 แถว
-    const _rrKey=(b,it,q)=>_rmNorm(b)+'|'+_rmNorm(it)+'|'+String(_rmNormNum(q));
-    const rmRefMap=new Map(); let _rmRefRows=0, _rmMultiKeys=0;
-    for(let r=1;r<rmRefAoa.length;r++){
-      const row=rmRefAoa[r]||[]; const b=_rmNorm(row[rrBill]), it=_rmNorm(row[rrItem]);
-      if(b==='' && it==='') continue; _rmRefRows++;
-      const key=_rrKey(row[rrBill],row[rrItem],rrQty>=0?row[rrQty]:'');
-      const ent=_rmNorm(row[rrEntry]), ino=_rmNorm(row[rrItemNo]);
-      // Material (Trim) จาก RM มีเลขอ้างอิง: (1) Description ตัดตั้งแต่ # → (2) Material name 2 → (3) ว่าง (ไม่เติม #N)
-      const _rdesc=rrDesc>=0?_rmNorm(row[rrDesc]):'', _rmn2=rrMatName2>=0?_rmNorm(row[rrMatName2]):'';
-      const _rmt=(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'';
-      if(rmRefMap.has(key)) rmRefMap.get(key).push({entry:ent, itemNo:ino, matTrim:_rmt});
-      else rmRefMap.set(key,[{entry:ent, itemNo:ino, matTrim:_rmt}]);
-    }
-    rmRefMap.forEach(v=>{ if(v.length>1) _rmMultiKeys++; });   // key ที่ match หลายแถว → เว้นว่าง (ไม่ join)
-    const _rrLookup=(billing,item,qty)=>{
-      const arr=rmRefMap.get(_rrKey(billing,item,qty));
-      if(!arr)         return {status:'none',  entry:'', itemNo:'', matTrim:''};   // ไม่พบ → เว้นว่าง
-      if(arr.length>1){
-        // หลายแถว → Import entry no./Item no. ต้องเว้นว่างเสมอ (ห้ามเดา / ห้าม join)
-        // แต่ถ้า Material (Trim) ของทุกแถวที่ match "ตรงกันหมด" ถือว่าไม่กำกวม → ใช้เป็น Material ได้ (ไม่ใช่การเดา)
-        const _mSet = Array.from(new Set(arr.map(x=>_mapBaseMat(x.matTrim)).filter(s=>s!=='')));
-        return {status:'multi', entry:'', itemNo:'', matTrim:(_mSet.length===1 ? _mSet[0] : '')};
-      }
-      return {status:'one', entry:arr[0].entry, itemNo:arr[0].itemNo, matTrim:arr[0].matTrim}; // 1 แถว → เติม
-    };
-    let _rrMatched=0, _rrNotFound=0, _rrMultiHit=0, _rrSheets=0;   // สถิติสำหรับรายงาน
-    OUT_HDR.push('Import entry no.','Item no.');     // เพิ่มท้ายคอลัมน์ของทุก Country Sheet
 
     // ════ STEP 5: assemble workbook — SUMMARY, country sheets, RM FINAL, UNMATCHED ════
     const wb = XLSX.utils.book_new();
@@ -9151,7 +9264,7 @@ async function exportMappingCombined(){
         const aoa = [OUT_HDR.slice()];
         let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
         chunk.forEach(ro=>{
-          const _rh=_rrLookup(ro.billing, ro.item, ro.invQty);
+          const _rh={entry:ro.rrEntry||'', itemNo:ro.rrItemNo||''};
           // ── คอลัมน์ C Material (Trim) — มาจาก PDF Invoice เท่านั้น (แถวเดียวกัน: Billing Document + Item) ──
           // ไม่ fallback ไป RM มีเลขอ้างอิง / RM Master (Description · Material name 2 · Material - Trim · Material)
           // หา PDF ไม่เจอ → เว้นว่าง และแจ้งใน UNMATCHED
@@ -9195,50 +9308,63 @@ async function exportMappingCombined(){
     sumWs['!cols']=[{wch:16},{wch:8},{wch:18},{wch:20},{wch:18},{wch:18},{wch:16}];
     XLSX.utils.book_append_sheet(wb, sumWs, 'SUMMARY');
 
-    // -- RM FINAL: original RM + 5 appended status columns (RM order preserved 100%) --
+    // -- RM FINAL: original RM + status columns + Import entry no./Item no. --
+    //    แถวที่ COO_RM ระบุ Import Entry หลายใบจริง (status 'split') → แตกแถวใน RM FINAL ด้วย
+    //    และหาร Invoiced Qty / Net value / Net Weight ตามสัดส่วน Delivery quantity (ยอดรวมเท่าเดิม)
     const extraHdrs=['PDF Match Status','PDF Source File','Matched Billing Document','Matched Qty','Matched Net Value'];
+    const rmLastRow = rng.e.r;                       // แถวข้อมูลสุดท้ายของ RM ต้นฉบับ (ก่อนแตกแถว)
     const cExtra0 = rng.e.c + 1;
     extraHdrs.forEach((h,i)=> setStr(headerRow, cExtra0+i, h));
-    let si=0;
-    for(let r=headerRow+1;r<=rng.e.r;r++){
-      const st = rmStatus[si++] || {status:'',src:'',mBill:'',mQty:'',mNet:''};
-      setStr(r,cExtra0+0,st.status); setStr(r,cExtra0+1,st.src);
-      setStr(r,cExtra0+2,st.mBill);  setStr(r,cExtra0+3,st.mQty); setStr(r,cExtra0+4,st.mNet);
-      // Country of origin -> full name (every sheet). Only when a value exists.
-      if(cCtry>=0){ const _cv=getV(r,cCtry); if(String(_cv).trim()!=='') setStr(r,cCtry,_mapCountryName(_cv)); }
-    }
     rng.e.c = cExtra0 + extraHdrs.length - 1;
-    rmWs['!ref'] = XLSX.utils.encode_range(rng);
-    wb.Sheets['RM FINAL'] = rmWs;
-    if(wb.SheetNames.indexOf('RM FINAL')===-1) wb.SheetNames.push('RM FINAL');
+    // คอลัมน์ "Import entry no." / "Item no." — มีอยู่แล้วใช้คอลัมน์เดิม, ไม่มีค่อยสร้างต่อท้าย (ไม่ซ้ำ)
+    for(let c=cExtra0;c<=rng.e.c;c++){ const cell=rmWs[XLSX.utils.encode_cell({r:headerRow,c})]; colName[c]=cell?String(cell.v).trim():''; }
+    const _finalCol=name=>{ for(let c=rng.s.c;c<=rng.e.c;c++){ if(String(colName[c]||'').toLowerCase().replace(/\s+/g,' ').trim()===name) return c; } return -1; };
+    let cEntryF = _finalCol('import entry no.'); if(cEntryF<0) cEntryF=_finalCol('import entry no');
+    let cItemNoF= _finalCol('item no.');        if(cItemNoF<0) cItemNoF=_finalCol('item no');
+    if(cEntryF<0){ cEntryF=rng.e.c+1; rng.e.c=cEntryF; setStr(headerRow,cEntryF,'Import entry no.'); colName[cEntryF]='Import entry no.'; }
+    if(cItemNoF<0){ cItemNoF=rng.e.c+1; rng.e.c=cItemNoF; setStr(headerRow,cItemNoF,'Item no.'); colName[cItemNoF]='Item no.'; }
 
-    // ════ STEP 5b: เติม Import entry no. / Item no. ลง RM FINAL (ใช้ map เดียวกับ Country Sheets) — ท้ายคอลัมน์ · match Billing+Item ════
-    {
-      // หาคอลัมน์ "Import entry no." / "Item no." ใน RM FINAL ตามชื่อ (รวมคอลัมน์สถานะที่เพิ่งเพิ่ม) — มีแล้วอัปเดต, ไม่มีค่อยสร้างต่อท้าย (ไม่ซ้ำ)
-      for(let c=cExtra0;c<=rng.e.c;c++){ const cell=rmWs[XLSX.utils.encode_cell({r:headerRow,c})]; colName[c]=cell?String(cell.v).trim():''; }
-      const _finalCol=name=>{ for(let c=rng.s.c;c<=rng.e.c;c++){ if(String(colName[c]||'').toLowerCase().replace(/\s+/g,' ').trim()===name) return c; } return -1; };
-      let cEntryF = _finalCol('import entry no.'); if(cEntryF<0) cEntryF=_finalCol('import entry no');
-      let cItemNoF= _finalCol('item no.');        if(cItemNoF<0) cItemNoF=_finalCol('item no');
-      if(cEntryF<0){ cEntryF=rng.e.c+1; rng.e.c=cEntryF; setStr(headerRow,cEntryF,'Import entry no.'); colName[cEntryF]='Import entry no.'; }
-      if(cItemNoF<0){ cItemNoF=rng.e.c+1; rng.e.c=cItemNoF; setStr(headerRow,cItemNoF,'Item no.'); colName[cItemNoF]='Item no.'; }
-      // เติมค่าแต่ละแถว (จำนวนแถวเท่าเดิม · Billing/Item ไม่แตะ · ไม่พบ Key = เว้นว่าง · ไม่นำค่าจากแถวอื่น) + นับสถิติ
-      for(let r=headerRow+1;r<=rng.e.r;r++){
-        const b=_rmNorm(getV(r,cBilling)), it=_rmNorm(getV(r,cItem));
-        if(b==='' && it==='') continue;
-        const _rh=_rrLookup(getV(r,cBilling), getV(r,cItem), cQty>=0?getV(r,cQty):'');
-        if(_rh.status==='one') _rrMatched++;
-        else {   // ไม่ unique → เว้นว่าง + เพิ่มลง UNMATCHED (No Match / Multiple Match)
-          const _mt=(cMatTrim>=0?_rmNorm(getV(r,cMatTrim)):(cMaterial>=0?_rmNorm(getV(r,cMaterial)):''));
-          if(_rh.status==='multi'){ _rrMultiHit++; rmUnmatched.push({billing:b,item:it,matTrim:_mt,reason:'Multiple Match (RM Reference)'}); }
-          else { _rrNotFound++; rmUnmatched.push({billing:b,item:it,matTrim:_mt,reason:'No Match (RM Reference)'}); }
-        }
-        setStr(r,cEntryF,  _rh.entry);
-        setStr(r,cItemNoF, _rh.itemNo);
-      }
-      rmWs['!ref']=XLSX.utils.encode_range(rng);
-      _mapZ3Existing(rmWs);   // RM FINAL: อัปเกรดเฉพาะ cell ทศนิยม 1-2 ตำแหน่งของไฟล์ต้นฉบับ → 3 ตำแหน่ง
-      _rrSheets++;   // RM FINAL เติมคอลัมน์แล้ว
+    // แผนแถวใหม่: RM 1 แถว → parts.length แถว (ปกติ = 1 แถว · ลำดับ RM เดิมคงไว้ 100%)
+    const rmPlan=[];
+    for(let r=headerRow+1, si=0; r<=rmLastRow; r++, si++){
+      rmPlan.push({ r, st:(rmStatus[si]||{status:'',src:'',mBill:'',mQty:'',mNet:''}),
+                       parts:(rmParts[si]||[{entry:'',itemNo:'',share:1}]) });
     }
+    const _rmAnySplit = rmPlan.some(pl=>pl.parts.length>1);
+    const rmFinalWs = {};
+    const _copyRow=(srcR,dstR)=>{ for(let c=rng.s.c;c<=rng.e.c;c++){
+      const src=rmWs[XLSX.utils.encode_cell({r:srcR,c})];
+      if(src) rmFinalWs[XLSX.utils.encode_cell({r:dstR,c})]=Object.assign({},src); } };
+    for(let r=rng.s.r;r<=headerRow;r++) _copyRow(r,r);          // แถวเหนือหัวตาราง + หัวตาราง
+    let _dr=headerRow;
+    rmPlan.forEach(pl=>{
+      const _sp = pl.parts.length>1;
+      pl.parts.forEach(pt=>{
+        _dr++; _copyRow(pl.r,_dr);
+        const _cell=c=>rmFinalWs[XLSX.utils.encode_cell({r:_dr,c})];
+        const _setS=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr,c}); const ex=rmFinalWs[ref];
+          if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs[ref]={t:'s',v:val}; };
+        const _setN=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr,c}); const ex=rmFinalWs[ref];
+          if(ex){ ex.t='n'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs[ref]={t:'n',v:val}; };
+        // สถานะ PDF (คง logic เดิม)
+        _setS(cExtra0+0,pl.st.status); _setS(cExtra0+1,pl.st.src);
+        _setS(cExtra0+2,pl.st.mBill);  _setS(cExtra0+3,pl.st.mQty); _setS(cExtra0+4,pl.st.mNet);
+        // Country of origin -> full name (คง logic เดิม) — เฉพาะเมื่อมีค่า
+        if(cCtry>=0){ const _cv=(_cell(cCtry)||{}).v; if(String(_cv==null?'':_cv).trim()!=='') _setS(cCtry,_mapCountryName(_cv)); }
+        // แตกบรรทัด → หารตามสัดส่วน Delivery quantity (แถวที่ไม่แตกไม่ถูกแตะตัวเลขเดิม)
+        if(_sp){ [cQty,cNetVal,cNetWt].forEach(c=>{ const cl=_cell(c); if(cl!=null && cl.v!=null && cl.v!=='') _setN(c, round3(_mapNum(cl.v)*pt.share)); }); }
+        _setS(cEntryF,  pt.entry);
+        _setS(cItemNoF, pt.itemNo);
+      });
+    });
+    rng.e.r = _dr;
+    if(rmWs['!cols'])   rmFinalWs['!cols']  = rmWs['!cols'];
+    if(!_rmAnySplit && rmWs['!merges']) rmFinalWs['!merges'] = rmWs['!merges'];   // แตกแถวแล้ว merge เดิมใช้ไม่ได้ → ตัดออก
+    rmFinalWs['!ref'] = XLSX.utils.encode_range(rng);
+    _mapZ3Existing(rmFinalWs);   // RM FINAL: อัปเกรดเฉพาะ cell ทศนิยม 1-2 ตำแหน่งของไฟล์ต้นฉบับ → 3 ตำแหน่ง
+    wb.Sheets['RM FINAL'] = rmFinalWs;
+    if(wb.SheetNames.indexOf('RM FINAL')===-1) wb.SheetNames.push('RM FINAL');
+    _rrSheets++;   // RM FINAL เติมคอลัมน์แล้ว
 
     // -- UNMATCHED (only if anything unmatched) --
     const pdfUnmatched=[];
@@ -9286,13 +9412,13 @@ async function exportMappingCombined(){
       toast('EXPORT รวมไฟล์สำเร็จ — '+countries.length+' ประเทศ · PDF matched '+matched+'/'+allPdfEntries.length+
             (totalUn?(' · unmatched '+totalUn):''),'success');
       // รายงานการเติม Import entry no. / Item no. จากไฟล์ RM
-      setTimeout(()=>toast('เติม RM (Import entry no. + Item no.) '+_rrSheets+' Sheet · RM '+_rmRefRows+' แถว · Match(1แถว) '+_rrMatched+' · ไม่พบ '+_rrNotFound+' · หลายแถว→เว้นว่าง '+_rrMultiHit,'success'), 900);
+      setTimeout(()=>toast('เติม COO_RM (Import entry no. + Item no.) '+_rrSheets+' Sheet · RM อ้างอิง '+_rmRefRows+' แถว · Match '+_rrMatched+' · แตกบรรทัด '+_rrSplit+'→'+_rrSplitRows+' · AMBIGUOUS '+_rrAmbig+' · ไม่พบ '+_rrNotFound,'success'), 900);
     }
     console.log('[MAPPING COMBINED] countries:',countries.length,'| sheets:',sheetOrder.length,
                 '| RM rows:',rmStatus.length,'| PDF items:',allPdfEntries.length,
                 '| IE keys:',ieAgg.size,'| RM unmatched:',rmUnmatched.length,'| PDF unmatched:',pdfUnmatched.length);
     console.log('[MAPPING RM ENRICH] Import entry no./Item no. เพิ่มท้ายคอลัมน์ทุก Sheet ที่มี Billing+Item เรียบร้อย →',
-                'RM rows:',_rmRefRows,'| matched(1):',_rrMatched,'| no-match:',_rrNotFound,'| multi(blank):',_rrMultiHit,'| sheets filled:',_rrSheets,'(Country Sheets + RM FINAL · ไม่แตะ SUMMARY)');
+                'COO_RM rows:',_rmRefRows,'| matched:',_rrMatched,'| split:',_rrSplit,'→rows',_rrSplitRows,'| ambiguous(blank):',_rrAmbig,'| no-match:',_rrNotFound,'| sheets filled:',_rrSheets,'(Country Sheets + RM FINAL · ไม่แตะ SUMMARY)');
   } catch(err){
     console.error('[MAPPING COMBINED] error',err);
     if(typeof toast==='function') toast('เกิดข้อผิดพลาด: '+err.message,'error'); else alert('เกิดข้อผิดพลาด: '+err.message);
