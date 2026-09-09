@@ -1470,8 +1470,8 @@ body.legacy-active .content-area { display: none !important; }
     <div class="doa-preview-wrap" id="msp-tbl-wrap" style="max-height:560px">
       <table class="doa-tbl">
         <thead><tr>
-          <th>หัวข้อตรวจสอบ</th><th>Invoice</th><th>PDF Item</th><th>Material</th><th>Delivery</th>
-          <th>PDF</th><th>RM DN</th><th>CLC</th><th>MAPPING</th><th>DWAK</th><th>Source</th><th>สถานะ</th><th>สาเหตุ</th>
+          <th>รายการใน DWAK</th><th>เลข INVOICE</th><th>หัวข้อตรวจสอบ</th><th>Source</th>
+          <th>ค่าที่ถูกต้อง</th><th>DWAK</th><th>สถานะ</th><th>สาเหตุ</th>
         </tr></thead>
         <tbody id="msp-tbody"></tbody>
       </table>
@@ -1620,8 +1620,8 @@ body.legacy-active .content-area { display: none !important; }
     <div class="doa-preview-wrap" id="msp2-tbl-wrap" style="max-height:560px">
       <table class="doa-tbl">
         <thead><tr>
-          <th>หัวข้อตรวจสอบ</th><th>Invoice</th><th>PDF Item</th><th>Material</th><th>Delivery</th>
-          <th>PDF</th><th>RM DN</th><th>CLC</th><th>MAPPING</th><th>DWAK</th><th>Source</th><th>สถานะ</th><th>สาเหตุ</th>
+          <th>รายการใน DWAK</th><th>เลข INVOICE</th><th>หัวข้อตรวจสอบ</th><th>Source</th>
+          <th>ค่าที่ถูกต้อง</th><th>DWAK</th><th>สถานะ</th><th>สาเหตุ</th>
         </tr></thead>
         <tbody id="msp2-tbody"></tbody>
       </table>
@@ -2515,6 +2515,16 @@ function mtab(view,idx){
   if(bar) bar.querySelectorAll('.mtab-btn').forEach((b,i)=>b.classList.toggle('active', i===(idx-1)));
 }
 function switchCustomer(key){
+  /* ── [DEMO USER] ROUTE GUARD — กันเข้าโหมดที่ไม่ได้รับอนุญาต (รวมกรณีเรียกตรง)
+     Redirect กลับโหมดแรกที่อนุญาต · ไม่โหลดข้อมูลของโหมดที่ไม่มีสิทธิ์เลย */
+  if(_allowedNav && _allowedNav.indexOf(key) < 0){
+    const back = _allowedNav[0];
+    if(typeof toast === 'function') toast('ไม่มีสิทธิ์ใช้งานเมนูนี้', 'warn');
+    else console.warn('[DEMO USER] ไม่มีสิทธิ์ใช้งาน:', key);
+    if(key !== back) switchCustomer(back);
+    return;
+  }
+  _curNav = key;
   // ── HIGAS (Drop PDF → Auto Export Excel) ──
   if(key === 'higas'){
     document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{ el.classList.toggle('active', el.dataset.nav===key); });
@@ -12951,144 +12961,96 @@ async function spComputeMapping(){
     }
     for(const arr of rmByKey.values()) arr.sort((a, b) => a.rmSourceIndex - b.rmSourceIndex);
 
-    /* ══════════════════════════════════════════════════════════════════
-       [SCH PDF] GLOBAL FULL-LOT EXACT-FIT ALLOCATION
-         Priority 1  Delivery EXACT (ห้าม Cross-Delivery · ห้าม fallback)
-         Priority 2  Product Code EXACT
-         Priority 3  Global QTY Exact-Fit — จัดทั้งกลุ่มพร้อมกัน (ห้าม Greedy)
-         Priority 4  รักษา identity ของ RM Source Row (Entry + Item + Source Row + QTY)
-         Priority 5  ถ้า Lot เดียวไม่พอ → ใช้หลาย Lot (Full Lot เท่านั้น · ห้าม Partial Consume)
-         Priority 6  Tie-break 5 ชั้น (T1–T5) ใช้เมื่อผ่าน Priority 1–5 เท่ากันทุกข้อเท่านั้น
-       ══════════════════════════════════════════════════════════════════ */
-    const spItemNum = v => { const n = parseInt(String(v == null ? '' : v), 10); return isFinite(n) ? n : -1; };
-    const spGroupKey = (pc, dlv) => pc + '\u0001' + dlv;
-    const spClcByKey = new Map();
-    for(const c of clcSeq){
-      const k = spGroupKey(c.pc, c.dlv);
-      if(!spClcByKey.has(k)) spClcByKey.set(k, []);
-      spClcByKey.get(k).push(c);                            // ลำดับ CLC No. เดิม (Invoice ASC → PDF Item)
+    /* ── STEP-01 — GROUP RM ที่ Import Entry + Item ซ้ำกัน (ก่อนนำไป Match กับ PDF Quantity) ──
+       Group Key = Product Code + Normalized Delivery + Import Entry + Item
+       groupQty  = SUM(Qty ของ RM Rows ทุกแถวใน Group)
+       ★ ห้าม Sort Group ใหม่ — เรียงตาม First Occurrence ของ RM เดิม (rmSourceIndex ต่ำสุด)
+       ★ ห้ามทำ Trace หาย — เก็บ RM Row ต้นทางไว้ที่ g.rows ทั้งหมด                        */
+    const rmGroupsByKey = new Map();
+    for(const [k, arr] of rmByKey){
+      const groups = [], gmap = new Map();
+      for(const x of arr){                                    // arr เรียงตาม rmSourceIndex เดิม
+        const gk = String(x.ent) + '\u0001' + String(x.it);
+        let g = gmap.get(gk);
+        if(!g){
+          g = { pc: x.pc, dlv: x.dlv, ent: x.ent, it: x.it, raw: x.raw,
+                rows: [], groupQty0: 0, firstIndex: x.rmSourceIndex };
+          gmap.set(gk, g); groups.push(g);                     // First Occurrence → ตำแหน่งคงเดิม
+        }
+        g.rows.push(x);
+        g.groupQty0 = r6(g.groupQty0 + x.qty);
+      }
+      rmGroupsByKey.set(k, groups);
     }
-    const SP_MAX_NODES = 300000;
-    for(const [gk, clcList] of spClcByKey){
-      const lots = (rmByKey.get(gk) || []).slice().sort((a, b) => a.rmSourceIndex - b.rmSourceIndex);
-      const c0 = clcList[0];
-      const pdfItemLabel0 = (c0.src && c0.src._pdfItemNo != null) ? c0.src._pdfItemNo : (c0.src ? c0.src.item : '-');
-      const pdfDelivery0  = (c0.src && c0.src._pdfDelivery) ? c0.src._pdfDelivery : (c0.src ? c0.src.refdoc : '');
-      const wantTotal = r6(clcList.reduce((v, c) => v + c.qty, 0));
-      const haveTotal = r6(lots.reduce((v, x) => v + x.qty, 0));
-      const rmByPcAll = rmByPc.get(c0.pc) || [];
-      if(!lots.length && rmByPcAll.length)
+    /* remainingGroupQty = SUM(remaining ของ RM Rows ใน Group) — ไม่เก็บ Counter แยก
+       จึงไม่มีทางหลุดจาก remainingQty รายแถว (STEP-11) */
+    const groupRemaining = g => r6(g.rows.reduce((v, x) => v + x.remaining, 0));
+
+    for(const c of clcSeq){                                  // STEP-02: Invoice ASC → PDF Item บนลงล่าง (ห้าม Sort PDF)
+      const pdfItemLabel = (c.src && c.src._pdfItemNo != null) ? c.src._pdfItemNo : (c.src ? c.src.item : '-');
+      const pdfDelivery  = (c.src && c.src._pdfDelivery) ? c.src._pdfDelivery : (c.src ? c.src.refdoc : '');
+      let requiredQty = c.qty;                               // STEP-03: PDF Quantity = Target
+      const pool = rmByKey.get(_ak(c.pc, c.dlv)) || [];
+      const allGroups = rmGroupsByKey.get(_ak(c.pc, c.dlv)) || [];
+      const cands = allGroups.filter(g => groupRemaining(g) > 1e-9);   // ลำดับ Group เดิม — ไม่ Sort
+      const availableQty = r6(cands.reduce((v, g) => v + groupRemaining(g), 0));
+
+      /* ERROR — Product Code ตรง แต่ไม่มี Delivery ตรง */
+      if(!pool.length && (rmByPc.get(c.pc) || []).length)
         throw new Error('RM_DELIVERY_NOT_FOUND — หยุด Export\n' +
-          'Delivery : ' + c0.dlv + '\nProduct Code : ' + (c0.src.prodcode || c0.src.material) + '\n' +
-          'RM Delivery ที่มีของ Product นี้ : ' + [...new Set(rmByPcAll.map(x => x.dlv))].join(', '));
-      if(Math.abs(wantTotal - haveTotal) > 1e-9)
-        throw new Error('RM_QTY_NOT_EXACT — หยุด Export\n' +
-          'Delivery : '          + c0.dlv + '\n' +
-          'Product Code : '      + (c0.src.prodcode || c0.src.material) + '\n' +
-          'CLC No. : '           + clcList.map(c => c.no).join(', ') + '\n' +
-          'CLC QTY รวม : '       + wantTotal + '\n' +
-          'RM QTY รวม : '        + haveTotal + '\n' +
-          'RM Source Row : '     + lots.map(x => '#' + x.rmSourceIndex + ' ' + x.raw + ' Qty ' + x.qty).join(' · '));
+          'Invoice : '      + c.inv + '\n' +
+          'PDF Item : '     + pdfItemLabel + '\n' +
+          'Product Code : ' + (c.src.prodcode || c.src.material) + '\n' +
+          'PDF Delivery : ' + pdfDelivery + '\n' +
+          'PDF Quantity : ' + c.qty + '\n' +
+          'RM Delivery ที่มีของ Product นี้ : ' +
+            [...new Set((rmByPc.get(c.pc) || []).map(x => x.dlv))].join(', '));
 
-      /* ── ค้นหา Global Solution แบบ Full-Lot (DFS + backtracking) ── */
-      let bestSol = null, bestScore = null, nodes = 0, solCount = 0;
-      const used = new Array(lots.length).fill(false);
-      const acc  = [];
-      /* ── Tie-break 5 ชั้น (ใช้เฉพาะเมื่อผ่าน Priority 1–5 เท่ากันทุกข้อ) ──
-         T1 จำนวน Output Row น้อยสุด
-         T2 ไล่ CLC No. จากท้าย→ต้น : Lot ก้อนใหญ่สุดมากสุด
-         T3 ไล่ CLC No. จากท้าย→ต้น : จำนวน RM Source Row น้อยสุด
-         T4 ไล่ CLC No. จากต้น→ท้าย : ผลรวมลำดับ RM Source Row น้อยสุด
-         T5 ไล่ CLC No. จากต้น→ท้าย : Item สูงสุด                                  */
-      const scoreOf = sol => {
-        let rows = 0;
-        const maxQty = [], nLots = [], sumIdx = [], maxItems = [];
-        for(const ks of sol){
-          const seen = new Set(); let mx = -1, mq = -Infinity, si = 0;
-          for(const k of ks){
-            seen.add(String(lots[k].ent) + '\u0001' + String(lots[k].it));
-            const it = spItemNum(lots[k].it); if(it > mx) mx = it;
-            if(lots[k].qty > mq) mq = lots[k].qty;
-            si += lots[k].rmSourceIndex;
-          }
-          rows += seen.size; maxQty.push(mq); nLots.push(ks.length); sumIdx.push(si); maxItems.push(mx);
+      const alloc = [];
+      let allocatedTotal = 0;
+      /* ตัดจาก Group → ไล่ RM Row ภายใน Group ตามลำดับเดิม (STEP-12 Trace RM Row จริง) */
+      const takeGroup = (g, q) => {
+        let need = q;
+        for(const x of g.rows){
+          if(need <= 1e-9) break;
+          if(x.remaining <= 1e-9) continue;
+          const a = Math.min(need, x.remaining);
+          alloc.push({ rid: x.rid, rmSourceIndex: x.rmSourceIndex, ent: x.ent, it: x.it, raw: x.raw, dlv: x.dlv, qty: a });
+          x.remaining = r6(x.remaining - a);                 // STEP-07/STEP-11 — remainingQty รายแถวคงเดิม
+          x.usedQty   = r6(x.usedQty + a);
+          need        = r6(need - a);
         }
-        return { rows, maxQty, nLots, sumIdx, maxItems };
+        const used = r6(q - need);
+        requiredQty    = r6(requiredQty - used);
+        allocatedTotal = r6(allocatedTotal + used);
       };
-      const cmpSeq = (a, b, rev, dir) => {                     // dir=+1 น้อยกว่าดีกว่า · dir=-1 มากกว่าดีกว่า
-        const n = a.length;
-        for(let t = 0; t < n; t++){
-          const i = rev ? (n - 1 - t) : t;
-          if(a[i] !== b[i]) return (a[i] < b[i] ? -1 : 1) * dir;
+      // STEP-03 PHASE 1 — Exact Quantity Match บน RM Group (remainingGroupQty == PDF Quantity)
+      const exactG = cands.find(g => Math.abs(groupRemaining(g) - requiredQty) < 1e-9);
+      if(exactG && requiredQty > 1e-9){
+        takeGroup(exactG, requiredQty);                      // STEP-04 — ใช้หมด Group → remainingGroupQty = 0
+      } else {
+        // STEP-05/06 PHASE 2 — ไม่มี Exact → Split ตามลำดับ Group เดิม จนครบ
+        for(const g of cands){
+          if(requiredQty <= 1e-9) break;
+          const gr = groupRemaining(g);
+          if(gr <= 1e-9) continue;
+          takeGroup(g, Math.min(requiredQty, gr));
         }
-        return 0;
-      };
-      const better = (a, b) => {
-        if(a.rows !== b.rows) return a.rows < b.rows;                      // T1
-        let c = cmpSeq(a.maxQty,   b.maxQty,   true,  -1); if(c) return c < 0;   // T2
-        c     = cmpSeq(a.nLots,    b.nLots,    true,   1); if(c) return c < 0;   // T3
-        c     = cmpSeq(a.sumIdx,   b.sumIdx,   false,  1); if(c) return c < 0;   // T4
-        c     = cmpSeq(a.maxItems, b.maxItems, false, -1); if(c) return c < 0;   // T5
-        return false;
-      };
-      const dfs = ci => {
-        if(nodes++ > SP_MAX_NODES) return;
-        if(ci === clcList.length){
-          if(used.some(u => !u)) return;                       // ทุก Lot ต้องถูกใช้ (ห้ามเหลือค้าง)
-          solCount++;
-          const sol = acc.map(a => a.slice()), sc = scoreOf(sol);
-          if(!bestSol || better(sc, bestScore)){ bestSol = sol; bestScore = sc; }
-          return;
-        }
-        const need = clcList[ci].qty, cur = [];
-        const pick = (pos, rem) => {
-          if(nodes > SP_MAX_NODES) return;
-          if(Math.abs(rem) < 1e-9){
-            acc.push(cur.slice()); dfs(ci + 1); acc.pop(); return;
-          }
-          if(pos >= lots.length || rem < -1e-9) return;
-          if(!used[pos] && lots[pos].qty <= rem + 1e-9){       // Full Lot เท่านั้น
-            used[pos] = true; cur.push(pos);
-            pick(pos + 1, r6(rem - lots[pos].qty));
-            cur.pop(); used[pos] = false;
-          }
-          pick(pos + 1, rem);
-        };
-        pick(0, need);
-      };
-      dfs(0);
-      if(!bestSol)
-        throw new Error('RM_QTY_NOT_EXACT — หยุด Export\n' +
-          'Delivery : '      + c0.dlv + '\n' +
-          'Product Code : '  + (c0.src.prodcode || c0.src.material) + '\n' +
-          'CLC No. / QTY : ' + clcList.map(c => c.no + '=' + c.qty).join(', ') + '\n' +
-          'RM Source Row : ' + lots.map(x => '#' + x.rmSourceIndex + ' ' + x.raw + ' Qty ' + x.qty).join(' · ') + '\n' +
-          'ไม่มี Combination ใดที่จัด Full-Lot ให้ครบทุก CLC No. ได้');
-      if(nodes > SP_MAX_NODES) console.warn('[SCH PDF] AMBIGUOUS_RM_ALLOCATION — ค้นไม่ครบทุก Combination:',
-        c0.pc, c0.dlv, 'nodes >', SP_MAX_NODES);
-      if(solCount > 1) console.warn('[SCH PDF] AMBIGUOUS_RM_ALLOCATION — มี ' + solCount +
-        ' Solution ที่ถูกต้อง · เลือกด้วย Tie-break (Row น้อยสุด → Item สูงสุด):',
-        c0.pc, 'Delivery ' + c0.dlv, 'CLC No. ' + clcList.map(c => c.no).join('/'));
-
-      clcList.forEach((c, ci) => {
-        const alloc = [];
-        for(const k of bestSol[ci]){
-          const x = lots[k];
-          alloc.push({ rid: x.rid, rmSourceIndex: x.rmSourceIndex, ent: x.ent, it: x.it, raw: x.raw, dlv: x.dlv, qty: x.qty });
-          x.remaining = r6(x.remaining - x.qty);               // Full Lot → remaining = 0
-          x.usedQty   = r6(x.usedQty + x.qty);
-        }
-        /* ลำดับแถวภายใน CLC No. — Import Entry ASC → Item ASC */
-        alloc.sort((a, b) => {
-          const ea = String(a.ent || ''), eb = String(b.ent || '');
-          if(ea !== eb) return ea < eb ? -1 : 1;
-          return spItemNum(a.it) - spItemNum(b.it);
-        });
-        c.alloc = alloc;
-        c.lots  = alloc;
-      });
+      }
+      /* ERROR — Product + Delivery ตรง แต่ Quantity รวมไม่พอ (ห้ามเดา / ห้ามใช้ Delivery หรือ Product อื่น) */
+      if(Math.abs(requiredQty) > 1e-9)
+        throw new Error('RM_INSUFFICIENT_QTY — หยุด Export\n' +
+          'Invoice : '               + c.inv + '\n' +
+          'PDF Item : '              + pdfItemLabel + '\n' +
+          'Product Code : '          + (c.src.prodcode || c.src.material) + '\n' +
+          'PDF Delivery : '          + pdfDelivery + '\n' +
+          'PDF Quantity : '          + c.qty + '\n' +
+          'Available RM Quantity : ' + availableQty + '\n' +
+          'Allocated Quantity : '    + allocatedTotal + '\n' +
+          'Missing Quantity : '      + r6(requiredQty));
+      c.alloc = alloc;
+      c.lots  = alloc;
     }
-    for(const c of clcSeq) if(!c.alloc){ c.alloc = []; c.lots = []; }
 
     // ── (5) ตรวจ RM หลัง Allocation: ห้ามใช้เกินก้อน · remainingQty ห้ามติดลบ · ยอดต้องสมดุล ──
     {
@@ -20656,6 +20618,11 @@ const USERNAME_ALIASES = {
 let sbClient = null;
 let _currentUser = null;
 let _isLocalUser = false;
+/* ★ ต้องใช้ var (hoisted) — switchCustomer() ถูกเรียกที่บรรทัด ~7602 ตอน script รัน
+   ซึ่งอยู่ "ก่อน" บรรทัดนี้ · ถ้าใช้ let จะเกิด Temporal Dead Zone ReferenceError
+   ทำให้ทั้ง script block ตาย และปุ่มเข้าสู่ระบบกดไม่ทำงาน */
+var _allowedNav  = null;   // [DEMO USER] null = ไม่จำกัด · array = จำกัดเฉพาะ data-nav ในลิสต์
+var _curNav      = '';     // [DEMO USER] โหมดปัจจุบัน
 
 /* ══════════════════════════════════════════════════════════════
    LOCAL USERS — fallback login (ไม่ผ่าน Supabase)
@@ -20665,8 +20632,17 @@ let _isLocalUser = false;
 const LOCAL_USERS = {
   'nj1':  'NJ1234', 'nj2':  'NJ1234', 'nj3':  'NJ1234', 'nj4':  'NJ1234', 'nj5':  'NJ1234',
   'nj6':  'NJ1234', 'nj7':  'NJ1234', 'nj8':  'NJ1234', 'nj9':  'NJ1234', 'nj10': 'NJ1234',
-  'nj11': 'NJ1234', 'nj12': 'NJ1234', 'nj13': 'NJ1234', 'nj14': 'NJ1234', 'nj15': 'NJ1234'
+  'nj11': 'NJ1234', 'nj12': 'NJ1234', 'nj13': 'NJ1234', 'nj14': 'NJ1234', 'nj15': 'NJ1234',
+  'nj':   'NJ'                                  // ★ Demo User สำหรับลูกค้าทดสอบ
 };
+/* ── [DEMO USER] บัญชีจำกัดสิทธิ์ — เห็นได้เฉพาะ FZ AKO 2 / FZ AKO 1 ────────────
+   LOCAL_ROLES     : username → Role
+   LOCAL_FULLNAMES : username → ชื่อที่แสดงบน Sidebar
+   ROLE_ALLOWED_NAV: Role → data-nav ที่อนุญาต (Role ที่ไม่มีใน map = ไม่ถูกจำกัด) */
+const LOCAL_ROLES     = { 'nj': 'DEMO_AKO' };
+const LOCAL_FULLNAMES = { 'nj': 'NJ DEMO' };
+const ROLE_ALLOWED_NAV = { 'DEMO_AKO': ['sch_pdf', 'sch_2_pdf'] };
+const roleAllowedNav = r => ROLE_ALLOWED_NAV[String(r || '')] || null;
 const LOCAL_SESSION_KEY = 'mapping_local_user';
 try {
   if(window.supabase){
@@ -20728,7 +20704,11 @@ async function doLogin(){
       const fakeSession = {
         user: {
           email: ulocal + '@local',
-          user_metadata: { username: ulocal, full_name: userRaw, role: 'User' }
+          user_metadata: {
+            username:  ulocal,
+            full_name: LOCAL_FULLNAMES[ulocal] || userRaw,
+            role:      LOCAL_ROLES[ulocal]     || 'User'
+          }
         }
       };
       _isLocalUser = true;
@@ -20797,6 +20777,26 @@ async function onAuthSuccess(session){
     el.style.display = (userRole === 'Super Admin') ? '' : 'none';
   });
 
+  /* ── [DEMO USER] MENU GUARD — ลบเมนูที่ไม่ได้รับอนุญาตออกจาก DOM จริง ──
+     Role ที่ไม่อยู่ใน ROLE_ALLOWED_NAV จะไม่ถูกจำกัด (Super Admin / User เดิมไม่กระทบ) */
+  _allowedNav = roleAllowedNav(userRole);
+  if(_allowedNav){
+    const keep = new Set(_allowedNav);
+    document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{
+      if(!keep.has(el.dataset.nav)) el.remove();
+    });
+    document.querySelectorAll('[data-role="admin-only"]').forEach(el=> el.remove());
+    document.querySelectorAll('.sb-nav .sb-section, .sb-nav .sb-subsection').forEach(h=>{
+      let n = h.nextElementSibling, has = false;
+      while(n && !n.classList.contains('sb-section') && !n.classList.contains('sb-subsection')){
+        if(n.classList && n.classList.contains('sb-item')){ has = true; break; }
+        n = n.nextElementSibling;
+      }
+      if(!has) h.remove();
+    });
+    if(keep.has(_curNav) === false) switchCustomer(_allowedNav[0]);
+  }
+
   // Update Supabase indicator
   const dot = document.getElementById('sb-supabase-dot');
   const txt = document.getElementById('sb-supabase-text');
@@ -20812,6 +20812,8 @@ async function doLogout(){
   if(!confirm('ออกจากระบบ?')) return;
   try{ localStorage.removeItem(LOCAL_SESSION_KEY); }catch(_){}
   _isLocalUser = false;
+  _allowedNav  = null;   // [DEMO USER] คืนสิทธิ์เต็มให้ Session ถัดไป
+  _curNav      = '';
   try{
     if(sbClient) await sbClient.auth.signOut();
   }catch(e){ console.warn('signOut error:', e); }
@@ -20822,6 +20824,11 @@ async function doLogout(){
 
 /* ── Manage members (แสดงข้อมูล user ปัจจุบัน) ── */
 function openManageMembers(){
+  /* [DEMO USER] กันเรียกตรง — Role ที่ถูกจำกัดใช้หน้าจัดการสมาชิกไม่ได้ */
+  if(_allowedNav){
+    if(typeof toast === 'function') toast('ไม่มีสิทธิ์ใช้งาน', 'warn');
+    return;
+  }
   if(!_currentUser){
     if(typeof toast === 'function') toast('ยังไม่ได้เข้าสู่ระบบ', 'warn');
     return;
@@ -23585,7 +23592,9 @@ const S={ pdf:null, clc:null, rmdn:null, mapping:null, dwak:null, result:null, s
 const HDR={
   clc:{ invoice:['Billing Document'], invdate:['Billing Date','Billing date','Bill. Date'], material:['Product Code','Material'],
         desc:['EN Description','Description'], qty:['Billing qty in SKU'], curr:['Document Currency'],
-        netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'] },
+        netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'],
+        /* [HS/STAT] tariff11 = พิกัดเต็ม 11 หลัก (8 พิกัด + 3 Stat) · hs8 = พิกัด 8 หลัก (ใช้เมื่อไม่มี 11 หลัก) */
+        tariff11:['Comm./imp. code no.'], hs8:['HS'] },
   rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'],
         delivery:['Outbound Delivery No.','Outbound Delivery No','Delivery No.','Delivery'] },
   mapping:{ invoice:['INVOICE NO.','invoice no.'], invdate:['DATE INV','invoice date.','invoice date','Invoice Date','Date Inv.'],
@@ -23594,7 +23603,15 @@ const HDR={
         netval:['Item net price','Amt.'], country:['Origin','Original Country'], declref:['เลขที่ใบขนอ้าง'], declitem:['รายการที่'] },
   dwak:{ material:['Product Code'], desc:['Desc.'], qty:['Qty.'], curr:['Curr.'],
         netwt:['Net Weight'], netwtunit:['Netweight Unit'], grosswt:['Gross Weight'], grosswtunit:['Grossweight Unit'],
-        netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'] }
+        netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'],
+        /* [DUI] คอลัมน์สำหรับตรวจใบอนุญาตกรมการค้าตามพิกัด HS (ไม่บังคับ · ไม่มี = ข้ามการตรวจ) */
+        itemno:['Item No.'], tariff:['Tariff'], fz:['FZ'], stat:['Stat'],
+        /* [PACKAGE] ยอดสรุป Package ระดับใบขน (กรอกแถวเดียว) */
+        pkgamt:['Package Amount'], pkgunit:['Package Unit'],
+        /* [FIXED4] 4 ค่าฟิกตามที่ผู้ใช้ยืนยัน */
+        imptaxinc:['Import Tax Incentives ID'],
+        permitno1:['PermitNo1'], issuedate1:['IssueDate1'], permitauth1:['PermitIssueAuthority1'],
+        permitno2:['PermitNo2'], issuedate2:['IssueDate2'], permitauth2:['PermitIssueAuthority2'] }
 };
 const REQ={ clc:['invoice','material','qty','netval'], rmdn:['material','refinbound'],
            mapping:['invoice','material','qty','netval','declref'], dwak:['material','qty','netval','declref'] };
@@ -23649,6 +23666,38 @@ function normDate(v){
   m=s.match(/^(\d{1,2})[\-\/.](\d{1,2})[\-\/.](\d{2,4})$/); if(m){ let y=parseInt(m[3],10); if(y<100)y+=2000; return _dmy(y,parseInt(m[2],10),parseInt(m[1],10)); }
   return s;
 }
+/* [HS/STAT] เก็บเป็น String เสมอ · ห้ามแปลงเป็นตัวเลข (0 นำหน้าต้องไม่หาย) */
+function digitsOnly(v){ return String(v==null?'':v).replace(/[^0-9]/g,''); }
+/* DWAK Tariff: ตัดศูนย์นำหน้าออกเหลือ 8 หลัก (000084821000 → 84821000) */
+function tariff8(v){ const d=digitsOnly(v); return d.length>8 ? d.slice(-8) : d; }
+/* Stat: 3 หลัก · เติม 0 ด้านหน้าถ้าไฟล์เก็บเป็นตัวเลข (0 → 000) · ว่าง = ว่าง */
+function stat3(v){ const d=digitsOnly(v); return d==='' ? '' : d.padStart(3,'0'); }
+/* Tax ID หน่วยงาน 13 หลัก · เติม 0 ด้านหน้าถ้าไฟล์เก็บเป็นตัวเลข */
+function taxId13(v){ const d=digitsOnly(v); return d==='' ? '' : d.padStart(13,'0'); }
+/* Permit No.: ตัดคำนำหน้า "ที่" และช่องว่างออกก่อนเทียบ (ที่ 119/2567 = 119/2567) */
+function permitKey(v){ return normText(v).replace(/ที่/g,'').replace(/\s+/g,'').toLowerCase(); }
+/* [PACKAGE] ยอดสรุป Package ของ CLC — สแกนหา label 'Total' ที่มีหน่วย 'Pallet'
+   ไฟล์จริง sheet 'SD for draft entry': Y='Total' · Z=2 · AA='Pallet'
+   ★ ใช้อัลกอริทึมเดียวกับ SP_CLC_SUMMARY ของโหมด ① · ไม่ผูกตำแหน่งคอลัมน์ตายตัว
+   ★ ไม่พบ = null → ข้ามการตรวจ (ห้ามเดา) */
+function scanClcPkgTotal(aoa){
+  const _t=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
+  const _key=v=>_t(v).toLowerCase().replace(/[.\s]/g,'');
+  const _num=v=>{ const n=parseFloat(String(v==null?'':v).replace(/,/g,'').trim()); return isFinite(n)?n:null; };
+  for(const row of (aoa||[])){
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      if(_key(row[c])!=='total') continue;
+      let vi=-1; for(let j=c+1;j<row.length;j++){ if(_t(row[j])!==''){ vi=j; break; } }
+      if(vi<0) continue;
+      const val=_num(row[vi]); if(val==null) continue;
+      let ui=-1; for(let j=vi+1;j<row.length;j++){ if(_t(row[j])!==''){ ui=j; break; } }
+      const unit=ui>=0? _t(row[ui]).toLowerCase() : '';
+      if(/pallet/.test(unit)) return val;
+    }
+  }
+  return null;
+}
 function setStatus(msg,err){ const el=document.getElementById('msp-status'); if(!el) return; el.textContent=msg; el.classList.toggle('err',!!err); }
 function pad(n){ return String(n).padStart(2,'0'); }
 function stampHuman(){ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
@@ -23685,7 +23734,9 @@ async function readFile(file,kind){
   if(best.missing.length) throw new Error('['+file.name+' · '+FILE_LABEL[kind]+' · sheet "'+best.sheet+'"] หา Header ไม่พบ: '+best.missing.map(f=>FIELD_LABEL[f]||f).join(', '));
   const rows=extractRows(best,kind);
   if(!rows.length) throw new Error('['+file.name+' · sheet "'+best.sheet+'"] อ่านข้อมูลได้ 0 รายการ');
-  return { file, name:file.name, sheet:best.sheet, hdrRow:best.hdrRow, cols:best.cols, rows, count:rows.length };
+  /* [PACKAGE] ยอดสรุป Package ของไฟล์ CLC (null = ไม่มี → ข้ามการตรวจ) */
+  const pkgTotal = (kind==='clc') ? scanClcPkgTotal(best.aoa) : null;
+  return { file, name:file.name, sheet:best.sheet, hdrRow:best.hdrRow, cols:best.cols, rows, count:rows.length, pkgTotal };
 }
 function extractRows(best,kind){
   const {aoa,hdrRow,cols}=best; const out=[]; let curInv='';
@@ -23717,18 +23768,42 @@ function extractRows(best,kind){
       desc:txt(r,'desc'), qty:num(r,'qty'), netval:num(r,'netval'),
       curr: cols.curr>=0? normUpper(r[cols.curr]) : '', netwt, grosswt,
       invdate: cols.invdate>=0 ? r[cols.invdate] : null,
-      country: cols.country>=0? normUpper(r[cols.country]) : '' });
+      country: cols.country>=0? normUpper(r[cols.country]) : '',
+      /* [HS/STAT] CLC — พิกัดเต็ม 11 หลัก / พิกัด 8 หลัก · เก็บเป็น String */
+      tariff11:   (kind==='clc'  && cols.tariff11>=0)   ? digitsOnly(r[cols.tariff11]) : '',
+      hs8:        (kind==='clc'  && cols.hs8>=0)        ? digitsOnly(r[cols.hs8])      : '',
+      /* [DUI] เก็บค่าดิบไว้ตรวจใบอนุญาตตามพิกัด HS (เฉพาะ DWAK) */
+      itemno:     (kind==='dwak' && cols.itemno>=0)     ? normText(r[cols.itemno])     : '',
+      tariff:     (kind==='dwak' && cols.tariff>=0)     ? normText(r[cols.tariff])     : '',
+      fz:         (kind==='dwak' && cols.fz>=0)         ? normUpper(r[cols.fz])        : '',
+      /* [HS/STAT] + [PACKAGE] + [FIXED4] — เฉพาะ DWAK */
+      stat:       (kind==='dwak' && cols.stat>=0)       ? normText(r[cols.stat])       : '',
+      pkgamt:     (kind==='dwak' && cols.pkgamt>=0)     ? normText(r[cols.pkgamt])     : '',
+      pkgunit:    (kind==='dwak' && cols.pkgunit>=0)    ? normText(r[cols.pkgunit])    : '',
+      imptaxinc:  (kind==='dwak' && cols.imptaxinc>=0)  ? normText(r[cols.imptaxinc])  : '',
+      permitno1:  (kind==='dwak' && cols.permitno1>=0)  ? normText(r[cols.permitno1])  : '',
+      issuedate1: (kind==='dwak' && cols.issuedate1>=0) ? normText(r[cols.issuedate1]) : '',
+      permitauth1:(kind==='dwak' && cols.permitauth1>=0)? normText(r[cols.permitauth1]): '',
+      permitno2:  (kind==='dwak' && cols.permitno2>=0)  ? normText(r[cols.permitno2])  : '',
+      issuedate2: (kind==='dwak' && cols.issuedate2>=0) ? normText(r[cols.issuedate2]) : '',
+      permitauth2:(kind==='dwak' && cols.permitauth2>=0)? normText(r[cols.permitauth2]): '' });
   }
   return out;
 }
 
 /* ---------- compare (dual-master) ---------- */
 function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong,extra){
+  /* dwakItem = เลขรายการจริงฝั่ง DWAK (Item No.) · expected = ค่าที่ถูกต้องจาก Source */
   return Object.assign({field,invoice,material,rmdn,clc,mapping,dwak,wrong,
-                        pdf:'\u2014', pdfItem:'\u2014', delivery:'\u2014', source:'CLC'}, extra||{});
+                        pdf:'\u2014', pdfItem:'\u2014', delivery:'\u2014', source:'CLC',
+                        dwakItem:'\u2014', expected:null, status:'MISMATCH'}, extra||{});
 }
 function compare(){
   const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=S.mapping.rows, dwak=S.dwak.rows;
+  /* index รายการ DWAK ตาม Invoice + Product Code → ใช้แสดงคอลัมน์ "รายการใน DWAK" */
+  const dwakByKey=new Map();
+  for(const r of dwak){ const k=normText(r.invoice)+'\u0001'+r.material;
+    if(!dwakByKey.has(k)) dwakByKey.set(k,[]); dwakByKey.get(k).push(r); }
   const pdfItems=(S.pdf&&S.pdf.rows)||[];
   const diffs=[];
   const invM=(clc[0]&&clc[0].invoice)||(mapping[0]&&mapping[0].invoice)||'\u2014';
@@ -23738,14 +23813,12 @@ function compare(){
   const mR=rset(rmdn), pR=rset(mapping), dR=rset(dwak);
   const jR=s=>[...s].sort().join(', ')||'(ว่าง)';
   const refReasons=[];
-  { const miss=[...mR].filter(x=>!pR.has(x)), ext=[...pR].filter(x=>!mR.has(x)),
-        mD=[...mR].filter(x=>!dR.has(x)), eD=[...dR].filter(x=>!mR.has(x));
-    if(miss.length) refReasons.push('ไม่พบใน MAPPING: '+miss.join(', '));
-    if(ext.length)  refReasons.push('มีเกินใน MAPPING: '+ext.join(', '));
+  /* ★ MAPPING ถูกถอดออกจากการตัดสิน — เทียบ RM DN (Source) ↔ DWAK (Target) เท่านั้น
+     คอลัมน์ MAPPING ยังแสดงในการ์ดเพื่อดูประกอบ แต่ไม่มีผลต่อ PASS/FAIL */
+  { const mD=[...mR].filter(x=>!dR.has(x)), eD=[...dR].filter(x=>!mR.has(x));
     if(mD.length)   refReasons.push('ไม่พบใน DWAK: '+mD.join(', '));
     if(eD.length)   refReasons.push('มีเกินใน DWAK: '+eD.join(', ')); }
   const refOk=refReasons.length===0;
-  if(!refOk) diffs.push(D0('เลขที่ใบขนอ้าง',invM,'\u2014',jR(mR),'\u2014',jR(pR),jR(dR),refReasons.join(' | ')));
   const refChk={ rmdn:jR(mR), mapping:jR(pR), dwak:jR(dR), ok:refOk };
 
   /* ===== (B) รายการที่ — MASTER = RM DN · เทียบ combo ref|item (กัน 1 ตรง 10) ===== */
@@ -23753,15 +23826,45 @@ function compare(){
   const mC=cset(rmdn), pC=cset(mapping), dC=cset(dwak);
   const F=s=>[...s].map(x=>x.replace('\u0001','#')).sort().join(', ')||'(ว่าง)';
   const itemReasons=[];
-  { const miss=[...mC].filter(x=>!pC.has(x)), ext=[...pC].filter(x=>!mC.has(x)),
-        mD=[...mC].filter(x=>!dC.has(x)), eD=[...dC].filter(x=>!mC.has(x));
-    if(miss.length) itemReasons.push('ไม่พบใน MAPPING: '+F(new Set(miss)));
-    if(ext.length)  itemReasons.push('มีเกินใน MAPPING: '+F(new Set(ext)));
+  /* ★ MAPPING ถูกถอดออกจากการตัดสิน (เหมือนหมวด A) */
+  { const mD=[...mC].filter(x=>!dC.has(x)), eD=[...dC].filter(x=>!mC.has(x));
     if(mD.length)   itemReasons.push('ไม่พบใน DWAK: '+F(new Set(mD)));
     if(eD.length)   itemReasons.push('มีเกินใน DWAK: '+F(new Set(eD))); }
   const itemOk=itemReasons.length===0;
-  if(!itemOk) diffs.push(D0('รายการที่',invM,'\u2014',F(mC),'\u2014',F(pC),F(dC),itemReasons.join(' | ')));
   const itemChk={ rmdn:F(mC), mapping:F(pC), dwak:F(dC), ok:itemOk };
+
+  /* ── (A/B ใหม่) เลขที่ใบขนอ้าง + รายการที่ — Source = RM DN · ตรวจราย DWAK Row ──
+     สำหรับแต่ละรายการใน DWAK: คู่ (Declaration No, DeclarationLine Number)
+     ต้องมีอยู่จริงใน RM DN ของ Product Code เดียวกัน (normalize 07 = 7)
+     ★ ไม่ใช้ MAPPING · Expected มาจาก RM DN เท่านั้น                              */
+  {
+    const rmByMat=new Map();
+    for(const r of rmdn){ if(!r.ref) continue;
+      if(!rmByMat.has(r.material)) rmByMat.set(r.material,[]);
+      rmByMat.get(r.material).push(r.ref+'\u0001'+(r.item||'')); }
+    const used=new Map();
+    for(const r of dwak){
+      const at='DWAK รายการที่ '+(r.itemno||r._row);
+      const cand=rmByMat.get(r.material)||[];
+      const combo=(r.ref||'')+'\u0001'+(r.item||'');
+      if(!r.ref){
+        if(cand.length){
+          diffs.push(D0('เลขที่ใบขนอ้าง + รายการที่',normText(r.invoice)||'\u2014',r.material,'\u2014',
+            cand.map(x=>x.replace('\u0001','#')).join(', '),'\u2014','\u2014','DWAK ไม่มีข้อมูล',
+            { source:'RM DN', dwakItem:(r.itemno||'\u2014'), expected:cand.map(x=>x.replace('\u0001','#')).join(', '), status:'MISSING' }));
+        }
+        continue;
+      }
+      if(cand.indexOf(combo)>=0){ used.set(r.material+'\u0001'+combo,true); continue; }
+      diffs.push(D0('เลขที่ใบขนอ้าง + รายการที่',normText(r.invoice)||'\u2014',r.material,'\u2014',
+        cand.length? cand.map(x=>x.replace('\u0001','#')).join(', ') : '\u2014','\u2014',
+        (r.ref||'')+'#'+(r.item||''),
+        cand.length? 'DWAK \u2260 RM DN' : ('ไม่พบ Product Code นี้ใน RM DN'),
+        { source:'RM DN', dwakItem:(r.itemno||'\u2014'),
+          expected: cand.length? cand.map(x=>x.replace('\u0001','#')).join(', ') : '',
+          status: cand.length? 'MISMATCH' : 'SOURCE MISSING' }));
+    }
+  }
 
   /* ═════ (B2) PDF CROSS-CHECK — PDF เป็น Source หลัก =====================
      Matching: Invoice No. + Product Code (+ Delivery ประกอบ) · ห้ามจับข้าม Invoice / Delivery
@@ -23799,18 +23902,19 @@ function compare(){
     const ndP=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
     for(const [k,P] of pdfAgg){
       const c=cX.get(k), m2=pX.get(k), d=dX.get(k), rm=rX.get(k);
-      const base={ pdfItem:_pdfItemLbl(P), delivery:P.delivery||'\u2014', source:'PDF' };
-      /* PDF มีรายการนี้ แต่ปลายทางไม่มี → MISSING */
-      if(!m2){ diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014','(ไม่พบ)',d?'มี':'\u2014','MISSING — ไม่พบใน MAPPING (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
+      /* [ITEM] คอลัมน์ "รายการใน DWAK" ต้องเป็น Item No. จริงของ DWAK */
+      const _dIt=(dwakByKey.get(k)||[]).map(x=>x.itemno).filter(Boolean).join(', ')||'\u2014';
+      const base={ pdfItem:_pdfItemLbl(P), delivery:P.delivery||'\u2014', source:'PDF', dwakItem:_dIt };
+      /* PDF มีรายการนี้ แต่ปลายทางไม่มี → MISSING  (★ MAPPING ถูกถอดออกจากการตัดสิน) */
       if(!d){  diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014',m2?'มี':'\u2014','(ไม่พบ)','MISSING — ไม่พบใน DWAK (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
       const numP=(field,pr,tol)=>{ const bad=[];
-        if(m2&&ndP(P[pr],m2[pr],tol)) bad.push('MAPPING='+fmtN(m2[pr]));
+        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
         if(d &&ndP(P[pr],d[pr],tol))  bad.push('DWAK='+fmtN(d[pr]));
         if(c &&ndP(P[pr],c[pr],tol))  bad.push('CLC='+fmtN(c[pr]));
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?fmtN(c[pr]):'\u2014',m2?fmtN(m2[pr]):'\u2014',d?fmtN(d[pr]):'\u2014',
           'MISMATCH — PDF \u2260 '+bad.join(', '),Object.assign({pdf:fmtN(P[pr])},base))); pdfBad++; } };
       const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return; const bad=[];
-        if(m2&&normCmp(m2[pr])&&normCmp(m2[pr])!==pv) bad.push('MAPPING');
+        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
         if(d &&normCmp(d[pr]) &&normCmp(d[pr]) !==pv) bad.push('DWAK');
         if(c &&normCmp(c[pr]) &&normCmp(c[pr]) !==pv) bad.push('CLC');
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',
@@ -23825,14 +23929,8 @@ function compare(){
         diffs.push(D0('Delivery (PDF)',P.invoice,P.material,rm.delivery,'\u2014','\u2014','\u2014',
           'MISMATCH — PDF \u2260 RM DN',Object.assign({pdf:P.delivery},base))); pdfBad++; }
     }
-    /* MAPPING มีรายการที่ PDF ไม่มี → ส่วนเกิน */
-    const pKeys=new Set(pdfAgg.keys());
-    for(const r of mapping){
-      const k=normText(r.invoice)+'\u0001'+r.material;
-      if(!pKeys.has(k) && !diffs.some(x=>x.field==='Material (เกินจาก PDF)'&&x.material===r.material&&x.invoice===normText(r.invoice))){
-        diffs.push(D0('Material (เกินจาก PDF)',normText(r.invoice),r.material,'\u2014','\u2014','มี','\u2014',
-          'MISSING — ไม่พบใน PDF',{pdf:'(ไม่พบ)',source:'PDF'})); pdfBad++; }
-    }
+    /* ★ เดิมตรวจ "MAPPING มีรายการที่ PDF ไม่มี" — ถอดออกทั้งบล็อกตามข้อกำหนด
+       MAPPING ห้ามมีผลต่อ PASS/FAIL · รายการเกินฝั่ง DWAK ยังตรวจอยู่ในหมวด (C) ไม่พบใน CLC */
   }
   const pdfOk=pdfBad===0;
 
@@ -23846,28 +23944,36 @@ function compare(){
   const cA=agg(clc), pA=agg(mapping), dA=agg(dwak);
   const nd=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
   let genBad=0;
-  for(const k of new Set([...cA.keys(),...pA.keys(),...dA.keys()])){
-    const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||p||d).material, invoice=(c||p||d).invoice;
+  /* ★ วนเฉพาะ Key ของ CLC (Source) และ DWAK (Target) — ไม่รวม MAPPING
+     เดิมรวม pA.keys() ทำให้รายการที่มีเฉพาะใน MAPPING ถูกฟ้อง 'ไม่พบใน CLC' → MAPPING มีผลต่อ PASS/FAIL */
+  for(const k of new Set([...cA.keys(),...dA.keys()])){
+    const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||d||p).material, invoice=(c||d||p).invoice;
     if(!c){ diffs.push(D0('Material',invoice,material,'\u2014','(ไม่พบใน CLC)',p?'มี':'\u2014',d?'มี':'\u2014','ไม่พบใน CLC (MASTER)')); genBad++; continue; }
-    if(!p){ diffs.push(D0('Material',invoice,material,'\u2014','มี','(ไม่พบ)',d?'มี':'\u2014','ไม่พบใน MAPPING')); genBad++; }
+    /* ★ "ไม่พบใน MAPPING" ถอดออก — MAPPING ห้ามมีผลต่อ PASS/FAIL */
     if(!d){ diffs.push(D0('Material',invoice,material,'\u2014','มี',p?'มี':'\u2014','(ไม่พบ)','ไม่พบใน DWAK')); genBad++; }
-    const numT=(field,pr,tol)=>{ const bad=[];
-      if(p&&nd(c[pr],p[pr],tol)) bad.push('MAPPING='+fmtN(p[pr]));
-      if(d&&nd(c[pr],d[pr],tol)) bad.push('DWAK='+fmtN(d[pr]));
-      if(bad.length){ diffs.push(D0(field,invoice,material,'\u2014',fmtN(c[pr]),p?fmtN(p[pr]):'\u2014',d?fmtN(d[pr]):'\u2014','ไม่ตรง: '+bad.join(', '))); genBad++; } };
-    const strT=(field,pr)=>{ const cv=normCmp(c[pr]); const bad=[];
-      if(p&&normCmp(p[pr])&&normCmp(p[pr])!==cv) bad.push('MAPPING');
-      if(d&&normCmp(d[pr])&&normCmp(d[pr])!==cv) bad.push('DWAK');
-      if(bad.length){ diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'(ว่าง)'),p?(p[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',bad.join(' / '))); genBad++; } };
+    /* ★ MAPPING ถูกถอดออกจากการตัดสิน PASS/FAIL — เทียบ CLC (Source) ↔ DWAK (Target) เท่านั้น */
+    const dItems=(dwakByKey.get(invoice+'\u0001'+material)||[]).map(x=>x.itemno).filter(Boolean).join(', ') || '\u2014';
+    const numT=(field,pr,tol)=>{ if(!d) return;
+      if(!nd(c[pr],d[pr],tol)) return;
+      const miss = (d[pr]==null||d[pr]==='');
+      diffs.push(D0(field,invoice,material,'\u2014',fmtN(c[pr]),'\u2014',miss?'\u2014':fmtN(d[pr]),
+        miss?'DWAK ไม่มีข้อมูล':'DWAK \u2260 CLC',
+        { source:'CLC', dwakItem:dItems, expected:fmtN(c[pr]), status: miss?'MISSING':'MISMATCH' })); genBad++; };
+    const strT=(field,pr)=>{ if(!d) return; const cv=normCmp(c[pr]); const dv=normCmp(d[pr]);
+      if(!cv && !dv) return;
+      if(cv===dv) return;
+      const st = !cv ? 'SOURCE MISSING' : (!dv ? 'MISSING' : 'MISMATCH');
+      diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014',(d[pr]||'\u2014'),
+        st==='SOURCE MISSING' ? ('ไม่พบ '+field+' ใน CLC') : (st==='MISSING' ? 'DWAK ไม่มีข้อมูล' : 'DWAK \u2260 CLC'),
+        { source:'CLC', dwakItem:dItems, expected:(c[pr]||''), status:st })); genBad++; };
     strT('Description','desc');
     numT('Quantity','qty',1e-9);
     strT('Currency','curr');
     numT('Net Weight','netwt',TOL_W);
     numT('Net Value','netval',TOL_V);
     strT('Country of Origin','country');
-    // Gross Weight: CLC ไม่มี → เทียบ MAPPING(รวม) กับ DWAK(รวม)
-    if(p&&d&&p.grosswt!=null&&d.grosswt!=null&&nd(p.grosswt,d.grosswt,TOL_W)){
-      diffs.push(D0('Gross Weight',invoice,material,'\u2014','\u2014 (ไม่มีใน CLC)',fmtN(p.grosswt),fmtN(d.grosswt),'MAPPING \u2260 DWAK')); genBad++; }
+    /* ★ Gross Weight ถูกถอดออก — MAPPING ไม่ใช่ MASTER และ CLC ไม่มี Gross Weight ราย Material
+       จึงไม่มี Source of Truth ที่ตรวจได้ (ห้ามตรวจโดยเดา) */
   }
   const genOk=genBad===0;
 
@@ -23875,24 +23981,222 @@ function compare(){
   const uset=(a,f)=>{ const s=new Set(); a.forEach(r=>{ const v=normText(r[f]); if(v)s.add(v); }); return [...s].sort(); };
   const jk=a=>a.join(', ');
   const cNo=uset(clc,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
-  const noMapOk=jk(cNo)===jk(pNo)||!pNo.length, noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
-  const invNoOk=noMapOk&&noDwkOk;
-  if(!invNoOk){ const w=[]; if(!noMapOk)w.push('MAPPING'); if(!noDwkOk)w.push('DWAK');
-    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014',w.join(' / '))); }
+  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
+  const noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
+  const invNoOk=noDwkOk;
+  if(!invNoOk){
+    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014','DWAK')); }
   const invNoChk={ master:jk(cNo)||'\u2014', mapping:jk(pNo)||'\u2014', dwak:jk(dNo)||'\u2014', ok:invNoOk };
   const dset=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invdate); if(dd)s.add(dd); }); return [...s].sort(); };
   const cDt=dset(clc), pDt=dset(mapping), dDt=dset(dwak);
+  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
   const dtW=[];
-  if(cDt.length){ if(pDt.length&&jk(pDt)!==jk(cDt))dtW.push('MAPPING'); if(dDt.length&&jk(dDt)!==jk(cDt))dtW.push('DWAK'); }
-  else if(pDt.length&&dDt.length&&jk(pDt)!==jk(dDt)) dtW.push('MAPPING');
+  if(cDt.length && dDt.length && jk(dDt)!==jk(cDt)) dtW.push('DWAK');
   const invDateOk=dtW.length===0;
   if(!invDateOk) diffs.push(D0('Invoice Date','\u2014','\u2014','\u2014',jk(cDt)||'\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',dtW.join(' / ')));
   const invDateChk={ master:jk(cDt)||'\u2014', mapping:jk(pDt)||'\u2014', dwak:jk(dDt)||'\u2014', ok:invDateOk };
 
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [DUI] ตรวจใบอนุญาตกรมการค้าตามพิกัด HS — ประกาศ 30/06/2026
+       Source of Truth = พิกัด HS ของแต่ละรายการใน DWAK (คอลัมน์ Tariff)
+       ถ้า HS 8 หลักอยู่ในลิสต์ DUI  → PermitNo2 / IssueDate2 / PermitIssueAuthority2
+                                       ต้องเป็น EXEMPT99 / 2017-11-13 / 0994000159561
+       ถ้าไม่อยู่ในลิสต์            → ทั้ง 3 ช่องต้องว่าง
+       ★ ไม่ใช้ MAPPING · ไม่ใช้ CLC · ตัดสินจาก HS ของ DWAK เท่านั้น
+       ★ ถ้าไฟล์ DWAK ไม่มีคอลัมน์ Tariff → ข้ามการตรวจ (ไม่ฟ้อง ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  const DUI_HS_SET = new Set([
+    '84798969','84798970','84799090','84821000','84823000',
+    '84825000','84828000','84829900','84833090','85144000','85371099'
+  ]);
+  const DUI_EXPECT = { no:'EXEMPT99', date:'2017-11-13', auth:'0994000159561' };
+  const duiHs8 = v => { const d=String(v==null?'':v).replace(/[^0-9]/g,''); return d.length>8? d.slice(-8) : d; };
+  let duiBad = 0, duiChecked = 0;
+  if(dwak.some(r=>String(r.tariff||'')!=='')){
+    for(const r of dwak){
+      const hs8 = duiHs8(r.tariff);
+      if(!hs8) continue;
+      duiChecked++;
+      const isDui = DUI_HS_SET.has(hs8);
+      const at = 'DWAK รายการที่ ' + (r.itemno || r._row) + ' · HS ' + hs8;
+      const pairs = [
+        ['เลขที่ใบอนุญาต (PermitNo2)',                 String(r.permitno2||''),   DUI_EXPECT.no],
+        ['วันที่ออกใบอนุญาต (IssueDate2)',              String(r.issuedate2||''),  DUI_EXPECT.date],
+        ['เลขประจำตัวผู้เสียภาษีหน่วยงาน (PermitIssueAuthority2)', String(r.permitauth2||''), DUI_EXPECT.auth]
+      ];
+      for(const [label, got, want] of pairs){
+        const exp = isDui ? want : '';
+        if(normCmp(got) === normCmp(exp)) continue;
+        diffs.push(D0(label, normText(r.invoice)||'\u2014', r.material, '\u2014',
+          exp || '(ต้องว่าง)', '\u2014', got || '(ว่าง)',
+          isDui ? (at + ' อยู่ในพิกัด DUI → ต้องมีใบอนุญาต')
+                : (at + ' ไม่อยู่ในพิกัด DUI → ต้องไม่มีใบอนุญาต'),
+          { source:'HS CODE', pdfItem: (r.itemno || '\u2014'), dwakItem: (r.itemno || '\u2014'),
+            expected: (exp || '(ต้องว่าง)'), status: (got ? 'MISMATCH' : 'MISSING') }));
+        duiBad++;
+      }
+    }
+  }
+  const duiOk = duiBad === 0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [IEAT] สิทธิประโยชน์ IEAT — DWAK คอลัมน์ FZ ต้องเป็น 'Y' ทุกรายการ
+       ไม่ติ๊ก Y (ว่าง / N / ค่าอื่น) = ผิด
+       ★ ถ้าไฟล์ DWAK ไม่มีคอลัมน์ FZ → ข้ามการตรวจ (ไม่ฟ้อง ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  let ieatBad = 0, ieatChecked = 0;
+  if(S.dwak.cols && S.dwak.cols.fz >= 0){
+    for(const r of dwak){
+      ieatChecked++;
+      const got = String(r.fz || '');
+      if(got === 'Y') continue;
+      diffs.push(D0('สิทธิประโยชน์ IEAT (FZ)', normText(r.invoice)||'\u2014', r.material, '\u2014',
+        'Y', '\u2014', got || '(ว่าง)',
+        'DWAK รายการที่ ' + (r.itemno || r._row) + ' · ช่อง FZ ไม่ได้ติ๊ก Y',
+        { source:'FIXED', pdfItem: (r.itemno || '\u2014'), dwakItem: (r.itemno || '\u2014'),
+          expected: 'Y', status: (got ? 'MISMATCH' : 'MISSING') }));
+      ieatBad++;
+    }
+  }
+  const ieatOk = ieatBad === 0;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [HS/STAT] พิกัด + Stat — Source of Truth = CLC 'Comm./imp. code no.' (11 หลัก)
+       Expected พิกัด = 11 หลัก ตัด 3 ตัวท้าย   (84821000000 → 84821000)
+       Expected Stat  = 3 ตัวท้ายของ 11 หลัก    (84821000000 → 000)
+       DWAK Tariff    = ตัดศูนย์นำหน้าเหลือ 8 หลัก (000084821000 → 84821000)
+       ★ เก็บ/เทียบเป็น String ทั้งหมด · ห้ามแปลงเป็นตัวเลข (0 นำหน้าห้ามหาย)
+       ★ ไม่ใช่ Fixed Data — สร้าง Expected จากพิกัดของ CLC ทุกครั้ง
+       ★ CLC ไม่มีคอลัมน์พิกัด / DWAK ไม่มีคอลัมน์ → ข้ามการตรวจ (ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  let hsBad=0, hsChecked=0, statChecked=0;
+  {
+    const expByKey=new Map();
+    for(const r of clc){
+      const k=normText(r.invoice)+'\u0001'+r.material;
+      if(expByKey.has(k)) continue;
+      const t11=String(r.tariff11||''), h8=String(r.hs8||'');
+      let e8='', e3='';
+      if(t11.length>=9){ e8=t11.slice(0,-3); e3=t11.slice(-3); }
+      else if(h8){ e8=h8; }
+      if(e8||e3) expByKey.set(k,{e8,e3});
+    }
+    const hasTar = !!(S.dwak.cols && S.dwak.cols.tariff>=0);
+    const hasSta = !!(S.dwak.cols && S.dwak.cols.stat>=0);
+    if(expByKey.size && (hasTar||hasSta)){
+      for(const r of dwak){
+        const e=expByKey.get(normText(r.invoice)+'\u0001'+r.material);
+        if(!e) continue;
+        const at='DWAK รายการที่ '+(r.itemno||r._row);
+        if(hasTar && e.e8){
+          hsChecked++;
+          const got=tariff8(r.tariff);
+          if(got!==e.e8){
+            diffs.push(D0('พิกัด (Tariff)',normText(r.invoice)||'\u2014',r.material,'\u2014',
+              e.e8,'\u2014',got||'(ว่าง)',
+              got? (at+' \u00b7 พิกัดไม่ตรงกับ CLC') : (at+' \u00b7 DWAK ไม่มีพิกัด'),
+              { source:'CLC', dwakItem:(r.itemno||'\u2014'), expected:e.e8, status: got?'MISMATCH':'MISSING' }));
+            hsBad++;
+          }
+        }
+        if(hasSta && e.e3){
+          statChecked++;
+          const got=stat3(r.stat);
+          if(got!==e.e3){
+            diffs.push(D0('Stat',normText(r.invoice)||'\u2014',r.material,'\u2014',
+              e.e3,'\u2014',got||'(ว่าง)',
+              got? (at+' \u00b7 Stat ไม่ตรงกับพิกัดของ CLC') : (at+' \u00b7 DWAK ไม่มี Stat'),
+              { source:'CLC', dwakItem:(r.itemno||'\u2014'), expected:e.e3, status: got?'MISMATCH':'MISSING' }));
+            hsBad++;
+          }
+        }
+      }
+    }
+  }
+  const hsOk = hsBad===0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [PACKAGE] ยอดสรุป Package — Scope = ทั้ง Invoice (ไม่ใช่รายแถว)
+       CLC  : ยอดสรุปท้ายไฟล์ 'Total' + หน่วย 'Pallet'  (ไฟล์จริง Y='Total' Z=2 AA='Pallet')
+       DWAK : คอลัมน์ 'Package Amount' ซึ่งกรอกครั้งเดียวต่อใบขน
+       ★ ห้าม SUM รายแถวแบบ Blind — ใช้ค่าที่กรอกจริงเท่านั้น
+       ★ ถ้า DWAK กรอกมากกว่า 1 แถว → ฟ้องให้คนตรวจ ไม่รวมยอดเอง
+       ★ ไม่ใช่ Fixed Data · CLC ไม่มียอดสรุป หรือ DWAK ไม่มีคอลัมน์ → ข้ามการตรวจ
+     ══════════════════════════════════════════════════════════════════════ */
+  let pkgBad=0, pkgChecked=0;
+  if(S.clc.pkgTotal!=null && S.dwak.cols && S.dwak.cols.pkgamt>=0){
+    pkgChecked=1;
+    const exp=S.clc.pkgTotal;
+    const filled=dwak.filter(r=>String(r.pkgamt||'').trim()!=='');
+    const inv0=normText((dwak[0]&&dwak[0].invoice)||invM)||'\u2014';
+    if(!filled.length){
+      diffs.push(D0('จำนวน Package',inv0,'\u2014','\u2014',fmtN(exp),'\u2014','(ว่าง)',
+        'DWAK ไม่ได้กรอก Package Amount',
+        { source:'CLC', dwakItem:'\u2014', expected:fmtN(exp), status:'MISSING' }));
+      pkgBad++;
+    } else if(filled.length>1){
+      diffs.push(D0('จำนวน Package',inv0,'\u2014','\u2014',fmtN(exp),'\u2014',
+        filled.map(r=>(r.itemno||r._row)+'='+r.pkgamt).join(', '),
+        'DWAK กรอก Package Amount '+filled.length+' แถว — ยอดสรุปต้องกรอกแถวเดียวต่อใบขน (ไม่รวมยอดให้อัตโนมัติ)',
+        { source:'CLC', dwakItem:filled.map(r=>r.itemno||r._row).join(', '), expected:fmtN(exp), status:'MISMATCH' }));
+      pkgBad++;
+    } else {
+      const g=parseNum(filled[0].pkgamt);
+      if(g===null || Math.abs(g-exp)>1e-9){
+        diffs.push(D0('จำนวน Package',normText(filled[0].invoice)||inv0,'\u2014','\u2014',fmtN(exp),'\u2014',
+          normText(filled[0].pkgamt),
+          'DWAK รายการที่ '+(filled[0].itemno||filled[0]._row)+' \u00b7 ยอด Package ไม่ตรงกับยอดสรุปของ CLC',
+          { source:'CLC', dwakItem:(filled[0].itemno||'\u2014'), expected:fmtN(exp), status:'MISMATCH' }));
+        pkgBad++;
+      }
+    }
+  }
+  const pkgOk = pkgBad===0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [FIXED4] Fixed Data 4 ค่า — ใช้ทั้ง FZ AKO 1 และ FZ AKO 2
+       import Tax incentive = F5302081000002   (Import Tax Incentives ID)
+       Permit No.           = 119/2567         (PermitNo1 · ตัดคำนำหน้า "ที่" ก่อนเทียบ)
+       Permit date          = 2024-07-24       (IssueDate1 · เทียบหลัง Normalize วันที่)
+       Tax ID หน่วยงาน      = 0994000163011    (PermitIssueAuthority1 · 13 หลัก 0 นำหน้าห้ามหาย)
+       ตรง = PASS ไม่แสดง · ไม่ตรง = MISMATCH · DWAK ว่าง = MISSING
+       ★ DWAK ไม่มีคอลัมน์นั้น → ข้ามเฉพาะค่านั้น (ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  const FIXED4=[
+    { label:'import Tax incentive (Import Tax Incentives ID)', col:'imptaxinc',   want:'F5302081000002', key:normCmp },
+    { label:'Permit No. (PermitNo1)',                          col:'permitno1',   want:'119/2567',       key:permitKey },
+    { label:'Permit date (IssueDate1)',                        col:'issuedate1',  want:'2024-07-24',     key:normDate },
+    { label:'Tax ID หน่วยงาน (PermitIssueAuthority1)',          col:'permitauth1', want:'0994000163011',  key:taxId13 }
+  ];
+  let fx4Bad=0, fx4Checked=0;
+  for(const f of FIXED4){
+    if(!(S.dwak.cols && S.dwak.cols[f.col]>=0)) continue;
+    const wantKey=f.key(f.want);
+    for(const r of dwak){
+      fx4Checked++;
+      const raw=String(r[f.col]||'');
+      if(raw==='' ){
+        diffs.push(D0(f.label,normText(r.invoice)||'\u2014',r.material,'\u2014',f.want,'\u2014','(ว่าง)',
+          'DWAK รายการที่ '+(r.itemno||r._row)+' \u00b7 ไม่ได้กรอกค่า',
+          { source:'FIXED', dwakItem:(r.itemno||'\u2014'), expected:f.want, status:'MISSING' }));
+        fx4Bad++; continue;
+      }
+      if(f.key(raw)===wantKey) continue;
+      diffs.push(D0(f.label,normText(r.invoice)||'\u2014',r.material,'\u2014',f.want,'\u2014',raw,
+        'DWAK รายการที่ '+(r.itemno||r._row)+' \u00b7 ค่าไม่ตรงกับค่าฟิก',
+        { source:'FIXED', dwakItem:(r.itemno||'\u2014'), expected:f.want, status:'MISMATCH' }));
+      fx4Bad++;
+    }
+  }
+  const fx4Ok = fx4Bad===0;
+
   const errorCount=diffs.length;
   const verdict=errorCount===0?'PASS':'FAIL';
   const firstInv=(clc[0]&&clc[0].invoice)? String(clc[0].invoice).replace(/[^0-9A-Za-z_-]/g,'') : '';
-  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length,
+  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length, duiOk, duiBad, duiChecked, ieatOk, ieatBad, ieatChecked,
+    hsOk, hsBad, hsChecked, statChecked, pkgOk, pkgBad, pkgChecked, fx4Ok, fx4Bad, fx4Checked,
     meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
            clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:S.mapping.sheet, dwakSheet:S.dwak.sheet,
            invoice:firstInv, at:stampHuman() } };
@@ -24012,6 +24316,30 @@ function renderCards(){
     + card3('Invoice No.', r.invNoChk, 'CLC')
     + card3('Invoice Date', r.invDateChk, 'CLC');
 }
+
+/* ── helper สำหรับตาราง/Export 8 คอลัมน์ (Source-driven) ── */
+function mspRowItem(d){ return (d.dwakItem && d.dwakItem!=='\u2014') ? d.dwakItem : '\u2014'; }
+function mspRowSource(d){
+  if(d.source && d.source!=='CLC') return d.source;
+  const w=String(d.wrong||'');
+  if(/RM DN/.test(w)) return 'RM DN';
+  if(/INVOICE PDF|\bPDF\b/.test(w)) return 'INVOICE PDF';
+  return 'CLC';
+}
+function mspRowExpected(d){
+  if(d.expected!=null && d.expected!=='') return d.expected;
+  if(d.clc!=null && d.clc!=='' && d.clc!=='\u2014') return d.clc;
+  if(d.rmdn!=null && d.rmdn!=='' && d.rmdn!=='\u2014') return d.rmdn;
+  if(d.pdf!=null && d.pdf!=='' && d.pdf!=='\u2014') return d.pdf;
+  return '\u2014';
+}
+function mspRowStatus(d){
+  if(d.status) return d.status;
+  const w=String(d.wrong||'');
+  if(/SOURCE MISSING|ไม่พบ/.test(w)) return 'SOURCE MISSING';
+  if(/MISSING|ไม่มีข้อมูล|ไม่พบใน DWAK/.test(w)) return 'MISSING';
+  return 'MISMATCH';
+}
 function renderTable(){
   const r=S.result; if(!r) return;
   let rows=r.diffs;
@@ -24021,23 +24349,18 @@ function renderTable(){
   if(!rows.length){ if(emptyEl)emptyEl.style.display=''; if(wrapEl)wrapEl.style.display='none'; if(cntEl)cntEl.textContent=''; return; }
   if(emptyEl)emptyEl.style.display='none'; if(wrapEl)wrapEl.style.display='';
   const cap=5000;
+  /* ── ตาราง 8 คอลัมน์: รายการใน DWAK · เลข INVOICE · หัวข้อตรวจสอบ · Source · ค่าที่ถูกต้อง · DWAK · สถานะ · สาเหตุ ── */
   const body=rows.slice(0,cap).map(d=>{
-    const w=String(d.wrong||'');
-    const mapBad=/MAPPING/.test(w), dwkBad=/DWAK/.test(w);
-    const clcBad=/CLC/.test(w), isMissing=/MISSING/.test(w);
+    const st  = mspRowStatus(d);
+    const exp = mspRowExpected(d);
     return '<tr>'
+    +'<td>'+esc(mspRowItem(d))+'</td>'
+    +'<td>'+esc(d.invoice||'\u2014')+'</td>'
     +'<td class="st-bad">'+esc(d.field)+'</td>'
-    +'<td>'+esc(d.invoice)+'</td>'
-    +'<td>'+esc(d.pdfItem==null?'\u2014':d.pdfItem)+'</td>'
-    +'<td>'+esc(d.material)+'</td>'
-    +'<td>'+esc(d.delivery==null?'\u2014':d.delivery)+'</td>'
-    +'<td'+(d.source==='PDF'?' style="font-weight:700"':'')+'>'+esc(d.pdf==null?'\u2014':d.pdf)+'</td>'
-    +'<td>'+esc(d.rmdn)+'</td>'
-    +'<td'+(clcBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.clc)+'</td>'
-    +'<td'+(mapBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.mapping)+'</td>'
-    +'<td'+(dwkBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.dwak)+'</td>'
-    +'<td>'+esc(d.source||'CLC')+'</td>'
-    +'<td class="st-bad">'+(isMissing?'\u2757 MISSING':'\u274c MISMATCH')+'</td>'
+    +'<td>'+esc(mspRowSource(d))+'</td>'
+    +'<td>'+esc(exp)+'</td>'
+    +'<td class="sch-fz-cell-mismatch">'+esc(d.dwak==null||d.dwak===''?'\u2014':d.dwak)+'</td>'
+    +'<td class="st-bad">'+(st==='MISSING'?'\u2757 MISSING':(st==='SOURCE MISSING'?'\u2757 SOURCE MISSING':'\u274c MISMATCH'))+'</td>'
     +'<td class="st-bad">'+esc(d.wrong)+'</td></tr>';
   }).join('');
   document.getElementById('msp-tbody').innerHTML=body;
@@ -24070,7 +24393,7 @@ window.mspExport=async function(){
   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('ตรวจ SCH FZ', {views:[{state:'frozen',ySplit:1}]});
-    const HEAD=['หัวข้อตรวจสอบ','INVOICE','PDF ITEM','MATERIAL','DELIVERY','PDF','RM DN','CLC','MAPPING','DWAK','SOURCE','สถานะ','สาเหตุที่ไม่ตรง'];
+    const HEAD=['รายการใน DWAK','เลข INVOICE','หัวข้อตรวจสอบ','Source','ค่าที่ถูกต้อง','DWAK','สถานะ','สาเหตุ'];
     const thin={style:'thin',color:{argb:'FFBFBFBF'}}, border={top:thin,left:thin,bottom:thin,right:thin};
     const HEAD_FILL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}};
     const RED={type:'pattern',pattern:'solid',fgColor:{argb:'FFF9D0D0'}};
@@ -24081,29 +24404,27 @@ window.mspExport=async function(){
     const colorCell=(cell,text,flagged,extra)=>{ if(String(text)==='—'||String(text)==='\u2014'){ cell.fill=YEL; return; } if(flagged){ cell.fill=extra?ORG:RED; } };
     const REFITEM={ 'เลขที่ใบขนอ้าง':1, 'รายการที่':1 };
     if(!r.diffs.length){
-      ws.addRow(['']); ws.mergeCells('A2:M2');
+      ws.addRow(['']); ws.mergeCells('A2:H2');
       const cell=ws.getCell('A2'); cell.value='ตรวจสอบเรียบร้อย ไม่พบข้อมูลที่ไม่ตรงกัน';
       cell.alignment={horizontal:'center',vertical:'middle',wrapText:true}; cell.font={bold:true,color:{argb:'FF1B7A43'}};
-      ['A','B','C','D','E','F','G','H','I','J','K','L','M'].forEach(col=>{ ws.getCell(col+'2').border=border; });
+      ['A','B','C','D','E','F','G','H'].forEach(col=>{ ws.getCell(col+'2').border=border; });
     } else {
+      /* ★ Export เฉพาะรายการผิด · คอลัมน์เรียงตรงกับหน้าจอ 8 คอลัมน์ */
       for(const d of r.diffs){
-        const w=d.wrong||'', isExtra=/เกิน/.test(w);
-        const status = /MISSING/.test(w) ? 'MISSING' : 'ไม่ตรง';
-        const row=ws.addRow([d.field,d.invoice,(d.pdfItem==null?'\u2014':d.pdfItem),d.material,
-                             (d.delivery==null?'\u2014':d.delivery),(d.pdf==null?'\u2014':d.pdf),
-                             d.rmdn,d.clc,d.mapping,d.dwak,(d.source||'CLC'),status,w]);
+        const w=d.wrong||'';
+        const st=mspRowStatus(d);
+        const row=ws.addRow([mspRowItem(d), d.invoice||'\u2014', d.field, mspRowSource(d),
+                             mspRowExpected(d), (d.dwak==null||d.dwak==='')?'\u2014':d.dwak, st, w]);
         row.eachCell(c=>{ c.border=border; c.alignment={vertical:'middle',wrapText:true,horizontal:'left'}; });
+        row.getCell(1).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
         row.getCell(2).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        row.getCell(12).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        colorCell(row.getCell(8),  d.clc,     /CLC/.test(w), false);
-        colorCell(row.getCell(9),  d.mapping, /MAPPING/.test(w), isExtra);
-        colorCell(row.getCell(10), d.dwak,    /DWAK/.test(w), false);
+        row.getCell(7).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
+        colorCell(row.getCell(6), d.dwak, true, false);
       }
     }
-    ws.getColumn(1).width=22; ws.getColumn(2).width=14; ws.getColumn(3).width=12; ws.getColumn(4).width=20;
-    ws.getColumn(5).width=14; ws.getColumn(6).width=26; ws.getColumn(7).width=26; ws.getColumn(8).width=26;
-    ws.getColumn(9).width=26; ws.getColumn(10).width=26; ws.getColumn(11).width=10; ws.getColumn(12).width=12; ws.getColumn(13).width=40;
-    ws.autoFilter='A1:M1';
+    ws.getColumn(1).width=16; ws.getColumn(2).width=16; ws.getColumn(3).width=30; ws.getColumn(4).width=14;
+    ws.getColumn(5).width=28; ws.getColumn(6).width=28; ws.getColumn(7).width=16; ws.getColumn(8).width=44;
+    ws.autoFilter='A1:H1';
     const invs=[...new Set(S.clc.rows.map(x=>String(x.invoice||'').trim()).filter(Boolean))];
     let base = invs.length<=1 ? (invs[0]?('ตรวจใบขน_SCH_FZ_'+invs[0]):'ตรวจใบขน_SCH_FZ') : ('ตรวจใบขน_SCH_FZ_'+invs[0]+'-'+invs[invs.length-1]);
     const fname=base.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
@@ -24141,7 +24462,9 @@ const S={ pdf:null, clc:null, rmdn:null, mapping:null, dwak:null, result:null, s
 const HDR={
   clc:{ invoice:['Billing Document'], invdate:['Billing Date','Billing date','Bill. Date'], material:['Product Code','Material'],
         desc:['EN Description','Description'], qty:['Billing qty in SKU'], curr:['Document Currency'],
-        netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'] },
+        netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'],
+        /* [HS/STAT] tariff11 = พิกัดเต็ม 11 หลัก (8 พิกัด + 3 Stat) · hs8 = พิกัด 8 หลัก (ใช้เมื่อไม่มี 11 หลัก) */
+        tariff11:['Comm./imp. code no.'], hs8:['HS'] },
   rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'],
         delivery:['Outbound Delivery No.','Outbound Delivery No','Delivery No.','Delivery'] },
   mapping:{ invoice:['INVOICE NO.','invoice no.'], invdate:['DATE INV','invoice date.','invoice date','Invoice Date','Date Inv.'],
@@ -24150,7 +24473,15 @@ const HDR={
         netval:['Item net price','Amt.'], country:['Origin','Original Country'], declref:['เลขที่ใบขนอ้าง'], declitem:['รายการที่'] },
   dwak:{ material:['Product Code'], desc:['Desc.'], qty:['Qty.'], curr:['Curr.'],
         netwt:['Net Weight'], netwtunit:['Netweight Unit'], grosswt:['Gross Weight'], grosswtunit:['Grossweight Unit'],
-        netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'] }
+        netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'],
+        /* [DUI] คอลัมน์สำหรับตรวจใบอนุญาตกรมการค้าตามพิกัด HS (ไม่บังคับ · ไม่มี = ข้ามการตรวจ) */
+        itemno:['Item No.'], tariff:['Tariff'], fz:['FZ'], stat:['Stat'],
+        /* [PACKAGE] ยอดสรุป Package ระดับใบขน (กรอกแถวเดียว) */
+        pkgamt:['Package Amount'], pkgunit:['Package Unit'],
+        /* [FIXED4] 4 ค่าฟิกตามที่ผู้ใช้ยืนยัน */
+        imptaxinc:['Import Tax Incentives ID'],
+        permitno1:['PermitNo1'], issuedate1:['IssueDate1'], permitauth1:['PermitIssueAuthority1'],
+        permitno2:['PermitNo2'], issuedate2:['IssueDate2'], permitauth2:['PermitIssueAuthority2'] }
 };
 const REQ={ clc:['invoice','material','qty','netval'], rmdn:['material','refinbound'],
            mapping:['invoice','material','qty','netval','declref'], dwak:['material','qty','netval','declref'] };
@@ -24205,6 +24536,38 @@ function normDate(v){
   m=s.match(/^(\d{1,2})[\-\/.](\d{1,2})[\-\/.](\d{2,4})$/); if(m){ let y=parseInt(m[3],10); if(y<100)y+=2000; return _dmy(y,parseInt(m[2],10),parseInt(m[1],10)); }
   return s;
 }
+/* [HS/STAT] เก็บเป็น String เสมอ · ห้ามแปลงเป็นตัวเลข (0 นำหน้าต้องไม่หาย) */
+function digitsOnly(v){ return String(v==null?'':v).replace(/[^0-9]/g,''); }
+/* DWAK Tariff: ตัดศูนย์นำหน้าออกเหลือ 8 หลัก (000084821000 → 84821000) */
+function tariff8(v){ const d=digitsOnly(v); return d.length>8 ? d.slice(-8) : d; }
+/* Stat: 3 หลัก · เติม 0 ด้านหน้าถ้าไฟล์เก็บเป็นตัวเลข (0 → 000) · ว่าง = ว่าง */
+function stat3(v){ const d=digitsOnly(v); return d==='' ? '' : d.padStart(3,'0'); }
+/* Tax ID หน่วยงาน 13 หลัก · เติม 0 ด้านหน้าถ้าไฟล์เก็บเป็นตัวเลข */
+function taxId13(v){ const d=digitsOnly(v); return d==='' ? '' : d.padStart(13,'0'); }
+/* Permit No.: ตัดคำนำหน้า "ที่" และช่องว่างออกก่อนเทียบ (ที่ 119/2567 = 119/2567) */
+function permitKey(v){ return normText(v).replace(/ที่/g,'').replace(/\s+/g,'').toLowerCase(); }
+/* [PACKAGE] ยอดสรุป Package ของ CLC — สแกนหา label 'Total' ที่มีหน่วย 'Pallet'
+   ไฟล์จริง sheet 'SD for draft entry': Y='Total' · Z=2 · AA='Pallet'
+   ★ ใช้อัลกอริทึมเดียวกับ SP_CLC_SUMMARY ของโหมด ① · ไม่ผูกตำแหน่งคอลัมน์ตายตัว
+   ★ ไม่พบ = null → ข้ามการตรวจ (ห้ามเดา) */
+function scanClcPkgTotal(aoa){
+  const _t=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
+  const _key=v=>_t(v).toLowerCase().replace(/[.\s]/g,'');
+  const _num=v=>{ const n=parseFloat(String(v==null?'':v).replace(/,/g,'').trim()); return isFinite(n)?n:null; };
+  for(const row of (aoa||[])){
+    if(!row) continue;
+    for(let c=0;c<row.length;c++){
+      if(_key(row[c])!=='total') continue;
+      let vi=-1; for(let j=c+1;j<row.length;j++){ if(_t(row[j])!==''){ vi=j; break; } }
+      if(vi<0) continue;
+      const val=_num(row[vi]); if(val==null) continue;
+      let ui=-1; for(let j=vi+1;j<row.length;j++){ if(_t(row[j])!==''){ ui=j; break; } }
+      const unit=ui>=0? _t(row[ui]).toLowerCase() : '';
+      if(/pallet/.test(unit)) return val;
+    }
+  }
+  return null;
+}
 function setStatus(msg,err){ const el=document.getElementById('msp2-status'); if(!el) return; el.textContent=msg; el.classList.toggle('err',!!err); }
 function pad(n){ return String(n).padStart(2,'0'); }
 function stampHuman(){ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
@@ -24241,7 +24604,9 @@ async function readFile(file,kind){
   if(best.missing.length) throw new Error('['+file.name+' · '+FILE_LABEL[kind]+' · sheet "'+best.sheet+'"] หา Header ไม่พบ: '+best.missing.map(f=>FIELD_LABEL[f]||f).join(', '));
   const rows=extractRows(best,kind);
   if(!rows.length) throw new Error('['+file.name+' · sheet "'+best.sheet+'"] อ่านข้อมูลได้ 0 รายการ');
-  return { file, name:file.name, sheet:best.sheet, hdrRow:best.hdrRow, cols:best.cols, rows, count:rows.length };
+  /* [PACKAGE] ยอดสรุป Package ของไฟล์ CLC (null = ไม่มี → ข้ามการตรวจ) */
+  const pkgTotal = (kind==='clc') ? scanClcPkgTotal(best.aoa) : null;
+  return { file, name:file.name, sheet:best.sheet, hdrRow:best.hdrRow, cols:best.cols, rows, count:rows.length, pkgTotal };
 }
 function extractRows(best,kind){
   const {aoa,hdrRow,cols}=best; const out=[]; let curInv='';
@@ -24273,18 +24638,42 @@ function extractRows(best,kind){
       desc:txt(r,'desc'), qty:num(r,'qty'), netval:num(r,'netval'),
       curr: cols.curr>=0? normUpper(r[cols.curr]) : '', netwt, grosswt,
       invdate: cols.invdate>=0 ? r[cols.invdate] : null,
-      country: cols.country>=0? normUpper(r[cols.country]) : '' });
+      country: cols.country>=0? normUpper(r[cols.country]) : '',
+      /* [HS/STAT] CLC — พิกัดเต็ม 11 หลัก / พิกัด 8 หลัก · เก็บเป็น String */
+      tariff11:   (kind==='clc'  && cols.tariff11>=0)   ? digitsOnly(r[cols.tariff11]) : '',
+      hs8:        (kind==='clc'  && cols.hs8>=0)        ? digitsOnly(r[cols.hs8])      : '',
+      /* [DUI] เก็บค่าดิบไว้ตรวจใบอนุญาตตามพิกัด HS (เฉพาะ DWAK) */
+      itemno:     (kind==='dwak' && cols.itemno>=0)     ? normText(r[cols.itemno])     : '',
+      tariff:     (kind==='dwak' && cols.tariff>=0)     ? normText(r[cols.tariff])     : '',
+      fz:         (kind==='dwak' && cols.fz>=0)         ? normUpper(r[cols.fz])        : '',
+      /* [HS/STAT] + [PACKAGE] + [FIXED4] — เฉพาะ DWAK */
+      stat:       (kind==='dwak' && cols.stat>=0)       ? normText(r[cols.stat])       : '',
+      pkgamt:     (kind==='dwak' && cols.pkgamt>=0)     ? normText(r[cols.pkgamt])     : '',
+      pkgunit:    (kind==='dwak' && cols.pkgunit>=0)    ? normText(r[cols.pkgunit])    : '',
+      imptaxinc:  (kind==='dwak' && cols.imptaxinc>=0)  ? normText(r[cols.imptaxinc])  : '',
+      permitno1:  (kind==='dwak' && cols.permitno1>=0)  ? normText(r[cols.permitno1])  : '',
+      issuedate1: (kind==='dwak' && cols.issuedate1>=0) ? normText(r[cols.issuedate1]) : '',
+      permitauth1:(kind==='dwak' && cols.permitauth1>=0)? normText(r[cols.permitauth1]): '',
+      permitno2:  (kind==='dwak' && cols.permitno2>=0)  ? normText(r[cols.permitno2])  : '',
+      issuedate2: (kind==='dwak' && cols.issuedate2>=0) ? normText(r[cols.issuedate2]) : '',
+      permitauth2:(kind==='dwak' && cols.permitauth2>=0)? normText(r[cols.permitauth2]): '' });
   }
   return out;
 }
 
 /* ---------- compare (dual-master) ---------- */
 function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong,extra){
+  /* dwakItem = เลขรายการจริงฝั่ง DWAK (Item No.) · expected = ค่าที่ถูกต้องจาก Source */
   return Object.assign({field,invoice,material,rmdn,clc,mapping,dwak,wrong,
-                        pdf:'\u2014', pdfItem:'\u2014', delivery:'\u2014', source:'CLC'}, extra||{});
+                        pdf:'\u2014', pdfItem:'\u2014', delivery:'\u2014', source:'CLC',
+                        dwakItem:'\u2014', expected:null, status:'MISMATCH'}, extra||{});
 }
 function compare(){
   const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=S.mapping.rows, dwak=S.dwak.rows;
+  /* index รายการ DWAK ตาม Invoice + Product Code → ใช้แสดงคอลัมน์ "รายการใน DWAK" */
+  const dwakByKey=new Map();
+  for(const r of dwak){ const k=normText(r.invoice)+'\u0001'+r.material;
+    if(!dwakByKey.has(k)) dwakByKey.set(k,[]); dwakByKey.get(k).push(r); }
   const pdfItems=(S.pdf&&S.pdf.rows)||[];
   const diffs=[];
   const invM=(clc[0]&&clc[0].invoice)||(mapping[0]&&mapping[0].invoice)||'\u2014';
@@ -24294,14 +24683,12 @@ function compare(){
   const mR=rset(rmdn), pR=rset(mapping), dR=rset(dwak);
   const jR=s=>[...s].sort().join(', ')||'(ว่าง)';
   const refReasons=[];
-  { const miss=[...mR].filter(x=>!pR.has(x)), ext=[...pR].filter(x=>!mR.has(x)),
-        mD=[...mR].filter(x=>!dR.has(x)), eD=[...dR].filter(x=>!mR.has(x));
-    if(miss.length) refReasons.push('ไม่พบใน MAPPING: '+miss.join(', '));
-    if(ext.length)  refReasons.push('มีเกินใน MAPPING: '+ext.join(', '));
+  /* ★ MAPPING ถูกถอดออกจากการตัดสิน — เทียบ RM DN (Source) ↔ DWAK (Target) เท่านั้น
+     คอลัมน์ MAPPING ยังแสดงในการ์ดเพื่อดูประกอบ แต่ไม่มีผลต่อ PASS/FAIL */
+  { const mD=[...mR].filter(x=>!dR.has(x)), eD=[...dR].filter(x=>!mR.has(x));
     if(mD.length)   refReasons.push('ไม่พบใน DWAK: '+mD.join(', '));
     if(eD.length)   refReasons.push('มีเกินใน DWAK: '+eD.join(', ')); }
   const refOk=refReasons.length===0;
-  if(!refOk) diffs.push(D0('เลขที่ใบขนอ้าง',invM,'\u2014',jR(mR),'\u2014',jR(pR),jR(dR),refReasons.join(' | ')));
   const refChk={ rmdn:jR(mR), mapping:jR(pR), dwak:jR(dR), ok:refOk };
 
   /* ===== (B) รายการที่ — MASTER = RM DN · เทียบ combo ref|item (กัน 1 ตรง 10) ===== */
@@ -24309,15 +24696,45 @@ function compare(){
   const mC=cset(rmdn), pC=cset(mapping), dC=cset(dwak);
   const F=s=>[...s].map(x=>x.replace('\u0001','#')).sort().join(', ')||'(ว่าง)';
   const itemReasons=[];
-  { const miss=[...mC].filter(x=>!pC.has(x)), ext=[...pC].filter(x=>!mC.has(x)),
-        mD=[...mC].filter(x=>!dC.has(x)), eD=[...dC].filter(x=>!mC.has(x));
-    if(miss.length) itemReasons.push('ไม่พบใน MAPPING: '+F(new Set(miss)));
-    if(ext.length)  itemReasons.push('มีเกินใน MAPPING: '+F(new Set(ext)));
+  /* ★ MAPPING ถูกถอดออกจากการตัดสิน (เหมือนหมวด A) */
+  { const mD=[...mC].filter(x=>!dC.has(x)), eD=[...dC].filter(x=>!mC.has(x));
     if(mD.length)   itemReasons.push('ไม่พบใน DWAK: '+F(new Set(mD)));
     if(eD.length)   itemReasons.push('มีเกินใน DWAK: '+F(new Set(eD))); }
   const itemOk=itemReasons.length===0;
-  if(!itemOk) diffs.push(D0('รายการที่',invM,'\u2014',F(mC),'\u2014',F(pC),F(dC),itemReasons.join(' | ')));
   const itemChk={ rmdn:F(mC), mapping:F(pC), dwak:F(dC), ok:itemOk };
+
+  /* ── (A/B ใหม่) เลขที่ใบขนอ้าง + รายการที่ — Source = RM DN · ตรวจราย DWAK Row ──
+     สำหรับแต่ละรายการใน DWAK: คู่ (Declaration No, DeclarationLine Number)
+     ต้องมีอยู่จริงใน RM DN ของ Product Code เดียวกัน (normalize 07 = 7)
+     ★ ไม่ใช้ MAPPING · Expected มาจาก RM DN เท่านั้น                              */
+  {
+    const rmByMat=new Map();
+    for(const r of rmdn){ if(!r.ref) continue;
+      if(!rmByMat.has(r.material)) rmByMat.set(r.material,[]);
+      rmByMat.get(r.material).push(r.ref+'\u0001'+(r.item||'')); }
+    const used=new Map();
+    for(const r of dwak){
+      const at='DWAK รายการที่ '+(r.itemno||r._row);
+      const cand=rmByMat.get(r.material)||[];
+      const combo=(r.ref||'')+'\u0001'+(r.item||'');
+      if(!r.ref){
+        if(cand.length){
+          diffs.push(D0('เลขที่ใบขนอ้าง + รายการที่',normText(r.invoice)||'\u2014',r.material,'\u2014',
+            cand.map(x=>x.replace('\u0001','#')).join(', '),'\u2014','\u2014','DWAK ไม่มีข้อมูล',
+            { source:'RM DN', dwakItem:(r.itemno||'\u2014'), expected:cand.map(x=>x.replace('\u0001','#')).join(', '), status:'MISSING' }));
+        }
+        continue;
+      }
+      if(cand.indexOf(combo)>=0){ used.set(r.material+'\u0001'+combo,true); continue; }
+      diffs.push(D0('เลขที่ใบขนอ้าง + รายการที่',normText(r.invoice)||'\u2014',r.material,'\u2014',
+        cand.length? cand.map(x=>x.replace('\u0001','#')).join(', ') : '\u2014','\u2014',
+        (r.ref||'')+'#'+(r.item||''),
+        cand.length? 'DWAK \u2260 RM DN' : ('ไม่พบ Product Code นี้ใน RM DN'),
+        { source:'RM DN', dwakItem:(r.itemno||'\u2014'),
+          expected: cand.length? cand.map(x=>x.replace('\u0001','#')).join(', ') : '',
+          status: cand.length? 'MISMATCH' : 'SOURCE MISSING' }));
+    }
+  }
 
   /* ═════ (B2) PDF CROSS-CHECK — PDF เป็น Source หลัก =====================
      Matching: Invoice No. + Product Code (+ Delivery ประกอบ) · ห้ามจับข้าม Invoice / Delivery
@@ -24355,18 +24772,19 @@ function compare(){
     const ndP=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
     for(const [k,P] of pdfAgg){
       const c=cX.get(k), m2=pX.get(k), d=dX.get(k), rm=rX.get(k);
-      const base={ pdfItem:_pdfItemLbl(P), delivery:P.delivery||'\u2014', source:'PDF' };
-      /* PDF มีรายการนี้ แต่ปลายทางไม่มี → MISSING */
-      if(!m2){ diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014','(ไม่พบ)',d?'มี':'\u2014','MISSING — ไม่พบใน MAPPING (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
+      /* [ITEM] คอลัมน์ "รายการใน DWAK" ต้องเป็น Item No. จริงของ DWAK */
+      const _dIt=(dwakByKey.get(k)||[]).map(x=>x.itemno).filter(Boolean).join(', ')||'\u2014';
+      const base={ pdfItem:_pdfItemLbl(P), delivery:P.delivery||'\u2014', source:'PDF', dwakItem:_dIt };
+      /* PDF มีรายการนี้ แต่ปลายทางไม่มี → MISSING  (★ MAPPING ถูกถอดออกจากการตัดสิน) */
       if(!d){  diffs.push(D0('Material',P.invoice,P.material,'\u2014',c?'มี':'\u2014',m2?'มี':'\u2014','(ไม่พบ)','MISSING — ไม่พบใน DWAK (PDF มี)',Object.assign({pdf:'มี'},base))); pdfBad++; }
       const numP=(field,pr,tol)=>{ const bad=[];
-        if(m2&&ndP(P[pr],m2[pr],tol)) bad.push('MAPPING='+fmtN(m2[pr]));
+        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
         if(d &&ndP(P[pr],d[pr],tol))  bad.push('DWAK='+fmtN(d[pr]));
         if(c &&ndP(P[pr],c[pr],tol))  bad.push('CLC='+fmtN(c[pr]));
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?fmtN(c[pr]):'\u2014',m2?fmtN(m2[pr]):'\u2014',d?fmtN(d[pr]):'\u2014',
           'MISMATCH — PDF \u2260 '+bad.join(', '),Object.assign({pdf:fmtN(P[pr])},base))); pdfBad++; } };
       const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return; const bad=[];
-        if(m2&&normCmp(m2[pr])&&normCmp(m2[pr])!==pv) bad.push('MAPPING');
+        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
         if(d &&normCmp(d[pr]) &&normCmp(d[pr]) !==pv) bad.push('DWAK');
         if(c &&normCmp(c[pr]) &&normCmp(c[pr]) !==pv) bad.push('CLC');
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',
@@ -24381,14 +24799,8 @@ function compare(){
         diffs.push(D0('Delivery (PDF)',P.invoice,P.material,rm.delivery,'\u2014','\u2014','\u2014',
           'MISMATCH — PDF \u2260 RM DN',Object.assign({pdf:P.delivery},base))); pdfBad++; }
     }
-    /* MAPPING มีรายการที่ PDF ไม่มี → ส่วนเกิน */
-    const pKeys=new Set(pdfAgg.keys());
-    for(const r of mapping){
-      const k=normText(r.invoice)+'\u0001'+r.material;
-      if(!pKeys.has(k) && !diffs.some(x=>x.field==='Material (เกินจาก PDF)'&&x.material===r.material&&x.invoice===normText(r.invoice))){
-        diffs.push(D0('Material (เกินจาก PDF)',normText(r.invoice),r.material,'\u2014','\u2014','มี','\u2014',
-          'MISSING — ไม่พบใน PDF',{pdf:'(ไม่พบ)',source:'PDF'})); pdfBad++; }
-    }
+    /* ★ เดิมตรวจ "MAPPING มีรายการที่ PDF ไม่มี" — ถอดออกทั้งบล็อกตามข้อกำหนด
+       MAPPING ห้ามมีผลต่อ PASS/FAIL · รายการเกินฝั่ง DWAK ยังตรวจอยู่ในหมวด (C) ไม่พบใน CLC */
   }
   const pdfOk=pdfBad===0;
 
@@ -24402,28 +24814,36 @@ function compare(){
   const cA=agg(clc), pA=agg(mapping), dA=agg(dwak);
   const nd=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
   let genBad=0;
-  for(const k of new Set([...cA.keys(),...pA.keys(),...dA.keys()])){
-    const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||p||d).material, invoice=(c||p||d).invoice;
+  /* ★ วนเฉพาะ Key ของ CLC (Source) และ DWAK (Target) — ไม่รวม MAPPING
+     เดิมรวม pA.keys() ทำให้รายการที่มีเฉพาะใน MAPPING ถูกฟ้อง 'ไม่พบใน CLC' → MAPPING มีผลต่อ PASS/FAIL */
+  for(const k of new Set([...cA.keys(),...dA.keys()])){
+    const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||d||p).material, invoice=(c||d||p).invoice;
     if(!c){ diffs.push(D0('Material',invoice,material,'\u2014','(ไม่พบใน CLC)',p?'มี':'\u2014',d?'มี':'\u2014','ไม่พบใน CLC (MASTER)')); genBad++; continue; }
-    if(!p){ diffs.push(D0('Material',invoice,material,'\u2014','มี','(ไม่พบ)',d?'มี':'\u2014','ไม่พบใน MAPPING')); genBad++; }
+    /* ★ "ไม่พบใน MAPPING" ถอดออก — MAPPING ห้ามมีผลต่อ PASS/FAIL */
     if(!d){ diffs.push(D0('Material',invoice,material,'\u2014','มี',p?'มี':'\u2014','(ไม่พบ)','ไม่พบใน DWAK')); genBad++; }
-    const numT=(field,pr,tol)=>{ const bad=[];
-      if(p&&nd(c[pr],p[pr],tol)) bad.push('MAPPING='+fmtN(p[pr]));
-      if(d&&nd(c[pr],d[pr],tol)) bad.push('DWAK='+fmtN(d[pr]));
-      if(bad.length){ diffs.push(D0(field,invoice,material,'\u2014',fmtN(c[pr]),p?fmtN(p[pr]):'\u2014',d?fmtN(d[pr]):'\u2014','ไม่ตรง: '+bad.join(', '))); genBad++; } };
-    const strT=(field,pr)=>{ const cv=normCmp(c[pr]); const bad=[];
-      if(p&&normCmp(p[pr])&&normCmp(p[pr])!==cv) bad.push('MAPPING');
-      if(d&&normCmp(d[pr])&&normCmp(d[pr])!==cv) bad.push('DWAK');
-      if(bad.length){ diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'(ว่าง)'),p?(p[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',bad.join(' / '))); genBad++; } };
+    /* ★ MAPPING ถูกถอดออกจากการตัดสิน PASS/FAIL — เทียบ CLC (Source) ↔ DWAK (Target) เท่านั้น */
+    const dItems=(dwakByKey.get(invoice+'\u0001'+material)||[]).map(x=>x.itemno).filter(Boolean).join(', ') || '\u2014';
+    const numT=(field,pr,tol)=>{ if(!d) return;
+      if(!nd(c[pr],d[pr],tol)) return;
+      const miss = (d[pr]==null||d[pr]==='');
+      diffs.push(D0(field,invoice,material,'\u2014',fmtN(c[pr]),'\u2014',miss?'\u2014':fmtN(d[pr]),
+        miss?'DWAK ไม่มีข้อมูล':'DWAK \u2260 CLC',
+        { source:'CLC', dwakItem:dItems, expected:fmtN(c[pr]), status: miss?'MISSING':'MISMATCH' })); genBad++; };
+    const strT=(field,pr)=>{ if(!d) return; const cv=normCmp(c[pr]); const dv=normCmp(d[pr]);
+      if(!cv && !dv) return;
+      if(cv===dv) return;
+      const st = !cv ? 'SOURCE MISSING' : (!dv ? 'MISSING' : 'MISMATCH');
+      diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014',(d[pr]||'\u2014'),
+        st==='SOURCE MISSING' ? ('ไม่พบ '+field+' ใน CLC') : (st==='MISSING' ? 'DWAK ไม่มีข้อมูล' : 'DWAK \u2260 CLC'),
+        { source:'CLC', dwakItem:dItems, expected:(c[pr]||''), status:st })); genBad++; };
     strT('Description','desc');
     numT('Quantity','qty',1e-9);
     strT('Currency','curr');
     numT('Net Weight','netwt',TOL_W);
     numT('Net Value','netval',TOL_V);
     strT('Country of Origin','country');
-    // Gross Weight: CLC ไม่มี → เทียบ MAPPING(รวม) กับ DWAK(รวม)
-    if(p&&d&&p.grosswt!=null&&d.grosswt!=null&&nd(p.grosswt,d.grosswt,TOL_W)){
-      diffs.push(D0('Gross Weight',invoice,material,'\u2014','\u2014 (ไม่มีใน CLC)',fmtN(p.grosswt),fmtN(d.grosswt),'MAPPING \u2260 DWAK')); genBad++; }
+    /* ★ Gross Weight ถูกถอดออก — MAPPING ไม่ใช่ MASTER และ CLC ไม่มี Gross Weight ราย Material
+       จึงไม่มี Source of Truth ที่ตรวจได้ (ห้ามตรวจโดยเดา) */
   }
   const genOk=genBad===0;
 
@@ -24431,24 +24851,222 @@ function compare(){
   const uset=(a,f)=>{ const s=new Set(); a.forEach(r=>{ const v=normText(r[f]); if(v)s.add(v); }); return [...s].sort(); };
   const jk=a=>a.join(', ');
   const cNo=uset(clc,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
-  const noMapOk=jk(cNo)===jk(pNo)||!pNo.length, noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
-  const invNoOk=noMapOk&&noDwkOk;
-  if(!invNoOk){ const w=[]; if(!noMapOk)w.push('MAPPING'); if(!noDwkOk)w.push('DWAK');
-    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014',w.join(' / '))); }
+  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
+  const noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
+  const invNoOk=noDwkOk;
+  if(!invNoOk){
+    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014','DWAK')); }
   const invNoChk={ master:jk(cNo)||'\u2014', mapping:jk(pNo)||'\u2014', dwak:jk(dNo)||'\u2014', ok:invNoOk };
   const dset=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invdate); if(dd)s.add(dd); }); return [...s].sort(); };
   const cDt=dset(clc), pDt=dset(mapping), dDt=dset(dwak);
+  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
   const dtW=[];
-  if(cDt.length){ if(pDt.length&&jk(pDt)!==jk(cDt))dtW.push('MAPPING'); if(dDt.length&&jk(dDt)!==jk(cDt))dtW.push('DWAK'); }
-  else if(pDt.length&&dDt.length&&jk(pDt)!==jk(dDt)) dtW.push('MAPPING');
+  if(cDt.length && dDt.length && jk(dDt)!==jk(cDt)) dtW.push('DWAK');
   const invDateOk=dtW.length===0;
   if(!invDateOk) diffs.push(D0('Invoice Date','\u2014','\u2014','\u2014',jk(cDt)||'\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',dtW.join(' / ')));
   const invDateChk={ master:jk(cDt)||'\u2014', mapping:jk(pDt)||'\u2014', dwak:jk(dDt)||'\u2014', ok:invDateOk };
 
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [DUI] ตรวจใบอนุญาตกรมการค้าตามพิกัด HS — ประกาศ 30/06/2026
+       Source of Truth = พิกัด HS ของแต่ละรายการใน DWAK (คอลัมน์ Tariff)
+       ถ้า HS 8 หลักอยู่ในลิสต์ DUI  → PermitNo2 / IssueDate2 / PermitIssueAuthority2
+                                       ต้องเป็น EXEMPT99 / 2017-11-13 / 0994000159561
+       ถ้าไม่อยู่ในลิสต์            → ทั้ง 3 ช่องต้องว่าง
+       ★ ไม่ใช้ MAPPING · ไม่ใช้ CLC · ตัดสินจาก HS ของ DWAK เท่านั้น
+       ★ ถ้าไฟล์ DWAK ไม่มีคอลัมน์ Tariff → ข้ามการตรวจ (ไม่ฟ้อง ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  const DUI_HS_SET = new Set([
+    '84798969','84798970','84799090','84821000','84823000',
+    '84825000','84828000','84829900','84833090','85144000','85371099'
+  ]);
+  const DUI_EXPECT = { no:'EXEMPT99', date:'2017-11-13', auth:'0994000159561' };
+  const duiHs8 = v => { const d=String(v==null?'':v).replace(/[^0-9]/g,''); return d.length>8? d.slice(-8) : d; };
+  let duiBad = 0, duiChecked = 0;
+  if(dwak.some(r=>String(r.tariff||'')!=='')){
+    for(const r of dwak){
+      const hs8 = duiHs8(r.tariff);
+      if(!hs8) continue;
+      duiChecked++;
+      const isDui = DUI_HS_SET.has(hs8);
+      const at = 'DWAK รายการที่ ' + (r.itemno || r._row) + ' · HS ' + hs8;
+      const pairs = [
+        ['เลขที่ใบอนุญาต (PermitNo2)',                 String(r.permitno2||''),   DUI_EXPECT.no],
+        ['วันที่ออกใบอนุญาต (IssueDate2)',              String(r.issuedate2||''),  DUI_EXPECT.date],
+        ['เลขประจำตัวผู้เสียภาษีหน่วยงาน (PermitIssueAuthority2)', String(r.permitauth2||''), DUI_EXPECT.auth]
+      ];
+      for(const [label, got, want] of pairs){
+        const exp = isDui ? want : '';
+        if(normCmp(got) === normCmp(exp)) continue;
+        diffs.push(D0(label, normText(r.invoice)||'\u2014', r.material, '\u2014',
+          exp || '(ต้องว่าง)', '\u2014', got || '(ว่าง)',
+          isDui ? (at + ' อยู่ในพิกัด DUI → ต้องมีใบอนุญาต')
+                : (at + ' ไม่อยู่ในพิกัด DUI → ต้องไม่มีใบอนุญาต'),
+          { source:'HS CODE', pdfItem: (r.itemno || '\u2014'), dwakItem: (r.itemno || '\u2014'),
+            expected: (exp || '(ต้องว่าง)'), status: (got ? 'MISMATCH' : 'MISSING') }));
+        duiBad++;
+      }
+    }
+  }
+  const duiOk = duiBad === 0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [IEAT] สิทธิประโยชน์ IEAT — DWAK คอลัมน์ FZ ต้องเป็น 'Y' ทุกรายการ
+       ไม่ติ๊ก Y (ว่าง / N / ค่าอื่น) = ผิด
+       ★ ถ้าไฟล์ DWAK ไม่มีคอลัมน์ FZ → ข้ามการตรวจ (ไม่ฟ้อง ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  let ieatBad = 0, ieatChecked = 0;
+  if(S.dwak.cols && S.dwak.cols.fz >= 0){
+    for(const r of dwak){
+      ieatChecked++;
+      const got = String(r.fz || '');
+      if(got === 'Y') continue;
+      diffs.push(D0('สิทธิประโยชน์ IEAT (FZ)', normText(r.invoice)||'\u2014', r.material, '\u2014',
+        'Y', '\u2014', got || '(ว่าง)',
+        'DWAK รายการที่ ' + (r.itemno || r._row) + ' · ช่อง FZ ไม่ได้ติ๊ก Y',
+        { source:'FIXED', pdfItem: (r.itemno || '\u2014'), dwakItem: (r.itemno || '\u2014'),
+          expected: 'Y', status: (got ? 'MISMATCH' : 'MISSING') }));
+      ieatBad++;
+    }
+  }
+  const ieatOk = ieatBad === 0;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [HS/STAT] พิกัด + Stat — Source of Truth = CLC 'Comm./imp. code no.' (11 หลัก)
+       Expected พิกัด = 11 หลัก ตัด 3 ตัวท้าย   (84821000000 → 84821000)
+       Expected Stat  = 3 ตัวท้ายของ 11 หลัก    (84821000000 → 000)
+       DWAK Tariff    = ตัดศูนย์นำหน้าเหลือ 8 หลัก (000084821000 → 84821000)
+       ★ เก็บ/เทียบเป็น String ทั้งหมด · ห้ามแปลงเป็นตัวเลข (0 นำหน้าห้ามหาย)
+       ★ ไม่ใช่ Fixed Data — สร้าง Expected จากพิกัดของ CLC ทุกครั้ง
+       ★ CLC ไม่มีคอลัมน์พิกัด / DWAK ไม่มีคอลัมน์ → ข้ามการตรวจ (ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  let hsBad=0, hsChecked=0, statChecked=0;
+  {
+    const expByKey=new Map();
+    for(const r of clc){
+      const k=normText(r.invoice)+'\u0001'+r.material;
+      if(expByKey.has(k)) continue;
+      const t11=String(r.tariff11||''), h8=String(r.hs8||'');
+      let e8='', e3='';
+      if(t11.length>=9){ e8=t11.slice(0,-3); e3=t11.slice(-3); }
+      else if(h8){ e8=h8; }
+      if(e8||e3) expByKey.set(k,{e8,e3});
+    }
+    const hasTar = !!(S.dwak.cols && S.dwak.cols.tariff>=0);
+    const hasSta = !!(S.dwak.cols && S.dwak.cols.stat>=0);
+    if(expByKey.size && (hasTar||hasSta)){
+      for(const r of dwak){
+        const e=expByKey.get(normText(r.invoice)+'\u0001'+r.material);
+        if(!e) continue;
+        const at='DWAK รายการที่ '+(r.itemno||r._row);
+        if(hasTar && e.e8){
+          hsChecked++;
+          const got=tariff8(r.tariff);
+          if(got!==e.e8){
+            diffs.push(D0('พิกัด (Tariff)',normText(r.invoice)||'\u2014',r.material,'\u2014',
+              e.e8,'\u2014',got||'(ว่าง)',
+              got? (at+' \u00b7 พิกัดไม่ตรงกับ CLC') : (at+' \u00b7 DWAK ไม่มีพิกัด'),
+              { source:'CLC', dwakItem:(r.itemno||'\u2014'), expected:e.e8, status: got?'MISMATCH':'MISSING' }));
+            hsBad++;
+          }
+        }
+        if(hasSta && e.e3){
+          statChecked++;
+          const got=stat3(r.stat);
+          if(got!==e.e3){
+            diffs.push(D0('Stat',normText(r.invoice)||'\u2014',r.material,'\u2014',
+              e.e3,'\u2014',got||'(ว่าง)',
+              got? (at+' \u00b7 Stat ไม่ตรงกับพิกัดของ CLC') : (at+' \u00b7 DWAK ไม่มี Stat'),
+              { source:'CLC', dwakItem:(r.itemno||'\u2014'), expected:e.e3, status: got?'MISMATCH':'MISSING' }));
+            hsBad++;
+          }
+        }
+      }
+    }
+  }
+  const hsOk = hsBad===0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [PACKAGE] ยอดสรุป Package — Scope = ทั้ง Invoice (ไม่ใช่รายแถว)
+       CLC  : ยอดสรุปท้ายไฟล์ 'Total' + หน่วย 'Pallet'  (ไฟล์จริง Y='Total' Z=2 AA='Pallet')
+       DWAK : คอลัมน์ 'Package Amount' ซึ่งกรอกครั้งเดียวต่อใบขน
+       ★ ห้าม SUM รายแถวแบบ Blind — ใช้ค่าที่กรอกจริงเท่านั้น
+       ★ ถ้า DWAK กรอกมากกว่า 1 แถว → ฟ้องให้คนตรวจ ไม่รวมยอดเอง
+       ★ ไม่ใช่ Fixed Data · CLC ไม่มียอดสรุป หรือ DWAK ไม่มีคอลัมน์ → ข้ามการตรวจ
+     ══════════════════════════════════════════════════════════════════════ */
+  let pkgBad=0, pkgChecked=0;
+  if(S.clc.pkgTotal!=null && S.dwak.cols && S.dwak.cols.pkgamt>=0){
+    pkgChecked=1;
+    const exp=S.clc.pkgTotal;
+    const filled=dwak.filter(r=>String(r.pkgamt||'').trim()!=='');
+    const inv0=normText((dwak[0]&&dwak[0].invoice)||invM)||'\u2014';
+    if(!filled.length){
+      diffs.push(D0('จำนวน Package',inv0,'\u2014','\u2014',fmtN(exp),'\u2014','(ว่าง)',
+        'DWAK ไม่ได้กรอก Package Amount',
+        { source:'CLC', dwakItem:'\u2014', expected:fmtN(exp), status:'MISSING' }));
+      pkgBad++;
+    } else if(filled.length>1){
+      diffs.push(D0('จำนวน Package',inv0,'\u2014','\u2014',fmtN(exp),'\u2014',
+        filled.map(r=>(r.itemno||r._row)+'='+r.pkgamt).join(', '),
+        'DWAK กรอก Package Amount '+filled.length+' แถว — ยอดสรุปต้องกรอกแถวเดียวต่อใบขน (ไม่รวมยอดให้อัตโนมัติ)',
+        { source:'CLC', dwakItem:filled.map(r=>r.itemno||r._row).join(', '), expected:fmtN(exp), status:'MISMATCH' }));
+      pkgBad++;
+    } else {
+      const g=parseNum(filled[0].pkgamt);
+      if(g===null || Math.abs(g-exp)>1e-9){
+        diffs.push(D0('จำนวน Package',normText(filled[0].invoice)||inv0,'\u2014','\u2014',fmtN(exp),'\u2014',
+          normText(filled[0].pkgamt),
+          'DWAK รายการที่ '+(filled[0].itemno||filled[0]._row)+' \u00b7 ยอด Package ไม่ตรงกับยอดสรุปของ CLC',
+          { source:'CLC', dwakItem:(filled[0].itemno||'\u2014'), expected:fmtN(exp), status:'MISMATCH' }));
+        pkgBad++;
+      }
+    }
+  }
+  const pkgOk = pkgBad===0;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     [FIXED4] Fixed Data 4 ค่า — ใช้ทั้ง FZ AKO 1 และ FZ AKO 2
+       import Tax incentive = F5302081000002   (Import Tax Incentives ID)
+       Permit No.           = 119/2567         (PermitNo1 · ตัดคำนำหน้า "ที่" ก่อนเทียบ)
+       Permit date          = 2024-07-24       (IssueDate1 · เทียบหลัง Normalize วันที่)
+       Tax ID หน่วยงาน      = 0994000163011    (PermitIssueAuthority1 · 13 หลัก 0 นำหน้าห้ามหาย)
+       ตรง = PASS ไม่แสดง · ไม่ตรง = MISMATCH · DWAK ว่าง = MISSING
+       ★ DWAK ไม่มีคอลัมน์นั้น → ข้ามเฉพาะค่านั้น (ไม่เดา)
+     ══════════════════════════════════════════════════════════════════════ */
+  const FIXED4=[
+    { label:'import Tax incentive (Import Tax Incentives ID)', col:'imptaxinc',   want:'F5302081000002', key:normCmp },
+    { label:'Permit No. (PermitNo1)',                          col:'permitno1',   want:'119/2567',       key:permitKey },
+    { label:'Permit date (IssueDate1)',                        col:'issuedate1',  want:'2024-07-24',     key:normDate },
+    { label:'Tax ID หน่วยงาน (PermitIssueAuthority1)',          col:'permitauth1', want:'0994000163011',  key:taxId13 }
+  ];
+  let fx4Bad=0, fx4Checked=0;
+  for(const f of FIXED4){
+    if(!(S.dwak.cols && S.dwak.cols[f.col]>=0)) continue;
+    const wantKey=f.key(f.want);
+    for(const r of dwak){
+      fx4Checked++;
+      const raw=String(r[f.col]||'');
+      if(raw==='' ){
+        diffs.push(D0(f.label,normText(r.invoice)||'\u2014',r.material,'\u2014',f.want,'\u2014','(ว่าง)',
+          'DWAK รายการที่ '+(r.itemno||r._row)+' \u00b7 ไม่ได้กรอกค่า',
+          { source:'FIXED', dwakItem:(r.itemno||'\u2014'), expected:f.want, status:'MISSING' }));
+        fx4Bad++; continue;
+      }
+      if(f.key(raw)===wantKey) continue;
+      diffs.push(D0(f.label,normText(r.invoice)||'\u2014',r.material,'\u2014',f.want,'\u2014',raw,
+        'DWAK รายการที่ '+(r.itemno||r._row)+' \u00b7 ค่าไม่ตรงกับค่าฟิก',
+        { source:'FIXED', dwakItem:(r.itemno||'\u2014'), expected:f.want, status:'MISMATCH' }));
+      fx4Bad++;
+    }
+  }
+  const fx4Ok = fx4Bad===0;
+
   const errorCount=diffs.length;
   const verdict=errorCount===0?'PASS':'FAIL';
   const firstInv=(clc[0]&&clc[0].invoice)? String(clc[0].invoice).replace(/[^0-9A-Za-z_-]/g,'') : '';
-  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length,
+  return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length, duiOk, duiBad, duiChecked, ieatOk, ieatBad, ieatChecked,
+    hsOk, hsBad, hsChecked, statChecked, pkgOk, pkgBad, pkgChecked, fx4Ok, fx4Bad, fx4Checked,
     meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
            clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:S.mapping.sheet, dwakSheet:S.dwak.sheet,
            invoice:firstInv, at:stampHuman() } };
@@ -24568,6 +25186,30 @@ function renderCards(){
     + card3('Invoice No.', r.invNoChk, 'CLC')
     + card3('Invoice Date', r.invDateChk, 'CLC');
 }
+
+/* ── helper สำหรับตาราง/Export 8 คอลัมน์ (Source-driven) ── */
+function msp2RowItem(d){ return (d.dwakItem && d.dwakItem!=='\u2014') ? d.dwakItem : '\u2014'; }
+function msp2RowSource(d){
+  if(d.source && d.source!=='CLC') return d.source;
+  const w=String(d.wrong||'');
+  if(/RM DN/.test(w)) return 'RM DN';
+  if(/INVOICE PDF|\bPDF\b/.test(w)) return 'INVOICE PDF';
+  return 'CLC';
+}
+function msp2RowExpected(d){
+  if(d.expected!=null && d.expected!=='') return d.expected;
+  if(d.clc!=null && d.clc!=='' && d.clc!=='\u2014') return d.clc;
+  if(d.rmdn!=null && d.rmdn!=='' && d.rmdn!=='\u2014') return d.rmdn;
+  if(d.pdf!=null && d.pdf!=='' && d.pdf!=='\u2014') return d.pdf;
+  return '\u2014';
+}
+function msp2RowStatus(d){
+  if(d.status) return d.status;
+  const w=String(d.wrong||'');
+  if(/SOURCE MISSING|ไม่พบ/.test(w)) return 'SOURCE MISSING';
+  if(/MISSING|ไม่มีข้อมูล|ไม่พบใน DWAK/.test(w)) return 'MISSING';
+  return 'MISMATCH';
+}
 function renderTable(){
   const r=S.result; if(!r) return;
   let rows=r.diffs;
@@ -24577,23 +25219,18 @@ function renderTable(){
   if(!rows.length){ if(emptyEl)emptyEl.style.display=''; if(wrapEl)wrapEl.style.display='none'; if(cntEl)cntEl.textContent=''; return; }
   if(emptyEl)emptyEl.style.display='none'; if(wrapEl)wrapEl.style.display='';
   const cap=5000;
+  /* ── ตาราง 8 คอลัมน์: รายการใน DWAK · เลข INVOICE · หัวข้อตรวจสอบ · Source · ค่าที่ถูกต้อง · DWAK · สถานะ · สาเหตุ ── */
   const body=rows.slice(0,cap).map(d=>{
-    const w=String(d.wrong||'');
-    const mapBad=/MAPPING/.test(w), dwkBad=/DWAK/.test(w);
-    const clcBad=/CLC/.test(w), isMissing=/MISSING/.test(w);
+    const st  = msp2RowStatus(d);
+    const exp = msp2RowExpected(d);
     return '<tr>'
+    +'<td>'+esc(msp2RowItem(d))+'</td>'
+    +'<td>'+esc(d.invoice||'\u2014')+'</td>'
     +'<td class="st-bad">'+esc(d.field)+'</td>'
-    +'<td>'+esc(d.invoice)+'</td>'
-    +'<td>'+esc(d.pdfItem==null?'\u2014':d.pdfItem)+'</td>'
-    +'<td>'+esc(d.material)+'</td>'
-    +'<td>'+esc(d.delivery==null?'\u2014':d.delivery)+'</td>'
-    +'<td'+(d.source==='PDF'?' style="font-weight:700"':'')+'>'+esc(d.pdf==null?'\u2014':d.pdf)+'</td>'
-    +'<td>'+esc(d.rmdn)+'</td>'
-    +'<td'+(clcBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.clc)+'</td>'
-    +'<td'+(mapBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.mapping)+'</td>'
-    +'<td'+(dwkBad?' class="sch-fz-cell-mismatch"':'')+'>'+esc(d.dwak)+'</td>'
-    +'<td>'+esc(d.source||'CLC')+'</td>'
-    +'<td class="st-bad">'+(isMissing?'\u2757 MISSING':'\u274c MISMATCH')+'</td>'
+    +'<td>'+esc(msp2RowSource(d))+'</td>'
+    +'<td>'+esc(exp)+'</td>'
+    +'<td class="sch-fz-cell-mismatch">'+esc(d.dwak==null||d.dwak===''?'\u2014':d.dwak)+'</td>'
+    +'<td class="st-bad">'+(st==='MISSING'?'\u2757 MISSING':(st==='SOURCE MISSING'?'\u2757 SOURCE MISSING':'\u274c MISMATCH'))+'</td>'
     +'<td class="st-bad">'+esc(d.wrong)+'</td></tr>';
   }).join('');
   document.getElementById('msp2-tbody').innerHTML=body;
@@ -24626,7 +25263,7 @@ window.msp2Export=async function(){
   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('ตรวจ SCH FZ', {views:[{state:'frozen',ySplit:1}]});
-    const HEAD=['หัวข้อตรวจสอบ','INVOICE','PDF ITEM','MATERIAL','DELIVERY','PDF','RM DN','CLC','MAPPING','DWAK','SOURCE','สถานะ','สาเหตุที่ไม่ตรง'];
+    const HEAD=['รายการใน DWAK','เลข INVOICE','หัวข้อตรวจสอบ','Source','ค่าที่ถูกต้อง','DWAK','สถานะ','สาเหตุ'];
     const thin={style:'thin',color:{argb:'FFBFBFBF'}}, border={top:thin,left:thin,bottom:thin,right:thin};
     const HEAD_FILL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}};
     const RED={type:'pattern',pattern:'solid',fgColor:{argb:'FFF9D0D0'}};
@@ -24637,29 +25274,27 @@ window.msp2Export=async function(){
     const colorCell=(cell,text,flagged,extra)=>{ if(String(text)==='—'||String(text)==='\u2014'){ cell.fill=YEL; return; } if(flagged){ cell.fill=extra?ORG:RED; } };
     const REFITEM={ 'เลขที่ใบขนอ้าง':1, 'รายการที่':1 };
     if(!r.diffs.length){
-      ws.addRow(['']); ws.mergeCells('A2:M2');
+      ws.addRow(['']); ws.mergeCells('A2:H2');
       const cell=ws.getCell('A2'); cell.value='ตรวจสอบเรียบร้อย ไม่พบข้อมูลที่ไม่ตรงกัน';
       cell.alignment={horizontal:'center',vertical:'middle',wrapText:true}; cell.font={bold:true,color:{argb:'FF1B7A43'}};
-      ['A','B','C','D','E','F','G','H','I','J','K','L','M'].forEach(col=>{ ws.getCell(col+'2').border=border; });
+      ['A','B','C','D','E','F','G','H'].forEach(col=>{ ws.getCell(col+'2').border=border; });
     } else {
+      /* ★ Export เฉพาะรายการผิด · คอลัมน์เรียงตรงกับหน้าจอ 8 คอลัมน์ */
       for(const d of r.diffs){
-        const w=d.wrong||'', isExtra=/เกิน/.test(w);
-        const status = /MISSING/.test(w) ? 'MISSING' : 'ไม่ตรง';
-        const row=ws.addRow([d.field,d.invoice,(d.pdfItem==null?'\u2014':d.pdfItem),d.material,
-                             (d.delivery==null?'\u2014':d.delivery),(d.pdf==null?'\u2014':d.pdf),
-                             d.rmdn,d.clc,d.mapping,d.dwak,(d.source||'CLC'),status,w]);
+        const w=d.wrong||'';
+        const st=msp2RowStatus(d);
+        const row=ws.addRow([msp2RowItem(d), d.invoice||'\u2014', d.field, msp2RowSource(d),
+                             msp2RowExpected(d), (d.dwak==null||d.dwak==='')?'\u2014':d.dwak, st, w]);
         row.eachCell(c=>{ c.border=border; c.alignment={vertical:'middle',wrapText:true,horizontal:'left'}; });
+        row.getCell(1).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
         row.getCell(2).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        row.getCell(12).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
-        colorCell(row.getCell(8),  d.clc,     /CLC/.test(w), false);
-        colorCell(row.getCell(9),  d.mapping, /MAPPING/.test(w), isExtra);
-        colorCell(row.getCell(10), d.dwak,    /DWAK/.test(w), false);
+        row.getCell(7).alignment={vertical:'middle',wrapText:true,horizontal:'center'};
+        colorCell(row.getCell(6), d.dwak, true, false);
       }
     }
-    ws.getColumn(1).width=22; ws.getColumn(2).width=14; ws.getColumn(3).width=12; ws.getColumn(4).width=20;
-    ws.getColumn(5).width=14; ws.getColumn(6).width=26; ws.getColumn(7).width=26; ws.getColumn(8).width=26;
-    ws.getColumn(9).width=26; ws.getColumn(10).width=26; ws.getColumn(11).width=10; ws.getColumn(12).width=12; ws.getColumn(13).width=40;
-    ws.autoFilter='A1:M1';
+    ws.getColumn(1).width=16; ws.getColumn(2).width=16; ws.getColumn(3).width=30; ws.getColumn(4).width=14;
+    ws.getColumn(5).width=28; ws.getColumn(6).width=28; ws.getColumn(7).width=16; ws.getColumn(8).width=44;
+    ws.autoFilter='A1:H1';
     const invs=[...new Set(S.clc.rows.map(x=>String(x.invoice||'').trim()).filter(Boolean))];
     let base = invs.length<=1 ? (invs[0]?('ตรวจใบขน_SCH_FZ_'+invs[0]):'ตรวจใบขน_SCH_FZ') : ('ตรวจใบขน_SCH_FZ_'+invs[0]+'-'+invs[invs.length-1]);
     const fname=base.replace(/[\\/:*?"<>|]/g,'_')+'.xlsx';
