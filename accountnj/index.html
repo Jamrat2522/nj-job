@@ -20,7 +20,7 @@
 <noscript><link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"></noscript>
 <!-- BUILD CACHE KEY: ใช้บังคับโหลด JS ใหม่ได้โดยไม่เปลี่ยน semantic APP_VERSION; APP_VERSION ต้องตรง deploy_version ใน DB -->
-<script>window.__BUILD='1.4.1-local345';</script>
+<script>window.__BUILD='1.4.1-local351';</script>
 <!-- ══ MOBILE BLOCK — ต้องอยู่ใน <head> ก่อน CSS/HTML ใด ๆ ══════════════════
      ทำงานก่อน app.bundle.js (ซึ่งเป็น defer = รันหลัง HTML parse เสร็จ)
      -> ผู้ใช้มือถือไม่มีทางเห็นหน้า Login หรือ UI แวบขึ้นมาก่อน (ข้อกำหนดข้อ 7)
@@ -107,14 +107,14 @@
      *** ไม่เปลี่ยน URL · ไม่เปลี่ยน Key · เป็น Hint ของเบราว์เซอร์ล้วน *** -->
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://sytgqjglcnsabcszbngg.supabase.co">
-<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local345">
-<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local345">
+<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local351">
+<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local351">
 <!-- ══ V.334 · Code Splitting (ESM) ══════════════════════════════════════
      เดิม app.bundle.js = IIFE ก้อนเดียว 653 KB -> ทุกคนโหลด WHT 239 KB ทิ้งเปล่า
      ตอนนี้ entry = assets/js/app/app.js (~26 KB) · หน้าอื่นเป็น chunk แยก
      โหลดเมื่อ router เรียก import() ของหน้านั้นจริงเท่านั้น
      ชื่อ chunk มี hash -> เนื้อหาเปลี่ยน = ชื่อเปลี่ยน = ไม่มีทางติด cache เก่า -->
-<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local345">
+<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local351">
 <!-- defer: เดิมไม่มี -> บล็อก HTML parser จนกว่าจะโหลด SDK เสร็จ
      ใส่ defer แล้วยังรันก่อน app.bundle.js เสมอ (defer รักษาลำดับตามเอกสาร)
      app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow -->
@@ -131,6 +131,34 @@
      type="module" = defer โดยปริยาย -> ยังรันหลัง Supabase SDK (defer) เสมอ ลำดับเดิมไม่เปลี่ยน
      *** ต้องเปิดผ่าน http(s) หรือ Local Server *** — ES Module เปิดจาก file:// ตรง ๆ ไม่ได้
      (ข้อจำกัดของเบราว์เซอร์เอง ไม่ใช่ของแอป) ดูวิธีรันใน README ของชุด Open check -->
-<script type="module" src="assets/js/app/app.js?v=1.4.1-local345"></script>
+<script type="module" src="assets/js/app/app.js?v=1.4.1-local351"></script>
+<!-- ══ V.351 · SDK / Bundle Watchdog ═══════════════════════════════════════
+     ROOT CAUSE ที่แก้ : Supabase SDK โหลดจาก CDN ด้วย <script defer>
+     และ app.js เป็น <script type="module"> (= defer โดยปริยาย)
+     -> Module ถูกรันหลัง deferred script ตามลำดับเอกสารเสมอ
+     ถ้า CDN "ค้าง" (ไม่ตอบ ไม่ error) app-boot.js จะ *** ไม่ถูกรันเลย ***
+     -> Error UI ที่เขียนไว้ใน app-boot.js ไม่มีวันแสดง = Spinner หมุนตลอด
+
+     Watchdog นี้ทำงานอิสระจาก Module ทั้งหมด (inline script ธรรมดา)
+     ครบ 15 วินาทีแล้ว app-boot ยังไม่เริ่ม -> เปลี่ยนเป็น Error UI + ปุ่มลองใหม่
+     *** ไม่ยิง Network · ไม่มี setInterval · ยิงครั้งเดียวแล้วจบ ***
+     app-boot.js ตั้ง window.__NJ_BOOT_STARTED = 1 ทันทีที่เริ่ม -> ยกเลิกตัวเอง
+     15 วิ : CDN ปกติตอบใน < 2 วิ · เผื่อเน็ตช้าระดับ 3G ไว้แล้ว -->
+<script>
+(function () {
+  var SDK_WATCHDOG_MS = 15000;
+  setTimeout(function () {
+    if (window.__NJ_BOOT_STARTED) return;          /* Bundle เริ่มแล้ว = ปกติ */
+    if (window.__NJ_MOBILE_BLOCKED) return;        /* หน้าบล็อกมือถือ ไม่ใช่ความผิดพลาด */
+    document.body.innerHTML = '<div class="login-wrap"><div class="login-card">'
+      + '<div class="login-logo">NJ</div>'
+      + '<h2 class="login-t">เปิดระบบไม่สำเร็จ</h2>'
+      + '<p class="login-s">การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่</p>'
+      + '<div class="load-row"><button class="btn btn-p" id="nj-wd-retry">ลองใหม่</button></div>'
+      + '</div></div>';
+    document.getElementById('nj-wd-retry').onclick = function () { location.reload(); };
+  }, SDK_WATCHDOG_MS);
+})();
+</script>
 </body>
 </html>
