@@ -1406,7 +1406,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ══ 2. ตรวจใบขน SCH FZ (ย้ายระบบจากโหมด sch_fz_check มาติดตั้งเพิ่ม · prefix msp) ══ -->
   <div id="msp-view">
   <div class="doa-panel">
-    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (ครบทั้ง 5 Source)</h2>
+    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (บังคับ 4 ไฟล์ · MAPPING ไม่บังคับ)</h2>
     <div class="doa-uploads">
       <label class="doa-drop" id="msp-pdf-drop">
         <div class="dico">📕</div>
@@ -1449,7 +1449,7 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-success" id="msp-btn-export" onclick="mspExport()" style="display:none">📥 Export Difference Report</button>
       <button class="btn btn-ghost" onclick="mspReset()">🔄 รีเซ็ต</button>
     </div>
-    <div class="doa-status" id="msp-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 5 Source (PDF / CLC / RM DN / MAPPING / DWAK)</div>
+    <div class="doa-status" id="msp-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (PDF INVOICE / CLC / RM DN / DWAK) · MAPPING ไม่บังคับ</div>
   </div>
 
   <div class="doa-panel" id="msp-result-panel" style="display:none">
@@ -1556,7 +1556,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ══ 2. ตรวจใบขน SCH FZ (ย้ายระบบจากโหมด sch_fz_check มาติดตั้งเพิ่ม · prefix msp2) ══ -->
   <div id="msp2-view">
   <div class="doa-panel">
-    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (ครบทั้ง 5 Source)</h2>
+    <h2>🔍 อัปโหลดไฟล์ตรวจสอบ SCH FZ (บังคับ 4 ไฟล์ · MAPPING ไม่บังคับ)</h2>
     <div class="doa-uploads">
       <label class="doa-drop" id="msp2-pdf-drop">
         <div class="dico">📕</div>
@@ -1599,7 +1599,7 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-success" id="msp2-btn-export" onclick="msp2Export()" style="display:none">📥 Export Difference Report</button>
       <button class="btn btn-ghost" onclick="msp2Reset()">🔄 รีเซ็ต</button>
     </div>
-    <div class="doa-status" id="msp2-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 5 Source (PDF / CLC / RM DN / MAPPING / DWAK)</div>
+    <div class="doa-status" id="msp2-status" style="margin-top:8px">รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (PDF INVOICE / CLC / RM DN / DWAK) · MAPPING ไม่บังคับ</div>
   </div>
 
   <div class="doa-panel" id="msp2-result-panel" style="display:none">
@@ -12437,11 +12437,31 @@ function spParsePdfText(txt, fname){
     const pdfPageNo    = pageAt[a];            // หน้าที่บรรทัด Item ปรากฏจริง
     // Designation delimiter : รองรับทั้ง #N/ (เดิม) และ #L/ — ก่อน = Desc 2 · หลัง = English Description
     const RE_DELIM = /#(?:N1|N|L)\//;   // ยืนยันจาก PDF จริง: #N/ · #N1/ · #L/ (ห้ามจับ # อื่น)
-    const desig = blk.slice(1).find(x => RE_DELIM.test(x)) || '';
-    const mDel  = desig.match(RE_DELIM);
-    const cut   = mDel ? desig.indexOf(mDel[0]) : -1;
+    /* ══ [DESIG] บรรทัด Designation — PDF จริงมี 2 รูปแบบ ══
+         รูปแบบ 1 (เดิม) "6313082100#N/ Clutch Repair kit"
+                          → ตัดที่ #N/ · #N1/ · #L/   (desc2=6313082100 · endesc=Clutch Repair kit)
+         รูปแบบ 2 (ใหม่) "P-03-BF233 Bag 300X200-VCI-BX-PE/ Flat pouches"
+                          → ไม่มี # เลย · ตัวคั่นคือ "/" ตัวแรก
+                            (desc2=P-03-BF233 Bag 300X200-VCI-BX-PE · endesc=Flat pouches)
+       ★ ลำดับความสำคัญ: รูปแบบ 1 ก่อนเสมอ → PDF เดิมทุกใบได้ผลเท่าเดิมทุกไบต์
+       ★ รูปแบบ 2 ใช้เฉพาะ blk[1] = บรรทัดถัดจากบรรทัด Item ตามหัวตารางของ Invoice
+         "Material No./ Cust. Material No./ Revision No. → Designation → Dimensions"
+         และต้องไม่ใช่บรรทัดโครงสร้างที่รู้จัก (Item value / Delivery / Country of origin ฯลฯ)
+       ★ Additive เท่านั้น — กระทบเฉพาะเคสที่เดิม endesc ว่าง (ซึ่งเดิมตกไป FALLBACK_CLC
+         แล้วไปหยิบชื่อจาก INVOICE CLC มาแทน) ไม่เปลี่ยนเคสที่เดิมอ่านได้             */
+    const RE_NOT_DESIG = /^(?:item\s+value|net\s+value\s+for\s+item|total\s+value\s+for\s+item|delivery\b|date\s+of\s+delivery|country\s+of\s+origin|commodity\s+code|customs\s+tariff|purch\.?\s*order|order\s+\d|free\s+of\s+charge|us\s+export|your\s+vat|our\s+vat|schaeffler\b|item\s+material|dimensions)/i;
+    let desig = blk.slice(1).find(x => RE_DELIM.test(x)) || '';
+    let mDel  = desig.match(RE_DELIM);
+    let cut   = mDel ? desig.indexOf(mDel[0]) : -1;
+    let dLen  = mDel ? mDel[0].length : 0;
+    if(cut < 0){
+      const cand = String(blk[1] == null ? '' : blk[1]).trim();
+      if(cand && !RE_NOT_DESIG.test(cand) && cand.indexOf('/') >= 0){
+        desig = cand; cut = cand.indexOf('/'); dLen = 1;
+      }
+    }
     const desc2 = cut >= 0 ? desig.slice(0, cut).trim() : '';
-    const endesc= cut >= 0 ? desig.slice(cut + mDel[0].length).trim() : '';
+    const endesc= cut >= 0 ? desig.slice(cut + dLen).trim() : '';
     /* Unit/Total Price — PDF จริงมี 3 รูปแบบ (label เท่านั้นที่ case-insensitive)
          Item value            18.43  / 1 PC  5,252.55
          Net Value for Item   252.46  / 1 PC    252.46
@@ -14717,11 +14737,31 @@ function sp2ParsePdfText(txt, fname){
     const pdfPageNo    = pageAt[a];            // หน้าที่บรรทัด Item ปรากฏจริง
     // Designation delimiter : รองรับทั้ง #N/ (เดิม) และ #L/ — ก่อน = Desc 2 · หลัง = English Description
     const RE_DELIM = /#(?:N1|N|L)\//;   // ยืนยันจาก PDF จริง: #N/ · #N1/ · #L/ (ห้ามจับ # อื่น)
-    const desig = blk.slice(1).find(x => RE_DELIM.test(x)) || '';
-    const mDel  = desig.match(RE_DELIM);
-    const cut   = mDel ? desig.indexOf(mDel[0]) : -1;
+    /* ══ [DESIG] บรรทัด Designation — PDF จริงมี 2 รูปแบบ ══
+         รูปแบบ 1 (เดิม) "6313082100#N/ Clutch Repair kit"
+                          → ตัดที่ #N/ · #N1/ · #L/   (desc2=6313082100 · endesc=Clutch Repair kit)
+         รูปแบบ 2 (ใหม่) "P-03-BF233 Bag 300X200-VCI-BX-PE/ Flat pouches"
+                          → ไม่มี # เลย · ตัวคั่นคือ "/" ตัวแรก
+                            (desc2=P-03-BF233 Bag 300X200-VCI-BX-PE · endesc=Flat pouches)
+       ★ ลำดับความสำคัญ: รูปแบบ 1 ก่อนเสมอ → PDF เดิมทุกใบได้ผลเท่าเดิมทุกไบต์
+       ★ รูปแบบ 2 ใช้เฉพาะ blk[1] = บรรทัดถัดจากบรรทัด Item ตามหัวตารางของ Invoice
+         "Material No./ Cust. Material No./ Revision No. → Designation → Dimensions"
+         และต้องไม่ใช่บรรทัดโครงสร้างที่รู้จัก (Item value / Delivery / Country of origin ฯลฯ)
+       ★ Additive เท่านั้น — กระทบเฉพาะเคสที่เดิม endesc ว่าง (ซึ่งเดิมตกไป FALLBACK_CLC
+         แล้วไปหยิบชื่อจาก INVOICE CLC มาแทน) ไม่เปลี่ยนเคสที่เดิมอ่านได้             */
+    const RE_NOT_DESIG = /^(?:item\s+value|net\s+value\s+for\s+item|total\s+value\s+for\s+item|delivery\b|date\s+of\s+delivery|country\s+of\s+origin|commodity\s+code|customs\s+tariff|purch\.?\s*order|order\s+\d|free\s+of\s+charge|us\s+export|your\s+vat|our\s+vat|schaeffler\b|item\s+material|dimensions)/i;
+    let desig = blk.slice(1).find(x => RE_DELIM.test(x)) || '';
+    let mDel  = desig.match(RE_DELIM);
+    let cut   = mDel ? desig.indexOf(mDel[0]) : -1;
+    let dLen  = mDel ? mDel[0].length : 0;
+    if(cut < 0){
+      const cand = String(blk[1] == null ? '' : blk[1]).trim();
+      if(cand && !RE_NOT_DESIG.test(cand) && cand.indexOf('/') >= 0){
+        desig = cand; cut = cand.indexOf('/'); dLen = 1;
+      }
+    }
     const desc2 = cut >= 0 ? desig.slice(0, cut).trim() : '';
-    const endesc= cut >= 0 ? desig.slice(cut + mDel[0].length).trim() : '';
+    const endesc= cut >= 0 ? desig.slice(cut + dLen).trim() : '';
     /* Unit/Total Price — PDF จริงมี 3 รูปแบบ (label เท่านั้นที่ case-insensitive)
          Item value            18.43  / 1 PC  5,252.55
          Net Value for Item   252.46  / 1 PC    252.46
@@ -23657,7 +23697,9 @@ const HDR={
         desc:['EN Description','Description'], qty:['Billing qty in SKU'], curr:['Document Currency'],
         netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'],
         /* [HS/STAT] tariff11 = พิกัดเต็ม 11 หลัก (8 พิกัด + 3 Stat) · hs8 = พิกัด 8 หลัก (ใช้เมื่อไม่มี 11 หลัก) */
-        tariff11:['Comm./imp. code no.'], hs8:['HS'] },
+        tariff11:['Comm./imp. code no.'], hs8:['HS'],
+        /* [MATRIX] CLC เป็น Source เดียวของ Thai Description และ Brand */
+        thdesc:['TH Description','Thai Description','DescTH'], brand:['Brand','Brand Name'] },
   rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'],
         delivery:['Outbound Delivery No.','Outbound Delivery No','Delivery No.','Delivery'] },
   mapping:{ invoice:['INVOICE NO.','invoice no.'], invdate:['DATE INV','invoice date.','invoice date','Invoice Date','Date Inv.'],
@@ -23667,8 +23709,13 @@ const HDR={
   dwak:{ material:['Product Code'], desc:['Desc.'], qty:['Qty.'], curr:['Curr.'],
         netwt:['Net Weight'], netwtunit:['Netweight Unit'], grosswt:['Gross Weight'], grosswtunit:['Grossweight Unit'],
         netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'],
+        /* [MATRIX] Unit price — PDF (Source) → DWAK (Target)
+           หมายเหตุ: เลย์เอาต์ NetBay/DWAK มาตรฐานไม่มีคอลัมน์นี้ → จะได้สถานะ COLUMN MISSING */
+        unitprice:['Unit Price','Unit price','UnitPrice','ราคาต่อหน่วย'],
         /* [DUI] คอลัมน์สำหรับตรวจใบอนุญาตกรมการค้าตามพิกัด HS (ไม่บังคับ · ไม่มี = ข้ามการตรวจ) */
         itemno:['Item No.'], tariff:['Tariff'], fz:['FZ'], stat:['Stat'],
+        /* [MATRIX] ปลายทางของ Thai Description / Brand */
+        thdesc:['DescTH','Thai Description','TH Description'], brand:['Brand Name','Brand'],
         /* [PACKAGE] ยอดสรุป Package ระดับใบขน (กรอกแถวเดียว) */
         pkgamt:['Package Amount'], pkgunit:['Package Unit'],
         /* [FIXED4] 4 ค่าฟิกตามที่ผู้ใช้ยืนยัน */
@@ -23829,12 +23876,17 @@ function extractRows(best,kind){
     const delivery = (kind==='rmdn' && cols.delivery>=0) ? mspNormDlv(r[cols.delivery]) : '';
     out.push({ _row:i+1, invoice:inv, material, ref, item, delivery,
       desc:txt(r,'desc'), qty:num(r,'qty'), netval:num(r,'netval'),
+      /* [MATRIX] Unit price — เทียบกับ PDF unitPrice */
+      unitprice: cols.unitprice>=0 ? num(r,'unitprice') : null,
       curr: cols.curr>=0? normUpper(r[cols.curr]) : '', netwt, grosswt,
       invdate: cols.invdate>=0 ? r[cols.invdate] : null,
       country: cols.country>=0? normUpper(r[cols.country]) : '',
       /* [HS/STAT] CLC — พิกัดเต็ม 11 หลัก / พิกัด 8 หลัก · เก็บเป็น String */
       tariff11:   (kind==='clc'  && cols.tariff11>=0)   ? digitsOnly(r[cols.tariff11]) : '',
       hs8:        (kind==='clc'  && cols.hs8>=0)        ? digitsOnly(r[cols.hs8])      : '',
+      /* [MATRIX] Thai Description · Brand — CLC (Source) → DWAK (Target) */
+      thdesc:     cols.thdesc>=0 ? normText(r[cols.thdesc]) : '',
+      brand:      cols.brand>=0  ? normText(r[cols.brand])  : '',
       /* [DUI] เก็บค่าดิบไว้ตรวจใบอนุญาตตามพิกัด HS (เฉพาะ DWAK) */
       itemno:     (kind==='dwak' && cols.itemno>=0)     ? normText(r[cols.itemno])     : '',
       tariff:     (kind==='dwak' && cols.tariff>=0)     ? normText(r[cols.tariff])     : '',
@@ -23862,7 +23914,8 @@ function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong,extra){
                         dwakItem:'\u2014', expected:null, status:'MISMATCH'}, extra||{});
 }
 function compare(){
-  const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=S.mapping.rows, dwak=S.dwak.rows;
+  /* [MAPPING OPTIONAL] ไม่มีไฟล์ MAPPING = อาร์เรย์ว่าง · ใช้แสดงประกอบเท่านั้น ไม่สร้าง diffs */
+  const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=(S.mapping&&S.mapping.rows)||[], dwak=S.dwak.rows;
   /* index รายการ DWAK ตาม Invoice + Product Code → ใช้แสดงคอลัมน์ "รายการใน DWAK" */
   const dwakByKey=new Map();
   for(const r of dwak){ const k=normText(r.invoice)+'\u0001'+r.material;
@@ -23941,10 +23994,13 @@ function compare(){
     if(!x){ x={ invoice:inv, material:mat, qty:0, netval:0,
                 desc:normText(it.endesc), curr:normUpper(it.currency),
                 country:normUpper(it.origin||''), invdate:it.invDate,
+                /* [MATRIX] Unit price — ราคาต่อหน่วย ห้ามบวกสะสม · ใช้ค่าแรกที่ไม่ว่าง */
+                unitprice:(it.unitPrice!=null?Number(it.unitPrice):null),
                 delivery:mspNormDlv(it.deliveryNo), items:[] };
             pdfAgg.set(k,x); }
     if(it.qty!=null) x.qty+=Number(it.qty)||0;
     if(it.totalPrice!=null) x.netval+=Number(it.totalPrice)||0;
+    if(x.unitprice==null && it.unitPrice!=null) x.unitprice=Number(it.unitPrice);
     if(!x.desc && it.endesc) x.desc=normText(it.endesc);
     if(!x.curr && it.currency) x.curr=normUpper(it.currency);
     if(!x.country && it.origin) x.country=normUpper(it.origin);
@@ -23957,7 +24013,9 @@ function compare(){
   let pdfBad=0;
   if(pdfAgg.size){
     const aggFor=a=>{ const m=new Map(); a.forEach(r=>{ const k=normText(r.invoice)+'\u0001'+r.material; let x=m.get(k);
-      if(!x){ x={invoice:normText(r.invoice),material:r.material,qty:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,delivery:r.delivery||''}; m.set(k,x); }
+      if(!x){ x={invoice:normText(r.invoice),material:r.material,qty:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,
+                 unitprice:null,delivery:r.delivery||''}; m.set(k,x); }
+      if(x.unitprice==null && r.unitprice!=null) x.unitprice=r.unitprice;   /* [MATRIX] ราคาต่อหน่วย ห้ามบวกสะสม */
       if(r.qty!=null)x.qty=(x.qty||0)+r.qty; if(r.netval!=null)x.netval=(x.netval||0)+r.netval;
       if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country;
       if(!x.delivery&&r.delivery)x.delivery=r.delivery; }); return m; };
@@ -23987,43 +24045,81 @@ function compare(){
                                      expected:fmtN(pv), status:'MISSING'}))); pdfBad++; }
           if(blanks.length) return;
         }
+        /* ★ [MATRIX] PDF → DWAK เท่านั้น — CLC ถูกถอดออกจากการตัดสินแล้ว
+           เดิม chk('CLC',c) ทำให้ Field เดียวถูกตัดสินจาก Source สองตัว
+           ตัวอย่าง PDF=US · CLC=DE · DWAK=US ต้อง PASS */
         const chk=(lbl,o)=>{ if(!o) return; const v=o[pr], has=(v!=null&&v!=='');
           if(pHas && !has) bad.push(lbl+'=(ว่าง)');
           else if(pHas && has && ndP(pv,v,tol)) bad.push(lbl+'='+fmtN(v));
           else if(!pHas && has) bad.push(lbl+'='+fmtN(v)+' (PDF ว่าง)'); };
-        chk('DWAK',d); chk('CLC',c);
+        chk('DWAK',d);
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?fmtN(c[pr]):'\u2014',m2?fmtN(m2[pr]):'\u2014',d?fmtN(d[pr]):'\u2014',
           (pHas?'MISMATCH':'SOURCE MISSING')+' — PDF \u2260 '+bad.join(', '),
           Object.assign({},base,{pdf:pHas?fmtN(pv):'(ว่าง)', expected:pHas?fmtN(pv):'',
                                  status:(pHas?'MISMATCH':'SOURCE MISSING')}))); pdfBad++; } };
-      const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return; const bad=[];
-        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
-        if(d &&normCmp(d[pr]) &&normCmp(d[pr]) !==pv) bad.push('DWAK');
-        if(c &&normCmp(c[pr]) &&normCmp(c[pr]) !==pv) bad.push('CLC');
-        if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',
-          'MISMATCH — PDF \u2260 '+bad.join(' / '),Object.assign({pdf:P[pr]||'(ว่าง)'},base))); pdfBad++; } };
+      /* ══ [TEXT-STATE] Text Field — PDF → DWAK เท่านั้น (ตาม Source Matrix)
+         Root Cause เดิม: `if(d && normCmp(d[pr]) && normCmp(d[pr]) !== pv)`
+         เงื่อนไขกลาง `normCmp(d[pr])` เป็นเท็จเมื่อ DWAK ว่าง ⇒ ไม่ฟ้อง MISSING
+         และ `chk CLC` ทำให้ Field เดียวถูกตัดสินจาก Source สองตัว
+         กฎใหม่: PDF มี + DWAK ว่าง → MISSING · ไม่ตรง → MISMATCH · ตรง → PASS
+         ★ ตรวจ MISSING ราย "แถว DWAK" เพื่อระบุ Item No. จริง                  */
+      const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return;
+        const dRows=dwakByKey.get(k)||[];
+        const blanks=dRows.filter(x=>normCmp(x[pr])==='');
+        if(blanks.length){
+          for(const x of blanks){
+            diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014','\u2014',
+              'MISSING — DWAK ไม่มีข้อมูล',
+              Object.assign({},base,{pdf:P[pr]||'(ว่าง)', dwakItem:(x.itemno||String(x._row)),
+                                     expected:(P[pr]||''), status:'MISSING'}))); pdfBad++; }
+          return; }
+        if(!d) return;
+        const dv=normCmp(d[pr]);
+        if(dv==='' ){
+          diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014','\u2014',
+            'MISSING — DWAK ไม่มีข้อมูล',
+            Object.assign({},base,{pdf:P[pr]||'(ว่าง)', expected:(P[pr]||''), status:'MISSING'}))); pdfBad++; return; }
+        if(dv===pv) return;
+        diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',(d[pr]||'\u2014'),
+          'MISMATCH — PDF \u2260 DWAK',
+          Object.assign({},base,{pdf:P[pr]||'(ว่าง)', expected:(P[pr]||''), status:'MISMATCH'}))); pdfBad++; };
       strP('Description (PDF)','desc');
       numP('Quantity (PDF)','qty',1e-9);
       strP('Currency (PDF)','curr');
       strP('Origin (PDF)','country');           /* USA → US ถูก normalize โดย Parser เดิมแล้ว */
-      numP('Net Value (PDF)','netval',TOL_V);
+      /* [MATRIX] ชื่อผลต้องตรงกับ Source Field จริง — Item net price (ไม่ใช่ Net Value กว้าง ๆ) */
+      numP('Item net price','netval',TOL_V);
+      /* [MATRIX] Unit price — PDF unitPrice → DWAK Unit Price
+         ตรวจเมื่อ DWAK มีคอลัมน์เท่านั้น · ไม่มีคอลัมน์ → ฟ้อง COLUMN MISSING ในบล็อกท้าย */
+      if(S.dwak.cols && S.dwak.cols.unitprice>=0) numP('Unit price','unitprice',TOL_V);
       /* Delivery — เทียบหลัง Normalize (53862052 == 0053862052) · ตรวจเมื่อ RM DN มีคอลัมน์ Delivery */
       if(rm && rm.delivery && P.delivery && mspNormDlv(rm.delivery)!==mspNormDlv(P.delivery)){
         diffs.push(D0('Delivery (PDF)',P.invoice,P.material,rm.delivery,'\u2014','\u2014','\u2014',
           'MISMATCH — PDF \u2260 RM DN',Object.assign({pdf:P.delivery},base))); pdfBad++; }
     }
-    /* ★ เดิมตรวจ "MAPPING มีรายการที่ PDF ไม่มี" — ถอดออกทั้งบล็อกตามข้อกำหนด
-       MAPPING ห้ามมีผลต่อ PASS/FAIL · รายการเกินฝั่ง DWAK ยังตรวจอยู่ในหมวด (C) ไม่พบใน CLC */
+    /* ★ [MATRIX] PRODUCT CODE มี Source เดียว = INVOICE PDF
+       รายการที่มีใน DWAK แต่ไม่มีใน PDF → ฟ้องที่นี่ (ย้ายมาจากหมวด C ที่ใช้ CLC เป็นตัวตัดสิน)
+       ★ MAPPING ไม่เกี่ยวข้องกับการตัดสินนี้เลย */
+    for(const [k2,dRow] of dwakByKey){
+      if(pdfAgg.has(k2)) continue;
+      const first=dRow[0]; if(!first) continue;
+      diffs.push(D0('Material',normText(first.invoice),first.material,'\u2014','\u2014','\u2014','มี',
+        'MISSING — ไม่พบใน PDF INVOICE (DWAK มี)',
+        { source:'PDF', pdf:'(ไม่พบ)', dwakItem:dRow.map(x=>x.itemno).filter(Boolean).join(', ')||'\u2014',
+          expected:'', status:'SOURCE MISSING' })); pdfBad++;
+    }
   }
   const pdfOk=pdfBad===0;
 
   /* ===== (C) ข้อมูลทั่วไป — MASTER = CLC · รวมยอดตาม invoice+product ===== */
   const key=r=>r.invoice+'\u0001'+r.material;
   const agg=a=>{ const m=new Map(); a.forEach(r=>{ const k=key(r); let x=m.get(k);
-    if(!x){ x={invoice:r.invoice,material:r.material,qty:null,netwt:null,grosswt:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate}; m.set(k,x); }
+    if(!x){ x={invoice:r.invoice,material:r.material,qty:null,netwt:null,grosswt:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,
+                thdesc:r.thdesc,brand:r.brand}; m.set(k,x); }   /* [MATRIX] Thai Description · Brand */
     if(r.qty!=null)x.qty=(x.qty||0)+r.qty; if(r.netwt!=null)x.netwt=(x.netwt||0)+r.netwt;
     if(r.grosswt!=null)x.grosswt=(x.grosswt||0)+r.grosswt; if(r.netval!=null)x.netval=(x.netval||0)+r.netval;
-    if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country; }); return m; };
+    if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country;
+    if(!x.thdesc&&r.thdesc)x.thdesc=r.thdesc; if(!x.brand&&r.brand)x.brand=r.brand; }); return m; };
   const cA=agg(clc), pA=agg(mapping), dA=agg(dwak);
   const nd=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
   let genBad=0;
@@ -24031,9 +24127,11 @@ function compare(){
      เดิมรวม pA.keys() ทำให้รายการที่มีเฉพาะใน MAPPING ถูกฟ้อง 'ไม่พบใน CLC' → MAPPING มีผลต่อ PASS/FAIL */
   for(const k of new Set([...cA.keys(),...dA.keys()])){
     const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||d||p).material, invoice=(c||d||p).invoice;
-    if(!c){ diffs.push(D0('Material',invoice,material,'\u2014','(ไม่พบใน CLC)',p?'มี':'\u2014',d?'มี':'\u2014','ไม่พบใน CLC (MASTER)')); genBad++; continue; }
-    /* ★ "ไม่พบใน MAPPING" ถอดออก — MAPPING ห้ามมีผลต่อ PASS/FAIL */
-    if(!d){ diffs.push(D0('Material',invoice,material,'\u2014','มี',p?'มี':'\u2014','(ไม่พบ)','ไม่พบใน DWAK')); genBad++; }
+    /* ★ [MATRIX] PRODUCT CODE / Material มี Source เดียว = INVOICE PDF
+       การมี/ไม่มีรายการจึงถูกตัดสินในบล็อก (B2) เท่านั้น — ที่นี่แค่ข้ามไป
+       (ห้ามให้ Field เดียวถูกตัดสินจาก Source สองตัว) */
+    if(!c) continue;
+    if(!d) continue;
     /* ★ MAPPING ถูกถอดออกจากการตัดสิน PASS/FAIL — เทียบ CLC (Source) ↔ DWAK (Target) เท่านั้น */
     const dItems=(dwakByKey.get(invoice+'\u0001'+material)||[]).map(x=>x.itemno).filter(Boolean).join(', ') || '\u2014';
     /* ══ [NUM-STATE] Numeric Field — แยกตรวจ Missing ก่อนเทียบตัวเลขเสมอ ══
@@ -24072,40 +24170,65 @@ function compare(){
       diffs.push(D0(field,invoice,material,'\u2014',fmtN(cv),'\u2014',fmtN(dv),'DWAK \u2260 CLC',
         { source:'CLC', dwakItem:dItems, expected:fmtN(cv), status:'MISMATCH' })); genBad++; };
     const strT=(field,pr)=>{ if(!d) return; const cv=normCmp(c[pr]); const dv=normCmp(d[pr]);
+      /* [TEXT-STATE] CLC มีค่า + แถว DWAK ใดว่าง → MISSING รายแถว (ระบุ Item No. จริง) */
+      if(cv){
+        const blanks=(dwakByKey.get(invoice+'\u0001'+material)||[]).filter(x=>normCmp(x[pr])==='');
+        if(blanks.length){
+          for(const x of blanks){
+            diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014','\u2014','DWAK ไม่มีข้อมูล',
+              { source:'CLC', dwakItem:(x.itemno||String(x._row)), expected:(c[pr]||''), status:'MISSING' })); genBad++; }
+          return; } }
       if(!cv && !dv) return;
       if(cv===dv) return;
       const st = !cv ? 'SOURCE MISSING' : (!dv ? 'MISSING' : 'MISMATCH');
       diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014',(d[pr]||'\u2014'),
         st==='SOURCE MISSING' ? ('ไม่พบ '+field+' ใน CLC') : (st==='MISSING' ? 'DWAK ไม่มีข้อมูล' : 'DWAK \u2260 CLC'),
         { source:'CLC', dwakItem:dItems, expected:(c[pr]||''), status:st })); genBad++; };
-    strT('Description','desc');
-    numT('Quantity','qty',1e-9);
-    strT('Currency','curr');
+    /* ══ [SOURCE MATRIX — EXCLUSIVE] CLC → DWAK เป็นเจ้าของเฉพาะ Field ต่อไปนี้ ══
+       Net Weight · Thai Description · Tariff Code · Stat · Brand · Package
+       ★ Description / Quantity / Currency / Origin / Net Value ถูกย้ายไปให้
+         INVOICE PDF เป็น Source เดียว (บล็อก B2) — ถอดออกจากที่นี่ทั้งหมด
+         เพื่อไม่ให้ Field เดียวถูกตัดสินจาก Source สองตัว
+       ★ Tariff / Stat / Package ตรวจในบล็อก [HS/STAT] และ [PACKAGE] ด้านล่าง
+       ★ Gross Weight ยังไม่มี Source of Truth → ไม่ตรวจ (ห้ามเดา)                */
     numT('Net Weight','netwt',TOL_W);
-    numT('Net Value','netval',TOL_V);
-    strT('Country of Origin','country');
-    /* ★ Gross Weight ถูกถอดออก — MAPPING ไม่ใช่ MASTER และ CLC ไม่มี Gross Weight ราย Material
-       จึงไม่มี Source of Truth ที่ตรวจได้ (ห้ามตรวจโดยเดา) */
+    strT('Thai Description','thdesc');
+    strT('Brand','brand');
   }
   const genOk=genBad===0;
 
   /* ===== (D) Invoice Number / Date — MASTER = CLC ===== */
   const uset=(a,f)=>{ const s=new Set(); a.forEach(r=>{ const v=normText(r[f]); if(v)s.add(v); }); return [...s].sort(); };
   const jk=a=>a.join(', ');
-  const cNo=uset(clc,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
-  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
-  const noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
-  const invNoOk=noDwkOk;
+  /* ★ [MATRIX] INVOICE NO. และ DATE INV มี Source เดียว = INVOICE PDF
+     เดิมตัดสินจาก CLC → ย้ายมาใช้ PDF · CLC/MAPPING แสดงประกอบเท่านั้น */
+  const cNo=uset(pdfItems,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
+  /* ══ [STATE] INVOICE NO. — Root Cause เดิม: `!cNo.length || !dNo.length || equal`
+     `!dNo.length` ทำให้ "PDF มี Invoice แต่ DWAK ไม่มีเลย" กลายเป็น PASS
+     ใหม่: PDF มี + DWAK ว่าง → MISSING · PDF ว่าง + DWAK มี → SOURCE MISSING     */
+  let invNoSt='';
+  if(cNo.length && !dNo.length)      invNoSt='MISSING';
+  else if(!cNo.length && dNo.length) invNoSt='SOURCE MISSING';
+  else if(cNo.length && dNo.length && jk(cNo)!==jk(dNo)) invNoSt='MISMATCH';
+  const invNoOk = invNoSt==='';
   if(!invNoOk){
-    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014','DWAK')); }
+    diffs.push(D0('INVOICE NO.','\u2014','\u2014','\u2014','\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014',
+      invNoSt==='MISSING' ? 'DWAK ไม่มีข้อมูล' : (invNoSt==='SOURCE MISSING' ? 'ไม่พบ INVOICE NO. ใน PDF' : 'DWAK \u2260 PDF'),
+      { source:'PDF', pdf:jk(cNo)||'\u2014', expected:jk(cNo), status:invNoSt })); }
   const invNoChk={ master:jk(cNo)||'\u2014', mapping:jk(pNo)||'\u2014', dwak:jk(dNo)||'\u2014', ok:invNoOk };
   const dset=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invdate); if(dd)s.add(dd); }); return [...s].sort(); };
-  const cDt=dset(clc), pDt=dset(mapping), dDt=dset(dwak);
-  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
-  const dtW=[];
-  if(cDt.length && dDt.length && jk(dDt)!==jk(cDt)) dtW.push('DWAK');
-  const invDateOk=dtW.length===0;
-  if(!invDateOk) diffs.push(D0('Invoice Date','\u2014','\u2014','\u2014',jk(cDt)||'\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',dtW.join(' / ')));
+  const dsetP=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invDate); if(dd)s.add(dd); }); return [...s].sort(); };
+  const cDt=dsetP(pdfItems), pDt=dset(mapping), dDt=dset(dwak);
+  /* ══ [STATE] DATE INV — Root Cause เดิม: เทียบเฉพาะเมื่อ cDt.length && dDt.length
+     ทำให้ PDF มีวันที่ แต่ DWAK ว่าง ไม่ถูกฟ้อง                                    */
+  let invDtSt='';
+  if(cDt.length && !dDt.length)      invDtSt='MISSING';
+  else if(!cDt.length && dDt.length) invDtSt='SOURCE MISSING';
+  else if(cDt.length && dDt.length && jk(cDt)!==jk(dDt)) invDtSt='MISMATCH';
+  const invDateOk=invDtSt==='';
+  if(!invDateOk) diffs.push(D0('DATE INV','\u2014','\u2014','\u2014','\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',
+    invDtSt==='MISSING' ? 'DWAK ไม่มีข้อมูล' : (invDtSt==='SOURCE MISSING' ? 'ไม่พบ DATE INV ใน PDF' : 'DWAK \u2260 PDF'),
+    { source:'PDF', pdf:jk(cDt)||'\u2014', expected:jk(cDt), status:invDtSt }));
   const invDateChk={ master:jk(cDt)||'\u2014', mapping:jk(pDt)||'\u2014', dwak:jk(dDt)||'\u2014', ok:invDateOk };
 
 
@@ -24304,13 +24427,36 @@ function compare(){
   }
   const fx4Ok = fx4Bad===0;
 
+  /* ══════════════════════════════════════════════════════════════════════
+     [COLUMN MISSING] Required Header ของ DWAK — ห้าม skip เงียบ
+       เดิมทุกการตรวจใช้ pattern `if(cols.X < 0) ข้าม` ทำให้ไฟล์ DWAK ที่ขาด
+       คอลัมน์สำคัญได้ผล PASS ทั้งที่ตรวจไม่ได้จริง
+       ใหม่: ไม่มีคอลัมน์ → 1 diff · สถานะ COLUMN MISSING
+     ══════════════════════════════════════════════════════════════════════ */
+  const REQ_DWAK_COLS=[
+    ['netwt','Net Weight'], ['thdesc','Thai Description'], ['tariff','Tariff'],
+    ['stat','Stat'], ['brand','Brand'], ['pkgamt','Package Amount'],
+    ['unitprice','Unit Price'],
+    ['imptaxinc','Import Tax Incentives ID'], ['permitno1','PermitNo1'],
+    ['issuedate1','IssueDate1'], ['permitauth1','PermitIssueAuthority1']
+  ];
+  let colMissBad=0;
+  for(const [ck,clabel] of REQ_DWAK_COLS){
+    if(S.dwak.cols && S.dwak.cols[ck]>=0) continue;
+    diffs.push(D0(clabel,normText(invM)||'\u2014','\u2014','\u2014','\u2014','\u2014','\u2014',
+      'DWAK ไม่มีคอลัมน์ '+clabel,
+      { source:'DWAK', dwakItem:'\u2014', expected:'', status:'COLUMN MISSING' })); colMissBad++;
+  }
+  const colMissOk = colMissBad===0;
+
   const errorCount=diffs.length;
   const verdict=errorCount===0?'PASS':'FAIL';
   const firstInv=(clc[0]&&clc[0].invoice)? String(clc[0].invoice).replace(/[^0-9A-Za-z_-]/g,'') : '';
   return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length, duiOk, duiBad, duiChecked, ieatOk, ieatBad, ieatChecked,
     hsOk, hsBad, hsChecked, statChecked, pkgOk, pkgBad, pkgChecked, fx4Ok, fx4Bad, fx4Checked,
-    meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
-           clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:S.mapping.sheet, dwakSheet:S.dwak.sheet,
+    colMissOk, colMissBad,
+    meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:(S.mapping&&S.mapping.name)||'(ไม่ได้อัปโหลด)', dwakName:S.dwak.name,
+           clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:(S.mapping&&S.mapping.sheet)||'', dwakSheet:S.dwak.sheet,
            invoice:firstInv, at:stampHuman() } };
 }
 
@@ -24360,7 +24506,9 @@ async function loadInto(kind,file){
 }
 function checkReady(){
   const b=document.getElementById('msp-btn-run'); if(!b) return;
-  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  /* [MAPPING OPTIONAL] MAPPING ไม่ใช่ไฟล์บังคับอีกต่อไป — ยังอัปโหลดได้ แต่ไม่บังคับ
+     และไม่มีผลต่อ PASS/FAIL ทุกกรณี */
+  const missing=['pdf','clc','rmdn','dwak'].filter(k=>!S[k]);
   b.disabled=missing.length>0;
   if(missing.length && !document.getElementById('msp-status').classList.contains('err'))
     setStatus('รอไฟล์ — ยังขาด: '+missing.map(k=>FILE_LABEL[k]).join(' · '));
@@ -24388,7 +24536,8 @@ function wireDrops(){
 
 /* ---------- run ---------- */
 window.mspRun=function(){
-  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  /* [MAPPING OPTIONAL] ไม่มี MAPPING ก็ต้องกดตรวจได้ */
+  const missing=['pdf','clc','rmdn','dwak'].filter(k=>!S[k]);
   if(missing.length){ setStatus('ยังขาดไฟล์: '+missing.map(k=>FILE_LABEL[k]).join(' · '), true); return; }
   const btn=document.getElementById('msp-btn-run'), exp=document.getElementById('msp-btn-export');
   btn.disabled=true; if(exp) exp.style.display='none';
@@ -24495,7 +24644,7 @@ window.mspReset=function(){
   const exp=document.getElementById('msp-btn-export'); if(exp) exp.style.display='none';
   const sb=document.getElementById('msp-search'); if(sb) sb.value='';
   const btn=document.getElementById('msp-btn-run'); if(btn) btn.disabled=true;
-  setStatus('รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (CLC / RM DN / MAPPING / DWAK)');
+  setStatus('รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (PDF INVOICE / CLC / RM DN / DWAK) · MAPPING ไม่บังคับ');
 };
 
 /* ---------- export (Sheet เดียว "ตรวจ SCH FZ" · MASTER = RM DN สำหรับ ref/item, CLC สำหรับอื่น) ---------- */
@@ -24576,7 +24725,9 @@ const HDR={
         desc:['EN Description','Description'], qty:['Billing qty in SKU'], curr:['Document Currency'],
         netwt:['Net Weight'], netwtunit:['Unit of Weight'], netval:['Net value'], country:['Country of origin'],
         /* [HS/STAT] tariff11 = พิกัดเต็ม 11 หลัก (8 พิกัด + 3 Stat) · hs8 = พิกัด 8 หลัก (ใช้เมื่อไม่มี 11 หลัก) */
-        tariff11:['Comm./imp. code no.'], hs8:['HS'] },
+        tariff11:['Comm./imp. code no.'], hs8:['HS'],
+        /* [MATRIX] CLC เป็น Source เดียวของ Thai Description และ Brand */
+        thdesc:['TH Description','Thai Description','DescTH'], brand:['Brand','Brand Name'] },
   rmdn:{ material:['Part No.(Part SCH)','Part No.'], refinbound:['Ref # Inbound Customs Entry No.','Ref # Inbound Customs Entry','Ref # Inbound'], qty:['QTY'],
         delivery:['Outbound Delivery No.','Outbound Delivery No','Delivery No.','Delivery'] },
   mapping:{ invoice:['INVOICE NO.','invoice no.'], invdate:['DATE INV','invoice date.','invoice date','Invoice Date','Date Inv.'],
@@ -24586,8 +24737,13 @@ const HDR={
   dwak:{ material:['Product Code'], desc:['Desc.'], qty:['Qty.'], curr:['Curr.'],
         netwt:['Net Weight'], netwtunit:['Netweight Unit'], grosswt:['Gross Weight'], grosswtunit:['Grossweight Unit'],
         netval:['Amount'], country:['Original Country'], declref:['Declaration No'], declitem:['DeclarationLine Number'],
+        /* [MATRIX] Unit price — PDF (Source) → DWAK (Target)
+           หมายเหตุ: เลย์เอาต์ NetBay/DWAK มาตรฐานไม่มีคอลัมน์นี้ → จะได้สถานะ COLUMN MISSING */
+        unitprice:['Unit Price','Unit price','UnitPrice','ราคาต่อหน่วย'],
         /* [DUI] คอลัมน์สำหรับตรวจใบอนุญาตกรมการค้าตามพิกัด HS (ไม่บังคับ · ไม่มี = ข้ามการตรวจ) */
         itemno:['Item No.'], tariff:['Tariff'], fz:['FZ'], stat:['Stat'],
+        /* [MATRIX] ปลายทางของ Thai Description / Brand */
+        thdesc:['DescTH','Thai Description','TH Description'], brand:['Brand Name','Brand'],
         /* [PACKAGE] ยอดสรุป Package ระดับใบขน (กรอกแถวเดียว) */
         pkgamt:['Package Amount'], pkgunit:['Package Unit'],
         /* [FIXED4] 4 ค่าฟิกตามที่ผู้ใช้ยืนยัน */
@@ -24748,12 +24904,17 @@ function extractRows(best,kind){
     const delivery = (kind==='rmdn' && cols.delivery>=0) ? msp2NormDlv(r[cols.delivery]) : '';
     out.push({ _row:i+1, invoice:inv, material, ref, item, delivery,
       desc:txt(r,'desc'), qty:num(r,'qty'), netval:num(r,'netval'),
+      /* [MATRIX] Unit price — เทียบกับ PDF unitPrice */
+      unitprice: cols.unitprice>=0 ? num(r,'unitprice') : null,
       curr: cols.curr>=0? normUpper(r[cols.curr]) : '', netwt, grosswt,
       invdate: cols.invdate>=0 ? r[cols.invdate] : null,
       country: cols.country>=0? normUpper(r[cols.country]) : '',
       /* [HS/STAT] CLC — พิกัดเต็ม 11 หลัก / พิกัด 8 หลัก · เก็บเป็น String */
       tariff11:   (kind==='clc'  && cols.tariff11>=0)   ? digitsOnly(r[cols.tariff11]) : '',
       hs8:        (kind==='clc'  && cols.hs8>=0)        ? digitsOnly(r[cols.hs8])      : '',
+      /* [MATRIX] Thai Description · Brand — CLC (Source) → DWAK (Target) */
+      thdesc:     cols.thdesc>=0 ? normText(r[cols.thdesc]) : '',
+      brand:      cols.brand>=0  ? normText(r[cols.brand])  : '',
       /* [DUI] เก็บค่าดิบไว้ตรวจใบอนุญาตตามพิกัด HS (เฉพาะ DWAK) */
       itemno:     (kind==='dwak' && cols.itemno>=0)     ? normText(r[cols.itemno])     : '',
       tariff:     (kind==='dwak' && cols.tariff>=0)     ? normText(r[cols.tariff])     : '',
@@ -24781,7 +24942,8 @@ function D0(field,invoice,material,rmdn,clc,mapping,dwak,wrong,extra){
                         dwakItem:'\u2014', expected:null, status:'MISMATCH'}, extra||{});
 }
 function compare(){
-  const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=S.mapping.rows, dwak=S.dwak.rows;
+  /* [MAPPING OPTIONAL] ไม่มีไฟล์ MAPPING = อาร์เรย์ว่าง · ใช้แสดงประกอบเท่านั้น ไม่สร้าง diffs */
+  const clc=S.clc.rows, rmdn=S.rmdn.rows, mapping=(S.mapping&&S.mapping.rows)||[], dwak=S.dwak.rows;
   /* index รายการ DWAK ตาม Invoice + Product Code → ใช้แสดงคอลัมน์ "รายการใน DWAK" */
   const dwakByKey=new Map();
   for(const r of dwak){ const k=normText(r.invoice)+'\u0001'+r.material;
@@ -24860,10 +25022,13 @@ function compare(){
     if(!x){ x={ invoice:inv, material:mat, qty:0, netval:0,
                 desc:normText(it.endesc), curr:normUpper(it.currency),
                 country:normUpper(it.origin||''), invdate:it.invDate,
+                /* [MATRIX] Unit price — ราคาต่อหน่วย ห้ามบวกสะสม · ใช้ค่าแรกที่ไม่ว่าง */
+                unitprice:(it.unitPrice!=null?Number(it.unitPrice):null),
                 delivery:msp2NormDlv(it.deliveryNo), items:[] };
             pdfAgg.set(k,x); }
     if(it.qty!=null) x.qty+=Number(it.qty)||0;
     if(it.totalPrice!=null) x.netval+=Number(it.totalPrice)||0;
+    if(x.unitprice==null && it.unitPrice!=null) x.unitprice=Number(it.unitPrice);
     if(!x.desc && it.endesc) x.desc=normText(it.endesc);
     if(!x.curr && it.currency) x.curr=normUpper(it.currency);
     if(!x.country && it.origin) x.country=normUpper(it.origin);
@@ -24876,7 +25041,9 @@ function compare(){
   let pdfBad=0;
   if(pdfAgg.size){
     const aggFor=a=>{ const m=new Map(); a.forEach(r=>{ const k=normText(r.invoice)+'\u0001'+r.material; let x=m.get(k);
-      if(!x){ x={invoice:normText(r.invoice),material:r.material,qty:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,delivery:r.delivery||''}; m.set(k,x); }
+      if(!x){ x={invoice:normText(r.invoice),material:r.material,qty:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,
+                 unitprice:null,delivery:r.delivery||''}; m.set(k,x); }
+      if(x.unitprice==null && r.unitprice!=null) x.unitprice=r.unitprice;   /* [MATRIX] ราคาต่อหน่วย ห้ามบวกสะสม */
       if(r.qty!=null)x.qty=(x.qty||0)+r.qty; if(r.netval!=null)x.netval=(x.netval||0)+r.netval;
       if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country;
       if(!x.delivery&&r.delivery)x.delivery=r.delivery; }); return m; };
@@ -24906,43 +25073,81 @@ function compare(){
                                      expected:fmtN(pv), status:'MISSING'}))); pdfBad++; }
           if(blanks.length) return;
         }
+        /* ★ [MATRIX] PDF → DWAK เท่านั้น — CLC ถูกถอดออกจากการตัดสินแล้ว
+           เดิม chk('CLC',c) ทำให้ Field เดียวถูกตัดสินจาก Source สองตัว
+           ตัวอย่าง PDF=US · CLC=DE · DWAK=US ต้อง PASS */
         const chk=(lbl,o)=>{ if(!o) return; const v=o[pr], has=(v!=null&&v!=='');
           if(pHas && !has) bad.push(lbl+'=(ว่าง)');
           else if(pHas && has && ndP(pv,v,tol)) bad.push(lbl+'='+fmtN(v));
           else if(!pHas && has) bad.push(lbl+'='+fmtN(v)+' (PDF ว่าง)'); };
-        chk('DWAK',d); chk('CLC',c);
+        chk('DWAK',d);
         if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?fmtN(c[pr]):'\u2014',m2?fmtN(m2[pr]):'\u2014',d?fmtN(d[pr]):'\u2014',
           (pHas?'MISMATCH':'SOURCE MISSING')+' — PDF \u2260 '+bad.join(', '),
           Object.assign({},base,{pdf:pHas?fmtN(pv):'(ว่าง)', expected:pHas?fmtN(pv):'',
                                  status:(pHas?'MISMATCH':'SOURCE MISSING')}))); pdfBad++; } };
-      const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return; const bad=[];
-        /* ★ MAPPING ไม่นับเป็นข้อผิดพลาด */
-        if(d &&normCmp(d[pr]) &&normCmp(d[pr]) !==pv) bad.push('DWAK');
-        if(c &&normCmp(c[pr]) &&normCmp(c[pr]) !==pv) bad.push('CLC');
-        if(bad.length){ diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',d?(d[pr]||'\u2014'):'\u2014',
-          'MISMATCH — PDF \u2260 '+bad.join(' / '),Object.assign({pdf:P[pr]||'(ว่าง)'},base))); pdfBad++; } };
+      /* ══ [TEXT-STATE] Text Field — PDF → DWAK เท่านั้น (ตาม Source Matrix)
+         Root Cause เดิม: `if(d && normCmp(d[pr]) && normCmp(d[pr]) !== pv)`
+         เงื่อนไขกลาง `normCmp(d[pr])` เป็นเท็จเมื่อ DWAK ว่าง ⇒ ไม่ฟ้อง MISSING
+         และ `chk CLC` ทำให้ Field เดียวถูกตัดสินจาก Source สองตัว
+         กฎใหม่: PDF มี + DWAK ว่าง → MISSING · ไม่ตรง → MISMATCH · ตรง → PASS
+         ★ ตรวจ MISSING ราย "แถว DWAK" เพื่อระบุ Item No. จริง                  */
+      const strP=(field,pr)=>{ const pv=normCmp(P[pr]); if(!pv) return;
+        const dRows=dwakByKey.get(k)||[];
+        const blanks=dRows.filter(x=>normCmp(x[pr])==='');
+        if(blanks.length){
+          for(const x of blanks){
+            diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014','\u2014',
+              'MISSING — DWAK ไม่มีข้อมูล',
+              Object.assign({},base,{pdf:P[pr]||'(ว่าง)', dwakItem:(x.itemno||String(x._row)),
+                                     expected:(P[pr]||''), status:'MISSING'}))); pdfBad++; }
+          return; }
+        if(!d) return;
+        const dv=normCmp(d[pr]);
+        if(dv==='' ){
+          diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014','\u2014',
+            'MISSING — DWAK ไม่มีข้อมูล',
+            Object.assign({},base,{pdf:P[pr]||'(ว่าง)', expected:(P[pr]||''), status:'MISSING'}))); pdfBad++; return; }
+        if(dv===pv) return;
+        diffs.push(D0(field,P.invoice,P.material,'\u2014',c?(c[pr]||'\u2014'):'\u2014',m2?(m2[pr]||'\u2014'):'\u2014',(d[pr]||'\u2014'),
+          'MISMATCH — PDF \u2260 DWAK',
+          Object.assign({},base,{pdf:P[pr]||'(ว่าง)', expected:(P[pr]||''), status:'MISMATCH'}))); pdfBad++; };
       strP('Description (PDF)','desc');
       numP('Quantity (PDF)','qty',1e-9);
       strP('Currency (PDF)','curr');
       strP('Origin (PDF)','country');           /* USA → US ถูก normalize โดย Parser เดิมแล้ว */
-      numP('Net Value (PDF)','netval',TOL_V);
+      /* [MATRIX] ชื่อผลต้องตรงกับ Source Field จริง — Item net price (ไม่ใช่ Net Value กว้าง ๆ) */
+      numP('Item net price','netval',TOL_V);
+      /* [MATRIX] Unit price — PDF unitPrice → DWAK Unit Price
+         ตรวจเมื่อ DWAK มีคอลัมน์เท่านั้น · ไม่มีคอลัมน์ → ฟ้อง COLUMN MISSING ในบล็อกท้าย */
+      if(S.dwak.cols && S.dwak.cols.unitprice>=0) numP('Unit price','unitprice',TOL_V);
       /* Delivery — เทียบหลัง Normalize (53862052 == 0053862052) · ตรวจเมื่อ RM DN มีคอลัมน์ Delivery */
       if(rm && rm.delivery && P.delivery && msp2NormDlv(rm.delivery)!==msp2NormDlv(P.delivery)){
         diffs.push(D0('Delivery (PDF)',P.invoice,P.material,rm.delivery,'\u2014','\u2014','\u2014',
           'MISMATCH — PDF \u2260 RM DN',Object.assign({pdf:P.delivery},base))); pdfBad++; }
     }
-    /* ★ เดิมตรวจ "MAPPING มีรายการที่ PDF ไม่มี" — ถอดออกทั้งบล็อกตามข้อกำหนด
-       MAPPING ห้ามมีผลต่อ PASS/FAIL · รายการเกินฝั่ง DWAK ยังตรวจอยู่ในหมวด (C) ไม่พบใน CLC */
+    /* ★ [MATRIX] PRODUCT CODE มี Source เดียว = INVOICE PDF
+       รายการที่มีใน DWAK แต่ไม่มีใน PDF → ฟ้องที่นี่ (ย้ายมาจากหมวด C ที่ใช้ CLC เป็นตัวตัดสิน)
+       ★ MAPPING ไม่เกี่ยวข้องกับการตัดสินนี้เลย */
+    for(const [k2,dRow] of dwakByKey){
+      if(pdfAgg.has(k2)) continue;
+      const first=dRow[0]; if(!first) continue;
+      diffs.push(D0('Material',normText(first.invoice),first.material,'\u2014','\u2014','\u2014','มี',
+        'MISSING — ไม่พบใน PDF INVOICE (DWAK มี)',
+        { source:'PDF', pdf:'(ไม่พบ)', dwakItem:dRow.map(x=>x.itemno).filter(Boolean).join(', ')||'\u2014',
+          expected:'', status:'SOURCE MISSING' })); pdfBad++;
+    }
   }
   const pdfOk=pdfBad===0;
 
   /* ===== (C) ข้อมูลทั่วไป — MASTER = CLC · รวมยอดตาม invoice+product ===== */
   const key=r=>r.invoice+'\u0001'+r.material;
   const agg=a=>{ const m=new Map(); a.forEach(r=>{ const k=key(r); let x=m.get(k);
-    if(!x){ x={invoice:r.invoice,material:r.material,qty:null,netwt:null,grosswt:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate}; m.set(k,x); }
+    if(!x){ x={invoice:r.invoice,material:r.material,qty:null,netwt:null,grosswt:null,netval:null,desc:r.desc,curr:r.curr,country:r.country,invdate:r.invdate,
+                thdesc:r.thdesc,brand:r.brand}; m.set(k,x); }   /* [MATRIX] Thai Description · Brand */
     if(r.qty!=null)x.qty=(x.qty||0)+r.qty; if(r.netwt!=null)x.netwt=(x.netwt||0)+r.netwt;
     if(r.grosswt!=null)x.grosswt=(x.grosswt||0)+r.grosswt; if(r.netval!=null)x.netval=(x.netval||0)+r.netval;
-    if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country; }); return m; };
+    if(!x.desc&&r.desc)x.desc=r.desc; if(!x.curr&&r.curr)x.curr=r.curr; if(!x.country&&r.country)x.country=r.country;
+    if(!x.thdesc&&r.thdesc)x.thdesc=r.thdesc; if(!x.brand&&r.brand)x.brand=r.brand; }); return m; };
   const cA=agg(clc), pA=agg(mapping), dA=agg(dwak);
   const nd=(a,b,tol)=>(a!=null&&b!=null)&&Math.abs(a-b)>Math.max(tol,Math.abs(a)*0.005);
   let genBad=0;
@@ -24950,9 +25155,11 @@ function compare(){
      เดิมรวม pA.keys() ทำให้รายการที่มีเฉพาะใน MAPPING ถูกฟ้อง 'ไม่พบใน CLC' → MAPPING มีผลต่อ PASS/FAIL */
   for(const k of new Set([...cA.keys(),...dA.keys()])){
     const c=cA.get(k), p=pA.get(k), d=dA.get(k); const material=(c||d||p).material, invoice=(c||d||p).invoice;
-    if(!c){ diffs.push(D0('Material',invoice,material,'\u2014','(ไม่พบใน CLC)',p?'มี':'\u2014',d?'มี':'\u2014','ไม่พบใน CLC (MASTER)')); genBad++; continue; }
-    /* ★ "ไม่พบใน MAPPING" ถอดออก — MAPPING ห้ามมีผลต่อ PASS/FAIL */
-    if(!d){ diffs.push(D0('Material',invoice,material,'\u2014','มี',p?'มี':'\u2014','(ไม่พบ)','ไม่พบใน DWAK')); genBad++; }
+    /* ★ [MATRIX] PRODUCT CODE / Material มี Source เดียว = INVOICE PDF
+       การมี/ไม่มีรายการจึงถูกตัดสินในบล็อก (B2) เท่านั้น — ที่นี่แค่ข้ามไป
+       (ห้ามให้ Field เดียวถูกตัดสินจาก Source สองตัว) */
+    if(!c) continue;
+    if(!d) continue;
     /* ★ MAPPING ถูกถอดออกจากการตัดสิน PASS/FAIL — เทียบ CLC (Source) ↔ DWAK (Target) เท่านั้น */
     const dItems=(dwakByKey.get(invoice+'\u0001'+material)||[]).map(x=>x.itemno).filter(Boolean).join(', ') || '\u2014';
     /* ══ [NUM-STATE] Numeric Field — แยกตรวจ Missing ก่อนเทียบตัวเลขเสมอ ══
@@ -24991,40 +25198,65 @@ function compare(){
       diffs.push(D0(field,invoice,material,'\u2014',fmtN(cv),'\u2014',fmtN(dv),'DWAK \u2260 CLC',
         { source:'CLC', dwakItem:dItems, expected:fmtN(cv), status:'MISMATCH' })); genBad++; };
     const strT=(field,pr)=>{ if(!d) return; const cv=normCmp(c[pr]); const dv=normCmp(d[pr]);
+      /* [TEXT-STATE] CLC มีค่า + แถว DWAK ใดว่าง → MISSING รายแถว (ระบุ Item No. จริง) */
+      if(cv){
+        const blanks=(dwakByKey.get(invoice+'\u0001'+material)||[]).filter(x=>normCmp(x[pr])==='');
+        if(blanks.length){
+          for(const x of blanks){
+            diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014','\u2014','DWAK ไม่มีข้อมูล',
+              { source:'CLC', dwakItem:(x.itemno||String(x._row)), expected:(c[pr]||''), status:'MISSING' })); genBad++; }
+          return; } }
       if(!cv && !dv) return;
       if(cv===dv) return;
       const st = !cv ? 'SOURCE MISSING' : (!dv ? 'MISSING' : 'MISMATCH');
       diffs.push(D0(field,invoice,material,'\u2014',(c[pr]||'\u2014'),'\u2014',(d[pr]||'\u2014'),
         st==='SOURCE MISSING' ? ('ไม่พบ '+field+' ใน CLC') : (st==='MISSING' ? 'DWAK ไม่มีข้อมูล' : 'DWAK \u2260 CLC'),
         { source:'CLC', dwakItem:dItems, expected:(c[pr]||''), status:st })); genBad++; };
-    strT('Description','desc');
-    numT('Quantity','qty',1e-9);
-    strT('Currency','curr');
+    /* ══ [SOURCE MATRIX — EXCLUSIVE] CLC → DWAK เป็นเจ้าของเฉพาะ Field ต่อไปนี้ ══
+       Net Weight · Thai Description · Tariff Code · Stat · Brand · Package
+       ★ Description / Quantity / Currency / Origin / Net Value ถูกย้ายไปให้
+         INVOICE PDF เป็น Source เดียว (บล็อก B2) — ถอดออกจากที่นี่ทั้งหมด
+         เพื่อไม่ให้ Field เดียวถูกตัดสินจาก Source สองตัว
+       ★ Tariff / Stat / Package ตรวจในบล็อก [HS/STAT] และ [PACKAGE] ด้านล่าง
+       ★ Gross Weight ยังไม่มี Source of Truth → ไม่ตรวจ (ห้ามเดา)                */
     numT('Net Weight','netwt',TOL_W);
-    numT('Net Value','netval',TOL_V);
-    strT('Country of Origin','country');
-    /* ★ Gross Weight ถูกถอดออก — MAPPING ไม่ใช่ MASTER และ CLC ไม่มี Gross Weight ราย Material
-       จึงไม่มี Source of Truth ที่ตรวจได้ (ห้ามตรวจโดยเดา) */
+    strT('Thai Description','thdesc');
+    strT('Brand','brand');
   }
   const genOk=genBad===0;
 
   /* ===== (D) Invoice Number / Date — MASTER = CLC ===== */
   const uset=(a,f)=>{ const s=new Set(); a.forEach(r=>{ const v=normText(r[f]); if(v)s.add(v); }); return [...s].sort(); };
   const jk=a=>a.join(', ');
-  const cNo=uset(clc,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
-  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
-  const noDwkOk=jk(cNo)===jk(dNo)||!dNo.length;
-  const invNoOk=noDwkOk;
+  /* ★ [MATRIX] INVOICE NO. และ DATE INV มี Source เดียว = INVOICE PDF
+     เดิมตัดสินจาก CLC → ย้ายมาใช้ PDF · CLC/MAPPING แสดงประกอบเท่านั้น */
+  const cNo=uset(pdfItems,'invoice'), pNo=uset(mapping,'invoice'), dNo=uset(dwak,'invoice');
+  /* ══ [STATE] INVOICE NO. — Root Cause เดิม: `!cNo.length || !dNo.length || equal`
+     `!dNo.length` ทำให้ "PDF มี Invoice แต่ DWAK ไม่มีเลย" กลายเป็น PASS
+     ใหม่: PDF มี + DWAK ว่าง → MISSING · PDF ว่าง + DWAK มี → SOURCE MISSING     */
+  let invNoSt='';
+  if(cNo.length && !dNo.length)      invNoSt='MISSING';
+  else if(!cNo.length && dNo.length) invNoSt='SOURCE MISSING';
+  else if(cNo.length && dNo.length && jk(cNo)!==jk(dNo)) invNoSt='MISMATCH';
+  const invNoOk = invNoSt==='';
   if(!invNoOk){
-    diffs.push(D0('Invoice Number','\u2014','\u2014','\u2014',jk(cNo)||'\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014','DWAK')); }
+    diffs.push(D0('INVOICE NO.','\u2014','\u2014','\u2014','\u2014',jk(pNo)||'\u2014',jk(dNo)||'\u2014',
+      invNoSt==='MISSING' ? 'DWAK ไม่มีข้อมูล' : (invNoSt==='SOURCE MISSING' ? 'ไม่พบ INVOICE NO. ใน PDF' : 'DWAK \u2260 PDF'),
+      { source:'PDF', pdf:jk(cNo)||'\u2014', expected:jk(cNo), status:invNoSt })); }
   const invNoChk={ master:jk(cNo)||'\u2014', mapping:jk(pNo)||'\u2014', dwak:jk(dNo)||'\u2014', ok:invNoOk };
   const dset=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invdate); if(dd)s.add(dd); }); return [...s].sort(); };
-  const cDt=dset(clc), pDt=dset(mapping), dDt=dset(dwak);
-  /* ★ MAPPING ถูกถอดออก — ตัดสินจาก CLC ↔ DWAK เท่านั้น */
-  const dtW=[];
-  if(cDt.length && dDt.length && jk(dDt)!==jk(cDt)) dtW.push('DWAK');
-  const invDateOk=dtW.length===0;
-  if(!invDateOk) diffs.push(D0('Invoice Date','\u2014','\u2014','\u2014',jk(cDt)||'\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',dtW.join(' / ')));
+  const dsetP=a=>{ const s=new Set(); a.forEach(r=>{ const dd=normDate(r.invDate); if(dd)s.add(dd); }); return [...s].sort(); };
+  const cDt=dsetP(pdfItems), pDt=dset(mapping), dDt=dset(dwak);
+  /* ══ [STATE] DATE INV — Root Cause เดิม: เทียบเฉพาะเมื่อ cDt.length && dDt.length
+     ทำให้ PDF มีวันที่ แต่ DWAK ว่าง ไม่ถูกฟ้อง                                    */
+  let invDtSt='';
+  if(cDt.length && !dDt.length)      invDtSt='MISSING';
+  else if(!cDt.length && dDt.length) invDtSt='SOURCE MISSING';
+  else if(cDt.length && dDt.length && jk(cDt)!==jk(dDt)) invDtSt='MISMATCH';
+  const invDateOk=invDtSt==='';
+  if(!invDateOk) diffs.push(D0('DATE INV','\u2014','\u2014','\u2014','\u2014',jk(pDt)||'\u2014',jk(dDt)||'\u2014',
+    invDtSt==='MISSING' ? 'DWAK ไม่มีข้อมูล' : (invDtSt==='SOURCE MISSING' ? 'ไม่พบ DATE INV ใน PDF' : 'DWAK \u2260 PDF'),
+    { source:'PDF', pdf:jk(cDt)||'\u2014', expected:jk(cDt), status:invDtSt }));
   const invDateChk={ master:jk(cDt)||'\u2014', mapping:jk(pDt)||'\u2014', dwak:jk(dDt)||'\u2014', ok:invDateOk };
 
 
@@ -25223,13 +25455,36 @@ function compare(){
   }
   const fx4Ok = fx4Bad===0;
 
+  /* ══════════════════════════════════════════════════════════════════════
+     [COLUMN MISSING] Required Header ของ DWAK — ห้าม skip เงียบ
+       เดิมทุกการตรวจใช้ pattern `if(cols.X < 0) ข้าม` ทำให้ไฟล์ DWAK ที่ขาด
+       คอลัมน์สำคัญได้ผล PASS ทั้งที่ตรวจไม่ได้จริง
+       ใหม่: ไม่มีคอลัมน์ → 1 diff · สถานะ COLUMN MISSING
+     ══════════════════════════════════════════════════════════════════════ */
+  const REQ_DWAK_COLS=[
+    ['netwt','Net Weight'], ['thdesc','Thai Description'], ['tariff','Tariff'],
+    ['stat','Stat'], ['brand','Brand'], ['pkgamt','Package Amount'],
+    ['unitprice','Unit Price'],
+    ['imptaxinc','Import Tax Incentives ID'], ['permitno1','PermitNo1'],
+    ['issuedate1','IssueDate1'], ['permitauth1','PermitIssueAuthority1']
+  ];
+  let colMissBad=0;
+  for(const [ck,clabel] of REQ_DWAK_COLS){
+    if(S.dwak.cols && S.dwak.cols[ck]>=0) continue;
+    diffs.push(D0(clabel,normText(invM)||'\u2014','\u2014','\u2014','\u2014','\u2014','\u2014',
+      'DWAK ไม่มีคอลัมน์ '+clabel,
+      { source:'DWAK', dwakItem:'\u2014', expected:'', status:'COLUMN MISSING' })); colMissBad++;
+  }
+  const colMissOk = colMissBad===0;
+
   const errorCount=diffs.length;
   const verdict=errorCount===0?'PASS':'FAIL';
   const firstInv=(clc[0]&&clc[0].invoice)? String(clc[0].invoice).replace(/[^0-9A-Za-z_-]/g,'') : '';
   return { verdict, errorCount, diffs, refChk, itemChk, invNoChk, invDateChk, genOk, pdfOk, pdfCount:pdfItems.length, duiOk, duiBad, duiChecked, ieatOk, ieatBad, ieatChecked,
     hsOk, hsBad, hsChecked, statChecked, pkgOk, pkgBad, pkgChecked, fx4Ok, fx4Bad, fx4Checked,
-    meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:S.mapping.name, dwakName:S.dwak.name,
-           clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:S.mapping.sheet, dwakSheet:S.dwak.sheet,
+    colMissOk, colMissBad,
+    meta:{ pdfName:(S.pdf&&S.pdf.name)||'', clcName:S.clc.name, rmdnName:S.rmdn.name, mappingName:(S.mapping&&S.mapping.name)||'(ไม่ได้อัปโหลด)', dwakName:S.dwak.name,
+           clcSheet:S.clc.sheet, rmdnSheet:S.rmdn.sheet, mappingSheet:(S.mapping&&S.mapping.sheet)||'', dwakSheet:S.dwak.sheet,
            invoice:firstInv, at:stampHuman() } };
 }
 
@@ -25279,7 +25534,9 @@ async function loadInto(kind,file){
 }
 function checkReady(){
   const b=document.getElementById('msp2-btn-run'); if(!b) return;
-  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  /* [MAPPING OPTIONAL] MAPPING ไม่ใช่ไฟล์บังคับอีกต่อไป — ยังอัปโหลดได้ แต่ไม่บังคับ
+     และไม่มีผลต่อ PASS/FAIL ทุกกรณี */
+  const missing=['pdf','clc','rmdn','dwak'].filter(k=>!S[k]);
   b.disabled=missing.length>0;
   if(missing.length && !document.getElementById('msp2-status').classList.contains('err'))
     setStatus('รอไฟล์ — ยังขาด: '+missing.map(k=>FILE_LABEL[k]).join(' · '));
@@ -25307,7 +25564,8 @@ function wireDrops(){
 
 /* ---------- run ---------- */
 window.msp2Run=function(){
-  const missing=['pdf','clc','rmdn','mapping','dwak'].filter(k=>!S[k]);
+  /* [MAPPING OPTIONAL] ไม่มี MAPPING ก็ต้องกดตรวจได้ */
+  const missing=['pdf','clc','rmdn','dwak'].filter(k=>!S[k]);
   if(missing.length){ setStatus('ยังขาดไฟล์: '+missing.map(k=>FILE_LABEL[k]).join(' · '), true); return; }
   const btn=document.getElementById('msp2-btn-run'), exp=document.getElementById('msp2-btn-export');
   btn.disabled=true; if(exp) exp.style.display='none';
@@ -25414,7 +25672,7 @@ window.msp2Reset=function(){
   const exp=document.getElementById('msp2-btn-export'); if(exp) exp.style.display='none';
   const sb=document.getElementById('msp2-search'); if(sb) sb.value='';
   const btn=document.getElementById('msp2-btn-run'); if(btn) btn.disabled=true;
-  setStatus('รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (CLC / RM DN / MAPPING / DWAK)');
+  setStatus('รอไฟล์ — ต้องอัปโหลดครบทั้ง 4 ไฟล์ (PDF INVOICE / CLC / RM DN / DWAK) · MAPPING ไม่บังคับ');
 };
 
 /* ---------- export (Sheet เดียว "ตรวจ SCH FZ" · MASTER = RM DN สำหรับ ref/item, CLC สำหรับอื่น) ---------- */
