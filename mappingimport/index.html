@@ -12358,6 +12358,28 @@ function spUnitCode(u){
 function spNum(v){ const n = parseFloat(String(v==null?'':v).replace(/,/g,'').trim()); return isFinite(n)?n:null; }
 
 /* อ่านข้อความจาก PDF ด้วย pdf.js — ใช้ hasEOL รักษาโครงบรรทัดเหมือน readPDF เดิม */
+/* ══ [FZ AKO 2 ONLY · sp*] แปลงวันที่หัว Invoice จาก PDF ══
+   PDF จริงมี 2 รูปแบบ (ยืนยันจากไฟล์จริง):
+     DD.MM.YYYY  เช่น 26.08.2026  (IC_113986657)
+     YYYY.MM.DD  เช่น 2026.09.10  (IC_113987209)
+   ★ ตัดสินจาก "ส่วนไหนมี 4 หลัก" เท่านั้น — ไม่เดาจากค่าตัวเลข
+   ★ ทั้งสองส่วนไม่มี 4 หลัก (เช่น 10.09.26) = กำกวม → คืน null ให้ caller โยน Error
+     ห้ามเดาว่าเป็นวันหรือเดือน
+   ★ รองรับตัวคั่น . - /  · ตรวจความถูกต้องของวันจริงด้วย (กัน 31.02)
+   ★ sp2* (FZ AKO 1) และโหมดอื่นไม่เรียกฟังก์ชันนี้                              */
+function spPdfDocDate(str){
+  const p = String(str==null?'':str).trim().split(/[.\-\/]/).map(x=>x.trim());
+  if(p.length !== 3) return null;
+  let y, m, d;
+  if(p[0].length === 4)      { y=+p[0]; m=+p[1]; d=+p[2]; }   // YYYY.MM.DD
+  else if(p[2].length === 4) { d=+p[0]; m=+p[1]; y=+p[2]; }   // DD.MM.YYYY
+  else return null;                                            // กำกวม — ห้ามเดา
+  if(!isFinite(y)||!isFinite(m)||!isFinite(d)) return null;
+  if(y<1900||y>2999||m<1||m>12||d<1||d>31) return null;
+  const dt = new Date(y, m-1, d);
+  return (dt.getFullYear()===y && dt.getMonth()===m-1 && dt.getDate()===d) ? dt : null;
+}
+
 async function spPdfText(file){
   const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjsLib.getDocument({ data }).promise;
@@ -12388,11 +12410,20 @@ function spParsePdfText(txt, fname){
     }
   }
   const joined = L.join('\n');
-  const mDoc = joined.match(/Document No\. \/ Date\s*\n?\s*(\d+)\s*\/\s*(\d{2}\.\d{2}\.\d{4})/);
+  /* ══ [FZ AKO 2] หัว Invoice "Document No. / Date" ══
+     Root Cause เดิม: Regex บังคับวันที่เป็น (\d{2}\.\d{2}\.\d{4}) = DD.MM.YYYY เท่านั้น
+       IC_113987209 ใช้ YYYY.MM.DD ("113987209 / 2026.09.10") → ไม่ Match → throw
+     ที่แก้:
+       · "No." จุดท้ายเป็น optional (No. / No) และรับช่องว่างรอบ "/" ได้ทุกแบบ (\s*)
+       · รับวันที่ทั้ง DD.MM.YYYY และ YYYY.MM.DD (คั่นด้วย . - / ก็ได้)
+       · รองรับกรณี pdf.js ตัดบรรทัดกลาง ("Document No. / Date\n113987209 / 2026.09.10")
+       · แปลงวันด้วย spPdfDocDate() ซึ่งตัดสินจากตำแหน่งเลข 4 หลัก — ไม่สลับวัน/เดือน
+     ★ ไม่ hard-code เลข Invoice ใด ๆ                                              */
+  const mDoc = joined.match(/Document\s*No\.?\s*\/\s*Date\s*:?\s*\n?\s*(\d+)\s*\/\s*(\d{1,4}[.\-\/]\d{1,2}[.\-\/]\d{1,4})/i);
   if(!mDoc) throw new Error('อ่าน Document No. / Date ไม่ได้: ' + fname);
   const invoice = mDoc[1];
-  const dparts  = mDoc[2].split('.');
-  const invDate = new Date(+dparts[2], +dparts[1]-1, +dparts[0]);
+  const invDate = spPdfDocDate(mDoc[2]);
+  if(!invDate) throw new Error('อ่านวันที่ของ Document No. / Date ไม่ได้ (' + mDoc[2] + '): ' + fname);
   const mCur = joined.match(/^Currency\s+([A-Z]{3})$/m);
   if(!mCur) throw new Error('อ่าน Currency ไม่ได้: ' + fname);
   const currency = mCur[1];
