@@ -1,0 +1,1 @@
+import{a,b,c,d,e}from"./chunk-ID23AZMO.js";import"./chunk-UWAYW6DC.js";import"./chunk-DIH2PLYD.js";import"./chunk-PCFU74ZV.js";export{b as invoiceDocHTML,c as invoicePrintTitle,a as isAdvItem,d as openInvoiceDoc,e as openInvoiceDocMulti};
