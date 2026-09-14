@@ -979,6 +979,16 @@ input[type=file]{display:none}
         🇹🇭 Thai Glico
       </button>
 
+      <button class="sbi" id="nav-thai-inaba" onclick="navTo('thai-inaba')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        🇹🇭 Thai Inaba CO
+      </button>
+
+      <button class="sbi" id="nav-mci-form" onclick="navTo('mci-form')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+        🧾 MCI FORM
+      </button>
+
       <button class="sbi" id="nav-sch-weight" onclick="navTo('sch-weight')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
         ⚖️ ตรวจน้ำหนัก SCH
@@ -2008,6 +2018,95 @@ input[type=file]{display:none}
         </div>
       </div>
 
+      <!-- ════════ 🇹🇭 THAI INABA CO (PL + EXPORT ENTRY → MAPPING FORM CO + MAPPING 2 → ZIP) ════════ -->
+      <div class="pview" id="page-thai-inaba" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <span>🇹🇭</span> THAI INABA CO — MAPPING FORM CO + MAPPING 2
+        </div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด PL Excel + EXPORT ENTRY → กด EXPORT ครั้งเดียว → ได้ ZIP ที่มี Excel 2 ไฟล์ (ชื่อไฟล์ตาม Invoice No. จาก EXPORT ENTRY) · จับคู่ด้วย Product Code</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin-bottom:14px">
+          <div class="hl-upload-card pdf-card" id="tic-pl-card" onclick="document.getElementById('tic-pl-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
+            <div class="hl-dz-title">① PL Excel</div>
+            <div class="hl-dz-sub">.xls / .xlsx (Total Net · Total gross)</div>
+            <div class="hl-dz-fname" id="tic-pl-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="tic-pl-inp" accept=".xls,.xlsx" style="display:none">
+          </div>
+          <div class="hl-upload-card pdf-card" id="tic-ee-card" onclick="document.getElementById('tic-ee-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M16 3v18M3 16h13"/></svg></div>
+            <div class="hl-dz-title">② EXPORT ENTRY</div>
+            <div class="hl-dz-sub">.xls / .xlsx (ใบขน · Product Code · Tariff · FOB)</div>
+            <div class="hl-dz-fname" id="tic-ee-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="tic-ee-inp" accept=".xls,.xlsx" style="display:none">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <button id="tic-export-btn" onclick="_ticExport()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:6px;background:#1f6feb;color:#fff;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">📦 EXPORT (ZIP · 2 Mapping)</button>
+          <button onclick="_ticClear()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;background:none;border:1px solid var(--bd);color:var(--t2);font-family:inherit;font-size:13px;cursor:pointer">✕ ล้างไฟล์</button>
+        </div>
+
+        <div id="tic-summary" style="max-width:900px;margin-bottom:12px"></div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📜 LOG</div>
+          <div id="tic-log" style="max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
+        </div>
+      </div>
+
+      <!-- ════════ 🧾 MCI FORM (INVOICE EXCEL + EXCEL ต้นทุน → MAPPING + MAPPING FORM CO → ZIP) ════════ -->
+      <div class="pview" id="page-mci-form" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <span>🧾</span> MCI FORM — MAPPING + MAPPING FORM CO
+        </div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด INVOICE EXCEL + EXCEL ต้นทุน → กด EXPORT EXCEL ครั้งเดียว → Download ZIP ทันที · จับต้นทุนจาก Prefix ของ Material Desc. · เลข INVOICE อ่านจาก INVOICE EXCEL โดยตรง</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin-bottom:12px">
+          <div class="hl-upload-card pdf-card" id="mcf-inv-card" onclick="document.getElementById('mcf-inv-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
+            <div class="hl-dz-title">① INVOICE EXCEL</div>
+            <div class="hl-dz-sub">.xls / .xlsx (Material Desc. · HS Code · N.W. · G.W. · FOB)</div>
+            <div class="hl-dz-fname" id="mcf-inv-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="mcf-inv-inp" accept=".xls,.xlsx" style="display:none">
+          </div>
+          <div class="hl-upload-card pdf-card" id="mcf-cost-card" onclick="document.getElementById('mcf-cost-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M16 3v18M3 16h13"/></svg></div>
+            <div class="hl-dz-title">② EXCEL ต้นทุน</div>
+            <div class="hl-dz-sub">.xls / .xlsx (ชื่อในคำขอ · ต้นทุน · RVC)</div>
+            <div class="hl-dz-fname" id="mcf-cost-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="mcf-cost-inp" accept=".xls,.xlsx" style="display:none">
+          </div>
+        </div>
+
+        <div style="max-width:620px;margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2)">
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">💱 อัตราแลกเปลี่ยน (ใช้คำนวณคอลัมน์ usd ของ MAPPING)</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--t2)">
+            <span>FOB</span><span style="font-weight:700;color:#2ea043">×</span>
+            <input type="number" step="any" id="mcf-rate-mul" placeholder="25.0438" oninput="_mcfPreview()"
+                   style="width:120px;padding:6px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s1);color:var(--t1);font-family:inherit;font-size:12px">
+            <span style="font-weight:700;color:#d29922">÷</span>
+            <input type="number" step="any" id="mcf-rate-div" placeholder="32.4522" oninput="_mcfPreview()"
+                   style="width:120px;padding:6px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s1);color:var(--t1);font-family:inherit;font-size:12px">
+            <span style="font-weight:700">= USD</span>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:6px">
+            ช่องที่ 1 = อัตราสำหรับ <b style="color:#2ea043">คูณ (×)</b> · ช่องที่ 2 = อัตราสำหรับ <b style="color:#d29922">หาร (÷)</b> — ลำดับคำนวณคงที่ ห้ามสลับ
+          </div>
+          <div id="mcf-rate-eg" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <button id="mcf-export-btn" onclick="_mcfExport()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:6px;background:#1f6feb;color:#fff;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">📦 EXPORT EXCEL</button>
+          <button onclick="_mcfClear()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;background:none;border:1px solid var(--bd);color:var(--t2);font-family:inherit;font-size:13px;cursor:pointer">✕ ล้างไฟล์</button>
+        </div>
+
+        <div id="mcf-summary" style="max-width:900px;margin-bottom:12px"></div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📜 LOG</div>
+          <div id="mcf-log" style="max-height:200px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
+        </div>
+      </div>
+
       <!-- ════════ REPORT FORMSCH MANAGEMENT ════════ -->
       <!-- ════════ ⚖️ ตรวจน้ำหนัก SCH (ย้ายจาก Source เดิม · browser-only · prefix schw) ════════ -->
       <div class="pview" id="page-sch-weight" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
@@ -2641,7 +2740,7 @@ function navTo(page){
   }
   const shownPage = (page==='report-form') ? 'report' : page;   // REPORT FORM = ใช้หน้า/ข้อมูล (page-report · RPT_DATA · report_formsch) ชุดเดียวกับ REPORT FORMSCH — ไม่แยกระบบ/ตาราง/state
   window.rptFormMode = (page==='report-form');                  // REPORT FORM: ซ่อนลูกค้า SCH ทุกจุด (แสดงผลเท่านั้น) · REPORT FORMSCH: แสดงครบ
-  ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','sch-weight','report'].forEach(p=>{
+  ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','thai-inaba','mci-form','sch-weight','report'].forEach(p=>{
     document.getElementById('page-'+p)?.classList.toggle('on',p===shownPage);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
@@ -2655,20 +2754,24 @@ function navTo(page){
     'prename':'เปลี่ยนชื่อ PDF',
     'pdf2img':'PDF → Image',
     'thaiglico':'🇹🇭 Thai Glico',
+    'thai-inaba':'🇹🇭 Thai Inaba CO',
+    'mci-form':'🧾 MCI FORM',
     'sch-weight':'ตรวจน้ำหนัก SCH',
     'report':'REPORT FORMSCH MANAGEMENT',
     'report-form':'REPORT FORM'
   };
-  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
+  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','thai-inaba':'INABA','mci-form':'MCI','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   const tagEl=document.getElementById('tb-tag');
-  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':(page==='report'||page==='report-form')?'#8a6d3b':'';}
+  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='thai-inaba'?'#1f6feb':page==='mci-form'?'#d29922':(page==='report'||page==='report-form')?'#8a6d3b':'';}
   if(page==='sch-weight' && typeof schwBind==='function') schwBind();   // ⚖️ ตรวจน้ำหนัก SCH — ผูก Drag&Drop + วาดรายการไฟล์
   if(page==='pmerge' && typeof _pmBind==='function') _pmBind();
   if(page==='mci' && typeof _mciBind==='function') _mciBind();
   if(page==='prename' && typeof _prBind==='function') _prBind();
   if(page==='pdf2img' && typeof _p2iBind==='function') _p2iBind();
   if(page==='thaiglico' && typeof _tgBind==='function') _tgBind();
+  if(page==='thai-inaba' && typeof _ticBind==='function') _ticBind();
+  if(page==='mci-form' && typeof _mcfBind==='function') _mcfBind();
   if((page==='report'||page==='report-form') && typeof _rptBind==='function') _rptBind();
   if(page==='members'){
     syncMembersFromSupabase();   // pull latest from Supabase before render
@@ -8006,9 +8109,6 @@ function handleMappingPdfMultiUpload(event){
   if(_dupCount > 0 && typeof toast === 'function') toast('ข้ามไฟล์ซ้ำ ' + _dupCount + ' ไฟล์', 'info');
   const inp = document.getElementById('mappingPdfMultiInput');
   if(inp) inp.value = '';   // reset so same filename can be re-selected later
-  // ADDITIVE ONLY: if RM is already loaded, compare RM Billing Document vs PDF
-  // and WARN about missing invoice numbers. Never blocks mapping/export.
-  if(mappingRmFile && typeof checkMappingMissingInvoices === 'function') checkMappingMissingInvoices();
 }
 
 function renderMappingPdfMultiList(){
@@ -8412,61 +8512,6 @@ function _rmBuildKey3(billing, qty, netVal){
   ].join('|');
 }
 
-// ── Missing-INVOICE warning (RM Billing Document is MASTER) ──────────────
-// Compare UNIQUE RM[Billing Document] against Billing Document extracted from
-// uploaded PDFs (Document No./Date). WARN ONLY — do not mutate mapping rows,
-// do not block export, and do not alter any existing match/business logic.
-let mappingMissingInvoiceCheckSeq = 0;
-async function checkMappingMissingInvoices(){
-  const seq = ++mappingMissingInvoiceCheckSeq;
-  if(!mappingRmFile || !mappingPdfFiles || mappingPdfFiles.length === 0 || typeof XLSX === 'undefined') return;
-  try{
-    const rmBuf = await mappingRmFile.arrayBuffer();
-    if(seq !== mappingMissingInvoiceCheckSeq) return;
-    const wb = XLSX.read(rmBuf, {type:'array', cellDates:true});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    if(!ws || !ws['!ref']) return;
-    const rng = XLSX.utils.decode_range(ws['!ref']);
-    const hr = rng.s.r;
-    let cBilling = -1;
-    for(let c=rng.s.c; c<=rng.e.c; c++){
-      const cell = ws[XLSX.utils.encode_cell({r:hr,c})];
-      const h = cell ? String(cell.v == null ? '' : cell.v).trim().toLowerCase().replace(/\s+/g,' ') : '';
-      if(h === 'billing document'){ cBilling = c; break; }
-    }
-    if(cBilling < 0){
-      if(typeof toast === 'function') toast('ตรวจ INVOICE ไม่ได้: RM ไม่มีหัวข้อ Billing Document', 'warning');
-      return;
-    }
-    const rmDocs = new Set();
-    for(let r=hr+1; r<=rng.e.r; r++){
-      const cell = ws[XLSX.utils.encode_cell({r,c:cBilling})];
-      const raw = cell ? cell.v : '';
-      const n = String(raw == null ? '' : raw).trim().replace(/\.0+$/,'');
-      if(n) rmDocs.add(n);
-    }
-
-    const built = await buildMappingRowsFromPdfFiles(mappingPdfFiles);
-    if(seq !== mappingMissingInvoiceCheckSeq) return;
-    const pdfDocs = new Set();
-    for(const row of (built && built.dataRows ? built.dataRows : [])){
-      const n = String(row && row[1] != null ? row[1] : '').trim();
-      if(n) pdfDocs.add(n);
-    }
-    const missing = [...rmDocs].filter(n => !pdfDocs.has(n)).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
-    if(missing.length){
-      const msg = 'INVOICE PDF ขาด ' + missing.length + ' เลข จาก RM Billing Document:\n' + missing.join(', ');
-      if(typeof toast === 'function') toast('INVOICE PDF ขาด ' + missing.length + ' เลข: ' + missing.join(', '), 'warning');
-      alert(msg);
-    } else {
-      if(typeof toast === 'function') toast('ตรวจ INVOICE ครบ — Billing Document ใน RM มี PDF ครบทุกเลข', 'success');
-    }
-  }catch(err){
-    console.warn('[Mapping Excel] missing invoice check failed', err);
-    if(typeof toast === 'function') toast('ตรวจ INVOICE ไม่สำเร็จ — Mapping/Export ยังทำงานต่อได้ตามเดิม', 'warning');
-  }
-}
-
 function handleMappingRmUpload(event){
   const fl = (event && event.target && event.target.files) ? event.target.files : [];
   const file = fl && fl.length ? fl[0] : null;
@@ -8480,8 +8525,6 @@ function handleMappingRmUpload(event){
   if(lbl) lbl.textContent = '✓ ' + file.name;
   const inp = document.getElementById('mappingRmInput');
   if(inp) inp.value = '';
-  // ADDITIVE ONLY: compare immediately when PDFs were uploaded first.
-  if(mappingPdfFiles && mappingPdfFiles.length > 0) checkMappingMissingInvoices();
 }
 
 // ── กล่อง RM (อ้างอิง) — ใช้เติม Import entry no. / Item no. ก่อน Export Final ──
@@ -8818,7 +8861,6 @@ function _mapKeyIE(billing, productCode){
 // ── Mapping Excel · EXPORT เท่านั้น: ตั้ง Number Format ให้แสดงทศนิยม 3 ตำแหน่ง ──
 // แก้เฉพาะ "การแสดงผล" (cell.z) — ค่าใน cell ยังเป็น Number เดิม ไม่ปัด ไม่ลด precision
 const _MAP_Z3 = '#,##0.000';
-const _MAP_Z0 = '#,##0';
 // ใช้กับ sheet ที่เราสร้างเอง (aoa_to_sheet): ระบุคอลัมน์ตัวเลขที่ต้องการ 3 ตำแหน่ง (0-based)
 // ข้ามแถวหัวตาราง · แตะเฉพาะ cell ที่เป็นตัวเลข (t==='n') → คอลัมน์รหัส/เลขเอกสารที่เป็น text ไม่ถูกแตะ
 function _mapZ3Cols(ws, cols, startRow){
@@ -8828,41 +8870,6 @@ function _mapZ3Cols(ws, cols, startRow){
     for(const c of cols){
       const cell = ws[XLSX.utils.encode_cell({r, c})];
       if(cell && cell.t === 'n') cell.z = _MAP_Z3;
-    }
-  }
-}
-// Mapping Excel · Qty. ตอน EXPORT: แสดงเป็นจำนวนเต็ม ไม่มีจุดทศนิยม
-// เปลี่ยนเฉพาะ Number Format (cell.z) ไม่เปลี่ยนค่าตัวเลข/การคำนวณเดิม
-function _mapZ0Cols(ws, cols, startRow){
-  if(!ws || !ws['!ref']) return;
-  const rg = XLSX.utils.decode_range(ws['!ref']);
-  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
-    for(const c of cols){
-      const cell = ws[XLSX.utils.encode_cell({r, c})];
-      if(cell && cell.t === 'n') cell.z = _MAP_Z0;
-    }
-  }
-}
-// Mapping Excel EXPORT: บังคับคอลัมน์ QTY ทุกชีต (รวม SUMMARY หน้าแรก / Country / RM FINAL / UNMATCHED) ให้แสดงจำนวนเต็ม
-// ตรวจจากชื่อหัวคอลัมน์ที่อนุญาตเท่านั้น เพื่อไม่แตะคอลัมน์อื่นหรือข้อความที่มีคำว่า Qty โดยบังเอิญ
-function _mapZ0AllQtyHeaders(ws){
-  if(!ws || !ws['!ref']) return;
-  const rg = XLSX.utils.decode_range(ws['!ref']);
-  const qtyHdrs = new Set(['qty','invoiced qty','invoiced quantity','billing qty in sku','matched qty','total invoiced qty','total qty']);
-  const qtyCols = new Set();
-  for(let r=rg.s.r; r<=Math.min(rg.e.r, rg.s.r+40); r++){
-    for(let c=rg.s.c; c<=rg.e.c; c++){
-      const cell = ws[XLSX.utils.encode_cell({r,c})];
-      if(!cell || cell.v==null) continue;
-      const h = String(cell.v).toLowerCase().replace(/[.]/g,'').replace(/\s+/g,' ').trim();
-      if(qtyHdrs.has(h)) qtyCols.add(c);
-    }
-  }
-  if(!qtyCols.size) return;
-  for(let r=rg.s.r; r<=rg.e.r; r++){
-    for(const c of qtyCols){
-      const cell = ws[XLSX.utils.encode_cell({r,c})];
-      if(cell && cell.t==='n') cell.z = _MAP_Z0;
     }
   }
 }
@@ -9318,9 +9325,8 @@ async function exportMappingCombined(){
         // TOTAL row — numbers only; text columns blank (incl. Billing Document Date + คอลัมน์ที่เพิ่มท้าย)
         aoa.push(['TOTAL','','','', round3(tQ), round3(tV), '', '', round3(tQty), round3(tNW), round3(tGW), round3(tFOB), '', '', '', '']);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        // Mapping Excel EXPORT: Qty.(8) = จำนวนเต็มไม่มีจุดทศนิยม; คอลัมน์ตัวเลขอื่นคง 3 ตำแหน่งเหมือนเดิม
-        _mapZ3Cols(ws, [4,5,9,10,11], 1);
-        _mapZ0Cols(ws, [8], 1);
+        // ทศนิยม 3 ตำแหน่ง: Invoiced Qty(4) · Net Value(5) · Qty.(8) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
+        _mapZ3Cols(ws, [4,5,8,9,10,11], 1);
         ws['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
         _rrSheets++;   // country sheet นี้เติมคอลัมน์แล้ว
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -9433,9 +9439,6 @@ async function exportMappingCombined(){
     // -- Final order: SUMMARY · country sheets (A-Z) · RM FINAL · UNMATCHED --
     const tail=['RM FINAL','UNMATCHED'].filter(n=>wb.SheetNames.includes(n));
     wb.SheetNames = ['SUMMARY', ...sheetOrder, ...tail].filter(n=>wb.SheetNames.includes(n));
-
-    // Mapping Excel EXPORT: QTY ทุกชีต รวม SUMMARY หน้าแรก = ไม่มีจุดทศนิยม
-    wb.SheetNames.forEach(sn=>_mapZ0AllQtyHeaders(wb.Sheets[sn]));
 
     // -- Download --
     const rmName=(mappingState.rmFile.name||'RM').replace(/\.[^.]+$/,'');
@@ -11871,6 +11874,488 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
     const eb=_el('tg-export-btn'); if(eb){eb.style.display='none';eb.disabled=true;}
   };
 })();
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  🇹🇭 THAI INABA CO — PL Excel + EXPORT ENTRY → MAPPING FORM CO + MAPPING 2 (ZIP)
+//  prefix: _tic  ·  ไม่แตะโหมดอื่น · โครงสร้าง/Format ตามไฟล์ตัวอย่างจริง
+// ══════════════════════════════════════════════════════════════════════════════
+const ticState={ pl:null, ee:null, lastLog:[] };
+
+const _ticNorm = v => String(v==null?'':v).trim();
+const _ticNum  = v => { if(v==null||v==='') return null;
+  const n=Number(String(v).replace(/,/g,'').trim()); return Number.isFinite(n)?n:null; };
+const _ticR3   = n => Math.round((Number(n)||0)*1000)/1000;
+// Key จับคู่ = ข้อความในวงเล็บชุดแรก (เช่น "(EU151) 14G" → EU151 · "Churu ... (EU151) " → EU151)
+const _ticCode = s => { const m=String(s==null?'':s).match(/\(([^()]*)\)/);
+  return m ? m[1].toUpperCase().replace(/[^A-Z0-9]/g,'') : _ticNorm(s).toUpperCase().replace(/[^A-Z0-9]/g,''); };
+
+function _ticLog(msg,type){ const box=document.getElementById('tic-log'); if(!box) return;
+  const c=type==='err'?'#f85149':type==='warn'?'#d29922':type==='ok'?'#2ea043':'var(--t3)';
+  box.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:'+c+';padding:1px 0">'+msg+'</div>');
+  box.scrollTop=box.scrollHeight; }
+
+function _ticBind(){
+  [['tic-pl-inp','pl','tic-pl-name'],['tic-ee-inp','ee','tic-ee-name']].forEach(([id,key,lbl])=>{
+    const el=document.getElementById(id); if(!el||el.dataset.ticBound) return; el.dataset.ticBound='1';
+    el.addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+      ticState[key]=f; const n=document.getElementById(lbl); if(n){ n.textContent=f.name; n.style.color='#2ea043'; } });
+  });
+}
+function _ticClear(){
+  ticState.pl=null; ticState.ee=null;
+  ['tic-pl-inp','tic-ee-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  [['tic-pl-name','① PL Excel'],['tic-ee-name','② EXPORT ENTRY']].forEach(([id])=>{
+    const n=document.getElementById(id); if(n){ n.textContent='ยังไม่ได้เลือก'; n.style.color=''; } });
+  const lg=document.getElementById('tic-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('tic-summary'); if(sm) sm.innerHTML='';
+}
+
+// ── อ่าน PL Excel: หาแถวหัวตารางที่มี "Total Net" + "Total gross" → map Product Code → {net,gross} ──
+function _ticReadPL(wb){
+  for(const name of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''});
+    for(let r=0;r<aoa.length;r++){
+      const row=aoa[r]||[]; let cNet=-1,cGross=-1;
+      for(let c=0;c<row.length;c++){ const t=_ticNorm(row[c]).toLowerCase().replace(/\s+/g,' ');
+        if(cNet<0   && /^total net/.test(t))   cNet=c;
+        if(cGross<0 && /^total gross/.test(t)) cGross=c; }
+      if(cNet<0||cGross<0) continue;
+      let cName=-1; for(let c=0;c<cNet;c++){ if(_ticNorm(row[c])!==''){ cName=c; break; } }
+      if(cName<0) cName=0;
+      const group=_ticNorm(row[cName]);
+      const map=new Map(); const dup=[];
+      for(let rr=r+1;rr<aoa.length;rr++){
+        const rw=aoa[rr]||[]; const nm=_ticNorm(rw[cName]);
+        if(nm==='') continue;
+        if(/^total/i.test(nm)) break;                       // แถวรวม = จบตาราง
+        const nv=_ticNum(rw[cNet]), gv=_ticNum(rw[cGross]); // #REF! / #N/A → null (ห้ามสร้างค่าเอง)
+        if(nv===null&&gv===null) continue;
+        const code=_ticCode(nm); if(code==='') continue;
+        if(map.has(code)) dup.push(code); else map.set(code,{net:nv,gross:gv,name:nm});
+      }
+      if(map.size) return {sheet:name,group,map,dup};
+    }
+  }
+  return null;
+}
+
+// ── อ่าน EXPORT ENTRY: Invoice No. + รายการตาม Product Code ──
+function _ticReadEE(wb){
+  const sheet=wb.SheetNames[0];
+  const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sheet],{header:1,defval:''});
+  let invRaw='',inv='';
+  for(let r=0;r<aoa.length && inv==='';r++){ const row=aoa[r]||[];
+    for(let c=0;c<row.length;c++){ const t=_ticNorm(row[c]);
+      const m=t.match(/invoice\s*no\.?\s*[:：]\s*(.+)$/i);
+      if(m){ invRaw=t; inv=m[1].trim(); break; } } }
+  const hdr=(aoa[0]||[]).map(h=>_ticNorm(h).toLowerCase().replace(/\s+/g,' '));
+  const f=cands=>{ for(let i=0;i<hdr.length;i++){ if(cands.indexOf(hdr[i])!==-1) return i; } return -1; };
+  const cProd=f(['product code']), cDesc=f(['desc.','desc']), cItem=f(['item no.','item no']),
+        cNet=f(['net weight']), cNU=f(['netweight unit']), cGross=f(['gross weight']), cGU=f(['grossweight unit']),
+        cFob=f(['fob for.','fob for']), cTar=f(['tariff']);
+  const rows=[];
+  for(let r=1;r<aoa.length;r++){
+    const rw=aoa[r]||[]; const prod=_ticNorm(rw[cProd]); if(prod==='') continue;
+    rows.push({ itemNo:_ticNorm(rw[cItem]), prod, desc:(cDesc<0?'':String(rw[cDesc]==null?'':rw[cDesc])),
+      eeNet:_ticNum(rw[cNet]), eeGross:_ticNum(rw[cGross]),
+      netUnit:_ticNorm(cNU<0?'':rw[cNU]), grossUnit:_ticNorm(cGU<0?'':rw[cGU]),
+      fob:_ticNum(rw[cFob]), tariff:_ticNorm(cTar<0?'':rw[cTar]) });
+  }
+  return {sheet,inv,invRaw,rows,cols:{cProd,cDesc,cNet,cGross,cFob,cTar}};
+}
+
+// ── หัวคอลัมน์ MAPPING FORM CO (48 คอลัมน์ · ตามไฟล์ตัวอย่าง 100%) ──
+const TIC_CO_HDR=['เลขที่ INVOICE','วันที่','ลำดับรายการตาม INVOICE','เลขที่ INVOICE ต่างประเทศ','วันที่',
+ 'ลำดับรายการตาม INVOICE ต่างประเทศ','Shipping Mark','B2B - ประเทศต้นทาง','B2B - เลขที่เอกสารต้นทาง','B2B - พิกัดสินค้า',
+ 'พิกัดสินค้า','ตัวเลือกเพื่อแสดง พิกัดสินค้า ในช่องรายละเอียดสินค้า','กรณีการใช้ต้นทุน','เลขที่ต้นทุน','เลขประจำตัวผู้เสียภาษี',
+ 'บริษัทผู้ยินยอมให้ใช้ต้นทุนร่วม','วันที่ออกต้นทุน','ความตกลง','Model','โรงงานผู้ผลิต','แสดงชื่อโรงงานผู้ผลิต',
+ 'ชื่อสินค้าที่แสดงในคำขอ / FIX','ชื่อสินค้าภาษาอังกฤษ  / FIX','รายละเอียดสินค้าที่แสดงในแบบฟอร์ม',
+ 'เลือกแสดง NET WEIGHT','เลือกแสดง GROSS WEIGHT','เลือกแสดง OTHER QUANTITY','QTY Package','หน่วย','Net Weight','หน่วย',
+ 'Gross Weight','หน่วย','Other Quantity','หน่วย','มูลค่า FOB','มูลค่า FOB สกุลเงินอื่น','มูลค่า FOB Invoice ต่างประเทศ',
+ 'มูลค่า FOB Invoice นายหน้าไทย','กฏว่าด้วยถิ่นกำเนิดสินค้า','% ของกฏ','กฏพิกัดที่จะไปแสดงใน Output','ค่าอื่นๆ ของกฏ',
+ '+ Criteria ที่ระบุ','RCEP Country of Origin','RCEP Country of Origin Marks','JTEPA Accumulation','JTEPA De Minimis'];
+const TIC_CO_W={1:12.5546875,2:12.5546875,3:22.33203125,4:45.44140625,5:12.5546875,6:31.6640625,7:22.44140625,9:20.88671875,
+ 10:14.109375,11:12.5546875,12:20.109375,13:15.33203125,14:14.0,15:18.109375,16:23.44140625,17:12.5546875,
+ 19:51.44140625,20:13.44140625,21:18.33203125,22:59.33203125,23:59.33203125,24:60.88671875,25:21.0,26:24.33203125,27:25.6640625,
+ 30:12.5546875,31:17.6640625,32:12.5546875,34:12.5546875,36:17.109375,37:18.33203125,38:25.33203125,39:26.0,
+ 40:19.88671875,42:24.33203125,43:12.0,44:13.33203125,45:18.0,46:23.0};
+const TIC_ACC2='_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)';
+const TIC_ACC3='_(* #,##0.000_);_(* \\(#,##0.000\\);_(* "-"??_);_(@_)';
+const TIC_M2_HDR=['Invoice : /  / EXCEL INV','Item No.','Desc. / จากใบขน คอลัม + Product Code','Tariff / จากใบขน ',
+ 'Net Weight / EXCEL INV','Gross Weight / EXCEL INV','FOB FOR. / จากใบขน '];
+const TIC_M2_W=[26.6640625,8.21875,55.21875,15.6640625,21.77734375,23.33203125,20.109375];
+
+// ── สร้าง MAPPING FORM CO.xlsx (ExcelJS · Arial 10 · Format ตามตัวอย่าง) ──
+async function _ticBuildFormCO(inv,recs,group){
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Sheet Excel');
+  ws.properties.defaultColWidth=12.5546875; ws.properties.defaultRowHeight=15.75;
+  for(let c=1;c<=48;c++){ if(TIC_CO_W[c]!=null) ws.getColumn(c).width=TIC_CO_W[c]; }
+  for(let c=1;c<=48;c++){ const cell=ws.getCell(1,c); cell.value=TIC_CO_HDR[c-1];
+    cell.font=(c>=45?{name:'Calibri',size:11}:{name:'Arial',size:10}); if(c>=45) cell.numFmt='@'; }
+  recs.forEach((rec,i)=>{
+    const r=i+2;
+    for(let c=1;c<=48;c++){ const cell=ws.getCell(r,c);
+      cell.font={name:'Arial',size:(c===1?8:10)};
+      if(c===2||c===4||c===5) cell.numFmt='mm-dd-yy';
+      else if(c===11) cell.numFmt='0';
+      else if(c===17) cell.numFmt='[$-1070000]d/m/yy;@';
+      else if(c===30||c===32||c===38) cell.numFmt=TIC_ACC2; }
+    ws.getCell(r,1).value  = inv||null;                 // A  เลขที่ INVOICE (จาก EXPORT ENTRY)
+    ws.getCell(r,3).value  = i+1;                       // C  ลำดับรายการตาม INVOICE
+    ws.getCell(r,6).value  = i+1;                       // F  ลำดับรายการตาม INVOICE ต่างประเทศ
+    if(rec.hs6!=null)  ws.getCell(r,11).value=rec.hs6;   // K  พิกัดสินค้า (6 หลักแรกของ Tariff)
+    if(group)          { ws.getCell(r,22).value=group; ws.getCell(r,23).value=group; }   // V/W
+    ws.getCell(r,24).value = rec.desc;                  // X  รายละเอียดสินค้า
+    if(rec.net!=null)      ws.getCell(r,30).value=rec.net;      // AD Net Weight (PL)
+    if(rec.netUnit)        ws.getCell(r,31).value=rec.netUnit;  // AE หน่วย
+    if(rec.gross!=null)    ws.getCell(r,32).value=rec.gross;    // AF Gross Weight (PL)
+    if(rec.grossUnit)      ws.getCell(r,33).value=rec.grossUnit;// AG หน่วย
+    if(rec.fob!=null)      ws.getCell(r,36).value=rec.fob;      // AJ มูลค่า FOB (ใบขน)
+  });
+  return await wb.xlsx.writeBuffer();
+}
+
+// ── สร้าง MAPPING 2.xlsx (ExcelJS · Calibri 11 · ชื่อ Sheet = Invoice) ──
+async function _ticBuildM2(inv,invRaw,recs){
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet((inv||'MAPPING 2').substring(0,31));
+  ws.properties.defaultRowHeight=14.4;
+  TIC_M2_W.forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+  for(let c=1;c<=7;c++){ const cell=ws.getCell(1,c); cell.value=TIC_M2_HDR[c-1];
+    cell.font={name:'Calibri',size:11}; if(c>=5) cell.numFmt=TIC_ACC3; }
+  let tN=0,tG=0,tF=0;
+  recs.forEach((rec,i)=>{
+    const r=i+2;
+    for(let c=1;c<=7;c++){ const cell=ws.getCell(r,c); cell.font={name:'Calibri',size:11}; if(c>=5) cell.numFmt=TIC_ACC3; }
+    ws.getCell(r,1).value = (i===0 ? (invRaw||('Invoice No. :'+(inv||''))) : '');
+    ws.getCell(r,2).value = i+1;
+    ws.getCell(r,3).value = rec.desc;
+    if(rec.tariffNum!=null) ws.getCell(r,4).value=rec.tariffNum;
+    if(rec.net!=null)   { ws.getCell(r,5).value=rec.net;   tN+=rec.net; }
+    if(rec.gross!=null) { ws.getCell(r,6).value=rec.gross; tG+=rec.gross; }
+    if(rec.fob!=null)   { ws.getCell(r,7).value=rec.fob;   tF+=rec.fob; }
+  });
+  const tr=recs.length+2;
+  for(let c=1;c<=7;c++){ const cell=ws.getCell(tr,c); cell.font={name:'Calibri',size:11}; if(c>=5) cell.numFmt=TIC_ACC3; }
+  ws.getCell(tr,5).value=_ticR3(tN); ws.getCell(tr,6).value=_ticR3(tG); ws.getCell(tr,7).value=_ticR3(tF);
+  return await wb.xlsx.writeBuffer();
+}
+
+async function _ticExport(){
+  const btn=document.getElementById('tic-export-btn');
+  const lg=document.getElementById('tic-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('tic-summary'); if(sm) sm.innerHTML='';
+  const fail=m=>{ _ticLog('✕ '+m,'err'); if(typeof toast==='function') toast(m,'error');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; } };
+  if(typeof XLSX==='undefined')    return fail('SheetJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof ExcelJS==='undefined') return fail('ExcelJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof JSZip==='undefined')   return fail('JSZip ยังไม่โหลด — refresh หน้าใหม่');
+  if(!ticState.pl) return fail('ยังไม่ได้เลือกไฟล์ ① PL Excel');
+  if(!ticState.ee) return fail('ยังไม่ได้เลือกไฟล์ ② EXPORT ENTRY');
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; }
+  try{
+    const plWb=XLSX.read(await ticState.pl.arrayBuffer(),{type:'array'});
+    const eeWb=XLSX.read(await ticState.ee.arrayBuffer(),{type:'array'});
+    const PL=_ticReadPL(plWb);
+    if(!PL) return fail('PL Excel: ไม่พบตารางที่มีหัวคอลัมน์ "Total Net" + "Total gross"');
+    const EE=_ticReadEE(eeWb);
+    if(!EE.rows.length) return fail('EXPORT ENTRY: ไม่พบข้อมูล Product Code');
+    if(!EE.inv)         return fail('EXPORT ENTRY: อ่าน Invoice No. ไม่ได้ (ต้องมีข้อความ "Invoice No. :xxx")');
+    _ticLog('PL sheet "'+PL.sheet+'" · Product Code '+PL.map.size+' รายการ · กลุ่มสินค้า "'+PL.group+'"');
+    _ticLog('EXPORT ENTRY sheet "'+EE.sheet+'" · Invoice '+EE.inv+' · '+EE.rows.length+' รายการ');
+    if(PL.dup.length) _ticLog('⚠ PL มี Product Code ซ้ำ: '+PL.dup.join(', ')+' (ใช้แถวแรก)','warn');
+
+    const used=new Set(), notFound=[];
+    const recs=EE.rows.map(r=>{
+      const key=_ticCode(r.prod);
+      const hit=PL.map.get(key)||null;
+      if(hit) used.add(key); else notFound.push(r.prod);
+      const tarDigits=String(r.tariff).replace(/\D/g,'').replace(/^0+/,'');
+      return {
+        key, prod:r.prod, itemNo:r.itemNo,
+        desc:String(r.desc).toUpperCase()+r.prod,                    // Desc. (ใบขน) + Product Code
+        tariffNum: tarDigits ? Number(tarDigits) : null,
+        hs6: tarDigits ? Number(tarDigits.substring(0,6)) : null,
+        net:   hit&&hit.net  !=null ? _ticR3(hit.net)   : null,      // PL เท่านั้น
+        gross: hit&&hit.gross!=null ? _ticR3(hit.gross) : null,      // PL เท่านั้น
+        netUnit:r.netUnit, grossUnit:r.grossUnit,
+        fob: r.fob                                                   // ใบขนเท่านั้น
+      };
+    });
+    const unusedPL=[...PL.map.keys()].filter(k=>!used.has(k));
+    notFound.forEach(p=>_ticLog('⚠ ไม่พบ Product Code ใน PL: '+p+' → Net/Gross เว้นว่าง','warn'));
+    unusedPL.forEach(k=>_ticLog('⚠ PL มี Product Code ที่ไม่มีในใบขน: '+k,'warn'));
+
+    const coBuf=await _ticBuildFormCO(EE.inv,recs,PL.group?PL.group.toUpperCase():'');
+    const m2Buf=await _ticBuildM2(EE.inv,EE.invRaw,recs);
+    const zip=new JSZip();
+    zip.file(EE.inv+' - MAPPING FORM CO.xlsx',coBuf);
+    zip.file(EE.inv+' - MAPPING 2.xlsx',m2Buf);
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=EE.inv+' - THAI INABA CO.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+    _ticLog('✓ สร้าง '+EE.inv+' - MAPPING FORM CO.xlsx ('+recs.length+' รายการ)','ok');
+    _ticLog('✓ สร้าง '+EE.inv+' - MAPPING 2.xlsx ('+recs.length+' รายการ + แถวรวม)','ok');
+    _ticLog('✓ ZIP: '+EE.inv+' - THAI INABA CO.zip','ok');
+    if(sm){
+      const okN=recs.filter(r=>r.net!=null).length, okG=recs.filter(r=>r.gross!=null).length,
+            okF=recs.filter(r=>r.fob!=null).length, okT=recs.filter(r=>r.tariffNum!=null).length;
+      sm.innerHTML='<div style="border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2);font-size:12px;color:var(--t2)">'+
+        '<b style="color:var(--t1)">Invoice '+EE.inv+'</b> · รายการ '+recs.length+
+        ' · Match Product Code '+(recs.length-notFound.length)+'/'+recs.length+
+        ' · Net '+okN+'/'+recs.length+' · Gross '+okG+'/'+recs.length+
+        ' · FOB '+okF+'/'+recs.length+' · Tariff '+okT+'/'+recs.length+
+        (notFound.length?'<div style="color:#d29922;margin-top:4px">ไม่พบใน PL: '+notFound.join(', ')+'</div>':'')+'</div>';
+    }
+    if(typeof toast==='function') toast('Export สำเร็จ — '+EE.inv+' - THAI INABA CO.zip','success');
+  }catch(err){ console.error('[THAI INABA CO]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
+  finally{ if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  🧾 MCI FORM — INVOICE EXCEL + EXCEL ต้นทุน → MAPPING + MAPPING FORM CO → ZIP
+//  prefix: _mcf  ·  ไม่แตะโหมดอื่น (MCI PDF / THAI INABA CO / Mapping Excel คงเดิม)
+//  Template FORM CO: ใช้ TIC_CO_HDR / TIC_CO_W / TIC_ACC2 ชุดเดียวกับ THAI INABA CO
+//  ไม่มี EXPORT ENTRY · ไม่มี SAVE ต้นทุน · ไม่แตะ Supabase — ใช้ไฟล์ที่ Upload ในรอบนั้นเท่านั้น
+// ══════════════════════════════════════════════════════════════════════════════
+const mcfState={ inv:null, cost:null };
+
+const _mcfS  = v => String(v==null?'':v).trim();
+const _mcfU  = v => _mcfS(v).toUpperCase();
+const _mcfN  = v => { if(v==null||v==='') return null;
+  const n=Number(String(v).replace(/,/g,'').trim()); return Number.isFinite(n)?n:null; };
+// prefix จับคู่ = "ชื่อในคำขอ" ตัดคำนำหน้า "CABLE or " และคำต่อท้าย "(Cable)" ออก (derive จากไฟล์ต้นทุน · ไม่ hardcode)
+const _mcfPrefix = name => _mcfU(name).replace(/^CABLE\s+OR\s+/,'').replace(/\s*\(CABLE\)\s*$/,'').trim();
+
+function _mcfLog(msg,type){ const box=document.getElementById('mcf-log'); if(!box) return;
+  const c=type==='err'?'#f85149':type==='warn'?'#d29922':type==='ok'?'#2ea043':'var(--t3)';
+  box.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:'+c+';padding:1px 0">'+msg+'</div>');
+  box.scrollTop=box.scrollHeight; }
+
+function _mcfBind(){
+  [['mcf-inv-inp','inv','mcf-inv-name'],['mcf-cost-inp','cost','mcf-cost-name']].forEach(([id,key,lbl])=>{
+    const el=document.getElementById(id); if(!el||el.dataset.mcfBound) return; el.dataset.mcfBound='1';
+    el.addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+      mcfState[key]=f; const n=document.getElementById(lbl); if(n){ n.textContent=f.name; n.style.color='#2ea043'; } });
+  });
+  _mcfPreview();
+}
+// ── USD = (FOB × อัตราช่องที่ 1) ÷ อัตราช่องที่ 2 — ลำดับคงที่ ห้ามสลับ ──
+function _mcfUsd(fob,mul,div){ if(fob==null||mul==null||div==null||div===0) return null; return (fob*mul)/div; }
+function _mcfRates(){
+  const m=_mcfN((document.getElementById('mcf-rate-mul')||{}).value);
+  const d=_mcfN((document.getElementById('mcf-rate-div')||{}).value);
+  return {mul:m,div:d};
+}
+function _mcfPreview(){
+  const el=document.getElementById('mcf-rate-eg'); if(!el) return;
+  const {mul,div}=_mcfRates();
+  if(mul==null||div==null||div===0){ el.innerHTML='<span style="color:#d29922">กรอกอัตราทั้ง 2 ช่องก่อน Export (ช่องที่ 2 ต้องไม่เป็น 0)</span>'; return; }
+  const eg=_mcfUsd(5131.5442,mul,div);
+  el.innerHTML='ตัวอย่าง: 5131.5442 × '+mul+' ÷ '+div+' = <b style="color:var(--t1)">'+eg+'</b>';
+}
+
+function _mcfClear(){
+  mcfState.inv=null; mcfState.cost=null;
+  ['mcf-rate-mul','mcf-rate-div'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  _mcfPreview();
+  ['mcf-inv-inp','mcf-cost-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['mcf-inv-name','mcf-cost-name'].forEach(id=>{ const n=document.getElementById(id); if(n){ n.textContent='ยังไม่ได้เลือก'; n.style.color=''; } });
+  const lg=document.getElementById('mcf-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('mcf-summary'); if(sm) sm.innerHTML='';
+}
+
+// ── อ่าน EXCEL ต้นทุน → Cost Master ของรอบนี้ (ไม่บันทึกที่ใด) ──
+function _mcfReadCost(wb){
+  const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  const hdr=(aoa[0]||[]).map(h=>_mcfS(h).toLowerCase().replace(/\s+/g,' '));
+  const f=c=>{ for(let i=0;i<hdr.length;i++){ if(c.indexOf(hdr[i])!==-1) return i; } return -1; };
+  const cName=f(['ชื่อในคำขอ']), cCost=f(['ต้นทุน']), cRvc=f(['rvc','% ของกฏ']);
+  if(cName<0||cCost<0||cRvc<0) return {err:'EXCEL ต้นทุนต้องมีคอลัมน์ • ชื่อในคำขอ • ต้นทุน • RVC'};
+  const list=[];
+  for(let r=1;r<aoa.length;r++){
+    const rw=aoa[r]||[]; const name=_mcfS(rw[cName]), costNo=_mcfS(rw[cCost]);
+    if(name===''||costNo==='') continue;
+    list.push({prefix:_mcfPrefix(name), name, costNo, rvc:_mcfN(rw[cRvc])});
+  }
+  if(!list.length) return {err:'EXCEL ต้นทุน: ไม่พบข้อมูล'};
+  const bad=list.filter(x=>!x.prefix);
+  if(bad.length) return {err:'อ่าน Prefix จาก "ชื่อในคำขอ" ไม่ได้: '+bad.map(b=>b.name).join(', ')};
+  return {list};
+}
+
+// ── อ่าน INVOICE EXCEL (MCI): หาแถวหัวตารางที่มี "Material Desc." + เลข INVOICE ──
+function _mcfReadInvoice(wb){
+  for(const name of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''});
+    for(let r=0;r<aoa.length;r++){
+      const row=(aoa[r]||[]).map(h=>_mcfS(h).toLowerCase().replace(/\s+/g,' '));
+      const f=c=>{ for(let i=0;i<row.length;i++){ if(c.indexOf(row[i])!==-1) return i; } return -1; };
+      const cDesc=f(['material desc.','material desc']);
+      if(cDesc<0) continue;
+      const cNo=f(['no.','no']), cHs=f(['hs code','hs code.']),
+            cNw=f(['n.w. (kgs)','n.w.(kgs)','n.w. (kg)']), cGw=f(['g.w. (kgs)','g.w.(kgs)','g.w. (kg)']),
+            cFob=f(['fob']), cCur=f(['currency','curr.']);
+      const miss=[]; if(cNo<0)miss.push('No.'); if(cHs<0)miss.push('HS Code');
+      if(cNw<0)miss.push('N.W. (kgs)'); if(cGw<0)miss.push('G.W. (kgs)'); if(cFob<0)miss.push('FOB');
+      const rows=[];
+      for(let rr=r+1;rr<aoa.length;rr++){
+        const rw=aoa[rr]||[]; const d=_mcfS(rw[cDesc]);
+        if(d==='') continue;
+        if(/^total$/i.test(_mcfS(rw[cNo]))) break;
+        rows.push({ excelRow:rr+1, no:_mcfN(rw[cNo]), desc:d,
+          hs:_mcfS(cHs<0?'':rw[cHs]), nw:_mcfN(cNw<0?null:rw[cNw]), gw:_mcfN(cGw<0?null:rw[cGw]),
+          fob:_mcfN(cFob<0?null:rw[cFob]), cur:_mcfU(cCur<0?'':rw[cCur]) });
+      }
+      if(rows.length) return {sheet:name,headerRow:r+1,rows,miss,inv:_mcfInvoiceNo(aoa,name),aoaRows:r};
+    }
+  }
+  return null;
+}
+// ── เลข INVOICE จาก INVOICE EXCEL เท่านั้น (ไม่ใช้ชื่อไฟล์ · ไม่ใช้ EXPORT ENTRY) ──
+//    ① cell ที่เขียน "Invoice Number / Invoice No." → ค่าในช่องถัดไปทางขวา (หรือค่าหลัง ":" ในช่องเดียวกัน)
+//    ② ถ้า ① ว่าง → ชุดตัวเลขท้ายสุด (>=4 หลัก) ในชื่อ Sheet เช่น "Delivery Sheet 0031043073" → 0031043073
+function _mcfInvoiceNo(aoa,sheetName){
+  for(let r=0;r<aoa.length;r++){
+    const row=aoa[r]||[];
+    for(let c=0;c<row.length;c++){
+      const t=_mcfS(row[c]); if(t==='') continue;
+      const inline=t.match(/invoice\s*(?:number|no\.?)\s*[:：]\s*(.+)$/i);
+      if(inline && _mcfS(inline[1])!=='') return _mcfS(inline[1]);
+      if(/^invoice\s*(?:number|no\.?)\s*[:：]?$/i.test(t)){
+        // เฉพาะ 2 ช่องที่ติดกันทางขวาเท่านั้น · ข้ามค่าที่เป็น label (ลงท้ายด้วย ":") — กันไปหยิบข้อความคนละบล็อกในแถวเดียวกัน
+        for(let k=c+1;k<=c+2 && k<row.length;k++){ const v=_mcfS(row[k]); if(v!=='' && !/[:：]\s*$/.test(v)) return v; }
+      }
+    }
+  }
+  const m=_mcfS(sheetName).match(/(\d{4,})\s*$/);
+  return m?m[1]:'';
+}
+
+// ── FORM 1: MAPPING (Aptos Narrow 11 · Sheet1 · 10 คอลัมน์ตามตัวอย่าง) ──
+const MCF_M1_HDR=['No.','Material Desc.','HS Code','N.W. (kgs)','G.W. (kgs)','FOB','usd','ชื่อในคำขอ','ต้นทุน','RVC'];
+const MCF_M1_W={1:3.90625,2:24.08984375,3:10.08984375,4:9.1796875,5:9.1796875,6:11.0,8:15.54296875,9:12.36328125};
+async function _mcfBuildMapping(recs){
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
+  ws.properties.defaultRowHeight=14.5;
+  for(let c=1;c<=10;c++){ if(MCF_M1_W[c]!=null) ws.getColumn(c).width=MCF_M1_W[c]; }
+  const F={name:'Aptos Narrow',size:11};
+  for(let c=1;c<=10;c++){ const cell=ws.getCell(1,c); cell.value=MCF_M1_HDR[c-1]; cell.font=F; }
+  recs.forEach((x,i)=>{ const r=i+2;
+    for(let c=1;c<=10;c++) ws.getCell(r,c).font=F;
+    ws.getCell(r,1).value=x.no; ws.getCell(r,2).value=x.descU;
+    if(x.hsNum!=null) ws.getCell(r,3).value=x.hsNum;
+    if(x.nw!=null) ws.getCell(r,4).value=x.nw;
+    if(x.gw!=null) ws.getCell(r,5).value=x.gw;
+    if(x.fob!=null) ws.getCell(r,6).value=x.fob;
+    if(x.usd!=null) ws.getCell(r,7).value=x.usd;   // USD = (FOB × อัตราช่อง 1) ÷ อัตราช่อง 2
+    ws.getCell(r,8).value=x.nameU; ws.getCell(r,9).value=x.costNo;
+    if(x.rvc!=null) ws.getCell(r,10).value=x.rvc;
+  });
+  return await wb.xlsx.writeBuffer();
+}
+// ── FORM 2: MAPPING FORM CO (Template 48 คอลัมน์ · Arial 10 · ตรงตัวอย่าง 100%) ──
+async function _mcfBuildFormCO(inv,recs){
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet Excel');
+  ws.properties.defaultColWidth=12.5546875; ws.properties.defaultRowHeight=15.75;
+  for(let c=1;c<=48;c++){ if(TIC_CO_W[c]!=null) ws.getColumn(c).width=TIC_CO_W[c]; }
+  for(let c=1;c<=48;c++){ const cell=ws.getCell(1,c); cell.value=TIC_CO_HDR[c-1];
+    cell.font=(c>=45?{name:'Calibri',size:11}:{name:'Arial',size:10}); if(c>=45) cell.numFmt='@'; }
+  recs.forEach((x,i)=>{ const r=i+2;
+    for(let c=1;c<=48;c++){ const cell=ws.getCell(r,c); cell.font={name:'Arial',size:(c===1?8:10)};
+      if(c===2||c===4||c===5) cell.numFmt='mm-dd-yy';
+      else if(c===11) cell.numFmt='0';
+      else if(c===17) cell.numFmt='[$-1070000]d/m/yy;@';
+      else if(c===30||c===32||c===38) cell.numFmt=TIC_ACC2; }
+    ws.getCell(r,1).value  = inv;                                  // A  เลขที่ INVOICE (จาก INVOICE EXCEL)
+    ws.getCell(r,3).value  = x.no;                                 // C  ลำดับรายการตาม INVOICE
+    if(x.hsNum!=null) ws.getCell(r,11).value=x.hsNum;              // K  พิกัดสินค้า ← HS Code
+    ws.getCell(r,14).value = x.costNo;                             // N  เลขที่ต้นทุน ← Cost
+    ws.getCell(r,22).value = x.nameU;                              // V  ชื่อสินค้าที่แสดงในคำขอ
+    ws.getCell(r,24).value = x.descU;                              // X  รายละเอียดสินค้า ← Material Desc.
+    if(x.nw!=null) ws.getCell(r,30).value=x.nw;                    // AD Net Weight
+    ws.getCell(r,31).value = 'KGM';                                // AE หน่วย
+    if(x.gw!=null) ws.getCell(r,32).value=x.gw;                    // AF Gross Weight
+    ws.getCell(r,33).value = 'KGM';                                // AG หน่วย
+    if(x.fob!=null) ws.getCell(r,36).value=x.fob;                  // AJ มูลค่า FOB ← FOB จาก Invoice
+    ws.getCell(r,40).value = 'RVC';                                // AN กฏว่าด้วยถิ่นกำเนิดสินค้า
+    if(x.rvc!=null) ws.getCell(r,41).value=x.rvc;                  // AO % ของกฏ
+  });
+  return await wb.xlsx.writeBuffer();
+}
+
+async function _mcfExport(){
+  const btn=document.getElementById('mcf-export-btn');
+  const lg=document.getElementById('mcf-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('mcf-summary'); if(sm) sm.innerHTML='';
+  const fail=m=>{ _mcfLog('✕ '+m,'err'); if(typeof toast==='function') toast(m,'error');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; } };
+  if(typeof XLSX==='undefined')    return fail('SheetJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof ExcelJS==='undefined') return fail('ExcelJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof JSZip==='undefined')   return fail('JSZip ยังไม่โหลด — refresh หน้าใหม่');
+  if(!mcfState.inv)  return fail('ยังไม่ได้เลือกไฟล์ ① INVOICE EXCEL');
+  if(!mcfState.cost) return fail('ยังไม่ได้เลือกไฟล์ ② EXCEL ต้นทุน');
+  const RT=_mcfRates();
+  if(RT.mul==null) return fail('ยังไม่ได้กรอกอัตราแลกเปลี่ยนช่องที่ 1 (สำหรับคูณ ×)');
+  if(RT.div==null) return fail('ยังไม่ได้กรอกอัตราแลกเปลี่ยนช่องที่ 2 (สำหรับหาร ÷)');
+  if(RT.div===0)   return fail('อัตราแลกเปลี่ยนช่องที่ 2 (÷) ต้องไม่เป็น 0');
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; }
+  try{
+    const COST=_mcfReadCost(XLSX.read(await mcfState.cost.arrayBuffer(),{type:'array'}));
+    if(COST.err) return fail(COST.err);
+    const INV=_mcfReadInvoice(XLSX.read(await mcfState.inv.arrayBuffer(),{type:'array'}));
+    if(!INV) return fail('INVOICE EXCEL: ไม่พบคอลัมน์ "Material Desc."');
+    if(INV.miss.length) return fail('INVOICE EXCEL: ไม่พบคอลัมน์ '+INV.miss.join(' · '));
+    if(!INV.inv) return fail('ไม่พบเลข INVOICE ใน INVOICE EXCEL');
+    _mcfLog('INVOICE sheet "'+INV.sheet+'" · '+INV.rows.length+' รายการ (หัวตารางแถว '+INV.headerRow+') · INVOICE '+INV.inv);
+    _mcfLog('EXCEL ต้นทุน '+COST.list.length+' รายการ · Prefix: '+COST.list.map(x=>x.prefix).join(' · '));
+    _mcfLog('อัตราแลกเปลี่ยน: USD = FOB × '+RT.mul+' ÷ '+RT.div);
+
+    // ── Material Desc. → ต้นทุน (prefix · trim · case-insensitive · longest match · ห้าม fuzzy) ──
+    const master=COST.list.slice().sort((a,b)=>b.prefix.length-a.prefix.length);
+    const unmatched=[];
+    const recs=INV.rows.map(r=>{
+      const U=_mcfU(r.desc);
+      const hit=master.find(m=>U.indexOf(m.prefix)===0)||null;
+      if(!hit) unmatched.push({row:r.excelRow,no:r.no,desc:r.desc});
+      const hsDigits=r.hs.replace(/\D/g,'');
+      return { no:r.no, excelRow:r.excelRow, descU:U, hsNum:hsDigits?Number(hsDigits):null,
+               nw:r.nw, gw:r.gw, fob:r.fob, cur:r.cur, usd:_mcfUsd(r.fob,RT.mul,RT.div),
+               nameU:hit?_mcfU(hit.name):'', costNo:hit?hit.costNo:'', rvc:hit?hit.rvc:null };
+    });
+    if(unmatched.length){
+      unmatched.forEach(u=>_mcfLog('✕ แถว '+u.row+' (No.'+u.no+') ไม่พบต้นทุนสำหรับ: '+u.desc,'err'));
+      return fail('มี Material Desc. ที่จับต้นทุนไม่ได้ '+unmatched.length+' รายการ — ไม่ Export');
+    }
+
+    const m1=await _mcfBuildMapping(recs);
+    const m2=await _mcfBuildFormCO(INV.inv,recs);
+    const zip=new JSZip();
+    zip.file(INV.inv+'.xlsx',m1);                        // MAPPING = เลข INVOICE โดยตรง
+    zip.file('MAPPING FORM CO '+INV.inv+'.xlsx',m2);
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=INV.inv+'.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+    _mcfLog('✓ '+INV.inv+'.xlsx (MAPPING · '+recs.length+' รายการ)','ok');
+    _mcfLog('✓ MAPPING FORM CO '+INV.inv+'.xlsx ('+recs.length+' รายการ)','ok');
+    _mcfLog('✓ ZIP: '+INV.inv+'.zip','ok');
+    if(sm){ const byCost={}; recs.forEach(x=>{ byCost[x.costNo]=(byCost[x.costNo]||0)+1; });
+      sm.innerHTML='<div style="border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2);font-size:12px;color:var(--t2)">'+
+        '<b style="color:var(--t1)">INVOICE '+INV.inv+'</b> · รายการ '+recs.length+' · Match ต้นทุน '+recs.length+'/'+recs.length+
+        ' · usd = FOB × '+RT.mul+' ÷ '+RT.div+
+        '<div style="margin-top:4px;color:var(--t3)">ต้นทุนที่ใช้: '+Object.entries(byCost).map(([k,v])=>k+' × '+v).join(' · ')+'</div></div>'; }
+    if(typeof toast==='function') toast('Export สำเร็จ — '+INV.inv+'.zip','success');
+  }catch(err){ console.error('[MCI FORM]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
+  finally{ if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
+}
 </script>
 </body>
 </html>
