@@ -829,6 +829,10 @@ body.legacy-active .content-area { display: none !important; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       <span class="label">FZ AKO 1</span>
     </a>
+    <a class="sb-item" data-nav="ako_p" onclick="switchCustomer('ako_p')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h6a3 3 0 0 1 0 6H7z"/><line x1="7" y1="14" x2="7" y2="17"/></svg>
+      <span class="label">AKO P</span>
+    </a>
     <div class="sb-subsection">🏢 Other Customer</div>
     <a class="sb-item" data-nav="celestica" onclick="switchCustomer('celestica')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v18h6V3H9zm-6 18h4V8H3v13zm14-13v13h4V8h-4z"/></svg>
@@ -1631,6 +1635,57 @@ body.legacy-active .content-area { display: none !important; }
   </div><!-- /msp2-view -->
   </div>
 </div><!-- /sp2-view -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     AKO P — PDF INVOICE + EXCEL INVOICE + RM/DN + HS CODE
+     → แตกรายการ.xlsx + MAPPING.xlsx (ZIP ต่อ 1 Invoice)
+     ★ โหมดแยกอิสระ ไม่ใช้/ไม่แก้ Logic ของโหมดอื่น
+     ══════════════════════════════════════════════════════════════ -->
+<div class="doa-view" id="akp-view">
+  <div class="doa-panel">
+    <h2>📦 1. อัปโหลดไฟล์ AKO P (ทุกกลุ่มเลือกได้หลายไฟล์)</h2>
+    <div class="doa-uploads akp-upload-grid">
+      <label class="doa-drop" id="akp-pdf-drop">
+        <div class="dico">📄</div>
+        <div class="dlabel">PDF INVOICE</div>
+        <div class="dhint">Schaeffler Tax Invoice — หลายไฟล์ / หลาย Invoice</div>
+        <div class="doa-file-list" id="akp-pdf-list"></div>
+        <input type="file" id="akp-pdf-input" accept=".pdf" multiple/>
+      </label>
+      <label class="doa-drop" id="akp-inv-drop">
+        <div class="dico">📊</div>
+        <div class="dlabel">EXCEL INVOICE</div>
+        <div class="dhint">Customs inv — Part number / HS code / Brand / ยอดสรุป</div>
+        <div class="doa-file-list" id="akp-inv-list"></div>
+        <input type="file" id="akp-inv-input" accept=".xlsx,.xlsm" multiple/>
+      </label>
+      <label class="doa-drop" id="akp-rm-drop">
+        <div class="dico">📋</div>
+        <div class="dlabel">RM / DN</div>
+        <div class="dhint">Outbound Delivery No. / Part No. / QTY / Ref # Inbound</div>
+        <div class="doa-file-list" id="akp-rm-list"></div>
+        <input type="file" id="akp-rm-input" accept=".xlsx,.xlsm" multiple/>
+      </label>
+      <label class="doa-drop" id="akp-hs-drop">
+        <div class="dico">🧾</div>
+        <div class="dlabel">HS CODE</div>
+        <div class="dhint">Tariff Code / Stat / Privilege / Seq / Tariff rate</div>
+        <div class="doa-file-list" id="akp-hs-list"></div>
+        <input type="file" id="akp-hs-input" accept=".xlsx,.xlsm" multiple/>
+      </label>
+    </div>
+    <div class="doa-row-actions">
+      <button class="doa-btn" onclick="akpClearAll()">🗑️ ล้างทั้งหมด</button>
+    </div>
+    <div class="doa-status" id="akp-status" style="margin-top:8px">รอไฟล์ — ต้องครบ 4 กลุ่ม (PDF INVOICE / EXCEL INVOICE / RM/DN / HS CODE)</div>
+  </div>
+
+  <div class="doa-panel" id="akp-result-panel" style="display:none">
+    <h2>📑 2. ผลลัพธ์ราย Invoice</h2>
+    <div id="akp-cards"></div>
+  </div>
+</div><!-- /akp-view -->
+
 
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -2654,6 +2709,20 @@ function switchCustomer(key){
     const badge = document.getElementById('topbar-badge');
     badge.textContent = 'FZ';
     badge.className = 'company-badge schaeffler_fz';
+    return;
+  }
+  // ── AKO P (โหมดแยกอิสระ · ไม่ใช้ Logic ของโหมดอื่น) ──
+  if(key === 'ako_p'){
+    document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{ el.classList.toggle('active', el.dataset.nav===key); });
+    document.body.classList.remove('legacy-active');
+    document.body.classList.add('doa-active');
+    document.querySelectorAll('.doa-view').forEach(el=>{ if(el.id !== 'akp-view') el.classList.remove('active'); });
+    { const lv = document.getElementById('legacy-view'); if(lv) lv.classList.remove('active'); }
+    document.getElementById('akp-view').classList.add('active');
+    document.getElementById('topbar-title').textContent = 'AKO P';
+    const badge = document.getElementById('topbar-badge');
+    badge.textContent = 'AKO P';
+    badge.className = 'company-badge sch_pdf';
     return;
   }
   // ── SCH PDF (โหมดแยกอิสระ · clone ของ Schaeffler FZ) ──
@@ -25975,6 +26044,14 @@ table.doa-tbl tbody td{color:#475569}
 #sp-view .doa-drop .dlabel{font-size:14px;font-weight:700}
 #sp-view .doa-drop .dhint{font-size:11px}
 @media (max-width:768px){#sp-view .doa-uploads.sp-upload-grid{grid-template-columns:1fr;gap:16px}}
+/* ── [AKO P] Upload 4 กลุ่ม เรียงแถวเดียว · scoped เฉพาะ #akp-view ไม่กระทบโหมดอื่น ── */
+#akp-view .doa-uploads.akp-upload-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:100%;max-width:none;margin:0}
+#akp-view .doa-drop{width:100%;max-width:none;min-height:42px;padding:8px;border-radius:14px;gap:4px}
+#akp-view .doa-drop .dico{font-size:22px}
+#akp-view .doa-drop .dlabel{font-size:14px;font-weight:700}
+#akp-view .doa-drop .dhint{font-size:11px}
+@media (max-width:1100px){#akp-view .doa-uploads.akp-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+@media (max-width:640px){#akp-view .doa-uploads.akp-upload-grid{grid-template-columns:1fr;gap:12px}}
 /* ── [ฝังใน Mapping FZ] ตรวจใบขน SCH FZ หัวข้อ 2 — prefix msp (แยกจาก scfz เดิม) ── */
 /* ── ตรวจใบขน SCH FZ (sch_fz_check) — clone ของ SCH NON · scoped · แยกสมบูรณ์ ── */
 /* ── ตรวจใบขน SCH FZ (sch_fz_check) — self-contained · scoped ── */
@@ -26065,5 +26142,733 @@ table.doa-tbl tbody td{color:#475569}
 .msp2-sumtbl th{background:var(--surface2);color:var(--text);text-align:center}
 .msp2-sumtbl td:first-child,.msp2-sumtbl th:first-child{text-align:left}
 </style>
+<script>
+(function(){
+/* ══════════════════════════════════════════════════════════════════════════
+   [AKO P] Core Engine — โหมดใหม่ แยกจากโหมดเดิมทุกโหมด
+   ★ ไม่แก้/ไม่เรียกฟังก์ชันของโหมดอื่น ยกเว้น spOriginCode() ซึ่งเป็น pure function
+     อ่านอย่างเดียว (แปลงชื่อประเทศ → ISO2) — ไม่มีการเขียนทับใด ๆ
+   ★ ทุก Field มี Source ที่พิสูจน์จากไฟล์จริง · Field ที่พิสูจน์ไม่ได้ = ว่าง + Error
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- helper ---------- */
+function akpT(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); }
+function akpDigits(v){ return String(v==null?'':v).replace(/[^0-9]/g,''); }
+function akpNum(v){
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return isFinite(v)?v:null;
+  const n=parseFloat(String(v).replace(/,/g,'').trim());
+  return isFinite(n)?n:null;
+}
+function akpR2(v){ return Math.round(v*100)/100; }
+function akpR6(v){ return Math.round(v*1e6)/1e6; }
+/* Invoice No. — ตัด prefix FZ- / ช่องว่าง / ขีด เพื่อจับคู่ PDF(113986990) ↔ Excel(FZ-113986990) */
+function akpInvKey(v){ return akpT(v).toUpperCase().replace(/^FZ[-\s]*/,'').replace(/[\s-]/g,''); }
+/* Delivery — ตัดศูนย์นำหน้า (0053929911 ↔ 53929911) · ไม่แก้ค่าดิบในไฟล์ */
+function akpDlvKey(v){ const d=akpDigits(v).replace(/^0+/,''); return d===''?'0':d; }
+/* Product Code — เทียบแบบไม่สนช่องว่าง/ตัวพิมพ์ */
+function akpPcKey(v){ return akpT(v).toUpperCase().replace(/\s/g,''); }
+/* Commodity/HS 11 หลัก → 8 หลัก (87089350000 → 87089350) · เก็บเป็น TEXT เสมอ */
+function akpTariff8(v){
+  const d=akpDigits(v);
+  if(d==='') return '';
+  return d.length===11 ? d.slice(0,8) : d;
+}
+/* วันที่ PDF/Excel: DD.MM.YYYY หรือ YYYY.MM.DD → ตัดสินจากตำแหน่งเลข 4 หลัก (ห้ามเดา) */
+function akpDate(v){
+  if(v instanceof Date && !isNaN(v)) return v;
+  const p=akpT(v).split(/[.\-\/]/).map(x=>x.trim());
+  if(p.length!==3) return null;
+  let y,m,d;
+  if(p[0].length===4){ y=+p[0]; m=+p[1]; d=+p[2]; }
+  else if(p[2].length===4){ d=+p[0]; m=+p[1]; y=+p[2]; }
+  else return null;
+  if(!(y>=1900&&y<=2999&&m>=1&&m<=12&&d>=1&&d<=31)) return null;
+  const dt=new Date(y,m-1,d);
+  return (dt.getFullYear()===y&&dt.getMonth()===m-1&&dt.getDate()===d)?dt:null;
+}
+function akpDMY(v){
+  const d=akpDate(v); if(!d) return akpT(v);
+  const p=n=>String(n).padStart(2,'0');
+  return p(d.getDate())+'.'+p(d.getMonth()+1)+'.'+d.getFullYear();
+}
+/* ประเทศ → ISO2 : ใช้ spOriginCode() ของระบบแบบอ่านอย่างเดียว (ไม่แก้ไขโหมดเดิม) */
+function akpOrigin(raw){
+  const s=akpT(raw); if(!s) return '';
+  if(typeof spOriginCode==='function'){ const c=spOriginCode(s); if(c) return c; }
+  return '';
+}
+
+/* ══ [PACKAGE] สรุปบรรจุภัณฑ์จาก EXCEL INVOICE เท่านั้น ══
+   1 ชนิด : Package = จำนวนของชนิดนั้น · หน่วยตาม map (PALLET(S)→PL · CARTON(S)→CT)
+   >1 ชนิด: Package = ผลรวมทุกชนิด · หน่วย = PK
+   ตัวอย่างจริง: 5 PALLETS + 1 CARTON → Package 6 · หน่วย PK
+   ★ ชนิดเดียวแต่หน่วยยังไม่มี map → คืนหน่วยว่าง (ห้ามเดา) พร้อมธง unknown          */
+const AKP_PKG_UNIT={ 'PALLET':'PL','PALLETS':'PL','CARTON':'CT','CARTONS':'CT' };
+function akpPackageSummary(list){
+  const pk=(list||[]).filter(x=>x && x.qty!=null && akpT(x.unit)!=='');
+  if(!pk.length) return { qty:null, unit:'', unknown:false, types:0 };
+  const total=pk.reduce((s,x)=>akpR6(s+Number(x.qty||0)),0);
+  const kinds=[...new Set(pk.map(x=>akpT(x.unit).toUpperCase().replace(/\.$/,'')))];
+  if(kinds.length>1) return { qty:total, unit:'PK', unknown:false, types:kinds.length };
+  const u=AKP_PKG_UNIT[kinds[0]]||'';
+  return { qty:total, unit:u, unknown:!u, types:1, rawUnit:kinds[0] };
+}
+
+/* หน่วยศุลกากร — map เฉพาะที่พิสูจน์จากไฟล์จริงเท่านั้น · หน่วยอื่น = คืน '' ให้ caller ฟ้อง */
+const AKP_UNIT={ 'PC':'C62', 'PCS':'C62' };
+function akpUnitCode(u){ const k=akpT(u).toUpperCase().replace(/\./g,''); return AKP_UNIT[k]||''; }
+
+/* ---------- [FIX] ค่าฟิกตามที่ผู้ใช้ยืนยัน · เก็บเป็น TEXT ทั้งหมด ---------- */
+const AKP_FIX = {
+  permitNo1:'EXEMPT99', permitDate1:'13/11/2017', taxId1:'0994000159561', pos1:'03',
+  boi:'Y', taxIncentive:'F5302081000002',
+  permitNo2:'119/2567',  permitDate2:'24/07/2024', taxId2:'0994000163011', pos2:'02'
+};
+
+/* ══ 1) PDF INVOICE ══════════════════════════════════════════════════════
+   Source: Document No./Date · Currency · Delivery conditions · Item block
+   Item block ให้: itemNo · material · qty · unit · Designation(EN/Desc2)
+                   Item value(unit price/total) · Commodity code · Country of origin · Page # */
+function akpParsePdf(txt, fname){
+  const raw=String(txt||'').split('\n');
+  const L=raw.map(x=>x.replace(/\s+/g,' ').trim());
+  const pageAt=new Array(L.length).fill(1);
+  { let cur=1;
+    for(let i=0;i<L.length;i++){
+      let m=L[i].match(/^Page:\s*(\d+)\s*\/\s*\d+$/i);
+      if(!m && /^Page:$/i.test(L[i]) && i+1<L.length) m=L[i+1].match(/^(\d+)\s*\/\s*\d+$/);
+      if(m) cur=parseInt(m[1],10);
+      pageAt[i]=cur;
+    } }
+  const joined=L.join('\n');
+  const mDoc=joined.match(/Document\s*No\.?\s*\/\s*Date\s*:?\s*\n?\s*(\d+)\s*\/\s*(\d{1,4}[.\-\/]\d{1,2}[.\-\/]\d{1,4})/i);
+  if(!mDoc) throw new Error('AKO P · INVALID FILE STRUCTURE — อ่าน Document No. / Date ไม่ได้: '+fname);
+  const invoice=mDoc[1];
+  const invDate=akpDate(mDoc[2]);
+  if(!invDate) throw new Error('AKO P · INVALID FILE STRUCTURE — อ่านวันที่ Invoice ไม่ได้ ('+mDoc[2]+'): '+fname);
+  const mCur=joined.match(/^Currency\s+([A-Z]{3})$/m);
+  const currency=mCur?mCur[1]:'';
+  const mDlv=joined.match(/Delivery\s*Note\s*No\.?\s*\/\s*Date\s*:?\s*\n?\s*(\d+)\s*\//i);
+  const deliveryNo=mDlv?mDlv[1]:'';
+  const mInco=joined.match(/Delivery\s+conditions:\s*\n?\s*([A-Z]{3})(?:\s+(.+))?$/mi);
+  const incoterm=mInco?mInco[1].toUpperCase():'';
+
+  const RE_ITEM_A=/^(\d{6})\s+(\S+)\s+([\d,]+)\s*(PC|EA|ST|KG|M)$/;
+  const RE_ITEM_B=/^(\d{6})\s+(\S+)\s*\/\s*(.+?)\s*\/\s*([\d,]+)\s*(PC|EA|ST|KG|M)$/;
+  const hit=l=>{ const b=l.match(RE_ITEM_B); if(b) return {itemNo:b[1],material:b[2],qty:akpNum(b[4]),unit:b[5]};
+                 const a=l.match(RE_ITEM_A); if(a) return {itemNo:a[1],material:a[2],qty:akpNum(a[3]),unit:a[4]}; return null; };
+  const starts=[]; for(let i=0;i<L.length;i++) if(hit(L[i])) starts.push(i);
+  const RE_DELIM=/#(?:N1|N|L)\//;
+  const RE_NOT_DESIG=/^(?:item\s+value|net\s+value\s+for\s+item|total\s+value\s+for\s+item|delivery\b|date\s+of\s+delivery|country\s+of\s+origin|commodity\s+code|customs\s+tariff|purch\.?\s*order|order\s+\d|free\s+of\s+charge|us\s+export|your\s+vat|our\s+vat|schaeffler\b|item\s+material|dimensions)/i;
+  const items=[];
+  for(let k=0;k<starts.length;k++){
+    const a=starts[k], b=(k+1<starts.length?starts[k+1]:L.length);
+    const blk=L.slice(a,b), m=hit(L[a]);
+    let desig=blk.slice(1).find(x=>RE_DELIM.test(x))||'';
+    let md=desig.match(RE_DELIM), cut=md?desig.indexOf(md[0]):-1, dl=md?md[0].length:0;
+    if(cut<0){ const cand=akpT(blk[1]); if(cand && !RE_NOT_DESIG.test(cand) && cand.indexOf('/')>=0){ desig=cand; cut=cand.indexOf('/'); dl=1; } }
+    const desc2 = cut>=0 ? desig.slice(0,cut).trim() : '';
+    const endesc= cut>=0 ? desig.slice(cut+dl).trim() : '';
+    let up=null, tp=null;
+    for(const x of blk){
+      const v=x.match(/(?:Item\s+value|Net\s+Value\s+for\s+Item|Total\s+Value\s+for\s+item)\s+([\d,\.]+)\s*\/\s*[\d,\.]+\s*\w+\s+([\d,\.]+)/i);
+      if(v){ up=akpNum(v[1]); tp=akpNum(v[2]); break; }
+    }
+    const cc=(blk.find(x=>/Commodity code:/i.test(x))||'').replace(/.*Commodity code:\s*/i,'').trim();
+    const co=(blk.find(x=>/Country of origin:/i.test(x))||'').replace(/.*Country of origin:\s*/i,'').trim();
+    items.push({ file:fname, invoice, invDate, currency, incoterm, deliveryNo,
+      itemNo:m.itemNo, material:m.material, qty:m.qty, unit:m.unit,
+      endesc, desc2, unitPrice:up, totalPrice:tp,
+      commodity:cc, originRaw:co, origin:akpOrigin(co), page:pageAt[a] });
+  }
+  if(!items.length) throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบรายการสินค้าใน PDF: '+fname);
+  return { kind:'pdf', file:fname, invoice, invDate, currency, incoterm, deliveryNo, items };
+}
+
+/* ══ 2) EXCEL INVOICE ═════════════════════════════════════════════════════
+   ตรวจโครงสร้างจริง: หาแถวหัวตารางที่มี "Part number" + "HS code"
+   Source: Invoice No./Date (ป้ายข้าง ๆ) · Term · Currency · 20 Source Lines · ยอดสรุป */
+function akpReadInvExcel(aoa, fname){
+  const cell=(r,c)=>akpT((aoa[r]||[])[c]);
+  const find=(re,maxR)=>{ for(let r=0;r<Math.min(aoa.length,maxR||aoa.length);r++)
+      for(let c=0;c<(aoa[r]||[]).length;c++) if(re.test(cell(r,c))) return {r,c}; return null; };
+  /* ── หาแถวหัวตารางจากข้อมูลจริง (ไฟล์จริงอยู่ราวแถว 26 — ห้าม assume แถว 1) ──
+     เกณฑ์เดียวคือมีคอลัมน์ "Part number" · ไม่บังคับว่าต้องมี HS code
+     เพราะไฟล์จริงบางใบใช้หัว "HS" และบางใบไม่มีหัว Brand เลย                     */
+  const hdr=(()=>{ for(let r=0;r<Math.min(aoa.length,60);r++){
+      const row=(aoa[r]||[]).map(x=>akpT(x).toLowerCase());
+      if(row.some(x=>/^part\s*number/.test(x))) return r;
+    } return -1; })();
+  if(hdr<0) throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบหัวตาราง Part number: '+fname);
+  const H=(aoa[hdr]||[]).map(x=>akpT(x).toLowerCase());
+  const col=n=>H.findIndex(x=>n.test(x));
+  /* ── ชื่อหัวคอลัมน์ต่างกันได้ระหว่างไฟล์จริง — รองรับทุกแบบที่พบ ──
+       HS code / HS            → hs
+       English Descritption / English Description / Eng Description → en
+       Thai Description / TH Description → th
+     ★ Brand ไม่มีหัวได้ (ไฟล์ 991) — ห้าม Reject ไฟล์เพราะไม่มี Brand           */
+  const C={ pc:col(/^part\s*number/), d2:col(/^descritption|^description$/),
+            en:col(/^(english|eng)\s*descri[pt]{2}ion/),
+            hs:col(/^hs(\s*code)?$/), th:col(/^(thai|th)\s*description/), br:col(/^brand/),
+            qty:col(/^q'?ty/), up:col(/^unit$/), amt:col(/^value$/),
+            /* [FALLBACK] Origin / Unit ราย Line ใน EXCEL INVOICE (ใช้เมื่อ PDF ไม่มี) */
+            origin:col(/^origin|^country\s*of\s*origin|^country$/), unit:col(/^uom$|^unit\s*of\s*measure|^q'?ty\s*unit/) };
+  /* บังคับเฉพาะ 2 คอลัมน์ที่ขาดไม่ได้จริง ๆ · ที่เหลือว่างได้และไปหาเพิ่มจาก PDF ตาม Flow เดิม */
+  for(const k of ['pc','qty']) if(C[k]<0)
+    throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบคอลัมน์ '+(k==='pc'?'Part number':"Q'ty")+' ใน EXCEL INVOICE: '+fname);
+
+  const pInv=find(/invoice\s*no\s*\.?\s*:?/i,hdr);
+  const pDt =find(/invoice\s*date\s*:?/i,hdr);
+  const pTrm=find(/^term\s*:?$/i,hdr);
+  const pCur=find(/^currency\s*:?$/i,hdr);
+  const rightOf=p=>{ if(!p) return ''; const row=aoa[p.r]||[];
+    for(let c=p.c+1;c<row.length;c++) if(akpT(row[c])!=='') return akpT(row[c]); return ''; };
+  const invoice=rightOf(pInv), invDateRaw=rightOf(pDt);
+
+  const lines=[];
+  for(let r=hdr+1;r<aoa.length;r++){
+    const pc=cell(r,C.pc); if(!pc) continue;
+    if(/^total|^goods|^v\.a\.t|^invoice\s*total/i.test(pc)) break;
+    const qty=akpNum((aoa[r]||[])[C.qty]); if(qty==null) continue;
+    lines.push({ srcRow:r+1, no:lines.length+1, pc,
+      desc2:cell(r,C.d2).replace(/#(?:N1|N|L)$/,'').trim(),
+      en:C.en>=0?cell(r,C.en):'', hs:C.hs>=0?cell(r,C.hs):'', th:C.th>=0?cell(r,C.th):'', brand:C.br>=0?cell(r,C.br):'',
+      qty, unitPrice:C.up>=0?akpNum((aoa[r]||[])[C.up]):null, amount:C.amt>=0?akpNum((aoa[r]||[])[C.amt]):null,
+      originRaw:C.origin>=0?cell(r,C.origin):'', unitRaw:C.unit>=0?cell(r,C.unit):'' });
+  }
+  if(!lines.length) throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบ Source Line ใน EXCEL INVOICE: '+fname);
+
+  /* ── ยอดสรุป (EXCEL ONLY) ── */
+  /* ★ ป้ายที่มี ":" คือบรรทัดยอดสรุปจริง — ในไฟล์ตัวอย่างมีคำว่า Net weight ซ้ำที่บรรทัด
+     Dimension of pallet ด้วย จึงต้องเลือกป้ายที่มี ":" ก่อนเสมอ (ถ้าไม่มีจึงค่อย fallback) */
+  const pNet=find(/^net\s*weight\s*:/i)||find(/^net\s*weight\b/i);
+  const pGrs=find(/^gross\s*weight\s*:/i)||find(/^gross\s*weight\b/i);
+  const pPk =find(/^total\s*packing\s*:?/i);
+  const netW=pNet?akpNum(rightOf(pNet)):null, grossW=pGrs?akpNum(rightOf(pGrs)):null;
+  const packages=[];
+  if(pPk){
+    /* แถวแรก = บรรทัด 'Total Packing :' · แถวถัดไปนับต่อเฉพาะที่ "ไม่มี label ใหม่"
+       (ไฟล์จริง: row57 Total Packing 5 PALLETS · row58 (ว่าง) 1 CARTON · row59 Dimension… → หยุด)
+       ★ รักษาทุก Package ห้ามรวมเป็นยอดเดียว */
+    for(let r=pPk.r; r<Math.min(aoa.length,pPk.r+10); r++){
+      const row=aoa[r]||[];
+      if(r>pPk.r && akpT(row[pPk.c])!=='') break;      // เจอ label ใหม่ = จบบล็อกบรรจุภัณฑ์
+      let q=null,u='';
+      for(let c=pPk.c+1;c<row.length;c++){
+        const v=akpT(row[c]); if(v==='') continue;
+        if(q==null){ const n=akpNum(v); if(n==null){ q=null; break; } q=n; } else { u=v; break; }
+      }
+      if(q!=null && u) packages.push({ qty:q, unit:u });
+      else if(r>pPk.r) break;
+    }
+  }
+  return { kind:'inv', file:fname, invoice, invDateRaw, invDate:akpDate(invDateRaw),
+           term:rightOf(pTrm), currency:rightOf(pCur), lines,
+           summary:{ netW, grossW, packages } };
+}
+
+/* ══ 3) RM / DN ══════════════════════════════════════════════════════════ */
+function akpReadRm(aoa, fname){
+  let hi=-1;
+  for(let r=0;r<Math.min(aoa.length,8);r++){
+    const j=(aoa[r]||[]).map(x=>akpT(x).toLowerCase()).join('|');
+    if(j.includes('outbound') && j.includes('part')) { hi=r; break; }
+  }
+  if(hi<0) throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบหัวตาราง RM/DN: '+fname);
+  const H=(aoa[hi]||[]).map(x=>akpT(x).toLowerCase());
+  const col=n=>H.findIndex(x=>n.test(x));
+  const C={ out:col(/outbound/), part:col(/^part\s*no/), qty:col(/^qty|^quantity/), ref:col(/inbound|customs\s*entry/) };
+  for(const k of ['out','part','qty','ref']) if(C[k]<0)
+    throw new Error('AKO P · INVALID FILE STRUCTURE — RM/DN ขาดคอลัมน์ '+k+': '+fname);
+  const rows=[];
+  for(let r=hi+1;r<aoa.length;r++){
+    const a=aoa[r]||[];
+    const out=akpT(a[C.out]), part=akpT(a[C.part]), qty=akpNum(a[C.qty]), ref=akpT(a[C.ref]);
+    if(!out || !part || qty==null) continue;
+    rows.push({ file:fname, srcIndex:rows.length, outbound:out, dlvKey:akpDlvKey(out),
+                part, pcKey:akpPcKey(part), qty, refRaw:ref });
+  }
+  if(!rows.length) throw new Error('AKO P · INVALID FILE STRUCTURE — RM/DN ไม่มีข้อมูล: '+fname);
+  return { kind:'rm', file:fname, rows };
+}
+/* Reference → Import Entry + Item (TEXT · เก็บ 0 นำหน้า) · Order kitting = ไม่มีเลขใบขน */
+function akpSplitRef(refRaw){
+  const s=akpT(refRaw);
+  if(!s) return { entry:'', item:'', kitting:false };
+  const m=s.match(/^([A-Za-z]\d+)[Xx](\w+)$/);
+  if(m) return { entry:m[1], item:String(m[2]), kitting:false };
+  return { entry:s, item:'', kitting:true };   // ห้ามสร้างเลขใบขนเอง
+}
+
+/* ══ 4) HS CODE ══════════════════════════════════════════════════════════
+   รวมหลายไฟล์ · dedup exact duplicate · แถวที่ Stat+Privilege+Seq ว่างทั้งหมด
+   ถือเป็น "ข้อมูลไม่ครบ" — ใช้ก็ต่อเมื่อไม่มีแถวที่ข้อมูลครบของ Tariff เดียวกัน
+   ★ ถ้าเหลือ variant ที่ข้อมูลครบ > 1 ชุด → HS CONFLICT (ห้ามเลือกเอง)            */
+function akpReadHs(aoa, fname){
+  let hi=-1;
+  for(let r=0;r<Math.min(aoa.length,8);r++){
+    const j=(aoa[r]||[]).map(x=>akpT(x).toLowerCase()).join('|');
+    if(j.includes('tariff code')) { hi=r; break; }
+  }
+  if(hi<0) throw new Error('AKO P · INVALID FILE STRUCTURE — ไม่พบหัวตาราง Tariff Code: '+fname);
+  const H=(aoa[hi]||[]).map(x=>akpT(x).toLowerCase());
+  const col=n=>H.findIndex(x=>n.test(x));
+  const C={ t:col(/tariff\s*code/), s:col(/^stat/), p:col(/^privilege/), q:col(/^seq/), r:col(/tariff\s*rate/) };
+  if(C.t<0) throw new Error('AKO P · INVALID FILE STRUCTURE — HS CODE ขาดคอลัมน์ Tariff Code: '+fname);
+  const rows=[];
+  for(let r=hi+1;r<aoa.length;r++){
+    const a=aoa[r]||[]; const t=akpT(a[C.t]); if(!t) continue;
+    rows.push({ file:fname, srcRow:r+1, tariff:t,
+      stat:C.s>=0?akpT(a[C.s]):'', priv:C.p>=0?akpT(a[C.p]):'',
+      seq:C.q>=0?akpT(a[C.q]):'',  rate:C.r>=0?akpT(a[C.r]):'' });
+  }
+  return { kind:'hs', file:fname, rows };
+}
+function akpBuildHsLookup(hsFiles){
+  const byT=new Map();
+  for(const f of hsFiles) for(const r of f.rows){
+    if(!byT.has(r.tariff)) byT.set(r.tariff,[]);
+    byT.get(r.tariff).push(r);
+  }
+  const out=new Map();
+  for(const [t,list] of byT){
+    /* (1) Dedup เฉพาะ Exact Duplicate 100% (Stat+Privilege+Seq+Rate เหมือนกันทุกช่อง) */
+    const seen=new Set(), uniq=[];
+    for(const r of list){
+      const k=r.stat+'\u0001'+r.priv+'\u0001'+r.seq+'\u0001'+r.rate;
+      if(seen.has(k)) continue; seen.add(k); uniq.push(r);
+    }
+    /* (2) [RULE-BLANK · อนุมัติโดยผู้ใช้ 14/09/2026]
+       แถวที่ Stat + Privilege + Seq ว่างทั้ง 3 ช่อง = ข้อมูลไม่ครบ ไม่ใช่ Variant จริง
+       → ข้ามทิ้งเมื่อ Tariff เดียวกันมีแถวที่ข้อมูลครบอยู่แล้ว
+       ตัวอย่างจริง: 87089390 และ 87089360 มีทั้ง (ว่าง//0.3) และ (000/000/65004/0.3)
+                    → ใช้ 000/000/65004 ตรงกับไฟล์ MAPPING ตัวอย่าง
+       ★ ยังคง HS CONFLICT ไว้สำหรับกรณีจริง: มีแถวข้อมูลครบมากกว่า 1 ชุดที่ต่างกัน
+       ★ ถ้ามีแต่แถวว่างล้วน ก็ใช้แถวว่างนั้น (ไม่เติม 000 เอง) */
+    const blank = r => r.stat==='' && r.priv==='' && r.seq==='';
+    const full  = uniq.filter(r=>!blank(r));
+    const use   = full.length ? full : uniq;
+    out.set(t,{ variants:use, all:uniq, skippedBlank: full.length ? uniq.length-full.length : 0 });
+  }
+  return out;
+}
+function akpHsPick(lookup, tariff){
+  const e=lookup.get(tariff);
+  if(!e) return { status:'HS NOT FOUND' };
+  if(e.variants.length>1) return { status:'HS CONFLICT', variants:e.variants };
+  const v=e.variants[0];
+  return { status:'OK', stat:v.stat, priv:v.priv, seq:v.seq, rate:v.rate, srcFile:v.file, srcRow:v.srcRow };
+}
+
+/* ══ 5) จับคู่ไฟล์เป็น Invoice Bundle ═══════════════════════════════════════
+   PDF Document No. ↔ EXCEL Invoice No. (Normalize prefix FZ-)
+   PDF Delivery Note No. ↔ RM Outbound Delivery No. (ตัดศูนย์นำหน้า)
+   ★ ห้าม Match จากชื่อไฟล์ · Match ไม่ชัด = AMBIGUOUS/UNMATCHED                */
+function akpPair(pdfs, invs, rms){
+  const bundles=new Map();
+  const touch=k=>{ if(!bundles.has(k)) bundles.set(k,{key:k,pdf:null,pdfAll:[],inv:null,invAll:[],rm:[],errors:[]}); return bundles.get(k); };
+  for(const p of pdfs){ const b=touch(akpInvKey(p.invoice)); b.pdfAll.push(p); if(!b.pdf) b.pdf=p; }
+  for(const e of invs){ const b=touch(akpInvKey(e.invoice)); b.invAll.push(e); if(!b.inv) b.inv=e; }
+  for(const b of bundles.values()){
+    if(b.pdfAll.length>1) b.errors.push({code:'AMBIGUOUS', msg:'พบ PDF INVOICE ซ้ำเลขเดียวกัน '+b.pdfAll.length+' ไฟล์: '+b.pdfAll.map(x=>x.file).join(', ')});
+    if(b.invAll.length>1) b.errors.push({code:'AMBIGUOUS', msg:'พบ EXCEL INVOICE ซ้ำเลขเดียวกัน '+b.invAll.length+' ไฟล์: '+b.invAll.map(x=>x.file).join(', ')});
+    if(!b.pdf) b.errors.push({code:'PDF NOT FOUND', msg:'ไม่พบ PDF INVOICE ของ '+b.key});
+    if(!b.inv) b.errors.push({code:'EXCEL INVOICE NOT FOUND', msg:'ไม่พบ EXCEL INVOICE ของ '+b.key});
+  }
+  /* RM/DN — จับด้วย Delivery Note No. ของ PDF เท่านั้น */
+  const allRm=[]; for(const f of rms) for(const r of f.rows) allRm.push(r);
+  for(const b of bundles.values()){
+    if(!b.pdf) continue;
+    const want=akpDlvKey(b.pdf.deliveryNo);
+    b.rm=allRm.filter(r=>r.dlvKey===want);
+    if(!b.rm.length) b.errors.push({code:'RM/DN NOT FOUND', msg:'ไม่พบ RM/DN ที่ Outbound Delivery = '+b.pdf.deliveryNo+' (Invoice '+b.key+')'});
+  }
+  /* Delivery เดียวกันถูกใช้โดยหลาย Invoice = กำกวม */
+  const dlvUse=new Map();
+  for(const b of bundles.values()) if(b.pdf){ const d=akpDlvKey(b.pdf.deliveryNo); dlvUse.set(d,(dlvUse.get(d)||0)+1); }
+  for(const b of bundles.values()) if(b.pdf && dlvUse.get(akpDlvKey(b.pdf.deliveryNo))>1)
+    b.errors.push({code:'RM/DN AMBIGUOUS', msg:'Delivery '+b.pdf.deliveryNo+' ถูกอ้างโดยมากกว่า 1 Invoice'});
+  return [...bundles.values()];
+}
+
+/* ══ 6) สร้าง Fragment ═══════════════════════════════════════════════════
+   INV Line = รายการใน PDF (เรียงตามลำดับจริง) · qty/price จาก PDF (Excel สำรอง)
+   Allocate RM ตามลำดับแถวจริงในไฟล์ (FIFO) · รวม Fragment ที่ Ref ติดกันและเหมือนกัน
+   ★ ห้ามใส่ Original QTY ซ้ำทุก Fragment · SUM ต้องเท่า INV QTY เป๊ะ           */
+function akpBuild(b, hsLookup){
+  const errors=[...b.errors];
+  const _seenErr=new Set(errors.map(e=>e.code+'\u0001'+e.msg));
+  /* ไม่แสดงข้อความซ้ำ — Tariff เดียวกันที่ใช้หลาย Line ต้องขึ้นครั้งเดียว */
+  const E=err=>{ const k=err.code+'\u0001'+err.msg; if(_seenErr.has(k)) return; _seenErr.add(k); errors.push(err); };
+  if(!b.pdf || !b.inv) return { key:b.key, rows:[], errors, status:'EXPORT BLOCKED' };
+
+  const invNo = akpT(b.inv.invoice) || ('FZ-'+b.pdf.invoice);
+  const invDate = b.pdf.invDate || b.inv.invDate;
+  const currency = b.pdf.currency || b.inv.currency || '';
+  const incoterm = b.pdf.incoterm || b.inv.term || '';
+
+  /* --- จับ PDF line ↔ Excel line ตามลำดับ + ตรวจ Product Code --- */
+  const P=b.pdf.items, X=b.inv.lines;
+  if(P.length!==X.length)
+    E({code:'INVALID FILE STRUCTURE', msg:'จำนวน Source Line ไม่เท่ากัน — PDF '+P.length+' · EXCEL '+X.length});
+  const lines=[];
+  for(let i=0;i<P.length;i++){
+    const p=P[i], x=X[i]||null;
+    if(x && akpPcKey(p.material)!==akpPcKey(x.pc))
+      E({code:'INVALID FILE STRUCTURE', msg:'Line '+(i+1)+' Product Code ไม่ตรง — PDF '+p.material+' · EXCEL '+x.pc});
+    lines.push({ no:i+1, pdf:p, xls:x });
+  }
+
+  /* --- VALIDATION QTY ต่อ Product Code (INV vs RM/DN) --- */
+  const invByPc=new Map(), rmByPc=new Map();
+  for(const l of lines){ const k=akpPcKey(l.pdf.material); invByPc.set(k,akpR6((invByPc.get(k)||0)+(l.pdf.qty||0))); }
+  for(const r of b.rm){ rmByPc.set(r.pcKey,akpR6((rmByPc.get(r.pcKey)||0)+r.qty)); }
+  for(const [k,v] of invByPc){
+    const rv=rmByPc.get(k)||0;
+    if(Math.abs(v-rv)>1e-9) E({code:'INV/RM QTY MISMATCH',
+      msg:'Invoice '+invNo+' · Product '+k+' · INV '+v+' · RM/DN '+rv+' · DIFF '+akpR6(v-rv)});
+  }
+  for(const [k,v] of rmByPc) if(!invByPc.has(k)) E({code:'INV/RM QTY MISMATCH',
+      msg:'Invoice '+invNo+' · Product '+k+' มีใน RM/DN ('+v+') แต่ไม่มีใน INVOICE'});
+
+  /* --- Allocate --- */
+  /* Pool = จัดกลุ่มตาม Product Code → Reference (รวมทุกแถวที่ Ref เดียวกันในไฟล์)
+     ตามตัวอย่างจริง: 094705178 Ref X46 = 3+4+4 = 11 · 305082477 Ref X145 = 6+5+4 = 15
+     ลำดับกลุ่ม = ลำดับที่ Ref ปรากฏครั้งแรกในไฟล์ RM (ไม่จัดเรียงใหม่) */
+  const pool=new Map();
+  for(const r of b.rm){
+    if(!pool.has(r.pcKey)) pool.set(r.pcKey,[]);
+    const gs=pool.get(r.pcKey);
+    let g=gs.find(x=>x.refRaw===r.refRaw);
+    if(!g){ g={ refRaw:r.refRaw, rows:[], remaining:0, firstIndex:r.srcIndex }; gs.push(g); }
+    g.rows.push(r); g.remaining=akpR6(g.remaining+r.qty);
+  }
+  const frags=[];
+  let entry=0;
+  for(const l of lines){
+    const pc=akpPcKey(l.pdf.material);
+    let need=akpR6(l.pdf.qty||0);
+    const take=[];
+    const gs=pool.get(pc)||[];
+    /* PHASE 1 — Exact Quantity Match บนกลุ่ม Reference (ยอดคงเหลือของกลุ่ม == QTY ของ Line)
+       PHASE 2 — ไม่มี Exact → ตัดตามลำดับกลุ่มเดิมจนครบ  (ตรรกะเดียวกับ Engine เดิมของระบบ) */
+    const exact=gs.find(g=>g.remaining>1e-9 && Math.abs(g.remaining-need)<1e-9);
+    const order = exact ? [exact] : gs;
+    for(const g of order){
+      if(need<=1e-9) break;
+      if(g.remaining<=1e-9) continue;
+      const a=Math.min(need,g.remaining);
+      take.push({ refRaw:g.refRaw, qty:a, rmFile:g.rows[0].file, rmIndex:g.firstIndex });
+      g.remaining=akpR6(g.remaining-a); need=akpR6(need-a);
+    }
+    if(need>1e-9){ E({code:'INV/RM QTY MISMATCH',
+      msg:'Invoice '+invNo+' · Line '+l.no+' · Product '+l.pdf.material+' · ขาด RM/DN '+need}); }
+    /* MERGE Fragment ที่ Reference เดียวกันภายใน Line เดียวกัน (หลัง Allocate เท่านั้น) */
+    const merged=[];
+    for(const t of take){
+      const f=merged.find(x=>x.refRaw===t.refRaw);
+      if(f) f.qty=akpR6(f.qty+t.qty); else merged.push({ ...t });
+    }
+    /* ══ [ORDER] ลำดับ Fragment ภายใน 1 INV Line — พิสูจน์จากไฟล์ตัวอย่างจริงครบ 5/5 Line
+         (1) Import Entry ascending  (2) QTY descending  (3) Item ascending
+       ทดสอบกฎอื่นครบ 10 แบบแล้วได้สูงสุด 4/5 · กฎนี้เท่านั้นที่ตรงทั้ง Line 3,8,16,17,19 */
+    merged.sort((a,b)=>{
+      const A=akpSplitRef(a.refRaw), Bv=akpSplitRef(b.refRaw);
+      if(A.entry!==Bv.entry) return A.entry<Bv.entry?-1:1;
+      if(a.qty!==b.qty) return b.qty-a.qty;
+      const ai=parseInt(A.item,10), bi=parseInt(Bv.item,10);
+      if(isFinite(ai)&&isFinite(bi)&&ai!==bi) return ai-bi;
+      return String(A.item).localeCompare(String(Bv.item));
+    });
+    const up = (l.pdf.unitPrice!=null) ? l.pdf.unitPrice : (l.xls?l.xls.unitPrice:null);
+    /* [UNIT] PDF ก่อน → EXCEL สำรอง · map เฉพาะหน่วยที่พิสูจน์แล้ว (PC/PCS → C62)
+       หน่วยอื่นที่ยังไม่มี Customs Unit Mapping จริง → UNIT MAPPING MISSING (ห้ามใส่ C62 เอง) */
+    const unitRaw = akpT(l.pdf.unit) || (l.xls?akpT(l.xls.unitRaw):'');
+    const unitCode = akpUnitCode(unitRaw);
+    if(!unitCode) E({code:'UNIT MAPPING MISSING', msg:'Invoice '+invNo+' · Line '+l.no+' · Product '+l.pdf.material+' · หน่วย '+(unitRaw||'(ว่าง)')+' ยังไม่มี Customs Unit Mapping'});
+    const hsRaw = (l.xls && l.xls.hs) ? l.xls.hs : l.pdf.commodity;
+    const tariff = akpTariff8(hsRaw);
+    const hs = akpHsPick(hsLookup, tariff);
+    if(hs.status==='HS NOT FOUND') E({code:'HS NOT FOUND', msg:'Invoice '+invNo+' · Line '+l.no+' · Product '+l.pdf.material+' · Tariff '+tariff});
+    if(hs.status==='HS CONFLICT')  E({code:'HS CONFLICT',  msg:'Invoice '+invNo+' · Tariff '+tariff+' · พบ '+hs.variants.length+' ชุด: '+hs.variants.map(v=>`${v.stat}/${v.priv}/${v.seq}/${v.rate} (${v.file} row ${v.srcRow})`).join(' | ')});
+    /* [ORIGIN] PDF ก่อน → EXCEL INVOICE สำรอง → ไม่มีทั้งคู่ = ORIGIN NOT FOUND (ห้ามเดาจาก Brand/Product) */
+    const originX = (l.xls && l.xls.originRaw) ? akpOrigin(l.xls.originRaw) : '';
+    const origin = l.pdf.origin || originX || '';
+    if(!origin) E({code:'ORIGIN NOT FOUND', msg:'Invoice '+invNo+' · Line '+l.no+' · Product '+l.pdf.material+
+      ' · PDF = '+(l.pdf.originRaw||'(ว่าง)')+' · EXCEL = '+((l.xls&&l.xls.originRaw)||'(ไม่มีคอลัมน์)')});
+    const brand = l.xls ? akpT(l.xls.brand) : '';
+    if(!brand) E({code:'BRAND NOT FOUND', msg:'Invoice '+invNo+' · Line '+l.no+' · Product '+l.pdf.material+' · EXCEL INVOICE ไม่มี Brand'});
+
+    for(const t of merged){
+      const sp=akpSplitRef(t.refRaw);
+      entry++;
+      frags.push({
+        mapping:'Match', no:l.no, entry,
+        invoice:invNo, invDate,
+        /* [SOURCE PRIORITY] PDF เป็นหลัก → EXCEL INVOICE สำรอง (ทุก Field ในกลุ่ม Invoice) */
+        pc: akpT(l.pdf.material) || (l.xls?akpT(l.xls.pc):''),
+        en:(akpT(l.pdf.endesc)||(l.xls?akpT(l.xls.en):'')||'').toUpperCase(),
+        /* [Desc 2] PDF ไม่มี "English Description 2" · EXCEL ก็ไม่มีคอลัมน์นี้ → ว่างตามต้นทางจริง */
+        en2:'',
+        qty:t.qty, unit:unitCode,
+        unitPrice:up, totalPrice:(up!=null)?(t.qty*up):null,   /* ไม่ปัดรายบรรทัด — ปัดเฉพาะยอดรวม */
+        currency, origin, incoterm,
+        th:(l.xls?akpT(l.xls.th):''), tariff,
+        stat:hs.status==='OK'?hs.stat:'', priv:hs.status==='OK'?hs.priv:'',
+        seq:hs.status==='OK'?hs.seq:'', rate:hs.status==='OK'?hs.rate:'',
+        hsStatus:hs.status,
+        article:'', materialNo:l.pdf.material,
+        desc2:(akpT(l.pdf.desc2)||(l.xls?akpT(l.xls.desc2):'')||''),
+        page:l.pdf.page, brand,
+        refEntry:sp.kitting?t.refRaw:sp.entry, refItem:sp.item, refRaw:t.refRaw, kitting:sp.kitting
+      });
+    }
+  }
+  /* --- ตรวจยอดหลัง Split --- */
+  const sumInv=lines.reduce((s,l)=>akpR6(s+(l.pdf.qty||0)),0);
+  const sumFrag=frags.reduce((s,f)=>akpR6(s+f.qty),0);
+  if(Math.abs(sumInv-sumFrag)>1e-9) E({code:'INV/RM QTY MISMATCH', msg:'ยอด QTY หลัง Split ไม่ตรง — INV '+sumInv+' · Fragment '+sumFrag});
+  const amtInv=lines.reduce((s,l)=>akpR2(s+(l.pdf.totalPrice!=null?l.pdf.totalPrice:(l.xls?l.xls.amount:0)||0)),0);
+  const amtFrag=akpR2(frags.reduce((s,f)=>s+(f.totalPrice||0),0));
+
+  { const _pkg=akpPackageSummary((b.inv.summary&&b.inv.summary.packages)||[]);
+    if(_pkg.unknown) errors.push({code:'MAPPING DATA MISSING',
+      msg:'Invoice '+invNo+' · หน่วยบรรจุภัณฑ์ "'+(_pkg.rawUnit||'')+'" ยังไม่มี Customs Package Unit Mapping (PALLET→PL · CARTON→CT)'}); }
+  const blocked=errors.some(e=>['INV/RM QTY MISMATCH','HS CONFLICT','HS NOT FOUND','ORIGIN NOT FOUND','BRAND NOT FOUND','PDF NOT FOUND','EXCEL INVOICE NOT FOUND','RM/DN NOT FOUND','RM/DN AMBIGUOUS','INVALID FILE STRUCTURE','AMBIGUOUS','UNIT MAPPING MISSING'].includes(e.code));
+  return { key:b.key, invoice:invNo, invDate, currency, incoterm,
+           summary:b.inv.summary, rows:frags, errors,
+           totals:{ qtyInv:sumInv, qtyFrag:sumFrag, amtInv, amtFrag },
+           status: blocked?'EXPORT BLOCKED':'READY' };
+}
+
+/* ══ 7) Output 1 — แตกรายการ (30 คอลัมน์ ตามไฟล์ตัวอย่าง) ══ */
+const AKP_SPLIT_HDR=['Mapping','No','ENTRY','Invoice No.','Invoice Date','Product Code','English Description',
+ 'Quantity','Unit','Unit Price','Total Price','Currency','Origin','Incoterm','Thai Description','Hs code',
+ 'Tariff rate','Article','Material No','Desc 2','Net Weight','Gross Weight','Page #','Brand','Excise_rate',
+ 'Local_rate','Import Entry','Item','Total - Vehicle Invoice','Add Value'];
+function akpSplitAoa(R){
+  const a=[AKP_SPLIT_HDR.slice()];
+  for(const f of R.rows) a.push([f.mapping,f.no,f.entry,f.invoice,akpDMY(R.invDate),f.pc,f.en,
+    f.qty,f.unit,f.unitPrice,f.totalPrice,f.currency,f.origin,f.incoterm,f.th,f.tariff,
+    f.rate===''?null:akpNum(f.rate),f.article,f.materialNo,f.desc2,null,null,f.page,f.brand,null,null,
+    f.kitting?f.refRaw:f.refEntry, f.refItem, (f.kitting?f.refRaw:f.refEntry)+'X'+f.refItem, false]);
+  const tq=R.rows.reduce((s,f)=>akpR6(s+f.qty),0);
+  const tp=akpR2(R.rows.reduce((s,f)=>s+(f.totalPrice||0),0));
+  const tot=new Array(AKP_SPLIT_HDR.length).fill(null); tot[7]=tq; tot[10]=tp; a.push(tot);
+  return a;
+}
+/* ══ 8) Output 2 — MAPPING (38 คอลัมน์ ตามไฟล์ตัวอย่าง) ══ */
+const AKP_MAP_HDR=['No/ไม่นำเข้า netbay','NO. ENTRY','INVOICE NO.','DATE INV','PRODUCT CODE',
+ 'Description (EN Description) 1','Description (EN Description) 2','qty.inv.','qty.inv.(หน่วย)',
+ 'qty.ใบขน','qty.ใบขน(หน่วย)','Unit price','Item net price','Currency','Thai Description','Origin','Brand',
+ 'Tariff Code','Stat','Privilege','Seq','Tariff rate//ไม่นำเข้า netbay','Net W.','Gross W.','Package',
+ 'Package (หน่วย)','เลขที่ใบขนอ้าง','รายการที่','เลขที่ใบอนุญาต1','วันที่ออกใบอนุญาต1',
+ 'เลขประจำตัวผู้เสียภาษีของหน่วยงาน (ใบอนุญาต)1','ตำแหน่ง (ใบอนุญาต)1','สิทธิประโยชน์ BOI/FIX',
+ 'import Tax incentive/FIX','เลขที่ใบอนุญาต2','วันที่ออกใบอนุญาต2',
+ 'เลขประจำตัวผู้เสียภาษีของหน่วยงาน (ใบอนุญาต)2','ตำแหน่ง (ใบอนุญาต)2'];
+function akpMapAoa(R){
+  const a=[AKP_MAP_HDR.slice()];
+  const pk=(R.summary&&R.summary.packages)||[];
+  /* [SUMMARY-FIRST-ROW] Net W. · Gross W. · Package · Package (หน่วย)
+     ใส่ค่าเฉพาะ Output Row แรกของ Invoice นี้เท่านั้น · แถวที่ 2 เป็นต้นไปเว้นว่าง
+     ★ ใช้กฎนี้กับ 4 Field นี้เท่านั้น ห้ามใช้กับ Field อื่น */
+  const PKG=akpPackageSummary(pk);
+  R.rows.forEach((f,i)=>{
+    const first=(i===0);
+    a.push([f.no,f.entry,f.invoice,akpDMY(R.invDate),f.pc,f.en,f.en2,
+      f.qty,f.unit,f.qty,f.unit,f.unitPrice,f.totalPrice,f.currency,f.th,f.origin,f.brand,
+      f.tariff,f.stat,f.priv,f.seq,f.rate===''?null:akpNum(f.rate),
+      first?(R.summary?R.summary.netW:null):null, first?(R.summary?R.summary.grossW:null):null,
+      first?PKG.qty:null, first?(PKG.unit||null):null,
+      f.kitting?'':f.refEntry, f.kitting?'':f.refItem,
+      AKP_FIX.permitNo1,AKP_FIX.permitDate1,AKP_FIX.taxId1,AKP_FIX.pos1,
+      AKP_FIX.boi,AKP_FIX.taxIncentive,
+      AKP_FIX.permitNo2,AKP_FIX.permitDate2,AKP_FIX.taxId2,AKP_FIX.pos2]);
+  });
+  return a;
+}
+/* ══ [PCT] คอลัมน์ Tariff rate ต้องเป็น "ตัวเลขจริง + Excel Number Format 0%" ══
+   ยืนยันจากไฟล์ตัวอย่าง: value = 0.3 (number) · number_format = '0%' → Excel แสดง 30%
+   ★ เก็บค่าดิบจาก HS CODE ตรง ๆ ห้ามคูณ 100 · ห้ามแปลงเป็น Text "30%"
+   ★ ค่าว่าง = เว้นว่าง ไม่ตั้ง format
+   ★ ตรวจจากชื่อหัวคอลัมน์ ไม่ผูก index ตายตัว                                        */
+function akpSheetFromAoa(aoa){
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const hdr=aoa[0]||[];
+  const pct=[]; hdr.forEach((h,i)=>{ if(/^tariff\s*rate/i.test(String(h==null?'':h))) pct.push(i); });
+  for(const c of pct){
+    for(let r=1;r<aoa.length;r++){
+      const ref=XLSX.utils.encode_cell({r:r,c:c});
+      const cell=ws[ref];
+      if(cell && cell.t==='n' && cell.v!=null) cell.z='0%';
+    }
+  }
+  return ws;
+}
+
+/* ══ [AKO P] UI Layer — Upload หลายไฟล์ · ตรวจโครงสร้างจริง · Export ZIP ต่อ Invoice ══ */
+const AKP = { pdf:[], inv:[], rm:[], hs:[], results:[] };
+
+function akpSetStatus(msg, cls){
+  const el=document.getElementById('akp-status'); if(!el) return;
+  el.textContent=msg; el.className='doa-status'+(cls?' '+cls:'');
+}
+function akpRenderLists(){
+  for(const k of ['pdf','inv','rm','hs']){
+    const el=document.getElementById('akp-'+k+'-list'); if(!el) continue;
+    el.innerHTML = AKP[k].length
+      ? AKP[k].map((f,i)=>'<div class="doa-file-item">'+akpEsc(f.name)+
+          ' <span style="cursor:pointer;color:#c00" onclick="event.preventDefault();event.stopPropagation();akpRemove(\''+k+'\','+i+')">✕</span></div>').join('')
+      : '';
+  }
+  const ready = AKP.pdf.length && AKP.inv.length && AKP.rm.length && AKP.hs.length;
+  if(!ready){
+    akpSetStatus('รอไฟล์ — ยังขาด: '+
+      [['PDF INVOICE',AKP.pdf],['EXCEL INVOICE',AKP.inv],['RM/DN',AKP.rm],['HS CODE',AKP.hs]]
+        .filter(x=>!x[1].length).map(x=>x[0]).join(' · '));
+    return;
+  }
+  /* [AUTO-RUN] ไม่มีปุ่มตรวจแล้ว — ครบ 4 กลุ่มเมื่อไหร่ประมวลผลให้ทันที
+     หน่วงสั้น ๆ กันการเรียกซ้ำตอนโยนหลายไฟล์รวดเดียว */
+  clearTimeout(AKP._t);
+  AKP._t=setTimeout(()=>{ akpRun(); }, 150);
+}
+function akpEsc(t){ return String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function akpRemove(kind,i){ AKP[kind].splice(i,1); akpRenderLists(); }
+function akpClearAll(){ clearTimeout(AKP._t); AKP._busy=false;
+  AKP.pdf=[];AKP.inv=[];AKP.rm=[];AKP.hs=[];AKP.results=[];
+  const p=document.getElementById('akp-result-panel'); if(p) p.style.display='none';
+  const c=document.getElementById('akp-cards'); if(c) c.innerHTML='';
+  akpRenderLists(); }
+
+/* ตรวจประเภทไฟล์จากโครงสร้างจริง ไม่ใช้ชื่อไฟล์ */
+async function akpSheetAoa(file){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
+  const out=[];
+  for(const n of wb.SheetNames)
+    out.push({ sheet:n, aoa:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true}) });
+  return out;
+}
+function akpDetect(aoa){
+  const head=aoa.slice(0,60).map(r=>(r||[]).map(x=>akpT(x).toLowerCase()));
+  const has=re=>head.some(r=>r.some(c=>re.test(c)));
+  if(has(/tariff\s*code/)) return 'hs';
+  if(has(/outbound/) && has(/^part\s*no/)) return 'rm';
+  /* EXCEL INVOICE — เกณฑ์เดียวคือมี "Part number" (ไฟล์จริงบางใบใช้หัว HS และไม่มี Brand) */
+  if(has(/^part\s*number/)) return 'inv';
+  return '';
+}
+async function akpAddFiles(kind, files){
+  for(const f of files){
+    if(kind==='pdf'){ AKP.pdf.push(f); continue; }
+    let sheets;
+    try{ sheets=await akpSheetAoa(f); }
+    catch(e){ alert('AKO P · INVALID FILE STRUCTURE — เปิดไฟล์ไม่ได้: '+f.name); continue; }
+    let ok=null;
+    for(const sh of sheets){ if(akpDetect(sh.aoa)===kind){ ok=sh; break; } }
+    if(!ok){ alert('AKO P · INVALID FILE STRUCTURE — โครงสร้างไฟล์ไม่ตรงกับกลุ่มที่เลือก\n'+f.name); continue; }
+    f._akpAoa=ok.aoa; f._akpSheet=ok.sheet;
+    AKP[kind].push(f);
+  }
+  akpRenderLists();
+}
+
+/* ── ประมวลผล ────────────────────────────────────────────────────────── */
+async function akpRun(){
+  if(AKP._busy) return; AKP._busy=true;
+  akpSetStatus('กำลังประมวลผล…');
+  try{
+    if(typeof spReadPdfs!=='function' && typeof pdfjsLib==='undefined')
+      throw new Error('AKO P — pdf.js ยังไม่พร้อม');
+    const pdfs=[];
+    for(const f of AKP.pdf){
+      const data=new Uint8Array(await f.arrayBuffer());
+      const pdf=await pdfjsLib.getDocument({data}).promise;
+      let all='';
+      for(let i=1;i<=pdf.numPages;i++){
+        const pg=await pdf.getPage(i), tc=await pg.getTextContent();
+        let t=''; for(const it of tc.items) t+=it.str+(it.hasEOL?'\n':' ');
+        all+=t+'\n';
+      }
+      pdfs.push(akpParsePdf(all,f.name));
+    }
+    const invs=AKP.inv.map(f=>akpReadInvExcel(f._akpAoa,f.name));
+    const rms =AKP.rm .map(f=>akpReadRm(f._akpAoa,f.name));
+    const hss =AKP.hs .map(f=>akpReadHs(f._akpAoa,f.name));
+    const lookup=akpBuildHsLookup(hss);
+    const bundles=akpPair(pdfs,invs,rms);
+    AKP.results=bundles.map(b=>akpBuild(b,lookup));
+    /* ข้อผิดพลาดยังถูกคำนวณครบเหมือนเดิม แต่ไม่แสดงบนหน้าจอและไม่บล็อก Export
+       เก็บไว้ใน console เพื่อให้ตามสอบย้อนหลังได้ */
+    AKP.results.forEach(R=>{ if(R.errors.length) console.warn('[AKO P] '+R.invoice+' — '+R.errors.length+' รายการ', R.errors); });
+    akpRenderCards();
+    akpSetStatus('เสร็จ — '+AKP.results.length+' Invoice · กด Export ZIP ได้เลย','ok');
+  }catch(e){
+    console.error('[AKO P]',e);
+    akpSetStatus(e.message||String(e),'err');
+  }
+  AKP._busy=false;
+}
+
+function akpRenderCards(){
+  const box=document.getElementById('akp-cards'); if(!box) return;
+  document.getElementById('akp-result-panel').style.display='';
+  /* ไม่แสดงรายการข้อผิดพลาด และไม่ปิดปุ่ม Export — กดได้ทุก Invoice */
+  box.innerHTML = AKP.results.map((R,i)=>
+     '<div class="doa-panel" style="margin:10px 0;border-left:4px solid #12805c">'
+    +'<h3 style="margin:0 0 6px">'+akpEsc(R.invoice||R.key)+'</h3>'
+    +'<div style="font-size:13px;line-height:1.7">'
+    +'รายการหลัง Split: <b>'+R.rows.length+'</b> · QTY รวม <b>'+(R.totals?R.totals.qtyFrag:'-')+'</b>'
+    +' · ยอดรวม <b>'+(R.totals?R.totals.amtFrag:'-')+'</b> '+akpEsc(R.currency||'')+'</div>'
+    +'<div class="doa-row-actions" style="margin-top:10px">'
+    +'<button class="doa-btn primary" onclick="akpExport('+i+')">⬇️ Export ZIP</button>'
+    +'</div></div>').join('');
+}
+
+/* ── Export : 1 Invoice = 1 ZIP · ข้างในมี 2 ไฟล์ ชื่อใช้ Invoice No. จริง ── */
+function akpAoaToBuf(aoa, sheetName){
+  const wb=XLSX.utils.book_new();
+  const ws=akpSheetFromAoa(aoa);          /* ตั้ง Number Format 0% ให้คอลัมน์ Tariff rate */
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  return XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true});
+}
+async function akpExport(i){
+  const R=AKP.results[i];
+  if(!R) return;
+  if(typeof JSZip==='undefined'){ alert('JSZip ยังไม่พร้อม'); return; }
+  try{
+    const zip=new JSZip();
+    zip.file(R.invoice+' แตกรายการ.xlsx', akpAoaToBuf(akpSplitAoa(R),'Sheet1'));
+    zip.file(R.invoice+' MAPPING.xlsx',   akpAoaToBuf(akpMapAoa(R),'mapping'));
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=R.invoice+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ console.error('[AKO P] export',e); alert('Export ล้มเหลว: '+(e.message||e)); }
+}
+
+/* ── wiring ── */
+function akpWire(){
+  for(const k of ['pdf','inv','rm','hs']){
+    const inp=document.getElementById('akp-'+k+'-input');
+    const drop=document.getElementById('akp-'+k+'-drop');
+    if(inp) inp.addEventListener('change',async e=>{ await akpAddFiles(k,[...e.target.files]); e.target.value=''; });
+    if(drop){
+      ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+      ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+      drop.addEventListener('drop',async e=>{ await akpAddFiles(k,[...(e.dataTransfer.files||[])]); });
+    }
+  }
+  akpRenderLists();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',akpWire); else akpWire();
+window.akpRun=akpRun; window.akpExport=akpExport; window.akpClearAll=akpClearAll; window.akpRemove=akpRemove;
+
+})();
+</script>
+
 </body>
 </html>
