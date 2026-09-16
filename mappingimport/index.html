@@ -12463,6 +12463,32 @@ async function spPdfText(file){
 }
 
 /* แตก 1 ไฟล์ PDF → รายการ item */
+/* ══ [FZ AKO 2 ONLY · sp*] แปลงตัวเลขราคาจาก PDF ที่มี 2 รูปแบบตัวคั่น ══
+   PDF จริงที่พบ:
+     US : 5,252.55   ·  352.00   ·  815,517.87   (จุด = ทศนิยม)
+     EU : 2.960,00   ·  17,60    ·  6.515,84     (จุลภาค = ทศนิยม)
+   กฎตัดสิน (ไม่เดา · ดูจากโครงสร้างตัวเลขเอง):
+     ตัวคั่น "ตัวสุดท้าย" ตามด้วยเลข 1–2 หลัก → ตัวนั้นคือทศนิยม · ที่เหลือคือหลักพัน
+     ตัวคั่นตัวสุดท้ายตามด้วยเลข 3 หลัก (หรือไม่มีตัวคั่น) → ทุกตัวคือหลักพัน
+   ตรวจแล้วให้ผลถูกทั้ง 5,252.55 · 2.960,00 · 17,60 · 1,234 · 1.234
+   ★ ใช้เฉพาะ spParsePdfText — spNum เดิมไม่ถูกแตะ · โหมด sp2 และ fz ไม่กระทบ   */
+function spNumPdf(v){
+  let t = String(v==null?'':v).trim().replace(/\s/g,'');
+  if(t==='') return null;
+  const neg = /^-/.test(t); t = t.replace(/^[-+]/,'');
+  if(!/^[\d.,]+$/.test(t)) return null;
+  const last = Math.max(t.lastIndexOf('.'), t.lastIndexOf(','));
+  let out;
+  if(last < 0){ out = t; }
+  else {
+    const dec = t.length - last - 1;
+    if(dec >= 1 && dec <= 2) out = t.slice(0,last).replace(/[.,]/g,'') + '.' + t.slice(last+1);
+    else out = t.replace(/[.,]/g,'');
+  }
+  const n = parseFloat(out);
+  return isFinite(n) ? (neg?-n:n) : null;
+}
+
 function spParsePdfText(txt, fname){
   const rawLines = txt.split('\n');
   const L = rawLines.map(x => x.replace(/\s+/g,' ').trim());
@@ -12567,11 +12593,14 @@ function spParsePdfText(txt, fname){
          Total Value for item  24.51  / 1 PC    980.40
        ตัวเลขก่อน "/ n PC" = Unit Price · ตัวเลขสุดท้าย = Total Price
        บังคับ ^ ที่ต้นบรรทัด กันจับตัวเลขจากบรรทัดอื่นมั่ว */
-    const RE_VAL = /^(?:item\s+value|net\s+value\s+for\s+item|total\s+value\s+for\s+item)\s+([\d,]+(?:\.\d+)?)\s*\/\s*[\d,]+\s*\S+\s+([\d,]+(?:\.\d+)?)\s*$/i;
+    /* ★ รับตัวคั่นได้ทั้ง . และ , ในทุกตำแหน่ง (US 5,252.55 · EU 2.960,00)
+       เดิม ([\d,]+(?:\.\d+)?) ไม่ยอมรับจุดคั่นหลักพัน → "2.960,00" ไม่ match = PDF_PARSE_ERROR
+       และ "17,60" ที่ match ได้ ก็ถูก spNum แปลงผิดเป็น 1760                     */
+    const RE_VAL = /^(?:item\s+value|net\s+value\s+for\s+item|total\s+value\s+for\s+item)\s+([\d.,]+)\s*\/\s*[\d.,]+\s*\S+\s+([\d.,]+)\s*$/i;
     let unitPrice = null, totalPrice = null;
     for(const x of blk){
       const v = x.match(RE_VAL);
-      if(v){ unitPrice = spNum(v[1]); totalPrice = spNum(v[2]); break; }
+      if(v){ unitPrice = spNumPdf(v[1]); totalPrice = spNumPdf(v[2]); break; }
     }
     let originRaw = null;
     for(const x of blk){ if(/^Country of origin:/.test(x)){ originRaw = x.replace(/^Country of origin:\s*/,'').trim(); break; } }
