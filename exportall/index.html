@@ -2886,16 +2886,8 @@ const AUTOSTORE = (function(){
     return {plNo,netWeight,grossWeight};
   }
 
-  // ---- ตารางพิกัด Fix ถาวร: Notes/Hd code(8หลัก) → Stat (Tariff = code เอง) ----
-  const TARIFF_MAP={
-    '76109099':'000','84313990':'000','49019990':'090','39199099':'090','49019910':'090',
-    '73181510':'000','39269099':'090','73181590':'000','76169990':'090','85011099':'000',
-    '73269099':'090','84283990':'000','84798970':'000','85044030':'000','85444299':'000',
-    '73182200':'000','84733090':'000','85044090':'090','34039990':'000','82041100':'000',
-    '82055900':'000','84714990':'000','85176249':'000','85361099':'000','85369029':'000',
-    '85423100':'000','90173000':'000','30012000':'000','84253900':'000','84735090':'000',
-    '84798969':'000','85044020':'000','85072095':'000','85072099':'000','94032090':'000'
-  };
+  // ---- Tariff/Stat: ใช้ค่าที่ฟิกอยู่ใน public.autostore_tariff_master ผ่าน RPC public.autostore_lookup_tariff
+  //      ห้ามคำนวณ/เดา/Hard-code ใน Frontend · ค่าเป็นข้อความเสมอ (คงเลข 0 นำหน้า) ----
   const BOI_LICENSE_NO='66-1801-2-00-2-0 ลว14/12/2566';   // เลขใบอนุญาต BOI แบบ Fix (ใส่เมื่อ CUSTOMS TYPE เป็น BOI)
   function isBOI(customsType){
     const ct=String(customsType==null?'':customsType).toUpperCase();
@@ -2903,19 +2895,20 @@ const AUTOSTORE = (function(){
   }
   // กฎพิเศษแปลง Notes/Hd code (ต้นทาง 6/8 หลัก → พิกัดที่ถูกต้อง)
   const SPECIAL_HD={ '843139':'84313990','84313900':'84313990','84735000':'84735090','94032000':'94032090' };
-  // HS Code → { tariff:8หลัก(เติม 0 ท้ายถ้าไม่ครบ), notesHd:กฎพิเศษ/มิฉะนั้น=tariff, stat:จับคู่จาก notesHd }
+  // HS Code → { notesHd } = คีย์สำหรับ Query Master (คอลัมน์ P เดิม ไม่เปลี่ยนพฤติกรรม)
   // ทั้งหมดเป็นข้อความ · คงศูนย์หน้า · ไม่ปัดทศนิยม · ไม่แสดงยกกำลัง · ไม่มีจุด/ช่องว่าง/ขีด
   function hsResolve(hs){
     const digits=String(hs==null?'':hs).replace(/\D/g,'');
-    if(!digits) return {tariff:'', notesHd:'', stat:''};   // ไม่มี HS → ว่างทั้งหมด
-    let tariff=digits.slice(0,8); if(tariff.length<8) tariff=tariff.padEnd(8,'0');   // Tariff ครบ 8 หลักเสมอ
-    const notesHd = SPECIAL_HD[digits] || SPECIAL_HD[tariff] || tariff;              // Notes/Hd: กฎพิเศษก่อน มิฉะนั้น = tariff
-    const stat=(notesHd.length===8 && Object.prototype.hasOwnProperty.call(TARIFF_MAP,notesHd))?TARIFF_MAP[notesHd]:'';   // Stat จาก Notes/Hd หลังแปลง
-    return {tariff:tariff, notesHd:notesHd, stat:stat};
+    if(!digits) return {notesHd:''};                                                 // ไม่มี HS → ว่าง
+    let base=digits.slice(0,8); if(base.length<8) base=base.padEnd(8,'0');
+    return {notesHd: SPECIAL_HD[digits] || SPECIAL_HD[base] || base};
   }
+  const hsKey=hs=>hsResolve(hs).notesHd;   // คีย์ที่ส่งไป RPC (เท่ากับคอลัมน์ P)
 
-  function buildMapping(inv, pl){
+  function buildMapping(inv, pl, tariffMap){
     const warnings=[];
+    const TM=(tariffMap instanceof Map)?tariffMap:new Map();
+    const tariffMissing=[];
     if(!inv.invoiceNo) warnings.push('ไม่พบเลข INVOICE ในไฟล์ INVOICE (คอลัมน์ INVOICE จะว่าง)');
     if(!inv.items.length) warnings.push('ไม่พบรายการสินค้าในไฟล์ INVOICE');
     if(!pl.plNo) warnings.push('ไม่พบเลข PL ในไฟล์ PL');
@@ -2934,16 +2927,22 @@ const AUTOSTORE = (function(){
     const canWeight = exportAmountTotal>0 && pl.netWeight!=null && pl.grossWeight!=null;
     if(kept.length && !canWeight) warnings.push('กระจายน้ำหนักไม่ได้ (ยอดรวมสินค้าเป็น 0 หรือไม่พบน้ำหนัก PL) — คอลัมน์ N.W./G.W. จะเว้นว่าง');
     const rows=kept.map((it,i)=>{
-      const hr=hsResolve(it.hsCode);   // Tariff=8หลัก, Notes/Hd=กฎพิเศษ/8หลัก, Stat=จับคู่จาก Notes/Hd — ต่อรายการ
+      const hr=hsResolve(it.hsCode);          // Notes/Hd (คอลัมน์ P) — คีย์สำหรับ Query Master
+      const md=hr.notesHd?TM.get(hr.notesHd):null;   // ค่าฟิกจาก public.autostore_tariff_master
+      if(hr.notesHd && !md) tariffMissing.push(hr.notesHd);   // ไม่พบในฐาน → เว้นว่าง + แจ้ง (ห้ามเดา)
       return {
       A:i+1, B:inv.invoiceNo||'', C:inv.date?inv.date.serial:null, D:it.part, E:it.desc, F:(it.thDesc||''),
       G:it.qty, H:it.price, I:it.amount, J:inv.currency||'',
       K:canWeight?round3(pl.netWeight*(Number(it.amount)||0)/exportAmountTotal):'',
       L:canWeight?round3(pl.grossWeight*(Number(it.amount)||0)/exportAmountTotal):'',
       M:'KGM', N:'C62', O:'AutoStore', P:hr.notesHd, Q:(it.sta==null?'':String(it.sta).trim()),
-      R:(it.customsType||''), S:'003', T:hr.tariff, U:hr.stat, V:'KGM', W:50001, X:'9PART3', Y:(isBOI(it.customsType)?BOI_LICENSE_NO:''),
+      R:(it.customsType||''), S:'003', T:(md?md.tariff_code:''), U:(md?md.stat:''), V:'KGM', W:50001, X:'9PART3', Y:(isBOI(it.customsType)?BOI_LICENSE_NO:''),
       Z:String(it.origin==null?'':it.origin).trim()   // Original Country (ต่อท้ายเสมอ · ไม่ขยับ A–Y)
     };});
+    if(tariffMissing.length){
+      const uniqMiss=tariffMissing.filter((x,i)=>tariffMissing.indexOf(x)===i);
+      warnings.push('ไม่พบพิกัดใน Master (autostore_tariff_master) — Tariff/Stat เว้นว่าง: '+uniqMiss.join(', '));
+    }
     // ข้อ 6: ไม่พบ Original Country → เว้นว่าง + แจ้งเตือนก่อน Export
     { const miss=rows.filter(r=>!r.Z).length;
       if(rows.length && miss===rows.length) warnings.push('ไม่พบข้อมูล Original Country จากไฟล์ INVOICE กรุณาตรวจสอบข้อมูล');
@@ -3084,9 +3083,28 @@ const AUTOSTORE = (function(){
     return {invoiceNo, date:(dateSerial!=null?{serial:dateSerial}:null), currency, ourRef, items, docOrigin};
   }
 
-  return { parseInvoice, parseInvoiceXlsx, parsePL, buildMapping, exportTemplate };
+  return { parseInvoice, parseInvoiceXlsx, parsePL, buildMapping, exportTemplate, hsKey };
 })();
 const ASS={ invs:[], pls:[], busy:false };
+/* ดึง Tariff/Stat ที่ฟิกไว้ในฐาน ผ่าน RPC เดิม public.autostore_lookup_tariff(text[]) (RUN-84)
+   คืนค่าเป็นข้อความทั้งหมด — ห้ามแปลงเป็น Number (คงเลข 0 นำหน้า) · ไม่พบ = ไม่ใส่ใน Map */
+async function asLookupTariff(codes){
+  const list=(codes||[]).map(c=>String(c==null?'':c).trim()).filter(Boolean)
+                        .filter((c,i,a)=>a.indexOf(c)===i);
+  const map=new Map();
+  if(!list.length) return map;
+  if(!sb) throw new Error('ยังไม่ได้เชื่อมต่อฐานข้อมูล — ดึง Tariff/Stat จาก Master ไม่ได้');
+  const CH=500;
+  for(let i=0;i<list.length;i+=CH){
+    const { data, error } = await sb.rpc('autostore_lookup_tariff', { p_tariff_codes: list.slice(i,i+CH) });
+    if(error) throw new Error('ดึง Tariff/Stat จาก autostore_tariff_master ไม่สำเร็จ: '+(error.message||error));
+    (data||[]).forEach(function(r){
+      if(!r || r.tariff_code==null) return;
+      map.set(String(r.tariff_code), { tariff_code:String(r.tariff_code), stat:String(r.stat==null?'':r.stat) });
+    });
+  }
+  return map;
+}
 function asB64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return u; }
 function asSafeName(s){ return String(s==null?'':s).replace(/[\\\/:*?"<>|]/g,'_'); }
 async function asExtractPdfItems(ab){
@@ -3186,11 +3204,14 @@ async function asExport(){
     const plByNo=new Map(); plList.forEach(pl=>{ if(pl.plNo) plByNo.set(norm(pl.plNo),pl); });
     // 5) buildMapping ต่อ Invoice + จับคู่ PL อัตโนมัติ (ไม่ throw — เก็บ warnings)
     const uniq=[...groups.values()];
+    // 5.1) Query Master จากฐานครั้งเดียวสำหรับทุกพิกัดที่พบ (ไม่ต้องอัปโหลด Master)
+    asProgress('กำลังดึง Tariff/Stat จากฐานข้อมูล…');
+    const tariffMap=await asLookupTariff([].concat.apply([], uniq.map(u=>u.items.map(it=>AUTOSTORE.hsKey(it.hsCode)))));
     let allRows=[]; let totalExcluded=0; const usedPl=new Set();
     uniq.forEach(inv=>{
       const key=norm(inv.ourRef); const matchPl=(key&&plByNo.get(key))||{plNo:null,netWeight:null,grossWeight:null};
       if(matchPl.plNo) usedPl.add(norm(matchPl.plNo)); else if(plList.length) warnings.push('Invoice "'+(inv.invoiceNo||'(ไม่พบเลข)')+'" ไม่พบ PL ที่จับคู่ (Our Ref "'+(inv.ourRef||'-')+'") — เว้นน้ำหนักว่าง');
-      const R=AUTOSTORE.buildMapping(inv, matchPl);
+      const R=AUTOSTORE.buildMapping(inv, matchPl, tariffMap);
       (R.warnings||[]).forEach(w=>warnings.push('['+(inv.invoiceNo||'ไม่พบเลข')+'] '+w));
       totalExcluded += (R.excluded||0);
       allRows=allRows.concat(R.rows);
