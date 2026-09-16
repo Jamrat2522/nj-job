@@ -26823,6 +26823,7 @@ function chkRunValidate(){
   const _wrap=r=>{
     const w=chkNwGw(CHK.dwak); r.nwgw=w.length; r.diffs=r.diffs.concat(w);
     const h=chkHsCheck(CHK.dwak); r.hs=h; r.diffs=r.diffs.concat(h.diffs);
+    const e=chkEx99(CHK.dwak);    r.ex99=e; r.diffs=r.diffs.concat(e.diffs);
     return r; };
   if(det.type==='SCH NON')     return _wrap(chkValidateSchNon(det.sheet, CHK.dwak));
   if(det.type==='SCH TYPE P')  return _wrap(chkValidateSchTypeP(det.sheet, CHK.dwak));
@@ -26900,6 +26901,47 @@ function chkHsCheck(dwakSheet){
 }
 
 
+/* ══ [D] EXEMPT99 FIXED VALIDATION — ตรวจจาก DWAK เท่านั้น ══
+   HS CODE 10 พิกัดนี้ต้องมีใบอนุญาตชุด EXEMPT99 เสมอ · ค่า Fixed ในระบบ ห้ามดึงจาก MAPPING
+   ★ Normalize HS เพื่อ Compare เท่านั้น (000084798969 = 84798969) · ไม่แก้ค่าต้นฉบับ      */
+const CHK_EX99_HS = ['84798969','84798970','84799090','84821000','84823000',
+                     '84825000','84828000','84829900','84833090','85144000'];
+const CHK_EX99_FIX = { permit:'EXEMPT99', date:'2017-11-13', taxid:'0994000159561' };
+function chkEx99(dwakSheet){
+  const out=[], H=dwakSheet.hdr, col=(...n)=>chkCol(H,...n);
+  const cTar=col('Tariff'), cNo=col('PermitNo2'), cDt=col('IssueDate2'), cAu=col('PermitIssueAuthority2');
+  if(cTar<0) return { diffs:out, checked:0 };
+  const SET=new Set(CHK_EX99_HS.map(chkHsKey));
+  let checked=0;
+  const add=(item,field,dw,fix,why)=>out.push({ item:item||'—', field,
+    dwak:(dw==null||chkT(dw)==='')?'ว่าง':chkT(dw), map:'FIX = '+fix,
+    status:'ไม่ถูกต้อง', reason:why });
+  for(const d of chkDwakRows(dwakSheet)){
+    const raw=chkT(d.get('Tariff')); if(raw==='') continue;
+    if(!SET.has(chkHsKey(raw))) continue;          /* ไม่อยู่ใน 10 พิกัด → ไม่ตรวจกฎนี้ */
+    checked++;
+    const item=chkT(d.get('Item No.'));
+    const hs=chkHsKey(raw);
+    if(cNo>=0){ const v=chkT(d.get('PermitNo2'));
+      if(chkTxt(v)!==chkTxt(CHK_EX99_FIX.permit))
+        add(item,'เลขที่ใบอนุญาต',v,CHK_EX99_FIX.permit,
+          v===''? 'HS CODE '+hs+' ต้องระบุเลขที่ใบอนุญาต '+CHK_EX99_FIX.permit
+                : 'เลขที่ใบอนุญาตไม่ตรง: DWAK = '+v+' / FIX = '+CHK_EX99_FIX.permit); }
+    if(cDt>=0){ const v=d.get('IssueDate2');
+      if(chkDate(v)!==CHK_EX99_FIX.date)
+        add(item,'วันที่ออกใบอนุญาต',v,CHK_EX99_FIX.date,
+          chkT(v)===''? 'HS CODE '+hs+' ต้องระบุวันที่ออกใบอนุญาต '+CHK_EX99_FIX.date
+                      : 'วันที่ออกใบอนุญาตไม่ตรง: DWAK = '+chkDate(v)+' / FIX = '+CHK_EX99_FIX.date); }
+    if(cAu>=0){ const v=chkT(d.get('PermitIssueAuthority2'));
+      if(v!==CHK_EX99_FIX.taxid)
+        add(item,'เลขประจำตัวผู้เสียภาษีของหน่วยงาน',v,CHK_EX99_FIX.taxid,
+          v===''? 'HS CODE '+hs+' ต้องระบุเลขประจำตัวผู้เสียภาษีของหน่วยงาน '+CHK_EX99_FIX.taxid
+                : 'เลขประจำตัวผู้เสียภาษีของหน่วยงานไม่ตรง: DWAK = '+v+' / FIX = '+CHK_EX99_FIX.taxid); }
+  }
+  return { diffs:out, checked };
+}
+
+
 /* ── [ตรวจใบขน] UI Layer ── */
 function chkEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function chkStatus(m,e){ const el=document.getElementById('chk-status'); if(el){ el.textContent=m; el.className='doa-status'+(e?' err':''); } }
@@ -26961,15 +27003,19 @@ function chkRender(){
   const hsMsg = h.diffs.length>0
     ? '<div style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c HS CODE MASTER พบ '+h.diffs.length+' รายการไม่ตรง</div>'
     : '<div style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 HS CODE MASTER ตรวจสอบเรียบร้อย ไม่พบข้อมูลไม่ตรง</div>';
+  const e=r.ex99||{diffs:[],checked:0};
+  const exMsg = e.diffs.length>0
+    ? '<div style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c พบ '+e.diffs.length+' จุดที่ข้อมูล EXEMPT99 ไม่ถูกต้อง</div>'
+    : '<div style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการ EXEMPT99 ไม่ถูกต้อง</div>';
   const nwMsg = nw>0
     ? '<div style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c พบ '+nw+' รายการที่ Net Weight มากกว่า Gross Weight</div>'
     : '<div style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
-  if(!r.diffs.length){ p.innerHTML=nwMsg+hsMsg+'<div style="color:var(--green2);font-weight:700">ตรวจสอบแล้ว ไม่พบข้อมูลผิด</div>'; return; }
+  if(!r.diffs.length){ p.innerHTML=nwMsg+hsMsg+exMsg+'<div style="color:var(--green2);font-weight:700">ตรวจสอบแล้ว ไม่พบข้อมูลผิด</div>'; return; }
   const body=r.diffs.slice(0,5000).map(d=>'<tr>'
     +'<td>'+chkEsc(d.item)+'</td><td class="st-bad">'+chkEsc(d.field)+'</td>'
     +'<td>'+chkEsc(d.dwak)+'</td><td>'+chkEsc(d.map)+'</td>'
     +'<td class="st-bad">'+chkEsc(d.status)+'</td><td class="st-bad">'+chkEsc(d.reason)+'</td></tr>').join('');
-  p.innerHTML=nwMsg+hsMsg+'<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl">'
+  p.innerHTML=nwMsg+hsMsg+exMsg+'<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl">'
     +'<thead><tr><th>รายการ DWAK</th><th>หัวข้อตรวจสอบ</th><th>DWAK</th><th>MAPPING EXCEL</th><th>สถานะ</th><th>สาเหตุ</th></tr></thead>'
     +'<tbody>'+body+'</tbody></table></div>';
 }
