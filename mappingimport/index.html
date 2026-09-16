@@ -25340,14 +25340,30 @@ table.doa-tbl tbody td{color:#475569}
 @media (max-width:1100px){#akp-view .doa-uploads.akp-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
 @media (max-width:640px){#akp-view .doa-uploads.akp-upload-grid{grid-template-columns:1fr;gap:8px}}
 /* ── ตรวจใบขน — scoped เฉพาะ #chk-view ── */
-#chk-view .doa-uploads.chk-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:none;margin:0}
-@media (max-width:760px){#chk-view .doa-uploads.chk-grid{grid-template-columns:1fr}}
-#chk-view .doa-drop{width:100%;max-width:none;min-height:48px;padding:8px;border-radius:10px;gap:3px}
-#chk-view .doa-drop .dico{font-size:18px}
-#chk-view .doa-drop .dlabel{font-size:13px;font-weight:700}
-#chk-view .doa-drop .dhint{font-size:10.5px}
-#chk-view table.doa-tbl{font-size:11px}
+/* [COMPACT] ลดความสูงรวมของส่วน Upload + ปุ่ม ~50% · ความกว้าง/Layout 2 ช่อง คงเดิม */
+#chk-view .doa-uploads.chk-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%;max-width:none;margin:0}
+@media (max-width:760px){#chk-view .doa-uploads.chk-grid{grid-template-columns:1fr;gap:6px}}
+#chk-view .doa-panel{padding:5px 8px;border-radius:8px;margin-bottom:0}
+#chk-view .doa-panel h2{margin:0 0 3px;font-size:9.5px}
+#chk-view .doa-drop{width:100%;max-width:none;min-height:24px;padding:4px 6px;border-radius:6px;gap:0;border-width:1px}
+#chk-view .doa-drop .dico{font-size:11px;line-height:1;margin:0}
+#chk-view .doa-drop .dlabel{font-size:11px;font-weight:700;line-height:1.15}
+#chk-view .doa-drop .dhint{font-size:8.5px;line-height:1.15}
+#chk-view .doa-file-list{margin-top:2px;width:100%}
+#chk-view .doa-file-entry{padding:1px 4px;font-size:9px;gap:4px;border-radius:3px;min-height:0}
+#chk-view .doa-file-entry .dfn{font-size:9px}
+#chk-view .doa-file-entry .drm{padding:0 3px;font-size:10px;line-height:1}
+#chk-view #chk-type{font-size:10px;margin-top:3px !important;margin-bottom:0;line-height:1.2}
+#chk-view .doa-row-actions{gap:5px;margin-top:4px;align-items:center}
+#chk-view .btn{padding:4px 10px;font-size:10px;border-radius:5px;gap:4px;min-height:0;line-height:1.3}
+#chk-view .doa-status{font-size:9.5px;margin-top:3px !important;line-height:1.3}
+#chk-view table.doa-tbl{font-size:10px}
+#chk-view table.doa-tbl th,#chk-view table.doa-tbl td{padding:2px 5px}
 #chk-view table.doa-tbl td.st-bad{color:var(--red2);font-weight:700}
+/* หัวตารางคอลัมน์ที่ 1 (รายการ DWAK) และที่ 3 (DWAK) — ตัวหนา สีเข้ม เด่นกว่าข้อมูลในแถว
+   ใช้ nth-child จึงไม่แตะข้อความและไม่กระทบหัวข้ออื่น */
+#chk-view table.doa-tbl thead th:nth-child(1),
+#chk-view table.doa-tbl thead th:nth-child(3){font-weight:800;color:#0f172a}
 </style>
 
 
@@ -26484,6 +26500,10 @@ function chkDetectType(sheets){
       return { type:'SCH TYPE P', sheet:s };
     if(has('INVOICE NO.') && has('NO.') && has('สิทธิประโยชน์ IEAT') && has('import Tax incentive'))
       return { type:'SCH AKO2', sheet:s };
+    /* ★ Handler ที่ 4 — ไฟล์ KN ของ FZ AKO 2 (29 คอลัมน์)
+       Match: DWAK Item No. ↔ MAPPING ENTRY (อนุมัติ 16/09/2026) */
+    if(has('ENTRY') && has('Total - Vehicle Invoice') && has('Invoice No.') && has('Import Entry'))
+      return { type:'FZ AKO 2 (KN)', sheet:s };
   }
   return null;
 }
@@ -26723,12 +26743,71 @@ function chkValidateSchAko2(mapSheet, dwakSheet){
   return { diffs:out, dwakCount:D.length, matched:used.size };
 }
 
+/* ══ D. FZ AKO 2 (KN) ══ Matching: DWAK Item No. ↔ MAPPING ENTRY เท่านั้น
+   ★ ห้ามใช้ NO. / รายการที่ / DeclarationLine Number / row index
+   ★ Normalize 0 นำหน้าเฉพาะตอน Compare (0001=1 · 0038=38) · ไม่แตะค่าต้นฉบับ
+   ★ ENTRY ซ้ำ → แยกด้วย Invoice No. + Product Code · ยังซ้ำ → ฟ้อง ไม่เดา        */
+function chkValidateFzKn(mapSheet, dwakSheet){
+  const out=[], H=mapSheet.hdr, c=n=>chkCol(H,n);
+  const M=mapSheet.rows.map((r,i)=>({_i:i,r,
+    entry:chkInt(r[c('ENTRY')]), inv:chkT(r[c('Invoice No.')]), pc:chkT(r[c('Product Code')])}))
+    .filter(x=>x.entry!=='');
+  const D=chkDwakRows(dwakSheet);
+  const used=new Set();
+  for(const d of D){
+    const item=chkT(d.get('Item No.'));
+    let cand=M.filter(x=>!used.has(x._i) && x.entry===chkInt(item));
+    if(!cand.length){
+      out.push(chkMk(item,'รายการ',item,'','ไม่พบ Item No. นี้ใน MAPPING EXCEL (ENTRY='+chkInt(item)+')'));
+      continue;
+    }
+    if(cand.length>1){
+      const f=cand.filter(x=>chkTxt(x.inv)===chkTxt(d.invoice) && chkTxt(x.pc)===chkTxt(d.get('Product Code')));
+      if(f.length===1) cand=f;
+      else{ out.push(chkMk(item,'รายการ',item,cand.map(x=>x.entry).join(', '),
+        'พบ ENTRY ซ้ำใน MAPPING EXCEL '+cand.length+' แถว แยกด้วย Invoice/Product Code ไม่ได้ — ENTRY='+chkInt(item)
+        +' · Invoice='+d.invoice+' · Product='+chkT(d.get('Product Code')))); continue; }
+    }
+    const m=cand[0]; used.add(m._i); const g=k=>m.r[c(k)];
+    /* ข้าม Field ที่คอลัมน์ใน MAPPING ว่างทั้งไฟล์ = ไฟล์รูปแบบนี้ไม่มีคู่เทียบ (ไม่เดา ไม่ฟ้องปลอม) */
+    const gc=k=>{ const i=c(k); return i<0 || mapSheet.rows.every(x=>chkT(x[i])===''); };
+    /* ข้ามเช่นกันเมื่อฝั่ง DWAK ว่างทั้งไฟล์ (ไม่มีคู่เทียบ) */
+    const dc=k=>D.every(x=>chkT(x.get(k))==='');
+    chkCmp(out,item,'Invoice No.',        d.invoice,              g('Invoice No.'));
+    chkCmp(out,item,'Product Code',       d.get('Product Code'),  g('Product Code'));
+    chkCmp(out,item,'English Description',d.get('Desc.'),         g('English Description'));
+    if(!gc('Desc 2') && !dc('Desc2.')) chkCmp(out,item,'Desc 2',             d.get('Desc2.'),        g('Desc 2'));
+    chkCmp(out,item,'Thai Description',   d.get('DescTH'),        g('Thai Description'));
+    chkCmp(out,item,'Quantity',           d.get('Qty.'),          g('Quantity'),'num');
+    chkCmp(out,item,'Unit',               d.get('Unit'),          g('Unit'),'unit');
+    chkCmp(out,item,'Total Price',        d.get('Amount'),        g('Total Price'),'num',0.01);
+    chkCmp(out,item,'Currency',           d.get('Curr.'),         g('Currency'));
+    if(!gc('Net Weight')) chkCmp(out,item,'Net Weight',         d.get('Net Weight'),    g('Net Weight'),'num',0.001);
+    if(!gc('Gross Weight')) chkCmp(out,item,'Gross Weight',       d.get('Gross Weight'),  g('Gross Weight'),'num',0.001);
+    chkCmp(out,item,'Origin',             d.get('Original  Country','Original Country'), g('Origin'));
+    chkCmp(out,item,'Brand',              d.get('Brand Name'),    g('Brand'));
+    chkCmp(out,item,'Hs code',            d.get('Tariff'),        g('Hs code'),'tariff');
+    if(!chkIsKit(g('Import Entry'),g('Item'))){
+      chkCmp(out,item,'Import Entry',     d.get('Declaration No'),g('Import Entry'));
+      chkCmp(out,item,'Item',             d.get('DeclarationLine Number'), g('Item'),'int');
+    }
+    { const q=chkNum(d.get('Qty.')), a=chkNum(d.get('Amount')), mv=chkNum(g('Unit Price'));
+      if(q&&q>0&&a!=null&&mv!=null && Math.abs(a/q-mv)>0.01)
+        out.push(chkMk(item,'Unit Price',Math.round(a/q*10000)/10000,mv,
+          'Unit Price ไม่ตรง: DWAK (Amount/Qty) = '+(Math.round(a/q*10000)/10000)+' / MAPPING EXCEL = '+mv)); }
+  }
+  for(const m of M) if(!used.has(m._i))
+    out.push(chkMk('—','รายการ','','ENTRY='+m.entry,'พบรายการเกินใน MAPPING EXCEL — ENTRY='+m.entry+' · Invoice='+m.inv+' · Product='+m.pc));
+  return { diffs:out, dwakCount:D.length, matched:used.size };
+}
+
 /* ══ Runner ══ */
 function chkRunValidate(){
   const det=CHK.type;
   if(det.type==='SCH NON')     return chkValidateSchNon(det.sheet, CHK.dwak);
   if(det.type==='SCH TYPE P')  return chkValidateSchTypeP(det.sheet, CHK.dwak);
   if(det.type==='SCH AKO2')    return chkValidateSchAko2(det.sheet, CHK.dwak);
+  if(det.type==='FZ AKO 2 (KN)') return chkValidateFzKn(det.sheet, CHK.dwak);
   throw new Error('ยังไม่รองรับรูปแบบ MAPPING นี้');
 }
 
