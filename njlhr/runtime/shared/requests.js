@@ -108,8 +108,11 @@ function apStepsHTML(r){
       ap.map(function(p){
         no++;
         var ok=apIsDone(p),bad=apIsRej(p);
+        /* [RUN-131] ขั้นที่ผ่านแล้ว/ใบที่ปิดแล้ว = History ห้ามสื่อว่ายังค้างอยู่
+           ANY = ไม่จำเป็นต้องอนุมัติ · ALL = ไม่ได้ดำเนินการ (คงรายชื่อไว้ทุกคน) */
         var txt=ok?"✅ อนุมัติแล้ว":bad?"⛔ ไม่อนุมัติ":
-          (mode==="ANY"&&passed)?"— ไม่ต้องอนุมัติ":isCur?"🔴 ยังไม่อนุมัติ":"⚪ รอดำเนินการ";
+          passed?(mode==="ANY"?"— ไม่ต้องอนุมัติ":"— ไม่ได้ดำเนินการ"):
+          isCur?"🔴 ยังไม่อนุมัติ":"⚪ รอดำเนินการ";
         return'<li class="'+(ok?"ok":bad?"bad":isCur?"wait":"idle")+'">'+
           '<span class="ap-mk">'+no+".</span>"+
           '<span class="ap-nm">'+esc(apPerson(p))+"</span>"+

@@ -1,3 +1,84 @@
+NJHR V2 — RUN-131 · Approval UI: ซ่อน Future Step / ขั้นที่ผ่านแล้วเป็น History
+Build: njhr-v2-d69e38a9  (ก่อนหน้า: njhr-v2-45185d41)
+สถานะ: FRONTEND_ONLY · NO_SQL · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+รอบนี้ไม่มี SQL — RUN-128 / RUN-129 / RUN-130 ติดตั้งบน Production ไปแล้ว
+ห้ามรันซ้ำ (เป็น Migration แบบ text-rewrite ของ Function เดิม รันซ้ำจะ raise exception)
+
+Root Cause
+  RC-1  apprWhoState() ไม่มีสถานะ "ขั้นที่ผ่านแล้ว"
+        หลัง RUN-128 Backend (njhr_appr_steps_snap) ตัด Future Step ทิ้งก่อนส่งมาแล้ว
+        steps ที่ Frontend ได้รับจึงมีได้แค่ "ขั้นปัจจุบัน" กับ "ขั้นที่ผ่านแล้ว"
+        แต่โค้ดยังตกไปที่ป้าย "ยังไม่ถึงขั้น" ทุกกรณีที่ไม่ใช่ขั้นปัจจุบัน
+        หลักฐาน Production: 260902-0007 (cur=3 · steps 3 ขั้น) และ 260902-0002 (cur=2 · steps 2 ขั้น)
+        แต่ละใบมีผู้อนุมัติในขั้นที่ผ่านแล้ว 1 คนที่ไม่ได้กด → ถูกแปะว่า "ยังไม่ถึงขั้น"
+  RC-2  apprStepsHTML() คำนวณ wait เองโดยไม่เช็ค status
+          var wait = cur && s.step_no === cur;        (ขาด && status === "PENDING")
+        Production มี CANCELLED 6 แถวที่ current_step ยังค้าง 1–2
+        (APPROVED / REJECTED เป็น NULL หมดแล้ว) → ใบที่จบแล้วกลับไปโชว์ "รออนุมัติ"
+  RC-3  apprStepsHTML() ไม่รู้จัก step_mode = ANY
+        หน้าอนุมัติกับหน้าพนักงานจึงเขียนข้อความคนละอย่างกับใบเดียวกัน
+  RC-4  apStepsHTML() (ฝั่งพนักงาน) ขั้น ALL ที่ผ่านแล้ว / ใบที่ปิดแล้ว
+        ตกไปที่ "รอดำเนินการ" ซึ่งยังสื่อว่าค้างอยู่
+
+สิ่งที่แก้ — 2 ไฟล์ Runtime
+  compat/approvals-reports.js
+    ~ apprWhoState()      + เงื่อนไข status === "PENDING" ก่อนให้ "รออนุมัติ"
+                          + สถานะขั้นที่ผ่านแล้ว: ANY = "— ไม่ต้องอนุมัติ" · ALL = "— ไม่ได้ดำเนินการ"
+                          - ลบป้าย "ยังไม่ถึงขั้น" ออกจากโค้ดที่ทำงานจริง
+                          คืนค่าเป็น [class, ข้อความ, เครื่องหมาย] (เครื่องหมายเป็น optional)
+    + apprWhoMark()       เครื่องหมายหน้าสถานะ — ใช้ร่วมกันทั้ง Popover และ Modal
+    ~ apprStepsHTML()     เลิกคำนวณ wait เอง → เรียก apprWhoState ตัวเดียวกับ Popover
+                          ข้อความของคนคนเดียวกันจึงตรงกันทุกจุดโดยโครงสร้าง
+    ~ apprApproversHTML() ใช้ apprWhoMark() แทนการ map เครื่องหมายซ้ำ
+  runtime/shared/requests.js
+    ~ apStepsHTML()       ขั้นที่ผ่านแล้ว (ทุกโหมด) และใบที่ปิดแล้ว
+                          ANY = "— ไม่ต้องอนุมัติ" · ALL = "— ไม่ได้ดำเนินการ"
+
+พฤติกรรมที่ได้
+  Future Step            ไม่แสดง — Backend ตัดให้แล้ว Frontend ไม่กรองซ้ำและไม่เติมขั้นเอง
+  Step ที่ผ่านแล้ว        ยังเห็นครบทุกคนเป็น History — ห้ามซ่อนคนออกจากขั้น
+  Current Step           เท่านั้นที่ขึ้น "รออนุมัติ" และต้องเป็นใบที่ PENDING
+  ใบที่ปิดแล้ว            APPROVED / REJECTED / CANCELLED ห้ามกลับไปเป็น "รออนุมัติ" เด็ดขาด
+  ขั้นปัจจุบัน n / m       คงรูปแบบเดิม (เป็นจำนวนขั้นรวม ไม่เปิดชื่อ/ผู้อนุมัติ/สถานะของ Future Step)
+
+ไม่แตะ
+  SQL ทุกไฟล์ · Snapshot Engine (njhr_wf_snapshot_by_id · njhr_appr_steps_snap · njhr_appr_acted_step)
+  LEAVE / OT / CORRECTION RPC · njhr_attc_quota · njhr_hr_cycle · njhr_attc_claim_cycle · Monthly Limit
+  Legacy LEAVE 260902-0002 · 260902-0007
+  Badge / can_act / pending_count — ยังมาจาก Backend เหมือนเดิม ไม่แตะตรรกะ
+  styles.css · mobile.css · index.html · sw.js (นอกจากสตริงเวอร์ชันที่ rebuild-version.py เขียนให้)
+  ตาราง/คอลัมน์/Layout ของหน้าอนุมัติ · Modal · ไฟล์แนบ · Timeline
+
+ไฟล์ทดสอบ (ไม่อยู่ในชุด Deploy)
+  ~ _check/test-appr.js            ซ่อม Harness ที่พังมาก่อนหน้านี้
+                                   RUN-120 ย้าย apStatus / apChip / apSummaryHTML / apStepsHTML
+                                   ไป runtime/shared/requests.js แต่ Harness ไม่มี stub
+                                   → apprRender() โยน error → ถูกกลืนใน .catch → ตารางว่าง 0 แถว
+                                   แก้เป็นโหลด requests.js ตัวจริงเข้ามา + Re-baseline
+                                   ความคาดหวังยุค 12 คอลัมน์ ให้ตรง Release ปัจจุบัน (8 คอลัมน์)
+  + _check/test-run131-appr-ui.js  36 เคส — ตรรกะรายคน · ข้อความ 2 จุดต้องตรงกัน ·
+                                   ใบที่ปิดแล้วห้ามเป็น "รออนุมัติ" · คงรายชื่อครบ ·
+                                   Badge/can_act มาจาก Backend · ไม่ Fetch Master Workflow
+
+การตรวจสอบ
+  node _check/test-run131-appr-ui.js     36 เคส  (RUN-131)
+  node _check/test-appr.js              119 เคส  (JSDOM · หน้าอนุมัติรายการ)
+  node _check/test-apprstatus.js         66 เคส
+  node _check/test-apprqueue.js          32 เคส
+  node _check/test-apprcols.js           30 เคส
+  node _check/test-run121.js             41 เคส
+  node _check/test-run127-appr-layout.js 46 เคส
+  node _check/test-css.js                27 เคส
+  python3 _check/rebuild-version.py njlhr   ตรวจ Deployment Version chain
+
+ยังไม่ได้ยืนยันบนเครื่องจริง
+  REAL_DEVICE_VERIFICATION = NOT_RUN (Desktop / Mobile ยังไม่ได้เปิดดูด้วยตา)
+
+======================================================================
+ประวัติรอบก่อนหน้า
+======================================================================
+
 NJHR V2 — RUN-127 · Layout ตาราง "อนุมัติรายการ → คำขอลา" (Desktop)
 Build: njhr-v2-45185d41  (ก่อนหน้า: njhr-v2-ae892ed1)
 สถานะ: CSS_ONLY · NO_SQL · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN
@@ -49,10 +130,6 @@ Root Cause ของ Scroll แนวนอน
     เพราะชุดนั้นเขียนไว้ตรวจ min-width px ของทุก Tab — 27/27 PASS เท่าเดิม
 
   TEST-01/02 (จอ 1920 / 1366 จริง) ยังไม่ได้ยืนยันบนเครื่องจริง
-
-======================================================================
-ประวัติรอบก่อนหน้า
-======================================================================
 
 NJHR V2 — RUN-126 · "ลืมรหัสผ่าน" บนหน้า Login
 Build: njhr-v2-ae892ed1  (ก่อนหน้า: njhr-v2-3d75cca8)

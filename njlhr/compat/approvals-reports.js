@@ -123,15 +123,15 @@ function apprStepsHTML(r) {
         ' <span class="apr-cur">ขั้นปัจจุบัน</span>' : "");
     var who = (s.approvers || []).map(function (p) {
       n++;
-      var act = String(p.action || "").toUpperCase();
-      var ok = act === "APPROVE" || act === "AUTO_APPROVE_EXEMPT";
-      var bad = act === "REJECT";
-      var wait = cur && s.step_no === cur;
-      var txt = ok ? "✅ อนุมัติแล้ว" : bad ? "❌ ไม่อนุมัติ" : wait ? "🟡 รออนุมัติ" : "⚪ รอดำเนินการ";
-      return '<li class="' + (ok ? "ok" : bad ? "bad" : "wait") + '">' +
+      /* [RUN-131] ใช้ apprWhoState ตัวเดียวกับ Popover — ข้อความและเงื่อนไขต้องตรงกันทุกจุด
+         เดิมที่นี่คำนวณ wait เองโดยไม่เช็ค status จึงทำให้ใบที่ปิดแล้ว
+         (CANCELLED ที่ current_step ยังค้าง) กลับไปแสดง "รออนุมัติ" */
+      var stt = apprWhoState(r, s, p);
+      var txt = apprWhoMark(stt) + " " + stt[1];
+      return '<li class="' + stt[0] + (stt[0] === "none" ? " muted" : "") + '">' +
         '<span class="apr-mk">' + n + ".</span>" +
         '<span class="apr-nm2">' + esc(apprWho(p.name, p.nickname)) + "</span>" +
-        '<span class="apr-sep">:</span><b>' + txt + "</b>" +
+        '<span class="apr-sep">:</span><b>' + esc(txt) + "</b>" +
         (p.action_at ? ' <small class="muted">' + esc(apprTSDateTime(p.action_at)) + "</small>" : "") + "</li>";
     }).join("");
     return '<div class="apr-step"><div class="apr-step-h">' + head + "</div><ul>" + who + "</ul></div>";
@@ -410,15 +410,30 @@ function apprApprCount(r) {
   return total ? { done: done, total: total } : null;
 }
 
-/* สถานะรายคนตามผังจริง */
+/* สถานะรายคนตามผังจริง
+   [RUN-131] Backend (RUN-128 · njhr_appr_steps_snap) ตัด Future Step ทิ้งก่อนส่งมาแล้ว
+   steps ที่ Frontend ได้รับจึงมีได้แค่ "ขั้นปัจจุบัน" กับ "ขั้นที่ผ่านแล้ว" เท่านั้น
+   จึงไม่มีสถานะ "ยังไม่ถึงขั้น" อีกต่อไป — ขั้นที่ผ่านแล้วต้องอ่านเป็น History
+   และต้องคงรายชื่อผู้อนุมัติไว้ครบ ห้ามซ่อนคนออกจากขั้นที่ผ่านแล้ว
+   คืนค่า [class, ข้อความ, เครื่องหมาย] — เครื่องหมายเป็น optional */
 function apprWhoState(r, step, p) {
   var a = String(p.action || "").toUpperCase();
   if (a === "APPROVE" || a === "AUTO_APPROVE_EXEMPT") return ["ok", "อนุมัติแล้ว"];
   if (a === "REJECT") return ["bad", "ไม่อนุมัติ"];
   var cur = Number(r.current_step) || 0;
-  if (cur && step.step_no === cur && String(r.status).toUpperCase() === "PENDING")
+  /* "รออนุมัติ" ได้เฉพาะขั้นปัจจุบันของใบที่ยัง PENDING เท่านั้น
+     ใบที่ APPROVED / REJECTED / CANCELLED ห้ามกลับไปเป็น "รออนุมัติ" เด็ดขาด */
+  if (String(r.status || "").toUpperCase() === "PENDING" && cur && Number(step.step_no) === cur)
     return ["wait", "รออนุมัติ"];
-  return ["none", "ยังไม่ถึงขั้น"];
+  /* ขั้นที่ผ่านแล้ว / ใบที่ปิดแล้ว — ANY = ไม่จำเป็นต้องอนุมัติ · ALL = ไม่ได้ดำเนินการ */
+  return String(step.step_mode || "").toUpperCase() === "ANY"
+    ? ["none", "ไม่ต้องอนุมัติ", "—"]
+    : ["none", "ไม่ได้ดำเนินการ", "—"];
+}
+
+/* เครื่องหมายหน้าสถานะ — ใช้ค่าที่ apprWhoState กำหนดมาก่อน ถ้าไม่มีจึงใช้ค่าเริ่มต้นของ class */
+function apprWhoMark(stt) {
+  return stt[2] || (stt[0] === "ok" ? "✅" : stt[0] === "bad" ? "❌" : stt[0] === "wait" ? "🟡" : "⚪");
 }
 
 /* เนื้อหา Popover "ผู้อนุมัติ" — แยกเป็นรายคน อ่านง่าย ไม่ต่อกันเป็นประโยคยาว */
@@ -441,7 +456,7 @@ function apprApproversHTML(r) {
     var who = (st.approvers || []).map(function (p) {
       n++;
       var stt = apprWhoState(r, st, p);
-      var mk = stt[0] === "ok" ? "✅" : stt[0] === "bad" ? "❌" : stt[0] === "wait" ? "🟡" : "⚪";
+      var mk = apprWhoMark(stt);          /* [RUN-131] เครื่องหมายมาจากที่เดียวกับ apprStepsHTML */
       return '<div class="apr-pop-p ' + stt[0] + '">' +
         '<div class="apr-pop-row"><span>คนที่ ' + n + ' :</span><b>' +
         esc(apprWho(p.name, p.nickname)) + "</b></div>" +
