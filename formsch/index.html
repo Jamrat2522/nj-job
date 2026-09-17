@@ -8863,6 +8863,18 @@ function _mapKeyIE(billing, productCode){
 const _MAP_Z3 = '#,##0.000';
 // ใช้กับ sheet ที่เราสร้างเอง (aoa_to_sheet): ระบุคอลัมน์ตัวเลขที่ต้องการ 3 ตำแหน่ง (0-based)
 // ข้ามแถวหัวตาราง · แตะเฉพาะ cell ที่เป็นตัวเลข (t==='n') → คอลัมน์รหัส/เลขเอกสารที่เป็น text ไม่ถูกแตะ
+// ── QTY: จำนวนชิ้น = จำนวนเต็ม ห้ามมีจุดทศนิยมตอน EXPORT (ใช้กับคอลัมน์ Qty เท่านั้น) ──
+const _MAP_Z0 = '#,##0';
+function _mapZ0Cols(ws, cols, startRow){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
+    for(const c of cols){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(cell && cell.t === 'n') cell.z = _MAP_Z0;
+    }
+  }
+}
 function _mapZ3Cols(ws, cols, startRow){
   if(!ws || !ws['!ref']) return;
   const rg = XLSX.utils.decode_range(ws['!ref']);
@@ -9095,7 +9107,8 @@ async function exportMappingCombined(){
     }
 
     // ════ STEP 4b: อ่านไฟล์ RM (อ้างอิง / COO_RM) → index: Billing Document + Delivery + Material ════
-    //   narrow: Batch → Delivery quantity · ใช้เติม Import entry no. / Item no.
+    //   Delivery = คอลัมน์ 'Delivery' หรือ 'Reference Document' (แล้วแต่ Schema ของ COO_RM)
+    //   narrow: Batch → Qty (Delivery quantity / Billing qty in SKU) · ใช้เติม Import entry no. / Item no.
     //   1 แถว/ค่าตรงกันทุกแถว → เติมปกติ
     //   หลายแถว + Σ Delivery quantity = Invoiced Qty → แตกบรรทัด (หารตัวเลขตามสัดส่วน Delivery quantity)
     //   หลายแถว + Σ ไม่ตรง → เว้นว่าง + แจ้ง AMBIGUOUS COO_RM MATCH
@@ -9106,9 +9119,13 @@ async function exportMappingCombined(){
     const rmRefAoa = XLSX.utils.sheet_to_json(rmRefWs, {header:1, defval:''});
     const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
     const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
+    // เลือกตามลำดับความสำคัญของ "ชื่อคอลัมน์" (ไม่ใช่ลำดับคอลัมน์) — รองรับ COO_RM หลาย Schema
+    //   Delivery  : ไฟล์เก่าใช้ 'Delivery' · ไฟล์ใหม่ใช้ 'Reference Document' (ทั้งคู่ = เลข Delivery เดียวกับ RM Master)
+    //   Qty(narrow): 'Delivery quantity' → 'Billing qty in SKU' → 'Invoiced Quantity' → 'QTY'
+    const rrFindOrd = cands=>{ for(const nm of cands){ const c=rrHdr.indexOf(nm); if(c>=0) return c; } return -1; };
     const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
-          rrDeliv=rrFind(['delivery']), rrMat=rrFind(['material']), rrBatch=rrFind(['batch']),
-          rrDq=rrFind(['delivery quantity','delivery qty']),
+          rrDeliv=rrFindOrd(['delivery','reference document']), rrMat=rrFind(['material']), rrBatch=rrFind(['batch']),
+          rrDq=rrFindOrd(['delivery quantity','delivery qty','billing qty in sku','invoiced quantity','invoiced qty','qty']),
           rrEntry=rrFind(['import entry no.','import entry no','import entry']), rrItemNo=rrFind(['item no.','item no','รายการ']);
     // Material (Trim) source ในไฟล์ RM มีเลขอ้างอิง — Description(ตัด #) → Material name 2 (optional · ไม่บังคับ)
     const rrDesc=rrFind(['description']), rrMatName2=rrFind(['material name 2','material name2','materialname2']);
@@ -9286,6 +9303,10 @@ async function exportMappingCombined(){
     const numOrBlank = v => (v===''||v==null) ? '' : Number(v);
     const sumNum = v => (v===''||v==null) ? 0 : Number(v);
 
+    // QTY ต้องเป็นจำนวนเต็ม — ถ้าข้อมูลจริงออกมาเป็นทศนิยม ห้ามปัดเงียบ ให้แจ้งใน UNMATCHED
+    const qtyDec = [];
+    const _qtyIsInt = v => (v===''||v==null) ? true : Math.abs(Number(v)-Math.round(Number(v))) < 1e-9;
+
     const countries = Object.keys(outByCountry).sort();
     const sheetOrder = [];   // country sheet names in final order
     countries.forEach(ctr=>{
@@ -9319,14 +9340,19 @@ async function exportMappingCombined(){
           aoa.push([ ro.billing, ro.bdate, finalMaterial, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
                      _mapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
                      numOrBlank(ro.fob), _descAll, finalMaterial, _rh.entry, _rh.itemNo ]);
+          if(!_qtyIsInt(ro.invQty) || !_qtyIsInt(ro.qty))
+            qtyDec.push({billing:ro.billing, item:ro.item, matTrim:finalMaterial||ro.matTrim,
+                         reason:'QTY ไม่เป็นจำนวนเต็ม (ไม่ปัดค่าให้อัตโนมัติ) — Invoiced Qty '+ro.invQty+' · Qty. '+ro.qty});
           tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
           tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
         });
         // TOTAL row — numbers only; text columns blank (incl. Billing Document Date + คอลัมน์ที่เพิ่มท้าย)
         aoa.push(['TOTAL','','','', round3(tQ), round3(tV), '', '', round3(tQty), round3(tNW), round3(tGW), round3(tFOB), '', '', '', '']);
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        // ทศนิยม 3 ตำแหน่ง: Invoiced Qty(4) · Net Value(5) · Qty.(8) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
-        _mapZ3Cols(ws, [4,5,8,9,10,11], 1);
+        // ทศนิยม 3 ตำแหน่ง: Net Value(5) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
+        _mapZ3Cols(ws, [5,9,10,11], 1);
+        // QTY = จำนวนเต็ม ห้ามมีจุดทศนิยม: Invoiced Qty(4) · Qty.(8) — รวมแถว TOTAL
+        _mapZ0Cols(ws, [4,8], 1);
         ws['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
         _rrSheets++;   // country sheet นี้เติมคอลัมน์แล้ว
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -9335,6 +9361,11 @@ async function exportMappingCombined(){
         summaryRows.push({country:sheetName, items:chunk.length, invQty:tQ, netVal:tV, nw:tNW, gw:tGW, fob:tFOB});
       });
     });
+
+    if(qtyDec.length){
+      qtyDec.forEach(x=>rmUnmatched.push(x));
+      if(typeof toast==='function') toast('พบ QTY ที่ไม่เป็นจำนวนเต็ม '+qtyDec.length+' รายการ — ดูชีต UNMATCHED (ไม่ปัดค่าให้อัตโนมัติ)','warning');
+    }
 
     // -- Build SUMMARY sheet (1 row per sheet, full country name + suffix) --
     const sumAoa = [['Country','Items','Total Invoiced Qty','Total Net Value (USD)','Total Net Weight','Total Gross Weight','Total FOB THB']];
@@ -9345,9 +9376,10 @@ async function exportMappingCombined(){
     });
     sumAoa.push(['GRAND TOTAL', gI, round3(gQ), round3(gV), round3(gNW), round3(gGW), round3(gFOB)]);
     const sumWs = XLSX.utils.aoa_to_sheet(sumAoa);
-    // ทศนิยม 3 ตำแหน่ง: Total Invoiced Qty(2) · Net Value(3) · NW(4) · GW(5) · FOB(6) — รวมแถว GRAND TOTAL
-    // คอลัมน์ Items(1) = จำนวนรายการ (นับเป็นจำนวนเต็ม) → ไม่เติมทศนิยม
-    _mapZ3Cols(sumWs, [2,3,4,5,6], 1);
+    // ทศนิยม 3 ตำแหน่ง: Net Value(3) · NW(4) · GW(5) · FOB(6) — รวมแถว GRAND TOTAL
+    // คอลัมน์ Items(1) = จำนวนรายการ · Total Invoiced Qty(2) = QTY → จำนวนเต็ม ห้ามมีจุดทศนิยม
+    _mapZ3Cols(sumWs, [3,4,5,6], 1);
+    _mapZ0Cols(sumWs, [2], 1);
     sumWs['!cols']=[{wch:16},{wch:8},{wch:18},{wch:20},{wch:18},{wch:18},{wch:16}];
     XLSX.utils.book_append_sheet(wb, sumWs, 'SUMMARY');
 
