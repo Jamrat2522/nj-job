@@ -1,0 +1,1 @@
+import{i as c}from"./chunk-F5ETAYOF.js";var t=o=>c("njacc_save_job",{p:o}),p=o=>c("njacc_job_detail",{p_id:o}),i=o=>c("njacc_job_detail_billing",{p_id:o}),j=(o,_)=>c("njacc_post_job",{p_id:o,p_request_id:_}),s=o=>c("njacc_save_job_doc_fields",{p:o}),a=o=>c("njacc_job_dup_check",{p:o});export{t as a,p as b,i as c,j as d,s as e,a as f};
