@@ -98,6 +98,7 @@ function apprTimelineHTML(list) {
     /* [RUN-123] INFO_REPLY = คำตอบของผู้ยื่นคำขอ ไม่ใช่การตัดสินของผู้อนุมัติ */
     var cls = act === "APPROVE" || act === "AUTO_APPROVE_EXEMPT" ? "tl-ok" :
       act === "REJECT" ? "tl-bad" : act === "CANCEL" ? "tl-mut" :
+      act === "RETURN_REPLY" ? "tl-reply" :        /* [RUN-133] ผู้ยื่นส่งเอกสารเพิ่ม */
       act === "INFO_REPLY" ? "tl-reply" : x.action_at ? "tl-info" : "tl-wait";
     return '<div class="tl-item ' + cls + '"><span class="tl-dot"></span><div><b>' +
       esc(x.action_th || act || "-") + "</b><small>" + esc(apprWho(x.approver_name, x.approver_nickname)) +
@@ -819,6 +820,10 @@ function apprReview(el, kind, id, mode) {
     foot += '<button type="button" class="btn btn-danger-ghost" id="apr-reject">ไม่อนุมัติ</button>';
     if (kind === "leave")
       foot += '<button type="button" class="btn btn-ghost" id="apr-info">ขอข้อมูลเพิ่ม</button>';
+    /* [RUN-133] ตีกลับเพื่อขอเอกสารเพิ่มเติม — เฉพาะคำขอ OT เท่านั้น
+       คนละความหมายกับ "ไม่อนุมัติ": ไม่ปิดคำขอ · ไม่เลื่อนขั้น · ส่งกลับให้ผู้ยื่นแนบเอกสาร */
+    if (kind === "ot")
+      foot += '<button type="button" class="btn btn-ghost" id="apr-return">ตีกลับ</button>';
     foot += '<span class="apr-foot-gap"></span>' +
       '<button type="button" class="btn btn-primary" id="apr-approve">' + icon("check") + " ยืนยันอนุมัติ</button>";
   }
@@ -843,15 +848,18 @@ function apprReview(el, kind, id, mode) {
   var bRej = document.getElementById("apr-reject");
   var bApp = document.getElementById("apr-approve");
   var bInf = document.getElementById("apr-info");
+  var bRet = document.getElementById("apr-return");   /* [RUN-133] ปุ่มตีกลับ (เฉพาะ OT) */
 
-  function armNote(act, label, self, other) {
+  /* [RUN-133] รองรับ 3 Action ที่ต้องกรอกเหตุผล — ป้ายปุ่มและ Label ส่งเข้ามาตรง ๆ
+     สลับ Action แล้วต้องล้างข้อความเดิมเสมอ ห้ามส่งเหตุผลของ Action ก่อนหน้าค้างไป */
+  function armNote(act, label, self, selfLabel, others) {
     if (apprModal.stage !== act) {
       apprModal.stage = act;
       box.hidden = false;
       document.getElementById("apr-lbl").innerHTML = esc(label) + ' <i class="req">*</i>';
       document.getElementById("apr-err").textContent = "";
-      if (self) self.textContent = act === "REJECT" ? "ยืนยันไม่อนุมัติ" : "ยืนยันส่งคำถาม";
-      if (other) other.textContent = act === "REJECT" ? "ขอข้อมูลเพิ่ม" : "ไม่อนุมัติ";
+      if (self) self.textContent = selfLabel;
+      (others || []).forEach(function (o) { if (o && o.el) o.el.textContent = o.label });
       var ta = document.getElementById("apr-note");
       if (ta) { ta.value = ""; ta.focus(); }
       return false;
@@ -863,14 +871,23 @@ function apprReview(el, kind, id, mode) {
 
   if (bApp) bApp.onclick = function () { apprDecide(el, kind, r, "APPROVE", "", this) };
   if (bRej) bRej.onclick = function () {
-    var v = armNote("REJECT", "เหตุผลที่ไม่อนุมัติ", bRej, bInf);
+    var v = armNote("REJECT", "เหตุผลที่ไม่อนุมัติ", bRej, "ยืนยันไม่อนุมัติ",
+      [{ el: bInf, label: "ขอข้อมูลเพิ่ม" }, { el: bRet, label: "ตีกลับ" }]);
     if (v === false) return;
     apprDecide(el, kind, r, "REJECT", v, this);
   };
   if (bInf) bInf.onclick = function () {
-    var v = armNote("INFO", "ข้อมูลที่ต้องการเพิ่ม", bInf, bRej);
+    var v = armNote("INFO", "ข้อมูลที่ต้องการเพิ่ม", bInf, "ยืนยันส่งคำถาม",
+      [{ el: bRej, label: "ไม่อนุมัติ" }, { el: bRet, label: "ตีกลับ" }]);
     if (v === false) return;
     apprDecide(el, kind, r, "INFO", v, this);
+  };
+  /* [RUN-133] ตีกลับ — เหตุผล Required เช่นเดียวกับไม่อนุมัติ */
+  if (bRet) bRet.onclick = function () {
+    var v = armNote("RETURN", "เหตุผลที่ตีกลับ", bRet, "ยืนยันตีกลับ",
+      [{ el: bRej, label: "ไม่อนุมัติ" }, { el: bInf, label: "ขอข้อมูลเพิ่ม" }]);
+    if (v === false) return;
+    apprDecide(el, kind, r, "RETURN", v, this);
   };
 
   if (canAct && mode === "reject" && bRej) bRej.click();
@@ -881,7 +898,8 @@ function apprReview(el, kind, id, mode) {
 function apprDecide(el, kind, r, act, note, btn) {
   if (apprBusy) return;
   apprBusy = true;
-  var txt = act === "APPROVE" ? "อนุมัติ" : act === "REJECT" ? "ไม่อนุมัติ" : "ขอข้อมูลเพิ่ม";
+  var txt = act === "APPROVE" ? "อนุมัติ" : act === "REJECT" ? "ไม่อนุมัติ"
+          : act === "RETURN" ? "ตีกลับ" : "ขอข้อมูลเพิ่ม";   /* [RUN-133] */
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังบันทึก…' }
 
   var call;

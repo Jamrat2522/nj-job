@@ -1,3 +1,185 @@
+NJHR V2 — Release local304
+รอบนี้เป็นการแก้ Release Package / PATCH_INFO เท่านั้น — ไม่มีการแก้ Source ใน njlhr/
+Build: njhr-v2-8a600d79  (เท่ากับ local303 โดยตั้งใจ)
+  Build Digest คำนวณจากไฟล์ที่ asset-manifest อ้างถึง + face.js/face.css + manifest/icon เท่านั้น
+  PATCH_INFO.txt และ _archive/ ไม่อยู่ใน Digest → Digest จึงไม่เปลี่ยน
+  และจะไม่แก้ Source เพียงเพื่อบังคับให้ Digest เปลี่ยน
+
+สถานะ: FRONTEND_READY · SQL_READY · NOT_INSTALLED_ON_PRODUCTION
+       REAL_DEVICE_VERIFICATION = NOT VERIFIED
+
+================================================================
+local304 เปลี่ยนอะไรจาก local303
+================================================================
+1) แก้ PATCH_INFO ที่อ้าง path ผิด
+   local303 เขียนว่า SQL อยู่ที่ "SQL/RUN-13x_*.sql"
+   ของจริงตามโครงสร้างโปรเจกต์คือ njlhr/_archive/RUN-13x_*.sql
+2) Deploy ZIP กลับไปตรงโครงสร้างเดิมของโปรเจกต์
+   Deploy github local304.zip = njlhr/ เท่านั้น · ไม่มีไฟล์ .sql · ไม่มี _archive/
+   (ตรงกับ Deploy github local300.zip ต้นฉบับ ที่มี 54 ไฟล์และไม่มี .sql เลย)
+3) SQL 3 ไฟล์อยู่ใน Open check local304.zip ที่ njlhr/_archive/
+   วางรวมกับ Migration เดิม RUN-101 … RUN-126 ตามแบบเดิม
+4) ย้ายไฟล์ชุดทดสอบ SQL ออกจาก _archive ไปไว้ที่ _check/sql/
+   _archive เก็บเฉพาะ Migration จริงตามแบบเดิม
+   _check/sql/_RUN132-133_fulltest.sql · _check/sql/_RUN134_fulltest.sql
+5) เพิ่ม Install Order พร้อมสถานะรายไฟล์ (ด้านล่าง)
+
+ไม่มีไฟล์ใดใน njlhr/ ถูกแก้ นอกจาก PATCH_INFO.txt ฉบับนี้
+
+================================================================
+INSTALL ORDER — ตรวจ Dependency จากไฟล์ SQL จริง ไม่ได้อ้างจากชื่อไฟล์
+================================================================
+ผลตรวจ Dependency: สแกนการเรียก public.<ฟังก์ชันที่ไฟล์อื่นนิยาม>( ทุกคู่แล้ว
+  RUN-132 → RUN-133 : ไม่เรียก
+  RUN-132 → RUN-134 : ไม่เรียก
+  RUN-133 → RUN-132 : ไม่เรียก
+  RUN-133 → RUN-134 : ไม่เรียก
+  RUN-134 → RUN-132 : ไม่เรียก
+  RUN-134 → RUN-133 : ไม่เรียก
+→ ทั้งสามไฟล์เป็นอิสระต่อกัน ไม่มี Dependency ระหว่างกัน
+  ลำดับด้านล่างจึงเรียงตามเลข RUN เพื่อให้ตรงกับ supabase_migrations.schema_migrations
+  ไม่ใช่เพราะไฟล์หลังต้องรอไฟล์หน้า
+
+STEP 1  njlhr/_archive/RUN-132_leave_self_approval_skip.sql
+        ขอบเขต    คำขอลา — ผู้ยื่นไม่ต้องอนุมัติตัวเอง (Runtime Eligibility + Skip Step)
+        นิยาม     5 ฟังก์ชัน njhr_leave_eligible_total / njhr_leave_effective_step /
+                  njhr_leave_skipped_steps / njhr_leave_can_act / njhr_leave_decide
+        DDL       ไม่มี
+        ต้องมีก่อน njhr_ctx · njhr_wf_pick · njhr_request_approver_member ·
+                  njhr_appr_acted_step · njhr_appr_uuid · njhr_leave_audit ·
+                  njhr_leave_info_pending   (มีครบบน Production แล้ว)
+        sha256    b509fa10ee61c3bddfc34df28f9ca2977f825b1c5c86aa653773e55b287707cb
+        ขนาด      24,386 ไบต์
+        สถานะ     REQUIRED (สำหรับฟีเจอร์คำขอลา) · NOT INSTALLED · VERIFIED (BEGIN…ROLLBACK)
+
+STEP 2  njlhr/_archive/RUN-133_ot_return_resume.sql
+        ขอบเขต    OT — ตีกลับขอเอกสารเพิ่มเติม + Resume Step + Attachment Guard
+        นิยาม     12 ฟังก์ชัน njhr_ot_return_pending / njhr_ot_return_info /
+                  njhr_ot_return_reply / njhr_ot_returned_list / njhr_ot_can_act /
+                  njhr_ot_decide / njhr_ot_attach_add / njhr_ot_attach_delete /
+                  njhr_ot_submit_core_v145 / njhr_ot_get / njhr_ot_feed / njhr_appr_view_ot
+        DDL       ไม่มี
+        ต้องมีก่อน njhr_ctx · njhr_ot_guard · njhr_wf_pick · njhr_wf_snapshot_by_id ·
+                  njhr_appr_steps_snap · njhr_next_request_no · njhr_audit_write
+                  (มีครบบน Production แล้ว)
+        sha256    c5e09c8c31ba7b7e9142381be7a5a6cc2bd6ff5c37e970ca7086d179994d866e
+        ขนาด      52,951 ไบต์
+        สถานะ     REQUIRED (สำหรับฟีเจอร์ OT) · NOT INSTALLED · VERIFIED (BEGIN…ROLLBACK)
+
+STEP 3  njlhr/_archive/RUN-134_doc_employee_first_flow.sql
+        ขอบเขต    เอกสาร HR — พนักงานเป็น Step แรก + ลำดับผู้อนุมัติ + แจ้งเตือนตาม Active Step
+        นิยาม     12 ฟังก์ชัน njhr_doc_step_list / njhr_doc_is_approver / njhr_doc_has_steps /
+                  njhr_doc_can_act / njhr_doc_steps_view / njhr_doc_event_step /
+                  njhr_doc_notify / njhr_doc_flow / njhr_doc_respond / njhr_doc_detail /
+                  njhr_doc_center_list / njhr_doc_my_pending
+        DDL       alter table njhr_emp_documents  add column if not exists current_step integer
+                  alter table njhr_emp_doc_events add column if not exists step_no      integer
+                  (additive เท่านั้น · ไม่มี DROP / DELETE / TRUNCATE · ไม่ Backfill)
+        ต้องมีก่อน njhr_ctx · njhr_doc_guard · njhr_doc_can_approve · njhr_doc_confirm_text ·
+                  njhr_doc_content_hash · njhr_doc_event · njhr_audit_write · njhr_appr_uuid
+                  (มีครบบน Production แล้ว)
+        sha256    1f402f380bbbbce2fb1a3ac1764f8afcc92d02910dea71f790b56c5911ea3fb9
+        ขนาด      38,292 ไบต์
+        สถานะ     REQUIRED (สำหรับฟีเจอร์ศูนย์จัดการเอกสาร HR) · NOT INSTALLED ·
+                  VERIFIED (BEGIN…ROLLBACK)
+        หมายเหตุ  ไม่ขึ้นกับ RUN-132/133 ติดตั้งเดี่ยวได้
+
+STEP 4  Deploy Frontend
+        อัปโหลดโฟลเดอร์ njlhr/ จาก Deploy github local304.zip ขึ้น GitHub
+        (Add file → Upload files → Commit changes)
+
+ตรวจสถานะ Production ณ เวลาที่ออก Release นี้ (อ่านจากฐานจริง)
+  ฟังก์ชันใหม่ของ RUN-132 พบ 0 จาก 3
+  ฟังก์ชันใหม่ของ RUN-133 พบ 0 จาก 4
+  ฟังก์ชันใหม่ของ RUN-134 พบ 0 จาก 7
+  คอลัมน์ใหม่ของ RUN-134 พบ 0 จาก 2
+  แถวใน supabase_migrations.schema_migrations พบ 0 จาก 3
+  → ทั้งสามไฟล์ NOT INSTALLED ตรงกับที่รายงาน
+
+================================================================
+สถานะการทดสอบ
+================================================================
+VERIFIED        SQL ทั้ง 3 ไฟล์ผ่าน Full Artifact Test แบบ BEGIN…ROLLBACK บนฐาน Production
+                (ไม่ COMMIT · ตรวจ Rollback แล้วไม่มีอะไรค้าง)
+                RUN-132/133 = 68 เคส · RUN-134 = 34 เคส · FAILS = 0
+                ด่านตรวจ md5 ของ prosrc รายฟังก์ชันตรงกับไฟล์ artifact ทุกไบต์
+VERIFIED        Frontend Regression 25 ชุดใน _check/ · FAIL = 0
+NOT VERIFIED    Mobile 360 / 390 / 412 px ด้วย Layout Engine จริง
+NOT VERIFIED    Android / iPhone เครื่องจริง — เปิดเอกสาร / รับทราบ / แตะ Notification /
+                Web Push ตอน Browser หรือแอปอยู่ Background หรือปิด
+NOT VERIFIED    Print / PDF จากเครื่องจริง
+  → ห้ามสรุปว่า READY FOR PRODUCTION จนกว่ารายการ NOT VERIFIED จะถูกยืนยัน
+
+================================================================
+ประวัติรอบก่อนหน้า
+================================================================
+[แก้ไขโดย local304] ข้อความในส่วนประวัติด้านล่างนี้เก็บไว้ตามที่เคยเขียนจริงเพื่อเป็นบันทึก
+แต่ path ของ SQL ที่เขียนว่า "SQL/RUN-13x_*.sql" นั้นผิด
+ของจริงอยู่ที่ njlhr/_archive/RUN-13x_*.sql และไม่ได้อยู่ใน Deploy ZIP
+ให้ยึด INSTALL ORDER ของ local304 ด้านบนเป็นหลักเสมอ
+
+
+NJHR V2 — RUN-132 + RUN-133
+  RUN-132 · คำขอลา: ผู้ยื่นไม่ต้องอนุมัติตัวเอง (Runtime Eligibility + Skip Step)
+  RUN-133 · OT: ตีกลับเพื่อขอเอกสารเพิ่มเติม + Resume Step + Attachment Guard
+Build: njhr-v2-3a4566ac  (ก่อนหน้า: njhr-v2-d69e38a9)
+สถานะ: FRONTEND_READY · SQL_READY · NOT_INSTALLED_ON_PRODUCTION · REAL_DEVICE_VERIFICATION = NOT_RUN
+
+SQL ของรอบนี้ยังไม่ได้ติดตั้งลง Production
+  SQL/RUN-132_leave_self_approval_skip.sql
+    sha256 b509fa10ee61c3bddfc34df28f9ca2977f825b1c5c86aa653773e55b287707cb
+    md5    17f373b3cbe9b81c780cb2d10437aba0   ขนาด 24,386 ไบต์
+  SQL/RUN-133_ot_return_resume.sql
+    sha256 c5e09c8c31ba7b7e9142381be7a5a6cc2bd6ff5c37e970ca7086d179994d866e
+    md5    8cabc07b504018c6d2e04547d8167bac   ขนาด 52,951 ไบต์
+  ทดสอบแล้วแบบ BEGIN … ROLLBACK บนฐาน Production (ไม่ COMMIT)
+  ชุดทดสอบ: SQL/_RUN132-133_fulltest.sql
+
+RUN-132 — ขอบเขต (คำขอลาเท่านั้น)
+  ฟังก์ชันใหม่ njhr_leave_eligible_total / njhr_leave_effective_step / njhr_leave_skipped_steps
+  แก้ njhr_leave_can_act   ประเมินที่ "ขั้นที่ใช้ได้จริง" · ตัดผู้ยื่นออกจาก approver_total
+  แก้ njhr_leave_decide    บันทึก Event action='SKIP' (by_employee = null) แล้วเลื่อนขั้น
+                           ไม่แจ้งเตือนผู้ยื่นในฐานะผู้อนุมัติ
+  ไม่มี Eligible Approver เลย → คง PENDING + รายงาน Configuration Error (ห้าม Auto Approve)
+  ไม่ Backfill — ใบ PENDING เดิมได้ผลจาก Runtime Logic ล้วน ๆ
+
+RUN-133 — ขอบเขต (OT เท่านั้น)
+  RETURN state derive จาก approvals jsonb — ไม่เพิ่มค่าใน request_status enum
+  ฟังก์ชันใหม่ njhr_ot_return_pending / njhr_ot_return_info / njhr_ot_return_reply /
+              njhr_ot_returned_list
+  แก้ njhr_ot_can_act · njhr_ot_decide (action 'RETURN' เหตุผล Required) ·
+      njhr_ot_attach_add · njhr_ot_attach_delete (Guard: เจ้าของ + อยู่ในสถานะตีกลับเท่านั้น) ·
+      njhr_ot_submit_core_v145 (บันทึกไฟล์แนบจาก p_jobs[].files ในธุรกรรมเดียวกับคำขอ) ·
+      njhr_ot_get (เพิ่ม request_no / returned / return / can_edit_files / attachments) ·
+      njhr_ot_feed (wait_return — แถวที่ถูกตีกลับยังเห็นแต่กดไม่ได้) ·
+      njhr_appr_view_ot (ป้ายไทยของ RETURN / RETURN_REPLY)
+  Resume: current_step ไม่ถูก Reset · APPROVE ของขั้นก่อนหน้ายังอยู่ครบ
+
+Frontend ที่แก้ในรอบนี้ (5 ไฟล์)
+  compat/approvals-reports.js   ปุ่ม "ตีกลับ" เฉพาะ kind === 'ot' · Timeline RETURN / RETURN_REPLY
+  runtime/shared/requests.js    apLastAct() + สถานะ RETURNED (📩 ตีกลับ — รอเอกสารเพิ่มเติม)
+  runtime/core.js               เพิ่ม njhr_ot_attach_add / _delete / njhr_ot_return_reply
+                                เข้า SB_WRITE_RPC (in-flight lock กันกดซ้ำ)
+  views/ot/form.js              ส่งไฟล์แนบไปกับ p_jobs[].files · เลิกยิง attach_add หลัง submit
+  views/ot/main.js              Badge/Chip คำขอที่ถูกตีกลับ + Modal เพิ่มเอกสารและส่งใหม่
+
+Known Issue — ยกไป RUN-134
+  F25 Storage orphan: การลบไฟล์แนบเป็น Soft delete (deleted_at) เท่านั้น
+      Object ใน Storage bucket ยังคงอยู่ · Edge Function njhr-req-file ไม่มี action ลบ
+      เป็นปัญหาเดิมของระบบทั้งระบบ ไม่ได้เกิดจาก RUN-133
+      สถานะที่ถูกต้องคือ FAIL — PRE-EXISTING KNOWN ISSUE / DEFERRED TO RUN-134
+      ห้ามปิดด้วยการตั้ง registered = true
+
+การติดตั้ง
+  1) รัน SQL/RUN-132_leave_self_approval_skip.sql
+  2) รัน SQL/RUN-133_ot_return_resume.sql
+  3) อัปโหลด njlhr/ ทั้งชุดขึ้น GitHub (Add file → Upload files → Commit changes)
+  ห้ามรันซ้ำ RUN-128 / RUN-129 / RUN-130
+
+================================================================
+ประวัติรอบก่อนหน้า
+================================================================
+
 NJHR V2 — RUN-131 · Approval UI: ซ่อน Future Step / ขั้นที่ผ่านแล้วเป็น History
 Build: njhr-v2-d69e38a9  (ก่อนหน้า: njhr-v2-45185d41)
 สถานะ: FRONTEND_ONLY · NO_SQL · DEPLOY_PENDING · REAL_DEVICE_VERIFICATION = NOT_RUN

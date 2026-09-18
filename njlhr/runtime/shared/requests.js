@@ -32,6 +32,10 @@ function apLastEvent(r,acts){
   }
   return best;
 }
+/* [RUN-133] Action ของ Event ล่าสุดในสายอนุมัติ — ใช้แยกสถานะ "ตีกลับ" ออกจาก "ไม่อนุมัติ" */
+function apLastAct(r){var l=(r&&Array.isArray(r.approvals))?r.approvals:[];var best=null,bk=-1;
+  for(var i=0;i<l.length;i++){var sq=Number(l[i]&&l[i].seq);var k=isFinite(sq)?sq:i;if(k>=bk){bk=k;best=l[i]}}
+  return apEvAct(best)}
 function apStepOf(steps,no){for(var i=0;i<(steps||[]).length;i++){if(Number(steps[i].step_no)===Number(no))return steps[i]}return null}
 /* [RUN-120] สรุปสถานะ Approval จาก Workflow จริง
    แดง = ยังไม่จบ Workflow (ทุกกรณี) · เขียว = APPROVED ครบทุก Step เท่านั้น
@@ -50,6 +54,11 @@ function apStatus(r){
   if(raw.indexOf("CANCEL")>=0){o.kind="CANCELLED";o.tone="mut";o.mark="⚪";o.title="ยกเลิกแล้ว";o.badge="badge-mut";return o}
   if(raw.indexOf("REJECT")>=0){o.kind="REJECTED";o.tone="red";o.mark="⛔";o.title="ไม่อนุมัติ";o.badge="badge-bad";ev=apLastEvent(r,["REJECT"]);o.whoLabel="ผู้ไม่อนุมัติ";if(ev){o.who=apEvWho(ev);o.reason=apEvNote(ev);o.at=apAt(apEvAtRaw(ev))}return o}
   if(raw.indexOf("APPROV")>=0||raw==="COMPLETED"){o.kind="APPROVED";o.tone="green";o.mark="🟢";o.title="อนุมัติครบแล้ว";o.badge="badge-ok";ev=apLastEvent(r,["APPROVE","AUTO_APPROVE_EXEMPT"]);o.whoLabel="ผู้อนุมัติ";if(ev){o.who=apEvWho(ev);o.at=apAt(apEvAtRaw(ev))}if(!o.at&&r.approved_at)o.at=apAt(r.approved_at);return o}
+  /* [RUN-133] OT ที่ถูกตีกลับ — ยังไม่ปิดคำขอ ไม่ใช่ "ไม่อนุมัติ" และไม่ใช่ "อนุมัติ" */
+  if(apLastAct(r)==="RETURN"){o.kind="RETURNED";o.tone="red";o.mark="📩";
+    o.title="ตีกลับ — รอเอกสารเพิ่มเติม";o.badge="badge-warn";
+    ev=apLastEvent(r,["RETURN"]);o.whoLabel="ผู้ตีกลับ";
+    if(ev){o.who=apEvWho(ev);o.reason=apEvNote(ev);o.at=apAt(apEvAtRaw(ev))}return o}
   if(raw==="NEED_MORE_INFO"){o.kind="NEED_MORE_INFO";o.title="ต้องส่งข้อมูลเพิ่มเติม";ev=apLastEvent(r,["INFO"]);o.whoLabel="ผู้ขอข้อมูลเพิ่ม";if(ev){o.who=apEvWho(ev);o.reason=apEvNote(ev);o.at=apAt(apEvAtRaw(ev))}}
   if(!steps.length){o.note="ยังไม่มีผังการอนุมัติผูกกับคำขอนี้";return o}
   var st=apStepOf(steps,cur)||steps[0];
