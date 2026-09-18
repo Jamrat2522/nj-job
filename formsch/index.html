@@ -939,6 +939,11 @@ input[type=file]{display:none}
         Mapping
       </button>
 
+      <button class="sbi" id="nav-mapping-ben" onclick="navTo('mapping-ben')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+        Mapping BEN
+      </button>
+
       <button class="sbi" id="nav-xpdf" onclick="navTo('xpdf')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
         Excel → PDF
@@ -1152,6 +1157,127 @@ input[type=file]{display:none}
 
         </div>
       </div>
+
+      <!-- ════════ Mapping Excel BEN (Clone 100% จาก Mapping Excel · แยกอิสระทุก identifier) ════════ -->
+      <div class="pview" id="page-mapping-ben">
+
+        <!-- ══ MAPPING EXCEL — CLEAN 3 UPLOAD ZONES (PDF · RM · Import Entry) ══ -->
+        <div id="mappingCleanSection-ben" style="margin-top:24px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--t2);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+            <span>Mapping Excel BEN — โยน 3 ไฟล์ แล้วกดปุ่มเดียว</span>
+            <div style="flex:1;height:1px;background:var(--bd);"></div>
+            <button id="mappingCleanClearBtn-ben" onclick="benClearMappingAll()" title="ล้างไฟล์ทั้ง 3 โซน"
+                    style="display:inline-flex;align-items:center;gap:5px;background:rgba(248,81,73,.10);color:#f85149;border:1px solid rgba(248,81,73,.30);padding:5px 11px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--font);text-transform:none;letter-spacing:0;transition:.15s;"
+                    onmouseover="this.style.background='rgba(248,81,73,.18)';"
+                    onmouseout="this.style.background='rgba(248,81,73,.10)';">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              ล้างข้อมูล
+            </button>
+            <span style="font-size:10px;color:#3fb950;font-family:'IBM Plex Mono',monospace;text-transform:none;letter-spacing:0;">✓ v2026.06-CLEAN3 · BEN</span>
+          </div>
+
+          <!-- 3 UPLOAD ZONES -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;margin-bottom:18px;">
+
+            <!-- ───── ZONE 1: PDF Documents ───── -->
+            <div style="display:flex;flex-direction:column;">
+              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📄 INVOICE PDF</div>
+              <div id="mappingPdfMultiDropzone-ben"
+                   style="border:2px dashed rgba(163,113,247,.35);border-radius:8px;padding:18px 14px;min-height:104px;cursor:pointer;margin-bottom:10px;text-align:center;background:rgba(163,113,247,.04);transition:.15s;flex:1;display:flex;flex-direction:column;justify-content:center;"
+                   onclick="document.getElementById('mappingPdfMultiInput-ben').click()"
+                   ondragover="event.preventDefault();this.style.borderColor='#a371f7';this.style.background='rgba(163,113,247,.10)';"
+                   ondragleave="this.style.borderColor='rgba(163,113,247,.35)';this.style.background='rgba(163,113,247,.04)';"
+                   ondrop="event.preventDefault();this.style.borderColor='rgba(163,113,247,.35)';this.style.background='rgba(163,113,247,.04)';benHandleMappingPdfMultiUpload({target:{files:event.dataTransfer.files}})">
+                <div style="width:32px;height:32px;margin:0 auto 8px;background:rgba(163,113,247,.12);border:1px solid rgba(163,113,247,.25);border-radius:7px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size:12px;color:var(--t2);">คลิกหรือลากไฟล์ PDF (เลือกได้หลายไฟล์)</div>
+                <div style="font-size:10px;color:var(--t3);margin-top:3px;">Invoice / Packing List · PDF Mapping สร้างอัตโนมัติ</div>
+              </div>
+              <input type="file" id="mappingPdfMultiInput-ben" accept=".pdf" multiple style="display:none" onchange="benHandleMappingPdfMultiUpload(event)">
+              <div id="mappingPdfMultiList-ben" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+
+            <!-- ───── ZONE 2: RM File ───── -->
+            <div style="display:flex;flex-direction:column;">
+              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📦 RM ไม่มีเลขอ้างอิง</div>
+              <div id="mappingRmDropzone-ben"
+                   style="border:2px dashed rgba(63,185,80,.35);border-radius:8px;padding:18px 14px;min-height:104px;cursor:pointer;margin-bottom:10px;text-align:center;background:rgba(63,185,80,.04);transition:.15s;flex:1;display:flex;flex-direction:column;justify-content:center;"
+                   onclick="document.getElementById('mappingRmInput-ben').click()"
+                   ondragover="event.preventDefault();this.style.borderColor='#3fb950';this.style.background='rgba(63,185,80,.10)';"
+                   ondragleave="this.style.borderColor='rgba(63,185,80,.35)';this.style.background='rgba(63,185,80,.04)';"
+                   ondrop="event.preventDefault();this.style.borderColor='rgba(63,185,80,.35)';this.style.background='rgba(63,185,80,.04)';benHandleMappingRmUpload({target:{files:event.dataTransfer.files}})">
+                <div style="width:32px;height:32px;margin:0 auto 8px;background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.25);border-radius:7px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size:12px;color:var(--t2);">คลิกหรือลากไฟล์ RM (.xlsx / .xls)</div>
+                <div id="mappingRmFileName-ben" style="font-size:11px;color:#3fb950;margin-top:5px;font-family:'IBM Plex Mono',monospace;"></div>
+              </div>
+              <input type="file" id="mappingRmInput-ben" accept=".xlsx,.xls" style="display:none" onchange="benHandleMappingRmUpload(event)">
+              <div style="font-size:10px;color:var(--t3);line-height:1.6;">
+                Match: <code>Billing Document</code> + <code>Invoiced Quantity</code> + <code>Net value</code> · คงลำดับแถวเดิม 100%
+              </div>
+            </div>
+
+            <!-- ───── ZONE 2b: RM (อ้างอิง — เติม Import entry no. / Item no.) ───── -->
+            <div style="display:flex;flex-direction:column;">
+              <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">📦 RM มีเลขอ้างอิง</div>
+              <div id="mappingRmRefDropzone-ben"
+                   style="border:2px dashed rgba(56,139,253,.35);border-radius:8px;padding:18px 14px;min-height:104px;cursor:pointer;margin-bottom:10px;text-align:center;background:rgba(56,139,253,.04);transition:.15s;flex:1;display:flex;flex-direction:column;justify-content:center;"
+                   onclick="document.getElementById('mappingRmRefInput-ben').click()"
+                   ondragover="event.preventDefault();this.style.borderColor='#388bfd';this.style.background='rgba(56,139,253,.10)';"
+                   ondragleave="this.style.borderColor='rgba(56,139,253,.35)';this.style.background='rgba(56,139,253,.04)';"
+                   ondrop="event.preventDefault();this.style.borderColor='rgba(56,139,253,.35)';this.style.background='rgba(56,139,253,.04)';benHandleMappingRmRefUpload({target:{files:event.dataTransfer.files}})">
+                <div style="width:32px;height:32px;margin:0 auto 8px;background:rgba(56,139,253,.12);border:1px solid rgba(56,139,253,.25);border-radius:7px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#388bfd" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size:12px;color:var(--t2);">คลิกหรือวางไฟล์ RM (.xlsx / .xls)</div>
+                <div id="mappingRmRefFileName-ben" style="font-size:11px;color:#388bfd;margin-top:5px;font-family:'IBM Plex Mono',monospace;"></div>
+              </div>
+              <input type="file" id="mappingRmRefInput-ben" accept=".xlsx,.xls" style="display:none" onchange="benHandleMappingRmRefUpload(event)">
+              <div style="font-size:10px;color:var(--t3);line-height:1.6;">
+                เติม <code>Import entry no.</code> + <code>Item no.</code> · Match: <code>Billing Document</code> + <code>Item</code>
+              </div>
+            </div>
+
+            <!-- ───── ZONE 3: Import Entry (ใบขน) ───── -->
+            <div style="display:flex;flex-direction:column;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-size:11px;font-weight:700;color:var(--t2);">📋 ใบขนขาออก EXCEL<span style="color:var(--t3);font-weight:400;"></span></div>
+                <button id="del-a-ben" onclick="benClearMappingIe()" style="display:none;background:none;border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:var(--font);">✕ ลบ</button>
+              </div>
+              <div id="slot-a-ben" class="dz" style="padding:18px 14px;min-height:104px;border:2px dashed rgba(88,166,255,.35);border-radius:8px;background:rgba(88,166,255,.04);cursor:pointer;display:flex;flex-direction:column;justify-content:center;text-align:center;" onclick="document.getElementById('mfi-a-ben').click()" title="คลิกหรือวางไฟล์ ใบขน _CountryOrigin.xlsx">
+                <div id="slot-a-ben-icon" style="width:32px;height:32px;margin:0 auto 8px;background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div id="slot-a-ben-name" style="font-size:12px;color:var(--t2);">วางไฟล์ ใบขน ที่นี่</div>
+                <div id="slot-a-ben-info" style="font-size:10px;color:var(--t3);margin-top:3px;">_CountryOrigin.xlsx · แยก Sheet ตาม Country</div>
+              </div>
+              <input type="file" id="mfi-a-ben" accept=".xlsx,.xls" multiple style="display:none">
+            </div>
+
+          </div>
+
+          <!-- SINGLE EXPORT BUTTON -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button id="mappingCombinedExportBtn-ben" onclick="benExportMappingCombined()"
+                    style="display:inline-flex;background:var(--g);color:white;border:none;padding:12px 28px;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);align-items:center;gap:8px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              EXPORT รวมไฟล์
+            </button>
+            <div id="mappingCombinedLoading-ben" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--t2);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg>
+              <span id="mappingCombinedLoadingTxt-ben">กำลังรวมไฟล์…</span>
+            </div>
+            <div style="font-size:10px;color:var(--t3);line-height:1.5;">
+              ได้ Excel ไฟล์เดียว: <b>SUMMARY · IMPORT ENTRY (แยกประเทศ) · PDF MAPPING · RM FINAL · UNMATCHED</b>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── MEMBERS PAGE ── -->
 
       <!-- ── MEMBERS PAGE ── -->
       <div class="pview" id="page-members">
@@ -2740,14 +2866,14 @@ function navTo(page){
   }
   const shownPage = (page==='report-form') ? 'report' : page;   // REPORT FORM = ใช้หน้า/ข้อมูล (page-report · RPT_DATA · report_formsch) ชุดเดียวกับ REPORT FORMSCH — ไม่แยกระบบ/ตาราง/state
   window.rptFormMode = (page==='report-form');                  // REPORT FORM: ซ่อนลูกค้า SCH ทุกจุด (แสดงผลเท่านั้น) · REPORT FORMSCH: แสดงครบ
-  ['mapping','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','thai-inaba','mci-form','sch-weight','report'].forEach(p=>{
+  ['mapping','mapping-ben','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','thai-inaba','mci-form','sch-weight','report'].forEach(p=>{
     document.getElementById('page-'+p)?.classList.toggle('on',p===shownPage);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
   document.getElementById('nav-report-form')?.classList.toggle('act', page==='report-form');   // ปุ่ม REPORT FORM (ใช้ page-report ร่วมกัน)
   document.querySelector('.content')?.classList.toggle('report-lock-scroll', shownPage==='report');   // ล็อก scroll ชั้นนอกเฉพาะหน้า REPORT
   const titles={
-    mapping:'Mapping Excel',members:'จัดการสมาชิก',merge:'รวมไฟล์ Excel',
+    mapping:'Mapping Excel','mapping-ben':'Mapping Excel BEN',members:'จัดการสมาชิก',merge:'รวมไฟล์ Excel',
     'sc-mapping':'Form Schaeffler — Mapping','sc-highlight':'Form Schaeffler — PDF Highlight',
     'xpdf':'Excel → PDF Highlight','letter':'Letter Generator','imp':'Invoice Match Packing',
     'pmerge':'รวมไฟล์ PDF (Invoice + PL)','mci':'MCI PDF',
@@ -2760,10 +2886,10 @@ function navTo(page){
     'report':'REPORT FORMSCH MANAGEMENT',
     'report-form':'REPORT FORM'
   };
-  const tags={mapping:'SCHAEFFLER',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','thai-inaba':'INABA','mci-form':'MCI','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
+  const tags={mapping:'SCHAEFFLER','mapping-ben':'BEN',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','thai-inaba':'INABA','mci-form':'MCI','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   const tagEl=document.getElementById('tb-tag');
-  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='thai-inaba'?'#1f6feb':page==='mci-form'?'#d29922':(page==='report'||page==='report-form')?'#8a6d3b':'';}
+  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='mapping-ben'?'#6e40c9':page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='thai-inaba'?'#1f6feb':page==='mci-form'?'#d29922':(page==='report'||page==='report-form')?'#8a6d3b':'';}
   if(page==='sch-weight' && typeof schwBind==='function') schwBind();   // ⚖️ ตรวจน้ำหนัก SCH — ผูก Drag&Drop + วาดรายการไฟล์
   if(page==='pmerge' && typeof _pmBind==='function') _pmBind();
   if(page==='mci' && typeof _mciBind==='function') _mciBind();
@@ -12388,6 +12514,1696 @@ async function _mcfExport(){
   }catch(err){ console.error('[MCI FORM]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
   finally{ if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
 }
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   Mapping Excel BEN — CLONE 100% ของโหมด Mapping Excel (index.html บรรทัด 8072-9507)
+   • ทุก identifier / DOM id เป็นของตัวเอง (prefix ben / _ben / _BEN · id ต่อท้าย -ben)
+   • ไม่อ่าน/ไม่เขียน state ของโหมดเดิมและโหมดอื่น
+   • แก้ไข BEN ในไฟล์บล็อกนี้ได้อิสระ ไม่กระทบ Mapping Excel เดิม
+   • เรียกใช้ร่วมเฉพาะ utility กลางของแอป (อ่านอย่างเดียว ไม่แก้ค่า):
+     toast · XLSX · getPdfJs · _materialTrim · parseMergeWorkbook · detectType ·
+     normalize · buildMergeDataFromCData
+   ══════════════════════════════════════════════════════════════════════════════ */
+// ══════════════════════════════════════════════════
+//  MAPPING — MULTI PDF UPLOAD MODULE (additive; fully isolated)
+//  All identifiers below are NEW and not used elsewhere in the codebase:
+//    • Variable:  benMappingPdfFiles
+//    • Functions: benHandleMappingPdfMultiUpload, benRenderMappingPdfMultiList,
+//                 benRemoveMappingPdfFile, benExportMappingFromMultiPdf
+//    • DOM IDs:   mappingPdfMultiSection / Dropzone / Input / List / ExportBtn
+//  Reads NO state from other modes. Writes NO state to other modes.
+// ══════════════════════════════════════════════════
+let benMappingPdfFiles = [];
+
+// ── RM-MATCH module state (isolated; additive only) ──
+//   benMappingExportedRows : the data rows (NO header) from the most recent
+//                         "Export Mapping จาก PDF" — kept in memory only.
+//   benMappingRmFile       : the uploaded RM workbook file (.xlsx/.xls).
+let benMappingExportedRows = [];   // array of [item,billing,mat,eng,qty,netval,netwt]
+let benMappingRmFile = null;
+let benMappingRmRefFile = null;   // ไฟล์ RM (อ้างอิง) — ใช้เติม Import entry no. / Item no. ก่อน Export Final
+
+function benHandleMappingPdfMultiUpload(event){
+  const fileList = (event && event.target && event.target.files) ? event.target.files : [];
+  const incoming = [...fileList].filter(f => /\.pdf$/i.test(f.name));
+  if(incoming.length === 0){
+    if(typeof toast === 'function') toast('กรุณาเลือกไฟล์ .pdf เท่านั้น', 'warning');
+    return;
+  }
+  // DEDUPLICATE by name+size — skip files already in the list (append the rest)
+  const _seen = new Set(benMappingPdfFiles.map(f => f.name + '|' + f.size));
+  const _fresh = [];
+  for(const f of incoming){
+    const k = f.name + '|' + f.size;
+    if(_seen.has(k)) continue;
+    _seen.add(k); _fresh.push(f);
+  }
+  const _dupCount = incoming.length - _fresh.length;
+  benMappingPdfFiles.push(..._fresh);   // ACCUMULATE — do not replace existing list
+  _benClearPdfCache();                  // ชุดไฟล์ PDF เปลี่ยน → ทิ้ง cache
+  benRenderMappingPdfMultiList();
+  if(_dupCount > 0 && typeof toast === 'function') toast('ข้ามไฟล์ซ้ำ ' + _dupCount + ' ไฟล์', 'info');
+  const inp = document.getElementById('mappingPdfMultiInput-ben');
+  if(inp) inp.value = '';   // reset so same filename can be re-selected later
+}
+
+function benRenderMappingPdfMultiList(){
+  const list = document.getElementById('mappingPdfMultiList-ben');
+  if(!list) return;
+  if(benMappingPdfFiles.length === 0){
+    list.innerHTML = '';
+    return;
+  }
+  const safeName = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  list.innerHTML = benMappingPdfFiles.map((f, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--bd);border-radius:5px;padding:6px 10px;font-size:11px;">
+      <span style="color:#a371f7;font-weight:700;flex-shrink:0;">${idx + 1}.</span>
+      <span style="font-family:'IBM Plex Mono',monospace;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeName(f.name)}</span>
+      <span style="color:var(--t3);flex-shrink:0;font-family:'IBM Plex Mono',monospace;">${(f.size/1024).toFixed(1)} KB</span>
+      <button onclick="benRemoveMappingPdfFile(${idx})" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;flex-shrink:0;" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='var(--t3)'">✕</button>
+    </div>
+  `).join('');
+}
+
+function benRemoveMappingPdfFile(index){
+  if(index < 0 || index >= benMappingPdfFiles.length) return;
+  benMappingPdfFiles.splice(index, 1);
+  _benClearPdfCache();                  // ชุดไฟล์ PDF เปลี่ยน → ทิ้ง cache
+  benRenderMappingPdfMultiList();
+}
+
+// ── Number formatter for the Mapping export ──────────────────────
+// Converts a European-format PDF number to a plain dot-decimal value and
+// pads to a fixed number of decimal places (matches the user's sample:
+//   Invoiced Quantity → 3 dp (10.000), Net value → 2 dp (360.40),
+//   Net Weight → 3 dp (41.100)).
+//   "360,40"    → "360.40"   (comma decimal)
+//   "2.303,200" → "2303.200" (dot thousands + comma decimal)
+//   "10"        → "10.000"
+// Empty / unparsable input returns '' unchanged.
+function _benPdfFmtNum(v, dp){
+  let s = String(v == null ? '' : v).trim();
+  if(s === '') return '';
+  if(s.indexOf(',') !== -1 && s.indexOf('.') === -1){
+    s = s.replace(',', '.');                       // comma is the decimal sep
+  } else if(s.indexOf(',') !== -1 && s.indexOf('.') !== -1){
+    if(s.lastIndexOf(',') > s.lastIndexOf('.')){
+      s = s.replace(/\./g,'').replace(',', '.');   // European: dot thousands
+    } else {
+      s = s.replace(/,/g,'');                       // US: comma thousands
+    }
+  }
+  const n = Number(s);
+  if(!Number.isFinite(n)) return '';
+  return n.toFixed(dp);
+}
+
+// ── SHARED PDF→rows builder (used by BOTH buttons) ──────────────
+// Parses the given PDF File[] and returns:
+//   { header, rows, dataRows, firstBillingDoc }
+//   header   : the 7 visible column names
+//   rows     : [header, ...data]  (data rows have 8 cols; [7]=pdfItemNo)
+//   dataRows : rows without header
+//   firstBillingDoc : first Billing Document seen (for filename)
+// Output/format is IDENTICAL to the original export logic — only refactored.
+async function benBuildMappingRowsFromPdfFiles(files){
+  const _pdfjs = (typeof getPdfJs === 'function') ? getPdfJs() : null;
+  if(!_pdfjs) throw new Error('pdf.js ยังไม่โหลด');
+  const header = ['item', 'Billing Document', 'Material - Trim', 'Eng Description',
+                  'Invoiced Quantity', 'Net value', 'Net Weight'];
+  const rows = [header.slice()];
+  let seq = 1, itemsFound = 0, firstBillingDoc = '';
+  const billingDates = {};   // Billing Document -> Billing Document Date (from PDF header)
+  const parseFailures = [];  // names of PDF files that failed to parse
+
+  for(const f of (files || [])){
+      try{
+        const buf = await f.arrayBuffer();
+        const doc = await _pdfjs.getDocument({data: buf.slice(0)}).promise;
+        // Reconstruct text by LAYOUT, not raw item order.
+        // pdf.js fragments text into runs ordered by internal stream, NOT reading
+        // order, and joining with '\n' shatters logical lines (header/designation
+        // get split). Instead: group items by Y (transform[5]), sort each line by
+        // X (transform[4]), and insert a space when the X-gap between runs is wide.
+        let allText = '';
+        const _srcName = (f && f.name) ? f.name : '';   // ADDITIVE: source PDF filename
+        const _pageOfLine = [];                          // ADDITIVE: page no per allText line
+        for(let p=1; p<=doc.numPages; p++){
+          const page = await doc.getPage(p);
+          const tc = await page.getTextContent();
+          const rowMap = new Map();           // yBucket -> array of {x,s,w,h}
+          for(const it of tc.items){
+            if(!it.str) continue;
+            const y = Math.round(it.transform[5]);     // baseline Y
+            const x = it.transform[4];                 // left X
+            // pdf.js exposes the TRUE rendered run width/height — use them so
+            // word boundaries survive (the old length*1px estimate was far too
+            // small, which welded words together: "Spherical roller bearing"
+            // → "Sphericalrollerbearing").
+            const w = (typeof it.width  === 'number' && it.width  > 0)
+                      ? it.width  : (it.str.length * 5);
+            const h = (typeof it.height === 'number' && it.height > 0)
+                      ? it.height : 8;
+            let placed = false;
+            // merge into an existing row within 2px (handles sub-pixel jitter)
+            for(const [yk, arr] of rowMap){
+              if(Math.abs(yk - y) <= 2){ arr.push({x, s:it.str, w, h}); placed = true; break; }
+            }
+            if(!placed) rowMap.set(y, [{x, s:it.str, w, h}]);
+          }
+          // sort rows top→bottom (PDF Y grows upward → descending), then X left→right
+          const ys = [...rowMap.keys()].sort((a,b)=>b-a);
+          for(const yk of ys){
+            const arr = rowMap.get(yk).sort((a,b)=>a.x-b.x);
+            let line = '', prevEndX = null, prevS = '';
+            for(const o of arr){
+              if(prevEndX !== null){
+                const gap = o.x - prevEndX;
+                // insert a space when the visual gap is at least ~22% of the
+                // glyph height (a normal inter-word space), OR when neither
+                // side already provides whitespace and runs don't visually
+                // touch. Tuned against Schaeffler Tax-Invoice PDFs.
+                const spaceGap = Math.max(0.6, (o.h || 8) * 0.22);
+                const touch = /\s$/.test(prevS) || /^\s/.test(o.s);
+                if(gap >= spaceGap || (!touch && gap > 0.6)) line += ' ';
+              }
+              line += o.s;
+              prevEndX = o.x + o.w;     // TRUE run end-X from pdf.js
+              prevS = o.s;
+            }
+            allText += line + '\n';
+            _pageOfLine.push(p);     // ADDITIVE: this line came from page p
+          }
+          page.cleanup();
+        }
+        // collapse runs of 2+ spaces to a single space (layout padding noise)
+        allText = allText.split('\n').map(l => l.replace(/\s{2,}/g,' ').trim()).join('\n');
+
+        // ── Extract Document No (Billing Document) ──
+        let docNo = '';
+        const dm = /Document\s*No\.?\s*\/?\s*Date\s+(\d{6,12})/i.exec(allText)
+                || /Document\s*No\.?[^\d]{0,80}(\d{6,12})/i.exec(allText);
+        if(dm) docNo = dm[1];
+        if(docNo && !firstBillingDoc) firstBillingDoc = docNo;   // remember for filename
+        // ── Extract Billing Document Date ("Document No./Date 113983080 / 27.04.2026") ──
+        let docDate = '';
+        const ddm = /Document\s*No\.?\s*\/?\s*Date\s+\d{6,12}\s*\/\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/i.exec(allText)
+                 || (docNo ? new RegExp(docNo+'\\s*\\/\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{2,4})').exec(allText) : null);
+        if(ddm) docDate = ddm[1].trim();
+        if(docNo && !billingDates[docNo]) billingDates[docNo] = docDate;
+
+        // ── Extract Net Weight (document-level, from Packaging section) ──
+        // "Packaging: ... Gross Net  <ship> <qty> <mat> <GROSS> KG <NET> KG"
+        // Net is the LAST "<number> KG" inside the Packaging block. One value per PDF.
+        let netWeight = '';
+        const _pkM = /Packaging:[\s\S]{0,400}/i.exec(allText);
+        if(_pkM){
+          const _kg = _pkM[0].match(/([\d.,]+)\s*KG/gi);
+          if(_kg && _kg.length){
+            const _last = _kg[_kg.length-1].match(/([\d.,]+)/);
+            if(_last) netWeight = _last[1];
+          }
+        }
+
+        // ── Extract each line item from the invoice (space-tolerant) ──
+        // pdf.js layout reconstruction may leave variable/odd spacing inside lines
+        // (e.g. "Total Valueforitem 36,04 /1PC 360,40", "Deep grooveball bearing").
+        // So every pattern below is whitespace-tolerant.
+        //   Header     : "000001 016703952-0000-11 ..."  (item# then 9-4-2 matno)
+        //   Designation : "<MATERIAL#...>/ <Eng words>"   (left side contains '#')
+        //   Inv Qty     : first "<n> PC" / "<n>PC"
+        //   Net value   : after "(Net|Total)Valuefor[Ii]tem<price>/<n>PC<VALUE>"
+        //                 (matched on a space-stripped copy of the block)
+        const _lines   = allText.split('\n');
+        const _hdrRe   = /^(0{2}\d{4})\s+(\d{9}-\d{4}-\d{2})/;
+        // Material code may itself contain '/' and ',' BEFORE the '#'
+        // (e.g. "FRM120/10#N1", "FRM200/13,5#N1"). The left part therefore
+        // allows / and , ; the right part (after '#') still excludes '/' so
+        // the LAST '/' is correctly taken as the material↔English separator.
+        // Without this, "FRM120/10#N1/ Housing ring" was truncated to "10#N1".
+        const _desigRe = /([A-Za-z0-9][A-Za-z0-9\-#>\/,.+]*#[A-Za-z0-9\-#>.+]*)\s*\/\s*([A-Za-z][A-Za-z .\-]+?)(?:\s+\d|\s*$)/;
+        const _skipRe  = /(Pricing:|Delivery|Date of|Country of|Order |Purch|Vietnam|US Export|Net Value|Total Value|Copy|Tax Invoice|Schaeffler|Plant|Long Binh|BIEN|VIETNAM|Item Material|Designation|Dimensions|Price \/|Your VAT|Document No|Page:|corresponding|Ship-to|expendable|Packaging|Payment|VAT |Total Amount)/;
+        const _qtyRe   = /(\d+)\s*PC\b/;
+        // value matched against a fully space-stripped block
+        const _valRe   = /(?:NetValuefor[Ii]tem|TotalValuefor[Ii]tem)[\d.,]+\/\d+PC([\d.,]+)/;
+
+        // collect header line indices
+        const _hdrIdx = [];
+        for(let li=0; li<_lines.length; li++){
+          if(_hdrRe.test(_lines[li].trim())) _hdrIdx.push(li);
+        }
+        for(let k=0; k<_hdrIdx.length; k++){
+          const li       = _hdrIdx[k];
+          const blockEnd = (k+1 < _hdrIdx.length) ? _hdrIdx[k+1] : _lines.length;
+          // real per-billing item number from the PDF header ("000001" → 1)
+          let pdfItemNo = '';
+          const _hm = _hdrRe.exec(_lines[li].trim());
+          if(_hm) pdfItemNo = String(parseInt(_hm[1], 10));
+          // designation: capped scan; designation may sit ON the header line
+          // (after the material number) OR on a following line.
+          let desigEnd = blockEnd;
+          if(desigEnd > li + 22) desigEnd = li + 22;
+          let mat = '', eng = '';
+          for(let j=li; j<desigEnd; j++){
+            let seg = _lines[j].trim();
+            if(j === li) seg = seg.replace(_hdrRe,'').trim();   // strip "000001 016..-..-.."
+            if(!seg || _skipRe.test(seg)) continue;
+            // Skip true dimension lines ("135,000X35,000 MM") — but NOT material
+            // designation lines that merely start digits+X (e.g. "32044X.XL#N/ ...").
+            // Designation lines always contain '#'; dimension lines never do.
+            if((/^[\d.,]+\s*X/.test(seg) || /^[\d.,]+\s*MM/.test(seg)) && seg.indexOf('#') === -1) continue;
+            const mm = _desigRe.exec(seg);
+            if(mm && mm[1].indexOf('#') !== -1){
+              mat = mm[1].trim();
+              eng = mm[2].replace(/\s+/g,' ').trim();
+              break;
+            }
+          }
+          // qty: header line first, else anywhere in the block
+          let invQty = '';
+          let _qm = _qtyRe.exec(_lines[li]);
+          if(!_qm) _qm = _qtyRe.exec(_lines.slice(li, blockEnd).join(' '));
+          if(_qm) invQty = _qm[1];
+          // value: strip ALL whitespace in the block, then match
+          const _blockNS = _lines.slice(li, blockEnd).join(' ').replace(/\s+/g,'');
+          let netVal = '';
+          const _vm = _valRe.exec(_blockNS);
+          if(_vm) netVal = _vm[1];
+
+          if(mat){
+            // Format numbers: dot-decimal, fixed dp (Qty=3, NetVal=2, NetWt=3)
+            const _q  = _benPdfFmtNum(invQty, 3);
+            const _nv = _benPdfFmtNum(netVal, 2);
+            const _nw = _benPdfFmtNum(netWeight, 3);
+            // ADDITIVE: per-item "Country of origin:" (for Country Mismatch check)
+            let _itemCtry = '';
+            for(let _cj=li; _cj<blockEnd; _cj++){
+              const _cm = /Country of origin:\s*(.+)/i.exec(_lines[_cj]);
+              if(_cm){ _itemCtry = _cm[1].trim(); break; }
+            }
+            // [0..6] visible columns; [7] = real PDF item no for RM key
+            // [8] = source PDF filename, [9] = page no, [10] = item country name
+            rows.push([seq, docNo, mat, eng, _q, _nv, _nw, pdfItemNo, _srcName, (_pageOfLine[li] || ''), _itemCtry]);
+            seq++;
+            itemsFound++;
+          }
+        }
+      }catch(err){
+        console.warn('[mappingPdfMulti] parse error', f.name, err);
+        parseFailures.push((f && f.name) ? f.name : 'unknown.pdf');
+      }
+    }
+
+  console.log('[buildMappingRows] files:', (files||[]).length, '| itemsFound:', itemsFound);
+  return { header, rows, dataRows: rows.slice(1), itemsFound, firstBillingDoc, billingDates, parseFailures };
+}
+
+// ── Button 1: Export Mapping จาก PDF (optional download; format UNCHANGED) ──
+async function benExportMappingFromMultiPdf(){
+  if(benMappingPdfFiles.length === 0){
+    if(typeof toast === 'function') toast('กรุณา Upload PDF สำหรับ Mapping Excel ก่อน Export', 'warning');
+    else alert('กรุณา Upload PDF สำหรับ Mapping Excel ก่อน Export');
+    return;
+  }
+  if((typeof getPdfJs === 'function' ? getPdfJs() : null) == null){
+    if(typeof toast === 'function') toast('pdf.js ยังไม่โหลด — ลองรอสักครู่แล้วลองใหม่', 'error');
+    return;
+  }
+  if(typeof XLSX === 'undefined'){
+    if(typeof toast === 'function') toast('SheetJS ยังไม่โหลด — refresh หน้าใหม่', 'error');
+    return;
+  }
+  const btn = document.getElementById('mappingPdfMultiExportBtn-ben');
+  if(btn){ btn.disabled = true; btn.style.opacity = '.6'; btn.style.cursor = 'wait'; }
+  try {
+    const { rows, dataRows, itemsFound, firstBillingDoc } =
+      await benBuildMappingRowsFromPdfFiles(benMappingPdfFiles);
+
+    if(itemsFound === 0){
+      if(typeof toast === 'function') toast('ไม่พบรายการในไฟล์ PDF — ตรวจสอบรูปแบบใบ Invoice', 'warning');
+      console.error('[mappingPdfMulti] itemsFound=0. ถ้าเห็นข้อความนี้แต่ PDF ปกติ = กำลังรันโค้ดเก่า/แคช ให้ Ctrl+Shift+R');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    // Visible Excel = only the 7 documented columns (drop internal item-no at [7])
+    const visibleRows = rows.map(r => r.slice(0, 7));
+    const ws = XLSX.utils.aoa_to_sheet(visibleRows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    // keep FULL data rows in memory so EXPORT RM FINAL can reuse them
+    benMappingExportedRows = dataRows;
+    const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const blob = new Blob([out], {type:'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Filename = first Billing Document (e.g. "124735990.xlsx").
+    let _fname;
+    if(firstBillingDoc){
+      _fname = firstBillingDoc
+             + (benMappingPdfFiles.length > 1 ? ('_+' + (benMappingPdfFiles.length - 1)) : '')
+             + '.xlsx';
+    } else {
+      _fname = 'Mapping_FromPDF_' + new Date().toISOString().slice(0,10) + '.xlsx';
+    }
+    a.download = _fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    if(typeof toast === 'function') toast(`Export สำเร็จ — ${itemsFound} รายการ จาก ${benMappingPdfFiles.length} ไฟล์`, 'success');
+  } finally {
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  RM-MATCH MODULE (additive; fully isolated)
+//  New identifiers only: benHandleMappingRmUpload, benExportRmFinal,
+//  _benRmNorm, _benRmNormNum, _benRmBuildKey, benMappingRmFile, benMappingExportedRows
+//  Reads ONLY: benMappingExportedRows (from last export) + the RM file.
+//  Writes NOTHING to other modes. STRICT exact match — no fuzzy/partial/fallback.
+// ══════════════════════════════════════════════════
+function _benRmNorm(v){ return String(v == null ? '' : v).trim(); }
+// Comma-decimal-aware numeric normalize (per spec).
+//   "360,40"   → 360.4    (comma is the decimal separator, no dot present)
+//   "2.303,200"→ 2303.2   (dot thousands + comma decimal)
+//   "1,234.56" → 1234.56  (comma thousands + dot decimal)
+//   360.4 / 10 → 360.4 / 10
+//   '' / null  → ''        (so blank ≠ 0; avoids false matches)
+function _benRmNormNum(v){
+  if(v === null || v === undefined || v === '') return '';
+  let s = String(v).trim();
+  if(s === '') return '';
+  if(s.indexOf(',') !== -1 && s.indexOf('.') === -1){
+    // only a comma → comma is decimal separator
+    s = s.replace(',', '.');
+  } else if(s.indexOf(',') !== -1 && s.indexOf('.') !== -1){
+    // both present → dots are thousands, comma is decimal (European)
+    if(s.lastIndexOf(',') > s.lastIndexOf('.')){
+      s = s.replace(/\./g,'').replace(',', '.');
+    } else {
+      // comma thousands, dot decimal (US) → just drop commas
+      s = s.replace(/,/g,'');
+    }
+  } else {
+    // no comma → drop any stray grouping chars (none expected)
+    s = s.replace(/,/g,'');
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? Number(n.toFixed(6)) : '';
+}
+// Convert a European-formatted PDF number string to a plain numeric string.
+//   "360,40"     → "360.4"      (comma = decimal separator)
+//   "2.303,200"  → "2303.2"     (dot = thousands, comma = decimal)
+//   "41,100"     → "41.1"
+//   "10" / 10    → "10"
+// Result is fed through _benRmNormNum on BOTH sides so the spec's normalizeNum
+// (which strips commas) yields identical numbers for PDF & RM values.
+function _benPdfNumToPlain(v){
+  let s = String(v == null ? '' : v).trim();
+  if(s === '') return '';
+  if(s.indexOf(',') !== -1){
+    // has a comma → treat comma as decimal, dots as thousands separators
+    s = s.replace(/\./g,'').replace(',', '.');
+  }
+  const n = Number(s);
+  return isNaN(n) ? String(v) : String(n);
+}
+// key = Billing(string) | Qty(num) | NetValue(num) | NetWeight(num)
+function _benRmBuildKey(billing, qty, netVal, netWt){
+  return [
+    _benRmNorm(billing),
+    _benRmNormNum(qty),
+    _benRmNormNum(netVal),
+    _benRmNormNum(netWt)
+  ].join('|');
+}
+// 5-key = Billing | Item | Qty | NetValue | NetWeight  (Item added per spec to
+// prevent duplicate/cross-row mismatch). Billing & Item compared as strings.
+function _benRmBuildKey5(billing, item, qty, netVal, netWt){
+  return [
+    _benRmNorm(billing),
+    _benRmNorm(item),
+    _benRmNormNum(qty),
+    _benRmNormNum(netVal),
+    _benRmNormNum(netWt)
+  ].join('|');
+}
+// 4-key = Billing | Item | Qty | NetValue.
+function _benRmBuildKey4(billing, item, qty, netVal){
+  return [
+    _benRmNorm(billing),
+    _benRmNorm(item),
+    _benRmNormNum(qty),
+    _benRmNormNum(netVal)
+  ].join('|');
+}
+// 3-key (FINAL MATCH RULE) = Billing | Invoiced Quantity | Net value.
+// Net Weight & Item are intentionally NOT in the key:
+//   • PDF Net Weight is a per-Billing total, RM's is per-Item → never equal.
+//   • Item dropped per the FINAL 3-point spec.
+function _benRmBuildKey3(billing, qty, netVal){
+  return [
+    _benRmNorm(billing),
+    _benRmNormNum(qty),
+    _benRmNormNum(netVal)
+  ].join('|');
+}
+
+function benHandleMappingRmUpload(event){
+  const fl = (event && event.target && event.target.files) ? event.target.files : [];
+  const file = fl && fl.length ? fl[0] : null;
+  if(!file){ return; }
+  if(!/\.(xlsx|xls)$/i.test(file.name)){
+    if(typeof toast === 'function') toast('กรุณาเลือกไฟล์ .xlsx หรือ .xls เท่านั้น', 'warning');
+    return;
+  }
+  benMappingRmFile = file;
+  const lbl = document.getElementById('mappingRmFileName-ben');
+  if(lbl) lbl.textContent = '✓ ' + file.name;
+  const inp = document.getElementById('mappingRmInput-ben');
+  if(inp) inp.value = '';
+}
+
+// ── กล่อง RM (อ้างอิง) — ใช้เติม Import entry no. / Item no. ก่อน Export Final ──
+function benHandleMappingRmRefUpload(event){
+  const fl = (event && event.target && event.target.files) ? event.target.files : [];
+  const file = fl && fl.length ? fl[0] : null;
+  if(!file){ return; }
+  if(!/\.(xlsx|xls)$/i.test(file.name)){
+    if(typeof toast === 'function') toast('กรุณาเลือกไฟล์ .xlsx หรือ .xls เท่านั้น', 'warning');
+    return;
+  }
+  benMappingRmRefFile = file;
+  const lbl = document.getElementById('mappingRmRefFileName-ben');
+  if(lbl) lbl.textContent = '✓ ' + file.name;
+  const inp = document.getElementById('mappingRmRefInput-ben');
+  if(inp) inp.value = '';
+}
+
+// ── Clear/Reset: wipes ONLY the "Upload PDF หลายไฟล์ + RM Mapping" section
+//    state + UI. Touches no other mode. Safe to press anytime. ────────────
+function benClearMappingPdfRm(){
+  // in-memory state
+  _benClearPdfCache();                  // ล้างข้อมูล → ทิ้ง cache ของ PDF
+  benMappingPdfFiles    = [];
+  benMappingExportedRows = [];
+  benMappingRmFile      = null;
+  benMappingRmRefFile   = null;
+  // PDF list UI
+  if(typeof benRenderMappingPdfMultiList === 'function') benRenderMappingPdfMultiList();
+  const list = document.getElementById('mappingPdfMultiList-ben');
+  if(list) list.innerHTML = '';
+  // RM filename label
+  const lbl = document.getElementById('mappingRmFileName-ben');
+  if(lbl) lbl.textContent = '';
+  const lblRef = document.getElementById('mappingRmRefFileName-ben');
+  if(lblRef) lblRef.textContent = '';
+  const rinRef = document.getElementById('mappingRmRefInput-ben');
+  if(rinRef) rinRef.value = '';
+  // reset both <input type=file> so the SAME file can be re-selected
+  const pin = document.getElementById('mappingPdfMultiInput-ben');
+  if(pin) pin.value = '';
+  const rin = document.getElementById('mappingRmInput-ben');
+  if(rin) rin.value = '';
+  if(typeof toast === 'function') toast('ล้างข้อมูล PDF + RM แล้ว', 'success');
+}
+
+async function benExportRmFinal(){
+  // RM File is required.
+  if(!benMappingRmFile){
+    if(typeof toast === 'function') toast('กรุณา Upload RM File ก่อน', 'warning');
+    else alert('กรุณา Upload RM File ก่อน');
+    return;
+  }
+  if(typeof XLSX === 'undefined'){
+    if(typeof toast === 'function') toast('SheetJS ยังไม่โหลด — refresh หน้าใหม่', 'error');
+    return;
+  }
+  const btn = document.getElementById('mappingRmExportBtn-ben');
+  if(btn){ btn.disabled = true; btn.style.opacity = '.6'; btn.style.cursor = 'wait'; }
+  try {
+    // AUTO-BUILD: if mapping rows aren't in memory yet, parse the uploaded PDFs
+    // now (no need to press "Export Mapping จาก PDF" first). The two buttons
+    // work independently — RM FINAL never waits on the other button.
+    if(!benMappingExportedRows || benMappingExportedRows.length === 0){
+      if(!benMappingPdfFiles || benMappingPdfFiles.length === 0){
+        if(typeof toast === 'function') toast('กรุณา Upload PDF (Mapping) ก่อน', 'warning');
+        else alert('กรุณา Upload PDF (Mapping) ก่อน');
+        return;
+      }
+      if(typeof toast === 'function') toast('กำลังอ่าน PDF เพื่อสร้าง Mapping…', 'info');
+      const built = await benBuildMappingRowsFromPdfFiles(benMappingPdfFiles);
+      if(!built || built.itemsFound === 0){
+        if(typeof toast === 'function') toast('ไม่พบรายการในไฟล์ PDF — ตรวจสอบรูปแบบใบ Invoice', 'warning');
+        return;
+      }
+      benMappingExportedRows = built.dataRows;   // build in memory, no download
+      console.log('[RM] auto-built mapping rows:', benMappingExportedRows.length);
+    }
+    // ── Sort the MAPPING lookup rows (per FINAL spec) ──
+    // Sort a COPY by Billing Document asc, then Item asc. This only orders the
+    // lookup source — RM stays 100% untouched (RM is the master file).
+    //   benMappingExportedRows layout:
+    //   [0]seq [1]Billing [2]Mat-Trim [3]Eng [4]Qty [5]NetVal [6]NetWeight [7]pdfItemNo
+    const _mapSorted = benMappingExportedRows.slice().sort((a,b)=>{
+      const ba = _benRmNorm(a[1]), bb = _benRmNorm(b[1]);
+      if(ba !== bb) return ba < bb ? -1 : 1;
+      const ia = Number(a[7]) || 0, ib = Number(b[7]) || 0;
+      return ia - ib;
+    });
+
+    // ── Build mapping INDEX with 3-key (Billing | Qty | NetVal) ──
+    // MATCH RULE: Billing Document + Invoiced Quantity + Net value.
+    // A single invoice legitimately contains DIFFERENT line items that share
+    // the same Billing+Qty+NetValue (e.g. 6317-2Z-C3#N1 and 6317-2Z#N1, both
+    // qty 4 / value 151.36 — common for bulk bearing orders priced alike).
+    // The old code called these "ambiguous" and blanked BOTH, losing correct
+    // data. Instead we keep an ORDERED LIST per key (invoice order, because
+    // _mapSorted is already sorted Billing→pdfItemNo). The k-th RM occurrence
+    // of a key is then filled from the k-th mapping occurrence — deterministic
+    // positional matching, not fuzzy guessing.
+    const mappingIndex = new Map();    // key -> [ {mat,eng,nw}, ... ] in order
+    for(const r of _mapSorted){
+      const key = _benRmBuildKey3(
+        r[1],   // Billing Document
+        r[4],   // Invoiced Quantity
+        r[5]    // Net value
+      );
+      let lst = mappingIndex.get(key);
+      if(!lst){ lst = []; mappingIndex.set(key, lst); }
+      lst.push({
+        mat: r[2] || '',
+        eng: r[3] || '',
+        nw:  r[6]              // Mapping Net Weight — warning compare only
+      });
+    }
+    let _uniq = 0, _dup = 0;
+    mappingIndex.forEach(v => { if(v.length === 1) _uniq++; else _dup++; });
+    console.log('[RM] mapping index:', mappingIndex.size,
+                'keys | single:', _uniq, '| multi(>1):', _dup,
+                '(3-key Billing|Qty|NetVal, ordered-list positional match)');
+
+    // ── Read RM workbook, keep EVERYTHING as-is ──
+    const rmBuf = await benMappingRmFile.arrayBuffer();
+    const rmWb  = XLSX.read(rmBuf, { type:'array', cellStyles:true, cellDates:true });
+    const rmSheetName = rmWb.SheetNames[0];
+    const rmWs  = rmWb.Sheets[rmSheetName];
+    const rng   = XLSX.utils.decode_range(rmWs['!ref']);
+
+    // header row = first row; map header text → column index (exact order kept)
+    const headerRow = rng.s.r;
+    const colName = {};                 // colIdx -> header text
+    for(let c=rng.s.c; c<=rng.e.c; c++){
+      const cell = rmWs[XLSX.utils.encode_cell({r:headerRow, c})];
+      colName[c] = cell ? String(cell.v).trim() : '';
+    }
+    const findCol = (cands) => {
+      for(let c=rng.s.c; c<=rng.e.c; c++){
+        const cl = String(colName[c]||'').toLowerCase().replace(/\s+/g,' ').trim();
+        if(cands.indexOf(cl) !== -1) return c;
+      }
+      return -1;
+    };
+    const cBilling = findCol(['billing document']);
+    const cItem    = findCol(['item']);
+    const cQty     = findCol(['invoiced quantity','billing qty in sku','invoiced qty']);
+    const cNetVal  = findCol(['net value']);
+    const cNetWt   = findCol(['net weight']);
+    let   cMat     = findCol(['material - trim']);
+    let   cEng     = findCol(['eng description']);
+
+    // 3-key match needs Billing + Invoiced Quantity + Net value (+ Item only
+    // for the empty-row guard). Net Weight is NOT a key column anymore.
+    if(cBilling<0 || cQty<0 || cNetVal<0){
+      if(typeof toast === 'function')
+        toast('ไม่พบคอลัมน์ key ใน RM (ต้องมี Billing Document, Invoiced Quantity, Net value)', 'error');
+      return;
+    }
+    // RM HEADER PROTECTION — must already contain both columns.
+    // Never append a new column; error and stop if missing.
+    if(cMat < 0 || cEng < 0){
+      if(typeof toast === 'function')
+        toast('RM ต้องมีหัวข้อ Material - Trim และ Eng description อยู่แล้ว', 'error');
+      else alert('RM ต้องมีหัวข้อ Material - Trim และ Eng description อยู่แล้ว');
+      return;
+    }
+    rmWs['!ref'] = XLSX.utils.encode_range(rng);
+
+    const getV = (r,c) => {
+      const cell = rmWs[XLSX.utils.encode_cell({r, c})];
+      return cell == null ? '' : cell.v;
+    };
+    const setStr = (r,c,val) => {
+      const ref = XLSX.utils.encode_cell({r, c});
+      const ex  = rmWs[ref];
+      if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; }
+      else  { rmWs[ref] = { t:'s', v:val }; }
+    };
+
+    // ── PASS 1: count RM-side key occurrences ──
+    // Used to know how many RM rows share a key so positional matching is
+    // well-defined (k-th RM occurrence ↔ k-th mapping occurrence).
+    const rmKeyCount = new Map();
+    for(let r=headerRow+1; r<=rng.e.r; r++){
+      const b = getV(r, cBilling);
+      if(String(b).trim() === '' && String(getV(r, cItem)).trim() === '') continue;
+      const k = _benRmBuildKey3(b, getV(r, cQty), getV(r, cNetVal));
+      rmKeyCount.set(k, (rmKeyCount.get(k) || 0) + 1);
+    }
+    let _rmDup = 0;
+    rmKeyCount.forEach(c => { if(c > 1) _rmDup++; });
+    console.log('[RM] RM-side keys:', rmKeyCount.size, '| keys appearing >1×:', _rmDup);
+
+    // ── PASS 2: RM = LEFT BASE. Walk EVERY data row in original order. ──
+    // No skip, no filter, no inner-join. Each RM row is preserved exactly;
+    // only Material - Trim & Eng description may change.
+    //   • single key  → fill from the one mapping row
+    //   • multi key    → fill the k-th RM occurrence from the k-th mapping
+    //                     occurrence, but ONLY when both sides have the SAME
+    //                     count for that key (so the pairing is well-defined
+    //                     and complete). Counts differ → blank (no guessing).
+    //   • no match     → blank
+    //   • Net Weight mismatch → warning only, never blocks the fill
+    const rmSeen = new Map();   // key -> how many RM rows of this key seen so far
+    let okCount = 0, failCount = 0, dupCount = 0, dataRows = 0, nwWarn = 0;
+    for(let r=headerRow+1; r<=rng.e.r; r++){
+      dataRows++;   // counts EVERY row between header and last row (no skipping)
+      const bRaw = getV(r, cBilling);
+      // a totally empty row still gets blank Material/Eng (kept in place)
+      const isEmptyRow = (String(bRaw).trim() === ''
+                          && String(getV(r, cItem)).trim() === '');
+      let lst = null, _rmCnt = 0, _key = '', occ = 0;
+      if(!isEmptyRow){
+        _key = _benRmBuildKey3(
+          bRaw,
+          getV(r, cQty),
+          getV(r, cNetVal)
+        );
+        lst    = mappingIndex.get(_key) || null;
+        _rmCnt = rmKeyCount.get(_key) || 0;
+        occ    = rmSeen.get(_key) || 0;     // 0-based occurrence index
+        rmSeen.set(_key, occ + 1);
+      }
+      // well-defined positional pairing: lists exist, counts match on both
+      // sides, and this occurrence index is within range.
+      const countsMatch = !!(lst && lst.length === _rmCnt);
+      const hit = (countsMatch && occ < lst.length) ? lst[occ] : null;
+      if(hit){
+        setStr(r, cMat, hit.mat || '');
+        setStr(r, cEng, hit.eng || '');
+        okCount++;
+        // Net Weight: warning-only comparison (never blocks the fill)
+        if(cNetWt >= 0 && hit.nw !== undefined && hit.nw !== ''){
+          const rmNW  = _benRmNormNum(getV(r, cNetWt));
+          const mapNW = _benRmNormNum(hit.nw);
+          if(rmNW !== '' && mapNW !== '' && rmNW !== mapNW){
+            nwWarn++;
+            console.warn('[NET WEIGHT WARNING] row', r+1,
+              '| RM=', rmNW, 'Mapping=', mapNW,
+              '(Mapping NW is a per-Billing total — not blocking)');
+          }
+        }
+        console.log('[MATCH OK] row', r+1,
+          (lst.length > 1 ? ('(pos ' + (occ+1) + '/' + lst.length + ') ') : ''),
+          '→ [MATERIAL REPLACED]', hit.mat);
+      }else if(lst && !countsMatch){
+        // key found but mapping/RM counts differ → can't pair safely → blank
+        setStr(r, cMat, '');
+        setStr(r, cEng, '');
+        dupCount++;
+        console.warn('[MATCH COUNT MISMATCH] row', r+1,
+          '→ mappingCount=', lst.length, 'rmCount=', _rmCnt,
+          '→ [EMPTY VALUE APPLIED]');
+      }else{
+        setStr(r, cMat, '');
+        setStr(r, cEng, '');
+        failCount++;
+        console.log('[MATCH FAIL] row', r+1, '→ [EMPTY VALUE APPLIED]');
+      }
+    }
+    console.log('[RM] LEFT-JOIN — rows walked:', dataRows,
+                '| OK(filled):', okCount, '| COUNT-MISMATCH:', dupCount,
+                '| FAIL(no match):', failCount,
+                '| NetWeight warnings:', nwWarn,
+                '| sheet:', rmSheetName, '| all RM rows preserved');
+
+    // ── Write back the SAME workbook object (same sheet, order, format) ──
+    const outArr = XLSX.write(rmWb, { bookType:'xlsx', type:'array', cellStyles:true });
+    const blob = new Blob([outArr], { type:'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'RM_FINAL_MAPPED_' + new Date().toISOString().slice(0,10) + '.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    if(typeof toast === 'function')
+      toast(`RM Final สำเร็จ — match ${okCount} / ${dataRows} แถว (ลำดับเดิมคงไว้)`, 'success');
+  } catch(err){
+    console.error('[RM] error', err);
+    if(typeof toast === 'function') toast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  MAPPING EXCEL — COMBINED EXPORT (RM MASTER + PDF + IMPORT ENTRY)
+//  [additive only — does NOT modify any other mode or shared function]
+//  Sources:
+//    📦 RM File (Master)  → Billing, Material(Trim), Invoiced Qty, Net Value,
+//                           Country of Origin, HS Code, Description
+//    📄 PDF Documents     → Eng Description ONLY (4-key match, queue)
+//    📋 Import Entry (DWAK)→ Qty./Net Weight/Gross Weight/FOB THB. ONLY
+//                           (join: Billing + Product Code, SUM all rows)
+//  Country split = RM Country of Origin only (A-Z). Split a sheet when it
+//  would exceed 4 Billing Documents OR Desc ALL total > 800 chars.
+//  Output one workbook: SUMMARY · Country Sheets · RM FINAL · UNMATCHED
+// ══════════════════════════════════════════════════════════════════
+
+// Central state (single source consumed at export time).
+const benMappingState = {
+  pdfFiles: [], pdfRows: [], rmFile: null, rmRows: [],
+  importEntryFile: null, importEntryRows: [], unmatchedRows: []
+};
+// Raw Import Entry File object (captured from the slot-a zone so it can be
+// re-read at export — loadMergeFile only keeps the name, not the blob).
+let benMappingImportEntryFile = null;
+
+// Capture the raw Import Entry file on both click-select and drag-drop, in
+// addition to the existing slot-a flow (which still drives the ✓ UI + mDataA).
+// ── IE slot ของ BEN: wiring + UI เป็นของตัวเอง (ไม่แตะ mFileA/mDataA/clearSlot ของหน้า "รวมไฟล์ Excel") ──
+//    พฤติกรรมบนจอเหมือนเดิม: ⏳ กำลังอ่าน → ✅ ชื่อไฟล์ + รายชื่อประเทศ → ปุ่ม ✕ ลบ
+function _benUpdateIeSlot(filename, parsed){
+  const nm  = document.getElementById('slot-a-ben-name');
+  const inf = document.getElementById('slot-a-ben-info');
+  const box = document.getElementById('slot-a-ben');
+  const ico = document.getElementById('slot-a-ben-icon');
+  if(!nm) return;
+  const ctrs = Object.keys((parsed&&parsed.sheets)||{}).sort();
+  nm.textContent='✅ '+filename; nm.style.color='#4caf50'; nm.style.fontStyle='normal';
+  if(inf){ inf.textContent = ctrs.length+' ประเทศ: '+ctrs.join(', '); inf.style.color='var(--t2)'; }
+  if(box){ box.style.borderColor='var(--blue)'; box.style.background='rgba(88,166,255,.08)'; }
+  if(ico) ico.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  const del=document.getElementById('del-a-ben'); if(del) del.style.display='inline-flex';
+}
+function _benResetIeSlot(){
+  const nm  = document.getElementById('slot-a-ben-name');
+  const inf = document.getElementById('slot-a-ben-info');
+  const box = document.getElementById('slot-a-ben');
+  const ico = document.getElementById('slot-a-ben-icon');
+  const del = document.getElementById('del-a-ben');
+  if(nm){ nm.textContent='วางไฟล์ ใบขน ที่นี่'; nm.style.color='var(--t2)'; nm.style.fontStyle='normal'; }
+  if(inf){ inf.textContent='_CountryOrigin.xlsx'; inf.style.color='var(--t3)'; }
+  if(del) del.style.display='none';
+  if(box){ box.style.borderColor='rgba(88,166,255,.35)'; box.style.background='rgba(88,166,255,.04)'; }
+  if(ico) ico.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+}
+// อ่านไฟล์ใบขนแบบเดียวกับ loadMergeFile('a') แต่เก็บผลไว้ใน BEN เท่านั้น (เรียก parser กลางแบบอ่านอย่างเดียว)
+function _benLoadIeFile(file){
+  const nm=document.getElementById('slot-a-ben-name');
+  if(nm){ nm.textContent='⏳ กำลังอ่าน '+file.name+'…'; nm.style.color='var(--amber)'; nm.style.fontStyle='normal'; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const sheetNames=wb.SheetNames.filter(s=>s!=='SUMMARY');
+      const hasCtrSheets=sheetNames.length>0 && sheetNames.every(s=>s.length<=3 && s===s.toUpperCase());
+      let parsed;
+      if(hasCtrSheets){ parsed=parseMergeWorkbook(wb); }
+      else{
+        const raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+        const type=detectType(raw); const rows=normalize(raw,type);
+        parsed=buildMergeDataFromCData(rows,type);
+      }
+      _benUpdateIeSlot(file.name,parsed);
+    }catch(err){ if(nm){ nm.textContent='✕ อ่านไม่ได้: '+err.message; nm.style.color='var(--red)'; } }
+  };
+  reader.readAsArrayBuffer(file);
+}
+(function _benWireMappingIeCapture(){
+  const inp  = document.getElementById('mfi-a-ben');
+  const zone = document.getElementById('slot-a-ben');
+  if(inp) inp.addEventListener('change', e=>{
+    const f = e.target.files && e.target.files[0];
+    if(f){ benMappingImportEntryFile = f; _benLoadIeFile(f); }
+    e.target.value='';
+  });
+  if(zone){
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('dg'); });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('dg'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault(); zone.classList.remove('dg');
+      const fs = e.dataTransfer && e.dataTransfer.files;
+      const f  = fs && [...fs].filter(x=>/\.xlsx?$/i.test(x.name))[0];
+      if(f){ benMappingImportEntryFile = f; _benLoadIeFile(f); }
+    });
+  }
+})();
+
+// ── PERF (BEN) : บาง Workbook มี "เซลล์หลงเหลือ" อยู่ท้ายกริด (เช่น AP1048576) ทำให้ !ref กลายเป็น
+//    A1:AQ1048576  ทั้งที่มีข้อมูลจริงไม่กี่สิบแถว → XLSX.utils.sheet_to_json จะสร้างแถวว่าง ~1 ล้านแถว
+//    (แถวละ 43 ช่อง = ~45 ล้าน string) ใช้เวลา ~43 วินาที
+//    ตัวช่วยนี้สร้าง AOA แบบ sparse จาก "เซลล์ที่มีอยู่จริง" เท่านั้น:
+//      • ค่าในแต่ละเซลล์ = cell.v เหมือน sheet_to_json (raw) ทุกประการ
+//      • เติม '' ให้ช่องว่างภายในแถวที่มีข้อมูล = เหมือน defval:''
+//      • .length เท่าเดิม (ตาม !ref) → loop ที่ใช้ rmRefAoa.length ทำงานเท่าเดิม
+//      • แถวที่ไม่มีเซลล์เลย = hole (โค้ดฝั่งใช้งานอ่านผ่าน `rmRefAoa[r]||[]` อยู่แล้ว → ผลเท่ากับแถวว่าง)
+//    ไม่มีการตัดข้อมูลทิ้ง · ผลลัพธ์ Excel เหมือนเดิม 100%
+function _benSheetAoa(ws){
+  if(!ws) return [];
+  if(!ws['!ref']) return XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  const rows = [], width = [];
+  for(const k in ws){
+    if(k.charCodeAt(0)===33) continue;                 // 33 = '!' (meta)
+    const a = XLSX.utils.decode_cell(k);
+    if(a.r<rg.s.r || a.r>rg.e.r || a.c<rg.s.c || a.c>rg.e.c) continue;
+    const ri = a.r-rg.s.r, ci = a.c-rg.s.c;
+    let row = rows[ri]; if(!row) row = rows[ri] = [];
+    const cell = ws[k];
+    row[ci] = (cell==null || cell.v===undefined || cell.v===null) ? '' : cell.v;
+    if(width[ri]===undefined || ci>width[ri]) width[ri]=ci;
+  }
+  for(let r=0;r<rows.length;r++){
+    const row=rows[r]; if(!row) continue;
+    for(let c=0, w=width[r]; c<=w; c++) if(row[c]===undefined) row[c]='';
+  }
+  rows.length = rg.e.r - rg.s.r + 1;
+  return rows;
+}
+// ── PERF (BEN) : คืน main thread ให้เบราว์เซอร์วาดข้อความสถานะจริงของแต่ละ STEP (ไม่แตะข้อมูล) ──
+function _benBusy(msg){
+  const t=document.getElementById('mappingCombinedLoadingTxt-ben');
+  if(t && msg) t.textContent = msg;
+  return new Promise(r=>setTimeout(r,0));
+}
+// ── PERF (BEN) : cache ผล Parse PDF · ผูกกับลายเซ็นของชุดไฟล์ (ชื่อ|ขนาด|เวลาแก้ไข) ──
+//    เปลี่ยน/เพิ่ม/ลบ/ล้างไฟล์ → ลายเซ็นเปลี่ยน → parse ใหม่เสมอ
+const benMappingPdfCache = { sig:'', built:null };
+function _benPdfSig(files){
+  return (files||[]).map(f=>[f.name,f.size,(f.lastModified||0)].join('|')).join('§');
+}
+function _benClearPdfCache(){ benMappingPdfCache.sig=''; benMappingPdfCache.built=null; }
+
+function _benMapEnsureHashN(s){ s=String(s==null?'':s).trim(); if(s==='') return ''; return /#N$/i.test(s)?s:s+'#N'; }
+function _benMapStripHashN(s){ return String(s==null?'':s).trim().replace(/#N$/i,''); }
+// Base material code = everything before the first '#'. Unifies the match key
+// across schemas: CLC "5350044100#N"→"5350044100", export "F-223708.HKI-H+44+31#N1"
+// →"F-223708.HKI-H+44+31" (matches RM "Material - Trim" which is already trimmed).
+function _benMapBaseMat(s){ return String(s==null?'':s).trim().split('#')[0].trim(); }
+function _benMapNum(v){ const n=Number(String(v==null?'':v).toString().replace(/,/g,'').trim()); return Number.isFinite(n)?n:0; }
+function _benMapKey4(billing, matTrim, qty, netval){
+  return [_benRmNorm(billing), _benRmNorm(matTrim).toUpperCase(), _benRmNormNum(qty), _benRmNormNum(netval)].join('|');
+}
+function _benMapKeyIE(billing, productCode){
+  return [_benRmNorm(billing), _benRmNorm(productCode).toUpperCase()].join('|');
+}
+// ── Mapping Excel · EXPORT เท่านั้น: ตั้ง Number Format ให้แสดงทศนิยม 3 ตำแหน่ง ──
+// แก้เฉพาะ "การแสดงผล" (cell.z) — ค่าใน cell ยังเป็น Number เดิม ไม่ปัด ไม่ลด precision
+const _BEN_Z3 = '#,##0.000';
+// ใช้กับ sheet ที่เราสร้างเอง (aoa_to_sheet): ระบุคอลัมน์ตัวเลขที่ต้องการ 3 ตำแหน่ง (0-based)
+// ข้ามแถวหัวตาราง · แตะเฉพาะ cell ที่เป็นตัวเลข (t==='n') → คอลัมน์รหัส/เลขเอกสารที่เป็น text ไม่ถูกแตะ
+// ── QTY: จำนวนชิ้น = จำนวนเต็ม ห้ามมีจุดทศนิยมตอน EXPORT (ใช้กับคอลัมน์ Qty เท่านั้น) ──
+const _BEN_Z0 = '#,##0';
+function _benMapZ0Cols(ws, cols, startRow){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
+    for(const c of cols){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(cell && cell.t === 'n') cell.z = _BEN_Z0;
+    }
+  }
+}
+function _benMapZ3Cols(ws, cols, startRow){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=(startRow==null?1:startRow); r<=rg.e.r; r++){
+    for(const c of cols){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(cell && cell.t === 'n') cell.z = _BEN_Z3;
+    }
+  }
+}
+// ใช้กับ RM FINAL (มาจากไฟล์ RM ต้นฉบับ): อัปเกรดเฉพาะ cell ที่ "ไฟล์ต้นฉบับกำหนดเป็นทศนิยม 1-2 ตำแหน่งอยู่แล้ว"
+// → ไม่แตะ General / วันที่ / ข้อความ ⇒ Billing Document · Item · Material · HS Code · Import Entry ไม่ถูกเติม .000
+function _benMapZ3Existing(ws){
+  if(!ws || !ws['!ref']) return;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  for(let r=rg.s.r; r<=rg.e.r; r++){
+    for(let c=rg.s.c; c<=rg.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if(!cell || cell.t !== 'n') continue;
+      const z = String(cell.z == null ? '' : cell.z);
+      if(/\.0{1,2}(?!0)/.test(z)) cell.z = _BEN_Z3;   // "#,##0.00" / "0.0" → "#,##0.000" (ที่เป็น .000 อยู่แล้วไม่แตะ)
+    }
+  }
+}
+// PDF country name → 2-letter code (covers the country set seen in production).
+const _BEN_CTRY = {
+  'germany':'DE','india':'IN','brazil':'BR','slovakia':'SK','thailand':'TH',
+  'p.r. of china':'CN','pr of china':'CN','china':'CN','hungary':'HU',
+  'south africa':'ZA','turkey':'TR','turkiye':'TR','t\u00fcrkiye':'TR',
+  'france':'FR','italy':'IT','romania':'RO','vietnam':'VN','viet nam':'VN',
+  'usa':'US','united states':'US','japan':'JP','korea':'KR','south korea':'KR'
+};
+function _benMapCtryCode(name){
+  const k = String(name==null?'':name).trim().toLowerCase();
+  if(!k) return '';
+  if(_BEN_CTRY[k]) return _BEN_CTRY[k];
+  if(/^[A-Za-z]{2}$/.test(k)) return k.toUpperCase();   // already a code
+  return '';   // unknown → don't flag mismatch
+}
+
+function benClearMappingIe(){
+  benMappingImportEntryFile = null;
+  const inp=document.getElementById('mfi-a-ben'); if(inp) inp.value='';
+  _benResetIeSlot();
+}
+function benClearMappingAll(){
+  if(typeof benClearMappingPdfRm === 'function') benClearMappingPdfRm();   // PDF + RM
+  benClearMappingIe();                                                  // Import Entry
+  benMappingState.pdfFiles=[]; benMappingState.pdfRows=[]; benMappingState.rmFile=null;
+  benMappingState.rmRows=[]; benMappingState.importEntryFile=null;
+  benMappingState.importEntryRows=[]; benMappingState.unmatchedRows=[];
+}
+
+// Country of Origin: code -> full name (B). Fallback = original value (never blank).
+const _BEN_CTRY_FULL={AD:'ANDORRA',AE:'UNITED ARAB EMIRATES',AF:'AFGHANISTAN',AG:'ANTIGUA AND BARBUDA',AI:'ANGUILLA',AL:'ALBANIA',AM:'ARMENIA',AO:'ANGOLA',AQ:'ANTARCTICA',AR:'ARGENTINA',AS:'AMERICAN SAMOA',AT:'AUSTRIA',AU:'AUSTRALIA',AW:'ARUBA',AX:'ALAND ISLANDS',AZ:'AZERBAIJAN',BA:'BOSNIA AND HERZEGOVINA',BB:'BARBADOS',BD:'BANGLADESH',BE:'BELGIUM',BF:'BURKINA FASO',BG:'BULGARIA',BH:'BAHRAIN',BI:'BURUNDI',BJ:'BENIN',BL:'SAINT BARTHELEMY',BM:'BERMUDA',BN:'BRUNEI',BO:'BOLIVIA',BQ:'BONAIRE',BR:'BRAZIL',BS:'BAHAMAS',BT:'BHUTAN',BV:'BOUVET ISLAND',BW:'BOTSWANA',BY:'BELARUS',BZ:'BELIZE',CA:'CANADA',CC:'COCOS ISLANDS',CD:'CONGO (DRC)',CF:'CENTRAL AFRICAN REPUBLIC',CG:'CONGO',CH:'SWITZERLAND',CI:'COTE DIVOIRE',CK:'COOK ISLANDS',CL:'CHILE',CM:'CAMEROON',CN:'CHINA',CO:'COLOMBIA',CR:'COSTA RICA',CU:'CUBA',CV:'CABO VERDE',CW:'CURACAO',CX:'CHRISTMAS ISLAND',CY:'CYPRUS',CZ:'CZECH REPUBLIC',DE:'GERMANY',DJ:'DJIBOUTI',DK:'DENMARK',DM:'DOMINICA',DO:'DOMINICAN REPUBLIC',DZ:'ALGERIA',EC:'ECUADOR',EE:'ESTONIA',EG:'EGYPT',EH:'WESTERN SAHARA',ER:'ERITREA',ES:'SPAIN',ET:'ETHIOPIA',FI:'FINLAND',FJ:'FIJI',FK:'FALKLAND ISLANDS',FM:'MICRONESIA',FO:'FAROE ISLANDS',FR:'FRANCE',GA:'GABON',GB:'UNITED KINGDOM',GD:'GRENADA',GE:'GEORGIA',GF:'FRENCH GUIANA',GG:'GUERNSEY',GH:'GHANA',GI:'GIBRALTAR',GL:'GREENLAND',GM:'GAMBIA',GN:'GUINEA',GP:'GUADELOUPE',GQ:'EQUATORIAL GUINEA',GR:'GREECE',GS:'SOUTH GEORGIA',GT:'GUATEMALA',GU:'GUAM',GW:'GUINEA-BISSAU',GY:'GUYANA',HK:'HONG KONG',HM:'HEARD ISLAND',HN:'HONDURAS',HR:'CROATIA',HT:'HAITI',HU:'HUNGARY',ID:'INDONESIA',IE:'IRELAND',IL:'ISRAEL',IM:'ISLE OF MAN',IN:'INDIA',IO:'BRITISH INDIAN OCEAN TERRITORY',IQ:'IRAQ',IR:'IRAN',IS:'ICELAND',IT:'ITALY',JE:'JERSEY',JM:'JAMAICA',JO:'JORDAN',JP:'JAPAN',KE:'KENYA',KG:'KYRGYZSTAN',KH:'CAMBODIA',KI:'KIRIBATI',KM:'COMOROS',KN:'SAINT KITTS AND NEVIS',KP:'NORTH KOREA',KR:'KOREA',KW:'KUWAIT',KY:'CAYMAN ISLANDS',KZ:'KAZAKHSTAN',LA:'LAOS',LB:'LEBANON',LC:'SAINT LUCIA',LI:'LIECHTENSTEIN',LK:'SRI LANKA',LR:'LIBERIA',LS:'LESOTHO',LT:'LITHUANIA',LU:'LUXEMBOURG',LV:'LATVIA',LY:'LIBYA',MA:'MOROCCO',MC:'MONACO',MD:'MOLDOVA',ME:'MONTENEGRO',MF:'SAINT MARTIN',MG:'MADAGASCAR',MH:'MARSHALL ISLANDS',MK:'NORTH MACEDONIA',ML:'MALI',MM:'MYANMAR',MN:'MONGOLIA',MO:'MACAO',MP:'NORTHERN MARIANA ISLANDS',MQ:'MARTINIQUE',MR:'MAURITANIA',MS:'MONTSERRAT',MT:'MALTA',MU:'MAURITIUS',MV:'MALDIVES',MW:'MALAWI',MX:'MEXICO',MY:'MALAYSIA',MZ:'MOZAMBIQUE',NA:'NAMIBIA',NC:'NEW CALEDONIA',NE:'NIGER',NF:'NORFOLK ISLAND',NG:'NIGERIA',NI:'NICARAGUA',NL:'NETHERLANDS',NO:'NORWAY',NP:'NEPAL',NR:'NAURU',NU:'NIUE',NZ:'NEW ZEALAND',OM:'OMAN',PA:'PANAMA',PE:'PERU',PF:'FRENCH POLYNESIA',PG:'PAPUA NEW GUINEA',PH:'PHILIPPINES',PK:'PAKISTAN',PL:'POLAND',PM:'SAINT PIERRE AND MIQUELON',PN:'PITCAIRN',PR:'PUERTO RICO',PS:'PALESTINE',PT:'PORTUGAL',PW:'PALAU',PY:'PARAGUAY',QA:'QATAR',RE:'REUNION',RO:'ROMANIA',RS:'SERBIA',RU:'RUSSIAN FEDERATION',RW:'RWANDA',SA:'SAUDI ARABIA',SB:'SOLOMON ISLANDS',SC:'SEYCHELLES',SD:'SUDAN',SE:'SWEDEN',SG:'SINGAPORE',SH:'SAINT HELENA',SI:'SLOVENIA',SJ:'SVALBARD AND JAN MAYEN',SK:'SLOVAKIA',SL:'SIERRA LEONE',SM:'SAN MARINO',SN:'SENEGAL',SO:'SOMALIA',SR:'SURINAME',SS:'SOUTH SUDAN',ST:'SAO TOME AND PRINCIPE',SV:'EL SALVADOR',SX:'SINT MAARTEN',SY:'SYRIA',SZ:'ESWATINI',TC:'TURKS AND CAICOS ISLANDS',TD:'CHAD',TF:'FRENCH SOUTHERN TERRITORIES',TG:'TOGO',TH:'THAILAND',TJ:'TAJIKISTAN',TK:'TOKELAU',TL:'TIMOR-LESTE',TM:'TURKMENISTAN',TN:'TUNISIA',TO:'TONGA',TR:'TURKEY',TT:'TRINIDAD AND TOBAGO',TV:'TUVALU',TW:'TAIWAN',TZ:'TANZANIA',UA:'UKRAINE',UG:'UGANDA',UM:'US MINOR OUTLYING ISLANDS',US:'UNITED STATES',UY:'URUGUAY',UZ:'UZBEKISTAN',VA:'VATICAN CITY',VC:'SAINT VINCENT AND THE GRENADINES',VE:'VENEZUELA',VG:'BRITISH VIRGIN ISLANDS',VI:'US VIRGIN ISLANDS',VN:'VIETNAM',VU:'VANUATU',WF:'WALLIS AND FUTUNA',WS:'SAMOA',YE:'YEMEN',YT:'MAYOTTE',ZA:'SOUTH AFRICA',ZM:'ZAMBIA',ZW:'ZIMBABWE'};
+function _benMapCountryName(code){
+  const raw=String(code==null?'':code).trim();
+  if(raw==='') return '';
+  const m=raw.match(/^(.+?)-(\d+)$/);          // split base code + "-N" suffix (keep suffix)
+  const baseRaw=m?m[1]:raw, suf=m?('-'+m[2]):'';
+  const full=_BEN_CTRY_FULL[baseRaw.toUpperCase()];
+  return (full||baseRaw) + suf;                // fallback: original base (never blank) + suffix
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RM มีเลขอ้างอิง — FORMAT DETECTION + FORMAT B (Vietnam Auto Parts)
+//  FORMAT A = ของเดิม (Billing Document · Material · IMPORT ENTRY NO. · ITEM) — ไม่ถูกแตะ
+//  FORMAT B = Vietnam Auto Parts (Outbound Delivery No. · Part No.(Part SCH) · QTY ·
+//             Country Code : · Ref # Inbound Customs Entry No.) — Parser/Validator/Matching ใหม่
+// ══════════════════════════════════════════════════════════════════
+const BEN_RMREF_B = {
+  deliv:['outbound delivery no.'],
+  part :['part no.(part sch)','part no.(part sch)','part no. (part sch)'],
+  qty  :['qty'],
+  ctry :['country code :','country code'],
+  ref  :['ref # inbound customs entry no.','ref # inbound customs entry no']
+};
+const BEN_RMREF_A_ENTRY = ['import entry no.','import entry no','import entry'];
+function _benRmRefDetectFormat(hdr){
+  const has = list => list.some(x => hdr.indexOf(x) >= 0);
+  // FORMAT B ต้องมีหัวเฉพาะของตัวเอง 3 คอลัมน์หลัก (ไฟล์ A ไม่มีคอลัมน์เหล่านี้เลย)
+  if(has(BEN_RMREF_B.deliv) && has(BEN_RMREF_B.part) && has(BEN_RMREF_B.ref)) return 'B';
+  // FORMAT A = ของเดิม
+  if(hdr.indexOf('billing document')>=0 && hdr.indexOf('material')>=0 && has(BEN_RMREF_A_ENTRY)) return 'A';
+  return '';
+}
+// Parser + Validator + Matching ของ FORMAT B (ไม่เรียกและไม่ถูกเรียกจาก FORMAT A)
+//  • Key จับคู่ : Outbound Delivery No. ↔ RM master 'Reference Document' (ตัดศูนย์นำหน้า) + Part No. ↔ Material
+//  • เลขอ้างอิง : ตัดท้าย 'X<ตัวเลข>' ออกจาก Ref # Inbound Customs Entry No.
+//                 (พิสูจน์จากใบขนขาออกจริง: ส่วนหน้า = คอลัมน์ 'Declaration No')
+//  • ITEM      : FORMAT B ไม่มี Source สำหรับ Import Entry ITEM → เว้นว่างเสมอ (ห้ามสร้างเลขปลอม)
+//  • ไม่มีเลขอ้างอิง (เช่นช่องเป็นข้อความอธิบาย) → NO IMPORT REFERENCE → เว้นว่าง แต่คงแถว/Qty/Material ไว้
+function _benRmRefBuildB(aoa, hdr){
+  const find = list => { for(const n of list){ const c = hdr.indexOf(n); if(c>=0) return c; } return -1; };
+  const cD=find(BEN_RMREF_B.deliv), cP=find(BEN_RMREF_B.part), cQ=find(BEN_RMREF_B.qty),
+        cC=find(BEN_RMREF_B.ctry),  cR=find(BEN_RMREF_B.ref);
+  const miss=[];
+  if(cD<0) miss.push('Outbound Delivery No.');
+  if(cP<0) miss.push('Part No.(Part SCH)');
+  if(cQ<0) miss.push('QTY');
+  if(cR<0) miss.push('Ref # Inbound Customs Entry No.');
+  if(miss.length) return {ok:false, miss:miss};
+  const _dK = v => _benRmNorm(v).replace(/^0+/,'');          // '0053556202' ↔ '53556202'
+  const _mK = v => _benRmNorm(v).toUpperCase();
+  const idx = new Map(); let rows=0, refRows=0, noRefRows=0;
+  for(let r=1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row) continue;
+    const d=_dK(row[cD]), m=_mK(row[cP]);
+    if(d==='' || m==='') continue;
+    rows++;
+    const raw=_benRmNorm(row[cR]);
+    // เลขอ้างอิงจริง = ตัวอักษร/ตัวเลขล้วน ไม่มีเว้นวรรค และมีตัวเลขอยู่ · ข้อความอธิบายจะไม่ผ่านเงื่อนไขนี้
+    const isRef = /^[A-Za-z0-9]+$/.test(raw) && /[0-9]/.test(raw) && raw.length>=6;
+    if(isRef) refRows++; else noRefRows++;
+    const rec={ refRaw: isRef?raw:'', entry: isRef ? raw.replace(/X[0-9]+$/i,'') : '',
+                qty:_benMapNum(row[cQ]), ctry:_benRmNorm(cC>=0?row[cC]:'') };
+    const k=d+'|'+m;
+    if(idx.has(k)) idx.get(k).push(rec); else idx.set(k,[rec]);
+  }
+  // parts = จำนวนบรรทัดที่ต้อง Export สำหรับ RM 1 แถว (จัดกลุ่มตามใบขนขาเข้าที่อ้างถึง)
+  const resolve = (billing, deliv, mat, batch, qty)=>{
+    const arr = idx.get(_dK(deliv)+'|'+_mK(mat)) || [];
+    if(arr.length===0) return {status:'none', parts:[{entry:'',itemNo:'',share:1}]};
+    const g=new Map();
+    arr.forEach(x=>{ const o=g.get(x.refRaw)||{entry:x.entry, qty:0}; o.qty+=x.qty; g.set(x.refRaw,o); });
+    const groups=Array.from(g.values());
+    if(groups.length===1) return {status:'one', parts:[{entry:groups[0].entry, itemNo:'', share:1}]};
+    const sum=groups.reduce((a,b)=>a+b.qty,0), q=_benMapNum(qty);
+    if(sum>0 && q>0 && groups.every(x=>x.qty>0) && Math.abs(sum-q)<1e-6)
+      return {status:'split', parts:groups.map(x=>({entry:x.entry, itemNo:'', share:x.qty/sum}))};
+    return {status:'ambiguous', parts:[{entry:'',itemNo:'',share:1}],
+            cand:groups.map(x=>({entry:x.entry, itemNo:''}))};
+  };
+  return {ok:true, miss:[], rows:rows, refRows:refRows, noRefRows:noRefRows, resolve:resolve,
+          cols:{deliv:cD, part:cP, qty:cQ, ctry:cC, ref:cR}};
+}
+
+async function benExportMappingCombined(){
+  // sync central state from the per-zone globals
+  benMappingState.pdfFiles        = (typeof benMappingPdfFiles!=='undefined' && benMappingPdfFiles) ? benMappingPdfFiles : [];
+  benMappingState.rmFile          = (typeof benMappingRmFile!=='undefined') ? benMappingRmFile : null;
+  benMappingState.importEntryFile = benMappingImportEntryFile;
+
+  // ── VALIDATION ──
+  if(!benMappingState.rmFile){
+    if(typeof toast==='function') toast('กรุณาอัปโหลด RM File','warning'); else alert('กรุณาอัปโหลด RM File'); return;
+  }
+  if(!benMappingState.pdfFiles || benMappingState.pdfFiles.length===0){
+    if(typeof toast==='function') toast('กรุณาอัปโหลด PDF Documents','warning'); else alert('กรุณาอัปโหลด PDF Documents'); return;
+  }
+  if(!benMappingState.importEntryFile){
+    if(typeof toast==='function') toast('กรุณาอัปโหลด Import Entry','warning'); else alert('กรุณาอัปโหลด Import Entry'); return;
+  }
+  if(!benMappingRmRefFile){   // ต้องมีไฟล์ RM (อ้างอิง) ก่อน Export Final — เติม Import entry no./Item no.
+    if(typeof toast==='function') toast('กรุณาอัปโหลดไฟล์ RM เพื่อเติม Import entry no. และ Item no.','warning'); else alert('กรุณาอัปโหลดไฟล์ RM เพื่อเติม Import entry no. และ Item no.'); return;
+  }
+  if(typeof XLSX==='undefined'){ if(typeof toast==='function') toast('SheetJS ยังไม่โหลด — refresh หน้าใหม่','error'); return; }
+  if((typeof getPdfJs==='function'?getPdfJs():null)==null){ if(typeof toast==='function') toast('pdf.js ยังไม่โหลด — ลองรอสักครู่แล้วลองใหม่','error'); return; }
+
+  const btn  = document.getElementById('mappingCombinedExportBtn-ben');
+  const load = document.getElementById('mappingCombinedLoading-ben');
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.style.cursor='wait'; }
+  if(load) load.style.display='inline-flex';
+
+  try{
+    await _benBusy('อ่าน PDF…');
+    // ════ STEP 1: PDF → Eng Description index (4-key, queue) ════
+    const _pdfSig = _benPdfSig(benMappingState.pdfFiles);
+    let built;
+    if(benMappingPdfCache.built && benMappingPdfCache.sig === _pdfSig && _pdfSig !== ''){
+      built = benMappingPdfCache.built;            // ชุดไฟล์เดิม → ใช้ผล Parse เดิม
+      console.log('[BEN PDF cache] ใช้ผล Parse เดิม (ชุดไฟล์ไม่เปลี่ยน)');
+    } else {
+      built = await benBuildMappingRowsFromPdfFiles(benMappingState.pdfFiles);
+      benMappingPdfCache.sig = _pdfSig; benMappingPdfCache.built = built;
+    }
+    if(!built || built.itemsFound===0){
+      if(typeof toast==='function') toast('อ่านข้อมูลจาก PDF ไม่สำเร็จ กรุณาตรวจสอบไฟล์ PDF','error'); return;
+    }
+    // Billing Document Date map (Billing Document -> "DD.MM.YYYY") from PDF header
+    const billingDates = (built.billingDates && typeof built.billingDates==='object') ? built.billingDates : {};
+    const pdfParseFailures = Array.isArray(built.parseFailures) ? built.parseFailures : [];
+    if(pdfParseFailures.length && typeof toast==='function') toast('อ่าน PDF บางไฟล์ไม่สำเร็จ กรุณาตรวจสอบไฟล์','warning');
+    const _hasAnyDate = Object.keys(billingDates).some(k=>String(billingDates[k]||'').trim()!=='');
+    if(!_hasAnyDate){
+      if(typeof toast==='function') toast('ไม่พบ Billing Document Date จาก PDF','error'); else alert('ไม่พบ Billing Document Date จาก PDF');
+      return;
+    }
+    const _dateFor = b => String(billingDates[_benRmNorm(b)] || billingDates[String(b).trim()] || '').trim();
+    // pr = [seq,billing,mat(#N),eng,invQty,netVal,netWt,pdfItemNo,srcFile,page,countryName]
+    const pdfRows = built.dataRows.slice();
+    benMappingState.pdfRows = pdfRows;
+    const _pdfSorted = pdfRows.slice().sort((a,b)=>{
+      const ba=_benRmNorm(a[1]), bb=_benRmNorm(b[1]);
+      if(ba!==bb) return ba<bb?-1:1;
+      return (Number(a[7])||0)-(Number(b[7])||0);
+    });
+    // Eng Description is matched by Billing + Material(Trim) (+ Qty to split
+    // duplicates). Net Value is NOT used (PDF/RM net values often differ).
+    // Material key: strip dots so PDF "F-X808265.01.KL" == RM-trim "F-X80826501KL".
+    // (Billing & Qty untouched; only the material component is dot-normalized.)
+    const _matKey = (m)=>_benRmNorm(m).toUpperCase().replace(/\./g,'');
+    const _pk3 = (b,m,q)=>[_benRmNorm(b), _matKey(m), _benRmNormNum(q)].join('|');
+    const _pk2 = (b,m)  =>[_benRmNorm(b), _matKey(m)].join('|');
+    const pdfIdx3 = new Map();   // Billing+Mat+Qty -> [entry]
+    const pdfIdx2 = new Map();   // Billing+Mat     -> [entry]  (fallback)
+    const allPdfEntries=[];
+    _pdfSorted.forEach(pr=>{
+      const matTrimP = _benMapBaseMat(pr[2]);
+      const e = { eng:pr[3]||'', country:_benMapCtryCode(pr[10]), srcFile:pr[8]||'', page:pr[9]||'',
+                  billing:String(pr[1]||''), item:String(pr[7]||''), mat:pr[2]||'',
+                  qty:String(pr[4]||''), netVal:String(pr[5]||''), used:false };
+      allPdfEntries.push(e);
+      const k3=_pk3(pr[1],matTrimP,pr[4]), k2=_pk2(pr[1],matTrimP);
+      (pdfIdx3.get(k3) || pdfIdx3.set(k3,[]).get(k3)).push(e);
+      (pdfIdx2.get(k2) || pdfIdx2.set(k2,[]).get(k2)).push(e);
+    });
+    // ── Index เพิ่ม: Billing Document + Item → รายการสินค้าใน PDF (ใช้เป็น Source ของคอลัมน์ C และ D เท่านั้น) ──
+    const _pkBI = (b,i)=>[_benRmNorm(b), String(parseInt(i,10)||'')].join('|');
+    const pdfIdxBI = new Map();
+    allPdfEntries.forEach(e=>{ const k=_pkBI(e.billing, e.item); if(k && !pdfIdxBI.has(k)) pdfIdxBI.set(k, e); });
+    // ไม่ตั้ง used → ไม่รบกวน logic การนับ UNMATCHED ของ _takeEng เดิม
+    const _takePdfByItem = (billing, item)=> pdfIdxBI.get(_pkBI(billing, item)) || null;
+
+    const _takeEng = (billing, matTrim, qty)=>{
+      // 1) precise: Billing+Material+Qty   2) fallback: Billing+Material
+      let lst = pdfIdx3.get(_pk3(billing,matTrim,qty));
+      if(lst){ const e=lst.find(x=>!x.used); if(e){ e.used=true; return e; } }
+      lst = pdfIdx2.get(_pk2(billing,matTrim));
+      if(lst){ const e=lst.find(x=>!x.used); if(e){ e.used=true; return e; } }
+      return null;
+    };
+
+
+    await _benBusy('อ่านใบขนขาออก…');
+    // ════ STEP 2: Import Entry (DWAK) → aggregate Qty/NW/GW/FOB by Billing+Product Code (SUM) ════
+    const ieBuf = await benMappingState.importEntryFile.arrayBuffer();
+    const ieWb  = XLSX.read(ieBuf, {type:'array'});
+    const ieWs  = ieWb.Sheets[ieWb.SheetNames[0]];
+    const ieAoa = _benSheetAoa(ieWs);
+    if(!ieAoa.length){ if(typeof toast==='function') toast('Import Entry ว่างเปล่า','error'); return; }
+    const ieHdr = ieAoa[0].map(h=>String(h||'').trim().toLowerCase());
+    const ieFind = (cands)=>{ for(let c=0;c<ieHdr.length;c++){ if(cands.indexOf(ieHdr[c])!==-1) return c; } return -1; };
+    const cieProd = ieFind(['product code','product code.']);
+    const cieQty  = ieFind(['qty.','qty']);
+    const cieNW   = ieFind(['net weight','netweight','net weight.']);
+    const cieGW   = ieFind(['gross weight','grossweight','gross weight.']);
+    const cieFOB  = ieFind(['fob thb.','fob thb']);
+    const cieDesc = ieFind(['desc.','desc','description']);   // ใบขน: Desc. → Eng Description (จับคู่ Invoice+Product Code)
+    if(cieProd<0 || cieQty<0){
+      if(typeof toast==='function') toast('ไฟล์นี้ไม่ใช่ Import Entry / ใบขน (ไม่พบ Product Code/Qty.)','error'); return;
+    }
+    const ieAgg = new Map();   // keyIE -> {qty,nw,gw,fob,count,billing,prod}
+    let ieCurBilling = '';
+    for(let r=1; r<ieAoa.length; r++){
+      const row = ieAoa[r];
+      const c0  = String(row[0]==null?'':row[0]);
+      const bm  = /Invoice\s*No\.?\s*:?\s*([0-9]+)/i.exec(c0);
+      if(bm) ieCurBilling = bm[1];
+      const prod = String(row[cieProd]==null?'':row[cieProd]).trim();
+      if(!prod) continue;
+      const key = _benMapKeyIE(ieCurBilling, prod);
+      let o = ieAgg.get(key);
+      if(!o){ o={qty:0,nw:0,gw:0,fob:0,count:0,billing:ieCurBilling,prod:prod,desc:''}; ieAgg.set(key,o); }
+      if(!o.desc && cieDesc>=0){ const d=String(row[cieDesc]==null?'':row[cieDesc]).trim(); if(d) o.desc=d; }   // Desc. แรกที่ไม่ว่างของ (Invoice+Product Code)
+      o.qty += _benMapNum(row[cieQty]);
+      o.nw  += cieNW>=0 ? _benMapNum(row[cieNW]) : 0;
+      o.gw  += cieGW>=0 ? _benMapNum(row[cieGW]) : 0;
+      o.fob += cieFOB>=0? _benMapNum(row[cieFOB]): 0;
+      o.count++;
+    }
+
+    await _benBusy('อ่าน RM ไม่มีเลขอ้างอิง…');
+    // ════ STEP 3: Read RM (MASTER) — keep original order/format for RM FINAL ════
+    const rmBuf = await benMappingState.rmFile.arrayBuffer();
+    const rmWb  = XLSX.read(rmBuf, {type:'array', cellStyles:true, cellDates:true});
+    const rmSheetName = rmWb.SheetNames[0];
+    const rmWs  = rmWb.Sheets[rmSheetName];
+    const rng   = XLSX.utils.decode_range(rmWs['!ref']);
+    const headerRow = rng.s.r;
+    const colName = {};
+    for(let c=rng.s.c;c<=rng.e.c;c++){ const cell=rmWs[XLSX.utils.encode_cell({r:headerRow,c})]; colName[c]=cell?String(cell.v).trim():''; }
+    const rmFind = (cands)=>{ for(let c=rng.s.c;c<=rng.e.c;c++){ const cl=String(colName[c]||'').toLowerCase().replace(/\s+/g,' ').trim(); if(cands.indexOf(cl)!==-1) return c; } return -1; };
+    const cBilling = rmFind(['billing document']);
+    const cMaterial= rmFind(['material']);                          // full material (Import Entry join)
+    const cDesc    = rmFind(['description']);                       // CLC: the #N code (may be absent)
+    const cMatTrim = rmFind(['material - trim','material (trim)','material trim']); // EXPORT_RM: pre-trimmed (may be absent)
+    const cMatName2= rmFind(['material name 2','material name2','materialname2']);  // fallback สำหรับ Material (Trim) เมื่อ Description ว่าง
+    const cEngRm   = rmFind(['eng description','eng description.']); // EXPORT_RM: Eng filled in RM (fallback only)
+    const cQty     = rmFind(['invoiced quantity','billing qty in sku','invoiced qty']);
+    const cNetVal  = rmFind(['net value']);
+    const cCtry    = rmFind(['country of origin']);
+    const cHS      = rmFind(['hs','hs code','comm./imp. code no.']);
+    const cItem    = rmFind(['item']);
+    const cRef     = rmFind(['reference document','delivery']);            // Delivery — ใช้จับคู่ COO_RM (RM อ้างอิง)
+    const cBatch   = rmFind(['batch']);                                     // Batch — narrow COO_RM
+    const cNetWt   = rmFind(['net weight']);                                // ใช้หารตามสัดส่วนเมื่อแตกบรรทัด (RM FINAL)
+    // Accept either schema: needs Description (CLC) OR Material-Trim/Material (EXPORT_RM)
+    const _hasMatSource = (cDesc>=0 || cMatTrim>=0 || cMaterial>=0);
+    if(cBilling<0 || cQty<0 || cNetVal<0 || !_hasMatSource){
+      if(typeof toast==='function') toast('RM ต้องมี Billing Document, (Description หรือ Material - Trim), Invoiced Qty, Net value','error'); return;
+    }
+    const getV=(r,c)=>{ if(c<0) return ''; const cell=rmWs[XLSX.utils.encode_cell({r,c})]; return cell==null?'':cell.v; };
+    const setStr=(r,c,val)=>{ const ref=XLSX.utils.encode_cell({r,c}); const ex=rmWs[ref];
+      if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmWs[ref]={t:'s',v:val}; };
+
+    // accumulate per-Import-Entry-key RM qty + count (for proportional IE split)
+    const ieKeyRmQty  = new Map();   // keyIE -> Σ RM Invoiced Qty
+    const ieKeyRmCnt  = new Map();   // keyIE -> # RM rows sharing this product
+    for(let r=headerRow+1;r<=rng.e.r;r++){
+      const b=getV(r,cBilling); if(String(b).trim()==='' && String(getV(r,cItem)).trim()==='') continue;
+      const kie=_benMapKeyIE(b, getV(r,cMaterial));
+      ieKeyRmQty.set(kie,(ieKeyRmQty.get(kie)||0)+_benMapNum(getV(r,cQty)));
+      ieKeyRmCnt.set(kie,(ieKeyRmCnt.get(kie)||0)+1);
+    }
+
+    await _benBusy('อ่าน RM มีเลขอ้างอิง…');
+    // ════ STEP 4b: อ่านไฟล์ RM (อ้างอิง / COO_RM) → index: Billing Document + Delivery + Material ════
+    //   Delivery = คอลัมน์ 'Delivery' หรือ 'Reference Document' (แล้วแต่ Schema ของ COO_RM)
+    //   narrow: Batch → Qty (Delivery quantity / Billing qty in SKU) · ใช้เติม Import entry no. / Item no.
+    //   1 แถว/ค่าตรงกันทุกแถว → เติมปกติ
+    //   หลายแถว + Σ Delivery quantity = Invoiced Qty → แตกบรรทัด (หารตัวเลขตามสัดส่วน Delivery quantity)
+    //   หลายแถว + Σ ไม่ตรง → เว้นว่าง + แจ้ง AMBIGUOUS COO_RM MATCH
+    const _rrEnd=(msg)=>{ if(typeof toast==='function') toast(msg,'error'); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; } if(load) load.style.display='none'; };
+    const rmRefBuf = await benMappingRmRefFile.arrayBuffer();
+    const rmRefWb  = XLSX.read(rmRefBuf, {type:'array'});
+    const rmRefWs  = rmRefWb.Sheets[rmRefWb.SheetNames[0]];
+    const rmRefAoa = _benSheetAoa(rmRefWs);
+    const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
+    const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
+    // ══ AUTO DETECT FORMAT ของไฟล์ RM มีเลขอ้างอิง (A = เดิม · B = Vietnam Auto Parts) ══
+    let _rrResolve = null, _rmRefRows = 0;
+    let _rrMatched=0, _rrNotFound=0, _rrAmbig=0, _rrSplit=0, _rrSplitRows=0, _rrSheets=0;   // สถิติสำหรับรายงาน
+    const _rrFmt = _benRmRefDetectFormat(rrHdr);
+    if(_rrFmt===''){
+      _rrEnd('ไฟล์ RM มีเลขอ้างอิง: ตรวจไม่พบ FORMAT ที่รองรับ · หัวคอลัมน์ที่พบ: '+rrHdr.filter(h=>h!=='').join(' | ')+
+             ' · FORMAT A ต้องมี Billing Document + Material + IMPORT ENTRY NO. · FORMAT B ต้องมี Outbound Delivery No. + Part No.(Part SCH) + Ref # Inbound Customs Entry No.');
+      return;
+    }
+    if(_rrFmt==='B'){
+      const _B=_benRmRefBuildB(rmRefAoa, rrHdr);
+      if(!_B.ok){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง FORMAT B (Vietnam Auto Parts) ขาดคอลัมน์: '+_B.miss.join(' · ')); return; }
+      _rrResolve=_B.resolve; _rmRefRows=_B.rows;
+      console.log('[BEN RM มีเลขอ้างอิง] FORMAT B (Vietnam Auto Parts) ·',_B.rows,'แถว · มีเลขอ้างอิง',_B.refRows,
+                  '· ไม่มีเลขอ้างอิง',_B.noRefRows,'| Key: Outbound Delivery No. + Part No.(Part SCH)',
+                  '| ITEM: FORMAT B ไม่มี Source → เว้นว่าง');
+    }
+    if(_rrFmt!=='B'){
+    // เลือกตามลำดับความสำคัญของ "ชื่อคอลัมน์" (ไม่ใช่ลำดับคอลัมน์) — รองรับ COO_RM หลาย Schema
+    //   Delivery  : ไฟล์เก่าใช้ 'Delivery' · ไฟล์ใหม่ใช้ 'Reference Document' (ทั้งคู่ = เลข Delivery เดียวกับ RM Master)
+    //   Qty(narrow): 'Delivery quantity' → 'Billing qty in SKU' → 'Invoiced Quantity' → 'QTY'
+    const rrFindOrd = cands=>{ for(const nm of cands){ const c=rrHdr.indexOf(nm); if(c>=0) return c; } return -1; };
+    const rrFindAll = cands=>{ const o=[]; for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) o.push(c); } return o; };
+    const rrBill=rrFind(['billing document']), rrItem=rrFind(['item']),
+          rrDeliv=rrFindOrd(['delivery','reference document']), rrMat=rrFind(['material']), rrBatch=rrFind(['batch']),
+          rrDq=rrFindOrd(['delivery quantity','delivery qty','billing qty in sku','invoiced quantity','invoiced qty','qty']);
+    // ══ เลขอ้างอิง (BEN) = IMPORT ENTRY NO. + ITEM ══
+    //   • Billing Document / Material = Key สำหรับ Matching เท่านั้น ไม่ใช่เลขอ้างอิง
+    //   • บางไฟล์ตั้งชื่อคอลัมน์เลขอ้างอิงว่า 'ITEM' (ชนกับคอลัมน์ 'Item' ของ Matching)
+    //     และมีคอลัมน์ชื่อ 'Import Entry No.' ซ้ำกันมากกว่า 1 คอลัมน์ (เช่น คอลัมน์รวม entryXitem)
+    //   • จึงเลือกเป็น "คู่" : ENTRY กับ ITEM ที่อยู่ใกล้กันที่สุด และ ITEM ต้องอยู่ขวาของ ENTRY
+    //     - ITEM ที่ชื่อ 'Item no.' / 'Item no' / 'รายการ' = ชื่อเฉพาะ ใช้ก่อนเสมอ
+    //     - ถ้าไม่มี จึงใช้คอลัมน์ชื่อ 'Item' ที่อยู่ "ขวาของคอลัมน์ ENTRY ตัวแรก" เท่านั้น
+    //       (คอลัมน์ Item ของ Matching อยู่ซ้ายสุดเสมอ จึงไม่ถูกหยิบมาเป็นเลขอ้างอิง)
+    const _rrEntryCols  = rrFindAll(['import entry no.','import entry no','import entry']);
+    const _rrItemStrong = rrFindAll(['item no.','item no','รายการ']);
+    const _rrFirstEntry = _rrEntryCols.length ? Math.min.apply(null,_rrEntryCols) : -1;
+    const _rrItemWeak   = (_rrFirstEntry>=0) ? rrFindAll(['item']).filter(c=>c>_rrFirstEntry) : [];
+    const _rrItemCols   = _rrItemStrong.length ? _rrItemStrong : _rrItemWeak;
+    let rrEntry=-1, rrItemNo=-1, _rrPairD=Infinity;
+    _rrEntryCols.forEach(e=>{ _rrItemCols.forEach(i=>{
+      if(i===rrItem) return;                                   // คอลัมน์ Item ของ Matching ≠ เลขอ้างอิง
+      const d = (i>e) ? (i-e) : (1000 + (e-i));                 // ปกติ ITEM อยู่ขวาของ ENTRY
+      if(d < _rrPairD){ _rrPairD=d; rrEntry=e; rrItemNo=i; }
+    }); });
+    // Material (Trim) source ในไฟล์ RM มีเลขอ้างอิง — Description(ตัด #) → Material name 2 (optional · ไม่บังคับ)
+    const rrDesc=rrFind(['description']), rrMatName2=rrFind(['material name 2','material name2','materialname2']);
+    const _rrColName=c=>(c>=0 && rmRefAoa[0] ? String(rmRefAoa[0][c]) : '(ไม่พบ)');
+    console.log('[BEN RM มีเลขอ้างอิง] คอลัมน์ที่ใช้ →',
+      'Matching: Billing="'+_rrColName(rrBill)+'" Delivery="'+_rrColName(rrDeliv)+'" Material="'+_rrColName(rrMat)+'" Qty="'+_rrColName(rrDq)+'"',
+      '| เลขอ้างอิง: IMPORT ENTRY NO.="'+_rrColName(rrEntry)+'" + ITEM="'+_rrColName(rrItemNo)+'"');
+    // แจ้งเฉพาะคอลัมน์ที่ขาดจริง และระบุประเภทไฟล์ให้ตรง (ไฟล์ RM มีเลขอ้างอิงเท่านั้น)
+    const _rrMiss=[];
+    if(rrBill<0)   _rrMiss.push('Billing Document');
+    if(rrMat<0)    _rrMiss.push('Material');
+    if(rrEntry<0)  _rrMiss.push('IMPORT ENTRY NO.');
+    if(rrItemNo<0) _rrMiss.push('ITEM (เลขอ้างอิง)');
+    if(_rrMiss.length){ _rrEnd('ไฟล์ RM มีเลขอ้างอิง ขาดคอลัมน์: '+_rrMiss.join(' · ')); return; }
+    const _rrMatK=v=>_benRmNorm(v).toUpperCase();
+    const _rrKey =(b,d,m)=>_benRmNorm(b)+'|'+_benRmNorm(d)+'|'+_rrMatK(m);   // Billing + Delivery + Material
+    const _rrKey2=(b,m)  =>_benRmNorm(b)+'|'+_rrMatK(m);                  // Billing + Material (ใช้เมื่อไม่มี Delivery)
+    const rmRefIdx=new Map(), rmRefIdx2=new Map(); _rmRefRows=0;
+    for(let r=1;r<rmRefAoa.length;r++){
+      const row=rmRefAoa[r];
+      if(!row) continue;                       // PERF: แถวที่ไม่มีเซลล์เลย (เดิมคำนวณแล้วก็ continue อยู่ดี)
+      const b=_benRmNorm(row[rrBill]), m=_rrMatK(row[rrMat]);
+      if(b==='' || m==='') continue;
+      _rmRefRows++;
+      const _rdesc=rrDesc>=0?_benRmNorm(row[rrDesc]):'', _rmn2=rrMatName2>=0?_benRmNorm(row[rrMatName2]):'';
+      const rec={ entry:_benRmNorm(row[rrEntry]), itemNo:_benRmNorm(row[rrItemNo]),
+                  matTrim:(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'',
+                  deliv:_benRmNorm(rrDeliv>=0?row[rrDeliv]:''), batch:_benRmNorm(rrBatch>=0?row[rrBatch]:''),
+                  dq:(rrDq>=0?row[rrDq]:'') };
+      const k1=_rrKey(b,rec.deliv,m), k2=_rrKey2(b,m);
+      if(rmRefIdx.has(k1)) rmRefIdx.get(k1).push(rec); else rmRefIdx.set(k1,[rec]);
+      if(rmRefIdx2.has(k2)) rmRefIdx2.get(k2).push(rec); else rmRefIdx2.set(k2,[rec]);
+    }
+    // Candidates = Billing + Delivery + Material → narrow ด้วย Batch (ถ้ามี) → narrow ด้วย Delivery quantity
+    // ไม่มี Delivery ฝั่ง master (คอลัมน์ไม่มี/ค่าว่าง) → ใช้ Billing + Material · ไม่ข้าม Delivery เมื่อ master ระบุ Delivery มาแล้ว
+    const _rrCand=(billing,deliv,mat,batch,qty)=>{
+      const d=_benRmNorm(deliv);
+      let arr=(d!=='' ? (rmRefIdx.get(_rrKey(billing,d,mat))||[]) : (rmRefIdx2.get(_rrKey2(billing,mat))||[])).slice();
+      if(arr.length>1){
+        const bt=_benRmNorm(batch);
+        if(bt!==''){ const f=arr.filter(x=>x.batch===bt); if(f.length) arr=f; }
+      }
+      if(arr.length>1){
+        const f=arr.filter(x=>_benRmNormNum(x.dq)===_benRmNormNum(qty));
+        if(f.length===1) arr=f;
+      }
+      return arr;
+    };
+    // parts = จำนวนบรรทัดที่ต้อง Export สำหรับ RM 1 แถว (share = สัดส่วนตัวเลขของบรรทัดนั้น)
+    _rrResolve=(billing,deliv,mat,batch,qty)=>{
+      const arr=_rrCand(billing,deliv,mat,batch,qty);
+      const _blank={status:'none', parts:[{entry:'',itemNo:'',share:1}]};
+      if(arr.length===0) return _blank;
+      if(arr.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};
+      const uniq=Array.from(new Set(arr.map(x=>x.entry+'\u0000'+x.itemNo)));
+      if(uniq.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};   // ทุกแถวให้ค่าเดียวกัน → ไม่ต้องแตก
+      const dqs=arr.map(x=>_benMapNum(x.dq)), sum=dqs.reduce((a,b)=>a+b,0), q=_benMapNum(qty);
+      if(sum>0 && q>0 && dqs.every(v=>v>0) && Math.abs(sum-q)<1e-6){
+        return {status:'split', parts:arr.map((x,i)=>({entry:x.entry,itemNo:x.itemNo,share:dqs[i]/sum}))};
+      }
+      return {status:'ambiguous', parts:[{entry:'',itemNo:'',share:1}], cand:arr};   // ห้ามเดา / ห้ามหยิบแถวแรก
+    };
+    }   // ── จบ FORMAT A (ของเดิม ไม่เปลี่ยน Logic) ──
+
+    await _benBusy('จับคู่ข้อมูล…');
+    // ════ STEP 4: Build output rows per RM row (master order) ════
+    const OUT_HDR = ['Billing Document','Billing Document Date','Material (Trim)','Eng Description','Invoiced Qty','Net Value (USD)',
+                     'Country of Origin','HS Code','Qty.','Net Weight','Gross Weight','FOB THB.','Desc ALL','Description'];
+    OUT_HDR.push('Import entry no.','Item no.');     // เพิ่มท้ายคอลัมน์ของทุก Country Sheet
+    const outByCountry = {};        // country -> [ rowObj ]
+    const rmUnmatched = [];         // {billing,item,matTrim,reason}
+    const rmStatus = [];            // per RM data row (for RM FINAL): {status,src,mBill,mQty,mNet}
+    const rmParts  = [];            // per RM data row (aligned with rmStatus): [ {entry,itemNo,share} ] — >1 = แตกบรรทัด
+
+    for(let r=headerRow+1;r<=rng.e.r;r++){
+      const bRaw = getV(r,cBilling);
+      const itemNo = String(getV(r,cItem)).trim();
+      const isEmpty = (String(bRaw).trim()==='' && itemNo==='');
+      if(isEmpty){ rmStatus.push({status:'',src:'',mBill:'',mQty:'',mNet:''}); rmParts.push([{entry:'',itemNo:'',share:1}]); continue; }
+
+      const billing = String(bRaw).trim();
+      const rmMatFull = String(getV(r,cMaterial)).trim();
+      const rmDescRaw = (cDesc>=0) ? String(getV(r,cDesc)).trim() : '';
+      const rmMatTrimCol = (cMatTrim>=0) ? String(getV(r,cMatTrim)).trim() : '';
+      const rmMatName2 = (cMatName2>=0) ? String(getV(r,cMatName2)).trim() : '';
+      // Description (คอลัมน์) — คง logic เดิมทุกประการ (ห้ามกระทบ)
+      let descOut;
+      if(rmDescRaw){ descOut=_benMapEnsureHashN(rmDescRaw); }
+      else if(rmMatTrimCol){ descOut=_benMapEnsureHashN(rmMatTrimCol); }
+      else { descOut=_benMapEnsureHashN(_materialTrim(rmMatFull)); }
+      // Material (Trim) — (1) Description ตัดตั้งแต่ # → (2) Material name 2 → (3) Material - Trim (สำหรับ RM แบบ EXPORT_RM ที่ไม่มี Description) → (4) ว่าง
+      const matTrim = (rmDescRaw ? rmDescRaw.replace(/#.*$/s,'').trim() : '') || rmMatName2 || rmMatTrimCol || '';
+      const invQty = getV(r,cQty);
+      const netVal = getV(r,cNetVal);
+      let   country = String(getV(r,cCtry)).trim().toUpperCase() || 'XX';
+      const hsCode = (cHS>=0 ? getV(r,cHS) : '');
+
+      // ── PDF match: Billing + Material(Trim) (+ Qty for duplicates) → Eng Description ──
+      // Net Value is NOT used. PDF country is NOT used to block the fill
+      // (Country always comes from RM). Fill C whenever PDF has the Eng.
+      // ── PDF match — เก็บไว้เพื่อ diagnostics เท่านั้น · ไม่ใช้เป็น Eng Description อีกต่อไป (ห้ามใช้ข้อมูลจาก PDF) ──
+      const pdfHit = _takeEng(billing, matTrim, invQty);
+      let pdfStatus='No PDF Match', pdfSrc='', mBill='', mQty='', mNet='';
+      if(pdfHit){
+        pdfStatus = pdfHit.eng ? 'MATCHED' : 'Missing Eng Description';
+        pdfSrc=pdfHit.srcFile; mBill=pdfHit.billing; mQty=pdfHit.qty; mNet=pdfHit.netVal;
+      }
+      rmStatus.push({status:pdfStatus,src:pdfSrc,mBill:String(mBill),mQty:String(mQty),mNet:String(mNet)});
+
+      // ── Import Entry match (Billing + Product Code, SUM) → Qty/NW/GW/FOB ──
+      const keyIE = _benMapKeyIE(billing, rmMatFull);
+      const ie = ieAgg.get(keyIE) || null;
+      // When several RM rows share (Billing+Product Code), split the SUMMED IE
+      // bucket proportionally by each RM row's Invoiced Qty (so totals are
+      // preserved, never double-counted). Single RM row → gets the full sum.
+      let ieShare = 1;
+      if(ie){
+        const totRmQty = ieKeyRmQty.get(keyIE) || 0;
+        const rmCnt    = ieKeyRmCnt.get(keyIE) || 1;
+        ieShare = (totRmQty > 0) ? (_benMapNum(invQty) / totRmQty) : (1 / rmCnt);
+      }
+      const ieQty = ie ? ie.qty*ieShare : '';
+      const ieNW  = ie ? ie.nw *ieShare : '';
+      const ieGW  = ie ? ie.gw *ieShare : '';
+      const ieFOB = ie ? ie.fob*ieShare : '';
+
+      // ── คอลัมน์ C (Material (Trim)) + D (Eng Description) = ดึงจาก PDF Invoice เท่านั้น ──
+      // จับคู่ด้วย Billing Document + Item ของแถวเดียวกัน · C = ข้อความก่อน '#' · D = ข้อความหลัง '/'
+      // ห้าม fallback ไป RM (Description / Material name 2 / Material - Trim / Material) หรือใบขน
+      const _pdfBI      = _takePdfByItem(billing, itemNo);
+      const pdfMatTrim  = _pdfBI ? _benMapBaseMat(_pdfBI.mat) : '';        // "625-2RSR-HLN#N10>1" → "625-2RSR-HLN"
+      const eng         = _pdfBI ? String(_pdfBI.eng||'').replace(/\s+/g,' ').trim() : '';   // "Deep groove ball bearing"
+      // ── Desc ALL = Description(ตัดตั้งแต่ # ออกทั้งหมด) / UPPER(Eng).Qty PCS. · ไม่พบ Eng → เฉพาะ Description ก่อน # ──
+      const _descCut = descOut.replace(/#.*$/s,'').trim();
+      // qty text ของ "แถวนี้" — ใช้ helper เดิม (_benMapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000" · เก็บไว้ให้ Country Sheet ใช้ซ้ำแถวเดียวกัน
+      // ── Billing Document Date (from PDF header, join by Billing Document only) ──
+      const bdate = _dateFor(billing);
+
+      // ── COO_RM (RM อ้างอิง): Billing + Delivery + Material (+Batch +Qty) → Import entry no. / Item no. ──
+      const rmRefNo   = (cRef>=0)   ? String(getV(r,cRef)).trim()   : '';
+      const rmBatchNo = (cBatch>=0) ? String(getV(r,cBatch)).trim() : '';
+      const _rr = _rrResolve(billing, rmRefNo, rmMatFull, rmBatchNo, invQty);
+      if(_rr.status==='one')            _rrMatched++;
+      else if(_rr.status==='split'){    _rrSplit++; _rrSplitRows += _rr.parts.length; }
+      else if(_rr.status==='ambiguous'){_rrAmbig++;
+        const _c=(_rr.cand||[]).map(x=>x.entry+'/'+x.itemNo).join(' | ');
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_benMapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c});
+      }
+      else                              _rrNotFound++;
+      rmParts.push(_rr.parts);
+
+      // ── 1 part = 1 บรรทัดใน Export · แตกบรรทัด → หารตัวเลขตามสัดส่วน Delivery quantity (ยอดรวมเท่าเดิม) ──
+      const _isSplit = _rr.parts.length>1;
+      const _baseQty = _benMapNum(invQty), _baseNet = _benMapNum(netVal);
+      _rr.parts.forEach(pt=>{
+        const sh = pt.share;
+        const _q  = _isSplit ? benRound3(_baseQty*sh) : _baseQty;
+        const _nv = _isSplit ? benRound3(_baseNet*sh) : _baseNet;
+        // qty text ของ "แถวนี้" — ใช้ helper เดิม (_benMapNum) ให้จำนวนเต็มคงเป็น "6" ไม่กลายเป็น "6.000"
+        const _invQtyTxt = (invQty===''?'':_q);
+        const descAll = eng ? (_descCut + ' / ' + eng.toUpperCase() + '.' + _invQtyTxt + ' PCS.') : _descCut;
+        const rowObj = {
+          billing, item:itemNo, bdate, matTrim, pdfMatTrim, eng, invQty:_q, netVal:_nv,
+          country, hsCode:String(hsCode),
+          qty:ie?benRound3(_isSplit?ieQty*sh:ieQty):'', nw:ie?benRound3(_isSplit?ieNW*sh:ieNW):'',
+          gw:ie?benRound3(_isSplit?ieGW*sh:ieGW):'', fob:ie?benRound3(_isSplit?ieFOB*sh:ieFOB):'',
+          descAll, descOut, invQtyTxt:_invQtyTxt,
+          rrEntry:pt.entry, rrItemNo:pt.itemNo
+        };
+        (outByCountry[country] = outByCountry[country] || []).push(rowObj);
+      });
+
+      // ── UNMATCHED diagnostics for this RM row ──
+      const reasons=[];
+      if(pdfMatTrim==='') reasons.push('Missing Material (Trim) from PDF Invoice');
+      if(eng==='') reasons.push('Missing Eng Description from PDF Invoice');
+      if(bdate==='') reasons.push('Missing Billing Document Date');
+      if(!ie){ reasons.push('Missing Qty','Missing Net Weight','Missing Gross Weight','Missing FOB THB'); }
+      if(reasons.length) rmUnmatched.push({billing, item:itemNo, matTrim, reason:reasons.join(', ')});
+    }
+
+    await _benBusy('สร้าง Excel…');
+    // ════ STEP 5: assemble workbook — SUMMARY, country sheets, RM FINAL, UNMATCHED ════
+    const wb = XLSX.utils.book_new();
+
+    // -- SUMMARY (built after country sheets so totals are exact; placeholder index reserved) --
+    const summaryRows = [];   // one row per SHEET/chunk (NO merge): {country: sheetName, ...}
+    const numOrBlank = v => (v===''||v==null) ? '' : Number(v);
+    const sumNum = v => (v===''||v==null) ? 0 : Number(v);
+
+    // QTY ต้องเป็นจำนวนเต็ม — ถ้าข้อมูลจริงออกมาเป็นทศนิยม ห้ามปัดเงียบ ให้แจ้งใน UNMATCHED
+    const qtyDec = [];
+    const _qtyIsInt = v => (v===''||v==null) ? true : Math.abs(Number(v)-Math.round(Number(v))) < 1e-9;
+
+    const countries = Object.keys(outByCountry).sort();
+    const sheetOrder = [];   // country sheet names in final order
+    countries.forEach(ctr=>{
+      const rowsAll = outByCountry[ctr];
+      // split: >4 distinct billing docs OR Desc ALL total >800 chars
+      const chunks=[]; let cur=[], curBills=new Set(), curChars=0;
+      for(const ro of rowsAll){
+        const wouldBills = curBills.has(ro.billing) ? curBills.size : curBills.size+1;
+        if(cur.length && (wouldBills>4 || (curChars + ro.descAll.length) > 800)){
+          chunks.push(cur); cur=[]; curBills=new Set(); curChars=0;
+        }
+        cur.push(ro); curBills.add(ro.billing); curChars += ro.descAll.length;
+      }
+      if(cur.length) chunks.push(cur);
+
+      chunks.forEach((chunk, idx)=>{
+        const codeName  = (idx===0 ? ctr : ctr+'-'+(idx+1));            // CN / CN-2 (internal)
+        const sheetName = _benMapCountryName(codeName).substring(0,31);    // CHINA / CHINA-2 (sheet tab)
+        const aoa = [OUT_HDR.slice()];
+        let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
+        chunk.forEach(ro=>{
+          const _rh={entry:ro.rrEntry||'', itemNo:ro.rrItemNo||''};
+          // ── คอลัมน์ C Material (Trim) — มาจาก PDF Invoice เท่านั้น (แถวเดียวกัน: Billing Document + Item) ──
+          // ไม่ fallback ไป RM มีเลขอ้างอิง / RM Master (Description · Material name 2 · Material - Trim · Material)
+          // หา PDF ไม่เจอ → เว้นว่าง และแจ้งใน UNMATCHED
+          const finalMaterial = ro.pdfMatTrim || '';
+          // ── Desc ALL: ประกอบใหม่จากข้อมูลแถวเดียวกัน "Material/ UPPER(Eng).Qty PCS." ──
+          // ไม่ใช้วิธี replace prefix จาก ro.descAll อีกต่อไป (เดิมทำให้ Material กับ Qty หลุดแถวกันได้)
+          const _engFinal = String(ro.eng||'').trim().toUpperCase();
+          const _descAll  = _engFinal ? (finalMaterial + '/ ' + _engFinal + '.' + ro.invQtyTxt + ' PCS.') : finalMaterial;
+          aoa.push([ ro.billing, ro.bdate, finalMaterial, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
+                     _benMapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
+                     numOrBlank(ro.fob), _descAll, finalMaterial, _rh.entry, _rh.itemNo ]);
+          if(!_qtyIsInt(ro.invQty) || !_qtyIsInt(ro.qty))
+            qtyDec.push({billing:ro.billing, item:ro.item, matTrim:finalMaterial||ro.matTrim,
+                         reason:'QTY ไม่เป็นจำนวนเต็ม (ไม่ปัดค่าให้อัตโนมัติ) — Invoiced Qty '+ro.invQty+' · Qty. '+ro.qty});
+          tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty);
+          tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
+        });
+        // TOTAL row — numbers only; text columns blank (incl. Billing Document Date + คอลัมน์ที่เพิ่มท้าย)
+        aoa.push(['TOTAL','','','', benRound3(tQ), benRound3(tV), '', '', benRound3(tQty), benRound3(tNW), benRound3(tGW), benRound3(tFOB), '', '', '', '']);
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        // ทศนิยม 3 ตำแหน่ง: Net Value(5) · Net Weight(9) · Gross Weight(10) · FOB THB.(11) — รวมแถว TOTAL
+        _benMapZ3Cols(ws, [5,9,10,11], 1);
+        // QTY = จำนวนเต็ม ห้ามมีจุดทศนิยม: Invoiced Qty(4) · Qty.(8) — รวมแถว TOTAL
+        _benMapZ0Cols(ws, [4,8], 1);
+        ws['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
+        _rrSheets++;   // country sheet นี้เติมคอลัมน์แล้ว
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        sheetOrder.push(sheetName);
+        // SUMMARY = one row per sheet/chunk (do NOT merge / sum across suffix)
+        summaryRows.push({country:sheetName, items:chunk.length, invQty:tQ, netVal:tV, nw:tNW, gw:tGW, fob:tFOB});
+      });
+    });
+
+    if(qtyDec.length){
+      qtyDec.forEach(x=>rmUnmatched.push(x));
+      if(typeof toast==='function') toast('พบ QTY ที่ไม่เป็นจำนวนเต็ม '+qtyDec.length+' รายการ — ดูชีต UNMATCHED (ไม่ปัดค่าให้อัตโนมัติ)','warning');
+    }
+
+    // -- Build SUMMARY sheet (1 row per sheet, full country name + suffix) --
+    const sumAoa = [['Country','Items','Total Invoiced Qty','Total Net Value (USD)','Total Net Weight','Total Gross Weight','Total FOB THB']];
+    let gI=0,gQ=0,gV=0,gNW=0,gGW=0,gFOB=0;
+    summaryRows.forEach(s=>{
+      sumAoa.push([_benMapCountryName(s.country), s.items, benRound3(s.invQty), benRound3(s.netVal), benRound3(s.nw), benRound3(s.gw), benRound3(s.fob)]);
+      gI+=s.items; gQ+=s.invQty; gV+=s.netVal; gNW+=s.nw; gGW+=s.gw; gFOB+=s.fob;
+    });
+    sumAoa.push(['GRAND TOTAL', gI, benRound3(gQ), benRound3(gV), benRound3(gNW), benRound3(gGW), benRound3(gFOB)]);
+    const sumWs = XLSX.utils.aoa_to_sheet(sumAoa);
+    // ทศนิยม 3 ตำแหน่ง: Net Value(3) · NW(4) · GW(5) · FOB(6) — รวมแถว GRAND TOTAL
+    // คอลัมน์ Items(1) = จำนวนรายการ · Total Invoiced Qty(2) = QTY → จำนวนเต็ม ห้ามมีจุดทศนิยม
+    _benMapZ3Cols(sumWs, [3,4,5,6], 1);
+    _benMapZ0Cols(sumWs, [2], 1);
+    sumWs['!cols']=[{wch:16},{wch:8},{wch:18},{wch:20},{wch:18},{wch:18},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, sumWs, 'SUMMARY');
+
+    // -- RM FINAL: original RM + status columns + Import entry no./Item no. --
+    //    แถวที่ COO_RM ระบุ Import Entry หลายใบจริง (status 'split') → แตกแถวใน RM FINAL ด้วย
+    //    และหาร Invoiced Qty / Net value / Net Weight ตามสัดส่วน Delivery quantity (ยอดรวมเท่าเดิม)
+    const extraHdrs=['PDF Match Status','PDF Source File','Matched Billing Document','Matched Qty','Matched Net Value'];
+    const rmLastRow = rng.e.r;                       // แถวข้อมูลสุดท้ายของ RM ต้นฉบับ (ก่อนแตกแถว)
+    const cExtra0 = rng.e.c + 1;
+    extraHdrs.forEach((h,i)=> setStr(headerRow, cExtra0+i, h));
+    rng.e.c = cExtra0 + extraHdrs.length - 1;
+    // คอลัมน์ "Import entry no." / "Item no." — มีอยู่แล้วใช้คอลัมน์เดิม, ไม่มีค่อยสร้างต่อท้าย (ไม่ซ้ำ)
+    for(let c=cExtra0;c<=rng.e.c;c++){ const cell=rmWs[XLSX.utils.encode_cell({r:headerRow,c})]; colName[c]=cell?String(cell.v).trim():''; }
+    const _finalCol=name=>{ for(let c=rng.s.c;c<=rng.e.c;c++){ if(String(colName[c]||'').toLowerCase().replace(/\s+/g,' ').trim()===name) return c; } return -1; };
+    let cEntryF = _finalCol('import entry no.'); if(cEntryF<0) cEntryF=_finalCol('import entry no');
+    let cItemNoF= _finalCol('item no.');        if(cItemNoF<0) cItemNoF=_finalCol('item no');
+    if(cEntryF<0){ cEntryF=rng.e.c+1; rng.e.c=cEntryF; setStr(headerRow,cEntryF,'Import entry no.'); colName[cEntryF]='Import entry no.'; }
+    if(cItemNoF<0){ cItemNoF=rng.e.c+1; rng.e.c=cItemNoF; setStr(headerRow,cItemNoF,'Item no.'); colName[cItemNoF]='Item no.'; }
+
+    // แผนแถวใหม่: RM 1 แถว → parts.length แถว (ปกติ = 1 แถว · ลำดับ RM เดิมคงไว้ 100%)
+    const rmPlan=[];
+    for(let r=headerRow+1, si=0; r<=rmLastRow; r++, si++){
+      rmPlan.push({ r, st:(rmStatus[si]||{status:'',src:'',mBill:'',mQty:'',mNet:''}),
+                       parts:(rmParts[si]||[{entry:'',itemNo:'',share:1}]) });
+    }
+    const _rmAnySplit = rmPlan.some(pl=>pl.parts.length>1);
+    const rmFinalWs = {};
+    const _copyRow=(srcR,dstR)=>{ for(let c=rng.s.c;c<=rng.e.c;c++){
+      const src=rmWs[XLSX.utils.encode_cell({r:srcR,c})];
+      if(src) rmFinalWs[XLSX.utils.encode_cell({r:dstR,c})]=Object.assign({},src); } };
+    for(let r=rng.s.r;r<=headerRow;r++) _copyRow(r,r);          // แถวเหนือหัวตาราง + หัวตาราง
+    let _dr=headerRow;
+    rmPlan.forEach(pl=>{
+      const _sp = pl.parts.length>1;
+      pl.parts.forEach(pt=>{
+        _dr++; _copyRow(pl.r,_dr);
+        const _cell=c=>rmFinalWs[XLSX.utils.encode_cell({r:_dr,c})];
+        const _setS=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr,c}); const ex=rmFinalWs[ref];
+          if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs[ref]={t:'s',v:val}; };
+        const _setN=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr,c}); const ex=rmFinalWs[ref];
+          if(ex){ ex.t='n'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs[ref]={t:'n',v:val}; };
+        // สถานะ PDF (คง logic เดิม)
+        _setS(cExtra0+0,pl.st.status); _setS(cExtra0+1,pl.st.src);
+        _setS(cExtra0+2,pl.st.mBill);  _setS(cExtra0+3,pl.st.mQty); _setS(cExtra0+4,pl.st.mNet);
+        // Country of origin -> full name (คง logic เดิม) — เฉพาะเมื่อมีค่า
+        if(cCtry>=0){ const _cv=(_cell(cCtry)||{}).v; if(String(_cv==null?'':_cv).trim()!=='') _setS(cCtry,_benMapCountryName(_cv)); }
+        // แตกบรรทัด → หารตามสัดส่วน Delivery quantity (แถวที่ไม่แตกไม่ถูกแตะตัวเลขเดิม)
+        if(_sp){ [cQty,cNetVal,cNetWt].forEach(c=>{ const cl=_cell(c); if(cl!=null && cl.v!=null && cl.v!=='') _setN(c, benRound3(_benMapNum(cl.v)*pt.share)); }); }
+        _setS(cEntryF,  pt.entry);
+        _setS(cItemNoF, pt.itemNo);
+      });
+    });
+    rng.e.r = _dr;
+    if(rmWs['!cols'])   rmFinalWs['!cols']  = rmWs['!cols'];
+    if(!_rmAnySplit && rmWs['!merges']) rmFinalWs['!merges'] = rmWs['!merges'];   // แตกแถวแล้ว merge เดิมใช้ไม่ได้ → ตัดออก
+    rmFinalWs['!ref'] = XLSX.utils.encode_range(rng);
+    _benMapZ3Existing(rmFinalWs);   // RM FINAL: อัปเกรดเฉพาะ cell ทศนิยม 1-2 ตำแหน่งของไฟล์ต้นฉบับ → 3 ตำแหน่ง
+    wb.Sheets['RM FINAL'] = rmFinalWs;
+    if(wb.SheetNames.indexOf('RM FINAL')===-1) wb.SheetNames.push('RM FINAL');
+    _rrSheets++;   // RM FINAL เติมคอลัมน์แล้ว
+
+    // -- UNMATCHED (only if anything unmatched) --
+    const pdfUnmatched=[];
+    allPdfEntries.forEach(e=>{ if(!e.used) pdfUnmatched.push(e); });
+    const totalUn = rmUnmatched.length + pdfUnmatched.length + pdfParseFailures.length;
+    benMappingState.unmatchedRows = {rm:rmUnmatched, pdf:pdfUnmatched, failed:pdfParseFailures};
+    if(totalUn>0){
+      const un=[];
+      un.push(['UNMATCHED REPORT']); un.push([]);
+      un.push(['① RM rows ที่จับคู่ไม่ครบ']);
+      un.push(['Billing Document','Item','Material (Trim)','เหตุผล']);
+      if(rmUnmatched.length) rmUnmatched.forEach(u=>un.push([u.billing,u.item,u.matTrim,u.reason]));
+      else un.push(['— ไม่มี —']);
+      un.push([]);
+      un.push(['② PDF items ที่หา RM ไม่เจอ']);
+      un.push(['Source PDF File','Page No','Billing Document','Item','Material','Eng Description','Invoiced Qty','Net Value','เหตุผล']);
+      if(pdfUnmatched.length) pdfUnmatched.forEach(e=>un.push([e.srcFile,e.page,e.billing,e.item,e.mat,e.eng,e.qty,e.netVal,'No RM Match']));
+      else un.push(['— ไม่มี —']);
+      un.push([]);
+      un.push(['③ PDF ไฟล์ที่อ่านไม่สำเร็จ']);
+      un.push(['Source PDF File','เหตุผล']);
+      if(pdfParseFailures.length) pdfParseFailures.forEach(n=>un.push([n,'PDF Parse Failed']));
+      else un.push(['— ไม่มี —']);
+      const unWs=XLSX.utils.aoa_to_sheet(un);
+      unWs['!cols']=[{wch:24},{wch:8},{wch:18},{wch:8},{wch:20},{wch:26},{wch:14},{wch:14},{wch:30}];
+      XLSX.utils.book_append_sheet(wb,unWs,'UNMATCHED');
+    }
+
+    // -- Final order: SUMMARY · country sheets (A-Z) · RM FINAL · UNMATCHED --
+    const tail=['RM FINAL','UNMATCHED'].filter(n=>wb.SheetNames.includes(n));
+    wb.SheetNames = ['SUMMARY', ...sheetOrder, ...tail].filter(n=>wb.SheetNames.includes(n));
+
+    // -- Download --
+    const rmName=(benMappingState.rmFile.name||'RM').replace(/\.[^.]+$/,'');
+    await _benBusy('กำลังบันทึกไฟล์…');
+    const outArr=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true});
+    const blob=new Blob([outArr],{type:'application/octet-stream'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download='MAPPING_'+rmName+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+    if(typeof toast==='function'){
+      const matched = allPdfEntries.filter(e=>e.used).length;
+      toast('EXPORT รวมไฟล์สำเร็จ — '+countries.length+' ประเทศ · PDF matched '+matched+'/'+allPdfEntries.length+
+            (totalUn?(' · unmatched '+totalUn):''),'success');
+      // รายงานการเติม Import entry no. / Item no. จากไฟล์ RM
+      setTimeout(()=>toast('เติม COO_RM (Import entry no. + Item no.) '+_rrSheets+' Sheet · RM อ้างอิง '+_rmRefRows+' แถว · Match '+_rrMatched+' · แตกบรรทัด '+_rrSplit+'→'+_rrSplitRows+' · AMBIGUOUS '+_rrAmbig+' · ไม่พบ '+_rrNotFound,'success'), 900);
+    }
+    console.log('[MAPPING COMBINED] countries:',countries.length,'| sheets:',sheetOrder.length,
+                '| RM rows:',rmStatus.length,'| PDF items:',allPdfEntries.length,
+                '| IE keys:',ieAgg.size,'| RM unmatched:',rmUnmatched.length,'| PDF unmatched:',pdfUnmatched.length);
+    console.log('[MAPPING RM ENRICH] Import entry no./Item no. เพิ่มท้ายคอลัมน์ทุก Sheet ที่มี Billing+Item เรียบร้อย →',
+                'COO_RM rows:',_rmRefRows,'| matched:',_rrMatched,'| split:',_rrSplit,'→rows',_rrSplitRows,'| ambiguous(blank):',_rrAmbig,'| no-match:',_rrNotFound,'| sheets filled:',_rrSheets,'(Country Sheets + RM FINAL · ไม่แตะ SUMMARY)');
+  } catch(err){
+    console.error('[MAPPING COMBINED] error',err);
+    if(typeof toast==='function') toast('เกิดข้อผิดพลาด: '+err.message,'error'); else alert('เกิดข้อผิดพลาด: '+err.message);
+  } finally {
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+    if(load) load.style.display='none';
+  }
+}
+// round to 3 dp, drop trailing zeros, return number (or '' for 0-from-blank handled by caller)
+function benRound3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
+
 </script>
 </body>
 </html>
