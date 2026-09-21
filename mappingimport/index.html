@@ -10634,6 +10634,20 @@ const HGS_INCOTERMS = ['CIF','CFR','FOB','EXW','FCA','CPT','CIP','DAP','DDP','DD
  * PL ALT : [PKGS] DESC QTY NW GW [MEAS] [ข้อความจีนต่อท้าย]  (3 ตัวเลข — เช่น 2608IVTG518) */
 const HGS_CI_ITEM_ALT = /^(.+?)\s+([\d,]+(?:\.\d+)?)\s+([A-Za-z]{2,6})\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)$/;
 const HGS_PL_ITEM_ALT = /^(?:(\d+)\s+)?(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})(?:\s+([\d,]+(?:\.\d+)?))?\s*(.*)$/;
+/* ── [FALLBACK v3] PL ที่มีทั้งแถว 2 ตัวเลข และ 3–4 ตัวเลขปนกันในไฟล์เดียว ──
+ *  รูปแบบ: [PKGS] DESC <กลุ่มตัวเลขท้ายบรรทัด 2–4 ตัว>
+ *  ★ ตัวเลขตัวแรกหลัง DESC = QTY · ตัวที่สอง = N.W. (ที่เหลือคือ G.W./MEAS)
+ *  ใช้เมื่อ Parser เดิมและ ALT จับคู่กับ CI ไม่ครบเท่านั้น · ไม่แทนที่ของเดิม */
+const HGS_PL_ITEM_TAIL = /^(?:(\d+)\s+)?(.+?)\s+((?:[\d,]+(?:\.\d+)?\s+){1,3}[\d,]+(?:\.\d+)?)\s*$/;
+function hgsPlTail(text){
+  const m = String(text||'').match(HGS_PL_ITEM_TAIL); if(!m) return null;
+  const nums = m[3].trim().split(/\s+/).map(hgsNum).filter(v=>v!=null);
+  if(nums.length < 2) return null;                       /* ต้องมีอย่างน้อย QTY + N.W. */
+  const desc = hgsTidy(m[2]);
+  if(!desc || !/[A-Za-z]/.test(desc)) return null;        /* เศษบรรทัดที่ไม่ใช่สินค้า */
+  if(/[\d,]+\.\d{2}$/.test(desc)) return null;            /* desc ลงท้ายด้วยตัวเลข = อ่านเพี้ยน */
+  return { desc:desc, qty:nums[0], nw:nums[1] };
+}
 /* อ่าน Currency จากหัวเอกสาร เช่น UNIT PRICE(CNY) / AMOUNT(CNY) หรือบรรทัดยอดรวม "CNY 48,122.19" */
 function hgsScanCurrency(lines){
   for(const l of lines){
@@ -10698,7 +10712,7 @@ function hgsParseDate(raw){
 }
 function hgsParsePages(pages){
   const err=[]; let invoiceNo='', invoiceDateRaw='', incoterm='', originRaw='', currency='';
-  const ciItems=[], plItems=[], plItemsAlt=[];
+  const ciItems=[], plItems=[], plItemsAlt=[], plItems2=[];
   for(const lines of pages){
     const joined = lines.map(l=>l.text);
     const isPL = joined.some(t=>/^PACKING\s+LIST$/i.test(t));
@@ -10763,6 +10777,13 @@ function hgsParsePages(pages){
         if(/[\d,]+\.\d{2}$/.test(desc)) continue;                 // desc ห้ามลงท้ายด้วยตัวเลข = อ่านเพี้ยน
         plItemsAlt.push({desc, qty, nw});
       }
+      /* [FALLBACK v3] รองรับ PL ที่ปนกันทั้ง 2 ตัวเลข (แถวที่ PKGS/G.W. ถูกแยกบรรทัด) และ 3–4 ตัวเลข
+         เก็บขนานไว้เฉย ๆ — ใช้ก็ต่อเมื่อ 2 ตัวแรก Match ไม่ครบ */
+      for(const l of lines){
+        if(HGS_SKIP.test(l.text)) continue;
+        const it = hgsPlTail(l.text); if(!it) continue;
+        plItems2.push(it);
+      }
     }
   }
   const invoiceDate = invoiceDateRaw ? hgsParseDate(invoiceDateRaw) : null;
@@ -10783,7 +10804,7 @@ function hgsParsePages(pages){
     if(!isFinite(it.unitPrice)) err.push('รายการที่ '+(i+1)+' Unit Price ไม่ใช่ตัวเลข');
     if(!isFinite(it.total))     err.push('รายการที่ '+(i+1)+' Total Price ไม่ใช่ตัวเลข');
   });
-  return {invoiceNo, invoiceDate, incoterm, origin, currency, ciItems, plItems, plItemsAlt, errors:err};
+  return {invoiceNo, invoiceDate, incoterm, origin, currency, ciItems, plItems, plItemsAlt, plItems2, errors:err};
 }
 /* จับคู่ Packing List กับ Commercial Invoice ด้วย Description + Quantity + ลำดับ */
 function hgsMatchPL(ciItems, plItems){
@@ -10808,6 +10829,10 @@ function hgsBuildRows(parsed){
   if(res.miss.length && parsed.plItemsAlt && parsed.plItemsAlt.length){
     const alt = hgsMatchPL(parsed.ciItems, parsed.plItemsAlt);   // [FALLBACK v2]
     if(!alt.miss.length) res = alt;                              // ใช้ต่อเมื่อ Match ครบ 100% เท่านั้น
+  }
+  if(res.miss.length && parsed.plItems2 && parsed.plItems2.length){
+    const t = hgsMatchPL(parsed.ciItems, parsed.plItems2);       // [FALLBACK v3]
+    if(!t.miss.length) res = t;                                  // ใช้ต่อเมื่อ Match ครบ 100% เท่านั้น — Validation ไม่อ่อนลง
   }
   const {nw, miss} = res;
   const rows = parsed.ciItems.map((ci,i)=>[
@@ -28044,6 +28069,35 @@ const TDB_FIX={
 };
 const TDB_FMT={ date:'d/mm/yyyy;@', date2:'mm-dd-yy', text:'@' };
 
+/* ══ [EXEMPT99] Fixed HS 11 พิกัด + DUI EXCEPTION MASTER (ป85/2569) ══
+   ลำดับตรวจบังคับ: HS CODE + Stat → ตรวจ DUI Exception ก่อน → ถ้าไม่ติด จึงดู Fixed 11 พิกัด
+   ★ Master 342 คู่ (HS 8 หลัก + Stat 3 หลัก · Fixed-width 11 ตัวอักษร/คู่ · String ล้วน)
+   ★ Normalize เพื่อ Compare เท่านั้น · ไม่แก้ค่าต้นฉบับ                              */
+const TDB_EX99_HS=['84798969','84798970','84799090','84821000','84823000',
+                  '84825000','84828000','84829900','84833090','85144000','85371099'];
+const TDB_EX99_FIX={ permitNo:'EXEMPT99', date:[2017,11,13], taxId:'0994000159561', pos:'02' };
+const TDB_DUI_RAW='261210000002612200000026209990000262099908992818200000028441010001284410100902844109000028442010000284420900002844301000128443010002284430100902844309000028444300001284443000022844430000328444300004284443000052844430000628444300007284443000082844430009028445000000284510000002845900000038011000000380190000003824999900138249999002382499990033824999900438249999005382499990063824999900738249999090390461109003904612000039046190000390469300003904694000039046950000390469900003914000000139140000090391400008994009219000040092290000400941900014009419009040094290000690310000006903200000069039000000731029110007310291189973102919000731029198997310299100073102991899731029920007310299289973102999000731029998997504000000075072000000750890300007508905000075089090001750890900027508909009081039900000810991000008109990000082073000000840110000008401100099984012000000840130000018401300009084014000000841350310008413503199984135032000841350329998413504000084135040999841350900008413509099984136031000841360319998413603200084136032999841360400008413604099984136090000841360909998413701190084137011999841370190008413701999984137031000841370319998413703990084137039999841370420008413704299984137043000841370439998413704900084137049999841370510008413705199984137059000841370599998413709100084137091999841370990008413709999984138113000841381139998413811400084138114999841381150008413811599984138119000841381199998414100000084141000999841459300018414593009084145930999841459410018414594109084145941999841459490018414594909084145949999841459500018414595009084145950999841459910018414599199084145991999841459990018414599909084145999999841480190008414802100084148029000841480300008414804900184148049002841480490038414804900484148049005841480490908414805000084148090001841480900028414809009084149022001841490220028414902209084149029001841490290028414902909084149032001841490320028414903209084149041900841490420008414909000184149090002841490900908417100000084171000999841780900008417809099984186990001841869900028418699000384186990090841869908008418699089984186990999841940100008419401099984194020000841940209998419501000084195010999841950200008419502099984195091000841950919998419509200084195092999841989190008419891999984198920000841989209998419901300084199019000841990290008421199000084211990999842129600008421296099984212990000842129909998421919000084261100000842611009998426192000084261920999842619300008426193099984261990000842619909998426990000084269900999842870000008428700099984289090000842890909998465919000084659190999846596000008465960099984659910000846599109998465996000084659960999846599900008465999099984798969000847989699998479897000084799090000848110110008481101900084811021000848110220008481109100084811099000848120110008481201900084812020000848120900008481301000084813020000848130400008481309090084814010000848140300008481409000084818051900848180590008481806100084818062000848180630008481806600084818067000848180710008481807200084818073000848180740008481807700084818078900848180790008481808100084818082000848180940008481809500084818096000848180970008481809900184818099090848210000008482300000084825000000848280000008482910000084829900000848330900018483309000284833090003848330900908484200000184842000090850300200008503009000085044030000850440400008504409000185044090090850511000008505901000085059090000851411000008514190000085142090000851431900008514329000085143990000851440000008515310000085371011000853710118008537101189985371012000853710128008537101289985371019000853710198008537101989985371040000853710408998537109100085371091899853710920008537109289985371099000853710998998543709000185437090002854370900038543709000485437090090854370909998543909000085451900001854519000908545900000185459000002854590000909013200000090275000000902781000009027899000090301000000';
+let TDB_DUI_SET=null;
+/* HS → 8 หลัก: ตัดจุด/ขีด/ช่องว่าง → ตัด 0 นำหน้า → ยาวเกิน 8 ใช้ 8 ตัวท้าย */
+function tdbHsKey(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,''); if(d==='') return '';
+  const t=d.replace(/^0+/,'')||'0'; return t.length>8 ? t.slice(-8) : t; }
+/* Stat → 3 หลัก รักษาความหมาย 0 นำหน้า: 0→000 · 1→001 · 90→090 */
+function tdbStat3(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,''); if(d==='') return '';
+  const t=d.replace(/^0+/,'')||'0'; return t.length>=3 ? t : ('000'+t).slice(-3); }
+function tdbDuiSet(){ if(TDB_DUI_SET) return TDB_DUI_SET;
+  const S=new Set();
+  for(let i=0;i+11<=TDB_DUI_RAW.length;i+=11)
+    S.add(tdbHsKey(TDB_DUI_RAW.slice(i,i+8))+'|'+tdbStat3(TDB_DUI_RAW.slice(i+8,i+11)));
+  TDB_DUI_SET=S; return S; }
+/* true = ต้องเติม Permit Fixed 4 ค่า (EXEMPT99) */
+function tdbNeedEx99(hs,stat){
+  const h=tdbHsKey(hs); if(h==='') return false;
+  const t=tdbStat3(stat);
+  if(t!=='' && tdbDuiSet().has(h+'|'+t)) return false;   /* PRECEDENCE 1 — DUI Exception */
+  return TDB_EX99_HS.indexOf(h)>=0;                      /* PRECEDENCE 2 — Fixed 11 พิกัด */
+}
+
+
 /* ══ TEMPLATE จริงจากไฟล์ "0.MAPPING SCHAEFFLER TYPE D BOI.xlsx" (base64) ══
    Export ด้วยวิธี "โหลด Template → แทนที่เฉพาะ <sheetData>" — ใช้ JSZip ที่ระบบมีอยู่แล้ว
    ★ คง styles.xml / cols / ความกว้าง / ความสูงแถว / Font / Border / Fill / Number Format / pageMargins ไว้ครบ 100%
@@ -28217,6 +28271,9 @@ async function tdbExport(){
     /* ── ค่าแต่ละแถว A:AM — Mapping เดิม 100% ไม่เปลี่ยนตำแหน่งคอลัมน์ ── */
     const ROWS=P.items.map(function(it,i){
       const first=(i===0);   /* ★ N.W./G.W./Package ใส่เฉพาะรายการแรก */
+      /* ★ [EXEMPT99] ตรวจ HS Code (I) + STAT (J) — DUI Exception ก่อน แล้วจึงดู Fixed 11 พิกัด */
+      const _ex=tdbNeedEx99(it.hs, TDB_FIX.stat);
+      const _exD=new Date(Date.UTC(TDB_EX99_FIX.date[0],TDB_EX99_FIX.date[1]-1,TDB_EX99_FIX.date[2]));
       return [
         i+1,                                   /* A  NO.                       */
         P.invNo,                               /* B  invoice no.               */
@@ -28237,9 +28294,11 @@ async function tdbExport(){
         TDB_FIX.taxIncentive,                  /* Y                            */
         TDB_FIX.boi,                           /* Z                            */
         it.boiLic,                             /* AA BOI License ราย Item     */
-        TDB_FIX.permitNo1,                     /* AB                           */
-        P.invDate||null,                       /* AC = Invoice Date            */
-        TDB_FIX.taxId1, TDB_FIX.pos1,          /* AD, AE                       */
+        /* ★ [AB–AE] ชุดใบอนุญาต1 — เข้าเงื่อนไข EXEMPT99 จึงทับ · ไม่เข้า = ค่า BOI เดิม 100% */
+        _ex?TDB_EX99_FIX.permitNo:TDB_FIX.permitNo1,   /* AB เลขที่ใบอนุญาต1        */
+        _ex?_exD:(P.invDate||null),                    /* AC วันที่ออกใบอนุญาต1    */
+        _ex?TDB_EX99_FIX.taxId:TDB_FIX.taxId1,         /* AD Tax ID 1 (Text)        */
+        _ex?TDB_EX99_FIX.pos:TDB_FIX.pos1,             /* AE ตำแหน่ง 1 (Text)     */
         TDB_FIX.permitNo2, D2,                 /* AF, AG (ตำแหน่งตาม Template) */
         TDB_FIX.taxId2, TDB_FIX.pos2,          /* AH, AI                       */
         null, null, null, null                 /* AJ:AM ว่าง                 */
@@ -28383,6 +28442,35 @@ const TDA_FIX={
 /* หน่วยหีบห่อ — map เฉพาะที่พิสูจน์จาก Golden เท่านั้น · ไม่รู้จัก = คืนค่าดิบ + แจ้งเตือน */
 const TDA_PKG_UNIT={ 'PACKAGE':'PK', 'PACKAGES':'PK' };
 
+/* ══ [EXEMPT99] Fixed HS 11 พิกัด + DUI EXCEPTION MASTER (ป85/2569) ══
+   ลำดับตรวจบังคับ: HS CODE + Stat → ตรวจ DUI Exception ก่อน → ถ้าไม่ติด จึงดู Fixed 11 พิกัด
+   ★ Master 342 คู่ (HS 8 หลัก + Stat 3 หลัก · Fixed-width 11 ตัวอักษร/คู่ · String ล้วน)
+   ★ Normalize เพื่อ Compare เท่านั้น · ไม่แก้ค่าต้นฉบับ                              */
+const TDA_EX99_HS=['84798969','84798970','84799090','84821000','84823000',
+                  '84825000','84828000','84829900','84833090','85144000','85371099'];
+const TDA_EX99_FIX={ permitNo:'EXEMPT99', date:[2017,11,13], taxId:'0994000159561', pos:'02' };
+const TDA_DUI_RAW='261210000002612200000026209990000262099908992818200000028441010001284410100902844109000028442010000284420900002844301000128443010002284430100902844309000028444300001284443000022844430000328444300004284443000052844430000628444300007284443000082844430009028445000000284510000002845900000038011000000380190000003824999900138249999002382499990033824999900438249999005382499990063824999900738249999090390461109003904612000039046190000390469300003904694000039046950000390469900003914000000139140000090391400008994009219000040092290000400941900014009419009040094290000690310000006903200000069039000000731029110007310291189973102919000731029198997310299100073102991899731029920007310299289973102999000731029998997504000000075072000000750890300007508905000075089090001750890900027508909009081039900000810991000008109990000082073000000840110000008401100099984012000000840130000018401300009084014000000841350310008413503199984135032000841350329998413504000084135040999841350900008413509099984136031000841360319998413603200084136032999841360400008413604099984136090000841360909998413701190084137011999841370190008413701999984137031000841370319998413703990084137039999841370420008413704299984137043000841370439998413704900084137049999841370510008413705199984137059000841370599998413709100084137091999841370990008413709999984138113000841381139998413811400084138114999841381150008413811599984138119000841381199998414100000084141000999841459300018414593009084145930999841459410018414594109084145941999841459490018414594909084145949999841459500018414595009084145950999841459910018414599199084145991999841459990018414599909084145999999841480190008414802100084148029000841480300008414804900184148049002841480490038414804900484148049005841480490908414805000084148090001841480900028414809009084149022001841490220028414902209084149029001841490290028414902909084149032001841490320028414903209084149041900841490420008414909000184149090002841490900908417100000084171000999841780900008417809099984186990001841869900028418699000384186990090841869908008418699089984186990999841940100008419401099984194020000841940209998419501000084195010999841950200008419502099984195091000841950919998419509200084195092999841989190008419891999984198920000841989209998419901300084199019000841990290008421199000084211990999842129600008421296099984212990000842129909998421919000084261100000842611009998426192000084261920999842619300008426193099984261990000842619909998426990000084269900999842870000008428700099984289090000842890909998465919000084659190999846596000008465960099984659910000846599109998465996000084659960999846599900008465999099984798969000847989699998479897000084799090000848110110008481101900084811021000848110220008481109100084811099000848120110008481201900084812020000848120900008481301000084813020000848130400008481309090084814010000848140300008481409000084818051900848180590008481806100084818062000848180630008481806600084818067000848180710008481807200084818073000848180740008481807700084818078900848180790008481808100084818082000848180940008481809500084818096000848180970008481809900184818099090848210000008482300000084825000000848280000008482910000084829900000848330900018483309000284833090003848330900908484200000184842000090850300200008503009000085044030000850440400008504409000185044090090850511000008505901000085059090000851411000008514190000085142090000851431900008514329000085143990000851440000008515310000085371011000853710118008537101189985371012000853710128008537101289985371019000853710198008537101989985371040000853710408998537109100085371091899853710920008537109289985371099000853710998998543709000185437090002854370900038543709000485437090090854370909998543909000085451900001854519000908545900000185459000002854590000909013200000090275000000902781000009027899000090301000000';
+let TDA_DUI_SET=null;
+/* HS → 8 หลัก: ตัดจุด/ขีด/ช่องว่าง → ตัด 0 นำหน้า → ยาวเกิน 8 ใช้ 8 ตัวท้าย */
+function tdaHsKey(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,''); if(d==='') return '';
+  const t=d.replace(/^0+/,'')||'0'; return t.length>8 ? t.slice(-8) : t; }
+/* Stat → 3 หลัก รักษาความหมาย 0 นำหน้า: 0→000 · 1→001 · 90→090 */
+function tdaStat3(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,''); if(d==='') return '';
+  const t=d.replace(/^0+/,'')||'0'; return t.length>=3 ? t : ('000'+t).slice(-3); }
+function tdaDuiSet(){ if(TDA_DUI_SET) return TDA_DUI_SET;
+  const S=new Set();
+  for(let i=0;i+11<=TDA_DUI_RAW.length;i+=11)
+    S.add(tdaHsKey(TDA_DUI_RAW.slice(i,i+8))+'|'+tdaStat3(TDA_DUI_RAW.slice(i+8,i+11)));
+  TDA_DUI_SET=S; return S; }
+/* true = ต้องเติม Permit Fixed 4 ค่า (EXEMPT99) */
+function tdaNeedEx99(hs,stat){
+  const h=tdaHsKey(hs); if(h==='') return false;
+  const t=tdaStat3(stat);
+  if(t!=='' && tdaDuiSet().has(h+'|'+t)) return false;   /* PRECEDENCE 1 — DUI Exception */
+  return TDA_EX99_HS.indexOf(h)>=0;                      /* PRECEDENCE 2 — Fixed 11 พิกัด */
+}
+
+
 const TDA={ file:null, parsed:null };
 
 /* ── Normalize เฉพาะโหมดนี้ ── */
@@ -28501,7 +28589,8 @@ function tdaParse(wb){
   const ic=function(){ for(let i=0;i<arguments.length;i++){ const j=IH.indexOf(tdaNH(arguments[i])); if(j>=0) return j; } return -1; };
   const IC={ no:ic('item no.'), mat:ic('material'), desc:ic('material description'),
              th:ic('th description'), hs:ic('hs code'), brand:ic('brand'),
-             qty:ic('quantity'), price:ic('price/pc (thb)','price/pc'), total:ic('total (thb)','total') };
+             qty:ic('quantity'), price:ic('price/pc (thb)','price/pc'), total:ic('total (thb)','total'),
+             stat:ic('stat','stat.','รหัสสถิติ') };   /* Stat — มีก็อ่าน ไม่มีก็เว้นว่าง (Source ปัจจุบันไม่มี) */
   const items=[];
   for(let r=pick.inv.hr+1;r<iA.length;r++){
     const a=iA[r]||[]; const first=tdaNH(a[0]);
@@ -28509,6 +28598,7 @@ function tdaParse(wb){
     const mat=tdaT(a[IC.mat]); if(mat==='') continue;
     items.push({ no:tdaNum(a[IC.no]), mat:mat, desc:tdaT(a[IC.desc]), th:tdaT(a[IC.th]),
       hs:tdaT(a[IC.hs]), brand:tdaT(a[IC.brand]),
+      stat:(IC.stat>=0?tdaT(a[IC.stat]):''),
       invQty:tdaNum(a[IC.qty]), invPrice:tdaNum(a[IC.price]), invTotal:tdaNum(a[IC.total]) });
   }
   if(!items.length) throw new Error('TYPE D AKO · ไม่พบรายการสินค้าใน Invoice Sheet');
@@ -28579,7 +28669,7 @@ function tdaParse(wb){
       if(!g.coo) missCoo++;
       entryNo++;
       rows.push({ itemNo:it.no, entryNo:entryNo, mat:it.mat, desc:it.desc, th:it.th,
-        hs:it.hs, brand:it.brand, qty:g.qty, price:price,
+        hs:it.hs, stat:it.stat, brand:it.brand, qty:g.qty, price:price,
         amount:(price==null?null:g.qty*price),
         entry:sp.entry, item:sp.item, coo:g.coo });
     });
@@ -28716,6 +28806,10 @@ async function tdaExport(){
     let md='<sheetData>'+tdaMkRow(1,TDA_MAP_HDR,mH,40,null);
     P.rows.forEach(function(r,i){
       const first=(i===0);
+      /* ★ [EXEMPT99] ตรวจ HS code (I) + STAT (J) — DUI Exception ก่อน แล้วจึงดู Fixed 11 พิกัด
+         หมายเหตุ: Source ของโหมดนี้ไม่มี Stat (Golden คอลัมน์ J ว่าง) → ตรวจ Exception ไม่ได้ แจ้งเตือนที่หน้าจอ */
+      const _ex=tdaNeedEx99(r.hs, r.stat);
+      const _exD=new Date(Date.UTC(TDA_EX99_FIX.date[0],TDA_EX99_FIX.date[1]-1,TDA_EX99_FIX.date[2]));
       md+=tdaMkRow(i+2,[
         TDA_FIX.check, P.invNo, P.invDate, r.itemNo, r.entryNo, r.mat, r.desc, r.th, r.hs,
         null,                                    /* J  STAT — Golden ว่าง */
@@ -28723,7 +28817,11 @@ async function tdaExport(){
         r.entry, tdaNum(r.item), r.coo, TDA_FIX.term,
         first?P.netW:null, first?P.grossW:null, first?P.pkgQty:null, first?P.pkgUnit:null,
         P.mark, TDA_FIX.expIncentive, TDA_FIX.impIncentive, TDA_FIX.fz,
-        TDA_FIX.permit1, D1, TDA_FIX.taxId1, TDA_FIX.pos1,
+        /* ★ [AC–AF] ชุดใบอนุญาต1 — เข้าเงื่อนไข EXEMPT99 จึงทับ · ไม่เข้า = ค่า Golden เดิม 100% */
+        _ex?TDA_EX99_FIX.permitNo:TDA_FIX.permit1,     /* AC เลขที่ใบอนุญาต1     */
+        _ex?_exD:D1,                                   /* AD วันที่ออกใบอนุญาต1 */
+        _ex?TDA_EX99_FIX.taxId:TDA_FIX.taxId1,         /* AE Tax ID 1 (Text)     */
+        _ex?TDA_EX99_FIX.pos:TDA_FIX.pos1,             /* AF ตำแหน่ง 1 (Text)  */
         TDA_FIX.permit2, D2, TDA_FIX.taxId2, TDA_FIX.pos2,
         null,null,null,null                      /* AK:AN ว่าง */
       ], first?m1:mN, 40, null);
