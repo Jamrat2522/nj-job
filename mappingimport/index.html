@@ -28119,6 +28119,61 @@ function chknNwGw(dwakSheet){
 }
 
 /* ══ Runner ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   ★ [local416] FIX PERMIT — HS CODE 85076090 (เฉพาะโหมด "ตรวจใบขนขาออก NON")
+   ────────────────────────────────────────────────────────────────────────
+   ตรวจ HS CODE ของ **ทุก Item** ทั้งฝั่ง DWAK (คอลัมน์ Tariff) และฝั่ง
+   MAPPING EXCEL (คอลัมน์ HS CODE) ถ้า Normalize แล้วได้ 85076090
+   → เติมข้อมูล Fixed Permit ให้ **ทุก Item ที่พบ** (ไม่ใช่เฉพาะรายการแรก)
+   Normalize : ตัดอักขระที่ไม่ใช่ตัวเลขทั้งหมด + ตัดศูนย์นำหน้า (chknHsKey)
+               รองรับ 85076090 · 8507.60.90 · 8507 60 90 · 000085076090
+   ★ อ่านอย่างเดียว — ไม่เขียนทับค่า HS CODE ต้นฉบับในข้อมูลใด ๆ
+   ★ HS CODE อื่นจะไม่ได้รับชุดนี้เด็ดขาด (เทียบแบบเท่ากันทุกหลัก)
+   ══════════════════════════════════════════════════════════════════════════ */
+const CHKN_FIXP_HS = '85076090';
+const CHKN_FIXP = { permit:'ติดใบอนุญาตกรมสรรพสามิต', code:'0401010000', date:'01/10/2023' };
+function chknFixpHit(v){ const k=chknHsKey(v); return k!=='' && k===CHKN_FIXP_HS; }
+/* คืนรายการ Item ที่เข้ากฎ — 1 Item ต่อ 1 แถว ไม่ตัดทิ้ง ไม่รวบ */
+function chknFixPermit(mapSheet, dwakSheet){
+  /* ★ 1 Item = 1 แถว เสมอ · key = invoice|product code (คีย์เดียวกับที่ระบบใช้จับคู่)
+     ถ้าพบทั้งสองฝั่ง จะรวมเป็นรายการเดียวและระบุแหล่งที่พบว่า "DWAK + MAPPING EXCEL" */
+  const byKey=new Map(), out=[];
+  const key=(inv,pc)=>chknTxt(inv)+'|'+chknTxt(pc);
+  const put=(item,src,hs,inv,pc)=>{
+    const k=key(inv,pc);
+    let o=byKey.get(k);
+    if(!o){
+      o={ item:item||'—', src:src, hs:hs, inv:inv||'', pc:pc||'',
+          permit:CHKN_FIXP.permit, code:CHKN_FIXP.code, date:CHKN_FIXP.date };
+      byKey.set(k,o); out.push(o); return;
+    }
+    if(o.src.indexOf(src)<0) o.src=o.src+' + '+src;            /* รวมแหล่งที่พบ */
+    if(chknT(o.item)===''||o.item==='—') o.item=item||'—';     /* ใช้ Item No. ของ DWAK เป็นหลัก */
+    if(chknT(o.hs)!==chknT(hs)) o.hs=o.hs+' / '+hs;            /* เก็บรูปแบบต้นฉบับทั้งสองฝั่ง */
+  };
+  /* ── ฝั่ง DWAK : ทุก Item (มาก่อน เพื่อให้ Item No. เป็นของ DWAK) ── */
+  if(dwakSheet){
+    for(const d of chknDwakRows(dwakSheet)){
+      const raw=chknT(d.get('Tariff'));
+      if(raw!=='' && chknFixpHit(raw))
+        put(chknT(d.get('Item No.')), 'DWAK', raw, chknT(d.invoice), chknT(d.get('Product Code')));
+    }
+  }
+  /* ── ฝั่ง MAPPING EXCEL : ทุกแถวที่มีคอลัมน์ HS CODE (กันตกหล่นฝั่ง MAPPING) ── */
+  if(mapSheet){
+    const H=mapSheet.hdr;
+    const cH=chknCol(H,'HS CODE','Tariff Code','Hs code','Tariff');
+    const cI=chknCol(H,'invoice no.','INVOICE NO.','Invoice No.');
+    const cP=chknCol(H,'Product Code','PRODUCT CODE');
+    if(cH>=0) mapSheet.rows.forEach(r=>{
+      const raw=chknT(r[cH]);
+      if(raw!=='' && chknFixpHit(raw))
+        put('', 'MAPPING EXCEL', raw, cI>=0?chknT(r[cI]):'', cP>=0?chknT(r[cP]):'');
+    });
+  }
+  return out;
+}
+
 function chknRunValidate(){
   const det=CHKN.type;
   /* [B] Net/Gross + [C] HS CODE MASTER — เพิ่มเข้า differences[] ชุดเดียวกับ [A] MAPPING
@@ -28127,6 +28182,7 @@ function chknRunValidate(){
     const w=chknNwGw(CHKN.dwak); r.nwgw=w.length; r.diffs=r.diffs.concat(w);
     const h=chknHsCheck(CHKN.dwak); r.hs=h; r.diffs=r.diffs.concat(h.diffs);
     const e=chknEx99(CHKN.dwak);    r.ex99=e; r.diffs=r.diffs.concat(e.diffs);
+    r.fixp=chknFixPermit(det.sheet, CHKN.dwak);   /* ★ [local416] ไม่เข้า diffs — เป็นข้อมูลเติมให้ */
     return r; };
   if(det.type==='SCH NON')     return _wrap(chknValidateSchNon(det.sheet, CHKN.dwak));
   if(det.type==='SCH TYPE P')  return _wrap(chknValidateSchTypeP(det.sheet, CHKN.dwak));
@@ -28284,7 +28340,9 @@ function chknSync(){
   const ok=!!(CHKN.map&&CHKN.dwak);
   const b=document.getElementById('chkn-btn-run'); if(b) b.disabled=!ok;
   const x=document.getElementById('chkn-btn-export');
-  if(x) x.disabled=!(CHKN.result&&CHKN.result.diffs.length);
+  /* ★ [local416] เปิด Export ได้เมื่อมีรายการผิด "หรือ" มี Item เข้ากฎ FIX PERMIT
+     (Item ที่ไม่มีข้อผิดพลาดจะไม่มีแถวใน diffs จึงต้องเปิดทางนี้ ไม่งั้น Permit จะตกหล่น) */
+  if(x) x.disabled=!(CHKN.result&&(CHKN.result.diffs.length||(CHKN.result.fixp&&CHKN.result.fixp.length)));
   /* ★ ถอดข้อความ 'ตรวจพบรูปแบบ: …' ออก (16/09/2026) · คงเฉพาะคำเตือนเมื่อไม่รองรับ
      ค่าว่าง + CSS :empty{display:none} จึงไม่เหลือช่องว่าง */
   const t=document.getElementById('chkn-type');
@@ -28345,32 +28403,68 @@ function chknRender(){
   const nwMsg = nw>0
     ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c พบ '+nw+' รายการที่ Net Weight มากกว่า Gross Weight</div>'
     : '<div class="chkn-sum" style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
-  if(!r.diffs.length){ p.innerHTML=nwMsg+hsMsg+exMsg+'<div style="color:var(--green2);font-weight:700">ตรวจสอบแล้ว ไม่พบข้อมูลผิด</div>'; return; }
+  /* ★ [local416] ตาราง FIX PERMIT — HS CODE 85076090 (ทุก Item ที่เข้ากฎ) */
+  const fp=r.fixp||[];
+  const fpMsg = fp.length
+    ? '<div class="chkn-sum" style="color:var(--amber);font-weight:800">\ud83d\udd12 FIX PERMIT (HS CODE '+CHKN_FIXP_HS+') — เติมให้แล้ว '+fp.length+' รายการ</div>'
+      +'<div class="doa-preview-wrap" style="max-height:260px;margin-bottom:4px"><table class="doa-tbl chkn-fixp">'
+      +'<thead><tr><th>รายการ</th><th>แหล่งที่พบ</th><th>HS CODE (ต้นฉบับ)</th>'
+      +'<th>Permit</th><th>รหัสภาษีสรรพสามิต</th><th>วันที่ของรหัสสรรพสามิต</th></tr></thead><tbody>'
+      +fp.map(x=>'<tr><td>'+chknEsc(x.item)+'</td><td>'+chknEsc(x.src)+'</td><td>'+chknEsc(x.hs)+'</td>'
+        +'<td>'+chknEsc(x.permit)+'</td><td>'+chknEsc(x.code)+'</td><td>'+chknEsc(x.date)+'</td></tr>').join('')
+      +'</tbody></table></div>'
+    : '';
+  if(!r.diffs.length){ p.innerHTML=nwMsg+hsMsg+exMsg+fpMsg+'<div style="color:var(--green2);font-weight:700">ตรวจสอบแล้ว ไม่พบข้อมูลผิด</div>'; return; }
   const body=r.diffs.slice(0,5000).map(d=>'<tr>'
     +'<td>'+chknEsc(d.item)+'</td><td class="st-bad">'+chknEsc(d.field)+'</td>'
     +'<td>'+chknEsc(d.dwak)+'</td><td>'+chknEsc(d.map)+'</td>'
     +'<td class="st-bad">'+chknEsc(d.status)+'</td><td class="st-bad">'+chknEsc(d.reason)+'</td></tr>').join('');
-  p.innerHTML=nwMsg+hsMsg+exMsg+'<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl">'
+  p.innerHTML=nwMsg+hsMsg+exMsg+fpMsg+'<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl">'
     +'<thead><tr><th>รายการ DWAK</th><th>หัวข้อตรวจสอบ</th><th>DWAK</th><th>MAPPING EXCEL</th><th>สถานะ</th><th>สาเหตุ</th></tr></thead>'
     +'<tbody>'+body+'</tbody></table></div>';
 }
 async function chknExport(){
   try{
-    const r=CHKN.result; if(!r||!r.diffs.length){ chknStatus('ไม่มีรายการผิดให้ Export',true); return; }
+    const r=CHKN.result;
+    const FP=(r&&r.fixp)||[];                      /* ★ [local416] */
+    if(!r||(!r.diffs.length && !FP.length)){ chknStatus('ไม่มีรายการผิดให้ Export',true); return; }
     const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('ตรวจใบขนขาออก NON',{views:[{state:'frozen',ySplit:1}]});
-    const HEAD=['รายการ DWAK','หัวข้อตรวจสอบ','DWAK','MAPPING EXCEL','สถานะ','สาเหตุ'];
+    /* ★ [local416] ต่อท้าย 3 คอลัมน์ — คอลัมน์เดิม 1–6 คงชื่อ/ตำแหน่ง/ลำดับเดิม */
+    const HEAD=['รายการ DWAK','หัวข้อตรวจสอบ','DWAK','MAPPING EXCEL','สถานะ','สาเหตุ',
+                'Permit','รหัสภาษีสรรพสามิต','วันที่ของรหัสสรรพสามิต'];
+    const FPBY=new Map(); for(const x of FP) if(!FPBY.has(chknT(x.item))) FPBY.set(chknT(x.item),x);
+    const TXT='@';
     const thin={style:'thin',color:{argb:'FFBFBFBF'}}, bd={top:thin,left:thin,bottom:thin,right:thin};
     const hr=ws.addRow(HEAD); hr.height=20;
     hr.eachCell(c=>{ c.font={bold:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}}; c.border=bd;
                      c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; });
     for(const d of r.diffs){
-      const row=ws.addRow([d.item,d.field,d.dwak,d.map,d.status,d.reason]);
+      const f=FPBY.get(chknT(d.item));             /* ★ [local416] */
+      const row=ws.addRow([d.item,d.field,d.dwak,d.map,d.status,d.reason,
+                           f?f.permit:'', f?f.code:'', f?f.date:'']);
       row.eachCell(c=>{ c.border=bd; c.alignment={vertical:'middle',wrapText:true}; });
       row.getCell(1).alignment={vertical:'middle',horizontal:'center'};
       row.getCell(5).alignment={vertical:'middle',horizontal:'center'};
       row.getCell(4).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF9D0D0'}};
+      row.getCell(8).numFmt=TXT; row.getCell(9).numFmt=TXT;   /* TEXT — รักษาเลข 0 นำหน้า */
     }
-    [14,30,26,26,14,66].forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+    [14,30,26,26,14,66,26,20,22].forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+
+    /* ★ [local416] Sheet ที่ 2 — ทุก Item ที่เข้ากฎ FIX PERMIT ครบทุกรายการ */
+    if(FP.length){
+      const ws2=wb.addWorksheet('FIX PERMIT '+CHKN_FIXP_HS,{views:[{state:'frozen',ySplit:1}]});
+      const H2=['รายการ','แหล่งที่พบ','HS CODE (ต้นฉบับ)','Invoice No.','Product Code',
+                'Permit','รหัสภาษีสรรพสามิต','วันที่ของรหัสสรรพสามิต'];
+      const hr2=ws2.addRow(H2); hr2.height=20;
+      hr2.eachCell(c=>{ c.font={bold:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}};
+                        c.border=bd; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; });
+      for(const x of FP){
+        const rw=ws2.addRow([x.item,x.src,x.hs,x.inv,x.pc,x.permit,x.code,x.date]);
+        rw.eachCell(c=>{ c.border=bd; c.alignment={vertical:'middle',wrapText:true}; });
+        rw.getCell(3).numFmt=TXT; rw.getCell(7).numFmt=TXT; rw.getCell(8).numFmt=TXT;
+      }
+      [14,16,20,18,22,26,20,22].forEach((w,i)=>{ ws2.getColumn(i+1).width=w; });
+    }
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -28378,7 +28472,7 @@ async function chknExport(){
     a.href=url; a.download='ตรวจใบขนขาออก NON_'+dn+'.xlsx';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
-    chknStatus('Export ผลตรวจสำเร็จ — '+r.diffs.length+' รายการ');
+    chknStatus('Export ผลตรวจสำเร็จ — '+r.diffs.length+' รายการ'+(FP.length?' · FIX PERMIT '+FP.length+' รายการ':''));
   }catch(e){ chknStatus('Export ไม่สำเร็จ: '+(e.message||e),true); }
 }
 function chknWire(){
