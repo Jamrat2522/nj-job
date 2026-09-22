@@ -16145,32 +16145,69 @@ var EPDOM_TEXT_COLS = [1,8,9,10,14,16,17,18,19,20,22,23,24,26,27,28,29,30,31,32,
    รายละเอียดใบอนุญาต (No./Date/Tax ID/Position) เว้นว่าง
    เพราะยังไม่มี Fixed Permit Master ใน Source — ห้ามเดา
    ════════════════════════════════════════════════════════════════ */
-var EPDOM_PERMIT_RULES = [
-  { hs:'85076090',                       /* แบตเตอรี่เครื่องดูดฝุ่น */
+/* ════════════════════════════════════════════════════════════════
+   RULE 1 — สรรพสามิต · Key = ชื่อสินค้า (TH description) + HS CODE
+   เติมเฉพาะ 3 หัวข้อ: Permit · รหัสภาษีสรรพสามิต · วันที่ของรหัสสรรพสามิต
+   ห้ามเติมช่องใบอนุญาต/Deducted Amount (เป็นของ Rule DUI)
+   ════════════════════════════════════════════════════════════════ */
+var EPDOM_EXCISE_RULES = [
+  { name:'แบตเตอรี่เครื่องดูดฝุ่น', hs:'85076090',
     permit:'ติดใบอนุญาตสรรพสามิต',
-    exciseCode:'000401010000',           /* TEXT · 12 หลัก ห้ามเลข 0 นำหน้าหาย */
-    exciseDate:'2017-09-16',             /* TEXT ตายตัว */
-    /* ยังไม่มี Rule ที่ยืนยัน → เว้นว่าง (ห้ามเดา) */
-    deductedAmount:'',
-    /* ── ชุดใบอนุญาต · เด้งอัตโนมัติเมื่อ HS ติดเงื่อนไข Permit ──
-       ทุกค่าเป็น TEXT · วันที่ออก = วันที่ · เลขผู้เสียภาษี = เลขผู้เสียภาษี
-       (ไม่ลอกตำแหน่งที่ GOLDEN สลับไว้) */
-    licenseNo1:'20260811040000012441', licenseDate1:'11/08/2026',
-    licenseTaxId1:'0994000165161',     licensePos1:'02',
-    licenseNo2:'EXMPT99',              licenseDate2:'13/11/2017',
-    licenseTaxId2:'0994000159561',     licensePos2:'02' }
+    exciseCode:'000401010000',           /* TEXT · ห้ามเลข 0 นำหน้าหาย */
+    exciseDate:'2017-09-16' }
 ];
-/* index: tariffKey → rule (สร้างครั้งเดียว) */
-var _EPDOM_PERMIT_IDX = (function(){
-  const m = new Map();
-  EPDOM_PERMIT_RULES.forEach(function(r){ m.set(_pdTariffKey(r.hs), r); });
-  return m;
+/* HS → เลขพิกัด 8 หลัก (ตัด 0 นำหน้า เช่น 000085076090 → 85076090) */
+function _pdHs8(hs){
+  const d=_pdDigits(hs);
+  if(!d) return '';
+  return d.length>=8 ? d.slice(-8) : d.padStart(8,'0');
+}
+/* ชื่อสินค้า — trim + ยุบช่องว่างซ้ำ */
+function _pdName(v){ return _pdS(v).replace(/\s+/g,' '); }
+var _EPDOM_EXCISE_IDX = (function(){
+  const mp=new Map();
+  EPDOM_EXCISE_RULES.forEach(function(r){ mp.set(_pdName(r.name)+'\u0001'+_pdHs8(r.hs), r); });
+  return mp;
 })();
-/* คืน rule ถ้า HS เข้าเงื่อนไข Permit · ไม่เข้าเงื่อนไข → null */
-function _pdPermitRule(hs){
-  const k = _pdTariffKey(hs);
-  if(!k) return null;
-  return _EPDOM_PERMIT_IDX.get(k) || null;
+/* คืน rule เมื่อ "ชื่อสินค้า + HS CODE" ตรงทั้งคู่ · ไม่ตรง → null */
+function _pdExciseRule(name, hs){
+  const k=_pdName(name)+'\u0001'+_pdHs8(hs);
+  if(!_pdName(name) || !_pdHs8(hs)) return null;
+  return _EPDOM_EXCISE_IDX.get(k) || null;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RULE 2 — DUI · Key = HS CODE (8 หลัก) + Stat (3 หลัก)
+   ที่มา: ป85_2569_พิกัด_DUI_ไม่เข้าข่าย_EXMPT99.xlsx · sheet "รายการพิกัด"
+   342 คู่ไม่ซ้ำ · เข้ารหัส fixed-width 11 ตัวอักษร (พิกัด 8 + สถิติ 3)
+   เติมเฉพาะ 8 หัวข้อใบอนุญาต · ห้ามเติม Permit/สรรพสามิต
+   ════════════════════════════════════════════════════════════════ */
+var EPDOM_DUI_BLOB = "261210000002612200000026209990000262099908992818200000028441010001284410100902844109000028442010000284420900002844301000128443010002284430100902844309000028444300001284443000022844430000328444300004284443000052844430000628444300007284443000082844430009028445000000284510000002845900000038011000000380190000003824999900138249999002382499990033824999900438249999005382499990063824999900738249999090390461109003904612000039046190000390469300003904694000039046950000390469900003914000000139140000090391400008994009219000040092290000400941900014009419009040094290000690310000006903200000069039000000731029110007310291189973102919000731029198997310299100073102991899731029920007310299289973102999000731029998997504000000075072000000750890300007508905000075089090001750890900027508909009081039900000810991000008109990000082073000000840110000008401100099984012000000840130000018401300009084014000000841350310008413503199984135032000841350329998413504000084135040999841350900008413509099984136031000841360319998413603200084136032999841360400008413604099984136090000841360909998413701190084137011999841370190008413701999984137031000841370319998413703990084137039999841370420008413704299984137043000841370439998413704900084137049999841370510008413705199984137059000841370599998413709100084137091999841370990008413709999984138113000841381139998413811400084138114999841381150008413811599984138119000841381199998414100000084141000999841459300018414593009084145930999841459410018414594109084145941999841459490018414594909084145949999841459500018414595009084145950999841459910018414599199084145991999841459990018414599909084145999999841480190008414802100084148029000841480300008414804900184148049002841480490038414804900484148049005841480490908414805000084148090001841480900028414809009084149022001841490220028414902209084149029001841490290028414902909084149032001841490320028414903209084149041900841490420008414909000184149090002841490900908417100000084171000999841780900008417809099984186990001841869900028418699000384186990090841869908008418699089984186990999841940100008419401099984194020000841940209998419501000084195010999841950200008419502099984195091000841950919998419509200084195092999841989190008419891999984198920000841989209998419901300084199019000841990290008421199000084211990999842129600008421296099984212990000842129909998421919000084261100000842611009998426192000084261920999842619300008426193099984261990000842619909998426990000084269900999842870000008428700099984289090000842890909998465919000084659190999846596000008465960099984659910000846599109998465996000084659960999846599900008465999099984798969000847989699998479897000084799090000848110110008481101900084811021000848110220008481109100084811099000848120110008481201900084812020000848120900008481301000084813020000848130400008481309090084814010000848140300008481409000084818051900848180590008481806100084818062000848180630008481806600084818067000848180710008481807200084818073000848180740008481807700084818078900848180790008481808100084818082000848180940008481809500084818096000848180970008481809900184818099090848210000008482300000084825000000848280000008482910000084829900000848330900018483309000284833090003848330900908484200000184842000090850300200008503009000085044030000850440400008504409000185044090090850511000008505901000085059090000851411000008514190000085142090000851431900008514329000085143990000851440000008515310000085371011000853710118008537101189985371012000853710128008537101289985371019000853710198008537101989985371040000853710408998537109100085371091899853710920008537109289985371099000853710998998543709000185437090002854370900038543709000485437090090854370909998543909000085451900001854519000908545900000185459000002854590000909013200000090275000000902781000009027899000090301000000";
+var EPDOM_DUI_LICENSE = {
+  licenseNo1:'20260811040000012441', licenseDate1:'11/08/2026',
+  licenseTaxId1:'0994000165161',     licensePos1:'02',
+  licenseNo2:'EXMPT99',              licenseDate2:'13/11/2017',
+  licenseTaxId2:'0994000159561',     licensePos2:'02'
+};
+var _EPDOM_DUI_SET = null;
+function _pdDuiSet(){
+  if(_EPDOM_DUI_SET) return _EPDOM_DUI_SET;
+  const st=new Set(), B=EPDOM_DUI_BLOB, W=11;
+  for(let i=0;i<B.length;i+=W) st.add(B.substr(i,W));
+  _EPDOM_DUI_SET=st;
+  return st;
+}
+/* Stat → 3 หลัก (เช่น 0 → 000 · "090" → 090) */
+function _pdStat3(v){
+  const d=_pdDigits(v);
+  if(d==='') return '';
+  return d.length>=3 ? d.slice(-3) : d.padStart(3,'0');
+}
+/* true เมื่อคู่ HS+Stat อยู่ใน DUI Master */
+function _pdDuiMatch(hs, stat){
+  const h=_pdHs8(hs), s=_pdStat3(stat);
+  if(!h || s==='') return false;
+  return _pdDuiSet().has(h+s);
 }
 
 function _pdBuild(inv, ct, pl, master, fix){
@@ -16194,7 +16231,7 @@ function _pdBuild(inv, ct, pl, master, fix){
   ct.rows.forEach(function(c){ c._used=false; });
 
   const stat={inv:sorted.length, pl:0, ct:0, master:0, masterL1:0, masterL2:0, th:0,
-              hs:0, fix:0, permit:0, excise:0,
+              hs:0, fix:0, permit:0, excise:0, dui:0, both:0,
               permitNoDetail:0, qtyEq:0, qtyDiff:0, amtDiff:0};
   const out=[], matchStatus=[];
   let seqNo=0;                 /* ลำดับที่ใบขน — เรียง 1..N ต่อเนื่องทั้งไฟล์ (ตาม Golden) */
@@ -16336,30 +16373,36 @@ function _pdBuild(inv, ct, pl, master, fix){
        ตรวจ Permit Rule ทุก Item หลังได้ HS CODE จาก MASTER
        HS เดียวกัน → ผล Permit เหมือนกันเสมอ (ตัดสินจาก tariff key อย่างเดียว)
        รายละเอียดใบอนุญาตใช้ค่าจาก Fixed Permit Master เท่านั้น · ห้ามเดา */
-    let permit='', exCode='', exDate='';
-    let deducted='', licNo1='', licDate1='', licTax1='', licPos1='';
+    /* ═══ STEP A — ตรวจ DUI (Key = HS CODE + Stat) ═══
+       MATCH → เติมเฉพาะ 8 หัวข้อใบอนุญาต · ไม่แตะ Permit/สรรพสามิต */
+    let licNo1='', licDate1='', licTax1='', licPos1='';
     let licNo2='', licDate2='', licTax2='', licPos2='';
-    if(hs){
-      const pr=_pdPermitRule(hs);
-      if(pr){
-        stat.permit++;
-        permit   = pr.permit || '';
-        exCode   = pr.exciseCode || '';
-        exDate   = pr.exciseDate || '';
-        /* ค่าใบอนุญาตดึงจาก Rule เท่านั้น — Rule ไหนไม่มีค่า คงว่าง (ห้ามเดา) */
-        deducted = (pr.deductedAmount==null ? '' : pr.deductedAmount);
-        licNo1   = pr.licenseNo1    || '';
-        licDate1 = pr.licenseDate1  || '';
-        licTax1  = pr.licenseTaxId1 || '';
-        licPos1  = pr.licensePos1   || '';
-        licNo2   = pr.licenseNo2    || '';
-        licDate2 = pr.licenseDate2  || '';
-        licTax2  = pr.licenseTaxId2 || '';
-        licPos2  = pr.licensePos2   || '';
-        if(exCode) stat.excise++;
-        if(!licNo1 && !licNo2 && deducted==='') stat.permitNoDetail++;
+    let duiHit=false;
+    if(hs && st!==''){
+      if(_pdDuiMatch(hs, st)){
+        duiHit=true; stat.dui++;
+        const L=EPDOM_DUI_LICENSE;
+        licNo1=L.licenseNo1;   licDate1=L.licenseDate1;
+        licTax1=L.licenseTaxId1; licPos1=L.licensePos1;
+        licNo2=L.licenseNo2;   licDate2=L.licenseDate2;
+        licTax2=L.licenseTaxId2; licPos2=L.licensePos2;
       }
     }
+
+    /* ═══ STEP B — ตรวจสรรพสามิต (Key = ชื่อสินค้า + HS CODE) ═══
+       MATCH → เติมเฉพาะ 3 หัวข้อ · ไม่แตะช่องใบอนุญาต */
+    let permit='', exCode='', exDate='';
+    const exr=_pdExciseRule(th, hs);
+    if(exr){
+      stat.permit++; stat.excise++;
+      permit = exr.permit     || '';
+      exCode = exr.exciseCode || '';
+      exDate = exr.exciseDate || '';
+    }
+
+    /* Deducted Amount — ไม่ใช่ข้อมูลของ Rule ใด → คงว่าง (ห้ามเดา) */
+    const deducted='';
+    if(duiHit && exr) stat.both++;
 
     /* ---- OUTPUT ROW — ลำดับคอลัมน์ตาม Golden Mapping เป๊ะ ----
        GW เว้นว่างตาม Golden (ทั้ง 1,106 แถวว่าง) และตามสเปคเดิม "Output ใช้ NW"
@@ -16407,31 +16450,30 @@ function _pdBuild(inv, ct, pl, master, fix){
                       qtyCT: qtyCT});
   });
 
-  /* ---- Permit consistency audit ----
-     HS CODE เดียวกันต้องได้ผล Permit เหมือนกันทุก Item (spec ข้อ 5) */
+  /* ---- Consistency audit — ตรวจแยก 2 Rule ----
+     สรรพสามิต: ชื่อสินค้า+HS เดียวกันต้องได้ผลเท่ากัน
+     DUI: HS+Stat เดียวกันต้องได้ผลเท่ากัน */
   const byHs=new Map();
   out.forEach(function(row){
-    const k=_pdTariffKey(row[14]);          /* 15. Hscode */
-    if(!k) return;
-    if(!byHs.has(k)) byHs.set(k,{hs:row[14], permits:new Set(), n:0});
-    /* ตรวจพร้อมกันทั้ง 3 คอลัมน์: Permit(23) + รหัสภาษีสรรพสามิต(24) + วันที่(25) */
-    const g=byHs.get(k); g.permits.add([row[22],row[23],row[24]].join('\u0001')); g.n++;
+    const k=_pdHs8(row[14])+'\u0001'+_pdStat3(row[17])+'\u0001'+_pdName(row[11]);
+    if(!_pdHs8(row[14])) return;
+    if(!byHs.has(k)) byHs.set(k,{hs:row[14], stat:row[17], name:row[11], permits:new Set(), n:0});
+    const g=byHs.get(k);
+    g.permits.add([row[22],row[23],row[24],row[26],row[30]].join('\u0001')); g.n++;
   });
   const permitAudit={groups:[], inconsistent:[]};
   byHs.forEach(function(g,k){
     const vals=Array.from(g.permits);
     const parts=(vals[0]||'').split('\u0001');
-    permitAudit.groups.push({key:k, hs:g.hs, items:g.n,
+    permitAudit.groups.push({key:k, hs:g.hs, stat:g.stat, name:g.name, items:g.n,
       permit:parts[0]||'', exciseCode:parts[1]||'', exciseDate:parts[2]||'',
-      uniform:vals.length===1});
+      dui:!!parts[3], uniform:vals.length===1});
     if(vals.length>1){
-      permitAudit.inconsistent.push({key:k, hs:g.hs, items:g.n,
-        values:vals.map(function(v){return v.split('\u0001').join(' | ');})});
-      warnings.push('Permit ไม่สม่ำเสมอใน HS เดียวกัน · '+g.hs+' → '+
-        vals.map(function(v){return v.split('\u0001').join(' | ');}).join('  ///  '));
+      permitAudit.inconsistent.push({key:k, hs:g.hs, items:g.n, values:vals});
+      warnings.push('ผล Rule ไม่สม่ำเสมอใน HS/Stat/ชื่อสินค้า เดียวกัน · '+g.hs+' / '+g.stat);
     }
   });
-  permitAudit.permitGroups=permitAudit.groups.filter(function(g){return g.permit;});
+  permitAudit.permitGroups=permitAudit.groups.filter(function(g){return g.permit || g.dui;});
 
   const dup=_pdDupCheck(sorted);
   return {
@@ -16732,25 +16774,36 @@ function _epdomRenderReport(R, fname){
   const PA = R.permitAudit;
   h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px">3) Permit Rule</div>';
   h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><tr style="color:var(--text3)">'+
-       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">HS CODE (rule)</th>'+
-       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Permit</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Rule / Key</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">ผลที่เติม</th>'+
        '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">รหัสภาษีสรรพสามิต</th>'+
        '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">วันที่ของรหัสสรรพสามิต</th>'+
        '<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">Item ที่ติด</th>'+
        '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">ครบทุก Item</th></tr>';
-  EPDOM_PERMIT_RULES.forEach(function(rule){
-    const k=_pdTariffKey(rule.hs);
-    const g=PA.groups.filter(function(x){return x.key===k;})[0];
-    const cnt=g?g.items:0;
-    h += '<tr><td style="padding:3px 6px;font-weight:700">'+_epdomEsc(rule.hs)+'</td>'+
+  EPDOM_EXCISE_RULES.forEach(function(rule){
+    const cnt=PA.groups.filter(function(x){return x.permit;}).reduce(function(s,x){return s+x.items;},0);
+    h += '<tr><td style="padding:3px 6px;font-weight:700">สรรพสามิต<br><span style="font-weight:400;color:var(--text3)">'+
+         _epdomEsc(rule.name)+' + '+_epdomEsc(rule.hs)+'</span></td>'+
          '<td style="padding:3px 6px;color:#f472b6;font-weight:700">'+_epdomEsc(rule.permit)+'</td>'+
-         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_epdomEsc(rule.exciseCode||'—')+'</td>'+
-         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_epdomEsc(rule.exciseDate||'—')+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_epdomEsc(rule.exciseCode)+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_epdomEsc(rule.exciseDate)+'</td>'+
          '<td style="padding:3px 6px;text-align:right;font-weight:700">'+cnt+'</td>'+
-         '<td style="padding:3px 6px;color:'+((!g||g.uniform)?'#3fb950':'#f85149')+'">'+
-         (cnt===0 ? 'ไม่มีรายการ HS นี้ใน INVOICE' : ((g.uniform?'✓ ครบ '+cnt+'/'+cnt:'✗ ไม่ครบ')))+'</td></tr>';
+         '<td style="padding:3px 6px;color:'+(PA.inconsistent.length?'#f85149':'#3fb950')+'">'+
+         (cnt===0?'ไม่มีรายการเข้าเงื่อนไข':'✓ ครบ '+cnt+'/'+cnt)+'</td></tr>';
   });
+  (function(){
+    const cnt=S.dui;
+    h += '<tr><td style="padding:3px 6px;font-weight:700">DUI<br><span style="font-weight:400;color:var(--text3)">HS CODE + Stat · Master '+
+         _pdDuiSet().size+' คู่</span></td>'+
+         '<td style="padding:3px 6px;color:#22d3ee;font-weight:700">ใบอนุญาต 8 ช่อง</td>'+
+         '<td style="padding:3px 6px;font-family:monospace">'+_epdomEsc(EPDOM_DUI_LICENSE.licenseNo1)+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace">'+_epdomEsc(EPDOM_DUI_LICENSE.licenseNo2)+'</td>'+
+         '<td style="padding:3px 6px;text-align:right;font-weight:700">'+cnt+'</td>'+
+         '<td style="padding:3px 6px;color:'+(cnt?'#3fb950':'var(--text3)')+'">'+
+         (cnt===0?'ไม่มีรายการเข้าเงื่อนไข':'✓ ครบ '+cnt+'/'+cnt)+'</td></tr>';
+  })();
   h += '</table>';
+  h += '<div style="font-size:11.5px;margin-top:6px;color:var(--text2)">ติดทั้ง 2 Rule: <b>'+S.both+'</b> รายการ</div>';
   if(S.permit){
     h += '<div style="font-size:11.5px;margin-top:6px;color:var(--text2)">'+
          'ตรวจค่าที่เขียนลงไฟล์จริง: รหัสภาษีสรรพสามิต ครบ <b style="color:'+(S.excise===S.permit?'#3fb950':'#f85149')+'">'+
@@ -16760,12 +16813,8 @@ function _epdomRenderReport(R, fname){
        'ติด Permit: <b style="color:#f472b6">'+PA.permitGroups.length+'</b> ค่า · '+
        'ไม่ติด Permit: <b>'+(PA.groups.length-PA.permitGroups.length)+'</b> ค่า · '+
        'HS เดียวกันแต่ Permit ไม่ตรงกัน: <b style="color:'+(PA.inconsistent.length?'#f85149':'#3fb950')+'">'+PA.inconsistent.length+'</b></div>';
-  if(S.permit && S.permitNoDetail){
-    h += '<div style="font-size:11.5px;color:#d29922;margin-top:8px;padding:8px 10px;border:1px solid rgba(210,153,34,.35);border-radius:6px;background:rgba(210,153,34,.08)">'+
-         '⚠ '+S.permitNoDetail+' รายการติด Permit แต่ช่องรายละเอียด (Permit No. / Permit Date / เลขประจำตัวผู้เสียภาษีของหน่วยงาน / Permit Position) '+
-         '<b>เว้นว่าง</b> — ยังไม่มี Fixed Permit Master ใน Source จึงไม่เติมค่าใด ๆ</div>';
-  } else if(!S.permit){
-    h += '<div style="font-size:11.5px;color:var(--text3);margin-top:8px">ไม่มีรายการใดเข้าเงื่อนไข Permit ในชุดข้อมูลนี้ → ช่อง Permit ว่างทั้งหมดอย่างถูกต้อง</div>';
+  if(!S.permit && !S.dui){
+    h += '<div style="font-size:11.5px;color:var(--text3);margin-top:8px">ไม่มีรายการใดเข้าเงื่อนไข Rule ใด → ช่อง Permit/ใบอนุญาต ว่างทั้งหมดอย่างถูกต้อง</div>';
   }
 
   if(R.unmatched.length){
