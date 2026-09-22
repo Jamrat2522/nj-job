@@ -15788,7 +15788,7 @@ function _pdParseInvoice(wb){
     if(cNo<0 || cPart<0 || cQty<0){ skipped.push({sheet:sn, reason:'คอลัมน์หลักไม่ครบ'}); return; }
 
     /* Invoice No. / Date — อ่านจากบล็อกหัวเอกสาร (เหนือหัวตาราง) */
-    let invNo='', invDate='';
+    let invNo='', invDate='', invCurrency='';
     for(let r=0;r<hi;r++){
       const row = aoa[r]||[];
       for(let c=0;c<row.length;c++){
@@ -15801,6 +15801,12 @@ function _pdParseInvoice(wb){
         const lab2 = lab.replace(/:/g,'');
         if(!invDate && (lab2==='date' || lab2==='invoicedate')){
           for(let cc=c+1;cc<row.length;cc++){ const v=row[cc]; if(v!==''&&v!=null){ invDate=v; break; } }
+        }
+        /* Currency — ไฟล์จริงเขียนรวมในเซลล์เดียว เช่น "Currency : THB" */
+        if(!invCurrency && lab2.indexOf('currency')===0){
+          const mc=/currency\s*:?\s*([A-Za-z]{2,5})/i.exec(_pdS(row[c]));
+          if(mc) invCurrency=mc[1].toUpperCase();
+          else for(let cc=c+1;cc<row.length;cc++){ const v=_pdS(row[cc]); if(v){ invCurrency=v.toUpperCase(); break; } }
         }
       }
     }
@@ -15819,6 +15825,7 @@ function _pdParseInvoice(wb){
         sheet   : sn,
         invoice : invNo,
         invDate : invDate,
+        currency: invCurrency,
         no      : noV,
         part    : part,
         desc    : _pdS(row[cDesc<0?-1:cDesc]),
@@ -16063,34 +16070,45 @@ var EPDOM_HEADERS = [
   /* 1*/ 'LINE/ลำดับรายการ invoice',
   /* 2*/ 'PART NUMBER/product code',
   /* 3*/ 'DESCRIPTION/ENG 1',
-  /* 4*/ 'COO',
-  /* 5*/ 'QTY/ใบขนและinvoice (2ช่อง)',
-  /* 6*/ 'UNIT PRICE',
-  /* 7*/ 'AMOUNT',
-  /* 8*/ 'Entry/เลขอ้างอิงใบขน',
-  /* 9*/ 'Line no/รายการที่อ้างอิงใบขน',
-  /*10*/ 'NW',
-  /*11*/ 'GW',
-  /*12*/ 'TH description',
-  /*13*/ 'Hscode',
-  /*14*/ 'Duty Rate/อัตราอากร',
-  /*15*/ 'Priv.',
-  /*16*/ 'Stat',
-  /*17*/ 'Seq.',
-  /*18*/ 'INVOICE NO.',
-  /*19*/ 'invoice date',
-  /*20*/ 'ลำดับที่ใบขน',
-  /*21*/ 'Permit',
-  /*22*/ 'รหัสภาษีสรรพสามิต',
-  /*23*/ 'วันที่ของรหัสสรรพสามิต'
+  /* 4*/ 'ENG 2',
+  /* 5*/ 'COO',
+  /* 6*/ 'QTY/ใบขนและinvoice (2ช่อง)',
+  /* 7*/ 'UNIT PRICE',
+  /* 8*/ 'AMOUNT',
+  /* 9*/ 'Currency ',
+  /*10*/ 'Entry/เลขอ้างอิงใบขน',
+  /*11*/ 'Line no/รายการที่อ้างอิงใบขน',
+  /*12*/ 'NW',
+  /*13*/ 'GW',
+  /*14*/ 'TH description',
+  /*15*/ 'Hscode',
+  /*16*/ 'Duty Rate/อัตราอากร',
+  /*17*/ 'Priv.',
+  /*18*/ 'Stat',
+  /*19*/ 'Seq.',
+  /*20*/ 'INVOICE NO.',
+  /*21*/ 'invoice date',
+  /*22*/ 'ลำดับที่ใบขน',
+  /*23*/ 'Permit',
+  /*24*/ 'รหัสภาษีสรรพสามิต',
+  /*25*/ 'วันที่ของรหัสสรรพสามิต',
+  /*26*/ 'Deducted Amount',
+  /*27*/ 'เลขที่ใบอนุญาต1',
+  /*28*/ 'วันที่ออก1',
+  /*29*/ 'เลขประจำตัวผู้เสียภาษี ของหน่วยงาน1',
+  /*30*/ 'ตำแหน่ง1',
+  /*31*/ 'เลขที่ใบอนุญาต2',
+  /*32*/ 'วันที่ออก2',
+  /*33*/ 'เลขประจำตัวผู้เสียภาษี ของหน่วยงาน2',
+  /*34*/ 'ตำแหน่ง2'
 ];
-/* คอลัมน์ที่ต้องเป็น TEXT เสมอ (กันเลข 0 นำหน้าหาย) — 0-indexed
-    1 PART NUMBER · 7 Entry · 8 Line no
-   12 Hscode (000085076090 · 12 หลัก)
-   14 Priv. / 15 Stat (000) · 16 Seq. (65004)
-   17 INVOICE NO. · 18 invoice date
-   21 รหัสภาษีสรรพสามิต (0401010000) · 22 วันที่ของรหัสสรรพสามิต (01/10/2023) */
-var EPDOM_TEXT_COLS = [1,7,8,12,14,15,16,17,18,20,21,22];
+/* คอลัมน์ที่ต้องเป็น TEXT เสมอ (กันเลข 0 นำหน้าหาย) — 0-indexed (34 คอลัมน์)
+    1 PART NUMBER · 8 Currency · 9 Entry · 10 Line no
+   14 Hscode (000085076090) · 16 Priv. / 17 Stat (000) · 18 Seq. (65004)
+   19 INVOICE NO. · 20 invoice date
+   23 รหัสภาษีสรรพสามิต (000401010000) · 24 วันที่ของรหัสสรรพสามิต (2017-09-16)
+   26-33 ชุดใบอนุญาต 1 และ 2 */
+var EPDOM_TEXT_COLS = [1,8,9,10,14,16,17,18,19,20,22,23,24,26,27,28,29,30,31,32,33];
 
 /* ════════════════════════════════════════════════════════════════
    FIXED PERMIT RULES — ตรวจหลังได้ HS CODE จาก MASTER
@@ -16100,11 +16118,14 @@ var EPDOM_TEXT_COLS = [1,7,8,12,14,15,16,17,18,20,21,22];
    เพราะยังไม่มี Fixed Permit Master ใน Source — ห้ามเดา
    ════════════════════════════════════════════════════════════════ */
 var EPDOM_PERMIT_RULES = [
-  { hs:'85076090',
-    permit:'ติดใบอนุญาตกรมสรรพสามิต',
-    exciseCode:'0401010000',     /* TEXT · 10 หลัก ห้ามเลข 0 นำหน้าหาย */
-    exciseDate:'01/10/2023',     /* TEXT · รูปแบบ DD/MM/YYYY ตายตัว */
-    permitNo:'', permitDate:'', permitTaxId:'', permitPosition:'' }
+  { hs:'85076090',                       /* แบตเตอรี่เครื่องดูดฝุ่น */
+    permit:'ติดใบอนุญาตสรรพสามิต',
+    exciseCode:'000401010000',           /* TEXT · 12 หลัก ห้ามเลข 0 นำหน้าหาย */
+    exciseDate:'2017-09-16',             /* TEXT ตายตัว */
+    /* ยังไม่มี Rule ที่ยืนยัน → เว้นว่าง (ห้ามเดา · ห้าม Hardcode จาก GOLDEN) */
+    deductedAmount:'',
+    licenseNo1:'', licenseDate1:'', licenseTaxId1:'', licensePos1:'',
+    licenseNo2:'', licenseDate2:'', licenseTaxId2:'', licensePos2:'' }
 ];
 /* index: tariffKey → rule (สร้างครั้งเดียว) */
 var _EPDOM_PERMIT_IDX = (function(){
@@ -16282,21 +16303,28 @@ function _pdBuild(inv, ct, pl, master, fix){
        ตรวจ Permit Rule ทุก Item หลังได้ HS CODE จาก MASTER
        HS เดียวกัน → ผล Permit เหมือนกันเสมอ (ตัดสินจาก tariff key อย่างเดียว)
        รายละเอียดใบอนุญาตใช้ค่าจาก Fixed Permit Master เท่านั้น · ห้ามเดา */
-    let permit='', exCode='', exDate='', permitNo='', permitDate='', permitTax='', permitPos='';
+    let permit='', exCode='', exDate='';
+    let deducted='', licNo1='', licDate1='', licTax1='', licPos1='';
+    let licNo2='', licDate2='', licTax2='', licPos2='';
     if(hs){
       const pr=_pdPermitRule(hs);
       if(pr){
         stat.permit++;
-        permit      = pr.permit;
-        exCode      = pr.exciseCode || '';
-        exDate      = pr.exciseDate || '';
-        permitNo    = pr.permitNo || '';
-        permitDate  = pr.permitDate || '';
-        permitTax   = pr.permitTaxId || '';
-        permitPos   = pr.permitPosition || '';
+        permit   = pr.permit || '';
+        exCode   = pr.exciseCode || '';
+        exDate   = pr.exciseDate || '';
+        /* ค่าใบอนุญาตดึงจาก Rule เท่านั้น — Rule ไหนไม่มีค่า คงว่าง (ห้ามเดา) */
+        deducted = (pr.deductedAmount==null ? '' : pr.deductedAmount);
+        licNo1   = pr.licenseNo1    || '';
+        licDate1 = pr.licenseDate1  || '';
+        licTax1  = pr.licenseTaxId1 || '';
+        licPos1  = pr.licensePos1   || '';
+        licNo2   = pr.licenseNo2    || '';
+        licDate2 = pr.licenseDate2  || '';
+        licTax2  = pr.licenseTaxId2 || '';
+        licPos2  = pr.licensePos2   || '';
         if(exCode) stat.excise++;
-        if(!permitNo && !permitDate && !permitTax && !permitPos)
-          stat.permitNoDetail++;
+        if(!licNo1 && !licNo2 && deducted==='') stat.permitNoDetail++;
       }
     }
 
@@ -16308,26 +16336,37 @@ function _pdBuild(inv, ct, pl, master, fix){
       /* 1  LINE                */ r.no,
       /* 2  PART NUMBER         */ r.part,
       /* 3  DESCRIPTION/ENG 1   */ enDesc,
-      /* 4  COO                 */ coo,
-      /* 5  QTY                 */ (r.qty==null?'':r.qty),
-      /* 6  UNIT PRICE          */ (r.up==null?'':r.up),
-      /* 7  AMOUNT              */ (r.amt==null?'':r.amt),
-      /* 8  Entry               */ entry,
-      /* 9  Line no             */ lineNo,
-      /*10  NW                  */ nw,
-      /*11  GW                  */ '',
-      /*12  TH description      */ th,
-      /*13  Hscode              */ _pdHsOut(hs),
-      /*14  Duty Rate           */ duty,
-      /*15  Priv.               */ priv,
-      /*16  Stat                */ st,
-      /*17  Seq.                */ seq,
-      /*18  INVOICE NO.         */ r.invoice,
-      /*19  invoice date        */ _pdDate(r.invDate),
-      /*20  ลำดับที่ใบขน         */ seqNo,
-      /*21  Permit              */ permit,
-      /*22  รหัสภาษีสรรพสามิต    */ exCode,
-      /*23  วันที่ของรหัสสรรพสามิต */ exDate
+      /* 4  ENG 2               */ '',                 /* ไม่มี Source → เว้นว่าง (GOLDEN ว่างทั้ง 43 แถว) */
+      /* 5  COO                 */ coo,
+      /* 6  QTY                 */ (r.qty==null?'':r.qty),
+      /* 7  UNIT PRICE          */ (r.up==null?'':r.up),
+      /* 8  AMOUNT              */ (r.amt==null?'':r.amt),
+      /* 9  Currency            */ (r.currency||''),    /* จากหัวเอกสาร INVOICE: "Currency : THB" */
+      /*10  Entry               */ entry,
+      /*11  Line no             */ lineNo,
+      /*12  NW                  */ nw,
+      /*13  GW                  */ '',
+      /*14  TH description      */ th,
+      /*15  Hscode              */ _pdHsOut(hs),
+      /*16  Duty Rate           */ duty,
+      /*17  Priv.               */ priv,
+      /*18  Stat                */ st,
+      /*19  Seq.                */ seq,
+      /*20  INVOICE NO.         */ r.invoice,
+      /*21  invoice date        */ _pdDate(r.invDate),
+      /*22  ลำดับที่ใบขน         */ seqNo,
+      /*23  Permit              */ permit,
+      /*24  รหัสภาษีสรรพสามิต    */ exCode,
+      /*25  วันที่ของรหัสสรรพสามิต */ exDate,
+      /*26  Deducted Amount     */ deducted,
+      /*27  เลขที่ใบอนุญาต1      */ licNo1,
+      /*28  วันที่ออก1           */ licDate1,   /* = วันที่ (ไม่ลอกที่ GOLDEN สลับไว้) */
+      /*29  เลขผู้เสียภาษีฯ1     */ licTax1,    /* = เลขประจำตัวผู้เสียภาษี */
+      /*30  ตำแหน่ง1            */ licPos1,
+      /*31  เลขที่ใบอนุญาต2      */ licNo2,
+      /*32  วันที่ออก2           */ licDate2,
+      /*33  เลขผู้เสียภาษีฯ2     */ licTax2,
+      /*34  ตำแหน่ง2            */ licPos2
     ]);
     /* เก็บสถานะ match ไว้นอกตาราง — Golden ไม่มีคอลัมน์นี้ */
     matchStatus.push({seq:seqNo, invoice:r.invoice, line:r.no, part:r.part,
@@ -16339,11 +16378,11 @@ function _pdBuild(inv, ct, pl, master, fix){
      HS CODE เดียวกันต้องได้ผล Permit เหมือนกันทุก Item (spec ข้อ 5) */
   const byHs=new Map();
   out.forEach(function(row){
-    const k=_pdTariffKey(row[12]);          /* 13. Hscode */
+    const k=_pdTariffKey(row[14]);          /* 15. Hscode */
     if(!k) return;
-    if(!byHs.has(k)) byHs.set(k,{hs:row[12], permits:new Set(), n:0});
-    /* ตรวจพร้อมกันทั้ง 3 คอลัมน์: Permit(21) + รหัสภาษีสรรพสามิต(22) + วันที่(23) */
-    const g=byHs.get(k); g.permits.add([row[20],row[21],row[22]].join('\u0001')); g.n++;
+    if(!byHs.has(k)) byHs.set(k,{hs:row[14], permits:new Set(), n:0});
+    /* ตรวจพร้อมกันทั้ง 3 คอลัมน์: Permit(23) + รหัสภาษีสรรพสามิต(24) + วันที่(25) */
+    const g=byHs.get(k); g.permits.add([row[22],row[23],row[24]].join('\u0001')); g.n++;
   });
   const permitAudit={groups:[], inconsistent:[]};
   byHs.forEach(function(g,k){
@@ -16539,11 +16578,12 @@ function epdomMapping(){
     if(ws[ad]) ws[ad].s = { font:{bold:true}, fill:{fgColor:{rgb:'FCE7F3'}} };
   }
   ws['!cols'] = EPDOM_HEADERS.map(function(h,i){
-    if(i===2 || i===11) return {wch:38};   /* DESCRIPTION / TH description */
-    if(i===20)          return {wch:26};   /* Permit */
-    if(i===21 || i===22)return {wch:20};   /* รหัสภาษีสรรพสามิต / วันที่ */
-    if(i===1 || i===7)  return {wch:18};   /* PART NUMBER / Entry */
-    return {wch:Math.max(10, Math.min(22, h.length+3))};
+    if(i===2 || i===13) return {wch:38};   /* DESCRIPTION/ENG 1 · TH description */
+    if(i===22)          return {wch:26};   /* Permit */
+    if(i===23 || i===24)return {wch:20};   /* รหัสภาษีสรรพสามิต · วันที่ */
+    if(i>=26 && i<=33)  return {wch:22};   /* ชุดใบอนุญาต 1-2 */
+    if(i===1 || i===9)  return {wch:18};   /* PART NUMBER · Entry */
+    return {wch:Math.max(10, Math.min(22, String(h).length+3))};
   });
 
   const wbOut = XLSX.utils.book_new();
