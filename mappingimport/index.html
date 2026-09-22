@@ -27657,7 +27657,21 @@ const CHKN_SKIP_PACKAGE = true;
    · เลขว่าง / แปลงเป็นตัวเลขไม่ได้ / คู่ลำดับซ้ำ → ไม่เดา · ต่อท้ายรายการ
      และแจ้งเตือนเข้าตารางผลตรวจ
    ══════════════════════════════════════════════════════════════════════════ */
-const CHKN_SORT_MAP = true;
+/* ★ [local417] ปิดการเรียงด้วย (invoice no. , รายการ INV.) ตามข้อกำหนดใหม่:
+   "ห้ามใช้ รายการ INV. เป็นลำดับสำหรับจับกับ DWAK"
+   ลำดับที่ใช้จริงคือ ลำดับแถวข้อมูลจริง (CHKN_SEQ_MATCH ด้านล่าง) */
+const CHKN_SORT_MAP = false;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ★ [local417] จับคู่ด้วย "ลำดับ MAPPING" ที่ระบบสร้างเอง — เฉพาะโหมดนี้
+   · เมื่อโหลด MAPPING EXCEL ระบบสร้างลำดับ 0001,0002,0003,... ตามลำดับแถวข้อมูลจริง
+   · จับคู่ 1:1  MAPPING ลำดับ N  ↔  DWAK Item No. ลำดับ N
+   · Invoice No. ช่องว่าง → สืบทอดจากแถวก่อนหน้า (Fill Down ในหน่วยความจำเท่านั้น)
+   ★ ไม่เขียนกลับ / ไม่แก้ไขไฟล์ Excel ต้นฉบับใด ๆ ทั้งสิ้น
+   ★ กฎการเปรียบเทียบทุก Field เดิมไม่ถูกแก้
+   ═══════════════════════════════════════════════════════════════════════════ */
+const CHKN_SEQ_MATCH = true;
+function chknSeqId(n){ return ('000'+n).slice(-4); }
 function chknSeqNum(v){                       /* Numeric Sort · คืน null เมื่อแปลงไม่ได้ */
   if(v==null||chknT(v)==='') return null;
   if(typeof v==='number') return isFinite(v)?v:null;
@@ -27794,7 +27808,11 @@ function chknCmp(out, item, label, dv, mv, mode, tol){
   else if(mode==='unit'){ a=chknUnit(dv); b=chknUnit(mv); if(a===b) return; }
   else if(mode==='date'){ a=chknDate(dv); b=chknDate(mv); if(a===b) return; }
   else { a=chknTxt(dv); b=chknTxt(mv); if(a===b) return; }
-  out.push(chknMk(item,label,D,M, label+' ไม่ตรง: DWAK = '+(D||'ว่าง')+' / MAPPING EXCEL = '+(M||'ว่าง')));
+  /* ★ [local419] §7 : MAPPING ว่างแต่ DWAK มีค่า → แจ้งว่า Field นั้นไม่มีข้อมูล
+     ห้ามดึงค่าจากแถวอื่นมาแทน */
+  out.push(chknMk(item,label,D,M,
+    (M===''&&D!=='') ? ('MAPPING EXCEL ไม่มีข้อมูล '+label)
+                     : (label+' ไม่ตรง: DWAK = '+(D||'ว่าง')+' / MAPPING EXCEL = '+(M||'ว่าง'))));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -27839,25 +27857,55 @@ function chknValidateSchNon(mapSheet, dwakSheet){
     const sr=chknSortMapSchNon(M,H); M=sr.M;
     for(const w of sr.warns) out.push(w);
   }
+  /* ★ [local417] ลำดับ MAPPING ตามแถวข้อมูลจริง (MAPPING_SEQUENCE)
+     ★ [local419] Fill Down Invoice ถูก ปิด ตามข้อกำหนดใหม่ §1–§4
+     (คง m.invFill ไว้เป็นข้อมูลอ้างอิงเท่านั้น ไม่นำไปเทียบ Field ใด) */
+  const CHKN_FILLDOWN_INVOICE = false;
+  if(CHKN_SEQ_MATCH){
+    const ci=c('invoice no.');
+    let carry='';
+    M.forEach((m,ix)=>{
+      m._seq=ix+1; m.seq=chknSeqId(ix+1);
+      const raw = ci>=0 ? chknT(m.r[ci]) : '';
+      if(raw!=='') carry=raw;
+      m.invRaw  = raw;                                  /* ค่าจริงของแถวนั้น — ใช้ตรวจจริง */
+      m.invFill = CHKN_FILLDOWN_INVOICE ? carry : raw;  /* ปิด Fill Down */
+    });
+  }
   const D=chknDwakRows(dwakSheet);
   const used=new Set();
   /* G.W. — MAPPING แถวที่มีค่า ↔ SUM(DWAK Gross Weight) ของ Invoice เดียวกัน */
   const gwByInv=new Map();
   for(const d of D){ const k=d.invoice; gwByInv.set(k,(gwByInv.get(k)||0)+(chknNum(d.get('Gross Weight'))||0)); }
   const occ=new Map();
+  let _di=-1;
   for(const d of D){
+    _di++;
     const item=chknT(d.get('Item No.'));
     const pcD=chknT(d.get('Product Code'));
     const key=chknTxt(d.invoice)+'|'+chknTxt(pcD);
-    const n=(occ.get(key)||0)+1; occ.set(key,n);
-    const m=M.find(x=>!used.has(x._i) && chknTxt(x.inv)===chknTxt(d.invoice)
-                   && chknTxt(x.pc)===chknTxt(pcD) && (x.no===String(n)||x.no===''));
-    if(!m){
-      out.push(chknMk(item,'รายการ',d.invoice+' / '+pcD,'',
-        'ไม่พบรายการนี้ใน MAPPING EXCEL — Invoice='+d.invoice+' · Product='+pcD+' · occurrence='+n));
-      continue;
+    let m;
+    if(CHKN_SEQ_MATCH){
+      /* ★ [local417] จับ 1:1 ตามลำดับ : MAPPING ลำดับ N ↔ DWAK ลำดับ N */
+      m = M[_di] || null;
+      if(!m){
+        out.push(chknMk(item,'จำนวนรายการ','DWAK ลำดับ '+chknSeqId(_di+1),'—',
+          'MAPPING EXCEL มีจำนวนรายการน้อยกว่า DWAK — DWAK ลำดับ '+chknSeqId(_di+1)+' (Item No.='+item+') ไม่มีคู่ใน MAPPING EXCEL'));
+        continue;
+      }
+    } else {
+      const n=(occ.get(key)||0)+1; occ.set(key,n);
+      m=M.find(x=>!used.has(x._i) && chknTxt(x.inv)===chknTxt(d.invoice)
+                     && chknTxt(x.pc)===chknTxt(pcD) && (x.no===String(n)||x.no===''));
+      if(!m){
+        out.push(chknMk(item,'รายการ',d.invoice+' / '+pcD,'',
+          'ไม่พบรายการนี้ใน MAPPING EXCEL — Invoice='+d.invoice+' · Product='+pcD+' · occurrence='+n));
+        continue;
+      }
     }
     used.add(m._i); const g=k=>m.r[c(k)];
+    /* ★ [local419] §1–§4 : ห้าม Fill Down invoice จากแถวก่อนหน้า
+       ต้องอ่านจาก MAPPING_SEQUENCE ที่จับคู่กับ DWAK Item นั้นโดยตรง */
     chknCmp(out,item,'invoice no.',        d.invoice,              g('invoice no.'));
     chknCmp(out,item,'Product Code',       d.get('Product Code'),  g('Product Code'));
     chknCmp(out,item,'English Description',d.get('Desc.'),         g('English Description'));
@@ -27888,8 +27936,11 @@ function chknValidateSchNon(mapSheet, dwakSheet){
     }
   }
   for(const m of M) if(!used.has(m._i))
-    out.push(chknMk('—','รายการ','',m.inv+' / '+m.pc,'พบรายการเกินใน MAPPING EXCEL — Invoice='+m.inv+' · Product='+m.pc));
-  return { diffs:out, dwakCount:D.length, matched:used.size };
+    out.push(CHKN_SEQ_MATCH
+      ? chknMk('—','จำนวนรายการ','—','MAPPING ลำดับ '+(m.seq||chknSeqId(m._i+1)),
+          'MAPPING EXCEL มีจำนวนรายการมากกว่า DWAK — MAPPING ลำดับ '+(m.seq||chknSeqId(m._i+1))+' ไม่มีคู่ใน DWAK')
+      : chknMk('—','รายการ','',m.inv+' / '+m.pc,'พบรายการเกินใน MAPPING EXCEL — Invoice='+m.inv+' · Product='+m.pc));
+  return { diffs:out, dwakCount:D.length, mapCount:M.length, matched:used.size };
 }
 
 /* ══ B. SCH TYPE P ══ Matching: NO. ENTRY ↔ Item No. ══ */
@@ -28107,15 +28158,33 @@ function chknValidateFzKn(mapSheet, dwakSheet){
    ★ ค่าว่างหรือแปลงเป็นตัวเลขไม่ได้ → ข้าม ไม่เดา ไม่สร้าง Error ปลอม
    ★ ไม่ยุ่งกับ Matching และไม่แก้ค่าต้นฉบับ                                      */
 function chknNwGw(dwakSheet){
-  const out=[];
-  for(const d of chknDwakRows(dwakSheet)){
-    const nw=chknNum(d.get('Net Weight','Netweight')), gw=chknNum(d.get('Gross Weight','Grossweight'));
-    if(nw==null || gw==null) continue;
-    if(nw>gw) out.push({ item:chknT(d.get('Item No.'))||'—', field:'Net Weight > Gross Weight',
+  /* ★ [local418] คืนสถานะ PASS / FAIL / UNABLE_TO_CHECK — ห้าม PASS เมื่อตรวจไม่ได้ */
+  const out=[], H=dwakSheet.hdr;
+  const cN=chknCol(H,'Net Weight','Netweight'), cG=chknCol(H,'Gross Weight','Grossweight');
+  if(cN<0 || cG<0){
+    const miss=[]; if(cN<0) miss.push('Net Weight'); if(cG<0) miss.push('Gross Weight');
+    return { diffs:out, status:CHKN_ST.UNABLE, checked:0, total:0,
+             reason:'DWAK ไม่พบ Header: '+miss.join(' / ') }; }
+  const D=chknDwakRows(dwakSheet);
+  let checked=0; const bad=[];
+  for(const d of D){
+    const rn=d.get('Net Weight','Netweight'), rg=d.get('Gross Weight','Grossweight');
+    const nw=chknNum(rn), gw=chknNum(rg);
+    const item=chknT(d.get('Item No.'))||'—';
+    if(nw==null || gw==null){ bad.push(item);
+      out.push({ item:item, field:'Net / Gross Weight', dwak:'Net Weight = '+(chknT(rn)||'ว่าง')+' / Gross Weight = '+(chknT(rg)||'ว่าง'),
+        map:'—', status:'ตรวจไม่ได้',
+        reason:'อ่านน้ำหนักเป็นตัวเลขไม่ได้ — UNABLE_TO_CHECK (ห้ามสรุป PASS)' });
+      continue; }
+    checked++;
+    if(nw>gw) out.push({ item:item, field:'Net Weight > Gross Weight',
       dwak:'Net Weight = '+nw+' / Gross Weight = '+gw, map:'—',
       status:'ไม่ถูกต้อง', reason:'Net Weight มากกว่า Gross Weight' });
   }
-  return out;
+  const over=out.filter(x=>x.field==='Net Weight > Gross Weight').length;
+  const stt = bad.length ? CHKN_ST.UNABLE : (over? CHKN_ST.FAIL : CHKN_ST.PASS);
+  return { diffs:out, status:stt, checked:checked, total:D.length, over:over,
+           reason: bad.length? ('มี '+bad.length+' รายการที่อ่านน้ำหนักไม่ได้ (Item '+bad.join(', ')+')') : '' };
 }
 
 /* ══ Runner ══ */
@@ -28179,9 +28248,11 @@ function chknRunValidate(){
   /* [B] Net/Gross + [C] HS CODE MASTER — เพิ่มเข้า differences[] ชุดเดียวกับ [A] MAPPING
      ★ ไม่แตะผลของ Handler MAPPING เดิมแม้แต่แถวเดียว */
   const _wrap=r=>{
-    const w=chknNwGw(CHKN.dwak); r.nwgw=w.length; r.diffs=r.diffs.concat(w);
+    const w=chknNwGw(CHKN.dwak); r.wt=w; r.nwgw=(w.over||0); r.diffs=r.diffs.concat(w.diffs);
     const h=chknHsCheck(CHKN.dwak); r.hs=h; r.diffs=r.diffs.concat(h.diffs);
-    const e=chknEx99(CHKN.dwak);    r.ex99=e; r.diffs=r.diffs.concat(e.diffs);
+    const e=chknEx99(CHKN.dwak, det.sheet); r.ex99=e; r.diffs=r.diffs.concat(e.diffs);
+    /* ★ [local418] สถานะแยกของ MAPPING CHECK */
+    r.mapChk={ status:(r.diffs.length>(w.diffs.length+h.diffs.length+e.diffs.length))?CHKN_ST.FAIL:CHKN_ST.PASS };
     r.fixp=chknFixPermit(det.sheet, CHKN.dwak);   /* ★ [local416] ไม่เข้า diffs — เป็นข้อมูลเติมให้ */
     return r; };
   if(det.type==='SCH NON')     return _wrap(chknValidateSchNon(det.sheet, CHKN.dwak));
@@ -28224,7 +28295,8 @@ function chknHsCheck(dwakSheet){
   const cTar=col('Tariff'), cStat=col('Stat'), cPriv=col('Priv.','Privilege'),
         cSeq=col('Seq.','Seq'), cRate=col('Duty Rate');
   if(cTar<0) return { diffs:out, skipped:['ทั้งหมด — DWAK ไม่มี Header Tariff'],
-                      matched:0, notfound:0, cnt:{} };
+                      matched:0, notfound:0, cnt:{},
+                      status:CHKN_ST.UNABLE, reason:'DWAK ไม่พบ Header Tariff' };   /* ★ [local418] */
   const skipped=[];
   if(cStat<0) skipped.push('Stat'); if(cPriv<0) skipped.push('Privilege');
   if(cSeq<0)  skipped.push('Seq');  if(cRate<0) skipped.push('Tariff rate duty');
@@ -28256,7 +28328,12 @@ function chknHsCheck(dwakSheet){
         add(item,'Tariff rate duty',d.get('Duty Rate'),'MASTER = '+m.rate,
           'Tariff rate duty ไม่ตรงกับ HS CODE MASTER: DWAK = '+(a==null?'ว่าง':a)+' / MASTER = '+m.rate); } }
   }
-  return { diffs:out, skipped, matched, notfound, cnt };
+  /* ★ [local418] สถานะแยก PASS / FAIL / UNABLE_TO_CHECK */
+  let stt=CHKN_ST.PASS, why='';
+  if(M.size===0){ stt=CHKN_ST.UNABLE; why='HS CODE MASTER โหลดไม่ได้ / ว่าง'; }
+  else if(skipped.length){ stt=CHKN_ST.UNABLE; why='DWAK ไม่พบ Header: '+skipped.join(', ')+' — ตรวจไม่ครบทุก Field'; }
+  else if(out.length) stt=CHKN_ST.FAIL;
+  return { diffs:out, skipped, matched, notfound, cnt, status:stt, reason:why };
 }
 
 
@@ -28293,17 +28370,33 @@ function chknDuiExempt(tariff,stat){
    ★ Normalize HS เพื่อ Compare เท่านั้น (000084798969 = 84798969) · ไม่แก้ค่าต้นฉบับ      */
 const CHKN_EX99_HS = ['84798969','84798970','84799090','84821000','84823000',
                      '84825000','84828000','84829900','84833090','85144000'];
-const CHKN_EX99_FIX = { permit:'EXEMPT99', date:'2017-11-13', taxid:'0994000159561' };
-function chknEx99(dwakSheet){
+/* ★ [local418] เพิ่ม Permit Position = 03 (ยืนยันตามข้อกำหนด §19/§20)
+   ตรวจ Source จริงแล้ว: DWAK 82 คอลัมน์ ไม่มีคอลัมน์ Position เลย
+   ค่า Position อยู่ใน MAPPING EXCEL คอลัมน์ 'ตำแหน่ง (Preview)'
+   → จึงอ่านจาก MAPPING แถวที่จับคู่ 1:1 กับ DWAK Item นั้น (DWAK ยังเป็นตัวตั้ง)
+   ถ้าไม่พบคอลัมน์นี้ → UNABLE_TO_CHECK (ห้าม PASS) */
+const CHKN_EX99_FIX = { permit:'EXEMPT99', date:'2017-11-13', taxid:'0994000159561', pos:'03' };
+const CHKN_ST={PASS:'PASS',FAIL:'FAIL',UNABLE:'UNABLE_TO_CHECK'};
+function chknEx99(dwakSheet, mapSheet){
   const out=[], H=dwakSheet.hdr, col=(...n)=>chknCol(H,...n);
   const cTar=col('Tariff'), cStat=col('Stat'), cNo=col('PermitNo2'), cDt=col('IssueDate2'), cAu=col('PermitIssueAuthority2');
-  if(cTar<0) return { diffs:out, checked:0, dui:0, noStat:(cTar<0) };
+  if(cTar<0) return { diffs:out, checked:0, dui:0, noStat:true,
+                      status:CHKN_ST.UNABLE, reason:'DWAK ไม่พบ Header Tariff' };
+  /* ★ [local418] Permit Position — อ่านจาก MAPPING คอลัมน์ 'ตำแหน่ง (Preview)'
+     จับคู่ตามลำดับ 1:1 กับ DWAK Item (DWAK เป็นตัวตั้ง) */
+  let cPos=-1, posRows=null;
+  if(mapSheet && mapSheet.hdr){
+    cPos=chknCol(mapSheet.hdr,'ตำแหน่ง (Preview)','ตำแหน่ง(Preview)','ตำแหน่ง');
+    if(cPos>=0) posRows=mapSheet.rows;
+  }
+  let posUnable = (cPos<0);
   const SET=new Set(CHKN_EX99_HS.map(chknHsKey));
-  let checked=0, dui=0;
+  let checked=0, dui=0, posBad=0, _ei=-1;
   const add=(item,field,dw,fix,why)=>out.push({ item:item||'—', field,
     dwak:(dw==null||chknT(dw)==='')?'ว่าง':chknT(dw), map:'FIX = '+fix,
     status:'ไม่ถูกต้อง', reason:why });
   for(const d of chknDwakRows(dwakSheet)){
+    _ei++;                                   /* ★ [local418] index สำหรับจับคู่ MAPPING 1:1 */
     const raw=chknT(d.get('Tariff')); if(raw==='') continue;
     /* ★ PRECEDENCE 1 — DUI EXCEPTION MASTER (คู่ HS CODE + Stat) → ข้าม ไม่บังคับ EXEMPT99 */
     if(cStat>=0 && chknDuiExempt(raw, d.get('Stat'))){ dui++; continue; }
@@ -28328,8 +28421,28 @@ function chknEx99(dwakSheet){
         add(item,'เลขประจำตัวผู้เสียภาษีของหน่วยงาน',v,CHKN_EX99_FIX.taxid,
           v===''? 'HS CODE '+hs+' ต้องระบุเลขประจำตัวผู้เสียภาษีของหน่วยงาน '+CHKN_EX99_FIX.taxid
                 : 'เลขประจำตัวผู้เสียภาษีของหน่วยงานไม่ตรง: DWAK = '+v+' / FIX = '+CHKN_EX99_FIX.taxid); }
+    /* ★ [local418] Permit Position ต้อง = 03 */
+    if(cPos>=0){
+      const pr = posRows[_ei] || null;
+      const pv = pr ? chknT(pr[cPos]) : '';
+      if(!pr){ posUnable=true;
+        add(item,'Permit Position','—',CHKN_EX99_FIX.pos,
+          'HS CODE '+hs+' — ไม่มีแถว MAPPING คู่ลำดับนี้ จึงอ่าน Position ไม่ได้ — UNABLE_TO_CHECK'); }
+      else if(chknInt(pv)!==chknInt(CHKN_EX99_FIX.pos)){ posBad++;
+        add(item,'Permit Position',pv,CHKN_EX99_FIX.pos,
+          pv===''? 'HS CODE '+hs+' Permit Position พบ: [ว่าง] ต้องเป็น: '+CHKN_EX99_FIX.pos
+                 : 'HS CODE '+hs+' Permit Position พบ: '+pv+' ต้องเป็น: '+CHKN_EX99_FIX.pos); }
+    }
   }
-  return { diffs:out, checked, dui, noStat:(cStat<0) };
+  /* ★ [local418] สถานะแยกของ EXEMPT99 */
+  let stt=CHKN_ST.PASS, why='';
+  if(cNo<0||cDt<0||cAu<0){ stt=CHKN_ST.UNABLE; why='DWAK ไม่พบ Header ใบอนุญาตครบทุก Field'; }
+  else if(checked>0 && posUnable){ stt=CHKN_ST.UNABLE;
+    why='ตรวจ Permit Position ไม่ได้ — MAPPING EXCEL ไม่พบคอลัมน์ ตำแหน่ง (Preview)'; }
+  else if(cStat<0){ stt=CHKN_ST.UNABLE; why='DWAK ไม่พบ Header Stat — ตรวจ DUI Exception ไม่ได้'; }
+  else if(out.length) stt=CHKN_ST.FAIL;
+  return { diffs:out, checked, dui, noStat:(cStat<0), posBad:posBad,
+           posChecked:(cPos>=0), status:stt, reason:why };
 }
 
 
@@ -28391,16 +28504,28 @@ function chknRender(){
   /* ★ ถอดบรรทัดสรุปด้านบนตารางออก (16/09/2026) — สรุปยังแสดงที่แถบ Status ด้านบนเหมือนเดิม
      ตารางจึงขยับขึ้นแทนที่ ไม่เหลือช่องว่าง */
   /* สรุปผลกฎ Net Weight > Gross Weight (ตรวจจาก DWAK โดยตรง) */
+  /* ★ [local418] ข้อความตามสถานะ PASS / FAIL / UNABLE_TO_CHECK */
+  const _S=(o)=>(o&&o.status)||'';
+  const _un=(txt,why)=>'<div class="chkn-sum" style="color:var(--amber);font-weight:800">\u26a0 '+txt
+      +' — UNABLE_TO_CHECK'+(why?' ('+chknEsc(why)+')':'')+'</div>';
+  /* ★ [local418] UNABLE แต่มีรายการที่พบแล้ว → แสดงทั้งสองบรรทัด ไม่ซ่อนสิ่งที่ตรวจพบ */
+  const _unx=(txt,why,fail)=>(fail||'')+_un(txt,why);
   const nw=r.nwgw||0;
   const h=r.hs||{diffs:[],skipped:[],matched:0,notfound:0};
-  const hsMsg = h.diffs.length>0
+  const hsMsg = _S(h)===CHKN_ST.UNABLE ? _unx('HS CODE MASTER', h.reason, h.diffs.length
+      ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800">\u274c HS CODE MASTER พบ '+h.diffs.length+' รายการไม่ตรง</div>' : '')
+    : h.diffs.length>0
     ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c HS CODE MASTER พบ '+h.diffs.length+' รายการไม่ตรง</div>'
     : '<div class="chkn-sum" style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 HS CODE MASTER ตรวจสอบเรียบร้อย ไม่พบข้อมูลไม่ตรง</div>';
   const e=r.ex99||{diffs:[],checked:0};
-  const exMsg = e.diffs.length>0
+  const exMsg = _S(e)===CHKN_ST.UNABLE ? _unx('EXEMPT99 / Permit', e.reason, e.diffs.length
+      ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800">\u274c พบ '+e.diffs.length+' จุดที่ข้อมูล EXEMPT99 ไม่ถูกต้อง</div>' : '')
+    : e.diffs.length>0
     ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c พบ '+e.diffs.length+' จุดที่ข้อมูล EXEMPT99 ไม่ถูกต้อง</div>'
     : '<div class="chkn-sum" style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการ EXEMPT99 ไม่ถูกต้อง</div>';
-  const nwMsg = nw>0
+  const nwMsg = _S(r.wt)===CHKN_ST.UNABLE ? _unx('Net / Gross Weight', (r.wt||{}).reason, nw>0
+      ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800">\u274c พบ '+nw+' รายการที่ Net Weight มากกว่า Gross Weight</div>' : '')
+    : nw>0
     ? '<div class="chkn-sum" style="color:var(--red2);font-weight:800;margin-bottom:4px">\u274c พบ '+nw+' รายการที่ Net Weight มากกว่า Gross Weight</div>'
     : '<div class="chkn-sum" style="color:var(--green2);font-weight:700;margin-bottom:4px">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
   /* ★ [local416] ตาราง FIX PERMIT — HS CODE 85076090 (ทุก Item ที่เข้ากฎ) */
