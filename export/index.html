@@ -1515,6 +1515,7 @@ body.legacy-active .content-area { display: none !important; }
       <div>
         <div class="page-title">Electrolux P DOM</div>
         <div class="page-sub">อัพโหลด 4 ไฟล์ → กด MAPPING → ประมวลผล + Export ทันที (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700">BUILD local114</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="epdom-v-dui">-</b> คู่ · FIX MASTER <b id="epdom-v-fix">-</b> รายการ · สรรพสามิต <b id="epdom-v-ex">-</b> rule</span></div>
       </div>
     </div>
 
@@ -16576,6 +16577,15 @@ function _epdomRefreshUI(){
 
 function _epdomAttachHandlers(){
   ElePDom.fx = _pdEmbeddedFix();   /* ⑤ FIX MASTER ฝังในระบบ · พร้อมใช้ทันที */
+  try{
+    const vd=document.getElementById('epdom-v-dui'), vf=document.getElementById('epdom-v-fix'), vx=document.getElementById('epdom-v-ex');
+    if(vd) vd.textContent=_pdDuiSet().size;
+    if(vf) vf.textContent=ElePDom.fx.map.size;
+    if(vx) vx.textContent=EPDOM_EXCISE_RULES.length;
+    console.log('[ELE P DOM] BUILD local114 · DUI Master '+_pdDuiSet().size+' คู่ · FIX MASTER '+ElePDom.fx.map.size+
+                ' รายการ · สรรพสามิต rule '+EPDOM_EXCISE_RULES.length+
+                ' · DUI มี 85076090 ? '+_pdDuiMatch('85076090','000'));
+  }catch(e){}
   Object.keys(_EPDOM_SLOTS).forEach(function(slot){
     const inp = document.getElementById('epdom-'+slot+'-input');
     if(inp && !inp._epdomBound){
