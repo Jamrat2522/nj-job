@@ -1564,11 +1564,8 @@ body.legacy-active .content-area { display: none !important; }
     <div class="page-header">
       <div>
         <div class="page-title">Electrolux P 3 Y</div>
-        <div class="page-sub">อัพโหลด 1 ไฟล์ (Sheet Invoice + Results + CT) → กด MAPPING → ประมวลผล + Export ทันที</div>
-        <div class="page-sub" style="font-size:11px;opacity:.75;margin-top:3px">
-          BUILD local118 · Embedded/Rule เป็น COPY ของ P 3 Y เอง ·
-          FIX <b id="ep3y-v-fix">-</b> · DUI <b id="ep3y-v-dui">-</b> · สรรพสามิต <b id="ep3y-v-ex">-</b>
-        </div>
+        <div class="page-sub">อัพโหลด 1 ไฟล์ (Sheet Invoice + Results + CT) → กด MAPPING → ประมวลผล + Export ทันที (ตั้งชื่อไฟล์ด้วยเลข INVOICE แรก)</div>
+            <div style="margin-top:6px;font-size:11px;font-family:'Courier New',monospace"><span style="background:rgba(6,182,212,.18);color:#22d3ee;border:1px solid rgba(6,182,212,.45);border-radius:5px;padding:2px 8px;font-weight:700">BUILD local120</span><span style="color:var(--text3);margin-left:8px">DUI Master <b id="ep3y-v-dui">-</b> คู่ · FIX MASTER <b id="ep3y-v-fix">-</b> รายการ · สรรพสามิต <b id="ep3y-v-ex">-</b> rule · Embedded/Rule = COPY ของ P 3 Y เอง</span></div>
       </div>
     </div>
 
@@ -16542,6 +16539,9 @@ function _p3PickSheets(wb, want){
    ════════════════════════════════════════════════════════════════ */
 function _p3ParseInvoice(wb){
   const skipped=[]; let sheetName='', rows=[], invNo='', invDate=null, currency='', headerRow=0;
+  wb.SheetNames.forEach(function(sn){
+    if(EP3Y_SKIP_SHEETS.indexOf(_p3H(sn))>=0) skipped.push({sheet:sn, reason:'ข้ามตามข้อกำหนด (ไม่ใช้ sum / Data)'});
+  });
   const order=_p3PickSheets(wb,'Invoice');
   for(const sn of order){
     const aoa=_p3Aoa(wb.Sheets[sn]);
@@ -16610,7 +16610,9 @@ function _p3ParseInvoice(wb){
     }
     break;
   }
-  return {sheet:sheetName, headerRow:headerRow, rows:rows, skipped:skipped,
+  /* sheets[] — รูปแบบเดียวกับ P DOM (ใช้ในรายงานผลส่วนที่ 1) */
+  const sheets = sheetName ? [{sheet:sheetName, invoice:invNo, headerRow:headerRow, items:rows.length}] : [];
+  return {sheet:sheetName, sheets:sheets, headerRow:headerRow, rows:rows, skipped:skipped,
           invoiceNo:invNo, invoiceDate:invDate, currency:currency};
 }
 
@@ -16716,14 +16718,52 @@ function _p3ParseCT(wb){
    Duty/Priv/Stat/Seq → _p3EmbeddedFix() (COPY ของ P 3 Y)
    Permit/Excise/DUI  → _p3ExciseRule() / _p3DuiMatch() (COPY ของ P 3 Y)
    ════════════════════════════════════════════════════════════════ */
+/* sort: Invoice No. → LINE (ตัวเลข) → srcRow  [COPY Logic จาก P DOM]
+   เก็บ idx ตำแหน่งเดิมไว้ เพื่อให้ Sheet CT join ตามลำดับแถวเดิมของไฟล์ */
+function _p3CmpNum(a,b){
+  const da=_p3Digits(a), db=_p3Digits(b);
+  if(da && db && da.length<=15 && db.length<=15){
+    const x=Number(da), y=Number(db);
+    if(x!==y) return x<y?-1:1;
+    return 0;
+  }
+  return _p3S(a)<_p3S(b) ? -1 : (_p3S(a)>_p3S(b) ? 1 : 0);
+}
+function _p3SortInvoice(rows, invoiceNo){
+  return rows.map(function(r,i){ r.idx=i; r.invoice=(r.invoice!=null&&r.invoice!=='')?r.invoice:(invoiceNo||''); return r; })
+             .slice().sort(function(a,b){
+    const c=_p3CmpNum(a.invoice, b.invoice);
+    if(c!==0) return c;
+    if(a.line!==b.line) return a.line-b.line;
+    return a.srcRow-b.srcRow;
+  });
+}
+/* ตรวจรายการซ้ำ — ห้ามลบอัตโนมัติ · ต้องซ้ำทุก field จึงถือว่าซ้ำจริง [COPY Logic จาก P DOM] */
+function _p3DupCheck(rows){
+  const seen=new Map(), dups=[], sameNoDiff=[], byNo=new Map();
+  rows.forEach(function(r){
+    const full=[r.invoice,r.line,r.part,r.eng1,r.qty,r.up,r.amt].join('\u0001');
+    if(seen.has(full)) dups.push({a:seen.get(full), b:r});
+    else seen.set(full, r);
+    const k=r.invoice+'\u0001'+r.line;
+    if(byNo.has(k)){
+      const p=byNo.get(k);
+      if(p.part!==r.part || p.qty!==r.qty || p.up!==r.up || p.amt!==r.amt) sameNoDiff.push({a:p, b:r});
+    } else byNo.set(k, r);
+  });
+  return {identical:dups, sameLineDifferent:sameNoDiff};
+}
+
 function _p3Build(inv, res, ct){
   const warnings=(res.warnings||[]).slice(), unmatched=[], out=[], matchStatus=[];
-  const stat={inv:inv.rows.length, th:0, hs:0, fix:0, nw:0, gw:0, ct:0,
-              permit:0, excise:0, dui:0, both:0, amtDiff:0};
+  const sorted=_p3SortInvoice(inv.rows, inv.invoiceNo);
+  const stat={inv:sorted.length, th:0, hs:0, fix:0, nw:0, gw:0, ct:0,
+              permit:0, excise:0, dui:0, both:0, qtyEq:0, qtyDiff:0, amtDiff:0};
   const fix=_p3EmbeddedFix();
   let seqNo=0;
 
-  inv.rows.forEach(function(r, idx){
+  sorted.forEach(function(r){
+    const idx=r.idx;                 /* ตำแหน่งเดิมในไฟล์ → ใช้ join Sheet CT */
     const miss=[];
     if(r.qty!=null && _p3N(r.up)!=null && r.amt!=null && Math.abs(r.qty*_p3N(r.up) - r.amt)>0.01){
       stat.amtDiff++;
@@ -16746,6 +16786,12 @@ function _p3Build(inv, res, ct){
     if(c){ entry=c.bol; lineNo=(c.line==null?'':c.line); stat.ct++;
       if(c.item && c.item!==r.part)
         warnings.push('CT: ITEM ไม่ตรง Part · LINE '+r.line+' · INVOICE '+r.part+' vs CT '+c.item);
+      /* QTY ใบขน (CT.Total) vs QTY INVOICE — Output ใช้ค่า INVOICE เสมอ [ตาม P DOM] */
+      if(c.qty!=null && r.qty!=null){
+        if(Math.abs(c.qty-r.qty)<1e-9) stat.qtyEq++;
+        else{ stat.qtyDiff++;
+          warnings.push('QTY ใบขน ≠ QTY INVOICE · LINE '+r.line+' · '+r.part+' · CT '+c.qty+' vs INVOICE '+r.qty+' (ใช้ค่า INVOICE)'); }
+      }
     } else {
       miss.push('CT');
       unmatched.push({line:r.line, part:r.part, field:'Entry/Line no',
@@ -16814,13 +16860,39 @@ function _p3Build(inv, res, ct){
       /*27*/ licNo1, /*28*/ licDate1, /*29*/ licTax1, /*30*/ licPos1,
       /*31*/ licNo2, /*32*/ licDate2, /*33*/ licTax2, /*34*/ licPos2
     ]);
-    matchStatus.push({seq:seqNo, line:r.line, part:r.part,
+    matchStatus.push({seq:seqNo, invoice:r.invoice, line:r.line, part:r.part,
                       status: miss.length? ('ไม่พบ: '+miss.join(', ')) : 'OK'});
   });
 
-  return { headers:EP3Y_HEADERS, rows:out, stat:stat, matchStatus:matchStatus,
-           warnings:warnings, unmatched:unmatched, gwTotal:res.gwTotal,
-           invoiceNo:inv.invoiceNo, invoiceDate:inv.invoiceDate, currency:inv.currency };
+  /* ---- Consistency audit — ตรวจแยก 2 Rule [COPY Logic จาก P DOM] ----
+     สรรพสามิต: ชื่อสินค้า+HS เดียวกันต้องได้ผลเท่ากัน · DUI: HS+Stat เดียวกันต้องได้ผลเท่ากัน */
+  const byHs=new Map();
+  out.forEach(function(row){
+    const k=_p3Hs8(row[14])+'\u0001'+_p3Stat3(row[17])+'\u0001'+_p3Name(row[13]);
+    if(!_p3Hs8(row[14])) return;
+    if(!byHs.has(k)) byHs.set(k,{hs:row[14], stat:row[17], name:row[13], permits:new Set(), n:0});
+    const g=byHs.get(k);
+    g.permits.add([row[22],row[23],row[24],row[26],row[30]].join('\u0001')); g.n++;
+  });
+  const permitAudit={groups:[], inconsistent:[]};
+  byHs.forEach(function(g,k){
+    const vals=Array.from(g.permits);
+    const parts=(vals[0]||'').split('\u0001');
+    permitAudit.groups.push({key:k, hs:g.hs, stat:g.stat, name:g.name, items:g.n,
+      permit:parts[0]||'', exciseCode:parts[1]||'', exciseDate:parts[2]||'',
+      dui:!!parts[4], uniform:vals.length===1});
+    if(vals.length>1){
+      permitAudit.inconsistent.push({key:k, hs:g.hs, items:g.n, values:vals});
+      warnings.push('ผล Rule ไม่สม่ำเสมอใน HS/Stat/ชื่อสินค้า เดียวกัน · '+g.hs+' / '+g.stat);
+    }
+  });
+  permitAudit.permitGroups=permitAudit.groups.filter(function(g){return g.permit || g.dui;});
+
+  const dup=_p3DupCheck(sorted);
+  return { headers:EP3Y_HEADERS, rows:out, sorted:sorted, stat:stat, matchStatus:matchStatus,
+           warnings:warnings, unmatched:unmatched, dup:dup, permitAudit:permitAudit, gwTotal:res.gwTotal,
+           invoiceNo:inv.invoiceNo, invoiceDate:inv.invoiceDate, currency:inv.currency,
+           invoices: sorted.map(function(r){return r.invoice;}).filter(function(v,i,a){return a.indexOf(v)===i;}) };
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -16987,7 +17059,7 @@ function _ep3yAttachHandlers(){
     if(vf) vf.textContent=_p3EmbeddedFix().map.size;
     if(vd) vd.textContent=_p3DuiSet().size;
     if(vx) vx.textContent=EP3Y_EXCISE_RULES.length;
-    console.log('[ELE P 3Y] BUILD local118 · Embedded/Rule เป็น COPY ของ P 3 Y เอง · FIX '+
+    console.log('[ELE P 3Y] BUILD local120 · Embedded/Rule เป็น COPY ของ P 3 Y เอง · FIX '+
                 _p3EmbeddedFix().map.size+' · DUI '+_p3DuiSet().size+' · Excise '+EP3Y_EXCISE_RULES.length);
   }catch(e){ console.warn('[ELE P 3Y] อ่าน Embedded ไม่ได้:', e); }
   Object.keys(_EP3Y_SLOTS).forEach(function(slot){
@@ -17093,18 +17165,200 @@ function ep3yMapping(){
   catch(e2){ console.error('[ELE P 3Y] writeFile failed:', e2); _ep3yErr('สร้างไฟล์ไม่สำเร็จ: '+e2.message); return; }
 
   window._ep3yLastResult={R:R, fname:fname};
-  const S=R.stat;
-  _ep3yErr('✓ Export สำเร็จ: <b>'+_ep3yEsc(fname)+'</b> · '+n+' รายการ'+
-           (R.gwTotal!=null?(' · GW รวม '+R.gwTotal):'')+
-           (R.unmatched.length?(' · Match ไม่ได้ '+R.unmatched.length):'')+
-           (S.dui?(' · DUI '+S.dui):'')+(S.excise?(' · สรรพสามิต '+S.excise):''), true);
+  _ep3yRenderReport(R, fname);                      /* FLOW แสดงผลเหมือน P DOM */
+  if(typeof toast==='function')
+    toast('✓ Export '+fname+' · '+n+' รายการ'+
+          (R.unmatched.length ? (' · ไม่ match '+R.unmatched.length) : ''),
+          R.unmatched.length ? 'warn' : 'ok');
+}
+
+
+/* ซ่อนรายงานผลจากผู้ใช้ทั่วไป — logic ภายในยังทำงานปกติทั้งหมด [เหมือน P DOM]
+   เปิดดูได้ด้วย ep3yShowReport(true) จาก console */
+var EP3Y_SHOW_REPORT = false;
+function ep3yShowReport(on){
+  EP3Y_SHOW_REPORT = (on !== false);
+  const rp = document.getElementById('ep3y-report');
+  if(rp){
+    rp.style.display = EP3Y_SHOW_REPORT ? '' : 'none';
+    if(!EP3Y_SHOW_REPORT) rp.innerHTML = '';
+    else if(window._ep3yLastResult) _ep3yRenderReport(window._ep3yLastResult.R, window._ep3yLastResult.fname);
+  }
+  return EP3Y_SHOW_REPORT;
+}
+
+/* ── รายงานผล (COPY โครงจากหน้า P DOM · ปรับตาม Source 1 ไฟล์/3 Sheet) ── */
+function _ep3yRenderReport(R, fname){
+  const S = R.stat, n = S.inv;
+  const inv = EleP3Y.inv, res = EleP3Y.res || {nw:new Map(), gw:new Map()}, ct = EleP3Y.ct || {rows:[]};
+  const sh = inv.sheets || [], sk = inv.skipped || [];
+  const pct = function(x){ return n ? ' (' + (x*100/n).toFixed(1) + '%)' : ''; };
+
+  let h = '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px">';
+  h += '<div style="font-size:14px;font-weight:800;color:#22d3ee;margin-bottom:10px">📋 รายงานผล ELE P 3 Y — ไฟล์ที่สร้าง: <span style="color:#3fb950">'+_ep3yEsc(fname)+'</span></div>';
+
+  /* 1) INPUT 1 ไฟล์ / 3 Sheet */
+  h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin:10px 0 6px">1) INVOICE (1 ไฟล์ · 3 Sheet)</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><tr style="color:var(--text3)">'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Sheet</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Invoice No.</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">หัวตาราง (แถว)</th>'+
+       '<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">Item</th></tr>';
+  sh.forEach(function(s){
+    h += '<tr><td style="padding:3px 6px">'+_ep3yEsc(s.sheet)+'</td><td style="padding:3px 6px">'+_ep3yEsc(s.invoice)+
+         '</td><td style="padding:3px 6px">'+s.headerRow+'</td><td style="padding:3px 6px;text-align:right">'+s.items+'</td></tr>';
+  });
+  h += '<tr><td style="padding:3px 6px">'+_ep3yEsc(res.sheet||'Results')+'</td><td style="padding:3px 6px;color:var(--text3)">NW / GW</td>'+
+       '<td style="padding:3px 6px">'+(res.itemHeaderRow||'-')+' / Pallet '+(res.palletHeaderRow||'-')+'</td>'+
+       '<td style="padding:3px 6px;text-align:right">'+res.nw.size+' · GW '+(res.gwTotal==null?'—':res.gwTotal)+'</td></tr>';
+  h += '<tr><td style="padding:3px 6px">'+_ep3yEsc(ct.sheet||'CT')+'</td><td style="padding:3px 6px;color:var(--text3)">BOL / '+_ep3yEsc(ct.lineCol||'BOL_Line')+'</td>'+
+       '<td style="padding:3px 6px">'+(ct.headerRow||'-')+'</td><td style="padding:3px 6px;text-align:right">'+ct.rows.length+'</td></tr>';
+  h += '<tr style="font-weight:700;border-top:1px solid var(--border)"><td colspan="3" style="padding:4px 6px">รวมก่อน Sort</td>'+
+       '<td style="padding:4px 6px;text-align:right">'+inv.rows.length+'</td></tr>';
+  h += '<tr style="font-weight:700"><td colspan="3" style="padding:4px 6px">หลัง Sort (Invoice No. → LINE)</td>'+
+       '<td style="padding:4px 6px;text-align:right">'+n+'</td></tr></table>';
+  if(sk.length){
+    h += '<div style="font-size:11px;color:#d29922;margin-top:6px">Sheet ที่ไม่ถูกนำมาใช้: '+
+         sk.map(function(x){return _ep3yEsc(x.sheet)+' ('+_ep3yEsc(x.reason)+')';}).join(' · ')+'</div>';
+  }
+  if(R.sorted && R.sorted.length){
+    const first=R.sorted[0], last=R.sorted[R.sorted.length-1];
+    h += '<div style="font-size:11.5px;color:var(--text2);margin-top:6px">'+
+         'Item แรก: <b>INV '+_ep3yEsc(first.invoice)+' / LINE '+first.line+' / '+_ep3yEsc(first.part)+'</b> · '+
+         'Item สุดท้าย: <b>INV '+_ep3yEsc(last.invoice)+' / LINE '+last.line+' / '+_ep3yEsc(last.part)+'</b></div>';
+  }
+  h += '<div style="font-size:11.5px;margin-top:4px">'+
+       'รายการซ้ำ (ซ้ำทุก field): <b style="color:'+(R.dup.identical.length?'#f85149':'#3fb950')+'">'+R.dup.identical.length+'</b> · '+
+       'เลขรายการซ้ำแต่ข้อมูลต่าง: <b style="color:'+(R.dup.sameLineDifferent.length?'#d29922':'#3fb950')+'">'+R.dup.sameLineDifferent.length+'</b> · '+
+       'Item ตกหล่น: <b style="color:'+((inv.rows.length===n)?'#3fb950':'#f85149')+'">'+(inv.rows.length-n)+'</b></div>';
+
+  /* 2) ผล Matching */
+  h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px">2) ผล Matching</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px">';
+  [['จำนวน Item จาก INVOICE', n, n],
+   ['Mapping สำเร็จ (ครบทุก field)', n - new Set(R.unmatched.map(function(u){return u.line;})).size, n],
+   ['CT Match (Entry + Line no)', S.ct, n],
+   ['Results Match (NW)', S.nw, n],
+   ['TH description (จาก Sheet Invoice)', S.th, n],
+   ['HS CODE (จาก Sheet Invoice)', S.hs, n],
+   ['Fixed Data Match (Duty/Priv/Stat/Seq) — Embedded', S.fix, n],
+   ['Permit พบ / ผ่าน', S.permit, n]
+  ].forEach(function(r, i){
+    const okc = (i===7) ? (S.permit ? '#3fb950' : 'var(--text2)')
+                        : ((r[1]===r[2]) ? '#3fb950' : (r[1]===0 ? '#f85149' : '#d29922'));
+    h += '<tr><td style="padding:3px 6px">'+r[0]+'</td>'+
+         '<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+okc+'">'+r[1]+' / '+r[2]+pct(r[1])+'</td></tr>';
+  });
+  h += '<tr><td style="padding:3px 6px">GW ยอดรวม Pallet (ใส่แถวแรก)</td>'+
+       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(R.gwTotal!=null?'#3fb950':'#f85149')+'">'+(R.gwTotal==null?'ไม่พบ':R.gwTotal)+'</td></tr>';
+  h += '<tr><td style="padding:3px 6px">QTY ใบขน = QTY INVOICE</td>'+
+       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:#3fb950">'+S.qtyEq+'</td></tr>';
+  h += '<tr><td style="padding:3px 6px">QTY ใบขน ≠ QTY INVOICE</td>'+
+       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(S.qtyDiff?'#d29922':'#3fb950')+'">'+S.qtyDiff+'</td></tr>';
+  h += '<tr><td style="padding:3px 6px">AMOUNT ≠ QTY × UNIT PRICE</td>'+
+       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(S.amtDiff?'#d29922':'#3fb950')+'">'+S.amtDiff+'</td></tr>';
+  h += '<tr style="font-weight:800;border-top:1px solid var(--border)"><td style="padding:4px 6px">จำนวนรายการ Output สุดท้าย</td>'+
+       '<td style="padding:4px 6px;text-align:right;color:#3fb950">'+R.rows.length+'</td></tr></table>';
+
+  /* 3) Permit Rule */
+  const PA = R.permitAudit;
+  h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px">3) Permit Rule</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><tr style="color:var(--text3)">'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Rule / Key</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">ผลที่เติม</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">รหัสภาษีสรรพสามิต</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">วันที่ของรหัสสรรพสามิต</th>'+
+       '<th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">Item ที่ติด</th>'+
+       '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">ครบทุก Item</th></tr>';
+  EP3Y_EXCISE_RULES.forEach(function(rule){
+    const cnt=PA.groups.filter(function(x){return x.permit;}).reduce(function(s,x){return s+x.items;},0);
+    h += '<tr><td style="padding:3px 6px;font-weight:700">สรรพสามิต<br><span style="font-weight:400;color:var(--text3)">'+
+         _ep3yEsc(rule.name)+' + '+_ep3yEsc(rule.hs)+'</span></td>'+
+         '<td style="padding:3px 6px;color:#f472b6;font-weight:700">'+_ep3yEsc(rule.permit)+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_ep3yEsc(rule.exciseCode)+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace;font-weight:700">'+_ep3yEsc(rule.exciseDate)+'</td>'+
+         '<td style="padding:3px 6px;text-align:right;font-weight:700">'+cnt+'</td>'+
+         '<td style="padding:3px 6px;color:'+(PA.inconsistent.length?'#f85149':'#3fb950')+'">'+
+         (cnt===0?'ไม่มีรายการเข้าเงื่อนไข':'✓ ครบ '+cnt+'/'+cnt)+'</td></tr>';
+  });
+  (function(){
+    const cnt=S.dui;
+    h += '<tr><td style="padding:3px 6px;font-weight:700">DUI<br><span style="font-weight:400;color:var(--text3)">HS CODE + Stat · Master '+
+         _p3DuiSet().size+' คู่</span></td>'+
+         '<td style="padding:3px 6px;color:#22d3ee;font-weight:700">ใบอนุญาตชุดที่ 2 (4 ช่อง)</td>'+
+         '<td style="padding:3px 6px;font-family:monospace">'+_ep3yEsc(EP3Y_DUI_LICENSE.licenseNo2)+'</td>'+
+         '<td style="padding:3px 6px;font-family:monospace">'+_ep3yEsc(EP3Y_DUI_LICENSE.licenseDate2)+'</td>'+
+         '<td style="padding:3px 6px;text-align:right;font-weight:700">'+cnt+'</td>'+
+         '<td style="padding:3px 6px;color:'+(cnt?'#3fb950':'var(--text3)')+'">'+
+         (cnt===0?'ไม่มีรายการเข้าเงื่อนไข':'✓ ครบ '+cnt+'/'+cnt)+'</td></tr>';
+  })();
+  h += '</table>';
+  h += '<div style="font-size:11.5px;margin-top:6px;color:var(--text2)">ติดทั้ง 2 Rule: <b>'+S.both+'</b> รายการ</div>';
+  if(S.permit){
+    h += '<div style="font-size:11.5px;margin-top:6px;color:var(--text2)">'+
+         'ตรวจค่าที่เขียนลงไฟล์จริง: รหัสภาษีสรรพสามิต ครบ <b style="color:'+(S.excise===S.permit?'#3fb950':'#f85149')+'">'+
+         S.excise+' / '+S.permit+'</b> รายการ · เก็บเป็น TEXT (เลข 0 นำหน้าคงอยู่)</div>';
+  }
+  h += '<div style="font-size:11.5px;margin-top:6px">HS CODE ทั้งหมดใน Output: <b>'+PA.groups.length+'</b> ค่า · '+
+       'ติด Permit/DUI: <b style="color:#f472b6">'+PA.permitGroups.length+'</b> ค่า · '+
+       'ไม่ติด: <b>'+(PA.groups.length-PA.permitGroups.length)+'</b> ค่า · '+
+       'HS เดียวกันแต่ Permit ไม่ตรงกัน: <b style="color:'+(PA.inconsistent.length?'#f85149':'#3fb950')+'">'+PA.inconsistent.length+'</b></div>';
+  if(!S.permit && !S.dui){
+    h += '<div style="font-size:11.5px;color:var(--text3);margin-top:8px">ไม่มีรายการใดเข้าเงื่อนไข Rule ใด → ช่อง Permit/ใบอนุญาต ว่างทั้งหมดอย่างถูกต้อง</div>';
+  }
+
+  /* 4) Match ไม่ได้ */
+  if(R.unmatched.length){
+    h += '<div style="font-size:12px;font-weight:700;color:#f85149;margin:14px 0 6px">4) รายการที่ Match ไม่ได้ ('+R.unmatched.length+')</div>';
+    h += '<div style="max-height:220px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'+
+         '<tr style="color:var(--text3)"><th style="text-align:left;padding:3px 6px">LINE</th>'+
+         '<th style="text-align:left;padding:3px 6px">Part Number</th><th style="text-align:left;padding:3px 6px">Field</th>'+
+         '<th style="text-align:left;padding:3px 6px">สาเหตุ</th></tr>';
+    R.unmatched.forEach(function(u){
+      h += '<tr><td style="padding:2px 6px">'+u.line+'</td>'+
+           '<td style="padding:2px 6px">'+_ep3yEsc(u.part)+'</td><td style="padding:2px 6px">'+_ep3yEsc(u.field)+'</td>'+
+           '<td style="padding:2px 6px;color:var(--text2)">'+_ep3yEsc(u.reason)+'</td></tr>';
+    });
+    h += '</table></div>';
+  } else {
+    h += '<div style="font-size:12px;font-weight:700;color:#3fb950;margin:14px 0 4px">4) รายการที่ Match ไม่ได้: ไม่มี (0)</div>';
+  }
+
+  /* 5) คำเตือน */
+  if(R.warnings.length){
+    h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;font-weight:700;color:#d29922">'+
+         '5) คำเตือน ('+R.warnings.length+') — ไม่หยุด Export</summary>'+
+         '<div style="max-height:240px;overflow:auto;font-size:11px;color:var(--text2);margin-top:6px;line-height:1.8">'+
+         R.warnings.map(function(w){return '• '+_ep3yEsc(w);}).join('<br>')+'</div></details>';
+  }
+  h += '</div>';
+
+  /* preview 20 แถวแรก */
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">ตัวอย่าง 20 แถวแรก (จากทั้งหมด '+R.rows.length+')</div>';
+  h += '<div style="overflow:auto;max-height:340px"><table style="border-collapse:collapse;font-size:10.5px;white-space:nowrap"><tr>';
+  EP3Y_HEADERS.forEach(function(x){ h += '<th style="text-align:left;padding:3px 7px;border-bottom:1px solid var(--border);color:var(--text3)">'+_ep3yEsc(x)+'</th>'; });
+  h += '</tr>';
+  R.rows.slice(0,20).forEach(function(r){
+    h += '<tr>' + r.map(function(v){ return '<td style="padding:2px 7px;border-bottom:1px solid var(--border)">'+_ep3yEsc(v)+'</td>'; }).join('') + '</tr>';
+  });
+  h += '</table></div></div>';
+
+  const rp = document.getElementById('ep3y-report');
+  if(rp){
+    if(EP3Y_SHOW_REPORT){ rp.style.display=''; rp.innerHTML = h; }
+    else { rp.style.display='none'; rp.innerHTML = ''; }
+  }
+  _ep3yErr('✓ Export สำเร็จ: <b>'+_ep3yEsc(fname)+'</b> · '+R.rows.length+' รายการ'+
+           (R.unmatched.length ? (' · Match ไม่ได้ '+R.unmatched.length+' รายการ') : '')+
+           (R.stat.permit ? (' · ติดใบอนุญาตกรมสรรพสามิต '+R.stat.permit+' รายการ') : '')+
+           (R.stat.dui ? (' · DUI '+R.stat.dui+' รายการ') : ''), true);
+
+  console.log('[ELE P 3Y] sheets:', sh);
   console.log('[ELE P 3Y] stat:', S);
   console.log('[ELE P 3Y] unmatched:', R.unmatched);
   console.log('[ELE P 3Y] warnings:', R.warnings);
-  if(typeof toast==='function')
-    toast('✓ Export '+fname+' · '+n+' รายการ', R.unmatched.length?'warn':'ok');
 }
-
 </script>
 </body>
 </html>
