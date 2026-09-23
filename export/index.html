@@ -15431,7 +15431,7 @@ function _pdParseCT(wb){
    3) PL — Packing List (หัวตารางไม่ได้อยู่แถวแรก)
    ════════════════════════════════════════════════════════════════ */
 function _pdParsePL(wb){
-  const out=[]; let headers=null;
+  const out=[]; let headers=null, gwTotal=null, gwSrc='';
   wb.SheetNames.forEach(function(sn){
     const aoa=_pdAoa(wb.Sheets[sn]);
     if(!aoa.length) return;
@@ -15468,8 +15468,31 @@ function _pdParsePL(wb){
                 dn:_pdCode(cDn<0?'':row[cDn]), inv:_pdCode(cInv<0?'':row[cInv]),
                 sap:_pdCode(cSap<0?'':row[cSap]), srcRow:r+1});
     }
+    /* ---- ตาราง Pallet → ยอดสรุป GW (แถว "Total Packages" · หา Header จริง ห้าม fix เลขแถว) ---- */
+    if(gwTotal===null){
+      let pi=-1, PH=null;
+      for(let i=hi+1;i<aoa.length;i++){
+        const hh=(aoa[i]||[]).map(_pdH);
+        if(hh.some(function(x){return x==='packagetype';}) &&
+           hh.some(function(x){return x.indexOf('grossweight')>=0;})){ pi=i; PH=aoa[i].map(_pdS); break; }
+      }
+      if(pi>=0){
+        const cPg=_pdCol(PH,['Gross Weight, KG','Gross Weight KG','Gross Weight']);
+        if(cPg>=0){
+          for(let r=pi+1;r<aoa.length;r++){
+            const row=aoa[r]||[];
+            let isTotal=false;
+            for(let c=0;c<row.length;c++){ if(_pdH(row[c])==='totalpackages'){ isTotal=true; break; } }
+            if(!isTotal) continue;
+            const v=_pdN(row[cPg]);
+            if(v!=null){ gwTotal=v; gwSrc='Sheet "'+sn+'" · Total Packages · '+PH[cPg]; }
+            break;
+          }
+        }
+      }
+    }
   });
-  return {rows:out, headers:headers};
+  return {rows:out, headers:headers, gwTotal:gwTotal, gwSrc:gwSrc};
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -15933,7 +15956,7 @@ function _pdBuild(inv, ct, pl, master, fix){
     if(duiHit && exr) stat.both++;
 
     /* ---- OUTPUT ROW — ลำดับคอลัมน์ตาม Golden Mapping เป๊ะ ----
-       GW เว้นว่างตาม Golden (ทั้ง 1,106 แถวว่าง) และตามสเปคเดิม "Output ใช้ NW"
+       GW = ยอดสรุป Gross Weight จาก PL (แถว Total Packages) ใส่ที่แถวแรกเท่านั้น · แถวถัดไปว่าง
        QTY ใช้ค่าจาก INVOICE (BASE) · ค่าใบขนที่ต่างกันรายงานเป็นคำเตือน */
     seqNo++;
     out.push([
@@ -15949,7 +15972,7 @@ function _pdBuild(inv, ct, pl, master, fix){
       /*10  Entry               */ entry,
       /*11  Line no             */ lineNo,
       /*12  NW                  */ nw,
-      /*13  GW                  */ '',
+      /*13  GW                  */ (out.length===0 && pl.gwTotal!=null ? pl.gwTotal : ''),  /* ยอดสรุป GW จาก PL — ใส่แถวแรกเท่านั้น */
       /*14  TH description      */ th,
       /*15  Hscode              */ _pdHsOut(hs),
       /*16  Duty Rate           */ duty,
@@ -16070,7 +16093,7 @@ async function _epdomOnFile(slot, file){
     } else if(slot==='pl'){
       const d = _pdParsePL(wb);
       if(!d.rows.length) throw new Error('PL: ไม่พบข้อมูล (ต้องมี Part Number + Net Weight)');
-      ElePDom.pl = d; info = d.rows.length + ' rows';
+      ElePDom.pl = d; info = d.rows.length + ' rows' + (d.gwTotal!=null ? (' · GW สรุป '+d.gwTotal) : ' · ไม่พบยอดสรุป GW');
     } else if(slot==='ms'){
       const d = _pdParseMaster(wb);
       if(!d.map.size) throw new Error('MASTER: ไม่พบคอลัมน์ Part Number');
