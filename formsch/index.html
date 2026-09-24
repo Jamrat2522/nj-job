@@ -1265,6 +1265,11 @@ input[type=file]{display:none}
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               EXPORT รวมไฟล์
             </button>
+            <!-- ADDITIVE (V.300 · งาน 6): EXPORT MAPPING ที่ถูกตัดออกจาก ORDER — ใช้ได้หลัง EXPORT รวมไฟล์เสร็จ -->
+            <button id="mappingCutExportBtn-ben" onclick="benExportMappingCutFromOrder()" disabled
+                    style="display:inline-flex;align-items:center;gap:6px;background:none;color:var(--t2);border:1px solid var(--bd);padding:10px 18px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:not-allowed;opacity:.5;font-family:inherit;">
+              ✂ EXPORT MAPPING ตัดออกจาก ORDER
+            </button>
             <div id="mappingCombinedLoading-ben" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--t2);">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg>
               <span id="mappingCombinedLoadingTxt-ben">กำลังรวมไฟล์…</span>
@@ -13488,6 +13493,9 @@ function benClearMappingAll(){
   benMappingState.pdfFiles=[]; benMappingState.pdfRows=[]; benMappingState.rmFile=null;
   benMappingState.rmRows=[]; benMappingState.importEntryFile=null;
   benMappingState.importEntryRows=[]; benMappingState.unmatchedRows=[];
+  // ADDITIVE (V.300 · งาน 6): ล้างผล CUT และปิดปุ่ม EXPORT MAPPING ตัดออกจาก ORDER จนกว่าจะ EXPORT รวมไฟล์ใหม่
+  benMappingState.cutExport=null;
+  const _cb=document.getElementById('mappingCutExportBtn-ben'); if(_cb){ _cb.disabled=true; _cb.style.opacity='.5'; _cb.style.cursor='not-allowed'; _cb.style.color='var(--t2)'; }
 }
 
 // Country of Origin: code -> full name (B). Fallback = original value (never blank).
@@ -14233,12 +14241,15 @@ async function benExportMappingCombined(){
     const wb2 = XLSX.utils.book_new();
     // -- Clone dataset (deep copy) แล้ว Filter บนสำเนาเท่านั้น --
     const outByCountry2 = JSON.parse(JSON.stringify(outByCountry));
+    // ADDITIVE (V.300 · งาน 6): เก็บรายการ MAPPING ที่ถูกตัดออกจาก ORDER (complement ของ filter เดิม · ไม่แตะ Logic ORDER)
+    const cutRows = { ctry:{}, rm:[], stat:{ctryCut:0, rmCutRows:0, rmPartial:0} };
     const OUT_HDR2 = OUT_HDR.slice(); OUT_HDR2.push('Outbound Delivery No.','Part No.(Part SCH)');
     const summaryRows2=[]; const sheetOrder2=[];
     Object.keys(outByCountry2).sort().forEach(ctr=>{
       const rowsAll0 = outByCountry2[ctr];
       _cutStat.ctryBefore += rowsAll0.length;
       const rowsAll = rowsAll0.filter(ro=>!ro.rrOK);           // ตัดเฉพาะ Record Order kitting
+      { const _cut = rowsAll0.filter(ro=>ro.rrOK); if(_cut.length){ cutRows.ctry[ctr]=_cut; cutRows.stat.ctryCut+=_cut.length; } }   // ADDITIVE งาน 6
       _cutStat.ctryCut += rowsAll0.length - rowsAll.length; _cutStat.ctryAfter += rowsAll.length;
       if(!rowsAll.length) return;                               // ประเทศที่ไม่เหลือแถว → ไม่สร้างชีตในไฟล์ที่ 2
       const chunks=[]; let cur=[], curBills=new Set(), curChars=0;   // กติกาแบ่งชีตเดิม (>4 billing / >800 chars)
@@ -14299,6 +14310,8 @@ async function benExportMappingCombined(){
       const hasData = pl.parts.some(p=>p.entry!=='' || p.itemNo!=='' || p.ok) || pl.st.status!=='';
       _cutStat.rmBefore += hasData?1:0;
       const keep = pl.parts.filter(p=>!p.ok);                  // ตัดเฉพาะ part ที่ Source ระบุ Order kitting
+      { const _cp = pl.parts.filter(p=>p.ok);                   // ADDITIVE งาน 6: part ที่ถูกตัดออกจาก ORDER (ทั้งแถว หรือ ส่วนของแถวผสม)
+        if(_cp.length){ cutRows.rm.push({ r:pl.r, st:pl.st, parts:_cp, partial:_cp.length<pl.parts.length }); cutRows.stat.rmCutRows++; if(_cp.length<pl.parts.length) cutRows.stat.rmPartial++; } }
       if(keep.length===0){ if(hasData) _cutStat.rmCut++; return; }   // ทั้งแถวเป็น Order kitting → ตัดทั้งแถว
       if(keep.length<pl.parts.length) _cutStat.rmPartial++;
       if(hasData) _cutStat.rmAfter++;
@@ -14329,6 +14342,100 @@ async function benExportMappingCombined(){
     console.log('[BEN ตัดOrder]', _file2Name, '| Country rows', _cutStat.ctryBefore,'→ cut',_cutStat.ctryCut,'→',_cutStat.ctryAfter,
                 '| RM FINAL rows', _cutStat.rmBefore,'→ cut',_cutStat.rmCut,'(partial',_cutStat.rmPartial,') →',_cutStat.rmAfter);
     benMappingState.cutOrderStat=_cutStat;
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  ADDITIVE (V.300 · งาน 6): Workbook "MAPPING ที่ถูกตัดออกจาก ORDER" — โครงสร้าง MAPPING เดิม 100% (OUT_HDR 16 คอลัมน์ ·
+    //  SUMMARY · Country Sheet · RM FINAL) จาก cutRows เท่านั้น · Item แถวผสม → เฉพาะส่วนที่ถูกตัด (สัดส่วน Split เดิม)
+    //  สร้างไว้ล่วงหน้าและเก็บใน benMappingState → ปุ่ม "EXPORT MAPPING ตัดออกจาก ORDER" ดาวน์โหลด · CUT = 0 → ไม่สร้างไฟล์
+    // ════════════════════════════════════════════════════════════════════════════
+    benMappingState.cutExport = null;
+    {
+      const _cutCtryTotal = cutRows.stat.ctryCut;
+      const _eqCtry = (_cutStat.ctryBefore === _cutStat.ctryAfter + _cutCtryTotal);
+      // ยอดตัวเลข: MAPPING(ไฟล์ 1) = ORDER(ไฟล์ 2) + CUT — จาก rowObj (Country) ตรวจ Invoiced Qty / Net Value
+      const _sumRows = rows => rows.reduce((a,ro)=>{ a.q+=sumNum(ro.invQty); a.v+=sumNum(ro.netVal); a.qty+=sumNum(ro.qty); a.nw+=sumNum(ro.nw); return a; }, {q:0,v:0,qty:0,nw:0});
+      const _allRows = [].concat(...Object.values(outByCountry)), _ordRows = _allRows.filter(ro=>!ro.rrOK), _cutRowsFlat = _allRows.filter(ro=>ro.rrOK);
+      const _sA=_sumRows(_allRows), _sO=_sumRows(_ordRows), _sC=_sumRows(_cutRowsFlat);
+      const _eqNum = ['q','v','qty','nw'].every(k=>Math.abs(_sA[k]-(_sO[k]+_sC[k]))<1e-6);
+      console.log('[BEN CUT] สมการ MAPPING = ORDER + CUT (Country rows):', _cutStat.ctryBefore,'=',_cutStat.ctryAfter,'+',_cutCtryTotal, _eqCtry?'✅':'❌',
+                  '| Invoiced Qty', benRound3(_sA.q),'=',benRound3(_sO.q),'+',benRound3(_sC.q), '| Net Value', benRound3(_sA.v),'=',benRound3(_sO.v),'+',benRound3(_sC.v), _eqNum?'✅':'❌',
+                  '| RM FINAL cut rows', cutRows.stat.rmCutRows,'(partial',cutRows.stat.rmPartial,')');
+      if(!_eqCtry || !_eqNum){ if(typeof toast==='function') toast('⚠ ตรวจสมการ MAPPING = ORDER + CUT ไม่ตรง — ดู console','error'); }
+      if(_cutCtryTotal>0 || cutRows.rm.length>0){
+        const wb3 = XLSX.utils.book_new();
+        const summaryRows3=[]; const sheetOrder3=[];
+        Object.keys(cutRows.ctry).sort().forEach(ctr=>{
+          const rowsAll = cutRows.ctry[ctr];
+          const chunks=[]; let cur=[], curBills=new Set(), curChars=0;     // กติกาแบ่งชีตเดิม
+          for(const ro of rowsAll){
+            const wouldBills = curBills.has(ro.billing) ? curBills.size : curBills.size+1;
+            if(cur.length && (wouldBills>4 || (curChars + ro.descAll.length) > 800)){ chunks.push(cur); cur=[]; curBills=new Set(); curChars=0; }
+            cur.push(ro); curBills.add(ro.billing); curChars += ro.descAll.length;
+          }
+          if(cur.length) chunks.push(cur);
+          chunks.forEach((chunk, idx)=>{
+            const codeName  = (idx===0 ? ctr : ctr+'-'+(idx+1));
+            const sheetName = _benMapCountryName(codeName).substring(0,31);
+            const aoa = [OUT_HDR.slice()];
+            let tQ=0,tV=0,tQty=0,tNW=0,tGW=0,tFOB=0;
+            chunk.forEach(ro=>{
+              const finalMaterial = ro.pdfMatTrim || '';
+              const _engFinal = String(ro.eng||'').trim().toUpperCase();
+              const _descAll  = _engFinal ? (finalMaterial + '/ ' + _engFinal + '.' + ro.invQtyTxt + ' PCS.') : finalMaterial;
+              aoa.push([ ro.billing, ro.bdate, finalMaterial, ro.eng, numOrBlank(ro.invQty), numOrBlank(ro.netVal),
+                         _benMapCountryName(ro.country), ro.hsCode, numOrBlank(ro.qty), numOrBlank(ro.nw), numOrBlank(ro.gw),
+                         numOrBlank(ro.fob), _descAll, finalMaterial, ro.rrEntry||'', ro.rrItemNo||'' ]);
+              tQ+=sumNum(ro.invQty); tV+=sumNum(ro.netVal); tQty+=sumNum(ro.qty); tNW+=sumNum(ro.nw); tGW+=sumNum(ro.gw); tFOB+=sumNum(ro.fob);
+            });
+            aoa.push(['TOTAL','','','', benRound3(tQ), benRound3(tV), '', '', benRound3(tQty), benRound3(tNW), benRound3(tGW), benRound3(tFOB), '', '', '', '']);
+            const ws3 = XLSX.utils.aoa_to_sheet(aoa);
+            _benMapZ3Cols(ws3, [5,9,10,11], 1); _benMapZ0Cols(ws3, [4,8], 1);
+            ws3['!cols'] = [{wch:16},{wch:14},{wch:16},{wch:26},{wch:12},{wch:14},{wch:18},{wch:14},{wch:10},{wch:12},{wch:12},{wch:14},{wch:40},{wch:16},{wch:18},{wch:12}];
+            XLSX.utils.book_append_sheet(wb3, ws3, sheetName); sheetOrder3.push(sheetName);
+            summaryRows3.push({country:sheetName, items:chunk.length, invQty:tQ, netVal:tV, nw:tNW, gw:tGW, fob:tFOB});
+          });
+        });
+        const sumAoa3 = [['Country','Items','Total Invoiced Qty','Total Net Value (USD)','Total Net Weight','Total Gross Weight','Total FOB THB']];
+        let gI3=0,gQ3=0,gV3=0,gNW3=0,gGW3=0,gFOB3=0;
+        summaryRows3.forEach(s3=>{ sumAoa3.push([_benMapCountryName(s3.country), s3.items, benRound3(s3.invQty), benRound3(s3.netVal), benRound3(s3.nw), benRound3(s3.gw), benRound3(s3.fob)]);
+          gI3+=s3.items; gQ3+=s3.invQty; gV3+=s3.netVal; gNW3+=s3.nw; gGW3+=s3.gw; gFOB3+=s3.fob; });
+        sumAoa3.push(['GRAND TOTAL', gI3, benRound3(gQ3), benRound3(gV3), benRound3(gNW3), benRound3(gGW3), benRound3(gFOB3)]);
+        const sumWs3 = XLSX.utils.aoa_to_sheet(sumAoa3);
+        _benMapZ3Cols(sumWs3, [3,4,5,6], 1); _benMapZ0Cols(sumWs3, [2], 1);
+        sumWs3['!cols']=[{wch:16},{wch:8},{wch:18},{wch:20},{wch:18},{wch:18},{wch:16}];
+        XLSX.utils.book_append_sheet(wb3, sumWs3, 'SUMMARY');
+        // RM FINAL (CUT): เฉพาะแถว/ส่วนที่ถูกตัด · แถวผสม → ตัวเลขตามสัดส่วนส่วนที่ถูกตัด (Split เดิม) · โครงสร้างคอลัมน์ = ไฟล์ที่ 1
+        const rng3 = {s:{r:rng.s.r, c:rng.s.c}, e:{r:rng.e.r, c:rng.e.c}};
+        const rmFinalWs3 = {};
+        const _copyRow3=(srcR,dstR)=>{ for(let c=rng.s.c;c<=rng.e.c;c++){ const src=rmWs[XLSX.utils.encode_cell({r:srcR,c})]; if(src) rmFinalWs3[XLSX.utils.encode_cell({r:dstR,c})]=Object.assign({},src); } };
+        for(let r=rng3.s.r;r<=headerRow;r++) _copyRow3(r,r);
+        let _dr3=headerRow;
+        cutRows.rm.forEach(cr=>{
+          const shareCut = cr.parts.reduce((a,p)=>a+(Number(p.share)||0),0);
+          _dr3++; _copyRow3(cr.r,_dr3);
+          const _cell=c=>rmFinalWs3[XLSX.utils.encode_cell({r:_dr3,c})];
+          const _setS=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr3,c}); const ex=rmFinalWs3[ref]; if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs3[ref]={t:'s',v:val}; };
+          const _setN=(c,val)=>{ if(c<0) return; const ref=XLSX.utils.encode_cell({r:_dr3,c}); const ex=rmFinalWs3[ref]; if(ex){ ex.t='n'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmFinalWs3[ref]={t:'n',v:val}; };
+          _setS(cExtra0+0,cr.st.status); _setS(cExtra0+1,cr.st.src); _setS(cExtra0+2,cr.st.mBill); _setS(cExtra0+3,cr.st.mQty); _setS(cExtra0+4,cr.st.mNet);
+          if(cCtry>=0){ const _cv=(_cell(cCtry)||{}).v; if(String(_cv==null?'':_cv).trim()!=='') _setS(cCtry,_benMapCountryName(_cv)); }
+          if(cr.partial && Math.abs(shareCut-1)>1e-9){ [cQty,cNetVal,cNetWt].forEach(c=>{ const cl=_cell(c); if(cl!=null && cl.v!=null && cl.v!=='') _setN(c, benRound3(_benMapNum(cl.v)*shareCut)); }); }
+          _setS(cEntryF, cr.parts.map(p=>String(p.entry||'')).join(' | ')); _setS(cItemNoF, cr.parts.map(p=>String(p.itemNo||'')).join(' | '));
+        });
+        rng3.e.r=_dr3;
+        if(rmWs['!cols']) rmFinalWs3['!cols'] = rmWs['!cols'].slice();
+        rmFinalWs3['!ref'] = XLSX.utils.encode_range(rng3);
+        _benMapZ3Existing(rmFinalWs3);
+        wb3.Sheets['RM FINAL']=rmFinalWs3; wb3.SheetNames.push('RM FINAL');
+        wb3.SheetNames = ['SUMMARY', ...sheetOrder3, 'RM FINAL'].filter(n=>wb3.SheetNames.includes(n));
+        const outArr3 = XLSX.write(wb3,{bookType:'xlsx',type:'array',cellStyles:true});
+        benMappingState.cutExport = { name:_invNo+' MAPPING ตัดออกจาก ORDER.xlsx', arr:outArr3, ctryRows:_cutCtryTotal, rmRows:cutRows.rm.length, rmPartial:cutRows.stat.rmPartial,
+                                      mapping:_cutStat.ctryBefore, order:_cutStat.ctryAfter, eq:(_eqCtry&&_eqNum) };
+      } else {
+        benMappingState.cutExport = { name:'', arr:null, ctryRows:0, rmRows:0, rmPartial:0, mapping:_cutStat.ctryBefore, order:_cutStat.ctryAfter, eq:_eqCtry&&_eqNum };
+      }
+      const _cutBtn=document.getElementById('mappingCutExportBtn-ben');
+      if(_cutBtn){ _cutBtn.disabled=false; _cutBtn.style.opacity='1'; _cutBtn.style.cursor='pointer'; _cutBtn.style.color='var(--t1)'; }
+    }
     // -- ZIP: 2 Excel เท่านั้น --
     if(typeof JSZip==='undefined'){ if(typeof toast==='function') toast('JSZip ยังไม่โหลด — refresh หน้าใหม่','error'); return; }
     const _zip=new JSZip();
@@ -14363,6 +14470,19 @@ async function benExportMappingCombined(){
   }
 }
 // round to 3 dp, drop trailing zeros, return number (or '' for 0-from-blank handled by caller)
+// ADDITIVE (V.300 · งาน 6): ปุ่ม EXPORT MAPPING ตัดออกจาก ORDER — ดาวน์โหลด Workbook ที่สร้างไว้ตอน EXPORT รวมไฟล์ (ไม่คำนวณใหม่ · ไม่แตะไฟล์ 1/2)
+function benExportMappingCutFromOrder(){
+  const ce = (typeof benMappingState!=='undefined') ? benMappingState.cutExport : null;
+  const _t=(m,ty)=>{ if(typeof toast==='function') toast(m,ty); else alert(m); };
+  if(ce===null || ce===undefined){ _t('กรุณากด EXPORT รวมไฟล์ ก่อน แล้วจึง EXPORT MAPPING ตัดออกจาก ORDER','warning'); return; }
+  if(!ce.arr || (ce.ctryRows===0 && ce.rmRows===0)){ _t('ไม่มีรายการ MAPPING ที่ถูกตัดออกจาก ORDER (MAPPING '+ce.mapping+' = ORDER '+ce.order+')','info'); return; }
+  const blob=new Blob([ce.arr],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=ce.name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  _t('EXPORT MAPPING ตัดออกจาก ORDER — '+ce.name+' · Country '+ce.ctryRows+' แถว · RM FINAL '+ce.rmRows+' แถว (แถวผสม '+ce.rmPartial+') · MAPPING '+ce.mapping+' = ORDER '+ce.order+' + CUT '+ce.ctryRows+(ce.eq?' ✅':' ⚠'),'success');
+}
 function benRound3(n){ const x=Math.round((Number(n)||0)*1000)/1000; return x; }
 
 </script>
