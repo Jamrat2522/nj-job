@@ -4461,7 +4461,7 @@ async function parsePklPdfID(file){
       const engineRaw=mid.slice(-2).join(' ');    // e.g. "BFWS TAT30917"
       const color=mid.slice(0,-2).join(' ');      // ⭐ COLOR ตามต้นฉบับ ห้ามแก้
       if(blk) blk.count++;
-      rows.push({pklNo:pkl,pcv:pcvCur,vinRaw,vin:normVinKey(vinRaw),engine:engineRaw.toUpperCase().replace(/[^A-Z0-9]/g,''),color,_seq:seq++});
+      rows.push({pklNo:pkl,pcv:pcvCur,vinRaw,vin:normVinKey(vinRaw),engineRaw,engine:engineRaw.toUpperCase().replace(/[^A-Z0-9]/g,''),color,_seq:seq++});   // ⭐ engineRaw = ตาม PL รวมช่องว่าง (แสดง/Export) · engine = normalize (Match เท่านั้น)
     }
   }
   try{doc.destroy();}catch(e){}
@@ -4560,7 +4560,7 @@ function recompute_ID(){
       'MODEL CODE ':             inv?inv.pcv:'',
       'MANUFACTURER YEAR':       _yearFromInvDateID(meta.invDate),
       'VIN NO':                  b.vinRaw,                             // ⭐ Export คงข้อความต้นฉบับ
-      'ENGINENO':                b.engineRaw,
+      'ENGINENO':                pkl?(pkl.engineRaw||b.engineRaw):b.engineRaw,   // ⭐ ตาม PL แถว VIN เดียวกัน รวมช่องว่าง (เช่น BFWS TAP55711) · Matching ไม่เปลี่ยน
       '  COLOR':                 pkl?(pkl.color||''):'',               // ⭐ จาก PKL เท่านั้น
       'ปริมาณ (Invoice)':        b.qty,
       'น้ำหนักสุทธิ':            b.netWt,
@@ -4571,6 +4571,7 @@ function recompute_ID(){
       'ชื่อภาษาอังกฤษ':          cost?cost.prodEng:'',
       'พิกัด':                   hsDigits?hsDigits.slice(0,8):'',      // 8 หลัก ตัดจุด
       'RVC':                     cost?cost.rvc:'',
+      'VIN NO + ENGINENO + COLOR': String(b.vinRaw||'')+' '+String(pkl?(pkl.engineRaw||b.engineRaw):b.engineRaw||'')+' '+String(pkl?(pkl.color||''):''),   // ⭐ คอลัมน์ 21: รถคันเดียวกัน คั่นช่องว่าง (ไม่ collapse)
       'VISTA':                   meta.vista||'',
       '_mkt':                    cost?(cost.mkt||''):'',               // INTERNAL: สำหรับ EXPORT FORM ID
       '_tariff':                 cost?(cost.tariff||''):'',            // INTERNAL: สำหรับ EXPORT FORM ID
@@ -4783,9 +4784,9 @@ function exportFormID(){
 }
 
 // ── Export ตาม Template "EXCL ข้อมูลแมนนวล" (20 คอลัมน์, 1 Sheet/Invoice, header เหลือง, เส้นขอบ thin) ──
-const ID_COLS=['เลขที่อินวอยซ์','ลำดับรายการในอินวอยซ์','ต้นทุน','ชื่อสินค้าภาษาอังกฤษ','ชื่อสินค้าภาษาอังกฤษ 1','HS','MODEL CODE ','MANUFACTURER YEAR','VIN NO','ENGINENO','  COLOR','ปริมาณ (Invoice)','น้ำหนักสุทธิ','FOB (เงินต่างประเทศ)','FOB (เงินบาท)','ต้นทุน','วันที่ต้นทุน','ชื่อภาษาอังกฤษ','พิกัด','RVC'];
-const ID_COL_KEYS=['เลขที่อินวอยซ์','ลำดับรายการในอินวอยซ์','ต้นทุน','ชื่อสินค้าภาษาอังกฤษ','ชื่อสินค้าภาษาอังกฤษ 1','HS','MODEL CODE ','MANUFACTURER YEAR','VIN NO','ENGINENO','  COLOR','ปริมาณ (Invoice)','น้ำหนักสุทธิ','FOB (เงินต่างประเทศ)','FOB (เงินบาท)','ต้นทุน ','วันที่ต้นทุน','ชื่อภาษาอังกฤษ','พิกัด','RVC'];
-const ID_COL_WIDTHS=[12.66,21.33,12.66,20.66,64.0,12.66,20.89,10,20.89,13.89,20.89,14.66,10.89,18.66,12.78,12.22,10.11,49.78,11.0,9.0];
+const ID_COLS=['เลขที่อินวอยซ์','ลำดับรายการในอินวอยซ์','ต้นทุน','ชื่อสินค้าภาษาอังกฤษ','ชื่อสินค้าภาษาอังกฤษ 1','HS','MODEL CODE ','MANUFACTURER YEAR','VIN NO','ENGINENO','  COLOR','ปริมาณ (Invoice)','น้ำหนักสุทธิ','FOB (เงินต่างประเทศ)','FOB (เงินบาท)','ต้นทุน','วันที่ต้นทุน','ชื่อภาษาอังกฤษ','พิกัด','RVC','VIN NO + ENGINENO + COLOR'];   // ⭐ 21 คอลัมน์
+const ID_COL_KEYS=['เลขที่อินวอยซ์','ลำดับรายการในอินวอยซ์','ต้นทุน','ชื่อสินค้าภาษาอังกฤษ','ชื่อสินค้าภาษาอังกฤษ 1','HS','MODEL CODE ','MANUFACTURER YEAR','VIN NO','ENGINENO','  COLOR','ปริมาณ (Invoice)','น้ำหนักสุทธิ','FOB (เงินต่างประเทศ)','FOB (เงินบาท)','ต้นทุน ','วันที่ต้นทุน','ชื่อภาษาอังกฤษ','พิกัด','RVC','VIN NO + ENGINENO + COLOR'];
+const ID_COL_WIDTHS=[12.66,21.33,12.66,20.66,64.0,12.66,20.89,10,20.89,13.89,20.89,14.66,10.89,18.66,12.78,12.22,10.11,49.78,11.0,9.0,52.0];
 function doExportXLSX_ID(){
   if(!requireXLSX())return;
   if(!Number(SID.usd)){toast('กรุณากรอก USD Rate','error');return;}
