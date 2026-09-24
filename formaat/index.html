@@ -1546,6 +1546,59 @@ function buildInvPdfMapPH(items){
   });
   return map;
 }
+// ── 🇵🇭 Parse Excel ข้อ ④ (PH): VIN NO → พิกัด เท่านั้น (ไม่ดึง FOB/Field อื่น) ──
+//    ค้นหา Header จากชื่อจริง ห้าม fix แถว/คอลัมน์ | พิกัดคงเป็น String ตามต้นฉบับ (เลข 0 นำหน้าคงอยู่)
+//    Validation: ไม่พบ VIN NO / ไม่พบ พิกัด → throw | VIN ว่าง → ข้าม | พิกัดว่าง → hs:'' | VIN ซ้ำพิกัดต่าง → throw Conflict
+function _normHdrPH(v){ return String(v??'').replace(/[\n\r]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase(); }
+async function parseInvXlsxPH(file){
+  const wb = await readWB(file);
+  const items = [];
+  let foundVin=false, foundHs=false, foundAny=false;
+  const seen = new Map();          // vin → hs (ตรวจ conflict ภายในไฟล์)
+  const conflicts = [];
+  for(const sn of wb.SheetNames){
+    const ws = wb.Sheets[sn]; if(!ws) continue;
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});   // raw:false → ข้อความตามที่แสดง คงเลข 0 นำหน้า
+    let hdrIdx=-1, ciVin=-1, ciHs=-1;
+    for(let i=0;i<Math.min(aoa.length,50);i++){
+      const hdr=(aoa[i]||[]).map(_normHdrPH);
+      const iv=hdr.findIndex(h=>h==='VIN NO');
+      const ih=hdr.findIndex(h=>h==='พิกัด');
+      if(iv>=0) foundVin=true;
+      if(ih>=0) foundHs=true;
+      if(iv>=0 && ih>=0){ hdrIdx=i; ciVin=iv; ciHs=ih; break; }
+    }
+    if(hdrIdx<0) continue;
+    foundAny=true;
+    for(let i=hdrIdx+1;i<aoa.length;i++){
+      const row=aoa[i]; if(!row||!row.length) continue;
+      const vinRaw=String(row[ciVin]??'').trim();
+      if(!vinRaw) continue;                                   // VIN ว่าง → ข้ามแถว
+      const vin=normVinKey(vinRaw);
+      if(!vin) continue;
+      const hs=String(row[ciHs]??'').trim();                  // คง String ห้ามแปลง Number
+      if(seen.has(vin)){
+        const prev=seen.get(vin);
+        if(prev && hs && prev!==hs) conflicts.push(`${vin}: ${prev} ≠ ${hs}`);
+        else if(!prev && hs) seen.set(vin, hs);
+        continue;
+      }
+      seen.set(vin, hs);
+      items.push({invNo:'', vin, hs, pricePHP:null, src:'xlsx'});
+    }
+  }
+  if(!foundAny){
+    if(!foundVin && !foundHs) throw new Error(`❌ ${file.name}: ไม่พบหัวข้อ "VIN NO" และ "พิกัด" ในไฟล์ Excel`);
+    if(!foundVin) throw new Error(`❌ ${file.name}: ไม่พบหัวข้อ "VIN NO" ในไฟล์ Excel`);
+    throw new Error(`❌ ${file.name}: ไม่พบหัวข้อ "พิกัด" ในไฟล์ Excel`);
+  }
+  if(conflicts.length){
+    throw new Error(`❌ ${file.name}: VIN ซ้ำแต่พิกัดต่างกัน (${conflicts.length}) — กรุณาแก้ไฟล์ก่อน\n`+conflicts.slice(0,10).join('\n'));
+  }
+  // sync hs หลัง resolve (กรณี VIN ซ้ำ แถวแรกพิกัดว่าง แถวหลังมีค่า)
+  items.forEach(it=>{ it.hs = seen.get(it.vin) || ''; });
+  return items;
+}
 
 const SVN = {
   tab:'upload',
@@ -2450,16 +2503,48 @@ async function procFiles_PH(files, type){
   try{
     // ⭐ INV PDF (HS Code + Amount PHP ต่อ VIN) — parse PDF ไม่ผ่าน readWB
     if(type==='inv_pdf'){
+      // ⭐ ข้อ ④ รองรับ .pdf (Flow เดิม) + .xlsx (VIN NO → พิกัด เท่านั้น)
+      const pdfFiles  = files.filter(f=>/\.pdf$/i.test(f.name));
+      const xlsxFiles = files.filter(f=>/\.xlsx$/i.test(f.name));
       const all=[];
-      for(const f of files){ all.push(...await parseInvPdfPH(f)); }
+      for(const f of pdfFiles){ all.push(...await parseInvPdfPH(f)); }
+      const xlsxItems=[];
+      for(const f of xlsxFiles){ xlsxItems.push(...await parseInvXlsxPH(f)); }
+      // ⭐ Conflict ข้ามไฟล์ Excel: VIN ซ้ำแต่พิกัดต่างกัน → แจ้ง ห้ามเลือกค่าเอง
+      const xMap={}; const xConf=[];
+      xlsxItems.forEach(it=>{
+        if(!(it.vin in xMap)){ xMap[it.vin]=it.hs; return; }
+        if(xMap[it.vin] && it.hs && xMap[it.vin]!==it.hs) xConf.push(`${it.vin}: ${xMap[it.vin]} ≠ ${it.hs}`);
+        else if(!xMap[it.vin] && it.hs) xMap[it.vin]=it.hs;
+      });
+      if(xConf.length) throw new Error(`❌ Excel หลายไฟล์: VIN ซ้ำแต่พิกัดต่างกัน (${xConf.length})\n`+xConf.slice(0,10).join('\n'));
       SPH.invPdfFiles=[...files];
-      SPH.invPdfItems=all;
-      SPH.invPdfMap=buildInvPdfMapPH(all);
-      if(!all.length){ toast('⚠️ อ่าน INV PDF แล้วแต่ไม่พบรายการ VIN','error'); }
+      SPH.invPdfMap=buildInvPdfMapPH(all);            // PDF เดิม 100%
+      if(!xlsxFiles.length){
+        // ── PDF เท่านั้น: Flow/ข้อความเดิมทุกประการ ──
+        SPH.invPdfItems=all;
+        if(!all.length){ toast('⚠️ อ่าน INV PDF แล้วแต่ไม่พบรายการ VIN','error'); }
+        else{
+          const noHs=all.filter(i=>!i.hs);
+          toast(`✅ INV PDF อ่านสำเร็จ: ${all.length} VIN | HS ครบ ${all.length-noHs.length}`,'success');
+          noHs.slice(0,5).forEach(i=>toast('ไม่พบ HS Code ใน INV PDF: '+i.vin,'error'));
+        }
+        recompute_PH();
+        SPH.mapLoading=false;R();return;
+      }
+      // ── มี Excel: Priority Excel VIN NO → พิกัด ทับ hs ต่อ VIN (ไม่แตะ pricePHP/invNo จาก PDF) ──
+      SPH.invPdfItems=[...all, ...xlsxItems.filter(it=>!all.some(p=>p.vin===it.vin))];
+      Object.keys(xMap).forEach(vin=>{
+        if(!SPH.invPdfMap[vin]) SPH.invPdfMap[vin]={ hs:'', pricePHP:null, invNo:'' };
+        SPH.invPdfMap[vin].hs = xMap[vin];
+      });
+      const srcLbl = pdfFiles.length ? 'INV PDF/Excel' : 'Excel (VIN NO → พิกัด)';
+      const totalVin=Object.keys(SPH.invPdfMap).length;
+      if(!totalVin){ toast(`⚠️ อ่าน ${srcLbl} แล้วแต่ไม่พบรายการ VIN`,'error'); }
       else{
-        const noHs=all.filter(i=>!i.hs);
-        toast(`✅ INV PDF อ่านสำเร็จ: ${all.length} VIN | HS ครบ ${all.length-noHs.length}`,'success');
-        noHs.slice(0,5).forEach(i=>toast('ไม่พบ HS Code ใน INV PDF: '+i.vin,'error'));
+        const noHs=Object.entries(SPH.invPdfMap).filter(([,v])=>!v.hs).map(([k])=>k);
+        toast(`✅ ${srcLbl} อ่านสำเร็จ: ${totalVin} VIN | HS ครบ ${totalVin-noHs.length}`,'success');
+        noHs.slice(0,5).forEach(v=>toast(`ไม่พบ HS Code ใน ${srcLbl}: `+v,'error'));
       }
       recompute_PH();
       SPH.mapLoading=false;R();return;
@@ -2540,7 +2625,7 @@ async function removeBaikhon_PH(idx){
 function validateBeforeExport_PH(){
   const issues=[];
   const hasPdf = SPH.invPdfMap && Object.keys(SPH.invPdfMap).length>0;
-  if(!hasPdf) issues.push('⚠️ ยังไม่ได้อัปโหลด INV PDF — HS Code จะว่าง และ Amount 3RD (PHP) ใช้ค่าจาก Spreadsheet');
+  if(!hasPdf) issues.push('⚠️ ยังไม่ได้อัปโหลด INV PDF / Excel (VIN NO → พิกัด) — HS Code จะว่าง และ Amount 3RD (PHP) ใช้ค่าจาก Spreadsheet');
   const cIdx = buildCostIdxPH(SPH.masterRows);
   SPH.report.forEach(r=>{
     const vista=r['VISTA Entity Code']||'';
@@ -2548,7 +2633,7 @@ function validateBeforeExport_PH(){
     else if(!lookupCostPH(cIdx, vista, r['QAD Description'])){
       issues.push(`❌ ไม่พบต้นทุน: VIN ${r.VIN} / VISTA ${vista}`);
     }
-    if(hasPdf && !r['HS Code']) issues.push(`❌ ไม่พบ HS Code ใน INV PDF: ${r.VIN}`);
+    if(hasPdf && !r['HS Code']) issues.push(`❌ ไม่พบ HS Code ใน INV PDF / Excel: ${r.VIN}`);
   });
   const totalPHP = SPH.report.reduce((a,r)=>a+(Number(r['Amount 3RD ( PHP )'])||0),0);
   const totalTH  = SPH.report.reduce((a,r)=>a+(Number(r['Amount TH ( THB )'])||0),0);
@@ -4324,11 +4409,18 @@ async function parseInvPdfID(file){
 }
 
 // ── Parse PKL PDF (ID): Packing List no + PCV# + แถว VIN/COLOR/Engine (COLOR ตามต้นฉบับเป๊ะ) ──
+//    ⭐ PCV# ควบคุม VIN ใต้ Block ของตัวเองจนเจอ PCV# ถัดไป (เดินบรรทัดตามลำดับ, คงค่าข้ามหน้าใน PL เดียวกัน)
+//    ⭐ Validation: จำนวน VIN ใต้แต่ละ PCV# = Quantity | Σ VIN ทุก PCV = Total Units → ไม่ตรงเก็บใน issues (ไม่เติม/ไม่ตัด VIN)
+//    ⭐ row._seq = ลำดับที่ปรากฏใน PDF (PCV ตาม PDF → VIN ตาม PDF) ใช้จัดลำดับเท่านั้น ห้ามใช้ Match
 async function parsePklPdfID(file){
   const pdfjs=await _ensurePdfJs();
   const buf=await file.arrayBuffer();
   const doc=await pdfjs.getDocument({data:buf}).promise;
   const rows=[];
+  const issues=[];
+  const blocks=[];                 // {pklNo,pcv,qty,count} ตามลำดับที่ปรากฏ
+  const totals={};                 // pklNo → Total Units ที่ระบุใน PDF
+  let pcvCur='',pklCur='',seq=0,blk=null;
   for(let p=1;p<=doc.numPages;p++){
     const page=await doc.getPage(p);
     const tc=await page.getTextContent();
@@ -4342,12 +4434,19 @@ async function parsePklPdfID(file){
     const lines=Array.from(lineMap.entries()).sort((a,b)=>b[0]-a[0])
       .map(([,seg])=>seg.sort((a,b)=>a.x-b.x).map(sg=>sg.str).join(' ').replace(/\s+/g,' ').trim())
       .filter(Boolean);
-    let pklNo='',pcv='';
+    let pklNo='';
     for(const ln of lines){
       if(!pklNo){const m=ln.match(/Packing List\s+(\d{6,})/);if(m)pklNo=m[1];}
-      if(!pcv){const m=ln.match(/^PCV#?\s+([A-Za-z0-9]{6,})/);if(m)pcv=m[1];}
     }
+    // ⭐ เลข Packing List เปลี่ยน (PL ใหม่ในไฟล์เดียวกัน) → reset PCV ปัจจุบัน
+    if(pklNo && pklNo!==pklCur){ pklCur=pklNo; pcvCur=''; blk=null; }
+    const pkl = pklNo || pklCur;
     for(const ln of lines){
+      let m;
+      // ⭐ PCV# ใหม่ → เปลี่ยน Block ปัจจุบัน (VIN ถัดจากนี้ทั้งหมดเป็นของ PCV นี้จนเจอ PCV# ถัดไป)
+      if((m=ln.match(/^PCV#?\s+([A-Za-z0-9]{6,})/))){ pcvCur=m[1]; blk={pklNo:pkl,pcv:pcvCur,qty:null,count:0}; blocks.push(blk); continue; }
+      if((m=ln.match(/^Quantity\s+(\d+)\b/i))){ if(blk && blk.qty==null) blk.qty=Number(m[1]); continue; }
+      if((m=ln.match(/^Total Units:?\s*(\d+)\b/i))){ if(pkl && totals[pkl]==null) totals[pkl]=Number(m[1]); continue; }
       // " 1 MNBXWPR70TAT30917 ABSOLUTE BLACK BFWS TAT30917 2,542 5,604.151 668 18.912"
       const toks=ln.split(/\s+/);
       if(toks.length<8)continue;
@@ -4361,10 +4460,21 @@ async function parsePklPdfID(file){
       if(mid.length<3)continue;
       const engineRaw=mid.slice(-2).join(' ');    // e.g. "BFWS TAT30917"
       const color=mid.slice(0,-2).join(' ');      // ⭐ COLOR ตามต้นฉบับ ห้ามแก้
-      rows.push({pklNo,pcv,vinRaw,vin:normVinKey(vinRaw),engine:engineRaw.toUpperCase().replace(/[^A-Z0-9]/g,''),color});
+      if(blk) blk.count++;
+      rows.push({pklNo:pkl,pcv:pcvCur,vinRaw,vin:normVinKey(vinRaw),engine:engineRaw.toUpperCase().replace(/[^A-Z0-9]/g,''),color,_seq:seq++});
     }
   }
   try{doc.destroy();}catch(e){}
+  // ⭐ Validation ต่อ PCV: จำนวน VIN ที่อ่านได้ ≠ Quantity ที่ระบุ
+  blocks.forEach(b=>{
+    if(b.qty!=null && b.qty!==b.count) issues.push(`Packing List ${b.pklNo} | PCV# ${b.pcv} | Quantity ระบุ ${b.qty} | อ่าน VIN ได้ ${b.count}`);
+  });
+  // ⭐ Validation ต่อ PL: Σ VIN ทุก PCV ≠ Total Units
+  Object.entries(totals).forEach(([pk,tot])=>{
+    const cnt=rows.filter(r=>r.pklNo===pk).length;
+    if(tot!==cnt) issues.push(`Packing List ${pk} | Total Units ระบุ ${tot} | อ่าน VIN ได้ ${cnt}`);
+  });
+  rows._issues=issues;
   return rows;
 }
 
@@ -4466,6 +4576,15 @@ function recompute_ID(){
       '_tariff':                 cost?(cost.tariff||''):'',            // INTERNAL: สำหรับ EXPORT FORM ID
     };
   });
+  // ⭐ จัดลำดับตาม PKL PDF: Packing List เลขน้อย→มาก → PCV ตาม PDF → VIN ตาม PDF (ใช้ _ord ของ PKL ที่ Match ได้)
+  //    แถวที่ไม่พบใน PKL → ต่อท้าย คงลำดับใบขนเดิม (noPkl บล็อก Export อยู่แล้ว) · ค่าคอลัมน์ทุกตัวไม่เปลี่ยน
+  rows.forEach((r,i)=>{r._bkIdx=i;});
+  rows.sort((a,b)=>{
+    const ao=a._pkl&&typeof a._pkl._ord==='number'?a._pkl._ord:Infinity;
+    const bo=b._pkl&&typeof b._pkl._ord==='number'?b._pkl._ord:Infinity;
+    if(ao!==bo) return ao<bo?-1:1;
+    return a._bkIdx-b._bkIdx;
+  });
   SID.rows=rows;
   // ⭐ แยก 1 Sheet ต่อ 1 Commercial Invoice — รักษาลำดับตามใบขน
   rows.forEach(r=>{
@@ -4506,11 +4625,20 @@ async function procFiles_ID(files,type){
       recompute_ID();SID.mapLoading=false;R();return;
     }
     if(type==='pkl_pdf'){
-      const all=[];
-      for(const f of files){all.push(...await parsePklPdfID(f));}
+      const all=[];const issues=[];
+      for(const f of files){const rs=await parsePklPdfID(f);all.push(...rs);issues.push(...(rs._issues||[]));}
+      // ⭐ _ord = ลำดับสำหรับ Sort เท่านั้น: Packing List เลขน้อย→มาก → PCV ตาม PDF → VIN ตาม PDF (ไม่ใช้ชื่อไฟล์/ลำดับ Upload)
+      //    ห้ามใช้ _ord เป็น Key Match — Matching ยังเป็น VIN → Engine fallback ใน recompute_ID เดิม
+      const pklOrder=[...new Set(all.map(r=>r.pklNo))].sort((a,b)=>(Number(a)||0)-(Number(b)||0)||String(a).localeCompare(String(b)));
+      const pklRank={};pklOrder.forEach((k,i)=>pklRank[k]=i);
+      all.forEach((r,i)=>{r._fileIdx=i;});
+      all.sort((a,b)=>(pklRank[a.pklNo]-pklRank[b.pklNo])||(a._fileIdx-b._fileIdx));
+      all.forEach((r,i)=>{r._ord=i;});
+      all._issues=issues;                       // ⭐ เก็บผลตรวจ Quantity/Total Units ไว้กับชุดข้อมูล (ล้างพร้อม pklRows)
       SID.pklPdfFiles=[...files];SID.pklRows=all;
       const pkls=new Set(all.map(r=>r.pklNo));
       toast(`✅ PKL PDF อ่านสำเร็จ: ${pkls.size} Packing List | ${all.length} VIN`,'success');
+      issues.slice(0,10).forEach(v=>toast('❌ PKL ไม่ครบ: '+v,'error'));
       recompute_ID();SID.mapLoading=false;R();return;
     }
     const books=await Promise.all(files.map(readWB));
@@ -4571,6 +4699,7 @@ function validateBeforeExport_ID(){
   // ⭐ ตรวจสอบครบเหมือนเดิมทุกข้อ (INV/PKL/COLOR/VISTA/ต้นทุน/ยอดเงิน/VIN ซ้ำ) — ไม่มี Dialog/Confirm
   const errs=[];
   if(st.dupVin>0)errs.push(`❌ VIN ซ้ำ ${st.dupVin} รายการ`);
+  (SID.pklRows&&SID.pklRows._issues||[]).slice(0,10).forEach(v=>errs.push('❌ PKL ไม่ครบ (Quantity/Total Units ≠ VIN ที่อ่านได้): '+v));   // ⭐ บล็อก Export
   st.noPkl.slice(0,10).forEach(v=>errs.push('❌ VIN ในใบขนไม่พบใน PKL PDF: '+v));
   st.noColor.slice(0,10).forEach(v=>errs.push('❌ ไม่พบ COLOR ใน PKL: '+v));
   st.noInv.slice(0,10).forEach(v=>errs.push('❌ ไม่พบรายการใน INV PDF: '+v));
@@ -5275,25 +5404,25 @@ function uploadTabPH(){
   if(hasCost){ctCard.appendChild(mkPillPH(SPH.cFiles[0].name,()=>{SPH.cFiles=[];SPH.masterRows=[];SPH.masterSaved=false;recompute_PH();R()}));}
   grid3.appendChild(ctCard);
 
-  // ── Card 4: 📕 INV PDF (HS Code + Amount PHP) ──
+  // ── Card 4: 📕 INV PDF (HS Code + Amount PHP) หรือ Excel (VIN NO → พิกัด) ──
   const hasPdfPH=SPH.invPdfFiles.length>0;
   const pdfCard=mkCardPH(hasPdfPH);
   const pdfTR=d('',[], {display:'flex',alignItems:'center',gap:'5px'});
   pdfTR.appendChild(t('📕',{fontSize:'15px'}));
-  pdfTR.appendChild(t('INV PDF - HS Code และยอด PHP',{color:hasPdfPH?'#f59e0b':'#f1f5f9',fontWeight:'700',fontSize:'13px',flex:'1'}));
+  pdfTR.appendChild(t('INV PDF / Excel - HS Code และยอด PHP',{color:hasPdfPH?'#f59e0b':'#f1f5f9',fontWeight:'700',fontSize:'13px',flex:'1'}));
   if(hasPdfPH){
     const badge=d('',[], {background:'rgba(245,158,11,0.2)',borderRadius:'20px',padding:'2px 8px'});
     badge.appendChild(t(SPH.invPdfItems.length+' VIN',{color:'#f59e0b',fontSize:'10px',fontWeight:'600'}));
     pdfTR.appendChild(badge);
   }
   pdfCard.appendChild(pdfTR);
-  pdfCard.appendChild(t('VIN → HS Code (คงจุด) + Amount 3RD (PHP) ต้นฉบับ',{color:'#64748b',fontSize:'9px'}));
-  const pdfZone=mkZonePH(hasPdfPH?'✅':'📕',hasPdfPH?'อ่านไฟล์สำเร็จ':'วาง INV PDF ที่นี่','.pdf หลายไฟล์ได้',hasPdfPH);
-  const pdfInp=document.createElement('input');pdfInp.type='file';pdfInp.accept='.pdf';pdfInp.multiple=true;pdfInp.style.display='none';
+  pdfCard.appendChild(t('PDF: VIN → HS Code (คงจุด) + Amount 3RD (PHP) ต้นฉบับ | Excel: VIN NO → พิกัด → HS Code',{color:'#64748b',fontSize:'9px'}));
+  const pdfZone=mkZonePH(hasPdfPH?'✅':'📕',hasPdfPH?'อ่านไฟล์สำเร็จ':'วาง INV PDF หรือ Excel ที่นี่','.pdf / .xlsx หลายไฟล์ได้',hasPdfPH);
+  const pdfInp=document.createElement('input');pdfInp.type='file';pdfInp.accept='.pdf,.xlsx';pdfInp.multiple=true;pdfInp.style.display='none';
   pdfInp.onchange=e=>procFiles_PH(Array.from(e.target.files),'inv_pdf');
   pdfZone.ondragover=e=>{e.preventDefault();pdfZone.classList.add('drag')};
   pdfZone.ondragleave=()=>pdfZone.classList.remove('drag');
-  pdfZone.ondrop=e=>{e.preventDefault();pdfZone.classList.remove('drag');procFiles_PH(Array.from(e.dataTransfer.files).filter(f=>/\.pdf$/i.test(f.name)),'inv_pdf')};
+  pdfZone.ondrop=e=>{e.preventDefault();pdfZone.classList.remove('drag');procFiles_PH(Array.from(e.dataTransfer.files).filter(f=>/\.(pdf|xlsx)$/i.test(f.name)),'inv_pdf')};
   pdfZone.onclick=()=>pdfInp.click();pdfZone.appendChild(pdfInp);pdfCard.appendChild(pdfZone);
   if(hasPdfPH){
     const fl=d('',[], {display:'flex',flexDirection:'column',gap:'4px'});
