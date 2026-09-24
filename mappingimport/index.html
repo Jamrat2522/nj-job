@@ -825,6 +825,10 @@ body.legacy-active .content-area { display: none !important; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       <span class="label">TYPE D AKO</span>
     </a>
+    <a class="sb-item" data-nav="type_d_ieat" onclick="switchCustomer('type_d_ieat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h4a4 4 0 0 1 0 10H7z"/><line x1="7" y1="7" x2="7" y2="17"/></svg>
+      <span class="label">TYPE D IEAT</span>
+    </a>
     <a class="sb-item" data-nav="sch_pdf" onclick="switchCustomer('sch_pdf')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       <span class="label">FZ AKO 2</span>
@@ -1272,6 +1276,39 @@ body.legacy-active .content-area { display: none !important; }
   </div>
   <div class="doa-panel" id="tda-result" style="display:none"></div>
 </div><!-- /tda-view -->
+
+<!-- ══ TYPE D IEAT — โหมด Standalone · prefix tdi · ไม่เกี่ยวกับโหมดอื่น ══ -->
+<div class="doa-view" id="tdi-view">
+  <div class="doa-panel">
+    <h2>🧾 TYPE D IEAT — INVOICE PDF + PK + MASTER → MAPPING (A:AI)</h2>
+    <div class="doa-uploads tdi-grid">
+      <label class="doa-drop" id="tdi-pdf-drop">
+        <div class="dico">📄</div><div class="dlabel">1. INVOICE PDF</div>
+        <div class="dhint">Schaeffler Tax Invoice — เลือกได้หลายไฟล์ · แยกข้อมูลตาม Invoice</div>
+        <div class="doa-file-list" id="tdi-pdf-list"></div>
+        <input type="file" id="tdi-pdf-input" accept=".pdf" multiple/>
+      </label>
+      <label class="doa-drop" id="tdi-pk-drop">
+        <div class="dico">📦</div><div class="dlabel">2. PK (.xls/.xlsx)</div>
+        <div class="dhint">Packing List — Shipping Mark / Total Pkgs / Total Weight</div>
+        <div class="doa-file-list" id="tdi-pk-list"></div>
+        <input type="file" id="tdi-pk-input" accept=".xls,.xlsx,.xlsm"/>
+      </label>
+      <label class="doa-drop" id="tdi-ms-drop">
+        <div class="dico">📚</div><div class="dlabel">3. MASTER FILE (.xlsx)</div>
+        <div class="dhint">MASTER SCHAEFFLER — TH Description / HS code / Brand / Stat. code</div>
+        <div class="doa-file-list" id="tdi-ms-list"></div>
+        <input type="file" id="tdi-ms-input" accept=".xlsx,.xlsm"/>
+      </label>
+    </div>
+    <div class="doa-row-actions">
+      <button class="btn btn-success" id="tdi-btn-export" onclick="tdiExport()" disabled>⬇ EXPORT</button>
+      <button class="btn btn-ghost" onclick="tdiReset()">รีเซ็ต</button>
+    </div>
+    <div class="doa-status" id="tdi-status" style="margin-top:6px">รอไฟล์ — ต้องอัปโหลด INVOICE PDF + PK + MASTER FILE</div>
+  </div>
+  <div class="doa-panel" id="tdi-result" style="display:none"></div>
+</div><!-- /tdi-view -->
 
 <!-- ══════════════════════════════════════════════════════════════
      SCHAEFFLER FZ VIEW — INVOICE (CLC xlsx) + RM (xlsx) → Mapping
@@ -2857,6 +2894,8 @@ function switchCustomer(key){
   // ── ซ่อน sp2-view (SCH 2 PDF) เสมอเมื่อสลับไปโหมดอื่น ──
   { const sp2v = document.getElementById('sp2-view'); if(sp2v) sp2v.classList.remove('active'); }
   { const spv = document.getElementById('sp-view'); if(spv) spv.classList.remove('active'); }
+  // ── ซ่อน tdi-view (TYPE D IEAT) เสมอเมื่อสลับไปโหมดอื่น ──
+  { const tdiv = document.getElementById('tdi-view'); if(tdiv) tdiv.classList.remove('active'); }
   // ── ซ่อน spf-view (FZ AKO) เสมอเมื่อสลับไปโหมดอื่น ──
   { const spfv = document.getElementById('spf-view'); if(spfv) spfv.classList.remove('active'); }
   // ── DOA / Report Ikano ──
@@ -2949,6 +2988,19 @@ function switchCustomer(key){
     document.getElementById('topbar-title').textContent='Mapping Schaeffler TYPE D AKO';
     const badge=document.getElementById('topbar-badge');
     badge.textContent='TYPE D AKO'; badge.className='company-badge schaeffler_boi';
+    return;
+  }
+  // ── TYPE D IEAT (โหมดแยกอิสระ · ไม่ใช้ Logic ของโหมดอื่น) ──
+  if(key === 'type_d_ieat'){
+    document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{ el.classList.toggle('active', el.dataset.nav===key); });
+    document.body.classList.remove('legacy-active');
+    document.body.classList.add('doa-active');
+    document.querySelectorAll('.doa-view').forEach(el=>{ if(el.id !== 'tdi-view') el.classList.remove('active'); });
+    { const lv=document.getElementById('legacy-view'); if(lv) lv.classList.remove('active'); }
+    document.getElementById('tdi-view').classList.add('active');
+    document.getElementById('topbar-title').textContent='Mapping Schaeffler TYPE D IEAT';
+    const badge=document.getElementById('topbar-badge');
+    badge.textContent='TYPE D IEAT'; badge.className='company-badge schaeffler_boi';
     return;
   }
   // ── TYPE D BOI (โหมดแยกอิสระ · ไม่ใช้ Logic ของโหมดอื่น) ──
@@ -29221,6 +29273,15 @@ table.doa-tbl tbody td{color:#475569}
 #tdb-view table.doa-tbl{font-size:10px}
 #tdb-view table.doa-tbl th,#tdb-view table.doa-tbl td{padding:2px 5px}
 #tdb-view table.doa-tbl thead th{font-weight:800;color:#000 !important}
+/* ── TYPE D IEAT — scoped เฉพาะ #tdi-view ── */
+.sb-item[data-nav="type_d_ieat"] svg{color:#f59e0b}
+#tdi-view .doa-uploads.tdi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%;max-width:none;margin:0}
+@media (max-width:900px){#tdi-view .doa-uploads.tdi-grid{grid-template-columns:1fr}}
+#tdi-view .doa-drop{width:100%;max-width:none;min-height:44px;padding:8px;border-radius:12px;gap:4px}
+#tdi-view .doa-drop .dico{font-size:20px}
+#tdi-view .doa-drop .dlabel{font-size:13px;font-weight:700}
+#tdi-view .doa-drop .dhint{font-size:11px}
+#tdi-view .doa-preview-wrap{max-height:460px;overflow:auto}
 /* ── TYPE D AKO — scoped เฉพาะ #tda-view ── */
 #tda-view .doa-uploads.tda-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;width:100%;max-width:none;margin:0}
 #tda-view .doa-panel{padding:5px 8px;border-radius:8px;margin-bottom:0}
@@ -34944,5 +35005,386 @@ window.tdaExport=tdaExport; window.tdaReset=tdaReset; window.tdaClear=tdaClear;
 
 })();
 </script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   [TYPE D IEAT] โหมด Standalone · prefix tdi*  —  ADDITIVE ONLY
+   Source-first: INVOICE PDF + PK + MASTER + DUI(ฝังในระบบ) เป็นข้อมูลจริง
+   GOLDEN "0.MAPPING SCHAEFFLER TYPE D IEAT CANON HI-TECH-1244747819.xlsx"
+   ใช้เป็นต้นแบบ โครงสร้าง / Header / Format เท่านั้น — ไม่ hard-code ค่า
+   ★ ไม่แก้/ไม่เรียกฟังก์ชันของโหมดอื่น ยกเว้น spOriginCode() และ spfDuiMatch()
+     ซึ่งเป็น pure function อ่านอย่างเดียว (ประเทศ→ISO2 · ตรวจ DUI ด้วย HS+STAT)
+   ══════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+const TDI = { pdf: [], pk: null, ms: null, msMap: null, pkInfo: null, result: null, warn: [] };
+
+/* ---------- helpers ---------- */
+const T   = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+const KEY = v => String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+const NUM = v => { if(v == null || v === '') return null;
+  if(typeof v === 'number') return isFinite(v) ? v : null;
+  const n = parseFloat(String(v).replace(/,/g, '').trim()); return isFinite(n) ? n : null; };
+const S3  = v => { const d = String(v == null ? '' : v).replace(/[^0-9]/g, ''); return d === '' ? '' : ('00' + d).slice(-3); };
+function setStatus(msg, err){ const el = document.getElementById('tdi-status');
+  if(el){ el.textContent = msg; el.classList.toggle('err', !!err); } }
+function renderList(id, names){ const el = document.getElementById(id); if(!el) return;
+  el.innerHTML = (names || []).map(n => '<div class="doa-file-entry ok"><span class="dfn">' + n + '</span></div>').join(''); }
+function checkReady(){ const b = document.getElementById('tdi-btn-export');
+  if(b) b.disabled = !(TDI.pdf.length && TDI.pk && TDI.ms); }
+
+/* ══ 1. PARSE INVOICE PDF (Schaeffler Tax Invoice) ══
+   ยึดข้อความจริงจาก pdf.js — ทุก Field มี Source ที่พิสูจน์ได้ · ไม่มีค่าไหนเดา */
+async function tdiPdfLines(file){
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf  = await pdfjsLib.getDocument({ data }).promise;
+  const lines = [];
+  for(let p = 1; p <= pdf.numPages; p++){
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    let last = null, line = '';
+    for(const it of tc.items){
+      const y = Math.round(it.transform[5]);
+      if(last !== null && Math.abs(y - last) > 2){ lines.push(line); line = ''; }
+      line += it.str; last = y;
+    }
+    if(line) lines.push(line);
+  }
+  return lines.map(x => x.replace(/\s+/g, ' ').trim());
+}
+const RE_ITEM  = /^(\d{6})\s+(\S+)\s*\/(.*)$/;
+const RE_QTY   = /^([\d,]+)\s+(PC|PCS|EA|ST|SET|KG|M)$/i;
+const RE_DESC  = /^(.*?)#[^\/]*\/\s*(.+)$/;
+const RE_VALUE = /^Item value\s+([\d.,]+)\s*\/\s*[\d.,]+\s+\S+\s+([\d.,]+)$/i;
+const RE_COMM  = /^Commodity code:\s*([0-9]+)$/i;
+const RE_ORIG  = /^Country of origin:\s*(.+)$/i;
+const RE_DLV   = /^Delivery\s+(\d+)$/i;
+const RE_PKG   = /^\S+\s+(\d+)\s+.*?([\d.,]+)\s*KG\s+([\d.,]+)\s*KG$/i;
+
+async function tdiParsePdf(file){
+  const lines  = await tdiPdfLines(file);
+  const joined = lines.join('\n');
+  const mDoc = joined.match(/Document\s*No\.\s*\/\s*Date\s*\n?\s*(\d+)\s*\/\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/i);
+  if(!mDoc) throw new Error(file.name + ' — อ่าน Document No. / Date ไม่ได้');
+  const invoice = mDoc[1];
+  const invDate = new Date(+mDoc[4], +mDoc[3] - 1, +mDoc[2]);
+  const mCur = joined.match(/^Currency\s+([A-Z]{3})$/m);
+  const currency = mCur ? mCur[1] : '';
+  const mTerm = joined.match(/Delivery conditions:\s*\n\s*([A-Z]{3})\b/i);
+  const term = mTerm ? mTerm[1].toUpperCase() : '';
+  /* Packaging ท้ายไฟล์ → Net รวม (N.W.) · Gross รวม (ไว้ตรวจกับ PK เท่านั้น) */
+  let netSum = null, grossSum = null, pkgSum = null;
+  { let iPkg = lines.findIndex(l => /^Packaging:/i.test(l));
+    if(iPkg >= 0){
+      for(let i = iPkg + 1; i < lines.length; i++){
+        const m = lines[i].match(RE_PKG); if(!m) continue;
+        pkgSum   = (pkgSum   || 0) + (NUM(m[1]) || 0);
+        grossSum = (grossSum || 0) + (NUM(m[2]) || 0);
+        netSum   = (netSum   || 0) + (NUM(m[3]) || 0);
+      } } }
+  /* แยก Item — Commodity/Country ของ Item อาจอยู่หลังหัวกระดาษหน้าถัดไป
+     จึงเก็บทุกบรรทัดตั้งแต่ Item เริ่ม จนถึงก่อน Item ถัดไป */
+  const starts = [];
+  lines.forEach((l, i) => { if(RE_ITEM.test(l)) starts.push(i); });
+  if(!starts.length) throw new Error(file.name + ' — ไม่พบรายการสินค้าใน PDF');
+  const items = [];
+  for(let s = 0; s < starts.length; s++){
+    const a = starts[s], b = (s + 1 < starts.length) ? starts[s + 1] : lines.length;
+    const head = lines[a].match(RE_ITEM);
+    const it = { itemNo: head[1], material: T(head[2]), qty: null, unitRaw: '',
+                 eng1: '', eng2: '', price: null, amount: null, comm: '', origin: '', delivery: '' };
+    /* บาง Item (แถวสุดท้ายของหน้า) pdf.js รวม "จำนวน + หน่วย" ไว้ท้ายบรรทัดหัว Item
+       เช่น "000009 071674357-4001-12 / FA1-G055-000 / / 200 PC" — อ่านจากท้ายบรรทัดก่อน */
+    { const tq = T(head[3]).match(/([\d,]+)\s+(PC|PCS|EA|ST|SET|KG|M)\s*$/i);
+      if(tq){ it.qty = NUM(tq[1]); it.unitRaw = tq[2].toUpperCase(); } }
+    for(let i = a + 1; i < b; i++){
+      const L = lines[i];
+      let m;
+      if(it.qty == null && (m = L.match(RE_QTY))){ it.qty = NUM(m[1]); it.unitRaw = m[2].toUpperCase(); continue; }
+      if(!it.eng1 && (m = L.match(RE_DESC))){ it.eng2 = T(m[1]); it.eng1 = T(m[2]); continue; }
+      if(it.price == null && (m = L.match(RE_VALUE))){ it.price = NUM(m[1]); it.amount = NUM(m[2]); continue; }
+      if(!it.comm   && (m = L.match(RE_COMM))){ it.comm = m[1]; continue; }
+      if(!it.origin && (m = L.match(RE_ORIG))){ it.origin = T(m[1]); continue; }
+      if(!it.delivery && (m = L.match(RE_DLV))){ it.delivery = m[1]; continue; }
+    }
+    items.push(it);
+  }
+  return { file: file.name, invoice, invDate, currency, term, netSum, grossSum, pkgSum, items };
+}
+
+/* ══ 2. PK (Packing List) ══ — .xls ที่เป็น xlsx จริงก็อ่านได้ (XLSX ตรวจจากเนื้อไฟล์) */
+async function tdiReadPk(file){
+  const wb  = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array', cellDates: true });
+  const sh  = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(sh, { header: 1, defval: null, raw: true });
+  const rightOf = (rx, want) => {
+    for(const row of aoa){ if(!row) continue;
+      for(let c = 0; c < row.length; c++){
+        if(!rx.test(T(row[c]))) continue;
+        for(let j = c + 1; j < row.length; j++){
+          const v = row[j]; if(v == null || T(v) === '') continue;
+          if(want === 'num'){ const n = NUM(v); if(n == null) continue; return n; }
+          return v;
+        } } }
+    return null;
+  };
+  const mark   = T(rightOf(/^Shipping\s*Mark\s*:?$/i));
+  const pkgQty = rightOf(/^Total\s*Pkgs\s*:?$/i, 'num');
+  const gw     = rightOf(/^Total\s*Weight\s*\(KG\)\s*:?$/i, 'num');
+  /* หน่วย Package — ยึดชนิดที่มีจำนวน > 0 จริงในตาราง "Type of Pkgs"
+     ยืนยันจาก GOLDEN: Pallets → PX · ชนิดอื่นยังไม่มี Source ยืนยัน = เว้นว่าง + แจ้งเตือน */
+  const UNIT = { 'PALLETS': 'PX', 'PALLET': 'PX' };
+  const types = [];
+  for(const row of aoa){ if(!row) continue;
+    for(let c = 0; c < row.length; c++){
+      const k = T(row[c]).toUpperCase();
+      if(k !== 'PALLETS' && k !== 'CASES' && k !== 'CARTONS') continue;
+      for(let j = c + 1; j < row.length; j++){ const n = NUM(row[j]); if(n == null) continue;
+        if(n > 0) types.push({ name: k, qty: n }); break; } } }
+  let unit = '', unitNote = '';
+  if(types.length === 1 && UNIT[types[0].name]) unit = UNIT[types[0].name];
+  else if(types.length === 1) unitNote = 'PK ระบุชนิดบรรจุ "' + types[0].name + '" ซึ่งยังไม่มี Source ยืนยันรหัสหน่วย → เว้นว่าง (ไม่เดา)';
+  else if(types.length > 1) unitNote = 'PK มีชนิดบรรจุมากกว่า 1 ชนิด (' + types.map(t => t.name + '=' + t.qty).join(', ') + ') → เว้นว่าง (ไม่เดา)';
+  return { mark, pkgQty, gw, unit, unitNote, types };
+}
+
+/* ══ 3. MASTER SCHAEFFLER ══ — S/T/U/V จับด้วย SCH-Product ID */
+async function tdiReadMaster(file){
+  const wb  = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array', cellDates: false });
+  const sh  = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(sh, { header: 1, defval: null, raw: true });
+  if(!aoa.length) throw new Error('MASTER — ไฟล์ว่าง');
+  const H = (aoa[0] || []).map(h => T(h).toLowerCase());
+  const find = rx => H.findIndex(h => rx.test(h));
+  const col = { id: find(/^sch[- ]?product id$/), th: find(/^thai description$/),
+                br: find(/^brand$/), st: find(/^stat\.?\s*code$/), hs: find(/^hs\s*code$/),
+                en: find(/^eng description$/) };
+  for(const k of ['id','th','br','st','hs'])
+    if(col[k] < 0) throw new Error('MASTER — ไม่พบคอลัมน์ ' + k + ' (แถวหัวตาราง: ' + H.join(' | ') + ')');
+  const m = new Map();
+  for(let i = 1; i < aoa.length; i++){
+    const r = aoa[i] || []; const k = KEY(r[col.id]); if(!k) continue;
+    if(m.has(k)) continue;                                  // แถวแรกที่พบ — ไม่เดา ไม่รวม
+    m.set(k, { th: T(r[col.th]), brand: T(r[col.br]),
+               stat: S3(r[col.st]), hs: T(r[col.hs]), en: T(r[col.en]) });
+  }
+  return m;
+}
+
+/* ══ 4. Header A–AI (ตาม GOLDEN เป๊ะ) ══ */
+const TDI_HDR = ['ENTRY NO.','INVOICE','DATE','Product Code','Description ENG1','Description ENG2',
+  'origin','Qty .ใบขนและ Qty Inv.','หน่วยQty .ใบขนและ Qty Inv.','Price/ (THB)','AMT Total (THB)',
+  'Currency','term','N.W.','G.W.','จำนวน Package','Package Unit หน่วย','Shipping Mark',
+  'TH Description','HS code','Brand ','STAT','IMPORT ENTRY','ITEM','สิทธิ์ประโยชน์ IEAT',
+  'Export Tax incentive','import Tax incentive','เลขที่ใบอนุญาต1','วันที่ออกใบอนุญาต1',
+  'เลขประจำตัวผู้เสียภาษี\nของหน่วยงาน1','ตำแหน่ง\n(Preview)1\t','เลขที่ใบอนุญาต2',
+  'วันที่ออกใบอนุญาต2','เลขประจำตัวผู้เสียภาษีของหน่วยงาน (ใบอนุญาต)2','ตำแหน่ง (ใบอนุญาต)2'];
+/* AA–AE : ค่าคงที่ตามต้นแบบ GOLDEN (Format/leading zero/Date ตามตัวอย่าง) */
+const TDI_AA = 'I5301405031003';
+const TDI_AB = '12-2-42-002314-2568';
+const TDI_AC = new Date(2026, 11, 23);
+const TDI_AD = '0994000164980';
+const TDI_AE = '02';
+/* AF–AI : DUI / EXEMPT99 — เติมเมื่อ HS + STAT ตรง DUI Master เท่านั้น */
+const TDI_DUI = { lic: 'EXEMPT99', date: '2017-11-13', tax: '0994000159561', pos: '02' };
+
+/* ══ 5. สร้างแถว Mapping ของ 1 Invoice ══ */
+function tdiBuildRows(inv, pk, ms){
+  const rows = [], warn = [];
+  inv.items.forEach((it, ix) => {
+    const k  = KEY(it.material);
+    const mr = ms.get(k) || null;
+    if(!mr) warn.push('Invoice ' + inv.invoice + ' · Item ' + it.itemNo + ' · Product ' + it.material +
+                      ' : ไม่พบใน MASTER → TH/HS/Brand/STAT เว้นว่าง (ไม่เดา)');
+    const origin = it.origin ? (spOriginCode(it.origin) || '') : '';
+    if(it.origin && !origin) warn.push('Invoice ' + inv.invoice + ' · Item ' + it.itemNo +
+                      ' : แปลงประเทศ "' + it.origin + '" เป็นรหัส ISO ไม่ได้ → เว้นว่าง (ไม่เดา)');
+    const hsRaw = mr ? mr.hs : '';
+    const stat  = mr ? mr.stat : '';
+    /* DUI = HS CODE + STAT (ใช้ Master DUI ที่ฝังในระบบ · อ่านอย่างเดียว) */
+    const dui = (hsRaw && stat && typeof spfDuiMatch === 'function') ? spfDuiMatch(hsRaw, stat) : false;
+    const first = (ix === 0);
+    const hsNum = hsRaw === '' ? '' : (isFinite(parseInt(hsRaw, 10)) ? parseInt(hsRaw, 10) : hsRaw);
+    rows.push([
+      ix + 1,                                              // A  ENTRY NO.
+      (/^\d+$/.test(inv.invoice) ? Number(inv.invoice) : inv.invoice),  // B INVOICE
+      inv.invDate,                                         // C  DATE
+      it.material,                                         // D  Product Code
+      it.eng1, it.eng2,                                    // E,F Description ENG1 / ENG2
+      origin,                                              // G  origin
+      (it.qty == null ? '' : it.qty),                      // H  Qty
+      (it.unitRaw === 'PC' || it.unitRaw === 'PCS') ? 'C62' : (it.unitRaw || ''),   // I หน่วย
+      (it.price  == null ? '' : it.price),                 // J  Price
+      (it.amount == null ? '' : it.amount),                // K  AMT Total
+      inv.currency,                                        // L  Currency
+      inv.term,                                            // M  term
+      first && inv.netSum != null ? inv.netSum : '',       // N  N.W.  (PDF Packaging รวม · แถวแรก)
+      first && pk.gw     != null ? pk.gw     : '',         // O  G.W.  (PK Total Weight · แถวแรก)
+      first && pk.pkgQty != null ? pk.pkgQty : '',         // P  จำนวน Package (PK Total Pkgs · แถวแรก)
+      first ? (pk.unit || '') : '',                        // Q  Package Unit
+      pk.mark || '',                                       // R  Shipping Mark (ทุกแถว)
+      mr ? mr.th : '',                                     // S  TH Description  (MASTER)
+      hsNum,                                               // T  HS code         (MASTER)
+      mr ? mr.brand : '',                                  // U  Brand           (MASTER)
+      stat,                                                // V  STAT            (MASTER · Text 3 หลัก)
+      '', '', '', '',                                      // W–Z IMPORT ENTRY / ITEM / IEAT / Export Tax incentive
+      TDI_AA, TDI_AB, TDI_AC, TDI_AD, TDI_AE,              // AA–AE
+      dui ? TDI_DUI.lic  : '',                             // AF เลขที่ใบอนุญาต2
+      dui ? TDI_DUI.date : '',                             // AG วันที่ออกใบอนุญาต2
+      dui ? TDI_DUI.tax  : '',                             // AH เลขประจำตัวผู้เสียภาษีของหน่วยงาน2
+      dui ? TDI_DUI.pos  : ''                              // AI ตำแหน่ง2
+    ]);
+  });
+  /* ตรวจยอด Gross: PDF vs PK — รายงานอย่างเดียว ไม่แก้ค่า ไม่ block */
+  if(inv.grossSum != null && pk.gw != null && Math.abs(inv.grossSum - pk.gw) > 0.001)
+    warn.push('Invoice ' + inv.invoice + ' : G.W. จาก PK = ' + pk.gw +
+              ' แต่ผลรวม Gross ใน PDF = ' + inv.grossSum + ' (ต่าง ' + (Math.round((pk.gw - inv.grossSum) * 1000) / 1000) + ')');
+  if(inv.pkgSum != null && pk.pkgQty != null && Math.abs(inv.pkgSum - pk.pkgQty) > 1e-9)
+    warn.push('Invoice ' + inv.invoice + ' : จำนวน Package จาก PK = ' + pk.pkgQty +
+              ' แต่ PDF Packaging รวม = ' + inv.pkgSum);
+  if(pk.unitNote) warn.push(pk.unitNote);
+  return { rows, warn };
+}
+
+/* ══ 6. เขียนไฟล์ Excel 1 Invoice ══ */
+function tdiBuildBuf(rows){
+  const ws = XLSX.utils.aoa_to_sheet([TDI_HDR, ...rows]);
+  ws['!cols'] = [{wch:9},{wch:12},{wch:11},{wch:19},{wch:26},{wch:20},{wch:7},{wch:11},{wch:13},
+    {wch:11},{wch:13},{wch:9},{wch:7},{wch:9},{wch:9},{wch:13},{wch:15},{wch:30},{wch:34},{wch:11},
+    {wch:8},{wch:7},{wch:14},{wch:8},{wch:15},{wch:18},{wch:18},{wch:20},{wch:16},{wch:18},{wch:12},
+    {wch:16},{wch:16},{wch:30},{wch:16}];
+  for(let i = 1; i <= rows.length; i++){
+    /* Date: C (2) และ AC (28) */
+    for(const c of [2, 28]){
+      const a = XLSX.utils.encode_cell({ r: i, c });
+      if(ws[a] && ws[a].v instanceof Date){ ws[a].t = 'd'; ws[a].z = 'mm-dd-yy'; }
+    }
+    /* TEXT บังคับ (คงเลข 0 นำหน้า) : D(3) V(21) AA(26) AB(27) AD(29) AE(30) AF(31) AG(32) AH(33) AI(34) */
+    for(const c of [3, 21, 26, 27, 29, 30, 31, 32, 33, 34]){
+      const a = XLSX.utils.encode_cell({ r: i, c });
+      const cell = ws[a];
+      if(cell && cell.v !== '' && cell.v != null && !(cell.v instanceof Date)){
+        cell.t = 's'; cell.v = String(cell.v); cell.z = '@';
+      }
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}
+
+/* ══ 7. EXPORT ══ */
+async function tdiExport(){
+  const btn = document.getElementById('tdi-btn-export');
+  if(btn && btn.dataset.busy === '1') return;
+  if(btn){ btn.dataset.busy = '1'; btn.disabled = true; }
+  setStatus('กำลังประมวลผล…');
+  try{
+    const miss = [];
+    if(!TDI.pdf.length) miss.push('INVOICE PDF');
+    if(!TDI.pk) miss.push('PK');
+    if(!TDI.ms) miss.push('MASTER FILE');
+    if(miss.length) throw new Error('อัปโหลดไม่ครบ — ขาด: ' + miss.join(', '));
+    if(typeof pdfjsLib === 'undefined') throw new Error('pdf.js ยังไม่พร้อม');
+    const ms = TDI.msMap || (TDI.msMap = await tdiReadMaster(TDI.ms));
+    const pk = TDI.pkInfo || (TDI.pkInfo = await tdiReadPk(TDI.pk));
+    const invs = [];
+    for(const f of TDI.pdf) invs.push(await tdiParsePdf(f));
+    /* ห้ามปนข้าม Invoice — แยกไฟล์ต่อ 1 Invoice No. */
+    const seen = new Set();
+    for(const v of invs){
+      if(seen.has(v.invoice)) throw new Error('พบ Invoice No. ซ้ำ: ' + v.invoice + ' (' + v.file + ')');
+      seen.add(v.invoice);
+    }
+    const out = [], allWarn = [];
+    for(const v of invs){
+      const b = tdiBuildRows(v, pk, ms);
+      allWarn.push(...b.warn);
+      out.push({ invoice: v.invoice, rows: b.rows, buf: tdiBuildBuf(b.rows) });
+    }
+    TDI.result = out; TDI.warn = allWarn;
+    const dl = (blob, name) => { const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000); };
+    if(out.length === 1){
+      dl(new Blob([out[0].buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+         out[0].invoice + '.xlsx');
+    }else{
+      if(typeof JSZip === 'undefined') throw new Error('JSZip ยังไม่พร้อม');
+      const zip = new JSZip();
+      for(const o of out) zip.file(o.invoice + '.xlsx', o.buf);
+      dl(await zip.generateAsync({ type: 'blob' }), 'TYPE_D_IEAT_' + out.length + '_invoices.zip');
+    }
+    tdiRender(out, allWarn);
+    setStatus('✓ สร้างไฟล์สำเร็จ ' + out.length + ' Invoice · รวม ' +
+      out.reduce((s, o) => s + o.rows.length, 0) + ' รายการ' + (allWarn.length ? ' · ⚠ ' + allWarn.length + ' คำเตือน' : ''));
+  }catch(e){
+    console.error('[TYPE D IEAT]', e);
+    setStatus('ไม่สำเร็จ: ' + (e.message || e), true);
+  }finally{
+    if(btn){ btn.dataset.busy = ''; }
+    checkReady();
+  }
+}
+
+function tdiRender(out, warn){
+  const box = document.getElementById('tdi-result'); if(!box) return;
+  const esc = t => String(t == null ? '' : t).replace(/[<>&]/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+  const fmt = v => (v instanceof Date)
+    ? (('0'+v.getDate()).slice(-2)+'/'+('0'+(v.getMonth()+1)).slice(-2)+'/'+v.getFullYear())
+    : esc(v);
+  let h = '';
+  for(const o of out){
+    h += '<h2 style="margin:6px 0 4px;font-size:12px">📄 ' + esc(o.invoice) + '.xlsx — ' + o.rows.length + ' รายการ</h2>'
+      + '<div class="doa-preview-wrap"><table class="doa-tbl" style="font-size:9.5px"><thead><tr>'
+      + TDI_HDR.map(x => '<th>' + esc(String(x).replace(/\n|\t/g, ' ')) + '</th>').join('')
+      + '</tr></thead><tbody>'
+      + o.rows.map(r => '<tr>' + r.map(c => '<td>' + fmt(c) + '</td>').join('') + '</tr>').join('')
+      + '</tbody></table></div>';
+  }
+  if(warn && warn.length)
+    h += '<div style="margin-top:10px;border-left:3px solid #b45309;background:#fffbeb;padding:8px 10px;border-radius:0 8px 8px 0">'
+      + '<div style="font-size:12px;font-weight:700;color:#b45309;margin-bottom:4px">⚠ คำเตือน (' + warn.length + ')</div>'
+      + '<div style="font-size:11.5px;line-height:1.7;color:#475569">' + warn.map(t => '• ' + esc(t)).join('<br>') + '</div></div>';
+  box.style.display = ''; box.innerHTML = h;
+}
+
+function tdiReset(){
+  TDI.pdf = []; TDI.pk = null; TDI.ms = null; TDI.msMap = null; TDI.pkInfo = null; TDI.result = null; TDI.warn = [];
+  for(const id of ['tdi-pdf-input','tdi-pk-input','tdi-ms-input']){ const e = document.getElementById(id); if(e) e.value = ''; }
+  renderList('tdi-pdf-list', []); renderList('tdi-pk-list', []); renderList('tdi-ms-list', []);
+  const b = document.getElementById('tdi-result'); if(b){ b.style.display = 'none'; b.innerHTML = ''; }
+  setStatus('รอไฟล์ — ต้องอัปโหลด INVOICE PDF + PK + MASTER FILE');
+  checkReady();
+}
+
+/* ---------- init upload ---------- */
+function tdiInit(){
+  const pdfIn = document.getElementById('tdi-pdf-input');
+  if(pdfIn) pdfIn.addEventListener('change', e => {
+    TDI.pdf = Array.from(e.target.files || []);
+    renderList('tdi-pdf-list', TDI.pdf.map(f => f.name)); checkReady();
+  });
+  const pkIn = document.getElementById('tdi-pk-input');
+  if(pkIn) pkIn.addEventListener('change', e => {
+    TDI.pk = (e.target.files || [])[0] || null; TDI.pkInfo = null;
+    renderList('tdi-pk-list', TDI.pk ? [TDI.pk.name] : []); checkReady();
+  });
+  const msIn = document.getElementById('tdi-ms-input');
+  if(msIn) msIn.addEventListener('change', e => {
+    TDI.ms = (e.target.files || [])[0] || null; TDI.msMap = null;
+    renderList('tdi-ms-list', TDI.ms ? [TDI.ms.name] : []); checkReady();
+  });
+  checkReady();
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tdiInit);
+else tdiInit();
+
+window.tdiExport = tdiExport;
+window.tdiReset  = tdiReset;
+window.__TDI     = TDI;
+window.__tdiHdr  = TDI_HDR;
+})();
+</script>
+
 </body>
 </html>
