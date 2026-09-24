@@ -4799,14 +4799,26 @@ function doExportXLSX_ID(){
     const aoa=[ID_COLS,
       ...rows.map(r=>ID_COL_KEYS.map((k,ci)=>{
         const v=r[k];
-        return (v===undefined||v===null)?'':v;
+        if(v===undefined||v===null)return '';
+        // ⭐ RVC (index 19): แปลงสำเนาเป็นตัวเลขสัดส่วนสำหรับเซลล์ Excel (0.458791 → 45.88% ด้วย numFmt 0.00%) — ไม่เขียนกลับ SID.rows
+        //    "45.88%" → 0.4588 | 0.458791 / 0.5 / 1 (≤1) → ตามค่า | 45.88 (>1) → 0.4588 | ว่าง/แปลงไม่ได้ → คงเดิม
+        if(k==='RVC'){
+          const sv=String(v).trim(); if(sv==='')return '';
+          const nv=Number(sv.replace(/%/g,'').replace(/,/g,'').trim());
+          if(!Number.isFinite(nv))return v;
+          return sv.includes('%')?nv/100:(nv<=1?nv:nv/100);
+        }
+        return v;
       })),
     ];
-    // ⭐ แถวรวมท้าย (ตาม template): sum FOB(ต่างประเทศ)+FOB(เงินบาท)
+    // ⭐ แถวรวมท้าย (ตาม template): sum FOB(ต่างประเทศ)+FOB(เงินบาท) + ⭐ ปริมาณ (Invoice) [11] + น้ำหนักสุทธิ [12] — เฉพาะ rows ของ Sheet/Invoice นี้
     const sumF=rows.reduce((a,r)=>a+(Number(r['FOB (เงินต่างประเทศ)'])||0),0);
     const sumB=rows.reduce((a,r)=>a+(Number(r['FOB (เงินบาท)'])||0),0);
+    const sumQ=rows.reduce((a,r)=>a+(Number(r['ปริมาณ (Invoice)'])||0),0);
+    const sumW=rows.reduce((a,r)=>a+(Number(r['น้ำหนักสุทธิ'])||0),0);
     const totalRow=new Array(ID_COLS.length).fill('');
     totalRow[13]=sumF;totalRow[14]=sumB;
+    totalRow[11]=sumQ;totalRow[12]=sumW;
     aoa.push(totalRow);
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols']=ID_COL_WIDTHS.map(w=>({wch:w}));
@@ -4818,6 +4830,8 @@ function doExportXLSX_ID(){
         if(rI===0)ws[ref].s={fill:{fgColor:{rgb:'FFFF00'}},border:bAll,font:{name:'Calibri',sz:11}};
         else if(rI===aoa.length-1)ws[ref].s={font:{name:'Calibri',sz:11,bold:true},border:bAll};
         else ws[ref].s={border:bAll,font:{name:'Calibri',sz:11}};
+        // ⭐ RVC (cI===19) แถวข้อมูล: Number Format 0.00% (ค่าเก็บเป็นสัดส่วน ไม่คูณ 100)
+        if(cI===19&&rI>0&&rI<aoa.length-1&&ws[ref].t==='n')ws[ref].z='0.00%';
       }
     }
     XLSX.utils.book_append_sheet(wb,ws,safeSheet(String(invNo),used));
