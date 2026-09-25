@@ -5610,20 +5610,9 @@ function chkeRender(){
   const r=CHKE.result, ok='color:var(--green2);font-weight:700;margin-bottom:4px', warn='color:var(--amber2);font-weight:800;margin-bottom:4px', bad='color:var(--red2);font-weight:800;margin-bottom:4px',
         info='font-size:11px;color:var(--text2);margin-bottom:4px', head='margin:8px 0 4px;font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.06em';
   const items=arr=>arr.map(chkeEsc).join(', ');
-  const a=r.part, m=a.master, h=r.hs||{diffs:[],matched:0,notfound:0};
+  /* ★ [local011] Summary ด้านบนคงเฉพาะ 3 กลุ่ม: Net Weight > Gross Weight · DUI · กรมสรรพสามิต
+     MASTER HS CODE / MASTER TARIFF / Increased Price / FIX VALIDATION / Header Missing รายหัวข้อ → ฟ้องเฉพาะในตาราง "รายการที่ต้องตรวจสอบ" (r.rows เดิม ไม่เปลี่ยน Logic) */
   let s='';
-  s+='<div style="'+info+'">MASTER HS CODE: '+chkeEsc(CHKE.masterName||'')+' · Sheet "'+chkeEsc(m.sheet)+'" · '+m.rows.toLocaleString()+' แถว · Part Number '+m.parts.toLocaleString()+' รายการ'
-    +' · ซ้ำข้อมูลเหมือนกัน '+m.dupSame.toLocaleString()+' · ซ้ำข้อมูลต่างกัน '+m.dupDiff.toLocaleString()
-    +' | DWAK '+a.checked.toLocaleString()+' รายการ · พบใน MASTER '+a.found.toLocaleString()+' · ไม่พบ '+a.notfound.toLocaleString()
-    +(a.empty?' · Part Number ว่าง '+a.empty:'')+(a.skipped.length?' · DWAK ไม่มี Header: '+a.skipped.join(', '):'')
-    +' | MASTER TARIFF ฝังในระบบ '+chkeHsMaster().size.toLocaleString()+' พิกัด · DWAK HS CODE พบ '+h.matched.toLocaleString()+' · ไม่พบ '+h.notfound.toLocaleString()
-    +(h.skipped&&h.skipped.length?' · DWAK ไม่มี Header: '+h.skipped.join(', '):'')+'</div>';
-  s+= a.diffs.length
-    ? '<div style="'+warn+'">\u26a0\ufe0f MASTER HS CODE พบ '+a.diffs.length+' รายการไม่ตรง (ไม่พบ Part Number '+a.notfound+' · ข้อมูลไม่ตรง '+(a.diffs.length-a.notfound-a.empty)+(a.empty?' · Part Number ว่าง '+a.empty:'')+')</div>'
-    : '<div style="'+ok+'">\u2705 MASTER HS CODE ตรวจสอบเรียบร้อย ไม่พบข้อมูลไม่ตรง</div>';
-  s+= h.diffs.length
-    ? '<div style="'+warn+'">\u26a0\ufe0f MASTER TARIFF พบ '+h.diffs.length+' รายการไม่ตรง</div>'
-    : '<div style="'+ok+'">\u2705 MASTER TARIFF ตรวจสอบเรียบร้อย ไม่พบข้อมูลไม่ตรง</div>';
   s+= r.nw.length
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
@@ -5642,23 +5631,12 @@ function chkeRender(){
     : r.exc.items.length
     ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการติดกรมสรรพสามิต: Item '+items(r.exc.items)+'</div>'
     : '<div style="'+ok+'">\u2705 ไม่พบรายการติดกรมสรรพสามิต</div>';
-  if(r.inc.active){
-    s+= r.inc.items.length
-      ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการ Increased Price ไม่เป็น 0.00: Item '+items(r.inc.items)+'</div>'
-      : '<div style="'+ok+'">\u2705 Increased Price Foreign / Increased Price Baht / Increased Rate = 0.00 ทุกรายการ</div>';
-  }
   if(r.exc.items.length){
     s+= r.exc.bad
       ? '<div style="'+bad+'">\u274c กรมสรรพสามิต พบ '+r.exc.bad+' รายการไม่ตรง (Permit / Code / Date)</div>'
       : '<div style="'+ok+'">\u2705 กรมสรรพสามิต ใบอนุญาตครบถ้วนทุกรายการ</div>';
   }
   if(r.exc.skipped&&r.exc.skipped.length) s+='<div style="'+warn+'">\u26a0\ufe0f ตรวจกรมสรรพสามิตไม่ได้ — ไม่พบ Header '+chkeEsc(r.exc.skipped.join(', '))+'</div>';
-  if(r.hs.skipped&&r.hs.skipped.length) s+='<div style="'+warn+'">\u26a0\ufe0f MASTER TARIFF ตรวจไม่ได้ — ไม่พบ Header: '+chkeEsc(r.hs.skipped.join(', '))+'</div>';
-  /* ★ [local008] FIX Validation 7 Field + Overall */
-  s+= r.fix.items.length
-    ? '<div style="'+warn+'">\u26a0\ufe0f FIX VALIDATION พบ '+r.fix.diffs.length+' รายการไม่ตรง: Item '+items(r.fix.items)+'</div>'
-    : '<div style="'+ok+'">\u2705 FIX VALIDATION ถูกต้องทุกรายการ ('+CHKE_FIX.filter(f=>r.fix.missing.indexOf(f.field)<0).map(f=>f.field).join(' · ')+')</div>';
-  if(r.fix.missing.length) s+='<div style="'+warn+'">\u26a0\ufe0f FIX VALIDATION ตรวจไม่ได้ — ไม่พบ Header: '+chkeEsc(r.fix.missing.join(', '))+'</div>';
   /* ★ [local009] Overall รวมทุก Validation บังคับ: MASTER HS CODE · MASTER TARIFF · DUI · กรมสรรพสามิต · Increased · NW>GW · FIX 7
      แถว _k20 (HS CODE Warning DUI/สรรพสามิต) ไม่นับ FAIL · แถว HEADER (_k5) → ตรวจไม่ครบ ห้าม PASS */
   const errRows=r.rows.filter(x=>x._k!==20 && x._k!==5).length;
