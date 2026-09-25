@@ -984,32 +984,70 @@ body.legacy-active .content-area { display: none !important; }
     </div>
     <div class="doa-status" id="chke-status" style="margin-top:6px">รอไฟล์ — ต้องอัปโหลด DWAK + MASTER HS CODE</div>
   </div>
-  <!-- ★ [local005/006] ตรวจยอดตาม TERM — ใช้ไฟล์ใบขน (DWAK) ที่อัปโหลดด้านบน · ไม่มีช่อง Upload เพิ่ม
-       ★ [local006] แต่ละยอดมี Exchange Rate ของตัวเอง (amountRate / fwRate / frgRate) · Label สกุลเงินจาก Curr. ในใบขน -->
+  <!-- ★ [local005–008] ตรวจยอดตาม TERM — ใช้ไฟล์ใบขน (DWAK) ที่อัปโหลดด้านบน · ไม่มีช่อง Upload เพิ่ม
+       ★ [local006] แต่ละยอดมี Exchange Rate ของตัวเอง (amountRate / fwRate / frgRate) · Label สกุลเงินจาก Curr. ในใบขน
+       ★ [local007] Toolbar แถวเดียว · เส้นปะคั่น · ไม่มี Card
+       ★ [local008] Flow: กด 🧮 คำนวณ → STEP 2 ผลการคำนวณ (+ EXPORT ผลการคำนวณ TERM) → STEP 3 ตรวจเทียบ REF ใบขน · Input เปลี่ยน = ผลเก่า Stale/Export ปิด -->
+  <style>
+    #chke-term-panel .chke-term-row{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:0;overflow-x:auto}
+    #chke-term-panel .chke-term-grp{display:flex;flex-direction:column;gap:2px;padding:0 12px;border-left:1px dashed #cbd5e1}
+    #chke-term-panel .chke-term-grp:first-child{padding-left:0;border-left:none}
+    #chke-term-panel .chke-term-pair{display:flex;gap:8px;align-items:flex-end}
+    #chke-term-panel .chke-term-pair label{display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2);white-space:nowrap}
+    #chke-term-panel .chke-term-pair input{width:96px;padding:4px 6px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace}
+    #chke-term-panel .chke-term-pair select{padding:4px 6px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-weight:700;background:var(--surface);color:var(--text)}
+    #chke-term-panel .chke-term-sec{margin-top:8px;border-top:1px solid var(--border);padding-top:6px}
+    #chke-term-panel .chke-term-sec:empty{display:none}
+    #chke-term-panel .chke-term-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+    #chke-term-panel .chke-term-head h3{margin:0;font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.04em}
+    #chke-term-panel table.chke-term-tbl{border-collapse:collapse;font-size:12px}
+    #chke-term-panel table.chke-term-tbl th,#chke-term-panel table.chke-term-tbl td{padding:3px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+    #chke-term-panel table.chke-term-tbl th{font-size:10.5px;color:var(--text2);background:var(--surface2)}
+    #chke-term-panel table.chke-term-tbl td.num{font-family:'IBM Plex Mono',monospace;text-align:right}
+    @media (max-width:1100px){
+      #chke-term-panel .chke-term-row{flex-wrap:wrap;row-gap:8px;overflow-x:visible}
+      #chke-term-panel .chke-term-grp{border-left:none;padding-left:0;padding-right:16px}
+      #chke-term-panel table.chke-term-tbl th,#chke-term-panel table.chke-term-tbl td{white-space:normal}
+    }
+  </style>
   <div class="doa-panel" id="chke-term-panel">
-    <h2>💱 ตรวจยอดตาม TERM — ใช้ไฟล์ใบขนที่อัปโหลดด้านบน</h2>
-    <div id="chke-term-row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
-      <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)">TERM
-        <select id="chke-term" style="padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-weight:700;background:var(--surface);color:var(--text)">
-          <option value="EXW">EXW</option><option value="FCA">FCA</option><option value="FOB">FOB</option><option value="CIF">CIF</option>
-        </select></label>
-      <div id="chke-term-g-amount" style="display:flex;gap:6px;align-items:flex-end;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-amount">Amount</span><input id="chke-term-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 1599.96" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-amountRate">Amount Exchange Rate</span><input id="chke-term-amountRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <div id="chke-term-m-amountRate" style="font-size:10.5px;font-weight:700;min-width:150px;max-width:260px;line-height:1.3"></div>
+    <h2>⚙️ ตรวจยอดตาม TERM — ใช้ไฟล์ใบขนที่อัปโหลดด้านบน</h2>
+    <div class="chke-term-row" id="chke-term-row">
+      <div class="chke-term-grp" id="chke-term-g-term">
+        <div class="chke-term-pair">
+          <label>TERM
+            <select id="chke-term">
+              <option value="EXW">EXW</option><option value="FCA">FCA</option><option value="FOB">FOB</option><option value="CIF">CIF</option>
+            </select></label>
+        </div>
       </div>
-      <div id="chke-term-g-fw" style="display:flex;gap:6px;align-items:flex-end;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-fw">F/W</span><input id="chke-term-fw" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 91" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-fwRate">F/W Exchange Rate</span><input id="chke-term-fwRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <div id="chke-term-m-fwRate" style="font-size:10.5px;font-weight:700;min-width:150px;max-width:260px;line-height:1.3"></div>
+      <div class="chke-term-grp" id="chke-term-g-amount">
+        <div class="chke-term-pair">
+          <label><span id="chke-term-l-amount">Amount</span><input id="chke-term-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 1599.96"/></label>
+          <label><span id="chke-term-l-amountRate">Rate</span><input id="chke-term-amountRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498"/></label>
+        </div>
       </div>
-      <div id="chke-term-g-frg" style="display:flex;gap:6px;align-items:flex-end;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-frg">Frg</span><input id="chke-term-frg" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 5" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <label style="display:flex;flex-direction:column;gap:2px;font-size:10px;font-weight:700;color:var(--text2)"><span id="chke-term-l-frgRate">Frg Exchange Rate</span><input id="chke-term-frgRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498" style="width:120px;padding:4px 8px;border:1px solid var(--border2);border-radius:5px;font-size:12px;font-family:'IBM Plex Mono',monospace"/></label>
-        <div id="chke-term-m-frgRate" style="font-size:10.5px;font-weight:700;min-width:150px;max-width:260px;line-height:1.3"></div>
+      <div class="chke-term-grp" id="chke-term-g-fw">
+        <div class="chke-term-pair">
+          <label><span id="chke-term-l-fw">F/W</span><input id="chke-term-fw" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 91"/></label>
+          <label><span id="chke-term-l-fwRate">Rate</span><input id="chke-term-fwRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498"/></label>
+        </div>
+      </div>
+      <div class="chke-term-grp" id="chke-term-g-frg">
+        <div class="chke-term-pair">
+          <label><span id="chke-term-l-frg">Frg</span><input id="chke-term-frg" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 5"/></label>
+          <label><span id="chke-term-l-frgRate">Rate</span><input id="chke-term-frgRate" type="text" inputmode="decimal" autocomplete="off" placeholder="เช่น 33.8498"/></label>
+        </div>
+      </div>
+      <div class="chke-term-grp" id="chke-term-g-calc">
+        <div class="chke-term-pair" style="align-items:flex-end;min-height:38px">
+          <button class="btn btn-primary" id="chke-term-btn-calc" onclick="chkeTermCalcRun()">🧮 คำนวณ</button>
+        </div>
       </div>
     </div>
     <div id="chke-term-result" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
+    <div class="chke-term-sec" id="chke-term-calc"></div>
+    <div class="chke-term-sec" id="chke-term-ref"></div>
   </div>
   <div class="doa-panel" id="chke-result" style="display:none"></div>
 </div><!-- /chke-view -->
@@ -5022,7 +5060,8 @@ function chkeTariff(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'').repla
 const CHKE_UNIT={ 'PC':'C62','PCS':'C62','C62':'C62' };
 function chkeUnit(v){ const k=chkeT(v).toUpperCase().replace(/\./g,''); return CHKE_UNIT[k]||k; }
 function chkeDate(v){
-  if(v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  if(v instanceof Date && !isNaN(v)){ const d=new Date(Math.round(v.getTime()/3600000)*3600000);      /* [local009] กัน Date Cell เพี้ยนหลักวินาที/นาทีจาก Timezone */
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   if(typeof v==='number' && v>20000 && v<80000){                 /* Excel serial */
     const d=new Date(Date.UTC(1899,11,30)+v*86400000);
     return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); }
@@ -5081,25 +5120,28 @@ function chkeMk(item, field, dwak, map, reason){
     status:'ไม่ถูกต้อง', reason };
 }
 /* ══ [NW > GW] ตรวจจาก DWAK โดยตรง — Net Weight ต้องไม่มากกว่า Gross Weight
-   ★ อ่านค่าจาก DWAK เท่านั้น ใช้ Header จริง 'Net Weight' / 'Gross Weight'
-     (DWAK บางรูปแบบใช้ 'Netweight' / 'Grossweight' จึงรับเป็นชื่อสำรอง)
-   ★ ค่าว่างหรือแปลงเป็นตัวเลขไม่ได้ → ข้าม ไม่เดา ไม่สร้าง Error ปลอม
+   ★ [local009] Header ระดับ Item ก่อน: 'Netweight' / 'Grossweight' (Layout 500/466 · ค่าต่างกันทุกแถว)
+     → ไม่มีจึงใช้ 'Net Weight' / 'Gross Weight' (Layout 83 = ระดับ Item · Layout 500/466 = ระดับใบขน ซ้ำทุกแถว)
+   ★ [local009] ผิด = Error Row จริงในตาราง (_k 25 · นับ Overall FAIL) · ค่าใน DWAK แสดงตามไฟล์
+   ★ ค่าว่างหรือแปลงเป็นตัวเลขไม่ได้ → ข้าม ไม่เดา ไม่สร้าง 0 ปลอม · ตรวจทุก Item ไม่หยุด Error แรก
    ★ ไม่ยุ่งกับ Matching และไม่แก้ค่าต้นฉบับ                                      */
 function chkeNwGw(dwakSheet){
   const out=[];
   for(const d of chkeDwakRows(dwakSheet)){
-    const nw=chkeNum(d.get('Net Weight','Netweight')), gw=chkeNum(d.get('Gross Weight','Grossweight'));
+    const rn=d.get('Netweight','Net Weight'), rg=d.get('Grossweight','Gross Weight');
+    const nw=chkeNum(rn), gw=chkeNum(rg);
     if(nw==null || gw==null) continue;
-    if(nw>gw) out.push({ item:chkeT(d.get('Item No.'))||'—', part:chkeT(d.get('Product Code'))||'—', hs:chkeT(d.get('Tariff'))||'—',
+    if(nw>gw) out.push({ _r:d._r, _k:25, item:chkeT(d.get('Item No.'))||'—', part:chkeT(d.get('Product Code'))||'—', hs:chkeT(d.get('Tariff'))||'—',
       field:'Net Weight > Gross Weight',
-      dwak:'Net Weight = '+nw+' / Gross Weight = '+gw, map:'—',
+      dwak:'Net Weight = '+chkeT(rn)+' / Gross Weight = '+chkeT(rg), map:'Net Weight ≤ Gross Weight',
       status:'ไม่ถูกต้อง', reason:'Net Weight มากกว่า Gross Weight' });
   }
   return out;
 }
 
 /* ══ [E] กรมสรรพสามิต — [local003] ตรวจจาก DWAK เท่านั้น ══
-   เงื่อนไข "ติดกรมสรรพสามิต": DescTH = แบตเตอรี่เครื่องดูดฝุ่น (chkeTxt) AND chkeHsKey(Tariff) = 85076090
+   เงื่อนไข "ติดกรมสรรพสามิต": DescTH = แบตเตอรี่เครื่องดูดฝุ่น (chkeTxt) AND chkeHsKey(Tariff) ∈ 4 HS [local009]: 85065000 · 85075090 · 85076090 · 85087010
+   ★ [local009] ชื่อ Field: กรมสรรพสามิต - HS CODE (Warning) · กรมสรรพสามิต - Permit / Code / Date (Error)
    · เข้าเงื่อนไข → แถว HS CODE แยก 1 แถวเสมอ (Warning) + Summary ⚠️ พร้อม Item No. จริง
    · ค่ากำหนด 3 ค่าใน Slot ใบอนุญาตเดียวกัน (n = 1..5 เฉพาะที่ DWAK มี Header PermitNo{n}):
        PermitNo{n} = ติดใบอนุญาตสรรพสามิต · PermitIssueAuthority{n} = 000401010000 (เท่าทุกหลัก คง 0 นำหน้า) · IssueDate{n} = 2017-09-16
@@ -5107,18 +5149,18 @@ function chkeNwGw(dwakSheet){
      ไม่พบ → Slot อ้างอิง = Slot ที่ PermitNo ตรง → ไม่มีก็ Slot ที่ตรงมากที่สุด (เท่ากันเอา n น้อยสุด) → ฟ้อง Field ที่ไม่ตรงของ Slot นั้นแยกคนละแถว
      DWAK ไม่มี Header PermitNo1–5 เลย → ฟ้องทั้ง 3 Field = ว่าง
    · READ ONLY — ไม่เติม/ไม่แก้ค่าใด ๆ ใน DWAK */
-const CHKE_EXC = { th:'แบตเตอรี่เครื่องดูดฝุ่น', hs:'85076090', permit:'ติดใบอนุญาตสรรพสามิต', code:'000401010000', date:'2017-09-16' };
+const CHKE_EXC = { th:'แบตเตอรี่เครื่องดูดฝุ่น', hs:['85065000','85075090','85076090','85087010'], permit:'ติดใบอนุญาตสรรพสามิต', code:'000401010000', date:'2017-09-16' };
 function chkeExcise(dwakSheet){
   const out=[], items=[], H=dwakSheet.hdr, col=(...n)=>chkeCol(H,...n);
   const cTH=col('DescTH'), cHS=col('Tariff'); let bad=0;
   if(cTH<0 || cHS<0) return { diffs:out, items, bad, skipped:[cTH<0?'DescTH':null, cHS<0?'Tariff':null].filter(Boolean) };
   const disp=v=>chkeT(v)||'ว่าง', dd=v=>(v instanceof Date)?chkeDate(v):(chkeT(v)||'ว่าง');
   for(const d of chkeDwakRows(dwakSheet)){
-    const raw=chkeT(d.get('Tariff'));
-    if(chkeHsKey(raw)!==CHKE_EXC.hs) continue;
+    const raw=chkeT(d.get('Tariff')), hk=chkeHsKey(raw);
+    if(CHKE_EXC.hs.indexOf(hk)<0) continue;
     if(chkeTxt(d.get('DescTH'))!==chkeTxt(CHKE_EXC.th)) continue;
     const it=chkeT(d.get('Item No.'))||'—'; items.push(it);
-    out.push({ _r:d._r, _k:20, item:it, field:'HS CODE', dwak:raw, map:CHKE_EXC.hs });
+    out.push({ _r:d._r, _k:20, item:it, field:'กรมสรรพสามิต - HS CODE', dwak:raw, map:hk });
     const slots=[];
     for(const n of [1,2,3,4,5]){
       if(col('PermitNo'+n)<0) continue;
@@ -5129,16 +5171,16 @@ function chkeExcise(dwakSheet){
     if(slots.some(s=>s.score===3)) continue;                       /* ใบอนุญาตถูกครบ → ไม่ฟ้อง Field (Warning แถว HS CODE ยังอยู่) */
     if(!slots.length){
       const nh='ว่าง (DWAK ไม่มี Header PermitNo1–5)';
-      out.push({ _r:d._r, _k:22, item:it, field:'Permit', dwak:nh, map:CHKE_EXC.permit });
-      out.push({ _r:d._r, _k:22, item:it, field:'รหัสภาษีสรรพสามิต', dwak:nh, map:CHKE_EXC.code });
-      out.push({ _r:d._r, _k:22, item:it, field:'วันที่ของรหัสสรรพสามิต', dwak:nh, map:CHKE_EXC.date });
+      out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Permit', dwak:nh, map:CHKE_EXC.permit });
+      out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Code', dwak:nh, map:CHKE_EXC.code });
+      out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Date', dwak:nh, map:CHKE_EXC.date });
       bad+=3; continue;
     }
     let ref=slots.find(s=>s.okP)||null;
     if(!ref){ let best=-1; for(const s of slots){ if(s.score>best){ best=s.score; ref=s; } } }
-    if(!ref.okP){ out.push({ _r:d._r, _k:22, item:it, field:'Permit', dwak:disp(ref.pn), map:CHKE_EXC.permit }); bad++; }
-    if(!ref.okC){ out.push({ _r:d._r, _k:22, item:it, field:'รหัสภาษีสรรพสามิต', dwak:disp(ref.pa), map:CHKE_EXC.code }); bad++; }
-    if(!ref.okD){ out.push({ _r:d._r, _k:22, item:it, field:'วันที่ของรหัสสรรพสามิต', dwak:dd(ref.pd), map:CHKE_EXC.date }); bad++; }
+    if(!ref.okP){ out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Permit', dwak:disp(ref.pn), map:CHKE_EXC.permit }); bad++; }
+    if(!ref.okC){ out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Code', dwak:disp(ref.pa), map:CHKE_EXC.code }); bad++; }
+    if(!ref.okD){ out.push({ _r:d._r, _k:22, item:it, field:'กรมสรรพสามิต - Date', dwak:dd(ref.pd), map:CHKE_EXC.date }); bad++; }
   }
   return { diffs:out, items, bad };
 }
@@ -5167,17 +5209,63 @@ function chkeIncreased(dwakSheet){
   return { diffs:out, items, active:true, fields };
 }
 
-/* ══ Runner — DWAK เป็นตัวตั้ง → A (MASTER HS CODE) + B (MASTER TARIFF) + Net>Gross + EXEMPT99/DUI + กรมสรรพสามิต ══ */
+/* ══ [F] FIX VALIDATION — [local008] ตรวจจาก DWAK ทุก Item (ค่ากำหนดใช้ตรวจเท่านั้น · ไม่ Auto Fill/Auto Correct) ══
+   FZ = Y · Import TaxIncentives ID (Layout 500/466) / Import Tax Incentives ID (Layout 83) = F5302180400004
+   PermitNo1 = token 2/2568 มี boundary (ผ่าน: 2/2568 · ที่ 2/2568 · ใบอนุญาตเขตปลอดอากรที่ 2/2568 · ไม่ผ่าน: 12/2568 · 22/2568 · 2/25680 · 3/2568 · ว่าง)
+   IssueDate1 = 2025-01-07 (chkeDate) · PermitIssueAuthority1 = 0994000163011 (Text คง 0 นำหน้า) · Brand Name = NO BRAND · Establish No = 2677 (Text หลัง trim · int 2677 = ตรง)
+   · Header ใดหาย → แจ้ง ⚠️ ตรวจไม่ได้ — ไม่พบ Header (ไม่ Skip เงียบ · Overall = ตรวจไม่ครบ) · cell ว่าง → ว่าง | Expected (FAIL) · ตรวจทุก Item ไม่หยุด Error แรก */
+const CHKE_FIX = [
+  { field:'FZ',                    hdr:['FZ'],                                                  exp:'Y',              eq:v=>chkeTxt(v)==='y' },
+  { field:'Import TaxIncentives ID', hdr:['Import TaxIncentives ID','Import Tax Incentives ID'], exp:'F5302180400004', eq:v=>chkeTxt(v)==='f5302180400004' },
+  { field:'PermitNo1',             hdr:['PermitNo1'],                                           exp:'2/2568',         eq:v=>/(^|[^0-9])2\/2568(?![0-9])/.test(chkeT(v)) },
+  { field:'IssueDate1',            hdr:['IssueDate1'],                                          exp:'2025-01-07',     eq:v=>chkeDate(v)==='2025-01-07' },
+  { field:'PermitIssueAuthority1', hdr:['PermitIssueAuthority1'],                               exp:'0994000163011',  eq:v=>chkeT(v)==='0994000163011' },
+  { field:'Brand Name',            hdr:['Brand Name'],                                          exp:'NO BRAND',       eq:v=>chkeTxt(v)==='no brand' },
+  { field:'Establish No',          hdr:['Establish No'],                                        exp:'2677',           eq:v=>chkeT(v)==='2677' },
+];
+function chkeFixCheck(dwakSheet){
+  const out=[], items=[], H=dwakSheet.hdr, missing=[];
+  const cols=CHKE_FIX.map(f=>{ const c=chkeCol(H,...f.hdr); if(c<0) missing.push(f.field); return c; });
+  for(const d of chkeDwakRows(dwakSheet)){
+    const item=chkeT(d.get('Item No.')), part=chkeT(d.get('Product Code'));
+    if(item==='' && part==='') continue;
+    let hit=false;
+    CHKE_FIX.forEach((f,i)=>{
+      if(cols[i]<0) return;                                                   /* Header หาย → แจ้งใน Summary ไม่สร้างแถวต่อ Item */
+      const raw=d.get(f.hdr[0], f.hdr[1]);
+      const t=chkeT(raw);
+      if(t!=='' && f.eq(raw)) return;
+      const shown = t==='' ? 'ว่าง' : ((raw instanceof Date) ? chkeDate(raw) : t);
+      out.push({ _r:d._r, _k:32, item:item||'—', field:f.field, dwak:shown, map:f.exp }); hit=true;
+    });
+    if(hit) items.push(item||'—');
+  }
+  return { diffs:out, items, missing };
+}
+
+/* ══ Runner — DWAK เป็นตัวตั้ง → A (MASTER HS CODE) + B (MASTER TARIFF) + Net>Gross + DUI + กรมสรรพสามิต + Increased + FIX 7 · [local009] ทุก Error รวมตารางเดียว ══ */
 function chkeRunValidate(){
   const r={};
   r.part=chkePartCheck(CHKE.master, CHKE.dwak);                 /* A */
   r.hs=chkeHsCheck(CHKE.dwak);                                  /* B */
-  r.nw=chkeNwGw(CHKE.dwak);                                     /* Net > Gross — Summary เท่านั้น ไม่ลงตาราง */
-  r.ex99=chkeEx99(CHKE.dwak);                                   /* EXEMPT99 (Error) + DUI (Warning rows + Items) */
+  r.nw=chkeNwGw(CHKE.dwak);                                     /* [local009] Net > Gross — Error Row จริง (_k25) */
+  r.ex99=chkeEx99(CHKE.dwak);                                   /* [local009] DUI Validation ตาม DUI MASTER (HS CODE Warning + Stat/EXEMPT99/Issue Date/Tax ID Error) */
   r.exc=chkeExcise(CHKE.dwak);                                  /* กรมสรรพสามิต */
   r.inc=chkeIncreased(CHKE.dwak);                               /* [local004] Increased Price */
-  /* ตารางเดียว · เรียงตามลำดับแถว DWAK · ภายใน Item: A(10) → HS CODE(20) → ใบอนุญาต DUI(21) → สรรพสามิต(22) → TARIFF(30) → Increased(35) → EXEMPT99(40) */
-  r.rows=r.part.diffs.concat(r.ex99.diffs, r.exc.diffs, r.hs.diffs, r.inc.diffs)
+  r.fix=chkeFixCheck(CHKE.dwak);                                /* [local008] FIX Validation 7 Field */
+  /* ★ [local009] HEADER Missing → แถว HEADER | Field | ไม่พบ Header | Expected (อยู่บนสุด _r0 _k5 · Overall ตรวจไม่ครบ ห้าม PASS) */
+  r.header=[];
+  const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });   /* [local010] dw = ข้อความระบุ Header ที่หาย */
+  for(const f of r.hs.skipped||[]) hdrRow(f,'—');
+  if(r.ex99.noTariff) hdrRow('DUI - HS CODE','DUI MASTER','ไม่พบ Header Tariff');                 /* [local010] ตรวจ DUI ไม่ได้ — ไม่พบ Header Tariff (ครั้งเดียวต่อ Validation) */
+  if(r.ex99.noStat && !r.ex99.noTariff && r.ex99.duiItems.length) hdrRow('DUI - Stat','—');
+  for(const f of r.exc.skipped||[]){
+    if(f==='Tariff') hdrRow('กรมสรรพสามิต - HS CODE',CHKE_EXC.hs.join(' / '),'ไม่พบ Header Tariff'); /* [local010] ตรวจสรรพสามิตไม่ได้ — ไม่พบ Header Tariff */
+    if(f==='DescTH') hdrRow('กรมสรรพสามิต - DescTH',CHKE_EXC.th);
+  }
+  for(const f of r.fix.missing) hdrRow(f,(CHKE_FIX.find(x=>x.field===f)||{}).exp||'—');
+  /* ตารางเดียว · เรียงตามลำดับแถว DWAK · ภายใน Item: A(10) → HS CODE(20) → สรรพสามิต(22) → DUI Stat(23) → DUI ใบอนุญาต(24) → NW>GW(25) → TARIFF(30) → FIX(32) → Increased(35) */
+  r.rows=r.header.concat(r.part.diffs, r.ex99.diffs, r.exc.diffs, r.nw, r.hs.diffs, r.fix.diffs, r.inc.diffs)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
   return r;
@@ -5275,23 +5363,31 @@ function chkeHsMaster(){
 /* key ของ Tariff: ตัดอักขระที่ไม่ใช่ตัวเลข + ตัด 0 นำหน้า (000084822000 = 84822000) */
 function chkeHsKey(v){ return String(v==null?'':v).replace(/[^0-9]/g,'').replace(/^0+/,''); }
 
-/* ══ [B] DWAK ↔ MASTER TARIFF — KEY = HS CODE · ตรวจเฉพาะ Field ที่ DWAK \"มี Header จริง\" ══ */
+/* ══ [B] DWAK ↔ MASTER TARIFF — KEY = HS CODE · ตรวจ 5 Field: Tariff · Stat · Priv. · Seq. · Duty Rate ══
+   ★ [local009] ชื่อ Field MASTER - … · Stat/Priv./Seq. เทียบเป็น Text หลัง trim (คง 0 นำหน้า · Source จริงเป็น String ทั้ง DWAK และ MASTER)
+     cell ที่เป็นตัวเลขจริงใน Excel (ไม่มี 0 นำหน้าโดยธรรมชาติ) เทียบเชิงตัวเลข · ว่าง ≠ 0 → แสดง ว่าง
+   ★ Duty Rate เทียบตัวเลข (DWAK 20.000 / MASTER 20 = % ทั้งคู่) · ว่าง ≠ 0
+   ★ Header ใดหาย → skipped (ชื่อ Field) → แถว HEADER ใน chkeRunValidate · Overall ตรวจไม่ครบ */
+function chkeCodeEq(raw, mv){
+  if(typeof raw==='number') return chkeInt(raw)===chkeInt(mv);
+  return chkeT(raw)===chkeT(mv);
+}
 function chkeHsCheck(dwakSheet){
   const out=[], H=dwakSheet.hdr;
   const col=(...n)=>chkeCol(H,...n);
   const cTar=col('Tariff'), cStat=col('Stat'), cPriv=col('Priv.','Privilege'),
         cSeq=col('Seq.','Seq'), cRate=col('Duty Rate');
-  if(cTar<0) return { diffs:out, skipped:['ทั้งหมด — DWAK ไม่มี Header Tariff'],
+  if(cTar<0) return { diffs:out, skipped:['MASTER - Tariff','MASTER - Stat','MASTER - Priv.','MASTER - Seq.','MASTER - Duty Rate'],
                       matched:0, notfound:0, cnt:{} };
   const skipped=[];
-  if(cStat<0) skipped.push('Stat'); if(cPriv<0) skipped.push('Privilege');
-  if(cSeq<0)  skipped.push('Seq');  if(cRate<0) skipped.push('Tariff rate duty');
+  if(cStat<0) skipped.push('MASTER - Stat'); if(cPriv<0) skipped.push('MASTER - Priv.');
+  if(cSeq<0)  skipped.push('MASTER - Seq.');  if(cRate<0) skipped.push('MASTER - Duty Rate');
   const M=chkeHsMaster();
   let matched=0, notfound=0;
   const cnt={Stat:0,Privilege:0,Seq:0,'Tariff rate duty':0};
   let part='', cur=0;
   const add=(item,field,dw,mv,why)=>out.push({ _r:cur, _k:30, item:item||'—', part:part||'—', hs:raw0||'—', field,
-    dwak:(dw==null||chkeT(dw)==='')?'—':chkeT(dw), map:mv, status:'ไม่ถูกต้อง', reason:why });
+    dwak:(dw==null||chkeT(dw)==='')?'ว่าง':chkeT(dw), map:mv, status:'ไม่ถูกต้อง', reason:why });
   let raw0='';
   for(const d of chkeDwakRows(dwakSheet)){
     cur=d._r;
@@ -5300,21 +5396,21 @@ function chkeHsCheck(dwakSheet){
     const k=chkeHsKey(raw);
     const m=M.get(k);
     if(!m){ notfound++;
-      add(item,'Tariff Code',raw,'ไม่พบใน MASTER TARIFF','Tariff Code ไม่พบใน MASTER TARIFF: DWAK = '+raw);
+      add(item,'MASTER - Tariff',raw,'ไม่พบใน MASTER TARIFF','Tariff Code ไม่พบใน MASTER TARIFF: DWAK = '+raw);
       continue; }
     matched++;
-    if(cStat>=0 && chkeInt(d.get('Stat'))!==chkeInt(m.stat)){ cnt.Stat++;
-      add(item,'Stat',d.get('Stat'),m.stat,
+    if(cStat>=0 && !chkeCodeEq(d.get('Stat'),m.stat)){ cnt.Stat++;
+      add(item,'MASTER - Stat',d.get('Stat'),m.stat,
         'Stat ไม่ตรงกับ MASTER TARIFF: DWAK = '+(chkeT(d.get('Stat'))||'ว่าง')+' / MASTER = '+m.stat); }
-    if(cPriv>=0 && chkeInt(d.get('Priv.','Privilege'))!==chkeInt(m.priv)){ cnt.Privilege++;
-      add(item,'Privilege',d.get('Priv.','Privilege'),m.priv,
+    if(cPriv>=0 && !chkeCodeEq(d.get('Priv.','Privilege'),m.priv)){ cnt.Privilege++;
+      add(item,'MASTER - Priv.',d.get('Priv.','Privilege'),m.priv,
         'Privilege ไม่ตรงกับ MASTER TARIFF: DWAK = '+(chkeT(d.get('Priv.','Privilege'))||'ว่าง')+' / MASTER = '+m.priv); }
-    if(cSeq>=0 && chkeInt(d.get('Seq.','Seq'))!==chkeInt(m.seq)){ cnt.Seq++;
-      add(item,'Seq',d.get('Seq.','Seq'),m.seq,
+    if(cSeq>=0 && !chkeCodeEq(d.get('Seq.','Seq'),m.seq)){ cnt.Seq++;
+      add(item,'MASTER - Seq.',d.get('Seq.','Seq'),m.seq,
         'Seq ไม่ตรงกับ MASTER TARIFF: DWAK = '+(chkeT(d.get('Seq.','Seq'))||'ว่าง')+' / MASTER = '+m.seq); }
     if(cRate>=0 && chkeT(m.rate)!==''){ const a=chkeNum(d.get('Duty Rate')), b=chkeNum(m.rate);
       if(!(a==null&&b==null) && !(a!=null&&b!=null&&Math.abs(a-b)<1e-9)){ cnt['Tariff rate duty']++;
-        add(item,'Tariff rate duty',d.get('Duty Rate'),m.rate,
+        add(item,'MASTER - Duty Rate',d.get('Duty Rate'),m.rate,
           'Tariff rate duty ไม่ตรงกับ MASTER TARIFF: DWAK = '+(a==null?'ว่าง':a)+' / MASTER = '+m.rate); } }
   }
   return { diffs:out, skipped, matched, notfound, cnt };
@@ -5342,69 +5438,82 @@ function chkeDuiSet(){
     S.add(chkeHsKey(CHKE_DUI_RAW.slice(i,i+8))+'|'+chkeStat3(CHKE_DUI_RAW.slice(i+8,i+11)));
   CHKE_DUI_SET=S; return S;
 }
-/* true = คู่ HS CODE + Stat นี้ "ไม่เข้าข่าย EXEMPT99" → ข้ามการบังคับ EXEMPT99 */
+/* ★ [local009] DUI MASTER → Map HS → ชุด Stat ที่อนุญาต (เรียงตามไฟล์) · lazy ครั้งเดียว */
+let CHKE_DUI_MAP=null;
+function chkeDuiMap(){
+  if(CHKE_DUI_MAP) return CHKE_DUI_MAP;
+  const M=new Map();
+  for(let i=0;i+11<=CHKE_DUI_RAW.length;i+=11){
+    const h=chkeHsKey(CHKE_DUI_RAW.slice(i,i+8)), s=chkeStat3(CHKE_DUI_RAW.slice(i+8,i+11));
+    if(!M.has(h)) M.set(h,[]); if(M.get(h).indexOf(s)<0) M.get(h).push(s);
+  }
+  CHKE_DUI_MAP=M; return M;
+}
+/* true = คู่ HS CODE + Stat นี้อยู่ใน DUI MASTER (คงไว้ให้ส่วนอื่นเรียกได้ · ไม่ใช้ตัดสินข้าม EXEMPT99 อีกแล้ว) */
 function chkeDuiExempt(tariff,stat){
   const h=chkeHsKey(tariff); if(h==='') return false;
   const t=chkeStat3(stat);   if(t==='') return false;
   return chkeDuiSet().has(h+'|'+t);
 }
 
-/* ══ [D] EXEMPT99 FIXED VALIDATION — ตรวจจาก DWAK เท่านั้น ══
-   HS CODE 10 พิกัดนี้ต้องมีใบอนุญาตชุด EXEMPT99 เสมอ · ค่า Fixed ในระบบ ห้ามดึงจาก MAPPING
-   ★ Normalize HS เพื่อ Compare เท่านั้น (000084798969 = 84798969) · ไม่แก้ค่าต้นฉบับ      */
+/* ══ [D] DUI VALIDATION — [local009] ตรวจจาก DWAK เท่านั้น · DUI MASTER เป็นตัวกำหนดกลุ่ม DUI ══
+   Trigger: chkeHsKey(Tariff) พบใน DUI MASTER (204 HS) ∪ 10 HS เดิม (ทั้ง 10 อยู่ใน MASTER อยู่แล้ว) → Item เข้า DUI Validation ทันที
+   · DUI - HS CODE   : แถวแสดงสถานะ (Warning _k20 · ไม่นับ FAIL) ค่า DWAK | HS ใน MASTER
+   · DUI - Stat      : chkeStat3(Stat) ∉ ชุด Stat ของ HS นั้น → Error (_k23) ค่าที่ถูกต้อง = ชุด Stat ทั้งหมด "001 / 002 / 090" · Stat ผิดไม่หลุดจาก DUI
+   · DUI - EXEMPT99 / Issue Date / Tax ID : ค้น Slot 1–5 (เฉพาะที่ DWAK มี Header PermitNo{n}) "ชุดเดียวกันใน Slot เดียวกัน" ห้ามข้าม Slot ประกอบกัน
+       PASS = มี Slot ใดครบ 3: PermitNo=EXEMPT99 (chkeTxt) · IssueDate=2017-11-13 (chkeDate: Date/Serial/String) · PermitIssueAuthority=0994000159561 (Text คง 0)
+       ไม่ครบ → Slot อ้างอิง = Slot ที่พบ EXEMPT99 (หลาย Slot → ตรงมากสุด · เท่ากัน n น้อยสุด) → ไม่พบ EXEMPT99 → Slot ที่ Date/Tax ตรงมากสุด (เท่ากัน n น้อยสุด)
+       → ฟ้องแยก Field ที่ไม่ตรงของ Slot นั้น (_k24 · Error) · Slot ว่างหมด → ว่าง · DWAK ไม่มี Header PermitNo1–5 → ว่าง (DWAK ไม่มี Header PermitNo1–5)
+   · ตรวจทุก Item ไม่หยุด Error แรก · READ ONLY ไม่แก้/ไม่เติมค่าใน DWAK · ไม่มี Path EXEMPT99 นอก DUI อีก */
 const CHKE_EX99_HS = ['84798969','84798970','84799090','84821000','84823000',
                      '84825000','84828000','84829900','84833090','85144000'];
 const CHKE_EX99_FIX = { permit:'EXEMPT99', date:'2017-11-13', taxid:'0994000159561' };
 function chkeEx99(dwakSheet){
   const out=[], H=dwakSheet.hdr, col=(...n)=>chkeCol(H,...n);
-  const cTar=col('Tariff'), cStat=col('Stat'), cNo=col('PermitNo2'), cDt=col('IssueDate2'), cAu=col('PermitIssueAuthority2');
-  if(cTar<0) return { diffs:out, checked:0, dui:0, duiItems:[], noStat:(cTar<0) };
-  const SET=new Set(CHKE_EX99_HS.map(chkeHsKey));
-  let checked=0, dui=0; const duiItems=[];
-  let part='', raw0='', cur=0;
-  const add=(item,field,dw,fix,why)=>out.push({ _r:cur, _k:40, item:item||'—', part:part||'—', hs:raw0||'—', field,
-    dwak:(dw==null||chkeT(dw)==='')?'ว่าง':chkeT(dw), map:fix,
-    status:'ไม่ถูกต้อง', reason:why });
+  const cTar=col('Tariff'), cStat=col('Stat');
+  const duiItems=[], badItems=[]; let statBad=0, slotBad=0, checked=0;
+  if(cTar<0) return { diffs:out, checked, dui:0, duiItems, badItems, statBad, slotBad, noStat:true, noTariff:true };
+  const M=chkeDuiMap(), TEN=new Set(CHKE_EX99_HS.map(chkeHsKey));
+  const disp=v=>chkeT(v)||'ว่าง', dd=v=>(v instanceof Date)?chkeDate(v):(chkeT(v)||'ว่าง');
   for(const d of chkeDwakRows(dwakSheet)){
-    cur=d._r; part=chkeT(d.get('Product Code'));
-    const raw=chkeT(d.get('Tariff')); raw0=raw; if(raw==='') continue;
-    /* ★ PRECEDENCE 1 — DUI EXCEPTION MASTER (คู่ HS CODE + Stat) → ข้าม ไม่บังคับ EXEMPT99
-       ★ [local003] ติด DUI = ฟ้องทุกครั้ง: แถว HS CODE แยก + แถวใบอนุญาต Slot 1–5 เฉพาะที่มีค่าจริง (ค่าที่ถูกต้อง = — เพราะระบบไม่มีค่ากำหนด DUI)
-         · ไม่มีคอลัมน์ ตำแหน่ง ใน DWAK → ไม่สร้าง · ไม่แก้/ไม่เติมค่าใด ๆ */
-    if(cStat>=0 && chkeDuiExempt(raw, d.get('Stat'))){ dui++;
-      const it=chkeT(d.get('Item No.'))||'—'; duiItems.push(it);
-      out.push({ _r:cur, _k:20, item:it, field:'HS CODE', dwak:raw, map:chkeHsKey(raw) });
-      for(const n of [1,2,3,4,5]){
-        if(col('PermitNo'+n)<0) continue;
-        const pn=d.get('PermitNo'+n), pd=d.get('IssueDate'+n), pa=d.get('PermitIssueAuthority'+n);
-        if(chkeT(pn)==='' && chkeT(pd)==='' && chkeT(pa)==='') continue;          /* Slot ว่าง → ไม่สร้างแถว */
-        out.push({ _r:cur, _k:21, item:it, field:'เลขที่ใบอนุญาต'+n, dwak:chkeT(pn)||'ว่าง', map:'—' });
-        out.push({ _r:cur, _k:21, item:it, field:'วันที่ออก'+n, dwak:(pd instanceof Date)?chkeDate(pd):(chkeT(pd)||'ว่าง'), map:'—' });
-        out.push({ _r:cur, _k:21, item:it, field:'เลขประจำตัวผู้เสียภาษี ของหน่วยงาน'+n, dwak:chkeT(pa)||'ว่าง', map:'—' });
-      }
-      continue; }
-    /* ★ PRECEDENCE 2 — Fixed EXEMPT99 HS CODE 10 พิกัด */
-    if(!SET.has(chkeHsKey(raw))) continue;          /* ไม่อยู่ใน 10 พิกัด → ไม่ตรวจกฎนี้ */
-    checked++;
-    const item=chkeT(d.get('Item No.'));
+    const raw=chkeT(d.get('Tariff')); if(raw==='') continue;
     const hs=chkeHsKey(raw);
-    if(cNo>=0){ const v=chkeT(d.get('PermitNo2'));
-      if(chkeTxt(v)!==chkeTxt(CHKE_EX99_FIX.permit))
-        add(item,'เลขที่ใบอนุญาต',v,CHKE_EX99_FIX.permit,
-          v===''? 'HS CODE '+hs+' ต้องระบุเลขที่ใบอนุญาต '+CHKE_EX99_FIX.permit
-                : 'เลขที่ใบอนุญาตไม่ตรง: DWAK = '+v+' / FIX = '+CHKE_EX99_FIX.permit); }
-    if(cDt>=0){ const v=d.get('IssueDate2');
-      if(chkeDate(v)!==CHKE_EX99_FIX.date)
-        add(item,'วันที่ออกใบอนุญาต',v,CHKE_EX99_FIX.date,
-          chkeT(v)===''? 'HS CODE '+hs+' ต้องระบุวันที่ออกใบอนุญาต '+CHKE_EX99_FIX.date
-                      : 'วันที่ออกใบอนุญาตไม่ตรง: DWAK = '+chkeDate(v)+' / FIX = '+CHKE_EX99_FIX.date); }
-    if(cAu>=0){ const v=chkeT(d.get('PermitIssueAuthority2'));
-      if(v!==CHKE_EX99_FIX.taxid)
-        add(item,'เลขประจำตัวผู้เสียภาษีของหน่วยงาน',v,CHKE_EX99_FIX.taxid,
-          v===''? 'HS CODE '+hs+' ต้องระบุเลขประจำตัวผู้เสียภาษีของหน่วยงาน '+CHKE_EX99_FIX.taxid
-                : 'เลขประจำตัวผู้เสียภาษีของหน่วยงานไม่ตรง: DWAK = '+v+' / FIX = '+CHKE_EX99_FIX.taxid); }
+    if(!M.has(hs) && !TEN.has(hs)) continue;                                 /* ไม่ใช่ DUI */
+    checked++;
+    const it=chkeT(d.get('Item No.'))||'—'; duiItems.push(it); let hit=false;
+    out.push({ _r:d._r, _k:20, item:it, field:'DUI - HS CODE', dwak:raw, map:hs });
+    /* B. DUI - Stat */
+    const allowed=M.get(hs)||[];
+    if(cStat>=0 && allowed.length){
+      const st=d.get('Stat');
+      if(allowed.indexOf(chkeStat3(st))<0){ statBad++; hit=true;
+        out.push({ _r:d._r, _k:23, item:it, field:'DUI - Stat', dwak:disp(st), map:allowed.join(' / ') }); }
+    }
+    /* C/D/E. EXEMPT99 ชุดเดียวกันใน Slot เดียวกัน */
+    const slots=[];
+    for(const n of [1,2,3,4,5]){
+      if(col('PermitNo'+n)<0) continue;
+      const pn=d.get('PermitNo'+n), pd=d.get('IssueDate'+n), pa=d.get('PermitIssueAuthority'+n);
+      const okP=chkeTxt(pn)===chkeTxt(CHKE_EX99_FIX.permit), okD=chkeDate(pd)===CHKE_EX99_FIX.date, okA=chkeT(pa)===CHKE_EX99_FIX.taxid;
+      slots.push({ n, pn, pd, pa, okP, okD, okA, score:(okP?1:0)+(okD?1:0)+(okA?1:0) });
+    }
+    if(slots.some(s=>s.score===3)){ if(hit) badItems.push(it); continue; }
+    if(!slots.length){
+      const nh='ว่าง (DWAK ไม่มี Header PermitNo1–5)';
+      out.push({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99',   dwak:nh, map:CHKE_EX99_FIX.permit });
+      out.push({ _r:d._r, _k:24, item:it, field:'DUI - Issue Date', dwak:nh, map:CHKE_EX99_FIX.date });
+      out.push({ _r:d._r, _k:24, item:it, field:'DUI - Tax ID',     dwak:nh, map:CHKE_EX99_FIX.taxid });
+      slotBad+=3; badItems.push(it); continue;
+    }
+    let ref=null, best=-1;
+    const withP=slots.filter(s=>s.okP);
+    for(const s of (withP.length?withP:slots)){ if(s.score>best){ best=s.score; ref=s; } }   /* เรียง n น้อย→มาก อยู่แล้ว · > จึงได้ n น้อยสุดเมื่อเท่ากัน */
+    if(!ref.okP){ out.push({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99',   dwak:disp(ref.pn), map:CHKE_EX99_FIX.permit }); slotBad++; }
+    if(!ref.okD){ out.push({ _r:d._r, _k:24, item:it, field:'DUI - Issue Date', dwak:dd(ref.pd),   map:CHKE_EX99_FIX.date });   slotBad++; }
+    if(!ref.okA){ out.push({ _r:d._r, _k:24, item:it, field:'DUI - Tax ID',     dwak:disp(ref.pa), map:CHKE_EX99_FIX.taxid });  slotBad++; }
+    badItems.push(it);
   }
-  return { diffs:out, checked, dui, duiItems, noStat:(cStat<0) };
+  return { diffs:out, checked, dui:duiItems.length, duiItems, badItems, statBad, slotBad, noStat:(cStat<0), noTariff:false };
 }
 
 
@@ -5418,7 +5527,7 @@ function chkeSync(){
   if(x) x.disabled=!(CHKE.result&&CHKE.result.rows&&CHKE.result.rows.length);
   const t=document.getElementById('chke-type');
   if(t) t.textContent = 'MASTER TARIFF ฝังในระบบ: HS_CODE_tariff_rate ok p noy 16.09.26 · '+chkeHsMaster().size.toLocaleString()+' พิกัด (Stat · Privilege · Seq · Tariff rate duty)';
-  if(typeof chkeTermRun==='function') chkeTermRun();          /* ★ [local005] Live: ไฟล์ใบขนเปลี่ยน → ตรวจยอดตาม TERM ใหม่ */
+  if(typeof chkeTermInvalidate==='function') chkeTermInvalidate();   /* ★ [local008] ไฟล์ใบขนเปลี่ยน → ผล TERM เก่า Stale */
 }
 async function chkeLoad(kind,file){
   const listId='chke-'+kind+'-list';
@@ -5461,17 +5570,44 @@ function chkeRun(){
   chkeSync();
 }
 const CHKE_TBL_HEAD=['Item','หัวข้อตรวจสอบ','ค่าใน DWAK','ค่าที่ถูกต้อง/MASTER'];
-function chkeTable(rows){
-  const body=rows.slice(0,5000).map(d=>'<tr>'
+/* ★ [local010] ตาราง "รายการที่ต้องตรวจสอบ" — Pagination 200 แถว/หน้า (ไม่ตัดข้อมูล: ทุกแถวอยู่ใน CHKE.result.rows · เปิดดูได้ทุกหน้า · Export ใช้ r.rows ครบ)
+   · ก่อนหน้านี้ rows.slice(0,5000) ทำให้แถว 5,001+ ไม่แสดงบนหน้าเว็บ · DOM ต่อหน้า ≤ 200 แถว หน้าเว็บไม่หน่วง */
+const CHKE_PG = { size:200, page:1 };
+function chkeTableRows(rows){
+  return rows.map(d=>'<tr>'
     +'<td>'+chkeEsc(d.item)+'</td><td class="st-bad">'+chkeEsc(d.field)+'</td>'
     +'<td>'+chkeEsc(d.dwak)+'</td><td>'+chkeEsc(d.map)+'</td></tr>').join('');
-  return '<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl"><thead><tr>'
-    +CHKE_TBL_HEAD.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+function chkeTableNav(total, page){
+  const pages=Math.max(1,Math.ceil(total/CHKE_PG.size)); page=Math.min(Math.max(1,page),pages);
+  const from=total?((page-1)*CHKE_PG.size+1):0, to=Math.min(total,page*CHKE_PG.size);
+  const btn=(label,p,dis,cur)=>'<button type="button" class="btn btn-ghost" style="padding:3px 9px;font-size:11px;min-width:30px;border-radius:6px;display:inline-flex'+(cur?';font-weight:800;background:var(--amber);color:#fff;border-color:var(--amber)':'')+'"'
+    +(dis?' disabled':' onclick="chkeTablePage('+p+')"')+'>'+label+'</button>';
+  const nums=new Set([1,pages,page-2,page-1,page,page+1,page+2].filter(p=>p>=1&&p<=pages));
+  let s='', last=0;
+  for(const p of [...nums].sort((a,b)=>a-b)){ if(p-last>1) s+='<span style="padding:0 4px;color:var(--text2)">…</span>'; s+=btn(String(p),p,false,p===page); last=p; }
+  return '<div id="chke-tbl-nav" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0;font-size:11.5px">'
+    +'<span style="font-weight:700;margin-right:6px">แสดง '+from.toLocaleString()+'–'+to.toLocaleString()+' จาก '+total.toLocaleString()+' แถว</span>'
+    +btn('ก่อนหน้า',page-1,page<=1,false)+s+btn('ถัดไป',page+1,page>=pages,false)+'</div>';
+}
+function chkeTable(rows, page){
+  page=page||1;
+  const pages=Math.max(1,Math.ceil(rows.length/CHKE_PG.size)); page=Math.min(Math.max(1,page),pages); CHKE_PG.page=page;
+  const slice=rows.slice((page-1)*CHKE_PG.size, page*CHKE_PG.size);                 /* เฉพาะการแสดงผลหน้านี้ · ข้อมูลเต็มยังอยู่ใน rows */
+  return '<div id="chke-tbl">'+chkeTableNav(rows.length,page)
+    +'<div class="doa-preview-wrap" style="max-height:520px"><table class="doa-tbl"><thead><tr>'
+    +CHKE_TBL_HEAD.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+chkeTableRows(slice)+'</tbody></table></div>'
+    +(rows.length>CHKE_PG.size?chkeTableNav(rows.length,page):'')+'</div>';
+}
+function chkeTablePage(p){
+  const r=CHKE.result, el=document.getElementById('chke-tbl'); if(!r||!el) return;
+  el.outerHTML=chkeTable(r.rows,p);
+  const wrap=document.querySelector('#chke-tbl .doa-preview-wrap'); if(wrap) wrap.scrollTop=0;
 }
 function chkeRender(){
   const p=document.getElementById('chke-result'); if(!p) return;
   p.style.display='';
-  const r=CHKE.result, ok='color:var(--green2);font-weight:700;margin-bottom:4px', warn='color:var(--amber2);font-weight:800;margin-bottom:4px',
+  const r=CHKE.result, ok='color:var(--green2);font-weight:700;margin-bottom:4px', warn='color:var(--amber2);font-weight:800;margin-bottom:4px', bad='color:var(--red2);font-weight:800;margin-bottom:4px',
         info='font-size:11px;color:var(--text2);margin-bottom:4px', head='margin:8px 0 4px;font-size:12px;font-weight:800;color:var(--amber);letter-spacing:.06em';
   const items=arr=>arr.map(chkeEsc).join(', ');
   const a=r.part, m=a.master, h=r.hs||{diffs:[],matched:0,notfound:0};
@@ -5489,12 +5625,21 @@ function chkeRender(){
     ? '<div style="'+warn+'">\u26a0\ufe0f MASTER TARIFF พบ '+h.diffs.length+' รายการไม่ตรง</div>'
     : '<div style="'+ok+'">\u2705 MASTER TARIFF ตรวจสอบเรียบร้อย ไม่พบข้อมูลไม่ตรง</div>';
   s+= r.nw.length
-    ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
+    ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
-  s+= r.ex99.duiItems.length
+  s+= r.ex99.noTariff
+    ? '<div style="'+warn+'">\u26a0\ufe0f ตรวจ DUI ไม่ได้ — ไม่พบ Header Tariff</div>'                       /* [local010] */
+    : r.ex99.duiItems.length
     ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการติด DUI: Item '+items(r.ex99.duiItems)+'</div>'
     : '<div style="'+ok+'">\u2705 ไม่พบรายการติด DUI</div>';
-  s+= r.exc.items.length
+  if(r.ex99.duiItems.length){
+    s+= r.ex99.badItems.length
+      ? '<div style="'+bad+'">\u274c DUI พบ '+(r.ex99.statBad+r.ex99.slotBad)+' รายการไม่ตรง (Stat '+r.ex99.statBad+' · EXEMPT99/Issue Date/Tax ID '+r.ex99.slotBad+'): Item '+items(r.ex99.badItems)+'</div>'
+      : '<div style="'+ok+'">\u2705 DUI ถูกต้องทุกรายการ (Stat · EXEMPT99 · Issue Date · Tax ID)</div>';
+  }
+  s+= (r.exc.skipped&&r.exc.skipped.length)
+    ? ''                                                                                          /* [local010] ตรวจไม่ได้ → แสดง ⚠️ ด้านล่างแทน ไม่ขึ้น ✅ */
+    : r.exc.items.length
     ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการติดกรมสรรพสามิต: Item '+items(r.exc.items)+'</div>'
     : '<div style="'+ok+'">\u2705 ไม่พบรายการติดกรมสรรพสามิต</div>';
   if(r.inc.active){
@@ -5502,9 +5647,26 @@ function chkeRender(){
       ? '<div style="'+warn+'">\u26a0\ufe0f พบรายการ Increased Price ไม่เป็น 0.00: Item '+items(r.inc.items)+'</div>'
       : '<div style="'+ok+'">\u2705 Increased Price Foreign / Increased Price Baht / Increased Rate = 0.00 ทุกรายการ</div>';
   }
-  if(r.exc.skipped&&r.exc.skipped.length) s+='<div style="'+info+'">ตรวจกรมสรรพสามิตไม่ได้ — DWAK ไม่มี Header: '+r.exc.skipped.join(', ')+'</div>';
+  if(r.exc.items.length){
+    s+= r.exc.bad
+      ? '<div style="'+bad+'">\u274c กรมสรรพสามิต พบ '+r.exc.bad+' รายการไม่ตรง (Permit / Code / Date)</div>'
+      : '<div style="'+ok+'">\u2705 กรมสรรพสามิต ใบอนุญาตครบถ้วนทุกรายการ</div>';
+  }
+  if(r.exc.skipped&&r.exc.skipped.length) s+='<div style="'+warn+'">\u26a0\ufe0f ตรวจกรมสรรพสามิตไม่ได้ — ไม่พบ Header '+chkeEsc(r.exc.skipped.join(', '))+'</div>';
+  if(r.hs.skipped&&r.hs.skipped.length) s+='<div style="'+warn+'">\u26a0\ufe0f MASTER TARIFF ตรวจไม่ได้ — ไม่พบ Header: '+chkeEsc(r.hs.skipped.join(', '))+'</div>';
+  /* ★ [local008] FIX Validation 7 Field + Overall */
+  s+= r.fix.items.length
+    ? '<div style="'+warn+'">\u26a0\ufe0f FIX VALIDATION พบ '+r.fix.diffs.length+' รายการไม่ตรง: Item '+items(r.fix.items)+'</div>'
+    : '<div style="'+ok+'">\u2705 FIX VALIDATION ถูกต้องทุกรายการ ('+CHKE_FIX.filter(f=>r.fix.missing.indexOf(f.field)<0).map(f=>f.field).join(' · ')+')</div>';
+  if(r.fix.missing.length) s+='<div style="'+warn+'">\u26a0\ufe0f FIX VALIDATION ตรวจไม่ได้ — ไม่พบ Header: '+chkeEsc(r.fix.missing.join(', '))+'</div>';
+  /* ★ [local009] Overall รวมทุก Validation บังคับ: MASTER HS CODE · MASTER TARIFF · DUI · กรมสรรพสามิต · Increased · NW>GW · FIX 7
+     แถว _k20 (HS CODE Warning DUI/สรรพสามิต) ไม่นับ FAIL · แถว HEADER (_k5) → ตรวจไม่ครบ ห้าม PASS */
+  const errRows=r.rows.filter(x=>x._k!==20 && x._k!==5).length;
+  const overall = errRows>0 ? '<div style="'+bad+'">\u274c ผลตรวจสอบ: FAIL</div>'
+                : (r.header.length ? '<div style="'+warn+'">\u26a0\ufe0f ผลตรวจสอบ: ตรวจไม่ครบ</div>' : '<div style="'+ok+'">\u2705 ผลตรวจสอบ: PASS</div>');
+  s+='<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;font-size:13px">'+overall+'</div>';
   if(r.rows.length){
-    s+='<div style="'+head+'">รายการที่ต้องตรวจสอบ ('+r.rows.length+' แถว)</div>'+chkeTable(r.rows);
+    s+='<div style="'+head+'">รายการที่ต้องตรวจสอบ ('+r.rows.length.toLocaleString()+' แถว)</div>'+chkeTable(r.rows,1);
   } else {
     s+='<div style="color:var(--green2);font-weight:700;margin-top:6px">ตรวจสอบแล้ว ไม่พบข้อมูลผิด</div>';
   }
@@ -5638,77 +5800,152 @@ function chkeTermFields(cur){
   for(const k of ['amount','fw','frg']){
     const g=document.getElementById('chke-term-g-'+k); if(g) g.style.display=groups.indexOf(k)>=0?'':'none';
     const l1=document.getElementById('chke-term-l-'+k), l2=document.getElementById('chke-term-l-'+k+'Rate');
-    if(l1) l1.textContent=CHKE_TERM_NAME[k]+c; if(l2) l2.textContent=CHKE_TERM_NAME[k+'Rate']+r;
+    if(l1) l1.textContent=CHKE_TERM_NAME[k]+c; if(l2) l2.textContent='Rate'+r;
   }
   return { term, use:CHKE_TERM_FIELDS[term]||CHKE_TERM_FIELDS.EXW };
 }
-function chkeTermRun(){
-  const box=document.getElementById('chke-term-result'); if(!box) return;
-  const okC='color:var(--green2);font-weight:700', badC='color:var(--red2);font-weight:800', warnC='color:var(--amber2);font-weight:700', mute='color:var(--text3)';
-  const line=(c,t)=>'<div style="'+c+'">'+t+'</div>';
-  const sub=t=>'<div style="margin-left:18px;font-family:\'IBM Plex Mono\',monospace;font-size:11px">'+t+'</div>';
-  const msgBox=k=>document.getElementById('chke-term-m-'+k);
-  for(const k of ['amountRate','fwRate','frgRate']){ const m=msgBox(k); if(m) m.innerHTML=''; }
+/* ★ [local008] FLOW: STEP 1 Input → [🧮 คำนวณ] → STEP 2 ผลการคำนวณ (สูตรของระบบ · ไม่ใช้ REF) → STEP 3 ตรวจเทียบ REF ใบขน
+   · Input/TERM/ไฟล์เปลี่ยน → ผลเก่า Stale (Clear + Export ปิด) · Export ใช้ Calculated Result ล่าสุดเท่านั้น
+   · Main REF (Exchange Rate · Cif Value Baht) หาย/ว่าง/ไม่ใช่ตัวเลข → ⚠️ ตรวจไม่ได้ (ไม่ Skip เงียบ · ไม่ PASS) · OTH Header หาย = Rule เดิม */
+const CHKE_TERM = { result:null };
+const CHKE_TERM_RATE_LABEL = { amountRate:'Amount Rate', fwRate:'F/W Rate', frgRate:'Frg Rate' };
+function chkeTermInvalidate(){
   const B = CHKE.dwak ? chkeTermRead(CHKE.dwak) : null;
-  const { term, use }=chkeTermFields(B?B.cur:'');
-  if(!B){ box.innerHTML=line(mute,'รอไฟล์ใบขน — อัปโหลด DWAK ด้านบนก่อน'); return; }
+  chkeTermFields(B?B.cur:'');
+  const had = !!CHKE_TERM.result; CHKE_TERM.result=null;
+  const st=document.getElementById('chke-term-result'), c=document.getElementById('chke-term-calc'), rf=document.getElementById('chke-term-ref');
+  if(c) c.innerHTML=''; if(rf) rf.innerHTML='';
+  if(st) st.innerHTML = !B ? '<div style="color:var(--text3)">รอไฟล์ใบขน — อัปโหลด DWAK ด้านบนก่อน</div>'
+                          : (had ? '<div style="color:var(--amber2);font-weight:700">⚠️ ข้อมูลเปลี่ยน — ผลการคำนวณเดิมถูกล้าง กด 🧮 คำนวณ ใหม่</div>'
+                                 : '<div style="color:var(--text3)">เลือก TERM · กรอกข้อมูล แล้วกด 🧮 คำนวณ</div>');
+  const bc=document.getElementById('chke-term-btn-calc'); if(bc) bc.disabled=!B;
+}
+function chkeTermCalcRun(){
+  const st=document.getElementById('chke-term-result'), c=document.getElementById('chke-term-calc'), rf=document.getElementById('chke-term-ref');
+  if(!st||!c||!rf) return;
+  CHKE_TERM.result=null; c.innerHTML=''; rf.innerHTML='';
+  if(!CHKE.dwak){ st.innerHTML='<div style="color:var(--text3)">รอไฟล์ใบขน — อัปโหลด DWAK ด้านบนก่อน</div>'; return; }
+  const B=chkeTermRead(CHKE.dwak);
+  const { term, use }=chkeTermFields(B.cur);
   const inp={}, missing=[], bad=[];
   for(const k of use){ const r=chkeTermIn('chke-term-'+k); if(r.empty) missing.push(k); else if(r.bad) bad.push(k); else inp[k]=r.v; inp[k+'Raw']=r.raw; }
-  let fail=false, warn=false, out='';
-  /* ── Exchange Rate ↔ REF — แยกต่อช่อง ทันที (REF จุดเดียว 'Exchange Rate' · ไม่ Auto-correct) ── */
-  const ref=B.ref;
-  for(const k of use.filter(x=>/Rate$/.test(x))){
-    const m=msgBox(k); if(!m) continue;
-    if(missing.includes(k) || bad.includes(k)){ if(bad.includes(k)) m.innerHTML=line(badC,'❌ ไม่ใช่ตัวเลข'); continue; }
-    const nm=CHKE_TERM_NAME[k];
-    if(ref.state==='OK'){
-      if(Math.abs(inp[k]-ref.v)<1e-12) m.innerHTML=line(okC,'✅ '+nm+' ตรง REF — '+chkeEsc(ref.raw));
-      else { fail=true; m.innerHTML=line(badC,'❌ '+nm+' ไม่ตรง REF')+'<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:400;color:var(--text2)">กรอก: '+chkeEsc(inp[k+'Raw'])+' · REF: '+chkeEsc(ref.raw)+'</div>'; }
-    } else if(ref.state==='VALUE_EMPTY'){ warn=true; m.innerHTML=line(warnC,'⚠️ ตรวจ '+nm+' ไม่ได้ · REF: ว่าง'); }
-    else if(ref.state==='NOT_NUMERIC'){ warn=true; m.innerHTML=line(warnC,'⚠️ ตรวจ '+nm+' ไม่ได้ · REF: ไม่ใช่ตัวเลข ('+chkeEsc(ref.raw)+')'); }
-    else if(ref.state==='MULTI'){ warn=true; m.innerHTML=line(warnC,'⚠️ ตรวจ '+nm+' ไม่ได้ · REF: หลายค่า ('+chkeEsc(ref.vals.join(' | '))+')'); }
-    /* HEADER_MISSING → ไฟล์ไม่มี REF → ไม่แสดง */
-  }
-  if(bad.length){ box.innerHTML=line(badC,'❌ ค่าที่กรอกไม่ใช่ตัวเลข: '+bad.map(k=>CHKE_TERM_NAME[k]).join(', ')); return; }
-  if(missing.length){ box.innerHTML=line(mute,'กรอกข้อมูลให้ครบ: '+missing.map(k=>CHKE_TERM_NAME[k]).join(', ')); return; }
+  if(bad.length){ st.innerHTML='<div style="color:var(--red2);font-weight:800">❌ ค่าที่กรอกไม่ใช่ตัวเลข: '+bad.map(k=>CHKE_TERM_NAME[k]).join(', ')+'</div>'; return; }
+  if(missing.length){ st.innerHTML='<div style="color:var(--text3)">กรอกข้อมูลให้ครบ: '+missing.map(k=>CHKE_TERM_NAME[k]).join(', ')+'</div>'; return; }
+  /* STEP 2 — คำนวณด้วยสูตรของระบบเท่านั้น (ค่าที่ผู้ใช้กรอก + Amount ต่อ Item ในใบขนเป็นสัดส่วน Ins) */
   const A=chkeTermCalc(term, inp, B);
-  const cmp=(label, calc, d)=>{
-    if(d.state==='HEADER_MISSING'){ warn=true; return line(warnC,'⚠️ ตรวจ '+label+' ไม่ได้ — ไฟล์ใบขนไม่มี Header '+chkeEsc(d.hdr)); }
-    if(d.state==='VALUE_EMPTY'){ fail=true; return line(badC,'❌ '+label+' ตรวจไม่ได้')+sub('ใบขน: ว่าง'); }
-    if(d.state==='NOT_NUMERIC'){ fail=true; return line(badC,'❌ '+label+' ตรวจไม่ได้')+sub('ใบขน: ไม่ใช่ตัวเลข'); }
-    if(d.state==='MULTI'){ fail=true; return line(badC,'❌ '+label+' ตรวจไม่ได้')+sub('ใบขน: หลายค่า ('+chkeEsc(d.vals.join(' | '))+')'); }
-    if(calc==null){ fail=true; return line(badC,'❌ '+label+' คำนวณไม่ได้')+sub(A.insState==='HEADER_MISSING'?'ไฟล์ใบขนไม่มี Header Amount':A.insState==='ZERO_TOTAL'?'Amount รวมของ Item ในใบขน = 0':'Amount ของ Item ในใบขน ว่าง/ไม่ใช่ตัวเลข'); }
+  const calcRows=[];
+  if(term==='CIF') calcRows.push(['Amount CIF THB',A.cif]);
+  else { if(term!=='FOB') calcRows.push(['F/W_OTH',A.fw]); calcRows.push(['Frg_OTH',A.frg],['Ins_OTH',A.ins],['Amount CIF THB',A.cif]); }
+  const res={ term, cur:B.cur, inp, use, A, B, calcRows, rows:B.rows };
+  st.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--text3)">TERM '+term+' · ใบขน '+B.rows.toLocaleString()+' รายการ'+(B.cur?' · สกุลเงิน '+chkeEsc(B.cur):'')+'</div>';
+  chkeTermRenderCalc(res);
+  /* STEP 3 — นำ Result เดียวกันไปเทียบ REF (REF ใช้ตรวจเท่านั้น ไม่เปลี่ยนค่าคำนวณ) */
+  res.ref=chkeTermCompare(res);
+  chkeTermRenderRef(res);
+  CHKE_TERM.result=res;
+  const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=false;
+}
+function chkeTermRenderCalc(res){
+  const c=document.getElementById('chke-term-calc'); if(!c) return;
+  let h='<div class="chke-term-head"><h3>🧮 ผลการคำนวณ</h3><button class="btn btn-success" id="chke-term-btn-export" onclick="chkeTermExport()" disabled style="padding:4px 10px;font-size:10px">⬇ EXPORT ผลการคำนวณ TERM</button></div>';
+  h+='<table class="chke-term-tbl"><thead><tr><th>รายการ</th><th style="text-align:right">คำนวณ (THB)</th></tr></thead><tbody>';
+  for(const [k,v] of res.calcRows){
+    h+='<tr><td>'+chkeEsc(k)+'</td><td class="num">'+(v==null?'<span style="color:var(--red2)">คำนวณไม่ได้'+(res.A.insState==='HEADER_MISSING'?' — ไฟล์ใบขนไม่มี Header Amount':res.A.insState==='ZERO_TOTAL'?' — Amount รวมของ Item = 0':' — Amount ของ Item ว่าง/ไม่ใช่ตัวเลข')+'</span>':chkeFmt(v)+' THB')+'</td></tr>';
+  }
+  c.innerHTML=h+'</tbody></table>';
+}
+/* เทียบ Result กับใบขน → แถว {label, calc, ref, diff, res, kind} · kind: ok|fail|warn */
+function chkeTermCompare(res){
+  const { term, A, B, inp, use }=res; const rows=[], rates=[]; let fail=false, warn=false;
+  const mainState=(d,label)=>{
+    if(d.state==='HEADER_MISSING'){ warn=true; return { ref:'ไม่พบ Header '+d.hdr, res:'⚠️ ตรวจไม่ได้ — ไม่พบ Header '+d.hdr, kind:'warn' }; }
+    if(d.state==='VALUE_EMPTY'){ warn=true; return { ref:'ว่าง', res:'⚠️ ตรวจไม่ได้ — '+d.hdr+': ว่าง', kind:'warn' }; }
+    if(d.state==='NOT_NUMERIC'){ warn=true; return { ref:'ไม่ใช่ตัวเลข', res:'⚠️ ตรวจไม่ได้ — '+d.hdr+': ไม่ใช่ตัวเลข', kind:'warn' }; }
+    if(d.state==='MULTI'){ warn=true; return { ref:'หลายค่า ('+d.vals.join(' | ')+')', res:'⚠️ ตรวจไม่ได้ — '+d.hdr+': หลายค่า', kind:'warn' }; }
+    return null; };
+  const cmp=(label, calc, d, isMain)=>{
+    if(!isMain){
+      if(d.state==='HEADER_MISSING'){ warn=true; rows.push({ label, calc:chkeFmt(calc), ref:'ไม่พบ Header '+d.hdr, diff:'—', res:'⚠️ ตรวจไม่ได้ — ไฟล์ใบขนไม่มี Header '+d.hdr, kind:'warn' }); return; }
+      if(d.state==='VALUE_EMPTY'){ fail=true; rows.push({ label, calc:chkeFmt(calc), ref:'ว่าง', diff:'—', res:'❌ ตรวจไม่ได้ — ใบขน: ว่าง', kind:'fail' }); return; }
+      if(d.state==='NOT_NUMERIC'){ fail=true; rows.push({ label, calc:chkeFmt(calc), ref:'ไม่ใช่ตัวเลข', diff:'—', res:'❌ ตรวจไม่ได้ — ใบขน: ไม่ใช่ตัวเลข', kind:'fail' }); return; }
+    } else { const m=mainState(d,label); if(m){ rows.push({ label, calc:chkeFmt(calc), ref:m.ref, diff:'—', res:m.res, kind:m.kind }); return; } }
+    if(calc==null){ fail=true; rows.push({ label, calc:'คำนวณไม่ได้', ref:chkeFmt(d.v), diff:'—', res:'❌ คำนวณไม่ได้', kind:'fail' }); return; }
     const diff=chkeR2(calc-d.v);
-    if(Math.abs(diff)<0.005) return line(okC,'✅ '+label+' ตรง — '+chkeFmt(d.v));
-    fail=true; return line(badC,'❌ '+label+' ไม่ตรง')+sub('คำนวณ: '+chkeFmt(calc)+' · ใบขน: '+chkeFmt(d.v)+' · ต่าง: '+chkeFmt(Math.abs(diff)));
+    if(Math.abs(diff)<0.005) rows.push({ label, calc:chkeFmt(calc), ref:chkeFmt(d.v), diff:'0.00', res:'✅ ตรง', kind:'ok' });
+    else { fail=true; rows.push({ label, calc:chkeFmt(calc), ref:chkeFmt(d.v), diff:chkeFmt(Math.abs(diff)), res:'❌ ไม่ตรง', kind:'fail' }); }
   };
   const zero=(label,d)=>{
-    if(d.state==='HEADER_MISSING') return '';                                   /* CIF: ไม่มี Header → ข้ามเงียบ */
-    if(d.state==='VALUE_EMPTY'){ fail=true; return line(badC,'❌ '+label+' ตรวจไม่ได้')+sub('ใบขน: ว่าง'); }
-    if(d.state==='NOT_NUMERIC'){ fail=true; return line(badC,'❌ '+label+' ตรวจไม่ได้')+sub('ใบขน: ไม่ใช่ตัวเลข'); }
-    if(Math.abs(d.v)<0.005) return line(okC,'✅ '+label+' ถูกต้อง — 0.00');
-    fail=true; return line(badC,'❌ '+label+' ต้องเป็น 0.00')+sub('ใบขน: '+chkeFmt(d.v));
+    if(d.state==='HEADER_MISSING') return;                                   /* CIF Zero Guard: ไม่มี Header → ข้ามเงียบ (Rule เดิม) */
+    if(d.state==='VALUE_EMPTY'){ fail=true; rows.push({ label, calc:'0.00', ref:'ว่าง', diff:'—', res:'❌ ตรวจไม่ได้ — ใบขน: ว่าง', kind:'fail' }); return; }
+    if(d.state==='NOT_NUMERIC'){ fail=true; rows.push({ label, calc:'0.00', ref:'ไม่ใช่ตัวเลข', diff:'—', res:'❌ ตรวจไม่ได้ — ใบขน: ไม่ใช่ตัวเลข', kind:'fail' }); return; }
+    if(Math.abs(d.v)<0.005) rows.push({ label, calc:'0.00', ref:chkeFmt(d.v), diff:'0.00', res:'✅ ถูกต้อง', kind:'ok' });
+    else { fail=true; rows.push({ label, calc:'0.00', ref:chkeFmt(d.v), diff:chkeFmt(Math.abs(d.v)), res:'❌ ต้องเป็น 0.00', kind:'fail' }); }
   };
-  if(term==='CIF'){
-    out+=cmp('Amount CIF THB', A.cif, B.cif);
-    out+=zero('F/W_OTH',B.fw)+zero('Frg_OTH',B.frg)+zero('Ins_OTH',B.ins);
-  } else {
-    if(term!=='FOB') out+=cmp('F/W_OTH', A.fw, B.fw);
-    out+=cmp('Frg_OTH', A.frg, B.frg);
-    out+=cmp('Ins_OTH', A.ins, B.ins);
-    out+=cmp('Amount CIF THB', A.cif, B.cif);
+  if(term==='CIF'){ cmp('Amount CIF THB',A.cif,B.cif,true); zero('F/W_OTH',B.fw); zero('Frg_OTH',B.frg); zero('Ins_OTH',B.ins); }
+  else { if(term!=='FOB') cmp('F/W_OTH',A.fw,B.fw,false); cmp('Frg_OTH',A.frg,B.frg,false); cmp('Ins_OTH',A.ins,B.ins,false); cmp('Amount CIF THB',A.cif,B.cif,true); }
+  /* Exchange Rate Check — Rate ทั้ง 3 ช่อง ↔ REF จุดเดียว 'Exchange Rate' · เต็มทศนิยม · ไม่ Auto-correct */
+  const ref=B.ref;
+  for(const k of use.filter(x=>/Rate$/.test(x))){
+    const lab=CHKE_TERM_RATE_LABEL[k], input=inp[k+'Raw'];
+    const m=mainState(ref,lab);
+    if(m){ rates.push({ label:lab, input, ref:m.ref, res:m.res, kind:'warn' }); continue; }
+    if(Math.abs(inp[k]-ref.v)<1e-12) rates.push({ label:lab, input, ref:ref.raw, res:'✅ ตรง', kind:'ok' });
+    else { fail=true; rates.push({ label:lab, input, ref:ref.raw, res:'❌ ไม่ตรง REF', kind:'fail' }); }
   }
-  const overall = fail ? line(badC,'❌ FAIL') : (warn ? line(warnC,'⚠️ ตรวจไม่ครบ') : line(okC,'✅ PASS'));
-  box.innerHTML='<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:2px">TERM '+term+' · ใบขน '+B.rows.toLocaleString()+' รายการ'+(B.cur?' · สกุลเงิน '+chkeEsc(B.cur):'')+'</div>'+out+'<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px">'+overall+'</div>';
+  const overall = fail ? '❌ ผลตรวจสอบ REF: FAIL' : (warn ? '⚠️ ผลตรวจสอบ REF: ตรวจไม่ครบ' : '✅ ผลตรวจสอบ REF: PASS');
+  return { rows, rates, overall, fail, warn };
+}
+function chkeTermRenderRef(res){
+  const rf=document.getElementById('chke-term-ref'); if(!rf) return;
+  const R=res.ref, col=k=>k==='ok'?'color:var(--green2);font-weight:700':k==='fail'?'color:var(--red2);font-weight:800':'color:var(--amber2);font-weight:700';
+  let h='<div class="chke-term-head"><h3>🔎 ตรวจเทียบ REF ใบขน</h3></div>';
+  h+='<table class="chke-term-tbl"><thead><tr><th>รายการ</th><th style="text-align:right">คำนวณ</th><th style="text-align:right">REF ใบขน</th><th style="text-align:right">ต่าง</th><th>ผล</th></tr></thead><tbody>';
+  for(const r of R.rows) h+='<tr><td>'+chkeEsc(r.label)+'</td><td class="num">'+chkeEsc(r.calc)+'</td><td class="num">'+chkeEsc(r.ref)+'</td><td class="num">'+chkeEsc(r.diff)+'</td><td style="'+col(r.kind)+'">'+chkeEsc(r.res)+'</td></tr>';
+  h+='</tbody></table>';
+  h+='<div style="font-size:11px;font-weight:800;color:var(--text2);margin-top:6px">Exchange Rate Check</div>';
+  h+='<table class="chke-term-tbl"><thead><tr><th>Rate</th><th style="text-align:right">Input</th><th style="text-align:right">REF</th><th>ผล</th></tr></thead><tbody>';
+  for(const r of R.rates) h+='<tr><td>'+chkeEsc(r.label)+'</td><td class="num">'+chkeEsc(r.input)+'</td><td class="num">'+chkeEsc(r.ref)+'</td><td style="'+col(r.kind)+'">'+chkeEsc(r.res)+'</td></tr>';
+  h+='</tbody></table>';
+  h+='<div id="chke-term-overall" style="margin-top:6px;font-size:13px;'+col(R.fail?'fail':R.warn?'warn':'ok')+'">'+chkeEsc(R.overall)+'</div>';
+  rf.innerHTML=h;
+}
+async function chkeTermExport(){
+  try{
+    const res=CHKE_TERM.result; if(!res){ const st=document.getElementById('chke-term-result'); if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">ไม่มีผลการคำนวณล่าสุด — กด 🧮 คำนวณ ก่อน</div>'; return; }
+    const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('ผลการคำนวณ TERM');
+    const thin={style:'thin',color:{argb:'FFBFBFBF'}}, bd={top:thin,left:thin,bottom:thin,right:thin};
+    const sec=t=>{ const r=ws.addRow([t]); r.font={bold:true}; r.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF200'}}; };
+    const hdr=arr=>{ const r=ws.addRow(arr); r.eachCell(c=>{ c.font={bold:true}; c.border=bd; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EEF5'}}; }); };
+    const row=arr=>{ const r=ws.addRow(arr); r.eachCell(c=>{ c.border=bd; }); };
+    sec('SECTION A: INPUT (ค่าที่ใช้คำนวณ)');
+    hdr(['รายการ','ค่า']); row(['TERM',res.term]); row(['Currency',res.cur||'—']);
+    for(const k of res.use) row([CHKE_TERM_NAME[k]+(res.cur?(/Rate$/.test(k)?' (THB/'+res.cur+')':' ('+res.cur+')'):''), res.inp[k+'Raw']]);
+    ws.addRow([]);
+    sec('SECTION B: CALCULATED RESULT (สูตรของระบบ · ไม่ใช้ REF)');
+    hdr(['รายการ','คำนวณ (THB)']); for(const [k,v] of res.calcRows) row([k, v==null?'คำนวณไม่ได้':v]);
+    ws.addRow([]);
+    sec('SECTION C: REF COMPARISON (เทียบกับไฟล์ใบขน)');
+    hdr(['รายการ','คำนวณ','REF ใบขน','ต่าง','ผล']); for(const r of res.ref.rows) row([r.label,r.calc,r.ref,r.diff,r.res]);
+    hdr(['Rate','Input','REF','ผล']); for(const r of res.ref.rates) row([r.label,r.input,r.ref,r.res]);
+    row([res.ref.overall]);
+    [30,22,22,14,40].forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    const dn=(CHKE.dwakName||'DWAK').replace(/\.xlsx?$/i,'');
+    a.href=url; a.download='ผลการคำนวณ TERM_'+res.term+'_'+dn+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ const st=document.getElementById('chke-term-result'); if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">Export ไม่สำเร็จ: '+chkeEsc(e.message||e)+'</div>'; }
 }
 function chkeTermWire(){
-  const sel=document.getElementById('chke-term'); if(sel) sel.addEventListener('change',chkeTermRun);
-  for(const k of ['amount','amountRate','fw','fwRate','frg','frgRate']){ const el=document.getElementById('chke-term-'+k); if(el){ el.addEventListener('input',chkeTermRun); el.addEventListener('change',chkeTermRun); } }
-  chkeTermRun();
+  const sel=document.getElementById('chke-term'); if(sel) sel.addEventListener('change',chkeTermInvalidate);
+  for(const k of ['amount','amountRate','fw','fwRate','frg','frgRate']){ const el=document.getElementById('chke-term-'+k); if(el){ el.addEventListener('input',chkeTermInvalidate); el.addEventListener('change',chkeTermInvalidate); } }
+  chkeTermInvalidate();
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',chkeTermWire); else chkeTermWire();
-window.chkeTermRun=chkeTermRun;
-window.chkeRun=chkeRun; window.chkeExport=chkeExport; window.chkeReset=chkeReset; window.chkeClear=chkeClear;
+window.chkeTermCalcRun=chkeTermCalcRun; window.chkeTermExport=chkeTermExport; window.chkeTermInvalidate=chkeTermInvalidate;
+window.chkeTablePage=chkeTablePage; window.chkeRun=chkeRun; window.chkeExport=chkeExport; window.chkeReset=chkeReset; window.chkeClear=chkeClear;
 
 })();
 </script>
