@@ -1,3 +1,78 @@
+NJHR V2 — Release local305
+รอบนี้แก้ REPORT ALL ให้ดึงข้อมูลจากรายการเงินเดือนจริงรายคน + งวด Payroll ที่ถูกต้อง
+Build: njhr-v2-ddf53515   (เดิม local304 = njhr-v2-8a600d79)
+asset-manifest md5: 408051eb   (เดิม 1869a20e)
+
+สถานะ: FRONTEND_READY · SQL_NOT_REQUIRED_FOR_RUN-135
+       RUN-132 / RUN-133 / RUN-134 = ยัง NOT INSTALLED บน Production
+       REAL_DEVICE_VERIFICATION = NOT VERIFIED
+
+================================================================
+local305 เปลี่ยนอะไรจาก local304  [RUN-135]
+================================================================
+ไฟล์ที่แก้จริง 1 ไฟล์: njlhr/compat/approvals-reports.js
+(อีก 4 ไฟล์เปลี่ยนจาก rebuild-version: asset-manifest.js · config.js · index.html · sw.js)
+
+Root Cause 1 — งวด Payroll ผิด
+  rpFetch() derive เดือนจาก r.s ซึ่งเป็น "วันเริ่มรอบ" (26/08/2026)
+  ทำให้ยิง njhr_pay_entry_totals ด้วย p_month=8 ทั้งที่งวดคือ 09/2026
+  แก้: rpRangeOf() ส่ง ym ออกมา · เพิ่ม rpPayYM(r) อ่านงวดจาก ym (= เดือนปลายรอบ)
+       rpFetch() และ rpCollect() ใช้ rpPayYM() แทน
+       ถ้าไม่มี ym → fallback เป็นพฤติกรรมเดิม (ไม่พัง)
+       รองรับรอบข้ามปี 26/12/2026–25/01/2027 → Payroll 01/2027
+
+Root Cause 2 — ประกันสังคมอ่านผิด Source
+  amt("SSO",0) อ่านจาก njhr_pay_entries แต่ SSO เป็น calc_type=SYSTEM
+  (system_source='payroll') · HR ไม่ได้คีย์เป็น entry และตาราง payroll ว่าง → ได้ 0 เสมอ
+  แก้: rpFetch() เรียก njhr_sso_list (RPC เดิม ตัวเดียวกับหน้าประกันสังคม)
+       map employee_id → amount_employee ซึ่งมาจาก njhr_sso_base()
+       sumRows ใช้ D.sso ก่อน แล้ว fallback เป็น amt("SSO",0)
+       ไม่คำนวณ 5% เองใน REPORT · ถ้าไม่มีสิทธิ์ can_salary จะ catch เป็น null และเตือนแทน
+
+Root Cause 3 — รายการหักอื่นผูก Code ตายตัว
+  RP_DED_OTHER เป็น Array 7 code → รายการที่ HR สร้างใหม่ตกหล่นทั้งหมด
+  แก้: เพิ่ม rpPaySumKind(pe, kind, skip) รวมตาม kind จริงจาก njhr_pay_items
+       (njhr_pay_entry_totals ส่ง kind มาให้อยู่แล้ว)
+       earnOther = kind EARNING ยกเว้น RP_EARN_COLS
+       dOther    = kind DEDUCTION ยกเว้น RP_DED_COLS
+       RP_EARN_COLS = BASE, POSITION_ALLOW, FUEL_ALLOW, PHONE_ALLOW, DILIGENCE, OT, SHIFT_ALLOW
+       RP_DED_COLS  = LEAVE_PERSONAL, SSO, STUDENT_LOAN
+       → รายการที่มีคอลัมน์เฉพาะไม่ถูกนับซ้ำใน "อื่น ๆ"
+
+สิ่งที่ตั้งใจไม่แตะ
+  Excel Template · Column order · Header (cells[] 37 ช่อง ตรงกับก่อนแก้ทุกไบต์)
+  Attendance · Leave · OT calculation · Payroll calculation · Salary calculation
+  Approval flow · Auth · Supabase schema
+  rpPayMap() / rpPaySum() / RP_EARN_OTHER / RP_DED_OTHER เดิม — คงไว้ ไม่ลบ
+
+SQL: ไม่ต้องรันเพิ่มสำหรับ RUN-135
+  ใช้เฉพาะ RPC ที่มีอยู่แล้วบน Production: njhr_pay_entry_totals · njhr_sso_list
+  rpFetch เรียก RPC รวม 7 ตัว เป็นของเดิมทั้งหมด
+
+ผลทดสอบ (รันจริง)
+  _check/test-run135-reportall.js          PASS 43 · FAIL 0
+  Frontend regression 26 ชุด               PASS 1834 · FAIL 0
+  _check/sql/_RUN135_reportall_test.sql    FAILS=0 (BEGIN…ROLLBACK บน Production)
+      M1/M2  งวด 09/2026 คืน 3 คน · งวด 08/2026 ไม่รั่ว
+      K1/K2  items[] มี code+kind ครบ · SHIFT_ALLOW=EARNING 1500
+      A      ค่ากะ 1,500 · ไม่ตกไป "รายได้อื่น"
+      B      หักอื่น 1,000 (code ใหม่ ZZR_UNIFORM/ZZR_DAMAGE ถูกนับ)
+             Logic เดิมได้ 0 — ยืนยัน Root Cause 3
+      C      กยศ. 500 · หักอื่น 700 · รวม 1,200 ไม่นับซ้ำ
+      D      ไม่มีรายการ → ไม่มีแถว → REPORT ได้ 0
+      S1–S4  njhr_sso_list คืน amount_employee 750 @5% (cap ฐาน 15,000)
+             ไม่ใช่ 20,000×5% = 1,000 → ยืนยันว่าใช้ njhr_sso_base จริง
+  ROLLBACK ตรวจแล้วสะอาด: ZZR-* 0 แถว · pay_entries คง 94 · pay_items คง 20 · employees คง 126
+
+ข้อควรทราบก่อนใช้งานจริง
+  งวด 09/2026 ปัจจุบันไม่มี njhr_pay_entries เลย (ทั้งระบบมี 94 แถว เป็นงวด 08/2026 ทั้งหมด)
+  หลังติดตั้ง local305 REPORT งวด 09/2026 จะเป็น 0 ในคอลัมน์ที่มาจากรายการเงินเดือน
+  ซึ่งตรงกับข้อมูลจริง — ก่อนหน้านี้แสดงตัวเลขได้เพราะบั๊กไปอ่านงวด 08/2026
+  ประกันสังคมจะขึ้นทันที เพราะมาจาก njhr_sso_base (มีข้อมูล 125 คน)
+
+================================================================
+ประวัติรอบก่อนหน้า — local304
+================================================================
 NJHR V2 — Release local304
 รอบนี้เป็นการแก้ Release Package / PATCH_INFO เท่านั้น — ไม่มีการแก้ Source ใน njlhr/
 Build: njhr-v2-8a600d79  (เท่ากับ local303 โดยตั้งใจ)
