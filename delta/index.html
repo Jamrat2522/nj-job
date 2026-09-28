@@ -6289,9 +6289,14 @@ function delta003ParseInvoice(lines){
   if(m) r.currency = m[1];
   m = full.match(/(\d+)\s*(?:PALLETS?|PLTS?)\b/i);
   if(m) r.packageAmount = parseInt(m[1], 10);
+  // Explicit "*Description : xxx" ใน PDF มาก่อน — ไม่มีค่อยใช้ fallback เดิม
+  for(const ln of lines){
+    const dm = String(ln||'').match(/^\s*\*?\s*Description\s*:\s*(.+?)\s*$/i);
+    if(dm && dm[1]){ r.description = dm[1].replace(/\s+/g,' ').trim(); break; }
+  }
   // BOI 003: รองรับทั้ง "OF ELECTRONIC COMPONENTS" (เดิม) และ "OF ELECTRO MAGNETIC PRODUCT" (PDF ใหม่)
   const idxECS = lines.findIndex(ln => /OF\s+ELECTRO(?:NIC\s+COMPONENTS|\s+MAGNETIC\s+PRODUCT)/i.test(ln));
-  if(idxECS >= 0){
+  if(!r.description && idxECS >= 0){
     for(let i=idxECS+1; i<Math.min(idxECS+10, lines.length); i++){
       const s = (lines[i]||'').trim();
       if(!s) continue;
@@ -6995,8 +7000,13 @@ function delta005ParseInvoice(lines){
   if(m) r.currency = m[1];
   m = full.match(/(\d+)\s*(?:PALLETS?|PLTS?)\b/i);
   if(m) r.packageAmount = parseInt(m[1], 10);
+  // Explicit "*Description : xxx" ใน PDF มาก่อน — ไม่มีค่อยใช้ fallback เดิม
+  for(const ln of lines){
+    const dm = String(ln||'').match(/^\s*\*?\s*Description\s*:\s*(.+?)\s*$/i);
+    if(dm && dm[1]){ r.description = dm[1].replace(/\s+/g,' ').trim(); break; }
+  }
   const idxECS = lines.findIndex(ln => /OF\s+ELECTRO(?:NIC\s+COMPONENTS|\s+MAGNETIC\s+PRODUCT)/i.test(ln));
-  if(idxECS >= 0){
+  if(!r.description && idxECS >= 0){
     for(let i=idxECS+1; i<Math.min(idxECS+10, lines.length); i++){
       const s = (lines[i]||'').trim();
       if(!s) continue;
