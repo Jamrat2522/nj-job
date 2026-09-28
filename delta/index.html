@@ -6343,6 +6343,20 @@ function delta003ParseInvoice(lines){
       break;
     }
   }
+  // Fallback: มีคอลัมน์คั่นระหว่าง Code กับ Qty เช่น "EFB0412VHDB4F 02 6,656 PCE 2.80 18,636.80"
+  // (แนวเดียวกับ Strategy 2 ของ Delta หลัก) — Product Code = token แรกเท่านั้น
+  if(!r.productCode){
+    for(const ln of lines){
+      const pm = ln.match(/^([A-Z0-9][A-Z0-9-]{6,})\s+[\w\-\/]+\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
+      if(pm){
+        r.productCode = pm[1];
+        r.qty = parseInt(pm[2].replace(/,/g,''), 10) || 0;
+        r.unitPrice = parseFloat(pm[4].replace(/,/g,'')) || 0;
+        r.amount = parseFloat(pm[5].replace(/,/g,'')) || 0;
+        break;
+      }
+    }
+  }
   if(!r.amount){
     m = full.match(/GRAND\s+TOTAL\s+[\d,]+(?:PCE|PCS)?\s+([\d,]+\.\d+)/i);
     if(m) r.amount = parseFloat(m[1].replace(/,/g,'')) || 0;
@@ -7051,6 +7065,20 @@ function delta005ParseInvoice(lines){
       r.unitPrice = parseFloat(pm[4].replace(/,/g,'')) || 0;
       r.amount = parseFloat(pm[5].replace(/,/g,'')) || 0;
       break;
+    }
+  }
+  // Fallback: มีคอลัมน์คั่นระหว่าง Code กับ Qty เช่น "EFB0412VHDB4F 02 6,656 PCE 2.80 18,636.80"
+  // (แนวเดียวกับ Strategy 2 ของ Delta หลัก) — Product Code = token แรกเท่านั้น
+  if(!r.productCode){
+    for(const ln of lines){
+      const pm = ln.match(/^([A-Z0-9][A-Z0-9-]{6,})\s+[\w\-\/]+\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
+      if(pm){
+        r.productCode = pm[1];
+        r.qty = parseInt(pm[2].replace(/,/g,''), 10) || 0;
+        r.unitPrice = parseFloat(pm[4].replace(/,/g,'')) || 0;
+        r.amount = parseFloat(pm[5].replace(/,/g,'')) || 0;
+        break;
+      }
     }
   }
   if(!r.amount){
