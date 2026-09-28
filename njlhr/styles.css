@@ -381,6 +381,48 @@
 }
 @media print{.an-ack-card,.an-pager,.an-filter,.an-warn{display:none!important}}
 
+/* ===== RUN-138 · Modal "เพิ่มประกาศ / แก้ไขประกาศ" — เฉพาะ UI ไม่แตะ Logic =====
+   scope ด้วย :has(#an-f-title) ซึ่งมีเฉพาะฟอร์มนี้ที่เดียว จึงไม่กระทบ modal อื่น
+   ทุกกฎอยู่ใน min-width:901px เท่านั้น -> Mobile <=900px คง layout เดิมทุกอย่าง
+   รูปแบบ: คอลัมน์เดียวเต็มความกว้าง (หัวข้อ -> หมวดหมู่ -> แผนก -> เนื้อหา)
+   chip จึงไหลได้เต็มบรรทัด อ่านง่ายแม้แผนกเยอะ */
+@media screen and (min-width:901px){
+  .modal:has(#an-f-title){
+    max-width:min(880px, calc(100vw - 64px));
+    max-height:min(92vh, calc(100vh - 32px));
+  }
+  .modal:has(#an-f-title) .modal-head{padding:18px 28px 12px}
+  .modal:has(#an-f-title) .modal-body{padding:12px 28px 20px}
+  .modal:has(#an-f-title) .modal-foot{padding:14px 28px 20px}
+  .modal:has(#an-f-title) .modal-foot .btn{min-width:124px}
+
+  /* คอลัมน์เดียว — ทุกช่องกว้างเต็ม modal */
+  .modal:has(#an-f-title) .an-form{grid-template-columns:1fr;gap:0}
+  .modal:has(#an-f-title) .an-form>.field,
+  .modal:has(#an-f-title) .an-form>#an-f-files,
+  .modal:has(#an-f-title) .an-form>.an-f-opts{margin-bottom:18px}
+  .modal:has(#an-f-title) .an-form textarea{min-height:190px}
+  .modal:has(#an-f-title) .an-form input[type=date]{min-height:46px;max-width:280px}
+  .modal:has(#an-f-title) .an-form input[type=file]{width:100%}
+  .modal:has(#an-f-title) .an-form>.field>span{font-size:13.5px;margin-bottom:2px}
+  .modal:has(#an-f-title) .an-hint{display:block;font-weight:400;margin-top:2px}
+
+  /* ไฟล์แนบ 2 ช่องเรียงข้างกัน ประหยัดพื้นที่แนวตั้ง */
+  .modal:has(#an-f-title) #an-f-files{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+  .modal:has(#an-f-title) #an-f-files>small{grid-column:1/-1}
+
+  /* chip — ไหลเต็มความกว้าง ไม่ชนกัน selected เด่น */
+  .modal:has(#an-f-title) .an-form .chips{gap:8px 10px;margin-top:4px}
+  .modal:has(#an-f-title) .an-form .chip.pick{padding:7px 14px;line-height:1.5;border-radius:10px;font-size:13px}
+  .modal:has(#an-f-title) .an-form .chip.pick.on{
+    font-weight:600;box-shadow:0 2px 8px rgba(230,0,0,.28)}
+
+  /* กลุ่ม checkbox เรียงแนวนอน ไม่ชิดกัน */
+  .modal:has(#an-f-title) .an-f-opts{display:flex;flex-wrap:wrap;gap:10px 28px}
+  .modal:has(#an-f-title) .an-f-opts .chk{padding:6px 0;gap:10px;line-height:1.6}
+}
+
+
 /* ===== RUN-127 · หน้า "อนุมัติรายการ → คำขอลา" — Layout ตารางบน Desktop =====
    ขอบเขต: .apr-t-leave (Tab คำขอลาเท่านั้น) และเฉพาะจอ >= 1200px
    Tab คำขอ OT / ลงชื่อย้อนหลัง · Tablet · Mobile ใช้กติกาเดิมทุกบรรทัด

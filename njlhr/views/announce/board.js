@@ -470,19 +470,24 @@
       var depts = res[0] || [], d = res[1], a = (d && d.ann) || {};
       var sel = anTargets(a) || [];
       openModal(id ? "แก้ไขประกาศ" : "เพิ่มประกาศ",
+        /* [RUN-138] คอลัมน์เดียวเต็มความกว้าง เรียงตามลำดับที่ใช้งานจริง
+           หัวข้อ -> หมวดหมู่ -> แผนกผู้รับ -> เนื้อหา -> วันที่มีผล -> ไฟล์แนบ -> ตัวเลือก
+           เปลี่ยนเฉพาะการจัดวาง/ข้อความ label ไม่แตะ id · validation · save flow */
         '<div class="form-grid an-form">' +
         '<label class="field"><span>หัวข้อประกาศ *</span><input id="an-f-title" value="' + esc(a.title || "") + '"></label>' +
-        '<label class="field"><span>หมวด</span><div class="chips" id="an-f-cat">' +
+        '<label class="field"><span>หมวดหมู่</span><div class="chips" id="an-f-cat">' +
         AN_CATS.map(function (c) {
           return '<span class="chip pick' + ((a.category || "ข่าวสาร") === c ? " on" : "") + '" data-v="' + esc(c) + '">' + esc(c) + "</span>";
         }).join("") + "</div></label>" +
-        '<label class="field"><span>เนื้อหา</span><textarea id="an-f-body" rows="8">' + esc(a.body || "") + "</textarea></label>" +
-        '<label class="field"><span>แผนกผู้รับ</span><div class="chips" id="an-f-dept">' +
+        '<label class="field"><span>แผนกผู้รับประกาศ' +
+        '<small class="muted an-hint">"ทุกแผนก" = พนักงานทุกคนเห็น · เลือกแผนก = เฉพาะแผนกนั้นเห็น</small></span>' +
+        '<div class="chips" id="an-f-dept">' +
         '<span class="chip pick' + (sel.length ? "" : " on") + '" data-v="__ALL__">ทุกแผนก</span>' +
         depts.map(function (x) {
           return '<span class="chip pick' + (sel.indexOf(x.department) >= 0 ? " on" : "") + '" data-v="' +
             esc(x.department) + '">' + esc(x.department) + " (" + x.emp_count + ")</span>";
         }).join("") + "</div></label>" +
+        '<label class="field"><span>เนื้อหา</span><textarea id="an-f-body" rows="8">' + esc(a.body || "") + "</textarea></label>" +
         '<label class="field"><span>วันที่มีผล</span><input type="date" id="an-f-eff" value="' +
         esc(String(a.effective_date || "").slice(0, 10)) + '"></label>' +
         '<div id="an-f-files"' + (AN_FILE_CAT === (a.category || "ข่าวสาร") ? "" : " hidden") + '>' +
@@ -491,12 +496,15 @@
         '<label class="field"><span>ไฟล์ PDF (.pdf)</span><input type="file" id="an-f-pdf" accept=".pdf">' +
         '<small class="muted" id="an-f-pdfn">' + (a.pdf_file_name ? "ไฟล์ปัจจุบัน: " + esc(a.pdf_file_name) : "ยังไม่มีไฟล์") + "</small></label>" +
         '<small class="muted">แนบไฟล์ได้เฉพาะหมวด "' + esc(AN_FILE_CAT) + '" ตามระบบต้นทาง</small></div>' +
+        '<div class="an-f-opts">' +
         '<label class="chk"><input type="checkbox" id="an-f-sign"' + (a.require_sign ? " checked" : "") + "> ต้องกดรับทราบ</label>" +
-        '<label class="chk"><input type="checkbox" id="an-f-pin"' + (a.pinned ? " checked" : "") + "> ปักหมุดไว้บนสุด</label>" +
+        '<label class="chk"><input type="checkbox" id="an-f-pin"' + (a.pinned ? " checked" : "") + "> ปักหมุดด้านบน</label>" +
         (id ? '<label class="chk"><input type="checkbox" id="an-f-ver"> ออกเวอร์ชันใหม่ (ผู้ที่รับทราบแล้วต้องรับทราบใหม่)</label>' : "") +
+        "</div>" +
         '<div class="form-error" id="an-f-err" role="alert"></div></div>',
         '<button class="btn btn-ghost" id="an-f-cancel">ยกเลิก</button>' +
-        '<button class="btn btn-primary" id="an-f-save">' + icon("check") + " บันทึก</button>");
+        '<button class="btn btn-primary" id="an-f-save">' + icon("check") + " บันทึก</button>",
+        { wide: true });
 
       document.getElementById("an-f-cancel").onclick = closeModal;
       var catBox = document.getElementById("an-f-cat");

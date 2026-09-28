@@ -1,3 +1,70 @@
+NJHR V2 — Release local308
+RUN-138 · Modal "เพิ่มประกาศ / แก้ไขประกาศ" — ปรับ UI อย่างเดียว
+Build: njhr-v2-a7c520ac   (ก่อนหน้า local307 = njhr-v2-a61b8b54)
+
+สถานะ: UI_ONLY · ไม่ต้องรัน SQL · ไม่แตะ Logic / Validation / Save Flow / RPC / Database
+
+================================================================
+RUN-138 — Root Cause และสิ่งที่แก้
+================================================================
+Root Cause
+  anForm() เรียก openModal() โดยไม่ส่ง opts -> ตกไปใช้ค่า default .modal max-width:480px
+  ขณะที่ฟอร์มเป็น .form-grid 2 คอลัมน์ -> แต่ละคอลัมน์เหลือราว 215px
+  chip ชื่อยาวอย่าง "CUSTOMER SERVICE IMPORT (36)" จึงล้นบรรทัดและดูแน่นทั้งฟอร์ม
+  (.modal-wide 660px มีอยู่แล้วในระบบแต่ไม่เคยถูกใช้กับ modal นี้)
+
+สิ่งที่แก้ (ตามตัวอย่างที่ผู้ใช้ส่งมา = คอลัมน์เดียวเต็มความกว้าง)
+  views/announce/board.js · anForm()
+    - ส่ง { wide: true } เข้า openModal()
+    - จัดลำดับใหม่: หัวข้อ -> หมวดหมู่ -> แผนกผู้รับประกาศ -> เนื้อหา -> วันที่มีผล
+                     -> ไฟล์แนบ -> กลุ่ม checkbox -> error
+    - เพิ่มคำอธิบายใต้หัวข้อแผนก: ทุกแผนก = พนักงานทุกคนเห็น · เลือกแผนก = เฉพาะแผนกนั้นเห็น
+    - ปรับข้อความ label ให้ตรงตัวอย่าง: "หมวด"->"หมวดหมู่" · "แผนกผู้รับ"->"แผนกผู้รับประกาศ"
+                                        "ปักหมุดไว้บนสุด"->"ปักหมุดด้านบน"
+    - ห่อ checkbox ด้วย .an-f-opts เพื่อจัดเรียงแนวนอน
+    - id ทุกตัวคงเดิมครบ 16 ตัว -> save flow ที่อ่านค่าด้วย getElementById ไม่กระทบ
+
+  styles.css · บล็อก RUN-138 (ใหม่)
+    - scope ด้วย .modal:has(#an-f-title) ซึ่งมีเฉพาะฟอร์มนี้ที่เดียว
+    - อยู่ใน @media (min-width:901px) เท่านั้น -> Mobile <=900px คง layout เดิมทุกอย่าง
+    - max-width: min(880px, calc(100vw - 64px))  ·  max-height: min(92vh, 100vh-32px)
+    - .an-form เป็นคอลัมน์เดียว (grid-template-columns:1fr) ทุกช่องกว้างเต็ม modal
+    - textarea min-height 190px · ช่องวันที่ min-height 46px
+    - chip: gap 8px/10px · padding 7px 14px · selected = ตัวหนา + เงา
+    - ไฟล์แนบ Word/PDF เรียง 2 ช่องข้างกัน
+    - ปุ่ม footer min-width 124px
+
+ไม่ได้ทำ: "วันหมดอายุ"
+  ตรวจแล้วตาราง announcement ไม่มีคอลัมน์นี้ · njhr_ea_save ไม่มี parameter รองรับ
+  การเพิ่มจะผิดข้อห้ามเรื่อง field mapping / RPC / Database จึงไม่เพิ่ม
+
+ผลทดสอบที่รันจริง (local308)
+  JS Syntax                                 38/38 PASS
+  Regression ทั้งชุด 30 ชุด                  1,786 เคส · FAIL 0
+  _check/test-run138-modal-ui.js            PASS 92 · FAIL 0
+    เปิดด้วย Chromium จริง (Playwright) โหลด styles.css + mobile.css ของจริง
+    ประกอบ DOM จาก openModal() + anForm() ตัวจริง
+    วัดที่ 1920 / 1440 / 1280 / Tablet 1024 / Mobile 390
+      Desktop: modal 880px (เดิม 480px) · คอลัมน์เดียว · ช่องหัวข้อและ textarea
+               กว้างเกือบเต็ม modal · textarea >=190px · chip ไม่ทับกันเลย
+               selected chip ตัวหนา+เงา · ปุ่ม footer >=124px
+      Tablet 1024: ไม่ล้นจอ (max-width หด calc(100vw-64px))
+      Mobile 390: RUN-138 ไม่ถูกใช้ · คอลัมน์เดียวแบบเดิม · เต็มความกว้างจอแบบ bottom-sheet
+      UI flow: กรอกหัวข้อ/เนื้อหา · หมวด 8 · แผนก ทุกแผนก+10 · chip กดโดนจริง
+               scroll เฉพาะ body · header/footer ไม่ขยับ · ปุ่มยกเลิก/บันทึกกดโดน
+      ไม่กระทบ modal อื่น: ทุกกฎ scope :has(#an-f-title) · ไม่แตะ .modal/.modal-wide กลาง
+
+NOT TESTED (ระบุตรง ๆ)
+  การเปิดใช้งานจริงบนเบราว์เซอร์ของผู้ใช้ (ทดสอบด้วย Chromium headless บน container)
+  หมายเหตุที่พบระหว่างทดสอบ: บน Mobile กล่อง bottom-sheet ล้นขอบล่างราว 24px
+    วัดเทียบกับ local307 ได้ 23.6px เท่ากันทั้งก่อนและหลัง -> เป็นพฤติกรรมเดิม
+    ไม่ได้เกิดจาก RUN-138 และไม่ได้แก้ในรอบนี้ (อยู่นอกขอบเขตที่สั่ง)
+
+ไฟล์ที่แก้
+  ~ njlhr/views/announce/board.js   anForm()
+  ~ njlhr/styles.css                + บล็อก RUN-138
+  + _check/test-run138-modal-ui.js  (ใหม่)
+
 NJHR V2 — Release local307
 RUN-137 · แก้รายงานดึงข้อมูลไม่ครบ (Pagination) + REPORT ALL วันลา = 0
 Build: njhr-v2-a61b8b54   (ก่อนหน้า local306 = njhr-v2-7cf920f8)
