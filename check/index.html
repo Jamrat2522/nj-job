@@ -1122,6 +1122,7 @@ body.legacy-active .content-area { display: none !important; }
     <div class="doa-row-actions">
       <button class="btn btn-primary" id="chke-btn-run" onclick="chkeRun()" disabled>🔍 ตรวจสอบ</button>
       <button class="btn btn-success" id="chke-btn-export" onclick="chkeExport()" disabled>⬇ EXPORT ผลตรวจ</button>
+      <button class="btn btn-ghost" id="chke-btn-mapexport" onclick="chkeMapExport()" disabled>⬇ EXPORT MAPPING EXCEL</button><!-- ★ [MAP] Export จาก Internal Snapshot -->
       <button class="btn btn-ghost" onclick="chkeReset()">รีเซ็ต</button>
     </div>
     <div class="doa-status" id="chke-status" style="margin-top:6px"></div><!-- [local033] ไม่แสดงข้อความ idle · Error/ผลตรวจยังแสดงในกล่องนี้ -->
@@ -2045,7 +2046,8 @@ function chkeRunValidate(){
   }
   for(const f of r.fix.missing) hdrRow(f,(CHKE_FIX.find(x=>x.field===f)||{}).exp||'—');
   /* ตารางเดียว · เรียงตามลำดับแถว DWAK · ภายใน Item: A(10) → HS CODE(20) → สรรพสามิต(22) → DUI Stat(23) → DUI ใบอนุญาต(24) → NW>GW(25) → TARIFF(30) → FIX(32) → Increased(35) */
-  r.rows=r.header.concat(r.part.diffs, r.ex99.diffs, r.exc.diffs, r.nw, r.hs.diffs, r.fix.diffs, r.inc.diffs)
+  try{ r.tcmp=chkeMapRows(r.header).concat(chkeTermCmp()); }catch(te){ r.tcmp=[{ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:'ตรวจไม่สำเร็จ: '+(te.message||te), map:'REF 80 Header', status:'ไม่ถูกต้อง' }]; }   /* ★ [MAP] REF 80 + TERM ↔ IMPORT → ตารางเดิม */
+  r.rows=r.header.concat(r.tcmp, r.part.diffs, r.ex99.diffs, r.exc.diffs, r.nw, r.hs.diffs, r.fix.diffs, r.inc.diffs)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
   return r;
@@ -2325,6 +2327,8 @@ async function chkeLoad(kind,file){
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHKE.dwak=sheets[0]; CHKE.dwakName=file.name; CHKE.result=null;
+      await chkeMapStart(file, CHKE.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
+      if(CHKE.dwak!==sheets[0]){ chkeSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
     document.getElementById(listId).innerHTML='<div class="doa-file-entry ok"><span class="dfn">✓ '+chkeEsc(file.name)+'</span>'
       +'<button class="drm" onclick="chkeClear(\''+kind+'\')">×</button></div>';
@@ -2335,7 +2339,7 @@ async function chkeLoad(kind,file){
 }
 function chkeClear(kind){
   if(kind==='master'){ CHKE.master=null; CHKE.masterName=null; }
-  else { CHKE.dwak=null; CHKE.dwakName=null; }
+  else { CHKE.dwak=null; CHKE.dwakName=null; CHKE_MAP_TOK=null; CHKE_MAP=null; chkeMapRender(); }                  /* ★ [MAP] ล้าง IMPORT → ล้าง Mapping */
   CHKE.result=null;
   const l=document.getElementById('chke-'+kind+'-list'); if(l) l.innerHTML='';
   const d=document.getElementById('chke-'+kind+'-drop'); if(d) d.classList.remove('loaded');
@@ -2519,6 +2523,175 @@ async function chkeExport(){
     chkeStatus('Export ผลตรวจสำเร็จ — ใบอนุญาต '+L.length+' แถว · ข้อมูลที่ผิด '+(hasErr?M:0)+' แถว');
   }catch(e){ chkeStatus('Export ไม่สำเร็จ: '+(e.message||e),true); }
 }
+/* ★ [MAP] MAPPING LAYER — ELE TYPE 0 เท่านั้น
+   · REF: 'REF. แยกหัวข้อตรวจขาเข้า.xlsx' sheet 1 A1:CB1 (80 Header) · คู่ [Header, ชนิดค่าของ Sample แถว 2 (n=ตัวเลข · s=ข้อความ · ''=ไม่มีตัวอย่าง)] · ไม่ใช้ค่า Sample เป็น Master
+   · อ่านไฟล์ IMPORT ซ้ำแบบ Read-only (ไม่แตะ CHKE.dwak) · จับ Header ด้วย chkeNH เดิม (trim + ยุบช่องว่าง + ไม่สนตัวพิมพ์) · ไม่เดา · ไม่ล็อก Column
+   · ฟ้องทุกความต่าง: ⚠️ ไม่พบ Header · ❌ Header ซ้ำ · ❌ ข้อมูลไม่ตรง (ชื่อ Header ต่าง / ชนิดค่าต่างจาก Sample REF) · ❌ ค่าไม่ตรง/อ่านไม่ได้ (Source มีค่า แต่ค่าที่ระบบอ่านได้ว่าง)
+   · ไม่แก้ค่า · ไม่เขียน Rule แก้ความต่าง · ไม่เข้า PASS/FAIL / Validation / chkeCol */
+const CHKE_REF80 = [["Invoice No. :", "s"], ["Item No.", "s"], ["Importer NameEN", "s"], ["Product Code", "s"], ["Desc.", "s"], ["EN desc2", "s"], ["DescTH", "s"], ["Naturetran.", "s"], ["F/W_OTH", "n"], ["Frg_OTH", "n"], ["Ins_OTH", "n"], ["Packing_OTH", "n"], ["Other_OTH", "n"], ["Qty.", "s"], ["Netweight", "s"], ["Grossweight", "s"], ["Curr.", "s"], ["Amount", "s"], ["Amt.THB", "n"], ["CIF FOR.", "n"], ["CIF THB.", "n"], ["Duty Rate", "s"], ["Duty Amt.", "s"], ["Duty Amt.(P)", "s"], ["Vat Amt.", "s"], ["Vat Amt.(P)", "s"], ["Excise Amt.", "s"], ["Excise Amt.(P)", "s"], ["LocalTax Amt.", "s"], ["LocalTax Amt.(P)", "s"], ["Priv.", "s"], ["Tariff", "s"], ["Stat", "s"], ["Seq.", "s"], ["FZ", "s"], ["Package Amount", "s"], ["Package Unit", "s"], ["Brand Name", "s"], ["Origin Country (Detail)", "s"], ["Establish No", "s"], ["Origin Country", "s"], ["Total Package Amount", "s"], ["Total Package Unit", "s"], ["Net Weight", "s"], ["Gross Weight", "s"], ["Currency Code", "s"], ["Exchange Rate", "s"], ["Cif Value Foreign", "s"], ["Cif Value Baht", "s"], ["Invoice Date", "s"], ["Term", "s"], ["Increased Rate", "s"], ["Increased Price Foreign", "s"], ["Increased Price Baht", "s"], ["ExciseNo", "s"], ["Duty_code", "s"], ["Excise_code", ""], ["Excise_rate", "s"], ["Local_rate", "s"], ["ExciseType", "s"], ["Declaration No", "s"], ["DeclarationLine Number", "s"], ["Export TaxIncentives ID", "s"], ["Import TaxIncentives ID", "s"], ["Deducted Amount", "s"], ["PermitNo1", "s"], ["IssueDate1", "s"], ["PermitIssueAuthority1", "s"], ["PermitNo2", ""], ["IssueDate2", ""], ["PermitIssueAuthority2", ""], ["PermitNo3", ""], ["IssueDate3", ""], ["PermitIssueAuthority3", ""], ["PermitNo4", ""], ["IssueDate4", ""], ["PermitIssueAuthority4", ""], ["PermitNo5", ""], ["IssueDate5", ""], ["PermitIssueAuthority5", ""]];
+let CHKE_MAP = null;
+/* ★ [TCMP] TERM ↔ IMPORT — อ่านค่า IMPORT ผ่าน CHKE_MAP Snapshot เท่านั้น (ไม่ค้น Header ใหม่) · TERM จาก window.TERM_TRANSFER (อ่านอย่างเดียว)
+   · ไม่มี TERM_TRANSFER → ไม่เทียบ · ตรง = ไม่สร้างแถว · ไม่ตรง / ไม่พบ Header / Header ซ้ำ / อ่านไม่ได้ / หลายค่า = แถว "ผิด" ในตารางเดิม (รายการ — · _r0 _k6)
+   · txt/rate/one = ค่าระดับใบขน (ค่าเดียวทุก Item) · sum = Σ ทุก Item · tolerance 0.01 × จำนวน Item · ค่านายหน้า ไม่เทียบ
+   · Amount เทียบ Σ Amount เสมอ (Invoice Currency / Total Invoice ไม่อยู่ใน REF 80) · Currency เทียบ Currency Code */
+const CHKE_TCMP=[
+  { f:'TERM - Term',       h:'Term',           k:'txt',  tv:tt=>tt.term },
+  { f:'TERM - Currency',   h:'Currency Code',  k:'txt',  tv:tt=>((tt.items||{}).amount||{}).cur },
+  { f:'TERM - Amount',     h:'Amount',         k:'sum',  tv:tt=>((tt.items||{}).amount||{}).value },
+  { f:'TERM - Rate',       h:'Exchange Rate',  k:'rate', tv:tt=>((tt.items||{}).amount||{}).rate },
+  { f:'TERM - Amount THB', h:'Amt.THB',        k:'sum',  tv:tt=>((tt.items||{}).amount||{}).thb },
+  { f:'TERM - F/W_OTH',    h:'F/W_OTH',        k:'sum',  tv:tt=>((tt.items||{}).fw||{}).thb },
+  { f:'TERM - Frg_OTH',    h:'Frg_OTH',        k:'sum',  tv:tt=>((tt.items||{}).frg||{}).thb },
+  { f:'TERM - Ins_OTH',    h:'Ins_OTH',        k:'sum',  tv:tt=>((tt.items||{}).ins||{}).thb },
+  { f:'TERM - Other_OTH',  h:'Other_OTH',      k:'sum',  tv:tt=>((tt.items||{}).oth||{}).thb },
+  { f:'TERM - TOTAL CIF',  h:'Cif Value Baht', k:'one',  tv:tt=>tt.cif }
+];
+/* ★ [MAP] REF 80 → แถวฟ้องในตารางเดิม: HEADER | REF Header | ไม่พบ Header / Header ซ้ำ / อ่านไม่ได้ | REF Header | ผิด
+   · Header พบ = ผ่านขั้น Mapping (กลุ่ม H ยังไม่เทียบค่า) · Invoice No. : Derived พบ = ผ่าน · EXPORT Layout = นอก Scope
+   · ข้าม Header ที่ Validation เดิมฟ้อง _k5 อยู่แล้ว (1 ปัญหา = 1 แถว) */
+function chkeMapHdrOf(x){ const f=String(x.field||'');
+  if(f.indexOf('MASTER - ')===0) return f.slice(9);
+  if(f==='DUI - HS CODE'||f==='กรมสรรพสามิต - HS CODE') return 'Tariff';
+  if(f==='DUI - Stat') return 'Stat';
+  if(f==='กรมสรรพสามิต - DescTH') return 'DescTH';
+  return f; }
+function chkeMapRows(hdrRows){
+  const out=[], mk=(f,dw)=>out.push({ _r:0, _k:6, item:'HEADER', field:f, dwak:dw, map:f, status:'ไม่ถูกต้อง' });
+  const M=CHKE_MAP;
+  if(!M || M.error || M.file!==CHKE.dwakName || !CHKE.dwak){ out.push({ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:(M&&M.error)?'MAPPING ไม่สำเร็จ: '+M.error:'MAPPING ยังไม่พร้อม (กดตรวจสอบอีกครั้ง)', map:'REF 80 Header', status:'ไม่ถูกต้อง' }); return out; }
+  if(M.layout==='EXPORT') return out;
+  const done=new Set((hdrRows||[]).map(x=>chkeNH(chkeMapHdrOf(x))));
+  for(const x of M.rows){
+    if(x.derived || done.has(chkeNH(x.ref))) continue;
+    if(!x.ci || !x.ci.length) mk(x.ref,'ไม่พบ Header');
+    else if(x.ci.length>1) mk(x.ref,'Header ซ้ำ (Column '+x.col+')');
+    else if(x.status.indexOf('อ่านไม่ได้')>=0) mk(x.ref,'อ่านไม่ได้ · '+(x.detail.split(' · ').find(d=>d.indexOf('Source มีค่า')===0)||''));
+  }
+  return out;
+}
+function chkeTermCmp(){
+  const tt=window.TERM_TRANSFER; if(!tt) return [];
+  const out=[], mk=(f,dw,mp)=>out.push({ _r:0, _k:6, item:'—', field:f, dwak:(dw==null||String(dw)==='')?'—':String(dw), map:(mp==null||String(mp)==='')?'—':String(mp), status:'ไม่ถูกต้อง' });
+  const has=v=>v!=null && v!=='' && !(typeof v==='number' && !isFinite(v));
+  const f2=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const M=CHKE_MAP;
+  if(!M || M.error || M.file!==CHKE.dwakName || !CHKE.dwak || M.layout==='EXPORT') return out;     /* ไม่พร้อม → ฟ้องใน chkeMapRows · EXPORT Layout นอก Scope */
+  const byRef=h=>M.rows.find(x=>x.ref===h), rows=CHKE.dwak.rows;
+  const itR=byRef('Item No.'), itC=(itR&&itR.ci&&itR.ci.length===1)?itR.ci[0]:-1;
+  const isItem=r=>itC<0 || chkeT(r[itC])!=='';                                                     /* แถว Item = มี Item No. (แถว Invoice No. : ไม่นับ) */
+  const nItem=itC<0?null:rows.filter(isItem).length;
+  for(const c of CHKE_TCMP){
+    const T=c.tv(tt), tH=has(T);
+    const ts=!tH?'—':(c.k==='txt'?chkeT(T):(c.k==='rate'?String(Number(T)):f2(T)));
+    const R=byRef(c.h);
+    if(!R || !R.ci || R.ci.length!==1) continue;                                                 /* ไม่พบ/ซ้ำ → ฟ้องใน chkeMapRows แล้ว (1 ปัญหา = 1 แถว) */
+    const ci=R.ci[0], raw=[]; for(const r of rows){ if(!isItem(r)) continue; const v=r[ci]; if(v!=null && chkeT(v)!=='') raw.push(v); }
+    if(c.k==='txt'){
+      const u=[...new Set(raw.map(v=>chkeT(v)))];
+      if(u.length>1){ mk(c.f,'หลายค่า: '+u.join(' / '),ts); continue; }
+      const iv=u.length?u[0]:'';
+      if(iv.toUpperCase()!==(tH?chkeT(T).toUpperCase():'')) mk(c.f,iv||'ค่าว่าง',ts);
+      continue;
+    }
+    const bad=raw.find(v=>chkeNum(v)==null);
+    if(bad!==undefined){ mk(c.f,'อ่านไม่ได้: `'+chkeT(bad)+'`',ts); continue; }
+    if(c.k==='sum'){
+      const n=(nItem==null)?raw.length:nItem, sum=raw.reduce((a,v)=>a+chkeNum(v),0), tol=0.01*n;
+      if(Math.abs(sum-(tH?Number(T):0))>tol+1e-9) mk(c.f,f2(sum),ts);
+      continue;
+    }
+    const u=[...new Set(raw.map(v=>chkeNum(v)))];
+    if(u.length>1){ mk(c.f,'หลายค่า: '+[...new Set(raw.map(v=>chkeT(v)))].join(' / '),ts); continue; }
+    if(!u.length){ if(tH) mk(c.f,'ค่าว่าง',ts); continue; }
+    const eps=(c.k==='rate')?1e-6:0.005;
+    if(!tH || Math.abs(u[0]-Number(T))>eps) mk(c.f,chkeT(raw[0]),ts);
+  }
+  return out;
+}
+function chkeMapColL(c){ let s='', n=c+1; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+function chkeMapKind(cell){ if(!cell||cell.t==='z') return ''; const v=cell.v; if(v==null || (typeof v==='string' && v.trim()==='')) return '';
+  return cell.t==='n'?'n':cell.t==='d'?'d':cell.t==='b'?'b':cell.t==='e'?'e':'s'; }
+const CHKE_MAP_KN={ n:'ตัวเลข', s:'ข้อความ', d:'วันที่', b:'TRUE/FALSE', e:'Error' };
+function chkeMapSrc(cell){ if(!cell||cell.t==='z') return ''; if(cell.w!=null && String(cell.w)!=='') return String(cell.w); if(cell.v instanceof Date) return chkeDate(cell.v); return cell.v==null?'':String(cell.v); }
+function chkeMapStamp(d){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+async function chkeMapBuild(file, sheetName){
+  const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true,sheetStubs:true});   /* อ่านอย่างเดียว · เหมือน chkeReadSheet + sheetStubs (เห็นเซลล์สูตรที่ไม่มีค่า) · ค่าที่ระบบอ่าน (sheet_to_json) ไม่เปลี่ยน */
+  const ws=wb.Sheets[sheetName]; if(!ws||!ws['!ref']) throw new Error('ไม่พบ Sheet '+sheetName);
+  const rg=XLSX.utils.decode_range(ws['!ref']);
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true,blankrows:true});           /* ค่าที่ระบบอ่านได้ (เหมือน chkeReadSheet แต่คงลำดับแถวจริง) */
+  let h0=aoa.findIndex(r=>(r||[]).some(x=>x!=null&&x!==''));  if(h0<0) h0=0;                    /* แถว Header = แถวแรกที่มีข้อมูล (เหมือน chkeReadSheet) */
+  const hdr=(aoa[h0]||[]).map(chkeT);
+  const layout=(hdr.some(h=>chkeNH(h)==='exporter nameen') && !hdr.some(h=>chkeNH(h)==='importer nameen'))?'EXPORT':'IMPORT';   /* ★ [MAP] EXPORT Layout = นอก Scope (จากชื่อ Header จริง) */
+  const cellAt=(r,c)=>ws[XLSX.utils.encode_cell({r:r+rg.s.r,c:c+rg.s.c})];
+  const rowNo=r=>r+rg.s.r+1, lim=10, list=a=>a.slice(0,lim).join(', ')+(a.length>lim?' … (รวม '+a.length+' แถว)':'');
+  const rows=CHKE_REF80.map(([ref,kind],i)=>{
+    const cols=[]; hdr.forEach((h,c)=>{ if(h!=='' && chkeNH(h)===chkeNH(ref)) cols.push(c); });
+    const sampleOf=c=>{ for(let r=h0+1;r<aoa.length;r++){ const t=chkeMapSrc(cellAt(r,c)); if(t.trim()!=='') return t; } return ''; };
+    const o={ no:i+1, ref, hdr:'', col:'', sample:'', status:[], detail:[], ci:cols.slice() };   /* ci = index Column ใน Header ของ IMPORT (ใช้อ่านข้อมูลตอนตรวจ · ไม่แสดง) */
+    if(!cols.length && ref==='Invoice No. :'){                                                     /* ★ [MAP] Derived: Logic เดียวกับ chkeDwakRows (คอลัมน์ A มี 'Invoice No.') */
+      const dv=[]; for(let r=h0+1;r<aoa.length;r++){ const a=chkeT((aoa[r]||[])[0]); if(a.indexOf('Invoice No.')>=0) dv.push(a); }
+      if(dv.length){ o.derived=true; o.hdr='(Derived) แถว "Invoice No. :xxx"'; o.col=chkeMapColL(0); o.sample=dv[0];
+        o.status.push('✅ พบ (Derived)'); o.detail.push('ไม่ใช่ Header · อ่านด้วย Logic เดิม (Carry Forward) · พบ '+dv.length+' แถว'); return o; }
+    }
+    if(!cols.length){ o.status.push('⚠️ ไม่พบ Header'); o.detail.push('ไม่พบ Header "'+ref+'" ในแถว Header ของ IMPORT'); return o; }
+    o.hdr=cols.map(c=>hdr[c]).join(' | '); o.col=cols.map(chkeMapColL).join(', '); o.sample=cols.map(sampleOf).join(' | ');
+    if(cols.length>1){ o.status.push('❌ Header ซ้ำ'); o.detail.push('พบ '+cols.length+' Column: '+cols.map(c=>chkeMapColL(c)+' "'+hdr[c]+'"').join(' · ')); return o; }
+    const c=cols[0];
+    if(hdr[c]!==ref) o.detail.push('ชื่อ Header ใน IMPORT "'+hdr[c]+'" ≠ REF "'+ref+'"');
+    const bad={}, empt=[];
+    for(let r=h0+1;r<aoa.length;r++){
+      const cell=cellAt(r,c), sv=(aoa[r]||[])[c], k=chkeMapKind(cell);
+      const src=chkeMapSrc(cell), srcHas=src.trim()!=='' || !!(cell&&cell.f);
+      if(srcHas && (sv==null || (typeof sv==='string' && sv.trim()===''))) empt.push(rowNo(r)+' "'+(src||('='+cell.f))+'"');
+      if(kind && k && k!==kind){ (bad[k]=bad[k]||[]).push(rowNo(r)+' "'+src+'"'); }
+    }
+    const bk=Object.keys(bad);
+    if(bk.length) bk.forEach(k=>o.detail.push('ชนิดค่า REF='+CHKE_MAP_KN[kind]+' · IMPORT='+CHKE_MAP_KN[k]+' '+bad[k].length+' แถว (แถว '+list(bad[k])+')'));
+    if(empt.length) o.detail.push('Source มีค่า แต่ค่าที่ระบบอ่านได้ว่าง '+empt.length+' แถว (แถว '+list(empt)+')');
+    if(!kind) o.detail.push('REF ไม่มี Sample (แถว 2 ว่าง) · ไม่เทียบชนิดค่า');
+    if(hdr[c]!==ref || bk.length) o.status.push('❌ ข้อมูลไม่ตรง');
+    if(empt.length) o.status.push('❌ ค่าไม่ตรง/อ่านไม่ได้');
+    if(!o.status.length) o.status.push('✅ พบ');
+    return o;
+  }).map(o=>({ ...o, status:o.status.join(' · '), detail:o.detail.join(' · ') }));
+  return { file:file.name, sheet:sheetName, at:chkeMapStamp(new Date()), hdrRow:rowNo(h0), layout, rows };
+}
+function chkeMapSum(m){ const c=t=>m.rows.filter(r=>r.status.indexOf(t)>=0).length;
+  return 'พบ '+c('✅')+' · ⚠️ ไม่พบ Header '+c('⚠️')+' · ❌ Header ซ้ำ '+c('Header ซ้ำ')+' · ❌ ข้อมูลไม่ตรง '+c('ข้อมูลไม่ตรง')+' · ❌ ค่าไม่ตรง/อ่านไม่ได้ '+c('อ่านไม่ได้')+' (จาก REF '+m.rows.length+' Header)'; }
+function chkeMapRender(){                                                                         /* ★ [MAP] Internal: ไม่แสดง Preview · ปุ่ม Export พร้อมเมื่อมี Snapshot */
+  const b=document.getElementById('chke-btn-mapexport'); if(b) b.disabled=!(CHKE_MAP && !CHKE_MAP.error);
+}
+async function chkeMapExport(){
+  const m=CHKE_MAP; if(!m||m.error) return;
+  try{
+    const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('MAPPING');                                /* จาก Snapshot เดียวกับ Preview · ไม่ Build ใหม่ */
+    ws.addRow(['MAPPING ตาม REF 80 Header']).font={bold:true,size:13};
+    ws.addRow(['ไฟล์ IMPORT', m.file]); ws.addRow(['Sheet', m.sheet]); ws.addRow(['Header แถว', m.hdrRow]); ws.addRow(['Layout', m.layout==='EXPORT'?'EXPORT (นอก Scope · ไม่ฟ้อง)':'IMPORT']); ws.addRow(['วันที่/เวลาสร้าง Mapping', m.at]); ws.addRow(['สรุป', chkeMapSum(m)]);
+    ws.addRow([]);
+    const H=ws.addRow(['ลำดับ','REF Header','IMPORT Header','Column','Sample Value','Status','รายละเอียดที่ไม่ตรง']);
+    H.eachCell(c=>{ c.font={bold:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}}; c.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}; });
+    for(const r of m.rows){
+      const R=ws.addRow([r.no, r.ref, r.hdr, r.col, r.sample, r.status, r.detail]);
+      R.eachCell({includeEmpty:true},c=>{ c.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}; c.alignment={vertical:'top',wrapText:true}; });
+      R.getCell(5).numFmt='@';
+      R.getCell(6).font={ bold:true, color:{ argb: r.status.indexOf('❌')>=0?'FFC00000':r.status.indexOf('⚠️')>=0?'FFC65911':'FF008000' } };
+    }
+    [8,28,28,10,30,26,70].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.views=[{ state:'frozen', ySplit:H.number }];
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='MAPPING_'+String(m.file||'IMPORT').replace(/\.xls[xm]?$/i,'')+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ chkeStatus('Export MAPPING ไม่สำเร็จ: '+(e.message||e),true); }
+}
+let CHKE_MAP_TOK = null;
+async function chkeMapStart(file, sheetName){                                                      /* Token กันผลของไฟล์เก่าทับไฟล์ใหม่ / ทับหลังล้าง IMPORT */
+  const tok={}; CHKE_MAP_TOK=tok; CHKE_MAP=null; chkeMapRender();
+  let m; try{ m=await chkeMapBuild(file, sheetName); }catch(me){ m={ file:file.name, error:String(me.message||me) }; }
+  if(CHKE_MAP_TOK!==tok) return; CHKE_MAP=m; chkeMapRender();
+}
+window.chkeMapExport=chkeMapExport;
 function chkeWire(){
   for(const k of ['dwak','master']){
     const inp=document.getElementById('chke-'+k+'-input'), drop=document.getElementById('chke-'+k+'-drop');
@@ -2562,7 +2735,7 @@ function chkeRenderTermTransfer(tt){
   ].filter(r=>r[4]);
   const rows=R.map(r=>'<tr><td style="text-align:left;padding-right:18px">'+r[0]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[1]+'</td><td style="text-align:center;padding:0 14px">'+r[2]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[3]+'</td></tr>').join('');
   box.innerHTML='<div style="border:1px solid #86efac;background:#f0fdf4;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:11px">'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div id="chke-tt-head" role="button" tabindex="0" aria-expanded="false" aria-controls="chke-tt-body" onclick="chkeToggleTermTransfer()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();chkeToggleTermTransfer();}" style="font-weight:800;color:#15803d;flex:1 1 auto;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;min-height:28px"><span id="chke-tt-arrow" aria-hidden="true" style="display:inline-flex;transition:transform .2s ease;transform:rotate(0deg)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span><span>✅ ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR <span style="font-weight:600;color:var(--text3)">(แสดงแยก · ยังไม่รวมใน PASS/FAIL)</span></span></div>'   /* [FIX local050] หัวข้อ = พับ/กาง */
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div id="chke-tt-head" role="button" tabindex="0" aria-expanded="false" aria-controls="chke-tt-body" onclick="chkeToggleTermTransfer()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();chkeToggleTermTransfer();}" style="font-weight:800;color:#15803d;flex:1 1 auto;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;min-height:28px"><span id="chke-tt-arrow" aria-hidden="true" style="display:inline-flex;transition:transform .2s ease;transform:rotate(0deg)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span><span>✅ ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR <span style="font-weight:600;color:var(--text3)">(เทียบกับใบขนเมื่อกดตรวจสอบ · ไม่ตรงแสดงในหัวข้อตรวจสอบ)</span></span></div>'   /* [FIX local050] หัวข้อ = พับ/กาง */
     +'<button type="button" class="btn" id="chke-tt-clear" onclick="chkeClearTermTransfer()" style="padding:2px 10px;font-size:11px">🗑 ล้างข้อมูล</button></div>'
     +'<div id="chke-tt-body" style="display:none">'   /* [FIX local050] Default = พับ */
     +'<div style="margin:2px 0 4px;font-weight:700">วันที่ '+dd+' · MASTER '+chkeEsc(tt.monthText||'')+' · Source '+chkeEsc(tt.source||'')+' · MODE '+chkeEsc(tt.mode||'')+' · TERM '+chkeEsc(tt.term||'')+'</div>'
