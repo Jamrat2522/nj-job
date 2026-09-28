@@ -1002,7 +1002,7 @@ body.legacy-active .content-area { display: none !important; }
           <div class="chke-term-pair">
             <label>MODE
               <select id="chke-term-mode">
-                <option value="Express">Express</option><option value="Normal">Normal</option>
+                <option value="Express">Express</option><option value="Normal">Normal</option><option value="Normal %">Normal %</option><!-- [local046] Normal % = Flow/สูตร/Validate/Export/ส่ง ELE เดียวกับ Normal (ต่างเฉพาะชื่อ) -->
               </select></label>
           </div>
         </div>
@@ -1072,9 +1072,9 @@ body.legacy-active .content-area { display: none !important; }
           <span class="chke-term-badge">ค่านายหน้า</span><span class="chke-term-sub">(ถ้ามี · Amount × 3%)</span>
           <div class="chke-term-pair">
             <div class="c chke-term-commcell"><label class="chke-term-chk"><input id="chke-term-commOn" type="checkbox"/><span id="chke-term-l-comm">ค่านายหน้า</span></label><label id="chke-term-commBox" style="display:none"><input id="chke-term-comm" type="text" readonly tabindex="-1" autocomplete="off" title="ค่านายหน้า = Amount × 3% (Read-only)"/></label></div>
-            <div class="c chke-term-txt" id="chke-term-commCur"></div>
-            <div class="c chke-term-txt">-</div>
-            <div class="c chke-term-thb" id="chke-term-thb-comm"></div>
+            <label class="c chke-term-commd"><select id="chke-term-commCur" class="chke-term-cursel" disabled title="สกุลเดียวกับ Amount"><option value="USD">USD</option></select></label><!-- [local050] แบบ Other_OTH -->
+            <label class="c chke-term-commd"><span class="chke-term-hl">Rate</span><input id="chke-term-commRate" type="text" autocomplete="off" readonly tabindex="-1" title="Rate ของ Amount จาก MASTER (Read-only)"/></label>
+            <div class="c chke-term-thb chke-term-commd" id="chke-term-thb-comm"></div>
           </div>
         </div>
         </div>
@@ -2534,29 +2534,30 @@ window.chkeTablePage=chkeTablePage; window.chkeRun=chkeRun; window.chkeExport=ch
 function chkeRenderTermTransfer(tt){
   const box=document.getElementById('chke-tt'); if(!box) return;
   if(!tt){ box.style.display='none'; box.innerHTML=''; return; }
-  /* ★ [local044] ตาราง 4 คอลัมน์ · 9 แถวเสมอ (ค่าว่าง = "-") · Mapping จาก Snapshot ของ termSendToEle (value/cur/rate จาก res.inp / res.curs / Rate · cif = res.A.cif · Amount CIF THB = res.A.amtThb) · ไม่คำนวณใหม่ */
+  /* ★ [local044] ตาราง 4 คอลัมน์ · [FIX local044] 7 รายการ (Term · Amount · Amount THB · F/W_OTH · Frg_OTH · Ins_OTH · TOTAL CIF) · ไม่มีข้อมูล = ไม่แสดงแถว · Mapping จาก Snapshot ของ termSendToEle (value/cur/rate จาก res.inp / res.curs / Rate · cif = res.A.cif · Amount CIF THB = res.A.amtThb) · ไม่คำนวณใหม่ */
   const f2=v=>(v==null||!isFinite(v))?'-':Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const f4=v=>(v==null||!isFinite(v))?'-':Number(v).toFixed(4);
+  const f4=v=>(v==null||!isFinite(v))?'-':String(Number(v));   /* [FIX local044] Rate ตามค่าจริงใน Payload (33.059) */
   const d=String(tt.date||''), dd=/^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):chkeEsc(d);
   const I=tt.items||{}, it=k=>I[k]||{};
   const rt=(k,x)=>(x.value==null)?'-':((k==='frg' && x.airAuto)?'1 (AIR AUTO)':f4(x.rate));
-  const R=[
-    ['Term',           chkeEsc(tt.term||'-'), '-', '-'],
-    ['Amount',         f2(it('amount').value), chkeEsc(it('amount').cur||'-'), rt('amount',it('amount'))],
-    ['Amount CIF THB', f2(it('amount').thb), 'THB', '-'],
-    ['F/W_OTH',        f2(it('fw').value),  chkeEsc(it('fw').cur||'-'),  rt('fw',it('fw'))],
-    ['Frg_OTH',        f2(it('frg').value), chkeEsc(it('frg').cur||'-'), rt('frg',it('frg'))],
-    ['Ins_OTH',        f2(it('ins').value), chkeEsc(it('ins').cur||'-'), rt('ins',it('ins'))],
-    ['Other_OTH',      f2(it('oth').value), chkeEsc(it('oth').cur||'-'), rt('oth',it('oth'))],
-    ['ค่านายหน้า',      (tt.comm && tt.comm.enabled && tt.comm.value!=null) ? f2(tt.comm.value) : '-', (tt.comm && tt.comm.enabled && tt.comm.cur) ? chkeEsc(tt.comm.cur) : '-', '-'],
-    ['TOTAL CIF',      f2(tt.cif), (tt.cif==null)?'-':'THB', '-']
-  ];
-  const rows=R.map(r=>'<tr><td>'+r[0]+'</td><td style="text-align:right;font-family:monospace">'+r[1]+'</td><td>'+r[2]+'</td><td style="text-align:right;font-family:monospace">'+r[3]+'</td></tr>').join('');
+  const has=v=>(v!=null && v!=='' && !(typeof v==='number' && !isFinite(v)));
+  const R=[   /* [FIX local044] คอลัมน์ที่ 5 = มีข้อมูลจริง → แสดงแถว */
+    ['Term',       chkeEsc(tt.term||'-'), '-', '-',                                                   has(tt.term)],
+    ['Amount',     f2(it('amount').value), chkeEsc(it('amount').cur||'-'), rt('amount',it('amount')),  has(it('amount').value)],
+    ['Amount THB', f2(it('amount').thb), 'THB', '-',                                                    has(it('amount').thb)],
+    ['F/W_OTH',    f2(it('fw').value),  chkeEsc(it('fw').cur||'-'),  rt('fw',it('fw')),                has(it('fw').value)],
+    ['Frg_OTH',    f2(it('frg').value), chkeEsc(it('frg').cur||'-'), rt('frg',it('frg')),              has(it('frg').value)],
+    ['Ins_OTH',    f2(it('ins').value), chkeEsc(it('ins').cur||'-'), rt('ins',it('ins')),              has(it('ins').value)],
+    ['Other_OTH',  f2(it('oth').value), chkeEsc(it('oth').cur||'-'), rt('oth',it('oth')),              has(it('oth').value)],   /* [local046] เมื่อมีค่า */
+    ['ค่านายหน้า',  (tt.comm&&tt.comm.enabled)?f2(tt.comm.value):'-', (tt.comm&&tt.comm.enabled)?chkeEsc(tt.comm.cur||'-'):'-', (tt.comm&&tt.comm.enabled&&has(it('amount').rate))?f4(it('amount').rate):'-', !!(tt.comm&&tt.comm.enabled&&has(tt.comm.value))],   /* [local046] Rate = Amount Rate */
+    ['TOTAL CIF',  f2(tt.cif), (tt.cif==null)?'-':'THB', '-',                                           has(tt.cif)]
+  ].filter(r=>r[4]);
+  const rows=R.map(r=>'<tr><td style="text-align:left;padding-right:18px">'+r[0]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[1]+'</td><td style="text-align:center;padding:0 14px">'+r[2]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[3]+'</td></tr>').join('');
   box.innerHTML='<div style="border:1px solid #86efac;background:#f0fdf4;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:11px">'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-weight:800;color:#15803d;flex:1 1 auto">✅ ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR <span style="font-weight:600;color:var(--text3)">(แสดงแยก · ยังไม่รวมใน PASS/FAIL)</span></div>'
     +'<button type="button" class="btn" id="chke-tt-clear" onclick="chkeClearTermTransfer()" style="padding:2px 10px;font-size:11px">🗑 ล้างข้อมูล</button></div>'
     +'<div style="margin:2px 0 4px;font-weight:700">วันที่ '+dd+' · MASTER '+chkeEsc(tt.monthText||'')+' · Source '+chkeEsc(tt.source||'')+' · MODE '+chkeEsc(tt.mode||'')+' · TERM '+chkeEsc(tt.term||'')+'</div>'
-    +'<table class="doa-tbl" style="font-size:11px"><thead><tr><th>รายการ</th><th>จำนวนเงิน</th><th>สกุลเงิน</th><th>Rate</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    +'<table class="doa-tbl" style="font-size:11px;width:auto;min-width:0"><thead><tr><th style="text-align:left">รายการ</th><th style="text-align:right">จำนวนเงิน</th><th style="text-align:center">สกุลเงิน</th><th style="text-align:right">Rate</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   box.style.display='';
 }
 /* ★ [local044] ล้างเฉพาะ TERM_TRANSFER + กล่อง #chke-tt (ไม่แตะ DWAK / MASTER / ผลตรวจ) · ใช้ตัวเดียวกันทั้งปุ่ม "ล้างข้อมูล" · switchCustomer · เปลี่ยน MODE */
@@ -2764,20 +2765,52 @@ const TERM_INS_PCT = 0.01;       /* [local029] · [local041] สูตรกล�
 const TERM_INS = { auto:false, fill:'' };
 /* ★ [local041] Express + EXW/FCA: F/W Auto = R2(Amount × 3%) · Read-only · สกุล = สกุล Amount · ออกจากเงื่อนไข → ล้างเฉพาะค่าที่ระบบเติม */
 const TERM_FW_PCT = 0.03;
+const TERM_FW_PCT_FOB = 0.10;   /* [local047] Normal % + FOB */
 const TERM_FW = { auto:false, fill:'' };
 function termFwUpdate(){
   const el=document.getElementById('chke-term-fw'); if(!el) return;
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
-  const on = TERM_STATE.mode==='Express' && (term==='EXW'||term==='FCA');
+  const ef=(term==='EXW'||term==='FCA'), md=TERM_STATE.mode;
+  const pct = (md==='Express' && ef) ? TERM_FW_PCT : (md==='Normal %' ? (ef ? TERM_FW_PCT : (term==='FOB' ? TERM_FW_PCT_FOB : null)) : null);   /* ★ [local047] Normal %: EXW/FCA 3% · FOB 10% · Express เดิม · Normal ไม่มี */
+  const on = pct!=null;
   if(on){
     const a=termIn('chke-term-amount');
-    const v=(a.v!=null) ? termR2(a.v*TERM_FW_PCT).toFixed(2) : '';                               /* Amount ว่าง/ไม่ใช่ตัวเลข → ว่าง */
+    const v=(a.v!=null) ? termR2(a.v*pct).toFixed(2) : '';                                       /* Amount ว่าง/ไม่ใช่ตัวเลข → ว่าง */
     el.value=v; el.readOnly=true; TERM_FW.auto=true; TERM_FW.fill=v;
     const fc=document.getElementById('chke-term-fwCur'); if(fc){ if(termFxSetCur('fw',termCurOf('amount'))) termFxApply('fw'); fc.disabled=true; }
   } else if(TERM_FW.auto){
     if(el.value===TERM_FW.fill) el.value='';                                                     /* ล้างเฉพาะค่าที่ระบบเติม */
     el.readOnly=false; TERM_FW.auto=false; TERM_FW.fill='';
     const fc=document.getElementById('chke-term-fwCur'); if(fc) fc.disabled=false;
+  }
+}
+/* ★ [local048] Normal % + EXW/FCA/FOB: Frg Auto = R2((Amount + F/W + Other_OTH) × 10%) · Other ว่าง = 0 · Read-only · สกุล = Amount (Rate จาก MASTER)
+   · Other/F/W คนละสกุลกับ Amount หรือไม่ใช่ตัวเลข → ว่าง + ⚠️ (ไม่รวมข้ามสกุล) · ออกจากเงื่อนไข → ล้างเฉพาะค่าที่ระบบเติม · ปลด AIR Auto ที่ค้างจาก Express */
+const TERM_FRG_PCT = 0.10;
+const TERM_FRGP = { auto:false, fill:'' };
+function termFrgPctUpdate(){
+  const el=document.getElementById('chke-term-frg'); if(!el) return;
+  const term=(document.getElementById('chke-term')||{}).value||'EXW';
+  const on = TERM_STATE.mode==='Normal %' && (term==='EXW'||term==='FCA'||term==='FOB');
+  if(on){
+    if(TERM_AIR.auto) termAirExit();
+    const a=termIn('chke-term-amount'); let v='', warn='';
+    if(a.v!=null){
+      let ov=0, fv=0; const ac=termCurOf('amount'), o=termIn('chke-term-oth');
+      if(o.bad) warn='Other_OTH ไม่ใช่ตัวเลข';
+      else if(!o.empty && o.v!==0){ if(termCurOf('oth')!==ac) warn='สกุล Other_OTH ('+termCurOf('oth')+') ≠ Amount ('+ac+')'; else ov=o.v; }
+      if(!warn){ const f=termIn('chke-term-fw');
+        if(f.bad) warn='F/W ไม่ใช่ตัวเลข'; else if(f.empty) warn='F/W ว่าง';
+        else if(f.v!==0 && termCurOf('fw')!==ac) warn='สกุล F/W ('+termCurOf('fw')+') ≠ Amount ('+ac+')'; else fv=f.v; }
+      if(!warn) v=termR2((a.v+fv+ov)*TERM_FRG_PCT).toFixed(2);
+    }
+    el.value=v; el.readOnly=true; TERM_FRGP.auto=true; TERM_FRGP.fill=v;
+    el.placeholder=warn?'⚠️ '+warn:''; el.title=warn?'Frg ไม่คำนวณ: '+warn:'';
+    const fc=document.getElementById('chke-term-frgCur'); if(fc){ if(termFxSetCur('frg',termCurOf('amount'))) termFxApply('frg'); fc.disabled=true; }
+  } else if(TERM_FRGP.auto){
+    if(el.value===TERM_FRGP.fill) el.value='';
+    el.readOnly=false; TERM_FRGP.auto=false; TERM_FRGP.fill=''; el.placeholder=''; el.title='';
+    const fc=document.getElementById('chke-term-frgCur'); if(fc) fc.disabled=false;
   }
 }
 /* ★ [local029] Auto Fill Ins_OTH (ยอดเท่านั้น · Ins Rate ไม่แตะ) · เรียกจาก termFields
@@ -2789,13 +2822,15 @@ function termInsUpdate(){
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   const ef = (term==='EXW'||term==='FCA');
   const on = ef || term==='FOB' || term==='DAP';
+  const npct = TERM_STATE.mode==='Normal %', incFw = ef || (npct && term==='FOB'), incOth = term!=='DAP';   /* ★ [local048] Normal %: FOB รวม F/W · [local049] DAP ทุก MODE = Amount × 1% (ไม่รวม Other) */
   if(on){
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
       let ov=0, fv=0; const o=termIn('chke-term-oth'), ac=termCurOf('amount');
-      if(o.bad) warn='Other_OTH ไม่ใช่ตัวเลข';
+      if(!incOth){}                                                                              /* [local049] DAP ทุก MODE */
+      else if(o.bad) warn='Other_OTH ไม่ใช่ตัวเลข';
       else if(!o.empty && o.v!==0){ if(termCurOf('oth')!==ac) warn='สกุล Other_OTH ('+termCurOf('oth')+') ≠ Amount ('+ac+')'; else ov=o.v; }
-      if(ef && !warn){ const f=termIn('chke-term-fw');
+      if(incFw && !warn){ const f=termIn('chke-term-fw');
         if(f.bad) warn='F/W ไม่ใช่ตัวเลข'; else if(f.empty) warn='F/W ว่าง';
         else if(f.v!==0 && termCurOf('fw')!==ac) warn='สกุล F/W ('+termCurOf('fw')+') ≠ Amount ('+ac+')'; else fv=f.v; }   /* ยอด 0 = ไม่รวมข้ามสกุล */
       if(!warn) v=termR2((a.v+fv+ov)*TERM_INS_PCT).toFixed(2);
@@ -2847,7 +2882,8 @@ function termCalc(term, inp){                                                   
 function termFields(cur){
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   let groups=TERM_GROUPS[term]||TERM_GROUPS.EXW;
-  if(TERM_STATE.mode==='Express' && (term==='CIF'||term==='DAP')) groups=groups.concat('frg');   /* [local041] Express CIF/DAP: แสดง Frg + ✈ AIR (AIR → Frg) · Amount CIF THB เดิม */
+  if(TERM_STATE.mode==='Express' && (term==='CIF'||term==='DAP')) groups=groups.concat('frg');
+  if(TERM_STATE.mode==='Normal %' && term==='FOB') groups=groups.concat('fw');   /* ★ [local047] Normal % FOB: แสดง F/W (Auto 10%) */   /* [local041] Express CIF/DAP: แสดง Frg + ✈ AIR (AIR → Frg) · Amount CIF THB เดิม */
   const cc=k=>' ('+termCurOf(k)+')', rr=k=>' (THB/'+termCurOf(k)+')';                               /* [local037] สกุลแยกต่อหัวข้อ */
   for(const k of ['amount','fw','frg','ins']){ const c=cc(k), r=rr(k);                                                  /* [local024] + ins (Show/Hide เท่านั้น · Ins_OTH ไม่ถูกอ่านเข้าสูตร) */
     const g=document.getElementById('chke-term-g-'+k); if(g) g.style.display=groups.indexOf(k)>=0?'':'none';
@@ -2856,12 +2892,14 @@ function termFields(cur){
   }
   const ga=document.getElementById('chke-term-g-air'); if(ga) ga.style.display=(groups.indexOf('frg')>=0 && TERM_STATE.mode==='Express')?'':'none';   /* [local012] AIR FREIGHT แสดงคู่กับ Frg · [local023] เฉพาะ MODE Express (ซ่อน = ไม่ล้างค่า) */
   if(typeof termAirSync==='function') termAirSync(!!(ga && ga.style.display!=='none'));
-  if(typeof termFwUpdate==='function') termFwUpdate();                                            /* [local041] Express EXW/FCA F/W = Amount × 3% (ก่อน Ins) */
+  if(typeof termFwUpdate==='function') termFwUpdate();
+  if(typeof termFrgPctUpdate==='function') termFrgPctUpdate();                                    /* [local048] Normal % Frg = (Amount + F/W + Other) × 10% (หลัง F/W · ก่อน Ins) */                                            /* [local041] Express EXW/FCA F/W = Amount × 3% (ก่อน Ins) */
   if(typeof termInsUpdate==='function') termInsUpdate();                                          /* [local029] Ins_OTH Auto 1% (Normal + FOB/DAP) */                                                   /* [local025] Label Frg (THB)/Rate (FIX 1) + Lock Frg Rate ขณะ AIR Auto (ปลด Lock เมื่อ AIR ซ่อน) */
   for(const k of ['comm','ins','oth']){ const l1=document.getElementById('chke-term-l-'+k), l2=document.getElementById('chke-term-l-'+k+'Rate');   /* [local020] */
     const c=cc(k==='comm'?'amount':k), r=rr(k==='comm'?'amount':k);
     if(l1) l1.textContent=TERM_NAME[k]+c; if(l2) l2.textContent='Rate'+r; }
-  { const cc2=document.getElementById('chke-term-commCur'); if(cc2) cc2.textContent=termCurOf('amount'); }   /* [local037] ค่านายหน้า = สกุล Amount · ไม่มี Rate */
+  { const cc2=document.getElementById('chke-term-commCur'), ac=termCurOf('amount'); if(cc2){ cc2.innerHTML='<option value="'+termEsc(ac)+'">'+termEsc(ac)+'</option>'; cc2.value=ac; }   /* [local050] สกุล = Amount (ล็อก) */
+    const cr=document.getElementById('chke-term-commRate'), ar=document.getElementById('chke-term-amountRate'); if(cr && ar) cr.value=ar.value; }   /* [local050] Rate = Amount Rate (MASTER · คัดลอกค่า ไม่คำนวณ) */   /* [local037] ค่านายหน้า = สกุล Amount · ไม่มี Rate */
   return { term, use:TERM_FIELDS[term]||TERM_FIELDS.EXW };
 }
 /* ★ [local008] FLOW: STEP 1 Input → [🧮 คำนวณ] → STEP 2 ผลการคำนวณ (สูตรของระบบ · ไม่ใช้ REF) → STEP 3 ตรวจเทียบ REF ใบขน
@@ -2939,7 +2977,8 @@ function termCalcRun(){
   /* ★ [local030] Validate รวบรวมทุกปัญหาแล้วแจ้งครั้งเดียว · ตรวจเฉพาะช่องที่แสดง/ใช้จริง (TERM_FIELDS[TERM] · Optional Rule · AIR เมื่อกรอบ AIR แสดง) */
   termClearErr();
   const cur=termCur();
-  const { term, use }=termFields(cur);
+  const { term, use:use0 }=termFields(cur);
+  const use = (TERM_STATE.mode==='Normal %' && term==='FOB') ? use0.concat(['fw','fwRate']) : use0;   /* ★ [local047] Normal % FOB: อ่าน F/W + Rate เข้า Calculation */
   const inp={}, errs=[], errIds=[];
   const addErr=(name,id,why,verb)=>{ errs.push({ name, why:why||'', verb:verb||'กรอก' }); if(id) errIds.push(id); };
   const fxErr=[], fxWhy=k=>{ const key=termFxKey(); if(!key) return '⚠️ กรุณาเลือกวันที่อัตราแลกเปลี่ยน';   /* [local037] Rate ว่าง = ไม่มี MASTER/สกุล */
@@ -2990,9 +3029,10 @@ function termCalcRun(){
   /* ★ [local020] DAP: Source ไม่มีสูตร → คง Amt.THB / F/W_OTH / Frg_OTH = ค่า × Rate ของตัวเอง (สูตรต่อยอดเดิม) · Ins / CIF ว่าง (ไม่เดา · รอล็อกรอบหน้า) */
   const A = term==='DAP' ? { amtThb:termR2(inp.amount*inp.amountRate), fw:null, frg:null, ins:null, cif:null, dap:true }   /* [local023] DAP ไม่มี Input F/W-Frg → ว่าง */
                          : termCalc(term, inp);
-  A.comm = null;                                                                                  /* [local023] ค่านายหน้า THB = ว่าง (ไม่มี Rate/กติกาแปลง · ห้ามเดา) → Export G9 ว่าง */
+  A.comm = (opt.comm!=null) ? termR2(opt.comm*inp.amountRate) : null;                            /* ★ [local046] ค่านายหน้า THB = R2(ค่านายหน้า × Amount Rate) (สกุลเดียวกับ Amount) */
   A.oth  = (opt.oth !=null) ? termR2(opt.oth *opt.othRate ) : null;
-  if(xFrg && inp.frg!=null) A.frg=termR2(inp.frg*inp.frgRate);                                  /* [local041] Frg_OTH เท่านั้น · A.cif (CIF = Amt.THB / DAP ว่าง) ไม่แตะ */
+  if(xFrg && inp.frg!=null) A.frg=termR2(inp.frg*inp.frgRate);
+  if(term==='FOB' && use.includes('fw') && inp.fw!=null) A.fw=termR2(inp.fw*inp.fwRate);        /* ★ [local047] Normal % FOB: F/W THB (termCalc ข้าม FOB) · Ins FOB เดิมไม่รวม F/W */                                  /* [local041] Frg_OTH เท่านั้น · A.cif (CIF = Amt.THB / DAP ว่าง) ไม่แตะ */
   const calcRows=[];
   if(term==='CIF') calcRows.push(['Amount CIF THB',A.cif]);
   else { if(term!=='FOB') calcRows.push(['F/W_OTH',A.fw]); calcRows.push(['Frg_OTH',A.frg],['Ins_OTH',A.ins],['Amount CIF THB',A.cif]); }
@@ -3000,17 +3040,21 @@ function termCalcRun(){
   const curs={}; for(const k of TERM_FX_KEYS) curs[k]=termCurOf(k);                                /* [local037] */
   const insR=termIn('chke-term-insRate'), insRate=(insR.v!=null)?insR.v:null;
   const fx={ date:String((document.getElementById('chke-term-fxDate')||{}).value||''), month:termFxKey(), source:termFxSrc(), count:(termFxMaster()||{}).count??null };   /* [local043] count = จำนวนสกุลใน MASTER (Export Form) */
-  const res={ curs, fx, insRate, insThb:(insIn!=null && insRate!=null) ? termR2(insIn*insRate) : null, term, mode:TERM_STATE.mode, insIn, insAuto:(TERM_INS.auto && TERM_INS.fill!=='') ? Number(TERM_INS.fill) : null, cur, inp, opt, use:useR, A, calcRows, ref:null, air:(TERM_AIR.auto && TERM_AIR.last && TERM_AIR.last.frg!=null && String(inp.frgRaw)===TERM_AIR.fill) ? {...TERM_AIR.last, query:termT((document.getElementById('chke-term-airCountry')||{}).value||'')} : null };   /* [local043] query = ค่าที่พิมพ์ในช่องประเทศ (Export Form) */   /* [local012] */
+  const insThb0=(insIn!=null && insRate!=null) ? termR2(insIn*insRate) : null;
+  /* ★ [local046] TOTAL CIF THB = ผลรวม THB ของทุกหัวข้อที่มีจริง (Amount + F/W + Frg + Ins_OTH ฟอร์ม + Other_OTH + ค่านายหน้า) · ทุก TERM รวม CIF/DAP · ไม่มีค่า = 0 · คำนวณครั้งเดียวที่นี่ · Export/Payload/ELE อ่าน A.cif */
+  { const hasFw0=use.includes('fw'), hasFrg0=useR.includes('frg'), hasIns0=(TERM_GROUPS[term]||[]).includes('ins');
+    A.cif = termR2(A.amtThb + (hasFw0&&A.fw!=null?A.fw:0) + (hasFrg0&&A.frg!=null?A.frg:0) + (hasIns0&&insThb0!=null?insThb0:0) + (A.oth||0) + (A.comm||0)); }
+  const res={ curs, fx, insRate, insThb:insThb0, term, mode:TERM_STATE.mode, insIn, insAuto:(TERM_INS.auto && TERM_INS.fill!=='') ? Number(TERM_INS.fill) : null, cur, inp, opt, use:useR, A, calcRows, ref:null, air:(TERM_AIR.auto && TERM_AIR.last && TERM_AIR.last.frg!=null && String(inp.frgRaw)===TERM_AIR.fill) ? {...TERM_AIR.last, query:termT((document.getElementById('chke-term-airCountry')||{}).value||'')} : null };   /* [local043] query = ค่าที่พิมพ์ในช่องประเทศ (Export Form) */   /* [local012] */
   /* ★ [local019] Flow ใหม่: คำนวณ → เก็บผลใน TERM_STATE.result เพื่อ EXPORT EXCEL เท่านั้น
      ไม่ Render 🧮 ผลการคำนวณ / 🔎 ตรวจเทียบ REF ใบขน / ตาราง / REF / Diff / PASS-FAIL / Exchange Rate Check ลงหน้าจอ · ไม่เรียก termCompare (คง Function ไว้ ไม่ถูกเรียก) */
-  if(!A.dap && !(A.cif!=null && isFinite(A.cif))){ st.innerHTML='<div style="color:var(--red2);font-weight:800">❌ คำนวณไม่ได้</div>'; return; }
+  if(!(A.cif!=null && isFinite(A.cif))){ st.innerHTML='<div style="color:var(--red2);font-weight:800">❌ คำนวณไม่ได้</div>'; return; }
   TERM_STATE.result=res;
   { const hasFw=use.includes('fw'), hasFrg=useR.includes('frg');   /* [local041] */                                      /* [local037] แถว จำนวนเงิน (THB) ในตาราง */
-    const thb={ amount:A.amtThb, fw:hasFw?A.fw:null, frg:hasFrg?A.frg:null, ins:(TERM_GROUPS[term]||[]).includes('ins')?res.insThb:null, oth:A.oth };
+    const thb={ amount:A.amtThb, fw:hasFw?A.fw:null, frg:hasFrg?A.frg:null, ins:(TERM_GROUPS[term]||[]).includes('ins')?res.insThb:null, oth:A.oth, comm:A.comm };   /* [local046] + comm */
     res.thb=thb;
-    for(const k of TERM_FX_KEYS){ const e=document.getElementById('chke-term-thb-'+k); if(e) e.textContent=(thb[k]==null||!isFinite(thb[k]))?'':termFmt(thb[k]); } }
+    for(const k of TERM_FX_KEYS.concat('comm')){ const e=document.getElementById('chke-term-thb-'+k); if(e) e.textContent=(thb[k]==null||!isFinite(thb[k]))?'':termFmt(thb[k]); } }
   { const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.disabled=false; }
-  st.innerHTML='<div style="color:var(--green2);font-weight:700">\u2705 คำนวณแล้ว (TERM '+termEsc(term)+') — กด EXPORT EXCEL</div>';
+  st.innerHTML='<div style="color:var(--green2);font-weight:700">\u2705 คำนวณแล้ว (TERM '+termEsc(term)+') — กด EXPORT EXCEL <span style="color:var(--text);font-weight:800">· TOTAL CIF THB = '+termFmt(A.cif)+'</span></div>';   /* [local046] */
   const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=false;
 }
 /* ══ [local018] EXPORT ผลการคำนวณ TERM — GOLDEN TEMPLATE "ตรวจสอบใบขนการคำนวณค่าใช้จ่าย.xlsx" · Sheet "ตรวจสอบค่าใช้จ่าย" (A1:O23) ══
@@ -3062,7 +3106,7 @@ async function termExport(){
       ws.getCell(5,c1).value=h[1]; ws.getCell(5,c1).font={ name:FONT, size:12, bold:true, color:{ argb:'FF111827' } }; ws.getCell(5,c1).alignment={ horizontal:'center', vertical:'middle' }; });
     merge(7,1,7,COLS); cell('A7', (res.fx.month?('✅ MASTER '+mo+(res.fx.count!=null?' · '+res.fx.count+' สกุลเงิน':'')+' · Source '+(res.fx.source||'-')):'⚠️ ไม่มี MASTER'), { size:9, bold:true, color:'FF15803D', border:false });
     /* Cards แถว 9–15: หัวข้อ(9) · หัวข้อรอง(10) · 4 แถวข้อมูล (11–14 Label | ค่า) · 15 ว่าง */
-    const hasFw=g.includes('fw'), hasFrg=(use||[]).includes('frg'), hasIns=g.includes('ins');
+    const hasFw=(use||[]).includes('fw'), hasFrg=(use||[]).includes('frg'), hasIns=g.includes('ins');   /* [local047] hasFw จาก res.use (รองรับ Normal % FOB) */
     const cards=[
       { t:'Amount', st:'(มูลค่าสินค้า)', bg:'FFFFEDD5', rows:[['จำนวนเงิน',n2(inp.amount)],['Currency',CU.amount||'-'],['Rate (THB)',r4(inp.amountRate),FMT4],['จำนวนเงิน (THB)',n2(A.amtThb)]] },
       hasFw ? { t:'F/W', st:'(ค่าขนส่งภายในประเทศ)', bg:'FFDBEAFE', rows:[['จำนวนเงิน',n2(inp.fw)],['Currency',CU.fw||'-'],['Rate',r4(inp.fwRate),FMT4],['จำนวนเงิน (THB)',n2(A.fw)]] } : null,
@@ -3091,7 +3135,7 @@ async function termExport(){
       row+=7; }
     /* Summary */
     box(row,1,row+7,COLS,'FFF8FAFC'); merge(row,1,row,COLS); cell('A'+row,'ผลรวม (THB)',{ bold:true, size:11, fill:'FF1E3A5F', color:'FFFFFFFF' });
-    const SUM=[['Amount THB',n2(A.amtThb)],['F/W THB',hasFw?n2(A.fw):'-'],['Frg THB',hasFrg?n2(A.frg):'-'],['Ins_OTH THB',hasIns?n2(res.insThb):'-'],['Other_OTH THB',n2(A.oth)],['ค่านายหน้า THB',n2(A.comm)],['TOTAL CIF THB',A.dap?'-':n2(A.cif)]];
+    const SUM=[['Amount THB',n2(A.amtThb)],['F/W THB',hasFw?n2(A.fw):'-'],['Frg THB',hasFrg?n2(A.frg):'-'],['Ins_OTH THB',hasIns?n2(res.insThb):'-'],['Other_OTH THB',n2(A.oth)],['ค่านายหน้า THB',n2(A.comm)],['TOTAL CIF THB',n2(A.cif)]];
     SUM.forEach((x,j)=>{ const r=row+1+j, last=j===SUM.length-1; merge(r,1,r,10); merge(r,11,r,COLS);
       cell('A'+r,x[0],{ size:10, bold:last, fill:last?'FFFDE68A':'FFF8FAFC' }); cell('K'+r,x[1],{ size:last?12:10, bold:last, h:'right', fill:last?'FFFDE68A':'FFF8FAFC' }); ws.getRow(r).height=last?22:18; });
     const lastRow=row+7;
@@ -3109,6 +3153,7 @@ async function termExport(){
 function termCommissionUpdate(){
   const on=document.getElementById('chke-term-commOn'), box=document.getElementById('chke-term-commBox'), v=document.getElementById('chke-term-comm');
   if(!on||!box||!v) return;
+  document.querySelectorAll('#chke-term-g-comm .chke-term-commd').forEach(e=>{ e.style.visibility=on.checked?'':'hidden'; });   /* [local050] ไม่ติ๊ก = เฉพาะ Checkbox (คง Layout) */
   if(!on.checked){ box.style.display='none'; v.value=''; return; }
   box.style.display='';
   const a=termIn('chke-term-amount');
@@ -3231,7 +3276,7 @@ function termSendToEle(){
       ins:    g.includes('ins')   ? it('ins', res.insIn,   res.insRate,     res.insThb) : it('ins',null),
       oth:    (res.opt && res.opt.oth!=null) ? it('oth', res.opt.oth, res.opt.othRate, res.A.oth) : it('oth',null)
     },
-    comm:{ enabled:!!(res.opt && res.opt.comm!=null), value:(res.opt && res.opt.comm!=null) ? res.opt.comm : null, cur:(res.opt && res.opt.comm!=null) ? (res.curs||{}).amount||null : null },
+    comm:{ enabled:!!(res.opt && res.opt.comm!=null), value:(res.opt && res.opt.comm!=null) ? res.opt.comm : null, cur:(res.opt && res.opt.comm!=null) ? (res.curs||{}).amount||null : null, thb:(res.opt && res.opt.comm!=null) ? n(res.A.comm) : null },   /* [local046] + thb */
     cif: n(res.A.cif)   /* [local044] TOTAL CIF = res.A.cif (ไม่คำนวณใหม่) */
   };
   if(frgAir && snap.items.frg.value!=null){ snap.items.frg.cur='THB'; snap.items.frg.rate=1; }
