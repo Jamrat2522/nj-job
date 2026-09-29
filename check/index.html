@@ -937,6 +937,8 @@ body.legacy-active .content-area { display: none !important; }
     #term-view #chke-term-panel #chke-term-comm{width:100%;min-width:0}
     #term-view #chke-term-panel #chke-term-btn-send{background:#dc2626;color:#fff;border-color:#dc2626}
     #term-view #chke-term-panel #chke-term-btn-send:disabled{opacity:.45}
+    #term-view #chke-term-panel .chke-term-btn-sendx{background:#dc2626;color:#fff;border-color:#dc2626}   /* [local063] Style เดียวกับปุ่มส่งเดิม */
+    #term-view #chke-term-panel .chke-term-btn-sendx:disabled{opacity:.45}
     /* ① MASTER อัตราแลกเปลี่ยน */
     #term-view #fx-panel .fx-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
     #term-view #fx-panel .fx-row label{display:flex;flex-direction:column;gap:2px;font-size:10.5px;font-weight:700;color:var(--text2)}
@@ -1104,6 +1106,8 @@ body.legacy-active .content-area { display: none !important; }
         <button class="btn btn-success" id="chke-term-btn-export" onclick="termExport()" disabled>⬇ EXPORT EXCEL</button>
         <button class="btn" id="chke-term-btn-frtinv" type="button" title="อัปโหลด Freight Invoice (PDF) · MODE Normal → TERM / Frg (Total Ocean) / F/W (Total Origin)">⬆ UPLOAD FREIGHT INVOICE</button><input type="file" id="chke-term-frtinv-input" accept=".pdf,application/pdf" hidden/>
         <button class="btn" id="chke-term-btn-send" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด ตรวจ ELE TYPE 0">➜ ส่งไปตรวจ ELE TYPE 0</button>
+        <button class="btn chke-term-btn-sendx" id="chke-term-btn-send1" type="button" disabled style="display:none" title="ส่ง TOTAL FOB THB ไปตรวจในโหมด TYPE 1">➜ ส่งไปตรวจ TYPE 1</button><!-- ★ [local063] Export เท่านั้น -->
+        <button class="btn chke-term-btn-sendx" id="chke-term-btn-sendd" type="button" disabled style="display:none" title="ส่ง TOTAL FOB THB ไปตรวจในโหมด TYPE D">➜ ส่งไปตรวจ TYPE D</button><!-- ★ [local063] Export เท่านั้น -->
       </div>
     </div>
     <div id="chke-term-result" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
@@ -1155,7 +1159,7 @@ body.legacy-active .content-area { display: none !important; }
         <div class="dico">📕</div><div class="dlabel">INVOICE MAPPING TYPE 1 (.xlsx)</div>
         <div class="dhint">21 Header: Part No. · Description · Customer Part No · Thai Translation · HS code · Order No. · Quantity · Unit · Unit Price · Curr · Amount · Invoice NO. · Invoice DATE. · Privilege · Stat · Export tariff · Seq · NO.ลำดับที่ใบขน · N.W. · G.W. · PACKAGES</div>
         <div class="doa-file-list" id="chk1-master-list"></div>
-        <input type="file" id="chk1-master-input" accept=".xlsx,.xlsm"/>
+        <input type="file" id="chk1-master-input" accept=".xlsx,.xlsm" multiple/><!-- ★ [local064] หลายไฟล์ -->
       </label>
     </div>
     <div id="chk1-type" style="font-size:12px;font-weight:700;color:var(--amber);margin-top:6px"></div>
@@ -1185,7 +1189,7 @@ body.legacy-active .content-area { display: none !important; }
         <div class="dico">📕</div><div class="dlabel">INVOICE MAPPING TYPE D (.xlsx)</div>
         <div class="dhint">21 Header: Part No. · Description · Customer Part No · Thai Translation · HS code · Order No. · Quantity · Unit · Unit Price · Curr · Amount · Invoice NO. · Invoice DATE. · Privilege · Stat · Export tariff · Seq · NO.ลำดับที่ใบขน · N.W. · G.W. · PACKAGES</div>
         <div class="doa-file-list" id="chkd-master-list"></div>
-        <input type="file" id="chkd-master-input" accept=".xlsx,.xlsm"/>
+        <input type="file" id="chkd-master-input" accept=".xlsx,.xlsm" multiple/><!-- ★ [local065] หลายไฟล์ -->
       </label>
     </div>
     <div id="chkd-type" style="font-size:12px;font-weight:700;color:var(--amber);margin-top:6px"></div>
@@ -3279,6 +3283,46 @@ const CHK1_INV_HDR21=['Part No./EN Description.2','Description/EN Description.1'
 /* EXPORT MAPPING: Source DWAK ต่อ Column (null = ว่าง: Order No. · Unit Price · Invoice DATE. · '#INV' = Invoice Carry Forward) */
 const CHK1_INV_SRC21=['Desc2.','Desc.','Product Code','DescTH','Tariff',null,'Qty.','Unit',null,'Curr.','Amount','#INV',null,'Priv.','Stat','ExportTariff','Seq.','Item No.','Net Weight','Gross Weight','Package Amount'];
 function chk1InvH(h){ return chk1NH(String(h==null?'':h).split('/')[0]); }
+/* ★ [local064] INVOICE MAPPING หลายไฟล์ — อ่านทุกไฟล์ แล้วรวมเป็นชุดเดียว (Column ของแต่ละไฟล์จับด้วยชื่อ Header · ลำดับ Column ต่างกันได้)
+   · รูปแบบเดิม (มี NO.ลำดับที่ใบขน): Key = NO.ลำดับที่ใบขน (เดิม) · ซ้ำข้ามไฟล์ → ใช้แถวแรก (กติกาเดิม)
+   · รูปแบบ INVOICE Number (ไม่มี NO.ลำดับที่ใบขน): รวมทุกไฟล์ → เรียง INVOICE Number น้อย→มาก (เท่ากัน = ลำดับเดิม) → Item 1, 2, 3 … ต่อเนื่องไม่ Reset
+   · ทุกไฟล์ต้องเป็นรูปแบบเดียวกัน · แถว TOTAL ไม่เป็น Item */
+const CHK1_INV_INVNO='invoice number';
+const CHK1_INV_ALIAS={ 'customer part no':'product code', 'description':'description eng 1', 'thai translation':'part description(th)', 'quantity':'qty. inv+qty. ใบขน', 'invoice no.':'invoice number' };   /* รูปแบบ INVOICE Number → หัวข้อ Compare เดิม */
+function chk1InvCmp(a,b){ const x=chk1T(a), y=chk1T(b);
+  if(/^[0-9]+$/.test(x) && /^[0-9]+$/.test(y)){ const p=x.replace(/^0+/,''), q=y.replace(/^0+/,''); return (p.length-q.length) || (p<q?-1:(p>q?1:0)); }
+  return x<y?-1:(x>y?1:0); }
+function chk1InvMerge(parts, names){
+  const lay=parts[0].layout; if(parts.some(p=>p.layout!==lay)) throw new Error('INVOICE MAPPING หลายไฟล์ต้องเป็นรูปแบบเดียวกัน');
+  const K=[]; parts.forEach(p=>p.H.forEach(h=>{ if(h!=='' && K.indexOf(h)<0) K.push(h); }));
+  if(lay==='invno' && K.indexOf(CHK1_INV_KEY)<0) K.push(CHK1_INV_KEY);                           /* Item ที่ระบบสร้าง (ลำดับตรวจ) */
+  const remap=(p,r)=>K.map(k=>{ const j=p.H.indexOf(k); return j<0?null:r[j]; });
+  const items=new Map(), order=[], files=[];
+  if(lay==='key'){
+    for(const p of parts){ const f={ total:p.total?remap(p,p.total):null, rows:[] }; files.push(f);
+      for(const r of p.rows){ const key=chk1Int(r[p.H.indexOf(CHK1_INV_KEY)]); const R=remap(p,r); f.rows.push(R); if(!items.has(key)){ items.set(key,R); order.push(key); } } }
+  } else {
+    const all=[]; for(const p of parts){ const f={ total:p.total?remap(p,p.total):null, rows:[] }; files.push(f); for(const r of p.rows){ const R=remap(p,r); f.rows.push(R); all.push(R); } }
+    const ci=K.indexOf(CHK1_INV_INVNO), ki=K.indexOf(CHK1_INV_KEY);
+    all.map((R,n)=>({R,n})).sort((a,b)=>chk1InvCmp(a.R[ci],b.R[ci])||(a.n-b.n)).forEach((x,n)=>{ const key=String(n+1); x.R[ki]=key; items.set(key,x.R); order.push(key); });
+  }
+  const col=k=>{ let j=K.indexOf(k); if(j<0 && lay==='invno' && CHK1_INV_ALIAS[k]) j=K.indexOf(CHK1_INV_ALIAS[k]); return j; };
+  return { sheet:parts.map(p=>p.sheet).join(', '), hdr:K, col, items, order, total:(files.length===1?files[0].total:null), files, layout:lay, name:names.join(', ') };
+}
+function chk1InvPart(sheets){                                                                     /* 1 ไฟล์ → { layout, H, rows, total } */
+  for(const sh of (sheets||[])){
+    const H=sh.hdr.map(chk1InvH), ki=H.indexOf(CHK1_INV_KEY), vi=H.indexOf(CHK1_INV_INVNO);
+    if(ki<0 && vi<0) continue;
+    const rows=[]; let total=null;
+    for(const r of sh.rows){
+      const isItem = ki>=0 ? chk1Int(r[ki])!=='' : chk1T(r[vi])!=='';
+      if(!isItem){ if(r.some(x=>chk1Txt(x)==='total')) total=r; continue; }
+      rows.push(r);
+    }
+    return { layout:ki>=0?'key':'invno', H, rows, total, sheet:sh.sheet };
+  }
+  return null;
+}
 function chk1InvParse(sheets, name){
   for(const sh of (sheets||[])){
     const H=sh.hdr.map(chk1InvH), ki=H.indexOf(CHK1_INV_KEY); if(ki<0) continue;
@@ -3315,7 +3359,7 @@ function chk1InvCheck(dwakSheet){
   const shown=v=>{ const t=chk1T(v); return t==='' ? 'ว่าง' : ((v instanceof Date)?chk1Date(v):t); };
   const hasInv=D.some(d=>d.invoice!=='');
   const F=CHK1_INV_F.filter(x=>{
-    const ic=V.col(x.k); if(ic<0){ hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }
+    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local064] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
     if(x.dw==='#INV'){ if(!hasInv){ hdrRow(x.f,'ไม่พบ Header Invoice No. :','—'); return false; } return true; }
     if(x.dw && chk1Col(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); return false; }
     return true; });
@@ -3348,13 +3392,15 @@ function chk1InvCheck(dwakSheet){
   /* ยอดรวม (ระดับ TOTAL เท่านั้น · ไม่ฟ้องราย Item) · Invoice: แถว TOTAL มีค่า → ใช้ · ไม่มี → Σ รายการ · 0 = ค่าจริง */
   const fmt=n=>String(Math.round(n*1000)/1000);
   for(const x of CHK1_INV_TOT){
+    if(x.k!=='packages') continue;                                                                /* ★ [local064] ไม่ใช้น้ำหนัก (N.W./G.W.) จาก INVOICE MAPPING ตัดสิน */
     const ic=V.col(x.k);
-    if(ic<0){ hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); continue; }
+    if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); continue; }
     if(chk1Col(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); continue; }
     let sd=0; for(const d of D){ const n=chk1Num(d.get(x.dw)); if(n!=null) sd+=n; }
     let iv=null;
-    if(V.total && chk1T(V.total[ic])!=='') iv=chk1Num(V.total[ic]);
-    else { let has=false, t=0; V.items.forEach(r=>{ const n=chk1Num(r[ic]); if(n!=null){ has=true; t+=n; } }); if(has) iv=t; }
+    for(const f of (V.files||[])){                                                               /* ★ [local064] ต่อไฟล์: แถว TOTAL มีค่า → ใช้ · ไม่มี → Σ รายการ · แล้วรวมทุกไฟล์ (1 ไฟล์ = กติกาเดิม) */
+      if(f.total && chk1T(f.total[ic])!==''){ const n=chk1Num(f.total[ic]); iv=(iv==null?0:iv)+(n==null?0:n); }
+      else { let has=false, t=0; f.rows.forEach(r=>{ const n=chk1Num(r[ic]); if(n!=null){ has=true; t+=n; } }); if(has) iv=(iv==null?0:iv)+t; } }
     if(iv!=null && Math.abs(sd-iv)<=0.005+1e-9){ chk1Ok({ _r:999999, _k:10, item:'TOTAL', field:x.f, dwak:'Σ '+x.dw+' = '+fmt(sd), map:fmt(iv) }); continue; }   /* ★ [local062] PASS */
     out.push({ _r:999999, _k:10, item:'TOTAL', field:x.f, dwak:'Σ '+x.dw+' = '+fmt(sd), map: iv==null ? 'ว่าง' : fmt(iv) });
   }
@@ -3403,17 +3449,42 @@ function chk1FixT1(dwakSheet){
 /* ★ [local062] PASS Dataset — เก็บเฉพาะตอน Validator ตัดสินว่า "ผ่าน" (ตรวจครั้งเดียว) · ใช้เฉพาะ EXPORT ผลตรวจ · ไม่เข้า r.rows / หน้าจอ / Overall */
 let CHK1_PASS=null;
 function chk1Ok(o){ if(CHK1_PASS) CHK1_PASS.push(o); }
+/* ★ [local063] FOB THB: Σ FOB THB. (ทุก Item ใน DWAK) ↔ TOTAL FOB THB จาก TERM (Rate Source = Export) · Tolerance ±0.01 × จำนวน Item
+   · ตรวจเฉพาะเมื่อมี TERM_TRANSFER_T1 ที่มี fob · ไม่มี → ไม่ตรวจ ไม่สร้าง PASS/FAIL · ไม่มี Header → 1 แถว/ไฟล์ */
+function chk1FobCheck(dwakSheet){
+  const tt=window.TERM_TRANSFER_T1, out=[]; if(!tt || tt.fob==null || !isFinite(tt.fob)) return out;
+  const f2=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), exp=f2(tt.fob);
+  if(chk1Col(dwakSheet.hdr,'FOB THB.')<0){ out.push({ _r:0, _k:6, item:'HEADER', field:'FOB THB', dwak:'ไม่พบ Header FOB THB.', map:exp }); return out; }
+  const D=chk1DwakRows(dwakSheet).filter(d=>chk1T(d.get('Item No.'))!==''); let sum=0; const bad=[];
+  for(const d of D){ const raw=d.get('FOB THB.'); if(raw==null || chk1T(raw)==='') continue; const v=chk1Num(raw); if(v==null) bad.push(chk1T(raw)); else sum+=v; }
+  if(bad.length){ out.push({ _r:999999, _k:11, item:'TOTAL', field:'FOB THB', dwak:'อ่านไม่ได้: '+bad[0], map:exp }); return out; }
+  const tol=0.01*D.length, row={ _r:999999, _k:11, item:'TOTAL', field:'FOB THB', dwak:'Σ FOB THB. = '+f2(sum), map:exp };
+  if(Math.abs(sum-tt.fob)<=tol+1e-9) chk1Ok(row); else out.push(row);
+  return out;
+}
+/* ★ [local064] Net Weight > Gross Weight ราย Item จาก DWAK เท่านั้น (Header Net Weight / Gross Weight) · ค่าว่าง/อ่านไม่ได้ → ข้าม (ไม่เดา · ไม่ใช้ INVOICE MAPPING) */
+function chk1NwGwDwak(dwakSheet){
+  const out=[], H=dwakSheet.hdr; if(chk1Col(H,'Net Weight')<0 || chk1Col(H,'Gross Weight')<0) return out;
+  for(const d of chk1DwakRows(dwakSheet)){
+    const it=chk1T(d.get('Item No.')); if(it==='') continue;
+    const rn=d.get('Net Weight'), rg=d.get('Gross Weight'), nw=chk1Num(rn), gw=chk1Num(rg); if(nw==null || gw==null) continue;
+    const row={ _r:d._r, _k:25, item:it, field:'Net Weight > Gross Weight', dwak:'Net Weight = '+chk1T(rn)+' / Gross Weight = '+chk1T(rg), map:'Net Weight ≤ Gross Weight' };
+    if(nw>gw) out.push({ ...row, status:'ไม่ถูกต้อง', reason:'Net Weight มากกว่า Gross Weight' }); else chk1Ok(row);
+  }
+  return out;
+}
 function chk1RunValidate(){
   const r={}; CHK1_PASS=[];
   r.ex99=chk1Ex99(CHK1.dwak);                                   /* DUI ตาม DUI MASTER (เดิม) */
   r.fix=chk1FixT1(CHK1.dwak);                                   /* Fixed TYPE 1 */
   r.inv=chk1InvCheck(CHK1.dwak);                                /* INVOICE MAPPING ↔ DWAK */
-  r.nw=null; r.exc={ diffs:[], items:[], bad:0 };               /* ตัดออกจาก TYPE 1 */
+  r.fob=chk1FobCheck(CHK1.dwak);                                /* ★ [local063] FOB THB ↔ TERM (Export) */
+  r.nw=chk1NwGwDwak(CHK1.dwak); r.exc={ diffs:[], items:[], bad:0 };   /* ★ [local064] NW > GW จาก DWAK */
   r.header=[];
   const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });
   if(r.ex99.noTariff) hdrRow('DUI - HS CODE','DUI MASTER','ไม่พบ Header Tariff');
   if(r.ex99.noStat && !r.ex99.noTariff && r.ex99.duiItems.length) hdrRow('DUI - Stat','—');
-  r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs)
+  r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs, r.fob, r.nw)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
   r.pass=CHK1_PASS.map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i)); CHK1_PASS=null;   /* ★ [local062] */
@@ -3727,21 +3798,25 @@ function chk1Sync(){
 async function chk1Load(kind,file){
   const listId='chk1-'+kind+'-list';
   try{
-    const sheets=await chk1ReadSheet(file);
+    const fl=Array.isArray(file)?file:[file];                                                     /* ★ [local064] INVOICE MAPPING รับหลายไฟล์ */
+    const sheets=await chk1ReadSheet(fl[0]);
     if(kind==='master'){
-      const iv=chk1InvParse(sheets, file.name);                                                   /* ★ [local058] INVOICE MAPPING TYPE 1 */
-      if(!iv) throw new Error('INVOICE MAPPING TYPE 1 ไม่พบ Header: NO.ลำดับที่ใบขน');
-      CHK1.master=sheets; CHK1.masterName=file.name; CHK1.inv=iv; CHK1.result=null;
+      const parts=[], all=[];
+      for(const f of fl){ const sh=(f===fl[0])?sheets:await chk1ReadSheet(f); const pt=chk1InvPart(sh);   /* อ่านครบทุกไฟล์ */
+        if(!pt) throw new Error('INVOICE MAPPING TYPE 1 ไม่พบ Header: NO.ลำดับที่ใบขน / INVOICE Number ('+f.name+')');
+        parts.push(pt); all.push(sh); }
+      const iv=chk1InvMerge(parts, fl.map(f=>f.name));                                            /* ★ [local058] INVOICE MAPPING TYPE 1 · [local064] รวมทุกไฟล์ */
+      CHK1.master=all; CHK1.masterName=fl.map(f=>f.name).join(', '); CHK1.inv=iv; CHK1.result=null;
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHK1.dwak=sheets[0]; CHK1.dwakName=file.name; CHK1.result=null;
       await chk1MapStart(file, CHK1.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHK1.dwak!==sheets[0]){ chk1Sync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
-    document.getElementById(listId).innerHTML='<div class="doa-file-entry ok"><span class="dfn">✓ '+chk1Esc(file.name)+'</span>'
-      +'<button class="drm" onclick="chk1Clear(\''+kind+'\')">×</button></div>';
+    document.getElementById(listId).innerHTML=fl.map(f=>'<div class="doa-file-entry ok"><span class="dfn">✓ '+chk1Esc(f.name)+'</span>'
+      +'<button class="drm" onclick="chk1Clear(\''+kind+'\')">×</button></div>').join('');                            /* [local064] 1 แถวต่อไฟล์ · × = ล้างทั้งชุด */
     document.getElementById('chk1-'+kind+'-drop').classList.add('loaded');
-    chk1Status('อ่านไฟล์สำเร็จ: '+file.name);
+    chk1Status('อ่านไฟล์สำเร็จ: '+fl.map(f=>f.name).join(', '));
   }catch(e){ chk1Status('อ่านไฟล์ไม่สำเร็จ: '+(e.message||e),true); }
   chk1Sync();
 }
@@ -3815,7 +3890,7 @@ function chk1Render(){
   /* ★ [local011] Summary ด้านบนคงเฉพาะ 3 กลุ่ม: Net Weight > Gross Weight · DUI · กรมสรรพสามิต
      MASTER HS CODE / MASTER TARIFF / Increased Price / FIX VALIDATION / Header Missing รายหัวข้อ → ฟ้องเฉพาะในตาราง "รายการที่ต้องตรวจสอบ" (r.rows เดิม ไม่เปลี่ยน Logic) */
   let s='';
-  s+= !r.nw ? '' : r.nw.length                                                                    /* ★ [local058] TYPE 1 ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
+  s+= !(r.nw && r.nw.length) ? '' : r.nw.length   /* ★ [local064] แสดงเฉพาะเมื่อพบ */                                                                    /* ★ [local058] TYPE 1 ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
   s+= r.ex99.noTariff
@@ -4132,14 +4207,14 @@ window.chk1MapExport=chk1MapExport;
 function chk1Wire(){
   for(const k of ['dwak','master']){
     const inp=document.getElementById('chk1-'+k+'-input'), drop=document.getElementById('chk1-'+k+'-drop');
-    if(inp) inp.addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0];
-      if(f){ await chk1Load(k,f);} e.target.value=''; });
+    if(inp) inp.addEventListener('change',async e=>{ const f=(k==='master') ? Array.from(e.target.files||[]) : (e.target.files&&e.target.files[0]);   /* ★ [local064] INVOICE MAPPING หลายไฟล์ */
+      if(f && (!Array.isArray(f) || f.length)){ await chk1Load(k,f);} e.target.value=''; });
     if(drop){
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
       drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
       drop.addEventListener('drop',async e=>{ e.preventDefault(); drop.classList.remove('drag');
-        const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-        if(f){ await chk1Load(k,f);} });
+        const f=(k==='master') ? Array.from((e.dataTransfer&&e.dataTransfer.files)||[]) : (e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]);   /* ★ [local064] */
+        if(f && (!Array.isArray(f) || f.length)){ await chk1Load(k,f);} });
     }
   }
   chk1Sync();
@@ -4168,7 +4243,8 @@ function chk1RenderTermTransfer(tt){
     ['Ins_OTH',    f2(it('ins').value), chk1Esc(it('ins').cur||'-'), rt('ins',it('ins')),              has(it('ins').value)],
     ['Other_OTH',  f2(it('oth').value), chk1Esc(it('oth').cur||'-'), rt('oth',it('oth')),              has(it('oth').value)],   /* [local046] เมื่อมีค่า */
     ['ค่านายหน้า',  (tt.comm&&tt.comm.enabled)?f2(tt.comm.value):'-', (tt.comm&&tt.comm.enabled)?chk1Esc(tt.comm.cur||'-'):'-', (tt.comm&&tt.comm.enabled&&has(it('amount').rate))?f4(it('amount').rate):'-', !!(tt.comm&&tt.comm.enabled&&has(tt.comm.value))],   /* [local046] Rate = Amount Rate */
-    ['TOTAL CIF',  f2(tt.cif), (tt.cif==null)?'-':'THB', '-',                                           has(tt.cif)]
+    ['TOTAL CIF',  f2(tt.cif), (tt.cif==null)?'-':'THB', '-',                                           has(tt.cif)],
+    ['TOTAL FOB',  f2(tt.fob), (tt.fob==null)?'-':'THB', '-',                                           has(tt.fob)]   /* ★ [local063] Export */
   ].filter(r=>r[4]);
   const rows=R.map(r=>'<tr><td style="text-align:left;padding-right:18px">'+r[0]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[1]+'</td><td style="text-align:center;padding:0 14px">'+r[2]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[3]+'</td></tr>').join('');
   box.innerHTML='<div style="border:1px solid #86efac;background:#f0fdf4;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:11px">'
@@ -4339,6 +4415,46 @@ const CHKD_INV_HDR21=['Part No./EN Description.2','Description/EN Description.1'
 /* EXPORT MAPPING: Source DWAK ต่อ Column (null = ว่าง: Order No. · Unit Price · Invoice DATE. · '#INV' = Invoice Carry Forward) */
 const CHKD_INV_SRC21=['Desc2.','Desc.','Product Code','DescTH','Tariff',null,'Qty.','Unit',null,'Curr.','Amount','#INV',null,'Priv.','Stat','ExportTariff','Seq.','Item No.','Net Weight','Gross Weight','Package Amount'];
 function chkdInvH(h){ return chkdNH(String(h==null?'':h).split('/')[0]); }
+/* ★ [local065] INVOICE MAPPING หลายไฟล์ — อ่านทุกไฟล์ แล้วรวมเป็นชุดเดียว (Column ของแต่ละไฟล์จับด้วยชื่อ Header · ลำดับ Column ต่างกันได้)
+   · รูปแบบเดิม (มี NO.ลำดับที่ใบขน): Key = NO.ลำดับที่ใบขน (เดิม) · ซ้ำข้ามไฟล์ → ใช้แถวแรก (กติกาเดิม)
+   · รูปแบบ INVOICE Number (ไม่มี NO.ลำดับที่ใบขน): รวมทุกไฟล์ → เรียง INVOICE Number น้อย→มาก (เท่ากัน = ลำดับเดิม) → Item 1, 2, 3 … ต่อเนื่องไม่ Reset
+   · ทุกไฟล์ต้องเป็นรูปแบบเดียวกัน · แถว TOTAL ไม่เป็น Item */
+const CHKD_INV_INVNO='invoice number';
+const CHKD_INV_ALIAS={ 'customer part no':'product code', 'description':'description eng 1', 'thai translation':'part description(th)', 'quantity':'qty. inv+qty. ใบขน', 'invoice no.':'invoice number' };   /* รูปแบบ INVOICE Number → หัวข้อ Compare เดิม */
+function chkdInvCmp(a,b){ const x=chkdT(a), y=chkdT(b);
+  if(/^[0-9]+$/.test(x) && /^[0-9]+$/.test(y)){ const p=x.replace(/^0+/,''), q=y.replace(/^0+/,''); return (p.length-q.length) || (p<q?-1:(p>q?1:0)); }
+  return x<y?-1:(x>y?1:0); }
+function chkdInvMerge(parts, names){
+  const lay=parts[0].layout; if(parts.some(p=>p.layout!==lay)) throw new Error('INVOICE MAPPING หลายไฟล์ต้องเป็นรูปแบบเดียวกัน');
+  const K=[]; parts.forEach(p=>p.H.forEach(h=>{ if(h!=='' && K.indexOf(h)<0) K.push(h); }));
+  if(lay==='invno' && K.indexOf(CHKD_INV_KEY)<0) K.push(CHKD_INV_KEY);                           /* Item ที่ระบบสร้าง (ลำดับตรวจ) */
+  const remap=(p,r)=>K.map(k=>{ const j=p.H.indexOf(k); return j<0?null:r[j]; });
+  const items=new Map(), order=[], files=[];
+  if(lay==='key'){
+    for(const p of parts){ const f={ total:p.total?remap(p,p.total):null, rows:[] }; files.push(f);
+      for(const r of p.rows){ const key=chkdInt(r[p.H.indexOf(CHKD_INV_KEY)]); const R=remap(p,r); f.rows.push(R); if(!items.has(key)){ items.set(key,R); order.push(key); } } }
+  } else {
+    const all=[]; for(const p of parts){ const f={ total:p.total?remap(p,p.total):null, rows:[] }; files.push(f); for(const r of p.rows){ const R=remap(p,r); f.rows.push(R); all.push(R); } }
+    const ci=K.indexOf(CHKD_INV_INVNO), ki=K.indexOf(CHKD_INV_KEY);
+    all.map((R,n)=>({R,n})).sort((a,b)=>chkdInvCmp(a.R[ci],b.R[ci])||(a.n-b.n)).forEach((x,n)=>{ const key=String(n+1); x.R[ki]=key; items.set(key,x.R); order.push(key); });
+  }
+  const col=k=>{ let j=K.indexOf(k); if(j<0 && lay==='invno' && CHKD_INV_ALIAS[k]) j=K.indexOf(CHKD_INV_ALIAS[k]); return j; };
+  return { sheet:parts.map(p=>p.sheet).join(', '), hdr:K, col, items, order, total:(files.length===1?files[0].total:null), files, layout:lay, name:names.join(', ') };
+}
+function chkdInvPart(sheets){                                                                     /* 1 ไฟล์ → { layout, H, rows, total } */
+  for(const sh of (sheets||[])){
+    const H=sh.hdr.map(chkdInvH), ki=H.indexOf(CHKD_INV_KEY), vi=H.indexOf(CHKD_INV_INVNO);
+    if(ki<0 && vi<0) continue;
+    const rows=[]; let total=null;
+    for(const r of sh.rows){
+      const isItem = ki>=0 ? chkdInt(r[ki])!=='' : chkdT(r[vi])!=='';
+      if(!isItem){ if(r.some(x=>chkdTxt(x)==='total')) total=r; continue; }
+      rows.push(r);
+    }
+    return { layout:ki>=0?'key':'invno', H, rows, total, sheet:sh.sheet };
+  }
+  return null;
+}
 function chkdInvParse(sheets, name){
   for(const sh of (sheets||[])){
     const H=sh.hdr.map(chkdInvH), ki=H.indexOf(CHKD_INV_KEY); if(ki<0) continue;
@@ -4375,7 +4491,7 @@ function chkdInvCheck(dwakSheet){
   const shown=v=>{ const t=chkdT(v); return t==='' ? 'ว่าง' : ((v instanceof Date)?chkdDate(v):t); };
   const hasInv=D.some(d=>d.invoice!=='');
   const F=CHKD_INV_F.filter(x=>{
-    const ic=V.col(x.k); if(ic<0){ hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }
+    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local065] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
     if(x.dw==='#INV'){ if(!hasInv){ hdrRow(x.f,'ไม่พบ Header Invoice No. :','—'); return false; } return true; }
     if(x.dw && chkdCol(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); return false; }
     return true; });
@@ -4408,13 +4524,15 @@ function chkdInvCheck(dwakSheet){
   /* ยอดรวม (ระดับ TOTAL เท่านั้น · ไม่ฟ้องราย Item) · Invoice: แถว TOTAL มีค่า → ใช้ · ไม่มี → Σ รายการ · 0 = ค่าจริง */
   const fmt=n=>String(Math.round(n*1000)/1000);
   for(const x of CHKD_INV_TOT){
+    if(x.k!=='packages') continue;                                                                /* ★ [local065] ไม่ใช้น้ำหนัก (N.W./G.W.) จาก INVOICE MAPPING ตัดสิน */
     const ic=V.col(x.k);
-    if(ic<0){ hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); continue; }
+    if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); continue; }
     if(chkdCol(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); continue; }
     let sd=0; for(const d of D){ const n=chkdNum(d.get(x.dw)); if(n!=null) sd+=n; }
     let iv=null;
-    if(V.total && chkdT(V.total[ic])!=='') iv=chkdNum(V.total[ic]);
-    else { let has=false, t=0; V.items.forEach(r=>{ const n=chkdNum(r[ic]); if(n!=null){ has=true; t+=n; } }); if(has) iv=t; }
+    for(const f of (V.files||[])){                                                               /* ★ [local065] ต่อไฟล์: แถว TOTAL มีค่า → ใช้ · ไม่มี → Σ รายการ · แล้วรวมทุกไฟล์ (1 ไฟล์ = กติกาเดิม) */
+      if(f.total && chkdT(f.total[ic])!==''){ const n=chkdNum(f.total[ic]); iv=(iv==null?0:iv)+(n==null?0:n); }
+      else { let has=false, t=0; f.rows.forEach(r=>{ const n=chkdNum(r[ic]); if(n!=null){ has=true; t+=n; } }); if(has) iv=(iv==null?0:iv)+t; } }
     if(iv!=null && Math.abs(sd-iv)<=0.005+1e-9){ chkdOk({ _r:999999, _k:10, item:'TOTAL', field:x.f, dwak:'Σ '+x.dw+' = '+fmt(sd), map:fmt(iv) }); continue; }   /* ★ [local062] PASS */
     out.push({ _r:999999, _k:10, item:'TOTAL', field:x.f, dwak:'Σ '+x.dw+' = '+fmt(sd), map: iv==null ? 'ว่าง' : fmt(iv) });
   }
@@ -4462,17 +4580,42 @@ function chkdFixT1(dwakSheet){
 /* ★ [local062] PASS Dataset — เก็บเฉพาะตอน Validator ตัดสินว่า "ผ่าน" (ตรวจครั้งเดียว) · ใช้เฉพาะ EXPORT ผลตรวจ · ไม่เข้า r.rows / หน้าจอ / Overall */
 let CHKD_PASS=null;
 function chkdOk(o){ if(CHKD_PASS) CHKD_PASS.push(o); }
+/* ★ [local063] FOB THB: Σ FOB THB. (ทุก Item ใน DWAK) ↔ TOTAL FOB THB จาก TERM (Rate Source = Export) · Tolerance ±0.01 × จำนวน Item
+   · ตรวจเฉพาะเมื่อมี TERM_TRANSFER_TD ที่มี fob · ไม่มี → ไม่ตรวจ ไม่สร้าง PASS/FAIL · ไม่มี Header → 1 แถว/ไฟล์ */
+function chkdFobCheck(dwakSheet){
+  const tt=window.TERM_TRANSFER_TD, out=[]; if(!tt || tt.fob==null || !isFinite(tt.fob)) return out;
+  const f2=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), exp=f2(tt.fob);
+  if(chkdCol(dwakSheet.hdr,'FOB THB.')<0){ out.push({ _r:0, _k:6, item:'HEADER', field:'FOB THB', dwak:'ไม่พบ Header FOB THB.', map:exp }); return out; }
+  const D=chkdDwakRows(dwakSheet).filter(d=>chkdT(d.get('Item No.'))!==''); let sum=0; const bad=[];
+  for(const d of D){ const raw=d.get('FOB THB.'); if(raw==null || chkdT(raw)==='') continue; const v=chkdNum(raw); if(v==null) bad.push(chkdT(raw)); else sum+=v; }
+  if(bad.length){ out.push({ _r:999999, _k:11, item:'TOTAL', field:'FOB THB', dwak:'อ่านไม่ได้: '+bad[0], map:exp }); return out; }
+  const tol=0.01*D.length, row={ _r:999999, _k:11, item:'TOTAL', field:'FOB THB', dwak:'Σ FOB THB. = '+f2(sum), map:exp };
+  if(Math.abs(sum-tt.fob)<=tol+1e-9) chkdOk(row); else out.push(row);
+  return out;
+}
+/* ★ [local065] Net Weight > Gross Weight ราย Item จาก DWAK เท่านั้น (Header Net Weight / Gross Weight) · ค่าว่าง/อ่านไม่ได้ → ข้าม (ไม่เดา · ไม่ใช้ INVOICE MAPPING) */
+function chkdNwGwDwak(dwakSheet){
+  const out=[], H=dwakSheet.hdr; if(chkdCol(H,'Net Weight')<0 || chkdCol(H,'Gross Weight')<0) return out;
+  for(const d of chkdDwakRows(dwakSheet)){
+    const it=chkdT(d.get('Item No.')); if(it==='') continue;
+    const rn=d.get('Net Weight'), rg=d.get('Gross Weight'), nw=chkdNum(rn), gw=chkdNum(rg); if(nw==null || gw==null) continue;
+    const row={ _r:d._r, _k:25, item:it, field:'Net Weight > Gross Weight', dwak:'Net Weight = '+chkdT(rn)+' / Gross Weight = '+chkdT(rg), map:'Net Weight ≤ Gross Weight' };
+    if(nw>gw) out.push({ ...row, status:'ไม่ถูกต้อง', reason:'Net Weight มากกว่า Gross Weight' }); else chkdOk(row);
+  }
+  return out;
+}
 function chkdRunValidate(){
   const r={}; CHKD_PASS=[];
   r.ex99=chkdEx99(CHKD.dwak);                                   /* DUI ตาม DUI MASTER (เดิม) */
   r.fix=chkdFixT1(CHKD.dwak);                                   /* Fixed TYPE D */
   r.inv=chkdInvCheck(CHKD.dwak);                                /* INVOICE MAPPING ↔ DWAK */
-  r.nw=null; r.exc={ diffs:[], items:[], bad:0 };               /* ตัดออกจาก TYPE D */
+  r.fob=chkdFobCheck(CHKD.dwak);                                /* ★ [local063] FOB THB ↔ TERM (Export) */
+  r.nw=chkdNwGwDwak(CHKD.dwak); r.exc={ diffs:[], items:[], bad:0 };   /* ★ [local065] NW > GW จาก DWAK */
   r.header=[];
   const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });
   if(r.ex99.noTariff) hdrRow('DUI - HS CODE','DUI MASTER','ไม่พบ Header Tariff');
   if(r.ex99.noStat && !r.ex99.noTariff && r.ex99.duiItems.length) hdrRow('DUI - Stat','—');
-  r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs)
+  r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs, r.fob, r.nw)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
   r.pass=CHKD_PASS.map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i)); CHKD_PASS=null;   /* ★ [local062] */
@@ -4631,21 +4774,25 @@ function chkdSync(){
 async function chkdLoad(kind,file){
   const listId='chkd-'+kind+'-list';
   try{
-    const sheets=await chkdReadSheet(file);
+    const fl=Array.isArray(file)?file:[file];                                                     /* ★ [local065] INVOICE MAPPING รับหลายไฟล์ */
+    const sheets=await chkdReadSheet(fl[0]);
     if(kind==='master'){
-      const iv=chkdInvParse(sheets, file.name);                                                   /* ★ [local058] INVOICE MAPPING TYPE D */
-      if(!iv) throw new Error('INVOICE MAPPING TYPE D ไม่พบ Header: NO.ลำดับที่ใบขน');
-      CHKD.master=sheets; CHKD.masterName=file.name; CHKD.inv=iv; CHKD.result=null;
+      const parts=[], all=[];
+      for(const f of fl){ const sh=(f===fl[0])?sheets:await chkdReadSheet(f); const pt=chkdInvPart(sh);   /* อ่านครบทุกไฟล์ */
+        if(!pt) throw new Error('INVOICE MAPPING TYPE D ไม่พบ Header: NO.ลำดับที่ใบขน / INVOICE Number ('+f.name+')');
+        parts.push(pt); all.push(sh); }
+      const iv=chkdInvMerge(parts, fl.map(f=>f.name));                                            /* ★ [local058] INVOICE MAPPING TYPE D · [local065] รวมทุกไฟล์ */
+      CHKD.master=all; CHKD.masterName=fl.map(f=>f.name).join(', '); CHKD.inv=iv; CHKD.result=null;
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHKD.dwak=sheets[0]; CHKD.dwakName=file.name; CHKD.result=null;
       await chkdMapStart(file, CHKD.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHKD.dwak!==sheets[0]){ chkdSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
-    document.getElementById(listId).innerHTML='<div class="doa-file-entry ok"><span class="dfn">✓ '+chkdEsc(file.name)+'</span>'
-      +'<button class="drm" onclick="chkdClear(\''+kind+'\')">×</button></div>';
+    document.getElementById(listId).innerHTML=fl.map(f=>'<div class="doa-file-entry ok"><span class="dfn">✓ '+chkdEsc(f.name)+'</span>'
+      +'<button class="drm" onclick="chkdClear(\''+kind+'\')">×</button></div>').join('');                            /* [local065] 1 แถวต่อไฟล์ · × = ล้างทั้งชุด */
     document.getElementById('chkd-'+kind+'-drop').classList.add('loaded');
-    chkdStatus('อ่านไฟล์สำเร็จ: '+file.name);
+    chkdStatus('อ่านไฟล์สำเร็จ: '+fl.map(f=>f.name).join(', '));
   }catch(e){ chkdStatus('อ่านไฟล์ไม่สำเร็จ: '+(e.message||e),true); }
   chkdSync();
 }
@@ -4719,7 +4866,7 @@ function chkdRender(){
   /* ★ [local011] Summary ด้านบนคงเฉพาะ 3 กลุ่ม: Net Weight > Gross Weight · DUI · กรมสรรพสามิต
      MASTER HS CODE / MASTER TARIFF / Increased Price / FIX VALIDATION / Header Missing รายหัวข้อ → ฟ้องเฉพาะในตาราง "รายการที่ต้องตรวจสอบ" (r.rows เดิม ไม่เปลี่ยน Logic) */
   let s='';
-  s+= !r.nw ? '' : r.nw.length                                                                    /* ★ [local058] TYPE D ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
+  s+= !(r.nw && r.nw.length) ? '' : r.nw.length   /* ★ [local065] แสดงเฉพาะเมื่อพบ */                                                                    /* ★ [local058] TYPE D ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
   s+= r.ex99.noTariff
@@ -4954,14 +5101,14 @@ window.chkdMapExport=chkdMapExport;
 function chkdWire(){
   for(const k of ['dwak','master']){
     const inp=document.getElementById('chkd-'+k+'-input'), drop=document.getElementById('chkd-'+k+'-drop');
-    if(inp) inp.addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0];
-      if(f){ await chkdLoad(k,f);} e.target.value=''; });
+    if(inp) inp.addEventListener('change',async e=>{ const f=(k==='master') ? Array.from(e.target.files||[]) : (e.target.files&&e.target.files[0]);   /* ★ [local065] INVOICE MAPPING หลายไฟล์ */
+      if(f && (!Array.isArray(f) || f.length)){ await chkdLoad(k,f);} e.target.value=''; });
     if(drop){
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
       drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
       drop.addEventListener('drop',async e=>{ e.preventDefault(); drop.classList.remove('drag');
-        const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-        if(f){ await chkdLoad(k,f);} });
+        const f=(k==='master') ? Array.from((e.dataTransfer&&e.dataTransfer.files)||[]) : (e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]);   /* ★ [local065] */
+        if(f && (!Array.isArray(f) || f.length)){ await chkdLoad(k,f);} });
     }
   }
   chkdSync();
@@ -4990,7 +5137,8 @@ function chkdRenderTermTransfer(tt){
     ['Ins_OTH',    f2(it('ins').value), chkdEsc(it('ins').cur||'-'), rt('ins',it('ins')),              has(it('ins').value)],
     ['Other_OTH',  f2(it('oth').value), chkdEsc(it('oth').cur||'-'), rt('oth',it('oth')),              has(it('oth').value)],   /* [local046] เมื่อมีค่า */
     ['ค่านายหน้า',  (tt.comm&&tt.comm.enabled)?f2(tt.comm.value):'-', (tt.comm&&tt.comm.enabled)?chkdEsc(tt.comm.cur||'-'):'-', (tt.comm&&tt.comm.enabled&&has(it('amount').rate))?f4(it('amount').rate):'-', !!(tt.comm&&tt.comm.enabled&&has(tt.comm.value))],   /* [local046] Rate = Amount Rate */
-    ['TOTAL CIF',  f2(tt.cif), (tt.cif==null)?'-':'THB', '-',                                           has(tt.cif)]
+    ['TOTAL CIF',  f2(tt.cif), (tt.cif==null)?'-':'THB', '-',                                           has(tt.cif)],
+    ['TOTAL FOB',  f2(tt.fob), (tt.fob==null)?'-':'THB', '-',                                           has(tt.fob)]   /* ★ [local063] Export */
   ].filter(r=>r[4]);
   const rows=R.map(r=>'<tr><td style="text-align:left;padding-right:18px">'+r[0]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[1]+'</td><td style="text-align:center;padding:0 14px">'+r[2]+'</td><td style="text-align:right;font-family:monospace;padding-left:18px">'+r[3]+'</td></tr>').join('');
   box.innerHTML='<div style="border:1px solid #86efac;background:#f0fdf4;border-radius:8px;padding:6px 8px;margin-top:6px;font-size:11px">'
@@ -5302,7 +5450,8 @@ const TERM_FRGP = { auto:false, fill:'' };
 function termFrgPctUpdate(){
   const el=document.getElementById('chke-term-frg'); if(!el) return;
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
-  const on = TERM_STATE.mode==='Normal %' && (term==='EXW'||term==='FCA'||term==='FOB');
+  const exF = termIsEx();                                                                        /* ★ [local063] Export: Normal % + CIF เท่านั้น · Frg = R2(Amount × 10%) */
+  const on = exF ? (TERM_STATE.mode==='Normal %' && term==='CIF') : (TERM_STATE.mode==='Normal %' && (term==='EXW'||term==='FCA'||term==='FOB'));
   if(on){
     if(TERM_AIR.auto) termAirExit();
     const a=termIn('chke-term-amount'); let v='', warn='';
@@ -5314,6 +5463,7 @@ function termFrgPctUpdate(){
         if(f.bad) warn='F/W ไม่ใช่ตัวเลข'; else if(f.empty) warn='F/W ว่าง';
         else if(f.v!==0 && termCurOf('fw')!==ac) warn='สกุล F/W ('+termCurOf('fw')+') ≠ Amount ('+ac+')'; else fv=f.v; }
       if(!warn) v=termR2((a.v+fv+ov)*TERM_FRG_PCT).toFixed(2);
+      if(exF){ warn=''; v=termR2(a.v*TERM_FRG_PCT).toFixed(2); }                                   /* ★ [local063] Export CIF: Amount × 10% (ไม่รวม F/W / Other) */
     }
     el.value=v; el.readOnly=true; TERM_FRGP.auto=true; TERM_FRGP.fill=v;
     el.placeholder=warn?'⚠️ '+warn:''; el.title=warn?'Frg ไม่คำนวณ: '+warn:'';
@@ -5332,7 +5482,7 @@ function termInsUpdate(){
   const el=document.getElementById('chke-term-ins'); if(!el) return;
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   const ef = (term==='EXW'||term==='FCA');
-  const on = ef || term==='FOB' || term==='DAP';
+  const on = !termIsEx() && (ef || term==='FOB' || term==='DAP');                             /* ★ [local063] Export: ไม่ใช้ Ins_OTH */
   const npct = TERM_STATE.mode==='Normal %', incFw = ef || (npct && term==='FOB'), incOth = term!=='DAP';   /* ★ [local048] Normal %: FOB รวม F/W · [local049] DAP ทุก MODE = Amount × 1% (ไม่รวม Other) */
   if(on){
     const a=termIn('chke-term-amount'); let v='', warn='';
@@ -5394,7 +5544,10 @@ function termFields(cur){
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   let groups=TERM_GROUPS[term]||TERM_GROUPS.EXW;
   if(TERM_STATE.mode==='Express' && (term==='CIF'||term==='DAP')) groups=groups.concat('frg');
-  if(TERM_STATE.mode==='Normal %' && term==='FOB') groups=groups.concat('fw');   /* ★ [local047] Normal % FOB: แสดง F/W (Auto 10%) */   /* [local041] Express CIF/DAP: แสดง Frg + ✈ AIR (AIR → Frg) · Amount CIF THB เดิม */
+  if(TERM_STATE.mode==='Normal %' && term==='FOB') groups=groups.concat('fw');   /* ★ [local047] Normal % FOB: แสดง F/W (Auto 10%) */
+  const ex=termIsEx() && TERM_EX_FIELDS[term];                                                  /* ★ [local063] Export: EXW = Amount + F/W · CIF = Amount + Frg */
+  if(ex) groups = term==='EXW' ? ['amount','fw'] : ['amount','frg'];
+  for(const k of ['oth','comm']){ const g=document.getElementById('chke-term-g-'+k); if(g) g.style.display=ex?'none':''; }   /* Export: ซ่อน Other_OTH / ค่านายหน้า (Import คงเดิม) */   /* [local041] Express CIF/DAP: แสดง Frg + ✈ AIR (AIR → Frg) · Amount CIF THB เดิม */
   const cc=k=>' ('+termCurOf(k)+')', rr=k=>' (THB/'+termCurOf(k)+')';                               /* [local037] สกุลแยกต่อหัวข้อ */
   for(const k of ['amount','fw','frg','ins']){ const c=cc(k), r=rr(k);                                                  /* [local024] + ins (Show/Hide เท่านั้น · Ins_OTH ไม่ถูกอ่านเข้าสูตร) */
     const g=document.getElementById('chke-term-g-'+k); if(g) g.style.display=groups.indexOf(k)>=0?'':'none';
@@ -5411,7 +5564,7 @@ function termFields(cur){
     if(l1) l1.textContent=TERM_NAME[k]+c; if(l2) l2.textContent='Rate'+r; }
   { const cc2=document.getElementById('chke-term-commCur'), ac=termCurOf('amount'); if(cc2){ cc2.innerHTML='<option value="'+termEsc(ac)+'">'+termEsc(ac)+'</option>'; cc2.value=ac; }   /* [local050] สกุล = Amount (ล็อก) */
     const cr=document.getElementById('chke-term-commRate'), ar=document.getElementById('chke-term-amountRate'); if(cr && ar) cr.value=ar.value; }   /* [local050] Rate = Amount Rate (MASTER · คัดลอกค่า ไม่คำนวณ) */   /* [local037] ค่านายหน้า = สกุล Amount · ไม่มี Rate */
-  return { term, use:TERM_FIELDS[term]||TERM_FIELDS.EXW };
+  return { term, use:(termIsEx() && TERM_EX_FIELDS[term]) ? TERM_EX_FIELDS[term] : (TERM_FIELDS[term]||TERM_FIELDS.EXW) };   /* ★ [local063] Export ใช้ช่องบังคับของตัวเอง */
 }
 /* ★ [local008] FLOW: STEP 1 Input → [🧮 คำนวณ] → STEP 2 ผลการคำนวณ (สูตรของระบบ · ไม่ใช้ REF) → STEP 3 ตรวจเทียบ REF ใบขน
    · Input/TERM/ไฟล์เปลี่ยน → ผลเก่า Stale (Clear + Export ปิด) · Export ใช้ Calculated Result ล่าสุดเท่านั้น
@@ -5425,6 +5578,20 @@ function termCur(){ return termCurOf('amount'); }                               
 const TERM_FX_KEYS=['amount','fw','frg','ins','oth'];
 function termCurOf(k){ const el=document.getElementById('chke-term-'+k+'Cur'); return (el&&el.value)||'USD'; }
 function termFxSrc(){ const el=document.querySelector('input[name="chke-term-fxSrc"]:checked'); return el?el.value:'Import'; }
+/* ★ [local063] Rate Source = Export → Scope Export: MODE Normal / Normal % · TERM EXW / CIF · Import ไม่เปลี่ยน */
+function termIsEx(){ return termFxSrc()==='Export'; }
+const TERM_EX_TERMS=['EXW','CIF'], TERM_EX_MODES=['Normal','Normal %'];
+const TERM_EX_FIELDS={ EXW:['amount','amountRate','fw','fwRate'], CIF:['amount','amountRate','frg','frgRate'] };
+function termExOptions(){
+  const ex=termIsEx(), md=document.getElementById('chke-term-mode'), sel=document.getElementById('chke-term');
+  const show=(el,okList)=>{ if(!el) return; Array.from(el.options).forEach(o=>{ const off=ex && okList.indexOf(o.value)<0; o.hidden=off; o.disabled=off; }); };
+  show(md,TERM_EX_MODES); show(sel,TERM_EX_TERMS);
+  if(ex && md && TERM_EX_MODES.indexOf(md.value)<0){ md.value='Normal'; md.dispatchEvent(new Event('change')); }      /* Express → Normal อัตโนมัติ */
+  if(ex && sel && TERM_EX_TERMS.indexOf(sel.value)<0){ sel.value='EXW'; sel.dispatchEvent(new Event('change')); }  /* FCA/FOB/DAP → EXW + termTermReset (Listener เดิม) */
+  const b0=document.getElementById('chke-term-btn-send'); if(b0) b0.style.display=ex?'none':'';
+  for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.style.display=ex?'':'none'; }
+  termInvalidate();
+}
 function termFxKey(){ const d=String((document.getElementById('chke-term-fxDate')||{}).value||''); return /^\d{4}-\d{2}-\d{2}$/.test(d)?d.slice(0,7):''; }
 function termFxMonthText(key){ return key ? key.slice(5,7)+'/'+key.slice(0,4) : ''; }
 function termFxMaster(){ const key=termFxKey(); return key && typeof window.exchangeMasterGet==='function' ? window.exchangeMasterGet(key) : null; }
@@ -5479,6 +5646,7 @@ function termInvalidate(){
   const bc=document.getElementById('chke-term-btn-calc'); if(bc) bc.disabled=false;              /* [local030] ปุ่มคำนวณเปิดตลอด · กดแล้ว Validate แจ้งช่องที่ขาด */
   const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=true;             /* [local019] Export ได้เฉพาะผลคำนวณล่าสุด */
   const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.disabled=true;               /* [local037] ส่งได้เฉพาะผลคำนวณล่าสุด */
+  for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.disabled=true; }   /* ★ [local063] */
   document.querySelectorAll('#chke-term-panel .chke-term-thb').forEach(e=>{ e.textContent=''; });
 }
 function termCalcRun(){
@@ -5500,10 +5668,10 @@ function termCalcRun(){
     if(r.empty){ if(!(/Rate$/.test(k) && rateEmpty(k.replace(/Rate$/,''),'chke-term-'+k))) addErr(TERM_LBL[k],'chke-term-'+k); }
     else if(r.bad) addErr(TERM_LBL[k],'chke-term-'+k,'ไม่ใช่ตัวเลข'); else inp[k]=r.v;
     inp[k+'Raw']=r.raw; }
-  const opt={};
-  { const cv=termIn('chke-term-comm');                                                       /* ค่านายหน้า: Optional · ไม่มี Rate */
+  const opt={}, ex=termIsEx() && !!TERM_EX_FIELDS[term];                                        /* ★ [local063] Export: ไม่อ่านค่านายหน้า / Other_OTH / Ins_OTH (ช่องซ่อน) */
+  if(!ex){ const cv=termIn('chke-term-comm');                                                       /* ค่านายหน้า: Optional · ไม่มี Rate */
     if(cv.bad) addErr(TERM_LBL.comm,'chke-term-comm','ไม่ใช่ตัวเลข'); else if(!cv.empty){ opt.comm=cv.v; opt.commRaw=cv.raw; } }
-  for(const k of TERM_OPT){ const rv=termIn('chke-term-'+k), rr=termIn('chke-term-'+k+'Rate');   /* Other_OTH: ว่าง = ไม่ใช้ · มีค่า → Rate ต้องครบ */
+  for(const k of (ex?[]:TERM_OPT)){ const rv=termIn('chke-term-'+k), rr=termIn('chke-term-'+k+'Rate');   /* Other_OTH: ว่าง = ไม่ใช้ · มีค่า → Rate ต้องครบ */
     if(rv.bad){ addErr(TERM_LBL[k],'chke-term-'+k,'ไม่ใช่ตัวเลข'); continue; }
     if(rv.empty) continue;
     if(rr.empty){ if(!rateEmpty(k,'chke-term-'+k+'Rate')) addErr(TERM_LBL[k+'Rate'],'chke-term-'+k+'Rate'); continue; }
@@ -5538,16 +5706,18 @@ function termCalcRun(){
   }
   /* STEP 2 — คำนวณด้วยสูตรของระบบเท่านั้น (ค่าที่ผู้ใช้กรอก + Amount ต่อ Item ในใบขนเป็นสัดส่วน Ins) */
   /* ★ [local020] DAP: Source ไม่มีสูตร → คง Amt.THB / F/W_OTH / Frg_OTH = ค่า × Rate ของตัวเอง (สูตรต่อยอดเดิม) · Ins / CIF ว่าง (ไม่เดา · รอล็อกรอบหน้า) */
-  const A = term==='DAP' ? { amtThb:termR2(inp.amount*inp.amountRate), fw:null, frg:null, ins:null, cif:null, dap:true }   /* [local023] DAP ไม่มี Input F/W-Frg → ว่าง */
+  const A = ex ? { amtThb:termR2(inp.amount*inp.amountRate), fw:(term==='EXW')?termR2(inp.fw*inp.fwRate):null, frg:(term==='CIF')?termR2(inp.frg*inp.frgRate):null, ins:null, cif:null, ex:true }   /* ★ [local063] Export: THB แยก Rate ช่องของตัวเอง */
+         : term==='DAP' ? { amtThb:termR2(inp.amount*inp.amountRate), fw:null, frg:null, ins:null, cif:null, dap:true }   /* [local023] DAP ไม่มี Input F/W-Frg → ว่าง */
                          : termCalc(term, inp);
   A.comm = (opt.comm!=null) ? termR2(opt.comm*inp.amountRate) : null;                            /* ★ [local046] ค่านายหน้า THB = R2(ค่านายหน้า × Amount Rate) (สกุลเดียวกับ Amount) */
   A.oth  = (opt.oth !=null) ? termR2(opt.oth *opt.othRate ) : null;
   if(xFrg && inp.frg!=null) A.frg=termR2(inp.frg*inp.frgRate);
   if(term==='FOB' && use.includes('fw') && inp.fw!=null) A.fw=termR2(inp.fw*inp.fwRate);        /* ★ [local047] Normal % FOB: F/W THB (termCalc ข้าม FOB) · Ins FOB เดิมไม่รวม F/W */                                  /* [local041] Frg_OTH เท่านั้น · A.cif (CIF = Amt.THB / DAP ว่าง) ไม่แตะ */
   const calcRows=[];
-  if(term==='CIF') calcRows.push(['Amount CIF THB',A.cif]);
+  if(ex) calcRows.push(term==='EXW'?['F/W_OTH',A.fw]:['Frg_OTH',A.frg],['TOTAL FOB THB',A.cif]);   /* ★ [local063] */
+  else if(term==='CIF') calcRows.push(['Amount CIF THB',A.cif]);
   else { if(term!=='FOB') calcRows.push(['F/W_OTH',A.fw]); calcRows.push(['Frg_OTH',A.frg],['Ins_OTH',A.ins],['Amount CIF THB',A.cif]); }
-  const insIn = (TERM_GROUPS[term]||[]).includes('ins') ? (termIn('chke-term-ins').v ?? null) : null;   /* [local035] L5 · ว่าง/ไม่ใช่ตัวเลข/ช่องซ่อน = null (Export ว่าง) */
+  const insIn = (!ex && (TERM_GROUPS[term]||[]).includes('ins')) ? (termIn('chke-term-ins').v ?? null) : null;   /* ★ [local063] Export: ไม่อ่าน Ins_OTH */   /* [local035] L5 · ว่าง/ไม่ใช่ตัวเลข/ช่องซ่อน = null (Export ว่าง) */
   const curs={}; for(const k of TERM_FX_KEYS) curs[k]=termCurOf(k);                                /* [local037] */
   const insR=termIn('chke-term-insRate'), insRate=(insR.v!=null)?insR.v:null;
   const fx={ date:String((document.getElementById('chke-term-fxDate')||{}).value||''), month:termFxKey(), source:termFxSrc(), count:(termFxMaster()||{}).count??null };   /* [local043] count = จำนวนสกุลใน MASTER (Export Form) */
@@ -5555,7 +5725,8 @@ function termCalcRun(){
   /* ★ [local046] TOTAL CIF THB = ผลรวม THB ของทุกหัวข้อที่มีจริง (Amount + F/W + Frg + Ins_OTH ฟอร์ม + Other_OTH + ค่านายหน้า) · ทุก TERM รวม CIF/DAP · ไม่มีค่า = 0 · คำนวณครั้งเดียวที่นี่ · Export/Payload/ELE อ่าน A.cif */
   { const hasFw0=use.includes('fw'), hasFrg0=useR.includes('frg'), hasIns0=(TERM_GROUPS[term]||[]).includes('ins');
     A.cif = termR2(A.amtThb + (hasFw0&&A.fw!=null?A.fw:0) + (hasFrg0&&A.frg!=null?A.frg:0) + (hasIns0&&insThb0!=null?insThb0:0) + (A.oth||0) + (A.comm||0)); }
-  const res={ curs, fx, insRate, insThb:insThb0, term, mode:TERM_STATE.mode, insIn, insAuto:(TERM_INS.auto && TERM_INS.fill!=='') ? Number(TERM_INS.fill) : null, cur, inp, opt, use:useR, A, calcRows, ref:null, air:(TERM_AIR.auto && TERM_AIR.last && TERM_AIR.last.frg!=null && String(inp.frgRaw)===TERM_AIR.fill) ? {...TERM_AIR.last, query:termT((document.getElementById('chke-term-airCountry')||{}).value||'')} : null };   /* [local043] query = ค่าที่พิมพ์ในช่องประเทศ (Export Form) */   /* [local012] */
+  if(ex) A.cif = termR2(A.amtThb + (term==='EXW' ? A.fw : A.frg));                             /* ★ [local063] TOTAL FOB THB = Amount THB + F/W THB (EXW) / + Frg THB (CIF) */
+  const res={ ex, totalLabel:(ex?'TOTAL FOB THB':'TOTAL CIF THB'), curs, fx, insRate, insThb:insThb0, term, mode:TERM_STATE.mode, insIn, insAuto:(TERM_INS.auto && TERM_INS.fill!=='') ? Number(TERM_INS.fill) : null, cur, inp, opt, use:useR, A, calcRows, ref:null, air:(TERM_AIR.auto && TERM_AIR.last && TERM_AIR.last.frg!=null && String(inp.frgRaw)===TERM_AIR.fill) ? {...TERM_AIR.last, query:termT((document.getElementById('chke-term-airCountry')||{}).value||'')} : null };   /* [local043] query = ค่าที่พิมพ์ในช่องประเทศ (Export Form) */   /* [local012] */
   /* ★ [local019] Flow ใหม่: คำนวณ → เก็บผลใน TERM_STATE.result เพื่อ EXPORT EXCEL เท่านั้น
      ไม่ Render 🧮 ผลการคำนวณ / 🔎 ตรวจเทียบ REF ใบขน / ตาราง / REF / Diff / PASS-FAIL / Exchange Rate Check ลงหน้าจอ · ไม่เรียก termCompare (คง Function ไว้ ไม่ถูกเรียก) */
   if(!(A.cif!=null && isFinite(A.cif))){ st.innerHTML='<div style="color:var(--red2);font-weight:800">❌ คำนวณไม่ได้</div>'; return; }
@@ -5565,7 +5736,8 @@ function termCalcRun(){
     res.thb=thb;
     for(const k of TERM_FX_KEYS.concat('comm')){ const e=document.getElementById('chke-term-thb-'+k); if(e) e.textContent=(thb[k]==null||!isFinite(thb[k]))?'':termFmt(thb[k]); } }
   { const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.disabled=false; }
-  st.innerHTML='<div style="color:var(--green2);font-weight:700">\u2705 คำนวณแล้ว (TERM '+termEsc(term)+') — กด EXPORT EXCEL <span style="color:var(--text);font-weight:800">· TOTAL CIF THB = '+termFmt(A.cif)+'</span></div>';   /* [local046] */
+  for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.disabled=!ex; }   /* ★ [local063] ส่งไป TYPE 1 / TYPE D เฉพาะผล Export */
+  st.innerHTML='<div style="color:var(--green2);font-weight:700">\u2705 คำนวณแล้ว (TERM '+termEsc(term)+') — กด EXPORT EXCEL <span style="color:var(--text);font-weight:800">· '+res.totalLabel+' = '+termFmt(A.cif)+'</span></div>';   /* [local046] · ★ [local063] Export = TOTAL FOB THB */
   const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=false;
 }
 /* ══ [local018] EXPORT ผลการคำนวณ TERM — GOLDEN TEMPLATE "ตรวจสอบใบขนการคำนวณค่าใช้จ่าย.xlsx" · Sheet "ตรวจสอบค่าใช้จ่าย" (A1:O23) ══
@@ -5617,7 +5789,7 @@ async function termExport(){
       ws.getCell(5,c1).value=h[1]; ws.getCell(5,c1).font={ name:FONT, size:12, bold:true, color:{ argb:'FF111827' } }; ws.getCell(5,c1).alignment={ horizontal:'center', vertical:'middle' }; });
     merge(7,1,7,COLS); cell('A7', (res.fx.month?('✅ MASTER '+mo+(res.fx.count!=null?' · '+res.fx.count+' สกุลเงิน':'')+' · Source '+(res.fx.source||'-')):'⚠️ ไม่มี MASTER'), { size:9, bold:true, color:'FF15803D', border:false });
     /* Cards แถว 9–15: หัวข้อ(9) · หัวข้อรอง(10) · 4 แถวข้อมูล (11–14 Label | ค่า) · 15 ว่าง */
-    const hasFw=(use||[]).includes('fw'), hasFrg=(use||[]).includes('frg'), hasIns=g.includes('ins');   /* [local047] hasFw จาก res.use (รองรับ Normal % FOB) */
+    const hasFw=(use||[]).includes('fw'), hasFrg=(use||[]).includes('frg'), hasIns=!res.ex && g.includes('ins');   /* [local047] hasFw จาก res.use (รองรับ Normal % FOB) · ★ [local063] Export ไม่มี Ins */
     const cards=[
       { t:'Amount', st:'(มูลค่าสินค้า)', bg:'FFFFEDD5', rows:[['จำนวนเงิน',n2(inp.amount)],['Currency',CU.amount||'-'],['Rate (THB)',r4(inp.amountRate),FMT4],['จำนวนเงิน (THB)',n2(A.amtThb)]] },
       hasFw ? { t:'F/W', st:'(ค่าขนส่งภายในประเทศ)', bg:'FFDBEAFE', rows:[['จำนวนเงิน',n2(inp.fw)],['Currency',CU.fw||'-'],['Rate',r4(inp.fwRate),FMT4],['จำนวนเงิน (THB)',n2(A.fw)]] } : null,
@@ -5646,7 +5818,7 @@ async function termExport(){
       row+=7; }
     /* Summary */
     box(row,1,row+7,COLS,'FFF8FAFC'); merge(row,1,row,COLS); cell('A'+row,'ผลรวม (THB)',{ bold:true, size:11, fill:'FF1E3A5F', color:'FFFFFFFF' });
-    const SUM=[['Amount THB',n2(A.amtThb)],['F/W THB',hasFw?n2(A.fw):'-'],['Frg THB',hasFrg?n2(A.frg):'-'],['Ins_OTH THB',hasIns?n2(res.insThb):'-'],['Other_OTH THB',n2(A.oth)],['ค่านายหน้า THB',n2(A.comm)],['TOTAL CIF THB',n2(A.cif)]];
+    const SUM=[['Amount THB',n2(A.amtThb)],['F/W THB',hasFw?n2(A.fw):'-'],['Frg THB',hasFrg?n2(A.frg):'-'],['Ins_OTH THB',hasIns?n2(res.insThb):'-'],['Other_OTH THB',n2(A.oth)],['ค่านายหน้า THB',n2(A.comm)],[res.totalLabel||'TOTAL CIF THB',n2(A.cif)]];   /* ★ [local063] Export = TOTAL FOB THB */
     SUM.forEach((x,j)=>{ const r=row+1+j, last=j===SUM.length-1; merge(r,1,r,10); merge(r,11,r,COLS);
       cell('A'+r,x[0],{ size:10, bold:last, fill:last?'FFFDE68A':'FFF8FAFC' }); cell('K'+r,x[1],{ size:last?12:10, bold:last, h:'right', fill:last?'FFFDE68A':'FFF8FAFC' }); ws.getRow(r).height=last?22:18; });
     const lastRow=row+7;
@@ -5770,9 +5942,13 @@ async function termFreightInvoiceUpload(file){
   say('<div style="color:var(--green2);font-weight:700">📄 Freight Invoice: '+termEsc(file.name)+'</div><div style="font-weight:700">'+msg.join(' · ')+'</div><div style="color:var(--text3)">กด 🧮 คำนวณ</div>');
 }
 /* ★ [local037] ➜ ส่งไปตรวจ ELE TYPE 0 — Snapshot TERM_TRANSFER จากผลคำนวณล่าสุด (Deep copy + freeze) · เชื่อม ELE ผ่าน Event เท่านั้น */
-function termSendToEle(){
+/* ★ [local063] target: 'chke' (เดิม) · 'chk1' / 'chkd' = ส่ง TOTAL FOB THB (Export) ไป TYPE 1 / TYPE D ผ่านช่องทางแยกของแต่ละโหมด */
+const TERM_SEND={ chke:['chke_decl','TERM_TRANSFER','term-transfer','ตรวจ ELE TYPE 0'], chk1:['chk1_decl','TERM_TRANSFER_T1','term-transfer-t1','TYPE 1'], chkd:['chkd_decl','TERM_TRANSFER_TD','term-transfer-td','TYPE D'] };
+function termSendToEle(target){
+  const T=TERM_SEND[(typeof target==='string' && TERM_SEND[target])?target:'chke'];
   const res=TERM_STATE.result, st=document.getElementById('chke-term-result');
   if(!res){ if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">ไม่มีผลการคำนวณล่าสุด — กด 🧮 คำนวณ ก่อน</div>'; return null; }
+  if((T[0]!=='chke_decl') !== !!res.ex){ if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">ส่งไม่ได้ — TYPE 1 / TYPE D รับเฉพาะผลคำนวณ Rate Source = Export</div>'; return null; }   /* ★ [local063] */
   const n=v=>(v==null||!isFinite(v))?null:v;
   const use=res.use||[], g=TERM_GROUPS[res.term]||[];
   const it=(k,value,rate,thb,extra)=>Object.assign({ value:n(value), cur:(n(value)==null?null:(res.curs||{})[k]||null), rate:(n(value)==null?null:n(rate)), thb:(n(value)==null?null:n(thb)) },extra||{});
@@ -5788,11 +5964,19 @@ function termSendToEle(){
       oth:    (res.opt && res.opt.oth!=null) ? it('oth', res.opt.oth, res.opt.othRate, res.A.oth) : it('oth',null)
     },
     comm:{ enabled:!!(res.opt && res.opt.comm!=null), value:(res.opt && res.opt.comm!=null) ? res.opt.comm : null, cur:(res.opt && res.opt.comm!=null) ? (res.curs||{}).amount||null : null, thb:(res.opt && res.opt.comm!=null) ? n(res.A.comm) : null },   /* [local046] + thb */
-    cif: n(res.A.cif)   /* [local044] TOTAL CIF = res.A.cif (ไม่คำนวณใหม่) */
+    cif: res.ex ? null : n(res.A.cif),   /* [local044] TOTAL CIF = res.A.cif (ไม่คำนวณใหม่) */
+    fob: res.ex ? n(res.A.cif) : null     /* ★ [local063] Export: TOTAL FOB THB (ไม่คำนวณใหม่) */
   };
   if(frgAir && snap.items.frg.value!=null){ snap.items.frg.cur='THB'; snap.items.frg.rate=1; }
   const freeze=o=>{ Object.values(o).forEach(v=>{ if(v && typeof v==='object') freeze(v); }); return Object.freeze(o); };
   const tt=freeze(JSON.parse(JSON.stringify(snap)));
+  if(T[0]!=='chke_decl'){                                                           /* ★ [local063] TYPE 1 / TYPE D (Export) — ช่องทางแยกของแต่ละโหมด */
+    if(st) st.innerHTML='<div style="color:var(--green2);font-weight:700">➜ ส่งข้อมูลไปตรวจ '+T[3]+' แล้ว</div>';
+    if(typeof window.switchCustomer==='function') window.switchCustomer(T[0]);
+    window[T[1]]=tt;
+    try{ window.dispatchEvent(new CustomEvent(T[2],{ detail:window[T[1]] })); }catch(_){ }
+    return window[T[1]];
+  }
   if(st) st.innerHTML='<div style="color:var(--green2);font-weight:700">➜ ส่งข้อมูลไปตรวจ ELE TYPE 0 แล้ว</div>';
   if(typeof window.switchCustomer==='function') window.switchCustomer('chke_decl');   /* สลับโหมด → ล้าง Transfer เดิม */
   window.TERM_TRANSFER=tt;                                                               /* [local044] ตั้งหลังสลับโหมด แล้วจึงส่ง Event */
@@ -5814,7 +5998,10 @@ function termWire(){
   termInvalidate();
   const fb=document.getElementById('chke-term-btn-frtinv'), fi=document.getElementById('chke-term-frtinv-input');   /* [local028] */
   if(fb&&fi){ fb.addEventListener('click',()=>fi.click()); fi.addEventListener('change',()=>termFreightInvoiceUpload(fi.files&&fi.files[0])); }
-  const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.addEventListener('click',termSendToEle);   /* [local037] */
+  const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.addEventListener('click',()=>termSendToEle('chke'));   /* [local037] */
+  { const b1=document.getElementById('chke-term-btn-send1'); if(b1) b1.addEventListener('click',()=>termSendToEle('chk1'));
+    const bd=document.getElementById('chke-term-btn-sendd'); if(bd) bd.addEventListener('click',()=>termSendToEle('chkd'));
+    document.querySelectorAll('input[name="chke-term-fxSrc"]').forEach(r=>r.addEventListener('change',termExOptions)); termExOptions(); }   /* ★ [local063] หลัง Listener Rate เดิม */
   termFxWire();                                                                                   /* [local037] */
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',termWire); else termWire();
