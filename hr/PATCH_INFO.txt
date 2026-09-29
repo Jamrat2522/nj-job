@@ -1,21 +1,142 @@
-NJHR V2 — Release local313
-RUN-145 · "ขอลาออก" (RESIGN) — Flow แยกจากประเภทการลา
-Build: njhr-v2-db224887   (ก่อนหน้า local312 = njhr-v2-7a5eb7ca · local311 = njhr-v2-31181fad)
+NJHR V2 — Release local314
+RUN-146 · SUPER_ADMIN เห็นคำขอลาทั้งหมด แต่อนุมัติตามลำดับ Workflow เท่านั้น
+Build: njhr-v2-db224887   (เท่ากับ local313 — ดูคำอธิบายด้านล่าง)
+
+*** buildId ไม่เปลี่ยน และตั้งใจให้ไม่เปลี่ยน ***
+RUN-146 แก้เฉพาะฝั่ง Database ไม่มีไฟล์ JS/CSS/HTML เปลี่ยนแม้แต่ไฟล์เดียว
+(เทียบกับ local313: เหมือนเดิม 55 ไฟล์ · เปลี่ยน 1 ไฟล์ = PATCH_INFO.txt เท่านั้น)
+ถ้าปั๊ม buildId ใหม่ จะไป trigger Force Update -> Maintenance Mode 10 นาที
++ บังคับพนักงานทุกคน Login ใหม่ เพื่อเอกสารที่เปลี่ยนไฟล์เดียว ซึ่งไม่คุ้มและรบกวนผู้ใช้
+=> ไม่ต้องอัปไฟล์ขึ้นเว็บรอบนี้ ฟีเจอร์ทำงานทันทีตั้งแต่ COMMIT SQL แล้ว
+   ชุด ZIP ที่ส่งมาให้เก็บเป็นประวัติ/อ้างอิง หากต้องการอัปก็ได้ ไม่มีผลข้างเคียง
 
 สถานะ: รัน SQL แล้วบน Production (29/09/2026) — ผู้ใช้ไม่ต้องรันเพิ่ม
+*** รอบนี้ไม่มีการแก้ไฟล์ Frontend เลย — เปลี่ยนเฉพาะฝั่ง Database ***
 
 SQL ที่รันบน Production แล้ว (อยู่ใน _archive · ไม่อยู่ในชุด Deploy)
   RUN-139_shift_working_days.sql     28/09/2026
   RUN-140_late_minute_policy.sql     29/09/2026
   RUN-143_overnight_work_date.sql    29/09/2026
-  RUN-145_resign_flow.sql            29/09/2026   <-- รอบนี้
-  RUN-145_rollback.sql               (ไฟล์ถอน · ยังไม่ได้รัน)
+  RUN-145_resign_flow.sql            29/09/2026
+  RUN-146_superadmin_leave_visibility.sql  29/09/2026   <-- รอบนี้
 
-Cron ที่ตั้งบน Production
-  njhr-resign-apply-daily  ·  '5 17 * * *' UTC  =  00:05 น. เวลาไทย  ·  active
+Cron บน Production
+  njhr-resign-apply-daily  ·  '5 17 * * *' UTC = 00:05 น. ไทย · active
 
 ================================================================
-RUN-145 — ข้อกำหนดที่ยืนยันกับผู้ใช้
+RUN-146 — ข้อกำหนดที่ยืนยันกับผู้ใช้
+================================================================
+ 1. SUPER_ADMIN เห็นคำขอลาทั้งหมด (ทุกคน ทุกแผนก ทุก step)
+ 2. เปิดดูรายละเอียด + Timeline + Approval step ได้ทั้งหมด
+ 3. Badge แท็บ "คำขอลา" นับคำขอที่ยังอยู่ระหว่าง Workflow ทั้งหมดที่ SUPER_ADMIN เห็น
+ 4. การมองเห็น != สิทธิ์อนุมัติ
+ 5. SUPER_ADMIN ห้าม Approve / Reject ข้ามขั้น (ถอน bypass เดิมออก)
+ 6. ยังไม่ถึงขั้นของตัวเอง -> ปุ่มไม่ขึ้น + แสดงเหตุผล
+ 7. ถึงขั้นของตัวเองจริง -> อนุมัติได้ตาม Permission เดิม
+ 8. ห้ามเปลี่ยน Approval order / Workflow เดิม
+ 9. ห้ามกระทบ USER / ADMIN / approver เดิม
+10. คงหน้าตา "อนุมัติรายการ" และ Tabs เดิมทั้งหมด
+    (ทำเฉพาะ "คำขอลา" — OT และ ลงชื่อย้อนหลัง ไม่เปลี่ยน)
+
+================================================================
+Root Cause (ตรวจจาก Source จริง · วัดด้วยข้อมูล Production)
+================================================================
+A) เห็นน้อยเกินไป — njhr_leave_feed
+   vis CTE ปล่อยให้ SUPER_ADMIN เห็นทุกแถวถูกต้องแล้ว
+   แต่บรรทัดสุดท้ายกรองทิ้ง:  where b.act or b.wait_info or b.acted_mine
+   ทั้ง 3 ตัวต้องการ "การเป็นสมาชิกของ step ปัจจุบัน"
+   => SUPER_ADMIN ที่ไม่ได้อยู่ใน step ไม่เห็นแถวนั้นเลย
+   วัดจริง: PENDING 5 แถว · เห็นแค่ 1 · หาย 4
+
+B) อนุมัติข้ามขั้นได้ — njhr_leave_decide
+   if not act.allowed then
+     if c.role = 'SUPER_ADMIN' then v_bypass := true;
+   และ v_bypass ยังข้ามเงื่อนไข mode='ALL' ด้วย
+
+================================================================
+สิ่งที่แก้ (Database เท่านั้น · Frontend 0 ไฟล์)
+================================================================
+njhr_leave_feed
+  · where v_sa or b.act or b.wait_info or b.acted_mine
+  · cnt CTE ใช้เงื่อนไขเดียวกัน (ไม่งั้น pagination เพี้ยน)
+  · pnd CTE = Badge ของ SUPER_ADMIN
+  · act_reason แยก 2 เคส: "รอพนักงานตอบกลับข้อมูลเพิ่มเติม" / "รอผู้อนุมัติขั้นก่อนหน้า"
+njhr_appr_pending_counts
+  · SUPER_ADMIN นับจากที่มองเห็น ไม่ผูกกับ can_act
+njhr_leave_decide
+  · ลบ v_bypass ทั้ง 2 จุด (รวมเงื่อนไข mode='ALL')
+njhr_approval_dashboard
+  · LEAVE ใช้ njhr_leave_can_act จริง แทน SUPER_ADMIN -> true
+  · ติดตั้งส่วน RESIGN ของ RUN-145 ที่ตกไป (ดูหมายเหตุด้านล่าง)
+
+*** จุดที่พลาดง่าย: Badge ถูกเขียนจาก 2 ทาง ***
+  compat/approvals-reports.js -> apprLoad()
+    if (list.length && list[0].pending_count != null)
+      apprCounts[tab] = Number(list[0].pending_count) || 0;
+  njhr_leave_feed.pending_count เขียนทับค่าจาก njhr_appr_pending_counts ทีหลัง
+  ถ้าแก้ทางเดียว ตัวเลข Badge จะกระพริบสลับค่า -> แก้ทั้งคู่ + มี T3 บังคับให้ตรงกัน
+
+*** ทำไม Frontend ไม่ต้องแก้ ***
+  apprActionsCell() อ่าน can_act กับ act_reason จาก RPC อยู่แล้ว
+    if (r.can_act === true) { ...ปุ่มอนุมัติ/ไม่อนุมัติ... }
+    else if (PENDING && r.act_reason) { ...แสดงข้อความ... }
+  can_act ไม่ถูกแตะ จึงได้พฤติกรรมข้อ 4 และ 6 ฟรี และหน้าตาไม่เปลี่ยน (ข้อ 10)
+
+================================================================
+หมายเหตุสำคัญ: RUN-145 ลงไม่ครบ และถูกปิดช่องโหว่ในรอบนี้
+================================================================
+ตอน COMMIT RUN-145 ผมประกอบคำสั่งตกส่วน njhr_approval_dashboard ไป
+ของอื่นลงครบหมด (ตาราง · 9 RPC · workflow 8 ผัง · cron · patch 5 ฟังก์ชัน)
+ผลคือคำขอลาออกไม่ขึ้นบนวิดเจ็ตอนุมัติหน้าแดชบอร์ด
+ไม่พัง เพราะ Frontend local313 ไม่ได้อ่าน total_resign
+RUN-146 ติดตั้ง dashboard ฉบับรวม = RESIGN (145) + LEAVE can_act (146) แล้ว
+ยืนยันหลัง COMMIT: dashboard_has_resign = true
+
+================================================================
+ผลทดสอบ (รันจริงบน Production แบบ BEGIN...ROLLBACK ก่อน COMMIT)
+================================================================
+  T1   SUPER_ADMIN เห็นครบทุกแถว                      PASS
+  T2   total_count ตรง (pagination)                   PASS
+  T3   Badge ตรงทั้ง 2 ทาง และเท่าจำนวนแถว             PASS
+  T4   act_reason ครบทุกแถว                           PASS
+  T4b  ข้อความตรงกับเหตุผลที่ระบบปฏิเสธจริง            PASS
+  T5   APPROVE ข้ามขั้น ถูกปฏิเสธ 42501                PASS
+  T6   REJECT ข้ามขั้น ถูกปฏิเสธ 42501                 PASS
+  T7.2 feed คืน can_act=true เมื่อถึงขั้นจริง (2 ใบ)   PASS
+  T7.3 SUPER_ADMIN APPROVE สำเร็จ (approvals 1->2)     PASS
+  T7.4 SUPER_ADMIN REJECT สำเร็จ (status=REJECTED)     PASS
+  T7.5 ไม่ใช้ bypass — ผ่านเส้นทางสิทธิ์ปกติ           PASS
+  T8   ADMIN/HR เห็นเท่าเดิม                           PASS
+  T9   ไม่มี v_bypass เหลือ                            PASS
+  T10  OT / ลงชื่อย้อนหลัง ไม่ถูกแตะ                   PASS
+  T11  ถอน SA ออกจาก step หมดแล้ว                      PASS
+  รวม 17/17 PASS · 0 FAIL · ไม่มี SKIP
+
+T7 สร้างสถานการณ์จริงโดยเพิ่ม SUPER_ADMIN เป็นผู้อนุมัติของขั้นปัจจุบัน
+(เส้นทางสิทธิ์ปกติ ไม่ใช่ bypass) แล้ว ROLLBACK ทั้งหมด
+ตรวจ Production ก่อน/หลัง: leave 87->87 · pending 4->4 · approvers 49->49
+· steps 38->38 · fingerprint ของ leave_requests และ step_approvers ตรงทั้งคู่
+
+================================================================
+สิ่งที่ไม่ได้แตะ
+================================================================
+  njhr_ot_feed · njhr_attc_feed · เงื่อนไข OT/CORRECTION ใน pending_counts
+  njhr_approval_steps · njhr_approval_step_approvers · ลำดับขั้นทั้งหมด
+  USER / ADMIN / HR / approver เดิม — ทุกการแก้อยู่ในสาขา v_sa เท่านั้น
+  Payroll · Attendance · Auth · Roles · ไฟล์ Frontend ทุกไฟล์
+
+================================================================
+เรื่องที่ต้องรู้หลัง Deploy
+================================================================
+1. Badge แท็บ "คำขอลา" ของ SUPER_ADMIN จะกระโดดขึ้นทันที
+   จากเดิมนับเฉพาะที่กดได้ เป็นนับทุกใบที่เห็น (วัดจริงตอนนี้: 0 -> 4)
+2. SUPER_ADMIN จะอนุมัติข้ามขั้นไม่ได้อีก ถ้าต้องการอนุมัติเอง
+   ให้เพิ่มตัวเองเข้าเป็นผู้อนุมัติของขั้นนั้นในหน้า ตั้งค่าการอนุมัติ
+3. รอบนี้ไม่มีไฟล์ Frontend เปลี่ยน แต่ buildId เปลี่ยนเพื่อให้
+   Force Update ทำงานและทุกเครื่องได้ PATCH_INFO ฉบับใหม่
+
+================================================================
+[ประวัติ] RUN-145 — ข้อกำหนดที่ยืนยันกับผู้ใช้
 ================================================================
  1. RESIGNED มีผลเมื่อถึง effective_date เท่านั้น ไม่ใช่ทันทีที่อนุมัติ
  2. workflow 'RESIGN' แยก · deep copy ขั้นตอนจาก LEAVE · ห้ามกระทบ LEAVE/OT
