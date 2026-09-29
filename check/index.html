@@ -1975,6 +1975,7 @@ const CHKE_INC = ['Increased Price Foreign','Increased Price Baht','Increased Ra
 function chkeIncreased(dwakSheet){
   const out=[], items=[], H=dwakSheet.hdr;
   const fields=CHKE_INC.filter(h=>chkeCol(H,h)>=0);
+  for(const h of CHKE_INC) if(chkeCol(H,h)<0) out.push({ _r:0, _k:6, item:'HEADER', field:h, dwak:'ไม่พบ Header', map:'0.00' });   /* ★ [local056] Header หาย → 1 แถว/ไฟล์ */
   if(!fields.length) return { diffs:out, items, active:false, fields };
   for(const d of chkeDwakRows(dwakSheet)){
     const item=chkeT(d.get('Item No.')), part=chkeT(d.get('Product Code'));
@@ -1995,33 +1996,65 @@ function chkeIncreased(dwakSheet){
    PermitNo1 = token 2/2568 มี boundary (ผ่าน: 2/2568 · ที่ 2/2568 · ใบอนุญาตเขตปลอดอากรที่ 2/2568 · ไม่ผ่าน: 12/2568 · 22/2568 · 2/25680 · 3/2568 · ว่าง)
    IssueDate1 = 2025-01-07 (chkeDate) · PermitIssueAuthority1 = 0994000163011 (Text คง 0 นำหน้า) · Brand Name = NO BRAND · Establish No = 2677 (Text หลัง trim · int 2677 = ตรง)
    · Header ใดหาย → แจ้ง ⚠️ ตรวจไม่ได้ — ไม่พบ Header (ไม่ Skip เงียบ · Overall = ตรวจไม่ครบ) · cell ว่าง → ว่าง | Expected (FAIL) · ตรวจทุก Item ไม่หยุด Error แรก */
+/* ★ [local054] FZ = Trigger: FZ = Y จึงตรวจชุด FZ · FZ != Y ไม่ตรวจ/ไม่ฟ้อง · ไม่มี Header FZ ทั้งไฟล์ → 'ไม่พบ Header' FZ 1 แถว (เดิม)
+   · ตรวจตาม Column: Import TaxIncentives ID · Brand Name · Establish No
+   · ชุด Slot (CHKE_FZ_SLOT): Permit token 2/2568 + Issue Date 2025-01-07 + Permit Authority 0994000163011 ต้องอยู่ Slot เดียวกัน (PermitNo/IssueDate/PermitIssueAuthority 1–5)
+   · ชุด FZ ไม่ใช้กับ DUI · EXEMPT99 ไม่ใช้กับ FZ */
+/* ★ [local056] ชุด FZ (FZ = Y) · ชื่อหัวข้อไม่มี prefix · Brand Name แยกไปตรวจทุก Item (CHKE_ALL) */
 const CHKE_FIX = [
-  { field:'FZ',                    hdr:['FZ'],                                                  exp:'Y',              eq:v=>chkeTxt(v)==='y' },
+  { field:'FZ',                      hdr:['FZ'],                                                  exp:'Y',              eq:v=>chkeTxt(v)==='y' },   /* Trigger */
+  { field:'Establish No',            hdr:['Establish No'],                                        exp:'2677',           eq:v=>chkeT(v)==='2677' },
   { field:'Import TaxIncentives ID', hdr:['Import TaxIncentives ID','Import Tax Incentives ID'], exp:'F5302180400004', eq:v=>chkeTxt(v)==='f5302180400004' },
-  { field:'PermitNo1',             hdr:['PermitNo1'],                                           exp:'2/2568',         eq:v=>/(^|[^0-9])2\/2568(?![0-9])/.test(chkeT(v)) },
-  { field:'IssueDate1',            hdr:['IssueDate1'],                                          exp:'2025-01-07',     eq:v=>chkeDate(v)==='2025-01-07' },
-  { field:'PermitIssueAuthority1', hdr:['PermitIssueAuthority1'],                               exp:'0994000163011',  eq:v=>chkeT(v)==='0994000163011' },
-  { field:'Brand Name',            hdr:['Brand Name'],                                          exp:'NO BRAND',       eq:v=>chkeTxt(v)==='no brand' },
-  { field:'Establish No',          hdr:['Establish No'],                                        exp:'2677',           eq:v=>chkeT(v)==='2677' },
+  { field:'Export TaxIncentives ID', hdr:['Export TaxIncentives ID','Export Tax Incentives ID'], exp:'F5302180400004', eq:v=>chkeTxt(v)==='f5302180400004' },
+];
+const CHKE_FZ_SLOT = [
+  { field:'Permit',                  hdr:'PermitNo',             exp:'2/2568',        eq:v=>/(^|[^0-9])2\/2568(?![0-9])/.test(chkeT(v)) },
+  { field:'Issue Date',              hdr:'IssueDate',            exp:'2025-01-07',    eq:v=>chkeDate(v)==='2025-01-07' },
+  { field:'Permit Issue Authority',  hdr:'PermitIssueAuthority', exp:'0994000163011', eq:v=>chkeT(v)==='0994000163011' },
+];
+/* ★ [local056] ตรวจทุก Item (ไม่เกี่ยว FZ) · ไม่มี Header → 1 แถว/ไฟล์ · ว่าง/ค่าผิด → ราย Item */
+function chkeZero(v){ if(typeof v==='number') return Math.abs(v)<1e-9; return /^[+-]?(0+(\.0*)?|\.0+)$/.test(chkeT(v).replace(/,/g,'')); }   /* 0 / 0.0 / 0.00 */
+const CHKE_ALL = [
+  { field:'Brand Name',      hdr:['Brand Name'],      exp:'NO BRAND', eq:v=>chkeTxt(v)==='no brand' },
+  { field:'Deducted Amount', hdr:['Deducted Amount'], exp:'0',        eq:v=>chkeZero(v) },
+  { field:'Naturetran.',     hdr:['Naturetran.'],     exp:'11',       eq:v=>chkeT(v)==='11' },
 ];
 function chkeFixCheck(dwakSheet){
-  const out=[], items=[], H=dwakSheet.hdr, missing=[];
-  const cols=CHKE_FIX.map(f=>{ const c=chkeCol(H,...f.hdr); if(c<0) missing.push(f.field); return c; });
+  const out=[], items=[], H=dwakSheet.hdr, missing=[], gone=new Set();
+  const cols=CHKE_FIX.map(f=>chkeCol(H,...f.hdr));
+  const fzOn=cols[0]>=0; if(!fzOn) missing.push('FZ');                                          /* ไม่มี Header FZ ทั้งไฟล์ → 'ไม่พบ Header' FZ 1 แถว (Trigger ไม่ได้) */
+  const aCols=CHKE_ALL.map(f=>chkeCol(H,...f.hdr));
+  CHKE_ALL.forEach((f,i)=>{ if(aCols[i]<0){ out.push({ _r:0, _k:6, item:'HEADER', field:f.field, dwak:'ไม่พบ Header', map:f.exp }); gone.add(f.hdr[0]); } });   /* ★ [local056] 1 แถว/ไฟล์ */
+  const slotN=[1,2,3,4,5].filter(n=>CHKE_FZ_SLOT.some(x=>chkeCol(H,x.hdr+n)>=0));                /* Slot มีอยู่ = มี Header อย่างน้อย 1 ใน 3 ของ Slot นั้น */
+  const shown=raw=>{ const t=chkeT(raw); return t==='' ? 'ว่าง' : ((raw instanceof Date) ? chkeDate(raw) : t); };
   for(const d of chkeDwakRows(dwakSheet)){
     const item=chkeT(d.get('Item No.')), part=chkeT(d.get('Product Code'));
     if(item==='' && part==='') continue;
-    let hit=false;
-    CHKE_FIX.forEach((f,i)=>{
-      if(cols[i]<0) return;                                                   /* Header หาย → แจ้งใน Summary ไม่สร้างแถวต่อ Item */
+    let hit=false; const it=item||'—', push=(f,dw,mp)=>{ out.push({ _r:d._r, _k:32, item:it, field:f, dwak:dw, map:mp }); hit=true; };
+    CHKE_ALL.forEach((f,i)=>{ if(aCols[i]<0) return; const raw=d.get(f.hdr[0]); if(chkeT(raw)!=='' && f.eq(raw)) return; push(f.field,shown(raw),f.exp); });   /* ★ [local056] Brand / Deducted / Naturetran ทุก Item */
+    if(!fzOn || !CHKE_FIX[0].eq(d.get('FZ'))){ if(hit) items.push(it); continue; }               /* FZ != Y → จบ FZ Validation ของ Item นี้ */
+    /* 1 · 5 · 6 ตาม Column ของตัวเอง */
+    for(let i=1;i<CHKE_FIX.length;i++){ const f=CHKE_FIX[i];
+      if(cols[i]<0){ push(f.field,'ไม่พบ Header '+f.hdr[0],f.exp); gone.add(f.hdr[0]); continue; }
       const raw=d.get(f.hdr[0], f.hdr[1]);
-      const t=chkeT(raw);
-      if(t!=='' && f.eq(raw)) return;
-      const shown = t==='' ? 'ว่าง' : ((raw instanceof Date) ? chkeDate(raw) : t);
-      out.push({ _r:d._r, _k:32, item:item||'—', field:f.field, dwak:shown, map:f.exp }); hit=true;
-    });
-    if(hit) items.push(item||'—');
+      if(chkeT(raw)!=='' && f.eq(raw)) continue;
+      push(f.field,shown(raw),f.exp);
+    }
+    /* 2 · 3 · 4 ชุดเดียวกันใน Slot เดียวกัน (1–5) */
+    const slots=slotN.map(n=>{ const v=CHKE_FZ_SLOT.map(x=>{ const c=chkeCol(H,x.hdr+n); return c<0?{ has:false, raw:null, ok:false }:{ has:true, raw:d.get(x.hdr+n), ok:false }; });
+      v.forEach((x,j)=>{ x.ok = x.has && chkeT(x.raw)!=='' && CHKE_FZ_SLOT[j].eq(x.raw); });
+      return { n, v, score:v.filter(x=>x.ok).length }; });
+    if(!slots.length){ CHKE_FZ_SLOT.forEach(x=>{ push(x.field,'ไม่พบ Header '+x.hdr+'1–5',x.exp); for(const n of [1,2,3,4,5]) gone.add(x.hdr+n); }); }
+    else if(!slots.some(sl=>sl.score===3)){
+      let ref=null, best=-1; const withP=slots.filter(sl=>sl.v[0].ok);
+      for(const sl of (withP.length?withP:slots)){ if(sl.score>best){ best=sl.score; ref=sl; } }   /* n น้อย→มาก · > จึงได้ n น้อยสุดเมื่อเท่ากัน */
+      CHKE_FZ_SLOT.forEach((x,j)=>{ const c=ref.v[j]; if(c.ok) return;
+        if(!c.has){ push(x.field,'ไม่พบ Header '+x.hdr+ref.n,x.exp); gone.add(x.hdr+ref.n); }
+        else push(x.field,shown(c.raw),x.exp); });
+    }
+    if(hit) items.push(it);
   }
-  return { diffs:out, items, missing };
+  return { diffs:out, items, missing, gone:[...gone] };
 }
 
 /* ══ Runner — DWAK เป็นตัวตั้ง → A (MASTER HS CODE) + B (MASTER TARIFF) + Net>Gross + DUI + กรมสรรพสามิต + Increased + FIX 7 · [local009] ทุก Error รวมตารางเดียว ══ */
@@ -2046,8 +2079,13 @@ function chkeRunValidate(){
   }
   for(const f of r.fix.missing) hdrRow(f,(CHKE_FIX.find(x=>x.field===f)||{}).exp||'—');
   /* ตารางเดียว · เรียงตามลำดับแถว DWAK · ภายใน Item: A(10) → HS CODE(20) → สรรพสามิต(22) → DUI Stat(23) → DUI ใบอนุญาต(24) → NW>GW(25) → TARIFF(30) → FIX(32) → Increased(35) */
-  try{ r.tcmp=chkeMapRows(r.header).concat(chkeTermCmp()); }catch(te){ r.tcmp=[{ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:'ตรวจไม่สำเร็จ: '+(te.message||te), map:'REF 80 Header', status:'ไม่ถูกต้อง' }]; }   /* ★ [MAP] REF 80 + TERM ↔ IMPORT → ตารางเดิม */
-  r.rows=r.header.concat(r.tcmp, r.part.diffs, r.ex99.diffs, r.exc.diffs, r.nw, r.hs.diffs, r.fix.diffs, r.inc.diffs)
+  try{ const own=new Set(CHKE_OWN_STATIC);                                                        /* ★ [local056] 1) Specific ฟ้องแล้ว → 2) รวม Header ที่ Specific ดูแล → 3) Generic ข้าม */
+    r.header.forEach(x=>own.add(chkeMapHdrOf(x))); (r.fix.gone||[]).forEach(h=>own.add(h));
+    if(window.TERM_TRANSFER) CHKE_TCMP.forEach(c=>own.add(c.h));
+    if(r.ex99.diffs.concat(r.exc.diffs).some(x=>/DWAK ไม่มี Header PermitNo1–5/.test(String(x.dwak)))) ['PermitNo1','IssueDate1','PermitIssueAuthority1'].forEach(h=>own.add(h));
+    r.tcmp=chkeMapRows(own).concat(chkeTermCmp()); }   /* [local054] Header ที่ FZ ฟ้องแล้ว → Mapping ไม่ฟ้องซ้ำ */catch(te){ r.tcmp=[{ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:'ตรวจไม่สำเร็จ: '+(te.message||te), map:'REF 80 Header', status:'ไม่ถูกต้อง' }]; }   /* ★ [MAP] REF 80 + TERM ↔ IMPORT → ตารางเดิม */
+  r.info=chkeInfoRows(CHKE.dwak);                                                                /* ★ [local056] 14 หัวข้อ = ข้อมูล */
+  r.rows=r.header.concat(r.tcmp, r.info, r.part.diffs, r.ex99.diffs, r.exc.diffs, r.nw, r.hs.diffs, r.fix.diffs, r.inc.diffs)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
   return r;
@@ -2090,9 +2128,12 @@ function chkePartCheck(masterSheets, dwakSheet){
   const ix=chkePartIndex(ms);
   const H=dwakSheet.hdr, col=(...n)=>chkeCol(H,...n);
   const cPC=col('Product Code'), cEN=col('Desc.'), cTH=col('DescTH'), cHS=col('Tariff');
-  if(cPC<0) throw new Error('DWAK ไม่พบ Header "Product Code" (Part Number)');
   const skipped=[]; if(cEN<0) skipped.push('Desc.'); if(cTH<0) skipped.push('DescTH'); if(cHS<0) skipped.push('Tariff');
   const out=[]; let checked=0, found=0, notfound=0, empty=0;
+  /* ★ [local056] Header ที่ต้องใช้หาย → แถวฟ้อง 1 แถว/ไฟล์ (ไม่หยุดทั้งการตรวจ) · DescTH / Tariff หาย ฟ้องโดย สรรพสามิต / MASTER TARIFF เดิมแล้ว (ไม่ซ้ำ) */
+  if(cPC<0){ skipped.push('Product Code'); out.push({ _r:0, _k:6, item:'HEADER', field:'Part Number', dwak:'ไม่พบ Header Product Code', map:'MASTER HS CODE' });
+    return { diffs:out, checked, found, notfound, empty, skipped, master:{ sheet:ms.sheet.sheet, rows:ix.rows, parts:ix.M.size, dupSame:ix.dupSame, dupDiff:ix.dupDiff } }; }
+  if(cEN<0) out.push({ _r:0, _k:6, item:'HEADER', field:'ELUX Part Description (EN)', dwak:'ไม่พบ Header Desc.', map:'MASTER HS CODE' });
   let cur=0;
   const add=(item,part,hs,field,dv,mv,why)=>out.push({ _r:cur, _k:10, item:item||'—', part:part||'—', hs:hs||'—', field,
     dwak:(dv==null||chkeT(dv)==='')?'ว่าง':chkeT(dv), map:mv, status:'ไม่ถูกต้อง', reason:why });
@@ -2174,14 +2215,15 @@ function chkeHsCheck(dwakSheet){
   for(const d of chkeDwakRows(dwakSheet)){
     cur=d._r;
     const item=chkeT(d.get('Item No.')); part=chkeT(d.get('Product Code'));
-    const raw=chkeT(d.get('Tariff')); raw0=raw; if(raw==='') continue;
+    const raw=chkeT(d.get('Tariff')); raw0=raw;
+    if(raw===''){ if(item!=='' || part!=='') add(item,'MASTER - Tariff','','ต้องมีข้อมูล','Tariff ว่าง'); continue; }   /* ★ [local056] Tariff ว่าง → ฟ้อง */
     const k=chkeHsKey(raw);
     const m=M.get(k);
     if(!m){ notfound++;
       add(item,'MASTER - Tariff',raw,'ไม่พบใน MASTER TARIFF','Tariff Code ไม่พบใน MASTER TARIFF: DWAK = '+raw);
       continue; }
     matched++;
-    if(cStat>=0 && !chkeCodeEq(d.get('Stat'),m.stat)){ cnt.Stat++;
+    if(cStat>=0 && !(chkeT(d.get('Stat'))!=='' && chkeStat3(d.get('Stat'))===chkeStat3(m.stat))){ cnt.Stat++;   /* ★ [local056] Stat 3 หลัก: 0 = 00 = 000 (ตัวเลข/ข้อความ) */
       add(item,'MASTER - Stat',d.get('Stat'),m.stat,
         'Stat ไม่ตรงกับ MASTER TARIFF: DWAK = '+(chkeT(d.get('Stat'))||'ว่าง')+' / MASTER = '+m.stat); }
     if(cPriv>=0 && !chkeCodeEq(d.get('Priv.','Privilege'),m.priv)){ cnt.Privilege++;
@@ -2433,7 +2475,7 @@ function chkeRender(){
   if(r.exc.skipped&&r.exc.skipped.length) s+='<div style="'+warn+'">\u26a0\ufe0f ตรวจกรมสรรพสามิตไม่ได้ — ไม่พบ Header '+chkeEsc(r.exc.skipped.join(', '))+'</div>';
   /* ★ [local009] Overall รวมทุก Validation บังคับ: MASTER HS CODE · MASTER TARIFF · DUI · กรมสรรพสามิต · Increased · NW>GW · FIX 7
      แถว _k20 (HS CODE Warning DUI/สรรพสามิต) ไม่นับ FAIL · แถว HEADER (_k5) → ตรวจไม่ครบ ห้าม PASS */
-  const errRows=r.rows.filter(x=>x._k!==20 && x._k!==5).length;
+  const errRows=r.rows.filter(x=>x._k!==20).length;                                              /* ★ [local056] Header ที่มี Expected หาย (_k5 ของ Specific) = FAIL · ข้อมูล (_k20: HS CODE / Generic REF64 / 14 หัวข้อ) ไม่นับ */
   const overall = errRows>0 ? '<div style="'+bad+'">\u274c ผลตรวจสอบ: FAIL</div>'
                 : (r.header.length ? '<div style="'+warn+'">\u26a0\ufe0f ผลตรวจสอบ: ตรวจไม่ครบ</div>' : '<div style="'+ok+'">\u2705 ผลตรวจสอบ: PASS</div>');
   s+='<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;font-size:13px">'+overall+'</div>';
@@ -2487,7 +2529,7 @@ async function chkeExport(){
     /* ★ [local016] แสดงเฉพาะ Section ที่มีข้อมูลจริง · permitRows = Section 1 · errorRows = แถวสถานะ ≠ ข้อมูล (ผิด / ไม่พบ Header)
        Template: แถว 2 หัวข้อ1 · 3 Header1 · 4–5 Data ต้นแบบ · 6 ว่าง · 7 หัวข้อ2 · 8 Header2 · 9–11 Data ต้นแบบ · 12–13 ว่าง */
     const L=chkeLicenseRows(r), M=r.rows.length;
-    const hasErr = r.rows.some(d=>chkeRowStatus(d)!=='ข้อมูล');
+    const hasErr = r.rows.some(d=>chkeRowStatus(d)!=='ข้อมูล' || (d.field!=='DUI - HS CODE' && d.field!=='กรมสรรพสามิต - HS CODE'));   /* ★ [local056] แถวข้อมูลใหม่ต้องออกใน Excel ด้วย */
     /* Section 1 */
     if(!L.length){ ws.spliceRows(2,5); }                                                              /* ตัด หัวข้อ1 + Header1 + Data ต้นแบบ 2 แถว + แถวว่างคั่น → Section 2 เลื่อนขึ้นต่อแถว 1 ทันที */
     else { ws.getCell('A3').value='รายการ';
@@ -2536,7 +2578,7 @@ let CHKE_MAP = null;
    · Amount เทียบ Σ Amount เสมอ (Invoice Currency / Total Invoice ไม่อยู่ใน REF 80) · Currency เทียบ Currency Code */
 const CHKE_TCMP=[
   { f:'TERM - Term',       h:'Term',           k:'txt',  tv:tt=>tt.term },
-  { f:'TERM - Currency',   h:'Currency Code',  k:'txt',  tv:tt=>((tt.items||{}).amount||{}).cur },
+  { f:'TERM - Currency',   h:'Curr.',          k:'txt',  tv:tt=>((tt.items||{}).amount||{}).cur },   /* [local056] Currency Code → Curr. (REF64) */
   { f:'TERM - Amount',     h:'Amount',         k:'sum',  tv:tt=>((tt.items||{}).amount||{}).value },
   { f:'TERM - Rate',       h:'Exchange Rate',  k:'rate', tv:tt=>((tt.items||{}).amount||{}).rate },
   { f:'TERM - Amount THB', h:'Amt.THB',        k:'sum',  tv:tt=>((tt.items||{}).amount||{}).thb },
@@ -2555,17 +2597,36 @@ function chkeMapHdrOf(x){ const f=String(x.field||'');
   if(f==='DUI - Stat') return 'Stat';
   if(f==='กรมสรรพสามิต - DescTH') return 'DescTH';
   return f; }
-function chkeMapRows(hdrRows){
-  const out=[], mk=(f,dw)=>out.push({ _r:0, _k:6, item:'HEADER', field:f, dwak:dw, map:f, status:'ไม่ถูกต้อง' });
+/* ★ [local056] Generic REF64 = โครงสร้าง/ข้อมูลเท่านั้น (สถานะ ข้อมูล · _k20 · ไม่นับ FAIL) · Header ที่ Specific Validator ดูแล → ข้าม (Specific ฟ้องเอง)
+   · CHKE_OWN_STATIC = Header ที่มี Validator ฟ้อง Header หายเองเสมอ · Header ตามเงื่อนไข (FZ / TERM / Permit ของ DUI-สรรพสามิต) เพิ่มใน chkeRunValidate */
+const CHKE_OWN_STATIC = ['Product Code','Desc.','DescTH','Tariff','Stat','Priv.','Seq.','Duty Rate','FZ','Brand Name','Deducted Amount','Naturetran.',
+                         'Increased Rate','Increased Price Foreign','Increased Price Baht'];
+function chkeMapRows(owned){
+  const out=[], mk=(f,dw)=>out.push({ _r:0, _k:20, item:'HEADER', field:f, dwak:dw, map:'—' });
   const M=CHKE_MAP;
-  if(!M || M.error || M.file!==CHKE.dwakName || !CHKE.dwak){ out.push({ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:(M&&M.error)?'MAPPING ไม่สำเร็จ: '+M.error:'MAPPING ยังไม่พร้อม (กดตรวจสอบอีกครั้ง)', map:'REF 80 Header', status:'ไม่ถูกต้อง' }); return out; }
+  if(!M || M.error || M.file!==CHKE.dwakName || !CHKE.dwak){ out.push({ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:(M&&M.error)?'MAPPING ไม่สำเร็จ: '+M.error:'MAPPING ยังไม่พร้อม (กดตรวจสอบอีกครั้ง)', map:'REF 64 Header', status:'ไม่ถูกต้อง' }); return out; }
   if(M.layout==='EXPORT') return out;
-  const done=new Set((hdrRows||[]).map(x=>chkeNH(chkeMapHdrOf(x))));
-  for(const x of M.rows){
-    if(x.derived || done.has(chkeNH(x.ref))) continue;
-    if(!x.ci || !x.ci.length) mk(x.ref,'ไม่พบ Header');
-    else if(x.ci.length>1) mk(x.ref,'Header ซ้ำ (Column '+x.col+')');
-    else if(x.status.indexOf('อ่านไม่ได้')>=0) mk(x.ref,'อ่านไม่ได้ · '+(x.detail.split(' · ').find(d=>d.indexOf('Source มีค่า')===0)||''));
+  const skip=new Set([...(owned||[])].map(chkeNH));
+  for(const h of CHKE_MAP_HDR64){
+    if(skip.has(chkeNH(h))) continue;
+    const x=M.rows.find(r=>r.ref===h); if(!x || x.derived) continue;
+    if(!x.ci || !x.ci.length) mk(h,'ไม่พบ Header');
+    else if(x.ci.length>1) mk(h,'Header ซ้ำ (Column '+x.col+')');
+    else if(x.status.indexOf('อ่านไม่ได้')>=0) mk(h,'อ่านไม่ได้ · '+(x.detail.split(' · ').find(d=>d.indexOf('Source มีค่า')===0)||''));
+  }
+  return out;
+}
+/* ★ [local056] 14 หัวข้อ DWAK (ยังไม่มี Expected) → แสดงเป็น ข้อมูล เฉพาะ Item ที่มีค่า · ไม่นับ FAIL · ว่าง/ไม่มี Header ไม่สร้างแถว */
+const CHKE_INFO14 = ['Duty Amt.','Duty Amt.(P)','Vat Amt.','Vat Amt.(P)','Excise Amt.','Excise Amt.(P)','LocalTax Amt.','LocalTax Amt.(P)',
+                     'ExciseNo','Duty_code','Excise_code','Excise_rate','Local_rate','ExciseType'];
+function chkeInfoRows(dwakSheet){
+  const out=[], H=dwakSheet.hdr, hs=CHKE_INFO14.filter(h=>chkeCol(H,h)>=0);
+  if(!hs.length) return out;
+  for(const d of chkeDwakRows(dwakSheet)){
+    const item=chkeT(d.get('Item No.')), part=chkeT(d.get('Product Code'));
+    if(item==='' && part==='') continue;
+    for(const h of hs){ const raw=d.get(h), t=(raw instanceof Date)?chkeDate(raw):chkeT(raw); if(t==='') continue;
+      out.push({ _r:d._r, _k:20, item:item||'—', field:h, dwak:t, map:'—' }); }
   }
   return out;
 }
@@ -2584,7 +2645,8 @@ function chkeTermCmp(){
     const T=c.tv(tt), tH=has(T);
     const ts=!tH?'—':(c.k==='txt'?chkeT(T):(c.k==='rate'?String(Number(T)):f2(T)));
     const R=byRef(c.h);
-    if(!R || !R.ci || R.ci.length!==1) continue;                                                 /* ไม่พบ/ซ้ำ → ฟ้องใน chkeMapRows แล้ว (1 ปัญหา = 1 แถว) */
+    if(!R || !R.ci || !R.ci.length){ mk(c.f,'ไม่พบ Header `'+c.h+'`',ts); continue; }              /* ★ [local056] TERM ฟ้อง Header ที่ต้องใช้เอง (Generic ข้าม) */
+    if(R.ci.length>1){ mk(c.f,'Header ซ้ำ `'+c.h+'` (Column '+R.col+')',ts); continue; }
     const ci=R.ci[0], raw=[]; for(const r of rows){ if(!isItem(r)) continue; const v=r[ci]; if(v!=null && chkeT(v)!=='') raw.push(v); }
     if(c.k==='txt'){
       const u=[...new Set(raw.map(v=>chkeT(v)))];
@@ -2614,6 +2676,25 @@ function chkeMapKind(cell){ if(!cell||cell.t==='z') return ''; const v=cell.v; i
 const CHKE_MAP_KN={ n:'ตัวเลข', s:'ข้อความ', d:'วันที่', b:'TRUE/FALSE', e:'Error' };
 function chkeMapSrc(cell){ if(!cell||cell.t==='z') return ''; if(cell.w!=null && String(cell.w)!=='') return String(cell.w); if(cell.v instanceof Date) return chkeDate(cell.v); return cell.v==null?'':String(cell.v); }
 function chkeMapStamp(d){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+/* ★ [local055] EXPORT MAPPING = Data Table ตาม Template 'REF. แยกหัวข้อตรวจขาเข้า(4).xlsx' (64 Header ตามลำดับจริง) · ไม่มี Status/ผลตรวจ
+   · CHKE_REF80 เดิมยังใช้กับการฟ้อง Header ในผลตรวจ (รอบนี้ไม่แก้ส่วนตรวจ) */
+const CHKE_MAP_HDR64 = ["Invoice No. :", "Item No.", "Importer NameEN", "Product Code", "Desc.", "EN desc2", "DescTH", "Naturetran.", "F/W_OTH", "Frg_OTH", "Ins_OTH", "Packing_OTH", "Other_OTH", "Qty.", "Netweight", "Grossweight", "Curr.", "Amount", "Amt.THB", "CIF FOR.", "CIF THB.", "Duty Rate", "Duty Amt.", "Duty Amt.(P)", "Vat Amt.", "Vat Amt.(P)", "Excise Amt.", "Excise Amt.(P)", "LocalTax Amt.", "LocalTax Amt.(P)", "Priv.", "Tariff", "Stat", "Seq.", "FZ", "Package Amount", "Package Unit", "Brand Name", "Establish No", "Origin Country", "Total Package Amount", "Total Package Unit", "Exchange Rate", "Cif Value Foreign", "Cif Value Baht", "Invoice Date", "Term", "Increased Rate", "Increased Price Foreign", "Increased Price Baht", "ExciseNo", "Duty_code", "Excise_code", "Excise_rate", "Local_rate", "ExciseType", "Declaration No", "DeclarationLine Number", "Export TaxIncentives ID", "Import TaxIncentives ID", "Deducted Amount", "PermitNo1", "IssueDate1", "PermitIssueAuthority1"];
+const CHKE_MAP_TPL = "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";
+/* ค่าที่ Export: ข้อความ = ตามไฟล์ (คง 0 นำหน้า) · วันที่ = YYYY-MM-DD · ตัวเลข = ค่าจริง (รูปแบบที่แสดงเป็นตัวเลขล้วน เช่น 000 / 0.00 → คงตามที่แสดง) · ว่าง = ว่าง */
+function chkeMapVal(cell){
+  if(!cell || cell.t==='z') return null;
+  const v=cell.v;
+  if(v==null) return null;
+  if(v instanceof Date) return chkeDate(v);
+  if(cell.t==='n' && typeof v==='number'){
+    const w=(cell.w==null)?'':String(cell.w).trim();
+    if(/^-?\d+(\.\d+)?$/.test(w) && w!==String(v)) return w;                                   /* เช่น 000 · 0.00 · 12.000 (ตามที่ Excel แสดง) */
+    return v;
+  }
+  if(cell.t==='b') return v?'TRUE':'FALSE';
+  if(cell.t==='e') return (cell.w!=null)?String(cell.w):null;
+  return (typeof v==='string' && v.trim()==='')?null:String(v);
+}
 async function chkeMapBuild(file, sheetName){
   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array',cellDates:true,sheetStubs:true});   /* อ่านอย่างเดียว · เหมือน chkeReadSheet + sheetStubs (เห็นเซลล์สูตรที่ไม่มีค่า) · ค่าที่ระบบอ่าน (sheet_to_json) ไม่เปลี่ยน */
   const ws=wb.Sheets[sheetName]; if(!ws||!ws['!ref']) throw new Error('ไม่พบ Sheet '+sheetName);
@@ -2654,30 +2735,38 @@ async function chkeMapBuild(file, sheetName){
     if(!o.status.length) o.status.push('✅ พบ');
     return o;
   }).map(o=>({ ...o, status:o.status.join(' · '), detail:o.detail.join(' · ') }));
-  return { file:file.name, sheet:sheetName, at:chkeMapStamp(new Date()), hdrRow:rowNo(h0), layout, rows };
+  /* ★ [local055] Dataset สำหรับ EXPORT MAPPING: 64 Header · 1 แถวต่อ Item · Invoice Carry Forward (คอลัมน์ A มี 'Invoice No.' · Logic เดียวกับ chkeDwakRows) */
+  const xc=CHKE_MAP_HDR64.map(h=>hdr.findIndex(x=>x!=='' && chkeNH(x)===chkeNH(h)));             /* Column แรกที่ชื่อตรง · ไม่พบ = -1 */
+  const iItem=xc[CHKE_MAP_HDR64.indexOf('Item No.')], iInv=CHKE_MAP_HDR64.indexOf('Invoice No. :');
+  const exp=[]; let inv='';
+  for(let r=h0+1;r<aoa.length;r++){
+    const a=chkeT((aoa[r]||[])[0]);
+    if(a.indexOf('Invoice No.')>=0) inv=a.replace(/^.*Invoice\s*No\.?\s*:?\s*/i,'').trim();
+    const isItem = iItem>=0 ? chkeT((aoa[r]||[])[iItem])!=='' : ((aoa[r]||[]).some(x=>x!=null&&x!=='') && a.indexOf('Invoice No.')<0);
+    if(!isItem) continue;
+    exp.push(xc.map((c,j)=>{ if(c<0) return (j===iInv && inv!=='')?inv:null; return chkeMapVal(cellAt(r,c)); }));
+  }
+  return { file:file.name, sheet:sheetName, at:chkeMapStamp(new Date()), hdrRow:rowNo(h0), layout, rows, exp };
 }
 function chkeMapSum(m){ const c=t=>m.rows.filter(r=>r.status.indexOf(t)>=0).length;
   return 'พบ '+c('✅')+' · ⚠️ ไม่พบ Header '+c('⚠️')+' · ❌ Header ซ้ำ '+c('Header ซ้ำ')+' · ❌ ข้อมูลไม่ตรง '+c('ข้อมูลไม่ตรง')+' · ❌ ค่าไม่ตรง/อ่านไม่ได้ '+c('อ่านไม่ได้')+' (จาก REF '+m.rows.length+' Header)'; }
 function chkeMapRender(){                                                                         /* ★ [MAP] Internal: ไม่แสดง Preview · ปุ่ม Export พร้อมเมื่อมี Snapshot */
   const b=document.getElementById('chke-btn-mapexport'); if(b) b.disabled=!(CHKE_MAP && !CHKE_MAP.error);
 }
-async function chkeMapExport(){
-  const m=CHKE_MAP; if(!m||m.error) return;
+async function chkeMapExport(){                                                                   /* ★ [local055] Data Table จาก Snapshot (m.exp) · ไม่ Build ใหม่ · ไม่มี Status/ผลตรวจ */
+  const m=CHKE_MAP; if(!m||m.error||!m.exp) return;
   try{
-    const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('MAPPING');                                /* จาก Snapshot เดียวกับ Preview · ไม่ Build ใหม่ */
-    ws.addRow(['MAPPING ตาม REF 80 Header']).font={bold:true,size:13};
-    ws.addRow(['ไฟล์ IMPORT', m.file]); ws.addRow(['Sheet', m.sheet]); ws.addRow(['Header แถว', m.hdrRow]); ws.addRow(['Layout', m.layout==='EXPORT'?'EXPORT (นอก Scope · ไม่ฟ้อง)':'IMPORT']); ws.addRow(['วันที่/เวลาสร้าง Mapping', m.at]); ws.addRow(['สรุป', chkeMapSum(m)]);
-    ws.addRow([]);
-    const H=ws.addRow(['ลำดับ','REF Header','IMPORT Header','Column','Sample Value','Status','รายละเอียดที่ไม่ตรง']);
-    H.eachCell(c=>{ c.font={bold:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}}; c.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}; });
-    for(const r of m.rows){
-      const R=ws.addRow([r.no, r.ref, r.hdr, r.col, r.sample, r.status, r.detail]);
-      R.eachCell({includeEmpty:true},c=>{ c.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}; c.alignment={vertical:'top',wrapText:true}; });
-      R.getCell(5).numFmt='@';
-      R.getCell(6).font={ bold:true, color:{ argb: r.status.indexOf('❌')>=0?'FFC00000':r.status.indexOf('⚠️')>=0?'FFC65911':'FF008000' } };
-    }
-    [8,28,28,10,30,26,70].forEach((w,i)=>ws.getColumn(i+1).width=w);
-    ws.views=[{ state:'frozen', ySplit:H.number }];
+    const bin=atob(CHKE_MAP_TPL), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    const wb=new ExcelJS.Workbook(); await wb.xlsx.load(u.buffer); const ws=wb.worksheets[0];
+    const st=[]; for(let c=1;c<=CHKE_MAP_HDR64.length;c++) st.push(JSON.parse(JSON.stringify(ws.getRow(2).getCell(c).style||{})));   /* Style แถวข้อมูลของ Template */
+    ws.spliceRows(2,1);                                                                             /* ตัดแถว Sample ของ Template (ไม่ใช้เป็นค่าจริง) */
+    m.exp.forEach((vals,i)=>{ const R=ws.getRow(i+2);
+      vals.forEach((v,j)=>{ const c=R.getCell(j+1); c.style=JSON.parse(JSON.stringify(st[j]));
+        if(v==null) return;
+        c.value=v;
+        if(typeof v==='number' && Number.isInteger(v) && Math.abs(v)>=1e10) c.numFmt='0';          /* เลขยาว (Tax ID ฯลฯ) ไม่ให้เป็น Scientific */
+      });
+      R.commit&&R.commit(); });
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');
