@@ -15845,7 +15845,9 @@ function elepMapping(){
   catch(e){ console.error('[ELE P] build failed:', e); _elepErr('ประมวลผลผิดพลาด: '+e.message); return; }
   if(!R.rows.length){ _elepErr('ไม่มีรายการ INVOICE'); return; }
 
-  const aoa=[ELEP_HEADERS].concat(R.rows);
+  /* BRAND — ฟิกคอลัมน์สุดท้าย (AI · index 34) = 'NO BRAND' ทุกแถวข้อมูล · เฉพาะไฟล์ Export (ไม่แตะ R.rows / ELEP_HEADERS) */
+  const _brHdr=ELEP_HEADERS.concat(['BRAND']);
+  const aoa=[_brHdr].concat(R.rows.map(function(row){ const x=row.slice(); x[34]='NO BRAND'; return x; }));
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   const range=XLSX.utils.decode_range(ws['!ref']);
 
@@ -15877,7 +15879,8 @@ function elepMapping(){
     const ad=XLSX.utils.encode_cell({r:0,c:c});
     if(ws[ad]) ws[ad].s={ font:{bold:true}, fill:{fgColor:{rgb:'FCE7F3'}} };
   }
-  ws['!cols']=ELEP_HEADERS.map(function(h,i){
+  ws['!cols']=_brHdr.map(function(h,i){
+    if(i===34)          return {wch:14};   /* BRAND */
     if(i===2 || i===13) return {wch:38};
     if(i===22)          return {wch:26};
     if(i===23 || i===24)return {wch:20};
@@ -16905,7 +16908,9 @@ function epdomMapping(){
   if(!R.rows.length){ _epdomErr('ไม่มีรายการ INVOICE'); return; }
 
   /* ---- สร้าง worksheet ---- */
-  const aoa = [EPDOM_HEADERS].concat(R.rows);
+  /* BRAND — ฟิกคอลัมน์สุดท้าย (AI · index 34) = 'ELECTROLUX BRAND' ทุกแถวข้อมูล · เฉพาะไฟล์ Export (ไม่แตะ R.rows / EPDOM_HEADERS) */
+  const _brHdr = EPDOM_HEADERS.concat(['BRAND']);
+  const aoa = [_brHdr].concat(R.rows.map(function(row){ const x = row.slice(); x[34] = 'ELECTROLUX BRAND'; return x; }));
   const ws  = XLSX.utils.aoa_to_sheet(aoa);
   const range = XLSX.utils.decode_range(ws['!ref']);
 
@@ -16926,7 +16931,8 @@ function epdomMapping(){
     const ad = XLSX.utils.encode_cell({r:0, c:c});
     if(ws[ad]) ws[ad].s = { font:{bold:true}, fill:{fgColor:{rgb:'FCE7F3'}} };
   }
-  ws['!cols'] = EPDOM_HEADERS.map(function(h,i){
+  ws['!cols'] = _brHdr.map(function(h,i){
+    if(i===34)          return {wch:18};   /* BRAND */
     if(i===2 || i===13) return {wch:38};   /* DESCRIPTION/ENG 1 · TH description */
     if(i===22)          return {wch:26};   /* Permit */
     if(i===23 || i===24)return {wch:20};   /* รหัสภาษีสรรพสามิต · วันที่ */
@@ -17849,7 +17855,9 @@ function ep3yMapping(){
 
   const n=R.rows.length;
   const sumRow=new Array(EP3Y_HEADERS.length).fill('');
-  const aoa=[EP3Y_HEADERS].concat(R.rows).concat([sumRow]);
+  /* BRAND — ฟิกคอลัมน์สุดท้าย (AI · index 34) = 'NO BRAND' เฉพาะแถวข้อมูล (แถว SUM = ว่าง) · ไม่แตะ R.rows / EP3Y_HEADERS */
+  const _brHdr=EP3Y_HEADERS.concat(['BRAND']);
+  const aoa=[_brHdr].concat(R.rows.map(function(row){ const x=row.slice(); x[34]='NO BRAND'; return x; })).concat([sumRow]);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   const range=XLSX.utils.decode_range(ws['!ref']);
   const lastData=n+1;                       /* แถว Excel สุดท้ายของข้อมูล (1-based) */
@@ -17882,7 +17890,8 @@ function ep3yMapping(){
   if(R.gwTotal!=null)
     ws[XLSX.utils.encode_cell({r:rs,c:EP3Y_SUM_GW})] = { t:'n', v:R.gwTotal };
 
-  ws['!cols']=EP3Y_HEADERS.map(function(h,i){
+  ws['!cols']=_brHdr.map(function(h,i){
+    if(i===34)          return {wch:14};   /* BRAND */
     if(i===2 || i===13) return {wch:34};
     if(i===22)          return {wch:26};
     if(i===23 || i===24)return {wch:20};
