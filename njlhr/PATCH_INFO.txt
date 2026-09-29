@@ -1,8 +1,170 @@
-NJHR V2 — Release local308
-RUN-138 · Modal "เพิ่มประกาศ / แก้ไขประกาศ" — ปรับ UI อย่างเดียว
-Build: njhr-v2-a7c520ac   (ก่อนหน้า local307 = njhr-v2-a61b8b54)
+NJHR V2 — Release local310
+RUN-141 · แก้ปุ่ม EXPORT EXCEL หน้า "รายงานทั้งหมด" (REPORT ALL) กดแล้วไม่ได้ไฟล์
+Build: njhr-v2-4f8a7915   (ก่อนหน้า local309 = njhr-v2-d3097609 · local308 = njhr-v2-a7c520ac)
 
-สถานะ: UI_ONLY · ไม่ต้องรัน SQL · ไม่แตะ Logic / Validation / Save Flow / RPC / Database
+สถานะ: ไม่ต้องรัน SQL เพิ่ม
+        RUN-139 / RUN-140 รันบน Production ไปแล้ว (ดู _archive)
+
+================================================================
+RUN-141 — Root Cause และสิ่งที่แก้
+================================================================
+RC-1  ปุ่มกดได้ตั้งแต่ข้อมูลยังโหลดไม่เสร็จ แล้วล้มแบบเงียบ
+      viewReportAll() สั่ง rpData=null แล้วค่อยยิง rpFetch() แต่ปุ่มไม่เคยถูกปิด
+      เพราะ rpDateErr() คืน "" เสมอ -> '<button id="rp-export"'+(derr?" disabled":"")+'>'
+      ไม่เคยได้ disabled เลย
+      กดช่วงนั้น -> throw "ยังโหลดข้อมูลไม่เสร็จ…" -> ข้อความลง #rp-err ซึ่งอยู่ล่างสุด
+      ของการ์ด ใต้ตารางทั้งหมด ผู้ใช้เลื่อนไม่ถึง จึงเห็นเป็น "กดแล้วไม่มีอะไรเกิดขึ้น"
+
+RC-2  Export ติดรอไฟล์ report-template.js (64 KB) ที่ไม่ได้ใช้เลย
+      rpEnsureLibs() บังคับโหลด 2 อย่าง: JSZip (cdnjs) + report-template.js
+      แต่ REPORT_TEMPLATE_B64 ปรากฏใน approvals-reports.js ครั้งเดียวทั้งไฟล์
+      คือบรรทัดที่ส่งเป็น globalName เท่านั้น ไม่มีโค้ดไหนอ่านค่ามันเลย
+      rp1Build() ประกอบ .xlsx เองทั้งไฟล์ (Content_Types + workbook + rels + styles
+      + sheet1 + sheet2) -> ถ้าโหลดไฟล์นั้นพลาด Export ล้มทั้งที่ไม่ได้ใช้
+
+RC-3  ปลดล็อกปุ่มด้วยตัวแปรที่จับไว้ตอนเริ่ม (พบระหว่างแก้)
+      viewReportAll() เขียน el.innerHTML ทับทั้งก้อน ปุ่มตัวเดิมหลุด DOM ไปแล้ว
+      .then() สุดท้ายจึงไปปลดล็อก "ปุ่มผี" ส่วนปุ่มจริงค้าง spinner ตลอด
+
+ไฟล์ที่แก้ (1 ไฟล์)
+  compat/approvals-reports.js
+    rpEnsureLibs   ตัด loadScriptOnce("report-template", …) ออก เหลือ JSZip ตัวเดียว
+    viewReportAll  ปุ่ม render เป็น disabled ตั้งต้น · rpExBtn(false) ก่อน rpFetch
+                   · rpExBtn(true) ต่อท้าย rpRenderCards · rpExBtn(false) ใน .catch
+    rpExBtn        (ใหม่) คุมสถานะปุ่มที่เดียว ค้นจาก id ใหม่ทุกครั้ง
+    rpExFail       (ใหม่) เขียน #rp-err + scrollIntoView + toast ให้เห็นชัด
+    rpExport       กันกดตอน rpData ยังไม่พร้อม · ใช้ rpExBtn/rpExFail ตลอดเส้นทาง
+                   · .then() สุดท้ายค้นปุ่มจาก id เสมอ -> ไม่ค้าง loading กดซ้ำได้ทันที
+
+ไม่แตะ
+  Attendance / Payroll / Auth / Supabase logic · RPC ใด ๆ · rpCollect · rp1Build
+  rp1Sheet · rp2Sheet · rp1Styles · การคำนวณทุกตัว · 37 คอลัมน์ Summary · Sheet 2
+  ชื่อไฟล์ Export · styles.css (ใช้แค่ attribute disabled ที่ markup มีอยู่แล้ว)
+  report-template.js ยังอยู่ในชุด Deploy ตามเดิม แค่ไม่ถูกโหลดมาบล็อก Export
+
+Test: _check/test-run141-export-btn.js — 39 PASS / 0 FAIL
+  A ตรวจ Source (10) · B กดตอนข้อมูลยังไม่พร้อม (5) · C ได้ไฟล์จริง (8)
+  D กดซ้ำ 3 ครั้ง (3) · E DOM ถูก render ทับ (2) · F CDN ล่ม (5) · G helper (6)
+  ชื่อไฟล์ที่ได้จริง: REPORT_ALL_26082569_ถึง_25092569.xlsx
+
+================================================================
+RUN-140 — Root Cause และสิ่งที่แก้
+================================================================
+Root Cause
+  njhr_att_late_min() ใช้ (extract(epoch …)/60)::int ซึ่ง Postgres "ปัดเศษ"
+  จุดตัดจริงจึงอยู่ที่ 30 วินาที ไม่ใช่ 1 นาที
+      08:30:00.000-08:30:29.999 -> 0 นาที -> ปกติ
+      08:30:30.000-08:30:59.999 -> 1 นาที -> มาสาย   <-- ผิด
+  ทั้งสองช่วงแสดงบนหน้าจอเป็น "08:30" เท่ากัน จึงเห็น 08:30 เป็นทั้ง ปกติ และ มาสาย
+  ไม่เกี่ยวกับ timezone และไม่เกี่ยวกับการ format
+
+ค่าจริงของ record ตัวอย่าง (ก่อนแก้)
+  0339 ณัฐวดี ห้วยกรด   16/09  08:30:59.122  -> late_min 1  LATE
+  0339 ณัฐวดี ห้วยกรด   01/09  08:30:19.906  -> late_min 0  NORMAL
+  0302 สุดารัตน์ ศรีแก่บ้าน 16/09  08:30:56.489  -> late_min 1  LATE  (เคสที่ผู้ใช้ชี้ 08:30-21:51)
+
+สิ่งที่แก้
+  1. njhr_att_late_min            ::int -> floor()  (แก้คำเดียว ไม่แตะบรรทัดอื่น)
+  2. njhr_att_correction_approve  เลิกใช้สำเนาสูตร ให้เรียก njhr_att_late_min ตัวกลาง
+     สำเนาเดิมต่างจากตัวกลาง 3 จุด: ปัดเศษ 30 วิ · หัก late_allow หลังปัดเศษ ·
+     ใช้ ::time ลบกันไม่มีวันที่ ทำให้กะข้ามคืนผิด
+  3. Backfill attendance.status 41 แถว จาก LATE -> NORMAL (เก็บค่าเดิมไว้ใน
+     public.njhr_run140_backfill_log ย้อนกลับได้)
+
+ผู้ใช้ค่าจาก njhr_att_late_min (แก้จุดเดียวได้ผลทุกที่)
+  njhr_att_punch · njhr_att_migrate · njhr_att_report · njhr_att_summary
+
+ผลหลังรันบน Production (29/09/2026)
+  LATE 911 · NORMAL 1822 · ABSENT 1
+  แถวสถานะขัดกับสูตรใหม่ = 0 ทั้งสองทิศทาง
+  41 แถวที่แก้ เวลาเข้าอยู่ในช่วง 30-59 วินาทีหลังเริ่มกะทั้งหมด
+  ไม่มีแถวใดกลายเป็น "มาสาย" เพิ่ม (ทิศทางเดียวคือลดลง)
+  ยอดนาทีสายรวมรอบ 26/08-25/09 : 51,238 -> 50,856 นาที
+
+Frontend ไม่ต้องแก้
+  views/attendance/report.js -> rptLateMin() เป็น dead code สำหรับเส้นทางนี้
+  เพราะ viewReports() มี  rows = err||isSb ? [] : rptRows()  และ isSb เป็น true
+  เสมอเมื่อ type = attendance / late — ค่าสายมาจาก RPC ฝั่ง Server ทั้งหมด
+
+================================================================
+RUN-139 — Root Cause และสิ่งที่แก้
+================================================================
+RC-1  njhr_att_report เริ่ม query จาก public.attendance
+      -> คืนเฉพาะ "พนักงาน + วันที่ ที่มี attendance row"
+      -> วันที่ควรทำงานแต่ไม่ได้สแกน ไม่มีแถวในรายงานเลย
+      แก้ที่ Frontend ด้วย Daily Dataset กลาง (ไม่แตะ RPC / Schema)
+
+RC-2  rp1Build() เขียน sheet เดียว และ rpExport() บังคับ names.length === 1
+      -> เพิ่มไม่ได้แม้ rpCollect() จะมีข้อมูลครบ
+
+RC-3  rpCollect() วนตัวเลขสรุปจาก att เท่านั้น
+      -> absIn/absOut แปลว่า "มีแถวแต่ไม่มีเวลา" ไม่ใช่ "ไม่มาทำงาน"
+
+RC-4  att mapping อ่าน a.leave_status / a.leave_mode ซึ่ง njhr_att_report ไม่มีคอลัมน์นี้
+      -> เงื่อนไข exempt วันลาเป็น dead code ไม่เคยทำงานเลย
+
+RC-5  shiftForm() ส่ง p_working_days:null และ p_ot_start_after:null ตายตัว
+      -> กดบันทึกกะทีไร ค่าเดิมถูกล้างทุกครั้ง
+      -> นี่คือสาเหตุที่ work_shifts.working_days เป็น NULL ทุกกะที่ใช้งานจริง
+
+ไฟล์ที่แก้ (3 ไฟล์)
+  runtime/shared/report-export.js   + rptComposeDaily · rptParseWorkingDays · rptFetchShiftMap
+                                    + rptGuardCap · rptIsoAdd / rptIsoDow / rptIsoRange
+  views/attendance/report.js        + rptFetchAttDaily · rptDailyToAttRow · rptDailyShiftMap
+                                    ~ rptFetchAtt แยก 2 เส้นทาง (late = เดิม · attendance = Daily Dataset)
+  compat/approvals-reports.js       ~ shiftForm · rpFetch · rpCollect · rp1Build · rpExport
+                                    + rp2Sheet (Sheet 2 "รายละเอียดรายวัน")
+
+================================================================
+กติกา Daily Dataset (ยืนยันกับผู้ใช้แล้ว ห้ามเดานอกเหนือจากนี้)
+================================================================
+A. มี Attendance                                  -> ใช้ข้อมูลจริงจาก RPC เดิม
+B. เป็นวันทำงานตาม working_days + ไม่มี Attendance
+   + ไม่มี Leave APPROVED + ไม่ใช่ Holiday         -> ขาดงาน / ไม่ได้ลงเวลา
+C. Leave APPROVED                                  -> สถานะ "ลา" ห้ามนับเป็นขาดงาน
+D. Holiday                                         -> ไม่ขาดงาน
+E. ไม่มีกะ (NO_SHIFT) / working_days อ่านไม่ออก     -> ห้ามสร้างแถวขาดงานเด็ดขาด
+F. ก่อนวันเริ่มงาน / หลังลาออก / ก่อน effective_date -> ไม่สร้างแถว
+G. กะข้ามคืน: work_date คือ "วันที่เริ่มกะ" (ยืนยันจากข้อมูล Production)
+
+================================================================
+Regression บนข้อมูล Production จริง 26/08/2026 - 25/09/2026
+================================================================
+Raw Attendance                 = 2,279   (ตรงกับที่ผู้ใช้ยืนยัน)
+Daily Dataset                  = 2,566   (> Raw Attendance ตามเกณฑ์)
+วันทำงานที่ไม่มีการลงเวลา       =   249
+แถววันลา (วันทำงาน)             =    50
+วันหยุดบริษัทในช่วงนี้           =     0
+แถวเสาร์/อาทิตย์                =     5   (ทั้งหมดคือวันที่มี Attendance จริง)
+แถวขาดงานวันเสาร์/อาทิตย์       =     0
+วันที่นอกช่วง                   =     0   (min 26/08/2026 · max 25/09/2026)
+Employee + Date ซ้ำ             =     0
+NO_SHIFT 6 คน สร้างขาดงาน       =     0   (มีแถวเดียว = ใบลา 0062 วันที่ 22/09)
+
+ข้อสังเกตที่ HR ควรตัดสินใจ: 6 คนไม่เคยสแกนเลยทั้งเดือน (0161 · 0369 · 0388 · 0402 · 0409 · 0415)
+คิดเป็น 137 จาก 249 แถว — ผูกกะ NJLOGISTIC ไว้แต่ไม่สแกน
+ยังไม่แก้ให้ เพราะเป็นการตัดสินใจเชิงนโยบาย (ย้ายเป็น NO_SHIFT หรือรับว่าเป็นขาดงาน)
+
+================================================================
+Test ที่รันจริง — 35 ไฟล์ · 2,285 PASS · 0 FAIL
+================================================================
+test-run139-daily.js      101  Daily Dataset + parser working_days
+test-run139-reportall.js   70  rpCollect -> rp1Build -> เปิด ZIP ตรวจจริง
+test-run139-export.js      19  rpExport บน JSDOM + Validation ทุกเคส
+test-run139-attreport.js   35  รายงานการลงเวลา Employee x Work Date
+test-run139-shiftform.js   33  ฟอร์มกะ ไม่ล้าง working_days
+Regression เดิม 30 ไฟล์  2,027
+
+================================================================
+สิ่งที่ตั้งใจไม่แตะ
+================================================================
+RPC / Schema / Policy / Trigger ทั้งหมด · Pagination RUN-137 · 37 คอลัมน์ Summary
+rp1Styles() · ชื่อไฟล์ Export · ตาราง holidays · employee_shifts · NO_SHIFT
+กะ เช้า / ดึก / สาย / กะ07.00-17.00 · ข้อมูล app_code = 'massenger' · โมดูล HR อื่น
+
+
+
+### ประวัติรุ่นก่อนหน้า ###
 
 ================================================================
 RUN-138 — Root Cause และสิ่งที่แก้
