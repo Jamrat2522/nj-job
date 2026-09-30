@@ -1,4 +1,120 @@
-NJHR V2 — Release local319
+NJHR V2 — Release local320
+RUN-153 (DB) + RUN-154 (Frontend) · เงินเดือน / รายการเงินเดือน / สลิปเงินเดือน
+Build: njhr-v2-617e6da5   (เดิม njhr-v2-b637c4ef)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน (Maintenance 10 นาที + Login ใหม่) ***
+ไฟล์ Frontend ที่เปลี่ยนจริง 1 ไฟล์: compat/approvals-reports.js
+SQL ที่ต้องรัน: _archive/RUN-153_payroll_save_ambiguous_fix.sql  (COMMIT บน Production แล้ว 30/09/2569)
+
+================================================================
+งาน 1 — Save งวดเงินเดือนล้มเหลว: column reference "period_year" is ambiguous
+================================================================
+Root Cause (อ่าน pg_proc.prosrc จริง ไม่ได้เดา)
+  njhr_payroll_period_save ประกาศ
+    RETURNS TABLE(saved_rows integer, period_year integer, period_month integer, status text)
+  ชื่อ OUT parameter period_year / period_month จึงเป็นตัวแปรในขอบเขตฟังก์ชัน
+  ในตัวฟังก์ชันมี  on conflict (employee_id, period_year, period_month) do update
+  ON CONFLICT inference clause เป็นจุดเดียวที่ PostgreSQL ตีความได้ทั้งคอลัมน์และตัวแปร -> 42702
+  จุดอื่นไม่กำกวม: รายชื่อคอลัมน์ใน INSERT เป็นคอลัมน์เสมอ · SET status = เป็นคอลัมน์เสมอ
+  · WHERE ท้ายฟังก์ชันเขียน p.period_year / p.period_month กำกับ alias ไว้แล้ว
+  ยืนยันจำนวนจุดที่ต้องแก้ = 1 จุด
+
+Smallest Fix
+  on conflict on constraint payroll_employee_id_period_year_period_month_key do update
+  ชี้ constraint ตัวเดียวกันเป๊ะ  UNIQUE (employee_id, period_year, period_month)
+  ไม่มีชื่อคอลัมน์ในประโยคอีกต่อไป ความกำกวมจึงหมดที่ต้นเหตุ
+  ไม่ใช้ #variable_conflict (กว้างเกินจำเป็น) · ไม่เปลี่ยนชื่อ OUT parameter (เปลี่ยนสัญญากับ Frontend)
+
+การยืนยันบน Production
+  Dry run ใน BEGIN…ROLLBACK ผ่านทุก post-check แล้วจึง COMMIT
+  md5(prosrc ตัด comment/ช่องว่าง)  ก่อน 2fde749496b48b783b6eb57e35f77725
+                                    หลัง 8314c9fb47f8f04e79f8fa734126420e
+  pg_get_function_result เท่าเดิม · ACL เท่าเดิม
+  จำนวนแถว payroll / payroll_items / employees ไม่ขยับ (payroll ยัง 0 แถว)
+  ทดสอบพฤติกรรมจริงใน transaction ที่ ROLLBACK: 9/9 ผ่าน
+    บันทึกครั้งแรกได้ · คำนวณใหม่ได้ · ไม่เกิดแถวซ้ำ · items ถูกแทนที่ไม่สะสม
+    · บันทึกเฉพาะสถานะโดยส่ง rows ว่างยังทำงาน
+  ไม่แตะ: สูตรเงินเดือน · schema · ข้อมูลเดิม · njhr_pay_guard · payroll_items · ฟังก์ชันอื่น
+
+================================================================
+งาน 2 — หัวข้อสลิป + คอลัมน์ Excel ต้องมาจาก "รายการเงินเดือน" ที่ตั้งค่าไว้จริง
+================================================================
+File: njlhr/compat/approvals-reports.js
+แหล่งข้อมูลเดียวกันทั้ง 3 ที่ (ยืนยันจาก Source)
+  ตั้งค่ารายการเงินเดือน -> payroll_items.item_name
+  -> njhr_pay_entry_totals / njhr_payroll_period_items
+  -> en.incomes / en.deducts  <- ทั้งตารางหน้าเงินเดือน สลิป และ Export ใช้ชุดนี้ร่วมกัน
+
+epIncome(en) ใหม่
+  ["ฐานเงินเดือน"] (แสดงเสมอ) + ["ค่าตำแหน่ง","OT"] เฉพาะที่ไม่เป็น 0
+  + epList(en.incomes) เฉพาะที่ไม่เป็น 0   <- item_name จริง ไม่ hardcode
+  + epLegacyIncome(en) เฉพาะที่ไม่เป็น 0
+epDeduct(en) ใหม่
+  ["ประกันสังคม","ภาษี"] เฉพาะที่ไม่เป็น 0
+  + epList(en.deducts) เฉพาะที่ไม่เป็น 0
+  + epLegacyDeduct(en) เฉพาะที่ไม่เป็น 0
+เปลี่ยนชื่อหัวข้อคงที่ให้ตรงสเปก
+  เงินเดือนพื้นฐาน -> ฐานเงินเดือน · OVER TIME -> OT · ปกส. 5% -> ประกันสังคม · ภาษีเงินได้ -> ภาษี
+
+ทำไมยังเก็บ epLegacyIncome / epLegacyDeduct ไว้ (สำคัญ)
+  epRenderSlip ใช้ร่วมกัน 2 หน้า: หน้าเงินเดือน และหน้า E-PAYSLIP
+  njhr_slip_get ส่งฟิลด์เหล่านี้มาจริง
+    fuel<-oil_allow · phone<-phone_allow · diligence · bonus · shiftPay<-shift_allow
+    deductLeave<-personal_leave_deduct · deductAbsent<-absent_deduct · deductLate<-late_deduct
+    loan<-student_loan · positionPay<-position_allow
+  ถ้าลบทิ้ง สลิปฝั่ง E-PAYSLIP จะขาดรายการทันที
+  จึงคงไว้แต่ซ่อนเมื่อยอด = 0 -> หน้าเงินเดือนได้หัวข้อตรงสเปกพอดี และ E-PAYSLIP ไม่ถดถอย
+
+Export Excel — คอลัมน์สร้างจาก item_name จริง
+  prItemCols(entries) เก็บชื่อ INCOME/DEDUCT ตามลำดับที่พบครั้งแรก (ไม่ซ้ำ)
+  prItemAmt(arr,name) รวมยอดตามชื่อ · ไม่มีรายการ = 0
+  ลำดับคอลัมน์
+    รหัสพนักงาน | ชื่อ-นามสกุล | ฐานเงินเดือน | ค่าตำแหน่ง | OT
+    | [INCOME แต่ละ item_name] | รายรับรวม | ประกันสังคม | ภาษี
+    | [DEDUCT แต่ละ item_name] | รายการหักรวม | เงินสุทธิ
+  รายรับรวม / รายการหักรวม / เงินสุทธิ ใช้ค่าเดียวกับที่แสดงบนหน้าจอ (en.earnings/en.deductions/en.net)
+  จึงตรงกับหน้าจอและสลิป 1:1
+
+================================================================
+งาน 3 — คำนวณใหม่
+================================================================
+  DRAFT      -> ปุ่ม "คำนวณเงินเดือน"
+  CALCULATED -> ปุ่ม "คำนวณใหม่" (ปุ่มยืนยันรอบเงินเดือนยังอยู่)
+  CONFIRMED  -> ไม่มีปุ่มคำนวณ + มี guard ในตัว handler กันเรียกซ้ำทางอื่น
+  กด "คำนวณใหม่" -> confirmDialog ก่อนเสมอ
+  ใช้เส้นทางคำนวณเดิมทั้งหมด (โหลด OT + รายการเงินเดือน + พนักงานใหม่ทุกครั้ง)
+  แล้วเขียนทับ pr.entries ทั้งชุด
+  ไม่เกิด Duplicate เพราะ njhr_payroll_period_save ลบแถวของงวดก่อน insert ใหม่
+  + UNIQUE(employee_id, period_year, period_month) คุมอีกชั้น -> เป็น Update งวดเดิม
+
+================================================================
+งาน 4 — Export เป็น .xlsx จริง (เดิมเป็น CSV)
+================================================================
+  เดิม downloadCSV("payroll-YYYY-MM.csv", ...) -> Excel อ่านภาษาไทยเพี้ยน
+  ใหม่ rptLoadZip() -> rptBuildXlsx(sheet, head, rows, widths, titleLines) -> Blob -> a.download
+  ชื่อไฟล์ payroll-2026-09.xlsx · เปิด Excel ได้โดยตรง
+  ภาษาไทยเก็บเป็น inlineStr UTF-8 · ตัวเลขเป็น cell ตัวเลขจริง (ไม่ใช่ข้อความ)
+  หัวตารางมี style หัวคอลัมน์ + freeze pane เหมือนรายงานอื่นของระบบ
+  ใช้ rptBuildXlsx/rptLoadZip ชุดเดียวกับรายงานอื่น — approvals-reports มี deps shared-report อยู่แล้ว
+  เพิ่ม import  var rptBuildXlsx=S.rptBuildXlsx;var rptLoadZip=S.rptLoadZip;
+
+================================================================
+สิ่งที่ไม่แตะ (ตรวจแล้ว)
+================================================================
+  สูตรเงินเดือน ทุกบรรทัด (OT / ปกส. / ภาษี / รายรับรวม / สุทธิ)  — มี assertion คุมใน test
+  Workflow / Auth / Role / สิทธิ์ · โครงสร้าง DB · RPC อื่น
+  หน้าอื่นทุกหน้า · downloadCSV ของหน้าอื่น (ยังใช้ตามเดิม)
+  epRenderSlip / epSum / epNum / การ์ดยอดสุทธิ / คำเตือนยอดไม่ตรง
+
+================================================================
+การทดสอบ
+================================================================
+  _check/test-run154-payroll-slip-xlsx.js   101 PASS · 0 FAIL  (ชุดใหม่)
+  _check/test-run150-payroll-source.js       66 PASS · 0 FAIL  (ปรับ C6-C10 จาก CSV เป็น xlsx)
+  Regression ทั้งโปรเจกต์: 44 ไฟล์ทดสอบ ผ่านทั้งหมด 0 FAIL
+  SQL: ทดสอบใน transaction ที่ ROLLBACK 9/9 ผ่าน แล้วจึง COMMIT + ตรวจซ้ำหลัง COMMIT
+
+[ประวัติ] Release local319 — RUN-152 (ย้าย "ลาออก" เข้า Dropdown)
 RUN-152 · ย้าย "ลาออก" เข้า Dropdown ประเภทการลา — เอาปุ่มแยกด้านนอกออก
 Build: njhr-v2-b637c4ef   (เดิม njhr-v2-2661ecbc)
 
