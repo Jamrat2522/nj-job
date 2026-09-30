@@ -423,6 +423,22 @@
 }
 
 
+/* [RUN-149] กราฟรายงานการลงเวลา แยกตามสถานะ — แสดงเฉพาะ Desktop (>=1024px)
+   ค่าเริ่มต้นซ่อนไว้ทุกขนาดจอ จึงไม่กระทบ Mobile / Tablet แม้แต่พิกเซลเดียว */
+.rpt-chart{display:none}
+@media screen and (min-width:1024px){
+  .rpt-chart{display:block;padding:14px 16px;margin-bottom:12px}
+  .rpt-chart .rpt-chart-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .rpt-chart .rpt-chart-head .grow{flex:1 1 auto}
+  .rpt-chart .rpt-chart-hint{margin:0}
+  .rpt-chart .rpt-chart-body{max-height:420px;overflow-y:auto;padding-right:4px}
+  .rpt-chart .rpt-chart-row{display:grid;grid-template-columns:230px 1fr 56px;align-items:center;gap:10px;padding:3px 0}
+  .rpt-chart .rpt-chart-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .rpt-chart .rpt-chart-bar{position:relative;height:14px;border-radius:7px;background:var(--line,#E5E7EB);overflow:hidden}
+  .rpt-chart .rpt-chart-bar>i{display:block;height:100%;border-radius:7px;background:var(--blue,#2563EB)}
+  .rpt-chart .rpt-chart-n{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+}
+
 /* ===== RUN-127 · หน้า "อนุมัติรายการ → คำขอลา" — Layout ตารางบน Desktop =====
    ขอบเขต: .apr-t-leave (Tab คำขอลาเท่านั้น) และเฉพาะจอ >= 1200px
    Tab คำขอ OT / ลงชื่อย้อนหลัง · Tablet · Mobile ใช้กติกาเดิมทุกบรรทัด

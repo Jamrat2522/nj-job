@@ -1,31 +1,366 @@
-NJHR V2 — Release local314
-RUN-146 · SUPER_ADMIN เห็นคำขอลาทั้งหมด แต่อนุมัติตามลำดับ Workflow เท่านั้น
-Build: njhr-v2-db224887   (เท่ากับ local313 — ดูคำอธิบายด้านล่าง)
+NJHR V2 — Release local316
+RUN-149 · กราฟรายงานการลงเวลา แยกตามสถานะ (มาสาย / ขาดงาน / ลา) — Desktop เท่านั้น
+Build: njhr-v2-d1eea2eb   (เดิม njhr-v2-db224887)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน ***
+ต่างจาก local315 รอบนี้แก้ไฟล์ Frontend จริง 2 ไฟล์ (report.js + styles.css)
+พนักงานทุกคนจึงต้องได้ไฟล์ใหม่ => ขึ้น Maintenance Mode 10 นาที + บังคับ Login ใหม่
+เป็นพฤติกรรมที่ถูกต้องของระบบ Force Update ไม่ใช่ข้อผิดพลาด
+แนะนำให้อัปนอกเวลาทำการ หรือช่วงที่คนใช้งานน้อย
+
+ไฟล์ที่ต้องอัปขึ้น GitHub รอบนี้ (จากชุด Deploy github local316.zip)
+  njlhr/views/attendance/report.js   <- โค้ดกราฟ
+  njlhr/styles.css                   <- สไตล์กราฟ (Desktop เท่านั้น)
+  njlhr/asset-manifest.js            <- ?v= ใหม่ 2 ไฟล์ + buildId
+  njlhr/config.js                    <- NJHR_BUILD_VERSION
+  njlhr/sw.js                        <- const V + รายการ CORE
+  njlhr/index.html                   <- asset-manifest.js?v=
+  njlhr/PATCH_INFO.txt               <- เอกสาร
+  (อัปทั้งโฟลเดอร์ njlhr ก็ได้ ผลเหมือนกัน)
+
+================================================================
+RUN-149 — ข้อกำหนดที่ยืนยันกับผู้ใช้
+================================================================
+เพิ่มกราฟแยกตามสถานะในหน้า "รายงานการลงเวลา" โดยใช้ตัวกรองสถานะเดิม
+ 1. เลือก "มาสาย" -> แสดงกราฟมาสายอย่างเดียว
+ 2. เลือก "ขาดงาน" -> แสดงกราฟขาดงานอย่างเดียว
+ 3. เลือก "ลา" -> แสดงกราฟลาอย่างเดียว
+ 4. ห้ามรวม 3 สถานะในกราฟเดียว
+ 5. กราฟแนวนอน
+ 6. เรียงจำนวนครั้ง มาก -> น้อย
+ 7. แสดงชื่อพนักงาน + จำนวนครั้ง
+ 8. ใช้ช่วงวันที่ / แผนก / ค้นหาพนักงาน ตาม Filter ปัจจุบัน
+ 9. ข้อมูลกราฟมาจากข้อมูลจริงชุดเดียวกับตาราง ห้ามสร้างข้อมูลใหม่
+10. เปลี่ยน Filter -> กราฟ Refresh ทันที
+Export: ปุ่ม "Export กราฟ" แยกจาก Export Excel เดิม · Export เฉพาะสถานะที่เลือก
+        · ระบุชื่อกราฟ · ใส่ช่วงวันที่ในไฟล์
+UI: วางใต้ Filter เหนือตาราง · Desktop เท่านั้น · ห้ามแตะ Mobile / Tablet
+
+================================================================
+Root Cause | File | Function | จุดจริงที่แก้
+================================================================
+ไม่ใช่บั๊ก แต่เป็นฟีเจอร์ที่ยังไม่มี — หน้ารายงานการลงเวลาเดิมมีแต่ตาราง + Export Excel
+ไม่มีส่วนสรุปเชิงกราฟเลย ตรวจจาก Source จริงพบว่าทุกชิ้นส่วนที่ต้องใช้มีอยู่แล้ว
+จึงต่อยอดได้โดยไม่ต้องแตะ Data layer
+
+  File: njlhr/views/attendance/report.js
+    rptState.attStatus                    ตัวกรองสถานะเดิม (select id="rpt-astatus")
+                                          สร้างจาก rptAttStatusOpts() · onchange -> viewReports(el)
+    rptAttApplyStatus(rows)               ตัวกรองเดิม: rows.filter(r=>r.statusCode===f)
+    rptAttRaw / rptAttRows                rptAttRows = rptAttApplyStatus(rptAttRaw)
+                                          <- ชุดข้อมูลเดียวกับที่ตารางใช้ (ข้อ 9)
+    viewReports()                         ประกอบ HTML: ...rpt-sum -> [จุดแทรกกราฟ] -> card p0#rpt-table
+    rptAttPaint(el)                       วาดตาราง #rpt-table ทุกครั้งที่โหลดข้อมูลเสร็จ
+                                          <- จุดแขวน rptChartPaint() ให้ refresh ตาม Filter (ข้อ 10)
+    rptExport(btn)                        ปุ่ม Export Excel เดิม id="rpt-export" — ไม่แตะ
+    EMP_ATT_STATUS                        {NORMAL,LATE,ABSENT,LEAVE,HOLIDAY} มี 3 สถานะที่ต้องใช้ครบ
+  File: njlhr/styles.css
+    ไม่มี class ของกราฟมาก่อน · ต้องเพิ่มใหม่และบังคับ Desktop เท่านั้น
+
+================================================================
+สิ่งที่แก้จริง (Smallest Fix · 2 ไฟล์ · ไม่ refactor)
+================================================================
+njlhr/views/attendance/report.js   (แก้ 2 บรรทัด + เพิ่ม 4 ฟังก์ชัน)
+  1) viewReports()  แทรก container ก่อนตาราง 1 จุด
+       +(isAtt?'<div class="card rpt-chart" id="rpt-chart"></div>':"")
+     วางใต้ rpt-sum (ใต้ Filter) และเหนือ '<div class="card p0" id="rpt-table">'
+  2) rptAttPaint(el) เพิ่ม rptChartPaint(); ต่อจาก if(!box)return;
+  3) เพิ่มใหม่ RPT_CHART_ST = {LATE,ABSENT,LEAVE} เท่านั้น
+     rptChartTitle()   -> "กราฟมาสาย" / "กราฟขาดงาน" / "กราฟลา" · สถานะอื่นคืน ""
+     rptChartData()    -> group rptAttRows ตาม empCode นับครั้ง เรียงมาก->น้อย
+                          (tie-break ด้วยชื่อภาษาไทย) · อ่านจาก rptAttRows ล้วน ไม่ query ใหม่
+     rptChartPaint()   -> วาดแท่งแนวนอน ชื่อ+จำนวน · ไม่เลือกสถานะ = ขึ้นคำแนะนำ ไม่วาด
+     rptChartExport()  -> วาดลง canvas แล้วดาวน์โหลด PNG (รูปแบบดาวน์โหลดเดียวกับของเดิม)
+
+njlhr/styles.css   (เพิ่ม 1 บล็อก · วางไว้ "ก่อน" marker RUN-127 โดยตั้งใจ)
+  .rpt-chart{display:none}                         <- ซ่อนทุกขนาดจอเป็นค่าเริ่มต้น
+  @media screen and (min-width:1024px){ ... }      <- เปิดเฉพาะ Desktop
+  *** ทำไมต้องวางก่อน marker RUN-127 ***
+  เทสเดิม test-run127-appr-layout.js อ่าน CSS ด้วย /\/\* ===== RUN-127[\s\S]*$/
+  คือ "ตั้งแต่ marker ของตัวเองจนจบไฟล์" ถ้าต่อท้ายไฟล์ บล็อกกราฟจะถูกนับเป็นของ RUN-127
+  แล้ว SC-03 (ทุก selector ต้องผูกกับ .apr-t-leave) จะ FAIL
+  เลือกย้ายตำแหน่งแทนการแก้เทสเดิม เพราะไม่ต้องแตะไฟล์นอกขอบเขต
+
+สิ่งที่ตั้งใจไม่แตะ
+  mobile.css (0 ไฟล์เปลี่ยน · ไม่มีคำว่า rpt-chart) · Responsive เดิมทั้งหมด
+  ปุ่ม/ฟังก์ชัน Export Excel เดิม (rptExport · id="rpt-export")
+  rptAttApplyStatus / rptAttStatusOpts / rptAttRow / rptFetchAtt / rptLoadSb
+  Auth · Supabase · SQL · RPC · ไม่มี fetch/XHR ใหม่แม้แต่จุดเดียว
+  รายงานประเภทอื่น (ลา / โควตา / OT) — กราฟผูกกับ isAtt เท่านั้น
+
+================================================================
+ผลทดสอบ RUN-149 — 72/72 PASS (test-run149-attchart.js · JSDOM)
+================================================================
+  A1-A7  ชื่อกราฟตามสถานะ · รองรับเฉพาะ LATE/ABSENT/LEAVE · NORMAL/HOLIDAY/ว่าง = ไม่มีกราฟ
+  B1-B9  นับครั้งถูกต้อง · เรียงมาก->น้อย · ไม่มีสถานะอื่นปน (ทดสอบครบทั้ง 3 สถานะ)
+  B10-11 ไม่เลือกสถานะ / NORMAL -> ไม่มีข้อมูลกราฟ (บังคับข้อ 4)
+  B12    แก้ rptAttRows แล้วกราฟเปลี่ยนตาม = ใช้ชุดข้อมูลเดียวกับตารางจริง (ข้อ 9)
+  C1-C9  หัวกราฟ ชื่อ+ช่วงวันที่ พ.ศ. · จำนวนแถว · ลำดับบนหน้าจอ · ชื่อ+จำนวน
+         · แท่งยาวสุด 100% · มีปุ่ม Export กราฟ และไม่ใช่ปุ่ม Export Excel
+  C10-11 เปลี่ยนตัวกรอง -> กราฟเปลี่ยนตาม ไม่มีกราฟเก่าค้าง (ข้อ 10)
+  C12-13 ไม่เลือกสถานะ -> คำแนะนำ · ไม่มีข้อมูล -> ข้อความ ไม่ error
+  D1-D11 Export PNG 1 ไฟล์ · ชื่อไฟล์ขึ้นต้นด้วยชื่อกราฟ · มีช่วงวันที่ · .png
+         · เขียน audit · toast · ปุ่มกลับมากดได้ · ในรูปมีชื่อกราฟ/ช่วงวันที่/ชื่อ+จำนวน
+         · Export เฉพาะสถานะที่เลือก
+  D12-13 เปลี่ยนสถานะแล้วได้ชื่อไฟล์ใหม่ · ไม่เลือกสถานะกด Export ไม่ได้ + ขึ้นข้อความ
+  E1-E9  ซ่อนเป็นค่าเริ่มต้น · มี media query เปิดกราฟบล็อกเดียว · เป็น min-width เท่านั้น
+         · 1280/1440/1920 แสดง · 320/768/1023 ซ่อน · breakpoint >= 1024
+         · ทุกกฎอยู่ในบล็อก Desktop เดียวกัน · mobile.css ไม่ถูกแตะ
+  F1-F9  Export Excel เดิมยังอยู่และยังสร้าง .xlsx · โค้ดกราฟไม่ยุ่งกับ Excel
+         · ตำแหน่งกราฟอยู่ใต้ Filter เหนือตาราง · ผูกกับ isAtt · rptAttPaint เรียก rptChartPaint
+         · rptAttApplyStatus เดิมไม่ถูกแก้ · ไม่มี sbRpc/fetch/XHR ในโค้ดกราฟ
+
+Regression ทั้งชุด: 40 ไฟล์ · 2728 PASS · 0 FAIL
+
+*** บั๊กที่เจอระหว่างเขียนเทส (ถ้าไม่ตรวจจะเชื่อผิด) ***
+  เทสรอบแรกผ่าน 70/70 แต่การอ่าน CSS ใช้ regex [\s\S]*? ซึ่งข้ามขอบ } ของบล็อกได้
+  ทำให้ไปจับ @media (min-width:901px) ของเดิมแทนบล็อกกราฟ
+  แก้เป็นตัวสแกน @media แบบนับวงเล็บปีกกาจริง แล้วยืนยันว่าเปิดกราฟบล็อกเดียวที่ 1024px
+
+================================================================
+เรื่องที่ต้องรู้หลัง Deploy
+================================================================
+1. กราฟจะขึ้นเฉพาะเมื่อเลือกสถานะ มาสาย / ขาดงาน / ลา ที่ช่อง "ทุกสถานะ"
+   ถ้าเลือก "ทุกสถานะ" จะขึ้นคำแนะนำแทน เพราะข้อกำหนดห้ามรวม 3 สถานะในกราฟเดียว
+2. กราฟแสดงทุกคนที่เข้าเงื่อนไข ไม่ตัดจำนวน แต่กล่องกราฟสูงสุด 420px แล้วเลื่อนดูได้
+   ไฟล์ PNG ที่ Export จะยาวตามจำนวนคนจริง ไม่ถูกตัด
+3. ไฟล์ PNG ตั้งชื่ออัตโนมัติ เช่น
+   กราฟมาสาย_ACCOUNT_ทุกคน_01-09-2569_ถึง_30-09-2569.png
+4. Mobile และ Tablet (ต่ำกว่า 1024px) ไม่เห็นกราฟและไม่มีอะไรเปลี่ยนเลย
+5. ยังไม่ได้ยืนยันด้วยตาบนเครื่องจริงที่ 1920/1440/1280 — ทดสอบด้วย JSDOM + ตรวจ CSS
+   ถ้าเปิดแล้วตำแหน่ง/ความกว้างไม่ถูกใจ แจ้งได้ ปรับเฉพาะ CSS บล็อกเดียว
+
+================================================================
+[ประวัติ] Release local315 — RUN-147 + RUN-148 (Database เท่านั้น)
+================================================================
+RUN-147 · อนุมัติคำขอลาของตนเองได้ เฉพาะเมื่อเป็นผู้อนุมัติที่ใช้ได้เพียงคนเดียวของขั้น
+RUN-148 · รวมนิยาม "ผู้อนุมัติที่ใช้ได้ (eligible approver)" ให้ตรงกันทุกจุด
+Build: njhr-v2-db224887   (เท่ากับ local313/local314 — ดูคำอธิบายด้านล่าง)
 
 *** buildId ไม่เปลี่ยน และตั้งใจให้ไม่เปลี่ยน ***
-RUN-146 แก้เฉพาะฝั่ง Database ไม่มีไฟล์ JS/CSS/HTML เปลี่ยนแม้แต่ไฟล์เดียว
-(เทียบกับ local313: เหมือนเดิม 55 ไฟล์ · เปลี่ยน 1 ไฟล์ = PATCH_INFO.txt เท่านั้น)
+RUN-147 และ RUN-148 แก้เฉพาะฝั่ง Database ไม่มีไฟล์ JS/CSS/HTML เปลี่ยนแม้แต่ไฟล์เดียว
+(เทียบกับ local314: เหมือนเดิมทุกไฟล์ · เปลี่ยน 1 ไฟล์ = PATCH_INFO.txt เท่านั้น
+ ซึ่งไม่ถูกนำไปคิด buildId เพราะ rebuild-version.py ไม่ hash ไฟล์นี้)
 ถ้าปั๊ม buildId ใหม่ จะไป trigger Force Update -> Maintenance Mode 10 นาที
 + บังคับพนักงานทุกคน Login ใหม่ เพื่อเอกสารที่เปลี่ยนไฟล์เดียว ซึ่งไม่คุ้มและรบกวนผู้ใช้
 => ไม่ต้องอัปไฟล์ขึ้นเว็บรอบนี้ ฟีเจอร์ทำงานทันทีตั้งแต่ COMMIT SQL แล้ว
    ชุด ZIP ที่ส่งมาให้เก็บเป็นประวัติ/อ้างอิง หากต้องการอัปก็ได้ ไม่มีผลข้างเคียง
 
-สถานะ: รัน SQL แล้วบน Production (29/09/2026) — ผู้ใช้ไม่ต้องรันเพิ่ม
+สถานะ: รัน SQL แล้วบน Production (30/09/2026) — ผู้ใช้ไม่ต้องรันเพิ่ม
 *** รอบนี้ไม่มีการแก้ไฟล์ Frontend เลย — เปลี่ยนเฉพาะฝั่ง Database ***
 
 SQL ที่รันบน Production แล้ว (อยู่ใน _archive · ไม่อยู่ในชุด Deploy)
-  RUN-139_shift_working_days.sql     28/09/2026
-  RUN-140_late_minute_policy.sql     29/09/2026
-  RUN-143_overnight_work_date.sql    29/09/2026
-  RUN-145_resign_flow.sql            29/09/2026
-  RUN-146_superadmin_leave_visibility.sql  29/09/2026   <-- รอบนี้
+  RUN-139_shift_working_days.sql            28/09/2026
+  RUN-140_late_minute_policy.sql            29/09/2026
+  RUN-143_overnight_work_date.sql           29/09/2026
+  RUN-145_resign_flow.sql                   29/09/2026
+  RUN-146_superadmin_leave_visibility.sql   29/09/2026
+  RUN-147_self_approval_sole_approver.sql   30/09/2026   <-- รอบนี้ (รันก่อน)
+  RUN-148_eligible_approver_definition.sql  30/09/2026   <-- รอบนี้ (รันหลัง)
+
+*** ลำดับบังคับ: RUN-147 ก่อน แล้ว RUN-148 ***
+RUN-148 เขียนทับ njhr_leave_decide ด้วย "รุ่น RUN-147 + P3"
+pre-flight ของ RUN-148 จะหยุดให้เองถ้ายังไม่ได้รัน RUN-147
+(ทดสอบแล้ว: ขึ้นข้อความ "RUN-148 STOP: ยังไม่พบ njhr_leave_self_sole_approver ให้รัน RUN-147 ก่อน")
+
+ไฟล์ที่ระบุว่าห้ามรัน
+  RUN-132_leave_self_approval_skip.sql   ██ OBSOLETE — DO NOT RUN ██
+  หลักการ "ข้ามขั้น/ตัดสิทธิ์ผู้ยื่นออกจากการอนุมัติตัวเอง" ขัดกับ RUN-147
+  ตรวจ dependency แล้วไม่มีอะไรเรียกใช้ (Production ไม่มีฟังก์ชันของ RUN-132 เลย
+  · Frontend ไม่อ้างถึง · อ้างถึงเฉพาะในไฟล์ทดสอบเดิม _check/sql/_RUN132-133_fulltest.sql)
+  เก็บไฟล์ไว้เป็นประวัติ ไม่ลบ
 
 Cron บน Production
   njhr-resign-apply-daily  ·  '5 17 * * *' UTC = 00:05 น. ไทย · active
 
 ================================================================
-RUN-146 — ข้อกำหนดที่ยืนยันกับผู้ใช้
+RUN-147 — ข้อกำหนดที่ยืนยันกับผู้ใช้
 ================================================================
+อนุมัติคำขอของตนเองได้ เฉพาะเมื่อครบทุกข้อ
+  1. เป็น current approver จริง
+  2. njhr_leave_can_act(...).allowed = true
+  3. ขั้นปัจจุบันมีผู้อนุมัติที่ใช้ได้เพียง 1 คน
+  4. และคนนั้นคือผู้ยื่นเอง
+ถ้ามี approver คนอื่นในขั้นเดียวกัน -> ห้ามผู้ยื่นอนุมัติตัวเอง
+
+ล็อกเพิ่ม 3 ข้อ
+  L1 njhr_leave_self_sole_approver() เป็นเพียงข้อยกเว้นของ self-request guard
+     ห้ามใช้แทน permission check หลัก -> can_act(...).allowed ต้องเป็น true เสมอ
+  L2 การนับ "ผู้อนุมัติที่ใช้ได้ = 1 คน" ต้องนับเฉพาะคนที่ eligible จริงของขั้นปัจจุบัน
+     ไม่ใช่นับ row ที่ตั้งไว้ใน workflow เฉย ๆ
+  L3 เขียน audit_log action = SELF_APPROVAL_SOLE_APPROVER เมื่อใช้ข้อยกเว้นนี้
+
+Root Cause (วัดด้วยข้อมูล Production จริง)
+  ใบ 260918-0041 ของ นางสาวกนกวรรณ มหันโต (0155) แผนก ACCOUNT
+  workflow 557caeea ขั้นที่ 1 "หัวหน้างาน" mode ALL · ผู้อนุมัติของขั้น = ตัวเธอเอง คนเดียว
+  njhr_leave_can_act = allowed TRUE แต่ถูกบล็อกด้วยเงื่อนไข self-request 3 จุด
+  (feed -> act · feed -> WHERE ท้าย · decide -> hard guard)
+  ผลคือใบนี้ค้างถาวร ไม่มีใครในระบบกดได้เลย
+  (หลัง RUN-146 ถอด bypass ของ SUPER_ADMIN ทางออกฉุกเฉินเดิมก็หายไปด้วย)
+
+สิ่งที่แก้
+  ใหม่  njhr_leave_self_sole_approver(uuid)   ข้อยกเว้นของ self-request guard
+  แก้   njhr_leave_feed            4 จุด (act / wait_info / acted_mine / act_reason)
+  แก้   njhr_appr_pending_counts   1 จุด (Badge ของ HR/ADMIN นับใบตัวเองได้เมื่อเข้าข้อยกเว้น)
+  แก้   njhr_leave_decide          self-request guard + audit L3 + คีย์ self_sole ใน approvals
+
+ผลทดสอบ RUN-147 (BEGIN...ROLLBACK บน Production ก่อน COMMIT) — 23/23 PASS
+  R00 x4  md5 ของ 4 ฟังก์ชันตรงกับไฟล์ที่ส่ง (โค้ดที่ทดสอบ = โค้ดที่ COMMIT)   PASS
+  R02     helper=true · can_act=true · approver_total=1                        PASS
+  R03/R04 ผู้ยื่นเห็นใบตัวเองในคิว can_act=true · act_reason ว่าง               PASS
+  R05     ผู้ยื่นกด APPROVE ใบตัวเองได้ -> ส่งต่อขั้น 2 · approvals มี self_sole  PASS
+  R06     audit SELF_APPROVAL_SOLE_APPROVER 1 แถว ครบทุก field                 PASS
+  R07/R08 REJECT ได้ (REJECTED) · INFO ได้ (NEED_MORE_INFO)                    PASS
+  R09     [L1] helper=true แต่ can_act=false -> 42501                          PASS
+  R10     ไม่เขียน audit เมื่อถูกปฏิเสธ                                         PASS
+  R11/R12 เพิ่ม approver ที่ใช้ได้คนที่ 2 -> helper=false -> 42501 · feed 0 แถว   PASS
+  R13     ถอน approver คนที่ 2 -> helper=true -> อนุมัติได้อีกครั้ง               PASS
+  R14     [L2] ตั้งไว้ 2 row คนที่ 2 พ้นสภาพ -> ใช้ได้จริง 1 -> helper=true       PASS
+  R15     [L2] row ที่ 2 ปิดใช้งาน -> ใช้ได้จริง 1 -> helper=true                PASS
+  R16     ใบไม่มีผัง helper=false -> guard เดิมยังบล็อก (ไม่ต้องมี special case)  PASS
+  R17     helper=true 1 ใบ จาก PENDING 7 ใบ ตรงนิยามเป๊ะ                        PASS
+  R18     RUN-146 คงอยู่ SUPER_ADMIN เห็น 7/7 · Badge ตรงกัน 2 ทาง               PASS
+  R19     OT/CORRECTION/RESIGN ไม่ถูกแตะ · ข้อมูลกลับสภาพเดิมทุกตาราง            PASS
+
+หมายเหตุ [L1]: กรณี "ผู้กด = ผู้ยื่น" นั้น "helper=true แต่ can_act=false"
+เป็นไปไม่ได้เชิงตรรกะ เพราะทางเดียวที่ can_act จะ false คือ "กดไปแล้ว" (RUN-121)
+หรือ "รอตอบข้อมูลเพิ่ม" (RUN-123) ซึ่ง decide ดักไว้ก่อนด้วย 55000
+จึงพิสูจน์ L1 ด้วยผู้เรียกคนอื่นบนใบเดียวกัน (helper รับแค่ p_id ไม่รู้จักผู้เรียก)
+
+================================================================
+RUN-148 — นิยามเดียวที่ใช้ทั้งระบบ
+================================================================
+eligible approver =
+  · njhr_approval_step_approvers.active = true
+  · employees.status IN ('ACTIVE','PROBATION')
+  · และต้องเป็นผู้อนุมัติของ "ขั้นปัจจุบัน" จริง
+
+Root Cause — ระบบมีนิยาม 2 แบบปนกันอยู่ในฟังก์ชันเดียว
+  นิยาม A (ถูก)  a.active AND employees.status IN ('ACTIVE','PROBATION')
+                 ใช้นับ approver_total · njhr_wf_pick · njhr_wf_route_check
+                 · njhr_appr_steps_snap · njhr_leave_self_sole_approver (RUN-147)
+  นิยาม B (หลวม) a.active AND a.employee_id = <ผู้กด>   <-- ไม่ดูสถานะพนักงาน
+
+  จุดที่ใช้นิยาม B
+    njhr_leave_can_act            บรรทัด 38-39  v_ok
+    njhr_ot_can_act               บรรทัด 32-33  v_ok
+    njhr_attc_can_act             บรรทัด 32-34  v_ok
+    njhr_resign_can_act           บรรทัด 19-20  v_ok
+    njhr_request_approver_member  บรรทัด 20-21  exists (ประตู ADMIN/HR ทุกโมดูล)
+  และช่องที่ 6
+    njhr_leave_decide บรรทัด 31 branch INFO return ออกก่อนถึง njhr_leave_can_act
+    (บรรทัด 69) => การกด "ขอข้อมูลเพิ่ม" ไม่เคยผ่าน permission check ของขั้น
+    และ SUPER_ADMIN ไม่ผ่านประตู ADMIN/HR ด้วย
+
+พิสูจน์แล้วว่าเกิดขึ้นจริง (ผู้อนุมัติจริง role ADMIN ตั้ง status=RESIGNED ใน transaction)
+  can_act = TRUE ขณะ approver_total = 0 · APPROVE ได้ · REJECT ได้
+  · NEED_MORE_INFO ได้ · ยังเห็นในคิว · Badge ยังนับให้
+
+ทำไมต้องแก้ตอนนี้ (ยังไม่มีใครเข้าเงื่อนไขบน Production = 0 ราย)
+  njhr_login ตรวจแค่ app_users.is_active / app_users.status ไม่ตรวจ employees.status
+  njhr_ctx ตรวจแค่ token/expiry/revoked
+  ไม่มี trigger บน employees ที่ปิด app_users หรือปิด approver row เมื่อ status = RESIGNED
+  (trigger ที่มี 2 ตัวคือ default shift และ force zero non-quota leave เท่านั้น)
+  และ RUN-145 เพิ่งทำให้การตั้ง RESIGNED เป็นอัตโนมัติด้วย cron 00:05
+  => พอ approver คนแรกลาออกผ่าน flow ใหม่ ช่องนี้เปิดเองทันที
+
+สิ่งที่แก้ (เฉพาะ Root Cause · ไม่ refactor)
+  P1  v_ok ใน 4 ฟังก์ชัน can_act -> ใช้นิยาม A (LEAVE/OT/CORRECTION/RESIGN)
+  P2  njhr_request_approver_member -> กรองสถานะของ "ผู้กด"
+  P3  njhr_leave_decide -> guard สถานะผู้กด วางก่อน branch INFO
+
+สิ่งที่ตั้งใจไม่แตะ
+  njhr_login · njhr_ctx · approver_total · njhr_wf_pick · ผัง/ลำดับขั้น
+  njhr_leave_feed · njhr_appr_pending_counts · njhr_leave_self_sole_approver
+  njhr_ot_decide · njhr_resign_decide · njhr_att_correction_approve
+  (สามตัวหลังเรียก can_act ก่อนทุกทางและไม่มี action INFO จึงถูก P1 ครอบแล้ว)
+  ไม่ลบ/ไม่ปิด approver row ของคนพ้นสภาพ (เป็นงาน HR ไม่ใช่งาน migration)
+  ไม่มี GRANT ในไฟล์ — CREATE OR REPLACE รักษาสิทธิ์เดิมไว้ และ
+  njhr_request_approver_member ให้สิทธิ์แค่ postgres/service_role เท่านั้น
+  ถ้าใส่ GRANT จะกลายเป็นการขยายสิทธิ์ (post-check ตรวจ ACL ว่าไม่เปลี่ยน)
+
+ผลทดสอบ RUN-148 (BEGIN...ROLLBACK บน Production ก่อน COMMIT) — 39/39 PASS
+  ชุด PROBE 21 ข้อ  ยืนยันว่าเป็นบั๊กจริง + ยืนยันว่า P1/P2 แก้ได้
+    (D2 = FAIL โดยเจตนา: มีแค่ P1+P2 แล้ว SUPER_ADMIN ที่พ้นสภาพยังส่ง INFO ได้
+     -> คือหลักฐานว่าต้องมี P3 · D3 ใส่ P3 แล้วถูกบล็อก 42501)
+  TEST 1 · RUN-148 เดี่ยว 12 ข้อ
+    T1a pre-flight หยุดถูกต้องเมื่อยังไม่มี RUN-147                            PASS
+    T1b md5 ของ 5 ฟังก์ชัน (P1 x4 + P2) ตรงกับไฟล์ทุกตัว                       PASS
+    T1c พ้นสภาพ can_act=false · APPROVE/REJECT/NEED_MORE_INFO 42501
+        · feed 0 แถว · ผู้อนุมัติ ACTIVE ไม่กระทบ                              PASS
+  TEST 2 · RUN-147 + RUN-148 ร่วมกัน 24 ข้อ
+    V1/V2 md5 RUN-147 (4) + RUN-148 (6) ตรงไฟล์ทั้งหมด                        PASS
+    T3  SUPER_ADMIN พ้นสภาพ NEED_MORE_INFO และ APPROVE -> 42501               PASS
+    T4  RESIGNED can_act=false · APPROVE/REJECT/NEED_MORE_INFO ไม่ได้
+        · SUSPENDED ก็ทำไม่ได้                                                PASS
+    T5  Fon ใบ 260918-0041 helper=true · can_act=true · self-approve ได้        PASS
+    T6  เพิ่ม eligible approver คนที่ 2 -> Fon 42501                           PASS
+    T7a ปิด active ของคนที่ 2 -> Fon กดได้                                     PASS
+    T7b คนที่ 2 row ยัง active แต่ status=RESIGNED -> Fon กดได้                 PASS
+    T8a RUN-146 คงอยู่ SUPER_ADMIN เห็น 7/7 · Badge=7 ตรงกัน 2 ทาง              PASS
+    T8b OT can_act(ACTIVE)=true -> can_act(RESIGNED)=false                    PASS
+    T8c ข้อมูลกลับสภาพเดิมทุกตาราง                                            PASS
+  TEST 3 · CORRECTION / RESIGN 3 ข้อ
+    T9a CORRECTION ผู้อนุมัติ 0010 true -> false                               PASS
+    T9b RESIGN ผัง RESIGN ขั้น 1 ผู้อนุมัติ 0062 true -> false
+        (สร้างใบทดสอบใน transaction เพราะยังไม่มีคำขอลาออกจริง)                PASS
+    T9c njhr_resign_requests ก่อน 0 แถว หลัง 0 แถว                            PASS
+  TEST 4 · SECTION 0 + SECTION 7 ของไฟล์จริง รันคำต่อคำ -> "POST-CHECK OK"     PASS
+
+================================================================
+ยืนยันหลัง COMMIT จริง (30/09/2026)
+================================================================
+md5 ของ body (ตัด comment + ช่องว่าง) บน Production = ค่าที่คำนวณจากไฟล์ ทั้ง 9 ตัว
+  njhr_leave_self_sole_approver   6f7d36ad1d9ac5fae2a4c8cf42ec6012
+  njhr_leave_feed                 22d1f43db2302eca63d82b42021f395c
+  njhr_appr_pending_counts        507bd34b17b3212274ffef33bfff218a
+  njhr_leave_decide               6c400a669182731f41dfe3405d779df5
+  njhr_leave_can_act              88f8a7127a0dc80dd4c8dcb6284eb0c5
+  njhr_ot_can_act                 1b8f00c4b051518b1ca854be097cddeb
+  njhr_attc_can_act               d7a5974b6985533bfc0eb6d8bb2cf88d
+  njhr_resign_can_act             60dd78d8fff97f0dfc1e4f6b64892b5c
+  njhr_request_approver_member    9f03e1005df11dc0a406fc5c072736c2
+P1/P2/P3 ติดตั้งครบ = 4/1/1
+ข้อมูลไม่เปลี่ยนแม้แถวเดียว  leave 94 · pending 7 · ot 19 · corrections 31
+  · resign 0 · steps 38 · approvers 49
+audit SELF_APPROVAL_SOLE_APPROVER = 0 แถว (ยังไม่มีใครใช้ข้อยกเว้นจริง)
+approver row ที่เจ้าของพ้นสภาพ = 0 (ไม่มีใครได้รับผลกระทบจาก RUN-148 ทันที)
+ใบ 260918-0041 ของ 0155: helper=true · can_act=true · approver_total=1
+  -> เข้าไปกด "อนุมัติ" ได้แล้ว
+Regression Frontend: 39 ไฟล์ · 2656 PASS · 0 FAIL
+
+================================================================
+เรื่องที่ต้องรู้หลังรอบนี้
+================================================================
+1. ใบ 260918-0041 ที่ค้างมาตั้งแต่ 18/09 ตอนนี้กดอนุมัติได้แล้ว
+   เมื่อกดจะส่งต่อไปขั้นที่ 2 "ผู้บริหาร" ตามผังเดิม
+2. การอนุมัติใบของตัวเองจะถูกบันทึกใน audit_log ด้วย action
+   SELF_APPROVAL_SOLE_APPROVER พร้อม leave_id / step / mode / approver_total
+   ตรวจย้อนหลังได้ว่าใครใช้ข้อยกเว้นนี้เมื่อไร
+3. ถ้าขั้นใดเหลือผู้อนุมัติที่ใช้ได้ 0 คน (ทุกคนในขั้นพ้นสภาพ/พักงาน)
+   ใบที่ค้างขั้นนั้นจะไม่มีใครกดได้ และแสดง "คำขอนี้ยังไม่ถึงคิวอนุมัติของคุณ"
+   ก่อนแก้ ใบแบบนี้ยังกดได้โดยคนพ้นสภาพ ซึ่งไม่ควรถือเป็นทางออก
+   วิธีจัดการที่ถูกต้องคือ HR เปลี่ยนผู้อนุมัติของขั้นนั้นในหน้า ตั้งค่าการอนุมัติ
+   ณ 30/09/2026 ยังไม่มีขั้นใดเข้าเงื่อนไขนี้
+4. สภาพเดียวกันมีอยู่แล้วในผัง AIRIMPORT และ CENTER ที่ขั้น 1 ไม่มี approver เลย
+   (ปัญหาเดิม ไม่มีพนักงานในแผนกนั้น) จึงควรมีรายงาน/แจ้งเตือน
+   "ขั้นที่ไม่มีผู้อนุมัติที่ใช้ได้" — เสนอเป็นงานแยกอีกใบ ไม่รวมในรอบนี้
+5. ยังเหลือความไม่สม่ำเสมอเดิมที่ไม่ได้แก้ในรอบนี้: การกด "ขอข้อมูลเพิ่ม" (INFO)
+   ของคน ACTIVE ยังไม่ผ่าน njhr_leave_can_act (ADMIN/HR ในผัง และ SUPER_ADMIN
+   ส่ง INFO ได้แม้ยังไม่ถึงขั้นของตัวเอง) — เป็นพฤติกรรมเดิมก่อน RUN-148
+   RUN-148 ปิดเฉพาะกรณี "ผู้กดพ้นสภาพ" ตามที่สั่ง ถ้าต้องการบังคับให้ INFO
+   ต้องถึงขั้นของตัวเองด้วย ต้องเปิดงานแยกเพราะกระทบผู้ใช้ที่ ACTIVE
+
+================================================================
+[ประวัติ] Release local314 — RUN-146
+SUPER_ADMIN เห็นคำขอลาทั้งหมด แต่อนุมัติตามลำดับ Workflow เท่านั้น
+================================================================
+*** แก้ข้อความที่ขัดกันเองในเอกสาร local314 ***
+ในเอกสารเดิมมี 2 ข้อความขัดกัน: ส่วนหัวบอก "buildId ไม่เปลี่ยน และตั้งใจให้ไม่เปลี่ยน"
+แต่ข้อ 3 ของ "เรื่องที่ต้องรู้หลัง Deploy" เขียนว่า "buildId เปลี่ยนเพื่อให้ Force Update
+ทำงาน" ข้อความที่ถูกคือ *ส่วนหัว* — local313/314/315 ใช้ buildId njhr-v2-db224887
+เดียวกันทั้งหมด เพราะไม่มีไฟล์ที่ถูก hash เปลี่ยนเลย
+
  1. SUPER_ADMIN เห็นคำขอลาทั้งหมด (ทุกคน ทุกแผนก ทุก step)
  2. เปิดดูรายละเอียด + Timeline + Approval step ได้ทั้งหมด
  3. Badge แท็บ "คำขอลา" นับคำขอที่ยังอยู่ระหว่าง Workflow ทั้งหมดที่ SUPER_ADMIN เห็น
@@ -38,24 +373,18 @@ RUN-146 — ข้อกำหนดที่ยืนยันกับผู�
 10. คงหน้าตา "อนุมัติรายการ" และ Tabs เดิมทั้งหมด
     (ทำเฉพาะ "คำขอลา" — OT และ ลงชื่อย้อนหลัง ไม่เปลี่ยน)
 
-================================================================
-Root Cause (ตรวจจาก Source จริง · วัดด้วยข้อมูล Production)
-================================================================
+Root Cause
 A) เห็นน้อยเกินไป — njhr_leave_feed
    vis CTE ปล่อยให้ SUPER_ADMIN เห็นทุกแถวถูกต้องแล้ว
    แต่บรรทัดสุดท้ายกรองทิ้ง:  where b.act or b.wait_info or b.acted_mine
    ทั้ง 3 ตัวต้องการ "การเป็นสมาชิกของ step ปัจจุบัน"
    => SUPER_ADMIN ที่ไม่ได้อยู่ใน step ไม่เห็นแถวนั้นเลย
    วัดจริง: PENDING 5 แถว · เห็นแค่ 1 · หาย 4
-
 B) อนุมัติข้ามขั้นได้ — njhr_leave_decide
-   if not act.allowed then
-     if c.role = 'SUPER_ADMIN' then v_bypass := true;
+   if not act.allowed then / if c.role = 'SUPER_ADMIN' then v_bypass := true;
    และ v_bypass ยังข้ามเงื่อนไข mode='ALL' ด้วย
 
-================================================================
 สิ่งที่แก้ (Database เท่านั้น · Frontend 0 ไฟล์)
-================================================================
 njhr_leave_feed
   · where v_sa or b.act or b.wait_info or b.acted_mine
   · cnt CTE ใช้เงื่อนไขเดียวกัน (ไม่งั้น pagination เพี้ยน)
@@ -67,7 +396,7 @@ njhr_leave_decide
   · ลบ v_bypass ทั้ง 2 จุด (รวมเงื่อนไข mode='ALL')
 njhr_approval_dashboard
   · LEAVE ใช้ njhr_leave_can_act จริง แทน SUPER_ADMIN -> true
-  · ติดตั้งส่วน RESIGN ของ RUN-145 ที่ตกไป (ดูหมายเหตุด้านล่าง)
+  · ติดตั้งส่วน RESIGN ของ RUN-145 ที่ตกไป
 
 *** จุดที่พลาดง่าย: Badge ถูกเขียนจาก 2 ทาง ***
   compat/approvals-reports.js -> apprLoad()
@@ -82,58 +411,22 @@ njhr_approval_dashboard
     else if (PENDING && r.act_reason) { ...แสดงข้อความ... }
   can_act ไม่ถูกแตะ จึงได้พฤติกรรมข้อ 4 และ 6 ฟรี และหน้าตาไม่เปลี่ยน (ข้อ 10)
 
-================================================================
-หมายเหตุสำคัญ: RUN-145 ลงไม่ครบ และถูกปิดช่องโหว่ในรอบนี้
-================================================================
-ตอน COMMIT RUN-145 ผมประกอบคำสั่งตกส่วน njhr_approval_dashboard ไป
+หมายเหตุ: RUN-145 ลงไม่ครบ และถูกปิดช่องโหว่ในรอบ local314
+ตอน COMMIT RUN-145 ประกอบคำสั่งตกส่วน njhr_approval_dashboard ไป
 ของอื่นลงครบหมด (ตาราง · 9 RPC · workflow 8 ผัง · cron · patch 5 ฟังก์ชัน)
 ผลคือคำขอลาออกไม่ขึ้นบนวิดเจ็ตอนุมัติหน้าแดชบอร์ด
 ไม่พัง เพราะ Frontend local313 ไม่ได้อ่าน total_resign
 RUN-146 ติดตั้ง dashboard ฉบับรวม = RESIGN (145) + LEAVE can_act (146) แล้ว
 ยืนยันหลัง COMMIT: dashboard_has_resign = true
 
-================================================================
-ผลทดสอบ (รันจริงบน Production แบบ BEGIN...ROLLBACK ก่อน COMMIT)
-================================================================
-  T1   SUPER_ADMIN เห็นครบทุกแถว                      PASS
-  T2   total_count ตรง (pagination)                   PASS
-  T3   Badge ตรงทั้ง 2 ทาง และเท่าจำนวนแถว             PASS
-  T4   act_reason ครบทุกแถว                           PASS
-  T4b  ข้อความตรงกับเหตุผลที่ระบบปฏิเสธจริง            PASS
-  T5   APPROVE ข้ามขั้น ถูกปฏิเสธ 42501                PASS
-  T6   REJECT ข้ามขั้น ถูกปฏิเสธ 42501                 PASS
-  T7.2 feed คืน can_act=true เมื่อถึงขั้นจริง (2 ใบ)   PASS
-  T7.3 SUPER_ADMIN APPROVE สำเร็จ (approvals 1->2)     PASS
-  T7.4 SUPER_ADMIN REJECT สำเร็จ (status=REJECTED)     PASS
-  T7.5 ไม่ใช้ bypass — ผ่านเส้นทางสิทธิ์ปกติ           PASS
-  T8   ADMIN/HR เห็นเท่าเดิม                           PASS
-  T9   ไม่มี v_bypass เหลือ                            PASS
-  T10  OT / ลงชื่อย้อนหลัง ไม่ถูกแตะ                   PASS
-  T11  ถอน SA ออกจาก step หมดแล้ว                      PASS
-  รวม 17/17 PASS · 0 FAIL · ไม่มี SKIP
-
-T7 สร้างสถานการณ์จริงโดยเพิ่ม SUPER_ADMIN เป็นผู้อนุมัติของขั้นปัจจุบัน
-(เส้นทางสิทธิ์ปกติ ไม่ใช่ bypass) แล้ว ROLLBACK ทั้งหมด
+ผลทดสอบ RUN-146 — 17/17 PASS · 0 FAIL · ไม่มี SKIP
+  T1 SUPER_ADMIN เห็นครบทุกแถว · T2 total_count ตรง · T3 Badge ตรง 2 ทาง
+  T4/T4b act_reason ครบและตรงเหตุผลจริง · T5/T6 APPROVE/REJECT ข้ามขั้น 42501
+  T7.2-T7.5 ถึงขั้นจริงแล้วอนุมัติ/ปฏิเสธได้ โดยไม่ใช้ bypass
+  T8 ADMIN/HR เห็นเท่าเดิม · T9 ไม่มี v_bypass เหลือ
+  T10 OT/ลงชื่อย้อนหลังไม่ถูกแตะ · T11 ถอน SA ออกจาก step หมดแล้ว
 ตรวจ Production ก่อน/หลัง: leave 87->87 · pending 4->4 · approvers 49->49
 · steps 38->38 · fingerprint ของ leave_requests และ step_approvers ตรงทั้งคู่
-
-================================================================
-สิ่งที่ไม่ได้แตะ
-================================================================
-  njhr_ot_feed · njhr_attc_feed · เงื่อนไข OT/CORRECTION ใน pending_counts
-  njhr_approval_steps · njhr_approval_step_approvers · ลำดับขั้นทั้งหมด
-  USER / ADMIN / HR / approver เดิม — ทุกการแก้อยู่ในสาขา v_sa เท่านั้น
-  Payroll · Attendance · Auth · Roles · ไฟล์ Frontend ทุกไฟล์
-
-================================================================
-เรื่องที่ต้องรู้หลัง Deploy
-================================================================
-1. Badge แท็บ "คำขอลา" ของ SUPER_ADMIN จะกระโดดขึ้นทันที
-   จากเดิมนับเฉพาะที่กดได้ เป็นนับทุกใบที่เห็น (วัดจริงตอนนี้: 0 -> 4)
-2. SUPER_ADMIN จะอนุมัติข้ามขั้นไม่ได้อีก ถ้าต้องการอนุมัติเอง
-   ให้เพิ่มตัวเองเข้าเป็นผู้อนุมัติของขั้นนั้นในหน้า ตั้งค่าการอนุมัติ
-3. รอบนี้ไม่มีไฟล์ Frontend เปลี่ยน แต่ buildId เปลี่ยนเพื่อให้
-   Force Update ทำงานและทุกเครื่องได้ PATCH_INFO ฉบับใหม่
 
 ================================================================
 [ประวัติ] RUN-145 — ข้อกำหนดที่ยืนยันกับผู้ใช้
@@ -149,9 +442,7 @@ T7 สร้างสถานการณ์จริงโดยเพิ่�
  8. ไม่แตะ leave_type / โควตาวันลา / รายงานวันลาเดิม
  9. ไม่มี fallback department='*' · ไม่มีผัง RESIGN = block พร้อมข้อความชัดเจน
 
-================================================================
 สิ่งที่เพิ่ม (Frontend)
-================================================================
 ใหม่   views/leave/resign-form.js        ฟอร์ม "ขอลาออก" (NJHR.features.resignForm)
 แก้    views/leave/main.js               ปุ่ม #lv-resign ข้างปุ่ม "ขอลางาน" ใน viewLeave()
                                          เรียกผ่าน lvOpenAction() เหมือนปุ่มอื่น
@@ -159,95 +450,65 @@ T7 สร้างสถานการณ์จริงโดยเพิ่�
                                          (ไม่มี njhr_resign_apply_due / njhr_emp_status_internal)
 แก้    runtime/shared/attachments.js     sbUploadResignFile()
 แก้    asset-manifest.js                 ลงทะเบียนโมดูล resign-form
-
 Desktop / Mobile ใช้ toolbar และ modal ตัวเดียวกัน จึงเห็นเหมือนกันโดยอัตโนมัติ
 
-================================================================
 สิ่งที่เพิ่ม (Database)
-================================================================
 ตารางใหม่  njhr_resign_requests
   + unique (employee_id) where status='PENDING'                 กันยื่นซ้ำ
   + unique (employee_id) where status='APPROVED' and applied_at is null   กัน apply ซ้ำ
   + index  (effective_date) where status='APPROVED' and applied_at is null  ให้ cron scan
-
 RPC ใหม่ (client เรียกได้)
   njhr_resign_submit / _cancel / _decide / _revoke / _list / _queue / _can_act
-
 Server-only (ไม่ GRANT ให้ anon/authenticated · ไม่อยู่ใน whitelist ของ core.js)
   njhr_resign_apply_due()          <- cron เรียกเท่านั้น
   njhr_emp_status_internal()       <- ใช้ร่วมกันระหว่าง njhr_emp_status กับ cron
-
 ฟังก์ชันเดิมที่แก้ (เพิ่มค่าใหม่เข้า whitelist เท่านั้น ค่าเดิมครบ)
-  njhr_wf_pick                  + 'RESIGN'
-  njhr_request_approver_member  + 'RESIGN'
-  njhr_reqfile_upload_path      + 'resign'
-  njhr_reqfile_access           + สาขา 'resign/%'
-  njhr_emp_status               ย้ายไส้ไป njhr_emp_status_internal (พฤติกรรมภายนอกเหมือนเดิม)
-  njhr_approval_dashboard       + RESIGN + คอลัมน์ total_resign (signature เปลี่ยน)
-
+  njhr_wf_pick + 'RESIGN' · njhr_request_approver_member + 'RESIGN'
+  njhr_reqfile_upload_path + 'resign' · njhr_reqfile_access + สาขา 'resign/%'
+  njhr_emp_status ย้ายไส้ไป njhr_emp_status_internal (พฤติกรรมภายนอกเหมือนเดิม)
+  njhr_approval_dashboard + RESIGN + คอลัมน์ total_resign (signature เปลี่ยน)
 CHECK constraint ที่ขยาย (เพิ่มค่า ไม่ถอดค่าเดิม)
-  njhr_request_seq_kind_ck   + 'RESIGN'
-  njhr_wf_reqtype_chk        + 'RESIGN'
-
+  njhr_request_seq_kind_ck + 'RESIGN' · njhr_wf_reqtype_chk + 'RESIGN'
 Workflow seed (deep copy)
   8 ผัง · 11 แผนก · 15 ขั้น · 19 ผู้อนุมัติ — คัดลอกจากผัง LEAVE
   *** สร้างชุดใหม่ทั้งหมด ไม่ชี้ workflow_id เดิม ***
   เพราะผัง LEAVE 5 ใน 8 ตัวเป็น request_type='BOTH' ใช้ร่วมกับ OT อยู่
   ถ้าชี้ id เดิม การแก้ผู้อนุมัติ RESIGN จะไปเปลี่ยน LEAVE และ OT ทันที
 
-================================================================
 สิ่งที่ไม่ได้แตะ (ยืนยันด้วย invariant ใน migration)
-================================================================
   leave_type enum (7 ค่า) · leave_types · โควตาวันลา
   leave_requests · ot_requests · attendance_corrections · จำนวนพนักงาน
   จำนวนพนักงานสถานะ RESIGNED (ต้องไม่เพิ่มจาก migration แม้แต่คนเดียว)
   ผัง LEAVE/OT/CORRECTION เดิม — ตรวจด้วย fingerprint ของ steps+approvers
   Payroll · Attendance calculation · Auth · Roles
 
-================================================================
 เรื่องที่ต้องรู้ก่อนใช้งาน
-================================================================
 1. ไฟล์แนบใบลาออกเก็บที่ bucket 'ot-attachments' ใต้ prefix 'resign/'
    ไม่ใช่ชื่อที่สื่อความหมาย แต่จำเป็น เพราะ Edge Function njhr-req-file เลือก bucket ด้วย
      path.startsWith("leave/") ? "leave-attachments" : "ot-attachments"
    และ bucket ใหม่จะหลุด deny-list ของ policy njhr_sig_no_public กลายเป็น anon อ่านได้
    *** ถ้าวันหนึ่งแก้ Edge Function ให้รู้จัก 'resign/' ต้องกลับมาแก้ njhr_reqfile_access ด้วย ***
-
 2. ผัง RESIGN ของแผนก AIRIMPORT และ CENTER คัดลอกมาแล้วยังใช้ไม่ได้
    เพราะ "ต้นฉบับผัง LEAVE ของ 2 แผนกนี้ไม่มีผู้อนุมัติในขั้นที่ 1 อยู่แล้ว"
    (ยื่นใบลาก็ไม่ได้เหมือนกัน — เป็นปัญหาที่มีมาก่อน RUN-145)
    ตอนนี้ไม่กระทบใคร เพราะไม่มีพนักงานอยู่ 2 แผนกนี้
-   ผมไม่ "ซ่อม" ให้เอง เพราะจะเป็นการเดาว่าใครควรเป็นผู้อนุมัติ
    HR ตั้งผู้อนุมัติเองได้ในหน้า Admin เมื่อต้องใช้
-
 3. แผนก MANAGING DIRECTOR (2 คน) ไม่มีผัง LEAVE จึงไม่มีผัง RESIGN ตามข้อ 9
    ยื่นเองจะขึ้นข้อความ "ยังไม่ได้ตั้งผังอนุมัติการลาออกสำหรับแผนก ..."
    ให้ HR/SUPER_ADMIN ยื่นแทน หรือตั้งผัง RESIGN ของแผนกนี้ในหน้า Admin
 
-================================================================
-ผลทดสอบ (รันจริงบน Production แบบ BEGIN...ROLLBACK ก่อน COMMIT)
-================================================================
-  T1  ACTIVE ยื่นเองได้ · ได้เลขที่ RSyymmNNNN            PASS
-  T3  SUSPENDED ยื่นเองไม่ได้ (42501)                     PASS
-  T4  HR ยื่นแทน SUSPENDED ได้ · แยก submitted_by         PASS
-  T5  ยื่นซ้ำขณะ PENDING ถูกบล็อก                          PASS
-  T6  เจ้าของ cancel ตอน PENDING ได้                       PASS
-  T7  เจ้าของ cancel หลัง APPROVED ไม่ได้                  PASS
-  T8  revoke ไม่ใส่เหตุผล ถูกปฏิเสธ                        PASS
-  T9  revoke เขียน audit_log 1 แถว                         PASS
-  T10 effective_date อนาคต -> ไม่เปลี่ยนสถานะ              PASS
-  T11 ถึงวันมีผล -> RESIGNED + resign_date ตรง             PASS
-  T12 รัน apply_due ซ้ำ 3 รอบ -> ไม่ apply เพิ่ม           PASS
-  T13 revoke หลัง apply -> คืนสถานะเดิม                    PASS
-  T16 njhr_emp_status เดิมทำงานเหมือนเดิม + validation ครบ PASS
-  T17 apply_due / emp_status_internal เรียกจาก client ไม่ได้ PASS
-  T18 leave_requests + โควตาวันลา ไม่ขยับ                  PASS
-  T14/T15 ผัง LEAVE/OT เดิม fingerprint ไม่เปลี่ยน         PASS
-  รวม 15/15 PASS · 0 FAIL
+ผลทดสอบ RUN-145 — 15/15 PASS · 0 FAIL
+  T1 ACTIVE ยื่นเองได้ · ได้เลขที่ RSyymmNNNN
+  T3 SUSPENDED ยื่นเองไม่ได้ (42501) · T4 HR ยื่นแทนได้ แยก submitted_by
+  T5 ยื่นซ้ำขณะ PENDING ถูกบล็อก · T6 เจ้าของ cancel ตอน PENDING ได้
+  T7 เจ้าของ cancel หลัง APPROVED ไม่ได้ · T8 revoke ไม่ใส่เหตุผลถูกปฏิเสธ
+  T9 revoke เขียน audit_log 1 แถว · T10 effective_date อนาคต -> ไม่เปลี่ยนสถานะ
+  T11 ถึงวันมีผล -> RESIGNED + resign_date ตรง · T12 รัน apply_due ซ้ำ 3 รอบไม่ apply เพิ่ม
+  T13 revoke หลัง apply -> คืนสถานะเดิม · T16 njhr_emp_status เดิมทำงานเหมือนเดิม
+  T17 apply_due / emp_status_internal เรียกจาก client ไม่ได้
+  T18 leave_requests + โควตาวันลา ไม่ขยับ · T14/T15 ผัง LEAVE/OT fingerprint ไม่เปลี่ยน
 
-================================================================
-บั๊กที่เจอจาก Source จริงระหว่างทำ (ถ้าไม่ตรวจจะพังตอน deploy)
-================================================================
+บั๊กที่เจอจาก Source จริงระหว่างทำ RUN-145 (ถ้าไม่ตรวจจะพังตอน deploy)
  1. njhr_request_seq_kind_ck จำกัดแค่ ('LEAVE','OT')  -> INSERT 'RESIGN' ถูกปฏิเสธ
  2. PK ของ njhr_request_seq คือ (kind, ym) ไม่ใช่ (kind) -> ON CONFLICT (kind) พัง
  3. njhr_wf_reqtype_chk จำกัดแค่ 4 ค่า                 -> seed workflow ถูกปฏิเสธ
