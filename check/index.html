@@ -1104,6 +1104,7 @@ body.legacy-active .content-area { display: none !important; }
       <div class="chke-term-act" id="chke-term-g-calc">
         <button class="btn btn-primary" id="chke-term-btn-calc" onclick="termCalcRun()">🧮 คำนวณ</button>
         <button class="btn btn-success" id="chke-term-btn-export" onclick="termExport()" disabled>⬇ EXPORT EXCEL</button>
+        <button class="btn" id="chke-term-btn-clear" type="button" onclick="termClearAll()" title="ล้างค่ากรอกและผลคำนวณของ TERM (คง วันที่ / แหล่งที่มา Rate / MODE / TERM)">ล้างข้อมูล</button><!-- ★ [local066] -->
         <button class="btn" id="chke-term-btn-frtinv" type="button" title="อัปโหลด Freight Invoice (PDF) · MODE Normal → TERM / Frg (Total Ocean) / F/W (Total Origin)">⬆ UPLOAD FREIGHT INVOICE</button><input type="file" id="chke-term-frtinv-input" accept=".pdf,application/pdf" hidden/>
         <button class="btn" id="chke-term-btn-send" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด ตรวจ ELE TYPE 0">➜ ส่งไปตรวจ ELE TYPE 0</button>
         <button class="btn chke-term-btn-sendx" id="chke-term-btn-send1" type="button" disabled style="display:none" title="ส่ง TOTAL FOB THB ไปตรวจในโหมด TYPE 1">➜ ส่งไปตรวจ TYPE 1</button><!-- ★ [local063] Export เท่านั้น -->
@@ -2648,6 +2649,10 @@ function chkeRender(){
   s+= !r.nw ? '' : r.nw.length                                                                    /* ★ [local062] TYPE 0 ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
+  { const u=a=>a.map(chkeItemDisp).filter((v,k,x)=>v!==''&&v!=='—'&&x.indexOf(v)===k), L=[];   /* ★ [local067] ITEM = 'Item No.' ของ DWAK จริงเท่านั้น (ไม่ใช้เลขแถว/index) · Popup แจ้งเตือนรวม DUI (รวม EXEMPT99) / สรรพสามิต · ใช้ผลตรวจเดิม (ไม่เปลี่ยนเงื่อนไข) · รูปแบบเดียวกับฟ้อง NW>GW */
+    const dI=u(r.ex99.duiItems||[]), xI=u((r.exc&&r.exc.items)||[]);   /* DUI - EXEMPT99 = กลุ่มเดียวกับ DUI (Item อยู่ใน duiItems แล้ว) */
+    if(dI.length) L.push('ติดใบอนุญาต DUI : ITEM '+items(dI)); if(xI.length) L.push('ติดกรมสรรพสามิต : ITEM '+items(xI));
+    if(L.length) s+='<div style="'+bad+'">'+L.map(x=>'\u274c '+x).join('<br>')+'</div>'; }
   s+= r.ex99.noTariff
     ? '<div style="'+warn+'">\u26a0\ufe0f ตรวจ DUI ไม่ได้ — ไม่พบ Header Tariff</div>'                       /* [local010] */
     : r.ex99.duiItems.length
@@ -3893,6 +3898,10 @@ function chk1Render(){
   s+= !(r.nw && r.nw.length) ? '' : r.nw.length   /* ★ [local064] แสดงเฉพาะเมื่อพบ */                                                                    /* ★ [local058] TYPE 1 ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
+  { const u=a=>a.map(chk1ItemDisp).filter((v,k,x)=>v!==''&&v!=='—'&&x.indexOf(v)===k), L=[];   /* ★ [local067] ITEM = 'Item No.' ของ DWAK จริงเท่านั้น (ไม่ใช้เลขแถว/index) · Popup แจ้งเตือนรวม DUI (รวม EXEMPT99) / สรรพสามิต · ใช้ผลตรวจเดิม (ไม่เปลี่ยนเงื่อนไข) · รูปแบบเดียวกับฟ้อง NW>GW */
+    const dI=u(r.ex99.duiItems||[]), xI=u((r.exc&&r.exc.items)||[]);   /* DUI - EXEMPT99 = กลุ่มเดียวกับ DUI (Item อยู่ใน duiItems แล้ว) */
+    if(dI.length) L.push('ติดใบอนุญาต DUI : ITEM '+items(dI)); if(xI.length) L.push('ติดกรมสรรพสามิต : ITEM '+items(xI));
+    if(L.length) s+='<div style="'+bad+'">'+L.map(x=>'\u274c '+x).join('<br>')+'</div>'; }
   s+= r.ex99.noTariff
     ? '<div style="'+warn+'">\u26a0\ufe0f ตรวจ DUI ไม่ได้ — ไม่พบ Header Tariff</div>'                       /* [local010] */
     : r.ex99.duiItems.length
@@ -4869,6 +4878,10 @@ function chkdRender(){
   s+= !(r.nw && r.nw.length) ? '' : r.nw.length   /* ★ [local065] แสดงเฉพาะเมื่อพบ */                                                                    /* ★ [local058] TYPE D ไม่ตรวจ NW>GW → ไม่แสดงบรรทัด */
     ? '<div style="'+bad+'">\u274c พบ '+r.nw.length+' รายการที่ Net Weight มากกว่า Gross Weight: Item '+items(r.nw.map(x=>x.item))+'</div>'
     : '<div style="'+ok+'">\u2705 ตรวจสอบเรียบร้อย ไม่พบรายการที่ Net Weight มากกว่า Gross Weight</div>';
+  { const u=a=>a.map(chkdItemDisp).filter((v,k,x)=>v!==''&&v!=='—'&&x.indexOf(v)===k), L=[];   /* ★ [local067] ITEM = 'Item No.' ของ DWAK จริงเท่านั้น (ไม่ใช้เลขแถว/index) · Popup แจ้งเตือนรวม DUI (รวม EXEMPT99) / สรรพสามิต · ใช้ผลตรวจเดิม (ไม่เปลี่ยนเงื่อนไข) · รูปแบบเดียวกับฟ้อง NW>GW */
+    const dI=u(r.ex99.duiItems||[]), xI=u((r.exc&&r.exc.items)||[]);   /* DUI - EXEMPT99 = กลุ่มเดียวกับ DUI (Item อยู่ใน duiItems แล้ว) */
+    if(dI.length) L.push('ติดใบอนุญาต DUI : ITEM '+items(dI)); if(xI.length) L.push('ติดกรมสรรพสามิต : ITEM '+items(xI));
+    if(L.length) s+='<div style="'+bad+'">'+L.map(x=>'\u274c '+x).join('<br>')+'</div>'; }
   s+= r.ex99.noTariff
     ? '<div style="'+warn+'">\u26a0\ufe0f ตรวจ DUI ไม่ได้ — ไม่พบ Header Tariff</div>'                       /* [local010] */
     : r.ex99.duiItems.length
@@ -5894,6 +5907,7 @@ function termTermReset(){
   const co=document.getElementById('chke-term-commOn'); if(co) co.checked=false;
   TERM_AIR.last=null; if(TERM_AIR.auto) termAirExit(); TERM_AIR.prevCur='';
   TERM_FW.auto=false; TERM_FW.fill=''; TERM_INS.auto=false; TERM_INS.fill=''; TERM_PDF.oth='';
+  TERM_FRGP.auto=false; TERM_FRGP.fill=''; { const re=document.getElementById('chke-term-frg'); if(re){ re.readOnly=false; re.placeholder=''; re.title=''; } }   /* ★ [local066] Frg 10% Auto State ล้างครบ */
   { const ie=document.getElementById('chke-term-ins'); if(ie){ ie.readOnly=false; ie.placeholder=''; ie.title=''; } const fe=document.getElementById('chke-term-fw'); if(fe) fe.readOnly=false; }
   for(const k of TERM_FX_KEYS){ const el=document.getElementById('chke-term-'+k+'Cur'); if(el){ el.disabled=false; termFxSetCur(k,'USD'); } }
   termFxApply();
@@ -5901,6 +5915,17 @@ function termTermReset(){
   if(typeof termCommissionUpdate==='function') termCommissionUpdate();
   termClearErr();
 }   /* [local041] Other_OTH ที่ Flow Upload เดิม (Normal CIF/DAP) เติม */
+/* ★ [local066] ล้างข้อมูล TERM (ปุ่มล้างข้อมูล + สลับ Import ↔ Export) — Reset Core เดียว (termTermReset)
+   · ล้างค่ากรอก/ค่าคำนวณ/Auto %/THB/TOTAL/ข้อความ/TERM_TRANSFER/Freight Invoice · คง วันที่ / Rate Source / MODE / TERM · สกุล USD · Rate จาก MASTER */
+function termClearAll(){
+  termTermReset();
+  const fi=document.getElementById('chke-term-frtinv-input'); if(fi) fi.value='';
+  for(const f of ['chkeClearTermTransfer','chk1ClearTermTransfer','chkdClearTermTransfer']) if(typeof window[f]==='function') window[f]();
+  TERM_STATE.result=null;
+  termInvalidate();                                                                             /* แสดง/ซ่อน + Auto % จากค่าว่าง · ล้าง THB / ผล / ปิด Export / Send */
+  const st=document.getElementById('chke-term-result'); if(st) st.innerHTML='';
+}
+window.termClearAll=termClearAll;
 async function termFreightInvoiceUpload(file){
   const st=document.getElementById('chke-term-result'), inp=document.getElementById('chke-term-frtinv-input');
   const say=h=>{ if(st) st.innerHTML=h; };
@@ -6001,7 +6026,7 @@ function termWire(){
   const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.addEventListener('click',()=>termSendToEle('chke'));   /* [local037] */
   { const b1=document.getElementById('chke-term-btn-send1'); if(b1) b1.addEventListener('click',()=>termSendToEle('chk1'));
     const bd=document.getElementById('chke-term-btn-sendd'); if(bd) bd.addEventListener('click',()=>termSendToEle('chkd'));
-    document.querySelectorAll('input[name="chke-term-fxSrc"]').forEach(r=>r.addEventListener('change',termExOptions)); termExOptions(); }   /* ★ [local063] หลัง Listener Rate เดิม */
+    document.querySelectorAll('input[name="chke-term-fxSrc"]').forEach(r=>r.addEventListener('change',()=>{ termClearAll(); termExOptions(); })); termExOptions(); }   /* ★ [local066] สลับ Import ↔ Export → ล้างค่าเดิมก่อน */   /* ★ [local063] หลัง Listener Rate เดิม */
   termFxWire();                                                                                   /* [local037] */
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',termWire); else termWire();
