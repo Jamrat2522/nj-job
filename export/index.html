@@ -16928,9 +16928,9 @@ function epdomMapping(){
   if(!R.rows.length){ _epdomErr('ไม่มีรายการ INVOICE'); return; }
 
   /* ---- สร้าง worksheet ---- */
-  /* BRAND — ฟิกคอลัมน์สุดท้าย (AI · index 34) = 'ELECTROLUX BRAND' ทุกแถวข้อมูล · เฉพาะไฟล์ Export (ไม่แตะ R.rows / EPDOM_HEADERS) */
+  /* BRAND — ฟิกคอลัมน์สุดท้าย (AI · index 34) = 'ELECTROLUX' ทุกแถวข้อมูล · เฉพาะไฟล์ Export (ไม่แตะ R.rows / EPDOM_HEADERS) */
   const _brHdr = EPDOM_HEADERS.concat(['BRAND']);
-  const aoa = [_brHdr].concat(R.rows.map(function(row){ const x = row.slice(); x[34] = 'ELECTROLUX BRAND'; return x; }));
+  const aoa = [_brHdr].concat(R.rows.map(function(row){ const x = row.slice(); x[34] = 'ELECTROLUX'; return x; }));
   const ws  = XLSX.utils.aoa_to_sheet(aoa);
   const range = XLSX.utils.decode_range(ws['!ref']);
 
