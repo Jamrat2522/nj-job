@@ -13134,7 +13134,14 @@ function spApplyPdfSource(invRows, pdfItems){
 
   invRows.forEach(row => {
     const inv = nInv(row.billing);
-    const pc  = norm(row.prodcode || row.material);
+    /* [FIX 30/09/2026 · FZ AKO 2 เท่านั้น] กุญแจจับคู่กับ PDF = "Material No." เป็นหลัก
+       Root Cause: Schaeffler Tax Invoice (PDF) พิมพ์เฉพาะ Material No. เท่านั้น
+       ไฟล์ INVOICE CLC บางชุดมีคอลัมน์ "Product Code" (รหัสสินค้าศุลกากร) แนบมาด้วย
+       ซึ่งไม่ปรากฏใน PDF → เดิมอ่าน prodcode ก่อน ทำให้ Candidate = 0 ทุกแถว
+       จึงยอมรับทั้ง Material No. และ Product Code เป็นกุญแจ
+       (ไฟล์ที่ไม่มีคอลัมน์ Product Code → prodcode = material → พฤติกรรมเดิมไม่เปลี่ยน) */
+    const pc    = norm(row.material || row.prodcode);
+    const pcAlt = norm(row.prodcode);
     const seq = nSeq(row.item);
 
     // ── (1)+(2) Candidate = Invoice No. + Product Code ──
@@ -13142,7 +13149,8 @@ function spApplyPdfSource(invRows, pdfItems){
     pdfItems.forEach((it,i) => {
       if(used[i]) return;
       if(nInv(it.invoice) !== inv) return;
-      if(norm(it.material) !== pc) return;
+      const itPc = norm(it.material);
+      if(itPc !== pc && !(pcAlt !== '' && itPc === pcAlt)) return;
       cand.push(i);
     });
 
