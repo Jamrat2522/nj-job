@@ -431,12 +431,14 @@
   .rpt-chart .rpt-chart-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .rpt-chart .rpt-chart-head .grow{flex:1 1 auto}
   .rpt-chart .rpt-chart-hint{margin:0}
-  .rpt-chart .rpt-chart-body{max-height:420px;overflow-y:auto;padding-right:4px}
-  .rpt-chart .rpt-chart-row{display:grid;grid-template-columns:230px 1fr 56px;align-items:center;gap:10px;padding:3px 0}
-  .rpt-chart .rpt-chart-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
-  .rpt-chart .rpt-chart-bar{position:relative;height:14px;border-radius:7px;background:var(--line,#E5E7EB);overflow:hidden}
-  .rpt-chart .rpt-chart-bar>i{display:block;height:100%;border-radius:7px;background:var(--blue,#2563EB)}
-  .rpt-chart .rpt-chart-n{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  /* [RUN-151] เดิม max-height:420px ทำให้คน 70+ คนถูกยัดในกล่องเตี้ย ๆ เห็นทีละ ~21 แถว
+     เปลี่ยนเป็นสูงตามจำนวนพนักงานจริง ไม่จำกัดความสูง ไม่บีบแถว */
+  .rpt-chart .rpt-chart-body{max-height:none;overflow:visible;padding-right:4px}
+  .rpt-chart .rpt-chart-row{display:grid;grid-template-columns:280px 1fr 60px;align-items:center;gap:12px;padding:5px 0}
+  .rpt-chart .rpt-chart-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+  .rpt-chart .rpt-chart-bar{position:relative;height:18px;border-radius:9px;background:var(--line,#E5E7EB);overflow:hidden}
+  .rpt-chart .rpt-chart-bar>i{display:block;height:100%;border-radius:9px;background:var(--blue,#2563EB)}
+  .rpt-chart .rpt-chart-n{text-align:right;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
 }
 
 /* ===== RUN-127 · หน้า "อนุมัติรายการ → คำขอลา" — Layout ตารางบน Desktop =====

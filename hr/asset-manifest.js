@@ -1,7 +1,7 @@
 /* asset-manifest.js — สร้างอัตโนมัติจาก build.js ห้ามแก้ด้วยมือ
    URL ของ Asset ทุกตัวประกาศที่นี่ที่เดียว · ไม่มีข้อมูลลับ */
 window.NJHR_ASSETS = {
-  "buildId": "njhr-v2-d1eea2eb",
+  "buildId": "njhr-v2-b637c4ef",
   "runtime": {
     "namespace": "runtime/namespace.js?v=815b8995",
     "core": "runtime/core.js?v=93d4f0c5"
@@ -70,7 +70,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "requests-leave": {
-      "url": "views/leave/main.js?v=cafedcc7",
+      "url": "views/leave/main.js?v=2ba13cef",
       "deps": [
         "shared-requests",
         "shared-hr-meta",
@@ -92,7 +92,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "attendance-report": {
-      "url": "views/attendance/report.js?v=0f775aa0",
+      "url": "views/attendance/report.js?v=0056dcd4",
       "deps": [
         "shared-report",
         "shared-requests",
@@ -165,7 +165,7 @@ window.NJHR_ASSETS = {
       "provides": []
     },
     "leave-form": {
-      "url": "views/leave/form.js?v=fccc2bf7",
+      "url": "views/leave/form.js?v=43e69a91",
       "deps": [
         "requests-leave",
         "shared-leave-meta",
@@ -232,7 +232,7 @@ window.NJHR_ASSETS = {
       ]
     },
     "approvals-reports": {
-      "url": "compat/approvals-reports.js?v=3d63afa2",
+      "url": "compat/approvals-reports.js?v=2fb6cfc0",
       "deps": [
         "shared-emp-meta",
         "shared-hr-meta",
@@ -278,7 +278,7 @@ window.NJHR_ASSETS = {
     }
   },
   "styles": {
-    "main": "styles.css?v=96ceafc9",
+    "main": "styles.css?v=48a4d42d",
     "mobile": "mobile.css?v=a54fec67"
   }
 };

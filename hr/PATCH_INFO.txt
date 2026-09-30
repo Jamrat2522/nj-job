@@ -1,5 +1,339 @@
-NJHR V2 — Release local316
-RUN-149 · กราฟรายงานการลงเวลา แยกตามสถานะ (มาสาย / ขาดงาน / ลา) — Desktop เท่านั้น
+NJHR V2 — Release local319
+RUN-152 · ย้าย "ลาออก" เข้า Dropdown ประเภทการลา — เอาปุ่มแยกด้านนอกออก
+Build: njhr-v2-b637c4ef   (เดิม njhr-v2-2661ecbc)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน (Maintenance 10 นาที + Login ใหม่) ***
+ไฟล์ Frontend ที่เปลี่ยนจริง 2 ไฟล์: views/leave/form.js · views/leave/main.js
+ไม่มี SQL ต้องรัน · ไม่แตะ DB / RPC / Workflow / ผู้อนุมัติ / ข้อมูลเดิมของ RESIGN
+
+================================================================
+Root Cause | File | Function | จุดที่แก้
+================================================================
+ไม่ใช่บั๊ก — เป็นการย้ายทางเข้า UI ตามที่สั่ง
+เดิม (RUN-145): "ขอลาออก" เป็นปุ่มแยกอยู่บน toolbar ข้างปุ่ม "ขอลางาน"
+  File: njlhr/views/leave/main.js · viewLeave()
+    HTML: '<button class="btn btn-ghost" id="lv-resign">'+icon("user")+" ขอลาออก</button>"
+    Handler: var _rsgBtn=document.getElementById("lv-resign");
+             _rsgBtn.onclick -> lvOpenAction("resign-form",this,function(){NJHR.features.resignForm.open(el)})
+    (ปุ่มไม่มีคลาส only-desktop จึงโผล่ทั้งคอมและมือถือ — toolbar ตัวเดียวกัน)
+  File: njlhr/views/leave/form.js · leaveFormBuild()
+    Dropdown ประเภทการลา: <select name="typeId" id="lvf-type"> สร้างจาก LEAVE_TYPES.map(...)
+    ผูก onchange รวมกับช่องอื่นที่บรรทัด
+      ["lvf-type","lvf-start","lvf-end","lvf-st","lvf-et"].forEach(... el2.onchange=updateSum)
+
+ตรวจแล้วว่าทางเข้า RESIGN มีที่เดียวจริง (grep ทั้งโปรเจกต์)
+  resignForm / "ขอลาออก" / resign-form พบเฉพาะ views/leave/main.js, views/leave/resign-form.js
+  และ asset-manifest.js -> ไม่มีทางเข้าแยกของ Mobile ให้ต้องตามเก็บ
+
+================================================================
+สิ่งที่แก้จริง (Smallest Fix · 2 ไฟล์ · ไม่ refactor)
+================================================================
+njlhr/views/leave/main.js
+  ลบ HTML ของปุ่ม #lv-resign ออกจาก toolbar (หายทั้ง Desktop และ Mobile พร้อมกัน)
+  ลบ handler ของปุ่มนั้นออก เหลือคอมเมนต์ชี้ทางไปจุดใหม่
+  ปุ่ม "ขอลางาน" (#lv-new) และปุ่มรีเฟรช (#lv-refresh) เดิมไม่ถูกแตะ
+
+njlhr/views/leave/form.js
+  1) เพิ่มค่าคงที่  var LVF_RESIGN="__RESIGN__";
+     ตั้งใจใช้ค่าที่ไม่มีทางชนกับ leave_type จริง
+  2) ต่อท้าย Dropdown หลังรายการ LEAVE_TYPES ทั้งหมด (คือหลัง "ลาอื่น ๆ")
+       +'<option value="'+LVF_RESIGN+'">ลาออก</option>'
+  3) แทน onchange ของ #lvf-type ด้วยตัวจัดการที่:
+       · ค่าอื่น -> จำค่าไว้แล้วเรียก updateSum() เหมือนเดิมทุกประการ
+       · ค่า "ลาออก" -> คืน select กลับค่าเดิมทันที (ไม่ให้ค้าง ถ้าผู้ใช้กดยกเลิก)
+         แล้ว closeModal() -> NJHR.features.resignForm.open(listEl)
+         ถ้าโมดูลยังไม่โหลด: NJHR.modules.load("resign-form") ก่อน
+         (กัน race แบบเดียวกับ lvOpenAction ของปุ่มเดิม · ระหว่างโหลด disable select ไว้)
+  4) ด่านสำรองตอนกดส่ง: ถ้า d.typeId === LVF_RESIGN -> ขึ้นข้อความและไม่ส่ง
+     (ปกติไม่มีทางถึง เพราะ onchange คืนค่าไปแล้ว)
+
+สิ่งที่ตั้งใจไม่แตะ
+  views/leave/resign-form.js ไม่แก้แม้แต่ตัวอักษรเดียว = Flow RESIGN เดิมทั้งหมด
+  Workflow RESIGN · ผู้อนุมัติ · เงื่อนไข · ข้อมูลเดิม · RPC ทุกตัว
+  leave_type / โควตาวันลา — "ลาออก" ไม่ใช่ leave_type และไม่ถูกส่งเข้าใบลา
+  Responsive เดิม: ไม่แตะ mobile.css และไม่เพิ่มคลาส only-desktop/only-mobile ใด ๆ
+
+================================================================
+ผลทดสอบ RUN-152 — 55/55 PASS (test-run152-resign-in-dropdown.js)
+================================================================
+รันไฟล์ views/leave/form.js ของจริงบน JSDOM ผ่าน NJHR.compat.scope ปลอม แล้วเปิดฟอร์มจริง
+ทดสอบครบ 3 สภาพแวดล้อม: Desktop (1920) · Mobile Android (Pixel 8, 412) · Mobile iPhone (iOS 17, 390)
+  A1-A6  ไม่มี id="lv-resign" · ไม่มีข้อความปุ่ม "ขอลาออก" · main.js ไม่เรียก resign-form แล้ว
+         · ปุ่ม "ขอลางาน" และปุ่มรีเฟรชเดิมยังอยู่
+  B1-B4  มีตัวเลือก "ลาออก" · อยู่ต่อท้ายรายการเดิม · ค่าไม่ชน leave_type · มีด่านกันตอนกดส่ง
+  C[ทั้ง 3 เครื่อง]  เปิดฟอร์มได้ · ตัวเลือกสุดท้ายคือ "ลาออก" · อยู่ต่อจาก "ลาอื่น ๆ"
+         · รายการรวม 8 (เดิม 7 + ลาออก) · ไม่มีปุ่ม "ขอลาออก" ในหน้า · ค่าเริ่มต้นไม่ใช่ "ลาออก"
+  D[ทั้ง 3 เครื่อง]  เลือกแล้วสั่งโหลดโมดูล resign-form · เรียก resignForm.open 1 ครั้ง
+         · ส่ง el ตัวเดิมของหน้ารายการไปให้ · ปิดฟอร์มใบลาก่อนเปิดฟอร์มลาออก
+         · select ไม่ค้างที่ "ลาออก" · ไม่มี error toast
+         · เลือกประเภทลาปกติหลังจากนั้นยังทำงานเหมือนเดิม
+         · เลือกซ้ำเข้า RESIGN ได้อีกโดยไม่ค้าง
+
+ปรับเทสเดิม test-run145-resign.js หมวด F (จาก 3 ข้อที่ล้าสมัย -> 10 ข้อ)
+  เดิมหมวด F ยืนยันว่า "ต้องมีปุ่ม #lv-resign" ซึ่งรอบนี้สั่งให้เอาออก
+  จึงเปลี่ยนเป็นยืนยันทางเข้าใหม่แทน (ไม่ได้ปิดเทส) และเพิ่มการตัด comment ก่อน assert
+  เพราะพบว่าเงื่อนไขเดิม /ขอลาออก/.test(main) และ /lvOpenAction\("resign-form"/
+  "ผ่านแบบหลอก" ได้จากข้อความในคอมเมนต์ที่เพิ่งเขียน
+
+Regression ทั้งชุด: 43 ไฟล์ · 2896 PASS · 0 FAIL
+
+================================================================
+สิ่งที่ยังต้องยืนยันบนเครื่องจริง
+================================================================
+ผมรันโค้ดจริงบน JSDOM ด้วย userAgent/ความกว้างของทั้ง 3 เครื่อง แต่ JSDOM ไม่ได้เรนเดอร์ CSS จริง
+ตอนเปิดบนเครื่องจริงให้ดูว่า Dropdown บนมือถือ (bottom sheet ของ iOS/Android)
+แสดง "ลาออก" เป็นรายการสุดท้ายและกดแล้วเด้งไปฟอร์มลาออกได้ตามปกติ
+
+================================================================
+[ประวัติ] Release local318 — RUN-151 (รายงานการลงเวลา)
+================================================================
+RUN-151 · รายงานการลงเวลา — Default วันที่ = วันนี้ และกราฟสูงตามจำนวนพนักงาน (Desktop)
+Build: njhr-v2-2661ecbc   (เดิม njhr-v2-32f7bcc9)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน (Maintenance 10 นาที + Login ใหม่) ***
+ไฟล์ Frontend ที่เปลี่ยนจริง 2 ไฟล์: views/attendance/report.js · styles.css
+ไม่มี SQL ต้องรัน · ไม่แตะ DB / RPC / Auth / Attendance Logic
+
+================================================================
+งาน 1 — Default วันที่ = วันนี้ → วันนี้
+================================================================
+Root Cause | File | Function | จุดที่แก้
+  File: njlhr/views/attendance/report.js
+  Func: rptDefaults()
+  เดิม: var d=new Date; d.setDate(d.getDate()-14);
+        return{from:d.toISOString().slice(0,10), to:todayISO()}
+        => เปิดหน้าทีไรก็ query ย้อนหลัง 14 วันทุกครั้ง
+  ใหม่: var t=todayISO(); return{from:t,to:t}
+
+Current Flow ที่ตรวจจาก Source จริง (ไม่ได้แก้ flow เลย แก้แต่ค่า default)
+  1. viewReports(el)  ->  if(!s.from){var dft=rptDefaults();s.from=dft.from;s.to=dft.to}
+     (ทำงานเฉพาะครั้งแรกที่ยังไม่มีค่า · เปลี่ยนประเภทรายงานไม่รีเซ็ตวันที่)
+  2. ท้าย viewReports  ->  var seq=++rptSeq  ->  else if(isSb) rptLoadSb(el,seq)
+     = event ที่ trigger การโหลดครั้งแรก (ไม่มีการ query ก่อนหน้านี้)
+  3. rptLoadSb -> rptFetchAtt() -> args {p_from:s.from, p_to:s.to, p_type, p_dept, p_employee, p_q}
+     · โหมดปกติ  -> rptFetchAttDaily(args,s)  (ประกอบจาก njhr_att_report + ชุดอื่น)
+     · โหมดมาสาย -> rptFetchAllPages("njhr_att_report",args)
+     มี in-flight cache กันยิงซ้ำด้วย key จาก args ชุดเดียวกัน
+  4. เปลี่ยนวันที่เริ่ม -> #rpt-from onchange -> s.from=this.value; viewReports(el)
+     เปลี่ยนวันที่สิ้นสุด -> #rpt-to  onchange -> s.to=this.value;  viewReports(el)
+     (ทั้งคู่วนกลับไปข้อ 2 = query ใหม่ตามช่วงที่ผู้ใช้เลือก)
+  5. ล้างตัวกรอง -> #rpt-clear onclick -> var dft2=rptDefaults(); rptState={...from:dft2.from,to:dft2.to...}
+     => กลับเป็น วันนี้ → วันนี้ อัตโนมัติ เพราะใช้ rptDefaults ตัวเดียวกัน
+
+RPC ที่หน้านี้ใช้ (ไม่ได้แก้แม้แต่ตัวเดียว)
+  njhr_att_report · njhr_emp_departments · njhr_emp_list · njhr_holiday_list
+  njhr_leave_balance_report · njhr_leave_report · njhr_ot_attach_list · njhr_ot_get
+  njhr_ot_report · njhr_rpt_ot_list
+
+ผลข้างเคียงที่ต้องรู้
+  rptDefaults() ถูกเรียก 2 จุดคือ viewReports (ครั้งแรก) และปุ่มล้างตัวกรอง
+  ทั้งสองจุดอยู่ในหน้าเดียวกัน แต่หน้านี้มีรายงาน 5 ประเภทใน select เดียวกัน
+  => "รายงานการลา" และ "รายงาน OT" ที่อยู่หน้าเดียวกัน จะเริ่มต้นที่วันนี้เหมือนกัน
+     (เดิมเริ่มที่ย้อนหลัง 14 วัน) ผู้ใช้เลือกช่วงเองได้ตามปกติ
+     ถ้าต้องการให้ 2 ประเภทนี้ยังย้อนหลัง 14 วัน แจ้งได้ จะแยก default ตามประเภทให้
+  เปลี่ยนจาก toISOString() เป็น todayISO() ด้วย — ของเดิมคำนวณจากเวลา UTC
+  ซึ่งเลื่อนวันได้เมื่อ TZ เป็น Asia/Bangkok (ค่า to ใช้ todayISO อยู่แล้ว จึงไม่สม่ำเสมอ)
+
+================================================================
+งาน 2 — กราฟสูงตามจำนวนพนักงาน (Desktop เท่านั้น)
+================================================================
+Root Cause | File | Function | จุดที่แก้
+  A) บนหน้าจอ — njlhr/styles.css (ในบล็อก @media screen and (min-width:1024px))
+     เดิม .rpt-chart .rpt-chart-body{max-height:420px; overflow-y:auto}
+     คน 76 คน x แถวละ ~20px = ~1520px ถูกยัดในกล่องสูง 420px
+     => เห็นทีละ ~21 แถวจาก 76 ต้องเลื่อนในกล่องเล็ก ๆ อ่านยาก
+     ใหม่ max-height:none; overflow:visible   = สูงตามจำนวนคนจริง
+     และขยายให้อ่านชัด: แท่ง 14 -> 18px · ชื่อ 13 -> 14px · ตัวเลข 13 -> 14px ตัวหนา
+     ช่องชื่อ 230 -> 280px (ชื่อไทยยาวไม่ถูกตัด) · ระยะห่างแถว 3 -> 5px
+
+  B) ไฟล์ Export — njlhr/views/attendance/report.js · rptChartExport()
+     Export ใช้ canvas ที่สร้างใหม่ ไม่ได้ถ่ายจาก DOM บนหน้าจอ
+     ความสูงคำนวณจากจำนวนคนอยู่แล้ว: H = padT + data.length*rowH + padB
+     แต่ค่าคงที่เล็กไป เดิม rowH=26, W=980, padL=250
+     ใหม่ rowH=32 · W=1240 · padL=320 · padT=112 · padR=92
+          ตัวอักษร: หัวเรื่อง 22 -> 26px · บรรทัดรอง 14 -> 15px
+          ชื่อ/ตัวเลขในแถว 14 -> 15px · แท่งสูง 14 -> 18px
+     เพิ่ม guard: ถ้า H*dpr > 12000 ให้ลด dpr เป็น 1
+       (คนเยอะ ๆ ภาพจะสูงมาก ถ้าคูณ dpr ต่ออาจเกินขีดจำกัดขนาด canvas ของเบราว์เซอร์
+        แล้วได้ไฟล์เปล่าโดยไม่มี error)
+
+ขนาดจริงที่เปลี่ยนไป (คำนวณจากค่าคงที่ในโค้ด)
+  บนหน้าจอ 76 คน : เดิมกล่องสูง 420px (เห็น ~21 แถว) -> ใหม่สูงตามเนื้อหา ~2130px เห็นครบ
+  ไฟล์ Export 76 คน : เดิม 980 x 2102 px -> ใหม่ 1240 x 2574 px
+  ไฟล์ Export 118 คน: ใหม่ 1240 x 3918 px (ยังต่ำกว่าเพดาน canvas 16384px มาก)
+
+สิ่งที่ไม่เปลี่ยน
+  การเรียงมาก -> น้อย ยังเป็น out.sort(b.n-a.n) ตัวเดิมใน rptChartData()
+  แหล่งข้อมูลยังเป็น rptAttRows ชุดเดียวกับตาราง · ไม่มี query ใหม่
+  Mobile/Tablet ไม่กระทบ — กฎกราฟทั้งหมดอยู่ในบล็อก min-width:1024px บล็อกเดียว
+    และนอกบล็อกยังเป็น .rpt-chart{display:none}
+  ปุ่ม Export Excel เดิม (#rpt-export / rptExport) ไม่ถูกแตะ
+
+================================================================
+ผลทดสอบ RUN-151 — 45/45 PASS (test-run151-report-default-chart.js)
+================================================================
+  G1-01..06  rptDefaults คืนวันนี้ทั้ง from และ to · ไม่มี setDate ย้อนหลัง · ไม่ใช้ toISOString
+  G1-07..13  เปิดหน้าครั้งแรกใช้ rptDefaults · ปุ่มล้างตัวกรองรีเซ็ตกลับ rptDefaults
+             · เปลี่ยนวันที่เริ่ม/สิ้นสุดโหลดใหม่ผ่าน viewReports
+             · Query ส่ง p_from/p_to จาก state ตรง ๆ · RPC ยังเป็นชุดเดิม
+             · ไม่มีการ query ก่อนผู้ใช้เห็นหน้า (โหลดจาก viewReports เท่านั้น)
+  G2-01..04  กฎกราฟอยู่ใน media query เดียว · Desktop >= 1024 · ซ่อนนอก media · mobile.css ไม่ถูกแตะ
+  G2-05..07  ไม่จำกัดความสูงแล้ว · ไม่มี scroll ภายใน · ไม่เหลือ max-height ตัวเลขตายตัว
+  G2-08..11  แท่ง/ชื่อ/ตัวเลขใหญ่ขึ้นจากเดิม · ช่องชื่อกว้างขึ้น
+  G2-12..13  วาดครบ 76 คนไม่ตัดทิ้ง · ยังเรียงมาก -> น้อย
+  G2-14..18  Export สูงขึ้นตามจำนวนคน (1 < 76 < 118 คน) · แถวละ > 26px
+             · ความกว้างคงที่ไม่บีบ · ไม่เกินเพดาน canvas
+  G2-19..23  ในไฟล์มีชื่อกราฟ/ช่วงวันที่ · บรรทัดพนักงานไม่ทับกัน (ห่าง 32px จริง)
+             · มี guard ลด dpr · ดาวน์โหลดเป็น .png ชื่อมีช่วงวันที่
+  G2-24..26  ไม่แตะ Export Excel · โค้ดกราฟไม่ยุ่งกับ xlsx · sort เดิมยังอยู่
+
+Regression ทั้งชุด: 42 ไฟล์ · 2837 PASS · 0 FAIL
+
+*** ข้อบกพร่องของเทสที่เจอระหว่างทาง (แก้ที่เทส ไม่ใช่โค้ด) ***
+  1. ตัวกรองหาบรรทัดชื่อในไฟล์ Export เขียนผิด (ไปหาคำขึ้นต้น "พนักงาน"
+     แต่ป้ายจริงขึ้นต้นด้วยรหัสพนักงาน) -> แก้เป็น /^[0-9]{4} · /
+  2. ลืม map global.URL ให้ JSDOM -> URL.createObjectURL ไปเรียกคลาส URL ของ Node
+     ทำให้ Export ตกลง catch เงียบ ๆ และไม่มีไฟล์ดาวน์โหลด
+
+ยังไม่ได้ทำ ZIP รอบนี้ตามที่สั่ง
+
+================================================================
+[ประวัติ] Release local317 — RUN-150 (หน้าเงินเดือน)
+================================================================
+RUN-150 · หน้าเงินเดือน — คำนวณได้ 0 คน เพราะดึงพนักงานจากที่ผิด
+Build: njhr-v2-32f7bcc9   (เดิม njhr-v2-d1eea2eb)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน (Maintenance 10 นาที + Login ใหม่) ***
+ไฟล์ Frontend ที่เปลี่ยนจริง 1 ไฟล์: compat/approvals-reports.js
+(ที่เหลือเป็นไฟล์ที่ build แก้ให้เอง: asset-manifest.js · config.js · sw.js · index.html · PATCH_INFO.txt)
+ไม่มี SQL ต้องรัน · ไม่แตะ DB / RPC / Auth / Role
+
+================================================================
+Root Cause | File | Function | จุดที่แก้จริง
+================================================================
+อาการ: กด "คำนวณเงินเดือน" แล้วขึ้น "คำนวณเงินเดือนแล้ว 0 คน · บันทึกขึ้นเซิร์ฟเวอร์แล้ว"
+ทั้งที่ Supabase มีพนักงาน ACTIVE 118 คน
+
+ยืนยันจาก Source จริง (ตรงกับที่คุณน้อยวิเคราะห์มา)
+  File: njlhr/compat/approvals-reports.js
+  Func: viewPayroll() -> ปุ่ม #pr-calc -> callback ของ confirmDialog
+    เดิม: db.employees.filter(function(x){return x.status==="ACTIVE"}).map(...)
+  File: njlhr/runtime/core.js -> emptyDB()
+    db seed เป็น employees:[] และ **ไม่มีโค้ดที่ใดเลยเขียน db.employees=**
+    (ตรวจทั้งโปรเจกต์: core.js 0 จุด · approvals-reports.js 0 จุด · employees/list.js 0 จุด)
+    => db.employees เป็น [] ตลอดอายุ session บน Production -> filter ได้ 0 คน
+
+*** จุดที่ต้องแก้จากที่วางแผนไว้ 1 ข้อ ***
+  แผนเดิมให้ใช้ njhr_emp_list เหมือนหน้า Employee — ใช้ไม่ได้
+  ตรวจ signature จริงบน Production:
+    njhr_emp_list -> (id, emp_code, prefix, full_name, nickname, photo_url,
+                      department_name, position_name, level, start_date, resign_date,
+                      status, emp_type, phone, email, total_count)
+    ไม่มี base_salary และไม่มี position_allow เลย
+  ถ้าใช้ตามแผนเดิม จะได้ "118 คน" จริง แต่ฐานเงินเดือน = 0 ทุกคน
+  แล้ว Save ทับลง payroll = ผิดหนักกว่าอาการเดิม จึงไม่ทำตามข้อนั้น
+
+  ใช้ njhr_report_all_employees(p_token, p_dept, p_employee) แทน
+    คืน: id, emp_code, full_name, status, salary_type,
+         base_salary, position_allow, diligence_allow, phone_allow, travel_allow, fuel_allow
+    กรอง status IN ('ACTIVE','PROBATION') มาให้แล้ว (โค้ดกรอง ACTIVE ต่ออีกชั้นตามข้อกำหนด)
+    role gate = SUPER_ADMIN / HR  ซึ่ง "ตรงกับสิทธิ์เข้าหน้า #/payroll" พอดี
+      (core.js: "#/payroll":{roles:["SUPER_ADMIN","HR"]}) จึงไม่มีปัญหาสิทธิ์เพิ่ม
+    เป็น read RPC ไม่อยู่ใน SB_WRITE_RPC จึงไม่ต้องแก้ core.js
+
+*** เจอปัญหาเพิ่มบนหน้าเดียวกันอีก 2 จุด (รากเดียวกัน) ***
+  2. ตารางเงินเดือนใช้ empName(en.empId) ซึ่งอ่านจาก db.employees
+     -> ถึงคำนวณได้ ชื่อทุกแถวจะขึ้น "—" (empName คืน "—" เมื่อหาไม่เจอ)
+  3. ปุ่ม Export ของหน้าเงินเดือน: var x=emp(en.empId); return[x.code,...]
+     emp() คืน null เมื่อรายชื่อว่าง -> อ่าน x.code = **TypeError ปุ่มพังทั้งปุ่ม**
+  ทั้งสองข้อแก้ให้ในรอบนี้ด้วย เพราะเป็นอาการของ Root Cause เดียวกันและอยู่หน้าเดียวกัน
+
+================================================================
+สิ่งที่แก้จริง (Smallest Fix · 1 ไฟล์ · ไม่ refactor)
+================================================================
+njlhr/compat/approvals-reports.js
+  เพิ่มใหม่ (cache เฉพาะ Payroll ไม่เขียนทับ db.employees เพื่อไม่ให้กระทบหน้าอื่น)
+    prEmpCache            map ของพนักงานจาก Supabase
+    prFetchEmployees()    sbRpcList("njhr_report_all_employees",{p_token,p_dept:null,p_employee:null})
+                          -> {id, code, name, status, baseSalary, allowance}
+    prActiveEmployees()   คืนเฉพาะ status === "ACTIVE" เรียงตามรหัสพนักงาน
+    prEmpOf/prEmpName/prEmpCode   ตัวค้นหาชื่อ-รหัส ใช้ cache ก่อน แล้ว fallback ของเดิม
+  แก้ 5 จุด
+    1) ปุ่มคำนวณ: Promise.all([...,prFetchEmployees()]) แล้วใช้ prActiveEmployees()
+       แทน db.employees.filter(...)   <- โหลดจริงทุกครั้งก่อนคำนวณ
+    2) ปุ่มคำนวณ: ถ้า prActiveEmployees().length === 0 -> toast error แล้ว return ทันที
+       ไม่ตั้ง status=CALCULATED · ไม่เรียก prSave · ไม่ขึ้น "บันทึกขึ้นเซิร์ฟเวอร์แล้ว"
+    3) prLoad(): โหลด prFetchEmployees() พร้อมงวด (catch เป็น null) เพื่อให้ชื่อในตาราง
+       แสดงถูกหลังรีเฟรช โดยถ้าล้มเหลวหน้าไม่พัง
+    4) ตารางเงินเดือน: empName/emp -> prEmpName/prEmpCode
+    5) ปุ่ม Export: กัน null + ใช้ prEmpOf/prEmpName
+    6) NJHR.payroll.reset() ล้าง prEmpCache ด้วย
+
+*** สูตรคำนวณไม่ถูกแตะแม้แต่ตัวอักษรเดียว (ตรวจด้วย grep ตรงตัว) ***
+  otAmt = Math.round(x.baseSalary/30/8*1.5*otHours)
+  gross = x.baseSalary + x.allowance + otAmt
+  sso   = Math.min(Math.round(x.baseSalary*.05),750)
+  tax   = x.baseSalary > 5e4 ? Math.round(x.baseSalary*.03) : 0
+  net   = gross - sso - tax
+  เปลี่ยนเฉพาะ "แหล่งที่มาของ x" เท่านั้น (จาก db.employees -> Supabase)
+  prApplyPayItems (เงินเพิ่ม/หัก) · prEntriesToRows · prSave · njhr_payroll_period_save
+  ทั้งหมดคงเดิม ไม่แก้ payload key แม้แต่คีย์เดียว
+
+สิ่งที่ตั้งใจไม่แตะ
+  Auth · Role · โครงสร้าง DB · SQL/RPC (ไม่สร้าง ไม่แก้ ไม่เพิ่ม) · OT formula
+  Payroll formula · หน้าอื่นทุกหน้า · db.employees ยังคงเป็น [] เหมือนเดิม
+  (ไม่ไปเขียนทับ เพราะ views/attendance/report.js ใช้ db.employees เป็น rptVisibleEmployees อยู่)
+
+================================================================
+ความปลอดภัยเรื่อง duplicate (ตรวจจาก DB จริง)
+================================================================
+njhr_payroll_period_save มี DELETE ของงวดนั้นก่อน INSERT
+และตาราง payroll มี UNIQUE (employee_id, period_year, period_month)
+=> คำนวณซ้ำงวดเดิมกี่ครั้งก็ไม่เกิดแถวซ้ำ ทั้งในโค้ดและระดับฐานข้อมูล
+สถานะปัจจุบัน: ตาราง payroll ยังว่าง 0 แถว — รอบนี้จะเป็นการบันทึกครั้งแรก
+
+================================================================
+ผลทดสอบ RUN-150 — 64/64 PASS (test-run150-payroll-source.js · JSDOM รันโค้ดจริง)
+================================================================
+  A1-A6  ไม่อ้าง db.employees ในโค้ดคำนวณแล้ว · เรียก prFetchEmployees ก่อนคำนวณ
+         · ใช้ njhr_report_all_employees · ไม่ใช้ njhr_emp_list · ไม่เขียนทับ db.employees
+         · RPC เป็น read ไม่อยู่ใน SB_WRITE_RPC
+  B1-B20 คำนวณได้เฉพาะ ACTIVE (ไม่รวม PROBATION/RESIGNED) · toast ตรงจำนวนจริง
+         · ฐานเงินเดือน/ค่าตำแหน่งมาจากค่าจริง · สูตร OT/ปกส./ภาษี/สุทธิ เดิมครบ
+         · ภาษี 3% เมื่อฐาน > 50000 · ปกส. ชนเพดาน 750
+         · Save 1 ครั้ง · payload ครบ 2 แถว · มี employee_code จริง · คีย์เดิมครบ
+         · สถานะเป็น CALCULATED · เขียน audit PAYROLL_CALC
+  C1-C10 ตารางแสดงชื่อ+รหัสจริง ไม่มี "—" · แถวรวมนับถูก · ไม่ขึ้น empty state
+         · ปุ่ม Export ไม่ throw แล้ว · CSV ได้รหัส/ชื่อ/ตัวเลขจริง
+  D1-D5  รีเฟรชแล้วรอบเดิมยังอยู่ · รีเฟรชไม่ Save ซ้ำ · ชื่อยังแสดงถูก
+         · ไม่มี empId ซ้ำ · คำนวณซ้ำแล้วจำนวนแถวเท่าเดิม
+  E1-E11 ไม่มี ACTIVE -> ไม่ Save · ไม่ขึ้นว่าบันทึกแล้ว · แจ้ง error · สถานะยัง DRAFT
+         · ไม่มีรายการค้าง
+         โหลดพนักงานล้มเหลว -> ไม่ Save · ไม่ขึ้นว่าบันทึกแล้ว · แจ้ง error · ยัง DRAFT
+         Save ล้มเหลว -> ไม่ขึ้นว่าบันทึกแล้ว · แจ้ง error
+
+Regression ทั้งชุด: 41 ไฟล์ · 2792 PASS · 0 FAIL
+
+*** ข้อบกพร่องของเทสที่เจอระหว่างทาง (แก้ที่เทส ไม่ใช่ที่โค้ด) ***
+  1. A1 ไปจับคำว่า "db.employees" ที่อยู่ใน comment ที่ผมเพิ่งเขียนอธิบายเอง
+     -> ตัด comment ออกก่อน assert (เคยพลาดแบบเดียวกันตอน RUN-145)
+  2. B19 ล้มเพราะ stub ของ njhr_payroll_periods คืน DRAFT ตายตัว
+     ทั้งที่เซิร์ฟเวอร์จริงจะคืนสถานะที่เพิ่งบันทึก -> แก้ stub ให้สะท้อนของจริง
+
+================================================================
+สิ่งที่ยังต้องยืนยันบนเครื่องจริง
+================================================================
+ผมรันโค้ดจริงบน JSDOM และตรวจข้อมูล Production แล้ว แต่ยังไม่ได้กดปุ่มจริงบนหน้าเว็บ
+ตัวเลขที่ควรได้เมื่อคุณน้อยกดจริง (วัดจาก Production ณ 30/09/2026):
+  พนักงาน ACTIVE = 118 คน · ทั้ง 118 คนมี base_salary > 0 (ไม่มีใครเป็น 0)
+  มีค่าตำแหน่ง (position_allow > 0) 10 คน · RESIGNED 8 คน ต้องไม่ถูกนับ
+  => toast ต้องขึ้น "คำนวณเงินเดือนแล้ว 118 คน · บันทึกขึ้นเซิร์ฟเวอร์แล้ว"
+     และตารางต้องมี 118 แถว พร้อมชื่อจริง ไม่ใช่ "—"
+ถ้าได้ตัวเลขอื่น แจ้งได้ทันที
+
+================================================================
+[ประวัติ] Release local316 — RUN-149
+กราฟรายงานการลงเวลา แยกตามสถานะ (มาสาย / ขาดงาน / ลา) — Desktop เท่านั้น
 Build: njhr-v2-d1eea2eb   (เดิม njhr-v2-db224887)
 
 *** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน ***
