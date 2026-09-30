@@ -15734,6 +15734,16 @@ function _epBuild(inv, res, ct, master){
                       status: miss.length? ('ไม่พบ: '+miss.join(', ')) : 'OK'});
   });
 
+  /* ---- GW: ยอดรวม Gross Weight จากตาราง Pallet (แต่ละ Pallet นับครั้งเดียว) → ใส่เฉพาะรายการที่ 1 · รายการที่ 2+ = ว่าง ----
+     ห้ามรวม GW รายแถว (หลายรายการอาจอยู่ Pallet เดียวกัน → นับซ้ำ) */
+  if(out.length){
+    let gwTotal=null;
+    res.gw.forEach(function(v){ const n=Number(v); if(isFinite(n)) gwTotal=(gwTotal==null?0:gwTotal)+n; });
+    if(gwTotal!=null) gwTotal=Math.round(gwTotal*1e6)/1e6;
+    out.forEach(function(row, i){ row[12] = (i===0 && gwTotal!=null) ? gwTotal : ''; });
+    if(gwTotal==null) warnings.push('GW: ไม่พบตาราง Pallet (Gross Weight) ใน Sheet "'+(res.sheet||'Results')+'" → GW รายการที่ 1 ว่าง');
+  }
+
   return { headers:ELEP_HEADERS, rows:out, stat:stat, matchStatus:matchStatus,
            warnings:warnings, unmatched:unmatched,
            invoiceNo:inv.invoiceNo, invoiceDate:inv.invoiceDate, currency:inv.currency };
