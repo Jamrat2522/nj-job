@@ -1138,9 +1138,15 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-primary" id="chke-btn-run" onclick="chkeRun()" disabled>🔍 ตรวจสอบ</button>
       <button class="btn btn-success" id="chke-btn-export" onclick="chkeExport()" disabled>⬇ EXPORT ผลตรวจ</button>
       <button class="btn btn-ghost" id="chke-btn-mapexport" onclick="chkeMapExport()" disabled>⬇ EXPORT MAPPING EXCEL</button><!-- ★ [MAP] Export จาก Internal Snapshot -->
+      <button class="btn btn-success" id="chke-btn-permit" onclick="chkePermitExport()" disabled>⬇ EXPORT EXCEL Permit</button><!-- ★ [local070] ไฟล์ Permit แยก (ไม่แตะ EXPORT ผลตรวจเดิม) -->
       <button class="btn btn-ghost" onclick="chkeReset()">รีเซ็ต</button>
     </div>
     <div class="doa-status" id="chke-status" style="margin-top:6px"></div><!-- [local033] ไม่แสดงข้อความ idle · Error/ผลตรวจยังแสดงในกล่องนี้ -->
+    <div id="chke-permit-box" style="margin-top:8px"><!-- ★ [local070] PASTE Permit (Key = INVOICE NO + ITEM NO · ไม่ระบุหน่วยงาน = สมอ.) -->
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px">PASTE Permit — ITEM NO: xxxx Of INVOICE NO: xxxx (1 รายการ/บรรทัด · ไม่ระบุหน่วยงาน = สมอ. · ระบุ กรมสรรพสามิต / DUI ได้)</div>
+      <textarea id="chke-permit-paste" rows="4" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="ITEM NO: 0003 Of INVOICE NO: 0070 (Write off under Elux cost)"></textarea>
+      <div id="chke-permit-msg" style="font-size:12px;margin-top:4px;white-space:pre-wrap"></div>
+    </div>
     <div id="chke-tt" style="display:none"></div><!-- ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR (แสดงเท่านั้น · ไม่เข้า PASS/FAIL / Export / Reset) -->
   </div>
   <div class="doa-panel" id="chke-result" style="display:none"></div>
@@ -1168,9 +1174,15 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-primary" id="chk1-btn-run" onclick="chk1Run()" disabled>🔍 ตรวจสอบ</button>
       <button class="btn btn-success" id="chk1-btn-export" onclick="chk1Export()" disabled>⬇ EXPORT ผลตรวจ</button>
       <button class="btn btn-ghost" id="chk1-btn-mapexport" onclick="chk1MapExport()" disabled>⬇ EXPORT MAPPING EXCEL</button><!-- ★ [MAP] Export จาก Internal Snapshot -->
+      <button class="btn btn-success" id="chk1-btn-permit" onclick="chk1PermitExport()" disabled>⬇ EXPORT EXCEL Permit</button><!-- ★ [local070] ไฟล์ Permit แยก (ไม่แตะ EXPORT ผลตรวจเดิม) -->
       <button class="btn btn-ghost" onclick="chk1Reset()">รีเซ็ต</button>
     </div>
     <div class="doa-status" id="chk1-status" style="margin-top:6px"></div><!-- [local033] ไม่แสดงข้อความ idle · Error/ผลตรวจยังแสดงในกล่องนี้ -->
+    <div id="chk1-permit-box" style="margin-top:8px"><!-- ★ [local070] PASTE Permit (Key = INVOICE NO + ITEM NO · ไม่ระบุหน่วยงาน = สมอ.) -->
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px">PASTE Permit — ITEM NO: xxxx Of INVOICE NO: xxxx (1 รายการ/บรรทัด · ไม่ระบุหน่วยงาน = สมอ. · ระบุ กรมสรรพสามิต / DUI ได้)</div>
+      <textarea id="chk1-permit-paste" rows="4" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="ITEM NO: 0003 Of INVOICE NO: 0070 (Write off under Elux cost)"></textarea>
+      <div id="chk1-permit-msg" style="font-size:12px;margin-top:4px;white-space:pre-wrap"></div>
+    </div>
     <div id="chk1-tt" style="display:none"></div><!-- ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR (แสดงเท่านั้น · ไม่เข้า PASS/FAIL / Export / Reset) -->
   </div>
   <div class="doa-panel" id="chk1-result" style="display:none"></div>
@@ -1198,9 +1210,15 @@ body.legacy-active .content-area { display: none !important; }
       <button class="btn btn-primary" id="chkd-btn-run" onclick="chkdRun()" disabled>🔍 ตรวจสอบ</button>
       <button class="btn btn-success" id="chkd-btn-export" onclick="chkdExport()" disabled>⬇ EXPORT ผลตรวจ</button>
       <button class="btn btn-ghost" id="chkd-btn-mapexport" onclick="chkdMapExport()" disabled>⬇ EXPORT MAPPING EXCEL</button><!-- ★ [MAP] Export จาก Internal Snapshot -->
+      <button class="btn btn-success" id="chkd-btn-permit" onclick="chkdPermitExport()" disabled>⬇ EXPORT EXCEL Permit</button><!-- ★ [local070] ไฟล์ Permit แยก (ไม่แตะ EXPORT ผลตรวจเดิม) -->
       <button class="btn btn-ghost" onclick="chkdReset()">รีเซ็ต</button>
     </div>
     <div class="doa-status" id="chkd-status" style="margin-top:6px"></div><!-- [local033] ไม่แสดงข้อความ idle · Error/ผลตรวจยังแสดงในกล่องนี้ -->
+    <div id="chkd-permit-box" style="margin-top:8px"><!-- ★ [local070] PASTE Permit (Key = INVOICE NO + ITEM NO · ไม่ระบุหน่วยงาน = สมอ.) -->
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px">PASTE Permit — ITEM NO: xxxx Of INVOICE NO: xxxx (1 รายการ/บรรทัด · ไม่ระบุหน่วยงาน = สมอ. · ระบุ กรมสรรพสามิต / DUI ได้)</div>
+      <textarea id="chkd-permit-paste" rows="4" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="ITEM NO: 0003 Of INVOICE NO: 0070 (Write off under Elux cost)"></textarea>
+      <div id="chkd-permit-msg" style="font-size:12px;margin-top:4px;white-space:pre-wrap"></div>
+    </div>
     <div id="chkd-tt" style="display:none"></div><!-- ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR (แสดงเท่านั้น · ไม่เข้า PASS/FAIL / Export / Reset) -->
   </div>
   <div class="doa-panel" id="chkd-result" style="display:none"></div>
@@ -2562,6 +2580,7 @@ function chkeSync(){
   const b=document.getElementById('chke-btn-run'); if(b) b.disabled=!ok;
   const x=document.getElementById('chke-btn-export');
   if(x) x.disabled=!(CHKE.result&&CHKE.result.rows);                          /* [local016] Export ได้เมื่อมีผลตรวจ (CASE C/D: ไม่มีข้อมูลผิดก็ Export ได้) */
+  { const pb=document.getElementById('chke-btn-permit'); if(pb) pb.disabled=!(CHKE.result&&CHKE.result.rows); }   /* ★ [local070] EXPORT EXCEL Permit */
   const t=document.getElementById('chke-type');
   if(t) t.textContent = 'MASTER TARIFF ฝังในระบบ: HS_CODE_tariff_rate ok p noy 16.09.26 · '+chkeHsMaster().size.toLocaleString()+' พิกัด (Stat · Privilege · Seq · Tariff rate duty)';
 }
@@ -2576,6 +2595,7 @@ async function chkeLoad(kind,file){
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHKE.dwak=sheets[0]; CHKE.dwakName=file.name; CHKE.result=null;
+      chkePermitClear();                                                                             /* ★ [local070] DWAK ใหม่ → ล้าง PASTE Permit ของงานเก่า (เฉพาะโหมดนี้) */
       await chkeMapStart(file, CHKE.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHKE.dwak!==sheets[0]){ chkeSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
@@ -2589,6 +2609,7 @@ async function chkeLoad(kind,file){
 function chkeClear(kind){
   if(kind==='master'){ CHKE.master=null; CHKE.masterName=null; }
   else { CHKE.dwak=null; CHKE.dwakName=null; CHKE_MAP_TOK=null; CHKE_MAP=null; chkeMapRender(); }                  /* ★ [MAP] ล้าง IMPORT → ล้าง Mapping */
+  if(kind!=='master') chkePermitClear();                                                        /* ★ [local070] ล้าง PASTE Permit ของงานเก่า */
   CHKE.result=null;
   const l=document.getElementById('chke-'+kind+'-list'); if(l) l.innerHTML='';
   const d=document.getElementById('chke-'+kind+'-drop'); if(d) d.classList.remove('loaded');
@@ -2985,6 +3006,22 @@ function chkeWire(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',chkeWire); else chkeWire();
 
+/* ★ [local070] EXPORT EXCEL Permit — ใช้ DWAK + ผลตรวจ DUI / กรมสรรพสามิต ของ TYPE 0 เท่านั้น + PASTE (Builder กลาง chkXPermitExport) */
+async function chkePermitExport(){
+  const r=CHKE.result, msg=document.getElementById('chke-permit-msg');
+  if(!r||!r.rows||!CHKE.dwak){ chkeStatus('ไม่มีผลตรวจให้ Export Permit',true); return; }
+  try{
+    if(typeof window.chkXPermitExport!=='function') throw new Error('ไม่พบตัวสร้าง EXPORT Permit');
+    const res=await window.chkXPermitExport({ mode:'TYPE 0', D:chkeDwakRows(CHKE.dwak), T:chkeT, date:chkeDate,
+      exc:(r.exc&&r.exc.diffs)||[], dui:(r.ex99&&r.ex99.diffs)||[], paste:(document.getElementById('chke-permit-paste')||{}).value||'', dwakName:CHKE.dwakName||'' });
+    if(msg) msg.textContent=res.msg;
+    chkeStatus('Export Permit สำเร็จ — กรมสรรพสามิต '+res.n[0]+' · DUI '+res.n[1]+' · สมอ. '+res.n[2]+' รายการ'+(res.miss?' · ไม่พบใน DWAK '+res.miss+' รายการ':''),res.miss>0);
+  }catch(e){ chkeStatus('Export Permit ไม่สำเร็จ: '+(e.message||e),true); }
+}
+window.chkePermitExport=chkePermitExport;
+/* ★ [local070] ล้างช่อง PASTE Permit + ข้อความผล Parse / Match ไม่พบ */
+function chkePermitClear(){ const t=document.getElementById('chke-permit-paste'); if(t) t.value=''; const m=document.getElementById('chke-permit-msg'); if(m) m.textContent=''; }
+window.chkePermitClear=chkePermitClear;
 window.chkeTablePage=chkeTablePage; window.chkeRun=chkeRun; window.chkeExport=chkeExport; window.chkeReset=chkeReset; window.chkeClear=chkeClear;
 /* ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR — รับ Snapshot TERM_TRANSFER ผ่าน Event 'term-transfer' เท่านั้น (ไม่อ่าน TERM_STATE)
    · แสดงผลอย่างเดียว · ไม่แตะ CHKE / chkeRun / chkeExport / chkeReset / PASS-FAIL */
@@ -3805,6 +3842,7 @@ function chk1Sync(){
   const b=document.getElementById('chk1-btn-run'); if(b) b.disabled=!ok;
   const x=document.getElementById('chk1-btn-export');
   if(x) x.disabled=!(CHK1.result&&CHK1.result.rows);                          /* [local016] Export ได้เมื่อมีผลตรวจ (CASE C/D: ไม่มีข้อมูลผิดก็ Export ได้) */
+  { const pb=document.getElementById('chk1-btn-permit'); if(pb) pb.disabled=!(CHK1.result&&CHK1.result.rows); }   /* ★ [local070] EXPORT EXCEL Permit */
   const t=document.getElementById('chk1-type');
   if(t) t.textContent = CHK1.inv ? 'INVOICE MAPPING TYPE 1: '+CHK1.inv.order.length.toLocaleString()+' Item (Sheet '+CHK1.inv.sheet+')' : '';   /* ★ [local058] */
 }
@@ -3823,6 +3861,7 @@ async function chk1Load(kind,file){
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHK1.dwak=sheets[0]; CHK1.dwakName=file.name; CHK1.result=null;
+      chk1PermitClear();                                                                             /* ★ [local070] DWAK ใหม่ → ล้าง PASTE Permit ของงานเก่า (เฉพาะโหมดนี้) */
       await chk1MapStart(file, CHK1.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHK1.dwak!==sheets[0]){ chk1Sync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
@@ -3836,6 +3875,7 @@ async function chk1Load(kind,file){
 function chk1Clear(kind){
   if(kind==='master'){ CHK1.master=null; CHK1.masterName=null; CHK1.inv=null; }
   else { CHK1.dwak=null; CHK1.dwakName=null; CHK1_MAP_TOK=null; CHK1_MAP=null; chk1MapRender(); }                  /* ★ [MAP] ล้าง IMPORT → ล้าง Mapping */
+  if(kind!=='master') chk1PermitClear();                                                        /* ★ [local070] ล้าง PASTE Permit ของงานเก่า */
   CHK1.result=null;
   const l=document.getElementById('chk1-'+kind+'-list'); if(l) l.innerHTML='';
   const d=document.getElementById('chk1-'+kind+'-drop'); if(d) d.classList.remove('loaded');
@@ -4234,6 +4274,22 @@ function chk1Wire(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',chk1Wire); else chk1Wire();
 
+/* ★ [local070] EXPORT EXCEL Permit — ใช้ DWAK + ผลตรวจ DUI / กรมสรรพสามิต ของ TYPE 1 เท่านั้น + PASTE (Builder กลาง chkXPermitExport) */
+async function chk1PermitExport(){
+  const r=CHK1.result, msg=document.getElementById('chk1-permit-msg');
+  if(!r||!r.rows||!CHK1.dwak){ chk1Status('ไม่มีผลตรวจให้ Export Permit',true); return; }
+  try{
+    if(typeof window.chkXPermitExport!=='function') throw new Error('ไม่พบตัวสร้าง EXPORT Permit');
+    const res=await window.chkXPermitExport({ mode:'TYPE 1', D:chk1DwakRows(CHK1.dwak), T:chk1T, date:chk1Date,
+      exc:(r.exc&&r.exc.diffs)||[], dui:(r.ex99&&r.ex99.diffs)||[], paste:(document.getElementById('chk1-permit-paste')||{}).value||'', dwakName:CHK1.dwakName||'' });
+    if(msg) msg.textContent=res.msg;
+    chk1Status('Export Permit สำเร็จ — กรมสรรพสามิต '+res.n[0]+' · DUI '+res.n[1]+' · สมอ. '+res.n[2]+' รายการ'+(res.miss?' · ไม่พบใน DWAK '+res.miss+' รายการ':''),res.miss>0);
+  }catch(e){ chk1Status('Export Permit ไม่สำเร็จ: '+(e.message||e),true); }
+}
+window.chk1PermitExport=chk1PermitExport;
+/* ★ [local070] ล้างช่อง PASTE Permit + ข้อความผล Parse / Match ไม่พบ */
+function chk1PermitClear(){ const t=document.getElementById('chk1-permit-paste'); if(t) t.value=''; const m=document.getElementById('chk1-permit-msg'); if(m) m.textContent=''; }
+window.chk1PermitClear=chk1PermitClear;
 window.chk1TablePage=chk1TablePage; window.chk1Run=chk1Run; window.chk1Export=chk1Export; window.chk1Reset=chk1Reset; window.chk1Clear=chk1Clear;
 /* ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR — รับ Snapshot TERM_TRANSFER_T1 ผ่าน Event 'term-transfer-t1' เท่านั้น (ไม่อ่าน TERM_STATE)
    · แสดงผลอย่างเดียว · ไม่แตะ CHK1 / chk1Run / chk1Export / chk1Reset / PASS-FAIL */
@@ -4782,6 +4838,7 @@ function chkdSync(){
   const b=document.getElementById('chkd-btn-run'); if(b) b.disabled=!ok;
   const x=document.getElementById('chkd-btn-export');
   if(x) x.disabled=!(CHKD.result&&CHKD.result.rows);                          /* [local016] Export ได้เมื่อมีผลตรวจ (CASE C/D: ไม่มีข้อมูลผิดก็ Export ได้) */
+  { const pb=document.getElementById('chkd-btn-permit'); if(pb) pb.disabled=!(CHKD.result&&CHKD.result.rows); }   /* ★ [local070] EXPORT EXCEL Permit */
   const t=document.getElementById('chkd-type');
   if(t) t.textContent = CHKD.inv ? 'INVOICE MAPPING TYPE D: '+CHKD.inv.order.length.toLocaleString()+' Item (Sheet '+CHKD.inv.sheet+')' : '';   /* ★ [local058] */
 }
@@ -4800,6 +4857,7 @@ async function chkdLoad(kind,file){
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHKD.dwak=sheets[0]; CHKD.dwakName=file.name; CHKD.result=null;
+      chkdPermitClear();                                                                             /* ★ [local070] DWAK ใหม่ → ล้าง PASTE Permit ของงานเก่า (เฉพาะโหมดนี้) */
       await chkdMapStart(file, CHKD.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHKD.dwak!==sheets[0]){ chkdSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
@@ -4813,6 +4871,7 @@ async function chkdLoad(kind,file){
 function chkdClear(kind){
   if(kind==='master'){ CHKD.master=null; CHKD.masterName=null; CHKD.inv=null; }
   else { CHKD.dwak=null; CHKD.dwakName=null; CHKD_MAP_TOK=null; CHKD_MAP=null; chkdMapRender(); }                  /* ★ [MAP] ล้าง IMPORT → ล้าง Mapping */
+  if(kind!=='master') chkdPermitClear();                                                        /* ★ [local070] ล้าง PASTE Permit ของงานเก่า */
   CHKD.result=null;
   const l=document.getElementById('chkd-'+kind+'-list'); if(l) l.innerHTML='';
   const d=document.getElementById('chkd-'+kind+'-drop'); if(d) d.classList.remove('loaded');
@@ -5129,6 +5188,22 @@ function chkdWire(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',chkdWire); else chkdWire();
 
+/* ★ [local070] EXPORT EXCEL Permit — ใช้ DWAK + ผลตรวจ DUI / กรมสรรพสามิต ของ TYPE D เท่านั้น + PASTE (Builder กลาง chkXPermitExport) */
+async function chkdPermitExport(){
+  const r=CHKD.result, msg=document.getElementById('chkd-permit-msg');
+  if(!r||!r.rows||!CHKD.dwak){ chkdStatus('ไม่มีผลตรวจให้ Export Permit',true); return; }
+  try{
+    if(typeof window.chkXPermitExport!=='function') throw new Error('ไม่พบตัวสร้าง EXPORT Permit');
+    const res=await window.chkXPermitExport({ mode:'TYPE D', D:chkdDwakRows(CHKD.dwak), T:chkdT, date:chkdDate,
+      exc:(r.exc&&r.exc.diffs)||[], dui:(r.ex99&&r.ex99.diffs)||[], paste:(document.getElementById('chkd-permit-paste')||{}).value||'', dwakName:CHKD.dwakName||'' });
+    if(msg) msg.textContent=res.msg;
+    chkdStatus('Export Permit สำเร็จ — กรมสรรพสามิต '+res.n[0]+' · DUI '+res.n[1]+' · สมอ. '+res.n[2]+' รายการ'+(res.miss?' · ไม่พบใน DWAK '+res.miss+' รายการ':''),res.miss>0);
+  }catch(e){ chkdStatus('Export Permit ไม่สำเร็จ: '+(e.message||e),true); }
+}
+window.chkdPermitExport=chkdPermitExport;
+/* ★ [local070] ล้างช่อง PASTE Permit + ข้อความผล Parse / Match ไม่พบ */
+function chkdPermitClear(){ const t=document.getElementById('chkd-permit-paste'); if(t) t.value=''; const m=document.getElementById('chkd-permit-msg'); if(m) m.textContent=''; }
+window.chkdPermitClear=chkdPermitClear;
 window.chkdTablePage=chkdTablePage; window.chkdRun=chkdRun; window.chkdExport=chkdExport; window.chkdReset=chkdReset; window.chkdClear=chkdClear;
 /* ★ [local037] ข้อมูลค่าใช้จ่ายจาก TERM CALCULATOR — รับ Snapshot TERM_TRANSFER_TD ผ่าน Event 'term-transfer-td' เท่านั้น (ไม่อ่าน TERM_STATE)
    · แสดงผลอย่างเดียว · ไม่แตะ CHKD / chkdRun / chkdExport / chkdReset / PASS-FAIL */
@@ -5239,6 +5314,71 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     return await wb.xlsx.writeBuffer();
   }
   window.chkXBuildResultWb=build;
+})();
+</script>
+<script>
+/* ★ [local070] PASTE Permit + EXPORT EXCEL Permit — ใช้ร่วม TYPE 0 / TYPE 1 / TYPE D (Logic เดียวกัน · ข้อมูลของโหมดที่เรียกเท่านั้น)
+   · PASTE: "ITEM NO: 0003 Of INVOICE NO: 0070 (…)" หลายบรรทัด · Key = INVOICE NO + ITEM NO (ข้อความตามจริง คง 0 นำหน้า · ห้ามจับด้วย Item อย่างเดียว)
+     หน่วยงาน: บรรทัดระบุ "กรมสรรพสามิต" → กรมสรรพสามิต · ระบุ "DUI" → DUI · ไม่ระบุ → สมอ. (ข้อความในวงเล็บเป็นข้อความประกอบ ไม่ใช้เป็น Description)
+   · ลำดับ: รายการที่ระบบตรวจพบ (กรมสรรพสามิต - HS CODE / DUI - HS CODE) ก่อน → ต่อด้วย PASTE · ซ้ำ Invoice + Item + Permit แสดงครั้งเดียว
+   · รายละเอียดทุกคอลัมน์ดึงจากแถว DWAK จริง (ไม่ใช้ข้อความจาก PASTE · ไม่มีค่า = ว่าง) · Match ไม่พบ → รายงาน Invoice no. + Item entry
+   · ไฟล์ Excel แยกใหม่ (ไม่แตะ EXPORT ผลตรวจเดิม): 3 กลุ่ม กรมสรรพสามิต → DUI → สมอ. · แต่ละกลุ่ม หัวกลุ่ม + Header 12 ช่อง + รายการ + เว้น 1 แถว */
+(function(){
+  const P={ exc:'กรมสรรพสามิต', dui:'DUI', tis:'สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม' };
+  const TITLE={ exc:'ติดใบอนุญาต กรมสรรพสามิต', dui:'ติดใบอนุญาต DUI', tis:'ติดใบอนุญาต สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม (สมอ.)' };
+  const HEAD=['Item entry','Invoice no.','Date','Product Code','Description ENG','Description THAI','QTY','Unit','HS Code','Stat','Stat Unit','Permit'];
+  const WIDTH=[11,16,12,18,36,36,10,8,16,8,10,34];
+  const RE=/ITEM\s*NO\.?\s*:?\s*([^\s]+)\s+OF\s+INVOICE\s*NO\.?\s*:?\s*([^\s(]+)/i;
+  function parse(text){
+    const keys=[], bad=[];
+    String(text==null?'':text).split(/\r?\n/).forEach(ln=>{ const s=ln.trim(); if(!s) return;
+      const m=s.match(RE); if(!m){ bad.push(s); return; }
+      const rest=s.slice(0,m.index)+' '+s.slice(m.index+m[0].length);
+      const g=/กรมสรรพสามิต/.test(rest) ? 'exc' : (/(^|[^A-Za-z])DUI([^A-Za-z]|$)/i.test(rest) ? 'dui' : 'tis');
+      keys.push({ item:m[1], inv:m[2], g }); });
+    return { keys, bad };
+  }
+  async function exportPermit(o){
+    const D=o.D||[], T=o.T, G={ exc:[], dui:[], tis:[] }, seen=new Set();
+    const val=(d,n)=>{ const x=d.get(n); return x==null?'':x; };
+    const rowOf=(d,g)=>{ const dt=d.get('Invoice Date'); let dv=''; if(dt!=null && T(dt)!==''){ dv=((dt instanceof Date)||typeof dt==='number') ? (o.date(dt)||T(dt)) : T(dt); }
+      const q=val(d,'Qty.');
+      return [T(val(d,'Item No.')), T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), P[g]]; };
+    const add=(d,g)=>{ const k=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.'))+'|'+g; if(seen.has(k)) return; seen.add(k); G[g].push(rowOf(d,g)); };
+    for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน */
+    for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'dui');
+    const p=parse(o.paste), miss=[];
+    for(const k of p.keys){
+      const hit=D.filter(d=>T(val(d,'Item No.'))===k.item && T(d.invoice).toLowerCase()===k.inv.toLowerCase());   /* Invoice + Item ต้องตรงทั้งคู่ */
+      if(!hit.length){ miss.push(k); continue; }
+      hit.forEach(d=>add(d,k.g));
+    }
+    const wb=new ExcelJS.Workbook(); wb.creator='checkdecl';
+    const ws=wb.addWorksheet('Permit',{ views:[{ showGridLines:false }] });
+    ws.columns=WIDTH.map(w=>({ width:w }));
+    const side={ style:'thin', color:{ argb:'FFB7C4D0' } }, box={ top:side, left:side, bottom:side, right:side };
+    let n=1;
+    for(const g of ['exc','dui','tis']){
+      ws.mergeCells('A'+n+':L'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]; t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
+      t.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FF1F3864' } }; t.alignment={ vertical:'middle', indent:1 }; ws.getRow(n).height=24; n++;
+      HEAD.forEach((h,j)=>{ const c=ws.getRow(n).getCell(j+1); c.value=h; c.font={ name:'Tahoma', size:11, bold:true, color:{ argb:'FF1F3864' } };
+        c.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FFDCE9FB' } }; c.border=box; c.alignment={ vertical:'middle', horizontal:'center', wrapText:true }; }); n++;
+      for(const v of G[g]){ const R=ws.getRow(n); v.forEach((x,j)=>{ const c=R.getCell(j+1); c.value=x; c.font={ name:'Tahoma', size:11 }; c.border=box;
+          c.alignment={ vertical:'middle', wrapText:true, horizontal:(j===6?'right':'left') }; if(typeof x==='string') c.numFmt='@'; }); n++; }
+      n++;   /* เว้น 1 แถว */
+    }
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='Permit '+o.mode+'_'+String(o.dwakName||'DWAK').replace(/\.xlsx?$/i,'')+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    const L=[];
+    if(miss.length){ L.push('❌ ไม่พบใน DWAK '+miss.length+' รายการ:'); miss.forEach(k=>L.push('   Invoice no. '+k.inv+' · Item entry '+k.item)); }
+    if(p.bad.length){ L.push('⚠️ อ่านรูปแบบไม่ได้ '+p.bad.length+' บรรทัด:'); p.bad.forEach(b=>L.push('   '+b)); }
+    if(p.keys.length && !miss.length) L.push('✅ PASTE Match DWAK ครบ '+p.keys.length+' รายการ');
+    return { n:[G.exc.length,G.dui.length,G.tis.length], miss:miss.length, bad:p.bad.length, msg:L.join('\n'), groups:G };
+  }
+  window.chkXPermitParse=parse; window.chkXPermitExport=exportPermit;
 })();
 </script>
 <script>
