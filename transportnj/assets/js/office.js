@@ -16,7 +16,7 @@
 
   const NAV = [
     ['dashboard', '🏠', 'หน้าหลัก'], ['jobs', '🚚', 'งานขนส่ง'], ['jobs/new', '➕', 'สร้างงาน'], ['map', '🗺️', 'แผนที่ GPS'], ['schedule', '📅', 'ตารางงาน'],
-    ['reports', '📊', 'รายงาน'], ['mileage', '⛽', 'ไมล์รถ/น้ำมัน'], ['documents', '📁', 'เอกสาร'], ['masters/customers', '🏢', 'ลูกค้า'], ['masters/drivers', '👤', 'คนขับ'],
+    ['documents', '📁', 'เอกสาร'], ['masters/customers', '🏢', 'ลูกค้า'], ['masters/drivers', '👤', 'คนขับ'],
     ['masters/vehicles', '🚛', 'รถ'], ['masters/locations', '📍', 'สถานที่'], ['settings', '⚙️', 'ตั้งค่า'],
   ];
   const CARDS = [
@@ -119,7 +119,7 @@
   /* ---------- jobs list ---------- */
   async function pageJobs(page, r) {
     await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1);
-    page.innerHTML = `<div class="page-head"><h1>งานขนส่ง</h1><div class="flex"><button class="btn" id="jfClear">ล้างตัวกรอง</button><a class="btn btn-p" href="#/jobs/new">+ สร้างงานขนส่ง</a></div></div>
+    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button></div><div class="flex"><h1>🚚 งานขนส่ง</h1><button class="btn" id="jfClear">ล้างตัวกรอง</button></div></div>
       <div class="card card-b mb2"><div class="grid g4" id="jf">
         <div class="field"><label>Keyword</label><input class="inp" name="q" value="${h(q.q || '')}" placeholder="Job No. / B/L / ลูกค้า / Container / คนขับ / ทะเบียน"></div>
         <div class="field"><label>วันที่</label><div class="inline-row"><input type="date" class="inp" name="date_from" value="${h(q.date || q.date_from || '')}"><input type="date" class="inp" name="date_to" value="${h(q.date || q.date_to || '')}"></div></div>
@@ -134,6 +134,18 @@
     const load = async () => { try { const d = await T.auth('tnj_job_list', { p: read() }, { silent: true }); $('#jList').innerHTML = jobsTable(d.rows); bindJobRows($('#jList')); const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#jPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} รายการ · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="pgPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="pgNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#pgPrev').onclick = () => { pageNo--; load(); }; $('#pgNext').onclick = () => { pageNo++; load(); }; } catch (e) { T.err(e); } };
     $$('#jf [name]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', T.debounce(() => { pageNo = 1; load(); }, 400)));
     $('#jfClear').onclick = () => T.go('jobs');
+    $('#jRep').onclick = () => openReportModal();
+    $('#jXls').onclick = async () => { try { T.loading(true);
+      const f = read(); delete f.page; delete f.page_size; let rows = [], pg = 1, total = 0;
+      do { const d = await T.auth('tnj_job_list', { p: Object.assign({}, f, { page: pg, page_size: 500 }) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 200);
+      const rf = { include_cancelled: true, page: 0 }; ['date_from', 'date_to', 'vehicle_id', 'driver_id', 'license_plate', 'customer', 'status'].forEach((k) => { if (f[k]) rf[k] = f[k]; });
+      const rep = rows.length ? await T.auth('tnj_report_rows', { p: rf }, { silent: true }) : { rows: [] }; const mm = {}; rep.rows.forEach((x) => { mm[x.job_id] = x; });
+      const N = (v) => (v != null && v !== '' ? Number(v) : '');
+      const aoa = [['วันที่', 'Job No.', 'B/L', 'Customer', 'Container No.', 'รถ', 'ทะเบียนรถ', 'คนขับ', 'ท่ารับตู้', 'โรงงาน', 'จุดคืนตู้', 'ไมล์ก่อน', 'ไมล์หลัง', 'ระยะทาง (กม.)', 'น้ำมัน (ลิตร)', 'ค่าน้ำมันรวม (บาท)', 'กม./ลิตร', 'Job Status', 'GPS ล่าสุด']]
+        .concat(rows.map((j) => { const x = mm[j.id] || {}; return [j.job_date, j.job_no, j.bl_no, j.customer_name, j.container_no || '', j.vehicle_name || '', j.license_plate || '', j.driver_name || '', j.pickup_location_text || '', j.factory_location_text || '', j.return_location_text || '', N(x.start_mileage), N(x.end_mileage), N(x.total_distance), N(x.fuel_liters), N(x.fuel_amount), x.km_per_liter != null ? Number(x.km_per_liter) : '-', T.ST_TH[j.status] || j.status, j.last_gps_at ? T.fmtDT(j.last_gps_at) : '-']; }));
+      const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [10, 14, 14, 24, 14, 14, 12, 16, 20, 20, 20, 11, 11, 12, 12, 14, 9, 14, 16].map((w) => ({ wch: w }));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Jobs'); XLSX.writeFile(wb, `TransportNJ_Jobs_${f.date_from || ''}_${f.date_to || ''}.xlsx`); T.toast(`Export ${rows.length} งาน`, 'ok');
+    } catch (e) { T.err(e); } finally { T.loading(false); } };
     load(); T.subscribe('tnj:office', T.debounce(load, 1500)); T.every('jobs', 60000, load);
   }
 
@@ -327,22 +339,22 @@
   }
 
   /* ---------- reports ---------- */
-  async function pageReports(page, r) {
+  async function pageReports(page, r, opt = {}) {
     await loadMasters(); let mode = r.q.mode || 'all'; let pageNo = 1; let lastFilter = {};
     const d0 = T.todayISO().slice(0, 8) + '01';
-    page.innerHTML = `<div class="page-head"><h1>📊 รายงาน</h1><div class="tabs" style="margin:0;border:0"><button data-m="all" class="${mode === 'all' ? 'active' : ''}">ทั้งหมด</button><button data-m="vehicle" class="${mode === 'vehicle' ? 'active' : ''}">ตามรถ</button><button data-m="driver" class="${mode === 'driver' ? 'active' : ''}">ตาม Driver</button></div></div>
+    page.innerHTML = `<div class="page-head">${opt.modal ? '' : '<h1>📊 รายงาน</h1>'}<div class="tabs rp-tabs" style="margin:0;border:0"><button data-m="all" class="${mode === 'all' ? 'active' : ''}">ทั้งหมด</button><button data-m="vehicle" class="${mode === 'vehicle' ? 'active' : ''}">ตามรถ</button><button data-m="driver" class="${mode === 'driver' ? 'active' : ''}">ตาม Driver</button></div></div>
       <div class="card card-b mb2"><div class="grid g4" id="rf"><div class="field"><label>วันที่เริ่ม</label><input type="date" class="inp" name="date_from" value="${d0}"></div><div class="field"><label>วันที่สิ้นสุด</label><input type="date" class="inp" name="date_to" value="${T.todayISO()}"></div>
         <div class="field rp-all"><label>Job No.</label><input class="inp" name="job_no"></div><div class="field rp-all"><label>B/L</label><input class="inp" name="bl_no"></div><div class="field rp-all"><label>Customer</label><input class="inp" name="customer" list="dlCust3"><datalist id="dlCust3">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
         <div class="field rp-all rp-vehicle"><label>รถ / ทะเบียนรถ</label><select class="inp" name="vehicle_id">${opts(M.vehicles, 'id', (v) => `${v.vehicle_name} (${v.license_plate})`, r.q.vehicle_id, 'ทั้งหมด')}</select></div><div class="field rp-all"><label>ทะเบียนรถ (พิมพ์)</label><input class="inp" name="license_plate"></div>
         <div class="field rp-all rp-driver"><label>Driver</label><select class="inp" name="driver_id">${opts(M.drivers, 'id', 'full_name', r.q.driver_id, 'ทั้งหมด')}</select></div><div class="field rp-all"><label>Status</label><select class="inp" name="status"><option value="">ทั้งหมด</option>${stOpts('')}</select></div></div>
         <div class="flex flex-wrap"><button class="btn btn-p" id="rpGo">🔍 ค้นหา</button><button class="btn" id="rpClear">ล้างตัวกรอง</button><button class="btn btn-g" id="rpXls">📥 EXPORT EXCEL</button></div></div>
       <div id="rpSum" class="stats" style="grid-template-columns:repeat(8,1fr)"></div><div class="card"><div id="rpList"></div><div class="pager" id="rpPager"></div></div>`;
-    const setMode = (mm) => { mode = mm; $$('.page-head .tabs button').forEach((b) => b.classList.toggle('active', b.dataset.m === mode)); $$('#rf .field').forEach((f) => f.classList.toggle('hidden', !(f.classList.contains('rp-' + mode) || !f.className.includes('rp-')))); };
-    $$('.page-head .tabs button').forEach((b) => b.onclick = () => { setMode(b.dataset.m); pageNo = 1; load(); }); setMode(mode);
+    const setMode = (mm) => { mode = mm; $$('.rp-tabs button', page).forEach((b) => b.classList.toggle('active', b.dataset.m === mode)); $$('#rf .field').forEach((f) => f.classList.toggle('hidden', !(f.classList.contains('rp-' + mode) || !f.className.includes('rp-')))); };
+    $$('.rp-tabs button', page).forEach((b) => b.onclick = () => { setMode(b.dataset.m); pageNo = 1; load(); }); setMode(mode);
     const read = () => { const o = {}; $$('#rf [name]').forEach((i) => { if (i.value && !i.closest('.field').classList.contains('hidden')) o[i.name] = i.value; }); return o; };
     const sumCards = (s, extra) => { const items = [['จำนวน Job', s.jobs], ['จำนวนรถ', s.vehicles], ['จำนวน Driver', s.drivers], ['ระยะทางรวม (กม.)', T.num(s.distance)], ['น้ำมันรวม (ลิตร)', T.num(s.liters, 2)], ['ค่าน้ำมันรวม (บาท)', T.num(s.amount, 2)], ['กม./ลิตร เฉลี่ย', T.kml(s.kml)], ['งานข้อมูลไม่ครบ', s.incomplete]].concat(extra || []); return items.map(([l, v]) => `<div class="stat"><div class="l">${l}</div><div class="v" style="font-size:20px">${v == null ? '-' : v}</div></div>`).join(''); };
     const rowsHtml = (rows) => isMobile() ? `<div class="rep-cards" style="padding:10px">${rows.map((x) => `<div class="jobcard"><div class="flex between"><b style="font-size:17px;color:var(--navy)">${h(x.job_no)}</b>${T.badge(x.status)}</div><div class="small">B/L: ${h(x.bl_no)}<br>รถ: ${h(x.vehicle_name || '-')} · ทะเบียน: ${h(x.license_plate || '-')}<br>คนขับ: ${h(x.driver_name || '-')}</div><div class="small mt1">ระยะ: <b>${T.num(x.total_distance)} กม.</b> · น้ำมัน: ${T.num(x.fuel_liters, 2)} ลิตร<br>รวม: ${T.num(x.fuel_amount, 2)} บาท · เฉลี่ย: ${T.kml(x.km_per_liter)} กม./ลิตร</div><button class="btn btn-sm btn-p mt1" data-det="${x.job_id}">ดูรายละเอียด</button></div>`).join('') || '<div class="empty">ไม่พบข้อมูล</div>'}</div>`
-      : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>วันที่</th><th>Job No.</th><th>B/L</th><th>ลูกค้า</th><th>รถ</th><th>ทะเบียนรถ</th><th>คนขับ</th><th class="r">ไมล์ก่อน</th><th class="r">ไมล์หลัง</th><th class="r">ระยะ (กม.)</th><th class="r">น้ำมัน (ลิตร)</th><th class="r">รวม (บาท)</th><th class="r">กม./ลิตร</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>${rows.map((x) => `<tr><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="b">${h(x.job_no)}</td><td>${h(x.bl_no)}</td><td class="ell" style="max-width:150px">${h(x.customer_name)}</td><td>${h(x.vehicle_name || '-')}</td><td>${h(x.license_plate || '-')}</td><td>${h(x.driver_name || '-')}</td><td class="r">${T.num(x.start_mileage)}</td><td class="r">${T.num(x.end_mileage)}</td><td class="r b">${T.num(x.total_distance)}</td><td class="r">${T.num(x.fuel_liters, 2)}</td><td class="r">${T.num(x.fuel_amount, 2)}</td><td class="r">${T.kml(x.km_per_liter)}</td><td>${T.badge(x.status)}${x.incomplete_flag ? ' ⚠' : ''}</td><td><button class="btn btn-sm" data-det="${x.job_id}">ดูรายละเอียด</button></td></tr>`).join('') || '<tr><td colspan="15" class="empty">ไม่พบข้อมูล</td></tr>'}</tbody></table></div>`;
+      : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>วันที่</th><th>Job No.</th><th>B/L</th><th>ลูกค้า</th><th>รถ</th><th>ทะเบียนรถ</th><th>คนขับ</th><th class="r">ไมล์ก่อน</th><th class="r">ไมล์หลัง</th><th class="r">ระยะ (กม.)</th><th class="r">น้ำมัน (ลิตร)</th><th class="r">รวม (บาท)</th><th class="r">กม./ลิตร</th><th>Status</th>${opt.modal ? '' : '<th>จัดการ</th>'}</tr></thead><tbody>${rows.map((x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="b">${h(x.job_no)}</td><td>${h(x.bl_no)}</td><td class="ell" style="max-width:150px">${h(x.customer_name)}</td><td>${h(x.vehicle_name || '-')}</td><td>${h(x.license_plate || '-')}</td><td>${h(x.driver_name || '-')}</td><td class="r">${T.num(x.start_mileage)}</td><td class="r">${T.num(x.end_mileage)}</td><td class="r b">${T.num(x.total_distance)}</td><td class="r">${T.num(x.fuel_liters, 2)}</td><td class="r">${T.num(x.fuel_amount, 2)}</td><td class="r">${T.kml(x.km_per_liter)}</td><td>${T.badge(x.status)}${x.incomplete_flag ? ' ⚠' : ''}</td>${opt.modal ? '' : '<td><button class="btn btn-sm">ดูรายละเอียด</button></td>'}</tr>`).join('') || '<tr><td colspan="15" class="empty">ไม่พบข้อมูล</td></tr>'}</tbody></table></div>`;
     const bindDet = () => $$('[data-det]', page).forEach((b) => b.onclick = () => openReportDetail(b.dataset.det));
     const load = async () => { try { const f = read(); lastFilter = f;
       if (mode === 'all') { const d = await T.auth('tnj_report_rows', { p: Object.assign({ page: pageNo, page_size: 50 }, f) }, { silent: true }); $('#rpSum').innerHTML = sumCards(d.summary); $('#rpList').innerHTML = rowsHtml(d.rows); const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#rpPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="rPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="rNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#rPrev').onclick = () => { pageNo--; load(); }; $('#rNext').onclick = () => { pageNo++; load(); }; }
@@ -357,6 +369,11 @@
       aoa.push([]); aoa.push(['Total', `จำนวน Job: ${sum.jobs}`, '', '', '', '', '', '', '', 'ระยะทางรวม', Number(sum.distance || 0), Number(sum.liters || 0), Number(sum.amount || 0), sum.kml != null ? Number(sum.kml) : '-', `กม./ลิตร เฉลี่ย: ${T.kml(sum.kml)}`]);
       const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [10, 14, 14, 24, 14, 14, 12, 16, 12, 12, 12, 12, 12, 8, 18].map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Report'); XLSX.writeFile(wb, `TransportNJ_Report_${(f.date_from || '')}_${(f.date_to || '')}.xlsx`); T.toast(`Export ${rows.length} แถว`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); } };
     load();
+  }
+  function openReportModal() {
+    const ov = document.createElement('div'); ov.className = 'overlay'; ov.id = 'rpModal'; ov.innerHTML = `<div class="modal w" style="max-width:1280px"><div class="modal-h"><h3>📈 รายงาน — ไมล์รถ / น้ำมัน (ผูกกับงานขนส่ง)</h3><button class="x" data-x>×</button></div><div class="modal-b" id="rpModalBody"></div></div>`; document.body.appendChild(ov);
+    ov.querySelector('[data-x]').onclick = () => ov.remove(); ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    pageReports($('#rpModalBody', ov), { q: {} }, { modal: true });
   }
   function openReportDetail(jobId) {
     const ov = document.createElement('div'); ov.className = 'overlay'; ov.innerHTML = `<div class="modal w" style="max-width:1100px"><div class="modal-h"><h3>รายละเอียดงาน</h3><button class="x" data-x>×</button></div><div class="modal-b" id="rdBody"></div></div>`; document.body.appendChild(ov);

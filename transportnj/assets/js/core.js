@@ -3,7 +3,6 @@
   'use strict';
   const C = self.TNJ_CONFIG;
   const fatal = (title, detail) => { const a = document.getElementById('app'); if (a) a.innerHTML = `<div class="screen"><div class="login-card c"><h2 style="color:var(--red)">❌ ${title}</h2><p class="muted">${detail}</p><button class="btn btn-p btn-block" onclick="location.reload()">ลองใหม่</button><div class="xs muted mt1">LOCAL VERSION: ${(C && C.APP_VERSION) || '-'}</div></div></div>`; };
-  if (location.protocol === 'file:') { document.addEventListener('DOMContentLoaded', () => fatal('เปิด TRANSPORT NJ ผ่านไฟล์โดยตรงไม่ได้', 'กรุณาดับเบิลคลิก <b>OPEN-LOCAL.bat</b> เพื่อเปิดผ่าน http://localhost')); return; }
   if (!C || !window.supabase || !window.L) { document.addEventListener('DOMContentLoaded', () => fatal('โหลดไลบรารีของระบบไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต (ต้องโหลด Supabase / Leaflet จาก CDN) แล้วกด ลองใหม่')); return; }
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -285,7 +284,7 @@
       <form id="loginForm"><div class="field"><label>รหัสพนักงาน</label><input class="inp inp-lg" id="lgUser" autocomplete="username" autocapitalize="off" required></div>
       <div class="field"><label>รหัสผ่าน</label><input class="inp inp-lg" id="lgPw" type="password" autocomplete="current-password" required></div>
       <button class="btn btn-p btn-lg btn-block" type="submit">เข้าสู่ระบบ</button></form>
-      <div class="c xs muted mt2">${/^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'โหมด LOCAL (localhost) · ' : ''}เวอร์ชัน ${T.h(C.APP_VERSION)}${T.server.version && T.server.version !== C.APP_VERSION ? ' · server ' + T.h(T.server.version) : ''}</div></div></div>`;
+      <div class="c xs muted mt2">${location.protocol === 'file:' ? 'โหมด LOCAL (Open check) · ' : /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'โหมด LOCAL (localhost) · ' : ''}เวอร์ชัน ${T.h(C.APP_VERSION)}${T.server.version && T.server.version !== C.APP_VERSION ? ' · server ' + T.h(T.server.version) : ''}</div></div></div>`;
     $('#loginForm').onsubmit = async (e) => { e.preventDefault(); try { const s = await T.login($('#lgUser').value.trim(), $('#lgPw').value); T.toast(`ยินดีต้อนรับ ${s.full_name}`, 'ok'); location.hash = s.role === 'DRIVER' ? '#/d/jobs' : '#/dashboard'; } catch (er) { const p = T.parseErr(er); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') T.checkVersion(true); else if (!p.code && (T.isNetErr(er) || T.isNotInstalled(er))) { T.connError(er); T.toast(T.isNetErr(er) ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' : 'ฐานข้อมูลยังไม่พร้อม', 'err'); } else T.toast(p.text, 'err'); } };
   };
 
@@ -301,7 +300,7 @@
     window.addEventListener('online', () => { T.checkVersion(true); T.toast('กลับมาออนไลน์แล้ว', 'ok'); });
     window.addEventListener('offline', () => T.toast('ออฟไลน์ — ข้อมูลจะถูกส่งเมื่อกลับมาออนไลน์', 'warn'));
     setInterval(() => T.checkVersion(), C.VERSION_CHECK_SEC * 1000);
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => { }); navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'TNJ_NEW_SW') T.checkVersion(true); }); }
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('sw.js').catch(() => { }); navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'TNJ_NEW_SW') T.checkVersion(true); }); }
     T.render();
   };
   document.addEventListener('DOMContentLoaded', T.boot);
