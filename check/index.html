@@ -5668,7 +5668,9 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     const rowOf=(d,g)=>{ const dt=d.get('Invoice Date'); let dv=''; if(dt!=null && T(dt)!==''){ dv=((dt instanceof Date)||typeof dt==='number') ? (o.date(dt)||T(dt)) : T(dt); }
       const q=val(d,'Qty.');
       return [T(val(d,'Item No.')), T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), (P[g]||g.slice(2))]; };
-    const add=(d,g)=>{ const k=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.'))+'|'+g; if(seen.has(k)) return; seen.add(k); if(!G[g]) G[g]=[]; G[g].push(rowOf(d,g)); };   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
+    const FT='x:กรมการค้าต่างประเทศ', cnt={ dui:new Set(), x:new Set() };   /* ★ [local083] DUI = กรมการค้าต่างประเทศ (ใบอนุญาตเดียวกัน) → กลุ่มเดียว · cnt = ตัวเลขสถานะบนหน้าจอเดิม */
+    const add=(d,g0)=>{ const ki=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')); if(g0==='dui') cnt.dui.add(ki); else if(g0.indexOf('x:')===0) cnt.x.add(ki+'|'+g0);
+      const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)) return; seen.add(k); if(!G[g]) G[g]=[]; G[g].push(rowOf(d,g)); };   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
     for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน */
     for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'dui');
     for(const it of (o.pm||[])){ const d=D[it._r-1]; if(!d) continue;   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (ผล Lookup ชุดเดียวกับหน้าจอ) · ครบทุกหน่วยงาน */
@@ -5685,7 +5687,8 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     const side={ style:'thin', color:{ argb:'FFB7C4D0' } }, box={ top:side, left:side, bottom:side, right:side };
     let n=1;
     const XG=Object.keys(G).filter(k=>k.indexOf('x:')===0);   /* ★ [local071] หน่วยงานอื่นจาก MASTER · ต่อท้ายตามลำดับที่พบ */
-    for(const g of ['exc','dui','tis'].concat(XG)){
+    if(G[FT]){ const ni=v=>{ const x=parseInt(String(v[0]).replace(/[^0-9]/g,''),10); return isNaN(x)?Infinity:x; }; G[FT].sort((a,b)=>ni(a)-ni(b)); }   /* ★ [local083] Item น้อย → มาก */
+    for(const g of ['exc','tis'].concat(XG)){   /* ★ [local083] ไม่มีหัวข้อ "ติดใบอนุญาต DUI" */
       ws.mergeCells('A'+n+':L'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]||('ติดใบอนุญาต '+g.slice(2)); t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
       t.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FF1F3864' } }; t.alignment={ vertical:'middle', indent:1 }; ws.getRow(n).height=24; n++;
       HEAD.forEach((h,j)=>{ const c=ws.getRow(n).getCell(j+1); c.value=h; c.font={ name:'Tahoma', size:11, bold:true, color:{ argb:'FF1F3864' } };
@@ -5705,7 +5708,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     if(miss.length){ L.push('❌ ไม่พบใน DWAK '+miss.length+' รายการ:'); miss.forEach(k=>L.push('   Invoice no. '+k.inv+' · Item entry '+k.item)); }
     if(p.bad.length){ L.push('⚠️ อ่านรูปแบบไม่ได้ '+p.bad.length+' บรรทัด:'); p.bad.forEach(b=>L.push('   '+b)); }
     if(p.keys.length && !miss.length) L.push('✅ PASTE Match DWAK ครบ '+p.keys.length+' รายการ');
-    return { n:[G.exc.length,G.dui.length,G.tis.length], nx:XG.reduce((a,k)=>a+G[k].length,0), miss:miss.length, bad:p.bad.length, msg:L.join('\n'), groups:G };
+    return { n:[G.exc.length,cnt.dui.size,G.tis.length], nx:cnt.x.size, miss:miss.length, bad:p.bad.length, msg:L.join('\n'), groups:G };   /* ★ [local083] ตัวเลขหน้าจอเท่าเดิม */
   }
   window.chkXPermitParse=parse; window.chkXPermitExport=exportPermit;
 })();
@@ -5792,17 +5795,23 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
   function parsePaste(text){
     const out=[]; let lay=null;   /* { mode:i } | { imp:i, exp:i } */
     String(text==null?'':text).split(/\r?\n/).forEach((ln,i)=>{ if(T(ln)==='') return; const c=ln.split('\t');
-      if(/tariff|หน่วยงาน/i.test(c[0]||'') || /tariff|หน่วยงาน/i.test(c[3]||'')){   /* แถวหัวตาราง → กำหนดรูปแบบ */
+      if(c.some(v=>/tariff/i.test(v||'') || T(v)==='หน่วยงาน')){   /* แถวหัวตาราง → กำหนดรูปแบบ · ★ [local083] จับทุกช่องตามชื่อ Header (คอลัมน์สลับได้) */
         const h=c.map(v=>T(v).toUpperCase()); const im=h.findIndex(v=>v==='MODE'||v==='MOLE');
         const both=h.indexOf('IMPORT')>=0 && h.indexOf('EXPORT')>=0;   /* ★ [local072] มี IMPORT + EXPORT ครบ → ใช้ 2 ช่องนี้ (MODE ในไฟล์ EXPORT MASTER = ค่าที่คำนวณแล้ว) */
-        lay = (im>=0 && !both) ? { mode:im, cond:5, eff:6 } : { imp:h.indexOf('IMPORT'), exp:h.indexOf('EXPORT'), cond:-1, eff:-1 }; return; }
-      const L = lay || (c.length>=7 ? { mode:4, cond:5, eff:6 } : { imp:4, exp:5, cond:-1, eff:-1 });
-      const x={ line:i+1, tariff:T(c[0]), stat:T(c[1]), tax_no:c[2]==null?'':String(c[2]).trim(), agency:T(c[3]), imp:'', exp:'', mode:'',
+        const fi=re=>h.findIndex(v=>re.test(v)), known=[];
+        const tar=fi(/^(?!.*STATISTICAL).*TARIFF/), sta=fi(/STATISTICAL|^STAT$/), tax=fi(/TAX/), ag=h.findIndex(v=>v==='หน่วยงาน'||v==='AGENCY');
+        const cnd=fi(/เงื่อนไข|PERMIT|COND/), efd=h.findIndex((v,j)=>/วันที่|DATE|EFF/.test(v) && v!=='วันที่บันทึก');
+        known.push(tar,sta,tax,ag,im,h.indexOf('IMPORT'),h.indexOf('EXPORT'));
+        const leg=(j,f)=> f>=0 ? f : ((im>=0 && !both && h[j]!=null && h[j]!=='' && known.indexOf(j)<0) ? j : -1);   /* ไม่มีชื่อ Header ที่รู้จัก → ตำแหน่งเดิม 5/6 เฉพาะคอลัมน์ที่ไม่ใช่ Header อื่น */
+        lay = Object.assign((im>=0 && !both) ? { mode:im } : { imp:h.indexOf('IMPORT'), exp:h.indexOf('EXPORT') }, { tar, sta, tax, ag, cond:leg(5,cnd), eff:leg(6,efd), hdr:true }); return; }
+      const L = lay || { tar:0, sta:1, ag:2, mode:3, cond:4, eff:5, tax:6, hdr:true };   /* ★ [local083] ไม่มี Header: Tariff · Stat · หน่วยงาน · IMPORT/EXPORT · เงื่อนไข · Issue Date · Tax No. */
+      const H=L.hdr, at=j=>(j==null||j<0) ? '' : T(c[j]);   /* ★ [local083] Header ไม่มี → ค่าว่าง */
+      const x={ line:i+1, tariff:H?at(L.tar):T(c[0]), stat:H?at(L.sta):T(c[1]), tax_no:H?(L.tax>=0&&c[L.tax]!=null?String(c[L.tax]).trim():''):(c[2]==null?'':String(c[2]).trim()), agency:H?at(L.ag):T(c[3]), imp:'', exp:'', mode:'',
         permit_cond:L.cond>=0?T(c[L.cond]):'', eff_date:L.eff>=0?T(c[L.eff]):'' };
       if(L.mode!=null){ const m=T(c[L.mode]); x.src=m; x.mode=MODE_OF[m]||''; if(x.mode==='IMPORT'||x.mode==='IMPORT + EXPORT') x.imp=m; if(x.mode==='EXPORT'||x.mode==='IMPORT + EXPORT') x.exp=m; if(m!=='' && !x.mode) x.modeBad=m; }
       else { x.imp=L.imp>=0?T(c[L.imp]):''; x.exp=L.exp>=0?T(c[L.exp]):''; x.mode = x.imp&&x.exp ? 'IMPORT + EXPORT' : (x.imp ? 'IMPORT' : (x.exp ? 'EXPORT' : '')); }
       x.mole=MOLE_OF[x.mode]||''; x.tariff_key=tKey(x.tariff); x.stat_key=sKey(x.stat);
-      x.err = c.length<4 ? 'คอลัมน์ไม่ครบ' : (!x.tariff_key ? 'Tariff ไม่ถูกต้อง' : (!x.stat_key ? 'Stat ไม่ถูกต้อง' : (!x.agency ? 'ไม่มีหน่วยงาน' : (x.modeBad ? 'MODE ไม่ถูกต้อง ('+x.modeBad+')' : ''))));
+      x.err = c.length<4 ? 'คอลัมน์ไม่ครบ' : (!x.tariff_key ? 'Tariff ไม่ถูกต้อง' : (!x.stat_key ? 'Stat ไม่ถูกต้อง' : (!x.agency ? 'ไม่มีหน่วยงาน' : (x.modeBad ? 'MODE ไม่ถูกต้อง ('+x.modeBad+')'+(lay?'':' · ไม่มี Header: คอลัมน์ 4 ต้องเป็น นำเข้า / ส่งออก / นำเข้าและส่งออก') : ''))));   /* ★ [local083] แจ้งให้ใส่ Header */
       x.nomode=!x.mode;
       out.push(x); });
     return out;
