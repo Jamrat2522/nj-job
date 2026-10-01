@@ -1,10 +1,10 @@
 // TRANSPORT NJ — runtime config (loaded by index.html AND sw.js via importScripts)
-// APP_VERSION must equal the version announced on the server (system_settings.transportnj_release.version)
+// APP_VERSION: build label (display / audit info only — never blocks login)
 // — change it on every release, then announce from ตั้งค่า → ประกาศเวอร์ชัน (SUPER_ADMIN).
 self.TNJ_CONFIG = {
   APP_NAME: 'TRANSPORT NJ',
   APP_CODE: 'transport',
-  APP_VERSION: 'local104',
+  APP_VERSION: 'local105',
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
   FILES_FN: 'https://sytgqjglcnsabcszbngg.supabase.co/functions/v1/transportnj-files',

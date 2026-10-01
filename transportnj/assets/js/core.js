@@ -75,7 +75,7 @@
 
   /* ---------- errors ---------- */
   T.parseErr = (e) => { const m = (e && (e.message || e.error)) || String(e); const code = (m.match(/TNJ_[A-Z_]+/) || [])[0]; let text = m; if (code === 'TNJ_VALIDATION') text = m.split('TNJ_VALIDATION:')[1] || m; else if (code === 'TNJ_FORBIDDEN') text = 'คุณไม่มีสิทธิ์ทำรายการนี้'; else if (code === 'TNJ_SESSION_INVALID') text = 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'; else if (code === 'TNJ_MAINTENANCE') text = 'ระบบกำลังอัปเดตเวอร์ชันใหม่'; else if (code === 'TNJ_VERSION_MISMATCH') text = 'เวอร์ชันแอปไม่ตรงกับเซิร์ฟเวอร์'; else if (/Failed to fetch|NetworkError|Load failed/i.test(m)) text = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต'; return { code, text: text.replace(/\s*\(SQLSTATE.*$/, '').trim() }; };
-  T.err = (e) => { const p = T.parseErr(e); console.warn('TNJ error', e); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') { T.checkVersion(true); return p; } if (p.code === 'TNJ_SESSION_INVALID') { T.logout(true, p.text); return p; } if (!p.code && T.isNetErr(e)) T.connError(e); T.toast(p.text, 'err', 4500); return p; };
+  T.err = (e) => { const p = T.parseErr(e); console.warn('TNJ error', e); if (p.code === 'TNJ_MAINTENANCE') { T.checkVersion(true); return p; } if (p.code === 'TNJ_SESSION_INVALID' || p.code === 'TNJ_VERSION_MISMATCH') { T.logout(true, 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'); return p; } if (!p.code && T.isNetErr(e)) T.connError(e); T.toast(p.text, 'err', 4500); return p; };
 
   /* ---------- RPC ---------- */
   T.rpc = async (fn, args = {}, opt = {}) => {
@@ -87,9 +87,9 @@
 
   /* ---------- session ---------- */
   T.saveSession = (s) => { T.session = s; try { if (s) localStorage.setItem(C.SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(C.SESSION_KEY); } catch (_) { } };
-  T.loadSession = () => { try { const s = JSON.parse(localStorage.getItem(C.SESSION_KEY) || 'null'); if (s && s.token && s.app_version === C.APP_VERSION) T.session = s; else if (s) localStorage.removeItem(C.SESSION_KEY); } catch (_) { T.session = null; } return T.session; };
+  T.loadSession = () => { try { const s = JSON.parse(localStorage.getItem(C.SESSION_KEY) || 'null'); if (s && s.token) T.session = s; else if (s) localStorage.removeItem(C.SESSION_KEY); } catch (_) { T.session = null; } return T.session; };
   T.login = async (username, password) => {
-    const data = await T.rpc('tnj_login', { p_username: username, p_password: password, p_app_version: C.APP_VERSION, p_device: navigator.userAgent.slice(0, 200) });
+    const data = await T.rpc('tnj_login', { p_username: username, p_password: password, p_app_version: null, p_device: (C.APP_VERSION + ' | ' + navigator.userAgent).slice(0, 200) }); // version = info only (never a login gate)
     data.app_version = C.APP_VERSION; T.saveSession(data); return data;
   };
   T.logout = async (silent, msg) => {
@@ -125,7 +125,6 @@
         T.server = Object.assign({}, data, { offsetMs: new Date(data.server_time).getTime() - Date.now(), online: true });
         T.hideConnError();
         if (data.maintenance_active) { T.showMaintenance(data); return T.server; }
-        if (data.version && data.version !== C.APP_VERSION) { await T.handleMismatch(data); return T.server; }
         T.hideGate();
       } catch (e) { T.server.online = false; console.warn('version check failed', e); T.connError(e); }
       finally { checking = null; }
@@ -285,15 +284,15 @@
       <div class="field"><label>รหัสผ่าน</label><input class="inp inp-lg" id="lgPw" type="password" autocomplete="current-password" required></div>
       <button class="btn btn-p btn-lg btn-block" type="submit">เข้าสู่ระบบ</button></form>
       <div class="c xs muted mt2">${location.protocol === 'file:' ? 'โหมด LOCAL (Open check) · ' : /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'โหมด LOCAL (localhost) · ' : ''}เวอร์ชัน ${T.h(C.APP_VERSION)}${T.server.version && T.server.version !== C.APP_VERSION ? ' · server ' + T.h(T.server.version) : ''}</div></div></div>`;
-    $('#loginForm').onsubmit = async (e) => { e.preventDefault(); try { const s = await T.login($('#lgUser').value.trim(), $('#lgPw').value); T.toast(`ยินดีต้อนรับ ${s.full_name}`, 'ok'); location.hash = s.role === 'DRIVER' ? '#/d/jobs' : '#/jobs'; } catch (er) { const p = T.parseErr(er); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') T.checkVersion(true); else if (!p.code && (T.isNetErr(er) || T.isNotInstalled(er))) { T.connError(er); T.toast(T.isNetErr(er) ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' : 'ฐานข้อมูลยังไม่พร้อม', 'err'); } else T.toast(p.text, 'err'); } };
+    $('#loginForm').onsubmit = async (e) => { e.preventDefault(); try { const s = await T.login($('#lgUser').value.trim(), $('#lgPw').value); T.toast(`ยินดีต้อนรับ ${s.full_name}`, 'ok'); location.hash = s.role === 'DRIVER' ? '#/d/jobs' : '#/jobs'; } catch (er) { const p = T.parseErr(er); if (p.code === 'TNJ_MAINTENANCE') T.checkVersion(true); else if (!p.code && (T.isNetErr(er) || T.isNotInstalled(er))) { T.connError(er); T.toast(T.isNetErr(er) ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' : 'ฐานข้อมูลยังไม่พร้อม', 'err'); } else T.toast(p.text, 'err'); } };
   };
 
   /* ---------- boot ---------- */
   T.boot = async () => {
     T.loadSession();
     await T.checkVersion(true);
-    if (T.server.maintenance_active || (T.server.version && T.server.version !== C.APP_VERSION)) return;
-    if (T.session) { try { const d = await T.rpc('tnj_session_check', { p_token: T.session.token }, { silent: true }); T.applySettings(d); T.session = Object.assign({}, T.session, { role: d.role, driver_id: d.driver_id, full_name: d.full_name }); } catch (e) { const p = T.parseErr(e); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') { T.checkVersion(true); return; } if (p.code) { T.saveSession(null); T.session = null; if (p.code === 'TNJ_SESSION_INVALID') T.toast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warn', 5000); } else if (T.isNetErr(e) || T.isNotInstalled(e)) T.connError(e); } }
+    if (T.server.maintenance_active) return;
+    if (T.session) { try { const d = await T.rpc('tnj_session_check', { p_token: T.session.token }, { silent: true }); T.applySettings(d); T.session = Object.assign({}, T.session, { role: d.role, driver_id: d.driver_id, full_name: d.full_name }); } catch (e) { const p = T.parseErr(e); if (p.code === 'TNJ_MAINTENANCE') { T.checkVersion(true); return; } if (p.code) { T.saveSession(null); T.session = null; if (p.code === 'TNJ_SESSION_INVALID' || p.code === 'TNJ_VERSION_MISMATCH') T.toast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warn', 5000); } else if (T.isNetErr(e) || T.isNotInstalled(e)) T.connError(e); } }
     window.addEventListener('hashchange', () => { T.checkVersion(); T.render(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') T.checkVersion(true); });
     window.addEventListener('focus', () => T.checkVersion());
