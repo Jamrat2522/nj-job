@@ -793,7 +793,7 @@ body.legacy-active .content-area { display: none !important; }
 
   <div class="sb-nav">
     <div class="sb-section">📦 Mapping Import</div>
-    <a class="sb-item" data-nav="term_calc" onclick="switchCustomer('term_calc')" style="display:none"><!-- ★ [local037] โหมดใหม่ TERM CALCULATOR · ★ [local076] ซ่อนจาก Sidebar (หน้า / Logic เดิมคงอยู่) -->
+    <a class="sb-item" data-nav="term_calc" onclick="switchCustomer('term_calc')"><!-- ★ [local037] โหมดใหม่ TERM CALCULATOR -->
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
       <span class="label">TERM CALCULATOR</span>
     </a>
@@ -1276,7 +1276,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ══════════════════════════════════════════════════════════════
      MANAGE MEMBERS MODAL
      ══════════════════════════════════════════════════════════════ -->
-<div class="mm-overlay" id="pm-overlay" onclick="if(event.target===this)closePermitMaster()"><!-- ★ [local071] MASTER พิกัดติดใบอนุญาต · ★ [local072] UI Overlay เดียว (Toolbar · Search/Filter · ตาราง + Pagination · Modal ย่อย) -->
+<div class="mm-overlay" id="pm-overlay"><!-- ★ [local071] MASTER พิกัดติดใบอนุญาต · ★ [local072] UI Overlay เดียว (Toolbar · Search/Filter · ตาราง + Pagination · Modal ย่อย) -->
 <style>/* ★ [local072] MASTER พิกัดใบอนุญาต — เฉพาะ #pm-* */
 #pm-overlay .mm-modal,.pm-sub .mm-modal{display:flex;flex-direction:column;max-height:calc(100vh - 80px);min-width:0} #pm-table-wrap,.pm-sub .mm-modal>div{min-width:0}
 .pm-b{color:#fff !important;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit;transition:filter .15s}
@@ -1382,7 +1382,7 @@ body.legacy-active .content-area { display: none !important; }
     <div class="pm-foot"><button class="pm-b pm-b-cancel" onclick="pmCloseEdit()">ยกเลิก</button><button class="pm-b pm-b-save" id="pm-e-btn-save" onclick="pmEditSave()">💾 บันทึก</button></div>
   </div>
 </div>
-<div class="mm-overlay" id="em-overlay" onclick="if(event.target===this)closeEleMaster()"><!-- ★ [local077] MASTER พิกัด ELE (STORAGE ONLY · ไม่เชื่อม TYPE 0 / 1 / D) -->
+<div class="mm-overlay" id="em-overlay"><!-- ★ [local077] MASTER พิกัด ELE (STORAGE ONLY · ไม่เชื่อม TYPE 0 / 1 / D) -->
   <div class="mm-modal" style="max-width:1320px;display:flex;flex-direction:column;max-height:calc(100vh - 80px);min-width:0">
     <div class="mm-head" style="flex:none">
       <div class="mm-head-ic" style="font-size:18px">📦</div>
@@ -5963,7 +5963,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
   }
   async function openPermitMaster(){
     const A=auth(); if(!A || A.role!=='SUPER_ADMIN'){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }
-    document.getElementById('pm-overlay').classList.add('show'); sayM('กำลังโหลด MASTER…'); await pmRefresh(); renderCurrent(); sayM(PM.ready ? '' : '❌ โหลด MASTER ไม่ได้: '+PM.err, PM.ready ? '' : '#c00000');
+    mpPageOpen('pm-overlay'); sayM('กำลังโหลด MASTER…'); await pmRefresh(); renderCurrent(); sayM(PM.ready ? '' : '❌ โหลด MASTER ไม่ได้: '+PM.err, PM.ready ? '' : '#c00000');
     await pmLoadPage();
   }
   function closePermitMaster(){ ['pm-paste-ov','pm-up-ov','pm-edit-ov'].forEach(closeSub); document.getElementById('pm-overlay').classList.remove('show'); }
@@ -6118,7 +6118,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
   }
   async function openEleMaster(){
     const A=auth(); if(!A || A.role!=='SUPER_ADMIN'){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }   /* สิทธิ์เดียวกับ พิกัดใบอนุญาต */
-    $('em-overlay').classList.add('show'); sayM(''); await load();
+    mpPageOpen('em-overlay'); sayM(''); await load();
   }
   function closeEleMaster(){ ['em-paste-ov','em-up-ov','em-edit-ov'].forEach(closeSub); $('em-overlay').classList.remove('show'); }
   Object.assign(window,{ openEleMaster, closeEleMaster, emOpenPaste:openPaste, emClosePaste:closePaste, emOpenUpload:openUpload, emCloseUpload:closeUpload, emPastePreview:pastePreview, emPreview:preview, emUpPick:upPick, emSave:save,
@@ -6381,7 +6381,7 @@ function termInsUpdate(){
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   const ef = (term==='EXW'||term==='FCA');
   const on = !termIsEx() && (ef || term==='FOB' || term==='DAP');                             /* ★ [local063] Export: ไม่ใช้ Ins_OTH */
-  const npct = TERM_STATE.mode==='Normal %', incFw = ef || (npct && term==='FOB'), incOth = term!=='DAP';   /* ★ [local048] Normal %: FOB รวม F/W · [local049] DAP ทุก MODE = Amount × 1% (ไม่รวม Other) */
+  const npct = TERM_STATE.mode==='Normal %', incFw = ef, incOth = true;   /* ★ [local080] ทุก MODE: EXW/FCA = (Amount + F/W + Other_OTH) × 1% · FOB / DAP = (Amount + Other_OTH) × 1% (ไม่รวม F/W) */
   if(on){
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
@@ -7031,6 +7031,36 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 window.termAirUpdate=termAirUpdate; window.termAirMaster=termAirMaster; window.termAirFind=termAirFind; window.termAirState=()=>({ auto:TERM_AIR.auto, fill:TERM_AIR.fill, fillRate:TERM_AIR.fillRate, last:TERM_AIR.last });
 
 
+})();
+</script>
+<style>/* ★ [local081] MASTER พิกัดใบอนุญาต / พิกัด ELE = หน้าหลัก (ไม่ใช่ Modal) */
+#pm-overlay.show,#em-overlay.show{position:static;inset:auto;background:none;backdrop-filter:none;z-index:auto;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;flex:1;padding:20px 24px;overflow:visible;min-width:0}
+#pm-overlay>.mm-modal,#em-overlay>.mm-modal{max-width:none!important;width:100%;border:none;border-radius:0;box-shadow:none;max-height:calc(100vh - 110px)!important}
+#pm-overlay>.mm-modal>.mm-head>.mm-head-close,#em-overlay>.mm-modal>.mm-head>.mm-head-close{display:none}
+body.mpage-on #app-main .main>:not(.topbar):not(#pm-overlay):not(#em-overlay){display:none!important}
+@media(max-width:1200px){#pm-overlay.show,#em-overlay.show{padding:16px 16px}}
+@media(max-width:820px){#pm-overlay.show,#em-overlay.show{padding:14px 12px}}
+</style>
+<script>
+/* ★ [local081] MASTER → Main Content Page (UI only · เปิด/ปิดหน้า · Sidebar active · Header) */
+(function(){
+  const PG={ 'pm-overlay':{ open:'openPermitMaster', close:'closePermitMaster', title:'MASTER พิกัดใบอนุญาต' }, 'em-overlay':{ open:'openEleMaster', close:'closeEleMaster', title:'MASTER พิกัด ELE' } };
+  let prev=null;
+  const $=id=>document.getElementById(id), isOn=()=>!!document.querySelector('#pm-overlay.show,#em-overlay.show');
+  const items=()=>[...document.querySelectorAll('.sidebar .sb-item')];
+  function restore(){ if(isOn()) return; document.body.classList.remove('mpage-on');   /* ปิดหน้า MASTER → คืน Sidebar / Header ของหน้าก่อนหน้า */
+    if(prev){ items().forEach(el=>el.classList.toggle('active', prev.active.indexOf(el)>=0)); const t=$('topbar-title'), b=$('topbar-badge'); if(t) t.textContent=prev.title; if(b){ b.textContent=prev.badge; b.className=prev.badgeCls; } prev=null; } }
+  window.mpPageOpen=function(id){ const ov=$(id), main=document.querySelector('#app-main .main'); if(!ov || !main) return;
+    for(const k in PG){ if(k!==id && $(k) && $(k).classList.contains('show')) window[PG[k].close](); }   /* เปิดได้ทีละหน้า */
+    if(!prev){ const t=$('topbar-title'), b=$('topbar-badge'); prev={ active:items().filter(el=>el.classList.contains('active')), title:t?t.textContent:'', badge:b?b.textContent:'', badgeCls:b?b.className:'' }; }
+    if(ov.parentElement!==main) main.appendChild(ov);
+    document.body.classList.add('mpage-on');
+    items().forEach(el=>el.classList.toggle('active', (el.getAttribute('onclick')||'').indexOf(PG[id].open+'(')===0));
+    const t=$('topbar-title'), b=$('topbar-badge'); if(t) t.textContent=PG[id].title; if(b){ b.textContent='MASTER'; b.className='company-badge sch_pdf'; }
+    ov.classList.add('show'); window.scrollTo(0,0); };
+  for(const k in PG){ const f=window[PG[k].close]; if(typeof f==='function') window[PG[k].close]=function(){ const r=f.apply(this,arguments); restore(); return r; }; }
+  const sw=window.switchCustomer;   /* กดเมนูอื่น → ปิดหน้า MASTER ก่อน แล้วทำงานเดิม */
+  if(typeof sw==='function') window.switchCustomer=function(){ if(isOn()){ for(const k in PG) if($(k) && $(k).classList.contains('show')) window[PG[k].close](); } return sw.apply(this,arguments); };
 })();
 </script>
 </body>
