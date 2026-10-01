@@ -1531,6 +1531,17 @@ body.legacy-active .content-area { display: none !important; }
     </div>
   </div>
 </div>
+<div class="mm-overlay" id="mm-role-ov" style="z-index:9999"><!-- ★ [local086] แก้ไข ROLE สมาชิก 1 คน (SUPER_ADMIN) -->
+  <div class="mm-modal" style="max-width:440px">
+    <div class="mm-head"><div class="mm-head-ic" style="font-size:18px">👤</div><h3>แก้ไข ROLE</h3><button class="mm-head-close" onclick="mmRoleClose()" title="ปิด">✕</button></div>
+    <div class="mm-body">
+      <div class="mm-info"><div class="mm-info-row"><span class="k">USERNAME</span><span class="v" id="mm-role-user">—</span></div></div>
+      <div class="mm-field" style="margin-top:14px"><label>ROLE</label><select id="mm-role-sel"><option value="USER">USER</option><option value="ADMIN">ADMIN</option><option value="SUPER_ADMIN">SUPER_ADMIN</option></select></div>
+      <div class="mm-msg" id="mm-role-msg"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="mm-btn secondary" onclick="mmRoleClose()">ยกเลิก</button><button class="mm-btn" id="mm-role-save" onclick="mmRoleSave()">💾 บันทึก ROLE</button></div>
+    </div>
+  </div>
+</div>
 <style>/* ★ [local085] จัดการสมาชิก — ตาราง + เพิ่มสมาชิกแถวเดียว (เฉพาะ #mm-overlay) */
 #mm-overlay .mm-modal{max-width:1180px}
 #mm-overlay .mm-tbl-wrap{max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:10px}
@@ -1913,13 +1924,13 @@ async function addNewMember(){   /* ★ [local085] เพิ่มสมาช�
   const dash=v=>(v==null || String(v).trim()==='') ? '-' : esc(v), tok=()=>{ const A=(typeof window.calcAuthGet==='function') ? window.calcAuthGet() : null; return A && A.token; };
   const J=r=>{ let j=r && !r.error ? r.data : null; if(typeof j==='string'){ try{ j=JSON.parse(j); }catch(_){ j=null; } } return j; };
   const say=(id,m,t)=>{ const el=g(id); if(!el) return; if(!m){ el.className='mm-msg'; el.textContent=''; return; } el.textContent=m; el.className='mm-msg show '+(t==='err'?'err':'ok'); };
-  let ROWS=[], PW=null;
+  let ROWS=[], PW=null, RO=null; const isSA=()=>{ const A=(typeof window.calcAuthGet==='function') ? window.calcAuthGet() : null; return !!A && A.role==='SUPER_ADMIN'; };
   async function load(){ const tb=g('mm-tbody'); if(!tb) return; say('mm-list-msg',''); tb.innerHTML='<tr><td colspan="6" style="color:var(--text3)">กำลังโหลด…</td></tr>';
     try{ const j=J(await sbClient.rpc('calc_user_list',{ p_token:tok() }));
       if(!j || !j.success){ ROWS=[]; tb.innerHTML=''; g('mm-count').textContent=''; say('mm-list-msg','❌ โหลดรายชื่อสมาชิกไม่ได้'+(j&&j.error==='forbidden'?' (ไม่มีสิทธิ์)':''),'err'); return; }
       ROWS=j.rows||[]; g('mm-count').textContent='('+ROWS.length.toLocaleString('en-US')+' คน)';
       tb.innerHTML=ROWS.map((u,i)=>'<tr><td><b>'+dash(u.username)+'</b></td><td>'+dash(u.display_name)+'</td><td>'+dash(u.email)+'</td><td>'+dash(u.role)+'</td><td>'+(u.created_at?esc(new Date(u.created_at).toLocaleString('th-TH')):'-')+'</td>'+
-        '<td><button class="mm-btn secondary mm-pw-btn" onclick="mmPwOpen('+i+')">🔑 แก้ไข Password</button></td></tr>').join('') || '<tr><td colspan="6">-</td></tr>';
+        '<td><button class="mm-btn secondary mm-pw-btn" onclick="mmPwOpen('+i+')">🔑 แก้ไข Password</button>'+(isSA()?' <button class="mm-btn secondary mm-pw-btn mm-role-btn" onclick="mmRoleOpen('+i+')">👤 แก้ไข ROLE</button>':'')+'</td></tr>').join('')   /* ★ [local086] */ || '<tr><td colspan="6">-</td></tr>';
     }catch(e){ tb.innerHTML=''; say('mm-list-msg','❌ โหลดรายชื่อสมาชิกไม่ได้: '+String(e&&e.message||e),'err'); } }
   function open(i){ const u=ROWS[i]; if(!u) return; PW=u; g('mm-pw-user').textContent=u.username||'-'; g('mm-pw-new').value=''; g('mm-pw-new2').value=''; say('mm-pw-msg',''); g('mm-pw-ov').classList.add('show'); g('mm-pw-new').focus(); }
   function close(){ PW=null; g('mm-pw-new').value=''; g('mm-pw-new2').value=''; g('mm-pw-ov').classList.remove('show'); }
@@ -1931,7 +1942,19 @@ async function addNewMember(){   /* ★ [local085] เพิ่มสมาช�
       if(!j || !j.success){ const E={ forbidden:'ไม่มีสิทธิ์แก้ Password', password_short:'Password อย่างน้อย 6 ตัวอักษร', not_found:'ไม่พบสมาชิก' }; say('mm-pw-msg','❌ '+(E[j&&j.error]||'บันทึกไม่สำเร็จ'),'err'); return; }
       const un=j.username; close(); say('mm-list-msg','✅ บันทึก Password ใหม่ของ '+un+' แล้ว','ok');
     }catch(e){ say('mm-pw-msg','❌ บันทึกไม่สำเร็จ: '+String(e&&e.message||e),'err'); } finally{ bt.disabled=false; } }
-  Object.assign(window,{ mmLoadList:load, mmPwOpen:open, mmPwClose:close, mmPwSave:save });
+  /* ★ [local086] แก้ไข ROLE — RPC calc_user_set_role (Server ตรวจ SUPER_ADMIN ซ้ำ · กันลด SUPER_ADMIN คนสุดท้าย) */
+  function rOpen(i){ const u=ROWS[i]; if(!u || !isSA()) return; RO=u; g('mm-role-user').textContent=u.username||'-'; const sel=g('mm-role-sel'), cur=String(u.role||'').trim().toUpperCase().replace(/\s+/g,'_');
+    sel.value=[...sel.options].some(o=>o.value===cur) ? cur : ''; say('mm-role-msg', sel.value ? '' : 'ROLE ปัจจุบัน ('+(u.role||'-')+') ไม่อยู่ในรายการ', sel.value ? '' : 'err'); g('mm-role-ov').classList.add('show'); }
+  function rClose(){ RO=null; g('mm-role-ov').classList.remove('show'); }
+  async function rSave(){ if(!RO) return; const v=g('mm-role-sel').value; if(!v){ say('mm-role-msg','กรุณาเลือก ROLE','err'); return; }
+    const bt=g('mm-role-save'); bt.disabled=true;
+    try{ const j=J(await sbClient.rpc('calc_user_set_role',{ p_token:tok(), p_user_id:RO.id, p_role:v }));
+      if(!j || !j.success){ const E={ forbidden:'ไม่มีสิทธิ์แก้ ROLE (เฉพาะ SUPER_ADMIN)', bad_role:'ROLE ไม่ถูกต้อง', not_found:'ไม่พบสมาชิก', last_super_admin:'ต้องมี SUPER_ADMIN อย่างน้อย 1 คน' }; say('mm-role-msg','❌ '+(E[j&&j.error]||'บันทึกไม่สำเร็จ'),'err'); return; }
+      const self=(window.calcAuthGet()||{}).id===RO.id; rClose(); say('mm-list-msg','✅ บันทึก ROLE ของ '+j.username+' = '+j.role+' แล้ว','ok');
+      if(self && j.changed){ try{ const ss=JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); if(ss){ ss.role=j.role; localStorage.setItem(SESSION_KEY, JSON.stringify(ss)); } }catch(_){} location.reload(); return; }   /* แก้ ROLE ตัวเอง → สิทธิ์ใหม่ทันที */
+      load();
+    }catch(e){ say('mm-role-msg','❌ บันทึกไม่สำเร็จ: '+String(e&&e.message||e),'err'); } finally{ bt.disabled=false; } }
+  Object.assign(window,{ mmLoadList:load, mmPwOpen:open, mmPwClose:close, mmPwSave:save, mmRoleOpen:rOpen, mmRoleClose:rClose, mmRoleSave:rSave });
   const o=window.openManageMembers; if(typeof o==='function') window.openManageMembers=function(){ const r=o.apply(this,arguments); if(document.getElementById('mm-overlay').classList.contains('show')) load(); return r; };
 })();
 
@@ -1945,6 +1968,8 @@ async function addNewMember(){   /* ★ [local085] เพิ่มสมาช�
     if(txt) txt.textContent = 'Supabase Offline';
   }
   const s = calcSessionGet();                                                     /* มี Session · ยังไม่หมดอายุ · มี id → เข้า App ทันที */
+  if(s && s.token && sbClient){ try{ const me=await sbClient.rpc('calc_session_me',{ p_token:s.token }); let j=me && !me.error ? me.data : null; if(typeof j==='string'){ try{ j=JSON.parse(j); }catch(_){ j=null; } }
+    if(j && j.success && j.role && j.role!==calcRoleNorm(s.role)){ s.role=j.role; try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch(_){} } }catch(_){} }   /* ★ [local086] ROLE ล่าสุดจาก DB */
   if(s){ await onAuthSuccess(calcSessionToAuth(s)); return; }
   showAuth();
   if(!sbClient) authMsg('Supabase library ไม่ได้โหลด — ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', 'err');
