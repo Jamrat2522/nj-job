@@ -271,9 +271,9 @@
     const r = T.route(); const app = $('#app');
     if (!T.session) { if (r.path !== 'login') { location.hash = '#/login'; return; } return T.pages.login(app); }
     const isDrv = T.session.role === 'DRIVER';
-    if (r.path === 'login' || r.path === '') { location.hash = isDrv ? '#/d/jobs' : '#/dashboard'; return; }
+    if (r.path === 'login' || r.path === '') { location.hash = isDrv ? '#/d/jobs' : '#/jobs'; return; }
     if (isDrv && r.seg[0] !== 'd') { location.hash = '#/d/jobs'; return; }
-    if (!isDrv && r.seg[0] === 'd') { location.hash = '#/dashboard'; return; }
+    if (!isDrv && r.seg[0] === 'd') { location.hash = '#/jobs'; return; }
     T.stopRealtime();
     try { if (isDrv) await T.pages.driver(app, r); else await T.pages.office(app, r); } catch (e) { T.err(e); }
   };
@@ -285,7 +285,7 @@
       <div class="field"><label>รหัสผ่าน</label><input class="inp inp-lg" id="lgPw" type="password" autocomplete="current-password" required></div>
       <button class="btn btn-p btn-lg btn-block" type="submit">เข้าสู่ระบบ</button></form>
       <div class="c xs muted mt2">${location.protocol === 'file:' ? 'โหมด LOCAL (Open check) · ' : /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'โหมด LOCAL (localhost) · ' : ''}เวอร์ชัน ${T.h(C.APP_VERSION)}${T.server.version && T.server.version !== C.APP_VERSION ? ' · server ' + T.h(T.server.version) : ''}</div></div></div>`;
-    $('#loginForm').onsubmit = async (e) => { e.preventDefault(); try { const s = await T.login($('#lgUser').value.trim(), $('#lgPw').value); T.toast(`ยินดีต้อนรับ ${s.full_name}`, 'ok'); location.hash = s.role === 'DRIVER' ? '#/d/jobs' : '#/dashboard'; } catch (er) { const p = T.parseErr(er); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') T.checkVersion(true); else if (!p.code && (T.isNetErr(er) || T.isNotInstalled(er))) { T.connError(er); T.toast(T.isNetErr(er) ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' : 'ฐานข้อมูลยังไม่พร้อม', 'err'); } else T.toast(p.text, 'err'); } };
+    $('#loginForm').onsubmit = async (e) => { e.preventDefault(); try { const s = await T.login($('#lgUser').value.trim(), $('#lgPw').value); T.toast(`ยินดีต้อนรับ ${s.full_name}`, 'ok'); location.hash = s.role === 'DRIVER' ? '#/d/jobs' : '#/jobs'; } catch (er) { const p = T.parseErr(er); if (p.code === 'TNJ_MAINTENANCE' || p.code === 'TNJ_VERSION_MISMATCH') T.checkVersion(true); else if (!p.code && (T.isNetErr(er) || T.isNotInstalled(er))) { T.connError(er); T.toast(T.isNetErr(er) ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' : 'ฐานข้อมูลยังไม่พร้อม', 'err'); } else T.toast(p.text, 'err'); } };
   };
 
   /* ---------- boot ---------- */

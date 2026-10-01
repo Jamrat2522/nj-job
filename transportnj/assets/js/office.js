@@ -15,9 +15,7 @@
   const stOpts = (sel, list) => (list || T.STATUS).map((s) => `<option value="${s}" ${s === sel ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('');
 
   const NAV = [
-    ['dashboard', '🏠', 'หน้าหลัก'], ['jobs', '🚚', 'งานขนส่ง'], ['jobs/new', '➕', 'สร้างงาน'], ['map', '🗺️', 'แผนที่ GPS'], ['schedule', '📅', 'ตารางงาน'],
-    ['documents', '📁', 'เอกสาร'], ['masters/customers', '🏢', 'ลูกค้า'], ['masters/drivers', '👤', 'คนขับ'],
-    ['masters/vehicles', '🚛', 'รถ'], ['masters/locations', '📍', 'สถานที่'], ['settings', '⚙️', 'ตั้งค่า'],
+    ['jobs', '🚚', 'งานขนส่ง'], ['mileage', '⛽', 'ไมล์รถ/น้ำมัน'], ['map', '🗺️', 'แผนที่ GPS'],
   ];
   const CARDS = [
     ['total', 'งานทั้งหมดวันนี้', '📋', null], ['waiting', 'รอรับ', '🕒', ['NEW', 'ASSIGNED']], ['going_pickup', 'กำลังไปรับตู้', '🚚', ['ACCEPTED', 'GOING_TO_PICKUP', 'ARRIVED_PICKUP']],
@@ -44,7 +42,7 @@
       refreshBell();
       T.subscribe('tnj:office', (p, ev) => { if (ev === 'problem') { T.toast(`⚠ แจ้งปัญหา ${p.job_no || ''}: ${p.type || ''}`, 'err', 8000); refreshBell(); } if (ev === 'version') T.checkVersion(true); });
     }
-    $$('#nav a').forEach((a) => a.classList.toggle('active', r.path === a.dataset.nav || (a.dataset.nav !== 'jobs/new' && a.dataset.nav !== 'dashboard' && r.path.startsWith(a.dataset.nav))));
+    $$('#nav a').forEach((a) => a.classList.toggle('active', r.path === a.dataset.nav || r.path.startsWith(a.dataset.nav + '/')));
     const rt = T._rt['tnj:office']; const rs = $('#rtState'); if (rs) rs.style.color = rt && rt.state === 'SUBSCRIBED' ? '#4ADE80' : '#F59E0B';
     return $('#page');
   }
@@ -89,14 +87,89 @@
     return { map, reload: load };
   }
 
-  /* ---------- jobs table ---------- */
+  /* ---------- jobs table (งานหัวลาก) ---------- */
+  const isNarrow = () => window.innerWidth <= 768;
+  const schedTxt = (j) => j.factory_date ? `${hlDMY(j.factory_date)}${j.factory_time ? ' ' + T.fmtT(j.factory_time) : ''}` : '-';
+  const lastSt = (j) => j.tl_status ? `<span class="hl-st-tag">${h(j.tl_status)}</span>` : T.badge(j.status);
   function jobsTable(rows, opt = {}) {
     if (!rows.length) return '<div class="empty">ไม่พบงาน</div>';
-    if (isMobile()) return rows.map((j) => `<div class="jobcard click" data-job="${j.id}"><div class="flex between"><span class="jn" style="font-size:17px">${h(j.job_no)}</span>${T.badge(j.status)}</div><div class="small">${h(j.customer_name)} · B/L ${h(j.bl_no)} · ${h(j.container_no || '-')}</div><div class="small muted">🚛 ${h(j.license_plate || '-')} · 👤 ${h(j.driver_name || '-')}</div><div class="xs">📍 ${h(j.pickup_location_text)} → 🏭 ${h(j.factory_location_text)} → ↩️ ${h(j.return_location_text)}</div><div class="xs">${T.gpsCell(j)}</div></div>`).join('');
-    return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Job No.</th><th>วันที่</th><th>ลูกค้า</th><th>B/L</th><th>Container</th><th>รถ</th><th>ทะเบียนรถ</th><th>คนขับ</th><th>ท่ารับ</th><th>โรงงาน</th><th>คืนตู้</th><th>Status</th><th>GPS ล่าสุด</th><th></th></tr></thead><tbody>
-      ${rows.map((j) => `<tr class="click" data-job="${j.id}"><td class="b nowrap">${h(j.job_no)}</td><td class="nowrap">${T.fmtD(j.job_date)}</td><td class="ell" style="max-width:160px">${h(j.customer_name)}</td><td>${h(j.bl_no)}</td><td>${h(j.container_no || '-')}</td><td>${h(j.vehicle_name || '-')}</td><td class="nowrap">${h(j.license_plate || '-')}</td><td class="nowrap">${h(j.driver_name || '-')}</td><td class="ell" style="max-width:130px">${h(j.pickup_location_text)}</td><td class="ell" style="max-width:130px">${h(j.factory_location_text)}</td><td class="ell" style="max-width:130px">${h(j.return_location_text)}</td><td>${T.badge(j.status)}</td><td class="nowrap">${T.gpsCell(j)}</td><td class="nowrap"><a class="btn btn-sm" href="#/jobs/${j.id}">👁</a>${j.last_lat != null ? `<a class="btn btn-sm ml1" href="#/jobs/${j.id}?tab=gps">🗺</a>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+    const btn = (j) => `<button type="button" class="btn btn-sm btn-p" data-tlu="${j.id}">อัปเดต Timeline</button>`;
+    if (isNarrow()) return `<div class="jc-list">${rows.map((j) => `<div class="jobcard click" data-job="${j.id}"><div class="flex between"><span class="jn" style="font-size:17px">${h(j.job_no)}</span><span class="xs muted">${hlDMY(j.job_date)}</span></div>
+      <div class="jc-kv"><span>ลูกค้า</span><b>${h(j.customer_name)}</b><span>B/L</span><b>${h(j.bl_no)}</b><span>เบอร์ตู้</span><b>${h(j.container_no || '-')}</b><span>กำหนดส่ง</span><b>${schedTxt(j)}</b><span>คนขับ</span><b>${h(j.driver_name || '-')}</b><span>สถานะล่าสุด</span><b>${lastSt(j)}</b></div>
+      <div class="jc-act">${btn(j)}</div></div>`).join('')}</div>`;
+    return `<div class="tbl-wrap"><table class="tbl jobs-tbl"><thead><tr><th>Job No.</th><th>วันที่งาน</th><th>ลูกค้า</th><th>B/L</th><th>เบอร์ตู้</th><th>กำหนดส่ง</th><th>คนขับ</th><th>สถานะล่าสุด</th><th>จัดการ</th></tr></thead><tbody>
+      ${rows.map((j) => `<tr class="click" data-job="${j.id}"><td class="b nowrap">${h(j.job_no)}</td><td class="nowrap">${hlDMY(j.job_date)}</td><td class="ell" style="max-width:200px">${h(j.customer_name)}</td><td class="ell" style="max-width:150px">${h(j.bl_no)}</td><td class="nowrap">${h(j.container_no || '-')}</td><td class="nowrap">${schedTxt(j)}</td><td class="ell" style="max-width:150px">${h(j.driver_name || '-')}</td><td class="ell" style="max-width:240px">${lastSt(j)}</td><td class="nowrap">${btn(j)}</td></tr>`).join('')}</tbody></table></div>`;
   }
-  function bindJobRows(root) { $$('[data-job]', root).forEach((el) => el.onclick = (e) => { if (e.target.closest('a')) return; T.go('jobs/' + el.dataset.job); }); }
+  function bindJobRows(root, onDone) {
+    $$('[data-tlu]', root).forEach((b) => b.onclick = (e) => { e.stopPropagation(); hualakDialog(b.dataset.tlu, onDone); });
+    $$('[data-job]', root).forEach((el) => el.onclick = (e) => { if (e.target.closest('a,button')) return; T.go('jobs/' + el.dataset.job); });
+  }
+
+  /* ---------- Timeline งานหัวลาก (12 สถานะ OFFICE) + Free Time ---------- */
+  const HL_STATUS = ['รถถึงโรงงานเรียบร้อย รอคิวลงสินค้า', 'รอคิวลงสินค้า', 'ลงสินค้าได้ครึ่งตู้', 'ลงสินค้าเรียบร้อย ออกจากโรงงาน', 'รอรับตู้เปล่า', 'รถรับตู้หนาแน่น', 'รถติดในท่าเรือ', 'รถติดในลานตู้', 'บรรจุตู้เรียบร้อย ออกจากโรงงาน', 'คืนตู้เรียบร้อย', '⏱️ เกิน Free Time เริ่มคิดค่าเสียเวลา', '✅ ปิดงาน'];
+  const HL_CLOSE = '✅ ปิดงาน';
+  const FT_END = ['ลงสินค้าเรียบร้อย ออกจากโรงงาน', 'บรรจุตู้เรียบร้อย ออกจากโรงงาน'];
+  const FT_HOURS = 4;
+  // Asia/Bangkok (+07:00, no DST) — independent of the browser time zone
+  const bkk = (v) => { const s = new Date(new Date(v).getTime() + 7 * 3600e3).toISOString(); return { date: s.slice(0, 10), time: s.slice(11, 16) }; };
+  function hlDMY(v) { if (!v) return '-'; const [y, m, d] = String(v).slice(0, 10).split('-'); return (y && m && d) ? `${d}/${m}/${y}` : String(v); }
+  const hlItems = (job) => (job.timeline || []).filter((t) => t.event_type === 'STATUS' && HL_STATUS.includes(t.title))
+    .sort((a, b) => (new Date(a.event_at) - new Date(b.event_at)) || ((a.seq || 0) - (b.seq || 0)));
+  function freeTime(job) {
+    const base = { hours: FT_HOURS, over_min: 0, end_id: null };
+    if (!job.factory_date || !job.factory_time) return Object.assign(base, { state: 'nosched', text: `🆓 Free Time ${FT_HOURS} ชม. | ยังไม่ระบุกำหนดส่ง — ยังคำนวณไม่ได้` });
+    const ends = hlItems(job).filter((t) => FT_END.includes(t.title));
+    if (!ends.length) return Object.assign(base, { state: 'wait', text: 'รอสถานะจบงานเพื่อคำนวณ Free Time' });
+    const end = ends[ends.length - 1]; // latest by real DateTime
+    const start = Date.parse(`${String(job.factory_date).slice(0, 10)}T${String(job.factory_time).slice(0, 5)}:00+07:00`);
+    const freeEnd = start + FT_HOURS * 3600e3, endAt = new Date(end.event_at).getTime();
+    Object.assign(base, { end_id: end.id, end_title: end.title, end_at: end.event_at, free_end: new Date(freeEnd).toISOString() });
+    if (endAt <= freeEnd) return Object.assign(base, { state: 'ok', text: `🆓 Free Time ${FT_HOURS} ชม. | ไม่เกินเวลา — ไม่มีค่าใช้จ่าย` });
+    const m = Math.floor((endAt - freeEnd) / 60000);
+    return Object.assign(base, { state: 'over', over_min: m, text: `🆓 Free Time ${FT_HOURS} ชม. | เกิน ${Math.floor(m / 60)} ชม. ${m % 60} นาที — มีค่าใช้จ่าย` });
+  }
+  T.freeTime = freeTime;
+  function hlHeader(job) {
+    return `<div class="hl-hd"><div>ลูกค้า: <b>${h(job.customer_name || '-')}</b> | B/L: <b>${h(job.bl_no || '-')}</b> | ท่านำเข้า: <b>${h(job.pickup_location_text || '-')}</b> | คืนตู้เปล่า: <b>${h(job.return_location_text || '-')}</b></div>
+      <div>เบอร์ตู้: <b>${h(job.container_no || '-')}</b> | เบอร์ซีล: <b>${h(job.seal_no || '-')}</b></div>
+      <div>กำหนดส่ง: <b>${hlDMY(job.factory_date)}</b> | เวลา: <b>${job.factory_time ? T.fmtT(job.factory_time) : '-'}</b></div>
+      <div>คนขับ: <b>${h(job.driver_name || '-')}</b> | หัว/หาง: <b>${h(job.license_plate || '-')} / ${h(job.trailer_plate || '-')}</b> | เบอร์โทร: <b>${job.driver_phone ? `<a href="tel:${h(job.driver_phone)}">${h(job.driver_phone)}</a>` : '-'}</b></div></div>`;
+  }
+  function hualakTimelineHtml(job, opt = {}) {
+    const items = hlItems(job), ft = freeTime(job); const title = '<div class="hl-title">🚛 อัปเดตสถานะงานหัวลาก</div>';
+    const ftRow = `<div class="hl-ft ${ft.state}" data-ft="${ft.state}">${h(ft.text)}</div>`;
+    let out = '', lastDate = null, first = true;
+    items.forEach((t) => {
+      const b = bkk(t.event_at);
+      if (b.date !== lastDate) { out += `<div class="hl-date">วันที่ ${hlDMY(b.date)}</div>`; lastDate = b.date; if (first && opt.header) out += title + hlHeader(job); first = false; }
+      out += `<div class="hl-it" data-hl="${t.id}">${t.title === HL_CLOSE ? `• ${h(t.title)}` : `• ⏰ ${b.time} ${h(t.title)}`}</div>${t.note ? `<div class="hl-note">หมายเหตุ: ${h(t.note)}</div>` : ''}`;
+      if (t.id === ft.end_id) out += ftRow;
+    });
+    if (!items.length) out = (opt.header ? title + hlHeader(job) : '') + '<div class="empty small">ยังไม่มีการอัปเดตสถานะ</div>';
+    if (!ft.end_id) out += ftRow;
+    return `<div class="hl-tl">${out}</div>`;
+  }
+  async function hualakDialog(jobId, onDone) {
+    let job; try { job = await T.auth('tnj_job_get', { p_job_id: jobId }, { silent: true }); } catch (e) { return T.err(e); }
+    const canSave = T.canEdit() && !['COMPLETED', 'CANCELLED'].includes(job.status); const now = bkk(Date.now() + (T.server.offsetMs || 0));
+    T.modal({ title: `อัปเดต Timeline — ${job.job_no}`, size: 'w hl-modal', noMask: true,
+      body: `<div class="hl-box">${hlHeader(job)}</div>
+        ${canSave ? `<div class="hl-form"><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="hlD" value="${now.date}"></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" id="hlT" value="${now.time}"></div>
+          <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label><select class="inp" id="hlS"><option value="">— เลือกสถานะ —</option>${HL_STATUS.map((s, i) => `<option value="${h(s)}">${i + 1}. ${h(s)}</option>`).join('')}</select></div>
+          <div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><input class="inp" id="hlN" maxlength="500"></div></div>` : `<div class="alert info">${job.status === 'CANCELLED' ? 'งานถูกยกเลิกแล้ว' : job.status === 'COMPLETED' ? 'งานปิดแล้ว' : 'สิทธิ์ดูอย่างเดียว'} — ดู Timeline ได้อย่างเดียว</div>`}
+        <div id="hlTl">${hualakTimelineHtml(job)}</div>`,
+      foot: `<button class="btn btn-lg" data-close>ปิด</button>${canSave ? '<button class="btn btn-p btn-lg" id="hlGo">บันทึก Timeline</button>' : ''}`,
+      onOpen: (el, close) => { const go = $('#hlGo', el); if (!go) return; go.onclick = async () => {
+        const d = $('#hlD', el).value, t = $('#hlT', el).value, s = $('#hlS', el).value, n = $('#hlN', el).value.trim();
+        if (!d || !t) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!s) return T.toast('กรุณาเลือกสถานะ', 'warn');
+        if (s === HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${h(job.job_no)} ?<br><span class="small muted">ระบบจะบันทึกผู้ปิดงานและวันเวลาใน Audit</span>`, 'ปิดงาน', 'btn-navy'))) return;
+        go.disabled = true;
+        try { T.loading(true); const r = await T.auth('tnj_timeline_status', { p_job_id: job.id, p_event_at: `${d}T${t}:00+07:00`, p_status: s, p_note: n || null }, { silent: true });
+          job = r.job; T.toast(s === HL_CLOSE ? 'ปิดงานแล้ว' : 'บันทึก Timeline แล้ว', 'ok'); onDone && onDone();
+          if (s === HL_CLOSE) { close(); return; }
+          $('#hlTl', el).innerHTML = hualakTimelineHtml(job); $('#hlS', el).value = ''; $('#hlN', el).value = '';
+        } catch (e) { T.err(e); } finally { T.loading(false); go.disabled = false; } }; } });
+  }
 
   /* ---------- dashboard ---------- */
   async function pageDashboard(page, r) {
@@ -108,7 +181,7 @@
     $('#dbDate').onchange = (e) => T.go('dashboard?date=' + e.target.value);
     liveMap($('#lm'));
     const loadCounts = async () => { try { const d = await T.auth('tnj_dashboard_counts', { p_date: date }, { silent: true }); CARDS.forEach(([k]) => { const el = $('#st_' + k); if (el) el.textContent = d[k]; }); const n = $('#bellN'); if (n) { n.textContent = d.problem_open; n.classList.toggle('hidden', !d.problem_open); } } catch (e) { console.warn(e); } };
-    const loadList = async () => { try { const d = await T.auth('tnj_job_list', { p: { job_date: date, statuses: stFilter, q: $('#tdQ').value.trim(), page_size: 200 } }, { silent: true }); $('#tdCount').textContent = `(${d.total})`; $('#tdList').innerHTML = jobsTable(d.rows); bindJobRows($('#tdList')); } catch (e) { console.warn(e); } };
+    const loadList = async () => { try { const d = await T.auth('tnj_job_list', { p: { job_date: date, statuses: stFilter, q: $('#tdQ').value.trim(), page_size: 200 } }, { silent: true }); $('#tdCount').textContent = `(${d.total})`; $('#tdList').innerHTML = jobsTable(d.rows); bindJobRows($('#tdList'), loadList); } catch (e) { console.warn(e); } };
     $$('#stats .stat').forEach((c) => c.onclick = () => { const def = CARDS.find((x) => x[0] === c.dataset.k); const same = c.classList.contains('active'); $$('#stats .stat').forEach((x) => x.classList.remove('active')); if (same || !def[3]) { stFilter = null; } else { c.classList.add('active'); stFilter = def[3]; } loadList(); });
     $('#tdQ').oninput = T.debounce(loadList, 350);
     loadCounts(); loadList();
@@ -118,7 +191,7 @@
 
   /* ---------- jobs list ---------- */
   async function pageJobs(page, r) {
-    await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1);
+    await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1); const hl = q.hl || ''; let hlDone = false;
     page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button></div><div class="flex"><h1>🚚 งานขนส่ง</h1><button class="btn" id="jfClear">ล้างตัวกรอง</button></div></div>
       <div class="card card-b mb2"><div class="grid g4" id="jf">
         <div class="field"><label>Keyword</label><input class="inp" name="q" value="${h(q.q || '')}" placeholder="Job No. / B/L / ลูกค้า / Container / คนขับ / ทะเบียน"></div>
@@ -131,7 +204,7 @@
         <div class="field"><label>ท่ารับ / โรงงาน</label><div class="inline-row"><input class="inp" name="pickup" placeholder="ท่ารับ" value="${h(q.pickup || '')}"><input class="inp" name="factory" placeholder="โรงงาน" value="${h(q.factory || '')}"></div></div>
       </div></div><div class="card"><div id="jList"></div><div class="pager" id="jPager"></div></div>`;
     const read = () => { const o = { page: pageNo, page_size: 50 }; $$('#jf [name]').forEach((i) => { if (i.value) o[i.name] = i.value; }); return o; };
-    const load = async () => { try { const d = await T.auth('tnj_job_list', { p: read() }, { silent: true }); $('#jList').innerHTML = jobsTable(d.rows); bindJobRows($('#jList')); const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#jPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} รายการ · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="pgPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="pgNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#pgPrev').onclick = () => { pageNo--; load(); }; $('#pgNext').onclick = () => { pageNo++; load(); }; } catch (e) { T.err(e); } };
+    const load = async () => { try { const d = await T.auth('tnj_job_list', { p: read() }, { silent: true }); $('#jList').innerHTML = jobsTable(d.rows); bindJobRows($('#jList'), load); if (hl) { const row = $(`#jList [data-job="${hl}"]`); if (row) { row.classList.add('hl-new'); if (!hlDone) { hlDone = true; row.scrollIntoView({ block: 'center' }); } } } const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#jPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} รายการ · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="pgPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="pgNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#pgPrev').onclick = () => { pageNo--; load(); }; $('#pgNext').onclick = () => { pageNo++; load(); }; } catch (e) { T.err(e); } };
     $$('#jf [name]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', T.debounce(() => { pageNo = 1; load(); }, 400)));
     $('#jfClear').onclick = () => T.go('jobs');
     $('#jRep').onclick = () => openReportModal();
@@ -155,35 +228,42 @@
     return `<div class="field"><label>${label}${required ? ' <span class="req">*</span>' : ''}</label><div class="flex"><input class="inp grow" name="${textKey}" list="dl_${name}" value="${h(curText || '')}" placeholder="เลือกจากรายการ หรือพิมพ์ชื่อสถานที่" data-loc="${name}" data-idkey="${idKey}"><input type="hidden" name="${idKey}" value="${h(curId || '')}"><button type="button" class="btn btn-icon" data-map="${name}" title="เปิด Google Maps">🗺</button></div><datalist id="dl_${name}">${list.map((l) => `<option value="${h(l.name)}">${h(l.location_type)} ${h(l.address || '')}</option>`).join('')}</datalist></div>`;
   }
   async function pageJobForm(page, job) {
-    await loadMasters(true); const isNew = !job; const v = (k, d = '') => h(job ? (job[k] == null ? '' : String(job[k]).slice(0, k.endsWith('_time') ? 5 : 100)) : d);
-    page.innerHTML = `<div class="page-head"><h1>${isNew ? '+ สร้างงานขนส่ง' : 'แก้ไขงาน ' + h(job.job_no)}</h1><a class="btn" href="${isNew ? '#/jobs' : '#/jobs/' + job.id}">ยกเลิก</a></div><form id="jobForm" class="card card-b" style="max-width:1100px">
-      <div class="grid g2"><div class="form-section"><h4>📋 ข้อมูลงาน</h4>
-        <div class="inline-row"><div class="field"><label>Job No.</label><input class="inp" value="${isNew ? 'สร้างอัตโนมัติ' : v('job_no')}" disabled></div><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div></div>
-        <div class="field"><label>ชื่อลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
-        <div class="inline-row"><div class="field"><label>B/L <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div><div class="field"><label>Booking</label><input class="inp" name="booking_no" value="${v('booking_no')}"></div></div>
-        <div class="inline-row"><div class="field"><label>Container No.</label><input class="inp" name="container_no" value="${v('container_no')}"></div><div class="field"><label>Container Size</label><select class="inp" name="container_size"><option value="">-</option>${["20'", "40'", "40'HC", "45'", 'LCL', 'อื่น ๆ'].map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div><div class="field"><label>Seal No.</label><input class="inp" name="seal_no" value="${v('seal_no')}"></div></div>
-        ${isNew ? `<div class="inline-row"><div class="field"><label>รถ / ทะเบียนรถ</label><select class="inp" name="vehicle_id">${opts(M.vehicles, 'id', (x) => `${x.vehicle_name} (${x.license_plate})${x.active_job ? ' — มีงาน ' + x.active_job.job_no : ''}`, '')}</select></div><div class="field"><label>ชื่อคนขับ <span class="req">*</span></label><select class="inp" name="driver_id">${opts(M.drivers, 'id', (x) => `${x.full_name}${x.active_job ? ' — กำลังทำ ' + x.active_job.job_no : ''}`, '')}</select></div></div>` : `<div class="alert info">รถ/คนขับ แก้ไขได้ที่ปุ่ม "สั่งงาน" ในหน้ารายละเอียด (ก่อนคนขับรับงาน)</div>`}
-        <div class="field"><label>หมายเหตุงาน</label><textarea class="inp" name="job_note">${v('job_note')}</textarea></div></div>
-      <div><div class="form-section"><h4>📍 จุดรับตู้</h4>${locField('pickup', 'ท่ารับตู้', job, 'pickup_location_id', 'pickup_location_text', true)}
-        <div class="inline-row"><div class="field"><label>วันที่รับตู้ <span class="req">*</span></label><input type="date" class="inp" name="pickup_date" value="${v('pickup_date', T.todayISO())}" required></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" name="pickup_time" value="${v('pickup_time', '09:00')}" required></div></div>
-        <div class="field"><label>หมายเหตุ</label><input class="inp" name="pickup_note" value="${v('pickup_note')}"></div></div>
-      <div class="form-section"><h4>🏭 จุดส่งโรงงาน</h4>${locField('factory', 'สถานที่ส่งโรงงาน', job, 'factory_location_id', 'factory_location_text', true)}
-        <div class="inline-row"><div class="field"><label>วันที่ถึงโรงงาน</label><input type="date" class="inp" name="factory_date" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" value="${v('factory_time')}"></div></div>
-        <div class="inline-row"><div class="field"><label>Contact โรงงาน</label><input class="inp" name="factory_contact" value="${v('factory_contact')}"></div><div class="field"><label>เบอร์โทร</label><input class="inp" name="factory_phone" value="${v('factory_phone')}"></div></div>
-        <div class="field"><label>หมายเหตุ</label><input class="inp" name="factory_note" value="${v('factory_note')}"></div></div>
-      <div class="form-section"><h4>↩️ จุดคืนตู้</h4>${locField('return', 'สถานที่คืนตู้', job, 'return_location_id', 'return_location_text', true)}
-        <div class="inline-row"><div class="field"><label>วันที่คืนตู้ <span class="req">*</span></label><input type="date" class="inp" name="return_date" value="${v('return_date', T.todayISO())}" required></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" name="return_time" value="${v('return_time', '16:00')}" required></div></div>
-        <div class="field"><label>หมายเหตุ</label><input class="inp" name="return_note" value="${v('return_note')}"></div></div></div></div>
-      ${isNew ? '' : '<div class="field"><label>เหตุผลที่แก้ไข (บันทึกลง Timeline)</label><input class="inp" name="edit_note"></div>'}
-      <div class="flex" style="justify-content:flex-end">${isNew ? '<button type="submit" class="btn btn-lg" data-mode="save">บันทึกงาน (ยังไม่สั่งงาน)</button><button type="submit" class="btn btn-p btn-lg" data-mode="assign">บันทึก + สั่งงาน</button>' : '<button type="submit" class="btn btn-p btn-lg">บันทึกการแก้ไข</button>'}</div></form>`;
+    await loadMasters(true); const isNew = !job; const v = (k, d = '') => h(job ? (job[k] == null ? '' : String(job[k]).slice(0, k.endsWith('_time') ? 5 : 2000)) : d);
+    const vehOf = (d) => (d && d.default_vehicle_id ? M.vehicles.find((x) => x.id === d.default_vehicle_id) : null) || null;
+    const drvLabel = (d) => { const x = vehOf(d); return `${d.full_name} | ${x ? x.license_plate : '-'} | ${x && x.trailer_plate ? x.trailer_plate : '-'} | ${d.phone || '-'}${d.active_job ? ' — กำลังทำ ' + d.active_job.job_no : ''}`; };
+    const sizes = ["20'", "40'", "40'HC", "45'", 'LCL', 'อื่น ๆ'];
+    page.innerHTML = `<div class="page-head"><h1>${isNew ? '+ เปิดงานใหม่' : 'แก้ไขงาน ' + h(job.job_no)}</h1></div><form id="jobForm" class="card card-b jf-form" autocomplete="off">
+      <div class="jf-row r3"><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div>
+        <div class="field"><label>ลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
+        <div class="field"><label>B/L <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div></div>
+      <div class="jf-row r2">${locField('pickup', 'ท่านำเข้า', job, 'pickup_location_id', 'pickup_location_text', true)}${locField('return', 'คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
+      <div class="jf-row r3"><div class="field"><label>เบอร์ตู้</label><input class="inp" name="container_no" value="${v('container_no')}"></div><div class="field"><label>เบอร์ซีล</label><input class="inp" name="seal_no" value="${v('seal_no')}"></div>
+        <div class="field"><label>Container Size</label><select class="inp" name="container_size"><option value="">-</option>${sizes.map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div>
+      <div class="jf-row r2"><div class="field"><label>กำหนดวันที่ส่ง</label><input type="date" class="inp" name="factory_date" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" value="${v('factory_time')}"></div></div>
+      <div class="jf-row r5">${isNew ? `<div class="field"><label>คนขับ (ชื่อ | หัว | หาง | เบอร์โทร)</label><select class="inp" name="driver_id" id="jfDrv">${opts(M.drivers, 'id', drvLabel, '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field"><label>คนขับ</label><div class="alert info" style="margin:0">เปลี่ยนรถ/คนขับได้ที่ปุ่ม "สั่งงาน" ในหน้ารายละเอียด (ก่อนคนขับรับงาน)</div></div>`}
+        <div class="field"><label>ชื่อ</label><input class="inp ro" id="jfName" readonly tabindex="-1" value="${v('driver_name')}"></div><div class="field"><label>หัว</label><input class="inp ro" id="jfHead" readonly tabindex="-1" value="${v('license_plate')}"></div>
+        <div class="field"><label>หาง</label><input class="inp ro" id="jfTail" readonly tabindex="-1" value="${v('trailer_plate')}"></div><div class="field"><label>เบอร์โทร</label><input class="inp ro" id="jfPhone" readonly tabindex="-1" value="${v('driver_phone')}"></div></div>
+      <div class="jf-row r1"><div class="field"><label>ที่อยู่ออกใบเสร็จ</label><textarea class="inp" name="billing_address" rows="2">${v('billing_address')}</textarea></div></div>
+      <div class="jf-row r1"><div class="field"><label>หมายเหตุ</label><textarea class="inp" name="job_note" rows="2">${v('job_note')}</textarea></div></div>
+      ${isNew ? '' : '<div class="jf-row r1"><div class="field"><label>เหตุผลที่แก้ไข (บันทึกลง Timeline)</label><input class="inp" name="edit_note"></div></div>'}
+      <div class="jf-btns"><button type="submit" class="btn btn-p btn-lg" id="jfSave">${isNew ? 'บันทึกเปิดงาน' : 'บันทึกการแก้ไข'}</button><a class="btn btn-lg" id="jfCancel" href="${isNew ? '#/jobs' : '#/jobs/' + job.id}">ยกเลิก</a></div></form>`;
     // location id sync + map
     $$('[data-loc]', page).forEach((inp) => { const hid = inp.parentElement.querySelector('input[type=hidden]'); const sync = () => { const l = M.locations.find((x) => x.name === inp.value.trim()); hid.value = l ? l.id : ''; }; inp.addEventListener('input', sync); inp.addEventListener('change', sync); });
     $$('[data-map]', page).forEach((b) => b.onclick = () => { const inp = $(`[data-loc="${b.dataset.map}"]`, page); const l = M.locations.find((x) => x.name === inp.value.trim()); window.open(T.mapsUrl(l, inp.value.trim()), '_blank'); });
-    let mode = 'save'; $$('button[type=submit]', page).forEach((b) => b.onclick = () => { mode = b.dataset.mode || 'save'; });
+    const drvSel = $('#jfDrv', page);
+    const fill = () => { const d = M.drivers.find((x) => x.id === drvSel.value); const x = vehOf(d); $('#jfName', page).value = d ? d.full_name : ''; $('#jfHead', page).value = x ? x.license_plate || '' : ''; $('#jfTail', page).value = x ? x.trailer_plate || '' : ''; $('#jfPhone', page).value = d ? d.phone || '' : ''; };
+    if (drvSel) drvSel.onchange = fill;
     $('#jobForm').onsubmit = async (e) => {
       e.preventDefault(); const fd = new FormData(e.target); const p = {}; fd.forEach((val, k) => { p[k] = String(val).trim(); });
-      if (mode === 'assign' && !p.driver_id) return T.toast('กรุณาเลือกคนขับก่อนสั่งงาน', 'warn');
-      try { if (isNew) { p.assign_now = mode === 'assign'; const j = await T.auth('tnj_job_create', { p }); T.toast(`สร้างงาน ${j.job_no} แล้ว${j.status === 'ASSIGNED' ? ' และสั่งงานคนขับแล้ว' : ''}`, 'ok'); T.go('jobs/' + j.id); } else { await T.auth('tnj_job_update', { p_job_id: job.id, p }); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); T.go('jobs/' + job.id); } } catch (er) { T.err(er); }
+      const btn = $('#jfSave', page); btn.disabled = true;
+      try {
+        if (isNew) {
+          const d = M.drivers.find((x) => x.id === p.driver_id); const x = vehOf(d);
+          if (x) { p.vehicle_id = x.id; p.trailer_plate = x.trailer_plate || ''; }
+          p.assign_now = !!p.driver_id;
+          const j = await T.auth('tnj_job_create', { p }); T.toast(`เปิดงาน ${j.job_no} แล้ว${j.status === 'ASSIGNED' ? ' และสั่งงานคนขับแล้ว' : ''}`, 'ok'); T.go('jobs?hl=' + j.id);
+        } else { await T.auth('tnj_job_update', { p_job_id: job.id, p }); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); T.go('jobs/' + job.id); }
+      } catch (er) { T.err(er); } finally { btn.disabled = false; }
     };
   }
 
@@ -267,8 +347,9 @@
         const drawRoute = async () => { try { const r = await T.auth('tnj_gps_route', { p_job_id: job.id }, { silent: true }); if ($('#gpRoute', body).checked && r.points.length) { L.polyline(r.points.map((p) => [p.lat, p.lng]), { color: '#1E6FE8', weight: 4, opacity: .8 }).addTo(lay); r.points.forEach((p) => L.circleMarker([p.lat, p.lng], { radius: 3, color: '#1E6FE8', fillOpacity: .8 }).bindTooltip(`${T.fmtDT(p.t)}${p.speed != null ? ' · ' + Math.round(p.speed * 3.6) + ' กม./ชม.' : ''}`).addTo(lay)); } $('#gpPts', body).textContent = `จุด GPS ทั้งหมด ${r.points.length} จุด`; if (r.points.length) pts.push(...r.points.slice(-50).map((p) => [p.lat, p.lng])); if (job.last_lat != null) { L.marker([job.last_lat, job.last_lng], { icon: truckIcon('factory', job.gps_stale) }).bindPopup(`<b>${h(job.license_plate || '')}</b> ${h(job.driver_name || '')}<br>${h(T.ago(job.last_gps_at))}`).addTo(lay).openPopup(); pts.push([job.last_lat, job.last_lng]); } if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 14 }); } catch (e) { console.warn(e); } };
         drawRoute(); $('#gpRefresh', body).onclick = reload; $('#gpRoute', body).onchange = reload;
       } else if (tab === 'timeline') {
-        body.innerHTML = `<div class="card card-b"><div class="flex between mb2"><h3>Timeline</h3>${canEdit && job.status !== 'CANCELLED' && job.status !== 'COMPLETED' ? '<button class="btn btn-p" id="tlAdd">+ UPDATE TIMELINE</button>' : (canEdit ? '<button class="btn" id="tlAdd">+ เพิ่มหมายเหตุ / ไฟล์</button>' : '')}</div>${timelineHtml(job.timeline, admin)}</div>`;
+        body.innerHTML = `<div class="card card-b mb2"><div class="flex between mb1"><h3>🚛 Timeline งานหัวลาก</h3><button class="btn btn-p" id="hlAdd">อัปเดต Timeline</button></div>${hualakTimelineHtml(job, { header: true })}</div><div class="card card-b"><div class="flex between mb2"><h3>Timeline</h3>${canEdit && job.status !== 'CANCELLED' && job.status !== 'COMPLETED' ? '<button class="btn btn-p" id="tlAdd">+ UPDATE TIMELINE</button>' : (canEdit ? '<button class="btn" id="tlAdd">+ เพิ่มหมายเหตุ / ไฟล์</button>' : '')}</div>${timelineHtml(job.timeline, admin)}</div>`;
         const b = $('#tlAdd', body); if (b) b.onclick = () => timelineDialog(job, reload);
+        $('#hlAdd', body).onclick = () => hualakDialog(job.id, reload);
         bindTimeline(body, job, reload);
       } else if (tab === 'docs') {
         body.innerHTML = `<div class="card card-b"><div class="flex between mb1"><h3>เอกสาร (${job.files.length})</h3>${canEdit && job.status !== 'CANCELLED' ? '<button class="btn btn-p" id="upBtn">+ แนบไฟล์</button>' : ''}</div><div class="flex flex-wrap mb1" id="dfTypes"><button class="chip active" data-t="">ทั้งหมด</button>${[...new Set(job.files.map((f) => f.file_type))].map((t) => `<button class="chip" data-t="${h(t)}">${h(t)}</button>`).join('')}</div><div id="dfList">${job.files.map((f) => T.fileRow(f, canEdit)).join('') || '<div class="empty">ยังไม่มีเอกสาร</div>'}</div></div>`;
