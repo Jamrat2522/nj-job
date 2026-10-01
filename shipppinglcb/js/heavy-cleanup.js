@@ -50,7 +50,7 @@
     return '<div class="panel" style="padding:14px;margin-bottom:12px">' +
       '<div style="font-weight:700;margin-bottom:8px">🔐 กรอกรหัสผ่านอีกครั้งเพื่อยืนยันตัวตน (SUPER_ADMIN)</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
-      '<input id="' + id + '-pw" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;min-width:220px">' +
+      '<input id="' + id + '-pw" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" style="background:#fff;color:#0f172a;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;min-width:220px">' +
       '<button class="btn btn-primary" onclick="_njAuth(\'' + id + '\')">ยืนยัน</button>' +
       '<span id="' + id + '-pwmsg" style="color:#ef4444;font-size:13px"></span></div></div>';
   }
@@ -197,8 +197,8 @@
     var body = "";
     if (_hasToken()) {
       body = '<div class="panel" style="padding:14px;margin-bottom:12px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">' +
-        '<label style="font-size:13px">วันที่เริ่ม<br><input id="njc-from" type="date" max="' + y + '" value="' + _e(f) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px"></label>' +
-        '<label style="font-size:13px">วันที่สิ้นสุด<br><input id="njc-to" type="date" max="' + y + '" value="' + _e(t) + '" style="padding:8px;border:1px solid #cbd5e1;border-radius:8px"></label>' +
+        '<label style="font-size:13px">วันที่เริ่ม<br><input id="njc-from" type="date" max="' + y + '" value="' + _e(f) + '" style="background:#fff;color:#0f172a;padding:8px;border:1px solid #cbd5e1;border-radius:8px"></label>' +
+        '<label style="font-size:13px">วันที่สิ้นสุด<br><input id="njc-to" type="date" max="' + y + '" value="' + _e(t) + '" style="background:#fff;color:#0f172a;padding:8px;border:1px solid #cbd5e1;border-radius:8px"></label>' +
         '<button class="btn btn-primary" id="njc-prev" onclick="_njPreview()">🔍 ตรวจสอบข้อมูล</button></div>' +
         '<div style="font-size:12px;opacity:.7;margin-top:6px">เลือกได้ถึงเมื่อวานเท่านั้น · ลบเฉพาะ JOB/DOCUMENT ที่จบ Flow สมบูรณ์ · ข้อมูล Active และข้อมูลค้างจะไม่ถูกลบ</div></div>' +
         '<div id="njc-out">' + (p && keep ? _previewHtml(p) : "") + '</div>' +
@@ -224,7 +224,7 @@
       rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td style="font-weight:700;text-align:right">' + r[1] + '</td></tr>'; }).join("") + '</table>';
     var sr = p.stuck_by_reason || {};
     if (p.stuck_units > 0) {
-      h += '<div style="margin-top:10px;padding:10px;background:#fef3c7;border-radius:8px">⚠️ พบข้อมูลค้าง — ต้องตรวจสอบก่อนลบ (ไม่ถูกลบ)<br>' +
+      h += '<div style="margin-top:10px;padding:10px;background:#fef3c7;color:#78350f;border-radius:8px">⚠️ พบข้อมูลค้าง — ต้องตรวจสอบก่อนลบ (ไม่ถูกลบ)<br>' +
         Object.keys(sr).map(function (k) { return "• " + _e(_rTh(k)) + ": " + _n(sr[k]); }).join("<br>") + '</div>';
     }
     h += _sample("ตัวอย่างรายการที่ลบได้", p.sample_delete) + _sample("ตัวอย่างรายการห้ามลบ (Active)", p.sample_active) + _sample("ตัวอย่างข้อมูลค้าง", p.sample_stuck);
@@ -263,22 +263,22 @@
   window._njAskDelete = function () {
     var p = NJ.preview; if (!p) return;
     var box = document.getElementById("njc-confirm"); if (!box) return;
-    box.innerHTML = '<div style="margin-top:12px;padding:14px;border:2px solid #ef4444;border-radius:10px;background:#fef2f2">' +
+    box.innerHTML = '<div style="margin-top:12px;padding:14px;border:2px solid #ef4444;border-radius:10px;background:#fef2f2;color:#1f2937">' +
       '<div style="font-weight:800;color:#b91c1c">กำลังลบข้อมูลถาวรจาก Database</div>' +
       '<div style="margin:6px 0">ช่วงวันที่ ' + _dmy(p.date_from) + ' - ' + _dmy(p.date_to) + '<br>JOB ' + _n(p.delete_jobs) + ' รายการ<br>DOCUMENT ' + _n(p.delete_documents) + ' รายการ<br>' +
       'Logs ' + _n(Number(p.job_logs || 0) + Number(p.document_logs || 0)) + ' รายการ · ไฟล์ ' + _n(p.storage_files) + ' ไฟล์</div>' +
       '<div style="font-weight:700">ข้อมูลนี้ไม่สามารถกู้คืนจากระบบได้</div>' +
-      '<div style="margin-top:10px">พิมพ์ <b>DELETE</b> เพื่อยืนยัน: <input id="njc-type" autocomplete="off" oninput="_njTyped()" style="padding:8px;border:1px solid #ef4444;border-radius:8px;width:140px"></div>' +
-      '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-danger" id="njc-go" disabled onclick="_njExecute()">ยืนยันลบถาวร</button>' +
+      '<div style="margin-top:10px">พิมพ์ <b style="color:#b91c1c">DELETE</b> เพื่อยืนยัน: <input id="njc-type" autocomplete="off" oninput="_njTyped()" style="background:#fff;color:#0f172a;padding:8px;border:1px solid #ef4444;border-radius:8px;width:140px"></div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-danger" id="njc-go" disabled style="opacity:.4;cursor:not-allowed" onclick="_njExecute()">ยืนยันลบถาวร</button>' +
       '<button class="btn btn-secondary" onclick="document.getElementById(\'njc-confirm\').innerHTML=\'\'">ยกเลิก</button></div></div>';
     var d = document.getElementById("njc-del"); if (d) d.disabled = true;
   };
   window._njTyped = function () {
     var v = (document.getElementById("njc-type") || {}).value, g = document.getElementById("njc-go");
-    if (g) g.disabled = v !== "DELETE";
+    if (g) { g.disabled = v !== "DELETE"; g.style.opacity = g.disabled ? ".4" : "1"; g.style.cursor = g.disabled ? "not-allowed" : "pointer"; }
   };
 
-  function _prog(html) { var el = document.getElementById("njc-progress"); if (el) el.innerHTML = '<div style="margin-top:12px;padding:12px;border-radius:8px;background:#f1f5f9">' + html + '</div>'; }
+  function _prog(html) { NJ.progHtml = html; var el = document.getElementById("njc-progress") || document.getElementById("njc-sprog"); if (el) el.innerHTML = '<div style="margin-top:12px;padding:12px;border-radius:8px;background:#f1f5f9;color:#0f172a">' + html + '</div>'; }
 
   window._njExecute = async function (resume) {
     if (NJ.running) return;
@@ -295,7 +295,7 @@
         } catch (e) {
           if (e.message === "SESSION_EXPIRED") {
             _prog('Session หมดอายุระหว่างลบ — งานที่ลบแล้วถูกบันทึกครบทุก batch<br>กรอกรหัสผ่านเพื่อทำต่อจากจุดเดิม: ' +
-              '<input id="njx-pw" type="password" style="padding:6px;border:1px solid #cbd5e1;border-radius:6px"> <button class="btn btn-primary" onclick="_njResume()">ทำต่อ</button> <span id="njx-pwmsg" style="color:#ef4444"></span>');
+              '<input id="njx-pw" type="password" style="background:#fff;color:#0f172a;padding:6px;border:1px solid #cbd5e1;border-radius:6px"> <button class="btn btn-primary" onclick="_njResume()">ทำต่อ</button> <span id="njx-pwmsg" style="color:#ef4444"></span>');
             NJ.running = false; NJ._resume = { delJ: delJ, delD: delD }; return;
           }
           throw e;
@@ -332,25 +332,27 @@
   async function _njStorageRun() {
     var rounds = 0, last = null;
     while (rounds++ < 200) {
-      var nx = await _rpcAuth("nj_cleanup_storage_next", { p_limit: 300 });
+      var nx = await _rpcAuth("nj_cleanup_storage_next", { p_limit: 600 });
       last = nx;
       var items = nx.items || [];
       if (!items.length) break;
       var byB = {};
       items.forEach(function (it) { (byB[it.bucket] = byB[it.bucket] || []).push(it); });
-      var errMsg = null;
-      for (var bi = 0; bi < BUCKETS.length; bi++) {
-        var bk = BUCKETS[bi], list = byB[bk] || [];
-        for (var i = 0; i < list.length; i += 100) {
-          var chunk = list.slice(i, i + 100);
+      var errMsg = null, jobs = [];
+      BUCKETS.forEach(function (bk) {
+        var list = byB[bk] || [];
+        for (var i = 0; i < list.length; i += 100) jobs.push({ bk: bk, names: list.slice(i, i + 100).map(function (x) { return x.name; }) });
+      });
+      for (var ji = 0; ji < jobs.length; ji += 3) {
+        await Promise.all(jobs.slice(ji, ji + 3).map(async function (jb) {
           try {
-            var rr = await sb.storage.from(bk).remove(chunk.map(function (x) { return x.name; }));
+            var rr = await sb.storage.from(jb.bk).remove(jb.names);
             if (rr && rr.error) errMsg = rr.error.message || String(rr.error);
           } catch (e) { errMsg = e && e.message || String(e); }
-        }
+        }));
       }
       var rep = await _rpcAuth("nj_cleanup_storage_report", { p_ids: items.map(function (x) { return x.id; }), p_error: errMsg });
-      _prog('🗂️ ลบไฟล์ใน Storage... เหลือ ' + _n(rep.pending_total) + ' ไฟล์');
+      _prog('<span class="spinner"></span> 🗂️ กำลังลบไฟล์ใน Storage... เหลือ ' + _n(rep.pending_total) + ' ไฟล์ (ห้ามปิดหน้านี้)');
       if (rep.deleted === 0) break;   // ไม่มีความคืบหน้า → หยุด ให้กดลองใหม่ภายหลัง
     }
     var fin = await _rpcAuth("nj_cleanup_storage_next", { p_limit: 1 });
@@ -363,7 +365,10 @@
     return last;
   }
   window._njStorageRetry = async function () {
-    if (NJ.running) return; NJ.running = true;
+    if (NJ.running) { toast("กำลังลบไฟล์อยู่ กรุณารอให้เสร็จ", "info"); return; }
+    if (!_hasToken()) { toast("Session หมดอายุ กรุณายืนยันรหัสผ่านด้านบนก่อน", "warning"); renderCleanupView(true); return; }
+    NJ.running = true;
+    var rb = document.getElementById("njc-retry"); if (rb) { rb.disabled = true; rb.innerHTML = '<span class="spinner"></span> กำลังลบไฟล์...'; }
     try { _prog('<span class="spinner"></span> กำลังลบไฟล์ค้าง...'); await _njStorageRun(); }
     catch (e) { _prog('❌ ' + _e(e.message === "SESSION_EXPIRED" ? "Session หมดอายุ กรุณายืนยันรหัสผ่านใหม่แล้วกดลองใหม่" : e.message)); if (e.message === "SESSION_EXPIRED") renderCleanupView(true); }
     NJ.running = false; _njLoadAudit();
@@ -376,7 +381,8 @@
       if (!list || !list.length) { el.innerHTML = ""; return; }
       var pend = list.some(function (a) { return a.storage_status === "PENDING" || a.storage_status === "PARTIAL"; });
       el.innerHTML = '<div class="panel" style="padding:14px"><b>ประวัติการลบ (Audit)</b>' +
-        (pend ? ' <button class="btn btn-warn" style="margin-left:8px" onclick="_njStorageRetry()">🔁 ลบไฟล์ค้างซ้ำ</button>' : '') +
+        (pend ? ' <button class="btn btn-warn" id="njc-retry" style="margin-left:8px" ' + (NJ.running ? 'disabled' : '') + ' onclick="_njStorageRetry()">' + (NJ.running ? '<span class="spinner"></span> กำลังลบไฟล์...' : '🔁 ลบไฟล์ค้างซ้ำ') + '</button>' : '') +
+        '<div id="njc-sprog"></div>' +
         '<div style="overflow:auto"><table class="tbl" style="width:100%;font-size:13px;margin-top:8px"><tr><th>#</th><th>ช่วงวันที่</th><th>ผู้ลบ</th><th>เวลา</th><th>สถานะ</th><th>JOB</th><th>DOC</th><th>Logs</th><th>รวมแถว</th><th>ไฟล์</th></tr>' +
         list.map(function (a) {
           var ok = a.status === "COMPLETED" && (a.storage_status === "DONE" || a.storage_status === "NONE");
@@ -385,6 +391,7 @@
             '</td><td>' + _n(a.jobs_count) + '</td><td>' + _n(a.documents_count) + '</td><td>' + _n(a.logs_count) + '</td><td>' + _n(a.total_deleted_rows) +
             '</td><td>' + _e(a.storage_status) + ' ' + _n(a.storage_deleted) + '/' + _n(a.storage_total) + '</td></tr>';
         }).join("") + '</table></div></div>';
+      if (NJ.progHtml && !document.getElementById("njc-progress")) _prog(NJ.progHtml);
     } catch (e) { if (e.message !== "SESSION_EXPIRED") el.innerHTML = '<div style="color:#ef4444">โหลดประวัติไม่สำเร็จ: ' + _e(e.message) + '</div>'; }
   }
 })();
