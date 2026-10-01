@@ -1772,7 +1772,7 @@ async function onAuthSuccess(session){
 
   // ── Role-based UI: ซ่อน "จัดการสมาชิก" สำหรับ User ธรรมดา ──
   document.querySelectorAll('[data-role="admin-only"]').forEach(el=>{
-    el.style.display = (userRole === 'SUPER_ADMIN') ? '' : 'none';
+    el.style.display = (userRole === 'SUPER_ADMIN' || userRole === 'USER') ? '' : 'none';   /* ★ [local082] USER = SUPER_ADMIN */
   });
 
   /* ── [DEMO USER] MENU GUARD — ลบเมนูที่ไม่ได้รับอนุญาตออกจาก DOM จริง ──
@@ -1833,7 +1833,7 @@ function openManageMembers(){
   }
   const u = _currentUser;
   const myRole = calcRoleNorm(u.user_metadata?.role) || 'USER';
-  if(myRole !== 'SUPER_ADMIN'){
+  if(myRole !== 'SUPER_ADMIN' && myRole !== 'USER'){   /* ★ [local082] USER = SUPER_ADMIN */
     if(typeof toast === 'function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN', 'warn');
     return;
   }
@@ -5962,7 +5962,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     finally{ if(btn) btn.disabled=false; }
   }
   async function openPermitMaster(){
-    const A=auth(); if(!A || A.role!=='SUPER_ADMIN'){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }
+    const A=auth(); if(!A || (A.role!=='SUPER_ADMIN' && A.role!=='USER')){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }   /* ★ [local082] USER = SUPER_ADMIN */
     mpPageOpen('pm-overlay'); sayM('กำลังโหลด MASTER…'); await pmRefresh(); renderCurrent(); sayM(PM.ready ? '' : '❌ โหลด MASTER ไม่ได้: '+PM.err, PM.ready ? '' : '#c00000');
     await pmLoadPage();
   }
@@ -6117,7 +6117,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     }catch(e){ sayM('❌ Export ไม่สำเร็จ: '+String(e&&e.message||e),'#c00000'); } finally{ btn.disabled=false; }
   }
   async function openEleMaster(){
-    const A=auth(); if(!A || A.role!=='SUPER_ADMIN'){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }   /* สิทธิ์เดียวกับ พิกัดใบอนุญาต */
+    const A=auth(); if(!A || (A.role!=='SUPER_ADMIN' && A.role!=='USER')){ if(typeof toast==='function') toast('สิทธิ์ไม่เพียงพอ — ต้องเป็น SUPER_ADMIN','warn'); return; }   /* ★ [local082] USER = SUPER_ADMIN */   /* สิทธิ์เดียวกับ พิกัดใบอนุญาต */
     mpPageOpen('em-overlay'); sayM(''); await load();
   }
   function closeEleMaster(){ ['em-paste-ov','em-up-ov','em-edit-ov'].forEach(closeSub); $('em-overlay').classList.remove('show'); }
@@ -6152,7 +6152,7 @@ function fxDbErr(e){ const c=String(e&&e.code||''), m=String(e&&e.message||'');
   return '❌ โหลด MASTER จากฐานข้อมูลไม่ได้'; }
 /* ── สิทธิ์ UI: SUPER_ADMIN / ADMIN เห็นปุ่มจัดการ · USER เห็นเฉพาะรายการ/สถานะ (Server ตรวจซ้ำทุกครั้ง) ── */
 function fxApplyRole(){
-  const A=fxAuth(); EXCHANGE_MASTER_STATE.role=A?A.role:''; EXCHANGE_MASTER_STATE.admin=!!(A && (A.role==='SUPER_ADMIN'||A.role==='ADMIN'));
+  const A=fxAuth(); EXCHANGE_MASTER_STATE.role=A?A.role:''; EXCHANGE_MASTER_STATE.admin=!!(A && (A.role==='SUPER_ADMIN'||A.role==='ADMIN'||A.role==='USER'));   /* ★ [local082] USER = SUPER_ADMIN */
   const row=document.querySelector('#fx-panel .fx-row'); if(row) row.style.display=EXCHANGE_MASTER_STATE.admin?'':'none';
   if(!EXCHANGE_MASTER_STATE.admin){ EXCHANGE_MASTER_STATE.pending=null; const pv=document.getElementById('fx-preview'); if(pv) pv.innerHTML=''; }
 }
