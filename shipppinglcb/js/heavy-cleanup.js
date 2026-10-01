@@ -31,7 +31,7 @@
   function _hasToken() { return !!NJ.token && Date.now() < NJ.exp - 15000; }
 
   async function _rpc(fn, args) {
-    var r = await sb.rpc(fn, args);
+    var r = await withTimeout(sb.rpc(fn, args), 30000, fn);
     if (r.error) throw new Error(_msg(r.error));
     return r.data;
   }
