@@ -1,4 +1,121 @@
-NJHR V2 — Release local320
+NJHR V2 — Release local321
+RUN-155 · FLOW เงินเดือน + OT + ตั้งค่ารายการเงินเดือน + E-PAYSLIP ทั้งชุด
+Build: njhr-v2-cc8b7635   (เดิม njhr-v2-617e6da5)
+
+*** รอบนี้ buildId เปลี่ยน — Force Update จะทำงาน (Maintenance 10 นาที + Login ใหม่) ***
+ไฟล์ Frontend ที่เปลี่ยนจริง 2 ไฟล์: compat/approvals-reports.js · styles.css
+SQL ที่ต้องรัน: ไม่มี — RUN-155 ทั้ง 3 ไฟล์ COMMIT บน Production แล้ว 01/10/2569
+  _archive/RUN-155_payroll_flow_core.sql    (Batch 1 · รากฐาน)
+  _archive/RUN-155_payroll_flow_batch2.sql  (Batch 2 · Override / สถานะงวด / OT bands)
+  _archive/RUN-155_payroll_flow_batch3.sql  (Batch 3 · Confirm / Reopen / Snapshot / E-PAYSLIP)
+  ลำดับการรัน core -> batch2 -> batch3 (ห้ามสลับ) · ทุกไฟล์รันซ้ำได้ ไม่มี DROP/DELETE/TRUNCATE
+
+================================================================
+Root Cause ที่พิสูจน์จากข้อมูล Production จริง
+================================================================
+1. งวดเงินเดือนเป็น 1–สิ้นเดือน จริง
+     prMonthRange() เดิม: from = ปี-เดือน-01 · to = วันสุดท้ายของเดือน
+2. "กันยายนหาย" — ของจริงคือกันยายนไม่เคยถูกสร้าง
+     payroll มี 117 แถว งวดเดียว = 2026-10 เท่านั้น
+     prLoad() เมื่อไม่มีงวดใดในระบบ default เป็น new Date() -> 1 ต.ค. -> สร้างงวด month=10
+3. รายการเงินเดือนที่ตั้งค่าไว้ ไม่เข้าการคำนวณเลยแม้แต่รายการเดียว
+     njhr_pay_entries 283 แถวเป็น ONE_TIME ผูกงวด 2026-09 (189) และ 2026-08 (94)
+     คำนวณงวด 2026-10 จึงไม่ match เลย -> payroll_items 0 แถว · diligence/shift/ot = 0 ทุกคน
+4. OT = 0 ทั้งงวด เพราะช่วงที่ถามคือ 01–31/10/2026 (อนาคต)
+5. OT Logic เดิมคูณ 1.5 เหมารวม: Math.round(base/30/8*1.5*otHours)
+6. payroll_status enum ไม่มี REOPENED
+7. njhr_payroll_periods ใช้ max(status::text) = เรียงตามตัวอักษร ให้ผลผิด
+8. njhr_pay_period_locked ล็อกที่ CALCULATED -> แก้ต้นทางหลังคำนวณไม่ได้ ขัด FLOW ที่ต้องการ
+
+================================================================
+กติกาที่ผู้ใช้ยืนยัน (ไม่ได้เดา)
+================================================================
+· งวด X = 26 ของเดือนก่อน -> 25 ของเดือน X (period_month = เดือนที่ปิดงวด)
+· 117 แถวเดิม = งวดตุลาคม (26/09–25/10) คงไว้ แล้วคำนวณใหม่ทั้ง 2 งวด
+· วันหยุด: ใช้ working_days ของกะก่อน · ไม่มี/อ่านไม่ออก -> fallback เสาร์-อาทิตย์ + holidays
+· เวลาตัดช่วง OT: ใช้เวลากะของพนักงานแต่ละคน
+· ค่ากะ/เบี้ยขยัน "จากระบบ" = ยอด pay entry ของงวดนั้น
+· OT หลังเที่ยงคืน: ตี Work Date ก่อน แล้วค่อยหา Rate จากประเภทวันของ Work Date
+  spans_next_day=true เชื่อข้อมูลนั้น · ไม่มี spans และเวลาเริ่ม < เวลาเข้ากะ -> Work Date = วันก่อน
+  ห้ามแก้ข้อมูล OT ต้นทางของพนักงาน ให้แก้ Logic การตี Work Date แทน
+
+================================================================
+DB — RUN-155 (24 ฟังก์ชัน · COMMIT บน Production แล้ว)
+================================================================
+ใหม่ 18: njhr_payroll_bounds · njhr_wd_token · njhr_wd_parse · njhr_ot_day_is_holiday
+         njhr_ot_split · njhr_ot_split_wd · njhr_ot_workdate · njhr_ot_bands
+         njhr_payroll_recalc_row · njhr_payroll_periods_v2 · njhr_payroll_override_save
+         njhr_payroll_override_reset · njhr_payroll_override_history · njhr_payroll_validate
+         njhr_payroll_confirm · njhr_payroll_reopen · njhr_payroll_apply_bands_and_overrides
+         njhr_slip_snapshot · njhr_slip_list_v2
+แก้ 5:   njhr_payroll_periods (สถานะงวด) · njhr_pay_period_locked (ล็อกเฉพาะ CONFIRMED/PAID)
+         njhr_payroll_period_save (REOPENED + period_start/end + post-process)
+         njhr_slip_get (อ่าน Snapshot) · njhr_slip_list (REOPENED)
+Schema:  payroll +23 คอลัมน์ (period_start/end · version · OT band 7 · system/override 8 · confirmed/reopened 5)
+         enum payroll_status + REOPENED
+         ตารางใหม่ njhr_payroll_overrides · njhr_payroll_snapshots (+index +RLS)
+
+กฎ OT ใหม่ (เลิกคูณ 1.5 เหมารวม)
+  วันทำงาน : คิด OT x1.5 ตั้งแต่ W = ot_start_after ถ้ามี ไม่มี -> เวลาเลิกกะ + 30 นาที
+  วันหยุด  : x1 ช่วง [เข้ากะ, เลิกกะ] · ไม่คิด [เลิกกะ, เลิกกะ+60 นาที] · x3 ตั้งแต่ เลิกกะ+60 นาที
+  กะมาตรฐาน NJLOGISTIC 08:30–17:30 (129 คน) จึงได้ 18:00 / 08:30–17:30 / 17:30–18:30 / 18:30+
+  ตรงกับสเปกทุกตัว
+
+================================================================
+Frontend
+================================================================
+compat/approvals-reports.js
+  หน้าเงินเดือน: เขียน viewPayroll ใหม่เป็น Table 10 คอลัมน์ + Filter งวด/แผนก/ตำแหน่ง/ค้นหา/ล้าง/รีเฟรช
+    + Summary 6 การ์ด + Modal รายคน (ทุกหัวข้อ + OT x1/x1.5/x3 ชม./เงิน)
+    + แก้ได้เฉพาะ 4 รายการผ่าน RPC (บังคับเหตุผล · System/Override/Final · ประวัติ · คืนค่าตามระบบ)
+    + ปุ่มตามสถานะ DRAFT / CALCULATED / CONFIRMED / REOPENED
+    + Validate ก่อน Confirm (มี ERROR = BLOCK + ชี้รายคน) · Confirm Modal · Reopen Modal
+  หน้า E-PAYSLIP: epLoadList ใหม่เป็น Table 12 คอลัมน์ + Summary 6 ตัวตาม Filter
+    + สถานะแยก 3 กลุ่ม (สลิป / จ่าย / งวด) + Version + วันที่ยืนยัน
+    + Bulk Export Excel 23 คอลัมน์จาก Final Snapshot + ประวัติรายคน
+    + มือถือ: พนักงาน + สลิปใบเดียว -> เปิดทันที · ปุ่มล่าง Sticky
+  prMonthRange 1–สิ้นเดือน -> 26–25 · prRowsToEntries +คอลัมน์ใหม่ · prFetchEmployees +nickname/dept/pos
+  prLoad ใช้ periods_v2 · showEPayslip +Banner/Snapshot Version
+styles.css
+  บล็อก RUN-155 วางก่อน marker RUN-136 โดยตั้งใจ (นอกช่วงที่ test-run136 และ test-run127 สแกน)
+  ใช้เฉพาะ CSS variable ที่มีจริงในไฟล์ · breakpoint 900px / 480px
+
+================================================================
+ผลทดสอบจริง
+================================================================
+DB (รันบน Production ใน BEGIN...ROLLBACK ทุกชุด)
+  รากฐาน + งวด + working_days + วันหยุด + schema          24/24
+  OT split                                                10/10
+  OT Work Date + regression 5 กลุ่มที่สั่ง                15/15
+  Override / สถานะ / ล็อกงวด                              29/29
+  Guard การคืนค่า                                          6/6
+  Full Flow CALCULATED->CONFIRMED v1->REOPENED->v2 + E-PAYSLIP + duplicate   45/45
+  เคสยืนยันจากผู้ใช้: 0225 04/09 00:00-01:30 -> 1.50 ชม. x1.5
+                     0358 03/09 00:08-01:50 -> 1.70 ชม. x1.5
+Frontend
+  test-run155-payroll-flow.js  (JSDOM)                    238 PASS · 0 FAIL
+  test-run155-responsive.js    (Chromium จริง 7 ขนาดจอ)   142 PASS · 0 FAIL
+  Regression ทั้งโปรเจกต์                                 46 ไฟล์ · 0 FAIL
+Console error = 0 · Page error = 0 ทุกขนาดจอ
+
+================================================================
+สิ่งที่ไม่แตะ
+================================================================
+สูตร ปกส. / ภาษี / OT เดิมของหน้าคำนวณ (มี assertion คุม)
+Workflow / Auth / Role / สิทธิ์ · njhr_ot_is_holiday เดิม (รายงาน OT เดิมทำงานปกติ)
+epRenderSlip / epPrintPayslip / epBulkPrint / epBulkSend เดิม
+หน้าอื่นทุกหน้า · ไม่มี DROP / DELETE / TRUNCATE
+ข้อมูลเงินจริงไม่ถูกเขียนแม้บาทเดียว (payroll 117 แถว · net 1,882,111.54 · snapshots 0 · overrides 0)
+
+================================================================
+ยังไม่ได้ยืนยัน (ต้องทำหลัง Deploy)
+================================================================
+1. ยังไม่ได้กด UI จริงบน njl-logistic.com/hr/ เพราะยังไม่ Deploy
+2. Android / iPhone ทดสอบด้วย Chromium emulation ไม่ใช่เครื่องจริง
+3. งวดกันยายน 2569 ยังไม่มีข้อมูลในฐาน — หลัง Deploy ต้องเลือกงวด ก.ย. แล้วกดคำนวณ
+   จึงจะเห็นทั้ง 2 งวดพร้อมกัน และ OT จะเข้าตามกฎใหม่
+
+[ประวัติ] Release local320 — RUN-153 + RUN-154 (Save ambiguous · สลิป · Export xlsx)
 RUN-153 (DB) + RUN-154 (Frontend) · เงินเดือน / รายการเงินเดือน / สลิปเงินเดือน
 Build: njhr-v2-617e6da5   (เดิม njhr-v2-b637c4ef)
 

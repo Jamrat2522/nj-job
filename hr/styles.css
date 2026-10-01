@@ -340,6 +340,89 @@
 @media print{.doc-m{display:none!important}.doc-steps{display:none!important}}
 
 
+/* ===== RUN-155 หน้าเงินเดือน + E-PAYSLIP แบบตาราง =====
+   วางไว้ก่อน marker RUN-136 โดยตั้งใจ
+   เพราะ test-run136 อ่าน CSS ช่วง RUN-136 -> RUN-127 และ test-run127 อ่านจาก marker ถึง EOF
+   บล็อกนี้จึงต้องอยู่นอกทั้งสองช่วง และใช้เฉพาะ CSS variable ที่มีจริงในไฟล์ */
+.pr-filters{flex-wrap:wrap;gap:8px}
+.pr-filters .search-box{min-width:220px;flex:1 1 220px}
+.pr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+.pr-card{background:var(--card,#fff);border:1px solid var(--line,#E5E7EB);border-radius:10px;padding:10px 12px}
+.pr-card small{display:block;color:var(--ink-2,#6B7280);font-size:12px;margin-bottom:2px}
+.pr-card b{font-size:16px;font-variant-numeric:tabular-nums}
+.pr-card-red b{color:var(--red,#DC2626)}
+.pr-card-blue b{color:var(--blue,#2563EB)}
+.pr-table table{min-width:980px}
+.pr-table td,.pr-table th{white-space:nowrap}
+.pr-table .cell-user small{display:block;color:var(--ink-2,#6B7280);font-size:11px}
+
+.pr-detail{display:flex;flex-direction:column;gap:14px}
+.pr-sec{border:1px solid var(--line,#E5E7EB);border-radius:10px;overflow:hidden}
+.pr-sec-h{display:flex;align-items:center;gap:6px;padding:8px 12px;font-weight:600;
+  background:var(--bg,#F9FAFB);border-bottom:1px solid var(--line,#E5E7EB)}
+.pr-sec-h.pr-blue{color:var(--blue,#2563EB)}
+.pr-sec-h.pr-red{color:var(--red,#DC2626)}
+.pr-line{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line,#F3F4F6)}
+.pr-line:last-child{border-bottom:0}
+.pr-line>span:first-child{flex:1 1 auto;min-width:0}
+.pr-line>span:last-child{flex:0 0 auto;font-variant-numeric:tabular-nums;text-align:right}
+.pr-line.pr-sum{background:var(--bg,#F9FAFB);font-weight:700}
+.pr-line-ot .pr-ot-h{flex:0 0 auto;color:var(--ink-2,#6B7280);font-size:12px;
+  font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+.pr-line-ot>span:last-child{min-width:92px}
+.pr-ot-box{background:var(--bg,#F9FAFB)}
+.pr-line.pr-sub{font-weight:600}
+.pr-line-edit .pr-edit-vals{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
+.pr-line-edit .pr-edit-vals small{font-size:11px}
+.pr-line-edit .pr-edit-act{display:flex;gap:6px;flex:0 0 auto;margin-left:8px}
+.pr-net{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;
+  border-radius:10px;background:#EFF6FF;border:1px solid var(--blue,#2563EB)}
+.pr-net b{font-size:22px;color:var(--blue,#2563EB);font-variant-numeric:tabular-nums}
+.pr-edit .field{margin-top:10px}
+.btn-xs{padding:2px 8px;font-size:12px;line-height:1.6}
+.badge-warn{background:#FEF3C7;color:#92400E}
+
+/* ---- E-PAYSLIP ตาราง ---- */
+.ep-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.ep-tbl table{min-width:1040px}
+.ep-tbl td,.ep-tbl th{white-space:nowrap}
+.ep-acts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
+.ep-reopen-banner{margin:0 0 12px;padding:10px 12px;border-radius:10px;
+  background:#FEF3C7;color:#92400E;font-weight:600}
+.ep-snapv{font-size:12px;color:var(--ink-2,#6B7280)}
+
+/* ---- มือถือ: ตารางอ่านได้ ไม่ล้นจอ · Modal ไม่ล้น ---- */
+@media screen and (max-width:900px){
+  .pr-cards,.ep-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pr-table table,.ep-tbl table{min-width:720px}
+  .pr-line-edit{flex-wrap:wrap}
+  .pr-line-edit .pr-edit-act{margin-left:0;width:100%;justify-content:flex-end}
+  .pr-net b{font-size:19px}
+}
+@media screen and (max-width:480px){
+  .pr-cards,.ep-cards{grid-template-columns:1fr 1fr;gap:8px}
+  .pr-card b{font-size:14px}
+  .pr-filters .search-box{flex:1 1 100%}
+  .pr-filters select{flex:1 1 calc(50% - 4px);min-width:0}
+  .pr-table table,.ep-tbl table{min-width:640px}
+  .pr-sec-h{font-size:14px}
+  .pr-line{padding:8px 10px}
+  .btn-xs{padding:4px 10px}
+}
+
+/* ---- สลิปมือถือของพนักงาน: เต็มจอ 1 คอลัมน์ + ปุ่มล่าง Sticky ---- */
+.ep-mobile{display:none}
+@media screen and (max-width:900px){
+  .ep-mobile{display:block}
+  .ep-mobile-wrap{padding-bottom:72px}
+  .ep-sticky{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;
+    padding:10px 12px;background:var(--card,#fff);border-top:1px solid var(--line,#E5E7EB);
+    box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+  .ep-sticky .btn{flex:1 1 0;min-height:44px}
+  .ep-mobile .ep-cols{grid-template-columns:1fr}
+}
+
+
 /* ===== RUN-136 · 📢 ประกาศ (ประกาศบริษัท + ประกาศที่รับทราบแล้ว) ===== */
 .an-top{margin-bottom:12px}
 .an-filter{gap:8px;flex-wrap:wrap}

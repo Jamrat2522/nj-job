@@ -929,7 +929,11 @@ function apprDecide(el, kind, r, act, note, btn) {
     toast(er && er.message || txt + "ไม่สำเร็จ", "error");
   });
 }
-var prSel=null;function round2(n){return Math.round((Number(n)||0)*100)/100}var PR_OT_PAGE=2e3;function prMonthRange(year,month){var last=new Date(year,month,0).getDate();return{from:year+"-"+pad(month)+"-01",to:year+"-"+pad(month)+"-"+pad(last)}}/* [RUN-137] ของเดิมวนต่อเฉพาะเมื่อ rows.length === PR_OT_PAGE (2000)
+var prSel=null;function round2(n){return Math.round((Number(n)||0)*100)/100}var PR_OT_PAGE=2e3;/* [RUN-155] งวดเงินเดือน = 26 ของเดือนก่อน -> 25 ของเดือนที่เลือก
+   สูตรเดียวกับ njhr_payroll_bounds() ฝั่ง DB เป๊ะ (ตรวจแล้ว 5 เคสรวมข้ามปี) */
+function prMonthRange(year,month){
+  var sy=year,sm=month-1;if(sm<1){sm=12;sy=year-1}
+  return{from:sy+"-"+pad(sm)+"-26",to:year+"-"+pad(month)+"-25"}}/* [RUN-137] ของเดิมวนต่อเฉพาะเมื่อ rows.length === PR_OT_PAGE (2000)
    แต่ PostgREST ตัดที่ ~1000 จึงได้ 1000 != 2000 แล้วหยุดหน้าแรกทันที ชั่วโมง OT ขาด
    เปลี่ยนมาใช้ helper กลางที่ยึด total_count เป็นตัวตัดสิน */
 function prFetchOtHours(year,month){if(!sbReady()||!sbToken()){return Promise.reject(new Error("ยังไม่ได้เชื่อมต่อ Supabase"))}
@@ -956,7 +960,12 @@ function prFetchEmployees(){
       if(!r||!r.id)return;
       map[r.id]={id:r.id,code:r.emp_code||"",name:String(r.full_name||"").trim(),
         status:String(r.status||"").toUpperCase(),
-        baseSalary:Number(r.base_salary)||0,allowance:Number(r.position_allow)||0}
+        baseSalary:Number(r.base_salary)||0,allowance:Number(r.position_allow)||0,
+        /* [RUN-155] เก็บชื่อเล่น/แผนก/ตำแหน่ง ไว้ใช้กับตัวกรองหน้าเงินเดือน
+           njhr_report_all_employees คืน 3 คอลัมน์นี้อยู่แล้ว ไม่ต้องยิง RPC เพิ่ม */
+        nickname:String(r.nickname||"").trim(),
+        dept:String(r.department_name||"").trim(),
+        pos:String(r.position_name||"").trim()}
     });
     prEmpCache=map;return map
   })
@@ -971,27 +980,817 @@ function prActiveEmployees(){
 function prEmpOf(id){return(prEmpCache&&prEmpCache[id])||null}
 function prEmpName(id){var e=prEmpOf(id);return e&&e.name?e.name:empName(id)}
 function prEmpCode(id){var e=prEmpOf(id);if(e&&e.code)return e.code;return(emp(id)||{}).code||""}
-var prLoaded=false;NJHR.payroll=NJHR.payroll||{};NJHR.payroll.reset=function(){prLoaded=false;prSel=null;prEmpCache=null};function prRowsToEntries(rows,itemsByPayroll){var map=itemsByPayroll||{};return(rows||[]).map(function(r){var inc=Number(r.total_income)||0,ded=Number(r.total_deduct)||0;var its=map[r.id]||[],incomes=[],deducts=[],ie=0,id2=0;its.forEach(function(x){var amt=Number(x.amount)||0;if(String(x.item_type).toUpperCase()==="INCOME"){incomes.push({name:x.item_name,amount:amt});ie+=amt}else{deducts.push({name:x.item_name,amount:amt});id2+=amt}});return{empId:r.employee_id,base:Number(r.base_salary)||0,allowance:Number(r.position_allow)||0,ot:Number(r.ot_amount)||0,earnings:inc,sso:Number(r.social_security)||0,tax:Number(r.tax)||0,otherDeduct:Number(r.other_deduct)||0,deductions:ded,net:Number(r.net_pay)||0,incomes:incomes,deducts:deducts,itemEarning:Math.round(ie*100)/100,itemDeduction:Math.round(id2*100)/100}})}function prEntriesToRows(entries){return(entries||[]).map(function(en){var emp=prEmpOf(en.empId)||db.employees.find(function(x){return x.id===en.empId})||{};var items=[];(en.incomes||[]).forEach(function(x){items.push({item_type:"INCOME",item_name:String(x.name||""),amount:Number(x.amount)||0})});(en.deducts||[]).forEach(function(x){items.push({item_type:"DEDUCT",item_name:String(x.name||""),amount:Number(x.amount)||0})});return{employee_id:en.empId,employee_code:emp.code||null,base_salary:en.base,position_allow:en.allowance,ot_amount:en.ot,social_security:en.sso,tax:en.tax,other_deduct:en.otherDeduct||0,total_income:en.earnings,total_deduct:en.deductions,net_pay:en.net,items:items}})}function prSave(pr){return sbRpcList("njhr_payroll_period_save",{p_token:sbToken(),p_year:pr.year,p_month:pr.month,p_status:pr.status,p_rows:prEntriesToRows(pr.entries)})}function prLoad(el){return sbRpcList("njhr_payroll_periods",{p_token:sbToken()}).then(function(ps){var list=(ps||[]).map(function(p){return{month:p.period_month,year:p.period_year,status:p.status,entries:[]}});if(!list.length){var _n=new Date;list=[{month:_n.getMonth()+1,year:_n.getFullYear(),status:"DRAFT",entries:[]}]}list.sort(function(a,b){return a.year-b.year||a.month-b.month});db.payroll=list;if(!prSel){var last=list[list.length-1];prSel={m:last.month,y:last.year}}return Promise.all([sbRpcList("njhr_payroll_period_get",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})["catch"](function(){return[]}),sbRpcList("njhr_payroll_period_items",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})["catch"](function(){return[]}),
+var prLoaded=false;NJHR.payroll=NJHR.payroll||{};NJHR.payroll.reset=function(){prLoaded=false;prSel=null;prEmpCache=null};function prRowsToEntries(rows,itemsByPayroll){var map=itemsByPayroll||{};return(rows||[]).map(function(r){var inc=Number(r.total_income)||0,ded=Number(r.total_deduct)||0;var its=map[r.id]||[],incomes=[],deducts=[],ie=0,id2=0;its.forEach(function(x){var amt=Number(x.amount)||0;if(String(x.item_type).toUpperCase()==="INCOME"){incomes.push({name:x.item_name,amount:amt});ie+=amt}else{deducts.push({name:x.item_name,amount:amt});id2+=amt}});return{empId:r.employee_id,base:Number(r.base_salary)||0,allowance:Number(r.position_allow)||0,
+ot:Number(r.ot_amount)||0,earnings:inc,sso:Number(r.social_security)||0,tax:Number(r.tax)||0,
+otherDeduct:Number(r.other_deduct)||0,deductions:ded,net:Number(r.net_pay)||0,
+incomes:incomes,deducts:deducts,itemEarning:Math.round(ie*100)/100,itemDeduction:Math.round(id2*100)/100,
+/* [RUN-155] คอลัมน์ใหม่จาก njhr_payroll_period_get (SETOF payroll -> ได้ทุกคอลัมน์) */
+shiftPay:Number(r.shift_allow)||0,diligence:Number(r.diligence)||0,
+deductLeave:Number(r.personal_leave_deduct)||0,deductAbsent:Number(r.absent_deduct)||0,
+deductLate:Number(r.late_deduct)||0,
+otH1:Number(r.ot_hours_x1)||0,otA1:Number(r.ot_amount_x1)||0,
+otH15:Number(r.ot_hours_x15)||0,otA15:Number(r.ot_amount_x15)||0,
+otH3:Number(r.ot_hours_x3)||0,otA3:Number(r.ot_amount_x3)||0,
+otHTotal:Number(r.ot_hours_total)||0,version:Number(r.version)||1,
+systemSalary:r.system_salary==null?null:Number(r.system_salary),
+overrideSalary:r.override_salary==null?null:Number(r.override_salary),
+systemOt:r.system_ot_amount==null?null:Number(r.system_ot_amount),
+overrideOt:r.override_ot_amount==null?null:Number(r.override_ot_amount),
+systemShift:r.system_shift_amount==null?null:Number(r.system_shift_amount),
+overrideShift:r.override_shift_amount==null?null:Number(r.override_shift_amount),
+systemDiligence:r.system_diligence_amount==null?null:Number(r.system_diligence_amount),
+overrideDiligence:r.override_diligence_amount==null?null:Number(r.override_diligence_amount)}})}function prEntriesToRows(entries){return(entries||[]).map(function(en){var emp=prEmpOf(en.empId)||db.employees.find(function(x){return x.id===en.empId})||{};var items=[];(en.incomes||[]).forEach(function(x){items.push({item_type:"INCOME",item_name:String(x.name||""),amount:Number(x.amount)||0})});(en.deducts||[]).forEach(function(x){items.push({item_type:"DEDUCT",item_name:String(x.name||""),amount:Number(x.amount)||0})});return{employee_id:en.empId,employee_code:emp.code||null,base_salary:en.base,position_allow:en.allowance,ot_amount:en.ot,social_security:en.sso,tax:en.tax,other_deduct:en.otherDeduct||0,total_income:en.earnings,total_deduct:en.deductions,net_pay:en.net,items:items}})}function prSave(pr){return sbRpcList("njhr_payroll_period_save",{p_token:sbToken(),p_year:pr.year,p_month:pr.month,p_status:pr.status,p_rows:prEntriesToRows(pr.entries)})}function prLoad(el){
+/* [RUN-155] ใช้ njhr_payroll_periods_v2 เพื่อได้ period_start/period_end มาด้วย
+   ถ้า v2 ใช้ไม่ได้ (เช่น DB ยังไม่อัป) ถอยไปใช้ตัวเดิมเพื่อไม่ให้หน้าพัง */
+return sbRpcList("njhr_payroll_periods_v2",{p_token:sbToken()})["catch"](function(){
+  return sbRpcList("njhr_payroll_periods",{p_token:sbToken()})}).then(function(ps){var list=(ps||[]).map(function(p){
+  prPeriodMeta[prPeriodKey(p.period_year,p.period_month)]={
+    period_start:p.period_start||null,period_end:p.period_end||null,
+    ot_override_count:Number(p.ot_override_count)||0,status:p.status};
+  return{month:p.period_month,year:p.period_year,status:p.status,entries:[]}});if(!list.length){var _n=new Date;list=[{month:_n.getMonth()+1,year:_n.getFullYear(),status:"DRAFT",entries:[]}]}list.sort(function(a,b){return a.year-b.year||a.month-b.month});db.payroll=list;if(!prSel){var last=list[list.length-1];prSel={m:last.month,y:last.year}}return Promise.all([sbRpcList("njhr_payroll_period_get",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})["catch"](function(){return[]}),sbRpcList("njhr_payroll_period_items",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})["catch"](function(){return[]}),
 /* [RUN-150] โหลดรายชื่อ+ฐานเงินเดือนไว้ด้วย เพื่อให้ชื่อในตารางแสดงถูกหลังรีเฟรช
    ล้มเหลวไม่ทำให้หน้าพัง — ตอนกดคำนวณจะโหลดใหม่และแจ้ง error เองถ้ายังไม่ได้ */
 prFetchEmployees()["catch"](function(){return null})])}).then(function(res){var rows=res[0]||[],items=res[1]||[],byId={};items.forEach(function(x){if(!byId[x.payroll_id])byId[x.payroll_id]=[];byId[x.payroll_id].push(x)});var cur=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});if(cur)cur.entries=prRowsToEntries(rows,byId);prLoaded=true;viewPayroll(el)})["catch"](function(er){prLoaded=true;console.error("[PAYROLL] โหลดงวดเงินเดือนจาก Supabase ล้มเหลว:",er);el.innerHTML='<div class="card"><div class="form-error" role="alert">'+"โหลดข้อมูลเงินเดือนจากเซิร์ฟเวอร์ไม่สำเร็จ: "+esc(er&&er.message||"")+"</div></div>"})}/* [RUN-154] รายชื่อคอลัมน์รายการสำหรับ Export — เก็บ item_name ตามลำดับที่พบครั้งแรก
    แหล่งข้อมูลเดียวกับสลิป (en.incomes/en.deducts) จึงไม่มีทางที่หัวข้อสองที่จะต่างกัน */
 function prItemCols(entries){var inc=[],ded=[],si={},sd={};(entries||[]).forEach(function(en){(en.incomes||[]).forEach(function(x){var n=String(x&&x.name||"");if(n&&!si[n]){si[n]=1;inc.push(n)}});(en.deducts||[]).forEach(function(x){var n=String(x&&x.name||"");if(n&&!sd[n]){sd[n]=1;ded.push(n)}})});return{inc:inc,ded:ded}}
 function prItemAmt(arr,name){var t=0;(arr||[]).forEach(function(x){if(x&&String(x.name||"")===name)t+=Number(x.amount)||0});return Math.round(t*100)/100}
-function viewPayroll(el){if(!prLoaded){el.innerHTML='<div class="card"><div class="ep-state">'+'<span class="spinner"></span> กำลังโหลดข้อมูลเงินเดือนจากเซิร์ฟเวอร์…</div></div>';prLoad(el);return}if(!prSel){var last=db.payroll[db.payroll.length-1];prSel={m:last.month,y:last.year}}var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});var months=db.payroll.map(function(p){return{m:p.month,y:p.year}});el.innerHTML='<div class="toolbar">'+'<select id="pr-month">'+months.map(function(x){return'<option value="'+x.m+"-"+x.y+'"'+(x.m===prSel.m&&x.y===prSel.y?" selected":"")+">"+fmtMonthYear(x.m,x.y)+"</option>"}).join("")+"</select>"+(pr?statusBadge(pr.status):"")+'<span class="grow"></span>'+'<button class="btn btn-ghost only-desktop" id="pr-refresh" title="โหลดข้อมูลใหม่">'+icon("refresh")+" รีเฟรช</button>"+(pr&&(pr.status==="DRAFT"||pr.status==="CALCULATED")?'<button class="btn btn-primary" id="pr-calc">'+(pr.status==="CALCULATED"?"คำนวณใหม่":"คำนวณเงินเดือน")+'</button>':"")+(pr&&pr.status==="CALCULATED"?'<button class="btn btn-primary" id="pr-confirm">ยืนยันรอบเงินเดือน</button>':"")+(pr&&pr.entries.length?'<button class="btn btn-ghost" id="pr-export">'+icon("download")+" Export</button>":"")+"</div>"+'<div class="card p0">'+(pr&&pr.entries.length?'<div class="table-wrap"><table><thead><tr><th>พนักงาน</th><th class="ta-r">รายรับรวม</th><th class="ta-r">รายการหัก</th><th class="ta-r">เงินสุทธิ</th><th class="ta-r"></th></tr></thead><tbody>'+pr.entries.map(function(en){return'<tr><td><div class="cell-user">'+avatarHTML(prEmpName(en.empId),32)+"<div><b>"+esc(prEmpName(en.empId))+"</b><small>"+esc(prEmpCode(en.empId))+"</small></div></div></td>"+'<td class="ta-r">'+money(en.earnings)+(en.itemEarning?'<br><small class="t-green">+ รายการเงินเพิ่ม '+money(en.itemEarning)+"</small>":"")+"</td>"+'<td class="ta-r t-red">-'+money(en.deductions)+(en.itemDeduction?'<br><small class="t-red">+ รายการเงินหัก '+money(en.itemDeduction)+"</small>":"")+"</td>"+'<td class="ta-r"><b>'+money(en.net)+"</b></td>"+'<td class="ta-r"><button class="btn btn-ghost btn-sm" data-slip="'+en.empId+'">รายละเอียด</button></td></tr>'}).join("")+'<tr class="row-total"><td><b>รวม '+pr.entries.length+" คน</b></td>"+'<td class="ta-r"><b>'+money(pr.entries.reduce(function(s,x){return s+x.earnings},0))+"</b></td>"+'<td class="ta-r t-red"><b>-'+money(pr.entries.reduce(function(s,x){return s+x.deductions},0))+"</b></td>"+'<td class="ta-r"><b>'+money(pr.entries.reduce(function(s,x){return s+x.net},0))+"</b></td><td></td></tr>"+"</tbody></table></div>":emptyState('รอบนี้ยังไม่ได้คำนวณ กด "คำนวณเงินเดือน" เพื่อสร้างรายการ'))+"</div>"+'<p class="muted note">หลังยืนยันรอบเงินเดือนแล้วจะแก้ตัวเลขโดยตรงไม่ได้ (Production: สร้าง Adjustment พร้อมเหตุผล + Audit Log)</p>';document.getElementById("pr-month").onchange=function(){var v=this.value.split("-");prSel={m:parseInt(v[0],10),y:parseInt(v[1],10)};prLoaded=false;viewPayroll(el)};(function(){var rf=document.getElementById("pr-refresh");if(!rf)return;rf.onclick=function(){var b=this;if(b.getAttribute("data-busy"))return;b.setAttribute("data-busy","1");b.disabled=true;b.innerHTML=icon("refresh")+" กำลังรีเฟรช…";try{prLoaded=false;viewPayroll(el)}catch(e2){b.removeAttribute("data-busy");b.disabled=false;b.innerHTML=icon("refresh")+" รีเฟรช";toast("โหลดข้อมูลใหม่ไม่สำเร็จ กรุณาลองใหม่","error")}}})();var calcBtn=document.getElementById("pr-calc");if(calcBtn)calcBtn.onclick=function(){/* [RUN-154] คำนวณใหม่ได้เมื่องวดเป็น CALCULATED — CONFIRMED ห้ามคำนวณซ้ำ
-   ใช้เส้นทางคำนวณเดิมทั้งหมด (โหลด OT + รายการเงินเดือน + พนักงานใหม่ทุกครั้ง)
-   แล้วเขียนทับ pr.entries ทั้งชุด — njhr_payroll_period_save ลบแถวของงวดแล้ว insert ใหม่
-   + UNIQUE(employee_id,period_year,period_month) จึงเป็น Update งวดเดิม ไม่เกิด Duplicate */if(pr.status==="CONFIRMED"){toast("งวดนี้ยืนยันแล้ว คำนวณใหม่ไม่ได้","error");return}var isRe=pr.status==="CALCULATED";confirmDialog(isRe?"คำนวณใหม่":"คำนวณเงินเดือน",(isRe?"คำนวณใหม่ทั้งงวด <b>":"คำนวณเงินเดือนงวด <b>")+fmtMonthYear(pr.month,pr.year)+"</b> จากฐานเงินเดือน + OT ที่อนุมัติแล้ว + รายการเงินเดือนที่กำหนดไว้"+(isRe?" — ระบบจะโหลดข้อมูลล่าสุดมาคำนวณทับของเดิมทั้งงวด ใช่หรือไม่":" ใช่หรือไม่"),isRe?"คำนวณใหม่":"คำนวณ",function(){Promise.all([prFetchOtHours(pr.year,pr.month),prFetchPayItems(pr.year,pr.month),
-/* [RUN-150] โหลดพนักงานจริงจาก Supabase ทุกครั้งก่อนคำนวณ ไม่พึ่ง db.employees */
-prFetchEmployees()]).then(function(res){var otMap=res[0],map=res[1];var prActive=prActiveEmployees();
-/* [RUN-150] ไม่มีพนักงาน ACTIVE = หยุดทันที ห้ามตั้งสถานะ CALCULATED ห้าม Save ห้ามขึ้นข้อความว่าบันทึกแล้ว */
-if(!prActive.length){toast("ไม่พบพนักงานสถานะ ACTIVE จากเซิร์ฟเวอร์ — ยังไม่คำนวณและไม่ได้บันทึก","error");return}
-var baseEntries=prActive.map(function(x){var otHours=Number(otMap[x.id])||0;var otAmt=Math.round(x.baseSalary/30/8*1.5*otHours);var gross=x.baseSalary+x.allowance+otAmt;var sso=Math.min(Math.round(x.baseSalary*.05),750);var tax=x.baseSalary>5e4?Math.round(x.baseSalary*.03):0;return{empId:x.id,base:x.baseSalary,allowance:x.allowance,ot:otAmt,earnings:gross,sso:sso,tax:tax,otherDeduct:0,deductions:sso+tax,net:gross-sso-tax}});pr.entries=baseEntries.map(function(en){return prApplyPayItems(en,map[en.empId])});pr.status="CALCULATED";audit("PAYROLL_CALC",(isRe?"คำนวณเงินเดือนใหม่ ":"คำนวณเงินเดือน ")+fmtMonthYear(pr.month,pr.year));prSave(pr).then(function(){toast((isRe?"คำนวณใหม่แล้ว ":"คำนวณเงินเดือนแล้ว ")+pr.entries.length+" คน · บันทึกขึ้นเซิร์ฟเวอร์แล้ว");prLoaded=false;viewPayroll(el)})["catch"](function(e2){toast("บันทึกงวดขึ้นเซิร์ฟเวอร์ไม่สำเร็จ: "+(e2&&e2.message||e2),"error")})}).catch(function(er){console.error("[PAYROLL] โหลดข้อมูลคำนวณจาก Supabase ล้มเหลว:",er);toast("โหลดข้อมูลคำนวณจาก Supabase ไม่สำเร็จ: "+(er&&er.message||er)+" — ยังไม่คำนวณ","error")})})};var cfBtn=document.getElementById("pr-confirm");if(cfBtn)cfBtn.onclick=function(){confirmDialog("ยืนยันรอบเงินเดือน","ยืนยันงวด <b>"+fmtMonthYear(pr.month,pr.year)+"</b>? หลังยืนยันจะสร้างสลิปและแก้ตัวเลขโดยตรงไม่ได้","ยืนยัน",function(){pr.status="CONFIRMED";pr.confirmedBy=empName((currentEmp()||{}).id)||currentUser().username;db.users.forEach(function(uu){if(uu.active&&uu.empId)notify(uu.id,"สลิปเงินเดือนพร้อมดู","สลิปงวด "+fmtMonthYear(pr.month,pr.year)+" ออกแล้ว","#/epayslip")});audit("PAYROLL_CONFIRM","ยืนยันเงินเดือน "+fmtMonthYear(pr.month,pr.year));prSave(pr).then(function(){toast("ยืนยันรอบเงินเดือนแล้ว · สลิปพร้อมให้พนักงานดู");prLoaded=false;viewPayroll(el)})["catch"](function(e2){pr.status="CALCULATED";toast("ยืนยันงวดไม่สำเร็จ: "+(e2&&e2.message||e2),"error")})})};/* [RUN-154] Export เป็น .xlsx จริง (เดิมเป็น CSV ที่ Excel อ่านภาษาไทยเพี้ยน)
-   · ใช้ rptBuildXlsx/rptLoadZip ชุดเดียวกับรายงานอื่น — inlineStr UTF-8 ภาษาไทยไม่เพี้ยน ตัวเลขเป็น cell ตัวเลขจริง
-   · คอลัมน์รายการสร้างจาก item_name จริงใน en.incomes/en.deducts (payroll_items)
-     ซึ่งเป็นชุดเดียวกับที่สลิปใช้ — ห้าม hardcode ชื่อรายการ
-   · พนักงานที่ไม่มีรายการนั้น = 0
-   · รายรับรวม/หักรวม/สุทธิ ใช้ค่าเดียวกับที่แสดงบนหน้าจอ (en.earnings/en.deductions/en.net) ตรง 1:1 */var exBtn=document.getElementById("pr-export");if(exBtn)exBtn.onclick=function(){var b=this;if(b.disabled)return;var lb=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';var cols=prItemCols(pr.entries);var head=["รหัสพนักงาน","ชื่อ-นามสกุล","ฐานเงินเดือน","ค่าตำแหน่ง","OT"].concat(cols.inc).concat(["รายรับรวม","ประกันสังคม","ภาษี"]).concat(cols.ded).concat(["รายการหักรวม","เงินสุทธิ"]);var cells=pr.entries.map(function(en){var x=prEmpOf(en.empId)||emp(en.empId)||{};return [x.code||prEmpCode(en.empId)||"",prEmpName(en.empId),epNum(en.base),epNum(en.allowance),epNum(en.ot)].concat(cols.inc.map(function(nm){return prItemAmt(en.incomes,nm)})).concat([epNum(en.earnings),epNum(en.sso),epNum(en.tax)]).concat(cols.ded.map(function(nm){return prItemAmt(en.deducts,nm)})).concat([epNum(en.deductions),epNum(en.net)])});var widths=head.map(function(h,i){return i===1?28:Math.min(Math.max(String(h).length+4,12),24)});var title=[db.settings.companyName,"รายการเงินเดือน งวด "+fmtMonthYear(pr.month,pr.year),"จำนวนพนักงาน: "+pr.entries.length+" คน · สถานะ: "+pr.status,"วันที่ Export: "+nowStamp()];rptLoadZip().then(function(){return rptBuildXlsx("เงินเดือน "+pr.year+"-"+pad(pr.month),head,cells,widths,title)}).then(function(blob){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="payroll-"+pr.year+"-"+pad(pr.month)+".xlsx";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);audit("EXPORT","Export เงินเดือน "+fmtMonthYear(pr.month,pr.year));toast("ดาวน์โหลดไฟล์ Excel แล้ว "+pr.entries.length+" คน")})["catch"](function(ex){toast("สร้างไฟล์ Excel ไม่สำเร็จ: "+(ex&&ex.message||ex),"error")}).then(function(){b.disabled=false;b.innerHTML=lb})};el.querySelectorAll("[data-slip]").forEach(function(b){b.onclick=function(){showEPayslip(pr,this.dataset.slip)}})}var epState={year:null,month:null,q:"",dept:"",pos:"",status:"",page:0,per:100,seq:0};var epPeriods=[],epRows=[],epFilters={DEPARTMENT:[],POSITION:[]};var epSel={};function epIsAdmin(){return["SUPER_ADMIN","HR"].indexOf(currentUser().role)>=0}function viewEPayslip(el){var seq=++epState.seq,admin=epIsAdmin();epSel={};el.innerHTML='<div class="card"><div class="card-head"><h3>สลิปเงินเดือน (E-PAYSLIP)'+(admin?"":" ของฉัน")+"</h3></div>"+'<div class="toolbar ep-filters">'+'<select id="ep-period"><option value="">— กำลังโหลดงวดเงินเดือน —</option></select>'+(admin?'<select id="ep-dept"><option value="">ทุกแผนก</option></select>'+'<select id="ep-pos"><option value="">ทุกตำแหน่ง</option></select>'+'<select id="ep-status">'+[["","ทุกสถานะ"],["PAID","จ่ายแล้ว"],["CONFIRMED","ยืนยันแล้ว"],["UNPAID","ยังไม่จ่าย"],["NONE","ไม่มีข้อมูลเงินเดือน"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.status===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"+'<span class="ep-qbox">'+icon("search","ic-sm")+'<input id="ep-q" placeholder="ค้นหาชื่อ นามสกุล ชื่อเล่น หรือรหัสพนักงาน..." value="'+esc(epState.q)+'"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-clear">ล้างตัวกรอง</button>':"")+'<span class="grow"></span><span class="muted" id="ep-count"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-reload">'+icon("history")+" โหลดใหม่</button></div>"+"</div>"+(admin?'<div class="card ep-bulk" id="ep-bulk" hidden></div>':"")+'<div class="card p0" id="ep-panel"></div>'+'<div class="form-error" id="ep-err" role="alert" style="white-space:pre-line"></div>';document.getElementById("ep-reload").onclick=function(){viewEPayslip(el)};if(admin){document.getElementById("ep-clear").onclick=function(){epState.q="";epState.dept="";epState.pos="";epState.status="";epState.page=0;viewEPayslip(el)};document.getElementById("ep-status").onchange=function(){epState.status=this.value;epState.page=0;epSel={};epLoadList(el,++epState.seq)};document.getElementById("ep-q").oninput=debounce(function(){epState.q=this.value;epState.page=0;epSel={};epLoadList(el,++epState.seq);var q2=document.getElementById("ep-q");if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length)}},300)}epPanel('<div class="ep-state"><span class="spinner"></span> กำลังโหลดข้อมูล E-PAYSLIP…</div>');if(!sbReady()){epError(el,"ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase");return}sbRpcList("njhr_slip_periods",{p_token:sbToken()}).then(function(ps){if(seq!==epState.seq)return;epPeriods=ps||[];var sel=document.getElementById("ep-period");if(!epPeriods.length){if(sel)sel.innerHTML='<option value="">— ยังไม่มีงวดเงินเดือน —</option>';epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");return}var found=epPeriods.some(function(p){return p.period_year===epState.year&&p.period_month===epState.month});if(!found){epState.year=epPeriods[0].period_year;epState.month=epPeriods[0].period_month}if(sel){sel.innerHTML=epPeriods.map(function(p){return'<option value="'+p.period_year+"-"+p.period_month+'"'+(p.period_year===epState.year&&p.period_month===epState.month?" selected":"")+">"+esc(TH_MONTHS[p.period_month-1]+" "+(p.period_year+543))+" · "+p.rows_count+" รายการ"+(p.status==="PAID"?" · จ่ายแล้ว":p.status==="CONFIRMED"?" · ยืนยันแล้ว":p.status==="CALCULATED"?" · คำนวณแล้ว":" · ร่าง")+"</option>"}).join("");sel.onchange=function(){var v=String(this.value).split("-");epState.year=parseInt(v[0],10);epState.month=parseInt(v[1],10);epState.page=0;epSel={};epLoadList(el,++epState.seq)}}if(admin)epLoadFilters();epLoadList(el,seq)}).catch(function(er){if(seq!==epState.seq)return;console.error("[E-PAYSLIP] njhr_slip_periods ล้มเหลว:",er);epError(el,er.message||"ไม่ทราบสาเหตุ")})}function epLoadFilters(){sbRpcList("njhr_slip_filters",{p_token:sbToken(),p_year:epState.year,p_month:epState.month}).then(function(rows){epFilters={DEPARTMENT:[],POSITION:[]};(rows||[]).forEach(function(r){if(epFilters[r.kind])epFilters[r.kind].push(r)});function fill(id,list,cur,all){var sel=document.getElementById(id);if(!sel)return;sel.innerHTML='<option value="">'+all+"</option>"+list.map(function(r){return'<option value="'+esc(r.value)+'"'+(cur===r.value?" selected":"")+">"+esc(r.value)+" ("+r.cnt+")</option>"}).join("")}fill("ep-dept",epFilters.DEPARTMENT,epState.dept,"ทุกแผนก");fill("ep-pos",epFilters.POSITION,epState.pos,"ทุกตำแหน่ง");var d=document.getElementById("ep-dept"),p2=document.getElementById("ep-pos");if(d)d.onchange=function(){epState.dept=this.value;epState.page=0;epSel={};epLoadList(null,++epState.seq)};if(p2)p2.onchange=function(){epState.pos=this.value;epState.page=0;epSel={};epLoadList(null,++epState.seq)}}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_filters ล้มเหลว:",er)})}function epPanel(html){var b=document.getElementById("ep-panel");if(b)b.innerHTML=html}function epCount(t){var b=document.getElementById("ep-count");if(b)b.textContent=t}function epError(el,detail){epPanel('<div class="ep-state ep-state-bad">'+"<b>ไม่สามารถโหลดข้อมูล E-PAYSLIP ได้</b>"+'<small class="muted">'+esc(detail||"")+"</small>"+'<button class="btn btn-primary btn-sm" id="ep-retry">'+icon("history")+" ลองใหม่</button></div>");epCount("");var b=document.getElementById("ep-retry");if(b)b.onclick=function(){viewEPayslip(el)}}function epSelectable(){return epRows.filter(function(r){return r.has_payroll&&r.payroll_id})}function epSelectedIds(){return Object.keys(epSel).filter(function(k){return epSel[k]})}function epSyncBulk(){var ids=epSelectedIds(),box=document.getElementById("ep-bulk");var all=epSelectable();var head=document.getElementById("ep-all");if(head){var picked=all.filter(function(r){return epSel[r.payroll_id]}).length;head.checked=all.length>0&&picked===all.length;head.indeterminate=picked>0&&picked<all.length;head.disabled=all.length===0}if(!box)return;if(!ids.length){box.hidden=true;box.innerHTML="";return}box.hidden=false;box.innerHTML='<div class="toolbar ep-bulk-bar"><b>เลือกแล้ว '+ids.length+" คน</b>"+'<span class="grow"></span>'+'<button class="btn btn-primary btn-sm" id="ep-bulk-open">'+icon("fileText")+" เปิดสลิปที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-pdf">'+icon("download")+" Export PDF ที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-send">'+icon("send")+" ส่งสลิปที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-clear">ยกเลิกการเลือก</button></div>';document.getElementById("ep-bulk-open").onclick=function(){epBulkPrint(this,false)};document.getElementById("ep-bulk-pdf").onclick=function(){epBulkPrint(this,true)};document.getElementById("ep-bulk-send").onclick=function(){epBulkSend()};document.getElementById("ep-bulk-clear").onclick=function(){epSel={};document.querySelectorAll("#ep-panel [data-ep-pick]").forEach(function(c){c.checked=false});epSyncBulk()}}function epLoadList(el,seq){var s=epState,admin=epIsAdmin();epPanel('<div class="ep-state"><span class="spinner"></span> กำลังโหลดรายการสลิป…</div>');var errEl=document.getElementById("ep-err");if(errEl)errEl.textContent="";sbRpcList("njhr_slip_list",{p_token:sbToken(),p_year:s.year,p_month:s.month,p_q:s.q||null,p_dept:s.dept||null,p_position:s.pos||null,p_status:s.status||null,p_limit:s.per,p_offset:s.page*s.per}).then(function(rows){if(seq!==epState.seq)return;epRows=rows||[];if(!epRows.length){epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");epSyncBulk();return}var total=Number(epRows[0].total_count)||epRows.length;var pages=Math.max(1,Math.ceil(total/s.per));function badge(r){return r.slip_status==="PAID"?'<span class="badge badge-ok">จ่ายแล้ว</span>':r.slip_status==="CONFIRMED"?'<span class="badge badge-info">ยืนยันแล้ว</span>':r.slip_status==="UNPAID"?'<span class="badge badge-warn">ยังไม่จ่าย</span>':'<span class="badge badge-mut">ไม่มีข้อมูลเงินเดือน</span>'}function actions(r){var off=r.has_payroll?"":" disabled";return'<button class="btn-icon ep-act" data-ep-open="'+esc(r.payroll_id||"")+'"'+off+' aria-label="ดูสลิป" title="ดูสลิป">'+icon("eye")+"</button>"+'<button class="btn-icon ep-act" data-ep-pdf="'+esc(r.payroll_id||"")+'"'+off+' aria-label="ดาวน์โหลด PDF" title="ดาวน์โหลด PDF">'+icon("download")+"</button>"+(admin?'<button class="btn-icon ep-act" data-ep-send="'+esc(r.payroll_id||"")+'"'+off+' aria-label="ส่งอีเมล" title="ส่งอีเมล">'+icon("send")+"</button>":"")}epPanel((admin?'<div class="ep-selbar"><label class="ep-allbox"><input type="checkbox" id="ep-all">'+"<span>เลือกทั้งหมดที่แสดง</span></label>"+'<span class="grow"></span><span class="muted">'+epRows.length+" คนในหน้านี้</span></div>":"")+'<div class="ep-grid">'+epRows.map(function(r,i){var has=!!r.has_payroll;return'<div class="ep-card'+(has?"":" off")+'">'+'<div class="ep-card-h">'+(admin?'<input type="checkbox" class="ep-pick" data-ep-pick="'+esc(r.payroll_id||"")+'"'+(has?"":" disabled")+(epSel[r.payroll_id]?" checked":"")+">":"")+avatarHTML(r.emp_name||"",40)+'<div class="grow"><b>'+esc(r.emp_name||"—")+(r.nickname?' <small class="ep-nick">('+esc(r.nickname)+")</small>":"")+"</b>"+"<small>"+esc(r.emp_code||"—")+" · "+esc(r.department||"—")+"</small></div>"+'<span class="ep-no">#'+(s.page*s.per+i+1)+"</span></div>"+'<div class="ep-net"><small>เงินเดือนสุทธิ</small>'+"<b>"+(has?"฿ "+money(r.net_pay):"—")+"</b></div>"+'<div class="ep-card-f">'+badge(r)+(r.sent_email?'<span class="chip chip-ok">ส่งแล้ว</span>':"")+'<span class="grow"></span>'+actions(r)+"</div></div>"}).join("")+"</div>"+(pages>1?'<div class="toolbar ep-pager"><span class="grow"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-prev"'+(s.page===0?" disabled":"")+">ก่อนหน้า</button>"+'<span class="muted">หน้า '+(s.page+1)+" / "+pages+"</span>"+'<button class="btn btn-ghost btn-sm" id="ep-next"'+(s.page+1>=pages?" disabled":"")+">ถัดไป</button></div>":""));epCount("ทั้งหมด "+total+" คน");if(pages>1){document.getElementById("ep-prev").onclick=function(){s.page--;epSel={};epLoadList(el,++epState.seq)};document.getElementById("ep-next").onclick=function(){s.page++;epSel={};epLoadList(el,++epState.seq)}}var panel=document.getElementById("ep-panel");panel.onclick=function(ev){var t=ev.target;if(t.id==="ep-all"){var on=t.checked;epSelectable().forEach(function(r){epSel[r.payroll_id]=on});panel.querySelectorAll("[data-ep-pick]").forEach(function(c){if(!c.disabled)c.checked=on});epSyncBulk();return}if(t.dataset&&t.dataset.epPick!==undefined){if(t.checked)epSel[t.dataset.epPick]=true;else delete epSel[t.dataset.epPick];panel.querySelectorAll('[data-ep-pick="'+t.dataset.epPick+'"]').forEach(function(c){c.checked=t.checked});epSyncBulk();return}var b=t.closest?t.closest("[data-ep-open],[data-ep-pdf],[data-ep-send]"):null;if(!b||b.disabled)return;if(b.dataset.epOpen)epOpenSlip(b.dataset.epOpen);else if(b.dataset.epPdf)epOpenSlip(b.dataset.epPdf,true);else epBulkSend([b.dataset.epSend])};epSyncBulk()}).catch(function(er){if(seq!==epState.seq)return;console.error("[E-PAYSLIP] njhr_slip_list ล้มเหลว:",er);epError(el,er.message||"ไม่ทราบสาเหตุ")})}function epBulkPrint(btn,autoPrint){var ids=epSelectedIds();if(!ids.length)return;if(btn.disabled)return;var label=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังเตรียม '+ids.length+" ใบ…";var area=document.getElementById("payslip-print-area");Promise.all(ids.map(function(id){return sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:id}).then(function(r){return r&&r.data}).catch(function(er){console.error("[E-PAYSLIP] โหลดสลิป "+id+" ล้มเหลว:",er);return null})})).then(function(list){var okList=list.filter(Boolean);if(!okList.length)throw new Error("โหลดสลิปไม่สำเร็จทั้งหมด");area.innerHTML=okList.map(function(d){var r=epRenderSlip({month:d.period_month,year:d.period_year,paidAt:d.pay_date,entries:[d.entry]},d.entry.empId,d.emp);return r?'<div class="payslip-a4-page">'+r.html+"</div>":""}).join("");area.setAttribute("aria-hidden","false");document.body.classList.add("printing-payslip");toast("เตรียมสลิป "+okList.length+" ใบแล้ว"+(autoPrint?' · เลือก "บันทึกเป็น PDF" ในหน้าต่างพิมพ์':""));return epWithTimeout(function(){window.print()})}).catch(function(ex){var e2=document.getElementById("ep-err");if(e2)e2.textContent=ex&&ex.message||"เตรียมสลิปไม่สำเร็จ"}).then(function(){btn.disabled=false;btn.innerHTML=label})}function epBulkSend(only){var ids=only||epSelectedIds();if(!ids.length)return;var rows=epRows.filter(function(r){return ids.indexOf(r.payroll_id)>=0});var EP_SENDABLE=["PAID","CONFIRMED"];var canSend=rows.filter(function(r){return EP_SENDABLE.indexOf(r.slip_status)>=0});var noData=rows.filter(function(r){return!r.has_payroll});var already=rows.filter(function(r){return r.sent_email});var notPaid=rows.filter(function(r){return r.has_payroll&&EP_SENDABLE.indexOf(r.slip_status)<0});confirmDialog("ยืนยันส่งสลิปเงินเดือน","งวด <b>"+esc(TH_MONTHS[epState.month-1]+" "+(epState.year+543))+"</b><br>"+"เลือกไว้ <b>"+rows.length+" คน</b><br>"+"ส่งได้ <b>"+canSend.length+" คน</b>"+(notPaid.length?' · ยังไม่จ่าย <b class="t-red">'+notPaid.length+" คน</b>":"")+(noData.length?' · ไม่มีข้อมูล <b class="t-red">'+noData.length+" คน</b>":"")+(already.length?'<br><span class="t-red">เคยส่งแล้ว '+already.length+" คน — จะถูกบันทึกเป็นส่งซ้ำ</span>":"")+'<br><small class="muted">ระบบจะบันทึกสถานะการส่งไว้ในฐานข้อมูล</small>',"ยืนยันส่ง",function(){return sbRpcList("njhr_slip_mark_sent",{p_token:sbToken(),p_payroll_ids:ids}).then(function(res){var sent=res.filter(function(x){return x.result==="ส่งแล้ว"}).length;var again=res.filter(function(x){return x.result==="ส่งซ้ำ"}).length;var skip=res.filter(function(x){return/^ข้าม/.test(x.result)}).length;toast("บันทึกการส่งแล้ว · ใหม่ "+sent+" · ส่งซ้ำ "+again+" · ข้าม "+skip);epSel={};epLoadList(null,++epState.seq)}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_mark_sent ล้มเหลว:",er);var e2=document.getElementById("ep-err");if(e2)e2.textContent=er.message||"ส่งสลิปไม่สำเร็จ"})})}function epOpenSlip(payrollId,toPdf){openModal("E-PAYSLIP",'<div class="ep-state"><span class="spinner"></span> กำลังโหลดสลิป…</div>','<button class="btn btn-ghost" id="ep-close">ปิด</button>');var cb=document.getElementById("ep-close");if(cb)cb.onclick=closeModal;sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:payrollId}).then(function(r){var d=r&&r.data;if(!d)throw new Error("ไม่พบข้อมูลสลิป");closeModal();var per={month:d.period_month,year:d.period_year,paidAt:d.pay_date,entries:[d.entry]};if(toPdf){epPrintPayslip(per,d.entry.empId,d.emp);return}showEPayslip(per,d.entry.empId,d.emp)}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_get ล้มเหลว:",er);var body=document.querySelector("#modal-root .modal-body");if(body)body.innerHTML='<div class="ep-state ep-state-bad"><b>ไม่สามารถโหลดข้อมูล E-PAYSLIP ได้</b>'+'<small class="muted">'+esc(er.message||"")+"</small></div>"})}function epList(arr){return(Array.isArray(arr)?arr:[]).filter(function(x){return x&&x.name}).map(function(x){return[String(x.name),epNum(x.amount)]})}/* [RUN-154] หัวข้อในสลิปต้องมาจากรายการจริงของพนักงานคนนั้น ไม่ใช่รายการตายตัว
+/* ============================================================================
+   [RUN-155] หน้าเงินเดือน — Table + จัดการรายคน + Override 4 รายการ
+   · งวด 26–25 อ่านจาก njhr_payroll_periods_v2 (เห็นย้อนหลังทุกงวด ห้ามซ่อน)
+   · แก้ได้เฉพาะ เงินเดือน / OT / ค่ากะ / เบี้ยขยัน ผ่าน RPC เท่านั้น
+     ห้ามล้าง Override ด้วย State ฝั่งหน้าเว็บ
+   · ยอดรวม/สุทธิ มาจาก RPC ที่คำนวณฝั่ง Server เสมอ
+   ============================================================================ */
+var PR_FIELDS={
+  SALARY:{key:"base",sys:"systemSalary",ovr:"overrideSalary",label:"เงินเดือน"},
+  OT:{key:"ot",sys:"systemOt",ovr:"overrideOt",label:"OT"},
+  SHIFT:{key:"shiftPay",sys:"systemShift",ovr:"overrideShift",label:"ค่ากะ"},
+  DILIGENCE:{key:"diligence",sys:"systemDiligence",ovr:"overrideDiligence",label:"เบี้ยขยัน"}
+};
+var PR_ST_TH={DRAFT:"ร่าง",CALCULATED:"คำนวณแล้ว",CONFIRMED:"ยืนยันแล้ว",REOPENED:"กำลังแก้ไขงวด",PAID:"จ่ายแล้ว"};
+var prFilter={dept:"",pos:"",q:""};
+var prPeriodMeta={};
+
+function prPeriodKey(y,m){return y+"-"+m}
+function prMeta(){return prPeriodMeta[prPeriodKey(prSel.y,prSel.m)]||{}}
+function prStatusOf(pr){return String((pr&&pr.status)||"DRAFT").toUpperCase()}
+function prEditable(pr){return ["CALCULATED","REOPENED"].indexOf(prStatusOf(pr))>=0}
+function prRangeText(){var m=prMeta();
+  return m.period_start?rptDateBE(m.period_start)+" – "+rptDateBE(m.period_end):""}
+
+function prEmpMeta(id){var e=prEmpOf(id)||{};return{
+  code:e.code||prEmpCode(id),name:e.name||prEmpName(id),
+  nickname:e.nickname||"",dept:e.dept||"",pos:e.pos||""}}
+
+function prFilterOptions(pr){
+  var d={},p={};
+  (pr&&pr.entries||[]).forEach(function(en){var m=prEmpMeta(en.empId);
+    if(m.dept)d[m.dept]=1; if(m.pos)p[m.pos]=1});
+  return{dept:Object.keys(d).sort(function(a,b){return a.localeCompare(b,"th")}),
+         pos:Object.keys(p).sort(function(a,b){return a.localeCompare(b,"th")})}
+}
+function prVisibleRows(pr){
+  var q=String(prFilter.q||"").trim().toLowerCase();
+  return (pr&&pr.entries||[]).filter(function(en){
+    var m=prEmpMeta(en.empId);
+    if(prFilter.dept&&m.dept!==prFilter.dept)return false;
+    if(prFilter.pos&&m.pos!==prFilter.pos)return false;
+    if(!q)return true;
+    return [m.code,m.name,m.nickname].some(function(v){
+      return String(v||"").toLowerCase().indexOf(q)>=0})
+  })
+}
+function prEntryOf(pr,id){return (pr&&pr.entries||[]).find(function(x){return x.empId===id})||null}
+function prOvrCount(pr){return (pr&&pr.entries||[]).filter(function(en){
+  return en.overrideSalary!=null||en.overrideOt!=null||en.overrideShift!=null||en.overrideDiligence!=null}).length}
+
+/* ---------- ตัวแถว ---------- */
+function prRowHTML(en,i,pr){
+  var m=prEmpMeta(en.empId);
+  var ovr=(en.overrideSalary!=null||en.overrideOt!=null||en.overrideShift!=null||en.overrideDiligence!=null);
+  return '<tr data-prrow="'+esc(en.empId)+'">'
+    +'<td class="ta-c">'+(i+1)+'</td>'
+    +'<td>'+esc(m.code)+'</td>'
+    +'<td><div class="cell-user">'+avatarHTML(m.name,28)+'<div><b>'+esc(m.name)+'</b>'
+      +(m.nickname?'<small>'+esc(m.nickname)+'</small>':'')+'</div></div></td>'
+    +'<td>'+esc(m.dept||"—")+'</td>'
+    +'<td>'+esc(m.pos||"—")+'</td>'
+    +'<td class="ta-r">'+money(en.earnings)+'</td>'
+    +'<td class="ta-r t-red">-'+money(en.deductions)+'</td>'
+    +'<td class="ta-r"><b>'+money(en.net)+'</b></td>'
+    +'<td>'+(ovr?'<span class="badge badge-warn">มีการแก้ไข</span>':'<span class="badge">ปกติ</span>')+'</td>'
+    +'<td class="ta-r"><button class="btn btn-ghost btn-sm" data-prdetail="'+esc(en.empId)+'">'
+      +(prEditable(pr)?"ดูรายละเอียด / แก้ไข":"ดูรายละเอียด")+'</button></td></tr>'
+}
+function prTableHTML(pr){
+  var rows=prVisibleRows(pr);
+  if(!(pr&&pr.entries&&pr.entries.length))
+    return emptyState('รอบนี้ยังไม่ได้คำนวณ กด "คำนวณเงินเดือน" เพื่อสร้างรายการ');
+  if(!rows.length)return emptyState("ไม่พบพนักงานตามตัวกรองที่เลือก");
+  var sumE=0,sumD=0,sumN=0;
+  rows.forEach(function(en){sumE+=Number(en.earnings)||0;sumD+=Number(en.deductions)||0;sumN+=Number(en.net)||0});
+  return '<div class="table-wrap pr-table"><table><thead><tr>'
+    +'<th class="ta-c">ลำดับ</th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>แผนก</th><th>ตำแหน่ง</th>'
+    +'<th class="ta-r">รายรับรวม</th><th class="ta-r">หักรวม</th><th class="ta-r">เงินสุทธิ</th>'
+    +'<th>สถานะ</th><th class="ta-r">จัดการ</th></tr></thead><tbody>'
+    +rows.map(function(en,i){return prRowHTML(en,i,pr)}).join("")
+    +'<tr class="row-total"><td colspan="5"><b>รวม '+rows.length+' คน</b></td>'
+    +'<td class="ta-r"><b>'+money(sumE)+'</b></td>'
+    +'<td class="ta-r t-red"><b>-'+money(sumD)+'</b></td>'
+    +'<td class="ta-r"><b>'+money(sumN)+'</b></td><td></td><td></td></tr>'
+    +'</tbody></table></div>'
+}
+
+/* ---------- Modal รายละเอียดรายคน ---------- */
+function prLine(label,val,cls){
+  return '<div class="pr-line'+(cls?" "+cls:"")+'"><span>'+label+'</span><span>'+money(val)+'</span></div>'}
+function prLineTxt(label,txt){
+  return '<div class="pr-line"><span>'+label+'</span><span>'+esc(txt)+'</span></div>'}
+function prOtLine(label,hrs,amt){
+  return '<div class="pr-line pr-line-ot"><span>'+label+'</span>'
+    +'<span class="pr-ot-h">'+(Math.round((Number(hrs)||0)*100)/100).toFixed(2)+' ชม.</span>'
+    +'<span>'+money(amt)+'</span></div>'}
+function prEditBtn(id,f,en,pr){
+  if(!prEditable(pr))return "";
+  var cf=PR_FIELDS[f],has=en[cf.ovr]!=null;
+  return '<button class="btn btn-ghost btn-xs" data-predit="'+f+'" data-emp="'+esc(id)+'">แก้ไข</button>'
+    +(has?'<button class="btn btn-ghost btn-xs t-red" data-prreset="'+f+'" data-emp="'+esc(id)+'">คืนค่าตามระบบ</button>':"")}
+function prFieldRow(label,id,f,en,pr){
+  var cf=PR_FIELDS[f],ovr=en[cf.ovr],sys=en[cf.sys],fin=en[cf.key];
+  return '<div class="pr-line pr-line-edit"><span>'+label
+    +(ovr!=null?' <span class="badge badge-warn">แก้ไขแล้ว</span>':'')+'</span>'
+    +'<span class="pr-edit-vals">'
+      +(ovr!=null?'<small class="muted">ระบบ '+money(sys)+'</small>':'')
+      +'<b>'+money(fin)+'</b></span>'
+    +'<span class="pr-edit-act">'+prEditBtn(id,f,en,pr)+'</span></div>'
+}
+function prDetail(empId){
+  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var en=prEntryOf(pr,empId); if(!en)return;
+  var m=prEmpMeta(empId),meta=prMeta(),ed=prEditable(pr);
+  var otH=(Number(en.otH1)||0)+(Number(en.otH15)||0)+(Number(en.otH3)||0);
+  var inc=(en.incomes||[]).filter(function(x){return x&&x.name});
+  var ded=(en.deducts||[]).filter(function(x){return x&&x.name});
+  var body='<div class="pr-detail">'
+    +'<div class="pr-sec"><div class="pr-sec-h">'+icon("users")+' ข้อมูลพนักงาน <small class="muted">(แก้ไม่ได้)</small></div>'
+      +prLineTxt("รหัสพนักงาน",m.code)+prLineTxt("ชื่อ-นามสกุล",m.name)
+      +prLineTxt("แผนก",m.dept||"—")+prLineTxt("ตำแหน่ง",m.pos||"—")
+      +prLineTxt("งวดเงินเดือน",fmtMonthYear(prSel.m,prSel.y))
+      +prLineTxt("วันที่เริ่มงวด",meta.period_start?rptDateBE(meta.period_start):"—")
+      +prLineTxt("วันที่สิ้นสุดงวด",meta.period_end?rptDateBE(meta.period_end):"—")
+    +'</div>'
+    +'<div class="pr-sec"><div class="pr-sec-h pr-blue">'+icon("wallet")+' รายรับ</div>'
+      +prFieldRow("เงินเดือน",empId,"SALARY",en,pr)
+      +'<div class="pr-ot-box">'
+        +prOtLine("OT ×1",en.otH1,en.otA1)
+        +prOtLine("OT ×1.5",en.otH15,en.otA15)
+        +prOtLine("OT ×3",en.otH3,en.otA3)
+        +'<div class="pr-line pr-line-ot pr-sub"><span>รวมชั่วโมง OT</span>'
+          +'<span class="pr-ot-h">'+otH.toFixed(2)+' ชม.</span><span></span></div>'
+      +'</div>'
+      +prFieldRow("รวมเงิน OT",empId,"OT",en,pr)
+      +prFieldRow("ค่ากะ",empId,"SHIFT",en,pr)
+      +prFieldRow("เบี้ยขยัน",empId,"DILIGENCE",en,pr)
+      +prLine("ค่าตำแหน่ง",en.allowance)
+      +(inc.length?inc.map(function(x){return prLine(esc(x.name),x.amount)}).join(""):"")
+      +prLine("รายรับรวม",en.earnings,"pr-sum")
+    +'</div>'
+    +'<div class="pr-sec"><div class="pr-sec-h pr-red">'+icon("fileText")+' รายการหัก <small class="muted">(แก้ไม่ได้)</small></div>'
+      +prLine("ประกันสังคม",en.sso)+prLine("ภาษี",en.tax)
+      +(epNum(en.deductAbsent)?prLine("ขาดงาน",en.deductAbsent):"")
+      +(epNum(en.deductLate)?prLine("มาสาย",en.deductLate):"")
+      +(epNum(en.deductLeave)?prLine("ลากิจ",en.deductLeave):"")
+      +(ded.length?ded.map(function(x){return prLine(esc(x.name),x.amount)}).join(""):"")
+      +(epNum(en.otherDeduct)?prLine("รายการหักอื่น",en.otherDeduct):"")
+      +prLine("รายการหักรวม",en.deductions,"pr-sum")
+    +'</div>'
+    +'<div class="pr-net"><span>เงินสุทธิ</span><b>'+money(en.net)+'</b></div>'
+    +(ed?'<p class="muted note">รายการที่ไม่มีปุ่มแก้ไขต้องแก้จากหน้า "รายการเงินเดือน" แล้วกลับมากดคำนวณใหม่</p>':
+        '<p class="muted note">งวดนี้ถูกล็อกแล้ว ต้องกด "ย้อนกลับงวดเงินเดือน" ก่อนจึงแก้ได้</p>')
+    +'</div>';
+  var foot='<button class="btn btn-ghost" data-prhist="'+esc(empId)+'">'+icon("history")+' ประวัติ</button>'
+    +(ed?'<button class="btn btn-ghost" id="pr-goitems">'+icon("settings")+' ไปตั้งค่ารายการเงินเดือน</button>':"")
+    +'<span class="grow"></span><button class="btn btn-primary" id="pr-dt-close">ปิด</button>';
+  openModal("รายละเอียดเงินเดือน · "+esc(m.name),body,foot,{wide:true,fullMobile:true});
+  document.getElementById("pr-dt-close").onclick=closeModal;
+  var gi=document.getElementById("pr-goitems");
+  if(gi)gi.onclick=function(){closeModal();window.location.hash="#/pay-items"};
+  prBindDetailActions(empId);
+}
+function prBindDetailActions(empId){
+  document.querySelectorAll("[data-predit]").forEach(function(b){
+    b.onclick=function(){prEditField(b.getAttribute("data-emp"),b.getAttribute("data-predit"))}});
+  document.querySelectorAll("[data-prreset]").forEach(function(b){
+    b.onclick=function(){prResetField(b.getAttribute("data-emp"),b.getAttribute("data-prreset"))}});
+  document.querySelectorAll("[data-prhist]").forEach(function(b){
+    b.onclick=function(){prHistory(b.getAttribute("data-prhist"))}});
+}
+
+/* ---------- แก้ไขรายการ (เรียก RPC เท่านั้น) ---------- */
+function prApplyRpcResult(empId,res,isReset){
+  /* res = แถวเดียวจาก override_save / override_reset
+     อัปเดตเฉพาะพนักงานคนนี้ · ยอดรวมใช้ค่าที่ Server คำนวณ ไม่คำนวณซ้ำฝั่งหน้าเว็บ
+     ต้องอัปเดตค่า Override ในหน่วยความจำด้วย ไม่งั้นป้าย "มีการแก้ไข" และปุ่ม
+     "คืนค่าตามระบบ" จะไม่ขึ้นจนกว่าจะรีเฟรช (ค่าที่ฐานถูกแล้ว แต่หน้าจอตามไม่ทัน) */
+  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var en=prEntryOf(pr,empId); if(!en||!res)return null;
+  var f=String(res.field||"").toUpperCase(),cf=PR_FIELDS[f];
+  if(cf){
+    en[cf.key]=Number(res.final_value)||0;
+    en[cf.sys]=res.system_value==null?null:Number(res.system_value);
+    en[cf.ovr]=isReset?null:(Number(res.final_value)||0)
+  }
+  en.earnings=Number(res.total_income)||0;
+  en.deductions=Number(res.total_deduct)||0;
+  en.net=Number(res.net_pay)||0;
+  return en
+}
+function prRepaintRow(empId){
+  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var el=document.getElementById("pr-view");
+  var box=document.getElementById("pr-table");
+  if(box){box.innerHTML=prTableHTML(pr);prBindTable(el)}
+  var sm=document.getElementById("pr-summary");
+  if(sm)sm.innerHTML=prSummaryHTML(pr)
+}
+function prEditField(empId,f){
+  var cf=PR_FIELDS[f]; if(!cf)return;
+  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var en=prEntryOf(pr,empId); if(!en)return;
+  if(!prEditable(pr)){toast("งวดนี้ถูกล็อกแล้ว แก้ไขไม่ได้","error");return}
+  var m=prEmpMeta(empId);
+  var sys=en[cf.sys]==null?en[cf.key]:en[cf.sys];
+  var body='<div class="pr-edit">'
+    +prLineTxt("พนักงาน",m.code+" · "+m.name)
+    +prLineTxt("งวด",fmtMonthYear(prSel.m,prSel.y)+(prRangeText()?" ("+prRangeText()+")":""))
+    +prLine("ค่าจากระบบ",sys)
+    +(en[cf.ovr]!=null?prLine("ค่าที่แก้ไว้เดิม",en[cf.ovr]):"")
+    +prLine("ค่า Final ปัจจุบัน",en[cf.key],"pr-sum")
+    +(f==="OT"?'<div class="pr-ot-box">'
+        +prOtLine("OT ×1",en.otH1,en.otA1)+prOtLine("OT ×1.5",en.otH15,en.otA15)
+        +prOtLine("OT ×3",en.otH3,en.otA3)+'</div>':"")
+    +'<label class="field"><span>'+esc(cf.label)+' ใหม่ (บาท)</span>'
+      +'<input type="number" step="0.01" min="0" id="pr-ed-val" value="'+esc(String(en[cf.key]))+'"></label>'
+    +'<label class="field"><span>เหตุผลในการแก้ไข <b class="t-red">*</b></span>'
+      +'<textarea id="pr-ed-why" rows="2" placeholder="ระบุเหตุผล เช่น ตรวจกับใบงานแล้ว"></textarea></label>'
+    +'<div class="form-error" id="pr-ed-err" role="alert"></div></div>';
+  openModal("แก้ไข"+esc(cf.label),body,
+    '<button class="btn btn-ghost" id="pr-ed-cancel">ยกเลิก</button>'
+    +'<button class="btn btn-primary" id="pr-ed-save">บันทึก</button>',{fullMobile:true});
+  document.getElementById("pr-ed-cancel").onclick=function(){closeModal();prDetail(empId)};
+  document.getElementById("pr-ed-save").onclick=function(){
+    var b=this,err=document.getElementById("pr-ed-err");
+    var v=document.getElementById("pr-ed-val").value;
+    var why=String(document.getElementById("pr-ed-why").value||"").trim();
+    err.textContent="";
+    if(v===""||isNaN(Number(v))||Number(v)<0){err.textContent="กรอกจำนวนเงินเป็นตัวเลขไม่ติดลบ";return}
+    if(!why){err.textContent="กรุณากรอกเหตุผลในการแก้ไข";return}
+    withButtonLoading(b,"กำลังบันทึก…",function(){
+      return sbRpcList("njhr_payroll_override_save",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m,
+        p_employee:empId,p_field:f,p_value:Number(v),p_reason:why}).then(function(rows){
+        prApplyRpcResult(empId,(rows||[])[0],false);
+        closeModal();prRepaintRow(empId);prDetail(empId);
+        toast("แก้ "+cf.label+" แล้ว · คำนวณยอดใหม่เฉพาะพนักงานคนนี้")
+      })["catch"](function(e){err.textContent=(e&&e.message)||"บันทึกไม่สำเร็จ"})
+    })
+  }
+}
+function prResetField(empId,f){
+  var cf=PR_FIELDS[f]; if(!cf)return;
+  confirmDialog("คืนค่าตามระบบ","คืน <b>"+esc(cf.label)+"</b> กลับเป็นค่าที่ระบบคำนวณ ใช่หรือไม่","คืนค่า",function(){
+    sbRpcList("njhr_payroll_override_reset",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m,
+      p_employee:empId,p_field:f,p_reason:null}).then(function(rows){
+      prApplyRpcResult(empId,(rows||[])[0],true);
+      closeModal();prRepaintRow(empId);prDetail(empId);
+      toast("คืน "+cf.label+" ตามระบบแล้ว")
+    })["catch"](function(e){toast((e&&e.message)||"คืนค่าไม่สำเร็จ","error")})
+  })
+}
+function prHistory(empId){
+  var m=prEmpMeta(empId);
+  openModal("ประวัติการแก้ไข · "+esc(m.name),
+    '<div class="ep-state"><span class="spinner"></span> กำลังโหลดประวัติ…</div>',
+    '<span class="grow"></span><button class="btn btn-primary" id="pr-hs-close">ปิด</button>',{wide:true,fullMobile:true});
+  document.getElementById("pr-hs-close").onclick=function(){closeModal();prDetail(empId)};
+  sbRpcList("njhr_payroll_override_history",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m,p_employee:empId})
+  .then(function(rows){
+    var body=document.querySelector(".modal-body"); if(!body)return;
+    if(!rows||!rows.length){body.innerHTML=emptyState("ยังไม่มีประวัติการแก้ไขของพนักงานคนนี้ในงวดนี้");return}
+    body.innerHTML='<div class="table-wrap"><table><thead><tr>'
+      +'<th>วันเวลา</th><th>รายการ</th><th>การทำ</th><th class="ta-r">ระบบ</th>'
+      +'<th class="ta-r">ค่าเดิม</th><th class="ta-r">ค่าใหม่</th><th>เหตุผล</th><th>ผู้แก้</th>'
+      +'</tr></thead><tbody>'+rows.map(function(r){
+        return '<tr><td>'+esc(docTS(r.at))+'</td>'
+          +'<td>'+esc((PR_FIELDS[String(r.field).toUpperCase()]||{}).label||r.field)+'</td>'
+          +'<td>'+(String(r.action).toUpperCase()==="RESET"?'<span class="badge">คืนค่าตามระบบ</span>':'<span class="badge badge-warn">แก้ไข</span>')+'</td>'
+          +'<td class="ta-r">'+money(r.system_value)+'</td>'
+          +'<td class="ta-r">'+money(r.old_value)+'</td>'
+          +'<td class="ta-r"><b>'+money(r.new_value)+'</b></td>'
+          +'<td>'+esc(r.reason||"")+'</td>'
+          +'<td>'+esc(r.actor||"")+(r.actor_role?'<small class="muted"> '+esc(r.actor_role)+'</small>':'')+'</td></tr>'
+      }).join("")+'</tbody></table></div>'
+  })["catch"](function(e){
+    var body=document.querySelector(".modal-body");
+    if(body)body.innerHTML='<div class="form-error">'+esc((e&&e.message)||"โหลดประวัติไม่สำเร็จ")+'</div>'
+  })
+}
+
+/* ---------- Validate / Confirm / Reopen ---------- */
+function prValidateThenConfirm(pr){
+  var btn=document.getElementById("pr-confirm");
+  withButtonLoading(btn,"กำลังตรวจสอบ…",function(){
+    return sbRpcList("njhr_payroll_validate",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})
+    .then(function(rows){
+      var errs=(rows||[]).filter(function(r){return String(r.severity).toUpperCase()==="ERROR"});
+      var warns=(rows||[]).filter(function(r){return String(r.severity).toUpperCase()==="WARN"});
+      if(errs.length){prShowValidation(errs,warns);return}
+      prConfirmModal(pr,warns)
+    })["catch"](function(e){toast((e&&e.message)||"ตรวจสอบไม่สำเร็จ","error")})
+  })
+}
+function prShowValidation(errs,warns){
+  openModal("ยืนยันรอบเงินเดือนไม่ได้",
+    '<div class="ot-warn"><b>พบข้อผิดพลาด '+errs.length+' รายการ</b> — ต้องแก้ให้ครบก่อนจึงยืนยันได้</div>'
+    +'<div class="table-wrap"><table><thead><tr><th>รหัส</th><th>หัวข้อ</th><th>รายละเอียด</th><th></th>'
+    +'</tr></thead><tbody>'+errs.map(function(r){
+      return '<tr><td>'+esc(r.emp_code||"—")+'</td><td>'+esc(r.code)+'</td><td>'+esc(r.message)+'</td>'
+        +'<td class="ta-r">'+(r.employee_id?'<button class="btn btn-ghost btn-xs" data-prfix="'+esc(r.employee_id)+'">เปิดแก้</button>':"")+'</td></tr>'
+    }).join("")+'</tbody></table></div>'
+    +(warns.length?'<div class="ot-warn">คำเตือน: '+warns.map(function(w){return esc(w.message)}).join(" · ")+'</div>':""),
+    '<span class="grow"></span><button class="btn btn-primary" id="pr-vd-close">ปิด</button>',{wide:true,fullMobile:true});
+  document.getElementById("pr-vd-close").onclick=closeModal;
+  document.querySelectorAll("[data-prfix]").forEach(function(b){
+    b.onclick=function(){closeModal();prDetail(b.getAttribute("data-prfix"))}})
+}
+function prConfirmModal(pr,warns){
+  var rows=pr.entries||[];
+  var sE=0,sD=0,sN=0;
+  rows.forEach(function(en){sE+=Number(en.earnings)||0;sD+=Number(en.deductions)||0;sN+=Number(en.net)||0});
+  openModal("ยืนยันรอบเงินเดือน",
+    '<div class="pr-detail"><div class="pr-sec">'
+      +prLineTxt("งวดเงินเดือน",fmtMonthYear(prSel.m,prSel.y))
+      +prLineTxt("ช่วงวันที่",prRangeText()||"—")
+      +prLineTxt("จำนวนพนักงาน",rows.length+" คน")
+      +prLine("รายรับรวม",sE)+prLine("รายการหักรวม",sD)
+      +prLine("เงินสุทธิรวม",sN,"pr-sum")
+      +prLineTxt("จำนวนรายการที่ถูกแก้ไข",prOvrCount(pr)+" คน")
+    +'</div>'
+    +(warns&&warns.length?'<div class="ot-warn">'+warns.map(function(w){return esc(w.message)}).join("<br>")+'</div>':"")
+    +'<p class="muted note">เมื่อยืนยันแล้วระบบจะสร้าง Snapshot และล็อกงวด '
+      +'แก้ไขต่อได้เฉพาะเมื่อกด "ย้อนกลับงวดเงินเดือน"</p>'
+    +'<div class="form-error" id="pr-cf-err" role="alert"></div></div>',
+    '<button class="btn btn-ghost" id="pr-cf-cancel">ยกเลิก</button>'
+    +'<button class="btn btn-primary" id="pr-cf-go">ยืนยันรอบเงินเดือน</button>',{fullMobile:true});
+  document.getElementById("pr-cf-cancel").onclick=closeModal;
+  document.getElementById("pr-cf-go").onclick=function(){
+    var b=this,err=document.getElementById("pr-cf-err");err.textContent="";
+    withButtonLoading(b,"กำลังยืนยัน…",function(){
+      return sbRpcList("njhr_payroll_confirm",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m})
+      .then(function(rows2){
+        var r=(rows2||[])[0]||{};
+        audit("PAYROLL_CONFIRM","ยืนยันเงินเดือน "+fmtMonthYear(prSel.m,prSel.y)+" Snapshot v"+(r.ver||""));
+        db.users.forEach(function(uu){if(uu.active&&uu.empId)
+          notify(uu.id,"สลิปเงินเดือนพร้อมดู","สลิปงวด "+fmtMonthYear(prSel.m,prSel.y)+" ออกแล้ว","#/epayslip")});
+        closeModal();
+        toast("ยืนยันรอบเงินเดือนแล้ว · Snapshot v"+(r.ver||"")+" · "+(r.rows_saved||0)+" คน");
+        prLoaded=false;viewPayroll(document.getElementById("pr-view")||document.getElementById("view"))
+      })["catch"](function(e){err.textContent=(e&&e.message)||"ยืนยันไม่สำเร็จ"})
+    })
+  }
+}
+function prReopenModal(pr){
+  var meta=prMeta();
+  openModal("ย้อนกลับงวดเงินเดือน",
+    '<div class="pr-detail"><div class="pr-sec">'
+      +prLineTxt("งวดเงินเดือน",fmtMonthYear(prSel.m,prSel.y))
+      +prLineTxt("ช่วงวันที่",prRangeText()||"—")
+      +prLineTxt("Snapshot ล่าสุด","v"+(meta.snapshot_version||prSnapV(pr)||"1"))
+    +'</div>'
+    +'<label class="field"><span>เหตุผลในการย้อนกลับ <b class="t-red">*</b></span>'
+      +'<textarea id="pr-ro-why" rows="3" placeholder="ระบุเหตุผล"></textarea></label>'
+    +'<p class="muted note">Snapshot เดิมจะไม่ถูกลบ · ยืนยันใหม่แล้วจะได้ Snapshot เวอร์ชันถัดไป '
+      +'· สลิปของงวดนี้จะขึ้นสถานะ "กำลังแก้ไขงวด"</p>'
+    +'<div class="form-error" id="pr-ro-err" role="alert"></div></div>',
+    '<button class="btn btn-ghost" id="pr-ro-cancel">ยกเลิก</button>'
+    +'<button class="btn btn-primary" id="pr-ro-go">ย้อนกลับงวด</button>',{fullMobile:true});
+  document.getElementById("pr-ro-cancel").onclick=closeModal;
+  document.getElementById("pr-ro-go").onclick=function(){
+    var b=this,err=document.getElementById("pr-ro-err");err.textContent="";
+    var why=String(document.getElementById("pr-ro-why").value||"").trim();
+    if(!why){err.textContent="กรุณากรอกเหตุผลในการย้อนกลับ";return}
+    withButtonLoading(b,"กำลังย้อนกลับ…",function(){
+      return sbRpcList("njhr_payroll_reopen",{p_token:sbToken(),p_year:prSel.y,p_month:prSel.m,p_reason:why})
+      .then(function(rows){
+        var r=(rows||[])[0]||{};
+        audit("PAYROLL_REOPEN","ย้อนกลับงวด "+fmtMonthYear(prSel.m,prSel.y)+" · "+why);
+        closeModal();
+        toast("ย้อนกลับงวดแล้ว "+(r.rows_affected||0)+" คน · คง Snapshot v"+(r.keep_version||"")+" ไว้");
+        prLoaded=false;viewPayroll(document.getElementById("pr-view")||document.getElementById("view"))
+      })["catch"](function(e){err.textContent=(e&&e.message)||"ย้อนกลับไม่สำเร็จ"})
+    })
+  }
+}
+function prSnapV(pr){
+  var v=0;(pr&&pr.entries||[]).forEach(function(en){if((Number(en.version)||0)>v)v=Number(en.version)||0});
+  return v
+}
+
+/* ---------- Summary + Toolbar + viewPayroll ---------- */
+function prSummaryHTML(pr){
+  var rows=prVisibleRows(pr),all=(pr&&pr.entries||[]).length;
+  var sE=0,sD=0,sN=0;
+  rows.forEach(function(en){sE+=Number(en.earnings)||0;sD+=Number(en.deductions)||0;sN+=Number(en.net)||0});
+  function card(l,v,cls){return '<div class="pr-card'+(cls?" "+cls:"")+'"><small>'+l+'</small><b>'+v+'</b></div>'}
+  return card("พนักงานที่แสดง",rows.length+" / "+all+" คน")
+    +card("ช่วงวันที่งวด",prRangeText()||"—")
+    +card("รายรับรวม",money(sE))
+    +card("รายการหักรวม",money(sD),"pr-card-red")
+    +card("เงินสุทธิรวม",money(sN),"pr-card-blue")
+    +card("รายการที่ถูกแก้ไข",prOvrCount(pr)+" คน")
+}
+function prActionsHTML(pr){
+  var st=prStatusOf(pr),out="";
+  if(st==="DRAFT")out+='<button class="btn btn-primary" id="pr-calc">คำนวณเงินเดือน</button>';
+  if(st==="CALCULATED"||st==="REOPENED"){
+    out+='<button class="btn btn-ghost" id="pr-calc">คำนวณใหม่</button>'
+      +'<button class="btn btn-primary" id="pr-confirm">ยืนยันรอบเงินเดือน</button>'}
+  if(st==="CONFIRMED"||st==="PAID")
+    out+='<button class="btn btn-ghost" id="pr-reopen">'+icon("history")+' ย้อนกลับงวดเงินเดือน</button>';
+  if(pr&&pr.entries&&pr.entries.length)
+    out+='<button class="btn btn-ghost" id="pr-export">'+icon("download")+' Export</button>';
+  return out
+}
+function prBindTable(el){
+  el=el||document.getElementById("pr-view");
+  document.querySelectorAll("[data-prdetail]").forEach(function(b){
+    b.onclick=function(){prDetail(b.getAttribute("data-prdetail"))}})
+}
+function viewPayroll(el){
+  if(!prLoaded){
+    el.innerHTML='<div class="card"><div class="ep-state">'
+      +'<span class="spinner"></span> กำลังโหลดข้อมูลเงินเดือนจากเซิร์ฟเวอร์…</div></div>';
+    prLoad(el);return
+  }
+  if(!prSel){var last=db.payroll[db.payroll.length-1];prSel={m:last.month,y:last.year}}
+  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var st=prStatusOf(pr),opts=prFilterOptions(pr);
+  var months=db.payroll.map(function(p){return{m:p.month,y:p.year}});
+  el.id="pr-view";
+  el.innerHTML='<div class="toolbar pr-filters">'
+    +'<select id="pr-month" title="งวดเงินเดือน">'+months.map(function(x){
+        var k=prPeriodMeta[prPeriodKey(x.y,x.m)]||{};
+        return'<option value="'+x.m+"-"+x.y+'"'+(x.m===prSel.m&&x.y===prSel.y?" selected":"")+">"
+          +fmtMonthYear(x.m,x.y)+(k.period_start?" ("+rptDateBE(k.period_start)+"–"+rptDateBE(k.period_end)+")":"")
+          +"</option>"}).join("")+'</select>'
+    +'<select id="pr-dept"><option value="">ทุกแผนก</option>'+opts.dept.map(function(d){
+        return'<option value="'+esc(d)+'"'+(prFilter.dept===d?" selected":"")+">"+esc(d)+"</option>"}).join("")+'</select>'
+    +'<select id="pr-pos"><option value="">ทุกตำแหน่ง</option>'+opts.pos.map(function(d){
+        return'<option value="'+esc(d)+'"'+(prFilter.pos===d?" selected":"")+">"+esc(d)+"</option>"}).join("")+'</select>'
+    +'<span class="search-box">'+icon("search","ic-sm")
+      +'<input id="pr-q" placeholder="ค้นหารหัส ชื่อ นามสกุล หรือชื่อเล่น" value="'+esc(prFilter.q)+'"></span>'
+    +'<button class="btn btn-ghost btn-sm" id="pr-clear">ล้างตัวกรอง</button>'
+    +'<button class="btn btn-ghost btn-sm" id="pr-refresh">'+icon("refresh")+' รีเฟรช</button>'
+    +'<span class="grow"></span>'
+    +'<span class="badge badge-'+(st==="CONFIRMED"||st==="PAID"?"ok":st==="REOPENED"?"warn":"info")+'">'
+      +esc(PR_ST_TH[st]||st)+'</span>'
+    +prActionsHTML(pr)
+    +'</div>'
+    +'<div class="pr-cards" id="pr-summary">'+prSummaryHTML(pr)+'</div>'
+    +'<div class="card p0" id="pr-table">'+prTableHTML(pr)+'</div>'
+    +(st==="CONFIRMED"||st==="PAID"
+        ?'<p class="muted note">งวดนี้ยืนยันแล้ว แก้ไขและคำนวณใหม่ไม่ได้ · สลิปใช้ Snapshot ที่บันทึกไว้ตอนยืนยัน</p>'
+        :st==="REOPENED"
+        ?'<p class="muted note">งวดนี้กำลังแก้ไข · แก้รายคนและคำนวณใหม่ได้ · ยืนยันใหม่แล้วจะได้ Snapshot เวอร์ชันถัดไป</p>'
+        :'<p class="muted note">แก้ได้เฉพาะ เงินเดือน / OT / ค่ากะ / เบี้ยขยัน · รายการอื่นให้แก้จากหน้า "รายการเงินเดือน" แล้วคำนวณใหม่</p>');
+
+  document.getElementById("pr-month").onchange=function(){
+    var v=this.value.split("-");prSel={m:parseInt(v[0],10),y:parseInt(v[1],10)};
+    prFilter={dept:"",pos:"",q:""};prLoaded=false;viewPayroll(el)};
+  document.getElementById("pr-dept").onchange=function(){prFilter.dept=this.value;viewPayroll(el)};
+  document.getElementById("pr-pos").onchange=function(){prFilter.pos=this.value;viewPayroll(el)};
+  document.getElementById("pr-clear").onclick=function(){prFilter={dept:"",pos:"",q:""};viewPayroll(el)};
+  document.getElementById("pr-q").oninput=debounce(function(){
+    prFilter.q=this.value;
+    var box=document.getElementById("pr-table");
+    if(box){box.innerHTML=prTableHTML(pr);prBindTable(el)}
+    var sm=document.getElementById("pr-summary");if(sm)sm.innerHTML=prSummaryHTML(pr);
+    var q2=document.getElementById("pr-q");
+    if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length)}},250);
+  (function(){var rf=document.getElementById("pr-refresh");if(!rf)return;
+    rf.onclick=function(){var b=this;if(b.getAttribute("data-busy"))return;
+      b.setAttribute("data-busy","1");b.disabled=true;b.innerHTML=icon("refresh")+" กำลังรีเฟรช…";
+      try{prLoaded=false;viewPayroll(el)}catch(e2){b.removeAttribute("data-busy");b.disabled=false;
+        b.innerHTML=icon("refresh")+" รีเฟรช";toast("โหลดข้อมูลใหม่ไม่สำเร็จ กรุณาลองใหม่","error")}}})();
+
+  var calcBtn=document.getElementById("pr-calc");
+  if(calcBtn)calcBtn.onclick=function(){
+    /* [RUN-155] คำนวณใหม่ได้ทั้ง CALCULATED และ REOPENED · CONFIRMED ห้าม
+       เส้นทางคำนวณเดิมทั้งหมด แล้วบันทึกผ่าน njhr_payroll_period_save
+       ซึ่งฝั่ง Server จะคิด OT band + คืน Override ให้เอง (ห้ามล้าง Override) */
+    if(["CONFIRMED","PAID"].indexOf(prStatusOf(pr))>=0){
+      toast("งวดนี้ยืนยันแล้ว คำนวณใหม่ไม่ได้ ต้องย้อนกลับงวดก่อน","error");return}
+    var isRe=prStatusOf(pr)!=="DRAFT";
+    confirmDialog(isRe?"คำนวณใหม่":"คำนวณเงินเดือน",
+      (isRe?"คำนวณใหม่ทั้งงวด <b>":"คำนวณเงินเดือนงวด <b>")+fmtMonthYear(pr.month,pr.year)
+      +"</b> ("+(prRangeText()||"26–25")+") จากฐานเงินเดือน + OT ที่อนุมัติแล้ว + รายการเงินเดือนที่กำหนดไว้"
+      +(isRe?" — ค่าที่แก้ไว้รายคนจะยังอยู่ ใช่หรือไม่":" ใช่หรือไม่"),
+      isRe?"คำนวณใหม่":"คำนวณ",function(){
+      Promise.all([prFetchOtHours(pr.year,pr.month),prFetchPayItems(pr.year,pr.month),prFetchEmployees()])
+      .then(function(res){
+        var otMap=res[0],map=res[1],prActive=prActiveEmployees();
+        if(!prActive.length){toast("ไม่พบพนักงานสถานะ ACTIVE จากเซิร์ฟเวอร์ — ยังไม่คำนวณและไม่ได้บันทึก","error");return}
+        var baseEntries=prActive.map(function(x){
+          var otHours=Number(otMap[x.id])||0;
+          var otAmt=Math.round(x.baseSalary/30/8*1.5*otHours);
+          var gross=x.baseSalary+x.allowance+otAmt;
+          var sso=Math.min(Math.round(x.baseSalary*.05),750);
+          var tax=x.baseSalary>5e4?Math.round(x.baseSalary*.03):0;
+          return{empId:x.id,base:x.baseSalary,allowance:x.allowance,ot:otAmt,earnings:gross,
+                 sso:sso,tax:tax,otherDeduct:0,deductions:sso+tax,net:gross-sso-tax}});
+        pr.entries=baseEntries.map(function(en){return prApplyPayItems(en,map[en.empId])});
+        pr.status=prStatusOf(pr)==="DRAFT"?"CALCULATED":prStatusOf(pr);
+        audit("PAYROLL_CALC",(isRe?"คำนวณเงินเดือนใหม่ ":"คำนวณเงินเดือน ")+fmtMonthYear(pr.month,pr.year));
+        prSave(pr).then(function(){
+          toast((isRe?"คำนวณใหม่แล้ว ":"คำนวณเงินเดือนแล้ว ")+pr.entries.length+" คน · บันทึกขึ้นเซิร์ฟเวอร์แล้ว");
+          prLoaded=false;viewPayroll(el)
+        })["catch"](function(e2){toast("บันทึกงวดขึ้นเซิร์ฟเวอร์ไม่สำเร็จ: "+(e2&&e2.message||e2),"error")})
+      })["catch"](function(er){
+        console.error("[PAYROLL] โหลดข้อมูลคำนวณจาก Supabase ล้มเหลว:",er);
+        toast("โหลดข้อมูลคำนวณจาก Supabase ไม่สำเร็จ: "+(er&&er.message||er)+" — ยังไม่คำนวณ","error")})
+    })
+  };
+  var cfBtn=document.getElementById("pr-confirm");
+  if(cfBtn)cfBtn.onclick=function(){prValidateThenConfirm(pr)};
+  var roBtn=document.getElementById("pr-reopen");
+  if(roBtn)roBtn.onclick=function(){prReopenModal(pr)};
+  prBindExport(pr);
+  prBindTable(el)
+}
+
+/* ---------- Export .xlsx (คงลำดับคอลัมน์ตามที่ตกลงใน RUN-154 ไม่เปลี่ยน) ---------- */
+function prBindExport(pr){
+  var exBtn=document.getElementById("pr-export");if(!exBtn)return;
+  exBtn.onclick=function(){
+    var b=this;if(b.disabled)return;var lb=b.innerHTML;
+    b.disabled=true;b.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…';
+    var cols=prItemCols(pr.entries);
+    var head=["รหัสพนักงาน","ชื่อ-นามสกุล","ฐานเงินเดือน","ค่าตำแหน่ง","OT"]
+      .concat(cols.inc).concat(["รายรับรวม","ประกันสังคม","ภาษี"])
+      .concat(cols.ded).concat(["รายการหักรวม","เงินสุทธิ"]);
+    var cells=prVisibleRows(pr).map(function(en){
+      var x=prEmpOf(en.empId)||emp(en.empId)||{};
+      return [x.code||prEmpCode(en.empId)||"",prEmpName(en.empId),
+              epNum(en.base),epNum(en.allowance),epNum(en.ot)]
+        .concat(cols.inc.map(function(nm){return prItemAmt(en.incomes,nm)}))
+        .concat([epNum(en.earnings),epNum(en.sso),epNum(en.tax)])
+        .concat(cols.ded.map(function(nm){return prItemAmt(en.deducts,nm)}))
+        .concat([epNum(en.deductions),epNum(en.net)])});
+    var widths=head.map(function(h,i){return i===1?28:Math.min(Math.max(String(h).length+4,12),24)});
+    var title=[db.settings.companyName,"รายการเงินเดือน งวด "+fmtMonthYear(pr.month,pr.year),
+      "ช่วงวันที่: "+(prRangeText()||"—"),
+      "จำนวนพนักงาน: "+cells.length+" คน · สถานะ: "+prStatusOf(pr),"วันที่ Export: "+nowStamp()];
+    rptLoadZip().then(function(){
+      return rptBuildXlsx("เงินเดือน "+pr.year+"-"+pad(pr.month),head,cells,widths,title)})
+    .then(function(blob){
+      var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+      a.download="payroll-"+pr.year+"-"+pad(pr.month)+".xlsx";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);
+      audit("EXPORT","Export เงินเดือน "+fmtMonthYear(pr.month,pr.year));
+      toast("ดาวน์โหลดไฟล์ Excel แล้ว "+cells.length+" คน")})
+    ["catch"](function(ex){toast("สร้างไฟล์ Excel ไม่สำเร็จ: "+(ex&&ex.message||ex),"error")})
+    .then(function(){b.disabled=false;b.innerHTML=lb})
+  }
+}
+var epState={year:null,month:null,q:"",dept:"",pos:"",status:"",pay:"",page:0,per:100,seq:0,autoOpened:false};var epPeriods=[],epRows=[],epFilters={DEPARTMENT:[],POSITION:[]};var epSel={};function epIsAdmin(){return["SUPER_ADMIN","HR"].indexOf(currentUser().role)>=0}function viewEPayslip(el){var seq=++epState.seq,admin=epIsAdmin();epSel={};el.innerHTML='<div class="card"><div class="card-head"><h3>สลิปเงินเดือน (E-PAYSLIP)'+(admin?"":" ของฉัน")+"</h3></div>"+'<div class="toolbar ep-filters">'+'<select id="ep-period"><option value="">— กำลังโหลดงวดเงินเดือน —</option></select>'+(admin?'<select id="ep-dept"><option value="">ทุกแผนก</option></select>'+'<select id="ep-pos"><option value="">ทุกตำแหน่ง</option></select>'+'<select id="ep-status" title="สถานะสลิป">'+[["","ทุกสถานะสลิป"],["CONFIRMED","พร้อมใช้งาน"],["REOPENED","กำลังแก้ไขงวด"],["UNPAID","ยังไม่ยืนยัน"],["NONE","ไม่มีข้อมูลเงินเดือน"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.status===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"
+/* [RUN-155] สถานะจ่าย แยกจากสถานะสลิป ตาม §38 ห้ามปนกัน */
++'<select id="ep-pay" title="สถานะจ่าย">'+[["","ทุกสถานะจ่าย"],["UNPAID","ยังไม่จ่าย"],["PAID","จ่ายแล้ว"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.pay===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"+'<span class="ep-qbox">'+icon("search","ic-sm")+'<input id="ep-q" placeholder="ค้นหาชื่อ นามสกุล ชื่อเล่น หรือรหัสพนักงาน..." value="'+esc(epState.q)+'"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-clear">ล้างตัวกรอง</button>':"")+'<span class="grow"></span><span class="muted" id="ep-count"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-reload">'+icon("history")+" โหลดใหม่</button></div>"+"</div>"+(admin?'<div class="card ep-bulk" id="ep-bulk" hidden></div>':"")+(admin?'<div class="pr-cards ep-cards" id="ep-summary"></div>':"")
+    +'<div class="card p0" id="ep-panel"></div>'+'<div class="form-error" id="ep-err" role="alert" style="white-space:pre-line"></div>';document.getElementById("ep-reload").onclick=function(){viewEPayslip(el)};if(admin){document.getElementById("ep-clear").onclick=function(){epState.q="";epState.dept="";epState.pos="";epState.status="";epState.pay="";epState.page=0;viewEPayslip(el)};
+    document.getElementById("ep-pay").onchange=function(){epState.pay=this.value;epState.page=0;epSel={};epLoadList(el,++epState.seq)};document.getElementById("ep-status").onchange=function(){epState.status=this.value;epState.page=0;epSel={};epLoadList(el,++epState.seq)};document.getElementById("ep-q").oninput=debounce(function(){epState.q=this.value;epState.page=0;epSel={};epLoadList(el,++epState.seq);var q2=document.getElementById("ep-q");if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length)}},300)}epPanel('<div class="ep-state"><span class="spinner"></span> กำลังโหลดข้อมูล E-PAYSLIP…</div>');if(!sbReady()){epError(el,"ยังไม่ได้ตั้งค่าการเชื่อมต่อ Supabase");return}sbRpcList("njhr_slip_periods",{p_token:sbToken()}).then(function(ps){if(seq!==epState.seq)return;epPeriods=ps||[];var sel=document.getElementById("ep-period");if(!epPeriods.length){if(sel)sel.innerHTML='<option value="">— ยังไม่มีงวดเงินเดือน —</option>';epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");return}var found=epPeriods.some(function(p){return p.period_year===epState.year&&p.period_month===epState.month});if(!found){epState.year=epPeriods[0].period_year;epState.month=epPeriods[0].period_month}if(sel){sel.innerHTML=epPeriods.map(function(p){return'<option value="'+p.period_year+"-"+p.period_month+'"'+(p.period_year===epState.year&&p.period_month===epState.month?" selected":"")+">"+esc(TH_MONTHS[p.period_month-1]+" "+(p.period_year+543))+" · "+p.rows_count+" รายการ"+(p.status==="PAID"?" · จ่ายแล้ว":p.status==="CONFIRMED"?" · ยืนยันแล้ว":p.status==="CALCULATED"?" · คำนวณแล้ว":" · ร่าง")+"</option>"}).join("");sel.onchange=function(){var v=String(this.value).split("-");epState.year=parseInt(v[0],10);epState.month=parseInt(v[1],10);epState.page=0;epSel={};epLoadList(el,++epState.seq)}}if(admin)epLoadFilters();epLoadList(el,seq)}).catch(function(er){if(seq!==epState.seq)return;console.error("[E-PAYSLIP] njhr_slip_periods ล้มเหลว:",er);epError(el,er.message||"ไม่ทราบสาเหตุ")})}function epLoadFilters(){sbRpcList("njhr_slip_filters",{p_token:sbToken(),p_year:epState.year,p_month:epState.month}).then(function(rows){epFilters={DEPARTMENT:[],POSITION:[]};(rows||[]).forEach(function(r){if(epFilters[r.kind])epFilters[r.kind].push(r)});function fill(id,list,cur,all){var sel=document.getElementById(id);if(!sel)return;sel.innerHTML='<option value="">'+all+"</option>"+list.map(function(r){return'<option value="'+esc(r.value)+'"'+(cur===r.value?" selected":"")+">"+esc(r.value)+" ("+r.cnt+")</option>"}).join("")}fill("ep-dept",epFilters.DEPARTMENT,epState.dept,"ทุกแผนก");fill("ep-pos",epFilters.POSITION,epState.pos,"ทุกตำแหน่ง");var d=document.getElementById("ep-dept"),p2=document.getElementById("ep-pos");if(d)d.onchange=function(){epState.dept=this.value;epState.page=0;epSel={};epLoadList(null,++epState.seq)};if(p2)p2.onchange=function(){epState.pos=this.value;epState.page=0;epSel={};epLoadList(null,++epState.seq)}}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_filters ล้มเหลว:",er)})}function epPanel(html){var b=document.getElementById("ep-panel");if(b)b.innerHTML=html}function epCount(t){var b=document.getElementById("ep-count");if(b)b.textContent=t}function epError(el,detail){epPanel('<div class="ep-state ep-state-bad">'+"<b>ไม่สามารถโหลดข้อมูล E-PAYSLIP ได้</b>"+'<small class="muted">'+esc(detail||"")+"</small>"+'<button class="btn btn-primary btn-sm" id="ep-retry">'+icon("history")+" ลองใหม่</button></div>");epCount("");var b=document.getElementById("ep-retry");if(b)b.onclick=function(){viewEPayslip(el)}}function epSelectable(){return epRows.filter(function(r){return r.has_payroll&&r.payroll_id})}function epSelectedIds(){return Object.keys(epSel).filter(function(k){return epSel[k]})}function epSyncBulk(){var ids=epSelectedIds(),box=document.getElementById("ep-bulk");var all=epSelectable();var head=document.getElementById("ep-all");if(head){var picked=all.filter(function(r){return epSel[r.payroll_id]}).length;head.checked=all.length>0&&picked===all.length;head.indeterminate=picked>0&&picked<all.length;head.disabled=all.length===0}if(!box)return;if(!ids.length){box.hidden=true;box.innerHTML="";return}box.hidden=false;box.innerHTML='<div class="toolbar ep-bulk-bar"><b>เลือกแล้ว '+ids.length+" คน</b>"+'<span class="grow"></span>'+'<button class="btn btn-primary btn-sm" id="ep-bulk-open">'+icon("fileText")+" เปิดสลิปที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-pdf">'+icon("download")+" Export PDF ที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-send">'+icon("send")+" ส่งสลิปที่เลือก</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-xls">'+icon("download")+" Export Excel</button>"+'<button class="btn btn-ghost btn-sm" id="ep-bulk-clear">ยกเลิกการเลือก</button></div>';document.getElementById("ep-bulk-open").onclick=function(){epBulkPrint(this,false)};document.getElementById("ep-bulk-pdf").onclick=function(){epBulkPrint(this,true)};document.getElementById("ep-bulk-send").onclick=function(){epBulkSend()};document.getElementById("ep-bulk-xls").onclick=function(){epBulkExcel(this)};document.getElementById("ep-bulk-clear").onclick=function(){epSel={};document.querySelectorAll("#ep-panel [data-ep-pick]").forEach(function(c){c.checked=false});epSyncBulk()}}/* ============================================================================
+   [RUN-155] Bulk Export Excel ของหน้า E-PAYSLIP
+   · ออกเฉพาะรายการที่ติ๊กเลือก และต้องอยู่ในงวด+ตัวกรองปัจจุบัน (epAllRows) เท่านั้น
+   · ไม่เลือกใคร -> BLOCK ไม่สร้างไฟล์
+   · ตัวเลขทุกตัวมาจาก njhr_slip_get ซึ่งงวดที่ยืนยันแล้วจะอ่านจาก Final Snapshot
+     ห้ามดึง Salary / OT / รายการเงินเดือน สด ๆ มาคำนวณใหม่ในหน้านี้
+   · รายรับอื่น = รายรับรวม - (เงินเดือน + OT + ค่ากะ + เบี้ยขยัน) จึงบวกกลับได้ตรงเสมอ
+   ============================================================================ */
+var EP_XLS_HEAD=["ลำดับ","รหัสพนักงาน","ชื่อ-นามสกุล","แผนก","ตำแหน่ง",
+  "งวด","วันที่เริ่มงวด","วันที่สิ้นสุดงวด",
+  "เงินเดือน Final","OT ×1","OT ×1.5","OT ×3","OT Final",
+  "ค่ากะ Final","เบี้ยขยัน Final","รายรับอื่น",
+  "รายรับรวม","รายหักรวม","เงินสุทธิ",
+  "สถานะสลิป","สถานะจ่าย","Snapshot Version","วันที่ยืนยัน"];
+function epXlsRow(i,meta,d){
+  var en=(d&&d.entry)||{},ot=(d&&d.ot)||{},em=(d&&d.emp)||{};
+  var base=epNum(en.base),otF=epNum(en.ot),sh=epNum(en.shiftPay),dg=epNum(en.diligence);
+  var earn=epNum(en.earnings);
+  var other=Math.round((earn-base-otF-sh-dg)*100)/100;
+  var nm=String(meta.emp_name||((em.title||"")+(em.firstName||"")+" "+(em.lastName||""))).trim();
+  return [i+1,String(em.code||meta.emp_code||""),nm,
+    String(meta.department||em.department||""),String(meta.position_name||em.position||""),
+    fmtMonthYear(d.period_month,d.period_year),
+    d.period_start?rptDateBE(d.period_start):"",d.period_end?rptDateBE(d.period_end):"",
+    base,epNum(ot.a1),epNum(ot.a15),epNum(ot.a3),otF,sh,dg,other,
+    earn,epNum(en.deductions),epNum(en.net),
+    epSlipTH(meta.slip_status),
+    (meta.pay_status||(meta.slip_status==="PAID"?"PAID":"UNPAID"))==="PAID"
+      ?"จ่ายแล้ว":"ยังไม่จ่าย",
+    d.snapshot_version?"v"+d.snapshot_version:"",
+    meta.confirmed_at?docTS(meta.confirmed_at):""]
+}
+function epBulkExcel(btn){
+  var ids=epSelectedIds();
+  var errEl=document.getElementById("ep-err");if(errEl)errEl.textContent="";
+  if(!ids.length){
+    var m1="กรุณาเลือกรายการก่อน Export Excel";
+    if(errEl)errEl.textContent=m1;toast(m1,"error");return}
+  /* ออกได้เฉพาะรายการที่อยู่ในงวด+ตัวกรองปัจจุบัน */
+  var inScope={};(epAllRows||[]).forEach(function(r){if(r.payroll_id)inScope[r.payroll_id]=r});
+  var picked=ids.filter(function(id){return !!inScope[id]});
+  if(!picked.length){
+    var m2="รายการที่เลือกไม่อยู่ในงวด/ตัวกรองปัจจุบัน";
+    if(errEl)errEl.textContent=m2;toast(m2,"error");return}
+  if(btn&&btn.disabled)return;
+  var lb=btn?btn.innerHTML:"";
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังสร้างไฟล์…'}
+  /* เรียงตามลำดับที่แสดงในตาราง เพื่อให้ลำดับในไฟล์ตรงกับหน้าจอ */
+  var order=(epAllRows||[]).filter(function(r){return r.payroll_id&&picked.indexOf(r.payroll_id)>=0});
+  Promise.all(order.map(function(r){
+    return sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:r.payroll_id})
+      .then(function(res){return{meta:r,d:res&&res.data}})
+      ["catch"](function(){return{meta:r,d:null}})
+  })).then(function(list){
+    var okList=list.filter(function(x){return x.d});
+    if(!okList.length)throw new Error("อ่านข้อมูลสลิปไม่สำเร็จ");
+    var cells=okList.map(function(x,i){return epXlsRow(i,x.meta,x.d)});
+    var widths=EP_XLS_HEAD.map(function(h,i){return i===2?28:i===3||i===4?20:Math.min(Math.max(String(h).length+4,12),22)});
+    var title=[db.settings.companyName,
+      "E-PAYSLIP งวด "+fmtMonthYear(epState.month,epState.year),
+      "ช่วงวันที่: "+(okList[0].d.period_start?rptDateBE(okList[0].d.period_start)+" – "+rptDateBE(okList[0].d.period_end):"—"),
+      "เลือก "+okList.length+" คน"
+        +(epState.dept?" · แผนก: "+epState.dept:"")
+        +(epState.pos?" · ตำแหน่ง: "+epState.pos:""),
+      "วันที่ Export: "+nowStamp()];
+    return rptLoadZip().then(function(){
+      return rptBuildXlsx("E-PAYSLIP "+epState.year+"-"+pad(epState.month),EP_XLS_HEAD,cells,widths,title)})
+    .then(function(blob){
+      var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+      a.download="epayslip-"+epState.year+"-"+pad(epState.month)+".xlsx";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(a.href)},4e3);
+      audit("EXPORT","Export Excel E-PAYSLIP "+fmtMonthYear(epState.month,epState.year)+" "+okList.length+" คน");
+      toast("ดาวน์โหลด Excel แล้ว "+okList.length+" คน")})
+  })["catch"](function(ex){
+    if(errEl)errEl.textContent=(ex&&ex.message)||"สร้างไฟล์ Excel ไม่สำเร็จ";
+    toast("สร้างไฟล์ Excel ไม่สำเร็จ","error")})
+  .then(function(){if(btn){btn.disabled=false;btn.innerHTML=lb}})
+}
+/* ============================================================================
+   [RUN-155] E-PAYSLIP แบบตาราง — Summary ตาม Filter · สถานะแยก 3 กลุ่ม · Bulk เดิมคงไว้
+   · ข้อมูลจาก njhr_slip_list_v2 (มี period_start/end · pay_status · version · confirmed_at)
+   · ดึงครั้งเดียวไม่เกิน 500 แถวแล้วแบ่งหน้าฝั่งหน้าเว็บ เพื่อให้ Summary ตรงกับตัวกรองจริง
+     (ไม่ต้องแก้ DB ที่ LOCKED แล้ว)
+   · สถานะ: สลิป = พร้อมใช้งาน / กำลังแก้ไขงวด · จ่าย = จ่ายแล้ว / ยังไม่จ่าย — ห้ามปน
+   ============================================================================ */
+var epAllRows=[];
+function epSlipTH(st){return st==="PAID"||st==="CONFIRMED"?"พร้อมใช้งาน"
+  :st==="REOPENED"?"กำลังแก้ไขงวด":st==="UNPAID"?"ยังไม่ยืนยัน":"ไม่มีข้อมูลเงินเดือน"}
+function epSlipBadge(r){var st=r.slip_status;
+  return st==="PAID"||st==="CONFIRMED"?'<span class="badge badge-ok">พร้อมใช้งาน</span>'
+    :st==="REOPENED"?'<span class="badge badge-warn">กำลังแก้ไขงวด</span>'
+    :st==="UNPAID"?'<span class="badge badge-info">ยังไม่ยืนยัน</span>'
+    :'<span class="badge badge-mut">ไม่มีข้อมูลเงินเดือน</span>'}
+function epPayBadge(r){return (r.pay_status||(r.slip_status==="PAID"?"PAID":"UNPAID"))==="PAID"
+  ?'<span class="chip chip-ok">จ่ายแล้ว</span>':'<span class="chip">ยังไม่จ่าย</span>'}
+function epSummaryHTML(rows){
+  var ready=0,reop=0,paid=0,unpaid=0,net=0;
+  rows.forEach(function(r){
+    var st=r.slip_status;
+    if(st==="PAID"||st==="CONFIRMED")ready++;
+    if(st==="REOPENED")reop++;
+    if((r.pay_status||(st==="PAID"?"PAID":"UNPAID"))==="PAID")paid++;else unpaid++;
+    net+=Number(r.net_pay)||0});
+  function card(l,v,cls){return '<div class="pr-card'+(cls?" "+cls:"")+'"><small>'+l+'</small><b>'+v+'</b></div>'}
+  return card("พนักงานทั้งหมด",rows.length+" คน")
+    +card("พร้อมใช้งาน",ready+" คน")
+    +card("กำลังแก้ไขงวด",reop+" คน",reop?"pr-card-red":"")
+    +card("ยังไม่จ่าย",unpaid+" คน")
+    +card("จ่ายแล้ว",paid+" คน")
+    +card("เงินสุทธิรวม",money(net),"pr-card-blue")
+}
+function epLoadList(el,seq){
+  var s=epState,admin=epIsAdmin();
+  epPanel('<div class="ep-state"><span class="spinner"></span> กำลังโหลดรายการสลิป…</div>');
+  var errEl=document.getElementById("ep-err");if(errEl)errEl.textContent="";
+  sbRpcList("njhr_slip_list_v2",{p_token:sbToken(),p_year:s.year,p_month:s.month,
+    p_q:s.q||null,p_dept:s.dept||null,p_position:s.pos||null,
+    p_status:s.status||null,p_pay:s.pay||null,p_limit:500,p_offset:0})
+  .then(function(rows){
+    if(seq!==epState.seq)return;
+    epAllRows=rows||[];
+    var sm=document.getElementById("ep-summary");
+    if(sm)sm.innerHTML=epSummaryHTML(epAllRows);
+    if(!epAllRows.length){epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");epRows=[];epSyncBulk();return}
+    var total=epAllRows.length,pages=Math.max(1,Math.ceil(total/s.per));
+    if(s.page>=pages)s.page=pages-1;if(s.page<0)s.page=0;
+    epRows=epAllRows.slice(s.page*s.per,(s.page+1)*s.per);
+
+    /* มือถือ + พนักงานทั่วไป + มีสลิปของตัวเองใบเดียว -> เปิดสลิปให้ทันที ไม่ต้องผ่านรายชื่อ */
+    if(!admin&&epRows.length===1&&epRows[0].has_payroll&&epRows[0].payroll_id
+       &&window.matchMedia&&window.matchMedia("(max-width:900px)").matches&&!epState.autoOpened){
+      epState.autoOpened=true;epOpenSlip(epRows[0].payroll_id)}
+
+    function actions(r){
+      var off=r.has_payroll?"":" disabled";
+      return '<button class="btn-icon ep-act" data-ep-open="'+esc(r.payroll_id||"")+'"'+off
+          +' aria-label="ดูสลิป" title="ดูสลิป">'+icon("eye")+"</button>"
+        +'<button class="btn-icon ep-act" data-ep-pdf="'+esc(r.payroll_id||"")+'"'+off
+          +' aria-label="ดาวน์โหลด PDF / พิมพ์" title="ดาวน์โหลด PDF / พิมพ์">'+icon("download")+"</button>"
+        +'<button class="btn-icon ep-act" data-ep-hist="'+esc(r.employee_id||"")+'"'
+          +' aria-label="ประวัติ" title="ประวัติการแก้ไขงวดนี้">'+icon("history")+"</button>"
+        +(admin?'<button class="btn-icon ep-act" data-ep-send="'+esc(r.payroll_id||"")+'"'+off
+          +' aria-label="เปลี่ยนสถานะจ่าย" title="เปลี่ยนสถานะจ่าย">'+icon("send")+"</button>":"")}
+
+    epPanel('<div class="table-wrap ep-tbl"><table><thead><tr>'
+      +'<th class="ta-c">ลำดับ</th>'
+      +(admin?'<th class="ta-c"><input type="checkbox" id="ep-all" aria-label="เลือกทั้งหมดที่แสดง"></th>':"")
+      +'<th>รหัส</th><th>ชื่อ-นามสกุล</th><th>แผนก</th><th>ตำแหน่ง</th>'
+      +'<th class="ta-r">เงินสุทธิ</th><th>สถานะสลิป</th><th>สถานะจ่าย</th>'
+      +'<th class="ta-c">Version</th><th>วันที่ยืนยัน</th><th class="ta-r">จัดการ</th>'
+      +'</tr></thead><tbody>'
+      +epRows.map(function(r,i){
+        var has=!!r.has_payroll;
+        return '<tr'+(has?"":' class="off"')+'>'
+          +'<td class="ta-c">'+(s.page*s.per+i+1)+'</td>'
+          +(admin?'<td class="ta-c"><input type="checkbox" class="ep-pick" data-ep-pick="'
+              +esc(r.payroll_id||"")+'"'+(has?"":" disabled")+(epSel[r.payroll_id]?" checked":"")+'></td>':"")
+          +'<td>'+esc(r.emp_code||"—")+'</td>'
+          +'<td><div class="cell-user">'+avatarHTML(r.emp_name||"",28)+'<div><b>'+esc(r.emp_name||"—")+'</b>'
+            +(r.nickname?'<small>'+esc(r.nickname)+'</small>':'')+'</div></div></td>'
+          +'<td>'+esc(r.department||"—")+'</td>'
+          +'<td>'+esc(r.position_name||"—")+'</td>'
+          +'<td class="ta-r"><b>'+(has?money(r.net_pay):"—")+'</b></td>'
+          +'<td>'+epSlipBadge(r)+'</td>'
+          +'<td>'+(has?epPayBadge(r):"—")+(r.sent_email?' <span class="chip chip-ok">ส่งอีเมลแล้ว</span>':'')+'</td>'
+          +'<td class="ta-c ep-snapv">'+(r.snapshot_version?"v"+r.snapshot_version:"—")+'</td>'
+          +'<td>'+(r.confirmed_at?esc(docTS(r.confirmed_at)):"—")+'</td>'
+          +'<td class="ta-r"><div class="ep-acts">'+actions(r)+'</div></td></tr>'}).join("")
+      +'</tbody></table></div>'
+      +(pages>1?'<div class="toolbar ep-pager"><span class="grow"></span>'
+        +'<button class="btn btn-ghost btn-sm" id="ep-prev"'+(s.page===0?" disabled":"")+'>ก่อนหน้า</button>'
+        +'<span class="muted">หน้า '+(s.page+1)+" / "+pages+'</span>'
+        +'<button class="btn btn-ghost btn-sm" id="ep-next"'+(s.page+1>=pages?" disabled":"")+'>ถัดไป</button></div>':""));
+    epCount("ทั้งหมด "+total+" คน");
+    if(pages>1){
+      document.getElementById("ep-prev").onclick=function(){s.page--;epSel={};epLoadList(el,++epState.seq)};
+      document.getElementById("ep-next").onclick=function(){s.page++;epSel={};epLoadList(el,++epState.seq)}}
+    var panel=document.getElementById("ep-panel");
+    panel.onclick=function(ev){
+      var t=ev.target;
+      if(t.id==="ep-all"){var on=t.checked;
+        epSelectable().forEach(function(r){epSel[r.payroll_id]=on});
+        panel.querySelectorAll("[data-ep-pick]").forEach(function(c){if(!c.disabled)c.checked=on});
+        epSyncBulk();return}
+      if(t.dataset&&t.dataset.epPick!==undefined){
+        if(t.checked)epSel[t.dataset.epPick]=true;else delete epSel[t.dataset.epPick];
+        panel.querySelectorAll('[data-ep-pick="'+t.dataset.epPick+'"]').forEach(function(c){c.checked=t.checked});
+        epSyncBulk();return}
+      var b=t.closest?t.closest("[data-ep-open],[data-ep-pdf],[data-ep-send],[data-ep-hist]"):null;
+      if(!b||b.disabled)return;
+      if(b.dataset.epOpen)epOpenSlip(b.dataset.epOpen);
+      else if(b.dataset.epPdf)epOpenSlip(b.dataset.epPdf,true);
+      else if(b.dataset.epHist)epSlipHistory(b.dataset.epHist);
+      else epBulkSend([b.dataset.epSend])};
+    epSyncBulk()
+  })["catch"](function(er){
+    if(seq!==epState.seq)return;
+    console.error("[E-PAYSLIP] njhr_slip_list_v2 ล้มเหลว:",er);
+    epError(el,er.message||"ไม่ทราบสาเหตุ")})
+}
+/* ประวัติการแก้ไขของงวดนี้รายคน — ใช้ RPC เดียวกับหน้าเงินเดือน */
+function epSlipHistory(employeeId){
+  openModal("ประวัติการแก้ไขงวดนี้",
+    '<div class="ep-state"><span class="spinner"></span> กำลังโหลด…</div>',
+    '<span class="grow"></span><button class="btn btn-primary" id="ep-hs-close">ปิด</button>',
+    {wide:true,fullMobile:true});
+  document.getElementById("ep-hs-close").onclick=closeModal;
+  sbRpcList("njhr_payroll_override_history",{p_token:sbToken(),
+    p_year:epState.year,p_month:epState.month,p_employee:employeeId}).then(function(rows){
+    var body=document.querySelector("#modal-root .modal-body");if(!body)return;
+    if(!rows||!rows.length){body.innerHTML=emptyState("งวดนี้ไม่มีประวัติการแก้ไขของพนักงานคนนี้");return}
+    body.innerHTML='<div class="table-wrap"><table><thead><tr><th>วันเวลา</th><th>รายการ</th>'
+      +'<th class="ta-r">ค่าเดิม</th><th class="ta-r">ค่าใหม่</th><th>เหตุผล</th><th>ผู้แก้</th>'
+      +'</tr></thead><tbody>'+rows.map(function(r){
+        return '<tr><td>'+esc(docTS(r.at))+'</td><td>'+esc(r.field)+'</td>'
+          +'<td class="ta-r">'+money(r.old_value)+'</td>'
+          +'<td class="ta-r"><b>'+money(r.new_value)+'</b></td>'
+          +'<td>'+esc(r.reason||"")+'</td><td>'+esc(r.actor||"")+'</td></tr>'}).join("")
+      +'</tbody></table></div>'
+  })["catch"](function(e){
+    var body=document.querySelector("#modal-root .modal-body");
+    if(body)body.innerHTML='<div class="form-error">'+esc((e&&e.message)||"โหลดประวัติไม่สำเร็จ")+'</div>'})
+}
+function epBulkPrint(btn,autoPrint){var ids=epSelectedIds();if(!ids.length)return;if(btn.disabled)return;var label=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spinner"></span> กำลังเตรียม '+ids.length+" ใบ…";var area=document.getElementById("payslip-print-area");Promise.all(ids.map(function(id){return sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:id}).then(function(r){return r&&r.data}).catch(function(er){console.error("[E-PAYSLIP] โหลดสลิป "+id+" ล้มเหลว:",er);return null})})).then(function(list){var okList=list.filter(Boolean);if(!okList.length)throw new Error("โหลดสลิปไม่สำเร็จทั้งหมด");area.innerHTML=okList.map(function(d){var r=epRenderSlip({month:d.period_month,year:d.period_year,paidAt:d.pay_date,entries:[d.entry]},d.entry.empId,d.emp);return r?'<div class="payslip-a4-page">'+r.html+"</div>":""}).join("");area.setAttribute("aria-hidden","false");document.body.classList.add("printing-payslip");toast("เตรียมสลิป "+okList.length+" ใบแล้ว"+(autoPrint?' · เลือก "บันทึกเป็น PDF" ในหน้าต่างพิมพ์':""));return epWithTimeout(function(){window.print()})}).catch(function(ex){var e2=document.getElementById("ep-err");if(e2)e2.textContent=ex&&ex.message||"เตรียมสลิปไม่สำเร็จ"}).then(function(){btn.disabled=false;btn.innerHTML=label})}function epBulkSend(only){var ids=only||epSelectedIds();if(!ids.length)return;var rows=epRows.filter(function(r){return ids.indexOf(r.payroll_id)>=0});var EP_SENDABLE=["PAID","CONFIRMED"];var canSend=rows.filter(function(r){return EP_SENDABLE.indexOf(r.slip_status)>=0});var noData=rows.filter(function(r){return!r.has_payroll});var already=rows.filter(function(r){return r.sent_email});var notPaid=rows.filter(function(r){return r.has_payroll&&EP_SENDABLE.indexOf(r.slip_status)<0});confirmDialog("ยืนยันส่งสลิปเงินเดือน","งวด <b>"+esc(TH_MONTHS[epState.month-1]+" "+(epState.year+543))+"</b><br>"+"เลือกไว้ <b>"+rows.length+" คน</b><br>"+"ส่งได้ <b>"+canSend.length+" คน</b>"+(notPaid.length?' · ยังไม่จ่าย <b class="t-red">'+notPaid.length+" คน</b>":"")+(noData.length?' · ไม่มีข้อมูล <b class="t-red">'+noData.length+" คน</b>":"")+(already.length?'<br><span class="t-red">เคยส่งแล้ว '+already.length+" คน — จะถูกบันทึกเป็นส่งซ้ำ</span>":"")+'<br><small class="muted">ระบบจะบันทึกสถานะการส่งไว้ในฐานข้อมูล</small>',"ยืนยันส่ง",function(){return sbRpcList("njhr_slip_mark_sent",{p_token:sbToken(),p_payroll_ids:ids}).then(function(res){var sent=res.filter(function(x){return x.result==="ส่งแล้ว"}).length;var again=res.filter(function(x){return x.result==="ส่งซ้ำ"}).length;var skip=res.filter(function(x){return/^ข้าม/.test(x.result)}).length;toast("บันทึกการส่งแล้ว · ใหม่ "+sent+" · ส่งซ้ำ "+again+" · ข้าม "+skip);epSel={};epLoadList(null,++epState.seq)}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_mark_sent ล้มเหลว:",er);var e2=document.getElementById("ep-err");if(e2)e2.textContent=er.message||"ส่งสลิปไม่สำเร็จ"})})}function epOpenSlip(payrollId,toPdf){openModal("E-PAYSLIP",'<div class="ep-state"><span class="spinner"></span> กำลังโหลดสลิป…</div>','<button class="btn btn-ghost" id="ep-close">ปิด</button>');var cb=document.getElementById("ep-close");if(cb)cb.onclick=closeModal;sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:payrollId}).then(function(r){var d=r&&r.data;if(!d)throw new Error("ไม่พบข้อมูลสลิป");closeModal();var per={month:d.period_month,year:d.period_year,paidAt:d.pay_date,entries:[d.entry]};if(toPdf){epPrintPayslip(per,d.entry.empId,d.emp);return}showEPayslip(per,d.entry.empId,d.emp,d)}).catch(function(er){console.error("[E-PAYSLIP] njhr_slip_get ล้มเหลว:",er);var body=document.querySelector("#modal-root .modal-body");if(body)body.innerHTML='<div class="ep-state ep-state-bad"><b>ไม่สามารถโหลดข้อมูล E-PAYSLIP ได้</b>'+'<small class="muted">'+esc(er.message||"")+"</small></div>"})}function epList(arr){return(Array.isArray(arr)?arr:[]).filter(function(x){return x&&x.name}).map(function(x){return[String(x.name),epNum(x.amount)]})}/* [RUN-154] หัวข้อในสลิปต้องมาจากรายการจริงของพนักงานคนนั้น ไม่ใช่รายการตายตัว
    · 3 บรรทัดแรกของรายได้ = ฐานเงินเดือน / ค่าตำแหน่ง / OT — มาจากคอลัมน์ในตาราง payroll ไม่ใช่ item_name
    · 2 บรรทัดแรกของรายการหัก = ประกันสังคม / ภาษี — คอลัมน์ social_security / tax
    · ที่เหลือมาจาก en.incomes / en.deducts คือ item_name จริงจาก payroll_items
@@ -1006,7 +1805,9 @@ function epNonZero(rows){return rows.filter(function(r){return epNum(r[1])!==0})
 function epLegacyIncome(en){return epNonZero([["ค่าน้ำมัน / ค่าเดินทาง",epNum(en.fuel)],["ค่าโทรศัพท์",epNum(en.phone)],["เบี้ยขยัน",epNum(en.diligence)],["โบนัส",epNum(en.bonus)],["ค่ากะ",epNum(en.shiftPay)]])}
 function epLegacyDeduct(en){return epNonZero([["หักลากิจ",epNum(en.deductLeave)],["หักขาดงาน",epNum(en.deductAbsent)],["หักมาสาย",epNum(en.deductLate)],["กยศ.",epNum(en.loan)],["รายการหักอื่น",epNum(en.otherDeduct)]])}
 function epIncome(en){return[["ฐานเงินเดือน",epNum(en.base)]].concat(epNonZero([["ค่าตำแหน่ง",epNum(en.positionPay!==undefined?en.positionPay:en.allowance)],["OT",epNum(en.ot)]])).concat(epNonZero(epList(en.incomes))).concat(epLegacyIncome(en))}
-function epDeduct(en){return epNonZero([["ประกันสังคม",epNum(en.sso)],["ภาษี",epNum(en.tax)]]).concat(epNonZero(epList(en.deducts))).concat(epLegacyDeduct(en))}function epNetSizeClass(txt){var n=String(txt).split(".")[0].replace(/[^\d]/g,"").length;if(n>=9)return"ep-net-xs";if(n>=8)return"ep-net-s";if(n>=7)return"ep-net-m";return""}function epSum(rows){return Math.round(rows.reduce(function(a,r){return a+r[1]},0)*100)/100}function epRenderSlip(period,empId,empOverride){if(!period||!period.entries)return null;var en=period.entries.find(function(x){return x.empId===empId});var e=empOverride||emp(empId);if(!en||!e)return null;var docNo="PS-"+period.year+pad(period.month)+"-"+e.code;function epRow(label,val,cls){return'<div class="ep-row'+(cls?" "+cls:"")+'"><span>'+label+"</span><span>"+money(val)+"</span></div>"}function epInfo(label,val){return'<div class="ep-info"><span>'+label+"</span><span>:</span><b>"+esc(val)+"</b></div>"}var co=njCompanyParts();var html='<div class="ep-head"><img class="ep-logo" src="'+NJ_LOGO_SRC+'" alt="N.J. Logistics &amp; Fruits Logo" width="192" height="94">'+'<div class="ep-head-txt"><h2 class="ep-co">'+(co.prefix?'<span class="ep-co-nj">'+esc(co.prefix)+"</span>":"")+'<span class="ep-co-rest">'+esc(co.rest)+"</span></h2>"+"<small>E-PAYSLIP</small></div></div>"+'<div class="ep-line"></div>'+'<div class="ep-cards"><div class="ep-card">'+icon("calendar")+"<div><small>รอบเงินเดือน</small><b>"+fmtMonthYear(period.month,period.year)+"</b></div></div>"+'<div class="ep-card">'+icon("wallet")+"<div><small>วันที่จ่ายเงิน</small><b>"+(period.paidAt?fmtDate(period.paidAt):"รอกำหนด")+"</b></div></div>"+'<div class="ep-card">'+icon("fileText")+"<div><small>เลขที่เอกสาร</small><b>"+esc(docNo)+"</b></div></div></div>"+'<div class="ep-emp"><div class="ep-emp-head">'+icon("users")+' ข้อมูลพนักงาน</div><div class="ep-emp-grid">'+"<div>"+epInfo("รหัสพนักงาน",e.code)+epInfo("ชื่อ-นามสกุล",(e.title||"")+(e.firstName||"")+" "+(e.lastName||""))+epInfo("แผนก",e.department||dept(e.deptId))+"</div>"+"<div>"+epInfo("ตำแหน่ง",e.position||"-")+epInfo("ประเภทพนักงาน",e.empType||"พนักงานประจำ")+epInfo("วันที่เริ่มงาน",e.hireDate?fmtDate(e.hireDate):"-")+"</div>"+"</div></div>"+'<div class="ep-cols">'+'<div class="ep-box"><div class="ep-box-head ep-blue">'+icon("wallet")+" รายได้<span>จำนวนเงิน (บาท)</span></div>"+epIncome(en).map(function(x){return epRow(x[0],x[1])}).join("")+epRow("รวมรายได้ (TOTAL INCOME)",epSum(epIncome(en)),"ep-sum ep-sum-blue")+"</div>"+'<div class="ep-box"><div class="ep-box-head ep-red">'+icon("fileText")+" รายการหัก<span>จำนวนเงิน (บาท)</span></div>"+epDeduct(en).map(function(x){return epRow(x[0],x[1])}).join("")+epRow("รวมรายการหัก (TOTAL DEDUCTION)",epSum(epDeduct(en)),"ep-sum ep-sum-red")+"</div></div>"+'<div class="ep-net"><span class="ep-net-ic">'+icon("wallet")+'</span><div class="ep-net-label"><b>เงินได้สุทธิ</b><small>(NET PAY)</small></div>'+'<div class="ep-net-val '+epNetSizeClass(money(epNum(en.net)))+'">'+'<span class="ep-net-num">'+money(epNum(en.net))+"</span><small>บาท</small></div></div>"+(Math.abs(epSum(epIncome(en))-epSum(epDeduct(en))-epNum(en.net))>.005?'<div class="ot-warn">ยอดคำนวณจากรายการ ('+money(epSum(epIncome(en))-epSum(epDeduct(en)))+") ไม่ตรงกับยอดสุทธิในระบบเงินเดือน ("+money(en.net)+") — แสดงยอดจากระบบเงินเดือนเป็นหลัก</div>":"")+'<div class="ep-foot">'+icon("check")+" เอกสารนี้สร้างจากระบบอัตโนมัติ (Electronic Payslip) ไม่ต้องลงลายมือชื่อ</div>";return{html:html,e:e,en:en,docNo:docNo}}function epWaitFonts(){if(document.fonts&&document.fonts.ready){return document.fonts.ready.catch(function(){})}return Promise.resolve()}function epWithTimeout(promise,ms){return Promise.race([promise,new Promise(function(res){setTimeout(res,ms)})])}function epWaitImages(container){var imgs=Array.prototype.slice.call(container.querySelectorAll("img"));return Promise.all(imgs.map(function(img){function decoded(){return typeof img.decode==="function"?img.decode().catch(function(){}):Promise.resolve()}if(img.complete&&img.naturalWidth>0)return decoded();return new Promise(function(res){img.addEventListener("load",res,{once:true});img.addEventListener("error",res,{once:true})}).then(decoded)}))}function epPrintPayslip(period,empId,empOverride){var area=document.getElementById("payslip-print-area");if(!area){toast("ไม่สามารถเตรียมข้อมูลสลิปสำหรับพิมพ์ได้","error");return Promise.resolve()}var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิปสำหรับพิมพ์","error");return Promise.resolve()}area.innerHTML='<div class="payslip-a4-page"><div class="epayslip">'+r.html+"</div></div>";if(!area.innerHTML.trim()){toast("ไม่พบข้อมูลสลิปสำหรับพิมพ์","error");return Promise.resolve()}document.body.classList.add("printing-payslip");audit("EPAYSLIP_PRINT","พิมพ์/บันทึก PDF สลิป "+r.e.code+" "+fmtMonthYear(period.month,period.year));toast('ในหน้าต่างพิมพ์ ให้ตั้ง Margins = None และปิด "Headers and footers" เพื่อให้ PDF ตรงกับตัวอย่าง',"info");return epWithTimeout(epWaitFonts(),3e3).then(function(){return epWithTimeout(epWaitImages(area),3e3)}).then(function(){return new Promise(function(res){requestAnimationFrame(function(){requestAnimationFrame(function(){window.print();res()})})})})}window.addEventListener("afterprint",function(){document.body.classList.remove("printing-payslip");var area=document.getElementById("payslip-print-area");if(area)area.innerHTML=""});function epOpenPreview(period,empId,empOverride){var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิป","error");return}var ov=document.createElement("div");ov.className="payslip-preview-overlay";ov.innerHTML='<div class="payslip-preview-toolbar">'+'<button class="btn btn-primary" id="epv-print">'+icon("printer")+" พิมพ์ / บันทึก PDF</button>"+'<button class="btn btn-ghost" id="epv-close">ปิดตัวอย่าง</button></div>'+'<div class="payslip-preview-canvas"><div class="payslip-a4-page"><div class="epayslip">'+r.html+"</div></div></div>";document.body.appendChild(ov);ov.querySelector("#epv-close").onclick=function(){ov.remove()};ov.querySelector("#epv-print").onclick=function(){epPrintPayslip(period,empId,empOverride)}}function showEPayslip(period,empId,empOverride){var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิป","error");return}openModal("E-PAYSLIP",'<div class="epayslip" id="epayslip-print">'+r.html+"</div>",'<button class="btn btn-ghost" id="ep-preview">'+icon("eye")+" ดูตัวอย่าง</button>"+'<button class="btn btn-primary" id="ep-print">'+icon("printer")+" พิมพ์ / บันทึก PDF</button>"+'<button class="btn btn-ghost" id="ep-close">ปิด</button>',{wide:true});document.getElementById("ep-close").onclick=closeModal;document.getElementById("ep-preview").onclick=function(){epOpenPreview(period,empId,empOverride)};document.getElementById("ep-print").onclick=function(){epPrintPayslip(period,empId,empOverride)}}function rpInMonth(d,r){return!!d&&d>=r.s&&d<=r.e}function rpDMY(iso){var p=String(iso).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:""}function rpAttDetail(t){var p=[];if(t.absIn.length)p.push("ขาดสแกนเข้า: "+rpGroupDates(t.absIn));if(t.absOut.length)p.push("ขาดสแกนออก: "+rpGroupDates(t.absOut));if(t.late.length)p.push("มาสาย: "+rpGroupDates(t.late));if(t.back.length)p.push("ลงชื่อย้อนหลัง: "+rpGroupDates(t.back));return p.join("\n")}function rpLeaveDetail(t){var p=[];["ป่วย","กิจ","พักร้อน","อื่น"].forEach(function(k){if(t.D[k]&&t.D[k].length)p.push("ลา"+k+": "+rpGroupDates(t.D[k]))});return p.join("\n")}function rpOtDetail(t){return(t.otD||[]).join("\n")}function rpGroupDates(list){var a=Object.keys(list.reduce(function(o,d){o[d]=1;return o},{})).sort();if(!a.length)return"-";var out=[],st=a[0],pv=a[0];for(var i=1;i<=a.length;i++){var cur=a[i];var nx=new Date(pv+"T00:00:00");nx.setDate(nx.getDate()+1);var nxIso=nx.getFullYear()+"-"+("0"+(nx.getMonth()+1)).slice(-2)+"-"+("0"+nx.getDate()).slice(-2);if(cur===nxIso){pv=cur;continue}out.push(st===pv?rpDMY(st):rpDMY(st)+" - "+rpDMY(pv));st=pv=cur}return out.join(", ")}function rpRnd2(n){return Math.round(Number((n*100).toPrecision(12)))/100}function rpIsHoliday(iso){return holHas(iso)}function rpMin(t){var p=String(t||"").split(":");return p.length>=2?+p[0]*60+ +p[1]:null}function rpOtSplit(isHol,st,en){if(st==null||en==null)return null;if(en<=st)en+=24*60;function ov(a1,a2,b1,b2){return Math.max(0,Math.min(a2,b2)-Math.max(a1,b1))/60}if(!isHol)return{h15:(en-st)/60,h1:0,h3:0};return{h15:0,h1:ov(st,en,510,1050),h3:ov(st,en,1080,1e6)}}function rpFetch(range,filter){var r=range,f=filter||{};if(!sbReady()||!sbToken()){return Promise.reject(new Error("ยังไม่ได้เชื่อมต่อ Supabase — REPORT ALL ต้องใช้ข้อมูลจริงเท่านั้น"))}var tk=sbToken();var dept=f.deptName||null;var _ym=rpPayYM(r),pm=_ym.m,py=_ym.y;return Promise.all([sbRpcList("njhr_report_all_employees",{p_token:tk,p_dept:dept,p_employee:f.empId||null}),rptFetchAllPages("njhr_att_report",{p_token:tk,p_from:r.s,p_to:r.e,p_type:"ATTEND",p_dept:dept,p_employee:f.empId||null,p_q:null},{keyOf:function(x){return String(x.employee_id||"")+"|"+String(x.work_date||"").slice(0,10)}}),sbRpcList("njhr_leave_report",{p_token:tk,p_from:r.s,p_to:r.e,p_dept:dept,p_q:null,p_type:null,p_status:"APPROVED"}),sbRpcList("njhr_report_all_ot",{p_token:tk,p_from:r.s,p_to:r.e,p_dept:dept,p_employee:f.empId||null}),sbRpcList("njhr_pay_entry_totals",{p_token:tk,p_year:py,p_month:pm,p_employee:null}),rptFetchAllPages("njhr_att_correction_list",{p_token:tk,p_employee:null,p_status:"APPROVED",p_from:r.s,p_to:r.e,p_mine_queue:false},{keyOf:function(x){return String(x.id||"")}})["catch"](function(){return null}),/* [RUN-135] ประกันสังคม — Source เดียวกับหน้าประกันสังคม (njhr_sso_base ผ่าน njhr_sso_list) */sbRpcList("njhr_sso_list",{p_token:tk,p_q:null,p_dept:null})["catch"](function(){return null}),/* [RUN-139] Source เพิ่มสำหรับ Daily Dataset กลาง — วันลาออก/วันหยุด/กะจริง */rptFetchAllPages("njhr_emp_list",{p_token:tk,p_q:null,p_dept:dept,p_status:null,p_sort:"emp_code",p_desc:false},{keyOf:function(r){return String(r.id||"")}}),sbRpcList("njhr_holiday_list",{p_token:tk,p_from:r.s,p_to:r.e}),rptFetchShiftMap(tk)]).then(function(res){var eRows=res[0]||[],aRows=res[1]||[],lRows=res[2]||[],oRows=res[3]||[],pRows=res[4]||[],cRows=res[5],sRows=res[6],mRows=res[7]||[],hRows=res[8]||[],shiftByEmp=res[9]||{};var emps=eRows.map(function(e){var full=String(e.full_name||"").trim();var sp=full.indexOf(" ");return{id:e.id,code:e.emp_code||"",title:e.prefix||"",firstName:sp>0?full.slice(0,sp):full,lastName:sp>0?full.slice(sp+1):"",nickname:e.nickname||"",position:e.position_name||"",deptId:e.department_id||"",deptName:e.department_name||"",status:e.status||"ACTIVE",baseSalary:Number(e.base_salary)||0,allowance:Number(e.position_allow)||0,fuelAllow:Number(e.fuel_allow)||0,phoneAllow:Number(e.phone_allow)||0,diligence:Number(e.diligence_allow)||0,travelAllow:Number(e.travel_allow)||0}});/* [RUN-144] เก็บ master ชุดเต็มไว้ก่อนกรอง — ใช้สำหรับจับคู่ใบลาเท่านั้น
+function epDeduct(en){return epNonZero([["ประกันสังคม",epNum(en.sso)],["ภาษี",epNum(en.tax)]]).concat(epNonZero(epList(en.deducts))).concat(epLegacyDeduct(en))}function epNetSizeClass(txt){var n=String(txt).split(".")[0].replace(/[^\d]/g,"").length;if(n>=9)return"ep-net-xs";if(n>=8)return"ep-net-s";if(n>=7)return"ep-net-m";return""}function epSum(rows){return Math.round(rows.reduce(function(a,r){return a+r[1]},0)*100)/100}function epRenderSlip(period,empId,empOverride){if(!period||!period.entries)return null;var en=period.entries.find(function(x){return x.empId===empId});var e=empOverride||emp(empId);if(!en||!e)return null;var docNo="PS-"+period.year+pad(period.month)+"-"+e.code;function epRow(label,val,cls){return'<div class="ep-row'+(cls?" "+cls:"")+'"><span>'+label+"</span><span>"+money(val)+"</span></div>"}function epInfo(label,val){return'<div class="ep-info"><span>'+label+"</span><span>:</span><b>"+esc(val)+"</b></div>"}var co=njCompanyParts();var html='<div class="ep-head"><img class="ep-logo" src="'+NJ_LOGO_SRC+'" alt="N.J. Logistics &amp; Fruits Logo" width="192" height="94">'+'<div class="ep-head-txt"><h2 class="ep-co">'+(co.prefix?'<span class="ep-co-nj">'+esc(co.prefix)+"</span>":"")+'<span class="ep-co-rest">'+esc(co.rest)+"</span></h2>"+"<small>E-PAYSLIP</small></div></div>"+'<div class="ep-line"></div>'+'<div class="ep-cards"><div class="ep-card">'+icon("calendar")+"<div><small>รอบเงินเดือน</small><b>"+fmtMonthYear(period.month,period.year)+"</b></div></div>"+'<div class="ep-card">'+icon("wallet")+"<div><small>วันที่จ่ายเงิน</small><b>"+(period.paidAt?fmtDate(period.paidAt):"รอกำหนด")+"</b></div></div>"+'<div class="ep-card">'+icon("fileText")+"<div><small>เลขที่เอกสาร</small><b>"+esc(docNo)+"</b></div></div></div>"+'<div class="ep-emp"><div class="ep-emp-head">'+icon("users")+' ข้อมูลพนักงาน</div><div class="ep-emp-grid">'+"<div>"+epInfo("รหัสพนักงาน",e.code)+epInfo("ชื่อ-นามสกุล",(e.title||"")+(e.firstName||"")+" "+(e.lastName||""))+epInfo("แผนก",e.department||dept(e.deptId))+"</div>"+"<div>"+epInfo("ตำแหน่ง",e.position||"-")+epInfo("ประเภทพนักงาน",e.empType||"พนักงานประจำ")+epInfo("วันที่เริ่มงาน",e.hireDate?fmtDate(e.hireDate):"-")+"</div>"+"</div></div>"+'<div class="ep-cols">'+'<div class="ep-box"><div class="ep-box-head ep-blue">'+icon("wallet")+" รายได้<span>จำนวนเงิน (บาท)</span></div>"+epIncome(en).map(function(x){return epRow(x[0],x[1])}).join("")+epRow("รวมรายได้ (TOTAL INCOME)",epSum(epIncome(en)),"ep-sum ep-sum-blue")+"</div>"+'<div class="ep-box"><div class="ep-box-head ep-red">'+icon("fileText")+" รายการหัก<span>จำนวนเงิน (บาท)</span></div>"+epDeduct(en).map(function(x){return epRow(x[0],x[1])}).join("")+epRow("รวมรายการหัก (TOTAL DEDUCTION)",epSum(epDeduct(en)),"ep-sum ep-sum-red")+"</div></div>"+'<div class="ep-net"><span class="ep-net-ic">'+icon("wallet")+'</span><div class="ep-net-label"><b>เงินได้สุทธิ</b><small>(NET PAY)</small></div>'+'<div class="ep-net-val '+epNetSizeClass(money(epNum(en.net)))+'">'+'<span class="ep-net-num">'+money(epNum(en.net))+"</span><small>บาท</small></div></div>"+(Math.abs(epSum(epIncome(en))-epSum(epDeduct(en))-epNum(en.net))>.005?'<div class="ot-warn">ยอดคำนวณจากรายการ ('+money(epSum(epIncome(en))-epSum(epDeduct(en)))+") ไม่ตรงกับยอดสุทธิในระบบเงินเดือน ("+money(en.net)+") — แสดงยอดจากระบบเงินเดือนเป็นหลัก</div>":"")+'<div class="ep-foot">'+icon("check")+" เอกสารนี้สร้างจากระบบอัตโนมัติ (Electronic Payslip) ไม่ต้องลงลายมือชื่อ</div>";return{html:html,e:e,en:en,docNo:docNo}}function epWaitFonts(){if(document.fonts&&document.fonts.ready){return document.fonts.ready.catch(function(){})}return Promise.resolve()}function epWithTimeout(promise,ms){return Promise.race([promise,new Promise(function(res){setTimeout(res,ms)})])}function epWaitImages(container){var imgs=Array.prototype.slice.call(container.querySelectorAll("img"));return Promise.all(imgs.map(function(img){function decoded(){return typeof img.decode==="function"?img.decode().catch(function(){}):Promise.resolve()}if(img.complete&&img.naturalWidth>0)return decoded();return new Promise(function(res){img.addEventListener("load",res,{once:true});img.addEventListener("error",res,{once:true})}).then(decoded)}))}function epPrintPayslip(period,empId,empOverride){var area=document.getElementById("payslip-print-area");if(!area){toast("ไม่สามารถเตรียมข้อมูลสลิปสำหรับพิมพ์ได้","error");return Promise.resolve()}var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิปสำหรับพิมพ์","error");return Promise.resolve()}area.innerHTML='<div class="payslip-a4-page"><div class="epayslip">'+r.html+"</div></div>";if(!area.innerHTML.trim()){toast("ไม่พบข้อมูลสลิปสำหรับพิมพ์","error");return Promise.resolve()}document.body.classList.add("printing-payslip");audit("EPAYSLIP_PRINT","พิมพ์/บันทึก PDF สลิป "+r.e.code+" "+fmtMonthYear(period.month,period.year));toast('ในหน้าต่างพิมพ์ ให้ตั้ง Margins = None และปิด "Headers and footers" เพื่อให้ PDF ตรงกับตัวอย่าง',"info");return epWithTimeout(epWaitFonts(),3e3).then(function(){return epWithTimeout(epWaitImages(area),3e3)}).then(function(){return new Promise(function(res){requestAnimationFrame(function(){requestAnimationFrame(function(){window.print();res()})})})})}window.addEventListener("afterprint",function(){document.body.classList.remove("printing-payslip");var area=document.getElementById("payslip-print-area");if(area)area.innerHTML=""});function epOpenPreview(period,empId,empOverride){var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิป","error");return}var ov=document.createElement("div");ov.className="payslip-preview-overlay";ov.innerHTML='<div class="payslip-preview-toolbar">'+'<button class="btn btn-primary" id="epv-print">'+icon("printer")+" พิมพ์ / บันทึก PDF</button>"+'<button class="btn btn-ghost" id="epv-close">ปิดตัวอย่าง</button></div>'+'<div class="payslip-preview-canvas"><div class="payslip-a4-page"><div class="epayslip">'+r.html+"</div></div></div>";document.body.appendChild(ov);ov.querySelector("#epv-close").onclick=function(){ov.remove()};ov.querySelector("#epv-print").onclick=function(){epPrintPayslip(period,empId,empOverride)}}function showEPayslip(period,empId,empOverride,meta){var r=epRenderSlip(period,empId,empOverride);if(!r){toast("ไม่พบข้อมูลสลิป","error");return}/* [RUN-155] แจ้งให้ชัดว่าสลิปนี้มาจาก Snapshot เวอร์ชันไหน และถ้างวดกำลังแก้ไขต้องเตือน
+   ตัวเลขทั้งหมดมาจาก njhr_slip_get ฝั่ง Server ไม่คำนวณสดในหน้านี้ */
+var mBan="";if(meta){if(String(meta.slip_status||"").toUpperCase()==="REOPENED")mBan+='<div class="ep-reopen-banner">'+icon("history")+' กำลังแก้ไขงวด — สลิปนี้ยังไม่ใช่ Final ล่าสุด</div>';if(meta.snapshot_version)mBan+='<p class="muted note ep-snapv">Snapshot Version: v'+esc(String(meta.snapshot_version))+(meta.from_snapshot?" (อ่านจาก Snapshot ตอนยืนยันงวด)":" (งวดนี้ยังไม่ได้ยืนยัน)")+'</p>';}openModal("E-PAYSLIP",mBan+'<div class="epayslip" id="epayslip-print">'+r.html+"</div>",'<button class="btn btn-ghost" id="ep-preview">'+icon("eye")+" ดูตัวอย่าง</button>"+'<button class="btn btn-primary" id="ep-print">'+icon("printer")+" พิมพ์ / บันทึก PDF</button>"+'<button class="btn btn-ghost" id="ep-close">ปิด</button>',{wide:true});document.getElementById("ep-close").onclick=closeModal;document.getElementById("ep-preview").onclick=function(){epOpenPreview(period,empId,empOverride)};document.getElementById("ep-print").onclick=function(){epPrintPayslip(period,empId,empOverride)}}function rpInMonth(d,r){return!!d&&d>=r.s&&d<=r.e}function rpDMY(iso){var p=String(iso).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:""}function rpAttDetail(t){var p=[];if(t.absIn.length)p.push("ขาดสแกนเข้า: "+rpGroupDates(t.absIn));if(t.absOut.length)p.push("ขาดสแกนออก: "+rpGroupDates(t.absOut));if(t.late.length)p.push("มาสาย: "+rpGroupDates(t.late));if(t.back.length)p.push("ลงชื่อย้อนหลัง: "+rpGroupDates(t.back));return p.join("\n")}function rpLeaveDetail(t){var p=[];["ป่วย","กิจ","พักร้อน","อื่น"].forEach(function(k){if(t.D[k]&&t.D[k].length)p.push("ลา"+k+": "+rpGroupDates(t.D[k]))});return p.join("\n")}function rpOtDetail(t){return(t.otD||[]).join("\n")}function rpGroupDates(list){var a=Object.keys(list.reduce(function(o,d){o[d]=1;return o},{})).sort();if(!a.length)return"-";var out=[],st=a[0],pv=a[0];for(var i=1;i<=a.length;i++){var cur=a[i];var nx=new Date(pv+"T00:00:00");nx.setDate(nx.getDate()+1);var nxIso=nx.getFullYear()+"-"+("0"+(nx.getMonth()+1)).slice(-2)+"-"+("0"+nx.getDate()).slice(-2);if(cur===nxIso){pv=cur;continue}out.push(st===pv?rpDMY(st):rpDMY(st)+" - "+rpDMY(pv));st=pv=cur}return out.join(", ")}function rpRnd2(n){return Math.round(Number((n*100).toPrecision(12)))/100}function rpIsHoliday(iso){return holHas(iso)}function rpMin(t){var p=String(t||"").split(":");return p.length>=2?+p[0]*60+ +p[1]:null}function rpOtSplit(isHol,st,en){if(st==null||en==null)return null;if(en<=st)en+=24*60;function ov(a1,a2,b1,b2){return Math.max(0,Math.min(a2,b2)-Math.max(a1,b1))/60}if(!isHol)return{h15:(en-st)/60,h1:0,h3:0};return{h15:0,h1:ov(st,en,510,1050),h3:ov(st,en,1080,1e6)}}function rpFetch(range,filter){var r=range,f=filter||{};if(!sbReady()||!sbToken()){return Promise.reject(new Error("ยังไม่ได้เชื่อมต่อ Supabase — REPORT ALL ต้องใช้ข้อมูลจริงเท่านั้น"))}var tk=sbToken();var dept=f.deptName||null;var _ym=rpPayYM(r),pm=_ym.m,py=_ym.y;return Promise.all([sbRpcList("njhr_report_all_employees",{p_token:tk,p_dept:dept,p_employee:f.empId||null}),rptFetchAllPages("njhr_att_report",{p_token:tk,p_from:r.s,p_to:r.e,p_type:"ATTEND",p_dept:dept,p_employee:f.empId||null,p_q:null},{keyOf:function(x){return String(x.employee_id||"")+"|"+String(x.work_date||"").slice(0,10)}}),sbRpcList("njhr_leave_report",{p_token:tk,p_from:r.s,p_to:r.e,p_dept:dept,p_q:null,p_type:null,p_status:"APPROVED"}),sbRpcList("njhr_report_all_ot",{p_token:tk,p_from:r.s,p_to:r.e,p_dept:dept,p_employee:f.empId||null}),sbRpcList("njhr_pay_entry_totals",{p_token:tk,p_year:py,p_month:pm,p_employee:null}),rptFetchAllPages("njhr_att_correction_list",{p_token:tk,p_employee:null,p_status:"APPROVED",p_from:r.s,p_to:r.e,p_mine_queue:false},{keyOf:function(x){return String(x.id||"")}})["catch"](function(){return null}),/* [RUN-135] ประกันสังคม — Source เดียวกับหน้าประกันสังคม (njhr_sso_base ผ่าน njhr_sso_list) */sbRpcList("njhr_sso_list",{p_token:tk,p_q:null,p_dept:null})["catch"](function(){return null}),/* [RUN-139] Source เพิ่มสำหรับ Daily Dataset กลาง — วันลาออก/วันหยุด/กะจริง */rptFetchAllPages("njhr_emp_list",{p_token:tk,p_q:null,p_dept:dept,p_status:null,p_sort:"emp_code",p_desc:false},{keyOf:function(r){return String(r.id||"")}}),sbRpcList("njhr_holiday_list",{p_token:tk,p_from:r.s,p_to:r.e}),rptFetchShiftMap(tk)]).then(function(res){var eRows=res[0]||[],aRows=res[1]||[],lRows=res[2]||[],oRows=res[3]||[],pRows=res[4]||[],cRows=res[5],sRows=res[6],mRows=res[7]||[],hRows=res[8]||[],shiftByEmp=res[9]||{};var emps=eRows.map(function(e){var full=String(e.full_name||"").trim();var sp=full.indexOf(" ");return{id:e.id,code:e.emp_code||"",title:e.prefix||"",firstName:sp>0?full.slice(0,sp):full,lastName:sp>0?full.slice(sp+1):"",nickname:e.nickname||"",position:e.position_name||"",deptId:e.department_id||"",deptName:e.department_name||"",status:e.status||"ACTIVE",baseSalary:Number(e.base_salary)||0,allowance:Number(e.position_allow)||0,fuelAllow:Number(e.fuel_allow)||0,phoneAllow:Number(e.phone_allow)||0,diligence:Number(e.diligence_allow)||0,travelAllow:Number(e.travel_allow)||0}});/* [RUN-144] เก็บ master ชุดเต็มไว้ก่อนกรอง — ใช้สำหรับจับคู่ใบลาเท่านั้น
    ของเดิมกรอง emps เหลือ 1 คนแล้วค่อยสร้าง map ทำให้ใบลาของคนอื่นจับคู่ไม่ได้
    แล้วไป throw ทำให้ REPORT ALL พังทั้งหน้าเมื่อเลือกพนักงานรายคน */
 var empsAll=emps.slice();
