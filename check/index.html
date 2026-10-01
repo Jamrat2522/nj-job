@@ -1470,8 +1470,10 @@ body.legacy-active .content-area { display: none !important; }
     <div class="mm-body">
       <!-- ── ข้อมูลผู้ใช้ปัจจุบัน ── -->
       <div class="mm-section">
-        <h4>ข้อมูลผู้ใช้ปัจจุบัน</h4>
-        <div class="mm-info" id="mm-current-info">
+        <h4>สมาชิกทั้งหมด <span id="mm-count" style="color:var(--text3);font-weight:600"></span></h4><!-- ★ [local085] app_code = calculator · 1 คน = 1 แถว -->
+        <div class="mm-tbl-wrap"><table class="mm-tbl"><thead><tr><th>USERNAME</th><th>DISPLAY NAME</th><th>EMAIL</th><th>ROLE</th><th>CREATED</th><th>จัดการ</th></tr></thead><tbody id="mm-tbody"></tbody></table></div>
+        <div class="mm-msg" id="mm-list-msg"></div>
+        <div class="mm-info" id="mm-current-info" style="display:none">
           <div class="mm-info-row"><span class="k">Username</span><span class="v" id="mm-cur-user">—</span></div>
           <div class="mm-info-row"><span class="k">Display Name</span><span class="v" id="mm-cur-name">—</span></div>
           <div class="mm-info-row"><span class="k">Email</span><span class="v" id="mm-cur-email">—</span></div>
@@ -1503,19 +1505,44 @@ body.legacy-active .content-area { display: none !important; }
               <option value="Super Admin">Super Admin</option>
             </select>
           </div>
-        </div>
-        <div class="mm-msg" id="mm-msg"></div>
+          <div class="mm-field mm-add-cell"><label>&nbsp;</label>
         <button class="mm-btn" id="mm-btn-add" onclick="addNewMember()">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           เพิ่มสมาชิก
-        </button>
+        </button></div>
+        </div>
+        <div class="mm-msg" id="mm-msg"></div>
         <div class="mm-note">
-          <strong>หมายเหตุ:</strong> [local038] บัญชีผู้ใช้อยู่ในฐานข้อมูล (public.users · app_code = calculator) · เพิ่ม/แก้ไขผ่าน RUN SQL โดย Admin เท่านั้น
+          <strong>หมายเหตุ:</strong> สมาชิก calculator (public.users · app_code = calculator) · Password เก็บแบบ Hash (bcrypt) เท่านั้น · ไม่แสดง Password เดิม
         </div>
       </div>
     </div>
   </div>
 </div>
+<div class="mm-overlay" id="mm-pw-ov" style="z-index:9999"><!-- ★ [local085] แก้ Password สมาชิก 1 คน -->
+  <div class="mm-modal" style="max-width:440px">
+    <div class="mm-head"><div class="mm-head-ic" style="font-size:18px">🔑</div><h3>แก้ไข Password</h3><button class="mm-head-close" onclick="mmPwClose()" title="ปิด">✕</button></div>
+    <div class="mm-body">
+      <div class="mm-info"><div class="mm-info-row"><span class="k">Username</span><span class="v" id="mm-pw-user">—</span></div></div>
+      <div class="mm-field" style="margin-top:14px"><label>PASSWORD ใหม่</label><input type="password" id="mm-pw-new" placeholder="อย่างน้อย 6 ตัวอักษร" autocomplete="new-password"/></div>
+      <div class="mm-field" style="margin-top:10px"><label>ยืนยัน PASSWORD ใหม่</label><input type="password" id="mm-pw-new2" placeholder="กรอกซ้ำอีกครั้ง" autocomplete="new-password"/></div>
+      <div class="mm-msg" id="mm-pw-msg"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="mm-btn secondary" onclick="mmPwClose()">ยกเลิก</button><button class="mm-btn" id="mm-pw-save" onclick="mmPwSave()">💾 บันทึก Password</button></div>
+    </div>
+  </div>
+</div>
+<style>/* ★ [local085] จัดการสมาชิก — ตาราง + เพิ่มสมาชิกแถวเดียว (เฉพาะ #mm-overlay) */
+#mm-overlay .mm-modal{max-width:1180px}
+#mm-overlay .mm-tbl-wrap{max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:10px}
+#mm-overlay .mm-tbl{border-collapse:collapse;width:100%;font-size:13px}
+#mm-overlay .mm-tbl th{position:sticky;top:0;z-index:1;background:var(--surface2);color:var(--text2);font-size:11px;letter-spacing:.04em;text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+#mm-overlay .mm-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;vertical-align:middle}
+#mm-overlay .mm-tbl tr:last-child td{border-bottom:none}
+#mm-overlay .mm-tbl .mm-pw-btn{padding:6px 12px;font-size:12px;margin:0}
+#mm-overlay .mm-form-grid{grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:end}
+#mm-overlay .mm-add-cell .mm-btn{white-space:nowrap}
+@media(max-width:820px){ #mm-overlay .mm-form-grid{grid-template-columns:1fr} #mm-overlay .mm-add-cell label{display:none} #mm-overlay .mm-add-cell .mm-btn{width:100%} #mm-overlay .mm-body{padding:14px} }
+</style>
 
 </div><!-- /app-main -->
 <script>
@@ -1708,13 +1735,13 @@ async function doLogin(){
   authMsg('');
   try {
     let res;
-    try{ res = await sbClient.rpc('login_plain', { p_username: username, p_password: pass, p_app_code: LOGIN_APP_CODE }); }
+    try{ res = await sbClient.rpc('calc_login', { p_username: username, p_password: pass }); }   /* ★ [local085] ตรวจ Password แบบ Hash (calc_user_auth) + เปิด Session */
     catch(e){ res = { data:null, error:e || { message:'network' } }; }
     const error = res && res.error, raw = res ? res.data : null;
     if(error){
       const code = String(error.code || ''), m = String(error.message || '');
-      if(code === 'PGRST202' || code === '42883' || (/login_plain/i.test(m) && /could not find|does not exist|not found/i.test(m)))
-        authMsg('ไม่พบฟังก์ชัน login_plain ในระบบ — ติดต่อ Admin','err');
+      if(code === 'PGRST202' || code === '42883' || (/calc_login/i.test(m) && /could not find|does not exist|not found/i.test(m)))
+        authMsg('ไม่พบฟังก์ชัน calc_login ในระบบ — ติดต่อ Admin','err');
       else authMsg('Login ไม่สำเร็จ','err');
       return;
     }
@@ -1730,12 +1757,7 @@ async function doLogin(){
     const u = r.user;
     if(!u.id || String(u.app_code || '') !== LOGIN_APP_CODE || (u.status != null && String(u.status).toLowerCase() !== 'active')){ authMsg('Login ไม่สำเร็จ','err'); return; }
     /* Token สำหรับงานที่ต้องตรวจสิทธิ์ฝั่ง Server (เช่น บันทึก MASTER) · ได้จาก RPC ที่ตรวจ Username/Password ซ้ำ · ไม่ได้ = ใช้งานได้แต่เขียน MASTER ไม่ได้ */
-    let token = null;
-    try{
-      const t = await sbClient.rpc('calc_session_open', { p_username: username, p_password: pass });
-      let tj = t && !t.error ? t.data : null; if(typeof tj === 'string'){ try{ tj = JSON.parse(tj); }catch(_){ tj = null; } }
-      if(tj && tj.success === true && tj.token) token = String(tj.token);
-    }catch(_){ token = null; }
+    let token = (r && r.token) ? String(r.token) : null;   /* ★ [local085] Token จาก calc_login (ไม่เรียก RPC ซ้ำด้วย Password) */
     const sess = { id:u.id, username:u.username, full_name:u.full_name || null, role:u.role, department:u.department || null,
                    email:u.email || null, app_code:u.app_code, token, expiresAt: Date.now() + SESSION_DAYS*24*60*60*1000 };
     try{ localStorage.setItem(SESSION_KEY, JSON.stringify(sess)); }catch(_){}
@@ -1871,10 +1893,47 @@ function mmMsg(msg, type){
   el.className = 'mm-msg show ' + (type === 'err' ? 'err' : 'ok');
 }
 
-async function addNewMember(){
-  /* ★ [local038] ปิดการสร้าง User จากเบราว์เซอร์ — บัญชีอยู่ใน public.users (app_code = 'calculator') · เพิ่ม/แก้ผ่าน RUN SQL โดย Admin เท่านั้น */
-  mmMsg('การเพิ่มสมาชิกทำผ่านฐานข้อมูล (RUN SQL) โดย Admin เท่านั้น', 'err');
+async function addNewMember(){   /* ★ [local085] เพิ่มสมาชิกผ่าน RPC calc_user_create (สิทธิ์ตรวจซ้ำฝั่ง Server · Password เก็บเป็น Hash) */
+  const g=id=>document.getElementById(id), A=(typeof window.calcAuthGet==='function') ? window.calcAuthGet() : null;
+  const un=g('mm-new-user').value.trim(), fn=g('mm-new-name').value.trim(), pw=g('mm-new-pass').value, rl=g('mm-new-role').value;
+  if(!un){ mmMsg('กรุณากรอก Username','err'); return; }
+  if(!/^[a-zA-Z0-9._-]{2,30}$/.test(un)){ mmMsg('Username 2–30 ตัว ใช้ได้: a-z A-Z 0-9 . _ -','err'); return; }
+  if(!pw || pw.length<6){ mmMsg('Password อย่างน้อย 6 ตัวอักษร','err'); return; }
+  if(!sbClient || !A || !A.token){ mmMsg('Session ไม่พร้อม — กรุณาออกจากระบบแล้วเข้าใหม่','err'); return; }
+  const b=g('mm-btn-add'); if(b) b.disabled=true;
+  try{ const r=await sbClient.rpc('calc_user_create',{ p_token:A.token, p_username:un, p_full_name:fn, p_password:pw, p_role:rl }); let j=r && !r.error ? r.data : null; if(typeof j==='string'){ try{ j=JSON.parse(j); }catch(_){ j=null; } }
+    if(!j || !j.success){ const E={ forbidden:'ไม่มีสิทธิ์เพิ่มสมาชิก', duplicate:'Username นี้มีอยู่แล้ว', bad_username:'Username ไม่ถูกต้อง', password_short:'Password อย่างน้อย 6 ตัวอักษร', bad_role:'Role ไม่ถูกต้อง' }; mmMsg('❌ '+(E[j&&j.error]||('เพิ่มสมาชิกไม่สำเร็จ'+(r&&r.error?' ('+(r.error.message||r.error.code)+')':''))),'err'); return; }
+    g('mm-new-user').value=''; g('mm-new-name').value=''; g('mm-new-pass').value=''; mmMsg('✅ เพิ่มสมาชิก '+j.username+' ('+j.role+') สำเร็จ','ok'); if(typeof window.mmLoadList==='function') window.mmLoadList();
+  }catch(e){ mmMsg('❌ เพิ่มสมาชิกไม่สำเร็จ: '+String(e&&e.message||e),'err'); }
+  finally{ if(b) b.disabled=false; }
 }
+/* ★ [local085] ตารางสมาชิก + แก้ Password (RPC calc_user_list / calc_user_set_password · ไม่มี Password ในผลลัพธ์) */
+(function(){
+  const g=id=>document.getElementById(id), esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dash=v=>(v==null || String(v).trim()==='') ? '-' : esc(v), tok=()=>{ const A=(typeof window.calcAuthGet==='function') ? window.calcAuthGet() : null; return A && A.token; };
+  const J=r=>{ let j=r && !r.error ? r.data : null; if(typeof j==='string'){ try{ j=JSON.parse(j); }catch(_){ j=null; } } return j; };
+  const say=(id,m,t)=>{ const el=g(id); if(!el) return; if(!m){ el.className='mm-msg'; el.textContent=''; return; } el.textContent=m; el.className='mm-msg show '+(t==='err'?'err':'ok'); };
+  let ROWS=[], PW=null;
+  async function load(){ const tb=g('mm-tbody'); if(!tb) return; say('mm-list-msg',''); tb.innerHTML='<tr><td colspan="6" style="color:var(--text3)">กำลังโหลด…</td></tr>';
+    try{ const j=J(await sbClient.rpc('calc_user_list',{ p_token:tok() }));
+      if(!j || !j.success){ ROWS=[]; tb.innerHTML=''; g('mm-count').textContent=''; say('mm-list-msg','❌ โหลดรายชื่อสมาชิกไม่ได้'+(j&&j.error==='forbidden'?' (ไม่มีสิทธิ์)':''),'err'); return; }
+      ROWS=j.rows||[]; g('mm-count').textContent='('+ROWS.length.toLocaleString('en-US')+' คน)';
+      tb.innerHTML=ROWS.map((u,i)=>'<tr><td><b>'+dash(u.username)+'</b></td><td>'+dash(u.display_name)+'</td><td>'+dash(u.email)+'</td><td>'+dash(u.role)+'</td><td>'+(u.created_at?esc(new Date(u.created_at).toLocaleString('th-TH')):'-')+'</td>'+
+        '<td><button class="mm-btn secondary mm-pw-btn" onclick="mmPwOpen('+i+')">🔑 แก้ไข Password</button></td></tr>').join('') || '<tr><td colspan="6">-</td></tr>';
+    }catch(e){ tb.innerHTML=''; say('mm-list-msg','❌ โหลดรายชื่อสมาชิกไม่ได้: '+String(e&&e.message||e),'err'); } }
+  function open(i){ const u=ROWS[i]; if(!u) return; PW=u; g('mm-pw-user').textContent=u.username||'-'; g('mm-pw-new').value=''; g('mm-pw-new2').value=''; say('mm-pw-msg',''); g('mm-pw-ov').classList.add('show'); g('mm-pw-new').focus(); }
+  function close(){ PW=null; g('mm-pw-new').value=''; g('mm-pw-new2').value=''; g('mm-pw-ov').classList.remove('show'); }
+  async function save(){ if(!PW) return; const a=g('mm-pw-new').value, b=g('mm-pw-new2').value;
+    if(!a || a.length<6){ say('mm-pw-msg','Password อย่างน้อย 6 ตัวอักษร','err'); return; }
+    if(a!==b){ say('mm-pw-msg','Password ทั้งสองช่องไม่ตรงกัน','err'); return; }
+    const bt=g('mm-pw-save'); bt.disabled=true;
+    try{ const j=J(await sbClient.rpc('calc_user_set_password',{ p_token:tok(), p_user_id:PW.id, p_new_password:a }));
+      if(!j || !j.success){ const E={ forbidden:'ไม่มีสิทธิ์แก้ Password', password_short:'Password อย่างน้อย 6 ตัวอักษร', not_found:'ไม่พบสมาชิก' }; say('mm-pw-msg','❌ '+(E[j&&j.error]||'บันทึกไม่สำเร็จ'),'err'); return; }
+      const un=j.username; close(); say('mm-list-msg','✅ บันทึก Password ใหม่ของ '+un+' แล้ว','ok');
+    }catch(e){ say('mm-pw-msg','❌ บันทึกไม่สำเร็จ: '+String(e&&e.message||e),'err'); } finally{ bt.disabled=false; } }
+  Object.assign(window,{ mmLoadList:load, mmPwOpen:open, mmPwClose:close, mmPwSave:save });
+  const o=window.openManageMembers; if(typeof o==='function') window.openManageMembers=function(){ const r=o.apply(this,arguments); if(document.getElementById('mm-overlay').classList.contains('show')) load(); return r; };
+})();
 
 /* ── Check session on load ── */
 (async function initAuth(){
@@ -4970,7 +5029,7 @@ function chkdRunValidate(){
   const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });
   if(r.ex99.noTariff) hdrRow('DUI - HS CODE','DUI MASTER','ไม่พบ Header Tariff');
   if(r.ex99.noStat && !r.ex99.noTariff && r.ex99.duiItems.length) hdrRow('DUI - Stat','—');
-  r.permit=(typeof window.pmResultFor==='function') ? window.pmResultFor(chkdDwakRows(CHKD.dwak), chkdT, 'EXPORT') : { rows:[], items:[], ver:'' };   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (EXPORT) */
+  r.permit=(typeof window.pmResultFor==='function') ? window.pmResultFor(chkdDwakRows(CHKD.dwak), chkdT, 'IMPORT') : { rows:[], items:[], ver:'' };   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (EXPORT) */
   r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs, r.fob, r.nw, r.permit.rows)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
@@ -5650,8 +5709,8 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
 (function(){
   const P={ exc:'กรมสรรพสามิต', dui:'DUI', tis:'สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม' };
   const TITLE={ exc:'ติดใบอนุญาต กรมสรรพสามิต', dui:'ติดใบอนุญาต DUI', tis:'ติดใบอนุญาต สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม (สมอ.)' };
-  const HEAD=['Item entry','Invoice no.','Date','Product Code','Description ENG','Description THAI','QTY','Unit','HS Code','Stat','Stat Unit','Permit'];
-  const WIDTH=[11,16,12,18,36,36,10,8,16,8,10,34];
+  const HEAD=['Item entry','Invoice no.','Date','Product Code','Description ENG','Description THAI','QTY','Unit','HS Code','Stat','Stat Unit','Permit','MODE'];   /* ★ [local084] + MODE */
+  const WIDTH=[11,16,12,18,36,36,10,8,16,8,10,34,16];
   const RE=/ITEM\s*NO\.?\s*:?\s*([^\s]+)\s+OF\s+INVOICE\s*NO\.?\s*:?\s*([^\s(]+)/i;
   function parse(text){
     const keys=[], bad=[];
@@ -5665,16 +5724,16 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
   async function exportPermit(o){
     const D=o.D||[], T=o.T, G={ exc:[], dui:[], tis:[] }, seen=new Set();
     const val=(d,n)=>{ const x=d.get(n); return x==null?'':x; };
-    const rowOf=(d,g)=>{ const dt=d.get('Invoice Date'); let dv=''; if(dt!=null && T(dt)!==''){ dv=((dt instanceof Date)||typeof dt==='number') ? (o.date(dt)||T(dt)) : T(dt); }
+    const rowOf=(d,g,md)=>{ const dt=d.get('Invoice Date'); let dv=''; if(dt!=null && T(dt)!==''){ dv=((dt instanceof Date)||typeof dt==='number') ? (o.date(dt)||T(dt)) : T(dt); }
       const q=val(d,'Qty.');
-      return [T(val(d,'Item No.')), T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), (P[g]||g.slice(2))]; };
+      return [T(val(d,'Item No.')), T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), (P[g]||g.slice(2)), md||'']; };   /* ★ [local084] MODE: มีจาก MASTER เท่านั้น */
     const FT='x:กรมการค้าต่างประเทศ', cnt={ dui:new Set(), x:new Set() };   /* ★ [local083] DUI = กรมการค้าต่างประเทศ (ใบอนุญาตเดียวกัน) → กลุ่มเดียว · cnt = ตัวเลขสถานะบนหน้าจอเดิม */
-    const add=(d,g0)=>{ const ki=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')); if(g0==='dui') cnt.dui.add(ki); else if(g0.indexOf('x:')===0) cnt.x.add(ki+'|'+g0);
-      const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)) return; seen.add(k); if(!G[g]) G[g]=[]; G[g].push(rowOf(d,g)); };   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
+    const RK={}; const add=(d,g0,md)=>{ const ki=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')); if(g0==='dui') cnt.dui.add(ki); else if(g0.indexOf('x:')===0) cnt.x.add(ki+'|'+g0);
+      const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)){ if(md && RK[k] && !RK[k][12]) RK[k][12]=md; return; } seen.add(k); if(!G[g]) G[g]=[]; const v=rowOf(d,g,md); RK[k]=v; G[g].push(v); };   /* ★ [local084] ซ้ำ → เติม MODE จาก MASTER ถ้าแถวเดิมว่าง */   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
     for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน */
     for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'dui');
     for(const it of (o.pm||[])){ const d=D[it._r-1]; if(!d) continue;   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (ผล Lookup ชุดเดียวกับหน้าจอ) · ครบทุกหน่วยงาน */
-      for(const ag of it.agencies) add(d, ag==='กรมสรรพสามิต' ? 'exc' : (ag==='DUI' ? 'dui' : (/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(ag) ? 'tis' : 'x:'+ag))); }
+      for(const ag of it.agencies) add(d, ag==='กรมสรรพสามิต' ? 'exc' : (ag==='DUI' ? 'dui' : (/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(ag) ? 'tis' : 'x:'+ag)), (it.modes||{})[ag]); }
     const p=parse(o.paste), miss=[];
     for(const k of p.keys){
       const hit=D.filter(d=>T(val(d,'Item No.'))===k.item && T(d.invoice).toLowerCase()===k.inv.toLowerCase());   /* Invoice + Item ต้องตรงทั้งคู่ */
@@ -5689,7 +5748,7 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     const XG=Object.keys(G).filter(k=>k.indexOf('x:')===0);   /* ★ [local071] หน่วยงานอื่นจาก MASTER · ต่อท้ายตามลำดับที่พบ */
     if(G[FT]){ const ni=v=>{ const x=parseInt(String(v[0]).replace(/[^0-9]/g,''),10); return isNaN(x)?Infinity:x; }; G[FT].sort((a,b)=>ni(a)-ni(b)); }   /* ★ [local083] Item น้อย → มาก */
     for(const g of ['exc','tis'].concat(XG)){   /* ★ [local083] ไม่มีหัวข้อ "ติดใบอนุญาต DUI" */
-      ws.mergeCells('A'+n+':L'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]||('ติดใบอนุญาต '+g.slice(2)); t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
+      ws.mergeCells('A'+n+':M'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]||('ติดใบอนุญาต '+g.slice(2)); t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
       t.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FF1F3864' } }; t.alignment={ vertical:'middle', indent:1 }; ws.getRow(n).height=24; n++;
       HEAD.forEach((h,j)=>{ const c=ws.getRow(n).getCell(j+1); c.value=h; c.font={ name:'Tahoma', size:11, bold:true, color:{ argb:'FF1F3864' } };
         c.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FFDCE9FB' } }; c.border=box; c.alignment={ vertical:'middle', horizontal:'center', wrapText:true }; }); n++;
@@ -5774,7 +5833,8 @@ window.chkdRenderTermTransfer=chkdRenderTermTransfer;
     for(const d of (D||[])){ const it=Tm(d.get('Item No.')); if(it==='') continue;
       const tar=Tm(d.get('Tariff')), st=Tm(d.get('Stat')); const m=pmMatch(tar, st, dir); if(!m.length) continue;
       const ags=[]; m.forEach(x=>{ if(ags.indexOf(x.agency)<0) ags.push(x.agency); });
-      items.push({ _r:d._r, item:it, tariff:tar, stat:st, agencies:ags });
+      const MD={ 'นำเข้า':'IMPORT', 'ส่งออก':'EXPORT', 'นำเข้าและส่งออก':'IMPORT+EXPORT' }, modes={}; m.forEach(x=>{ if(modes[x.agency]==null) modes[x.agency]=MD[x.mole]||''; });   /* ★ [local084] MODE จริงจาก MASTER */
+      items.push({ _r:d._r, item:it, tariff:tar, stat:st, agencies:ags, modes });
       rows.push({ _r:d._r, _k:20, item:it, field:'ติดใบอนุญาต '+dir, dwak:tar+' / Stat '+st, map:ags.join(', '), reason:'❌ ติดใบอนุญาต '+dir+' : '+ags.join(', ') }); }
     for(const d of (D||[])){ const it=Tm(d.get('Item No.')); if(it==='') continue;   /* ★ พบพิกัดใน MASTER แต่ MODE ยังไม่มี → เตือน (ไม่เดา MODE · ไม่ใส่ Excel · ไม่นับ FAIL) */
       const tar=Tm(d.get('Tariff')), st=Tm(d.get('Stat')); const nm=pmNoMode(tar, st); if(!nm.length) continue;
