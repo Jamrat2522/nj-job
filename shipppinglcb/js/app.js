@@ -38,7 +38,7 @@ var _heavyExportP=null;
 function _loadHeavyExport(){
   if(_heavyExportP)return _heavyExportP;
   _heavyExportP=new Promise(function(res,rej){
-    var sc=document.createElement("script");sc.src="js/heavy-export.js?v=3.1.0";sc.async=true;
+    var sc=document.createElement("script");sc.src="js/heavy-export.js?v=3.6.7";sc.async=true;
     sc.onload=function(){res();};
     sc.onerror=function(){_heavyExportP=null;rej(new Error("heavy-export.js load failed"));};
     document.head.appendChild(sc);
