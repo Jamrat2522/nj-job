@@ -1283,7 +1283,7 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ★ [local087] TYPE P = CLONE ของ ตรวจELE TYPE 0 (id chkp-* · Logic แยก Handler chkp*) -->
 <div class="doa-view" id="chkp-view">
   <div class="doa-panel">
-    <h2>🔍 TYPE P — DWAK + MASTER HS CODE + MASTER TARIFF (ฝังในระบบ)</h2>
+    <h2>🔍 TYPE P — DWAK + MAPPING + MASTER TARIFF (ฝังในระบบ)</h2>
     <div class="doa-uploads chkp-grid">
       <label class="doa-drop" id="chkp-dwak-drop">
         <div class="dico">📙</div><div class="dlabel">DWAK (.xlsx)</div>
@@ -1291,11 +1291,11 @@ body.legacy-active .content-area { display: none !important; }
         <div class="doa-file-list" id="chkp-dwak-list"></div>
         <input type="file" id="chkp-dwak-input" accept=".xlsx,.xlsm"/>
       </label>
-      <label class="doa-drop" id="chkp-master-drop">
-        <div class="dico">📕</div><div class="dlabel">MASTER HS CODE (.xlsx)</div>
-        <div class="dhint">Part Number · ELUX Part Description (EN) · Part Description (TH) · HS code based on part description</div>
+      <label class="doa-drop" id="chkp-master-drop"><!-- ★ [local092] TYPE P: MAPPING หลายไฟล์ (แทน MASTER HS CODE) -->
+        <div class="dico">📕</div><div class="dlabel">MAPPING (.xlsx)</div>
+        <div class="dhint">เลือก/ลากได้หลายไฟล์พร้อมกัน · INVOICE Number · Product Code · Description · TH · HS Code · STAT · ใบขนอ้างอิง · รายการที่</div>
         <div class="doa-file-list" id="chkp-master-list"></div>
-        <input type="file" id="chkp-master-input" accept=".xlsx,.xlsm"/>
+        <input type="file" id="chkp-master-input" accept=".xlsx,.xlsm" multiple/>
       </label>
     </div>
     <div id="chkp-type" style="font-size:12px;font-weight:700;color:var(--amber);margin-top:6px"></div>
@@ -5088,7 +5088,7 @@ function chkdRunValidate(){
   const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });
   if(r.ex99.noTariff) hdrRow('DUI - HS CODE','DUI MASTER','ไม่พบ Header Tariff');
   if(r.ex99.noStat && !r.ex99.noTariff && r.ex99.duiItems.length) hdrRow('DUI - Stat','—');
-  r.permit=(typeof window.pmResultFor==='function') ? window.pmResultFor(chkdDwakRows(CHKD.dwak), chkdT, 'IMPORT') : { rows:[], items:[], ver:'' };   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (EXPORT) */
+  r.permit=(typeof window.pmResultFor==='function') ? window.pmResultFor(chkdDwakRows(CHKD.dwak), chkdT, 'EXPORT') : { rows:[], items:[], ver:'' };   /* ★ [local071] MASTER พิกัดติดใบอนุญาต · ★ [local091] TYPE D = EXPORT (เหมือน TYPE 1) */
   r.rows=r.header.concat(r.inv, r.ex99.diffs, r.fix.diffs, r.fob, r.nw, r.permit.rows)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
@@ -5142,7 +5142,7 @@ function chkdStat3(v){
   const t=s.replace(/^0+/,'')||'0';
   return t.length>=3 ? t : ('000'+t).slice(-3);
 }
-const CHKD_DUI_AG='กรมการค้าต่างประเทศ', CHKD_DUI_DIR='IMPORT';
+const CHKD_DUI_AG='กรมการค้าต่างประเทศ', CHKD_DUI_DIR='EXPORT';   /* ★ [local091] TYPE D = EXPORT (เหมือน TYPE 1) */
 function chkdEx99(dwakSheet){
   const out=[], H=dwakSheet.hdr, col=(...n)=>chkdCol(H,...n);
   const cTar=col('Tariff'), cStat=col('Stat');
@@ -5921,7 +5921,7 @@ let CHKP_PASS=null;
 function chkpOk(o){ if(CHKP_PASS) CHKP_PASS.push(o); }
 function chkpRunValidate(){
   const r={}; CHKP_PASS=[];
-  r.part=chkpPartCheck(CHKP.master, CHKP.dwak);                 /* A */
+  r.part=chkpMapCheck(CHKP.master, CHKP.dwak);                  /* A · ★ [local092] MAPPING (แทน MASTER HS CODE) */
   r.hs=chkpHsCheck(CHKP.dwak);                                  /* B */
   r.nw=null;                                                    /* ★ [local062] ปิด NW>GW ใน TYPE 0 (ไม่เรียก chkpNwGw) */
   r.ex99=chkpEx99(CHKP.dwak);                                   /* [local009] DUI Validation ตาม DUI MASTER (HS CODE Warning + Stat/EXEMPT99/Issue Date/Tax ID Error) */
@@ -5954,77 +5954,74 @@ function chkpRunValidate(){
   return r;
 }
 
-/* ══ [A] MASTER HS CODE (User Upload) ↔ DWAK — KEY = Part Number ══
-   · หา Sheet ที่มี Header 4 ตัวครบ (ชื่อ Header จริง · ไม่ยึดตำแหน่ง/ชื่อ Sheet) — ไม่พบ = Error
-   · Part Number เก็บเป็นข้อความตามไฟล์ (คง 0 นำหน้า) · Key เทียบด้วย chkpTxt (trim/ยุบช่องว่าง/ไม่สนตัวพิมพ์)
-     = กติกาเดียวกับที่ระบบใช้จับ Product Code อยู่แล้ว
-   · Part Number ซ้ำใน MASTER: ข้อมูลเหมือนกัน → นับเป็นชุดเดียว · ข้อมูลต่างกัน → เก็บทุกชุด
-     ไม่เลือกชุดแรกเอง: DWAK ตรงกับชุดใดชุดหนึ่ง = PASS · ไม่ตรงทุกชุด = FAIL แสดงค่า MASTER ทุกชุด
-   · EN/TH เทียบด้วย chkpTxt · HS เทียบด้วย chkpHsKey (9603.50.00 = 000096035000)
-   · READ ONLY — ไม่แก้/ไม่เติมค่าลง DWAK                                                        */
-const CHKP_MHS_HDR = ['Part Number','ELUX Part Description (EN)','Part Description (TH)','HS code based on part description'];
-function chkpMasterSheet(sheets){
-  for(const s of (sheets||[])){
-    const idx=CHKP_MHS_HDR.map(h=>chkpCol(s.hdr,h));
-    if(idx.every(i=>i>=0)) return { sheet:s, idx };
-  }
-  const s=(sheets&&sheets[0])||{hdr:[]};
-  return { missing: CHKP_MHS_HDR.filter(h=>chkpCol(s.hdr,h)<0) };
+/* ══ [A] ★ [local092] MAPPING (User Upload · หลายไฟล์) ↔ DWAK — TYPE P (แทน MASTER HS CODE · ไม่อ่าน MASTER HS CODE อีก) ══
+   · ไฟล์ MAPPING: Sheet ที่มี Header INVOICE Number + Product Code (ชื่อ Header จริง · ไม่ยึดตำแหน่ง/ชื่อ Sheet) · แถว TOTAL / ไม่มี Product Code / ไม่มี Invoice = ไม่ใช่รายการ
+   · รวมทุกไฟล์ตามลำดับไฟล์ → ลำดับแถว (ไม่ทับ · ไม่หาย · แต่ละ Invoice คงข้อมูลของตัวเอง)
+   · จับคู่: DWAK (Invoice + Product Code) ↔ MAPPING (INVOICE Number + Product Code) ตามลำดับที่พบ (Product Code ซ้ำใน Invoice เดียว = จับคู่ตามลำดับ)
+   · ตรวจ: Product Code · Description (ไม่ตรง = ถูกต้อง + หมายเหตุ ตามกติกาเดิม) · TH · HS Code · Stat · Priv. / Seq (เฉพาะ MAPPING มี Header)
+           · Declaration No ↔ ใบขนอ้างอิง (Entry) · DeclarationLine Number ↔ รายการที่ (Line no) — ตรง = PASS · ไม่ตรง / ฝั่งเดียวว่าง = FAIL · ว่างทั้งคู่ = PASS
+   · Header ที่ต้องใช้ไม่มีใน MAPPING → แถว HEADER Missing (ตรวจไม่ครบ) · ห้ามเดา / fallback · READ ONLY */
+const CHKP_MAPF={ inv:['INVOICE Number','INVOICE NO.','Invoice No','Invoice Number','Invoice No.'], pc:['Product Code','PRODUCT CODE','Customer Part No/Product code'],
+  en:['Description eng 1','Description (EN Description) 1','Description/EN Description.1','Description'], th:['Part Description(TH)','Part Description (TH)','Thai Description','Thai Translation/TH Description.1'],
+  hs:['HS Code','HS code','Tariff Code'], st:['STAT','Stat'], pv:['Privilege','Priv.'], sq:['Seq','Seq.'], ref:['ใบขนอ้างอิง','Entry','เลขที่ใบขนอ้าง'], ln:['รายการที่','Line no','Line No.','Line No'] };
+const CHKP_MAPF_REQ=[['en','Description'],['th','TH Description'],['hs','HS Code'],['st','Stat'],['ref','ใบขนอ้างอิง / Entry'],['ln','รายการที่ / Line no']];
+function chkpMapSheetOf(sheets){
+  for(const s of (sheets||[])){ const ci=chkpCol(s.hdr,...CHKP_MAPF.inv), cp=chkpCol(s.hdr,...CHKP_MAPF.pc); if(ci>=0 && cp>=0) return s; }
+  return null;
 }
-function chkpPartIndex(ms){
-  const [iP,iE,iT,iH]=ms.idx, M=new Map();
-  let rows=0, dupSame=0, dupDiff=0;
-  for(const r of ms.sheet.rows){
-    const p=chkpT(r[iP]); if(p==='') continue;
-    rows++;
-    const rec={ en:chkpT(r[iE]), th:chkpT(r[iT]), hs:chkpT(r[iH]) };
-    const k=chkpTxt(p), e=M.get(k);
-    if(!e){ M.set(k,{ part:p, sets:[rec] }); continue; }
-    if(e.sets.some(x=>chkpTxt(x.en)===chkpTxt(rec.en) && chkpTxt(x.th)===chkpTxt(rec.th) && chkpHsKey(x.hs)===chkpHsKey(rec.hs))) dupSame++;
-    else { e.sets.push(rec); dupDiff++; }
+/* files = [{ name, sheets }] → { files:[{name,sheet,hdr,col}], rows:[{ f, n, inv, pc, v:{…} }] } */
+function chkpMapMerge(files){
+  const out={ files:[], rows:[] };
+  for(const F of files){ const s=chkpMapSheetOf(F.sheets); if(!s) throw new Error('MAPPING ไม่พบ Header: INVOICE Number / Product Code ('+F.name+')');
+    const col={}; for(const k in CHKP_MAPF) col[k]=chkpCol(s.hdr,...CHKP_MAPF[k]);
+    const fi=out.files.length; out.files.push({ name:F.name, sheet:s.sheet, hdr:s.hdr, col });
+    s.rows.forEach((r,i)=>{ const pc=chkpT(r[col.pc]), inv=chkpT(r[col.inv]); if(pc==='' || inv==='' || chkpTxt(pc)==='total') return;
+      const v={}; for(const k in col) v[k]=col[k]>=0 ? r[col[k]] : undefined; out.rows.push({ f:fi, n:i+2, inv, pc, v }); });
   }
-  return { M, rows, dupSame, dupDiff };
+  return out;
 }
-function chkpPartCheck(masterSheets, dwakSheet){
-  const ms=chkpMasterSheet(masterSheets);
-  if(ms.missing) throw new Error('MASTER HS CODE ไม่พบ Header: '+ms.missing.join(' · '));
-  const ix=chkpPartIndex(ms);
-  const H=dwakSheet.hdr, col=(...n)=>chkpCol(H,...n);
-  const cPC=col('Product Code'), cEN=col('Desc.'), cTH=col('DescTH'), cHS=col('Tariff');
-  const skipped=[]; if(cEN<0) skipped.push('Desc.'); if(cTH<0) skipped.push('DescTH'); if(cHS<0) skipped.push('Tariff');
-  const out=[]; let checked=0, found=0, notfound=0, empty=0;
-  /* ★ [local056] Header ที่ต้องใช้หาย → แถวฟ้อง 1 แถว/ไฟล์ (ไม่หยุดทั้งการตรวจ) · DescTH / Tariff หาย ฟ้องโดย สรรพสามิต / MASTER TARIFF เดิมแล้ว (ไม่ซ้ำ) */
-  if(cPC<0){ skipped.push('Product Code'); out.push({ _r:0, _k:6, item:'HEADER', field:'Part Number', dwak:'ไม่พบ Header Product Code', map:'MASTER HS CODE' });
-    return { diffs:out, checked, found, notfound, empty, skipped, master:{ sheet:ms.sheet.sheet, rows:ix.rows, parts:ix.M.size, dupSame:ix.dupSame, dupDiff:ix.dupDiff } }; }
-  /* ★ [local067] TYPE 0 ยกเลิกตรวจ ELUX Part Description (EN) — ไม่ฟ้อง Header Desc. หาย */
-  let cur=0;
-  const add=(item,part,hs,field,dv,mv,why)=>out.push({ _r:cur, _k:10, item:item||'—', part:part||'—', hs:hs||'—', field,
-    dwak:(dv==null||chkpT(dv)==='')?'ว่าง':chkpT(dv), map:mv, status:'ไม่ถูกต้อง', reason:why });
+function chkpMapCheck(M, dwakSheet){
+  const out=[], H=dwakSheet.hdr, col=(...n)=>chkpCol(H,...n);
+  const cPC=col('Product Code');
+  const hdrRow=(field,dw,mp)=>out.push({ _r:0, _k:6, item:'HEADER', field, dwak:dw, map:mp });
+  let checked=0, found=0, notfound=0, empty=0;
+  if(cPC<0){ hdrRow('MAPPING - Product Code','ไม่พบ Header Product Code','MAPPING'); return { diffs:out, checked, found, notfound, empty, skipped:['Product Code'] }; }
+  /* Header ที่ต้องใช้: MAPPING (ทุกไฟล์) + DWAK */
+  const has={}; for(const [k,lab] of CHKP_MAPF_REQ){ const miss=M.files.filter(f=>f.col[k]<0).map(f=>f.name); has[k]=!miss.length; if(miss.length) hdrRow('MAPPING - '+lab,'—','ไม่พบ Header ใน MAPPING ('+miss.join(', ')+')'); }
+  for(const k of ['pv','sq']) has[k]=M.files.every(f=>f.col[k]>=0);                                       /* Priv. / Seq: ตรวจเฉพาะเมื่อ MAPPING มี Header */
+  const DW={ en:['Desc.'], th:['DescTH'], hs:['Tariff'], st:['Stat'], pv:['Priv.','Privilege'], sq:['Seq.','Seq'], ref:['Declaration No'], ln:['DeclarationLine Number'] };
+  const dc={}; for(const k in DW){ dc[k]=col(...DW[k]); if(has[k] && dc[k]<0){ hdrRow({en:'MAPPING - Description',th:'MAPPING - TH Description',hs:'MAPPING - HS Code',st:'MAPPING - Stat',pv:'MAPPING - Priv.',sq:'MAPPING - Seq',ref:'Declaration No / ใบขนอ้างอิง',ln:'DeclarationLine Number / รายการที่'}[k],'ไม่พบ Header '+DW[k][0],'—'); has[k]=false; } }
+  /* คิวต่อ Invoice + Product Code (ลำดับที่พบ) */
+  const Q=new Map(); M.rows.forEach(x=>{ const k=chkpTxt(x.inv)+'|'+chkpTxt(x.pc); if(!Q.has(k)) Q.set(k,[]); Q.get(k).push(x); });
+  const used=new Set();
+  const disp=v=>(v==null||chkpT(v)==='')?'ว่าง':((v instanceof Date)?chkpDate(v):chkpT(v));
+  const iNum=v=>{ const t=chkpT(v); return /^\d+(\.0+)?$/.test(t) ? String(parseInt(t,10)) : t; };
+  const EQ={ th:(a,b)=>chkpTxt(a)===chkpTxt(b), hs:(a,b)=>chkpHsKey(a)===chkpHsKey(b), st:(a,b)=>chkpStat3(a)===chkpStat3(b), pv:(a,b)=>chkpStat3(a)===chkpStat3(b), sq:(a,b)=>chkpT(a)===chkpT(b),
+             ref:(a,b)=>chkpT(a).toUpperCase()===chkpT(b).toUpperCase(), ln:(a,b)=>iNum(a)===iNum(b) };
+  const NAME={ th:'MAPPING - TH Description', hs:'MAPPING - HS Code', st:'MAPPING - Stat', pv:'MAPPING - Priv.', sq:'MAPPING - Seq', ref:'Declaration No / ใบขนอ้างอิง', ln:'DeclarationLine Number / รายการที่' };
   for(const d of chkpDwakRows(dwakSheet)){
-    cur=d._r;
-    const item=chkpT(d.get('Item No.')), part=chkpT(d.get('Product Code')), hsRaw=cHS>=0?chkpT(d.get('Tariff')):'';
-    if(item==='' && part==='') continue;                       /* แถวไม่มีทั้ง Item และ Part → ไม่ใช่ record */
-    if(part===''){ empty++; add(item,'',hsRaw,'Part Number','','—','DWAK ไม่มี Part Number (Product Code ว่าง)'); continue; }
+    const cur=d._r, item=chkpT(d.get('Item No.')), part=chkpT(d.get('Product Code')), hsRaw=dc.hs>=0?chkpT(d.get('Tariff')):'';
+    if(item==='' && part==='') continue;
+    const add=(field,dv,mv,why)=>out.push({ _r:cur, _k:10, item:item||'—', part:part||'—', hs:hsRaw||'—', field, dwak:(dv==null||chkpT(dv)==='')?'ว่าง':chkpT(dv), map:mv, status:'ไม่ถูกต้อง', reason:why });
+    if(part===''){ empty++; add('MAPPING - Product Code','','—','DWAK ไม่มี Product Code'); continue; }
     checked++;
-    const e=ix.M.get(chkpTxt(part));
-    if(!e){ notfound++; add(item,part,hsRaw,'Part Number',part,'ไม่พบใน MASTER','ไม่พบ Part Number ใน MASTER HS CODE: DWAK = '+part); continue; }
-    found++; chkpOk({ _r:cur, _k:10, item:item||'—', field:'Part Number', dwak:part, map:part });   /* ★ [local062] PASS */
-    const note=e.sets.length>1?' (MASTER HS CODE มี Part Number นี้ซ้ำ '+e.sets.length+' ชุดข้อมูลต่างกัน)':'';
-    const chk=(field,dv,get,eq)=>{
-      const vals=e.sets.map(get);
-      { const mv0=vals.find(mv=>eq(dv,mv)); if(mv0!==undefined){ chkpOk({ _r:cur, _k:10, item:item||'—', field, dwak:(dv==null||chkpT(dv)==='')?'ว่าง':chkpT(dv), map:chkpT(mv0)||'ว่าง' }); return; } }   /* ตรงกับชุดใดชุดหนึ่ง = PASS · ★ [local062] เก็บ PASS */
-      const disp=[...new Set(vals.map(v=>chkpT(v)||'ว่าง'))].join(' | ');
-      add(item,part,hsRaw,field,dv,disp,field+' ไม่ตรง: DWAK = '+(chkpT(dv)||'ว่าง')+' / MASTER = '+disp+note);
-    };
-    /* ★ [local068] ELUX Part Description (EN) ↔ Desc.: ตรง = ถูกต้อง · ไม่ตรง = ถูกต้อง + หมายเหตุ 'Description ยึดตาม INVOICE' (ไม่ฟ้อง ผิด/Warning · ไม่แก้ค่า DWAK) */
-    if(cEN>=0){ const dv=d.get('Desc.'), vals=e.sets.map(x=>x.en), sh=(dv==null||chkpT(dv)==='')?'ว่าง':chkpT(dv), mv0=vals.find(mv=>chkpTxt(dv)===chkpTxt(mv));
-      if(mv0!==undefined) chkpOk({ _r:cur, _k:10, item:item||'—', field:'ELUX Part Description (EN)', dwak:sh, map:chkpT(mv0)||'ว่าง' });
-      else chkpOk({ _r:cur, _k:10, item:item||'—', field:'ELUX Part Description (EN)', dwak:sh, map:[...new Set(vals.map(v=>chkpT(v)||'ว่าง'))].join(' | '), note:'Description ยึดตาม INVOICE' }); }
-    if(cTH>=0) chk('Part Description (TH)',      d.get('DescTH'),  x=>x.th, (a,b)=>chkpTxt(a)===chkpTxt(b));
-    if(cHS>=0) chk('HS code based on part description', d.get('Tariff'), x=>x.hs, (a,b)=>chkpHsKey(a)===chkpHsKey(b));
+    const q=Q.get(chkpTxt(d.invoice)+'|'+chkpTxt(part)); const R=q && q.find(x=>!used.has(x));
+    if(!R){ notfound++; add('MAPPING - Product Code',part,'ไม่พบใน MAPPING','ไม่พบ Invoice '+(d.invoice||'—')+' · Product Code '+part+' ใน MAPPING'); continue; }
+    used.add(R); found++;
+    const src=M.files[R.f].name+' แถว '+R.n;
+    chkpOk({ _r:cur, _k:10, item:item||'—', field:'MAPPING - Product Code', dwak:part, map:chkpT(R.pc), note:'Invoice '+R.inv+' · '+src });
+    if(has.en && dc.en>=0){ const dv=d.get('Desc.'), mv=R.v.en; const sh=disp(dv);
+      if(chkpTxt(dv)===chkpTxt(mv)) chkpOk({ _r:cur, _k:10, item:item||'—', field:'MAPPING - Description', dwak:sh, map:disp(mv) });
+      else chkpOk({ _r:cur, _k:10, item:item||'—', field:'MAPPING - Description', dwak:sh, map:disp(mv), note:'Description ยึดตาม INVOICE' }); }   /* กติกาเดิม: ไม่ตรง = ถูกต้อง + หมายเหตุ */
+    for(const k of ['th','hs','st','pv','sq','ref','ln']){ if(!has[k] || dc[k]<0) continue;
+      const dv=d.get(DW[k].find(h=>col(h)>=0)), mv=R.v[k];
+      const de=chkpT(dv)==='', me=chkpT(mv)==='';
+      if(de && me){ chkpOk({ _r:cur, _k:10, item:item||'—', field:NAME[k], dwak:'ว่าง', map:'ว่าง' }); continue; }
+      if(!de && !me && EQ[k](dv,mv)){ chkpOk({ _r:cur, _k:10, item:item||'—', field:NAME[k], dwak:disp(dv), map:disp(mv) }); continue; }
+      add(NAME[k], dv, disp(mv), NAME[k].replace(/^MAPPING - /,'')+' ไม่ตรง: DWAK = '+disp(dv)+' / MAPPING = '+disp(mv)+' ('+src+')'); }
   }
-  return { diffs:out, checked, found, notfound, empty, skipped,
-           master:{ sheet:ms.sheet.sheet, rows:ix.rows, parts:ix.M.size, dupSame:ix.dupSame, dupDiff:ix.dupDiff } };
+  M.rows.forEach((x,i)=>{ if(!used.has(x)) out.push({ _r:900000+i, _k:10, item:'—', part:x.pc, hs:'—', field:'MAPPING - Product Code', dwak:'ไม่พบใน DWAK', map:x.pc, status:'ไม่ถูกต้อง', reason:'MAPPING Invoice '+x.inv+' · Product Code '+x.pc+' ไม่พบใน DWAK ('+M.files[x.f].name+' แถว '+x.n+')' }); });
+  return { diffs:out, checked, found, notfound, empty, skipped:[], mapping:{ files:M.files.length, rows:M.rows.length, unmatched:M.rows.length-used.size } };
 }
 
 /* ★ [local087] TYPE P ใช้ MASTER TARIFF ฝังในระบบ ชุดเดียวกับ TYPE 0 (window.chkpHsMaster · อ่านอย่างเดียว) */
@@ -6160,7 +6157,7 @@ function chkpEx99(dwakSheet){
 function chkpEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function chkpStatus(m,e){ const el=document.getElementById('chkp-status'); if(el){ el.textContent=m; el.className='doa-status'+(e?' err':''); } }
 function chkpSync(){
-  const ok=!!(CHKP.dwak&&CHKP.master);                          /* ★ [local002] ครบ 2 ไฟล์: DWAK + MASTER HS CODE */
+  const ok=!!(CHKP.dwak&&CHKP.master);                          /* ★ [local092] ครบ 2 ส่วน: DWAK + MAPPING */
   const b=document.getElementById('chkp-btn-run'); if(b) b.disabled=!ok;
   const x=document.getElementById('chkp-btn-export');
   if(x) x.disabled=!(CHKP.result&&CHKP.result.rows);                          /* [local016] Export ได้เมื่อมีผลตรวจ (CASE C/D: ไม่มีข้อมูลผิดก็ Export ได้) */
@@ -6171,11 +6168,11 @@ function chkpSync(){
 async function chkpLoad(kind,file){
   const listId='chkp-'+kind+'-list';
   try{
-    const sheets=await chkpReadSheet(file);
+    const fl=Array.isArray(file)?file:[file];                                                     /* ★ [local092] MAPPING รับหลายไฟล์ */
+    const sheets=await chkpReadSheet(fl[0]);
     if(kind==='master'){
-      const ms=chkpMasterSheet(sheets);
-      if(ms.missing) throw new Error('MASTER HS CODE ไม่พบ Header: '+ms.missing.join(' · '));
-      CHKP.master=sheets; CHKP.masterName=file.name; CHKP.result=null;
+      const F=[]; for(const f of fl) F.push({ name:f.name, sheets:(f===fl[0])?sheets:await chkpReadSheet(f) });   /* อ่านครบทุกไฟล์ */
+      CHKP.master=chkpMapMerge(F); CHKP.masterName=fl.map(f=>f.name).join(', '); CHKP.result=null;   /* รวมทุกแถวของทุกไฟล์ */
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
       CHKP.dwak=sheets[0]; CHKP.dwakName=file.name; CHKP.result=null;
@@ -6184,10 +6181,10 @@ async function chkpLoad(kind,file){
       await chkpMapStart(file, CHKP.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
       if(CHKP.dwak!==sheets[0]){ chkpSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
-    document.getElementById(listId).innerHTML='<div class="doa-file-entry ok"><span class="dfn">✓ '+chkpEsc(file.name)+'</span>'
-      +'<button class="drm" onclick="chkpClear(\''+kind+'\')">×</button></div>';
+    document.getElementById(listId).innerHTML=fl.map(f=>'<div class="doa-file-entry ok"><span class="dfn">✓ '+chkpEsc(f.name)+'</span>'
+      +'<button class="drm" onclick="chkpClear(\''+kind+'\')">×</button></div>').join('');                            /* [local092] 1 แถวต่อไฟล์ · × = ล้างทั้งชุด */
     document.getElementById('chkp-'+kind+'-drop').classList.add('loaded');
-    chkpStatus('อ่านไฟล์สำเร็จ: '+file.name);
+    chkpStatus('อ่านไฟล์สำเร็จ: '+fl.map(f=>f.name).join(', ')+(kind==='master'?' · MAPPING '+CHKP.master.rows.length+' แถว':''));
   }catch(e){ chkpStatus('อ่านไฟล์ไม่สำเร็จ: '+(e.message||e),true); }
   chkpSync();
 }
@@ -6206,7 +6203,7 @@ function chkpReset(){ chkpClear('dwak'); chkpClear('master');
   chkpStatus(''); }                                                                              /* [local033] ไม่แสดงข้อความ idle */
 function chkpRun(){
   try{
-    if(!CHKP.dwak||!CHKP.master) throw new Error('ต้องอัปโหลดครบ 2 ไฟล์ (DWAK + MASTER HS CODE)');
+    if(!CHKP.dwak||!CHKP.master) throw new Error('ต้องอัปโหลดครบ 2 ส่วน (DWAK + MAPPING)');
     CHKP.result=chkpRunValidate();
     chkpRender();
     chkpStatus('');
@@ -6313,7 +6310,7 @@ function chkpWsCut(ws, from){ for(let i=ws.rowCount;i>=from;i--) ws.spliceRows(i
 function chkpTplBytes(){ const bin=atob(CHKP_XLSX_TPL); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u.buffer; }
 /* Section 1 — สร้างจากผลตรวจ + ใบขน + MASTER HS CODE (อ่านอย่างเดียว) */
 function chkpLicenseRows(r){
-  const D=chkpDwakRows(CHKP.dwak), ms=chkpMasterSheet(CHKP.master), idx=(ms&&ms.sheet)?chkpPartIndex(ms).M:null;
+  const D=chkpDwakRows(CHKP.dwak), idx=new Map(); for(const x of ((CHKP.master&&CHKP.master.rows)||[])){ const k=chkpTxt(x.pc); if(!idx.has(k)) idx.set(k,{ sets:[] }); idx.get(k).sets.push({ th:chkpT(x.v.th) }); }   /* ★ [local092] ชื่อสินค้าจาก MAPPING */
   const groups=new Map();
   for(const x of r.rows){
     if(x._k!==20) continue;
@@ -6322,7 +6319,7 @@ function chkpLicenseRows(r){
     const key=g+'|'+x.map; if(!groups.has(key)) groups.set(key,{ g, hs:x.map, items:[], names:[] });
     const G=groups.get(key); G.items.push(chkpItemDisp(x.item));
     const d=D[x._r-1]; const part=d?chkpT(d.get('Product Code')):'';
-    let nm='ไม่พบใน MASTER HS CODE';
+    let nm='ไม่พบใน MAPPING';
     if(idx && part!==''){ const e=idx.get(chkpTxt(part)); if(e){ const th=e.sets.map(s=>s.th).filter(v=>v!==''); nm = th.length ? th.filter((v,i)=>th.indexOf(v)===i).join(' / ') : '—'; } }
     if(G.names.indexOf(nm)<0) G.names.push(nm);
   }
@@ -6346,7 +6343,7 @@ async function chkpExport(opt){                                                 
     const mk=(x,st)=>({ item:x.item, field:x.field, dwak:x.dwak, map:x.map, unit:unitOf(x), status:st, note:chkpT(x.note||x.reason||'') });
     const pass=(r.pass||[]).map(x=>mk(x,'ถูกต้อง')), fail=r.rows.filter(x=>x._k!==20).map(x=>mk(x,'ผิด'));   /* INFO (_k20) ไม่ Export */
     const M={ mode:'TYPE P', job, inv, customer:'', company:co.join(', '), date:new Date(),
-      dwakName:CHKP.dwakName||'', srcLabel:'ไฟล์ MASTER HS CODE', srcName:CHKP.masterName||'' };
+      dwakName:CHKP.dwakName||'', srcLabel:'ไฟล์ MAPPING', srcName:CHKP.masterName||'' };
     if(opt&&opt.wb){ await window.chkXBuildResultWb({ ...M, wb:opt.wb }, pass, fail); await window.chkXBuildResultWb({ ...M, wb:opt.wb, grouped:true }, pass, fail); return { pass:pass.length, fail:fail.length }; }   /* ★ [local074] Sheet 1 + Sheet 2 */
     const buf=await window.chkXBuildResultWb(M, pass, fail);
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -6579,14 +6576,14 @@ window.chkpMapExport=chkpMapExport;
 function chkpWire(){
   for(const k of ['dwak','master']){
     const inp=document.getElementById('chkp-'+k+'-input'), drop=document.getElementById('chkp-'+k+'-drop');
-    if(inp) inp.addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0];
-      if(f){ await chkpLoad(k,f);} e.target.value=''; });
+    if(inp) inp.addEventListener('change',async e=>{ const f=(k==='master') ? Array.from(e.target.files||[]) : (e.target.files&&e.target.files[0]);   /* ★ [local092] MAPPING หลายไฟล์ */
+      if(f && (!Array.isArray(f) || f.length)){ await chkpLoad(k,f);} e.target.value=''; });
     if(drop){
       ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
       drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
       drop.addEventListener('drop',async e=>{ e.preventDefault(); drop.classList.remove('drag');
-        const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-        if(f){ await chkpLoad(k,f);} });
+        const f=(k==='master') ? Array.from((e.dataTransfer&&e.dataTransfer.files)||[]) : (e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]);   /* ★ [local092] */
+        if(f && (!Array.isArray(f) || f.length)){ await chkpLoad(k,f);} });
     }
   }
   chkpSync();
