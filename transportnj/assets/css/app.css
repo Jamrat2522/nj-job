@@ -197,3 +197,51 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 #flActs .btn{white-space:nowrap}
 @media (max-width:1280px){.fl-stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:640px){.fl-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#flActs{width:100%}#flActs .btn{flex:1 1 calc(50% - 8px);min-height:44px}.fl-chart-wrap canvas{max-height:260px}}
+/* ---- MOBILE ตาม ROLE (Office ≤768px: เปิดงาน/Timeline/GPS/ข้อมูล · DRIVER: งานของฉัน/ข้อมูล) — Desktop ไม่แสดง .m-nav / .m-head ---- */
+.m-nav,.m-head{display:none}
+.m-card{display:block;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--sh);margin-bottom:12px;color:inherit;text-decoration:none;width:100%;text-align:left;font:inherit}
+.m-page{max-width:640px;margin:0 auto}.m-sec{margin:14px 2px 8px;color:var(--navy)}
+.m-search .inp{min-height:48px;font-size:16px;border-radius:14px;margin-bottom:12px;background:#fff}
+.m-jn{font-size:17px;color:var(--navy)}.m-chev{color:var(--muted-2);font-size:22px;line-height:1}
+.m-kvs{display:grid;grid-template-columns:1fr;gap:2px;padding:8px 0;border-top:1px solid #EEF1F5}.m-kvs:first-of-type{border-top:0}
+.m-kv{display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px;font-size:14px;line-height:1.5}.m-kv span{color:var(--muted)}.m-kv b{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.m-tel{color:var(--blue);font-weight:700;text-decoration:none}
+.m-jobcard .m-jc-h{font-size:18px;color:var(--navy)}.m-jc-st{margin:4px 0 6px;font-size:14px}
+.m-back{display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--blue);text-decoration:none;margin-bottom:6px}
+.m-att{display:flex;gap:8px;flex-wrap:wrap}.m-att .btn{flex:1;min-height:46px;cursor:pointer}.m-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:13px}.m-pick span{background:var(--sky);color:var(--navy);border-radius:999px;padding:3px 10px;overflow-wrap:anywhere}
+.m-map{height:46vh;min-height:260px;border-radius:16px;margin-bottom:10px}
+.m-sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.m-chip{border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;background:var(--gray-bg);color:var(--gray)}.m-chip.all{background:var(--navy);color:#fff}.m-chip.on{background:var(--green-bg);color:var(--green)}.m-chip.park{background:var(--amber-bg);color:var(--amber)}
+.m-veh{cursor:pointer}.m-see{margin-top:8px;min-height:44px}
+.m-user,.m-me{display:flex;align-items:center;gap:14px}.m-me{flex-direction:column;text-align:center}.m-avatar{width:56px;height:56px;border-radius:50%;background:var(--sky);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none}
+.m-uname{font-size:18px;font-weight:800;color:var(--navy)}.m-urole{font-size:13px;font-weight:700;color:var(--blue)}
+.m-menu button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;border:0;background:none;font:inherit;font-weight:700;color:var(--red);cursor:pointer;padding:0}
+.m-vrow{display:flex;align-items:center;gap:12px;cursor:pointer;min-height:64px}.m-vic{width:46px;height:46px;border-radius:12px;background:var(--sky);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex:none}.m-vic img{width:100%;height:100%;object-fit:cover}
+.m-vtx{flex:1;display:flex;flex-direction:column;min-width:0}.m-vtx b{font-size:16px;color:var(--navy)}
+.m-photo{width:96px;height:96px;border-radius:50%;background:var(--sky);display:flex;align-items:center;justify-content:center;font-size:44px;overflow:hidden;margin:0 auto 8px;border:3px solid #fff;box-shadow:var(--sh)}.m-photo img{width:100%;height:100%;object-fit:cover}
+.m-photo-btn{display:flex;width:max-content;margin:0 auto 8px;cursor:pointer}.m-drv{text-align:left}.m-me .m-kvs{width:100%;text-align:left}
+.modal.m-sheet .modal-f .btn{flex:1;min-height:46px;justify-content:center}
+.m-tabs{display:flex;gap:6px;margin-bottom:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:4px}.m-tabs button{flex:1;min-height:44px;border:0;border-radius:10px;background:none;font:inherit;font-weight:700;color:var(--muted);cursor:pointer}.m-tabs button.active{background:var(--navy);color:#fff}
+.m-djob-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.m-djob-btns .btn{min-height:46px;justify-content:center}.m-djob-btns .btn-g,.m-djob-btns .btn-p{grid-column:1/-1}
+.m-hist{padding:12px 14px}
+@media (max-width:768px){
+  #officeShell .sidebar,#officeShell .topbar,.sb-mask{display:none!important}
+  #officeShell .m-head{display:flex;align-items:center;gap:10px;background:var(--navy);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));position:sticky;top:0;z-index:30}
+  .m-head .m-logo{font-size:24px}.m-head .m-ht{font-weight:800;font-size:16px;letter-spacing:.3px}.m-head .m-hs{font-size:12px;color:#B9C6DA}
+  #officeShell .m-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(15,43,76,.08);padding-bottom:env(safe-area-inset-bottom)}
+  .m-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;color:var(--muted);font-size:12px;font-weight:700;text-decoration:none}.m-nav a span{font-size:21px;line-height:1}
+  .m-nav a.active{color:#fff;background:var(--blue);border-radius:14px;margin:5px 4px}
+  #officeShell .content{padding:12px 12px calc(84px + env(safe-area-inset-bottom))}
+  #officeShell .hl-form{grid-template-columns:1fr 1fr}
+}
+.drv .drv-nav a.active{color:#fff;background:var(--blue);border-radius:14px;margin:5px 6px}
+/* ---- Mobile DRIVER: รายละเอียดงาน / ข้อมูล ---- */
+.m-tabs-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.m-tabs-x::-webkit-scrollbar{display:none}.m-tabs-x button{flex:0 0 auto;padding:0 14px;white-space:nowrap}
+.m-steps{display:flex;gap:6px;margin-top:10px}.m-steps span{flex:1;text-align:center;font-size:12px;font-weight:700;padding:8px 4px;border-radius:10px;background:var(--gray-bg);color:var(--gray)}.m-steps span.done{background:var(--green-bg);color:var(--green)}.m-steps span.cur{background:var(--navy);color:#fff}
+.m-loc{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #EEF1F5}.m-loc:first-of-type{border-top:0}.m-loc b{display:block;overflow-wrap:anywhere;font-weight:600}.m-loc .btn{flex:0 0 auto;min-height:40px}
+.m-row{padding:9px 0;border-top:1px solid #EEF1F5;font-size:14px;overflow-wrap:anywhere}.m-row:first-child{border-top:0}
+.m-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.m-checks .check{min-height:44px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.m-err{color:var(--red,#D93636);font-weight:700;font-size:14px;min-height:0}.m-err:not(:empty){margin:4px 0 6px}
+#ddEv .grid label.btn,#pfMile .btn,#ddEdit .btn{min-height:48px}
+/* ---- 📁 เอกสารประจำรถ ---- */
+.vd-st{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700;margin-left:4px}.vd-st.ok{background:var(--green-bg);color:var(--green)}.vd-st.near{background:var(--amber-bg);color:var(--amber)}.vd-st.exp{background:var(--red-bg,#FDECEC);color:var(--red,#D93636)}
+.vd-row .flex{flex-wrap:wrap;gap:4px;justify-content:flex-end}.m-vd-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.m-vd-btns .btn{min-height:44px}

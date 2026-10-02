@@ -228,13 +228,33 @@
         const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85)); return new File([blob], file.name.replace(/\.(png|jpeg)$/i, '.jpg'), { type: 'image/jpeg' });
       } catch (_) { return file; }
     },
-    async preview(f) {
-      try { const r = await T.files.url(f.id, 'preview'); const isImg = /image/.test(f.mime_type || ''); const isPdf = /pdf/.test(f.mime_type || '');
+    async preview(f, urlFn) {
+      try { const r = await (urlFn || T.files.url)(f.id, 'preview'); const isImg = /image/.test(f.mime_type || ''); const isPdf = /pdf/.test(f.mime_type || '');
         if (!isImg && !isPdf) { window.open(r.url, '_blank'); return; }
-        T.modal({ title: f.file_name, size: 'w', body: isImg ? `<div class="c"><img src="${r.url}" style="max-width:100%;max-height:75vh;border-radius:8px"></div>` : `<iframe class="prev" src="${r.url}"></iframe>`, foot: `<a class="btn" href="${r.url}" target="_blank" rel="noopener">เปิดแท็บใหม่</a><button class="btn btn-p" data-dl>ดาวน์โหลด</button>`, onOpen: (el) => { el.querySelector('[data-dl]').onclick = () => T.files.download(f); } });
+        T.modal({ title: f.file_name, size: 'w', body: isImg ? `<div class="c"><img src="${r.url}" style="max-width:100%;max-height:75vh;border-radius:8px"></div>` : `<iframe class="prev" src="${r.url}"></iframe>`, foot: `<a class="btn" href="${r.url}" target="_blank" rel="noopener">เปิดแท็บใหม่</a><button class="btn btn-p" data-dl>ดาวน์โหลด</button>`, onOpen: (el) => { el.querySelector('[data-dl]').onclick = () => T.files.download(f, urlFn); } });
       } catch (e) { T.err(e); }
     },
-    async download(f) { try { const r = await T.files.url(f.id, 'download'); const a = document.createElement('a'); a.href = r.url; a.download = f.file_name; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { T.err(e); } },
+    async download(f, urlFn) { try { const r = await (urlFn || T.files.url)(f.id, 'download'); const a = document.createElement('a'); a.href = r.url; a.download = f.file_name; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { T.err(e); } },
+  };
+  // 📁 เอกสารประจำรถ (ผูก Vehicle ID) — Edge Function เดิม route เพิ่ม · สิทธิ์ตัดสินที่ SQL (tnj_vfile_*)
+  T.vfiles = {
+    async upload(vehicleId, file, docType, expireDate, note, replaceId) {
+      const fd = new FormData(); fd.append('file', file, file.name); fd.append('vehicle_id', vehicleId); fd.append('doc_type', docType); if (expireDate) fd.append('expire_date', expireDate); if (note) fd.append('note', note); if (replaceId) fd.append('replace_id', replaceId);
+      const r = await fetch(C.FILES_FN + '/upload', { method: 'POST', headers: { 'x-tnj-token': T.session.token, apikey: C.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + C.SUPABASE_ANON_KEY }, body: fd });
+      const j = await r.json().catch(() => ({ error: 'HTTP ' + r.status })); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j;
+    },
+    async url(id, mode = 'preview') {
+      const r = await fetch(`${C.FILES_FN}/url?vid=${encodeURIComponent(id)}&mode=${mode}`, { headers: { 'x-tnj-token': T.session.token, apikey: C.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + C.SUPABASE_ANON_KEY } });
+      const j = await r.json().catch(() => ({ error: 'HTTP ' + r.status })); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j;
+    },
+    async del(id) {
+      const r = await fetch(`${C.FILES_FN}/vfile/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'x-tnj-token': T.session.token, apikey: C.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + C.SUPABASE_ANON_KEY } });
+      const j = await r.json().catch(() => ({ error: 'HTTP ' + r.status })); if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j;
+    },
+    preview: (f) => T.files.preview(f, T.vfiles.url), download: (f) => T.files.download(f, T.vfiles.url),
+    ICON: { 'ประกันรถ': '🛡️', 'พ.ร.บ.': '📄', 'กรมธรรม์': '📜', 'คู่มือรถ': '📘', 'คู่มืออุปกรณ์': '📗', 'เอกสารทะเบียนรถ': '🗂️', 'เอกสารตรวจสภาพ': '🔧', 'เอกสารอื่น ๆ': '📎' },
+    ST: { OK: ['🟢', 'ใช้งานได้', 'ok'], NEAR: ['🟠', 'ใกล้หมดอายุ', 'near'], EXPIRED: ['🔴', 'หมดอายุ', 'exp'] },
+    expHtml(f) { if (!f.expire_date) return ''; const [y, m, d] = String(f.expire_date).slice(0, 10).split('-'); const s = T.vfiles.ST[f.exp_status] || null; return `<div class="small">หมดอายุ: ${d}/${m}/${y}${s ? ` <span class="vd-st ${s[2]}">${s[0]} ${s[1]}</span>` : ''}</div>`; },
   };
   T.fileRow = (f, canDel) => `<div class="filebox" data-fid="${f.id}"><div class="fi">${T.fileIcon(f.mime_type, f.file_name)}</div><div class="grow"><div class="b ell">${T.h(f.file_name)}</div><div class="xs muted">${T.h(f.file_type)} · ${T.size(f.size_bytes)} · ${T.h(f.uploaded_by_name || '')} · ${T.fmtDT(f.uploaded_at)}</div></div><div class="flex"><button class="btn btn-sm" data-prev title="ดู">👁</button><button class="btn btn-sm" data-dl title="ดาวน์โหลด">⬇</button>${canDel ? '<button class="btn btn-sm btn-r" data-del title="ลบ">🗑</button>' : ''}</div></div>`;
   T.bindFileRows = (root, files, onDeleted) => {
