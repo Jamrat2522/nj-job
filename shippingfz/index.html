@@ -2112,6 +2112,18 @@ function renderMobileTabbar(){
   // จุดแดงบนกระดิ่ง = มีงานรอรับ (ใช้ count เดิม ไม่ query เพิ่ม)
   const dot=document.getElementById('m-bell-dot');
   if(dot){ const n=viewCount('NEW')||0; dot.hidden = !(n>0); }
+  _patchMobileStatCards();
+}
+// การ์ดตัวเลขสรุปบนมือถือ (.m-stats) ถูกสร้างใน renderDocView ครั้งเดียว → เมื่อ count มาทีหลัง/เปลี่ยนโหมด ให้ patch ตัวเลขตาม viewCount (ไม่ rebuild view)
+function _patchMobileStatCards(){
+  try{
+    const root=$('view-root'); if(!root) return;
+    root.querySelectorAll('.m-stats .m-stat[data-k]').forEach(b=>{
+      const k=b.getAttribute('data-k'); const el=b.querySelector('.m-stat-n');
+      if(el){ const v=String(viewCount(k)); if(el.textContent!==v) el.textContent=v; }
+      b.classList.toggle('active', S.view===k);
+    });
+  }catch(_){}
 }
 
 /* เปิด/ปิด Bottom Sheet ตัวกรองมือถือ */
@@ -2411,7 +2423,7 @@ function renderDocView(){
   const _statCards = `<div class="m-stats">${
     [['NEW','รอรับ','c-new'],['RECEIVED','ดำเนินการ','c-recv'],['COMPLETED_TODAY','เสร็จวันนี้','c-done'],['POSTPONED','เลื่อนปล่อย','c-post']]
       .filter(([k])=>canView(k))
-      .map(([k,l,c])=>`<button class="m-stat ${c} ${S.view===k?'active':''}" onclick="setView('${k}')"><span class="m-stat-l">${l}</span><span class="m-stat-n">${viewCount(k)}</span></button>`).join('')
+      .map(([k,l,c])=>`<button class="m-stat ${c} ${S.view===k?'active':''}" data-k="${k}" onclick="setView('${k}')"><span class="m-stat-l">${l}</span><span class="m-stat-n">${viewCount(k)}</span></button>`).join('')
   }</div>`;
   const _toolsBlock = _dm
     ? `<div class="m-searchrow">${_searchCtlM}<button type="button" class="m-filter-btn ${_nFilters?'on':''}" onclick="_mFilterToggle(true)">ตัวกรอง${_nFilters?`<span class="m-filter-n">${_nFilters}</span>`:''}</button></div>${_statCards}`
@@ -2536,6 +2548,10 @@ function _renderDocBody(){
           <button class="pg-btn" ${S.page>=totalPages?'disabled':''} onclick="docGoto(${totalPages})">»</button>`:'';
   const sub = root.querySelector('.sub');
   if(sub) sub.textContent = `รวม ${total} รายการ` + (S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
+  const msub = root.querySelector('.m-title-sub'); if(msub) msub.textContent = `${total} รายการ`;   // มือถือ: หัวข้อ "N รายการ" ต้องตรงกับแถวที่แสดงหลังโหลดเสร็จ
+  const allc = root.querySelector('.pr-allm .pill-allm .count');                                    // มือถือ: ปุ่ม 🟢 ทั้งหมด (นับจาก base ไม่รวม search/terminal) อัปเดตหลังโหลดเสร็จ
+  if(allc){ try{ const def=VIEWS[S.view]||VIEWS.all; allc.textContent=String(_visibleDocs().filter(def.test).length); }catch(_){} }
+  _patchMobileStatCards();
   if(empty) refreshIcons(root);   // ไอคอน inbox มีเฉพาะตอนว่าง (scoped view-root) · แถวปกติใช้ emoji ไม่ต้องสแกน lucide
   _loadStatusForRows(rows); if(S.view==='RECEIVED') _ripLoadAttachCounts(rows);       // #5 เปลี่ยนหน้า/ค้นหา/filter/จำนวนแสดง → โหลดสถานะเฉพาะแถวใหม่ที่ยังไม่ cache
 }
@@ -2571,6 +2587,8 @@ function _updateCurrentViewCounters(){
     const root=$('view-root'); if(!root) return;
     const { total, totalPages }=computeRows();
     const sub=root.querySelector('.sub'); if(sub) sub.textContent=`รวม ${total} รายการ`+(S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
+    const msub=root.querySelector('.m-title-sub'); if(msub) msub.textContent=`${total} รายการ`;
+    _patchMobileStatCards();
     const pg=root.querySelector('.paginator');
     if(pg) pg.innerHTML = total>_effPageSize() ? `
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(1)">«</button>
