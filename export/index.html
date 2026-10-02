@@ -11679,6 +11679,31 @@ function eldGenerate(){
   _eldRefreshUI();
 }
 
+// Export: เรียงตามเลข INVOICE ที่อ่านได้จาก INVOICE PDF (น้อย → มาก) · ภายใน Invoice เดียวกันคงลำดับเดิม
+//   ไม่เรียงตาม Part No. / Item No. / แถว Excel · ไม่ตัดแถว · Invoice ที่ไม่มีใน PDF / ว่าง → ต่อท้ายตามลำดับเดิม
+//   ไม่มี INVOICE PDF → ลำดับเดิมทั้งหมด · คอลัมน์ R (ลำดับใบขน) และ S/T/U (รายการแรก) ยึดตามตำแหน่งแถว
+function _eldSortRowsByInvPdf(rows){
+  const keep = rows.map((r, i) => i);
+  const P = EleD.invPdf;
+  if(!(P && P.invoices && P.invoices.size)) return { rows: rows, newPos: keep };
+  const key = r => { const v = String(r[11] == null ? '' : r[11]).trim(); return P.invoices.has(v) ? v : null; };
+  const order = keep.slice().sort((a, b) => {
+    const ka = key(rows[a]), kb = key(rows[b]);
+    if(ka && kb){ const c = ka.localeCompare(kb, undefined, {numeric:true, sensitivity:'base'}); return c || (a - b); }
+    if(ka) return -1;
+    if(kb) return 1;
+    return a - b;
+  });
+  const out = order.map(i => rows[i].slice());
+  out.forEach((r, k) => {
+    r[17] = rows[k][17];                       // R: NO.ลำดับที่ใบขน — ตามตำแหน่งแถว
+    r[18] = rows[k][18]; r[19] = rows[k][19]; r[20] = rows[k][20];   // S/T/U: รายการแรกเท่านั้น — ตามตำแหน่งแถว
+  });
+  const newPos = new Array(rows.length);
+  order.forEach((oldI, k) => { newPos[oldI] = k; });
+  return { rows: out, newPos: newPos };
+}
+
 // Export — ตามรูปแบบ template ต้นฉบับ (21 cols)
 function eldExport(){
   if(!EleD.mapped){ toast('ยังไม่มีข้อมูล mapping · กด Generate ก่อน', 'warn'); return; }
@@ -11708,7 +11733,8 @@ function eldExport(){
       'PACKAGES'
     ];
 
-    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...EleD.mapped.rows]);
+    const _sorted = _eldSortRowsByInvPdf(EleD.mapped.rows);
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ..._sorted.rows]);
 
     ws['!cols'] = [
       {wch:14},{wch:32},{wch:16},{wch:32},{wch:12},
@@ -11731,7 +11757,7 @@ function eldExport(){
       const unmatchedSet = new Set(
         EleD.mapped.warnings
           .filter(w => w.reason === 'ไม่พบ Part No. ใน Master')
-          .map(w => w.rowIdx)
+          .map(w => (w.rowIdx >= 1 && w.rowIdx <= _sorted.newPos.length) ? _sorted.newPos[w.rowIdx - 1] + 1 : w.rowIdx)
       );
       unmatchedSet.forEach(rIdx => {
         for(let ci = 0; ci < HEADERS.length; ci++){
