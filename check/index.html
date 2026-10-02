@@ -6779,8 +6779,8 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
 (function(){
   const P={ exc:'กรมสรรพสามิต', dui:'DUI', tis:'สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม' };
   const TITLE={ exc:'ติดใบอนุญาต กรมสรรพสามิต', dui:'ติดใบอนุญาต DUI', tis:'ติดใบอนุญาต สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม (สมอ.)' };
-  const HEAD=['Item entry','Invoice no.','Date','Product Code','Description ENG','Description THAI','QTY','Unit','HS Code','Stat','Stat Unit','Permit','MODE'];   /* ★ [local084] + MODE */
-  const WIDTH=[11,16,12,18,36,36,10,8,16,8,10,34,16];
+  const HEAD=['Item entry','ลำดับรายการ INVOICE','Invoice no.','Date','Product Code','Description ENG','Description THAI','QTY','Unit','HS Code','Stat','Stat Unit','Permit','MODE'];   /* ★ [local084] + MODE */
+  const WIDTH=[11,14,16,12,18,36,36,10,8,16,8,10,34,16];   /* ★ [local090] + ลำดับรายการ INVOICE */
   const RE=/ITEM\s*NO\.?\s*:?\s*([^\s]+)\s+OF\s+INVOICE\s*NO\.?\s*:?\s*([^\s(]+)/i;
   function parse(text){
     const keys=[], bad=[];
@@ -6794,12 +6794,14 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
   async function exportPermit(o){
     const D=o.D||[], T=o.T, G={ exc:[], dui:[], tis:[] }, seen=new Set();
     const val=(d,n)=>{ const x=d.get(n); return x==null?'':x; };
+    /* ★ [local090] ลำดับรายการ INVOICE = ลำดับจริงใน DWAK นับแยกตาม Invoice (เริ่ม 1 ใหม่ทุก Invoice · นับทุก Item ที่มี Item No. ตามลำดับแถว · Item ซ้ำหลายแถว = ลำดับเดียว) */
+    const SEQ=new Map(); { const per=new Map(); for(const d of D){ const it=T(val(d,'Item No.')); if(it==='') continue; const iv=T(d.invoice).toLowerCase(), k=iv+'|'+it; if(SEQ.has(k)) continue; const c=(per.get(iv)||0)+1; per.set(iv,c); SEQ.set(k,c); } }
     const rowOf=(d,g,md)=>{ const dt=d.get('Invoice Date'); let dv=''; if(dt!=null && T(dt)!==''){ dv=((dt instanceof Date)||typeof dt==='number') ? (o.date(dt)||T(dt)) : T(dt); }
       const q=val(d,'Qty.');
-      return [T(val(d,'Item No.')), T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), (P[g]||g.slice(2)), md||'']; };   /* ★ [local084] MODE: มีจาก MASTER เท่านั้น */
+      return [T(val(d,'Item No.')), SEQ.get(T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')))||'', T(d.invoice), dv, T(val(d,'Product Code')), T(val(d,'Desc.')), T(val(d,'DescTH')), typeof q==='number'?q:T(q), T(val(d,'Unit')), T(val(d,'Tariff')), T(val(d,'Stat')), T(val(d,'Stat Unit')), (P[g]||g.slice(2)), md||'']; };   /* ★ [local084] MODE: มีจาก MASTER เท่านั้น */
     const FT='x:กรมการค้าต่างประเทศ', cnt={ dui:new Set(), x:new Set() };   /* ★ [local083] DUI = กรมการค้าต่างประเทศ (ใบอนุญาตเดียวกัน) → กลุ่มเดียว · cnt = ตัวเลขสถานะบนหน้าจอเดิม */
     const RK={}; const add=(d,g0,md)=>{ const ki=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')); if(g0==='dui') cnt.dui.add(ki); else if(g0.indexOf('x:')===0) cnt.x.add(ki+'|'+g0);
-      const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)){ if(md && RK[k] && !RK[k][12]) RK[k][12]=md; return; } seen.add(k); if(!G[g]) G[g]=[]; const v=rowOf(d,g,md); RK[k]=v; G[g].push(v); };   /* ★ [local084] ซ้ำ → เติม MODE จาก MASTER ถ้าแถวเดิมว่าง */   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
+      const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)){ if(md && RK[k] && !RK[k][13]) RK[k][13]=md; return; } seen.add(k); if(!G[g]) G[g]=[]; const v=rowOf(d,g,md); RK[k]=v; G[g].push(v); };   /* ★ [local084] ซ้ำ → เติม MODE จาก MASTER ถ้าแถวเดิมว่าง */   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
     for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน */
     for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'dui');
     for(const it of (o.pm||[])){ const d=D[it._r-1]; if(!d) continue;   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (ผล Lookup ชุดเดียวกับหน้าจอ) · ครบทุกหน่วยงาน */
@@ -6818,12 +6820,13 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
     const XG=Object.keys(G).filter(k=>k.indexOf('x:')===0);   /* ★ [local071] หน่วยงานอื่นจาก MASTER · ต่อท้ายตามลำดับที่พบ */
     if(G[FT]){ const ni=v=>{ const x=parseInt(String(v[0]).replace(/[^0-9]/g,''),10); return isNaN(x)?Infinity:x; }; G[FT].sort((a,b)=>ni(a)-ni(b)); }   /* ★ [local083] Item น้อย → มาก */
     for(const g of ['exc','tis'].concat(XG)){   /* ★ [local083] ไม่มีหัวข้อ "ติดใบอนุญาต DUI" */
-      ws.mergeCells('A'+n+':M'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]||('ติดใบอนุญาต '+g.slice(2)); t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
+      if(!(G[g]||[]).length) continue;   /* ★ [local090] หน่วยงานที่ไม่มีรายการ → ไม่สร้างหัวข้อ / Header / แถวว่าง */
+      ws.mergeCells('A'+n+':N'+n); const t=ws.getCell('A'+n); t.value=TITLE[g]||('ติดใบอนุญาต '+g.slice(2)); t.font={ name:'Tahoma', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
       t.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FF1F3864' } }; t.alignment={ vertical:'middle', indent:1 }; ws.getRow(n).height=24; n++;
       HEAD.forEach((h,j)=>{ const c=ws.getRow(n).getCell(j+1); c.value=h; c.font={ name:'Tahoma', size:11, bold:true, color:{ argb:'FF1F3864' } };
         c.fill={ type:'pattern', pattern:'solid', fgColor:{ argb:'FFDCE9FB' } }; c.border=box; c.alignment={ vertical:'middle', horizontal:'center', wrapText:true }; }); n++;
       for(const v of G[g]){ const R=ws.getRow(n); v.forEach((x,j)=>{ const c=R.getCell(j+1); c.value=x; c.font={ name:'Tahoma', size:11 }; c.border=box;
-          c.alignment={ vertical:'middle', wrapText:true, horizontal:(j===6?'right':'left') }; if(typeof x==='string') c.numFmt='@'; }); n++; }
+          c.alignment={ vertical:'middle', wrapText:true, horizontal:(j===7?'right':'left') }; if(typeof x==='string') c.numFmt='@'; }); n++; }
       n++;   /* เว้น 1 แถว */
     }
     if(!o.wb){   /* ★ [local074] ไม่ส่ง wb = ไฟล์ Permit แยกเดิม */
