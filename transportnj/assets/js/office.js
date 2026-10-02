@@ -15,7 +15,7 @@
   const stOpts = (sel, list) => (list || T.STATUS).map((s) => `<option value="${s}" ${s === sel ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('');
 
   const NAV = [
-    ['jobs', '🚚', 'งานขนส่ง'], ['mileage', '⛽', 'ไมล์รถ/น้ำมัน'], ['map', '🗺️', 'แผนที่ GPS'],
+    ['jobs', '🚚', 'งานขนส่ง'], ['mileage', '⛽', 'ไมล์รถ / น้ำมัน'], ['map', '🗺️', 'แผนที่ GPS'],
   ];
   const CARDS = [
     ['total', 'งานทั้งหมดวันนี้', '📋', null], ['waiting', 'รอรับ', '🕒', ['NEW', 'ASSIGNED']], ['going_pickup', 'กำลังไปรับตู้', '🚚', ['ACCEPTED', 'GOING_TO_PICKUP', 'ARRIVED_PICKUP']],
@@ -27,12 +27,11 @@
   /* ---------- shell ---------- */
   function shell(app, r) {
     if (!$('#officeShell')) {
-      app.innerHTML = `<div class="shell" id="officeShell"><aside class="sidebar" id="sb"><div class="logo"><span class="lg">NJ</span><div><div class="t1">TRANSPORT NJ</div><div class="t2">CONTAINER LOGISTICS</div></div></div>
-        <nav class="nav" id="nav">${NAV.map(([p, ic, l]) => `<a href="#/${p}" data-nav="${p}"><span class="ic">${ic}</span>${l}</a>`).join('')}</nav>
-        <div class="foot">เวอร์ชัน ${h(T.C.APP_VERSION)}<br><span id="rtState">●</span> Realtime</div></aside>
-        <div class="main"><header class="topbar"><button class="btn btn-icon" id="sbToggle">☰</button><div class="search"><span class="ic">🔍</span><input class="inp" id="gSearch" placeholder="ค้นหา Job No. / B/L / ลูกค้า / ทะเบียนรถ / คนขับ ..."></div>
-          <div class="grow"></div><button class="btn btn-icon bell" id="bell" title="งานมีปัญหา">🔔<span class="n hidden" id="bellN"></span></button>
-          <div class="user-chip"><div class="avatar">${h((T.session.full_name || '?').slice(0, 1))}</div><div class="nm"><div class="b small">${h(T.session.full_name)}</div><div class="xs muted">${h(T.session.role)}</div></div><button class="btn btn-sm" id="logoutBtn">ออก</button></div></header>
+      app.innerHTML = `<div class="shell" id="officeShell"><aside class="sidebar" id="sb"><div class="logo"><span class="lg">NJ</span><div><div class="t1">TRANSPORT NJ</div><div class="t2 sb-user" id="sbUser">👤 ${h(T.session.username || T.session.full_name || '-')}</div><div class="t2 sb-role" id="sbRole">${h(T.session.role)}</div></div></div>
+        <nav class="nav" id="nav"><div class="nav-main">${NAV.map(([p, ic, l]) => `<a href="#/${p}" data-nav="${p}"><span class="ic">${ic}</span>${l}</a>`).join('')}</div>
+        <div class="foot">เวอร์ชัน ${h(T.C.APP_VERSION)}<br><span id="rtState">●</span> Realtime</div>
+        <div class="nav-bottom">${T.session.role === 'SUPER_ADMIN' ? '<a href="#/settings" data-nav="settings"><span class="ic">👥</span>จัดการผู้ใช้</a>' : ''}<button type="button" class="bell" id="bell" title="งานมีปัญหา"><span class="ic">🔔</span>แจ้งเตือน<span class="n hidden" id="bellN"></span></button><button type="button" id="logoutBtn"><span class="ic">🚪</span>ออกจากระบบ</button></div></nav></aside>
+        <div class="main"><header class="topbar"><button class="btn btn-icon" id="sbToggle">☰</button><div class="search"><span class="ic">🔍</span><input class="inp" id="gSearch" placeholder="ค้นหา Job No. / B/L / ลูกค้า / ทะเบียนรถ / คนขับ ..."></div></header>
         <main class="content" id="page"></main></div></div>`;
       $('#logoutBtn').onclick = () => T.logout();
       $('#sbToggle').onclick = () => { $('#sb').classList.toggle('open'); let m = $('.sb-mask'); if ($('#sb').classList.contains('open') && !m) { m = document.createElement('div'); m.className = 'sb-mask'; m.onclick = () => { $('#sb').classList.remove('open'); m.remove(); }; document.body.appendChild(m); } else if (m) m.remove(); };
@@ -58,7 +57,7 @@
     if (p === 'jobs') return pageJobs(page, r);
     if (p === 'map') return pageMap(page);
     if (p === 'schedule') return pageSchedule(page, r);
-    if (p === 'mileage') return pageMileage(page, r);
+    if (p === 'mileage') return pageFuel(page, r);
     if (p === 'reports') return pageReports(page, r);
     if (p === 'documents') return pageDocuments(page, r);
     if (p === 'masters') return pageMasters(page, r.seg[1] || 'customers');
@@ -91,14 +90,16 @@
   const isNarrow = () => window.innerWidth <= 768;
   const schedTxt = (j) => j.factory_date ? `${hlDMY(j.factory_date)}${j.factory_time ? ' ' + T.fmtT(j.factory_time) : ''}` : '-';
   const lastSt = (j) => j.tl_status ? `<span class="hl-st-tag">${h(j.tl_status)}</span>` : T.badge(j.status);
+  const jbtn = (j) => `<button type="button" class="btn btn-sm btn-p" data-tlu="${j.id}">อัปเดต Timeline</button>`;
+  const jobCardHtml = (j) => `<div class="jobcard click" data-job="${j.id}"><div class="flex between"><span class="jn" style="font-size:17px">${h(j.job_no)}</span><span class="xs muted">${hlDMY(j.job_date)}</span></div>
+      <div class="jc-kv"><span>ลูกค้า</span><b>${h(j.customer_name)}</b><span>B/L</span><b>${h(j.bl_no)}</b><span>เบอร์ตู้</span><b>${h(j.container_no || '-')}</b><span>กำหนดส่ง</span><b>${schedTxt(j)}</b><span>คนขับ</span><b>${h(j.driver_name || '-')}</b><span>สถานะล่าสุด</span><b>${lastSt(j)}</b></div>
+      <div class="jc-act">${jbtn(j)}</div></div>`;
+  const jobRowHtml = (j) => `<tr class="click" data-job="${j.id}"><td class="b nowrap">${h(j.job_no)}</td><td class="nowrap">${hlDMY(j.job_date)}</td><td class="ell" style="max-width:200px">${h(j.customer_name)}</td><td class="ell" style="max-width:150px">${h(j.bl_no)}</td><td class="nowrap">${h(j.container_no || '-')}</td><td class="nowrap">${schedTxt(j)}</td><td class="ell" style="max-width:150px">${h(j.driver_name || '-')}</td><td class="ell" style="max-width:240px">${lastSt(j)}</td><td class="nowrap">${jbtn(j)}</td></tr>`;
   function jobsTable(rows, opt = {}) {
     if (!rows.length) return '<div class="empty">ไม่พบงาน</div>';
-    const btn = (j) => `<button type="button" class="btn btn-sm btn-p" data-tlu="${j.id}">อัปเดต Timeline</button>`;
-    if (isNarrow()) return `<div class="jc-list">${rows.map((j) => `<div class="jobcard click" data-job="${j.id}"><div class="flex between"><span class="jn" style="font-size:17px">${h(j.job_no)}</span><span class="xs muted">${hlDMY(j.job_date)}</span></div>
-      <div class="jc-kv"><span>ลูกค้า</span><b>${h(j.customer_name)}</b><span>B/L</span><b>${h(j.bl_no)}</b><span>เบอร์ตู้</span><b>${h(j.container_no || '-')}</b><span>กำหนดส่ง</span><b>${schedTxt(j)}</b><span>คนขับ</span><b>${h(j.driver_name || '-')}</b><span>สถานะล่าสุด</span><b>${lastSt(j)}</b></div>
-      <div class="jc-act">${btn(j)}</div></div>`).join('')}</div>`;
+    if (isNarrow()) return `<div class="jc-list">${rows.map(jobCardHtml).join('')}</div>`;
     return `<div class="tbl-wrap"><table class="tbl jobs-tbl"><thead><tr><th>Job No.</th><th>วันที่งาน</th><th>ลูกค้า</th><th>B/L</th><th>เบอร์ตู้</th><th>กำหนดส่ง</th><th>คนขับ</th><th>สถานะล่าสุด</th><th>จัดการ</th></tr></thead><tbody>
-      ${rows.map((j) => `<tr class="click" data-job="${j.id}"><td class="b nowrap">${h(j.job_no)}</td><td class="nowrap">${hlDMY(j.job_date)}</td><td class="ell" style="max-width:200px">${h(j.customer_name)}</td><td class="ell" style="max-width:150px">${h(j.bl_no)}</td><td class="nowrap">${h(j.container_no || '-')}</td><td class="nowrap">${schedTxt(j)}</td><td class="ell" style="max-width:150px">${h(j.driver_name || '-')}</td><td class="ell" style="max-width:240px">${lastSt(j)}</td><td class="nowrap">${btn(j)}</td></tr>`).join('')}</tbody></table></div>`;
+      ${rows.map(jobRowHtml).join('')}</tbody></table></div>`;
   }
   function bindJobRows(root, onDone) {
     $$('[data-tlu]', root).forEach((b) => b.onclick = (e) => { e.stopPropagation(); hualakDialog(b.dataset.tlu, onDone); });
@@ -124,51 +125,117 @@
     const start = Date.parse(`${String(job.factory_date).slice(0, 10)}T${String(job.factory_time).slice(0, 5)}:00+07:00`);
     const freeEnd = start + FT_HOURS * 3600e3, endAt = new Date(end.event_at).getTime();
     Object.assign(base, { end_id: end.id, end_title: end.title, end_at: end.event_at, free_end: new Date(freeEnd).toISOString() });
-    if (endAt <= freeEnd) return Object.assign(base, { state: 'ok', text: `🆓 Free Time ${FT_HOURS} ชม. | ไม่เกินเวลา — ไม่มีค่าใช้จ่าย` });
+    const until = `ถึง ${bkk(freeEnd).time} น.`;
+    if (endAt <= freeEnd) return Object.assign(base, { state: 'ok', text: `🆓 Free Time ${FT_HOURS} ชม. ${until} | ไม่เกินเวลา — ไม่มีค่าใช้จ่าย` });
     const m = Math.floor((endAt - freeEnd) / 60000);
-    return Object.assign(base, { state: 'over', over_min: m, text: `🆓 Free Time ${FT_HOURS} ชม. | เกิน ${Math.floor(m / 60)} ชม. ${m % 60} นาที — มีค่าใช้จ่าย` });
+    return Object.assign(base, { state: 'over', over_min: m, text: `🆓 Free Time ${FT_HOURS} ชม. ${until} | เกิน ${Math.floor(m / 60)} ชม. ${m % 60} นาที — มีค่าใช้จ่าย` });
   }
   T.freeTime = freeTime;
-  function hlHeader(job) {
-    return `<div class="hl-hd"><div>ลูกค้า: <b>${h(job.customer_name || '-')}</b> | B/L: <b>${h(job.bl_no || '-')}</b> | ท่านำเข้า: <b>${h(job.pickup_location_text || '-')}</b> | คืนตู้เปล่า: <b>${h(job.return_location_text || '-')}</b></div>
-      <div>เบอร์ตู้: <b>${h(job.container_no || '-')}</b> | เบอร์ซีล: <b>${h(job.seal_no || '-')}</b></div>
-      <div>กำหนดส่ง: <b>${hlDMY(job.factory_date)}</b> | เวลา: <b>${job.factory_time ? T.fmtT(job.factory_time) : '-'}</b></div>
-      <div>คนขับ: <b>${h(job.driver_name || '-')}</b> | หัว/หาง: <b>${h(job.license_plate || '-')} / ${h(job.trailer_plate || '-')}</b> | เบอร์โทร: <b>${job.driver_phone ? `<a href="tel:${h(job.driver_phone)}">${h(job.driver_phone)}</a>` : '-'}</b></div></div>`;
-  }
+  // ---- ข้อมูล JOB (อ่านจาก JOB จริง) ----
+  const hlLines = (job) => [
+    `ลูกค้า: ${job.customer_name || '-'} | B/L: ${job.bl_no || '-'} | ท่านำเข้า: ${job.pickup_location_text || '-'} | คืนตู้เปล่า: ${job.return_location_text || '-'}`,
+    `เบอร์ตู้: ${job.container_no || '-'} | เบอร์ซีล: ${job.seal_no || '-'}`,
+    `กำหนดส่ง: ${hlDMY(job.factory_date)} | เวลา: ${job.factory_time ? T.fmtT(job.factory_time) : '-'}`,
+    `คนขับ: ${job.driver_name || '-'} | หัว/หาง: ${job.license_plate || '-'} / ${job.trailer_plate || '-'} | เบอร์โทร: ${job.driver_phone || '-'}`];
+  function hlHeader(job) { return `<div class="hl-hd">${hlLines(job).map((l) => `<div>${h(l)}</div>`).join('')}</div>`; }
+  const hlItemText = (t) => t.title === HL_CLOSE ? `• ${t.title}` : `• ⏰ ${bkk(t.event_at).time} ${t.title}`;
+  const fIcon = (f) => /image/.test(f.mime_type || '') || /\.(jpe?g|png)$/i.test(f.file_name || '') ? '🖼' : '📄';
+  // ประวัติงานเต็มชุด: หัวข้องาน → ข้อมูล JOB → Timeline (แยกวันที่) → Free Time (ล่างสุด)
   function hualakTimelineHtml(job, opt = {}) {
-    const items = hlItems(job), ft = freeTime(job); const title = '<div class="hl-title">🚛 อัปเดตสถานะงานหัวลาก</div>';
-    const ftRow = `<div class="hl-ft ${ft.state}" data-ft="${ft.state}">${h(ft.text)}</div>`;
-    let out = '', lastDate = null, first = true;
+    const items = hlItems(job), ft = freeTime(job); let out = '', lastDate = null;
+    if (opt.header) out += `<div class="hl-title">🚛 อัปเดตสถานะงานหัวลาก</div><div class="hl-job">JOB: ${h(job.job_no)}</div>${hlHeader(job)}`;
     items.forEach((t) => {
       const b = bkk(t.event_at);
-      if (b.date !== lastDate) { out += `<div class="hl-date">วันที่ ${hlDMY(b.date)}</div>`; lastDate = b.date; if (first && opt.header) out += title + hlHeader(job); first = false; }
-      out += `<div class="hl-it" data-hl="${t.id}">${t.title === HL_CLOSE ? `• ${h(t.title)}` : `• ⏰ ${b.time} ${h(t.title)}`}</div>${t.note ? `<div class="hl-note">หมายเหตุ: ${h(t.note)}</div>` : ''}`;
-      if (t.id === ft.end_id) out += ftRow;
+      if (b.date !== lastDate) { out += `<div class="hl-date">วันที่ ${hlDMY(b.date)}</div>`; lastDate = b.date; }
+      const files = t.files || [];
+      out += `<div class="hl-entry" data-hl="${t.id}"><div class="hl-it">${h(hlItemText(t))}</div>${t.note ? `<div class="hl-note">หมายเหตุ: ${h(t.note)}</div>` : ''}
+        ${files.length ? `<div class="hl-files"><div class="hl-fh">📎 ไฟล์แนบ</div>${files.map((f) => `<div class="hl-file" data-fid="${f.id}"><span class="hl-fn">${fIcon(f)} ${h(f.file_name)}</span><button type="button" class="btn btn-sm" data-hdl="${f.id}">⬇ ดาวน์โหลด</button></div>`).join('')}</div>` : ''}
+        ${opt.actions ? `<div class="hl-acts"><button type="button" class="btn btn-sm" data-hed="${t.id}">แก้ไข</button><button type="button" class="btn btn-sm btn-r" data-hdel="${t.id}">ลบ</button><button type="button" class="btn btn-sm" data-hat="${t.id}">📎 แนบไฟล์</button></div>` : ''}</div>`;
     });
-    if (!items.length) out = (opt.header ? title + hlHeader(job) : '') + '<div class="empty small">ยังไม่มีการอัปเดตสถานะ</div>';
-    if (!ft.end_id) out += ftRow;
+    if (!items.length) out += '<div class="empty small">ยังไม่มีการอัปเดตสถานะ</div>';
+    out += `<div class="hl-ft ${ft.state}" data-ft="${ft.state}">${h(ft.text)}</div>`;
+    if (opt.copy) out += '<div class="hl-copy"><button type="button" class="btn btn-navy" data-hcopy>📋 COPY TIMELINE</button></div>';
     return `<div class="hl-tl">${out}</div>`;
   }
+  // ข้อความสำหรับวาง LINE (ไม่มี URL / ไม่มีปุ่ม)
+  function hualakCopyText(job) {
+    const L = ['🚛 อัปเดตสถานะงานหัวลาก', `JOB: ${job.job_no}`, '', ...hlLines(job)]; let lastDate = null;
+    hlItems(job).forEach((t) => {
+      const b = bkk(t.event_at);
+      if (b.date !== lastDate) { if (L[L.length - 1] !== '') L.push(''); L.push(`วันที่ ${hlDMY(b.date)}`); lastDate = b.date; }
+      L.push(hlItemText(t)); if (t.note) L.push(`หมายเหตุ: ${t.note}`);
+      const files = t.files || []; if (files.length) L.push(`📎 ไฟล์แนบ: ${files.map((f) => f.file_name).join(', ')}`, '');
+    });
+    while (L.length && L[L.length - 1] === '') L.pop();
+    L.push('', freeTime(job).text); return L.join('\n');
+  }
+  T.hualakCopyText = hualakCopyText;
+  async function copyText(txt) {
+    try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(txt); return true; } } catch (_) { }
+    const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0'; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (_) { ok = false; } ta.remove(); return ok;
+  }
+  const HL_ACCEPT = '.pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx';
+  const stSel = (id, sel) => `<select class="inp" id="${id}"><option value="">— เลือกสถานะ —</option>${HL_STATUS.map((s, i) => `<option value="${h(s)}" ${s === sel ? 'selected' : ''}>${i + 1}. ${h(s)}</option>`).join('')}</select>`;
   async function hualakDialog(jobId, onDone) {
     let job; try { job = await T.auth('tnj_job_get', { p_job_id: jobId }, { silent: true }); } catch (e) { return T.err(e); }
-    const canSave = T.canEdit() && !['COMPLETED', 'CANCELLED'].includes(job.status); const now = bkk(Date.now() + (T.server.offsetMs || 0));
-    T.modal({ title: `อัปเดต Timeline — ${job.job_no}`, size: 'w hl-modal', noMask: true,
-      body: `<div class="hl-box">${hlHeader(job)}</div>
-        ${canSave ? `<div class="hl-form"><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="hlD" value="${now.date}"></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" id="hlT" value="${now.time}"></div>
-          <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label><select class="inp" id="hlS"><option value="">— เลือกสถานะ —</option>${HL_STATUS.map((s, i) => `<option value="${h(s)}">${i + 1}. ${h(s)}</option>`).join('')}</select></div>
-          <div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><input class="inp" id="hlN" maxlength="500"></div></div>` : `<div class="alert info">${job.status === 'CANCELLED' ? 'งานถูกยกเลิกแล้ว' : job.status === 'COMPLETED' ? 'งานปิดแล้ว' : 'สิทธิ์ดูอย่างเดียว'} — ดู Timeline ได้อย่างเดียว</div>`}
-        <div id="hlTl">${hualakTimelineHtml(job)}</div>`,
-      foot: `<button class="btn btn-lg" data-close>ปิด</button>${canSave ? '<button class="btn btn-p btn-lg" id="hlGo">บันทึก Timeline</button>' : ''}`,
-      onOpen: (el, close) => { const go = $('#hlGo', el); if (!go) return; go.onclick = async () => {
-        const d = $('#hlD', el).value, t = $('#hlT', el).value, s = $('#hlS', el).value, n = $('#hlN', el).value.trim();
-        if (!d || !t) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!s) return T.toast('กรุณาเลือกสถานะ', 'warn');
-        if (s === HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${h(job.job_no)} ?<br><span class="small muted">ระบบจะบันทึกผู้ปิดงานและวันเวลาใน Audit</span>`, 'ปิดงาน', 'btn-navy'))) return;
-        go.disabled = true;
-        try { T.loading(true); const r = await T.auth('tnj_timeline_status', { p_job_id: job.id, p_event_at: `${d}T${t}:00+07:00`, p_status: s, p_note: n || null }, { silent: true });
-          job = r.job; T.toast(s === HL_CLOSE ? 'ปิดงานแล้ว' : 'บันทึก Timeline แล้ว', 'ok'); onDone && onDone();
-          if (s === HL_CLOSE) { close(); return; }
-          $('#hlTl', el).innerHTML = hualakTimelineHtml(job); $('#hlS', el).value = ''; $('#hlN', el).value = '';
-        } catch (e) { T.err(e); } finally { T.loading(false); go.disabled = false; } }; } });
+    const office = T.canEdit();
+    T.modal({ title: `อัปเดต Timeline — ${job.job_no}`, size: 'w hl-modal', noMask: true, body: '<div id="hlRoot"></div>', foot: '<button class="btn btn-lg" data-close>ปิด</button>',
+      onOpen: (el) => {
+        const root = $('#hlRoot', el);
+        const refresh = async (j2) => { job = j2 || await T.auth('tnj_job_get', { p_job_id: job.id }, { silent: true }); render(); onDone && onDone(); };
+        const render = () => {
+          const keep = {}; ['hlD', 'hlT', 'hlS', 'hlN'].forEach((k) => { const i = $('#' + k, root); if (i) keep[k] = i.value; });
+          const canAdd = office && !['COMPLETED', 'CANCELLED'].includes(job.status); const canRow = office && job.status !== 'CANCELLED'; const now = bkk(Date.now() + (T.server.offsetMs || 0));
+          root.innerHTML = `${canAdd ? `<div class="hl-form"><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="hlD" value="${now.date}"></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" id="hlT" value="${now.time}"></div>
+              <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label>${stSel('hlS')}</div>
+              <div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><input class="inp" id="hlN" maxlength="500"></div><div class="hl-fb"><button type="button" class="btn btn-p btn-lg" id="hlGo">บันทึก Timeline</button></div></div>`
+            : `<div class="alert info">${job.status === 'CANCELLED' ? 'งานถูกยกเลิกแล้ว — ดูได้อย่างเดียว' : job.status === 'COMPLETED' ? 'งานปิดแล้ว — เพิ่มสถานะใหม่ไม่ได้ (แก้ไข / ลบ / แนบไฟล์ ของรายการเดิมได้)' : 'สิทธิ์ดูอย่างเดียว'}</div>`}
+            <div id="hlTl">${hualakTimelineHtml(job, { header: true, actions: canRow, copy: true })}</div>`;
+          Object.keys(keep).forEach((k) => { const i = $('#' + k, root); if (i && keep[k] !== undefined) i.value = keep[k]; });
+          bind();
+        };
+        const bind = () => {
+          const go = $('#hlGo', root);
+          if (go) go.onclick = async () => {
+            const d = $('#hlD', root).value, t = $('#hlT', root).value, s = $('#hlS', root).value, n = $('#hlN', root).value.trim();
+            if (!d || !t) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!s) return T.toast('กรุณาเลือกสถานะ', 'warn');
+            if (s === HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${h(job.job_no)} ?<br><span class="small muted">ระบบจะบันทึกผู้ปิดงานและวันเวลาใน Audit</span>`, 'ปิดงาน', 'btn-navy'))) return;
+            go.disabled = true;
+            try { T.loading(true); const r = await T.auth('tnj_timeline_status', { p_job_id: job.id, p_event_at: `${d}T${t}:00+07:00`, p_status: s, p_note: n || null }, { silent: true });
+              T.toast(s === HL_CLOSE ? 'ปิดงานแล้ว' : 'บันทึก Timeline แล้ว', 'ok'); $('#hlS', root).value = ''; $('#hlN', root).value = ''; await refresh(r.job);
+            } catch (e) { T.err(e); } finally { T.loading(false); if (go.isConnected) go.disabled = false; }
+          };
+          $$('[data-hdl]', root).forEach((b) => b.onclick = () => { const f = job.files.find((x) => x.id === b.dataset.hdl); if (f) T.files.download(f); });
+          const cp = $('[data-hcopy]', root); if (cp) cp.onclick = async () => { if (await copyText(hualakCopyText(job))) T.toast('คัดลอก Timeline แล้ว ✓', 'ok'); else T.toast('คัดลอกไม่สำเร็จ', 'err'); };
+          $$('[data-hed]', root).forEach((b) => b.onclick = () => {
+            const t = job.timeline.find((x) => x.id === b.dataset.hed); if (!t) return; const bt = bkk(t.event_at);
+            T.modal({ title: 'แก้ไข Timeline', size: 's', body: `<div class="hl-form hl-form-s"><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="heD" value="${bt.date}"></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" id="heT" value="${bt.time}"></div>
+                <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label>${stSel('heS', t.title)}</div><div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><input class="inp" id="heN" maxlength="500" value="${h(t.note || '')}"></div></div>`,
+              foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="heGo">บันทึกการแก้ไข</button>',
+              onOpen: (m, close) => { $('#heGo', m).onclick = async () => {
+                const d = $('#heD', m).value, tm = $('#heT', m).value, s = $('#heS', m).value, n = $('#heN', m).value.trim();
+                if (!d || !tm) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!s) return T.toast('กรุณาเลือกสถานะ', 'warn');
+                if (s === HL_CLOSE && t.title !== HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${h(job.job_no)} ?`, 'ปิดงาน', 'btn-navy'))) return;
+                try { T.loading(true); const r = await T.auth('tnj_timeline_status_edit', { p_timeline_id: t.id, p_event_at: `${d}T${tm}:00+07:00`, p_status: s, p_note: n || null }, { silent: true }); close(); T.toast('แก้ไข Timeline แล้ว', 'ok'); await refresh(r.job); } catch (e) { T.err(e); } finally { T.loading(false); } }; } });
+          });
+          $$('[data-hdel]', root).forEach((b) => b.onclick = async () => {
+            if (!(await T.confirm('ลบ Timeline', 'ยืนยันลบ Timeline รายการนี้?', 'ยืนยันลบ', 'btn-r'))) return;
+            try { T.loading(true); const r = await T.auth('tnj_timeline_status_delete', { p_timeline_id: b.dataset.hdel }, { silent: true }); T.toast('ลบ Timeline แล้ว', 'ok'); await refresh(r.job); } catch (e) { T.err(e); } finally { T.loading(false); }
+          });
+          $$('[data-hat]', root).forEach((b) => b.onclick = () => {
+            const tid = b.dataset.hat;
+            T.modal({ title: '📎 แนบไฟล์ (เลือกได้หลายไฟล์)', size: 's', body: `<div class="field"><label>ไฟล์ (PDF / JPG / JPEG / PNG / Excel / Word)</label><input type="file" class="inp" id="haF" multiple accept="${HL_ACCEPT}"></div><div class="field"><label>ประเภทเอกสาร</label><select class="inp" id="haT">${T.FILE_TYPES.map((x) => `<option ${x === 'อื่น ๆ' ? 'selected' : ''}>${h(x)}</option>`).join('')}</select></div>`,
+              foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="haGo">อัปโหลด</button>',
+              onOpen: (m, close) => { $('#haGo', m).onclick = async () => {
+                const files = Array.from($('#haF', m).files || []); if (!files.length) return T.toast('กรุณาเลือกไฟล์', 'warn');
+                const bad = files.filter((f) => !/\.(pdf|jpe?g|png|xlsx?|docx?)$/i.test(f.name)); if (bad.length) return T.toast('รองรับเฉพาะ PDF JPG JPEG PNG XLS XLSX DOC DOCX', 'warn');
+                const ft = $('#haT', m).value; let n = 0;
+                try { T.loading(true); for (const f of files) { await T.files.upload(job.id, await T.files.shrink(f), ft, tid, null); n++; } close(); T.toast(`แนบไฟล์แล้ว ${n} ไฟล์`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); if (n) await refresh(); } }; } });
+          });
+        };
+        render();
+      } });
   }
 
   /* ---------- dashboard ---------- */
@@ -190,34 +257,58 @@
   }
 
   /* ---------- jobs list ---------- */
+  // ค้นหาแยกรายหัว Column (กรองฝั่งหน้าเว็บจากรายการงานทั้งหมดที่ RPC tnj_job_list ส่งมา — ไม่แก้ DB/RPC)
+  const JF_COLS = [['job_no', 'Job No.', 'text'], ['job_date', 'วันที่งาน', 'date'], ['customer', 'ลูกค้า', 'text'], ['bl', 'B/L', 'text'], ['container', 'เบอร์ตู้', 'text'], ['sched', 'กำหนดส่ง', 'date'], ['driver', 'คนขับ', 'text'], ['st', 'สถานะล่าสุด', 'status']];
+  const jfInput = (k, label, type, val) => type === 'date' ? `<input type="date" class="inp jf-in" data-f="${k}" value="${h(val)}" aria-label="ค้นหา${h(label)}">`
+    : type === 'status' ? `<select class="inp jf-in" data-f="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option><optgroup label="สถานะ Timeline">${HL_STATUS.map((s) => `<option value="${h(s)}" ${s === val ? 'selected' : ''}>${h(s)}</option>`).join('')}</optgroup><optgroup label="สถานะงาน">${T.STATUS.map((s) => `<option value="${s}" ${s === val ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('')}</optgroup></select>`
+    : `<input class="inp jf-in" data-f="${k}" value="${h(val)}" placeholder="ค้นหา${h(label)}" autocomplete="off">`;
+  const jfMatch = (j, F) => {
+    const has = (v, s) => !s || String(v == null ? '' : v).toLowerCase().includes(s.trim().toLowerCase());
+    return has(j.job_no, F.job_no) && has(j.customer_name, F.customer) && has(j.bl_no, F.bl) && has(j.container_no, F.container) && has(j.driver_name, F.driver)
+      && (!F.job_date || String(j.job_date || '').slice(0, 10) === F.job_date) && (!F.sched || String(j.factory_date || '').slice(0, 10) === F.sched)
+      && (!F.st || j.tl_status === F.st || j.status === F.st);
+  };
   async function pageJobs(page, r) {
-    await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1); const hl = q.hl || ''; let hlDone = false;
-    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button></div><div class="flex"><h1>🚚 งานขนส่ง</h1><button class="btn" id="jfClear">ล้างตัวกรอง</button></div></div>
-      <div class="card card-b mb2"><div class="grid g4" id="jf">
-        <div class="field"><label>Keyword</label><input class="inp" name="q" value="${h(q.q || '')}" placeholder="Job No. / B/L / ลูกค้า / Container / คนขับ / ทะเบียน"></div>
-        <div class="field"><label>วันที่</label><div class="inline-row"><input type="date" class="inp" name="date_from" value="${h(q.date || q.date_from || '')}"><input type="date" class="inp" name="date_to" value="${h(q.date || q.date_to || '')}"></div></div>
-        <div class="field"><label>ลูกค้า</label><input class="inp" name="customer" list="dlCust" value="${h(q.customer || '')}"><datalist id="dlCust">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
-        <div class="field"><label>คนขับ</label><select class="inp" name="driver_id">${opts(M.drivers, 'id', 'full_name', q.driver_id, 'ทั้งหมด')}</select></div>
-        <div class="field"><label>รถ</label><select class="inp" name="vehicle_id">${opts(M.vehicles, 'id', (v) => `${v.vehicle_name} (${v.license_plate})`, q.vehicle_id, 'ทั้งหมด')}</select></div>
-        <div class="field"><label>ทะเบียนรถ</label><input class="inp" name="license_plate" value="${h(q.license_plate || '')}"></div>
-        <div class="field"><label>Status</label><select class="inp" name="status"><option value="">ทั้งหมด</option>${stOpts(q.status)}</select></div>
-        <div class="field"><label>ท่ารับ / โรงงาน</label><div class="inline-row"><input class="inp" name="pickup" placeholder="ท่ารับ" value="${h(q.pickup || '')}"><input class="inp" name="factory" placeholder="โรงงาน" value="${h(q.factory || '')}"></div></div>
-      </div></div><div class="card"><div id="jList"></div><div class="pager" id="jPager"></div></div>`;
-    const read = () => { const o = { page: pageNo, page_size: 50 }; $$('#jf [name]').forEach((i) => { if (i.value) o[i.name] = i.value; }); return o; };
-    const load = async () => { try { const d = await T.auth('tnj_job_list', { p: read() }, { silent: true }); $('#jList').innerHTML = jobsTable(d.rows); bindJobRows($('#jList'), load); if (hl) { const row = $(`#jList [data-job="${hl}"]`); if (row) { row.classList.add('hl-new'); if (!hlDone) { hlDone = true; row.scrollIntoView({ block: 'center' }); } } } const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#jPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} รายการ · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="pgPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="pgNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#pgPrev').onclick = () => { pageNo--; load(); }; $('#pgNext').onclick = () => { pageNo++; load(); }; } catch (e) { T.err(e); } };
-    $$('#jf [name]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', T.debounce(() => { pageNo = 1; load(); }, 400)));
-    $('#jfClear').onclick = () => T.go('jobs');
+    await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1); const hl = q.hl || ''; let hlDone = false; const PS = 50;
+    const F = { job_no: '', job_date: q.date || '', customer: q.customer || '', bl: '', container: '', sched: '', driver: '', st: q.status || '' };
+    let all = [], mode = null;
+    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button></div><div class="flex"><h1>🚚 งานขนส่ง</h1></div></div>
+      <div class="card"><div id="jList"></div><div class="pager" id="jPager"></div></div>`;
+    const filtered = () => all.filter((j) => jfMatch(j, F));
+    const frame = () => {
+      mode = isNarrow() ? 'm' : 'd'; const clr = '<button type="button" class="btn btn-sm" id="jfClear">ล้างการค้นหา</button>';
+      $('#jList').innerHTML = mode === 'd'
+        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl"><thead><tr>${JF_COLS.map(([, l]) => `<th>${l}</th>`).join('')}<th>จัดการ</th></tr><tr class="jf-filter">${JF_COLS.map(([k, l, t]) => `<th>${jfInput(k, l, t, F[k])}</th>`).join('')}<th>${clr}</th></tr></thead><tbody id="jBody"></tbody></table></div>`
+        : `<div class="jf-m">${JF_COLS.map(([k, l, t]) => `<div class="field"><label>${l}</label>${jfInput(k, l, t, F[k])}</div>`).join('')}<div class="jf-m-clr">${clr}</div></div><div class="jc-list" id="jBody"></div>`;
+      const on = T.debounce(() => { pageNo = 1; draw(); }, 120);
+      $$('#jList [data-f]').forEach((i) => { const ev = () => { F[i.dataset.f] = i.value; on(); }; i.addEventListener('input', ev); i.addEventListener('change', ev); });
+      $('#jfClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#jList [data-f]').forEach((i) => { i.value = ''; }); if (q.q) { T.go('jobs'); return; } pageNo = 1; draw(); };
+    };
+    const draw = () => {
+      if (!$('#jBody')) return; // page left
+      const rows = filtered(); const pages = Math.max(1, Math.ceil(rows.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
+      const vis = rows.slice((pageNo - 1) * PS, pageNo * PS); const body = $('#jBody');
+      body.innerHTML = vis.length ? vis.map(mode === 'd' ? jobRowHtml : jobCardHtml).join('') : (mode === 'd' ? `<tr><td colspan="${JF_COLS.length + 1}" class="empty">ไม่พบงาน</td></tr>` : '<div class="empty">ไม่พบงาน</div>');
+      bindJobRows(body, load);
+      if (hl) { const row = $(`#jBody [data-job="${hl}"]`); if (row) { row.classList.add('hl-new'); if (!hlDone) { hlDone = true; row.scrollIntoView({ block: 'center' }); } } }
+      $('#jPager').innerHTML = `<span class="muted small">ทั้งหมด ${rows.length} รายการ${rows.length !== all.length ? ` (จาก ${all.length})` : ''} · หน้า ${pageNo}/${pages}</span><button class="btn btn-sm" id="pgPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="pgNext" ${pageNo >= pages ? 'disabled' : ''}>›</button>`;
+      $('#pgPrev').onclick = () => { pageNo--; draw(); }; $('#pgNext').onclick = () => { pageNo++; draw(); };
+    };
+    const load = async () => { try {
+      let rows = [], pg = 1, total = 0; const base = q.q ? { q: q.q } : {};
+      do { const d = await T.auth('tnj_job_list', { p: Object.assign({}, base, { page: pg, page_size: 500 }) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 200);
+      if (!$('#jList')) return; all = rows; if (!$('#jBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
+    } catch (e) { T.err(e); } };
     $('#jRep').onclick = () => openReportModal();
     $('#jXls').onclick = async () => { try { T.loading(true);
-      const f = read(); delete f.page; delete f.page_size; let rows = [], pg = 1, total = 0;
-      do { const d = await T.auth('tnj_job_list', { p: Object.assign({}, f, { page: pg, page_size: 500 }) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 200);
-      const rf = { include_cancelled: true, page: 0 }; ['date_from', 'date_to', 'vehicle_id', 'driver_id', 'license_plate', 'customer', 'status'].forEach((k) => { if (f[k]) rf[k] = f[k]; });
+      const rows = filtered();
+      const rf = { include_cancelled: true, page: 0 };
       const rep = rows.length ? await T.auth('tnj_report_rows', { p: rf }, { silent: true }) : { rows: [] }; const mm = {}; rep.rows.forEach((x) => { mm[x.job_id] = x; });
       const N = (v) => (v != null && v !== '' ? Number(v) : '');
       const aoa = [['วันที่', 'Job No.', 'B/L', 'Customer', 'Container No.', 'รถ', 'ทะเบียนรถ', 'คนขับ', 'ท่ารับตู้', 'โรงงาน', 'จุดคืนตู้', 'ไมล์ก่อน', 'ไมล์หลัง', 'ระยะทาง (กม.)', 'น้ำมัน (ลิตร)', 'ค่าน้ำมันรวม (บาท)', 'กม./ลิตร', 'Job Status', 'GPS ล่าสุด']]
         .concat(rows.map((j) => { const x = mm[j.id] || {}; return [j.job_date, j.job_no, j.bl_no, j.customer_name, j.container_no || '', j.vehicle_name || '', j.license_plate || '', j.driver_name || '', j.pickup_location_text || '', j.factory_location_text || '', j.return_location_text || '', N(x.start_mileage), N(x.end_mileage), N(x.total_distance), N(x.fuel_liters), N(x.fuel_amount), x.km_per_liter != null ? Number(x.km_per_liter) : '-', T.ST_TH[j.status] || j.status, j.last_gps_at ? T.fmtDT(j.last_gps_at) : '-']; }));
       const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [10, 14, 14, 24, 14, 14, 12, 16, 20, 20, 20, 11, 11, 12, 12, 14, 9, 14, 16].map((w) => ({ wch: w }));
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Jobs'); XLSX.writeFile(wb, `TransportNJ_Jobs_${f.date_from || ''}_${f.date_to || ''}.xlsx`); T.toast(`Export ${rows.length} งาน`, 'ok');
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Jobs'); XLSX.writeFile(wb, `TransportNJ_Jobs_${F.job_date || ''}_${F.job_date || ''}.xlsx`); T.toast(`Export ${rows.length} งาน`, 'ok');
     } catch (e) { T.err(e); } finally { T.loading(false); } };
     load(); T.subscribe('tnj:office', T.debounce(load, 1500)); T.every('jobs', 60000, load);
   }
@@ -236,10 +327,9 @@
       <div class="jf-row r3"><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div>
         <div class="field"><label>ลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
         <div class="field"><label>B/L <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div></div>
-      <div class="jf-row r2">${locField('pickup', 'ท่านำเข้า', job, 'pickup_location_id', 'pickup_location_text', true)}${locField('return', 'คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
+      <div class="jf-row r4"><div class="field"><label>กำหนดวันที่ส่ง</label><input type="date" class="inp" name="factory_date" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" value="${v('factory_time')}"></div>${locField('pickup', 'ท่านำเข้า', job, 'pickup_location_id', 'pickup_location_text', true)}${locField('return', 'คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
       <div class="jf-row r3"><div class="field"><label>เบอร์ตู้</label><input class="inp" name="container_no" value="${v('container_no')}"></div><div class="field"><label>เบอร์ซีล</label><input class="inp" name="seal_no" value="${v('seal_no')}"></div>
         <div class="field"><label>Container Size</label><select class="inp" name="container_size"><option value="">-</option>${sizes.map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div>
-      <div class="jf-row r2"><div class="field"><label>กำหนดวันที่ส่ง</label><input type="date" class="inp" name="factory_date" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" value="${v('factory_time')}"></div></div>
       <div class="jf-row r5">${isNew ? `<div class="field"><label>คนขับ (ชื่อ | หัว | หาง | เบอร์โทร)</label><select class="inp" name="driver_id" id="jfDrv">${opts(M.drivers, 'id', drvLabel, '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field"><label>คนขับ</label><div class="alert info" style="margin:0">เปลี่ยนรถ/คนขับได้ที่ปุ่ม "สั่งงาน" ในหน้ารายละเอียด (ก่อนคนขับรับงาน)</div></div>`}
         <div class="field"><label>ชื่อ</label><input class="inp ro" id="jfName" readonly tabindex="-1" value="${v('driver_name')}"></div><div class="field"><label>หัว</label><input class="inp ro" id="jfHead" readonly tabindex="-1" value="${v('license_plate')}"></div>
         <div class="field"><label>หาง</label><input class="inp ro" id="jfTail" readonly tabindex="-1" value="${v('trailer_plate')}"></div><div class="field"><label>เบอร์โทร</label><input class="inp ro" id="jfPhone" readonly tabindex="-1" value="${v('driver_phone')}"></div></div>
@@ -407,16 +497,268 @@
     load(); T.subscribe('tnj:office', T.debounce(load, 1500));
   }
 
-  /* ---------- mileage / fuel table ---------- */
-  async function pageMileage(page, r) {
-    await loadMasters(); let pageNo = 1;
-    page.innerHTML = `<div class="page-head"><h1>ไมล์รถ / น้ำมัน</h1></div><div class="card card-b mb2"><div class="grid g4" id="mf"><div class="field"><label>ค้นหา</label><input class="inp" name="q" placeholder="Job / B/L / ทะเบียน / คนขับ"></div><div class="field"><label>วันที่</label><div class="inline-row"><input type="date" class="inp" name="date_from"><input type="date" class="inp" name="date_to"></div></div><div class="field"><label>รถ</label><select class="inp" name="vehicle_id">${opts(M.vehicles, 'id', (v) => `${v.vehicle_name} (${v.license_plate})`, '', 'ทั้งหมด')}</select></div><div class="field"><label>สถานะข้อมูลไมล์</label><select class="inp" name="mileage_status"><option value="">ทั้งหมด</option>${['รอบันทึกไมล์ก่อน', 'กำลังวิ่งงาน', 'รอบันทึกไมล์หลัง', 'ข้อมูลไม่ครบ', 'ตรวจสอบ', 'ปิดงานแล้ว'].map((s) => `<option>${s}</option>`).join('')}</select></div></div></div><div class="card"><div id="mList"></div><div class="pager" id="mPager"></div></div>`;
-    const msBadge = (s) => `<span class="badge ${s === 'ข้อมูลไม่ครบ' ? 'red' : s === 'ตรวจสอบ' ? 'amber' : s === 'ปิดงานแล้ว' ? 'green' : s === 'กำลังวิ่งงาน' ? 'blue' : 'gray'}">${h(s)}</span>`;
-    const load = async () => { try { const p = { page: pageNo, page_size: 50 }; $$('#mf [name]').forEach((i) => { if (i.value) p[i.name] = i.value; }); const d = await T.auth('tnj_mileage_table', { p }, { silent: true });
-      $('#mList').innerHTML = isMobile() ? d.rows.map((x) => `<div class="jobcard click" data-job="${x.job_id}"><div class="flex between"><b>${h(x.job_no)}</b>${msBadge(x.mileage_status)}</div><div class="small">B/L ${h(x.bl_no)} · ${h(x.license_plate || '-')} · ${h(x.driver_name || '-')}</div><div class="small">ไมล์ ${T.num(x.start_mileage)} → ${T.num(x.end_mileage)} = <b>${T.num(x.total_distance)} กม.</b> · ${T.num(x.fuel_liters, 2)} ล. · ${T.num(x.fuel_amount, 2)} บ. · ${T.kml(x.km_per_liter)} กม./ล.</div></div>`).join('') || '<div class="empty">ไม่พบข้อมูล</div>'
-        : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Job / B/L</th><th>รถ</th><th>ทะเบียนรถ</th><th>คนขับ</th><th class="r">ไมล์ก่อน</th><th class="r">ไมล์หลัง</th><th class="r">ระยะ (กม.)</th><th class="r">น้ำมัน (ลิตร)</th><th class="r">รวม (บาท)</th><th class="r">กม./ลิตร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>${d.rows.map((x) => `<tr class="click" data-job="${x.job_id}"><td><b>${h(x.job_no)}</b><div class="xs muted">${h(x.bl_no)}</div></td><td>${h(x.vehicle_name || '-')}</td><td>${h(x.license_plate || '-')}</td><td>${h(x.driver_name || '-')}</td><td class="r">${T.num(x.start_mileage)}</td><td class="r">${T.num(x.end_mileage)}</td><td class="r b">${T.num(x.total_distance)}</td><td class="r">${T.num(x.fuel_liters, 2)}</td><td class="r">${T.num(x.fuel_amount, 2)}</td><td class="r">${T.kml(x.km_per_liter)}</td><td>${msBadge(x.mileage_status)}${x.warning_flag ? ' ⚠' : ''}</td><td><a class="btn btn-sm" href="#/jobs/${x.job_id}?tab=fuel">⛽ รายละเอียด</a></td></tr>`).join('') || '<tr><td colspan="12" class="empty">ไม่พบข้อมูล</td></tr>'}</tbody></table></div>`;
-      bindJobRows($('#mList')); const pages = Math.max(1, Math.ceil(d.total / d.page_size)); $('#mPager').innerHTML = `<span class="muted small">ทั้งหมด ${d.total} · หน้า ${d.page}/${pages}</span><button class="btn btn-sm" id="mPrev" ${d.page <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="mNext" ${d.page >= pages ? 'disabled' : ''}>›</button>`; $('#mPrev').onclick = () => { pageNo--; load(); }; $('#mNext').onclick = () => { pageNo++; load(); }; } catch (e) { T.err(e); } };
-    $$('#mf [name]').forEach((i) => i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', T.debounce(() => { pageNo = 1; load(); }, 400))); load();
+  /* ---------- ⛽ ไมล์รถ / น้ำมัน — Clone MODE Transport (ระบบ NJ Transport · ตาราง fuel_logs เดิม) ---------- */
+  // สูตร/ค่าคงที่/ข้อความ ยกจาก Source ต้นแบบ (index.html: VEHICLES L2080, MIN_KPL L2091, kplStatus L2094, MNAMES L2105, fmt L2122, recalcEntry L2360, save L2492, updateStats L2593, groupByPlate L2757, buildMonthlyChart L2786, buildChart L2925, Excel L3257, openEdit L3397, calcFuel L3790)
+  const FL_VEHICLES = [{ plate: '74-3116', driver: 'มนตรี' }, { plate: '74-2273', driver: 'ชัยวัตร' }, { plate: '74-3114', driver: 'สมบูรณ์' }, { plate: '74-2271', driver: 'เจนชัย' }, { plate: '74-2275', driver: 'น้อย' }];
+  const FL_MIN_KPL = 3.00;
+  const FL_PALETTE = ['#f5a623', '#4a9eff', '#3dba74', '#e05252', '#a855f7', '#ff6b6b', '#00d4aa'];
+  const FL_MNAMES = { km_per_liter: 'กม./ลิตร', cost_per_km: 'บาท/กม.', distance_km: 'ระยะทางรวม (กม.)', total_cost: 'ต้นทุนน้ำมันรวม (บาท)', liters: 'ลิตรรวม', selling_price: 'ราคาขายรวม (บาท)', net_profit: 'กำไร/ขาดทุนสุทธิ (บาท)' };
+  const FL_TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const FL_LIB = { chart: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js', dl: 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js', xs: 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js' };
+  const flFmt = (v, d = 2) => Number(v || 0).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const flGd = (p) => (FL_VEHICLES.find((v) => v.plate === p) || {}).driver || '';
+  function flKplStatus(kpl) {
+    const v = Number(kpl || 0); const diff = +(v - FL_MIN_KPL).toFixed(2);
+    if (v <= 0) return { ok: null, icon: '—', text: 'รอข้อมูล', diff: 0, color: 'var(--muted)' };
+    if (v >= FL_MIN_KPL) return { ok: true, icon: '✅', text: 'ผ่านเกณฑ์', diff, color: 'var(--green)' };
+    return { ok: false, icon: '⚠️', text: 'ต่ำกว่าเกณฑ์', diff, color: 'var(--red)' };
+  }
+  const flBkkToday = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  const flLoadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('โหลดไลบรารีไม่สำเร็จ (ตรวจอินเทอร์เน็ต): ' + src)); document.head.appendChild(s); });
+  let flChartReady = null, flXS = null;
+  function flEnsureChart() {
+    if (!flChartReady) flChartReady = (async () => {
+      if (!window.Chart) await flLoadScript(FL_LIB.chart);
+      if (!window.ChartDataLabels) await flLoadScript(FL_LIB.dl);
+      Chart.register(ChartDataLabels);
+      Chart.register({ id: 'minKplLine', afterDatasetsDraw(chart, args, opts) {
+        if (!opts || !opts.show) return; const value = opts.value || 3.00; const isH = chart.options.indexAxis === 'y'; const { ctx, chartArea, scales } = chart; const vs = isH ? scales.x : scales.y; if (!vs) return; const pos = vs.getPixelForValue(value);
+        ctx.save(); ctx.strokeStyle = 'rgba(224,82,82,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.beginPath();
+        if (isH) { ctx.moveTo(pos, chartArea.top); ctx.lineTo(pos, chartArea.bottom); } else { ctx.moveTo(chartArea.left, pos); ctx.lineTo(chartArea.right, pos); } ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = 'rgba(224,82,82,.95)'; ctx.font = "bold 10px 'Sarabun',sans-serif"; const text = `เกณฑ์ขั้นต่ำ ${value.toFixed(2)} กม./ลิตร`; const tw = ctx.measureText(text).width;
+        if (isH) ctx.fillText(text, pos + 4, chartArea.top + 12); else ctx.fillText(text, chartArea.right - tw - 6, pos - 4); ctx.restore(); } });
+    })().catch((e) => { flChartReady = null; throw e; });
+    return flChartReady;
+  }
+  async function flEnsureXlsxStyle() { // xlsx-js-style แยกจาก SheetJS เดิมของระบบ (คืนค่า window.XLSX เดิม)
+    if (flXS) return flXS; const orig = window.XLSX; try { await flLoadScript(FL_LIB.xs); flXS = window.XLSX; } finally { window.XLSX = orig; } return flXS;
+  }
+  // ฟอร์มบันทึก/แก้ไข (field เดียวกับ Source: f_* / e_*)
+  function flFormHtml(px, edit) {
+    const plateOpts = `<option value="">-- เลือกทะเบียน --</option>` + FL_VEHICLES.map((v) => `<option value="${v.plate}">${v.plate} (${v.driver})</option>`).join('');
+    const cc = edit ? `<div class="inline-row"><div class="field"><label>ชื่อบริษัท</label><input class="inp" id="${px}_company" placeholder="เช่น บริษัท ABC จำกัด"></div><div class="field"><label>เบอร์ตู้</label><input class="inp" id="${px}_container" placeholder="เช่น TCNU1234567"></div></div>` : `<input type="hidden" id="${px}_company" value=""><input type="hidden" id="${px}_container" value="">`;
+    return `<input type="hidden" id="${px}_runno">${edit ? `<input type="hidden" id="${px}_id">` : ''}<input type="hidden" id="${px}_cost_total">${cc}
+      <div class="inline-row"><div class="field"><label>ทะเบียนรถ <span class="req">*</span></label><select class="inp" id="${px}_plate">${plateOpts}</select></div><div class="field"><label>ผู้ขับ <span class="req">*</span></label><input class="inp ro" id="${px}_driver" readonly></div><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="${px}_date"></div></div>
+      <div class="inline-row"><div class="field"><label>สถานที่วิ่ง</label><input class="inp" id="${px}_route" list="flRouteList" placeholder="พิมพ์หรือเลือกสถานที่..."></div><div class="field"><label>Job / BL</label><input class="inp" id="${px}_job" placeholder="เลข Job หรือ BL"></div></div>
+      <div class="inline-row"><div class="field"><label>ไมล์ก่อนเติม</label><input type="number" class="inp" id="${px}_mb"></div><div class="field"><label>ไมล์หลังเติม</label><input type="number" class="inp" id="${px}_ma"></div><div class="field"><label>ระยะทาง (กม.) ⚡ อัตโนมัติ</label><input class="inp ro" id="${px}_dist" readonly></div></div>
+      <div class="inline-row"><div class="field"><label>ราคารวมน้ำมัน (บาท)</label><input type="number" step="0.01" class="inp" id="${px}_tc"></div><div class="field"><label>ราคาต่อลิตร (บาท)</label><input type="number" step="0.01" class="inp" id="${px}_ppl"></div><div class="field"><label>จำนวนลิตร ⚡ อัตโนมัติ</label><input type="number" class="inp ro" id="${px}_lt" readonly></div></div>
+      <div class="inline-row" style="display:none"><div class="field"><label>ราคาขาย (บาท)</label><input type="number" class="inp" id="${px}_sell"></div><div class="field"><label>ค่าใช้จ่ายอื่น (บาท)</label><input type="number" class="inp" id="${px}_other"></div></div>
+      <div class="inline-row" style="display:none"><div class="field"><label>เงินล่วงหน้า (บาท)</label><input type="number" class="inp" id="${px}_adv"></div><div class="field"><label>ค่าเที่ยว (บาท)${edit ? ' 10%' : ''}</label><input type="number" class="inp" id="${px}_trip"></div></div>
+      <div class="fl-kpl" id="${px}_kpl_box"><div class="xs muted">สถานะ กม./ลิตร — เกณฑ์ขั้นต่ำ 3.00</div><div class="flex between"><div id="${px}_kpl_status">— รอข้อมูล</div><div class="fl-kpl-v" id="${px}_kpl_val">—</div></div></div>
+      <div class="field mt1"><label id="${px}_net_label">⚡ ยอดสุทธิ (บาท)</label><input class="inp ro" id="${px}_net" readonly></div>
+      <div class="field"><label>หมายเหตุ</label><textarea class="inp" id="${px}_note" rows="1"></textarea></div>
+      <div class="alert err hidden" id="${px}_err"></div><datalist id="flRouteList"></datalist>`;
+  }
+  function flUpdateKplBox(root, px, kpl) {
+    const box = $('#' + px + '_kpl_box', root), status = $('#' + px + '_kpl_status', root), valEl = $('#' + px + '_kpl_val', root); if (!box || !status || !valEl) return;
+    if (!kpl || kpl <= 0) { valEl.textContent = '—'; valEl.style.color = 'var(--muted)'; status.textContent = '— รอข้อมูล'; status.style.color = 'var(--muted)'; box.style.background = '#F7F9FC'; box.style.borderColor = 'var(--line)'; return; }
+    const s = flKplStatus(kpl); valEl.textContent = kpl.toFixed(2); valEl.style.color = s.color; const diffStr = (s.diff >= 0 ? '+' : '') + s.diff.toFixed(2);
+    status.innerHTML = `${s.icon} ${s.text} <b>${kpl.toFixed(2)}</b> กม./ลิตร <span class="muted small">(${diffStr} จากเกณฑ์)</span>`; status.style.color = s.color;
+    if (s.ok) { box.style.background = 'rgba(61,186,116,.08)'; box.style.borderColor = 'rgba(61,186,116,.3)'; } else { box.style.background = 'rgba(224,82,82,.10)'; box.style.borderColor = 'rgba(224,82,82,.45)'; }
+  }
+  // recalcEntry (px='f') / recalcEdit (px='e' — + ค่าเที่ยว 10% ปัดลง)
+  function flRecalc(root, px) {
+    const n = (k) => Number($('#' + px + '_' + k, root).value); const mb = n('mb'), ma = n('ma'), tc = n('tc'), ppl = n('ppl'), sell = n('sell'), oth = n('other');
+    $('#' + px + '_dist', root).value = ma > mb ? (ma - mb).toFixed(2) : '';
+    $('#' + px + '_lt', root).value = tc > 0 && ppl > 0 ? (tc / ppl).toFixed(2) : '';
+    const dist = ma > mb ? ma - mb : 0; const lt = (tc > 0 && ppl > 0) ? tc / ppl : 0; const kpl = lt > 0 ? dist / lt : 0; flUpdateKplBox(root, px, kpl);
+    if (px === 'e') { const tripFee = sell > 0 ? Math.floor(sell * 0.10) : 0; $('#e_trip', root).value = tripFee > 0 ? tripFee : ''; }
+    const costTotal = tc + oth; $('#' + px + '_cost_total', root).value = costTotal > 0 ? costTotal.toFixed(2) : '';
+    const el = $('#' + px + '_net', root), lb = $('#' + px + '_net_label', root);
+    if (sell > 0 || costTotal > 0) { const net = sell - costTotal; el.value = net.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); el.style.color = net >= 0 ? 'var(--green)' : 'var(--red)'; if (lb) lb.style.color = net >= 0 ? 'var(--green)' : 'var(--red)'; } else el.value = '';
+  }
+  // payload เดียวกับ Source (insert: trim route/job/note · edit: ไม่ trim ตาม Source)
+  function flPayload(root, px, trim) {
+    const g = (k) => $('#' + px + '_' + k, root).value; const N = (k) => Number(g(k)) || 0;
+    const mb = N('mb'), ma = N('ma'), tc = N('tc'), ppl = N('ppl'); let lt = N('lt'); if (lt <= 0 && tc > 0 && ppl > 0) lt = +(tc / ppl).toFixed(2);
+    const dist = (ma > mb) ? +(ma - mb).toFixed(2) : 0; const kpl = (lt > 0 && dist > 0) ? +(dist / lt).toFixed(2) : 0; const cpk = (dist > 0 && tc > 0) ? +(tc / dist).toFixed(2) : 0;
+    const sell = N('sell'), oth = N('other'), adv = N('adv'), trip = N('trip'); const t = (v) => (trim ? v.trim() : v);
+    return { fuel_date: g('date'), plate_no: g('plate'), driver_name: g('driver'), route_location: t(g('route')), job_bl: t(g('job')), company_name: g('company').trim(), container_no: g('container').trim(),
+      mileage_before: mb, mileage_after: ma, distance_km: dist, liters: lt, price_per_liter: ppl, total_cost: tc, km_per_liter: kpl, cost_per_km: cpk,
+      selling_price: sell, other_expenses: oth, advance_payment: adv, trip_fee: trip, net_profit: +(sell - tc - oth - trip).toFixed(2), note: t(g('note')) };
+  }
+  // ช่องค้นหาใต้หัว Column (กติกาเว็บ NJ) — ตารางครบ 18 Column ของ Source
+  const FL_COLS = [['fuel_date', 'วันที่', 'd'], ['plate_no', 'ทะเบียน', 't'], ['driver_name', 'ผู้ขับ', 't'], ['company_name', 'ชื่อบริษัท', 't'], ['container_no', 'เบอร์ตู้', 't'], ['route_location', 'สถานที่', 't'], ['job_bl', 'Job/BL', 't'],
+    ['mileage_before', 'ไมล์ก่อน', 'n', 0], ['mileage_after', 'ไมล์หลัง', 'n', 0], ['distance_km', 'ระยะ(กม.)', 'n', 2], ['liters', 'ลิตร', 'n', 2], ['price_per_liter', 'บาท/ลิตร', 'n', 2], ['total_cost', 'รวม(บาท)', 'n', 0],
+    ['km_per_liter', 'กม./ลิตร', 'n', 2], ['cost_per_km', 'บาท/กม.', 'n', 2], ['note', 'หมายเหตุ', 't'], ['st', 'สถานะ', 's']];
+  const flMatch = (r, F) => FL_COLS.every(([k, , t, d]) => {
+    const s = (F[k] || '').trim(); if (!s) return true;
+    if (t === 'd') return String(r.fuel_date || '').slice(0, 10) === s;
+    if (t === 's') return flKplStatus(r.km_per_liter).text === s;
+    const q = s.toLowerCase(); const v = r[k];
+    return [v, t === 'n' && v != null ? flFmt(v, d) : null].some((x) => x != null && String(x).toLowerCase().includes(q));
+  });
+  async function pageFuel(page) {
+    const canAdd = T.canEdit(), canDel = T.isAdmin(); const PAGE_SIZE = 20;
+    const F = {}; FL_COLS.forEach(([k]) => { F[k] = ''; }); let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [];
+    let chartInst = null, chartDir = 'x', chartMonthly = false, chartOpen = false;
+    const STATS = [['fl_s_cpk', 'ต้นทุนเฉลี่ย', 'บาท / กม.', ''], ['fl_s_ppl', 'ราคาน้ำมันเฉลี่ย', 'บาท / ลิตร', ''], ['fl_s_kpl', 'เฉลี่ย กม./ลิตร', 'เกณฑ์ขั้นต่ำ 3.00', 'fl_sc_kpl_avg'], ['fl_s_below', 'ต่ำกว่าเกณฑ์', 'รายการ < 3.00', 'fl_sc_below'],
+      ['fl_s_riskplate', 'ทะเบียนเสี่ยง', 'คันที่เฉลี่ย < 3.00', 'fl_sc_riskplate'], ['fl_s_dist', 'ระยะทางรวม', 'กิโลเมตร', ''], ['fl_s_lt', 'ลิตรรวม', 'ลิตร', ''], ['fl_s_tc', 'ค่าใช้จ่ายรวม', 'บาท', '']];
+    page.innerHTML = `<div class="page-head"><h1>⛽ ไมล์รถ / น้ำมัน</h1><div class="flex flex-wrap" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างการค้นหา</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div></div>
+      <div class="fl-stats">${STATS.map(([id, l, u, cid]) => `<div class="stat fl-stat"${cid ? ` id="${cid}"` : ''}><div class="l">${l}</div><div class="v" id="${id}">-</div><div class="xs muted">${u}</div></div>`).join('')}</div>
+      <div class="card card-b mb2 hidden" id="flChartBox"><div class="flex flex-wrap between mb1"><div class="flex flex-wrap"><select class="inp" id="flMetric" style="width:auto">${Object.entries(FL_MNAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+          <button class="chip active" id="flVert">▐ แนวตั้ง</button><button class="chip" id="flHorz">━ แนวนอน</button><button class="chip active" id="flByPlate">🚛 ตามทะเบียน</button><button class="chip" id="flByMonth">📅 รายเดือน</button></div><button class="btn btn-sm" id="flSave">⬇ บันทึกกราฟ</button></div>
+        <div class="fl-chart-wrap"><canvas id="flChart"></canvas></div></div>
+      <div class="card"><div class="card-h"><h3 id="flTitle">ตารางข้อมูล <span class="muted small" id="flCount"></span></h3></div><div id="flList"></div><div class="pager" id="flPager"></div></div>`;
+    // ---- summary (updateStats) ----
+    const updateStats = (recs) => {
+      const dist = recs.reduce((s, r) => s + Number(r.distance_km || 0), 0), lt = recs.reduce((s, r) => s + Number(r.liters || 0), 0), cost = recs.reduce((s, r) => s + Number(r.total_cost || 0), 0); const avgKpl = lt > 0 ? dist / lt : 0;
+      $('#fl_s_cpk').textContent = flFmt(dist > 0 ? cost / dist : 0); $('#fl_s_ppl').textContent = flFmt(lt > 0 ? cost / lt : 0); $('#fl_s_kpl').textContent = flFmt(avgKpl);
+      $('#fl_s_dist').textContent = flFmt(dist, 0); $('#fl_s_lt').textContent = flFmt(lt); $('#fl_s_tc').textContent = flFmt(cost, 0);
+      const belowRecs = recs.filter((r) => { const v = Number(r.km_per_liter || 0); return v > 0 && v < FL_MIN_KPL; });
+      const sB = $('#fl_s_below'); sB.textContent = flFmt(belowRecs.length, 0); sB.style.color = belowRecs.length > 0 ? 'var(--red)' : 'var(--green)';
+      const plateAgg = {}; recs.forEach((r) => { const k = r.plate_no; if (!k) return; if (!plateAgg[k]) plateAgg[k] = { d: 0, l: 0, driver: r.driver_name || '' }; plateAgg[k].d += Number(r.distance_km || 0); plateAgg[k].l += Number(r.liters || 0); });
+      const riskPlates = Object.entries(plateAgg).map(([plate, x]) => ({ plate, driver: x.driver, kpl: x.l > 0 ? x.d / x.l : 0 })).filter((p) => p.kpl > 0 && p.kpl < FL_MIN_KPL);
+      const sR = $('#fl_s_riskplate'); sR.textContent = flFmt(riskPlates.length, 0); sR.style.color = riskPlates.length > 0 ? 'var(--red)' : 'var(--green)';
+      $('#fl_sc_riskplate').title = riskPlates.length ? 'ทะเบียนที่ต่ำกว่าเกณฑ์:\n' + riskPlates.map((p) => `• ${p.plate} (${p.driver}) — ${p.kpl.toFixed(2)} กม./ลิตร`).join('\n') : 'ไม่มีทะเบียนที่ต่ำกว่าเกณฑ์';
+      $('#fl_sc_below').title = belowRecs.length ? `${belowRecs.length} รายการที่ต่ำกว่าเกณฑ์ 3.00 กม./ลิตร — ดูรายละเอียดในตาราง` : 'ทุกรายการผ่านเกณฑ์';
+      $('#fl_s_kpl').style.color = (avgKpl > 0 && avgKpl < FL_MIN_KPL) ? 'var(--red)' : 'var(--navy)';
+    };
+    // ---- table ----
+    const frame = () => {
+      $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl jobs-tbl fl-tbl"><thead><tr>${FL_COLS.map(([, l, t]) => `<th${t === 'n' ? ' class="r"' : ''}>${l}</th>`).join('')}<th>จัดการ</th></tr><tr class="jf-filter">${FL_COLS.map(([k, l, t]) => `<th>${t === 'd' ? `<input type="date" class="inp jf-in" data-f="${k}" aria-label="ค้นหา${l}">` : t === 's' ? `<select class="inp jf-in" data-f="${k}" aria-label="ค้นหา${l}"><option value="">ทั้งหมด</option><option>ผ่านเกณฑ์</option><option>ต่ำกว่าเกณฑ์</option><option>รอข้อมูล</option></select>` : `<input class="inp jf-in" data-f="${k}" placeholder="ค้นหา" autocomplete="off"${t === 'n' ? ' inputmode="decimal"' : ''}>`}</th>`).join('')}<th></th></tr></thead><tbody id="flBody"></tbody></table></div>`;
+      const on = T.debounce(() => { pageNo = 1; apply(); }, 120);
+      $$('#flList [data-f]').forEach((i) => { const ev = () => { F[i.dataset.f] = i.value; on(); }; i.addEventListener('input', ev); i.addEventListener('change', ev); });
+    };
+    const rowHtml = (r) => { const s = flKplStatus(r.km_per_liter); return `<tr data-fid="${r.id}"><td class="nowrap">${h(r.fuel_date)}</td><td><span class="badge blue">${h(r.plate_no)}</span></td><td class="nowrap">${h(r.driver_name)}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td><td>${h(r.job_bl || '—')}</td>
+      <td class="r">${flFmt(r.mileage_before, 0)}</td><td class="r">${flFmt(r.mileage_after, 0)}</td><td class="r b" style="color:var(--navy)">${flFmt(r.distance_km)}</td><td class="r">${flFmt(r.liters)}</td><td class="r">${flFmt(r.price_per_liter)}</td><td class="r b" style="color:var(--green)">${flFmt(r.total_cost, 0)}</td>
+      <td class="r" style="${Number(r.km_per_liter) < FL_MIN_KPL ? 'color:var(--red);font-weight:700' : ''}">${flFmt(r.km_per_liter)}</td><td class="r">${flFmt(r.cost_per_km)}</td><td>${h(r.note || '—')}</td>
+      <td class="nowrap"><span class="badge ${s.ok === true ? 'green' : s.ok === false ? 'red' : 'gray'}">${s.icon} ${s.text}</span></td><td class="nowrap">${canAdd ? `<button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}</td></tr>`; };
+    const renderTable = () => {
+      if (!$('#flBody')) return; const pages = Math.max(1, Math.ceil(RECS.length / PAGE_SIZE)); pageNo = Math.min(Math.max(1, pageNo), pages);
+      $('#flCount').textContent = `(${RECS.length} รายการ)`;
+      const vis = RECS.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
+      $('#flBody').innerHTML = vis.length ? vis.map(rowHtml).join('') : `<tr><td colspan="${FL_COLS.length + 1}" class="empty">${ALL.length ? `ดึงข้อมูลได้ ${ALL.length} รายการ — แต่การค้นหาซ่อนหมด ลองกด ↺ ล้างการค้นหา` : 'ไม่พบข้อมูลในตาราง fuel_logs'}</td></tr>`;
+      $$('#flBody [data-eid]').forEach((b) => b.onclick = () => openForm(ALL.find((x) => x.id === Number(b.dataset.eid))));
+      $$('#flBody [data-did]').forEach((b) => b.onclick = async () => { if (!(await T.confirm('ลบรายการ', 'ยืนยันลบรายการนี้?', 'ยืนยันลบ', 'btn-r'))) return; try { await T.auth('tnj_fuel_logs_delete', { p_id: Number(b.dataset.did) }, { silent: true }); T.toast('ลบข้อมูลแล้ว', 'ok'); await renderAll(); } catch (e) { const p = T.parseErr(e); T.toast('ลบไม่สำเร็จ: ' + p.text, 'err'); } });
+      $('#flPager').innerHTML = pages <= 1 ? `<span class="muted small">${RECS.length} รายการ</span>` : `<button class="btn btn-sm" id="flPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹ ก่อนหน้า</button><span class="muted small">หน้า ${pageNo}/${pages} · ${RECS.length} รายการ</span><button class="btn btn-sm" id="flNext" ${pageNo >= pages ? 'disabled' : ''}>ถัดไป ›</button>`;
+      const pv = $('#flPrev'), nx = $('#flNext'); if (pv) pv.onclick = () => { pageNo--; renderTable(); }; if (nx) nx.onclick = () => { pageNo++; renderTable(); };
+    };
+    const apply = () => { if (!$('#flBody')) return; RECS = ALL.filter((r) => flMatch(r, F)); updateStats(RECS); renderTable(); if (chartOpen) buildChart(); };
+    const renderAll = async () => {
+      try { const d = await T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true }); if (!$('#flList')) return; ALL = d.rows.map((r) => Object.assign({}, r, { id: Number(r.id) })); maxId = d.max_id; pageNo = 1; apply(); }
+      catch (e) { T.err(e); }
+    };
+    const loadRoutes = async () => { try { routes = await T.auth('tnj_fuel_routes', {}, { silent: true }); } catch (_) { routes = []; } $$('#flRouteList').forEach((dl) => { dl.innerHTML = routes.map((x) => `<option value="${h(x)}">`).join(''); }); };
+    // ---- chart (buildChart / buildMonthlyChart / groupByPlate) ----
+    const groupByPlate = (recs) => { const map = {}; recs.forEach((r) => { const k = r.plate_no; if (!map[k]) map[k] = { plate: k, driver: r.driver_name, d: 0, l: 0, c: 0, s: 0, n: 0, trips: 0 }; map[k].d += Number(r.distance_km || 0); map[k].l += Number(r.liters || 0); map[k].c += Number(r.total_cost || 0); map[k].s += Number(r.selling_price || 0); map[k].n += Number(r.net_profit || 0); map[k].trips++; });
+      return Object.values(map).map((x) => ({ label: `${x.plate}`, sublabel: x.driver, trips: x.trips, km_per_liter: x.l > 0 ? x.d / x.l : 0, cost_per_km: x.d > 0 ? x.c / x.d : 0, distance_km: x.d, total_cost: x.c, liters: x.l, selling_price: x.s, net_profit: x.n })); };
+    const TICK = { color: '#4B5567', font: { family: "'Sarabun',sans-serif", size: 10 } }, GRID = { color: 'rgba(15,43,76,.07)' }, TIP = { backgroundColor: 'rgba(20,20,20,.95)', titleColor: '#f5a623', bodyColor: '#ccc', borderColor: '#333', borderWidth: 1, padding: 12 };
+    const selPlates = () => { if (!F.plate_no.trim()) return []; const set = new Set(RECS.map((r) => r.plate_no)); const vp = FL_VEHICLES.map((v) => v.plate).filter((p) => set.has(p)); set.forEach((p) => { if (!vp.includes(p)) vp.push(p); }); return vp; }; // ค้นหาใต้ Column ทะเบียน = แทนตัวเลือกทะเบียนของ Source
+    const buildMonthlyChart = (filtered, metric) => {
+      const monthMap = {}; filtered.forEach((r) => { const month = (r.fuel_date || '').slice(0, 7); if (!month) return; const plate = r.plate_no; if (!monthMap[month]) monthMap[month] = {}; if (!monthMap[month][plate]) monthMap[month][plate] = { d: 0, l: 0, c: 0, s: 0, n: 0, trips: 0 }; const m = monthMap[month][plate]; m.d += Number(r.distance_km || 0); m.l += Number(r.liters || 0); m.c += Number(r.total_cost || 0); m.s += Number(r.selling_price || 0); m.n += Number(r.net_profit || 0); m.trips++; });
+      const months = Object.keys(monthMap).sort(); if (chartInst) { chartInst.destroy(); chartInst = null; } if (!months.length) return;
+      const platesInData = new Set(); Object.values(monthMap).forEach((mm) => Object.keys(mm).forEach((p) => platesInData.add(p))); const plates = FL_VEHICLES.filter((v) => platesInData.has(v.plate)).map((v) => v.plate);
+      const fieldOf = { distance_km: 'd', liters: 'l', total_cost: 'c', selling_price: 's', net_profit: 'n' };
+      const valueFor = (st) => { if (metric === 'km_per_liter') return st.l > 0 ? +(st.d / st.l).toFixed(2) : 0; if (metric === 'cost_per_km') return st.d > 0 ? +(st.c / st.d).toFixed(2) : 0; const f = fieldOf[metric]; return f ? +Number(st[f] || 0).toFixed(2) : 0; };
+      const isAmount = ['distance_km', 'liters', 'total_cost', 'selling_price', 'net_profit'].includes(metric);
+      const datasets = plates.map((plate, idx) => { const v = FL_VEHICLES.find((vv) => vv.plate === plate); return { label: `${plate}${v ? ` (${v.driver})` : ''}`, data: months.map((m) => monthMap[m][plate] ? valueFor(monthMap[m][plate]) : 0), backgroundColor: FL_PALETTE[idx % FL_PALETTE.length], borderRadius: 4, borderSkipped: false, borderWidth: 0, maxBarThickness: 38, stack: isAmount ? 'stack1' : undefined }; });
+      const monthLabels = months.map((ms) => { const [y, mo] = ms.split('-'); const i = parseInt(mo, 10) - 1; return `${FL_TH_MONTHS[i] || mo} ${y.slice(2)}`; });
+      chartInst = new Chart($('#flChart').getContext('2d'), { type: 'bar', data: { labels: monthLabels, datasets }, options: { indexAxis: chartDir, responsive: true, layout: { padding: { top: 20, right: 12 } }, maintainAspectRatio: true, aspectRatio: chartDir === 'x' ? 3.2 : 2.0,
+        plugins: { legend: { display: true, position: 'top', align: 'end', labels: { color: '#4B5567', font: { family: "'Sarabun',sans-serif", size: 11 }, usePointStyle: true, pointStyle: 'rectRounded', padding: 10, boxWidth: 10 } }, minKplLine: { show: metric === 'km_per_liter', value: FL_MIN_KPL },
+          datalabels: { display: (c) => { const v = c.dataset.data[c.dataIndex]; return v && Math.abs(v) > 0; }, anchor: 'center', align: 'center', color: '#fff', font: { family: "'IBM Plex Mono',monospace", size: 9, weight: '600' }, formatter: (v) => v ? Number(v).toLocaleString('th-TH', { maximumFractionDigits: 0 }) : '' },
+          tooltip: Object.assign({}, TIP, { callbacks: { label: (item) => ` ${item.dataset.label}: ${flFmt(item.raw)}`, footer: (items) => { if (!isAmount) return ''; const total = items.reduce((s, i) => s + (i.raw || 0), 0); return `รวมเดือนนี้: ${flFmt(total)}`; } } }) },
+        scales: { x: { stacked: isAmount, ticks: Object.assign({ maxRotation: 0 }, TICK), grid: GRID }, y: { stacked: isAmount, beginAtZero: true, ticks: TICK, grid: GRID } } } });
+    };
+    const buildChart = async () => {
+      if (!chartOpen) return; try { await flEnsureChart(); } catch (e) { T.toast(e.message, 'err'); return; } if (!$('#flChart')) return;
+      const metric = $('#flMetric').value; const sel = selPlates(); const isAll = sel.length === 0; const filtered = RECS;
+      if (chartMonthly) return buildMonthlyChart(filtered, metric);
+      const isSinglePlate = !isAll && sel.length === 1; let finalGroups;
+      if (isSinglePlate) { const sorted = [...filtered].sort((a, b) => (a.fuel_date || '').localeCompare(b.fuel_date || '')); finalGroups = sorted.map((r) => ({ label: (r.fuel_date || '').slice(5), fullDate: r.fuel_date || '', sublabel: r.driver_name || '', route: r.route_location || '', trips: 1, km_per_liter: Number(r.km_per_liter || 0), cost_per_km: Number(r.cost_per_km || 0), distance_km: Number(r.distance_km || 0), total_cost: Number(r.total_cost || 0), liters: Number(r.liters || 0), selling_price: Number(r.selling_price || 0), net_profit: Number(r.net_profit || 0) })); }
+      else { const gm = {}; groupByPlate(filtered).forEach((g) => { gm[g.label] = g; }); finalGroups = isAll ? Object.values(gm) : sel.map((plate) => { const v = FL_VEHICLES.find((x) => x.plate === plate); return gm[plate] || { label: plate, sublabel: v ? v.driver : '', trips: 0, km_per_liter: 0, cost_per_km: 0, distance_km: 0, total_cost: 0, liters: 0, selling_price: 0, net_profit: 0 }; }); }
+      const labels = finalGroups.map((g) => g.label); const vals = finalGroups.map((g) => +Number(g[metric] || 0).toFixed(2)); const title = FL_MNAMES[metric] || metric;
+      let bg; if (metric === 'net_profit') bg = vals.map((v) => v >= 0 ? 'rgba(61,186,116,.85)' : 'rgba(224,82,82,.85)');
+      else if (metric === 'km_per_liter') bg = vals.map((v, i) => { if (v > 0 && v < FL_MIN_KPL) return 'rgba(224,82,82,.85)'; if (isSinglePlate) return '#f5a623'; return labels.length === 1 ? '#f5a623' : FL_PALETTE[i % FL_PALETTE.length]; });
+      else if (isSinglePlate) bg = vals.map(() => '#f5a623'); else if (labels.length === 1) bg = ['#f5a623']; else bg = labels.map((_, i) => FL_PALETTE[i % FL_PALETTE.length]);
+      if (chartInst) { chartInst.destroy(); chartInst = null; }
+      chartInst = new Chart($('#flChart').getContext('2d'), { type: 'bar', data: { labels, datasets: [{ label: title, data: vals, backgroundColor: bg, borderRadius: 8, borderSkipped: false, borderWidth: 0, maxBarThickness: 32 }] },
+        options: { indexAxis: chartDir, responsive: true, layout: { padding: { top: 20, right: 12 } }, maintainAspectRatio: true, aspectRatio: chartDir === 'x' ? 4.5 : 2.8,
+          plugins: { legend: { display: false }, minKplLine: { show: metric === 'km_per_liter', value: FL_MIN_KPL },
+            datalabels: { anchor: 'end', align: chartDir === 'x' ? 'top' : 'right', color: '#1B2430', font: { family: "'IBM Plex Mono',monospace", size: 10, weight: '600' }, formatter: (value) => { if (!value && value !== 0) return ''; return Number(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }, padding: { left: 4, right: 4, top: 2, bottom: 2 } },
+            tooltip: Object.assign({}, TIP, { callbacks: { title: (items) => { const g = finalGroups[items[0].dataIndex]; return isSinglePlate ? (g && g.fullDate || items[0].label) : items[0].label; },
+              label: (item) => { const g = finalGroups[item.dataIndex]; if (isSinglePlate) return [` ${title}: ${flFmt(item.raw)}`, ` ผู้ขับ: ${(g && g.sublabel) || '—'}`, ` เส้นทาง: ${(g && g.route) || '—'}`, ` ระยะ: ${flFmt((g && g.distance_km) || 0)} กม.`, ` ค่าน้ำมัน: ${flFmt((g && g.total_cost) || 0)} บาท`]; return [` ${title}: ${flFmt(item.raw)}`, ` ผู้ขับ: ${g ? g.sublabel : ''}`, ` เติมแล้ว ${g ? g.trips : 0} ครั้ง`]; } } }) },
+          scales: { x: { ticks: Object.assign({ maxRotation: 0 }, TICK), grid: GRID }, y: { beginAtZero: true, ticks: TICK, grid: GRID } } } });
+    };
+    const seg = (on, off, fn) => { $(on).classList.add('active'); $(off).classList.remove('active'); fn(); buildChart(); };
+    $('#flVert').onclick = () => seg('#flVert', '#flHorz', () => { chartDir = 'x'; }); $('#flHorz').onclick = () => seg('#flHorz', '#flVert', () => { chartDir = 'y'; });
+    $('#flByPlate').onclick = () => seg('#flByPlate', '#flByMonth', () => { chartMonthly = false; }); $('#flByMonth').onclick = () => seg('#flByMonth', '#flByPlate', () => { chartMonthly = true; });
+    $('#flMetric').onchange = () => buildChart();
+    $('#flChartT').onclick = () => { chartOpen = !chartOpen; $('#flChartBox').classList.toggle('hidden', !chartOpen); $('#flChartT').textContent = chartOpen ? '✕ ซ่อนกราฟ' : '📊 แสดงกราฟ'; if (chartOpen) buildChart(); else if (chartInst) { chartInst.destroy(); chartInst = null; } };
+    $('#flSave').onclick = () => { if (!chartInst) { T.toast('ไม่มีกราฟให้บันทึก', 'err'); return; } const a = document.createElement('a'); a.download = `nj-chart-${flBkkToday()}.png`; a.href = $('#flChart').toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); T.toast('บันทึกกราฟสำเร็จ ✓', 'ok'); };
+    // ---- actions ----
+    $('#flReload').onclick = async () => { T.toast('🔄 กำลังโหลดข้อมูลใหม่...'); await renderAll(); T.toast(`โหลดสำเร็จ ${ALL.length} รายการ ✓`, 'ok'); };
+    $('#flClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#flList [data-f]').forEach((i) => { i.value = ''; }); pageNo = 1; apply(); T.toast('ล้างการค้นหาแล้ว ✓', 'ok'); };
+    $('#flCalc').onclick = () => T.modal({ title: '⛽ เครื่องคำนวณน้ำมัน', size: 's', body: `<div class="inline-row"><div class="field"><label>ระยะทาง (กม.)</label><input type="number" step="0.1" class="inp" id="c_dist" placeholder="เช่น 200"></div><div class="field"><label>กม. ต่อลิตร</label><input type="number" step="0.1" class="inp" id="c_kpl" placeholder="เช่น 5.5"></div><div class="field"><label>ราคาน้ำมัน (บาท/ลิตร)</label><input type="number" step="0.01" class="inp" id="c_price" placeholder="เช่น 29.50"></div></div>
+        <div class="kv fl-calc"><div class="k">ลิตรที่ใช้</div><div class="v b" id="c_res_lt">—</div><div class="k">ค่าน้ำมัน (ราคาเต็ม)</div><div class="v b" id="c_res_cost">—</div><div class="k">80% ของราคา</div><div class="v b" id="c_res_half">—</div><div class="k">ค่าคนขับ (10%, ขั้นต่ำ 300)</div><div class="v b" id="c_res_driver">—</div><div class="k">ต้นทุน/กม.</div><div class="v b" id="c_res_cpk">—</div><div class="k">ต้นทุนรวม (น้ำมัน + คนขับ)</div><div class="v b" id="c_res_costtotal">—</div><div class="k">💰 ราคารวม (ขาย) (ค่าน้ำมัน + 80% + ค่าคนขับ)</div><div class="v b" id="c_res_total" style="color:var(--green)">—</div></div>`,
+      foot: '<button class="btn" id="calcClearBtn">🗑 ล้างค่า</button><button class="btn" data-close>ปิด</button>',
+      onOpen: (el) => { const fmtN = (v) => Number(v).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); const ids = ['c_res_lt', 'c_res_cost', 'c_res_half', 'c_res_driver', 'c_res_cpk', 'c_res_costtotal', 'c_res_total'];
+        const calc = () => { const dist = Number($('#c_dist', el).value) || 0, kpl = Number($('#c_kpl', el).value) || 0, price = Number($('#c_price', el).value) || 0; if (!(dist > 0 && kpl > 0)) { ids.forEach((i) => { $('#' + i, el).textContent = '—'; }); return; }
+          const liters = dist / kpl; const cost = liters * price; const half = cost * 0.8; const driver = cost > 0 ? Math.max(cost * 0.10, 300) : 0; const costTotal = cost + driver; const sellTotal = cost + half + driver;
+          $('#c_res_lt', el).textContent = fmtN(liters) + ' ลิตร'; const pv = price > 0; $('#c_res_cost', el).textContent = pv ? fmtN(cost) + ' บาท' : '—'; $('#c_res_half', el).textContent = pv ? fmtN(half) + ' บาท' : '—'; $('#c_res_driver', el).textContent = pv ? fmtN(driver) + ' บาท' : '—'; $('#c_res_cpk', el).textContent = pv ? fmtN(price / kpl) + ' บาท/กม.' : '—'; $('#c_res_costtotal', el).textContent = pv ? fmtN(costTotal) + ' บาท' : '—'; $('#c_res_total', el).textContent = pv ? fmtN(sellTotal) + ' บาท' : '—'; };
+        ['c_dist', 'c_kpl', 'c_price'].forEach((i) => $('#' + i, el).addEventListener('input', calc)); $('#calcClearBtn', el).onclick = () => { ['c_dist', 'c_kpl', 'c_price'].forEach((i) => { $('#' + i, el).value = ''; }); calc(); }; setTimeout(() => $('#c_dist', el).focus(), 30); } });
+    // บันทึกบิลขนส่ง (insert) / แก้ไข (update รายการเดิม)
+    const openForm = (r) => {
+      const edit = !!r; const px = edit ? 'e' : 'f';
+      T.modal({ title: edit ? '⛽ แก้ไขข้อมูลน้ำมัน' : '⛽ บันทึกข้อมูลน้ำมัน', size: 'w fl-modal', noMask: false, body: flFormHtml(px, edit),
+        foot: edit ? '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="flSaveE">💾 บันทึกการแก้ไข</button>' : '<button class="btn" id="flClr">🗑 ล้างฟอร์ม</button><button class="btn btn-p" id="flSaveF">💾 บันทึกข้อมูล</button>',
+        onOpen: (el, close) => {
+          const q = (k) => $('#' + px + '_' + k, el); loadRoutes();
+          el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
+          q('plate').onchange = () => { q('driver').value = flGd(q('plate').value); };
+          ['mb', 'ma', 'tc', 'ppl', 'sell', 'other'].forEach((k) => q(k).addEventListener('input', () => flRecalc(el, px)));
+          if (!edit) {
+            q('date').value = flBkkToday(); q('runno').value = maxId != null ? '#' + (Number(maxId) + 1) : 'อัตโนมัติ';
+            const clear = () => { ['plate', 'driver', 'route', 'job', 'mb', 'ma', 'dist', 'tc', 'ppl', 'lt', 'sell', 'other', 'adv', 'trip', 'net', 'note', 'cost_total'].forEach((k) => { q(k).value = ''; }); q('date').value = flBkkToday(); flUpdateKplBox(el, 'f', 0); };
+            $('#flClr', el).onclick = clear;
+            $('#flSaveF', el).onclick = async () => {
+              const v = flPayload(el, 'f', true); const err = q('err'); err.classList.add('hidden');
+              if (!v.fuel_date || !v.plate_no || !v.driver_name) { err.textContent = '⚠ กรุณากรอกวันที่ ทะเบียน และผู้ขับ'; err.classList.remove('hidden'); return; }
+              try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: null, p: v }, { silent: true }); close(); T.toast('บันทึกเรียบร้อย ✓', 'ok'); await renderAll(); loadRoutes(); }
+              catch (e) { err.textContent = '⚠ บันทึกไม่สำเร็จ: ' + T.parseErr(e).text; err.classList.remove('hidden'); } finally { T.loading(false); }
+            };
+          } else {
+            q('id').value = r.id; q('runno').value = '#' + r.id; q('company').value = r.company_name || ''; q('container').value = r.container_no || ''; q('date').value = String(r.fuel_date || '').slice(0, 10); q('plate').value = r.plate_no; q('driver').value = r.driver_name;
+            q('route').value = r.route_location || ''; q('job').value = r.job_bl || ''; q('mb').value = Number(r.mileage_before); q('ma').value = Number(r.mileage_after); q('lt').value = Number(r.liters);
+            { const _tc = Number(r.total_cost), _ppl = Number(r.price_per_liter); if (_tc > 0 && _ppl > 0) q('lt').value = (_tc / _ppl).toFixed(2); }
+            q('ppl').value = Number(r.price_per_liter); q('tc').value = Number(r.total_cost); q('sell').value = Number(r.selling_price) || ''; q('other').value = Number(r.other_expenses) || ''; q('adv').value = Number(r.advance_payment) || '';
+            const _sellE = Number(r.selling_price || 0); q('trip').value = _sellE > 0 ? Math.floor(_sellE * 0.10) : (Number(r.trip_fee) || ''); q('note').value = r.note || '';
+            const distV = Number(r.mileage_after) - Number(r.mileage_before); q('dist').value = distV > 0 ? distV.toFixed(2) : '—';
+            const ct = Number(r.total_cost) + Number(r.other_expenses || 0); q('cost_total').value = ct > 0 ? ct.toFixed(2) : '';
+            const net = Number(r.selling_price || 0) - ct; q('net').value = ct > 0 || Number(r.selling_price) ? net.toFixed(2) + ' บาท' : ''; q('net').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+            flUpdateKplBox(el, 'e', Number(r.km_per_liter || 0));
+            $('#flSaveE', el).onclick = async () => {
+              const payload = flPayload(el, 'e', false);
+              try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: Number(q('id').value), p: payload }, { silent: true }); close(); T.toast('แก้ไขข้อมูลแล้ว ✓', 'ok'); await renderAll(); }
+              catch (e) { T.toast('แก้ไขไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } finally { T.loading(false); }
+            };
+          }
+        } });
+    };
+    const ad = $('#flAdd'); if (ad) ad.onclick = () => openForm(null);
+    // Excel (Fuel Report + Summary) — xlsx-js-style · ส่งออกทุกรายการตามการค้นหา (RECS ทุกหน้า) เหมือน Source
+    $('#flXls').onclick = async () => {
+      if (!RECS.length) { T.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); return; }
+      let X; try { T.loading(true); X = await flEnsureXlsxStyle(); } catch (e) { T.toast(e.message, 'err'); return; } finally { T.loading(false); }
+      const data = RECS.map((r) => { const dist = Number(r.distance_km || 0), lt = Number(r.liters || 0), ppl = Number(r.price_per_liter || 0), tc = Number(r.total_cost || 0);
+        const km_per_liter = lt > 0 ? dist / lt : 0; const expected_liters = FL_MIN_KPL > 0 ? dist / FL_MIN_KPL : 0; const excess_liters = Math.max(0, lt - expected_liters); const penalty = excess_liters * ppl;
+        const status = (km_per_liter > 0 && km_per_liter < FL_MIN_KPL) ? 'ต้องหักเงิน' : 'ปกติ'; const adv = Number(r.advance_payment || 0), trip = Number(r.trip_fee || 0);
+        return { 'วันที่': String(r.fuel_date || '').slice(0, 10), 'ทะเบียน': r.plate_no || '', 'คนขับ': r.driver_name || '', 'ระยะทาง (กม.)': +dist.toFixed(2), 'ลิตรจริง': +lt.toFixed(2), 'ราคาต่อลิตร': +ppl.toFixed(2), 'รวมเงิน': +tc.toFixed(2), 'เงินล่วงหน้า': +adv.toFixed(2), 'ค่าเที่ยว': +trip.toFixed(2),
+          'กม./ลิตร': +km_per_liter.toFixed(2), 'ลิตรควรใช้': +expected_liters.toFixed(2), 'ลิตรเกิน': +excess_liters.toFixed(2), 'หักเงิน (บาท)': +penalty.toFixed(0), 'สถานะ': status }; });
+      const SALARY_FIXED = 9300; const sm = {};
+      RECS.forEach((r, i) => { const row = data[i]; const k = r.plate_no; if (!k) return; if (!sm[k]) sm[k] = { plate: r.plate_no, driver: r.driver_name || '', trips: 0, dist: 0, lt: 0, cost: 0, excess: 0, penalty: 0, below: 0, trip: 0, adv: 0 };
+        sm[k].trips++; sm[k].dist += Number(r.distance_km || 0); sm[k].lt += Number(r.liters || 0); sm[k].cost += Number(r.total_cost || 0); sm[k].excess += row['ลิตรเกิน']; sm[k].penalty += row['หักเงิน (บาท)']; sm[k].trip += Number(r.trip_fee || 0); sm[k].adv += Number(r.advance_payment || 0); if (row['สถานะ'] === 'ต้องหักเงิน') sm[k].below++; });
+      const summaryHeaders = ['ทะเบียน', 'คนขับ', 'จำนวนครั้ง', 'ระยะทางรวม (กม.)', 'ลิตรรวม', 'ค่าใช้จ่ายรวม (บาท)', 'เฉลี่ย กม./ลิตร', 'ลิตรเกินรวม', 'หักเงินรวม (บาท)', 'ครั้งที่ต้องหัก', 'เงินเดือน', 'ค่าเที่ยว', 'ยอดเงินได้', 'หักเงินล่วงหน้า', 'หักเงินรวม (บาท)', 'หักลากิจ', 'ยอดสุทธิต้องได้'];
+      const summaryRows = Object.values(sm).map((x) => { const incomeTotal = SALARY_FIXED + x.trip; const lapakij = 0; const netPay = incomeTotal - x.adv - x.penalty - lapakij;
+        return [x.plate, x.driver, x.trips, +x.dist.toFixed(2), +x.lt.toFixed(2), +x.cost.toFixed(2), +(x.lt > 0 ? x.dist / x.lt : 0).toFixed(2), +x.excess.toFixed(2), +x.penalty.toFixed(0), x.below, SALARY_FIXED, +x.trip.toFixed(2), +incomeTotal.toFixed(2), +x.adv.toFixed(2), +x.penalty.toFixed(0), lapakij, +netPay.toFixed(2)]; });
+      const wb = X.utils.book_new(); const thin = { style: 'thin', color: { rgb: '000000' } }; const thinBorder = { top: thin, bottom: thin, left: thin, right: thin };
+      const headerStyle = { fill: { patternType: 'solid', fgColor: { rgb: 'FFFF00' } }, font: { sz: 12, bold: true }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: thinBorder }; const dataStyle = { font: { sz: 11 }, alignment: { vertical: 'center' }, border: thinBorder };
+      const applyStyles = (sheet) => { const ref = sheet['!ref']; if (!ref) return; const range = X.utils.decode_range(ref); for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) { const addr = X.utils.encode_cell({ r: R, c: C }); if (!sheet[addr]) sheet[addr] = { v: '', t: 's' }; sheet[addr].s = R === 0 ? headerStyle : dataStyle; } sheet['!rows'] = sheet['!rows'] || []; sheet['!rows'][0] = { hpt: 24 }; };
+      const ws = X.utils.json_to_sheet(data); ws['!cols'] = [12, 10, 14, 13, 11, 12, 13, 13, 13, 11, 12, 11, 14, 14].map((w) => ({ wch: w })); applyStyles(ws); X.utils.book_append_sheet(wb, ws, 'Fuel Report');
+      const ws2 = X.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]); ws2['!cols'] = [10, 14, 11, 18, 11, 18, 14, 13, 18, 13, 11, 11, 13, 16, 18, 11, 18].map((w) => ({ wch: w })); applyStyles(ws2); X.utils.book_append_sheet(wb, ws2, 'Summary');
+      X.writeFile(wb, `NJ_Fuel_Report_${flBkkToday()}.xlsx`); T.toast('Export Excel สำเร็จ ✓', 'ok');
+    };
+    frame(); await renderAll();
   }
 
   /* ---------- reports ---------- */

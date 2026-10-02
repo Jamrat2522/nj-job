@@ -141,7 +141,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff}
 @media print{.sidebar,.topbar,.drv-nav,.btn{display:none!important}}
 /* ---- งานหัวลาก: ฟอร์มเปิดงาน / รายการ / Timeline 12 สถานะ + Free Time ---- */
 .jf-form{max-width:1180px}.jf-row{display:grid;gap:12px;margin-bottom:4px}.jf-row.r1{grid-template-columns:1fr}.jf-row.r2{grid-template-columns:repeat(2,minmax(0,1fr))}.jf-row.r3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.jf-row.r5{grid-template-columns:minmax(0,2.2fr) repeat(4,minmax(0,1fr))}.jf-row .field{min-width:0}.inp.ro{background:#F4F7FB;color:var(--txt)}
+.jf-row.r4{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.6fr) minmax(0,1.6fr)}.jf-row.r5{grid-template-columns:minmax(0,2.2fr) repeat(4,minmax(0,1fr))}.jf-row .field{min-width:0}.inp.ro{background:#F4F7FB;color:var(--txt)}
 .jf-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .jobs-tbl{table-layout:auto;width:100%}.jobs-tbl td,.jobs-tbl th{padding-left:8px;padding-right:8px}
 .hl-st-tag{display:inline-block;max-width:100%;white-space:normal;background:#EAF2FF;color:var(--navy);border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600;line-height:1.35}
@@ -156,8 +156,44 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 .hl-it{padding-left:4px}.hl-note{padding-left:22px;color:var(--muted);font-size:13px}
 .hl-ft{margin:6px 0;padding:6px 10px;border-radius:8px;font-weight:700;white-space:normal}.hl-ft.ok{background:#E7F7EE;color:#137A43}.hl-ft.over{background:#FDECEC;color:#B42318}.hl-ft.wait,.hl-ft.nosched{background:#F3F4F6;color:var(--muted);font-weight:600}
 @media (max-width:768px){
-  .jf-row.r2,.jf-row.r3,.jf-row.r5{grid-template-columns:1fr}.jf-form .inp{min-height:46px;font-size:16px}.jf-btns{flex-direction:column-reverse}.jf-btns .btn{width:100%;min-height:48px;justify-content:center}
+  .jf-row.r2,.jf-row.r3,.jf-row.r4,.jf-row.r5{grid-template-columns:1fr}.jf-form .inp{min-height:46px;font-size:16px}.jf-btns{flex-direction:column-reverse}.jf-btns .btn{width:100%;min-height:48px;justify-content:center}
   .hl-form{grid-template-columns:1fr 1fr}.hl-form .hl-fs{grid-column:1/-1}.hl-form .inp{min-height:46px;font-size:16px}
   .overlay:has(.hl-modal){padding:0;align-items:stretch}.modal.hl-modal{max-width:none;width:100%;height:100%;max-height:100dvh;border-radius:0}
   .modal.hl-modal .modal-f .btn{flex:1;min-height:48px;justify-content:center}
 }
+/* ---- อัปเดต Timeline: ประวัติเต็มชุด + แก้ไข/ลบ/แนบไฟล์/COPY ---- */
+.hl-form .hl-fb{grid-column:1/-1;display:flex;justify-content:flex-end}.hl-form-s{grid-template-columns:1fr 1fr}
+.hl-job{font-weight:800;color:var(--navy);margin-bottom:4px}.hl-tl .hl-title+.hl-job{margin-top:-2px}
+.hl-entry{padding:4px 0 6px;border-bottom:1px dashed var(--line)}.hl-entry:last-of-type{border-bottom:0}
+.hl-acts{display:flex;flex-wrap:wrap;gap:6px;padding-left:18px;margin-top:4px}
+.hl-files{margin:4px 0 2px 18px;padding:6px 8px;background:#F7F9FC;border-radius:8px}.hl-fh{font-size:12.5px;font-weight:700;color:var(--muted)}
+.hl-file{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0}.hl-file .hl-fn{min-width:0;overflow-wrap:anywhere;font-size:13.5px}
+.hl-ft{margin-top:10px}.hl-copy{display:flex;justify-content:flex-end;margin-top:10px}
+@media (max-width:768px){
+  .hl-acts .btn,.hl-file .btn,.hl-copy .btn,.hl-fb .btn{min-height:44px}.hl-acts .btn{flex:1}.hl-copy .btn,.hl-fb .btn{width:100%}
+  .hl-files{margin-left:0}.hl-acts{padding-left:0}
+}
+/* ---- Sidebar: ผู้ใช้/ROLE ใต้โลโก้ + เมนูล่างสุด (จัดการผู้ใช้ / แจ้งเตือน / ออกจากระบบ) ---- */
+.sidebar{overflow:hidden}.sidebar .logo .sb-user{font-size:12.5px;letter-spacing:0;color:#fff;font-weight:600;margin-top:2px;overflow-wrap:anywhere}.sidebar .logo .sb-role{font-size:11px;letter-spacing:1px;color:#B9C6DA}
+.sidebar .nav{flex:1;min-height:0;display:flex;flex-direction:column}.sidebar .nav-main{flex:1;min-height:0;overflow:auto}
+.sidebar .foot{margin-top:0}
+.nav-bottom{border-top:1px solid rgba(255,255,255,.14);padding-top:8px}
+.nav-bottom a,.nav-bottom button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:#D6E0EE;padding:10px 12px;border-radius:10px;font-weight:600;font-size:14px;margin-bottom:2px;cursor:pointer;text-align:left;font-family:inherit}
+.nav-bottom a:hover,.nav-bottom button:hover{background:rgba(255,255,255,.08)}.nav-bottom a.active{background:#fff;color:var(--navy)}.nav-bottom .ic{width:20px;text-align:center}
+.nav-bottom .bell .n{position:static;margin-left:auto}
+/* ---- รายการงาน: ช่องค้นหาใต้หัว Column ---- */
+.jobs-tbl .jf-filter th{position:static;padding:4px 6px 8px;background:#F7F9FC;font-weight:400;vertical-align:top}
+.jobs-tbl .jf-in{min-height:32px;padding:5px 8px;font-size:13px;min-width:0;width:100%}.jobs-tbl input[type=date].jf-in{min-width:118px;padding:5px 4px}
+.jobs-tbl select.jf-in{min-width:120px}
+.jf-m{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px;border-bottom:1px solid var(--line)}.jf-m .field{margin:0;min-width:0}.jf-m .jf-in{min-height:44px;font-size:16px}
+.jf-m-clr{grid-column:1/-1;display:flex;justify-content:flex-end}.jf-m-clr .btn{min-height:44px}
+.mile-tbl .jf-filter th .jf-in{min-width:64px}.mile-tbl .jf-filter th select.jf-in{min-width:120px}
+/* ---- ⛽ ไมล์รถ / น้ำมัน (Clone MODE Transport) ---- */
+.fl-stats{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin-bottom:14px}.fl-stat{cursor:default}.fl-stat .v{font-size:22px;overflow-wrap:anywhere}.fl-stat .l{min-height:22px}
+.fl-chart-wrap{position:relative;width:100%}.fl-chart-wrap canvas{max-height:180px;width:100%!important}
+.fl-tbl td{white-space:nowrap}.fl-tbl .jf-filter th .jf-in{min-width:70px}.fl-tbl .jf-filter th input[type=date].jf-in{min-width:118px}.fl-tbl .jf-filter th select.jf-in{min-width:110px}.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.fl-kpl{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#F7F9FC}.fl-kpl-v{font-size:20px;font-weight:800}
+.fl-calc{margin-top:10px}.fl-calc .v{text-align:right}
+#flActs .btn{white-space:nowrap}
+@media (max-width:1280px){.fl-stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:640px){.fl-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#flActs{width:100%}#flActs .btn{flex:1 1 calc(50% - 8px);min-height:44px}.fl-chart-wrap canvas{max-height:260px}}
