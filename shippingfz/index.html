@@ -2170,6 +2170,8 @@ function routeRender(){
 }
 
 /* ---------------- document list view ---------------- */
+// 🔵 ดำเนินตรวจปล่อย (RECEIVED) บนมือถือ → แสดงงานค้างทั้งหมดในหน้าเดียว (ไม่แบ่งหน้า) · โหมดอื่น/เดสก์ท็อปใช้ S.pageSize เดิม
+function _effPageSize(){ return (S.view==='RECEIVED' && _vpMobile()) ? Infinity : S.pageSize; }
 function computeRows(){
   const def = VIEWS[S.view] || VIEWS.all;
   let list = _visibleDocs().filter(def.test);
@@ -2189,10 +2191,11 @@ function computeRows(){
       .some(x=> String(x||'').toLowerCase().includes(q)) );
   }
   const total = list.length;
-  const totalPages = Math.max(1, Math.ceil(total / S.pageSize));
+  const _ps = _effPageSize();
+  const totalPages = _ps===Infinity ? 1 : Math.max(1, Math.ceil(total / _ps));
   if(S.page>totalPages) S.page=totalPages;
-  const start = (S.page-1)*S.pageSize;
-  const rows = list.slice(start, start+S.pageSize);
+  const start = (S.page-1)*_ps;
+  const rows = _ps===Infinity ? list.slice(0) : list.slice(start, start+_ps);
   return { list, rows, total, totalPages };
 }
 function docActions(d){
@@ -2419,7 +2422,7 @@ function renderDocView(){
        <div id="m-filter-sheet" class="m-sheet">
          <div class="m-sheet-bar"></div>
          <div class="m-sheet-head"><span>ตัวกรอง</span><button type="button" class="m-sheet-x" onclick="_mFilterToggle(false)" aria-label="ปิด">✕</button></div>
-         <div class="m-sheet-body">${_custCtl}${_csCtl}${_dateCtl}${_pageSizeSel}</div>
+         <div class="m-sheet-body">${_custCtl}${_csCtl}${_dateCtl}${S.view==='RECEIVED'?'':_pageSizeSel}</div>
          <button type="button" class="m-sheet-ok" onclick="_mFilterToggle(false)">ดูผลลัพธ์</button>
        </div>`
     : '';
@@ -2441,7 +2444,7 @@ function renderDocView(){
             ? `<tr><td colspan="12"><div class="empty"><div class="icon-lg"><i data-lucide="inbox"></i></div><div>ไม่มีเอกสารในมุมมองนี้</div></div></td></tr>`
             : rows.map(docRow).join('')}</tbody>
         </table>
-        <div class="paginator">${total>S.pageSize ? `
+        <div class="paginator">${total>_effPageSize() ? `
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(1)">«</button>
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(${S.page-1})">‹</button>
           <span class="pg-info">หน้า ${S.page} / ${totalPages} · ${total} รายการ</span>
@@ -2525,7 +2528,7 @@ function _renderDocBody(){
     ? `<tr><td colspan="11"><div class="empty"><div class="icon-lg"><i data-lucide="inbox"></i></div><div>ไม่มีเอกสารในมุมมองนี้</div></div></td></tr>`
     : rows.map(docRow).join('');
   const pg = root.querySelector('.paginator');
-  if(pg) pg.innerHTML = total>S.pageSize ? `
+  if(pg) pg.innerHTML = total>_effPageSize() ? `
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(1)">«</button>
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(${S.page-1})">‹</button>
           <span class="pg-info">หน้า ${S.page} / ${totalPages} · ${total} รายการ</span>
@@ -2569,7 +2572,7 @@ function _updateCurrentViewCounters(){
     const { total, totalPages }=computeRows();
     const sub=root.querySelector('.sub'); if(sub) sub.textContent=`รวม ${total} รายการ`+(S.filters.search?` · ค้นหา "${S.filters.search}"`:'');
     const pg=root.querySelector('.paginator');
-    if(pg) pg.innerHTML = total>S.pageSize ? `
+    if(pg) pg.innerHTML = total>_effPageSize() ? `
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(1)">«</button>
           <button class="pg-btn" ${S.page<=1?'disabled':''} onclick="docGoto(${S.page-1})">‹</button>
           <span class="pg-info">หน้า ${S.page} / ${totalPages} · ${total} รายการ</span>
