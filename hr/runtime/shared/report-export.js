@@ -1,4 +1,140 @@
-(function(){"use strict";var S=window.NJHR&&NJHR.compat&&NJHR.compat.scope;if(!S)throw new Error("RUNTIME_NOT_READY");var loadScriptOnce=S.loadScriptOnce;var sbRpcList=S.sbRpcList;function rptXmlEsc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;")}function rptSafeName(v){return String(v).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g,"-").slice(0,60)}function rptColLetter(i){var s="",n=Number(i)+1;while(n>0){var r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s||"A"}function rptSheetXml(head,rows,widths,titleLines){var top=(titleLines||[]).length;function cell(ref,val,styleId){if(typeof val==="number"&&isFinite(val))return'<c r="'+ref+'" s="'+styleId+'"><v>'+val+"</v></c>";return'<c r="'+ref+'" s="'+styleId+'" t="inlineStr"><is><t xml:space="preserve">'+rptXmlEsc(val)+"</t></is></c>"}var lastRef=rptColLetter(Math.max(head.length,1)-1)+(top+1+rows.length);var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+'<dimension ref="A1:'+lastRef+'"/>'+"<cols>"+widths.map(function(w,i){return'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join("")+"</cols><sheetData>";(titleLines||[]).forEach(function(t,ti){xml+='<row r="'+(ti+1)+'">'+cell("A"+(ti+1),t,3)+"</row>"});var hr=top+1;xml+='<row r="'+hr+'">'+head.map(function(h,i){return cell(rptColLetter(i)+hr,h,1)}).join("")+"</row>";rows.forEach(function(r,ri){xml+='<row r="'+(ri+hr+1)+'">'+r.map(function(c,ci){return cell(rptColLetter(ci)+(ri+hr+1),c,2)}).join("")+"</row>"});var pane='<sheetViews><sheetView workbookViewId="0"><pane ySplit="'+hr+'" topLeftCell="A'+(hr+1)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';return(xml+"</sheetData></worksheet>").replace("<cols>",pane+"<cols>")}function rptBuildXlsx(sheetName,head,rows,widths,titleLines){var zip=new window.JSZip;zip.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+'<Default Extension="xml" ContentType="application/xml"/>'+'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+"</Types>");zip.folder("_rels").file(".rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+"</Relationships>");var xl=zip.folder("xl");xl.file("workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+'<sheets><sheet name="'+rptXmlEsc(sheetName)+'" sheetId="1" r:id="rId1"/></sheets></workbook>');xl.folder("_rels").file("workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+"</Relationships>");xl.file("styles.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+'<fonts count="2">'+'<font><sz val="11"/><color rgb="FF000000"/><name val="Tahoma"/></font>'+'<font><b/><sz val="11"/><color rgb="FF000000"/><name val="Tahoma"/></font></fonts>'+'<fills count="3">'+'<fill><patternFill patternType="none"/></fill>'+'<fill><patternFill patternType="gray125"/></fill>'+'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC000"/><bgColor indexed="64"/></patternFill></fill></fills>'+'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+'<border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right>'+'<top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders>'+'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+'<cellXfs count="4">'+'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'+'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+"</cellXfs></styleSheet>");xl.folder("worksheets").file("sheet1.xml",rptSheetXml(head,rows,widths,titleLines));return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}function rptLoadZip(){return loadScriptOnce("jszip","https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","JSZip")}function rptDateBE(iso){var p=String(iso||"").split("-");return p.length===3?p[2]+"/"+p[1]+"/"+(parseInt(p[0],10)+543):""}function rptNorm(v){return String(v==null?"":v).trim().replace(/\s+/g," ").toLowerCase()}/* [RUN-137] ดึงรายงานให้ครบทุกหน้า — RPC ฝั่ง Server มี p_limit/p_offset/total_count
+(function(){"use strict";var S=window.NJHR&&NJHR.compat&&NJHR.compat.scope;if(!S)throw new Error("RUNTIME_NOT_READY");var loadScriptOnce=S.loadScriptOnce;var sbRpcList=S.sbRpcList;function rptXmlEsc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;")}function rptSafeName(v){return String(v).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g,"-").slice(0,60)}function rptColLetter(i){var s="",n=Number(i)+1;while(n>0){var r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s||"A"}function rptSheetXml(head,rows,widths,titleLines){var top=(titleLines||[]).length;function cell(ref,val,styleId){if(typeof val==="number"&&isFinite(val))return'<c r="'+ref+'" s="'+styleId+'"><v>'+val+"</v></c>";return'<c r="'+ref+'" s="'+styleId+'" t="inlineStr"><is><t xml:space="preserve">'+rptXmlEsc(val)+"</t></is></c>"}var lastRef=rptColLetter(Math.max(head.length,1)-1)+(top+1+rows.length);var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+'<dimension ref="A1:'+lastRef+'"/>'+"<cols>"+widths.map(function(w,i){return'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join("")+"</cols><sheetData>";(titleLines||[]).forEach(function(t,ti){xml+='<row r="'+(ti+1)+'">'+cell("A"+(ti+1),t,3)+"</row>"});var hr=top+1;xml+='<row r="'+hr+'">'+head.map(function(h,i){return cell(rptColLetter(i)+hr,h,1)}).join("")+"</row>";rows.forEach(function(r,ri){xml+='<row r="'+(ri+hr+1)+'">'+r.map(function(c,ci){return cell(rptColLetter(ci)+(ri+hr+1),c,2)}).join("")+"</row>"});var pane='<sheetViews><sheetView workbookViewId="0"><pane ySplit="'+hr+'" topLeftCell="A'+(hr+1)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';return(xml+"</sheetData></worksheet>").replace("<cols>",pane+"<cols>")}/* [RUN-161] ย้าย styles.xml เดิมมาเป็นฟังก์ชัน เพื่อให้ตัวสร้าง 2 Sheet ใช้สไตล์ชุดเดียวกัน
+   คืนค่าสตริงเดิมแบบตรงตัวอักษรทุกตัว ไม่เปลี่ยนรูปแบบไฟล์ของรายงานเดิมแม้แต่ไบต์เดียว */
+function rptStylesXml(){return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+'<fonts count="2">'+'<font><sz val="11"/><color rgb="FF000000"/><name val="Tahoma"/></font>'+'<font><b/><sz val="11"/><color rgb="FF000000"/><name val="Tahoma"/></font></fonts>'+'<fills count="3">'+'<fill><patternFill patternType="none"/></fill>'+'<fill><patternFill patternType="gray125"/></fill>'+'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC000"/><bgColor indexed="64"/></patternFill></fill></fills>'+'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+'<border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right>'+'<top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders>'+'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+'<cellXfs count="4">'+'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'+'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+"</cellXfs></styleSheet>"}
+function rptBuildXlsx(sheetName,head,rows,widths,titleLines){var zip=new window.JSZip;zip.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+'<Default Extension="xml" ContentType="application/xml"/>'+'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+"</Types>");zip.folder("_rels").file(".rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+"</Relationships>");var xl=zip.folder("xl");xl.file("workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+'<sheets><sheet name="'+rptXmlEsc(sheetName)+'" sheetId="1" r:id="rId1"/></sheets></workbook>');xl.folder("_rels").file("workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+"</Relationships>");xl.file("styles.xml",rptStylesXml());xl.folder("worksheets").file("sheet1.xml",rptSheetXml(head,rows,widths,titleLines));return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}/* ============================ [RUN-161] ============================
+   Excel 2 ส่วนสำหรับ "รายงานการลงเวลา" (สรุปจำนวนวันรายพนักงาน)
+     Sheet1 = ตารางสรุปจำนวนวันรายพนักงาน
+     Sheet2 = "กราฟสรุป" = ข้อมูลชุดเดียวกัน + กราฟแท่งของจริงในไฟล์ Excel
+   · เป็นฟังก์ชัน "เพิ่มใหม่" ไม่แตะ rptBuildXlsx เดิม -> รายงานลา/วันลาคงเหลือ/OT/REPORT ALL
+     ยังใช้ของเดิมทุกตัว ไม่เปลี่ยนพฤติกรรม
+   · ลำดับแถวใน Sheet2 = ลำดับเดียวกับ Sheet1 (มากสุด -> น้อยสุด)
+     catAx ใช้ orientation=maxMin เพื่อให้แท่งบนสุดคือค่ามากสุดตรงกับตาราง
+   chart = { title, cats:[ชื่อแกน], series:[{name, values:[], color:"RRGGBB"}] }
+   ================================================================= */
+function rptChartXml(sheet,title,nCat,series){
+  var AX1="751274120",AX2="751274121";
+  var r1=3,r2=2+nCat;
+  function f(col,a,b){return "'"+String(sheet).replace(/'/g,"''")+"'!$"+col+"$"+a+(b?":$"+col+"$"+b:"")}
+  var ser=series.map(function(s,j){
+    var col=rptColLetter(j+1);
+    return '<c:ser><c:idx val="'+j+'"/><c:order val="'+j+'"/>'
+      +'<c:tx><c:strRef><c:f>'+rptXmlEsc(f(col,2))+'</c:f></c:strRef></c:tx>'
+      +'<c:spPr><a:solidFill><a:srgbClr val="'+(s.color||"2563EB")+'"/></a:solidFill></c:spPr>'
+      +'<c:invertIfNegative val="0"/>'
+      +'<c:dLbls><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>'
+      +'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
+      +'<c:cat><c:strRef><c:f>'+rptXmlEsc(f("A",r1,r2))+'</c:f></c:strRef></c:cat>'
+      +'<c:val><c:numRef><c:f>'+rptXmlEsc(f(col,r1,r2))+'</c:f></c:numRef></c:val>'
+      +'</c:ser>'
+  }).join("");
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"'
+    +' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    +' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<c:chart>'
+    +'<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>'+rptXmlEsc(title)
+    +'</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>'
+    +'<c:autoTitleDeleted val="0"/>'
+    +'<c:plotArea><c:layout/>'
+    +'<c:barChart><c:barDir val="bar"/><c:grouping val="clustered"/><c:varyColors val="0"/>'
+    +ser
+    +'<c:gapWidth val="60"/><c:overlap val="'+(series.length>1?"-10":"0")+'"/>'
+    +'<c:axId val="'+AX1+'"/><c:axId val="'+AX2+'"/></c:barChart>'
+    +'<c:catAx><c:axId val="'+AX1+'"/><c:scaling><c:orientation val="maxMin"/></c:scaling>'
+    +'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="'+AX2+'"/></c:catAx>'
+    +'<c:valAx><c:axId val="'+AX2+'"/><c:scaling><c:orientation val="minMax"/></c:scaling>'
+    +'<c:delete val="0"/><c:axPos val="b"/><c:majorGridlines/>'
+    +'<c:crossAx val="'+AX1+'"/></c:valAx></c:plotArea>'
+    +'<c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>'
+    +'<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>'
+}
+function rptDrawingXml(row1,nCat,nSer){
+  var col2=Math.max(12,nSer+9),row2=row1+Math.max(22,Math.min(nCat*2+8,60));
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"'
+    +' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    +' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<xdr:twoCellAnchor>'
+    +'<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff>'
+    +'<xdr:row>'+row1+'</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
+    +'<xdr:to><xdr:col>'+col2+'</xdr:col><xdr:colOff>0</xdr:colOff>'
+    +'<xdr:row>'+row2+'</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
+    +'<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr>'
+    +'<xdr:cNvPr id="2" name="Chart 1"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>'
+    +'<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
+    +'<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
+    +'<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"'
+    +' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1"/>'
+    +'</a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/>'
+    +'</xdr:twoCellAnchor></xdr:wsDr>'
+}
+function rptBuildXlsxChart(sheetName,head,rows,widths,titleLines,chart){
+  if(!chart||!chart.series||!chart.series.length||!chart.cats||!chart.cats.length)
+    return rptBuildXlsx(sheetName,head,rows,widths,titleLines);
+  var CH="กราฟสรุป";
+  var cHead=["พนักงาน"].concat(chart.series.map(function(s){return s.name}));
+  var cRows=chart.cats.map(function(cat,i){
+    return [String(cat)].concat(chart.series.map(function(s){return Number(s.values[i])||0}))});
+  var cW=[34].concat(chart.series.map(function(s){
+    return Math.min(Math.max(String(s.name).length+4,10),22)}));
+  var zip=new window.JSZip;
+  zip.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    +'<Default Extension="xml" ContentType="application/xml"/>'
+    +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    +'<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    +'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+    +'<Override PartName="/xl/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
+    +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+    +"</Types>");
+  zip.folder("_rels").file(".rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    +"</Relationships>");
+  var xl=zip.folder("xl");
+  xl.file("workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+    +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<sheets><sheet name="'+rptXmlEsc(sheetName)+'" sheetId="1" r:id="rId1"/>'
+    +'<sheet name="'+rptXmlEsc(CH)+'" sheetId="2" r:id="rId2"/></sheets></workbook>');
+  xl.folder("_rels").file("workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>'
+    +'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    +"</Relationships>");
+  xl.file("styles.xml",rptStylesXml());
+  var ws=xl.folder("worksheets");
+  ws.file("sheet1.xml",rptSheetXml(head,rows,widths,titleLines));
+  /* [RUN-161] Sheet กราฟสรุป: ใส่ r: namespace + ตั้งหน้าเป็นแนวนอนพอดีความกว้าง
+     เพื่อให้สั่งพิมพ์แล้วกราฟไม่ถูกตัด (บนหน้าจอ Excel แสดงเต็มอยู่แล้ว) */
+  ws.file("sheet2.xml",rptSheetXml(cHead,cRows,cW,[chart.title||sheetName])
+    .replace("</sheetData>","</sheetData>"
+      +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
+      +'<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+      +'<drawing r:id="rId1"/>')
+    .replace("<worksheet xmlns=","<worksheet xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" xmlns=")
+    .replace("<sheetViews>","<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr><sheetViews>"));
+  ws.folder("_rels").file("sheet2.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>'
+    +"</Relationships>");
+  xl.folder("charts").file("chart1.xml",
+    rptChartXml(CH,chart.title||sheetName,chart.cats.length,chart.series));
+  var dr=xl.folder("drawings");
+  /* [RUN-161] วางกราฟ "ใต้ตารางข้อมูล" ของ Sheet กราฟสรุป (แถวหัวเรื่อง 1 + หัวตาราง 1 + ข้อมูล n + เว้น 2)
+     ไม่วางด้านขวา เพราะกรอบจะถูกตัดและตกหน้าใหม่ตอนสั่งพิมพ์ */
+  dr.file("drawing1.xml",rptDrawingXml(chart.cats.length+4,chart.cats.length,chart.series.length));
+  dr.folder("_rels").file("drawing1.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>'
+    +"</Relationships>");
+  return zip.generateAsync({type:"blob",
+    mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
+}
+function rptLoadZip(){return loadScriptOnce("jszip","https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","JSZip")}function rptDateBE(iso){var p=String(iso||"").split("-");return p.length===3?p[2]+"/"+p[1]+"/"+(parseInt(p[0],10)+543):""}function rptNorm(v){return String(v==null?"":v).trim().replace(/\s+/g," ").toLowerCase()}/* [RUN-137] ดึงรายงานให้ครบทุกหน้า — RPC ฝั่ง Server มี p_limit/p_offset/total_count
    ทำไมต้องมี: PostgREST ของโปรเจกต์ตัดผลลัพธ์ที่ ~1000 แถว ต่อให้ Frontend ขอ p_limit สูงกว่านั้น
    จึงห้ามเชื่อ "batch.length < pageSize = จบแล้ว" — ต้องยึด total_count จาก batch แรกเป็นหลัก
    กติกา: offset += จำนวนแถวที่ได้รับ "จริง" · วนจน loaded >= total_count
@@ -328,4 +464,4 @@ function rptGuardCap(rows,label){
   return rows;
 }
 
-NJHR.compat.scope.rptBuildXlsx=rptBuildXlsx;NJHR.compat.scope.rptDateBE=rptDateBE;NJHR.compat.scope.rptLoadZip=rptLoadZip;NJHR.compat.scope.rptNorm=rptNorm;NJHR.compat.scope.rptSafeName=rptSafeName;NJHR.compat.scope.rptFetchAllPages=rptFetchAllPages;NJHR.compat.scope.rptComposeDaily=rptComposeDaily;NJHR.compat.scope.rptParseWorkingDays=rptParseWorkingDays;NJHR.compat.scope.rptIsoAdd=rptIsoAdd;NJHR.compat.scope.rptIsoDow=rptIsoDow;NJHR.compat.scope.rptIsoRange=rptIsoRange;NJHR.compat.scope.rptGuardCap=rptGuardCap;NJHR.compat.scope.rptFetchShiftMap=rptFetchShiftMap;NJHR.compat.scope.rptEmpKey=rptEmpKey})();
+NJHR.compat.scope.rptBuildXlsx=rptBuildXlsx;NJHR.compat.scope.rptBuildXlsxChart=rptBuildXlsxChart;NJHR.compat.scope.rptDateBE=rptDateBE;NJHR.compat.scope.rptLoadZip=rptLoadZip;NJHR.compat.scope.rptNorm=rptNorm;NJHR.compat.scope.rptSafeName=rptSafeName;NJHR.compat.scope.rptFetchAllPages=rptFetchAllPages;NJHR.compat.scope.rptComposeDaily=rptComposeDaily;NJHR.compat.scope.rptParseWorkingDays=rptParseWorkingDays;NJHR.compat.scope.rptIsoAdd=rptIsoAdd;NJHR.compat.scope.rptIsoDow=rptIsoDow;NJHR.compat.scope.rptIsoRange=rptIsoRange;NJHR.compat.scope.rptGuardCap=rptGuardCap;NJHR.compat.scope.rptFetchShiftMap=rptFetchShiftMap;NJHR.compat.scope.rptEmpKey=rptEmpKey})();

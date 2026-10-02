@@ -1,3 +1,109 @@
+NJHR V2 — RUN-162 / RUN-163  (RELEASE local325)
+
+================================================================
+RUN-163  Payroll ต้องยึดชุดพนักงานจริง + E-PAYSLIP Period Gate
+================================================================
+Root Cause (พิสูจน์จาก Source + DB + Log จริง)
+ 1) งวด 9/2026 มี 113 แถว แทน 110
+    njhr_payroll_period_save วนเฉพาะ p_rows แล้ว upsert
+    ไม่มีขั้นตอนลบแถวของพนักงานที่หลุดจากชุด
+    13:40:59 กดครั้งแรก (3 รายยัง ACTIVE จริง) -> 113 แถว
+    13:44-13:46 ทั้ง 3 ถูกเปลี่ยนเป็น RESIGNED
+    13:47:48 กดครั้งที่ 2 ส่ง 110 ราย upsert สำเร็จ แต่ 3 แถวเดิมค้าง
+    *** ไม่มีเงื่อนไข resign_date ที่ไหนเลยที่ดึงคนลาออกกลับเข้ามา ***
+ 2) PROBATION หลุดจากการคำนวณ
+    njhr_report_all_employees มี in ('ACTIVE','PROBATION') อยู่แล้ว (ต้นทางถูก)
+    prActiveEmployees() รับเฉพาะ "ACTIVE" (ปลายทางผิด)
+ 3) E-PAYSLIP แสดงตุลาคม 2569
+    njhr_slip_periods group จาก payroll ทุกงวดโดยไม่มี Gate เลย
+ 4) งวด 10/2026 มี 117 แถว
+    audit_log 01/10/2026 11:08:51 · actor=jamrat SUPER_ADMIN
+    PAYROLL_SAVE "บันทึกงวดเงินเดือน 10/2026 สถานะ CALCULATED จำนวน 117 รายการ"
+    = User action จริง ไม่ใช่ Cron/Preview/Auto · กดก่อน RUN-157 Gate ลง
+    RUN-157 Gate ป้องกันการสร้างซ้ำแล้ว -> ไม่ต้องแก้เพิ่ม · ไม่แตะข้อมูล
+
+Frontend  compat/approvals-reports.js
+  ~ prActiveEmployees() -> รับ ACTIVE + PROBATION (รองรับตัวพิมพ์เล็ก)
+  ~ ข้อความแจ้งเตือน "ไม่พบพนักงานสถานะ ACTIVE หรือ PROBATION จากเซิร์ฟเวอร์"
+
+DB  _archive/RUN-163_payroll_eligible_cleanup.sql
+  ส่วนที่ 1  njhr_payroll_period_save + PAYROLL_CLEANUP   *** ยังไม่ลง Production ***
+    · ทำเฉพาะเมื่อมี p_rows จริง (p_rows=[] = Confirm/Reopen -> ข้าม cleanup)
+    · งวด CONFIRMED/PAID -> raise ให้ไป Reopen ก่อน
+    · แถวที่เคยออกสลิปแล้ว -> raise กันสลิปหายจาก CASCADE
+    · ลบ payroll_items ก่อน payroll · DELETE ทุกคำสั่งมี WHERE (ผ่าน safeupdate)
+    · ผูกงวดของ payload เท่านั้น ไม่แตะงวดอื่น · ไม่ Hardcode จำนวนคน
+  ส่วนที่ 2  njhr_slip_periods + Period Gate              *** ลง Production แล้ว ***
+    · ใส่ njhr_period_available ตัวเดียวกับ period_save/payroll_confirm
+    · ไม่ Hardcode ซ่อนเดือน 10 · คงสิทธิ์การมองเห็นเดิมของพนักงาน
+    · Verify: ADMIN เห็น 2026-9 เท่านั้น · พนักงานเห็น (ว่าง)
+
+================================================================
+RUN-162  แก้ DELETE ที่ไม่มี WHERE ให้ผ่าน safeupdate (ลง Production แล้ว)
+================================================================
+role authenticator โหลด safeupdate -> ทุก DELETE/UPDATE จาก App ต้องมี WHERE
+แก้ 4 จุด จุดละ 1 บรรทัด (เพิ่ม " where true"):
+  njhr_payroll_apply_bands_and_overrides · njhr_shift_remove
+  njhr_shift_no_shift_set · njhr_shift_assign_many
+
+NJHR V2 — RUN-161  รายงานการลงเวลา: สรุปจำนวนวัน + กราฟ + Excel 2 ส่วน
+*** RELEASE local324 · Build แล้ว ***
+
+BUILD = njhr-v2-f309a503        (เดิม local323 = njhr-v2-7a36ac88)
+asset-manifest.js = fc3e573c
+  views/attendance/report.js        e838632f
+  runtime/shared/report-export.js   564db19f
+  styles.css                        333eaa95
+buildId เปลี่ยน -> Force Update + Maintenance 10 นาที + บังคับ Login ใหม่ ทำงานอัตโนมัติ
+SQL ที่ต้องรันเพิ่ม: ไม่มี — รอบนี้ไม่มีการแก้ DB / RPC / SQL
+
+ขอบเขต: เฉพาะหน้า "รายงานการลงเวลา" (type=attendance) + Export Excel ของหน้านี้
+ไม่แตะ: รายงานมาสาย/ลา/วันลาคงเหลือ/OT · REPORT ALL · Payroll · DB · RPC · Logic ลงเวลา/กะ
+
+ไฟล์ที่แก้ (3 ไฟล์)
+  views/attendance/report.js      + rptSumRows/Head/Cells/Widths/Totals/Paint · rptSumOn/TH/KeyOf
+                                  + rptExportSummary · ~ rptChartTitle/Data/Paint/Export · ~ rptAttPaint · ~ rptExport
+  runtime/shared/report-export.js + rptBuildXlsxChart (2 Sheet + กราฟจริง) · + rptChartXml/rptDrawingXml
+                                  ~ ย้าย styles.xml เดิมเป็น rptStylesXml() (สตริงเดิมตรงตัวอักษร)
+  styles.css                      + สไตล์ป้าย "สถานะ N วัน" และกราฟเปรียบเทียบ
+                                    (รวมอยู่ในบล็อก @media min-width:1024px เดิมของ RUN-149)
+
+กติกาที่บังคับไว้
+  · พนักงาน 1 คน = 1 รายการ · นับจำนวนวัน · วันเดียวกัน+คนเดียวกัน นับครั้งเดียว
+  · เรียงมากสุด -> น้อยสุด · 0 วันไม่ขึ้นทั้งตารางและกราฟ
+  · ตาราง / กราฟหน้าเว็บ / Excel อ่านจาก rptSumRows() ตัวเดียวกัน -> ตัวเลขตรงกัน 100%
+  · ใช้ข้อมูลครบทั้งช่วงวันที่ (ไม่แบ่งหน้าในหน้าสรุป) ไม่ใช่เฉพาะหน้าปัจจุบัน
+  · ไม่ยิง RPC เพิ่ม ไม่แก้ข้อมูลต้นฉบับ ไม่แก้ DB
+
+หัวตาราง
+  สถานะเดียว  ลำดับ | รหัสพนักงาน | พนักงาน | แผนก | จำนวนวัน<สถานะ>
+  ทุกสถานะ    ลำดับ | รหัสพนักงาน | คำนำหน้า | พนักงาน | แผนก | ปกติ | มาสาย | ขาดงาน | ลา | รวมวัน
+
+กราฟ
+  สถานะเดียว  แท่งแนวนอน · แกน = ชื่อพนักงาน · ป้าย "มาสาย 8 วัน" · เรียงมาก->น้อย
+  ทุกสถานะ    เปรียบเทียบ 4 สถานะในคนเดียวกัน + คำอธิบายสี · สเกลเดียวกันทั้งกราฟ
+  เปลี่ยนตามตัวกรองทันที (ช่วงวันที่ / พนักงาน / แผนก / สถานะ)
+  ยังแสดงเฉพาะ Desktop >=1024px ตามกติกาเดิมของ RUN-149 (ไม่แตะ mobile.css)
+
+Excel (ปุ่ม Export Excel เดิม)
+  Sheet1 "รายงานการลงเวลา" = ตารางสรุปจำนวนวันรายพนักงาน
+  Sheet2 "กราฟสรุป"         = ข้อมูลชุดเดียวกัน + กราฟแท่งของจริงในไฟล์ (เรียงตรงกับตาราง)
+  รายงานอื่นยังใช้ rptBuildXlsx ตัวเดิม ไม่เปลี่ยนรูปแบบไฟล์
+
+สิ่งที่ถูกแทนที่โดยตั้งใจ (คำสั่งรอบนี้ทับของเดิม)
+  RUN-149 "ไม่เลือกสถานะ = ไม่มีกราฟ" และ "ปกติ = ไม่มีกราฟ" -> ตอนนี้มีกราฟทั้งคู่
+  ปรับ assertion ของ test-run149 / test-run151 ตามข้อกำหนดใหม่ (ไม่ได้ลดการตรวจ)
+
+ผลทดสอบ (รันจริง 02/10/2569)
+  test-run161-attsummary.js        PASS 125 / FAIL 0   (รวม mutation test: ถอด dedupe -> FAIL 16)
+  test-run161-responsive.js        PASS  85 / FAIL 0   (Chromium 1920/1440/1280 · 360/412 · 390/430)
+  test-run149-attchart.js          PASS  72 / FAIL 0
+  test-run151-report-default-chart PASS  45 / FAIL 0
+  Excel จริง: เปิดด้วย LibreOffice ผ่าน · มี chart1.xml · กราฟแสดงครบทั้ง 1 และ 4 ชุดข้อมูล
+  Regression ชุดเต็ม 53 ไฟล์       FAIL 0 (รันซ้ำหลัง Build แล้ว asset-manifest ?v= ตรงครบ)
+
+================================================================
+
 NJHR V2 — RUN-157 / 158 / 159 / 160  (RELEASE local323 · Build แล้ว)
 
 BUILD = njhr-v2-7a36ac88        (เดิม local322 = njhr-v2-cc8b7635)

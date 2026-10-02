@@ -973,7 +973,13 @@ function prFetchEmployees(){
 function prActiveEmployees(){
   if(!prEmpCache)return[];
   var out=[];
-  Object.keys(prEmpCache).forEach(function(k){if(prEmpCache[k].status==="ACTIVE")out.push(prEmpCache[k])});
+  /* [RUN-163] กติกา: คำนวณเงินเดือนเฉพาะ ACTIVE + PROBATION เท่านั้น
+     RESIGNED และสถานะอื่นห้ามเข้า Payroll
+     ต้นทาง njhr_report_all_employees กรอง in ('ACTIVE','PROBATION') อยู่แล้ว
+     ของเดิมที่นี่รับเฉพาะ "ACTIVE" ทำให้พนักงานทดลองงานหลุดจากการคำนวณ */
+  Object.keys(prEmpCache).forEach(function(k){
+    var st=String(prEmpCache[k].status||"").toUpperCase();
+    if(st==="ACTIVE"||st==="PROBATION")out.push(prEmpCache[k])});
   out.sort(function(a,b){return String(a.code||"").localeCompare(String(b.code||""),"th")});
   return out
 }
@@ -1694,7 +1700,7 @@ function viewPayroll(el){
       Promise.all([prFetchOtHours(pr.year,pr.month),prFetchPayItems(pr.year,pr.month),prFetchEmployees()])
       .then(function(res){
         var otMap=res[0],map=res[1],prActive=prActiveEmployees();
-        if(!prActive.length){toast("ไม่พบพนักงานสถานะ ACTIVE จากเซิร์ฟเวอร์ — ยังไม่คำนวณและไม่ได้บันทึก","error");return}
+        if(!prActive.length){toast("ไม่พบพนักงานสถานะ ACTIVE หรือ PROBATION จากเซิร์ฟเวอร์ — ยังไม่คำนวณและไม่ได้บันทึก","error");return}
         var baseEntries=prActive.map(function(x){
           var otHours=Number(otMap[x.id])||0;
           var otAmt=Math.round(x.baseSalary/30/8*1.5*otHours);

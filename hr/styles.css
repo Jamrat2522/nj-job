@@ -559,6 +559,35 @@
   .rpt-chart .rpt-chart-bar{position:relative;height:18px;border-radius:9px;background:var(--line,#E5E7EB);overflow:hidden}
   .rpt-chart .rpt-chart-bar>i{display:block;height:100%;border-radius:9px;background:var(--blue,#2563EB)}
   .rpt-chart .rpt-chart-n{text-align:right;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
+
+  /* ===== [RUN-161] ป้ายจำนวนวัน + กราฟเปรียบเทียบทุกสถานะ =====
+     รวมไว้ในบล็อก Desktop เดียวกับ RUN-149/151 เพื่อไม่ให้กฎของกราฟกระจายหลายบล็อก */
+
+  /* ป้ายขวาเดิมกว้าง 60px ไม่พอ เพราะข้อความเป็น "มาสาย 8 วัน" */
+  .rpt-chart .rpt-chart-row{grid-template-columns:280px 1fr 140px}
+  .rpt-chart .rpt-chart-n{white-space:nowrap}
+
+  .rpt-chart .rpt-chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 10px;font-size:13px}
+  .rpt-chart .rpt-chart-lg{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2)}
+  .rpt-chart .rpt-chart-lg>i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  .rpt-chart .rpt-chart-grp{display:grid;grid-template-columns:280px 1fr;align-items:center;
+    gap:12px;padding:8px 0;border-top:1px solid var(--line,#E5E7EB)}
+  .rpt-chart .rpt-chart-gbody>.rpt-chart-grp:first-child{border-top:0}
+  .rpt-chart .rpt-chart-gbars{display:grid;gap:4px}
+  .rpt-chart .rpt-chart-gbar{display:grid;grid-template-columns:1fr 130px;align-items:center;gap:10px}
+  .rpt-chart .rpt-chart-gbar>i{display:block;height:12px;border-radius:6px;min-width:0;
+    background:var(--blue,#2563EB)}
+  .rpt-chart .rpt-chart-gbar>em{font-style:normal;font-size:12px;white-space:nowrap;
+    font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  .rpt-chart .rpt-chart-gbars{position:relative}
+  .rpt-chart .rpt-chart-gbar{background:linear-gradient(var(--line,#E5E7EB),var(--line,#E5E7EB))
+    left center/calc(100% - 140px) 12px no-repeat}
+
+  .rpt-chart .rpt-g-NORMAL>i,.rpt-chart .rpt-chart-lg.rpt-g-NORMAL>i{background:#16A34A}
+  .rpt-chart .rpt-g-LATE>i,.rpt-chart .rpt-chart-lg.rpt-g-LATE>i{background:#F59E0B}
+  .rpt-chart .rpt-g-ABSENT>i,.rpt-chart .rpt-chart-lg.rpt-g-ABSENT>i{background:#DC2626}
+  .rpt-chart .rpt-g-LEAVE>i,.rpt-chart .rpt-chart-lg.rpt-g-LEAVE>i{background:#2563EB}
 }
 
 /* ===== RUN-127 · หน้า "อนุมัติรายการ → คำขอลา" — Layout ตารางบน Desktop =====
