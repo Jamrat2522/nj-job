@@ -2095,7 +2095,9 @@ function renderMobileTabbar(){
   const bar = $('mtabbar');
   bar.classList.remove('sa-fab6');
   bar.classList.add('sa-ship','sa-nav5');
-  bar.style.gridTemplateColumns='';
+  // ซ่อนปุ่ม ➕ สร้างงาน บนมือถือ เฉพาะแผนก SHIPPING (_permRole()==='SHIPPING' = role/department SHIPPING ที่ไม่ใช่ ADMIN) · แถบเหลือ 4 ช่อง · เดสก์ท็อป/บทบาทอื่นคงเดิม
+  const _hideFab = (_permRole()==='SHIPPING');
+  bar.style.gridTemplateColumns = _hideFab ? 'repeat(4,1fr)' : '';
   const tab=(k,ic,l,cls)=>{
     if(!canView(k)) return '';
     const c=viewCount(k);
@@ -2106,7 +2108,7 @@ function renderMobileTabbar(){
   bar.innerHTML =
       tab('NEW','🕘','รับงาน','c-new')
     + tab('RECEIVED','▶️','ดำเนินการ','c-recv')
-    + `<button class="m-tab sa-fab" onclick="openCreate()"><span class="m-ic">➕</span><span>สร้างงาน</span></button>`
+    + (_hideFab ? '' : `<button class="m-tab sa-fab" onclick="openCreate()"><span class="m-ic">➕</span><span>สร้างงาน</span></button>`)
     + tab('COMPLETED_TODAY','✅','เสร็จ','c-done')
     + `<button class="m-tab sa-menu ${menuActive?'active':''}" onclick="toggleSidebar()"><span class="m-ic">☰</span><span>เมนู</span></button>`;
   // จุดแดงบนกระดิ่ง = มีงานรอรับ (ใช้ count เดิม ไม่ query เพิ่ม)
