@@ -1411,8 +1411,10 @@ let _visCache = { ref:null, val:null };
 // #1 ล้าง cache แถวที่มองเห็น — เรียกทุกครั้งที่ S.docs ถูก mutate ในที่เดิม (splice/unshift/sort/[i]=)
 //     เพราะ ref ไม่เปลี่ยน cache จะค้าง (เฉพาะ user isOwnOnly) → ต้อง invalidate ตรง ๆ
 function _invalidateDocsCache(){ _visCache = { ref:null, val:null }; }
+// 🔵 ดำเนินตรวจปล่อย (RECEIVED) บนมือถือ → ทุก role เห็นงานค้างทั้งหมด (ไม่กรอง own-only) ให้ตรงกับจำนวนนับจาก server · โหมดอื่น/เดสก์ท็อปกรองเหมือนเดิม
+function _recvAllMobile(mode){ return (mode||S.view)==='RECEIVED' && _vpMobile(); }
 function _visibleDocs(){
-  if(!isOwnOnly()) return S.docs;
+  if(!isOwnOnly() || _recvAllMobile()) return S.docs;
   if(_visCache.ref===S.docs) return _visCache.val;   // cache ต่อ render (S.docs set ใหม่ทุก reload → ref เปลี่ยน → cache miss)
   const uid = String(S.user&&S.user.id||'');
   const val = S.docs.filter(d=>{
@@ -1638,7 +1640,7 @@ async function loadView(view, opts={}){
         let r=await sb.from(DOC_TABLE).select(_docCols()).eq('app_code',WORK_APP_CODE).order('created_at',{ascending:false}).limit(600);
         if(r.error && /freight_paid/i.test(r.error.message||'')){ _fpMissing=true; r=await sb.from(DOC_TABLE).select(DOC_COLS_FALLBACK).eq('app_code',WORK_APP_CODE).order('created_at',{ascending:false}).limit(600); }
         if(r.error){ console.error('[loadView plain]', r.error); if(!c.loaded) toast('โหลดข้อมูลไม่สำเร็จ: '+(r.error.message||''),'error'); return; }
-        data=(r.data||[]).filter(d=>{ try{ return _docVisibleToUser(d) && VIEWS[view].test(d); }catch(_){ return false; } }); error=null;
+        data=(r.data||[]).filter(d=>{ try{ return (_recvAllMobile(view) || _docVisibleToUser(d)) && VIEWS[view].test(d); }catch(_){ return false; } }); error=null;
       }
       if(S._viewReqToken[view]!==tok) return;                                          // #15 มี request ใหม่กว่าแล้ว → ทิ้งผลเก่า
       _perfMark('supabaseQuery·'+view, _q0);
@@ -1700,7 +1702,7 @@ function _docVisibleToUser(row){
   if(row.doc_status==='NEW' && !row.assigned_user) return true;
   return String(row.assigned_user||'')===uid || String(row.creator_user||'')===uid;
 }
-function _docInMode(row, mode){ const v=VIEWS[mode]; if(!v) return false; return _docVisibleToUser(row) && v.test(row); }
+function _docInMode(row, mode){ const v=VIEWS[mode]; if(!v) return false; return (_recvAllMobile(mode) || _docVisibleToUser(row)) && v.test(row); }
 // cache ops — mutate array ในที่เดิม (ref เดียวกับ S.docs เมื่อเป็นโหมดปัจจุบัน) · cap 200
 function _cacheUpsert(mode, row){
   const c=_vc(mode); const i=c.docs.findIndex(d=>d.id===row.id);
