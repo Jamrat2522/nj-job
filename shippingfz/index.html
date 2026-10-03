@@ -3,7 +3,7 @@
   SHIPPING FZ  v.1.0  —  N.J. Logistics   (clone จาก SHIPPING AIR v.14)
   ============================================================
   ระบบใหม่ทั้งหมด · Single HTML File · แยกขาดจาก MASSERGER และ SHIPPING AIR
-    • LOGIN : ใช้บัญชีเดิม (RPC login_plain · app_code='massenger') — ไม่สร้าง user ใหม่
+    • LOGIN : ใช้บัญชีเดิม (RPC massenger_login · Server Session token · app_code='massenger') — ไม่สร้าง user ใหม่
     • WORK  : ฐานข้อมูลของตัวเอง (sfz_documents / sfz_document_logs) — เริ่มงานใหม่ทั้งหมด
     • STORAGE : bucket ของตัวเอง (shipping-fz-attachments)
     • REALTIME : channel ของตัวเอง (sfz_docs_rt)
@@ -1103,7 +1103,29 @@ const SFZ_ENV = SFZ_IS_FILE ? 'file'
   : (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) ? 'local' : 'production');
 const LOGIN_APP_CODE = 'massenger';      // login ใช้บัญชีเดิมของ MASSERGER
 const WORK_APP_CODE  = 'shipping_fz';    // งานเก็บในตารางของ SHIPPING FZ เอง
-const SESSION_KEY = 'shipping_fz_session';
+const SESSION_KEY = 'shipping_fz_session_v2';           // 🔐 Security Phase 1: เก็บ session token (ไม่ใช่ user_id)
+const OLD_SESSION_KEY = 'shipping_fz_session';           // session แบบเดิม (user_id) → บังคับ Login ใหม่ 1 ครั้ง
+function _msTok(){ return (S && S.sessionToken) || ''; }
+function _msIsSessionErr(e){ return /NJ_SESSION_INVALID|NJ_SESSION_EXPIRED|NJ_ACCOUNT_INACTIVE/.test(String((e && (e.message||e.details)) || e || '')); }
+function _msUserErr(e){
+  const m = String((e && (e.message||e.details)) || e || '');
+  if(_msIsSessionErr(e)){ setTimeout(()=>{ doLogout(); authAlert('เซสชันหมดอายุหรือถูกยกเลิก กรุณาเข้าสู่ระบบใหม่','error'); }, 0); return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'; }
+  if(/NJ_FORBIDDEN_SUPER_ADMIN/.test(m)) return 'เฉพาะ SUPER ADMIN เท่านั้นที่จัดการบัญชี SUPER ADMIN ได้';
+  if(/NJ_FORBIDDEN_SELF_ROLE/.test(m)) return 'เปลี่ยนบทบาท/สถานะของตัวเองไม่ได้';
+  if(/NJ_FORBIDDEN_SELF_DELETE/.test(m)) return 'ลบบัญชีตัวเองไม่ได้';
+  if(/NJ_FORBIDDEN/.test(m)) return 'ไม่มีสิทธิ์ดำเนินการ';
+  if(/NJ_USERNAME_EXISTS/.test(m)) return 'Username นี้มีคนใช้แล้ว';
+  if(/NJ_INVALID_USERNAME/.test(m)) return 'Username ไม่ถูกต้อง (2-60 ตัว ไม่มีช่องว่าง)';
+  if(/NJ_PASSWORD_TOO_SHORT/.test(m)) return 'รหัสผ่านอย่างน้อย 6 ตัวอักษร';
+  if(/NJ_USER_IN_USE/.test(m)) return 'ลบไม่ได้ — ผู้ใช้นี้มีงาน/ประวัติผูกอยู่ (ให้ระงับบัญชีแทน)';
+  if(/NJ_USER_NOT_FOUND/.test(m)) return 'ไม่พบผู้ใช้';
+  return m || 'เกิดข้อผิดพลาด';
+}
+async function _msUserRows(){
+  const { data, error } = await sb.rpc('massenger_user_list', { p_token:_msTok() });
+  if(error){ _msUserErr(error); throw error; }
+  return Array.isArray(data) ? data : [];
+}
 const DOC_TABLE = 'sfz_documents';
 const LOG_TABLE = 'sfz_document_logs';
 const STORAGE_BUCKET = 'shipping-fz-attachments';   // bucket แยกของ SHIPPING FZ · PRIVATE + Signed URL
@@ -1195,7 +1217,7 @@ function _sfzShowHealth(rows){
     ['Table เอกสาร', 'public.'+DOC_TABLE],
     ['Table timeline', 'public.'+LOG_TABLE],
     ['Storage bucket', STORAGE_BUCKET],
-    ['RPC login', 'login_plain(p_username, p_password, p_app_code)'],
+    ['RPC login', 'massenger_login(p_username, p_password, p_client) → session token'],
     ['app_code ที่ส่งตอน login', LOGIN_APP_CODE],
     ['app_code ของงาน', WORK_APP_CODE],
     ['Error', _err || '-']
@@ -1543,24 +1565,25 @@ async function doLogin(){
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> กำลังเข้าสู่ระบบ...';
   try{
     if(SFZ_IS_FILE) throw new Error('เปิดไฟล์ผิดวิธี กรุณาปิดหน้านี้แล้วเปิด SHIPPING FZ.exe');
-    const { data:result, error } = await sb.rpc('login_plain', { p_username:u, p_password:p, p_app_code:LOGIN_APP_CODE });
+    const { data:result, error } = await sb.rpc('massenger_login', { p_username:u, p_password:p, p_client:'shippingfz' });
     const code = error?.code || '';
     if(error?.status===404 || code==='PGRST202' || code==='42883')
-      throw new Error('ไม่พบ RPC login_plain บนเซิร์ฟเวอร์');
+      throw new Error('ไม่พบ RPC massenger_login บนเซิร์ฟเวอร์ (RUN-07)');
     if(error) throw new Error(error.message || 'เข้าสู่ระบบไม่สำเร็จ');
     if(!result || !result.success){
       const k = result?.error || 'unknown';
-      throw new Error((k==='username_not_found'||k==='password_mismatch') ? 'Username หรือ Password ไม่ถูกต้อง' : 'เข้าสู่ระบบไม่สำเร็จ');
+      if(k==='account_pending') throw new Error('บัญชีนี้รอ Admin อนุมัติ');
+      if(k==='account_disabled'||k==='account_inactive'||k==='account_suspended') throw new Error('บัญชีนี้ถูกระงับการใช้งาน');
+      if(k==='locked') throw new Error('ใส่รหัสผิดหลายครั้ง ระบบระงับการเข้าสู่ระบบชั่วคราว 15 นาที');
+      throw new Error(k==='invalid_credentials' ? 'Username หรือ Password ไม่ถูกต้อง' : 'เข้าสู่ระบบไม่สำเร็จ');
     }
     const info = result.user;
-    if(info.status==='pending') throw new Error('บัญชีนี้รอ Admin อนุมัติ');
-    if(info.status==='disabled') throw new Error('บัญชีนี้ถูกระงับการใช้งาน');
     S.user = info;
+    S.sessionToken = result.token;
     try{ localStorage.setItem(SESSION_KEY, JSON.stringify({
-      id:info.id, username:info.username, full_name:info.full_name, role:info.role,
-      department:info.department, email:info.email, app_code:info.app_code,
-      expiresAt: Date.now()+30*24*60*60*1000
-    })); }catch(_){}
+      token: result.token, expiresAt: new Date(result.expires_at).getTime() || (Date.now()+30*24*60*60*1000)
+    })); localStorage.removeItem(OLD_SESSION_KEY); }catch(_){}
+    _msWatchSession();
     $('lg-username').value=''; $('lg-password').value='';
     authAlert('');
     await enterApp();
@@ -1572,17 +1595,20 @@ async function doLogin(){
 }
 function loadSession(){
   try{
+    if(localStorage.getItem(OLD_SESSION_KEY)){ localStorage.removeItem(OLD_SESSION_KEY); S._msRelogin = true; }
     const raw = localStorage.getItem(SESSION_KEY); if(!raw) return null;
     const s = JSON.parse(raw);
-    if(!s || !s.id) return null;
+    if(!s || !s.token) return null;
     if(s.expiresAt && Date.now() > s.expiresAt){ localStorage.removeItem(SESSION_KEY); return null; }
     return s;
   }catch(_){ return null; }
 }
 function doLogout(){
   if(S._rt){ try{ sb.removeChannel(S._rt); }catch(_){} S._rt=null; }
-  try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
-  S.user=null; S.docs=[]; S.loaded=false;
+  const _lt = _msTok();
+  if(_lt){ try{ sb.rpc('massenger_logout', { p_token:_lt }).then(()=>{},()=>{}); }catch(_){} }
+  try{ localStorage.removeItem(SESSION_KEY); localStorage.removeItem(OLD_SESSION_KEY); }catch(_){}
+  S.user=null; S.sessionToken=null; S.docs=[]; S.loaded=false;
   showScreen('screen-auth'); refreshIcons();
 }
 
@@ -2666,7 +2692,7 @@ let _shipNamesCache=null;
 async function _shipNames(){   // Set ชื่อ (full_name/username/display_user) ของ user SHIPPING · ดึงเฉพาะฟิลด์จำเป็น (ไม่ดึงรหัสผ่าน) · cache ต่อ session
   if(_shipNamesCache) return _shipNamesCache;
   let src = (S.users&&S.users.length) ? S.users : null;
-  if(!src){ try{ const { data } = await sb.from('users').select('username,full_name,display_user,department,role').eq('app_code',LOGIN_APP_CODE); src=data||[]; }catch(e){ console.warn('[shipNames]', e); src=[]; } }
+  if(!src){ try{ src = await _msUserRows(); }catch(e){ console.warn('[shipNames]', e); src=[]; } }
   const s=new Set();
   src.forEach(u=>{ if(_userIsShipping(u)){ [u.full_name,u.username,u.display_user].forEach(n=>{ const t=String(n||'').trim(); if(t) s.add(t); }); } });
   _shipNamesCache=s; return s;
@@ -2676,7 +2702,7 @@ let _shipSetsCache=null;
 async function _shipSets(){
   if(_shipSetsCache) return _shipSetsCache;
   let src = (S.users&&S.users.length) ? S.users : null;
-  if(!src){ try{ const { data } = await sb.from('users').select('id,username,full_name,display_user,department,role').eq('app_code',LOGIN_APP_CODE); src=data||[]; }catch(e){ console.warn('[shipSets]', e); src=[]; } }
+  if(!src){ try{ src = await _msUserRows(); }catch(e){ console.warn('[shipSets]', e); src=[]; } }
   const ids=new Set(), names=new Set();
   const isShip=u=>{ if(!u) return false; const r=String(u.role||'').toUpperCase().trim(), d=String(u.department||'').toUpperCase().trim(); if(r==='ADMIN'||r==='ADMIN_MID'||r==='SUPER_ADMIN') return false; return r.includes('SHIPPING')||d.includes('SHIPPING'); };
   (src||[]).forEach(u=>{ if(isShip(u)){ if(u.id!=null) ids.add(String(u.id)); [u.full_name,u.username,u.display_user].forEach(n=>{ const t=String(n||'').trim(); if(t) names.add(t); }); } });
@@ -4867,8 +4893,8 @@ function renderGraph(){
 }
 
 /* ---------------- users view (จัดการผู้ใช้งาน) ---------------- */
-const USER_COLS = 'id,username,full_name,display_user,email,department,role,status,avatar_color,password_display,terminals,online,last_seen,created_at,app_code';
-const USER_COLS_FALLBACK = 'id,username,full_name,display_user,email,department,role,status,avatar_color,password_display,online,last_seen,created_at,app_code';
+const USER_COLS = 'id,username,full_name,display_user,email,department,role,status,avatar_color,terminals,online,last_seen,created_at,app_code';
+const USER_COLS_FALLBACK = 'id,username,full_name,display_user,email,department,role,status,avatar_color,online,last_seen,created_at,app_code';
 const USER_DEPARTMENTS = ['SHIPPING','MASSERGER','OFFICE','ADMIN','ACCOUNT'];
 const USER_ROLES = ['STAFF','MESSENGER','SHIPPING','ADMIN','SUPER_ADMIN'];
 
@@ -4883,12 +4909,7 @@ function _userTerminals(u){ return u?_splitTerminals(u.terminals):[]; }
 function _userIsShipping(u){ return u && (String(u.department||'').toUpperCase()==='SHIPPING' || String(u.role||'').toUpperCase()==='SHIPPING'); }
 
 async function loadUsersData(){
-  let data=null, error=null;
-  ({ data, error } = await sb.from('users').select(USER_COLS).eq('app_code', LOGIN_APP_CODE).order('created_at',{ascending:false}));
-  if(error){ // คอลัมน์ terminals อาจยังไม่มี → fallback
-    ({ data, error } = await sb.from('users').select(USER_COLS_FALLBACK).eq('app_code', LOGIN_APP_CODE).order('created_at',{ascending:false}));
-    if(error) throw error;
-  }
+  const data = await _msUserRows();   // 🔐 RPC ตรวจ session ฝั่ง Server · ไม่มีรหัสผ่านในผลลัพธ์
   S.users = data || [];
   return S.users;
 }
@@ -4937,10 +4958,7 @@ function userRow(u){
   const role = String(u.role||'STAFF').toUpperCase();
   const status = String(u.status||'active').toLowerCase();
   const terms = _userTerminals(u);
-  const pwCell = sup
-    ? `<span class="pw-cell"><span id="pw-${u.id}" class="pw-mask" style="color:var(--text)">••••••••</span>
-       <button class="btn btn-sm btn-ghost btn-icon" title="ดูรหัสผ่าน" onclick="revealPassword('${u.id}')"><i data-lucide="eye"></i></button></span>`
-    : `<span class="pw-mask">••••••••</span>`;
+  const pwCell = `<span class="pw-mask" title="เก็บแบบเข้ารหัส · ตั้งรหัสใหม่ได้ที่ แก้ไข">••••••••</span>`; void sup;
   const termCell = terms.length
     ? `<span class="u-terms">${esc(terms.join(', '))}</span>`
     : (_userIsShipping(u) ? '<span class="u-terms none">— ยังไม่กำหนด</span>' : '<span class="u-terms">—</span>');
@@ -4964,10 +4982,7 @@ function userRow(u){
 
 function revealPassword(id){
   if(!isSuper()){ toast('เฉพาะ SUPER ADMIN เท่านั้น','error'); return; }
-  const u = (S.users||[]).find(x=>x.id===id);
-  const pw = (u && u.password_display) ? u.password_display : '(ไม่มีข้อมูลรหัสผ่าน)';
-  const el = $('pw-'+id);
-  if(el){ el.textContent = pw; el.style.color = '#F59E0B'; el.style.letterSpacing='.5px'; }
+  void id; toast('รหัสผ่านถูกเก็บแบบเข้ารหัส (hash) ดูย้อนหลังไม่ได้ — ใช้ แก้ไข → ตั้งรหัสใหม่','info');
 }
 
 /* 🔒 READ-ONLY: SHIPPING FZ ไม่อนุมัติบัญชีในตาราง users เดิม (ลบ query ออกจากไฟล์แล้ว) */
@@ -4976,11 +4991,8 @@ async function approveUser(id){
   if(_userBusy.has(id)) return;
   _userBusy.add(id);
   try{
-    const { error } = await sb.rpc('sfz_admin_update_user', {
-      p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
-      p_user_id: String(id), p_status: 'active'
-    });
-    if(error) throw error;
+    const { error } = await sb.rpc('massenger_user_save', { p_token:_msTok(), p_user_id:String(id), p_data:{ status:'active' } });
+    if(error) throw new Error(_msUserErr(error));
     toast('อนุมัติบัญชีแล้ว','success');
     await loadUsersData(); renderUsers();
   }catch(e){ toast(_userRpcMsg(e),'error'); }
@@ -5097,23 +5109,17 @@ async function saveUser(editId){
   const btn=$('u-save'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...'; }
   try{
     if(editId){
-      const { error } = await sb.rpc('sfz_admin_update_user', {
-        p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
-        p_user_id: String(editId), p_full_name: full_name, p_department: department,
-        p_role: role, p_status: status, p_password: password || null,
-        p_terminals: terminals, p_set_terminals: true
-      });
-      if(error) throw error;
+      const _patch = { full_name, display_user: full_name, department, role, status, terminals };
+      if(password) _patch.password = password;
+      const { error } = await sb.rpc('massenger_user_save', { p_token:_msTok(), p_user_id:String(editId), p_data:_patch });
+      if(error) throw new Error(_msUserErr(error));
       toast('บันทึกการแก้ไขแล้ว','success');
     }else{
       const colors=['#0EA672','#3B82F6','#A855F7','#F59E0B','#EF4444','#14B8A6','#F97316'];
-      const { error } = await sb.rpc('sfz_admin_create_user', {
-        p_actor_id: String((S.user&&S.user.id)||''), p_app_code: LOGIN_APP_CODE,
-        p_username: username, p_password: password, p_full_name: full_name,
-        p_department: department, p_role: role, p_status: status,
-        p_terminals: terminals, p_avatar: colors[Math.floor(Math.random()*colors.length)]
-      });
-      if(error) throw error;
+      const { error } = await sb.rpc('massenger_user_save', { p_token:_msTok(), p_user_id:null, p_data:{
+        username, password, full_name, display_user: full_name, department, role, status, terminals,
+        avatar_color: colors[Math.floor(Math.random()*colors.length)] } });
+      if(error) throw new Error(_msUserErr(error));
       toast('เพิ่มผู้ใช้สำเร็จ','success');
     }
     closeModal('modal-form');
@@ -5168,14 +5174,36 @@ async function boot(){
 async function _sfzAfterHealth(){
   _sfzHideHealth();
   const sess = loadSession();
-  if(sess && sess.id){
-    S.user = sess;
+  let _me = null;
+  if(sess && sess.token){
+    S.sessionToken = sess.token;
+    try{
+      const { data, error } = await sb.rpc('massenger_session_me', { p_token: sess.token });
+      if(error) throw error;
+      _me = data && data.user;
+    }catch(e){ console.warn('[session]', e && (e.message||e)); if(!_msIsSessionErr(e)) S._msNetErr = true; }
+    if(!_me || _me.status!=='active'){ if(!S._msNetErr){ try{ localStorage.removeItem(SESSION_KEY); }catch(_){} } S.sessionToken=null; _me=null; }
+  }
+  if(_me){
+    S.user = _me;
     try{ await enterApp(); }
     catch(e){ console.error(e); showScreen('screen-auth'); }
+    _msWatchSession();
   }else{
     showScreen('screen-auth');
+    if(S._msRelogin){ S._msRelogin=false; authAlert('ระบบปรับปรุงความปลอดภัย กรุณาเข้าสู่ระบบใหม่ 1 ครั้ง','info'); }
+    else if(S._msNetErr){ S._msNetErr=false; authAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณารีเฟรชหน้าอีกครั้ง','error'); }
   }
   refreshIcons();
+}
+// 🔐 ตรวจ session ฝั่ง Server เป็นระยะ (ถูกยกเลิก/ระงับ/หมดอายุ → ออกจากระบบ)
+let _msWatchTimer = null;
+function _msWatchSession(){
+  if(_msWatchTimer) return;
+  _msWatchTimer = setInterval(async ()=>{
+    if(!S.user || !_msTok() || document.hidden) return;
+    try{ const { error } = await sb.rpc('massenger_session_me', { p_token:_msTok() }); if(error && _msIsSessionErr(error)) _msUserErr(error); }catch(_){}
+  }, 5*60*1000);
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
