@@ -15,7 +15,7 @@
   const stOpts = (sel, list) => (list || T.STATUS).map((s) => `<option value="${s}" ${s === sel ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('');
 
   const NAV = [
-    ['jobs', '🚚', 'งานขนส่ง'], ['mileage', '⛽', 'ไมล์รถ / น้ำมัน'], ['map', '🗺️', 'แผนที่ GPS'],
+    ['jobs', '🚚', 'งานขนส่ง'], ['map', '🗺️', 'แผนที่ GPS'],
   ];
   const CARDS = [
     ['total', 'งานทั้งหมดวันนี้', '📋', null], ['waiting', 'รอรับ', '🕒', ['NEW', 'ASSIGNED']], ['going_pickup', 'กำลังไปรับตู้', '🚚', ['ACCEPTED', 'GOING_TO_PICKUP', 'ARRIVED_PICKUP']],
@@ -43,7 +43,7 @@
       let wasNarrow = isNarrow(); window.addEventListener('resize', T.debounce(() => { if (isNarrow() !== wasNarrow && $('#officeShell')) { wasNarrow = isNarrow(); T.render(); } }, 250)); // หมุนจอ / ข้ามขนาด Mobile ↔ Desktop
       T.subscribe('tnj:office', (p, ev) => { if (ev === 'problem') { T.toast(`⚠ แจ้งปัญหา ${p.job_no || ''}: ${p.type || ''}`, 'err', 8000); refreshBell(); } if (ev === 'version') T.checkVersion(true); });
     }
-    $$('#nav a').forEach((a) => a.classList.toggle('active', r.path === a.dataset.nav || r.path.startsWith(a.dataset.nav + '/')));
+    $$('#nav a').forEach((a) => a.classList.toggle('active', r.path === a.dataset.nav || r.path.startsWith(a.dataset.nav + '/') || (a.dataset.nav === 'jobs' && r.path === 'mileage')));
     const mk = r.path === 'jobs/new' ? 'new' : r.path.startsWith('m-tl') ? 'tl' : r.path === 'm-gps' ? 'gps' : r.path === 'm-acc' ? 'acc' : '';
     $$('#mNav a').forEach((a) => a.classList.toggle('active', a.dataset.m === mk)); const mt = $('#mTitle'); if (mt) mt.textContent = { new: 'เปิดงานใหม่', tl: 'Timeline', gps: 'สถานะ GPS', acc: 'ข้อมูล' }[mk] || '';
     const rt = T._rt['tnj:office']; const rs = $('#rtState'); if (rs) rs.style.color = rt && rt.state === 'SUBSCRIBED' ? '#4ADE80' : '#F59E0B';
@@ -375,7 +375,7 @@
     await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1); const hl = q.hl || ''; let hlDone = false; const PS = 50;
     const F = { job_no: '', job_date: q.date || '', customer: q.customer || '', bl: '', container: '', sched: '', driver: '', st: q.status || '' };
     let all = [], mode = null;
-    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button></div><div class="flex"><h1>🚚 งานขนส่ง</h1></div></div>
+    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><a class="btn btn-p" href="#/jobs/new" id="jNew">+ เปิดงาน</a><button class="btn btn-g" id="jXls">📊 EXPORT EXCEL</button><button class="btn btn-navy" id="jRep">📈 รายงาน</button><a class="btn" href="#/mileage" id="jFuelRep">⛽ รายงานไมล์ / น้ำมัน</a></div><div class="flex"><h1>🚚 งานขนส่ง</h1></div></div>
       <div class="card"><div id="jList"></div><div class="pager" id="jPager"></div></div>`;
     const filtered = () => all.filter((j) => jfMatch(j, F));
     const frame = () => {
@@ -522,7 +522,7 @@
         ${canEdit && !['COMPLETED', 'CANCELLED'].includes(job.status) ? '<button class="btn btn-r" data-act="cancel">ยกเลิกงาน</button>' : ''}</div></div>
       ${job.status === 'CANCELLED' ? `<div class="alert err">ยกเลิกงาน: ${h(job.cancel_reason || '')} (${T.fmtDT(job.cancelled_at)})</div>` : ''}
       ${job.incomplete_flag ? '<div class="alert warn">⚠ งานจบแล้ว แต่ยังไม่ได้บันทึกไมล์หลัง</div>' : ''}
-      <div class="tabs" id="jdTabs">${[['info', 'A. ข้อมูลงาน'], ['gps', 'B. Live GPS'], ['timeline', `C. Timeline (${job.timeline.length})`], ['docs', `D. เอกสาร (${job.files.length})`], ['fuel', 'E. ไมล์ / น้ำมัน'], ['audit', 'ประวัติแก้ไข']].map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? 'active' : ''}">${l}</button>`).join('')}</div><div id="jdBody"></div>`;
+      <div class="tabs" id="jdTabs">${[['info', 'รายละเอียดงาน'], ['timeline', `ไทม์ไลน์ (${job.timeline.length})`], ['docs', `เอกสาร (${job.files.length})`], ['fuel', '⛽ ไมล์รถ / น้ำมัน'], ['gps', 'Live GPS'], ['audit', 'ประวัติแก้ไข']].map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? 'active' : ''}">${l}</button>`).join('')}</div><div id="jdBody"></div>`;
     const reload = () => renderJobDetail(root, id, Object.assign({}, opt, { tab }));
     const body = $('#jdBody', root);
     const draw = async () => {
@@ -550,12 +550,19 @@
         T.bindFileRows(body, job.files, reload);
         $$('#dfTypes .chip', body).forEach((c) => c.onclick = () => { $$('#dfTypes .chip', body).forEach((x) => x.classList.toggle('active', x === c)); const t = c.dataset.t; $$('.filebox', body).forEach((row) => { const f = job.files.find((x) => x.id === row.dataset.fid); row.classList.toggle('hidden', !!t && f.file_type !== t); }); });
       } else if (tab === 'fuel') {
-        body.innerHTML = `<div class="grid g2"><div class="card card-b"><div class="flex between mb1"><h3>ไมล์ / ระยะทาง</h3>${admin ? '<button class="btn btn-sm" id="meEdit">✏️ แก้ไข (ADMIN)</button>' : ''}</div>
+        const mlOpen = !['NEW', 'ASSIGNED', 'COMPLETED', 'CANCELLED'].includes(job.status);
+        const mlBtns = !canEdit || job.status === 'CANCELLED' ? '' : m.start_mileage == null ? (mlOpen ? '<button class="btn btn-sm btn-p" id="mlStart">+ บันทึกไมล์เริ่มงาน</button>' : '<span class="xs muted" id="mlHint">บันทึกไมล์เริ่มงานได้หลังคนขับรับงาน</span>') : m.end_mileage == null ? '<button class="btn btn-sm btn-p" id="mlEnd">+ บันทึกไมล์จบงาน</button>' : '';
+        body.innerHTML = `<div class="card card-b mb2 fj-veh" id="fjVeh"><div class="kv"><div class="k">JOB</div><div class="v b">${h(job.job_no)}</div><div class="k">ทะเบียนหัว</div><div class="v">${h(job.license_plate || '-')}</div><div class="k">ทะเบียนหาง</div><div class="v">${h(job.trailer_plate || '-')}</div><div class="k">คนขับ</div><div class="v">${h(job.driver_name || '-')}</div></div><div class="xs muted mt1">รถ / คนขับ อ้างอิงจาก JOB นี้อัตโนมัติ</div></div>
+          <div class="grid g2"><div class="card card-b"><div class="flex between mb1"><h3>ไมล์ / ระยะทาง</h3><div class="flex">${mlBtns}${admin ? '<button class="btn btn-sm" id="meEdit">✏️ แก้ไข (ADMIN)</button>' : ''}</div></div>
           ${m.warning_note ? `<div class="alert warn">${h(m.warning_note)}</div>` : ''}<div class="kv"><div class="k">สถานะไมล์</div><div class="v">${h(job.mileage_status)}</div><div class="k">ไมล์ก่อน</div><div class="v">${T.num(m.start_mileage)} กม. <span class="muted xs">${m.start_at ? T.fmtDT(m.start_at) : ''}</span></div><div class="k">ไมล์หลัง</div><div class="v">${T.num(m.end_mileage)} กม. <span class="muted xs">${m.end_at ? T.fmtDT(m.end_at) : ''}</span></div><div class="k">ระยะทาง</div><div class="v b" style="font-size:18px">${T.num(m.total_distance)} กม.</div><div class="k">น้ำมันรวม</div><div class="v">${T.num(job.fuel_liters, 2)} ลิตร</div><div class="k">ค่าน้ำมันรวม</div><div class="v">${T.num(job.fuel_amount, 2)} บาท</div><div class="k">กม./ลิตร</div><div class="v b" style="font-size:18px">${T.kml(job.km_per_liter)}</div></div>
           <div class="mt1 flex flex-wrap">${[m.start_mileage_image, m.end_mileage_image].map((fid, i) => { const f = job.files.find((x) => x.id === fid); return f ? `<button class="btn btn-sm" data-img="${f.id}">🖼 รูปไมล์${i ? 'หลัง' : 'ก่อน'}</button>` : ''; }).join('')}</div></div>
-          <div class="card card-b"><div class="flex between mb1"><h3>น้ำมัน (${job.fuel.length})</h3>${canEdit && job.status !== 'CANCELLED' ? '<button class="btn btn-sm btn-p" id="fuAdd">+ เพิ่มรายการ</button>' : ''}</div>
+          <div class="card card-b"><div class="flex between mb1"><h3>น้ำมัน (${job.fuel.length})</h3>${canEdit && job.status !== 'CANCELLED' ? '<button class="btn btn-sm btn-p" id="fuAdd">+ เพิ่มรายการเติมน้ำมัน</button>' : ''}</div>
           <div class="tbl-wrap"><table class="tbl"><thead><tr><th>วันเวลา</th><th>ปั๊ม</th><th>ไมล์</th><th class="r">ลิตร</th><th class="r">บาท/ลิตร</th><th class="r">รวม</th><th>ใบเสร็จ</th><th></th></tr></thead><tbody>${job.fuel.map((f) => `<tr><td class="nowrap">${T.fmtDT(f.fuel_date)}</td><td>${h(f.fuel_station || '-')}<div class="xs muted">${h(f.fuel_type || '')}</div></td><td>${T.num(f.mileage)}</td><td class="r">${T.num(f.liters, 2)}</td><td class="r">${T.num(f.price_per_liter, 2)}</td><td class="r b">${T.num(f.total_amount, 2)}</td><td>${h(f.receipt_no || '-')} ${f.receipt_file ? `<button class="btn btn-sm" data-img="${f.receipt_file}">🧾</button>` : ''}</td><td class="nowrap">${admin || (canEdit && job.status !== 'COMPLETED') ? `<button class="btn btn-sm" data-fe="${f.id}">✏️</button> <button class="btn btn-sm btn-r" data-fd="${f.id}">🗑</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">ยังไม่มีรายการน้ำมัน</td></tr>'}</tbody>${job.fuel.length ? `<tfoot><tr><td colspan="3">รวม</td><td class="r">${T.num(job.fuel_liters, 2)}</td><td></td><td class="r">${T.num(job.fuel_amount, 2)}</td><td colspan="2"></td></tr></tfoot>` : ''}</table></div></div></div>`;
         const me = $('#meEdit', body); if (me) me.onclick = () => mileageEditDialog(job, reload);
+        ['mlStart', 'mlEnd'].forEach((bid) => { const b = $('#' + bid, body); if (!b) return; const isStart = bid === 'mlStart';
+          b.onclick = async () => { const v = await T.prompt(isStart ? 'บันทึกไมล์เริ่มงาน' : 'บันทึกไมล์จบงาน', `เลขไมล์ (กม.)${isStart ? '' : ' — ไมล์เริ่ม ' + T.num(m.start_mileage)}`); if (v == null) return; const n = Number(String(v).replace(/,/g, ''));
+            if (!String(v).trim() || !isFinite(n) || n < 0) return T.toast('กรุณากรอกเลขไมล์เป็นตัวเลข', 'warn'); if (!isStart && n < Number(m.start_mileage)) return T.toast('ไมล์จบงานต้องมากกว่าหรือเท่ากับไมล์เริ่มงาน', 'err');
+            try { T.loading(true); const r = await T.auth(isStart ? 'tnj_mileage_start' : 'tnj_mileage_end', { p_job_id: job.id, p_mileage: n, p_image_id: null, p_lat: null, p_lng: null }, { silent: true }); if (r && r.warning) T.toast(r.warning_note, 'warn', 7000); else T.toast(isStart ? 'บันทึกไมล์เริ่มงานแล้ว' : 'บันทึกไมล์จบงานแล้ว', 'ok'); reload(); } catch (e) { T.err(e); } finally { T.loading(false); } }; });
         const fa = $('#fuAdd', body); if (fa) fa.onclick = () => fuelDialog(job, null, reload);
         $$('[data-fe]', body).forEach((b) => b.onclick = () => fuelDialog(job, job.fuel.find((x) => x.id === b.dataset.fe), reload));
         $$('[data-fd]', body).forEach((b) => b.onclick = async () => { const r = await T.prompt('ลบรายการน้ำมัน', 'เหตุผล'); if (!r) return; try { await T.auth('tnj_fuel_delete', { p_fuel_id: b.dataset.fd, p_reason: r }); T.toast('ลบแล้ว', 'ok'); reload(); } catch (e) { T.err(e); } });
@@ -752,12 +759,16 @@
     return [v, t === 'n' && v != null ? flFmt(v, d) : null].some((x) => x != null && String(x).toLowerCase().includes(q));
   });
   async function pageFuel(page) {
-    const canAdd = T.canEdit(), canDel = T.isAdmin(); const PAGE_SIZE = 20;
+    // รายงานไมล์ / น้ำมัน: ดู / ค้นหา / Filter / Export / วิเคราะห์ เท่านั้น — ไม่มีปุ่มเปิด/แก้/ลบรายการ (บันทึกใหม่ทำใน JOB → แท็บ ⛽ ไมล์รถ / น้ำมัน)
+    const canAdd = false, canDel = false; const PAGE_SIZE = 20;
     const F = {}; FL_COLS.forEach(([k]) => { F[k] = ''; }); let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [];
     let chartInst = null, chartDir = 'x', chartMonthly = false, chartOpen = false;
     const STATS = [['fl_s_cpk', 'ต้นทุนเฉลี่ย', 'บาท / กม.', ''], ['fl_s_ppl', 'ราคาน้ำมันเฉลี่ย', 'บาท / ลิตร', ''], ['fl_s_kpl', 'เฉลี่ย กม./ลิตร', 'เกณฑ์ขั้นต่ำ 3.00', 'fl_sc_kpl_avg'], ['fl_s_below', 'ต่ำกว่าเกณฑ์', 'รายการ < 3.00', 'fl_sc_below'],
       ['fl_s_riskplate', 'ทะเบียนเสี่ยง', 'คันที่เฉลี่ย < 3.00', 'fl_sc_riskplate'], ['fl_s_dist', 'ระยะทางรวม', 'กิโลเมตร', ''], ['fl_s_lt', 'ลิตรรวม', 'ลิตร', ''], ['fl_s_tc', 'ค่าใช้จ่ายรวม', 'บาท', '']];
-    page.innerHTML = `<div class="page-head"><h1>⛽ ไมล์รถ / น้ำมัน</h1><div class="flex flex-wrap" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างการค้นหา</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div></div>
+    page.innerHTML = `<div class="page-head"><h1>⛽ รายงานไมล์ / น้ำมัน</h1><a class="btn" href="#/jobs">‹ งานขนส่ง</a></div>
+      <div class="card mb2" id="fjCard"><div class="card-h"><h3>ส่วนที่ 1 · ไมล์ / น้ำมัน จาก JOB <span class="muted small" id="fjCount"></span></h3><div class="flex flex-wrap"><input type="date" class="inp" id="fjFrom" style="width:auto"><input type="date" class="inp" id="fjTo" style="width:auto"><input class="inp" id="fjQ" placeholder="ค้นหา JOB / B/L / ทะเบียน / คนขับ" style="width:220px"><button class="btn btn-g" id="fjXls">📊 Excel</button></div></div>
+        <div class="tbl-wrap"><table class="tbl" id="fjTbl"><thead><tr><th>วันที่</th><th>JOB</th><th>B/L</th><th>ทะเบียน</th><th>คนขับ</th><th class="r">ไมล์เริ่ม</th><th class="r">ไมล์จบ</th><th class="r">ระยะทาง</th><th class="r">ลิตร</th><th class="r">ค่าน้ำมัน</th><th class="r">กม./ลิตร</th><th>สถานะไมล์</th><th></th></tr></thead><tbody id="fjBody"><tr><td colspan="13" class="empty">กำลังโหลด...</td></tr></tbody></table></div></div>
+      <div class="page-head fl-legacy-h"><h2>ส่วนที่ 2 · ข้อมูลระบบเดิม (fuel_logs) <span class="badge gray">ดูอย่างเดียว · ไม่มี JOB ต้นทาง</span></h2><div class="flex flex-wrap" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างการค้นหา</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div></div>
       <div class="fl-stats">${STATS.map(([id, l, u, cid]) => `<div class="stat fl-stat"${cid ? ` id="${cid}"` : ''}><div class="l">${l}</div><div class="v" id="${id}">-</div><div class="xs muted">${u}</div></div>`).join('')}</div>
       <div class="card card-b mb2 hidden" id="flChartBox"><div class="flex flex-wrap between mb1"><div class="flex flex-wrap"><select class="inp" id="flMetric" style="width:auto">${Object.entries(FL_MNAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
           <button class="chip active" id="flVert">▐ แนวตั้ง</button><button class="chip" id="flHorz">━ แนวนอน</button><button class="chip active" id="flByPlate">🚛 ตามทะเบียน</button><button class="chip" id="flByMonth">📅 รายเดือน</button></div><button class="btn btn-sm" id="flSave">⬇ บันทึกกราฟ</button></div>
@@ -780,12 +791,12 @@
     // ---- table ----
     const frame = () => {
       // หน้ารายงาน: Header + ข้อมูลจริง (ไม่มีแถวช่องค้นหาใต้หัวตาราง)
-      $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl fl-tbl"><thead><tr>${FL_COLS.map(([, l, t]) => `<th${t === 'n' ? ' class="r"' : ''}>${l}</th>`).join('')}<th>จัดการ</th></tr></thead><tbody id="flBody"></tbody></table></div>`;
+      $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl fl-tbl"><thead><tr>${FL_COLS.map(([, l, t]) => `<th${t === 'n' ? ' class="r"' : ''}>${l}</th>`).join('')}<th>JOB ต้นทาง</th></tr></thead><tbody id="flBody"></tbody></table></div>`;
     };
     const rowHtml = (r) => { const s = flKplStatus(r.km_per_liter); return `<tr data-fid="${r.id}"><td class="nowrap">${h(r.fuel_date)}</td><td><span class="badge blue">${h(r.plate_no)}</span></td><td class="nowrap">${h(r.driver_name)}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td><td>${h(r.job_bl || '—')}</td>
       <td class="r">${flFmt(r.mileage_before, 0)}</td><td class="r">${flFmt(r.mileage_after, 0)}</td><td class="r b" style="color:var(--navy)">${flFmt(r.distance_km)}</td><td class="r">${flFmt(r.liters)}</td><td class="r">${flFmt(r.price_per_liter)}</td><td class="r b" style="color:var(--green)">${flFmt(r.total_cost, 0)}</td>
       <td class="r" style="${Number(r.km_per_liter) < FL_MIN_KPL ? 'color:var(--red);font-weight:700' : ''}">${flFmt(r.km_per_liter)}</td><td class="r">${flFmt(r.cost_per_km)}</td><td>${h(r.note || '—')}</td>
-      <td class="nowrap"><span class="badge ${s.ok === true ? 'green' : s.ok === false ? 'red' : 'gray'}">${s.icon} ${s.text}</span></td><td class="nowrap">${canAdd ? `<button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}</td></tr>`; };
+      <td class="nowrap"><span class="badge ${s.ok === true ? 'green' : s.ok === false ? 'red' : 'gray'}">${s.icon} ${s.text}</span></td><td class="nowrap">${!canAdd && !canDel ? '<span class="xs muted">ระบบเดิม · ไม่มี JOB</span>' : ''}${canAdd ? `<button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}</td></tr>`; };
     const renderTable = () => {
       if (!$('#flBody')) return; const pages = Math.max(1, Math.ceil(RECS.length / PAGE_SIZE)); pageNo = Math.min(Math.max(1, pageNo), pages);
       $('#flCount').textContent = `(${RECS.length} รายการ)`;
@@ -920,6 +931,17 @@
       const ws2 = X.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]); ws2['!cols'] = [10, 14, 11, 18, 11, 18, 14, 13, 18, 13, 11, 11, 13, 16, 18, 11, 18].map((w) => ({ wch: w })); applyStyles(ws2); X.utils.book_append_sheet(wb, ws2, 'Summary');
       X.writeFile(wb, `NJ_Fuel_Report_${flBkkToday()}.xlsx`); T.toast('Export Excel สำเร็จ ✓', 'ok');
     };
+    // ---- ส่วนที่ 1: จาก JOB (tnj_mileage_table เดิม — v_transport_job_report) · ทุกแถวกดกลับ JOB ต้นทาง ----
+    let FJ = [];
+    const fjLoad = async () => { const p = { page_size: 500, date_from: $('#fjFrom').value || null, date_to: $('#fjTo').value || null, q: $('#fjQ').value.trim() || null }; let rows = [], pg = 1, total = 0;
+      try { do { const d = await T.auth('tnj_mileage_table', { p: Object.assign({ page: pg }, p) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 20); } catch (e) { if ($('#fjBody')) $('#fjBody').innerHTML = `<tr><td colspan="13" class="empty">${h(T.parseErr(e).text)}</td></tr>`; return; }
+      if (!$('#fjBody')) return; FJ = rows; $('#fjCount').textContent = `(${rows.length} JOB)`;
+      $('#fjBody').innerHTML = rows.map((r) => `<tr data-job="${r.job_id}"><td class="nowrap">${hlDMY(r.job_date)}</td><td><a href="#/jobs/${r.job_id}?tab=fuel" class="b">${h(r.job_no)}</a></td><td>${h(r.bl_no || '-')}</td><td><span class="badge blue">${h(r.license_plate || '-')}</span></td><td class="nowrap">${h(r.driver_name || '-')}</td><td class="r">${T.num(r.start_mileage)}</td><td class="r">${T.num(r.end_mileage)}</td><td class="r b">${T.num(r.total_distance)}</td><td class="r">${T.num(r.fuel_liters, 2)}</td><td class="r">${T.num(r.fuel_amount, 2)}</td><td class="r">${T.kml(r.km_per_liter)}</td><td class="small">${h(r.mileage_status || '-')}</td><td><a class="btn btn-sm" href="#/jobs/${r.job_id}?tab=fuel">เปิด JOB ›</a></td></tr>`).join('') || '<tr><td colspan="13" class="empty">ยังไม่มีข้อมูลจาก JOB</td></tr>'; };
+    ['fjFrom', 'fjTo'].forEach((id) => { $('#' + id).onchange = fjLoad; }); $('#fjQ').addEventListener('input', T.debounce(fjLoad, 400));
+    $('#fjXls').onclick = async () => { if (!FJ.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); try { T.loading(true); await ensureXlsx();
+      const aoa = [['วันที่', 'JOB', 'B/L', 'ทะเบียน', 'คนขับ', 'ไมล์เริ่ม', 'ไมล์จบ', 'ระยะทาง (กม.)', 'ลิตร', 'ค่าน้ำมัน (บาท)', 'กม./ลิตร', 'สถานะไมล์']].concat(FJ.map((r) => [r.job_date, r.job_no, r.bl_no || '', r.license_plate || '', r.driver_name || '', r.start_mileage != null ? Number(r.start_mileage) : '', r.end_mileage != null ? Number(r.end_mileage) : '', r.total_distance != null ? Number(r.total_distance) : '', r.fuel_liters != null ? Number(r.fuel_liters) : '', r.fuel_amount != null ? Number(r.fuel_amount) : '', r.km_per_liter != null ? Number(r.km_per_liter) : '', r.mileage_status || '']));
+      const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [11, 16, 16, 11, 18, 10, 10, 12, 9, 13, 9, 16].map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Job Mileage Fuel'); XLSX.writeFile(wb, `TransportNJ_Job_Mileage_Fuel_${flBkkToday()}.xlsx`); T.toast(`Export ${FJ.length} JOB`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); } };
+    fjLoad();
     frame(); await renderAll();
   }
 

@@ -263,11 +263,11 @@
   // 📋 ข้อมูล — เฉพาะของคนขับที่ Login (tnj_driver_me) · ไม่แสดงทะเบียนรถ · Tab ภายใน
   const PTABS = [['eq', 'อุปกรณ์/ไมล์'], ['vdoc', 'เอกสารรถ'], ['adv', 'เงินสำรอง'], ['fuel', 'เติมน้ำมัน'], ['hist', 'ประวัติงาน']];
   const EQUIP = ['แว่นตา', 'เสื้อสะท้อนแสง', 'รองเท้าเซฟตี้', 'หมวก', 'สายไฟ'];
-  const MILE_ERR = 'เลขไมล์หลังเต็มน้ำมันต้องมากกว่าหรือเท่ากับเลขไมล์ก่อนเต็มน้ำมัน';
+  const MILE_ERR = 'ไมล์จบงานต้องมากกว่าหรือเท่ากับไมล์เริ่มงาน';
   async function pageProfile(app) {
     const body = shell(app, 'ข้อมูล', null, 'd/profile'); body.innerHTML = '<div class="empty">กำลังโหลด...</div>';
-    let me; try { me = await T.auth('tnj_driver_me', {}, { silent: true }); } catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; T.err(e); return; }
-    if (!$('#dbody')) return; const d = me.driver || {}; const q = GPS.queue().length;
+    let me, dj = null; try { [me, dj] = await Promise.all([T.auth('tnj_driver_me', {}, { silent: true }), loadJobs().catch(() => null)]); } catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; T.err(e); return; }
+    if (!$('#dbody')) return; const d = me.driver || {}; const q = GPS.queue().length; const aj = dj && dj.active && T.ACTIVE.has(dj.active.status) ? dj.active : null; const am = (aj && aj.mileage) || {};
     let tab = PTABS.some((t) => t[0] === T.route().q.tab) ? T.route().q.tab : 'eq';
     const kv = (k, v) => `<div class="m-kv"><span>${k}</span><b>${v}</b></div>`;
     const dt = (v) => v ? T.fmtDT(v) : '-';
@@ -284,21 +284,26 @@
             <div class="small muted">วันที่/เวลา และคนขับ บันทึกอัตโนมัติ</div><button type="button" class="btn btn-lg btn-block btn-p mt1" id="eqSave">💾 บันทึกรับอุปกรณ์</button>
             <div class="m-sec mt1"><b>ประวัติรับอุปกรณ์</b> <span class="xs muted">(${(me.equipment || []).length})</span></div>
             <div id="eqHist">${(me.equipment || []).map((e) => `<div class="m-row"><div class="xs muted">${dt(e.recorded_at)}</div><div>${h([...(e.items || []), e.other_items].filter(Boolean).join(', '))}</div>${e.note ? `<div class="small muted">${h(e.note)}</div>` : ''}</div>`).join('') || '<div class="small muted">ยังไม่มีประวัติ</div>'}</div></div>
-          <div class="m-card" id="pfMile"><div class="m-sec"><b>🧭 บันทึกเลขไมล์</b></div>${me.has_vehicle ? '' : '<div class="alert warn small">ยังไม่ได้ผูกรถกับคนขับ — ติดต่อเจ้าหน้าที่</div>'}
-            <div class="field"><label>เลขไมล์ก่อนเต็มน้ำมัน <span class="req">*</span></label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlB" data-num></div>
-            <div class="field"><label>เลขไมล์หลังเต็มน้ำมัน <span class="req">*</span></label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlA" data-num></div>
-            <div class="m-err" id="mlErr"></div><div class="small muted">วันที่/เวลา คนขับ และรถ (จากการมอบหมาย) บันทึกอัตโนมัติ</div>
-            <button type="button" class="btn btn-lg btn-block btn-p mt1" id="mlSave">💾 บันทึกเลขไมล์</button>
-            <div class="m-sec mt1"><b>ประวัติเลขไมล์</b> <span class="xs muted">(${(me.mileage || []).length})</span></div>
+          <div class="m-card" id="pfMile"><div class="m-sec"><b>🧭 บันทึกเลขไมล์ (ผูกกับ JOB ที่กำลังทำ)</b></div>${!aj ? '<div class="alert warn small" id="mlNoJob">ยังไม่มีงานที่กำลังทำ — บันทึกไมล์ได้หลัง ✅ รับทราบงาน</div>' : `<div class="small">JOB: <b>${h(aj.job_no)}</b> · ${h(aj.customer_name || '')}</div>`}
+            <div class="field"><label>ไมล์เริ่มงาน <span class="req">*</span></label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlB" data-num ${!aj || am.start_mileage != null ? 'readonly' : ''} value="${am.start_mileage != null ? h(String(Number(am.start_mileage))) : ''}"></div>
+            <div class="field"><label>ไมล์จบงาน</label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlA" data-num ${!aj || am.end_mileage != null ? 'readonly' : ''} value="${am.end_mileage != null ? h(String(Number(am.end_mileage))) : ''}"></div>
+            ${am.total_distance != null ? `<div class="small">ระยะทาง <b>${T.num(am.total_distance)}</b> กม.</div>` : ''}
+            <div class="m-err" id="mlErr"></div><div class="small muted">บันทึกเข้า JOB นี้โดยตรง · วันที่/เวลา คนขับ และรถ จาก JOB อัตโนมัติ</div>
+            ${aj && am.end_mileage == null ? '<button type="button" class="btn btn-lg btn-block btn-p mt1" id="mlSave">💾 บันทึกเลขไมล์</button>' : ''}
+            <div class="m-sec mt1"><b>ประวัติบันทึกเดิม (ระบบเดิม)</b> <span class="xs muted">(${(me.mileage || []).length})</span></div>
             <div id="mlHist">${(me.mileage || []).map((m) => `<div class="m-row"><div class="xs muted">${dmy(m.fuel_date)} · บันทึก ${dt(m.created_at)}</div><div>ก่อน <b>${T.num(m.mileage_before)}</b> → หลัง <b>${T.num(m.mileage_after)}</b> · ${T.num(Number(m.mileage_after) - Number(m.mileage_before))} กม.</div></div>`).join('') || '<div class="small muted">ยังไม่มีประวัติ</div>'}</div></div>`;
         $$('[data-num]', pb).forEach((i) => i.oninput = () => { const v = i.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1'); if (v !== i.value) i.value = v; $('#mlErr', pb).textContent = ''; });
         $('#eqSave', pb).onclick = async () => { const items = $$('[data-eq]', pb).filter((x) => x.checked).map((x) => x.value); const other = $('#eqOther', pb).value.trim();
           if (!items.length && !other) return T.toast('กรุณาเลือกอุปกรณ์อย่างน้อย 1 รายการ', 'warn');
           try { T.loading(true); await T.auth('tnj_driver_equipment_save', { p_items: items, p_other: other || null, p_note: $('#eqNote', pb).value.trim() || null }, { silent: true }); T.toast('บันทึกรับอุปกรณ์แล้ว', 'ok'); reload(); } catch (e) { T.err(e); } finally { T.loading(false); } };
-        $('#mlSave', pb).onclick = async () => { const bs = $('#mlB', pb).value.trim(), as = $('#mlA', pb).value.trim(), er = $('#mlErr', pb);
-          if (!bs || !as || !/^\d+(\.\d+)?$/.test(bs) || !/^\d+(\.\d+)?$/.test(as)) { er.textContent = 'กรุณากรอกเลขไมล์ก่อนและหลังเต็มน้ำมัน (ตัวเลขเท่านั้น)'; return; }
-          if (Number(as) < Number(bs)) { er.textContent = MILE_ERR; return; }
-          try { T.loading(true); await T.auth('tnj_driver_mileage_save', { p_before: Number(bs), p_after: Number(as) }, { silent: true }); T.toast('บันทึกเลขไมล์แล้ว', 'ok'); reload(); } catch (e) { er.textContent = T.parseErr(e).text; T.err(e); } finally { T.loading(false); } };
+        // ไมล์ผูก JOB: RPC เดิม tnj_mileage_start / tnj_mileage_end (transport_job_mileage) — ไม่สร้าง record ลอยใน fuel_logs
+        const ms = $('#mlSave', pb); if (ms) ms.onclick = async () => { const bs = $('#mlB', pb).value.trim(), as = $('#mlA', pb).value.trim(), er = $('#mlErr', pb); const num = (v) => /^\d+(\.\d+)?$/.test(v);
+          const needStart = am.start_mileage == null; if (needStart && !num(bs)) { er.textContent = 'กรุณากรอกไมล์เริ่มงาน (ตัวเลขเท่านั้น)'; return; } if (as && !num(as)) { er.textContent = 'กรุณากรอกไมล์จบงานเป็นตัวเลข'; return; }
+          if (!needStart && !as) { er.textContent = 'กรุณากรอกไมล์จบงาน'; return; } if (as && Number(as) < Number(needStart ? bs : am.start_mileage)) { er.textContent = MILE_ERR; return; }
+          try { T.loading(true); const pos = await T.getPos(); const g = { p_lat: pos && pos.lat, p_lng: pos && pos.lng, p_image_id: null }; let w = null;
+            if (needStart) { const r = await T.auth('tnj_mileage_start', Object.assign({ p_job_id: aj.id, p_mileage: Number(bs) }, g), { silent: true }); if (r && r.warning) w = r.warning_note; }
+            if (as) await T.auth('tnj_mileage_end', Object.assign({ p_job_id: aj.id, p_mileage: Number(as) }, g), { silent: true });
+            if (w) T.toast(w, 'warn', 7000); T.toast('บันทึกเลขไมล์เข้า JOB แล้ว', 'ok'); S.at = 0; reload(); } catch (e) { er.textContent = T.parseErr(e).text; T.err(e); } finally { T.loading(false); } };
       } else if (tab === 'vdoc') {
         // 📁 เอกสารประจำรถที่ได้รับมอบหมาย ณ ปัจจุบัน — ดู/ดาวน์โหลดอย่างเดียว · ไม่แสดงทะเบียนรถ
         pb.innerHTML = '<div class="m-card" id="pfVdoc"><div class="m-sec"><b>📁 เอกสารประจำรถที่ได้รับมอบหมาย</b></div><div class="small muted">กำลังโหลด...</div></div>';
