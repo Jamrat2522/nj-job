@@ -52,7 +52,14 @@
     st.textContent =
       ".njgps-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}" +
       ".njgps-bar label{font-size:13px;color:var(--muted)}" +
-      ".njgps-bar select{min-width:200px}" +
+      ".njgps-bar select{min-width:200px;height:40px;padding:0 34px 0 12px;font-size:14px;font-family:inherit;color:#111827;background-color:#FFFFFF;border:1px solid #CBD5E1;border-radius:10px;color-scheme:light;cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;" +
+        "background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23374151' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px}" +
+      ".njgps-bar select:hover{border-color:#94A3B8;background-color:#F8FAFC}" +
+      ".njgps-bar select:focus{outline:none;border-color:#0EA672;box-shadow:0 0 0 3px rgba(14,166,114,.25)}" +
+      ".njgps-bar select:disabled{color:#6B7280;background-color:#F3F4F6;cursor:not-allowed}" +
+      ".njgps-bar select option{color:#111827;background-color:#FFFFFF}" +
+      ".njgps-bar select option:checked{color:#111827;background-color:#D1FAE5}" +
+      ".njgps-bar select option:disabled{color:#6B7280}" +
       ".njgps-stat{display:flex;gap:14px;align-items:center;font-size:14px;color:var(--text)}" +
       ".njgps-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}" +
       ".njgps-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px}" +
