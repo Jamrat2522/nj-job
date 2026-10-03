@@ -3511,6 +3511,7 @@ function chk1Txt(v){ return chk1T(v).toLowerCase(); }
 function chk1Num(v){ if(v==null||v==='') return null;
   if(typeof v==='number') return isFinite(v)?v:null;
   const n=parseFloat(String(v).replace(/,/g,'').trim()); return isFinite(n)?n:null; }
+function chk1DeclLn(v){ const t=chk1T(v); return /^\d+(\.0+)?$/.test(t) ? String(parseInt(t,10)) : t; }   /* ★ [local094] */
 function chk1Int(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'');
   return d===''?'':String(parseInt(d,10)); }                    /* 0001=1 · 03=3 · 090=90 */
 function chk1Tariff(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'').replace(/^0+/,'');
@@ -3810,6 +3811,8 @@ const CHK1_INV_F=[
   { f:'Curr',             k:'curr',             dw:'Curr.',        eq:(d,i)=>chk1T(d).toUpperCase()===chk1T(i).toUpperCase() },
   { f:'Amount',           k:'amount',           dw:'Amount',       eq:chk1InvOkNum },
   { f:'Invoice NO.',      k:'invoice no.',      dw:'#INV',         eq:(d,i)=>chk1T(d).toUpperCase()===chk1T(i).toUpperCase() },
+  { f:'Declaration No / ใบขนอ้างอิง',        ks:['entry','เลขอ้างอิงใบขน','ใบขนอ้างอิง','เลขที่ใบขนอ้าง'], dw:'Declaration No',         opt:true, fn:'Declaration No / ใบขนอ้างอิง ไม่ตรง',        eq:(d,i)=>chk1T(d).toUpperCase()===chk1T(i).toUpperCase() },   /* ★ [local094] Declaration Reference */
+  { f:'DeclarationLine Number / รายการที่', ks:['line no','line no.','รายการที่อ้างอิงใบขน','รายการที่'],     dw:'DeclarationLine Number', opt:true, fn:'DeclarationLine Number / รายการที่ ไม่ตรง', eq:(d,i)=>chk1DeclLn(d)===chk1DeclLn(i) },
 ];
 const CHK1_INV_TOT=[ { f:'N.W.', k:'n.w.', dw:'Net Weight' }, { f:'G.W.', k:'g.w.', dw:'Gross Weight' }, { f:'PACKAGES', k:'packages', dw:'Package Amount' } ];
 function chk1InvCheck(dwakSheet){
@@ -3817,8 +3820,8 @@ function chk1InvCheck(dwakSheet){
   const hdrRow=(field,dw,mp)=>out.push({ _r:0, _k:6, item:'HEADER', field, dwak:dw, map:mp });
   const shown=v=>{ const t=chk1T(v); return t==='' ? 'ว่าง' : ((v instanceof Date)?chk1Date(v):t); };
   const hasInv=D.some(d=>d.invoice!=='');
-  const F=CHK1_INV_F.filter(x=>{
-    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local064] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
+  const F=CHK1_INV_F.map(x=>x.ks ? Object.assign({},x,{ k:x.ks.find(k=>V.col(k)>=0)||x.ks[0] }) : x).filter(x=>{   /* ★ [local094] ks = Alias Header */
+    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno' && !x.opt) hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local064] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
     if(x.dw==='#INV'){ if(!hasInv){ hdrRow(x.f,'ไม่พบ Header Invoice No. :','—'); return false; } return true; }
     if(x.dw && chk1Col(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); return false; }
     return true; });
@@ -3845,7 +3848,7 @@ function chk1InvCheck(dwakSheet){
       if(chk1T(dv)==='' && chk1T(iv)===''){ chk1Ok({ _r:d._r, _k:10, item:it, field:x.f, dwak:'ว่าง', map:'ว่าง' }); continue; }
       if(chk1T(dv)!=='' && chk1T(iv)!=='' && x.eq(dv,iv)){ chk1Ok({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:{}) }); continue; }
       if(x.f==='Description'){ chk1Ok({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:shown(iv), note:'Description ยึดตาม INVOICE' }); continue; }   /* ★ [local068] ไม่ตรง = ถูกต้อง + หมายเหตุ (ไม่ฟ้อง ผิด) */
-      out.push({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:{}) });
+      out.push({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:(x.fn?{note:x.fn}:{})) });   /* ★ [local094] fn = ข้อความ FAIL */
     }
   }
   V.order.forEach((key,i)=>{ if(!seen.has(key)) out.push({ _r:900000+i, _k:10, item:key, field:'NO.ลำดับที่ใบขน ↔ Item No.', dwak:'ไม่พบ Item', map:'NO.ลำดับที่ใบขน '+chk1T(V.items.get(key)[V.col(CHK1_INV_KEY)]) }); });
@@ -4170,6 +4173,10 @@ function chk1Ex99(dwakSheet){
     const F=[ { k:'P', f:'DUI - EXEMPT99', need:expP.length>0, ok:v=>expP.some(e=>chk1Txt(v)===chk1Txt(e)), map:expP.join(' / '), dv:disp, get:'PermitNo' },
               { k:'D', f:'DUI - Issue Date', need:expD.length>0, ok:v=>{ const x=chk1Date(v); return expD.some(e=>x===chk1Date(e) || x===ce(e)); }, map:expD.join(' / '), dv:dd, get:'IssueDate' },
               { k:'A', f:'DUI - Tax ID', need:expA.length>0, ok:v=>expA.some(e=>chk1T(v)===chk1T(e)), map:expA.join(' / '), dv:disp, get:'PermitIssueAuthority' } ].filter(x=>x.need);
+    /* ★ [local095] DUI - EXEMPT99 (TYPE 1 / D): ติดกรมการค้าต่างประเทศ → ต้องมี EXEMPT99 ใน PermitNo1–3 ช่องใดช่องหนึ่ง (PermitNo4/5 ไม่นับ · ไม่อิงเงื่อนไขใน MASTER) */
+    { const pv=[1,2,3].map(n=>col('PermitNo'+n)>=0 ? chk1T(d.get('PermitNo'+n)) : ''), hit=pv.findIndex(v=>v.toUpperCase()==='EXEMPT99');
+      if(hit>=0) chk1Ok({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99', dwak:'PermitNo'+(hit+1)+' = '+pv[hit], map:'EXEMPT99' });
+      else { out.push({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99', dwak:pv.filter(nz).join(' / ')||'ว่าง', map:'EXEMPT99', note:'DUI - EXEMPT99 : ไม่พบ EXEMPT99 ใน PermitNo1-3' }); slotBad++; if(badItems.indexOf(it)<0) badItems.push(it); } }
     if(!F.length) continue;                                                   /* MASTER ไม่บังคับรายละเอียด */
     const slots=[];
     for(const n of [1,2,3,4,5]){
@@ -4177,20 +4184,20 @@ function chk1Ex99(dwakSheet){
       const v={}, ok={}; let score=0; for(const x of F){ v[x.k]=d.get(x.get+n); ok[x.k]=x.ok(v[x.k]); if(ok[x.k]) score++; }
       slots.push({ n, v, ok, score });
     }
-    const pass=(s,x)=>chk1Ok({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(s.v[x.k]), map:x.map });
+    const pass=(s,x)=>{ if(x.k!=='P') chk1Ok({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(s.v[x.k]), map:x.map }); };   /* ★ [local095] EXEMPT99 ตรวจแยกด้านบน */
     const s3=slots.find(s=>s.score===F.length);
     if(s3){ F.forEach(x=>pass(s3,x)); continue; }                            /* PASS ชุดใบอนุญาต */
     if(!slots.length){
       const nh='ว่าง (DWAK ไม่มี Header PermitNo1–5)';
-      F.forEach(x=>out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:nh, map:x.map }));
-      slotBad+=F.length; badItems.push(it); continue;
+      F.forEach(x=>{ if(x.k!=='P'){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:nh, map:x.map }); slotBad++; } });   /* ★ [local095] */
+      if(badItems.indexOf(it)<0 && F.some(x=>x.k!=='P')) badItems.push(it); continue;
     }
     let ref=null, best=-1; const fP=F.find(x=>x.k==='P');
     const withP=fP ? slots.filter(s=>s.ok.P) : [];
     for(const s of (withP.length?withP:slots)){ if(s.score>best){ best=s.score; ref=s; } }   /* n น้อยสุดเมื่อเท่ากัน */
-    F.forEach(x=>{ if(!ref.ok[x.k]){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(ref.v[x.k]), map:x.map }); slotBad++; } });
+    F.forEach(x=>{ if(!ref.ok[x.k] && x.k!=='P'){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(ref.v[x.k]), map:x.map }); slotBad++; } });   /* ★ [local095] */
     F.forEach(x=>{ if(ref.ok[x.k]) pass(ref,x); });
-    badItems.push(it);
+    if(badItems.indexOf(it)<0 && F.some(x=>x.k!=='P' && !ref.ok[x.k])) badItems.push(it);
   }
   return { diffs:out, checked, dui:duiItems.length, duiItems, badItems, statBad, slotBad, noStat:(cStat<0), noTariff:false };
 }
@@ -4772,6 +4779,7 @@ function chkdTxt(v){ return chkdT(v).toLowerCase(); }
 function chkdNum(v){ if(v==null||v==='') return null;
   if(typeof v==='number') return isFinite(v)?v:null;
   const n=parseFloat(String(v).replace(/,/g,'').trim()); return isFinite(n)?n:null; }
+function chkdDeclLn(v){ const t=chkdT(v); return /^\d+(\.0+)?$/.test(t) ? String(parseInt(t,10)) : t; }   /* ★ [local094] */
 function chkdInt(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'');
   return d===''?'':String(parseInt(d,10)); }                    /* 0001=1 · 03=3 · 090=90 */
 function chkdTariff(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'').replace(/^0+/,'');
@@ -4952,6 +4960,8 @@ const CHKD_INV_F=[
   { f:'Curr',             k:'curr',             dw:'Curr.',        eq:(d,i)=>chkdT(d).toUpperCase()===chkdT(i).toUpperCase() },
   { f:'Amount',           k:'amount',           dw:'Amount',       eq:chkdInvOkNum },
   { f:'Invoice NO.',      k:'invoice no.',      dw:'#INV',         eq:(d,i)=>chkdT(d).toUpperCase()===chkdT(i).toUpperCase() },
+  { f:'Declaration No / ใบขนอ้างอิง',        ks:['entry','เลขอ้างอิงใบขน','ใบขนอ้างอิง','เลขที่ใบขนอ้าง'], dw:'Declaration No',         opt:true, fn:'Declaration No / ใบขนอ้างอิง ไม่ตรง',        eq:(d,i)=>chkdT(d).toUpperCase()===chkdT(i).toUpperCase() },   /* ★ [local094] Declaration Reference */
+  { f:'DeclarationLine Number / รายการที่', ks:['line no','line no.','รายการที่อ้างอิงใบขน','รายการที่'],     dw:'DeclarationLine Number', opt:true, fn:'DeclarationLine Number / รายการที่ ไม่ตรง', eq:(d,i)=>chkdDeclLn(d)===chkdDeclLn(i) },
 ];
 const CHKD_INV_TOT=[ { f:'N.W.', k:'n.w.', dw:'Net Weight' }, { f:'G.W.', k:'g.w.', dw:'Gross Weight' }, { f:'PACKAGES', k:'packages', dw:'Package Amount' } ];
 function chkdInvCheck(dwakSheet){
@@ -4959,8 +4969,8 @@ function chkdInvCheck(dwakSheet){
   const hdrRow=(field,dw,mp)=>out.push({ _r:0, _k:6, item:'HEADER', field, dwak:dw, map:mp });
   const shown=v=>{ const t=chkdT(v); return t==='' ? 'ว่าง' : ((v instanceof Date)?chkdDate(v):t); };
   const hasInv=D.some(d=>d.invoice!=='');
-  const F=CHKD_INV_F.filter(x=>{
-    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno') hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local065] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
+  const F=CHKD_INV_F.map(x=>x.ks ? Object.assign({},x,{ k:x.ks.find(k=>V.col(k)>=0)||x.ks[0] }) : x).filter(x=>{   /* ★ [local094] ks = Alias Header */
+    const ic=V.col(x.k); if(ic<0){ if(V.layout!=='invno' && !x.opt) hdrRow(x.f,'—','ไม่พบ Header ใน INVOICE MAPPING'); return false; }   /* ★ [local065] รูปแบบ INVOICE Number: ไม่มีหัวข้อนี้ → ไม่ตรวจ */
     if(x.dw==='#INV'){ if(!hasInv){ hdrRow(x.f,'ไม่พบ Header Invoice No. :','—'); return false; } return true; }
     if(x.dw && chkdCol(H,x.dw)<0){ hdrRow(x.f,'ไม่พบ Header '+x.dw,'—'); return false; }
     return true; });
@@ -4987,7 +4997,7 @@ function chkdInvCheck(dwakSheet){
       if(chkdT(dv)==='' && chkdT(iv)===''){ chkdOk({ _r:d._r, _k:10, item:it, field:x.f, dwak:'ว่าง', map:'ว่าง' }); continue; }
       if(chkdT(dv)!=='' && chkdT(iv)!=='' && x.eq(dv,iv)){ chkdOk({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:{}) }); continue; }
       if(x.f==='Description'){ chkdOk({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:shown(iv), note:'Description ยึดตาม INVOICE' }); continue; }   /* ★ [local068] ไม่ตรง = ถูกต้อง + หมายเหตุ (ไม่ฟ้อง ผิด) */
-      out.push({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:{}) });
+      out.push({ _r:d._r, _k:10, item:it, field:x.f, dwak:shown(dv), map:x.exp ? (x.exp(iv)||'ว่าง') : shown(iv), ...(cv?{note:cv}:(x.fn?{note:x.fn}:{})) });   /* ★ [local094] fn = ข้อความ FAIL */
     }
   }
   V.order.forEach((key,i)=>{ if(!seen.has(key)) out.push({ _r:900000+i, _k:10, item:key, field:'NO.ลำดับที่ใบขน ↔ Item No.', dwak:'ไม่พบ Item', map:'NO.ลำดับที่ใบขน '+chkdT(V.items.get(key)[V.col(CHKD_INV_KEY)]) }); });
@@ -5163,6 +5173,10 @@ function chkdEx99(dwakSheet){
     const F=[ { k:'P', f:'DUI - EXEMPT99', need:expP.length>0, ok:v=>expP.some(e=>chkdTxt(v)===chkdTxt(e)), map:expP.join(' / '), dv:disp, get:'PermitNo' },
               { k:'D', f:'DUI - Issue Date', need:expD.length>0, ok:v=>{ const x=chkdDate(v); return expD.some(e=>x===chkdDate(e) || x===ce(e)); }, map:expD.join(' / '), dv:dd, get:'IssueDate' },
               { k:'A', f:'DUI - Tax ID', need:expA.length>0, ok:v=>expA.some(e=>chkdT(v)===chkdT(e)), map:expA.join(' / '), dv:disp, get:'PermitIssueAuthority' } ].filter(x=>x.need);
+    /* ★ [local095] DUI - EXEMPT99 (TYPE 1 / D): ติดกรมการค้าต่างประเทศ → ต้องมี EXEMPT99 ใน PermitNo1–3 ช่องใดช่องหนึ่ง (PermitNo4/5 ไม่นับ · ไม่อิงเงื่อนไขใน MASTER) */
+    { const pv=[1,2,3].map(n=>col('PermitNo'+n)>=0 ? chkdT(d.get('PermitNo'+n)) : ''), hit=pv.findIndex(v=>v.toUpperCase()==='EXEMPT99');
+      if(hit>=0) chkdOk({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99', dwak:'PermitNo'+(hit+1)+' = '+pv[hit], map:'EXEMPT99' });
+      else { out.push({ _r:d._r, _k:24, item:it, field:'DUI - EXEMPT99', dwak:pv.filter(nz).join(' / ')||'ว่าง', map:'EXEMPT99', note:'DUI - EXEMPT99 : ไม่พบ EXEMPT99 ใน PermitNo1-3' }); slotBad++; if(badItems.indexOf(it)<0) badItems.push(it); } }
     if(!F.length) continue;                                                   /* MASTER ไม่บังคับรายละเอียด */
     const slots=[];
     for(const n of [1,2,3,4,5]){
@@ -5170,20 +5184,20 @@ function chkdEx99(dwakSheet){
       const v={}, ok={}; let score=0; for(const x of F){ v[x.k]=d.get(x.get+n); ok[x.k]=x.ok(v[x.k]); if(ok[x.k]) score++; }
       slots.push({ n, v, ok, score });
     }
-    const pass=(s,x)=>chkdOk({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(s.v[x.k]), map:x.map });
+    const pass=(s,x)=>{ if(x.k!=='P') chkdOk({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(s.v[x.k]), map:x.map }); };   /* ★ [local095] EXEMPT99 ตรวจแยกด้านบน */
     const s3=slots.find(s=>s.score===F.length);
     if(s3){ F.forEach(x=>pass(s3,x)); continue; }                            /* PASS ชุดใบอนุญาต */
     if(!slots.length){
       const nh='ว่าง (DWAK ไม่มี Header PermitNo1–5)';
-      F.forEach(x=>out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:nh, map:x.map }));
-      slotBad+=F.length; badItems.push(it); continue;
+      F.forEach(x=>{ if(x.k!=='P'){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:nh, map:x.map }); slotBad++; } });   /* ★ [local095] */
+      if(badItems.indexOf(it)<0 && F.some(x=>x.k!=='P')) badItems.push(it); continue;
     }
     let ref=null, best=-1; const fP=F.find(x=>x.k==='P');
     const withP=fP ? slots.filter(s=>s.ok.P) : [];
     for(const s of (withP.length?withP:slots)){ if(s.score>best){ best=s.score; ref=s; } }   /* n น้อยสุดเมื่อเท่ากัน */
-    F.forEach(x=>{ if(!ref.ok[x.k]){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(ref.v[x.k]), map:x.map }); slotBad++; } });
+    F.forEach(x=>{ if(!ref.ok[x.k] && x.k!=='P'){ out.push({ _r:d._r, _k:24, item:it, field:x.f, dwak:x.dv(ref.v[x.k]), map:x.map }); slotBad++; } });   /* ★ [local095] */
     F.forEach(x=>{ if(ref.ok[x.k]) pass(ref,x); });
-    badItems.push(it);
+    if(badItems.indexOf(it)<0 && F.some(x=>x.k!=='P' && !ref.ok[x.k])) badItems.push(it);
   }
   return { diffs:out, checked, dui:duiItems.length, duiItems, badItems, statBad, slotBad, noStat:(cStat<0), noTariff:false };
 }
@@ -5963,7 +5977,7 @@ function chkpRunValidate(){
    · Header ที่ต้องใช้ไม่มีใน MAPPING → แถว HEADER Missing (ตรวจไม่ครบ) · ห้ามเดา / fallback · READ ONLY */
 const CHKP_MAPF={ inv:['INVOICE Number','INVOICE NO.','Invoice No','Invoice Number','Invoice No.'], pc:['Product Code','PRODUCT CODE','Customer Part No/Product code'],
   en:['Description eng 1','Description (EN Description) 1','Description/EN Description.1','Description'], th:['Part Description(TH)','Part Description (TH)','Thai Description','Thai Translation/TH Description.1'],
-  hs:['HS Code','HS code','Tariff Code'], st:['STAT','Stat'], pv:['Privilege','Priv.'], sq:['Seq','Seq.'], ref:['ใบขนอ้างอิง','Entry','เลขที่ใบขนอ้าง'], ln:['รายการที่','Line no','Line No.','Line No'] };
+  hs:['HS Code','HS code','Tariff Code'], st:['STAT','Stat'], pv:['Privilege','Priv.'], sq:['Seq','Seq.'], ref:['ใบขนอ้างอิง','Entry','เลขที่ใบขนอ้าง','Entry/เลขอ้างอิงใบขน','Entry / เลขอ้างอิงใบขน','เลขอ้างอิงใบขน'], ln:['รายการที่','Line no','Line No.','Line No','Line no/รายการที่อ้างอิงใบขน','Line no / รายการที่อ้างอิงใบขน','รายการที่อ้างอิงใบขน'] };
 const CHKP_MAPF_REQ=[['en','Description'],['th','TH Description'],['hs','HS Code'],['st','Stat'],['ref','ใบขนอ้างอิง / Entry'],['ln','รายการที่ / Line no']];
 function chkpMapSheetOf(sheets){
   for(const s of (sheets||[])){ const ci=chkpCol(s.hdr,...CHKP_MAPF.inv), cp=chkpCol(s.hdr,...CHKP_MAPF.pc); if(ci>=0 && cp>=0) return s; }
@@ -6799,10 +6813,19 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
     const FT='x:กรมการค้าต่างประเทศ', cnt={ dui:new Set(), x:new Set() };   /* ★ [local083] DUI = กรมการค้าต่างประเทศ (ใบอนุญาตเดียวกัน) → กลุ่มเดียว · cnt = ตัวเลขสถานะบนหน้าจอเดิม */
     const RK={}; const add=(d,g0,md)=>{ const ki=T(d.invoice).toLowerCase()+'|'+T(val(d,'Item No.')); if(g0==='dui') cnt.dui.add(ki); else if(g0.indexOf('x:')===0) cnt.x.add(ki+'|'+g0);
       const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)){ if(md && RK[k] && !RK[k][13]) RK[k][13]=md; return; } seen.add(k); if(!G[g]) G[g]=[]; const v=rowOf(d,g,md); RK[k]=v; G[g].push(v); };   /* ★ [local084] ซ้ำ → เติม MODE จาก MASTER ถ้าแถวเดิมว่าง */   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
-    for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน */
-    for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'dui');
-    for(const it of (o.pm||[])){ const d=D[it._r-1]; if(!d) continue;   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (ผล Lookup ชุดเดียวกับหน้าจอ) · ครบทุกหน่วยงาน */
-      for(const ag of it.agencies) add(d, ag==='กรมสรรพสามิต' ? 'exc' : (ag==='DUI' ? 'dui' : (/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(ag) ? 'tis' : 'x:'+ag)), (it.modes||{})[ag]); }
+    /* ★ [local093] Sheet 3: รายการจาก MASTER พิกัดใบอนุญาต (ยกเว้นกรมสรรพสามิต = FLOW เดิม) ต้อง Match MASTER พิกัดใบอนุญาต ครบ Tariff + Stat + MODE ของ TYPE ปัจจุบัน (Match ใหม่ ณ ตอนสร้าง · ไม่ reuse ผลเดิม)
+       TYPE 0 / P = IMPORT · TYPE 1 / D = EXPORT · MASTER IMPORT+EXPORT ใช้ได้ทุก TYPE · ไม่ Match ครบ → ไม่เข้า Sheet 3 · MODE = ของแถว MASTER ที่ Match จริง */
+    const PDIR={ 'TYPE 0':'IMPORT', 'TYPE P':'IMPORT', 'TYPE 1':'EXPORT', 'TYPE D':'EXPORT' }[o.mode]||'';
+    const MDN={ 'นำเข้า':'IMPORT', 'ส่งออก':'EXPORT', 'นำเข้าและส่งออก':'IMPORT+EXPORT' };
+    const gOf=ag=>ag==='กรมสรรพสามิต' ? 'exc' : (ag==='DUI' ? 'dui' : (/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(ag) ? 'tis' : 'x:'+ag));
+    const pmOf=d=>{ const r={}; const m=(PDIR && typeof window.pmMatch==='function') ? window.pmMatch(T(val(d,'Tariff')), T(val(d,'Stat')), PDIR) : [];
+      m.forEach(x=>{ if(r[x.agency]==null) r[x.agency]=MDN[x.mole]||''; }); return r; };   /* หน่วยงาน → MODE (เฉพาะแถวที่ MODE ตรง TYPE) */
+    const pmIn=(d,gs)=>{ const r=pmOf(d); for(const ag of Object.keys(r)){ const g=gOf(ag); if(gs.indexOf(g)>=0) return r[ag]; } return null; };
+    for(const x of (o.exc||[])) if(x.field==='กรมสรรพสามิต - HS CODE' && x._r>0 && D[x._r-1]) add(D[x._r-1],'exc');   /* ระบบเดิมก่อน · ★ [local093] กรมสรรพสามิต = FLOW เดิม (ไม่กรอง MODE) */
+    for(const x of (o.dui||[])) if(x.field==='DUI - HS CODE' && x._r>0 && D[x._r-1]){ const md=pmIn(D[x._r-1],['dui',FT]); if(md!=null) add(D[x._r-1],'dui',md); }
+    for(const it of (o.pm||[])){ const d=D[it._r-1]; if(!d) continue;   /* ★ [local071] MASTER พิกัดติดใบอนุญาต · ★ [local093] Match ใหม่ด้วย MODE ของ TYPE ปัจจุบัน (ไม่ใช้ it.agencies เดิม) */
+      for(const ag of it.agencies) if(gOf(ag)==='exc') add(d, 'exc', (it.modes||{})[ag]);   /* กรมสรรพสามิต = FLOW เดิม 100% */
+      const M=pmOf(d); for(const ag of Object.keys(M)) if(gOf(ag)!=='exc') add(d, gOf(ag), M[ag]); }   /* หน่วยงานอื่นจาก MASTER (รวม DUI / กรมการค้าต่างประเทศ) = Match ใหม่ Tariff + Stat + MODE */
     const p=parse(o.paste), miss=[];
     for(const k of p.keys){
       const hit=D.filter(d=>T(val(d,'Item No.'))===k.item && T(d.invoice).toLowerCase()===k.inv.toLowerCase());   /* Invoice + Item ต้องตรงทั้งคู่ */
@@ -7458,7 +7481,7 @@ const TERM_COMM_PCT = 0.03;      /* [local025] ค่านายหน้า = 
 const TERM_LBL = { amount:'Amount', amountRate:'Amount Rate', fw:'F/W', fwRate:'F/W Rate', frg:'Frg', frgRate:'Frg Rate', oth:'Other_OTH', othRate:'Other_OTH Rate', comm:'ค่านายหน้า', airCountry:'ประเทศ AIR FREIGHT', airWeight:'น้ำหนัก G.W' };   /* [local030] ชื่อ Field ในข้อความแจ้ง */
 function termClearErr(){ document.querySelectorAll('#chke-term-row .chke-term-err').forEach(e=>e.classList.remove('chke-term-err')); }   /* [local030] */
 const TERM_INS_PCT = 0.01;       /* [local029] · [local041] สูตรกลาง Ins_OTH (ทั้ง 2 MODE) */
-const TERM_INS = { auto:false, fill:'' };
+const TERM_INS = { auto:false, fill:'', thb:false };   /* ★ [local095] thb = Normal EXW/FCA (Ins คิดเป็น THB · สกุล THB · Rate 1) */
 /* ★ [local089] สกุลของค่า Auto = สกุลจริงที่สูตรใช้ (Amount) · ตั้งเฉพาะตอนระบบสร้างค่าใหม่ (ยอด หรือ สกุล Amount เปลี่ยน) · ไม่ล็อก Dropdown
    · ผู้ใช้เปลี่ยนสกุลภายหลัง → คงไว้จนกว่าระบบสร้างค่าใหม่ · ค่าว่าง (⚠️ ไม่รวมข้ามสกุล) → ไม่แตะสกุล · Rate จาก MASTER เดิม (termFxApply) */
 function termAutoCur(k,S,v){ const el=document.getElementById('chke-term-'+k+'Cur'); if(!el) return; el.disabled=false;
@@ -7519,12 +7542,34 @@ function termFrgPctUpdate(){
    · [local041] สูตรกลาง — ใช้เหมือนกันทั้ง Normal และ Express (ไม่แยก MODE · ต่างกันเฉพาะ Source ของ F/W / Frg)
      EXW/FCA = R2((Amount + F/W + Other_OTH) × 1%) · FOB/DAP = R2((Amount + Other_OTH) × 1%) (ไม่รวม F/W) · CIF ไม่มี Ins (เดิม)
      Other_OTH ว่าง = 0 (เฉพาะตอนคำนวณ) · ไม่ใช่ตัวเลข / F/W ว่าง / สกุล F/W หรือ Other_OTH ≠ Amount → Ins ว่าง + ⚠️ (ไม่รวมข้ามสกุล · ไม่เดา) */
+/* ★ [local095] Ins THB (Normal EXW/FCA): สกุล THB · Rate 1 — ตั้งเฉพาะตอนระบบสร้างค่าใหม่ (ผู้ใช้เปลี่ยนเองคงไว้) · Dropdown ไม่ล็อก */
+function termInsThb(v){ const el=document.getElementById('chke-term-insCur'); if(el) el.disabled=false;
+  const key=v+'|THB'; if(v==='' || TERM_INS.curKey===key) return; TERM_INS.curKey=key;
+  termFxSetCur('ins','THB'); const r=document.getElementById('chke-term-insRate'); if(r && r.value!=='1') r.value='1'; termFxMsg(); }
 function termInsUpdate(){
   const el=document.getElementById('chke-term-ins'); if(!el) return;
   const term=(document.getElementById('chke-term')||{}).value||'EXW';
   const ef = (term==='EXW'||term==='FCA');
   const on = !termIsEx() && (ef || term==='FOB' || term==='DAP');                             /* ★ [local063] Export: ไม่ใช้ Ins_OTH */
-  const npct = TERM_STATE.mode==='Normal %', incFw = ef, incOth = true;   /* ★ [local080] ทุก MODE: EXW/FCA = (Amount + F/W + Other_OTH) × 1% · FOB / DAP = (Amount + Other_OTH) × 1% (ไม่รวม F/W) */
+  const npct = TERM_STATE.mode==='Normal %', incFw = ef, incOth = true;
+  /* ★ [local095] Normal + EXW/FCA: Ins_OTH (THB) = (Amount THB + F/W THB + Other_OTH THB) × 1% · THB ต่อช่อง = ยอด × Rate ของช่องนั้น ÷ หน่วยสกุล · ช่องว่าง = 0 · คนละสกุลได้ (ไม่เตือนข้ามสกุล) */
+  if(on && TERM_STATE.mode==='Normal' && ef){
+    const a=termIn('chke-term-amount'); let v='', warn='';
+    if(a.v!=null){
+      let sum=0;
+      for(const [k,lab] of [['amount','Amount'],['fw','F/W'],['oth','Other_OTH']]){
+        const x=termIn('chke-term-'+k); if(x.bad){ warn=lab+' ไม่ใช่ตัวเลข'; break; }
+        const val=x.empty?0:x.v; if(!val) continue;
+        const r=termIn('chke-term-'+k+'Rate'); if(r.v==null){ warn='Rate '+lab+' ว่าง'; break; }
+        sum+=termR2(val*r.v/termFxUnit(k)); }
+      if(!warn) v=termR2(sum*TERM_INS_PCT).toFixed(2);
+    }
+    el.value=v; el.readOnly=true; TERM_INS.auto=true; TERM_INS.fill=v; TERM_INS.thb=true;
+    el.placeholder=warn?'⚠️ '+warn:''; el.title=warn?'Ins_OTH ไม่คำนวณ: '+warn:'';
+    termInsThb(v);
+    return;
+  }
+  TERM_INS.thb=false;   /* ★ [local080] ทุก MODE: EXW/FCA = (Amount + F/W + Other_OTH) × 1% · FOB / DAP = (Amount + Other_OTH) × 1% (ไม่รวม F/W) */
   if(on){
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
@@ -7660,6 +7705,7 @@ function termFxApply(only){
   const M=termFxMaster(), src=termFxSrc(); let ch=false;
   for(const k of (only?[only]:TERM_FX_KEYS)){
     if(k==='frg' && TERM_AIR.auto) continue;                                                     /* AIR AUTO: Rate 1 ห้ามเขียนทับ */
+    if(k==='ins' && TERM_INS.thb && termCurOf('ins')==='THB'){ const ri=document.getElementById('chke-term-insRate'); if(ri && ri.value!=='1'){ ri.value='1'; ch=true; } continue; }   /* ★ [local095] Ins THB = Rate 1 */
     const el=document.getElementById('chke-term-'+k+'Rate'); if(!el) continue;
     const x=M ? M.codes[termCurOf(k)] : null, v=x ? (src==='Export'?x.exp:x.imp) : null;
     const t=(v==null||!isFinite(v)) ? '' : termR4(v).toFixed(4);
@@ -7756,6 +7802,7 @@ function termCalcRun(){
                          : termCalc(term, inp);
   A.comm = (opt.comm!=null) ? termR2(opt.comm*inp.amountRate/termFxUnit('amount')) : null;                            /* ★ [local046] ค่านายหน้า THB = R2(ค่านายหน้า × Amount Rate) (สกุลเดียวกับ Amount) */
   A.oth  = (opt.oth !=null) ? termR2(opt.oth *opt.othRate/termFxUnit('oth')) : null;
+  if(!ex && TERM_STATE.mode==='Normal' && (term==='EXW'||term==='FCA')) A.ins=termR2((A.amtThb + (A.fw||0) + (A.oth||0))*TERM_INS_PCT);   /* ★ [local095] สูตรเดียวกับ Ins_OTH Auto (THB ต่อช่องก่อนรวม) · แทนสูตรเดิม (Amount + F/W) × Amount Rate */
   if(xFrg && inp.frg!=null) A.frg=termR2(inp.frg*inp.frgRate/termFxUnit('frg'));
   if(term==='FOB' && use.includes('fw') && inp.fw!=null) A.fw=termR2(inp.fw*inp.fwRate/termFxUnit('fw'));        /* ★ [local047] Normal % FOB: F/W THB (termCalc ข้าม FOB) · Ins FOB เดิมไม่รวม F/W */                                  /* [local041] Frg_OTH เท่านั้น · A.cif (CIF = Amt.THB / DAP ว่าง) ไม่แตะ */
   const calcRows=[];
