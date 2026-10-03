@@ -285,7 +285,7 @@
   }
   // 📍 GPS: ข้อมูลเดิม tnj_live_vehicles + Master รถ (ไม่สร้างตำแหน่งเอง)
   async function pageMGps(page) {
-    await loadMasters(true);
+    await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
     page.innerHTML = `<div class="m-page"><div class="m-search"><input class="inp" id="mgQ" placeholder="🔍 ค้นหาทะเบียน / คนขับ" autocomplete="off"></div><div class="map m-map" id="mgMap"></div>
       <div class="m-sum" id="mgSum"></div><div class="flex between m-sec"><b>🚛 รถทั้งหมด</b><button type="button" class="btn btn-sm" id="mgRef">🔄 รีเฟรช</button></div><div id="mgList"></div></div>`;
     const map = mkMap($('#mgMap')); const layer = L.layerGroup().addTo(map); const mk = {}; let rows = [], fitted = false;
@@ -318,7 +318,7 @@
   }
   // 📋 ข้อมูล: ผู้ใช้จาก Session + ทะเบียนรถจาก Master (transport_vehicles + transport_drivers) · รูปคนขับ: SUPER_ADMIN/ADMIN เปลี่ยนได้
   async function pageMAcc(page) {
-    await loadMasters(true);
+    await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
     const items = M.vehicles.map((v) => { const d = M.drivers.find((x) => x.default_vehicle_id === v.id) || null; return { v, d }; });
     page.innerHTML = `<div class="m-page"><div class="m-card m-user"><div class="m-avatar">👤</div><div><div class="m-uname">${h(T.session.full_name || T.session.username || '-')}</div><div class="m-urole">${h(T.session.role)}</div><div class="xs muted">${h(T.session.username || '')}</div></div></div>
       <div class="m-card m-menu"><button type="button" id="mLogout">🚪 ออกจากระบบ<span class="m-chev">›</span></button></div>
@@ -403,7 +403,7 @@
       if (!$('#jList')) return; all = rows; if (!$('#jBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
     } catch (e) { T.err(e); } };
     $('#jRep').onclick = () => openReportModal();
-    $('#jXls').onclick = async () => { try { T.loading(true);
+    $('#jXls').onclick = async () => { try { T.loading(true); await ensureXlsx();
       const rows = filtered();
       const rf = { include_cancelled: true, page: 0 };
       const rep = rows.length ? await T.auth('tnj_report_rows', { p: rf }, { silent: true }) : { rows: [] }; const mm = {}; rep.rows.forEach((x) => { mm[x.job_id] = x; });
@@ -588,7 +588,64 @@
   }
 
   /* ---------- full map ---------- */
-  function pageMap(page) { page.innerHTML = `<div class="page-head"><h1>แผนที่ GPS</h1></div><div id="fm"></div>`; liveMap($('#fm'), { tall: true }); }
+  // 🗺️ แผนที่ GPS — ข้อมูลเดิม: tnj_live_vehicles (ตำแหน่งล่าสุด) + tnj_gps_route (GPS History ของ JOB ที่รถกำลังวิ่ง) + Master รถ · ไม่สร้างพิกัดเอง
+  const GM_ST = { run: ['🟢', 'กำลังวิ่ง', 'run'], park: ['🟠', 'จอด', 'park'], off: ['⚪', 'Offline', 'off'] };
+  const gmSt = (lv) => { if (!lv || lv.lat == null || lv.gps_stale) return 'off'; return (Number(lv.speed || 0) * 3.6) >= 1 ? 'run' : 'park'; };
+  const gmIcon = (plate, st, sel) => L.divIcon({ className: 'truck-marker gm-mk', html: `<div class="gm-pin ${st}${sel ? ' sel' : ''}"><div class="gm-plate">${h(plate)}</div><div class="gm-truck">🚛</div></div>`, iconSize: [96, 52], iconAnchor: [48, 52], popupAnchor: [0, -50] });
+  const gmTime = (t) => { if (!t) return '-'; const b = bkk(t), today = bkk(new Date(Date.now() + (T.server.offsetMs || 0)).toISOString()).date; return b.date === today ? b.time : `${hlDMY(b.date)} ${b.time}`; };
+  async function pageMap(page) {
+    await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
+    page.innerHTML = `<div class="page-head"><h1>แผนที่ GPS</h1><div class="flex flex-wrap gm-bar"><label class="gm-lbl" for="gmPlate">ทะเบียนรถ</label><select class="inp" id="gmPlate"><option value="">ทั้งหมด</option></select><span class="small muted" id="gmUpd"></span></div></div>
+      <div class="gm-wrap"><div class="card gm-mapcard"><div class="map tall" id="gmMap"></div><div class="small muted gm-route" id="gmRoute"></div></div>
+      <div class="card gm-side"><div class="gm-sum" id="gmSum"></div><div id="gmList"></div></div></div>`;
+    const map = mkMap($('#gmMap')); const layer = L.layerGroup().addTo(map), rLayer = L.layerGroup().addTo(map); const mk = {}; let rows = [], sel = '', fitted = false, routeJob = null;
+    const popup = (x) => { const lv = x.live || {}; const [ic, lb] = GM_ST[x.st]; return `<div class="gm-pop"><div><span class="muted">ทะเบียน:</span> <b>${h(x.plate)}</b></div><div><span class="muted">คนขับ:</span> ${h(x.driver || '-')}</div><div><span class="muted">สถานะ:</span> ${ic} ${lb}</div><div><span class="muted">ความเร็ว:</span> ${lv.lat != null ? Math.round(Number(lv.speed || 0) * 3.6) + ' กม./ชม.' : '-'}</div>
+      <div><span class="muted">ตำแหน่งล่าสุด:</span> ${lv.lat != null ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${lv.lat},${lv.lng}">${Number(lv.lat).toFixed(5)}, ${Number(lv.lng).toFixed(5)}</a>` : '-'}</div><div><span class="muted">อัปเดตล่าสุด:</span> ${gmTime(lv.last_gps_at)}</div>${lv.job_no ? `<div><span class="muted">JOB:</span> <a href="#/jobs/${lv.job_id}">${h(lv.job_no)}</a></div>` : ''}
+      <button type="button" class="btn btn-sm btn-p gm-rt" data-route="${h(x.plate)}">ดูเส้นทาง</button></div>`; };
+    const drawRoute = async () => {
+      rLayer.clearLayers(); const x = rows.find((r) => r.plate === sel); const info = $('#gmRoute'); if (!info) return;
+      if (!x) { routeJob = null; info.textContent = ''; return; }
+      if (!x.live || !x.live.job_id) { routeJob = null; info.textContent = `${x.plate}: ไม่มีงานที่กำลังวิ่ง — ไม่มีประวัติเส้นทาง GPS`; return; }
+      routeJob = x.live.job_id; let r; try { r = await T.auth('tnj_gps_route', { p_job_id: routeJob }, { silent: true }); } catch (e) { info.textContent = T.parseErr(e).text; return; }
+      if (sel !== x.plate || !$('#gmRoute')) return; rLayer.clearLayers(); const pts = (r.points || []).map((p) => [p.lat, p.lng]);
+      if (pts.length) { L.polyline(pts, { color: '#1E6FE8', weight: 4, opacity: .85 }).addTo(rLayer);
+        (r.points || []).forEach((p) => L.circleMarker([p.lat, p.lng], { radius: 3, color: '#1E6FE8', fillOpacity: .9, weight: 1 }).bindTooltip(`${gmTime(p.t)}${p.speed != null ? ' · ' + Math.round(p.speed * 3.6) + ' กม./ชม.' : ''}`).addTo(rLayer));
+        L.marker(pts[0], { icon: L.divIcon({ className: 'truck-marker', html: '<div class="gm-start">เริ่ม</div>', iconSize: [40, 20], iconAnchor: [20, 10] }) }).bindTooltip(`จุดเริ่มต้น · ${gmTime(r.points[0].t)}`).addTo(rLayer); }
+      info.textContent = pts.length ? `เส้นทาง ${x.plate} · JOB ${x.live.job_no} · จุด GPS ${pts.length} จุด · เริ่ม ${gmTime(r.points[0].t)} → ล่าสุด ${gmTime(r.points[pts.length - 1].t)}` : `${x.plate}: ยังไม่มีประวัติ GPS ของงานนี้`;
+    };
+    const focus = (plate, fromList) => { sel = plate || ''; $('#gmPlate').value = sel; Object.entries(mk).forEach(([p, m]) => { const x = rows.find((r) => r.plate === p); if (x) m.setIcon(gmIcon(p, x.st, p === sel)); });
+      if (!sel) { const pts = Object.values(mk).map((m) => m.getLatLng()); if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13 }); map.closePopup(); }
+      else { const m = mk[sel]; if (m) { map.setView(m.getLatLng(), 15); m.openPopup(); } else if (fromList !== false) T.toast(`ไม่มีตำแหน่ง GPS ของ ${sel}`, 'warn'); }
+      drawList(); drawRoute(); };
+    const drawList = () => { if (!$('#gmList')) return; const cnt = { run: 0, park: 0, off: 0 }; rows.forEach((x) => cnt[x.st]++);
+      $('#gmSum').innerHTML = `<span class="m-chip all">ทั้งหมด ${rows.length}</span><span class="m-chip on">🟢 กำลังวิ่ง ${cnt.run}</span><span class="m-chip park">🟠 จอด ${cnt.park}</span><span class="m-chip">⚪ Offline ${cnt.off}</span>`;
+      $('#gmList').innerHTML = rows.map((x) => { const [ic, lb, cl] = GM_ST[x.st]; const lv = x.live || {};
+        return `<div class="gm-item${x.plate === sel ? ' active' : ''}" data-plate="${h(x.plate)}"><div class="gm-ip">${h(x.plate)}</div><div class="small">${h(x.driver || '-')}</div><div class="small"><span class="gm-st ${cl}">${ic} ${lb}</span>${x.st === 'run' ? ` · ${Math.round(Number(lv.speed || 0) * 3.6)} กม./ชม.` : ''}</div><div class="xs muted">${lv.lat != null ? 'อัปเดต ' + gmTime(lv.last_gps_at) : 'ไม่มีข้อมูล GPS ล่าสุด'}</div></div>`; }).join('') || '<div class="empty">ไม่มีรถ</div>';
+      $$('#gmList .gm-item').forEach((c) => c.onclick = () => focus(c.dataset.plate)); };
+    const load = async () => { try {
+      const d = await T.auth('tnj_live_vehicles', {}, { silent: true }); if (!$('#gmList')) return; T.server.offsetMs = new Date(d.server_time).getTime() - Date.now();
+      const live = d.vehicles || []; const drvOf = (vid) => (M.drivers.find((x) => x.default_vehicle_id === vid) || {}).full_name;
+      const lvOf = (plate) => live.filter((x) => x.license_plate === plate).sort((a, b) => String(b.last_gps_at || '').localeCompare(String(a.last_gps_at || '')))[0];
+      rows = M.vehicles.map((v) => { const lv = lvOf(v.license_plate); return { plate: v.license_plate, driver: (lv && lv.driver_name) || drvOf(v.id) || '', live: lv, st: gmSt(lv) }; });
+      live.filter((lv) => lv.license_plate && !rows.some((x) => x.plate === lv.license_plate)).forEach((lv) => rows.push({ plate: lv.license_plate, driver: lv.driver_name, live: lvOf(lv.license_plate), st: gmSt(lvOf(lv.license_plate)) }));
+      rows.sort((a, b) => a.plate.localeCompare(b.plate));
+      const opt = $('#gmPlate'); const cur = opt.value; opt.innerHTML = '<option value="">ทั้งหมด</option>' + rows.map((x) => `<option value="${h(x.plate)}">${h(x.plate)}</option>`).join(''); opt.value = rows.some((x) => x.plate === cur) ? cur : '';
+      // Marker เดิมเลื่อนไปตำแหน่งใหม่ (setLatLng) — ไม่สร้างใหม่ / ไม่ Reload หน้า
+      const seen = new Set();
+      rows.forEach((x) => { const lv = x.live; if (!lv || lv.lat == null) return; seen.add(x.plate); const ll = [lv.lat, lv.lng];
+        if (mk[x.plate]) { mk[x.plate].setLatLng(ll); mk[x.plate].setIcon(gmIcon(x.plate, x.st, x.plate === sel)); mk[x.plate].setPopupContent(popup(x)); if (mk[x.plate].isPopupOpen()) bindPop(mk[x.plate].getPopup()); }
+        else mk[x.plate] = L.marker(ll, { icon: gmIcon(x.plate, x.st, x.plate === sel), title: x.plate }).bindPopup(popup(x), { minWidth: 220 }).addTo(layer); });
+      Object.keys(mk).forEach((p) => { if (!seen.has(p)) { layer.removeLayer(mk[p]); delete mk[p]; } });
+      const pts = Object.values(mk).map((m) => m.getLatLng()); if (!fitted && pts.length && !sel) { fitted = true; map.fitBounds(pts, { padding: [40, 40], maxZoom: 13 }); }
+      $('#gmUpd').textContent = `อัปเดตล่าสุด ${gmTime(d.server_time)} น.`;
+      drawList(); if (sel) { const x = rows.find((r) => r.plate === sel); if (x && x.live && x.live.job_id === routeJob) drawRoute(); else if (x) drawRoute(); }
+    } catch (e) { console.warn(e); } };
+    function bindPop(pp) { const el = pp && pp.getElement(); const b = el && el.querySelector('[data-route]'); if (b) b.onclick = () => focus(b.dataset.route); }
+    map.on('popupopen', (e) => bindPop(e.popup));
+    $('#gmPlate').onchange = (e) => focus(e.target.value);
+    T.gpsMap = { reload: load, focus };
+    await load(); T.subscribe('tnj:gps', T.debounce(load, 1500)); T.subscribe('tnj:office', T.debounce(load, 1500)); T.every('gpsmap', 15000, load);
+  }
 
   /* ---------- schedule ---------- */
   async function pageSchedule(page, r) {
@@ -619,6 +676,9 @@
   const flBkkToday = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const flLoadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('โหลดไลบรารีไม่สำเร็จ (ตรวจอินเทอร์เน็ต): ' + src)); document.head.appendChild(s); });
   let flChartReady = null, flXS = null;
+  // SheetJS (Export Excel) โหลดเมื่อกด Export ครั้งแรก — ไม่โหลดตอนเปิดระบบ (ไฟล์ ~880 KB)
+  const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'; let xlsxReady = null;
+  const ensureXlsx = () => { if (window.XLSX && window.XLSX.utils) return Promise.resolve(window.XLSX); if (!xlsxReady) xlsxReady = flLoadScript(XLSX_URL).then(() => window.XLSX).catch((e) => { xlsxReady = null; throw e; }); return xlsxReady; };
   function flEnsureChart() {
     if (!flChartReady) flChartReady = (async () => {
       if (!window.Chart) await flLoadScript(FL_LIB.chart);
@@ -887,7 +947,7 @@
       else { if (!f.driver_id) { $('#rpSum').innerHTML = ''; $('#rpList').innerHTML = '<div class="empty">กรุณาเลือก Driver</div>'; $('#rpPager').innerHTML = ''; return; } const d = await T.auth('tnj_report_driver', { p_driver_id: f.driver_id, p_from: f.date_from || null, p_to: f.date_to || null }, { silent: true }); $('#rpSum').innerHTML = [['Driver', h(d.driver.full_name)], ['จำนวน Job', d.jobs], ['รถที่ใช้', (d.vehicles || []).join(', ') || '-'], ['ระยะทางรวม (กม.)', T.num(d.distance)], ['น้ำมันรวม (ลิตร)', T.num(d.liters, 2)], ['ค่าน้ำมันรวม (บาท)', T.num(d.amount, 2)], ['กม./ลิตร เฉลี่ย', T.kml(d.kml)], ['Completed / Problem / ไม่ครบ', `${d.completed} / ${d.problem} / ${d.incomplete}`]].map(([l, v]) => `<div class="stat"><div class="l">${l}</div><div class="v" style="font-size:18px">${v}</div></div>`).join(''); $('#rpList').innerHTML = rowsHtml(d.rows); $('#rpPager').innerHTML = ''; }
       bindDet(); } catch (e) { T.err(e); } };
     $('#rpGo').onclick = () => { pageNo = 1; load(); }; $('#rpClear').onclick = () => { $$('#rf [name]').forEach((i) => { i.value = i.name === 'date_from' ? d0 : i.name === 'date_to' ? T.todayISO() : ''; }); pageNo = 1; load(); };
-    $('#rpXls').onclick = async () => { try { T.loading(true); let rows, sum; const f = read();
+    $('#rpXls').onclick = async () => { try { T.loading(true); await ensureXlsx(); let rows, sum; const f = read();
       if (mode === 'all') { const d = await T.auth('tnj_report_rows', { p: Object.assign({ page: 0 }, f) }, { silent: true }); rows = d.rows; sum = d.summary; } else if (mode === 'vehicle') { if (!f.vehicle_id) throw new Error('TNJ_VALIDATION:กรุณาเลือกรถ'); const d = await T.auth('tnj_report_vehicle', { p_vehicle_id: f.vehicle_id, p_from: f.date_from || null, p_to: f.date_to || null }, { silent: true }); rows = d.rows; sum = d; } else { if (!f.driver_id) throw new Error('TNJ_VALIDATION:กรุณาเลือก Driver'); const d = await T.auth('tnj_report_driver', { p_driver_id: f.driver_id, p_from: f.date_from || null, p_to: f.date_to || null }, { silent: true }); rows = d.rows; sum = d; }
       rows = rows.slice().sort((a, b) => (a.job_date + a.job_no).localeCompare(b.job_date + b.job_no));
       const aoa = [['Date', 'Job No.', 'B/L', 'Customer', 'Container No.', 'Vehicle', 'License Plate', 'Driver', 'Start Mileage', 'End Mileage', 'Distance KM', 'Fuel Liters', 'Fuel Amount', 'KM/L', 'Job Status']].concat(rows.map((x) => [x.job_date, x.job_no, x.bl_no, x.customer_name, x.container_no || '', x.vehicle_name || '', x.license_plate || '', x.driver_name || '', x.start_mileage != null ? Number(x.start_mileage) : '', x.end_mileage != null ? Number(x.end_mileage) : '', x.total_distance != null ? Number(x.total_distance) : '', x.fuel_liters != null ? Number(x.fuel_liters) : '', x.fuel_amount != null ? Number(x.fuel_amount) : '', x.km_per_liter != null ? Number(x.km_per_liter) : '', x.status]));

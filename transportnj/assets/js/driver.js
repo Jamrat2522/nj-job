@@ -52,7 +52,7 @@
   }
   T.pages.driver = async (app, r) => {
     const p = r.seg[1] || 'jobs';
-    if (!T._rt['tnj:driver:' + T.session.driver_id]) T.subscribe('tnj:driver:' + T.session.driver_id, (pl, ev) => { S.at = 0; if (ev === 'job' && pl.event === 'assigned') { T.toast('🔔 มีงานใหม่มอบหมายให้คุณ', 'ok', 6000); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) { } } if (pl.event === 'cancelled') T.toast('งานถูกยกเลิก', 'warn', 6000); T.render(); });
+    if (!T._rt['tnj:driver:' + T.session.driver_id]) T.subscribe('tnj:driver:' + T.session.driver_id, (pl, ev) => { S.at = 0; C.at = 0; if (ev === 'job' && pl.event === 'assigned') { T.toast('🔔 มีงานใหม่มอบหมายให้คุณ', 'ok', 6000); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) { } } if (pl.event === 'cancelled') T.toast('งานถูกยกเลิก', 'warn', 6000); T.render(); });
     if (p === 'jobs' && r.seg[2] && r.seg[3] === 'legacy') return pageJob(app, r.seg[2], r.q.tab);
     if (p === 'jobs' && r.seg[2]) return pageDetail(app, r.seg[2], r.q.tab);
     if (p === 'jobs') return pageJobs(app, r.q.tab);
@@ -85,24 +85,35 @@
       <div class="m-kvs">${kv('เอกสารแนบ', `${nf} ไฟล์`)}${kv('สถานะงาน', h(T.ST_TH[j.status] || j.status))}</div>
       <div class="m-djob-btns"><a class="btn" href="#/d/jobs/${j.id}">ดูรายละเอียด</a><a class="btn" href="#/d/jobs/${j.id}?tab=docs">📄 เอกสาร (${nf})</a>
       ${j.status === 'ASSIGNED' ? `<button type="button" class="btn btn-g" data-ack="${j.id}">✅ รับทราบงาน</button>` : ''}</div></div>`; };
-  async function pageJobs(app, tab) {
-    const body = shell(app, 'งานของฉัน', null, 'd/jobs'); body.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  // การ์ดงาน: tnj_driver_job_cards (1 Request) — ถ้า Server ยังไม่มี RPC นี้ (ยังไม่รัน RUN-11) ใช้วิธีเดิม tnj_job_list + tnj_job_get อัตโนมัติ
+  const C = { rows: null, at: 0, det: {}, noRpc: false };
+  async function loadCards(force) {
+    if (!force && C.rows && Date.now() - C.at < 15000) return C.rows;
+    if (!C.noRpc) { try { const d = await T.auth('tnj_driver_job_cards', {}, { silent: true }); C.rows = d.rows || []; C.at = Date.now(); return C.rows; } catch (e) { const m = String((e && (e.message || e.code)) || e); if (!/PGRST202|Could not find the function|tnj_driver_job_cards/.test(m) || /TNJ_/.test(m)) throw e; C.noRpc = true; } }
+    let rows = [], pg = 1, total = 0; do { const d = await T.auth('tnj_job_list', { p: { page: pg, page_size: 500 } }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 50);
+    C.rows = rows; C.at = Date.now(); C.det = {}; return rows;
+  }
+  async function pageJobs(app, tab, force) {
+    const body = shell(app, 'งานของฉัน', null, 'd/jobs'); if (!C.rows) body.innerHTML = '<div class="empty">กำลังโหลด...</div>';
     let rows = [];
-    try { await loadJobs(true); let pg = 1, total = 0; do { const d = await T.auth('tnj_job_list', { p: { page: pg, page_size: 500 } }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 50); }
-    catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; T.err(e); return; }
+    try { [, rows] = await Promise.all([loadJobs(force !== false), loadCards(force !== false)]); }
+    catch (e) { if (!$('#dbody')) return; body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; T.err(e); return; }
+    if (!$('#dbody')) return;
     tab = DTABS.some((t) => t[0] === tab) ? tab : (rows.some(DTABS[1][2]) ? 'doing' : 'new');
     const vis = rows.filter(DTABS.find((t) => t[0] === tab)[2]).slice(0, 30);
-    const det = await Promise.all(vis.map((j) => T.auth('tnj_job_get', { p_job_id: j.id }, { silent: true }).catch(() => j)));
+    // Fallback เท่านั้น: ต้องการจำนวนเอกสาร → tnj_job_get รายงาน (Cache ต่อรอบโหลด)
+    const det = C.noRpc ? await Promise.all(vis.map((j) => C.det[j.id] || T.auth('tnj_job_get', { p_job_id: j.id }, { silent: true }).then((x) => (C.det[j.id] = x)).catch(() => j))) : vis;
     if (!$('#dbody')) return;
     body.innerHTML = `<div class="m-tabs" id="djTabs">${DTABS.map(([k, l, f]) => `<button type="button" data-t="${k}" class="${k === tab ? 'active' : ''}">${l} (${rows.filter(f).length})</button>`).join('')}</div>
       <div id="djList">${det.map(myCard).join('') || '<div class="m-card c muted">ไม่มีงานในหมวดนี้</div>'}</div>`;
-    $$('#djTabs [data-t]', body).forEach((b) => b.onclick = () => T.go('d/jobs?tab=' + b.dataset.t));
+    // สลับ Tab = ใช้ข้อมูลที่โหลดแล้ว (ไม่เรียก Server ซ้ำ)
+    $$('#djTabs [data-t]', body).forEach((b) => b.onclick = () => { history.replaceState(null, '', '#/d/jobs?tab=' + b.dataset.t); pageJobs(app, b.dataset.t, false); });
     $$('[data-ack]', body).forEach((b) => b.onclick = () => accept(b.dataset.ack, true));
-    T.every('drvjobs', 30000, () => { S.at = 0; T.render(); });
+    T.every('drvjobs', 30000, () => { S.at = 0; C.at = 0; T.render(); });
   }
   async function accept(id, stay) {
     if (!(await T.confirm(stay ? 'รับทราบงาน' : 'รับงาน', 'ยืนยันรับงานนี้? ระบบจะบันทึกเวลา ตำแหน่ง และเริ่มส่ง GPS', stay ? 'รับทราบงาน' : 'รับงาน', 'btn-g'))) return;
-    try { T.loading(true); const pos = await T.getPos(); const j = await T.auth('tnj_driver_accept', { p_job_id: id, p_lat: pos && pos.lat, p_lng: pos && pos.lng, p_acc: pos && pos.acc }, { silent: true }); T.toast('รับงานแล้ว ✅', 'ok'); S.at = 0; GPS.start(j.id); if (stay === 'detail') T.render(); else if (stay) T.go('d/jobs?tab=doing'); else T.go('d/jobs/' + j.id + '/legacy'); } catch (e) { T.err(e); } finally { T.loading(false); }
+    try { T.loading(true); const pos = await T.getPos(); const j = await T.auth('tnj_driver_accept', { p_job_id: id, p_lat: pos && pos.lat, p_lng: pos && pos.lng, p_acc: pos && pos.acc }, { silent: true }); T.toast('รับงานแล้ว ✅', 'ok'); S.at = 0; C.at = 0; GPS.start(j.id); if (stay === 'detail') T.render(); else if (stay) T.go('d/jobs?tab=doing'); else T.go('d/jobs/' + j.id + '/legacy'); } catch (e) { T.err(e); } finally { T.loading(false); }
   }
 
   // รายละเอียดงาน (DRIVER) — อ่านอย่างเดียว ยกเว้น เบอร์ตู้ / เบอร์ซีล ของ JOB ตัวเอง · ไม่มี Timeline · ไม่แสดงทะเบียนรถ
