@@ -5975,9 +5975,9 @@ function chkpRunValidate(){
    · ตรวจ: Product Code · Description (ไม่ตรง = ถูกต้อง + หมายเหตุ ตามกติกาเดิม) · TH · HS Code · Stat · Priv. / Seq (เฉพาะ MAPPING มี Header)
            · Declaration No ↔ ใบขนอ้างอิง (Entry) · DeclarationLine Number ↔ รายการที่ (Line no) — ตรง = PASS · ไม่ตรง / ฝั่งเดียวว่าง = FAIL · ว่างทั้งคู่ = PASS
    · Header ที่ต้องใช้ไม่มีใน MAPPING → แถว HEADER Missing (ตรวจไม่ครบ) · ห้ามเดา / fallback · READ ONLY */
-const CHKP_MAPF={ inv:['INVOICE Number','INVOICE NO.','Invoice No','Invoice Number','Invoice No.'], pc:['Product Code','PRODUCT CODE','Customer Part No/Product code'],
-  en:['Description eng 1','Description (EN Description) 1','Description/EN Description.1','Description'], th:['Part Description(TH)','Part Description (TH)','Thai Description','Thai Translation/TH Description.1'],
-  hs:['HS Code','HS code','Tariff Code'], st:['STAT','Stat'], pv:['Privilege','Priv.'], sq:['Seq','Seq.'], ref:['ใบขนอ้างอิง','Entry','เลขที่ใบขนอ้าง','Entry/เลขอ้างอิงใบขน','Entry / เลขอ้างอิงใบขน','เลขอ้างอิงใบขน'], ln:['รายการที่','Line no','Line No.','Line No','Line no/รายการที่อ้างอิงใบขน','Line no / รายการที่อ้างอิงใบขน','รายการที่อ้างอิงใบขน'] };
+const CHKP_MAPF={ inv:['INVOICE Number','INVOICE NO.','Invoice No','Invoice Number','Invoice No.'], pc:['Product Code','PRODUCT CODE','Customer Part No/Product code','PART NUMBER/product code','PART NUMBER'],
+  en:['Description eng 1','Description (EN Description) 1','Description/EN Description.1','Description','DESCRIPTION/ENG 1','ENG 1'], th:['Part Description(TH)','Part Description (TH)','Thai Description','Thai Translation/TH Description.1','TH description'],
+  hs:['HS Code','HS code','Tariff Code','Hscode'], st:['STAT','Stat'], pv:['Privilege','Priv.'], sq:['Seq','Seq.'], ref:['ใบขนอ้างอิง','Entry','เลขที่ใบขนอ้าง','Entry/เลขอ้างอิงใบขน','Entry / เลขอ้างอิงใบขน','เลขอ้างอิงใบขน'], ln:['รายการที่','Line no','Line No.','Line No','Line no/รายการที่อ้างอิงใบขน','Line no / รายการที่อ้างอิงใบขน','รายการที่อ้างอิงใบขน'] };
 const CHKP_MAPF_REQ=[['en','Description'],['th','TH Description'],['hs','HS Code'],['st','Stat'],['ref','ใบขนอ้างอิง / Entry'],['ln','รายการที่ / Line no']];
 function chkpMapSheetOf(sheets){
   for(const s of (sheets||[])){ const ci=chkpCol(s.hdr,...CHKP_MAPF.inv), cp=chkpCol(s.hdr,...CHKP_MAPF.pc); if(ci>=0 && cp>=0) return s; }
@@ -7553,11 +7553,11 @@ function termInsUpdate(){
   const on = !termIsEx() && (ef || term==='FOB' || term==='DAP');                             /* ★ [local063] Export: ไม่ใช้ Ins_OTH */
   const npct = TERM_STATE.mode==='Normal %', incFw = ef, incOth = true;
   /* ★ [local095] Normal + EXW/FCA: Ins_OTH (THB) = (Amount THB + F/W THB + Other_OTH THB) × 1% · THB ต่อช่อง = ยอด × Rate ของช่องนั้น ÷ หน่วยสกุล · ช่องว่าง = 0 · คนละสกุลได้ (ไม่เตือนข้ามสกุล) */
-  if(on && TERM_STATE.mode==='Normal' && ef){
+  if(on && (TERM_STATE.mode==='Normal' || TERM_STATE.mode==='Normal %')){   /* ★ [local097] + Normal % · ทุก TERM ที่มี Ins (EXW/FCA รวม F/W · FOB/DAP ไม่รวม F/W ตามสูตรเดิม) */
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
       let sum=0;
-      for(const [k,lab] of [['amount','Amount'],['fw','F/W'],['oth','Other_OTH']]){
+      for(const [k,lab] of [['amount','Amount']].concat(incFw?[['fw','F/W']]:[],[['oth','Other_OTH']])){
         const x=termIn('chke-term-'+k); if(x.bad){ warn=lab+' ไม่ใช่ตัวเลข'; break; }
         const val=x.empty?0:x.v; if(!val) continue;
         const r=termIn('chke-term-'+k+'Rate'); if(r.v==null){ warn='Rate '+lab+' ว่าง'; break; }
@@ -7802,7 +7802,7 @@ function termCalcRun(){
                          : termCalc(term, inp);
   A.comm = (opt.comm!=null) ? termR2(opt.comm*inp.amountRate/termFxUnit('amount')) : null;                            /* ★ [local046] ค่านายหน้า THB = R2(ค่านายหน้า × Amount Rate) (สกุลเดียวกับ Amount) */
   A.oth  = (opt.oth !=null) ? termR2(opt.oth *opt.othRate/termFxUnit('oth')) : null;
-  if(!ex && TERM_STATE.mode==='Normal' && (term==='EXW'||term==='FCA')) A.ins=termR2((A.amtThb + (A.fw||0) + (A.oth||0))*TERM_INS_PCT);   /* ★ [local095] สูตรเดียวกับ Ins_OTH Auto (THB ต่อช่องก่อนรวม) · แทนสูตรเดิม (Amount + F/W) × Amount Rate */
+  if(!ex && (TERM_STATE.mode==='Normal' || TERM_STATE.mode==='Normal %') && (term==='EXW'||term==='FCA')) A.ins=termR2((A.amtThb + (A.fw||0) + (A.oth||0))*TERM_INS_PCT);   /* ★ [local095] สูตรเดียวกับ Ins_OTH Auto (THB ต่อช่องก่อนรวม) · แทนสูตรเดิม (Amount + F/W) × Amount Rate */
   if(xFrg && inp.frg!=null) A.frg=termR2(inp.frg*inp.frgRate/termFxUnit('frg'));
   if(term==='FOB' && use.includes('fw') && inp.fw!=null) A.fw=termR2(inp.fw*inp.fwRate/termFxUnit('fw'));        /* ★ [local047] Normal % FOB: F/W THB (termCalc ข้าม FOB) · Ins FOB เดิมไม่รวม F/W */                                  /* [local041] Frg_OTH เท่านั้น · A.cif (CIF = Amt.THB / DAP ว่าง) ไม่แตะ */
   const calcRows=[];
@@ -7986,7 +7986,7 @@ function termTermReset(){
   for(const k of ['amount','fw','frg','ins','oth','comm','airCountry','airWeight']){ const el=document.getElementById('chke-term-'+k); if(el) el.value=''; }
   const co=document.getElementById('chke-term-commOn'); if(co) co.checked=false;
   TERM_AIR.last=null; if(TERM_AIR.auto) termAirExit(); TERM_AIR.prevCur='';
-  TERM_FW.auto=false; TERM_FW.fill=''; TERM_INS.auto=false; TERM_INS.fill=''; TERM_PDF.oth='';
+  TERM_FW.auto=false; TERM_FW.fill=''; TERM_INS.auto=false; TERM_INS.fill=''; TERM_INS.curKey=''; TERM_PDF.oth='';   /* ★ [local097] Reset สกุลกลับ USD → ล้าง Key เพื่อให้ Ins Auto ตั้งสกุล (THB) ใหม่ */
   TERM_FRGP.auto=false; TERM_FRGP.fill=''; { const re=document.getElementById('chke-term-frg'); if(re){ re.readOnly=false; re.placeholder=''; re.title=''; } }   /* ★ [local066] Frg 10% Auto State ล้างครบ */
   { const ie=document.getElementById('chke-term-ins'); if(ie){ ie.readOnly=false; ie.placeholder=''; ie.title=''; } const fe=document.getElementById('chke-term-fw'); if(fe) fe.readOnly=false; }
   for(const k of TERM_FX_KEYS){ const el=document.getElementById('chke-term-'+k+'Cur'); if(el){ el.disabled=false; termFxSetCur(k,'USD'); } }
