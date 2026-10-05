@@ -7481,7 +7481,7 @@ const TERM_COMM_PCT = 0.03;      /* [local025] ค่านายหน้า = 
 const TERM_LBL = { amount:'Amount', amountRate:'Amount Rate', fw:'F/W', fwRate:'F/W Rate', frg:'Frg', frgRate:'Frg Rate', oth:'Other_OTH', othRate:'Other_OTH Rate', comm:'ค่านายหน้า', airCountry:'ประเทศ AIR FREIGHT', airWeight:'น้ำหนัก G.W' };   /* [local030] ชื่อ Field ในข้อความแจ้ง */
 function termClearErr(){ document.querySelectorAll('#chke-term-row .chke-term-err').forEach(e=>e.classList.remove('chke-term-err')); }   /* [local030] */
 const TERM_INS_PCT = 0.01;       /* [local029] · [local041] สูตรกลาง Ins_OTH (ทั้ง 2 MODE) */
-const TERM_INS = { auto:false, fill:'', thb:false };   /* ★ [local095] thb = Normal EXW/FCA (Ins คิดเป็น THB · สกุล THB · Rate 1) */
+const TERM_INS = { auto:false, fill:'', thb:false, manual:false };   /* ★ [local098] manual = ผู้ใช้กรอก Ins เอง (Normal / Normal %) */   /* ★ [local095] thb = Normal EXW/FCA (Ins คิดเป็น THB · สกุล THB · Rate 1) */
 /* ★ [local089] สกุลของค่า Auto = สกุลจริงที่สูตรใช้ (Amount) · ตั้งเฉพาะตอนระบบสร้างค่าใหม่ (ยอด หรือ สกุล Amount เปลี่ยน) · ไม่ล็อก Dropdown
    · ผู้ใช้เปลี่ยนสกุลภายหลัง → คงไว้จนกว่าระบบสร้างค่าใหม่ · ค่าว่าง (⚠️ ไม่รวมข้ามสกุล) → ไม่แตะสกุล · Rate จาก MASTER เดิม (termFxApply) */
 function termAutoCur(k,S,v){ const el=document.getElementById('chke-term-'+k+'Cur'); if(!el) return; el.disabled=false;
@@ -7553,7 +7553,10 @@ function termInsUpdate(){
   const on = !termIsEx() && (ef || term==='FOB' || term==='DAP');                             /* ★ [local063] Export: ไม่ใช้ Ins_OTH */
   const npct = TERM_STATE.mode==='Normal %', incFw = ef, incOth = true;
   /* ★ [local095] Normal + EXW/FCA: Ins_OTH (THB) = (Amount THB + F/W THB + Other_OTH THB) × 1% · THB ต่อช่อง = ยอด × Rate ของช่องนั้น ÷ หน่วยสกุล · ช่องว่าง = 0 · คนละสกุลได้ (ไม่เตือนข้ามสกุล) */
-  if(on && (TERM_STATE.mode==='Normal' || TERM_STATE.mode==='Normal %')){   /* ★ [local097] + Normal % · ทุก TERM ที่มี Ins (EXW/FCA รวม F/W · FOB/DAP ไม่รวม F/W ตามสูตรเดิม) */
+  if(on && (TERM_STATE.mode==='Normal' || TERM_STATE.mode==='Normal %')){
+    /* ★ [local098] Manual Override: ช่องมีค่าที่ไม่ใช่ค่าที่ระบบเติม → ค่าผู้ใช้ (ไม่ทับ) · ลบให้ว่าง → กลับ Auto */
+    if(TERM_INS.thb && TERM_INS.auto && el.value!==TERM_INS.fill && String(el.value).trim()!=='') TERM_INS.manual=true;
+    if(TERM_INS.manual){ if(String(el.value).trim()===''){ TERM_INS.manual=false; TERM_INS.curKey=''; } else { el.readOnly=false; el.placeholder=''; el.title='Ins_OTH กรอกเอง (Manual) · ลบให้ว่างเพื่อกลับเป็น Auto'; return; } }   /* ★ [local097] + Normal % · ทุก TERM ที่มี Ins (EXW/FCA รวม F/W · FOB/DAP ไม่รวม F/W ตามสูตรเดิม) */
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
       let sum=0;
@@ -7564,12 +7567,12 @@ function termInsUpdate(){
         sum+=termR2(val*r.v/termFxUnit(k)); }
       if(!warn) v=termR2(sum*TERM_INS_PCT).toFixed(2);
     }
-    el.value=v; el.readOnly=true; TERM_INS.auto=true; TERM_INS.fill=v; TERM_INS.thb=true;
-    el.placeholder=warn?'⚠️ '+warn:''; el.title=warn?'Ins_OTH ไม่คำนวณ: '+warn:'';
+    el.value=v; el.readOnly=false; TERM_INS.auto=true; TERM_INS.fill=v; TERM_INS.thb=true;   /* ★ [local098] กรอกได้ (Manual Override) */
+    el.placeholder=warn?'⚠️ '+warn:''; el.title=warn?'Ins_OTH ไม่คำนวณ: '+warn:'Ins_OTH Auto · พิมพ์ค่าเองได้ (Manual)';
     termInsThb(v);
     return;
   }
-  TERM_INS.thb=false;   /* ★ [local080] ทุก MODE: EXW/FCA = (Amount + F/W + Other_OTH) × 1% · FOB / DAP = (Amount + Other_OTH) × 1% (ไม่รวม F/W) */
+  TERM_INS.thb=false; TERM_INS.manual=false;   /* ★ [local080] ทุก MODE: EXW/FCA = (Amount + F/W + Other_OTH) × 1% · FOB / DAP = (Amount + Other_OTH) × 1% (ไม่รวม F/W) */
   if(on){
     const a=termIn('chke-term-amount'); let v='', warn='';
     if(a.v!=null){
@@ -7986,7 +7989,7 @@ function termTermReset(){
   for(const k of ['amount','fw','frg','ins','oth','comm','airCountry','airWeight']){ const el=document.getElementById('chke-term-'+k); if(el) el.value=''; }
   const co=document.getElementById('chke-term-commOn'); if(co) co.checked=false;
   TERM_AIR.last=null; if(TERM_AIR.auto) termAirExit(); TERM_AIR.prevCur='';
-  TERM_FW.auto=false; TERM_FW.fill=''; TERM_INS.auto=false; TERM_INS.fill=''; TERM_INS.curKey=''; TERM_PDF.oth='';   /* ★ [local097] Reset สกุลกลับ USD → ล้าง Key เพื่อให้ Ins Auto ตั้งสกุล (THB) ใหม่ */
+  TERM_FW.auto=false; TERM_FW.fill=''; TERM_INS.auto=false; TERM_INS.fill=''; TERM_INS.curKey=''; TERM_INS.manual=false; TERM_PDF.oth='';   /* ★ [local097] Reset สกุลกลับ USD → ล้าง Key เพื่อให้ Ins Auto ตั้งสกุล (THB) ใหม่ */
   TERM_FRGP.auto=false; TERM_FRGP.fill=''; { const re=document.getElementById('chke-term-frg'); if(re){ re.readOnly=false; re.placeholder=''; re.title=''; } }   /* ★ [local066] Frg 10% Auto State ล้างครบ */
   { const ie=document.getElementById('chke-term-ins'); if(ie){ ie.readOnly=false; ie.placeholder=''; ie.title=''; } const fe=document.getElementById('chke-term-fw'); if(fe) fe.readOnly=false; }
   for(const k of TERM_FX_KEYS){ const el=document.getElementById('chke-term-'+k+'Cur'); if(el){ el.disabled=false; termFxSetCur(k,'USD'); } }
