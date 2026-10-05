@@ -2263,6 +2263,57 @@
     };
   }
 
+  /* ---------- [FACE POSITION GATE] ใบหน้าต้องอยู่กลางวงรีก่อนจึงเริ่มตรวจ ----------
+     ปัญหาเดิม: เส้นทางลงเวลาตรวจแค่ "พบ 1 หน้า + q.ratio ถึงเกณฑ์" เท่านั้น
+     ใบหน้าที่อยู่มุมจอจึงผ่านและเริ่มสะสมเฟรมได้ ทำให้วงรีบนจอไม่มีความหมายกับ Logic จริง
+
+     Coordinate Mapping (ตรวจครบตาม object-fit: cover + mirror)
+       · Detector อ่านพิกเซลดิบจาก <video> => box อยู่ในพิกัด "source video" (videoWidth/Height)
+       · จอแสดงผ่าน .njf-cam ที่ object-fit:cover => ภาพถูก crop ไม่ใช่ scale ตรง ๆ
+         scale = max(boxW/vw, boxH/vh) · พื้นที่ต้นทางที่มองเห็น = boxW/scale x boxH/scale (จัดกึ่งกลาง)
+       · <video> มี transform: scaleX(-1) (กระจกเงา) => ตำแหน่งแนวนอนบนจอต้องพลิกกลับ
+         ก่อนนำไปเทียบกับพิกัด source  (จุดบนจอ fx -> source 1-fx)
+       · ไม่ใช้ค่าที่อิง window.innerHeight และไม่อ่าน devicePixelRatio
+         ใช้ getBoundingClientRect ของ .njf-cam กับ #njf-oval ตรง ๆ จึงตรงกับสิ่งที่ผู้ใช้เห็นจริง
+
+     Safe Zone = วงรีเดียวกับที่แสดงบนจอ ย่อรัศมีเหลือ FACE_POS_SAFE เพื่อเผื่อ Tolerance
+     คืน true เมื่ออ่านค่าไม่ได้ (ไม่มี overlay / วิดีโอยังไม่พร้อม) = fail-open ไม่บล็อกการลงเวลา
+
+     ไม่แตะ: Threshold การจำหน้า · Descriptor · Liveness · จำนวนเฟรม · q.ratio เดิม */
+  var FACE_POS_SAFE = 0.55;   // ศูนย์กลางใบหน้าต้องอยู่ภายใน 55% ของรัศมีวงรี
+
+  function faceCenterInOval(box) {
+    try {
+      if (!box) return true;
+      var vw = S.video && S.video.videoWidth, vh = S.video && S.video.videoHeight;
+      if (!vw || !vh) return true;
+      var cam = S.root && S.root.querySelector('.njf-cam');
+      var oval = S.root && S.root.querySelector('#njf-oval');
+      if (!cam || !oval) return true;
+      var cb = cam.getBoundingClientRect(), ob = oval.getBoundingClientRect();
+      if (!cb.width || !cb.height || !ob.width || !ob.height) return true;
+
+      /* object-fit: cover — พื้นที่ของ source ที่ถูกแสดงจริง (จัดกึ่งกลางทั้งสองแกน) */
+      var scale = Math.max(cb.width / vw, cb.height / vh);
+      var visW = cb.width / scale, visH = cb.height / scale;
+      var offX = (vw - visW) / 2, offY = (vh - visH) / 2;
+
+      /* ตำแหน่งวงรีบนจอ -> สัดส่วนในกล่อง -> พิกัด source (พลิกแกน X เพราะ scaleX(-1)) */
+      var fx = ((ob.left + ob.width / 2) - cb.left) / cb.width;
+      var fy = ((ob.top + ob.height / 2) - cb.top) / cb.height;
+      var ocx = offX + (1 - fx) * visW;          /* mirror: จอ fx -> source 1-fx */
+      var ocy = offY + fy * visH;
+      var orx = (ob.width / 2) / cb.width * visW;
+      var ory = (ob.height / 2) / cb.height * visH;
+      if (!(orx > 0) || !(ory > 0)) return true;
+
+      var fcx = box.x + box.width / 2, fcy = box.y + box.height / 2;
+      var dx = (fcx - ocx) / (orx * FACE_POS_SAFE);
+      var dy = (fcy - ocy) / (ory * FACE_POS_SAFE);
+      return (dx * dx + dy * dy) <= 1;
+    } catch (e) { return true; }
+  }
+
   // ระยะห่างตาบน-ล่าง หารความกว้างตา — ใช้ตรวจการกระพริบตา
   function eyeOpen(lm) {
     function ear(pts) {
@@ -2490,6 +2541,11 @@
               badRun++;
               if (badRun >= GRAB_BAD_RESET) stable = 0;
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+            } else if (!faceCenterInOval(box)) {
+              /* [FACE POSITION GATE] ใบหน้ายังไม่อยู่กลางวงรี — ไม่สะสมความนิ่ง ไม่เก็บ Descriptor
+                 รีเซ็ตทันที (เป็นการขยับของผู้ใช้ ไม่ใช่ Detector สะดุด) */
+              stable = 0;
+              if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
             } else if (!capturing || !f0.descriptor) {
               /* Stage A ผ่าน แต่ยังไม่ถึงคิวสร้าง Descriptor — นับความนิ่งไว้ก่อน */
               badRun = 0; stable++;
@@ -2614,6 +2670,8 @@
       }
       var q = frameQuality(r[0].detection.box);
       if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      /* [FACE POSITION GATE] ใช้เกณฑ์เดียวกับเส้นทางปกติ — Android ต้องไม่หลวมกว่า iPhone */
+      if (!faceCenterInOval(r[0].detection.box)) throw new Error('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
       if (q.brightness < 45) throw new Error('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น');
       if (q.brightness > 232) throw new Error('แสงจ้าเกินไป กรุณาเลี่ยงแสงย้อน');
       if (q.sharpness < 8) throw new Error('ภาพไม่ชัด กรุณาถือนิ่งและลองใหม่');
@@ -2641,6 +2699,8 @@
       var f0 = r[0], q = frameQuality(f0.detection.box);
       if (!f0.descriptor) throw new Error('สร้างข้อมูลใบหน้าไม่สำเร็จ กรุณาลองใหม่');
       if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
+      /* [FACE POSITION GATE] กันกรณีขยับออกนอกวงรีระหว่างรอ Recognition Model */
+      if (!faceCenterInOval(f0.detection.box)) throw new Error('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
       return {
         frames: [{ box: f0.detection.box, desc: Array.from(f0.descriptor), q: q,
                    ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) }],

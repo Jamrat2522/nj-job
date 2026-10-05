@@ -64,9 +64,17 @@
 .njf-cam canvas { display: none; }
 
 .njf-guide { position: absolute; inset: 0; pointer-events: none; }
+/* ---------- [OVAL SIZE LOCK] วงรีต้องอ้างอิง "กล่องกล้อง" ไม่ใช่ viewport ----------
+   Root Cause ที่วัดได้: .njf-cam ถูกล็อก 3:4 แล้ว (แนวนอนยึดความสูง -> กว้าง = สูง x 0.75)
+   แต่ .njf-oval / .njf-ring / .njf-turn ยังกว้างตาม 62vw ซึ่งโตตาม "ความกว้างจอ"
+   วัดที่ 844x390: กล่องกล้อง 224x298 แต่วงรี 264x351 = วงรีล้นออกนอก Preview
+   -> Safe Zone ของ Face Position Gate จะเลยขอบภาพที่ผู้ใช้เห็นจริง
+   แก้เป็น % ของ .njf-guide (= inset:0 ของ .njf-cam) จึงผูกกับกล่องกล้องตรง ๆ
+   ⚠ แนวตั้งมือถือ: กล่องกล้อง width:100% => 62% เท่ากับ 62vw เป๊ะ (ขนาดเดิมไม่เปลี่ยน)
+   ⚠ จอ >=900px: .njf-overlay ถูกจำกัด 460px => min() ตัดที่ 260px ทั้งก่อนและหลัง (เท่าเดิม) */
 .njf-oval {
   position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
-  width: min(62vw, 260px); aspect-ratio: 3 / 4;
+  width: min(62%, 260px); aspect-ratio: 3 / 4;
   border: 2px dashed rgba(255,255,255,.9); border-radius: 50%;
   transition: border-color .2s;
 }
@@ -77,7 +85,7 @@
    หมุน -90deg ให้เริ่มวาดจากยอดวงรี */
 .njf-ring {
   position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%) rotate(-90deg);
-  width: min(62vw, 260px); aspect-ratio: 3 / 4;
+  width: min(62%, 260px); aspect-ratio: 3 / 4;   /* [OVAL SIZE LOCK] ต้องเท่ากับ .njf-oval เสมอ */
   pointer-events: none; overflow: visible;
 }
 .njf-ring ellipse { fill: none; stroke-width: 4; }
@@ -124,8 +132,9 @@
   background: no-repeat center/contain;
 }
 .njf-turn.show { opacity: 1; animation: njfslide 1.4s ease-in-out infinite; }
-.njf-turn.left  { left: calc(50% - min(31vw, 130px) - 46px); }
-.njf-turn.right { right: calc(50% - min(31vw, 130px) - 46px); }
+/* [OVAL SIZE LOCK] ลูกศรเกาะขอบวงรี จึงต้องใช้หน่วยเดียวกับ .njf-oval (ครึ่งหนึ่งของ 62%) */
+.njf-turn.left  { left: calc(50% - min(31%, 130px) - 46px); }
+.njf-turn.right { right: calc(50% - min(31%, 130px) - 46px); }
 .njf-turn.left::before, .njf-turn.right::before {
   content: '';
   display: block; width: 100%; height: 100%;

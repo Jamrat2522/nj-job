@@ -252,3 +252,38 @@ DB Acceptance หลัง Build (Production + ROLLBACK)  PASS 14 / FAIL 0
   P4 สลิปแยก OT x1/x1.5/x3      P5 B เปิดของ A ไม่ได้
   P6 หลัง Publish ยังไม่มี Mail Queue
   R1 Gate งวดตุลาคมยังบล็อก      R2 งวด 10/2026 ครบ 117 แถว net 1,882,111.54
+
+================================================================
+RUN-165 · Face Attendance มือถือ — วงรีนิ่ง + Face Position Gate (local327)
+Build njhr-v2-c2c74b9c · 05/10/2569
+================================================================
+Root Cause ที่พบจริง (2 จุด)
+  1 face.js  grabFramesLoop() / androidAttendanceLiteScan()
+    เงื่อนไขเริ่มสแกนเดิมมีแค่ "พบ 1 หน้า + q.ratio >= 0.035" ไม่มีการตรวจตำแหน่งเลย
+    ใบหน้าที่อยู่มุมจอจึงสะสม Stable Frame ได้ -> วงรีบนจอไม่มีผลกับ Logic
+  2 face.css .njf-oval / .njf-ring / .njf-turn
+    width: min(62vw,260px) โตตามความกว้างจอ ขณะที่ .njf-cam ถูกล็อก 3:4
+    วัดที่ 844x390: กล่องกล้อง 224x298 แต่วงรี 264x351 = วงรีล้นนอก Preview
+ตรวจแล้วไม่ใช่สาเหตุ
+  - วงรีกระโดดตอน Toolbar ยุบ/ขยาย : แก้แล้วก่อนหน้าด้วย aspect-ratio 3/4 บน .njf-cam
+  - CSS หมุนวงรี +-8 องศา        : cam.dataset.dir ถูกตั้งจุดเดียวใน enroll() เท่านั้น
+จุดที่แก้
+  face.js  + FACE_POS_SAFE = 0.55 และ faceCenterInOval(box)   (+60 / -0 บรรทัด)
+           + Gate ใน grabFramesLoop (stable = 0) 1 จุด
+           + Gate ใน androidAttendanceLiteScan (throw) 2 จุด
+  face.css min(62vw,260px) -> min(62%,260px)  ที่ .njf-oval, .njf-ring
+           min(31vw,130px) -> min(31%,130px)  ที่ .njf-turn.left/.right
+ไม่แตะ: Threshold · Descriptor · Liveness · q.ratio 0.035 · GRAB_STABLE_MIN 2
+        GRAB_BAD_RESET 3 · grabFrames(6) · GPS · Attendance RPC · DB · Payroll
+        login() · enroll() · Desktop Flow · Permission Flow · canvas · videoWidth/Height
+Coordinate Mapping: object-fit cover crop (offX/offY) · mirror scaleX(-1) (จอ fx -> source 1-fx)
+        scale · getBoundingClientRect จริง · ไม่อิง innerHeight / devicePixelRatio
+ผลทดสอบหลัง Build (local327 · 05/10/2569)
+  Regression ทั้งชุด 56 suite                    PASS 56 / FAIL 0
+  test-run165-faceoval.js                        PASS 82  / FAIL 0
+  test-run165-responsive.js (Chromium 13 จอ)      PASS 115 / FAIL 0
+  Build idempotent (รัน rebuild-version.py ซ้ำ)     ไฟล์ไม่เปลี่ยน
+  face.js  sha256 b676e3cbc14a0367c9990adb314f53e79fbcb8b46ea81165dbf0e6bdffa11d80
+  face.css sha256 93f12d1d9e954168c5f17f84f82e1aa481cf84cb0c54ed5d7324561ff797349b
+ยังไม่ยืนยัน (ต้องทดสอบบนมือถือจริง)
+  Face Match จำคนถูก · ลงเวลาบันทึกสำเร็จ · iPhone Safari / Android Chrome
