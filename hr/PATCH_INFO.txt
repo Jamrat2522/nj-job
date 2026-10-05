@@ -1,3 +1,56 @@
+NJHR V2 — RUN-164  (RELEASE local326)
+
+BUILD = (ดูด้านล่าง)
+SQL ที่ต้องรัน: RUN-163 ส่วนที่ 1 (ยังค้าง) + RUN-164 (ลง Production แล้ว)
+
+================================================================
+RUN-164  ประกันสังคม "ลูกจ้าง 5%" — ปัดขึ้น + เพดานฐาน 17,500 + CAP 875
+================================================================
+กติกา  employee_base = MIN(ฐานค่าจ้างจริง, 17500)
+       ลูกจ้าง       = MIN(CEIL(employee_base x 5%), 875)
+       ปัดขึ้นเป็นจำนวนเต็มทุกกรณี · คำนวณจากฐานจริงก่อนแล้วค่อย CAP
+
+Root Cause — มี 2 จุดคำนวณที่แยกกันและผิดทั้งคู่
+  1) DB  njhr_sso_base()   -> หน้า "ประกันสังคม" / njhr_sso_snapshot
+       round(v_base * rate_employee / 100, 0) + ฐานถูกตัดที่ cfg.base_max = 15,000
+       -> ปัดครึ่งไม่ใช่ปัดขึ้น และลูกจ้างได้เพดาน 750 เสมอ
+  2) Frontend compat/approvals-reports.js (viewPayroll -> ปุ่มคำนวณเงินเดือน)
+       Math.min(Math.round(x.baseSalary*.05), 750)
+       -> ปัดครึ่ง · เพดานยอด 750 · ไม่มีเพดานฐาน
+     payroll.social_security มาจาก Frontend ล้วน (period_save/recalc_row ไม่คิด ปกส. ใหม่)
+     จึงต้องแก้ทั้งสองจุดถึงจะตรงกันทั้ง Payroll / สลิป / PDF / Excel
+
+สิ่งที่แก้
+  DB  _archive/RUN-164_sso_employee_ceil.sql   (ลง Production แล้ว)
+    + v_emp_base := least(greatest(v_raw, cfg.base_min), 17500)
+    ~ ลูกจ้าง = least(ceil(v_emp_base * cfg.rate_employee / 100), 875)
+    มี assertion: นายจ้างห้ามถูกแตะ · cfg.base_max ต้องเหลือ 1 จุด (ฐานร่วม)
+  Frontend  compat/approvals-reports.js
+    ~ var ssoBase=Math.min(x.baseSalary,17500);
+    ~ var sso=Math.min(Math.ceil(ssoBase*.05),875);
+
+ไม่แตะ: สูตรนายจ้าง (ยัง round บนฐานร่วม) · MANUAL · ภาษี · OT · งวดเก่า
+        system_settings.sso_base_max (ยังเป็น 15000 — Shared Setting)
+
+ผลกับข้อมูลจริง (พนักงานเข้า ปกส. 107 คน)
+  ลูกจ้างยอดเปลี่ยน 43 คน · รวม +3,534 บาท/เดือน
+  ลูกจ้าง > 750 = 40 คน · ชนเพดาน 875 = 19 คน
+  นายจ้างเปลี่ยน 0 คน (สูงสุดยังเป็น 750)
+
+ค้างไว้ให้ตัดสินใจ (ไม่ได้แก้ อยู่นอกคำสั่ง)
+  · คอลัมน์ "ฐานคำนวณ" บนหน้าจอยังแสดงฐานร่วม 15,000 ขณะที่ลูกจ้างอาจเป็น 875
+    ถ้าต้องการให้อ่านรู้เรื่องต้องเพิ่มคอลัมน์ "ฐานลูกจ้าง" (แก้ RPC signature + Frontend)
+  · ฐานที่ใช้ยังต่างกัน: DB = base_salary + position_allow · Frontend = base_salary
+    ต่างกัน 2 คน รวม 101 บาท/เดือน (เป็นของเดิมก่อน RUN-164)
+
+ผลทดสอบ
+  test-run164-sso.js                 PASS 36 / FAIL 0
+  Regression ชุดเต็ม 56 ไฟล์          FAIL 0
+  Mutation test: เปลี่ยนเพดานฐานกลับเป็น 15,000 -> FAIL 5 ข้อทันที
+  assertion เดิมที่ถูกกติกาใหม่แทนที่: test-run150 B10/B12/B14 · test-run154 A11 · test-run155 A9
+
+================================================================
+
 NJHR V2 — RUN-162 / RUN-163  (RELEASE local325)
 
 ================================================================

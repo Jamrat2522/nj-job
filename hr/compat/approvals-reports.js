@@ -1705,7 +1705,14 @@ function viewPayroll(el){
           var otHours=Number(otMap[x.id])||0;
           var otAmt=Math.round(x.baseSalary/30/8*1.5*otHours);
           var gross=x.baseSalary+x.allowance+otAmt;
-          var sso=Math.min(Math.round(x.baseSalary*.05),750);
+          /* [RUN-164] ประกันสังคมฝั่งลูกจ้าง — ใช้เพดานฐานของตัวเอง 17,500 ไม่ใช่ค่าร่วม
+             employee_base = MIN(ฐานค่าจ้างจริง, 17500)
+             ลูกจ้าง       = MIN(CEIL(employee_base x 5%), 875)
+             ปัดขึ้นเป็นจำนวนเต็มทุกกรณี แล้วค่อย CAP
+             ของเดิมใช้ Math.round + เพดาน 750 ซึ่งไม่ตรงกติกาและไม่ตรงกับฝั่ง DB
+             ตรงกับ njhr_sso_base() ที่หน้า "ประกันสังคม" ใช้ */
+          var ssoBase=Math.min(x.baseSalary,17500);
+          var sso=Math.min(Math.ceil(ssoBase*.05),875);
           var tax=x.baseSalary>5e4?Math.round(x.baseSalary*.03):0;
           return{empId:x.id,base:x.baseSalary,allowance:x.allowance,ot:otAmt,earnings:gross,
                  sso:sso,tax:tax,otherDeduct:0,deductions:sso+tax,net:gross-sso-tax}});
