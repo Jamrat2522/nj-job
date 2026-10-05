@@ -46,6 +46,8 @@
   T.debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   T.sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   T.isOffice = () => !!T.session && T.OFFICE.has(T.session.role);
+  // ตัวอ้างอิงงานบนหน้าจอ (แทน Job No. ที่ยกเลิกแล้ว) — Relation ภายในใช้ job.id (UUID) เสมอ
+  T.jobRef = (j) => [j && j.customer_name, j && j.bl_no].filter(Boolean).join(' | ') || '-';
   T.isAdmin = () => !!T.session && (T.session.role === 'SUPER_ADMIN' || T.session.role === 'ADMIN');
   T.canEdit = () => !!T.session && ['SUPER_ADMIN', 'ADMIN', 'TRANSPORT'].includes(T.session.role);
 

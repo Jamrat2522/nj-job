@@ -63,7 +63,7 @@
   };
 
   /* ---------- pages ---------- */
-  const card = (j, active) => `<div class="jobcard"><div class="flex between"><span class="jn">${h(j.job_no)}</span>${T.badge(j.status)}</div>
+  const card = (j, active) => `<div class="jobcard"><div class="flex between"><span class="jn">${h(T.jobRef(j))}</span>${T.badge(j.status)}</div>
     <div class="mt1"><b>${h(j.customer_name)}</b><div class="small muted">B/L: ${h(j.bl_no)} · ตู้: ${h(j.container_no || '-')} ${h(j.container_size || '')}</div></div>
     <div class="pt"><div class="ic a">📍</div><div><div class="l">ท่ารับตู้ · ${T.fmtD(j.pickup_date)} ${T.fmtT(j.pickup_time)} น.</div><div class="v">${h(j.pickup_location_text)}</div></div></div>
     <div class="pt"><div class="ic b">🏭</div><div><div class="l">โรงงาน${j.factory_date ? ' · ' + T.fmtD(j.factory_date) + ' ' + T.fmtT(j.factory_time) : ''}</div><div class="v">${h(j.factory_location_text)}</div></div></div>
@@ -79,7 +79,7 @@
   const jTime = (j) => j.factory_time ? T.fmtT(j.factory_time) + ' น.' : '-';
   // การ์ดงาน — ไม่แสดงทะเบียนรถ / ทะเบียนหัว / ทะเบียนหาง (ใช้ภายในระบบเท่านั้น)
   const myCard = (j) => { const kv = (k, v) => `<div class="m-kv"><span>${k}</span><b>${v}</b></div>`; const nf = (j.files || []).length;
-    return `<div class="m-card m-djob" data-dj="${j.id}"><div class="flex between"><b class="m-jn">${h(j.job_no)}</b>${T.badge(j.status)}</div>
+    return `<div class="m-card m-djob" data-dj="${j.id}"><div class="flex between"><b class="m-jn">${h(T.jobRef(j))}</b>${T.badge(j.status)}</div>
       <div class="m-kvs">${kv('ลูกค้า', h(j.customer_name || '-'))}${kv('B/L', h(j.bl_no || '-'))}${kv('วันที่', jDate(j))}${kv('เวลา', jTime(j))}</div>
       <div class="m-kvs">${kv('ท่านำเข้า', h(j.pickup_location_text || '-'))}${kv('โรงงาน', h(j.factory_location_text || '-'))}${kv('คืนตู้เปล่า', h(j.return_location_text || '-'))}</div>
       <div class="m-kvs">${kv('เอกสารแนบ', `${nf} ไฟล์`)}${kv('สถานะงาน', h(T.ST_TH[j.status] || j.status))}</div>
@@ -121,16 +121,16 @@
   async function pageDetail(app, id, tab) {
     const body = shell(app, 'รายละเอียดงาน', 'd/jobs', 'd/jobs'); body.innerHTML = '<div class="empty">กำลังโหลด...</div>';
     let j; try { j = await T.auth('tnj_job_get', { p_job_id: id }, { silent: true }); } catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; return; }
-    if (!$('#dbody')) return; $('.drv-top h2', app).textContent = j.job_no;
+    if (!$('#dbody')) return; $('.drv-top h2', app).textContent = T.jobRef(j);
     const closed = ['COMPLETED', 'CANCELLED'].includes(j.status), uid = T.session.user_id, files = j.files || [];
     const comp = files.filter((f) => f.uploaded_by !== uid), mine = files.filter((f) => f.uploaded_by === uid);
     const kv = (k, v) => `<div class="m-kv"><span>${k}</span><b>${v}</b></div>`;
     const st = ['NEW', 'ASSIGNED'].includes(j.status) ? 0 : j.status === 'COMPLETED' ? 3 : j.status === 'CANCELLED' ? -1 : 1;
     const loc = (ic, l, lo, tx) => `<div class="m-loc"><div class="grow"><div class="xs muted">${ic} ${l}</div><b>${h(tx || '-')}</b></div>${(lo && (lo.google_maps_url || (lo.latitude && lo.longitude))) || tx ? `<a class="btn btn-sm btn-p" data-navi target="_blank" rel="noopener" href="${h(T.mapsUrl(lo, tx))}">🗺️ นำทาง</a>` : '<span class="xs muted">ไม่มีตำแหน่ง</span>'}</div>`;
-    body.innerHTML = `<div class="m-card"><div class="flex between"><b class="m-jn">${h(j.job_no)}</b>${T.badge(j.status)}</div>
+    body.innerHTML = `<div class="m-card"><div class="flex between"><b class="m-jn">${h(T.jobRef(j))}</b>${T.badge(j.status)}</div>
         ${st >= 0 ? `<div class="m-steps">${['รับทราบงาน', 'กำลังวิ่งงาน', 'เสร็จงาน'].map((x, i) => `<span class="${i < st ? 'done' : i === st ? 'cur' : ''}">${i < st ? '✓ ' : ''}${x}</span>`).join('')}</div>` : ''}
         ${j.status === 'ASSIGNED' ? `<button type="button" class="btn btn-lg btn-block btn-g mt1" data-ack="${j.id}">✅ รับทราบงาน</button>` : ''}</div>
-      <div class="m-card" id="ddInfo"><div class="m-sec"><b>ข้อมูลงาน</b></div><div class="m-kvs">${kv('JOB', h(j.job_no))}${kv('ลูกค้า', h(j.customer_name || '-'))}${kv('B/L', h(j.bl_no || '-'))}${kv('วันที่ / เวลา', `${jDate(j)} ${j.factory_time ? T.fmtT(j.factory_time) + ' น.' : ''}`)}
+      <div class="m-card" id="ddInfo"><div class="m-sec"><b>ข้อมูลงาน</b></div><div class="m-kvs">${kv('ลูกค้า', h(j.customer_name || '-'))}${kv('B/L', h(j.bl_no || '-'))}${kv('วันที่ / เวลา', `${jDate(j)} ${j.factory_time ? T.fmtT(j.factory_time) + ' น.' : ''}`)}
         ${kv('ท่านำเข้า', h(j.pickup_location_text || '-'))}${kv('โรงงาน', h(j.factory_location_text || '-'))}${kv('คืนตู้เปล่า', h(j.return_location_text || '-'))}${kv('หมายเหตุ', h(j.job_note || '-'))}
         ${kv('เบอร์ตู้', h(j.container_no || '-'))}${kv('เบอร์ซีล', h(j.seal_no || '-'))}${kv('เอกสาร', `${files.length} ไฟล์`)}</div></div>
       <div class="m-card" id="ddLoc"><div class="m-sec"><b>📍 LOCATION</b></div>${loc('📍', 'จุดรับตู้', j.pickup_loc, j.pickup_location_text)}${loc('🏭', 'โรงงาน', j.factory_loc, j.factory_location_text)}${loc('↩️', 'คืนตู้เปล่า', j.return_loc, j.return_location_text)}</div>
@@ -159,7 +159,7 @@
   async function pageJob(app, id, tab) {
     const body = shell(app, '', 'd/jobs', 'd/jobs'); body.innerHTML = '<div class="empty">กำลังโหลด...</div>';
     let j; try { j = await getJob(id); } catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; return; }
-    $('.drv-top h2', app).innerHTML = `${h(j.job_no)}<div class="xs" style="font-weight:400">${h(T.ST_TH[j.status])}</div>`;
+    $('.drv-top h2', app).innerHTML = `${h(T.jobRef(j))}<div class="xs" style="font-weight:400">${h(T.ST_TH[j.status])}</div>`;
     const active = T.ACTIVE.has(j.status), assigned = j.status === 'ASSIGNED', closed = ['COMPLETED', 'CANCELLED'].includes(j.status); const m = j.mileage || {};
     tab = tab || 'info';
     const reload = () => { S.at = 0; pageJob(app, id, tab); };
@@ -202,7 +202,7 @@
   /* ---------- sheets ---------- */
   function statusSheet(j, onDone) {
     const next = T.nextStatus(j.status); const steps = T.STATUS.slice(3, 13);
-    T.modal({ title: `อัปเดตสถานะ — ${j.job_no}`, sheet: true, body: `<div class="alert info">สถานะปัจจุบัน: <b>${h(T.ST_TH[j.status])}</b> — กดได้เฉพาะขั้นถัดไป</div><div class="stlist">${steps.map((s) => { const [l, ic, cls] = T.ST_BTN[s]; const isNext = s === next; const done = T.statusOrder(s) <= T.statusOrder(j.status); return `<button class="btn ${isNext ? cls + ' next' : ''}" data-st="${s}" ${isNext ? '' : 'disabled'}>${ic} ${l}${done ? ' ✓' : ''}</button>`; }).join('')}</div><div class="field mt2"><label>หมายเหตุ (ถ้ามี)</label><input class="inp inp-lg" id="stNote"></div><label class="check"><input type="checkbox" id="stPhoto"> ถ่ายรูปแนบด้วย</label>`,
+    T.modal({ title: `อัปเดตสถานะ — ${T.jobRef(j)}`, sheet: true, body: `<div class="alert info">สถานะปัจจุบัน: <b>${h(T.ST_TH[j.status])}</b> — กดได้เฉพาะขั้นถัดไป</div><div class="stlist">${steps.map((s) => { const [l, ic, cls] = T.ST_BTN[s]; const isNext = s === next; const done = T.statusOrder(s) <= T.statusOrder(j.status); return `<button class="btn ${isNext ? cls + ' next' : ''}" data-st="${s}" ${isNext ? '' : 'disabled'}>${ic} ${l}${done ? ' ✓' : ''}</button>`; }).join('')}</div><div class="field mt2"><label>หมายเหตุ (ถ้ามี)</label><input class="inp inp-lg" id="stNote"></div><label class="check"><input type="checkbox" id="stPhoto"> ถ่ายรูปแนบด้วย</label>`,
       onOpen: (el, close) => { $$('[data-st]', el).forEach((b) => b.onclick = async () => { const st = b.dataset.st; const note = $('#stNote', el).value.trim(); const photo = $('#stPhoto', el).checked;
         if (st === 'COMPLETED') { const m = j.mileage || {}; if (!m.end_mileage && !(await T.confirm('ปิดงาน', '⚠ ยังไม่ได้บันทึกไมล์หลัง — ปิดงานเลยหรือไม่? (แนะนำให้บันทึกไมล์หลังก่อน)', 'ปิดงานเลย', 'btn-r'))) return; }
         try { T.loading(true); const pos = await T.getPos(); const r = await T.auth('tnj_status_update', { p_job_id: j.id, p_status: st, p_note: note || null, p_lat: pos && pos.lat, p_lng: pos && pos.lng, p_acc: pos && pos.acc }, { silent: true }); T.toast(`✅ ${T.ST_BTN[st][0]}`, 'ok'); close(); if (GPS.jobId === j.id && GPS.lastFix) { GPS.buf.push(GPS.lastFix); GPS.flush(); }
@@ -244,7 +244,7 @@
     const q = T.route().q; let j = d.active; if (q.job && (!j || j.id !== q.job)) { try { j = await T.auth('tnj_job_get', { p_job_id: q.job }, { silent: true }); } catch (_) { } }
     if (!j) { body.innerHTML = '<div class="card card-b c muted">ยังไม่มีงานที่กำลังทำ</div>'; return; }
     const nextLoc = T.statusOrder(j.status) <= 5 ? ['pickup_loc', 'pickup_location_text', 'ท่ารับตู้'] : T.statusOrder(j.status) <= 8 ? ['factory_loc', 'factory_location_text', 'โรงงาน'] : ['return_loc', 'return_location_text', 'จุดคืนตู้'];
-    body.innerHTML = `<div class="jobcard" style="padding:10px 14px"><div class="flex between"><b>${h(j.job_no)}</b>${T.badge(j.status)}</div><div class="small muted" id="mpGps">${GPS.lastFix ? 'GPS ทำงาน' : h(T.ago(j.last_gps_at))}</div></div><div class="map" id="dmap" style="height:52vh"></div>
+    body.innerHTML = `<div class="jobcard" style="padding:10px 14px"><div class="flex between"><b>${h(T.jobRef(j))}</b>${T.badge(j.status)}</div><div class="small muted" id="mpGps">${GPS.lastFix ? 'GPS ทำงาน' : h(T.ago(j.last_gps_at))}</div></div><div class="map" id="dmap" style="height:52vh"></div>
       <div class="jobcard mt1" style="padding:12px 14px"><div class="l small muted">จุดถัดไป: ${nextLoc[2]}</div><div class="b">${h(j[nextLoc[1]])}</div><a class="btn btn-lg btn-block btn-p mt1" target="_blank" rel="noopener" href="${T.mapsUrl(j[nextLoc[0]], j[nextLoc[1]])}">🧭 เปิดใน Google Maps</a></div>`;
     const map = L.map('dmap').setView([13.1, 100.9], 9); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map); const pts = [];
     [['pickup_loc', 'pickup_location_text', '#F08A1E', '📍'], ['factory_loc', 'factory_location_text', '#1E6FE8', '🏭'], ['return_loc', 'return_location_text', '#0F9D9A', '↩']].forEach(([lk, tk, c, e]) => { const l = j[lk]; if (l && l.latitude && l.longitude) { L.marker([l.latitude, l.longitude], { icon: L.divIcon({ className: 'truck-marker', html: `<div class="pin" style="background:${c}"><span>${e}</span></div>`, iconSize: [28, 28], iconAnchor: [14, 28] }) }).bindPopup(h(j[tk])).addTo(map); pts.push([l.latitude, l.longitude]); } });
@@ -255,7 +255,7 @@
   async function pageDocs(app) {
     const body = shell(app, 'เอกสาร', null, 'd/docs'); let d; try { d = await loadJobs(); } catch (e) { body.innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; return; }
     const j = d.active; if (!j) { body.innerHTML = '<div class="card card-b c muted">ยังไม่มีงานที่กำลังทำ — เอกสารของงานเก่าดูได้จากหน้างานนั้น</div>'; return; }
-    body.innerHTML = `<div class="jobcard"><div class="flex between"><b>${h(j.job_no)}</b>${T.badge(j.status)}</div><div class="small muted">${h(j.customer_name)} · B/L ${h(j.bl_no)}</div></div><div class="tabs" id="dcT"><button class="active" data-t="">ทั้งหมด ${j.files.length}</button><button data-t="img">รูปภาพ</button><button data-t="pdf">PDF</button></div><div class="jobcard" id="dcL">${j.files.map((f) => T.fileRow(f, f.uploaded_by === T.session.user_id)).join('') || '<div class="empty">ยังไม่มีเอกสาร</div>'}</div><button class="btn btn-lg btn-block btn-p" id="dcUp">📷 ถ่ายรูป / แนบไฟล์</button>`;
+    body.innerHTML = `<div class="jobcard"><div class="flex between"><b>${h(T.jobRef(j))}</b>${T.badge(j.status)}</div><div class="small muted">${h(j.customer_name)} · B/L ${h(j.bl_no)}</div></div><div class="tabs" id="dcT"><button class="active" data-t="">ทั้งหมด ${j.files.length}</button><button data-t="img">รูปภาพ</button><button data-t="pdf">PDF</button></div><div class="jobcard" id="dcL">${j.files.map((f) => T.fileRow(f, f.uploaded_by === T.session.user_id)).join('') || '<div class="empty">ยังไม่มีเอกสาร</div>'}</div><button class="btn btn-lg btn-block btn-p" id="dcUp">📷 ถ่ายรูป / แนบไฟล์</button>`;
     T.bindFileRows($('#dcL', body), j.files, () => { S.at = 0; T.render(); });
     $$('#dcT button', body).forEach((b) => b.onclick = () => { $$('#dcT button', body).forEach((x) => x.classList.toggle('active', x === b)); $$('.filebox', body).forEach((row) => { const f = j.files.find((x) => x.id === row.dataset.fid); row.classList.toggle('hidden', b.dataset.t === 'img' ? !/image/.test(f.mime_type || '') : b.dataset.t === 'pdf' ? !/pdf/.test(f.mime_type || '') : false); }); });
     $('#dcUp', body).onclick = async () => { const r = await T.uploadDialog(j.id, { sheet: true }); if (r) { S.at = 0; T.render(); } };
@@ -284,7 +284,7 @@
             <div class="small muted">วันที่/เวลา และคนขับ บันทึกอัตโนมัติ</div><button type="button" class="btn btn-lg btn-block btn-p mt1" id="eqSave">💾 บันทึกรับอุปกรณ์</button>
             <div class="m-sec mt1"><b>ประวัติรับอุปกรณ์</b> <span class="xs muted">(${(me.equipment || []).length})</span></div>
             <div id="eqHist">${(me.equipment || []).map((e) => `<div class="m-row"><div class="xs muted">${dt(e.recorded_at)}</div><div>${h([...(e.items || []), e.other_items].filter(Boolean).join(', '))}</div>${e.note ? `<div class="small muted">${h(e.note)}</div>` : ''}</div>`).join('') || '<div class="small muted">ยังไม่มีประวัติ</div>'}</div></div>
-          <div class="m-card" id="pfMile"><div class="m-sec"><b>🧭 บันทึกเลขไมล์ (ผูกกับ JOB ที่กำลังทำ)</b></div>${!aj ? '<div class="alert warn small" id="mlNoJob">ยังไม่มีงานที่กำลังทำ — บันทึกไมล์ได้หลัง ✅ รับทราบงาน</div>' : `<div class="small">JOB: <b>${h(aj.job_no)}</b> · ${h(aj.customer_name || '')}</div>`}
+          <div class="m-card" id="pfMile"><div class="m-sec"><b>🧭 บันทึกเลขไมล์ (ผูกกับ JOB ที่กำลังทำ)</b></div>${!aj ? '<div class="alert warn small" id="mlNoJob">ยังไม่มีงานที่กำลังทำ — บันทึกไมล์ได้หลัง ✅ รับทราบงาน</div>' : `<div class="small">งาน: <b>${h(T.jobRef(aj))}</b></div>`}
             <div class="field"><label>ไมล์เริ่มงาน <span class="req">*</span></label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlB" data-num ${!aj || am.start_mileage != null ? 'readonly' : ''} value="${am.start_mileage != null ? h(String(Number(am.start_mileage))) : ''}"></div>
             <div class="field"><label>ไมล์จบงาน</label><input type="text" inputmode="numeric" class="inp inp-lg" id="mlA" data-num ${!aj || am.end_mileage != null ? 'readonly' : ''} value="${am.end_mileage != null ? h(String(Number(am.end_mileage))) : ''}"></div>
             ${am.total_distance != null ? `<div class="small">ระยะทาง <b>${T.num(am.total_distance)}</b> กม.</div>` : ''}
@@ -312,13 +312,13 @@
           $$('[data-vf]', box).forEach((row) => { const f = rows.find((x) => x.id === row.dataset.vf); $('[data-vprev]', row).onclick = () => T.vfiles.preview(f); $('[data-vdl]', row).onclick = () => T.vfiles.download(f); });
         }).catch((e) => { const box = $('#pfVdoc', body); if (box) box.innerHTML = `<div class="small muted">${h(T.parseErr(e).text)}</div>`; });
       } else if (tab === 'adv') {
-        pb.innerHTML = `<div class="m-card" id="pfAdv"><div class="m-sec"><b>💰 เงินสำรอง / เบิกเงิน</b> <span class="xs muted">ดูอย่างเดียว</span></div>${(me.advances || []).map((a) => `<div class="m-row"><div class="flex between"><span class="xs muted">${dmy(a.advance_date)}${a.job_no ? ' · ' + h(a.job_no) : ''}</span><span class="m-chip">${h(a.status || '-')}</span></div><div class="flex between"><span>${h(a.item || '-')}</span><b>${T.num(a.amount, 2)} บาท</b></div>${a.note ? `<div class="small muted">${h(a.note)}</div>` : ''}</div>`).join('') || '<div class="small muted">ยังไม่มีรายการเงินสำรอง / เบิกเงิน</div>'}</div>`;
+        pb.innerHTML = `<div class="m-card" id="pfAdv"><div class="m-sec"><b>💰 เงินสำรอง / เบิกเงิน</b> <span class="xs muted">ดูอย่างเดียว</span></div>${(me.advances || []).map((a) => `<div class="m-row"><div class="flex between"><span class="xs muted">${dmy(a.advance_date)}</span><span class="m-chip">${h(a.status || '-')}</span></div><div class="flex between"><span>${h(a.item || '-')}</span><b>${T.num(a.amount, 2)} บาท</b></div>${a.note ? `<div class="small muted">${h(a.note)}</div>` : ''}</div>`).join('') || '<div class="small muted">ยังไม่มีรายการเงินสำรอง / เบิกเงิน</div>'}</div>`;
       } else if (tab === 'fuel') {
         pb.innerHTML = `<div class="m-card" id="pfFuel"><div class="m-sec"><b>⛽ ประวัติเติมน้ำมัน</b> <span class="xs muted">ดูอย่างเดียว</span></div>${(me.fuel || []).map((f) => `<div class="m-row"><div class="flex between"><span class="xs muted">${dmy(f.fuel_date)}</span><span class="xs">${h(f.job_bl || '-')}</span></div>
             <div class="m-kvs">${kv('เลขไมล์', `${T.num(f.mileage_before)} → ${T.num(f.mileage_after)}`)}${kv('ลิตร', T.num(f.liters, 2))}${kv('บาท/ลิตร', T.num(f.price_per_liter, 2))}${kv('รวม', T.num(f.total_cost, 2) + ' บาท')}${kv('สถานที่', h(f.route_location || '-'))}${kv('ใบเสร็จ', '<span class="muted">ไม่มีไฟล์ใบเสร็จ</span>')}</div></div>`).join('') || '<div class="small muted">ยังไม่มีประวัติเติมน้ำมัน</div>'}</div>`;
       } else {
         pb.innerHTML = `<div class="m-sec"><b>📑 ประวัติงานของฉัน</b> <span class="xs muted">(${(me.history || []).length})</span></div>
-          <div id="dHist">${(me.history || []).map((x) => `<a class="m-card m-hist" href="#/d/jobs/${x.id}"><div class="flex between"><b>${h(x.job_no)}</b>${T.badge(x.status, x.status_th)}</div><div class="small">${dmy(x.job_date)} · ${h(x.customer_name || '-')}</div><div class="small muted">B/L: ${h(x.bl_no || '-')} · เบอร์ตู้: ${h(x.container_no || '-')}</div><div class="small muted">ปิดงาน: ${x.completed_at ? T.fmtDT(x.completed_at) : '-'}</div></a>`).join('') || '<div class="m-card c muted">ยังไม่มีประวัติงาน</div>'}</div>`;
+          <div id="dHist">${(me.history || []).map((x) => `<a class="m-card m-hist" href="#/d/jobs/${x.id}"><div class="flex between"><b>${h(T.jobRef(x))}</b>${T.badge(x.status, x.status_th)}</div><div class="small">${dmy(x.job_date)} · ${h(x.customer_name || '-')}</div><div class="small muted">B/L: ${h(x.bl_no || '-')} · เบอร์ตู้: ${h(x.container_no || '-')}</div><div class="small muted">ปิดงาน: ${x.completed_at ? T.fmtDT(x.completed_at) : '-'}</div></a>`).join('') || '<div class="m-card c muted">ยังไม่มีประวัติงาน</div>'}</div>`;
       }
     };
     $$('#pfTabs [data-pt]', body).forEach((b) => b.onclick = () => { tab = b.dataset.pt; $$('#pfTabs [data-pt]', body).forEach((x) => x.classList.toggle('active', x === b)); history.replaceState(null, '', '#/d/profile?tab=' + tab); draw(); });

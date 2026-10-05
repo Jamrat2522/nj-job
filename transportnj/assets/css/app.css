@@ -140,8 +140,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff}
 }
 @media print{.sidebar,.topbar,.drv-nav,.btn{display:none!important}}
 /* ---- งานหัวลาก: ฟอร์มเปิดงาน / รายการ / Timeline 12 สถานะ + Free Time ---- */
-.jf-form{max-width:1180px}.jf-row{display:grid;gap:12px;margin-bottom:4px}.jf-row.r1{grid-template-columns:1fr}.jf-row.r2{grid-template-columns:repeat(2,minmax(0,1fr))}.jf-row.r3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.jf-row.r4{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.6fr) minmax(0,1.6fr)}.jf-row.r5{grid-template-columns:minmax(0,2.2fr) repeat(4,minmax(0,1fr))}.jf-row .field{min-width:0}.inp.ro{background:#F4F7FB;color:var(--txt)}
+.jf-form{max-width:1180px}.jf-mode{display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;margin-bottom:10px}.jf-mode-l{font-weight:800;color:var(--navy)}.jf-mck{display:inline-flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;min-height:36px}.jf-mck input{width:18px;height:18px;margin:0}
+@media (min-width:769px){.jf-head,.jf-form{width:95%;max-width:1440px;margin-left:auto;margin-right:auto}
+  /* เปิดงาน Desktop: กระชับแนวตั้งให้พอดีจอ 1366×768 (ไม่ลดความกว้าง · ไม่ซ่อน Field · ไม่ใช้ zoom/scale) */
+  .jf-head{margin-bottom:8px}.jf-form.card-b{padding:10px 14px}.jf-form .jf-mode{margin-bottom:4px}.jf-form .jf-mck{min-height:30px}
+  .jf-form .jf-row{gap:10px;margin-bottom:0}.jf-form .field{gap:2px;margin-bottom:6px}.jf-form .jf-ctrow{margin-bottom:6px}.jf-form .jf-ctrow .field{margin:0}.jf-form .jf-ctrow .field>label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jf-form .inp:not(textarea){height:40px;min-height:40px;padding-top:7px;padding-bottom:7px}.jf-form textarea.inp{height:60px;min-height:60px}
+  .jf-form .jf-ctadd{margin:0 0 6px}.jf-form .jf-btns{margin-top:2px}.jf-form .jf-btns .btn-lg{min-height:44px;padding:9px 18px;font-size:16px}}.jf-row{display:grid;gap:12px;margin-bottom:4px}.jf-row.r1{grid-template-columns:1fr}.jf-row.r2{grid-template-columns:repeat(2,minmax(0,1fr))}.jf-row.r3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.jf-row.r4{grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1.6fr)}.jf-row.r5{grid-template-columns:minmax(0,2.2fr) repeat(4,minmax(0,1fr))}.jf-row .field{min-width:0}.inp.ro{background:#F4F7FB;color:var(--txt)}
 .jf-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .jobs-tbl{table-layout:auto;width:100%}.jobs-tbl td,.jobs-tbl th{padding-left:8px;padding-right:8px}
 .hl-st-tag{display:inline-block;max-width:100%;white-space:normal;background:#EAF2FF;color:var(--navy);border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600;line-height:1.35}
@@ -150,13 +156,13 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 .jc-act .btn{width:100%;min-height:44px}
 .hl-box{background:#F7F9FC;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .hl-hd{display:flex;flex-direction:column;gap:3px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
-.hl-form{display:grid;grid-template-columns:170px 130px minmax(0,1fr);gap:10px 12px;margin-bottom:12px}.hl-form .hl-fn{grid-column:1/-1}.hl-form .field{min-width:0}
+.hl-form{display:grid;grid-template-columns:170px 130px minmax(0,1fr);gap:10px 12px;margin-bottom:12px}.hl-form .hl-fn{grid-column:1/-1}.hl-form.hl-other{grid-template-columns:170px 130px minmax(0,1fr) minmax(0,1fr)}.hl-fc[hidden]{display:none}.hl-foot{display:contents}.hl-modal .modal-f{justify-content:space-between}.hl-modal .modal-f [data-close]{margin-left:auto}.hl-form .field{min-width:0}
 .hl-tl{border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14.5px;line-height:1.6;overflow-wrap:anywhere}
 .hl-date{font-weight:800;color:var(--navy);margin-top:8px}.hl-date:first-child{margin-top:0}.hl-title{font-weight:700;margin:2px 0 4px}.hl-tl .hl-hd{margin-bottom:6px}
 .hl-it{padding-left:4px}.hl-note{padding-left:22px;color:var(--muted);font-size:13px}
 .hl-ft{margin:6px 0;padding:6px 10px;border-radius:8px;font-weight:700;white-space:normal}.hl-ft.ok{background:#E7F7EE;color:#137A43}.hl-ft.over{background:#FDECEC;color:#B42318}.hl-ft.wait,.hl-ft.nosched{background:#F3F4F6;color:var(--muted);font-weight:600}
 @media (max-width:768px){
-  .jf-row.r2,.jf-row.r3,.jf-row.r4,.jf-row.r5{grid-template-columns:1fr}.jf-form .inp{min-height:46px;font-size:16px}.jf-btns{flex-direction:column-reverse}.jf-btns .btn{width:100%;min-height:48px;justify-content:center}
+  .jf-mck{min-height:44px}  .jf-row.r2,.jf-row.r3,.jf-row.r4,.jf-row.r5{grid-template-columns:1fr}.jf-form .inp{min-height:46px;font-size:16px}.jf-btns{flex-direction:column-reverse}.jf-btns .btn{width:100%;min-height:48px;justify-content:center}
   .hl-form{grid-template-columns:1fr 1fr}.hl-form .hl-fs{grid-column:1/-1}.hl-form .inp{min-height:46px;font-size:16px}
   .overlay:has(.hl-modal){padding:0;align-items:stretch}.modal.hl-modal{max-width:none;width:100%;height:100%;max-height:100dvh;border-radius:0}
   .modal.hl-modal .modal-f .btn{flex:1;min-height:48px;justify-content:center}
@@ -258,8 +264,8 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 .gm-start{background:#1E6FE8;color:#fff;border-radius:6px;font-size:11px;font-weight:700;text-align:center;line-height:20px}
 @media (max-width:1100px){.gm-wrap{grid-template-columns:1fr}.gm-side{max-height:none}}
 /* ---- 1 JOB หลายตู้ (เลข/สีประจำตู้) · หน้าเปิดงาน 1 ตู้ = 1 แถว ---- */
-.jf-ctrow{display:grid;grid-template-columns:44px minmax(0,1.15fr) minmax(0,.9fr) minmax(0,.75fr) minmax(0,1fr) minmax(0,.72fr) minmax(0,2.3fr) 88px;gap:10px;align-items:end;margin-bottom:8px}.jf-ctrow .field{margin:0;min-width:0}
-.jf-ctno{font-weight:800;font-size:16px;color:var(--navy);white-space:nowrap;align-self:center}.jf-ct1row .jf-ctno{align-self:end;padding-bottom:10px}.jf-ctx{display:flex;justify-content:flex-end}.jf-ctx .btn{white-space:nowrap}
+.jf-ctrow{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,.85fr) minmax(0,.62fr) minmax(0,1.7fr) minmax(0,1.05fr) minmax(0,.8fr) minmax(0,1.7fr) 84px;gap:10px;align-items:end;margin-bottom:8px}.jf-ctrow .field{margin:0;min-width:0}
+.jf-ctno{font-weight:800;font-size:16px;color:var(--navy);white-space:nowrap;align-self:center}.jf-ctno b{display:flex;align-items:center;justify-content:center;min-height:40px}.jf-ct1row .jf-ctno{align-self:end;text-align:center}.jf-ct1row .jf-ctno label{text-align:center}.jf-ctpk .flex{gap:4px}.jf-ctpk .btn-icon{flex:0 0 auto;width:36px;padding:0}.jf-ctx{display:flex;justify-content:flex-end}.jf-ctx .btn{white-space:nowrap}
 .jf-cts{display:flex;flex-direction:column;margin:0}
 .jf-ctadd{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:2px 0 12px}
 .hl-csel{margin-bottom:10px}.hl-csel .field{margin:0;max-width:420px}.hl-csel select{font-weight:700}
@@ -268,6 +274,7 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 @media (max-width:768px){.jf-ctrow{grid-template-columns:40px minmax(0,1fr) minmax(0,1fr);gap:6px 8px;padding:8px 0;border-bottom:1px dashed var(--line)}.jf-ctrow .jf-ctno{grid-row:span 3;align-self:start;padding:12px 0 0}.jf-ctrow .jf-ctdrv{grid-column:2/-1;order:6}.jf-ctrow .jf-ctx{justify-content:stretch;order:5}.jf-ctrow .jf-ctx .btn{width:100%}.jf-ct1row .jf-ctx{display:none}.jf-ctrow .inp,#jfAddCt,.jf-ctx .btn{min-height:44px}.hl-csel .inp{min-height:44px}.hl-csel .field{max-width:none}.hl-copy .btn{flex:1 1 100%;min-height:44px}}
 .hl-tl+.hl-tl{border-top:2px dashed var(--line);margin-top:14px;padding-top:12px}
 /* หน้าต่างแก้ไข JOB (คลิกแถว / แตะรายการ) — Reuse ฟอร์มเปิดงาน */
-.modal.jf-modal{max-width:1220px}.jf-modal .jf-form{box-shadow:none;border:0;padding:0;max-width:none}.jfm-top{margin:-4px 0 10px}.jf-modal .modal-f .btn{min-width:120px;justify-content:center}
+.modal.jf-modal{max-width:1220px}.jf-modal .jf-form{box-shadow:none;border:0;padding:0;max-width:none;width:auto}.jfm-top{margin:-4px 0 10px}.jf-modal .modal-f .btn{min-width:120px;justify-content:center}
 @media (max-width:768px){.overlay:has(.jf-modal){padding:0;align-items:stretch}.modal.jf-modal{max-width:none;width:100%;height:100%;max-height:none;border-radius:0}.jf-modal .modal-b{padding:12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   .jf-modal .modal-f{flex-wrap:nowrap;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}.jf-modal .modal-f .btn{flex:1 1 0;min-width:0;min-height:48px;padding:6px 4px;font-size:14px;white-space:normal;line-height:1.2;text-align:center}}
+@media (max-width:768px){.hl-form.hl-other{grid-template-columns:1fr 1fr}.hl-form .hl-fc{grid-column:1/-1}.jf-ctrow .jf-ctno{grid-row:span 5}}
