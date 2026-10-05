@@ -2462,14 +2462,14 @@ function chkeTariff(v){ const d=String(v==null?'':v).replace(/[^0-9]/g,'').repla
   return d; }                                                    /* 000084822000 = 84822000 */
 const CHKE_UNIT={ 'PC':'C62','PCS':'C62','C62':'C62' };
 function chkeUnit(v){ const k=chkeT(v).toUpperCase().replace(/\./g,''); return CHKE_UNIT[k]||k; }
-/* ★ [local100] TYPE 0 · Exception สมอ. 1 ชุด: Permit ชุด 3 ต้องตรงครบ 3 ค่า (Exact) → ไม่ฟ้อง สมอ. ใน "ติดใบอนุญาต IMPORT" ของ Item นั้น
+/* ★ [local100] TYPE 0 · Exception สมอ. 1 ชุด · ★ [local101] เฉพาะ FZ = Y: Permit ชุด 3 ต้องตรงครบ 3 ค่า (Exact) → ไม่ฟ้อง สมอ. ใน "ติดใบอนุญาต IMPORT" ของ Item นั้น
    · ไม่ตรงค่าใดค่าหนึ่ง / อยู่ชุด 1–2 → Logic เดิม · หน่วยงานอื่นใน Item เดียวกันยังฟ้อง · items (Sheet 3) / warn ไม่แตะ */
 const CHKE_TIS_EX={ no:'EXEMPT152', date:'2017-11-13', auth:'0994000165161' };
 function chkeTisExempt(P, dwakSheet){
   if(!P || !P.rows || !P.rows.length || !dwakSheet) return P;
   const isTis=a=>/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(a);
   const D=chkeDwakRows(dwakSheet), byR=new Map(D.map(d=>[d._r,d]));
-  const hit=d=>!!d && chkeT(d.get('PermitNo3'))===CHKE_TIS_EX.no && chkeDate(d.get('IssueDate3'))===CHKE_TIS_EX.date && chkeT(d.get('PermitIssueAuthority3'))===CHKE_TIS_EX.auth;
+  const hit=d=>!!d && chkeTxt(d.get('FZ'))==='y' && chkeT(d.get('PermitNo3'))===CHKE_TIS_EX.no && chkeDate(d.get('IssueDate3'))===CHKE_TIS_EX.date && chkeT(d.get('PermitIssueAuthority3'))===CHKE_TIS_EX.auth;
   const rows=[];
   for(const x of P.rows){
     if(x._k!==20 || !/^ติดใบอนุญาต /.test(x.field||'') || !hit(byR.get(x._r))){ rows.push(x); continue; }
@@ -7839,7 +7839,7 @@ function termCalcRun(){
   /* ★ [local046] TOTAL CIF THB = ผลรวม THB ของทุกหัวข้อที่มีจริง (Amount + F/W + Frg + Ins_OTH ฟอร์ม + Other_OTH + ค่านายหน้า) · ทุก TERM รวม CIF/DAP · ไม่มีค่า = 0 · คำนวณครั้งเดียวที่นี่ · Export/Payload/ELE อ่าน A.cif */
   { const hasFw0=use.includes('fw'), hasFrg0=useR.includes('frg'), hasIns0=(TERM_GROUPS[term]||[]).includes('ins');
     A.cif = termR2(A.amtThb + (hasFw0&&A.fw!=null?A.fw:0) + (hasFrg0&&A.frg!=null?A.frg:0) + (hasIns0&&insThb0!=null?insThb0:0) + (A.oth||0) + (A.comm||0)); }
-  if(ex) A.cif = termR2(A.amtThb - (term==='EXW' ? A.fw : A.frg));                             /* ★ [local099] TOTAL FOB THB = Amount THB − F/W THB (EXW) / − Frg THB (CIF) (หักออกจาก Amount · เดิม local063 บวก) */
+  if(ex) A.cif = termR2(term==='CIF' ? A.amtThb - A.frg : A.amtThb + A.fw);                      /* ★ [local102] แยกตาม TERM: CIF = Amount THB − Frg THB · EXW = Amount THB + F/W THB (local099 ลบทั้งคู่ → คืน EXW เป็นบวก) */
   const res={ ex, totalLabel:(ex?'TOTAL FOB THB':'TOTAL CIF THB'), curs, fx, insRate, insThb:insThb0, term, mode:TERM_STATE.mode, insIn, insAuto:(TERM_INS.auto && TERM_INS.fill!=='') ? Number(TERM_INS.fill) : null, cur, inp, opt, use:useR, A, calcRows, ref:null, air:(TERM_AIR.auto && TERM_AIR.last && TERM_AIR.last.frg!=null && String(inp.frgRaw)===TERM_AIR.fill) ? {...TERM_AIR.last, query:termT((document.getElementById('chke-term-airCountry')||{}).value||'')} : null };   /* [local043] query = ค่าที่พิมพ์ในช่องประเทศ (Export Form) */   /* [local012] */
   /* ★ [local019] Flow ใหม่: คำนวณ → เก็บผลใน TERM_STATE.result เพื่อ EXPORT EXCEL เท่านั้น
      ไม่ Render 🧮 ผลการคำนวณ / 🔎 ตรวจเทียบ REF ใบขน / ตาราง / REF / Diff / PASS-FAIL / Exchange Rate Check ลงหน้าจอ · ไม่เรียก termCompare (คง Function ไว้ ไม่ถูกเรียก) */
