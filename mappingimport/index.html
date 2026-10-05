@@ -31350,6 +31350,8 @@ const nEn = v => String(v==null?'':v).replace(/[^\x20-\x7E]/g,'').toLowerCase().
 const nTh = v => String(v==null?'':v).replace(/\s+/g,'');
 /* HS: ตัด . space → ตัด 0 นำหน้า → 8 หลักแรก */
 const nHs = v => { const d=String(v==null?'':v).replace(/[^0-9]/g,'').replace(/^0+/,''); return d.length>=8 ? d.slice(0,8) : ''; };
+/* Brand: เทียบแบบไม่สนตัวพิมพ์/ช่องว่าง/อักขระพิเศษ (FAG · INA · SCHAEFFLER · SMB China …) */
+const nBr = v => String(v==null?'':v).replace(/[^\x20-\x7E]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 /* ชื่อไฟล์: ตัด .pdf · lower · เก็บเฉพาะ a-z0-9 + ไทย  (_ - ( ) space = ตัวแบ่งคำ) */
 const fnKey   = v => String(v==null?'':v).replace(/\.pdf$/i,'').toLowerCase().replace(/[^0-9a-z฀-๿]/g,'');
 /* สำรอง: เฉพาะ a-z0-9 — ใช้เมื่อชื่อไฟล์ถูกระบบตัดอักษรไทยทิ้ง */
@@ -31379,6 +31381,8 @@ async function pdiReadExcel(file){
   const find=rx=>H.findIndex(h=>rx.test(h));
   const col={ item:find(/^item\s*no\.?$/i), pc:find(/^product\s*code$/i), desc:find(/^desc\.?$/i),
               th:find(/^descth$/i), tar:find(/^tariff$/i) };
+  /* [BRAND 05/10/2026] Brand Name = คอลัมน์เสริม · ไม่บังคับ · ไม่มี = ไม่ใช้ Brand ตัดสิน */
+  const brandCol=find(/^brand(\s*name)?$/i);
   const miss=Object.keys(col).filter(k=>col[k]<0);
   if(miss.length) throw new Error('EXCEL Sheet 2 ("'+name+'") ไม่พบคอลัมน์: '+miss.join(', ')+
     '\nHeader ที่อ่านได้: '+H.map((h,i)=>i+':'+(h||'(ว่าง)')).join(' | '));
@@ -31398,10 +31402,22 @@ async function pdiReadExcel(file){
   for(let i=1;i<aoa.length;i++){
     const r=aoa[i]||[]; const item=T(r[col.item]); if(item==='') continue;
     rows.push({ _row:i+1, item, pc:T(r[col.pc]), desc:T(r[col.desc]),
-                th:T(r[col.th]), tar:T(r[col.tar]), ref:T(r[last]) });
+                th:T(r[col.th]), tar:T(r[col.tar]), ref:T(r[last]),
+                br:(brandCol>=0 ? T(r[brandCol]) : '') });
   }
   if(!rows.length) throw new Error('EXCEL Sheet 2 ("'+name+'") ไม่พบแถวข้อมูล (Item No. ว่างทุกแถว)');
-  return { sheet:name, headers:H, refCol:last, refHdr, invoice, rows };
+  /* [ACTIVE/SUMMARY 05/10/2026] Sheet ชื่อ "Summary" = รายชื่อ PDF ที่ใช้งานจริงของงานนั้น
+     ใช้เป็นตัวตัดสินขั้นสุดท้ายเมื่อ Brand แยกไม่ออก (เช่น PDF คนละ Version) · ไม่มี Sheet = ข้าม */
+  const summary=new Set(); let summarySheet='';
+  for(const sn of wb.SheetNames){
+    if(!/^\s*summary\s*$/i.test(sn)) continue;
+    summarySheet=sn;
+    const sa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null,raw:false});
+    for(const sr of sa) for(const sc of (sr||[])){ const k=fnKey(sc); if(k) summary.add(k); }
+    break;
+  }
+  return { sheet:name, headers:H, refCol:last, refHdr, invoice, rows,
+           brandCol, brandHdr:(brandCol>=0?H[brandCol]:''), summary, summarySheet };
 }
 
 /* ══ 2. PDF ══ อ่าน Product Name / Model/Type / HS Code จากข้อความจริง */
@@ -31428,6 +31444,11 @@ async function pdiParsePdf(file){
   const pn=T(grabAfter(text,'Product Name'));
   const mtRaw=grabAfter(text,'Model/Type');
   const mt=T(String(mtRaw).replace(/[^\x20-\x7E]/g,''));
+  /* [BRAND 05/10/2026] "ยี่ห้อ (Brand Name): FAG" — ไฟล์จริงมี 2 แบบ
+       (ก) Brand อยู่บรรทัดเดียวกับ "รุ่น/ประเภท (Model/Type):"  (ข) Brand อยู่บรรทัดของตัวเอง
+     จึงตัดข้อความตั้งแต่คำว่า "รุ่น" หรือ "(Model" ทิ้งก่อน แล้วค่อยล้างอักขระลายน้ำ */
+  const br=T(String(grabAfter(text,'Brand Name')).split('\u0e23\u0e38\u0e48\u0e19')[0]
+              .split('(Model')[0].replace(/[^\x20-\x7E]/g,''));
   /* HS Code — ในไฟล์จริงตัวเลขถูกพิมพ์แบบเว้นวรรคทีละตัว ("8 4 8 2 1 0 . 0 0 . 0 0 0")
      จึงตัดช่องว่างทั้งหมดในช่วงหลัง label ก่อน แล้วจึงจับรูปแบบ 848210.00.000 หรือ 11 หลักติดกัน */
   let hs='';
@@ -31436,7 +31457,7 @@ async function pdiParsePdf(file){
       const seg=text.slice(i,i+1200).replace(/[^\x20-\x7E\n]/g,'').replace(/[\s]/g,'');
       const m=seg.match(/\d{6}\.\d{2}\.\d{3}|\d{4}\.\d{2}\.\d{2}\.\d{3}|\d{11}/);
       if(m) hs=m[0]; } }
-  return { file, name:file.name, pn, mt, hs, pages, buf };
+  return { file, name:file.name, pn, mt, br, hs, pages, buf };
 }
 
 /* ══ 3. MATCH ══ */
@@ -31470,8 +31491,35 @@ function pdiMatch(X,P){
       else if(miss===0 && ok===3 && !fn) cands.push({p,c:'C',fnA:false});
       /* CASE D: ชื่อไฟล์ตรงอย่างเดียว → ไม่ Match (ไม่เข้าเงื่อนไขใดข้างบน) */
     }
-    if(cands.length===1){
-      const {p,c,fnA}=cands[0];
+    /* ══ [BRAND TIE-BREAKER 05/10/2026] ══ ใช้ Brand "เฉพาะเมื่อ Candidate > 1" เท่านั้น
+         Candidate = 0 → ไม่มีใบอนุญาต (Logic เดิม) ห้ามสร้าง Candidate ใหม่จาก Brand
+         Candidate = 1 → ใช้ใบนั้นทันที · Brand ไม่มีสิทธิ์ Reject Candidate เดียว
+                         (รักษา Regression พิกัด 848299 ที่ EXCEL=FAG แต่ PDF=INA)
+         Candidate > 1 → กรองด้วย Brand · ตรง 1 ใบ = เลือกใบนั้น
+                         ตรงหลายใบ = ตัดต่อด้วย Active/Summary PDF ของงาน
+                         ไม่ตรงเลย = Fallback ชุด Candidate เดิม (ห้ามกลายเป็นไม่มีใบอนุญาต) */
+    let picked=cands;
+    if(cands.length>1){
+      const rb=nBr(r.br);
+      if(rb){
+        const hit=cands.filter(c=>{ const pb=nBr(c.p.br); return pb!=='' && pb===rb; });
+        if(hit.length>=1 && hit.length<picked.length){
+          picked=hit;
+          if(hit.length===1) warn.push('\u2139 Item No. '+r.item+' — มี PDF เข้าเกณฑ์ '+cands.length
+            +' ใบ · ตัดสินด้วย Brand "'+r.br+'" → '+hit[0].p.name);
+        }
+      }
+      if(picked.length>1 && X.summary && X.summary.size){
+        const act=picked.filter(c=>X.summary.has(fnKey(c.p.name)));
+        if(act.length>=1 && act.length<picked.length){
+          picked=act;
+          if(act.length===1) warn.push('\u2139 Item No. '+r.item+' — Brand แยกไม่ออก · ตัดสินด้วยรายชื่อ PDF ใน Sheet "'
+            +X.summarySheet+'" → '+act[0].p.name);
+        }
+      }
+    }
+    if(picked.length===1){
+      const {p,c,fnA}=picked[0];
       if(!byPdf.has(p.name)) byPdf.set(p.name,{pdf:p,items:[],cases:new Set()});
       const g=byPdf.get(p.name);
       if(g.items.indexOf(r.item)<0) g.items.push(r.item);   // ตัดซ้ำ · คงลำดับที่ปรากฏใน EXCEL
@@ -31480,9 +31528,9 @@ function pdiMatch(X,P){
       if(c==='C') warn.push('⚠ Item No. '+r.item+' — ข้อมูลใน PDF ตรง แต่ชื่อไฟล์ PDF ไม่ตรงกับข้อมูลอ้างอิงใน EXCEL ('+p.name+')');
       if(fnA)     warn.push('ℹ Item No. '+r.item+' — ชื่อไฟล์ตรงเฉพาะส่วนอักษรอังกฤษ/ตัวเลข (อักษรไทยในชื่อไฟล์ถูกตัด)');
       r._pdf=p.name;
-    } else if(cands.length===0){ noLic.push(r); }
-    else { ambig.push({ r, list:cands.map(c=>c.p.name) });
-      warn.push('⚠ Item No. '+r.item+' — พบ PDF ที่อาจตรงมากกว่า 1 ใบ: '+cands.map(c=>c.p.name).join(' , ')+' → ข้าม Item นี้'); }
+    } else if(picked.length===0){ noLic.push(r); }
+    else { ambig.push({ r, list:picked.map(c=>c.p.name) });
+      warn.push('⚠ Item No. '+r.item+' — พบ PDF ที่อาจตรงมากกว่า 1 ใบ: '+picked.map(c=>c.p.name).join(' , ')+' → ข้าม Item นี้'); }
   }
   const pdfMatched=[...byPdf.values()];
   const matched=pdfMatched.reduce((s,g)=>s+g.items.length,0);
