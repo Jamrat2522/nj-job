@@ -121,17 +121,19 @@
   async function jobEditDialog(jobId, onDone, eo = {}) { // eo.mobile = เปิดจากหน้า Mobile Timeline (Desktop เรียกแบบเดิม ไม่ส่ง eo)
     if (jfmOpen) return; jfmOpen = true;
     let job; try { T.loading(true); job = await T.auth('tnj_job_get', { p_job_id: jobId }, { silent: true }); } catch (e) { jfmOpen = false; return T.err(e); } finally { T.loading(false); }
-    const closed = ['COMPLETED', 'CANCELLED'].includes(job.status); let vvOff = () => { };
-    const m = T.modal({ title: `แก้ไขงาน — ${T.jobRef(job)}`, size: 'w jf-modal', noMask: true,
-      body: `<div class="jfm-top" ${eo.mobile ? 'hidden' : ''}><a href="#/jobs/${h(job.id)}" id="jfmDet" class="small">📋 เปิดรายละเอียด JOB (Timeline / เอกสาร / ไมล์ / GPS) ›</a></div>${closed ? `<div class="alert info">งาน${job.status === 'CANCELLED' ? 'ยกเลิก' : 'ปิด'}แล้ว — แก้ไข/ลบไม่ได้</div>` : ''}<div id="jfmRoot"><div class="empty">กำลังโหลด...</div></div>`,
-      foot: `<button type="button" class="btn btn-lg" data-close id="jfmCancel">ยกเลิก</button>${closed ? '' : '<button type="submit" form="jobForm" class="btn btn-p btn-lg" id="jfSave">💾 บันทึกการแก้ไข</button>'}${T.isAdmin() && !eo.mobile ? '<button type="button" class="btn btn-r btn-lg" id="jfDel">🗑️ ลบ JOB</button>' : ''}`,
+    // eo.view = 📈 รายงาน → ดู JOB (READ ONLY 100%: ทุกช่อง disabled · ไม่มี บันทึก / เพิ่มตู้ / ลบ · Submit ถูกบล็อก)
+    const view = !!eo.view; const closed = view || ['COMPLETED', 'CANCELLED'].includes(job.status); let vvOff = () => { };
+    const m = T.modal({ title: view ? `รายละเอียด JOB ${job.job_no || T.jobRef(job)}` : `แก้ไขงาน — ${T.jobRef(job)}`, size: 'w jf-modal' + (view ? ' jf-view' : ''), noMask: true,
+      body: `<div class="jfm-top" ${eo.mobile || view ? 'hidden' : ''}><a href="#/jobs/${h(job.id)}" id="jfmDet" class="small">📋 เปิดรายละเอียด JOB (Timeline / เอกสาร / ไมล์ / GPS) ›</a></div>${closed && !view ? `<div class="alert info">งาน${job.status === 'CANCELLED' ? 'ยกเลิก' : 'ปิด'}แล้ว — แก้ไข/ลบไม่ได้</div>` : ''}<div id="jfmRoot"><div class="empty">กำลังโหลด...</div></div>`,
+      foot: view ? '<button type="button" class="btn btn-lg" id="jfmTl">🕒 ดู Timeline</button><button type="button" class="btn btn-lg" data-close id="jfmCancel">ปิด</button>' : `<button type="button" class="btn btn-lg" data-close id="jfmCancel">ยกเลิก</button>${closed ? '' : '<button type="submit" form="jobForm" class="btn btn-p btn-lg" id="jfSave">💾 บันทึกการแก้ไข</button>'}${T.isAdmin() && !eo.mobile ? '<button type="button" class="btn btn-r btn-lg" id="jfDel">🗑️ ลบ JOB</button>' : ''}`,
       onClose: () => { jfmOpen = false; vvOff(); } });
     $('#jfmDet', m.el).onclick = () => m.close();
     // มือถือ: Keyboard ไม่บังช่องที่กำลังกรอก / ปุ่มบันทึก (ปรับความสูงตาม visualViewport + เลื่อนช่องมากลางจอ)
     const vv = window.visualViewport; const fit = () => { if (!vv) return; if (isNarrow()) Object.assign(m.el.style, { top: vv.offsetTop + 'px', height: vv.height + 'px', bottom: 'auto' }); else Object.assign(m.el.style, { top: '', height: '', bottom: '' }); };
     if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit(); vvOff = () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }; }
     m.el.addEventListener('focusin', (e) => { if (isNarrow() && e.target.matches('input,select,textarea')) setTimeout(() => { if (e.target.isConnected) e.target.scrollIntoView({ block: 'center' }); }, 300); });
-    await pageJobForm($('#jfmRoot', m.el), job, { el: m.el, closed, mobile: !!eo.mobile, saved: () => { m.close(); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); onDone && onDone(); } });
+    const tlb = $('#jfmTl', m.el); if (tlb) tlb.onclick = () => { m.close(); hualakDialog(job.id, onDone); }; // ดู Timeline = Flow เดิม
+    await pageJobForm($('#jfmRoot', m.el), job, { el: m.el, closed, view, mobile: !!eo.mobile, saved: () => { m.close(); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); onDone && onDone(); } });
     const del = $('#jfDel', m.el); if (del) del.onclick = () => jobDelete(job, onDone, () => m.close());
     // Mobile: เลื่อนไปที่ตู้ที่เลือกอยู่ในหน้า Timeline (ตู้ 2+) — แก้เฉพาะแถวของตู้นั้น ไม่กระทบตู้อื่น
     if (eo.mobile && eo.ct && eo.ct.id) { const row = $(`#jfCts [data-ct-id="${eo.ct.id}"]`, m.el); if (row) { row.classList.add('jf-ct-focus'); setTimeout(() => { if (row.isConnected) row.scrollIntoView({ block: 'center' }); }, 50); } }
@@ -170,25 +172,67 @@
   const ctClosed = (job, ct) => hlItems(job, ct).some((t) => t.title === HL_CLOSE);
   // แนบข้อมูลตู้ 2+ เข้ากับ JOB (tnj_job_containers_get · Server ยังไม่มี RUN-12 = ตู้เดียวเหมือนเดิม)
   async function hlLoadContainers(job) {
-    try { const d = await T.auth('tnj_job_containers_get', { p_job_id: job.id }, { silent: true }); job.containers = d.containers || []; const m = d.timeline_container || {}; const cu = new Set(d.timeline_custom || []); (job.timeline || []).forEach((t) => { t.container_id = m[t.id] || null; t.is_custom_status = cu.has(t.id); }); }
+    try { const d = await T.auth('tnj_job_containers_get', { p_job_id: job.id }, { silent: true }); job.containers = d.containers || []; const m = d.timeline_container || {}; const cu = new Set(d.timeline_custom || []); const bl = d.timeline_billable || {}; (job.timeline || []).forEach((t) => { t.container_id = m[t.id] || null; t.is_custom_status = cu.has(t.id); t.customer_billable = typeof bl[t.id] === 'boolean' ? bl[t.id] : null; }); }
     catch (e) { if (!/PGRST202|Could not find the function/.test(String((e && e.message) || e))) throw e; job.containers = []; }
     return job;
   }
   T.hlLoadContainers = hlLoadContainers;
+  // ---- FREE TIME ลูกค้า + ค่าค้างคืน + ค่าคนขับ — คำนวณใหม่ทุกครั้งจาก Timeline ของ "ตู้ที่เลือก" (ไม่เก็บยอดใน DB) ----
+  // START = MAX(เวลานัดลูกค้า = กำหนดส่งของตู้, เวลารถถึงจริง: สถานะ 1 / 2) · END = สถานะ 5 / 10 (ไม่ใช่ปิดงาน / created_at / รายการสุดท้าย)
+  // 🌙 ค้างคืน → หยุดรอบปัจจุบัน ณ เวลาค้างคืน · ค่าค้างคืนถึง 08:00 น. ถัดไป · 08:00 เริ่ม Free Time รอบใหม่ (ไม่นำชั่วโมงเกินรอบก่อนมาต่อ)
+  // เศษ 0–30 นาทีปัดลง / 31–59 ปัดขึ้น (คิดแยกรายรอบ)
+  // Source ไม่มี Status ID/Code — สถานะเก็บเป็นข้อความตรงตัว (tnj_tl_statuses) จึงเทียบข้อความแบบตรงทั้งคำ ไม่ Match บางส่วน
+  const FT_ARRIVE = { 'รถถึงโรงงานเรียบร้อย รอคิวลงสินค้า': 'ลงสินค้าเรียบร้อย ออกจากโรงงาน', 'รถถึงโรงงานเรียบร้อย รอคิวบรรจุ': 'บรรจุตู้เรียบร้อย ออกจากโรงงาน' }; // สถานะ 1 → 5 · 2 → 10
+  const FT_NIGHT_ST = 'ค้างคืน';
+  const FT_CUT_ST = ['ลูกค้าแจ้งตัดหาง', FT_NIGHT_ST]; // จุดตัด Free Time → ค้างคืน (ข้อความตรงทั้งคำ · Source ไม่มี Status ID)
+  const FT_RATE = 500, FT_NIGHT = 1500, DRV_TRIP = 500, DRV_HOURS = 5, DRV_RATE = 100, DRV_NIGHT = 500;
+  const ftBillH = (m) => Math.floor(m / 60) + (m % 60 > 30 ? 1 : 0);
+  const ftHM = (m) => `${Math.floor(m / 60)} ชม.${m % 60 ? ` ${m % 60} นาที` : ''}`;
+  const ftB = (n) => Number(n).toLocaleString('en-US');
+  const ftNext8 = (t) => { let d = Date.parse(`${bkk(t).date}T08:00:00+07:00`); if (d <= t) d += 864e5; return d; };
   function freeTime(job, ct) {
     ct = ct || ctOf(job, 'c1');
-    const base = { hours: FT_HOURS, over_min: 0, end_id: null };
+    const base = { hours: FT_HOURS, over_min: 0, end_id: null, charge: 0, bill_hours: 0, nights: 0, night_fee: 0, total: 0, rounds: [], driver_text: '' };
     if (!ct.factory_date || !ct.factory_time) return Object.assign(base, { state: 'nosched', text: `🆓 Free Time ${FT_HOURS} ชม. | ยังไม่ระบุกำหนดส่ง — ยังคำนวณไม่ได้` });
-    const ends = hlItems(job, ct).filter((t) => FT_END.includes(t.title));
+    const items = hlItems(job, ct);
+    const arr = items.find((t) => FT_ARRIVE[t.title]); // รถถึงครั้งแรกของตู้นี้ (สถานะ 1 / 2)
+    if (!arr) return Object.assign(base, { state: 'noarr', text: `🆓 Free Time ${FT_HOURS} ชม. | ไม่มีสถานะรถถึงโรงงาน (1 / 2) — คำนวณไม่ได้` });
+    const pair = items.filter((t) => t.title === FT_ARRIVE[arr.title]); const ends = pair.length ? pair : items.filter((t) => FT_END.includes(t.title)); // 1 → 5 · 2 → 10 (ไม่มีคู่ = ใช้ 5 / 10 ที่มี)
     if (!ends.length) return Object.assign(base, { state: 'wait', text: `🆓 Free Time ${FT_HOURS} ชม. | ไม่มีสถานะออกจากโรงงาน — คำนวณไม่ได้` });
-    const end = ends[ends.length - 1]; // latest by real DateTime
-    const start = Date.parse(`${String(ct.factory_date).slice(0, 10)}T${String(ct.factory_time).slice(0, 5)}:00+07:00`);
-    const freeEnd = start + FT_HOURS * 3600e3, endAt = new Date(end.event_at).getTime();
-    Object.assign(base, { end_id: end.id, end_title: end.title, end_at: end.event_at, free_end: new Date(freeEnd).toISOString() });
-    const until = `ถึง ${bkk(freeEnd).time} น.`;
-    if (endAt <= freeEnd) return Object.assign(base, { state: 'ok', text: `🆓 Free Time ${FT_HOURS} ชม. ${until} | ไม่เกินเวลา — ไม่มีค่าใช้จ่าย` });
-    const m = Math.floor((endAt - freeEnd) / 60000);
-    return Object.assign(base, { state: 'over', over_min: m, text: `🆓 Free Time ${FT_HOURS} ชม. ${until} | เกิน ${Math.floor(m / 60)} ชม. ${m % 60} นาที — มีค่าใช้จ่าย` });
+    const end = ends[ends.length - 1]; const endAt = new Date(end.event_at).getTime(); // ออกโรงงานล่าสุดตามวันเวลาจริง
+    const sched = Date.parse(`${String(ct.factory_date).slice(0, 10)}T${String(ct.factory_time).slice(0, 5)}:00+07:00`); const arrAt = new Date(arr.event_at).getTime();
+    const start = Math.max(sched, arrAt);
+    // รอบนับเวลา: [START → ค้างคืน] → 08:00 → [08:00 → ค้างคืนถัดไป / ออกโรงงาน] … · ค้างคืนซ้ำในคืนเดียวกัน = 1 คืน
+    const nightAt = items.filter((t) => FT_CUT_ST.includes(t.title)).map((t) => new Date(t.event_at).getTime()).filter((x) => x < endAt).sort((a, b) => a - b);
+    const rounds = []; let s0 = start; const nights = [];
+    for (const c of nightAt) { if (nights.length && c < s0) continue; rounds.push({ from: s0, to: Math.max(s0, c), night: true }); nights.push(Math.max(s0, c)); s0 = ftNext8(Math.max(s0, c)); if (s0 >= endAt) break; }
+    if (s0 < endAt) rounds.push({ from: s0, to: endAt, night: false });
+    const calc = (freeH) => rounds.map((r) => { const m = Math.max(0, Math.floor((r.to - (r.from + freeH * 3600e3)) / 60000)); return { over: m, bill: ftBillH(m), free_to: r.from + freeH * 3600e3 }; });
+    const cu = calc(FT_HOURS), dr = calc(DRV_HOURS);
+    const overMin = cu.reduce((a, x) => a + x.over, 0), billH = cu.reduce((a, x) => a + x.bill, 0), charge = billH * FT_RATE, nightFee = nights.length * FT_NIGHT, total = charge + nightFee;
+    Object.assign(base, { end_id: end.id, end_title: end.title, end_at: end.event_at, arrive_at: arr.event_at, start_at: new Date(start).toISOString(), start_src: arrAt > sched ? 'arrival' : 'schedule',
+      free_end: new Date(start + FT_HOURS * 3600e3).toISOString(), over_min: overMin, bill_hours: billH, charge, nights: nights.length, night_fee: nightFee, total,
+      rounds: rounds.map((r, i) => ({ from: new Date(r.from).toISOString(), to: new Date(r.to).toISOString(), free_to: new Date(cu[i].free_to).toISOString(), over_min: cu[i].over, bill_hours: cu[i].bill, charge: cu[i].bill * FT_RATE })) });
+    // ข้อความ: 1 รอบ = 1 บรรทัด · ค้างคืน = บรรทัด 🌙 · มีค้างคืน → 💰 รวม
+    const L = []; let ni = 0;
+    rounds.forEach((r, i) => {
+      if (i > 0 && rounds[i - 1].night) { L.push(`🌙 ค้างคืน 1 คืน = ${ftB(FT_NIGHT)} บาท`); ni++; }
+      const head = i === 0 ? `🆓 Free Time ${FT_HOURS} ชม. ถึง ${bkk(cu[i].free_to).time} น.` : `🆓 Free Time รอบใหม่ ${FT_HOURS} ชม. ถึง ${bkk(cu[i].free_to).time} น.`;
+      L.push(cu[i].over > 0 ? `${head} | เกิน ${ftHM(cu[i].over)} | คิด ${cu[i].bill} ชม. = ${ftB(cu[i].bill * FT_RATE)} บาท` : `${head} | ${total > 0 ? 'ไม่เกินเวลา' : 'ไม่เกินเวลา — ไม่มีค่าใช้จ่าย'}`);
+    });
+    for (; ni < nights.length; ni++) L.push(`🌙 ค้างคืน 1 คืน = ${ftB(FT_NIGHT)} บาท`); // ค้างคืนแล้วออกก่อน 08:00
+    // คนขับ (ข้อมูลภายใน): ค่าเที่ยว 500/เที่ยว เสมอ · ค่ารอ (ฟรี 5 ชม. · 100/ชม.) + ค้างคืน 500/คืน จ่ายเฉพาะเมื่อสำนักงานเลือก "เรียกเก็บลูกค้าได้"
+    // (เลือกตอนปิดงาน · เก็บที่แถว ✅ ปิดงาน ของตู้ = customer_billable · RUN-19) — ไม่ใช้ยอดลูกค้า > 0 เป็นเงื่อนไข
+    const closeRow = items.filter((t) => t.title === HL_CLOSE).pop(); const billable = closeRow && typeof closeRow.customer_billable === 'boolean' ? closeRow.customer_billable : null;
+    const dOver = dr.reduce((a, x) => a + x.over, 0), dBill = dr.reduce((a, x) => a + x.bill, 0);
+    const dWait = billable === true ? dBill * DRV_RATE : 0, dNight = billable === true ? nights.length * DRV_NIGHT : 0, dTotal = DRV_TRIP + dWait + dNight;
+    const D = [`💰 เรียกเก็บลูกค้า: ${billable === true ? 'ได้' : billable === false ? 'ไม่ได้' : 'ยังไม่ระบุ'}`, `🚚 ค่าเที่ยว 1 เที่ยว = ${ftB(DRV_TRIP)} บาท`];
+    if (billable === null) D.push('⏱️ ค่ารอ / 🌙 ค่าค้างคืน — รอเลือก “เรียกเก็บลูกค้าได้ / ไม่ได้”', `💵 รวมคนขับ (เฉพาะค่าเที่ยว) = ${ftB(DRV_TRIP)} บาท`);
+    else if (billable === false) D.push('⏱️ ค่ารอ = 0 บาท', '🌙 ค่าค้างคืน = 0 บาท', `💵 รวมคนขับ = ${ftB(DRV_TRIP)} บาท`);
+    else { rounds.forEach((r, i) => { if (i > 0 && rounds[i - 1].night) D.push(`🌙 ค่าค้างคืน 1 คืน = ${ftB(DRV_NIGHT)} บาท`); D.push(`⏱️ ค่ารอ${i === 0 ? 'รอบแรก' : 'รอบใหม่'} ${dr[i].bill} ชม. = ${ftB(dr[i].bill * DRV_RATE)} บาท`); });
+      for (let k = rounds.filter((r) => r.night).length - (rounds.length - 1); k > 0; k--) D.push(`🌙 ค่าค้างคืน 1 คืน = ${ftB(DRV_NIGHT)} บาท`); // ค้างคืนแล้วออกก่อน 08:00
+      D.push(`💵 รวมคนขับ = ${ftB(dTotal)} บาท`); }
+    return Object.assign(base, { state: total > 0 ? 'over' : 'ok', text: L.join('\n'), driver: { trip: DRV_TRIP, over_min: dOver, bill_hours: dBill, wait: dWait, night: dNight, total: dTotal, billable }, close_id: closeRow ? closeRow.id : null, driver_text: D.join('\n') });
   }
   T.freeTime = freeTime;
   // ---- ข้อมูลตู้ (ระดับ JOB: ลูกค้า / B/L / ท่านำเข้า / คืนตู้เปล่า · รายตู้: ตู้ / ซีล / กำหนดส่ง / คนขับ / หัว-หาง / เบอร์โทร) ----
@@ -213,7 +257,9 @@
         ${opt.actions ? `<div class="hl-acts"><button type="button" class="btn btn-sm btn-r" data-hdel="${t.id}">ลบ</button><button type="button" class="btn btn-sm" data-hat="${t.id}">📎 แนบไฟล์</button></div>` : ''}</div>`;
     });
     if (!items.length) out += '<div class="empty small">ยังไม่มีการอัปเดตสถานะ</div>';
-    if (ctClosed(job, ct)) { const ft = freeTime(job, ct); out += `<div class="hl-ft ${ft.state}" data-ft="${ft.state}">${h(ft.text)}</div>`; } // ก่อนปิดงาน: ไม่แสดง Free Time / ไม่เว้นพื้นที่
+    if (ctClosed(job, ct)) { const ft = freeTime(job, ct); const internal = opt.internal != null ? opt.internal : (T.canEdit() && !isNarrow());
+      out += `<div class="hl-ftbox"><div class="hl-ft-h">📋 ลูกค้า — ใช้ UPDATE / COPY ลูกค้า</div><div class="hl-ft ${ft.state}" data-ft="${ft.state}">${h(ft.text)}</div>${opt.copy ? `<div class="hl-copy"><button type="button" class="btn btn-sm" data-hcopyft="${h(ct.key)}">📋 COPY UPDATE ลูกค้า</button></div>` : ''}</div>`;
+      if (internal && ft.driver_text) out += `<div class="hl-drvbox"><div class="hl-ft-h">🚛 คนขับรถ — ข้อมูลภายในบริษัท</div><div class="hl-ft-drv" data-bill="${ft.driver.billable === null ? '' : ft.driver.billable ? '1' : '0'}">${h(ft.driver_text)}</div>${opt.actions && ft.close_id ? `<div class="hl-bill"><span class="small">💰 การเรียกเก็บค่าใช้จ่ายลูกค้า:</span><button type="button" class="btn btn-sm${ft.driver.billable === true ? ' btn-p' : ''}" data-hbill="1" data-tl="${ft.close_id}">เรียกเก็บลูกค้าได้</button><button type="button" class="btn btn-sm${ft.driver.billable === false ? ' btn-p' : ''}" data-hbill="0" data-tl="${ft.close_id}">เรียกเก็บลูกค้าไม่ได้</button></div>` : ''}</div>`; } // ก่อนปิดงาน: ไม่แสดง Free Time / ไม่เว้นพื้นที่
     if (opt.copy) out += hlContainers(job).length > 1 ? '<div class="hl-copy"><button type="button" class="btn btn-navy" data-hcopy>📋 COPY ตู้นี้</button><button type="button" class="btn btn-navy" data-hcopyall>📋 COPY รวมทุกตู้</button></div>' : '<div class="hl-copy"><button type="button" class="btn btn-navy" data-hcopy>📋 COPY TIMELINE</button></div>';
     return `<div class="hl-tl" data-ct="${ct.key}">${out}</div>`;
   }
@@ -247,7 +293,35 @@
     let ok = false; try { ok = document.execCommand('copy'); } catch (_) { ok = false; } ta.remove(); return ok;
   }
   const HL_ACCEPT = '.pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx';
-  const stSel = (id, sel, excl = [], other = false) => `<select class="inp" id="${id}"><option value="">— เลือกสถานะ —</option>${HL_STATUS.map((s, i) => excl.includes(s) ? '' : `<option value="${h(s)}" ${s === sel ? 'selected' : ''}>${i + 1}. ${h(s)}</option>`).join('')}${other ? `<option value="${HL_OTHER}" ${sel && !HL_STATUS.includes(sel) ? 'selected' : ''}>✏️ อื่นๆ / กรอกสถานะเอง</option>` : ''}</select>`;
+  // ปิดงานได้เมื่อมีสถานะออกจากโรงงานของ "ตู้นั้น": ลงสินค้า (1) → 5 · บรรจุ (2) → 10 · ไม่มีสถานะรถถึง → ต้องมี 5 หรือ 10
+  // ===== Guard กลางการปิดงาน — ทุกทางที่ทำให้ตู้ / JOB ปิด (บันทึก ✅ ปิดงาน · แก้ Timeline เป็น ✅ ปิดงาน · ปุ่ม 🏁 ปิดงาน หน้า JOB) เรียกฟังก์ชันนี้ =====
+  // ต้องมีสถานะออกจากโรงงานของ "ตู้นั้น": ลงสินค้า (1) → 5 · บรรจุ (2) → 10 · ไม่มีสถานะรถถึง → ต้องมี 5 หรือ 10
+  // opt.excludeId = รายการที่กำลังถูกแก้ (ไม่นับเป็นสถานะเดิม) · opt.requireBill = Desktop ต้องเลือก customer_billable (true / false) ก่อน
+  function canCloseTransportJob(job, ct, opt = {}) {
+    const items = hlItems(job, ct).filter((t) => t.id !== opt.excludeId); const arr = items.find((t) => FT_ARRIVE[t.title]);
+    const exitOk = arr ? items.some((t) => t.title === FT_ARRIVE[arr.title]) : items.some((t) => FT_END.includes(t.title));
+    if (!exitOk) return { ok: false, msg: HL_NOEXIT };
+    if (opt.requireBill && typeof opt.billable !== 'boolean') return { ok: false, msg: HL_NOBILL };
+    return { ok: true };
+  }
+  const hlExitOk = (job, ct) => canCloseTransportJob(job, ct).ok;
+  const HL_NOEXIT = '⚠️ ยังปิดงานไม่ได้ — กรุณาอัปเดตสถานะ “ออกจากโรงงาน” ให้เรียบร้อยก่อนปิดงาน';
+  const HL_NOBILL = '⚠️ ยังปิดงานไม่ได้ — กรุณาเลือก “เรียกเก็บลูกค้าได้ / ไม่ได้” ก่อนปิดงาน';
+  // หน้าต่างยืนยันปิดงาน: สรุป Free Time (คำนวณใหม่จาก Timeline จริง) · Desktop สำนักงาน: เลือก "เรียกเก็บลูกค้าได้ / ไม่ได้" ก่อน (บังคับ)
+  // คืนค่า: undefined = ยกเลิก · null = ปิดงานโดยไม่เลือก (มือถือ) · true / false = เรียกเก็บได้ / ไม่ได้
+  const hlCloseDialog = (job, ct, label, askBill, extra = '') => new Promise((res) => {
+    const cts = Array.isArray(ct) ? ct : [ct]; let done = false;
+    const sum = cts.map((c) => { const ft = freeTime(job, c); return ft.end_id ? `<div class="hl-ft-h">📋 ลูกค้า${cts.length > 1 || hlContainers(job).length > 1 ? ` — ตู้ ${ctBadge(c.no)}` : ''}</div><div class="hl-ft hl-ft-pre ${ft.state}">${h(ft.text)}</div>` : ''; }).join('');
+    const m = T.modal({ title: '✅ ปิดงาน', size: 's hl-close-m', body: `${extra}${sum}${askBill ? `<div class="hl-billq"><div class="b">💰 การเรียกเก็บค่าใช้จ่ายลูกค้า <span class="req">*</span></div><label class="hl-rb"><input type="radio" name="hlBill" value="1"> เรียกเก็บลูกค้าได้</label><label class="hl-rb"><input type="radio" name="hlBill" value="0"> เรียกเก็บลูกค้าไม่ได้</label><div class="xs muted">ใช้คำนวณค่ารอ / ค่าค้างคืนคนขับ (ข้อมูลภายใน · ไม่อยู่ใน COPY ลูกค้า)</div></div>` : ''}<div class="mt1">ยืนยัน <b>✅ ปิดงาน</b> ${label} ?</div><div class="small muted">ระบบจะบันทึกผู้ปิดงานและวันเวลาใน Audit</div>`,
+      foot: '<button type="button" class="btn" data-close>ยกเลิก</button><button type="button" class="btn btn-navy" data-ok>ปิดงาน</button>', onClose: () => { if (!done) res(undefined); } });
+    $('[data-ok]', m.el).onclick = () => { let v = null; if (askBill) { const r = $('input[name=hlBill]:checked', m.el); v = r ? r.value === '1' : null; }
+      const bad = cts.map((c) => canCloseTransportJob(job, c, { requireBill: askBill, billable: v })).find((g) => !g.ok);
+      if (bad) { T.toast(bad.msg, 'warn'); const q = $('.hl-billq', m.el); if (q && bad.msg === HL_NOBILL) q.classList.add('hl-need'); return; }
+      done = true; m.close(); res(v); };
+  });
+  // ปิดตู้ผ่าน Flow Timeline เดียว (✅ ปิดงาน รายตู้ → Server ปิด JOB เมื่อครบทุกตู้) + บันทึก customer_billable ของแถวปิดงาน (RUN-19)
+  const hlSaveBill = async (tlId, bill) => { if (typeof bill !== 'boolean' || !tlId) return; try { await T.auth('tnj_tl_billable_set', { p_timeline_id: tlId, p_billable: bill }, { silent: true }); } catch (eb) { T.toast('ปิดงานแล้ว แต่บันทึก “เรียกเก็บลูกค้า” ไม่สำเร็จ (ต้องรัน RUN-19) — เลือกใหม่ได้ในส่วนคนขับ', 'warn'); } };
+  const stSel = (id, sel, excl = [], other = false) => `<select class="inp" id="${id}"><option value="">— เลือกสถานะ —</option>${HL_STATUS.map((s, i) => excl.includes(s) ? '' : `<option value="${h(s)}" ${s === sel ? 'selected' : ''}>${i + 1}. ${s === FT_NIGHT_ST ? '🌙 ' : ''}${h(s)}</option>`).join('')}${other ? `<option value="${HL_OTHER}" ${sel && !HL_STATUS.includes(sel) ? 'selected' : ''}>✏️ อื่นๆ / กรอกสถานะเอง</option>` : ''}</select>`;
   // ช่อง “กรอกสถานะเอง” แสดงเฉพาะเมื่อเลือก อื่นๆ · คืนค่าสถานะที่จะส่ง Server (null = ยังไม่กรอก)
   const stOther = (box, selId, inId) => { const s = $('#' + selId, box), f = $('#' + inId, box); if (!s || !f) return; const on = () => { const o = s.value === HL_OTHER; f.closest('.field').hidden = !o; const fm = s.closest('.hl-form'); if (fm) fm.classList.toggle('hl-other', o); }; s.addEventListener('change', on); on(); };
   const stValue = (box, selId, inId) => { const v = $('#' + selId, box).value; if (v !== HL_OTHER) return v; const c = ($('#' + inId, box).value || '').trim(); return c ? 'CUSTOM:' + c : null; };
@@ -271,12 +345,12 @@
               <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label>${stSel('hlS', '', mo.driver ? [HL_CLOSE] : [], !mo.driver)}</div><div class="field hl-fc" hidden><label>กรอกสถานะเอง <span class="req">*</span></label><input class="inp" id="hlSC" maxlength="100" placeholder="พิมพ์สถานะที่ต้องการ"></div>
               ${mo.mobile ? '<div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><textarea class="inp" id="hlN" maxlength="500" rows="2"></textarea></div>' : ''}${mo.mobile ? `<div class="field hl-fn"><label>📎 แนบไฟล์ / รูปภาพ (เลือกได้หลายไฟล์)</label><div class="m-att"><label class="btn">📷 ถ่ายรูป<input type="file" id="hlCam" accept="image/*" capture="environment" hidden></label><label class="btn">📎 เลือกไฟล์<input type="file" id="hlFiles" multiple accept="${HL_ACCEPT}" hidden></label></div><div class="m-pick" id="hlPick">${pending.map((f) => `<span>📎 ${h(f.name)}</span>`).join('')}</div></div>` : ''}${mo.foot ? '' : `<div class="hl-fb"><button type="button" class="btn btn-p btn-lg" id="hlGo">${mo.mobile ? '💾 บันทึก TIMELINE' : 'บันทึก Timeline'}</button></div>`}</div>`
             : `<div class="alert info" id="hlInfo">${isClosed && job.status !== 'COMPLETED' && job.status !== 'CANCELLED' ? `ตู้ ${ctBadge(ct.no)} ปิดงานแล้ว — ดู Timeline / แก้ไข / ลบ / แนบไฟล์ ได้ · ตู้อื่นยังอัปเดตต่อได้` : mo.driver && ['NEW', 'ASSIGNED'].includes(job.status) ? 'กด ✅ รับทราบงาน ก่อน จึงอัปเดตสถานะได้' : job.status === 'CANCELLED' ? 'งานถูกยกเลิกแล้ว — ดูได้อย่างเดียว' : job.status === 'COMPLETED' ? 'งานปิดแล้ว — เพิ่มสถานะใหม่ไม่ได้ (แก้ไข / ลบ / แนบไฟล์ ของรายการเดิมได้)' : 'สิทธิ์ดูอย่างเดียว'}</div>`}
-            <div id="hlTl">${hualakTimelineHtml(job, { ct, header: !mo.mobile, actions: canRow, copy: true })}</div>`;
+            <div id="hlTl">${hualakTimelineHtml(job, { ct, header: !mo.mobile, actions: canRow, copy: true, internal: !mo.mobile && !mo.driver && office })}</div>`;
           Object.keys(keep).forEach((k) => { const i = $('#' + k, root); if (i && keep[k] !== undefined) i.value = keep[k]; });
           // Desktop Modal: ปุ่ม บันทึก Timeline อยู่ Footer ซ้ายสุด (ปิด ขวาสุด) — แสดงเฉพาะเมื่อเพิ่มสถานะได้
           if (mo.foot) mo.foot.innerHTML = canAdd ? '<button type="button" class="btn btn-p btn-lg" id="hlGo">💾 บันทึก Timeline</button>' : '';
           stOther(root, 'hlS', 'hlSC');
-          if (mo.mobile) { const ft = $('#hlTl .hl-ft', root); if (ft) ft.innerHTML = h(ft.textContent).split(' | ').join('<br>'); }
+          if (mo.mobile) $$('#hlTl .hl-ft, #hlTl .hl-ft-drv', root).forEach((ft) => { ft.innerHTML = h(ft.textContent).split(' | ').join('<br>'); });
           bind();
         };
         const bind = () => {
@@ -289,16 +363,22 @@
             const d = $('#hlD', root).value, t = $('#hlT', root).value, s = stValue(root, 'hlS', 'hlSC'), nEl = $('#hlN', root), n = nEl ? nEl.value.trim() : '';
             if (!d || !t) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!$('#hlS', root).value) return T.toast('กรุณาเลือกสถานะ', 'warn'); if (!s) { const f = $('#hlSC', root); if (f) f.focus(); return T.toast('กรุณากรอกสถานะ', 'warn'); }
             const multi = hlContainers(job).length > 1;
-            if (s === HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${multi ? `เฉพาะตู้ <b>${ctBadge(ct.no)} | ${h(ct.container_no || '-')}</b> (${h(T.jobRef(job))})` : h(T.jobRef(job))} ?<br><span class="small muted">ระบบจะบันทึกผู้ปิดงานและวันเวลาใน Audit${multi ? ' · JOB จะปิดเมื่อทุกตู้ปิดงานครบ' : ''}</span>`, 'ปิดงาน', 'btn-navy'))) return;
+            let bill = null; // ปิดงาน: ต้องมีสถานะออกจากโรงงาน (5 / 10) ของตู้นี้ · คำนวณใหม่จาก Timeline จริง แล้วแสดงสรุปก่อนยืนยัน
+            if (s === HL_CLOSE) { const g = canCloseTransportJob(job, ct); if (!g.ok) { T.toast(g.msg, 'err'); return; } bill = await hlCloseDialog(job, ct, multi ? `เฉพาะตู้ <b>${ctBadge(ct.no)} | ${h(ct.container_no || '-')}</b> (${h(T.jobRef(job))})` : h(T.jobRef(job)), !mo.mobile && office); if (bill === undefined) return; }
             go.disabled = true;
             try { T.loading(true); const at = `${d}T${t}:00+07:00`;
               const r = ct.id ? await T.auth('tnj_container_status', { p_job_id: job.id, p_container_id: ct.id, p_event_at: at, p_status: s, p_note: n || null }, { silent: true }) : await T.auth('tnj_timeline_status', { p_job_id: job.id, p_event_at: at, p_status: s, p_note: n || null }, { silent: true });
               if (mo.mobile && pending.length) { const files = pending; pending = []; for (const f of files) await T.files.upload(job.id, await T.files.shrink(f), 'อื่น ๆ', r.timeline_id, null); }
+              if (s === HL_CLOSE) await hlSaveBill(r.timeline_id, bill); // RUN-19
               T.toast(s === HL_CLOSE ? (multi ? `ปิดงานตู้ ${ctBadge(ct.no)} แล้ว${r.job && r.job.status === 'COMPLETED' ? ' · ทุกตู้ปิดครบ — ปิด JOB แล้ว' : ''}` : 'ปิดงานแล้ว') : 'บันทึก Timeline แล้ว', 'ok'); $('#hlS', root).value = ''; $('#hlSC', root).value = ''; if (nEl) nEl.value = ''; await refresh(mo.mobile ? null : r.job);
             } catch (e) { T.err(e); } finally { T.loading(false); if (go.isConnected) go.disabled = false; }
           };
           $$('[data-hdl]', root).forEach((b) => b.onclick = () => { const f = job.files.find((x) => x.id === b.dataset.hdl); if (f) T.files.download(f); });
           const cp = $('[data-hcopy]', root); if (cp) cp.onclick = async () => { if (await copyText(hualakCopyText(job, ctOf(job, sel)))) T.toast('คัดลอก Timeline แล้ว ✓', 'ok'); else T.toast('คัดลอกไม่สำเร็จ', 'err'); };
+          // 📋 COPY UPDATE ลูกค้า: เฉพาะสรุป Free Time / ค้างคืน ของตู้นี้ (ไม่มีข้อมูลคนขับ)
+          $$('[data-hcopyft]', root).forEach((b) => b.onclick = async () => { const c = ctOf(job, b.dataset.hcopyft); if (await copyText(freeTime(job, c).text)) T.toast('คัดลอก UPDATE ลูกค้าแล้ว ✓', 'ok'); else T.toast('คัดลอกไม่สำเร็จ', 'err'); });
+          // 💰 เรียกเก็บลูกค้าได้ / ไม่ได้ (หลังปิดงาน · เปลี่ยนได้) — บันทึกที่แถว ✅ ปิดงาน ของตู้ (RUN-19)
+          $$('[data-hbill]', root).forEach((b) => b.onclick = async () => { try { T.loading(true); await T.auth('tnj_tl_billable_set', { p_timeline_id: b.dataset.tl, p_billable: b.dataset.hbill === '1' }, { silent: true }); T.toast('บันทึกการเรียกเก็บแล้ว', 'ok'); await refresh(); } catch (e) { T.err(e); } finally { T.loading(false); } });
           const ca = $('[data-hcopyall]', root); if (ca) ca.onclick = async () => { if (await copyText(hualakCopyAll(job))) T.toast(`คัดลอกรวม ${hlContainers(job).length} ตู้แล้ว ✓`, 'ok'); else T.toast('คัดลอกไม่สำเร็จ', 'err'); };
           // แก้ไข Timeline แบบ Inline: คลิกเวลา / ข้อความ → [เวลา] [ข้อความ] [บันทึก] [ยกเลิก] · Enter = บันทึก · Esc = ยกเลิก · ใช้ tnj_timeline_status_edit เดิม (วันที่ / หมายเหตุเดิมคงไว้)
           $$('[data-hie]', root).forEach((el) => el.onclick = () => {
@@ -310,12 +390,18 @@
               if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(tm)) { T.toast('กรุณาระบุเวลา HH:mm ให้ถูกต้อง', 'warn'); return ti.focus(); }
               if (!s0) { T.toast('กรุณากรอกข้อความสถานะ', 'warn'); return tx.focus(); }
               if (tm === bt.time && s0 === t.title) return cancel();
-              if (s0 === HL_CLOSE && t.title !== HL_CLOSE && !(await T.confirm('ปิดงาน', `ยืนยัน <b>✅ ปิดงาน</b> ${h(T.jobRef(job))} ?`, 'ปิดงาน', 'btn-navy'))) return;
-              try { T.loading(true); const r = await T.auth('tnj_timeline_status_edit', { p_timeline_id: t.id, p_event_at: `${bt.date}T${tm}:00+07:00`, p_status: HL_STATUS.includes(s0) ? s0 : 'CUSTOM:' + s0, p_note: t.note || null }, { silent: true }); T.toast('แก้ไข Timeline แล้ว', 'ok'); await refresh(r.job); } catch (e) { T.err(e); } finally { T.loading(false); } };
+              let bill = null; const toClose = s0 === HL_CLOSE && t.title !== HL_CLOSE;
+              if (toClose) { const g = canCloseTransportJob(job, ct, { excludeId: t.id }); if (!g.ok) { T.toast(g.msg, 'err'); return; }
+                bill = await hlCloseDialog(job, ct, h(T.jobRef(job)), !mo.mobile && office); if (bill === undefined) return; }
+              // ตู้ที่ปิดแล้ว: ห้ามแก้สถานะออกจากโรงงานตัวสุดท้ายเป็นอย่างอื่น (กันปิดงานโดยไม่มี 5 / 10)
+              if (!toClose && ctClosed(job, ct) && FT_END.includes(t.title) && !FT_END.includes(s0) && !canCloseTransportJob(job, ct, { excludeId: t.id }).ok) { T.toast('⚠️ ตู้นี้ปิดงานแล้ว — ต้องมีสถานะ “ออกจากโรงงาน” · ลบ ✅ ปิดงาน ก่อนจึงแก้ได้', 'err'); return; }
+              try { T.loading(true); const r = await T.auth('tnj_timeline_status_edit', { p_timeline_id: t.id, p_event_at: `${bt.date}T${tm}:00+07:00`, p_status: HL_STATUS.includes(s0) ? s0 : 'CUSTOM:' + s0, p_note: t.note || null }, { silent: true }); if (toClose) await hlSaveBill(t.id, bill); T.toast('แก้ไข Timeline แล้ว', 'ok'); await refresh(toClose ? null : r.job); } catch (e) { T.err(e); } finally { T.loading(false); } };
             $('[data-ies]', el).onclick = (e) => { e.stopPropagation(); save(); }; $('[data-iec]', el).onclick = (e) => { e.stopPropagation(); cancel(); };
             el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); } });
           });
           $$('[data-hdel]', root).forEach((b) => b.onclick = async () => {
+            { const t0 = (job.timeline || []).find((x) => x.id === b.dataset.hdel); // ตู้ที่ปิดแล้ว: ห้ามลบสถานะออกจากโรงงานตัวสุดท้าย (ลบ ✅ ปิดงาน ก่อน)
+              if (t0 && FT_END.includes(t0.title) && ctClosed(job, ct) && !canCloseTransportJob(job, ct, { excludeId: t0.id }).ok) { T.toast('⚠️ ตู้นี้ปิดงานแล้ว — ต้องมีสถานะ “ออกจากโรงงาน” · ลบ ✅ ปิดงาน ก่อนจึงลบได้', 'err'); return; } }
             if (!(await T.confirm('ลบ Timeline', 'ยืนยันลบ Timeline รายการนี้?', 'ยืนยันลบ', 'btn-r'))) return;
             try { T.loading(true); const r = await T.auth('tnj_timeline_status_delete', { p_timeline_id: b.dataset.hdel }, { silent: true }); T.toast('ลบ Timeline แล้ว', 'ok'); await refresh(r.job); } catch (e) { T.err(e); } finally { T.loading(false); }
           });
@@ -514,7 +600,7 @@
     const sizes = ["20'", "40'", "40'HC", "45'", 'LCL', 'อื่น ๆ'];
     // Mobile แก้ไขงาน: คนขับตู้ 1 เลือกได้ (ใช้ tnj_job_assign เดิม — ได้เฉพาะงาน NEW / ASSIGNED ตามกฎเดิม) + หมายเหตุ (job_note) · Desktop ไม่เปลี่ยน
     // แก้ไขงาน: คนขับตู้ 1 เลือกได้ทุก Row (NEW / ASSIGNED = tnj_job_assign เดิม · สถานะอื่น = tnj_job_driver_set RUN-17 ไม่เปลี่ยนสถานะงาน) · หมายเหตุ (job_note) เฉพาะ Mobile
-    const mEdit = !isNew && !!(mo && mo.mobile); const mDrv = !isNew;
+    const mView = !!(mo && mo.view); const mEdit = !isNew && (!!(mo && mo.mobile) || mView); const mDrv = !isNew;
     page.innerHTML = `${mo ? '' : `<div class="page-head jf-head"><h1>${isNew ? '+ เปิดงานใหม่' : 'แก้ไขงาน — ' + h(T.jobRef(job))}</h1></div>`}<form id="jobForm" class="card card-b jf-form" autocomplete="off">
       <div class="jf-mode" id="jfMode"><span class="jf-mode-l">MODE:</span>${['IMPORT', 'EXPORT'].map((x) => `<label class="jf-mck"><input type="checkbox" data-mode value="${x}" ${job && (job.job_mode || []).includes(x) ? 'checked' : ''}> ${x}</label>`).join('')}</div>
       <div class="jf-row r4"><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div>
@@ -524,12 +610,12 @@
         <div class="field"><label>Size</label><select class="inp" name="container_size"><option value="">-</option>${sizes.map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
         ${locField('pickup', 'ท่านำเข้า', job, 'pickup_location_id', 'pickup_location_text', true).replace('<div class="field">', '<div class="field jf-ctpk">').replace('placeholder="เลือกจากรายการ หรือพิมพ์ชื่อสถานที่"', 'placeholder="ท่านำเข้า"')}
         <div class="field"><label>วันที่ส่ง</label><input type="date" class="inp" name="factory_date" aria-label="วันที่ส่ง ตู้ 1" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" aria-label="เวลา ตู้ 1" value="${v('factory_time')}"></div>
-        ${isNew || mDrv ? `<div class="field jf-ctdrv"><label>คนขับ</label><select class="inp" name="driver_id" id="jfDrv">${opts(!isNew && job.driver_id && !M.drivers.some((x) => x.id === job.driver_id) ? M.drivers.concat([{ id: job.driver_id, full_name: job.driver_name || '-', phone: job.driver_phone }]) : M.drivers, 'id', drvLabel, isNew ? '' : job.driver_id || '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field jf-ctdrv"><label>คนขับ</label><input class="inp ro" readonly tabindex="-1" value="${h([job.driver_name, job.license_plate, job.trailer_plate, job.driver_phone].map((x) => x || '-').join(' | '))}" title="เปลี่ยนรถ/คนขับได้ที่ปุ่ม &quot;สั่งงาน&quot; ในหน้ารายละเอียด (ก่อนคนขับรับงาน)"></div>`}<div class="jf-ctx"><button type="button" class="btn btn-sm" data-ct-rm data-c1>🗑 ลบ</button></div></div>
+        ${isNew || mDrv ? `<div class="field jf-ctdrv"><label>คนขับ</label><select class="inp" name="driver_id" id="jfDrv">${opts(!isNew && job.driver_id && !M.drivers.some((x) => x.id === job.driver_id) ? M.drivers.concat([{ id: job.driver_id, full_name: job.driver_name || '-', phone: job.driver_phone }]) : M.drivers, 'id', drvLabel, isNew ? '' : job.driver_id || '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field jf-ctdrv"><label>คนขับ</label><input class="inp ro" readonly tabindex="-1" value="${h([job.driver_name, job.license_plate, job.trailer_plate, job.driver_phone].map((x) => x || '-').join(' | '))}" title="เปลี่ยนรถ/คนขับได้ที่ปุ่ม &quot;สั่งงาน&quot; ในหน้ารายละเอียด (ก่อนคนขับรับงาน)"></div>`}<div class="jf-ctx">${mView ? '' : '<button type="button" class="btn btn-sm" data-ct-rm data-c1>🗑 ลบ</button>'}</div></div>
       <div class="jf-drvhide" hidden><input class="inp ro" id="jfName" readonly tabindex="-1" value="${v('driver_name')}"><input class="inp ro" id="jfHead" readonly tabindex="-1" value="${v('license_plate')}"><input class="inp ro" id="jfTail" readonly tabindex="-1" value="${v('trailer_plate')}"><input class="inp ro" id="jfPhone" readonly tabindex="-1" value="${v('driver_phone')}"></div>
-      <div class="jf-cts" id="jfCts"></div><div class="jf-ctadd"><button type="button" class="btn" id="jfAddCt">+ เพิ่มตู้</button><span class="xs muted">1 JOB เพิ่มได้หลายตู้ · แต่ละตู้มีเบอร์ตู้ / เบอร์ซีล / Size / ท่านำเข้า / วันที่ส่ง / เวลา / คนขับ แยกกัน</span></div>
+      <div class="jf-cts" id="jfCts"></div><div class="jf-ctadd" ${mView ? 'hidden' : ''}><button type="button" class="btn" id="jfAddCt">+ เพิ่มตู้</button><span class="xs muted">1 JOB เพิ่มได้หลายตู้ · แต่ละตู้มีเบอร์ตู้ / เบอร์ซีล / Size / ท่านำเข้า / วันที่ส่ง / เวลา / คนขับ แยกกัน</span></div>
       <div class="jf-row r1"><div class="field"><label>ที่อยู่ออกใบเสร็จ</label><textarea class="inp" name="billing_address" rows="2">${v('billing_address')}</textarea></div></div>
       ${mEdit ? `<div class="jf-row r1"><div class="field"><label>หมายเหตุ</label><textarea class="inp" name="job_note" rows="2" maxlength="1000">${v('job_note')}</textarea></div></div>` : ''}
-      ${isNew ? '' : '<div class="jf-row r1"><div class="field"><label>เหตุผลที่แก้ไข (บันทึกลง Timeline)</label><input class="inp" name="edit_note"></div></div>'}
+      ${isNew || mView ? '' : '<div class="jf-row r1"><div class="field"><label>เหตุผลที่แก้ไข (บันทึกลง Timeline)</label><input class="inp" name="edit_note"></div></div>'}
       ${mo ? '' : `<div class="jf-btns"><button type="submit" class="btn btn-p btn-lg" id="jfSave">${isNew ? 'บันทึกเปิดงาน' : 'บันทึกการแก้ไข'}</button><a class="btn btn-lg" id="jfCancel" href="${isNew ? '#/jobs' : '#/jobs/' + job.id}">ยกเลิก</a></div>`}</form>`;
     if (mo && mo.closed) $$('#jobForm input, #jobForm select, #jobForm textarea, #jobForm button', page).forEach((x) => { x.disabled = true; });
     // location id sync + map
@@ -545,8 +631,8 @@
         <div class="field"><select class="inp" data-ck="container_size" aria-label="Container Size"><option value="">-</option>${sizes.map((x) => `<option ${c && c.container_size === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
         <div class="field jf-ctpk"><input class="inp" data-ck="pickup_location_text" list="dl_pickup" placeholder="ท่านำเข้า *" aria-label="ท่านำเข้า" value="${h(c ? c.pickup_location_text || (job && job.pickup_location_text) || '' : '')}"></div>
         <div class="field"><input type="date" class="inp" data-ck="factory_date" aria-label="วันที่ส่ง" title="วันที่ส่ง" value="${h(c && c.factory_date ? String(c.factory_date).slice(0, 10) : '')}"></div><div class="field"><input type="time" class="inp" data-ck="factory_time" aria-label="เวลา" title="เวลา" value="${h(c && c.factory_time ? String(c.factory_time).slice(0, 5) : '')}"></div>
-        <div class="field jf-ctdrv"><select class="inp" data-ck="driver_id" aria-label="คนขับ">${opts(M.drivers, 'id', drvLabel, c ? c.driver_id : '', '— คนขับ (ชื่อ | หัว | หาง | เบอร์โทร) —')}</select></div>
-        <div class="jf-ctx"><button type="button" class="btn btn-sm" data-ct-rm>🗑 ลบ</button></div></div>`;
+        <div class="field jf-ctdrv"><select class="inp" data-ck="driver_id" aria-label="คนขับ">${opts(c && c.driver_id && !M.drivers.some((x) => x.id === c.driver_id) ? M.drivers.concat([{ id: c.driver_id, full_name: c.driver_name || '-' }]) : M.drivers, 'id', drvLabel, c ? c.driver_id : '', '— คนขับ (ชื่อ | หัว | หาง | เบอร์โทร) —')}</select></div>
+        <div class="jf-ctx">${mView ? '' : '<button type="button" class="btn btn-sm" data-ct-rm>🗑 ลบ</button>'}</div></div>`;
     const ctBox = $('#jfCts', page); ctBox.innerHTML = extras.map((c, i) => ctRow(c, i + 2)).join('');
     // ---- 🗑 ลบ ได้ทุกแถว (รวมลำดับ 1) · จำนวนตู้ = จำนวนแถวจริงเสมอ · ตัวตนของตู้ = Container ID (เลขลำดับเป็นแค่ลำดับแสดงผล) ----
     const ct1 = $('#jfCt1', page); const cntIn = $('#jfCnt', page);
@@ -579,6 +665,8 @@
     const bindCt = () => $$('[data-ct-rm]', page).forEach((b) => b.onclick = async () => { const row = b.closest('#jfCt1') || b.closest('.jf-ct'); const lbl = (row.querySelector('.jf-seq') || {}).textContent || ''; const saved = row.id === 'jfCt1' ? !isNew : !!row.dataset.ctId; if (await rmRow(row) && saved) T.toast(`ลบตู้ ${lbl} แล้ว`, 'ok'); });
     const addRow = () => { ctBox.insertAdjacentHTML('beforeend', ctRow(null, ctNo())); bindCt(); cntSync(); return ctBox.lastElementChild; };
     bindCt(); cntSync();
+    // ดูอย่างเดียว / งานปิด: ล็อกทุกช่อง (รวมแถวตู้ 2+ ที่เพิ่ง Render) — disabled จริง ไม่ใช่แค่ CSS
+    if (mo && mo.closed) $$('#jobForm input, #jobForm select, #jobForm textarea, #jobForm button', page).forEach((x) => { x.disabled = true; if (x.tagName !== 'SELECT' && x.tagName !== 'BUTTON') x.readOnly = true; if (mView) x.removeAttribute('placeholder'); });
     $('#jfAddCt', page).onclick = () => { const last = addRow(); const f = last && last.querySelector('[data-ck=container_no]'); if (f) f.focus(); };
     // จำนวนตู้: เพิ่ม → เพิ่มแถวจนครบ · ลด → ลบแถวท้ายสุด (มีข้อมูล / บันทึกแล้ว ต้อง Confirm) · ค่าไม่ถูกต้อง → คืนค่าตามจำนวนแถวจริง
     let cntBusy = false;
@@ -600,7 +688,8 @@
     const fill = () => { const d = M.drivers.find((x) => x.id === drvSel.value); const x = vehOf(d); $('#jfName', page).value = d ? d.full_name : ''; $('#jfHead', page).value = x ? x.license_plate || '' : ''; $('#jfTail', page).value = x ? x.trailer_plate || '' : ''; $('#jfPhone', page).value = d ? d.phone || '' : ''; };
     if (drvSel) drvSel.onchange = fill;
     $('#jobForm', page).onsubmit = async (e) => {
-      e.preventDefault(); const fd = new FormData(e.target); const p = {}; fd.forEach((val, k) => { p[k] = String(val).trim(); });
+      e.preventDefault(); if (mo && (mo.view || mo.closed)) return; // ดูอย่างเดียว / งานปิด: ไม่บันทึก
+      const fd = new FormData(e.target); const p = {}; fd.forEach((val, k) => { p[k] = String(val).trim(); });
       // MODE งาน: ต้องเลือกอย่างน้อย 1 (JOB เก่าที่ยังไม่มี MODE แก้ไขได้โดยไม่บังคับ)
       const modes = $$('#jfMode [data-mode]:checked', page).map((x) => x.value);
       if (!modes.length && (isNew || (job.job_mode || []).length)) { T.toast('กรุณาเลือก MODE งาน', 'err'); const f = $('#jfMode [data-mode]', page); if (f) f.focus(); return; }
@@ -633,7 +722,7 @@
 
   /* ---------- UPDATE TIMELINE dialog (office) ---------- */
   function timelineDialog(job, onDone) {
-    const cur = job.status; const allowed = T.STATUS.slice(2, 13).filter((s) => s !== cur && T.statusOrder(cur) >= 2);
+    const cur = job.status; const allowed = T.STATUS.slice(2, 13).filter((s) => s !== cur && s !== 'COMPLETED' && T.statusOrder(cur) >= 2); // ปิดงาน (COMPLETED) ต้องผ่าน Guard กลาง (🏁 ปิดงาน / ✅ ปิดงาน ใน Timeline) เท่านั้น
     T.modal({ title: `+ UPDATE TIMELINE — ${T.jobRef(job)}`, body: `<div class="alert info">สถานะปัจจุบัน: ${T.badge(cur)} ${cur === 'PROBLEM' ? '— งานมีปัญหา ใช้ปุ่ม "แก้ไขปัญหาแล้ว" ก่อน' : ''}</div>
       <div class="field"><label>เปลี่ยนสถานะเป็น</label><select class="inp inp-lg" id="tlSt"><option value="">— ไม่เปลี่ยนสถานะ (บันทึกหมายเหตุ/ไฟล์เท่านั้น) —</option>${cur === 'PROBLEM' || cur === 'COMPLETED' || cur === 'CANCELLED' ? '' : allowed.map((s) => `<option value="${s}">${h(T.ST_TH[s])}${T.nextStatus(cur) === s ? ' (ขั้นถัดไป)' : ''}</option>`).join('')}</select></div>
       <div class="field"><label>หมายเหตุ</label><textarea class="inp" id="tlNote"></textarea></div>
@@ -741,7 +830,17 @@
       if (a === 'assign') return assignDialog(job, reload);
       if (a === 'edit') { const pg = $('#page'); if (pg) { history.replaceState(null, '', `#/jobs/${job.id}`); pageJobForm(pg, job); } return; }
       if (a === 'resolve') { const n = await T.prompt('แก้ไขปัญหาแล้ว', 'บันทึกการแก้ไข'); if (n == null) return; try { await T.auth('tnj_problem_resolve', { p_job_id: job.id, p_note: n }); T.toast('กลับสู่สถานะปกติแล้ว', 'ok'); reload(); } catch (e) { T.err(e); } return; }
-      if (a === 'close') { const openCt = hlContainers(job).filter((c) => !ctClosed(job, c)); if (hlContainers(job).length > 1 && openCt.length) { T.toast(`ยังไม่สามารถปิด JOB ได้ เนื่องจากยังมี ${openCt.length} ตู้ที่ไม่จบงาน`, 'err', 6000); return; } const warn = !m.end_mileage ? '<div class="alert warn">⚠ งานนี้ยังไม่ได้บันทึกไมล์หลัง — ปิดงานได้ แต่จะติดสถานะ "ข้อมูลไม่ครบ"</div>' : ''; if (!(await T.confirm('ปิดงาน', warn + `ยืนยันปิดงาน <b>${h(T.jobRef(job))}</b> ?`, 'ปิดงาน', 'btn-navy'))) return; try { await T.auth('tnj_status_update', { p_job_id: job.id, p_status: 'COMPLETED' }); T.toast('ปิดงานแล้ว', 'ok'); reload(); } catch (e) { T.err(e); } return; }
+      // 🏁 ปิดงาน หน้า JOB: ไม่เรียก COMPLETED ตรงอีกต่อไป — ใช้ Guard กลาง + หน้าต่างปิดงานเดียวกับ Timeline แล้วปิดทุกตู้ที่ยังเปิดด้วย ✅ ปิดงาน (Server ปิด JOB เมื่อครบทุกตู้)
+      if (a === 'close') {
+        const openCt = hlContainers(job).filter((c) => !ctClosed(job, c));
+        if (!openCt.length) { T.toast('ทุกตู้ปิดงานครบแล้ว', 'info'); reload(); return; }
+        const bad = openCt.filter((c) => !canCloseTransportJob(job, c).ok);
+        if (bad.length) { T.toast(`${HL_NOEXIT}${hlContainers(job).length > 1 ? ` (ตู้ ${bad.map((c) => ctBadge(c.no)).join(', ')})` : ''}`, 'err', 6000); return; }
+        const warn = !m.end_mileage ? '<div class="alert warn">⚠ งานนี้ยังไม่ได้บันทึกไมล์หลัง — ปิดงานได้ แต่จะติดสถานะ "ข้อมูลไม่ครบ"</div>' : '';
+        const bill = await hlCloseDialog(job, openCt, `<b>${h(T.jobRef(job))}</b>${hlContainers(job).length > 1 ? ` (${openCt.length} ตู้ที่ยังเปิด)` : ''}`, !isNarrow(), warn); if (bill === undefined) return;
+        try { T.loading(true); const at = new Date(Date.now() + (T.server.offsetMs || 0)).toISOString();
+          for (const c of openCt) { const r = c.id ? await T.auth('tnj_container_status', { p_job_id: job.id, p_container_id: c.id, p_event_at: at, p_status: HL_CLOSE, p_note: null }, { silent: true }) : await T.auth('tnj_timeline_status', { p_job_id: job.id, p_event_at: at, p_status: HL_CLOSE, p_note: null }, { silent: true }); await hlSaveBill(r.timeline_id, bill); }
+          T.toast('ปิดงานแล้ว', 'ok'); reload(); } catch (e) { T.err(e); reload(); } finally { T.loading(false); } return; }
       if (a === 'cancel') { const r = await T.prompt('ยกเลิกงาน', 'เหตุผลการยกเลิก'); if (!r) return; try { await T.auth('tnj_job_cancel', { p_job_id: job.id, p_reason: r }); T.toast('ยกเลิกงานแล้ว', 'ok'); reload(); } catch (e) { T.err(e); } }
     });
     draw();
@@ -1149,13 +1248,15 @@
       });
       $('#rpClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#rpList [data-rf]').forEach((i) => { i.value = ''; }); pageNo = 1; load(); };
     };
-    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono">${h(x.job_no || '-')}</td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><a class="btn btn-sm" href="#/jobs/${x.job_id}" onclick="event.stopPropagation()">เปิด JOB ›</a></td></tr>`;
+    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono"><a href="javascript:void(0)" class="rp-jno" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><button type="button" class="btn btn-sm" data-jv="${x.job_id}">ดู JOB ›</button></td></tr>`;
     const draw = () => {
       if (!$('#rpBody')) return;
       const list = filtered(); const pages = Math.max(1, Math.ceil(list.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
       const vis = list.slice((pageNo - 1) * PS, pageNo * PS);
       $('#rpBody').innerHTML = vis.map(rowHtml).join('') || `<tr><td colspan="${RJ_HEAD.length}" class="empty">ไม่พบข้อมูล</td></tr>`;
       $$('#rpBody [data-det]').forEach((b) => b.onclick = () => openReportDetail(b.dataset.det));
+      // เลข JOB / ปุ่ม ดู JOB → Popup รายละเอียด JOB (ฟอร์มเปิดงานเดิมแบบ READ ONLY) · ไม่เปลี่ยนหน้า
+      $$('#rpBody [data-jv]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); jobEditDialog(b.dataset.jv, null, { view: true }); });
       $('#rpPager').innerHTML = `<span class="muted small">ทั้งหมด ${list.length} รายการ · หน้า ${pageNo}/${pages}</span><button class="btn btn-sm" id="rPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="rNext" ${pageNo >= pages ? 'disabled' : ''}>›</button>`;
       $('#rPrev').onclick = () => { pageNo--; draw(); }; $('#rNext').onclick = () => { pageNo++; draw(); };
     };
