@@ -2314,6 +2314,49 @@
     } catch (e) { return true; }
   }
 
+  /* ---------- [ATT SCAN SCOPE] Gate ใช้เฉพาะ "ลงเวลาด้วยใบหน้าบนมือถือ" ----------
+     grabFrames()/grabFramesLoop() ถูกใช้ร่วมกับ Face Login และ Desktop Attendance
+     จึงต้องมีเงื่อนไขชัดเจน ไม่ให้ Gate ใหม่ไปโดน Flow อื่น
+       · จอสแกนลงเวลา  : S.root[data-att-scan="1"] ที่ doPunch() ตั้งไว้จุดเดียว
+       · มือถือ         : ใช้ deviceInfo().device ของเดิมในไฟล์นี้ ไม่สร้าง Logic ซ้ำ
+     คืน false เมื่ออ่านค่าไม่ได้ = Fail Closed ไปใช้พฤติกรรมเดิมก่อน RUN-165
+     ⚠ iPadOS Safari รายงาน UA เป็น Macintosh จึงถูกนับเป็น Desktop = ไม่ติด Gate (พฤติกรรมเดิม) */
+  function attFacePosGateOn() {
+    try {
+      if (!S.root || S.root.getAttribute('data-att-scan') !== '1') return false;
+      return deviceInfo().device === 'Mobile';
+    } catch (e) { return false; }
+  }
+
+  /* ---------- [FACE POSITION GATE · WAIT] หน้าออกนอกวงรี = สถานะรอ ไม่ใช่ Error ----------
+     ใช้กับ Flow สำรองของ Android ที่เป็น One-shot: ถ้าขยับออกนอกวงรีชั่วครู่
+     ต้องไม่จบรอบสแกนและไม่บังคับให้ผู้ใช้กด "ลองใหม่"
+     ทางออกมี 3 ทาง ไม่มี Infinite Loop:
+       1 ใบหน้าเข้ากลางวงรี            -> คืนผลตรวจเฟรมนั้นให้ด่านเดิมทำงานต่อ
+       2 live() เป็นเท็จ (Cancel/Route/Logout/Timeout เดิม) -> AbortAttendanceError เดิม
+       3 ครบเพดานเวลา FACE_POS_WAIT_MS -> แจ้งข้อความเดิมและจบรอบตามกลไกเดิม
+     ⚠ ไม่แตะ Threshold · Descriptor · Liveness · จำนวนเฟรม · เกณฑ์คุณภาพภาพเดิม */
+  var FACE_POS_WAIT_MS = 20000;   // เพดานรอให้ผู้ใช้จัดหน้าเข้าวงรี
+  var FACE_POS_WAIT_TICK_MS = 250;
+
+  function waitFaceCenter(detectFn, onTick, live, deadline) {
+    return detectFn().then(function (r) {
+      if (!live()) throw AbortAttendanceError();
+      var one = !!(r && r.length === 1);
+      /* ไม่อยู่ใน Scope (Desktop / ไม่ใช่จอสแกนลงเวลา) = ไม่ต้องรอ คืนทันทีเหมือนเดิม */
+      if (!attFacePosGateOn()) return r;
+      if (one && faceCenterInOval(r[0].detection.box)) return r;
+      if (Date.now() >= deadline) throw new Error('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
+      if (onTick) {
+        onTick(one ? 'กรุณาจัดใบหน้าให้อยู่กลางวงรี'
+          : (r && r.length > 1 ? 'พบมากกว่า 1 ใบหน้า — ให้มีเพียงคนเดียวในกล้อง'
+            : 'ไม่พบใบหน้า — จัดใบหน้าให้อยู่ในกรอบ'));
+      }
+      return new Promise(function (res) { setTimeout(res, FACE_POS_WAIT_TICK_MS); })
+        .then(function () { return waitFaceCenter(detectFn, onTick, live, deadline); });
+    });
+  }
+
   // ระยะห่างตาบน-ล่าง หารความกว้างตา — ใช้ตรวจการกระพริบตา
   function eyeOpen(lm) {
     function ear(pts) {
@@ -2541,9 +2584,11 @@
               badRun++;
               if (badRun >= GRAB_BAD_RESET) stable = 0;
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
-            } else if (!faceCenterInOval(box)) {
+            } else if (attFacePosGateOn() && !faceCenterInOval(box)) {
               /* [FACE POSITION GATE] ใบหน้ายังไม่อยู่กลางวงรี — ไม่สะสมความนิ่ง ไม่เก็บ Descriptor
-                 รีเซ็ตทันที (เป็นการขยับของผู้ใช้ ไม่ใช่ Detector สะดุด) */
+                 รีเซ็ตทันที (เป็นการขยับของผู้ใช้ ไม่ใช่ Detector สะดุด)
+                 ⚠ มีผลเฉพาะจอสแกนลงเวลาบนมือถือ — Face Login / Desktop Attendance
+                   ข้ามสาขานี้ทั้งหมด จึงทำงานเหมือนก่อน RUN-165 ทุกประการ */
               stable = 0;
               if (onTick) onTick('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
             } else if (!capturing || !f0.descriptor) {
@@ -2661,7 +2706,10 @@
       return guideLoad();
     }).then(function () {
       if (!live()) throw AbortAttendanceError();
-      return detectGuide(ms, input);
+      /* [FACE POSITION GATE] รอให้ใบหน้าเข้ากลางวงรีก่อน แล้วค่อยส่งเฟรมนั้นเข้าด่านเดิม
+         Android ใช้เกณฑ์วงรีเดียวกับเส้นทางปกติ แต่ "รอ" ไม่ใช่ "จบรอบ" */
+      return waitFaceCenter(function () { return detectGuide(ms, input); },
+        onTick, live, Date.now() + FACE_POS_WAIT_MS);
     }).then(function (r) {
       if (!live()) throw AbortAttendanceError();
       if (!r || r.length !== 1) {
@@ -2670,8 +2718,6 @@
       }
       var q = frameQuality(r[0].detection.box);
       if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
-      /* [FACE POSITION GATE] ใช้เกณฑ์เดียวกับเส้นทางปกติ — Android ต้องไม่หลวมกว่า iPhone */
-      if (!faceCenterInOval(r[0].detection.box)) throw new Error('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
       if (q.brightness < 45) throw new Error('แสงน้อยเกินไป กรุณาหาที่สว่างขึ้น');
       if (q.brightness > 232) throw new Error('แสงจ้าเกินไป กรุณาเลี่ยงแสงย้อน');
       if (q.sharpness < 8) throw new Error('ภาพไม่ชัด กรุณาถือนิ่งและลองใหม่');
@@ -2688,6 +2734,13 @@
       return recogLoad();
     }).then(function () {
       if (!live()) throw AbortAttendanceError();
+      /* [FACE POSITION GATE] ระหว่างรอ Recognition 6.44 MB ผู้ใช้อาจขยับออกนอกวงรี
+         รอด้วย Guide Detection ที่ราคาถูกก่อน แล้วจึงเรียก detect() สร้าง Descriptor
+         เพียงครั้งเดียวเหมือนเดิม — ไม่เพิ่มจำนวนครั้งที่สร้าง Descriptor */
+      return waitFaceCenter(function () { return detectGuide(ms, input); },
+        onTick, live, Date.now() + FACE_POS_WAIT_MS);
+    }).then(function () {
+      if (!live()) throw AbortAttendanceError();
       /* สร้าง Descriptor สดเพียงครั้งเดียวสำหรับ Server Face Match */
       return detect(ms, input);
     }).then(function (r) {
@@ -2699,8 +2752,6 @@
       var f0 = r[0], q = frameQuality(f0.detection.box);
       if (!f0.descriptor) throw new Error('สร้างข้อมูลใบหน้าไม่สำเร็จ กรุณาลองใหม่');
       if (!q || q.ratio < 0.035) throw new Error('กรุณาจัดใบหน้าให้อยู่ในกรอบและเข้าใกล้กล้องขึ้น');
-      /* [FACE POSITION GATE] กันกรณีขยับออกนอกวงรีระหว่างรอ Recognition Model */
-      if (!faceCenterInOval(f0.detection.box)) throw new Error('กรุณาจัดใบหน้าให้อยู่กลางวงรี');
       return {
         frames: [{ box: f0.detection.box, desc: Array.from(f0.descriptor), q: q,
                    ear: eyeOpen(f0.landmarks), yaw: yaw(f0.landmarks) }],
@@ -3520,6 +3571,10 @@
     }
     var title = kind === 'IN' ? 'ลงเวลาเข้างาน' : 'ลงเวลาออกงาน';
     shell('สแกนใบหน้า', title);
+    /* [ATT SCAN SCOPE] เครื่องหมายบอกว่า Overlay นี้คือ "จอสแกนใบหน้าเพื่อลงเวลา" เท่านั้น
+       เป็นแหล่งความจริงเดียวของทั้ง Face Position Gate (JS) และ CSS ล็อกขนาดวงรี
+       จอ GPS ของลงเวลา · Face Login · ลงทะเบียนใบหน้า (รวมที่เรียกจากลงเวลา) ไม่มีค่านี้ */
+    if (S.root) S.root.setAttribute('data-att-scan', '1');
     var st = { live: 'wait', match: 'wait', gps: 'wait' };
     panel(stepsHtml(st, 'กำลังเตรียมกล้อง…'));
     actions([{ label: 'ยกเลิก', style: 'ghost', on: close }]);

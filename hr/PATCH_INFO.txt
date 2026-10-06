@@ -287,3 +287,162 @@ Coordinate Mapping: object-fit cover crop (offX/offY) · mirror scaleX(-1) (จ�
   face.css sha256 93f12d1d9e954168c5f17f84f82e1aa481cf84cb0c54ed5d7324561ff797349b
 ยังไม่ยืนยัน (ต้องทดสอบบนมือถือจริง)
   Face Match จำคนถูก · ลงเวลาบันทึกสำเร็จ · iPhone Safari / Android Chrome
+
+================================================================
+RUN-165b · Scope Fix 3 จุด ตามคำสั่ง (local328)
+Build njhr-v2-b0ed0f0f · 05/10/2569
+================================================================
+1 Face Position Gate ต้องทำงานเฉพาะ Mobile Attendance
+  Root Cause: grabFrames()/grabFramesLoop() ถูกใช้ร่วมกับ Face Login และ
+              Desktop Attendance -> Gate ของ local327 เป็น Global จึงไปโดน Flow อื่น
+  แก้: + attFacePosGateOn()  (Scope 2 ชั้น · Fail Closed)
+         ชั้น 1  S.root[data-att-scan="1"]  = จอสแกนลงเวลาเท่านั้น (doPunch ตั้งจุดเดียว)
+         ชั้น 2  deviceInfo().device === 'Mobile'  = ใช้ Helper เดิมในไฟล์ ไม่สร้างซ้ำ
+       grabFramesLoop: else if (attFacePosGateOn() && !faceCenterInOval(box))
+  ผล: Face Login · Desktop Attendance · Face Enrollment ข้ามสาขานี้ทั้งหมด
+      = ทำงานเหมือนก่อน local327 ทุกประการ
+  หมายเหตุจริง: iPadOS Safari รายงาน UA เป็น Macintosh -> นับเป็น Desktop = ไม่ติด Gate
+
+2 Android fallback ห้าม throw เพราะหน้าออกนอกวงรี
+  Root Cause: androidAttendanceLiteScan() เป็น One-shot · local327 ใช้ throw
+              -> ขยับหน้าออกชั่วครู่ = จบรอบสแกน ต้องกด "ลองใหม่"
+  แก้: + waitFaceCenter(detectFn, onTick, live, deadline)  = สถานะรอ ไม่ใช่ Error
+       ใช้ 2 จุดแทน throw เดิม (ก่อน Liveness · ก่อนสร้าง Descriptor)
+       ทางออก 3 ทาง ไม่มี Infinite Loop
+         1 หน้าเข้ากลางวงรี            -> คืนเฟรมนั้นให้ด่านเดิมทำงานต่อ
+         2 live() เท็จ (Cancel/Route)  -> AbortAttendanceError เดิม
+         3 ครบ FACE_POS_WAIT_MS 20000ms -> จบรอบด้วยข้อความเดิม
+       รอด้วย detectGuide (ถูก) · detect() ที่สร้าง Descriptor ยังเรียกครั้งเดียวเท่าเดิม
+  - ลบ throw 'กรุณาจัดใบหน้าให้อยู่กลางวงรี' ออกจาก Android ทั้ง 2 จุด
+
+3 CSS วงรีต้อง Scope เฉพาะ Mobile Attendance
+  คืนกฎฐาน .njf-oval/.njf-ring/.njf-turn กลับเป็น vw เดิม 100% (face.css = baseline)
+  เพิ่มบล็อกใหม่ 1 บล็อก (เพิ่มล้วน ไม่แก้ของเดิม)
+    @media (max-width: 899px) { .njf-overlay[data-att-scan="1"] ... min(62%,260px) }
+  Desktop (>=900px) · Face Login · Enrollment · จอ GPS = ใช้กฎฐานเดิมทั้งหมด
+
+4 LEFT/RIGHT : Attendance ไม่ได้ตั้ง data-dir อยู่แล้ว -> ไม่แก้อะไรเพิ่ม (ตามคำสั่ง)
+  ไม่แตะ Enrollment
+
+ไม่แตะ: faceCenterInOval() และ Coordinate Mapping หลัก (เหมือน local327 ทุกบรรทัด)
+        object-fit / crop / mirror / scale · FACE_POS_SAFE 0.55
+        Face Match Threshold · Descriptor · Liveness · GPS · Attendance RPC · Database
+        q.ratio 0.035 · GRAB_STABLE_MIN 2 · GRAB_BAD_RESET 3 · grabFrames(6)
+        login() · enroll() · Permission Flow · canvas · videoWidth/Height
+
+ขนาด Diff เทียบ baseline : face.js +116 / -1 บรรทัด · face.css +23 / -0 บรรทัด
+ผลทดสอบหลัง Build (local328 · 05/10/2569)
+  Regression ทั้งชุด 57 suite                      PASS 57 / FAIL 0
+  test-run165-faceoval.js                          PASS 106 / FAIL 0
+  test-run165-responsive.js (Chromium 12 จอ x 2 Flow) PASS 170 / FAIL 0
+  test-run165-waitgate.js (รัน waitFaceCenter จริง)  PASS 31  / FAIL 0
+  Build idempotent (รัน rebuild-version.py ซ้ำ)      ไฟล์ไม่เปลี่ยน
+  face.js  sha256 c78107f6fb9a6a8dba60fafca5c590b063dd74e2a43dc023a132c5e190aa612e
+  face.css sha256 b938772cf4230c8954dd28cf4139b04032c8a3d12bc420d415509206d6f9863f
+ยังไม่ยืนยัน (ต้องทดสอบบนมือถือจริง)
+  Face Match จำคนถูก · ลงเวลาบันทึกสำเร็จ · iPhone Safari / Android Chrome
+
+================================================================
+RUN-166 · Export Excel = เทมเพลตเดียวกัน + ข้อมูลจริง (local329)
+Build njhr-v2-80c5b61c · 06/10/2569
+*** รวม RUN-165b (local328) ที่ยังไม่เคยขึ้น Production มาในรอบนี้ด้วย ***
+================================================================
+Root Cause
+  Template และ Export สร้าง Column Definition คนละชุดจริง
+    import.js  empTemplate()  EMP_IMP_MAP   28 คอลัมน์ · Sheet "เทมเพลตพนักงาน"
+    export.js  empExport()    EMP_XLS_HEAD  14 คอลัมน์ · Sheet "ทะเบียนพนักงาน"
+  Export → Import ไม่ได้เพราะ 4 เรื่อง
+    หัวข้อไม่ตรง · ขาด 14 คอลัมน์ · วันที่เป็น พ.ศ. (empBE) · มี "—" และสถานะภาษาไทย
+  ข้อมูล 18 ช่องไม่มี RPC ไหนส่งมา (njhr_emp_list ส่ง 16 ฟิลด์)
+    ตรวจ njhr_emp_list / _v2 / _en / njhr_report_all_employees แล้วไม่มีตัวใดครบ 28
+    njhr_emp_get ครบแต่ทีละ 1 คน (110 คน = 110 Round Trip)
+จุดที่แก้
+  runtime/shared/emp-meta.js  + EMP_EXCEL_COLUMNS (28) = Source of Truth
+                              + EMP_EXCEL_REQUIRED / _NUM_KEYS / _SHEET
+                              + empExcelHead() / empExcelWidths() / empExcelTitle() / empExcelRow()
+  views/employees/import.js   EMP_IMP_MAP / EMP_IMP_REQUIRED / EMP_NUM_KEYS -> ชุดกลาง
+                              empTemplate() ใช้ตัวช่วยกลางทั้งหมด (ไฟล์ที่ได้เหมือนเดิมเป๊ะ)
+  views/employees/export.js   ลบ EMP_XLS_HEAD · cells = all.map(empExcelRow)
+                              pull() njhr_emp_list -> njhr_emp_export_rows (p_limit 500)
+  _archive/RUN-166_emp_export_rows.sql  RPC อ่านใหม่ 1 ตัว (ลง Production แล้ว)
+  shared-emp-meta เป็น deps ของทั้ง employees-import และ employees-export อยู่แล้ว
+  -> ไม่ต้องแก้ asset-manifest
+DB (เพิ่มล้วน)
+  CREATE njhr_emp_export_rows + GRANT EXECUTE authenticated
+  ไม่ DROP / ไม่ REPLACE ของเดิม · ไม่แตะ Table/Index/Trigger/RLS/ข้อมูล
+  ไม่มี INSERT/UPDATE/DELETE/TRUNCATE ในไฟล์
+  Guard + ตัวกรอง + การเรียง คัดลอกจาก njhr_emp_list ทุกข้อ (รวม [RUN-03] ซ่อน RESIGNED)
+  STABLE SECURITY DEFINER · search_path public
+  work_start/work_end ตัด '08:30:00' -> '08:30' ให้ empCell() ของ Import รับได้
+  เงินเดือน 4 คอลัมน์เปิดตาม njhr_emp_guard.can_salary (จำกัด ไม่ขยายสิทธิ์)
+  VERIFY Production: คอลัมน์ 29 · SECURITY DEFINER · STABLE · search_path · authenticated=X
+  ข้อมูลจริง 110 แถว · total_count 110 ตรงกับ njhr_emp_list · ไม่มี null · เวลา HH:MM ครบ
+สิ่งที่หายไปจาก Export โดยเจตนา (ตาม §1 ห้ามเพิ่มหัวข้อเฉพาะ Export)
+  คอลัมน์ ลำดับ · สถานะ · วันที่พ้นสภาพ  (ถ้าใส่กลับ Export->Import จะพังทันที)
+Title 5 บรรทัดเท่ากันทั้งสองไฟล์ (Header แถว 6 · Freeze A7)
+  บรรทัด 1-4 ตรงกันเป๊ะ · บรรทัด 5 Template = คำแนะนำลบแถวตัวอย่าง
+                                    Export   = ข้อมูลพนักงาน ณ <วันเวลา> · แผนก · สถานะ · จำนวน N คน
+ผลทดสอบหลัง Build (local329 · 06/10/2569)
+  Regression ทั้งชุด 58 suite                      PASS 58 / FAIL 0
+  test-run166-empexcel.js (Acceptance 15 ข้อ §7)    PASS 73  / FAIL 0
+  test-run165-faceoval.js                          PASS 106 / FAIL 0
+  test-run165-responsive.js                        PASS 170 / FAIL 0
+  test-run165-waitgate.js                          PASS 31  / FAIL 0
+  Build idempotent (รัน rebuild-version.py ซ้ำ)      ไฟล์ไม่เปลี่ยน
+  face.js       sha256 c78107f6fb9a6a8dba60fafca5c590b063dd74e2a43dc023a132c5e190aa612e
+  face.css      sha256 b938772cf4230c8954dd28cf4139b04032c8a3d12bc420d415509206d6f9863f
+  emp-meta.js   sha256 ab964734d3343b9c5437eb7d9e29e1d687fa674ead888339bae72894021f6c1c
+  import.js     sha256 7857f6dcff2ec320a9f88ca07119af81d2f01fe70c40493c895ec2a9fa4725a1
+  export.js     sha256 bf8a76f7b91417c37757d4c36ec64175f3042b78a61e6a2fd04d365116cf07fb
+ยังไม่ยืนยัน (ต้องทดสอบบนเครื่องจริง)
+  RUN-165: Face Match / ลงเวลา / iPhone Safari / Android Chrome
+  RUN-166: กดปุ่มจริงทั้ง 2 ปุ่มบนเว็บ แล้วนำไฟล์ Export กลับเข้า "นำเข้า Excel"
+
+================================================================
+RUN-167 / 168 / 169 · รายการหักแก้ยอดได้ทุกหัวข้อ + ตัดภาษี Built-in (local330)
+Build njhr-v2-df454ac6 · 06/10/2569
+================================================================
+Root Cause
+  prDetail() วาดรายการหักด้วย prLine() (อ่านอย่างเดียว) + ป้าย "(แก้ไม่ได้)"
+  กลไกแก้ไขมีอยู่แล้ว (prFieldRow -> prEditBtn -> njhr_payroll_override_save)
+  แต่ PR_FIELDS ผูกไว้เฉพาะฝั่งรายรับ 4 ตัว
+  คอลัมน์หัก (sso / absent / late / leave / other) ไม่มีคู่ system_/override_
+  njhr_payroll_recalc_row บวก coalesce(p.tax,0) เข้ายอดหัก = ภาษี Built-in
+จุดที่แก้ — Frontend  compat/approvals-reports.js
+  PR_FIELDS        + SSO / ABSENT / LATE / LEAVE / OTHER  (รวม 9 field)
+  prRowsToEntries  + map system_/override_ ครบ 5 รายการหัก
+  prDetail         รายการหักใช้ prFieldRow ทุกหัวข้อ + prItemRow สำหรับรายการเงินเดือน
+                   เอาป้าย "(แก้ไม่ได้)" และบรรทัดภาษีออกทั้งหมด
+  calcBtn          ลบสูตรภาษี 3% · tax:0 · deductions:sso · net:gross-sso
+  epDeduct         ไม่ส่งภาษี Built-in เข้าสลิป/PDF
+  Excel            ลบคอลัมน์ "ภาษี" ตายตัว
+  ใหม่             prLoadPayItems / prItemMeta / prItemRow / prEditItem / prApplyItemResult
+จุดที่แก้ — DB (เพิ่ม/แก้ Logic เท่านั้น ไม่มี DROP/TRUNCATE/DELETE ข้อมูล)
+  RUN-167  + payroll.system_sso / override_sso
+           + override_save/reset รองรับ SSO
+           + period_save: social_security = coalesce(override_sso, excluded)
+  RUN-168  + RPC njhr_payroll_item_amount_save (แก้ยอดรายการ DEDUCT รายคน-รายงวด)
+           เก็บลง njhr_pay_entries + mirror payroll_items + recalc ทันที
+  RUN-169  + payroll.system_/override_ ของ absent / late / leave / other_deduct (8 คอลัมน์)
+           + recalc_row บังคับ coalesce(override_*, auto) = Manual ชนะเสมอ
+           + recalc_row ตัด coalesce(p.tax,0) ออกจาก total_deduct
+           + override_save/reset รองรับครบ 9 field
+           + period_save: other_deduct = coalesce(override_other_deduct, excluded)
+  คอลัมน์ payroll.tax ไม่ถูกลบ ไม่ถูกแก้ — เก็บเป็นประวัติ แต่ไม่ถูกนำมาคิดยอดอีก
+ผลทดสอบหลัง Build (local330 · 06/10/2569)
+  Regression ทั้งชุด 59 suite                        PASS 59 / FAIL 0
+  test-run167-payroll-deduct.js                      PASS 81  / FAIL 0
+  test-run155-payroll-flow.js                        PASS 244 / FAIL 0
+  test-run154-payroll-slip-xlsx.js                   PASS 136 / FAIL 0
+  test-run166-empexcel.js                            PASS 84  / FAIL 0
+  _check/RUN-167_tests.sql (DB Acceptance · ROLLBACK) PASS
+  DB Acceptance RUN-169 (Production · ROLLBACK)      PASS
+    งวด 9/2026 พนักงาน 0001
+    ตัดภาษี 4,200 ออกจากยอดหัก : ded 5,075.00 -> 875.00 · คอลัมน์ tax คงเดิม
+    ประกันสังคม / ขาดงาน / มาสาย / ลากิจ / รายการหักอื่น แก้ +250 ได้ทุกตัว
+    คำนวณใหม่ไม่ทับ Manual · คืนค่าตามระบบครบ 5 รายการ · คนอื่นไม่เปลี่ยน
+  Build idempotent (รัน rebuild-version.py ซ้ำ)        ไฟล์ไม่เปลี่ยน
+  approvals-reports.js sha256 49a28cd54fc2318bfbe967544d7cff344c69f9659fb470da17259dc8d8e75904
+SQL ที่ต้องรัน: ไม่มี — RUN-167/168/169 ลง Production + VERIFY ผ่านแล้ว
+ยังไม่ยืนยัน (ต้องกดจริงบนเว็บ)
+  กดปุ่มแก้ไขรายการหักแต่ละตัว · Slip/PDF/Excel หลังแก้ · การยืนยันงวด
