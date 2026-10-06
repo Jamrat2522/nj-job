@@ -801,6 +801,11 @@ body.legacy-active .content-area { display: none !important; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       <span class="label">TYPE 0</span>
     </a>
+    <!-- ★ [local104] โหมด TYPE IEAT (ใช้ Engine / View ของ TYPE 0 ชุดเดียวกัน · ไม่ COPY Logic) -->
+    <a class="sb-item" data-nav="chkieat_decl" onclick="switchCustomer('chkieat_decl')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span class="label">TYPE IEAT</span>
+    </a>
     <!-- ★ [local057] โหมด TYPE 1 (COPY ของ ตรวจELE TYPE 0) -->
     <a class="sb-item" data-nav="chk1_decl" onclick="switchCustomer('chk1_decl')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -1123,7 +1128,7 @@ body.legacy-active .content-area { display: none !important; }
         <button class="btn" id="chke-term-btn-send" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด ตรวจ ELE TYPE 0">➜ ส่งไปตรวจ ELE TYPE 0</button>
         <button class="btn chke-term-btn-sendx" id="chke-term-btn-send1" type="button" disabled style="display:none" title="ส่ง TOTAL FOB THB ไปตรวจในโหมด TYPE 1">➜ ส่งไปตรวจ TYPE 1</button><!-- ★ [local063] Export เท่านั้น -->
         <button class="btn chke-term-btn-sendx" id="chke-term-btn-sendd" type="button" disabled style="display:none" title="ส่ง TOTAL FOB THB ไปตรวจในโหมด TYPE D">➜ ส่งไปตรวจ TYPE D</button><!-- ★ [local063] Export เท่านั้น -->
-        <button class="btn chke-term-btn-sendx" id="chke-term-btn-sendp" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด TYPE P">➜ ส่งไปตรวจ TYPE P</button><!-- ★ [local087] Import เท่านั้น (เหมือนปุ่ม TYPE 0) -->
+        <button class="btn chke-term-btn-sendx" id="chke-term-btn-sendp" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด TYPE P">➜ ส่งไปตรวจ TYPE P</button><button class="btn chke-term-btn-sendx" id="chke-term-btn-sendi" type="button" disabled title="ส่งผลคำนวณล่าสุดไปแสดงในโหมด TYPE IEAT">➜ ส่งไปตรวจ TYPE IEAT</button><!-- ★ [local104] เหมือนปุ่ม TYPE 0 --><!-- ★ [local087] Import เท่านั้น (เหมือนปุ่ม TYPE 0) -->
       </div>
     </div>
     <div id="chke-term-result" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
@@ -1133,7 +1138,7 @@ body.legacy-active .content-area { display: none !important; }
 </div><!-- /term-view -->
 <div class="doa-view" id="chke-view">
   <div class="doa-panel">
-    <h2>🔍 TYPE 0 — DWAK + MASTER HS CODE + MASTER TARIFF (ฝังในระบบ)</h2>
+    <h2>🔍 <span id="chke-mode-lbl">TYPE 0</span> — DWAK + MASTER HS CODE + MASTER TARIFF (ฝังในระบบ)</h2>
     <div class="doa-uploads chke-grid">
       <label class="doa-drop" id="chke-dwak-drop">
         <div class="dico">📙</div><div class="dlabel">DWAK (.xlsx)</div>
@@ -1652,8 +1657,9 @@ function switchCustomer(key){
     if(key !== back) switchCustomer(back);
     return;
   }
+  { const _pv=_curNav; if((key==='chke_decl' && _pv==='chkieat_decl') || (key==='chkieat_decl' && _pv==='chke_decl')){ if(typeof chkeReset==='function') chkeReset(); } }   /* ★ [local104] TYPE 0 ↔ TYPE IEAT ใช้ Panel เดียวกัน → สลับกันแล้วล้างผล (ไม่ให้ผลโหมดหนึ่งไปแสดงอีกโหมด) */
   _curNav = key;
-  if(key==='term_calc' || key==='chke_decl'){ if(typeof window.chkeClearTermTransfer==='function') window.chkeClearTermTransfer(); }   /* ★ [local044] สลับโหมด → ข้อมูล Transfer หายทันที */
+  if(key==='term_calc' || key==='chke_decl' || key==='chkieat_decl'){ if(typeof window.chkeClearTermTransfer==='function') window.chkeClearTermTransfer(); }   /* ★ [local044] สลับโหมด → ข้อมูล Transfer หายทันที */
   if(key==='term_calc' || key==='chk1_decl'){ if(typeof window.chk1ClearTermTransfer==='function') window.chk1ClearTermTransfer(); }   /* ★ [local057] TYPE 1: สลับโหมด → Transfer ของ TYPE 1 หาย (แบบเดียวกับ TYPE 0) */
   if(key==='term_calc' || key==='chkd_decl'){ if(typeof window.chkdClearTermTransfer==='function') window.chkdClearTermTransfer(); }   /* ★ [local059] TYPE D: สลับโหมด → Transfer ของ TYPE D หาย (แบบเดียวกับ TYPE 1) */
   if(key==='term_calc' || key==='chkp_decl'){ if(typeof window.chkpClearTermTransfer==='function') window.chkpClearTermTransfer(); }   /* ★ [local087] TYPE P: สลับโหมด → Transfer ของ TYPE P หาย (แบบเดียวกับ TYPE 0) */
@@ -1707,15 +1713,17 @@ function switchCustomer(key){
     return;
   }
   // ── ตรวจใบขน (โหมดแยกอิสระ · ไม่ใช้ Logic ของโหมดอื่น) ──
-  if(key === 'chke_decl'){
+  if(key === 'chke_decl' || key === 'chkieat_decl'){   /* ★ [local104] TYPE IEAT = View #chke-view + Handler chke* ชุดเดียวกับ TYPE 0 · ต่างแค่ชื่อโหมด */
+    const _ml = key==='chkieat_decl' ? 'TYPE IEAT' : 'TYPE 0'; window.CHKE_MODE=_ml;
+    { const ml=document.getElementById('chke-mode-lbl'); if(ml) ml.textContent=_ml; }
     document.querySelectorAll('.sb-item[data-nav]').forEach(el=>{ el.classList.toggle('active', el.dataset.nav===key); });
     document.body.classList.remove('legacy-active'); document.body.classList.add('doa-active');
     document.querySelectorAll('.doa-view').forEach(el=>{ if(el.id!=='chke-view') el.classList.remove('active'); });
     { const lv=document.getElementById('legacy-view'); if(lv) lv.classList.remove('active'); }
     document.getElementById('chke-view').classList.add('active');
-    document.getElementById('topbar-title').textContent='TYPE 0';
+    document.getElementById('topbar-title').textContent=_ml;
     const badge=document.getElementById('topbar-badge');
-    badge.textContent='TYPE 0'; badge.className='company-badge sch_pdf';
+    badge.textContent=_ml; badge.className='company-badge sch_pdf';
     return;
   }
   /* key อื่นที่ไม่ใช่ ตรวจELE TYPE 0 (เช่น Role ที่ถูกจำกัดเมนู) → ไม่แสดง view ใด ๆ
@@ -2465,11 +2473,48 @@ function chkeUnit(v){ const k=chkeT(v).toUpperCase().replace(/\./g,''); return C
 /* ★ [local100] TYPE 0 · Exception สมอ. 1 ชุด · ★ [local101] เฉพาะ FZ = Y: Permit ชุด 3 ต้องตรงครบ 3 ค่า (Exact) → ไม่ฟ้อง สมอ. ใน "ติดใบอนุญาต IMPORT" ของ Item นั้น
    · ไม่ตรงค่าใดค่าหนึ่ง / อยู่ชุด 1–2 → Logic เดิม · หน่วยงานอื่นใน Item เดียวกันยังฟ้อง · items (Sheet 3) / warn ไม่แตะ */
 const CHKE_TIS_EX={ no:'EXEMPT152', date:'2017-11-13', auth:'0994000165161' };
+/* ★ [local105] TYPE IEAT — ไฟล์ DBS12 เข้า FLOW เดิมของ TYPE 0 ด้วย Alias ชื่อ Header (ข้อมูลไม่เปลี่ยน · ไม่สร้าง Engine ใหม่ · Gate เฉพาะ TYPE IEAT)
+   · DWAK DBS12 → ชื่อ Header ที่ Validator เดิมใช้ · MASTER DBS12 ("ชื่อคอลัมน์ DWAK/คำอธิบาย") → MASTER HS CODE 4 Header + คอลัมน์ค่ามาตรฐาน (/fix) */
+const CHKE_IEAT_DW={ 'item entry':'Item No.', 'REF.':'Reference No.', 'productcode':'Product Code', 'ENG.desc1':'Desc.', 'ENG.desc2':'EN desc2', 'THAI.desc3':'DescTH',
+  'tariff clas':'Tariff', 'tariff stat':'Stat', 'tariff seq':'Seq.', 'privilege':'Priv.', 'Brand':'Brand Name', 'Naturetran':'Naturetran.', 'EPZ/IEAT':'EPZ',
+  'Permit No':'PermitNo1', 'Permit issuedd':'IssueDate1', 'Permit taxid':'PermitIssueAuthority1', 'Increased FOR':'Increased Price Foreign', 'Increased THB':'Increased Price Baht', 'invoice date':'Invoice Date', 'TERM':'Term' };
+const CHKE_IEAT_MS={ 'productcode':'Part Number', 'ENG.desc1':'ELUX Part Description (EN)', 'THAI.desc3':'Part Description (TH)', 'tariff clas':'HS code based on part description' };
+const CHKE_IEAT_NOFIX=['Part Number','ELUX Part Description (EN)','Part Description (TH)','HS code based on part description','EN desc2'];   /* ตรวจโดย MASTER HS CODE (A) เดิม · ENG.desc2 ไม่ตรวจ */
+const CHKE_IEAT_REQ=['EPZ','PermitNo1','IssueDate1','PermitIssueAuthority1','Permit issueautho'];
+function chkeIeatName(h){ const t=chkeT(h); const i=t.lastIndexOf('/'); return i>0 ? t.slice(0,i).trim() : t; }
+function chkeIeatMap(name, M){ const k=chkeNH(name); for(const a in M) if(chkeNH(a)===k) return M[a]; return null; }
+function chkeIeatIsDbs(sheet){ return !!sheet && chkeCol(sheet.hdr,'Item No.')<0 && chkeCol(sheet.hdr,'item entry')>=0; }
+function chkeIeatDwak(sheet){ if(!chkeIeatIsDbs(sheet)) return sheet; return { ...sheet, orig:sheet.hdr, hdr:sheet.hdr.map(h=>chkeIeatMap(h,CHKE_IEAT_DW)||h) }; }
+function chkeIeatMasterOk(sheets){ return (sheets||[]).find(s=>{ const nm=s.hdr.map(chkeIeatName); return nm.some(n=>chkeNH(n)==='productcode') && nm.some(n=>chkeNH(n)===chkeNH('Permit No')); }); }
+function chkeIeatMaster(sheets){ const s=chkeIeatMasterOk(sheets); if(!s) return null; const nm=s.hdr.map(chkeIeatName);
+  return [{ ...s, orig:nm, hdr:nm.map(n=>chkeIeatMap(n,CHKE_IEAT_MS)||chkeIeatMap(n,CHKE_IEAT_DW)||n), rows:s.rows.filter(r=>{ const e=nm.findIndex(n=>chkeNH(n)===chkeNH('EPZ/IEAT')); return e<0 || chkeTxt(r[e])==='t'; }) }]; }   /* ใช้เฉพาะ EPZ/IEAT = T */
+function chkeIeatDate(v){ if(v instanceof Date && !isNaN(v)) return chkeDate(v).replace(/-/g,''); const t=chkeT(v); const m=t.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/); return m ? m[1]+m[2].padStart(2,'0')+m[3].padStart(2,'0') : t.replace(/\s+/g,''); }
+/* FIX ของ TYPE IEAT: ค่ามาตรฐาน = MASTER รายการนั้น (แทนค่าฟิก FZ = Y / 2677 / F5302180400004 / 2/2568 / 2025-01-07 / 0994000163011 / NO BRAND / 11 / 0) */
+function chkeIeatFix(dwakSheet){
+  const out=[], missing=[], ms=(CHKE.master||[])[0]; if(!ms) return { diffs:out, missing, gone:[] };
+  const H=dwakSheet.hdr, mP=chkeCol(ms.hdr,'Part Number'), M=new Map();
+  for(const r of ms.rows){ const k=chkeTxt(r[mP]); if(k==='') continue; if(!M.has(k)) M.set(k,[]); M.get(k).push(r); }
+  const F=[]; ms.hdr.forEach((h,i)=>{ if(CHKE_IEAT_NOFIX.some(x=>chkeNH(x)===chkeNH(h))) return; const c=chkeCol(H,h), show=(ms.orig||ms.hdr)[i];
+    if(c>=0) F.push({ h, show, mi:i, di:c }); else if(CHKE_IEAT_REQ.some(x=>chkeNH(x)===chkeNH(h))) missing.push(show); });   /* คอลัมน์ MASTER ที่ DWAK ไม่มี (Permit วันหมดอายุ / qty) → ไม่ตรวจ */
+  const sh=v=>{ if(v instanceof Date) return chkeDate(v); const t=chkeT(v); return t===''?'ว่าง':t; };
+  for(const d of chkeDwakRows(dwakSheet)){ const item=chkeT(d.get('Item No.')); if(item==='') continue;
+    const sets=M.get(chkeTxt(d.get('Product Code')))||[]; if(!sets.length) continue;                 /* ไม่พบใน MASTER → ฟ้องโดย MASTER HS CODE (A) แถวเดียว */
+    for(const f of F){ const dv=d.raw[f.di], mv=sets.map(x=>x[f.mi]), dt=chkeNH(f.h)===chkeNH('IssueDate1');
+      const x={ _r:d._r, _k:32, item, field:f.show, dwak:sh(dv), map:[...new Set(mv.map(sh))].join(' | ') };
+      if(mv.some(v=>dt ? chkeIeatDate(dv)===chkeIeatDate(v) : chkeTxt(dv)===chkeTxt(v))) chkeOk(x); else out.push({ ...x, status:'ไม่ถูกต้อง', reason:f.show+' ไม่ตรง MASTER' }); } }
+  return { diffs:out, missing, gone:[] };
+}
+function chkeIeatNoTis(P){ const isTis=a=>/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(a);   /* TYPE IEAT ไม่ฟ้อง สมอ. · หน่วยงานอื่นคงเดิม · items (Sheet 3) ไม่แตะ */
+  return { ...P, rows:(P.rows||[]).map(x=>{ if(x._k!==20 || !/^ติดใบอนุญาต /.test(x.field||'')) return x; const ag=String(x.map||'').split(', ').filter(a=>a!=='' && !isTis(a)); if(!ag.length) return null;
+    const dir=x.field.replace(/^ติดใบอนุญาต /,''); return { ...x, map:ag.join(', '), reason:'❌ ติดใบอนุญาต '+dir+' : '+ag.join(', ') }; }).filter(Boolean) }; }
+function chkeIeatPart(P){   /* productcode = Key ช่วย Match เท่านั้น: ไม่มีหัวข้อ Part Number · หาไม่พบ → 'ไม่พบใน MASTER' */
+  if(CHKE_PASS) CHKE_PASS=CHKE_PASS.filter(x=>x.field!=='Part Number');
+  return { ...P, diffs:P.diffs.map(x=>x.field!=='Part Number' ? x : (x._k===6 ? { ...x, field:'MASTER', dwak:'ไม่พบ Header คีย์รายการสินค้า' } : { ...x, field:'MASTER', dwak:'ไม่พบใน MASTER', map:'—', reason:'ไม่พบใน MASTER' })) }; }
 function chkeTisExempt(P, dwakSheet){
   if(!P || !P.rows || !P.rows.length || !dwakSheet) return P;
   const isTis=a=>/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(a);
   const D=chkeDwakRows(dwakSheet), byR=new Map(D.map(d=>[d._r,d]));
-  const hit=d=>!!d && chkeTxt(d.get('FZ'))==='y' && chkeT(d.get('PermitNo3'))===CHKE_TIS_EX.no && chkeDate(d.get('IssueDate3'))===CHKE_TIS_EX.date && chkeT(d.get('PermitIssueAuthority3'))===CHKE_TIS_EX.auth;
+  const hit=d=>!!d && chkeTxt(d.get('FZ'))==='y' && [1,2,3].some(k=>chkeT(d.get('PermitNo'+k))===CHKE_TIS_EX.no && chkeDate(d.get('IssueDate'+k))===CHKE_TIS_EX.date && chkeT(d.get('PermitIssueAuthority'+k))===CHKE_TIS_EX.auth);   /* ★ [local103] ชุด 1 / 2 / 3 · ต้องตรงครบ 3 ค่าใน k เดียวกัน (ห้ามจับข้ามชุด) */
   const rows=[];
   for(const x of P.rows){
     if(x._k!==20 || !/^ติดใบอนุญาต /.test(x.field||'') || !hit(byR.get(x._r))){ rows.push(x); continue; }
@@ -2714,13 +2759,16 @@ let CHKE_PASS=null;
 function chkeOk(o){ if(CHKE_PASS) CHKE_PASS.push(o); }
 function chkeRunValidate(){
   const r={}; CHKE_PASS=[];
+  const _ieat=window.CHKE_MODE==='TYPE IEAT';                   /* ★ [local105] */
   r.part=chkePartCheck(CHKE.master, CHKE.dwak);                 /* A */
+  if(_ieat) r.part=chkeIeatPart(r.part);
   r.hs=chkeHsCheck(CHKE.dwak);                                  /* B */
   r.nw=null;                                                    /* ★ [local062] ปิด NW>GW ใน TYPE 0 (ไม่เรียก chkeNwGw) */
   r.ex99=chkeEx99(CHKE.dwak);                                   /* [local009] DUI Validation ตาม DUI MASTER (HS CODE Warning + Stat/EXEMPT99/Issue Date/Tax ID Error) */
   r.exc=chkeExcise(CHKE.dwak);                                  /* กรมสรรพสามิต */
-  r.inc=chkeIncreased(CHKE.dwak);                               /* [local004] Increased Price */
-  r.fix=chkeFixCheck(CHKE.dwak);                                /* [local008] FIX Validation 7 Field */
+  r.inc=chkeIncreased(CHKE.dwak);
+  if(_ieat) r.inc={ ...r.inc, diffs:r.inc.diffs.filter(x=>!(x.item==='HEADER' && x.dwak==='ไม่พบ Header')) };   /* ★ [local105] TYPE IEAT: Header Increased ไม่มี → ข้ามการตรวจหัวข้อนั้น */                               /* [local004] Increased Price */
+  r.fix=_ieat ? chkeIeatFix(CHKE.dwak) : chkeFixCheck(CHKE.dwak);   /* [local008] FIX Validation 7 Field · ★ [local105] TYPE IEAT = ค่า MASTER */
   /* ★ [local009] HEADER Missing → แถว HEADER | Field | ไม่พบ Header | Expected (อยู่บนสุด _r0 _k5 · Overall ตรวจไม่ครบ ห้าม PASS) */
   r.header=[];
   const hdrRow=(field,exp,dw)=>r.header.push({ _r:0, _k:5, item:'HEADER', field, dwak:dw||'ไม่พบ Header', map:exp });   /* [local010] dw = ข้อความระบุ Header ที่หาย */
@@ -2731,16 +2779,17 @@ function chkeRunValidate(){
     if(f==='Tariff') hdrRow('กรมสรรพสามิต - HS CODE',CHKE_EXC.hs.join(' / '),'ไม่พบ Header Tariff'); /* [local010] ตรวจสรรพสามิตไม่ได้ — ไม่พบ Header Tariff */
     if(f==='DescTH') hdrRow('กรมสรรพสามิต - DescTH',CHKE_EXC.th);
   }
-  for(const f of r.fix.missing) hdrRow(f,(CHKE_FIX.find(x=>x.field===f)||{}).exp||'—');
+  for(const f of r.fix.missing) hdrRow(f,(CHKE_FIX.find(x=>x.field===f)||{}).exp||(_ieat?'MASTER IEAT':'—'));
   /* ตารางเดียว · เรียงตามลำดับแถว DWAK · ภายใน Item: A(10) → HS CODE(20) → สรรพสามิต(22) → DUI Stat(23) → DUI ใบอนุญาต(24) → NW>GW(25) → TARIFF(30) → FIX(32) → Increased(35) */
   try{ const own=new Set(CHKE_OWN_STATIC);                                                        /* ★ [local056] 1) Specific ฟ้องแล้ว → 2) รวม Header ที่ Specific ดูแล → 3) Generic ข้าม */
     r.header.forEach(x=>own.add(chkeMapHdrOf(x))); (r.fix.gone||[]).forEach(h=>own.add(h));
     if(window.TERM_TRANSFER) CHKE_TCMP.forEach(c=>own.add(c.h));
     if(r.ex99.diffs.concat(r.exc.diffs).some(x=>/DWAK ไม่มี Header PermitNo1–5/.test(String(x.dwak)))) ['PermitNo1','IssueDate1','PermitIssueAuthority1'].forEach(h=>own.add(h));
     r.tcmp=chkeMapRows(own).concat(chkeTermCmp()); }   /* [local054] Header ที่ FZ ฟ้องแล้ว → Mapping ไม่ฟ้องซ้ำ */catch(te){ r.tcmp=[{ _r:0, _k:6, item:'HEADER', field:'MAPPING', dwak:'ตรวจไม่สำเร็จ: '+(te.message||te), map:'REF 80 Header', status:'ไม่ถูกต้อง' }]; }   /* ★ [MAP] REF 80 + TERM ↔ IMPORT → ตารางเดิม */
-  r.info=chkeInfoRows(CHKE.dwak);                                                                /* ★ [local056] 14 หัวข้อ = ข้อมูล */
+  r.info=chkeInfoRows(CHKE.dwak);
+  if(_ieat){ const hid=x=>x.item==='HEADER' && x._k===20 && /^ไม่พบ Header/.test(String(x.dwak||'')); r.tcmp=r.tcmp.filter(x=>!hid(x)); r.info=r.info.filter(x=>!hid(x)); }   /* ★ [local105] TYPE IEAT: ซ่อนแถวข้อมูล 'ไม่พบ Header' (REF 80 / 14 หัวข้อ · ไม่นับ FAIL) · แถวผิดจริงยังแสดง */                                                                /* ★ [local056] 14 หัวข้อ = ข้อมูล */
   r.permit=(typeof window.pmResultFor==='function') ? window.pmResultFor(chkeDwakRows(CHKE.dwak), chkeT, 'IMPORT') : { rows:[], items:[], ver:'' };   /* ★ [local071] MASTER พิกัดติดใบอนุญาต (IMPORT) */
-  r.permit=chkeTisExempt(r.permit, CHKE.dwak);                                                   /* ★ [local100] Exception สมอ. (Permit ชุด 3 Exact) · ตัดเฉพาะแถวฟ้อง */
+  r.permit=_ieat ? chkeIeatNoTis(r.permit) : chkeTisExempt(r.permit, CHKE.dwak);   /* ★ [local105] TYPE IEAT ไม่ฟ้อง สมอ. */                                                   /* ★ [local100] Exception สมอ. (Permit ชุด 3 Exact) · ตัดเฉพาะแถวฟ้อง */
   r.rows=r.header.concat(r.tcmp, r.info, r.part.diffs, r.ex99.diffs, r.exc.diffs, r.hs.diffs, r.fix.diffs, r.inc.diffs, r.permit.rows)
           .map((x,i)=>({...x,_i:i})).sort((a,b)=>(a._r-b._r)||(a._k-b._k)||(a._i-b._i));
   r.diffs=r.rows;
@@ -2978,18 +3027,20 @@ function chkeSync(){
 async function chkeLoad(kind,file){
   const listId='chke-'+kind+'-list';
   try{
-    const sheets=await chkeReadSheet(file);
+    let sheets=await chkeReadSheet(file);
     if(kind==='master'){
+      if(window.CHKE_MODE==='TYPE IEAT' && chkeIeatMasterOk(sheets)) sheets=chkeIeatMaster(sheets);   /* ★ [local105] MASTER DBS12 → Header เดิม */
       const ms=chkeMasterSheet(sheets);
       if(ms.missing) throw new Error('MASTER HS CODE ไม่พบ Header: '+ms.missing.join(' · '));
       CHKE.master=sheets; CHKE.masterName=file.name; CHKE.result=null;
     } else {
       if(!sheets.length) throw new Error('DWAK ไม่มีข้อมูล');
-      CHKE.dwak=sheets[0]; CHKE.dwakName=file.name; CHKE.result=null;
+      const _dw=window.CHKE_MODE==='TYPE IEAT' ? chkeIeatDwak(sheets[0]) : sheets[0];   /* ★ [local105] DWAK DBS12 → Header เดิม (TYPE 0 = ไฟล์เดิม) */
+      CHKE.dwak=_dw; CHKE.dwakName=file.name; CHKE.result=null;
       chkePermitClear();                                                                             /* ★ [local070] DWAK ใหม่ → ล้าง PASTE Permit ของงานเก่า (เฉพาะโหมดนี้) */
       if(typeof window.pmRefresh==='function') await window.pmRefresh();                           /* ★ [local071] MASTER พิกัดใบอนุญาตล่าสุด */
       await chkeMapStart(file, CHKE.dwak.sheet);                                                 /* ★ [MAP] ไฟล์ใหม่ → ล้าง Mapping เดิม แล้วสร้างใหม่ (เสร็จก่อนปุ่มตรวจพร้อม) */
-      if(CHKE.dwak!==sheets[0]){ chkeSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
+      if(CHKE.dwak!==_dw){ chkeSync(); return; }                                             /* ระหว่างสร้าง Mapping ถูกล้าง/เปลี่ยนไฟล์ → ไม่ทับสถานะใหม่ */
     }
     document.getElementById(listId).innerHTML='<div class="doa-file-entry ok"><span class="dfn">✓ '+chkeEsc(file.name)+'</span>'
       +'<button class="drm" onclick="chkeClear(\''+kind+'\')">×</button></div>';
@@ -3152,14 +3203,14 @@ async function chkeExport(opt){                                                 
       return (d && chkeT(d.get('Item No.'))!=='') ? chkeT(d.get(h)) : colVals(h).join(' / '); };
     const mk=(x,st)=>({ item:x.item, field:x.field, dwak:x.dwak, map:x.map, unit:unitOf(x), status:st, note:chkeT(x.note||x.reason||'') });
     const pass=(r.pass||[]).map(x=>mk(x,'ถูกต้อง')), fail=r.rows.filter(x=>x._k!==20).map(x=>mk(x,'ผิด'));   /* INFO (_k20) ไม่ Export */
-    const M={ mode:'TYPE 0', job, inv, customer:'', company:co.join(', '), date:new Date(),
+    const M={ mode:(window.CHKE_MODE||'TYPE 0'), job, inv:(window.CHKE_MODE==='TYPE IEAT' && !inv) ? uq(D.map(d=>chkeT(d.get('invoice no.')))).join(', ') : inv,   /* ★ [local105] DBS12: invoice no. */ customer:'', company:co.join(', '), date:new Date(),
       dwakName:CHKE.dwakName||'', srcLabel:'ไฟล์ MASTER HS CODE', srcName:CHKE.masterName||'' };
     if(opt&&opt.wb){ await window.chkXBuildResultWb({ ...M, wb:opt.wb }, pass, fail); await window.chkXBuildResultWb({ ...M, wb:opt.wb, grouped:true }, pass, fail); return { pass:pass.length, fail:fail.length }; }   /* ★ [local074] Sheet 1 + Sheet 2 */
     const buf=await window.chkXBuildResultWb(M, pass, fail);
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');
     const dn=(CHKE.dwakName||'DWAK').replace(/\.xlsx?$/i,'');
-    a.href=url; a.download='ตรวจELE TYPE 0_'+dn+'.xlsx';   /* ชื่อไฟล์คงเดิม */
+    a.href=url; a.download='ตรวจELE '+(window.CHKE_MODE||'TYPE 0')+'_'+dn+'.xlsx';   /* ชื่อไฟล์คงเดิม */
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
     chkeStatus('Export ผลตรวจสำเร็จ — ถูกต้อง '+pass.length+' แถว · ผิด '+fail.length+' แถว');
@@ -3407,7 +3458,7 @@ async function chkePermitExport(opt){
   try{
     if(typeof window.chkXPermitExport!=='function') throw new Error('ไม่พบตัวสร้าง EXPORT Permit');
     const R2=(typeof window.pmEnsureFresh==='function') ? await window.pmEnsureFresh(()=>CHKE.result, ()=>chkeRun()) : r;   /* ★ [local071] MASTER ล่าสุด · ผลหน้าจอชุดเดียวกับ Excel */
-    const res=await window.chkXPermitExport({ wb:opt&&opt.wb, pm:(R2&&R2.permit&&R2.permit.items)||[], mode:'TYPE 0', D:chkeDwakRows(CHKE.dwak), T:chkeT, date:chkeDate,
+    const res=await window.chkXPermitExport({ wb:opt&&opt.wb, pm:(R2&&R2.permit&&R2.permit.items)||[], mode:(window.CHKE_MODE||'TYPE 0'), D:chkeDwakRows(CHKE.dwak), T:chkeT, date:chkeDate,
       exc:(R2.exc&&R2.exc.diffs)||[], dui:(R2.ex99&&R2.ex99.diffs)||[], paste:(document.getElementById('chke-permit-paste')||{}).value||'', dwakName:CHKE.dwakName||'' });
     if(msg) msg.textContent=[res.msg].concat(typeof window.pmWarnText==='function' ? window.pmWarnText(R2) : []).filter(Boolean).join('\n');
     if(opt&&opt.wb) return res;   /* ★ [local074] Sheet 3 */   /* ★ [local071] ⚠️ MASTER ยังไม่มี MODE */
@@ -3423,7 +3474,7 @@ async function chkePermitPasteExport(){
   if(!CHKE.dwak){ say('❌ ยังไม่มีไฟล์ DWAK — Upload DWAK ก่อน EXPORT',true); return null; }
   try{
     if(typeof window.chkXPermitExport!=='function') throw new Error('ไม่พบตัวสร้าง EXPORT Permit');
-    const res=await window.chkXPermitExport({ pm:[], mode:'TYPE 0', D:chkeDwakRows(CHKE.dwak), T:chkeT, date:chkeDate, exc:[], dui:[], paste:txt, dwakName:CHKE.dwakName||'' });
+    const res=await window.chkXPermitExport({ pm:[], mode:(window.CHKE_MODE||'TYPE 0'), D:chkeDwakRows(CHKE.dwak), T:chkeT, date:chkeDate, exc:[], dui:[], paste:txt, dwakName:CHKE.dwakName||'' });
     say(['✅ EXPORT EXCEL Permit (PASTE) สำเร็จ'].concat(res.msg?[res.msg]:[]).join(' · '), (res.miss||0)+(res.bad||0)>0); return res;
   }catch(e){ say('❌ EXPORT ไม่สำเร็จ: '+(e.message||e),true); return null; }
 }
@@ -3442,7 +3493,7 @@ async function chkeExportAll(){
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='ตรวจELE TYPE 0_'+(CHKE.dwakName||'DWAK').replace(/\.xlsx?$/i,'')+'.xlsx';   /* ชื่อไฟล์เดิมของ EXPORT ผลตรวจ */
+    a.href=url; a.download='ตรวจELE '+(window.CHKE_MODE||'TYPE 0')+'_'+(CHKE.dwakName||'DWAK').replace(/\.xlsx?$/i,'')+'.xlsx';   /* ชื่อไฟล์เดิมของ EXPORT ผลตรวจ */
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
     chkeStatus('Export สำเร็จ (3 Sheet) — ถูกต้อง '+r1.pass+' · ผิด '+r1.fail+' แถว · Permit: กรมสรรพสามิต '+r3.n[0]+' · DUI '+r3.n[1]+' · สมอ. '+r3.n[2]+' รายการ'+(r3.nx?' · หน่วยงานอื่น (MASTER) '+r3.nx+' รายการ':'')+(r3.miss?' · ไม่พบใน DWAK '+r3.miss+' รายการ':''), !!r3.miss);
   }catch(e){ chkeStatus('Export ไม่สำเร็จ: '+(e.message||e),true); }
@@ -6834,7 +6885,7 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
       const g=(g0==='dui') ? FT : g0; const k=ki+'|'+g; if(seen.has(k)){ if(md && RK[k] && !RK[k][13]) RK[k][13]=md; return; } seen.add(k); if(!G[g]) G[g]=[]; const v=rowOf(d,g,md); RK[k]=v; G[g].push(v); };   /* ★ [local084] ซ้ำ → เติม MODE จาก MASTER ถ้าแถวเดิมว่าง */   /* ★ [local071] g = 'x:<หน่วยงาน>' กลุ่มต่อท้าย */
     /* ★ [local093] Sheet 3: รายการจาก MASTER พิกัดใบอนุญาต (ยกเว้นกรมสรรพสามิต = FLOW เดิม) ต้อง Match MASTER พิกัดใบอนุญาต ครบ Tariff + Stat + MODE ของ TYPE ปัจจุบัน (Match ใหม่ ณ ตอนสร้าง · ไม่ reuse ผลเดิม)
        TYPE 0 / P = IMPORT · TYPE 1 / D = EXPORT · MASTER IMPORT+EXPORT ใช้ได้ทุก TYPE · ไม่ Match ครบ → ไม่เข้า Sheet 3 · MODE = ของแถว MASTER ที่ Match จริง */
-    const PDIR={ 'TYPE 0':'IMPORT', 'TYPE P':'IMPORT', 'TYPE 1':'EXPORT', 'TYPE D':'EXPORT' }[o.mode]||'';
+    const PDIR={ 'TYPE 0':'IMPORT', 'TYPE IEAT':'IMPORT', 'TYPE P':'IMPORT', 'TYPE 1':'EXPORT', 'TYPE D':'EXPORT' }[o.mode]||'';
     const MDN={ 'นำเข้า':'IMPORT', 'ส่งออก':'EXPORT', 'นำเข้าและส่งออก':'IMPORT+EXPORT' };
     const gOf=ag=>ag==='กรมสรรพสามิต' ? 'exc' : (ag==='DUI' ? 'dui' : (/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(ag) ? 'tis' : 'x:'+ag));
     const pmOf=d=>{ const r={}; const m=(PDIR && typeof window.pmMatch==='function') ? window.pmMatch(T(val(d,'Tariff')), T(val(d,'Stat')), PDIR) : [];
@@ -7697,7 +7748,7 @@ function termExOptions(){
   if(ex && md && TERM_EX_MODES.indexOf(md.value)<0){ md.value='Normal'; md.dispatchEvent(new Event('change')); }      /* Express → Normal อัตโนมัติ */
   if(ex && sel && TERM_EX_TERMS.indexOf(sel.value)<0){ sel.value='EXW'; sel.dispatchEvent(new Event('change')); }  /* FCA/FOB/DAP → EXW + termTermReset (Listener เดิม) */
   const b0=document.getElementById('chke-term-btn-send'); if(b0) b0.style.display=ex?'none':'';
-  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.style.display=ex?'none':''; }   /* ★ [local087] TYPE P = เหมือน TYPE 0 */
+  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.style.display=ex?'none':''; }  { const bi=document.getElementById('chke-term-btn-sendi'); if(bi) bi.style.display=ex?'none':''; }   /* ★ [local087] TYPE P = เหมือน TYPE 0 */
   for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.style.display=ex?'':'none'; }
   termInvalidate();
 }
@@ -7758,7 +7809,7 @@ function termInvalidate(){
   const bc=document.getElementById('chke-term-btn-calc'); if(bc) bc.disabled=false;              /* [local030] ปุ่มคำนวณเปิดตลอด · กดแล้ว Validate แจ้งช่องที่ขาด */
   const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=true;             /* [local019] Export ได้เฉพาะผลคำนวณล่าสุด */
   const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.disabled=true;               /* [local037] ส่งได้เฉพาะผลคำนวณล่าสุด */
-  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.disabled=true; }   /* ★ [local087] */
+  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.disabled=true; }  { const bi=document.getElementById('chke-term-btn-sendi'); if(bi) bi.disabled=true; }   /* ★ [local087] */
   for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.disabled=true; }   /* ★ [local063] */
   document.querySelectorAll('#chke-term-panel .chke-term-thb').forEach(e=>{ e.textContent=''; });
 }
@@ -7850,7 +7901,7 @@ function termCalcRun(){
     res.thb=thb;
     for(const k of TERM_FX_KEYS.concat('comm')){ const e=document.getElementById('chke-term-thb-'+k); if(e) e.textContent=(thb[k]==null||!isFinite(thb[k]))?'':termFmt(thb[k]); } }
   { const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.disabled=false; }
-  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.disabled=false; }   /* ★ [local087] */
+  { const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.disabled=false; }  { const bi=document.getElementById('chke-term-btn-sendi'); if(bi) bi.disabled=false; }   /* ★ [local087] */
   for(const id of ['chke-term-btn-send1','chke-term-btn-sendd']){ const b=document.getElementById(id); if(b) b.disabled=!ex; }   /* ★ [local063] ส่งไป TYPE 1 / TYPE D เฉพาะผล Export */
   st.innerHTML='<div style="color:var(--green2);font-weight:700">\u2705 คำนวณแล้ว (TERM '+termEsc(term)+') — กด EXPORT EXCEL <span style="color:var(--text);font-weight:800">· '+res.totalLabel+' = '+termFmt(A.cif)+'</span></div>';   /* [local046] · ★ [local063] Export = TOTAL FOB THB */
   const be=document.getElementById('chke-term-btn-export'); if(be) be.disabled=false;
@@ -8070,12 +8121,12 @@ async function termFreightInvoiceUpload(file){
 }
 /* ★ [local037] ➜ ส่งไปตรวจ ELE TYPE 0 — Snapshot TERM_TRANSFER จากผลคำนวณล่าสุด (Deep copy + freeze) · เชื่อม ELE ผ่าน Event เท่านั้น */
 /* ★ [local063] target: 'chke' (เดิม) · 'chk1' / 'chkd' = ส่ง TOTAL FOB THB (Export) ไป TYPE 1 / TYPE D ผ่านช่องทางแยกของแต่ละโหมด */
-const TERM_SEND={ chke:['chke_decl','TERM_TRANSFER','term-transfer','ตรวจ ELE TYPE 0'], chk1:['chk1_decl','TERM_TRANSFER_T1','term-transfer-t1','TYPE 1'], chkd:['chkd_decl','TERM_TRANSFER_TD','term-transfer-td','TYPE D'], chkp:['chkp_decl','TERM_TRANSFER_TP','term-transfer-tp','TYPE P'] };   /* ★ [local087] + TYPE P */
+const TERM_SEND={ chke:['chke_decl','TERM_TRANSFER','term-transfer','ตรวจ ELE TYPE 0'], chk1:['chk1_decl','TERM_TRANSFER_T1','term-transfer-t1','TYPE 1'], chkd:['chkd_decl','TERM_TRANSFER_TD','term-transfer-td','TYPE D'], chkp:['chkp_decl','TERM_TRANSFER_TP','term-transfer-tp','TYPE P'], chkieat:['chkieat_decl','TERM_TRANSFER','term-transfer','TYPE IEAT'] };   /* ★ [local104] TYPE IEAT = ช่องทางเดียวกับ TYPE 0 */   /* ★ [local087] + TYPE P */
 function termSendToEle(target){
   const T=TERM_SEND[(typeof target==='string' && TERM_SEND[target])?target:'chke'];
   const res=TERM_STATE.result, st=document.getElementById('chke-term-result');
   if(!res){ if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">ไม่มีผลการคำนวณล่าสุด — กด 🧮 คำนวณ ก่อน</div>'; return null; }
-  if((T[0]!=='chke_decl' && T[0]!=='chkp_decl') !== !!res.ex){ if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">'+(T[0]==='chkp_decl' ? 'ส่งไม่ได้ — TYPE P รับเฉพาะผลคำนวณ Import (เหมือน TYPE 0)' : 'ส่งไม่ได้ — TYPE 1 / TYPE D รับเฉพาะผลคำนวณ Rate Source = Export')+'</div>'; return null; }   /* ★ [local063] */
+  if((T[0]!=='chke_decl' && T[0]!=='chkp_decl' && T[0]!=='chkieat_decl') !== !!res.ex){ if(st) st.innerHTML='<div style="color:var(--red2);font-weight:700">'+(T[0]==='chkp_decl' ? 'ส่งไม่ได้ — TYPE P รับเฉพาะผลคำนวณ Import (เหมือน TYPE 0)' : T[0]==='chkieat_decl' ? 'ส่งไม่ได้ — TYPE IEAT รับเฉพาะผลคำนวณ Import (เหมือน TYPE 0)' : 'ส่งไม่ได้ — TYPE 1 / TYPE D รับเฉพาะผลคำนวณ Rate Source = Export')+'</div>'; return null; }   /* ★ [local063] */
   const n=v=>(v==null||!isFinite(v))?null:v;
   const use=res.use||[], g=TERM_GROUPS[res.term]||[];
   const it=(k,value,rate,thb,extra)=>Object.assign({ value:n(value), cur:(n(value)==null?null:(res.curs||{})[k]||null), rate:(n(value)==null?null:n(rate)), thb:(n(value)==null?null:n(thb)) },extra||{});
@@ -8128,7 +8179,8 @@ function termWire(){
   const bs=document.getElementById('chke-term-btn-send'); if(bs) bs.addEventListener('click',()=>termSendToEle('chke'));   /* [local037] */
   { const b1=document.getElementById('chke-term-btn-send1'); if(b1) b1.addEventListener('click',()=>termSendToEle('chk1'));
     const bd=document.getElementById('chke-term-btn-sendd'); if(bd) bd.addEventListener('click',()=>termSendToEle('chkd'));
-    const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.addEventListener('click',()=>termSendToEle('chkp'));   /* ★ [local087] */
+    const bp=document.getElementById('chke-term-btn-sendp'); if(bp) bp.addEventListener('click',()=>termSendToEle('chkp'));
+    { const bi=document.getElementById('chke-term-btn-sendi'); if(bi) bi.addEventListener('click',()=>termSendToEle('chkieat')); }   /* ★ [local104] */   /* ★ [local087] */
     document.querySelectorAll('input[name="chke-term-fxSrc"]').forEach(r=>r.addEventListener('change',()=>{ termClearAll(); termExOptions(); })); termExOptions(); }   /* ★ [local066] สลับ Import ↔ Export → ล้างค่าเดิมก่อน */   /* ★ [local063] หลัง Listener Rate เดิม */
   termFxWire();                                                                                   /* [local037] */
 }
