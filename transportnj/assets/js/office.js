@@ -67,7 +67,7 @@
     if (p === 'map') return pageMap(page);
     if (p === 'schedule') return pageSchedule(page, r);
     if (p === 'mileage') return pageFuel(page, r);
-    if (p === 'reports') return pageReports(page, r, { jobsOnly: true }); // 📈 รายงานงานขนส่ง (เฉพาะข้อมูล JOB)
+    if (p === 'reports') return pageJobReport(page, r); // 📈 รายงานงานขนส่ง (เฉพาะ JOB ที่ปิดงานแล้ว · ค้นหาใต้หัวตาราง)
     if (p === 'documents') return pageDocuments(page, r);
     if (p === 'masters') return pageMasters(page, r.seg[1] || 'customers');
     if (p === 'settings') return pageSettings(page);
@@ -118,21 +118,23 @@
   }
   // หน้าต่างแก้ไข JOB — Reuse ฟอร์ม + เปิดงาน (pageJobForm) · UPDATE JOB เดิมเท่านั้น · 🗑️ ลบ = tnj_job_cancel เดิม (Soft: ยกเลิกงาน · ข้อมูลลูกอยู่ครบ)
   let jfmOpen = false;
-  async function jobEditDialog(jobId, onDone) {
+  async function jobEditDialog(jobId, onDone, eo = {}) { // eo.mobile = เปิดจากหน้า Mobile Timeline (Desktop เรียกแบบเดิม ไม่ส่ง eo)
     if (jfmOpen) return; jfmOpen = true;
     let job; try { T.loading(true); job = await T.auth('tnj_job_get', { p_job_id: jobId }, { silent: true }); } catch (e) { jfmOpen = false; return T.err(e); } finally { T.loading(false); }
     const closed = ['COMPLETED', 'CANCELLED'].includes(job.status); let vvOff = () => { };
     const m = T.modal({ title: `แก้ไขงาน — ${T.jobRef(job)}`, size: 'w jf-modal', noMask: true,
-      body: `<div class="jfm-top"><a href="#/jobs/${h(job.id)}" id="jfmDet" class="small">📋 เปิดรายละเอียด JOB (Timeline / เอกสาร / ไมล์ / GPS) ›</a></div>${closed ? `<div class="alert info">งาน${job.status === 'CANCELLED' ? 'ยกเลิก' : 'ปิด'}แล้ว — แก้ไข/ลบไม่ได้</div>` : ''}<div id="jfmRoot"><div class="empty">กำลังโหลด...</div></div>`,
-      foot: `<button type="button" class="btn btn-lg" data-close id="jfmCancel">ยกเลิก</button>${closed ? '' : '<button type="submit" form="jobForm" class="btn btn-p btn-lg" id="jfSave">💾 บันทึกการแก้ไข</button>'}${T.isAdmin() ? '<button type="button" class="btn btn-r btn-lg" id="jfDel">🗑️ ลบ JOB</button>' : ''}`,
+      body: `<div class="jfm-top" ${eo.mobile ? 'hidden' : ''}><a href="#/jobs/${h(job.id)}" id="jfmDet" class="small">📋 เปิดรายละเอียด JOB (Timeline / เอกสาร / ไมล์ / GPS) ›</a></div>${closed ? `<div class="alert info">งาน${job.status === 'CANCELLED' ? 'ยกเลิก' : 'ปิด'}แล้ว — แก้ไข/ลบไม่ได้</div>` : ''}<div id="jfmRoot"><div class="empty">กำลังโหลด...</div></div>`,
+      foot: `<button type="button" class="btn btn-lg" data-close id="jfmCancel">ยกเลิก</button>${closed ? '' : '<button type="submit" form="jobForm" class="btn btn-p btn-lg" id="jfSave">💾 บันทึกการแก้ไข</button>'}${T.isAdmin() && !eo.mobile ? '<button type="button" class="btn btn-r btn-lg" id="jfDel">🗑️ ลบ JOB</button>' : ''}`,
       onClose: () => { jfmOpen = false; vvOff(); } });
     $('#jfmDet', m.el).onclick = () => m.close();
     // มือถือ: Keyboard ไม่บังช่องที่กำลังกรอก / ปุ่มบันทึก (ปรับความสูงตาม visualViewport + เลื่อนช่องมากลางจอ)
     const vv = window.visualViewport; const fit = () => { if (!vv) return; if (isNarrow()) Object.assign(m.el.style, { top: vv.offsetTop + 'px', height: vv.height + 'px', bottom: 'auto' }); else Object.assign(m.el.style, { top: '', height: '', bottom: '' }); };
     if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit(); vvOff = () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }; }
     m.el.addEventListener('focusin', (e) => { if (isNarrow() && e.target.matches('input,select,textarea')) setTimeout(() => { if (e.target.isConnected) e.target.scrollIntoView({ block: 'center' }); }, 300); });
-    await pageJobForm($('#jfmRoot', m.el), job, { el: m.el, closed, saved: () => { m.close(); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); onDone && onDone(); } });
+    await pageJobForm($('#jfmRoot', m.el), job, { el: m.el, closed, mobile: !!eo.mobile, saved: () => { m.close(); T.toast('บันทึกการแก้ไขแล้ว', 'ok'); onDone && onDone(); } });
     const del = $('#jfDel', m.el); if (del) del.onclick = () => jobDelete(job, onDone, () => m.close());
+    // Mobile: เลื่อนไปที่ตู้ที่เลือกอยู่ในหน้า Timeline (ตู้ 2+) — แก้เฉพาะแถวของตู้นั้น ไม่กระทบตู้อื่น
+    if (eo.mobile && eo.ct && eo.ct.id) { const row = $(`#jfCts [data-ct-id="${eo.ct.id}"]`, m.el); if (row) { row.classList.add('jf-ct-focus'); setTimeout(() => { if (row.isConnected) row.scrollIntoView({ block: 'center' }); }, 50); } }
   }
   // ลบงานจริงออกจากระบบ (SUPER_ADMIN / ADMIN) — Confirm → ลบไฟล์แนบใน Storage ผ่าน Edge Function เดิม → tnj_job_delete (ลบ JOB + ข้อมูลลูก ด้วย job.id ใน Transaction เดียว)
   async function jobDelete(job, onDone, closeFn) {
@@ -280,6 +282,8 @@
         const bind = () => {
           const go = $('#hlGo', mo.foot || root); const ct = ctOf(job, sel);
           const cSel = $('#hlC', root); if (cSel) cSel.onchange = () => { sel = cSel.value; render(); };
+          // Mobile: ✏️ แก้ไขข้อมูลงาน → ฟอร์มแก้ไข JOB เดิม (jobEditDialog) · บันทึกแล้วโหลด JOB + ตู้ใหม่ทันที (ตู้ที่เลือกคงเดิม)
+          const je = mo.mobile && $('#mJobEdit', root); if (je) je.onclick = () => jobEditDialog(job.id, () => refresh(), { mobile: true, ct });
           if (mo.mobile) ['hlCam', 'hlFiles'].forEach((id) => { const inp = $('#' + id, root); if (!inp) return; inp.onchange = () => { const got = Array.from(inp.files || []); const bad = got.filter((f) => !/\.(pdf|jpe?g|png|xlsx?|docx?)$/i.test(f.name)); if (bad.length) T.toast('รองรับเฉพาะ PDF JPG JPEG PNG XLS XLSX DOC DOCX', 'warn'); pending = pending.concat(got.filter((f) => !bad.includes(f))); inp.value = ''; $('#hlPick', root).innerHTML = pending.map((f) => `<span>📎 ${h(f.name)}</span>`).join(''); }; });
           if (go) go.onclick = async () => {
             const d = $('#hlD', root).value, t = $('#hlT', root).value, s = stValue(root, 'hlS', 'hlSC'), nEl = $('#hlN', root), n = nEl ? nEl.value.trim() : '';
@@ -340,7 +344,7 @@
     return `<div class="m-card m-jobcard"><div class="m-jc-h"><b>🚛 ${h(T.jobRef(job))}</b> <span class="hl-ct-tag">${ctBadge(ct.no)}</span></div><div class="m-jc-st">สถานะล่าสุด: <span class="hl-st-tag">${h(lastSt)}</span></div>
       <div class="m-kvs">${kv('ลูกค้า', h(job.customer_name || '-'))}${kv('B/L', h(job.bl_no || '-'))}${kv('ท่านำเข้า', h(job.pickup_location_text || '-'))}${kv('คืนตู้เปล่า', h(job.return_location_text || '-'))}</div>
       <div class="m-kvs">${kv('เบอร์ตู้', h(job.container_no || '-'))}${kv('เบอร์ซีล', h(job.seal_no || '-'))}${kv('กำหนดส่ง', job.factory_date ? `${hlDMY(job.factory_date)}${job.factory_time ? ' ' + T.fmtT(job.factory_time) : ''}` : '-')}</div>
-      <div class="m-kvs">${kv('คนขับ', h(job.driver_name || '-'))}${kv('หัว/หาง', `${h(job.license_plate || '-')} / ${h(job.trailer_plate || '-')}`)}${kv('เบอร์โทร', job.driver_phone ? `<a class="m-tel" href="${telHref(job.driver_phone)}">📞 ${h(job.driver_phone)}</a>` : '-')}</div></div>`;
+      <div class="m-kvs">${kv('คนขับ', h(job.driver_name || '-'))}${kv('หัว/หาง', `${h(job.license_plate || '-')} / ${h(job.trailer_plate || '-')}`)}${kv('เบอร์โทร', job.driver_phone ? `<a class="m-tel" href="${telHref(job.driver_phone)}">📞 ${h(job.driver_phone)}</a>` : '-')}</div>${T.canEdit() && !['COMPLETED', 'CANCELLED'].includes(job.status) ? '<div class="m-jc-edit"><button type="button" class="btn" id="mJobEdit">✏️ แก้ไขข้อมูลงาน</button></div>' : ''}</div>`;
   }
   // 🕒 Timeline: A) ค้นหา JOB  B) เปิด JOB (ใช้ hualakMount เดิม)
   async function pageMTimeline(page, id) {
@@ -508,19 +512,23 @@
     const vehOf = (d) => (d && d.default_vehicle_id ? M.vehicles.find((x) => x.id === d.default_vehicle_id) : null) || null;
     const drvLabel = (d) => { const x = vehOf(d); return `${d.full_name} | ${x ? x.license_plate : '-'} | ${x && x.trailer_plate ? x.trailer_plate : '-'} | ${d.phone || '-'}${d.active_job ? ' — กำลังทำงานอยู่' : ''}`; };
     const sizes = ["20'", "40'", "40'HC", "45'", 'LCL', 'อื่น ๆ'];
+    // Mobile แก้ไขงาน: คนขับตู้ 1 เลือกได้ (ใช้ tnj_job_assign เดิม — ได้เฉพาะงาน NEW / ASSIGNED ตามกฎเดิม) + หมายเหตุ (job_note) · Desktop ไม่เปลี่ยน
+    // แก้ไขงาน: คนขับตู้ 1 เลือกได้ทุก Row (NEW / ASSIGNED = tnj_job_assign เดิม · สถานะอื่น = tnj_job_driver_set RUN-17 ไม่เปลี่ยนสถานะงาน) · หมายเหตุ (job_note) เฉพาะ Mobile
+    const mEdit = !isNew && !!(mo && mo.mobile); const mDrv = !isNew;
     page.innerHTML = `${mo ? '' : `<div class="page-head jf-head"><h1>${isNew ? '+ เปิดงานใหม่' : 'แก้ไขงาน — ' + h(T.jobRef(job))}</h1></div>`}<form id="jobForm" class="card card-b jf-form" autocomplete="off">
       <div class="jf-mode" id="jfMode"><span class="jf-mode-l">MODE:</span>${['IMPORT', 'EXPORT'].map((x) => `<label class="jf-mck"><input type="checkbox" data-mode value="${x}" ${job && (job.job_mode || []).includes(x) ? 'checked' : ''}> ${x}</label>`).join('')}</div>
       <div class="jf-row r4"><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div>
         <div class="field"><label>ลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
-        <div class="field"><label>B/L, BOOKING <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div>${locField('return', 'รับ/คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
+        <div class="field"><label>B/L, BOOKING <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div><div class="field jf-cnt"><label>จำนวนตู้ <span class="req">*</span></label><input type="number" class="inp" id="jfCnt" min="1" max="50" step="1" inputmode="numeric" value="1" aria-label="จำนวนตู้"></div>${locField('return', 'รับ/คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
       <div class="jf-ctrow jf-ct1row" id="jfCt1"><div class="field jf-ctno"><label>ลำดับ</label><b class="jf-seq">1</b></div><div class="field"><label>เบอร์ตู้</label><input class="inp" name="container_no" value="${v('container_no')}"></div><div class="field"><label>เบอร์ซีล</label><input class="inp" name="seal_no" value="${v('seal_no')}"></div>
         <div class="field"><label>Size</label><select class="inp" name="container_size"><option value="">-</option>${sizes.map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
         ${locField('pickup', 'ท่านำเข้า', job, 'pickup_location_id', 'pickup_location_text', true).replace('<div class="field">', '<div class="field jf-ctpk">').replace('placeholder="เลือกจากรายการ หรือพิมพ์ชื่อสถานที่"', 'placeholder="ท่านำเข้า"')}
         <div class="field"><label>วันที่ส่ง</label><input type="date" class="inp" name="factory_date" aria-label="วันที่ส่ง ตู้ 1" value="${v('factory_date')}"></div><div class="field"><label>เวลา</label><input type="time" class="inp" name="factory_time" aria-label="เวลา ตู้ 1" value="${v('factory_time')}"></div>
-        ${isNew ? `<div class="field jf-ctdrv"><label>คนขับ</label><select class="inp" name="driver_id" id="jfDrv">${opts(M.drivers, 'id', drvLabel, '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field jf-ctdrv"><label>คนขับ</label><input class="inp ro" readonly tabindex="-1" value="${h([job.driver_name, job.license_plate, job.trailer_plate, job.driver_phone].map((x) => x || '-').join(' | '))}" title="เปลี่ยนรถ/คนขับได้ที่ปุ่ม &quot;สั่งงาน&quot; ในหน้ารายละเอียด (ก่อนคนขับรับงาน)"></div>`}<div class="jf-ctx"></div></div>
+        ${isNew || mDrv ? `<div class="field jf-ctdrv"><label>คนขับ</label><select class="inp" name="driver_id" id="jfDrv">${opts(!isNew && job.driver_id && !M.drivers.some((x) => x.id === job.driver_id) ? M.drivers.concat([{ id: job.driver_id, full_name: job.driver_name || '-', phone: job.driver_phone }]) : M.drivers, 'id', drvLabel, isNew ? '' : job.driver_id || '', '— ยังไม่เลือกคนขับ —')}</select></div>` : `<div class="field jf-ctdrv"><label>คนขับ</label><input class="inp ro" readonly tabindex="-1" value="${h([job.driver_name, job.license_plate, job.trailer_plate, job.driver_phone].map((x) => x || '-').join(' | '))}" title="เปลี่ยนรถ/คนขับได้ที่ปุ่ม &quot;สั่งงาน&quot; ในหน้ารายละเอียด (ก่อนคนขับรับงาน)"></div>`}<div class="jf-ctx"><button type="button" class="btn btn-sm" data-ct-rm data-c1>🗑 ลบ</button></div></div>
       <div class="jf-drvhide" hidden><input class="inp ro" id="jfName" readonly tabindex="-1" value="${v('driver_name')}"><input class="inp ro" id="jfHead" readonly tabindex="-1" value="${v('license_plate')}"><input class="inp ro" id="jfTail" readonly tabindex="-1" value="${v('trailer_plate')}"><input class="inp ro" id="jfPhone" readonly tabindex="-1" value="${v('driver_phone')}"></div>
       <div class="jf-cts" id="jfCts"></div><div class="jf-ctadd"><button type="button" class="btn" id="jfAddCt">+ เพิ่มตู้</button><span class="xs muted">1 JOB เพิ่มได้หลายตู้ · แต่ละตู้มีเบอร์ตู้ / เบอร์ซีล / Size / ท่านำเข้า / วันที่ส่ง / เวลา / คนขับ แยกกัน</span></div>
       <div class="jf-row r1"><div class="field"><label>ที่อยู่ออกใบเสร็จ</label><textarea class="inp" name="billing_address" rows="2">${v('billing_address')}</textarea></div></div>
+      ${mEdit ? `<div class="jf-row r1"><div class="field"><label>หมายเหตุ</label><textarea class="inp" name="job_note" rows="2" maxlength="1000">${v('job_note')}</textarea></div></div>` : ''}
       ${isNew ? '' : '<div class="jf-row r1"><div class="field"><label>เหตุผลที่แก้ไข (บันทึกลง Timeline)</label><input class="inp" name="edit_note"></div></div>'}
       ${mo ? '' : `<div class="jf-btns"><button type="submit" class="btn btn-p btn-lg" id="jfSave">${isNew ? 'บันทึกเปิดงาน' : 'บันทึกการแก้ไข'}</button><a class="btn btn-lg" id="jfCancel" href="${isNew ? '#/jobs' : '#/jobs/' + job.id}">ยกเลิก</a></div>`}</form>`;
     if (mo && mo.closed) $$('#jobForm input, #jobForm select, #jobForm textarea, #jobForm button', page).forEach((x) => { x.disabled = true; });
@@ -538,16 +546,55 @@
         <div class="field jf-ctpk"><input class="inp" data-ck="pickup_location_text" list="dl_pickup" placeholder="ท่านำเข้า *" aria-label="ท่านำเข้า" value="${h(c ? c.pickup_location_text || (job && job.pickup_location_text) || '' : '')}"></div>
         <div class="field"><input type="date" class="inp" data-ck="factory_date" aria-label="วันที่ส่ง" title="วันที่ส่ง" value="${h(c && c.factory_date ? String(c.factory_date).slice(0, 10) : '')}"></div><div class="field"><input type="time" class="inp" data-ck="factory_time" aria-label="เวลา" title="เวลา" value="${h(c && c.factory_time ? String(c.factory_time).slice(0, 5) : '')}"></div>
         <div class="field jf-ctdrv"><select class="inp" data-ck="driver_id" aria-label="คนขับ">${opts(M.drivers, 'id', drvLabel, c ? c.driver_id : '', '— คนขับ (ชื่อ | หัว | หาง | เบอร์โทร) —')}</select></div>
-        <div class="jf-ctx"><button type="button" class="btn btn-sm" data-ct-rm>✕ เอาออก</button></div></div>`;
+        <div class="jf-ctx"><button type="button" class="btn btn-sm" data-ct-rm>🗑 ลบ</button></div></div>`;
     const ctBox = $('#jfCts', page); ctBox.innerHTML = extras.map((c, i) => ctRow(c, i + 2)).join('');
-    const bindCt = () => $$('[data-ct-rm]', ctBox).forEach((b) => b.onclick = async () => { const row = b.closest('.jf-ct');
-      // ตู้ที่บันทึกแล้ว: ส่ง Server ก่อน — แถวหายจากหน้าจอเมื่อ Server ยืนยันสำเร็จเท่านั้น (มี Timeline แล้ว = Server ปฏิเสธ แถว/ข้อมูลอยู่ครบ)
-      if (row.dataset.ctId) { const lbl = row.querySelector('.jf-ctno').textContent.trim(); if (!(await T.confirm('เอาตู้ออก', `เอาตู้ ${h(lbl)} ออกจาก JOB นี้?<br><span class="small muted">ตู้ที่มี Timeline แล้วเอาออกไม่ได้ · เลขลำดับเดิมจะไม่ถูกใช้ซ้ำ</span>`, 'เอาออก', 'btn-r'))) return;
-        try { T.loading(true); await T.auth('tnj_job_containers_save', { p_job_id: job.id, p_items: [{ id: row.dataset.ctId, remove: true }] }, { silent: true }); } catch (e) { T.err(e); return; } finally { T.loading(false); }
-        T.toast(`เอาตู้ ${lbl} ออกแล้ว`, 'ok'); }
-      row.remove(); renum(); });
-    bindCt();
-    $('#jfAddCt', page).onclick = () => { ctBox.insertAdjacentHTML('beforeend', ctRow(null, ctNo())); bindCt(); const last = ctBox.lastElementChild; const f = last && last.querySelector('[data-ck=container_no]'); if (f) f.focus(); };
+    // ---- 🗑 ลบ ได้ทุกแถว (รวมลำดับ 1) · จำนวนตู้ = จำนวนแถวจริงเสมอ · ตัวตนของตู้ = Container ID (เลขลำดับเป็นแค่ลำดับแสดงผล) ----
+    const ct1 = $('#jfCt1', page); const cntIn = $('#jfCnt', page);
+    const allRows = () => [ct1, ...$$('#jfCts .jf-ct', page)];
+    const cntSync = () => { const n = allRows().length; cntIn.value = String(n); $$('[data-ct-rm]', page).forEach((b) => { b.disabled = n <= 1 || !!(mo && mo.closed); b.title = n <= 1 ? 'JOB ต้องมีอย่างน้อย 1 ตู้' : ''; }); };
+    const C1F = { container_no: '[name=container_no]', seal_no: '[name=seal_no]', container_size: '[name=container_size]', pickup_location_text: '[name=pickup_location_text]', factory_date: '[name=factory_date]', factory_time: '[name=factory_time]', driver_id: '#jfDrv' };
+    const rowHasData = (r) => r === ct1 ? Object.values(C1F).some((q) => { const x = $(q, ct1); return x && x.value.trim() && !(q === '[name=pickup_location_text]' && !isNew); }) : $$('[data-ck]', r).some((x) => x.value.trim());
+    // ตู้ลำดับ 2 (แถวแรกใน #jfCts) ขึ้นมาเป็นลำดับ 1: ย้ายค่า "ทั้งชุด" ของตู้นั้นลงช่องตู้ 1 แล้วเอาแถวเดิมออก (ข้อมูลไม่สลับกับตู้อื่น)
+    const liftToC1 = (row) => { Object.entries(C1F).forEach(([k, q]) => { const dst = $(q, ct1); const src = row.querySelector(`[data-ck=${k}]`); if (dst && src) { dst.value = src.value; dst.dispatchEvent(new Event('input', { bubbles: true })); dst.dispatchEvent(new Event('change', { bubbles: true })); } }); row.remove(); };
+    const rmLbl = (r) => { const cn = (r === ct1 ? $('[name=container_no]', ct1).value : (r.querySelector('[data-ck=container_no]') || {}).value || '').trim(); return cn ? `ยืนยันลบตู้ ${h(cn)} ?` : 'ยืนยันลบตู้รายการนี้ ?'; };
+    // ลบ 1 แถว — ตู้ที่บันทึกบน Server แล้ว: Confirm → Server ก่อน (แถวหายเมื่อ Server ยืนยันเท่านั้น · ตู้ที่มี Timeline แล้ว Server ปฏิเสธ ข้อมูลอยู่ครบ)
+    const rmRow = async (row, ask = true) => {
+      if (allRows().length <= 1) { T.toast('JOB ต้องมีอย่างน้อย 1 ตู้', 'warn'); return false; }
+      const saved = row === ct1 ? !isNew : !!row.dataset.ctId;
+      if (saved && ask && !(await T.confirm('ลบตู้', rmLbl(row), '🗑 ลบ', 'btn-r'))) return false;
+      if (row === ct1) {
+        const first = $('#jfCts .jf-ct', page);
+        if (!isNew && first && !first.dataset.ctId) { // ตู้ถัดไปยังไม่บันทึก: ตู้ 1 ต้องยังไม่มี Timeline สถานะ (กฎเดียวกับ Server) → ย้ายค่าลงตู้ 1 แล้วบันทึกตอนกด 💾
+          if (hlItems(job, null).length) { T.toast('ตู้ 1 มี Timeline แล้ว — ลบไม่ได้', 'err'); return false; } liftToC1(first);
+        } else if (!isNew) {
+          let r; try { T.loading(true); r = await T.auth('tnj_job_container1_remove', { p_job_id: job.id }, { silent: true }); } catch (e) { T.err(e); return false; } finally { T.loading(false); }
+          const up = $(`#jfCts .jf-ct[data-ct-id="${r.promoted_from}"]`, page) || first; Object.assign(job, r.job || {}); liftToC1(up);
+        } else liftToC1(first);
+      } else {
+        if (row.dataset.ctId) { try { T.loading(true); await T.auth('tnj_job_containers_save', { p_job_id: job.id, p_items: [{ id: row.dataset.ctId, remove: true }] }, { silent: true }); } catch (e) { T.err(e); return false; } finally { T.loading(false); } }
+        row.remove();
+      }
+      renum(); cntSync(); return true;
+    };
+    const bindCt = () => $$('[data-ct-rm]', page).forEach((b) => b.onclick = async () => { const row = b.closest('#jfCt1') || b.closest('.jf-ct'); const lbl = (row.querySelector('.jf-seq') || {}).textContent || ''; const saved = row.id === 'jfCt1' ? !isNew : !!row.dataset.ctId; if (await rmRow(row) && saved) T.toast(`ลบตู้ ${lbl} แล้ว`, 'ok'); });
+    const addRow = () => { ctBox.insertAdjacentHTML('beforeend', ctRow(null, ctNo())); bindCt(); cntSync(); return ctBox.lastElementChild; };
+    bindCt(); cntSync();
+    $('#jfAddCt', page).onclick = () => { const last = addRow(); const f = last && last.querySelector('[data-ck=container_no]'); if (f) f.focus(); };
+    // จำนวนตู้: เพิ่ม → เพิ่มแถวจนครบ · ลด → ลบแถวท้ายสุด (มีข้อมูล / บันทึกแล้ว ต้อง Confirm) · ค่าไม่ถูกต้อง → คืนค่าตามจำนวนแถวจริง
+    let cntBusy = false;
+    const cntApply = async () => {
+      if (cntBusy) return; const cur = allRows().length; const raw = cntIn.value.trim();
+      if (!/^\d+$/.test(raw) || Number(raw) < 1) { T.toast('จำนวนตู้ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป', 'warn'); cntSync(); return; }
+      const n = Math.min(Number(raw), 50); if (n === cur) { cntSync(); return; }
+      cntBusy = true;
+      try {
+        if (n > cur) { for (let i = cur; i < n; i++) addRow(); return; }
+        const drop = allRows().slice(n).reverse(); const risky = drop.filter((r) => r.dataset.ctId || rowHasData(r));
+        if (risky.length && !(await T.confirm('ลดจำนวนตู้', `ลดจำนวนตู้เป็น ${n} — ต้องลบ ${drop.length} ตู้ท้ายรายการ (มีข้อมูล ${risky.length} ตู้)<br>ยืนยันลบ?`, '🗑 ลบ', 'btn-r'))) return;
+        for (const r of drop) { if (!(await rmRow(r, false))) break; }
+      } finally { cntBusy = false; cntSync(); }
+    };
+    cntIn.addEventListener('change', cntApply); cntIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cntApply(); } });
     const ctItems = () => $$('#jfCts .jf-ct', page).map((r, i) => { const o = { id: r.dataset.ctId || null }; $$('[data-ck]', r).forEach((x) => { o[x.dataset.ck] = x.value.trim(); }); const l = M.locations.find((x) => x.name === o.pickup_location_text); o.pickup_location_id = l ? l.id : ''; Object.defineProperty(o, 'no', { value: i + 2 }); return o; }).filter((o) => o.id || o.container_no || o.seal_no || o.container_size || o.pickup_location_text || o.factory_date || o.factory_time || o.driver_id);
     const drvSel = $('#jfDrv', page);
     const fill = () => { const d = M.drivers.find((x) => x.id === drvSel.value); const x = vehOf(d); $('#jfName', page).value = d ? d.full_name : ''; $('#jfHead', page).value = x ? x.license_plate || '' : ''; $('#jfTail', page).value = x ? x.trailer_plate || '' : ''; $('#jfPhone', page).value = d ? d.phone || '' : ''; };
@@ -568,7 +615,10 @@
           await T.auth('tnj_job_mode_set', { p_job_id: j.id, p_mode: modes }, { silent: true });
           if (items.length) await T.auth('tnj_job_containers_save', { p_job_id: j.id, p_items: items }, { silent: true });
           T.toast(`เปิดงานแล้ว${items.length ? ` (${items.length + 1} ตู้)` : ''}${j.status === 'ASSIGNED' ? ' และสั่งงานคนขับแล้ว' : ''}`, 'ok'); T.go(isNarrow() ? 'm-tl/' + j.id : 'jobs?hl=' + j.id);
-        } else { await T.auth('tnj_job_update', { p_job_id: job.id, p }); if (modes.length) await T.auth('tnj_job_mode_set', { p_job_id: job.id, p_mode: modes }, { silent: true }); const items = ctItems(); if (items.length) await T.auth('tnj_job_containers_save', { p_job_id: job.id, p_items: items }, { silent: true }); if (mo) { mo.saved(); return; } T.toast('บันทึกการแก้ไขแล้ว', 'ok'); T.go('jobs/' + job.id); }
+        } else { if (mDrv && job.driver_id && !p.driver_id) { T.toast('คนขับตู้ 1 เอาออกไม่ได้ — กรุณาเลือกคนขับใหม่แทน', 'err'); const f = $('#jfDrv', page); if (f) f.focus(); return; }
+          const nd = mDrv && p.driver_id && p.driver_id !== (job.driver_id || '') ? M.drivers.find((x) => x.id === p.driver_id) : null; const nx = nd ? vehOf(nd) : null; if (nd) p.trailer_plate = nx ? nx.trailer_plate || '' : ''; delete p.driver_id;
+          await T.auth('tnj_job_update', { p_job_id: job.id, p });
+          if (nd) { if (['NEW', 'ASSIGNED'].includes(job.status)) await T.auth('tnj_job_assign', { p_job_id: job.id, p_vehicle_id: nx ? nx.id : null, p_driver_id: nd.id }, { silent: true }); else await T.auth('tnj_job_driver_set', { p_job_id: job.id, p_driver_id: nd.id }, { silent: true }); } if (modes.length) await T.auth('tnj_job_mode_set', { p_job_id: job.id, p_mode: modes }, { silent: true }); const items = ctItems(); if (items.length) await T.auth('tnj_job_containers_save', { p_job_id: job.id, p_items: items }, { silent: true }); if (mo) { mo.saved(); return; } T.toast('บันทึกการแก้ไขแล้ว', 'ok'); T.go('jobs/' + job.id); }
       } catch (er) { T.err(er); } finally { btn.disabled = false; }
     };
   }
@@ -1062,6 +1112,65 @@
   }
 
   /* ---------- reports ---------- */
+  /* ---------- 📈 รายงานงานขนส่ง: ค้นหาใต้หัวตาราง (แบบหน้างานขนส่ง) · เฉพาะ JOB ที่ปิดงานแล้ว ---------- */
+  // ใช้ RPC / Filter เดิม tnj_report_rows (closed_only + customer / bl_no / container / tl_status / mode / date_from=date_to) — ไม่แก้ DB
+  // กำหนดส่ง (factory_date) กรองฝั่งหน้าเว็บ · คนขับ = ทุกตู้ (RUN-17: drivers + ตัวกรอง driver ฝั่ง Server) · Pagination + จำนวนรายการ คิดจากผลหลังกรองทั้งหมด
+  // ช่องค้นหา [key, ป้าย (มือถือ), ชนิด, placeholder] — เบอร์ตู้ (คอลัมน์ซ่อน) ค้นหาได้ในช่องใต้ "จำนวนตู้" · MODE อยู่ในช่องใต้ "จัดการ"
+  const RJ_COLS = [['job_date', 'วันที่งาน', 'date'], ['customer', 'ลูกค้า', 'text'], ['bl_no', 'B/L, BOOKING', 'text', 'ค้นหา B/L / BOOKING'], ['container', 'เบอร์ตู้', 'text'], ['sched', 'กำหนดส่ง', 'date'], ['driver', 'คนขับ', 'text'], ['tl_status', 'สถานะล่าสุด', 'status'], ['mode', 'MODE', 'mode']];
+  const RJ_HEAD = ['วันที่งาน', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'กำหนดส่ง', 'คนขับ', 'สถานะล่าสุด', 'จัดการ'];
+  const rjInput = (k, label, type, ph) => type === 'date' ? `<input type="date" class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}">`
+    : type === 'status' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option>${HL_STATUS.map((x) => `<option value="${h(x)}">${h(x)}</option>`).join('')}</select>`
+    : type === 'mode' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option><option value="IMPORT">IMPORT</option><option value="EXPORT">EXPORT</option><option value="BOTH">IMPORT+EXPORT</option></select>`
+    : `<input class="inp jf-in" data-rf="${k}" placeholder="${h(ph || 'ค้นหา' + label)}" autocomplete="off">`;
+  async function pageJobReport(page, r) {
+    await loadMasters(); let pageNo = 1; const PS = 50; let rows = []; let seq = 0; let mode = '';
+    const F = {}; RJ_COLS.forEach(([k]) => { F[k] = ''; });
+    const modeTxt = (x) => (x.job_mode || []).slice().sort().reverse().join('+') || '-';
+    // คนขับ: ชื่อ (ไม่เอานามสกุล) ของทุกตู้ เรียงตามลำดับตู้ ไม่ซ้ำ (RUN-17 drivers) · ก่อนรัน RUN-17 = คนขับตู้ 1
+    const drvTxt = (x) => { const a = Array.isArray(x.drivers) ? x.drivers : (x.driver_name ? [String(x.driver_name).trim().split(/\s+/)[0]] : []); return a.filter(Boolean).join(', ') || '-'; };
+    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><button class="btn btn-g" id="rpXls">📊 EXPORT EXCEL</button></div><div class="flex"><h1>📈 รายงานงานขนส่ง</h1></div></div>
+      <div class="card"><div id="rpList"></div><div class="pager" id="rpPager"></div></div>`;
+    const server = () => { const o = { page: 0, closed_only: true }; ['customer', 'bl_no', 'container', 'tl_status', 'mode', 'driver'].forEach((k) => { if (F[k].trim()) o[k] = F[k].trim(); }); if (F.job_date) { o.date_from = F.job_date; o.date_to = F.job_date; } return o; };
+    const has = (v, q) => !q || String(v == null ? '' : v).toLowerCase().includes(q.trim().toLowerCase());
+    const filtered = () => rows.filter((x) => x.status === 'COMPLETED' && (!F.sched || String(x.factory_date || '').slice(0, 10) === F.sched) && (Array.isArray(x.drivers) || has(x.driver_name, F.driver))); // มี drivers (RUN-17) = Server กรองคนขับทุกตู้แล้ว
+    const frame = () => {
+      mode = isNarrow() ? 'm' : 'd'; const clr = '<button type="button" class="btn btn-sm" id="rpClear">ล้างการค้นหา</button>';
+      const head = `<tr>${RJ_HEAD.map((l) => `<th>${l}</th>`).join('')}</tr>`; const fi = (k) => { const c = RJ_COLS.find((x) => x[0] === k); return rjInput(c[0], c[1], c[2], c[3]); };
+      $('#rpList').innerHTML = mode === 'd'
+        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
+        : `<div class="jf-m">${RJ_COLS.map(([k, l, t, ph]) => `<div class="field"><label>${l}</label>${rjInput(k, l, t, ph)}</div>`).join('')}<div class="jf-m-clr">${clr}</div></div><div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}</thead><tbody id="rpBody"></tbody></table></div>`;
+      $$('#rpList [data-rf]').forEach((i) => { i.value = F[i.dataset.rf] || ''; });
+      const later = T.debounce(() => { pageNo = 1; load(); }, 400);
+      $$('#rpList [data-rf]').forEach((i) => {
+        const k = i.dataset.rf; const local = k === 'sched';
+        const ev = () => { if (F[k] === i.value) return; F[k] = i.value; pageNo = 1; if (local) draw(); else if (i.tagName === 'INPUT' && i.type !== 'date') later(); else load(); };
+        i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', ev);
+        if (i.tagName === 'INPUT' && i.type !== 'date') i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); F[k] = i.value; pageNo = 1; if (local) draw(); else load(); } });
+      });
+      $('#rpClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#rpList [data-rf]').forEach((i) => { i.value = ''; }); pageNo = 1; load(); };
+    };
+    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><a class="btn btn-sm" href="#/jobs/${x.job_id}" onclick="event.stopPropagation()">เปิด JOB ›</a></td></tr>`;
+    const draw = () => {
+      if (!$('#rpBody')) return;
+      const list = filtered(); const pages = Math.max(1, Math.ceil(list.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
+      const vis = list.slice((pageNo - 1) * PS, pageNo * PS);
+      $('#rpBody').innerHTML = vis.map(rowHtml).join('') || `<tr><td colspan="${RJ_HEAD.length}" class="empty">ไม่พบข้อมูล</td></tr>`;
+      $$('#rpBody [data-det]').forEach((b) => b.onclick = () => openReportDetail(b.dataset.det));
+      $('#rpPager').innerHTML = `<span class="muted small">ทั้งหมด ${list.length} รายการ · หน้า ${pageNo}/${pages}</span><button class="btn btn-sm" id="rPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="rNext" ${pageNo >= pages ? 'disabled' : ''}>›</button>`;
+      $('#rPrev').onclick = () => { pageNo--; draw(); }; $('#rNext').onclick = () => { pageNo++; draw(); };
+    };
+    const load = async () => { const my = ++seq; try {
+      const d = await T.auth('tnj_report_rows', { p: server() }, { silent: true });
+      if (my !== seq || !$('#rpList')) return; rows = d.rows || [];
+      if (!$('#rpBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
+    } catch (e) { if (my === seq) T.err(e); } };
+    $('#rpXls').onclick = async () => { try { T.loading(true); await ensureXlsx();
+      const list = filtered().slice().sort((a, b) => String(a.job_date).localeCompare(String(b.job_date)));
+      const ja = [['Date', 'MODE', 'Customer', 'B/L, BOOKING', 'Container No.', 'Containers', 'Seal', 'Size', 'ท่านำเข้า', 'รับ/คืนตู้เปล่า', 'วันที่ส่ง', 'เวลา', 'Driver', 'License Plate', 'Trailer Plate', 'สถานะล่าสุด', 'ปิดงานเมื่อ', 'Job Status']].concat(list.map((x) => [x.job_date, modeTxt(x) === '-' ? '' : modeTxt(x), x.customer_name, x.bl_no, x.container_no || '', x.container_count || 1, x.seal_no || '', x.container_size || '', x.pickup_location_text || '', x.return_location_text || '', x.factory_date || '', x.factory_time ? String(x.factory_time).slice(0, 5) : '', x.driver_name || '', x.license_plate || '', x.trailer_plate || '', x.tl_status || '', x.completed_at ? T.fmtDT(x.completed_at) : '', T.ST_TH[x.status] || x.status]));
+      ja.push([]); ja.push(['Total', `จำนวน Job: ${list.length}`]); const jws = XLSX.utils.aoa_to_sheet(ja); jws['!cols'] = [10, 14, 24, 16, 14, 9, 12, 8, 18, 18, 10, 7, 18, 12, 12, 26, 16, 12].map((w) => ({ wch: w })); const jwb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(jwb, jws, 'Jobs'); XLSX.writeFile(jwb, `TransportNJ_Job_Report_${T.todayISO()}.xlsx`); T.toast(`Export ${list.length} งาน`, 'ok');
+    } catch (e) { T.err(e); } finally { T.loading(false); } };
+    frame(); load(); T.subscribe('tnj:office', T.debounce(() => { if ($('#rpJobTbl')) load(); }, 1500)); // ปิดงาน / เปิดงานกลับ → รายงานอัปเดตเอง (Realtime เดิม)
+  }
   async function pageReports(page, r, opt = {}) {
     await loadMasters(); let mode = r.q.mode || 'all'; let pageNo = 1; let lastFilter = {};
     const d0 = T.todayISO().slice(0, 8) + '01';
