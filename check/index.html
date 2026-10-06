@@ -1354,6 +1354,7 @@ body.legacy-active .content-area { display: none !important; }
 .pm-bdg{display:inline-block;border-radius:8px;padding:3px 10px;font-weight:700;font-size:11px;white-space:nowrap}
 .pm-bdg-ok{background:#dcfce7;color:#166534} .pm-bdg-no{background:#fef9c3;color:#854d0e} .pm-bdg-bad{background:#fee2e2;color:#b91c1c}
 .pm-edit{background:#fed7aa;color:#9a3412;border:1px solid #fdba74;border-radius:8px;padding:4px 10px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.pm-del{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:8px;padding:4px 10px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:4px}.pm-del:disabled{opacity:.5;cursor:default}   /* ★ [local106] */
 .pm-edit:hover{background:#fdba74}
 .pm-sum{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0} .pm-sum div{flex:1;min-width:92px;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700}
 .pm-sum b{display:block;font-size:18px} .pm-s-new{background:#dcfce7;color:#166534} .pm-s-upd{background:#dbeafe;color:#1e40af} .pm-s-same{background:#e5e7eb;color:#374151} .pm-s-bad{background:#fee2e2;color:#b91c1c} .pm-s-no{background:#fef3c7;color:#92400e}
@@ -7117,7 +7118,7 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
         return '<tr><td style="text-align:center">'+(o+i+1).toLocaleString('en-US')+'</td><td>'+esc(String(x.tariff||'').replace(/[^0-9]/g,'')||x.tariff_key)+'</td><td style="text-align:center">'+esc(x.stat_key)+'</td><td>'+esc(x.tax_no==null?'':x.tax_no)+'</td><td>'+esc(x.agency)+'</td>'+
           '<td style="text-align:center">'+Y(dd.indexOf('IMPORT')>=0)+'</td><td style="text-align:center">'+Y(dd.indexOf('EXPORT')>=0)+'</td><td style="text-align:center">'+(has?'<span class="pm-bdg pm-bdg-ok">'+MODE_TXT(x.mole)+'</span>':'-')+'</td>'+
           '<td style="white-space:nowrap">'+esc(fmtD(x.updated_at))+'</td><td>'+(has?'<span class="pm-bdg pm-bdg-ok">✅ มี MODE</span>':'<span class="pm-bdg pm-bdg-no">⚠️ ยังไม่มี MODE</span>')+'</td><td>'+esc(x.saved_by_name||'')+'</td>'+
-          '<td style="text-align:center"><button class="pm-edit" onclick="pmOpenEdit('+i+')">'+(has?'✏️ แก้ไข':'✏️ เติม MODE')+'</button></td></tr>'; }).join('')
+          '<td style="text-align:center;white-space:nowrap"><button class="pm-edit" onclick="pmOpenEdit('+i+')">'+(has?'✏️ แก้ไข':'✏️ เติม MODE')+'</button><button class="pm-del" onclick="pmDelete('+i+',this)">🗑 ลบ</button></td></tr>'; }).join('')   /* ★ [local106] ปุ่มลบรายการเดียว */
         : '<tr><td colspan="12" style="text-align:center;padding:16px;color:var(--text3)">ไม่พบข้อมูล</td></tr>')+'</tbody></table>';
     const mx=Math.max(1,Math.ceil(S.total/S.ps)); const g=id=>document.getElementById(id);
     if(g('pm-pg-no')) g('pm-pg-no').textContent=S.pg+' / '+mx;
@@ -7169,6 +7170,19 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
     sayM('✅ บันทึก MODE สำเร็จ — '+(String(x.tariff||'').replace(/[^0-9]/g,'')||x.tariff_key)+' / Stat '+x.stat_key+' · '+x.agency+' → '+MODE_TXT(m),'#0b7a2a');
     await pmLoadPage(); rerunModes();
   }
+  /* ★ [local106] ลบรายการเดียว: RPC calc_permit_master_delete (RUN-106) · ลบเฉพาะแถว id + Tariff + Stat + หน่วยงาน ตรงกันทั้งหมด · ยืนยันก่อนลบ · แถวอื่นไม่แตะ */
+  async function pmDelete(i, btn){
+    const x=S.rows[i]; if(!x) return; const tk=String(x.tariff||'').replace(/[^0-9]/g,'')||x.tariff_key;
+    if(x.id==null){ sayM('❌ ลบไม่ได้ — ไม่พบรหัสรายการ (id)','#c00000'); return; }
+    if(!window.confirm('ยืนยันลบรายการนี้?\n\nTariff '+tk+' / Stat '+x.stat_key+'\nหน่วยงาน: '+x.agency+'\nMODE: '+(x.mole?MODE_TXT(x.mole):'ยังไม่มี MODE'))) return;
+    const A=auth(), c=sb(); if(!A || !c){ sayM('❌ ยังไม่ได้เข้าสู่ระบบ','#c00000'); return; }
+    if(btn) btn.disabled=true; sayM('กำลังลบ…');
+    let j=null; try{ const r=await c.rpc('calc_permit_master_delete',{ p_token:A.token, p_id:x.id, p_tariff_key:x.tariff_key, p_stat_key:x.stat_key, p_agency:x.agency }); j=r && !r.error ? J(r.data) : { success:false, error:(r&&r.error&&(r.error.code+' '+r.error.message))||'delete_fail' }; }catch(e){ j={ success:false, error:String(e&&e.message||e) }; }
+    if(!j || !j.success || j.deleted!==1){ sayM('❌ ลบไม่สำเร็จ: '+(j&&j.error==='forbidden'?'สิทธิ์ไม่เพียงพอ':(j&&j.error==='not_found'?'ไม่พบรายการ (อาจถูกลบหรือแก้ไขแล้ว) — กดค้นหาเพื่อโหลดใหม่':(j&&j.error)||'delete_fail')),'#c00000'); if(btn) btn.disabled=false; return; }
+    await pmRefresh(); renderCurrent();
+    sayM('✅ ลบสำเร็จ — '+tk+' / Stat '+x.stat_key+' · '+x.agency,'#0b7a2a');
+    await pmLoadPage(); rerunModes();
+  }
   /* ── EXPORT EXCEL MASTER: ดึงจาก DB ล่าสุดทีละ 5,000 แถว (ทั้งหมด · รวม MODE ไม่มี) · Tariff / Stat / Tax No. = TEXT ── */
   async function pmExportMaster(){
     const btn=document.getElementById('pm-btn-export'); if(btn) btn.disabled=true; sayM('กำลังดึง MASTER ล่าสุดจาก DB…');
@@ -7200,7 +7214,7 @@ window.chkpRenderTermTransfer=chkpRenderTermTransfer;
   }
   function closePermitMaster(){ ['pm-paste-ov','pm-up-ov','pm-edit-ov'].forEach(closeSub); document.getElementById('pm-overlay').classList.remove('show'); }
   window.openPermitMaster=openPermitMaster; window.closePermitMaster=closePermitMaster; window.pmPreview=pmPreview; window.pmSave=pmSave; window.pmParsePaste=parsePaste;
-  Object.assign(window,{ pmOpenPaste, pmClosePaste, pmOpenUpload, pmCloseUpload, pmUpPick, pmOpenEdit, pmCloseEdit, pmEditCalc, pmEditSave, pmExportMaster, pmSearchInput, pmSearchNow, pmClearSearch, pmSetMode, pmPageSize, pmGo, pmLoadPage });
+  Object.assign(window,{ pmDelete, pmOpenPaste, pmClosePaste, pmOpenUpload, pmCloseUpload, pmUpPick, pmOpenEdit, pmCloseEdit, pmEditCalc, pmEditSave, pmExportMaster, pmSearchInput, pmSearchNow, pmClearSearch, pmSetMode, pmPageSize, pmGo, pmLoadPage });
 })();
 </script>
 <script>
