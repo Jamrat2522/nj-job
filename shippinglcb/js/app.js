@@ -156,10 +156,77 @@ function _njGpsDesktop(){try{return window.innerWidth>1024&&(!window.matchMedia|
 function _njGpsAllowed(){return _njIsSuper()&&_njGpsDesktop()}
 function renderGpsView(){if(!_njGpsAllowed()){S.view=_defaultLandingView();return renderView()}return _lazyRender("gps","renderGpsView",arguments);}
 function _njGpsTracked(u){if(!u)return false;const r=String(u.role||"").toUpperCase();if(r==="ADMIN"||r==="SUPER_ADMIN")return false;return r==="MESSENGER"||r==="SHIPPING"||String(u.department||"").trim().toUpperCase()==="SHIPPING"}
-/* GPS มือถือ: ส่งได้สูงสุด 1 ครั้ง / 60 วิ (นับจากรอบก่อน "ส่งเสร็จ" → ไม่ชน throttle 60 วิ ฝั่ง Server) · ไม่ซ้อน (_njGpsBusy) */
-var _njGpsLast=0,_njGpsBusy=false;const NJ_GPS_PING_MS=6e4;
-function _njGpsPing(force){try{const u=S.user;if(!u||!sb||!_njGpsTracked(u)||_njGpsDesktop()||document.hidden||_njGpsBusy||!_njGpsReady)return;const gap=Date.now()-_njGpsLast;if(gap<NJ_GPS_PING_MS)return;_njGpsBusy=true;_njGpsLast=Date.now();_getGpsOnce().then(function(g){if(!g||!S.user||S.user.id!==u.id)return;return withTimeout(sb.rpc("nj_gps_ping",{p_token:_msTok(),p_lat:g.lat,p_lng:g.lng,p_accuracy:g.accuracy==null?null:g.accuracy}),2e4,"nj_gps_ping")}).catch(function(){}).finally(function(){_njGpsBusy=false;_njGpsLast=Date.now()})}catch(_){_njGpsBusy=false}}
-try{document.addEventListener("visibilitychange",function(){if(!document.hidden)_njGpsPing(true)});setInterval(function(){_njGpsPing(false)},5e3)/* ตัวตรวจรอบ (ไม่ยิง Request เอง · ยิงเมื่อครบ 60 วิ) */}catch(_){}
+/* GPS มือถือ: ส่งได้สูงสุด 1 ครั้ง / 60 วิ (นับจากรอบก่อน "ส่งเสร็จ" → ไม่ชน throttle 60 วิ ฝั่ง Server) · ไม่ซ้อน (_njGpsBusy)
+   ทุกผลลัพธ์ถูกจำแนกและแสดงสถานะบนมือถือ (ไม่กลืน Error) · force = เปิดแอป / กลับ Foreground / อนุญาตสำเร็จ / ลองอีกครั้ง
+   → ข้ามรอบรอได้เฉพาะเมื่อ "ส่งสำเร็จล่าสุด" เก่ากว่า 60 วิ (เคารพ throttle Server) */
+var _njGpsLast=0,_njGpsBusy=false;const NJ_GPS_PING_MS=6e4,NJ_GPS_WARN_MS=12e4;
+var _njGpsSt={kind:"",at:0,okAt:0,msg:""};
+/* ขอตำแหน่งจริงสำหรับ GPS พนักงาน (แยกจาก _getGpsOnce ของงานรับ/ปิดงาน) · คืน {pos} หรือ {err:"denied|off|timeout"} */
+function _njGpsGetPos(){
+  return new Promise(function(res){
+    let done=false;const resolve=function(v){if(done)return;done=true;clearTimeout(guard);clearTimeout(fastTimer);res(v)};
+    /* กัน callback ไม่กลับ (เช่น หน้าต่างขอสิทธิ์ค้างไม่มีคนตอบ) → ไม่ให้ _njGpsBusy ค้างถาวร */
+    const guard=setTimeout(function(){resolve(coarse?{pos:coarse}:{err:"timeout"})},25e3);
+    let fastTimer=0,coarse=null,lowDone=false,lowErr="",hiErr="";
+    if(!navigator.geolocation){resolve({err:"off"});return}
+    const P=function(p){return{lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy}};
+    const kind=function(e){return e&&e.code===1?"denied":e&&e.code===3?"timeout":"off"};
+    /* Flow เดิมแบบ _getGpsOnce: ขอแบบเร็วก่อน (≤50 ม. ส่งทันที) · 2.5 วิ ค่อยขอแบบละเอียด
+       ไม่ทิ้งตำแหน่งหยาบที่ได้แล้ว · ล้มทั้งคู่ → คืน Error Type จริง */
+    fastTimer=setTimeout(function(){
+      if(done)return;
+      try{navigator.geolocation.getCurrentPosition(function(p){resolve({pos:P(p)})},function(e){
+        hiErr=kind(e);if(coarse){resolve({pos:coarse});return}
+        if(lowDone)resolve({err:lowErr==="denied"?"denied":hiErr});
+      },{enableHighAccuracy:true,timeout:8e3,maximumAge:0})}catch(_){hiErr="off";if(coarse)resolve({pos:coarse});else if(lowDone)resolve({err:lowErr||"off"})}
+    },2500);
+    try{navigator.geolocation.getCurrentPosition(function(p){
+      lowDone=true;if(done)return;const q=P(p);
+      if((q.accuracy||999)<=50){resolve({pos:q});return}
+      coarse=q;if(hiErr)resolve({pos:coarse});
+    },function(e){
+      lowDone=true;lowErr=kind(e);
+      if(lowErr==="denied"){resolve({err:"denied"});return}
+      if(hiErr)resolve({err:hiErr});
+    },{enableHighAccuracy:false,timeout:2400,maximumAge:0})}catch(_){resolve({err:"off"})}
+  })
+}
+function _njGpsSetSt(kind,msg){_njGpsSt.kind=kind;_njGpsSt.at=Date.now();_njGpsSt.msg=msg||"";if(kind==="ok")_njGpsSt.okAt=Date.now();try{_njGpsChip()}catch(_){}}
+function _njGpsPing(force){try{const u=S.user;if(!u||!sb||!_njGpsTracked(u)||_njGpsDesktop()||document.hidden||_njGpsBusy||!_njGpsReady)return;
+  const now=Date.now();if(force){if(_njGpsSt.okAt&&now-_njGpsSt.okAt<NJ_GPS_PING_MS)return}else if(now-_njGpsLast<NJ_GPS_PING_MS)return;
+  _njGpsBusy=true;_njGpsLast=now;if(_njGpsSt.kind!=="ok")_njGpsSetSt("locating");
+  _njGpsGetPos().then(function(g){
+    if(!S.user||S.user.id!==u.id)return;
+    if(g.err){
+      if(g.err==="denied"){_njGpsReady=false;_njGpsFlagSet("denied");_njGpsSetSt("denied");_njGpsBannerHidden=false;_njGpsShowBanner("denied");return}
+      if(g.err==="off"){_njGpsSetSt("off");return}
+      _njGpsSetSt("timeout");return}
+    const p=g.pos;
+    return withTimeout(sb.rpc("nj_gps_ping",{p_token:_msTok(),p_lat:p.lat,p_lng:p.lng,p_accuracy:p.accuracy==null?null:p.accuracy}),2e4,"nj_gps_ping").then(function(r){
+      if(r&&r.error){if(_msIsSessionErr(r.error))_njGpsSetSt("session");else _njGpsSetSt("rpc",String(r.error.message||"").slice(0,80));try{console.warn("[GPS] nj_gps_ping error",r.error)}catch(_){}return}
+      _njGpsSetSt("ok")
+    },function(e){_njGpsSetSt("network");try{console.warn("[GPS] nj_gps_ping network",e&&e.message)}catch(_){}})
+  }).catch(function(e){_njGpsSetSt("rpc");try{console.warn("[GPS] ping failed",e&&e.message)}catch(_){}}).finally(function(){_njGpsBusy=false;_njGpsLast=Date.now()})}catch(_){_njGpsBusy=false}}
+/* สถานะ GPS แบบกระชับบนมือถือ (เฉพาะ MESSENGER / SHIPPING) */
+function _njGpsChip(){
+  const on=typeof _njGpsFlowOn==="function"&&_njGpsFlowOn();let el=document.getElementById("njgp-chip");
+  if(!on||document.getElementById("njgp-banner")){if(el)el.remove();return}
+  const st=_njGpsSt,t=function(ms){try{return new Date(ms).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}catch(_){return""}};
+  let ico="🟠",txt="กำลังหาตำแหน่ง...",bad=false;
+  if(!_njGpsReady&&st.kind!=="denied"){if(!st.kind){if(el)el.remove();return}}
+  if(st.kind==="ok"){ico="🟢";txt="GPS ทำงาน · ส่งล่าสุด "+t(st.okAt)}
+  else if(st.kind==="denied"){ico="🔴";txt="ยังไม่ได้อนุญาต Location";bad=true}
+  else if(st.kind==="off"){ico="🔴";txt="Location/GPS ปิด";bad=true}
+  else if(st.kind==="timeout"){ico="🔴";txt="หาตำแหน่งไม่ได้ — ลองใหม่";bad=true}
+  else if(st.kind==="session"){ico="🔴";txt="ส่งตำแหน่งไม่สำเร็จ (เซสชันหมดอายุ)";bad=true}
+  else if(st.kind==="rpc"||st.kind==="network"){ico="🔴";txt="ส่งตำแหน่งไม่สำเร็จ — ลองใหม่";bad=true}
+  if(st.okAt&&!document.hidden&&Date.now()-st.okAt>NJ_GPS_WARN_MS&&st.kind!=="locating"){ico="⚠️";txt="GPS ไม่ได้อัปเดต · ส่งล่าสุด "+t(st.okAt);bad=true}
+  if(!el){el=document.createElement("div");el.id="njgp-chip";el.onclick=function(){if(_njGpsSt.kind==="denied"){_njGpsRequest();return}_njGpsPing(true)};(document.getElementById("screen-app")||document.body).appendChild(el)}
+  const tb=document.querySelector(".mobile-tabbar");const tbH=tb&&tb.offsetParent!==null?tb.offsetHeight:0;
+  el.style.cssText="position:fixed;left:8px;bottom:"+(tbH+8)+"px;z-index:74;max-width:calc(100% - 16px);padding:4px 10px;border-radius:999px;font-size:11px;line-height:1.5;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);"+(bad?"background:#3b1d1d;color:#fecaca;border:1px solid #7f1d1d":"background:#0f2a22;color:#a7f3d0;border:1px solid #065f46");
+  el.setAttribute("data-kind",st.kind||"");el.textContent=ico+" "+txt;
+}
+try{document.addEventListener("visibilitychange",function(){if(!document.hidden)_njGpsPing(true)});setInterval(function(){_njGpsPing(false);try{_njGpsChip()}catch(_){}},5e3)/* ตัวตรวจรอบ (ไม่ยิง Request เอง · ยิงเมื่อครบ 60 วิ) + อัปเดตสถานะ */}catch(_){}
 /* 📍 GPS Permission Flow — MESSENGER / SHIPPING บน Mobile/Tablet เท่านั้น
    - ไม่เรียก Geolocation เงียบ ๆ: ต้องกด [เปิดตำแหน่ง] ก่อน (Browser เป็นผู้ถาม Permission เอง)
    - ส่ง GPS ผ่าน _njGpsPing เดิม (RPC nj_gps_ping) เมื่ออนุญาตแล้วเท่านั้น
@@ -168,7 +235,7 @@ var NJ_GPS_PERM_KEY="nj_gps_perm_v1",_njGpsReady=false,_njGpsBannerHidden=false,
 function _njGpsFlagGet(){try{return localStorage.getItem(NJ_GPS_PERM_KEY)||""}catch(_){return""}}
 function _njGpsFlagSet(v){try{if(v)localStorage.setItem(NJ_GPS_PERM_KEY,v);else localStorage.removeItem(NJ_GPS_PERM_KEY)}catch(_){}}
 function _njGpsFlowOn(){const u=S.user;return !!(u&&_njGpsTracked(u)&&!_njGpsDesktop()&&navigator.geolocation)}
-function _njGpsUiClear(){["njgp-modal","njgp-banner","njgp-help"].forEach(function(id){const e=document.getElementById(id);if(e)e.remove()})}
+function _njGpsUiClear(){["njgp-modal","njgp-banner","njgp-help","njgp-chip"].forEach(function(id){const e=document.getElementById(id);if(e)e.remove()})}
 function _njGpsHost(){return document.getElementById("screen-app")||document.body}
 function _njGpsPermState(){try{if(navigator.permissions&&navigator.permissions.query){return navigator.permissions.query({name:"geolocation"}).then(function(p){return p&&p.state||""},function(){return""})}}catch(_){}return Promise.resolve("")}
 function _njGpsGranted(){_njGpsReady=true;_njGpsFlagSet("granted");_njGpsUiClear();_njGpsLast=0;_njGpsPing(true)}
@@ -184,9 +251,10 @@ function _njGpsDecide(allowModal){
     _njGpsReady=false;
     if(flag==="denied"||flag==="off"){_njGpsShowBanner(flag==="off"?"off":"denied");if(!allowModal)_njGpsRecheck();return}
     if(allowModal)_njGpsShowModal();
+    else if(flag==="granted"){_njGpsSetSt("denied");_njGpsShowBanner("denied")}
   })
 }
-function _njGpsStart(){try{_njGpsUiClear();_njGpsReady=false;_njGpsBannerHidden=false;if(!_njGpsFlowOn())return;_njGpsDecide(true)}catch(_){}}
+function _njGpsStart(){try{_njGpsUiClear();_njGpsReady=false;_njGpsBannerHidden=false;_njGpsSt={kind:"",at:0,okAt:0,msg:""};_njGpsLast=0;if(!_njGpsFlowOn())return;_njGpsDecide(true)}catch(_){}}
 function _njGpsRequest(){
   if(_njGpsReqBusy||!_njGpsFlowOn())return;
   _njGpsReqBusy=true;const uid=S.user.id;let settled=false;
