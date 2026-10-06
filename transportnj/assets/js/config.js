@@ -4,7 +4,7 @@
 self.TNJ_CONFIG = {
   APP_NAME: 'TRANSPORT NJ',
   APP_CODE: 'transport',
-  APP_VERSION: 'local138',
+  APP_VERSION: 'local139',
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
   FILES_FN: 'https://sytgqjglcnsabcszbngg.supabase.co/functions/v1/transportnj-files',
