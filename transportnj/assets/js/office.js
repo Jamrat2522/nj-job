@@ -32,7 +32,7 @@
         <div class="foot">เวอร์ชัน ${h(T.C.APP_VERSION)}<br><span id="rtState">●</span> Realtime</div>
         <div class="nav-bottom">${T.session.role === 'SUPER_ADMIN' ? '<a href="#/settings" data-nav="settings"><span class="ic">👥</span>จัดการผู้ใช้</a>' : ''}<button type="button" class="bell" id="bell" title="งานมีปัญหา"><span class="ic">🔔</span>แจ้งเตือน<span class="n hidden" id="bellN"></span></button><button type="button" id="logoutBtn"><span class="ic">🚪</span>ออกจากระบบ</button></div></nav></aside>
         <nav class="m-nav" id="mNav"><a href="#/jobs/new" data-m="new"><span>🚚</span>เปิดงาน</a><a href="#/m-tl" data-m="tl"><span>🕒</span>Timeline</a><a href="#/m-gps" data-m="gps"><span>📍</span>GPS</a><a href="#/m-acc" data-m="acc"><span>📋</span>ข้อมูล</a></nav>
-        <div class="main"><div class="m-head"><span class="m-logo">🚚</span><div><div class="m-ht">NJ TRANSPORT</div><div class="m-hs" id="mTitle"></div></div></div><header class="topbar"><button class="btn btn-icon" id="sbToggle">☰</button><div class="search"><span class="ic">🔍</span><input class="inp" id="gSearch" placeholder="ค้นหา B/L, BOOKING / ลูกค้า / เบอร์ตู้ / ทะเบียนรถ / คนขับ ..."></div></header>
+        <div class="main"><div class="m-head"><span class="m-logo">🚚</span><div><div class="m-ht">NJ TRANSPORT</div><div class="m-hs" id="mTitle"></div></div></div><header class="topbar"><button class="btn btn-icon" id="sbToggle">☰</button><div class="search"><span class="ic">🔍</span><input class="inp" id="gSearch" placeholder="ค้นหา JOB / B/L, BOOKING / ลูกค้า / เบอร์ตู้ / ทะเบียนรถ / คนขับ ..."></div></header>
         <main class="content" id="page"></main></div></div>`;
       $('#logoutBtn').onclick = () => T.logout();
       $('#sbToggle').onclick = () => { $('#sb').classList.toggle('open'); let m = $('.sb-mask'); if ($('#sb').classList.contains('open') && !m) { m = document.createElement('div'); m.className = 'sb-mask'; m.onclick = () => { $('#sb').classList.remove('open'); m.remove(); }; document.body.appendChild(m); } else if (m) m.remove(); };
@@ -357,7 +357,7 @@
     let all = [];
     const draw = () => {
       const box = $('#mtList'); if (!box) return; const q = $('#mtQ').value.trim().toLowerCase();
-      const rows = all.filter((j) => j.status !== 'CANCELLED').filter((j) => !q || [j.bl_no, j.container_no, j.customer_name, j.driver_name, j.license_plate].some((v) => String(v || '').toLowerCase().includes(q)));
+      const rows = all.filter((j) => j.status !== 'CANCELLED').filter((j) => !q || [j.job_no, j.bl_no, j.container_no, j.customer_name, j.driver_name, j.license_plate].some((v) => String(v || '').toLowerCase().includes(q)));
       box.innerHTML = rows.length ? rows.map((j) => `<a class="m-card m-jobitem" href="#/m-tl/${j.id}" data-mt="${j.id}"><div class="flex between"><b class="m-jn">${h(T.jobRef(j))}</b><span class="m-chev">›</span></div><div class="b">${h(j.customer_name || '-')}</div>
         <div class="small">B/L: ${h(j.bl_no || '-')} · เบอร์ตู้: ${h(j.container_no || '-')}</div><div class="small">คนขับ: ${h(j.driver_name || '-')}</div><div class="small">สถานะล่าสุด: <span class="hl-st-tag">${h(j.tl_status || j.status_th || '-')}</span></div></a>`).join('') : '<div class="empty">ไม่พบ JOB</div>';
     };
@@ -1116,8 +1116,8 @@
   // ใช้ RPC / Filter เดิม tnj_report_rows (closed_only + customer / bl_no / container / tl_status / mode / date_from=date_to) — ไม่แก้ DB
   // กำหนดส่ง (factory_date) กรองฝั่งหน้าเว็บ · คนขับ = ทุกตู้ (RUN-17: drivers + ตัวกรอง driver ฝั่ง Server) · Pagination + จำนวนรายการ คิดจากผลหลังกรองทั้งหมด
   // ช่องค้นหา [key, ป้าย (มือถือ), ชนิด, placeholder] — เบอร์ตู้ (คอลัมน์ซ่อน) ค้นหาได้ในช่องใต้ "จำนวนตู้" · MODE อยู่ในช่องใต้ "จัดการ"
-  const RJ_COLS = [['job_date', 'วันที่งาน', 'date'], ['customer', 'ลูกค้า', 'text'], ['bl_no', 'B/L, BOOKING', 'text', 'ค้นหา B/L / BOOKING'], ['container', 'เบอร์ตู้', 'text'], ['sched', 'กำหนดส่ง', 'date'], ['driver', 'คนขับ', 'text'], ['tl_status', 'สถานะล่าสุด', 'status'], ['mode', 'MODE', 'mode']];
-  const RJ_HEAD = ['วันที่งาน', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'กำหนดส่ง', 'คนขับ', 'สถานะล่าสุด', 'จัดการ'];
+  const RJ_COLS = [['job_no', 'JOB', 'text', 'ค้นหา JOB'], ['job_date', 'วันที่งาน', 'date'], ['customer', 'ลูกค้า', 'text'], ['bl_no', 'B/L, BOOKING', 'text', 'ค้นหา B/L / BOOKING'], ['container', 'เบอร์ตู้', 'text'], ['sched', 'กำหนดส่ง', 'date'], ['driver', 'คนขับ', 'text'], ['tl_status', 'สถานะล่าสุด', 'status'], ['mode', 'MODE', 'mode']];
+  const RJ_HEAD = ['JOB', 'วันที่งาน', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'กำหนดส่ง', 'คนขับ', 'สถานะล่าสุด', 'จัดการ'];
   const rjInput = (k, label, type, ph) => type === 'date' ? `<input type="date" class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}">`
     : type === 'status' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option>${HL_STATUS.map((x) => `<option value="${h(x)}">${h(x)}</option>`).join('')}</select>`
     : type === 'mode' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option><option value="IMPORT">IMPORT</option><option value="EXPORT">EXPORT</option><option value="BOTH">IMPORT+EXPORT</option></select>`
@@ -1130,14 +1130,14 @@
     const drvTxt = (x) => { const a = Array.isArray(x.drivers) ? x.drivers : (x.driver_name ? [String(x.driver_name).trim().split(/\s+/)[0]] : []); return a.filter(Boolean).join(', ') || '-'; };
     page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><button class="btn btn-g" id="rpXls">📊 EXPORT EXCEL</button></div><div class="flex"><h1>📈 รายงานงานขนส่ง</h1></div></div>
       <div class="card"><div id="rpList"></div><div class="pager" id="rpPager"></div></div>`;
-    const server = () => { const o = { page: 0, closed_only: true }; ['customer', 'bl_no', 'container', 'tl_status', 'mode', 'driver'].forEach((k) => { if (F[k].trim()) o[k] = F[k].trim(); }); if (F.job_date) { o.date_from = F.job_date; o.date_to = F.job_date; } return o; };
+    const server = () => { const o = { page: 0, closed_only: true }; ['job_no', 'customer', 'bl_no', 'container', 'tl_status', 'mode', 'driver'].forEach((k) => { if (F[k].trim()) o[k] = F[k].trim(); }); if (F.job_date) { o.date_from = F.job_date; o.date_to = F.job_date; } return o; };
     const has = (v, q) => !q || String(v == null ? '' : v).toLowerCase().includes(q.trim().toLowerCase());
     const filtered = () => rows.filter((x) => x.status === 'COMPLETED' && (!F.sched || String(x.factory_date || '').slice(0, 10) === F.sched) && (Array.isArray(x.drivers) || has(x.driver_name, F.driver))); // มี drivers (RUN-17) = Server กรองคนขับทุกตู้แล้ว
     const frame = () => {
       mode = isNarrow() ? 'm' : 'd'; const clr = '<button type="button" class="btn btn-sm" id="rpClear">ล้างการค้นหา</button>';
       const head = `<tr>${RJ_HEAD.map((l) => `<th>${l}</th>`).join('')}</tr>`; const fi = (k) => { const c = RJ_COLS.find((x) => x[0] === k); return rjInput(c[0], c[1], c[2], c[3]); };
       $('#rpList').innerHTML = mode === 'd'
-        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
+        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_no', 'job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
         : `<div class="jf-m">${RJ_COLS.map(([k, l, t, ph]) => `<div class="field"><label>${l}</label>${rjInput(k, l, t, ph)}</div>`).join('')}<div class="jf-m-clr">${clr}</div></div><div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}</thead><tbody id="rpBody"></tbody></table></div>`;
       $$('#rpList [data-rf]').forEach((i) => { i.value = F[i.dataset.rf] || ''; });
       const later = T.debounce(() => { pageNo = 1; load(); }, 400);
@@ -1149,7 +1149,7 @@
       });
       $('#rpClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#rpList [data-rf]').forEach((i) => { i.value = ''; }); pageNo = 1; load(); };
     };
-    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><a class="btn btn-sm" href="#/jobs/${x.job_id}" onclick="event.stopPropagation()">เปิด JOB ›</a></td></tr>`;
+    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono">${h(x.job_no || '-')}</td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><a class="btn btn-sm" href="#/jobs/${x.job_id}" onclick="event.stopPropagation()">เปิด JOB ›</a></td></tr>`;
     const draw = () => {
       if (!$('#rpBody')) return;
       const list = filtered(); const pages = Math.max(1, Math.ceil(list.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
