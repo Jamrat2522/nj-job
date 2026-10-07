@@ -287,6 +287,8 @@ body:has(#appMain.kdc-light) { background: #f6f8fb; }
 #panel-single .err-table.kdc-grid .kdc-act.td-bad { color: #b42318; font-weight: 600; }
 #panel-single .err-table.kdc-grid .kdc-exp { color: #0f6157; }
 #panel-single .err-table.kdc-grid .kdc-unit { text-align: center; color: #475569; }
+#panel-single .err-table.kdc-grid .kdc-fix { color: #1e3a5f; }
+#panel-single .err-table.kdc-grid .kdc-st .kdc-badge { white-space: normal; }   /* คอลัมน์สถานะ 12% — ข้อความ ❌ ยาวตัดบรรทัดในช่อง ไม่ล้นตาราง */
 #panel-single .kdc-badge { display: inline-block; padding: 0 7px; border-radius: 5px; border: 1px solid transparent; font-size: 11px; font-weight: 600; line-height: 1.3; white-space: nowrap; vertical-align: middle; }
 #panel-single .kdc-badge.ok  { background: #eef7f2; border-color: #c3e3d0; color: #1f7a4d; }
 #panel-single .kdc-badge.bad { background: #fdf3f2; border-color: #f2cdc8; color: #b42318; }
@@ -298,6 +300,7 @@ body:has(#appMain.kdc-light) { background: #f6f8fb; }
 
 /* ── EDC8 (AAT/FTM = #panel-edc8) & EDC1 FZ (#panel-edc1fz) UI compact — scoped เฉพาะ 2 panel นี้ ไม่กระทบ Mode อื่น ── */
 #panel-edc8 .mode-banner, #panel-edc1fz .mode-banner { display: none; }   /* ซ่อน Header/Banner ทั้งก้อน (รวม margin) */
+#panel-excel_edc1fz .mode-banner, #panel-master_builder .mode-banner, #panel-custom_fee .mode-banner { display: none; }   /* Invoice Mapping / Master File Builder / CUSTOM FEE: ซ่อน Header/Banner ทั้งก้อน (ชื่อ · ไอคอน · คำอธิบาย · Tag · Flow · กรอบ) */
 #panel-edc8 .card-body,   #panel-edc1fz .card-body   { padding: 12px 14px; }
 #panel-edc8 .upload-col,  #panel-edc1fz .upload-col  { padding: 9px 10px; }
 #panel-edc8 .step-header, #panel-edc1fz .step-header { margin-bottom: 6px; padding-bottom: 5px; }
@@ -2459,6 +2462,13 @@ const KDC_FZ_FIX = {
 };
 
 // ── FIX ชุด กสทช. (เฉพาะ Thai Translation = เรดาร์) ────────────────
+// FIX กรมการค้าต่างประเทศ — ใช้เมื่อ HS + Stat ใบขนติดใบอนุญาต (EXPORT / IMPORT+EXPORT) ของหน่วยงานนี้เท่านั้น
+const KDC_DFT_FIX = {
+  agency:    'กรมการค้าต่างประเทศ',
+  permit:    'EXEMPT99',
+  issueDate: '20171113',
+  tax:       '0994000159561',
+};
 const KDC_NBTC_FIX = {
   permit:    'EXEMPT99',
   issueDate: '20171113',
@@ -2575,6 +2585,64 @@ function kdcNumEqual(a,b){
   if(na===null||nb===null) return false;
   return Math.abs(na-nb)<0.0001;
 }
+// KDC × HS CODE ใบอนุญาตกลาง: Key = Tariff (HS code) + Stat → แถว MASTER ตามทิศ EXPORT (MODE ส่งออก / นำเข้าและส่งออก)
+//   → ทุกหน่วยงานที่ติด: ตรวจ Company Tax Number ของหน่วยงานนั้นในทุกแถวของ Item (Permit Issue Authority / tax) · ไม่เดา ไม่ใช้ข้อมูล Item อื่น
+function kdcPermitCheck(item, g, C, PMX, out, info){
+  const add = (field, found, expected, ok, note, msg) => { const r = { item:String(item), field, found: kdcIsBlank(found)?'(ว่าง)':String(found), expected: kdcIsBlank(expected)?'(ว่าง)':String(expected), unit:'', ok, note: note||'' }; if(msg) r.msg = msg; out.push(r); };
+  // Key = HS + Stat จากใบขน KDC เท่านั้น (แถวของ Item นี้) · ไม่ใช้ Invoice / PLATE / Source อื่น · Agency ตรวจหลัง Match เท่านั้น
+  const F = 'HS code', src = g.rows.find(r => !kdcIsBlank(kdcCell(r, C.hs))) || g.rows[0];
+  const hs = kdcCell(src, C.hs), st = kdcCell(src, C.stat), hsTxt = (hs || '(ว่าง)') + ' / Stat ' + (st || '(ว่าง)');
+  if(info){ info.hs = hs; info.st = st; }   // สำหรับตารางใบอนุญาตบนหน้าจอเท่านั้น
+  if(!PMX || !PMX.ok){ add(F, hsTxt, '(HS CODE ใบอนุญาตกลาง)', null, '⚠ โหลด HS CODE ใบอนุญาตกลางไม่ได้' + (PMX && PMX.err ? ' (' + PMX.err + ')' : '') + ' — ยังไม่ได้ตรวจ ไม่นับ (ไม่ใช้ข้อมูลเก่า)', '⚠ โหลด MASTER ไม่ได้'); return 'unchecked'; }
+  const noHs = kdcIsBlank(hs), noSt = kdcIsBlank(st);
+  if(noHs || noSt){   // Key หลักว่าง → ❌ (ไม่เดา · ไม่เติมจาก Source อื่น)
+    const m = [noHs ? 'HS CODE ไม่มีข้อมูล' : '', noSt ? 'Stat ไม่มีข้อมูล' : ''].filter(Boolean).join(' · ');
+    add(F, hsTxt, 'HS CODE + Stat จากใบขน', false, m + (C.hs < 0 ? ' (ใบขนไม่มีคอลัมน์ HS code)' : '') + (C.stat < 0 ? ' (ใบขนไม่มีคอลัมน์ Stat)' : '') + ' — ใช้ตรวจว่าติดใบอนุญาตไม่ได้', m); return noHs ? 'hsBlank' : 'statBlank'; }   // HS+Stat ว่างทั้งคู่ → นับกลุ่ม HS ว่าง (1 Item = 1 กลุ่ม)
+  const K = window.hspmKeys, tk = K.tKey(hs), sk = K.sKey(st);
+  if(!tk || !sk){ add(F, hsTxt, 'HS code 12 หลัก + Stat 3 หลัก', false, 'รูปแบบ HS code / Stat ในใบขนไม่ถูกต้อง', 'HS code / Stat ไม่ถูกต้อง'); return 'badKey'; }
+  const ex = window.hspmMatch(hs, st, 'EXPORT');   // กรอง MODE ก่อน: EXPORT / IMPORT+EXPORT เท่านั้น · แถว IMPORT ไม่ใช่ Candidate
+  if(!ex.length){
+    const imp = window.hspmMatch(hs, st, 'IMPORT'), nom = (typeof window.hspmNoMode === 'function') ? window.hspmNoMode(hs, st) : [];
+    if(imp.length) add(F, hsTxt, tk + ' / ' + sk + ' (EXPORT / IMPORT+EXPORT)', null, 'MASTER มีเฉพาะ MODE IMPORT — ไม่ติดใบอนุญาตสำหรับ KDC EXPORT · ไม่นับ', '⚪ ไม่ติดใบอนุญาตสำหรับ KDC EXPORT');
+    else add(F, hsTxt, tk + ' / ' + sk + ' (EXPORT / IMPORT+EXPORT)', null, (nom.length ? 'พบใน MASTER แต่ยังไม่กำหนด MODE — ไม่เดา · ' : 'ไม่พบ HS + Stat ใน HS CODE ใบอนุญาตกลาง · ') + 'ไม่ติดใบอนุญาต (EXPORT) · ไม่นับ', '⚪ ไม่ติดใบอนุญาต (EXPORT)');
+    return imp.length ? 'importOnly' : 'notFound';
+  }
+  add(F, hsTxt, tk + ' / ' + sk + ' (EXPORT / IMPORT+EXPORT)', true, 'ติดใบอนุญาต — พบใน HS CODE ใบอนุญาตกลาง ' + ex.length + ' รายการ (EXPORT / IMPORT+EXPORT)', 'ติดใบอนุญาต');
+  const seen = new Set(); let bad = false;
+  ex.forEach(x => { if(seen.has(x.agency)) return; seen.add(x.agency);
+    const mode = x.mole === 'นำเข้าและส่งออก' ? 'IMPORT+EXPORT' : 'EXPORT', field = 'ใบอนุญาต · ' + x.agency;
+    if(info){ (info.modes = info.modes || {})[x.agency] = mode; }   // หน้าจอเท่านั้น
+    const note = 'HS ' + tk + ' / Stat ' + sk + ' · MODE ' + mode + (x.permit_cond ? ' · เงื่อนไข: ' + x.permit_cond : '') + (x.eff_date ? ' · วันที่มีผล: ' + x.eff_date : '');
+    // กฎพิเศษ กรมการค้าต่างประเทศ (07/10/2026): ตรวจ เลขใบอนุญาต / วันที่ออก / tax ของ Item นี้ในใบขน ↔ FIX (แทนการหา Tax จาก MASTER)
+    if(String(x.agency || '').trim() === KDC_DFT_FIX.agency){
+      add(field, 'ติดใบอนุญาต', x.agency, null, note + ' · ตรวจ เลขใบอนุญาต / วันที่ออก / tax ตาม FIX กรมการค้าต่างประเทศ (แถวแยก)');
+      // แถวใบอนุญาตของหน่วยงานในใบขน = แถวของ Item นี้ที่เลขใบอนุญาต = EXEMPT99 เท่านั้น (ไม่ใช้ลำดับแถว / แถวอื่น) · ไม่พบ → ❌ ว่าง ทั้ง 3 หัวข้อ
+      const dr = g.rows.find(r => kdcNormText(kdcCell(r, C.permit)) === kdcNormText(KDC_DFT_FIX.permit)) || null;
+      const dn = 'กรมการค้าต่างประเทศ' + (dr ? ' · แถวใบขน เลขใบอนุญาต ' + KDC_DFT_FIX.permit : ' · ไม่พบแถวเลขใบอนุญาต ' + KDC_DFT_FIX.permit + ' ของ Item นี้ในใบขน');
+      const chk = (name, idx, fix, eq) => { const v = dr ? kdcCell(dr, idx) : ''; const okv = !kdcIsBlank(v) && eq(v, fix);
+        add(name + ' (กรมการค้าต่างประเทศ)', v, fix, okv, dn + (idx < 0 ? ' · ใบขนไม่มีคอลัมน์ ' + name : ''), okv ? '' : (kdcIsBlank(v) ? 'ว่าง' : 'ผิด')); if(!okv) bad = true; };
+      chk('เลขใบอนุญาต', C.permit,    KDC_DFT_FIX.permit,    (a, b) => kdcNormText(a) === kdcNormText(b));
+      chk('วันที่ออก',     C.issueDate, KDC_DFT_FIX.issueDate, (a, b) => kdcNormDate(a) === kdcNormDate(b));
+      chk('tax',          C.tax,       KDC_DFT_FIX.tax,       (a, b) => kdcNormTax(a) === kdcNormTax(b));
+      return;
+    }
+    const tx = kdcNormTax(x.tax_no);
+    if(!tx){ add(field, '(ไม่ได้ตรวจ)', '(MASTER ไม่มี Company Tax Number) · ' + x.agency, null, note + ' · MASTER ไม่มี Company Tax Number — ตรวจไม่ได้ ไม่นับ'); return; }
+    if(C.tax < 0){ add(field, '(ไม่มีคอลัมน์)', x.tax_no + ' · ' + x.agency, false, note + ' · ใบขน KDC ไม่มีคอลัมน์ Permit Issue Authority / tax', 'ใบขนไม่มีคอลัมน์ tax'); bad = true; return; }
+    const hit = g.rows.find(r => kdcNormTax(kdcCell(r, C.tax)) === tx);
+    add(field, hit ? kdcCell(hit, C.tax) : '(ไม่พบ)', x.tax_no + ' · ' + x.agency, !!hit, note, hit ? '' : 'ติดใบอนุญาต ' + x.agency + ' แต่ไม่พบในใบขน');
+    if(!hit) bad = true;
+  });
+  return bad ? 'permitBad' : 'permitOk';
+}
+// สรุป HS CODE ใบอนุญาต ต่อ Item — ฐาน = Item ในใบขน (groups) เท่านั้น · ไม่ใช้จำนวนแถว MASTER กลาง · 1 Item = 1 กลุ่ม
+const KDC_PM_CATS = ['permitOk','permitBad','notFound','importOnly','hsBlank','statBlank','badKey','unchecked'];
+function kdcPermitSummary(cats, items){
+  const s = { items, sum:0 }; KDC_PM_CATS.forEach(k => s[k] = 0);
+  cats.forEach(c => { if(s[c] !== undefined){ s[c]++; s.sum++; } });
+  s.permit = s.permitOk + s.permitBad; s.reconciled = s.sum === items;
+  return s;
+}
 function kdcIsBlank(v){ return v===null || v===undefined || String(v).trim()===''; }
 function kdcCell(row, idx){ return idx>=0 && row ? String(row[idx]==null?'':row[idx]).trim() : ''; }
 
@@ -2609,7 +2677,22 @@ function kdcClearEntry(){
 }
 
 // ── ปุ่ม “ตรวจสอบ” ───────────────────────────────────────────────
-function kdcRunCheck(){
+// ── HS CODE ใบอนุญาต (MASTER กลาง · ชุดเดียวกับ TYPE 0 / TYPE 1 / TYPE D) — KDC เป็น Consumer ──
+//    โหลดล่าสุดทุกครั้งที่กดตรวจสอบ ผ่าน hspmRefresh() → hspmDataList() (Data Adapter) · ไม่มี MASTER / Cache แยกใน KDC
+async function kdcRunCheck(){
+  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน KDC (DWAK) ก่อนตรวจสอบ'); return; }
+  if(!fordWbKdc){ alert('⚠ กรุณาอัปโหลดไฟล์ Ford Commercial Invoice ก่อนตรวจสอบ'); return; }
+  const btn = document.getElementById('kdcCheckBtnVis'), t0 = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ โหลด HS CODE ใบอนุญาต…'; }
+  const PMX = { ok:false, err:'' };
+  try{
+    if(typeof window.hspmRefresh === 'function' && typeof window.hspmMatch === 'function'){ PMX.ok = await window.hspmRefresh(); if(!PMX.ok) PMX.err = (window.HSPM_MASTER && window.HSPM_MASTER.err) || 'load_fail'; }
+    else PMX.err = 'ไม่พบโมดูล HS CODE ใบอนุญาต';
+  }catch(e){ PMX.ok = false; PMX.err = String(e && e.message || e); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = t0; } }
+  kdcRunCheckCore(PMX);
+}
+function kdcRunCheckCore(PMX){
   if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน KDC (DWAK) ก่อนตรวจสอบ'); return; }
   if(!fordWbKdc){ alert('⚠ กรุณาอัปโหลดไฟล์ Ford Commercial Invoice ก่อนตรวจสอบ'); return; }
   clearResult();   // ล้าง Result เก่าเสมอ — ไม่มี Result ค้าง
@@ -2665,11 +2748,16 @@ function kdcRunCheck(){
     // ไม่มี Source Expected ใน Flow KDC → แสดงค่า DWAK อย่างเดียว ไม่นับผล (ok=null) — ห้าม Fake FAIL
     const NO_SRC = '(ไม่มี Source Expected ใน Flow KDC)';
     const pushNA=(item, field, found, note)=>out.push({ item:String(item), field, found: kdcIsBlank(found)?'(ว่าง)':String(found), expected: NO_SRC, unit:'', ok:null, note: note||'ไม่มี Source Expected ใน Flow KDC — ไม่นับ PASS/FAIL' });
+    const pmCats=[];   // หมวด HS CODE ใบอนุญาต ต่อ Item ใบขน (ลำดับเดียวกับ groups)
+    const pmItems=[];  // ตารางใบอนุญาตบนหน้าจอ: { item, hs, st, cat, agencies:[{agency, ok}] } — ไม่ใช้ใน EXPORT
     groups.forEach((g, gi)=>{
       const item=g.item;
       const isFirst = gi===0;   // Invoice Item 1 ↔ DWAK Item 1 เท่านั้น
       // แถวชุด FZ = แถวแรกที่ Permit ไม่ใช่ EXEMPT99 (ถ้าไม่มี → แถวแรก)
-      const fzRow = g.rows.find(r=>kdcNormText(kdcCell(r,C.permit))!=='EXEMPT99') || g.rows[0];
+      // ชุด FZ (เลขใบอนุญาต / วันที่ออก / tax) = แถวของ Item นี้ที่เลขใบอนุญาต = 83/2569 เท่านั้น (07/10/2026 · ห้ามใช้ลำดับแถว)
+      const fzPermitRow = g.rows.find(r=>kdcNormText(kdcCell(r,C.permit))===kdcNormText(KDC_FZ_FIX.permit)) || null;
+      // ค่าสินค้า/เอกสารอื่น: แถว 83/2569 · ไม่มี → แถวหลักเดิม (แถวแรกที่ไม่ใช่ EXEMPT99) — ใช้กับหัวข้อที่ไม่ใช่ เลขใบอนุญาต / วันที่ออก / tax
+      const fzRow = fzPermitRow || g.rows.find(r=>kdcNormText(kdcCell(r,C.permit))!=='EXEMPT99') || g.rows[0];
       const extraRows = g.rows.filter(r=>r!==fzRow);
       const row = fzRow;   // ค่าสินค้า/เอกสารอ่านจากแถวหลัก
 
@@ -2698,8 +2786,9 @@ function kdcRunCheck(){
         push(item,'PART NO.',     kdcCell(row,C.partNo),      invFirst.partNo, eqPart(kdcCell(row,C.partNo),      invFirst.partNo));
       }
       push(item,'Thai Translation', thai, thai, !kdcIsBlank(thai), '', kdcIsBlank(thai)?'ไม่มีคำแปลไทยในใบขน':(exc||isRadar?'Exception: '+thai:''));
-      // HS code — Flow KDC ไม่มี Source Expected (ใบขน KDC/Invoice ไม่มี HS) → ไม่นับ
-      pushNA(item,'HS code', kdcCell(row,C.hs), C.hs<0?'ใบขน KDC ไม่มีคอลัมน์ HS code และ Flow ไม่มี Source Expected — ไม่นับ':'Flow KDC ไม่มี Source Expected สำหรับ HS code — ไม่นับ');
+      // HS code / ใบอนุญาต — Lookup MASTER กลาง (hspmMatch · EXPORT / IMPORT+EXPORT) · Exception เดิมด้านล่างไม่เปลี่ยน
+      { const n0 = out.length, info = {}; const cat = kdcPermitCheck(item, g, C, PMX, out, info); pmCats.push(cat);
+        pmItems.push({ item:String(item), hs:info.hs||'', st:info.st||'', cat, agencies: out.slice(n0).filter(r => r.field.startsWith('ใบอนุญาต · ')).map(r => { const ag = r.field.slice('ใบอนุญาต · '.length); return { agency: ag, ok: r.ok, mode: (info.modes || {})[ag] || '' }; }) }); }
       // ── เอกสาร: Invoice NO./DATE SHIPPED ทุก item · PACKAGE/N.W/GW./Amount/SHIPPING MARK ตรวจครั้งเดียวที่ Item 1 ──
       push(item,'Invoice NO.',  kdcCell(row,C.invoiceNo),   inv.invoiceNo,    eqText(kdcCell(row,C.invoiceNo), inv.invoiceNo));
       push(item,'DATE SHIPPED', kdcCell(row,C.dateShipped), kdcNormDate(invDate), eqDate(kdcCell(row,C.dateShipped), invDate));
@@ -2757,16 +2846,18 @@ function kdcRunCheck(){
         // ยังไม่กำหนด FIX ใหม่ → แสดงค่าที่พบ ไม่เทียบ ไม่นับ (ok=null)
         out.push({ item:String(item), field:'Export TaxIncentives ID', found: kdcCell(row,C.expInc)||'(ว่าง)', expected:'(ยังไม่กำหนด FIX)', unit:'', ok:null, note:'ยังไม่มีค่า FIX ใหม่ — ไม่นับ PASS/FAIL' });
       }
-      push(item,'Permit',     kdcCell(row,C.permit),    KDC_FZ_FIX.permit,    eqText(kdcCell(row,C.permit),    KDC_FZ_FIX.permit), '', extraNote);
-      push(item,'Issue Date', kdcCell(row,C.issueDate), KDC_FZ_FIX.issueDate, eqDate(kdcCell(row,C.issueDate), KDC_FZ_FIX.issueDate));
-      push(item,'Permit Issue Authority', kdcCell(row,C.tax), KDC_FZ_FIX.tax, eqTax(kdcCell(row,C.tax), KDC_FZ_FIX.tax));
+      { const pr = fzPermitRow, pv = idx => pr ? kdcCell(pr, idx) : '';   // ทั้ง 3 ค่ามาจากแถว 83/2569 แถวเดียวกัน · ไม่พบแถว → ว่าง (ไม่เดา)
+        const miss = pr ? '' : 'ไม่พบแถวเลขใบอนุญาต ' + KDC_FZ_FIX.permit + ' ของ Item นี้ในใบขน';
+        push(item,'Permit',     pv(C.permit),    KDC_FZ_FIX.permit,    eqText(pv(C.permit),    KDC_FZ_FIX.permit), '', [miss, extraNote].filter(Boolean).join(' · '));
+        push(item,'Issue Date', pv(C.issueDate), KDC_FZ_FIX.issueDate, eqDate(pv(C.issueDate), KDC_FZ_FIX.issueDate), '', miss);
+        push(item,'Permit Issue Authority', pv(C.tax), KDC_FZ_FIX.tax, eqTax(pv(C.tax), KDC_FZ_FIX.tax), '', miss); }
       push(item,'QTY INV (หน่วย)',  kdcCell(row,C.qtyInvU),   unitInv,   eqText(kdcCell(row,C.qtyInvU),   unitInv),   '', exc?'Exception: '+thai:'');
       push(item,'QTY ใบขน (หน่วย)', kdcCell(row,C.qtyEntryU), unitEntry, eqText(kdcCell(row,C.qtyEntryU), unitEntry), '', exc?'Exception: '+thai:'');
       push(item,'QTY 2 (หน่วย)',    kdcCell(row,C.qty2U),     unit2,     eqText(kdcCell(row,C.qty2U),     unit2),     '', exc?'Exception: '+thai:'');
 
       // ── ชุด กสทช. (เฉพาะ เรดาร์) — แถวแยก ไม่ทับชุด FZ ──────────
       if(isRadar){
-        const nb = g.rows.find(r=>kdcNormText(kdcCell(r,C.permit))==='EXEMPT99') || extraRows[0] || null;
+        const nb = g.rows.find(r=>kdcNormText(kdcCell(r,C.permit))==='EXEMPT99') || null;   // แถว EXEMPT99 ของ Item เท่านั้น (ไม่ใช้ลำดับแถว)
         const nNote = nb ? 'ใบอนุญาต กสทช. (ชุดที่ 2)' : 'ไม่พบแถวใบอนุญาต กสทช. (ชุดที่ 2) ในใบขน';
         push(item,'Permit (กสทช.)',     nb?kdcCell(nb,C.permit):'',    KDC_NBTC_FIX.permit,    nb&&eqText(kdcCell(nb,C.permit),    KDC_NBTC_FIX.permit),    '', nNote);
         push(item,'Issue Date (กสทช.)', nb?kdcCell(nb,C.issueDate):'', KDC_NBTC_FIX.issueDate, nb&&eqDate(kdcCell(nb,C.issueDate), KDC_NBTC_FIX.issueDate), '', nNote);
@@ -2783,12 +2874,13 @@ function kdcRunCheck(){
       rows: out,
       grouped: kdcGroupRows(out),          // หัวข้อเดียวกัน+ค่าเดียวกัน → รวม Item (ใช้ทั้งหน้าจอและ Sheet ผลตรวจ)
       topics:  kdcTopicSummary(out),       // 1 หัวข้อ = 1 แถว (Sheet สรุปผลตรวจ)
+      permitItems: pmItems,                // หัวข้อ 📋 ใบอนุญาต บนหน้าจอ (ไม่อยู่ใน EXPORT)
       meta: {
         // Header: อ่านจาก Field จริงเท่านั้น — ไม่มีใน Source = ว่าง (Job No./Customer/Company ไม่มีใน DWAK KDC และ Ford Invoice parser)
         jobNo: '', customer: '', company: '',
         invoiceNo: inv.invoiceNo||'', shippingMark: inv.shippingMark||'',
         dwakFile: dwakName, invFile: invNames.length?invNames.join(', '):((fordRawKdc&&fordRawKdc.name)||''),
-        items: groups.length, pass: passN, fail: failN, total: counted.length, na: out.length-counted.length,
+        items: groups.length, permit: kdcPermitSummary(pmCats, groups.length), pass: passN, fail: failN, total: counted.length, na: out.length-counted.length,
         checkedAt: new Date()
       }
     };
@@ -2839,6 +2931,64 @@ function kdcTopicSummary(rows){
              nPass:t.pass.length, nFail:t.fail.length, nNa:t.na.length, note:[...t.notes].join(' | ') }; });
 }
 
+// แถวของส่วนใบอนุญาต = สร้างโดย kdcPermitCheck เท่านั้น (Field 'HS code' / 'ใบอนุญาต · หน่วยงาน')
+function kdcIsPermitField(f){ return f === 'HS code' || String(f).startsWith('ใบอนุญาต · '); }
+// ชนิดหัวข้อ KDC ปกติ (ตาม Source ที่ push ใช้เป็น Expected ใน kdcRunCheckCore — ไม่เปลี่ยนการตรวจ)
+//   FIX     = KDC_FIX / KDC_FIX_A / KDC_FZ_FIX / KDC_NBTC_FIX / หน่วยจาก KDC_EXCEPTIONS
+//   INVOICE = invFirst / inv / invMeta (Ford Commercial Invoice)
+const KDC_FIX_FIELDS = new Set(['Privilege','Stat','Export tariff','Seq','ประเภทใบขน','type','exporter name','prodyear','naturetran','BRAND',
+  'FZ','Import TaxIncentives ID','Export TaxIncentives ID','Permit','Issue Date','Permit Issue Authority','QTY INV (หน่วย)','QTY ใบขน (หน่วย)','QTY 2 (หน่วย)',
+  'Permit (กสทช.)','Issue Date (กสทช.)','Permit Issue Authority (กสทช.)','QTY 2 (กสทช.)',
+  'เลขใบอนุญาต (กรมการค้าต่างประเทศ)','วันที่ออก (กรมการค้าต่างประเทศ)','tax (กรมการค้าต่างประเทศ)']);
+const KDC_INV_FIELDS = new Set(['Description','Quantity','Product Code','PART NO.','Invoice NO.','DATE SHIPPED','Amount','PACKAGE','N.W','GW.','SHIPPING MARK',
+  'consignee','purcountry','ประเทศปลายทาง','term','currency']);
+// 1 แถว ❌ บนตาราง "รายการผิด": Item No. | หัวข้อ | Actual | Expected (INVOICE หรือ -) | FIX (ค่าฟิก หรือ -) | สถานะ (❌ ผิด / ❌ ว่าง)
+function kdcFailRowHtml(r){
+  const isFix = KDC_FIX_FIELDS.has(r.field), isInv = KDC_INV_FIELDS.has(r.field), D = '-';
+  const exp = isFix ? D : (r.field === 'Thai Translation' ? D : r.expected), fix = isFix ? r.expected : D;
+  const blank = r.found === '(ว่าง)' || r.found === '(ไม่มีคอลัมน์)' || (isInv && r.expected === '(ว่าง)');
+  const st = '<span class="kdc-badge bad">' + (blank ? '❌ ว่าง' : '❌ ผิด') + '</span>';
+  return `<tr class="kdc-st-bad"><td class="td-item">${esc(r.item)} <span class="kdc-cnt">(${r.count})</span></td><td class="td-col">${esc(r.field)}</td>`
+       + `<td class="kdc-act td-bad">${esc(r.found)}</td><td class="td-good kdc-exp">${esc(exp)}</td><td class="kdc-fix">${esc(fix)}</td><td class="kdc-st">${st}</td></tr>`;
+}
+// ตาราง "📋 ใบอนุญาต": แสดงเฉพาะ Item ที่ติดใบอนุญาต (EXPORT / IMPORT+EXPORT) 1 แถวต่อหน่วยงาน · HS / Stat ว่างหรือผิดรูปแบบ = ❌ (ตรวจไม่ได้)
+//   ไม่พบ / เฉพาะ IMPORT = ไม่แสดง · รวม Item เมื่อ HS + Stat + หน่วยงาน + สถานะ เหมือนกัน
+function kdcPermitRows(list){
+  const map = new Map(), order = [];
+  const put = (hs, st, agency, badge, item) => { const k = [hs, st, agency, badge].join('\u0001');
+    if(!map.has(k)){ map.set(k, { hs, st, agency, badge, items:[] }); order.push(k); } map.get(k).items.push(item); };
+  // ติดใบอนุญาต (MODE EXPORT / IMPORT+EXPORT): แสดงในตารางนี้ทุก Item
+  //   Tax หน่วยงานในใบขนถูกต้อง (หรือ MASTER ไม่มี Tax) = "ใบอนุญาต" — ไม่ใช่ผิด ไม่เพิ่มยอดผิด
+  //   Tax หน่วยงานผิด / ไม่มี = ❌ (ผิดจริง · นับใน Summary / EXPORT ตาม Logic เดิมของ kdcPermitCheck)
+  const PM = m => '<span class="kdc-badge na kdc-pm-tag">ใบอนุญาต' + (m === 'IMPORT+EXPORT' ? ' (IMPORT+EXPORT)' : '') + '</span>';
+  for(const p of list){
+    if(p.cat === 'permitOk' || p.cat === 'permitBad'){
+      p.agencies.forEach(a => put(p.hs, p.st, a.agency, a.ok === false ? PM(a.mode) + ' <span class="kdc-badge bad kdc-pm-bad">❌ ไม่พบ Tax หน่วยงานในใบขน</span>' : PM(a.mode), p.item));
+    } else if(p.cat === 'hsBlank' || p.cat === 'statBlank' || p.cat === 'badKey'){
+      const m = p.cat === 'badKey' ? '❌ HS CODE / Stat ไม่ถูกต้อง' : [kdcIsBlank(p.hs) ? '❌ HS CODE ไม่มีข้อมูล' : '', kdcIsBlank(p.st) ? '❌ Stat ไม่มีข้อมูล' : ''].filter(Boolean).join(' · ');
+      put(p.hs || '(ว่าง)', p.st || '(ว่าง)', '-', '<span class="kdc-badge bad">' + m + '</span>', p.item);
+    } else if(p.cat === 'unchecked'){
+      put(p.hs || '(ว่าง)', p.st || '(ว่าง)', '-', '<span class="kdc-badge na">⚠ โหลด MASTER ไม่ได้ — ยังไม่ได้ตรวจ</span>', p.item);
+    }
+  }
+  return order.map(k => { const g = map.get(k); return { ...g, items: kdcFmtItems(g.items), count: g.items.length }; });
+}
+// แถบสรุป HS CODE ใบอนุญาต (นับเป็น Item ใบขน) — ผลรวมทุกกลุ่มต้อง = จำนวน Item ใบขน
+function kdcPermitChips(p){
+  if(!p) return '';
+  const c = (cls, t) => `<div class="stat-chip ${cls}">${t}</div>`;
+  return '<div class="kdc-chips kdc-pm-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+    + c('warn kdc-chip-tot', `HS CODE ใบอนุญาต · ใบขน ${p.items} Item`)
+    + c('ok kdc-chip-ok', `ติดใบอนุญาต ${p.permit} Item (✅ ${p.permitOk} · ❌ Permit/Agency ผิด ${p.permitBad})`)
+    + c('warn kdc-chip-na', `⚪ ไม่ติดใบอนุญาต ${p.notFound}`)
+    + c('warn kdc-chip-na', `⚪ เฉพาะ IMPORT ${p.importOnly}`)
+    + c('err kdc-chip-bad', `❌ HS ว่าง ${p.hsBlank}`)
+    + c('err kdc-chip-bad', `❌ Stat ว่าง ${p.statBlank}`)
+    + (p.badKey ? c('err kdc-chip-bad', `❌ HS/Stat ไม่ถูกต้อง ${p.badKey}`) : '')
+    + (p.unchecked ? c('warn kdc-chip-na', `⚠ โหลด MASTER ไม่ได้ ${p.unchecked}`) : '')
+    + c((p.reconciled ? 'ok kdc-chip-ok' : 'err kdc-chip-bad') + ' kdc-pm-recon', `Σ ${p.sum} / ${p.items} Item ${p.reconciled ? '✔ ตรงใบขน' : '✖ ไม่ตรงใบขน'}`)
+    + '</div>';
+}
 // ── แสดงผลบนหน้าจอ (อ่านจาก kdcResult.grouped เท่านั้น — 1 หัวข้อรวม Item) ───────
 function kdcRenderResult(res){
   const m=res.meta, isErr=m.fail>0;
@@ -2850,25 +3000,27 @@ function kdcRenderResult(res){
     + (m.na?`<div class="stat-chip warn kdc-chip-na">○ ไม่นับ ${m.na}</div>`:'')
     + `<div class="stat-chip warn kdc-chip-tot">Σ รวม ${m.total} · ${m.items} item</div>`
     + (m.invoiceNo?`<div class="stat-chip ok kdc-chip-inv" style="font-size:10px">INVOICE ${esc(m.invoiceNo)}</div>`:'')
-    + '</div>';
-  let body='';
-  for(const r of res.grouped){
-    // สถานะ = Badge (สีเฉพาะ Badge ไม่ลงสีทั้งแถว) · หมายเหตุ (r.note) ไม่แสดงบนจอ — ยังอยู่ใน kdcResult / Export
-    const st = r.ok===null ? '<span class="kdc-badge na">○ ไม่นับ</span>'
-             : r.ok ? '<span class="kdc-badge ok">✅ ถูกต้อง</span>'
-                    : '<span class="kdc-badge bad">❌ ' + esc(r.msg || 'ผิด') + '</span>';
-    body += `<tr class="kdc-st-${r.ok===null?'na':r.ok?'ok':'bad'}"><td class="td-col">${esc(r.field)}</td><td class="td-item">${esc(r.item)} <span class="kdc-cnt">(${r.count})</span></td>`
-          + `<td class="kdc-act${r.ok===false?' td-bad':''}">${esc(r.found)}</td>`
-          + `<td class="td-good kdc-exp">${esc(r.expected)}</td>`
-          + `<td class="kdc-unit">${esc(r.unit)}</td><td class="kdc-st">${st}</td></tr>`;
-  }
-  kdcRBody.innerHTML = chips + '<div class="err-table-wrap kdc-grid-wrap"><table class="err-table kdc-grid"><colgroup><col style="width:16%"><col style="width:10%"><col style="width:24%"><col style="width:24%"><col style="width:8%"><col style="width:18%"></colgroup><thead><tr>'
-    + '<th>หัวข้อตรวจสอบ</th><th>Item No.</th><th>Actual (ใบขน/DWAK)</th><th>Expected (FIX/INVOICE)</th><th>หน่วย</th><th>สถานะ</th>'
-    + '</tr></thead><tbody>'+body+'</tbody></table></div>';
+    + '</div>' + kdcPermitChips(m.permit);
+  // หน้าจอ = 2 หัวข้อต่อกัน: ❌ รายการผิด (FIX / INVOICE) → 📋 ใบอนุญาต (HS + Stat ใบขน → MASTER)
+  // Summary / kdcResult / EXPORT ใช้ผลตรวจทั้งหมดเหมือนเดิม (ไม่กรอง ไม่รวมตามจอ)
+  const fails = res.grouped.filter(x => x.ok === false && !kdcIsPermitField(x.field));
+  const H = (t, cls) => `<div class="kdc-sec-h ${cls}" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:${cls==='kdc-sec-fail'?'#b42318':'#1e3a5f'}">${t}</div>`;
+  let html = chips + H('❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(หัวข้อที่เทียบ FIX / INVOICE)</span>', 'kdc-sec-fail');
+  if(!fails.length) html += '<div class="kdc-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด</div>';
+  else html += '<div class="err-table-wrap kdc-grid-wrap"><table class="err-table kdc-grid kdc-grid-fail"><colgroup><col style="width:12%"><col style="width:17%"><col style="width:22%"><col style="width:22%"><col style="width:14%"><col style="width:13%"></colgroup><thead><tr>'
+    + '<th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>Actual (ใบขน/DWAK)</th><th>Expected (FIX/INVOICE)</th><th>FIX</th><th>สถานะ</th>'
+    + '</tr></thead><tbody>' + fails.map(kdcFailRowHtml).join('') + '</tbody></table></div>';
+  html += H('📋 ใบอนุญาต <span style="font-weight:400;font-size:12px;color:#64748b">(HS CODE + Stat จากใบขน → MASTER HS CODE ใบอนุญาต · EXPORT / IMPORT+EXPORT)</span>', 'kdc-sec-permit');
+  const pr = kdcPermitRows(res.permitItems || []);
+  if(!pr.length) html += '<div class="kdc-nopermit" style="padding:12px 16px;border:1px solid #d9e2ec;border-radius:8px;background:#f8fafc;color:#475569;font-weight:600">ไม่พบ Item ที่ติดใบอนุญาต (EXPORT / IMPORT+EXPORT)</div>';
+  else html += '<div class="err-table-wrap kdc-grid-wrap"><table class="err-table kdc-grid kdc-grid-permit"><colgroup><col style="width:16%"><col style="width:16%"><col style="width:9%"><col style="width:24%"><col style="width:35%"></colgroup><thead><tr>'
+    + '<th>Item No.</th><th>HS CODE</th><th>Stat</th><th>สถานะ</th><th>หน่วยงาน</th>'
+    + '</tr></thead><tbody>' + pr.map(r => `<tr class="kdc-pm-row"><td class="td-item">${esc(r.items)} <span class="kdc-cnt">(${r.count})</span></td><td>${esc(r.hs)}</td><td>${esc(r.st)}</td><td class="kdc-st">${r.badge}</td><td class="td-col">${esc(r.agency)}</td></tr>`).join('') + '</tbody></table></div>';
+  kdcRBody.innerHTML = html;
   kdcResultBox.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-// ── ปุ่ม “EXPORT ผลตรวจ” → Excel 1 ไฟล์ / 2 Sheet (ผลตรวจ + สรุปผลตรวจ) จาก kdcResult ชุดเดียว ──
+// ── ปุ่ม “EXPORT ผลตรวจ” → Excel 1 ไฟล์ / 1 Sheet (ผลตรวจ) จาก kdcResult ชุดเดียว · ตัด Sheet สรุปผลตรวจออก (07/10/2026) ──
 function kdcExport(){
   if(!kdcResult || !kdcResult.rows){ alert('⚠ กรุณากดตรวจสอบก่อน Export (ไม่มีผลตรวจปัจจุบัน)'); return; }
   const res = kdcResult;
@@ -2907,7 +3059,7 @@ function kdcSheetHeader(put, mg, rowsH, m){
   return 7;  // แถวแรกของ Body
 }
 
-// สร้าง Excel 1 ไฟล์ 2 Sheet (SheetJS aoa → JSZip inject styles.xml) — KDC-ONLY
+// สร้าง Excel 1 ไฟล์ 1 Sheet 'ผลตรวจ' (SheetJS aoa → JSZip inject styles.xml) — KDC-ONLY
 async function kdcBuildExcel(res){
   const m=res.meta, S=KDC_XS;
   const mkSheet=()=>{ const aoa=[], sm={}, merges=[], rowsH={};
@@ -2948,26 +3100,10 @@ async function kdcBuildExcel(res){
   if(naG.length) section1('○  3. ไม่มี Source Expected ใน Flow (ไม่นับ)', naG, nNa, S.SECNA, S.SECNAR, S.HDRNA, S.ST_NA);
   const sheet1=finish(s1,'ผลตรวจ',[{wch:6},{wch:32},{wch:30},{wch:28},{wch:28},{wch:7},{wch:10},{wch:44}],true);
 
-  // ── Sheet 2: สรุปผลตรวจ (1 หัวข้อ = 1 แถว) ──
-  const s2=mkSheet(); let r2=kdcSheetHeader(s2.put,s2.mg,s2.rowsH,m);
-  const T=res.topics;
-  const COLS2=['No.','หัวข้อตรวจสอบ','ผลตรวจ','Item ถูกต้อง','Item ผิด','Item ไม่นับ','จำนวน (ถูก/ผิด/ไม่นับ)','หมายเหตุ'];
-  s2.put(r2,0,'สรุปผลตรวจรายหัวข้อ',S.SECOK); s2.fillRow(r2,S.SECOK,0,4); s2.mg(r2,0,r2,4);
-  s2.put(r2,5,`จำนวน ${T.length} หัวข้อ · ${m.items} item`,S.SECOKR); s2.fillRow(r2,S.SECOKR,5,7); s2.mg(r2,5,r2,7); s2.rowsH[r2]=28; r2++;
-  COLS2.forEach((c,i)=>s2.put(r2,i,c,S.HDROK)); s2.rowsH[r2]=22; r2++;
-  T.forEach((t,i)=>{
-    s2.put(r2,0,i+1,S.CELL_C); s2.put(r2,1,t.field,S.CELL_L);
-    s2.put(r2,2,t.status, t.status==='ผิด'?S.ST_BAD:t.status==='ถูกต้อง'?S.ST_OK:S.ST_NA);
-    s2.put(r2,3,t.passItems,S.CELL_L); s2.put(r2,4,t.failItems,S.CELL_L); s2.put(r2,5,t.naItems,S.CELL_L);
-    s2.put(r2,6,`${t.nPass} / ${t.nFail} / ${t.nNa}`,S.CELL_C); s2.put(r2,7,t.note,S.CELL_L); r2++;
-  });
-  const sheet2=finish(s2,'สรุปผลตรวจ',[{wch:6},{wch:32},{wch:10},{wch:30},{wch:30},{wch:18},{wch:14},{wch:44}],true);
-
   const wbOut=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wbOut, sheet1.ws, sheet1.name);
-  XLSX.utils.book_append_sheet(wbOut, sheet2.ws, sheet2.name);
   const buf=XLSX.write(wbOut,{bookType:'xlsx',type:'array'});
-  return kdcInjectStyles(buf, [sheet1.sm, sheet2.sm]);
+  return kdcInjectStyles(buf, [sheet1.sm]);
 }
 
 // ── Inject styles.xml + s="N" ลงใน sheetN.xml ทุก Sheet (KDC-ONLY, ใช้ JSZip ที่มีอยู่แล้ว) ──
