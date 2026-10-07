@@ -31431,11 +31431,25 @@ async function pdiPdfLines(buf){
   if(line) lines.push(line);
   return { lines:lines.map(x=>x.replace(/\s+/g,' ').trim()), pages:pdf.numPages };
 }
-/* ดึงค่าหลัง label — ทนอักขระลายน้ำที่แทรกกลาง label เช่น "ด(้Model/Type):" */
+/* ดึงค่าหลัง label — ทนอักขระลายน้ำที่แทรกกลาง label เช่น "ด(้Model/Type):"
+   [WRAP 07/10/2026] ใบอนุญาตบางใบตัดค่าขึ้นบรรทัดใหม่ เช่น
+     "ยี่ห้อ (Brand Name): FAG รุ่น/ประเภท (Model/Type): FOUR-POINT"  +  "CONTA..."
+     "ชื่อสินค้า (Product Name): ชุดเซลล์พลังงาน…หล่อลื่น"            +  "ระบบหล..."
+   เดิมอ่านแค่บรรทัดแรก → ค่าขาด → จับคู่ไม่ได้
+   จึงต่อบรรทัดถัดไปจนกว่าจะเจอ label/หัวข้อถัดไป หรือบรรทัดว่าง (สูงสุด 3 บรรทัด) */
+const PDI_STOP=/\(Product Name\)|\(Brand Name\)|\(Model\/Type\)|HS Code|\u0e1e\u0e34\u0e01\u0e31\u0e14\u0e28\u0e38\u0e25\u0e01\u0e32\u0e01\u0e23|Item Description|^\s*\d+\s*\.\s/;
 function grabAfter(text,label){
   const i=text.indexOf(label); if(i<0) return '';
   const j=text.indexOf(':',i+label.length); if(j<0) return '';
-  return text.slice(j+1).split('\n')[0];
+  const rest=text.slice(j+1).split('\n');
+  let v=rest[0];
+  for(let k=1;k<rest.length && k<=3;k++){
+    const ln=rest[k];
+    if(ln==null || ln.trim()==='') break;
+    if(PDI_STOP.test(ln)) break;
+    v+=' '+ln;
+  }
+  return v;
 }
 async function pdiParsePdf(file){
   const buf=await file.arrayBuffer();
@@ -31469,6 +31483,18 @@ function descCmp(exDesc,pdfMt){
   if(/\.\.\.\s*$/.test(String(pdfMt)) && b.length>=8 && a.indexOf(b)===0) return true;
   return false;
 }
+/* [WRAP 07/10/2026] Product Name ใน PDF ที่ถูกตัดจะลงท้ายด้วย "..." → เทียบแบบ prefix
+   (กติกาเดียวกับ descCmp ของ Model/Type ที่ใช้อยู่เดิม) */
+function thCmp(exTh,pdfPn){
+  if(!pdfPn) return null;                               // PDF อ่านไม่ได้ = ขาด Field (เดิม)
+  const a=nTh(exTh), b=nTh(pdfPn);
+  if(a===b) return true;
+  if(/\.\.\.\s*$/.test(String(pdfPn))){
+    const c=b.replace(/\.+$/,'');
+    if(c.length>=8 && a.indexOf(c)===0) return true;
+  }
+  return false;
+}
 function pdiMatch(X,P){
   const warn=[], byPdf=new Map(), noLic=[], ambig=[], dup=new Map();
   for(const r of X.rows) dup.set(r.item,(dup.get(r.item)||0)+1);
@@ -31477,7 +31503,7 @@ function pdiMatch(X,P){
     const cands=[];
     for(const p of P){
       const d=descCmp(r.desc,p.mt);
-      const t=p.pn ? (nTh(r.th)===nTh(p.pn)) : null;
+      const t=thCmp(r.th,p.pn);
       const h=nHs(p.hs) ? (nHs(r.tar)===nHs(p.hs)) : null;
       const fnExact=fnKey(r.ref)===fnKey(p.name);
       const fnA=fnAscii(r.ref)===fnAscii(p.name);
@@ -31713,6 +31739,20 @@ function pdiInit(){
   const p=document.getElementById('pdi-pdf-input');
   if(p) p.addEventListener('change',e=>{ PDI.pdfs=Array.from(e.target.files||[]); PDI.res=null;
     renderList('pdi-pdf-list',PDI.pdfs.map(f=>f.name)); pdiRender(); ready(); });
+  /* [DROP 07/10/2026] รองรับ "ลากไฟล์มาวาง" (เดิมมีแต่คลิกเลือกไฟล์)
+     ★ เพิ่มอย่างเดียว · ไม่แตะ input / ข้อมูล / ลำดับไฟล์เดิม */
+  const dz=(dropId,ext,apply)=>{
+    const d=document.getElementById(dropId); if(!d) return;
+    ['dragover','dragenter'].forEach(ev=>d.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); d.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev=>d.addEventListener(ev,e=>{ e.preventDefault(); e.stopPropagation(); d.classList.remove('drag'); }));
+    d.addEventListener('drop',e=>{
+      const fs=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).filter(f=>ext.test(f.name));
+      if(!fs.length) return;
+      apply(fs); PDI.res=null; pdiRender(); ready();
+    });
+  };
+  dz('pdi-xls-drop', /\.xls[xm]$/i, fs=>{ PDI.xls=fs[0]; renderList('pdi-xls-list',[PDI.xls.name]); });
+  dz('pdi-pdf-drop', /\.pdf$/i,     fs=>{ PDI.pdfs=fs;   renderList('pdi-pdf-list',PDI.pdfs.map(f=>f.name)); });
   ready();
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',pdiInit); else pdiInit();
