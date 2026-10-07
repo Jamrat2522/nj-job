@@ -9577,54 +9577,42 @@ function updateTopBarStatus(mode){
 // ══════════════════════════════════════════════════════
 //  AUTH SYSTEM — Login / Session / Logout
 // ══════════════════════════════════════════════════════
-const NJ_USERS = [
-  { username:'Jamrat', password:'Jam497522', role:'super_admin', status:'active' },
-  { username:'AC1',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC2',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC3',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC4',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC5',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC6',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC7',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC9',  password:'Ac12345', role:'user', status:'active' },
-  { username:'AC10', password:'Ac12345', role:'user', status:'active' },
-  { username:'AC11', password:'Ac12345', role:'user', status:'active' },
-  { username:'NJ1',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ2',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ3',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ4',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ5',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ6',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ7',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ8',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ9',  password:'NJ12345', role:'user', status:'active' },
-  { username:'NJ10', password:'NJ12345', role:'user', status:'active' }
-];
+/* [EDCAPL Identity] ผู้ใช้ / รหัสผ่าน / Role อยู่ที่ Server (public.edcapl_users · bcrypt) — ไม่มีรหัสใน HTML
+   · Login สำเร็จ → Server ออก Session Token (เก็บ sessionStorage 'njSession' เหมือนอายุ Session เดิม) · ไม่เก็บ Password
+   · Publishable Key ใช้เรียก RPC เท่านั้น ไม่ใช่ตัวพิสูจน์ตัวตน — ทุก RPC ข้อมูลต้องมี Session ที่ Server ตรวจได้ */
+const NJ_API = { url:'https://sytgqjglcnsabcszbngg.supabase.co', key:'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp' };
+async function njRpc(fn, body){
+  const r = await fetch(NJ_API.url + '/rest/v1/rpc/' + fn, { method:'POST', headers:{ 'apikey':NJ_API.key, 'Content-Type':'application/json' }, body:JSON.stringify(body || {}) });
+  if(!r.ok) throw new Error('http_' + r.status);
+  let j = await r.json(); if(typeof j === 'string'){ try{ j = JSON.parse(j); }catch(_){} } return j;
+}
 
 function toggleLoginPw(){
   const inp = document.getElementById('loginPass');
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
-function doLogin(){
+let njLoginBusy = false;
+async function doLogin(){
+  if(njLoginBusy) return;
   const uVal = (document.getElementById('loginUser').value || '').trim();
   const pVal = (document.getElementById('loginPass').value || '').trim();
   const errEl = document.getElementById('loginError');
   errEl.classList.remove('show');
 
-  // username: case-insensitive | password: exact match (after trim)
-  const found = NJ_USERS.find(u =>
-    u.username.toLowerCase() === uVal.toLowerCase() && u.password === pVal && u.status === 'active'
-  );
-  if(!found){
-    errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+  // username: case-insensitive | password: ตรวจที่ Server (edcapl_login)
+  let j = null, netErr = false; njLoginBusy = true;
+  try{ j = await njRpc('edcapl_login', { p_username:uVal, p_password:pVal }); }catch(e){ netErr = true; }
+  finally{ njLoginBusy = false; }
+  if(!j || j.success !== true || !j.token || !j.user){
+    errEl.textContent = netErr ? 'เชื่อมต่อระบบไม่ได้ — กรุณาลองใหม่อีกครั้ง' : 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
     errEl.classList.add('show');
     document.getElementById('loginPass').value = '';
     return;
   }
-  sessionStorage.setItem('njCurrentUser', JSON.stringify({
-    username: found.username, role: found.role
-  }));
+  const found = { username: j.user.username, role: j.user.role };
+  sessionStorage.setItem('njSession', j.token);
+  sessionStorage.setItem('njCurrentUser', JSON.stringify(found));
   authEnterApp(found);
 }
 
@@ -9652,6 +9640,9 @@ function authEnterApp(user){
 }
 
 function doLogout(){
+  const tok = sessionStorage.getItem('njSession');
+  if(tok){ njRpc('edcapl_logout', { p_session:tok }).catch(() => {}); }   /* ยกเลิก Session ฝั่ง Server */
+  sessionStorage.removeItem('njSession');
   sessionStorage.removeItem('njCurrentUser');
   // Reset login form
   document.getElementById('loginUser').value = '';
@@ -9668,6 +9659,8 @@ function doLogout(){
   const saved = sessionStorage.getItem('njCurrentUser');
   if(saved){
     try{ authEnterApp(JSON.parse(saved)); }catch(e){ sessionStorage.removeItem('njCurrentUser'); }
+    const tok = sessionStorage.getItem('njSession');   /* [EDCAPL Identity] Server ยืนยัน Session เบื้องหลัง · ไม่ผ่าน → ลบเฉพาะ Token (หน้าเว็บ/โหมดเดิมใช้ต่อได้เหมือนเดิม) */
+    if(tok) njRpc('edcapl_session_check', { p_session:tok }).then(j => { if(!(j && j.success === true)) sessionStorage.removeItem('njSession'); }).catch(() => {});
   }
 })();
 
@@ -10543,8 +10536,24 @@ Column rename for export only: "KDC" → "Customer jobno."
        hspmDataDelete({ id, tariff_key, stat_key, agency }) → { success, deleted }                (local106: calc_permit_master_delete)
    · Backend ยังไม่กำหนด (hspmBackend = null) → ทุกฟังก์ชันตอบ success:false + ข้อความ "Backend ยังไม่เชื่อม" (ไม่เรียก DB)
    ══════════════════════════════════════════════════════════════ */
-const HSPM_BACKEND_NONE = 'Backend ของ HS CODE ใบอนุญาต ยังไม่เชื่อม';
-let hspmBackend = null;   /* รอบถัดไป: กำหนดวิธีเชื่อม DB ที่จุดนี้จุดเดียว — { list(), page(a), save(a), delete(a) } */
+const HSPM_BACKEND_NONE = 'ไม่สามารถเชื่อมต่อ HS CODE ใบอนุญาตได้';
+const HSPM_FORBIDDEN = 'ไม่มีสิทธิ์ใช้งาน HS CODE ใบอนุญาต';
+/* Backend: RPC edcapl_hspm_* (MASTER กลาง calc_permit_master ชุดเดียวกับ local106) · ตรวจ Session EDCAPL ที่ Server ทุกครั้ง */
+async function hspmRpc(fn, args){
+  const ses = sessionStorage.getItem('njSession');
+  if(!ses) return { success:false, error:HSPM_FORBIDDEN };
+  let j = null;
+  try{ j = await njRpc(fn, Object.assign({ p_session:ses }, args)); }catch(e){ return { success:false, error:HSPM_BACKEND_NONE }; }
+  if(!j || typeof j !== 'object') return { success:false, error:HSPM_BACKEND_NONE };
+  if(j.success === false && j.error === 'forbidden') return { success:false, error:HSPM_FORBIDDEN };
+  return j;
+}
+let hspmBackend = {
+  list:   ()  => hspmRpc('edcapl_hspm_list',   {}),
+  page:   (a) => hspmRpc('edcapl_hspm_page',   { p_q:a.q, p_mode:a.mode, p_limit:a.limit, p_offset:a.offset }),
+  save:   (a) => hspmRpc('edcapl_hspm_save',   { p_rows:a.rows }),
+  delete: (a) => hspmRpc('edcapl_hspm_delete', { p_id:a.id, p_tariff_key:a.tariff_key, p_stat_key:a.stat_key, p_agency:a.agency })
+};
 async function hspmDataCall(op, args){
   if(!hspmBackend || typeof hspmBackend[op] !== 'function') return { success:false, error:HSPM_BACKEND_NONE };
   try{ const j = await hspmBackend[op](args); return j || { success:false, error:'empty_response' }; }
