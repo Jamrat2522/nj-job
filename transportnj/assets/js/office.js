@@ -361,10 +361,10 @@
       if (idx >= items.length) idx = -1;
       const row = (x, k) => `<div class="hl-sug-it${k === idx ? ' on' : ''}${hlKey(x.v) === q ? ' cur' : ''}" role="option" data-i="${k}" data-v="${h(x.v)}">${x.std ? `<span class="hl-sug-n">${x.n + 1}.</span> ${x.v === FT_NIGHT_ST ? '🌙 ' : ''}` : '⭐ '}${h(x.v)}</div>`;
       let k = 0; let out = '';
-      if (std.length) out += `<div class="hl-sug-gh">สถานะมาตรฐาน (${HL_STATUS.length} รายการ)</div>` + std.map((x) => row({ v: x.v, n: x.n, std: true }, k++)).join('');
+      if (std.length) out += `<div class="hl-sug-gh">⭐ สถานะมาตรฐาน (${HL_STATUS.length} รายการ)</div>` + std.map((x) => row({ v: x.v, n: x.n, std: true }, k++)).join('');
       if (cu.length) out += `<div class="hl-sug-gh">⭐ สถานะที่เคยเพิ่ม</div>` + cu.map((x) => row(x, k++)).join('');
       if (q && !exactAny) out += `<div class="hl-sug-it hl-sug-add${k === idx ? ' on' : ''}" role="option" data-i="${k}" data-add="1">➕ เพิ่ม “${h(typed)}” เป็นสถานะใหม่</div>`;
-      box.innerHTML = out; const show = !!out; box.classList.toggle('hidden', !show); f.setAttribute('aria-expanded', show ? 'true' : 'false');
+      const was = isOpen(); box.innerHTML = out; const show = !!out; box.classList.toggle('hidden', !show); f.setAttribute('aria-expanded', show ? 'true' : 'false'); if (show && (!was || idx < 0)) box.scrollTop = 0; // เปิดใหม่ / พิมพ์ใหม่ → เริ่มบนสุด
     };
     const pick = (x) => { if (!x) return; f.value = x.v; sync(); close(); };
     box.addEventListener('mousedown', (e) => { e.preventDefault(); const it = e.target.closest('[data-i]'); if (it) pick(items[Number(it.dataset.i)]); });
