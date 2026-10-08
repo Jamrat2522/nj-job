@@ -330,7 +330,6 @@ body:has(#appMain.kdc-light) { background: #f6f8fb; }
 #panel-edc8 #edc8MasterDZ .mdz-save { margin-top: 4px; padding: 3px 12px !important; line-height: 1.3; }
 #panel-edc8 #edc8MasterDZ .dz-del-btn { top: 5px; right: 5px; width: 20px; height: 20px; font-size: 11px; }
 
-
 /* ── ตรวจใบกำกับ (scope: #panel-permit_chk เท่านั้น) ── */
 #panel-permit_chk .card-body   { padding: 12px 14px; }
 #panel-permit_chk .upload-col  { padding: 9px 10px; }
@@ -906,6 +905,133 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
   font-size: 12px; color: #f87171; text-align: center;
 }
 .login-error.show { display: block; }
+
+/* ══ Design System สว่าง (08/10/2026) — 5 โหมด: ตรวจ EDC8 AAT · ตรวจ EDC8 FTM (#panel-edc8) · ตรวจ KDC (#panel-single) · ตรวจ EDC1 FZ (#panel-edc1fz) · ตรวจใบกำกับ (#panel-permit_chk)
+      UI / CSS / Responsive เท่านั้น · ไม่แตะ Logic / Upload / Export · ไม่กระทบ Sidebar และโหมดอื่น
+      โทนหน้า: #appMain.edc8-light / .kdc-light / .fz-light / .pmt-light (สลับใน switchMode) ══ */
+body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.fz-light), body:has(#appMain.pmt-light) { background: #F7FAFF; }
+#appMain.edc8-light, #appMain.kdc-light, #appMain.fz-light, #appMain.pmt-light {
+  background: #F7FAFF radial-gradient(1200px 380px at 85% -60px, rgba(147,197,253,.16), transparent 70%) no-repeat;
+}
+/* เต็มพื้นที่หลัง Sidebar (~97%) · ไม่มี max-width */
+#appMain.edc8-light .content, #appMain.kdc-light .content, #appMain.fz-light .content, #appMain.pmt-light .content {
+  max-width: none; width: 100%; box-sizing: border-box; padding: 18px 1.5% 24px; gap: 14px;
+}
+/* ตัวแปรสีโทนสว่าง (EDC8 / EDC1 FZ — KDC / ใบกำกับ มีชุดเดียวกันอยู่แล้ว) */
+#panel-edc8, #panel-edc1fz {
+  --surface: #ffffff; --surface2: #f9fbfd; --border: #e5eaf1; --border2: #d9e2ec;
+  --text: #1f2937; --text-2: #4b5563; --text-3: #64748b;
+  --error: #b42318; --error-bg: #fdf3f2; --error-border: #f2cdc8;
+  --success: #1f7a4d; --success-bg: #eef7f2; --success-border: #c3e3d0;
+  --warn: #8a6d1f; --green: #1f7a4d; --green-light: #1f7a4d; --green-glow: rgba(31,122,77,.06);
+  color: var(--text);
+}
+/* ใบกำกับ: เลิกกรอบหลักเดียว → Card แยก (Upload / PASTE / ปุ่ม / ผลตรวจ) แบบเดียวกับโหมดอื่น */
+#appMain.pmt-light #panel-permit_chk { background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none; }
+#appMain.pmt-light #panel-permit_chk > * + * { margin-top: 14px; }
+/* Card ขาว · มุมโค้ง 16px · เงาบาง */
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) > .card {
+  background: #ffffff; border: 1px solid #e3eaf5; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 18px rgba(30,58,138,.06);
+}
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) > .card > .card-body { padding: 16px; }
+/* ระยะห่างระหว่าง Card (Upload → PASTE → ปุ่ม → ผลตรวจ) เท่ากัน 14px */
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) > .card ~ :is(.action-bar, .pmt-paste-bar, #edc8ResultBox, #kdcResultBox, #fzResultBox, #pmtResultBox) { margin-top: 14px !important; }
+/* กริดกรอบอัปโหลด: กว้างเท่ากัน · สูงเท่ากัน (EDC8 / EDC1 FZ = 3 · KDC / ใบกำกับ = 2) */
+#appMain :is(#edc8UploadGrid, #fzUploadGrid) { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: stretch !important; }
+#appMain :is(#kdcUploadGrid, #pmtUploadGrid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 16px !important; align-items: stretch !important; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col {
+  --t-bg1: #f3f8ff; --t-bd: #cfe0fb; --t-dash: #8db5f2; --t-ink: #1d4ed8; --t-soft: #e6f0ff;
+  display: flex; flex-direction: column; min-width: 0; padding: 14px; border-radius: 14px;
+  background: linear-gradient(180deg, var(--t-bg1) 0%, #ffffff 78%); border: 1px solid var(--t-bd);
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);
+}
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col:hover { border-color: var(--t-dash); }
+/* ธีมรายกรอบ: กรอบ 1 ฟ้า · กรอบ 2 เขียวมิ้นต์ (KDC = ส้มพาสเทล) · กรอบ 3 ม่วงอ่อน */
+#appMain :is(#edc8UploadGrid, #fzUploadGrid, #pmtUploadGrid) > .upload-col:nth-child(2) { --t-bg1: #effbf6; --t-bd: #c4ead9; --t-dash: #6fcaa4; --t-ink: #047857; --t-soft: #dcf5ea; }
+#appMain :is(#edc8UploadGrid, #fzUploadGrid) > .upload-col:nth-child(3) { --t-bg1: #f6f3ff; --t-bd: #ddd3fb; --t-dash: #b39af0; --t-ink: #6d28d9; --t-soft: #ece6fd; }
+#appMain #kdcUploadGrid > .upload-col:nth-child(2) { --t-bg1: #fff6ee; --t-bd: #f6dcc4; --t-dash: #f0b07e; --t-ink: #c2410c; --t-soft: #ffead8; }
+/* หัวกรอบ */
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .step-header { background: transparent; border-bottom: 1px solid var(--t-bd); margin-bottom: 10px; padding: 0 0 8px; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .step-num { background: var(--t-soft); color: var(--t-ink); border-color: var(--t-bd); }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .step-title { color: #0f2747; font-weight: 700; font-size: 12.5px; letter-spacing: .03em; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .step-req { background: #fdf3f2; color: #b42318; border-color: #f2cdc8; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .step-opt { background: #f3effe; color: #6d28d9; border-color: #ddd3fb; }
+/* พื้นที่ Drag & Drop: เส้นประสีตามธีม · เต็มความสูงกรอบ · กึ่งกลาง (โหลดแล้ว = เขียวตามเดิม · ข้อความ Error จริงยังเป็นสีแดง) */
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-zone {
+  flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 132px !important; padding: 16px 12px; border: 1.5px dashed var(--t-dash); border-radius: 12px; background: rgba(255,255,255,.78) !important;
+}
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-zone[style*="--error"] { border-color: var(--t-dash) !important; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-zone:hover,
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-zone.drag-over { background: var(--t-soft) !important; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-icon-box {
+  width: 40px; height: 40px; margin: 0 auto 8px; border-radius: 12px; font-size: 17px;
+  background: var(--t-soft); color: var(--t-ink); border: 1px solid var(--t-bd); display: flex; align-items: center; justify-content: center;
+}
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-label { color: #0f2747; font-weight: 600; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .upload-col .drop-hint { color: #64748b; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .drop-fn { color: #1f7a4d; background: #eef7f2; border-color: #c3e3d0; max-width: calc(100% - 8px); }
+/* EDC1 FZ: คำอธิบายใต้กรอบ + กล่อง Field ที่ตรวจ (ข้อความเดิม) */
+#appMain #panel-edc1fz .upload-col > div[style*="font-size:10px"] { color: #64748b !important; margin-top: 8px !important; }
+#appMain #panel-edc1fz .upload-col span[style*="#c4b5fd"] { color: #6d28d9 !important; }
+#appMain #panel-edc1fz > .card > .card-body > div[style*="margin-top:12px"] { background: #f6f9fe !important; border: 1px solid #dfe8f5 !important; border-radius: 12px !important; color: #334155 !important; }
+#appMain #panel-edc1fz .fz-src-invoice { color: #1d4ed8; background: #e6f0ff; border-color: #cfe0fb; }
+/* MASTER (EDC8): ปุ่มบันทึก Master คงเดิม ปรับสีตามธีม */
+#appMain #panel-edc8 #edc8MasterDZ .drop-icon-box { width: 26px; height: 26px; margin: 0; font-size: 12px; border-radius: 8px; }
+#appMain #panel-edc8 #edc8MasterDZ .mdz-save { background: #e2f6ec !important; color: #047857 !important; border: 1px solid #a7dfc4 !important; }
+/* ใบกำกับ: แถบ PASTE = Card ขาวเต็มความกว้าง ใต้กรอบ Upload (ปุ่ม / สถานะเดิม) */
+#appMain.pmt-light #panel-permit_chk .pmt-paste-bar {
+  margin-left: 0; margin-right: 0; margin-bottom: 0; background: #ffffff; border: 1px solid #e3eaf5; border-radius: 14px; padding: 12px 16px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(30,58,138,.05);
+}
+#appMain.pmt-light #panel-permit_chk .pmt-btn-paste { border-radius: 10px; font-weight: 700; background: #eef4ff; border-color: #c9dbf8; color: #1e3a8a; }
+/* แถบปุ่ม: Card ขาว · แถวเดียว ระยะเท่ากัน · สีตามหน้าที่ (Function / เงื่อนไขเปิดใช้เดิม) */
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar {
+  background: #ffffff; border: 1px solid #e3eaf5; border-radius: 14px; padding: 12px 16px; gap: 10px; flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(30,58,138,.05);
+}
+#appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .sep { display: none; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .btn { border-radius: 10px; font-weight: 700; min-width: 150px; justify-content: center; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .btn-green { background: #16a34a; border-color: #16a34a; color: #ffffff; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .ui-btn-blue   { background: #2563eb !important; border-color: #2563eb !important; color: #ffffff !important; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .ui-btn-purple { background: #7c3aed !important; border-color: #7c3aed !important; color: #ffffff !important; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .ui-btn-teal   { background: #0e9aa7 !important; border-color: #0e9aa7 !important; color: #ffffff !important; }
+#appMain #panel-edc1fz .action-bar .ui-btn-indigo { background: #4f46e5 !important; border-color: #4f46e5 !important; color: #ffffff !important; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .btn:hover:not(:disabled) { filter: brightness(1.06); opacity: 1; }
+#appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .btn:disabled { opacity: .45; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .btn-reset { margin-left: 0; background: #f1f5f9; color: #475569; border: 1px solid #dbe3ee; border-radius: 10px; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .btn-reset:hover { background: #e8eef5; color: #334155; }
+/* ผลตรวจ: Card ขาว (สีถูก/ผิดจาก JS เดิมผ่านตัวแปรสี) */
+#appMain :is(#edc8ResultBox, #fzResultBox) { border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 18px rgba(30,58,138,.06); }
+#appMain :is(#edc8RDot, #fzRDot) { box-shadow: none !important; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .err-table-wrap { background: #ffffff; border-color: #d9e2ec; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .err-table thead tr { background: #eaf0f7; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .err-table th { color: #334155; }
+#appMain :is(#panel-edc8, #panel-edc1fz) .err-table td { color: #1f2937; }
+#appMain.pmt-light #panel-permit_chk > #pmtResultBox {
+  background: #ffffff !important; border: 1px solid #e3eaf5 !important; border-radius: 14px !important; overflow: hidden !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 18px rgba(30,58,138,.06);
+}
+#appMain.pmt-light #panel-permit_chk > #pmtResultBox .r-head { background: #f9fbfd; border-bottom: 1px solid #e5eaf1; padding: 12px 16px; }
+#appMain.pmt-light #panel-permit_chk > #pmtResultBox .r-body { padding: 14px 16px; }
+/* Responsive: Tablet ≤1100px = 2 คอลัมน์ (กรอบที่ 3 เต็มแถว) · Mobile ≤720px = 1 คอลัมน์ */
+@media (max-width: 1100px) {
+  #appMain :is(#edc8UploadGrid, #fzUploadGrid) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  #appMain :is(#edc8UploadGrid, #fzUploadGrid) > .upload-col:nth-child(3) { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  #appMain.edc8-light .content, #appMain.kdc-light .content, #appMain.fz-light .content, #appMain.pmt-light .content { padding: 12px 12px 20px; }
+  #appMain:is(.edc8-light, .kdc-light, .fz-light, .pmt-light) .top-bar { flex-wrap: wrap; height: auto; min-height: 52px; padding: 8px 12px; row-gap: 6px; }
+  #appMain:is(.edc8-light, .kdc-light, .fz-light, .pmt-light) .top-bar > * { min-width: 0; max-width: 100%; }
+  #appMain:is(.edc8-light, .kdc-light, .fz-light, .pmt-light) .tb-status-wrap { margin-left: 0; flex-wrap: wrap; }
+  #appMain :is(#edc8UploadGrid, #fzUploadGrid, #kdcUploadGrid, #pmtUploadGrid) { grid-template-columns: minmax(0, 1fr) !important; }
+  #appMain :is(#edc8UploadGrid, #fzUploadGrid) > .upload-col:nth-child(3) { grid-column: auto; }
+  #appMain :is(#panel-edc8, #panel-single, #panel-edc1fz, #panel-permit_chk) .action-bar .btn,
+  #appMain :is(#panel-edc8, #panel-edc1fz) .action-bar .btn-reset { flex: 1 1 100%; min-width: 0; }
+  #appMain.pmt-light #panel-permit_chk .pmt-paste-bar { flex-wrap: wrap; }
+}
+
 </style>
 </head>
 <body>
@@ -1021,7 +1147,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
 </aside>
 
 <!-- MAIN -->
-<div class="main" id="appMain" style="display:none">
+<div class="main edc8-light" id="appMain" style="display:none">
   <div class="top-bar" id="topBar">
     <span style="font-size:10px;color:var(--text-3);font-weight:700;letter-spacing:.07em;text-transform:uppercase">N.J. Logistics</span>
     <span style="color:var(--border2);font-size:12px;margin:0 2px">›</span>
@@ -1064,7 +1190,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
     <!-- Upload -->
     <div class="card">
       <div class="card-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="kdcUploadGrid">
           <!-- ENTRY -->
           <div class="upload-col dz-req">
             <div class="step-header mode-kdc">
@@ -1108,7 +1234,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
     <!-- KDC Action Bar -->
     <div class="action-bar">
       <button class="btn btn-green" id="kdcCheckBtnVis" disabled onclick="kdcRunCheck()">🔍 ตรวจสอบ</button>
-      <button class="btn btn-export" id="kdcExportBtn" disabled onclick="kdcExport()">📥 EXPORT ผลตรวจ</button>
+      <button class="btn btn-export ui-btn-blue" id="kdcExportBtn" disabled onclick="kdcExport()">📥 EXPORT ผลตรวจ</button>
     </div>
 
     <!-- KDC Result (isolated) -->
@@ -1133,7 +1259,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
     <div id="panel-permit_chk" style="display:none">
       <div class="card">
         <div class="card-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="pmtUploadGrid">
             <div class="upload-col dz-req">
               <div class="step-header"><span class="step-num">1</span><span class="step-title">ใบขน</span><span class="step-req">Required</span></div>
               <input type="file" id="pmtDeclInput" accept=".pdf" style="display:none" />
@@ -1189,7 +1315,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
       </div>
       <div class="action-bar">
         <button class="btn btn-green" id="pmtCheckBtn" disabled onclick="pmtRunCheck()">🔍 ตรวจสอบ</button>
-        <button class="btn btn-export" id="pmtExportBtn" disabled onclick="pmtExport()">📥 EXPORT ผลตรวจ</button>
+        <button class="btn btn-export ui-btn-blue" id="pmtExportBtn" disabled onclick="pmtExport()">📥 EXPORT ผลตรวจ</button>
       </div>
       <div id="pmtResultBox" style="display:none;border-radius:10px;overflow:hidden;background:var(--surface);border:1px solid var(--border)">
         <div class="r-head"><span class="r-title" id="pmtRTitle"></span></div>
@@ -1470,10 +1596,10 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
           <!-- EDC8 Action Bar -->
           <div class="action-bar" style="margin-top:14px">
             <button class="btn btn-green" onclick="edc8RunCheck()">🔍 ตรวจสอบ</button>
-            <button class="btn btn-export" onclick="if(!document.getElementById('edc8ExportBtn').disabled) document.getElementById('edc8ExportBtn').click()">⬇ Export (.xlsx)</button>
+            <button class="btn btn-export ui-btn-blue" onclick="if(!document.getElementById('edc8ExportBtn').disabled) document.getElementById('edc8ExportBtn').click()">⬇ Export (.xlsx)</button>
             <div class="sep"></div>
-            <button class="btn btn-export" onclick="edc8ExportMapping()">📊 Export Mapping</button>
-            <button class="btn btn-export" onclick="edc8ExportFordTotal()">📋 Export TOTAL</button>
+            <button class="btn btn-export ui-btn-purple" onclick="edc8ExportMapping()">📊 Export Mapping</button>
+            <button class="btn btn-export ui-btn-teal" onclick="edc8ExportFordTotal()">📋 Export TOTAL</button>
             <button class="btn-reset" onclick="document.getElementById('edc8ResetBtn').click()">↺ รีเซ็ต</button>
           </div>
 
@@ -1537,7 +1663,7 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
 
       <div class="card">
         <div class="card-body">
-          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;" id="fzUploadGrid">
 
             <!-- 1. ENTRY FILE -->
             <div class="upload-col dz-req">
@@ -1607,11 +1733,11 @@ body:has(#appMain.pmt-light) { background: #f6f8fb; }
       <!-- EDC1 FZ Action Bar -->
       <div class="action-bar">
         <button class="btn btn-green" onclick="fzRunCheck()">🔍 ตรวจสอบ</button>
-        <button class="btn btn-export" onclick="fzExport()">⬇ Export (.xlsx)</button>
+        <button class="btn btn-export ui-btn-blue" onclick="fzExport()">⬇ Export (.xlsx)</button>
         <div class="sep"></div>
-        <button class="btn btn-export" style="background:rgba(168,85,247,.12);color:#c4b5fd;border-color:rgba(168,85,247,.3)" onclick="fzBuildMappingFromSource()" title="ดาวน์โหลดไฟล์ Mapping Excel ที่ระบบสร้าง (optional — ระบบใช้ตรวจอัตโนมัติอยู่แล้ว)">⬇ Download Mapping</button>
-        <button class="btn btn-export" onclick="fzExportMapping()">📊 Export Mapping</button>
-        <button class="btn btn-export" style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" onclick="fzExportTotal()">📋 Export TOTAL</button>
+        <button class="btn btn-export ui-btn-indigo" style="background:rgba(168,85,247,.12);color:#c4b5fd;border-color:rgba(168,85,247,.3)" onclick="fzBuildMappingFromSource()" title="ดาวน์โหลดไฟล์ Mapping Excel ที่ระบบสร้าง (optional — ระบบใช้ตรวจอัตโนมัติอยู่แล้ว)">⬇ Download Mapping</button>
+        <button class="btn btn-export ui-btn-purple" onclick="fzExportMapping()">📊 Export Mapping</button>
+        <button class="btn btn-export ui-btn-teal" style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" onclick="fzExportTotal()">📋 Export TOTAL</button>
         <button class="btn-reset" onclick="fzReset()">↺ รีเซ็ต</button>
       </div>
 
@@ -1951,7 +2077,7 @@ const MODES_CONFIG = {
       { col:'Issue Date / วันที่ออก',   expected:'20260528' },
       { col:'Permit Issue Authority / TAX', expected:'0994000163011' },
       { col:'QTY INV · QTY ใบขน · QTY 2', expected:'C62 · C62 · EA' },
-      { col:'พรมปูพื้นรถยนต์',          expected:'C62 · MTK · MTK (×0.28)' },
+      { col:'พรมปูพื้นรถยนต์',          expected:'C62 · MTK · MTK' },
       { col:'ชุดเพลาหน้า',              expected:'C62 · SET · SET' },
       { col:'เรดาร์ (กสทช.)',           expected:'EXEMPT99 · 20171113 · 0994000049447 · EA' },
     ]
@@ -2170,6 +2296,8 @@ function switchMode(el){
     if(pcPanel) pcPanel.style.display = isPermitChk ? 'block' : 'none';
     const am = document.getElementById('appMain'); if(am) am.classList.toggle('pmt-light', isPermitChk);   // โทนสว่าง เฉพาะโหมดตรวจใบกำกับ
     if(am) am.classList.toggle('kdc-light', currentMode === 'kdc');                                        // โทนสว่าง เฉพาะโหมดตรวจ KDC
+    if(am) am.classList.toggle('fz-light', isEdc1fz);                                                     // โทนสว่าง เฉพาะโหมดตรวจ EDC1 FZ
+    if(am) am.classList.toggle('edc8-light', isEdc8);                                                      // โทนสว่าง เฉพาะโหมดตรวจ EDC8 AAT / FTM (panel เดียวกัน)
   }
   {
     const hsPanel = document.getElementById('panel-hscode_permit');
@@ -2478,7 +2606,7 @@ const KDC_NBTC_FIX = {
 
 // ── Exception ตาม Thai Translation (ตรงตัวหลัง trim) ───────────────
 const KDC_EXCEPTIONS = {
-  'พรมปูพื้นรถยนต์': { qtyInv:'C62', qtyEntry:'MTK', qty2:'MTK', qtyFactor:0.28 },
+  'พรมปูพื้นรถยนต์': { qtyInv:'C62', qtyEntry:'MTK', qty2:'MTK', noQtyCheck:true },   // 08/10/2026: ยกเลิกสูตร Quantity ×0.28 — ไม่ตรวจ Quantity (หน่วยยังตรวจ C62 / MTK / MTK)
   'ชุดเพลาหน้า':     { qtyInv:'C62', qtyEntry:'SET', qty2:'SET' },
 };
 const KDC_RADAR_NAME = 'เรดาร์';
@@ -2777,10 +2905,12 @@ function kdcRunCheckCore(PMX){
         }
         {
           const invQty = invFirst.partQty;
-          let expQty = invQty, note='';
-          if(exc && exc.qtyFactor){ expQty = (invQty*exc.qtyFactor).toFixed(2); note=`${invQty} ${unitInv} × ${exc.qtyFactor} = ${expQty} ${unitEntry}`; }
           const found=kdcCell(row,C.qty);
-          push(item,'Quantity', found, expQty, eqNum(found, expQty), unitEntry, note);
+          if(exc && exc.noQtyCheck){   // พรมปูพื้นรถยนต์: ไม่ใช้สูตรแปลง Invoice → MTK แล้ว · แสดงค่าใบขน ไม่นับ PASS/FAIL
+            out.push({ item:String(item), field:'Quantity', found: kdcIsBlank(found)?'(ว่าง)':String(found), expected:'(ไม่ตรวจ Quantity — '+thai+')', unit: unitEntry, ok:null, note:'Exception: '+thai+' — ไม่ตรวจ Quantity (ยกเลิกสูตรแปลงหน่วย) · ตรวจหน่วย QTY ตามเดิม' });
+          } else {
+            push(item,'Quantity', found, invQty, eqNum(found, invQty), unitEntry, '');
+          }
         }
         push(item,'Product Code', kdcCell(row,C.productCode), invFirst.partNo, eqPart(kdcCell(row,C.productCode), invFirst.partNo));
         push(item,'PART NO.',     kdcCell(row,C.partNo),      invFirst.partNo, eqPart(kdcCell(row,C.partNo),      invFirst.partNo));
@@ -2945,10 +3075,15 @@ const KDC_INV_FIELDS = new Set(['Description','Quantity','Product Code','PART NO
 // 1 แถว ❌ บนตาราง "รายการผิด": Item No. | หัวข้อ | Actual | Expected (INVOICE หรือ -) | FIX (ค่าฟิก หรือ -) | สถานะ (❌ ผิด / ❌ ว่าง)
 function kdcFailRowHtml(r){
   const isFix = KDC_FIX_FIELDS.has(r.field), isInv = KDC_INV_FIELDS.has(r.field), D = '-';
-  const exp = isFix ? D : (r.field === 'Thai Translation' ? D : r.expected), fix = isFix ? r.expected : D;
-  const blank = r.found === '(ว่าง)' || r.found === '(ไม่มีคอลัมน์)' || (isInv && r.expected === '(ว่าง)');
+  let label = r.field, exp = isFix ? D : (r.field === 'Thai Translation' ? D : r.expected), fix = isFix ? r.expected : D;
+  let blank = r.found === '(ว่าง)' || r.found === '(ไม่มีคอลัมน์)' || (isInv && r.expected === '(ว่าง)');
+  if(r.field === 'HS code'){   // HS / Stat ของใบขนว่างหรือผิดรูปแบบ (ส่วนใบอนุญาต) — ไม่ใช่ติดใบอนุญาต จึงฟ้องที่นี่
+    label = 'HS CODE / Stat'; exp = D; blank = /ไม่มีข้อมูล/.test(r.msg || '');
+  } else if(r.field.startsWith('ใบอนุญาต · ')){   // ติดใบอนุญาตหน่วยงานนี้ แต่ Tax ของหน่วยงานไม่พบในใบขน (Expected = Tax จาก MASTER)
+    const ag = r.field.slice('ใบอนุญาต · '.length); label = 'tax (' + ag + ')'; exp = String(r.expected).replace(' · ' + ag, '');
+  }
   const st = '<span class="kdc-badge bad">' + (blank ? '❌ ว่าง' : '❌ ผิด') + '</span>';
-  return `<tr class="kdc-st-bad"><td class="td-item">${esc(r.item)} <span class="kdc-cnt">(${r.count})</span></td><td class="td-col">${esc(r.field)}</td>`
+  return `<tr class="kdc-st-bad"><td class="td-item">${esc(r.item)} <span class="kdc-cnt">(${r.count})</span></td><td class="td-col">${esc(label)}</td>`
        + `<td class="kdc-act td-bad">${esc(r.found)}</td><td class="td-good kdc-exp">${esc(exp)}</td><td class="kdc-fix">${esc(fix)}</td><td class="kdc-st">${st}</td></tr>`;
 }
 // ตาราง "📋 ใบอนุญาต": แสดงเฉพาะ Item ที่ติดใบอนุญาต (EXPORT / IMPORT+EXPORT) 1 แถวต่อหน่วยงาน · HS / Stat ว่างหรือผิดรูปแบบ = ❌ (ตรวจไม่ได้)
@@ -2957,19 +3092,11 @@ function kdcPermitRows(list){
   const map = new Map(), order = [];
   const put = (hs, st, agency, badge, item) => { const k = [hs, st, agency, badge].join('\u0001');
     if(!map.has(k)){ map.set(k, { hs, st, agency, badge, items:[] }); order.push(k); } map.get(k).items.push(item); };
-  // ติดใบอนุญาต (MODE EXPORT / IMPORT+EXPORT): แสดงในตารางนี้ทุก Item
-  //   Tax หน่วยงานในใบขนถูกต้อง (หรือ MASTER ไม่มี Tax) = "ใบอนุญาต" — ไม่ใช่ผิด ไม่เพิ่มยอดผิด
-  //   Tax หน่วยงานผิด / ไม่มี = ❌ (ผิดจริง · นับใน Summary / EXPORT ตาม Logic เดิมของ kdcPermitCheck)
-  const PM = m => '<span class="kdc-badge na kdc-pm-tag">ใบอนุญาต' + (m === 'IMPORT+EXPORT' ? ' (IMPORT+EXPORT)' : '') + '</span>';
+  // ติดใบอนุญาต (MODE EXPORT / IMPORT+EXPORT) = แสดงทุก Item · สถานะ "ใบอนุญาต" (ไม่ใช่ผิด)
+  //   ความผิด (Tax / Permit / Date / HS-Stat) ไม่แสดงที่นี่ — อยู่ใน ❌ รายการผิด เท่านั้น · ไม่พบ / เฉพาะ IMPORT / HS-Stat ว่าง = ไม่แสดง
+  const PM = '<span class="kdc-badge na kdc-pm-tag">ใบอนุญาต</span>';
   for(const p of list){
-    if(p.cat === 'permitOk' || p.cat === 'permitBad'){
-      p.agencies.forEach(a => put(p.hs, p.st, a.agency, a.ok === false ? PM(a.mode) + ' <span class="kdc-badge bad kdc-pm-bad">❌ ไม่พบ Tax หน่วยงานในใบขน</span>' : PM(a.mode), p.item));
-    } else if(p.cat === 'hsBlank' || p.cat === 'statBlank' || p.cat === 'badKey'){
-      const m = p.cat === 'badKey' ? '❌ HS CODE / Stat ไม่ถูกต้อง' : [kdcIsBlank(p.hs) ? '❌ HS CODE ไม่มีข้อมูล' : '', kdcIsBlank(p.st) ? '❌ Stat ไม่มีข้อมูล' : ''].filter(Boolean).join(' · ');
-      put(p.hs || '(ว่าง)', p.st || '(ว่าง)', '-', '<span class="kdc-badge bad">' + m + '</span>', p.item);
-    } else if(p.cat === 'unchecked'){
-      put(p.hs || '(ว่าง)', p.st || '(ว่าง)', '-', '<span class="kdc-badge na">⚠ โหลด MASTER ไม่ได้ — ยังไม่ได้ตรวจ</span>', p.item);
-    }
+    if(p.cat === 'permitOk' || p.cat === 'permitBad') p.agencies.forEach(a => put(p.hs, p.st, a.agency, PM, p.item));
   }
   return order.map(k => { const g = map.get(k); return { ...g, items: kdcFmtItems(g.items), count: g.items.length }; });
 }
@@ -3003,7 +3130,7 @@ function kdcRenderResult(res){
     + '</div>' + kdcPermitChips(m.permit);
   // หน้าจอ = 2 หัวข้อต่อกัน: ❌ รายการผิด (FIX / INVOICE) → 📋 ใบอนุญาต (HS + Stat ใบขน → MASTER)
   // Summary / kdcResult / EXPORT ใช้ผลตรวจทั้งหมดเหมือนเดิม (ไม่กรอง ไม่รวมตามจอ)
-  const fails = res.grouped.filter(x => x.ok === false && !kdcIsPermitField(x.field));
+  const fails = res.grouped.filter(x => x.ok === false);   // ความผิดทุกชนิด (FIX / INVOICE / Permit / Date / TAX / HS-Stat) อยู่ในตารางนี้เท่านั้น
   const H = (t, cls) => `<div class="kdc-sec-h ${cls}" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:${cls==='kdc-sec-fail'?'#b42318':'#1e3a5f'}">${t}</div>`;
   let html = chips + H('❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(หัวข้อที่เทียบ FIX / INVOICE)</span>', 'kdc-sec-fail');
   if(!fails.length) html += '<div class="kdc-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด</div>';
@@ -3011,7 +3138,8 @@ function kdcRenderResult(res){
     + '<th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>Actual (ใบขน/DWAK)</th><th>Expected (FIX/INVOICE)</th><th>FIX</th><th>สถานะ</th>'
     + '</tr></thead><tbody>' + fails.map(kdcFailRowHtml).join('') + '</tbody></table></div>';
   html += H('📋 ใบอนุญาต <span style="font-weight:400;font-size:12px;color:#64748b">(HS CODE + Stat จากใบขน → MASTER HS CODE ใบอนุญาต · EXPORT / IMPORT+EXPORT)</span>', 'kdc-sec-permit');
-  const pr = kdcPermitRows(res.permitItems || []);
+  const pr = kdcPermitRows(res.permitItems || []), nUnchk = (res.permitItems || []).filter(p => p.cat === 'unchecked').length;
+  if(nUnchk) html += `<div class="kdc-pm-unchk" style="padding:10px 16px;margin-bottom:8px;border:1px solid #ecdcae;border-radius:8px;background:#fdf8e8;color:#7a5d12;font-weight:600">⚠ โหลด MASTER HS CODE ใบอนุญาตไม่ได้ — ยังไม่ได้ตรวจใบอนุญาต ${nUnchk} Item (ไม่นับ)</div>`;
   if(!pr.length) html += '<div class="kdc-nopermit" style="padding:12px 16px;border:1px solid #d9e2ec;border-radius:8px;background:#f8fafc;color:#475569;font-weight:600">ไม่พบ Item ที่ติดใบอนุญาต (EXPORT / IMPORT+EXPORT)</div>';
   else html += '<div class="err-table-wrap kdc-grid-wrap"><table class="err-table kdc-grid kdc-grid-permit"><colgroup><col style="width:16%"><col style="width:16%"><col style="width:9%"><col style="width:24%"><col style="width:35%"></colgroup><thead><tr>'
     + '<th>Item No.</th><th>HS CODE</th><th>Stat</th><th>สถานะ</th><th>หน่วยงาน</th>'
