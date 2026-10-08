@@ -258,7 +258,7 @@
       const b = bkk(t.event_at);
       if (b.date !== lastDate) { out += `<div class="hl-date">📅 วันที่ ${hlDMY(b.date)}</div>`; lastDate = b.date; }
       const files = t.files || [];
-      out += `<div class="hl-entry" data-hl="${t.id}"><div class="hl-it${opt.actions ? ' hl-ie' : ''}"${opt.actions ? ` data-hie="${t.id}" title="คลิกเพื่อแก้เวลา / ข้อความ"` : ''}>${opt.colors ? `${h('• ⏰ ' + bkk(t.event_at).time + ' น. ')}${hlDot(t.title)}${h(t.title)}` : h(hlItemText(t))}</div>${t.note ? `<div class="hl-note">หมายเหตุ: ${h(t.note)}</div>` : ''}
+      out += `<div class="hl-entry" data-hl="${t.id}"><div class="hl-it${opt.actions ? ' hl-ie' : ''}"${opt.actions ? ` data-hie="${t.id}" title="คลิกเพื่อแก้เวลา / ข้อความ"` : ''}>${h(hlItemText(t))}</div>${t.note ? `<div class="hl-note">หมายเหตุ: ${h(t.note)}</div>` : ''}
         ${files.length ? `<div class="hl-files"><div class="hl-fh">📎 ไฟล์แนบ</div>${files.map((f) => `<div class="hl-file" data-fid="${f.id}"><span class="hl-fn">${fIcon(f)} ${h(f.file_name)}</span><button type="button" class="btn btn-sm" data-hdl="${f.id}">⬇ ดาวน์โหลด</button></div>`).join('')}</div>` : ''}
         ${opt.actions ? `<div class="hl-acts"><button type="button" class="btn btn-sm btn-r" data-hdel="${t.id}">ลบ</button><button type="button" class="btn btn-sm" data-hat="${t.id}">📎 แนบไฟล์</button></div>` : ''}</div>`;
     });
@@ -338,62 +338,86 @@
   const HL_CUSTOM = []; let hlCustomRpc = true;
   const hlCustomAdd = (arr, front) => { const std = new Set(HL_STATUS.map(hlKey)); const seen = new Set(HL_CUSTOM.map(hlKey)); const add = [];
     (arr || []).forEach((x) => { const v = hlNorm(x).slice(0, 100); const k = hlKey(v); if (v && !std.has(k) && !seen.has(k)) { seen.add(k); add.push(v); } }); if (front) HL_CUSTOM.unshift(...add); else HL_CUSTOM.push(...add); };
+  // รายการ ⭐ จาก Supabase = ข้อมูลหลัก (แทนที่ทั้งชุด) · ยังไม่ติดตั้ง RPC → ใช้สถานะกรอกเองของ JOB ที่เปิดอยู่แทน
   const hlCustomLoad = async (job) => {
-    if (hlCustomRpc && T.canEdit()) { try { const d = await T.auth('tnj_tl_custom_statuses', {}, { silent: true }); hlCustomAdd(Array.isArray(d) ? d : []); } catch (e) { if (T.isNotInstalled(e)) hlCustomRpc = false; } }
-    if (job) hlCustomAdd((job.timeline || []).filter((t) => t.event_type === 'STATUS' && t.is_custom_status).map((t) => t.title));
+    if (hlCustomRpc && T.canEdit()) { try { const d = await T.auth('tnj_tl_custom_statuses', {}, { silent: true }); HL_CUSTOM.length = 0; hlCustomAdd(Array.isArray(d) ? d : []); return; } catch (e) { if (T.isNotInstalled(e)) hlCustomRpc = false; } }
+    if (job && !hlCustomRpc) hlCustomAdd((job.timeline || []).filter((t) => t.event_type === 'STATUS' && t.is_custom_status).map((t) => t.title));
   };
-  // ===== สีสถานะ (วงกลมหน้าชื่อ) — เก็บถาวรใน Supabase (RUN-23: tnj_tl_status_colors / tnj_tl_status_color_set) · ไม่เกี่ยวกับ Logic สถานะ / Free Time / ปิดงาน =====
-  const HL_COLORS = [['red', 'แดง'], ['orange', 'ส้ม'], ['yellow', 'เหลือง'], ['green', 'เขียว'], ['blue', 'น้ำเงิน'], ['purple', 'ม่วง'], ['black', 'ดำ']];
-  const HL_STD_COLOR = { 'รถถึงโรงงานเรียบร้อย รอคิวลงสินค้า': 'blue', 'รถถึงโรงงานเรียบร้อย รอคิวบรรจุ': 'blue', 'รอคิวลงสินค้า': 'yellow', 'ลงสินค้าได้ครึ่งตู้': 'orange', 'ลงสินค้าเรียบร้อย ออกจากโรงงาน': 'green',
-    'รอรับตู้เปล่า': 'yellow', 'รถรับตู้หนาแน่น': 'orange', 'รถติดในท่าเรือ': 'orange', 'รถติดในลานตู้': 'orange', 'บรรจุตู้เรียบร้อย ออกจากโรงงาน': 'green', 'คืนตู้เรียบร้อย': 'green',
-    'ลูกค้าแจ้งตัดหาง': 'red', 'ค้างคืน': 'purple', '⏱️ เกิน Free Time เริ่มคิดค่าเสียเวลา': 'red', '✅ ปิดงาน': 'black' }; // ค่าเริ่มต้น (เปลี่ยนได้)
-  const HL_COLOR = {}; let hlColorRpc = true, hlColorP = null;
-  const hlColorOf = (name) => { const v = hlNorm(name); return HL_COLOR[hlKey(v)] || HL_STD_COLOR[v] || 'gray'; };
-  const hlDot = (name, color) => `<span class="hl-dot hl-dot-${color || hlColorOf(name)}"${name != null ? ` data-hlc="${h(hlNorm(name))}"` : ''} aria-hidden="true"></span>`;
-  const hlDotsRefresh = (root) => { $$('[data-hlc]', root || document).forEach((el) => { el.className = 'hl-dot hl-dot-' + hlColorOf(el.dataset.hlc); }); };
-  const hlColorLoad = () => { if (!hlColorRpc) return Promise.resolve(); if (!hlColorP) hlColorP = T.auth('tnj_tl_status_colors', {}, { silent: true }).then((d) => { Object.entries(d || {}).forEach(([k, c]) => { HL_COLOR[hlKey(k)] = c; }); hlDotsRefresh(); }).catch((e) => { if (T.isNotInstalled(e)) hlColorRpc = false; hlColorP = null; }); return hlColorP; };
-  const hlColorSave = async (name, color) => { const v = hlNorm(name); if (!v || !color) return; HL_COLOR[hlKey(v)] = color; if (!hlColorRpc) return T.toast('บันทึก Timeline แล้ว แต่ยังบันทึกสีถาวรไม่ได้ (ต้องรัน RUN-23)', 'warn');
-    try { await T.auth('tnj_tl_status_color_set', { p_name: v, p_color: color }, { silent: true }); } catch (e) { if (T.isNotInstalled(e)) hlColorRpc = false; T.toast('บันทึก Timeline แล้ว แต่บันทึกสีไม่สำเร็จ' + (T.isNotInstalled(e) ? ' (ต้องรัน RUN-23)' : ': ' + T.parseErr(e).text), 'warn'); } };
+  let hlLibRpc = true; // RUN-24: tnj_tl_library_add / rename / remove
   const hlResolve = (txt) => { const v = hlNorm(txt); if (!v) return null; const k = hlKey(v); const std = HL_STATUS.find((x) => hlKey(x) === k); if (std) return std; const cu = HL_CUSTOM.find((x) => hlKey(x) === k); return 'CUSTOM:' + (cu || v); };
   const stValue = (box, selId, inId) => { const v = $('#' + selId, box).value; if (v !== HL_OTHER) return v; return hlResolve($('#' + inId, box).value); };
-  // ช่อง “สถานะ” (OFFICE) = Dropdown พิมพ์ค้นหาได้ช่องเดียว: สถานะมาตรฐาน 15 รายการ + ⭐ สถานะที่เคยเพิ่ม + ➕ เพิ่มสถานะใหม่
-  // อัปเดตเฉพาะกล่องรายการ (ช่องพิมพ์ไม่ถูกสร้างใหม่ → ไม่เด้ง ไม่เสีย Focus ไม่ล้างข้อความ) · ค่าที่ส่ง Server = hlResolve(ข้อความ)
-  const hlComboHtml = () => `<div class="hl-cb"><button type="button" class="hl-cb-c" id="hlSQc" title="เลือกสีสถานะ" aria-label="เลือกสีสถานะ" aria-haspopup="true"><span class="hl-dot hl-dot-gray" id="hlSQd"></span></button><input class="inp" id="hlSQ" maxlength="100" placeholder="เลือก หรือพิมพ์สถานะ…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="hlSug"><button type="button" class="hl-cb-x" id="hlSQx" title="ล้าง" aria-label="ล้าง" hidden>✕</button><button type="button" class="hl-cb-a" id="hlSQa" tabindex="-1" aria-label="แสดงรายการสถานะ">▾</button><div class="hl-sug hidden" id="hlSug" role="listbox"></div></div>`;
-  // แถบเลือกสี (แสดงข้างช่องสถานะเสมอ ตามภาพตัวอย่าง)
-  const hlPalHtml = () => `<div class="hl-pal" id="hlPal" role="radiogroup" aria-label="สีสถานะ">${HL_COLORS.map(([c, l]) => `<button type="button" class="hl-pal-b" data-c="${c}" title="${l}" aria-label="สี${l}" role="radio"><span class="hl-dot hl-dot-${c}"></span></button>`).join('')}</div>`;
-  function hlCombo(root) {
-    const f = $('#hlSQ', root), box = $('#hlSug', root), ar = $('#hlSQa', root), cl = $('#hlSQx', root), cb = $('#hlSQc', root), dot = $('#hlSQd', root), pal = $('#hlPal', root); if (!f || !box) return;
-    let items = [], idx = -1, all = false; let pc = null; // pc = สีที่ผู้ใช้เลือกเอง (บันทึกพร้อม Timeline)
-    const curColor = () => pc || (hlNorm(f.value) ? hlColorOf(f.value) : 'gray');
-    const sync = () => { if (cl) cl.hidden = !f.value; const c = curColor(); if (dot) dot.className = 'hl-dot hl-dot-' + c; f.dataset.pc = pc || ''; if (pal) $$('[data-c]', pal).forEach((b) => { const on = b.dataset.c === c; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); }); };
-    if (cb) { cb.addEventListener('mousedown', (e) => e.preventDefault()); cb.onclick = () => { const b = pal && ($('.hl-pal-b.on', pal) || $('.hl-pal-b', pal)); if (b) b.focus(); }; }
-    if (pal) { pal.addEventListener('mousedown', (e) => { if (document.activeElement === f) e.preventDefault(); }); pal.onclick = (e) => { const b = e.target.closest('[data-c]'); if (!b) return; pc = b.dataset.c; sync(); if (isOpen()) draw(); }; }
-    const isOpen = () => !box.classList.contains('hidden');
-    const close = () => { box.classList.add('hidden'); f.setAttribute('aria-expanded', 'false'); idx = -1; all = false; };
-    const draw = () => {
-      const typed = hlNorm(f.value), q = hlKey(typed); const exactAny = q && (HL_STATUS.some((x) => hlKey(x) === q) || HL_CUSTOM.some((x) => hlKey(x) === q));
-      const m = (x) => all || !q || exactAny || hlKey(x).includes(q); // ตรงชื่อเต็มแล้ว / กดลูกศร → แสดงทั้งหมด
-      const std = HL_STATUS.map((v, n) => ({ v, n })).filter((x) => m(x.v)), cu = HL_CUSTOM.filter(m).map((v) => ({ v }));
-      const add = q && !exactAny; // ➕ เพิ่ม อยู่บนสุดเสมอ (ติดหัวรายการ เห็นได้ทันทีโดยไม่ต้องเลื่อน)
-      items = (add ? [{ v: typed, add: true }] : []).concat(std.map((x) => ({ v: x.v, n: x.n, std: true })), cu.map((x) => ({ v: x.v })));
-      if (idx >= items.length) idx = -1;
-      const row = (x, k) => `<div class="hl-sug-it${k === idx ? ' on' : ''}${hlKey(x.v) === q ? ' cur' : ''}" role="option" data-i="${k}" data-v="${h(x.v)}">${hlDot(x.v)}${x.std ? `<span class="hl-sug-n">${x.n + 1}.</span> ${x.v === FT_NIGHT_ST ? '🌙 ' : ''}` : '⭐ '}${h(x.v)}</div>`;
-      let k = 0; let out = '';
-      if (add) { out += `<div class="hl-sug-it hl-sug-add${idx === 0 ? ' on' : ''}" role="option" data-i="0" data-add="1">${hlDot(null, curColor())}➕ เพิ่ม “${h(typed)}” เป็นสถานะใหม่</div>`; k = 1; }
-      if (std.length) out += `<div class="hl-sug-gh">⭐ สถานะมาตรฐาน (${HL_STATUS.length} รายการ)</div>` + std.map((x) => row({ v: x.v, n: x.n, std: true }, k++)).join('');
-      if (cu.length) out += `<div class="hl-sug-gh">⭐ สถานะที่เคยเพิ่ม</div>` + cu.map((x) => row(x, k++)).join('');
-      const was = isOpen(); box.innerHTML = out; const show = !!out; box.classList.toggle('hidden', !show); f.setAttribute('aria-expanded', show ? 'true' : 'false'); if (show && !was) box.scrollTop = 0; // เปิดใหม่ → เริ่มบนสุด (ขณะพิมพ์ไม่เลื่อนเอง)
+  // ➕ เพิ่มสถานะใหม่ / ✏️ แก้ไขสถานะ — บันทึกลงคลังถาวรทันที (ไม่ต้องบันทึก Timeline) · onDone(ชื่อใหม่ | null เมื่อลบ, ชื่อเดิม)
+  const hlStModal = (mode, name, onDone) => {
+    const edit = mode === 'edit';
+    T.modal({ title: edit ? 'แก้ไขสถานะ' : 'เพิ่มสถานะใหม่', size: 's hl-st-m', body: `<div class="field"><label>ชื่อสถานะ <span class="req">*</span></label><input class="inp" id="hlStN" maxlength="100" value="${h(name || '')}" placeholder="พิมพ์ชื่อสถานะ" autocomplete="off"></div><div class="alert err hidden" id="hlStE"></div>`,
+      foot: `<button class="btn btn-p" id="hlStOk">💾 ${edit ? 'บันทึกการแก้ไข' : 'บันทึกสถานะ'}</button><button class="btn" data-close>ยกเลิก</button>`,
+      onOpen: (el, close) => {
+        const inp = $('#hlStN', el), er = $('#hlStE', el); let busy = false;
+        const err = (m) => { er.textContent = m || ''; er.classList.toggle('hidden', !m); };
+        inp.addEventListener('input', () => err('')); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#hlStOk', el).click(); } }); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+        $('#hlStOk', el).onclick = async () => {
+          if (busy) return; const v = hlNorm(inp.value); const k = hlKey(v);
+          if (!v) return err('กรุณากรอกชื่อสถานะ'); if (HL_STATUS.some((x) => hlKey(x) === k)) return err('ชื่อนี้เป็นสถานะมาตรฐาน — เลือกจากรายการได้เลย');
+          const dup = HL_CUSTOM.find((x) => hlKey(x) === k && (!edit || hlKey(x) !== hlKey(name)));
+          if (dup && !edit) { close(); T.toast(`มีสถานะ “${dup}” อยู่แล้ว — เลือกให้แล้ว`, 'ok'); return onDone(dup); }
+          if (dup) return err('ชื่อนี้มีอยู่แล้ว');
+          busy = true;
+          try {
+            if (edit) { if (!hlLibRpc) throw new Error('TNJ_VALIDATION:ยังแก้ไขไม่ได้ (ต้องรัน RUN-24)'); await T.auth('tnj_tl_library_rename', { p_old: name, p_new: v }, { silent: true }); const i = HL_CUSTOM.findIndex((x) => hlKey(x) === hlKey(name)); if (i >= 0) HL_CUSTOM[i] = v; else HL_CUSTOM.unshift(v); close(); T.toast(`บันทึกการแก้ไขแล้ว · “${name}” → “${v}”`, 'ok'); }
+            else { let saved = v, perm = true; if (hlLibRpc) { try { const r = await T.auth('tnj_tl_library_add', { p_name: v }, { silent: true }); saved = (r && r.name) || v; } catch (e) { if (!T.isNotInstalled(e)) throw e; hlLibRpc = false; perm = false; } } else perm = false;
+              hlCustomAdd([saved], true); close(); T.toast(perm ? `บันทึกสถานะสำเร็จ · เพิ่มสถานะใหม่ “${saved}” แล้ว` : `เพิ่ม “${saved}” แล้ว — จะบันทึกถาวรเมื่อกด 💾 บันทึก Timeline (ยังไม่ได้รัน RUN-24)`, perm ? 'ok' : 'warn'); return onDone(saved); }
+            onDone(v, name);
+          } catch (e) { err(T.parseErr(e).text); } finally { busy = false; }
+        };
+      } });
+  };
+  // 🗑️ ยืนยันการลบสถานะ (ลบออกจากคลังเท่านั้น — ประวัติ Timeline เดิมยังคงอยู่)
+  const hlStRemove = (name, onDone) => new Promise((res) => {
+    const m = T.modal({ title: 'ยืนยันการลบสถานะ', size: 's hl-st-del', body: `<div class="hl-del"><div class="hl-del-ic">🗑️</div><div>ต้องการลบ “<b>${h(name)}</b>” ใช่หรือไม่?<div class="xs muted mt1">(สถานะจะไม่แสดงในรายการใหม่ แต่ประวัติ Timeline เดิมยังคงอยู่)</div></div></div>`,
+      foot: '<button class="btn btn-r" data-ok>🗑️ ลบ</button><button class="btn" data-close>ยกเลิก</button>', onClose: () => res(false) });
+    m.el.querySelector('[data-ok]').onclick = async () => {
+      try { if (!hlLibRpc) throw new Error('TNJ_VALIDATION:ยังลบไม่ได้ (ต้องรัน RUN-24)'); await T.auth('tnj_tl_library_remove', { p_name: name }, { silent: true }); const i = HL_CUSTOM.findIndex((x) => hlKey(x) === hlKey(name)); if (i >= 0) HL_CUSTOM.splice(i, 1); m.el.remove(); T.toast(`ลบ “${name}” ออกจากรายการแล้ว`, 'ok'); onDone(null, name); res(true); }
+      catch (e) { T.toast('ลบไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); }
     };
-    const pick = (x) => { if (!x) return; f.value = x.v; sync(); close(); };
-    box.addEventListener('mousedown', (e) => { e.preventDefault(); const it = e.target.closest('[data-i]'); if (it) pick(items[Number(it.dataset.i)]); });
-    f.addEventListener('input', () => { idx = -1; all = false; sync(); draw(); }); f.addEventListener('focus', () => { draw(); }); f.addEventListener('click', () => { if (!isOpen()) draw(); });
-    f.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== f) close(); }, 150));
+  });
+  // ช่อง “สถานะ” (OFFICE) = Dropdown ค้นหา/เลือก ช่องเดียว (Radio เลือกได้ 1 รายการ) · ➕ เพิ่มสถานะใหม่ (ติดบนสุด) · สถานะที่สร้างเองมี ✏️ / 🗑️
+  // อัปเดตเฉพาะกล่องรายการ (ช่องพิมพ์ไม่ถูกสร้างใหม่ → ไม่เด้ง ไม่เสีย Focus ไม่ล้างข้อความ) · ค่าที่ส่ง Server = hlResolve(ข้อความในช่อง)
+  const hlComboHtml = () => `<div class="hl-cb"><input class="inp" id="hlSQ" maxlength="100" placeholder="ค้นหา/เลือกสถานะ..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="hlSug"><button type="button" class="hl-cb-x" id="hlSQx" title="ล้าง" aria-label="ล้าง" hidden>✕</button><button type="button" class="hl-cb-a" id="hlSQa" tabindex="-1" aria-label="แสดงรายการสถานะ">⌄</button><div class="hl-sug hidden" id="hlSug" role="listbox"><div class="hl-sug-s"><input class="inp" id="hlSQs" placeholder="🔍 ค้นหา/เลือกสถานะ..." autocomplete="off" aria-label="ค้นหาสถานะ"></div><div id="hlSugL"></div></div></div>`;
+  function hlCombo(root) {
+    const f = $('#hlSQ', root), box = $('#hlSug', root), list = $('#hlSugL', root), sq = $('#hlSQs', root), ar = $('#hlSQa', root), cl = $('#hlSQx', root); if (!f || !box || !list) return;
+    let items = [], idx = -1, all = false, quiet = false; // quiet = กลับจากหน้าต่างเพิ่ม/แก้ไข → Focus ช่องโดยไม่เปิดรายการซ้ำ
+    const sync = () => { if (cl) cl.hidden = !f.value; };
+    const refocus = () => { if (f.isConnected) { quiet = true; f.focus(); quiet = false; } };
+    const isOpen = () => !box.classList.contains('hidden');
+    const close = () => { box.classList.add('hidden'); f.setAttribute('aria-expanded', 'false'); idx = -1; all = false; if (sq) sq.value = ''; };
+    const inBox = (el) => el && (el === f || box.contains(el));
+    const draw = () => {
+      const sel = hlKey(f.value); const typedF = hlNorm(f.value); const qs = sq ? hlNorm(sq.value) : '';
+      const typed = qs || typedF, q = hlKey(typed); const exactAny = q && (HL_STATUS.some((x) => hlKey(x) === q) || HL_CUSTOM.some((x) => hlKey(x) === q));
+      const m = (x) => all || !q || (!qs && exactAny) || hlKey(x).includes(q); // เลือกไว้แล้ว / กดลูกศร → แสดงทั้งหมด
+      const std = HL_STATUS.filter(m), cu = HL_CUSTOM.filter(m);
+      const addTxt = q && !exactAny ? typed : '';
+      items = [{ add: true, v: addTxt }].concat(std.map((v) => ({ v, std: true })), cu.map((v) => ({ v, cu: true })));
+      if (idx >= items.length) idx = -1;
+      const row = (x, k) => `<div class="hl-sug-it${x.cu ? ' hl-sug-cu' : ''}${k === idx ? ' on' : ''}${hlKey(x.v) === sel ? ' cur' : ''}" role="option" aria-selected="${hlKey(x.v) === sel}" data-i="${k}" data-v="${h(x.v)}"${x.std ? ' data-std' : ''}><span class="hl-rd" aria-hidden="true"></span><span class="hl-sug-t">${h(x.v)}</span>${x.cu ? `<span class="hl-sug-act"><button type="button" class="hl-sug-b" data-ed title="แก้ไข" aria-label="แก้ไข ${h(x.v)}">✏️</button><button type="button" class="hl-sug-b" data-del title="ลบ" aria-label="ลบ ${h(x.v)}">🗑️</button></span>` : ''}</div>`;
+      list.innerHTML = `<div class="hl-sug-it hl-sug-add${idx === 0 ? ' on' : ''}" role="option" data-i="0" data-add="1">＋ เพิ่มสถานะใหม่${addTxt ? ` “${h(addTxt)}”` : ''}</div>` + items.slice(1).map((x, n) => row(x, n + 1)).join('') + (items.length === 1 ? '<div class="hl-sug-empty">ไม่พบสถานะ — กด ＋ เพิ่มสถานะใหม่</div>' : '');
+      const was = isOpen(); box.classList.remove('hidden'); f.setAttribute('aria-expanded', 'true'); if (!was) list.scrollTop = 0; // เปิดใหม่ → เริ่มบนสุด (ขณะพิมพ์ไม่เลื่อนเอง)
+    };
+    const after = (nv, old) => { if (nv != null) { if (old == null || hlKey(f.value) === hlKey(old) || !f.value) f.value = nv; } else if (old != null && hlKey(f.value) === hlKey(old)) f.value = ''; sync(); refocus(); };
+    const pick = (x) => { if (!x) return; if (x.add) { const t = x.v; close(); return hlStModal('add', t, (nv) => { if (nv) { f.value = nv; sync(); } refocus(); }); } const fromS = document.activeElement === sq; f.value = x.v; sync(); close(); if (fromS) refocus(); };
+    list.addEventListener('mousedown', (e) => { e.preventDefault(); const it = e.target.closest('[data-i]'); if (!it) return; const x = items[Number(it.dataset.i)];
+      if (e.target.closest('[data-ed]')) { close(); return hlStModal('edit', x.v, after); } if (e.target.closest('[data-del]')) { close(); return hlStRemove(x.v, after); } pick(x); });
+    f.addEventListener('input', () => { idx = -1; all = false; if (sq) sq.value = ''; sync(); draw(); }); f.addEventListener('focus', () => { if (!quiet) draw(); }); f.addEventListener('click', () => { if (!isOpen()) draw(); });
+    const blurClose = () => setTimeout(() => { if (!inBox(document.activeElement)) close(); }, 150);
+    f.addEventListener('blur', blurClose);
+    if (sq) { sq.addEventListener('input', () => { idx = -1; all = false; draw(); }); sq.addEventListener('blur', blurClose); sq.addEventListener('keydown', (e) => onKey(e)); }
     if (ar) { ar.addEventListener('mousedown', (e) => e.preventDefault()); ar.onclick = () => { if (isOpen()) close(); else { all = true; draw(); f.focus(); } }; }
-    if (cl) { cl.addEventListener('mousedown', (e) => e.preventDefault()); cl.onclick = () => { f.value = ''; pc = null; sync(); idx = -1; f.focus(); draw(); }; }
-    f.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!isOpen()) draw(); if (!items.length) return; idx = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx <= 0 ? items.length - 1 : idx - 1); draw(); const on = $('.hl-sug-it.on', box); if (on) on.scrollIntoView({ block: 'nearest' }); }
+    if (cl) { cl.addEventListener('mousedown', (e) => e.preventDefault()); cl.onclick = () => { f.value = ''; sync(); idx = -1; f.focus(); draw(); }; }
+    const onKey = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!isOpen()) draw(); if (!items.length) return; idx = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx <= 0 ? items.length - 1 : idx - 1); draw(); const on = $('.hl-sug-it.on', list); if (on) on.scrollIntoView({ block: 'nearest' }); }
       else if (e.key === 'Enter') { e.preventDefault(); if (isOpen() && idx >= 0) pick(items[idx]); else close(); }
-      else if (e.key === 'Escape' && isOpen()) { e.stopPropagation(); close(); } });
+      else if (e.key === 'Escape' && isOpen()) { e.stopPropagation(); close(); } };
+    f.addEventListener('keydown', onKey);
     sync();
   }
   async function hualakDialog(jobId, onDone) {
@@ -405,21 +429,20 @@
   function hualakMount(root, job, onDone, mo = {}) {
     const office = T.canEdit(); let pending = []; let sel = null; // sel = ตู้ที่เลือก (Container key: 'c1' = ตู้ 🔴 1 / Container ID)
     if (office && !mo.driver) hlCustomLoad(); // รายการสถานะที่เคยเพิ่ม (ทุก JOB · Supabase)
-    if (!mo.driver) hlColorLoad(); // สีสถานะ (Supabase · RUN-23)
     {
       {
         const refresh = async (j2) => { job = await hlLoadContainers(j2 || await T.auth('tnj_job_get', { p_job_id: job.id }, { silent: true })); render(); onDone && onDone(); };
         const render = () => {
           const keep = {}; ['hlD', 'hlT', 'hlS', 'hlSQ', 'hlN'].forEach((k) => { const i = $('#' + k, root); if (i) keep[k] = i.value; });
-          if (office && !mo.driver) hlCustomAdd((job.timeline || []).filter((t) => t.event_type === 'STATUS' && t.is_custom_status).map((t) => t.title));
+          if (office && !mo.driver && !hlCustomRpc) hlCustomAdd((job.timeline || []).filter((t) => t.event_type === 'STATUS' && t.is_custom_status).map((t) => t.title)); // ยังไม่ติดตั้ง RUN-21/22 เท่านั้น
           const cs = hlContainers(job); if (!sel || !cs.some((c) => c.key === sel)) sel = (cs.find((c) => !ctClosed(job, c)) || cs[0]).key; const ct = ctOf(job, sel); const isClosed = ctClosed(job, ct);
           const canAdd = !isClosed && (mo.driver ? !['NEW', 'ASSIGNED', 'COMPLETED', 'CANCELLED'].includes(job.status) : office && !['COMPLETED', 'CANCELLED'].includes(job.status)); const canRow = !mo.driver && office && job.status !== 'CANCELLED'; const now = bkk(Date.now() + (T.server.offsetMs || 0));
           const ctSel = `<div class="hl-csel"><div class="field"><label>เลือกตู้</label><select class="inp" id="hlC">${cs.map((c) => `<option value="${h(c.key)}" ${c.key === sel ? 'selected' : ''}>${ctBadge(c.no)} | ${h(c.container_no || '-')}${ctClosed(job, c) ? ' (ปิดงานแล้ว)' : ''}</option>`).join('')}</select></div></div>`;
           root.innerHTML = `${ctSel}${mo.mobile ? hlMobileCard(job, ct) : ''}${canAdd ? `<div class="hl-form"><div class="field"><label>วันที่ <span class="req">*</span></label><input type="date" class="inp" id="hlD" value="${now.date}"></div><div class="field"><label>เวลา <span class="req">*</span></label><input type="time" class="inp" id="hlT" value="${now.time}"></div>
-              <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label>${mo.driver ? stSel('hlS', '', [HL_CLOSE], false) : hlComboHtml()}</div>${mo.driver ? '' : `<div class="field hl-fp"><label>สีสถานะ</label>${hlPalHtml()}</div>`}
+              <div class="field hl-fs"><label>สถานะ <span class="req">*</span></label>${mo.driver ? stSel('hlS', '', [HL_CLOSE], false) : hlComboHtml()}</div>
               ${mo.mobile ? '<div class="field hl-fn"><label>หมายเหตุ (ไม่บังคับ)</label><textarea class="inp" id="hlN" maxlength="500" rows="2"></textarea></div>' : ''}${mo.mobile ? `<div class="field hl-fn"><label>📎 แนบไฟล์ / รูปภาพ (เลือกได้หลายไฟล์)</label><div class="m-att"><label class="btn">📷 ถ่ายรูป<input type="file" id="hlCam" accept="image/*" capture="environment" hidden></label><label class="btn">📎 เลือกไฟล์<input type="file" id="hlFiles" multiple accept="${HL_ACCEPT}" hidden></label></div><div class="m-pick" id="hlPick">${pending.map((f) => `<span>📎 ${h(f.name)}</span>`).join('')}</div></div>` : ''}${mo.foot ? '' : `<div class="hl-fb"><button type="button" class="btn btn-p btn-lg" id="hlGo">${mo.mobile ? '💾 บันทึก TIMELINE' : 'บันทึก Timeline'}</button></div>`}</div>`
             : `<div class="alert info" id="hlInfo">${isClosed && job.status !== 'COMPLETED' && job.status !== 'CANCELLED' ? `ตู้ ${ctBadge(ct.no)} ปิดงานแล้ว — ดู Timeline / แก้ไข / ลบ / แนบไฟล์ ได้ · ตู้อื่นยังอัปเดตต่อได้` : mo.driver && ['NEW', 'ASSIGNED'].includes(job.status) ? 'กด ✅ รับทราบงาน ก่อน จึงอัปเดตสถานะได้' : job.status === 'CANCELLED' ? 'งานถูกยกเลิกแล้ว — ดูได้อย่างเดียว' : job.status === 'COMPLETED' ? 'งานปิดแล้ว — เพิ่มสถานะใหม่ไม่ได้ (แก้ไข / ลบ / แนบไฟล์ ของรายการเดิมได้)' : 'สิทธิ์ดูอย่างเดียว'}</div>`}
-            <div id="hlTl">${hualakTimelineHtml(job, { ct, header: !mo.mobile, actions: canRow, copy: true, internal: !mo.mobile && !mo.driver && office, colors: !mo.driver })}</div>`;
+            <div id="hlTl">${hualakTimelineHtml(job, { ct, header: !mo.mobile, actions: canRow, copy: true, internal: !mo.mobile && !mo.driver && office })}</div>`;
           Object.keys(keep).forEach((k) => { const i = $('#' + k, root); if (i && keep[k] !== undefined) i.value = keep[k]; });
           // Desktop Modal: ปุ่ม บันทึก Timeline อยู่ Footer ซ้ายสุด (ปิด ขวาสุด) — แสดงเฉพาะเมื่อเพิ่มสถานะได้
           if (mo.foot) mo.foot.innerHTML = canAdd ? '<button type="button" class="btn btn-p btn-lg" id="hlGo">💾 บันทึก Timeline</button>' : '';
@@ -434,7 +457,6 @@
           const je = mo.mobile && $('#mJobEdit', root); if (je) je.onclick = () => jobEditDialog(job.id, () => refresh(), { mobile: true, ct });
           if (mo.mobile) ['hlCam', 'hlFiles'].forEach((id) => { const inp = $('#' + id, root); if (!inp) return; inp.onchange = () => { const got = Array.from(inp.files || []); const bad = got.filter((f) => !/\.(pdf|jpe?g|png|xlsx?|docx?)$/i.test(f.name)); if (bad.length) T.toast('รองรับเฉพาะ PDF JPG JPEG PNG XLS XLSX DOC DOCX', 'warn'); pending = pending.concat(got.filter((f) => !bad.includes(f))); inp.value = ''; $('#hlPick', root).innerHTML = pending.map((f) => `<span>📎 ${h(f.name)}</span>`).join(''); }; });
           if (go) go.onclick = async () => {
-            const pcSel = !mo.driver && $('#hlSQ', root) ? ($('#hlSQ', root).dataset.pc || '') : ''; // สีที่เลือกเอง
             const d = $('#hlD', root).value, t = $('#hlT', root).value, s = mo.driver ? ($('#hlS', root) || {}).value : hlResolve(($('#hlSQ', root) || {}).value), nEl = $('#hlN', root), n = nEl ? nEl.value.trim() : '';
             if (!d || !t) return T.toast('กรุณาระบุวันที่และเวลา', 'warn'); if (!s) { const f = $('#hlSQ', root); if (f) f.focus(); return T.toast('กรุณาเลือกสถานะ', 'warn'); }
             const multi = hlContainers(job).length > 1;
@@ -446,7 +468,6 @@
               if (mo.mobile && pending.length) { const files = pending; pending = []; for (const f of files) await T.files.upload(job.id, await T.files.shrink(f), 'อื่น ๆ', r.timeline_id, null); }
               if (s === HL_CLOSE) await hlSaveBill(r.timeline_id, bill); // RUN-19
               const isNewSt = String(s).startsWith('CUSTOM:') && !HL_CUSTOM.some((x) => hlKey(x) === hlKey(s.slice(7)));
-              if (pcSel) await hlColorSave(String(s).startsWith('CUSTOM:') ? s.slice(7) : s, pcSel); // ชื่อ + สี ถาวร (RUN-23)
               if (String(s).startsWith('CUSTOM:')) { hlCustomAdd([s.slice(7)], true); hlCustomLoad(); } // สถานะใหม่ → อยู่ในรายการแนะนำทันที (ทุก JOB / ทุกตู้)
               T.toast(s === HL_CLOSE ? (multi ? `ปิดงานตู้ ${ctBadge(ct.no)} แล้ว${r.job && r.job.status === 'COMPLETED' ? ' · ทุกตู้ปิดครบ — ปิด JOB แล้ว' : ''}` : 'ปิดงานแล้ว') : (isNewSt ? `บันทึก Timeline แล้ว · เพิ่มสถานะใหม่ “${s.slice(7)}” เรียบร้อยแล้ว` : 'บันทึก Timeline แล้ว'), 'ok'); ['hlS', 'hlSQ'].forEach((k) => { const i = $('#' + k, root); if (i) i.value = ''; }); if (nEl) nEl.value = ''; await refresh(mo.mobile ? null : r.job);
             } catch (e) { T.err(e); } finally { T.loading(false); if (go.isConnected) go.disabled = false; }
@@ -870,8 +891,7 @@
         const drawRoute = async () => { try { const r = await T.auth('tnj_gps_route', { p_job_id: job.id }, { silent: true }); if ($('#gpRoute', body).checked && r.points.length) { L.polyline(r.points.map((p) => [p.lat, p.lng]), { color: '#1E6FE8', weight: 4, opacity: .8 }).addTo(lay); r.points.forEach((p) => L.circleMarker([p.lat, p.lng], { radius: 3, color: '#1E6FE8', fillOpacity: .8 }).bindTooltip(`${T.fmtDT(p.t)}${p.speed != null ? ' · ' + Math.round(p.speed * 3.6) + ' กม./ชม.' : ''}`).addTo(lay)); } $('#gpPts', body).textContent = `จุด GPS ทั้งหมด ${r.points.length} จุด`; if (r.points.length) pts.push(...r.points.slice(-50).map((p) => [p.lat, p.lng])); if (job.last_lat != null) { L.marker([job.last_lat, job.last_lng], { icon: truckIcon('factory', job.gps_stale) }).bindPopup(`<b>${h(job.license_plate || '')}</b> ${h(job.driver_name || '')}<br>${h(T.ago(job.last_gps_at))}`).addTo(lay).openPopup(); pts.push([job.last_lat, job.last_lng]); } if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 14 }); } catch (e) { console.warn(e); } };
         drawRoute(); $('#gpRefresh', body).onclick = reload; $('#gpRoute', body).onchange = reload;
       } else if (tab === 'timeline') {
-        hlColorLoad(); // สีสถานะ (โหลดแล้วอัปเดตวงกลมสีในหน้าเอง)
-        body.innerHTML = `<div class="card card-b mb2"><div class="flex between mb1"><h3>🚛 Timeline งานหัวลาก</h3><button class="btn btn-p" id="hlAdd">อัปเดต Timeline</button></div>${hualakTimelineHtml(job, { header: true, colors: true })}</div><div class="card card-b"><div class="flex between mb2"><h3>Timeline</h3>${canEdit && job.status !== 'CANCELLED' && job.status !== 'COMPLETED' ? '<button class="btn btn-p" id="tlAdd">+ UPDATE TIMELINE</button>' : (canEdit ? '<button class="btn" id="tlAdd">+ เพิ่มหมายเหตุ / ไฟล์</button>' : '')}</div>${timelineHtml(job.timeline, admin)}</div>`;
+        body.innerHTML = `<div class="card card-b mb2"><div class="flex between mb1"><h3>🚛 Timeline งานหัวลาก</h3><button class="btn btn-p" id="hlAdd">อัปเดต Timeline</button></div>${hualakTimelineHtml(job, { header: true })}</div><div class="card card-b"><div class="flex between mb2"><h3>Timeline</h3>${canEdit && job.status !== 'CANCELLED' && job.status !== 'COMPLETED' ? '<button class="btn btn-p" id="tlAdd">+ UPDATE TIMELINE</button>' : (canEdit ? '<button class="btn" id="tlAdd">+ เพิ่มหมายเหตุ / ไฟล์</button>' : '')}</div>${timelineHtml(job.timeline, admin)}</div>`;
         const b = $('#tlAdd', body); if (b) b.onclick = () => timelineDialog(job, reload);
         $('#hlAdd', body).onclick = () => hualakDialog(job.id, reload);
         bindTimeline(body, job, reload);
