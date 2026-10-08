@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-A">
+<meta name="sfz-build" content="1008-B">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1090,6 +1090,74 @@ body:has(.modal-back.show){overflow:hidden}
 
 
 </style>
+<style>
+/* ===== 💰 ปิดค่าใช้จ่าย — เส้นตารางครบทุกช่อง ===== */
+:root{ --ex-line:#9AA7BD; --ex-line-soft:#C3CEDF; }
+
+/* ---- ตารางหลัก: กรอบนอก + เส้นทุกช่อง ---- */
+.ex-tbl{border-collapse:separate !important;border-spacing:0;
+  border:1.5px solid var(--ex-line) !important;border-radius:10px;overflow:hidden}
+.ex-tbl thead th{border-right:1px solid rgba(255,255,255,.45) !important;
+  border-bottom:1.5px solid var(--ex-line) !important}
+.ex-tbl thead th:last-child{border-right:0 !important}
+.ex-tbl tbody td{border-right:1px solid var(--ex-line-soft) !important;
+  border-bottom:1px solid var(--ex-line-soft) !important;border-top:0 !important;border-left:0 !important}
+.ex-tbl tbody td:last-child{border-right:0 !important}
+.ex-tbl tbody tr:last-child td{border-bottom:0 !important}
+
+/* ---- ช่องกรอกในเซลล์: มีกรอบของตัวเอง ไม่กลืนพื้น ---- */
+.ex-tbl input,.ex-tbl select{border:1.5px solid #B6C2D6 !important;border-radius:7px !important;
+  background:#fff !important;box-sizing:border-box}
+.ex-tbl input:focus,.ex-tbl select:focus{outline:0 !important;
+  border-color:#2563EB !important;box-shadow:0 0 0 2px rgba(37,99,235,.18) !important}  /* layout ไม่ขยับ */
+.ex-tbl input.ex-bad,.ex-tbl select.ex-bad{border-color:#DC2626 !important;
+  box-shadow:0 0 0 2px rgba(220,38,38,.18) !important;background:#FEF2F2 !important}
+.ex-tbl tbody td{height:48px}
+.ex-tbl .ex-c-act{padding:4px 6px !important}
+
+/* ---- หน้าต่างรายการ / รายละเอียด ---- */
+.ex-ltbl{border-collapse:separate !important;border-spacing:0;
+  border:1.5px solid var(--ex-line) !important;border-radius:10px;overflow:hidden}
+.ex-ltbl th{border-right:1px solid rgba(255,255,255,.45) !important;
+  border-bottom:1.5px solid var(--ex-line) !important}
+.ex-ltbl th:last-child{border-right:0 !important}
+.ex-ltbl td{border-right:1px solid var(--ex-line-soft) !important;
+  border-bottom:1px solid var(--ex-line-soft) !important;border-top:0 !important;border-left:0 !important}
+.ex-ltbl td:last-child{border-right:0 !important}
+.ex-ltbl tr.ex-trsum td{border-top:1.5px solid var(--ex-line) !important;font-weight:700}
+.ex-lrow{cursor:pointer}
+.ex-lrow:hover td{background:#F1F6FF !important}
+
+/* ---- การ์ดสรุป 3 กล่อง: กรอบชัด ---- */
+.ex-card{border-width:1.5px !important;border-style:solid !important;
+  box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.ex-card-adv{border-color:#93C5FD !important}
+.ex-card-spent{border-color:#FCA5A5 !important}
+.ex-card-bal{border-color:#6EE7B7 !important}
+.ex-card-bd input{border:1.5px solid #93C5FD !important}
+.ex-card-bd input:focus{outline:0;border-color:#2563EB !important;
+  box-shadow:0 0 0 2px rgba(37,99,235,.18) !important}
+
+/* ---- ฟิลด์หัวเอกสาร ---- */
+.ex-fld input{border:1.5px solid var(--ex-line-soft) !important}
+.ex-fld input:focus{outline:0;border-color:#2563EB !important;box-shadow:0 0 0 2px rgba(37,99,235,.18) !important}
+.ex-dmeta>div{border-width:1.5px !important}
+
+/* ---- ปุ่มยกเลิกการแก้ไข / ปุ่มในรายละเอียด ---- */
+.ex-ib-cancel{background:#FEF3C7 !important;border-color:#FCD34D !important}
+.ex-btn-edit{background:#7C3AED}
+.ex-btn-rm{background:#DC2626}
+
+/* ---- มือถือ: เส้นต้องไม่หาย ---- */
+@media (max-width:860px){
+  .ex-tbl,.ex-ltbl{border-width:1.5px !important}
+  .ex-tbl tbody td,.ex-ltbl td{border-right:1px solid var(--ex-line-soft) !important;
+    border-bottom:1px solid var(--ex-line-soft) !important}
+  .ex-tbl thead th,.ex-ltbl th{border-right:1px solid rgba(255,255,255,.45) !important}
+  .ex-tbl input,.ex-tbl select{border-width:1.5px !important}
+}
+
+</style>
 </head>
 <body>
 
@@ -1141,7 +1209,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-A</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-B</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5394,7 +5462,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-A' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-B' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5448,8 +5516,9 @@ const EXP_PLACES     = ['อมตะชิตี้ระยอง','พี่�
 
 const EX = {
   doc: null,          // เอกสารปัจจุบัน
-  items: [],          // รายการที่บันทึกแล้ว
+  items: [],          // รายการที่บันทึกแล้ว (เป็นฐานของยอดสรุปเสมอ)
   drafts: [],         // แถวที่ยังไม่บันทึก (ไม่นับรวมยอด ไม่ export)
+  editing: new Set(), // id ของรายการที่กำลังแก้ไข — ยังอยู่ใน items ยอดจึงไม่เปลี่ยนก่อนบันทึก
   busy: new Set(),    // กันกดซ้ำรายแถว
   loading: false
 };
@@ -5545,8 +5614,11 @@ function exRender(){
               <th class="ex-c-act">จัดการ</th>
             </tr></thead>
             <tbody>
-              ${EX.items.map((it,i)=>exRowSaved(it,i+1)).join('')}
-              ${EX.drafts.map((dr,i)=>exRowDraft(dr, EX.items.length+i+1)).join('')}
+              ${EX.items.map((it,i)=>{
+                 const dr = EX.drafts.find(d=>d.editId===it.id);
+                 return dr ? exRowDraft(dr, i+1) : exRowSaved(it, i+1);
+               }).join('')}
+              ${EX.drafts.filter(d=>!d.editId).map((dr,i)=>exRowDraft(dr, EX.items.length+i+1)).join('')}
               ${(!EX.items.length && !EX.drafts.length)
                 ? `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีรายการ</td></tr>`:''}
             </tbody>
@@ -5626,7 +5698,9 @@ function exRowDraft(dr, no){
     </td>
     <td class="ex-c-act">
       <button class="ex-ib ex-ib-save" title="บันทึก" ${busy?'disabled':''} onclick="exSaveDraft('${esc(dr.key)}')">${busy?'<span class="spinner"></span>':'💾'}</button>
-      <button class="ex-ib ex-ib-del" title="ลบแถว" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️</button>
+      ${dr.editId
+        ? `<button class="ex-ib ex-ib-cancel" title="ยกเลิกการแก้ไข" ${busy?'disabled':''} onclick="exCancelEdit('${esc(dr.key)}')">✖</button>`
+        : `<button class="ex-ib ex-ib-del" title="ลบแถว" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️</button>`}
     </td>
   </tr>`;
 }
@@ -5655,16 +5729,40 @@ function exDraftSet(key, field, val){
 }
 
 /* ---------- บันทึกรายการ ---------- */
+/* ตรวจรูปแบบตัวเลข (อนุญาตคอมมา/จุดทศนิยม) */
+function _exIsNum(v){ return /^-?[\d,]*\.?\d+$/.test(String(v).trim()); }
+/* ไฮไลต์ช่องที่กรอกผิดในแถว draft (idx: 0=JobN 1=บริษัท 2=ต้นทุน 3=ใบเสร็จ 4=สถานที่ 5=อื่นๆ) */
+function _exClearInvalid(key){
+  const tr = document.querySelector(`[data-ex-draft="${CSS.escape(String(key))}"]`);
+  if(tr) tr.querySelectorAll('.ex-bad').forEach(e=>e.classList.remove('ex-bad'));
+}
+function _exInvalid(key, idx, msg){
+  toast(msg,'error');
+  const tr = document.querySelector(`[data-ex-draft="${CSS.escape(String(key))}"]`);
+  if(!tr) return;
+  const fields = tr.querySelectorAll('input, select');
+  const el = fields[idx];
+  if(el){ el.classList.add('ex-bad'); try{ el.focus(); el.select && el.select(); }catch(_){ } }
+}
 async function exSaveDraft(key){
   if(EX.busy.has(key)) return;                    // กันกดซ้ำ
   const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
   if(!EX.doc || !EX.doc.id){ toast('ยังไม่มีเอกสาร','error'); return; }
 
-  if(!String(dr.job_no||'').trim()){ toast('กรอก Job N','error'); return; }
+  // ---- ตรวจข้อมูลก่อนบันทึก · ไฮไลต์ช่องที่ผิด ----
+  _exClearInvalid(key);
+  if(!String(dr.job_no||'').trim()){ _exInvalid(key,0,'กรอก Job N'); return; }
+  if(!String(dr.company||'').trim()){ _exInvalid(key,1,'กรอกชื่อบริษัท'); return; }
+  const rawCost = String(dr.cost_amount==null?'':dr.cost_amount).trim();
+  const rawRcp  = String(dr.receipt_amount==null?'':dr.receipt_amount).trim();
+  if(rawCost!=='' && !_exIsNum(rawCost)){ _exInvalid(key,2,'ค่าใช้จ่ายต้องเป็นตัวเลข'); return; }
+  if(rawRcp!==''  && !_exIsNum(rawRcp)){  _exInvalid(key,3,'ยอดใบเสร็จต้องเป็นตัวเลข'); return; }
   const cost = _exNum(dr.cost_amount), rcp = _exNum(dr.receipt_amount);
-  if(cost<0 || rcp<0){ toast('จำนวนเงินติดลบไม่ได้','error'); return; }
+  if(cost<0){ _exInvalid(key,2,'จำนวนเงินติดลบไม่ได้'); return; }
+  if(rcp<0){  _exInvalid(key,3,'จำนวนเงินติดลบไม่ได้'); return; }
+  if(!String(dr.place_code||'').trim()){ _exInvalid(key,4,'เลือกสถานที่'); return; }
   if(dr.place_code==='อื่นๆ' && !String(dr.place_other||'').trim()){
-    toast('เลือก "อื่นๆ" ต้องกรอกชื่อสถานที่','error'); return;
+    _exInvalid(key,5,'เลือก "อื่นๆ" ต้องกรอกชื่อสถานที่'); return;
   }
 
   EX.busy.add(key); exRender();
@@ -5684,7 +5782,8 @@ async function exSaveDraft(key){
     const row = Array.isArray(data) ? data[0] : data;
     if(dr.editId){
       const i = EX.items.findIndex(x=>x.id===dr.editId);
-      if(i>=0) EX.items[i] = row; else EX.items.push(row);
+      if(i>=0) EX.items[i] = row; else EX.items.push(row);   // แทนที่ของเดิม → ยอดเพิ่งเปลี่ยนตรงนี้
+      EX.editing.delete(dr.editId);
     } else {
       EX.items.push(row);
     }
@@ -5711,15 +5810,25 @@ function _exErr(e){
 /* ---------- แก้ไข / ลบ ---------- */
 function exEditItem(id){
   const it = EX.items.find(x=>x.id===id); if(!it) return;
-  EX.items = EX.items.filter(x=>x.id!==id);
+  if(EX.drafts.some(d=>d.editId===id)) return;          // กำลังแก้อยู่แล้ว
+  // ⚠️ ไม่ดึงออกจาก EX.items — ยอดใช้ไป/คงเหลือต้องไม่เปลี่ยนจนกว่าจะกดบันทึกสำเร็จ
+  EX.editing.add(id);
   EX.drafts.push({
     key:'d'+(++_exDraftSeq), editId: it.id,
     job_no: it.job_no||'', company: it.company||'',
-    cost_amount: String(it.cost_amount||''), receipt_amount: String(it.receipt_amount||''),
+    cost_amount: String(it.cost_amount==null?'':it.cost_amount),
+    receipt_amount: String(it.receipt_amount==null?'':it.receipt_amount),
     place_code: it.place_code||'', place_other: it.place_other||''
   });
   exRender();
-  toast('แก้ไขแล้วกด 💾 บันทึกอีกครั้ง','info');
+  toast('แก้ไขแล้วกด 💾 บันทึก · กด ✖ เพื่อยกเลิก','info');
+}
+/* ยกเลิกการแก้ไข — คืนค่าเดิมทั้งหมด ไม่แตะฐานข้อมูลและยอดสรุป */
+function exCancelEdit(key){
+  const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
+  if(dr.editId) EX.editing.delete(dr.editId);
+  EX.drafts = EX.drafts.filter(x=>x.key!==key);
+  exRender();
 }
 async function exDeleteItem(id){
   if(EX.busy.has(id)) return;
@@ -5774,8 +5883,50 @@ async function exRefreshSummary(){
 /* ============================================================
    📋 หน้าต่างรายการปิดค่าใช้จ่าย
    ============================================================ */
-const EXL = { rows:[], q:'', from:'', to:'' };
+const EXL = { rows:[], q:'', from:'', to:'', hitDocs:null };
+let _exlTimer = null;
+function exListSearchSoon(){            // หน่วงเล็กน้อย กันยิง query ทุกตัวอักษร
+  clearTimeout(_exlTimer);
+  _exlTimer = setTimeout(()=>exListReload(), 280);
+}
 
+/* สิทธิ์: ใช้ role จริงจากระบบเดิม ไม่สร้าง role ใหม่ */
+function canEditExpense(){ const r=_permRole(); return r==='SUPER_ADMIN'||r==='ADMIN'||r==='SHIPPING'||r==='USER'; }
+function canDeleteExpense(){ const r=_permRole(); return r==='SUPER_ADMIN'||r==='ADMIN'; }
+
+/* เปิดเอกสารเก่าขึ้นมาแก้ต่อในหน้าหลัก */
+async function exEditDoc(id){
+  try{
+    const { data: head } = await sb.from(EXP_SUMMARY).select('*').eq('id', id).maybeSingle();
+    if(!head){ toast('ไม่พบเอกสาร','error'); return; }
+    const { data: its } = await sb.from(EXP_ITEM_TABLE)
+      .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
+      .eq('doc_id', id).order('seq',{ascending:true});
+    EX.doc = head; EX.items = its||[]; EX.drafts = []; EX.editing = new Set();
+    closeModal('modal-detail');
+    S.view = 'expense'; renderSidebar(); exRender();
+    toast('เปิดเอกสาร '+(head.doc_no||'')+' แล้ว','success');
+  }catch(e){ console.error(e); toast('เปิดเอกสารไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+
+/* ลบเอกสารทั้งใบ (รายการย่อยลบตาม FK cascade) */
+async function exDeleteDoc(id, docNo, fromDetail){
+  if(!canDeleteExpense()){ toast('เฉพาะ ADMIN / SUPER ADMIN เท่านั้น','error'); return; }
+  const ok = await confirmDialog({
+    title:'ลบเอกสารปิดค่าใช้จ่าย',
+    message:`ยืนยันลบเอกสาร <b>${esc(docNo||'')}</b><br>รายการทั้งหมดในเอกสารนี้จะถูกลบด้วย`,
+    okLabel:'🗑️ ลบเอกสาร', okClass:'btn-danger'
+  });
+  if(!ok) return;
+  try{
+    const { error } = await sb.from(EXP_DOC_TABLE).delete().eq('id', id);
+    if(error) throw error;
+    if(EX.doc && EX.doc.id===id){ EX.doc=null; EX.items=[]; EX.drafts=[]; EX.editing=new Set(); }
+    toast('ลบเอกสารแล้ว','success');
+    await exListReload();                 // refresh ทันที ไม่ต้อง reload หน้า
+    exListRender();
+  }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||''),'error'); }
+}
 async function exOpenList(){
   openModal('modal-detail');
   const mdl = $('modal-detail');
@@ -5796,6 +5947,19 @@ async function exListLoad(){
     const { data, error } = await q;
     if(error) throw error;
     EXL.rows = data||[];
+
+    // ค้นหาถึง "รายการย่อย" ด้วย — Job N / บริษัท / สถานที่ ที่บันทึกจริง
+    EXL.hitDocs = null;
+    const term = String(EXL.q||'').trim();
+    if(term){
+      const like = `%${term}%`;
+      const { data: its } = await sb.from(EXP_ITEM_TABLE)
+        .select('doc_id')
+        .eq('app_code', WORK_APP_CODE)
+        .or(`job_no.ilike.${like},company.ilike.${like},place_code.ilike.${like},place_other.ilike.${like},note.ilike.${like}`)
+        .limit(2000);
+      EXL.hitDocs = new Set((its||[]).map(x=>x.doc_id));
+    }
   }catch(e){ console.error(e); toast('โหลดรายการไม่สำเร็จ: '+(e.message||''),'error'); EXL.rows=[]; }
 }
 function exListRender(){
@@ -5803,8 +5967,13 @@ function exListRender(){
   const qq = String(EXL.q||'').toLowerCase();
   const rows = EXL.rows.filter(r=>{
     if(!qq) return true;
-    return [r.doc_no, r.closer_name, r.expense_date].filter(Boolean)
-           .some(x=>String(x).toLowerCase().includes(qq));
+    // หัวเอกสาร: เลขที่เอกสาร / ผู้ปิด / วันที่ (รับทั้ง 2025-06-08 และ 08/06/2025)
+    const head = [r.doc_no, r.closer_name, r.expense_date,
+                  r.expense_date ? fmtDate(r.expense_date) : '']
+                 .filter(Boolean).some(x=>String(x).toLowerCase().includes(qq));
+    // รายการย่อย: Job N / บริษัท / สถานที่ / หมายเหตุ
+    const inItems = EXL.hitDocs ? EXL.hitDocs.has(r.id) : false;
+    return head || inItems;
   });
   mdl.querySelector('.modal').innerHTML = `
     <div class="modal-head"><div><h2>📋 รายการปิดค่าใช้จ่าย</h2>
@@ -5813,7 +5982,7 @@ function exListRender(){
     <div class="modal-body">
       <div class="ex-lfilter">
         <input type="text" placeholder="🔍 ค้นหา เลขที่เอกสาร / ผู้ปิด / วันที่..." value="${esc(EXL.q)}"
-               oninput="EXL.q=this.value;exListRender()">
+               oninput="EXL.q=this.value;exListSearchSoon()">
         <input type="date" value="${esc(EXL.from)}" onchange="EXL.from=this.value;exListReload()">
         <input type="date" value="${esc(EXL.to)}" onchange="EXL.to=this.value;exListReload()">
       </div>
@@ -5824,7 +5993,7 @@ function exListRender(){
             <th>เบิกเงิน</th><th>ใช้ไป</th><th>คงเหลือ</th><th>สถานะ</th><th>จัดการ</th>
           </tr></thead>
           <tbody>${rows.length? rows.map(r=>`
-            <tr>
+            <tr class="ex-lrow" onclick="exOpenDetail('${esc(r.id)}')">
               <td><b>${esc(r.doc_no||'')}</b></td>
               <td>${r.expense_date?esc(fmtDate(r.expense_date)):'—'}</td>
               <td>${esc(r.closer_name||'—')}</td>
@@ -5833,8 +6002,9 @@ function exListRender(){
               <td class="ex-money">${_exMoney(r.spent_total)}</td>
               <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</td>
               <td style="text-align:center"><span class="ex-st">${esc(r.status||'ปกติ')}</span></td>
-              <td style="text-align:center">
+              <td style="text-align:center" onclick="event.stopPropagation()">
                 <button class="ex-ib ex-ib-view" title="ดูรายละเอียด" onclick="exOpenDetail('${esc(r.id)}')">🔍</button>
+                ${canDeleteExpense() ? `<button class="ex-ib ex-ib-del" title="ลบเอกสาร" onclick="exDeleteDoc('${esc(r.id)}','${esc(r.doc_no||'')}')">🗑️</button>` : ''}
               </td>
             </tr>`).join('')
             : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">ไม่พบเอกสาร</td></tr>`}
@@ -5901,7 +6071,10 @@ function exDetailRender(h, items){
       <div class="ex-dacts">
         <button class="btn ex-btn-xls" onclick="exExportExcel('${esc(h.id)}')">📊 Export Excel</button>
         <button class="btn ex-btn-pdf" onclick="exExportPDF('${esc(h.id)}')">📄 Export PDF</button>
+        ${canEditExpense() ? `<button class="btn ex-btn-edit" onclick="exEditDoc('${esc(h.id)}')">✏️ แก้ไขเอกสารนี้</button>` : ''}
+        ${canDeleteExpense() ? `<button class="btn ex-btn-rm" onclick="exDeleteDoc('${esc(h.id)}','${esc(h.doc_no||'')}',true)">🗑️ ลบเอกสาร</button>` : ''}
         <button class="btn btn-secondary" onclick="exOpenList()">← กลับ</button>
+        <button class="btn btn-secondary" onclick="closeModal('modal-detail')">❌ ปิดหน้าต่าง</button>
       </div>
     </div>`;
 }
@@ -5921,6 +6094,57 @@ async function _exFetchForExport(docId){
   return { h, items: its };
 }
 
+/* ---------- patch xlsx: ใส่ pageSetup (A4 แนวนอน, fit to width) + freeze header ----------
+   ตัวเขียนของ xlsx-js-style ไม่รองรับสองอย่างนี้ (ตรวจจากไฟล์ที่สร้างจริงด้วย openpyxl)
+   จึงต้องแกะ zip แล้วแก้ sheet1.xml ตรง ๆ */
+async function _exPatchXlsx(buf){
+  try{
+    await loadPdfLib();                                  // fflate รวมอยู่ใน bundle เดียวกัน
+    const fz = window.fflate;
+    if(!fz || !fz.unzipSync) return buf;                 // patch ไม่ได้ → คืนไฟล์เดิม (ยังใช้งานได้)
+    const files = fz.unzipSync(new Uint8Array(buf));
+    const key = Object.keys(files).find(k=>/^xl\/worksheets\/sheet1\.xml$/i.test(k));
+    if(!key) return buf;
+    let xml = fz.strFromU8(files[key]);
+
+    // 1) freeze แถวหัวตาราง (4 แถวแรกค้างไว้)
+    const pane = '<sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/>'
+               + '<selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView>';
+    if(/<sheetViews>[\s\S]*?<\/sheetViews>/.test(xml)){
+      xml = xml.replace(/<sheetViews>[\s\S]*?<\/sheetViews>/, '<sheetViews>'+pane+'</sheetViews>');
+    } else {
+      xml = xml.replace(/(<sheetData)/, '<sheetViews>'+pane+'</sheetViews>$1');
+    }
+
+    // 2) fitToPage ต้องประกาศใน sheetPr ก่อน pageSetup ถึงจะมีผล
+    if(/<sheetPr[^>]*\/>/.test(xml)){
+      xml = xml.replace(/<sheetPr([^>]*)\/>/, '<sheetPr$1><pageSetUpPr fitToPage="1"/></sheetPr>');
+    } else if(/<sheetPr[^>]*>/.test(xml)){
+      xml = xml.replace(/(<sheetPr[^>]*>)/, '$1<pageSetUpPr fitToPage="1"/>');
+    } else {
+      xml = xml.replace(/(<worksheet[^>]*>)/, '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+    }
+
+    // 3) A4 แนวนอน + พอดีความกว้าง 1 หน้า (สูงปล่อยตามจำนวนแถว)
+    const ps = '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>';
+    xml = xml.replace(/<pageSetup[^>]*\/>/g, '');
+    if(/<\/worksheet>/.test(xml)) xml = xml.replace(/<\/worksheet>/, ps+'</worksheet>');
+
+    files[key] = fz.strToU8(xml);
+    return fz.zipSync(files, { level:6 }).buffer;
+  }catch(e){
+    console.warn('[xlsx patch]', e);
+    return buf;                                          // patch พลาด → ยังได้ไฟล์ที่เปิดได้
+  }
+}
+function _exSaveBlob(buf, filename){
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
 async function exExportExcel(docId){
   try{
     const r = await _exFetchForExport(docId); if(!r) return;
@@ -5952,9 +6176,7 @@ async function exExportExcel(docId){
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:7} }];
     ws['!cols'] = [{wch:7},{wch:16},{wch:28},{wch:18},{wch:18},{wch:18},{wch:20},{wch:22}];
-    ws['!freeze'] = { xSplit:0, ySplit:4 };
-    ws['!pageSetup'] = { orientation:'landscape', paperSize:9, fitToWidth:1, fitToHeight:0, scale:0 };
-    ws['!printHeader'] = [4,4];
+    ws['!margins'] = { left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2 };
 
     const bd = { top:{style:'thin',color:{rgb:'FF999999'}}, bottom:{style:'thin',color:{rgb:'FF999999'}},
                  left:{style:'thin',color:{rgb:'FF999999'}}, right:{style:'thin',color:{rgb:'FF999999'}} };
@@ -5981,92 +6203,185 @@ async function exExportExcel(docId){
     }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'สรุปปิดค่าใช้จ่าย');
-    XLSX.writeFile(wb, `${h.doc_no||'expense'}.xlsx`);
+    // Print_Titles — ให้หัวตาราง (แถว 4) ซ้ำทุกหน้าที่พิมพ์
+    wb.Workbook = wb.Workbook || {};
+    wb.Workbook.Names = (wb.Workbook.Names||[]).concat([{
+      Name:'_xlnm.Print_Titles', Sheet:0, Ref:"'สรุปปิดค่าใช้จ่าย'!$4:$4"
+    }]);
+
+    // เขียนเป็น ArrayBuffer แล้ว patch XML เพิ่ม pageSetup + freeze pane
+    // (ตัวเขียนของไลบรารีไม่รองรับ 2 อย่างนี้ — ตรวจจากไฟล์จริงแล้ว)
+    const buf = XLSX.write(wb, { type:'array', bookType:'xlsx' });
+    const out = await _exPatchXlsx(buf);
+    _exSaveBlob(out, `${h.doc_no||'expense'}.xlsx`);
     toast('ส่งออก Excel แล้ว','success');
   }catch(e){ console.error(e); toast('Export Excel ไม่สำเร็จ: '+(e.message||''),'error'); }
 }
 
+/* ---------- โหลด jsPDF + autoTable + ฟอนต์ไทย (lazy) ---------- */
+let _pdfPromise = null;
+function loadPdfLib(){
+  if(window.jspdf && window.jspdf.jsPDF && window.SFZ_PDF_READY) return Promise.resolve();
+  if(_pdfPromise) return _pdfPromise;
+  _pdfPromise = loadScript('assets/pdf.bundle.js')
+    .catch(e=>{ _pdfPromise=null; throw e; });
+  return _pdfPromise;
+}
+
+/* ---------- EXPORT PDF — สร้างไฟล์ .pdf จริง ดาวน์โหลดได้ (ไม่ใช้ window.print) ---------- */
 async function exExportPDF(docId){
   try{
     const r = await _exFetchForExport(docId); if(!r) return;
+    await loadPdfLib();
+    if(!(window.jspdf && window.jspdf.jsPDF)) throw new Error('โหลดไลบรารี PDF ไม่สำเร็จ');
+
     const { h, items } = r;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+    const PW = doc.internal.pageSize.getWidth();    // 297
+    const PH = doc.internal.pageSize.getHeight();   // 210
+    const M  = 10;
+
+    doc.setFont('Sarabun','normal');
+
     const cost = items.reduce((s,x)=>s+_exNum(x.cost_amount),0);
     const rcp  = items.reduce((s,x)=>s+_exNum(x.receipt_amount),0);
     const sum  = items.reduce((s,x)=>s+_exNum(x.total_amount),0);
-    const bal  = _exNum(h.advance_amount) - sum;
+    const adv  = _exNum(h.advance_amount);
+    const bal  = adv - sum;
 
-    const rowsHtml = items.map((it,i)=>`<tr>
-      <td class="c">${i+1}</td><td>${esc(it.job_no||'')}</td><td>${esc(it.company||'')}</td>
-      <td class="r">${_exMoney(it.cost_amount)}</td><td class="r">${_exMoney(it.receipt_amount)}</td>
-      <td class="r b">${_exMoney(it.total_amount)}</td><td>${esc(it.place_name||'')}</td>
-      <td>${esc(it.note||'')}</td></tr>`).join('');
+    const body = items.map((it,i)=>[
+      String(i+1), it.job_no||'', it.company||'',
+      _exMoney(it.cost_amount), _exMoney(it.receipt_amount), _exMoney(it.total_amount),
+      it.place_name||'', it.note||''
+    ]);
+    // แถวรวม
+    body.push([
+      { content:'รวมทั้งสิ้น', colSpan:3, styles:{ halign:'right', fontStyle:'bold', fillColor:[239,246,255] } },
+      { content:_exMoney(cost), styles:{ halign:'right', fontStyle:'bold', fillColor:[239,246,255] } },
+      { content:_exMoney(rcp),  styles:{ halign:'right', fontStyle:'bold', fillColor:[239,246,255] } },
+      { content:_exMoney(sum),  styles:{ halign:'right', fontStyle:'bold', fillColor:[237,233,254] } },
+      { content:'', colSpan:2, styles:{ fillColor:[239,246,255] } }
+    ]);
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(h.doc_no||'')}</title><style>
-@page{ size:A4 landscape; margin:8mm 10mm; }
-html,body{margin:0;padding:0;background:#fff}
-body{font-family:'Sarabun','Inter',sans-serif;color:#111;font-size:10pt}
-.hd{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1E3A8A;padding-bottom:6px;margin-bottom:10px}
-.hd .co{font-weight:800;color:#1E3A8A;font-size:13pt}
-.hd .co small{display:block;font-weight:400;color:#555;font-size:8pt}
-.hd h1{margin:0;font-size:15pt;color:#1E3A8A;text-align:center}
-.hd .meta{font-size:9pt;line-height:1.6;text-align:right}
-table{width:100%;border-collapse:collapse}
-th,td{border:1px solid #999;padding:4px 6px;font-size:9pt}
-thead th{background:#DBEAFE;font-weight:700;text-align:center}
-thead{display:table-header-group}
-tr{page-break-inside:avoid}
-td.r{text-align:right}td.c{text-align:center}td.b{font-weight:700;background:#F5F3FF}
-tfoot td{font-weight:700;background:#EFF6FF}
-.sums{display:flex;gap:10px;margin-top:10px}
-.sums div{flex:1;border:1px solid #999;padding:6px 10px;font-size:9.5pt}
-.sums b{float:right}
-.neg{color:#DC2626}
-.signs{display:flex;gap:24px;margin-top:22px;page-break-inside:avoid}
-.signs div{flex:1;text-align:center;font-size:9pt}
-.signs .ln{margin-top:28px;border-top:1px dotted #333;padding-top:4px}
-.note{margin-top:10px;font-size:9pt;border:1px solid #bbb;padding:6px;min-height:28px}
-</style></head><body>
-  <div class="hd">
-    <div class="co">N.J. LOGISTICS<small>SHIPPING FZ</small></div>
-    <h1>สรุปปิดค่าใช้จ่าย</h1>
-    <div class="meta">
-      เลขที่เอกสาร : <b>${esc(h.doc_no||'')}</b><br>
-      วันที่ปิดค่าใช้จ่าย : ${h.expense_date?esc(fmtDate(h.expense_date)):'—'}<br>
-      ผู้ปิดค่าใช้จ่าย : ${esc(h.closer_name||'—')}
-    </div>
-  </div>
-  <table>
-    <thead><tr><th style="width:36px">ลำดับ</th><th style="width:90px">Job N</th><th>บริษัท</th>
-      <th style="width:92px">ค่าใช้จ่าย (ต้นทุน)</th><th style="width:92px">+ ยอดใบเสร็จ =</th>
-      <th style="width:92px">ยอดรวม (บาท)</th><th style="width:100px">สถานที่</th><th style="width:90px">หมายเหตุ</th></tr></thead>
-    <tbody>${rowsHtml}</tbody>
-    <tfoot><tr><td colspan="3" style="text-align:right">รวมทั้งสิ้น</td>
-      <td class="r">${_exMoney(cost)}</td><td class="r">${_exMoney(rcp)}</td>
-      <td class="r">${_exMoney(sum)}</td><td colspan="2"></td></tr></tfoot>
-  </table>
-  <div class="sums">
-    <div>เบิกเงิน (บาท) <b>${_exMoney(h.advance_amount)}</b></div>
-    <div>ใช้ไป (บาท) <b>${_exMoney(sum)}</b></div>
-    <div>เงินคงเหลือ (บาท) <b class="${bal<0?'neg':''}">${_exMoney(bal)}</b></div>
-  </div>
-  <div class="note"><b>หมายเหตุ</b> ${esc(h.note||'')}</div>
-  <div class="signs">
-    <div><div class="ln">ผู้ปิดค่าใช้จ่าย</div>( ${esc(h.closer_name||'')} )<br>วันที่ ${h.expense_date?esc(fmtDate(h.expense_date)):'.............'}</div>
-    <div><div class="ln">ผู้ตรวจสอบ</div>( ............................. )<br>วันที่ .............</div>
-    <div><div class="ln">ผู้อนุมัติ</div>( ............................. )<br>วันที่ .............</div>
-  </div>
-</body></html>`;
+    doc.autoTable({
+      head: [[ 'ลำดับ','Job N','บริษัท','ค่าใช้จ่าย (ต้นทุน)','+ ยอดใบเสร็จ =','ยอดรวม (บาท)','สถานที่','หมายเหตุ' ]],
+      body,
+      startY: M + 22,
+      margin: { left:M, right:M, top:M + 22, bottom:M + 4 },
+      theme: 'grid',                                   // เส้นตารางครบทุกช่อง
+      styles: {
+        font:'Sarabun', fontStyle:'normal', fontSize:8.5,
+        cellPadding:1.6, lineWidth:0.22, lineColor:[120,130,150],
+        textColor:[17,17,17], overflow:'linebreak', valign:'middle'
+      },
+      headStyles: {
+        font:'Sarabun', fontStyle:'bold', fontSize:8.5,
+        fillColor:[30,58,138], textColor:[255,255,255],
+        lineWidth:0.25, lineColor:[255,255,255], halign:'center'
+      },
+      columnStyles: {
+        0:{ cellWidth:13, halign:'center' },
+        1:{ cellWidth:26 },
+        2:{ cellWidth:'auto' },
+        3:{ cellWidth:30, halign:'right', fillColor:[254,252,232] },
+        4:{ cellWidth:30, halign:'right', fillColor:[253,242,248] },
+        5:{ cellWidth:30, halign:'right', fillColor:[245,243,255], fontStyle:'bold' },
+        6:{ cellWidth:34 },
+        7:{ cellWidth:28 }
+      },
+      // สีพื้นคอลัมน์ Job N / บริษัท (ไม่ทับแถวรวม)
+      didParseCell: (d)=>{
+        if(d.section==='body' && d.row.index < items.length){
+          if(d.column.index===1) d.cell.styles.fillColor=[239,246,255];
+          if(d.column.index===2) d.cell.styles.fillColor=[236,253,245];
+        }
+      },
+      // หัวกระดาษทุกหน้า + เลขหน้า
+      didDrawPage: (d)=>{
+        doc.setFont('Sarabun','bold'); doc.setFontSize(13);
+        doc.setTextColor(30,58,138);
+        doc.text('สรุปปิดค่าใช้จ่าย', PW/2, M + 8, { align:'center' });
 
-    document.getElementById('ex-print-iframe')?.remove();
-    const ifr = document.createElement('iframe');
-    ifr.id = 'ex-print-iframe';
-    ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-    document.body.appendChild(ifr);
-    const doc = ifr.contentDocument || ifr.contentWindow.document;
-    doc.open(); doc.write(html); doc.close();
-    const go = ()=>{ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(err){ console.error(err); } };
-    if(doc.readyState==='complete') setTimeout(go,180); else ifr.onload = ()=>setTimeout(go,180);
-  }catch(e){ console.error(e); toast('Export PDF ไม่สำเร็จ: '+(e.message||''),'error'); }
+        doc.setFontSize(10);
+        doc.text('N.J. LOGISTICS', M, M + 6);
+        doc.setFont('Sarabun','normal'); doc.setFontSize(7.5);
+        doc.setTextColor(90,90,90);
+        doc.text('SHIPPING FZ', M, M + 10);
+
+        doc.setFontSize(8);
+        doc.setTextColor(17,17,17);
+        const rx = PW - M;
+        doc.text('เลขที่เอกสาร : ' + (h.doc_no||'-'), rx, M + 4, { align:'right' });
+        doc.text('วันที่ปิดค่าใช้จ่าย : ' + (h.expense_date? fmtDate(h.expense_date) : '-'), rx, M + 8.5, { align:'right' });
+        doc.text('ผู้ปิดค่าใช้จ่าย : ' + (h.closer_name||'-'), rx, M + 13, { align:'right' });
+
+        doc.setDrawColor(30,58,138); doc.setLineWidth(0.5);
+        doc.line(M, M + 16, PW - M, M + 16);
+
+        const pg = doc.internal.getNumberOfPages();
+        doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+        doc.text('หน้า ' + pg, PW - M, PH - 4, { align:'right' });
+      }
+    });
+
+    // ---------- ยอดสรุป + หมายเหตุ + ลายเซ็น ----------
+    let y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : M + 30) + 6;
+    const need = 52;
+    if(y + need > PH - M){ doc.addPage(); y = M + 24; }
+
+    const bw = (PW - M*2 - 8) / 3;
+    const boxes = [
+      { t:'เบิกเงิน (บาท)',    v:_exMoney(adv), bg:[239,246,255], fg:[29,78,216] },
+      { t:'ใช้ไป (บาท)',       v:_exMoney(sum), bg:[254,242,242], fg:[220,38,38] },
+      { t:'เงินคงเหลือ (บาท)', v:_exMoney(bal), bg:[236,253,245], fg: bal<0?[220,38,38]:[4,120,87] }
+    ];
+    boxes.forEach((b,i)=>{
+      const x = M + i*(bw+4);
+      doc.setFillColor(b.bg[0],b.bg[1],b.bg[2]);
+      doc.setDrawColor(120,130,150); doc.setLineWidth(0.25);
+      doc.rect(x, y, bw, 14, 'FD');
+      doc.setFont('Sarabun','normal'); doc.setFontSize(8); doc.setTextColor(70,70,70);
+      doc.text(b.t, x+3, y+5.5);
+      doc.setFont('Sarabun','bold'); doc.setFontSize(11);
+      doc.setTextColor(b.fg[0],b.fg[1],b.fg[2]);
+      doc.text(b.v, x+bw-3, y+11, { align:'right' });
+    });
+    y += 19;
+
+    // หมายเหตุ (มีกรอบ)
+    doc.setDrawColor(150,150,150); doc.setLineWidth(0.22);
+    doc.rect(M, y, PW - M*2, 12);
+    doc.setFont('Sarabun','bold'); doc.setFontSize(8); doc.setTextColor(17,17,17);
+    doc.text('หมายเหตุ', M+3, y+5);
+    doc.setFont('Sarabun','normal');
+    doc.text(String(h.note||''), M+22, y+5, { maxWidth: PW - M*2 - 26 });
+    y += 18;
+
+    // ช่องลายเซ็น 3 ช่อง
+    const sw = (PW - M*2 - 16) / 3;
+    const signs = [
+      { l:'ผู้ปิดค่าใช้จ่าย', n:h.closer_name||'', d:h.expense_date? fmtDate(h.expense_date):'.............' },
+      { l:'ผู้ตรวจสอบ',     n:'', d:'.............' },
+      { l:'ผู้อนุมัติ',       n:'', d:'.............' }
+    ];
+    doc.setFontSize(8);
+    signs.forEach((s,i)=>{
+      const x = M + i*(sw+8);
+      doc.setDrawColor(70,70,70); doc.setLineWidth(0.2);
+      doc.line(x, y+10, x+sw, y+10);                 // เส้นลายเซ็น
+      doc.setFont('Sarabun','normal'); doc.setTextColor(17,17,17);
+      doc.text(s.l, x+sw/2, y+14.5, { align:'center' });
+      doc.text('( ' + (s.n || '.............................') + ' )', x+sw/2, y+19, { align:'center' });
+      doc.text('วันที่ ' + s.d, x+sw/2, y+23.5, { align:'center' });
+    });
+
+    doc.save(`${h.doc_no||'expense'}.pdf`);
+    toast('ส่งออก PDF แล้ว','success');
+  }catch(e){
+    console.error(e);
+    toast('Export PDF ไม่สำเร็จ: '+(e.message||''),'error');
+  }
 }
 
 </script>
