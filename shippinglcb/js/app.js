@@ -4,7 +4,9 @@ const APP_VERSION="MASSERGER v8.14";const SUPABASE_URL="https://sytgqjglcnsabcsz
    งานประเภทอื่น / Special Case ทั้งหมดไม่ถูกแตะ (พฤติกรรมเดิม) */
 var _jobsDeltaAt=null,_jobsDeltaBusy=false;
 /* ขอบเขต: category = "รับ-ส่งเอกสารชิปปิ้ง" เท่านั้น · ไม่รวม Direct Shipping / FZ / ฝนด่าน / พงษ์ด่าน / FZ ยง / ชุดตรวจปล่อย (ใช้กติกาเดิมตัดสิน) */
-function _jobsDeltaInScope(row){try{if(!row||String(row.category||"").trim()!==DOC_TYPE)return false;if(_isPiyongTerminal(row.import_terminal))return false;if(_shouldCreateDirectShippingDoc(row.category,row.import_terminal))return false;return true}catch(_){return false}}
+/* Sync ข้ามเครื่อง (Poll 15 วิ): รับ-ส่งเอกสารชิปปิ้ง + รับ-ส่งเอกสาร LCB เท่านั้น (Sync สถานะอย่างเดียว ไม่แตะ Business Flow) */
+const NJ_DELTA_CATS=["รับ-ส่งเอกสารชิปปิ้ง","รับ-ส่งเอกสาร LCB"];
+function _jobsDeltaInScope(row){try{if(!row||!NJ_DELTA_CATS.includes(String(row.category||"").trim()))return false;if(_isPiyongTerminal(row.import_terminal))return false;if(_shouldCreateDirectShippingDoc(row.category,row.import_terminal))return false;return true}catch(_){return false}}
 function _jobsDeltaMark(rows){try{for(const r of rows||[]){const t=r&&r.updated_at?Date.parse(r.updated_at):NaN;if(!isNaN(t)&&(!_jobsDeltaAt||t>Date.parse(_jobsDeltaAt)))_jobsDeltaAt=r.updated_at}}catch(_){}}
 function _jobsDeltaApply(rows){
   let changed=false,structural=false;const patchIds=[];
@@ -14,6 +16,8 @@ function _jobsDeltaApply(rows){
     if(idx>=0){
       const old=S.jobs[idx];
       if(old.updated_at===row.updated_at&&old.status===row.status&&old.assigned_to===row.assigned_to)continue;
+      /* กันข้อมูลเก่าทับ: ผล Poll ที่ส่งออกไปก่อน RPC รับงาน commit จะได้แถวเดิม (WAIT) ที่ updated_at เก่ากว่า → ห้ามทับสถานะใหม่ (GOING/DONE) */
+      {const R={WAIT:0,GOING:1,DONE:2,CANCELED:2},tn=Date.parse(row.updated_at),to=Date.parse(old.updated_at);if(!isNaN(tn)&&!isNaN(to)&&tn<to&&(R[row.status]??9)<(R[old.status]??-1))continue}
       const oldSt=old.status;
       S.jobs[idx]=_preprocessJob({...old,...row});changed=true;
       try{_invalidateDetailCache(row.id)}catch(_){}
@@ -30,12 +34,14 @@ function _jobsDeltaApply(rows){
   if(structural)_rtRowRefresh("jobs delta");else patchIds.forEach(id=>_rtPatchOneJobRow(id));
   return true;
 }
+/* updated_at = เวลาเริ่ม Transaction (now()) → แถวที่ commit ช้ากว่าอาจมี updated_at ต่ำกว่า watermark → ดึงย้อนซ้อน 2 นาที (แถวที่ไม่เปลี่ยนถูกข้ามอยู่แล้ว) */
+const NJ_DELTA_OVERLAP_MS=12e4;
 async function _jobsDeltaPoll(){
   if(!S.user||typeof sb==="undefined"||!sb||document.hidden||_jobsDeltaBusy||_isShippingOnly())return;
   if(!_jobsDeltaAt){_jobsDeltaMark(S.jobs);if(!_jobsDeltaAt)_jobsDeltaAt=new Date(Date.now()-12e4).toISOString()}
   _jobsDeltaBusy=true;
   try{
-    const{data,error}=await withTimeout(sb.from("jobs").select(getJobCols()).eq("app_code",APP_CODE).eq("category",DOC_TYPE).gte("updated_at",_jobsDeltaAt).order("updated_at",{ascending:true}).limit(200),TIMEOUT_QUERY,"jobs-delta");
+    const{data,error}=await withTimeout(sb.from("jobs").select(getJobCols()).eq("app_code",APP_CODE).in("category",NJ_DELTA_CATS).gte("updated_at",new Date(Date.parse(_jobsDeltaAt)-NJ_DELTA_OVERLAP_MS).toISOString()).order("updated_at",{ascending:true}).limit(200),TIMEOUT_QUERY,"jobs-delta");
     if(error||!data||!data.length)return;
     _jobsDeltaMark(data);
     _jobsDeltaApply(data);
