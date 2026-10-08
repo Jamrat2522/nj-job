@@ -2515,7 +2515,11 @@ function chkeTisExempt(P, dwakSheet){
   if(!P || !P.rows || !P.rows.length || !dwakSheet) return P;
   const isTis=a=>/สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม|สมอ\./.test(a);
   const D=chkeDwakRows(dwakSheet), byR=new Map(D.map(d=>[d._r,d]));
-  const hit=d=>!!d && chkeTxt(d.get('FZ'))==='y' && [1,2,3].some(k=>chkeT(d.get('PermitNo'+k))===CHKE_TIS_EX.no && chkeDate(d.get('IssueDate'+k))===CHKE_TIS_EX.date && chkeT(d.get('PermitIssueAuthority'+k))===CHKE_TIS_EX.auth);   /* ★ [local103] ชุด 1 / 2 / 3 · ต้องตรงครบ 3 ค่าใน k เดียวกัน (ห้ามจับข้ามชุด) */
+  const slotOk=(d,k)=>{ const no=chkeT(d.get('PermitNo'+k)), dt=chkeDate(d.get('IssueDate'+k)), au=chkeT(d.get('PermitIssueAuthority'+k));   /* ★ [local108] ชุดเดียวกันเท่านั้น */
+    if(no==='' || au==='' || !/^\d{4}-\d{2}-\d{2}$/.test(dt)) return false;                                       /* ไม่ครบ / วันที่ไม่ถูกต้อง → ไม่ผ่าน */
+    if(au!==CHKE_TIS_EX.auth) return false;                                                                         /* หน่วยงานออกใบอนุญาตต้องเป็น สมอ. (0994000165161) — กันชุด FZ / DUI / สรรพสามิต มาปน */
+    return chkeTxt(no)===chkeTxt(CHKE_TIS_EX.no) ? dt===CHKE_TIS_EX.date : true; };                                  /* EXEMPT152 ต้องตรงครบ 3 ค่า · ใบอนุญาตทั่วไป = ครบ 3 ช่อง */
+  const hit=d=>!!d && [1,2,3].some(k=>slotOk(d,k));   /* ★ [local103] ชุด 1 / 2 / 3 · ต้องตรงครบ 3 ค่าใน k เดียวกัน (ห้ามจับข้ามชุด) · ★ [local107] ไม่ขึ้นกับ FZ (Y / N / ว่าง ผลเหมือนกัน) */
   const rows=[];
   for(const x of P.rows){
     if(x._k!==20 || !/^ติดใบอนุญาต /.test(x.field||'') || !hit(byR.get(x._r))){ rows.push(x); continue; }
