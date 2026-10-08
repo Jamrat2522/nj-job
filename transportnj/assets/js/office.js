@@ -987,111 +987,194 @@
       <div class="field"><label>หมายเหตุ</label><textarea class="inp" id="${px}_note" rows="1"></textarea></div>
       <div class="alert err hidden" id="${px}_err"></div><datalist id="flRouteList"></datalist>`;
   }
-  function flUpdateKplBox(root, px, kpl) {
+  // ===== สูตรกลาง (ตัวเดียว) — หน้าจอ / Dashboard / ตัวกรอง / กราฟ / Excel / ฟอร์มบันทึก ใช้ร่วมกัน · เกณฑ์คงที่ 3.00 กม./ลิตร =====
+  // ระยะทาง = ไมล์หลัง − ไมล์ก่อน · ลิตร = ยอดเงิน ÷ ราคา/ลิตร · กม./ลิตร = ระยะทาง ÷ ลิตร · บาท/กม. = ยอดเงิน ÷ ระยะทาง
+  // ลิตรควรใช้ = ระยะทาง ÷ 3 · ลิตรเกิน = MAX(0, ลิตรจริง − ลิตรควรใช้) · เงินหัก = ลิตรเกิน × ราคา/ลิตร (คิดเฉพาะ ต่ำกว่าเกณฑ์ + ข้อมูลครบ)
+  // กันหาร 0 / NaN / Infinity: ค่าที่หาไม่ได้ = null (แสดง —) · ระยะทาง 0 / ไมล์หลัง < ไมล์ก่อน / ข้อมูลไม่ครบ → ไม่คิดเงินหัก
+  const flN = (v) => { if (v === '' || v == null) return null; const n = Number(v); return isFinite(n) ? n : null; };
+  const flR = (v, d = 2) => +Number(v).toFixed(d);
+  function flMetrics(mbIn, maIn, tcIn, pplIn, ltIn) {
+    const mb = flN(mbIn), ma = flN(maIn), tc0 = flN(tcIn), ppl0 = flN(pplIn), lt0 = flN(ltIn);
+    const neg = [mb, ma, tc0, ppl0, lt0].some((v) => v != null && v < 0);
+    const err = neg ? 'ค่าตัวเลขติดลบไม่ได้' : (ma != null && ma > 0 && mb != null && ma < mb) ? 'ไมล์หลังน้อยกว่าไมล์ก่อน' : '';
+    const tc = !neg && tc0 > 0 ? tc0 : 0; let ppl = !neg && ppl0 > 0 ? ppl0 : 0; const ltRaw = !neg && lt0 > 0 ? lt0 : 0;
+    if (!(ppl > 0) && tc > 0 && ltRaw > 0) ppl = tc / ltRaw;
+    const dist = !err && ma != null && mb != null && ma > 0 && ma > mb ? flR(ma - mb) : 0;
+    const lt = tc > 0 && ppl > 0 ? flR(tc / ppl) : ltRaw > 0 ? flR(ltRaw) : 0;
+    const kpl = !err && dist > 0 && lt > 0 ? flR(dist / lt) : null;
+    const cpk = !err && dist > 0 && tc > 0 ? flR(tc / dist) : null;
+    const state = err ? 'bad' : kpl != null ? (kpl >= FL_MIN_KPL ? 'ok' : 'low') : (dist > 0 || lt > 0 || tc > 0) ? 'bad' : 'wait';
+    const expected = kpl != null ? dist / FL_MIN_KPL : 0;
+    const excess = state === 'low' ? Math.max(0, lt - expected) : 0;
+    const penalty = state === 'low' && ppl > 0 ? excess * ppl : 0;
+    return { dist, lt, ppl: ppl > 0 ? ppl : 0, tc, kpl, cpk, expected, excess, penalty, state, err };
+  }
+  // สถานะ: [ไอคอน, ข้อความหน้าจอ, สี badge, ข้อความ Excel (ตามต้นแบบ: ปกติ / ต้องหักเงิน)]
+  const FL_ST = { ok: ['✅', 'ผ่านเกณฑ์', 'green', 'ปกติ'], low: ['⚠️', 'ต่ำกว่าเกณฑ์', 'red', 'ต้องหักเงิน'], bad: ['❗', 'ข้อมูลไม่ครบ', 'amber', 'ข้อมูลไม่ครบ'], wait: ['—', 'รอข้อมูล', 'gray', 'รอข้อมูล'] };
+  function flUpdateKplBox(root, px, c) {
     const box = $('#' + px + '_kpl_box', root), status = $('#' + px + '_kpl_status', root), valEl = $('#' + px + '_kpl_val', root); if (!box || !status || !valEl) return;
-    if (!kpl || kpl <= 0) { valEl.textContent = '—'; valEl.style.color = 'var(--muted)'; status.textContent = '— รอข้อมูล'; status.style.color = 'var(--muted)'; box.style.background = '#F7F9FC'; box.style.borderColor = 'var(--line)'; return; }
+    if (c && c.err) { valEl.textContent = '—'; valEl.style.color = 'var(--red)'; status.textContent = `❗ ${c.err}`; status.style.color = 'var(--red)'; box.style.background = 'rgba(224,82,82,.10)'; box.style.borderColor = 'rgba(224,82,82,.45)'; return; }
+    const kpl = c ? c.kpl : null;
+    if (kpl == null || kpl <= 0) { valEl.textContent = '—'; valEl.style.color = 'var(--muted)'; status.textContent = c && c.state === 'bad' ? '❗ ข้อมูลไม่ครบ' : '— รอข้อมูล'; status.style.color = 'var(--muted)'; box.style.background = '#F7F9FC'; box.style.borderColor = 'var(--line)'; return; }
     const s = flKplStatus(kpl); valEl.textContent = kpl.toFixed(2); valEl.style.color = s.color; const diffStr = (s.diff >= 0 ? '+' : '') + s.diff.toFixed(2);
     status.innerHTML = `${s.icon} ${s.text} <b>${kpl.toFixed(2)}</b> กม./ลิตร <span class="muted small">(${diffStr} จากเกณฑ์)</span>`; status.style.color = s.color;
     if (s.ok) { box.style.background = 'rgba(61,186,116,.08)'; box.style.borderColor = 'rgba(61,186,116,.3)'; } else { box.style.background = 'rgba(224,82,82,.10)'; box.style.borderColor = 'rgba(224,82,82,.45)'; }
   }
-  // recalcEntry (px='f') / recalcEdit (px='e' — + ค่าเที่ยว 10% ปัดลง)
+  // recalcEntry (px='f') / recalcEdit (px='e' — + ค่าเที่ยว 10% ปัดลง) — ใช้สูตรกลาง flMetrics
   function flRecalc(root, px) {
-    const n = (k) => Number($('#' + px + '_' + k, root).value); const mb = n('mb'), ma = n('ma'), tc = n('tc'), ppl = n('ppl'), sell = n('sell'), oth = n('other');
-    $('#' + px + '_dist', root).value = ma > mb ? (ma - mb).toFixed(2) : '';
-    $('#' + px + '_lt', root).value = tc > 0 && ppl > 0 ? (tc / ppl).toFixed(2) : '';
-    const dist = ma > mb ? ma - mb : 0; const lt = (tc > 0 && ppl > 0) ? tc / ppl : 0; const kpl = lt > 0 ? dist / lt : 0; flUpdateKplBox(root, px, kpl);
+    const n = (k) => Number($('#' + px + '_' + k, root).value); const g = (k) => $('#' + px + '_' + k, root).value; const sell = n('sell'), oth = n('other'), tc = n('tc');
+    const c = flMetrics(g('mb'), g('ma'), g('tc'), g('ppl'), null);
+    $('#' + px + '_dist', root).value = c.dist > 0 ? c.dist.toFixed(2) : '';
+    $('#' + px + '_lt', root).value = c.lt > 0 && Number(g('ppl')) > 0 ? c.lt.toFixed(2) : '';
+    flUpdateKplBox(root, px, c);
     if (px === 'e') { const tripFee = sell > 0 ? Math.floor(sell * 0.10) : 0; $('#e_trip', root).value = tripFee > 0 ? tripFee : ''; }
-    const costTotal = tc + oth; $('#' + px + '_cost_total', root).value = costTotal > 0 ? costTotal.toFixed(2) : '';
+    const costTotal = (tc > 0 ? tc : 0) + (oth > 0 ? oth : 0); $('#' + px + '_cost_total', root).value = costTotal > 0 ? costTotal.toFixed(2) : '';
     const el = $('#' + px + '_net', root), lb = $('#' + px + '_net_label', root);
     if (sell > 0 || costTotal > 0) { const net = sell - costTotal; el.value = net.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); el.style.color = net >= 0 ? 'var(--green)' : 'var(--red)'; if (lb) lb.style.color = net >= 0 ? 'var(--green)' : 'var(--red)'; } else el.value = '';
+    return c;
   }
-  // payload เดียวกับ Source (insert: trim route/job/note · edit: ไม่ trim ตาม Source)
+  // payload เดียวกับ Source (insert: trim route/job/note · edit: ไม่ trim ตาม Source) · ค่าที่คำนวณ = สูตรกลาง flMetrics
   function flPayload(root, px, trim) {
     const g = (k) => $('#' + px + '_' + k, root).value; const N = (k) => Number(g(k)) || 0;
-    const mb = N('mb'), ma = N('ma'), tc = N('tc'), ppl = N('ppl'); let lt = N('lt'); if (lt <= 0 && tc > 0 && ppl > 0) lt = +(tc / ppl).toFixed(2);
-    const dist = (ma > mb) ? +(ma - mb).toFixed(2) : 0; const kpl = (lt > 0 && dist > 0) ? +(dist / lt).toFixed(2) : 0; const cpk = (dist > 0 && tc > 0) ? +(tc / dist).toFixed(2) : 0;
+    const mb = N('mb'), ma = N('ma'), tc = N('tc'), ppl = N('ppl'); const c = flMetrics(g('mb'), g('ma'), g('tc'), g('ppl'), null);
     const sell = N('sell'), oth = N('other'), adv = N('adv'), trip = N('trip'); const t = (v) => (trim ? v.trim() : v);
     return { fuel_date: g('date'), plate_no: g('plate'), driver_name: g('driver'), route_location: t(g('route')), job_bl: t(g('job')), company_name: g('company').trim(), container_no: g('container').trim(),
-      mileage_before: mb, mileage_after: ma, distance_km: dist, liters: lt, price_per_liter: ppl, total_cost: tc, km_per_liter: kpl, cost_per_km: cpk,
+      mileage_before: mb, mileage_after: ma, distance_km: c.dist, liters: c.lt, price_per_liter: ppl, total_cost: tc, km_per_liter: c.kpl || 0, cost_per_km: c.cpk || 0,
       selling_price: sell, other_expenses: oth, advance_payment: adv, trip_fee: trip, net_profit: +(sell - tc - oth - trip).toFixed(2), note: t(g('note')) };
   }
-  // ช่องค้นหาใต้หัว Column (กติกาเว็บ NJ) — ตารางครบ 18 Column ของ Source
-  const FL_COLS = [['fuel_date', 'วันที่', 'd'], ['plate_no', 'ทะเบียน', 't'], ['driver_name', 'ผู้ขับ', 't'], ['company_name', 'ชื่อบริษัท', 't'], ['container_no', 'เบอร์ตู้', 't'], ['route_location', 'สถานที่', 't'], ['job_bl', 'Job/BL', 't'],
-    ['mileage_before', 'ไมล์ก่อน', 'n', 0], ['mileage_after', 'ไมล์หลัง', 'n', 0], ['distance_km', 'ระยะ(กม.)', 'n', 2], ['liters', 'ลิตร', 'n', 2], ['price_per_liter', 'บาท/ลิตร', 'n', 2], ['total_cost', 'รวม(บาท)', 'n', 0],
-    ['km_per_liter', 'กม./ลิตร', 'n', 2], ['cost_per_km', 'บาท/กม.', 'n', 2], ['note', 'หมายเหตุ', 't'], ['st', 'สถานะ', 's']];
-  const flMatch = (r, F) => FL_COLS.every(([k, , t, d]) => {
-    const s = (F[k] || '').trim(); if (!s) return true;
-    if (t === 'd') return String(r.fuel_date || '').slice(0, 10) === s;
-    if (t === 's') return flKplStatus(r.km_per_liter).text === s;
-    const q = s.toLowerCase(); const v = r[k];
-    return [v, t === 'n' && v != null ? flFmt(v, d) : null].some((x) => x != null && String(x).toLowerCase().includes(q));
-  });
+  // ตรวจก่อนบันทึก (บันทึกใหม่ / แก้ไข) — ห้ามค่าติดลบ · ไมล์หลังต้องไม่น้อยกว่าไมล์ก่อน · ต้องมี วันที่ / ทะเบียน / ผู้ขับ
+  function flValidate(root, px, v) {
+    if (!v.fuel_date || !v.plate_no || !v.driver_name) return '⚠ กรุณากรอกวันที่ ทะเบียน และผู้ขับ';
+    const c = flMetrics($('#' + px + '_mb', root).value, $('#' + px + '_ma', root).value, $('#' + px + '_tc', root).value, $('#' + px + '_ppl', root).value, null);
+    if (c.err) return '⚠ ' + c.err;
+    return '';
+  }
+  const FL_HEAD = ['วันที่', 'ทะเบียน', 'ทะเบียนหาง', 'ผู้ขับ', 'ชื่อบริษัท', 'เบอร์ตู้', 'สถานที่', 'Job/BL', 'ไมล์ก่อน', 'ไมล์หลัง', 'ระยะ(กม.)', 'ลิตร', 'บาท/ลิตร', 'รวม(บาท)', 'กม./ลิตร', 'สถานะ', 'บาท/กม.', 'หมายเหตุ', 'จัดการ'];
+  // คอลัมน์ที่ต้นแบบซ่อน (.col-hide{display:none} — ข้อมูลยังอยู่ใน DOM): ลิตร / บาท/ลิตร / บาท/กม. / หมายเหตุ
+  const FL_HIDE = new Set(['ลิตร', 'บาท/ลิตร', 'บาท/กม.', 'หมายเหตุ']);
+  const FL_NUMH = new Set(['ไมล์ก่อน', 'ไมล์หลัง', 'ระยะ(กม.)', 'ลิตร', 'บาท/ลิตร', 'รวม(บาท)', 'กม./ลิตร', 'บาท/กม.']);
   async function pageFuel(page) {
-    // รายงานไมล์ / น้ำมัน: ดู / ค้นหา / Filter / Export / วิเคราะห์ เท่านั้น — ไม่มีปุ่มเปิด/แก้/ลบรายการ (บันทึกใหม่ทำใน JOB → แท็บ ⛽ ไมล์รถ / น้ำมัน)
-    const canAdd = false, canDel = false; const PAGE_SIZE = 20;
-    const F = {}; FL_COLS.forEach(([k]) => { F[k] = ''; }); let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [];
+    // ⛽ รายงานไมล์ / น้ำมัน — หน้าเดียว · ชุดข้อมูลเดียว = บิลขนส่ง (fuel_logs: key FL:id) + JOB (tnj_mileage_table: key JOB:job_id)
+    // Dashboard / ตาราง / ตัวกรอง / กราฟ / Excel ใช้ RECS ชุดเดียวกัน · ไม่คัดลอก JOB เข้า fuel_logs · ไม่จับคู่เดาเอง
+    // สิทธิ์ (ตรงกับ RPC เดิม): เพิ่ม/แก้ = SUPER_ADMIN/ADMIN/TRANSPORT (tnj_require_office) · ลบ = SUPER_ADMIN/ADMIN (tnj_require_admin) · VIEWER ดูอย่างเดียว
+    // แถวจาก JOB แก้ผ่าน Flow ของ JOB เท่านั้น (เปิดแท็บ ⛽ ไมล์รถ / น้ำมัน ของ JOB) — หน้ารายงานไม่ลบ JOB
+    const canAdd = T.canEdit(), canDel = T.isAdmin(); const PAGE_SIZE = 20;
+    const F = { plates: [], from: '', to: '', below: 'all', q: '' }; let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [], loaded = false;
     let chartInst = null, chartDir = 'x', chartMonthly = false, chartOpen = false;
     const STATS = [['fl_s_cpk', 'ต้นทุนเฉลี่ย', 'บาท / กม.', ''], ['fl_s_ppl', 'ราคาน้ำมันเฉลี่ย', 'บาท / ลิตร', ''], ['fl_s_kpl', 'เฉลี่ย กม./ลิตร', 'เกณฑ์ขั้นต่ำ 3.00', 'fl_sc_kpl_avg'], ['fl_s_below', 'ต่ำกว่าเกณฑ์', 'รายการ < 3.00', 'fl_sc_below'],
       ['fl_s_riskplate', 'ทะเบียนเสี่ยง', 'คันที่เฉลี่ย < 3.00', 'fl_sc_riskplate'], ['fl_s_dist', 'ระยะทางรวม', 'กิโลเมตร', ''], ['fl_s_lt', 'ลิตรรวม', 'ลิตร', ''], ['fl_s_tc', 'ค่าใช้จ่ายรวม', 'บาท', '']];
     page.innerHTML = `<div class="page-head"><h1>⛽ รายงานไมล์ / น้ำมัน</h1><a class="btn" href="#/jobs">‹ งานขนส่ง</a></div>
-      <div class="card mb2" id="fjCard"><div class="card-h"><h3>ส่วนที่ 1 · ไมล์ / น้ำมัน จาก JOB <span class="muted small" id="fjCount"></span></h3><div class="flex flex-wrap"><input type="date" class="inp" id="fjFrom" style="width:auto"><input type="date" class="inp" id="fjTo" style="width:auto"><input class="inp" id="fjQ" placeholder="ค้นหา JOB / B/L / ทะเบียน / คนขับ" style="width:220px"><button class="btn btn-g" id="fjXls">📊 Excel</button></div></div>
-        <div class="tbl-wrap"><table class="tbl" id="fjTbl"><thead><tr><th>วันที่</th><th>ลูกค้า</th><th>B/L</th><th>คนขับ</th><th>ทะเบียนหัว</th><th>ทะเบียนหาง</th><th class="r">ไมล์เริ่ม</th><th class="r">ไมล์จบ</th><th class="r">ระยะทาง</th><th class="r">ลิตร</th><th class="r">ค่าน้ำมัน</th><th class="r">บาท/ลิตร</th><th class="r">กม./ลิตร</th><th>สถานะไมล์</th><th></th></tr></thead><tbody id="fjBody"><tr><td colspan="15" class="empty">กำลังโหลด...</td></tr></tbody></table></div></div>
-      <div class="page-head fl-legacy-h"><h2>ส่วนที่ 2 · ข้อมูลระบบเดิม (fuel_logs) <span class="badge gray">ดูอย่างเดียว · ไม่มี JOB ต้นทาง</span></h2><div class="flex flex-wrap" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างการค้นหา</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div></div>
       <div class="fl-stats">${STATS.map(([id, l, u, cid]) => `<div class="stat fl-stat"${cid ? ` id="${cid}"` : ''}><div class="l">${l}</div><div class="v" id="${id}">-</div><div class="xs muted">${u}</div></div>`).join('')}</div>
-      <div class="card card-b mb2 hidden" id="flChartBox"><div class="flex flex-wrap between mb1"><div class="flex flex-wrap"><select class="inp" id="flMetric" style="width:auto">${Object.entries(FL_MNAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+      <div class="card card-b mb2" id="flFilterCard"><div class="flex flex-wrap fl-filters" id="flFilters"><b class="fl-flabel">ตัวกรอง</b>
+          <div class="fl-plate"><button type="button" class="inp fl-plate-btn" id="flPlateBtn"><span id="flPlateLabel">📊 รวมทุกทะเบียน</span><span class="muted xs">▼</span></button><div class="fl-plate-dd hidden" id="flPlateDd"></div></div>
+          <span class="flex fl-dates"><input type="date" class="inp" id="flFrom" title="วันที่เริ่มต้น"><span class="muted small">ถึง</span><input type="date" class="inp" id="flTo" title="วันที่สิ้นสุด"><button type="button" class="btn btn-sm" id="flDateClr" title="ล้างวันที่">✕</button></span>
+          <select class="inp" id="flBelow" title="กรองตามเกณฑ์ กม./ลิตร"><option value="all">ทั้งหมด</option><option value="below">⚠️ เฉพาะต่ำกว่าเกณฑ์</option></select>
+          <input class="inp fl-q" id="flQ" placeholder="🔎 ค้นหา ทะเบียน / คนขับ / JOB / B/L / สถานที่" autocomplete="off"></div>
+        <div class="flex flex-wrap mt1" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างตัวกรอง</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div>
+        <div class="hidden mt1" id="flChartBox"><div class="flex flex-wrap between mb1"><div class="flex flex-wrap"><select class="inp" id="flMetric" style="width:auto">${Object.entries(FL_MNAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
           <button class="chip active" id="flVert">▐ แนวตั้ง</button><button class="chip" id="flHorz">━ แนวนอน</button><button class="chip active" id="flByPlate">🚛 ตามทะเบียน</button><button class="chip" id="flByMonth">📅 รายเดือน</button></div><button class="btn btn-sm" id="flSave">⬇ บันทึกกราฟ</button></div>
-        <div class="fl-chart-wrap"><canvas id="flChart"></canvas></div></div>
-      <div class="card"><div class="card-h"><h3 id="flTitle">ตารางข้อมูล <span class="muted small" id="flCount"></span></h3></div><div id="flList"></div><div class="pager" id="flPager"></div></div>`;
-    // ---- summary (updateStats) ----
+          <div class="xs muted mb1 hidden" id="flChartNote">ราคาขาย / กำไร มาจากบิลขนส่งที่บันทึกไว้เท่านั้น — แถวจาก JOB ไม่มีราคาขาย (นับเป็น 0 ไม่สร้างรายได้เอง)</div>
+          <div class="fl-chart-wrap"><canvas id="flChart"></canvas></div></div></div>
+      <div class="alert warn hidden" id="flDup"></div>
+      <div class="card"><div class="card-h"><h3 id="flTitle">ตารางข้อมูล <span class="muted small" id="flCount"></span></h3><span class="xs muted">ที่มา: <span class="badge gray">บิล</span> บิลขนส่ง (fuel_logs) · <span class="badge blue">JOB</span> ไมล์/น้ำมันจาก JOB</span></div><div id="flList"></div><div class="pager" id="flPager"></div></div>`;
+    // ---- ชุดข้อมูลเดียว: แปลงทั้งสองแหล่งเป็นแถวรูปแบบเดียวกัน + คำนวณด้วย flMetrics ครั้งเดียว ----
+    const withCalc = (r) => { const c = flMetrics(r.mileage_before, r.mileage_after, r.total_cost, r.price_per_liter, r.liters); return Object.assign(r, { calc: c, distance_km: c.dist, liters: c.lt, price_per_liter: c.ppl, total_cost: c.tc, km_per_liter: c.kpl, cost_per_km: c.cpk }); };
+    const num = (v) => (v == null || v === '' ? null : Number(v));
+    const fromFL = (r) => withCalc({ key: 'FL:' + r.id, src: 'FL', id: Number(r.id), raw: r, fuel_date: String(r.fuel_date || '').slice(0, 10), plate_no: r.plate_no || '', trailer_plate: '', driver_name: r.driver_name || '', company_name: r.company_name || '', container_no: r.container_no || '',
+      route_location: r.route_location || '', job_bl: r.job_bl || '', note: r.note || '', mileage_before: num(r.mileage_before), mileage_after: num(r.mileage_after), total_cost: num(r.total_cost), price_per_liter: num(r.price_per_liter), liters: num(r.liters),
+      selling_price: Number(r.selling_price || 0), net_profit: Number(r.net_profit || 0), trip_fee: Number(r.trip_fee || 0), advance_payment: Number(r.advance_payment || 0) });
+    const fromJob = (r, tp) => { const l = num(r.fuel_liters), a = num(r.fuel_amount);
+      return withCalc({ key: 'JOB:' + r.job_id, src: 'JOB', job_id: r.job_id, job_no: r.job_no || '', bl_no: r.bl_no || '', fuel_date: String(r.job_date || '').slice(0, 10), plate_no: r.license_plate || '', trailer_plate: (tp && tp[r.job_id]) || '', driver_name: r.driver_name || '', company_name: r.customer_name || '', container_no: r.container_no || '',
+        route_location: r.factory_location_text || '', job_bl: [r.job_no, r.bl_no].filter(Boolean).join(' / '), note: r.mileage_status || '', mileage_before: num(r.start_mileage), mileage_after: num(r.end_mileage), total_cost: a, liters: l, price_per_liter: l > 0 && a > 0 ? a / l : null,
+        selling_price: 0, net_profit: 0, trip_fee: 0, advance_payment: 0 }); };
+    // ---- โหลด (ทั้งสองแหล่งพร้อมกัน) — โหลดไม่สำเร็จ = คงข้อมูลเดิมบนหน้าจอ (ไม่ทับเป็นว่าง) ----
+    const fetchAll = async () => {
+      const fl = T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true });
+      const jb = (async () => { let rows = [], pg = 1, total = 0; do { const d = await T.auth('tnj_mileage_table', { p: { page: pg, page_size: 500 } }, { silent: true }); rows = rows.concat(d.rows || []); total = d.total; pg++; } while (rows.length < total && pg <= 20); return rows; })();
+      // ทะเบียนหาง: จาก JOB (tnj_job_list เดิม — v_transport_job_report ไม่มีคอลัมน์นี้) · โหลดไม่ได้ = แสดง — (ไม่กระทบตัวเลข)
+      const tq = (async () => { const tp = {}; try { let pg = 1, n = 0, t = 0; do { const x = await T.auth('tnj_job_list', { p: { page: pg, page_size: 500 } }, { silent: true }); (x.rows || []).forEach((j) => { tp[j.id] = j.trailer_plate; }); n += (x.rows || []).length; t = x.total; pg++; } while (n < t && pg <= 20); } catch (_) { /* ไม่บังคับ */ } return tp; })();
+      const [d, jr, tp] = await Promise.all([fl, jb, tq]); return { d, jr, tp };
+    };
+    const renderAll = async () => {
+      let res; try { res = await fetchAll(); } catch (e) { T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text + ' — ข้อมูลบนหน้าจอยังเป็นของเดิม', 'err'); return false; }
+      if (!$('#flList')) return false;
+      const map = new Map(); // key ไม่ซ้ำ: FL:id / JOB:job_id → ไม่มีแถวซ้ำ ไม่นับซ้ำ
+      (res.d.rows || []).forEach((r) => { const x = fromFL(r); map.set(x.key, x); }); res.jr.forEach((r) => { const x = fromJob(r, res.tp); map.set(x.key, x); });
+      ALL = [...map.values()].sort((a, b) => (b.fuel_date || '').localeCompare(a.fuel_date || '') || (a.src === b.src ? (a.src === 'FL' ? b.id - a.id : String(b.job_no).localeCompare(String(a.job_no))) : (a.src === 'FL' ? -1 : 1)));
+      maxId = res.d.max_id; loaded = true;
+      // อาจซ้ำ: บิลที่ Job/BL ตรงกับ JOB No. / B/L ของ JOB ที่มีไมล์หรือน้ำมันแล้ว → แจ้งเตือนให้ตรวจ (ไม่ตัดออกเอง เพราะไม่มี Key ยืนยัน)
+      const jk = new Map(); ALL.forEach((r) => { if (r.src === 'JOB' && (r.calc.lt > 0 || r.calc.dist > 0)) [r.job_no, r.bl_no].forEach((k) => { if (k) jk.set(String(k).trim(), r); }); });
+      ALL.forEach((r) => { r.dupOf = r.src === 'FL' && r.job_bl && jk.get(String(r.job_bl).trim()) ? jk.get(String(r.job_bl).trim()) : null; });
+      buildPlateList(); apply(); return true;
+    };
+    const loadRoutes = async () => { try { routes = await T.auth('tnj_fuel_routes', {}, { silent: true }); } catch (_) { routes = []; } $$('#flRouteList').forEach((dl) => { dl.innerHTML = routes.map((x) => `<option value="${h(x)}">`).join(''); }); };
+    // ---- ตัวกรอง (ทุกตัวมีผลกับ Dashboard / ตาราง / กราฟ / Excel พร้อมกัน) ----
+    const allPlates = () => { const set = new Set(ALL.map((r) => r.plate_no).filter(Boolean)); const vp = FL_VEHICLES.map((v) => v.plate); [...set].sort().forEach((p) => { if (!vp.includes(p)) vp.push(p); }); return vp; };
+    const buildPlateList = () => { const dd = $('#flPlateDd'); if (!dd) return; F.plates = F.plates.filter((p) => allPlates().includes(p));
+      dd.innerHTML = `<label class="fl-pl-row fl-pl-all"><input type="checkbox" value="ALL"${F.plates.length ? '' : ' checked'}> <span>📊 รวมทุกทะเบียน</span></label>` + allPlates().map((p) => `<label class="fl-pl-row"><input type="checkbox" value="${h(p)}"${F.plates.includes(p) ? ' checked' : ''}> <span>${h(p)}${flGd(p) ? ' — ' + h(flGd(p)) : ''}</span></label>`).join('');
+      $$('input', dd).forEach((cb) => cb.onchange = () => { if (cb.value === 'ALL' && cb.checked) $$('input', dd).forEach((x) => { if (x.value !== 'ALL') x.checked = false; }); else if (cb.value !== 'ALL' && cb.checked) $('input[value="ALL"]', dd).checked = false;
+        if (!$$('input', dd).some((x) => x.checked)) $('input[value="ALL"]', dd).checked = true; F.plates = $$('input:checked', dd).map((x) => x.value).filter((v) => v !== 'ALL'); plateLabel(); apply(); });
+      plateLabel(); };
+    const plateLabel = () => { $('#flPlateLabel').textContent = !F.plates.length ? '📊 รวมทุกทะเบียน' : F.plates.length === 1 ? F.plates[0] : `${F.plates.length} ทะเบียน`; };
+    const qMatch = (r, q) => [r.fuel_date, r.plate_no, r.trailer_plate, r.driver_name, r.company_name, r.container_no, r.route_location, r.job_bl, r.note, FL_ST[r.calc.state][1], r.src === 'JOB' ? 'JOB' : 'บิล'].some((x) => x != null && String(x).toLowerCase().includes(q));
+    const apply = () => { if (!$('#flList')) return; const ps = F.plates.length ? new Set(F.plates) : null; const q = F.q.trim().toLowerCase();
+      RECS = ALL.filter((r) => (!ps || ps.has(r.plate_no)) && (!F.from || r.fuel_date >= F.from) && (!F.to || r.fuel_date <= F.to) && (F.below !== 'below' || r.calc.state === 'low') && (!q || qMatch(r, q)));
+      pageNo = 1; updateStats(RECS); renderTable(); const dups = RECS.filter((r) => r.dupOf); const dz = $('#flDup');
+      dz.classList.toggle('hidden', !dups.length); dz.textContent = dups.length ? `⚠ พบ ${dups.length} บิลที่ Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว (${[...new Set(dups.map((r) => r.job_bl))].join(', ')}) — ระบบไม่ตัดออกเอง กรุณาตรวจสอบว่าเป็นการเติมคนละครั้ง` : '';
+      if (chartOpen) buildChart(); };
+    // ---- summary (updateStats) — อัตราเฉลี่ยคิดจากแถวที่ข้อมูลครบเท่านั้น (ไม่ให้แถวไม่ครบดึงค่าเฉลี่ยผิด) ----
+    const agg = (recs) => { const a = { dist: 0, lt: 0, cost: 0, kd: 0, kl: 0, cd: 0, cc: 0, pl: 0, pc: 0 }; recs.forEach((r) => { const c = r.calc; a.dist += c.dist; a.lt += c.lt; a.cost += c.tc; if (c.kpl != null) { a.kd += c.dist; a.kl += c.lt; } if (c.cpk != null) { a.cd += c.dist; a.cc += c.tc; } if (c.lt > 0 && c.tc > 0) { a.pl += c.lt; a.pc += c.tc; } }); return a; };
+    const aKpl = (a) => (a.kl > 0 ? a.kd / a.kl : 0);
     const updateStats = (recs) => {
-      const dist = recs.reduce((s, r) => s + Number(r.distance_km || 0), 0), lt = recs.reduce((s, r) => s + Number(r.liters || 0), 0), cost = recs.reduce((s, r) => s + Number(r.total_cost || 0), 0); const avgKpl = lt > 0 ? dist / lt : 0;
-      $('#fl_s_cpk').textContent = flFmt(dist > 0 ? cost / dist : 0); $('#fl_s_ppl').textContent = flFmt(lt > 0 ? cost / lt : 0); $('#fl_s_kpl').textContent = flFmt(avgKpl);
-      $('#fl_s_dist').textContent = flFmt(dist, 0); $('#fl_s_lt').textContent = flFmt(lt); $('#fl_s_tc').textContent = flFmt(cost, 0);
-      const belowRecs = recs.filter((r) => { const v = Number(r.km_per_liter || 0); return v > 0 && v < FL_MIN_KPL; });
+      const a = agg(recs); const avgKpl = aKpl(a);
+      $('#fl_s_cpk').textContent = flFmt(a.cd > 0 ? a.cc / a.cd : 0); $('#fl_s_ppl').textContent = flFmt(a.pl > 0 ? a.pc / a.pl : 0); $('#fl_s_kpl').textContent = flFmt(avgKpl);
+      $('#fl_s_dist').textContent = flFmt(a.dist, 0); $('#fl_s_lt').textContent = flFmt(a.lt); $('#fl_s_tc').textContent = flFmt(a.cost, 0);
+      const belowRecs = recs.filter((r) => r.calc.state === 'low');
       const sB = $('#fl_s_below'); sB.textContent = flFmt(belowRecs.length, 0); sB.style.color = belowRecs.length > 0 ? 'var(--red)' : 'var(--green)';
-      const plateAgg = {}; recs.forEach((r) => { const k = r.plate_no; if (!k) return; if (!plateAgg[k]) plateAgg[k] = { d: 0, l: 0, driver: r.driver_name || '' }; plateAgg[k].d += Number(r.distance_km || 0); plateAgg[k].l += Number(r.liters || 0); });
-      const riskPlates = Object.entries(plateAgg).map(([plate, x]) => ({ plate, driver: x.driver, kpl: x.l > 0 ? x.d / x.l : 0 })).filter((p) => p.kpl > 0 && p.kpl < FL_MIN_KPL);
+      const plateAgg = {}; recs.forEach((r) => { const k = r.plate_no; if (!k) return; if (!plateAgg[k]) plateAgg[k] = { rows: [], driver: r.driver_name || '' }; plateAgg[k].rows.push(r); });
+      const riskPlates = Object.entries(plateAgg).map(([plate, x]) => ({ plate, driver: x.driver, kpl: aKpl(agg(x.rows)) })).filter((p) => p.kpl > 0 && p.kpl < FL_MIN_KPL);
       const sR = $('#fl_s_riskplate'); sR.textContent = flFmt(riskPlates.length, 0); sR.style.color = riskPlates.length > 0 ? 'var(--red)' : 'var(--green)';
       $('#fl_sc_riskplate').title = riskPlates.length ? 'ทะเบียนที่ต่ำกว่าเกณฑ์:\n' + riskPlates.map((p) => `• ${p.plate} (${p.driver}) — ${p.kpl.toFixed(2)} กม./ลิตร`).join('\n') : 'ไม่มีทะเบียนที่ต่ำกว่าเกณฑ์';
       $('#fl_sc_below').title = belowRecs.length ? `${belowRecs.length} รายการที่ต่ำกว่าเกณฑ์ 3.00 กม./ลิตร — ดูรายละเอียดในตาราง` : 'ทุกรายการผ่านเกณฑ์';
       $('#fl_s_kpl').style.color = (avgKpl > 0 && avgKpl < FL_MIN_KPL) ? 'var(--red)' : 'var(--navy)';
     };
-    // ---- table ----
-    const frame = () => {
-      // หน้ารายงาน: Header + ข้อมูลจริง (ไม่มีแถวช่องค้นหาใต้หัวตาราง)
-      $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl fl-tbl"><thead><tr>${FL_COLS.map(([, l, t]) => `<th${t === 'n' ? ' class="r"' : ''}>${l}</th>`).join('')}<th>JOB ต้นทาง</th></tr></thead><tbody id="flBody"></tbody></table></div>`;
-    };
-    const rowHtml = (r) => { const s = flKplStatus(r.km_per_liter); return `<tr data-fid="${r.id}"><td class="nowrap">${h(r.fuel_date)}</td><td><span class="badge blue">${h(r.plate_no)}</span></td><td class="nowrap">${h(r.driver_name)}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td><td>${h(r.job_bl || '—')}</td>
-      <td class="r">${flFmt(r.mileage_before, 0)}</td><td class="r">${flFmt(r.mileage_after, 0)}</td><td class="r b" style="color:var(--navy)">${flFmt(r.distance_km)}</td><td class="r">${flFmt(r.liters)}</td><td class="r">${flFmt(r.price_per_liter)}</td><td class="r b" style="color:var(--green)">${flFmt(r.total_cost, 0)}</td>
-      <td class="r" style="${Number(r.km_per_liter) < FL_MIN_KPL ? 'color:var(--red);font-weight:700' : ''}">${flFmt(r.km_per_liter)}</td><td class="r">${flFmt(r.cost_per_km)}</td><td>${h(r.note || '—')}</td>
-      <td class="nowrap"><span class="badge ${s.ok === true ? 'green' : s.ok === false ? 'red' : 'gray'}">${s.icon} ${s.text}</span></td><td class="nowrap">${!canAdd && !canDel ? '<span class="xs muted">ระบบเดิม · ไม่มี JOB</span>' : ''}${canAdd ? `<button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}</td></tr>`; };
+    // ---- table (คอลัมน์ตามต้นแบบ 18 คอลัมน์) ----
+    $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl fl-tbl"><thead><tr>${FL_HEAD.map((l) => `<th class="${FL_NUMH.has(l) ? 'r' : ''}${FL_HIDE.has(l) ? ' fl-col-hide' : ''}">${l}</th>`).join('')}</tr></thead><tbody id="flBody"><tr><td colspan="${FL_HEAD.length}" class="empty">กำลังโหลด...</td></tr></tbody></table></div>`;
+    const mi = (v) => (v == null ? '—' : flFmt(v, 0)); const dash = (v, d = 2) => (v == null ? '—' : flFmt(v, d));
+    const rowHtml = (r) => { const c = r.calc, s = FL_ST[c.state]; const isJ = r.src === 'JOB';
+      const act = isJ ? `<span class="badge blue">JOB</span> <a class="btn btn-sm" href="#/jobs/${h(r.job_id)}?tab=fuel" data-jlink>${canAdd ? '✏️ แก้ไขใน JOB' : 'เปิด JOB ›'}</a>`
+        : `<span class="badge gray">บิล</span>${canAdd ? ` <button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}`;
+      return `<tr data-key="${h(r.key)}"${isJ ? ` data-job="${h(r.job_id)}"` : ` data-fid="${r.id}"`}><td class="nowrap">${h(r.fuel_date || '-')}</td><td><span class="badge blue">${h(r.plate_no || '-')}</span></td><td class="nowrap">${h(r.trailer_plate || '—')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td>
+        <td>${h(r.job_bl || '—')}${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}</td>
+        <td class="r">${mi(r.mileage_before)}</td><td class="r">${mi(r.mileage_after)}</td><td class="r b" style="color:var(--navy)">${flFmt(c.dist)}</td><td class="r fl-col-hide">${flFmt(c.lt)}</td><td class="r fl-col-hide">${flFmt(c.ppl)}</td><td class="r b" style="color:var(--green)">${flFmt(c.tc, 0)}</td>
+        <td class="r" style="${c.state === 'low' ? 'color:var(--red);font-weight:700' : ''}">${dash(c.kpl)}</td>
+        <td class="nowrap"><span class="badge ${s[2]}" data-st="${c.state}">${s[0]} ${s[1]}</span>${c.err ? `<div class="xs" style="color:var(--red)">${h(c.err)}</div>` : ''}</td>
+        <td class="r fl-col-hide">${dash(c.cpk)}</td><td class="fl-col-hide">${h(r.note || '—')}</td><td class="nowrap">${act}</td></tr>`; };
     const renderTable = () => {
       if (!$('#flBody')) return; const pages = Math.max(1, Math.ceil(RECS.length / PAGE_SIZE)); pageNo = Math.min(Math.max(1, pageNo), pages);
-      $('#flCount').textContent = `(${RECS.length} รายการ)`;
+      $('#flCount').textContent = loaded ? `(${RECS.length} รายการ)` : '';
       const vis = RECS.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
-      $('#flBody').innerHTML = vis.length ? vis.map(rowHtml).join('') : `<tr><td colspan="${FL_COLS.length + 1}" class="empty">${ALL.length ? `ดึงข้อมูลได้ ${ALL.length} รายการ — แต่การค้นหาซ่อนหมด ลองกด ↺ ล้างการค้นหา` : 'ไม่พบข้อมูลในตาราง fuel_logs'}</td></tr>`;
-      $$('#flBody [data-eid]').forEach((b) => b.onclick = () => openForm(ALL.find((x) => x.id === Number(b.dataset.eid))));
-      $$('#flBody [data-did]').forEach((b) => b.onclick = async () => { if (!(await T.confirm('ลบรายการ', 'ยืนยันลบรายการนี้?', 'ยืนยันลบ', 'btn-r'))) return; try { await T.auth('tnj_fuel_logs_delete', { p_id: Number(b.dataset.did) }, { silent: true }); T.toast('ลบข้อมูลแล้ว', 'ok'); await renderAll(); } catch (e) { const p = T.parseErr(e); T.toast('ลบไม่สำเร็จ: ' + p.text, 'err'); } });
+      $('#flBody').innerHTML = vis.length ? vis.map(rowHtml).join('') : `<tr><td colspan="${FL_HEAD.length}" class="empty">${!loaded ? 'กำลังโหลด...' : ALL.length ? `ดึงข้อมูลได้ ${ALL.length} รายการ — แต่ตัวกรองซ่อนหมด ลองกด ↺ ล้างตัวกรอง` : 'ยังไม่มีข้อมูลไมล์ / น้ำมัน'}</td></tr>`;
+      $$('#flBody [data-eid]').forEach((b) => b.onclick = () => { const x = ALL.find((y) => y.src === 'FL' && y.id === Number(b.dataset.eid)); if (x) openForm(x.raw); });
+      $$('#flBody [data-did]').forEach((b) => b.onclick = async () => { const id = Number(b.dataset.did); const x = ALL.find((y) => y.src === 'FL' && y.id === id); if (!x) return;
+        if (!(await T.confirm('ลบรายการ', `ยืนยันลบบิลขนส่งรายการนี้? (${h(x.fuel_date)} · ${h(x.plate_no)} · ${flFmt(x.calc.tc, 0)} บาท) — ลบเฉพาะรายการนี้ และบันทึกประวัติการลบ`, 'ยืนยันลบ', 'btn-r'))) return;
+        try { T.loading(true); await T.auth('tnj_fuel_logs_delete', { p_id: id }, { silent: true }); T.toast('ลบข้อมูลแล้ว', 'ok'); await renderAll(); } catch (e) { T.toast('ลบไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } finally { T.loading(false); } });
       $('#flPager').innerHTML = pages <= 1 ? `<span class="muted small">${RECS.length} รายการ</span>` : `<button class="btn btn-sm" id="flPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹ ก่อนหน้า</button><span class="muted small">หน้า ${pageNo}/${pages} · ${RECS.length} รายการ</span><button class="btn btn-sm" id="flNext" ${pageNo >= pages ? 'disabled' : ''}>ถัดไป ›</button>`;
       const pv = $('#flPrev'), nx = $('#flNext'); if (pv) pv.onclick = () => { pageNo--; renderTable(); }; if (nx) nx.onclick = () => { pageNo++; renderTable(); };
     };
-    const apply = () => { if (!$('#flBody')) return; RECS = ALL.filter((r) => flMatch(r, F)); updateStats(RECS); renderTable(); if (chartOpen) buildChart(); };
-    const renderAll = async () => {
-      try { const d = await T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true }); if (!$('#flList')) return; ALL = d.rows.map((r) => Object.assign({}, r, { id: Number(r.id) })); maxId = d.max_id; pageNo = 1; apply(); }
-      catch (e) { T.err(e); }
-    };
-    const loadRoutes = async () => { try { routes = await T.auth('tnj_fuel_routes', {}, { silent: true }); } catch (_) { routes = []; } $$('#flRouteList').forEach((dl) => { dl.innerHTML = routes.map((x) => `<option value="${h(x)}">`).join(''); }); };
-    // ---- chart (buildChart / buildMonthlyChart / groupByPlate) ----
-    const groupByPlate = (recs) => { const map = {}; recs.forEach((r) => { const k = r.plate_no; if (!map[k]) map[k] = { plate: k, driver: r.driver_name, d: 0, l: 0, c: 0, s: 0, n: 0, trips: 0 }; map[k].d += Number(r.distance_km || 0); map[k].l += Number(r.liters || 0); map[k].c += Number(r.total_cost || 0); map[k].s += Number(r.selling_price || 0); map[k].n += Number(r.net_profit || 0); map[k].trips++; });
-      return Object.values(map).map((x) => ({ label: `${x.plate}`, sublabel: x.driver, trips: x.trips, km_per_liter: x.l > 0 ? x.d / x.l : 0, cost_per_km: x.d > 0 ? x.c / x.d : 0, distance_km: x.d, total_cost: x.c, liters: x.l, selling_price: x.s, net_profit: x.n })); };
+    // ---- chart (buildChart / buildMonthlyChart / groupByPlate) — อัตรา กม./ลิตร · บาท/กม. คิดจากแถวที่ข้อมูลครบ ----
+    const accum = (m, r) => { const c = r.calc; m.d += c.dist; m.l += c.lt; m.c += c.tc; m.s += Number(r.selling_price || 0); m.n += Number(r.net_profit || 0); m.trips++; if (c.kpl != null) { m.kd += c.dist; m.kl += c.lt; } if (c.cpk != null) { m.cd += c.dist; m.cc += c.tc; } };
+    const blank = () => ({ d: 0, l: 0, c: 0, s: 0, n: 0, trips: 0, kd: 0, kl: 0, cd: 0, cc: 0 });
+    const groupByPlate = (recs) => { const map = {}; recs.forEach((r) => { const k = r.plate_no; if (!map[k]) map[k] = Object.assign(blank(), { plate: k, driver: r.driver_name }); accum(map[k], r); });
+      return Object.values(map).map((x) => ({ label: `${x.plate}`, sublabel: x.driver, trips: x.trips, km_per_liter: x.kl > 0 ? x.kd / x.kl : 0, cost_per_km: x.cd > 0 ? x.cc / x.cd : 0, distance_km: x.d, total_cost: x.c, liters: x.l, selling_price: x.s, net_profit: x.n })); };
     const TICK = { color: '#4B5567', font: { family: "'Sarabun',sans-serif", size: 10 } }, GRID = { color: 'rgba(15,43,76,.07)' }, TIP = { backgroundColor: 'rgba(20,20,20,.95)', titleColor: '#f5a623', bodyColor: '#ccc', borderColor: '#333', borderWidth: 1, padding: 12 };
-    const selPlates = () => { if (!F.plate_no.trim()) return []; const set = new Set(RECS.map((r) => r.plate_no)); const vp = FL_VEHICLES.map((v) => v.plate).filter((p) => set.has(p)); set.forEach((p) => { if (!vp.includes(p)) vp.push(p); }); return vp; }; // ค้นหาใต้ Column ทะเบียน = แทนตัวเลือกทะเบียนของ Source
+    const selPlates = () => F.plates.slice();
     const buildMonthlyChart = (filtered, metric) => {
-      const monthMap = {}; filtered.forEach((r) => { const month = (r.fuel_date || '').slice(0, 7); if (!month) return; const plate = r.plate_no; if (!monthMap[month]) monthMap[month] = {}; if (!monthMap[month][plate]) monthMap[month][plate] = { d: 0, l: 0, c: 0, s: 0, n: 0, trips: 0 }; const m = monthMap[month][plate]; m.d += Number(r.distance_km || 0); m.l += Number(r.liters || 0); m.c += Number(r.total_cost || 0); m.s += Number(r.selling_price || 0); m.n += Number(r.net_profit || 0); m.trips++; });
+      const monthMap = {}; filtered.forEach((r) => { const month = (r.fuel_date || '').slice(0, 7); if (!month) return; const plate = r.plate_no; if (!monthMap[month]) monthMap[month] = {}; if (!monthMap[month][plate]) monthMap[month][plate] = blank(); accum(monthMap[month][plate], r); });
       const months = Object.keys(monthMap).sort(); if (chartInst) { chartInst.destroy(); chartInst = null; } if (!months.length) return;
-      const platesInData = new Set(); Object.values(monthMap).forEach((mm) => Object.keys(mm).forEach((p) => platesInData.add(p))); const plates = FL_VEHICLES.filter((v) => platesInData.has(v.plate)).map((v) => v.plate);
+      const platesInData = new Set(); Object.values(monthMap).forEach((mm) => Object.keys(mm).forEach((p) => platesInData.add(p))); const plates = FL_VEHICLES.filter((v) => platesInData.has(v.plate)).map((v) => v.plate); [...platesInData].sort().forEach((p) => { if (!plates.includes(p)) plates.push(p); });
       const fieldOf = { distance_km: 'd', liters: 'l', total_cost: 'c', selling_price: 's', net_profit: 'n' };
-      const valueFor = (st) => { if (metric === 'km_per_liter') return st.l > 0 ? +(st.d / st.l).toFixed(2) : 0; if (metric === 'cost_per_km') return st.d > 0 ? +(st.c / st.d).toFixed(2) : 0; const f = fieldOf[metric]; return f ? +Number(st[f] || 0).toFixed(2) : 0; };
+      const valueFor = (st) => { if (metric === 'km_per_liter') return st.kl > 0 ? +(st.kd / st.kl).toFixed(2) : 0; if (metric === 'cost_per_km') return st.cd > 0 ? +(st.cc / st.cd).toFixed(2) : 0; const f = fieldOf[metric]; return f ? +Number(st[f] || 0).toFixed(2) : 0; };
       const isAmount = ['distance_km', 'liters', 'total_cost', 'selling_price', 'net_profit'].includes(metric);
       const datasets = plates.map((plate, idx) => { const v = FL_VEHICLES.find((vv) => vv.plate === plate); return { label: `${plate}${v ? ` (${v.driver})` : ''}`, data: months.map((m) => monthMap[m][plate] ? valueFor(monthMap[m][plate]) : 0), backgroundColor: FL_PALETTE[idx % FL_PALETTE.length], borderRadius: 4, borderSkipped: false, borderWidth: 0, maxBarThickness: 38, stack: isAmount ? 'stack1' : undefined }; });
       const monthLabels = months.map((ms) => { const [y, mo] = ms.split('-'); const i = parseInt(mo, 10) - 1; return `${FL_TH_MONTHS[i] || mo} ${y.slice(2)}`; });
@@ -1103,10 +1186,11 @@
     };
     const buildChart = async () => {
       if (!chartOpen) return; try { await flEnsureChart(); } catch (e) { T.toast(e.message, 'err'); return; } if (!$('#flChart')) return;
-      const metric = $('#flMetric').value; const sel = selPlates(); const isAll = sel.length === 0; const filtered = RECS;
+      const metric = $('#flMetric').value; $('#flChartNote').classList.toggle('hidden', !['selling_price', 'net_profit'].includes(metric));
+      const sel = selPlates(); const isAll = sel.length === 0; const filtered = RECS;
       if (chartMonthly) return buildMonthlyChart(filtered, metric);
       const isSinglePlate = !isAll && sel.length === 1; let finalGroups;
-      if (isSinglePlate) { const sorted = [...filtered].sort((a, b) => (a.fuel_date || '').localeCompare(b.fuel_date || '')); finalGroups = sorted.map((r) => ({ label: (r.fuel_date || '').slice(5), fullDate: r.fuel_date || '', sublabel: r.driver_name || '', route: r.route_location || '', trips: 1, km_per_liter: Number(r.km_per_liter || 0), cost_per_km: Number(r.cost_per_km || 0), distance_km: Number(r.distance_km || 0), total_cost: Number(r.total_cost || 0), liters: Number(r.liters || 0), selling_price: Number(r.selling_price || 0), net_profit: Number(r.net_profit || 0) })); }
+      if (isSinglePlate) { const sorted = [...filtered].sort((a, b) => (a.fuel_date || '').localeCompare(b.fuel_date || '')); finalGroups = sorted.map((r) => ({ label: (r.fuel_date || '').slice(5), fullDate: r.fuel_date || '', sublabel: r.driver_name || '', route: r.route_location || '', trips: 1, km_per_liter: Number(r.calc.kpl || 0), cost_per_km: Number(r.calc.cpk || 0), distance_km: r.calc.dist, total_cost: r.calc.tc, liters: r.calc.lt, selling_price: Number(r.selling_price || 0), net_profit: Number(r.net_profit || 0) })); }
       else { const gm = {}; groupByPlate(filtered).forEach((g) => { gm[g.label] = g; }); finalGroups = isAll ? Object.values(gm) : sel.map((plate) => { const v = FL_VEHICLES.find((x) => x.plate === plate); return gm[plate] || { label: plate, sublabel: v ? v.driver : '', trips: 0, km_per_liter: 0, cost_per_km: 0, distance_km: 0, total_cost: 0, liters: 0, selling_price: 0, net_profit: 0 }; }); }
       const labels = finalGroups.map((g) => g.label); const vals = finalGroups.map((g) => +Number(g[metric] || 0).toFixed(2)); const title = FL_MNAMES[metric] || metric;
       let bg; if (metric === 'net_profit') bg = vals.map((v) => v >= 0 ? 'rgba(61,186,116,.85)' : 'rgba(224,82,82,.85)');
@@ -1127,9 +1211,17 @@
     $('#flMetric').onchange = () => buildChart();
     $('#flChartT').onclick = () => { chartOpen = !chartOpen; $('#flChartBox').classList.toggle('hidden', !chartOpen); $('#flChartT').textContent = chartOpen ? '✕ ซ่อนกราฟ' : '📊 แสดงกราฟ'; if (chartOpen) buildChart(); else if (chartInst) { chartInst.destroy(); chartInst = null; } };
     $('#flSave').onclick = () => { if (!chartInst) { T.toast('ไม่มีกราฟให้บันทึก', 'err'); return; } const a = document.createElement('a'); a.download = `nj-chart-${flBkkToday()}.png`; a.href = $('#flChart').toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove(); T.toast('บันทึกกราฟสำเร็จ ✓', 'ok'); };
+    // ---- ตัวกรอง: events ----
+    $('#flPlateBtn').onclick = (e) => { e.stopPropagation(); $('#flPlateDd').classList.toggle('hidden'); };
+    $('#flPlateDd').addEventListener('click', (e) => e.stopPropagation());
+    const outside = () => { const dd = $('#flPlateDd'); if (!dd) { document.removeEventListener('click', outside); return; } dd.classList.add('hidden'); }; document.addEventListener('click', outside);
+    $('#flFrom').onchange = () => { F.from = $('#flFrom').value; apply(); }; $('#flTo').onchange = () => { F.to = $('#flTo').value; apply(); };
+    $('#flDateClr').onclick = () => { $('#flFrom').value = ''; $('#flTo').value = ''; F.from = ''; F.to = ''; apply(); };
+    $('#flBelow').onchange = () => { F.below = $('#flBelow').value; apply(); };
+    $('#flQ').addEventListener('input', T.debounce(() => { F.q = $('#flQ').value; apply(); }, 250));
     // ---- actions ----
-    $('#flReload').onclick = async () => { T.toast('🔄 กำลังโหลดข้อมูลใหม่...'); await renderAll(); T.toast(`โหลดสำเร็จ ${ALL.length} รายการ ✓`, 'ok'); };
-    $('#flClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#flList [data-f]').forEach((i) => { i.value = ''; }); pageNo = 1; apply(); T.toast('ล้างการค้นหาแล้ว ✓', 'ok'); };
+    $('#flReload').onclick = async () => { T.toast('🔄 กำลังโหลดข้อมูลใหม่...'); if (await renderAll()) T.toast(`โหลดสำเร็จ ${ALL.length} รายการ ✓`, 'ok'); };
+    $('#flClear').onclick = () => { F.plates = []; F.from = ''; F.to = ''; F.below = 'all'; F.q = ''; $('#flFrom').value = ''; $('#flTo').value = ''; $('#flBelow').value = 'all'; $('#flQ').value = ''; buildPlateList(); apply(); T.toast('ล้างตัวกรองแล้ว ✓', 'ok'); };
     $('#flCalc').onclick = () => T.modal({ title: '⛽ เครื่องคำนวณน้ำมัน', size: 's', body: `<div class="inline-row"><div class="field"><label>ระยะทาง (กม.)</label><input type="number" step="0.1" class="inp" id="c_dist" placeholder="เช่น 200"></div><div class="field"><label>กม. ต่อลิตร</label><input type="number" step="0.1" class="inp" id="c_kpl" placeholder="เช่น 5.5"></div><div class="field"><label>ราคาน้ำมัน (บาท/ลิตร)</label><input type="number" step="0.01" class="inp" id="c_price" placeholder="เช่น 29.50"></div></div>
         <div class="kv fl-calc"><div class="k">ลิตรที่ใช้</div><div class="v b" id="c_res_lt">—</div><div class="k">ค่าน้ำมัน (ราคาเต็ม)</div><div class="v b" id="c_res_cost">—</div><div class="k">80% ของราคา</div><div class="v b" id="c_res_half">—</div><div class="k">ค่าคนขับ (10%, ขั้นต่ำ 300)</div><div class="v b" id="c_res_driver">—</div><div class="k">ต้นทุน/กม.</div><div class="v b" id="c_res_cpk">—</div><div class="k">ต้นทุนรวม (น้ำมัน + คนขับ)</div><div class="v b" id="c_res_costtotal">—</div><div class="k">💰 ราคารวม (ขาย) (ค่าน้ำมัน + 80% + ค่าคนขับ)</div><div class="v b" id="c_res_total" style="color:var(--green)">—</div></div>`,
       foot: '<button class="btn" id="calcClearBtn">🗑 ล้างค่า</button><button class="btn" data-close>ปิด</button>',
@@ -1138,25 +1230,26 @@
           const liters = dist / kpl; const cost = liters * price; const half = cost * 0.8; const driver = cost > 0 ? Math.max(cost * 0.10, 300) : 0; const costTotal = cost + driver; const sellTotal = cost + half + driver;
           $('#c_res_lt', el).textContent = fmtN(liters) + ' ลิตร'; const pv = price > 0; $('#c_res_cost', el).textContent = pv ? fmtN(cost) + ' บาท' : '—'; $('#c_res_half', el).textContent = pv ? fmtN(half) + ' บาท' : '—'; $('#c_res_driver', el).textContent = pv ? fmtN(driver) + ' บาท' : '—'; $('#c_res_cpk', el).textContent = pv ? fmtN(price / kpl) + ' บาท/กม.' : '—'; $('#c_res_costtotal', el).textContent = pv ? fmtN(costTotal) + ' บาท' : '—'; $('#c_res_total', el).textContent = pv ? fmtN(sellTotal) + ' บาท' : '—'; };
         ['c_dist', 'c_kpl', 'c_price'].forEach((i) => $('#' + i, el).addEventListener('input', calc)); $('#calcClearBtn', el).onclick = () => { ['c_dist', 'c_kpl', 'c_price'].forEach((i) => { $('#' + i, el).value = ''; }); calc(); }; setTimeout(() => $('#c_dist', el).focus(), 30); } });
-    // บันทึกบิลขนส่ง (insert) / แก้ไข (update รายการเดิม)
+    // ➕ บันทึกบิลขนส่ง (insert fuel_logs) / ✏️ แก้ไข (update id เดิม — ไม่สร้างแถวใหม่) ผ่าน RPC เดิม tnj_fuel_logs_save (ตรวจสิทธิ์ + Audit ฝั่ง Server)
     const openForm = (r) => {
+      if (!canAdd) return T.toast('ไม่มีสิทธิ์บันทึก / แก้ไข', 'err');
       const edit = !!r; const px = edit ? 'e' : 'f';
       T.modal({ title: edit ? '⛽ แก้ไขข้อมูลน้ำมัน' : '⛽ บันทึกข้อมูลน้ำมัน', size: 'w fl-modal', noMask: false, body: flFormHtml(px, edit),
         foot: edit ? '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="flSaveE">💾 บันทึกการแก้ไข</button>' : '<button class="btn" id="flClr">🗑 ล้างฟอร์ม</button><button class="btn btn-p" id="flSaveF">💾 บันทึกข้อมูล</button>',
         onOpen: (el, close) => {
-          const q = (k) => $('#' + px + '_' + k, el); loadRoutes();
+          const q = (k) => $('#' + px + '_' + k, el); loadRoutes(); let busy = false;
           el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
           q('plate').onchange = () => { q('driver').value = flGd(q('plate').value); };
           ['mb', 'ma', 'tc', 'ppl', 'sell', 'other'].forEach((k) => q(k).addEventListener('input', () => flRecalc(el, px)));
+          const showErr = (m) => { const err = q('err'); err.textContent = m; err.classList.toggle('hidden', !m); };
           if (!edit) {
             q('date').value = flBkkToday(); q('runno').value = maxId != null ? '#' + (Number(maxId) + 1) : 'อัตโนมัติ';
-            const clear = () => { ['plate', 'driver', 'route', 'job', 'mb', 'ma', 'dist', 'tc', 'ppl', 'lt', 'sell', 'other', 'adv', 'trip', 'net', 'note', 'cost_total'].forEach((k) => { q(k).value = ''; }); q('date').value = flBkkToday(); flUpdateKplBox(el, 'f', 0); };
+            const clear = () => { ['plate', 'driver', 'route', 'job', 'mb', 'ma', 'dist', 'tc', 'ppl', 'lt', 'sell', 'other', 'adv', 'trip', 'net', 'note', 'cost_total'].forEach((k) => { q(k).value = ''; }); q('date').value = flBkkToday(); flUpdateKplBox(el, 'f', null); showErr(''); };
             $('#flClr', el).onclick = clear;
             $('#flSaveF', el).onclick = async () => {
-              const v = flPayload(el, 'f', true); const err = q('err'); err.classList.add('hidden');
-              if (!v.fuel_date || !v.plate_no || !v.driver_name) { err.textContent = '⚠ กรุณากรอกวันที่ ทะเบียน และผู้ขับ'; err.classList.remove('hidden'); return; }
-              try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: null, p: v }, { silent: true }); close(); T.toast('บันทึกเรียบร้อย ✓', 'ok'); await renderAll(); loadRoutes(); }
-              catch (e) { err.textContent = '⚠ บันทึกไม่สำเร็จ: ' + T.parseErr(e).text; err.classList.remove('hidden'); } finally { T.loading(false); }
+              if (busy) return; const v = flPayload(el, 'f', true); const m = flValidate(el, 'f', v); showErr(m); if (m) return;
+              busy = true; try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: null, p: v }, { silent: true }); close(); T.toast('บันทึกเรียบร้อย ✓', 'ok'); await renderAll(); loadRoutes(); }
+              catch (e) { showErr('⚠ บันทึกไม่สำเร็จ: ' + T.parseErr(e).text); } finally { busy = false; T.loading(false); }
             };
           } else {
             q('id').value = r.id; q('runno').value = '#' + r.id; q('company').value = r.company_name || ''; q('container').value = r.container_no || ''; q('date').value = String(r.fuel_date || '').slice(0, 10); q('plate').value = r.plate_no; q('driver').value = r.driver_name;
@@ -1167,31 +1260,29 @@
             const distV = Number(r.mileage_after) - Number(r.mileage_before); q('dist').value = distV > 0 ? distV.toFixed(2) : '—';
             const ct = Number(r.total_cost) + Number(r.other_expenses || 0); q('cost_total').value = ct > 0 ? ct.toFixed(2) : '';
             const net = Number(r.selling_price || 0) - ct; q('net').value = ct > 0 || Number(r.selling_price) ? net.toFixed(2) + ' บาท' : ''; q('net').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
-            flUpdateKplBox(el, 'e', Number(r.km_per_liter || 0));
+            flUpdateKplBox(el, 'e', flMetrics(r.mileage_before, r.mileage_after, r.total_cost, r.price_per_liter, r.liters));
             $('#flSaveE', el).onclick = async () => {
-              const payload = flPayload(el, 'e', false);
-              try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: Number(q('id').value), p: payload }, { silent: true }); close(); T.toast('แก้ไขข้อมูลแล้ว ✓', 'ok'); await renderAll(); }
-              catch (e) { T.toast('แก้ไขไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } finally { T.loading(false); }
+              if (busy) return; const payload = flPayload(el, 'e', false); const m = flValidate(el, 'e', payload); showErr(m); if (m) return;
+              busy = true; try { T.loading(true); await T.auth('tnj_fuel_logs_save', { p_id: Number(q('id').value), p: payload }, { silent: true }); close(); T.toast('แก้ไขข้อมูลแล้ว ✓', 'ok'); await renderAll(); }
+              catch (e) { showErr('⚠ แก้ไขไม่สำเร็จ: ' + T.parseErr(e).text); } finally { busy = false; T.loading(false); }
             };
           }
         } });
     };
     const ad = $('#flAdd'); if (ad) ad.onclick = () => openForm(null);
-    // Excel (Fuel Report + Summary) — xlsx-js-style · ส่งออกทุกรายการตามการค้นหา (RECS ทุกหน้า) เหมือน Source
+    // Excel ไฟล์เดียว 2 Sheet (Fuel Report + Summary) — xlsx-js-style · ส่งออกทุกแถวตามตัวกรอง (RECS ทุกหน้า) · ตัวเลขจากสูตรกลาง flMetrics (ตรงกับหน้าจอ)
     $('#flXls').onclick = async () => {
       if (!RECS.length) { T.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); return; }
       let X; try { T.loading(true); X = await flEnsureXlsxStyle(); } catch (e) { T.toast(e.message, 'err'); return; } finally { T.loading(false); }
-      const data = RECS.map((r) => { const dist = Number(r.distance_km || 0), lt = Number(r.liters || 0), ppl = Number(r.price_per_liter || 0), tc = Number(r.total_cost || 0);
-        const km_per_liter = lt > 0 ? dist / lt : 0; const expected_liters = FL_MIN_KPL > 0 ? dist / FL_MIN_KPL : 0; const excess_liters = Math.max(0, lt - expected_liters); const penalty = excess_liters * ppl;
-        const status = (km_per_liter > 0 && km_per_liter < FL_MIN_KPL) ? 'ต้องหักเงิน' : 'ปกติ'; const adv = Number(r.advance_payment || 0), trip = Number(r.trip_fee || 0);
-        return { 'วันที่': String(r.fuel_date || '').slice(0, 10), 'ทะเบียน': r.plate_no || '', 'คนขับ': r.driver_name || '', 'ระยะทาง (กม.)': +dist.toFixed(2), 'ลิตรจริง': +lt.toFixed(2), 'ราคาต่อลิตร': +ppl.toFixed(2), 'รวมเงิน': +tc.toFixed(2), 'เงินล่วงหน้า': +adv.toFixed(2), 'ค่าเที่ยว': +trip.toFixed(2),
-          'กม./ลิตร': +km_per_liter.toFixed(2), 'ลิตรควรใช้': +expected_liters.toFixed(2), 'ลิตรเกิน': +excess_liters.toFixed(2), 'หักเงิน (บาท)': +penalty.toFixed(0), 'สถานะ': status }; });
-      const SALARY_FIXED = 9300; const sm = {};
-      RECS.forEach((r, i) => { const row = data[i]; const k = r.plate_no; if (!k) return; if (!sm[k]) sm[k] = { plate: r.plate_no, driver: r.driver_name || '', trips: 0, dist: 0, lt: 0, cost: 0, excess: 0, penalty: 0, below: 0, trip: 0, adv: 0 };
-        sm[k].trips++; sm[k].dist += Number(r.distance_km || 0); sm[k].lt += Number(r.liters || 0); sm[k].cost += Number(r.total_cost || 0); sm[k].excess += row['ลิตรเกิน']; sm[k].penalty += row['หักเงิน (บาท)']; sm[k].trip += Number(r.trip_fee || 0); sm[k].adv += Number(r.advance_payment || 0); if (row['สถานะ'] === 'ต้องหักเงิน') sm[k].below++; });
+      const data = RECS.map((r) => { const c = r.calc; const adv = Number(r.advance_payment || 0), trip = Number(r.trip_fee || 0);
+        return { 'วันที่': r.fuel_date || '', 'ทะเบียน': r.plate_no || '', 'คนขับ': r.driver_name || '', 'ระยะทาง (กม.)': +c.dist.toFixed(2), 'ลิตรจริง': +c.lt.toFixed(2), 'ราคาต่อลิตร': +c.ppl.toFixed(2), 'รวมเงิน': +c.tc.toFixed(2), 'เงินล่วงหน้า': +adv.toFixed(2), 'ค่าเที่ยว': +trip.toFixed(2),
+          'กม./ลิตร': +(c.kpl || 0).toFixed(2), 'ลิตรควรใช้': +c.expected.toFixed(2), 'ลิตรเกิน': +c.excess.toFixed(2), 'หักเงิน (บาท)': +c.penalty.toFixed(0), 'สถานะ': FL_ST[c.state][3] }; });
+      const SALARY_FIXED = 9300; const sm = {}; // เงินเดือนฟิก 9,300 (ตามต้นแบบ — ใช้ใน Excel เท่านั้น ไม่แตะระบบเงินเดือน)
+      RECS.forEach((r, i) => { const row = data[i]; const k = r.plate_no; if (!k) return; if (!sm[k]) sm[k] = { plate: r.plate_no, driver: r.driver_name || '', rows: [], trips: 0, dist: 0, lt: 0, cost: 0, excess: 0, penalty: 0, below: 0, trip: 0, adv: 0 };
+        sm[k].rows.push(r); sm[k].trips++; sm[k].dist += r.calc.dist; sm[k].lt += r.calc.lt; sm[k].cost += r.calc.tc; sm[k].excess += row['ลิตรเกิน']; sm[k].penalty += row['หักเงิน (บาท)']; sm[k].trip += Number(r.trip_fee || 0); sm[k].adv += Number(r.advance_payment || 0); if (r.calc.state === 'low') sm[k].below++; });
       const summaryHeaders = ['ทะเบียน', 'คนขับ', 'จำนวนครั้ง', 'ระยะทางรวม (กม.)', 'ลิตรรวม', 'ค่าใช้จ่ายรวม (บาท)', 'เฉลี่ย กม./ลิตร', 'ลิตรเกินรวม', 'หักเงินรวม (บาท)', 'ครั้งที่ต้องหัก', 'เงินเดือน', 'ค่าเที่ยว', 'ยอดเงินได้', 'หักเงินล่วงหน้า', 'หักเงินรวม (บาท)', 'หักลากิจ', 'ยอดสุทธิต้องได้'];
       const summaryRows = Object.values(sm).map((x) => { const incomeTotal = SALARY_FIXED + x.trip; const lapakij = 0; const netPay = incomeTotal - x.adv - x.penalty - lapakij;
-        return [x.plate, x.driver, x.trips, +x.dist.toFixed(2), +x.lt.toFixed(2), +x.cost.toFixed(2), +(x.lt > 0 ? x.dist / x.lt : 0).toFixed(2), +x.excess.toFixed(2), +x.penalty.toFixed(0), x.below, SALARY_FIXED, +x.trip.toFixed(2), +incomeTotal.toFixed(2), +x.adv.toFixed(2), +x.penalty.toFixed(0), lapakij, +netPay.toFixed(2)]; });
+        return [x.plate, x.driver, x.trips, +x.dist.toFixed(2), +x.lt.toFixed(2), +x.cost.toFixed(2), +aKpl(agg(x.rows)).toFixed(2), +x.excess.toFixed(2), +x.penalty.toFixed(0), x.below, SALARY_FIXED, +x.trip.toFixed(2), +incomeTotal.toFixed(2), +x.adv.toFixed(2), +x.penalty.toFixed(0), lapakij, +netPay.toFixed(2)]; });
       const wb = X.utils.book_new(); const thin = { style: 'thin', color: { rgb: '000000' } }; const thinBorder = { top: thin, bottom: thin, left: thin, right: thin };
       const headerStyle = { fill: { patternType: 'solid', fgColor: { rgb: 'FFFF00' } }, font: { sz: 12, bold: true }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: thinBorder }; const dataStyle = { font: { sz: 11 }, alignment: { vertical: 'center' }, border: thinBorder };
       const applyStyles = (sheet) => { const ref = sheet['!ref']; if (!ref) return; const range = X.utils.decode_range(ref); for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) { const addr = X.utils.encode_cell({ r: R, c: C }); if (!sheet[addr]) sheet[addr] = { v: '', t: 's' }; sheet[addr].s = R === 0 ? headerStyle : dataStyle; } sheet['!rows'] = sheet['!rows'] || []; sheet['!rows'][0] = { hpt: 24 }; };
@@ -1199,21 +1290,7 @@
       const ws2 = X.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]); ws2['!cols'] = [10, 14, 11, 18, 11, 18, 14, 13, 18, 13, 11, 11, 13, 16, 18, 11, 18].map((w) => ({ wch: w })); applyStyles(ws2); X.utils.book_append_sheet(wb, ws2, 'Summary');
       X.writeFile(wb, `NJ_Fuel_Report_${flBkkToday()}.xlsx`); T.toast('Export Excel สำเร็จ ✓', 'ok');
     };
-    // ---- ส่วนที่ 1: จาก JOB (tnj_mileage_table เดิม — v_transport_job_report) · ทุกแถวกดกลับ JOB ต้นทาง ----
-    let FJ = [];
-    const fjLoad = async () => { const p = { page_size: 500, date_from: $('#fjFrom').value || null, date_to: $('#fjTo').value || null, q: $('#fjQ').value.trim() || null }; let rows = [], pg = 1, total = 0;
-      const tp = {}; // ทะเบียนหาง: จาก JOB (tnj_job_list เดิม) — v_transport_job_report ไม่มีคอลัมน์นี้
-      try { const jl = async () => { let pg2 = 1, n = 0, t2 = 0; do { const d = await T.auth('tnj_job_list', { p: { page: pg2, page_size: 500, date_from: p.date_from, date_to: p.date_to } }, { silent: true }); d.rows.forEach((x) => { tp[x.id] = x.trailer_plate; }); n += d.rows.length; t2 = d.total; pg2++; } while (n < t2 && pg2 < 20); };
-        const ml = async () => { do { const d = await T.auth('tnj_mileage_table', { p: Object.assign({ page: pg }, p) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 20); };
-        await Promise.all([ml(), jl()]); rows.forEach((r) => { r.trailer_plate = tp[r.job_id] || null; r.ppl = Number(r.fuel_liters) > 0 ? Number(r.fuel_amount) / Number(r.fuel_liters) : null; }); } catch (e) { if ($('#fjBody')) $('#fjBody').innerHTML = `<tr><td colspan="15" class="empty">${h(T.parseErr(e).text)}</td></tr>`; return; }
-      if (!$('#fjBody')) return; FJ = rows; $('#fjCount').textContent = `(${rows.length} JOB)`;
-      $('#fjBody').innerHTML = rows.map((r) => `<tr data-job="${r.job_id}"><td class="nowrap">${hlDMY(r.job_date)}</td><td><a href="#/jobs/${r.job_id}?tab=fuel" class="b">${h(r.customer_name || r.bl_no || 'เปิดงาน')}</a></td><td>${h(r.bl_no || '-')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td><span class="badge blue">${h(r.license_plate || '-')}</span></td><td>${h(r.trailer_plate || '-')}</td><td class="r">${T.num(r.start_mileage)}</td><td class="r">${T.num(r.end_mileage)}</td><td class="r b">${T.num(r.total_distance)}</td><td class="r">${T.num(r.fuel_liters, 2)}</td><td class="r">${T.num(r.fuel_amount, 2)}</td><td class="r">${r.ppl != null ? T.num(r.ppl, 2) : '-'}</td><td class="r">${T.kml(r.km_per_liter)}</td><td class="small">${h(r.mileage_status || '-')}</td><td><a class="btn btn-sm" href="#/jobs/${r.job_id}?tab=fuel">เปิด JOB ›</a></td></tr>`).join('') || '<tr><td colspan="15" class="empty">ยังไม่มีข้อมูลจาก JOB</td></tr>'; };
-    ['fjFrom', 'fjTo'].forEach((id) => { $('#' + id).onchange = fjLoad; }); $('#fjQ').addEventListener('input', T.debounce(fjLoad, 400));
-    $('#fjXls').onclick = async () => { if (!FJ.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'err'); try { T.loading(true); await ensureXlsx();
-      const aoa = [['วันที่', 'ลูกค้า', 'B/L', 'คนขับ', 'ทะเบียนหัว', 'ทะเบียนหาง', 'ไมล์เริ่ม', 'ไมล์จบ', 'ระยะทาง (กม.)', 'ลิตร', 'ค่าน้ำมัน (บาท)', 'บาท/ลิตร', 'กม./ลิตร', 'สถานะไมล์']].concat(FJ.map((r) => [r.job_date, r.customer_name || '', r.bl_no || '', r.driver_name || '', r.license_plate || '', r.trailer_plate || '', r.start_mileage != null ? Number(r.start_mileage) : '', r.end_mileage != null ? Number(r.end_mileage) : '', r.total_distance != null ? Number(r.total_distance) : '', r.fuel_liters != null ? Number(r.fuel_liters) : '', r.fuel_amount != null ? Number(r.fuel_amount) : '', r.ppl != null ? +r.ppl.toFixed(2) : '', r.km_per_liter != null ? Number(r.km_per_liter) : '', r.mileage_status || '']));
-      const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [11, 16, 16, 18, 11, 11, 10, 10, 12, 9, 13, 9, 9, 16].map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Job Mileage Fuel'); XLSX.writeFile(wb, `TransportNJ_Job_Mileage_Fuel_${flBkkToday()}.xlsx`); T.toast(`Export ${FJ.length} JOB`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); } };
-    fjLoad();
-    frame(); await renderAll();
+    renderTable(); await renderAll();
   }
 
   /* ---------- reports ---------- */
