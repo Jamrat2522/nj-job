@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="0811-H">
+<meta name="sfz-build" content="1008-A">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -940,6 +940,155 @@ body:has(.modal-back.show){overflow:hidden}
   .sfz-rip-dd .rip-dd-item{min-height:46px;font-size:14.5px}
   #rip-att .rip-att-meta{display:none}
 }
+
+</style>
+<style>
+/* ===== FAST FIX 2/4 — ชิปปิ้ง/ผู้สั่งงาน + ซ่อนประเภทงาน ===== */
+.ship-wait{color:var(--muted);font-style:normal;opacity:.85}
+.mc-who{display:inline-block;line-height:1.5}
+.mc-who b{font-weight:700;opacity:.75}
+/* ซ่อนคอลัมน์ "ประเภทงาน" ทั้งหัวตารางและทุกแถว (ข้อมูลใน DB / ฟอร์ม / Excel ไม่กระทบ) */
+.tbl-doc th.col-cat,.tbl-doc td.col-cat{display:none !important}
+
+
+/* ===== FAST FIX 3 — คอลัมน์ 📅 วันที่ (shipping_date · DD/MM/YYYY) ===== */
+.tbl-doc th.col-sdate,.tbl-doc td.col-sdate{width:96px;white-space:nowrap;text-align:center}
+@media (max-width:980px){ .tbl-doc th.col-sdate,.tbl-doc td.col-sdate{width:auto} }
+
+
+/* ===== 💰 ปิดค่าใช้จ่าย ===== */
+.ex-wrap{max-width:100%}
+.ex-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.ex-title{display:flex;align-items:center;gap:12px;min-width:0}
+.ex-title .ex-ic{font-size:30px;line-height:1}
+.ex-title h2{margin:0;font-size:22px;color:var(--text)}
+.ex-title p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.ex-meta{display:flex;gap:10px;flex-wrap:wrap}
+.ex-fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ex-fld label{font-size:11.5px;color:var(--muted);font-weight:600}
+.ex-fld input{height:40px;padding:0 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--text);font-size:14px;min-width:0;width:170px;max-width:100%}
+.ex-fld input.ex-ro{background:var(--bg);opacity:.9}
+
+.ex-panel{padding:0;overflow:hidden}
+.ex-tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ex-tbl{width:100%;min-width:900px;border-collapse:collapse}
+.ex-tbl thead th{background:#1E3A8A;color:#fff;font-size:13px;font-weight:700;
+  padding:11px 8px;text-align:center;white-space:nowrap;border:1px solid rgba(255,255,255,.18)}
+.ex-tbl tbody td{border:1px solid var(--line);padding:7px 8px;font-size:14px;vertical-align:middle}
+.ex-tbl .ex-c-no{width:62px;text-align:center;color:var(--muted)}
+.ex-tbl .ex-c-job{width:150px;background:#EFF6FF}
+.ex-tbl .ex-c-co{min-width:200px;background:#ECFDF5}
+.ex-tbl .ex-c-cost{width:150px;background:#FEFCE8}
+.ex-tbl .ex-c-rcp{width:150px;background:#FDF2F8}
+.ex-tbl .ex-c-sum{width:150px;background:#F5F3FF;text-align:right;font-weight:700}
+.ex-tbl .ex-c-place{width:190px;background:#EFF6FF}
+.ex-tbl .ex-c-act{width:112px;text-align:center;white-space:nowrap}
+.ex-tbl .ex-money{text-align:right;font-variant-numeric:tabular-nums}
+.ex-tbl input,.ex-tbl select{width:100%;height:36px;padding:0 8px;border:1px solid var(--line);
+  border-radius:7px;background:var(--card);color:var(--text);font-size:14px;min-width:0}
+.ex-tbl input.ex-in-money{text-align:right;font-variant-numeric:tabular-nums}
+.ex-tbl .ex-place-other{margin-top:5px}
+.ex-tbl .ex-ro-cell{display:block;padding:0 2px}
+.ex-tbl tr.ex-draft{background:rgba(59,130,246,.04)}
+
+.ex-ib{width:34px;height:34px;border-radius:7px;border:1px solid var(--line);background:var(--card);
+  cursor:pointer;font-size:15px;line-height:1;margin:0 2px;transition:.15s}
+.ex-ib:hover{transform:translateY(-1px)}
+.ex-ib:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.ex-ib-save{background:#2563EB;border-color:#2563EB;color:#fff}
+.ex-ib-edit{background:#F1F5F9}
+.ex-ib-del{background:#FEE2E2;border-color:#FCA5A5}
+.ex-ib-view{background:#DBEAFE;border-color:#93C5FD}
+
+.ex-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;padding:12px;border-top:1px solid var(--line)}
+.ex-bar-r{display:flex;gap:8px;flex-wrap:wrap}
+.ex-bar .btn{height:42px;padding:0 16px;border-radius:9px;font-weight:700;font-size:14px;
+  border:0;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px}
+.ex-btn-add{background:#16A34A}
+.ex-btn-list{background:#2563EB}
+.ex-btn-xls{background:#15803D}
+.ex-btn-pdf{background:#DC2626}
+
+.ex-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.ex-card{display:flex;align-items:center;gap:12px;padding:16px;border-radius:14px;border:1px solid var(--line);min-width:0}
+.ex-card-ic{font-size:26px;line-height:1;flex:none}
+.ex-card-bd{min-width:0;flex:1}
+.ex-card-bd label{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+.ex-card-bd b{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;display:block}
+.ex-card-bd input{width:100%;height:42px;border:1px solid var(--line);border-radius:9px;
+  background:var(--card);padding:0 10px;font-size:22px;font-weight:800;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--text);min-width:0}
+.ex-card-adv{background:#EFF6FF;border-color:#BFDBFE}
+.ex-card-adv label{color:#1D4ED8}
+.ex-card-spent{background:#FEF2F2;border-color:#FECACA}
+.ex-card-spent label{color:#DC2626}
+.ex-card-spent b{color:#DC2626}
+.ex-card-bal{background:#ECFDF5;border-color:#A7F3D0}
+.ex-card-bal label{color:#047857}
+.ex-card-bal b{color:#047857}
+.ex-neg{color:#DC2626 !important}
+
+.ex-lfilter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.ex-lfilter input{height:40px;padding:0 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--text);font-size:14px;min-width:0}
+.ex-lfilter input[type="text"]{flex:1;min-width:160px}
+.ex-ltbl{width:100%;border-collapse:collapse;min-width:720px}
+.ex-ltbl th{background:#1E3A8A;color:#fff;padding:9px 8px;font-size:13px;white-space:nowrap}
+.ex-ltbl td{border:1px solid var(--line);padding:7px 8px;font-size:13.5px}
+.ex-ltbl .ex-money{text-align:right;font-variant-numeric:tabular-nums}
+.ex-ltbl tr.ex-trsum td{background:#EFF6FF}
+.ex-st{display:inline-block;padding:2px 10px;border-radius:999px;background:#DCFCE7;color:#166534;font-size:12px;font-weight:700}
+.ex-dmeta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ex-dmeta>div{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
+.ex-dmeta label{display:block;font-size:11.5px;color:var(--muted);font-weight:600}
+.ex-dmeta b{font-size:17px;font-variant-numeric:tabular-nums}
+.ex-dacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ex-dacts .btn{height:42px;padding:0 16px;border-radius:9px;font-weight:700;border:0;cursor:pointer;color:#fff}
+
+/* ----- บังคับสีตัวอักษรบนเซลล์พื้นอ่อน (กันอ่านไม่ออกในธีมมืด) ----- */
+.ex-tbl tbody td{color:#111 !important;background:#fff}
+.ex-tbl thead th{background:#1E3A8A !important;color:#fff !important}
+.ex-tbl tbody td.ex-c-no{color:#555 !important}
+.ex-tbl tbody td.ex-c-job{background:#EFF6FF !important}
+.ex-tbl tbody td.ex-c-co{background:#ECFDF5 !important}
+.ex-tbl tbody td.ex-c-cost{background:#FEFCE8 !important}
+.ex-tbl tbody td.ex-c-rcp{background:#FDF2F8 !important}
+.ex-tbl tbody td.ex-c-sum{background:#F5F3FF !important;color:#4C1D95 !important}
+.ex-tbl tbody td.ex-c-place{background:#EFF6FF !important}
+.ex-tbl tbody td.ex-c-act{background:#fff !important}
+.ex-tbl input,.ex-tbl select{background:#fff !important;color:#111 !important;border-color:#CBD5E1 !important}
+.ex-tbl input::placeholder{color:#94A3B8 !important}
+.ex-tbl tr.ex-draft td{background:#F8FAFF !important}
+.ex-tbl tr.ex-draft .ex-c-sum{background:#F5F3FF !important}
+.ex-card-bd input{background:#fff !important;color:#1D4ED8 !important;border-color:#BFDBFE !important}
+.ex-card-adv label{color:#1D4ED8 !important}
+.ex-fld input{color:var(--text)}
+.ex-fld input.ex-ro{color:var(--text)}
+.ex-ltbl td{color:#111 !important;background:#fff}
+.ex-ltbl tr.ex-trsum td{background:#EFF6FF !important}
+.ex-ib-edit{background:#F1F5F9 !important}
+.ex-dmeta b{color:var(--text)}
+
+/* ----- มือถือ ----- */
+@media (max-width:860px){
+  .ex-head{flex-direction:column;gap:10px}
+  .ex-meta{width:100%}
+  .ex-fld{flex:1 1 150px}
+  .ex-fld input{width:100%}
+  .ex-title h2{font-size:19px}
+  .ex-sum{grid-template-columns:1fr;gap:10px}      /* ยอดสรุปเรียงแนวตั้ง */
+  .ex-card-bd b,.ex-card-bd input{font-size:21px}
+  .ex-bar{flex-direction:column;align-items:stretch}
+  .ex-bar .btn{width:100%;justify-content:center;min-height:46px}
+  .ex-bar-r{flex-direction:column}
+  .ex-tbl{min-width:860px}                          /* เลื่อนแนวนอนได้ ไม่บีบจนใช้ไม่ได้ */
+  .ex-ib{width:38px;height:38px}                    /* touch target */
+  .ex-lfilter input{width:100%}
+}
+
+
 </style>
 </head>
 <body>
@@ -992,7 +1141,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 0811-H</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-A</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -1385,7 +1534,19 @@ function togglePw(id, btn){
   if(btn) btn.innerHTML = el.type==='password' ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
   refreshIcons();
 }
-function avatarText(name){ const n=String(name||'U').trim(); return n.slice(0,1).toUpperCase(); }
+/* ลบอีโมจิ / สัญลักษณ์ / อักขระซ่อน ออกจากชื่อที่ "แสดงผล" เท่านั้น — ไม่แก้ข้อมูลใน DB */
+function _cleanName(t){
+  return String(t==null?'':t)
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu,'')
+    .replace(/[​-‍⁠-⁯﻿]/g,'')
+    .replace(/[\u0000-\u001F\u007F]/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+function avatarText(name){
+  const n=_cleanName(name);
+  const m=n.match(/[\p{L}\p{N}]/u);
+  return (m ? m[0] : 'U').toUpperCase();
+}
 function pad(n){ return String(n).padStart(2,'0'); }
 function ymd(d){ d=d?new Date(d):new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 /* วันที่สำหรับตัดสิน "วันนี้/พรุ่งนี้" ของทุก View และ Count — บังคับ Asia/Bangkok (UTC+7)
@@ -1424,7 +1585,7 @@ const PERM_VIEWS = {
   MESSENGER: []
 };
 // เมนู PENDING — แสดง/เข้าถึงได้ทุก role (การมองเห็นเมนู + route เท่านั้น) · ข้อมูลยังกรองตาม _visibleDocs()/VIEWS.test เดิม · สิทธิ์รับงาน/แก้ไข/ลบ/จบงาน/สถานะ/Export/Dashboard/Users ไม่เปลี่ยน
-const MENU_ALWAYS_VIEW = ['TOMORROW','ADVANCE','EDIT'];
+const MENU_ALWAYS_VIEW = ['TOMORROW','ADVANCE','EDIT','expense'];
 function canView(key){ if(MENU_ALWAYS_VIEW.includes(key)) return true; const v=PERM_VIEWS[_permRole()]; return v==='ALL' ? true : (v||[]).includes(key); }
 function isOwnOnly(){ const r=_permRole(); return r!=='ADMIN' && r!=='SUPER_ADMIN'; }
 function _firstAllowedView(){ const v=PERM_VIEWS[_permRole()]; if(v==='ALL') return 'all'; return (v&&v[0])||null; }
@@ -2105,7 +2266,8 @@ function renderSidebar(){
     + item('NEW','🟡','รอรับงาน',{count:viewCount('NEW')})
     + item('RECEIVED','🔵','ดำเนินตรวจปล่อย',{count:viewCount('RECEIVED')})
     + item('COMPLETED_TODAY','🟢','ปล่อยเสร็จวันนี้',{count:viewCount('COMPLETED_TODAY')})
-    + item('POSTPONED','🔴','เลื่อนตรวจปล่อย',{count:viewCount('POSTPONED')});
+    + item('POSTPONED','🔴','เลื่อนตรวจปล่อย',{count:viewCount('POSTPONED')})
+    + item('expense','💰','ปิดค่าใช้จ่าย');
   const pendItems = item('TOMORROW','📅','งานพรุ่งนี้',{count:viewCount('TOMORROW')})
     + item('ADVANCE','🗓️','งานล่วงหน้า',{count:viewCount('ADVANCE')})
     + item('EDIT','🛠','งานแก้ไข',{count:viewCount('EDIT')});
@@ -2208,6 +2370,7 @@ function routeRender(){
   if(S.view==='__noaccess' || !canView(S.view)) return _renderNoAccess();
   if(S.view==='graph') return renderGraph();
   if(S.view==='users') return renderUsers();
+  if(S.view==='expense') return renderExpense();      // 💰 ปิดค่าใช้จ่าย
   return renderDocView();
 }
 
@@ -2334,18 +2497,28 @@ function _mDateTH(dateStr, timeStr, fallbackTs){
 /* ---------- การ์ดงานบนมือถือ ----------
    คง <tr data-document-id> และ class .st-sys ที่ realtime ใช้ patch ไว้ครบ
    ปุ่ม/สิทธิ์ใช้ acts ชุดเดียวกับ Desktop ทุกประการ (ไม่ hardcode ปุ่มใด ๆ) */
+/* 👤 ชิปปิ้ง = ผู้กดรับงานจริงเท่านั้น (assigned_name)
+   ยังไม่มีผู้รับ → "รอรับงาน" · ห้าม fallback เป็นผู้สร้างงาน เพราะทำให้ผู้สั่งงานกลายเป็นชิปปิ้ง */
+function _shipName(d){ return String((d&&d.assigned_name)||'').trim(); }
+function _shipCellHTML(d){
+  const n = _shipName(d);
+  return n ? esc(n) : '<span class="ship-wait">รอรับงาน</span>';
+}
 function _mCardRow(d, acts){
   const prio = d.priority||'normal';
   const jobNo = (d.doc_no||'—').split('-').pop();
   const sub2 = [termLabel(d.import_terminal), d.pickup_location||''].filter(x=>x && x!=='—').join(' • ');
   const dateTxt = _mDateTH(d.shipping_date, d.pickup_time, d.received_at||d.created_at);
-  const who = d.assigned_name || d.creator_name || '';
+  // 👤 แยกชัดเจน: ชิปปิ้ง = ผู้กดรับงานจริง · ผู้สั่งงาน = ผู้สร้างงาน
+  const shipTxt  = _shipName(d);
+  const orderTxt = String(d.creator_name||'').trim();
+  const whoLine  = `<span class="mc-who"><b>ชิปปิ้ง:</b> ${shipTxt?esc(shipTxt):'<i class="ship-wait">รอรับงาน</i>'}${orderTxt?` · <b>ผู้สั่งงาน:</b> ${esc(orderTxt)}`:''}</span>`;
   const bol = d.job_nj || '';
   const sysLine = (S.view==='RECEIVED')
     ? `<div class="mc-row"><span class="mc-ic mc-ic-ship">🚢</span><div class="mc-txt"><span class="st-sys" title="${esc(_sysStatusOf(d))}">${_stCellHTML(S.sysStatus[d.id])}</span></div></div>` : '';
   const bolLine = bol
-    ? `<div class="mc-row"><span class="mc-ic mc-ic-doc">📄</span><div class="mc-txt"><b class="mc-bol">${esc(bol)}</b>${who?`<small>${esc(who)}</small>`:''}</div></div>`
-    : (who ? `<div class="mc-row"><span class="mc-ic mc-ic-user">👤</span><div class="mc-txt"><b>${esc(who)}</b></div></div>` : '');
+    ? `<div class="mc-row"><span class="mc-ic mc-ic-doc">📄</span><div class="mc-txt"><b class="mc-bol">${esc(bol)}</b><small>${whoLine}</small></div></div>`
+    : `<div class="mc-row"><span class="mc-ic mc-ic-user">👤</span><div class="mc-txt"><small>${whoLine}</small></div></div>`;
   return `<tr class="m-card-row" data-document-id="${esc(d.id)}">
     <td class="m-card" colspan="20">
       <div class="mc-head">
@@ -2380,6 +2553,7 @@ function docRow(d){
     <td data-l="เร่งด่วน"><span class="prio prio-${prio}">${esc(prioLabel(prio))}</span></td>
     <td data-l="บริษัท" class="company-cell"><span class="company" title="${esc(d.company||'')}">${esc(d.company||'—')}</span></td>
     <td data-l="ประเภทงาน" class="col-cat"><span class="cat-cell">${esc(d.category||'—')}</span></td>
+    <td data-l="วันที่" class="col-sdate">${d.shipping_date?esc(fmtDate(d.shipping_date)):'<span style="color:var(--muted)">—</span>'}</td>
     ${S.view!=='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc${S.view==='RECEIVED'?' jd-merged':''}" title="${esc(d.description||'')}${(S.view==='RECEIVED'&&d.import_terminal)?' / '+esc(termLabel(d.import_terminal)):''}">${S.view==='RECEIVED'
       ? `<span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.import_terminal?`<span class="jd-pickup">${esc(termLabel(d.import_terminal))}</span>`:''}`
       : `${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}`}</td>`:''}
@@ -2392,8 +2566,8 @@ function docRow(d){
       ? `<span class="tcol-desk">${d.shipping_date?esc(fmtDate(d.shipping_date)):'<span style="color:var(--muted)">—</span>'}${d.pickup_time?`<br><span class="tcol-t">${esc(d.pickup_time)}</span>`:''}</span><span class="tcol-mob">${d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>'}</span>`
       : (d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>')}</td>`:''}
     <td data-l="USER">${S.view==='RECEIVED'
-      ? `<span class="ucol-desk">${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}<span class="u-ordby">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</span></span><span class="ucol-mob">${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}</span>`
-      : `${(d.assigned_name||d.creator_name)?esc(d.assigned_name||d.creator_name):'<span style="color:var(--muted)">—</span>'}`}</td>
+      ? `<span class="ucol-desk">${_shipCellHTML(d)}<span class="u-ordby">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</span></span><span class="ucol-mob">${_shipCellHTML(d)}</span>`
+      : `${_shipCellHTML(d)}`}</td>
     ${S.view==='RECEIVED'?`<td data-l="ผู้สั่งงาน" class="col-ordby">${d.creator_name?esc(d.creator_name):'<span style="color:var(--muted)">—</span>'}</td>`:''}
     ${S.view!=='NEW'?`<td data-l="เวลา" class="col-time">${(S.view==='NEW'||S.view==='RECEIVED')
       ? `<span class="tcol-desk">${d.shipping_date?esc(fmtDate(d.shipping_date)):'<span style="color:var(--muted)">—</span>'}${d.pickup_time?`<br><span class="tcol-t">${esc(d.pickup_time)}</span>`:''}</span><span class="tcol-mob">${d.received_at?esc(fmtTime(d.received_at)):'<span style="color:var(--muted)">—</span>'}</span>`
@@ -2479,11 +2653,11 @@ function renderDocView(){
       <div class="panel" style="overflow-x:auto">
         <table class="tbl tbl-doc${S.view==='all'?' tbl-allview':''}${S.view==='RECEIVED'?' tbl-recv':''}${(S.view==='NEW'||S.view==='COMPLETED_TODAY'||S.view==='POSTPONED')?' tbl-nolead':''}${S.view==='NEW'?' tbl-new':''}">
           <thead><tr>
-            <th>JOB NO</th><th>เร่งด่วน</th><th>บริษัท</th><th class="col-cat">ประเภทงาน</th>
+            <th>JOB NO</th><th>เร่งด่วน</th><th>บริษัท</th><th class="col-cat">ประเภทงาน</th><th class="col-sdate">📅 วันที่</th>
             ${S.view!=='NEW'?`<th class="col-jdesc">${S.view==='RECEIVED'?'📝 รายละเอียดงาน / ท่านำเข้า':'📝 รายละเอียดงาน'}</th>`:''}${S.view==='RECEIVED'?'<th class="col-jobno">📄 เลขใบขน</th>':''}<th class="col-term">ท่านำเข้า</th><th>จำนวน</th>${S.view==='NEW'?'<th class="col-jdesc">📝 รายละเอียด / สถานที่</th>':''}${S.view==='NEW'?'<th class="col-jobno">📄 เลขใบขน</th>':''}${S.view==='NEW'?'<th>เวลา</th>':''}<th>${S.view==='RECEIVED'?'ชิปปิ้ง /ผู้สั่งงาน':'USER'}</th>${S.view==='RECEIVED'?'<th class="col-ordby">ผู้สั่งงาน</th>':''}${S.view!=='NEW'?'<th class="col-time">เวลา</th>':''}<th>${S.view==='RECEIVED'?'🚢 สถานะชิปปิ้ง':'สถานะเอกสาร'}</th><th class="col-lead">LEAD TIME</th><th class="th-actions">การจัดการ</th>
           </tr></thead>
           <tbody>${rows.length===0
-            ? `<tr><td colspan="12"><div class="empty"><div class="icon-lg"><i data-lucide="inbox"></i></div><div>ไม่มีเอกสารในมุมมองนี้</div></div></td></tr>`
+            ? `<tr><td colspan="13"><div class="empty"><div class="icon-lg"><i data-lucide="inbox"></i></div><div>ไม่มีเอกสารในมุมมองนี้</div></div></td></tr>`
             : rows.map(docRow).join('')}</tbody>
         </table>
         <div class="paginator">${total>_effPageSize() ? `
@@ -3415,6 +3589,46 @@ function _acHighlight(dir){
 document.addEventListener('click', e=>{ if(!_acState.dropdown) return; if(e.target===_acState.input) return; if(_acState.dropdown.contains(e.target)) return; _acClose(); });
 window.addEventListener('scroll', ()=>{ if(_acState.dropdown && _acState.dropdown.style.display!=='none') _acClose(); }, { passive:true, capture:true });
 window.addEventListener('resize', _acClose, { passive:true });
+/* 🔒 กันเลขใบขน (job_nj) ซ้ำ — ใช้ RPC sfz_check_job_nj ฝั่ง DB
+   · 1 ช่องใส่ได้หลายเลข (คั่นด้วยบรรทัด/ช่องว่าง/, ; /) → ตรวจทีละเลข
+   · สร้างงานใหม่  : p_exclude_id = null, p_prev_job_nj = null
+   · แก้ไขงานเดิม  : ส่ง id กันชนตัวเอง + ค่า job_nj เดิม เพื่อให้ผลตรงกับ trigger
+                     (งานเก่าที่มีเลขซ้ำติดมาก่อนติดตั้งระบบ ต้องยังบันทึกได้)
+   · RPC ใช้ไม่ได้ (ยังไม่ได้รัน SQL) → ไม่บล็อกการบันทึก ปล่อยให้ trigger ฝั่ง DB เป็นด่านสุดท้าย */
+function _fSaveReset(btn, editId){
+  if(!btn) return;
+  btn.disabled=false; btn.innerHTML='<i data-lucide="check"></i> บันทึก'; refreshIcons();
+}
+async function _jobNjGuard(jobNj, editId){
+  const raw = String(jobNj||'').trim();
+  if(!raw) return true;                                  // ไม่กรอกเลขใบขน → ไม่ต้องตรวจ
+  try{
+    const prev = editId ? ((S.docs.find(x=>x.id===editId)||{}).job_nj || null) : null;
+    const { data, error } = await sb.rpc('sfz_check_job_nj', {
+      p_job_nj: raw,
+      p_exclude_id: editId || null,
+      p_prev_job_nj: prev
+    });
+    if(error){ console.warn('[jobNjGuard] ตรวจซ้ำไม่ได้ ปล่อยให้ DB ตรวจ:', error.message||error); return true; }
+    const rows = Array.isArray(data) ? data : [];
+    if(!rows.length) return true;
+    // รวมเลขที่ซ้ำ + งานที่ถือเลขนั้นอยู่
+    const byNum = new Map();
+    rows.forEach(r=>{
+      const k = String(r.num||'');
+      if(!byNum.has(k)) byNum.set(k, []);
+      const dn = String(r.doc_no||'').split('-').pop();
+      if(dn && !byNum.get(k).includes(dn)) byNum.get(k).push(dn);
+    });
+    const detail = Array.from(byNum.entries())
+      .map(([n, jobs])=> jobs.length ? `${n} (JOB ${jobs.join(', ')})` : n).join(' · ');
+    toast(`❌ เลขใบขนซ้ำ — ไม่สามารถบันทึกได้\n${detail}`,'error');
+    const ta = $('f-jobnj'); if(ta){ ta.focus(); try{ ta.select(); }catch(_){ } }
+    return false;
+  }catch(e){
+    console.warn('[jobNjGuard]', e); return true;        // ตรวจไม่ได้ → ไม่ขวางผู้ใช้ DB ยังกันอยู่
+  }
+}
 async function saveForm(editId){
   const company = $('f-company').value.trim();
   if(!company){ toast('กรอกชื่อบริษัท','error'); $('f-company').focus(); return; }
@@ -3439,6 +3653,9 @@ async function saveForm(editId){
     note: $('f-note').value.trim() || null
   };
   const btn = $('f-save'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> บันทึก...';
+  // 🔒 กันเลขใบขนซ้ำ — ตรวจกับ sfz_documents ทุกสถานะก่อนบันทึก (ฝั่ง DB มี trigger กันอีกชั้น)
+  //    แก้ไขงาน: ส่ง p_exclude_id (ไม่ชนตัวเอง) + p_prev_job_nj (งานเก่าที่มีเลขซ้ำติดมาต้องยังบันทึกได้)
+  if(!(await _jobNjGuard(payload.job_nj, editId))){ _fSaveReset(btn, editId); return; }
   try{
     if(editId){
       if(_fpMissing) delete payload.freight_paid;
@@ -3486,7 +3703,16 @@ async function saveForm(editId){
     _invalidateDocsCache(); renderSidebar();   // #7 patch local แล้ว → render เฉพาะส่วน · ให้ realtime reconcile เครื่องอื่น
     { const _root=$('view-root'); if(_root && _root.querySelector('tbody') && S.view!=='graph' && S.view!=='users') _renderDocBody(); else routeRender(); }
   }catch(e){
-    console.error(e); toast('บันทึกไม่สำเร็จ: '+(e.message||''),'error');
+    console.error(e);
+    // trigger ฝั่ง DB บล็อกเลขใบขนซ้ำ (เช่น 2 เครื่องกดบันทึกพร้อมกัน) → แสดงข้อความเดียวกับฝั่งหน้าจอ
+    const _m = String((e&&e.message)||'');
+    if(/job_nj_duplicate/i.test(_m)){
+      const _nums = _m.replace(/^.*job_nj_duplicate:\s*/i,'').trim();
+      toast(`❌ เลขใบขนซ้ำ — ไม่สามารถบันทึกได้${_nums?`\n${_nums}`:''}`,'error');
+      const ta = $('f-jobnj'); if(ta) ta.focus();
+    } else {
+      toast('บันทึกไม่สำเร็จ: '+(e.message||''),'error');
+    }
   }finally{
     btn.disabled=false; btn.innerHTML='<i data-lucide="check"></i> บันทึก'; refreshIcons();
   }
@@ -4954,7 +5180,7 @@ async function renderUsers(){
 function userRow(u){
   const isSelf = u.id===(S.user&&S.user.id);
   const sup = isSuper();
-  const disp = u.display_user || u.full_name || u.username;
+  const disp = _cleanName(u.display_user || u.full_name || u.username) || (u.username||'');
   const role = String(u.role||'STAFF').toUpperCase();
   const status = String(u.status||'active').toLowerCase();
   const terms = _userTerminals(u);
@@ -5168,7 +5394,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 0811-H' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-A' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5207,6 +5433,641 @@ function _msWatchSession(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
+
+</script>
+<script>
+/* ============================================================
+   💰 ปิดค่าใช้จ่าย — โหมดใหม่ (Desktop + Mobile)
+   ใช้ตาราง sfz_expense_docs / sfz_expense_items + RPC ที่ติดตั้งแล้ว
+   ไม่แตะ flow เอกสารเดิม ไม่แตะตาราง sfz_documents
+   ============================================================ */
+const EXP_DOC_TABLE  = 'sfz_expense_docs';
+const EXP_ITEM_TABLE = 'sfz_expense_items';
+const EXP_SUMMARY    = 'sfz_expense_doc_summary';
+const EXP_PLACES     = ['อมตะชิตี้ระยอง','พี่ดำริ','เหมราช','อื่นๆ'];
+
+const EX = {
+  doc: null,          // เอกสารปัจจุบัน
+  items: [],          // รายการที่บันทึกแล้ว
+  drafts: [],         // แถวที่ยังไม่บันทึก (ไม่นับรวมยอด ไม่ export)
+  busy: new Set(),    // กันกดซ้ำรายแถว
+  loading: false
+};
+let _exDraftSeq = 0;
+
+function _exMoney(n){
+  const v = Number(n||0);
+  return v.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function _exNum(v){
+  const n = parseFloat(String(v==null?'':v).replace(/,/g,'').trim());
+  return isFinite(n) ? n : 0;
+}
+function _exToday(){ return (typeof todayYMD==='function') ? todayYMD() : new Date().toISOString().slice(0,10); }
+
+/* ---------- โหลดข้อมูล ---------- */
+async function exLoad(opts){
+  if(EX.loading) return;
+  EX.loading = true;
+  try{
+    if(!EX.doc || (opts&&opts.reopen)){
+      const { data, error } = await sb.rpc('sfz_expense_doc_open', {
+        p_closer_user: String((S.user&&S.user.id)||''),
+        p_closer_name: (typeof uname==='function'? uname() : ''),
+        p_date: _exToday()
+      });
+      if(error) throw error;
+      EX.doc = Array.isArray(data) ? data[0] : data;
+    }
+    if(EX.doc && EX.doc.id){
+      const { data: its, error: e2 } = await sb.from(EXP_ITEM_TABLE)
+        .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
+        .eq('doc_id', EX.doc.id).order('seq',{ascending:true});
+      if(e2) throw e2;
+      EX.items = its||[];
+      const { data: sm } = await sb.from(EXP_SUMMARY).select('*').eq('id', EX.doc.id).maybeSingle();
+      if(sm) EX.doc = Object.assign({}, EX.doc, sm);
+    }
+  }catch(e){
+    console.error('[expense]', e);
+    toast('โหลดข้อมูลปิดค่าใช้จ่ายไม่สำเร็จ: '+(e.message||''),'error');
+  }finally{
+    EX.loading = false;
+  }
+}
+
+/* ---------- หน้าหลัก ---------- */
+async function renderExpense(){
+  const root = $('view-root');
+  root.innerHTML = `<div class="content"><div class="panel" style="padding:28px;text-align:center;color:var(--muted)">
+    <span class="spinner"></span> กำลังโหลด...</div></div>`;
+  await exLoad();
+  exRender();
+}
+
+function exRender(){
+  const root = $('view-root'); if(!root) return;
+  if(S.view!=='expense') return;
+  const d = EX.doc||{};
+  if(!EX.drafts.length && !EX.items.length) exAddDraft(true);   // เปิดครั้งแรกมีแถวว่างพร้อมกรอก
+
+  const spent   = EX.items.reduce((s,x)=>s+_exNum(x.total_amount),0);
+  const advance = _exNum(d.advance_amount);
+  const balance = advance - spent;
+
+  root.innerHTML = `
+    <div class="content ex-wrap">
+      <div class="ex-head">
+        <div class="ex-title"><span class="ex-ic">💰</span>
+          <div><h2>ปิดค่าใช้จ่าย</h2><p>จัดการปิดค่าใช้จ่าย และส่งออกเอกสารสรุป</p></div>
+        </div>
+        <div class="ex-meta">
+          <div class="ex-fld"><label>เลขที่เอกสาร</label>
+            <input type="text" value="${esc(d.doc_no||'—')}" readonly class="ex-ro"></div>
+          <div class="ex-fld"><label>วันที่ปิดค่าใช้จ่าย</label>
+            <input type="date" id="ex-date" value="${esc(d.expense_date||_exToday())}" onchange="exSaveHead()"></div>
+          <div class="ex-fld"><label>ผู้ปิดค่าใช้จ่าย</label>
+            <input type="text" value="${esc(d.closer_name||'')}" readonly class="ex-ro"></div>
+        </div>
+      </div>
+
+      <div class="panel ex-panel">
+        <div class="ex-tblwrap">
+          <table class="tbl ex-tbl">
+            <thead><tr>
+              <th class="ex-c-no">ลำดับ</th>
+              <th class="ex-c-job">Job N</th>
+              <th class="ex-c-co">บริษัท</th>
+              <th class="ex-c-cost">ค่าใช้จ่าย (ต้นทุน)</th>
+              <th class="ex-c-rcp">+ ยอดใบเสร็จ =</th>
+              <th class="ex-c-sum">ยอดรวม (บาท)</th>
+              <th class="ex-c-place">สถานที่</th>
+              <th class="ex-c-act">จัดการ</th>
+            </tr></thead>
+            <tbody>
+              ${EX.items.map((it,i)=>exRowSaved(it,i+1)).join('')}
+              ${EX.drafts.map((dr,i)=>exRowDraft(dr, EX.items.length+i+1)).join('')}
+              ${(!EX.items.length && !EX.drafts.length)
+                ? `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีรายการ</td></tr>`:''}
+            </tbody>
+          </table>
+        </div>
+        <div class="ex-bar">
+          <button class="btn ex-btn-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>
+          <div class="ex-bar-r">
+            <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายการปิดค่าใช้จ่าย</button>
+            <button class="btn ex-btn-xls" onclick="exExportExcel()">📊 Export Excel</button>
+            <button class="btn ex-btn-pdf" onclick="exExportPDF()">📄 Export PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ex-sum">
+        <div class="ex-card ex-card-adv">
+          <div class="ex-card-ic">💳</div>
+          <div class="ex-card-bd"><label>เบิกเงิน (บาท)</label>
+            <input type="text" inputmode="decimal" id="ex-adv" value="${_exMoney(advance)}"
+                   onchange="exSaveAdvance()" onfocus="this.select()"></div>
+        </div>
+        <div class="ex-card ex-card-spent">
+          <div class="ex-card-ic">➡️</div>
+          <div class="ex-card-bd"><label>ใช้ไป (บาท)</label><b>${_exMoney(spent)}</b></div>
+        </div>
+        <div class="ex-card ex-card-bal">
+          <div class="ex-card-ic">💵</div>
+          <div class="ex-card-bd"><label>เงินคงเหลือ (บาท)</label>
+            <b class="${balance<0?'ex-neg':''}">${_exMoney(balance)}</b></div>
+        </div>
+      </div>
+    </div>`;
+  if(typeof refreshIcons==='function') refreshIcons(root);
+}
+
+/* ---------- แถวที่บันทึกแล้ว ---------- */
+function exRowSaved(it, no){
+  const busy = EX.busy.has(it.id);
+  return `<tr data-ex-item="${esc(it.id)}">
+    <td class="ex-c-no">${no}</td>
+    <td class="ex-c-job"><span class="ex-ro-cell">${esc(it.job_no||'')}</span></td>
+    <td class="ex-c-co"><span class="ex-ro-cell">${esc(it.company||'')}</span></td>
+    <td class="ex-c-cost ex-money">${_exMoney(it.cost_amount)}</td>
+    <td class="ex-c-rcp ex-money">${_exMoney(it.receipt_amount)}</td>
+    <td class="ex-c-sum ex-money"><b>${_exMoney(it.total_amount)}</b></td>
+    <td class="ex-c-place">${esc(it.place_name||'—')}</td>
+    <td class="ex-c-act">
+      <button class="ex-ib ex-ib-edit" title="แก้ไข" ${busy?'disabled':''} onclick="exEditItem('${esc(it.id)}')">✏️</button>
+      <button class="ex-ib ex-ib-del" title="ลบ" ${busy?'disabled':''} onclick="exDeleteItem('${esc(it.id)}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+
+/* ---------- แถวร่าง (ยังไม่บันทึก) ---------- */
+function exRowDraft(dr, no){
+  const isOther = dr.place_code==='อื่นๆ';
+  const busy = EX.busy.has(dr.key);
+  return `<tr class="ex-draft" data-ex-draft="${esc(dr.key)}">
+    <td class="ex-c-no">${no}</td>
+    <td class="ex-c-job"><input type="text" value="${esc(dr.job_no||'')}" placeholder="J2025-001"
+        oninput="exDraftSet('${esc(dr.key)}','job_no',this.value)"></td>
+    <td class="ex-c-co"><input type="text" value="${esc(dr.company||'')}" placeholder="ชื่อบริษัท"
+        oninput="exDraftSet('${esc(dr.key)}','company',this.value)"></td>
+    <td class="ex-c-cost"><input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.cost_amount||'')}"
+        placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','cost_amount',this.value)"></td>
+    <td class="ex-c-rcp"><input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.receipt_amount||'')}"
+        placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','receipt_amount',this.value)"></td>
+    <td class="ex-c-sum ex-money"><b data-ex-total="${esc(dr.key)}">${_exMoney(_exNum(dr.cost_amount)+_exNum(dr.receipt_amount))}</b></td>
+    <td class="ex-c-place">
+      <select onchange="exDraftSet('${esc(dr.key)}','place_code',this.value)">
+        <option value="">— เลือกสถานที่ —</option>
+        ${EX_PLACES_OPT(dr.place_code)}
+      </select>
+      ${isOther?`<input type="text" class="ex-place-other" value="${esc(dr.place_other||'')}" placeholder="กรอกชื่อสถานที่"
+        oninput="exDraftSet('${esc(dr.key)}','place_other',this.value)">`:''}
+    </td>
+    <td class="ex-c-act">
+      <button class="ex-ib ex-ib-save" title="บันทึก" ${busy?'disabled':''} onclick="exSaveDraft('${esc(dr.key)}')">${busy?'<span class="spinner"></span>':'💾'}</button>
+      <button class="ex-ib ex-ib-del" title="ลบแถว" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️</button>
+    </td>
+  </tr>`;
+}
+function EX_PLACES_OPT(cur){
+  return EXP_PLACES.map(p=>`<option value="${esc(p)}" ${cur===p?'selected':''}>${esc(p)}</option>`).join('');
+}
+
+/* ---------- จัดการแถวร่าง ---------- */
+function exAddDraft(silent){
+  EX.drafts.push({ key:'d'+(++_exDraftSeq), job_no:'', company:'', cost_amount:'', receipt_amount:'', place_code:'', place_other:'' });
+  if(!silent) exRender();
+}
+function exRemoveDraft(key){
+  EX.drafts = EX.drafts.filter(x=>x.key!==key);
+  exRender();
+}
+function exDraftSet(key, field, val){
+  const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
+  dr[field] = val;
+  if(field==='cost_amount' || field==='receipt_amount'){
+    const b = document.querySelector(`[data-ex-total="${CSS.escape(key)}"]`);
+    if(b) b.textContent = _exMoney(_exNum(dr.cost_amount)+_exNum(dr.receipt_amount));
+    return;                           // ไม่ re-render ระหว่างพิมพ์ (ไม่ให้ focus หลุด)
+  }
+  if(field==='place_code') exRender();  // ต้องสลับช่อง "อื่นๆ"
+}
+
+/* ---------- บันทึกรายการ ---------- */
+async function exSaveDraft(key){
+  if(EX.busy.has(key)) return;                    // กันกดซ้ำ
+  const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
+  if(!EX.doc || !EX.doc.id){ toast('ยังไม่มีเอกสาร','error'); return; }
+
+  if(!String(dr.job_no||'').trim()){ toast('กรอก Job N','error'); return; }
+  const cost = _exNum(dr.cost_amount), rcp = _exNum(dr.receipt_amount);
+  if(cost<0 || rcp<0){ toast('จำนวนเงินติดลบไม่ได้','error'); return; }
+  if(dr.place_code==='อื่นๆ' && !String(dr.place_other||'').trim()){
+    toast('เลือก "อื่นๆ" ต้องกรอกชื่อสถานที่','error'); return;
+  }
+
+  EX.busy.add(key); exRender();
+  try{
+    const { data, error } = await sb.rpc('sfz_expense_item_save', {
+      p_doc_id: EX.doc.id,
+      p_job_no: String(dr.job_no).trim(),
+      p_company: String(dr.company||'').trim() || null,
+      p_cost_amount: cost,
+      p_receipt_amount: rcp,
+      p_place_code: dr.place_code || null,
+      p_place_other: dr.place_code==='อื่นๆ' ? String(dr.place_other||'').trim() : null,
+      p_note: null,
+      p_item_id: dr.editId || null
+    });
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if(dr.editId){
+      const i = EX.items.findIndex(x=>x.id===dr.editId);
+      if(i>=0) EX.items[i] = row; else EX.items.push(row);
+    } else {
+      EX.items.push(row);
+    }
+    EX.items.sort((a,b)=>(a.seq||0)-(b.seq||0));
+    EX.drafts = EX.drafts.filter(x=>x.key!==key);
+    await exRefreshSummary();
+    toast('บันทึกรายการแล้ว','success');
+  }catch(e){
+    console.error(e);
+    toast('บันทึกไม่สำเร็จ: '+_exErr(e),'error');
+  }finally{
+    EX.busy.delete(key); exRender();
+  }
+}
+function _exErr(e){
+  const m = String((e&&e.message)||'');
+  if(/negative_amount/i.test(m)) return 'จำนวนเงินติดลบไม่ได้';
+  if(/missing_required_field/i.test(m)) return 'กรอกข้อมูลที่จำเป็นให้ครบ';
+  if(/place_other_req/i.test(m)) return 'เลือก "อื่นๆ" ต้องกรอกชื่อสถานที่';
+  if(/place_chk/i.test(m)) return 'สถานที่ไม่ถูกต้อง';
+  return m;
+}
+
+/* ---------- แก้ไข / ลบ ---------- */
+function exEditItem(id){
+  const it = EX.items.find(x=>x.id===id); if(!it) return;
+  EX.items = EX.items.filter(x=>x.id!==id);
+  EX.drafts.push({
+    key:'d'+(++_exDraftSeq), editId: it.id,
+    job_no: it.job_no||'', company: it.company||'',
+    cost_amount: String(it.cost_amount||''), receipt_amount: String(it.receipt_amount||''),
+    place_code: it.place_code||'', place_other: it.place_other||''
+  });
+  exRender();
+  toast('แก้ไขแล้วกด 💾 บันทึกอีกครั้ง','info');
+}
+async function exDeleteItem(id){
+  if(EX.busy.has(id)) return;
+  const it = EX.items.find(x=>x.id===id); if(!it) return;
+  const ok = await confirmDialog({
+    title:'ลบรายการ',
+    message:`ยืนยันลบรายการ <b>${esc(it.job_no||'')}</b> · ${esc(it.company||'')}<br>ยอดรวม ${_exMoney(it.total_amount)} บาท`,
+    okLabel:'🗑️ ลบ', okClass:'btn-danger'
+  });
+  if(!ok) return;
+  EX.busy.add(id); exRender();
+  try{
+    const { error } = await sb.from(EXP_ITEM_TABLE).delete().eq('id', id);
+    if(error) throw error;
+    EX.items = EX.items.filter(x=>x.id!==id);
+    await exRefreshSummary();
+    toast('ลบรายการแล้ว','success');
+  }catch(e){
+    console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||''),'error');
+  }finally{
+    EX.busy.delete(id); exRender();
+  }
+}
+
+/* ---------- หัวเอกสาร / เบิกเงิน ---------- */
+async function exSaveAdvance(){
+  const el = $('ex-adv'); if(!el || !EX.doc) return;
+  const v = _exNum(el.value);
+  if(v<0){ toast('เบิกเงินติดลบไม่ได้','error'); el.value=_exMoney(EX.doc.advance_amount); return; }
+  try{
+    const { error } = await sb.from(EXP_DOC_TABLE).update({ advance_amount: v }).eq('id', EX.doc.id);
+    if(error) throw error;
+    EX.doc.advance_amount = v;
+    await exRefreshSummary(); exRender();
+  }catch(e){ console.error(e); toast('บันทึกยอดเบิกไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+async function exSaveHead(){
+  const el = $('ex-date'); if(!el || !EX.doc) return;
+  try{
+    const { error } = await sb.from(EXP_DOC_TABLE).update({ expense_date: el.value||null }).eq('id', EX.doc.id);
+    if(error) throw error;
+    EX.doc.expense_date = el.value;
+    toast('บันทึกวันที่แล้ว','success');
+  }catch(e){ console.error(e); toast('บันทึกวันที่ไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+async function exRefreshSummary(){
+  if(!EX.doc||!EX.doc.id) return;
+  const { data } = await sb.from(EXP_SUMMARY).select('*').eq('id', EX.doc.id).maybeSingle();
+  if(data) EX.doc = Object.assign({}, EX.doc, data);
+}
+
+/* ============================================================
+   📋 หน้าต่างรายการปิดค่าใช้จ่าย
+   ============================================================ */
+const EXL = { rows:[], q:'', from:'', to:'' };
+
+async function exOpenList(){
+  openModal('modal-detail');
+  const mdl = $('modal-detail');
+  mdl.querySelector('.modal').innerHTML = `
+    <div class="modal-head"><div><h2>📋 รายการปิดค่าใช้จ่าย</h2></div>
+      <button class="x" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="modal-body"><div style="padding:28px;text-align:center;color:var(--muted)">
+      <span class="spinner"></span> กำลังโหลด...</div></div>`;
+  await exListLoad();
+  exListRender();
+}
+async function exListLoad(){
+  try{
+    let q = sb.from(EXP_SUMMARY).select('*').eq('app_code', WORK_APP_CODE)
+             .order('expense_date',{ascending:false}).order('created_at',{ascending:false}).limit(500);
+    if(EXL.from) q = q.gte('expense_date', EXL.from);
+    if(EXL.to)   q = q.lte('expense_date', EXL.to);
+    const { data, error } = await q;
+    if(error) throw error;
+    EXL.rows = data||[];
+  }catch(e){ console.error(e); toast('โหลดรายการไม่สำเร็จ: '+(e.message||''),'error'); EXL.rows=[]; }
+}
+function exListRender(){
+  const mdl = $('modal-detail'); if(!mdl) return;
+  const qq = String(EXL.q||'').toLowerCase();
+  const rows = EXL.rows.filter(r=>{
+    if(!qq) return true;
+    return [r.doc_no, r.closer_name, r.expense_date].filter(Boolean)
+           .some(x=>String(x).toLowerCase().includes(qq));
+  });
+  mdl.querySelector('.modal').innerHTML = `
+    <div class="modal-head"><div><h2>📋 รายการปิดค่าใช้จ่าย</h2>
+      <p class="sub">${rows.length} เอกสาร</p></div>
+      <button class="x" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="modal-body">
+      <div class="ex-lfilter">
+        <input type="text" placeholder="🔍 ค้นหา เลขที่เอกสาร / ผู้ปิด / วันที่..." value="${esc(EXL.q)}"
+               oninput="EXL.q=this.value;exListRender()">
+        <input type="date" value="${esc(EXL.from)}" onchange="EXL.from=this.value;exListReload()">
+        <input type="date" value="${esc(EXL.to)}" onchange="EXL.to=this.value;exListReload()">
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl ex-ltbl">
+          <thead><tr>
+            <th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ปิดค่าใช้จ่าย</th><th>จำนวน</th>
+            <th>เบิกเงิน</th><th>ใช้ไป</th><th>คงเหลือ</th><th>สถานะ</th><th>จัดการ</th>
+          </tr></thead>
+          <tbody>${rows.length? rows.map(r=>`
+            <tr>
+              <td><b>${esc(r.doc_no||'')}</b></td>
+              <td>${r.expense_date?esc(fmtDate(r.expense_date)):'—'}</td>
+              <td>${esc(r.closer_name||'—')}</td>
+              <td style="text-align:center">${r.items_count||0}</td>
+              <td class="ex-money">${_exMoney(r.advance_amount)}</td>
+              <td class="ex-money">${_exMoney(r.spent_total)}</td>
+              <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</td>
+              <td style="text-align:center"><span class="ex-st">${esc(r.status||'ปกติ')}</span></td>
+              <td style="text-align:center">
+                <button class="ex-ib ex-ib-view" title="ดูรายละเอียด" onclick="exOpenDetail('${esc(r.id)}')">🔍</button>
+              </td>
+            </tr>`).join('')
+            : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">ไม่พบเอกสาร</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+async function exListReload(){ await exListLoad(); exListRender(); }
+
+/* ---------- รายละเอียดเอกสาร ---------- */
+async function exOpenDetail(id){
+  const mdl = $('modal-detail');
+  mdl.querySelector('.modal').innerHTML = `
+    <div class="modal-head"><div><h2>รายละเอียดเอกสาร</h2></div>
+      <button class="x" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="modal-body"><div style="padding:28px;text-align:center;color:var(--muted)">
+      <span class="spinner"></span> กำลังโหลด...</div></div>`;
+  try{
+    const { data: head } = await sb.from(EXP_SUMMARY).select('*').eq('id', id).maybeSingle();
+    const { data: its }  = await sb.from(EXP_ITEM_TABLE)
+      .select('id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_name,note')
+      .eq('doc_id', id).order('seq',{ascending:true});
+    exDetailRender(head||{}, its||[]);
+  }catch(e){ console.error(e); toast('โหลดรายละเอียดไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+function exDetailRender(h, items){
+  const mdl = $('modal-detail'); if(!mdl) return;
+  const cost = items.reduce((s,x)=>s+_exNum(x.cost_amount),0);
+  const rcp  = items.reduce((s,x)=>s+_exNum(x.receipt_amount),0);
+  const sum  = items.reduce((s,x)=>s+_exNum(x.total_amount),0);
+  mdl.querySelector('.modal').innerHTML = `
+    <div class="modal-head">
+      <div><h2>รายละเอียดเอกสาร ${esc(h.doc_no||'')}</h2>
+        <p class="sub">${h.expense_date?esc(fmtDate(h.expense_date)):''} · ${esc(h.closer_name||'')}</p></div>
+      <button class="x" onclick="closeModal('modal-detail')">✕</button></div>
+    <div class="modal-body">
+      <div class="ex-dmeta">
+        <div><label>ยอดเบิกเงิน</label><b>${_exMoney(h.advance_amount)}</b></div>
+        <div><label>ยอดใช้ไป</label><b>${_exMoney(h.spent_total)}</b></div>
+        <div><label>เงินคงเหลือ</label><b class="${_exNum(h.balance)<0?'ex-neg':''}">${_exMoney(h.balance)}</b></div>
+        <div><label>จำนวนรายการ</label><b>${h.items_count||0}</b></div>
+        <div><label>สถานะ</label><b>${esc(h.status||'ปกติ')}</b></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl ex-ltbl">
+          <thead><tr><th>ลำดับ</th><th>Job N</th><th>บริษัท</th><th>ค่าใช้จ่าย (ต้นทุน)</th>
+            <th>+ ยอดใบเสร็จ =</th><th>ยอดรวม (บาท)</th><th>สถานที่</th></tr></thead>
+          <tbody>${items.map((it,i)=>`<tr>
+            <td style="text-align:center">${i+1}</td>
+            <td>${esc(it.job_no||'')}</td>
+            <td>${esc(it.company||'')}</td>
+            <td class="ex-money">${_exMoney(it.cost_amount)}</td>
+            <td class="ex-money">${_exMoney(it.receipt_amount)}</td>
+            <td class="ex-money"><b>${_exMoney(it.total_amount)}</b></td>
+            <td>${esc(it.place_name||'—')}</td></tr>`).join('')}
+            <tr class="ex-trsum"><td colspan="3" style="text-align:right"><b>รวมทั้งหมด</b></td>
+              <td class="ex-money"><b>${_exMoney(cost)}</b></td>
+              <td class="ex-money"><b>${_exMoney(rcp)}</b></td>
+              <td class="ex-money"><b>${_exMoney(sum)}</b></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ex-dacts">
+        <button class="btn ex-btn-xls" onclick="exExportExcel('${esc(h.id)}')">📊 Export Excel</button>
+        <button class="btn ex-btn-pdf" onclick="exExportPDF('${esc(h.id)}')">📄 Export PDF</button>
+        <button class="btn btn-secondary" onclick="exOpenList()">← กลับ</button>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   EXPORT — ดึงข้อมูลจากฐานข้อมูลจริงเสมอ
+   ============================================================ */
+async function _exFetchForExport(docId){
+  const id = docId || (EX.doc&&EX.doc.id);
+  if(!id){ toast('ไม่พบเอกสาร','error'); return null; }
+  const { data: h } = await sb.from(EXP_SUMMARY).select('*').eq('id', id).maybeSingle();
+  const { data: its } = await sb.from(EXP_ITEM_TABLE)
+    .select('seq,job_no,company,cost_amount,receipt_amount,total_amount,place_name,note')
+    .eq('doc_id', id).order('seq',{ascending:true});
+  if(!h){ toast('ไม่พบเอกสาร','error'); return null; }
+  if(!its || !its.length){ toast('ยังไม่มีรายการที่บันทึก','error'); return null; }
+  return { h, items: its };
+}
+
+async function exExportExcel(docId){
+  try{
+    const r = await _exFetchForExport(docId); if(!r) return;
+    await loadXlsxStyle();
+    const { h, items } = r;
+    const TITLE = 'SHIPPING FZ - สรุปปิดค่าใช้จ่าย';
+    const HEAD  = ['ลำดับ','Job N','บริษัท','ค่าใช้จ่าย (ต้นทุน)','+ ยอดใบเสร็จ =','ยอดรวม (บาท)','สถานที่','หมายเหตุ'];
+    const aoa = [
+      [TITLE],
+      ['เลขที่เอกสาร', h.doc_no||'', '', 'วันที่', h.expense_date||'', '', 'ผู้ปิดค่าใช้จ่าย', h.closer_name||''],
+      [],
+      HEAD
+    ];
+    items.forEach((it,i)=> aoa.push([
+      i+1, it.job_no||'', it.company||'',
+      _exNum(it.cost_amount), _exNum(it.receipt_amount), _exNum(it.total_amount),
+      it.place_name||'', it.note||''
+    ]));
+    const first = 5, last = 4+items.length;         // แถวข้อมูลใน Excel (1-based)
+    aoa.push(['','','รวมทั้งหมด',
+      { f:`SUM(D${first}:D${last})` }, { f:`SUM(E${first}:E${last})` }, { f:`SUM(F${first}:F${last})` }, '','']);
+    const totalRow = last+1;
+    aoa.push([]);
+    aoa.push(['เบิกเงิน (บาท)', _exNum(h.advance_amount), '', 'ใช้ไป (บาท)', { f:`F${totalRow}` }, '',
+              'เงินคงเหลือ (บาท)', { f:`B${totalRow+2}-E${totalRow+2}` }]);
+    aoa.push([]);
+    aoa.push(['หมายเหตุ', h.note||'']);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:7} }];
+    ws['!cols'] = [{wch:7},{wch:16},{wch:28},{wch:18},{wch:18},{wch:18},{wch:20},{wch:22}];
+    ws['!freeze'] = { xSplit:0, ySplit:4 };
+    ws['!pageSetup'] = { orientation:'landscape', paperSize:9, fitToWidth:1, fitToHeight:0, scale:0 };
+    ws['!printHeader'] = [4,4];
+
+    const bd = { top:{style:'thin',color:{rgb:'FF999999'}}, bottom:{style:'thin',color:{rgb:'FF999999'}},
+                 left:{style:'thin',color:{rgb:'FF999999'}}, right:{style:'thin',color:{rgb:'FF999999'}} };
+    const COLORS = ['FFDBEAFE','FFDBEAFE','FFD1FAE5','FFFEF3C7','FFFCE7F3','FFEDE9FE','FFDBEAFE','FFF3F4F6'];
+    // หัวรายงาน
+    const t = XLSX.utils.encode_cell({r:0,c:0});
+    if(ws[t]) ws[t].s = { font:{bold:true,sz:15,color:{rgb:'FF1E3A8A'}}, alignment:{horizontal:'center'} };
+    // หัวตาราง
+    for(let c=0;c<HEAD.length;c++){
+      const ref = XLSX.utils.encode_cell({r:3,c});
+      if(!ws[ref]) ws[ref] = { t:'s', v:HEAD[c] };
+      ws[ref].s = { font:{bold:true,sz:11}, fill:{fgColor:{rgb:COLORS[c]}},
+                    alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:bd };
+    }
+    // ตัวเลข + เส้นตาราง
+    for(let r=4; r<aoa.length; r++){
+      for(let c=0;c<HEAD.length;c++){
+        const ref = XLSX.utils.encode_cell({r,c});
+        if(!ws[ref]) continue;
+        ws[ref].s = Object.assign({ border:bd }, ws[ref].s||{});
+        if(c>=3 && c<=5){ ws[ref].z = '#,##0.00'; ws[ref].s.alignment = { horizontal:'right' }; }
+        if(c===0) ws[ref].s.alignment = { horizontal:'center' };
+      }
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'สรุปปิดค่าใช้จ่าย');
+    XLSX.writeFile(wb, `${h.doc_no||'expense'}.xlsx`);
+    toast('ส่งออก Excel แล้ว','success');
+  }catch(e){ console.error(e); toast('Export Excel ไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+
+async function exExportPDF(docId){
+  try{
+    const r = await _exFetchForExport(docId); if(!r) return;
+    const { h, items } = r;
+    const cost = items.reduce((s,x)=>s+_exNum(x.cost_amount),0);
+    const rcp  = items.reduce((s,x)=>s+_exNum(x.receipt_amount),0);
+    const sum  = items.reduce((s,x)=>s+_exNum(x.total_amount),0);
+    const bal  = _exNum(h.advance_amount) - sum;
+
+    const rowsHtml = items.map((it,i)=>`<tr>
+      <td class="c">${i+1}</td><td>${esc(it.job_no||'')}</td><td>${esc(it.company||'')}</td>
+      <td class="r">${_exMoney(it.cost_amount)}</td><td class="r">${_exMoney(it.receipt_amount)}</td>
+      <td class="r b">${_exMoney(it.total_amount)}</td><td>${esc(it.place_name||'')}</td>
+      <td>${esc(it.note||'')}</td></tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(h.doc_no||'')}</title><style>
+@page{ size:A4 landscape; margin:8mm 10mm; }
+html,body{margin:0;padding:0;background:#fff}
+body{font-family:'Sarabun','Inter',sans-serif;color:#111;font-size:10pt}
+.hd{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1E3A8A;padding-bottom:6px;margin-bottom:10px}
+.hd .co{font-weight:800;color:#1E3A8A;font-size:13pt}
+.hd .co small{display:block;font-weight:400;color:#555;font-size:8pt}
+.hd h1{margin:0;font-size:15pt;color:#1E3A8A;text-align:center}
+.hd .meta{font-size:9pt;line-height:1.6;text-align:right}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #999;padding:4px 6px;font-size:9pt}
+thead th{background:#DBEAFE;font-weight:700;text-align:center}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+td.r{text-align:right}td.c{text-align:center}td.b{font-weight:700;background:#F5F3FF}
+tfoot td{font-weight:700;background:#EFF6FF}
+.sums{display:flex;gap:10px;margin-top:10px}
+.sums div{flex:1;border:1px solid #999;padding:6px 10px;font-size:9.5pt}
+.sums b{float:right}
+.neg{color:#DC2626}
+.signs{display:flex;gap:24px;margin-top:22px;page-break-inside:avoid}
+.signs div{flex:1;text-align:center;font-size:9pt}
+.signs .ln{margin-top:28px;border-top:1px dotted #333;padding-top:4px}
+.note{margin-top:10px;font-size:9pt;border:1px solid #bbb;padding:6px;min-height:28px}
+</style></head><body>
+  <div class="hd">
+    <div class="co">N.J. LOGISTICS<small>SHIPPING FZ</small></div>
+    <h1>สรุปปิดค่าใช้จ่าย</h1>
+    <div class="meta">
+      เลขที่เอกสาร : <b>${esc(h.doc_no||'')}</b><br>
+      วันที่ปิดค่าใช้จ่าย : ${h.expense_date?esc(fmtDate(h.expense_date)):'—'}<br>
+      ผู้ปิดค่าใช้จ่าย : ${esc(h.closer_name||'—')}
+    </div>
+  </div>
+  <table>
+    <thead><tr><th style="width:36px">ลำดับ</th><th style="width:90px">Job N</th><th>บริษัท</th>
+      <th style="width:92px">ค่าใช้จ่าย (ต้นทุน)</th><th style="width:92px">+ ยอดใบเสร็จ =</th>
+      <th style="width:92px">ยอดรวม (บาท)</th><th style="width:100px">สถานที่</th><th style="width:90px">หมายเหตุ</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot><tr><td colspan="3" style="text-align:right">รวมทั้งสิ้น</td>
+      <td class="r">${_exMoney(cost)}</td><td class="r">${_exMoney(rcp)}</td>
+      <td class="r">${_exMoney(sum)}</td><td colspan="2"></td></tr></tfoot>
+  </table>
+  <div class="sums">
+    <div>เบิกเงิน (บาท) <b>${_exMoney(h.advance_amount)}</b></div>
+    <div>ใช้ไป (บาท) <b>${_exMoney(sum)}</b></div>
+    <div>เงินคงเหลือ (บาท) <b class="${bal<0?'neg':''}">${_exMoney(bal)}</b></div>
+  </div>
+  <div class="note"><b>หมายเหตุ</b> ${esc(h.note||'')}</div>
+  <div class="signs">
+    <div><div class="ln">ผู้ปิดค่าใช้จ่าย</div>( ${esc(h.closer_name||'')} )<br>วันที่ ${h.expense_date?esc(fmtDate(h.expense_date)):'.............'}</div>
+    <div><div class="ln">ผู้ตรวจสอบ</div>( ............................. )<br>วันที่ .............</div>
+    <div><div class="ln">ผู้อนุมัติ</div>( ............................. )<br>วันที่ .............</div>
+  </div>
+</body></html>`;
+
+    document.getElementById('ex-print-iframe')?.remove();
+    const ifr = document.createElement('iframe');
+    ifr.id = 'ex-print-iframe';
+    ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(ifr);
+    const doc = ifr.contentDocument || ifr.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    const go = ()=>{ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(err){ console.error(err); } };
+    if(doc.readyState==='complete') setTimeout(go,180); else ifr.onload = ()=>setTimeout(go,180);
+  }catch(e){ console.error(e); toast('Export PDF ไม่สำเร็จ: '+(e.message||''),'error'); }
+}
 
 </script>
 </body>
