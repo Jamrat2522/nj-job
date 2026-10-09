@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-B">
+<meta name="sfz-build" content="1008-C">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1158,6 +1158,100 @@ body:has(.modal-back.show){overflow:hidden}
 }
 
 </style>
+<style>
+/* ===== 💰 ปิดค่าใช้จ่าย — หน้าหลัก + Modal ทำงาน ===== */
+.ex-head-acts{display:flex;gap:10px;flex-wrap:wrap}
+.ex-head-acts .btn{height:44px;padding:0 18px;border-radius:10px;font-weight:700;font-size:14.5px;
+  border:0;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px}
+.ex-btn-new{background:#16A34A}
+.ex-btn-view{background:#2563EB}
+.ex-btn-save{background:#2563EB}
+.ex-btn-saverow{background:#2563EB}
+.ex-btn-cancel{background:#F59E0B}
+.ex-ib-xls{background:#DCFCE7 !important;border-color:#86EFAC !important}
+.ex-ib-pdf{background:#FEE2E2 !important;border-color:#FCA5A5 !important}
+.ex-home-tbl td.ex-c-act{white-space:nowrap;text-align:center}
+.ex-empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* ---- Modal ทำงาน: ใหญ่กลางจอ ---- */
+#modal-form .modal:has(.ex-workbody){max-width:1180px;width:96vw}
+.ex-workbody{max-height:calc(100vh - 150px);overflow:auto}
+.ex-workbody .ex-meta{margin-bottom:12px}
+.ex-workfoot{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;
+  padding-top:12px;border-top:1px solid var(--line)}
+.ex-workfoot .btn{height:46px;padding:0 20px;border-radius:10px;font-weight:700;border:0;cursor:pointer}
+.ex-workfoot .btn-secondary{border:1px solid var(--line)}
+
+/* ---- การ์ดเอกสาร (หน้าหลัก + รายงาน บนมือถือ) ---- */
+.ex-hcards{display:flex;flex-direction:column;gap:12px}
+.ex-hcard{border:1.5px solid var(--ex-line-soft);border-radius:12px;padding:12px;background:var(--card);cursor:pointer}
+.ex-hcard:active{background:#F1F6FF}
+.ex-hc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ex-hc-top b{font-size:15.5px}
+.ex-hc-sub{font-size:12.5px;color:var(--muted);margin:3px 0 9px}
+.ex-hc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.ex-hc-n{border:1px solid var(--ex-line-soft);border-radius:8px;padding:6px 4px;text-align:center;min-width:0}
+.ex-hc-n label{display:block;font-size:10.5px;color:var(--muted)}
+.ex-hc-n b{font-size:12.5px;font-variant-numeric:tabular-nums;word-break:break-all}
+.ex-hc-adv{background:#EFF6FF;border-color:#BFDBFE}
+.ex-hc-sp{background:#FEF2F2;border-color:#FECACA}
+.ex-hc-bl{background:#ECFDF5;border-color:#A7F3D0}
+.ex-hc-adv b,.ex-hc-adv label{color:#1D4ED8}
+.ex-hc-sp b,.ex-hc-sp label{color:#DC2626}
+.ex-hc-bl b,.ex-hc-bl label{color:#047857}
+.ex-hc-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}
+.ex-hc-acts .btn{height:40px;border-radius:9px;border:0;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+
+/* ---- การ์ดรายการ (มือถือ ใน Modal ทำงาน) ---- */
+.ex-mcards{display:flex;flex-direction:column;gap:12px}
+.ex-mc{border:1.5px solid var(--ex-line-soft);border-radius:12px;padding:12px;background:#fff;color:#111}
+.ex-mc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ex-mc-head b{font-size:14.5px;color:#1E3A8A}
+.ex-mc-badge{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px}
+.ex-mc-badge.ok{background:#DCFCE7;color:#166534}
+.ex-mc-badge.wait{background:#FEF3C7;color:#92400E}
+.ex-mc-badge.edit{background:#EDE9FE;color:#5B21B6}
+.ex-mc-saved{background:#F8FAFC}
+.ex-mc-line{font-size:14px;margin-bottom:6px}
+.ex-mc-line b{color:#1E3A8A}
+.ex-mc-line span{color:#444}
+.ex-mc-row{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:13px;color:#444;padding:4px 0;border-top:1px dashed var(--ex-line-soft)}
+.ex-mc-row b{color:#111;font-variant-numeric:tabular-nums}
+.ex-mc-sum{font-size:16px;color:#4C1D95 !important;font-weight:800}
+.ex-mc-btns{display:flex;gap:6px}
+.ex-mf{display:block;font-size:12.5px;color:#475569;font-weight:600;margin-bottom:8px}
+.ex-mf .req{color:#DC2626}
+.ex-mf input,.ex-mf select{display:block;width:100%;height:44px;margin-top:4px;padding:0 10px;
+  border:1.5px solid #B6C2D6;border-radius:8px;background:#fff;color:#111;font-size:15px;box-sizing:border-box}
+.ex-mf input:focus,.ex-mf select:focus{outline:0;border-color:#2563EB;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+.ex-mf input.ex-bad,.ex-mf select.ex-bad{border-color:#DC2626;background:#FEF2F2;box-shadow:0 0 0 2px rgba(220,38,38,.18)}
+.ex-mf input.ex-in-money{text-align:right;font-variant-numeric:tabular-nums}
+.ex-mf2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ex-mc-total{display:flex;align-items:center;justify-content:space-between;
+  background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:9px;padding:8px 12px;margin-bottom:10px}
+.ex-mc-total label{font-size:12.5px;color:#5B21B6;font-weight:600}
+.ex-mc-total b{font-size:19px;color:#4C1D95;font-weight:800;font-variant-numeric:tabular-nums}
+.ex-mc-acts{display:grid;grid-template-columns:1fr auto;gap:8px}
+.ex-mc-acts .btn{height:46px;border-radius:9px;border:0;color:#fff;font-weight:700;font-size:14px;
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px}
+
+@media (max-width:860px){
+  .ex-head-acts{width:100%}
+  .ex-head-acts .btn{flex:1;justify-content:center;min-height:46px}
+  #modal-form .modal:has(.ex-workbody){width:100vw;max-width:100vw;border-radius:0}
+  /* เผื่อที่ให้แถบปุ่มล่างแบบ sticky ไม่ทับเนื้อหา */
+  .ex-workbody{max-height:calc(100vh - 110px);padding-bottom:4px}
+  .ex-workfoot{position:sticky;bottom:0;z-index:3;margin:14px -16px 0;padding:10px 16px;
+    background:var(--card);border-top:1.5px solid var(--line);
+    box-shadow:0 -6px 16px rgba(0,0,0,.18)}
+  .ex-workfoot .btn{flex:1;min-height:48px}
+  .ex-mcards{padding-bottom:4px}
+  .ex-mc-acts .btn{min-height:48px}
+  .ex-bar{margin-top:10px}
+}
+
+</style>
 </head>
 <body>
 
@@ -1209,7 +1303,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-B</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-C</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5462,7 +5556,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-B' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-C' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5566,23 +5660,84 @@ async function exLoad(opts){
 }
 
 /* ---------- หน้าหลัก ---------- */
+/* ============================================================
+   💰 ปิดค่าใช้จ่าย — หน้าหลัก = รายการเอกสาร (ไม่เปิดฟอร์มทันที)
+   เปิดงานใหม่ / แก้ไข → ทำงานใน Modal (เดสก์ท็อป = ตาราง · มือถือ = การ์ด)
+   ============================================================ */
 async function renderExpense(){
   const root = $('view-root');
   root.innerHTML = `<div class="content"><div class="panel" style="padding:28px;text-align:center;color:var(--muted)">
     <span class="spinner"></span> กำลังโหลด...</div></div>`;
-  await exLoad();
-  exRender();
+  await exListLoad();
+  exHomeRender();
 }
 
+/* เรียกจากที่อื่นหลังบันทึก/ลบ — เลือก render ให้ถูกที่ */
 function exRender(){
+  if(_exWorkOpen()) return exWorkRender();
+  if(S.view==='expense') return exHomeRender();
+}
+function _exWorkOpen(){
+  const m = $('modal-form');
+  return !!(m && m.classList.contains('show') && m.querySelector('[data-ex-work]'));
+}
+
+/* ---------- หน้าหลัก: รายการเอกสารที่บันทึกแล้ว ---------- */
+function exHomeRender(){
   const root = $('view-root'); if(!root) return;
   if(S.view!=='expense') return;
-  const d = EX.doc||{};
-  if(!EX.drafts.length && !EX.items.length) exAddDraft(true);   // เปิดครั้งแรกมีแถวว่างพร้อมกรอก
+  const rows = EXL.rows || [];
+  const mob  = _vpMobile();
 
-  const spent   = EX.items.reduce((s,x)=>s+_exNum(x.total_amount),0);
-  const advance = _exNum(d.advance_amount);
-  const balance = advance - spent;
+  const table = `
+    <div class="ex-tblwrap">
+      <table class="tbl ex-ltbl ex-home-tbl">
+        <thead><tr>
+          <th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ปิดค่าใช้จ่าย</th><th>จำนวนรายการ</th>
+          <th>เบิกเงิน</th><th>ใช้ไป</th><th>คงเหลือ</th><th>จัดการ</th>
+        </tr></thead>
+        <tbody>${rows.length ? rows.map(r=>`
+          <tr class="ex-lrow" onclick="exOpenDetail('${esc(r.id)}')">
+            <td><b>${esc(r.doc_no||'')}</b></td>
+            <td>${r.expense_date?esc(fmtDate(r.expense_date)):'—'}</td>
+            <td>${esc(r.closer_name||'—')}</td>
+            <td style="text-align:center">${r.items_count||0}</td>
+            <td class="ex-money">${_exMoney(r.advance_amount)}</td>
+            <td class="ex-money">${_exMoney(r.spent_total)}</td>
+            <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</td>
+            <td class="ex-c-act" onclick="event.stopPropagation()">
+              <button class="ex-ib ex-ib-view" title="ดูรายละเอียด" onclick="exOpenDetail('${esc(r.id)}')">👁</button>
+              ${canEditExpense()?`<button class="ex-ib ex-ib-edit" title="แก้ไข" onclick="exEditDoc('${esc(r.id)}')">✏️</button>`:''}
+              <button class="ex-ib ex-ib-xls" title="Export Excel" onclick="exExportExcel('${esc(r.id)}')">🟢</button>
+              <button class="ex-ib ex-ib-pdf" title="Export PDF" onclick="exExportPDF('${esc(r.id)}')">🔴</button>
+            </td>
+          </tr>`).join('')
+          : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">ยังไม่มีเอกสาร — กด "เปิดงานใหม่" เพื่อเริ่ม</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+
+  // มือถือ: การ์ดแทนตาราง
+  const cards = rows.length ? rows.map(r=>`
+    <div class="ex-hcard" onclick="exOpenDetail('${esc(r.id)}')">
+      <div class="ex-hc-top">
+        <b>${esc(r.doc_no||'')}</b>
+        <span class="ex-st">${esc(r.status||'ปกติ')}</span>
+      </div>
+      <div class="ex-hc-sub">${r.expense_date?esc(fmtDate(r.expense_date)):'—'} · ${esc(r.closer_name||'—')}</div>
+      <div class="ex-hc-grid">
+        <div class="ex-hc-n"><label>รายการ</label><b>${r.items_count||0}</b></div>
+        <div class="ex-hc-n ex-hc-adv"><label>เบิกเงิน</label><b>${_exMoney(r.advance_amount)}</b></div>
+        <div class="ex-hc-n ex-hc-sp"><label>ใช้ไป</label><b>${_exMoney(r.spent_total)}</b></div>
+        <div class="ex-hc-n ex-hc-bl"><label>คงเหลือ</label><b class="${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</b></div>
+      </div>
+      <div class="ex-hc-acts" onclick="event.stopPropagation()">
+        <button class="btn ex-btn-view" onclick="exOpenDetail('${esc(r.id)}')">👁 ดู</button>
+        <button class="btn ex-btn-xls"  onclick="exExportExcel('${esc(r.id)}')">📊 Excel</button>
+        <button class="btn ex-btn-pdf"  onclick="exExportPDF('${esc(r.id)}')">📄 PDF</button>
+      </div>
+    </div>`).join('')
+    : `<div class="ex-empty">ยังไม่มีเอกสาร — กด "เปิดงานใหม่" เพื่อเริ่ม</div>`;
 
   root.innerHTML = `
     <div class="content ex-wrap">
@@ -5590,69 +5745,230 @@ function exRender(){
         <div class="ex-title"><span class="ex-ic">💰</span>
           <div><h2>ปิดค่าใช้จ่าย</h2><p>จัดการปิดค่าใช้จ่าย และส่งออกเอกสารสรุป</p></div>
         </div>
-        <div class="ex-meta">
-          <div class="ex-fld"><label>เลขที่เอกสาร</label>
-            <input type="text" value="${esc(d.doc_no||'—')}" readonly class="ex-ro"></div>
-          <div class="ex-fld"><label>วันที่ปิดค่าใช้จ่าย</label>
-            <input type="date" id="ex-date" value="${esc(d.expense_date||_exToday())}" onchange="exSaveHead()"></div>
-          <div class="ex-fld"><label>ผู้ปิดค่าใช้จ่าย</label>
-            <input type="text" value="${esc(d.closer_name||'')}" readonly class="ex-ro"></div>
+        <div class="ex-head-acts">
+          <button class="btn ex-btn-new"  onclick="exOpenNewWork()">➕ เปิดงานใหม่</button>
+          <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายงานปิดค่าใช้จ่าย</button>
         </div>
       </div>
+      <div class="panel ex-panel">${mob ? `<div class="ex-hcards">${cards}</div>` : table}</div>
+    </div>`;
+  if(typeof refreshIcons==='function') refreshIcons(root);
+}
 
-      <div class="panel ex-panel">
-        <div class="ex-tblwrap">
-          <table class="tbl ex-tbl">
-            <thead><tr>
-              <th class="ex-c-no">ลำดับ</th>
-              <th class="ex-c-job">Job N</th>
-              <th class="ex-c-co">บริษัท</th>
-              <th class="ex-c-cost">ค่าใช้จ่าย (ต้นทุน)</th>
-              <th class="ex-c-rcp">+ ยอดใบเสร็จ =</th>
-              <th class="ex-c-sum">ยอดรวม (บาท)</th>
-              <th class="ex-c-place">สถานที่</th>
-              <th class="ex-c-act">จัดการ</th>
-            </tr></thead>
-            <tbody>
-              ${EX.items.map((it,i)=>{
-                 const dr = EX.drafts.find(d=>d.editId===it.id);
-                 return dr ? exRowDraft(dr, i+1) : exRowSaved(it, i+1);
-               }).join('')}
-              ${EX.drafts.filter(d=>!d.editId).map((dr,i)=>exRowDraft(dr, EX.items.length+i+1)).join('')}
-              ${(!EX.items.length && !EX.drafts.length)
-                ? `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีรายการ</td></tr>`:''}
-            </tbody>
-          </table>
-        </div>
-        <div class="ex-bar">
-          <button class="btn ex-btn-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>
-          <div class="ex-bar-r">
-            <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายการปิดค่าใช้จ่าย</button>
-            <button class="btn ex-btn-xls" onclick="exExportExcel()">📊 Export Excel</button>
-            <button class="btn ex-btn-pdf" onclick="exExportPDF()">📄 Export PDF</button>
-          </div>
+/* ---------- เปิดงานใหม่ ---------- */
+async function exOpenNewWork(){
+  try{
+    const { data, error } = await sb.rpc('sfz_expense_doc_open', {
+      p_closer_user: String((S.user&&S.user.id)||''),
+      p_closer_name: (typeof uname==='function'? uname() : ''),
+      p_date: _exToday()
+    });
+    if(error) throw error;
+    EX.doc = Array.isArray(data) ? data[0] : data;
+    // ใบเดิมของวันนี้อาจมีรายการอยู่แล้ว → โหลดมาด้วย
+    const { data: its } = await sb.from(EXP_ITEM_TABLE)
+      .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
+      .eq('doc_id', EX.doc.id).order('seq',{ascending:true});
+    EX.items = its||[]; EX.drafts = []; EX.editing = new Set();
+    await exRefreshSummary();
+    exOpenWorkModal();
+  }catch(e){ console.error(e); toast('เปิดงานใหม่ไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+
+function exOpenWorkModal(){
+  openModal('modal-form');
+  exWorkRender();
+}
+
+/* ---------- ปิด Modal อย่างปลอดภัย (เตือนถ้ามีร่างค้าง) ---------- */
+async function exCloseWork(){
+  const pending = EX.drafts.filter(d=>{
+    if(d.editId) return true;
+    return String(d.job_no||'').trim() || String(d.company||'').trim()
+        || String(d.cost_amount||'').trim() || String(d.receipt_amount||'').trim();
+  });
+  if(pending.length){
+    const ok = await confirmDialog({
+      title:'ยังมีรายการที่ยังไม่บันทึก',
+      message:`มี <b>${pending.length}</b> รายการที่ยังไม่ได้กด 💾 บันทึก<br>ถ้าปิดตอนนี้ รายการเหล่านั้นจะหายไป (รายการที่บันทึกแล้วยังอยู่ครบ)`,
+      okLabel:'ปิดโดยไม่บันทึก', okClass:'btn-danger'
+    });
+    if(!ok) return;
+  }
+  EX.drafts = []; EX.editing = new Set();
+  closeModal('modal-form');
+  await exListReload();
+  exHomeRender();
+}
+
+/* บันทึกงาน = ปิดงานใบนี้แล้วกลับหน้าหลัก (รายการถูกบันทึกทีละแถวอยู่แล้ว) */
+async function exSaveWork(){
+  const unsaved = EX.drafts.filter(d=>!d.editId &&
+    (String(d.job_no||'').trim() || String(d.company||'').trim()));
+  if(unsaved.length){
+    const ok = await confirmDialog({
+      title:'ยังมีรายการที่ยังไม่บันทึก',
+      message:`มี <b>${unsaved.length}</b> รายการที่ยังไม่ได้กด 💾 บันทึกรายการ<br>รายการเหล่านี้จะไม่ถูกบันทึกลงเอกสาร`,
+      okLabel:'บันทึกงานต่อไป', okClass:'btn-primary'
+    });
+    if(!ok) return;
+  }
+  EX.drafts = []; EX.editing = new Set();
+  closeModal('modal-form');
+  await exListReload();
+  exHomeRender();
+  toast('บันทึกงาน '+((EX.doc&&EX.doc.doc_no)||'')+' แล้ว','success');
+}
+
+/* ---------- UI ทำงาน (ใน Modal) ---------- */
+function exWorkRender(){
+  const m = $('modal-form'); if(!m) return;
+  const d = EX.doc||{};
+  if(!EX.drafts.length && !EX.items.length) exAddDraft(true);
+
+  const spent   = EX.items.reduce((s,x)=>s+_exNum(x.total_amount),0);
+  const advance = _exNum(d.advance_amount);
+  const balance = advance - spent;
+  const mob     = _vpMobile();
+
+  const rowsHtml = `
+    ${EX.items.map((it,i)=>{
+       const dr = EX.drafts.find(x=>x.editId===it.id);
+       return dr ? exRowDraft(dr, i+1) : exRowSaved(it, i+1);
+     }).join('')}
+    ${EX.drafts.filter(x=>!x.editId).map((dr,i)=>exRowDraft(dr, EX.items.length+i+1)).join('')}`;
+
+  const deskTable = `
+    <div class="ex-tblwrap">
+      <table class="tbl ex-tbl">
+        <thead><tr>
+          <th class="ex-c-no">ลำดับ</th><th class="ex-c-job">Job N</th><th class="ex-c-co">บริษัท</th>
+          <th class="ex-c-cost">ค่าใช้จ่าย (ต้นทุน)</th><th class="ex-c-rcp">+ ยอดใบเสร็จ =</th>
+          <th class="ex-c-sum">ยอดรวม (บาท)</th><th class="ex-c-place">สถานที่</th><th class="ex-c-act">จัดการ</th>
+        </tr></thead>
+        <tbody>${rowsHtml || `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีรายการ</td></tr>`}</tbody>
+      </table>
+    </div>`;
+
+  // มือถือ: การ์ดแนวตั้งต่อรายการ
+  const mobCards = `
+    <div class="ex-mcards">
+      ${EX.items.map((it,i)=>{
+         const dr = EX.drafts.find(x=>x.editId===it.id);
+         return dr ? exCardDraft(dr, i+1) : exCardSaved(it, i+1);
+       }).join('')}
+      ${EX.drafts.filter(x=>!x.editId).map((dr,i)=>exCardDraft(dr, EX.items.length+i+1)).join('')}
+    </div>`;
+
+  m.querySelector('.modal').innerHTML = `
+    <div class="modal-head" data-ex-work="1">
+      <div><h2>💰 ปิดค่าใช้จ่าย</h2><p class="sub">กรอกรายการแล้วกด 💾 บันทึกทีละรายการ</p></div>
+      <button class="x" onclick="exCloseWork()">✕</button>
+    </div>
+    <div class="modal-body ex-workbody">
+      <div class="ex-meta">
+        <div class="ex-fld"><label>เลขที่เอกสาร</label>
+          <input type="text" value="${esc(d.doc_no||'—')}" readonly class="ex-ro"></div>
+        <div class="ex-fld"><label>วันที่ปิดค่าใช้จ่าย</label>
+          <input type="date" id="ex-date" value="${esc(d.expense_date||_exToday())}" onchange="exSaveHead()"></div>
+        <div class="ex-fld"><label>ผู้ปิดค่าใช้จ่าย</label>
+          <input type="text" value="${esc(d.closer_name||'')}" readonly class="ex-ro"></div>
+      </div>
+
+      ${mob ? mobCards : deskTable}
+
+      <div class="ex-bar">
+        <button class="btn ex-btn-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>
+        <div class="ex-bar-r">
+          <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายงาน</button>
+          <button class="btn ex-btn-xls" onclick="exExportExcel()">📊 Excel</button>
+          <button class="btn ex-btn-pdf" onclick="exExportPDF()">📄 PDF</button>
         </div>
       </div>
 
       <div class="ex-sum">
-        <div class="ex-card ex-card-adv">
-          <div class="ex-card-ic">💳</div>
+        <div class="ex-card ex-card-adv"><div class="ex-card-ic">💳</div>
           <div class="ex-card-bd"><label>เบิกเงิน (บาท)</label>
             <input type="text" inputmode="decimal" id="ex-adv" value="${_exMoney(advance)}"
-                   onchange="exSaveAdvance()" onfocus="this.select()"></div>
-        </div>
-        <div class="ex-card ex-card-spent">
-          <div class="ex-card-ic">➡️</div>
-          <div class="ex-card-bd"><label>ใช้ไป (บาท)</label><b>${_exMoney(spent)}</b></div>
-        </div>
-        <div class="ex-card ex-card-bal">
-          <div class="ex-card-ic">💵</div>
+                   onchange="exSaveAdvance()" onfocus="this.select()"></div></div>
+        <div class="ex-card ex-card-spent"><div class="ex-card-ic">➡️</div>
+          <div class="ex-card-bd"><label>ใช้ไป (บาท)</label><b>${_exMoney(spent)}</b></div></div>
+        <div class="ex-card ex-card-bal"><div class="ex-card-ic">💵</div>
           <div class="ex-card-bd"><label>เงินคงเหลือ (บาท)</label>
-            <b class="${balance<0?'ex-neg':''}">${_exMoney(balance)}</b></div>
-        </div>
+            <b class="${balance<0?'ex-neg':''}">${_exMoney(balance)}</b></div></div>
+      </div>
+
+      <div class="ex-workfoot">
+        <button class="btn ex-btn-save" onclick="exSaveWork()">💾 บันทึกงาน</button>
+        <button class="btn btn-secondary" onclick="exCloseWork()">❌ ปิด / ยกเลิก</button>
       </div>
     </div>`;
-  if(typeof refreshIcons==='function') refreshIcons(root);
+  if(typeof refreshIcons==='function') refreshIcons(m);
+}
+
+/* ---------- การ์ดมือถือ: รายการที่บันทึกแล้ว ---------- */
+function exCardSaved(it, no){
+  const busy = EX.busy.has(it.id);
+  return `<div class="ex-mc ex-mc-saved" data-ex-item="${esc(it.id)}">
+    <div class="ex-mc-head">
+      <b>รายการที่ ${no}</b>
+      <span class="ex-mc-badge ok">✅ บันทึกแล้ว</span>
+    </div>
+    <div class="ex-mc-line"><b>${esc(it.job_no||'')}</b> <span>${esc(it.company||'')}</span></div>
+    <div class="ex-mc-row">
+      <span>ต้นทุน <b>${_exMoney(it.cost_amount)}</b></span>
+      <span>ใบเสร็จ <b>${_exMoney(it.receipt_amount)}</b></span>
+    </div>
+    <div class="ex-mc-row"><span>ยอดรวม</span><b class="ex-mc-sum">${_exMoney(it.total_amount)}</b></div>
+    <div class="ex-mc-row"><span>สถานที่ ${esc(it.place_name||'—')}</span>
+      <span class="ex-mc-btns">
+        <button class="ex-ib ex-ib-edit" ${busy?'disabled':''} onclick="exEditItem('${esc(it.id)}')">✏️</button>
+        <button class="ex-ib ex-ib-del"  ${busy?'disabled':''} onclick="exDeleteItem('${esc(it.id)}')">🗑️</button>
+      </span></div>
+  </div>`;
+}
+
+/* ---------- การ์ดมือถือ: แถวที่กำลังกรอก/แก้ไข ---------- */
+function exCardDraft(dr, no){
+  const isOther = dr.place_code==='อื่นๆ';
+  const busy = EX.busy.has(dr.key);
+  const total = _exNum(dr.cost_amount)+_exNum(dr.receipt_amount);
+  return `<div class="ex-mc ex-mc-draft" data-ex-draft="${esc(dr.key)}">
+    <div class="ex-mc-head">
+      <b>รายการที่ ${no}</b>
+      <span class="ex-mc-badge ${dr.editId?'edit':'wait'}">${dr.editId?'✏️ กำลังแก้ไข':'⚠️ ยังไม่บันทึก'}</span>
+    </div>
+    <label class="ex-mf">Job N <span class="req">*</span>
+      <input type="text" value="${esc(dr.job_no||'')}" placeholder="J2025-001"
+        oninput="exDraftSet('${esc(dr.key)}','job_no',this.value)"></label>
+    <label class="ex-mf">บริษัท <span class="req">*</span>
+      <input type="text" value="${esc(dr.company||'')}" placeholder="ชื่อบริษัท"
+        oninput="exDraftSet('${esc(dr.key)}','company',this.value)"></label>
+    <div class="ex-mf2">
+      <label class="ex-mf">ค่าใช้จ่าย (ต้นทุน)
+        <input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.cost_amount||'')}"
+          placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','cost_amount',this.value)"></label>
+      <label class="ex-mf">+ ยอดใบเสร็จ =
+        <input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.receipt_amount||'')}"
+          placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','receipt_amount',this.value)"></label>
+    </div>
+    <div class="ex-mc-total"><label>ยอดรวม (บาท)</label>
+      <b data-ex-total="${esc(dr.key)}">${_exMoney(total)}</b></div>
+    <label class="ex-mf">สถานที่ <span class="req">*</span>
+      <select onchange="exDraftSet('${esc(dr.key)}','place_code',this.value)">
+        <option value="">— เลือกสถานที่ —</option>${EX_PLACES_OPT(dr.place_code)}
+      </select></label>
+    ${isOther?`<label class="ex-mf">ระบุสถานที่
+      <input type="text" value="${esc(dr.place_other||'')}" placeholder="กรอกชื่อสถานที่"
+        oninput="exDraftSet('${esc(dr.key)}','place_other',this.value)"></label>`:''}
+    <div class="ex-mc-acts">
+      <button class="btn ex-btn-saverow" ${busy?'disabled':''} onclick="exSaveDraft('${esc(dr.key)}')">
+        ${busy?'<span class="spinner"></span> กำลังบันทึก...':'💾 บันทึกรายการ'}</button>
+      ${dr.editId
+        ? `<button class="btn ex-btn-cancel" ${busy?'disabled':''} onclick="exCancelEdit('${esc(dr.key)}')">✖ ยกเลิก</button>`
+        : `<button class="btn ex-btn-rm" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️ ลบ</button>`}
+    </div>
+  </div>`;
 }
 
 /* ---------- แถวที่บันทึกแล้ว ---------- */
@@ -5986,6 +6302,22 @@ function exListRender(){
         <input type="date" value="${esc(EXL.from)}" onchange="EXL.from=this.value;exListReload()">
         <input type="date" value="${esc(EXL.to)}" onchange="EXL.to=this.value;exListReload()">
       </div>
+      ${_vpMobile() ? `<div class="ex-hcards">${rows.length? rows.map(r=>`
+        <div class="ex-hcard" onclick="exOpenDetail('${esc(r.id)}')">
+          <div class="ex-hc-top"><b>${esc(r.doc_no||'')}</b><span class="ex-st">${esc(r.status||'ปกติ')}</span></div>
+          <div class="ex-hc-sub">${r.expense_date?esc(fmtDate(r.expense_date)):'—'} · ${esc(r.closer_name||'—')}</div>
+          <div class="ex-hc-grid">
+            <div class="ex-hc-n"><label>รายการ</label><b>${r.items_count||0}</b></div>
+            <div class="ex-hc-n ex-hc-adv"><label>เบิกเงิน</label><b>${_exMoney(r.advance_amount)}</b></div>
+            <div class="ex-hc-n ex-hc-sp"><label>ใช้ไป</label><b>${_exMoney(r.spent_total)}</b></div>
+            <div class="ex-hc-n ex-hc-bl"><label>คงเหลือ</label><b class="${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</b></div>
+          </div>
+          <div class="ex-hc-acts" onclick="event.stopPropagation()">
+            <button class="btn ex-btn-view" onclick="exOpenDetail('${esc(r.id)}')">👁 ดู</button>
+            <button class="btn ex-btn-xls"  onclick="exExportExcel('${esc(r.id)}')">📊 Excel</button>
+            <button class="btn ex-btn-pdf"  onclick="exExportPDF('${esc(r.id)}')">📄 PDF</button>
+          </div>
+        </div>`).join('') : `<div class="ex-empty">ไม่พบเอกสาร</div>`}</div>` : `
       <div style="overflow-x:auto">
         <table class="tbl ex-ltbl">
           <thead><tr>
@@ -6010,7 +6342,7 @@ function exListRender(){
             : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">ไม่พบเอกสาร</td></tr>`}
           </tbody>
         </table>
-      </div>
+      </div>`}
     </div>`;
 }
 async function exListReload(){ await exListLoad(); exListRender(); }
