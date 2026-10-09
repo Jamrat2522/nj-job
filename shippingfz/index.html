@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-F">
+<meta name="sfz-build" content="1008-H">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1267,6 +1267,121 @@ body:has(.modal-back.show){overflow:hidden}
 .ex-home-tbl td.ex-c-co2{max-width:200px}
 .ex-home-tbl td.ex-c-act{width:104px;white-space:nowrap;text-align:center}
 </style>
+<style>
+/* ===== 💰 ปิดค่าใช้จ่าย — ธีมสว่าง (เฉพาะ Desktop · ไม่แตะ Mobile และเมนูอื่น) ===== */
+@media (min-width:861px){
+
+  /* --- พื้นหลังหน้าหลัก: ครอบทั้งพื้นที่ ไม่ให้เหลือสีดำ --- */
+  .main:has(.ex-wrap){background:#F5F8FF !important}
+  #view-root:has(.ex-wrap){background:#F5F8FF !important;min-height:100%}
+  .content.ex-wrap{
+    background:#F5F8FF !important;
+    min-height:100vh;
+  }
+  .content.ex-wrap .ex-title h2{color:#1E3A8A !important}
+  .content.ex-wrap .ex-title p{color:#5B6B86 !important}
+
+  /* แถบหัวหน้า: พื้นขาว ตัวอักษรกรมท่า */
+  .content.ex-wrap .ex-head{
+    background:#fff;border:1px solid #DCE4F2;border-radius:12px;
+    padding:14px 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)
+  }
+
+  /* กล่องตาราง: ขาว ขอบเทาอ่อน มุมโค้ง 12px */
+  .content.ex-wrap .panel.ex-panel{
+    background:#fff !important;border:1px solid #DCE4F2 !important;
+    border-radius:12px !important;overflow:hidden;
+    box-shadow:0 1px 3px rgba(16,24,40,.06)
+  }
+
+  /* --- ตารางหน้าหลัก --- */
+  .ex-home-tbl{border:0 !important;border-radius:12px !important;background:#fff}
+  .ex-home-tbl thead th{
+    background:linear-gradient(135deg,#368BD5 0%,#2455AD 100%) !important;
+    color:#fff !important;border-bottom:0 !important;
+    border-right:1px solid rgba(255,255,255,.28) !important;
+    padding:13px 10px;font-size:13.5px
+  }
+  .ex-home-tbl thead th:last-child{border-right:0 !important}
+  .ex-home-tbl tbody td{
+    background:#fff !important;color:#17233B !important;
+    border-right:1px solid #E6ECF7 !important;
+    border-bottom:1px solid #E6ECF7 !important;
+    padding:13px 10px;font-size:14px
+  }
+  .ex-home-tbl tbody td:last-child{border-right:0 !important}
+  .ex-home-tbl tbody tr:last-child td{border-bottom:0 !important}
+  /* สลับฟ้าอ่อนเมื่อมีหลายรายการ */
+  .ex-home-tbl tbody tr:nth-child(even) td{background:#F7FAFF !important}
+  .ex-home-tbl tbody tr:hover td{background:#EAF2FF !important}
+  .ex-home-tbl tbody td b{color:#13233F}
+  .ex-home-tbl tbody td.ex-neg,.ex-home-tbl tbody td.ex-neg b{color:#DC2626 !important}
+
+  /* --- หน้าต่างรายงาน / รายการ: พื้นขาว --- */
+  #modal-detail .modal:has(.ex-ltbl),
+  #modal-detail .modal:has(.ex-dmeta),
+  #modal-form .modal:has(.ex-workbody){
+    background:#fff !important;border-color:#DCE4F2 !important
+  }
+  #modal-detail .modal:has(.ex-ltbl) .modal-head,
+  #modal-detail .modal:has(.ex-dmeta) .modal-head,
+  #modal-form .modal:has(.ex-workbody) .modal-head{
+    background:#fff !important;border-bottom:1px solid #E6ECF7 !important
+  }
+  #modal-detail .modal:has(.ex-ltbl) .modal-head h2,
+  #modal-detail .modal:has(.ex-dmeta) .modal-head h2,
+  #modal-form .modal:has(.ex-workbody) .modal-head h2{color:#1E3A8A !important}
+  #modal-detail .modal:has(.ex-ltbl) .modal-head .sub,
+  #modal-detail .modal:has(.ex-dmeta) .modal-head .sub,
+  #modal-form .modal:has(.ex-workbody) .modal-head .sub{color:#5B6B86 !important}
+  #modal-detail .modal:has(.ex-ltbl) .modal-body,
+  #modal-detail .modal:has(.ex-dmeta) .modal-body,
+  #modal-form .modal:has(.ex-workbody) .modal-body{background:#fff !important}
+  #modal-detail .modal:has(.ex-ltbl) .x,
+  #modal-detail .modal:has(.ex-dmeta) .x,
+  #modal-form .modal:has(.ex-workbody) .x{background:#F1F5FC !important;color:#334155 !important}
+
+  /* ตารางในหน้าต่าง: หัวน้ำเงินแบบเดียวกัน */
+  #modal-detail .ex-ltbl,#modal-form .ex-ltbl{border:1px solid #DCE4F2 !important;border-radius:12px !important}
+  #modal-detail .ex-ltbl th,#modal-form .ex-ltbl th{
+    background:linear-gradient(135deg,#368BD5 0%,#2455AD 100%) !important;color:#fff !important;
+    border-right:1px solid rgba(255,255,255,.28) !important;border-bottom:0 !important
+  }
+  #modal-detail .ex-ltbl th:last-child,#modal-form .ex-ltbl th:last-child{border-right:0 !important}
+  #modal-detail .ex-ltbl td,#modal-form .ex-ltbl td{
+    background:#fff !important;color:#17233B !important;
+    border-right:1px solid #E6ECF7 !important;border-bottom:1px solid #E6ECF7 !important
+  }
+  #modal-detail .ex-ltbl tbody tr:nth-child(even) td{background:#F7FAFF !important}
+  #modal-detail .ex-ltbl tr.ex-trsum td{background:#EAF2FF !important;border-top:1.5px solid #C7D7F0 !important}
+  #modal-detail .ex-ltbl td:last-child,#modal-form .ex-ltbl td:last-child{border-right:0 !important}
+
+  /* กล่องสรุปในหน้าต่างรายงาน */
+  #modal-detail .ex-dmeta>div{background:#F7FAFF !important;border-color:#DCE4F2 !important}
+  #modal-detail .ex-dmeta label{color:#5B6B86 !important}
+  #modal-detail .ex-dmeta b{color:#13233F !important}
+  #modal-detail .ex-dmeta b.ex-neg{color:#DC2626 !important}
+
+  /* ช่องค้นหาในหน้าต่างรายการ */
+  #modal-detail .ex-lfilter input{background:#fff !important;color:#17233B !important;border-color:#DCE4F2 !important}
+
+  /* ตารางกรอกใน Modal เปิดงาน: หัวน้ำเงินไล่เฉดให้เข้าชุด */
+  #modal-form .ex-tbl thead th{
+    background:linear-gradient(135deg,#368BD5 0%,#2455AD 100%) !important;
+    border-bottom:0 !important
+  }
+  #modal-form .ex-workbody .ex-fld label{color:#5B6B86 !important}
+  #modal-form .ex-workbody .ex-fld input{background:#fff !important;color:#17233B !important}
+  #modal-form .ex-workbody .ex-fld input.ex-ro{background:#F7FAFF !important}
+  #modal-form .ex-workfoot{background:#fff !important;border-top-color:#E6ECF7 !important}
+  #modal-form .ex-workfoot .btn-secondary{background:#F1F5FC !important;color:#334155 !important;border-color:#DCE4F2 !important}
+  #modal-detail .ex-dacts .btn-secondary{background:#F1F5FC !important;color:#334155 !important;border-color:#DCE4F2 !important}
+
+  /* ตารางในหน้าต่างไม่ล้นจอ */
+  #modal-detail .modal:has(.ex-dmeta),#modal-detail .modal:has(.ex-ltbl){max-width:1120px;width:94vw}
+}
+
+</style>
 </head>
 <body>
 
@@ -1318,7 +1433,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-F</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-H</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5571,7 +5686,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-F' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-H' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5723,7 +5838,7 @@ function exHomeRender(){
           <th>เงินคงเหลือ (บาท)</th><th>จัดการ</th>
         </tr></thead>
         <tbody>${rows.length ? rows.map(r=>`
-          <tr class="ex-lrow" onclick="exOpenDetail('${esc(r.id)}')">
+          <tr class="ex-lrow" title="คลิกเพื่อเปิดแก้ไขเอกสารนี้" onclick="exEditDoc('${esc(r.id)}')">
             <td><b>${esc(r.doc_no||'')}</b></td>
             <td>${r.expense_date?esc(fmtDate(r.expense_date)):'—'}</td>
             <td>${esc(r.closer_name||'—')}</td>
@@ -5733,8 +5848,7 @@ function exHomeRender(){
             <td class="ex-money">${_exMoney(r.spent_total)}</td>
             <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}"><b>${_exMoney(r.balance)}</b></td>
             <td class="ex-c-act" onclick="event.stopPropagation()">
-              ${canEditExpense()?`<button class="ex-ib ex-ib-edit" title="แก้ไข" onclick="exEditDoc('${esc(r.id)}')">✏️</button>`:''}
-              ${canDeleteExpense()?`<button class="ex-ib ex-ib-del" title="ลบ" onclick="exDeleteDoc('${esc(r.id)}','${esc(r.doc_no||'')}')">🗑️</button>`:''}
+              ${canDeleteExpense()?`<button class="ex-ib ex-ib-del" title="ลบ" onclick="event.stopPropagation();exDeleteDoc('${esc(r.id)}','${esc(r.doc_no||'')}')">🗑️</button>`:''}
             </td>
           </tr>`).join('')
           : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">ยังไม่มีเอกสาร — กด "เปิดงาน" เพื่อเริ่ม</td></tr>`}
@@ -6257,7 +6371,10 @@ async function exEditDoc(id){
       .eq('doc_id', id).order('seq',{ascending:true});
     EX.doc = head; EX.items = its||[]; EX.drafts = []; EX.editing = new Set();
     closeModal('modal-detail');
-    S.view = 'expense'; renderSidebar(); exRender();
+    S.view = 'expense'; renderSidebar();
+    // เปิด "หน้าต่างเดียวกับ + เปิดงาน" บนเอกสารเดิม — ไม่เรียก sfz_expense_doc_open
+    // จึงไม่มีการสร้างเอกสารใหม่ และเลขที่เอกสารคงเดิม
+    exOpenWorkModal();
     toast('เปิดเอกสาร '+(head.doc_no||'')+' แล้ว','success');
   }catch(e){ console.error(e); toast('เปิดเอกสารไม่สำเร็จ: '+(e.message||''),'error'); }
 }
