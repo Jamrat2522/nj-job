@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-H">
+<meta name="sfz-build" content="1008-I">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1382,6 +1382,29 @@ body:has(.modal-back.show){overflow:hidden}
 }
 
 </style>
+<style>
+/* ===== หัวตารางรายงาน: พื้นเดียวกันทุกช่อง ไม่มี Gradient (ทั้งคอมและมือถือ) ===== */
+.ex-home-tbl thead th,
+.ex-ltbl thead th, .ex-ltbl th,
+.ex-tbl thead th{
+  background:#EAF2FC !important;
+  background-image:none !important;          /* ยกเลิก Gradient เดิม */
+  color:#24466B !important;
+  border-right:1px solid #DCE5F0 !important;
+  border-bottom:1px solid #DCE5F0 !important;
+  font-weight:700;
+}
+.ex-home-tbl thead th:last-child,
+.ex-ltbl thead th:last-child, .ex-ltbl th:last-child,
+.ex-tbl thead th:last-child{ border-right:1px solid #DCE5F0 !important }
+/* เส้นตารางให้เท่ากันทุกช่อง */
+.ex-home-tbl, .ex-ltbl, .ex-tbl{ border:1px solid #DCE5F0 !important }
+.ex-home-tbl tbody td, .ex-ltbl tbody td, .ex-tbl tbody td{
+  border-right:1px solid #DCE5F0 !important;
+  border-bottom:1px solid #DCE5F0 !important;
+}
+.ex-home-tbl tbody tr:last-child td, .ex-ltbl tbody tr:last-child td{ border-bottom:0 !important }
+</style>
 </head>
 <body>
 
@@ -1433,7 +1456,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-H</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-I</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5686,7 +5709,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-H' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-I' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5895,23 +5918,56 @@ function exHomeRender(){
 }
 
 /* ---------- เปิดงานใหม่ ---------- */
+/* ➕ เปิดงาน — เปิดหน้าต่างกรอกข้อมูลอย่างเดียว ไม่เขียนฐานข้อมูลใด ๆ
+   เอกสารจริงจะถูกสร้าง "ตอนกด 💾 บันทึกรายการ แถวแรก" เท่านั้น (_exEnsureDoc)
+   ดังนั้นกดเปิดแล้วยกเลิก/ปิด จะไม่มีรายการเปล่าค้างในรายงาน */
 async function exOpenNewWork(){
   try{
-    const { data, error } = await sb.rpc('sfz_expense_doc_open', {
-      p_closer_user: String((S.user&&S.user.id)||''),
-      p_closer_name: (typeof uname==='function'? uname() : ''),
-      p_date: _exToday()
-    });
-    if(error) throw error;
-    EX.doc = Array.isArray(data) ? data[0] : data;
-    // ใบเดิมของวันนี้อาจมีรายการอยู่แล้ว → โหลดมาด้วย
-    const { data: its } = await sb.from(EXP_ITEM_TABLE)
-      .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
-      .eq('doc_id', EX.doc.id).order('seq',{ascending:true});
-    EX.items = its||[]; EX.drafts = []; EX.editing = new Set();
-    await exRefreshSummary();
+    let preview = '';
+    try{
+      const { data: dn } = await sb.rpc('sfz_next_expense_doc_no', { p_date: _exToday() });
+      preview = (typeof dn === 'string') ? dn : (Array.isArray(dn) ? dn[0] : (dn||''));
+    }catch(_){ preview = ''; }          // ดูเลขล่วงหน้าไม่ได้ก็ไม่เป็นไร
+    EX.doc = {
+      id: null, pending: true,                       // ← ยังไม่มีแถวในฐานข้อมูล
+      doc_no: preview || '(ออกเลขเมื่อบันทึก)',
+      expense_date: _exToday(),
+      closer_user: String((S.user&&S.user.id)||''),
+      closer_name: (typeof uname==='function'? uname() : ''),
+      advance_amount: 0
+    };
+    EX.items = []; EX.drafts = []; EX.editing = new Set();
     exOpenWorkModal();
   }catch(e){ console.error(e); toast('เปิดงานใหม่ไม่สำเร็จ: '+(e.message||''),'error'); }
+}
+
+/* สร้างเอกสารจริงครั้งแรกที่จำเป็น (เรียกจากตอนบันทึกรายการเท่านั้น) */
+let _exCreating = null;
+async function _exEnsureDoc(){
+  if(EX.doc && EX.doc.id) return EX.doc;              // มีอยู่แล้ว
+  if(_exCreating) return _exCreating;                 // กันสร้างซ้ำเมื่อกดรัว
+  _exCreating = (async ()=>{
+    const { data, error } = await sb.rpc('sfz_expense_doc_open', {
+      p_closer_user: String((EX.doc&&EX.doc.closer_user) || (S.user&&S.user.id) || ''),
+      p_closer_name: (EX.doc&&EX.doc.closer_name) || (typeof uname==='function'? uname() : ''),
+      p_date: (EX.doc&&EX.doc.expense_date) || _exToday()
+    });
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    const keepAdv = _exNum(EX.doc && EX.doc.advance_amount);
+    const keepDate = EX.doc && EX.doc.expense_date;
+    EX.doc = Object.assign({}, row, { pending:false });
+    // ค่าที่ผู้ใช้กรอกไว้ก่อนเอกสารถูกสร้าง → เขียนตามทีหลัง
+    const patch = {};
+    if(keepAdv > 0) patch.advance_amount = keepAdv;
+    if(keepDate && keepDate !== row.expense_date) patch.expense_date = keepDate;
+    if(Object.keys(patch).length){
+      const { error: e2 } = await sb.from(EXP_DOC_TABLE).update(patch).eq('id', EX.doc.id);
+      if(!e2) Object.assign(EX.doc, patch);
+    }
+    return EX.doc;
+  })();
+  try{ return await _exCreating; } finally { _exCreating = null; }
 }
 
 function exOpenWorkModal(){
@@ -5942,7 +5998,11 @@ async function exCloseWork(){
 
 /* บันทึกงาน = ปิดงานใบนี้แล้วกลับหน้าหลัก (รายการถูกบันทึกทีละแถวอยู่แล้ว) */
 async function exSaveWork(){
-  // ตรวจข้อมูลที่จำเป็นก่อนบันทึก
+  // ยังไม่มีรายการที่บันทึกจริง → ไม่สร้างเอกสารเปล่าเด็ดขาด
+  if(!EX.items.length){
+    toast('ยังไม่มีรายการที่บันทึก — กรอกแล้วกด 💾 บันทึกรายการ ก่อน','error');
+    return;
+  }
   const docId = EX.doc && EX.doc.id;
   if(!docId){ toast('ไม่พบเอกสาร','error'); return; }
 
@@ -5958,11 +6018,6 @@ async function exSaveWork(){
     });
     if(!ok) return;
   }
-  if(!EX.items.length){
-    toast('ยังไม่มีรายการที่บันทึก — กรอกแล้วกด 💾 บันทึกรายการ ก่อน','error');
-    return;
-  }
-
   EX.drafts = []; EX.editing = new Set();
   closeModal('modal-form');
   await exListReload();          // ตารางหน้าแรกอัปเดตทันที ไม่ต้อง refresh
@@ -6214,7 +6269,7 @@ function _exInvalid(key, idx, msg){
 async function exSaveDraft(key){
   if(EX.busy.has(key)) return;                    // กันกดซ้ำ
   const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
-  if(!EX.doc || !EX.doc.id){ toast('ยังไม่มีเอกสาร','error'); return; }
+  if(!EX.doc){ toast('ยังไม่มีเอกสาร','error'); return; }
 
   // ---- ตรวจข้อมูลก่อนบันทึก · ไฮไลต์ช่องที่ผิด ----
   _exClearInvalid(key);
@@ -6234,6 +6289,7 @@ async function exSaveDraft(key){
 
   EX.busy.add(key); exRender();
   try{
+    await _exEnsureDoc();                 // สร้างเอกสารจริง ณ จุดนี้เท่านั้น
     const { data, error } = await sb.rpc('sfz_expense_item_save', {
       p_doc_id: EX.doc.id,
       p_job_no: String(dr.job_no).trim(),
@@ -6325,6 +6381,9 @@ async function exSaveAdvance(){
   const el = $('ex-adv'); if(!el || !EX.doc) return;
   const v = _exNum(el.value);
   if(v<0){ toast('เบิกเงินติดลบไม่ได้','error'); el.value=_exMoney(EX.doc.advance_amount); return; }
+  if(!EX.doc.id){                        // ยังไม่ได้สร้างเอกสาร → เก็บไว้ก่อน เขียนตอนบันทึกรายการแรก
+    EX.doc.advance_amount = v; exRender(); return;
+  }
   try{
     const { error } = await sb.from(EXP_DOC_TABLE).update({ advance_amount: v }).eq('id', EX.doc.id);
     if(error) throw error;
@@ -6334,6 +6393,7 @@ async function exSaveAdvance(){
 }
 async function exSaveHead(){
   const el = $('ex-date'); if(!el || !EX.doc) return;
+  if(!EX.doc.id){ EX.doc.expense_date = el.value || _exToday(); return; }
   try{
     const { error } = await sb.from(EXP_DOC_TABLE).update({ expense_date: el.value||null }).eq('id', EX.doc.id);
     if(error) throw error;
