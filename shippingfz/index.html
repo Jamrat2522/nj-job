@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-C">
+<meta name="sfz-build" content="1008-D">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1252,6 +1252,13 @@ body:has(.modal-back.show){overflow:hidden}
 }
 
 </style>
+<style>
+/* คอลัมน์บริษัทในตารางหน้าแรก */
+.ex-home-tbl td.ex-c-co2{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex-dacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ex-dacts .btn{height:42px;padding:0 16px;border-radius:9px;font-weight:700;border:0;cursor:pointer;color:#fff}
+.ex-dacts .btn-secondary{border:1px solid var(--line)}
+</style>
 </head>
 <body>
 
@@ -1303,7 +1310,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-C</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-D</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5556,7 +5563,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-C' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-D' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5683,6 +5690,16 @@ function _exWorkOpen(){
 }
 
 /* ---------- หน้าหลัก: รายการเอกสารที่บันทึกแล้ว ---------- */
+/* ชื่อบริษัทของแต่ละเอกสาร — ดึงจากรายการย่อยครั้งเดียวตอนโหลดรายการ */
+function _exCoLabel(docId){
+  const list = (EXL.co && EXL.co[docId]) || [];
+  if(!list.length) return '—';
+  return list.length===1 ? list[0] : `${list[0]} +${list.length-1}`;
+}
+function _exCoFull(docId){
+  const list = (EXL.co && EXL.co[docId]) || [];
+  return list.join(' · ');
+}
 function exHomeRender(){
   const root = $('view-root'); if(!root) return;
   if(S.view!=='expense') return;
@@ -5693,18 +5710,17 @@ function exHomeRender(){
     <div class="ex-tblwrap">
       <table class="tbl ex-ltbl ex-home-tbl">
         <thead><tr>
-          <th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ปิดค่าใช้จ่าย</th><th>จำนวนรายการ</th>
-          <th>เบิกเงิน</th><th>ใช้ไป</th><th>คงเหลือ</th><th>จัดการ</th>
+          <th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ปิดค่าใช้จ่าย</th><th>บริษัท</th>
+          <th>จำนวนรายการ</th><th>ยอดรวม</th><th>จัดการ</th>
         </tr></thead>
         <tbody>${rows.length ? rows.map(r=>`
           <tr class="ex-lrow" onclick="exOpenDetail('${esc(r.id)}')">
             <td><b>${esc(r.doc_no||'')}</b></td>
             <td>${r.expense_date?esc(fmtDate(r.expense_date)):'—'}</td>
             <td>${esc(r.closer_name||'—')}</td>
+            <td class="ex-c-co2" title="${esc(_exCoFull(r.id))}">${esc(_exCoLabel(r.id))}</td>
             <td style="text-align:center">${r.items_count||0}</td>
-            <td class="ex-money">${_exMoney(r.advance_amount)}</td>
-            <td class="ex-money">${_exMoney(r.spent_total)}</td>
-            <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}">${_exMoney(r.balance)}</td>
+            <td class="ex-money"><b>${_exMoney(r.spent_total)}</b></td>
             <td class="ex-c-act" onclick="event.stopPropagation()">
               <button class="ex-ib ex-ib-view" title="ดูรายละเอียด" onclick="exOpenDetail('${esc(r.id)}')">👁</button>
               ${canEditExpense()?`<button class="ex-ib ex-ib-edit" title="แก้ไข" onclick="exEditDoc('${esc(r.id)}')">✏️</button>`:''}
@@ -5746,7 +5762,7 @@ function exHomeRender(){
           <div><h2>ปิดค่าใช้จ่าย</h2><p>จัดการปิดค่าใช้จ่าย และส่งออกเอกสารสรุป</p></div>
         </div>
         <div class="ex-head-acts">
-          <button class="btn ex-btn-new"  onclick="exOpenNewWork()">➕ เปิดงานใหม่</button>
+          <button class="btn ex-btn-new"  onclick="exOpenNewWork()">➕ เปิดงาน</button>
           <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายงานปิดค่าใช้จ่าย</button>
         </div>
       </div>
@@ -5803,21 +5819,33 @@ async function exCloseWork(){
 
 /* บันทึกงาน = ปิดงานใบนี้แล้วกลับหน้าหลัก (รายการถูกบันทึกทีละแถวอยู่แล้ว) */
 async function exSaveWork(){
-  const unsaved = EX.drafts.filter(d=>!d.editId &&
-    (String(d.job_no||'').trim() || String(d.company||'').trim()));
+  // ตรวจข้อมูลที่จำเป็นก่อนบันทึก
+  const docId = EX.doc && EX.doc.id;
+  if(!docId){ toast('ไม่พบเอกสาร','error'); return; }
+
+  // ร่างที่กรอกค้างไว้ (ยังไม่กด 💾 บันทึกรายการ)
+  const unsaved = EX.drafts.filter(d=>
+    String(d.job_no||'').trim() || String(d.company||'').trim() ||
+    String(d.cost_amount||'').trim() || String(d.receipt_amount||'').trim());
   if(unsaved.length){
     const ok = await confirmDialog({
       title:'ยังมีรายการที่ยังไม่บันทึก',
-      message:`มี <b>${unsaved.length}</b> รายการที่ยังไม่ได้กด 💾 บันทึกรายการ<br>รายการเหล่านี้จะไม่ถูกบันทึกลงเอกสาร`,
+      message:`มี <b>${unsaved.length}</b> รายการที่ยังไม่ได้กด 💾 บันทึกรายการ<br>ถ้าบันทึกงานตอนนี้ รายการเหล่านั้นจะไม่ถูกเก็บ`,
       okLabel:'บันทึกงานต่อไป', okClass:'btn-primary'
     });
     if(!ok) return;
   }
+  if(!EX.items.length){
+    toast('ยังไม่มีรายการที่บันทึก — กรอกแล้วกด 💾 บันทึกรายการ ก่อน','error');
+    return;
+  }
+
   EX.drafts = []; EX.editing = new Set();
   closeModal('modal-form');
-  await exListReload();
+  await exListReload();          // ตารางหน้าแรกอัปเดตทันที ไม่ต้อง refresh
   exHomeRender();
   toast('บันทึกงาน '+((EX.doc&&EX.doc.doc_no)||'')+' แล้ว','success');
+  await exOpenDetail(docId);     // เปิดรายงานของงานที่เพิ่งบันทึก (อ่านอย่างเดียว)
 }
 
 /* ---------- UI ทำงาน (ใน Modal) ---------- */
@@ -5899,8 +5927,8 @@ function exWorkRender(){
       </div>
 
       <div class="ex-workfoot">
-        <button class="btn ex-btn-save" onclick="exSaveWork()">💾 บันทึกงาน</button>
-        <button class="btn btn-secondary" onclick="exCloseWork()">❌ ปิด / ยกเลิก</button>
+        <button class="btn btn-secondary" onclick="exCloseWork()">✖ ยกเลิก</button>
+        <button class="btn ex-btn-save" onclick="exSaveWork()">💾 บันทึก</button>
       </div>
     </div>`;
   if(typeof refreshIcons==='function') refreshIcons(m);
@@ -6199,7 +6227,7 @@ async function exRefreshSummary(){
 /* ============================================================
    📋 หน้าต่างรายการปิดค่าใช้จ่าย
    ============================================================ */
-const EXL = { rows:[], q:'', from:'', to:'', hitDocs:null };
+const EXL = { rows:[], q:'', from:'', to:'', hitDocs:null, co:{} };
 let _exlTimer = null;
 function exListSearchSoon(){            // หน่วงเล็กน้อย กันยิง query ทุกตัวอักษร
   clearTimeout(_exlTimer);
@@ -6265,16 +6293,34 @@ async function exListLoad(){
     EXL.rows = data||[];
 
     // ค้นหาถึง "รายการย่อย" ด้วย — Job N / บริษัท / สถานที่ ที่บันทึกจริง
+    // ชื่อบริษัทต่อเอกสาร (คอลัมน์ "บริษัท" หน้าแรก) — 1 query ต่อการโหลด
+    // แยก try ของตัวเอง: ถ้าดึงไม่ได้ ต้องไม่ทำให้รายการเอกสารหายทั้งตาราง
+    EXL.co = {};
+    try{
+      const ids = EXL.rows.map(r=>r.id).filter(Boolean);
+      if(ids.length){
+        const { data: cos } = await sb.from(EXP_ITEM_TABLE)
+          .select('doc_id,company').in('doc_id', ids);
+        (cos||[]).forEach(x=>{
+          const c = String(x.company||'').trim(); if(!c) return;
+          (EXL.co[x.doc_id] = EXL.co[x.doc_id] || []);
+          if(!EXL.co[x.doc_id].includes(c)) EXL.co[x.doc_id].push(c);
+        });
+      }
+    }catch(e){ console.warn('[expense] โหลดชื่อบริษัทไม่ได้:', e); }
+
     EXL.hitDocs = null;
     const term = String(EXL.q||'').trim();
     if(term){
-      const like = `%${term}%`;
-      const { data: its } = await sb.from(EXP_ITEM_TABLE)
-        .select('doc_id')
-        .eq('app_code', WORK_APP_CODE)
-        .or(`job_no.ilike.${like},company.ilike.${like},place_code.ilike.${like},place_other.ilike.${like},note.ilike.${like}`)
-        .limit(2000);
-      EXL.hitDocs = new Set((its||[]).map(x=>x.doc_id));
+      try{
+        const like = `%${term}%`;
+        const { data: its } = await sb.from(EXP_ITEM_TABLE)
+          .select('doc_id')
+          .eq('app_code', WORK_APP_CODE)
+          .or(`job_no.ilike.${like},company.ilike.${like},place_code.ilike.${like},place_other.ilike.${like},note.ilike.${like}`)
+          .limit(2000);
+        EXL.hitDocs = new Set((its||[]).map(x=>x.doc_id));
+      }catch(e){ console.warn('[expense] ค้นหารายการย่อยไม่ได้:', e); }
     }
   }catch(e){ console.error(e); toast('โหลดรายการไม่สำเร็จ: '+(e.message||''),'error'); EXL.rows=[]; }
 }
@@ -6348,7 +6394,13 @@ function exListRender(){
 async function exListReload(){ await exListLoad(); exListRender(); }
 
 /* ---------- รายละเอียดเอกสาร ---------- */
+/* ปิดหน้าต่างรายงาน — ล้างข้อมูลที่ค้างไว้ กันข้อมูลเก่าโผล่ตอนเปิดงานอื่น */
+function exCloseDetail(){
+  closeModal('modal-detail');
+  if(S.view==='expense') exHomeRender();
+}
 async function exOpenDetail(id){
+  openModal('modal-detail');
   const mdl = $('modal-detail');
   mdl.querySelector('.modal').innerHTML = `
     <div class="modal-head"><div><h2>รายละเอียดเอกสาร</h2></div>
@@ -6401,12 +6453,11 @@ function exDetailRender(h, items){
         </table>
       </div>
       <div class="ex-dacts">
+        <button class="btn btn-secondary" onclick="exCloseDetail()">✖ ปิด</button>
+        ${canEditExpense() ? `<button class="btn ex-btn-edit" onclick="exEditDoc('${esc(h.id)}')">✏️ แก้ไข</button>` : ''}
         <button class="btn ex-btn-xls" onclick="exExportExcel('${esc(h.id)}')">📊 Export Excel</button>
         <button class="btn ex-btn-pdf" onclick="exExportPDF('${esc(h.id)}')">📄 Export PDF</button>
-        ${canEditExpense() ? `<button class="btn ex-btn-edit" onclick="exEditDoc('${esc(h.id)}')">✏️ แก้ไขเอกสารนี้</button>` : ''}
-        ${canDeleteExpense() ? `<button class="btn ex-btn-rm" onclick="exDeleteDoc('${esc(h.id)}','${esc(h.doc_no||'')}',true)">🗑️ ลบเอกสาร</button>` : ''}
-        <button class="btn btn-secondary" onclick="exOpenList()">← กลับ</button>
-        <button class="btn btn-secondary" onclick="closeModal('modal-detail')">❌ ปิดหน้าต่าง</button>
+        ${canDeleteExpense() ? `<button class="btn ex-btn-rm" onclick="exDeleteDoc('${esc(h.id)}','${esc(h.doc_no||'')}',true)">🗑️ ลบ</button>` : ''}
       </div>
     </div>`;
 }
