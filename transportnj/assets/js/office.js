@@ -1103,7 +1103,27 @@
     return { dist, lt, ppl: ppl > 0 ? ppl : 0, tc, kpl, cpk, expected, excess, penalty, state, err };
   }
   // สถานะ: [ไอคอน, ข้อความหน้าจอ, สี badge, ข้อความ Excel (ตามต้นแบบ: ปกติ / ต้องหักเงิน)]
-  const FL_ST = { ok: ['✅', 'ผ่านเกณฑ์', 'green', 'ปกติ'], low: ['⚠️', 'ต่ำกว่าเกณฑ์', 'red', 'ต้องหักเงิน'], bad: ['❗', 'ข้อมูลไม่ครบ', 'amber', 'ข้อมูลไม่ครบ'], wait: ['—', 'รอข้อมูล', 'gray', 'รอข้อมูล'] };
+  const FL_ST = { ok: ['✅', 'ผ่านเกณฑ์', 'green', 'ปกติ'], low: ['⚠️', 'ต่ำกว่าเกณฑ์', 'red', 'ต้องหักเงิน'], bad: ['❗', 'ข้อมูลไม่ครบ', 'amber', 'ข้อมูลไม่ครบ'], wait: ['—', 'รอข้อมูล', 'gray', 'รอข้อมูล'], none: ['🔵', 'ไม่เติม', 'blue', 'ไม่เติม'] };
+  // สถานะการเติม (RUN-25 · เลือกเองในคอลัมน์ "สถานะ" · บันทึกถาวรใน transport_fuel_status) — ไม่แก้ค่าไมล์ / ลิตร / ค่าน้ำมันที่บันทึกไว้
+  //   FILLED เติมแล้ว = คำนวณตามสูตรเดิม (flMetrics) · NONE ไม่เติม / WAIT รอข้อมูล = ไม่คำนวณ กม./ลิตร · บาท/กม. · เงินหัก · ไม่นับต่ำกว่าเกณฑ์
+  //   แถวที่ยังไม่เคยเลือก: มีลิตรหรือค่าน้ำมันแล้ว = เติมแล้ว (ไม่เปลี่ยนข้อมูลเติมเดิมเป็นรอข้อมูล) · ไม่มี = รอข้อมูล
+  const FL_FS = { FILLED: ['🟢', 'เติมแล้ว'], NONE: ['🔵', 'ไม่เติม'], WAIT: ['🟡', 'รอข้อมูล'] };
+  const flFsDefault = (c) => (c.lt > 0 || c.tc > 0 ? 'FILLED' : 'WAIT');
+  const flGate = (c, fs) => (fs === 'FILLED' ? c : Object.assign({}, c, { kpl: null, cpk: null, expected: 0, excess: 0, penalty: 0, state: fs === 'NONE' ? 'none' : 'wait', rate: false })); // rate:false = ไม่ใช้ค่าในอัตราเฉลี่ย (บาท/ลิตร · กม./ลิตร · บาท/กม.)
+  const flFillState = (c) => (c.state === 'wait' ? 'bad' : c.state); // เลือก "เติมแล้ว" แต่ยังไม่มีตัวเลข = ข้อมูลไม่ครบ
+  // วันที่ตามเวลาไทย (Asia/Bangkok = UTC+7 ไม่มี DST)
+  const flBkkDate = (ts) => { const t = Date.parse(ts || ''); return isFinite(t) ? new Date(t + 7 * 3600e3).toISOString().slice(0, 10) : ''; };
+  // JOB ที่ปิดงานแล้ว → 1 คนขับ / 1 วัน / 1 JOB: กลุ่ม = driver_id (คนขับที่ผูกกับ JOB) + วันที่ปิดงาน (completed_at เวลาไทย)
+  //   เลือก JOB ที่ปิดล่าสุด (completed_at) · เวลาเท่ากัน = JOB ID มากกว่า (คงที่ทุกครั้ง) · ไม่มี driver_id = ใช้ชื่อคนขับ · ไม่มีทั้งคู่ = ไม่จัดกลุ่ม
+  //   JOB ที่ยังไม่ปิด / เปิดงานกลับ (ไม่ใช่ COMPLETED หรือไม่มี completed_at) = ไม่นำมาคัด → JOB ก่อนหน้าที่ยังปิดอยู่กลับมาแสดงตามสถานะจริง
+  function flLastJobPerDriverDay(rows) {
+    const newer = (a, b) => { const ta = Date.parse(a.completed_at), tb = Date.parse(b.completed_at); return ta !== tb ? ta > tb : String(a.job_id) > String(b.job_id); };
+    const g = new Map(), seen = new Set();
+    (rows || []).forEach((r) => { if (!r || r.status !== 'COMPLETED' || !r.completed_at || !isFinite(Date.parse(r.completed_at)) || seen.has(r.job_id)) return; seen.add(r.job_id);
+      const nm = String(r.driver_name || '').trim(); const k = (r.driver_id ? 'D:' + r.driver_id : nm ? 'N:' + nm : 'J:' + r.job_id) + '|' + flBkkDate(r.completed_at);
+      const x = g.get(k); if (!x) g.set(k, { r, prev: [] }); else if (newer(r, x.r)) { x.prev.push(x.r); x.r = r; } else x.prev.push(r); });
+    return [...g.values()];
+  }
   function flUpdateKplBox(root, px, c) {
     const box = $('#' + px + '_kpl_box', root), status = $('#' + px + '_kpl_status', root), valEl = $('#' + px + '_kpl_val', root); if (!box || !status || !valEl) return;
     if (c && c.err) { valEl.textContent = '—'; valEl.style.color = 'var(--red)'; status.textContent = `❗ ${c.err}`; status.style.color = 'var(--red)'; box.style.background = 'rgba(224,82,82,.10)'; box.style.borderColor = 'rgba(224,82,82,.45)'; return; }
@@ -1152,7 +1172,7 @@
     // สิทธิ์ (ตรงกับ RPC เดิม): เพิ่ม/แก้ = SUPER_ADMIN/ADMIN/TRANSPORT (tnj_require_office) · ลบ = SUPER_ADMIN/ADMIN (tnj_require_admin) · VIEWER ดูอย่างเดียว
     // แถวจาก JOB แก้ผ่าน Flow ของ JOB เท่านั้น (เปิดแท็บ ⛽ ไมล์รถ / น้ำมัน ของ JOB) — หน้ารายงานไม่ลบ JOB
     const canAdd = T.canEdit(), canDel = T.isAdmin(); const PAGE_SIZE = 20;
-    const F = { plates: [], from: '', to: '', below: 'all', q: '' }; let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [], loaded = false;
+    const F = { plates: [], from: '', to: '', below: 'all', fs: 'act', q: '' }; let ALL = [], RECS = [], pageNo = 1, maxId = null, routes = [], loaded = false, FS = {};
     let chartInst = null, chartDir = 'x', chartMonthly = false, chartOpen = false;
     const STATS = [['fl_s_cpk', 'ต้นทุนเฉลี่ย', 'บาท / กม.', ''], ['fl_s_ppl', 'ราคาน้ำมันเฉลี่ย', 'บาท / ลิตร', ''], ['fl_s_kpl', 'เฉลี่ย กม./ลิตร', 'เกณฑ์ขั้นต่ำ 3.00', 'fl_sc_kpl_avg'], ['fl_s_below', 'ต่ำกว่าเกณฑ์', 'รายการ < 3.00', 'fl_sc_below'],
       ['fl_s_riskplate', 'ทะเบียนเสี่ยง', 'คันที่เฉลี่ย < 3.00', 'fl_sc_riskplate'], ['fl_s_dist', 'ระยะทางรวม', 'กิโลเมตร', ''], ['fl_s_lt', 'ลิตรรวม', 'ลิตร', ''], ['fl_s_tc', 'ค่าใช้จ่ายรวม', 'บาท', '']];
@@ -1162,6 +1182,7 @@
           <div class="fl-plate"><button type="button" class="inp fl-plate-btn" id="flPlateBtn"><span id="flPlateLabel">📊 รวมทุกทะเบียน</span><span class="muted xs">▼</span></button><div class="fl-plate-dd hidden" id="flPlateDd"></div></div>
           <span class="flex fl-dates"><input type="date" class="inp" id="flFrom" title="วันที่เริ่มต้น"><span class="muted small">ถึง</span><input type="date" class="inp" id="flTo" title="วันที่สิ้นสุด"><button type="button" class="btn btn-sm" id="flDateClr" title="ล้างวันที่">✕</button></span>
           <select class="inp" id="flBelow" title="กรองตามเกณฑ์ กม./ลิตร"><option value="all">ทั้งหมด</option><option value="below">⚠️ เฉพาะต่ำกว่าเกณฑ์</option></select>
+          <select class="inp" id="flFsF" title="กรองตามสถานะน้ำมัน"><option value="act">🟢🟡 เติมแล้ว + รอข้อมูล</option><option value="NONE">🔵 ไม่เติม</option><option value="all">ทั้งหมด</option></select>
           <input class="inp fl-q" id="flQ" placeholder="🔎 ค้นหา ทะเบียน / คนขับ / JOB / B/L / สถานที่" autocomplete="off"></div>
         <div class="flex flex-wrap mt1" id="flActs"><button class="btn" id="flCalc">⛽ คำนวณน้ำมัน</button>${canAdd ? '<button class="btn btn-p" id="flAdd">➕ บันทึกบิลขนส่ง</button>' : ''}<button class="btn" id="flReload">🔄 โหลดใหม่</button><button class="btn" id="flClear">↺ ล้างตัวกรอง</button><button class="btn btn-g" id="flXls">📊 Excel</button><button class="btn btn-navy" id="flChartT">📊 แสดงกราฟ</button></div>
         <div class="hidden mt1" id="flChartBox"><div class="flex flex-wrap between mb1"><div class="flex flex-wrap"><select class="inp" id="flMetric" style="width:auto">${Object.entries(FL_MNAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
@@ -1171,34 +1192,43 @@
       <div class="alert warn hidden" id="flDup"></div>
       <div class="card"><div class="card-h"><h3 id="flTitle">ตารางข้อมูล <span class="muted small" id="flCount"></span></h3><span class="xs muted">ที่มา: <span class="badge gray">บิล</span> บิลขนส่ง (fuel_logs) · <span class="badge blue">JOB</span> ไมล์/น้ำมันจาก JOB</span></div><div id="flList"></div><div class="pager" id="flPager"></div></div>`;
     // ---- ชุดข้อมูลเดียว: แปลงทั้งสองแหล่งเป็นแถวรูปแบบเดียวกัน + คำนวณด้วย flMetrics ครั้งเดียว ----
-    const withCalc = (r) => { const c = flMetrics(r.mileage_before, r.mileage_after, r.total_cost, r.price_per_liter, r.liters); return Object.assign(r, { calc: c, distance_km: c.dist, liters: c.lt, price_per_liter: c.ppl, total_cost: c.tc, km_per_liter: c.kpl, cost_per_km: c.cpk }); };
+    const setFs = (r, fs) => { r.fs = fs; r.calc = flGate(r.base, fs); r.km_per_liter = r.calc.kpl; r.cost_per_km = r.calc.cpk; return r; };
+    const withCalc = (r) => { const c = flMetrics(r.mileage_before, r.mileage_after, r.total_cost, r.price_per_liter, r.liters); Object.assign(r, { base: c, distance_km: c.dist, liters: c.lt, price_per_liter: c.ppl, total_cost: c.tc }); return setFs(r, FL_FS[FS[r.key]] ? FS[r.key] : flFsDefault(c)); };
     const num = (v) => (v == null || v === '' ? null : Number(v));
     const fromFL = (r) => withCalc({ key: 'FL:' + r.id, src: 'FL', id: Number(r.id), raw: r, fuel_date: String(r.fuel_date || '').slice(0, 10), plate_no: r.plate_no || '', trailer_plate: '', driver_name: r.driver_name || '', company_name: r.company_name || '', container_no: r.container_no || '',
       route_location: r.route_location || '', job_bl: r.job_bl || '', note: r.note || '', mileage_before: num(r.mileage_before), mileage_after: num(r.mileage_after), total_cost: num(r.total_cost), price_per_liter: num(r.price_per_liter), liters: num(r.liters),
       selling_price: Number(r.selling_price || 0), net_profit: Number(r.net_profit || 0), trip_fee: Number(r.trip_fee || 0), advance_payment: Number(r.advance_payment || 0) });
-    const fromJob = (r, tp) => { const l = num(r.fuel_liters), a = num(r.fuel_amount);
-      return withCalc({ key: 'JOB:' + r.job_id, src: 'JOB', job_id: r.job_id, job_no: r.job_no || '', bl_no: r.bl_no || '', fuel_date: String(r.job_date || '').slice(0, 10), plate_no: r.license_plate || '', trailer_plate: (tp && tp[r.job_id]) || '', driver_name: r.driver_name || '', company_name: r.customer_name || '', container_no: r.container_no || '',
+    const fromJob = (r) => { const l = num(r.fuel_liters), a = num(r.fuel_amount);
+      return withCalc({ key: 'JOB:' + r.job_id, src: 'JOB', job_id: r.job_id, job_no: r.job_no || '', bl_no: r.bl_no || '', fuel_date: flBkkDate(r.completed_at), job_date: String(r.job_date || '').slice(0, 10), completed_at: r.completed_at, driver_id: r.driver_id || null, plate_no: r.license_plate || '', trailer_plate: r.trailer_plate || '', driver_name: r.driver_name || '', company_name: r.customer_name || '', container_no: r.container_no || '',
         route_location: r.factory_location_text || '', job_bl: [r.job_no, r.bl_no].filter(Boolean).join(' / '), note: r.mileage_status || '', mileage_before: num(r.start_mileage), mileage_after: num(r.end_mileage), total_cost: a, liters: l, price_per_liter: l > 0 && a > 0 ? a / l : null,
         selling_price: 0, net_profit: 0, trip_fee: 0, advance_payment: 0 }); };
     // ---- โหลด (ทั้งสองแหล่งพร้อมกัน) — โหลดไม่สำเร็จ = คงข้อมูลเดิมบนหน้าจอ (ไม่ทับเป็นว่าง) ----
     const fetchAll = async () => {
       const fl = T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true });
-      const jb = (async () => { let rows = [], pg = 1, total = 0; do { const d = await T.auth('tnj_mileage_table', { p: { page: pg, page_size: 500 } }, { silent: true }); rows = rows.concat(d.rows || []); total = d.total; pg++; } while (rows.length < total && pg <= 20); return rows; })();
-      // ทะเบียนหาง: จาก JOB (tnj_job_list เดิม — v_transport_job_report ไม่มีคอลัมน์นี้) · โหลดไม่ได้ = แสดง — (ไม่กระทบตัวเลข)
-      const tq = (async () => { const tp = {}; try { let pg = 1, n = 0, t = 0; do { const x = await T.auth('tnj_job_list', { p: { page: pg, page_size: 500 } }, { silent: true }); (x.rows || []).forEach((j) => { tp[j.id] = j.trailer_plate; }); n += (x.rows || []).length; t = x.total; pg++; } while (n < t && pg <= 20); } catch (_) { /* ไม่บังคับ */ } return tp; })();
-      const [d, jr, tp] = await Promise.all([fl, jb, tq]); return { d, jr, tp };
+      // JOB: เฉพาะที่ปิดงานสำเร็จแล้ว (RPC เดิม tnj_report_rows · closed_only = status COMPLETED — JOB หลายตู้ปิดครบทุกตู้แล้วเท่านั้น) · มี completed_at / driver_id / ทะเบียนหาง / ไมล์ / น้ำมันจากใบเสร็จ
+      const jb = T.auth('tnj_report_rows', { p: { closed_only: true, page: 0 } }, { silent: true }).then((x) => x.rows || []);
+      // สถานะการเติมที่เลือกไว้ (RUN-25) · โหลดไม่ได้ / ยังไม่ติดตั้ง = ใช้ค่าเดิมบนหน้าจอ (ไม่กระทบตัวเลข)
+      const fq = (async () => { try { const m = await T.auth('tnj_fuel_status_list', {}, { silent: true }); return m && typeof m === 'object' ? m : {}; } catch (_) { return null; } })();
+      const [d, jr, fs] = await Promise.all([fl, jb, fq]); return { d, jr, fs };
     };
-    const renderAll = async () => {
-      let res; try { res = await fetchAll(); } catch (e) { T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text + ' — ข้อมูลบนหน้าจอยังเป็นของเดิม', 'err'); return false; }
-      if (!$('#flList')) return false;
+    // กันข้อมูลเก่าทับข้อมูลใหม่: ผลโหลดที่ไม่ใช่รอบล่าสุดถูกทิ้ง · มีการบันทึกระหว่างโหลด = โหลดใหม่อีกรอบ
+    let loadSeq = 0, mutSeq = 0;
+    const renderAll = async (keep, quiet) => {
+      const my = ++loadSeq, mut0 = mutSeq;
+      let res; try { res = await fetchAll(); } catch (e) { if (my === loadSeq && !quiet) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text + ' — ข้อมูลบนหน้าจอยังเป็นของเดิม', 'err'); return false; }
+      if (!$('#flList') || my !== loadSeq) return false;
+      if (mut0 !== mutSeq) return renderAll(keep, quiet);
+      if (res.fs) FS = res.fs;
       const map = new Map(); // key ไม่ซ้ำ: FL:id / JOB:job_id → ไม่มีแถวซ้ำ ไม่นับซ้ำ
-      (res.d.rows || []).forEach((r) => { const x = fromFL(r); map.set(x.key, x); }); res.jr.forEach((r) => { const x = fromJob(r, res.tp); map.set(x.key, x); });
+      (res.d.rows || []).forEach((r) => { const x = fromFL(r); map.set(x.key, x); });
+      // 1 คนขับ / 1 วัน / 1 JOB — คัดก่อนตัวกรองทุกตัว (รวมสถานะน้ำมัน) · JOB ก่อนหน้าไม่ถูกลบ แค่ไม่แสดง
+      flLastJobPerDriverDay(res.jr).forEach(({ r, prev }) => { const x = fromJob(r); x.prev = prev; map.set(x.key, x); });
       ALL = [...map.values()].sort((a, b) => (b.fuel_date || '').localeCompare(a.fuel_date || '') || (a.src === b.src ? (a.src === 'FL' ? b.id - a.id : String(b.job_no).localeCompare(String(a.job_no))) : (a.src === 'FL' ? -1 : 1)));
       maxId = res.d.max_id; loaded = true;
       // อาจซ้ำ: บิลที่ Job/BL ตรงกับ JOB No. / B/L ของ JOB ที่มีไมล์หรือน้ำมันแล้ว → แจ้งเตือนให้ตรวจ (ไม่ตัดออกเอง เพราะไม่มี Key ยืนยัน)
       const jk = new Map(); ALL.forEach((r) => { if (r.src === 'JOB' && (r.calc.lt > 0 || r.calc.dist > 0)) [r.job_no, r.bl_no].forEach((k) => { if (k) jk.set(String(k).trim(), r); }); });
       ALL.forEach((r) => { r.dupOf = r.src === 'FL' && r.job_bl && jk.get(String(r.job_bl).trim()) ? jk.get(String(r.job_bl).trim()) : null; });
-      buildPlateList(); apply(); return true;
+      buildPlateList(); apply(keep); return true;
     };
     const loadRoutes = async () => { try { routes = await T.auth('tnj_fuel_routes', {}, { silent: true }); } catch (_) { routes = []; } $$('#flRouteList').forEach((dl) => { dl.innerHTML = routes.map((x) => `<option value="${h(x)}">`).join(''); }); };
     // ---- ตัวกรอง (ทุกตัวมีผลกับ Dashboard / ตาราง / กราฟ / Excel พร้อมกัน) ----
@@ -1209,14 +1239,14 @@
         if (!$$('input', dd).some((x) => x.checked)) $('input[value="ALL"]', dd).checked = true; F.plates = $$('input:checked', dd).map((x) => x.value).filter((v) => v !== 'ALL'); plateLabel(); apply(); });
       plateLabel(); };
     const plateLabel = () => { $('#flPlateLabel').textContent = !F.plates.length ? '📊 รวมทุกทะเบียน' : F.plates.length === 1 ? F.plates[0] : `${F.plates.length} ทะเบียน`; };
-    const qMatch = (r, q) => [r.fuel_date, r.plate_no, r.trailer_plate, r.driver_name, r.company_name, r.container_no, r.route_location, r.job_bl, r.note, FL_ST[r.calc.state][1], r.src === 'JOB' ? 'JOB' : 'บิล'].some((x) => x != null && String(x).toLowerCase().includes(q));
-    const apply = () => { if (!$('#flList')) return; const ps = F.plates.length ? new Set(F.plates) : null; const q = F.q.trim().toLowerCase();
-      RECS = ALL.filter((r) => (!ps || ps.has(r.plate_no)) && (!F.from || r.fuel_date >= F.from) && (!F.to || r.fuel_date <= F.to) && (F.below !== 'below' || r.calc.state === 'low') && (!q || qMatch(r, q)));
-      pageNo = 1; updateStats(RECS); renderTable(); const dups = RECS.filter((r) => r.dupOf); const dz = $('#flDup');
+    const qMatch = (r, q) => [r.fuel_date, r.plate_no, r.trailer_plate, r.driver_name, r.company_name, r.container_no, r.route_location, r.job_bl, r.note, FL_ST[r.calc.state][1], FL_FS[r.fs][1], r.src === 'JOB' ? 'JOB' : 'บิล'].some((x) => x != null && String(x).toLowerCase().includes(q));
+    const apply = (keep) => { if (!$('#flList')) return; const ps = F.plates.length ? new Set(F.plates) : null; const q = F.q.trim().toLowerCase();
+      RECS = ALL.filter((r) => (!ps || ps.has(r.plate_no)) && (!F.from || r.fuel_date >= F.from) && (!F.to || r.fuel_date <= F.to) && (F.below !== 'below' || r.calc.state === 'low') && (F.fs === 'all' || (F.fs === 'NONE' ? r.fs === 'NONE' : r.fs !== 'NONE')) && (!q || qMatch(r, q)));
+      if (keep !== true) pageNo = 1; updateStats(RECS); renderTable(); const dups = RECS.filter((r) => r.dupOf); const dz = $('#flDup');
       dz.classList.toggle('hidden', !dups.length); dz.textContent = dups.length ? `⚠ พบ ${dups.length} บิลที่ Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว (${[...new Set(dups.map((r) => r.job_bl))].join(', ')}) — ระบบไม่ตัดออกเอง กรุณาตรวจสอบว่าเป็นการเติมคนละครั้ง` : '';
       if (chartOpen) buildChart(); };
     // ---- summary (updateStats) — อัตราเฉลี่ยคิดจากแถวที่ข้อมูลครบเท่านั้น (ไม่ให้แถวไม่ครบดึงค่าเฉลี่ยผิด) ----
-    const agg = (recs) => { const a = { dist: 0, lt: 0, cost: 0, kd: 0, kl: 0, cd: 0, cc: 0, pl: 0, pc: 0 }; recs.forEach((r) => { const c = r.calc; a.dist += c.dist; a.lt += c.lt; a.cost += c.tc; if (c.kpl != null) { a.kd += c.dist; a.kl += c.lt; } if (c.cpk != null) { a.cd += c.dist; a.cc += c.tc; } if (c.lt > 0 && c.tc > 0) { a.pl += c.lt; a.pc += c.tc; } }); return a; };
+    const agg = (recs) => { const a = { dist: 0, lt: 0, cost: 0, kd: 0, kl: 0, cd: 0, cc: 0, pl: 0, pc: 0 }; recs.forEach((r) => { const c = r.calc; a.dist += c.dist; a.lt += c.lt; a.cost += c.tc; if (c.kpl != null) { a.kd += c.dist; a.kl += c.lt; } if (c.cpk != null) { a.cd += c.dist; a.cc += c.tc; } if (c.lt > 0 && c.tc > 0 && c.rate !== false) { a.pl += c.lt; a.pc += c.tc; } }); return a; };
     const aKpl = (a) => (a.kl > 0 ? a.kd / a.kl : 0);
     const updateStats = (recs) => {
       const a = agg(recs); const avgKpl = aKpl(a);
@@ -1234,20 +1264,33 @@
     // ---- table (คอลัมน์ตามต้นแบบ 18 คอลัมน์) ----
     $('#flList').innerHTML = `<div class="tbl-wrap"><table class="tbl fl-tbl"><thead><tr>${FL_HEAD.map((l) => `<th class="${FL_NUMH.has(l) ? 'r' : ''}${FL_HIDE.has(l) ? ' fl-col-hide' : ''}">${l}</th>`).join('')}</tr></thead><tbody id="flBody"><tr><td colspan="${FL_HEAD.length}" class="empty">กำลังโหลด...</td></tr></tbody></table></div>`;
     const mi = (v) => (v == null ? '—' : flFmt(v, 0)); const dash = (v, d = 2) => (v == null ? '—' : flFmt(v, d));
-    const rowHtml = (r) => { const c = r.calc, s = FL_ST[c.state]; const isJ = r.src === 'JOB';
-      const act = isJ ? `<span class="badge blue">JOB</span> <a class="btn btn-sm" href="#/jobs/${h(r.job_id)}?tab=fuel" data-jlink>${canAdd ? '✏️ แก้ไขใน JOB' : 'เปิด JOB ›'}</a>`
+    // คอลัมน์ "สถานะ": Dropdown 3 ค่า (เพิ่ม/แก้ได้ = SUPER_ADMIN/ADMIN/TRANSPORT) · VIEWER เห็นเป็นป้าย · เติมแล้ว = แสดงผลเกณฑ์ กม./ลิตร เดิมใต้ Dropdown
+    const fsCell = (r) => { const sub = r.fs === 'FILLED' ? (() => { const st = flFillState(r.calc), s = FL_ST[st]; return `<div class="fl-fs-sub"><span class="badge ${s[2]}" data-st="${st}">${s[0]} ${s[1]}</span></div>`; })() : '';
+      const main = canAdd ? `<select class="inp fl-fs" data-fs="${h(r.key)}" data-v="${r.fs}" aria-label="สถานะการเติมน้ำมัน" title="สถานะการเติมน้ำมัน">${Object.entries(FL_FS).map(([k, [i, l]]) => `<option value="${k}"${k === r.fs ? ' selected' : ''}>${i} ${l}</option>`).join('')}</select>`
+        : `<span class="fl-fs-tag" data-v="${r.fs}">${FL_FS[r.fs][0]} ${FL_FS[r.fs][1]}</span>`;
+      return main + sub; };
+    // JOB ล่าสุดของคนขับในวันนั้น: แจ้งจำนวน JOB ก่อนหน้าที่ไม่แสดง (ไม่นับซ้ำ) · JOB ก่อนหน้ามีใบเสร็จน้ำมัน = แจ้งลิตร/บาท ที่ไม่ถูกนับ (ไม่ซ่อนเงียบ)
+    const prevNote = (r) => { const pv = r.prev || []; if (!pv.length) return ''; const pl = pv.reduce((a, x) => a + (Number(x.fuel_liters) || 0), 0), pa = pv.reduce((a, x) => a + (Number(x.fuel_amount) || 0), 0);
+      return `<div class="xs muted fl-prev" data-prev="${pv.length}" title="${h('JOB ก่อนหน้าในวันเดียวกัน (ไม่แสดง / ไม่นับซ้ำ): ' + pv.map((x) => x.job_no || x.bl_no).join(', '))}">JOB ล่าสุดของวัน · ไม่รวม ${pv.length} JOB ก่อนหน้า</div>${pl > 0 || pa > 0 ? `<div class="xs fl-prev-fuel" style="color:var(--amber)">⚠ JOB ก่อนหน้ามีน้ำมัน ${flFmt(pl)} ลิตร / ${flFmt(pa, 0)} บาท (ไม่นับในแถวนี้)</div>` : ''}`; };
+    const rowHtml = (r) => { const c = r.calc; const isJ = r.src === 'JOB';
+      const act = isJ ? `<span class="badge blue">JOB</span> <a class="btn btn-sm" href="#/jobs/${h(r.job_id)}?tab=fuel" data-jlink>เปิด JOB ›</a>${canDel ? ` <button class="btn btn-sm" data-jed="${h(r.job_id)}">✏️ แก้ไข</button>` : ''}`
         : `<span class="badge gray">บิล</span>${canAdd ? ` <button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}`;
       return `<tr data-key="${h(r.key)}"${isJ ? ` data-job="${h(r.job_id)}"` : ` data-fid="${r.id}"`}><td class="nowrap">${h(r.fuel_date || '-')}</td><td><span class="badge blue">${h(r.plate_no || '-')}</span></td><td class="nowrap">${h(r.trailer_plate || '—')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td>
-        <td>${h(r.job_bl || '—')}${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}</td>
+        <td>${h(r.job_bl || '—')}${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}${prevNote(r)}</td>
         <td class="r">${mi(r.mileage_before)}</td><td class="r">${mi(r.mileage_after)}</td><td class="r b" style="color:var(--navy)">${flFmt(c.dist)}</td><td class="r fl-col-hide">${flFmt(c.lt)}</td><td class="r fl-col-hide">${flFmt(c.ppl)}</td><td class="r b" style="color:var(--green)">${flFmt(c.tc, 0)}</td>
         <td class="r" style="${c.state === 'low' ? 'color:var(--red);font-weight:700' : ''}">${dash(c.kpl)}</td>
-        <td class="nowrap"><span class="badge ${s[2]}" data-st="${c.state}">${s[0]} ${s[1]}</span>${c.err ? `<div class="xs" style="color:var(--red)">${h(c.err)}</div>` : ''}</td>
+        <td class="nowrap" data-fsv="${r.fs}">${fsCell(r)}${c.err ? `<div class="xs" style="color:var(--red)">${h(c.err)}</div>` : ''}</td>
         <td class="r fl-col-hide">${dash(c.cpk)}</td><td class="fl-col-hide">${h(r.note || '—')}</td><td class="nowrap">${act}</td></tr>`; };
     const renderTable = () => {
       if (!$('#flBody')) return; const pages = Math.max(1, Math.ceil(RECS.length / PAGE_SIZE)); pageNo = Math.min(Math.max(1, pageNo), pages);
       $('#flCount').textContent = loaded ? `(${RECS.length} รายการ)` : '';
       const vis = RECS.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
       $('#flBody').innerHTML = vis.length ? vis.map(rowHtml).join('') : `<tr><td colspan="${FL_HEAD.length}" class="empty">${!loaded ? 'กำลังโหลด...' : ALL.length ? `ดึงข้อมูลได้ ${ALL.length} รายการ — แต่ตัวกรองซ่อนหมด ลองกด ↺ ล้างตัวกรอง` : 'ยังไม่มีข้อมูลไมล์ / น้ำมัน'}</td></tr>`;
+      // เปลี่ยนสถานะ → บันทึกลง DB (tnj_fuel_status_set · RUN-25) สำเร็จแล้วจึงอัปเดตตาราง / ตัวเลขสรุป / กราฟทันที (หน้าเดิม) · ไม่สำเร็จ = คืนค่าเดิม
+      $$('#flBody [data-fs]').forEach((sel) => sel.onchange = async () => { const key = sel.dataset.fs, nv = sel.value; const r = ALL.find((y) => y.key === key); if (!r || !FL_FS[nv] || nv === r.fs) return; const prev = r.fs; sel.disabled = true;
+        try { await T.auth('tnj_fuel_status_set', { p_key: key, p_status: nv }, { silent: true }); mutSeq++; FS[key] = nv; setFs(r, nv); apply(true); T.toast(`บันทึกสถานะ: ${FL_FS[nv][0]} ${FL_FS[nv][1]} ✓`, 'ok'); }
+        catch (e) { sel.value = prev; sel.disabled = false; T.toast('บันทึกสถานะไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } });
+      $$('#flBody [data-jed]').forEach((b) => b.onclick = () => { const x = ALL.find((y) => y.src === 'JOB' && String(y.job_id) === b.dataset.jed); if (x) openJobEdit(x); });
       $$('#flBody [data-eid]').forEach((b) => b.onclick = () => { const x = ALL.find((y) => y.src === 'FL' && y.id === Number(b.dataset.eid)); if (x) openForm(x.raw); });
       $$('#flBody [data-did]').forEach((b) => b.onclick = async () => { const id = Number(b.dataset.did); const x = ALL.find((y) => y.src === 'FL' && y.id === id); if (!x) return;
         if (!(await T.confirm('ลบรายการ', `ยืนยันลบบิลขนส่งรายการนี้? (${h(x.fuel_date)} · ${h(x.plate_no)} · ${flFmt(x.calc.tc, 0)} บาท) — ลบเฉพาะรายการนี้ และบันทึกประวัติการลบ`, 'ยืนยันลบ', 'btn-r'))) return;
@@ -1311,10 +1354,11 @@
     $('#flFrom').onchange = () => { F.from = $('#flFrom').value; apply(); }; $('#flTo').onchange = () => { F.to = $('#flTo').value; apply(); };
     $('#flDateClr').onclick = () => { $('#flFrom').value = ''; $('#flTo').value = ''; F.from = ''; F.to = ''; apply(); };
     $('#flBelow').onchange = () => { F.below = $('#flBelow').value; apply(); };
+    $('#flFsF').onchange = () => { F.fs = $('#flFsF').value; apply(); };
     $('#flQ').addEventListener('input', T.debounce(() => { F.q = $('#flQ').value; apply(); }, 250));
     // ---- actions ----
     $('#flReload').onclick = async () => { T.toast('🔄 กำลังโหลดข้อมูลใหม่...'); if (await renderAll()) T.toast(`โหลดสำเร็จ ${ALL.length} รายการ ✓`, 'ok'); };
-    $('#flClear').onclick = () => { F.plates = []; F.from = ''; F.to = ''; F.below = 'all'; F.q = ''; $('#flFrom').value = ''; $('#flTo').value = ''; $('#flBelow').value = 'all'; $('#flQ').value = ''; buildPlateList(); apply(); T.toast('ล้างตัวกรองแล้ว ✓', 'ok'); };
+    $('#flClear').onclick = () => { F.plates = []; F.from = ''; F.to = ''; F.below = 'all'; F.fs = 'act'; F.q = ''; $('#flFrom').value = ''; $('#flTo').value = ''; $('#flBelow').value = 'all'; $('#flFsF').value = 'act'; $('#flQ').value = ''; buildPlateList(); apply(); T.toast('ล้างตัวกรองแล้ว ✓', 'ok'); };
     $('#flCalc').onclick = () => T.modal({ title: '⛽ เครื่องคำนวณน้ำมัน', size: 's', body: `<div class="inline-row"><div class="field"><label>ระยะทาง (กม.)</label><input type="number" step="0.1" class="inp" id="c_dist" placeholder="เช่น 200"></div><div class="field"><label>กม. ต่อลิตร</label><input type="number" step="0.1" class="inp" id="c_kpl" placeholder="เช่น 5.5"></div><div class="field"><label>ราคาน้ำมัน (บาท/ลิตร)</label><input type="number" step="0.01" class="inp" id="c_price" placeholder="เช่น 29.50"></div></div>
         <div class="kv fl-calc"><div class="k">ลิตรที่ใช้</div><div class="v b" id="c_res_lt">—</div><div class="k">ค่าน้ำมัน (ราคาเต็ม)</div><div class="v b" id="c_res_cost">—</div><div class="k">80% ของราคา</div><div class="v b" id="c_res_half">—</div><div class="k">ค่าคนขับ (10%, ขั้นต่ำ 300)</div><div class="v b" id="c_res_driver">—</div><div class="k">ต้นทุน/กม.</div><div class="v b" id="c_res_cpk">—</div><div class="k">ต้นทุนรวม (น้ำมัน + คนขับ)</div><div class="v b" id="c_res_costtotal">—</div><div class="k">💰 ราคารวม (ขาย) (ค่าน้ำมัน + 80% + ค่าคนขับ)</div><div class="v b" id="c_res_total" style="color:var(--green)">—</div></div>`,
       foot: '<button class="btn" id="calcClearBtn">🗑 ล้างค่า</button><button class="btn" data-close>ปิด</button>',
@@ -1369,7 +1413,7 @@
       let X; try { T.loading(true); X = await flEnsureXlsxStyle(); } catch (e) { T.toast(e.message, 'err'); return; } finally { T.loading(false); }
       const data = RECS.map((r) => { const c = r.calc; const adv = Number(r.advance_payment || 0), trip = Number(r.trip_fee || 0);
         return { 'วันที่': r.fuel_date || '', 'ทะเบียน': r.plate_no || '', 'คนขับ': r.driver_name || '', 'ระยะทาง (กม.)': +c.dist.toFixed(2), 'ลิตรจริง': +c.lt.toFixed(2), 'ราคาต่อลิตร': +c.ppl.toFixed(2), 'รวมเงิน': +c.tc.toFixed(2), 'เงินล่วงหน้า': +adv.toFixed(2), 'ค่าเที่ยว': +trip.toFixed(2),
-          'กม./ลิตร': +(c.kpl || 0).toFixed(2), 'ลิตรควรใช้': +c.expected.toFixed(2), 'ลิตรเกิน': +c.excess.toFixed(2), 'หักเงิน (บาท)': +c.penalty.toFixed(0), 'สถานะ': FL_ST[c.state][3] }; });
+          'กม./ลิตร': +(c.kpl || 0).toFixed(2), 'ลิตรควรใช้': +c.expected.toFixed(2), 'ลิตรเกิน': +c.excess.toFixed(2), 'หักเงิน (บาท)': +c.penalty.toFixed(0), 'สถานะ': r.fs === 'FILLED' ? `เติมแล้ว (${FL_ST[flFillState(c)][3]})` : FL_FS[r.fs][1] }; });
       const SALARY_FIXED = 9300; const sm = {}; // เงินเดือนฟิก 9,300 (ตามต้นแบบ — ใช้ใน Excel เท่านั้น ไม่แตะระบบเงินเดือน)
       RECS.forEach((r, i) => { const row = data[i]; const k = r.plate_no; if (!k) return; if (!sm[k]) sm[k] = { plate: r.plate_no, driver: r.driver_name || '', rows: [], trips: 0, dist: 0, lt: 0, cost: 0, excess: 0, penalty: 0, below: 0, trip: 0, adv: 0 };
         sm[k].rows.push(r); sm[k].trips++; sm[k].dist += r.calc.dist; sm[k].lt += r.calc.lt; sm[k].cost += r.calc.tc; sm[k].excess += row['ลิตรเกิน']; sm[k].penalty += row['หักเงิน (บาท)']; sm[k].trip += Number(r.trip_fee || 0); sm[k].adv += Number(r.advance_payment || 0); if (r.calc.state === 'low') sm[k].below++; });
@@ -1383,6 +1427,43 @@
       const ws2 = X.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]); ws2['!cols'] = [10, 14, 11, 18, 11, 18, 14, 13, 18, 13, 11, 11, 13, 16, 18, 11, 18].map((w) => ({ wch: w })); applyStyles(ws2); X.utils.book_append_sheet(wb, ws2, 'Summary');
       X.writeFile(wb, `NJ_Fuel_Report_${flBkkToday()}.xlsx`); T.toast('Export Excel สำเร็จ ✓', 'ok');
     };
+    // ✏️ แก้ไขแถว JOB — Popup ในหน้ารายงาน (ไม่เปลี่ยนหน้า) · 4 ช่อง: ไมล์ก่อน / ไมล์หลัง / ระยะ (อัตโนมัติ) / รวม (บาท)
+    //   โหลดข้อมูลจริงของ JOB ที่เลือกทุกครั้ง (tnj_job_get) · บันทึก = UPDATE ไมล์เดิมผ่าน RPC เดิม tnj_mileage_edit (SUPER_ADMIN/ADMIN + Audit) — ไม่สร้าง JOB ใหม่
+    //   รวม (บาท) = ผลรวมใบเสร็จเติมน้ำมันจริงของ JOB (transport_fuel_logs) → แสดงอย่างเดียว ไม่แก้ยอดจากหน้านี้ (กันยอดขัดแย้งกับหลักฐาน · แก้ที่ใบเสร็จใน JOB)
+    const openJobEdit = async (r) => {
+      if (!canDel) return T.toast('ไม่มีสิทธิ์แก้ไขไมล์ (เฉพาะ SUPER_ADMIN / ADMIN)', 'err');
+      let job; try { T.loading(true); job = await T.auth('tnj_job_get', { p_job_id: r.job_id }, { silent: true }); } catch (e) { return T.toast('โหลดข้อมูล JOB ไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } finally { T.loading(false); }
+      if (!job || String(job.id) !== String(r.job_id) || !$('#flList')) return;
+      const m = job.mileage || {}; const fu = Array.isArray(job.fuel) ? job.fuel : []; const tc = fu.reduce((a, x) => a + (Number(x.total_amount) || 0), 0), lt = fu.reduce((a, x) => a + (Number(x.liters) || 0), 0);
+      const v0 = (x) => (x == null || x === '' ? '' : String(Number(x)));
+      T.modal({ title: `✏️ แก้ไขไมล์ / น้ำมัน — ${job.job_no || T.jobRef(job)}`, size: 's fl-je', body: `<input type="hidden" id="je_job" value="${h(job.id)}">
+        <div class="inline-row"><div class="field"><label>ไมล์ก่อน</label><input type="number" min="0" step="0.1" inputmode="decimal" class="inp" id="je_mb"></div><div class="field"><label>ไมล์หลัง</label><input type="number" min="0" step="0.1" inputmode="decimal" class="inp" id="je_ma"></div></div>
+        <div class="inline-row"><div class="field"><label>ระยะ (กม.) ⚡ อัตโนมัติ</label><input class="inp ro" id="je_dist" readonly tabindex="-1"></div><div class="field"><label>รวม (บาท)</label><input class="inp ro" id="je_tc" readonly tabindex="-1"></div></div>
+        <div class="xs muted" id="je_tc_note">${fu.length ? `ยอดจริงจากใบเสร็จเติมน้ำมันของ JOB นี้ ${fu.length} รายการ (${flFmt(lt)} ลิตร) — แก้ยอดได้ที่ใบเสร็จใน JOB เท่านั้น เพื่อให้ยอดตรงกับหลักฐาน` : 'ยังไม่มีใบเสร็จเติมน้ำมันใน JOB นี้ — เพิ่มได้ที่ JOB › ⛽ ไมล์รถ / น้ำมัน'}</div>
+        <div class="alert err hidden mt1" id="je_err"></div>`,
+        foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="jeSave">💾 บันทึก</button>',
+        onOpen: (el, close) => {
+          const q = (k) => $('#je_' + k, el); let busy = false; q('mb').value = v0(m.start_mileage); q('ma').value = v0(m.end_mileage); q('tc').value = fu.length ? flFmt(tc) : '—';
+          const N = (k) => { const t = q(k).value.trim(); return t === '' ? null : Number(t); };
+          const chk = () => { const a = N('mb'), b = N('ma'); if ((a != null && !(isFinite(a) && a >= 0)) || (b != null && !(isFinite(b) && b >= 0))) return 'ไมล์ต้องเป็นตัวเลข 0 ขึ้นไป'; if (a != null && b != null && b < a) return 'ไมล์หลังต้องไม่น้อยกว่าไมล์ก่อน'; return ''; };
+          const showErr = (t) => { q('err').textContent = t ? '⚠ ' + t : ''; q('err').classList.toggle('hidden', !t); };
+          const recalc = () => { const a = N('mb'), b = N('ma'), e = chk(); q('dist').value = !e && a != null && b != null ? flFmt(b - a, 1) : ''; showErr(e); };
+          ['mb', 'ma'].forEach((k) => q(k).addEventListener('input', recalc)); recalc();
+          el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#jeSave', el).click(); } });
+          $('#jeSave', el).onclick = async () => {
+            if (busy) return; const e = chk(); showErr(e); if (e) return; const a = N('mb'), b = N('ma');
+            if (a === (m.start_mileage == null ? null : Number(m.start_mileage)) && b === (m.end_mileage == null ? null : Number(m.end_mileage))) { close(); return; } // ไม่มีการเปลี่ยนแปลง = ไม่บันทึก
+            busy = true; $('#jeSave', el).disabled = true;
+            try { T.loading(true); await T.auth('tnj_mileage_edit', { p_job_id: job.id, p_start: a, p_end: b, p_reason: 'แก้ไขไมล์จากหน้า ⛽ รายงานไมล์ / น้ำมัน' }, { silent: true }); mutSeq++; close(); T.toast('บันทึกไมล์เรียบร้อย ✓', 'ok'); await renderAll(true); }
+            catch (err) { showErr('บันทึกไม่สำเร็จ: ' + T.parseErr(err).text); } finally { busy = false; T.loading(false); const sb = $('#jeSave', el); if (sb) sb.disabled = false; }
+          };
+          setTimeout(() => q('mb').focus(), 30);
+        } });
+    };
+    // อัปเดตอัตโนมัติ: ปิดงาน / เปิดงานกลับ / แก้ JOB → สัญญาณ Realtime เดิม (tnj:office · ช่องเดียวกับรายงานขนส่ง ไม่สมัครซ้ำ) + สำรองทุก 60 วิ เมื่อเปิดหน้าอยู่ · ข้ามขณะเปิด Popup
+    const liveRefresh = T.debounce(() => { const ae = document.activeElement; if (!$('#flList') || document.querySelector('.overlay') || (ae && ae.closest && ae.closest('#flBody'))) return; renderAll(true, true); }, 1500);
+    T.subscribe('tnj:office', (p, ev) => { if (ev === 'status' || ev === 'job') liveRefresh(); });
+    T.every('fuelreport', 60000, liveRefresh);
     renderTable(); await renderAll();
   }
 
