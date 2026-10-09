@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-D">
+<meta name="sfz-build" content="1008-F">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1259,6 +1259,14 @@ body:has(.modal-back.show){overflow:hidden}
 .ex-dacts .btn{height:42px;padding:0 16px;border-radius:9px;font-weight:700;border:0;cursor:pointer;color:#fff}
 .ex-dacts .btn-secondary{border:1px solid var(--line)}
 </style>
+<style>
+/* ตารางหน้าแรก 9 คอลัมน์ — กว้างพอดี Desktop · ตัวเลขชิดขวา */
+.ex-home-tbl{min-width:1040px}
+.ex-home-tbl th{white-space:nowrap}
+.ex-home-tbl td.ex-money{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ex-home-tbl td.ex-c-co2{max-width:200px}
+.ex-home-tbl td.ex-c-act{width:104px;white-space:nowrap;text-align:center}
+</style>
 </head>
 <body>
 
@@ -1310,7 +1318,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-D</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-F</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5563,7 +5571,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-D' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-F' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5711,7 +5719,8 @@ function exHomeRender(){
       <table class="tbl ex-ltbl ex-home-tbl">
         <thead><tr>
           <th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ปิดค่าใช้จ่าย</th><th>บริษัท</th>
-          <th>จำนวนรายการ</th><th>ยอดรวม</th><th>จัดการ</th>
+          <th>จำนวนรายการ</th><th>เบิกเงิน (บาท)</th><th>ใช้ไป (บาท)</th>
+          <th>เงินคงเหลือ (บาท)</th><th>จัดการ</th>
         </tr></thead>
         <tbody>${rows.length ? rows.map(r=>`
           <tr class="ex-lrow" onclick="exOpenDetail('${esc(r.id)}')">
@@ -5720,15 +5729,15 @@ function exHomeRender(){
             <td>${esc(r.closer_name||'—')}</td>
             <td class="ex-c-co2" title="${esc(_exCoFull(r.id))}">${esc(_exCoLabel(r.id))}</td>
             <td style="text-align:center">${r.items_count||0}</td>
-            <td class="ex-money"><b>${_exMoney(r.spent_total)}</b></td>
+            <td class="ex-money">${_exMoney(r.advance_amount)}</td>
+            <td class="ex-money">${_exMoney(r.spent_total)}</td>
+            <td class="ex-money ${_exNum(r.balance)<0?'ex-neg':''}"><b>${_exMoney(r.balance)}</b></td>
             <td class="ex-c-act" onclick="event.stopPropagation()">
-              <button class="ex-ib ex-ib-view" title="ดูรายละเอียด" onclick="exOpenDetail('${esc(r.id)}')">👁</button>
               ${canEditExpense()?`<button class="ex-ib ex-ib-edit" title="แก้ไข" onclick="exEditDoc('${esc(r.id)}')">✏️</button>`:''}
-              <button class="ex-ib ex-ib-xls" title="Export Excel" onclick="exExportExcel('${esc(r.id)}')">🟢</button>
-              <button class="ex-ib ex-ib-pdf" title="Export PDF" onclick="exExportPDF('${esc(r.id)}')">🔴</button>
+              ${canDeleteExpense()?`<button class="ex-ib ex-ib-del" title="ลบ" onclick="exDeleteDoc('${esc(r.id)}','${esc(r.doc_no||'')}')">🗑️</button>`:''}
             </td>
           </tr>`).join('')
-          : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">ยังไม่มีเอกสาร — กด "เปิดงานใหม่" เพื่อเริ่ม</td></tr>`}
+          : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">ยังไม่มีเอกสาร — กด "เปิดงาน" เพื่อเริ่ม</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -6268,7 +6277,14 @@ async function exDeleteDoc(id, docNo, fromDetail){
     if(EX.doc && EX.doc.id===id){ EX.doc=null; EX.items=[]; EX.drafts=[]; EX.editing=new Set(); }
     toast('ลบเอกสารแล้ว','success');
     await exListReload();                 // refresh ทันที ไม่ต้อง reload หน้า
-    exListRender();
+    // refresh ให้ถูกที่: ลบจากหน้าต่างรายงาน → ปิดหน้าต่างแล้วกลับหน้าแรก
+    //                     ลบจากหน้าต่างรายการ → เรนเดอร์รายการใหม่
+    //                     ลบจากตารางหน้าแรก   → เรนเดอร์หน้าแรกใหม่
+    const mdl = $('modal-detail');
+    const listOpen = mdl && mdl.classList.contains('show') && /รายการปิดค่าใช้จ่าย/.test(mdl.innerText||'');
+    if(fromDetail){ closeModal('modal-detail'); exHomeRender(); }
+    else if(listOpen){ exListRender(); }
+    else { exHomeRender(); }
   }catch(e){ console.error(e); toast('ลบไม่สำเร็จ: '+(e.message||''),'error'); }
 }
 async function exOpenList(){
