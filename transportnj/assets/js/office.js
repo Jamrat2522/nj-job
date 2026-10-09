@@ -1125,7 +1125,8 @@
         const y = Object.assign({}, u, { seqs: [Number(u.seq)], containers: u.container_no ? [u.container_no] : [], f_l: 0, f_a: 0, f_n: 0, hasFuel: false }); mk.set(k, y); merged.push(y); });
       const main = merged.find((m) => m.seqs.includes(1)) || merged[0];
       merged.forEach((m) => { m.isMain = m === main; m.unitKey = 'JOB:' + (m.isMain ? m.job_id : m.container_id); m.otherVeh = merged.filter((o) => o !== m && o.vehicle_id).map((o) => o.vehicle_id); });
-      (us[0].fuel || []).forEach((g) => { const t = (g.vehicle_id && merged.find((m) => !m.isMain && m.vehicle_id === g.vehicle_id)) || main; t.f_l += Number(g.liters) || 0; t.f_a += Number(g.amount) || 0; t.f_n += Number(g.n) || 0; t.hasFuel = true; });
+      (us[0].fuel || []).forEach((g) => { const t = (g.vehicle_id && merged.find((m) => !m.isMain && m.vehicle_id === g.vehicle_id)) || main; t.f_l += Number(g.liters) || 0; t.f_a += Number(g.amount) || 0; t.f_n += Number(g.n) || 0; t.hasFuel = true;
+        const lt = Date.parse(g.last_at || ''); if (isFinite(lt) && !(t.f_last >= lt)) t.f_last = lt; });
       out.push(...merged);
     });
     return out;
@@ -1217,8 +1218,8 @@
     const fromJob = (u) => { const l = u.hasFuel ? num(u.f_l) : null, a = u.hasFuel ? num(u.f_a) : null;
       return withCalc({ key: u.unitKey, src: 'JOB', job_id: u.job_id, container_id: u.isMain ? null : u.container_id, isMain: !!u.isMain, vehicle_id: u.vehicle_id || null, otherVeh: u.otherVeh || [], fuelN: u.f_n || 0, seqs: u.seqs || [1],
         job_no: u.job_no || '', bl_no: u.bl_no || '', fuel_date: String(u.factory_date || '').slice(0, 10), completed_at: u.completed_at, driver_id: u.driver_id || null, plate_no: u.license_plate || '', trailer_plate: u.trailer_plate || '', driver_name: u.driver_name || '', company_name: u.customer_name || '',
-        container_no: (u.containers || []).join(', '), route_location: u.factory_location_text || '', job_bl: [u.job_no, u.bl_no].filter(Boolean).join(' / '), note: u.isMain ? '' : 'ไมล์บันทึกที่รถหลักของ JOB',
-        mileage_before: u.isMain ? num(u.start_mileage) : null, mileage_after: u.isMain ? num(u.end_mileage) : null, total_cost: a, liters: l, price_per_liter: l > 0 && a > 0 ? a / l : null,
+        container_no: (u.containers || []).join(', '), route_location: u.factory_location_text || '', job_bl: [u.job_no, u.bl_no].filter(Boolean).join(' / '), note: '',
+        mileage_before: num(u.isMain ? u.start_mileage : u.unit_start_mileage), mileage_after: num(u.isMain ? u.end_mileage : u.unit_end_mileage), total_cost: a, liters: l, price_per_liter: l > 0 && a > 0 ? a / l : null,
         selling_price: 0, net_profit: 0, trip_fee: 0, advance_payment: 0 }); };
     // ---- โหลด (ทั้งสองแหล่งพร้อมกัน) — โหลดไม่สำเร็จ = คงข้อมูลเดิมบนหน้าจอ (ไม่ทับเป็นว่าง) ----
     const fetchAll = async () => {
@@ -1235,7 +1236,7 @@
       const [d, jr, fs] = await Promise.all([fl, jb, fq]); return { d, jr, fs };
     };
     // กันข้อมูลเก่าทับข้อมูลใหม่: ผลโหลดที่ไม่ใช่รอบล่าสุดถูกทิ้ง · มีการบันทึกระหว่างโหลด = โหลดใหม่อีกรอบ
-    let loadSeq = 0, mutSeq = 0;
+    let loadSeq = 0, mutSeq = 0, UNITS = [];
     const renderAll = async (keep, quiet) => {
       const my = ++loadSeq, mut0 = mutSeq;
       let res; try { res = await fetchAll(); } catch (e) { if (my === loadSeq && !quiet) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text + ' — ข้อมูลบนหน้าจอยังเป็นของเดิม', 'err'); return false; }
@@ -1245,7 +1246,7 @@
       const map = new Map(); // key ไม่ซ้ำ: FL:id / JOB:job_id → ไม่มีแถวซ้ำ ไม่นับซ้ำ
       (res.d.rows || []).forEach((r) => { const x = fromFL(r); map.set(x.key, x); });
       // รถ 1 คัน / 1 วัน / 1 รายการ — คัดก่อนตัวกรองทุกตัว (รวมสถานะน้ำมัน) · JOB ก่อนหน้าไม่ถูกลบ แค่ไม่แสดง
-      flLastPerPlateDay(flBuildUnits(res.jr)).forEach(({ r, prev }) => { const x = fromJob(r); x.prev = prev; map.set(x.key, x); });
+      UNITS = flBuildUnits(res.jr); flLastPerPlateDay(UNITS).forEach(({ r, prev }) => { const x = fromJob(r); x.prev = prev; map.set(x.key, x); });
       ALL = [...map.values()].sort((a, b) => (b.fuel_date || '').localeCompare(a.fuel_date || '') || (a.src === b.src ? (a.src === 'FL' ? b.id - a.id : String(b.job_no).localeCompare(String(a.job_no))) : (a.src === 'FL' ? -1 : 1)));
       maxId = res.d.max_id; loaded = true;
       // อาจซ้ำ: บิลที่ Job/BL ตรงกับ JOB No. / B/L ของ JOB ที่มีไมล์หรือน้ำมันแล้ว → แจ้งเตือนให้ตรวจ (ไม่ตัดออกเอง เพราะไม่มี Key ยืนยัน)
@@ -1296,7 +1297,7 @@
     const prevNote = (r) => { const pv = r.prev || []; if (!pv.length) return ''; const pl = pv.reduce((a, x) => a + (Number(x.f_l) || 0), 0), pa = pv.reduce((a, x) => a + (Number(x.f_a) || 0), 0);
       return `<div class="xs muted fl-prev" data-prev="${pv.length}" title="${h('JOB ก่อนหน้าของรถคันนี้วันเดียวกัน (ไม่แสดง / ไม่นับซ้ำ): ' + pv.map((x) => x.job_no || x.bl_no).join(', '))}">JOB สุดท้ายของรถคันนี้ในวันนั้น · ไม่รวม ${pv.length} JOB ก่อนหน้า</div>${pl > 0 || pa > 0 ? `<div class="xs fl-prev-fuel" style="color:var(--amber)">⚠ JOB ก่อนหน้ามีน้ำมัน ${flFmt(pl)} ลิตร / ${flFmt(pa, 0)} บาท (ไม่นับในแถวนี้)</div>` : ''}`; };
     const rowHtml = (r) => { const c = r.calc; const isJ = r.src === 'JOB';
-      const act = isJ ? `<span class="badge blue">JOB</span> <a class="btn btn-sm" href="#/jobs/${h(r.job_id)}?tab=fuel" data-jlink>เปิด JOB ›</a>${canDel ? ` <button class="btn btn-sm" data-jed="${h(r.key)}">✏️ แก้ไข</button>` : ''}`
+      const act = isJ ? (canDel ? (r.base.lt > 0 || r.base.tc > 0 ? `<button class="btn btn-sm" data-jed="${h(r.key)}">✏️ แก้ไข</button>` : `<button class="btn btn-sm btn-p" data-jed="${h(r.key)}">✏️ บันทึกน้ำมัน</button>`) : '')
         : `<span class="badge gray">บิล</span>${canAdd ? ` <button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}`;
       return `<tr data-key="${h(r.key)}"${isJ ? ` data-job="${h(r.job_id)}"` : ` data-fid="${r.id}"`}><td class="nowrap">${h(r.fuel_date || '-')}</td><td><span class="badge blue">${h(r.plate_no || '-')}</span></td><td class="nowrap">${h(r.trailer_plate || '—')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td>
         <td>${h(r.job_bl || '—')}${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}${prevNote(r)}</td>
@@ -1454,6 +1455,15 @@
     //   โหลดข้อมูลจริงของ JOB + รถคันที่เลือกทุกครั้ง (tnj_job_get) · บันทึกผ่าน RPC เดิมเท่านั้น (สิทธิ์ + Audit เดิม):
     //   ไมล์ = tnj_mileage_edit (UPDATE ไมล์ JOB · เฉพาะแถวรถหลัก — ไมล์มีระดับ JOB) · น้ำมัน: ใบเสร็จของรถคันนี้ 1 บิล = tnj_fuel_edit (UPDATE บิลเดิม)
     //   ยังไม่มีบิล (รถหลัก) = tnj_fuel_add เฉพาะเมื่อกรอกราคารวม + ราคาต่อลิตรครบ · มีหลายบิล = แสดงยอดรวมอย่างเดียว (ห้ามเขียนทับ / รวมยอดผิด)
+    // ไมล์ก่อนเติมอัตโนมัติ = ไมล์หลังเติมของรายการเติมน้ำมันก่อนหน้า "ทะเบียนเดียวกัน" ตามวันเวลาเติมจริง (ก่อนเวลาของแถวนี้)
+    //   แหล่ง: รายการรถจาก JOB ที่มีใบเสร็จ (เวลา = เวลาเติมล่าสุดของใบเสร็จ · ไม่มี = เวลาปิดงาน) รวม JOB ก่อนหน้าที่ไม่แสดง + บิลขนส่ง (fuel_logs: วันที่บิล)
+    //   ไม่มีประวัติ = เว้นว่าง (ไม่ใส่ 0) · ใช้เฉพาะเมื่อแถวนี้ยังไม่มีไมล์ก่อนเติม (ไม่ทับค่าเดิม / แก้ย้อนหลังไม่ดึงค่าปัจจุบัน)
+    const prevFill = (r) => { const pk = flPlateKey({ license_plate: r.plate_no, vehicle_id: r.vehicle_id }); const ref = Date.parse(r.completed_at || ''); if (!pk || !isFinite(ref)) return null; const c = [];
+      UNITS.forEach((u) => { if (u.unitKey === r.key || flPlateKey(u) !== pk || !u.hasFuel) return; const me = num(u.isMain ? u.end_mileage : u.unit_end_mileage); const t = isFinite(u.f_last) ? u.f_last : Date.parse(u.completed_at || '');
+        if (me > 0 && isFinite(t) && t < ref) c.push({ m: me, t, src: `JOB ${u.job_no || u.bl_no || ''}`.trim() }); });
+      ALL.forEach((x) => { if (x.src !== 'FL' || flPlateKey({ license_plate: x.plate_no }) !== pk || !(x.base.lt > 0 || x.base.tc > 0)) return; const t = Date.parse((x.fuel_date || '') + 'T00:00:00+07:00');
+        if (x.mileage_after > 0 && isFinite(t) && t < ref) c.push({ m: Number(x.mileage_after), t, src: `บิล #${x.id}` }); });
+      c.sort((a, b) => b.t - a.t || b.m - a.m); return c[0] || null; };
     const openJobEdit = async (r) => {
       if (!canDel) return T.toast('ไม่มีสิทธิ์แก้ไข (เฉพาะ SUPER_ADMIN / ADMIN)', 'err');
       let job; try { T.loading(true); job = await T.auth('tnj_job_get', { p_job_id: r.job_id }, { silent: true }); } catch (e) { return T.toast('โหลดข้อมูล JOB ไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } finally { T.loading(false); }
@@ -1461,10 +1471,13 @@
       const m = job.mileage || {}; const all = Array.isArray(job.fuel) ? job.fuel : [];
       const fu = all.filter((f) => (r.isMain ? !f.vehicle_id || !(r.otherVeh || []).includes(f.vehicle_id) : f.vehicle_id === r.vehicle_id)); // ใบเสร็จของรถคันนี้ (กติกาเดียวกับตาราง)
       const sumA = fu.reduce((a, x) => a + (Number(x.total_amount) || 0), 0), sumL = fu.reduce((a, x) => a + (Number(x.liters) || 0), 0); const one = fu.length === 1 ? fu[0] : null;
-      const milOk = !!r.isMain, fuelOk = fu.length === 1 || (fu.length === 0 && r.isMain);
+      const milOk = true, fuelOk = fu.length <= 1; // หลายบิล = แสดงยอดรวมอย่างเดียว
+      const mStart = r.isMain ? m.start_mileage : r.mileage_before, mEnd = r.isMain ? m.end_mileage : r.mileage_after; // ไมล์ของรถคันนี้ (รถหลัก = ไมล์ JOB · ตู้ 2+ = ไมล์รายตู้)
+      const pf = mStart == null ? prevFill(r) : null; // ดึงอัตโนมัติเฉพาะเมื่อยังไม่มีไมล์ก่อนเติม
+      const bkkD = (t) => new Date(t + 7 * 3600e3).toISOString().slice(0, 10);
       const v0 = (x) => (x == null || x === '' ? '' : String(Number(x)));
       const fld = (id, label, ro, extra = '') => `<div class="field"><label for="je_${id}">${label}</label><input ${ro ? 'class="inp ro" readonly tabindex="-1"' : 'type="number" min="0" step="0.01" inputmode="decimal" class="inp"'} id="je_${id}" ${extra}></div>`;
-      const notes = [!milOk ? 'ไมล์บันทึกระดับ JOB ที่รถหลัก — แก้ที่แถวรถหลักของ JOB นี้' : '', fu.length > 1 ? `รถคันนี้มีใบเสร็จ ${fu.length} บิล (รวม ${flFmt(sumL)} ลิตร) — แสดงยอดรวมเท่านั้น แก้รายบิลได้ที่ JOB เพื่อไม่ให้เขียนทับหลักฐาน` : '', !fuelOk && fu.length === 0 ? 'ยังไม่มีใบเสร็จของรถคันนี้ — เพิ่มได้ที่ JOB › ⛽ ไมล์รถ / น้ำมัน' : '', fuelOk ? 'จำนวนลิตร = ราคารวม ÷ ราคาต่อลิตร · ยอดที่บันทึก = ลิตร × ราคาต่อลิตร (ตามใบเสร็จเดิม)' : ''].filter(Boolean);
+      const notes = [mStart == null ? (pf ? `ไมล์ก่อนเติม ${flFmt(pf.m, 0)} ดึงอัตโนมัติจากรายการเติมก่อนหน้าของทะเบียน ${r.plate_no} (${pf.src} · ${bkkD(pf.t)}) — แก้ไขได้` : `ไม่พบประวัติการเติมก่อนหน้าของทะเบียน ${r.plate_no || '-'} — กรอกไมล์ก่อนเติมเอง`) : '', fu.length > 1 ? `รถคันนี้มีใบเสร็จ ${fu.length} บิล (รวม ${flFmt(sumL)} ลิตร) — แสดงยอดรวมเท่านั้น เพื่อไม่ให้เขียนทับหลักฐาน` : '', fu.length === 0 ? 'ยังไม่มีรายการน้ำมันของรถคันนี้ — กรอกราคารวม + ราคาต่อลิตร เพื่อบันทึกรายการใหม่ของรถคันนี้' : '', fuelOk ? 'จำนวนลิตร = ราคารวม ÷ ราคาต่อลิตร · ยอดที่บันทึก = ลิตร × ราคาต่อลิตร' : ''].filter(Boolean);
       T.modal({ title: `✏️ แก้ไขไมล์ / น้ำมัน — ${job.job_no || T.jobRef(job)} · ${r.plate_no || '-'}`, size: 'fl-je', body: `<div class="fl-je-grid">
           ${fld('mb', 'ไมล์ก่อนเติม', !milOk)}${fld('ma', 'ไมล์หลังเติม', !milOk)}${fld('dist', 'ระยะทาง (กม.)', true)}
           ${fld('tc', 'ราคารวมน้ำมัน (บาท)', !fuelOk)}${fld('ppl', 'ราคาต่อลิตร (บาท)', !fuelOk)}${fld('lt', 'จำนวนลิตร', true)}</div>
@@ -1472,7 +1485,7 @@
         foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="jeSave">💾 บันทึก</button>',
         onOpen: (el, close) => {
           const q = (k) => el.querySelector('#je_' + k); let busy = false;
-          q('mb').value = v0(m.start_mileage); q('ma').value = v0(m.end_mileage);
+          q('mb').value = mStart == null ? (pf ? String(pf.m) : '') : v0(mStart); q('ma').value = v0(mEnd);
           q('tc').value = fu.length ? String(+sumA.toFixed(2)) : ''; q('ppl').value = one ? v0(one.price_per_liter) : fu.length > 1 && sumL > 0 ? String(+(sumA / sumL).toFixed(2)) : '';
           const N = (k) => { const t = String(q(k).value).replace(/,/g, '').trim(); return t === '' ? null : Number(t); };
           const lit = () => { const a = N('tc'), p = N('ppl'); return a > 0 && p > 0 ? +(a / p).toFixed(2) : null; };
@@ -1489,20 +1502,25 @@
           el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const sb = el.querySelector('#jeSave'); if (sb) sb.click(); } });
           el.querySelector('#jeSave').onclick = async () => {
             if (busy) return; const e = chk(); showErr(e); if (e) return;
-            const a = N('mb'), b = N('ma'), tc = N('tc'), pp = N('ppl'), lt = lit(); const s0 = m.start_mileage == null ? null : Number(m.start_mileage), e0 = m.end_mileage == null ? null : Number(m.end_mileage);
+            const a = N('mb'), b = N('ma'), tc = N('tc'), pp = N('ppl'), lt = lit(); const s0 = mStart == null ? null : Number(mStart), e0 = mEnd == null ? null : Number(mEnd);
             const milCh = milOk && (a !== s0 || b !== e0);
             const fuelCh = fuelOk && (one ? (lt != null && (Math.abs(lt - Number(one.liters)) > 0.004 || Math.abs(pp - Number(one.price_per_liter)) > 0.004)) : lt != null);
             if (!milCh && !fuelCh) { close(); return; } // ไม่มีการเปลี่ยนแปลง = ไม่บันทึก
-            busy = true; el.querySelector('#jeSave').disabled = true; const reason = 'แก้ไขจากหน้า ⛽ รายงานไมล์ / น้ำมัน'; let done = 0;
+            busy = true; el.querySelector('#jeSave').disabled = true; let done = 0;
+            const reason = pf && a !== pf.m ? `แก้ไขไมล์ก่อนเติม (ค่าจากประวัติ ${pf.m} → ${a == null ? '-' : a}) จากหน้า ⛽ รายงานไมล์ / น้ำมัน` : pf ? `ไมล์ก่อนเติมจากรายการก่อนหน้า (${pf.src}) · หน้า ⛽ รายงานไมล์ / น้ำมัน` : 'แก้ไขจากหน้า ⛽ รายงานไมล์ / น้ำมัน';
             try { T.loading(true);
-              if (milCh) { await T.auth('tnj_mileage_edit', { p_job_id: job.id, p_start: a, p_end: b, p_reason: reason }, { silent: true }); done++; mutSeq++; }
-              if (fuelCh) { if (one) await T.auth('tnj_fuel_edit', { p_fuel_id: one.id, p: { liters: lt, price_per_liter: pp }, p_reason: reason }, { silent: true });
-                else await T.auth('tnj_fuel_add', { p_job_id: job.id, p: { liters: lt, price_per_liter: pp, note: reason } }, { silent: true }); done++; mutSeq++; }
+              if (milCh) { if (r.isMain) await T.auth('tnj_mileage_edit', { p_job_id: job.id, p_start: a, p_end: b, p_reason: reason }, { silent: true });
+                else await T.auth('tnj_fuel_unit_mileage_set', { p_container_id: r.container_id, p_start: a, p_end: b }, { silent: true }); done++; mutSeq++; } // รถคันนี้เท่านั้น
+              if (fuelCh) { if (one) await T.auth('tnj_fuel_edit', { p_fuel_id: one.id, p: { liters: lt, price_per_liter: pp }, p_reason: reason }, { silent: true }); // UPDATE บิลเดิม
+                else if (r.isMain) await T.auth('tnj_fuel_add', { p_job_id: job.id, p: { liters: lt, price_per_liter: pp, note: reason } }, { silent: true }); // INSERT รถหลัก (RPC เดิม)
+                else await T.auth('tnj_fuel_unit_add', { p_job_id: job.id, p_container_id: r.container_id, p: { liters: lt, price_per_liter: pp, note: reason } }, { silent: true }); // INSERT รถตู้ 2+
+                done++; mutSeq++;
+                if (r.fs !== 'FILLED' || (FS[r.key] && FS[r.key] !== 'FILLED')) { try { await T.auth('tnj_fuel_status_set', { p_key: r.key, p_status: 'FILLED' }, { silent: true }); FS[r.key] = 'FILLED'; } catch (_) { /* สถานะบันทึกไม่ได้ = คงค่าเดิม */ } } }
               close(); T.toast('บันทึกเรียบร้อย ✓', 'ok'); await renderAll(true); }
             catch (err) { showErr((done ? 'บันทึกไมล์แล้ว แต่บันทึกน้ำมันไม่สำเร็จ: ' : 'บันทึกไม่สำเร็จ: ') + T.parseErr(err).text); if (done) renderAll(true, true); }
             finally { busy = false; T.loading(false); const sb = el.querySelector('#jeSave'); if (sb) sb.disabled = false; }
           };
-          setTimeout(() => { const f = el.querySelector(milOk ? '#je_mb' : '#je_tc'); if (f) f.focus(); }, 30);
+          setTimeout(() => { const ae = document.activeElement; if (ae && ae !== document.body && el.contains(ae) && ae.tagName === 'INPUT') return; const f = el.querySelector(pf || mStart != null ? '#je_ma' : '#je_mb'); if (f) f.focus(); }, 30); // ไม่แย่งโฟกัสถ้าผู้ใช้เริ่มกรอกแล้ว · ไมล์ก่อนเติมมีค่าแล้ว = เริ่มที่ไมล์หลังเติม
         } });
     };
     // อัปเดตอัตโนมัติ: ปิดงาน / เปิดงานกลับ / แก้ JOB → สัญญาณ Realtime เดิม (tnj:office · ช่องเดียวกับรายงานขนส่ง ไม่สมัครซ้ำ) + สำรองทุก 60 วิ เมื่อเปิดหน้าอยู่ · ข้ามขณะเปิด Popup
