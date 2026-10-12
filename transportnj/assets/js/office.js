@@ -1537,6 +1537,7 @@
   // หักน้ำมัน: ชุดเดียวกับรายงานไมล์ / น้ำมัน (บิล + JOB สุดท้ายต่อรถต่อวัน · สถานะ 🟢 เติมแล้ว · คำนวณได้จริง) · ส่วนต่าง = MAX(0, 3.00 − กม./ลิตร) · ยอดหัก = ส่วนต่าง × ราคาต่อลิตร
   const DP = { SALARY: 9000, PHONE: 300, MIN: 20000, KPL: 3.00, COMPANY: 'N.J. Logistics & Fruits Co., Ltd.', HIDE: ['ชัยวัตร'] };
   // คนขับที่ไม่แสดงในเมนูนี้ (ทุกแท็บ / ยอดรวม / Export) — ชื่อตรงทั้งชื่อ หรือ ชื่อต้นตรง · ซ่อนการแสดงผลเท่านั้น ไม่ลบ / ไม่แก้ข้อมูลใน DB
+  const DP_EK = [['salary', 'เงินเดือน'], ['phone', 'ค่าโทรศัพท์'], ['trip', 'ค่าเที่ยว'], ['night', 'ค้างคืน'], ['wait', 'ค่ารอ'], ['adv', 'เบิกล่วงหน้า'], ['fuel', 'หักน้ำมัน'], ['ss', 'ประกันสังคม']]; // ช่องที่แก้ไขได้ใน สรุปสิ้นเดือน (RUN-29)
   const dpHideName = (n) => { const t = String(n || '').trim().replace(/\s+/g, ' '); return !!t && DP.HIDE.some((x) => t === x || t.split(' ')[0] === x); };
   const dpR2 = (v) => Math.round((Number(v) || 0) * 100 + Number.EPSILON * 100) / 100;
   const dpF = (v) => flFmt(v, 2);
@@ -1582,7 +1583,7 @@
   }
   // สรุปรายได้ 1 คน / 1 ช่วง — ใช้ทั้งหน้าจอ / Export (ตัวเลขชุดเดียวกัน)
   function dpSummary(inp) {
-    const full = !!inp.full; const salary = full ? DP.SALARY : 0, phone = full ? DP.PHONE : 0;
+    const full = !!inp.full; const salary = full ? (inp.salary != null ? dpR2(inp.salary) : DP.SALARY) : 0, phone = full ? (inp.phone != null ? dpR2(inp.phone) : DP.PHONE) : 0; // salary / phone ส่งมา = ค่าที่แก้ (RUN-29)
     const trip = dpR2(inp.trip), night = dpR2(inp.night), wait = dpR2(inp.wait); const base = dpR2(salary + phone + trip + night + wait);
     const topup = full ? dpR2(Math.max(0, DP.MIN - base)) : 0; const gross = dpR2(base + topup);
     const adv = dpR2(inp.adv), fuel = dpR2(inp.fuel), ss = dpR2(inp.ss); const net = dpR2(gross - adv - fuel - ss);
@@ -1612,7 +1613,7 @@
         const drivers = s.drivers || []; const units = dpIncomeUnits(s.jobs, drivers); const ded = dpFuelDeducts(fl.rows || [], Array.isArray(un) ? un : [], fs && typeof fs === 'object' ? fs : {}, drivers);
         // ซ่อนคนขับใน DP.HIDE: จับคู่ Key ด้วยรายชื่อเต็มก่อน แล้วตัดออกจากทุกชุดข้อมูล (รายวัน / งวด / ประวัติ / ตัวเลือกคนขับ / ยอดรวม / Export)
         const hideK = new Set(drivers.filter((d) => dpHideName(d.full_name)).map((d) => 'D:' + d.id)); const hid = (dk, name) => hideK.has(dk) || dpHideName(name) || (!!dk && dk.startsWith('N:') && dpHideName(dk.slice(2)));
-        src = Object.assign({}, s, { drivers: drivers.filter((d) => !hideK.has('D:' + d.id)), units: units.filter((u) => !hid(u.dk, u.driver_name)), items: (s.items || []).filter((i) => !hideK.has('D:' + i.driver_id)), snapshots: (s.snapshots || []).filter((x) => !hideK.has('D:' + x.driver_id)) }); srcKey = k;
+        src = Object.assign({}, s, { drivers: drivers.filter((d) => !hideK.has('D:' + d.id)), units: units.filter((u) => !hid(u.dk, u.driver_name)), items: (s.items || []).filter((i) => !hideK.has('D:' + i.driver_id)), snapshots: (s.snapshots || []).filter((x) => !hideK.has('D:' + x.driver_id)), adjusts: (s.adjusts || []).filter((x) => !hideK.has('D:' + x.driver_id)) }); srcKey = k;
         fuel = ded.filter((x) => !hid(x.dk, x.driver_name)); return true;
       } catch (e) { if (my === seq) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); return false; } finally { if (my === seq) T.loading(false); }
     };
@@ -1626,15 +1627,20 @@
       return [...m.values()].map((r) => Object.assign(r, { trip: dpR2(r.trip), night: dpR2(r.night), wait: dpR2(r.wait), adv: dpR2(r.adv), net: dpR2(r.trip + r.night + r.wait - r.adv), name: dName(r.dk) }))
         .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name, 'th')); };
     // ---- สรุปช่วง / งวด (คนขับ 1 คน = 1 แถว) ----
-    const sumRows = (from, to, drv) => { const full = dpIsFull(from, to); const m = new Map(); const get = (dk) => { if (!m.has(dk)) m.set(dk, { dk, trip: 0, night: 0, wait: 0, adv: 0, ss: 0, fuel: 0, fuel_pending: 0, units: [], items: [], deducts: [] }); return m.get(dk); };
+    // adj = ใช้รายการปรับปรุงทางการเงิน (RUN-29 · เฉพาะงวดครบ 26–25 · สรุปสิ้นเดือน + Export) — ค่าที่แสดง = ค่าจากระบบ + ส่วนต่าง (ไม่เขียนทับ Timeline)
+    const sumRows = (from, to, drv, adj) => { const full = dpIsFull(from, to); const m = new Map(); const get = (dk) => { if (!m.has(dk)) m.set(dk, { dk, trip: 0, night: 0, wait: 0, adv: 0, ss: 0, fuel: 0, fuel_pending: 0, units: [], items: [], deducts: [] }); return m.get(dk); };
       src.units.filter((u) => u.dk && inR(u.date, from, to) && (!drv || u.dk === drv)).forEach((u) => { const r = get(u.dk); r.trip += u.trip; r.night += u.night; r.wait += u.wait; r.units.push(u); });
       src.items.filter((i) => inR(String(i.item_date).slice(0, 10), from, to) && (!drv || 'D:' + i.driver_id === drv)).forEach((i) => { const r = get('D:' + i.driver_id); r.adv += Number(i.advance_amount) || 0; r.ss += Number(i.social_security) || 0; r.items.push(i); });
       fuel.filter((x) => x.dk && inR(x.date, from, to) && (!drv || x.dk === drv)).forEach((x) => { const r = get(x.dk); const ap = src.deducts[x.key]; const ok = !!(ap && ap.approved); const amt = ok ? Number(ap.amount) : x.amount;
         r.deducts.push(Object.assign({}, x, { approved: ok, use: dpR2(amt) })); if (ok) r.fuel += amt; else r.fuel_pending += x.amount; });
       const pStart = full ? from : null;
-      return [...m.values()].map((r) => { const s = dpSummary({ full, trip: r.trip, night: r.night, wait: r.wait, adv: r.adv, fuel: r.fuel, fuel_pending: r.fuel_pending, ss: r.ss });
+      if (adj && full) (src.adjusts || []).forEach((a) => { if (String(a.period_start).slice(0, 10) === from && (!drv || 'D:' + a.driver_id === drv) && DP_EK.some(([k]) => Math.abs(Number(a[k]) || 0) > 0.004)) get('D:' + a.driver_id); }); // แก้ไขไว้แต่ไม่มีงาน = ยังแสดงแถว
+      return [...m.values()].map((r) => { const s0 = dpSummary({ full, trip: r.trip, night: r.night, wait: r.wait, adv: r.adv, fuel: r.fuel, fuel_pending: r.fuel_pending, ss: r.ss });
+        const sys = {}; DP_EK.forEach(([k]) => { sys[k] = s0[k]; });
+        const ad = adj && pStart && r.dk.startsWith('D:') ? (src.adjusts || []).find((x) => 'D:' + x.driver_id === r.dk && String(x.period_start).slice(0, 10) === pStart) || null : null;
+        const s = ad ? dpSummary(Object.assign({ full, fuel_pending: r.fuel_pending }, ...DP_EK.map(([k]) => ({ [k]: Math.max(0, dpR2(sys[k] + (Number(ad[k]) || 0))) })))) : s0;
         const snap = pStart && r.dk.startsWith('D:') ? (src.snapshots || []).find((x) => 'D:' + x.driver_id === r.dk && String(x.period_start).slice(0, 10) === pStart) : null;
-        return Object.assign(r, s, { name: dName(r.dk), snap, from, to }); }).sort((a, b) => a.name.localeCompare(b.name, 'th')); };
+        return Object.assign(r, s, { name: dName(r.dk), snap, locked: !!snap && snap.locked !== false, sys, adj: ad && DP_EK.some(([k]) => Math.abs(s[k] - sys[k]) > 0.004) ? ad : null, adjRow: ad, from, to }); }).sort((a, b) => a.name.localeCompare(b.name, 'th')); };
     const totalOf = (rows, keys) => { const t = {}; keys.forEach((k) => { t[k] = dpR2(rows.reduce((a, r) => a + (Number(r[k]) || 0), 0)); }); return t; };
     const SUMK = ['salary', 'phone', 'trip', 'night', 'wait', 'topup', 'gross', 'adv', 'fuel', 'ss', 'net', 'fuel_pending'];
     const num = (v, cls = '') => `<td class="r ${cls}">${dpF(v)}</td>`;
@@ -1648,13 +1654,48 @@
       ${ds.map((x) => `<tr data-dkey="${h(x.key)}"><td>${hlDMY(x.date)}</td><td>${h(x.src)} ${h(x.ref)}</td><td>${h(x.plate)}</td><td class="r" style="color:var(--red);font-weight:700">${dpF(x.kpl)}</td>${num(x.diff)}${num(x.ppl)}${num(x.use, 'dp-ded')}<td>${x.approved ? '<span class="badge green">✅ อนุมัติแล้ว</span>' : '<span class="badge amber">⏳ รออนุมัติ</span>'}</td>${canAp ? `<td class="nowrap">${x.approved ? `<button class="btn btn-sm" data-dunap="${h(x.key)}">ยกเลิกอนุมัติ</button>` : `<button class="btn btn-sm btn-p" data-dap="${h(x.key)}">อนุมัติหัก</button>`}</td>` : ''}</tr>`).join('') || `<tr><td colspan="${canAp ? 9 : 8}" class="empty">ไม่มีรายการต่ำกว่าเกณฑ์ ${dpF(DP.KPL)} กม./ลิตร</td></tr>`}</tbody></table></div>`;
     const openDay = (r) => T.modal({ title: `👁 ${r.name} — ${hlDMY(r.date)}`, size: 'w dp-m', body: `<div class="dp-cards">${[['ค่าเที่ยว', r.trip, 'g'], ['ค้างคืน', r.night, 'g'], ['ค่ารอ', r.wait, 'g'], ['เบิกล่วงหน้า', r.adv, 'r'], ['เงินสุทธิรายวัน', r.net, 'n']].map(([l, v, c]) => `<div class="dp-card dp-c-${c}"><div class="l">${l}</div><div class="v">${dpF(v)}</div></div>`).join('')}</div>
       <div class="xs muted mb1">เงินสุทธิรายวัน = ค่าเที่ยว + ค้างคืน + ค่ารอ − เบิกล่วงหน้า (ยอดรายได้จากงาน ไม่ใช่เงินเดือนสุทธิทั้งงวด)</div><h4 class="dp-h4">🚚 JOB ของวันนี้</h4>${unitTable(r.units)}<h4 class="dp-h4">💵 เบิกล่วงหน้า</h4>${itemTable(r.items)}`, foot: '<button class="btn" data-close>ปิด</button>' });
-    const openSum = (r) => T.modal({ title: `👁 ${r.name} — ${hlDMY(r.from)} ถึง ${hlDMY(r.to)}${r.snap ? ' · 🔒 ยืนยันงวดแล้ว' : ''}`, size: 'w dp-m', body: `${sumCards(r)}
+    const openSum = (r) => T.modal({ title: `👁 ${r.name} — ${hlDMY(r.from)} ถึง ${hlDMY(r.to)}${r.locked ? ' · 🔒 ยืนยันงวดแล้ว' : ''}`, size: 'w dp-m', body: `${sumCards(r)}${adjTable(r)}
       <h4 class="dp-h4">🚚 JOB ทั้งหมด (${r.units.length} เที่ยว)</h4>${unitTable(r.units.slice().sort((a, b) => a.date.localeCompare(b.date)))}<h4 class="dp-h4">💵 เบิกล่วงหน้า / ประกันสังคม</h4>${itemTable(r.items)}
       <h4 class="dp-h4">⛽ หักน้ำมันต่ำกว่าเกณฑ์ ${dpF(DP.KPL)} กม./ลิตร</h4><div class="xs muted mb1">ส่วนต่าง = MAX(0, 3.00 − กม./ลิตรจริง) · ยอดหัก = ส่วนต่าง × ราคาน้ำมันต่อลิตร · หักจริงเฉพาะรายการที่อนุมัติแล้ว (ตรวจสอบตามสิทธิ์และข้อกำหนดกฎหมายก่อนอนุมัติ)</div>${dedTable(r.deducts, true)}`,
       foot: '<button class="btn" data-close>ปิด</button>', onOpen: (el, close) => { $$('[data-dap],[data-dunap]', el).forEach((b) => b.onclick = async () => { const key = b.dataset.dap || b.dataset.dunap; const x = r.deducts.find((d) => d.key === key); if (!x) return; const ap = !!b.dataset.dap;
         if (ap && !(await T.confirm('อนุมัติหักน้ำมัน', `ยืนยันอนุมัติหัก ${dpF(x.amount)} บาท (${h(x.src)} ${h(x.ref)} · ${hlDMY(x.date)} · ${dpF(x.kpl)} กม./ลิตร) — ตรวจสอบตามสิทธิ์และข้อกำหนดกฎหมายแล้ว`, 'อนุมัติหัก', 'btn-p'))) return;
         b.disabled = true; try { await T.auth('tnj_driver_fuel_deduct_set', { p_key: key, p_driver_id: x.dk.startsWith('D:') ? x.dk.slice(2) : null, p_amount: ap ? x.amount : x.use, p_approved: ap, p_note: null }, { silent: true }); T.toast(ap ? 'อนุมัติหักแล้ว ✓' : 'ยกเลิกอนุมัติแล้ว', 'ok'); close(); await refresh(true); }
         catch (e) { b.disabled = false; T.toast('บันทึกไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); } }); } });
+    const adjTable = (r) => !r.adj ? '' : `<h4 class="dp-h4">✏️ รายการปรับปรุงทางการเงิน</h4><div class="xs muted mb1">ค่าที่แสดง = ค่าจากระบบ (Timeline / รายการกรอกเอง / หักน้ำมันที่อนุมัติ) + ส่วนต่างที่แก้ไข · ไม่เขียนทับ Timeline ต้นทาง · แก้ไขล่าสุด: ${h(r.adj.updated_by_name || '-')} ${r.adj.updated_at ? T.fmtDT(r.adj.updated_at) : ''}${r.adj.note ? ` · หมายเหตุ: ${h(r.adj.note)}` : ''}</div>
+      <div class="tbl-wrap"><table class="tbl dp-tbl" id="dpAdj"><thead><tr><th>รายการ</th><th class="r">ค่าจากระบบ</th><th class="r">ค่าที่แก้ไข</th><th class="r">ส่วนต่าง</th></tr></thead><tbody>
+      ${DP_EK.filter(([k]) => Math.abs(r[k] - r.sys[k]) > 0.004).map(([k, l]) => `<tr><td>${l}</td>${num(r.sys[k])}${num(r[k], 'b')}${num(dpR2(r[k] - r.sys[k]), r[k] >= r.sys[k] ? 'dp-inc' : 'dp-ded')}</tr>`).join('')}</tbody></table></div>`;
+    // ---- ✏️ แก้ไขข้อมูลรายได้คนขับ (สรุปสิ้นเดือน · งวดครบ 26–25 · คนขับในทะเบียน) → รายการปรับปรุงทางการเงิน (RUN-29) ----
+    const openEdit = async (r0) => { let r = r0; if (!r || !r.dk.startsWith('D:') || !dpIsFull(r.from, r.to)) return;
+      const per = dpPeriodLabel(dpPeriod(r.from));
+      if (r.locked) { // งานที่ล็อกแล้ว: ปลดล็อกตามสิทธิ์เดิม (SUPER_ADMIN / ADMIN — สิทธิ์เดียวกับยืนยันงวด) ก่อนแก้ · Server ตรวจซ้ำ
+        if (!(await T.confirm('งวดนี้ยืนยันแล้ว 🔒', `งวด ${per} ของ ${h(r.name)} ยืนยันแล้ว (ล็อก) — ต้องปลดล็อกก่อนแก้ไข<br><span class="xs muted">หลังแก้ไขเสร็จ กด 🔒 เพื่อยืนยันงวดอีกครั้ง</span>`, '🔓 ปลดล็อกและแก้ไข', 'btn-o'))) return;
+        try { T.loading(true); await T.auth('tnj_driver_pay_unlock', { p_driver_id: r.dk.slice(2), p_period_start: r.from }, { silent: true }); T.toast('ปลดล็อกงวดแล้ว 🔓', 'ok'); }
+        catch (e) { T.toast('ปลดล็อกไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); return; } finally { T.loading(false); }
+        await refresh(true); r = sumRows(r0.from, r0.to, r0.dk, true)[0]; if (!r || r.locked || !$('#dpSum')) return; }
+      const ar = r.adjRow; const v2 = (x) => String(+dpR2(x).toFixed(2));
+      const fld = (k, l) => `<div class="field"><label for="dpe_${k}">${l} (บาท)</label><input type="number" min="0" step="0.01" inputmode="decimal" class="inp" id="dpe_${k}" value="${v2(r[k])}"><div class="xs muted">ค่าจากระบบ ${dpF(r.sys[k])}</div></div>`;
+      const ro = (k, l) => `<div class="field"><label for="dpe_${k}">${l} (อัตโนมัติ)</label><input class="inp ro" id="dpe_${k}" readonly tabindex="-1"></div>`;
+      T.modal({ title: 'แก้ไขข้อมูลรายได้คนขับ', size: 'fl-je dp-ed', body: `<div class="dp-ed-info"><div>👤 คนขับ: <b id="dpe_name">${h(r.name)}</b></div><div>📅 งวดวันที่: <b id="dpe_per">${hlDMY(r.from)} – ${hlDMY(r.to)}</b></div></div>
+          <h4 class="dp-h4">💰 รายได้</h4><div class="fl-je-grid">${DP_EK.slice(0, 5).map(([k, l]) => fld(k, l)).join('')}</div>
+          <h4 class="dp-h4">➖ รายการหัก</h4><div class="fl-je-grid">${DP_EK.slice(5).map(([k, l]) => fld(k, l)).join('')}</div>
+          <h4 class="dp-h4">🧮 ผลคำนวณ</h4><div class="fl-je-grid">${ro('topup', 'เงินเพิ่มขั้นต่ำ')}${ro('gross', 'รายได้ก่อนหัก')}${ro('net', 'เงินสุทธิ')}</div>
+          <div class="field mt1"><label for="dpe_note">หมายเหตุการแก้ไข</label><input class="inp" id="dpe_note" maxlength="500" value="${h((ar && ar.note) || '')}"></div>
+          <div class="xs muted mt1">รายได้ก่อนหัก = เงินเดือน + ค่าโทรศัพท์ + ค่าเที่ยว + ค้างคืน + ค่ารอ (ต่ำกว่า ${dpF(DP.MIN)} → เพิ่มเงินเพิ่มขั้นต่ำอัตโนมัติ) · เงินสุทธิ = รายได้ก่อนหัก − เบิกล่วงหน้า − หักน้ำมัน − ประกันสังคม<br>บันทึกเป็นรายการปรับปรุงทางการเงิน (ส่วนต่างจากค่าระบบ) — ไม่เขียนทับ Timeline / JOB / รายการกรอกเอง${r.fuel_pending > 0 ? ` · หักน้ำมันรออนุมัติ ${dpF(r.fuel_pending)} บาท ไม่รวมในยอดนี้` : ''}${ar && ar.updated_at ? `<br>แก้ไขล่าสุด: ${h(ar.updated_by_name || '-')} · ${T.fmtDT(ar.updated_at)}` : ''}</div><div class="alert err hidden mt1" id="dpe_err"></div>`,
+        foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-o" id="dpeSave">💾 บันทึกการแก้ไข</button>',
+        onOpen: (el, close) => { const q = (k) => el.querySelector('#dpe_' + k); let busy = false;
+          const N = (k) => { const t = String(q(k).value).replace(/,/g, '').trim(); return t === '' ? 0 : Number(t); };
+          const chk = () => DP_EK.some(([k]) => { const v = N(k); return !(isFinite(v) && v >= 0); }) ? 'ตัวเลขต้องเป็น 0 ขึ้นไป' : DP_EK.some(([k]) => N(k) > 9999999) ? 'ยอดเงินเกิน 9,999,999 บาท' : '';
+          const showErr = (t) => { q('err').textContent = t ? '⚠ ' + t : ''; q('err').classList.toggle('hidden', !t); };
+          const calc = () => dpSummary(Object.assign({ full: true, fuel_pending: r.fuel_pending }, ...DP_EK.map(([k]) => ({ [k]: N(k) }))));
+          const recalc = () => { const e = chk(); showErr(e); if (e) { ['topup', 'gross', 'net'].forEach((k) => { q(k).value = ''; }); return; } const c = calc(); ['topup', 'gross', 'net'].forEach((k) => { q(k).value = dpF(c[k]); }); };
+          DP_EK.forEach(([k]) => q(k).addEventListener('input', recalc)); recalc();
+          el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); const sb = el.querySelector('#dpeSave'); if (sb) sb.click(); } });
+          el.querySelector('#dpeSave').onclick = async () => { if (busy) return; const e = chk(); showErr(e); if (e) return;
+            const vals = {}, orig = {}; DP_EK.forEach(([k]) => { vals[k] = dpR2(N(k)); orig[k] = dpR2(r.sys[k]); }); const note = q('note').value.trim();
+            if (DP_EK.every(([k]) => Math.abs(vals[k] - r[k]) < 0.005) && note === String((ar && ar.note) || '')) { T.toast('ไม่มีการเปลี่ยนแปลง', 'warn'); close(); return; }
+            busy = true; const sb = el.querySelector('#dpeSave'); sb.disabled = true;
+            try { T.loading(true); await T.auth('tnj_driver_pay_adjust_save', { p_driver_id: r.dk.slice(2), p_period_start: r.from, p: { orig, vals, note } }, { silent: true }); T.toast('บันทึกการแก้ไขแล้ว ✓', 'ok'); close(); await refresh(true); }
+            catch (er) { showErr('บันทึกไม่สำเร็จ: ' + T.parseErr(er).text); } finally { busy = false; T.loading(false); if (sb.isConnected) sb.disabled = false; } }; } }); };
     const sumCards = (r) => `<div class="dp-cards">${[['เงินเดือน', r.salary, 'b'], ['ค่าโทรศัพท์', r.phone, 'p'], ['รายได้วิ่งงาน', r.trip + r.night + r.wait, 'g', 'ค่าเที่ยว + ค้างคืน + ค่ารอ'], ['เงินเพิ่มขั้นต่ำ', r.topup, 'y'], ['รายได้รวมก่อนหัก', r.gross, 'b'], ['รายการหัก', r.adv + r.fuel + r.ss, 'r', 'เบิก + น้ำมัน + ประกันสังคม'], ['รายได้เงินสุทธิ', r.net, 'n']]
       .map(([l, v, c, s]) => `<div class="dp-card dp-c-${c}"><div class="l">${l}</div><div class="v">${dpF(v)}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`).join('')}</div>${r.full ? '' : '<div class="alert warn mb1">ช่วงวันที่ไม่ครบงวด 26–25 — แสดงยอดจริงในช่วงนี้ ไม่รวมเงินเดือน / ค่าโทรศัพท์ และไม่เติมขั้นต่ำ 20,000 อัตโนมัติ</div>'}${r.fuel_pending > 0 ? `<div class="alert warn mb1">⏳ หักน้ำมันรออนุมัติ ${dpF(r.fuel_pending)} บาท — ยังไม่หักจากเงินสุทธิ</div>` : ''}`;
     // ---- แท็บ ----
@@ -1674,17 +1715,18 @@
         ${rows.length ? `<tr class="dp-tot"><td colspan="3">รวมทั้งหมด</td>${num(t.trip)}${num(t.night)}${num(t.adv, 'dp-ded')}${num(t.net, 'dp-net')}<td></td></tr>` : ''}</tbody></table></div>
         <div class="xs muted dp-note">ค่ารอรวมอยู่ในเงินสุทธิ (ค่ารอรวม ${dpF(t.wait)} บาท — ดูรายละเอียดเมื่อคลิกแถว) · เงินสุทธิรายวัน = ค่าเที่ยว + ค้างคืน + ค่ารอ − เบิกล่วงหน้า</div></div>`;
       bindFilter('dd', st); $$('#dpDaily [data-di]').forEach((tr) => tr.onclick = () => openDay(rows[+tr.dataset.di])); };
-    const rPeriod = () => { const st = S.p; const rows = sumRows(st.from, st.to, st.drv); const t = totalOf(rows, SUMK); const full = dpIsFull(st.from, st.to);
+    const rPeriod = () => { const st = S.p; const rows = sumRows(st.from, st.to, st.drv, true); const t = totalOf(rows, SUMK); const full = dpIsFull(st.from, st.to);
       $('#dpBody').innerHTML = `${filterBar('pp', st, { period: true, xls: true })}<div class="card dp-sec dp-sec-g"><div class="dp-sec-h"><span class="dp-no">2</span><h3>สรุปสิ้นเดือน ${hlDMY(st.from)} – ${hlDMY(st.to)}</h3><span class="muted small">${full ? '✅ ครบงวด 26–25' : '⚠ ไม่ครบงวด — ไม่รวมเงินเดือน / โทรศัพท์ / ขั้นต่ำ'} · คนขับ 1 คน = 1 แถว</span></div>
         <div class="tbl-wrap"><table class="tbl dp-tbl dp-sum" id="dpSum"><thead><tr><th>ชื่อคนขับ</th><th class="r">เงินเดือน</th><th class="r">โทรศัพท์</th><th class="r">ค่าเที่ยว</th><th class="r">ค้างคืน</th><th class="r">ค่ารอ</th><th class="r">เงินเพิ่มขั้นต่ำ</th><th class="r">รายได้ก่อนหัก</th><th class="r">เบิกล่วงหน้า</th><th class="r">หักน้ำมัน</th><th class="r">ประกันสังคม</th><th class="r">เงินสุทธิ</th><th>จัดการ</th></tr></thead><tbody>
-        ${rows.map((r, i) => `<tr class="click" data-si="${i}"><td class="b nowrap">👤 ${h(r.name)}${r.snap ? ' <span class="badge green" title="ยืนยันงวดแล้ว">🔒</span>' : ''}</td>${num(r.salary, 'dp-inc')}${num(r.phone, 'dp-inc')}${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.wait, 'dp-inc')}${num(r.topup, 'dp-top')}${num(r.gross, 'b')}${num(r.adv, 'dp-ded')}<td class="r dp-ded">${dpF(r.fuel)}${r.fuel_pending > 0 ? `<div class="xs" style="color:var(--amber)">รออนุมัติ ${dpF(r.fuel_pending)}</div>` : ''}</td>${num(r.ss, 'dp-ded')}${num(r.net, 'dp-net')}
-          <td class="nowrap"><button class="btn btn-sm btn-p" data-sv="${i}">👁 ดู</button>${full && r.dk.startsWith('D:') ? ` <button class="btn btn-sm" data-sc="${i}" title="ยืนยันงวด (เก็บ Snapshot รักษายอดย้อนหลัง)" aria-label="ยืนยันงวด">🔒</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="13" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
+        ${rows.map((r, i) => `<tr class="click" data-si="${i}"><td class="b nowrap">👤 ${h(r.name)}${r.locked ? ' <span class="badge green" title="ยืนยันงวดแล้ว">🔒</span>' : r.snap ? ' <span class="badge amber" title="ปลดล็อกแล้ว — กด 🔒 เพื่อยืนยันงวดอีกครั้ง">🔓</span>' : ''}${r.adj ? ' <span class="badge amber" title="มีรายการปรับปรุงทางการเงิน (แก้ไขแล้ว)" aria-label="ปรับปรุง">✏️</span>' : ''}</td>${num(r.salary, 'dp-inc')}${num(r.phone, 'dp-inc')}${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.wait, 'dp-inc')}${num(r.topup, 'dp-top')}${num(r.gross, 'b')}${num(r.adv, 'dp-ded')}<td class="r dp-ded">${dpF(r.fuel)}${r.fuel_pending > 0 ? `<div class="xs" style="color:var(--amber)">รออนุมัติ ${dpF(r.fuel_pending)}</div>` : ''}</td>${num(r.ss, 'dp-ded')}${num(r.net, 'dp-net')}
+          <td class="nowrap"><button class="btn btn-sm btn-p" data-sv="${i}">👁 ดู</button>${full && r.dk.startsWith('D:') ? ` <button class="btn btn-sm btn-o" data-se="${i}" title="แก้ไขข้อมูลรายได้คนขับ">✏️ แก้ไข</button>` : ''}${full && r.dk.startsWith('D:') ? ` <button class="btn btn-sm" data-sc="${i}" title="ยืนยันงวด (เก็บ Snapshot รักษายอดย้อนหลัง)" aria-label="ยืนยันงวด">🔒</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="13" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
         ${rows.length ? `<tr class="dp-tot"><td class="nowrap">รวม (${rows.length} คน)</td>${['salary', 'phone', 'trip', 'night', 'wait', 'topup', 'gross', 'adv', 'fuel', 'ss'].map((k) => num(t[k])).join('')}${num(t.net, 'dp-net')}<td></td></tr>` : ''}</tbody></table></div>
         <div class="xs muted dp-note">รายได้พื้นฐาน = 9,000 + 300 + ค่าเที่ยว + ค้างคืน + ค่ารอ · ต่ำกว่า 20,000 → เพิ่มส่วนต่างก่อนหัก (ครบงวดเท่านั้น) · เงินสุทธิ = รายได้รวมก่อนหัก − เบิกล่วงหน้า − หักน้ำมันที่อนุมัติ − ประกันสังคม</div></div>`;
-      bindFilter('pp', st); $$('#dpSum [data-si]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-sc]')) return; openSum(rows[+tr.dataset.si]); });
+      bindFilter('pp', st); $$('#dpSum [data-si]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-sc],[data-se]')) return; openSum(rows[+tr.dataset.si]); });
+      $$('#dpSum [data-se]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); openEdit(rows[+b.dataset.se]); });
       $$('#dpSum [data-sc]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const r = rows[+b.dataset.sc];
         if (!(await T.confirm('ยืนยันงวด', `ยืนยันงวด ${dpPeriodLabel(dpPeriod(st.from))} ของ ${h(r.name)} — เงินสุทธิ ${dpF(r.net)} บาท (เก็บ Snapshot เพื่อรักษายอดย้อนหลัง)`, 'ยืนยันงวด', 'btn-p'))) return;
-        const data = Object.assign({ name: r.name, from: r.from, to: r.to, trips: r.units.length }, ...SUMK.map((k) => ({ [k]: r[k] })));
+        const data = Object.assign({ name: r.name, from: r.from, to: r.to, trips: r.units.length, adjusted: !!r.adj }, ...SUMK.map((k) => ({ [k]: r[k] })));
         try { T.loading(true); await T.auth('tnj_driver_pay_confirm', { p_driver_id: r.dk.slice(2), p_period_start: st.from, p_data: data }, { silent: true }); T.toast('ยืนยันงวดแล้ว 🔒', 'ok'); await refresh(true); } catch (er) { T.toast('ยืนยันไม่สำเร็จ: ' + T.parseErr(er).text, 'err'); } finally { T.loading(false); } }); };
     const rEntry = () => { const st = S.e; const p = dpPeriod(st.period); const its = src.items.filter((i) => String(i.period_start).slice(0, 10) === p.start).sort((a, b) => String(b.item_date).localeCompare(String(a.item_date)));
       const ed = st.edit ? src.items.find((i) => i.id === st.edit) : null;
@@ -1723,7 +1765,7 @@
     $$('#dpTabs button').forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; $$('#dpTabs button').forEach((x) => x.classList.toggle('active', x === b)); refresh(false); });
     // ---- Export Excel (คำนวณชุดเดียวกับหน้าจอ) ----
     const dpExport = async (kind, from, to, drv) => {
-      if (!(await load(from, to, false))) return; const rows = sumRows(from, to, drv); if (!rows.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'err');
+      if (!(await load(from, to, false))) return; const rows = sumRows(from, to, drv, true); if (!rows.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'err');
       let X; try { T.loading(true); X = await flEnsureXlsxStyle(); } catch (e) { T.toast(e.message, 'err'); return; } finally { T.loading(false); }
       const thin = { style: 'thin', color: { rgb: '9DB5D9' } }, B = { top: thin, bottom: thin, left: thin, right: thin }; const NF = '#,##0.00';
       const ST = { title: { font: { sz: 15, bold: true, color: { rgb: '0F2B4C' } } }, sub: { font: { sz: 11, bold: true, color: { rgb: '1E6FE8' } } }, muted: { font: { sz: 10, color: { rgb: '64748B' } } },
@@ -1747,6 +1789,9 @@
           aoa.push(['สรุปรายได้สุทธิ', 'จำนวนเงิน (บาท)']); sty.push([ST.head, ST.head]);
           [['เงินเดือน', 'salary', 'inc'], ['ค่าโทรศัพท์', 'phone', 'inc'], ['ค่าเที่ยว', 'trip', 'inc'], ['ค้างคืน', 'night', 'inc'], ['ค่ารอ', 'wait', 'inc'], ['เงินเพิ่มขั้นต่ำ', 'topup', 'top'], ['รายได้รวมก่อนหัก', 'gross', 'tot'], ['เบิกล่วงหน้า', 'adv', 'ded'], ['หักน้ำมัน (อนุมัติแล้ว)', 'fuel', 'ded'], ['ประกันสังคม', 'ss', 'ded'], ['รายได้เงินสุทธิ', 'net', 'net'], ['หักน้ำมันรออนุมัติ (ยังไม่หัก)', 'fuel_pending', 'n']]
             .forEach(([l, k, s]) => { aoa.push([l, r[k]]); sty.push([s === 'net' || s === 'tot' ? ST.totT : ST.txt, ST[s]]); });
+          if (r.adj) { aoa.push([]); sty.push(null); aoa.push([`รายการปรับปรุงทางการเงิน (แก้ไขล่าสุด: ${r.adj.updated_by_name || '-'}${r.adj.updated_at ? ' ' + T.fmtDT(r.adj.updated_at) : ''}${r.adj.note ? ' · ' + r.adj.note : ''})`]); sty.push([ST.sec, ST.sec, ST.sec, ST.sec]);
+            aoa.push(['รายการ', 'ค่าจากระบบ', 'ค่าที่แก้ไข', 'ส่วนต่าง']); sty.push(ST.head);
+            DP_EK.filter(([k]) => Math.abs(r[k] - r.sys[k]) > 0.004).forEach(([k, l]) => { aoa.push([l, r.sys[k], r[k], dpR2(r[k] - r.sys[k])]); sty.push([ST.txt, ST.n, ST.tot, ST.n]); }); }
           aoa.push([]); sty.push(null); aoa.push(['รายการรายวัน / JOB']); sty.push([ST.sec, ST.sec, ST.sec, ST.sec, ST.sec, ST.sec, ST.sec, ST.sec, ST.sec]);
           aoa.push(['วันที่', 'JOB No.', 'ลูกค้า', 'ตู้', 'ทะเบียน', 'ค่าเที่ยว', 'ค้างคืน', 'ค่ารอ', 'รวมรายได้']); sty.push(ST.head);
           const us = r.units.slice().sort((a, b) => a.date.localeCompare(b.date)); us.forEach((u) => { aoa.push([hlDMY(u.date), u.job_no || u.bl_no, u.customer, u.container_no + (u.ct_no > 1 ? ` (ตู้ ${u.ct_no})` : ''), u.plate, u.trip, u.night, u.wait, dpR2(u.trip + u.night + u.wait)]); sty.push([ST.txt, ST.txt, ST.txt, ST.txt, ST.txt, ST.inc, ST.inc, ST.inc, ST.net]); });
