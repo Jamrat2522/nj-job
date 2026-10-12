@@ -1,0 +1,1 @@
+function a(i,e){i&&(i.disabled=e,e?(i.dataset.txt=i.innerHTML,i.innerHTML="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E17\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u2026"):i.dataset.txt&&(i.innerHTML=i.dataset.txt))}export{a};

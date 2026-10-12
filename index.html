@@ -1,31 +1,164 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="theme-color" content="#0F2B4C">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TRANSPORT NJ">
-<title>TRANSPORT NJ — Container Logistics</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="assets/img/icon-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<link rel="stylesheet" href="assets/css/app.css?v=local154">
+<title>BILLING NJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- ══ V.334 · Font ห้ามบล็อกการวาดจอแรก ═════════════════════════════════
+     เดิม <link rel="stylesheet"> ของ fonts.googleapis.com เป็น render-blocking
+     -> เบราว์เซอร์รอ CSS ก้อนนี้เสร็จก่อนจึงวาดจอ ทั้งที่ Prompt ไม่จำเป็นต่อ first paint
+     media="print" -> เบราว์เซอร์โหลดแบบไม่บล็อก · onload สลับกลับเป็น all แล้วใช้งานได้ปกติ
+     display=swap เดิมยังอยู่ -> ระหว่างรอ แสดงด้วย fallback ก่อน ไม่มีข้อความหาย
+     <noscript> = fallback เมื่อปิด JavaScript -> Font ยังโหลดครบเหมือนเดิม
+     *** ไม่เปลี่ยน URL / น้ำหนัก / ชุดตัวอักษร *** print ยังใช้ Font เดิมทุกประการ -->
+<link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+      href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap">
+<noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"></noscript>
+<!-- BUILD CACHE KEY: ใช้บังคับโหลด JS ใหม่ได้โดยไม่เปลี่ยน semantic APP_VERSION; APP_VERSION ต้องตรง deploy_version ใน DB -->
+<script>window.__BUILD='1.4.1-local465';</script>
+<!-- ══ MOBILE BLOCK — ต้องอยู่ใน <head> ก่อน CSS/HTML ใด ๆ ══════════════════
+     ทำงานก่อน app.bundle.js (ซึ่งเป็น defer = รันหลัง HTML parse เสร็จ)
+     -> ผู้ใช้มือถือไม่มีทางเห็นหน้า Login หรือ UI แวบขึ้นมาก่อน (ข้อกำหนดข้อ 7)
+     inline ในไฟล์เดียว ไม่ใช่ไฟล์แยก เพราะไฟล์แยกอาจโหลดช้ากว่า render
+     *** บล็อกเฉพาะ "โทรศัพท์มือถือ" *** Tablet / iPad ไม่บล็อก
+     (ตรวจ Source แล้วระบบมี Responsive CSS รองรับ Tablet อยู่ ไม่มีคำสั่งให้ตัด) -->
+<script>
+(function () {
+  var UA = navigator.userAgent || '';
+  var CH = navigator.userAgentData || null;
+
+  /* ── ชั้นที่ 1: Client Hints (Chrome/Edge/Samsung Internet ยุคใหม่) ──
+     ค่านี้ *** ไม่เปลี่ยนตาม Request Desktop Site *** จึงเชื่อถือได้ที่สุด
+     true = โทรศัพท์ · false = ไม่ใช่โทรศัพท์ (รวม Tablet) */
+  if (CH && typeof CH.mobile === 'boolean') {
+    if (CH.mobile === true) return block();
+    /* CH บอกว่าไม่ใช่มือถือ -> เชื่อทันที (กัน false positive บน Desktop) */
+    return;
+  }
+
+  /* ── ชั้นที่ 2: User Agent (Safari iOS / เบราว์เซอร์ที่ไม่มี Client Hints) ──
+     iPad ต้องไม่ติด -> เช็ค iPad ก่อน แล้วค่อยเช็คโทรศัพท์ */
+  var isTabletUA = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(UA);
+  var isPhoneUA  = /iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|BlackBerry|Opera Mini|Mobile.*Firefox/i.test(UA);
+  if (isTabletUA) return;
+  if (isPhoneUA) return block();
+
+  /* ── ชั้นที่ 3: กัน "Request Desktop Site" ──
+     โหมดนี้ปลอม UA เป็น Desktop แต่ *** ปลอมความสามารถของเครื่องไม่ได้ ***
+     ต้องเข้าเงื่อนไขครบทั้ง 3 ข้อจึงถือว่าเป็นโทรศัพท์:
+       1) จอสัมผัสจริง (coarse pointer + ไม่มี hover)
+       2) รองรับ multi-touch
+       3) ด้านสั้นของ "หน้าจอเครื่อง" เล็กระดับโทรศัพท์
+     *** ใช้ screen ไม่ใช่ window *** -> ย่อหน้าต่างบน Desktop ไม่ถูกบล็อก
+     iPadOS 13+ ที่ปลอมเป็น Mac จะไม่ติด เพราะด้านสั้น >= 768 */
+  var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
+  var coarse = mq('(pointer: coarse)') && mq('(hover: none)');
+  var touch  = (navigator.maxTouchPoints || 0) > 1;
+  var shortSide = Math.min(screen.width || 9999, screen.height || 9999);
+  if (coarse && touch && shortSide > 0 && shortSide < 600) return block();
+
+  function block() {
+    window.__NJ_MOBILE_BLOCKED = true;
+    /* หยุดโหลด/รัน bundle: ตัด <script> ของแอปทิ้งก่อน parser จะไปถึง
+       (bundle เป็น defer จึงยังไม่ถูกรัน ณ จุดนี้) */
+    document.addEventListener('DOMContentLoaded', paint);
+    document.write(
+      '<style>html,body{margin:0;height:100%;background:#0d1f3c;' +
+      'font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}' +
+      '#njblk{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}' +
+      '#njblk .b{max-width:420px;text-align:center;color:#e8eef8}' +
+      '#njblk .i{width:64px;height:64px;margin:0 auto 18px;border-radius:16px;' +
+      'background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center}' +
+      '#njblk h1{font-size:19px;line-height:1.5;margin:0 0 10px;font-weight:700}' +
+      '#njblk p{font-size:15px;line-height:1.6;margin:0;color:rgba(232,238,248,.75)}' +
+      '</style>');
+    paint();
+  }
+  function paint() {
+    if (!document.body) return;
+    document.body.innerHTML =
+      '<div id="njblk"><div class="b"><div class="i">' +
+      '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#e8eef8" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>' +
+      '<path d="M3 3l18 18"/></svg></div>' +
+      '<h1>ไม่รองรับการใช้งานบนโทรศัพท์มือถือ</h1>' +
+      '<p>กรุณาเข้าใช้งานระบบผ่านคอมพิวเตอร์เท่านั้น</p></div></div>';
+  }
+})();
+</script>
+<!-- ══ CSS รวมไฟล์เดียว (V.186) ══════════════════════════════════════════
+     เดิม 25 <link> = 25 HTTP request แบบ render-blocking ก่อนวาดจอ
+     รวมด้วย build-css.js ตามลำดับเดิมเป๊ะ -> cascade ไม่เปลี่ยนแม้แต่กฎเดียว
+     (1,492 กฎ ก่อน/หลังเท่ากัน · responsive.css ยังท้ายสุด)
+     228 KB -> 104 KB · 25 requests -> 1 -->
+<!-- เปิดการเชื่อมต่อ CDN ล่วงหน้า (DNS+TLS) ระหว่างที่ยัง parse HTML อยู่ -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<!-- ══ V.341 · เปิดการเชื่อมต่อ Supabase ล่วงหน้า ═══════════════════════════
+     RPC ทุกตัว (njacc_app_status · auth · njacc_my_profile) วิ่งไปที่ origin นี้
+     แต่เดิมมี preconnect เฉพาะ cdn.jsdelivr.net -> DNS + TLS handshake ของ
+     Supabase เพิ่งเริ่มตอน RPC แรกถูกยิง = เสียเวลาต้นทางทุกครั้งที่เปิดระบบ
+     URL ตรงกับ SUPABASE_URL ใน assets/js/core/config.js ทุกตัวอักษร
+     *** ไม่เปลี่ยน URL · ไม่เปลี่ยน Key · เป็น Hint ของเบราว์เซอร์ล้วน *** -->
+<link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://sytgqjglcnsabcszbngg.supabase.co">
+<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local465">
+<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local465">
+<!-- ══ V.334 · Code Splitting (ESM) ══════════════════════════════════════
+     เดิม app.bundle.js = IIFE ก้อนเดียว 653 KB -> ทุกคนโหลด WHT 239 KB ทิ้งเปล่า
+     ตอนนี้ entry = assets/js/app/app.js (~26 KB) · หน้าอื่นเป็น chunk แยก
+     โหลดเมื่อ router เรียก import() ของหน้านั้นจริงเท่านั้น
+     ชื่อ chunk มี hash -> เนื้อหาเปลี่ยน = ชื่อเปลี่ยน = ไม่มีทางติด cache เก่า -->
+<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local465">
+<!-- defer: เดิมไม่มี -> บล็อก HTML parser จนกว่าจะโหลด SDK เสร็จ
+     ใส่ defer แล้วยังรันก่อน app.bundle.js เสมอ (defer รักษาลำดับตามเอกสาร)
+     app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
-<div id="app"><div class="screen"><div class="login-card c"><div class="spin" style="margin:0 auto"></div><div class="muted mt1">กำลังโหลด TRANSPORT NJ...</div></div></div></div>
-<div id="gate" class="hidden"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="assets/js/config.js?v=local154"></script>
-<script src="assets/js/core.js?v=local154"></script>
-<script src="assets/js/office.js?v=local154"></script>
-<script src="assets/js/driver.js?v=local154"></script>
+<div class="login-wrap"><div class="login-card">
+  <div class="login-logo">NJ</div>
+  <h2 class="login-t">BILLING NJ</h2>
+  <p class="login-s">กำลังเปิดระบบ…</p>
+  <div class="load-row"><div class="spin"></div></div>
+</div></div>
+<!-- ══ V.334 ══ ES Module entry — chunk อื่นถูกโหลดตอนเปิดหน้านั้นจริงเท่านั้น
+     type="module" = defer โดยปริยาย -> ยังรันหลัง Supabase SDK (defer) เสมอ ลำดับเดิมไม่เปลี่ยน
+     *** ต้องเปิดผ่าน http(s) หรือ Local Server *** — ES Module เปิดจาก file:// ตรง ๆ ไม่ได้
+     (ข้อจำกัดของเบราว์เซอร์เอง ไม่ใช่ของแอป) ดูวิธีรันใน README ของชุด Open check -->
+<script type="module" src="assets/js/app/app.js?v=1.4.1-local465"></script>
+<!-- ══ V.351 · SDK / Bundle Watchdog ═══════════════════════════════════════
+     ROOT CAUSE ที่แก้ : Supabase SDK โหลดจาก CDN ด้วย <script defer>
+     และ app.js เป็น <script type="module"> (= defer โดยปริยาย)
+     -> Module ถูกรันหลัง deferred script ตามลำดับเอกสารเสมอ
+     ถ้า CDN "ค้าง" (ไม่ตอบ ไม่ error) app-boot.js จะ *** ไม่ถูกรันเลย ***
+     -> Error UI ที่เขียนไว้ใน app-boot.js ไม่มีวันแสดง = Spinner หมุนตลอด
+
+     Watchdog นี้ทำงานอิสระจาก Module ทั้งหมด (inline script ธรรมดา)
+     ครบ 15 วินาทีแล้ว app-boot ยังไม่เริ่ม -> เปลี่ยนเป็น Error UI + ปุ่มลองใหม่
+     *** ไม่ยิง Network · ไม่มี setInterval · ยิงครั้งเดียวแล้วจบ ***
+     app-boot.js ตั้ง window.__NJ_BOOT_STARTED = 1 ทันทีที่เริ่ม -> ยกเลิกตัวเอง
+     15 วิ : CDN ปกติตอบใน < 2 วิ · เผื่อเน็ตช้าระดับ 3G ไว้แล้ว -->
+<script>
+(function () {
+  var SDK_WATCHDOG_MS = 15000;
+  setTimeout(function () {
+    if (window.__NJ_BOOT_STARTED) return;          /* Bundle เริ่มแล้ว = ปกติ */
+    if (window.__NJ_MOBILE_BLOCKED) return;        /* หน้าบล็อกมือถือ ไม่ใช่ความผิดพลาด */
+    document.body.innerHTML = '<div class="login-wrap"><div class="login-card">'
+      + '<div class="login-logo">NJ</div>'
+      + '<h2 class="login-t">เปิดระบบไม่สำเร็จ</h2>'
+      + '<p class="login-s">การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่</p>'
+      + '<div class="load-row"><button class="btn btn-p" id="nj-wd-retry">ลองใหม่</button></div>'
+      + '</div></div>';
+    document.getElementById('nj-wd-retry').onclick = function () { location.reload(); };
+  }, SDK_WATCHDOG_MS);
+})();
+</script>
 </body>
 </html>
