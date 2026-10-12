@@ -6,10 +6,13 @@
   const M = { customers: [], drivers: [], vehicles: [], locations: [], at: 0 };
   const isMobile = () => window.innerWidth <= 640;
 
+  let mP = null; // โหลดซ้อน (หลายหน้า/หลายส่วนพร้อมกัน) = ใช้ Request เดียวกัน
   async function loadMasters(force) {
     if (!force && Date.now() - M.at < 60000) return M;
-    const [c, d, v, l] = await Promise.all(['customers', 'drivers', 'vehicles', 'locations'].map((k) => T.auth('tnj_master_list', { p_kind: k }, { silent: true })));
-    Object.assign(M, { customers: c, drivers: d, vehicles: v, locations: l, at: Date.now() }); return M;
+    if (!force && mP) return mP;
+    const p = (async () => { const [c, d, v, l] = await Promise.all(['customers', 'drivers', 'vehicles', 'locations'].map((k) => T.auth('tnj_master_list', { p_kind: k }, { silent: true })));
+      Object.assign(M, { customers: c, drivers: d, vehicles: v, locations: l, at: Date.now() }); return M; })();
+    mP = p; try { return await p; } finally { if (mP === p) mP = null; }
   }
   const opts = (arr, val, label, sel, empty = '— เลือก —') => `<option value="">${empty}</option>` + arr.map((x) => `<option value="${h(x[val])}" ${String(x[val]) === String(sel || '') ? 'selected' : ''}>${h(typeof label === 'function' ? label(x) : x[label])}</option>`).join('');
   const stOpts = (sel, list) => (list || T.STATUS).map((s) => `<option value="${s}" ${s === sel ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('');
@@ -552,10 +555,10 @@
   }
   // 📍 GPS: ข้อมูลเดิม tnj_live_vehicles + Master รถ (ไม่สร้างตำแหน่งเอง)
   async function pageMGps(page) {
-    await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
+    const lf = T.leaflet(); lf.catch(() => { }); await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
     page.innerHTML = `<div class="m-page"><div class="m-search"><input class="inp" id="mgQ" placeholder="🔍 ค้นหาทะเบียน / คนขับ" autocomplete="off"></div><div class="map m-map" id="mgMap"></div>
       <div class="m-sum" id="mgSum"></div><div class="flex between m-sec"><b>🚛 รถทั้งหมด</b><button type="button" class="btn btn-sm" id="mgRef">🔄 รีเฟรช</button></div><div id="mgList"></div></div>`;
-    const map = mkMap($('#mgMap')); const layer = L.layerGroup().addTo(map); const mk = {}; let rows = [], fitted = false;
+    await lf; if (!$('#mgMap')) return; const map = mkMap($('#mgMap')); const layer = L.layerGroup().addTo(map); const mk = {}; let rows = [], fitted = false;
     const ST = { on: ['🟢', 'Online', 'green'], park: ['🟠', 'จอด', 'amber'], off: ['⚪', 'Offline', 'gray'] };
     const stOf = (lv) => { if (!lv || lv.lat == null || lv.gps_stale) return 'off'; return (Number(lv.speed || 0) * 3.6) >= 1 ? 'on' : 'park'; };
     const draw = () => {
@@ -616,7 +619,7 @@
       <div id="lm"></div>
       <div class="card mt2"><div class="card-h"><h3>รายการงานวันนี้ <span class="muted small" id="tdCount"></span></h3><div class="flex"><input class="inp" id="tdQ" placeholder="ค้นหา..." style="width:180px"><a class="btn btn-sm btn-p" href="#/jobs?date=${date}">ดูทั้งหมด</a></div></div><div id="tdList"></div></div>`;
     $('#dbDate').onchange = (e) => T.go('dashboard?date=' + e.target.value);
-    liveMap($('#lm'));
+    T.leaflet().then(() => { if ($('#lm')) liveMap($('#lm')); }).catch((e) => T.err(e)); // แผนที่โหลดแยก — ตัวเลข / รายการงานไม่ต้องรอ
     const loadCounts = async () => { try { const d = await T.auth('tnj_dashboard_counts', { p_date: date }, { silent: true }); CARDS.forEach(([k]) => { const el = $('#st_' + k); if (el) el.textContent = d[k]; }); const n = $('#bellN'); if (n) { n.textContent = d.problem_open; n.classList.toggle('hidden', !d.problem_open); } } catch (e) { console.warn(e); } };
     const loadList = async () => { try { const d = await T.auth('tnj_job_list', { p: { job_date: date, statuses: stFilter, q: $('#tdQ').value.trim(), page_size: 200 } }, { silent: true }); $('#tdCount').textContent = `(${d.total})`; $('#tdList').innerHTML = jobsTable(d.rows); bindJobRows($('#tdList'), loadList); } catch (e) { console.warn(e); } };
     $$('#stats .stat').forEach((c) => c.onclick = () => { const def = CARDS.find((x) => x[0] === c.dataset.k); const same = c.classList.contains('active'); $$('#stats .stat').forEach((x) => x.classList.remove('active')); if (same || !def[3]) { stFilter = null; } else { c.classList.add('active'); stFilter = def[3]; } loadList(); });
@@ -639,6 +642,7 @@
       && (!F.st || j.tl_status === F.st || j.status === F.st);
   };
   async function pageJobs(page, r) {
+    let pre = T.auth('tnj_job_list', { p: Object.assign({}, r.q.q ? { q: r.q.q } : {}, { page: 1, page_size: 500 }) }, { silent: true }); pre.catch(() => { }); // หน้าแรกโหลดพร้อม Masters
     await loadMasters(); const q = r.q; let pageNo = Number(q.page || 1); const hl = q.hl || ''; let hlDone = false; const PS = 50;
     const F = { job_date: q.date || '', customer: q.customer || '', bl: '', container: '', sched: '', driver: '', st: q.status || '' };
     let all = [], mode = null;
@@ -668,7 +672,7 @@
     };
     const load = async () => { try {
       let rows = [], pg = 1, total = 0; const base = q.q ? { q: q.q } : {};
-      do { const d = await T.auth('tnj_job_list', { p: Object.assign({}, base, { page: pg, page_size: 500 }) }, { silent: true }); rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 200);
+      do { const d = pg === 1 && pre ? await pre : await T.auth('tnj_job_list', { p: Object.assign({}, base, { page: pg, page_size: 500 }) }, { silent: true }); if (pg === 1) pre = null; rows = rows.concat(d.rows); total = d.total; pg++; } while (rows.length < total && pg < 200);
       if (!$('#jList')) return; all = rows; if (!$('#jBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
     } catch (e) { T.err(e); } };
     // ปุ่ม 📈 รายงาน / ⛽ รายงานไมล์-น้ำมัน ด้านบนถูกซ่อน (ซ้ำกับ Sidebar) — Function รายงานเดิมยังอยู่ครบ
@@ -887,7 +891,7 @@
           <div class="card card-b"><h3 class="mb1">↩️ จุดคืนตู้</h3><div class="kv"><div class="k">สถานที่</div><div class="v">${loc(job.return_location_text, job.return_loc)}</div><div class="k">วัน/เวลา</div><div class="v">${T.fmtD(job.return_date)} ${T.fmtT(job.return_time)} น.</div><div class="k">หมายเหตุ</div><div class="v">${h(job.return_note || '-')}</div></div></div></div></div>`;
       } else if (tab === 'gps') {
         body.innerHTML = `<div class="card card-b"><div class="flex between mb1"><div><b>ตำแหน่งรถ</b> <span class="${job.gps_stale ? 'gps-stale' : 'gps-ok'}">${h(job.last_gps_at ? T.ago(job.last_gps_at) : 'ไม่มี GPS')}</span>${job.last_speed != null && !job.gps_stale ? ` · ${Math.round(job.last_speed * 3.6)} กม./ชม.` : ''}</div><div class="flex"><label class="check"><input type="checkbox" id="gpRoute" checked> เส้นทางย้อนหลัง</label><button class="btn btn-sm" id="gpRefresh">รีเฟรช</button></div></div><div class="map" id="jdMap"></div><div id="gpPts" class="small muted mt1"></div></div>`;
-        map = mkMap($('#jdMap', body)); const lay = L.layerGroup().addTo(map); const pts = [];
+        await T.leaflet(); if (!$('#jdMap', body)) return; map = mkMap($('#jdMap', body)); const lay = L.layerGroup().addTo(map); const pts = [];
         [['pickup_loc', 'pickup_location_text', '#F08A1E', '📍'], ['factory_loc', 'factory_location_text', '#1E6FE8', '🏭'], ['return_loc', 'return_location_text', '#0F9D9A', '↩']].forEach(([lk, tk, c, e]) => { const l = job[lk]; if (l && l.latitude && l.longitude) { L.marker([l.latitude, l.longitude], { icon: pinIcon(c, e) }).bindPopup(`<b>${h(job[tk])}</b>`).addTo(lay); pts.push([l.latitude, l.longitude]); } });
         const drawRoute = async () => { try { const r = await T.auth('tnj_gps_route', { p_job_id: job.id }, { silent: true }); if ($('#gpRoute', body).checked && r.points.length) { L.polyline(r.points.map((p) => [p.lat, p.lng]), { color: '#1E6FE8', weight: 4, opacity: .8 }).addTo(lay); r.points.forEach((p) => L.circleMarker([p.lat, p.lng], { radius: 3, color: '#1E6FE8', fillOpacity: .8 }).bindTooltip(`${T.fmtDT(p.t)}${p.speed != null ? ' · ' + Math.round(p.speed * 3.6) + ' กม./ชม.' : ''}`).addTo(lay)); } $('#gpPts', body).textContent = `จุด GPS ทั้งหมด ${r.points.length} จุด`; if (r.points.length) pts.push(...r.points.slice(-50).map((p) => [p.lat, p.lng])); if (job.last_lat != null) { L.marker([job.last_lat, job.last_lng], { icon: truckIcon('factory', job.gps_stale) }).bindPopup(`<b>${h(job.license_plate || '')}</b> ${h(job.driver_name || '')}<br>${h(T.ago(job.last_gps_at))}`).addTo(lay).openPopup(); pts.push([job.last_lat, job.last_lng]); } if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 14 }); } catch (e) { console.warn(e); } };
         drawRoute(); $('#gpRefresh', body).onclick = reload; $('#gpRoute', body).onchange = reload;
@@ -963,11 +967,11 @@
   const gmIcon = (plate, st, sel) => L.divIcon({ className: 'truck-marker gm-mk', html: `<div class="gm-pin ${st}${sel ? ' sel' : ''}"><div class="gm-plate">${h(plate)}</div><div class="gm-truck">🚛</div></div>`, iconSize: [96, 52], iconAnchor: [48, 52], popupAnchor: [0, -50] });
   const gmTime = (t) => { if (!t) return '-'; const b = bkk(t), today = bkk(new Date(Date.now() + (T.server.offsetMs || 0)).toISOString()).date; return b.date === today ? b.time : `${hlDMY(b.date)} ${b.time}`; };
   async function pageMap(page) {
-    await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
+    const lf = T.leaflet(); lf.catch(() => { }); await loadMasters(); // ดูอย่างเดียว: ใช้ Cache 60 วิ (หน้าจัดการข้อมูล/ฟอร์ม ยังโหลดใหม่ทุกครั้ง)
     page.innerHTML = `<div class="page-head"><h1>แผนที่ GPS</h1><div class="flex flex-wrap gm-bar"><label class="gm-lbl" for="gmPlate">ทะเบียนรถ</label><select class="inp" id="gmPlate"><option value="">ทั้งหมด</option></select><span class="small muted" id="gmUpd"></span></div></div>
       <div class="gm-wrap"><div class="card gm-mapcard"><div class="map tall" id="gmMap"></div><div class="small muted gm-route" id="gmRoute"></div></div>
       <div class="card gm-side"><div class="gm-sum" id="gmSum"></div><div id="gmList"></div></div></div>`;
-    const map = mkMap($('#gmMap')); const layer = L.layerGroup().addTo(map), rLayer = L.layerGroup().addTo(map); const mk = {}; let rows = [], sel = '', fitted = false, routeJob = null;
+    await lf; if (!$('#gmMap')) return; const map = mkMap($('#gmMap')); const layer = L.layerGroup().addTo(map), rLayer = L.layerGroup().addTo(map); const mk = {}; let rows = [], sel = '', fitted = false, routeJob = null;
     const popup = (x) => { const lv = x.live || {}; const [ic, lb] = GM_ST[x.st]; return `<div class="gm-pop"><div><span class="muted">ทะเบียน:</span> <b>${h(x.plate)}</b></div><div><span class="muted">คนขับ:</span> ${h(x.driver || '-')}</div><div><span class="muted">สถานะ:</span> ${ic} ${lb}</div><div><span class="muted">ความเร็ว:</span> ${lv.lat != null ? Math.round(Number(lv.speed || 0) * 3.6) + ' กม./ชม.' : '-'}</div>
       <div><span class="muted">ตำแหน่งล่าสุด:</span> ${lv.lat != null ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${lv.lat},${lv.lng}">${Number(lv.lat).toFixed(5)}, ${Number(lv.lng).toFixed(5)}</a>` : '-'}</div><div><span class="muted">อัปเดตล่าสุด:</span> ${gmTime(lv.last_gps_at)}</div>${lv.job_id ? `<div><span class="muted">งาน:</span> <a href="#/jobs/${lv.job_id}">${h(lv.customer_name || 'ดูงาน')}</a></div>` : ''}
       <button type="button" class="btn btn-sm btn-p gm-rt" data-route="${h(x.plate)}">ดูเส้นทาง</button></div>`; };
@@ -1594,7 +1598,7 @@
     if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN / ADMIN เท่านั้น</div>'; return; }
     const today = flBkkToday(); const P0 = dpPeriod(today);
     const S = { tab: 'daily', d: { from: today, to: today, drv: '' }, p: { period: P0.start, from: P0.start, to: P0.end, drv: '' }, h: { drv: '', from: P0.start, to: P0.end }, e: { period: P0.start, edit: null } };
-    let src = null, fuel = null, srcKey = '', seq = 0;
+    let src = null, fuel = null, srcKey = '', seq = 0; const DPC = { src: new Map(), fuel: null }; // Cache 60 วิ · force (บันทึก / ค้นหา) = ล้างทั้งหมด
     const periods = (() => { const a = []; let p = dpPeriod(today); for (let i = 0; i < 2; i++) { const [y, m] = p.end.split('-').map(Number); p = dpPeriod(dpYmd(y, m, 26)); } // รวมงวดล่วงหน้า 2 งวด (กรอกเบิกล่วงหน้าไว้ก่อนได้)
       for (let i = 0; i < 15; i++) { a.push(p); const [y, m] = p.start.split('-').map(Number); p = dpPeriod(dpYmd(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, 26)); } return a; })();
     S.h.from = periods[Math.min(4, periods.length - 1)].start; // ประวัติย้อนหลัง 3 งวดล่าสุด (ค่าเริ่มต้น)
@@ -1605,17 +1609,19 @@
       <div id="dpBody"></div></div>`;
     // ---- โหลดข้อมูล (ช่วงที่ต้องใช้) · โหลดซ้อน = ใช้ผลล่าสุดเท่านั้น ----
     const load = async (from, to, force) => {
-      const k = from + '|' + to; if (!force && src && srcKey === k) return true; const my = ++seq;
+      const k = from + '|' + to; if (!force && src && srcKey === k) return true; const my = ++seq; const now = Date.now();
+      if (force) { DPC.src.clear(); DPC.fuel = null; } const cs = DPC.src.get(k), cf = DPC.fuel; const hit = (x) => x && now - x.at < 60000;
       try { T.loading(true);
-        const [s, fl, un, fs] = await Promise.all([T.auth('tnj_driver_pay_source', { p_from: from, p_to: to }, { silent: true }), T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true }),
-          T.auth('tnj_fuel_report_units', {}, { silent: true }).catch(() => []), T.auth('tnj_fuel_status_list', {}, { silent: true }).catch(() => ({}))]);
+        const [s, [fl, un, fs]] = await Promise.all([hit(cs) ? cs.v : T.auth('tnj_driver_pay_source', { p_from: from, p_to: to }, { silent: true }),
+          hit(cf) ? cf.v : Promise.all([T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true }), T.auth('tnj_fuel_report_units', {}, { silent: true }).catch(() => []), T.auth('tnj_fuel_status_list', {}, { silent: true }).catch(() => ({}))])]);
+        if (!hit(cs)) DPC.src.set(k, { at: now, v: s }); if (!hit(cf)) DPC.fuel = { at: now, v: [fl, un, fs] };
         if (my !== seq || !$('#dpBody')) return false;
         const drivers = s.drivers || []; const units = dpIncomeUnits(s.jobs, drivers); const ded = dpFuelDeducts(fl.rows || [], Array.isArray(un) ? un : [], fs && typeof fs === 'object' ? fs : {}, drivers);
         // ซ่อนคนขับใน DP.HIDE: จับคู่ Key ด้วยรายชื่อเต็มก่อน แล้วตัดออกจากทุกชุดข้อมูล (รายวัน / งวด / ประวัติ / ตัวเลือกคนขับ / ยอดรวม / Export)
         const hideK = new Set(drivers.filter((d) => dpHideName(d.full_name)).map((d) => 'D:' + d.id)); const hid = (dk, name) => hideK.has(dk) || dpHideName(name) || (!!dk && dk.startsWith('N:') && dpHideName(dk.slice(2)));
         src = Object.assign({}, s, { drivers: drivers.filter((d) => !hideK.has('D:' + d.id)), units: units.filter((u) => !hid(u.dk, u.driver_name)), items: (s.items || []).filter((i) => !hideK.has('D:' + i.driver_id)), snapshots: (s.snapshots || []).filter((x) => !hideK.has('D:' + x.driver_id)), adjusts: (s.adjusts || []).filter((x) => !hideK.has('D:' + x.driver_id)) }); srcKey = k;
         fuel = ded.filter((x) => !hid(x.dk, x.driver_name)); return true;
-      } catch (e) { if (my === seq) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); return false; } finally { if (my === seq) T.loading(false); }
+      } catch (e) { if (my === seq) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); return false; } finally { T.loading(false); } // ลดทุกครั้ง (โหลดซ้อนก็ไม่ค้าง)
     };
     const dName = (dk) => { if (!dk) return '-'; if (dk.startsWith('D:')) { const d = (src.drivers || []).find((x) => 'D:' + x.id === dk); if (d) return d.full_name; } const u = src.units.find((x) => x.dk === dk); return (u && u.driver_name) || dk.slice(2); };
     const drvOpts = (sel) => `<option value="">ทั้งหมด</option>` + (src ? src.drivers : []).filter((d) => d.is_active !== false || sel === 'D:' + d.id).map((d) => `<option value="D:${h(d.id)}"${sel === 'D:' + d.id ? ' selected' : ''}>${h(d.full_name)}</option>`).join('');

@@ -3,8 +3,11 @@
   'use strict';
   const C = self.TNJ_CONFIG;
   const fatal = (title, detail) => { const a = document.getElementById('app'); if (a) a.innerHTML = `<div class="screen"><div class="login-card c"><h2 style="color:var(--red)">❌ ${title}</h2><p class="muted">${detail}</p><button class="btn btn-p btn-block" onclick="location.reload()">ลองใหม่</button><div class="xs muted mt1">LOCAL VERSION: ${(C && C.APP_VERSION) || '-'}</div></div></div>`; };
-  if (!C || !window.supabase || !window.L) { document.addEventListener('DOMContentLoaded', () => fatal('โหลดไลบรารีของระบบไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต (ต้องโหลด Supabase / Leaflet จาก CDN) แล้วกด ลองใหม่')); return; }
-  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (!C || !window.supabase) { document.addEventListener('DOMContentLoaded', () => fatal('โหลดไลบรารีของระบบไม่สำเร็จ', 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต (ต้องโหลด Supabase / Leaflet จาก CDN) แล้วกด ลองใหม่')); return; }
+  const RPC_TIMEOUT_MS = 30000; // Request RPC ค้างนานเกิน = ยกเลิก + แจ้ง "เชื่อมต่อไม่สำเร็จ" (ไม่หมุนค้าง)
+  const tFetch = (url, o = {}) => { if (o.signal || !/\/rest\/v1\/rpc\//.test(String(url))) return fetch(url, o); const ac = new AbortController(); let to = false; const tm = setTimeout(() => { to = true; ac.abort(); }, RPC_TIMEOUT_MS);
+    return fetch(url, Object.assign({}, o, { signal: ac.signal })).catch((e) => { throw to ? new TypeError('Failed to fetch (หมดเวลาเชื่อมต่อ ' + RPC_TIMEOUT_MS / 1000 + ' วินาที)') : e; }).finally(() => clearTimeout(tm)); };
+  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: tFetch } });
 
   const T = window.TNJ = {
     C, sb, session: null, settings: { gps_interval_sec: 30, gps_stale_min: 5 }, server: { version: null, maintenance_active: false, offsetMs: 0 },
@@ -54,7 +57,16 @@
   /* ---------- toast / loading / modal ---------- */
   T.toast = (msg, type = '', ms = 3200) => { let box = $('#toasts'); if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.appendChild(box); } const el = document.createElement('div'); el.className = 'toast ' + type; el.textContent = msg; box.appendChild(el); setTimeout(() => el.remove(), ms); };
   let loadN = 0;
-  T.loading = (on) => { loadN = Math.max(0, loadN + (on ? 1 : -1)); let el = $('#loading'); if (loadN && !el) { el = document.createElement('div'); el.id = 'loading'; el.className = 'loading'; el.innerHTML = '<div class="spin"></div>'; document.body.appendChild(el); } if (!loadN && el) el.remove(); };
+  let loadWd = null; // Watchdog: Loading แสดงต่อเนื่องเกิน 40 วิ (เกิน RPC Timeout) = ปิดเอง + แจ้งลองใหม่ → ไม่มีวงกลมหมุนค้าง
+  T.loading = (on) => { loadN = Math.max(0, loadN + (on ? 1 : -1)); let el = $('#loading'); if (loadN && !el) { el = document.createElement('div'); el.id = 'loading'; el.className = 'loading'; el.innerHTML = '<div class="spin"></div>'; document.body.appendChild(el); }
+    if (loadN && !loadWd) loadWd = setTimeout(() => { loadWd = null; if (loadN) { T.loading.reset(); T.toast('การเชื่อมต่อช้า — กรุณาลองใหม่อีกครั้ง', 'warn', 5000); } }, 40000);
+    if (!loadN) { if (el) el.remove(); if (loadWd) { clearTimeout(loadWd); loadWd = null; } } };
+  T.loading.reset = () => { loadN = 0; const el = $('#loading'); if (el) el.remove(); if (loadWd) { clearTimeout(loadWd); loadWd = null; } };
+  // Leaflet (แผนที่) โหลดเฉพาะเมื่อเข้าเมนูที่มีแผนที่ — ไม่ถ่วงการเปิดแอป · โหลดครั้งเดียว · ล้มเหลว = ลองใหม่ได้ครั้งถัดไป
+  const LF = 'https://unpkg.com/leaflet@1.9.4/dist/'; let lfP = null;
+  const lfTag = (tag, attrs) => new Promise((res, rej) => { const e = document.createElement(tag); Object.assign(e, attrs); e.crossOrigin = ''; e.onload = res; e.onerror = () => rej(new TypeError('Failed to fetch (โหลดแผนที่ไม่สำเร็จ)')); document.head.appendChild(e); });
+  T.leaflet = () => { if (window.L && window.L.map) return Promise.resolve(window.L); if (lfP) return lfP;
+    lfP = Promise.all([lfTag('link', { rel: 'stylesheet', href: LF + 'leaflet.css' }), lfTag('script', { src: LF + 'leaflet.js' })]).then(() => window.L).catch((e) => { lfP = null; throw e; }); return lfP; };
   T.modal = (opt) => {
     const ov = document.createElement('div'); ov.className = 'overlay' + (opt.sheet ? ' sheet' : '');
     ov.innerHTML = `<div class="modal ${opt.size || ''}" role="dialog"><div class="modal-h"><h3>${T.h(opt.title || '')}</h3><button class="x" data-x>×</button></div><div class="modal-b">${opt.body || ''}</div>${opt.foot != null ? `<div class="modal-f">${opt.foot}</div>` : ''}</div>`;
@@ -295,7 +307,7 @@
     if (r.path === 'login' || r.path === '') { location.hash = isDrv ? '#/d/jobs' : '#/jobs'; return; }
     if (isDrv && r.seg[0] !== 'd') { location.hash = '#/d/jobs'; return; }
     if (!isDrv && r.seg[0] === 'd') { location.hash = '#/jobs'; return; }
-    T.stopRealtime();
+    T.stopRealtime(); T.loading.reset(); // เปลี่ยนหน้า = ไม่มี Loading ค้างจากหน้าเดิม
     try { if (isDrv) await T.pages.driver(app, r); else await T.pages.office(app, r); } catch (e) { T.err(e); }
   };
 
@@ -312,15 +324,17 @@
   /* ---------- boot ---------- */
   T.boot = async () => {
     T.loadSession();
+    const sessP = T.session ? T.rpc('tnj_session_check', { p_token: T.session.token }, { silent: true }) : null; if (sessP) sessP.catch(() => { }); // เริ่มพร้อม Version check (ลดรอ 1 รอบ)
     await T.checkVersion(true);
     if (T.server.maintenance_active) return;
-    if (T.session) { try { const d = await T.rpc('tnj_session_check', { p_token: T.session.token }, { silent: true }); T.applySettings(d); T.session = Object.assign({}, T.session, { role: d.role, driver_id: d.driver_id, full_name: d.full_name }); } catch (e) { const p = T.parseErr(e); if (p.code === 'TNJ_MAINTENANCE') { T.checkVersion(true); return; } if (p.code) { T.saveSession(null); T.session = null; if (p.code === 'TNJ_SESSION_INVALID' || p.code === 'TNJ_VERSION_MISMATCH') T.toast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warn', 5000); } else if (T.isNetErr(e) || T.isNotInstalled(e)) T.connError(e); } }
+    if (T.session) { try { const d = await sessP; T.applySettings(d); T.session = Object.assign({}, T.session, { role: d.role, driver_id: d.driver_id, full_name: d.full_name }); } catch (e) { const p = T.parseErr(e); if (p.code === 'TNJ_MAINTENANCE') { T.checkVersion(true); return; } if (p.code) { T.saveSession(null); T.session = null; if (p.code === 'TNJ_SESSION_INVALID' || p.code === 'TNJ_VERSION_MISMATCH') T.toast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warn', 5000); } else if (T.isNetErr(e) || T.isNotInstalled(e)) T.connError(e); } }
     window.addEventListener('hashchange', () => { T.checkVersion(); T.render(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') T.checkVersion(true); });
     window.addEventListener('focus', () => T.checkVersion());
     window.addEventListener('online', () => { T.checkVersion(true); T.toast('กลับมาออนไลน์แล้ว', 'ok'); });
     window.addEventListener('offline', () => T.toast('ออฟไลน์ — ข้อมูลจะถูกส่งเมื่อกลับมาออนไลน์', 'warn'));
     setInterval(() => T.checkVersion(), C.VERSION_CHECK_SEC * 1000);
+    setTimeout(() => { const pre = () => T.leaflet().catch(() => { }); if (window.requestIdleCallback) requestIdleCallback(pre, { timeout: 1500 }); else pre(); }, 1200); // โหลดแผนที่ล่วงหน้าหลังหน้าแรกพร้อม (ไม่ถ่วงหน้าแรก)
     if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('sw.js').catch(() => { }); navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'TNJ_NEW_SW') T.checkVersion(true); }); }
     T.render();
   };
