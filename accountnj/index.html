@@ -20,7 +20,7 @@
 <noscript><link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"></noscript>
 <!-- BUILD CACHE KEY: ใช้บังคับโหลด JS ใหม่ได้โดยไม่เปลี่ยน semantic APP_VERSION; APP_VERSION ต้องตรง deploy_version ใน DB -->
-<script>window.__BUILD='1.4.1-local468';</script>
+<script>window.__BUILD='1.4.1-local471';</script>
 <!-- ══ MOBILE BLOCK — ต้องอยู่ใน <head> ก่อน CSS/HTML ใด ๆ ══════════════════
      ทำงานก่อน app.bundle.js (ซึ่งเป็น defer = รันหลัง HTML parse เสร็จ)
      -> ผู้ใช้มือถือไม่มีทางเห็นหน้า Login หรือ UI แวบขึ้นมาก่อน (ข้อกำหนดข้อ 7)
@@ -107,18 +107,42 @@
      *** ไม่เปลี่ยน URL · ไม่เปลี่ยน Key · เป็น Hint ของเบราว์เซอร์ล้วน *** -->
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://sytgqjglcnsabcszbngg.supabase.co">
-<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local468">
-<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local468">
+<link rel="preload" as="style" href="assets/css/app.bundle.css?v=1.4.1-local471">
+<link rel="stylesheet" href="assets/css/app.bundle.css?v=1.4.1-local471">
 <!-- ══ V.334 · Code Splitting (ESM) ══════════════════════════════════════
      เดิม app.bundle.js = IIFE ก้อนเดียว 653 KB -> ทุกคนโหลด WHT 239 KB ทิ้งเปล่า
      ตอนนี้ entry = assets/js/app/app.js (~26 KB) · หน้าอื่นเป็น chunk แยก
      โหลดเมื่อ router เรียก import() ของหน้านั้นจริงเท่านั้น
      ชื่อ chunk มี hash -> เนื้อหาเปลี่ยน = ชื่อเปลี่ยน = ไม่มีทางติด cache เก่า -->
-<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local468">
+<link rel="modulepreload" href="assets/js/app/app.js?v=1.4.1-local471">
+<!-- ══ V.469 perf · Preload chunk ที่ Boot ต้องใช้ (static import ของ app.js ทั้งหมด) ════
+     เดิมเบราว์เซอร์รู้ชื่อ chunk ต่อเมื่อโหลด app.js เสร็จ -> Network อีก 1 ชั้นเต็ม ๆ
+     รายการนี้ *** สร้างจากผล build จริงโดย build-preload.js *** (ชื่อมี hash เปลี่ยนทุก build)
+     href ไม่มี ?v= โดยตั้งใจ : ต้องตรงกับ URL ที่ Module Loader ขอ ("./chunk-XXXX.js") ไม่งั้นโหลดซ้ำ
+     วัดจริง HTTP/1.1 : page_ready 1,250 -> 1,170 ms (LAT 100 · RPC 200) · HTTP/2 ก็ได้ประโยชน์เช่นกัน -->
+<!-- NJ:PRELOAD:START (สร้างโดย build-preload.js — ห้ามแก้มือ) -->
+<link rel="modulepreload" href="assets/js/app/chunk-SGWIBJH6.js">
+<link rel="modulepreload" href="assets/js/app/chunk-4ATLROGD.js">
+<link rel="modulepreload" href="assets/js/app/chunk-GDT6F23K.js">
+<link rel="modulepreload" href="assets/js/app/chunk-2WNIAFEA.js">
+<link rel="modulepreload" href="assets/js/app/chunk-L5Z2NDJ3.js">
+<link rel="modulepreload" href="assets/js/app/chunk-2B2FLIKC.js">
+<link rel="modulepreload" href="assets/js/app/chunk-Q7FMECGI.js">
+<link rel="modulepreload" href="assets/js/app/chunk-OFOOXWUM.js">
+<link rel="modulepreload" href="assets/js/app/chunk-YM5GFE6V.js">
+<link rel="modulepreload" href="assets/js/app/chunk-PCFU74ZV.js">
+<link rel="modulepreload" href="assets/js/app/chunk-DIH2PLYD.js">
+<!-- NJ:PRELOAD:END -->
 <!-- defer: เดิมไม่มี -> บล็อก HTML parser จนกว่าจะโหลด SDK เสร็จ
      ใส่ defer แล้วยังรันก่อน app.bundle.js เสมอ (defer รักษาลำดับตามเอกสาร)
-     app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+     app-boot.js เช็ค window.supabase อยู่แล้ว จึงไม่กระทบ Flow
+     ══ V.469 perf · Supabase SDK เก็บไว้ในโปรเจกต์เอง (เดิม cdn.jsdelivr.net …@2 ลอยเวอร์ชัน) ══
+     · ตัด DNS + TLS + การเชื่อมต่อไปโดเมนที่ 3 ออกจากเส้นทางวิกฤตตอนเปิดระบบ
+       (CHANGELOG V.351 : เคยเกิด SDK จาก CDN ค้างจนต้องมี Watchdog — Watchdog ยังอยู่ครบ)
+     · ล็อกเวอร์ชัน 2.117.3 (= เวอร์ชันที่ @2 ชี้อยู่ ณ วันทำ) -> พฤติกรรมไม่เปลี่ยนเองเมื่อ CDN ปล่อยรุ่นใหม่
+     · ชื่อไฟล์มีเลขเวอร์ชัน = เนื้อไม่เปลี่ยนตามรุ่นแอป -> ไม่ต้องโหลดใหม่ทุก Deploy (อัปเกรด SDK = เปลี่ยนชื่อไฟล์)
+     · ไฟล์เดียวกับ npm @supabase/supabase-js@2.117.3/dist/umd/supabase.js ทุก byte (ดู assets/vendor/README.txt) -->
+<script defer src="assets/vendor/supabase-js-2.117.3.js"></script>
 </head>
 <body>
 <div class="login-wrap"><div class="login-card">
@@ -131,7 +155,7 @@
      type="module" = defer โดยปริยาย -> ยังรันหลัง Supabase SDK (defer) เสมอ ลำดับเดิมไม่เปลี่ยน
      *** ต้องเปิดผ่าน http(s) หรือ Local Server *** — ES Module เปิดจาก file:// ตรง ๆ ไม่ได้
      (ข้อจำกัดของเบราว์เซอร์เอง ไม่ใช่ของแอป) ดูวิธีรันใน README ของชุด Open check -->
-<script type="module" src="assets/js/app/app.js?v=1.4.1-local468"></script>
+<script type="module" src="assets/js/app/app.js?v=1.4.1-local471"></script>
 <!-- ══ V.351 · SDK / Bundle Watchdog ═══════════════════════════════════════
      ROOT CAUSE ที่แก้ : Supabase SDK โหลดจาก CDN ด้วย <script defer>
      และ app.js เป็น <script type="module"> (= defer โดยปริยาย)
