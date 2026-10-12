@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-I">
+<meta name="sfz-build" content="1008-K">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1405,6 +1405,132 @@ body:has(.modal-back.show){overflow:hidden}
 }
 .ex-home-tbl tbody tr:last-child td, .ex-ltbl tbody tr:last-child td{ border-bottom:0 !important }
 </style>
+<style>
+/* ===== 🔵 ดำเนินตรวจปล่อย (Desktop) — ตารางเต็มจอ · ความกว้างสมดุล · แถวกระชับ =====
+   ต้นเหตุเดิม: ความกว้างคอลัมน์ผูกกับลำดับ nth-child · เมื่อแทรกคอลัมน์ 📅 วันที่ ทุกช่องหลังจากนั้นเลื่อน 1 ตำแหน่ง
+   → เลขใบขนไม่มีความกว้าง ถูกบีบเป็นตัวอักษรแนวตั้ง · td.td-actions เป็น display:flex จึงหลุดจากโครงตาราง ดูดพื้นที่เหลือทั้งหมด
+   แก้ด้วย table-layout:fixed + ความกว้างตามลำดับคอลัมน์ปัจจุบัน (เฉพาะ CSS · ไม่แตะข้อมูล/Logic) */
+@media (min-width:761px){
+  .content .tbl-doc.tbl-recv{
+    width:100% !important; min-width:1140px !important; table-layout:fixed !important;
+  }
+  /* ลำดับคอลัมน์ปัจจุบัน: 1 JOB · 2 เร่งด่วน · 3 บริษัท · 4 ประเภท(ซ่อน) · 5 วันที่ · 6 รายละเอียด · 7 เลขใบขน
+     8 ท่านำเข้า(ซ่อน) · 9 จำนวน · 10 ชิปปิ้ง/ผู้สั่งงาน · 11 ผู้สั่งงาน(ซ่อน) · 12 เวลา(ซ่อน) · 13 สถานะ · 14 LEAD(ซ่อน) · 15 จัดการ */
+  .content .tbl-doc.tbl-recv thead th{width:auto !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(1){width:72px !important}    /* JOB NO */
+  .content .tbl-doc.tbl-recv thead th:nth-child(2){width:90px !important}    /* เร่งด่วน */
+  .content .tbl-doc.tbl-recv thead th:nth-child(5){width:100px !important}   /* 📅 วันที่ */
+  .content .tbl-doc.tbl-recv thead th:nth-child(7){width:176px !important}   /* 📄 เลขใบขน */
+  .content .tbl-doc.tbl-recv thead th:nth-child(9){width:74px !important}    /* จำนวน */
+  .content .tbl-doc.tbl-recv thead th:nth-child(10){width:136px !important}  /* ชิปปิ้ง / ผู้สั่งงาน */
+  .content .tbl-doc.tbl-recv thead th:nth-child(15){width:240px !important}  /* การจัดการ (ปุ่ม 3 ตัว 219px + ขอบ 16px) */
+  /* บริษัท · รายละเอียด · สถานะ = แบ่งพื้นที่ที่เหลือเท่ากัน (ยืดตามจอ) */
+
+  /* หัวตาราง: ขึ้นบรรทัดตามคำ ไม่แตกเป็นตัวอักษร */
+  .content .tbl-doc.tbl-recv thead th{
+    white-space:normal !important; word-break:normal !important; overflow-wrap:normal !important;
+    line-height:1.3; vertical-align:middle !important
+  }
+
+  /* แถวกระชับ · ข้อความยาวตัด … (ดูเต็มได้จาก tooltip เดิม) */
+  .content .tbl-doc.tbl-recv tbody td{
+    vertical-align:middle !important; padding-top:9px !important; padding-bottom:9px !important;
+    white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
+    word-break:normal !important; overflow-wrap:normal !important; width:auto !important
+  }
+  .content .tbl-doc.tbl-recv tbody td .company,
+  .content .tbl-doc.tbl-recv tbody td .jd-desc,
+  .content .tbl-doc.tbl-recv tbody td .jd-pickup,
+  .content .tbl-doc.tbl-recv tbody td .ucol-desk,
+  .content .tbl-doc.tbl-recv tbody td .u-ordby{
+    display:block !important; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap
+  }
+  .content .tbl-doc.tbl-recv tbody td.col-jobno{font-variant-numeric:tabular-nums}
+  .content .tbl-doc.tbl-recv tbody td .prio{max-width:100%;overflow:visible;text-overflow:clip}
+  .content .tbl-doc.tbl-recv tbody td .bol-more{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(59,130,246,.18);color:#93C5FD;vertical-align:middle}
+
+  /* สถานะชิปปิ้ง: สูงสุด 2 บรรทัด (กฎเดิม) */
+  .content .tbl-doc.tbl-recv tbody td.status-cell,
+  .content .tbl-doc.tbl-recv tbody td.col-jobstatus{white-space:normal !important;vertical-align:middle !important}
+
+  /* การจัดการ: กลับเป็นช่องตารางปกติ · ปุ่มเรียงแถวเดียว */
+  .content .tbl-doc.tbl-recv tbody td.td-actions{
+    display:table-cell !important; white-space:nowrap !important; overflow:visible !important;
+    text-align:left !important; padding-left:8px !important; padding-right:8px !important
+  }
+  .content .tbl-doc.tbl-recv tbody td.td-actions .sfz-rip{
+    display:inline-flex !important; flex-wrap:nowrap !important; align-items:center !important;
+    gap:6px !important; vertical-align:middle
+  }
+  .content .tbl-doc.tbl-recv tbody td.td-actions .sfz-rip > *{flex:0 0 auto !important;margin:0 !important}
+  .content .tbl-doc.tbl-recv tbody td.td-actions > .row-act{display:inline-flex !important;vertical-align:middle;margin:0 3px 0 0 !important}
+
+  /* แถบค้นหา/ตัวกรองของหน้านี้: ขึ้นบรรทัดใหม่ได้เมื่อจอแคบ (เดิมบังคับแถวเดียว ล้นทำให้ทั้งหน้าเลื่อนแนวนอน)
+     ปุ่ม/ตัวกรองทำงานเหมือนเดิม · เปลี่ยนแค่การจัดวาง · มีผลเฉพาะหน้าดำเนินตรวจปล่อย */
+  .content:has(.tbl-doc.tbl-recv) .sa-toolbar{flex-wrap:wrap !important;row-gap:10px}
+  .content:has(.tbl-doc.tbl-recv) .sa-toolbar .sa-tb-search{flex:1 1 320px !important;min-width:240px}
+
+  /* ไม่พอที่ → เลื่อนแนวนอนเฉพาะตาราง */
+  .content .panel:has(> .tbl-doc.tbl-recv){overflow-x:auto !important}
+}
+/* จอโน้ตบุ๊ก (≤1500px เช่น 1366 / 1440 / 1920@125%): บีบคอลัมน์คงที่ลง ให้ตารางพอดีจอ ไม่ต้องเลื่อนไปหาปุ่มจัดการ */
+@media (min-width:761px) and (max-width:1500px){
+  .content .tbl-doc.tbl-recv{min-width:1060px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(1){width:62px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(2){width:80px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(5){width:92px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(7){width:150px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(9){width:66px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(10){width:118px !important}
+  .content .tbl-doc.tbl-recv thead th:nth-child(15){width:236px !important}
+  .content .tbl-doc.tbl-recv tbody td{padding-left:8px !important;padding-right:8px !important}
+  .content .tbl-doc.tbl-recv tbody td.td-actions .sfz-rip{gap:5px !important}
+}
+
+</style>
+<style id="ex-joblink-css">
+/* ☑ เลือก JOB อัตโนมัติ — เมนูเลือกวิธี + หน้าต่างเลือก JOB (ของใหม่ทั้งหมด ไม่แก้ CSS เดิม) */
+.ex-addmenu{position:fixed;z-index:1500;background:#fff;border:1px solid #DCE5F0;border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.22);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:260px}
+.ex-addmenu .ex-am-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:#fff;border:0;border-radius:8px;padding:10px 12px;cursor:pointer;color:#17233B;font:inherit}
+.ex-addmenu .ex-am-it:hover{background:#EAF2FC}
+.ex-addmenu .ex-am-it b{font-size:14px;color:#17233B}
+.ex-addmenu .ex-am-it small{font-size:12px;color:#5B6B86}
+.ex-jp-back{position:fixed;inset:0;z-index:2000;background:rgba(5,8,15,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.ex-jp{color-scheme:light;accent-color:#16A34A;background:#fff;color:#17233B;border-radius:16px;width:100%;max-width:920px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.ex-jp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 18px;border-bottom:1px solid #DCE5F0;background:#F5F8FF}
+.ex-jp-head h3{margin:0;font-size:18px;color:#1E3A8A}
+.ex-jp-head p{margin:4px 0 0;font-size:13px;color:#5B6B86}
+.ex-jp-x{background:#F1F5FC;color:#334155;border:0;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px}
+.ex-jp-tools{padding:12px 18px}
+.ex-jp-tools input{width:100%;height:40px;border:1px solid #DCE5F0;border-radius:10px;padding:0 12px;font:inherit;font-size:14px;background:#fff;color:#17233B}
+.ex-jp-list{flex:1;overflow:auto;padding:0 18px}
+.ex-jp-tbl{width:100%;border-collapse:collapse;font-size:14px}
+.ex-jp-tbl th{position:sticky;top:0;background:#EAF2FC;color:#24466B;font-weight:700;text-align:left;padding:9px 10px;border:1px solid #DCE5F0;z-index:1}
+.ex-jp-tbl td{padding:8px 10px;border:1px solid #DCE5F0;color:#17233B;background:#fff}
+.ex-jp-tbl tbody tr{cursor:pointer}
+.ex-jp-tbl tbody tr:hover td{background:#F5F8FF}
+.ex-jp-tbl tr.ex-jp-on td{background:#ECFDF5}
+.ex-jp-tbl tr.ex-jp-used td{color:#94A3B8;cursor:default;background:#F8FAFC}
+.ex-jp-tbl .ex-jp-ck{width:44px;text-align:center}
+.ex-jp-tbl .ex-jp-ck input{width:18px;height:18px;cursor:pointer}
+.ex-jp-tbl .ex-jp-no,.ex-jp-tbl .ex-jp-dt{white-space:nowrap}
+.ex-jp-tag{color:#B45309;font-size:11px}
+.ex-tbl tr.ex-jobrow .ex-c-job .ex-ro-cell,.ex-tbl tr.ex-jobrow .ex-c-co .ex-ro-cell{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-tbl tr.ex-jobrow .ex-c-job .ex-ro-cell{font-size:13px}
+.ex-jp-empty{padding:40px 10px;text-align:center;color:#5B6B86}
+.ex-jp-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid #DCE5F0;background:#F5F8FF}
+.ex-jp-cnt{font-size:14px;color:#24466B}
+.ex-jp-btns{display:flex;gap:8px}
+.ex-jp-btns .ex-btn-add[disabled]{opacity:.5;cursor:not-allowed}
+@media (max-width:760px){
+  .ex-jp-back{padding:0;align-items:stretch}
+  .ex-jp{max-width:100%;max-height:100%;border-radius:0}
+  .ex-jp-tbl{font-size:13px}
+  .ex-jp-tbl th:nth-child(4),.ex-jp-tbl td:nth-child(4){display:none}
+  .ex-jp-tbl td,.ex-jp-tbl th{padding:7px 6px}
+  .ex-jp-btns{width:100%}.ex-jp-btns .btn{flex:1}
+}
+</style>
 </head>
 <body>
 
@@ -1456,7 +1582,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-I</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-K</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -1877,6 +2003,14 @@ function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) 
 function fmtTime(s){ if(!s) return '—'; const d=new Date(s); if(isNaN(d)) return '—'; return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function fmtDate(s){ if(!s) return '—'; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
 // ตัดข้อความ "เลขใบขน" เฉพาะการแสดงผลในตารางรายการ (≤10 ตัว = เต็ม · >10 ตัว = 10 ตัวแรก + ...) · ไม่แตะข้อมูลจริง/export/search/detail/edit
+/* 🔵 ดำเนินตรวจปล่อย (Desktop): แสดงเลขใบขนเลขแรกเต็ม + จำนวนเลขที่เหลือ · ค่าเต็มทั้งหมดอยู่ใน tooltip (title) ของช่อง
+   ใช้เฉพาะหน้านี้ · หน้าอื่นยังใช้ _bolDisp() เดิม */
+function _bolDispRecv(s){
+  const parts = String(s==null?'':s).split(/[\s,;\/]+/).map(x=>x.trim()).filter(Boolean);
+  if(!parts.length) return '<span style="color:var(--muted)">—</span>';
+  const more = parts.length-1;
+  return `<span class="bol-first">${esc(parts[0])}</span>${more>0?` <span class="bol-more">+${more}</span>`:''}`;
+}
 function _bolDisp(s){ s=String(s==null?'':s); if(s.length<=10) return s; return s.replace(/\s*\n\s*/g,' ').slice(0,10)+'...'; }
 // เลขใบขน (การ์ดมือถือ) — ค่าเต็ม · แยกหลายเลข (ขึ้นบรรทัด/comma/เว้นวรรค) เป็นคนละบรรทัด · ไม่ตัด/ไม่ slice
 function _bolLines(s){ s=String(s==null?'':s).trim(); if(!s) return '<span style="color:var(--muted)">—</span>'; return s.split(/[\s,]+/).filter(Boolean).map(p=>`<span class="bol-line">${esc(p)}</span>`).join(''); }
@@ -2872,7 +3006,7 @@ function docRow(d){
     ${S.view!=='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc${S.view==='RECEIVED'?' jd-merged':''}" title="${esc(d.description||'')}${(S.view==='RECEIVED'&&d.import_terminal)?' / '+esc(termLabel(d.import_terminal)):''}">${S.view==='RECEIVED'
       ? `<span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.import_terminal?`<span class="jd-pickup">${esc(termLabel(d.import_terminal))}</span>`:''}`
       : `${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}`}</td>`:''}
-    ${S.view==='RECEIVED'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?esc(_bolDisp(d.job_nj)):'<span style="color:var(--muted)">—</span>'}</td>`:''}
+    ${S.view==='RECEIVED'?`<td data-l="เลขใบขน" class="col-jobno" title="${esc(d.job_nj||'')}">${d.job_nj?_bolDispRecv(d.job_nj):'<span style="color:var(--muted)">—</span>'}</td>`:''}
     <td data-l="ท่านำเข้า" class="col-term">${esc(termLabel(d.import_terminal))}</td>
     <td data-l="จำนวน">${(d.quantity!=null&&d.quantity!=='')?esc(d.quantity):'—'}</td>
     ${S.view==='NEW'?`<td data-l="รายละเอียดงาน" class="col-jdesc jd-merged" title="${esc(d.description||'')}${d.pickup_location?' / '+esc(d.pickup_location):''}"><span class="jd-desc">${d.description?esc(d.description):'<span style="color:var(--muted)">—</span>'}</span>${d.pickup_location?`<span class="jd-pickup">${esc(d.pickup_location)}</span>`:''}</td>`:''}
@@ -5709,7 +5843,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-I' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-K' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -5796,8 +5930,9 @@ async function exLoad(opts){
       EX.doc = Array.isArray(data) ? data[0] : data;
     }
     if(EX.doc && EX.doc.id){
+      await _exJobLinkProbe();
       const { data: its, error: e2 } = await sb.from(EXP_ITEM_TABLE)
-        .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
+        .select(_exItemCols())
         .eq('doc_id', EX.doc.id).order('seq',{ascending:true});
       if(e2) throw e2;
       EX.items = its||[];
@@ -5998,6 +6133,9 @@ async function exCloseWork(){
 
 /* บันทึกงาน = ปิดงานใบนี้แล้วกลับหน้าหลัก (รายการถูกบันทึกทีละแถวอยู่แล้ว) */
 async function exSaveWork(){
+  // แถวที่เลือกจาก JOB → บันทึกทั้งหมดครั้งเดียว (all-or-nothing) ก่อน · ไม่สำเร็จ = ไม่ปิด JOB ใดเลย
+  const jobKeys = EX.drafts.filter(d=>d.src).map(d=>d.key);
+  if(jobKeys.length){ if(!(await _exSaveJobDrafts(jobKeys))) return; }
   // ยังไม่มีรายการที่บันทึกจริง → ไม่สร้างเอกสารเปล่าเด็ดขาด
   if(!EX.items.length){
     toast('ยังไม่มีรายการที่บันทึก — กรอกแล้วกด 💾 บันทึกรายการ ก่อน','error');
@@ -6084,7 +6222,7 @@ function exWorkRender(){
       ${mob ? mobCards : deskTable}
 
       <div class="ex-bar">
-        <button class="btn ex-btn-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>
+        <button class="btn ex-btn-add" onclick="exAddMenu(this)">➕ เพิ่มรายการ</button>
         <div class="ex-bar-r">
           <button class="btn ex-btn-list" onclick="exOpenList()">📋 รายงาน</button>
           <button class="btn ex-btn-xls" onclick="exExportExcel()">📊 Excel</button>
@@ -6136,6 +6274,7 @@ function exCardSaved(it, no){
 
 /* ---------- การ์ดมือถือ: แถวที่กำลังกรอก/แก้ไข ---------- */
 function exCardDraft(dr, no){
+  if(dr.src) return exCardJob(dr, no);          // แถวจาก JOB (☑ เลือก JOB อัตโนมัติ)
   const isOther = dr.place_code==='อื่นๆ';
   const busy = EX.busy.has(dr.key);
   const total = _exNum(dr.cost_amount)+_exNum(dr.receipt_amount);
@@ -6197,6 +6336,7 @@ function exRowSaved(it, no){
 
 /* ---------- แถวร่าง (ยังไม่บันทึก) ---------- */
 function exRowDraft(dr, no){
+  if(dr.src) return exRowJob(dr, no);           // แถวจาก JOB (☑ เลือก JOB อัตโนมัติ)
   const isOther = dr.place_code==='อื่นๆ';
   const busy = EX.busy.has(dr.key);
   return `<tr class="ex-draft" data-ex-draft="${esc(dr.key)}">
@@ -6270,6 +6410,7 @@ async function exSaveDraft(key){
   if(EX.busy.has(key)) return;                    // กันกดซ้ำ
   const dr = EX.drafts.find(x=>x.key===key); if(!dr) return;
   if(!EX.doc){ toast('ยังไม่มีเอกสาร','error'); return; }
+  if(dr.src){ await _exSaveJobDrafts([key]); return; }   // แถวจาก JOB → RPC แบบกันปิดซ้ำ
 
   // ---- ตรวจข้อมูลก่อนบันทึก · ไฮไลต์ช่องที่ผิด ----
   _exClearInvalid(key);
@@ -6327,6 +6468,11 @@ function _exErr(e){
   if(/missing_required_field/i.test(m)) return 'กรอกข้อมูลที่จำเป็นให้ครบ';
   if(/place_other_req/i.test(m)) return 'เลือก "อื่นๆ" ต้องกรอกชื่อสถานที่';
   if(/place_chk/i.test(m)) return 'สถานที่ไม่ถูกต้อง';
+  let j;
+  if((j=m.match(/job_already_closed:\s*(\S+)\s*\(([^)]*)\)/))) return 'JOB '+j[1]+' ถูกปิดค่าใช้จ่ายไปแล้ว (เอกสาร '+j[2]+')';
+  if(/sfz_expense_items_source_doc_uq/i.test(m)) return 'JOB นี้ถูกปิดค่าใช้จ่ายไปแล้ว';
+  if((j=m.match(/job_not_completed:\s*(\S+)/))) return 'JOB '+j[1]+' ยังไม่อยู่สถานะปล่อยเสร็จ';
+  if(/job_not_found/i.test(m)) return 'ไม่พบ JOB ต้นทาง';
   return m;
 }
 
@@ -6341,7 +6487,8 @@ function exEditItem(id){
     job_no: it.job_no||'', company: it.company||'',
     cost_amount: String(it.cost_amount==null?'':it.cost_amount),
     receipt_amount: String(it.receipt_amount==null?'':it.receipt_amount),
-    place_code: it.place_code||'', place_other: it.place_other||''
+    place_code: it.place_code||'', place_other: it.place_other||'',
+    src: it.source_doc_id||null, place_label: it.place_name||''
   });
   exRender();
   toast('แก้ไขแล้วกด 💾 บันทึก · กด ✖ เพื่อยกเลิก','info');
@@ -6353,6 +6500,291 @@ function exCancelEdit(key){
   EX.drafts = EX.drafts.filter(x=>x.key!==key);
   exRender();
 }
+/* ============================================================
+   ☑ เลือก JOB อัตโนมัติ (ปล่อยเสร็จ → รอปิดค่าใช้จ่าย)
+   · เพิ่มเข้าตารางเดิมเป็นแถวร่าง (ยังไม่ถือว่าปิด) · Job N / บริษัท / สถานที่ ล็อกตาม JOB จริง
+   · บันทึกผ่าน RPC sfz_expense_items_save_batch (all-or-nothing · กันปิด JOB ซ้ำทุกเครื่อง)
+   · ✏️ กรอกเอง = exAddDraft() เดิม ไม่เปลี่ยน
+   ============================================================ */
+const EXP_PENDING_VIEW = 'sfz_expense_pending_jobs';
+const EXP_SAVE_BATCH   = 'sfz_expense_items_save_batch';
+let EX_JOBLINK = null;              // null = ยังไม่ตรวจ · true = ติดตั้ง SQL 070 แล้ว · false = ยังไม่ติดตั้ง
+let _exJobLinkProbing = null;
+let _exBatchBusy = false;
+const EXJ = { rows:[], q:'', sel:new Set(), loading:false };
+
+async function _exJobLinkProbe(){
+  if(EX_JOBLINK!==null) return EX_JOBLINK;
+  if(_exJobLinkProbing) return _exJobLinkProbing;
+  _exJobLinkProbing = (async()=>{
+    try{
+      const { error } = await sb.from(EXP_PENDING_VIEW).select('id').limit(1);
+      EX_JOBLINK = !error;
+    }catch(_){ EX_JOBLINK = false; }
+    return EX_JOBLINK;
+  })();
+  try{ return await _exJobLinkProbing; } finally { _exJobLinkProbing = null; }
+}
+function _exItemCols(){
+  return 'id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note'
+       + (EX_JOBLINK ? ',source_doc_id' : '');
+}
+function _exJobPlace(r){ return r.place_code==='อื่นๆ' ? (r.place_other||'อื่นๆ') : (r.place_code||'—'); }
+/* JOB ที่อยู่ในเอกสารนี้แล้ว (บันทึกแล้ว + แถวร่าง) → ห้ามเพิ่มซ้ำ */
+function _exJobIdsInDoc(){
+  const s = new Set();
+  EX.items.forEach(x=>{ if(x.source_doc_id) s.add(x.source_doc_id); });
+  EX.drafts.forEach(x=>{ if(x.src) s.add(x.src); });
+  return s;
+}
+
+/* ---------- ➕ เพิ่มรายการ → เลือกวิธี ---------- */
+function exAddMenuClose(){ const m=document.getElementById('ex-addmenu'); if(m) m.remove(); document.removeEventListener('mousedown', _exAddMenuOutside, true); }
+function _exAddMenuOutside(e){ const m=document.getElementById('ex-addmenu'); if(m && !m.contains(e.target)) exAddMenuClose(); }
+function exAddMenu(btn){
+  if(document.getElementById('ex-addmenu')){ exAddMenuClose(); return; }
+  const r = btn.getBoundingClientRect();
+  const m = document.createElement('div');
+  m.id = 'ex-addmenu'; m.className = 'ex-addmenu';
+  m.innerHTML = `
+    <button type="button" class="ex-am-it" data-am="job" onclick="exAddMenuClose();exOpenJobPicker()">
+      <b>☑ เลือก JOB อัตโนมัติ</b><small>JOB ที่ปล่อยเสร็จแล้ว ยังไม่ปิดค่าใช้จ่าย</small></button>
+    <button type="button" class="ex-am-it" data-am="manual" onclick="exAddMenuClose();exAddDraft()">
+      <b>✏️ กรอกเอง</b><small>เพิ่มแถวเปล่า กรอกทุกช่องเอง (แบบเดิม)</small></button>`;
+  document.body.appendChild(m);
+  const h = m.offsetHeight, w = m.offsetWidth;
+  let top = r.top - h - 6; if(top < 8) top = r.bottom + 6;
+  let left = Math.min(r.left, window.innerWidth - w - 8); if(left < 8) left = 8;
+  m.style.top = top+'px'; m.style.left = left+'px';
+  setTimeout(()=>document.addEventListener('mousedown', _exAddMenuOutside, true), 0);
+}
+
+/* ---------- หน้าต่างเลือก JOB ---------- */
+async function exOpenJobPicker(){
+  if(!(await _exJobLinkProbe())){
+    toast('ยังไม่ได้ติดตั้ง SQL 070 (เชื่อม JOB) — ใช้ ✏️ กรอกเอง ได้ตามปกติ','error');
+    return;
+  }
+  EXJ.rows = []; EXJ.q = ''; EXJ.sel = new Set(); EXJ.loading = true;
+  let bg = document.getElementById('ex-jobpick');
+  if(!bg){
+    bg = document.createElement('div');
+    bg.id = 'ex-jobpick'; bg.className = 'ex-jp-back';
+    bg.addEventListener('mousedown', e=>{ if(e.target===bg) exCloseJobPicker(); });
+    document.body.appendChild(bg);
+  }
+  exJobPickRender();
+  try{
+    const { data, error } = await sb.from(EXP_PENDING_VIEW)
+      .select('id,doc_no,company,import_terminal,pickup_location,completed_at,place_code,place_other')
+      .order('completed_at',{ascending:false}).range(0, 4999);
+    if(error) throw error;
+    EXJ.rows = data||[];
+  }catch(e){
+    console.error('[expense job]', e);
+    toast('โหลดรายการ JOB ไม่สำเร็จ: '+_exErr(e),'error');
+  }finally{
+    EXJ.loading = false;
+    exJobPickRender();
+  }
+}
+function exCloseJobPicker(){ const bg=document.getElementById('ex-jobpick'); if(bg) bg.remove(); EXJ.sel = new Set(); }
+function _exJobFiltered(){
+  const q = EXJ.q.trim().toLowerCase();
+  if(!q) return EXJ.rows;
+  return EXJ.rows.filter(r=>[r.doc_no, r.company, _exJobPlace(r), r.import_terminal, fmtDateTime(r.completed_at)]
+    .some(v=>String(v||'').toLowerCase().includes(q)));
+}
+function exJobPickSearch(v){ EXJ.q = v||''; exJobPickRenderList(); }
+function exJobPickToggle(id, on){ if(on) EXJ.sel.add(id); else EXJ.sel.delete(id); exJobPickRenderFoot(); }
+function exJobPickAll(on){
+  const used = _exJobIdsInDoc();
+  _exJobFiltered().forEach(r=>{ if(used.has(r.id)) return; if(on) EXJ.sel.add(r.id); else EXJ.sel.delete(r.id); });
+  exJobPickRenderList();
+}
+function exJobPickRender(){
+  const bg = document.getElementById('ex-jobpick'); if(!bg) return;
+  bg.innerHTML = `
+    <div class="ex-jp" role="dialog" aria-label="เลือก JOB">
+      <div class="ex-jp-head">
+        <div><h3>☑ เลือก JOB อัตโนมัติ</h3><p>JOB ที่ 🟢 ปล่อยเสร็จแล้ว และยังไม่ปิดค่าใช้จ่าย (ค้างจนกว่าจะปิด)</p></div>
+        <button class="ex-jp-x" onclick="exCloseJobPicker()" aria-label="ปิด">✕</button>
+      </div>
+      <div class="ex-jp-tools">
+        <input type="search" id="ex-jp-q" placeholder="🔍 ค้นหา JOB No. / บริษัท / สถานที่" value="${esc(EXJ.q)}"
+               oninput="exJobPickSearch(this.value)" autocomplete="off">
+      </div>
+      <div class="ex-jp-list" id="ex-jp-list"></div>
+      <div class="ex-jp-foot" id="ex-jp-foot"></div>
+    </div>`;
+  exJobPickRenderList();
+  const q = document.getElementById('ex-jp-q'); if(q && !_vpMobile()) try{ q.focus(); }catch(_){}
+}
+function exJobPickRenderList(){
+  const box = document.getElementById('ex-jp-list'); if(!box) return;
+  if(EXJ.loading){ box.innerHTML = `<div class="ex-jp-empty"><span class="spinner"></span> กำลังโหลด JOB...</div>`; exJobPickRenderFoot(); return; }
+  const used = _exJobIdsInDoc();
+  const rows = _exJobFiltered();
+  const free = rows.filter(r=>!used.has(r.id));
+  const allOn = free.length>0 && free.every(r=>EXJ.sel.has(r.id));
+  box.innerHTML = !rows.length
+    ? `<div class="ex-jp-empty">${EXJ.rows.length?'ไม่พบ JOB ที่ค้นหา':'ไม่มี JOB ที่รอปิดค่าใช้จ่าย'}</div>`
+    : `<table class="ex-jp-tbl">
+        <thead><tr>
+          <th class="ex-jp-ck"><input type="checkbox" ${allOn?'checked':''} ${free.length?'':'disabled'} onchange="exJobPickAll(this.checked)" title="เลือกทั้งหมดที่แสดง"></th>
+          <th>JOB No.</th><th>บริษัท</th><th>สถานที่</th><th>วันที่ปล่อยเสร็จ</th>
+        </tr></thead>
+        <tbody>${rows.map(r=>{
+          const inDoc = used.has(r.id), on = EXJ.sel.has(r.id);
+          return `<tr class="${inDoc?'ex-jp-used':''}${on?' ex-jp-on':''}" data-ex-job="${esc(r.id)}">
+            <td class="ex-jp-ck"><label><input type="checkbox" ${on?'checked':''} ${inDoc?'disabled':''}
+               onchange="exJobPickToggle('${esc(r.id)}',this.checked);this.closest('tr').classList.toggle('ex-jp-on',this.checked)"></label></td>
+            <td class="ex-jp-no"><b>${esc(r.doc_no||'')}</b>${inDoc?' <small class="ex-jp-tag">อยู่ในเอกสารนี้แล้ว</small>':''}</td>
+            <td>${esc(r.company||'—')}</td>
+            <td>${esc(_exJobPlace(r))}</td>
+            <td class="ex-jp-dt">${esc(fmtDateTime(r.completed_at))}</td>
+          </tr>`; }).join('')}</tbody>
+      </table>`;
+  box.querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener('click', e=>{
+    if(e.target.closest('input,label')) return;
+    const cb = tr.querySelector('input[type=checkbox]'); if(!cb || cb.disabled) return;
+    cb.checked = !cb.checked; cb.dispatchEvent(new Event('change'));
+  }));
+  exJobPickRenderFoot();
+}
+function exJobPickRenderFoot(){
+  const f = document.getElementById('ex-jp-foot'); if(!f) return;
+  const n = EXJ.sel.size;
+  f.innerHTML = `
+    <span class="ex-jp-cnt">เลือกแล้ว <b>${n}</b> JOB · ทั้งหมด ${EXJ.rows.length} JOB</span>
+    <span class="ex-jp-btns">
+      <button class="btn btn-secondary" onclick="exCloseJobPicker()">ยกเลิก</button>
+      <button class="btn ex-btn-add" ${n?'':'disabled'} onclick="exJobPickConfirm()">✔ ยืนยันการเลือก</button>
+    </span>`;
+}
+function exJobPickConfirm(){
+  const used = _exJobIdsInDoc();
+  const pick = EXJ.rows.filter(r=>EXJ.sel.has(r.id) && !used.has(r.id));
+  if(!pick.length){ toast('ยังไม่ได้เลือก JOB','error'); return; }
+  // ไม่แตะแถวกรอกเองที่มีอยู่ (คงพฤติกรรมเดิม) — เพิ่มแถว JOB ต่อท้าย
+  pick.forEach(r=>EX.drafts.push({
+    key:'d'+(++_exDraftSeq), src:r.id,
+    job_no:r.doc_no||'', company:r.company||'',
+    cost_amount:'', receipt_amount:'',
+    place_code:r.place_code||'', place_other:r.place_other||'', place_label:_exJobPlace(r)
+  }));
+  exCloseJobPicker();
+  exRender();
+  toast('เพิ่ม '+pick.length+' JOB แล้ว — กรอกค่าใช้จ่าย/ยอดใบเสร็จ แล้วกด 💾 บันทึก','success');
+}
+
+/* ---------- แถว JOB ในตารางเดิม (Desktop) ---------- */
+function exRowJob(dr, no){
+  const busy = EX.busy.has(dr.key);
+  return `<tr class="ex-draft ex-jobrow" data-ex-draft="${esc(dr.key)}" data-ex-src="${esc(dr.src)}">
+    <td class="ex-c-no">${no}</td>
+    <td class="ex-c-job"><span class="ex-ro-cell" title="เชื่อมจาก JOB ปล่อยเสร็จ: ${esc(dr.job_no||'')}">🔗 ${esc(dr.job_no||'')}</span></td>
+    <td class="ex-c-co"><span class="ex-ro-cell" title="${esc(dr.company||'')}">${esc(dr.company||'')}</span></td>
+    <td class="ex-c-cost"><input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.cost_amount||'')}"
+        placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','cost_amount',this.value)"></td>
+    <td class="ex-c-rcp"><input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.receipt_amount||'')}"
+        placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','receipt_amount',this.value)"></td>
+    <td class="ex-c-sum ex-money"><b data-ex-total="${esc(dr.key)}">${_exMoney(_exNum(dr.cost_amount)+_exNum(dr.receipt_amount))}</b></td>
+    <td class="ex-c-place">${esc(dr.place_label||_exJobPlace(dr))}</td>
+    <td class="ex-c-act">
+      <button class="ex-ib ex-ib-save" title="บันทึก" ${busy?'disabled':''} onclick="exSaveDraft('${esc(dr.key)}')">${busy?'<span class="spinner"></span>':'💾'}</button>
+      ${dr.editId
+        ? `<button class="ex-ib ex-ib-cancel" title="ยกเลิกการแก้ไข" ${busy?'disabled':''} onclick="exCancelEdit('${esc(dr.key)}')">✖</button>`
+        : `<button class="ex-ib ex-ib-del" title="ลบแถว" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️</button>`}
+    </td>
+  </tr>`;
+}
+/* ---------- แถว JOB (มือถือ: การ์ด) ---------- */
+function exCardJob(dr, no){
+  const busy = EX.busy.has(dr.key);
+  const total = _exNum(dr.cost_amount)+_exNum(dr.receipt_amount);
+  return `<div class="ex-mc ex-mc-draft ex-jobrow" data-ex-draft="${esc(dr.key)}" data-ex-src="${esc(dr.src)}">
+    <div class="ex-mc-head">
+      <b>รายการที่ ${no}</b>
+      <span class="ex-mc-badge ${dr.editId?'edit':'wait'}">${dr.editId?'✏️ กำลังแก้ไข':'⚠️ ยังไม่บันทึก'}</span>
+    </div>
+    <div class="ex-mc-line"><b>🔗 ${esc(dr.job_no||'')}</b> <span>${esc(dr.company||'')}</span></div>
+    <div class="ex-mc-row"><span>สถานที่ ${esc(dr.place_label||_exJobPlace(dr))}</span></div>
+    <div class="ex-mf2">
+      <label class="ex-mf">ค่าใช้จ่าย (ต้นทุน)
+        <input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.cost_amount||'')}"
+          placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','cost_amount',this.value)"></label>
+      <label class="ex-mf">+ ยอดใบเสร็จ =
+        <input type="text" inputmode="decimal" class="ex-in-money" value="${esc(dr.receipt_amount||'')}"
+          placeholder="0.00" oninput="exDraftSet('${esc(dr.key)}','receipt_amount',this.value)"></label>
+    </div>
+    <div class="ex-mc-total"><label>ยอดรวม (บาท)</label>
+      <b data-ex-total="${esc(dr.key)}">${_exMoney(total)}</b></div>
+    <div class="ex-mc-acts">
+      <button class="btn ex-btn-saverow" ${busy?'disabled':''} onclick="exSaveDraft('${esc(dr.key)}')">
+        ${busy?'<span class="spinner"></span> กำลังบันทึก...':'💾 บันทึกรายการ'}</button>
+      ${dr.editId
+        ? `<button class="btn ex-btn-cancel" ${busy?'disabled':''} onclick="exCancelEdit('${esc(dr.key)}')">✖ ยกเลิก</button>`
+        : `<button class="btn ex-btn-rm" ${busy?'disabled':''} onclick="exRemoveDraft('${esc(dr.key)}')">🗑️ ลบ</button>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- บันทึกแถว JOB (ครั้งเดียว all-or-nothing) ---------- */
+async function _exSaveJobDrafts(keys){
+  if(_exBatchBusy) return false;                          // กันกดซ้ำ
+  const list = keys.map(k=>EX.drafts.find(x=>x.key===k)).filter(Boolean);
+  if(!list.length) return true;
+  // ตรวจตัวเลขเหมือนวิธีเดิม (ช่องในแถว JOB: 0=ต้นทุน 1=ใบเสร็จ)
+  for(const dr of list){
+    _exClearInvalid(dr.key);
+    const rc = String(dr.cost_amount==null?'':dr.cost_amount).trim();
+    const rr = String(dr.receipt_amount==null?'':dr.receipt_amount).trim();
+    if(rc!=='' && !_exIsNum(rc)){ _exInvalid(dr.key,0,'JOB '+dr.job_no+': ค่าใช้จ่ายต้องเป็นตัวเลข'); return false; }
+    if(rr!=='' && !_exIsNum(rr)){ _exInvalid(dr.key,1,'JOB '+dr.job_no+': ยอดใบเสร็จต้องเป็นตัวเลข'); return false; }
+    if(_exNum(dr.cost_amount)<0){ _exInvalid(dr.key,0,'จำนวนเงินติดลบไม่ได้'); return false; }
+    if(_exNum(dr.receipt_amount)<0){ _exInvalid(dr.key,1,'จำนวนเงินติดลบไม่ได้'); return false; }
+  }
+  _exBatchBusy = true;
+  list.forEach(d=>EX.busy.add(d.key)); exRender();
+  let ok = false;
+  try{
+    await _exEnsureDoc();
+    const payload = list.map(dr=>({
+      id: dr.editId || null,
+      source_doc_id: dr.src,
+      cost_amount: _exNum(dr.cost_amount),
+      receipt_amount: _exNum(dr.receipt_amount)
+    }));
+    const { data, error } = await sb.rpc(EXP_SAVE_BATCH, { p_doc_id: EX.doc.id, p_items: payload });
+    if(error) throw error;
+    const rows = Array.isArray(data) ? data : (data ? [data] : []);
+    if(rows.length !== list.length) throw new Error('บันทึกได้ไม่ครบ ('+rows.length+'/'+list.length+')');
+    list.forEach((dr,i)=>{
+      const row = rows[i];
+      if(dr.editId){
+        const j = EX.items.findIndex(x=>x.id===dr.editId);
+        if(j>=0) EX.items[j] = row; else EX.items.push(row);
+        EX.editing.delete(dr.editId);
+      } else EX.items.push(row);
+    });
+    EX.items.sort((a,b)=>(a.seq||0)-(b.seq||0));
+    const done = new Set(list.map(d=>d.key));
+    EX.drafts = EX.drafts.filter(x=>!done.has(x.key));
+    await exRefreshSummary();
+    toast('บันทึก '+list.length+' JOB แล้ว','success');
+    ok = true;
+  }catch(e){
+    console.error(e);
+    toast('บันทึกไม่สำเร็จ (ยังไม่ปิด JOB ใด): '+_exErr(e),'error');
+  }finally{
+    list.forEach(d=>EX.busy.delete(d.key));
+    _exBatchBusy = false;
+    exRender();
+  }
+  return ok;
+}
+
 async function exDeleteItem(id){
   if(EX.busy.has(id)) return;
   const it = EX.items.find(x=>x.id===id); if(!it) return;
@@ -6426,8 +6858,9 @@ async function exEditDoc(id){
   try{
     const { data: head } = await sb.from(EXP_SUMMARY).select('*').eq('id', id).maybeSingle();
     if(!head){ toast('ไม่พบเอกสาร','error'); return; }
+    await _exJobLinkProbe();
     const { data: its } = await sb.from(EXP_ITEM_TABLE)
-      .select('id,doc_id,seq,job_no,company,cost_amount,receipt_amount,total_amount,place_code,place_other,place_name,note')
+      .select(_exItemCols())
       .eq('doc_id', id).order('seq',{ascending:true});
     EX.doc = head; EX.items = its||[]; EX.drafts = []; EX.editing = new Set();
     closeModal('modal-detail');
