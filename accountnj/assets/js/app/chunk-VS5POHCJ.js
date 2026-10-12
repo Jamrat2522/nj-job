@@ -1,0 +1,1 @@
+import{m as c}from"./chunk-SGWIBJH6.js";var _=o=>c("njacc_save_job",{p:o}),s=o=>c("njacc_job_detail",{p_id:o}),a=o=>c("njacc_job_detail_billing",{p_id:o}),n=(o,e)=>c("njacc_post_job",{p_id:o,p_request_id:e});var j=o=>c("njacc_save_document_job",{p:o}),p=o=>c("njacc_job_dup_check",{p:o});export{_ as a,s as b,a as c,n as d,j as e,p as f};

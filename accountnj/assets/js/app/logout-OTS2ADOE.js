@@ -1,0 +1,1 @@
+import{d as o}from"./chunk-2WNIAFEA.js";import"./chunk-4ATLROGD.js";import"./chunk-GDT6F23K.js";import"./chunk-SGWIBJH6.js";async function t(){await o(),location.hash="",location.reload()}export{t as doLogout};
