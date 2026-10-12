@@ -1535,7 +1535,9 @@
   // รายได้ประจำ (ต่องวด 26–25): เงินเดือน 9,000 + โทรศัพท์ 300 · รายได้วิ่งงาน = ค่าเที่ยว + ค้างคืน + ค่ารอ ของตู้ที่ปิดงานแล้ว (freeTime().driver เดิม — ไม่เปลี่ยนสูตร · 1 ตู้ = 1 เที่ยว ไม่นับซ้ำ)
   // ขั้นต่ำ: รายได้พื้นฐาน < 20,000 → เพิ่มส่วนต่างก่อนหัก (เฉพาะเลือกครบงวด 26–25) · หัก = เบิกล่วงหน้า + หักน้ำมันที่อนุมัติแล้ว + ประกันสังคม (เงินสุทธิต่ำกว่า 20,000 ได้)
   // หักน้ำมัน: ชุดเดียวกับรายงานไมล์ / น้ำมัน (บิล + JOB สุดท้ายต่อรถต่อวัน · สถานะ 🟢 เติมแล้ว · คำนวณได้จริง) · ส่วนต่าง = MAX(0, 3.00 − กม./ลิตร) · ยอดหัก = ส่วนต่าง × ราคาต่อลิตร
-  const DP = { SALARY: 9000, PHONE: 300, MIN: 20000, KPL: 3.00, COMPANY: 'N.J. Logistics & Fruits Co., Ltd.' };
+  const DP = { SALARY: 9000, PHONE: 300, MIN: 20000, KPL: 3.00, COMPANY: 'N.J. Logistics & Fruits Co., Ltd.', HIDE: ['ชัยวัตร'] };
+  // คนขับที่ไม่แสดงในเมนูนี้ (ทุกแท็บ / ยอดรวม / Export) — ชื่อตรงทั้งชื่อ หรือ ชื่อต้นตรง · ซ่อนการแสดงผลเท่านั้น ไม่ลบ / ไม่แก้ข้อมูลใน DB
+  const dpHideName = (n) => { const t = String(n || '').trim().replace(/\s+/g, ' '); return !!t && DP.HIDE.some((x) => t === x || t.split(' ')[0] === x); };
   const dpR2 = (v) => Math.round((Number(v) || 0) * 100 + Number.EPSILON * 100) / 100;
   const dpF = (v) => flFmt(v, 2);
   const dpYmd = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -1607,8 +1609,11 @@
         const [s, fl, un, fs] = await Promise.all([T.auth('tnj_driver_pay_source', { p_from: from, p_to: to }, { silent: true }), T.auth('tnj_fuel_logs_list', { p: {} }, { silent: true }),
           T.auth('tnj_fuel_report_units', {}, { silent: true }).catch(() => []), T.auth('tnj_fuel_status_list', {}, { silent: true }).catch(() => ({}))]);
         if (my !== seq || !$('#dpBody')) return false;
-        const drivers = s.drivers || []; src = Object.assign({}, s, { units: dpIncomeUnits(s.jobs, drivers) }); srcKey = k;
-        fuel = dpFuelDeducts(fl.rows || [], Array.isArray(un) ? un : [], fs && typeof fs === 'object' ? fs : {}, drivers); return true;
+        const drivers = s.drivers || []; const units = dpIncomeUnits(s.jobs, drivers); const ded = dpFuelDeducts(fl.rows || [], Array.isArray(un) ? un : [], fs && typeof fs === 'object' ? fs : {}, drivers);
+        // ซ่อนคนขับใน DP.HIDE: จับคู่ Key ด้วยรายชื่อเต็มก่อน แล้วตัดออกจากทุกชุดข้อมูล (รายวัน / งวด / ประวัติ / ตัวเลือกคนขับ / ยอดรวม / Export)
+        const hideK = new Set(drivers.filter((d) => dpHideName(d.full_name)).map((d) => 'D:' + d.id)); const hid = (dk, name) => hideK.has(dk) || dpHideName(name) || (!!dk && dk.startsWith('N:') && dpHideName(dk.slice(2)));
+        src = Object.assign({}, s, { drivers: drivers.filter((d) => !hideK.has('D:' + d.id)), units: units.filter((u) => !hid(u.dk, u.driver_name)), items: (s.items || []).filter((i) => !hideK.has('D:' + i.driver_id)), snapshots: (s.snapshots || []).filter((x) => !hideK.has('D:' + x.driver_id)) }); srcKey = k;
+        fuel = ded.filter((x) => !hid(x.dk, x.driver_name)); return true;
       } catch (e) { if (my === seq) T.toast('โหลดข้อมูลไม่สำเร็จ: ' + T.parseErr(e).text, 'err'); return false; } finally { if (my === seq) T.loading(false); }
     };
     const dName = (dk) => { if (!dk) return '-'; if (dk.startsWith('D:')) { const d = (src.drivers || []).find((x) => 'D:' + x.id === dk); if (d) return d.full_name; } const u = src.units.find((x) => x.dk === dk); return (u && u.driver_name) || dk.slice(2); };
