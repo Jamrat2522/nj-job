@@ -1702,6 +1702,16 @@
             busy = true; const sb = el.querySelector('#dpeSave'); sb.disabled = true;
             try { T.loading(true); await T.auth('tnj_driver_pay_adjust_save', { p_driver_id: r.dk.slice(2), p_period_start: r.from, p: { orig, vals, note } }, { silent: true }); T.toast('บันทึกการแก้ไขแล้ว ✓', 'ok'); close(); await refresh(true); }
             catch (er) { showErr('บันทึกไม่สำเร็จ: ' + T.parseErr(er).text); } finally { busy = false; T.loading(false); if (sb.isConnected) sb.disabled = false; } }; } }); };
+    const openVdocs = async (r) => { if (!r) return;
+      try { await loadMasters(); } catch (e) { return T.err(e); } if (!$('#dpBody')) return;
+      const d = r.dk.startsWith('D:') ? (M.drivers || []).find((x) => 'D:' + x.id === r.dk) : null; const vs = [];
+      const add = (v, tag) => { if (!v) return; const o = vs.find((x) => x.v.id === v.id); if (o) { if (!o.tags.includes(tag)) o.tags.push(tag); } else vs.push({ v, tags: [tag] }); };
+      if (d && d.default_vehicle_id) add((M.vehicles || []).find((x) => x.id === d.default_vehicle_id), 'รถประจำ');
+      [...new Set((r.units || []).map((u) => u.plate).filter(Boolean))].forEach((p) => add((M.vehicles || []).find((x) => x.license_plate === p), 'ใช้ในช่วงที่เลือก'));
+      if (!vs.length) return T.toast(`ไม่พบรถของ ${r.name} (ไม่มีรถประจำ / ไม่มีงานในช่วงที่เลือก)`, 'warn');
+      if (vs.length === 1) return vehicleDocs(vs[0].v);
+      T.modal({ title: `📁 เอกสารประจำรถ — ${r.name}`, size: 's', body: `<div class="xs muted mb1">เลือกรถ (เอกสารผูกกับรถ ไม่ผูกกับคนขับ)</div><div class="dp-vpick">${vs.map((x, i) => `<button type="button" class="btn btn-block" data-vpi="${i}">🚚 <b>${h(x.v.license_plate)}</b> ${h(x.v.vehicle_name || '')} <span class="xs muted">· ${x.tags.join(' · ')}</span></button>`).join('')}</div>`,
+        foot: '<button class="btn" data-close>ปิด</button>', onOpen: (el, close) => $$('[data-vpi]', el).forEach((b) => b.onclick = () => { close(); vehicleDocs(vs[+b.dataset.vpi].v); }) }); };
     const sumCards = (r) => `<div class="dp-cards">${[['เงินเดือน', r.salary, 'b'], ['ค่าโทรศัพท์', r.phone, 'p'], ['รายได้วิ่งงาน', r.trip + r.night + r.wait, 'g', 'ค่าเที่ยว + ค้างคืน + ค่ารอ'], ['เงินเพิ่มขั้นต่ำ', r.topup, 'y'], ['รายได้รวมก่อนหัก', r.gross, 'b'], ['รายการหัก', r.adv + r.fuel + r.ss, 'r', 'เบิก + น้ำมัน + ประกันสังคม'], ['รายได้เงินสุทธิ', r.net, 'n']]
       .map(([l, v, c, s]) => `<div class="dp-card dp-c-${c}"><div class="l">${l}</div><div class="v">${dpF(v)}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`).join('')}</div>${r.full ? '' : '<div class="alert warn mb1">ช่วงวันที่ไม่ครบงวด 26–25 — แสดงยอดจริงในช่วงนี้ ไม่รวมเงินเดือน / ค่าโทรศัพท์ และไม่เติมขั้นต่ำ 20,000 อัตโนมัติ</div>'}${r.fuel_pending > 0 ? `<div class="alert warn mb1">⏳ หักน้ำมันรออนุมัติ ${dpF(r.fuel_pending)} บาท — ยังไม่หักจากเงินสุทธิ</div>` : ''}`;
     // ---- แท็บ ----
@@ -1717,18 +1727,20 @@
     const rDaily = () => { const st = S.d; const rows = dailyRows(st.from, st.to, st.drv); const t = totalOf(rows, ['trip', 'night', 'wait', 'adv', 'net']);
       $('#dpBody').innerHTML = `${filterBar('dd', st, { xls: true })}<div class="card dp-sec dp-sec-b"><div class="dp-sec-h"><span class="dp-no">1</span><h3>ตารางรายงานประจำวัน (รวมยอดตามคนขับ)</h3><span class="muted small">${rows.length} แถว · คนขับ 1 คน / 1 วัน = 1 แถว · คลิกแถวเพื่อดู JOB</span></div>
         <div class="tbl-wrap"><table class="tbl dp-tbl" id="dpDaily"><thead><tr><th>ลำดับ</th><th>วันที่</th><th>ชื่อคนขับ</th><th class="r">ค่าเที่ยว (บาท)</th><th class="r">ค้างคืน (บาท)</th><th class="r">เบิกล่วงหน้า (บาท)</th><th class="r">เงินสุทธิ (บาท)</th><th>จัดการ</th></tr></thead><tbody>
-        ${rows.map((r, i) => `<tr class="click" data-di="${i}"><td class="c">${i + 1}</td><td class="nowrap">${hlDMY(r.date)}</td><td class="b">👤 ${h(r.name)}</td>${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.adv, 'dp-ded')}${num(r.net, 'dp-net')}<td><button class="btn btn-sm btn-p" data-dv="${i}" title="ดูรายละเอียด">👁 ดู</button></td></tr>`).join('') || '<tr><td colspan="8" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
+        ${rows.map((r, i) => `<tr class="click" data-di="${i}"><td class="c">${i + 1}</td><td class="nowrap">${hlDMY(r.date)}</td><td class="b">👤 ${h(r.name)}</td>${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.adv, 'dp-ded')}${num(r.net, 'dp-net')}<td class="nowrap"><button class="btn btn-sm btn-p" data-dv="${i}" title="ดูรายละเอียด">👁 ดู</button> <button class="btn btn-sm" data-dvd="${i}" title="เอกสารประจำรถ">📁 เอกสารรถ</button></td></tr>`).join('') || '<tr><td colspan="8" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
         ${rows.length ? `<tr class="dp-tot"><td colspan="3">รวมทั้งหมด</td>${num(t.trip)}${num(t.night)}${num(t.adv, 'dp-ded')}${num(t.net, 'dp-net')}<td></td></tr>` : ''}</tbody></table></div>
         <div class="xs muted dp-note">ค่ารอรวมอยู่ในเงินสุทธิ (ค่ารอรวม ${dpF(t.wait)} บาท — ดูรายละเอียดเมื่อคลิกแถว) · เงินสุทธิรายวัน = ค่าเที่ยว + ค้างคืน + ค่ารอ − เบิกล่วงหน้า</div></div>`;
-      bindFilter('dd', st); $$('#dpDaily [data-di]').forEach((tr) => tr.onclick = () => openDay(rows[+tr.dataset.di])); };
+      bindFilter('dd', st); $$('#dpDaily [data-di]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-dvd]')) return; openDay(rows[+tr.dataset.di]); });
+      $$('#dpDaily [data-dvd]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); openVdocs(rows[+b.dataset.dvd]); }); };
     const rPeriod = () => { const st = S.p; const rows = sumRows(st.from, st.to, st.drv, true); const t = totalOf(rows, SUMK); const full = dpIsFull(st.from, st.to);
       $('#dpBody').innerHTML = `${filterBar('pp', st, { period: true, xls: true })}<div class="card dp-sec dp-sec-g"><div class="dp-sec-h"><span class="dp-no">2</span><h3>สรุปสิ้นเดือน ${hlDMY(st.from)} – ${hlDMY(st.to)}</h3><span class="muted small">${full ? '✅ ครบงวด 26–25' : '⚠ ไม่ครบงวด — ไม่รวมเงินเดือน / โทรศัพท์ / ขั้นต่ำ'} · คนขับ 1 คน = 1 แถว</span></div>
         <div class="tbl-wrap"><table class="tbl dp-tbl dp-sum" id="dpSum"><thead><tr><th>ชื่อคนขับ</th><th class="r">เงินเดือน</th><th class="r">โทรศัพท์</th><th class="r">ค่าเที่ยว</th><th class="r">ค้างคืน</th><th class="r">ค่ารอ</th><th class="r">เงินเพิ่มขั้นต่ำ</th><th class="r">รายได้ก่อนหัก</th><th class="r">เบิกล่วงหน้า</th><th class="r">หักน้ำมัน</th><th class="r">ประกันสังคม</th><th class="r">เงินสุทธิ</th><th>จัดการ</th></tr></thead><tbody>
-        ${rows.map((r, i) => `<tr class="click" data-si="${i}"><td class="b nowrap">👤 ${h(r.name)}${r.locked ? ' <span class="badge green" title="ยืนยันงวดแล้ว">🔒</span>' : r.snap ? ' <span class="badge amber" title="ปลดล็อกแล้ว — กด 🔒 เพื่อยืนยันงวดอีกครั้ง">🔓</span>' : ''}${r.adj ? ' <span class="badge amber" title="มีรายการปรับปรุงทางการเงิน (แก้ไขแล้ว)" aria-label="ปรับปรุง">✏️</span>' : ''}</td>${num(r.salary, 'dp-inc')}${num(r.phone, 'dp-inc')}${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.wait, 'dp-inc')}${num(r.topup, 'dp-top')}${num(r.gross, 'b')}${num(r.adv, 'dp-ded')}<td class="r dp-ded">${dpF(r.fuel)}${r.fuel_pending > 0 ? `<div class="xs" style="color:var(--amber)">รออนุมัติ ${dpF(r.fuel_pending)}</div>` : ''}</td>${num(r.ss, 'dp-ded')}${num(r.net, 'dp-net')}
-          <td class="nowrap"><button class="btn btn-sm btn-p" data-sv="${i}">👁 ดู</button>${full && r.dk.startsWith('D:') ? ` <button class="btn btn-sm btn-o" data-se="${i}" title="แก้ไขข้อมูลรายได้คนขับ">✏️ แก้ไข</button>` : ''}${full && r.dk.startsWith('D:') ? ` <button class="btn btn-sm" data-sc="${i}" title="ยืนยันงวด (เก็บ Snapshot รักษายอดย้อนหลัง)" aria-label="ยืนยันงวด">🔒</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="13" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
+        ${rows.map((r, i) => `<tr class="click" data-si="${i}"><td class="b"><span class="nowrap">👤 ${h(r.name)}</span>${r.locked || r.snap || r.adj ? `<div class="dp-bdg">${r.locked ? '<span class="badge green" title="ยืนยันงวดแล้ว">🔒</span>' : r.snap ? '<span class="badge amber" title="ปลดล็อกแล้ว — กด 🔒 เพื่อยืนยันงวดอีกครั้ง">🔓</span>' : ''}${r.adj ? '<span class="badge amber" title="มีรายการปรับปรุงทางการเงิน (แก้ไขแล้ว)" aria-label="ปรับปรุง">✏️</span>' : ''}</div>` : ''}</td>${num(r.salary, 'dp-inc')}${num(r.phone, 'dp-inc')}${num(r.trip, 'dp-inc')}${num(r.night, 'dp-inc')}${num(r.wait, 'dp-inc')}${num(r.topup, 'dp-top')}${num(r.gross, 'b')}${num(r.adv, 'dp-ded')}<td class="r dp-ded">${dpF(r.fuel)}${r.fuel_pending > 0 ? `<div class="xs" style="color:var(--amber)">รออนุมัติ ${dpF(r.fuel_pending)}</div>` : ''}</td>${num(r.ss, 'dp-ded')}${num(r.net, 'dp-net')}
+          <td class="nowrap dp-act-c"><button class="btn btn-sm btn-p" data-sv="${i}">👁 ดู</button><button class="btn btn-sm" data-svd="${i}" title="เอกสารประจำรถ" aria-label="เอกสารประจำรถ">📁</button>${full && r.dk.startsWith('D:') ? `<button class="btn btn-sm btn-o" data-se="${i}" title="แก้ไขข้อมูลรายได้คนขับ">✏️ แก้ไข</button>` : ''}${full && r.dk.startsWith('D:') ? `<button class="btn btn-sm" data-sc="${i}" title="ยืนยันงวด (เก็บ Snapshot รักษายอดย้อนหลัง)" aria-label="ยืนยันงวด">🔒</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="13" class="empty">ไม่มีข้อมูลในช่วงวันที่เลือก</td></tr>'}
         ${rows.length ? `<tr class="dp-tot"><td class="nowrap">รวม (${rows.length} คน)</td>${['salary', 'phone', 'trip', 'night', 'wait', 'topup', 'gross', 'adv', 'fuel', 'ss'].map((k) => num(t[k])).join('')}${num(t.net, 'dp-net')}<td></td></tr>` : ''}</tbody></table></div>
         <div class="xs muted dp-note">รายได้พื้นฐาน = 9,000 + 300 + ค่าเที่ยว + ค้างคืน + ค่ารอ · ต่ำกว่า 20,000 → เพิ่มส่วนต่างก่อนหัก (ครบงวดเท่านั้น) · เงินสุทธิ = รายได้รวมก่อนหัก − เบิกล่วงหน้า − หักน้ำมันที่อนุมัติ − ประกันสังคม</div></div>`;
-      bindFilter('pp', st); $$('#dpSum [data-si]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-sc],[data-se]')) return; openSum(rows[+tr.dataset.si]); });
+      bindFilter('pp', st); $$('#dpSum [data-si]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-sc],[data-se],[data-svd]')) return; openSum(rows[+tr.dataset.si]); });
+      $$('#dpSum [data-svd]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); openVdocs(rows[+b.dataset.svd]); });
       $$('#dpSum [data-se]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); openEdit(rows[+b.dataset.se]); });
       $$('#dpSum [data-sc]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); const r = rows[+b.dataset.sc];
         if (!(await T.confirm('ยืนยันงวด', `ยืนยันงวด ${dpPeriodLabel(dpPeriod(st.from))} ของ ${h(r.name)} — เงินสุทธิ ${dpF(r.net)} บาท (เก็บ Snapshot เพื่อรักษายอดย้อนหลัง)`, 'ยืนยันงวด', 'btn-p'))) return;
@@ -1823,7 +1835,7 @@
   // กำหนดส่ง (factory_date) กรองฝั่งหน้าเว็บ · คนขับ = ทุกตู้ (RUN-17: drivers + ตัวกรอง driver ฝั่ง Server) · Pagination + จำนวนรายการ คิดจากผลหลังกรองทั้งหมด
   // ช่องค้นหา [key, ป้าย (มือถือ), ชนิด, placeholder] — เบอร์ตู้ (คอลัมน์ซ่อน) ค้นหาได้ในช่องใต้ "จำนวนตู้" · MODE อยู่ในช่องใต้ "จัดการ"
   const RJ_COLS = [['job_no', 'JOB', 'text', 'ค้นหา JOB'], ['job_date', 'วันที่งาน', 'date'], ['customer', 'ลูกค้า', 'text'], ['bl_no', 'B/L, BOOKING', 'text', 'ค้นหา B/L / BOOKING'], ['container', 'เบอร์ตู้', 'text'], ['sched', 'กำหนดส่ง', 'date'], ['driver', 'คนขับ', 'text'], ['tl_status', 'สถานะล่าสุด', 'status'], ['mode', 'MODE', 'mode']];
-  const RJ_HEAD = ['JOB', 'วันที่งาน', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'กำหนดส่ง', 'คนขับ', 'สถานะล่าสุด', 'จัดการ'];
+  const RJ_HEAD = ['JOB', 'วันที่งาน', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'กำหนดส่ง', 'คนขับ', 'สถานะล่าสุด', '🚛 Timeline ค่าใช้จ่าย (บาท)', 'จัดการ'];
   const rjInput = (k, label, type, ph) => type === 'date' ? `<input type="date" class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}">`
     : type === 'status' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option>${HL_STATUS.map((x) => `<option value="${h(x)}">${h(x)}</option>`).join('')}</select>`
     : type === 'mode' ? `<select class="inp jf-in" data-rf="${k}" aria-label="ค้นหา${h(label)}"><option value="">ทั้งหมด</option><option value="IMPORT">IMPORT</option><option value="EXPORT">EXPORT</option><option value="BOTH">IMPORT+EXPORT</option></select>`
@@ -1833,6 +1845,22 @@
     const F = {}; RJ_COLS.forEach(([k]) => { F[k] = ''; });
     const modeTxt = (x) => (x.job_mode || []).slice().sort().reverse().join('+') || '-';
     // คนขับ: ชื่อ (ไม่เอานามสกุล) ของทุกตู้ เรียงตามลำดับตู้ ไม่ซ้ำ (RUN-17 drivers) · ก่อนรัน RUN-17 = คนขับตู้ 1
+    // 🚛 Timeline ค่าใช้จ่าย (บาท): ยอดเรียกเก็บลูกค้าของแต่ละตู้ = freeTime(job, ตู้).total (สูตร Timeline เดิม: ค่ารอเกิน Free Time + ค่าค้างคืน) · ไม่รวมค่าใช้จ่ายคนขับ
+    // โหลดเฉพาะ JOB ที่แสดงในหน้า (1 RPC / หน้า · RUN-30) หลังตารางแสดงแล้ว — ไม่ถ่วงการแสดงรายงาน · โหลดรายงานใหม่ = ดึงยอดล่าสุด
+    const TLC = new Map(); let tlGen = 0, tlState = '';
+    const tlCalc = (j) => { const job = Object.assign({}, j, { containers: j.containers || [], timeline: j.timeline || [] });
+      const cts = hlContainers(job).map((ct) => { const ft = freeTime(job, ct); return { no: ct.no, total: ft.state === 'ok' || ft.state === 'over' ? Number(ft.total) || 0 : null }; });
+      const n = cts.filter((c) => c.total != null); return { cts, sum: n.length ? n.reduce((a, c) => a + c.total, 0) : null }; };
+    const tlTxt = (v) => (v == null ? '<span class="xs muted">คำนวณไม่ได้</span>' : v > 0 ? `<b>${dpF(v)}</b>` : '<span class="muted">ไม่มี</span>');
+    const tlCell = (id) => { const t = TLC.get(id); if (!t) return tlState === 'missing' ? '<span class="xs muted">ต้องติดตั้ง RUN-30</span>' : tlState === 'err' ? '<span class="xs muted">โหลดไม่สำเร็จ</span>' : '<span class="muted">…</span>';
+      if (!t.cts.length) return '<span class="muted">-</span>'; if (t.cts.length === 1) return tlTxt(t.cts[0].total);
+      return t.cts.map((c) => `<div class="nowrap">ตู้ ${c.no}: ${tlTxt(c.total)}</div>`).join('') + (t.sum > 0 ? `<div class="nowrap rp-tl-sum">รวม <b>${dpF(t.sum)}</b></div>` : ''); };
+    const tlX = (id) => { const t = TLC.get(id); if (!t) return tlState === 'missing' ? 'ต้องติดตั้ง RUN-30' : ''; return t.sum == null ? 'คำนวณไม่ได้' : t.sum > 0 ? t.sum : 'ไม่มี'; }; // Excel = ยอดเดียวกับหน้าจอ (หลายตู้ = รวม)
+    const tlFetch = async (ids) => { const g = tlGen; const need = [...new Set(ids)].filter((id) => id && !TLC.has(id));
+      for (let i = 0; i < need.length; i += 200) { const part = need.slice(i, i + 200); const d = await T.auth('tnj_report_timeline', { p_job_ids: part }, { silent: true }); if (g !== tlGen) return false;
+        (Array.isArray(d) ? d : []).forEach((j) => TLC.set(j.id, tlCalc(j))); part.forEach((id) => { if (!TLC.has(id)) TLC.set(id, { cts: [], sum: null }); }); } return true; };
+    const tlPaint = () => $$('#rpBody [data-tlc]').forEach((td) => { td.innerHTML = tlCell(td.dataset.tlc); });
+    const tlErr = (e) => { tlState = /PGRST202|Could not find the function/.test(String((e && e.message) || e)) ? 'missing' : 'err'; if (tlState === 'err') console.warn('report timeline', e); };
     const drvTxt = (x) => { const a = Array.isArray(x.drivers) ? x.drivers : (x.driver_name ? [String(x.driver_name).trim().split(/\s+/)[0]] : []); return a.filter(Boolean).join(', ') || '-'; };
     page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><button class="btn btn-g" id="rpXls">📊 EXPORT EXCEL</button></div><div class="flex"><h1>📈 รายงานงานขนส่ง</h1></div></div>
       <div class="card"><div id="rpList"></div><div class="pager" id="rpPager"></div></div>`;
@@ -1843,7 +1871,7 @@
       mode = isNarrow() ? 'm' : 'd'; const clr = '<button type="button" class="btn btn-sm" id="rpClear">ล้างการค้นหา</button>';
       const head = `<tr>${RJ_HEAD.map((l) => `<th>${l}</th>`).join('')}</tr>`; const fi = (k) => { const c = RJ_COLS.find((x) => x[0] === k); return rjInput(c[0], c[1], c[2], c[3]); };
       $('#rpList').innerHTML = mode === 'd'
-        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_no', 'job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
+        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_no', 'job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th></th><th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
         : `<div class="jf-m">${RJ_COLS.map(([k, l, t, ph]) => `<div class="field"><label>${l}</label>${rjInput(k, l, t, ph)}</div>`).join('')}<div class="jf-m-clr">${clr}</div></div><div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}</thead><tbody id="rpBody"></tbody></table></div>`;
       $$('#rpList [data-rf]').forEach((i) => { i.value = F[i.dataset.rf] || ''; });
       const later = T.debounce(() => { pageNo = 1; load(); }, 400);
@@ -1855,12 +1883,13 @@
       });
       $('#rpClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#rpList [data-rf]').forEach((i) => { i.value = ''; }); pageNo = 1; load(); };
     };
-    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono"><a href="javascript:void(0)" class="rp-jno" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td><button type="button" class="btn btn-sm" data-jv="${x.job_id}">ดู JOB ›</button></td></tr>`;
+    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono"><a href="javascript:void(0)" class="rp-jno" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td class="r rp-tlc" data-tlc="${x.job_id}">${tlCell(x.job_id)}</td><td><button type="button" class="btn btn-sm" data-jv="${x.job_id}">ดู JOB ›</button></td></tr>`;
     const draw = () => {
       if (!$('#rpBody')) return;
       const list = filtered(); const pages = Math.max(1, Math.ceil(list.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
       const vis = list.slice((pageNo - 1) * PS, pageNo * PS);
       $('#rpBody').innerHTML = vis.map(rowHtml).join('') || `<tr><td colspan="${RJ_HEAD.length}" class="empty">ไม่พบข้อมูล</td></tr>`;
+      if (vis.some((x) => !TLC.has(x.job_id)) && tlState !== 'missing') tlFetch(vis.map((x) => x.job_id)).then((ok) => { if (ok) tlPaint(); }).catch((e) => { tlErr(e); tlPaint(); });
       $$('#rpBody [data-det]').forEach((b) => b.onclick = () => openReportDetail(b.dataset.det));
       // เลข JOB / ปุ่ม ดู JOB → Popup รายละเอียด JOB (ฟอร์มเปิดงานเดิมแบบ READ ONLY) · ไม่เปลี่ยนหน้า
       $$('#rpBody [data-jv]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); jobEditDialog(b.dataset.jv, null, { view: true }); });
@@ -1869,13 +1898,14 @@
     };
     const load = async () => { const my = ++seq; try {
       const d = await T.auth('tnj_report_rows', { p: server() }, { silent: true });
-      if (my !== seq || !$('#rpList')) return; rows = d.rows || [];
+      if (my !== seq || !$('#rpList')) return; rows = d.rows || []; tlGen++; TLC.clear(); if (tlState === 'err') tlState = '';
       if (!$('#rpBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
     } catch (e) { if (my === seq) T.err(e); } };
     $('#rpXls').onclick = async () => { try { T.loading(true); await ensureXlsx();
       const list = filtered().slice().sort((a, b) => String(a.job_date).localeCompare(String(b.job_date)));
-      const ja = [['Date', 'MODE', 'Customer', 'B/L, BOOKING', 'Container No.', 'Containers', 'Seal', 'Size', 'ท่านำเข้า', 'รับ/คืนตู้เปล่า', 'วันที่ส่ง', 'เวลา', 'Driver', 'License Plate', 'Trailer Plate', 'สถานะล่าสุด', 'ปิดงานเมื่อ', 'Job Status']].concat(list.map((x) => [x.job_date, modeTxt(x) === '-' ? '' : modeTxt(x), x.customer_name, x.bl_no, x.container_no || '', x.container_count || 1, x.seal_no || '', x.container_size || '', x.pickup_location_text || '', x.return_location_text || '', x.factory_date || '', x.factory_time ? String(x.factory_time).slice(0, 5) : '', x.driver_name || '', x.license_plate || '', x.trailer_plate || '', x.tl_status || '', x.completed_at ? T.fmtDT(x.completed_at) : '', T.ST_TH[x.status] || x.status]));
-      ja.push([]); ja.push(['Total', `จำนวน Job: ${list.length}`]); const jws = XLSX.utils.aoa_to_sheet(ja); jws['!cols'] = [10, 14, 24, 16, 14, 9, 12, 8, 18, 18, 10, 7, 18, 12, 12, 26, 16, 12].map((w) => ({ wch: w })); const jwb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(jwb, jws, 'Jobs'); XLSX.writeFile(jwb, `TransportNJ_Job_Report_${T.todayISO()}.xlsx`); T.toast(`Export ${list.length} งาน`, 'ok');
+      if (tlState !== 'missing') { try { await tlFetch(list.map((x) => x.job_id)); } catch (e) { tlErr(e); } }
+      const ja = [['Date', 'MODE', 'Customer', 'B/L, BOOKING', 'Container No.', 'Containers', 'Seal', 'Size', 'ท่านำเข้า', 'รับ/คืนตู้เปล่า', 'วันที่ส่ง', 'เวลา', 'Driver', 'License Plate', 'Trailer Plate', 'สถานะล่าสุด', '🚛 Timeline ค่าใช้จ่าย (บาท)', 'ปิดงานเมื่อ', 'Job Status']].concat(list.map((x) => [x.job_date, modeTxt(x) === '-' ? '' : modeTxt(x), x.customer_name, x.bl_no, x.container_no || '', x.container_count || 1, x.seal_no || '', x.container_size || '', x.pickup_location_text || '', x.return_location_text || '', x.factory_date || '', x.factory_time ? String(x.factory_time).slice(0, 5) : '', x.driver_name || '', x.license_plate || '', x.trailer_plate || '', x.tl_status || '', tlX(x.job_id), x.completed_at ? T.fmtDT(x.completed_at) : '', T.ST_TH[x.status] || x.status]));
+      ja.push([]); ja.push(['Total', `จำนวน Job: ${list.length}`]); const jws = XLSX.utils.aoa_to_sheet(ja); list.forEach((x, i) => { const a = XLSX.utils.encode_cell({ r: i + 1, c: 16 }); if (jws[a] && jws[a].t === 'n') jws[a].z = '#,##0.00'; }); jws['!cols'] = [10, 14, 24, 16, 14, 9, 12, 8, 18, 18, 10, 7, 18, 12, 12, 26, 16, 16, 12].map((w) => ({ wch: w })); const jwb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(jwb, jws, 'Jobs'); XLSX.writeFile(jwb, `TransportNJ_Job_Report_${T.todayISO()}.xlsx`); T.toast(`Export ${list.length} งาน`, 'ok');
     } catch (e) { T.err(e); } finally { T.loading(false); } };
     frame(); load(); T.subscribe('tnj:office', T.debounce(() => { if ($('#rpJobTbl')) load(); }, 1500)); // ปิดงาน / เปิดงานกลับ → รายงานอัปเดตเอง (Realtime เดิม)
   }
@@ -1962,7 +1992,7 @@
   const VD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
   async function vehicleDocs(v) {
     if (!v) return; const admin = T.isAdmin();
-    const m = T.modal({ title: `📁 เอกสารประจำรถ — ${v.vehicle_name || ''} (${v.license_plate})`, size: 'w', body: '<div id="vdBody"><div class="empty">กำลังโหลด...</div></div>', foot: `<button class="btn" data-close>ปิด</button>${admin ? '<button class="btn btn-p" id="vdAdd">+ แนบเอกสาร</button>' : ''}` });
+    const m = T.modal({ title: `📁 เอกสารประจำรถ — ${v.vehicle_name || ''} (${v.license_plate})`, size: 'w', body: '<div id="vdBody"><div class="empty">กำลังโหลด...</div></div>', foot: `<button class="btn" data-close>ปิด</button>${admin ? '<button class="btn btn-p" id="vdAdd">📎 แนบเอกสาร</button>' : ''}` });
     const el = m.el || document.querySelector('.overlay:last-child'); let d = { rows: [], types: [] };
     const load = async () => {
       try { d = await T.auth('tnj_vfile_list', { p_vehicle_id: v.id }, { silent: true }); } catch (e) { $('#vdBody', el).innerHTML = `<div class="empty">${h(T.parseErr(e).text)}</div>`; return; }

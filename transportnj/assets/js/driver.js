@@ -261,7 +261,7 @@
     $('#dcUp', body).onclick = async () => { const r = await T.uploadDialog(j.id, { sheet: true }); if (r) { S.at = 0; T.render(); } };
   }
   // 📋 ข้อมูล — เฉพาะของคนขับที่ Login (tnj_driver_me) · ไม่แสดงทะเบียนรถ · Tab ภายใน
-  const PTABS = [['eq', 'อุปกรณ์/ไมล์'], ['vdoc', 'เอกสารรถ'], ['adv', 'เงินสำรอง'], ['fuel', 'เติมน้ำมัน'], ['hist', 'ประวัติงาน']];
+  const PTABS = [['eq', 'อุปกรณ์/ไมล์'], ['vdoc', '📁 เอกสารรถ'], ['adv', 'เงินสำรอง'], ['fuel', 'เติมน้ำมัน'], ['hist', 'ประวัติงาน']];
   const EQUIP = ['แว่นตา', 'เสื้อสะท้อนแสง', 'รองเท้าเซฟตี้', 'หมวก', 'สายไฟ'];
   const MILE_ERR = 'ไมล์จบงานต้องมากกว่าหรือเท่ากับไมล์เริ่มงาน';
   async function pageProfile(app) {
@@ -308,7 +308,7 @@
         // 📁 เอกสารประจำรถที่ได้รับมอบหมาย ณ ปัจจุบัน — ดู/ดาวน์โหลดอย่างเดียว · ไม่แสดงทะเบียนรถ
         pb.innerHTML = '<div class="m-card" id="pfVdoc"><div class="m-sec"><b>📁 เอกสารประจำรถที่ได้รับมอบหมาย</b></div><div class="small muted">กำลังโหลด...</div></div>';
         T.auth('tnj_driver_vehicle_docs', {}, { silent: true }).then((vd) => { const box = $('#pfVdoc', body); if (!box || tab !== 'vdoc') return; const rows = vd.rows || [];
-          box.innerHTML = `<div class="m-sec"><b>📁 เอกสารประจำรถที่ได้รับมอบหมาย</b> <span class="xs muted">(${rows.length})</span></div>${!vd.has_vehicle ? '<div class="small muted">ยังไม่ได้รับมอบหมายรถ</div>' : rows.map((f) => `<div class="m-row vd-row" data-vf="${f.id}"><div><b>${T.vfiles.ICON[f.doc_type] || '📄'} ${h(f.doc_type)}</b></div><div class="ell">${h(f.file_name)}</div>${T.vfiles.expHtml(f)}<div class="m-vd-btns"><button type="button" class="btn" data-vprev>👁 ดู</button><button type="button" class="btn" data-vdl>⬇ ดาวน์โหลด</button></div></div>`).join('') || '<div class="small muted">ยังไม่มีเอกสารประจำรถ</div>'}`;
+          box.innerHTML = `<div class="m-sec"><b>📁 เอกสารประจำรถที่ได้รับมอบหมาย</b> <span class="xs muted">(${rows.length})</span></div>${!vd.has_vehicle ? '<div class="small muted">ยังไม่ได้รับมอบหมายรถ</div>' : rows.map((f) => `<div class="m-row vd-row" data-vf="${f.id}"><div><b>${T.vfiles.ICON[f.doc_type] || '📄'} ${h(f.doc_type)}</b></div><div class="ell">${h(f.file_name)}</div>${T.vfiles.expHtml(f)}<div class="xs muted">อัปโหลด ${T.fmtDT(f.uploaded_at)}</div><div class="m-vd-btns"><button type="button" class="btn" data-vprev>👁 ดู</button><button type="button" class="btn" data-vdl>⬇ ดาวน์โหลด</button></div></div>`).join('') || '<div class="small muted">ยังไม่มีเอกสารประจำรถ</div>'}`;
           $$('[data-vf]', box).forEach((row) => { const f = rows.find((x) => x.id === row.dataset.vf); $('[data-vprev]', row).onclick = () => T.vfiles.preview(f); $('[data-vdl]', row).onclick = () => T.vfiles.download(f); });
         }).catch((e) => { const box = $('#pfVdoc', body); if (box) box.innerHTML = `<div class="small muted">${h(T.parseErr(e).text)}</div>`; });
       } else if (tab === 'adv') {
