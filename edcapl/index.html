@@ -1560,7 +1560,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
               </div>
             </div>
             <!-- [MASTER CENTRAL] MASTER APL กลาง (Supabase) — ยกเลิกช่อง UPLOAD MASTER · โหลด MASTER ที่เผยแพร่ล่าสุดอัตโนมัติ (กรองกลุ่ม AAT / FTM ตามโหมด) -->
-            <div class="upload-col dz-req" id="edc8AplCol">
+            <div class="upload-col dz-req" id="edc8AplCol" hidden aria-hidden="true">   <!-- ซ่อนเฉพาะ UI (AAT + FTM) · การโหลด MASTER เบื้องหลัง / setBox ยังทำงาน · โหลดไม่ได้ → แจ้งเมื่อกด ตรวจสอบ -->
               <div class="step-header mode-edc8">
                 <span class="step-num">2</span>
                 <span class="step-title">📗 MASTER APL กลาง — Auto Supabase</span>
@@ -1573,7 +1573,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
             <!-- FORD INVOICE -->
             <div class="upload-col dz-opt">
               <div class="step-header mode-edc8">
-                <span class="step-num">3</span>
+                <span class="step-num">2</span>   <!-- กรอบ MASTER APL ซ่อน → ลำดับขั้นต่อเนื่อง 1 → 2 -->
                 <span class="step-title">Ford Commercial Invoice</span>
                 <span class="step-req">Required</span>   <!-- Validator EDC8 ต้องใช้ (edc8RunCheck: ไม่มี Ford Invoice = ไฟล์ไม่ครบ) -->
               </div>
@@ -1591,11 +1591,12 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
           <!-- EDC8 Action Bar -->
           <div class="action-bar" style="margin-top:14px">
             <button class="btn btn-green" onclick="edc8RunCheck()">🔍 ตรวจสอบ</button>
-            <button class="btn btn-export ui-btn-blue" onclick="if(!document.getElementById('edc8ExportBtn').disabled) document.getElementById('edc8ExportBtn').click()">⬇ Export (.xlsx)</button>
-            <div class="sep"></div>
-            <button class="btn btn-export ui-btn-purple" onclick="edc8ExportMapping()">📊 Export Mapping</button>
-            <button class="btn btn-export ui-btn-teal" onclick="edc8ExportFordTotal()">📋 Export TOTAL</button>
-            <button class="btn-reset" onclick="document.getElementById('edc8ResetBtn').click()">↺ รีเซ็ต</button>
+            <button class="btn btn-export ui-btn-blue" onclick="if(!document.getElementById('edc8ExportBtn').disabled) document.getElementById('edc8ExportBtn').click()">⬇ EXPORT (.xlsx)</button>
+            <!-- EDC8 AAT / FTM: เหลือ 2 ปุ่ม (ตรวจสอบ · EXPORT) — ซ่อนเฉพาะ UI · ฟังก์ชันเดิมไม่ถูกลบ -->
+            <div class="sep" hidden></div>
+            <button class="btn btn-export ui-btn-purple" onclick="edc8ExportMapping()" hidden>📊 Export Mapping</button>
+            <button class="btn btn-export ui-btn-teal" onclick="edc8ExportFordTotal()" hidden>📋 Export TOTAL</button>
+            <button class="btn-reset" onclick="document.getElementById('edc8ResetBtn').click()" hidden>↺ รีเซ็ต</button>
           </div>
 
 
@@ -2213,7 +2214,7 @@ function dzClear(dzId, delId, inputId, fnTxtId, fnId){
     clearResult();
   }
   if(dzId==='edc8DropZone'){
-    edc8Wb = null;
+    edc8Wb = null; if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult();
     if(typeof tryEnableEdc8Check==='function') tryEnableEdc8Check();
   }
   if(dzId==='edc8MasterDZ'){
@@ -3119,9 +3120,17 @@ function kdcRunCheckCore(PMX){
             push(item,'Quantity', found, invQty, eqNum(found, invQty), unitEntry, '');
           }
         }
-        push(item,'Product Code', kdcCell(row,C.productCode), invFirst.partNo, eqPart(kdcCell(row,C.productCode), invFirst.partNo));
-        push(item,'PART NO.',     kdcCell(row,C.partNo),      invFirst.partNo, eqPart(kdcCell(row,C.partNo),      invFirst.partNo));
       }
+      // ── Product Code + PART NO. — ทุก Item ↔ PART NUMBER ของ INVOICE รายการเดียวกัน (Item n = รายการที่ n · INVOICE = MASTER) ──
+      //    ต่างกันได้เฉพาะ '-' ช่องว่าง ตัวพิมพ์เล็ก/ใหญ่ · ว่าง / '-' / ไม่ตรง / INVOICE ไม่มีรายการ = FAIL
+      { const nP = v => String(v==null?'':v).trim().replace(/[\s\-]/g,'').toUpperCase();
+        const iNo = parseInt(String(item).replace(/\D/g,''),10), invIt = (iNo>=1 && iNo<=inv.items.length) ? inv.items[iNo-1] : (iNo>=1 ? null : inv.items[gi]) || null;
+        const invPart = invIt ? String(invIt.partNo==null?'':invIt.partNo).trim() : '';
+        const chkPart = (field, v) => { const raw = String(v==null?'':v).trim(), a = nP(raw), b = nP(invPart);
+          const why = !invIt ? 'ไม่พบรายการ INVOICE ลำดับที่ '+(iNo||gi+1) : (!b ? 'INVOICE ไม่มี PART NUMBER' : (!raw ? 'ใบขนว่าง' : (!a ? 'ใบขนเป็น "'+raw+'" (ไม่มีข้อมูล)' : (a!==b ? 'ไม่ตรงกับ INVOICE' : ''))));
+          push(item, field, raw, invPart, !why, '', why ? why + (invIt ? ' · INVOICE รายการที่ '+(iNo||gi+1) : '') : ''); };
+        chkPart('Product Code', kdcCell(row,C.productCode));
+        chkPart('PART NO.',     kdcCell(row,C.partNo)); }
       push(item,'Thai Translation', thai, thai, !kdcIsBlank(thai), '', kdcIsBlank(thai)?'ไม่มีคำแปลไทยในใบขน':(exc||isRadar?'Exception: '+thai:''));
       // HS code / ใบอนุญาต — Lookup MASTER กลาง (hspmMatch · EXPORT / IMPORT+EXPORT) · Exception เดิมด้านล่างไม่เปลี่ยน
       { const n0 = out.length, info = {}; const cat = kdcPermitCheck(item, g, C, PMX, out, info); pmCats.push(cat);
@@ -4630,6 +4639,7 @@ function loadEdc8File(file, isEdc8){
       }
     }
     if(isEdc8){
+      if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult();   // เปลี่ยนไฟล์ใบขน (แม้ชื่อเดิม) → ล้างผลตรวจเดิม
       edc8Wb = wb;
       edc8FnTxt.textContent = file.name;
       edc8DropFn.classList.add('show');
@@ -4802,7 +4812,7 @@ function loadMasterFromStorage(){
   }
 }
 
-edc8FileInput.addEventListener('change', ()=>loadEdc8File(edc8FileInput.files[0], true));
+edc8FileInput.addEventListener('change', ()=>{ const f=edc8FileInput.files[0]; loadEdc8File(f, true); edc8FileInput.value=''; });   // ล้างค่า input → เลือกไฟล์ชื่อเดิมซ้ำได้ (โหลดใหม่ + ล้างผลเก่า)
 masterFileInput?.addEventListener('change',()=>loadEdc8File(masterFileInput?.files[0], false));
 edc8DropZone.addEventListener('click',     ()=>dzOpenFile(edc8FileInput));
 edc8DropZone.addEventListener('dragover',  e=>{e.preventDefault();edc8DropZone.classList.add('drag-over');});
@@ -5426,7 +5436,7 @@ function validateEdc8FixedQty(eRows, eCI, eHdrRaw){
 // ── edc8RunCheck: direct call from action bar (bypasses hidden button) ──
 function edc8RunCheck(){
   /* [MASTER CENTRAL] ก่อนตรวจทุกครั้ง: ยืนยัน MASTER APL ล่าสุดที่เผยแพร่ (โหมดปัจจุบัน) · โหลดไม่ได้ = ระงับการตรวจ ไม่แสดง PASS */
-  if(!edc8Wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน EDC8 ก่อนตรวจสอบ'); return; }
+  if(!edc8Wb){ if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult(); edc8ShowSysErr('ไฟล์ไม่ครบ','⚠ กรุณาอัปโหลดไฟล์ ใบขน EDC8 ก่อนตรวจสอบ'); return; }
   if(typeof aplEdc8Ensure === 'function'){
     return aplEdc8Ensure().then(ok => {
       if(ok === null) return;   // คำขอนี้ถูกแทนด้วยคำขอใหม่ / สลับโหมดระหว่างโหลด → ไม่ทำอะไร
@@ -5436,7 +5446,7 @@ function edc8RunCheck(){
     });
   }
   if(!edc8Wb || !masterWb){
-    alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน EDC8 ก่อนตรวจสอบ (MASTER APL กลางโหลดอัตโนมัติ)'); return;
+    edc8ShowSysErr('ไฟล์ไม่ครบ','⚠ กรุณาอัปโหลดไฟล์ ใบขน EDC8 ก่อนตรวจสอบ (MASTER APL กลางโหลดอัตโนมัติ)'); return;
   }
   edc8CheckBtn.click();
 }
@@ -8826,7 +8836,7 @@ function _mfMergeFord(entries){
 // Update the correct global wb variable after merge
 function _mfSetVar(dzId, wb){
   if(dzId==='fordInvKdcDZ')       fordWbKdc  = wb;
-  else if(dzId==='fordInvEdc8DZ') fordWbEdc8 = wb;
+  else if(dzId==='fordInvEdc8DZ'){ fordWbEdc8 = wb; if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult(); }   // เปลี่ยน Ford Invoice → ล้างผลตรวจเดิม
   else if(dzId==='fordInvFzDZ')   fordWbFz   = wb;
 }
 
@@ -9028,6 +9038,7 @@ function fordInvLoad(file, dz, btnRow){
     } else if(dz.id==='fordInvEdc8DZ'){
       fordWbEdc8 = wb;
       _mfAppend('fordInvEdc8DZ', wb, file.name);
+      if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult();   // เพิ่ม / เปลี่ยน Ford Invoice → ล้างผลตรวจเดิม
     } else if(dz.id==='fordInvFzDZ'){
       fordWbFz   = wb;
       fordRawFz  = {name: file.name, data: rawData};
@@ -9087,7 +9098,7 @@ function fordInvLoad(file, dz, btnRow){
 function fordInvReset(dzId, inpId, fnId, btnRowId){
   // Clear per-mode wb and multi-file array
   if(dzId==='fordInvKdcDZ')       { fordWbKdc  = null; _mfClear('fordInvKdcDZ');  if(typeof tryEnableKdcCheck==='function') tryEnableKdcCheck(); if(typeof clearResult==='function') clearResult(); }
-  else if(dzId==='fordInvEdc8DZ') { fordWbEdc8 = null; _mfClear('fordInvEdc8DZ'); }
+  else if(dzId==='fordInvEdc8DZ') { fordWbEdc8 = null; _mfClear('fordInvEdc8DZ'); if(typeof aplEdc8ClearResult==='function') aplEdc8ClearResult(); }
   else if(dzId==='fordInvFzDZ')   {
     fordWbFz = null; _mfClear('fordInvFzDZ');
     // EDC1 FZ-specific cleanup
@@ -11834,6 +11845,12 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 })();
 </script>
 <style>/* [MASTER CENTRAL] EDC8 AAT / FTM ↔ MASTER APL กลาง — ทุก Selector อยู่ใต้ #panel-edc8 */
+/* ซ่อนกรอบ MASTER APL กลาง (ทั้ง AAT / FTM · ทุกสถานะ) — ช่อง UPLOAD ที่เหลือ 2 ช่องเต็มความกว้าง · Tablet 2 คอลัมน์ · Mobile 1 คอลัมน์ */
+#appMain #panel-edc8 #edc8AplCol, #panel-edc8 #edc8AplCol[hidden]{ display:none !important; }
+#panel-edc8 .action-bar > [hidden]{ display:none !important; }
+#appMain #panel-edc8 #edc8UploadGrid{ grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+#appMain #panel-edc8 #edc8UploadGrid > .upload-col:nth-child(3){ grid-column:auto !important; }
+@media (max-width: 720px){ #appMain #panel-edc8 #edc8UploadGrid{ grid-template-columns:minmax(0, 1fr) !important; } }
 #panel-edc8 .e8m-tag{ margin-left:auto; font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; background:#e6f6ee; color:#047857; border:1px solid #bfe6d2; white-space:nowrap }
 #panel-edc8 .e8m-box{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; gap:6px; min-height:132px; padding:12px 14px; border-radius:12px; border:1.5px solid #c4ead9; background:rgba(255,255,255,.85) }
 #panel-edc8 .e8m-box.e8m-bad{ border-color:#f2cdc8; background:#fdf6f5 }
@@ -11978,6 +11995,9 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       else if(stOf(v)!==ms) E('MASTER_STAT_MISMATCH','Stat Code (Master)',v,ms+(S(pick.stat_code).trim()!==ms?' ('+S(pick.stat_code).trim()+')':''),'mismatch'); }
     return out;
   }
+  function aplEdc8ClearResult(){   /* ล้างผลตรวจบนจอ + Export (ไม่แตะ MASTER / ไฟล์) */
+    if(!MODE()) return; LAST=null; try{ edc8Checked=false; edc8AllErrors=[]; if(edc8ExportBtn) edc8ExportBtn.disabled=true; edc8ResultBox.style.display='none'; edc8RTitle.textContent=''; edc8RBody.innerHTML=''; }catch(_){}
+  }
   function failClear(){   /* โหลดไม่ได้ → ล้างผลตรวจเดิมบนจอ (ห้ามเหลือ PASS เก่า) · ปิด Export */
     masterWb=null; LAST=null; try{ edc8Checked=false; edc8AllErrors=[]; if(edc8ExportBtn) edc8ExportBtn.disabled=true; edc8ResultBox.style.display='none'; edc8RTitle.textContent=''; edc8RBody.innerHTML=''; tryEnableEdc8Check(); }catch(_){}
   }
@@ -12101,9 +12121,9 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const color=isErr?'var(--error)':'var(--success)', bg=isErr?'var(--error-bg)':'var(--success-bg)', bord=isErr?'var(--error-border)':'var(--success-border)';
     edc8ResultBox.style.display='block'; edc8ResultBox.style.background=bg; edc8ResultBox.style.border='1px solid '+bord;
     edc8RHead.style.background=bg; edc8RHead.style.borderBottom='1px solid '+bord; edc8RDot.style.background=color; edc8RDot.style.boxShadow='0 0 6px '+color; edc8RTitle.style.color=color;
-    edc8RTitle.textContent=(isErr?'❌ พบข้อผิดพลาด ':(m.na?'⚠ PARTIAL ':'✅ PASS '))+'— '+m.items+' item · ถูกต้อง '+m.pass+' · ผิด '+m.fail+' item'+(m.na?' · ไม่ตรวจ '+m.na+' item':'')+' · '+m.points+' จุด'+(m.filePoints?' (ระดับไฟล์ / Mapping '+m.filePoints+' จุด)':'');
+    edc8RTitle.textContent=(isErr?'❌ พบข้อผิดพลาด ':'✅ PASS ')+'— '+m.items+' item · ถูกต้อง '+m.pass+' · ผิด '+m.fail+' item'+(m.na?' · ไม่ตรวจ '+m.na+' item':'')+' · '+m.points+' จุด'+(m.filePoints?' (ระดับไฟล์ / Mapping '+m.filePoints+' จุด)':'');
     const c=(cls,t)=>'<div class="stat-chip '+cls+'">'+t+'</div>';
-    let html='<div class="kdc-chips e8k-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+(m.na?c('warn','⚪ ไม่ตรวจ '+m.na+' item (ไม่นับ)'):'')+(m.filePoints?c('err','❌ ระดับไฟล์ / Mapping '+m.filePoints+' จุด (ไม่นับเป็น ITEM)'):'')+c('warn','Σ '+m.points+' จุด · '+m.items+' item')+
+    let html='<div class="kdc-chips e8k-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+c('warn','⚪ ไม่ตรวจ '+m.na+' item (ไม่นับ)')+(m.filePoints?c('err','❌ ระดับไฟล์ / Mapping '+m.filePoints+' จุด (ไม่นับเป็น ITEM)'):'')+c('warn','❌ '+m.points+' จุด')+
       c('ok','MASTER APL v'+esc(m.masterVer)+' ('+esc(m.mode)+')')+(m.invoiceNo?c('ok','INVOICE '+esc(m.invoiceNo)):'')+'</div>';
     html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก)</span></div>';
     if(!G.length) html+='<div class="e8k-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด</div>';
@@ -12146,10 +12166,11 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     /* Sheet 2: สรุปผลตรวจ — 1 หัวข้อ = 1 แถว (จาก grouped ชุดเดียวกับหน้าจอ) · ยอดรวม = หน้าจอ */
     const a2=[], sm2={}, mg2=[], rh2={}; const put2=(r,c,v,s2)=>{ while(a2.length<=r) a2.push([]); a2[r][c]=v; if(s2) sm2[r+':'+c]=s2; };
     put2(0,0,'EDC8 '+S(m.mode),X.TITLE); mg2.push({s:{r:0,c:0},e:{r:0,c:1}}); put2(0,1,'',X.TITLE); put2(0,2,'สรุปผลตรวจ · MASTER APL v'+S(m.masterVer),X.SUB); mg2.push({s:{r:0,c:2},e:{r:0,c:5}}); [3,4,5].forEach(c=>put2(0,c,'',X.SUB)); rh2[0]=36;
-    [['จำนวนรายการ', m.items+' item'+(m.na?' (ไม่ตรวจ '+m.na+' item · ไม่นับ)':'')],['ถูกต้อง', m.pass+' item'],['ผิด', m.fail+' item · '+m.points+' จุด'],['INVOICE NO.', S(m.invoiceNo)],['วันที่ตรวจสอบ', kdcDateTH(m.checkedAt)]].concat(m.filePoints?[['ผิดระดับไฟล์ / Mapping', m.filePoints+' จุด (ไม่นับเป็น ITEM)']]:[]).forEach((h,i)=>{ const r=i+1; rh2[r]=22;
-      put2(r,0,h[0],X.LBL); mg2.push({s:{r,c:0},e:{r,c:1}}); put2(r,1,'',X.LBL); put2(r,2,h[1], i===1?X.OKSUM:(i===2?X.BADSUM:X.VAL)); mg2.push({s:{r,c:2},e:{r,c:5}}); [3,4,5].forEach(c=>put2(r,c,'',i===1?X.OKSUM:(i===2?X.BADSUM:X.VAL))); });
+    const H2=[['จำนวน ITEM รวม', m.items+' item'],['ถูกต้อง', m.pass+' item'],['ผิด', m.fail+' item · '+m.points+' จุด'],['ไม่ตรวจ / ไม่นับ', m.na+' item'],['INVOICE NO.', S(m.invoiceNo)],['วันที่ตรวจสอบ', kdcDateTH(m.checkedAt)]].concat(m.filePoints?[['ผิดระดับไฟล์ / Mapping', m.filePoints+' จุด (ไม่นับเป็น ITEM)']]:[]);
+    H2.forEach((h,i)=>{ const r=i+1; rh2[r]=22; const st=i===1?X.OKSUM:(i===2?X.BADSUM:(i===3?X.TOTSUM:X.VAL));
+      put2(r,0,h[0],X.LBL); mg2.push({s:{r,c:0},e:{r,c:1}}); put2(r,1,'',X.LBL); put2(r,2,h[1], st); mg2.push({s:{r,c:2},e:{r,c:5}}); [3,4,5].forEach(c=>put2(r,c,'',st)); });
     const T=new Map(); G.forEach(x=>{ if(!T.has(x.field)) T.set(x.field,{ items:[], pts:0, st:new Set() }); const t=T.get(x.field); (x.items||[]).forEach(i=>{ if(!t.items.includes(i)) t.items.push(i); }); t.pts+=x.count; t.st.add(x.st.replace(/^❌\s*/,'')); });
-    let r2=7; ['No.','หัวข้อตรวจสอบ','จำนวน Item ผิด','Item No. ที่ผิด','จำนวนจุด','ผลตรวจ'].forEach((c,i)=>put2(r2,i,c,X.HDRBAD)); rh2[r2]=22; r2++;
+    let r2=H2.length+2; ['No.','หัวข้อตรวจสอบ','จำนวน Item ผิด','Item No. ที่ผิด','จำนวนจุด','ผลตรวจ'].forEach((c,i)=>put2(r2,i,c,X.HDRBAD)); rh2[r2]=22; r2++;
     if(!T.size){ put2(r2,0,'✅ ไม่พบข้อผิดพลาด',X.SECOK); mg2.push({s:{r:r2,c:0},e:{r:r2,c:5}}); [1,2,3,4,5].forEach(c=>put2(r2,c,'',X.SECOK)); r2++; }
     [...T.entries()].forEach(([f,t],i)=>{ put2(r2,0,i+1,X.CELL_C); put2(r2,1,f,X.CELL_L); put2(r2,2,String(t.items.length),X.CELL_C); put2(r2,3,kdcFmtItems(t.items),X.CELL_L); put2(r2,4,String(t.pts),X.CELL_C); put2(r2,5,[...t.st].join(' / '),X.ST_BAD); r2++; });
     if(NA.length){ r2++; put2(r2,0,'○  ไม่ตรวจ / ไม่นับ (สิทธิที่ยังไม่มีกฎ · MASTER ไม่มี HS / Stat)',X.SECNA); mg2.push({s:{r:r2,c:0},e:{r:r2,c:5}}); [1,2,3,4,5].forEach(c=>put2(r2,c,'',X.SECNA)); r2++;
@@ -12176,7 +12197,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   try{ const am=$('appMain'); if(am && window.MutationObserver){ let shown=am.style.display!=='none';
     new MutationObserver(()=>{ const now=am.style.display!=='none'; if(now===shown) return; shown=now;
       if(now){ if(MODE()) aplEdc8Load(); } else { seq++; masterWb=null; LAST=null; setBox('load','⏳ รอ Login…',''); } }).observe(am, { attributes:true, attributeFilter:['style'] }); } }catch(_){}
-  Object.assign(window, { aplEdc8Load, aplEdc8Ensure, aplEdc8LastError, aplEdc8RuleErrors, aplEdc8RenderAat, aplEdc8ExportAat, aplEdc8BuildExcel, aplEdc8MasterCheck });
+  Object.assign(window, { aplEdc8ClearResult, aplEdc8Load, aplEdc8Ensure, aplEdc8LastError, aplEdc8RuleErrors, aplEdc8RenderAat, aplEdc8ExportAat, aplEdc8BuildExcel, aplEdc8MasterCheck });
+  /* เปลี่ยน / ลบไฟล์ ใบขน EDC8 หรือ Ford Invoice → ล้างผลตรวจเก่า + ปิด Export (ห้ามใช้ผลของไฟล์ก่อนหน้า) */
+  const clearOnFile=()=>{ if(!MODE() || !LAST && !edc8Checked) return; LAST=null; try{ edc8Checked=false; edc8AllErrors=[]; if(edc8ExportBtn) edc8ExportBtn.disabled=true; edc8ResultBox.style.display='none'; edc8RTitle.textContent=''; edc8RBody.innerHTML=''; }catch(_){} };
+  try{ ['edc8FnTxt','fordInvEdc8FnTxt'].forEach(id=>{ const el=$(id); if(el && window.MutationObserver) new MutationObserver(clearOnFile).observe(el, { childList:true, characterData:true, subtree:true }); }); }catch(_){}
   window.aplEdc8Rights=(r,md)=>expOf(r,md); window.aplEdc8InMode=inMode; window.aplEdc8Last=()=>LAST;   /* ใช้ทดสอบ */
   if(MODE() && sessionStorage.getItem('njSession') && $('appMain') && $('appMain').style.display!=='none') aplEdc8Load();   /* Refresh หน้าขณะ Login อยู่ */
 })();
