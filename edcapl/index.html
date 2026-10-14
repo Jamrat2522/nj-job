@@ -3129,8 +3129,10 @@ function kdcRunCheckCore(PMX){
         const chkPart = (field, v) => { const raw = String(v==null?'':v).trim(), a = nP(raw), b = nP(invPart);
           const why = !invIt ? 'ไม่พบรายการ INVOICE ลำดับที่ '+(iNo||gi+1) : (!b ? 'INVOICE ไม่มี PART NUMBER' : (!raw ? 'ใบขนว่าง' : (!a ? 'ใบขนเป็น "'+raw+'" (ไม่มีข้อมูล)' : (a!==b ? 'ไม่ตรงกับ INVOICE' : ''))));
           push(item, field, raw, invPart, !why, '', why ? why + (invIt ? ' · INVOICE รายการที่ '+(iNo||gi+1) : '') : ''); };
-        chkPart('Product Code', kdcCell(row,C.productCode));
-        chkPart('PART NO.',     kdcCell(row,C.partNo)); }
+        // ทุกแถวของ Item (รวมแถวใบอนุญาตเพิ่ม / Item ซ้ำ) · ค่าซ้ำกันในแถวของ Item เดียวกัน = ตรวจ 1 ครั้ง (ไม่นับซ้ำ) · ค่าต่างกัน = ตรวจทุกค่า
+        const allVals = idx => g.rows.map(r => kdcCell(r, idx)).filter((v, i, arr) => arr.indexOf(v) === i);
+        allVals(C.productCode).forEach(v => chkPart('Product Code', v));
+        allVals(C.partNo).forEach(v => chkPart('PART NO.', v)); }
       push(item,'Thai Translation', thai, thai, !kdcIsBlank(thai), '', kdcIsBlank(thai)?'ไม่มีคำแปลไทยในใบขน':(exc||isRadar?'Exception: '+thai:''));
       // HS code / ใบอนุญาต — Lookup MASTER กลาง (hspmMatch · EXPORT / IMPORT+EXPORT) · Exception เดิมด้านล่างไม่เปลี่ยน
       { const n0 = out.length, info = {}; const cat = kdcPermitCheck(item, g, C, PMX, out, info); pmCats.push(cat);
