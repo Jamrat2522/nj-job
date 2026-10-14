@@ -18,7 +18,7 @@
   const stOpts = (sel, list) => (list || T.STATUS).map((s) => `<option value="${s}" ${s === sel ? 'selected' : ''}>${h(T.ST_TH[s])}</option>`).join('');
 
   const NAV = [
-    ['jobs', '🚚', 'งานขนส่ง'], ['reports', '📈', 'รายงานงานขนส่ง'], ['mileage', '📋', 'รายงานไมล์ / น้ำมัน'], ['driverpay', '👨‍✈️', 'ประวัติคนขับ', 'admin'], ['billing', '💰', 'วางบิลลูกค้า', 'admin'], ['wht', '📄', 'ใบหัก ณ ที่จ่าย', 'admin'], ['settings', '⚙️', 'ตั้งค่า', 'admin'], ['map', '📍', 'GPS'], // 'admin' = แสดงเฉพาะ SUPER_ADMIN / ADMIN (ข้อมูลรายได้)
+    ['jobs', '🚚', 'งานขนส่ง'], ['reports', '📈', 'รายงานงานขนส่ง'], ['mileage', '📋', 'รายงานไมล์ / น้ำมัน'], ['driverpay', '👨‍✈️', 'ประวัติคนขับ', 'admin'], ['billing', '💰', 'วางบิลลูกค้า', 'admin'], ['receipts', '🧾', 'ใบเสร็จรับเงิน', 'admin'], ['wht', '📄', 'ใบหัก ณ ที่จ่าย', 'admin'], ['settings', '⚙️', 'ตั้งค่า', 'admin'], ['users', '👥', 'จัดการผู้ใช้งาน', 'sa'], ['map', '📍', 'GPS'], // 'admin' = แสดงเฉพาะ SUPER_ADMIN / ADMIN (ข้อมูลรายได้)
   ];
   const CARDS = [
     ['total', 'งานทั้งหมดวันนี้', '📋', null], ['waiting', 'รอรับ', '🕒', ['NEW', 'ASSIGNED']], ['going_pickup', 'กำลังไปรับตู้', '🚚', ['ACCEPTED', 'GOING_TO_PICKUP', 'ARRIVED_PICKUP']],
@@ -31,7 +31,7 @@
   function shell(app, r) {
     if (!$('#officeShell')) {
       app.innerHTML = `<div class="shell" id="officeShell"><aside class="sidebar" id="sb"><div class="logo"><span class="lg">NJ</span><div><div class="t1">TRANSPORT NJ</div><div class="t2 sb-user" id="sbUser">👤 ${h(T.session.username || T.session.full_name || '-')}</div><div class="t2 sb-role" id="sbRole">${h(T.session.role)}</div></div></div>
-        <nav class="nav" id="nav"><div class="nav-main">${NAV.filter((x) => x[3] !== 'admin' || T.isAdmin()).map(([p, ic, l]) => `<a href="#/${p}" data-nav="${p}"><span class="ic">${ic}</span>${l}</a>`).join('')}</div>
+        <nav class="nav" id="nav"><div class="nav-main">${NAV.filter((x) => (x[3] !== 'admin' || T.isAdmin()) && (x[3] !== 'sa' || T.session.role === 'SUPER_ADMIN')).map(([p, ic, l]) => `<a href="#/${p}" data-nav="${p}"><span class="ic">${ic}</span>${l}</a>`).join('')}</div>
         <div class="foot">เวอร์ชัน ${h(T.C.APP_VERSION)}<br><span id="rtState">●</span> Realtime</div>
         <div class="nav-bottom"><button type="button" class="bell" id="bell" title="งานมีปัญหา"><span class="ic">🔔</span>แจ้งเตือน<span class="n hidden" id="bellN"></span></button><button type="button" id="logoutBtn"><span class="ic">🚪</span>ออกจากระบบ</button></div></nav></aside>
         <nav class="m-nav" id="mNav"><a href="#/jobs/new" data-m="new"><span>🚚</span>เปิดงาน</a><a href="#/m-tl" data-m="tl"><span>🕒</span>Timeline</a><a href="#/m-gps" data-m="gps"><span>📍</span>GPS</a><a href="#/m-acc" data-m="acc"><span>📋</span>ข้อมูล</a></nav>
@@ -71,7 +71,10 @@
     if (p === 'schedule') return pageSchedule(page, r);
     if (p === 'mileage') return pageFuel(page, r);
     if (p === 'driverpay') return pageDriverPay(page); // 👨‍✈️ ประวัติคนขับ (RUN-28 · SUPER_ADMIN / ADMIN)
+    $$('.overlay').forEach((o) => { if (o.querySelector('.bl-repm')) o.remove(); }); // เปลี่ยนเมนู = ปิด Popup รายงานวางบิล / ใบเสร็จ
+    if (p === 'receipts') return pageReceipts(page); // 🧾 ใบเสร็จรับเงิน (RUN-34)
     if (p === 'billing') return pageBilling(page, r); // 💰 วางบิลลูกค้า (RUN-31 · SUPER_ADMIN / ADMIN)
+    if (p === 'users') return pageUsers(page); // 👥 จัดการผู้ใช้งาน (ย้ายจาก ⚙️ ตั้งค่า · RPC เดิม tnj_users_list / tnj_users_save)
     if (p === 'wht') return pageWht(page); // 📄 ใบหัก ณ ที่จ่าย (RUN-32 · CLONE โหมด NJ TRANS · แยกฐานข้อมูล)
     if (p === 'reports') return pageJobReport(page, r); // 📈 รายงานงานขนส่ง (เฉพาะ JOB ที่ปิดงานแล้ว · ค้นหาใต้หัวตาราง)
     if (p === 'documents') return pageDocuments(page, r);
@@ -710,7 +713,7 @@
     page.innerHTML = `${mo ? '' : `<div class="page-head jf-head"><h1>${isNew ? '+ เปิดงานใหม่' : 'แก้ไขงาน — ' + h(T.jobRef(job))}</h1></div>`}<form id="jobForm" class="card card-b jf-form" autocomplete="off">
       <div class="jf-mode" id="jfMode"><span class="jf-mode-l">MODE:</span>${['IMPORT', 'EXPORT'].map((x) => `<label class="jf-mck"><input type="checkbox" data-mode value="${x}" ${job && (job.job_mode || []).includes(x) ? 'checked' : ''}> ${x}</label>`).join('')}</div>
       <div class="jf-row r4"><div class="field"><label>วันที่งาน</label><input type="date" class="inp" name="job_date" value="${v('job_date', T.todayISO())}" ${isNew ? '' : 'disabled'}></div>
-        <div class="field"><label>ลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">`).join('')}</datalist></div>
+        <div class="field"><label>ลูกค้า <span class="req">*</span></label><input class="inp" name="customer_name" list="dlCust2" value="${v('customer_name')}" required placeholder="พิมพ์ค้นหา CODE / ชื่อลูกค้า" autocomplete="off"><datalist id="dlCust2">${M.customers.map((c) => `<option value="${h(c.name)}">${h(c.code || '')}</option>`).join('')}</datalist></div>
         <div class="field"><label>B/L, BOOKING <span class="req">*</span></label><input class="inp" name="bl_no" value="${v('bl_no')}" required></div><div class="field jf-cnt"><label>จำนวนตู้ <span class="req">*</span></label><input type="number" class="inp" id="jfCnt" min="1" max="50" step="1" inputmode="numeric" value="1" aria-label="จำนวนตู้"></div>${locField('return', 'รับ/คืนตู้เปล่า', job, 'return_location_id', 'return_location_text', true)}</div>
       <div class="jf-ctrow jf-ct1row" id="jfCt1"><div class="field jf-ctno"><label>ลำดับ</label><b class="jf-seq">1</b></div><div class="field"><label>เบอร์ตู้</label><input class="inp" name="container_no" value="${v('container_no')}"></div><div class="field"><label>เบอร์ซีล</label><input class="inp" name="seal_no" value="${v('seal_no')}"></div>
         <div class="field"><label>Size</label><select class="inp" name="container_size"><option value="">-</option>${sizes.map((s) => `<option ${job && job.container_size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
@@ -800,6 +803,10 @@
       const modes = $$('#jfMode [data-mode]:checked', page).map((x) => x.value);
       if (!modes.length && (isNew || (job.job_mode || []).length)) { T.toast('กรุณาเลือก MODE งาน', 'err'); const f = $('#jfMode [data-mode]', page); if (f) f.focus(); return; }
       const noPk = ctItems().find((o) => !o.pickup_location_text); if (noPk) { T.toast(`กรุณาระบุท่านำเข้า ตู้ ${noPk.no}`, 'err'); const f = $$('#jfCts .jf-ct', page)[noPk.no - 2]; if (f) f.querySelector('[data-ck=pickup_location_text]').focus(); return; }
+      // ลูกค้า: ต้องเลือกจาก ⚙️ ตั้งค่า → 👥 ข้อมูลลูกค้า (ACTIVE) · ส่ง customer_id ผูก JOB · JOB เดิมที่ไม่เปลี่ยนลูกค้า = คงค่าเดิม
+      { const cu = M.customers.find((c) => String(c.name || '').trim().toLowerCase() === String(p.customer_name || '').trim().toLowerCase());
+        if (cu) { p.customer_id = cu.id; p.customer_name = cu.name; }
+        else if (isNew || String(p.customer_name || '').trim() !== String(job.customer_name || '').trim()) { T.toast('กรุณาเลือกลูกค้าจาก ⚙️ ตั้งค่า → 👥 ข้อมูลลูกค้า (เฉพาะลูกค้า ACTIVE)', 'err'); const f = $('[name=customer_name]', mo ? mo.el : page); if (f) f.focus(); return; } }
       const btn = $('#jfSave', mo ? mo.el : page); btn.disabled = true;
       try {
         if (isNew) {
@@ -1858,51 +1865,22 @@
       if (!t.cts.length) return '<span class="muted">-</span>'; if (t.cts.length === 1) return tlTxt(t.cts[0].total);
       return t.cts.map((c) => `<div class="nowrap">ตู้ ${c.no}: ${tlTxt(c.total)}</div>`).join('') + (t.sum > 0 ? `<div class="nowrap rp-tl-sum">รวม <b>${dpF(t.sum)}</b></div>` : ''); };
     const tlX = (id) => { const t = TLC.get(id); if (!t) return tlState === 'missing' ? 'ต้องติดตั้ง RUN-30' : ''; return t.sum == null ? 'คำนวณไม่ได้' : t.sum > 0 ? t.sum : 'ไม่มี'; }; // Excel = ยอดเดียวกับหน้าจอ (หลายตู้ = รวม)
-    // 💰 วางบิล (SUPER_ADMIN / ADMIN · RUN-31): ใช้ tnj_inv_source แทน tnj_report_timeline ใน RPC เดียว — ได้ทั้ง ตู้ + Timeline (ข้อมูลชุดเดียวกัน → สูตร tlCalc เดิม) และสถานะวางบิลของแต่ละตู้
-    // ข้อมูลเก็บใน SRC แล้วส่งเข้าฟอร์ม INVOICE ตอนกด 💰 วางบิล (ไม่ Query JOB ซ้ำ) · ยังไม่ติดตั้ง RUN-31 = กลับไปใช้ tnj_report_timeline เดิม
-    const canBill = T.isAdmin(); let billOn = canBill; const SRC = new Map(); const SEL = new Set();
     const tlFetch = async (ids) => { const g = tlGen; const need = [...new Set(ids)].filter((id) => id && !TLC.has(id));
-      for (let i = 0; i < need.length; i += 200) { const part = need.slice(i, i + 200); let d;
-        if (billOn) { try { const x = await T.auth('tnj_inv_source', { p_job_ids: part }, { silent: true }); d = x.jobs || []; if (g !== tlGen) return false; d.forEach((j) => SRC.set(j.id, j)); }
-          catch (e) { if (!/PGRST202|Could not find the function|TNJ_FORBIDDEN/.test(String((e && e.message) || e))) throw e; billOn = false; } }
-        if (!billOn) d = await T.auth('tnj_report_timeline', { p_job_ids: part }, { silent: true }); if (g !== tlGen) return false;
+      for (let i = 0; i < need.length; i += 200) { const part = need.slice(i, i + 200); const d = await T.auth('tnj_report_timeline', { p_job_ids: part }, { silent: true }); if (g !== tlGen) return false;
         (Array.isArray(d) ? d : []).forEach((j) => TLC.set(j.id, tlCalc(j))); part.forEach((id) => { if (!TLC.has(id)) TLC.set(id, { cts: [], sum: null }); }); } return true; };
-    // สถานะวางบิลของ JOB: ตู้ที่อยู่ใน INVOICE (ร่าง / POST · ไม่นับที่ยกเลิก) เทียบกับตู้ทั้งหมด
-    const bInfo = (id) => { const j = SRC.get(id); if (!j) return null; const job = Object.assign({}, j, { containers: j.containers || [], timeline: j.timeline || [] }); const cts = hlContainers(job); const lk = j.links || [];
-      const free = cts.filter((ct) => !lk.some((l) => (l.container_id || null) === (ct.id || null))); const nos = [...new Set(lk.map((l) => l.invoice_no || 'ร่าง'))];
-      return { cts, free, nos, st: !lk.length ? 'NONE' : free.length ? 'PART' : 'FULL' }; };
-    const bCell = (id) => { if (!billOn) return '<span class="xs muted">' + (canBill ? 'ต้องติดตั้ง RUN-31' : '-') + '</span>'; const b = bInfo(id); if (!b) return '<span class="muted">…</span>';
-      const t = b.st === 'NONE' ? ['ยังไม่วางบิล', 'amber'] : b.st === 'PART' ? [`วางบิลบางส่วน ${b.cts.length - b.free.length}/${b.cts.length} ตู้`, 'blue'] : ['วางบิลแล้ว', 'green'];
-      return `<span class="badge ${t[1]}">${t[0]}</span>${b.nos.length ? `<div class="xs muted nowrap" title="${h(b.nos.join(', '))}">${h(b.nos.slice(0, 2).join(', '))}${b.nos.length > 2 ? ' …' : ''}</div>` : ''}`; };
-    const bPaint = () => { $$('#rpBody [data-bst]').forEach((td) => { td.innerHTML = bCell(td.dataset.bst); }); $$('#rpBody [data-bsel]').forEach((cb) => { const b = bInfo(cb.dataset.bsel); cb.disabled = !billOn || !b || !b.free.length; if (cb.disabled) { cb.checked = false; SEL.delete(cb.dataset.bsel); } cb.title = b && !b.free.length ? 'วางบิลครบทุกตู้แล้ว' : ''; });
-      $$('#rpBody [data-bill]').forEach((bt) => { const b = bInfo(bt.dataset.bill); bt.disabled = !billOn || !b || !b.free.length; }); bSelInfo(); };
-    const bSelInfo = () => { const el = $('#rpBSel'); if (el) el.textContent = SEL.size ? `เลือกแล้ว ${SEL.size} JOB` : 'เลือกหลาย JOB ของลูกค้ารายเดียวกันได้'; const b = $('#rpBillSel'); if (b) b.disabled = !SEL.size || !billOn; };
-    const bCust = (id) => { const j = SRC.get(id) || rows.find((x) => x.job_id === id); return j ? String(j.customer_name || '').trim().toLowerCase() : ''; };
-    const openBill = async (ids) => { ids = [...new Set(ids)]; if (!ids.length) return T.toast('กรุณาเลือก JOB', 'warn');
-      try { const need = ids.filter((x) => !SRC.has(x)); if (need.length) { T.loading(true); const x = await T.auth('tnj_inv_source', { p_job_ids: need }, { silent: true }); (x.jobs || []).forEach((j) => SRC.set(j.id, j)); } }
-      catch (e) { return blErr(e); } finally { T.loading(false); }
-      const cu = new Set(ids.map(bCust)); if (cu.size > 1) return T.toast('เลือกได้เฉพาะ JOB ของลูกค้ารายเดียวกัน', 'warn');
-      const links = [], jobs = new Map(); const full = [];
-      ids.forEach((id) => { const j = SRC.get(id); const b = bInfo(id); if (!j || !b) return; jobs.set(id, j); if (!b.free.length) full.push(`${j.job_no || ''} (${b.nos.join(', ')})`); b.free.forEach((ct) => links.push({ job_id: id, container_id: ct.id || null })); });
-      if (!links.length) return T.toast(`ตู้ของ JOB ที่เลือกอยู่ใน INVOICE แล้วทั้งหมด: ${full.join(' · ')}`, 'warn', 5000);
-      if (full.length) T.toast(`ข้าม JOB ที่วางบิลครบแล้ว: ${full.join(' · ')}`, 'warn', 5000);
-      const m = T.modal({ title: '💰 สร้าง INVOICE / ใบแจ้งหนี้', size: 'w bl-modal', noMask: true, body: '<div id="ivHost"></div>' });
-      const refresh = () => { SEL.clear(); tlGen++; TLC.clear(); SRC.clear(); draw(); };
-      blInvEditor($('#ivHost', m.el), 'new', { preset: { links, jobs }, modal: m, onChange: refresh }); };
     const tlPaint = () => $$('#rpBody [data-tlc]').forEach((td) => { td.innerHTML = tlCell(td.dataset.tlc); });
     const tlErr = (e) => { tlState = /PGRST202|Could not find the function/.test(String((e && e.message) || e)) ? 'missing' : 'err'; if (tlState === 'err') console.warn('report timeline', e); };
     const drvTxt = (x) => { const a = Array.isArray(x.drivers) ? x.drivers : (x.driver_name ? [String(x.driver_name).trim().split(/\s+/)[0]] : []); return a.filter(Boolean).join(', ') || '-'; };
-    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap rp-bbar"><button class="btn btn-g" id="rpXls">📊 EXPORT EXCEL</button>${canBill ? '<button class="btn btn-p" id="rpBillSel" disabled>💰 สร้าง INVOICE จากรายการที่เลือก</button><span class="xs muted" id="rpBSel">เลือกหลาย JOB ของลูกค้ารายเดียวกันได้</span>' : ''}</div><div class="flex"><h1>📈 รายงานงานขนส่ง</h1></div></div>
+    page.innerHTML = `<div class="page-head"><div class="flex flex-wrap"><button class="btn btn-g" id="rpXls">📊 EXPORT EXCEL</button></div><div class="flex"><h1>📈 รายงานงานขนส่ง</h1></div></div>
       <div class="card"><div id="rpList"></div><div class="pager" id="rpPager"></div></div>`;
     const server = () => { const o = { page: 0, closed_only: true }; ['job_no', 'customer', 'bl_no', 'container', 'tl_status', 'mode', 'driver'].forEach((k) => { if (F[k].trim()) o[k] = F[k].trim(); }); if (F.job_date) { o.date_from = F.job_date; o.date_to = F.job_date; } return o; };
     const has = (v, q) => !q || String(v == null ? '' : v).toLowerCase().includes(q.trim().toLowerCase());
     const filtered = () => rows.filter((x) => x.status === 'COMPLETED' && (!F.sched || String(x.factory_date || '').slice(0, 10) === F.sched) && (Array.isArray(x.drivers) || has(x.driver_name, F.driver))); // มี drivers (RUN-17) = Server กรองคนขับทุกตู้แล้ว
     const frame = () => {
       mode = isNarrow() ? 'm' : 'd'; const clr = '<button type="button" class="btn btn-sm" id="rpClear">ล้างการค้นหา</button>';
-      const hd = canBill ? ['<label class="rp-bsel"><input type="checkbox" id="rpBAll" title="เลือกทั้งหน้า (ลูกค้ารายเดียวกัน)" aria-label="เลือกทั้งหน้า"> JOB</label>'].concat(RJ_HEAD.slice(1, -1), ['สถานะวางบิล', RJ_HEAD[RJ_HEAD.length - 1]]) : RJ_HEAD;
-      const head = `<tr>${hd.map((l) => `<th>${l}</th>`).join('')}</tr>`; const fi = (k) => { const c = RJ_COLS.find((x) => x[0] === k); return rjInput(c[0], c[1], c[2], c[3]); };
+      const head = `<tr>${RJ_HEAD.map((l) => `<th>${l}</th>`).join('')}</tr>`; const fi = (k) => { const c = RJ_COLS.find((x) => x[0] === k); return rjInput(c[0], c[1], c[2], c[3]); };
       $('#rpList').innerHTML = mode === 'd'
-        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_no', 'job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th></th>${canBill ? '<th></th>' : ''}<th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
+        ? `<div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}<tr class="jf-filter">${['job_no', 'job_date', 'customer', 'bl_no', 'container', 'sched', 'driver', 'tl_status'].map((k) => `<th>${fi(k)}</th>`).join('')}<th></th><th><div class="rp-act">${fi('mode')}${clr}</div></th></tr></thead><tbody id="rpBody"></tbody></table></div>`
         : `<div class="jf-m">${RJ_COLS.map(([k, l, t, ph]) => `<div class="field"><label>${l}</label>${rjInput(k, l, t, ph)}</div>`).join('')}<div class="jf-m-clr">${clr}</div></div><div class="tbl-wrap"><table class="tbl jobs-tbl" id="rpJobTbl"><thead>${head}</thead><tbody id="rpBody"></tbody></table></div>`;
       $$('#rpList [data-rf]').forEach((i) => { i.value = F[i.dataset.rf] || ''; });
       const later = T.debounce(() => { pageNo = 1; load(); }, 400);
@@ -1912,20 +1890,15 @@
         i.addEventListener(i.tagName === 'SELECT' || i.type === 'date' ? 'change' : 'input', ev);
         if (i.tagName === 'INPUT' && i.type !== 'date') i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); F[k] = i.value; pageNo = 1; if (local) draw(); else load(); } });
       });
-      const ba = $('#rpBAll'); if (ba) ba.onchange = () => { const cbs = $$('#rpBody [data-bsel]').filter((c) => !c.disabled); if (ba.checked) { const lock = SEL.size ? bCust([...SEL][0]) : (cbs[0] ? bCust(cbs[0].dataset.bsel) : ''); let skip = 0; cbs.forEach((c) => { if (bCust(c.dataset.bsel) === lock) { c.checked = true; SEL.add(c.dataset.bsel); } else skip++; }); if (skip) T.toast(`เลือกเฉพาะลูกค้ารายเดียวกัน (ข้าม ${skip} JOB)`, 'warn'); } else { cbs.forEach((c) => { c.checked = false; SEL.delete(c.dataset.bsel); }); } bSelInfo(); };
       $('#rpClear').onclick = () => { Object.keys(F).forEach((k) => { F[k] = ''; }); $$('#rpList [data-rf]').forEach((i) => { i.value = ''; }); pageNo = 1; load(); };
     };
-    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono">${canBill ? `<input type="checkbox" class="rp-bsel" data-bsel="${x.job_id}" ${SEL.has(x.job_id) ? 'checked' : ''} disabled aria-label="เลือก JOB ${h(x.job_no || '')}"> ` : ''}<a href="javascript:void(0)" class="rp-jno" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td class="r rp-tlc" data-tlc="${x.job_id}">${tlCell(x.job_id)}</td>${canBill ? `<td data-bst="${x.job_id}">${bCell(x.job_id)}</td>` : ''}<td class="nowrap">${canBill ? `<button type="button" class="btn btn-sm btn-p" data-bill="${x.job_id}" disabled>💰 วางบิล</button> ` : ''}<button type="button" class="btn btn-sm" data-jv="${x.job_id}">ดู JOB ›</button></td></tr>`;
+    const rowHtml = (x) => `<tr class="click" data-det="${x.job_id}"><td class="nowrap b mono"><a href="javascript:void(0)" class="rp-jno" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="nowrap">${T.fmtD(x.job_date)}</td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${Number(x.container_count) || 1}</td><td class="nowrap">${x.factory_date ? T.fmtD(x.factory_date) : '-'}${x.factory_time ? ' ' + h(String(x.factory_time).slice(0, 5)) : ''}</td><td>${h(drvTxt(x))}</td><td>${x.tl_status ? `<span class="hl-st-tag">${h(x.tl_status)}</span>` : T.badge(x.status)}</td><td class="r rp-tlc" data-tlc="${x.job_id}">${tlCell(x.job_id)}</td><td><button type="button" class="btn btn-sm" data-jv="${x.job_id}">ดู JOB ›</button></td></tr>`;
     const draw = () => {
       if (!$('#rpBody')) return;
       const list = filtered(); const pages = Math.max(1, Math.ceil(list.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages);
       const vis = list.slice((pageNo - 1) * PS, pageNo * PS);
-      $('#rpBody').innerHTML = vis.map(rowHtml).join('') || `<tr><td colspan="${RJ_HEAD.length + (canBill ? 1 : 0)}" class="empty">ไม่พบข้อมูล</td></tr>`;
-      if (vis.some((x) => !TLC.has(x.job_id)) && tlState !== 'missing') tlFetch(vis.map((x) => x.job_id)).then((ok) => { if (ok) { tlPaint(); if (canBill) bPaint(); } }).catch((e) => { tlErr(e); tlPaint(); if (canBill) bPaint(); }); else if (canBill) bPaint();
-      const ba = $('#rpBAll'); if (ba) ba.checked = false;
-      $$('#rpBody [data-bsel]').forEach((cb) => { cb.onclick = (e) => e.stopPropagation(); cb.onchange = () => { const id = cb.dataset.bsel;
-        if (cb.checked) { if (SEL.size && bCust([...SEL][0]) !== bCust(id)) { cb.checked = false; return T.toast('เลือกได้เฉพาะ JOB ของลูกค้ารายเดียวกัน', 'warn'); } SEL.add(id); } else SEL.delete(id); bSelInfo(); }; });
-      $$('#rpBody [data-bill]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openBill([b.dataset.bill]); });
+      $('#rpBody').innerHTML = vis.map(rowHtml).join('') || `<tr><td colspan="${RJ_HEAD.length}" class="empty">ไม่พบข้อมูล</td></tr>`;
+      if (vis.some((x) => !TLC.has(x.job_id)) && tlState !== 'missing') tlFetch(vis.map((x) => x.job_id)).then((ok) => { if (ok) tlPaint(); }).catch((e) => { tlErr(e); tlPaint(); });
       $$('#rpBody [data-det]').forEach((b) => b.onclick = () => openReportDetail(b.dataset.det));
       // เลข JOB / ปุ่ม ดู JOB → Popup รายละเอียด JOB (ฟอร์มเปิดงานเดิมแบบ READ ONLY) · ไม่เปลี่ยนหน้า
       $$('#rpBody [data-jv]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); jobEditDialog(b.dataset.jv, null, { view: true }); });
@@ -1934,7 +1907,7 @@
     };
     const load = async () => { const my = ++seq; try {
       const d = await T.auth('tnj_report_rows', { p: server() }, { silent: true });
-      if (my !== seq || !$('#rpList')) return; rows = d.rows || []; tlGen++; TLC.clear(); SRC.clear(); if (tlState === 'err') tlState = ''; { const ids = new Set(rows.map((x) => x.job_id)); [...SEL].forEach((id) => { if (!ids.has(id)) SEL.delete(id); }); }
+      if (my !== seq || !$('#rpList')) return; rows = d.rows || []; tlGen++; TLC.clear(); if (tlState === 'err') tlState = '';
       if (!$('#rpBody') || mode !== (isNarrow() ? 'm' : 'd')) frame(); draw();
     } catch (e) { if (my === seq) T.err(e); } };
     $('#rpXls').onclick = async () => { try { T.loading(true); await ensureXlsx();
@@ -1943,7 +1916,6 @@
       const ja = [['Date', 'MODE', 'Customer', 'B/L, BOOKING', 'Container No.', 'Containers', 'Seal', 'Size', 'ท่านำเข้า', 'รับ/คืนตู้เปล่า', 'วันที่ส่ง', 'เวลา', 'Driver', 'License Plate', 'Trailer Plate', 'สถานะล่าสุด', '🚛 Timeline ค่าใช้จ่าย (บาท)', 'ปิดงานเมื่อ', 'Job Status']].concat(list.map((x) => [x.job_date, modeTxt(x) === '-' ? '' : modeTxt(x), x.customer_name, x.bl_no, x.container_no || '', x.container_count || 1, x.seal_no || '', x.container_size || '', x.pickup_location_text || '', x.return_location_text || '', x.factory_date || '', x.factory_time ? String(x.factory_time).slice(0, 5) : '', x.driver_name || '', x.license_plate || '', x.trailer_plate || '', x.tl_status || '', tlX(x.job_id), x.completed_at ? T.fmtDT(x.completed_at) : '', T.ST_TH[x.status] || x.status]));
       ja.push([]); ja.push(['Total', `จำนวน Job: ${list.length}`]); const jws = XLSX.utils.aoa_to_sheet(ja); list.forEach((x, i) => { const a = XLSX.utils.encode_cell({ r: i + 1, c: 16 }); if (jws[a] && jws[a].t === 'n') jws[a].z = '#,##0.00'; }); jws['!cols'] = [10, 14, 24, 16, 14, 9, 12, 8, 18, 18, 10, 7, 18, 12, 12, 26, 16, 16, 12].map((w) => ({ wch: w })); const jwb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(jwb, jws, 'Jobs'); XLSX.writeFile(jwb, `TransportNJ_Job_Report_${T.todayISO()}.xlsx`); T.toast(`Export ${list.length} งาน`, 'ok');
     } catch (e) { T.err(e); } finally { T.loading(false); } };
-    { const bs = $('#rpBillSel'); if (bs) bs.onclick = () => openBill([...SEL]); }
     frame(); load(); T.subscribe('tnj:office', T.debounce(() => { if ($('#rpJobTbl')) load(); }, 1500)); // ปิดงาน / เปิดงานกลับ → รายงานอัปเดตเอง (Realtime เดิม)
   }
   async function pageReports(page, r, opt = {}) {
@@ -2113,22 +2085,26 @@
   }
   T._blCalc = blCalc; T._blInvDoc = blInvDoc; T._blBillDoc = blBillDoc; // ใช้ทดสอบ
 
-  async function pageBilling(page, r) {
+  async function pageBilling(page, r, opt = {}) {
     if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN / ADMIN เท่านั้น</div>'; return; }
-    if (r.seg[1] === 'inv') return blInvEditor(page, r.seg[2]);
-    if (r.seg[1] === 'bl') return blBillEditor(page, r.seg[2]);
+    if (!opt.popup) {
+      if (r.seg[1] === 'inv') return blInvEditor(page, r.seg[2]);
+      if (r.seg[1] === 'bl') return blBillEditor(page, r.seg[2]);
+      return blBoard(page, ['inv', 'bill', 'rep'].includes(r.q.tab) ? r.q.tab : ''); // หน้าหลัก = 📊 รายงานการวางบิล (JOB ที่ปิดงานแล้ว) · ?tab= เปิด Popup รายงานเอกสาร
+    }
     const tab = ['inv', 'bill', 'rep'].includes(r.q.tab) ? r.q.tab : 'inv'; const F = { q: '', status: '', date_from: '', date_to: '' };
-    page.innerHTML = `<div class="page-head"><div class="flex"><h1>💰 วางบิลลูกค้า</h1></div><div class="flex flex-wrap" id="blTop"></div></div>
-      <div class="bl-tabs" id="blTabs">${[['inv', '① INVOICE / ใบแจ้งหนี้'], ['bill', '② ใบวางบิล'], ['rep', '③ 📊 รายงานการวางบิล']].map(([k, l]) => `<a href="#/billing?tab=${k}" data-bt="${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>
+    page.innerHTML = `<div class="flex flex-wrap bl-ptop"><div class="bl-tabs" id="blTabs">${[['inv', '📋 รายการ INVOICE'], ['bill', '📄 ใบวางบิล'], ['rep', '📊 สรุปยอด']].map(([k, l]) => `<a href="javascript:void(0)" data-bt="${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div><span class="grow"></span><div class="flex flex-wrap" id="blTop"></div></div>
       <div id="blWarn"></div><div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="blQ" placeholder="${tab === 'bill' ? 'เลขใบวางบิล / INVOICE / ลูกค้า' : 'เลข INVOICE / ลูกค้า / JOB / B/L'}"></div>
         ${tab !== 'rep' ? `<div class="field"><label>สถานะ</label><select class="inp" id="blSt"><option value="">ทั้งหมด</option>${(tab === 'bill' ? ['ACTIVE', 'CANCELLED'] : ['DRAFT', 'POSTED', 'CANCELLED']).map((s) => `<option value="${s}">${BL_ST[s][0]}</option>`).join('')}</select></div>`
           : '<div class="field"><label>สถานะ</label><select class="inp" id="blSt"><option value="">ทั้งหมด</option><option value="NOBILL">ยังไม่วางบิล</option><option value="BILLED">วางบิลแล้ว</option><option value="OPEN">ค้างชำระ</option><option value="OVER">เกินกำหนด</option><option value="PAID">ชำระแล้ว</option></select></div>'}
         <div class="field"><label>ตั้งแต่วันที่</label><input type="date" class="inp" id="blFrom"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="blTo"></div><div class="field"><label>&nbsp;</label><button class="btn btn-p" id="blGo">🔎 ค้นหา</button></div></div></div>
-      <div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="blList"><tbody><tr><td class="empty">กำลังโหลด...</td></tr></tbody></table></div><div class="pager" id="blSum"></div></div>`;
+      ${tab === 'rep' ? '<div class="bl-kpis" id="blKpi"></div>' : ''}<div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="blList"><tbody><tr><td class="empty">กำลังโหลด...</td></tr></tbody></table></div><div class="pager" id="blSum"></div></div>`;
     const top = $('#blTop');
-    if (tab === 'inv') top.innerHTML = '<a class="btn btn-p" href="#/reports" id="blNewInv" title="เลือก JOB ในหน้า 📈 รายงานงานขนส่ง แล้วกด 💰 วางบิล">+ สร้าง INVOICE (จาก 📈 รายงานงานขนส่ง)</a>';
+    if (tab === 'inv') top.innerHTML = '<button class="btn btn-p" id="blNewInv">💰 สร้าง INVOICE</button>';
     if (tab === 'bill') top.innerHTML = '<a class="btn btn-p" href="#/billing/bl/new" id="blNewBill">+ สร้างใบวางบิล</a>';
     if (tab === 'rep') top.innerHTML = '<button class="btn btn-g" id="blXls">📊 EXPORT EXCEL</button>';
+    $$('#blTabs [data-bt]', page).forEach((a) => a.onclick = (e) => { e.preventDefault(); pageBilling(page, { seg: [], q: { tab: a.dataset.bt } }, opt); });
+    { const ni = $('#blNewInv', page); if (ni) ni.onclick = () => { opt.close(); T.toast('ติ๊กเลือก JOB ในรายงานการวางบิล แล้วกด 💰 สร้าง INVOICE', 'info'); }; const nb = $('#blNewBill', page); if (nb) nb.onclick = () => opt.close(); }
     let rows = [], seq = 0, today = flBkkToday();
     const repSt = (x) => { const o = Number(x.outstanding) || 0; if (o <= 0.004) return ['ชำระแล้ว', 'green', 'PAID']; if (x.overdue_days > 0) return [`เกินกำหนด ${x.overdue_days} วัน`, 'red', 'OVER']; if (x.billing_no) return ['วางบิลแล้ว', 'blue', 'BILLED']; return ['ยังไม่วางบิล', 'amber', 'NOBILL']; };
     const view = () => { if (tab !== 'rep' || !F.status) return rows; return rows.filter((x) => { const s = repSt(x)[2]; return F.status === 'OPEN' ? s !== 'PAID' : F.status === 'BILLED' ? !!x.billing_no && s !== 'PAID' : s === F.status; }); };
@@ -2144,9 +2120,14 @@
           <td class="nowrap">${hlDMY(x.due_date)}</td><td><span class="badge ${s[1]}">${h(s[0])}</span>${x.billing_no ? `<div class="xs muted">${h(x.billing_no)}</div>` : ''}</td><td><a class="btn btn-sm btn-p" href="#/billing/inv/${x.id}">👁 ดู</a></td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>'}
         ${v.length ? `<tr class="bl-tot"><td colspan="4">รวม ${v.length} รายการ</td><td class="r">${blF(sum('subtotal'))}</td><td class="r">${blF(sum('wht_amount'))}</td><td class="r">${blF(sum('grand_total'))}</td><td class="r">${blF(sum('paid'))}</td><td class="r">${blF(sum('outstanding'))}</td><td colspan="3"></td></tr>` : ''}</tbody>`;
       $('#blSum').innerHTML = `<span class="muted small">ทั้งหมด ${v.length} รายการ</span>`;
-      $$('#blList [data-open]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('a,button')) return; location.hash = tr.dataset.open; });
+      const kp = $('#blKpi'); if (kp) { const sg = (f) => blR2(v.filter(f).reduce((a, x) => a + (Number(x.grand_total) || 0), 0)); const so = (f) => blR2(v.filter(f).reduce((a, x) => a + (Number(x.outstanding) || 0), 0));
+        kp.innerHTML = [['ยอด INVOICE ทั้งหมด', sg(() => true), 'n'], ['ยอดวางบิล', sg((x) => !!x.billing_no), 'b'], ['รับชำระแล้ว', sum('paid'), 'g'], ['ค้างชำระ', sum('outstanding'), 'r'], ['เกินกำหนด', so((x) => x.overdue_days > 0), 'r']].map(([l, n, c]) => `<div class="bl-kpi bl-kpi-${c}"><div class="l">${l}</div><div class="v">${blF(n)}</div></div>`).join(''); }
+      $$('#blList [data-open]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('a,button')) return; openDoc(tr.dataset.open); });
+      $$('#blList a[href^="#/billing/"]').forEach((a) => a.onclick = (e) => { e.preventDefault(); openDoc(a.getAttribute('href')); });
       $$('#blList [data-ipdf]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); try { T.loading(true); const d = await T.auth('tnj_inv_get', { p_id: b.dataset.ipdf }, { silent: true }); const co = (d.snapshot && d.snapshot.company) || d.company || {}; blPreview(blInvDoc(d.snapshot || d, co, d.status === 'DRAFT' ? 'DRAFT' : d.status === 'CANCELLED' ? 'ยกเลิก' : ''), d.invoice_no || 'INVOICE (ร่าง)'); } catch (er) { blErr(er); } finally { T.loading(false); } });
       $$('#blList [data-bpdf]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); try { T.loading(true); const d = await T.auth('tnj_bill_get', { p_id: b.dataset.bpdf }, { silent: true }); blPreview(blBillDoc(d, d.company || {}), d.billing_no); } catch (er) { blErr(er); } finally { T.loading(false); } }); };
+    // เปิดเอกสารจาก Popup: INVOICE = หน้าต่างแก้ไขเดิม (ซ้อน Popup) · ใบวางบิล = หน้าเดิม
+    const openDoc = (href) => { const m1 = href.match(/^#\/billing\/inv\/(.+)$/); if (m1) { const m = T.modal({ title: '💰 INVOICE / ใบแจ้งหนี้', size: 'w bl-modal', noMask: true, body: '<div id="ivHost2"></div>' }); blInvEditor($('#ivHost2', m.el), m1[1], { modal: m, onChange: () => { load(); if (opt.onChange) opt.onChange(); } }); return; } opt.close(); location.hash = href; };
     const load = async () => { const my = ++seq; const p = { q: F.q, status: tab === 'rep' ? '' : F.status, date_from: F.date_from, date_to: F.date_to };
       try { const d = await T.auth(tab === 'inv' ? 'tnj_inv_list' : tab === 'bill' ? 'tnj_bill_list' : 'tnj_bill_report', { p }, { silent: true }); if (my !== seq || !$('#blList')) return; rows = d.rows || []; if (d.today) today = d.today;
         $('#blWarn').innerHTML = d.company_complete === false ? '<div class="alert warn mb1">⚠ ยังไม่ได้ตั้งค่าข้อมูลบริษัทให้ครบ — บันทึกร่างได้ แต่ POST / ออกเลข INVOICE ไม่ได้ · <a href="#/settings">⚙️ ไปตั้งค่าข้อมูลบริษัท</a></div>' : ''; draw(); }
@@ -2162,13 +2143,177 @@
     load();
   }
 
+  /* ---------- 💰 วางบิลลูกค้า — หน้าหลัก = 📊 รายงานการวางบิล (JOB ที่ปิดงานแล้ว · RUN-34 tnj_bill_board 1 RPC) ----------
+     ปิดงาน (status COMPLETED) → แสดงอัตโนมัติ (Realtime เดิม) · ไม่สร้างข้อมูล JOB ซ้ำ · เลือก JOB ลูกค้าเดียวกัน → Popup INVOICE เดิม (เลือกรายตู้ในฟอร์ม)
+     สถานะ INVOICE: รอออก / ร่าง / ออกบางส่วน / ออก INVOICE แล้ว · สถานะชำระเงิน: จากใบเสร็จจริง (RUN-34) */
+  async function blBoard(page, popTab) {
+    $$('.overlay').forEach((o) => { if (o.querySelector('.bl-repm, .bl-modal')) o.remove(); }); // เปลี่ยนหน้า = ปิด Popup รายงานเดิม
+    await loadMasters(); const SEL = new Set(); let rows = [], seq = 0, pageNo = 1; const PS = 50; const F = { q: '', st: '', from: '', to: '', cust: '' };
+    page.innerHTML = `<div class="page-head"><div class="flex"><h1>💰 วางบิลลูกค้า</h1><span class="badge amber">รายการ JOB ที่ปิดงานแล้ว</span></div><div class="flex flex-wrap"><button class="btn btn-p" id="bpNew">+ สร้าง INVOICE</button><button class="btn" id="bpRep">📊 รายงานการวางบิล</button><button class="btn btn-g" id="bpXls">📊 EXPORT EXCEL</button></div></div>
+      <div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="bpQ" placeholder="เลข JOB / ลูกค้า / B/L, BOOKING / INVOICE" autocomplete="off"></div>
+        <div class="field"><label>ลูกค้า</label><select class="inp" id="bpCust"><option value="">ทั้งหมด</option></select></div>
+        <div class="field"><label>ตั้งแต่วันที่</label><input type="date" class="inp" id="bpFrom"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="bpTo"></div>
+        <div class="field"><label>สถานะ</label><select class="inp" id="bpSt"><option value="">ทั้งหมด</option><option value="OPEN">รอเรียกเก็บ (ยังออกไม่ครบ)</option><option value="NONE">รอออก</option><option value="DRAFT">ร่าง</option><option value="PART">ออกบางส่วน</option><option value="FULL">ออก INVOICE แล้ว</option><option value="UNPAID">รอชำระ</option><option value="PAID">ชำระแล้ว</option></select></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-p" id="bpGo">🔎 ค้นหา</button></div></div></div>
+      <div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="bpTbl"><thead><tr><th style="width:34px"><input type="checkbox" id="bpAll" title="เลือกทั้งหน้า (ลูกค้ารายเดียวกัน)"></th><th>วันที่งาน</th><th>JOB</th><th>ลูกค้า</th><th>B/L, BOOKING</th><th class="c">จำนวนตู้</th><th class="r">ยอดรวม</th><th class="r">WHT 1%</th><th class="r">ยอดสุทธิ</th><th>สถานะ INVOICE</th><th>สถานะชำระเงิน</th><th>จัดการ</th></tr></thead><tbody id="bpBody"><tr><td colspan="12" class="empty">กำลังโหลด...</td></tr></tbody></table></div>
+        <div class="bp-foot"><span class="xs muted" id="bpSel">เลือกหลาย JOB ของลูกค้ารายเดียวกันได้</span><span class="grow"></span><span class="pager" id="bpPager"></span><button class="btn btn-p" id="bpBill" disabled>💰 สร้าง INVOICE จากรายการที่เลือก</button></div></div>`;
+    const info = (x) => { const n = Number(x.container_count) || 1, d = Number(x.ct_draft) || 0, pz = Number(x.ct_posted) || 0; const inv = x.invoices || []; const posted = inv.filter((i) => i.status === 'POSTED'); const drafts = inv.filter((i) => i.status === 'DRAFT');
+      const st = !d && !pz ? 'NONE' : pz >= n ? 'FULL' : pz ? 'PART' : 'DRAFT'; const sm = (k) => blR2(inv.reduce((a, i) => a + (Number(i[k]) || 0), 0));
+      const pay = !posted.length ? '' : posted.every((i) => Number(i.paid) >= Number(i.grand_total) - 0.004) ? 'PAID' : posted.some((i) => Number(i.paid) > 0) ? 'PARTIAL' : 'UNPAID';
+      return { n, free: Math.max(0, n - d - pz), st, pay, posted, drafts, inv, total: sm('subtotal'), wht: sm('wht_amount'), net: sm('grand_total'), shared: inv.some((i) => Number(i.jobs) > 1) }; };
+    const ST = { NONE: ['รอออก', 'amber'], DRAFT: ['ร่าง', 'blue'], PART: ['ออกบางส่วน', 'blue'], FULL: ['ออก INVOICE แล้ว', 'green'] }; const PY = { UNPAID: ['รอชำระ', 'amber'], PARTIAL: ['ชำระบางส่วน', 'blue'], PAID: ['ชำระแล้ว', 'green'] };
+    const cust = (id) => { const x = rows.find((y) => y.job_id === id); return x ? String(x.customer_name || '').trim().toLowerCase() : ''; };
+    const view = () => { const qq = F.q.toLowerCase(); return rows.filter((x) => { const b = info(x);
+      if (qq && ![x.job_no, x.customer_name, x.bl_no, x.booking_no].concat(b.inv.map((i) => i.invoice_no)).some((v) => String(v || '').toLowerCase().includes(qq))) return false;
+      if (F.cust && String(x.customer_name || '').trim().toLowerCase() !== F.cust) return false;
+      if (!F.st) return true; if (F.st === 'OPEN') return b.st !== 'FULL'; if (F.st === 'UNPAID') return b.pay === 'UNPAID' || b.pay === 'PARTIAL'; if (F.st === 'PAID') return b.pay === 'PAID'; return b.st === F.st; }); };
+    const selInfo = () => { const n = [...SEL].reduce((a, id) => { const x = rows.find((y) => y.job_id === id); return a + (x ? info(x).free : 0); }, 0); const el = $('#bpSel'); if (el) el.textContent = SEL.size ? `เลือกแล้ว ${SEL.size} JOB (รวม ${n} ตู้)` : 'เลือกหลาย JOB ของลูกค้ารายเดียวกันได้'; const b = $('#bpBill'); if (b) b.disabled = !SEL.size; };
+    const draw = () => { const tb = $('#bpBody'); if (!tb) return; const v = view(); const pages = Math.max(1, Math.ceil(v.length / PS)); pageNo = Math.min(Math.max(1, pageNo), pages); const vis = v.slice((pageNo - 1) * PS, pageNo * PS);
+      tb.innerHTML = vis.map((x) => { const b = info(x); const t = ST[b.st], py = PY[b.pay]; const amt = (k) => (b.inv.length ? blF(b[k]) : '<span class="muted">-</span>');
+        return `<tr><td class="c"><input type="checkbox" data-bsel="${x.job_id}" ${SEL.has(x.job_id) ? 'checked' : ''} ${b.free ? '' : 'disabled'} aria-label="เลือก JOB ${h(x.job_no || '')}"></td><td class="nowrap">${hlDMY(x.job_date)}</td><td class="nowrap b mono"><a href="javascript:void(0)" data-jv="${x.job_id}">${h(x.job_no || '-')}</a></td><td class="ell" style="max-width:200px">${h(x.customer_name)}</td><td class="b">${h(x.bl_no)}</td><td class="c b">${b.n}</td>
+          <td class="r">${amt('total')}${b.shared ? '<div class="xs muted">รวม JOB อื่นใน INVOICE</div>' : ''}</td><td class="r">${amt('wht')}</td><td class="r b">${amt('net')}</td>
+          <td data-bst="${x.job_id}"><span class="badge ${t[1]}">${t[0]}${b.st === 'PART' ? ` ${Math.min(b.n, b.n - b.free)}/${b.n} ตู้` : ''}</span>${b.inv.length ? `<div class="xs muted nowrap">${h(b.inv.map((i) => i.invoice_no || 'ร่าง').join(', '))}</div>` : ''}</td>
+          <td>${py ? `<span class="badge ${py[1]}">${py[0]}</span>` : '<span class="muted">-</span>'}</td>
+          <td class="nowrap"><button class="btn btn-sm btn-p" data-bill="${x.job_id}" ${b.free ? '' : 'disabled'}>💰 วางบิล</button>${b.drafts.map((i) => ` <button class="btn btn-sm" data-dr="${i.id}" title="เปิดร่าง INVOICE แก้ไขต่อ">✏️ ร่าง</button>`).join('')}${b.posted.map((i) => ` <button class="btn btn-sm" data-dr="${i.id}" title="เปิด ${h(i.invoice_no)}">👁</button>`).join('')}</td></tr>`; }).join('')
+        || `<tr><td colspan="12" class="empty">${rows.length ? 'ไม่พบ JOB ตามเงื่อนไข' : 'ยังไม่มี JOB ที่ปิดงานแล้ว'}</td></tr>`;
+      $('#bpPager').innerHTML = `<span class="muted small">ทั้งหมด ${v.length} JOB · หน้า ${pageNo}/${pages}</span><button class="btn btn-sm" id="bpPrev" ${pageNo <= 1 ? 'disabled' : ''}>‹</button><button class="btn btn-sm" id="bpNext" ${pageNo >= pages ? 'disabled' : ''}>›</button>`;
+      $('#bpPrev').onclick = () => { pageNo--; draw(); }; $('#bpNext').onclick = () => { pageNo++; draw(); };
+      $$('#bpBody [data-bsel]').forEach((cb) => cb.onchange = () => { const id = cb.dataset.bsel; if (cb.checked) { if (SEL.size && cust([...SEL][0]) !== cust(id)) { cb.checked = false; return T.toast('เลือกได้เฉพาะ JOB ของลูกค้ารายเดียวกัน', 'warn'); } SEL.add(id); } else SEL.delete(id); selInfo(); });
+      $$('#bpBody [data-bill]').forEach((b) => b.onclick = () => openBill([b.dataset.bill]));
+      $$('#bpBody [data-dr]').forEach((b) => b.onclick = () => openInv(b.dataset.dr));
+      $$('#bpBody [data-jv]').forEach((a) => a.onclick = (e) => { e.preventDefault(); jobEditDialog(a.dataset.jv, null, { view: true }); });
+      const all = $('#bpAll'); if (all) all.checked = false; selInfo(); };
+    const load = async () => { const my = ++seq; try {
+      const d = await T.auth('tnj_bill_board', { p: { date_from: F.from || null, date_to: F.to || null } }, { silent: true }); if (my !== seq || !$('#bpBody')) return; rows = d.rows || [];
+      { const ids = new Set(rows.filter((x) => info(x).free).map((x) => x.job_id)); [...SEL].forEach((id) => { if (!ids.has(id)) SEL.delete(id); }); }
+      const cs = [...new Map(rows.map((x) => [String(x.customer_name || '').trim().toLowerCase(), x.customer_name])).entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+      const sel = $('#bpCust'); if (sel) { sel.innerHTML = '<option value="">ทั้งหมด</option>' + cs.map(([k, n]) => `<option value="${h(k)}" ${k === F.cust ? 'selected' : ''}>${h(n)}</option>`).join(''); } draw();
+    } catch (e) { if (my !== seq) return; const tb = $('#bpBody'); if (tb) tb.innerHTML = `<tr><td colspan="12" class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-34 ก่อนใช้งาน' : h(T.parseErr(e).text)}</td></tr>`; } };
+    const refresh = () => { SEL.clear(); load(); };
+    const openInv = (id) => { const m = T.modal({ title: '💰 INVOICE / ใบแจ้งหนี้', size: 'w bl-modal', noMask: true, body: '<div id="ivHost"></div>' }); blInvEditor($('#ivHost', m.el), id, { modal: m, onChange: refresh }); };
+    const openBill = async (ids) => { ids = [...new Set(ids)]; if (!ids.length) return T.toast('กรุณาติ๊กเลือก JOB ที่ต้องการวางบิล', 'warn');
+      if (new Set(ids.map(cust)).size > 1) return T.toast('เลือกได้เฉพาะ JOB ของลูกค้ารายเดียวกัน', 'warn');
+      let src; try { T.loading(true); src = await T.auth('tnj_inv_source', { p_job_ids: ids }, { silent: true }); } catch (e) { return blErr(e); } finally { T.loading(false); }
+      const links = [], jobs = new Map(), full = [];
+      (src.jobs || []).forEach((j) => { jobs.set(j.id, j); const lk = j.links || []; const free = hlContainers(Object.assign({}, j, { containers: j.containers || [], timeline: j.timeline || [] })).filter((ct) => !lk.some((l) => (l.container_id || null) === (ct.id || null)));
+        if (!free.length) full.push(`${j.job_no || ''} (${[...new Set(lk.map((l) => l.invoice_no || 'ร่าง'))].join(', ')})`); free.forEach((ct) => links.push({ job_id: j.id, container_id: ct.id || null })); });
+      if (!links.length) return T.toast(`ตู้ของ JOB ที่เลือกอยู่ใน INVOICE แล้วทั้งหมด: ${full.join(' · ')}`, 'warn', 5000);
+      if (full.length) T.toast(`ข้าม JOB ที่วางบิลครบแล้ว: ${full.join(' · ')}`, 'warn', 5000);
+      const m = T.modal({ title: '💰 สร้าง INVOICE / ใบแจ้งหนี้', size: 'w bl-modal', noMask: true, body: '<div id="ivHost"></div>' });
+      blInvEditor($('#ivHost', m.el), 'new', { preset: { links, jobs }, modal: m, onChange: refresh }); };
+    const openRep = (tab) => { const m = T.modal({ title: '📊 รายงานการวางบิล', size: 'w bl-modal bl-repm', body: '<div id="blRepHost"></div>', foot: '<button class="btn" data-close>ปิด</button>' });
+      pageBilling($('#blRepHost', m.el), { seg: [], q: { tab: tab || 'inv' } }, { popup: true, close: m.close, onChange: refresh }); };
+    $('#bpAll').onchange = () => { const cbs = $$('#bpBody [data-bsel]').filter((c) => !c.disabled); if ($('#bpAll').checked) { const lock = SEL.size ? cust([...SEL][0]) : (cbs[0] ? cust(cbs[0].dataset.bsel) : ''); let skip = 0; cbs.forEach((c) => { if (cust(c.dataset.bsel) === lock) { c.checked = true; SEL.add(c.dataset.bsel); } else skip++; }); if (skip) T.toast(`เลือกเฉพาะลูกค้ารายเดียวกัน (ข้าม ${skip} JOB)`, 'warn'); } else cbs.forEach((c) => { c.checked = false; SEL.delete(c.dataset.bsel); }); selInfo(); };
+    $('#bpBill').onclick = () => openBill([...SEL]); $('#bpNew').onclick = () => openBill([...SEL]); $('#bpRep').onclick = () => openRep('inv');
+    $('#bpXls').onclick = async () => { const v = view(); if (!v.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'warn'); try { T.loading(true); await ensureXlsx();
+      const aoa = [['วันที่งาน', 'JOB', 'ลูกค้า', 'B/L, BOOKING', 'จำนวนตู้', 'ยอดรวม', 'WHT 1%', 'ยอดสุทธิ', 'สถานะ INVOICE', 'เลข INVOICE', 'สถานะชำระเงิน']].concat(v.map((x) => { const b = info(x); return [hlDMY(x.job_date), x.job_no, x.customer_name, x.bl_no, b.n, b.inv.length ? b.total : '', b.inv.length ? b.wht : '', b.inv.length ? b.net : '', ST[b.st][0], b.inv.map((i) => i.invoice_no || 'ร่าง').join(', '), b.pay ? PY[b.pay][0] : '']; }));
+      const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [11, 14, 28, 18, 9, 13, 10, 13, 16, 26, 14].map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'รายงานการวางบิล'); XLSX.writeFile(wb, `TransportNJ_Billing_Jobs_${flBkkToday()}.xlsx`); T.toast(`Export ${v.length} JOB`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); } };
+    const go = () => { const f2 = $('#bpFrom').value, t2 = $('#bpTo').value; const reload = f2 !== F.from || t2 !== F.to; F.q = $('#bpQ').value.trim(); F.st = $('#bpSt').value; F.cust = $('#bpCust').value; F.from = f2; F.to = t2; pageNo = 1; if (reload) load(); else draw(); };
+    $('#bpGo').onclick = go; $('#bpQ').addEventListener('input', T.debounce(() => { if (!$('#bpQ')) return; F.q = $('#bpQ').value.trim(); pageNo = 1; draw(); }, 200)); $('#bpSt').onchange = go; $('#bpCust').onchange = go;
+    load(); T.subscribe('tnj:office', T.debounce(() => { if ($('#bpTbl') && !document.querySelector('.bl-modal')) load(); }, 1500)); // ปิดงาน → แสดงทันที (Realtime เดิม)
+    if (popTab) openRep(popTab);
+  }
+
+  /* ---------- 🧾 ใบเสร็จรับเงิน (RUN-34) — หน้าหลัก = INVOICE ที่ POST แล้ว + ยอดค้าง · 📊 รายงานใบเสร็จ = Popup ---------- */
+  const RC_PM = { CASH: 'เงินสด', TRANSFER: 'โอนเงิน', CHEQUE: 'เช็ค', OTHER: 'อื่น ๆ' }; const RC_PS = { UNPAID: ['รอรับเงิน', 'amber'], PARTIAL: ['ชำระบางส่วน', 'blue'], PAID: ['รับชำระแล้ว', 'green'] };
+  const rcMissing = (e) => (blMissing(e) ? T.toast('ต้องติดตั้ง SQL RUN-34 ก่อนใช้งาน 🧾 ใบเสร็จรับเงิน', 'err', 6000) : T.err(e));
+  // WHT ส่วนของใบเสร็จ (สูตรเดียวกับ Server tnj_rc_save): สัดส่วนตามเงินที่รับ · ใบสุดท้าย = ส่วนที่เหลือ
+  const rcWht = (inv, amt) => { const out = blR2(inv.grand_total - inv.paid), rem = Math.max(0, blR2(inv.wht_amount - (inv.paid_wht || 0))); if (!(amt > 0)) return 0; if (blR2(amt) === out) return rem; return inv.grand_total > 0 ? Math.min(blR2(inv.wht_amount * amt / inv.grand_total), rem) : 0; };
+  function rcDoc(r, co) { const iv = r.invoice || {};
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${h(r.receipt_no)} - ${h(r.customer_name || '')}</title><style>${blDocCss}</style></head><body>${r.status === 'CANCELLED' ? '<div class="wm">ยกเลิก</div>' : ''}<div class="doc">${blCoHtml(co, 'ใบเสร็จรับเงิน / RECEIPT')}
+      <div class="row">${blCustBox(r)}<div class="box" style="flex:.8"><span class="lb">RECEIPT DETAILS</span><div class="kv"><div class="k">Receipt No. :</div><div class="v num">${h(r.receipt_no)}</div><div class="k">วันที่รับเงิน :</div><div class="v">${hlDMY(r.receipt_date)}</div><div class="k">อ้างอิง INVOICE :</div><div class="v">${h(iv.invoice_no || '-')}</div><div class="k">Job No. :</div><div class="v">${h((iv.job_nos || []).join(', ') || '-')}</div></div></div></div>
+      <table class="it"><thead><tr><th style="width:9mm">No.</th><th>รายการ</th><th style="width:24mm">วันที่ INVOICE</th><th class="r" style="width:30mm">ยอดตาม INVOICE</th><th class="r" style="width:24mm">หัก ณ ที่จ่าย</th><th class="r" style="width:30mm">รับชำระครั้งนี้</th></tr></thead>
+      <tbody><tr><td class="c">1</td><td>รับชำระตาม INVOICE ${h(iv.invoice_no || '')}${(iv.job_nos || []).length ? ' · JOB ' + h(iv.job_nos.join(', ')) : ''}</td><td>${hlDMY(iv.invoice_date)}</td><td class="r">${blF(r.invoice_amount)}</td><td class="r">${blF(r.wht_amount)}</td><td class="r">${blF(r.amount_received)}</td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="tot"><td></td><td colspan="2">TOTAL</td><td class="r">${blF(r.invoice_amount)}</td><td class="r">${blF(r.wht_amount)}</td><td class="r">${blF(r.amount_received)}</td></tr></tbody></table>
+      <div class="ft"><div class="rm"><b>ชำระโดย :</b> ${h(RC_PM[r.pay_method] || r.pay_method)}${r.bank ? ' · ' + h(r.bank) : ''}${r.pay_ref ? ' · เลขอ้างอิง ' + h(r.pay_ref) : ''}\n<b>จำนวนเงิน (ตัวอักษร) :</b> ${h(rcBaht(r.amount_received))}${r.note ? '\n<b>หมายเหตุ :</b> ' + h(r.note) : ''}\n\n<span style="color:#475569">ยอดสุทธิ INVOICE ${blF(iv.grand_total)} · รับชำระสะสม ${blF(iv.paid)} · คงค้าง ${blF(iv.outstanding)}</span></div>
+        <div class="sum"><div><span>ยอดตาม INVOICE</span><b>${blF(r.invoice_amount)}</b></div><div><span>หัก ณ ที่จ่าย ${Number(iv.wht_rate || 0)}%</span><span>${blF(r.wht_amount)}</span></div><div class="g"><span>รับเงินจริง</span><span>${blF(r.amount_received)}</span></div></div></div>
+      <div class="sig"><div><b>ผู้ชำระเงิน</b><div class="line"></div>วันที่ ........ / ........ / ........</div><div><b>ผู้รับเงิน (For ${h(co.company_name || 'Company')})</b>${h(r.created_by_name || '')}<div class="line"></div>วันที่ ${hlDMY(r.receipt_date)}</div></div><div class="bar"></div></div></body></html>`; }
+  const rcBaht = (n) => { const d = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'], u = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+    const part = (s) => { let t = ''; const L = s.length; for (let i = 0; i < L; i++) { const x = +s[i], p = L - i - 1; if (!x) continue; if (p === 1 && x === 1) t += 'สิบ'; else if (p === 1 && x === 2) t += 'ยี่สิบ'; else if (p === 0 && x === 1 && L > 1) t += 'เอ็ด'; else t += d[x] + u[p]; } return t; };
+    const big = (s) => { s = String(s).replace(/^0+/, '') || '0'; if (s === '0') return 'ศูนย์'; let t = ''; while (s.length > 6) { const hd = s.slice(0, s.length - 6); t += big(hd) + 'ล้าน'; s = s.slice(s.length - 6); s = s.replace(/^0+/, ''); if (!s) return t; } return t + part(s); };
+    const v = Math.round((Number(n) || 0) * 100), b = Math.floor(v / 100), st = v % 100; return big(String(b)) + 'บาท' + (st ? part(String(st)) + 'สตางค์' : 'ถ้วน'); };
+  T._rcBaht = rcBaht;
+  async function rcOpen(id) { try { T.loading(true); const d = await T.auth('tnj_rc_get', { p_id: id }, { silent: true }); blPreview(rcDoc(d, d.company || {}), d.receipt_no); } catch (e) { rcMissing(e); } finally { T.loading(false); } }
+  function rcForm(inv, onDone) { const today = flBkkToday(); let saved = null, busy = false; const out = blR2(inv.outstanding); const req = 'rc-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random());
+    T.modal({ title: '🧾 ออกใบเสร็จรับเงิน', size: 'cu-m rc-m', noMask: true, body: `<div class="rc-inv"><div><span>ลูกค้า</span><b>${h(inv.customer_name)}</b></div><div><span>INVOICE</span><b class="mono">${h(inv.invoice_no)}</b></div><div><span>JOB</span><b>${h((inv.job_nos || []).join(', ') || '-')}</b></div>
+        <div><span>ยอดสุทธิ INVOICE</span><b>${blF(inv.grand_total)}</b></div><div><span>รับชำระแล้ว</span><b>${blF(inv.paid)}</b></div><div><span>คงค้าง</span><b class="bl-due">${blF(out)}</b></div></div>
+      <div class="cu-grid mt1"><div class="field"><label>วันที่รับเงิน <span class="req">*</span></label><input type="date" class="inp" id="rc_date" value="${today}"></div>
+        <div class="field"><label>จำนวนเงินที่รับจริง (บาท) <span class="req">*</span></label><input type="number" min="0.01" step="0.01" class="inp r" id="rc_amt" value="${out}"></div>
+        <div class="field"><label>ช่องทางชำระ <span class="req">*</span></label><select class="inp" id="rc_pm">${Object.entries(RC_PM).map(([k, l]) => `<option value="${k}" ${k === 'TRANSFER' ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label>เลขอ้างอิง (เลขที่โอน / เช็ค)</label><input class="inp" id="rc_ref" maxlength="120"></div><div class="field"><label>ธนาคาร</label><input class="inp" id="rc_bank" maxlength="120"></div>
+        <div class="field"><label>หัก ณ ที่จ่าย (ส่วนของใบเสร็จนี้)</label><input class="inp r" id="rc_wht" disabled></div><div class="field cu-full"><label>หมายเหตุ</label><textarea class="inp" id="rc_note" rows="2" maxlength="1000"></textarea></div></div>
+      <div class="xs muted">รับชำระบางส่วนได้ · ห้ามเกินยอดค้าง · WHT บันทึกแยกจากเงินที่รับจริง (ไม่หักซ้ำ) · ออกเลข NJTRRCYYYYMM-#### เมื่อกดบันทึก</div><div class="alert err hidden" id="rcErr"></div><div class="alert info hidden" id="rcOk"></div>`,
+      foot: '<button class="btn" data-close>ปิด</button><button class="btn" id="rcPv" disabled>📄 Preview PDF</button><button class="btn" id="rcPr" disabled>🖨 PRINT</button><button class="btn btn-p" id="rcGo">💾 บันทึก</button>',
+      onOpen: (el, close) => { const amt = $('#rc_amt', el); const upd = () => { $('#rc_wht', el).value = blF(rcWht(inv, Number(amt.value) || 0)); }; amt.oninput = upd; upd();
+        const err = (m) => { const e = $('#rcErr', el); e.textContent = m ? '⚠ ' + m : ''; e.classList.toggle('hidden', !m); };
+        const pv = (print) => { if (!saved) return; T.auth('tnj_rc_get', { p_id: saved.id }, { silent: true }).then((d) => { blPreview(rcDoc(d, d.company || {}), d.receipt_no); if (print) setTimeout(() => { const b = $('#blPrint'), f = $('#blFrame'); if (b && f) f.addEventListener('load', () => b.click(), { once: true }); }, 0); }).catch(rcMissing); };
+        $('#rcPv', el).onclick = () => pv(false); $('#rcPr', el).onclick = () => pv(true);
+        $('#rcGo', el).onclick = async () => { if (saved || busy) return; const a = blR2(amt.value); if (!$('#rc_date', el).value) return err('กรุณาระบุวันที่รับเงิน'); if (!(a > 0)) return err('จำนวนเงินที่รับต้องมากกว่า 0'); if (a > out) return err(`จำนวนเงินเกินยอดค้างชำระ (ค้าง ${blF(out)} บาท)`);
+          busy = true; const bt = $('#rcGo', el); bt.disabled = true; err('');
+          try { saved = await T.auth('tnj_rc_save', { p: { invoice_id: inv.id, receipt_date: $('#rc_date', el).value, amount_received: a, pay_method: $('#rc_pm', el).value, pay_ref: $('#rc_ref', el).value, bank: $('#rc_bank', el).value, note: $('#rc_note', el).value, request_id: req } }, { silent: true });
+            $$('input,select,textarea', el).forEach((x) => { x.disabled = true; }); $('#rcPv', el).disabled = false; $('#rcPr', el).disabled = false; bt.textContent = '✅ บันทึกแล้ว';
+            const ok = $('#rcOk', el); ok.innerHTML = `ออกใบเสร็จ <b>${h(saved.receipt_no)}</b> แล้ว · รับเงิน ${blF(saved.amount_received)} · WHT ${blF(saved.wht_amount)} · คงค้าง ${blF(saved.invoice.outstanding)}`; ok.classList.remove('hidden'); T.toast(`ออกใบเสร็จ ${saved.receipt_no} แล้ว ✓`, 'ok'); if (onDone) onDone(saved); }
+          catch (e) { err(blMissing(e) ? 'ต้องติดตั้ง SQL RUN-34 ก่อนใช้งาน' : T.parseErr(e).text); bt.disabled = false; } finally { busy = false; } }; } }); }
+  function rcReport(onChange) { const F = { q: '', status: '', from: blMonthStart(), to: flBkkToday() }; let rows = [], seq = 0;
+    const m = T.modal({ title: '📊 รายงานใบเสร็จรับเงิน', size: 'w bl-modal bl-repm', body: `<div class="flex flex-wrap bl-ptop"><span class="grow"></span><button class="btn btn-p" id="rrNew">🧾 ออกใบเสร็จรับเงิน</button></div>
+      <div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="rrQ" placeholder="เลขใบเสร็จ / INVOICE / ลูกค้า / JOB"></div><div class="field"><label>ตั้งแต่วันที่</label><input type="date" class="inp" id="rrFrom" value="${F.from}"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="rrTo" value="${F.to}"></div>
+        <div class="field"><label>สถานะ</label><select class="inp" id="rrSt"><option value="">ทั้งหมด</option><option value="ACTIVE">ใช้งาน</option><option value="CANCELLED">ยกเลิก</option></select></div><div class="field"><label>&nbsp;</label><button class="btn btn-p" id="rrGo">🔎 ค้นหา</button></div><div class="field"><label>&nbsp;</label><button class="btn btn-g" id="rrXls">📊 EXPORT EXCEL</button></div></div></div>
+      <div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="rrList"><tbody><tr><td class="empty">กำลังโหลด...</td></tr></tbody></table></div><div class="pager" id="rrSum"></div></div>`, foot: '<button class="btn" data-close>ปิด</button>' });
+    const draw = () => { const t = $('#rrList'); if (!t) return; const v = rows; const sm = (k) => blR2(v.filter((x) => x.status === 'ACTIVE').reduce((a, x) => a + (Number(x[k]) || 0), 0));
+      t.innerHTML = `<thead><tr><th class="c">ลำดับ</th><th>เลขใบเสร็จ</th><th>วันที่รับเงิน</th><th>เลข INVOICE</th><th>ลูกค้า</th><th>JOB</th><th class="r">ยอดรับเงินจริง</th><th class="r">WHT</th><th>ช่องทางชำระ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
+        ${v.map((x, i) => `<tr class="${x.status === 'CANCELLED' ? 'cu-off' : ''}"><td class="c">${i + 1}</td><td class="b mono nowrap"><a href="javascript:void(0)" data-rv="${x.id}">${h(x.receipt_no)}</a></td><td class="nowrap">${hlDMY(x.receipt_date)}</td><td class="mono nowrap">${h(x.invoice_no)}</td><td>${h(x.customer_name)}</td><td class="xs">${h((x.job_nos || []).join(', '))}</td>
+          <td class="r b">${blF(x.amount_received)}</td><td class="r">${blF(x.wht_amount)}</td><td>${h(RC_PM[x.pay_method] || x.pay_method)}${x.pay_ref ? `<div class="xs muted">${h(x.pay_ref)}</div>` : ''}</td>
+          <td>${x.status === 'CANCELLED' ? `<span class="badge red">ยกเลิก</span><div class="xs muted">${h(x.cancel_reason || '')}</div>` : Number(x.outstanding) > 0.004 ? '<span class="badge blue">บางส่วน</span>' : '<span class="badge green">ครบถ้วน</span>'}</td>
+          <td class="nowrap"><button class="btn btn-sm" data-rv="${x.id}">📄 PDF</button>${x.status === 'ACTIVE' ? ` <button class="btn btn-sm btn-r" data-rx="${x.id}">⛔ ยกเลิก</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="11" class="empty">ไม่มีใบเสร็จในช่วงที่เลือก</td></tr>'}
+        ${v.length ? `<tr class="bl-tot"><td colspan="6">รวม ${v.filter((x) => x.status === 'ACTIVE').length} ใบ (ไม่รวมที่ยกเลิก)</td><td class="r">${blF(sm('amount_received'))}</td><td class="r">${blF(sm('wht_amount'))}</td><td colspan="3"></td></tr>` : ''}</tbody>`;
+      $('#rrSum').innerHTML = `<span class="muted small">ทั้งหมด ${v.length} รายการ</span>`;
+      $$('#rrList [data-rv]').forEach((b) => b.onclick = (e) => { e.preventDefault(); rcOpen(b.dataset.rv); });
+      $$('#rrList [data-rx]').forEach((b) => b.onclick = async () => { const why = await T.prompt('ยกเลิกใบเสร็จ', 'เหตุผลการยกเลิก (ยอดค้างชำระจะกลับมา · เลขเดิมไม่นำกลับมาใช้)'); if (!why) return; try { T.loading(true); await T.auth('tnj_rc_cancel', { p_id: b.dataset.rx, p_reason: why }, { silent: true }); T.toast('ยกเลิกใบเสร็จแล้ว', 'ok'); load(); if (onChange) onChange(); } catch (e) { rcMissing(e); } finally { T.loading(false); } }); };
+    const load = async () => { const my = ++seq; try { const d = await T.auth('tnj_rc_list', { p: { q: F.q, status: F.status, date_from: F.from, date_to: F.to } }, { silent: true }); if (my !== seq || !$('#rrList')) return; rows = d.rows || []; draw(); }
+      catch (e) { const t = $('#rrList'); if (t) t.innerHTML = `<tbody><tr><td class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-34 ก่อนใช้งาน' : h(T.parseErr(e).text)}</td></tr></tbody>`; } };
+    const go = () => { F.q = $('#rrQ').value.trim(); F.status = $('#rrSt').value; F.from = $('#rrFrom').value; F.to = $('#rrTo').value; load(); };
+    $('#rrGo').onclick = go; $('#rrSt').onchange = go; $('#rrQ').onkeydown = (e) => { if (e.key === 'Enter') go(); }; $('#rrNew').onclick = () => { m.close(); T.toast('ติ๊กเลือก INVOICE ที่ต้องการรับชำระ แล้วกด 🧾 ออกใบเสร็จรับเงิน', 'info'); };
+    $('#rrXls').onclick = async () => { if (!rows.length) return T.toast('ไม่มีข้อมูลสำหรับ Export', 'warn'); try { T.loading(true); await ensureXlsx();
+      const aoa = [['ลำดับ', 'เลขใบเสร็จ', 'วันที่รับเงิน', 'เลข INVOICE', 'ลูกค้า', 'JOB', 'ยอดรับเงินจริง', 'WHT', 'ช่องทางชำระ', 'เลขอ้างอิง', 'สถานะ']].concat(rows.map((x, i) => [i + 1, x.receipt_no, hlDMY(x.receipt_date), x.invoice_no, x.customer_name, (x.job_nos || []).join(', '), Number(x.amount_received), Number(x.wht_amount), RC_PM[x.pay_method] || x.pay_method, x.pay_ref || '', x.status === 'CANCELLED' ? 'ยกเลิก' : 'ใช้งาน']));
+      const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [7, 18, 12, 17, 28, 22, 14, 10, 12, 16, 9].map((w) => ({ wch: w })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'รายงานใบเสร็จ'); XLSX.writeFile(wb, `TransportNJ_Receipts_${flBkkToday()}.xlsx`); T.toast(`Export ${rows.length} รายการ`, 'ok'); } catch (e) { T.err(e); } finally { T.loading(false); } };
+    load(); }
+  async function pageReceipts(page) {
+    if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN / ADMIN เท่านั้น</div>'; return; }
+    const F = { q: '', st: '', from: '', to: '' }; let rows = [], seq = 0, selId = null;
+    page.innerHTML = `<div class="page-head"><div class="flex"><h1>🧾 ใบเสร็จรับเงิน</h1><span class="badge green">รายการ INVOICE ที่รับชำระแล้ว / รอออกใบเสร็จ</span></div><div class="flex flex-wrap"><button class="btn btn-p" id="rcNew">+ ออกใบเสร็จรับเงิน</button><button class="btn" id="rcRep">📊 รายงานใบเสร็จ</button></div></div>
+      <div class="card card-b bl-filter"><div class="flex flex-wrap"><div class="field"><label>ค้นหา</label><input class="inp" id="rcQ" placeholder="เลข INVOICE / ลูกค้า / JOB" autocomplete="off"></div><div class="field"><label>ตั้งแต่วันที่</label><input type="date" class="inp" id="rcFrom"></div><div class="field"><label>ถึงวันที่</label><input type="date" class="inp" id="rcTo"></div>
+        <div class="field"><label>สถานะ</label><select class="inp" id="rcSt"><option value="">ทั้งหมด</option><option value="OPEN">ยังมียอดค้าง</option><option value="UNPAID">รอรับเงิน</option><option value="PARTIAL">ชำระบางส่วน</option><option value="PAID">รับชำระแล้ว</option></select></div><div class="field"><label>&nbsp;</label><button class="btn btn-p" id="rcFind">🔎 ค้นหา</button></div></div></div>
+      <div class="card"><div class="tbl-wrap"><table class="tbl bl-tbl" id="rcTbl"><thead><tr><th style="width:34px"></th><th>เลข INVOICE</th><th>วันที่</th><th>ลูกค้า</th><th>JOB</th><th class="r">ยอดสุทธิ</th><th class="r">รับชำระแล้ว</th><th class="r">คงค้าง</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="rcBody"><tr><td colspan="10" class="empty">กำลังโหลด...</td></tr></tbody></table></div>
+        <div class="bp-foot"><span class="xs muted" id="rcSel">เลือก 1 INVOICE ต่อใบเสร็จ</span><span class="grow"></span><span class="pager" id="rcSum"></span><button class="btn btn-p" id="rcBill" disabled>🧾 ออกใบเสร็จรับเงิน จากรายการที่เลือก</button></div></div>`;
+    const view = () => { const qq = F.q.toLowerCase(); return rows.filter((x) => (!qq || [x.invoice_no, x.customer_name].concat(x.job_nos || []).some((v) => String(v || '').toLowerCase().includes(qq))) && (!F.st || (F.st === 'OPEN' ? x.pay_status !== 'PAID' : x.pay_status === F.st))); };
+    const sel = () => { const el = $('#rcSel'); const x = rows.find((y) => y.id === selId); if (el) el.textContent = x ? `เลือกแล้ว 1 รายการ · ${x.invoice_no} · คงค้าง ${blF(x.outstanding)}` : 'เลือก 1 INVOICE ต่อใบเสร็จ'; const b = $('#rcBill'); if (b) b.disabled = !x; };
+    const draw = () => { const tb = $('#rcBody'); if (!tb) return; const v = view();
+      tb.innerHTML = v.map((x) => { const s2 = RC_PS[x.pay_status]; const open = x.pay_status !== 'PAID';
+        return `<tr><td class="c"><input type="checkbox" data-rsel="${x.id}" ${selId === x.id ? 'checked' : ''} ${open ? '' : 'disabled'}></td><td class="b mono nowrap">${h(x.invoice_no)}</td><td class="nowrap">${hlDMY(x.invoice_date)}</td><td>${h(x.customer_name)}</td><td class="xs">${h((x.job_nos || []).join(', '))}</td>
+          <td class="r">${blF(x.grand_total)}</td><td class="r">${blF(x.paid)}</td><td class="r b ${Number(x.outstanding) > 0 ? 'bl-due' : ''}">${blF(x.outstanding)}</td><td data-rst="${x.id}"><span class="badge ${s2[1]}">${s2[0]}</span>${(x.receipt_nos || []).length ? `<div class="xs muted">${h(x.receipt_nos.join(', '))}</div>` : ''}</td>
+          <td class="nowrap">${open ? `<button class="btn btn-sm btn-p" data-rcn="${x.id}">🧾 ออกใบเสร็จ</button>` : `<button class="btn btn-sm" data-rcr="${x.id}">📄 ดูใบเสร็จ</button>`}</td></tr>`; }).join('') || `<tr><td colspan="10" class="empty">${rows.length ? 'ไม่พบ INVOICE ตามเงื่อนไข' : 'ยังไม่มี INVOICE ที่ POST แล้ว'}</td></tr>`;
+      $('#rcSum').innerHTML = `<span class="muted small">ทั้งหมด ${v.length} รายการ · คงค้างรวม ${blF(blR2(v.reduce((a, x) => a + (Number(x.outstanding) || 0), 0)))}</span>`;
+      $$('#rcBody [data-rsel]').forEach((cb) => cb.onchange = () => { selId = cb.checked ? cb.dataset.rsel : null; draw(); });
+      $$('#rcBody [data-rcn]').forEach((b) => b.onclick = () => rcForm(rows.find((x) => x.id === b.dataset.rcn), load));
+      $$('#rcBody [data-rcr]').forEach((b) => b.onclick = async () => { try { const d = await T.auth('tnj_rc_list', { p: { q: rows.find((x) => x.id === b.dataset.rcr).invoice_no } }, { silent: true }); const r1 = (d.rows || []).find((y) => y.status === 'ACTIVE'); if (r1) rcOpen(r1.id); } catch (e) { rcMissing(e); } });
+      sel(); };
+    const load = async () => { const my = ++seq; try { const d = await T.auth('tnj_rc_invoices', { p: { q: '', date_from: F.from, date_to: F.to } }, { silent: true }); if (my !== seq || !$('#rcBody')) return; rows = d.rows || []; if (selId && !rows.some((x) => x.id === selId && x.pay_status !== 'PAID')) selId = null; draw(); }
+      catch (e) { if (my !== seq) return; const tb = $('#rcBody'); if (tb) tb.innerHTML = `<tr><td colspan="10" class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-34 ก่อนใช้งาน' : h(T.parseErr(e).text)}</td></tr>`; } };
+    const openSel = () => { const x = rows.find((y) => y.id === selId); if (!x) return T.toast('กรุณาติ๊กเลือก INVOICE ที่ต้องการรับชำระ', 'warn'); rcForm(x, load); };
+    $('#rcBill').onclick = openSel; $('#rcNew').onclick = openSel; $('#rcRep').onclick = () => rcReport(load);
+    const go = () => { const f2 = $('#rcFrom').value, t2 = $('#rcTo').value; const re = f2 !== F.from || t2 !== F.to; F.q = $('#rcQ').value.trim(); F.st = $('#rcSt').value; F.from = f2; F.to = t2; if (re) load(); else draw(); };
+    $('#rcFind').onclick = go; $('#rcSt').onchange = go; $('#rcQ').addEventListener('input', T.debounce(() => { if (!$('#rcQ')) return; F.q = $('#rcQ').value.trim(); draw(); }, 200)); load();
+  }
+
   // ---------- INVOICE editor (ฟอร์มเดียว ใช้ร่วม 📈 รายงานงานขนส่ง (Popup) + 💰 วางบิลลูกค้า): ข้อมูล JOB ที่เลือก (อ่านอย่างเดียว) ① ข้อมูลลูกค้า / เอกสาร ② รายการค่าใช้จ่าย ③ หมายเหตุ ④ สรุปยอด ----------
   // opt.preset = { links:[{job_id, container_id}], jobs: Map(job_id → ข้อมูล tnj_inv_source) } จากหน้ารายงาน (ไม่ Query JOB ซ้ำ) · opt.modal = { close } เปิดใน Popup · opt.onChange() = แจ้งหน้ารายงานให้อัปเดตสถานะวางบิล
   // ไม่มีตารางเลือก JOB ในฟอร์ม — เลือก JOB จาก 📈 รายงานงานขนส่ง เท่านั้น
   async function blInvEditor(page, id, opt = {}) {
     const isNew = !id || id === 'new'; const inModal = !!opt.modal; const preset = opt.preset || null;
-    if (isNew && !preset) { page.innerHTML = '<div class="empty">สร้าง INVOICE จาก <a href="#/reports"><b>📈 รายงานงานขนส่ง</b></a> → ติ๊กเลือก JOB แล้วกด 💰 วางบิล / 💰 สร้าง INVOICE จากรายการที่เลือก · <a href="#/billing?tab=inv">กลับ</a></div>'; return; }
+    if (isNew && !preset) { page.innerHTML = '<div class="empty">สร้าง INVOICE จาก <a href="#/billing"><b>💰 รายงานการวางบิล</b></a> → ติ๊กเลือก JOB แล้วกด 💰 สร้าง INVOICE</div>'; return; }
     page.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+    if (isNew) { try { await loadMasters(); } catch (_) { } } // ข้อมูลลูกค้า (Cache 60 วิ · ไม่ Query ซ้ำ)
     let inv, src; const pre = preset ? [...new Set(preset.links.map((l) => l.job_id))].filter((x) => !(preset.jobs && preset.jobs.has(x))) : [];
     try { [inv, src] = await Promise.all([isNew ? null : T.auth('tnj_inv_get', { p_id: id }, { silent: true }), T.auth('tnj_inv_source', { p_job_ids: pre }, { silent: true })]); }
     catch (e) { page.innerHTML = `<div class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-31 ก่อนใช้งาน 💰 วางบิลลูกค้า' : h(T.parseErr(e).text)}${inModal ? '' : ' · <a href="#/billing">กลับ</a>'}</div>`; return; }
@@ -2182,7 +2327,7 @@
     page.innerHTML = `<div class="page-head"><div class="flex">${inModal ? '' : '<a href="#/billing?tab=inv" class="small">💰 วางบิลลูกค้า</a> <span class="muted">›</span>'}<h1>${isNew ? 'สร้าง INVOICE / ใบแจ้งหนี้' : `INVOICE ${h(S.invoice_no || '(ร่าง)')}`}</h1> ${blBadge(S.status)}</div><div class="flex"><button class="btn" id="ivPvTop">📄 ตัวอย่าง PDF</button></div></div>
       ${(inv ? inv.company_complete : src.company_complete) ? '' : '<div class="alert warn mb1">⚠ ยังไม่ได้ตั้งค่าข้อมูลบริษัทให้ครบ — บันทึกร่างได้ แต่ POST ไม่ได้ · <a href="#/settings">⚙️ ตั้งค่าข้อมูลบริษัท</a></div>'}
       ${S.status === 'CANCELLED' ? `<div class="alert err mb1">⛔ ยกเลิกเอกสารแล้ว — ${h(S.cancel_reason || '')}</div>` : ''}${S.billing ? `<div class="alert info mb1">อยู่ในใบวางบิล <b>${h(S.billing.billing_no)}</b> (${hlDMY(S.billing.billing_date)})</div>` : ''}
-      <div class="card bl-sec bl-jsel"><div class="bl-h"><h3>ข้อมูล JOB ที่เลือก</h3><span class="xs muted">(อ่านอย่างเดียว · เลือกจาก 📈 รายงานงานขนส่ง · ติ๊กออกได้รายตู้)</span><span class="grow"></span><span class="xs" id="ivJCust"></span></div><div class="card-b"><div class="bl-cts" id="ivCts"></div></div></div>
+      <div class="card bl-sec bl-jsel"><div class="bl-h"><h3>ข้อมูล JOB ที่เลือก</h3><span class="xs muted">(อ่านอย่างเดียว · เลือกจากรายงานการวางบิล · ติ๊กออกได้รายตู้)</span><span class="grow"></span><span class="xs" id="ivJCust"></span></div><div class="card-b"><div class="bl-cts" id="ivCts"></div></div></div>
       <div class="bl-grid"><div class="card bl-sec"><div class="bl-h"><span class="bl-no">1</span><h3>ข้อมูลลูกค้า / เอกสาร</h3></div><div class="card-b"><div class="bl-form">
           <div class="field s2"><label>ชื่อบริษัท <span class="req">*</span></label><input class="inp" id="ivCust" list="ivCustL" maxlength="200"><datalist id="ivCustL">${custs.map((c) => `<option value="${h(c.customer_name)}">`).join('')}</datalist></div>
           <div class="field s2"><label>ที่อยู่ออกใบแจ้งหนี้</label><textarea class="inp" id="ivAddr" rows="2" maxlength="500"></textarea></div>
@@ -2244,7 +2389,9 @@
         if (cb.checked) S.links.push({ job_id: jid, container_id: c0 }); else S.links = S.links.filter((l) => !(l.job_id === jid && (l.container_id || null) === c0)); drawCts(); }); };
     const jobsAll = preset ? [...new Set(preset.links.map((l) => l.job_id))] : [...new Set(S.links.map((l) => l.job_id))]; // JOB ที่เปิดมา (ติ๊กตู้ออกหมดแล้ว JOB ยังแสดง ติ๊กกลับได้)
     // ลูกค้า: เติมจาก JOB แรกเมื่อช่องว่าง (ข้อมูลลูกค้าเดิมของ TRANSPORT NJ · ไม่ดึงจาก ACCOUNTING)
-    const applyCust = (j) => { if (!j || q('Cust').value.trim()) return; q('Cust').value = j.customer_name; if (!fillCust(j.customer_name) && j.customer_address && !q('Addr').value) q('Addr').value = j.customer_address; if (!q('Con').value && j.customer_contact) q('Con').value = j.customer_contact; };
+    const applyCust = (j) => { if (!j || q('Cust').value.trim()) return; q('Cust').value = j.customer_name;
+      { const m = M.customers.find((x) => x.id === j.customer_id) || M.customers.find((x) => String(x.name || '').trim().toLowerCase() === String(j.customer_name || '').trim().toLowerCase()); // 👥 ข้อมูลลูกค้า (ชุดเดียว)
+        if (m) { q('Cust').value = m.name; [['Addr', m.address], ['Tax', m.tax_id], ['Br', m.branch], ['Con', m.contact || m.phone]].forEach(([k, v]) => { if (v && !q(k).value) q(k).value = v; }); } } if (!fillCust(j.customer_name) && j.customer_address && !q('Addr').value) q('Addr').value = j.customer_address; if (!q('Con').value && j.customer_contact) q('Con').value = j.customer_contact; };
     // ---- ⏱ ดึงจาก Timeline: ค่ารอเกิน Free Time / ค่าค้างคืน ของตู้ที่เลือก (ยอดลูกค้าตาม Timeline · ไม่ดึงค่าคนขับ · กันซ้ำ) ----
     const pullTl = async () => { const jids = [...new Set(S.links.map((l) => l.job_id))]; if (!jids.length) return T.toast('กรุณาเลือก JOB / ตู้ ก่อน', 'warn');
       try { T.loading(true); await loadSrc(jids); } catch (e) { return blErr(e); } finally { T.loading(false); }
@@ -2362,21 +2509,63 @@
   }
 
   /* ---------- settings ---------- */
+  /* ---------- 👥 จัดการผู้ใช้งาน (app_code: transport · SUPER_ADMIN) — ย้ายจาก ⚙️ ตั้งค่า (โค้ด / RPC เดิม tnj_users_list / tnj_users_save · Login / Session เดิม) ---------- */
+  function pageUsers(page) {
+    if (T.session.role !== 'SUPER_ADMIN') { page.innerHTML = '<div class="empty">เมนูนี้สำหรับ SUPER_ADMIN เท่านั้น</div>'; return; }
+    page.innerHTML = '<div class="page-head"><h1>👥 จัดการผู้ใช้งาน</h1></div><div class="card"><div class="card-h"><h3>ผู้ใช้ / สิทธิ์ (app_code: transport)</h3><button class="btn btn-p btn-sm" id="usAdd">+ เพิ่มผู้ใช้</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ</th><th>สิทธิ์ TRANSPORT NJ</th><th>role เดิม (app_users)</th><th>สถานะ</th><th></th></tr></thead><tbody id="usBody"><tr><td colspan="6" class="empty">กำลังโหลด...</td></tr></tbody></table></div></div>';
+    { const ROLES = ['SUPER_ADMIN', 'ADMIN', 'TRANSPORT', 'DRIVER', 'VIEWER']; const loadUsers = async () => { try { const us = await T.auth('tnj_users_list', {}, { silent: true }); $('#usBody').innerHTML = us.map((u) => `<tr><td class="b">${h(u.username)}</td><td>${h(u.full_name || '')}</td><td><span class="badge blue">${h(u.tnj_role)}</span></td><td class="xs muted">${h(u.base_role)}</td><td>${u.is_active ? '<span class="badge green">ใช้งาน</span>' : '<span class="badge gray">ปิด</span>'}</td><td><button class="btn btn-sm" data-u="${u.id}">✏️</button></td></tr>`).join(''); $$('[data-u]', page).forEach((b) => b.onclick = () => uform(us.find((x) => x.id === b.dataset.u))); } catch (e) { T.err(e); } };
+      const uform = (u) => T.modal({ title: u ? 'แก้ไขผู้ใช้ ' + u.username : 'เพิ่มผู้ใช้', size: 's', body: `${u ? '' : '<div class="field"><label>ชื่อผู้ใช้ <span class="req">*</span></label><input class="inp" id="uUser" autocapitalize="off"></div>'}<div class="field"><label>ชื่อ-สกุล</label><input class="inp" id="uName" value="${h(u ? u.full_name || '' : '')}"></div><div class="field"><label>รหัสผ่าน ${u ? '(เว้นว่าง = ไม่เปลี่ยน)' : '<span class="req">*</span>'}</label><input class="inp" id="uPw" type="password" autocomplete="new-password"></div><div class="field"><label>สิทธิ์</label><select class="inp" id="uRole">${ROLES.map((r) => `<option ${u && u.tnj_role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>${u ? `<label class="check"><input type="checkbox" id="uAct" ${u.is_active ? 'checked' : ''}> เปิดใช้งาน</label>` : ''}`, foot: `<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="uGo">บันทึก</button>`, onOpen: (el, close) => { $('#uGo', el).onclick = async () => { const p = { id: u ? u.id : null, username: u ? u.username : $('#uUser', el).value.trim(), full_name: $('#uName', el).value.trim(), password: $('#uPw', el).value || null, tnj_role: $('#uRole', el).value, is_active: u ? $('#uAct', el).checked : true }; try { await T.auth('tnj_users_save', { p }); T.toast('บันทึกแล้ว', 'ok'); close(); loadUsers(); } catch (e) { T.err(e); } }; } });
+      $('#usAdd').onclick = () => uform(null); loadUsers(); }
+  }
+
+  /* ---------- 👥 ข้อมูลลูกค้า (Customer Master ชุดเดียว · RUN-33 tnj_customer_save · รายการจาก tnj_master_list เดิม) ---------- */
+  async function custSettings(box) {
+    if (!box) return; let rows = [], q = '', busy = false;
+    box.innerHTML = `<div class="card cu-card"><div class="card-h"><h3>👥 ข้อมูลลูกค้า <span class="xs muted" id="cuCnt"></span></h3><div class="flex"><input class="inp cu-q" id="cuQ" placeholder="🔍 ค้นหา CODE / ชื่อบริษัท / Tax ID" autocomplete="off"><button class="btn btn-p btn-sm" id="cuAdd">+ เพิ่มลูกค้า</button></div></div>
+      <div class="tbl-wrap"><table class="tbl cu-tbl"><thead><tr><th>CODE</th><th>ชื่อบริษัท</th><th>สาขา</th><th>Tax ID</th><th>เบอร์โทร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="cuBody"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody></table></div></div>`;
+    const draw = () => { const tb = $('#cuBody'); if (!tb) return; const qq = q.toLowerCase(); const v = rows.filter((x) => !qq || [x.code, x.name, x.tax_id].some((s) => String(s || '').toLowerCase().includes(qq)));
+      $('#cuCnt').textContent = `(ทั้งหมด ${rows.length} ราย · ใช้งาน ${rows.filter((x) => x.is_active).length}${qq ? ` · พบ ${v.length}` : ''})`;
+      tb.innerHTML = v.map((x) => `<tr class="${x.is_active ? '' : 'cu-off'}"><td class="b mono">${h(x.code || '-')}</td><td>${h(x.name)}</td><td>${h(x.branch || '-')}</td><td class="mono">${h(x.tax_id || '-')}</td><td>${h(x.phone || '-')}</td>
+        <td>${x.is_active ? '<span class="badge green">ACTIVE</span>' : '<span class="badge gray">INACTIVE</span>'}</td><td class="nowrap"><button class="btn btn-sm" data-cue="${x.id}">✏️ แก้ไข</button> <button class="btn btn-sm ${x.is_active ? '' : 'btn-g'}" data-cut="${x.id}">${x.is_active ? '⏸ ปิดใช้งาน' : '▶ เปิดใช้งาน'}</button></td></tr>`).join('') || `<tr><td colspan="7" class="empty">${rows.length ? 'ไม่พบลูกค้าที่ค้นหา' : 'ยังไม่มีข้อมูลลูกค้า — กด + เพิ่มลูกค้า'}</td></tr>`;
+      $$('#cuBody [data-cue]').forEach((b) => b.onclick = () => form(rows.find((x) => x.id === b.dataset.cue)));
+      $$('#cuBody [data-cut]').forEach((b) => b.onclick = async () => { const x = rows.find((y) => y.id === b.dataset.cut); if (!x.code) return form(x, true);
+        if (busy) return; busy = true; b.disabled = true; try { await T.auth('tnj_customer_save', { p: Object.assign({}, x, { is_active: !x.is_active }) }, { silent: true }); T.toast(x.is_active ? 'ปิดใช้งานลูกค้าแล้ว (JOB / เอกสารเดิมยังอยู่ครบ)' : 'เปิดใช้งานลูกค้าแล้ว', 'ok'); await load(); } catch (e) { cuErr(e); } finally { busy = false; } }); };
+    const cuErr = (e) => (/PGRST202|Could not find the function/.test(String((e && e.message) || e)) ? T.toast('ต้องติดตั้ง SQL RUN-33 ก่อนใช้งาน 👥 ข้อมูลลูกค้า', 'err', 6000) : T.err(e));
+    const load = async () => { try { rows = await T.auth('tnj_master_list', { p_kind: 'customers', p_include_inactive: true }, { silent: true }) || []; rows.sort((a, b) => (b.is_active - a.is_active) || String(a.code || '~').localeCompare(String(b.code || '~')) || String(a.name).localeCompare(String(b.name))); M.at = 0; draw(); }
+      catch (e) { const tb = $('#cuBody'); if (tb) tb.innerHTML = `<tr><td colspan="7" class="empty">${h(T.parseErr(e).text)}</td></tr>`; } };
+    const form = (x, needCode) => { const f = (k, d = '') => h(x && x[k] != null ? x[k] : d);
+      T.modal({ title: x ? 'แก้ไขลูกค้า' : 'เพิ่มลูกค้า', size: 'cu-m', body: `${needCode ? '<div class="alert warn mb1">ลูกค้าเดิมยังไม่มี CODE — กรุณากำหนด CODE ก่อนบันทึก</div>' : ''}<div class="cu-grid">
+        <div class="field"><label>CODE ลูกค้า <span class="req">*</span></label><input class="inp" id="cu_code" maxlength="30" placeholder="เช่น C001" value="${f('code')}" autocomplete="off"></div>
+        <div class="field"><label>ชื่อบริษัท <span class="req">*</span></label><input class="inp" id="cu_name" maxlength="200" value="${f('name')}"></div>
+        <div class="field"><label>สาขา</label><input class="inp" id="cu_branch" maxlength="60" placeholder="เช่น 00000 หรือ สำนักงานใหญ่" value="${f('branch', '00000')}"></div>
+        <div class="field"><label>เลขประจำตัวผู้เสียภาษี</label><input class="inp" id="cu_tax" maxlength="17" inputmode="numeric" value="${f('tax_id')}"></div>
+        <div class="field"><label>เบอร์โทร</label><input class="inp" id="cu_phone" maxlength="60" value="${f('phone')}"></div>
+        <div class="field"><label>สถานะ</label><select class="inp" id="cu_act"><option value="1" ${!x || x.is_active ? 'selected' : ''}>ACTIVE</option><option value="0" ${x && !x.is_active ? 'selected' : ''}>INACTIVE</option></select></div>
+        <div class="field cu-full"><label>ที่อยู่บริษัท</label><textarea class="inp" id="cu_addr" rows="3" maxlength="500">${f('address')}</textarea></div></div><div class="alert err hidden" id="cuErr"></div>`,
+        foot: '<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="cuGo">บันทึก</button>', onOpen: (el, close) => { const g = (id) => $('#' + id, el).value.trim(); setTimeout(() => { const i = $(needCode || !x ? '#cu_code' : '#cu_name', el); if (i) i.focus(); }, 30);
+          $('#cuGo', el).onclick = async () => { const err = (m) => { const e = $('#cuErr', el); e.textContent = m ? '⚠ ' + m : ''; e.classList.toggle('hidden', !m); };
+            if (!g('cu_code')) return err('กรุณาระบุ CODE ลูกค้า'); if (!g('cu_name')) return err('กรุณาระบุชื่อบริษัท');
+            const tax = g('cu_tax').replace(/[^0-9]/g, ''); if (tax && tax.length !== 13) return err('เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก');
+            const lc = g('cu_code').toLowerCase(); const dup = rows.find((y) => String(y.code || '').trim().toLowerCase() === lc && (!x || y.id !== x.id)); if (dup) return err(`CODE ลูกค้าซ้ำ: ${dup.code} (${dup.name})`);
+            if (busy) return; busy = true; const bt = $('#cuGo', el); bt.disabled = true; err('');
+            try { await T.auth('tnj_customer_save', { p: { id: x ? x.id : null, code: g('cu_code'), name: g('cu_name'), branch: g('cu_branch') || '00000', tax_id: tax, phone: g('cu_phone'), address: g('cu_addr'), is_active: $('#cu_act', el).value === '1' } }, { silent: true });
+              T.toast(x ? 'แก้ไขข้อมูลลูกค้าแล้ว' : 'เพิ่มลูกค้าแล้ว', 'ok'); close(); await load(); }
+            catch (e) { if (/PGRST202|Could not find the function/.test(String((e && e.message) || e))) err('ต้องติดตั้ง SQL RUN-33 ก่อนใช้งาน'); else err(T.parseErr(e).text); bt.disabled = false; } finally { busy = false; } }; } }); };
+    $('#cuAdd').onclick = () => form(null); $('#cuQ').addEventListener('input', T.debounce(() => { const i = $('#cuQ'); if (!i) return; q = i.value.trim(); draw(); }, 150)); load();
+  }
+
   async function pageSettings(page) {
     if (!T.isAdmin()) { page.innerHTML = '<div class="empty">เฉพาะผู้ดูแลระบบ</div>'; return; }
     const sa = T.session.role === 'SUPER_ADMIN'; let d; try { d = await T.auth('tnj_settings_get', {}, { silent: true }); } catch (e) { return T.err(e); }
     const rel = d.release || {}; const same = rel.version === T.C.APP_VERSION;
-    page.innerHTML = `<div class="page-head"><h1>⚙️ ตั้งค่า</h1></div><div class="grid g2">
+    page.innerHTML = `<div class="page-head"><h1>⚙️ ตั้งค่า</h1></div><div id="cuBox"></div><div class="grid g2 mt2">
       <div class="card card-b"><h3 class="mb1">เวอร์ชัน</h3><div class="kv"><div class="k">Build ที่เปิดอยู่</div><div class="v">${h(T.C.APP_VERSION)}</div><div class="k">เวอร์ชันบนเซิร์ฟเวอร์</div><div class="v">${h(rel.version || '-')}</div><div class="k">Maintenance</div><div class="v">${rel.maintenance_active ? 'กำลังปรับปรุง ถึง ' + T.fmtDT(rel.maintenance_ends_at) : 'ปกติ'}</div><div class="k">เวลาเซิร์ฟเวอร์</div><div class="v">${T.fmtDT(rel.server_time)}</div></div>
         <div class="alert info mt1">เวอร์ชันใช้แสดง/ตรวจสอบเท่านั้น — ไม่ใช้บล็อกการเข้าระบบ</div>
         <div class="small muted mt1">ขั้นตอน Deploy: อัปโหลดไฟล์ขึ้น GitHub → Reload หน้าเว็บ → Login ใช้งานได้ทันที</div></div>
       <div class="card card-b"><h3 class="mb1">GPS</h3><div class="field"><label>ส่ง GPS ทุก (วินาที)</label><input type="number" class="inp" id="gpsInt" value="${h(d.settings.gps_interval_sec || 30)}" ${sa ? '' : 'disabled'}></div><div class="field"><label>ถือว่า GPS ขาดหายหลัง (นาที)</label><input type="number" class="inp" id="gpsStale" value="${h(d.settings.gps_stale_min || 5)}" ${sa ? '' : 'disabled'}></div>${sa ? '<button class="btn btn-p" id="gpsSave">บันทึก</button>' : ''}</div></div>
-      ${sa ? '<div class="card mt2"><div class="card-h"><h3>ผู้ใช้ / สิทธิ์ (app_code: transport)</h3><button class="btn btn-p btn-sm" id="usAdd">+ เพิ่มผู้ใช้</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ</th><th>สิทธิ์ TRANSPORT NJ</th><th>role เดิม (app_users)</th><th>สถานะ</th><th></th></tr></thead><tbody id="usBody"></tbody></table></div></div>' : ''}`;
-    coSettings(page); // 🏢 ข้อมูลบริษัท (RUN-31)
+      `;
+    custSettings($('#cuBox')); // 👥 ข้อมูลลูกค้า (RUN-33) · 🏢 ข้อมูลบริษัท = ค่าคงที่ N.J. TRANSPORT CO., LTD. (ไม่มีหน้าตั้งค่า)
     const vg = $('#verGo'); if (vg) vg.onclick = async () => { if (!(await T.confirm('ประกาศเวอร์ชัน', `ประกาศ <b>${h(T.C.APP_VERSION)}</b> — ระบบจะเข้าสู่โหมดปรับปรุง 10 นาที ผู้ใช้ทุกคน (รวมคุณ) จะถูกออกจากระบบและต้อง Login ใหม่หลังครบเวลา`, 'ประกาศ', 'btn-r'))) return; try { const r = await T.auth('tnj_version_set', { p_version: T.C.APP_VERSION, p_maintenance_minutes: 10 }); T.showMaintenance(r); } catch (e) { T.err(e); } };
     const gs = $('#gpsSave'); if (gs) gs.onclick = async () => { try { await T.auth('tnj_settings_set', { p: { gps_interval_sec: $('#gpsInt').value, gps_stale_min: $('#gpsStale').value } }); T.toast('บันทึกแล้ว', 'ok'); } catch (e) { T.err(e); } };
-    if (sa) { const ROLES = ['SUPER_ADMIN', 'ADMIN', 'TRANSPORT', 'DRIVER', 'VIEWER']; const loadUsers = async () => { try { const us = await T.auth('tnj_users_list', {}, { silent: true }); $('#usBody').innerHTML = us.map((u) => `<tr><td class="b">${h(u.username)}</td><td>${h(u.full_name || '')}</td><td><span class="badge blue">${h(u.tnj_role)}</span></td><td class="xs muted">${h(u.base_role)}</td><td>${u.is_active ? '<span class="badge green">ใช้งาน</span>' : '<span class="badge gray">ปิด</span>'}</td><td><button class="btn btn-sm" data-u="${u.id}">✏️</button></td></tr>`).join(''); $$('[data-u]', page).forEach((b) => b.onclick = () => uform(us.find((x) => x.id === b.dataset.u))); } catch (e) { T.err(e); } };
-      const uform = (u) => T.modal({ title: u ? 'แก้ไขผู้ใช้ ' + u.username : 'เพิ่มผู้ใช้', size: 's', body: `${u ? '' : '<div class="field"><label>ชื่อผู้ใช้ <span class="req">*</span></label><input class="inp" id="uUser" autocapitalize="off"></div>'}<div class="field"><label>ชื่อ-สกุล</label><input class="inp" id="uName" value="${h(u ? u.full_name || '' : '')}"></div><div class="field"><label>รหัสผ่าน ${u ? '(เว้นว่าง = ไม่เปลี่ยน)' : '<span class="req">*</span>'}</label><input class="inp" id="uPw" type="password" autocomplete="new-password"></div><div class="field"><label>สิทธิ์</label><select class="inp" id="uRole">${ROLES.map((r) => `<option ${u && u.tnj_role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>${u ? `<label class="check"><input type="checkbox" id="uAct" ${u.is_active ? 'checked' : ''}> เปิดใช้งาน</label>` : ''}`, foot: `<button class="btn" data-close>ยกเลิก</button><button class="btn btn-p" id="uGo">บันทึก</button>`, onOpen: (el, close) => { $('#uGo', el).onclick = async () => { const p = { id: u ? u.id : null, username: u ? u.username : $('#uUser', el).value.trim(), full_name: $('#uName', el).value.trim(), password: $('#uPw', el).value || null, tnj_role: $('#uRole', el).value, is_active: u ? $('#uAct', el).checked : true }; try { await T.auth('tnj_users_save', { p }); T.toast('บันทึกแล้ว', 'ok'); close(); loadUsers(); } catch (e) { T.err(e); } }; } });
-      $('#usAdd').onclick = () => uform(null); loadUsers(); }
   }
 })();
