@@ -812,7 +812,7 @@
     let n3 = String(e && (e.message || e.hint || e.details) || "");
     return /PGRST202/i.test(n3) || /Could not find the function/i.test(n3) || /schema cache/i.test(n3) && /njacc_(wht|save_wht|post_wht|delete_wht)/i.test(n3);
   }
-  var Bt = { NJACC_WHT_NOT_FOUND: "ไม่พบหนังสือรับรองฉบับนี้", NJACC_WHT_NOT_DRAFT: "เอกสารนี้ไม่ได้อยู่ในสถานะร่างแล้ว", NJACC_WHT_ALREADY_VOID: "เอกสารนี้ถูกยกเลิกไปแล้ว", NJACC_REASON_REQUIRED: "กรุณาระบุเหตุผลที่ยกเลิก", NJACC_WHT_ALREADY_ISSUED: "เอกสารนี้ถูกบันทึกจริงไปแล้ว", NJACC_WHT_PAY_DATE_REQUIRED: "ต้องระบุวันที่จ่ายเงินจริงก่อนยืนยันบันทึก", NJACC_WHT_ITEM_PAY_DATE_REQUIRED: "ทุกรายการต้องมีวันที่จ่ายเงินจริง", NJACC_WHT_RATE_REQUIRED: "ต้องระบุอัตราภาษีหัก ณ ที่จ่ายทุกรายการ", NJACC_WHT_CUSTOMER_REQUIRED: "ต้องเลือกผู้หักภาษี / ลูกค้าผู้จ่ายเงินก่อน", NJACC_WHT_CUSTOMER_NOT_FOUND: "ไม่พบผู้หักภาษีรายนี้", NJACC_WHT_INVOICE_MISMATCH: "ใบแจ้งหนี้ที่อ้างอิงไม่ใช่ของลูกค้าผู้หักภาษีรายนี้", NJACC_WHT_BASE_INVALID: "จำนวนเงินที่จ่ายต้องมากกว่า 0 ทุกรายการ", NJACC_BAD_TAX_RATE: "อัตราภาษีต้องอยู่ระหว่าง 0–100", NJACC_NO_ITEMS: "ต้องมีรายการเงินได้อย่างน้อย 1 รายการ", NJACC_WHT_BAD_DIRECTION: "ทิศทางเอกสารไม่ถูกต้อง", NJACC_WHT_AMOUNT_INVALID: "จำนวนเงินภาษีต้องไม่ติดลบ", NJACC_WHT_AMOUNT_GT_BASE: "จำนวนเงินภาษีต้องไม่มากกว่าจำนวนเงินที่จ่าย", NJACC_WHT_REASON_REQUIRED: "ต้องระบุเหตุผลก่อน UNPOST", NJACC_WHT_NOT_ISSUED: "เอกสารนี้ยังไม่ได้ POST — UNPOST ไม่ได้", NJACC_WHT_VOIDED: "เอกสารนี้ถูก VOID แล้ว", NJACC_WHT_EXPORT_INCOMPLETE: "ดึงข้อมูลไม่ครบ — ยังไม่สร้างไฟล์", NJACC_WHT_CERT_NO_REQUIRED: "ต้องระบุเลขที่หนังสือรับรองก่อนระบบจะออกเลขให้", NJACC_WHT_PAYER_REQUIRED: "ต้องระบุชื่อผู้มีหน้าที่หักภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_PAYEE_REQUIRED: "ต้องระบุชื่อผู้ถูกหักภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_TAXID13_INVALID: "เลขประจำตัวผู้เสียภาษี / บัตรประชาชน ต้องเป็นตัวเลข 13 หลัก", NJACC_WHT_CATEGORY_REQUIRED: "ต้องเลือกหมวด 50 ทวิ ให้ครบทุกรายการ", NJACC_WHT_INCOME_TYPE_REQUIRED: "ต้องระบุประเภทเงินได้ให้ครบทุกรายการ", NJACC_WHT_FORM_TYPE_REQUIRED: "ต้องเลือกแบบที่นำส่งก่อนระบบจะออกเลขให้", NJACC_WHT_PAY_METHOD_REQUIRED: "ต้องเลือกวิธีการจ่ายภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_AMOUNT_ZERO: "จำนวนเงินภาษีรวมต้องมากกว่า 0 ก่อนระบบจะออกเลขให้" };
+  var Bt = { NJACC_WHT_INVOICE_USED: "INVOICE ที่เลือกถูกนำไปออกใบหัก ณ ที่จ่ายฉบับอื่นแล้ว (Void ฉบับเดิมก่อน)", NJACC_WHT_INVOICE_MULTI_MISMATCH: "รวมได้เฉพาะ INVOICE ลูกค้าเดียวกัน และสถานที่วางบิล / Tax ID / สาขาเดียวกัน", NJACC_WHT_NOT_FOUND: "ไม่พบหนังสือรับรองฉบับนี้", NJACC_WHT_NOT_DRAFT: "เอกสารนี้ไม่ได้อยู่ในสถานะร่างแล้ว", NJACC_WHT_ALREADY_VOID: "เอกสารนี้ถูกยกเลิกไปแล้ว", NJACC_REASON_REQUIRED: "กรุณาระบุเหตุผลที่ยกเลิก", NJACC_WHT_ALREADY_ISSUED: "เอกสารนี้ถูกบันทึกจริงไปแล้ว", NJACC_WHT_PAY_DATE_REQUIRED: "ต้องระบุวันที่จ่ายเงินจริงก่อนยืนยันบันทึก", NJACC_WHT_ITEM_PAY_DATE_REQUIRED: "ทุกรายการต้องมีวันที่จ่ายเงินจริง", NJACC_WHT_RATE_REQUIRED: "ต้องระบุอัตราภาษีหัก ณ ที่จ่ายทุกรายการ", NJACC_WHT_CUSTOMER_REQUIRED: "ต้องเลือกผู้หักภาษี / ลูกค้าผู้จ่ายเงินก่อน", NJACC_WHT_CUSTOMER_NOT_FOUND: "ไม่พบผู้หักภาษีรายนี้", NJACC_WHT_INVOICE_MISMATCH: "ใบแจ้งหนี้ที่อ้างอิงไม่ใช่ของลูกค้าผู้หักภาษีรายนี้", NJACC_WHT_BASE_INVALID: "จำนวนเงินที่จ่ายต้องมากกว่า 0 ทุกรายการ", NJACC_BAD_TAX_RATE: "อัตราภาษีต้องอยู่ระหว่าง 0–100", NJACC_NO_ITEMS: "ต้องมีรายการเงินได้อย่างน้อย 1 รายการ", NJACC_WHT_BAD_DIRECTION: "ทิศทางเอกสารไม่ถูกต้อง", NJACC_WHT_AMOUNT_INVALID: "จำนวนเงินภาษีต้องไม่ติดลบ", NJACC_WHT_AMOUNT_GT_BASE: "จำนวนเงินภาษีต้องไม่มากกว่าจำนวนเงินที่จ่าย", NJACC_WHT_REASON_REQUIRED: "ต้องระบุเหตุผลก่อน UNPOST", NJACC_WHT_NOT_ISSUED: "เอกสารนี้ยังไม่ได้ POST — UNPOST ไม่ได้", NJACC_WHT_VOIDED: "เอกสารนี้ถูก VOID แล้ว", NJACC_WHT_EXPORT_INCOMPLETE: "ดึงข้อมูลไม่ครบ — ยังไม่สร้างไฟล์", NJACC_WHT_CERT_NO_REQUIRED: "ต้องระบุเลขที่หนังสือรับรองก่อนระบบจะออกเลขให้", NJACC_WHT_PAYER_REQUIRED: "ต้องระบุชื่อผู้มีหน้าที่หักภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_PAYEE_REQUIRED: "ต้องระบุชื่อผู้ถูกหักภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_TAXID13_INVALID: "เลขประจำตัวผู้เสียภาษี / บัตรประชาชน ต้องเป็นตัวเลข 13 หลัก", NJACC_WHT_CATEGORY_REQUIRED: "ต้องเลือกหมวด 50 ทวิ ให้ครบทุกรายการ", NJACC_WHT_INCOME_TYPE_REQUIRED: "ต้องระบุประเภทเงินได้ให้ครบทุกรายการ", NJACC_WHT_FORM_TYPE_REQUIRED: "ต้องเลือกแบบที่นำส่งก่อนระบบจะออกเลขให้", NJACC_WHT_PAY_METHOD_REQUIRED: "ต้องเลือกวิธีการจ่ายภาษีก่อนระบบจะออกเลขให้", NJACC_WHT_AMOUNT_ZERO: "จำนวนเงินภาษีรวมต้องมากกว่า 0 ก่อนระบบจะออกเลขให้" };
   function G(e) {
     let n3 = String(e && e.message || "");
     for (let s7 in Bt) if (n3.includes(s7)) return Bt[s7];
@@ -1412,6 +1412,8 @@
   var ln = () => false;
   var Re = null;
   var Q2 = { q: "", page: 1, size: 10 };
+  var Pk = /* @__PURE__ */ new Map();
+  var Pr = /* @__PURE__ */ new Map();
   var t3 = null;
   var W2 = (e) => {
     let n3 = Number(e);
@@ -1672,9 +1674,11 @@
       if (wt({ table: e.querySelector("#wh-tbody") && e.querySelector("#wh-tbody").closest("table"), modeKey: "REPORT_WHT", host: m3, canManage: T, onLayout: () => {
         gn() && (s6("wht-f"), f6.page = 1, b2 && _3());
       } }), m3 && n3 && !m3.querySelector("#wh-new")) {
-        m3.insertAdjacentHTML("beforeend", '<button class="btn btn-p btn-sm" id="wh-new">＋ เปิดงานใหม่</button>');
+        m3.insertAdjacentHTML("beforeend", '<button class="btn btn-o btn-sm" id="wh-newinv">📄 สร้างจาก INVOICE</button><button class="btn btn-p btn-sm" id="wh-new">＋ เปิดงานใหม่</button>');
         let p7 = m3.querySelector("#wh-new");
         p7 && (p7.onclick = () => De(e, { mode: f6.mode }));
+        let pi = m3.querySelector("#wh-newinv");
+        pi && (pi.onclick = () => Rn(e));
       }
     }
     g4();
@@ -1811,26 +1815,27 @@
     }
   }
   async function Rn(e) {
-    Q2.page = 1, e.innerHTML = `
+    Q2.page = 1, Pk.clear(), e.innerHTML = `
     <div class="page-head"><div class="page-title"><span class="dot"></span>
       <h2>ดึงข้อมูลจาก INVOICE</h2></div>
       <button class="btn btn-o" id="wh-back">← กลับฟอร์ม</button></div>
     <div class="card card-pad">
       <p class="t-sm t-3">เลือกใบแจ้งหนี้เพื่อเติมลูกค้า · รายการ · อัตรา WHT ให้อัตโนมัติ
-        · เป็นตัวช่วยเท่านั้น กรอกเองทั้งหมดก็ได้</p>
+        · เป็นตัวช่วยเท่านั้น กรอกเองทั้งหมดก็ได้ · ติ๊กหลาย INVOICE (ลูกค้า / สถานที่วางบิลเดียวกัน) เพื่อรวมเป็นใบหักฉบับเดียว</p>
       <div class="fbar mt-2">
         <input class="inp" id="wh-pq" value="${c2(Q2.q)}" placeholder="ค้นหา เลขที่ INVOICE / ชื่อลูกค้า">
         <button class="btn btn-o btn-sm" id="wh-pgo">ค้นหา</button>
         <button class="btn btn-o btn-sm" id="wh-skip">← กลับฟอร์ม</button>
       </div>
       <div class="tbl-wrap mt-2"><table class="tbl"><thead><tr>
-        <th>INVOICE</th><th>วันที่</th><th>ลูกค้า</th><th>ประเภท</th>
-        <th class="r">ยอดสุทธิ</th><th>อัตรา WHT</th><th class="r">WHT</th>
+        <th class="center">เลือก</th><th>INVOICE</th><th>วันที่</th><th>ลูกค้า</th><th>สถานที่วางบิล</th>
+        <th class="r">ฐานภาษี</th><th>อัตรา WHT</th><th class="r">WHT</th>
         <th>วันที่จ่ายจริง</th><th class="center">จัดการ</th>
       </tr></thead><tbody id="wh-ptb">
-        <tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr>
+        <tr><td colspan="10" class="load-row"><div class="spin"></div></td></tr>
       </tbody></table></div>
       <div class="mt-2" id="wh-ppgn"></div>
+      <div class="fbar mt-2" id="wh-psel"><span class="t-sm" id="wh-psum">ยังไม่ได้เลือก INVOICE</span><button class="btn btn-p btn-sm" id="wh-pmulti" disabled>สร้างใบหัก ณ ที่จ่าย จาก INVOICE ที่เลือก</button></div>
     </div>`, e.querySelector("#wh-back").onclick = () => xe(e), e.querySelector("#wh-skip").onclick = () => De(e, {});
     let n3 = e.querySelector("#wh-pq");
     e.querySelector("#wh-pgo").onclick = () => {
@@ -1840,36 +1845,68 @@
     }, 350)), e.querySelector("#wh-ptb").addEventListener("click", (c4) => {
       let a6 = c4.target.closest("[data-pick]");
       a6 && De(e, { invoice: JSON.parse(a6.dataset.pick) });
-    });
+    }), e.querySelector("#wh-ptb").addEventListener("change", (c4) => {
+      let a6 = c4.target.closest("[data-psel]");
+      if (!a6) return;
+      let l7 = Pr.get(a6.dataset.psel);
+      if (!l7) return;
+      if (a6.checked) {
+        let b2 = [...Pk.values()][0];
+        if (l7.used_doc) {
+          a6.checked = false, n("INVOICE นี้ออกใบหัก ณ ที่จ่ายแล้ว: " + l7.used_doc, "err");
+          return;
+        }
+        if (b2 && String(b2.match_key || "") !== String(l7.match_key || "")) {
+          a6.checked = false, n("รวมได้เฉพาะ INVOICE ลูกค้าเดียวกัน และสถานที่วางบิล / Tax ID / สาขาเดียวกัน", "err");
+          return;
+        }
+        Pk.set(l7.id, l7);
+      } else Pk.delete(l7.id);
+      Ps(e);
+    }), e.querySelector("#wh-pmulti").onclick = () => {
+      let a6 = [...Pk.values()];
+      if (!a6.length) return;
+      let l7 = a6[0], b2 = (g4) => Math.round(g4 * 100) / 100;
+      De(e, { invoice: Object.assign({}, l7, { invoice_ids: a6.map((g4) => g4.id), invoice_no: a6.map((g4) => g4.invoice_no).join(", "), subtotal: b2(a6.reduce((g4, x3) => g4 + (Number(x3.tax_base) || 0), 0)), wht_breakdown: a6.flatMap((g4) => (g4.wht_breakdown || []).map((x3) => Object.assign({}, x3, { description: g4.invoice_no + (x3.description ? " · " + x3.description : "") }))), payment_date: a6.every((g4) => (g4.payment_date || "") === (l7.payment_date || "")) ? l7.payment_date : "", payments: [] }) });
+    };
+    function Ps(c4) {
+      let a6 = [...Pk.values()], l7 = c4.querySelector("#wh-psum"), b2 = c4.querySelector("#wh-pmulti");
+      if (!l7 || !b2) return;
+      let g4 = Math.round(a6.reduce((m3, x4) => m3 + (Number(x4.tax_base) || 0), 0) * 100) / 100, x3 = Math.round(a6.reduce((m3, _3) => m3 + (Number(_3.wht_amount) || 0), 0) * 100) / 100;
+      l7.innerHTML = a6.length ? `เลือก <b>${a6.length}</b> INVOICE · ฐานภาษีรวม <b>${g(g4)}</b> · WHT รวม <b>${g(x3)}</b>` : "ยังไม่ได้เลือก INVOICE", b2.disabled = !a6.length;
+    }
     async function s7() {
       let c4 = u5("wh-pick"), a6 = e.querySelector("#wh-ptb");
       if (a6) try {
         let l7 = await Kt({ q: Q2.q || null, page: Q2.page, size: Q2.size });
         if (!a5("wh-pick", c4)) return;
         let b2 = l7.rows || [];
+        Pr = new Map(b2.map((g4) => [g4.id, g4]));
         a6.innerHTML = b2.length ? b2.map((g4) => {
-          let x3 = g4.wht_breakdown || [], _3 = x3.length ? x3.map((m3) => Ea(m3.rate)).join(" + ") : "-";
+          let x3 = g4.wht_breakdown || [], _3 = x3.length ? x3.map((m3) => Ea(m3.rate)).join(" + ") : "-", u6 = g4.used_doc || "";
           return `<tr>
-        <td class="t-b">${c2(g4.invoice_no || "-")}</td>
+        <td class="center"><input type="checkbox" data-psel="${c2(g4.id)}" ${Pk.has(g4.id) ? "checked" : ""} ${u6 ? "disabled" : ""} title="${u6 ? "ออกใบหัก ณ ที่จ่ายแล้ว: " + c2(u6) : "เลือกรวมในใบหักฉบับเดียว"}"></td>
+        <td class="t-b">${c2(g4.invoice_no || "-")}${u6 ? `<div class="t-3 t-sm">ออกใบหักแล้ว: ${c2(u6)}</div>` : ""}</td>
         <td>${i(g4.invoice_date)}</td>
-        <td class="ellip" style="max-width:190px">${c2(g4.customer_name || "-")}</td>
-        <td>${c2(g4.charge_type || "-")}</td>
-        <td class="r">${g(g4.total_amount)}</td>
+        <td class="ellip" style="max-width:170px">${c2(g4.job_customer || g4.customer_name || "-")}</td>
+        <td class="ellip" style="max-width:190px">${c2(g4.billing_place || g4.customer_name || "-")}</td>
+        <td class="r">${g(g4.tax_base)}</td>
         <td class="center">${c2(_3)}</td>
+        <td class="r">${g(g4.wht_amount)}</td>
         <td>${g4.payment_date ? i(g4.payment_date) : (g4.payments || []).length > 1 ? '<span class="t-3">' + (g4.payments || []).length + " ครั้ง — เลือกเอง</span>" : '<span class="t-3">ยังไม่รับชำระ</span>'}</td>
         <td><div class="ch-act">
-          <button class="btn btn-p btn-sm" data-pick='${JSON.stringify(g4).replace(/'/g, "&#39;")}'>เลือก</button>
+          <button class="btn btn-p btn-sm" data-pick='${JSON.stringify(g4).replace(/'/g, "&#39;")}' ${u6 ? "disabled" : ""}>เลือก</button>
         </div></td></tr>`;
-        }).join("") : '<tr><td colspan="9" class="empty">ไม่พบ INVOICE — กด “ข้าม” เพื่อกรอกเองได้</td></tr>', u3(e.querySelector("#wh-ppgn"), { page: Q2.page, size: Q2.size, total: l7.total || 0 }, ({ page: g4, size: x3 }) => {
+        }).join("") : '<tr><td colspan="10" class="empty">ไม่พบ INVOICE — กด “ข้าม” เพื่อกรอกเองได้</td></tr>', u3(e.querySelector("#wh-ppgn"), { page: Q2.page, size: Q2.size, total: l7.total || 0 }, ({ page: g4, size: x3 }) => {
           Q2.page = g4, Q2.size = x3, s7();
-        });
+        }), Ps(e);
       } catch (l7) {
         if (!a5("wh-pick", c4)) return;
         if (ve(l7)) {
           ze(e);
           return;
         }
-        a6.innerHTML = '<tr><td colspan="9" class="empty">โหลดรายการไม่สำเร็จ <button type="button" class="btn btn-sm btn-o" data-ld-retry>ลองใหม่</button></td></tr>', a6.querySelector("[data-ld-retry]").onclick = () => s7(), n(G(l7), "err");
+        a6.innerHTML = '<tr><td colspan="10" class="empty">โหลดรายการไม่สำเร็จ <button type="button" class="btn btn-sm btn-o" data-ld-retry>ลองใหม่</button></td></tr>', a6.querySelector("[data-ld-retry]").onclick = () => s7(), n(G(l7), "err");
       }
     }
     await s7();
@@ -1901,7 +1938,7 @@
       let i7 = s7.wht_breakdown || [], o5 = s7.payment_date || "";
       t3.lines = i7.length ? i7.map((d4) => ({ pay_date: o5, income_type: String(s7.charge_type || "").toUpperCase() === "ADVANCE" ? "OTHER" : "SERVICE", description: d4.description || s7.description || "", tax_base: W2(d4.tax_base), rate: W2(d4.rate), amount: u2(W2(d4.tax_base) * W2(d4.rate) / 100), wht_income_category: Ze(String(s7.charge_type || "").toUpperCase() === "ADVANCE" ? "OTHER" : "SERVICE") })) : [{ pay_date: o5, income_type: "SERVICE", description: s7.description || "", tax_base: W2(s7.subtotal), rate: 0, amount: 0, wht_income_category: Ze("SERVICE") }];
     }
-    t3.lines.length || (t3.lines = [{ pay_date: t3.pay_date || "", income_type: "SERVICE", description: "", tax_base: 0, rate: xt.SERVICE, amount: 0, wht_income_category: Ze("SERVICE") }]), !a6 && t3.wht_mode === "ACTING_AGENT" && (t3.has_agent = true), t3.has_agent && !["agent_name", "agent_tax_id", "agent_branch", "agent_address"].some((i7) => String(t3[i7] || "").trim()) && (t3.agent_name = o3.nameEn, t3.agent_tax_id = o3.taxId, t3.agent_branch = "00000", t3.agent_address = o3.address);
+    t3.invoice_ids = a6 ? (a6.invoices || []).length ? a6.invoices.map((i7) => i7.id) : a6.invoice_id ? [a6.invoice_id] : [] : s7 ? s7.invoice_ids || (s7.id ? [s7.id] : []) : [], t3.lines.length || (t3.lines = [{ pay_date: t3.pay_date || "", income_type: "SERVICE", description: "", tax_base: 0, rate: xt.SERVICE, amount: 0, wht_income_category: Ze("SERVICE") }]), !a6 && t3.wht_mode === "ACTING_AGENT" && (t3.has_agent = true), t3.has_agent && !["agent_name", "agent_tax_id", "agent_branch", "agent_address"].some((i7) => String(t3[i7] || "").trim()) && (t3.agent_name = o3.nameEn, t3.agent_tax_id = o3.taxId, t3.agent_branch = "00000", t3.agent_address = o3.address);
     let m3 = x2().find((i7) => i7.id === t3.customer_id) || null;
     e.innerHTML = `
     <div class="card card-pad whp-form">
@@ -2101,7 +2138,7 @@
       <section class="whp-blk">
         <div class="whp-bh">
           <h3 class="whp-bt">รายการเงินได้</h3>
-          <button class="btn btn-o btn-sm" id="wh-add">＋ เพิ่มรายการ</button>
+          <span>${t3.whtId ? "" : '<button class="btn btn-o btn-sm" id="wh-frominv">📄 ดึงจาก INVOICE (เลือกได้หลายใบ)</button> '}<button class="btn btn-o btn-sm" id="wh-add">＋ เพิ่มรายการ</button></span>
         </div>
         <div class="tbl-wrap whp-items"><table class="tbl"><thead><tr>
           
@@ -2898,7 +2935,7 @@
         l7 && (l7.value = c4);
       }
     }
-    let s7 = { wht_id: t3.whtId || null, direction: t3.direction || ye, customer_id: t3.customer_id, certificate_no: (t3.certificate_no || "").trim() || null, invoice_id: t3.invoice_id || null, document_date: t3.document_date || null, pay_date: t3.pay_date || null, wht_type: t3.lines[0].income_type, reference_no: (t3.reference_no || "").trim() || null, note: (t3.note || "").trim() || null, book_no: E2(t3.book_no), ref_date: t3.ref_date || null, job_no: E2(t3.job_no), invoice_no_text: E2(t3.invoice_no_text), payee_code: E2(t3.payee_code), payment_by: E2(t3.payment_by), has_fund: !!t3.has_fund, gpf_amount: t3.has_fund ? E2(t3.gpf_amount) : null, social_security_amount: t3.has_fund ? E2(t3.social_security_amount) : null, provident_fund_amount: t3.has_fund ? E2(t3.provident_fund_amount) : null, doc_code: E2(t3.doc_code), payer_code: E2(t3.payer_code), payer_citizen_id: E2(t3.payer_citizen_id), payee_citizen_id: E2(t3.payee_citizen_id), payer_name: E2(t3.payer_name), payer_tax_id: E2(t3.payer_tax_id), payer_branch: E2(t3.payer_branch), payer_address: E2(t3.payer_address), wht_mode: t3.wht_mode || null, has_acting_agent: !!t3.has_agent, agent_name: E2(t3.agent_name), agent_tax_id: E2(t3.agent_tax_id), agent_branch: E2(t3.agent_branch), agent_address: E2(t3.agent_address), payee_customer_id: t3.payee_customer_id || null, payee_name: E2(t3.payee_name), payee_tax_id: E2(t3.payee_tax_id), payee_branch: E2(t3.payee_branch), payee_address: E2(t3.payee_address), form_type: E2(t3.form_type), form_seq: E2(t3.form_seq), pay_method: E2(t3.pay_method), pay_method_other: t3.pay_method === je ? E2(t3.pay_method_other) : null, signer_name: E2(t3.signer_name), signer_position: E2(t3.signer_position), items: t3.lines.map((c4) => ({ pay_date: c4.pay_date || null, income_type: c4.income_type, description: (c4.description || "").trim() || null, tax_base: u2(c4.tax_base), rate: u2(c4.rate), wht_income_category: E2(c4.wht_income_category), amount: u2(W2(c4.amount)) })) };
+    let s7 = { wht_id: t3.whtId || null, direction: t3.direction || ye, customer_id: t3.customer_id, certificate_no: (t3.certificate_no || "").trim() || null, invoice_id: t3.invoice_id || null, invoice_ids: t3.invoice_ids || [], document_date: t3.document_date || null, pay_date: t3.pay_date || null, wht_type: t3.lines[0].income_type, reference_no: (t3.reference_no || "").trim() || null, note: (t3.note || "").trim() || null, book_no: E2(t3.book_no), ref_date: t3.ref_date || null, job_no: E2(t3.job_no), invoice_no_text: E2(t3.invoice_no_text), payee_code: E2(t3.payee_code), payment_by: E2(t3.payment_by), has_fund: !!t3.has_fund, gpf_amount: t3.has_fund ? E2(t3.gpf_amount) : null, social_security_amount: t3.has_fund ? E2(t3.social_security_amount) : null, provident_fund_amount: t3.has_fund ? E2(t3.provident_fund_amount) : null, doc_code: E2(t3.doc_code), payer_code: E2(t3.payer_code), payer_citizen_id: E2(t3.payer_citizen_id), payee_citizen_id: E2(t3.payee_citizen_id), payer_name: E2(t3.payer_name), payer_tax_id: E2(t3.payer_tax_id), payer_branch: E2(t3.payer_branch), payer_address: E2(t3.payer_address), wht_mode: t3.wht_mode || null, has_acting_agent: !!t3.has_agent, agent_name: E2(t3.agent_name), agent_tax_id: E2(t3.agent_tax_id), agent_branch: E2(t3.agent_branch), agent_address: E2(t3.agent_address), payee_customer_id: t3.payee_customer_id || null, payee_name: E2(t3.payee_name), payee_tax_id: E2(t3.payee_tax_id), payee_branch: E2(t3.payee_branch), payee_address: E2(t3.payee_address), form_type: E2(t3.form_type), form_seq: E2(t3.form_seq), pay_method: E2(t3.pay_method), pay_method_other: t3.pay_method === je ? E2(t3.pay_method_other) : null, signer_name: E2(t3.signer_name), signer_position: E2(t3.signer_position), items: t3.lines.map((c4) => ({ pay_date: c4.pay_date || null, income_type: c4.income_type, description: (c4.description || "").trim() || null, tax_base: u2(c4.tax_base), rate: u2(c4.rate), wht_income_category: E2(c4.wht_income_category), amount: u2(W2(c4.amount)) })) };
     n3 && (n3.disabled = true);
     try {
       let c4 = await l6("save-wht", () => Qt(s7));
