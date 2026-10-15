@@ -595,72 +595,112 @@
   }
 
   /* ───────── ผู้รับทราบ ───────── */
+  /* ───────── [RUN-179] รายชื่อผู้รับทราบ — ตาราง 4 คอลัมน์ + ตัวกรอง + สรุป ─────────
+     ขอบเขต: ปรับการแสดงผลและการ Export เท่านั้น
+     ไม่แตะ RPC (njhr_ea_readers / njhr_ea_dept_report) ไม่แตะสิทธิ์ ไม่แตะ Flow เดิม
+     สถานะ "ค้างเวอร์ชันเก่า" ถือเป็น "ยังไม่รับทราบ" ตามสเปค 2 สถานะ
+     แต่ยังคงแสดงหมายเหตุกำกับไว้ เพื่อไม่ให้ข้อมูลเดิมหายไปจากสายตาผู้ใช้ */
+  function anRdrIsRead(r) { return !!r.has_read && !r.stale_version; }
+  function anRdrCmp(x, y) {
+    var a2 = String(x.emp_code || ""), b2 = String(y.emp_code || "");
+    var na = parseInt(a2.replace(/\D/g, ""), 10), nb = parseInt(b2.replace(/\D/g, ""), 10);
+    if (isFinite(na) && isFinite(nb) && na !== nb) return na - nb;
+    return a2.localeCompare(b2, "th");
+  }
+  function anRdrFilter(rows, f) {
+    return rows.filter(function (r) {
+      if (f === "READ") return anRdrIsRead(r);
+      if (f === "PEND") return !anRdrIsRead(r);
+      return true;
+    }).sort(anRdrCmp);
+  }
+  function anRdrStatusText(r) { return anRdrIsRead(r) ? "รับทราบแล้ว" : "ยังไม่รับทราบ"; }
+  function anRdrRowsHTML(list) {
+    if (!list.length) return '<tr><td colspan="4" class="ta-c muted">ไม่มีรายชื่อตามตัวกรองนี้</td></tr>';
+    return list.map(function (r) {
+      return "<tr><td>" + esc(r.emp_code || "") + "</td>" +
+        "<td>" + esc(r.full_name || "") + "</td>" +
+        "<td>" + esc(r.department || "") + "</td>" +
+        '<td>' + (anRdrIsRead(r)
+          ? '<span class="chip chip-ok">✅ รับทราบแล้ว</span>'
+          : '<span class="chip chip-warn">❌ ยังไม่รับทราบ</span>' +
+            (r.stale_version ? '<small class="an-rdr-note">ค้างเวอร์ชันเก่า</small>' : "")) +
+        "</td></tr>";
+    }).join("");
+  }
   function anReaders(id, keepOpen) {
     anRdrOpenId = id;
     if (!keepOpen) openModal("รายชื่อผู้รับทราบ", '<div class="ta-c"><span class="spinner"></span></div>', "");
-    Promise.all([
-      sbRpcList("njhr_ea_readers", { p_token: sbToken(), p_id: id }),
-      sbRpcList("njhr_ea_dept_report", { p_token: sbToken(), p_id: id })
-    ]).then(function (res) {
-      var rows = res[0] || [], dep = res[1] || [];
-      var done = rows.filter(function (r) { return r.has_read; });
-      var stale = rows.filter(function (r) { return r.stale_version; });
-      var pend = rows.filter(function (r) { return !r.has_read && !r.stale_version; });
+    sbRpcList("njhr_ea_readers", { p_token: sbToken(), p_id: id }).then(function (rows) {
+      rows = (rows || []).slice().sort(anRdrCmp);
+      var total = rows.length;
+      var done = rows.filter(anRdrIsRead).length;
+      var pend = total - done;
+      var pct = total ? Math.round((done / total) * 100) : 0;
+      var cur = "";
+
       openModal("รายชื่อผู้รับทราบ",
-        '<div class="an-rdr">' +
-        '<div class="toolbar"><span class="chip chip-ok">รับทราบแล้ว ' + done.length + "</span>" +
-        '<span class="chip chip-bad">ค้างเวอร์ชันเก่า ' + stale.length + "</span>" +
-        '<span class="chip chip-warn">ยังไม่รับทราบ ' + pend.length + "</span>" +
-        '<span class="grow"></span>' +
+        '<div class="an-rdr" id="an-rdr-wrap">' +
+        '<div class="an-rdr-stat">' +
+        '<div class="an-st"><b>' + total + '</b><small>พนักงานทั้งหมด</small></div>' +
+        '<div class="an-st ok"><b>' + done + '</b><small>✅ รับทราบแล้ว</small></div>' +
+        '<div class="an-st bad"><b>' + pend + '</b><small>❌ ยังไม่รับทราบ</small></div>' +
+        '<div class="an-st pct"><b>' + pct + '%</b><small>ความคืบหน้า</small></div></div>' +
+        '<div class="toolbar an-rdr-bar">' +
+        '<select id="an-rdr-f" title="กรองตามสถานะ">' +
+        '<option value="">ทั้งหมด</option>' +
+        '<option value="READ">✅ รับทราบแล้ว</option>' +
+        '<option value="PEND">❌ ยังไม่รับทราบ</option></select>' +
+        '<span class="muted" id="an-rdr-cnt"></span><span class="grow"></span>' +
         '<button class="btn btn-ghost btn-sm" id="an-rdr-xls">' + icon("download") + " Excel</button>" +
         '<button class="btn btn-ghost btn-sm" id="an-rdr-csv">' + icon("download") + " CSV</button></div>" +
-        '<div class="table-wrap"><table><thead><tr><th>แผนก</th><th class="ta-r">ทั้งหมด</th>' +
-        '<th class="ta-r">รับทราบแล้ว</th><th class="ta-r">ค้างเวอร์ชันเก่า</th><th class="ta-r">คงเหลือ</th></tr></thead><tbody>' +
-        dep.map(function (d) {
-          return "<tr><td>" + esc(d.department) + '</td><td class="ta-r">' + d.total +
-            '</td><td class="ta-r">' + d.readed + '</td><td class="ta-r">' + (d.stale || 0) +
-            '</td><td class="ta-r">' + (d.total - d.readed) + "</td></tr>";
-        }).join("") + "</tbody></table></div>" +
-        '<div class="table-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th>' +
-        "<th>สถานะ</th><th>เวอร์ชัน</th><th>เวลารับทราบ</th><th>ใช้เวลา</th><th>อุปกรณ์</th></tr></thead><tbody>" +
-        rows.map(function (r) {
-          return "<tr><td>" + esc(r.emp_code) + "</td><td>" + esc(r.full_name) + "</td><td>" + esc(r.department) + "</td>" +
-            "<td>" + (r.has_read ? '<span class="chip chip-ok">รับทราบแล้ว</span>'
-              : r.stale_version ? '<span class="chip chip-bad">ค้างเวอร์ชันเก่า</span>'
-                : '<span class="chip chip-warn">ยังไม่รับทราบ</span>') + "</td>" +
-            "<td>" + esc(r.version_snapshot || "—") + "</td>" +
-            "<td>" + (r.read_at ? anTime(r.read_at) : "—") + "</td>" +
-            "<td>" + (r.read_at ? anDur(r.duration_seconds) : "—") + "</td>" +
-            "<td>" + esc(r.device || "—") + "</td></tr>";
-        }).join("") + "</tbody></table></div></div>", "");
+        '<div class="table-wrap an-rdr-tbl"><table><thead><tr>' +
+        "<th>รหัสพนักงาน</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>สถานะ</th>" +
+        '</tr></thead><tbody id="an-rdr-tb">' + anRdrRowsHTML(rows) + "</tbody></table></div></div>", "");
 
+      function shown() { return anRdrFilter(rows, cur); }
+      function repaint() {
+        var list = shown();
+        var tb = document.getElementById("an-rdr-tb");
+        if (tb) tb.innerHTML = anRdrRowsHTML(list);
+        var c = document.getElementById("an-rdr-cnt");
+        if (c) c.textContent = "แสดง " + list.length + " / " + total + " คน";
+      }
+      repaint();
+      var fs = document.getElementById("an-rdr-f");
+      if (fs) fs.onchange = function () { cur = this.value; repaint(); };
+
+      /* Export — ใช้ชุดเดียวกับที่เห็นบนหน้าจอ (ผ่านตัวกรอง + เรียงรหัสน้อยไปมาก) */
+      var HEAD = ["รหัสพนักงาน", "ชื่อ-สกุล", "แผนก", "สถานะ"];
       function rdrRows() {
-        return rows.map(function (r) {
-          return [r.emp_code, r.full_name, r.department,
-            r.has_read ? "รับทราบแล้ว" : r.stale_version ? "ค้างเวอร์ชันเก่า" : "ยังไม่รับทราบ",
-            r.version_snapshot || "", r.read_at ? anTime(r.read_at) : "",
-            r.duration_seconds || 0, r.device || ""];
+        return shown().map(function (r) {
+          return [r.emp_code || "", r.full_name || "", r.department || "", anRdrStatusText(r)];
         });
       }
-      var HEAD = ["รหัสพนักงาน", "ชื่อ-สกุล", "แผนก", "สถานะ", "เวอร์ชันที่รับทราบ", "เวลารับทราบ", "ใช้เวลา (วินาที)", "อุปกรณ์"];
+      function sufx() { return cur === "READ" ? " (รับทราบแล้ว)" : cur === "PEND" ? " (ยังไม่รับทราบ)" : ""; }
       var xb = document.getElementById("an-rdr-xls");
       if (xb) xb.onclick = function () {
-        var b = this;
-        withButtonLoading(b, "กำลังสร้างไฟล์…", function () {
+        var b2 = this;
+        withButtonLoading(b2, "กำลังสร้างไฟล์…", function () {
+          var data = rdrRows();
           return rptLoadZip().then(function () {
-            return rptBuildXlsx("ผู้รับทราบ", HEAD, rdrRows(), [14, 28, 22, 18, 16, 20, 16, 14],
-              ["รายชื่อผู้รับทราบประกาศ"]);
+            return rptBuildXlsx("ผู้รับทราบ", HEAD, data, [16, 32, 26, 20],
+              ["รายชื่อผู้รับทราบประกาศ" + sufx(),
+               "พนักงานทั้งหมด " + total + " · รับทราบแล้ว " + done + " · ยังไม่รับทราบ " + pend + " · " + pct + "%",
+               "จำนวนที่ส่งออก " + data.length + " รายชื่อ"]);
           }).then(function (blob) {
             var a2 = document.createElement("a");
             a2.href = URL.createObjectURL(blob);
-            a2.download = rptSafeName("ผู้รับทราบประกาศ") + ".xlsx";
+            a2.download = rptSafeName("ผู้รับทราบประกาศ" + sufx()) + ".xlsx";
             document.body.appendChild(a2); a2.click(); a2.remove();
             setTimeout(function () { URL.revokeObjectURL(a2.href); }, 800);
           })["catch"](function (er) { toast(er.message || "สร้าง Excel ไม่สำเร็จ", "bad"); });
         });
       };
       var cb = document.getElementById("an-rdr-csv");
-      if (cb) cb.onclick = function () { downloadCSV("ผู้รับทราบประกาศ.csv", [HEAD].concat(rdrRows())); };
+      if (cb) cb.onclick = function () {
+        downloadCSV(rptSafeName("ผู้รับทราบประกาศ" + sufx()) + ".csv", [HEAD].concat(rdrRows()));
+      };
     })["catch"](function (er) {
       openModal("รายชื่อผู้รับทราบ", '<div class="form-error" role="alert">' +
         esc(er.message || "โหลดไม่สำเร็จ") + "</div>", "");
@@ -727,9 +767,12 @@
     withButtonLoading(btn, "กำลังสร้าง Word…", function () {
       return Promise.all([
         sbRpc("njhr_ea_get", { p_token: sbToken(), p_id: id }).then(function (r) { return r && r.data; }),
-        anLoadDocx()
+        anLoadDocx(),
+        /* [RUN-179] ดึงรายชื่อผู้รับทราบมาต่อท้ายเอกสาร — ถ้าดึงไม่ได้ให้ออกประกาศเดิมได้ตามปกติ */
+        sbRpcList("njhr_ea_readers", { p_token: sbToken(), p_id: id })["catch"](function () { return null; })
       ]).then(function (res) {
         var d = res[0]; if (!d || !d.ann) throw new Error("ไม่พบประกาศนี้");
+        var rdr = res[2];
         var a = d.ann, D = window.docx, tg = anTargets(a);
         var COMPANY = NJ_COMPANY_NAME;
         try { COMPANY = (njCompanyParts() || {}).full || NJ_COMPANY_NAME; } catch (e) { }
@@ -771,6 +814,74 @@
         kids.push(P("ประกาศ ณ วันที่ " + anDate(a.published_at || a.created_at), { align: AL.RIGHT, size: 28, after: 240 }));
         kids.push(P("(" + (a.created_name || a.created_by || "") + ")", { align: AL.RIGHT, size: 28, after: 0 }));
         kids.push(P("ผู้ออกประกาศ", { align: AL.RIGHT, size: 28 }));
+
+        /* ───── [RUN-179] รายงานสถานะการรับทราบ — ต่อท้ายโดยไม่แตะรูปแบบประกาศเดิม ─────
+           ขึ้นหน้าใหม่เสมอ เพื่อไม่ให้ไปดันเนื้อหาหรือลายเซ็นของประกาศ */
+        if (rdr && rdr.length) {
+          var list = rdr.slice().sort(anRdrCmp);
+          var okList = list.filter(anRdrIsRead);
+          var noList = list.filter(function (r) { return !anRdrIsRead(r); });
+          var tot = list.length, pc = tot ? Math.round((okList.length / tot) * 100) : 0;
+
+          function CELL(text, opt) {
+            opt = opt || {};
+            return new D.TableCell({
+              shading: opt.head ? { fill: "EAF3FF" } : undefined,
+              margins: { top: 40, bottom: 40, left: 90, right: 90 },
+              width: opt.width ? { size: opt.width, type: D.WidthType.PERCENTAGE } : undefined,
+              children: [new D.Paragraph({
+                spacing: { after: 0 },
+                alignment: opt.align,
+                children: [new D.TextRun({ text: String(text == null ? "" : text),
+                  bold: !!opt.head, size: 26 })]
+              })]
+            });
+          }
+          function TBL(rowsIn) {
+            var W = [14, 36, 30, 20];
+            var header = new D.TableRow({
+              tableHeader: true,
+              children: ["รหัสพนักงาน", "ชื่อ-สกุล", "แผนก", "สถานะ"]
+                .map(function (h, i) { return CELL(h, { head: true, width: W[i] }); })
+            });
+            var body = rowsIn.map(function (r) {
+              return new D.TableRow({
+                children: [r.emp_code || "", r.full_name || "", r.department || "", anRdrStatusText(r)]
+                  .map(function (v, i) { return CELL(v, { width: W[i] }); })
+              });
+            });
+            return new D.Table({
+              width: { size: 100, type: D.WidthType.PERCENTAGE },
+              rows: [header].concat(body)
+            });
+          }
+
+          kids.push(new D.Paragraph({ children: [], pageBreakBefore: true }));
+          kids.push(P("รายงานสถานะการรับทราบของพนักงาน",
+            { bold: true, size: 34, align: AL.CENTER, after: 60, rule: true }));
+          kids.push(P("ประกาศเลขที่ " + (d.ann_no || "") + "  ·  " + (a.title || ""),
+            { size: 26, align: AL.CENTER, after: 200 }));
+
+          kids.push(P("ส่วนที่ 1 — สรุปการรับทราบ", { bold: true, size: 30, after: 100 }));
+          kids.push(P("พนักงานทั้งหมด: " + tot + " คน", { size: 28, after: 60 }));
+          kids.push(P("✅ รับทราบแล้ว: " + okList.length + " คน", { size: 28, after: 60 }));
+          kids.push(P("❌ ยังไม่รับทราบ: " + noList.length + " คน", { size: 28, after: 60 }));
+          kids.push(P("ความคืบหน้า: " + pc + "%", { size: 28, after: 240 }));
+
+          kids.push(P("ส่วนที่ 2 — ✅ รายชื่อพนักงานที่รับทราบแล้ว (" + okList.length + " คน)",
+            { bold: true, size: 30, after: 120 }));
+          if (okList.length) kids.push(TBL(okList));
+          else kids.push(P("— ไม่มีรายชื่อ —", { size: 28 }));
+          kids.push(P("", { after: 240 }));
+
+          kids.push(P("ส่วนที่ 3 — ❌ รายชื่อพนักงานที่ยังไม่รับทราบ (" + noList.length + " คน)",
+            { bold: true, size: 30, after: 120 }));
+          if (noList.length) kids.push(TBL(noList));
+          else kids.push(P("— ไม่มีรายชื่อ —", { size: 28 }));
+          kids.push(P("", { after: 120 }));
+          kids.push(P("ข้อมูล ณ วันที่ " + anDate(new Date().toISOString()),
+            { size: 24, color: "777777", align: AL.RIGHT }));
+        }
 
         var doc = new D.Document({
           styles: { default: { document: { run: { font: "TH Sarabun New", size: 32 } } } },

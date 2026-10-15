@@ -646,6 +646,39 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
   .modal .modal-head{border-bottom:1px solid #E5EAF2}
   .modal .modal-foot{border-top:1px solid #E5EAF2}
 }
+/* ============================================================================
+   [RUN-179] หน้าต่าง "รายชื่อผู้รับทราบ" — เต็มพื้นที่บนคอม
+   แยกเป็นบล็อกของตัวเอง ไม่ปนกับบล็อก Grid ตาราง (RUN-178)
+   ใช้เงื่อนไข Desktop ชุดเดียวกัน จึงไม่กระทบมือถือและแท็บเล็ตเช่นกัน
+   ============================================================================ */
+@media screen and (min-width:901px) and (hover:hover) and (pointer:fine){
+.modal:has(#an-rdr-wrap){max-width:90vw;width:90vw;max-height:85vh;
+  display:flex;flex-direction:column;background:#fff}
+.modal:has(#an-rdr-wrap) .modal-body{display:flex;flex-direction:column;
+  min-height:0;overflow:hidden;padding:12px 20px 18px}
+.modal:has(#an-rdr-wrap) .an-rdr{display:flex;flex-direction:column;min-height:0;flex:1}
+/* ตัวเลขสรุปด้านบน */
+.an-rdr-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.an-rdr-stat .an-st{border:1px solid #E5EAF2;border-radius:12px;padding:12px 14px;background:#F8FAFC}
+.an-rdr-stat .an-st b{display:block;font-size:24px;line-height:1.2;color:#1E3A5F}
+.an-rdr-stat .an-st small{display:block;color:var(--ink-2);font-size:12.5px;margin-top:2px}
+.an-rdr-stat .an-st.ok b{color:var(--green)}
+.an-rdr-stat .an-st.bad b{color:var(--red-strong)}
+.an-rdr-stat .an-st.pct b{color:var(--blue)}
+.an-rdr-bar{margin:0 0 10px}
+/* ตาราง — เลื่อนได้ หัวตารางค้างด้านบน */
+.an-rdr-tbl{flex:1;min-height:0;overflow:auto;border:1px solid #E5EAF2;border-radius:12px}
+.an-rdr-tbl table{table-layout:fixed}
+.an-rdr-tbl thead th{position:sticky;top:0;z-index:2}
+.an-rdr-tbl th:nth-child(1),.an-rdr-tbl td:nth-child(1){width:14%}
+.an-rdr-tbl th:nth-child(2),.an-rdr-tbl td:nth-child(2){width:34%}
+.an-rdr-tbl th:nth-child(3),.an-rdr-tbl td:nth-child(3){width:28%}
+.an-rdr-tbl th:nth-child(4),.an-rdr-tbl td:nth-child(4){width:24%}
+/* ห้ามชื่อ แผนก หรือสถานะถูกตัดหรือซ้อนทับ — ให้ตัดบรรทัดแทน */
+.an-rdr-tbl td{white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+.an-rdr-tbl td .chip{white-space:nowrap;display:inline-block}
+.an-rdr-note{display:block;color:var(--ink-2);font-size:11.5px;margin-top:3px}
+}
 .an-warn{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;margin:0 0 12px;border-radius:10px;
   background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-size:13.5px;line-height:1.6;box-shadow:none}
 .an-warn-red{background:#FEF2F2;border-color:#FECACA;color:var(--red-dark)}
