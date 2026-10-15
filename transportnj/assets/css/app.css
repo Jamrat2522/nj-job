@@ -380,3 +380,17 @@ tr.hl-new td,.jobcard.hl-new{background:#FFF7DB!important;box-shadow:inset 3px 0
 .iv-ty{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}.iv-ty.sv{background:#E0ECFF;color:#1E40AF}.iv-ty.rc{background:#FEF3C7;color:#92400E}
 @media (max-width:768px){.cb-box{max-height:46vh}.cb-i{padding:11px 12px;font-size:15px}}
 #ivTl[hidden]{display:none!important} /* local172: ซ่อนปุ่ม ⏱ ดึงจาก Timeline (ฟังก์ชันเดิมยังอยู่) */
+/* local173 เส้นคั่นตารางทุกโหมด + เมนูซ้าย (หน้าจอเท่านั้น · @media screen · ไม่กระทบ PDF / PRINT / Excel) */
+@media screen{
+  .tbl{border-collapse:collapse}
+  .tbl>thead>tr>th,.tbl>tbody>tr>td,.tbl>tfoot>tr>td,.tbl>tfoot>tr>th{border:1px solid #E5EAF2}
+  .tbl>thead>tr>th{background:#EEF4FC;color:#1E2B3F}
+  .tbl>thead>tr>th:first-child,.tbl>tbody>tr>td:first-child,.tbl>tfoot>tr>*:first-child{border-left:0}
+  .tbl>thead>tr>th:last-child,.tbl>tbody>tr>td:last-child,.tbl>tfoot>tr>*:last-child{border-right:0}
+  .tbl>thead>tr:first-child>th{border-top:0}
+  :where(.tbl>tbody>tr:nth-child(odd)){background:#fff}
+  :where(.tbl>tbody>tr:nth-child(even)){background:#F8FAFC}
+  :where(.tbl>tbody>tr):hover{background:#EAF3FF}
+  .nav-main>a{position:relative}
+  .nav-main>a:not(:last-child)::after{content:'';position:absolute;left:8px;right:8px;bottom:-2px;height:1px;background:#303640;pointer-events:none}
+}

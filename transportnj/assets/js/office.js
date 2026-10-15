@@ -2345,7 +2345,7 @@
     const isNew = !id || id === 'new'; const inModal = !!opt.modal; const preset = opt.preset || null;
     if (isNew && !preset) { page.innerHTML = '<div class="empty">สร้าง INVOICE จาก <a href="#/billing"><b>💰 รายงานการวางบิล</b></a> → ติ๊กเลือก JOB แล้วกด 💰 สร้าง INVOICE</div>'; return; }
     page.innerHTML = '<div class="empty">กำลังโหลด...</div>';
-    if (isNew) { try { await loadMasters(); } catch (_) { } } // ข้อมูลลูกค้า (Cache 60 วิ · ไม่ Query ซ้ำ)
+    try { await loadMasters(); } catch (_) { } // ข้อมูลลูกค้า (Cache 60 วิ · ไม่ Query ซ้ำ) · ใช้กับช่องค้นหา ลูกค้า / สถานที่วางบิล ทั้งสร้างและแก้ไข INVOICE
     let inv, src; const pre = preset ? [...new Set(preset.links.map((l) => l.job_id))].filter((x) => !(preset.jobs && preset.jobs.has(x))) : [];
     try { [inv, src] = await Promise.all([isNew ? null : T.auth('tnj_inv_get', { p_id: id }, { silent: true }), T.auth('tnj_inv_source', { p_job_ids: pre }, { silent: true })]); }
     catch (e) { page.innerHTML = `<div class="empty">${blMissing(e) ? 'ต้องติดตั้ง SQL RUN-31 ก่อนใช้งาน 💰 วางบิลลูกค้า' : h(T.parseErr(e).text)}${inModal ? '' : ' · <a href="#/billing">กลับ</a>'}</div>`; return; }
@@ -2434,6 +2434,8 @@
           ${fi(jid, 'driver', 'คนขับ', uq(cts.map((c) => [c.driver_name, c.license_plate].filter(Boolean).join(' · '))).join(', '))}${fi(jid, 'port', 'ท่านำเข้า / รับตู้', uq(cts.map((c) => c.pickup_location_text)).join(', '))}${fi(jid, 'status', 'สถานะงาน', (j.status === 'COMPLETED' ? '✓ ' : '') + (T.ST_TH[j.status] || j.status || ''))}
           ${fv(`ตู้ (${cts.length} ตู้ · วางบิล ${nSel} ตู้)`, ctHtml, 's2 iv-cts')}${fi(jid, 'timeline', 'Timeline / สถานะล่าสุด', tl.length ? `${ivDT(t1.event_at)} – ${ivDT(tn.event_at)} · ${tn.title}` : '', 's2')}</div>`; }).join('');
       $$('#ivCts [data-ji]').forEach((el) => el.addEventListener('input', () => { (JI[el.dataset.ji] = JI[el.dataset.ji] || {})[el.dataset.jk] = el.value; dirty = true; }));
+      // ลูกค้า / สถานที่วางบิล = Searchable Dropdown เดียวกับหน้าเปิดงาน (ivCombo) · ข้อมูลจาก ⚙️ ตั้งค่า → 👥 ข้อมูลลูกค้า (M.customers)
+      if (!ro) $$('#ivCts [data-jk=customer_name], #ivCts [data-jk=billing_place]').forEach((el) => { el.placeholder = 'พิมพ์ค้นหา CODE / ชื่อ'; ivCombo(el, () => M.customers.filter((c) => c.is_active !== false).map((c) => ({ v: c.name, s: `${c.code || ''} ${c.name}`.toLowerCase(), html: `<b>${h(c.name)}</b>${c.code ? ` <span class="cb-m mono">${h(c.code)}</span>` : ''}` })), null, 'ไม่พบรายชื่อใน ⚙️ ตั้งค่า → 👥 ข้อมูลลูกค้า'); });
       $$('#ivCts [data-ct]').forEach((cb) => cb.onchange = () => { const [jid, cid] = cb.dataset.ct.split(':'); const c0 = cid === 'c1' ? null : cid; dirty = true;
         if (cb.checked) S.links.push({ job_id: jid, container_id: c0 }); else S.links = S.links.filter((l) => !(l.job_id === jid && (l.container_id || null) === c0)); drawCts(); }); };
     const jobsAll = preset ? [...new Set(preset.links.map((l) => l.job_id))] : [...new Set(S.links.map((l) => l.job_id))]; // JOB ที่เปิดมา (ติ๊กตู้ออกหมดแล้ว JOB ยังแสดง ติ๊กกลับได้)
