@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local111)
+ * J&P LOGISTICS — jp-core.js  (local114)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -147,6 +147,55 @@
     out.hints.isDeclaration = decls.length > 0 || /ใบขนสินค้า|COMMERCIAL INVOICE|PACKING LIST|SEA WAYBILL|BILL OF LADING/i.test(t);
     out.hints.isMemo = /บันทึกข้อความ|แจ้งการขนย้าย/.test(t);
     return out;
+  }
+  /* ---------- local112: PACKING LIST -> [{container, seal}] in document order (MASTER for Container/Seal No.) ---------- */
+  // pdf.js text items of one page -> text lines top→bottom, items left→right
+  function pdfItemsToLines(items) {
+    const rows = [];
+    for (const it of items || []) {
+      const str = String(it.str || ''); if (!str.trim()) continue;
+      const tr = it.transform || [1, 0, 0, 1, 0, 0], x = tr[4], y = tr[5], hgt = Math.abs(tr[3]) || it.height || 8;
+      let row = rows.find(r => Math.abs(r.y - y) <= Math.max(2, hgt * 0.45));
+      if (!row) { row = { y, items: [] }; rows.push(row); }
+      row.items.push({ x, str });
+    }
+    rows.sort((a, b) => b.y - a.y);
+    return rows.map(r => r.items.sort((a, b) => a.x - b.x).map(i => i.str).join(' ').replace(/\s+/g, ' ').trim());
+  }
+  const RE_PL_CNTR = /\b([A-Z]{4})\s?(\d{6})\s?(\d)\b/g;
+  // pages: [[line, ...], ...] ; opts.ocr = true when the lines come from OCR of a scanned page
+  function extractPackingList(pages, opts) {
+    opts = opts || {};
+    const res = { found: false, pages: [], rows: [], total: 0, unclear: [] };
+    const isPL = lines => lines.some(l => /PACKING\s*LIST/i.test(l) && !/CERTIFICATE/i.test(l));
+    const otherTitle = lines => lines.some(l => /INVOICE|BILL\s+OF\s+LADING|WAYBILL|CERTIF|BENEFICIARY|FAX\s+COPY|ใบขนสินค้า|บันทึกข้อความ/i.test(l));
+    const use = [];
+    (pages || []).forEach((lines, i) => {
+      if (isPL(lines)) use.push(i);
+      else if (use.length && use[use.length - 1] === i - 1 && !otherTitle(lines) && lines.some(l => { RE_PL_CNTR.lastIndex = 0; return RE_PL_CNTR.test(l.toUpperCase()); })) use.push(i);   // continuation page
+    });
+    if (!use.length) return res;
+    res.found = true; res.pages = use.map(i => i + 1);
+    const seen = new Set();
+    for (const pi of use) for (const raw of pages[pi]) {
+      const line = String(raw).toUpperCase();
+      const tm = /TOTAL\s+(?:NUMBER\s+OF\s+)?CONTAINERS?\s*[:\-]?\s*(\d{1,4})/.exec(line); if (tm) res.total = Math.max(res.total, +tm[1]);
+      RE_PL_CNTR.lastIndex = 0; let m;
+      while ((m = RE_PL_CNTR.exec(line))) {
+        const code = m[1] + m[2] + m[3];
+        if (!isoContainerValid(code)) { res.unclear.push(code); continue; }
+        if (seen.has(code)) continue;
+        // seal = first token after the container on the same row with >= 5 digits (weights "16,121" / units "20" never match)
+        const rest = line.slice(m.index + m[0].length).replace(/^[\s\/:\-]+/, '');
+        const tok = rest.split(/[\s\/]+/).find(t => /^[A-Z]{0,4}\d{5,12}[A-Z]?$/.test(t) && (t.match(/\d/g) || []).length >= 5);
+        const seal = tok && !RE_PL_CNTR.test(tok) ? tok : '';
+        RE_PL_CNTR.lastIndex = m.index + m[0].length;
+        seen.add(code);
+        res.rows.push({ container: code, seal });
+      }
+    }
+    res.ocr = !!opts.ocr;
+    return res;
   }
   function mostCommon(arr) {
     const c = {}; let best = arr[0], bn = 0;
@@ -373,6 +422,30 @@
     return { cols, rows, n };
   }
 
+  /* ---------- local114: ONE A4 portrait photo page, fixed 2×2 by photo type ----------
+   * top-left = CLOSED (ปิดตู้) · top-right = OPEN1 (เปิดครึ่งตู้ / ข้างเดียว) · bottom-left = OPEN2 (เปิดเต็มตู้ / สองข้าง) · bottom-right = SEAL
+   * a missing type leaves its cell empty (no placeholder photo); the first photo of each type is used */
+  const A4_SLOTS = ['CLOSED', 'OPEN1', 'OPEN2', 'SEAL'];
+  function collageSlotsA4(photos) { return A4_SLOTS.map(t => (photos || []).find(p => p && p.type === t) || null); }
+  // ctx: 2D canvas W×H (A4 ratio); slots: [{img, rotation} | null] x4; m = outer margin px, gap = gap px. Cells are cover-cropped (no stretching).
+  function drawCollageA4(ctx, slots, W, H, m, gap) {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    const cw = (W - 2 * m - gap) / 2, ch = (H - 2 * m - gap) / 2;
+    let n = 0;
+    for (let i = 0; i < 4; i++) {
+      const it = slots[i]; if (!it || !it.img) continue;
+      const x = m + (i % 2) * (cw + gap), y = m + Math.floor(i / 2) * (ch + gap);
+      const rot = ((it.rotation || 0) % 360 + 360) % 360, iw = it.img.width, ih = it.img.height;
+      const dw = (rot === 90 || rot === 270) ? ih : iw, dh = (rot === 90 || rot === 270) ? iw : ih;
+      const sc = Math.max(cw / dw, ch / dh);
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cw, ch); ctx.clip();
+      ctx.translate(x + cw / 2, y + ch / 2); ctx.rotate(rot * Math.PI / 180);
+      ctx.drawImage(it.img, -iw * sc / 2, -ih * sc / 2, iw * sc, ih * sc);
+      ctx.restore(); n++;
+    }
+    return { n, cell: { w: cw, h: ch } };
+  }
+
   /* ------------------------------------------------------- merged PDF build */
   // opts = { PDFLib, pdfDocs: [{bytes, rotations:[deg per page], label, type:'DECLARATION'|'MEMO'}],
   //          photos: [{bytes, isPng, rotation(cw deg), header, name}],
@@ -463,9 +536,14 @@
       let img;
       try { img = cg.isPng ? await out.embedPng(cg.bytes) : await out.embedJpg(cg.bytes); }
       catch (e) { throw new Error('หน้ารวมรูปสร้างไม่ได้: ' + (e && e.message ? e.message : e)); }
-      const side = 576;                                            // 8 inch square (reference page 15 = 576 x 576 pt)
-      const page = out.addPage([side, side]);
-      page.drawImage(img, { x: 0, y: 0, width: side, height: side });
+      if (cg.a4) {                                                 // local114: A4 portrait photo page
+        const page = out.addPage([A4W, A4H]);
+        page.drawImage(img, { x: 0, y: 0, width: A4W, height: A4H });
+      } else {
+        const side = 576;                                          // 8 inch square (reference page 15 = 576 x 576 pt)
+        const page = out.addPage([side, side]);
+        page.drawImage(img, { x: 0, y: 0, width: side, height: side });
+      }
     }
     progress('กำลังสร้างไฟล์ PDF', 0.96);
     const bytes = await out.save({ useObjectStreams: true });
@@ -948,9 +1026,10 @@
   }
   // job.pdf_layout -> buildMergedPdf options
   function layoutOptions(pdfLayout) {
+    // local114: both layouts -> photos only as ONE A4 2×2 page (no single-photo pages); document page order unchanged
     return pdfLayout === 'REFERENCE'
-      ? { photoLayout: 'full', memoAfterFirstPage: true, collage: true }
-      : { photoLayout: 'a4header', memoAfterFirstPage: false, collage: false };
+      ? { photoLayout: 'full', memoAfterFirstPage: true, collage: true, singlePhotos: false, collageA4: true }
+      : { photoLayout: 'a4header', memoAfterFirstPage: false, collage: true, singlePhotos: false, collageA4: true };
   }
 
   return {
@@ -960,10 +1039,11 @@
     extractFieldsFromText, classifyPdfCategory, isoContainerValid,
     readJpegOrientation, exifToRotation,
     analyzeImageFeatures, scorePhotoTypes, autoOrderPhotos,
-    photoHeader, splitList, buildMergedPdf, collageLayout, drawCollage,
+    photoHeader, splitList, buildMergedPdf, collageLayout, drawCollage, A4_SLOTS, collageSlotsA4, drawCollageA4,
     ocrBinaryWhiteText, ocrBinaryDarkText, ocrSealBands, isoCheckDigit, parseContainerOcr, containerFixCandidates,
     resolveContainerOcr, parseSealOcr, resolveSealOcr, ocrAnalyzePhoto,
     consensusFilter, ocrCropRotScale, ocrAdaptiveBin, ocrOpenBin, ocrCleanBin, ocrEstimateSkew, containerAnchors, mergeContainerReads, ocrContainerPhoto, CONTAINER_UNREAD,
+    pdfItemsToLines, extractPackingList,
     STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));

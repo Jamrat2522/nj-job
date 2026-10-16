@@ -76,7 +76,8 @@ a{color:var(--blue)}
 .f input.auto{background:#f2fbf4}
 .f .hint{font-size:11px;color:var(--muted);margin-top:4px;min-height:14px}
 .f .cal{position:absolute;right:6px;top:6px;width:32px;height:32px;border:0;background:transparent;border-radius:8px;font-size:17px}
-.f .cal input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.f .cal input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;pointer-events:none}   /* local112b: the 📅 span opens the picker */
+.f .cal{cursor:pointer}
 
 /* ---------- Dropzone ---------- */
 .dropzone{border:2px dashed #9db6e4;background:#f7faff;border-radius:var(--radius);padding:18px;text-align:center;color:var(--navy);margin-bottom:14px;transition:.15s;cursor:pointer}
@@ -394,6 +395,33 @@ table.tbl tr:last-child td{border-bottom:0}
   .up-row .fl-head::after{content:"";order:2;flex-basis:100%;height:0}
   .up-row .fl-badge{order:3;overflow:visible;margin-left:24px}
 }
+/* ---------- local112b: Desktop — JOB fold, compact photo window (Mobile ≤900px unchanged) ---------- */
+.jh-fold{display:none}
+.rm-top .rm-add{display:none}
+@media (min-width:901px){
+  .jobwin .jh-top .jh-fold{display:inline-flex;margin-left:auto;height:34px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:600}
+  .jobwin .jh-top .jh-fold.hidden{display:none}
+  .jobwin.folded{padding:12px 16px}
+  .jobwin.folded .jh-top{margin-bottom:0}
+  .jobwin.folded .fields,.jobwin.folded .up-row,.jobwin.folded .savebar{display:none}
+  .jobwin.folded .jh-info{font-size:13px;padding:5px 14px;color:#173B70}
+  #row-modal .box{max-height:90vh}
+  #row-modal .bd{padding:12px 16px}
+  #row-modal .rm-top{display:flex;gap:10px;align-items:stretch;margin-bottom:10px}
+  #row-modal .rm-top .rm-drop{flex:1;margin:0;padding:10px}
+  #row-modal .rm-top .rm-add{display:inline-flex;align-items:center;height:auto;min-height:38px;padding:0 16px;white-space:nowrap}
+  #row-modal .rm-grid{gap:10px}
+  #row-modal .rm-ph{width:130px}
+  #row-modal .rm-ph .th{width:130px;height:130px;cursor:zoom-in}
+  #row-modal .rm-ph .hdr{min-height:0;margin-bottom:3px}
+  #row-modal .rm-fields{margin-top:10px}
+  #row-modal .rm-fields input{height:38px}
+  #row-modal .rm-fields .ck input{width:16px;height:16px;padding:0;flex:none;border-radius:4px}   /* checkbox was stretched by .rm-fields input */
+  #row-modal .rm-status{margin-top:0}
+  #row-modal .ft{padding:10px 16px;align-items:center}
+  #row-modal .rm-ft-info{margin-right:auto}
+  #row-modal .rm-save{height:38px;padding:0 22px;font-size:14.5px}
+}
 /* ---------- local104: รายการ JOB / รายงาน (full width desktop + table styling) ---------- */
 .content.wide{max-width:none}
 .jb-head{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
@@ -562,7 +590,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local111</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local114</span></div>
   </div>
 </div>
 
@@ -578,7 +606,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local111</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local114</span></div>
   </aside>
 
   <div class="main">
@@ -598,6 +626,7 @@ table.tbl tr:last-child td{border-bottom:0}
           <div class="jh-top">
             <h3 id="job-title">📁 เปิดงานใหม่</h3>
             <span class="jh-info" id="job-info"></span>
+            <button type="button" class="btn jh-fold hidden" id="btn-job-fold" title="พับ / ขยายข้อมูล JOB">▲ พับ</button>
           </div>
           <div class="fields f4">
             <div class="f"><label>วันที่ <span class="req">*</span></label>
@@ -737,16 +766,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local111"></script>
+<script src="jp-core.js?v=local114"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local111)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local114)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local111',
+  APP_VERSION: 'local114',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -972,6 +1001,7 @@ function hasUnsavedWork() {
   const photoRows = Object.keys(state.photos).filter(id => (state.photos[id] || []).length && !isExportedValid(rowById(id)));
   return state.dirty.DECLARATION || state.dirty.MEMO || photoRows.length > 0;
 }
+function setJobFold(on) { const w = $('.jobwin'); w.classList.toggle('folded', !!on); $('#btn-job-fold').textContent = on ? '▼ ขยาย' : '▲ พับ'; }   // UI only — never clears or saves
 async function confirmLeaveJob() {
   if (!hasUnsavedWork()) return true;
   return confirmDlg('มีงานที่ยังไม่บันทึก', 'JOB ปัจจุบันมี PDF ที่ยังไม่ได้บันทึก หรือรูปภาพของตู้ที่ยังไม่ได้ EXPORT (รูปไม่ถูกเก็บถาวร) — ต้องการออกจาก JOB นี้หรือไม่?', 'ออกจาก JOB', true);
@@ -1004,6 +1034,11 @@ function bindUI() {
   const d = $('#f-date');
   d.addEventListener('change', () => { const dt = JPCore.parseDateInput(d.value); if (dt) { state.job.doc_date = JPCore.toISODate(dt); d.value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); $('#h-date').textContent = ''; } else { state.job.doc_date = ''; $('#h-date').textContent = d.value ? 'รูปแบบวันที่ไม่ถูกต้อง (เช่น 12 OCT 2026 หรือ 12/10/2026)' : ''; } updateFileName(); });
   d.addEventListener('input', () => { const dt = JPCore.parseDateInput(d.value); state.job.doc_date = dt ? JPCore.toISODate(dt) : ''; updateFileName(); });
+  // local112b: open the date picker on click of the field or 📅 (the transparent native input only opened on its tiny indicator)
+  const openDatePicker = () => { const pk = $('#f-date-pick'); const dt = JPCore.parseDateInput(d.value); pk.value = state.job.doc_date || (dt ? JPCore.toISODate(dt) : ''); try { pk.showPicker(); } catch (e) { pk.focus(); pk.click(); } };
+  $('.f .cal').addEventListener('click', e => { e.preventDefault(); openDatePicker(); });
+  d.addEventListener('click', openDatePicker);
+  $('#btn-job-fold').addEventListener('click', () => setJobFold(!$('.jobwin').classList.contains('folded')));
   $('#f-date-pick').addEventListener('change', e => { if (e.target.value) { state.job.doc_date = e.target.value; d.value = JPCore.formatDateDDMMMYYYY(e.target.value); $('#h-date').textContent = ''; updateFileName(); } });
   [['decl', 'declaration_no'], ['bl', 'bl_no']].forEach(([k, key]) => {
     const i = $('#f-' + k);
@@ -1079,6 +1114,7 @@ function renderJobHead() {
   $('#job-info').textContent = j.id ? 'JOB : ' + (JPCore.formatDateDDMMMYYYY(j.doc_date) || '—') + ' | ' + j.declaration_no + ' | ' + j.bl_no + ' | จำนวน ' + state.rows.length + ' ตู้' : '';
   $('#btn-save-job').textContent = j.id ? '💾 บันทึกการแก้ไข JOB' : '💾 บันทึกและเปิดงาน';
   $('#btn-back-jobs').textContent = j.id ? '◀ กลับรายการ JOB' : 'ยกเลิก';
+  $('#btn-job-fold').classList.toggle('hidden', !j.id); if (!j.id) setJobFold(false);
   $('#save-hint').textContent = j.id ? 'แก้ไขข้อมูล / PDF ① ② แล้วกดบันทึก — รายการตู้และ PDF ที่ EXPORT แล้วยังอยู่ครบ' : 'กรอกข้อมูล → โยน PDF → ตรวจไฟล์ → บันทึกและเปิดงาน (ระบบสร้างรายการตู้ตามจำนวนทันที)';
   $('#cntr-card').classList.toggle('hidden', !j.id);
   $('#bottom-bar').classList.toggle('hidden', !(j.id && $('#page-merge').classList.contains('active')));
@@ -1118,10 +1154,84 @@ async function addFiles(files, cat) {
   }
 }
 async function pdfTextFields(doc, name) {
-  let text = '';
-  for (let p = 1; p <= Math.min(doc.numPages, 12); p++) { try { const tc = await (await doc.getPage(p)).getTextContent(); text += tc.items.map(x => x.str).join(' ') + '\n'; } catch (e) { /* skip */ } }
-  return { text, fields: JPCore.extractFieldsFromText(text, name) };
+  let text = ''; const pages = [];
+  for (let p = 1; p <= Math.min(doc.numPages, 20); p++) {
+    let lines = [];
+    try { const tc = await (await doc.getPage(p)).getTextContent(); if (p <= 12) text += tc.items.map(x => x.str).join(' ') + '\n'; lines = JPCore.pdfItemsToLines(tc.items); } catch (e) { /* skip */ }
+    pages.push(lines);
+  }
+  const fields = JPCore.extractFieldsFromText(text, name);
+  fields.packing = JPCore.extractPackingList(pages);                         // local112: PACKING LIST rows (document order)
+  fields.pageChars = pages.map(l => l.join('').replace(/\s/g, '').length);  // pages without a text layer = scanned
+  return { text, fields };
 }
+/* ---------------------------------------------------- local112: PACKING LIST = MASTER for Container / Seal No. */
+// scanned PDF (no text layer): OCR the pages without text, once per document (result kept on the fields object)
+async function ocrPackingList(d) {
+  const f = d.fields || (d.fields = {});
+  if (f.packingOcr !== undefined) return f.packingOcr;
+  f.packingOcr = null;
+  const scan = (f.pageChars || []).map((n, i) => (n < 20 ? i + 1 : 0)).filter(Boolean).slice(0, 10);
+  if (!scan.length || !d.pdfjs) return null;
+  const worker = await ocrWorker(); if (!worker) return null;
+  const pages = (f.pageChars || []).map(() => []);
+  for (const pn of scan) {
+    try {
+      const page = await d.pdfjs.getPage(pn), vp = page.getViewport({ scale: 2.2 });
+      const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      const key = '6|';
+      if (OCR.params !== key) { await worker.setParameters({ tessedit_pageseg_mode: '6', tessedit_char_whitelist: '' }); OCR.params = key; }
+      const r = await worker.recognize(c);
+      pages[pn - 1] = String((r && r.data && r.data.text) || '').split('\n').map(x => x.trim()).filter(Boolean);
+    } catch (e) { /* page skipped */ }
+  }
+  const res = JPCore.extractPackingList(pages, { ocr: true });
+  f.packingOcr = res.found && res.rows.length ? res : null;
+  return f.packingOcr;
+}
+async function packingListOfJob() {
+  for (const d of state.docs.DECLARATION) { const p = d.fields && d.fields.packing; if (p && p.found && p.rows.length) return p; }
+  for (const d of state.docs.DECLARATION) { const p = await ocrPackingList(d); if (p) return p; }
+  const any = state.docs.DECLARATION.find(d => d.fields && d.fields.packing && d.fields.packing.found);
+  return any ? any.fields.packing : null;   // PACKING LIST page found but no readable container rows
+}
+// fill rows 01..N (by seq) with the PACKING LIST in document order. Never adds rows, never duplicates a container,
+// never overwrites a row the user filled/confirmed. Text PDF -> confirmed; scanned (OCR) -> needs ✔ ยืนยัน.
+async function applyPackingList() {
+  const out = { filled: 0, found: false, total: 0, msgs: [] };
+  if (!state.job.id || !state.rows.length || !state.docs.DECLARATION.length) return out;
+  const pl = await packingListOfJob();
+  const rows = state.rows.slice().sort((a, b) => a.seq - b.seq);
+  const anyEmpty = rows.some(r => !JPCore.cleanCode(r.container_no));
+  if (!pl || !pl.rows.length) {
+    if (anyEmpty) out.msgs.push(pl ? '⚠️ พบหน้า PACKING LIST แต่อ่านเลขตู้/ซีลไม่ได้ — กรุณากรอกเอง' : '⚠️ ไม่พบ PACKING LIST ใน PDF ① — กรุณากรอกเลขตู้/ซีลเอง');
+    return out;
+  }
+  out.found = true; out.total = pl.rows.length;
+  if (pl.rows.length > rows.length) out.msgs.push('⚠️ PACKING LIST มี ' + pl.rows.length + ' ตู้ มากกว่าจำนวนตู้ใน JOB (' + rows.length + ') — เติมให้ ' + rows.length + ' แถวแรก กรุณาตรวจสอบ (ไม่เพิ่มแถวเอง)');
+  if (pl.total && pl.total !== pl.rows.length) out.msgs.push('⚠️ PACKING LIST ระบุ ' + pl.total + ' ตู้ แต่อ่านได้ ' + pl.rows.length + ' ตู้ — กรุณาตรวจสอบ');
+  const conflicts = [], jobs = [];
+  pl.rows.slice(0, rows.length).forEach((p, i) => {
+    const r = rows[i], cur = JPCore.cleanCode(r.container_no), seal = JPCore.cleanCode(r.seal_no);
+    const elsewhere = rows.find(x => x !== r && JPCore.cleanCode(x.container_no) === p.container);
+    if (cur === p.container) {                                               // same container already there -> only complete a missing seal
+      if (!seal && p.seal) jobs.push([r, { seal_no: p.seal, seal_confirmed: !pl.ocr }]);
+      else if (seal && p.seal && seal !== p.seal && !r.seal_confirmed) conflicts.push(pad2(i + 1) + ' ซีล ' + seal + ' ≠ ' + p.seal);
+      return;
+    }
+    if (cur || elsewhere) { conflicts.push(pad2(i + 1) + (cur ? ' มี ' + cur : ' ว่าง') + ' / PACKING LIST ' + p.container + (elsewhere ? ' (อยู่แถว ' + pad2(rows.indexOf(elsewhere) + 1) + ')' : '')); return; }
+    const patch = { container_no: p.container, container_confirmed: !pl.ocr };
+    if (!seal && p.seal) Object.assign(patch, { seal_no: p.seal, seal_confirmed: !pl.ocr });
+    jobs.push([r, patch]);
+  });
+  for (let k = 0; k < jobs.length; k += 8) await Promise.all(jobs.slice(k, k + 8).map(([r, patch]) => rowUpdate(r, patch).then(() => { if (patch.container_no) out.filled++; }).catch(() => {})));
+  if (conflicts.length) out.msgs.push('⚠️ ไม่เขียนทับข้อมูลเดิม: แถว ' + conflicts.slice(0, 4).join(', ') + (conflicts.length > 4 ? ' …' : '') + ' — กรุณาตรวจสอบ');
+  if (pl.ocr && out.filled) out.msgs.push('PACKING LIST เป็นภาพสแกน (อ่านด้วย OCR) — กรุณา ✔ ยืนยันเลขตู้/ซีล');
+  if (jobs.length) renderRows();
+  return out;
+}
+function packingMsg(r) { return (r.filled ? 'PACKING LIST: เติมเลขตู้/ซีล ' + r.filled + ' ตู้ (เรียงตามเอกสาร)' : '') + (r.msgs.length ? (r.filled ? ' · ' : '') + r.msgs.join(' · ') : ''); }
 async function ingestPdfs(files, forcedCat) {
   showProgress('กำลังอ่านไฟล์ PDF');
   let i = 0;
@@ -1415,11 +1525,14 @@ async function saveJobInner() {
     const cu = await sb.from('jp_jobs').update({ container_count: state.rows.length }).eq('id', job.id); if (cu.error) throw cu.error;
     state.job.container_count = state.rows.length;
     $('#f-count').value = state.rows.length; $('#h-count').textContent = state.rows.length + ' ตู้';
+    setProgress('อ่าน PACKING LIST → เติมเลขตู้/ซีล', 0.95);
+    const plr = await applyPackingList();                                    // local112
     hideProgress();
     renderAll();
     if (isNew) { state.highlightJob = job.id; showPage('jobs'); }
     else showPage('merge');
-    toast(isNew ? 'บันทึก JOB แล้ว: สร้างรายการ ' + state.rows.length + ' ตู้ — กด 📂 เปิด / ✏️ แก้ไข เพื่ออัปโหลดรูปและ EXPORT' : 'บันทึกการแก้ไข JOB แล้ว', 'ok', 5000);
+    const pm = packingMsg(plr);
+    toast((isNew ? 'บันทึก JOB แล้ว: สร้างรายการ ' + state.rows.length + ' ตู้' + (pm ? '' : ' — กด 📂 เปิด / ✏️ แก้ไข เพื่ออัปโหลดรูปและ EXPORT') : 'บันทึกการแก้ไข JOB แล้ว') + (pm ? ' · ' + pm : ''), plr.msgs.length ? '' : 'ok', pm ? 9000 : 5000);
   } catch (e) { hideProgress(); toast('บันทึกไม่สำเร็จ: ' + errMsg(e) + (state.job.id ? ' — JOB และรายการตู้ ' + state.rows.length + ' แถวถูกบันทึกแล้ว กดบันทึกอีกครั้งเพื่อบันทึก PDF' : ''), 'err', 9000); renderAll(); }
 }
 async function openJob(jobId, skipConfirm) {
@@ -1457,7 +1570,11 @@ async function openJob(jobId, skipConfirm) {
     $('#h-count').textContent = state.rows.length ? state.rows.length + ' ตู้' : 'JOB นี้ยังไม่มีรายการตู้ — กรอกจำนวนแล้วกดบันทึก';
     showPage('merge');
     renderAll();
-    toast('เปิด JOB ' + jb.declaration_no + ' แล้ว (PDF ' + ds.length + ' ไฟล์ · ' + state.rows.length + ' ตู้' + (filled ? ' · เติมแถวที่ขาด ' + filled + ' แถว' : '') + ')', 'ok', 3500);
+    setJobFold(true);                                                        // local112b: every open starts folded
+    const openMsg = 'เปิด JOB ' + jb.declaration_no + ' แล้ว (PDF ' + ds.length + ' ไฟล์ · ' + state.rows.length + ' ตู้' + (filled ? ' · เติมแถวที่ขาด ' + filled + ' แถว' : '') + ')';
+    toast(openMsg, 'ok', 3500);
+    const plr = await applyPackingList();                                    // local112: fill empty rows from the PACKING LIST
+    if (state.job.id === jb.id && (plr.filled || plr.msgs.length)) toast(openMsg + ' · ' + packingMsg(plr), plr.msgs.length ? '' : 'ok', 9000);
   } catch (e) { toast('เปิด JOB ไม่สำเร็จ: ' + errMsg(e) + ' — กดเปิดอีกครั้งเพื่อลองใหม่', 'err', 8000); }
 }
 // saved PDF -> { bytes, pdf, fields }. Storage paths are unique per upload (never overwritten), so the cache can never show an old file.
@@ -1505,7 +1622,7 @@ function rowHtml(r) {
     '<td><span class="pill ' + ST_CLS[st.status] + '">' + esc(st.label) + '</span>' +
       (st.status === 'INCOMPLETE' ? '<span class="miss">' + esc([st.missingTypes.length ? 'ขาด: ' + st.missingTypes.map(t => JPCore.PHOTO_TYPE_LABEL[t]).join(', ') : '', st.missingData.join(', ')].filter(Boolean).join(' · ')) + '</span>' : '') +
       (st.stale ? '<span class="miss stale">มี PDF ฉบับเก่า — ต้อง EXPORT ใหม่</span>' : '') + '</td>' +
-    '<td><div class="xp"><button class="btn sm xpbtn" data-a="export"' + (st.canExport ? '' : ' disabled') + ' title="' + (st.canExport ? 'สร้าง PDF ของตู้นี้' : 'ต้องมีรูปและยืนยัน Container/Seal ก่อน') + '">📄 EXPORT PDF</button>' + exp +
+    '<td><div class="xp"><button class="btn sm xpbtn" data-a="export"' + (st.canExport || st.exportedValid ? '' : ' disabled') + ' title="' + (st.canExport ? 'สร้าง PDF ของตู้นี้ (EXPORT ซ้ำได้ไม่จำกัด)' : st.exportedValid ? 'ดาวน์โหลด PDF ฉบับล่าสุด — อัปโหลดรูปเพื่อสร้างใหม่' : 'ต้องมีรูปและยืนยัน Container/Seal ก่อน') + '">📄 EXPORT PDF</button>' + exp +
       '<button class="btn sm icon danger" data-a="delrow" title="ลบแถวนี้">🗑</button></div></td></tr>';
 }
 function renderRows() {
@@ -1630,6 +1747,12 @@ async function addPhotosToRow(id, files, opts) {
   opts = opts || {};
   const r = rowById(id); if (!r || !files.length) return;
   if (isExportedValid(r) && !opts.silent && !await confirmDlg('ตู้นี้ EXPORT แล้ว', 'การเพิ่มรูปหลัง EXPORT จะต้องสร้าง PDF ฉบับใหม่ (PDF เดิมยังเก็บไว้จนกว่าจะ EXPORT ใหม่) — ต่อหรือไม่?', 'เพิ่มรูป')) return;
+  if (!opts.photos) {                                                         // local112b: same file twice (double add) -> skipped
+    const have = new Set((state.photos[id] || []).map(p => p.file ? p.file.name + '|' + p.file.size + '|' + p.file.lastModified : ''));
+    const before = files.length; files = files.filter(f => !have.has(f.name + '|' + f.size + '|' + f.lastModified));
+    if (before > files.length) toast('ข้ามรูปซ้ำ ' + (before - files.length) + ' รูป', '', 3500);
+    if (!files.length) return;
+  }
   const added = opts.photos || await ingestImageFiles(files);
   if (!added.length) return;
   rowPhotos(id).push(...added);
@@ -1692,6 +1815,7 @@ async function ocrPhoto(worker, ph, want) {
   return ph.ocr;
 }
 function runRowOcr(id, force) {
+  return Promise.resolve();   // local112: Container / Seal No. come from the PACKING LIST (MASTER) — photos are never read to fill them
   const job = state.job.id;
   OCR.queue = OCR.queue.then(() => doRowOcr(id, job, force)).catch(e => { console.warn('OCR', e); });
   return OCR.queue;
@@ -1773,17 +1897,36 @@ async function movePhotos(fromId, toId, photoIds) {
 function openRowModal(id) {
   const r = rowById(id); if (!r) return;
   state.modalRowId = id;
-  const m = openModal('<div class="hd"><h3 id="rm-title"></h3><button class="x">✕</button></div><div class="bd" id="rm-body"></div>' +
-    '<div class="ft"><button class="btn" id="rm-add">➕ เพิ่มรูป</button><button class="btn" id="rm-order">🔄 เรียงอัตโนมัติ</button><button class="btn" id="rm-ocr">🔍 อ่านเลขจากรูปอีกครั้ง</button><button class="btn danger" id="rm-clear">🗑 ล้างรูปทั้งหมด</button><button class="btn" id="rm-preview">👁 Preview PDF</button><button class="btn blue" id="rm-export">📄 EXPORT PDF</button></div>' +
-    '<input type="file" id="rm-in" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png">', { size: 'wide', onClose: () => { state.modalRowId = null; } });
+  // local112b: snapshot of every row's photo list (+ rotation/type) -> ✕ without 💾 บันทึก restores it
+  const snap = {}; Object.keys(state.photos).forEach(k => { snap[k] = (state.photos[k] || []).map(p => ({ p, rotation: p.rotation, type: p.type, confidence: p.confidence })); });
+  const m = openModal('<div class="hd"><h3 id="rm-title"></h3><button class="x" id="rm-x">✕</button></div><div class="bd" id="rm-body"></div>' +
+    '<div class="ft"><span class="rm-ft-info" id="rm-ft-info"></span><button class="btn-save rm-save" id="rm-save">💾 บันทึก</button></div>' +
+    '<input type="file" id="rm-in" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png">', { size: 'wide', sticky: true });
   m.id = 'row-modal';
-  $('#rm-add', m).addEventListener('click', () => $('#rm-in', m).click());
+  const changedRows = () => {
+    const ids = new Set(Object.keys(snap).concat(Object.keys(state.photos)));
+    return Array.from(ids).filter(k => { const a = snap[k] || [], b = state.photos[k] || []; return a.length !== b.length || a.some((x, i) => x.p !== b[i] || x.p.rotation !== x.rotation || x.p.type !== x.type); });
+  };
+  const close = () => { m.remove(); state.modalRowId = null; };
   $('#rm-in', m).addEventListener('change', () => { const f = Array.from($('#rm-in', m).files || []); $('#rm-in', m).value = ''; addPhotosToRow(id, f); });
-  $('#rm-order', m).addEventListener('click', () => { orderRowPhotos(id); photosChanged(id, 'เรียงรูปใหม่'); });
-  $('#rm-ocr', m).addEventListener('click', () => { if (!(state.photos[id] || []).length) return toast('ยังไม่มีรูป'); runRowOcr(id, true); });
-  $('#rm-clear', m).addEventListener('click', async () => { const l = state.photos[id] || []; if (!l.length) return; if (!await confirmDlg('ล้างรูป', 'ล้างรูปทั้ง ' + l.length + ' รูปของตู้นี้? (รูปไม่ได้ถูกบันทึกถาวร)', 'ล้างรูป', true)) return; l.forEach(p => URL.revokeObjectURL(p.url)); state.photos[id] = []; photosChanged(id, 'ล้างรูป'); });
-  $('#rm-preview', m).addEventListener('click', () => previewRow(id));
-  $('#rm-export', m).addEventListener('click', () => exportRow(id, { download: true }));
+  $('#rm-x', m).addEventListener('click', async () => {
+    const ch = changedRows();
+    if (ch.length && !await confirmDlg('ยังไม่ได้บันทึกรูป', 'มีรูปที่เพิ่ม / ลบ / แก้ไข แต่ยังไม่ได้กด 💾 บันทึก — ปิดหน้าต่างและยกเลิกการเปลี่ยนแปลงหรือไม่?', 'ปิดโดยไม่บันทึก', true)) return;
+    const keep = new Set(); Object.values(snap).forEach(l => l.forEach(x => keep.add(x.p)));
+    ch.forEach(k => { (state.photos[k] || []).forEach(p => { if (!keep.has(p)) URL.revokeObjectURL(p.url); }); });
+    ch.forEach(k => { state.photos[k] = (snap[k] || []).map(x => { x.p.rotation = x.rotation; x.p.type = x.type; x.p.confidence = x.confidence; return x.p; }); });
+    close();
+    for (const k of ch) if (rowById(k)) await photosChanged(k, 'ยกเลิกการแก้ไขรูป');
+  });
+  $('#rm-save', m).addEventListener('click', async () => {
+    const b = $('#rm-save', m); if (b.disabled) return; b.disabled = true;     // no double save
+    try {
+      const ch = changedRows(); if (!ch.includes(id)) ch.push(id);
+      for (const k of ch) { const rr = rowById(k); if (rr) await rowUpdate(rr, {}); }
+      close(); ch.forEach(k => { if (rowById(k)) renderRow(k); });
+      toast('บันทึกรูปตู้ ' + pad2(state.rows.indexOf(r) + 1) + ' แล้ว (' + (state.photos[id] || []).length + ' รูป)', 'ok', 3500);
+    } catch (e) { b.disabled = false; toast('บันทึกรูปไม่สำเร็จ: ' + errMsg(e) + ' — รูปยังอยู่ในหน้าต่าง กดบันทึกอีกครั้ง', 'err', 8000); }
+  });
   renderRowModal();
 }
 function renderRowModal() {
@@ -1794,7 +1937,7 @@ function renderRowModal() {
   $('#rm-title', m).textContent = '📷 อัปโหลดรูปภาพ (ตู้ที่ ' + pad2(n) + ')' + (cIn ? ' · ' + cIn : '');
   const body = $('#rm-body', m);
   body.innerHTML =
-    '<div class="rm-drop" id="rm-drop">📤 ลากรูปของตู้นี้มาวาง หรือคลิกเพื่อเลือกรูป (JPG/PNG หลายรูปพร้อมกัน) — ระบบเรียงรูปและอ่านเลขตู้/ซีลให้อัตโนมัติ</div>' +
+    '<div class="rm-top"><div class="rm-drop" id="rm-drop">📤 ลากรูปของตู้นี้มาวาง หรือคลิกเพื่อเลือกรูป (JPG/PNG หลายรูปพร้อมกัน) — ระบบจัดหมวดรูปให้อัตโนมัติ</div><button type="button" class="btn blue rm-add" id="rm-add">➕ เพิ่มรูป</button></div>' +
     '<div class="rm-grid" id="rm-grid">' + (ph.length ? ph.map((p, i) => {
       const hdr = JPCore.photoHeader(i + 1, cIn, sIn).split(' | ');
       return '<div class="rm-ph" data-pid="' + p.id + '"><div class="hdr">' + hdr.map(esc).join('<br>') + '</div><div class="th"><img src="' + p.url + '" style="transform:rotate(' + p.rotation + 'deg)" data-o="zoom"><div class="ops"><button data-o="zoom" title="ขยาย">🔍</button><button data-o="rot" title="หมุน 90°">🔄</button><button data-o="del" title="ลบ">🗑</button></div></div>' +
@@ -1806,9 +1949,9 @@ function renderRowModal() {
       '<div><label>Seal No.</label><input id="rm-s" value="' + esc(sIn) + '" placeholder="เช่น 60518695" autocapitalize="characters"><div class="ck"><input type="checkbox" id="rm-sc"' + (r.seal_confirmed ? ' checked' : '') + (sIn ? '' : ' disabled') + '> ยืนยันว่าเลขซีลถูกต้อง</div><div class="nt">' + esc(oc.seal && !r.seal_confirmed ? oc.seal.note : (r.seal_confirmed && sIn ? '✔ ยืนยันแล้ว' : '')) + '</div></div>' +
     '</div>' +
     '<div class="rm-status">สถานะ: <b>' + esc(st.label) + '</b>' + (st.missingTypes.length && ph.length ? ' · รูปที่ขาด: ' + st.missingTypes.map(t => JPCore.PHOTO_TYPE_LABEL[t]).join(', ') : '') + (st.missingData.length ? ' · ' + esc(st.missingData.join(', ')) : '') + (st.stale ? ' · <span class="stale">มี PDF ฉบับเก่า ต้อง EXPORT ใหม่</span>' : '') + (r.export_path && !r.export_stale ? ' · EXPORT แล้ว ' + (r.exported_at ? new Date(r.exported_at).toLocaleString('th-TH') : '') : '') + ' · รูปแบบ PDF: ' + (state.job.pdf_layout === 'REFERENCE' ? 'แบบไฟล์ตัวอย่าง' : 'รูปละ 1 หน้า A4 + หัวข้อ') + '</div>';
-  $('#rm-export', m).disabled = !st.canExport;
   const drop = $('#rm-drop', body);
   drop.addEventListener('click', () => $('#rm-in', m).click());
+  $('#rm-add', body).addEventListener('click', () => $('#rm-in', m).click());
   drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); addPhotosToRow(id, Array.from(e.dataTransfer.files || [])); });
@@ -1826,7 +1969,7 @@ function modalPhotoOp(id, pid, op, val) {
   const list = state.photos[id] || []; const i = list.findIndex(p => p.id === pid); if (i < 0) return; const p = list[i];
   if (op === 'zoom') lightbox(id, i);
   else if (op === 'rot') { p.rotation = (p.rotation + 90) % 360; p.ocr = null; photosChanged(id, 'หมุนรูป'); }
-  else if (op === 'del') { URL.revokeObjectURL(p.url); list.splice(i, 1); photosChanged(id, 'ลบรูป'); }
+  else if (op === 'del') { confirmDlg('ลบรูป', 'ลบรูปนี้ (' + esc(p.name) + ') ออกจากตู้? รูปอื่นไม่ได้รับผลกระทบ', 'ลบรูป', true).then(ok => { if (!ok) return; const k = list.indexOf(p); if (k < 0) return; list.splice(k, 1); photosChanged(id, 'ลบรูป'); }); }
   else if (op === 'type') { p.type = val; p.confidence = 1; const order = ['SEAL', 'CLOSED', 'OPEN2', 'OPEN1', 'OTHER']; list.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type)); photosChanged(id, 'เปลี่ยนประเภทรูป'); }
   else if (op === 'move' && val) movePhotos(id, val, [pid]);
 }
@@ -1903,11 +2046,7 @@ async function autoImport(files) {
       const sReads = [].concat(...list.map(x => (x.p.ocr && x.p.ocr.sealReads) || []));
       const s = JPCore.resolveSealOcr(sReads, key || JPCore.cleanCode(r.container_no), declPairs());
       state.ocr[rowId] = { busy: false, container: c, seal: s };
-      if (!JPCore.cleanCode(r.container_no) && key) {
-        if (state.rows.some(x => x !== r && JPCore.cleanCode(x.container_no) === key)) continue;
-        await rowUpdate(r, { container_no: key, container_confirmed: !!(c && c.confirmed && c.value === key) }).catch(() => {});
-      }
-      if (!JPCore.cleanCode(r.seal_no) && s && s.value) await rowUpdate(r, { seal_no: s.value, seal_confirmed: !!s.confirmed }).catch(() => {});
+      // local112: numbers read from photos are only used to suggest the target row — never written to Container / Seal No.
       renderRow(rowId);
     }
     renderRows();
@@ -1932,6 +2071,16 @@ async function preparePhoto(ph, header) {
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
   return { bytes: await blob.arrayBuffer(), isPng: false, name: ph.name, rotation: ph.rotation, header };
 }
+// local114: ONE A4 portrait page, 2×2 fixed by type (ปิดตู้ | เปิดครึ่งตู้ / เปิดเต็มตู้ | ซีล), ~200 dpi
+async function buildCollageA4(photos) {
+  const slots = [];
+  for (const p of JPCore.collageSlotsA4(photos)) slots.push(p ? { img: await loadImage(p.url), rotation: p.rotation } : null);
+  const W = 1654, H = 2339;                                       // A4 at 200 dpi
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  JPCore.drawCollageA4(c.getContext('2d'), slots, W, H, 50, 24);   // browsers apply EXIF orientation when drawing <img>
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+  return { bytes: await blob.arrayBuffer(), isPng: false, name: 'photos-a4', a4: true };
+}
 async function buildCollage(photos) {
   const items = [];
   for (const p of photos.slice(0, 4)) items.push({ img: await loadImage(p.url), rotation: p.rotation });
@@ -1947,10 +2096,10 @@ async function buildRowPdf(r) {
   const pdfDocs = [];
   state.docs.DECLARATION.forEach(d => pdfDocs.push({ bytes: d.bytes, rotations: d.rotations, label: '① ' + d.name, type: 'DECLARATION' }));
   state.docs.MEMO.forEach(d => pdfDocs.push({ bytes: d.bytes, rotations: d.rotations, label: '② ' + d.name, type: 'MEMO' }));
-  const prepared = [];
-  for (let i = 0; i < photos.length; i++) { setProgress('เตรียมรูป PHOTO ' + pad2(i + 1) + ' (' + (i + 1) + '/' + photos.length + ')', 0.02 + 0.08 * i / photos.length); prepared.push(await preparePhoto(photos[i], JPCore.photoHeader(i + 1, cNo, sNo))); await sleep(0); }
   const lo = JPCore.layoutOptions(state.job.pdf_layout);
-  const collages = lo.collage && photos.length ? [await buildCollage(photos)] : [];
+  const prepared = [];
+  if (lo.singlePhotos !== false) for (let i = 0; i < photos.length; i++) { setProgress('เตรียมรูป PHOTO ' + pad2(i + 1) + ' (' + (i + 1) + '/' + photos.length + ')', 0.02 + 0.08 * i / photos.length); prepared.push(await preparePhoto(photos[i], JPCore.photoHeader(i + 1, cNo, sNo))); await sleep(0); }
+  const collages = lo.collage && photos.length ? [await (lo.collageA4 ? buildCollageA4(photos) : buildCollage(photos))] : [];   // local114: one 2×2 A4 photo page
   const name = JPCore.exportPdfName(state.job, cNo);
   const res = await JPCore.buildMergedPdf({ PDFLib, title: name.replace(/\.pdf$/, ''), pdfDocs, photos: prepared, collages, photoLayout: lo.photoLayout, memoAfterFirstPage: lo.memoAfterFirstPage, onProgress: setProgress });
   return Object.assign(res, { name });
@@ -1973,9 +2122,20 @@ async function saveRowExport(r, res) {
   } catch (e) { await sb.storage.from(CONFIG.BUCKET).remove([path]); throw e; }
   if (old && old !== path) await sb.storage.from(CONFIG.BUCKET).remove([old]);   // replace the previous version only after the new one is saved
 }
-async function exportRow(id, opts) {
+async function exportRow(id, opts) {                // local112b: one EXPORT at a time (no overlapping clicks)
+  if (exportRow.busy) return null;
+  exportRow.busy = true;
+  try { return await exportRowInner(id, opts); } finally { exportRow.busy = false; }
+}
+async function exportRowInner(id, opts) {
   opts = opts || {};
   const r = rowById(id); if (!r) return null;
+  const st0 = rowStatus(r);
+  if (!st0.canExport && st0.exportedValid && !(state.photos[id] || []).length) {   // exported earlier, photos not in this session -> latest PDF
+    await downloadRowPdf(id);
+    toast('ดาวน์โหลด PDF ฉบับล่าสุดของตู้นี้แล้ว — หากต้องการสร้าง PDF ใหม่ ให้อัปโหลดรูปของตู้นี้แล้วกด EXPORT PDF', '', 6000);
+    return null;
+  }
   if (!await checkRowExportable(r, true)) return null;
   showProgress('📄 EXPORT PDF ตู้ ' + (r.container_no || ''));
   try {
