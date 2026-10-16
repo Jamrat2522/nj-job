@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-L">
+<meta name="sfz-build" content="1008-M">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1531,6 +1531,23 @@ body:has(.modal-back.show){overflow:hidden}
   .ex-jp-btns{width:100%}.ex-jp-btns .btn{flex:1}
 }
 </style>
+<style id="ex-work-tblcolor-css">
+/* 💰 ปิดค่าใช้จ่าย — สีตารางในหน้าต่างเปิดงาน (เฉพาะคอมพิวเตอร์ · เปลี่ยนสีอย่างเดียว ไม่แตะขนาด/Layout) */
+@media (min-width:761px){
+  #modal-form .ex-tbl thead th{
+    background:#DCE7F3 !important; background-image:none !important;
+    color:#27466D !important; font-weight:700 !important;
+    border-right-color:#D5DFEB !important; border-bottom-color:#D5DFEB !important;   /* สีเส้นเท่านั้น คงความหนาเดิม 1px */
+  }
+  #modal-form .ex-tbl{ border-color:#D5DFEB !important }
+  #modal-form .ex-tbl tbody td{
+    background:#FFFFFF !important;
+    border-right-color:#D5DFEB !important; border-bottom-color:#D5DFEB !important;
+  }
+  #modal-form .ex-tbl tbody tr:nth-child(even) td{ background:#F8FAFD !important }
+  #modal-form .ex-tbl tbody tr:hover td{ background:#EEF4FB !important }
+}
+</style>
 </head>
 <body>
 
@@ -1582,7 +1599,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-L</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-M</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5843,7 +5860,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-L' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-M' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
