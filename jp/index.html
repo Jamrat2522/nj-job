@@ -422,6 +422,26 @@ table.tbl tr:last-child td{border-bottom:0}
   #row-modal .rm-ft-info{margin-right:auto}
   #row-modal .rm-save{height:38px;padding:0 22px;font-size:14.5px}
 }
+/* ---------- local115: Desktop — PDF drop frame removed; ① ② side by side full width, upload via ＋ เพิ่มไฟล์ (Mobile unchanged) ---------- */
+@media (min-width:901px){
+  .jobwin .up-row{grid-template-columns:minmax(0,1fr);margin:4px 0 10px}
+  .jobwin .up-row #dz-all{display:none}
+  .jobwin .up-row .fl-head{flex-wrap:nowrap}
+  .jobwin .up-row .fl-head::after{display:none}
+  .jobwin .up-row .fl-head .fl-badge{order:0;margin-left:0}
+  .jobwin .up-row .fl-head .fl-add{order:0;margin-left:auto}
+  .jobwin .up-row .cat.fl{padding:8px 12px}
+  .jobwin .up-row .fl-head .fl-add{height:30px;padding:0 12px;font-size:12.5px}
+}
+/* ---------- local116: 📄 รวม PDF ① + ② (JOB ที่เปิดอยู่) ---------- */
+.jobwin .sv-merge{height:46px;padding:0 18px;font-size:14.5px;font-weight:600}
+.jobwin .jh-merge{display:none}
+@media (min-width:901px){
+  .jobwin .sv-merge{height:46px}
+  .jobwin.folded .jh-top .jh-merge{display:inline-flex;margin-left:auto;height:34px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:600}
+  .jobwin.folded .jh-top .jh-merge.hidden{display:none}
+  .jobwin.folded .jh-top .jh-merge:not(.hidden) + .jh-fold{margin-left:8px}
+}
 /* ---------- local104: รายการ JOB / รายงาน (full width desktop + table styling) ---------- */
 .content.wide{max-width:none}
 .jb-head{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
@@ -590,7 +610,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local114</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local116</span></div>
   </div>
 </div>
 
@@ -606,7 +626,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local114</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local116</span></div>
   </aside>
 
   <div class="main">
@@ -626,6 +646,7 @@ table.tbl tr:last-child td{border-bottom:0}
           <div class="jh-top">
             <h3 id="job-title">📁 เปิดงานใหม่</h3>
             <span class="jh-info" id="job-info"></span>
+            <button type="button" class="btn blue jh-merge hidden" id="btn-merge-docs2" title="รวม PDF ① + ② (ไม่มีรูปภาพรายตู้)">📄 รวม PDF ① + ②</button>
             <button type="button" class="btn jh-fold hidden" id="btn-job-fold" title="พับ / ขยายข้อมูล JOB">▲ พับ</button>
           </div>
           <div class="fields f4">
@@ -676,6 +697,7 @@ table.tbl tr:last-child td{border-bottom:0}
 
           <div class="savebar">
             <span class="save-hint" id="save-hint"></span>
+            <button type="button" class="btn blue sv-merge hidden" id="btn-merge-docs" title="รวม PDF ① ใบขนพร้อมเอกสาร + ② บันทึกข้อความ เป็นไฟล์เดียว (ไม่มีรูปภาพรายตู้)">📄 รวม PDF ① + ②</button>
             <button class="btn sv-cancel" id="btn-back-jobs">ยกเลิก</button>
             <button class="btn-save" id="btn-save-job">💾 บันทึกและเปิดงาน</button>
           </div>
@@ -766,16 +788,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local114"></script>
+<script src="jp-core.js?v=local116"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local114)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local116)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local114',
+  APP_VERSION: 'local116',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -1001,6 +1023,28 @@ function hasUnsavedWork() {
   const photoRows = Object.keys(state.photos).filter(id => (state.photos[id] || []).length && !isExportedValid(rowById(id)));
   return state.dirty.DECLARATION || state.dirty.MEMO || photoRows.length > 0;
 }
+// local116: ① + ② of the open JOB -> ONE PDF (① files then ② files, every page in its saved order/rotation). No photos, no collage, no exported PDFs.
+async function mergeJobDocs() {
+  if (mergeJobDocs.busy) return;
+  if (!state.job.id) return toast('กรุณาเปิด JOB ก่อน', 'err');
+  if (state.dirty.DECLARATION || state.dirty.MEMO || state.pendingDelete.DECLARATION.length || state.pendingDelete.MEMO.length) return toast('มี PDF ① ② ที่ยังไม่ได้บันทึก — กรุณากด 💾 บันทึกการแก้ไข JOB ก่อนรวม PDF', 'err', 6000);
+  const D = state.docs.DECLARATION, M = state.docs.MEMO;
+  if (!D.length && !M.length) return toast('JOB นี้ยังไม่มี PDF ① / ②', 'err');
+  const bad = D.concat(M).filter(d => !d.bytes || !d.bytes.byteLength);
+  if (bad.length) return toast('อ่านไฟล์ไม่ได้: ' + bad.map(d => d.name).join(', ') + ' — กรุณาเปิด JOB ใหม่', 'err', 7000);
+  mergeJobDocs.busy = true;
+  showProgress('📄 รวม PDF ① + ②');
+  try {
+    const pdfDocs = D.map(d => ({ bytes: d.bytes, rotations: d.rotations, label: '① ' + d.name, type: 'DECLARATION' })).concat(M.map(d => ({ bytes: d.bytes, rotations: d.rotations, label: '② ' + d.name, type: 'MEMO' })));
+    const name = JPCore.sanitizeFileName(JPCore.buildBaseName(state.job).base) + '.pdf';
+    const res = await JPCore.buildMergedPdf({ PDFLib, title: name.replace(/\.pdf$/, ''), pdfDocs, photos: [], collages: [], memoAfterFirstPage: false, onProgress: setProgress });
+    hideProgress();
+    downloadBlob(new Blob([res.bytes], { type: 'application/pdf' }), name);
+    toast('รวม PDF ① + ② แล้ว: ' + name + ' (' + res.pageCount + ' หน้า)', 'ok', 5000);
+    return res;
+  } catch (e) { hideProgress(); toast('รวม PDF ไม่สำเร็จ: ' + errMsg(e), 'err', 8000); return null; }
+  finally { mergeJobDocs.busy = false; }
+}
 function setJobFold(on) { const w = $('.jobwin'); w.classList.toggle('folded', !!on); $('#btn-job-fold').textContent = on ? '▼ ขยาย' : '▲ พับ'; }   // UI only — never clears or saves
 async function confirmLeaveJob() {
   if (!hasUnsavedWork()) return true;
@@ -1039,6 +1083,7 @@ function bindUI() {
   $('.f .cal').addEventListener('click', e => { e.preventDefault(); openDatePicker(); });
   d.addEventListener('click', openDatePicker);
   $('#btn-job-fold').addEventListener('click', () => setJobFold(!$('.jobwin').classList.contains('folded')));
+  ['#btn-merge-docs', '#btn-merge-docs2'].forEach(b => $(b).addEventListener('click', () => mergeJobDocs()));
   $('#f-date-pick').addEventListener('change', e => { if (e.target.value) { state.job.doc_date = e.target.value; d.value = JPCore.formatDateDDMMMYYYY(e.target.value); $('#h-date').textContent = ''; updateFileName(); } });
   [['decl', 'declaration_no'], ['bl', 'bl_no']].forEach(([k, key]) => {
     const i = $('#f-' + k);
@@ -1115,6 +1160,7 @@ function renderJobHead() {
   $('#btn-save-job').textContent = j.id ? '💾 บันทึกการแก้ไข JOB' : '💾 บันทึกและเปิดงาน';
   $('#btn-back-jobs').textContent = j.id ? '◀ กลับรายการ JOB' : 'ยกเลิก';
   $('#btn-job-fold').classList.toggle('hidden', !j.id); if (!j.id) setJobFold(false);
+  $('#btn-merge-docs').classList.toggle('hidden', !j.id); $('#btn-merge-docs2').classList.toggle('hidden', !j.id);
   $('#save-hint').textContent = j.id ? 'แก้ไขข้อมูล / PDF ① ② แล้วกดบันทึก — รายการตู้และ PDF ที่ EXPORT แล้วยังอยู่ครบ' : 'กรอกข้อมูล → โยน PDF → ตรวจไฟล์ → บันทึกและเปิดงาน (ระบบสร้างรายการตู้ตามจำนวนทันที)';
   $('#cntr-card').classList.toggle('hidden', !j.id);
   $('#bottom-bar').classList.toggle('hidden', !(j.id && $('#page-merge').classList.contains('active')));
@@ -1289,7 +1335,7 @@ function renderCat(cat) {
     '<button class="btn danger" data-op="del" data-id="' + d.id + '">🗑 ลบ</button></div></div>').join('') +
     state.pendingDelete[cat].map(sv => '<div class="file-row pend"><span class="ficon">PDF</span><div class="fmeta"><span class="nm">' + esc(sv.file_name) + '</span><small>ไฟล์ที่บันทึกไว้ — จะถูกลบเมื่อกดบันทึก</small></div>' +
       '<div class="fops"><button class="btn" data-restore="' + esc(sv.id) + '">↩ เรียกไฟล์ที่บันทึกไว้</button></div></div>').join('') ||
-    '<div class="empty">ยังไม่มีไฟล์ — ลาก PDF ลงกรอบด้านบน หรือกด ＋ เพิ่มไฟล์</div>';
+    '<div class="empty">' + (window.matchMedia && matchMedia('(min-width:901px)').matches ? 'ยังไม่มีไฟล์ — กด ＋ เพิ่มไฟล์' : 'ยังไม่มีไฟล์ — ลาก PDF ลงกรอบด้านบน หรือกด ＋ เพิ่มไฟล์') + '</div>';   // local115: no drop frame on desktop
   $$('[data-op]', fl).forEach(b => b.addEventListener('click', () => docOp(b.dataset.op, cat, b.dataset.id)));
   $$('[data-restore]', fl).forEach(b => b.addEventListener('click', () => restoreSavedDoc(cat, b.dataset.restore)));
   // page cells kept (hidden) for the rotate grid of the Preview window
