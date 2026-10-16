@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local117)
+ * J&P LOGISTICS — jp-core.js  (local118)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -444,6 +444,24 @@
       ctx.restore(); n++;
     }
     return { n, cell: { w: cw, h: ch } };
+  }
+
+  /* ---------- local118: 💰 วางบิล — ③ บัญชี files live in storage only: {owner}/{job}/ACCOUNT/{ts}-{base64url(name)}.pdf ---------- */
+  function b64urlEncode(str) { const b = typeof btoa === 'function' ? btoa(unescape(encodeURIComponent(str))) : Buffer.from(str, 'utf8').toString('base64'); return b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function b64urlDecode(b) { b = b.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; try { return typeof atob === 'function' ? decodeURIComponent(escape(atob(b))) : Buffer.from(b, 'base64').toString('utf8'); } catch (e) { return ''; } }
+  function accountObjectName(fileName, ts) { return String(ts || Date.now()) + '-' + b64urlEncode(String(fileName || 'account.pdf').slice(0, 120)) + '.pdf'; }
+  function accountFileName(objectName) { const m = /^(\d+)-([A-Za-z0-9_-]+)\.pdf$/.exec(String(objectName || '')); return m ? (b64urlDecode(m[2]) || objectName) : String(objectName || ''); }
+  // docs [{bytes, rotations}] -> ONE PDF, pages exactly in the given order (no reordering, no extra pages)
+  async function mergePdfsInOrder(PDFLib, docs, title) {
+    const { PDFDocument, degrees } = PDFLib; const out = await PDFDocument.create();
+    if (title) out.setTitle(title); out.setProducer('J&P LOGISTICS');
+    for (const d of docs) {
+      const src = await PDFDocument.load(d.bytes, { ignoreEncryption: true });
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach((pg, i) => { const extra = d.rotations && d.rotations[i] ? d.rotations[i] : 0; if (extra) pg.setRotation(degrees(((pg.getRotation().angle || 0) + extra) % 360)); out.addPage(pg); });
+    }
+    const bytes = await out.save({ useObjectStreams: true });
+    return { bytes, pageCount: out.getPageCount() };
   }
 
   /* ------------------------------------------------------- merged PDF build */
@@ -1044,6 +1062,7 @@
     resolveContainerOcr, parseSealOcr, resolveSealOcr, ocrAnalyzePhoto,
     consensusFilter, ocrCropRotScale, ocrAdaptiveBin, ocrOpenBin, ocrCleanBin, ocrEstimateSkew, containerAnchors, mergeContainerReads, ocrContainerPhoto, CONTAINER_UNREAD,
     pdfItemsToLines, extractPackingList,
+    accountObjectName, accountFileName, mergePdfsInOrder,
     STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));
