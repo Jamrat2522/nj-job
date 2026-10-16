@@ -155,7 +155,7 @@ var _chunkP={};
 function _loadChunk(name){
   if(_chunkP[name])return _chunkP[name];
   _chunkP[name]=new Promise(function(res,rej){
-    var sc=document.createElement("script");sc.src="js/heavy-"+name+".js?v="+(name==="expense"?"3.9.5":name==="ot"?"3.9.5":name==="gps"?"3.8.8":name==="cleanup"?"3.6.6":name==="jobs"?"3.8.3":"3.8.0");sc.async=true;
+    var sc=document.createElement("script");sc.src="js/heavy-"+name+".js?v="+(name==="expense"?"3.9.6":name==="ot"?"3.9.5":name==="gps"?"3.8.8":name==="cleanup"?"3.6.6":name==="jobs"?"3.8.3":"3.8.0");sc.async=true;
     sc.onload=function(){res();};
     sc.onerror=function(){_chunkP[name]=null;rej(new Error("chunk "+name+" load failed"));};
     document.head.appendChild(sc);
