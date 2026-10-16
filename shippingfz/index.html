@@ -21,7 +21,7 @@
 <meta name="theme-color" content="#10B981">
 <meta name="mobile-web-app-capable" content="yes">
 <title>SHIPPING FZ — N.J. Logistics</title>
-<meta name="sfz-build" content="1008-K">
+<meta name="sfz-build" content="1008-L">
 
 <link rel="preconnect" href="https://sytgqjglcnsabcszbngg.supabase.co" crossorigin>
 
@@ -1582,7 +1582,7 @@ body:has(.modal-back.show){overflow:hidden}
       </div>
     </div>
     <div id="menu-root"></div>
-    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-K</div>
+    <div class="sidebar-ver" id="sfz-ver">SHIPPING FZ · v.1.0 · build 1008-L</div>
   </aside>
   <div id="sb-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -5843,7 +5843,7 @@ async function boot(){
      การตรวจ Table / Storage / Realtime ย้ายไปทำหลัง Login สำเร็จ (ใน enterApp) */
   _sfzOfflineBar(navigator.onLine===false);
   { const _v=document.getElementById('sfz-ver');
-    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-K' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
+    if(_v) _v.textContent='SHIPPING FZ · v.1.0 · build 1008-L' + (SFZ_ENV==='local'?' · LOCAL':SFZ_ENV==='file'?' · FILE':''); }
   await _sfzAfterHealth();
 }
 async function _sfzAfterHealth(){
@@ -6508,6 +6508,8 @@ function exCancelEdit(key){
    ============================================================ */
 const EXP_PENDING_VIEW = 'sfz_expense_pending_jobs';
 const EXP_SAVE_BATCH   = 'sfz_expense_items_save_batch';
+/* แสดงเฉพาะ JOB ที่ปล่อยเสร็จ (completed_at) ตั้งแต่ 15/10/2026 00:00 เวลาไทย = 2026-10-14 17:00 UTC */
+const EXP_PENDING_FROM = '2026-10-14T17:00:00.000Z';
 let EX_JOBLINK = null;              // null = ยังไม่ตรวจ · true = ติดตั้ง SQL 070 แล้ว · false = ยังไม่ติดตั้ง
 let _exJobLinkProbing = null;
 let _exBatchBusy = false;
@@ -6577,6 +6579,7 @@ async function exOpenJobPicker(){
   try{
     const { data, error } = await sb.from(EXP_PENDING_VIEW)
       .select('id,doc_no,company,import_terminal,pickup_location,completed_at,place_code,place_other')
+      .gte('completed_at', EXP_PENDING_FROM)
       .order('completed_at',{ascending:false}).range(0, 4999);
     if(error) throw error;
     EXJ.rows = data||[];
@@ -6607,7 +6610,7 @@ function exJobPickRender(){
   bg.innerHTML = `
     <div class="ex-jp" role="dialog" aria-label="เลือก JOB">
       <div class="ex-jp-head">
-        <div><h3>☑ เลือก JOB อัตโนมัติ</h3><p>JOB ที่ 🟢 ปล่อยเสร็จแล้ว และยังไม่ปิดค่าใช้จ่าย (ค้างจนกว่าจะปิด)</p></div>
+        <div><h3>☑ เลือก JOB อัตโนมัติ</h3><p>JOB ที่ 🟢 ปล่อยเสร็จแล้ว ตั้งแต่ 15/10/2026 และยังไม่ปิดค่าใช้จ่าย (ค้างจนกว่าจะปิด)</p></div>
         <button class="ex-jp-x" onclick="exCloseJobPicker()" aria-label="ปิด">✕</button>
       </div>
       <div class="ex-jp-tools">
