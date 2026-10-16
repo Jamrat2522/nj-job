@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local109)
+ * J&P LOGISTICS — jp-core.js  (local111)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -481,6 +481,7 @@
   const OWNER_FIX = { '0': 'O', '1': 'I', '2': 'Z', '5': 'S', '6': 'G', '8': 'B', '4': 'A' };
   // only the classic OCR confusions; the CHECK digit is never converted from a letter (must be read as a digit)
   const DIGIT_FIX = { O: '0', D: '0', Q: '0', I: '1', L: '1', Z: '2', S: '5', G: '6', B: '8' };
+  const CONTAINER_UNREAD = '⚠️ ไม่สามารถอ่านเลขตู้ได้ กรุณาตรวจสอบหรือกรอกเอง';
 
   // white paint text (most container doors) -> black text on white
   function ocrBinaryWhiteText(rgba, w, h) {
@@ -574,6 +575,7 @@
       const ownerRaw = m[1], serialRaw = m[2], checkRaw = m[3] || '';
       const owner = ownerRaw.split('').map((c, i) => (i < 3 ? (OWNER_FIX[c] || c) : (c === '0' ? 'U' : c))).join('');
       if (!/^[A-Z]{3}[UJZ]$/.test(owner)) continue;
+      if ((ownerRaw.match(/[A-Z]/g) || []).length < 2) continue;   // local110: digits-only text (e.g. a seal number) is never a container no.
       const digitsInSerial = (serialRaw.match(/\d/g) || []).length;
       if (digitsInSerial < 5) continue;
       const serial = serialRaw.split('').map(c => DIGIT_FIX[c] || c).join('');
@@ -600,6 +602,231 @@
     }
     return res;
   }
+  /* ---------- local110: Container No. OCR — locate the code, crop / rotate / enhance only that area ---------- */
+  // crop rect of an RGBA image, rotate by deg around the crop centre, scale (bilinear) -> RGBA
+  function ocrCropRotScale(rgba, w, h, rect, deg, scale) {
+    const x0 = Math.max(0, Math.floor(rect.x0)), y0 = Math.max(0, Math.floor(rect.y0)), x1 = Math.min(w, Math.ceil(rect.x1)), y1 = Math.min(h, Math.ceil(rect.y1));
+    const cw = Math.max(1, x1 - x0), ch = Math.max(1, y1 - y0), W = Math.max(1, Math.round(cw * scale)), H = Math.max(1, Math.round(ch * scale));
+    const out = new Uint8ClampedArray(W * H * 4), a = -deg * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    const cx = x0 + cw / 2, cy = y0 + ch / 2;
+    for (let Y = 0; Y < H; Y++) for (let X = 0; X < W; X++) {
+      const u = (X + 0.5) / scale - cw / 2, v = (Y + 0.5) / scale - ch / 2;
+      let sx = cx + u * ca - v * sa - 0.5, sy = cy + u * sa + v * ca - 0.5;
+      if (sx < 0) sx = 0; if (sy < 0) sy = 0; if (sx > w - 1) sx = w - 1; if (sy > h - 1) sy = h - 1;
+      const ix = Math.floor(sx), iy = Math.floor(sy), fx = sx - ix, fy = sy - iy, ix2 = Math.min(w - 1, ix + 1), iy2 = Math.min(h - 1, iy + 1);
+      const o = (Y * W + X) * 4;
+      for (let c = 0; c < 3; c++) {
+        const p00 = rgba[(iy * w + ix) * 4 + c], p10 = rgba[(iy * w + ix2) * 4 + c], p01 = rgba[(iy2 * w + ix) * 4 + c], p11 = rgba[(iy2 * w + ix2) * 4 + c];
+        out[o + c] = (p00 * (1 - fx) + p10 * fx) * (1 - fy) + (p01 * (1 - fx) + p11 * fx) * fy;
+      }
+      out[o + 3] = 255;
+    }
+    return { data: out, w: W, h: H };
+  }
+  // local-contrast binarisation (handles shadows of the door bars): white paint text (polarity 'white') or dark text ('dark')
+  function ocrAdaptiveBin(rgba, w, h, opts) {
+    const win = Math.max(3, opts.win | 0), k = opts.k, white = opts.polarity !== 'dark';
+    const v = new Float32Array(w * h), sat = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+      v[i] = white ? mn : 0.299 * r + 0.587 * g + 0.114 * b; sat[i] = mx - mn;
+    }
+    const I = new Float64Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += v[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row; } }
+    const out = new Uint8ClampedArray(w * h * 4), r = win >> 1;
+    for (let y = 0; y < h; y++) {
+      const ya = Math.max(0, y - r), yb = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        const xa = Math.max(0, x - r), xb = Math.min(w, x + r + 1);
+        const m = (I[yb * (w + 1) + xb] - I[ya * (w + 1) + xb] - I[yb * (w + 1) + xa] + I[ya * (w + 1) + xa]) / ((xb - xa) * (yb - ya));
+        const i = y * w + x;
+        const on = white ? (v[i] - m > k && v[i] > 55 && sat[i] < 100) : (m - v[i] > k && v[i] < 150);
+        out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = on ? 0 : 255; out[i * 4 + 3] = 255;
+      }
+    }
+    return out;
+  }
+  // morphological opening of black ink with a k×k square: removes thin lines (check-digit box, bar edges, scratches), keeps strokes
+  function ocrOpenBin(rgba, w, h, k) {
+    if (!k || k < 2) return rgba;
+    const r = k >> 1, n = w * h;
+    let a = new Uint8Array(n); for (let i = 0; i < n; i++) a[i] = rgba[i * 4] === 0 ? 1 : 0;
+    const pass = (src, horiz, erode) => {
+      const dst = new Uint8Array(n), L = horiz ? w : h, M = horiz ? h : w;
+      for (let m = 0; m < M; m++) {
+        let cnt = 0; const at = t => (horiz ? src[m * w + t] : src[t * w + m]);
+        for (let t = 0; t < Math.min(r, L); t++) cnt += at(t);
+        for (let t = 0; t < L; t++) {
+          if (t + r < L) cnt += at(t + r);
+          if (t - r - 1 >= 0) cnt -= at(t - r - 1);
+          const span = Math.min(L - 1, t + r) - Math.max(0, t - r) + 1;
+          const val = erode ? (cnt === span && span === 2 * r + 1 ? 1 : 0) : (cnt > 0 ? 1 : 0);
+          if (horiz) dst[m * w + t] = val; else dst[t * w + m] = val;
+        }
+      }
+      return dst;
+    };
+    a = pass(pass(a, true, true), false, true);
+    a = pass(pass(a, true, false), false, false);
+    const out = new Uint8ClampedArray(n * 4);
+    for (let i = 0; i < n; i++) { const vv = a[i] ? 0 : 255; out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = vv; out[i * 4 + 3] = 255; }
+    return out;
+  }
+  // connected-component clean-up of a binarised crop (T = expected character height in px):
+  // drops door bars / frames (too tall), long thin lines, specks, and the outline box drawn around the check digit
+  function ocrCleanBin(rgba, w, h, T) {
+    const n = w * h, ink = new Uint8Array(n), lab = new Int32Array(n).fill(-1), comps = [];
+    for (let i = 0; i < n; i++) ink[i] = rgba[i * 4] === 0 ? 1 : 0;
+    const stack = new Int32Array(n);
+    for (let i = 0; i < n; i++) {
+      if (!ink[i] || lab[i] >= 0) continue;
+      const id = comps.length; let sp = 0, x0 = w, y0 = h, x1 = -1, y1 = -1, area = 0;
+      stack[sp++] = i; lab[i] = id;
+      while (sp) {
+        const j = stack[--sp], x = j % w, y = (j - x) / w; area++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && ink[j - 1] && lab[j - 1] < 0) { lab[j - 1] = id; stack[sp++] = j - 1; }
+        if (x < w - 1 && ink[j + 1] && lab[j + 1] < 0) { lab[j + 1] = id; stack[sp++] = j + 1; }
+        if (y > 0 && ink[j - w] && lab[j - w] < 0) { lab[j - w] = id; stack[sp++] = j - w; }
+        if (y < h - 1 && ink[j + w] && lab[j + w] < 0) { lab[j + w] = id; stack[sp++] = j + w; }
+      }
+      comps.push({ x0, y0, x1, y1, area, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+    }
+    const drop = comps.map(c => c.h > 1.9 * T || (c.w > 3 * T && c.h < 0.45 * T) || (c.w < 0.3 * T && c.h < 0.3 * T) || c.area < 0.01 * T * T);
+    comps.forEach((c, k) => {                                   // outline box: char-sized, hollow, with another component inside
+      if (drop[k] || c.h < 0.7 * T || c.w < 0.35 * T || c.w > 1.6 * T || c.area / (c.w * c.h) > 0.3) return;
+      if (comps.some((d, m) => m !== k && !drop[m] && d.x0 > c.x0 && d.x1 < c.x1 && d.y0 > c.y0 && d.y1 < c.y1)) drop[k] = true;
+    });
+    const out = new Uint8ClampedArray(n * 4);
+    for (let i = 0; i < n; i++) { const v = ink[i] && !drop[lab[i]] ? 0 : 255; out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = v; out[i * 4 + 3] = 255; }
+    return out;
+  }
+  // skew of the text in a binarised crop (projection profile): the rotation (deg, for ocrCropRotScale) that makes text lines sharpest
+  function ocrEstimateSkew(rgba, w, h, maxDeg) {
+    const xs = [], ys = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (rgba[(y * w + x) * 4] === 0) { xs.push(x - w / 2); ys.push(y - h / 2); }
+    if (xs.length < 50) return 0;
+    const step = Math.max(1, Math.floor(xs.length / 40000));
+    let best = 0, bestScore = -1;
+    for (let d = -maxDeg; d <= maxDeg; d += 0.5) {
+      const a = d * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a), bins = new Float64Array(h * 2 + 4);
+      for (let i = 0; i < xs.length; i += step) { const yy = Math.round(xs[i] * sa + ys[i] * ca + h); if (yy >= 0 && yy < bins.length) bins[yy]++; }
+      let sc = 0; for (let i = 1; i < bins.length; i++) { const df = bins[i] - bins[i - 1]; sc += df * df; }
+      if (sc > bestScore) { bestScore = sc; best = d; }
+    }
+    return best;
+  }
+  // OCR words that look like the owner code (e.g. ONEU) or the serial -> anchor boxes for the crop
+  function containerAnchors(words) {
+    const out = [];
+    for (const wd of words || []) {
+      const t = String(wd.text || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), b = wd.bbox; if (!b || !t) continue;
+      const hgt = b.y1 - b.y0; if (hgt < 8) continue;
+      const head = t.slice(0, 4), letters = (head.match(/[A-Z]/g) || []).length;
+      const bl = wd.baseline, tilt = (bl && bl.has_baseline !== false && bl.x1 - bl.x0 > hgt * 1.5) ? Math.atan2(bl.y1 - bl.y0, bl.x1 - bl.x0) * 180 / Math.PI : 0;
+      if (t.length >= 4 && letters >= 2 && /^[A-Z0-9]{3}[UJZ0]$/.test(head)) out.push({ kind: 'owner', bbox: b, h: hgt, tilt, polarity: wd.polarity, conf: wd.confidence || 0, score: 2 + (letters === 4 ? 1 : 0) });
+      else if (/^\d{5,7}$/.test(t.replace(/[OD]/g, '0'))) out.push({ kind: 'serial', bbox: b, h: hgt, tilt, polarity: wd.polarity, conf: wd.confidence || 0, score: 1 });
+    }
+    out.sort((a, b) => (b.score - a.score) || (b.conf - a.conf));
+    const picked = [];
+    for (const a of out) if (!picked.some(p => Math.abs(p.bbox.y0 - a.bbox.y0) < p.h && Math.abs(p.bbox.x0 - a.bbox.x0) < p.h * 12)) picked.push(a);
+    return picked.slice(0, 2);
+  }
+  // merge reads of ONE photo: same number read by several passes = one read with votes
+  function mergeContainerReads(reads) {
+    const m = new Map();
+    for (const r of reads) {
+      const key = r.owner + r.serial + (r.check == null ? '?' : r.check);
+      const cur = m.get(key);
+      if (cur) cur.votes = (cur.votes || 1) + (r.votes || 1); else m.set(key, Object.assign({}, r, { votes: r.votes || 1 }));
+    }
+    return Array.from(m.values()).sort((a, b) => (b.valid - a.valid) || (b.votes - a.votes) || ((b.check != null) - (a.check != null)));
+  }
+  // safety: a "valid" read whose owner code disagrees with what most passes of the same photo read (e.g. OHEU / GIEU vs ONEU)
+  // is a lucky check-digit coincidence, not a read -> it is kept only as an unconfirmed raw read (never filled)
+  function consensusFilter(reads) {
+    const ov = {}, sv = {};
+    reads.forEach(r => { ov[r.owner] = (ov[r.owner] || 0) + (r.votes || 1); });
+    const topOwner = Object.keys(ov).sort((a, b) => ov[b] - ov[a])[0];
+    reads.forEach(r => { if (r.owner === topOwner) sv[r.serial] = (sv[r.serial] || 0) + (r.votes || 1); });
+    return reads.map(r => {
+      if (!r.valid) return r;
+      const badOwner = r.owner !== topOwner && ov[topOwner] >= 2 * ov[r.owner];
+      const near = Object.keys(sv).some(s2 => s2 !== r.serial && sv[s2] >= 2 && hamming(s2, r.serial) <= 1) || (sv[r.serial] || 0) >= 1;
+      if (badOwner || !near) return Object.assign({}, r, { valid: false, code: '', rejected: badOwner ? 'owner' : 'serial' });
+      return r;
+    });
+  }
+  // one photo -> container reads. Full-image passes first (unchanged), then a focused crop around the code:
+  // crop -> rotate (tilted photos) -> upscale -> local-contrast binarise -> remove thin lines -> OCR (single block / sparse)
+  async function ocrContainerPhoto(env) {
+    const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const img = await env.getRGBA(0, 2000);
+    let reads = [], words = [];
+    const run = async (data, w, h, psm) => { const r = await env.recognize(data, w, h, { psm, whitelist: AZ }); return r || { text: '' }; };
+    const okReads = () => consensusFilter(mergeContainerReads(reads)).filter(r => r.valid);
+    let budget = 30;                                             // max focused OCR passes per photo (speed)
+    const strong = () => { const v = okReads(); return v.length && (v[0].votes >= 2) && (v.length === 1 || v[0].votes >= 2 * v[1].votes); };
+    const tag = (ws, pol) => (ws || []).map(x => Object.assign({}, x, { polarity: pol }));
+    let r = await run(ocrBinaryWhiteText(img.data, img.w, img.h), img.w, img.h, 11);
+    reads = reads.concat(parseContainerOcr(r.text)); words = words.concat(tag(r.words, 'white'));
+    if (!reads.some(x => x.check != null)) {
+      r = await run(ocrBinaryDarkText(img.data, img.w, img.h), img.w, img.h, 11);
+      reads = reads.concat(parseContainerOcr(r.text)); words = words.concat(tag(r.words, 'dark'));
+    }
+    let anchors = containerAnchors(words);
+    if (!anchors.length && !reads.some(x => x.valid)) {       // nothing found: one local-contrast pass over the whole photo to locate the code
+      for (const pol of ['white', 'dark']) {
+        r = await run(ocrAdaptiveBin(img.data, img.w, img.h, { win: Math.max(15, Math.round(Math.max(img.w, img.h) / 60)) | 1, k: 20, polarity: pol }), img.w, img.h, 11);
+        reads = reads.concat(parseContainerOcr(r.text)); anchors = containerAnchors(tag(r.words, pol));
+        if (anchors.length) break;
+      }
+    }
+    for (const an of anchors) {
+      if (strong()) break;
+      const hU = an.h, b = an.bbox, est = Math.abs(an.tilt || 0) >= 1 ? an.tilt : 0;
+      const drift = Math.min(4, Math.tan(Math.max(Math.abs(est) * 2.5, 3) * Math.PI / 180) * 15) * hU;    // tilted text drifts up/down along the crop
+      const X = an.kind === 'owner' ? [b.x0 - hU, b.x0 + 15 * hU] : [b.x0 - 8 * hU, b.x1 + 3 * hU];
+      const rects = [
+        { x0: X[0], x1: X[1], y0: b.y0 - 0.7 * hU - drift / 2, y1: b.y1 + 0.7 * hU + drift / 2 },                       // one text line
+        { x0: X[0], x1: X[1], y0: b.y0 - (an.kind === 'owner' ? 0.7 : 2.6) * hU - drift / 2, y1: b.y1 + (an.kind === 'owner' ? 2.6 : 0.7) * hU + drift / 2 }   // owner / number on 2 lines
+      ];
+      const scale = Math.max(1, Math.min(4, 100 / hU)), T = hU * scale;
+      // skew from the projection profile of the (tall) crop; fall back to the word baseline
+      const probe = ocrCropRotScale(img.data, img.w, img.h, rects[1], 0, Math.min(scale, 2));
+      const pb = ocrCleanBin(ocrAdaptiveBin(probe.data, probe.w, probe.h, { win: Math.round(hU * Math.min(scale, 2) * 0.3) | 1, k: 20, polarity: an.polarity || 'white' }), probe.w, probe.h, hU * Math.min(scale, 2));
+      const sk = ocrEstimateSkew(pb, probe.w, probe.h, 14);
+      if (env.debug) env.debug('skew ' + sk + ' (baseline tilt ' + (an.tilt || 0).toFixed(1) + ')');
+      const angles = uniq([Math.abs(sk) >= 1 ? sk : 0, est ? -est * 2 : 0, 0, Math.abs(sk) >= 1 ? sk + (sk > 0 ? 2 : -2) : -4, est ? -est * 3 : 4].map(d => String(Math.round(d)))).map(Number);
+      const pols = an.polarity ? [an.polarity] : ['white', 'dark'];
+      outer:
+      for (let ri = 0; ri < rects.length; ri++) {
+        for (const deg of angles) {
+          const c = ocrCropRotScale(img.data, img.w, img.h, rects[ri], deg, scale);
+          for (const pol of pols) {
+            let got = false;
+            for (const [wf, mode] of [[0.3, 'clean'], [0.45, 'clean'], [0.3, 'open']]) {
+              const raw = ocrAdaptiveBin(c.data, c.w, c.h, { win: Math.round(T * wf) | 1, k: 20, polarity: pol });
+              const bin = mode === 'clean' ? ocrCleanBin(raw, c.w, c.h, T) : ocrOpenBin(ocrCleanBin(raw, c.w, c.h, T), c.w, c.h, Math.round(T * 0.07));
+              if (env.debugBin) env.debugBin(bin, c.w, c.h, ri + '_' + deg + '_' + pol + '_' + wf + '_' + mode);
+              for (const psm of ri === 0 ? [6] : [6, 11]) {
+                if (--budget < 0) break outer;
+                const rr = parseContainerOcr((await run(bin, c.w, c.h, psm)).text);
+                if (env.debug) env.debug('rect' + ri + ' ' + deg + '° ' + pol + ' ' + wf + ' ' + mode + ' psm' + psm + ': ' + rr.map(x => x.raw + (x.valid ? '✔' : '')).join(','));
+                if (rr.length) { got = true; an.polarity = pol; }
+                reads = reads.concat(rr);
+                if (strong()) break outer;
+              }
+            }
+            if (got) break;
+          }
+          if (okReads().length) break;                                                      // this angle gives a valid code -> no other angle
+        }
+        if (okReads().length) break;                                                        // one-line crop worked -> skip the 2-line crop
+      }
+    }
+    return consensusFilter(mergeContainerReads(reads));
+  }
   // reads (all photos of one container) + known containers from the declaration -> decision
   // -> { value, confirmed, source, note, raw }
   function resolveContainerOcr(reads, known) {
@@ -607,11 +834,15 @@
     const raw = reads.map(r => r.raw).join(' / ');
     const valid = reads.filter(r => r.valid);
     if (valid.length) {
-      const codes = uniq(valid.map(r => r.code));
+      // reads are merged per photo (votes = passes that read the same number) -> per code: photos + votes; a clearly dominant code wins
+      const agg = {}; valid.forEach(r => { const a = agg[r.code] || (agg[r.code] = { code: r.code, photos: 0, votes: 0 }); a.photos++; a.votes += r.votes || 1; });
+      const ranked = Object.values(agg).sort((a, b) => (b.photos - a.photos) || (b.votes - a.votes));
+      const dominant = ranked.length > 1 && ranked[0].photos >= ranked[1].photos && ranked[0].votes >= 2 * ranked[1].votes && !K.includes(ranked[1].code);
+      let codes = dominant ? [ranked[0].code] : ranked.map(a => a.code);
       const inK = codes.filter(c => K.includes(c));
-      const seenTwice = codes.length === 1 && valid.length >= 2;            // same valid number read in >= 2 photos
+      const seenTwice = codes.length === 1 && agg[codes[0]].photos >= 2;     // same valid number read in >= 2 photos
       if (codes.length === 1 && (inK.length || (!K.length && seenTwice)))
-        return { value: codes[0], confirmed: true, source: 'OCR', note: 'อ่านจากรูป (check digit ถูกต้อง)' + (inK.length ? ' · ตรงกับใบขน' : ' · ตรงกัน ' + valid.length + ' รูป'), raw };
+        return { value: codes[0], confirmed: true, source: 'OCR', note: 'อ่านจากรูป (check digit ถูกต้อง)' + (inK.length ? ' · ตรงกับใบขน' : ' · ตรงกัน ' + agg[codes[0]].photos + ' รูป'), raw };
       if (inK.length === 1) return { value: inK[0], confirmed: false, source: 'OCR', note: 'อ่านได้หลายเลข (' + codes.join(', ') + ') — กรุณายืนยัน', raw };
       if (!inK.length && K.length) {
         // valid-looking read that is NOT in the declaration: check whether it is 1 character away from a declaration container
@@ -630,8 +861,8 @@
     if (fz.length === 1) return { value: fz[0], confirmed: false, source: 'OCR+DECL', note: 'อ่านได้ไม่ชัด (' + raw + ') ตรงกับเลขตู้ในใบขน — กรุณายืนยัน', raw };
     const fixes = uniq([].concat(...reads.map(containerFixCandidates)));
     if (fixes.length === 1) return { value: fixes[0], confirmed: false, source: 'OCR-FIX', note: 'อ่านได้ไม่ชัด (' + raw + ') — กรุณายืนยัน', raw };
-    if (reads.length) return { value: '', confirmed: false, source: 'NONE', note: 'อ่านเลขตู้ไม่ชัด (' + raw + ') — กรุณากรอกเอง', raw };
-    return { value: '', confirmed: false, source: 'NONE', note: 'ไม่พบเลขตู้ในรูป — กรุณากรอกเอง', raw: '' };
+    if (reads.length) return { value: '', confirmed: false, source: 'NONE', note: CONTAINER_UNREAD + ' (อ่านได้ไม่ชัด: ' + raw + ')', raw };
+    return { value: '', confirmed: false, source: 'NONE', note: CONTAINER_UNREAD, raw: '' };
   }
   // OCR text of the seal passes -> digit strings 6..10 long
   function parseSealOcr(texts) {
@@ -661,15 +892,7 @@
   // PSM: 7 single line, 11 sparse text
   async function ocrAnalyzePhoto(env, opts) {
     const res = { containerReads: [], sealReads: [], tagRatio: 0 };
-    if (opts.container) {
-      const img = await env.getRGBA(0, 2000);
-      let r = await env.recognize(ocrBinaryWhiteText(img.data, img.w, img.h), img.w, img.h, { psm: 11, whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' });
-      res.containerReads = parseContainerOcr(r.text);
-      if (!res.containerReads.some(x => x.check != null)) {
-        r = await env.recognize(ocrBinaryDarkText(img.data, img.w, img.h), img.w, img.h, { psm: 11, whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' });
-        res.containerReads = res.containerReads.concat(parseContainerOcr(r.text));
-      }
-    }
+    if (opts.container) res.containerReads = await ocrContainerPhoto(env);          // local110
     if (opts.seal) {
       for (const rot of [90, 270, 0, 180]) {
         const img = await env.getRGBA(rot, 1600);
@@ -740,6 +963,7 @@
     photoHeader, splitList, buildMergedPdf, collageLayout, drawCollage,
     ocrBinaryWhiteText, ocrBinaryDarkText, ocrSealBands, isoCheckDigit, parseContainerOcr, containerFixCandidates,
     resolveContainerOcr, parseSealOcr, resolveSealOcr, ocrAnalyzePhoto,
+    consensusFilter, ocrCropRotScale, ocrAdaptiveBin, ocrOpenBin, ocrCleanBin, ocrEstimateSkew, containerAnchors, mergeContainerReads, ocrContainerPhoto, CONTAINER_UNREAD,
     STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));

@@ -352,7 +352,6 @@ table.tbl tr:last-child td{border-bottom:0}
 /* ---------- local107: upload zone + ① ② in ONE row (desktop only, layout only) ---------- */
 @media (min-width:901px){
   .content:has(#page-merge.active){max-width:none}          /* JOB window uses the full desktop width */
-  #page-merge > .cntr-card{max-width:1456px}                /* container list keeps its previous width (unchanged) */
   .up-row{display:grid;grid-template-columns:clamp(200px,17vw,320px) minmax(0,1fr);gap:10px;align-items:stretch;margin:2px 0 12px}
   .up-row .fl-title{display:none}
   .up-row .dz-one{margin:0;padding:10px 12px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px 10px;align-content:center;align-items:center}
@@ -485,6 +484,46 @@ table.tbl tr:last-child td{border-bottom:0}
   .bottom .export{height:38px;font-size:14px;padding:0 16px;border-radius:10px;gap:6px;box-shadow:0 4px 10px rgba(22,163,74,.25)}
 }
 @media (min-width:1501px){ #jobs-tbl{font-size:13.5px} }   /* 901–1500px keeps 13px (local104) so the table fits without inner scroll */
+/* ---------- local111: Desktop — container list full width + ❌ ปิดงาน, users page card (Mobile ≤900px unchanged) ---------- */
+.cntr-close{display:none}
+@media (min-width:901px){
+  .cntr-card{padding:12px 14px}
+  .cntr-head{gap:8px;margin-bottom:8px}
+  .cntr-head input,.cntr-head select{height:38px;font-size:13.5px}
+  .cntr-head .btn{height:38px;padding:0 12px;font-size:13.5px}
+  .cntr-head .cntr-close{display:inline-flex;background:#fff;border:1px solid #fecaca;color:#b91c1c;font-weight:600;border-radius:10px}
+  .cntr-head .cntr-close:hover{background:#fef2f2}
+  .cntr-card .tblwrap{border:1px solid #E2E8F0;border-radius:10px}
+  #cntr-tbl{border-collapse:collapse;box-shadow:none;border-radius:0;font-size:13.5px}
+  #cntr-tbl th,#cntr-tbl td{border:1px solid #E2E8F0;vertical-align:middle}
+  #cntr-tbl tr > :first-child{border-left:0} #cntr-tbl tr > :last-child{border-right:0} #cntr-tbl thead th{border-top:0} #cntr-tbl tbody tr:last-child td{border-bottom:0}
+  #cntr-tbl thead th{background:#EFF6FF;color:#173B70;font-weight:700;font-size:13px;height:40px;padding-top:0;padding-bottom:0;white-space:nowrap}
+  #cntr-tbl tbody td{height:56px;padding-top:6px;padding-bottom:6px}
+  #cntr-tbl tbody tr:hover td{background:#EAF3FF}
+  #cntr-tbl td:nth-child(6),#cntr-tbl td:nth-child(7){white-space:nowrap}
+  #cntr-tbl .pill{white-space:nowrap}
+  #cntr-tbl .xp{flex-wrap:nowrap}
+  #cntr-tbl .cin input{height:32px}
+  #cntr-tbl .note,#cntr-tbl .miss{white-space:nowrap;max-width:none}
+  #cntr-tbl .xp{gap:3px}
+  #cntr-tbl .xp .btn{padding:4px 7px;font-size:12px}
+  #cntr-tbl .phc{min-width:0}
+  .content:has(#page-users.active){max-width:none}
+  .users-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 2px 10px rgba(16,42,94,.06);padding:12px 14px}
+  .users-card .users-head{margin-bottom:10px;gap:8px}
+  .users-card .users-head .btn{height:38px;font-size:13.5px}
+  .users-card > div:last-child{border:1px solid #E2E8F0;border-radius:10px}
+  #users-tbl{border-collapse:collapse;box-shadow:none;border-radius:0;font-size:13.5px}
+  #users-tbl th,#users-tbl td{border:1px solid #E2E8F0;vertical-align:middle;padding:6px 10px}
+  #users-tbl tr > :first-child{border-left:0} #users-tbl tr > :last-child{border-right:0} #users-tbl thead th{border-top:0} #users-tbl tbody tr:last-child td{border-bottom:0}
+  #users-tbl thead th{background:#EFF6FF;color:#173B70;font-weight:700;font-size:13px;height:42px;padding-top:0;padding-bottom:0;white-space:nowrap}
+  #users-tbl tbody td{height:50px;background:#fff}
+  #users-tbl tbody tr:hover td{background:#EAF3FF}
+  #users-tbl .rowops{flex-wrap:nowrap;gap:6px}
+  #users-tbl .rowops .btn{height:32px;white-space:nowrap}
+  #users-tbl td:last-child{width:1%;white-space:nowrap}
+}
+@media (min-width:901px) and (max-width:1400px){ #cntr-tbl th,#cntr-tbl td{padding-left:5px;padding-right:5px} }
 .ai-row{display:flex;align-items:center;gap:10px;padding:6px;border-bottom:1px solid var(--line);font-size:12.5px}
 .ai-row img{width:54px;height:54px;object-fit:cover;border-radius:6px}
 .ai-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -523,7 +562,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local109</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local111</span></div>
   </div>
 </div>
 
@@ -539,7 +578,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local109</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local111</span></div>
   </aside>
 
   <div class="main">
@@ -621,6 +660,7 @@ table.tbl tr:last-child td{border-bottom:0}
             <button class="btn" id="btn-add-row">➕ เพิ่มตู้</button>
             <button class="btn" id="btn-auto-import">📥 นำเข้ารูปหลายตู้ (Auto)</button>
             <input type="file" id="in-auto" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+            <button class="btn cntr-close" id="btn-cntr-close" title="ปิดงาน — กลับรายการ JOB / รายงาน (ไม่เปลี่ยนสถานะ JOB)">❌ ปิดงาน</button>
           </div>
           <div class="cntr-sum" id="cntr-sum"></div>
           <div class="tblwrap"><table class="tbl ctbl" id="cntr-tbl">
@@ -664,6 +704,7 @@ table.tbl tr:last-child td{border-bottom:0}
 
       <!-- ============ PAGE: USERS ============ -->
       <section id="page-users" class="page">
+        <div class="users-card">
         <div class="users-head">
           <h3>👥 จัดการผู้ใช้</h3>
           <button class="btn blue" id="btn-add-user">➕ เพิ่มผู้ใช้</button>
@@ -673,6 +714,7 @@ table.tbl tr:last-child td{border-bottom:0}
           <thead><tr><th>Username</th><th>ชื่อแสดง</th><th>Role</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th>งาน</th><th>จัดการ</th></tr></thead>
           <tbody></tbody>
         </table></div>
+        </div>
       </section>
     </div>
   </div>
@@ -695,16 +737,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local109"></script>
+<script src="jp-core.js?v=local111"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local109)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local111)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local109',
+  APP_VERSION: 'local111',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -940,7 +982,8 @@ function showPage(p) {
   if (p === 'users' && !(state.me && state.me.role === 'SUPER_ADMIN')) { $('#users-tbl tbody').innerHTML = ''; p = 'merge'; }
   $$('.page').forEach(x => x.classList.toggle('active', x.id === 'page-' + p));
   $('#nav-jobs').classList.toggle('active', p === 'jobs' || p === 'merge');   // JOB window lives under รายการ JOB
-  $('.content').classList.toggle('wide', p === 'jobs');                         // รายการ JOB: full desktop width $('#nav-users').classList.toggle('active', p === 'users');
+  $('.content').classList.toggle('wide', p === 'jobs');                         // รายการ JOB: full desktop width
+  $('#nav-users').classList.toggle('active', p === 'users');
   $('#bottom-bar').classList.toggle('hidden', !(p === 'merge' && state.job.id));
   $('#sidebar').classList.remove('open'); $('#backdrop').classList.remove('show');
   if (p === 'users') loadUsers();
@@ -969,6 +1012,7 @@ function bindUI() {
   });
   $('#f-count').addEventListener('input', () => { const v = parseInt($('#f-count').value, 10); $('#h-count').textContent = (!v || v < 1 || v > 1000) ? '1 – 1000 ตู้' : v + ' ตู้' + (state.rows.length && v !== state.rows.length ? ' (ปัจจุบัน ' + state.rows.length + ')' : ''); });
   $('#f-layout').addEventListener('change', () => { $('#h-layout').textContent = $('#f-layout').value === 'REFERENCE' ? 'ใบขนหน้า 1 → บันทึกข้อความ → เอกสารที่เหลือ → รูปเต็มหน้า → หน้ารวมรูป' : 'ใบขน → บันทึกข้อความ → รูปละ 1 หน้า A4 + หัวข้อ'; });
+  $('#btn-cntr-close').addEventListener('click', async () => { if (!await confirmLeaveJob()) return; clearWorkspace(false); showPage('jobs'); });   // local111: ❌ ปิดงาน (UI only, JOB status unchanged)
   $('#btn-back-jobs').addEventListener('click', async () => { if (state.job.id) return showPage('jobs'); if (!await confirmLeaveJob()) return; clearWorkspace(false); showPage('jobs'); });
   $$('.fl-add').forEach(b => b.addEventListener('click', () => $('.cat .drop[data-cat="' + b.dataset.add + '"] input[type=file]').click()));
   $('#btn-jobs-new').addEventListener('click', async () => { await newJob(); });
@@ -1380,7 +1424,7 @@ async function saveJobInner() {
 }
 async function openJob(jobId, skipConfirm) {
   if (!skipConfirm && state.job.id !== jobId && !await confirmLeaveJob()) return;
-  showProgress('📂 กำลังเปิด JOB');
+  // local111: no loading overlay — the current page stays until the JOB data is ready, then switches at once
   try {
     const [jq, dq, rq] = await Promise.all([
       sb.from('jp_jobs').select('*').eq('id', jobId).single(),
@@ -1390,17 +1434,12 @@ async function openJob(jobId, skipConfirm) {
     if (jq.error) throw jq.error; if (dq.error) throw dq.error; if (rq.error) throw rq.error;
     const jb = jq.data, ds = dq.data || [];
     const docs = { DECLARATION: [], MEMO: [] };
-    let n = 0;
-    for (const d of ds) {
-      n++; setProgress('ดาวน์โหลด ' + d.file_name + ' (' + n + '/' + ds.length + ')', n / (ds.length + 1));
-      const { data, error } = await sb.storage.from(CONFIG.BUCKET).download(d.storage_path);
-      if (error) throw new Error(d.file_name + ': ' + errMsg(error));
-      const bytes = await data.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
-      const tf = await pdfTextFields(pdf, d.file_name);
-      const rot = Array.isArray(d.rotations) ? d.rotations : [];
-      docs[d.doc_type].push({ id: uid(), name: d.file_name, size: d.file_size, bytes, pageCount: pdf.numPages, rotations: Array.from({ length: pdf.numPages }, (_, i) => rot[i] || 0), pdfjs: pdf, saved: d, fields: tf.fields, addedAt: d.created_at });
-    }
+    const loaded = await Promise.all(ds.map(loadSavedDoc));                  // all PDFs in parallel (cached per storage path)
+    ds.forEach((d, i) => {
+      const { bytes, pdf, fields } = loaded[i];
+      const rot = Array.isArray(d.rotations) ? d.rotations : [];             // rotations / names always from the fresh DB row
+      docs[d.doc_type].push({ id: uid(), name: d.file_name, size: d.file_size, bytes, pageCount: pdf.numPages, rotations: Array.from({ length: pdf.numPages }, (_, k) => rot[k] || 0), pdfjs: pdf, saved: d, fields, addedAt: d.created_at });
+    });
     if (state.job.id !== jobId) clearPhotos();
     state.docs = docs; state.pendingDelete = { DECLARATION: [], MEMO: [] }; state.dirty = { DECLARATION: false, MEMO: false };
     state.rows = rq.data || [];
@@ -1416,11 +1455,25 @@ async function openJob(jobId, skipConfirm) {
     $('#f-count').value = state.rows.length || ''; $('#f-layout').value = state.job.pdf_layout;
     ['decl', 'bl'].forEach(k => { $('#f-' + k).classList.remove('auto'); $('#h-' + k).textContent = 'จาก JOB ที่บันทึกไว้'; });
     $('#h-count').textContent = state.rows.length ? state.rows.length + ' ตู้' : 'JOB นี้ยังไม่มีรายการตู้ — กรอกจำนวนแล้วกดบันทึก';
-    hideProgress();
     showPage('merge');
     renderAll();
     toast('เปิด JOB ' + jb.declaration_no + ' แล้ว (PDF ' + ds.length + ' ไฟล์ · ' + state.rows.length + ' ตู้' + (filled ? ' · เติมแถวที่ขาด ' + filled + ' แถว' : '') + ')', 'ok', 3500);
-  } catch (e) { hideProgress(); toast('เปิด JOB ไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
+  } catch (e) { toast('เปิด JOB ไม่สำเร็จ: ' + errMsg(e) + ' — กดเปิดอีกครั้งเพื่อลองใหม่', 'err', 8000); }
+}
+// saved PDF -> { bytes, pdf, fields }. Storage paths are unique per upload (never overwritten), so the cache can never show an old file.
+const savedDocCache = new Map();
+function loadSavedDoc(d) {
+  if (!savedDocCache.has(d.storage_path)) {
+    savedDocCache.set(d.storage_path, (async () => {
+      const { data, error } = await sb.storage.from(CONFIG.BUCKET).download(d.storage_path);
+      if (error) throw new Error(d.file_name + ': ' + errMsg(error));
+      const bytes = await data.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+      const tf = await pdfTextFields(pdf, d.file_name);
+      return { bytes, pdf, fields: tf.fields };
+    })().catch(e => { savedDocCache.delete(d.storage_path); throw e; }));   // failed download -> not cached, retry works
+  }
+  return savedDocCache.get(d.storage_path);
 }
 
 /* ===================================================== container rows */
@@ -1623,7 +1676,7 @@ function ocrEnv(worker, ph, im) {
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       const x = c.getContext('2d'); const id = x.createImageData(w, h); id.data.set(data); x.putImageData(id, 0, 0);
       const r = await worker.recognize(c);
-      return { text: (r && r.data && r.data.text) || '' };
+      return { text: (r && r.data && r.data.text) || '', words: ((r && r.data && r.data.words) || []).map(w => ({ text: w.text, bbox: w.bbox, confidence: w.confidence, baseline: w.baseline })) };   // local110: word boxes -> crop around the Container No.
     }
   };
 }
@@ -1652,7 +1705,7 @@ async function doRowOcr(id, jobId, force) {
     const worker = await ocrWorker(); if (!worker) return;
     if (force) photos.forEach(p => { p.ocr = null; });
     const sealPhotos = photos.filter(p => p.type === 'SEAL').concat(photos.filter(p => p.type !== 'SEAL' && p.type === 'OTHER'));
-    const cntrPhotos = ['CLOSED', 'OPEN1', 'OPEN2', 'OTHER'].reduce((a, t) => a.concat(photos.filter(p => p.type === t)), []);
+    const cntrPhotos = ['CLOSED', 'OPEN1', 'OPEN2', 'OTHER', 'SEAL'].reduce((a, t) => a.concat(photos.filter(p => p.type === t)), []);
     const known = declContainers();
     let cReads = [];
     if (force || !r.container_confirmed) {
@@ -1699,7 +1752,7 @@ async function applyOcrToRow(r, cDec, sDec) {
   if (Object.keys(patch).length) { if (isExportedValid(r)) patch.export_stale = true; try { await rowUpdate(r, patch); } catch (e) { /* toast */ } }
   const msgs = [];
   if (patch.container_no) msgs.push('ตู้ ' + patch.container_no + (patch.container_confirmed ? ' ✔' : ' (กรุณายืนยัน)'));
-  else if (cDec && !cDec.value && !cur) msgs.push('อ่านเลขตู้ไม่ชัด — กรุณากรอกเอง');
+  else if (cDec && !cDec.value && !cur) msgs.push(JPCore.CONTAINER_UNREAD);
   if (patch.seal_no) msgs.push('ซีล ' + patch.seal_no + (patch.seal_confirmed ? ' ✔' : ' (กรุณายืนยัน)'));
   else if (sDec && !sDec.value && !JPCore.cleanCode(r.seal_no)) msgs.push('อ่านเลขซีลไม่ได้ — กรุณากรอกเอง');
   if (msgs.length) toast('แถว ' + pad2(state.rows.indexOf(r) + 1) + ': ' + msgs.join(' · '), patch.container_no || patch.seal_no ? 'ok' : '', 4500);
