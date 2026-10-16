@@ -7057,8 +7057,9 @@ function delta005ParseInvoice(lines){
       }
     }
   }
+  // BOI 006: Product Code อนุญาต "/" และ "." ในรหัส เช่น AD-240/32N-B-S1 (แนวเดียวกับ PCODE_RE ของ Delta หลัก)
   for(const ln of lines){
-    const pm = ln.match(/^([A-Z0-9][A-Z0-9-]{6,})\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
+    const pm = ln.match(/^([A-Z0-9][A-Z0-9.\-\/]{6,})\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
     if(pm){
       r.productCode = pm[1];
       r.qty = parseInt(pm[2].replace(/,/g,''), 10) || 0;
@@ -7071,7 +7072,7 @@ function delta005ParseInvoice(lines){
   // (แนวเดียวกับ Strategy 2 ของ Delta หลัก) — Product Code = token แรกเท่านั้น
   if(!r.productCode){
     for(const ln of lines){
-      const pm = ln.match(/^([A-Z0-9][A-Z0-9-]{6,})\s+[\w\-\/]+\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
+      const pm = ln.match(/^([A-Z0-9][A-Z0-9.\-\/]{6,})\s+[\w\-\/]+\s+([\d,]+)\s+(PCE|PCS|EA|SET|KIT|BOX)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/i);
       if(pm){
         r.productCode = pm[1];
         r.qty = parseInt(pm[2].replace(/,/g,''), 10) || 0;
