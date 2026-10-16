@@ -1281,20 +1281,38 @@ function prOtLine(label,hrs,amt){
    payroll_items เก็บแต่ item_name จึงต้องแปลงชื่อกลับเป็น code ก่อนเรียก RPC
    โหลดครั้งเดียวตอนเปิดหน้าเงินเดือน · ไม่มีการยิงเพิ่มตอนกดแก้ไข */
 var PR_PAY_ITEMS={};
+/* [RUN-182] แปลงผลลัพธ์เป็นทะเบียนหัวข้อ — ใช้ร่วมกันทั้งสองแหล่ง
+   รูปแบบผลลัพธ์ที่ได้ต้องเหมือนเดิมทุกฟิลด์ หน้าอื่นจึงไม่ต้องแก้ตาม */
+function prFillPayItems(rows){
+  var m={},list=[];(rows||[]).forEach(function(r){
+    var nm=String(r.name_th||"");if(!nm)return;
+    if(r.active===false)return;
+    m[nm]={code:String(r.code||""),kind:String(r.kind||"").toUpperCase()};
+    /* [RUN-170] เก็บทะเบียนหัวข้อแบบเรียงลำดับไว้ให้ทุกหน้าใช้ร่วมกัน */
+    list.push({code:String(r.code||""),name:nm,kind:String(r.kind||"").toUpperCase(),
+      slip:r.show_in_slip!==false,report:r.show_in_report!==false,
+      sort:Number(r.sort_order)||0})});
+  list.sort(function(a,b){return a.sort-b.sort||(a.name<b.name?-1:a.name>b.name?1:0)});
+  PR_PAY_ITEMS=m;PAY_ITEM_LIST=list;return m}
+/* [RUN-182] พนักงาน (USER) ต้องเห็นหัวข้อรายได้/รายการหักครบเท่ากับ HR
+   ต้นเหตุ: njhr_pay_items มีด่าน SUPER_ADMIN/HR เท่านั้น USER จึงถูกปฏิเสธ 42501
+           ทำให้ PAY_ITEM_LIST ว่าง แล้วสลิปตกไปใช้ทางเดิมที่ซ่อนแถวยอด 0.00
+   แก้: ถ้าตัวเดิมถูกปฏิเสธ ให้ขอ "เฉพาะชื่อหัวข้อ" จาก njhr_slip_item_heads แทน
+        ฟังก์ชันนั้นคืนแค่ code/name_th/kind/sort_order/show_in_slip ไม่มียอดเงิน
+        และไม่มีข้อมูลของพนักงานคนใดเลย
+   HR และ SUPER_ADMIN ยังเรียก njhr_pay_items ตัวเดิมเป็นลำดับแรกเสมอ
+   ถ้าทั้งสองทางไม่ได้ผล ยังคืน PR_PAY_ITEMS เดิมเหมือนก่อนหน้านี้ ระบบไม่พัง */
 function prLoadPayItems(){
   return sbRpcList("njhr_pay_items",{p_token:sbToken(),p_q:null,p_kind:null,p_active:null})
-    .then(function(rows){
-      var m={},list=[];(rows||[]).forEach(function(r){
-        var nm=String(r.name_th||"");if(!nm)return;
-        if(r.active===false)return;
-        m[nm]={code:String(r.code||""),kind:String(r.kind||"").toUpperCase()};
-        /* [RUN-170] เก็บทะเบียนหัวข้อแบบเรียงลำดับไว้ให้ทุกหน้าใช้ร่วมกัน */
-        list.push({code:String(r.code||""),name:nm,kind:String(r.kind||"").toUpperCase(),
-          slip:r.show_in_slip!==false,report:r.show_in_report!==false,
-          sort:Number(r.sort_order)||0})});
-      list.sort(function(a,b){return a.sort-b.sort||(a.name<b.name?-1:a.name>b.name?1:0)});
-      PR_PAY_ITEMS=m;PAY_ITEM_LIST=list;return m})
-    ["catch"](function(){return PR_PAY_ITEMS})}
+    .then(prFillPayItems)
+    ["catch"](function(){
+      return sbRpcList("njhr_slip_item_heads",{p_token:sbToken()})
+        .then(function(rows){
+          /* ทางสำรองคืนรายการว่าง (เช่น ยังไม่ได้รัน SQL หรือยังไม่ตั้งหัวข้อ)
+             ต้องไม่ไปล้างทะเบียนเดิมที่โหลดไว้สำเร็จแล้วทิ้ง */
+          if(!rows||!rows.length)return PR_PAY_ITEMS;
+          return prFillPayItems(rows)})
+        ["catch"](function(){return PR_PAY_ITEMS})})}
 function prItemMeta(name){return PR_PAY_ITEMS[String(name||"")]||null}
 
 /* แถวรายการหักที่มาจากรายการเงินเดือน — ใช้ชื่อจริง ไม่ Hardcode
@@ -2454,10 +2472,16 @@ function epSendFailedAgain(){
 function epOpenSlip(payrollId,toPdf){openModal("E-PAYSLIP",'<div class="ep-state"><span class="spinner"></span> กำลังโหลดสลิป…</div>','<button class="btn btn-ghost" id="ep-close">ปิด</button>');var cb=document.getElementById("ep-close");if(cb)cb.onclick=closeModal;
 /* [RUN-157] §20 พนักงานอ่านจาก Final Snapshot "ฉบับที่ถูกส่ง" เท่านั้น ไม่ใช่ข้อมูลสด
    และไม่ใช่ Snapshot เวอร์ชันใหม่ที่ HR ยังไม่ได้กดส่ง */
-(function(){var _row=(epAllRows||[]).filter(function(r){return r.payroll_id===payrollId})[0];
+/* [RUN-182] รอทะเบียนหัวข้อให้พร้อมก่อนวาดสลิปเสมอ
+   เดิม viewEPayslip เรียก payItemsReady() แบบไม่รอผล ถ้าสลิปวาดเสร็จก่อน
+   PAY_ITEM_LIST จะยังว่าง แล้วตกไปใช้ทางเดิมที่ซ่อนแถวยอด 0.00
+   ฝั่ง USER มีโอกาสเกิดสูงกว่าเพราะต้องถาม 2 ชั้น (njhr_pay_items -> njhr_slip_item_heads)
+   payItemsReady() มี Promise cache อยู่แล้ว จึงไม่ได้ยิง RPC ซ้ำ ไม่ช้าลง */
+payItemsReady().then(function(){
+return(function(){var _row=(epAllRows||[]).filter(function(r){return r.payroll_id===payrollId})[0];
  return(!epIsAdmin()&&_row)
    ?sbRpc("njhr_slip_my_get",{p_token:sbToken(),p_year:_row.period_year,p_month:_row.period_month})
-   :sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:payrollId})})().then(function(r){var d=r&&r.data;if(!d)throw new Error("ไม่พบข้อมูลสลิป");closeModal();
+   :sbRpc("njhr_slip_get",{p_token:sbToken(),p_payroll_id:payrollId})})()}).then(function(r){var d=r&&r.data;if(!d)throw new Error("ไม่พบข้อมูลสลิป");closeModal();
 if(d.entry&&d.ot)d.entry.otBands=d.ot;
 var per={month:d.period_month,year:d.period_year,paidAt:d.pay_date,entries:[d.entry]};
 /* [RUN-174] toPdf==="pdf" -> ดาวน์โหลดไฟล์ .pdf ตรง ๆ (ใช้บนมือถือ)

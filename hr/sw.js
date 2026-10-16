@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-63f2c376';
+const V = 'njhr-v2-1bdeb9a7';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,7 +10,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=8abb4ead","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=93d4f0c5","./styles.css?v=5c932777","./mobile.css?v=a54fec67","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=3d3aa3b3","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=93d4f0c5","./styles.css?v=18f5554e","./mobile.css?v=a54fec67","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
@@ -277,14 +277,18 @@ self.addEventListener('fetch', e => {
     return u.pathname === '/' + name || u.pathname.endsWith('/' + name);
   });
   const isLazy = LAZY_PATHS.indexOf(file) >= 0;
-  if (!isCore && !isLazy) return;                               // ไฟล์อื่นปล่อยผ่าน
+  /* [RUN-181] ไฟล์ฟอนต์ที่ติดตั้งไว้ในเครื่อง — แคชตอนใช้จริงครั้งแรก ไม่ precache
+     จึงไม่เพิ่มเวลาติดตั้ง SW แต่เข้าซ้ำได้ฟอนต์ทันทีจากเครื่อง แม้เน็ตช้าหรือหลุด
+     Cache ผูกกับ build ปัจจุบัน (V) เมื่อ Deploy ใหม่จะดึงไฟล์ใหม่เองตามกติกาเดิม */
+  const isFont = u.pathname.indexOf('/assets/fonts/') >= 0 && /\.woff2?$/.test(file);
+  if (!isCore && !isLazy && !isFont) return;                    // ไฟล์อื่นปล่อยผ่าน
 
   /* เทียบ URL แบบตรงตัวรวม ?v= และค้นเฉพาะ cache ของ build ปัจจุบัน
      cache ของ build เก่าจึงคืน asset ให้ build ใหม่ไม่ได้เลย */
   e.respondWith(caches.open(V).then(c => c.match(e.request).then(hit => {
     if (hit) return hit;
     return fetch(e.request).then(resp => {
-      if (resp && resp.ok && (isCore || isLazy)) c.put(e.request, resp.clone());
+      if (resp && resp.ok && (isCore || isLazy || isFont)) c.put(e.request, resp.clone());
       return resp;
     });
   })));
