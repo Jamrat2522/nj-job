@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local101)
+ * J&P LOGISTICS — jp-core.js  (local102)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -13,7 +13,7 @@
   const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const PHOTO_TYPES = ['SEAL', 'CLOSED', 'OPEN2', 'OPEN1'];
   const PHOTO_TYPE_LABEL = {
-    SEAL: 'Seal No.', CLOSED: 'ประตูตู้ปิดสนิท', OPEN2: 'เปิดตู้สองข้าง', OPEN1: 'เปิดตู้ข้างเดียว', OTHER: 'รูปเพิ่มเติม'
+    SEAL: 'รูปซีล', CLOSED: 'ประตูตู้ปิดสนิท', OPEN2: 'เปิดตู้สองข้าง', OPEN1: 'เปิดตู้ข้างเดียว', OTHER: 'รูปเพิ่มเติม'
   };
 
   /* ---------------------------------------------------------------- dates */
@@ -269,7 +269,8 @@
     const s = { SEAL: 0, CLOSED: 0, OPEN2: 0, OPEN1: 0 };
     if (f) {
       // SEAL: close-up, little texture, paint-dominant, low colour entropy
-      s.SEAL = clamp01(1.2 - f.texture / 18) * 0.5 + clamp01(f.pinkRatio * 1.6) * 0.25 + clamp01(1 - f.hueEntropy / 2.2) * 0.25;
+      // close-up of the seal: little texture, almost no dark background (sky / container interior), paint-dominant, few colours
+      s.SEAL = clamp01(1.3 - f.texture / 45) * 0.4 + clamp01(f.pinkRatio * 1.6) * 0.25 + clamp01(1 - f.hueEntropy / 2.2) * 0.15 + clamp01(1 - f.darkRatio * 4) * 0.2;
       // CLOSED: paint-dominant, vertical bars, low colour entropy, symmetric
       s.CLOSED = clamp01(f.pinkRatio * 2.2) * 0.4 + clamp01((f.vEdgeRatio - 0.45) * 8) * 0.25 + clamp01(1 - f.hueEntropy / 2.6) * 0.2 + clamp01(1 - f.asym * 3) * 0.15;
       // OPEN2: colourful goods everywhere, little paint, symmetric, high texture
@@ -301,27 +302,30 @@
     for (const [, list] of Array.from(groups.entries()).sort((a, b) => a[0] - b[0])) {
       const scored = list.map(p => ({ p, s: scorePhotoTypes(p.features, p.fileName) }));
       const k = Math.min(4, scored.length);
-      // brute-force best assignment of k slots (<= 4! * C(n,4) combos, n small -> fine, cap n at 12 for search)
+      // brute-force best assignment of k photos to k of the 4 standard slots (slots may stay empty when < 4 photos,
+      // so 2 photos of opened doors are NOT forced into SEAL/CLOSED). cap search at 12 photos.
       const cand = scored.slice(0, 12);
       let best = null, bestScore = -1;
-      const slots = PHOTO_TYPES.slice(0, k);
-      const idx = cand.map((_, i) => i);
-      (function rec(chosen, used) {
-        if (chosen.length === k) {
+      (function rec(slot, chosen, used, count) {
+        if (slot === PHOTO_TYPES.length) {
+          if (count !== k) return;
           let sc = 0;
-          for (let i = 0; i < k; i++) sc += cand[chosen[i]].s[slots[i]];
+          for (let i = 0; i < chosen.length; i++) if (chosen[i] >= 0) sc += cand[chosen[i]].s[PHOTO_TYPES[i]];
           if (sc > bestScore) { bestScore = sc; best = chosen.slice(); }
           return;
         }
-        for (const i of idx) if (!used.has(i)) { used.add(i); chosen.push(i); rec(chosen, used); chosen.pop(); used.delete(i); }
-      })([], new Set());
+        const left = PHOTO_TYPES.length - slot;
+        if (k - count < left) { chosen.push(-1); rec(slot + 1, chosen, used, count); chosen.pop(); }   // leave slot empty
+        if (count < k) for (let i = 0; i < cand.length; i++) if (!used.has(i)) { used.add(i); chosen.push(i); rec(slot + 1, chosen, used, count + 1); chosen.pop(); used.delete(i); }
+      })(0, [], new Set(), 0);
       const usedIds = new Set();
       if (best) {
-        for (let i = 0; i < k; i++) {
+        for (let i = 0; i < best.length; i++) {
+          if (best[i] < 0) continue;
           const c = cand[best[i]];
           const sorted = Object.values(c.s).sort((a, b) => b - a);
           const margin = sorted[0] - (sorted[1] || 0);
-          result.push({ id: c.p.id, type: slots[i], confidence: clamp01(margin / 0.25) });
+          result.push({ id: c.p.id, type: PHOTO_TYPES[i], confidence: clamp01(margin / 0.25) });
           usedIds.add(c.p.id);
         }
       }
@@ -468,6 +472,264 @@
     return { bytes, pageCount: out.getPageCount(), parts: { pdfPages, photoPages: photos.length, collagePages: collages.length } };
   }
 
+  /* ================================================================ OCR (local102)
+   * Pure helpers — the browser (tesseract.js + canvas) and the node tests (tesseract.js + node-canvas)
+   * provide getRGBA() / recognize(); everything else is shared here.
+   * Rule: never guess. A container number is accepted automatically only when its ISO 6346 check digit is
+   * read and valid; a seal only when it matches the declaration. Anything else is filled as "ต้องยืนยัน".
+   * ================================================================ */
+  const OWNER_FIX = { '0': 'O', '1': 'I', '2': 'Z', '5': 'S', '6': 'G', '8': 'B', '4': 'A' };
+  // only the classic OCR confusions; the CHECK digit is never converted from a letter (must be read as a digit)
+  const DIGIT_FIX = { O: '0', D: '0', Q: '0', I: '1', L: '1', Z: '2', S: '5', G: '6', B: '8' };
+
+  // white paint text (most container doors) -> black text on white
+  function ocrBinaryWhiteText(rgba, w, h) {
+    const out = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h * 4; i += 4) {
+      const r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+      const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+      const v = (mn > 165 && mx - mn < 70) ? 0 : 255;
+      out[i] = out[i + 1] = out[i + 2] = v; out[i + 3] = 255;
+    }
+    return out;
+  }
+  // dark text on light paint (white/grey containers) -> black text on white
+  function ocrBinaryDarkText(rgba, w, h) {
+    const out = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h * 4; i += 4) {
+      const l = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
+      const v = l < 70 ? 0 : 255;
+      out[i] = out[i + 1] = out[i + 2] = v; out[i + 3] = 255;
+    }
+    return out;
+  }
+  function isTagColor(r, g, b) { return r > 140 && g > 90 && r - b > 80 && g - b > 40; }   // yellow / orange seal tag
+
+  // Seal tag: find the yellow/orange tag rows, keep dark ink inside the tag span, split into text-line bands.
+  // -> { tagRatio, bands: [{ data: RGBA (black on white, padded, x2), w, h }] }   (max 3 biggest bands)
+  function ocrSealBands(rgba, w, h, opts) {
+    opts = opts || {};
+    const scale = opts.scale || 2, pad = 20, maxBands = opts.maxBands || 3;
+    const L = new Int32Array(h).fill(-1), R = new Int32Array(h).fill(-1), cnt = new Int32Array(h);
+    let tagPx = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (isTagColor(rgba[i], rgba[i + 1], rgba[i + 2])) { if (L[y] < 0) L[y] = x; R[y] = x; cnt[y]++; tagPx++; }
+    }
+    const tagRatio = tagPx / (w * h);
+    if (tagRatio < 0.002) return { tagRatio, bands: [] };
+    let maxC = 0; for (let y = 0; y < h; y++) if (cnt[y] > maxC) maxC = cnt[y];
+    let y0 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) if (cnt[y] > maxC * 0.35) { if (y0 < 0) y0 = y; y1 = y; }
+    if (y0 < 0) return { tagRatio, bands: [] };
+    const ink = new Uint8Array(w * h), rowInk = new Int32Array(h);
+    for (let y = y0; y <= y1; y++) {
+      if (L[y] < 0) continue;
+      for (let x = L[y]; x <= R[y]; x++) {
+        const i = (y * w + x) * 4;
+        if ((rgba[i] + rgba[i + 1]) / 2 < 110 && !isTagColor(rgba[i], rgba[i + 1], rgba[i + 2])) { ink[y * w + x] = 1; rowInk[y]++; }
+      }
+    }
+    const bands = []; let s = -1;
+    for (let y = y0; y <= y1 + 1; y++) {
+      const on = y <= y1 && rowInk[y] > 4;
+      if (on && s < 0) s = y;
+      if (!on && s >= 0) { if (y - s > 8) bands.push([s, y - 1]); s = -1; }
+    }
+    const out = [];
+    for (const [b0, b1] of bands) {
+      let x0 = w, x1 = -1, area = 0;
+      for (let y = b0; y <= b1; y++) for (let x = 0; x < w; x++) if (ink[y * w + x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; area++; }
+      const bw = x1 - x0 + 1, bh = b1 - b0 + 1;
+      if (x1 < 0 || bh < 12 || bw < bh * 2) continue;
+      const W2 = (bw + pad * 2) * scale, H2 = (bh + pad * 2) * scale;
+      const data = new Uint8ClampedArray(W2 * H2 * 4).fill(255);
+      for (let y = b0; y <= b1; y++) for (let x = x0; x <= x1; x++) if (ink[y * w + x]) {
+        for (let dy = 0; dy < scale; dy++) for (let dx = 0; dx < scale; dx++) {
+          const j = (((y - b0 + pad) * scale + dy) * W2 + (x - x0 + pad) * scale + dx) * 4;
+          data[j] = data[j + 1] = data[j + 2] = 0;
+        }
+      }
+      out.push({ data, w: W2, h: H2, area });
+    }
+    out.sort((a, b) => b.area - a.area);
+    return { tagRatio, bands: out.slice(0, maxBands) };
+  }
+
+  function isoCheckDigit(code10) {
+    const map = {}; let v = 10;
+    for (let i = 0; i < 26; i++) { if (v % 11 === 0) v++; map[String.fromCharCode(65 + i)] = v; v++; }
+    let sum = 0;
+    for (let i = 0; i < 10; i++) { const ch = code10[i]; const val = i < 4 ? map[ch] : +ch; if (val == null || isNaN(val)) return -1; sum += val * Math.pow(2, i); }
+    return (sum % 11) % 10;
+  }
+  // OCR words -> container reads: [{owner, serial, check(null|digit), raw, valid, code}]
+  function parseContainerOcr(text) {
+    const t = ' ' + String(text || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+    const re = /(?=\s?([A-Z0-9]{3}[UJZ0-9])\s?([A-Z0-9]{6})(?:\s?([A-Z0-9]))?(?=\s))/g;
+    const out = [], seen = new Set();
+    let m;
+    while ((m = re.exec(t))) {
+      re.lastIndex = m.index + 1;
+      const ownerRaw = m[1], serialRaw = m[2], checkRaw = m[3] || '';
+      const owner = ownerRaw.split('').map((c, i) => (i < 3 ? (OWNER_FIX[c] || c) : (c === '0' ? 'U' : c))).join('');
+      if (!/^[A-Z]{3}[UJZ]$/.test(owner)) continue;
+      const digitsInSerial = (serialRaw.match(/\d/g) || []).length;
+      if (digitsInSerial < 5) continue;
+      const serial = serialRaw.split('').map(c => DIGIT_FIX[c] || c).join('');
+      if (!/^\d{6}$/.test(serial)) continue;
+      const chk = /^\d$/.test(checkRaw) ? +checkRaw : null;   // letter in the check position = check digit NOT read
+      const key = owner + serial + (chk == null ? '?' : chk);
+      if (seen.has(key)) continue; seen.add(key);
+      const valid = chk != null && isoCheckDigit(owner + serial) === chk;
+      out.push({ owner, serial, check: chk, raw: (ownerRaw + ' ' + serialRaw + ' ' + checkRaw).trim(), valid, code: valid ? owner + serial + chk : '' });
+    }
+    // prefer reads with a check digit / valid
+    out.sort((a, b) => (b.valid - a.valid) || ((b.check != null) - (a.check != null)));
+    return out;
+  }
+  function hamming(a, b) { if (a.length !== b.length) return 99; let d = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d; }
+  // single-character corrections of the serial that make the read check digit valid
+  function containerFixCandidates(read) {
+    if (read.check == null) return [];
+    const res = [];
+    for (let i = 0; i < 6; i++) for (let d = 0; d <= 9; d++) {
+      if (String(d) === read.serial[i]) continue;
+      const s2 = read.serial.slice(0, i) + d + read.serial.slice(i + 1);
+      if (isoCheckDigit(read.owner + s2) === read.check) res.push(read.owner + s2 + read.check);
+    }
+    return res;
+  }
+  // reads (all photos of one container) + known containers from the declaration -> decision
+  // -> { value, confirmed, source, note, raw }
+  function resolveContainerOcr(reads, known) {
+    const K = uniq((known || []).map(cleanCode).filter(c => /^[A-Z]{4}\d{7}$/.test(c)));
+    const raw = reads.map(r => r.raw).join(' / ');
+    const valid = reads.filter(r => r.valid);
+    if (valid.length) {
+      const codes = uniq(valid.map(r => r.code));
+      const inK = codes.filter(c => K.includes(c));
+      const seenTwice = codes.length === 1 && valid.length >= 2;            // same valid number read in >= 2 photos
+      if (codes.length === 1 && (inK.length || (!K.length && seenTwice)))
+        return { value: codes[0], confirmed: true, source: 'OCR', note: 'อ่านจากรูป (check digit ถูกต้อง)' + (inK.length ? ' · ตรงกับใบขน' : ' · ตรงกัน ' + valid.length + ' รูป'), raw };
+      if (inK.length === 1) return { value: inK[0], confirmed: false, source: 'OCR', note: 'อ่านได้หลายเลข (' + codes.join(', ') + ') — กรุณายืนยัน', raw };
+      if (!inK.length && K.length) {
+        // valid-looking read that is NOT in the declaration: check whether it is 1 character away from a declaration container
+        const near = K.filter(k => codes.some(c => hamming(k, c) <= 2));
+        return { value: near.length === 1 ? near[0] : codes[0], confirmed: false, source: 'OCR', note: 'เลขตู้จากรูป (' + codes.join(', ') + ') ไม่ตรงกับใบขน' + (near.length === 1 ? ' ใกล้เคียง ' + near[0] : '') + ' — กรุณายืนยัน', raw };
+      }
+      return { value: codes.length === 1 ? codes[0] : '', confirmed: false, source: 'OCR', note: codes.length > 1 ? 'อ่านได้หลายเลข (' + codes.join(', ') + ') — กรุณากรอก/ยืนยัน' : 'อ่านจากรูป 1 รูป — กรุณายืนยัน', raw };
+    }
+    // fuzzy match against the declaration: same owner, serial differs by <= 1, check digit equal (when read)
+    const fuzzy = [];
+    for (const r of reads) for (const k of K) {
+      if (k.slice(0, 4) !== r.owner) continue;
+      if (hamming(k.slice(4, 10), r.serial) <= 1 && (r.check == null || +k[10] === r.check)) fuzzy.push(k);
+    }
+    const fz = uniq(fuzzy);
+    if (fz.length === 1) return { value: fz[0], confirmed: false, source: 'OCR+DECL', note: 'อ่านได้ไม่ชัด (' + raw + ') ตรงกับเลขตู้ในใบขน — กรุณายืนยัน', raw };
+    const fixes = uniq([].concat(...reads.map(containerFixCandidates)));
+    if (fixes.length === 1) return { value: fixes[0], confirmed: false, source: 'OCR-FIX', note: 'อ่านได้ไม่ชัด (' + raw + ') — กรุณายืนยัน', raw };
+    if (reads.length) return { value: '', confirmed: false, source: 'NONE', note: 'อ่านเลขตู้ไม่ชัด (' + raw + ') — กรุณากรอกเอง', raw };
+    return { value: '', confirmed: false, source: 'NONE', note: 'ไม่พบเลขตู้ในรูป — กรุณากรอกเอง', raw: '' };
+  }
+  // OCR text of the seal passes -> digit strings 6..10 long
+  function parseSealOcr(texts) {
+    const out = [];
+    for (const t of texts || []) {
+      const toks = String(t || '').toUpperCase().replace(/[^0-9A-Z]+/g, ' ').split(' ');
+      for (const tok of toks) { const d = tok.replace(/[^0-9]/g, ''); if (/^[A-Z]{0,4}\d{6,10}$/.test(tok) && d.length >= 6 && d.length <= 10) out.push(tok); }
+    }
+    return out;
+  }
+  // seal reads + container + declaration pairs -> decision
+  function resolveSealOcr(reads, container, pairs) {
+    const counts = {}; (reads || []).forEach(r => { counts[r] = (counts[r] || 0) + 1; });
+    const list = Object.keys(counts);
+    const P = (pairs || []).filter(p => p && p.seal);
+    const forC = P.filter(p => container && cleanCode(p.container) === cleanCode(container)).map(p => cleanCode(p.seal));
+    const anyDecl = uniq(P.map(p => cleanCode(p.seal)));
+    const hit = (s) => list.some(r => r === s || (r.length > s.length && r.includes(s)));
+    for (const s of forC) if (hit(s)) return { value: s, confirmed: true, source: 'OCR+DECL', note: 'อ่านจากรูป ตรงกับซีลในใบขน' };
+    for (const s of anyDecl) if (hit(s)) return { value: s, confirmed: !container, source: 'OCR+DECL', note: container ? 'ซีลตรงกับใบขนแต่เป็นของตู้อื่น — กรุณายืนยัน' : 'อ่านจากรูป ตรงกับซีลในใบขน' };
+    if (!list.length) return { value: '', confirmed: false, source: 'NONE', note: 'อ่านเลขซีลไม่ได้ — กรุณากรอกเอง' };
+    list.sort((a, b) => (counts[b] - counts[a]) || (Math.abs(a.length - 8) - Math.abs(b.length - 8)));
+    return { value: list[0], confirmed: false, source: 'OCR', note: 'อ่านจากรูป — กรุณายืนยัน' + (list.length > 1 ? ' (พบ: ' + list.slice(0, 3).join(', ') + ')' : '') };
+  }
+
+  // Orchestration (same in browser and node). env = { getRGBA(rotDeg, maxEdge) -> {data,w,h}, recognize(data,w,h,{psm,whitelist}) -> {text} }
+  // PSM: 7 single line, 11 sparse text
+  async function ocrAnalyzePhoto(env, opts) {
+    const res = { containerReads: [], sealReads: [], tagRatio: 0 };
+    if (opts.container) {
+      const img = await env.getRGBA(0, 2000);
+      let r = await env.recognize(ocrBinaryWhiteText(img.data, img.w, img.h), img.w, img.h, { psm: 11, whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' });
+      res.containerReads = parseContainerOcr(r.text);
+      if (!res.containerReads.some(x => x.check != null)) {
+        r = await env.recognize(ocrBinaryDarkText(img.data, img.w, img.h), img.w, img.h, { psm: 11, whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' });
+        res.containerReads = res.containerReads.concat(parseContainerOcr(r.text));
+      }
+    }
+    if (opts.seal) {
+      for (const rot of [90, 270, 0, 180]) {
+        const img = await env.getRGBA(rot, 1600);
+        const sb = ocrSealBands(img.data, img.w, img.h);
+        res.tagRatio = Math.max(res.tagRatio, sb.tagRatio);
+        if (!sb.bands.length) { if (sb.tagRatio < 0.002) break; continue; }
+        const texts = [];
+        for (const b of sb.bands) {
+          texts.push((await env.recognize(b.data, b.w, b.h, { psm: 11, whitelist: '0123456789' })).text);
+          texts.push((await env.recognize(b.data, b.w, b.h, { psm: 7, whitelist: '0123456789' })).text);
+        }
+        res.sealReads = res.sealReads.concat(parseSealOcr(texts));
+      }
+    }
+    return res;
+  }
+
+  /* ======================================================= container rows (local102) */
+  const STANDARD_TYPES = PHOTO_TYPES;   // SEAL, CLOSED, OPEN2, OPEN1
+  const ROW_STATUS_LABEL = { WAITING: 'รอรูป', INCOMPLETE: 'รูปไม่ครบ', READY: 'พร้อม EXPORT', EXPORTED: 'EXPORT แล้ว' };
+  // row: {container_no, seal_no, container_confirmed, seal_confirmed, export_path, export_stale}; photos: [{type}]
+  function containerRowStatus(row, photos) {
+    photos = photos || [];
+    const types = new Set(photos.map(p => p.type));
+    const missingTypes = photos.length ? STANDARD_TYPES.filter(t => !types.has(t)) : STANDARD_TYPES.slice();
+    const missingData = [];
+    if (!cleanCode(row.container_no)) missingData.push('Container No.');
+    else if (!row.container_confirmed) missingData.push('ยืนยัน Container No.');
+    if (!cleanCode(row.seal_no)) missingData.push('Seal No.');
+    else if (!row.seal_confirmed) missingData.push('ยืนยัน Seal No.');
+    const exportedValid = !!row.export_path && !row.export_stale;
+    let status;
+    if (exportedValid) status = 'EXPORTED';
+    else if (!photos.length) status = 'WAITING';
+    else if (missingTypes.length || missingData.length) status = 'INCOMPLETE';
+    else status = 'READY';
+    const canExport = photos.length > 0 && missingData.length === 0;
+    let label = ROW_STATUS_LABEL[status];
+    if (status === 'INCOMPLETE' && !missingTypes.length && missingData.length) label = 'รอยืนยันข้อมูล';
+    return { status, label, missingTypes, missingData, canExport, exportedValid, stale: !!row.export_path && !!row.export_stale };
+  }
+  // JOB status for the report
+  function jobStatus(j) {
+    const total = +j.rows_count || +j.container_count || 0, done = +j.exported_count || 0;
+    if (!(+j.decl_files)) return { code: 'SAVED', label: 'บันทึกแล้ว' };
+    if (total > 0 && done >= total) return { code: 'DONE', label: 'EXPORT ครบ' };
+    if (done > 0) return { code: 'PARTIAL', label: 'ดำเนินการบางส่วน' };
+    return { code: 'WAITING', label: 'รอรูป' };
+  }
+  // "12 OCT 2026-A0050691019519_ONEYRICGU0155500_ONEU7578511.pdf"
+  function exportPdfName(job, containerNo) {
+    return sanitizeFileName(buildBaseName(job).base + '_' + (cleanCode(containerNo) || 'NO-CONTAINER')) + '.pdf';
+  }
+  // job.pdf_layout -> buildMergedPdf options
+  function layoutOptions(pdfLayout) {
+    return pdfLayout === 'REFERENCE'
+      ? { photoLayout: 'full', memoAfterFirstPage: true, collage: true }
+      : { photoLayout: 'a4header', memoAfterFirstPage: false, collage: false };
+  }
+
   return {
     MONTHS, PHOTO_TYPES, PHOTO_TYPE_LABEL,
     formatDateDDMMMYYYY, parseDateInput, parseISODate, toISODate,
@@ -475,6 +737,9 @@
     extractFieldsFromText, classifyPdfCategory, isoContainerValid,
     readJpegOrientation, exifToRotation,
     analyzeImageFeatures, scorePhotoTypes, autoOrderPhotos,
-    photoHeader, splitList, buildMergedPdf, collageLayout, drawCollage
+    photoHeader, splitList, buildMergedPdf, collageLayout, drawCollage,
+    ocrBinaryWhiteText, ocrBinaryDarkText, ocrSealBands, isoCheckDigit, parseContainerOcr, containerFixCandidates,
+    resolveContainerOcr, parseSealOcr, resolveSealOcr, ocrAnalyzePhoto,
+    STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));
