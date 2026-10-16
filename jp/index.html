@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>J&amp;P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b5ed7'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='900' font-size='28' fill='white' text-anchor='middle'%3EJ%26P%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --blue:#0b5ed7; --blue-dark:#0a3d91; --navy:#0f2d5c; --navy-2:#163d78; --ink:#13203a; --muted:#5b6b85;
+  --line:#dbe4f3; --bg:#f3f6fb; --card:#ffffff; --red:#e23b3b; --red-soft:#fff1f1; --purple:#7c3aed; --purple-soft:#f5f0ff;
+  --sky:#0ea5e9; --sky-soft:#eef7ff; --green:#16a34a; --green-dark:#15803d; --amber:#d97706; --radius:14px;
+  --shadow:0 4px 18px rgba(16,42,94,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:'Prompt',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--bg);font-size:15px}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
+a{color:var(--blue)}
+.hidden{display:none!important}
+.sr{position:absolute;left:-9999px}
+
+/* ---------- Login ---------- */
+#view-login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#eaf1ff 0%,#f6f9ff 50%,#e9f6ff 100%);padding:20px}
+.login-card{width:100%;max-width:420px;background:#fff;border-radius:22px;box-shadow:0 20px 50px rgba(11,61,145,.14);padding:34px 32px 26px;text-align:center}
+.login-card .logo{margin:0 auto 6px}
+.login-card h1{font-size:19px;margin:6px 0 2px;color:var(--navy)}
+.login-card p.sub{margin:0 0 22px;color:var(--muted);font-size:13px}
+.field{text-align:left;margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.field .in{position:relative}
+.field input{width:100%;height:46px;border:1.5px solid var(--line);border-radius:12px;padding:0 44px 0 14px;outline:none;transition:.15s;background:#fff}
+.field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,94,215,.12)}
+.eye{position:absolute;right:8px;top:7px;width:32px;height:32px;border:0;background:transparent;border-radius:8px;color:var(--muted)}
+.eye:hover{background:#eef3fb}
+.btn-primary{width:100%;height:48px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-weight:600;font-size:16px;box-shadow:0 8px 18px rgba(11,94,215,.25)}
+.btn-primary:hover{background:#0a53c0}
+.login-foot{margin-top:18px;font-size:12px;color:var(--muted)}
+.err{background:var(--red-soft);color:#b91c1c;border:1px solid #fecaca;border-radius:10px;padding:9px 12px;font-size:13px;text-align:left;margin-bottom:12px}
+
+/* ---------- App shell ---------- */
+#view-app{display:flex;min-height:100vh}
+.sidebar{width:212px;background:linear-gradient(180deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;flex-shrink:0;transition:transform .2s}
+.sidebar .brand{padding:18px 14px 10px;border-bottom:1px solid rgba(255,255,255,.12)}
+.nav{padding:12px 10px;display:flex;flex-direction:column;gap:6px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:#dfe8f9;padding:12px 14px;border-radius:12px;font-size:15px;text-align:left}
+.nav button:hover{background:rgba(255,255,255,.08)}
+.nav button.active{background:var(--blue);color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.2)}
+.nav button .ic{width:22px;text-align:center;font-size:18px}
+.sidebar .spacer{flex:1}
+.sidebar .me{padding:14px;border-top:1px solid rgba(255,255,255,.12);font-size:13px}
+.sidebar .me .u{font-weight:600;font-size:14px}
+.sidebar .me .r{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.15);font-size:11px;letter-spacing:.3px}
+.sidebar .ver{padding:0 14px 12px;font-size:11px;color:#9fb3d6}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:20}
+.topbar .ttl h2{margin:0;font-size:20px;color:var(--navy);display:flex;align-items:center;gap:8px}
+.topbar .ttl p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.topbar .tag{margin-left:auto;font-style:italic;color:var(--blue);font-weight:600;font-size:14px;white-space:nowrap}
+.burger{display:none;border:1px solid var(--line);background:#fff;border-radius:10px;width:40px;height:40px;font-size:18px}
+.content{padding:16px 22px 110px;max-width:1500px;width:100%}
+.page{display:none}.page.active{display:block}
+
+/* ---------- Field row ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.fields{display:grid;grid-template-columns:1.05fr 1.2fr 1.3fr 1.2fr 1fr;gap:14px;padding:16px 18px;margin-bottom:14px}
+.f label{display:block;font-size:13px;font-weight:500;color:var(--navy);margin-bottom:6px}
+.f label .req{color:var(--red)}
+.f .in{position:relative}
+.f input{width:100%;height:44px;border:1.5px solid var(--line);border-radius:11px;padding:0 12px;outline:none;font-size:15px;letter-spacing:.3px;background:#fff}
+.f input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,94,215,.12)}
+.f input.auto{background:#f2fbf4}
+.f .hint{font-size:11px;color:var(--muted);margin-top:4px;min-height:14px}
+.f .cal{position:absolute;right:6px;top:6px;width:32px;height:32px;border:0;background:transparent;border-radius:8px;font-size:17px}
+.f .cal input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+
+/* ---------- Dropzone ---------- */
+.dropzone{border:2px dashed #9db6e4;background:#f7faff;border-radius:var(--radius);padding:18px;text-align:center;color:var(--navy);margin-bottom:14px;transition:.15s;cursor:pointer}
+.dropzone.over{background:#e8f0ff;border-color:var(--blue);transform:scale(1.005)}
+.dropzone strong{font-size:16px}
+.dropzone small{display:block;color:var(--muted);margin-top:4px}
+
+/* ---------- 3 category cards ---------- */
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+.cat{border-radius:var(--radius);border:1px solid var(--line);background:#fff;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.cat .head{padding:12px 14px;display:flex;align-items:center;gap:10px}
+.cat .num{width:30px;height:30px;border-radius:50%;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cat .head h3{margin:0;font-size:16px}
+.cat .head p{margin:0;font-size:12px;color:var(--muted)}
+.cat.red{background:linear-gradient(180deg,#fff4f4 0%,#fff 60%)}.cat.red .num{background:var(--red)}.cat.red h3{color:#c81e1e}
+.cat.purple{background:linear-gradient(180deg,#f6f1ff 0%,#fff 60%)}.cat.purple .num{background:var(--purple)}.cat.purple h3{color:#6d28d9}
+.cat.sky{background:linear-gradient(180deg,#eef7ff 0%,#fff 60%)}.cat.sky .num{background:var(--sky)}.cat.sky h3{color:#0369a1}
+.cat .drop{margin:0 12px;border:1.5px dashed #b9c8e4;border-radius:12px;padding:16px 10px;text-align:center;cursor:pointer;background:rgba(255,255,255,.7)}
+.cat .drop.over{background:#e8f0ff;border-color:var(--blue)}
+.cat .drop .big{font-size:30px}
+.cat .drop b{display:block;font-size:14px;color:var(--navy)}
+.cat .drop small{display:block;font-size:12px;color:var(--muted)}
+.cat .drop .choose{margin-top:8px;border:0;background:var(--blue);color:#fff;border-radius:9px;padding:7px 16px;font-weight:500}
+.cat .stat{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:13.5px;flex-wrap:wrap}
+.cat .stat .ok{color:var(--green);font-size:16px}
+.cat .stat .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#fff7ed;color:var(--amber);border:1px solid #fed7aa}
+.cat .stat .badge.saved{background:#ecfdf5;color:var(--green-dark);border-color:#bbf7d0}
+.cat .actions{display:flex;gap:8px;padding:0 12px 12px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:10px;padding:8px 12px;font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:#f3f7ff;border-color:#b9cdf2}
+.btn.blue{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.blue:hover{background:#0a53c0}
+.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.green:hover{background:var(--green-dark)}
+.btn.danger{color:#b91c1c;border-color:#fecaca}.btn.danger:hover{background:#fff1f1}
+.btn.sm{padding:5px 9px;font-size:12.5px;border-radius:8px}
+.btn.icon{padding:5px 7px}
+
+/* ---------- Preview panels ---------- */
+.previews{display:grid;grid-template-columns:2.3fr 1fr 1.3fr;gap:14px;margin-bottom:14px}
+.pv{padding:12px 14px;min-height:120px}
+.pv h4{margin:0 0 10px;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pv h4 .num{width:24px;height:24px;border-radius:50%;color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.pv.red h4 .num{background:var(--red)}.pv.purple h4 .num{background:var(--purple)}.pv.sky h4 .num{background:var(--sky)}
+.pv h4 .tools{margin-left:auto;display:flex;gap:6px}
+.pages{display:flex;flex-wrap:wrap;gap:10px}
+.pg{width:96px;text-align:center;font-size:11.5px;color:var(--muted)}
+.pg .th{width:96px;height:120px;border:1px solid var(--line);border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.pg .th canvas{max-width:100%;max-height:100%;transition:transform .15s}
+.pg .th .rot{position:absolute;right:3px;bottom:3px;border:0;background:rgba(255,255,255,.92);border-radius:6px;font-size:12px;padding:2px 5px;box-shadow:0 1px 3px rgba(0,0,0,.2);display:none}
+.pg .th:hover .rot,.pg .th .rot.on{display:block}
+.pg .lbl{margin-top:3px}
+.file-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:13px;background:#fafcff}
+.file-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-row .pc{color:var(--muted);white-space:nowrap}
+.empty{color:var(--muted);font-size:13px;padding:12px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+
+/* photos */
+.photos{display:flex;flex-wrap:wrap;gap:10px}
+.ph{width:118px;position:relative;font-size:11.5px;text-align:center;color:var(--muted);cursor:grab}
+.ph.dragging{opacity:.5}
+.ph .th{width:118px;height:118px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;position:relative}
+.ph .th img{width:100%;height:100%;object-fit:cover;transition:transform .15s;display:block}
+.ph .n{position:absolute;left:5px;top:5px;background:rgba(15,45,92,.9);color:#fff;font-size:11px;padding:2px 7px;border-radius:999px;font-weight:600}
+.ph .tp{position:absolute;left:5px;bottom:5px;background:rgba(255,255,255,.93);color:var(--navy);font-size:10.5px;padding:1px 6px;border-radius:6px;max-width:106px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph .tp.low{background:#fff7ed;color:var(--amber)}
+.ph .ops{position:absolute;right:4px;top:4px;display:flex;flex-direction:column;gap:3px;opacity:0;transition:.15s}
+.ph:hover .ops,.ph.touch .ops{opacity:1}
+.ph .ops button{border:0;background:rgba(255,255,255,.95);border-radius:7px;width:26px;height:26px;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.ph .lbl{margin-top:4px;line-height:1.25}
+.ph select{width:100%;margin-top:3px;font-size:11px;border:1px solid var(--line);border-radius:6px;padding:2px}
+.ph.ghost{opacity:.35;border:2px dashed var(--blue);border-radius:10px}
+
+/* ---------- Bottom bar ---------- */
+.bottom{position:fixed;left:212px;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:12px;z-index:30;box-shadow:0 -6px 20px rgba(16,42,94,.08)}
+.bottom .lbl{font-weight:600;color:var(--navy);white-space:nowrap}
+.bottom .fname{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:11px;height:44px;display:flex;align-items:center;padding:0 12px;font-size:14px;background:#fafcff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;gap:8px}
+.bottom .fname .bad{color:var(--amber);font-size:12.5px}
+.bottom .opts{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--navy);white-space:nowrap}
+.bottom .opts label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.bottom .export{height:52px;border:0;border-radius:14px;background:linear-gradient(180deg,#22c55e,#16a34a);color:#fff;font-weight:700;font-size:17px;padding:0 24px;box-shadow:0 10px 22px rgba(22,163,74,.3);display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.bottom .export:hover{filter:brightness(1.05)}
+.bottom .export:disabled{filter:grayscale(.3)}
+
+/* ---------- Users page ---------- */
+.users-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.users-head h3{margin:0;font-size:17px;color:var(--navy)}
+table.tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);font-size:14px}
+table.tbl th,table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+table.tbl th{background:#f3f7ff;color:var(--navy);font-weight:600;font-size:13px}
+table.tbl tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600}
+.pill.admin{background:#eef2ff;color:#3730a3}.pill.user{background:#ecfeff;color:#155e75}
+.pill.on{background:#ecfdf5;color:var(--green-dark)}.pill.off{background:#fef2f2;color:#b91c1c}.pill.warn{background:#fff7ed;color:var(--amber)}
+.rowops{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ---------- Modals ---------- */
+.modal{position:fixed;inset:0;background:rgba(10,24,52,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:14px}
+.modal .box{background:#fff;border-radius:18px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 30px 70px rgba(0,0,0,.35);overflow:hidden}
+.modal .box.wide{max-width:1000px}
+.modal .box.xl{max-width:1200px;height:92vh}
+.modal .hd{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.modal .hd h3{margin:0;font-size:16px;color:var(--navy);flex:1}
+.modal .hd .x{border:0;background:#f1f5fb;border-radius:9px;width:34px;height:34px;font-size:16px}
+.modal .bd{padding:16px 18px;overflow:auto;flex:1}
+.modal .ft{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.modal iframe{width:100%;height:100%;border:0;min-height:60vh;background:#525659}
+.modal .box.xl .bd{padding:0}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:110;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+.lightbox img{max-width:94vw;max-height:84vh;object-fit:contain;transition:transform .15s}
+.lightbox .cap{color:#fff;font-size:14px}
+.lightbox .x{position:absolute;right:16px;top:14px;border:0;background:#fff;border-radius:50%;width:40px;height:40px;font-size:18px}
+.progress .bar{height:10px;background:#e8eef9;border-radius:999px;overflow:hidden;margin:12px 0}
+.progress .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),#60a5fa);width:0;transition:width .2s}
+.progress .msg{font-size:14px;color:var(--navy)}
+.search-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.search-row input{flex:1;min-width:160px;height:40px;border:1.5px solid var(--line);border-radius:10px;padding:0 12px}
+.job{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#fafcff}
+.job .info{flex:1;min-width:220px;font-size:13.5px}
+.job .info b{color:var(--navy)}
+.job .info small{color:var(--muted);display:block}
+.job .ops{display:flex;gap:6px;flex-wrap:wrap}
+.form .field input,.form .field select{width:100%;height:44px;border:1.5px solid var(--line);border-radius:11px;padding:0 12px;outline:none;background:#fff}
+.form .field select{padding-right:30px}
+.note{font-size:12.5px;color:var(--muted);background:#f3f7ff;border-radius:10px;padding:8px 10px;margin:4px 0 12px}
+.toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:92vw;opacity:0;transition:.2s}
+.toast.show{opacity:1}
+.toast.err{background:#b91c1c}.toast.ok{background:var(--green-dark)}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1180px){
+  .fields{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:12px}
+  .previews{grid-template-columns:1fr 1fr}
+}
+@media (max-width:900px){
+  .sidebar{position:fixed;left:0;top:0;z-index:60;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .burger{display:inline-flex;align-items:center;justify-content:center}
+  .bottom{left:0;flex-wrap:wrap;padding:10px 12px}
+  .bottom .lbl{display:none}
+  .bottom .fname{flex-basis:100%}
+  .bottom .opts{flex-direction:row;gap:12px}
+  .bottom .export{width:100%;justify-content:center}
+  .content{padding:12px 12px 150px}
+  .topbar{padding:10px 12px}
+  .topbar .tag{display:none}
+  .fields{grid-template-columns:1fr 1fr}
+  .cats{grid-template-columns:1fr}
+  .previews{grid-template-columns:1fr}
+  .ph .ops{opacity:1}
+  .pg .th .rot{display:block}
+}
+@media (max-width:520px){
+  .fields{grid-template-columns:1fr}
+  .topbar .ttl h2{font-size:17px}
+}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;display:none}
+.backdrop.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="view-login">
+  <div class="login-card">
+    <div class="logo" id="logo-login"></div>
+    <h1>📁 ระบบรวมไฟล์เอกสารศุลกากร</h1>
+    <p class="sub">เข้าสู่ระบบด้วยรหัสพนักงานและรหัสผ่านของคุณ</p>
+    <div id="login-err" class="err hidden"></div>
+    <form id="login-form" autocomplete="on">
+      <div class="field">
+        <label for="login-user">รหัสพนักงาน / Username</label>
+        <div class="in"><input id="login-user" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="เช่น jamlong"></div>
+      </div>
+      <div class="field">
+        <label for="login-pass">รหัสผ่าน / Password</label>
+        <div class="in">
+          <input id="login-pass" type="password" autocomplete="current-password" required placeholder="••••••••">
+          <button type="button" class="eye" id="login-eye" title="แสดง/ซ่อนรหัสผ่าน">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
+    </form>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local101</span></div>
+  </div>
+</div>
+
+<!-- ======================= APP ======================= -->
+<div id="view-app" class="hidden">
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand" id="logo-side"></div>
+    <nav class="nav">
+      <button id="nav-merge" class="active"><span class="ic">📁</span>รวมไฟล์</button>
+      <button id="nav-users" class="hidden"><span class="ic">👥</span>จัดการผู้ใช้</button>
+      <button id="nav-logout"><span class="ic">🚪</span>ออกจากระบบ</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local101</span></div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="burger" id="burger">☰</button>
+      <div class="ttl">
+        <h2><span>📁</span> รวมไฟล์เอกสารศุลกากร</h2>
+        <p>อัปโหลดเอกสารและรูปภาพครั้งเดียว · จัดเรียงอัตโนมัติ · รวมเป็น PDF · พร้อมดาวน์โหลด ZIP FILE</p>
+      </div>
+      <div class="tag">เอกสารครบ จบในที่เดียว</div>
+    </div>
+
+    <div class="content">
+      <!-- ============ PAGE: MERGE ============ -->
+      <section id="page-merge" class="page active">
+        <div class="card fields">
+          <div class="f"><label>วันที่เอกสาร <span class="req">*</span></label>
+            <div class="in"><input id="f-date" placeholder="12 OCT 2026" autocomplete="off"><span class="cal">📅<input type="date" id="f-date-pick" tabindex="-1"></span></div>
+            <div class="hint" id="h-date"></div></div>
+          <div class="f"><label>เลขใบขน <span class="req">*</span></label>
+            <div class="in"><input id="f-decl" placeholder="A0050691019519" autocomplete="off" autocapitalize="characters"></div>
+            <div class="hint" id="h-decl"></div></div>
+          <div class="f"><label>B/L No. <span class="req">*</span></label>
+            <div class="in"><input id="f-bl" placeholder="ONEYRICGU0155500" autocomplete="off" autocapitalize="characters"></div>
+            <div class="hint" id="h-bl"></div></div>
+          <div class="f"><label>Container No.</label>
+            <div class="in"><input id="f-cntr" placeholder="ONEU7578511, ..." autocomplete="off" autocapitalize="characters"></div>
+            <div class="hint" id="h-cntr">หลายตู้คั่นด้วย ,</div></div>
+          <div class="f"><label>Seal No.</label>
+            <div class="in"><input id="f-seal" placeholder="60518695, ..." autocomplete="off"></div>
+            <div class="hint" id="h-seal">เรียงตามลำดับตู้ คั่นด้วย ,</div></div>
+        </div>
+
+        <div class="dropzone" id="dz-all">
+          <strong>📤 ลากทุกไฟล์มาวางที่นี่ หรือคลิกเลือกไฟล์</strong>
+          <small>PDF ใบขนพร้อมเอกสาร · PDF บันทึกข้อความ · รูปภาพ JPG/JPEG/PNG — อัปโหลดหลายไฟล์พร้อมกันครั้งเดียว ระบบแยกหมวดให้อัตโนมัติ</small>
+          <input type="file" id="in-all" class="sr" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+        </div>
+
+        <div class="cats">
+          <div class="cat red" id="cat-DECLARATION">
+            <div class="head"><div class="num">1</div><div><h3>📄 ใบขนพร้อมเอกสาร</h3><p>รองรับไฟล์ PDF (หลายหน้า / หลายไฟล์)</p></div></div>
+            <div class="drop" data-cat="DECLARATION"><div class="big">📕</div><b>ลากไฟล์มาวางที่นี่</b><small>หรือคลิกเพื่อเลือกไฟล์ · รองรับเฉพาะ PDF</small><button type="button" class="choose">เลือกไฟล์</button>
+              <input type="file" class="sr" multiple accept=".pdf,application/pdf"></div>
+            <div class="stat" id="st-DECLARATION"></div>
+            <div class="actions">
+              <button class="btn sm" data-act="view" data-cat="DECLARATION">📄 ดูไฟล์</button>
+              <button class="btn sm blue" data-act="save" data-cat="DECLARATION">💾 บันทึกเอกสาร</button>
+              <button class="btn sm" data-act="open" data-cat="DECLARATION">📂 เรียกเอกสารที่บันทึกไว้</button>
+            </div>
+          </div>
+          <div class="cat purple" id="cat-MEMO">
+            <div class="head"><div class="num">2</div><div><h3>📝 บันทึกข้อความ</h3><p>รองรับไฟล์ PDF (หลายหน้า / เอกสารสแกน)</p></div></div>
+            <div class="drop" data-cat="MEMO"><div class="big">📘</div><b>ลากไฟล์มาวางที่นี่</b><small>หรือคลิกเพื่อเลือกไฟล์ · รองรับเฉพาะ PDF</small><button type="button" class="choose">เลือกไฟล์</button>
+              <input type="file" class="sr" multiple accept=".pdf,application/pdf"></div>
+            <div class="stat" id="st-MEMO"></div>
+            <div class="actions">
+              <button class="btn sm" data-act="view" data-cat="MEMO">📄 ดูไฟล์</button>
+              <button class="btn sm blue" data-act="save" data-cat="MEMO">💾 บันทึกเอกสาร</button>
+              <button class="btn sm" data-act="open" data-cat="MEMO">📂 เรียกเอกสารที่บันทึกไว้</button>
+            </div>
+          </div>
+          <div class="cat sky" id="cat-PHOTO">
+            <div class="head"><div class="num">3</div><div><h3>🖼️ รูปภาพสินค้า / รูปภาพตู้</h3><p>รองรับ JPG, JPEG, PNG (ไม่จำกัดจำนวน) · ใช้ชั่วคราว ไม่บันทึกถาวร</p></div></div>
+            <div class="drop" data-cat="PHOTO"><div class="big">🖼️</div><b>ลากรูปมาวางที่นี่</b><small>หรือคลิกเพื่อเลือกรูป · รองรับ JPG, JPEG, PNG</small><button type="button" class="choose">เลือกไฟล์</button>
+              <input type="file" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png"></div>
+            <div class="stat" id="st-PHOTO"></div>
+            <div class="actions">
+              <button class="btn sm" data-act="viewphotos">🖼️ ดูรูปภาพ</button>
+              <button class="btn sm" data-act="autoorder">🔄 เรียงอัตโนมัติ</button>
+              <button class="btn sm danger" data-act="clearphotos">🗑️ ล้างรูปทั้งหมด</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="previews">
+          <div class="card pv red"><h4><span class="num">1</span>ตัวอย่าง ใบขนพร้อมเอกสาร <span id="pc-DECLARATION">(0 หน้า)</span></h4><div id="files-DECLARATION"></div><div class="pages" id="pages-DECLARATION"></div></div>
+          <div class="card pv purple"><h4><span class="num">2</span>ตัวอย่าง บันทึกข้อความ <span id="pc-MEMO">(0 หน้า)</span></h4><div id="files-MEMO"></div><div class="pages" id="pages-MEMO"></div></div>
+          <div class="card pv sky"><h4><span class="num">3</span>ตัวอย่าง รูปภาพตู้สินค้า <span id="pc-PHOTO">(0 รูป)</span><span class="tools"><small style="color:var(--muted);font-weight:400">ลากเพื่อสลับลำดับ · โฮเวอร์เพื่อหมุน/ลบ</small></span></h4><div class="photos" id="photos"></div></div>
+        </div>
+      </section>
+
+      <!-- ============ PAGE: USERS ============ -->
+      <section id="page-users" class="page">
+        <div class="users-head">
+          <h3>👥 จัดการผู้ใช้</h3>
+          <button class="btn blue" id="btn-add-user">➕ เพิ่มผู้ใช้</button>
+          <button class="btn" id="btn-reload-users">🔄 โหลดใหม่</button>
+        </div>
+        <div style="overflow:auto"><table class="tbl" id="users-tbl">
+          <thead><tr><th>Username</th><th>ชื่อแสดง</th><th>Role</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th>งาน</th><th>จัดการ</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- bottom bar -->
+  <div class="bottom" id="bottom-bar">
+    <div class="lbl">ชื่อไฟล์ที่จะดาวน์โหลด (ZIP)</div>
+    <div class="fname"><span id="fname-txt">—</span><span class="bad" id="fname-bad"></span></div>
+    <button class="btn" id="btn-copy" title="คัดลอกชื่อไฟล์">📋 COPY</button>
+    <div class="opts"><label title="เพิ่มหน้าสุดท้ายรวม 4 รูปหลักแบบตาราง (เหมือนไฟล์ตัวอย่าง)"><input type="checkbox" id="opt-collage" checked> หน้ารวมรูป</label><label title="ปิด = รูปเต็มหน้าเหมือนไฟล์ตัวอย่าง · เปิด = 1 รูป/A4 พร้อมหัวข้อ PHOTO 01 | CONTAINER NO. | SEAL NO."><input type="checkbox" id="opt-header"> หัวข้อ PHOTO (A4)</label></div>
+    <button class="btn" id="btn-preview">👁 Preview PDF รวม</button>
+    <button class="export" id="btn-export">📦 EXPORT ZIP FILE ⬇️</button>
+  </div>
+</div>
+
+<div id="modals"></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script src="jp-core.js?v=local101"></script>
+<script>
+/* =====================================================================
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local101)
+ * ===================================================================== */
+'use strict';
+const CONFIG = {
+  SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
+  APP_VERSION: 'local101',
+  BUCKET: 'jp-documents',
+  EMAIL_DOMAIN: '@jp.local',
+  AUTH_STORAGE_KEY: 'jp-logistics-auth',
+  MAX_PHOTO_EDGE: 2600,          // px — larger photos are downscaled for the PDF (A4 300dpi = 2480)
+  MAX_PHOTO_BYTES: 8 * 1024 * 1024,
+  THUMB_W: 110
+};
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const CAT = { DECLARATION: { label: 'ใบขนพร้อมเอกสาร', num: 1 }, MEMO: { label: 'บันทึกข้อความ', num: 2 } };
+
+let sb = null;
+const state = {
+  me: null,
+  job: { id: null, owner_id: null, doc_date: '', declaration_no: '', bl_no: '', container_no: '', seal_no: '' },
+  docs: { DECLARATION: [], MEMO: [] },
+  pendingDelete: { DECLARATION: [], MEMO: [] },   // saved docs removed in UI, deleted on next save
+  photos: [],
+  dirty: { DECLARATION: false, MEMO: false },
+  autoFilled: {},
+  sortable: null,
+  opts: { header: false, collage: true }   // export layout: like the reference file by default
+};
+
+/* ------------------------------------------------------------- utils */
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtBytes = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+function toast(msg, kind, ms) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show ' + (kind || '');
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', ms || (kind === 'err' ? 5000 : 2600));
+}
+function errMsg(e) {
+  const m = (e && (e.message || e.error_description || e.msg)) || String(e);
+  if (/Invalid login credentials/i.test(m)) return 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง';
+  if (/banned|User is banned/i.test(m)) return 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'ไม่สามารถเชื่อมต่อฐานข้อมูล กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+  if (/row-level security/i.test(m)) return 'ไม่มีสิทธิ์ดำเนินการนี้ (RLS)';
+  if (/duplicate key.*jp_jobs_owner_decl_bl/i.test(m)) return 'มีงานเลขใบขน + B/L นี้บันทึกไว้แล้ว กรุณาเรียกเอกสารที่บันทึกไว้แทน';
+  if (/Password should be at least|PASSWORD_TOO_SHORT/i.test(m)) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+  if (/same_password|different from the old/i.test(m)) return 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม';
+  return m.replace(/^[A-Z_]+:\s*/, '');
+}
+
+/* ------------------------------------------------------------- modals */
+function openModal(html, opts) {
+  opts = opts || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'modal';
+  wrap.innerHTML = '<div class="box ' + (opts.size || '') + '">' + html + '</div>';
+  $('#modals').appendChild(wrap);
+  wrap.addEventListener('click', e => { if (e.target === wrap && !opts.sticky) wrap.remove(); });
+  $$('.x', wrap).forEach(b => b.addEventListener('click', () => { if (!opts.sticky) wrap.remove(); }));
+  return wrap;
+}
+function confirmDlg(title, body, okText, danger) {
+  return new Promise(res => {
+    const m = openModal('<div class="hd"><h3>' + esc(title) + '</h3></div><div class="bd" style="font-size:14px;line-height:1.6">' + body + '</div>' +
+      '<div class="ft"><button class="btn" data-r="0">ยกเลิก</button><button class="btn ' + (danger ? 'danger' : 'blue') + '" data-r="1">' + esc(okText || 'ตกลง') + '</button></div>', { sticky: true });
+    $$('[data-r]', m).forEach(b => b.addEventListener('click', () => { m.remove(); res(b.dataset.r === '1'); }));
+  });
+}
+function promptDlg(title, label, opts) {
+  opts = opts || {};
+  return new Promise(res => {
+    const m = openModal('<div class="hd"><h3>' + esc(title) + '</h3></div><div class="bd form"><div class="field"><label>' + esc(label) + '</label>' +
+      '<input id="pd-in" type="' + (opts.type || 'text') + '" value="' + esc(opts.value || '') + '" placeholder="' + esc(opts.placeholder || '') + '"></div>' +
+      (opts.note ? '<div class="note">' + opts.note + '</div>' : '') + '</div>' +
+      '<div class="ft"><button class="btn" data-r="0">ยกเลิก</button><button class="btn blue" data-r="1">' + esc(opts.ok || 'ตกลง') + '</button></div>', { sticky: true });
+    const inp = $('#pd-in', m); setTimeout(() => inp.focus(), 50);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { m.remove(); res(inp.value); } });
+    $$('[data-r]', m).forEach(b => b.addEventListener('click', () => { m.remove(); res(b.dataset.r === '1' ? inp.value : null); }));
+  });
+}
+let progressModal = null;
+function showProgress(title) {
+  hideProgress();
+  progressModal = openModal('<div class="hd"><h3>' + esc(title) + '</h3></div><div class="bd progress"><div class="msg" id="pg-msg">กำลังเริ่ม...</div><div class="bar"><i id="pg-bar"></i></div><div style="font-size:12px;color:var(--muted)">กรุณารอสักครู่ อย่าปิดหน้าต่างนี้</div></div>', { sticky: true });
+}
+function setProgress(msg, frac) { if (!progressModal) return; $('#pg-msg', progressModal).textContent = msg; $('#pg-bar', progressModal).style.width = Math.round(Math.max(0, Math.min(1, frac || 0)) * 100) + '%'; }
+function hideProgress() { if (progressModal) { progressModal.remove(); progressModal = null; } }
+
+/* --------------------------------------------------------------- logo */
+function logoSvg(w, light) {
+  const c1 = light ? '#ffffff' : '#0b5ed7', c2 = light ? '#9ec5ff' : '#0a3d91';
+  return '<svg width="' + w + '" viewBox="0 0 220 86" xmlns="http://www.w3.org/2000/svg" aria-label="J&P LOGISTICS">' +
+    '<path d="M12 60 C 40 12, 120 6, 206 22 C 150 18, 70 30, 24 66 Z" fill="' + c2 + '" opacity=".9"/>' +
+    '<text x="110" y="52" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-style="italic" font-size="46" fill="' + c1 + '">J&amp;P</text>' +
+    '<text x="110" y="78" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="17" letter-spacing="4" fill="' + c1 + '">LOGISTICS</text></svg>';
+}
+
+/* --------------------------------------------------------------- boot */
+window.addEventListener('DOMContentLoaded', boot);
+async function boot() {
+  $('#logo-login').innerHTML = logoSvg(170, false);
+  $('#logo-side').innerHTML = logoSvg(150, true);
+  $('#login-ver').textContent = CONFIG.APP_VERSION; $('#side-ver').textContent = CONFIG.APP_VERSION;
+  const missing = [];
+  if (!window.supabase) missing.push('supabase-js'); if (!window.PDFLib) missing.push('pdf-lib');
+  if (!window.pdfjsLib) missing.push('pdf.js'); if (!window.JSZip) missing.push('JSZip'); if (!window.JPCore) missing.push('jp-core.js');
+  if (missing.length) { $('#login-err').textContent = 'โหลดไลบรารีไม่สำเร็จ: ' + missing.join(', ') + ' — กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช'; $('#login-err').classList.remove('hidden'); return; }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, { auth: { storageKey: CONFIG.AUTH_STORAGE_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  bindUI();
+  loadServerVersion();
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) await enterApp();
+    else showLogin();
+  } catch (e) { showLogin(); }
+}
+async function loadServerVersion() {
+  try {
+    const { data } = await sb.from('jp_app_config').select('deployment_version').eq('id', 1).maybeSingle();
+    if (data && data.deployment_version && data.deployment_version !== CONFIG.APP_VERSION) {
+      $('#login-ver').textContent = CONFIG.APP_VERSION + ' (SERVER ' + data.deployment_version + ')';
+      $('#side-ver').textContent = CONFIG.APP_VERSION + ' / SERVER ' + data.deployment_version;
+    }
+  } catch (e) { /* info only */ }
+}
+function showLogin() { $('#view-app').classList.add('hidden'); $('#view-login').classList.remove('hidden'); }
+
+/* --------------------------------------------------------------- auth */
+async function login(e) {
+  e.preventDefault();
+  const u = $('#login-user').value.trim().toLowerCase(), p = $('#login-pass').value;
+  const err = $('#login-err'); err.classList.add('hidden');
+  if (!/^[a-z0-9._-]{3,32}$/.test(u)) { err.textContent = 'รหัสพนักงานไม่ถูกต้อง (a-z 0-9 . _ - ความยาว 3-32 ตัว)'; err.classList.remove('hidden'); return; }
+  const btn = $('#login-btn'); btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: u + CONFIG.EMAIL_DOMAIN, password: p });
+    if (error) throw error;
+    await enterApp();
+  } catch (ex) { err.textContent = errMsg(ex); err.classList.remove('hidden'); }
+  finally { btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; }
+}
+async function loadMe() {
+  const { data, error } = await sb.rpc('jp_me');
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+async function enterApp() {
+  let me;
+  try { me = await loadMe(); } catch (e) { await sb.auth.signOut(); throw e; }
+  if (!me) { await sb.auth.signOut(); $('#login-err').textContent = 'บัญชีนี้ไม่ใช่ผู้ใช้ของระบบ J&P LOGISTICS'; $('#login-err').classList.remove('hidden'); showLogin(); return; }
+  if (!me.is_active) { await sb.auth.signOut(); $('#login-err').textContent = 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ'; $('#login-err').classList.remove('hidden'); showLogin(); return; }
+  state.me = me;
+  $('#me-name').textContent = me.display_name && me.display_name !== me.username ? me.display_name + ' (' + me.username + ')' : me.username;
+  $('#me-role').textContent = me.role;
+  $('#nav-users').classList.toggle('hidden', me.role !== 'SUPER_ADMIN');
+  $('#view-login').classList.add('hidden'); $('#view-app').classList.remove('hidden');
+  $('#login-pass').value = '';
+  if (me.must_change_password) { await forceChangePassword(); return; }
+  sb.rpc('jp_touch_login').then(() => {}, () => {});
+  showPage('merge');
+  if (!state.job.doc_date) { state.job.doc_date = JPCore.toISODate(new Date()); $('#f-date').value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); }
+  updateFileName();
+}
+async function forceChangePassword() {
+  const m = openModal('<div class="hd"><h3>🔐 กรุณาเปลี่ยนรหัสผ่านก่อนใช้งานครั้งแรก</h3></div><div class="bd form">' +
+    '<div class="note">บัญชี <b>' + esc(state.me.username) + '</b> ต้องตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร และต้องไม่ซ้ำรหัสเดิม) ก่อนเข้าใช้งาน</div>' +
+    '<div class="field"><label>รหัสผ่านใหม่</label><input id="cp-1" type="password" autocomplete="new-password"></div>' +
+    '<div class="field"><label>ยืนยันรหัสผ่านใหม่</label><input id="cp-2" type="password" autocomplete="new-password"></div>' +
+    '<div id="cp-err" class="err hidden"></div></div>' +
+    '<div class="ft"><button class="btn" id="cp-cancel">ออกจากระบบ</button><button class="btn blue" id="cp-ok">บันทึกรหัสผ่านใหม่</button></div>', { sticky: true });
+  $('#cp-cancel', m).addEventListener('click', async () => { m.remove(); await logout(); });
+  $('#cp-ok', m).addEventListener('click', async () => {
+    const a = $('#cp-1', m).value, b = $('#cp-2', m).value, err = $('#cp-err', m);
+    err.classList.add('hidden');
+    if (a.length < 6) { err.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; err.classList.remove('hidden'); return; }
+    if (a !== b) { err.textContent = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'; err.classList.remove('hidden'); return; }
+    $('#cp-ok', m).disabled = true;
+    try {
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (error) throw error;
+      const r = await sb.rpc('jp_password_changed'); if (r.error) throw r.error;
+      m.remove(); toast('เปลี่ยนรหัสผ่านเรียบร้อย', 'ok');
+      await enterApp();
+    } catch (ex) { err.textContent = errMsg(ex); err.classList.remove('hidden'); $('#cp-ok', m).disabled = false; }
+  });
+}
+async function logout() {
+  try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
+  state.me = null; clearWorkspace(true); usersCache = []; $('#users-tbl tbody').innerHTML = '';
+  $('#login-err').classList.add('hidden'); $('#login-user').value = '';
+  showLogin();
+}
+function clearWorkspace(all) {
+  state.job = { id: null, owner_id: null, doc_date: all ? '' : state.job.doc_date, declaration_no: '', bl_no: '', container_no: '', seal_no: '' };
+  state.docs = { DECLARATION: [], MEMO: [] }; state.pendingDelete = { DECLARATION: [], MEMO: [] }; state.dirty = { DECLARATION: false, MEMO: false };
+  state.photos.forEach(p => URL.revokeObjectURL(p.url)); state.photos = []; state.autoFilled = {};
+  if (!all) { ['decl', 'bl', 'cntr', 'seal'].forEach(k => { $('#f-' + k).value = ''; $('#f-' + k).classList.remove('auto'); }); }
+  renderAll();
+}
+
+/* --------------------------------------------------------------- nav */
+function showPage(p) {
+  if (p === 'users' && !(state.me && state.me.role === 'SUPER_ADMIN')) { $('#users-tbl tbody').innerHTML = ''; p = 'merge'; }
+  $$('.page').forEach(x => x.classList.toggle('active', x.id === 'page-' + p));
+  $('#nav-merge').classList.toggle('active', p === 'merge'); $('#nav-users').classList.toggle('active', p === 'users');
+  $('#bottom-bar').classList.toggle('hidden', p !== 'merge');
+  $('#sidebar').classList.remove('open'); $('#backdrop').classList.remove('show');
+  if (p === 'users') loadUsers();
+}
+
+/* ------------------------------------------------------------- fields */
+function bindUI() {
+  $('#login-form').addEventListener('submit', login);
+  $('#login-eye').addEventListener('click', () => { const i = $('#login-pass'); i.type = i.type === 'password' ? 'text' : 'password'; });
+  $('#nav-merge').addEventListener('click', () => showPage('merge'));
+  $('#nav-users').addEventListener('click', () => showPage('users'));
+  $('#nav-logout').addEventListener('click', async () => { if (await confirmDlg('ออกจากระบบ', 'ต้องการออกจากระบบหรือไม่? ไฟล์ที่ยังไม่ได้บันทึกและรูปภาพในหน้านี้จะถูกล้าง', 'ออกจากระบบ')) logout(); });
+  $('#burger').addEventListener('click', () => { $('#sidebar').classList.toggle('open'); $('#backdrop').classList.toggle('show'); });
+  $('#backdrop').addEventListener('click', () => { $('#sidebar').classList.remove('open'); $('#backdrop').classList.remove('show'); });
+
+  // fields
+  const d = $('#f-date');
+  d.addEventListener('change', () => { const dt = JPCore.parseDateInput(d.value); if (dt) { state.job.doc_date = JPCore.toISODate(dt); d.value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); $('#h-date').textContent = ''; } else { state.job.doc_date = ''; $('#h-date').textContent = d.value ? 'รูปแบบวันที่ไม่ถูกต้อง (เช่น 12 OCT 2026 หรือ 12/10/2026)' : ''; } updateFileName(); });
+  d.addEventListener('input', () => { const dt = JPCore.parseDateInput(d.value); state.job.doc_date = dt ? JPCore.toISODate(dt) : ''; updateFileName(); });
+  $('#f-date-pick').addEventListener('change', e => { if (e.target.value) { state.job.doc_date = e.target.value; d.value = JPCore.formatDateDDMMMYYYY(e.target.value); $('#h-date').textContent = ''; updateFileName(); } });
+  [['decl', 'declaration_no'], ['bl', 'bl_no'], ['cntr', 'container_no'], ['seal', 'seal_no']].forEach(([k, key]) => {
+    const i = $('#f-' + k);
+    i.addEventListener('input', () => { state.job[key] = (k === 'seal' ? i.value.toUpperCase() : JPCore.cleanCode(i.value).replace(/,/g, ', ')); i.classList.remove('auto'); $('#h-' + k).textContent = (k === 'cntr' ? 'หลายตู้คั่นด้วย ,' : k === 'seal' ? 'เรียงตามลำดับตู้ คั่นด้วย ,' : ''); updateFileName(); if (k === 'cntr' || k === 'seal') renderPhotos(); });
+    i.addEventListener('blur', () => { if (k === 'decl' || k === 'bl') i.value = JPCore.cleanCode(i.value); });
+  });
+
+  // drop zones
+  setupDrop($('#dz-all'), null, $('#in-all'));
+  $$('.cat .drop').forEach(z => setupDrop(z, z.dataset.cat, $('input[type=file]', z)));
+  $$('.cat .actions button').forEach(b => b.addEventListener('click', () => catAction(b.dataset.act, b.dataset.cat)));
+  document.addEventListener('dragover', e => e.preventDefault()); document.addEventListener('drop', e => e.preventDefault());
+
+  // bottom
+  $('#btn-copy').addEventListener('click', async () => { const n = buildName(); try { await navigator.clipboard.writeText(n.base + '.zip'); toast('คัดลอกชื่อไฟล์แล้ว: ' + n.base + '.zip', 'ok'); } catch (e) { toast(n.base + '.zip'); } });
+  $('#btn-preview').addEventListener('click', previewMerged);
+  $('#opt-collage').addEventListener('change', e => { state.opts.collage = e.target.checked; });
+  $('#opt-header').addEventListener('change', e => { state.opts.header = e.target.checked; });
+  $('#btn-export').addEventListener('click', exportZip);
+
+  // users
+  $('#btn-add-user').addEventListener('click', addUserDlg);
+  $('#btn-reload-users').addEventListener('click', loadUsers);
+  $('#users-tbl').addEventListener('click', userAction);
+
+  window.addEventListener('beforeunload', e => { if (state.dirty.DECLARATION || state.dirty.MEMO || state.photos.length) { e.preventDefault(); e.returnValue = ''; } });
+}
+function setupDrop(zone, cat, input) {
+  zone.addEventListener('click', e => { if (e.target.tagName === 'INPUT') return; input.click(); });
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('change', () => { addFiles(Array.from(input.files || []), cat); input.value = ''; });
+  zone.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('over'); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', e => { e.stopPropagation(); zone.classList.remove('over'); });
+  zone.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('over'); addFiles(Array.from(e.dataTransfer.files || []), cat); });
+}
+function buildName() { return JPCore.buildBaseName(state.job); }
+function updateFileName() {
+  const n = buildName();
+  $('#fname-txt').textContent = n.base + '.zip';
+  $('#fname-bad').textContent = n.ok ? '' : '⚠ กรุณากรอก: ' + n.missing.join(', ');
+}
+function applyAutoFill(f, src) {
+  // only fill EMPTY fields; never overwrite what the user typed; never invent values
+  const fills = [];
+  if (f.declaration_no && !state.job.declaration_no) { state.job.declaration_no = f.declaration_no; $('#f-decl').value = f.declaration_no; $('#f-decl').classList.add('auto'); $('#h-decl').textContent = 'อ่านอัตโนมัติจาก ' + src; fills.push('เลขใบขน'); }
+  if (f.bl_no && !state.job.bl_no) { state.job.bl_no = f.bl_no; $('#f-bl').value = f.bl_no; $('#f-bl').classList.add('auto'); $('#h-bl').textContent = 'อ่านอัตโนมัติจาก ' + src; fills.push('B/L'); }
+  if (f.containers && f.containers.length && !state.job.container_no) { state.job.container_no = f.containers.join(', '); $('#f-cntr').value = state.job.container_no; $('#f-cntr').classList.add('auto'); $('#h-cntr').textContent = 'อ่านอัตโนมัติจาก ' + src; fills.push('Container'); }
+  if (f.seals && f.seals.length && !state.job.seal_no) {
+    const cs = JPCore.splitList(state.job.container_no);
+    const seals = cs.length ? cs.map(c => { const s = f.seals.find(x => x.container === c); return s ? s.seal : ''; }) : [f.seals[0].seal];
+    if (seals.some(Boolean)) { state.job.seal_no = seals.join(', '); $('#f-seal').value = state.job.seal_no; $('#f-seal').classList.add('auto'); $('#h-seal').textContent = 'อ่านอัตโนมัติจาก ' + src; fills.push('Seal'); }
+  }
+  if (fills.length) toast('อ่านข้อมูลจาก PDF: ' + fills.join(', ') + ' (ตรวจสอบและแก้ไขได้)', 'ok', 3500);
+  updateFileName(); renderPhotos();
+}
+
+/* ------------------------------------------------------------ ingest */
+async function addFiles(files, cat) {
+  if (!files.length) return;
+  const pdfs = [], imgs = [], bad = [];
+  for (const f of files) {
+    const n = f.name.toLowerCase();
+    if (f.type === 'application/pdf' || n.endsWith('.pdf')) pdfs.push(f);
+    else if (/image\/(jpeg|png)/.test(f.type) || /\.(jpe?g|png)$/.test(n)) imgs.push(f);
+    else bad.push(f.name);
+  }
+  if (bad.length) toast('ข้ามไฟล์ที่ไม่รองรับ: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? ' +' + (bad.length - 3) : ''), 'err');
+  if (cat === 'PHOTO' && pdfs.length) { toast('หมวดรูปภาพรับเฉพาะ JPG/PNG — ไฟล์ PDF ถูกส่งไปหมวดเอกสาร'); }
+  if ((cat === 'DECLARATION' || cat === 'MEMO') && imgs.length) toast('รูปภาพถูกส่งไปหมวด ③ รูปภาพ');
+  if (pdfs.length) await ingestPdfs(pdfs, cat === 'DECLARATION' || cat === 'MEMO' ? cat : null);
+  if (imgs.length) await ingestPhotos(imgs);
+}
+async function ingestPdfs(files, forcedCat) {
+  showProgress('กำลังอ่านไฟล์ PDF');
+  let i = 0;
+  for (const f of files) {
+    i++; setProgress('อ่าน ' + f.name + ' (' + i + '/' + files.length + ')', i / (files.length + 1));
+    try {
+      const bytes = await f.arrayBuffer();
+      const doc = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+      const pageCount = doc.numPages;
+      let text = '';
+      for (let p = 1; p <= Math.min(pageCount, 12); p++) { try { const tc = await (await doc.getPage(p)).getTextContent(); text += tc.items.map(x => x.str).join(' ') + '\n'; } catch (e) { /* skip */ } }
+      const fields = JPCore.extractFieldsFromText(text, f.name);
+      const cat = forcedCat || JPCore.classifyPdfCategory(text, f.name, pageCount, { declarationCount: state.docs.DECLARATION.length });
+      const item = { id: uid(), name: f.name, size: f.size, bytes, pageCount, rotations: new Array(pageCount).fill(0), pdfjs: doc, saved: null, fields };
+      state.docs[cat].push(item); state.dirty[cat] = true;
+      if (cat === 'DECLARATION' || fields.declaration_no || fields.bl_no) applyAutoFill(fields, f.name);
+      renderCat(cat); renderThumbs(cat, item);
+    } catch (e) { toast('ไฟล์ PDF เปิดไม่ได้: ' + f.name + ' — ' + errMsg(e), 'err', 6000); }
+  }
+  hideProgress(); updateFileName();
+}
+async function ingestPhotos(files) {
+  const added = [];
+  showProgress('กำลังโหลดรูปภาพ');
+  let i = 0;
+  for (const f of files) {
+    i++; setProgress('โหลด ' + f.name + ' (' + i + '/' + files.length + ')', i / (files.length + 1));
+    const ph = { id: uid(), file: f, name: f.name, url: URL.createObjectURL(f), rotation: 0, type: 'OTHER', confidence: 1, container: 0, features: null, w: 0, h: 0 };
+    try { await analyzePhoto(ph); } catch (e) { URL.revokeObjectURL(ph.url); toast('รูปภาพเปิดไม่ได้: ' + f.name, 'err', 5000); continue; }
+    state.photos.push(ph); added.push(ph);
+    if (i % 8 === 0) { renderPhotos(); await sleep(0); }
+  }
+  hideProgress();
+  if (added.length) { autoOrderPhotos(true); toast('เพิ่มรูป ' + added.length + ' รูป · เรียงลำดับอัตโนมัติแล้ว (ตรวจสอบ/ลากสลับได้)', 'ok', 3500); }
+}
+function loadImage(url) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('decode')); im.src = url; }); }
+async function analyzePhoto(ph) {
+  const im = await loadImage(ph.url);
+  ph.w = im.naturalWidth; ph.h = im.naturalHeight;
+  const W = 96, H = Math.max(8, Math.round(W * im.naturalHeight / im.naturalWidth));
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(im, 0, 0, W, H);                     // browsers apply EXIF orientation here
+  ph.features = JPCore.analyzeImageFeatures(ctx.getImageData(0, 0, W, H).data, W, H);
+}
+function autoOrderPhotos(silent) {
+  if (!state.photos.length) { if (!silent) toast('ยังไม่มีรูปภาพ'); return; }
+  const order = JPCore.autoOrderPhotos(state.photos.map(p => ({ id: p.id, features: p.features, fileName: p.name, container: p.container })));
+  const byId = new Map(state.photos.map(p => [p.id, p]));
+  state.photos = order.map(o => { const p = byId.get(o.id); p.type = o.type; p.confidence = o.confidence; return p; });
+  renderPhotos();
+  if (!silent) toast('เรียงรูปอัตโนมัติแล้ว: Seal → ประตูปิด → เปิดสองข้าง → เปิดข้างเดียว → รูปเพิ่มเติม', 'ok', 3500);
+}
+
+/* ------------------------------------------------------------ render */
+function renderAll() { renderCat('DECLARATION'); renderCat('MEMO'); state.docs.DECLARATION.forEach(d => renderThumbs('DECLARATION', d)); state.docs.MEMO.forEach(d => renderThumbs('MEMO', d)); renderPhotos(); updateFileName(); }
+function renderCat(cat) {
+  const items = state.docs[cat];
+  const pages = items.reduce((a, b) => a + b.pageCount, 0);
+  const st = $('#st-' + cat);
+  if (!items.length) st.innerHTML = '<span style="color:var(--muted)">ยังไม่มีไฟล์</span>' + (state.pendingDelete[cat].length ? ' <span class="badge">มีไฟล์ที่ลบ ยังไม่บันทึก</span>' : '');
+  else {
+    const savedAll = items.every(d => d.saved) && !state.dirty[cat];
+    st.innerHTML = '<span class="ok">✔</span> ' + items.length + ' ไฟล์ (PDF) · ' + pages + ' หน้า ' +
+      (savedAll ? '<span class="badge saved">บันทึกแล้ว</span>' : '<span class="badge">ยังไม่ได้บันทึก</span>');
+  }
+  $('#pc-' + cat).textContent = '(' + pages + ' หน้า)';
+  const fl = $('#files-' + cat);
+  fl.innerHTML = items.map(d => '<div class="file-row"><span>📄</span><span class="nm" title="' + esc(d.name) + '">' + esc(d.name) + '</span><span class="pc">' + d.pageCount + ' หน้า</span>' +
+    (d.saved ? '<span class="pill on" title="บันทึกใน Storage แล้ว">💾</span>' : '') +
+    '<button class="btn sm icon" title="ดูไฟล์" data-op="view" data-id="' + d.id + '">👁</button>' +
+    '<button class="btn sm icon" title="ย้ายไปหมวด ' + (cat === 'DECLARATION' ? '②' : '①') + '" data-op="move" data-id="' + d.id + '">↔</button>' +
+    '<button class="btn sm icon danger" title="ลบไฟล์" data-op="del" data-id="' + d.id + '">🗑</button></div>').join('') || '<div class="empty">ยังไม่มีไฟล์ PDF ในหมวดนี้</div>';
+  $$('[data-op]', fl).forEach(b => b.addEventListener('click', () => docOp(b.dataset.op, cat, b.dataset.id)));
+  // rebuild page containers (thumbs rendered separately)
+  const pg = $('#pages-' + cat); pg.innerHTML = '';
+  let n = 0;
+  items.forEach(d => { for (let i = 0; i < d.pageCount; i++) { n++; const el = document.createElement('div'); el.className = 'pg'; el.dataset.doc = d.id; el.dataset.page = i; el.innerHTML = '<div class="th"><span style="color:#c7d2e6;font-size:11px">...</span><button class="rot" title="หมุน 90°">🔄</button></div><div class="lbl">หน้า ' + n + (items.length > 1 ? '<br><small>' + esc(d.name.length > 14 ? d.name.slice(0, 12) + '…' : d.name) + '</small>' : '') + '</div>'; pg.appendChild(el); } });
+  $$('.rot', pg).forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const el = b.closest('.pg'); rotatePage(cat, el.dataset.doc, +el.dataset.page); }));
+  $$('.pg .th', pg).forEach(t => t.addEventListener('click', () => { const el = t.closest('.pg'); const d = items.find(x => x.id === el.dataset.doc); if (d) viewPdf(d, +el.dataset.page + 1); }));
+  items.forEach(d => applyRotations(cat, d));
+}
+const thumbQueue = []; let thumbBusy = false;
+function renderThumbs(cat, item) {
+  for (let i = 0; i < item.pageCount; i++) thumbQueue.push({ cat, item, page: i });
+  pumpThumbs();
+}
+async function pumpThumbs() {
+  if (thumbBusy) return; thumbBusy = true;
+  while (thumbQueue.length) {
+    const t = thumbQueue.shift();
+    const el = $('#pages-' + t.cat + ' .pg[data-doc="' + t.item.id + '"][data-page="' + t.page + '"] .th');
+    if (!el || !state.docs[t.cat].includes(t.item)) continue;
+    if (t.item.thumbs && t.item.thumbs[t.page]) { el.prepend(t.item.thumbs[t.page]); continue; }
+    try {
+      const page = await t.item.pdfjs.getPage(t.page + 1);
+      const vp0 = page.getViewport({ scale: 1 });
+      const scale = Math.min(CONFIG.THUMB_W / vp0.width, 120 / vp0.height) * (window.devicePixelRatio > 1 ? 1.5 : 1);
+      const vp = page.getViewport({ scale });
+      const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      t.item.thumbs = t.item.thumbs || []; t.item.thumbs[t.page] = c;
+      const ph = el.querySelector('span'); if (ph) ph.remove();
+      el.prepend(c); applyRotations(t.cat, t.item);
+    } catch (e) { el.innerHTML = '<span style="color:#b91c1c;font-size:11px">แสดงไม่ได้</span>'; }
+    await sleep(0);
+  }
+  thumbBusy = false;
+}
+function applyRotations(cat, d) {
+  $$('#pages-' + cat + ' .pg[data-doc="' + d.id + '"]').forEach(el => { const c = el.querySelector('canvas'); const r = d.rotations[+el.dataset.page] || 0; if (c) { c.style.transform = 'rotate(' + r + 'deg)'; if (r % 180) { c.style.maxWidth = '120px'; c.style.maxHeight = '96px'; } else { c.style.maxWidth = ''; c.style.maxHeight = ''; } } el.querySelector('.rot').classList.toggle('on', r !== 0); });
+}
+function rotatePage(cat, docId, page) {
+  const d = state.docs[cat].find(x => x.id === docId); if (!d) return;
+  d.rotations[page] = ((d.rotations[page] || 0) + 90) % 360; state.dirty[cat] = true;
+  applyRotations(cat, d); renderCat(cat); state.docs[cat].forEach(x => renderThumbs(cat, x));
+}
+function docOp(op, cat, id) {
+  const d = state.docs[cat].find(x => x.id === id); if (!d) return;
+  if (op === 'view') viewPdf(d, 1);
+  else if (op === 'del') removeDoc(cat, d);
+  else if (op === 'move') { const to = cat === 'DECLARATION' ? 'MEMO' : 'DECLARATION'; state.docs[cat] = state.docs[cat].filter(x => x !== d); if (d.saved) { state.pendingDelete[cat].push(d.saved); d.saved = null; } state.docs[to].push(d); state.dirty[cat] = true; state.dirty[to] = true; renderCat(cat); renderCat(to); state.docs[cat].forEach(x => renderThumbs(cat, x)); state.docs[to].forEach(x => renderThumbs(to, x)); }
+}
+async function removeDoc(cat, d) {
+  if (!await confirmDlg('ลบไฟล์', 'ลบ <b>' + esc(d.name) + '</b> (' + d.pageCount + ' หน้า) ออกจากหมวด ' + CAT[cat].label + '?' + (d.saved ? '<br><small style="color:var(--amber)">ไฟล์นี้บันทึกใน Storage แล้ว — จะถูกลบจาก Storage เมื่อกด 💾 บันทึกเอกสาร อีกครั้ง</small>' : ''), 'ลบไฟล์', true)) return;
+  state.docs[cat] = state.docs[cat].filter(x => x !== d);
+  if (d.saved) state.pendingDelete[cat].push(d.saved);
+  state.dirty[cat] = true; renderCat(cat); state.docs[cat].forEach(x => renderThumbs(cat, x)); updateFileName();
+}
+function viewPdf(d, page) {
+  const url = URL.createObjectURL(new Blob([d.bytes], { type: 'application/pdf' }));
+  const m = openModal('<div class="hd"><h3>📄 ' + esc(d.name) + ' · ' + d.pageCount + ' หน้า</h3><a class="btn sm" href="' + url + '" target="_blank" rel="noopener">เปิดแท็บใหม่</a><button class="x">✕</button></div><div class="bd"><iframe src="' + url + '#page=' + (page || 1) + '"></iframe></div>', { size: 'xl' });
+  const ob = new MutationObserver(() => { if (!document.body.contains(m)) { URL.revokeObjectURL(url); ob.disconnect(); } }); ob.observe($('#modals'), { childList: true });
+}
+function catAction(act, cat) {
+  if (act === 'view') { const items = state.docs[cat]; if (!items.length) return toast('ยังไม่มีไฟล์ในหมวดนี้'); if (items.length === 1) viewPdf(items[0], 1); else openModal('<div class="hd"><h3>ไฟล์ในหมวด ' + CAT[cat].label + '</h3><button class="x">✕</button></div><div class="bd">' + items.map(d => '<div class="file-row"><span>📄</span><span class="nm">' + esc(d.name) + '</span><span class="pc">' + d.pageCount + ' หน้า</span><button class="btn sm" data-v="' + d.id + '">👁 ดู</button></div>').join('') + '</div>').querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => viewPdf(items.find(x => x.id === b.dataset.v), 1))); }
+  else if (act === 'save') saveCategory(cat);
+  else if (act === 'open') openSavedDlg(cat);
+  else if (act === 'viewphotos') { if (!state.photos.length) return toast('ยังไม่มีรูปภาพ'); lightbox(0); }
+  else if (act === 'autoorder') autoOrderPhotos(false);
+  else if (act === 'clearphotos') { if (!state.photos.length) return; confirmDlg('ล้างรูปทั้งหมด', 'ลบรูปภาพทั้ง ' + state.photos.length + ' รูปออกจากหน้านี้? (รูปไม่ได้ถูกบันทึกถาวร)', 'ล้างรูป', true).then(ok => { if (ok) { state.photos.forEach(p => URL.revokeObjectURL(p.url)); state.photos = []; renderPhotos(); } }); }
+}
+
+/* ------------------------------------------------------------ photos */
+function containerList() { return JPCore.splitList(state.job.container_no); }
+function sealList() { return JPCore.splitList(state.job.seal_no); }
+function photoInfo(idx) { const p = state.photos[idx]; const cs = containerList(), ss = sealList(); const ci = cs.length > 1 ? Math.min(p.container, cs.length - 1) : 0; return { container: cs[ci] || '', seal: ss[ci] || (ss.length === 1 && cs.length <= 1 ? ss[0] : ''), header: JPCore.photoHeader(idx + 1, cs[ci] || '', ss[ci] || (ss.length === 1 && cs.length <= 1 ? ss[0] : '')) }; }
+function renderPhotos() {
+  const cs = containerList();
+  if (cs.length > 1) { // keep grouped by container order
+    state.photos.sort((a, b) => Math.min(a.container, cs.length - 1) - Math.min(b.container, cs.length - 1));
+  }
+  const box = $('#photos');
+  $('#pc-PHOTO').textContent = '(' + state.photos.length + ' รูป)';
+  $('#st-PHOTO').innerHTML = state.photos.length ? '<span class="ok">✔</span> ' + state.photos.length + ' รูป (' + Array.from(new Set(state.photos.map(p => p.name.split('.').pop().toUpperCase()))).join('/') + ') <span class="badge" style="background:#eef7ff;color:#0369a1;border-color:#bae6fd">ชั่วคราว ไม่บันทึกถาวร</span>' : '<span style="color:var(--muted)">ยังไม่มีรูปภาพ</span>';
+  if (!state.photos.length) { box.innerHTML = '<div class="empty" style="width:100%">ยังไม่มีรูปภาพ — โยนรูปตู้/สินค้าเข้ามาได้เลย (JPG/PNG)</div>'; return; }
+  box.innerHTML = state.photos.map((p, i) => {
+    const inf = photoInfo(i);
+    const lbl = JPCore.PHOTO_TYPE_LABEL[p.type] || '';
+    return '<div class="ph" data-id="' + p.id + '"><div class="th"><img src="' + p.url + '" alt="" loading="lazy" decoding="async" style="transform:rotate(' + p.rotation + 'deg)"><span class="n">PHOTO ' + String(i + 1).padStart(2, '0') + '</span>' +
+      '<span class="tp ' + (p.confidence < 0.4 && p.type !== 'OTHER' ? 'low' : '') + '" title="' + (p.confidence < 0.4 && p.type !== 'OTHER' ? 'ระบบไม่มั่นใจประเภทภาพ กรุณาตรวจสอบ' : lbl) + '">' + (p.confidence < 0.4 && p.type !== 'OTHER' ? '❓ ' : '') + esc(lbl) + '</span>' +
+      '<div class="ops"><button title="ขยายดู" data-o="zoom">🔍</button><button title="หมุน 90°" data-o="rot">🔄</button><button title="ลบรูป" data-o="del">🗑</button></div></div>' +
+      '<div class="lbl">' + (inf.container ? esc(inf.container) : '<span style="color:#c7d2e6">ไม่ระบุตู้</span>') + (inf.seal ? '<br>SEAL ' + esc(inf.seal) : '') + '</div>' +
+      (cs.length > 1 ? '<select data-o="cntr" title="เลือกตู้">' + cs.map((c, ci) => '<option value="' + ci + '"' + (Math.min(p.container, cs.length - 1) === ci ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</select>' : '') + '</div>';
+  }).join('');
+  $$('.ph', box).forEach(el => {
+    const id = el.dataset.id;
+    $$('[data-o]', el).forEach(b => b.addEventListener(b.tagName === 'SELECT' ? 'change' : 'click', e => { e.stopPropagation(); photoOp(b.dataset.o, id, b.value); }));
+    el.addEventListener('touchstart', () => el.classList.add('touch'), { passive: true });
+    $('img', el).addEventListener('click', () => lightbox(state.photos.findIndex(p => p.id === id)));
+  });
+  if (state.sortable) { try { state.sortable.destroy(); } catch (e) { /* ignore */ } }
+  if (window.Sortable) state.sortable = Sortable.create(box, { animation: 150, ghostClass: 'ghost', draggable: '.ph', delay: 120, delayOnTouchOnly: true, onEnd: () => { const ids = $$('.ph', box).map(e => e.dataset.id); state.photos.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)); renderPhotos(); } });
+}
+function photoOp(op, id, val) {
+  const i = state.photos.findIndex(p => p.id === id); if (i < 0) return; const p = state.photos[i];
+  if (op === 'zoom') lightbox(i);
+  else if (op === 'rot') { p.rotation = (p.rotation + 90) % 360; renderPhotos(); }
+  else if (op === 'del') { URL.revokeObjectURL(p.url); state.photos.splice(i, 1); renderPhotos(); }
+  else if (op === 'cntr') { p.container = +val || 0; renderPhotos(); }
+}
+function lightbox(i) {
+  const p = state.photos[i]; if (!p) return;
+  const lb = document.createElement('div'); lb.className = 'lightbox';
+  lb.innerHTML = '<button class="x">✕</button><img src="' + p.url + '" style="transform:rotate(' + p.rotation + 'deg)"><div class="cap">' + esc(photoInfo(i).header) + ' · ' + esc(p.name) + ' · ' + p.w + '×' + p.h + '</div><div style="display:flex;gap:8px"><button class="btn" data-n="-1">◀ ก่อนหน้า</button><button class="btn" data-n="1">ถัดไป ▶</button></div>';
+  document.body.appendChild(lb);
+  const close = () => lb.remove();
+  $('.x', lb).addEventListener('click', close); lb.addEventListener('click', e => { if (e.target === lb) close(); });
+  $$('[data-n]', lb).forEach(b => b.addEventListener('click', () => { const j = (i + (+b.dataset.n) + state.photos.length) % state.photos.length; close(); lightbox(j); }));
+  const key = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', key); } }; document.addEventListener('keydown', key);
+}
+
+/* ----------------------------------------------------- save / load */
+function requireJobKey() {
+  const decl = JPCore.cleanCode(state.job.declaration_no), bl = JPCore.cleanCode(state.job.bl_no);
+  if (!decl || !bl) { toast('กรุณากรอกเลขใบขนและ B/L No. ก่อนบันทึก', 'err'); return null; }
+  return { decl, bl };
+}
+async function ensureJob() {
+  const k = requireJobKey(); if (!k) throw new Error('ข้อมูลไม่ครบ');
+  const payload = { doc_date: state.job.doc_date || null, declaration_no: k.decl, bl_no: k.bl, container_no: state.job.container_no || null, seal_no: state.job.seal_no || null };
+  if (state.job.id) {
+    const { data, error } = await sb.from('jp_jobs').update(payload).eq('id', state.job.id).select().single();
+    if (error) throw error;
+    Object.assign(state.job, { id: data.id, owner_id: data.owner_id });
+    return data;
+  }
+  // find existing job of mine with same key
+  const q = await sb.from('jp_jobs').select('*').eq('owner_id', state.me.id).ilike('declaration_no', k.decl).ilike('bl_no', k.bl).maybeSingle();
+  if (q.error) throw q.error;
+  if (q.data) {
+    const { data, error } = await sb.from('jp_jobs').update(payload).eq('id', q.data.id).select().single();
+    if (error) throw error;
+    Object.assign(state.job, { id: data.id, owner_id: data.owner_id });
+    return data;
+  }
+  const ins = await sb.from('jp_jobs').insert(Object.assign({ owner_id: state.me.id }, payload)).select().single();
+  if (ins.error) throw ins.error;
+  Object.assign(state.job, { id: ins.data.id, owner_id: ins.data.owner_id });
+  return ins.data;
+}
+async function saveCategory(cat) {
+  if (!requireJobKey()) return;
+  const items = state.docs[cat];
+  if (!items.length && !state.pendingDelete[cat].length) return toast('ยังไม่มีไฟล์ในหมวด ' + CAT[cat].label);
+  showProgress('💾 บันทึกเอกสาร — ' + CAT[cat].label);
+  try {
+    setProgress('บันทึกข้อมูลงาน...', 0.05);
+    const job = await ensureJob();
+    const owner = job.owner_id;
+    let n = 0;
+    for (const d of items) {
+      n++;
+      if (d.saved && d.saved.job_id === job.id) {
+        setProgress('อัปเดต ' + d.name + ' (' + n + '/' + items.length + ')', 0.1 + 0.8 * n / items.length);
+        const { error } = await sb.from('jp_documents').update({ rotations: d.rotations, sort_order: n, page_count: d.pageCount }).eq('id', d.saved.id);
+        if (error) throw error;
+        continue;
+      }
+      setProgress('อัปโหลด ' + d.name + ' (' + fmtBytes(d.size || d.bytes.byteLength) + ') ' + n + '/' + items.length, 0.1 + 0.8 * n / items.length);
+      const path = owner + '/' + job.id + '/' + cat + '/' + uid() + '.pdf';
+      const up = await sb.storage.from(CONFIG.BUCKET).upload(path, new Blob([d.bytes], { type: 'application/pdf' }), { contentType: 'application/pdf', upsert: false });
+      if (up.error) throw up.error;
+      const row = { job_id: job.id, owner_id: owner, doc_type: cat, file_name: d.name, storage_path: path, page_count: d.pageCount, file_size: d.size || d.bytes.byteLength, rotations: d.rotations, sort_order: n };
+      const ins = await sb.from('jp_documents').insert(row).select().single();
+      if (ins.error) { await sb.storage.from(CONFIG.BUCKET).remove([path]); throw ins.error; }
+      d.saved = ins.data;
+    }
+    // deletions (only after all new uploads succeeded -> originals never lost on failure)
+    const dels = state.pendingDelete[cat];
+    if (dels.length) {
+      setProgress('ลบไฟล์เก่าที่ถูกแทนที่ (' + dels.length + ')', 0.93);
+      const { error } = await sb.from('jp_documents').delete().in('id', dels.map(x => x.id)); if (error) throw error;
+      await sb.storage.from(CONFIG.BUCKET).remove(dels.map(x => x.storage_path));
+      state.pendingDelete[cat] = [];
+    }
+    state.dirty[cat] = false; renderCat(cat); items.forEach(x => renderThumbs(cat, x));
+    hideProgress(); toast('บันทึก ' + CAT[cat].label + ' เรียบร้อย (' + items.length + ' ไฟล์)', 'ok');
+  } catch (e) { hideProgress(); toast('บันทึกไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
+}
+async function openSavedDlg(cat) {
+  const m = openModal('<div class="hd"><h3>📂 เอกสารที่บันทึกไว้</h3><button class="x">✕</button></div><div class="bd">' +
+    '<div class="search-row"><input id="sv-q" placeholder="ค้นหา: วันที่ (12 OCT 2026 / 2026-10-12), เลขใบขน, B/L, ชื่อผู้บันทึก"><button class="btn" id="sv-reload">🔄</button></div>' +
+    '<div id="sv-list"><div class="empty">กำลังโหลด...</div></div></div>', { size: 'wide' });
+  let jobs = [], docsByJob = {}, names = {};
+  const load = async () => {
+    $('#sv-list', m).innerHTML = '<div class="empty">กำลังโหลด...</div>';
+    try {
+      const [j, dcs, nm] = await Promise.all([
+        sb.from('jp_jobs').select('*').order('updated_at', { ascending: false }).limit(500),
+        sb.from('jp_documents').select('id,job_id,doc_type,file_name,page_count,storage_path,file_size,rotations,sort_order'),
+        sb.rpc('jp_user_names')
+      ]);
+      if (j.error) throw j.error; if (dcs.error) throw dcs.error;
+      jobs = j.data || []; docsByJob = {}; (dcs.data || []).forEach(d => { (docsByJob[d.job_id] = docsByJob[d.job_id] || []).push(d); });
+      names = {}; (nm.data || []).forEach(u => names[u.id] = u.display_name && u.display_name !== u.username ? u.display_name + ' (' + u.username + ')' : u.username);
+      draw();
+    } catch (e) { $('#sv-list', m).innerHTML = '<div class="empty" style="color:#b91c1c">โหลดไม่สำเร็จ: ' + esc(errMsg(e)) + '</div>'; }
+  };
+  const draw = () => {
+    const q = $('#sv-q', m).value.trim().toLowerCase();
+    const list = jobs.filter(jb => { if (!q) return true; const s = [jb.declaration_no, jb.bl_no, jb.container_no, jb.seal_no, jb.doc_date, JPCore.formatDateDDMMMYYYY(jb.doc_date), names[jb.owner_id]].join(' ').toLowerCase(); return q.split(/\s+/).every(w => s.includes(w)); });
+    const isAdmin = state.me.role === 'SUPER_ADMIN';
+    $('#sv-list', m).innerHTML = list.length ? list.map(jb => {
+      const ds = docsByJob[jb.id] || []; const dec = ds.filter(x => x.doc_type === 'DECLARATION'), me = ds.filter(x => x.doc_type === 'MEMO');
+      return '<div class="job"><div class="info"><b>' + esc(JPCore.formatDateDDMMMYYYY(jb.doc_date) || '—') + '</b> · เลขใบขน <b>' + esc(jb.declaration_no) + '</b> · B/L <b>' + esc(jb.bl_no) + '</b>' +
+        '<small>ตู้ ' + esc(jb.container_no || '—') + ' · Seal ' + esc(jb.seal_no || '—') + ' · ① ' + dec.length + ' ไฟล์/' + dec.reduce((a, b) => a + (b.page_count || 0), 0) + ' หน้า · ② ' + me.length + ' ไฟล์/' + me.reduce((a, b) => a + (b.page_count || 0), 0) + ' หน้า · ผู้บันทึก ' + esc(names[jb.owner_id] || '—') + ' · แก้ไขล่าสุด ' + new Date(jb.updated_at).toLocaleString('th-TH') + '</small></div>' +
+        '<div class="ops"><button class="btn sm blue" data-j="' + jb.id + '" data-o="open">📂 เปิด</button><button class="btn sm" data-j="' + jb.id + '" data-o="edit">✏️ แก้ไข</button><button class="btn sm" data-j="' + jb.id + '" data-o="backup" title="สำรองข้อมูล: ดาวน์โหลด PDF ที่บันทึกไว้ + ข้อมูลงานเป็น ZIP">🗄️ สำรอง</button>' + ((isAdmin || jb.owner_id === state.me.id) ? '<button class="btn sm danger" data-j="' + jb.id + '" data-o="del">🗑️ ลบ</button>' : '') + '</div></div>';
+    }).join('') : '<div class="empty">ไม่พบเอกสารที่บันทึกไว้</div>';
+    $$('[data-j]', $('#sv-list', m)).forEach(b => b.addEventListener('click', async () => {
+      const jb = jobs.find(x => x.id === b.dataset.j); const ds = docsByJob[jb.id] || [];
+      if (b.dataset.o === 'open') { m.remove(); await loadJob(jb, ds); }
+      else if (b.dataset.o === 'edit') { await editJobDlg(jb); load(); }
+      else if (b.dataset.o === 'backup') backupJob(jb, ds);
+      else if (b.dataset.o === 'del') { if (await confirmDlg('ลบงานที่บันทึกไว้', 'ลบงาน <b>' + esc(jb.declaration_no) + ' / ' + esc(jb.bl_no) + '</b> พร้อม PDF ที่บันทึกไว้ทั้ง ' + ds.length + ' ไฟล์ออกจาก Storage ถาวร?', 'ลบถาวร', true)) { await deleteJob(jb, ds); load(); } }
+    }));
+  };
+  $('#sv-q', m).addEventListener('input', draw); $('#sv-reload', m).addEventListener('click', load);
+  load();
+}
+async function loadJob(jb, ds) {
+  if ((state.dirty.DECLARATION || state.dirty.MEMO) && !await confirmDlg('มีไฟล์ที่ยังไม่ได้บันทึก', 'หน้านี้มีไฟล์ PDF ที่ยังไม่ได้บันทึก การเปิดงานที่บันทึกไว้จะแทนที่ไฟล์เหล่านั้น ดำเนินการต่อ?', 'เปิดงาน')) return;
+  showProgress('📂 กำลังเรียกเอกสารที่บันทึกไว้');
+  try {
+    const docs = { DECLARATION: [], MEMO: [] };
+    const sorted = ds.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    let n = 0;
+    for (const d of sorted) {
+      n++; setProgress('ดาวน์โหลด ' + d.file_name + ' (' + n + '/' + sorted.length + ')', n / (sorted.length + 1));
+      const { data, error } = await sb.storage.from(CONFIG.BUCKET).download(d.storage_path);
+      if (error) throw new Error(d.file_name + ': ' + errMsg(error));
+      const bytes = await data.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+      const rot = Array.isArray(d.rotations) ? d.rotations : [];
+      docs[d.doc_type].push({ id: uid(), name: d.file_name, size: d.file_size, bytes, pageCount: pdf.numPages, rotations: Array.from({ length: pdf.numPages }, (_, i) => rot[i] || 0), pdfjs: pdf, saved: d, fields: null });
+    }
+    state.docs = docs; state.pendingDelete = { DECLARATION: [], MEMO: [] }; state.dirty = { DECLARATION: false, MEMO: false };
+    state.job = { id: jb.id, owner_id: jb.owner_id, doc_date: jb.doc_date || '', declaration_no: jb.declaration_no, bl_no: jb.bl_no, container_no: jb.container_no || '', seal_no: jb.seal_no || '' };
+    $('#f-date').value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); $('#f-decl').value = state.job.declaration_no; $('#f-bl').value = state.job.bl_no; $('#f-cntr').value = state.job.container_no; $('#f-seal').value = state.job.seal_no;
+    ['decl', 'bl', 'cntr', 'seal'].forEach(k => { $('#f-' + k).classList.remove('auto'); }); $('#h-decl').textContent = 'จากงานที่บันทึกไว้'; $('#h-bl').textContent = 'จากงานที่บันทึกไว้';
+    hideProgress();
+    if (state.photos.length && await confirmDlg('รูปภาพในหน้า', 'มีรูปภาพ ' + state.photos.length + ' รูปอยู่ในหน้านี้ ต้องการล้างรูปเพื่อโยนรูปของงานนี้ใหม่หรือไม่?', 'ล้างรูป')) { state.photos.forEach(p => URL.revokeObjectURL(p.url)); state.photos = []; }
+    renderAll();
+    toast('เปิดงาน ' + jb.declaration_no + ' แล้ว (' + sorted.length + ' ไฟล์) — โยนรูปภาพใหม่แล้วกด EXPORT ได้เลย', 'ok', 4000);
+  } catch (e) { hideProgress(); toast('เรียกเอกสารไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
+}
+async function editJobDlg(jb) {
+  return new Promise(res => {
+    const m = openModal('<div class="hd"><h3>✏️ แก้ไขข้อมูลงาน</h3><button class="x">✕</button></div><div class="bd form">' +
+      '<div class="field"><label>วันที่เอกสาร</label><input id="ej-date" value="' + esc(JPCore.formatDateDDMMMYYYY(jb.doc_date)) + '" placeholder="12 OCT 2026"></div>' +
+      '<div class="field"><label>เลขใบขน</label><input id="ej-decl" value="' + esc(jb.declaration_no) + '"></div>' +
+      '<div class="field"><label>B/L No.</label><input id="ej-bl" value="' + esc(jb.bl_no) + '"></div>' +
+      '<div class="field"><label>Container No.</label><input id="ej-cntr" value="' + esc(jb.container_no || '') + '"></div>' +
+      '<div class="field"><label>Seal No.</label><input id="ej-seal" value="' + esc(jb.seal_no || '') + '"></div><div id="ej-err" class="err hidden"></div></div>' +
+      '<div class="ft"><button class="btn" id="ej-cancel">ยกเลิก</button><button class="btn blue" id="ej-ok">บันทึก</button></div>');
+    const done = v => { if (document.body.contains(m)) m.remove(); res(v); };
+    $('#ej-cancel', m).addEventListener('click', () => done(false));
+    $('#ej-ok', m).addEventListener('click', async () => {
+      const dt = JPCore.parseDateInput($('#ej-date', m).value), err = $('#ej-err', m);
+      const decl = JPCore.cleanCode($('#ej-decl', m).value), bl = JPCore.cleanCode($('#ej-bl', m).value);
+      if (!decl || !bl) { err.textContent = 'กรุณากรอกเลขใบขนและ B/L'; err.classList.remove('hidden'); return; }
+      if ($('#ej-date', m).value && !dt) { err.textContent = 'รูปแบบวันที่ไม่ถูกต้อง'; err.classList.remove('hidden'); return; }
+      try {
+        const payload = { doc_date: dt ? JPCore.toISODate(dt) : null, declaration_no: decl, bl_no: bl, container_no: JPCore.cleanCode($('#ej-cntr', m).value).replace(/,/g, ', ') || null, seal_no: $('#ej-seal', m).value.trim().toUpperCase() || null };
+        const { error } = await sb.from('jp_jobs').update(payload).eq('id', jb.id); if (error) throw error;
+        if (state.job.id === jb.id) { Object.assign(state.job, { doc_date: payload.doc_date || '', declaration_no: decl, bl_no: bl, container_no: payload.container_no || '', seal_no: payload.seal_no || '' }); $('#f-date').value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); $('#f-decl').value = decl; $('#f-bl').value = bl; $('#f-cntr').value = state.job.container_no; $('#f-seal').value = state.job.seal_no; updateFileName(); renderPhotos(); }
+        toast('แก้ไขข้อมูลงานแล้ว', 'ok'); done(true);
+      } catch (e) { err.textContent = errMsg(e); err.classList.remove('hidden'); }
+    });
+  });
+}
+async function deleteJob(jb, ds) {
+  showProgress('🗑️ กำลังลบงาน');
+  try {
+    if (ds.length) { const r = await sb.storage.from(CONFIG.BUCKET).remove(ds.map(d => d.storage_path)); if (r.error) throw r.error; }
+    const { error } = await sb.from('jp_jobs').delete().eq('id', jb.id); if (error) throw error;
+    if (state.job.id === jb.id) { state.job.id = null; state.job.owner_id = null; state.docs.DECLARATION.forEach(d => d.saved = null); state.docs.MEMO.forEach(d => d.saved = null); state.pendingDelete = { DECLARATION: [], MEMO: [] }; renderAll(); }
+    hideProgress(); toast('ลบงานและไฟล์ใน Storage แล้ว', 'ok');
+  } catch (e) { hideProgress(); toast('ลบไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
+}
+async function backupJob(jb, ds) {
+  showProgress('🗄️ กำลังสำรองข้อมูล');
+  try {
+    const zip = new JSZip();
+    const base = JPCore.buildBaseName(jb).base;
+    zip.file('job.json', JSON.stringify({ job: jb, documents: ds, exported_at: new Date().toISOString(), exported_by: state.me.username, app: 'J&P LOGISTICS ' + CONFIG.APP_VERSION }, null, 2));
+    let n = 0;
+    for (const d of ds) { n++; setProgress('ดาวน์โหลด ' + d.file_name + ' (' + n + '/' + ds.length + ')', n / (ds.length + 1)); const { data, error } = await sb.storage.from(CONFIG.BUCKET).download(d.storage_path); if (error) throw error; zip.file((d.doc_type === 'DECLARATION' ? '01-ใบขนพร้อมเอกสาร' : '02-บันทึกข้อความ') + '/' + String(d.sort_order || n).padStart(2, '0') + '-' + JPCore.sanitizeFileName(d.file_name), data); }
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    downloadBlob(blob, 'BACKUP-' + base + '.zip'); hideProgress(); toast('สำรองข้อมูลแล้ว', 'ok');
+  } catch (e) { hideProgress(); toast('สำรองไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
+}
+function downloadBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+
+/* ----------------------------------------------------- merge / export */
+async function preparePhoto(ph, idx) {
+  const isPng = /image\/png/.test(ph.file.type) || /\.png$/i.test(ph.name);
+  const big = Math.max(ph.w, ph.h) > CONFIG.MAX_PHOTO_EDGE || ph.file.size > CONFIG.MAX_PHOTO_BYTES;
+  if (!big) {
+    const buf = await ph.file.arrayBuffer();
+    const exif = isPng ? 0 : JPCore.exifToRotation(JPCore.readJpegOrientation(buf));
+    return { bytes: buf, isPng, name: ph.name, rotation: (exif + ph.rotation) % 360, header: photoInfo(idx).header };
+  }
+  // downscale (keeps A4-print quality) — canvas applies EXIF orientation, so only the user rotation remains
+  const im = await loadImage(ph.url);
+  const sc = Math.min(1, CONFIG.MAX_PHOTO_EDGE / Math.max(im.naturalWidth, im.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * sc); c.height = Math.round(im.naturalHeight * sc);
+  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+  return { bytes: await blob.arrayBuffer(), isPng: false, name: ph.name, rotation: ph.rotation, header: photoInfo(idx).header };
+}
+async function buildCollage(photos) {
+  const items = [];
+  for (const p of photos.slice(0, 4)) items.push({ img: await loadImage(p.url), rotation: p.rotation });
+  const c = document.createElement('canvas'); c.width = 2400; c.height = 2400;
+  JPCore.drawCollage(c.getContext('2d'), items, 2400, 8);         // browsers apply EXIF orientation when drawing <img>
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+  return { bytes: await blob.arrayBuffer(), isPng: false, name: 'collage' };
+}
+async function buildMerged(title) {
+  const pdfDocs = [];
+  state.docs.DECLARATION.forEach(d => pdfDocs.push({ bytes: d.bytes, rotations: d.rotations, label: '① ' + d.name, type: 'DECLARATION' }));
+  state.docs.MEMO.forEach(d => pdfDocs.push({ bytes: d.bytes, rotations: d.rotations, label: '② ' + d.name, type: 'MEMO' }));
+  const photos = [];
+  for (let i = 0; i < state.photos.length; i++) { setProgress('เตรียมรูปภาพ PHOTO ' + String(i + 1).padStart(2, '0') + ' (' + (i + 1) + '/' + state.photos.length + ')', 0.02 + 0.08 * i / state.photos.length); photos.push(await preparePhoto(state.photos[i], i)); await sleep(0); }
+  const collages = [];
+  if (state.opts.collage && state.photos.length) {
+    setProgress('กำลังสร้างหน้ารวมรูป', 0.1);
+    const cs = containerList();
+    const groups = new Map();
+    state.photos.forEach(p => { const k = cs.length > 1 ? Math.min(p.container, cs.length - 1) : 0; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+    for (const [, list] of Array.from(groups.entries()).sort((a, b) => a[0] - b[0])) collages.push(await buildCollage(list));
+  }
+  return JPCore.buildMergedPdf({ PDFLib, title, pdfDocs, photos, collages, photoLayout: state.opts.header ? 'a4header' : 'full', memoAfterFirstPage: true, onProgress: setProgress });
+}
+function checkBeforeMerge() {
+  if (!state.docs.DECLARATION.length && !state.docs.MEMO.length && !state.photos.length) { toast('ยังไม่มีไฟล์ให้รวม', 'err'); return false; }
+  return true;
+}
+async function previewMerged() {
+  if (!checkBeforeMerge()) return;
+  showProgress('👁 กำลังสร้าง Preview PDF รวม');
+  try {
+    const n = buildName();
+    const r = await buildMerged(n.base);
+    hideProgress();
+    const url = URL.createObjectURL(new Blob([r.bytes], { type: 'application/pdf' }));
+    const m = openModal('<div class="hd"><h3>👁 Preview PDF รวม · ' + r.pageCount + ' หน้า (เอกสาร ' + r.parts.pdfPages + ' + รูป ' + r.parts.photoPages + (r.parts.collagePages ? ' + รวมรูป ' + r.parts.collagePages : '') + ')</h3><a class="btn sm" href="' + url + '" target="_blank" rel="noopener">เปิดแท็บใหม่</a><button class="btn sm green" id="pv-export">📦 EXPORT ZIP</button><button class="x">✕</button></div><div class="bd"><iframe src="' + url + '"></iframe></div>', { size: 'xl' });
+    $('#pv-export', m).addEventListener('click', () => { m.remove(); exportZip(); });
+    const ob = new MutationObserver(() => { if (!document.body.contains(m)) { URL.revokeObjectURL(url); ob.disconnect(); } }); ob.observe($('#modals'), { childList: true });
+  } catch (e) { hideProgress(); toast('สร้าง Preview ไม่สำเร็จ: ' + errMsg(e), 'err', 8000); }
+}
+async function exportZip() {
+  const n = buildName();
+  if (!n.ok) { toast('กรุณากรอก: ' + n.missing.join(', ') + ' ก่อน EXPORT', 'err'); return; }
+  if (!checkBeforeMerge()) return;
+  if (!state.docs.DECLARATION.length && !await confirmDlg('ไม่มีใบขนพร้อมเอกสาร', 'หมวด ① ใบขนพร้อมเอกสาร ยังไม่มีไฟล์ ต้องการ EXPORT ต่อหรือไม่?', 'EXPORT ต่อ')) return;
+  const btn = $('#btn-export'); btn.disabled = true;
+  showProgress('📦 EXPORT ZIP FILE');
+  try {
+    setProgress('ตรวจสอบข้อมูล...', 0.01);
+    const r = await buildMerged(n.base);
+    setProgress('กำลังสร้างไฟล์ ZIP', 0.97);
+    const zip = new JSZip();
+    zip.file(n.base + '.pdf', r.bytes);
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    downloadBlob(blob, n.base + '.zip');
+    hideProgress();
+    toast('EXPORT สำเร็จ: ' + n.base + '.zip (' + r.pageCount + ' หน้า · ' + fmtBytes(blob.size) + ')', 'ok', 6000);
+  } catch (e) { hideProgress(); toast('EXPORT ไม่สำเร็จ: ' + errMsg(e), 'err', 8000); }
+  finally { btn.disabled = false; }
+}
+
+/* ------------------------------------------------------------- users */
+let usersCache = [];
+async function loadUsers() {
+  if (!state.me || state.me.role !== 'SUPER_ADMIN') { $('#users-tbl tbody').innerHTML = ''; return; }
+  const tb = $('#users-tbl tbody'); tb.innerHTML = '<tr><td colspan="7" class="empty">กำลังโหลด...</td></tr>';
+  try {
+    const { data, error } = await sb.rpc('jp_admin_list_users'); if (error) throw error;
+    usersCache = data || [];
+    tb.innerHTML = usersCache.map(u => '<tr data-id="' + u.id + '"><td><b>' + esc(u.username) + '</b>' + (u.id === state.me.id ? ' <small style="color:var(--muted)">(คุณ)</small>' : '') + '</td><td>' + esc(u.display_name || '') + '</td>' +
+      '<td><span class="pill ' + (u.role === 'SUPER_ADMIN' ? 'admin' : 'user') + '">' + u.role + '</span></td>' +
+      '<td>' + (u.is_active ? '<span class="pill on">ใช้งาน</span>' : '<span class="pill off">ปิดใช้งาน</span>') + (u.must_change_password ? ' <span class="pill warn" title="ต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป">รอเปลี่ยนรหัส</span>' : '') + '</td>' +
+      '<td style="white-space:nowrap">' + (u.last_login_at ? new Date(u.last_login_at).toLocaleString('th-TH') : '—') + '</td><td>' + u.job_count + '</td>' +
+      '<td><div class="rowops"><button class="btn sm" data-u="pass">🔑 รหัสผ่าน</button><button class="btn sm" data-u="name">✏️ ชื่อ</button>' +
+      (u.id !== state.me.id ? '<button class="btn sm" data-u="role">👤 สิทธิ์</button><button class="btn sm" data-u="active">' + (u.is_active ? '⛔ ปิดใช้งาน' : '✅ เปิดใช้งาน') + '</button><button class="btn sm danger" data-u="del">🗑️ ลบ</button>' : '') + '</div></td></tr>').join('') || '<tr><td colspan="7" class="empty">ไม่มีผู้ใช้</td></tr>';
+  } catch (e) { tb.innerHTML = '<tr><td colspan="7" class="empty" style="color:#b91c1c">' + esc(errMsg(e)) + '</td></tr>'; }
+}
+function addUserDlg() {
+  const m = openModal('<div class="hd"><h3>➕ เพิ่มผู้ใช้</h3><button class="x">✕</button></div><div class="bd form">' +
+    '<div class="field"><label>Username (a-z 0-9 . _ - ความยาว 3-32)</label><input id="au-user" autocapitalize="none" placeholder="เช่น somchai"></div>' +
+    '<div class="field"><label>ชื่อแสดง</label><input id="au-name" placeholder="เช่น สมชาย ใจดี"></div>' +
+    '<div class="field"><label>รหัสผ่านเริ่มต้น (อย่างน้อย 6 ตัว)</label><input id="au-pass" type="text" placeholder="ผู้ใช้จะถูกบังคับเปลี่ยนเมื่อเข้าครั้งแรก"></div>' +
+    '<div class="field"><label>Role</label><select id="au-role"><option value="USER">USER</option><option value="SUPER_ADMIN">SUPER_ADMIN</option></select></div>' +
+    '<div id="au-err" class="err hidden"></div></div><div class="ft"><button class="btn x">ยกเลิก</button><button class="btn blue" id="au-ok">สร้างผู้ใช้</button></div>');
+  $('#au-ok', m).addEventListener('click', async () => {
+    const err = $('#au-err', m); err.classList.add('hidden'); $('#au-ok', m).disabled = true;
+    try {
+      const { error } = await sb.rpc('jp_admin_create_user', { p_username: $('#au-user', m).value.trim().toLowerCase(), p_password: $('#au-pass', m).value, p_role: $('#au-role', m).value, p_display_name: $('#au-name', m).value.trim() || null });
+      if (error) throw error;
+      m.remove(); toast('สร้างผู้ใช้แล้ว', 'ok'); loadUsers();
+    } catch (e) { err.textContent = errMsg(e); err.classList.remove('hidden'); $('#au-ok', m).disabled = false; }
+  });
+}
+async function userAction(e) {
+  const b = e.target.closest('[data-u]'); if (!b) return;
+  const id = b.closest('tr').dataset.id, u = usersCache.find(x => x.id === id); if (!u) return;
+  try {
+    if (b.dataset.u === 'pass') {
+      const p = await promptDlg('🔑 ตั้งรหัสผ่านใหม่ให้ ' + u.username, 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)', { type: 'text', note: 'ผู้ใช้จะถูกบังคับเปลี่ยนรหัสผ่านอีกครั้งเมื่อเข้าสู่ระบบ' + (u.id === state.me.id ? ' (รวมถึงตัวคุณเอง)' : ''), ok: 'ตั้งรหัสผ่าน' });
+      if (p == null) return; if (p.length < 6) return toast('รหัสผ่านต้องมีอย่างน้อย 6 ตัว', 'err');
+      const { error } = await sb.rpc('jp_admin_set_password', { p_user_id: id, p_password: p, p_force_change: true }); if (error) throw error;
+      toast('ตั้งรหัสผ่านใหม่แล้ว', 'ok');
+    } else if (b.dataset.u === 'name') {
+      const nm = await promptDlg('✏️ ชื่อแสดงของ ' + u.username, 'ชื่อแสดง', { value: u.display_name || '' }); if (nm == null) return;
+      const { error } = await sb.rpc('jp_admin_set_display_name', { p_user_id: id, p_display_name: nm }); if (error) throw error;
+    } else if (b.dataset.u === 'role') {
+      const nr = u.role === 'SUPER_ADMIN' ? 'USER' : 'SUPER_ADMIN';
+      if (!await confirmDlg('เปลี่ยนสิทธิ์', 'เปลี่ยนสิทธิ์ของ <b>' + esc(u.username) + '</b> จาก ' + u.role + ' เป็น <b>' + nr + '</b>?', 'เปลี่ยนสิทธิ์')) return;
+      const { error } = await sb.rpc('jp_admin_set_role', { p_user_id: id, p_role: nr }); if (error) throw error;
+    } else if (b.dataset.u === 'active') {
+      if (!await confirmDlg(u.is_active ? 'ปิดใช้งานผู้ใช้' : 'เปิดใช้งานผู้ใช้', (u.is_active ? 'ปิดใช้งาน' : 'เปิดใช้งาน') + ' <b>' + esc(u.username) + '</b>?' + (u.is_active ? ' ผู้ใช้จะเข้าสู่ระบบไม่ได้ทันที' : ''), 'ยืนยัน', u.is_active)) return;
+      const { error } = await sb.rpc('jp_admin_set_active', { p_user_id: id, p_active: !u.is_active }); if (error) throw error;
+    } else if (b.dataset.u === 'del') {
+      if (!await confirmDlg('ลบผู้ใช้', 'ลบผู้ใช้ <b>' + esc(u.username) + '</b>? บัญชีจะเข้าสู่ระบบไม่ได้อีกและหายจากรายการ (งาน/เอกสารที่บันทึกไว้ ' + u.job_count + ' งาน ยังอยู่ให้ SUPER_ADMIN จัดการได้ในรายการเอกสารที่บันทึกไว้)', 'ลบผู้ใช้', true)) return;
+      const { error } = await sb.rpc('jp_admin_delete_user', { p_user_id: id }); if (error) throw error;
+      toast('ลบผู้ใช้แล้ว', 'ok');
+    }
+    loadUsers();
+  } catch (ex) { toast(errMsg(ex), 'err', 6000); }
+}
+</script>
+</body>
+</html>
