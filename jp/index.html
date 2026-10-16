@@ -414,6 +414,8 @@ table.tbl tr:last-child td{border-bottom:0}
   #row-modal .rm-ph{width:130px}
   #row-modal .rm-ph .th{width:130px;height:130px;cursor:zoom-in}
   #row-modal .rm-ph .hdr{min-height:0;margin-bottom:3px}
+  #row-modal .rm-ph .ops .rm-del{background:#fff;display:inline-flex;align-items:center;justify-content:center;border:1px solid #fecaca}
+  #row-modal .rm-ph .ops .rm-del:hover{background:#fef2f2}
   #row-modal .rm-fields{margin-top:10px}
   #row-modal .rm-fields input{height:38px}
   #row-modal .rm-fields .ck input{width:16px;height:16px;padding:0;flex:none;border-radius:4px}   /* checkbox was stretched by .rm-fields input */
@@ -490,6 +492,9 @@ table.tbl tr:last-child td{border-bottom:0}
 #bill-modal .ft{justify-content:flex-end}
 #bill-modal .ft .bm-cancel{height:40px;padding:0 18px}#bill-modal .ft .bm-save{height:40px;font-size:14.5px;padding:0 18px}#bill-modal .ft .bm-merge{height:40px;padding:0 18px;font-size:14.5px;font-weight:600}
 @media (max-width:900px){ #bill-modal .bm-cols{grid-template-columns:1fr} #bill-modal .bm-info{grid-template-columns:1fr 1fr} #bill-tbl{min-width:900px} }
+/* ---------- local119: all 4 thumbnails visible in the รูปภาพ column ---------- */
+#cntr-tbl .phc img{width:30px;height:30px}
+#cntr-tbl .phc{gap:3px}
 /* ---------- local104: รายการ JOB / รายงาน (full width desktop + table styling) ---------- */
 .content.wide{max-width:none}
 .jb-head{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
@@ -658,7 +663,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local118</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local120</span></div>
   </div>
 </div>
 
@@ -675,7 +680,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local118</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local120</span></div>
   </aside>
 
   <div class="main">
@@ -759,7 +764,7 @@ table.tbl tr:last-child td{border-bottom:0}
             <select id="cntr-filter"><option value="">ทุกสถานะ</option><option value="WAITING">รอรูป</option><option value="INCOMPLETE">รูปไม่ครบ / รอยืนยัน</option><option value="READY">พร้อม EXPORT</option><option value="EXPORTED">EXPORT แล้ว</option></select>
             <button class="btn" id="btn-add-row">➕ เพิ่มตู้</button>
             <button class="btn" id="btn-auto-import">📥 นำเข้ารูปหลายตู้ (Auto)</button>
-            <input type="file" id="in-auto" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+            <input type="file" id="in-auto" class="sr" multiple accept=".jpg,.jpeg,.png,.zip,.rar,image/jpeg,image/png,application/zip">
             <button class="btn cntr-close" id="btn-cntr-close" title="ปิดงาน — กลับรายการ JOB / รายงาน (ไม่เปลี่ยนสถานะ JOB)">❌ ปิดงาน</button>
           </div>
           <div class="cntr-sum" id="cntr-sum"></div>
@@ -856,16 +861,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local118"></script>
+<script src="jp-core.js?v=local120"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local118)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local120)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local118',
+  APP_VERSION: 'local120',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -1187,7 +1192,7 @@ function bindUI() {
   $('#cntr-filter').addEventListener('change', renderRows);
   $('#btn-add-row').addEventListener('click', addRow);
   $('#btn-auto-import').addEventListener('click', () => { if (!state.job.id) return toast('กรุณาบันทึกและเปิดงานก่อน', 'err'); $('#in-auto').click(); });
-  $('#in-auto').addEventListener('change', () => { const f = Array.from($('#in-auto').files || []); $('#in-auto').value = ''; autoImport(f); });
+  $('#in-auto').addEventListener('change', async () => { const f = Array.from($('#in-auto').files || []); $('#in-auto').value = ''; const arc = f.filter(isArchive), img = f.filter(x => !isArchive(x)); for (const a of arc) await importArchive(a, null); if (img.length) autoImport(img); });   // local120: ZIP = 4 photos of ONE container
   $('#chk-all').addEventListener('change', e => { visibleRows().forEach(r => { if (e.target.checked && rowSelectable(r)) state.selected.add(r.id); else state.selected.delete(r.id); }); renderRows(); });
   bindRowTable();
 
@@ -1762,7 +1767,7 @@ function rowHtml(r) {
     '<td>' + pad2(i + 1) + '</td>' +
     '<td>' + inp('container_no', cIn, r.container_confirmed, oc.container && !r.container_confirmed ? oc.container.note : (cIn && !JPCore.isoContainerValid(cIn) ? 'check digit ไม่ถูกต้อง — ตรวจสอบ' : '')) + '</td>' +
     '<td>' + inp('seal_no', sIn, r.seal_confirmed, oc.seal && !r.seal_confirmed ? oc.seal.note : '') + '</td>' +
-    '<td><div class="phc" data-drop="1">' + ph.slice(0, 3).map(p => '<img src="' + p.url + '" alt="" data-a="open" style="transform:rotate(' + p.rotation + 'deg)">').join('') +
+    '<td><div class="phc" data-drop="1">' + ph.slice(0, 4).map(p => '<img src="' + p.url + '" alt="" data-a="open" style="transform:rotate(' + p.rotation + 'deg)">').join('') +
       '<button class="up" data-a="open">' + (ph.length ? '🖼 ' + ph.length + ' รูป' : '📷 อัปโหลดรูป') + '</button>' + (oc.busy ? '<span class="ocr">🔍 อ่านเลข…</span>' : '') + '</div></td>' +
     '<td>' + (ph.length ? ph.length + ' รูป' : (r.export_path ? (r.photo_count || 0) + ' รูป (ใน PDF)' : '0 รูป')) + '</td>' +
     '<td><span class="pill ' + ST_CLS[st.status] + '">' + esc(st.label) + '</span>' +
@@ -1888,6 +1893,83 @@ function orderRowPhotos(id) {
   const order = JPCore.autoOrderPhotos(list.map(p => ({ id: p.id, features: p.features, fileName: p.name })));
   const byId = new Map(list.map(p => [p.id, p]));
   state.photos[id] = order.map(o => { const p = byId.get(o.id); p.type = o.type; p.confidence = o.confidence; return p; });
+  const seq = PHOTO_SEQ; state.photos[id].sort((a, b) => seq.indexOf(a.type) - seq.indexOf(b.type));   // local119: 01 ปิดตู้ · 02 เปิดครึ่งตู้ · 03 เปิดเต็มตู้ · 04 ซีล
+}
+const PHOTO_SEQ = ['CLOSED', 'OPEN1', 'OPEN2', 'SEAL', 'OTHER'];
+/* ---------- local119: ZIP of ONE container (4 photos) -> that container only ---------- */
+const isArchive = f => /\.(zip|rar)$/i.test(f.name) || /zip|rar|compressed/i.test(f.type || '');
+function pickRowDlg(title, body) {
+  return new Promise(res => {
+    const m = openModal('<div class="hd"><h3>' + esc(title) + '</h3></div><div class="bd" style="font-size:14px;line-height:1.6">' + body +
+      '<select id="pr-sel" style="width:100%;height:38px;margin-top:10px;border:1px solid var(--line);border-radius:8px"><option value="">— เลือกตู้ —</option>' + state.rows.map(r => '<option value="' + r.id + '">' + pad2(state.rows.indexOf(r) + 1) + ' ' + esc(r.container_no || '(ว่าง)') + ((state.photos[r.id] || []).length ? ' · มีรูป ' + state.photos[r.id].length + ' รูป' : '') + '</option>').join('') + '</select></div>' +
+      '<div class="ft"><button class="btn" data-r="0">ยกเลิก</button><button class="btn blue" data-r="1">นำเข้า</button></div>', { sticky: true });
+    $$('[data-r]', m).forEach(b => b.addEventListener('click', () => { const v = $('#pr-sel', m).value; if (b.dataset.r === '1' && !v) return toast('กรุณาเลือกตู้', 'err'); m.remove(); res(b.dataset.r === '1' ? v : null); }));
+  });
+}
+// RAR (v4/v5) reader: node-unrar-js 2.0.2 (MIT, WASM) bundled as unrar.bundle.js + unrar.wasm next to index.html — loaded only when a RAR is imported
+const RAR = { lib: null, wasm: null };
+async function loadRar() {
+  if (!RAR.lib) { if (!window.JPUnrar) await loadScript('unrar.bundle.js?v=' + CONFIG.APP_VERSION); RAR.lib = window.JPUnrar; }
+  if (!RAR.wasm) { const r = await fetch('unrar.wasm?v=' + CONFIG.APP_VERSION); if (!r.ok) throw new Error('โหลด unrar.wasm ไม่สำเร็จ (' + r.status + ')'); RAR.wasm = await r.arrayBuffer(); }
+  return RAR;
+}
+async function archiveEntries(file) {           // -> [{ name, get(): Promise<Uint8Array> }]
+  const buf = await file.arrayBuffer();
+  if (/\.rar$/i.test(file.name) || /rar/i.test(file.type || '')) {
+    const R = await loadRar();
+    const ex = await R.lib.createExtractorFromData({ wasmBinary: R.wasm.slice(0), data: buf });
+    const out = ex.extract();
+    return Array.from(out.files).filter(f => !f.fileHeader.flags.directory).map(f => ({ name: f.fileHeader.name, get: async () => f.extraction }));
+  }
+  const zip = await JSZip.loadAsync(buf);
+  return Object.values(zip.files).filter(e => !e.dir).map(e => ({ name: e.name, get: () => e.async('uint8array') }));
+}
+async function importArchive(file, rowId) {
+  if (!state.job.id) return toast('กรุณาบันทึกและเปิดงานก่อน', 'err');
+  let all;
+  try { all = await archiveEntries(file); } catch (e) { return toast('⚠️ เปิดไฟล์ ' + file.name + ' ไม่ได้: ' + errMsg(e), 'err', 8000); }
+  const entries = all.filter(e => !/(^|[\/\\])(__MACOSX|\.)/.test(e.name) && /\.(jpe?g|png)$/i.test(e.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const files = [], bad = [];
+  for (const e of entries) { try { const b = await e.get(); if (!b || !b.length) throw 0; files.push(new File([b], e.name.split(/[\/\\]/).pop(), { type: /\.png$/i.test(e.name) ? 'image/png' : 'image/jpeg' })); } catch (x) { bad.push(e.name); } }
+  // target container: the row given (photo window) -> a Container No. in the ZIP name / folder -> user picks (never spread over containers)
+  let r = rowId ? rowById(rowId) : null;
+  if (!r) {
+    const codes = Array.from(new Set((file.name + ' ' + entries.map(e => e.name).join(' ')).toUpperCase().match(/[A-Z]{4}\d{7}/g) || []));
+    const hits = state.rows.filter(x => codes.includes(JPCore.cleanCode(x.container_no)));
+    if (hits.length === 1) r = hits[0];
+    else { const v = await pickRowDlg('📦 ' + file.name, (hits.length > 1 ? 'ชื่อไฟล์ตรงกับหลายตู้ (' + hits.map(h => esc(h.container_no)).join(', ') + ')' : 'ไม่พบเลขตู้ในชื่อไฟล์ ZIP') + ' — กรุณาเลือกตู้ที่จะนำรูปทั้ง ' + files.length + ' รูปเข้า (1 ZIP = 1 ตู้)'); if (!v) return; r = rowById(v); }
+  }
+  if (!r) return;
+  const label = r.container_no || ('แถว ' + pad2(state.rows.indexOf(r) + 1));
+  const problems = (bad.length ? '<br>⚠️ อ่านไม่ได้: ' + bad.map(esc).join(', ') : '');
+  if (files.length !== 4) {
+    const msg = files.length < 4 ? '⚠️ พบรูปเพียง ' + files.length + ' รูป ต้องมี 4 รูป' : '⚠️ พบรูป ' + files.length + ' รูป (เกิน 4 รูป) กรุณาตรวจสอบ';
+    if (!files.length) return toast(msg + ' — ' + file.name + (bad.length ? ' · อ่านไม่ได้: ' + bad.join(', ') : ''), 'err', 8000);
+    const v = await choiceDlg('📦 ' + file.name, msg + '<br>ตู้: <b>' + esc(label) + '</b><br>' + entries.map(e => esc(e.name)).join('<br>') + problems, [{ v: 'cancel', label: 'ยกเลิก' }, { v: 'go', label: 'นำเข้า ' + files.length + ' รูป (ไม่ครบ/เกิน 4)', cls: 'blue' }]);
+    if (v !== 'go') return;
+  } else if (bad.length) toast('⚠️ อ่านไม่ได้: ' + bad.join(', '), 'err', 7000);
+  const cur = state.photos[r.id] || [];
+  let mode = 'add';
+  if (cur.length || r.export_path) {
+    const v = await choiceDlg('ตู้ ' + label + ' มีรูปอยู่แล้ว', 'ตู้ <b>' + esc(label) + '</b> มีรูปเดิม ' + (cur.length || r.photo_count || 0) + ' รูป' + (r.export_path ? ' (EXPORT แล้ว)' : '') + ' — ต้องการทำอย่างไร?', [{ v: 'cancel', label: 'ยกเลิก' }, { v: 'add', label: 'เพิ่มต่อจากรูปเดิม' }, { v: 'replace', label: 'แทนที่รูปเดิม', cls: 'blue' }]);
+    if (v === 'cancel' || !v) return;
+    mode = v;
+  }
+  showProgress('📦 นำเข้ารูปจาก ' + file.name);
+  try {
+    const photos = await ingestImageFiles(files);
+    hideProgress();
+    if (photos.length !== files.length) toast('⚠️ เปิดรูปได้ ' + photos.length + ' จาก ' + files.length + ' รูป', 'err', 7000);
+    if (!photos.length) return;
+    if (mode === 'replace') { cur.forEach(p => URL.revokeObjectURL(p.url)); state.photos[r.id] = []; }
+    rowPhotos(r.id).push(...photos);
+    orderRowPhotos(r.id);
+    await photosChanged(r.id, 'นำเข้ารูปจาก ZIP');
+    await rowUpdate(r, {}).catch(() => {});                                   // photo_count / status saved now
+    const n = (state.photos[r.id] || []).length;
+    renderRow(r.id); if (state.modalRowId === r.id) renderRowModal();
+    toast('นำเข้า ' + photos.length + ' รูปจาก ' + file.name + ' เข้าตู้ ' + label + ' แล้ว (มีรูป ' + n + ' รูป' + (n === 4 ? ' ครบ 4 รูป' : '') + ')', n === 4 ? 'ok' : '', 6000);
+  } catch (e) { hideProgress(); toast('นำเข้าไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
 }
 async function addPhotosToRow(id, files, opts) {
   opts = opts || {};
@@ -2047,14 +2129,14 @@ function openRowModal(id) {
   const snap = {}; Object.keys(state.photos).forEach(k => { snap[k] = (state.photos[k] || []).map(p => ({ p, rotation: p.rotation, type: p.type, confidence: p.confidence })); });
   const m = openModal('<div class="hd"><h3 id="rm-title"></h3><button class="x" id="rm-x">✕</button></div><div class="bd" id="rm-body"></div>' +
     '<div class="ft"><span class="rm-ft-info" id="rm-ft-info"></span><button class="btn-save rm-save" id="rm-save">💾 บันทึก</button></div>' +
-    '<input type="file" id="rm-in" class="sr" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png">', { size: 'wide', sticky: true });
+    '<input type="file" id="rm-in" class="sr" multiple accept=".jpg,.jpeg,.png,.zip,.rar,image/jpeg,image/png,application/zip">', { size: 'wide', sticky: true });
   m.id = 'row-modal';
   const changedRows = () => {
     const ids = new Set(Object.keys(snap).concat(Object.keys(state.photos)));
     return Array.from(ids).filter(k => { const a = snap[k] || [], b = state.photos[k] || []; return a.length !== b.length || a.some((x, i) => x.p !== b[i] || x.p.rotation !== x.rotation || x.p.type !== x.type); });
   };
   const close = () => { m.remove(); state.modalRowId = null; };
-  $('#rm-in', m).addEventListener('change', () => { const f = Array.from($('#rm-in', m).files || []); $('#rm-in', m).value = ''; addPhotosToRow(id, f); });
+  $('#rm-in', m).addEventListener('change', async () => { const f = Array.from($('#rm-in', m).files || []); $('#rm-in', m).value = ''; const arc = f.filter(isArchive), img = f.filter(x => !isArchive(x)); for (const a of arc) await importArchive(a, id); if (img.length) addPhotosToRow(id, img); });
   $('#rm-x', m).addEventListener('click', async () => {
     const ch = changedRows();
     if (ch.length && !await confirmDlg('ยังไม่ได้บันทึกรูป', 'มีรูปที่เพิ่ม / ลบ / แก้ไข แต่ยังไม่ได้กด 💾 บันทึก — ปิดหน้าต่างและยกเลิกการเปลี่ยนแปลงหรือไม่?', 'ปิดโดยไม่บันทึก', true)) return;
@@ -2085,10 +2167,8 @@ function renderRowModal() {
   body.innerHTML =
     '<div class="rm-top"><div class="rm-drop" id="rm-drop">📤 ลากรูปของตู้นี้มาวาง หรือคลิกเพื่อเลือกรูป (JPG/PNG หลายรูปพร้อมกัน) — ระบบจัดหมวดรูปให้อัตโนมัติ</div><button type="button" class="btn blue rm-add" id="rm-add">➕ เพิ่มรูป</button></div>' +
     '<div class="rm-grid" id="rm-grid">' + (ph.length ? ph.map((p, i) => {
-      const hdr = JPCore.photoHeader(i + 1, cIn, sIn).split(' | ');
-      return '<div class="rm-ph" data-pid="' + p.id + '"><div class="hdr">' + hdr.map(esc).join('<br>') + '</div><div class="th"><img src="' + p.url + '" style="transform:rotate(' + p.rotation + 'deg)" data-o="zoom"><div class="ops"><button data-o="zoom" title="ขยาย">🔍</button><button data-o="rot" title="หมุน 90°">🔄</button><button data-o="del" title="ลบ">🗑</button></div></div>' +
-        '<select data-o="type" class="' + (p.confidence < 0.4 && p.type !== 'OTHER' ? 'low' : '') + '">' + ['SEAL', 'CLOSED', 'OPEN2', 'OPEN1', 'OTHER'].map(t => '<option value="' + t + '"' + (p.type === t ? ' selected' : '') + '>' + (t === 'OTHER' ? 'รูปเพิ่มเติม' : JPCore.PHOTO_TYPE_LABEL[t]) + '</option>').join('') + '</select>' +
-        (state.rows.length > 1 ? '<select data-o="move"><option value="">ย้ายไปตู้…</option>' + state.rows.filter(x => x !== r).slice(0, 300).map(x => '<option value="' + x.id + '">' + pad2(state.rows.indexOf(x) + 1) + ' ' + esc(x.container_no || '(ว่าง)') + '</option>').join('') + '</select>' : '') + '</div>';
+      // local120: no PHOTO/CONTAINER/SEAL header and no type/move dropdowns — thumbnail only (type stays auto-sorted internally)
+      return '<div class="rm-ph" data-pid="' + p.id + '"><div class="th"><img src="' + p.url + '" style="transform:rotate(' + p.rotation + 'deg)" data-o="zoom"><div class="ops"><button data-o="zoom" title="ขยาย">🔍</button><button data-o="rot" title="หมุน 90°">🔄</button><button data-o="del" class="rm-del" title="ลบรูปนี้"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg></button></div></div></div>';
     }).join('') : '<div class="empty" style="width:100%">ยังไม่มีรูปของตู้นี้</div>') + '</div>' +
     '<div class="rm-fields">' +
       '<div><label>Container No.</label><input id="rm-c" value="' + esc(cIn) + '" placeholder="เช่น ONEU7578511" autocapitalize="characters"><div class="ck"><input type="checkbox" id="rm-cc"' + (r.container_confirmed ? ' checked' : '') + (cIn ? '' : ' disabled') + '> ยืนยันว่าเลขตู้ถูกต้อง</div><div class="nt">' + esc(oc.container && !r.container_confirmed ? oc.container.note : (oc.busy ? '🔍 กำลังอ่านเลขจากรูป…' : (r.container_confirmed && cIn ? '✔ ยืนยันแล้ว' : ''))) + '</div></div>' +
@@ -2116,7 +2196,7 @@ function modalPhotoOp(id, pid, op, val) {
   if (op === 'zoom') lightbox(id, i);
   else if (op === 'rot') { p.rotation = (p.rotation + 90) % 360; p.ocr = null; photosChanged(id, 'หมุนรูป'); }
   else if (op === 'del') { confirmDlg('ลบรูป', 'ลบรูปนี้ (' + esc(p.name) + ') ออกจากตู้? รูปอื่นไม่ได้รับผลกระทบ', 'ลบรูป', true).then(ok => { if (!ok) return; const k = list.indexOf(p); if (k < 0) return; list.splice(k, 1); photosChanged(id, 'ลบรูป'); }); }
-  else if (op === 'type') { p.type = val; p.confidence = 1; const order = ['SEAL', 'CLOSED', 'OPEN2', 'OPEN1', 'OTHER']; list.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type)); photosChanged(id, 'เปลี่ยนประเภทรูป'); }
+  else if (op === 'type') { p.type = val; p.confidence = 1; const order = PHOTO_SEQ; list.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type)); photosChanged(id, 'เปลี่ยนประเภทรูป'); }
   else if (op === 'move' && val) movePhotos(id, val, [pid]);
 }
 function lightbox(id, i) {
