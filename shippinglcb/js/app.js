@@ -36,12 +36,15 @@ function _jobsDeltaApply(rows){
 }
 /* updated_at = เวลาเริ่ม Transaction (now()) → แถวที่ commit ช้ากว่าอาจมี updated_at ต่ำกว่า watermark → ดึงย้อนซ้อน 2 นาที (แถวที่ไม่เปลี่ยนถูกข้ามอยู่แล้ว) */
 const NJ_DELTA_OVERLAP_MS=12e4;
+/* ขอบล่างของ Poll: ย้อน 2 นาทีจาก watermark (กันแถว commit ช้า) แต่ไม่ย้อนเกิน 10 นาทีก่อน "ตอนนี้"
+   และไม่สูงกว่า watermark เด็ดขาด → ช่วงเงียบ (ไม่มีงานเปลี่ยน) ไม่ดึงแถวเดิมซ้ำทุก 15 วิ · ไม่ข้ามแถวใด */
+function _jobsDeltaFrom(){const w=Date.parse(_jobsDeltaAt);if(isNaN(w))return _jobsDeltaAt;const lo=Math.min(w,Math.max(w-NJ_DELTA_OVERLAP_MS,Date.now()-6e5));return new Date(lo).toISOString()}
 async function _jobsDeltaPoll(){
   if(!S.user||typeof sb==="undefined"||!sb||document.hidden||_jobsDeltaBusy||_isShippingOnly())return;
   if(!_jobsDeltaAt){_jobsDeltaMark(S.jobs);if(!_jobsDeltaAt)_jobsDeltaAt=new Date(Date.now()-12e4).toISOString()}
   _jobsDeltaBusy=true;
   try{
-    const{data,error}=await withTimeout(sb.from("jobs").select(getJobCols()).eq("app_code",APP_CODE).in("category",NJ_DELTA_CATS).gte("updated_at",new Date(Date.parse(_jobsDeltaAt)-NJ_DELTA_OVERLAP_MS).toISOString()).order("updated_at",{ascending:true}).limit(200),TIMEOUT_QUERY,"jobs-delta");
+    const{data,error}=await withTimeout(sb.from("jobs").select(getJobCols()).eq("app_code",APP_CODE).in("category",NJ_DELTA_CATS).gte("updated_at",_jobsDeltaFrom()).order("updated_at",{ascending:true}).limit(200),TIMEOUT_QUERY,"jobs-delta");
     if(error||!data||!data.length)return;
     _jobsDeltaMark(data);
     _jobsDeltaApply(data);

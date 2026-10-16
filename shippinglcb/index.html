@@ -90,10 +90,12 @@
 <!-- preload: tell browser these scripts are critical so they download in parallel -->
 <!-- Note: ไม่มี crossorigin เพื่อ match กับ <script src> ปกติ (ไม่อย่างนั้น browser fetch 2 รอบ) -->
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
-<link rel="preload" href="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" as="script">
+<link rel="preload" href="js/lucide-subset.js?v=3.9.4" as="script">
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=3.9.3">
+<!-- ฟอนต์โหลดแบบไม่บล็อกการแสดงผล (display=swap เหมือนเดิม) -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Sarabun:wght@400;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="css/app.css?v=3.9.4">
 </head>
 <body>
 
@@ -655,12 +657,12 @@
 <!-- v7.31: 🚀 defer — โหลด parallel กับ HTML parse, รันหลัง DOM พร้อม (ไม่ block first paint)
      supabase + lucide รันก่อน inline app (defer รักษาลำดับ) → window.supabase พร้อมตอน init() -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window.__cdnError=(window.__cdnError||[]);window.__cdnError.push('supabase');console.error('[cdn] supabase failed to load')"></script>
-<script defer src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" onerror="window.__cdnError=(window.__cdnError||[]);window.__cdnError.push('lucide');console.error('[cdn] lucide failed to load')"></script>
+<script defer src="js/lucide-subset.js?v=3.9.4" onerror="window.__cdnError=(window.__cdnError||[]);window.__cdnError.push('lucide');console.error('[cdn] lucide failed to load')"></script>
 
 <!-- ============ APP ============ -->
-<script defer src="config/runtime-config.js?v=3.9.3"></script>
-  <script defer src="js/utils/format.js?v=3.9.3"></script>
-  <script defer src="js/core/runtime.js?v=3.9.3"></script>
-  <script defer src="js/app.js?v=3.9.3"></script>
+<script defer src="config/runtime-config.js?v=3.9.4"></script>
+  <script defer src="js/utils/format.js?v=3.9.4"></script>
+  <script defer src="js/core/runtime.js?v=3.9.4"></script>
+  <script defer src="js/app.js?v=3.9.4"></script>
 </body>
 </html>
