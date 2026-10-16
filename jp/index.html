@@ -349,6 +349,52 @@ table.tbl tr:last-child td{border-bottom:0}
 .rot-grid .pg .th{cursor:default}
 .rot-grid .pg .th .rot{display:block}
 @media (max-width:900px){ .cat.fl .file-row{flex-wrap:wrap} .cat.fl .file-row .fmeta{min-width:150px} .cat.fl .file-row .fops{flex-wrap:wrap} .dz-one{flex-wrap:wrap} .dz-one .dz-btn{width:100%} .jobwin .savebar{flex-wrap:wrap} .jobwin .save-hint{flex-basis:100%} }
+/* ---------- local107: upload zone + ① ② in ONE row (desktop only, layout only) ---------- */
+@media (min-width:901px){
+  .content:has(#page-merge.active){max-width:none}          /* JOB window uses the full desktop width */
+  #page-merge > .cntr-card{max-width:1456px}                /* container list keeps its previous width (unchanged) */
+  .up-row{display:grid;grid-template-columns:clamp(200px,17vw,320px) minmax(0,1fr);gap:10px;align-items:stretch;margin:2px 0 12px}
+  .up-row .fl-title{display:none}
+  .up-row .dz-one{margin:0;padding:10px 12px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px 10px;align-content:center;align-items:center}
+  .up-row .dz-one .dz-ic{width:34px;height:34px;font-size:16px}
+  .up-row .dz-one .dz-txt strong{display:block;font-size:13.5px;line-height:1.35}
+  .up-row .dz-one .dz-txt small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;line-height:1.35;margin-top:2px}
+  .up-row .dz-one .dz-btn{grid-column:1 / -1;width:100%;height:34px;padding:0 12px;font-size:13px;justify-content:center}
+  .up-row .fl-cats{margin:0;gap:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .up-row .cat.fl{min-width:0;padding:8px 10px}
+  .up-row .fl-head{flex-wrap:nowrap;gap:6px;margin-bottom:5px;min-width:0}
+  .up-row .fl-head .num{width:22px;height:22px;font-size:12px;flex-shrink:0}
+  .up-row .fl-head b{font-size:13.5px;white-space:nowrap}
+  .up-row .fl-badge{font-size:11px;padding:1px 7px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .up-row .fl-head .fl-add{flex-shrink:0;height:28px;padding:0 9px;font-size:12px}
+  .up-row .cat.fl .file-row{padding:5px 7px;margin-bottom:5px;gap:7px}
+  .up-row .cat.fl .file-row:last-child{margin-bottom:0}
+  .up-row .cat.fl .file-row .ficon{width:26px;height:30px}
+  .up-row .cat.fl .file-row .fops .btn{padding:3px 5px;font-size:11.5px}
+  .up-row .cat.fl .empty{padding:6px 8px}
+}
+@media (min-width:901px) and (max-width:1500px){
+  .up-row{grid-template-columns:184px minmax(0,1fr)}
+  .up-row .dz-one{grid-template-columns:minmax(0,1fr);padding:8px 10px;gap:6px;text-align:center}
+  .up-row .dz-one .dz-ic,.up-row .dz-one .dz-txt small{display:none}
+  .up-row .dz-one .dz-txt strong{font-size:13px}
+  .up-row .fl-head{gap:4px}
+  .up-row .fl-head .num{width:20px;height:20px;font-size:11.5px}
+  .up-row .fl-head b{font-size:12.5px}
+  .up-row .fl-badge{font-size:10.5px;padding:1px 6px}
+  .up-row .fl-head .fl-add{height:26px;padding:0 7px;font-size:11.5px}
+  .up-row .cat.fl .file-row{gap:5px;padding:5px 6px}
+  .up-row .cat.fl .file-row .fops{gap:0}
+  .up-row .cat.fl .file-row .fops .btn{padding:3px 4px;font-size:11px}
+}
+@media (min-width:901px) and (max-width:1320px){
+  .up-row{grid-template-columns:164px minmax(0,1fr)}
+  .up-row .cat.fl{padding:8px}
+  .up-row .fl-head{flex-wrap:wrap;row-gap:3px}
+  .up-row .fl-head .fl-add{order:1}
+  .up-row .fl-head::after{content:"";order:2;flex-basis:100%;height:0}
+  .up-row .fl-badge{order:3;overflow:visible;margin-left:24px}
+}
 /* ---------- local104: รายการ JOB / รายงาน (full width desktop + table styling) ---------- */
 .content.wide{max-width:none}
 .jb-head{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
@@ -378,6 +424,11 @@ table.tbl tr:last-child td{border-bottom:0}
 #jobs-tbl thead th.asc::after{content:' ▲';color:#173B70}#jobs-tbl thead th.desc::after{content:' ▼';color:#173B70}
 #jobs-tbl tbody tr:nth-child(even) td{background:#F8FBFF}
 #jobs-tbl tbody tr:hover td{background:#EAF3FF}
+#jobs-tbl tbody tr[data-id]{cursor:pointer}                                   /* local108: click anywhere on the row → open JOB */
+#jobs-tbl tbody tr[data-id]:hover td{background:#EAF3FF}                         /* local109 request (local108 was #EFF6FF) */
+#jobs-tbl tbody tr[data-id]:focus{outline:2px solid #0b5ed7;outline-offset:-2px}
+#jobs-tbl tbody tr[data-id]:focus:not(:focus-visible){outline:0}
+#jobs-tbl tbody tr[data-id] td.jb-ops{cursor:default}
 #jobs-tbl tbody tr.hl td{background:#fffbe6}
 #jobs-tbl td.jb-decl{font-weight:700;color:#0f172a}
 #jobs-tbl td.jb-exp a,#jobs-tbl td.jb-exp b{font-weight:700;color:#173B70;text-decoration:underline;text-underline-offset:3px}
@@ -405,6 +456,35 @@ table.tbl tr:last-child td{border-bottom:0}
 @media (min-width:901px) and (max-width:1500px){ #jobs-tbl{font-size:13px} #jobs-tbl th,#jobs-tbl td{padding:9px 7px} #jobs-tbl thead th{font-size:12.5px} #jobs-tbl .pill{padding:3px 9px;font-size:12px} #jobs-tbl .rowops{gap:4px} #jobs-tbl .rowops .btn{font-size:12px;padding:0 8px} #jobs-tbl .rowops .btn.icon-only{width:34px;padding:0} .jb-filter{gap:8px;padding:12px} .jb-filter input[type=date]{width:136px;padding:0 8px} .jb-filter select{min-width:118px} .jb-filter .jb-btn{padding:0 12px} }
 @media (min-width:901px) and (max-width:1320px){ #jobs-tbl th,#jobs-tbl td{padding:8px 4px} #jobs-tbl .rowops .btn{padding:0 6px} #jobs-tbl .rowops .btn.icon-only{width:30px} #jobs-tbl .pill{padding:3px 7px} }
 @media (max-width:900px){ .jb-head .jb-crumb{display:none} .jb-head h2{font-size:19px} #jobs-tbl{table-layout:auto;min-width:1080px} }
+/* ---------- local109: Desktop only — hide top headers, compact JOB list, compact EXPORT ZIP bar (Mobile ≤900px unchanged) ---------- */
+@media (min-width:901px){
+  .topbar{display:none}                                     /* 📁 รวมไฟล์เอกสารศุลกากร + steps + เอกสารครบ จบในที่เดียว */
+  .jb-head{display:none}                                    /* 📋 รายการ JOB / รายงาน + subtitle + breadcrumb */
+  .content.wide{padding:14px 20px 24px}
+  .jb-filter{gap:8px;padding:10px 12px;margin-bottom:10px;border-radius:12px}
+  .jb-filter input,.jb-filter select{height:38px;font-size:13.5px}
+  .jb-filter .jb-btn{height:38px;font-size:13.5px}
+  .jb-filter .jb-lbl{font-size:13.5px}
+  .jb-card{border-radius:12px}
+  #jobs-tbl thead th{height:40px;padding-top:0;padding-bottom:0;font-size:13px}
+  #jobs-tbl tbody td{height:46px;padding-top:4px;padding-bottom:4px}
+  #jobs-tbl tbody td.empty{height:auto;padding:24px}
+  #jobs-tbl .rowops .btn{height:32px}
+  .jb-pager{gap:10px;padding:8px 12px}
+  .jb-pager .jb-info,.jb-pager .jb-size,.jb-pager .jb-size select{font-size:13px}
+  .jb-pager .jb-size{padding:2px 8px}
+  .jb-pages{gap:4px}
+  .jb-pages button{min-width:32px;height:32px;font-size:13px;border-radius:8px}
+  .bottom{padding:7px 18px;gap:10px;min-height:50px}
+  .bottom .selall{font-size:13px;gap:5px}
+  .bottom .sel-info{font-size:12.5px}
+  .bottom .fname{height:35px;font-size:13.5px;border-radius:9px;padding:0 10px;border-width:1px}
+  .bottom .fname #fname-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bottom .fname .bad{white-space:nowrap;flex-shrink:0}
+  .bottom #btn-copy{height:35px;padding:0 12px;font-size:13px}
+  .bottom .export{height:38px;font-size:14px;padding:0 16px;border-radius:10px;gap:6px;box-shadow:0 4px 10px rgba(22,163,74,.25)}
+}
+@media (min-width:1501px){ #jobs-tbl{font-size:13.5px} }   /* 901–1500px keeps 13px (local104) so the table fits without inner scroll */
 .ai-row{display:flex;align-items:center;gap:10px;padding:6px;border-bottom:1px solid var(--line);font-size:12.5px}
 .ai-row img{width:54px;height:54px;object-fit:cover;border-radius:6px}
 .ai-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -443,7 +523,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local105</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local109</span></div>
   </div>
 </div>
 
@@ -459,7 +539,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local105</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local109</span></div>
   </aside>
 
   <div class="main">
@@ -498,10 +578,11 @@ table.tbl tr:last-child td{border-bottom:0}
               <div class="hint" id="h-layout"></div></div>
           </div>
 
+          <div class="up-row">
           <div class="dropzone dz-one" id="dz-all">
             <div class="dz-ic">⬆️</div>
             <div class="dz-txt"><strong>ลากไฟล์ PDF มาวางที่นี่ หรือคลิกเลือกไฟล์</strong>
-              <small>รองรับ PDF หลายไฟล์ หลายหน้า — ระบบแยกหมวด ① ใบขนพร้อมเอกสาร / ② บันทึกข้อความ ให้อัตโนมัติ · หากจำแนกไม่ได้ให้กด ⇄ ย้ายหมวด หรือ ＋ เพิ่มไฟล์ในหมวดที่ต้องการ</small></div>
+              <small title="รองรับ PDF หลายไฟล์ หลายหน้า — ระบบแยกหมวด ① ใบขนพร้อมเอกสาร / ② บันทึกข้อความ ให้อัตโนมัติ · หากจำแนกไม่ได้ให้กด ⇄ ย้ายหมวด หรือ ＋ เพิ่มไฟล์ในหมวดที่ต้องการ">รองรับ PDF หลายไฟล์ หลายหน้า — ระบบแยกหมวด ① ใบขนพร้อมเอกสาร / ② บันทึกข้อความ ให้อัตโนมัติ · หากจำแนกไม่ได้ให้กด ⇄ ย้ายหมวด หรือ ＋ เพิ่มไฟล์ในหมวดที่ต้องการ</small></div>
             <button type="button" class="btn blue dz-btn">📄 เลือกไฟล์ PDF</button>
             <input type="file" id="in-all" class="sr" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
           </div>
@@ -522,6 +603,7 @@ table.tbl tr:last-child td{border-bottom:0}
               <div class="drop hidden" data-cat="MEMO"><input type="file" class="sr" multiple accept=".pdf,application/pdf"></div>
               <div class="pages hidden" id="pages-MEMO"></div>
             </div>
+          </div>
           </div>
 
           <div class="savebar">
@@ -613,16 +695,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local105"></script>
+<script src="jp-core.js?v=local109"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local105)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local109)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local105',
+  APP_VERSION: 'local109',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -923,6 +1005,7 @@ function bindUI() {
   $('#jobs-tbl thead').addEventListener('click', e => { const th = e.target.closest('th[data-sort]'); if (!th) return; const k = th.dataset.sort; state.jobsSort = { key: k, dir: state.jobsSort.key === k && state.jobsSort.dir === 'asc' ? 'desc' : 'asc' }; state.jobsPage = 1; renderJobs(); });
   $('#jobs-pages').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (!b || b.disabled) return; state.jobsPage = +b.dataset.p; renderJobs(); });
   $('#jobs-tbl').addEventListener('click', jobsAction);
+  $('#jobs-tbl').addEventListener('keydown', jobsRowKey);
 
   // users
   $('#btn-add-user').addEventListener('click', addUserDlg);
@@ -1212,6 +1295,11 @@ async function insertRows(job, fromSeq, count) {
   state.rows.sort((a, b) => a.seq - b.seq);
 }
 async function saveJob() {
+  if (saveJob.busy) return;                       // double-click guard: never create rows twice
+  saveJob.busy = true;
+  try { await saveJobInner(); } finally { saveJob.busy = false; }
+}
+async function saveJobInner() {
   const f = readJobForm();
   const miss = [];
   if (!f.doc_date) miss.push(f.dateRaw ? 'วันที่ (รูปแบบไม่ถูกต้อง)' : 'วันที่');
@@ -1254,7 +1342,7 @@ async function saveJob() {
     const payload = { doc_date: f.doc_date, declaration_no: f.declaration_no, bl_no: f.bl_no, pdf_layout: f.pdf_layout };
     let job;
     if (isNew) {
-      const ins = await sb.from('jp_jobs').insert(Object.assign({ owner_id: state.me.id, container_count: 0 }, payload)).select().single();
+      const ins = await sb.from('jp_jobs').insert(Object.assign({ owner_id: state.me.id, container_count: f.count }, payload)).select().single();
       if (ins.error) throw ins.error;
       job = ins.data;
     } else {
@@ -1263,14 +1351,15 @@ async function saveJob() {
       job = up.data;
     }
     Object.assign(state.job, { id: job.id, owner_id: job.owner_id, doc_date: job.doc_date || '', declaration_no: job.declaration_no, bl_no: job.bl_no, pdf_layout: job.pdf_layout || 'A4HEADER' });
-    setProgress('บันทึก PDF ① ใบขนพร้อมเอกสาร', 0.15); await saveDocsFor('DECLARATION', job, 0.15);
-    setProgress('บันทึก PDF ② บันทึกข้อความ', 0.45); await saveDocsFor('MEMO', job, 0.45);
-    // container rows
+    // container rows FIRST (01..N, empty, รอรูป) — they exist even if a PDF upload below fails
     if (f.count > state.rows.length) {
-      setProgress('สร้างรายการตู้ ' + (f.count - state.rows.length) + ' แถว', 0.8);
+      setProgress('สร้างรายการตู้ ' + (f.count - state.rows.length) + ' แถว', 0.1);
       const maxSeq = state.rows.reduce((a, r) => Math.max(a, r.seq), 0);
       await insertRows(job, maxSeq + 1, f.count - state.rows.length);
+      const cc = await sb.from('jp_jobs').update({ container_count: state.rows.length }).eq('id', job.id); if (cc.error) throw cc.error;
     }
+    setProgress('บันทึก PDF ① ใบขนพร้อมเอกสาร', 0.3); await saveDocsFor('DECLARATION', job, 0.3);
+    setProgress('บันทึก PDF ② บันทึกข้อความ', 0.6); await saveDocsFor('MEMO', job, 0.6);
     if (removeRows.length) {
       setProgress('ลบแถวว่าง ' + removeRows.length + ' แถว', 0.85);
       const { error } = await sb.from('jp_containers').delete().in('id', removeRows.map(r => r.id)); if (error) throw error;
@@ -1287,7 +1376,7 @@ async function saveJob() {
     if (isNew) { state.highlightJob = job.id; showPage('jobs'); }
     else showPage('merge');
     toast(isNew ? 'บันทึก JOB แล้ว: สร้างรายการ ' + state.rows.length + ' ตู้ — กด 📂 เปิด / ✏️ แก้ไข เพื่ออัปโหลดรูปและ EXPORT' : 'บันทึกการแก้ไข JOB แล้ว', 'ok', 5000);
-  } catch (e) { hideProgress(); toast('บันทึกไม่สำเร็จ: ' + errMsg(e), 'err', 8000); renderAll(); }
+  } catch (e) { hideProgress(); toast('บันทึกไม่สำเร็จ: ' + errMsg(e) + (state.job.id ? ' — JOB และรายการตู้ ' + state.rows.length + ' แถวถูกบันทึกแล้ว กดบันทึกอีกครั้งเพื่อบันทึก PDF' : ''), 'err', 9000); renderAll(); }
 }
 async function openJob(jobId, skipConfirm) {
   if (!skipConfirm && state.job.id !== jobId && !await confirmLeaveJob()) return;
@@ -1316,6 +1405,13 @@ async function openJob(jobId, skipConfirm) {
     state.docs = docs; state.pendingDelete = { DECLARATION: [], MEMO: [] }; state.dirty = { DECLARATION: false, MEMO: false };
     state.rows = rq.data || [];
     state.job = { id: jb.id, owner_id: jb.owner_id, doc_date: jb.doc_date || '', declaration_no: jb.declaration_no, bl_no: jb.bl_no, container_count: jb.container_count || 0, pdf_layout: jb.pdf_layout || 'A4HEADER' };
+    let filled = 0;
+    if ((jb.container_count || 0) > state.rows.length) {
+      filled = jb.container_count - state.rows.length;
+      setProgress('เติมรายการตู้ที่ขาด ' + filled + ' แถว', 0.95);
+      const maxSeq = state.rows.reduce((a, r) => Math.max(a, r.seq), 0);
+      await insertRows(jb, maxSeq + 1, filled);
+    }
     $('#f-date').value = JPCore.formatDateDDMMMYYYY(state.job.doc_date); $('#f-decl').value = state.job.declaration_no; $('#f-bl').value = state.job.bl_no;
     $('#f-count').value = state.rows.length || ''; $('#f-layout').value = state.job.pdf_layout;
     ['decl', 'bl'].forEach(k => { $('#f-' + k).classList.remove('auto'); $('#h-' + k).textContent = 'จาก JOB ที่บันทึกไว้'; });
@@ -1323,7 +1419,7 @@ async function openJob(jobId, skipConfirm) {
     hideProgress();
     showPage('merge');
     renderAll();
-    toast('เปิด JOB ' + jb.declaration_no + ' แล้ว (PDF ' + ds.length + ' ไฟล์ · ' + state.rows.length + ' ตู้)', 'ok', 3500);
+    toast('เปิด JOB ' + jb.declaration_no + ' แล้ว (PDF ' + ds.length + ' ไฟล์ · ' + state.rows.length + ' ตู้' + (filled ? ' · เติมแถวที่ขาด ' + filled + ' แถว' : '') + ')', 'ok', 3500);
   } catch (e) { hideProgress(); toast('เปิด JOB ไม่สำเร็จ: ' + errMsg(e), 'err', 7000); }
 }
 
@@ -1927,9 +2023,9 @@ function renderJobs() {
   $$('#jobs-tbl thead th[data-sort]').forEach(th => { th.classList.toggle('asc', th.dataset.sort === state.jobsSort.key && state.jobsSort.dir === 'asc'); th.classList.toggle('desc', th.dataset.sort === state.jobsSort.key && state.jobsSort.dir === 'desc'); });
   tb.innerHTML = rows.map((j, i) => {
     const st = JPCore.jobStatus(j), total = +j.rows_count || 0;
-    return '<tr data-id="' + j.id + '"' + (state.highlightJob === j.id ? ' class="hl"' : '') + '><td>' + (start + i + 1) + '</td><td style="white-space:nowrap">' + esc(JPCore.formatDateDDMMMYYYY(j.doc_date) || '—') + '</td><td class="jb-decl" title="' + esc(j.declaration_no) + '">' + esc(j.declaration_no) + '</td><td title="' + esc(j.bl_no) + '">' + esc(j.bl_no) + '</td><td>' + total + '</td>' +
+    return '<tr data-id="' + j.id + '" tabindex="0" title="คลิกเพื่อเปิดรายละเอียด JOB"' + (state.highlightJob === j.id ? ' class="hl"' : '') + '><td>' + (start + i + 1) + '</td><td style="white-space:nowrap">' + esc(JPCore.formatDateDDMMMYYYY(j.doc_date) || '—') + '</td><td class="jb-decl" title="' + esc(j.declaration_no) + '">' + esc(j.declaration_no) + '</td><td title="' + esc(j.bl_no) + '">' + esc(j.bl_no) + '</td><td>' + total + '</td>' +
       '<td class="jb-exp"><b>' + (+j.exported_count || 0) + '/' + total + '</b></td><td><span class="pill st-' + st.code + '">' + esc(st.label) + '</span></td><td title="' + esc(j.owner_name || '') + '">' + esc(j.owner_name || '—') + '</td>' +
-      '<td><div class="rowops"><button class="btn sm blue" data-j="open">📂 เปิด / ✏️ แก้ไข</button><button class="btn sm" data-j="zip" title="ดาวน์โหลด ZIP รวม PDF รายตู้ที่ EXPORT แล้ว"' + (+j.exported_count ? '' : ' disabled') + '>📦 ZIP</button><button class="btn sm icon-only doc" data-j="backup" title="เอกสาร: สำรองข้อมูล PDF ① ② + PDF รายตู้">📄</button>' +
+      '<td class="jb-ops"><div class="rowops"><button class="btn sm blue" data-j="open">📂 เปิด / ✏️ แก้ไข</button><button class="btn sm" data-j="zip" title="ดาวน์โหลด ZIP รวม PDF รายตู้ที่ EXPORT แล้ว"' + (+j.exported_count ? '' : ' disabled') + '>📦 ZIP</button><button class="btn sm icon-only doc" data-j="backup" title="เอกสาร: สำรองข้อมูล PDF ① ② + PDF รายตู้">📄</button>' +
       ((isAdmin || j.owner_id === state.me.id) ? '<button class="btn sm icon-only danger" data-j="del" title="ลบ JOB">🗑️</button>' : '') + '</div></td></tr>';
   }).join('') || '<tr><td colspan="9" class="empty">ไม่พบ JOB</td></tr>';
   $('#jobs-info').textContent = list.length ? 'แสดง ' + (start + 1) + ' - ' + (start + rows.length) + ' จาก ' + list.length + ' รายการ' : 'แสดง 0 จาก 0 รายการ';
@@ -1940,10 +2036,26 @@ function renderJobs() {
   html += '<button data-p="' + (cur + 1) + '"' + (cur >= pages ? ' disabled' : '') + ' title="ถัดไป">›</button>';
   $('#jobs-pages').innerHTML = html;
 }
+async function openJobFromList(id) {                 // one open at a time (row click / double click / button / Enter)
+  if (openJobFromList.busy) return;
+  openJobFromList.busy = true;
+  try { await openJob(id); } finally { openJobFromList.busy = false; }
+}
+function jobsRowOpen(e) {                            // local108: click anywhere on a JOB row (except the action buttons cell) → same as 📂 เปิด / ✏️ แก้ไข
+  if (e.target.closest('[data-j], td.jb-ops, a, input, select, textarea')) return;
+  const tr = e.target.closest('#jobs-tbl tbody tr[data-id]'); if (!tr) return;
+  const sel = window.getSelection && String(window.getSelection() || ''); if (sel && sel.trim()) return;   // user is selecting text to copy
+  if (state.jobsCache.some(x => x.id === tr.dataset.id)) openJobFromList(tr.dataset.id);
+}
+function jobsRowKey(e) {
+  if (e.key !== 'Enter' || !e.target.matches('#jobs-tbl tbody tr[data-id]')) return;
+  e.preventDefault();
+  if (state.jobsCache.some(x => x.id === e.target.dataset.id)) openJobFromList(e.target.dataset.id);
+}
 async function jobsAction(e) {
-  const b = e.target.closest('[data-j]'); if (!b) return;
+  const b = e.target.closest('[data-j]'); if (!b) return jobsRowOpen(e);
   const j = state.jobsCache.find(x => x.id === b.closest('tr').dataset.id); if (!j) return;
-  if (b.dataset.j === 'open') await openJob(j.id);
+  if (b.dataset.j === 'open') await openJobFromList(j.id);
   else if (b.dataset.j === 'zip') await zipExportedJob(j);
   else if (b.dataset.j === 'backup') await backupJob(j);
   else if (b.dataset.j === 'del') {
