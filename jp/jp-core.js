@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local116)
+ * J&P LOGISTICS — jp-core.js  (local117)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.

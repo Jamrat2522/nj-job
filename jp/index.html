@@ -442,6 +442,14 @@ table.tbl tr:last-child td{border-bottom:0}
   .jobwin.folded .jh-top .jh-merge.hidden{display:none}
   .jobwin.folded .jh-top .jh-merge:not(.hidden) + .jh-fold{margin-left:8px}
 }
+/* ---------- local117: ① ② cards = click / drag & drop upload area (Desktop only) ---------- */
+@media (min-width:901px){
+  .jobwin .up-row .cat.fl{cursor:pointer;transition:border-color .12s,background-color .12s,box-shadow .12s}
+  .jobwin .up-row .cat.fl .file-row{cursor:default}
+  .jobwin .up-row .cat.fl:hover{border-color:#bcd3f5}
+  .jobwin .up-row .cat.fl.over{border-color:#3b82f6;background:#EFF6FF;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
+  .jobwin .up-row .cat.fl .empty{padding:10px 8px}
+}
 /* ---------- local104: รายการ JOB / รายงาน (full width desktop + table styling) ---------- */
 .content.wide{max-width:none}
 .jb-head{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
@@ -610,7 +618,7 @@ table.tbl tr:last-child td{border-bottom:0}
       </div>
       <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
     </form>
-    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local116</span></div>
+    <div class="login-foot">J&amp;P LOGISTICS · <span id="login-ver">local117</span></div>
   </div>
 </div>
 
@@ -626,7 +634,7 @@ table.tbl tr:last-child td{border-bottom:0}
     </nav>
     <div class="spacer"></div>
     <div class="me"><div class="u" id="me-name">—</div><span class="r" id="me-role">—</span></div>
-    <div class="ver">เวอร์ชัน <span id="side-ver">local116</span></div>
+    <div class="ver">เวอร์ชัน <span id="side-ver">local117</span></div>
   </aside>
 
   <div class="main">
@@ -788,16 +796,16 @@ table.tbl tr:last-child td{border-bottom:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script src="jp-core.js?v=local116"></script>
+<script src="jp-core.js?v=local117"></script>
 <script>
 /* =====================================================================
- * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local116)
+ * J&P LOGISTICS — ระบบรวมไฟล์เอกสารศุลกากร  (local117)
  * ===================================================================== */
 'use strict';
 const CONFIG = {
   SUPABASE_URL: 'https://sytgqjglcnsabcszbngg.supabase.co',
   SUPABASE_KEY: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp',
-  APP_VERSION: 'local116',
+  APP_VERSION: 'local117',
   BUCKET: 'jp-documents',
   EMAIL_DOMAIN: '@jp.local',
   AUTH_STORAGE_KEY: 'jp-logistics-auth',
@@ -1101,6 +1109,7 @@ function bindUI() {
   // PDF drop zones
   setupDrop($('#dz-all'), null, $('#in-all'));
   $$('.cat .drop').forEach(z => setupDrop(z, z.dataset.cat, $('input[type=file]', z)));
+  ['DECLARATION', 'MEMO'].forEach(setupCatCard);                            // local117: click / drag & drop PDF on the ① ② cards (Desktop)
   $$('.cat .actions button').forEach(b => b.addEventListener('click', () => catAction(b.dataset.act, b.dataset.cat)));
   document.addEventListener('dragover', e => e.preventDefault()); document.addEventListener('drop', e => e.preventDefault());
 
@@ -1137,6 +1146,28 @@ function bindUI() {
   $('#users-tbl').addEventListener('click', userAction);
 
   window.addEventListener('beforeunload', e => { if (hasUnsavedWork()) { e.preventDefault(); e.returnValue = ''; } });
+}
+// local117: the whole ① / ② card is the upload area on Desktop — click (not on a file row / button) opens the PDF picker
+// of THAT category once; dropping PDFs on it adds them to THAT category. Mobile (≤900px) keeps the previous behaviour.
+const isDesk = () => !!(window.matchMedia && matchMedia('(min-width:901px)').matches);
+function addCatFiles(files, cat) {
+  const pdfs = files.filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)), bad = files.filter(f => !pdfs.includes(f));
+  if (bad.length) toast('รองรับเฉพาะไฟล์ PDF — ข้าม: ' + bad.slice(0, 3).map(f => f.name).join(', ') + (bad.length > 3 ? ' +' + (bad.length - 3) : ''), 'err', 5000);
+  if (pdfs.length) return addFiles(pdfs, cat);
+}
+function setupCatCard(cat) {
+  const card = $('#cat-' + cat), input = $('.cat .drop[data-cat="' + cat + '"] input[type=file]');
+  if (!card || !input) return;
+  card.addEventListener('click', e => {
+    if (!isDesk() || e.target.closest('button, a, input, select, textarea, label, .file-row, .pages, .drop')) return;   // file buttons keep their own action
+    input.click();
+  });
+  let depth = 0;
+  const on = e => { if (!isDesk() || !e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('Files')) return false; e.preventDefault(); e.stopPropagation(); return true; };
+  card.addEventListener('dragenter', e => { if (on(e)) { depth++; card.classList.add('over'); } });
+  card.addEventListener('dragover', e => { if (on(e)) { e.dataTransfer.dropEffect = 'copy'; card.classList.add('over'); } });
+  card.addEventListener('dragleave', e => { if (!isDesk()) return; depth = Math.max(0, depth - 1); if (!depth) card.classList.remove('over'); });
+  card.addEventListener('drop', e => { if (!on(e)) return; depth = 0; card.classList.remove('over'); addCatFiles(Array.from(e.dataTransfer.files || []), cat); });
 }
 function setupDrop(zone, cat, input) {
   zone.addEventListener('click', e => { if (e.target.tagName === 'INPUT') return; input.click(); });
@@ -1335,7 +1366,7 @@ function renderCat(cat) {
     '<button class="btn danger" data-op="del" data-id="' + d.id + '">🗑 ลบ</button></div></div>').join('') +
     state.pendingDelete[cat].map(sv => '<div class="file-row pend"><span class="ficon">PDF</span><div class="fmeta"><span class="nm">' + esc(sv.file_name) + '</span><small>ไฟล์ที่บันทึกไว้ — จะถูกลบเมื่อกดบันทึก</small></div>' +
       '<div class="fops"><button class="btn" data-restore="' + esc(sv.id) + '">↩ เรียกไฟล์ที่บันทึกไว้</button></div></div>').join('') ||
-    '<div class="empty">' + (window.matchMedia && matchMedia('(min-width:901px)').matches ? 'ยังไม่มีไฟล์ — กด ＋ เพิ่มไฟล์' : 'ยังไม่มีไฟล์ — ลาก PDF ลงกรอบด้านบน หรือกด ＋ เพิ่มไฟล์') + '</div>';   // local115: no drop frame on desktop
+    '<div class="empty">' + (window.matchMedia && matchMedia('(min-width:901px)').matches ? 'ยังไม่มีไฟล์ — คลิกหรือลาก PDF มาวางในกรอบนี้ หรือกด ＋ เพิ่มไฟล์' : 'ยังไม่มีไฟล์ — ลาก PDF ลงกรอบด้านบน หรือกด ＋ เพิ่มไฟล์') + '</div>';   // local115: no drop frame on desktop
   $$('[data-op]', fl).forEach(b => b.addEventListener('click', () => docOp(b.dataset.op, cat, b.dataset.id)));
   $$('[data-restore]', fl).forEach(b => b.addEventListener('click', () => restoreSavedDoc(cat, b.dataset.restore)));
   // page cells kept (hidden) for the rotate grid of the Preview window
