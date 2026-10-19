@@ -76,13 +76,13 @@ function _expBuildRowsCA(jobs){
       out.push({jobNo:String(j.job_no||""),createdAt:(typeof fmtDateTime==="function"?fmtDateTime(j.created_at):String(j.created_at||"")),
         creator:name,assignee:String(j.assigned_to_name||"").trim()||"-",jobNj:String(it.nj||""),
         company:String(it.company||""),branch:String(it.branch||""),qty:(parseFloat(String(it.qty).replace(/,/g,""))||0),amount:(parseFloat(String(it.amount).replace(/,/g,""))||0),
-        term:term,name:name,_ca:String(j.created_at||""),_i:out.length});
+        term:term,name:name,_ca:String(j.created_at||""),_i:out.length,decl:String(j.job_nj||"").replace(/\s*[\r\n]+\s*/g," ").trim()});
     }
   }
   return out;
 }
 function _expBookOrig(rows,sheetName,headerE,groupBy){
-  var HEAD=["ITEM","เลขที่ใบงาน","วันที่สร้าง","ผู้สร้าง",headerE,"JOB NJ","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า"];
+  var HEAD=["ITEM","เลขที่ใบงาน","วันที่สร้าง","ผู้สร้าง",headerE,"JOB NJ","บริษัท","สาขา","จำนวน(ใบ)","จำนวนเงิน","ท่านำเข้า","เลขที่ใบขน"];/* local326: +คอลัมน์ L เลขที่ใบขน ต่อท้าย (คอลัมน์/สูตรเดิมไม่ขยับ) */
   var BORD={top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}};
   var HS={font:{bold:true,sz:11,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E78"}},border:BORD,alignment:{horizontal:"center",vertical:"center"}};
   function al(c){return (c===0||c===8||c===9)?"right":"left";}
@@ -90,12 +90,12 @@ function _expBookOrig(rows,sheetName,headerE,groupBy){
   var ws={};function put(r,c,cell){ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;}
   var W=HEAD.map(function(h){return String(h).length;});
   function tw(c,t){var L=String(t==null?"":t).length;if(L>W[c])W[c]=L;}
-  for(var c=0;c<11;c++)put(0,c,{v:HEAD[c],t:"s",s:HS});
+  for(var c=0;c<12;c++)put(0,c,{v:HEAD[c],t:"s",s:HS});
   var R=1,item=0,firstDataR=1,lastDataR=1,subRows=[];
   function dataRow(row){
     item++;
-    var v=[item,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.assignee||""),String(row.jobNj||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||"")];
-    for(var c=0;c<11;c++){var cell;
+    var v=[item,String(row.jobNo||""),String(row.createdAt||""),String(row.creator||""),String(row.assignee||""),String(row.jobNj||""),String(row.company||""),String(row.branch||""),row.qty,row.amount,String(row.term||""),String(row.decl||"")];
+    for(var c=0;c<12;c++){var cell;
       if(c===0)cell={v:item,t:"n",s:ds(0)};
       else if(c===8)cell={v:row.qty,t:"n",z:"#,##0",s:ds(8)};
       else if(c===9)cell={v:row.amount,t:"n",z:"#,##0.00",s:ds(9)};
@@ -106,7 +106,7 @@ function _expBookOrig(rows,sheetName,headerE,groupBy){
   function fsum(col,sR,eR){return sR===eR?("SUM("+col+(sR+1)+")"):("SUM("+col+(sR+1)+":"+col+(eR+1)+")");}
   function sumRow(sR,eR,sq,sa,bold,mode){
     var es=mode==="full"?BORD:(mode==="bottom"?{bottom:{style:"thin",color:{rgb:"888888"}}}:null);
-    if(mode==="full"){for(var c=0;c<11;c++){if(c!==8&&c!==9)put(R,c,{s:{border:BORD}});}}
+    if(mode==="full"){for(var c=0;c<12;c++){if(c!==8&&c!==9)put(R,c,{s:{border:BORD}});}}
     var st8={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"}};if(es)st8.border=es;
     var st9={font:{sz:11,bold:!!bold},alignment:{horizontal:"right",vertical:"center"}};if(es)st9.border=es;
     put(R,8,{t:"n",f:fsum("I",sR,eR),v:sq,z:"#,##0",s:st8});
@@ -121,7 +121,7 @@ function _expBookOrig(rows,sheetName,headerE,groupBy){
     put(R,9,{t:"n",f:fj,v:ta,z:"#,##0.00",s:{font:{sz:11,bold:!!bold},border:es,alignment:{horizontal:"right",vertical:"center"}}});
     R++;
   }
-  function blankRow(){for(var c=0;c<11;c++)put(R,c,{s:{border:BORD}});R++;}
+  function blankRow(){for(var c=0;c<12;c++)put(R,c,{s:{border:BORD}});R++;}
   var TQ=0,TA=0;
   if(groupBy){
     var i=0;
@@ -134,7 +134,7 @@ function _expBookOrig(rows,sheetName,headerE,groupBy){
     for(var k=0;k<rows.length;k++){TQ+=(rows[k].qty||0);TA+=(rows[k].amount||0);dataRow(rows[k]);}
     if(item>0)sumRow(firstDataR,lastDataR,TQ,TA,true,"bottom");
   }
-  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:10}});
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:11}});
   ws["!cols"]=W.map(function(w){return {wch:Math.min(Math.max(w+2,5),40)};});
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName);return wb;
 }
