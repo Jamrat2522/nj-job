@@ -16,6 +16,7 @@ var apprLegacy = { leave: false, ot: false, fix: false };
 var apprBusy = false;
 var apprChunkToken = 0;
 var apprModal = null;
+var apprDeepId = "";          /* [RUN-187] รายการที่ต้องเปิดอัตโนมัติจากการแจ้งเตือน */
 
 function apprMissingRpc(er) {
   var m = String(er && (er.message || "")).toLowerCase();
@@ -286,7 +287,19 @@ function apprLoadLegacy(el, tab, seq) {
     })["catch"](fail);
 }
 
+/* [RUN-187] Deep Link จากการแจ้งเตือน — #/approvals?tab=leave|ot|fix&id=<uuid>
+   รับเฉพาะ tab ที่รู้จักและ id รูปแบบ UUID เท่านั้น ค่าอื่นถูกทิ้งทั้งหมด */
+function apprDeepParams() {
+  var q = String(location.hash || "").split("?")[1] || "";
+  var t = /(?:^|&)tab=(leave|ot|fix)(?:&|$)/.exec(q);
+  var i = /(?:^|&)id=([0-9a-fA-F-]{36})(?:&|$)/.exec(q);
+  return { tab: t ? t[1] : "", id: i ? i[1] : "" };
+}
+
 function viewApprovals(el) {
+  var d = apprDeepParams();
+  if (d.tab) apprTab = d.tab;
+  apprDeepId = d.id || "";
   apprLoadCounts(el);
   apprLoad(el, apprTab, false);
 }
@@ -294,27 +307,25 @@ function viewApprovals(el) {
 /* ================= ตาราง ================= */
 /* [ชื่อหัวคอลัมน์, class สำหรับกำหนดความกว้างใน CSS] — th กับ td ใช้ class เดียวกัน
    เพื่อให้ทุกคอลัมน์มี min-width ของตัวเอง ไม่ถูกบีบจนซ้อนกัน */
+/* [RUN-187] โครงคอลัมน์ใหม่ — แยกตามประเภทคำขอ และมี "คนที่ 1/2/3" ทุกเมนู
+   แทนชุดเดิม (APPR_COLS_TAIL + APPR_LEAVE_HIDE ของ RUN-118) ซึ่งเลิกใช้แล้ว
+   คอลัมน์ที่ถอดออกจากตาราง (แผนก · ไฟล์แนบ · ส่งคำขอวันที่ · วันที่อนุมัติ · สถานะ)
+   ยังเปิดดูได้ครบใน Modal "ตรวจสอบก่อนอนุมัติ / ดูรายละเอียด" ตามเดิม
+   ไม่มีการลบหรือแก้ข้อมูลคำขอใด ๆ — เป็นการจัดวางที่ชั้น UI เท่านั้น */
 var APPR_COLS_HEAD = [["วันที่รายการ", "c-date"], ["รหัสพนักงาน", "c-code"], ["ชื่อ", "c-name"],
-  ["ชื่อเล่น", "c-nick"], ["แผนก", "c-dept"]];
-var APPR_COLS_TAIL = [["ส่งคำขอวันที่", "c-sub"], ["วันที่อนุมัติ", "c-apd"],
-  ["สถานะ", "c-st"], ["จัดการ", "apr-mg"]];
+  ["ชื่อเล่น", "c-nick"]];
+var APPR_WHO_COLS = [["คนที่ 1", "c-ap1"], ["คนที่ 2", "c-ap2"], ["คนที่ 3", "c-ap3"]];
+var APPR_WHO_N = APPR_WHO_COLS.length;
 
-/* [RUN-118] หน้า "อนุมัติรายการ → คำขอลา" ซ่อน 4 คอลัมน์ออกจากตารางรายการ
-   แผนก · ไฟล์แนบ · ส่งคำขอวันที่ · วันที่อนุมัติ
-   เป็นการซ่อนที่ชั้น UI เท่านั้น — ข้อมูลทั้งหมดยังอยู่ครบและยังเปิดดูได้ใน
-   Modal "ตรวจสอบก่อนอนุมัติ" / "ดูรายละเอียด" ตามเดิม
-   Tab คำขอ OT และ ลงชื่อย้อนหลัง ไม่ถูกกระทบ (คอลัมน์ครบเหมือนเดิม)
-   th กับ td ใช้ตัวตัดสินตัวเดียวกัน จึงไม่มีทางที่หัวตารางกับข้อมูลจะเหลื่อมกัน */
-var APPR_LEAVE_HIDE = { "c-dept": 1, "c-file": 1, "c-sub": 1, "c-apd": 1 };
-function apprColHidden(kind, cls) {
-  return kind === "leave" && !!APPR_LEAVE_HIDE[cls];
+function apprMidCols(kind) {
+  if (kind === "leave") return [["ประเภทลา", "c-lt"], ["จำนวนวัน", "c-qty"]];
+  if (kind === "ot") return [["ประเภท OT", "c-ott"], ["จำนวนชั่วโมง", "c-qty"]];
+  return [["ประเภทการลงเวลา", "c-fxt"], ["เวลาเข้า", "c-tin"], ["เวลาออก", "c-tout"]];
 }
 
-/* คำขอลาเท่านั้นที่มีคอลัมน์ "ประเภทลา" */
 function apprCols(kind) {
-  return APPR_COLS_HEAD.concat(kind === "leave" ?
-    [["ประเภทลา", "c-lt"], ["จำนวนวัน", "c-qty"], ["ไฟล์แนบ", "c-file"]] : []).concat(APPR_COLS_TAIL)
-    .filter(function (c) { return !apprColHidden(kind, c[1]); });
+  return APPR_COLS_HEAD.concat(apprMidCols(kind)).concat(APPR_WHO_COLS)
+    .concat([["จัดการ", "apr-mg"]]);
 }
 
 /* DATE-only (start_date / ot_date / work_date / action_at ที่แปลง Asia/Bangkok มาแล้ว)
@@ -424,8 +435,13 @@ function apprWhoState(r, step, p) {
   var cur = Number(r.current_step) || 0;
   /* "รออนุมัติ" ได้เฉพาะขั้นปัจจุบันของใบที่ยัง PENDING เท่านั้น
      ใบที่ APPROVED / REJECTED / CANCELLED ห้ามกลับไปเป็น "รออนุมัติ" เด็ดขาด */
-  if (String(r.status || "").toUpperCase() === "PENDING" && cur && Number(step.step_no) === cur)
+  var pend = String(r.status || "").toUpperCase() === "PENDING";
+  if (pend && cur && Number(step.step_no) === cur)
     return ["wait", "รออนุมัติ"];
+  /* [RUN-187] ขั้นที่ "ยังไม่ถึงคิว" — ตั้งแต่ RUN-187 Backend คืนผังมาครบทุกขั้นแล้ว
+     จึงแยก "รอคิว" (ยังมาไม่ถึง) ออกจาก "ไม่ได้ดำเนินการ" (ผ่านไปแล้วแต่ไม่ได้กด) ได้ */
+  if (pend && cur && Number(step.step_no) > cur)
+    return ["queue", "รอคิว", "⏳"];
   /* ขั้นที่ผ่านแล้ว / ใบที่ปิดแล้ว — ANY = ไม่จำเป็นต้องอนุมัติ · ALL = ไม่ได้ดำเนินการ */
   return String(step.step_mode || "").toUpperCase() === "ANY"
     ? ["none", "ไม่ต้องอนุมัติ", "—"]
@@ -435,6 +451,56 @@ function apprWhoState(r, step, p) {
 /* เครื่องหมายหน้าสถานะ — ใช้ค่าที่ apprWhoState กำหนดมาก่อน ถ้าไม่มีจึงใช้ค่าเริ่มต้นของ class */
 function apprWhoMark(stt) {
   return stt[2] || (stt[0] === "ok" ? "✅" : stt[0] === "bad" ? "❌" : stt[0] === "wait" ? "🟡" : "⚪");
+}
+
+/* [RUN-187] เรียงผู้อนุมัติทั้งผังเป็นลำดับเดียว — ขั้นที่ 1 ก่อน แล้วไล่ไปขั้นถัดไป
+   ภายในขั้นเดียวกันใช้ลำดับที่ Backend ส่งมา (เรียงตามชื่อ) ไม่สลับเองและไม่ Hardcode
+   ชื่อทุกคนมาจาก njhr_approval_step_approvers ผ่าน njhr_appr_steps_snap เท่านั้น */
+function apprFlatAppr(r) {
+  var out = [];
+  (r.steps || []).slice().sort(function (a, b) {
+    return (Number(a.step_no) || 0) - (Number(b.step_no) || 0);
+  }).forEach(function (st) {
+    (st.approvers || []).forEach(function (p) {
+      out.push({ name: p.name, nickname: p.nickname, at: p.action_at,
+        step_no: st.step_no, state: apprWhoState(r, st, p) });
+    });
+  });
+  return out;
+}
+
+/* เซลล์ "คนที่ N" — ชื่อจริงเสมอ + สถานะต่อท้าย · ไม่มีคนในลำดับนั้น = — */
+function apprWhoCell(r, list, i) {
+  var p = list[i];
+  if (!p) return '<td class="c-ap c-ap' + (i + 1) + '"><span class="apr-pn-no">—</span></td>';
+  var st = p.state;
+  var more = (i === APPR_WHO_N - 1 && list.length > APPR_WHO_N) ?
+    '<button type="button" class="apr-pn-more" data-appr="' + esc(String(r.id)) + '"' +
+    ' aria-haspopup="true" aria-expanded="false" title="ดูผู้อนุมัติทั้งหมด">+' +
+    (list.length - APPR_WHO_N) + " คน</button>" : "";
+  return '<td class="c-ap c-ap' + (i + 1) + '"><div class="apr-pn ' + st[0] + '">' +
+    '<b class="apr-pn-nm">' + esc(apprWho(p.name, p.nickname)) + "</b>" +
+    '<span class="apr-pn-st">' + apprWhoMark(st) + " " + esc(st[1]) + "</span>" +
+    (p.at ? '<small class="apr-pn-at">' + esc(apprTSDateTime(p.at)) + "</small>" : "") +
+    more + "</div></td>";
+}
+
+/* ประเภท OT — ระดับคำขอไม่มีฟิลด์นี้ จึงสรุปจาก job_type ของรายการงานจริง
+   ไม่มีรายการงาน = ใช้วันหยุด/ปกติ ตามที่ njhr_ot_is_holiday คืนมา ห้ามเดาเอง */
+function apprOtType(r) {
+  var seen = {}, out = [];
+  (r.jobs || []).forEach(function (j) {
+    var t = String(j && j.job_type || "").trim();
+    if (t && !seen[t]) { seen[t] = 1; out.push(t) }
+  });
+  if (out.length > 2) return out.slice(0, 2).join(", ") + " +" + (out.length - 2);
+  if (out.length) return out.join(", ");
+  return r.is_holiday ? "OT วันหยุด" : "OT ปกติ";
+}
+
+function apprOtHours(r) {
+  var h = Number(r.ot_hours) || 0;
+  return h > 0 ? h + " ชม." : "-";
 }
 
 /* เนื้อหา Popover "ผู้อนุมัติ" — แยกเป็นรายคน อ่านง่าย ไม่ต่อกันเป็นประโยคยาว */
@@ -620,23 +686,25 @@ function apprTableRow(kind, r) {
     '<span class="apr-mine ok">✓ คุณอนุมัติแล้ว' + esc(mineAt) + "</span>" :
     mine === "REJECT" ? '<span class="apr-mine bad">✕ คุณไม่อนุมัติ' + esc(mineAt) + "</span>" :
       mine === "INFO" ? '<span class="apr-mine info">คุณขอข้อมูลเพิ่มแล้ว' + esc(mineAt) + "</span>" : "";
+  /* [RUN-187] กลางตารางแยกตามประเภทคำขอ แล้วต่อด้วยผู้อนุมัติคนที่ 1/2/3 */
+  var mid = kind === "leave" ?
+      '<td class="c-lt apr-lt">' + esc(apprLeaveType(r)) + "</td>" +
+      '<td class="c-qty">' + esc(apprQty(r)) + "</td>"
+    : kind === "ot" ?
+      '<td class="c-ott">' + esc(apprOtType(r)) + "</td>" +
+      '<td class="c-qty">' + esc(apprOtHours(r)) + "</td>"
+    : '<td class="c-fxt">' + esc(apprFixKind(r)) + "</td>" +
+      '<td class="c-tin apr-dt">' + esc(apprHM(r.requested_check_in)) + "</td>" +
+      '<td class="c-tout apr-dt">' + esc(apprHM(r.requested_check_out)) + "</td>";
+  var list = apprFlatAppr(r);
   return '<tr data-rid="' + esc(String(r.id)) + '">' +
     '<td class="c-date apr-dt">' + esc(apprItemDate(kind, r)) + "</td>" +
     '<td class="c-code apr-code">' + esc(r.emp_code || "-") + "</td>" +
     '<td class="c-name apr-nm">' + esc(r.emp_name || "-") + "</td>" +
     '<td class="c-nick">' + esc(r.emp_nickname ? r.emp_nickname : "-") + "</td>" +
-    (apprColHidden(kind, "c-dept") ? "" :
-      '<td class="c-dept">' + esc(r.department || r.department_name || "-") + "</td>") +
-    (kind === "leave" ? '<td class="c-lt apr-lt">' + esc(apprLeaveType(r)) + "</td>" +
-      '<td class="c-qty">' + esc(apprQty(r)) + "</td>" +
-      (apprColHidden(kind, "c-file") ? "" :
-        '<td class="c-file">' + apprFileCell(kind, r) + "</td>") : "") +
-    (apprColHidden(kind, "c-sub") ? "" :
-      '<td class="c-sub apr-dt">' + esc(apprSubmitAt(kind, r)) + "</td>") +
-    (apprColHidden(kind, "c-apd") ? "" :
-      '<td class="c-apd apr-dt">' + esc(apprApprovedAt(r)) + "</td>") +
-    '<td class="c-st apr-st">' + apprStatusCell(r) + mineTag + "</td>" +
-    '<td class="apr-mg">' + apprActionsCell(kind, r) + "</td></tr>";
+    mid +
+    apprWhoCell(r, list, 0) + apprWhoCell(r, list, 1) + apprWhoCell(r, list, 2) +
+    '<td class="apr-mg">' + apprActionsCell(kind, r) + mineTag + "</td></tr>";
 }
 
 /* ================= Render ================= */
@@ -666,12 +734,23 @@ function apprRender(el) {
     rows.length + "/" + apprTotal[apprTab] + ")</button></div>" : "";
 
   el.innerHTML = head +
-    '<div class="apr-wrap"><table class="apr-table' +
-    (apprTab === "leave" ? " apr-t-leave" : "") + '"><thead><tr>' +
+    /* [RUN-187] ติด class ของ Tab ทุกประเภท (apr-t-leave / apr-t-ot / apr-t-fix)
+       เพื่อให้ CSS กำหนดความกว้างคอลัมน์แยกตามโครงของแต่ละเมนูได้
+       apr-t-leave เดิมยังคงอยู่ครบ กติกา RUN-127 จึงไม่ถูกกระทบ */
+    '<div class="apr-wrap"><table class="apr-table apr-t-' + apprTab + '"><thead><tr>' +
     cols.map(function (c) {
       return '<th class="' + c[1] + '">' + esc(c[0]) + "</th>";
     }).join("") + '</tr></thead><tbody id="appr-list">' + body + "</tbody></table></div>" + more +
     '<div class="form-error" id="appr-err" role="alert" style="white-space:pre-line"></div>';
+
+  /* [RUN-187] กดแจ้งเตือนแล้วเปิดคำขอตรงรายการ — เปิดครั้งเดียวเมื่อโหลดเสร็จ */
+  if (apprDeepId && !loading) {
+    var want = apprDeepId;
+    apprDeepId = "";
+    if (apprFind(apprTab, want)) setTimeout(function () {
+      if (document.body.contains(el)) apprReview(el, apprTab, want, "view");
+    }, 0);
+  }
 
   var listEl = document.getElementById("appr-list");
   if (!loading && rows.length > FIRST && listEl) {

@@ -888,3 +888,90 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
   .apr-table.apr-t-leave th.c-st,.apr-table.apr-t-leave td.c-st{width:28%}
   .apr-table.apr-t-leave th.c-name,.apr-table.apr-t-leave td.c-name{width:17.5%}
 }
+
+/* ============================================================================
+   RUN-187 · หน้า "อนุมัติรายการ" — คอลัมน์ผู้อนุมัติคนที่ 1/2/3 (Append เท่านั้น)
+   ขอบเขต: .apr-table ในหน้าอนุมัติรายการเท่านั้น
+   ไม่แตะหน้าอื่น ไม่แตะ Modal เดิม ไม่แตะ Mobile Layout ของหน้าอื่น
+   สี: เขียว = อนุมัติแล้ว · เหลืองอ่อน = รออนุมัติ · เทา = รอคิว · แดงอ่อน = ไม่อนุมัติ
+   ============================================================================ */
+.apr-wrap{background:#fff;border-color:#E2E8F0}
+.apr-table thead th{background:#EAF3FF;color:#1E3A5F;border-bottom:1px solid #E2E8F0;
+  border-right:1px solid #E2E8F0}
+.apr-table thead th:last-child{border-right:0}
+.apr-table tbody td{border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;
+  vertical-align:top}
+.apr-table tbody td:last-child{border-right:0}
+.apr-table thead th.apr-mg{background:#EAF3FF}
+
+/* เซลล์ "คนที่ N" */
+.apr-table th.c-ap,.apr-table td.c-ap{min-width:168px}
+.apr-pn{display:flex;flex-direction:column;gap:2px;line-height:1.45}
+.apr-pn-nm{font-size:12.5px;font-weight:600;color:var(--ink);white-space:normal;
+  word-break:break-word}
+.apr-pn-st{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;
+  border-radius:7px;padding:2px 8px;font-size:11.5px;font-weight:600;
+  background:#F1F5F9;color:#475569;white-space:nowrap}
+.apr-pn-at{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.apr-pn-no{color:#94A3B8;font-size:13px}
+.apr-pn.ok .apr-pn-st{background:#DCFCE7;color:#15803D}
+.apr-pn.wait .apr-pn-st{background:#FEF3C7;color:#A16207}
+.apr-pn.queue .apr-pn-st{background:#F1F5F9;color:#64748B}
+.apr-pn.bad .apr-pn-st{background:#FEE2E2;color:#B91C1C}
+.apr-pn.none .apr-pn-st{background:#F1F5F9;color:#94A3B8}
+.apr-pn.queue .apr-pn-nm,.apr-pn.none .apr-pn-nm{color:var(--ink-2);font-weight:500}
+.apr-pn-more{margin-top:2px;align-self:flex-start;border:1px solid #E2E8F0;background:#fff;
+  color:var(--ink-2);border-radius:7px;padding:1px 7px;font-size:11px;font-weight:600;
+  cursor:pointer}
+.apr-pn-more:hover{border-color:var(--navy);color:var(--navy)}
+.apr-pn-more:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+
+/* ความกว้างขั้นต่ำของคอลัมน์ใหม่ */
+.apr-table th.c-ott,.apr-table td.c-ott{min-width:130px}
+.apr-table th.c-fxt,.apr-table td.c-fxt{min-width:140px}
+.apr-table th.c-tin,.apr-table td.c-tin,
+.apr-table th.c-tout,.apr-table td.c-tout{min-width:84px}
+.apr-table.apr-t-ot,.apr-table.apr-t-fix{min-width:1180px}
+
+/* Desktop — ตารางพอดีความกว้างจริง ไม่ต้องเลื่อนแนวนอน */
+@media screen and (min-width:1200px){
+  .apr-table.apr-t-leave,.apr-table.apr-t-ot,.apr-table.apr-t-fix{
+    table-layout:fixed;width:100%;min-width:1040px}
+  .apr-table thead th,.apr-table tbody td{padding:10px 10px}
+
+  .apr-table.apr-t-leave th.c-date,.apr-table.apr-t-leave td.c-date{width:10%}
+  .apr-table.apr-t-leave th.c-code,.apr-table.apr-t-leave td.c-code{width:7%}
+  .apr-table.apr-t-leave th.c-name,.apr-table.apr-t-leave td.c-name{width:14%}
+  .apr-table.apr-t-leave th.c-nick,.apr-table.apr-t-leave td.c-nick{width:6.5%}
+  .apr-table.apr-t-leave th.c-lt,.apr-table.apr-t-leave td.c-lt{width:8.5%}
+  .apr-table.apr-t-leave th.c-qty,.apr-table.apr-t-leave td.c-qty{width:6.5%}
+
+  .apr-table.apr-t-ot th.c-date,.apr-table.apr-t-ot td.c-date{width:9%;min-width:0}
+  .apr-table.apr-t-ot th.c-code,.apr-table.apr-t-ot td.c-code{width:7%;min-width:0}
+  .apr-table.apr-t-ot th.c-name,.apr-table.apr-t-ot td.c-name{width:14%;min-width:0}
+  .apr-table.apr-t-ot th.c-nick,.apr-table.apr-t-ot td.c-nick{width:6.5%;min-width:0}
+  .apr-table.apr-t-ot th.c-ott,.apr-table.apr-t-ot td.c-ott{width:9%;min-width:0}
+  .apr-table.apr-t-ot th.c-qty,.apr-table.apr-t-ot td.c-qty{width:7%;min-width:0}
+
+  .apr-table.apr-t-fix th.c-date,.apr-table.apr-t-fix td.c-date{width:9%;min-width:0}
+  .apr-table.apr-t-fix th.c-code,.apr-table.apr-t-fix td.c-code{width:6.5%;min-width:0}
+  .apr-table.apr-t-fix th.c-name,.apr-table.apr-t-fix td.c-name{width:13%;min-width:0}
+  .apr-table.apr-t-fix th.c-nick,.apr-table.apr-t-fix td.c-nick{width:6%;min-width:0}
+  .apr-table.apr-t-fix th.c-fxt,.apr-table.apr-t-fix td.c-fxt{width:9.5%;min-width:0}
+  .apr-table.apr-t-fix th.c-tin,.apr-table.apr-t-fix td.c-tin{width:5.5%;min-width:0}
+  .apr-table.apr-t-fix th.c-tout,.apr-table.apr-t-fix td.c-tout{width:5.5%;min-width:0}
+
+  .apr-table th.c-ap,.apr-table td.c-ap{width:12.5%;min-width:0}
+  .apr-table.apr-t-fix th.c-ap,.apr-table.apr-t-fix td.c-ap{width:11.5%}
+  .apr-table th.apr-mg,.apr-table td.apr-mg{width:14%;min-width:0}
+
+  .apr-table td.c-name,.apr-table td.apr-nm{white-space:normal;word-break:break-word}
+  .apr-table td.c-ott,.apr-table td.c-fxt{white-space:normal;word-break:break-word}
+}
+
+/* Mobile / Tablet — คง UI เดิม (ตารางเลื่อนแนวนอน) เพียงรองรับคอลัมน์ใหม่ */
+@media screen and (max-width:1199px){
+  .apr-table.apr-t-leave,.apr-table.apr-t-ot,.apr-table.apr-t-fix{min-width:1180px}
+  .apr-pn-nm{font-size:12px}
+  .apr-pn-st{font-size:11px;padding:1px 7px}
+}
