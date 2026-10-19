@@ -1,6 +1,6 @@
 /* Service Worker — static asset เท่านั้น · ไม่ cache ข้อมูลส่วนตัว/Supabase
    Cache Version มาจาก build.js เขียนให้อัตโนมัติ (ค่าเดียวกับ app.js/CSS/index.html ใน build เดียวกัน) */
-const V = 'njhr-v2-b9badc02';
+const V = 'njhr-v2-05711f36';
 const BUILD = V.replace('njhr-v2-', '');
 const Q = '?v=' + BUILD;
 
@@ -10,7 +10,7 @@ const Q = '?v=' + BUILD;
       รายการนี้มีเฉพาะสิ่งที่ต้องใช้ตั้งแต่หน้า Login: index.html · CSS · โลโก้ ·
       Asset Manifest · Runtime Namespace · Runtime Core
       ห้ามใส่ Feature Module หรือ Compatibility Bundle เด็ดขาด */
-const CORE = ["./","./index.html","./asset-manifest.js?v=1e8c9322","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=5613179b","./styles.css?v=fc829308","./mobile.css?v=bc830a8d","./assets/nj-logistic-logo.png"];
+const CORE = ["./","./index.html","./asset-manifest.js?v=8a57ad19","./runtime/namespace.js?v=815b8995","./runtime/core.js?v=2173555d","./styles.css?v=fc829308","./mobile.css?v=bc830a8d","./assets/nj-logistic-logo.png"];
 
 /* B) Lazy-loaded static — cache ตอนใช้งานจริง ไม่ดึงตั้งแต่ install
       dashboard.js  → cache ตอนเปิด Dashboard ครั้งแรก (ไม่ precache จึงไม่เพิ่ม Initial Download)
@@ -185,27 +185,59 @@ self.addEventListener('message', e => {
    Push ที่ได้รับ "ไม่มี payload" โดยเจตนา — ไม่มี title/body/link ของแจ้งเตือนจริง
    จึงแสดงข้อความกลาง แล้วให้ผู้ใช้กดเข้าแอปไปอ่านเนื้อหาด้วย token ของตัวเอง
    ไม่แตะ Cache Strategy เดิมแม้แต่บรรทัดเดียว */
+/* [RUN-186F] ตรวจและทำความสะอาดปลายทางที่มากับ Push ก่อนใช้งานเสมอ
+   รับเฉพาะเส้นทางภายในแอป (hash) ที่อยู่ใต้ scope ของ Service Worker นี้เท่านั้น
+   ป้องกัน Open Redirect และการถูกส่ง URL ปลอมมาเปิด */
+function swSafeUrl(u) {
+  const FALLBACK = './#/notifications';
+  try {
+    if (typeof u !== 'string' || !u) return FALLBACK;
+    if (/[\s"'<>\\]/.test(u)) return FALLBACK;
+    if (u.indexOf('#/') === 0) return './' + u;
+    const abs = new URL(u, self.registration.scope);
+    if (abs.origin !== self.location.origin) return FALLBACK;
+    if (abs.href.indexOf(self.registration.scope) !== 0) return FALLBACK;
+    if (!abs.hash || abs.hash.indexOf('#/') !== 0) return FALLBACK;
+    return abs.href;
+  } catch (e) { return FALLBACK; }
+}
+
+/* [RUN-186F] Push มี Payload แล้ว — แสดงชื่อเรื่องจริงและพาไปที่รายการนั้นโดยตรง
+   · title / body / navigate / tag มาจาก Edge Function ที่กรอง module ปลอดภัยไว้แล้ว
+     (ประกาศ · เอกสาร · ข่าวสาร · ลา · OT · ลงเวลา — ไม่มียอดเงินหรือข้อมูลอ่อนไหว)
+   · ไม่มี Payload หรืออ่านไม่ได้ -> ใช้ข้อความกลางแบบเดิม ไม่ทำให้ Push หาย
+   · [ยอด Badge] ถ้า Payload มี app_badge = ยอดจริงที่เซิร์ฟเวอร์ยืนยันแล้ว ให้ "ตั้งค่า" ตามนั้น
+     ไม่ใช่บวกเพิ่มเอง  -> Push ซ้ำจากเหตุการณ์เดียวจึงไม่ทำให้ยอดเกิน
+     ใช้ badgeIncrement() เป็นทางสำรองเฉพาะตอนไม่มี Payload เท่านั้น */
 self.addEventListener('push', e => {
+  let p = null;
+  try { p = e.data ? e.data.json() : null; } catch (err) { p = null; }
+  const n = (p && typeof p === 'object' && p.notification) || {};
+  const title = (typeof n.title === 'string' && n.title.trim()) ? n.title.trim() : 'NJ LOGISTIC HR';
+  const body = (typeof n.body === 'string' && n.body.trim()) ? n.body.trim() : 'คุณมีการแจ้งเตือนใหม่';
+  const tag = (typeof n.tag === 'string' && n.tag.trim()) ? n.tag.trim() : 'njhr-notify';
+  const url = swSafeUrl(n.navigate);
+  const exact = (p && p.app_badge !== undefined && p.app_badge !== null && isFinite(Number(p.app_badge)))
+    ? Math.max(0, Math.floor(Number(p.app_badge))) : null;
+
   e.waitUntil(Promise.all([
-    /* [App Badge] นับเพิ่มจากค่าที่ sync ไว้ แล้ววาดเลขจริงลงไอคอน
-       Push #1 → 1 · #2 → 2 · #3 → 3
-       ยังคง PAYLOADLESS: ไม่อ่านอะไรจาก e.data เลย
-       ล้มเหลวเงียบทุกกรณี → showNotification ด้านล่างยังทำงานเสมอ */
-    badgeIncrement().then(n => badgePaint(n)).catch(() => {}),
-    self.registration.showNotification('NJ LOGISTIC HR', {
-      body: 'คุณมีการแจ้งเตือนใหม่',
+    (exact === null ? badgeIncrement() : badgeSet(exact))
+      .then(v => badgePaint(v)).catch(() => {}),
+    self.registration.showNotification(title, {
+      body: body.slice(0, 180),
       icon: './assets/nj-logistic-logo.png',
       badge: './assets/nj-logistic-logo.png',
-      tag: 'njhr-notify',            // รวมเป็นก้อนเดียว ไม่ถล่มหน้าจอ
+      tag: tag,
       renotify: true,
-      data: { url: './#/notifications' }
+      data: { url: url }
     }).catch(() => {})
   ]));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const target = (e.notification.data && e.notification.data.url) || './#/notifications';
+  /* [RUN-186F] ตรวจปลายทางซ้ำอีกชั้นก่อนเปิด — ไม่เชื่อค่าที่ติดมากับ Notification */
+  const target = swSafeUrl(e.notification.data && e.notification.data.url);
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
       for (const c of cs) {

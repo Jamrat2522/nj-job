@@ -185,7 +185,23 @@
       else if (anRdrOpenId) anReaders(anRdrOpenId, true);
     }, 400));
   }
-  function viewAnnBoard(el) { anView(el, "BOARD"); }
+  /* [RUN-186F] Deep Link — #/ann-board?id=<uuid> เปิดประกาศฉบับนั้นทันที
+     ใช้เมื่อกด Push หรือกดรายการในศูนย์แจ้งเตือนรวม
+     · รับเฉพาะรูปแบบ UUID เท่านั้น ค่าอื่นถูกเมิน
+     · สิทธิ์ยังถูกตรวจที่เซิร์ฟเวอร์โดย njhr_ea_get เหมือนเดิมทุกประการ
+       ถ้าไม่มีสิทธิ์ จะขึ้น "ไม่พบประกาศนี้" ไม่มีข้อมูลรั่ว */
+  function anDeepId() {
+    try {
+      var q = String(location.hash || "").split("?")[1] || "";
+      var m = /(?:^|&)id=([0-9a-fA-F-]{36})(?:&|$)/.exec(q);
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  }
+  function viewAnnBoard(el) {
+    anView(el, "BOARD");
+    var id = anDeepId();
+    if (id) setTimeout(function () { if (document.body.contains(el)) anDetail(el, id); }, 0);
+  }
   function viewAnnDone(el) { anView(el, "DONE"); }
 
   function anPaint(el) {
@@ -411,6 +427,9 @@
           pw.value = "";
           toast("บันทึกการรับทราบแล้ว", "ok");
           closeModal(); anLoad(el);
+          /* [RUN-185] รับทราบสำเร็จ -> ตัวเลขบนไอคอนแอปและเมนูต้องลดลงทันที
+             อ่านจำนวนจริงจากเซิร์ฟเวอร์ใหม่ ไม่ลบเลขเอาเองฝั่งเบราว์เซอร์ */
+          try { if (NJHR.notify && NJHR.notify.annRefresh) NJHR.notify.annRefresh(); } catch (e) { }
         }, function (er) {
           pw.value = ""; sync();
           if (err) err.textContent = er.message || "บันทึกไม่สำเร็จ";
