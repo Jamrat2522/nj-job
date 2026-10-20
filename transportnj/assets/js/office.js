@@ -278,27 +278,23 @@
     if (opt.copy) out += hlContainers(job).length > 1 ? '<div class="hl-copy"><button type="button" class="btn btn-navy" data-hcopy>📋 COPY ตู้นี้</button><button type="button" class="btn btn-navy" data-hcopyall>📋 COPY รวมทุกตู้</button></div>' : '<div class="hl-copy"><button type="button" class="btn btn-navy" data-hcopy>📋 COPY TIMELINE</button></div>';
     return `<div class="hl-tl" data-ct="${ct.key}">${out}</div>`;
   }
-  // ข้อความ COPY ลง LINE: เฉพาะตู้ที่เลือก · ไม่มี JOB · Timeline 3 รายการล่าสุด (เก่า → ใหม่ · แยกวันที่จริง) · Free Time เฉพาะตู้ที่ปิดงานแล้ว
-  function hualakCopyText(job, ct) {
-    ct = ct || ctOf(job, 'c1');
-    const L = [ctBadge(ct.no), '', '🚛 อัปเดตสถานะงานหัวลาก', '', ...hlLines(job, ct)]; let lastDate = null;
-    const all = hlItems(job, ct); const last3 = all.slice(Math.max(0, all.length - 3));
-    last3.forEach((t) => {
-      const b = bkk(t.event_at);
+  // ข้อความ COPY ลง LINE (ต่อตู้): เลข/สีตู้ → หัวข้อ → ข้อมูลตู้ + คนขับ → Timeline ทุกสถานะ (local186: ไม่จำกัดจำนวน · เก่า → ใหม่ · แยกวันที่จริง)
+  const hlCopyBlock = (job, ct) => { const L = [ctBadge(ct.no), '', '🚛 อัปเดตสถานะงานหัวลาก', '', ...hlLines(job, ct)]; let lastDate = null;
+    hlItems(job, ct).forEach((t) => { const b = bkk(t.event_at);
       if (b.date !== lastDate) { L.push(''); L.push(`📅 วันที่ ${hlDMY(b.date)}`); lastDate = b.date; }
-      L.push(hlItemText(t)); if (t.note) L.push(`   หมายเหตุ: ${t.note}`);
-    });
+      L.push(hlItemText(t)); if (t.note) L.push(`   หมายเหตุ: ${t.note}`); });
+    return L; };
+  // COPY ตู้นี้: + Free Time เฉพาะตู้ที่ปิดงานแล้ว (เดิม)
+  function hualakCopyText(job, ct) {
+    ct = ct || ctOf(job, 'c1'); const L = hlCopyBlock(job, ct);
     if (ctClosed(job, ct)) L.push('', freeTime(job, ct).text);
     return L.join('\n');
   }
-  // COPY รวมทุกตู้: หัวครั้งเดียว (X ตู้) + ทุกตู้เรียงตาม Container Sequence 1 → N · ข้อมูลตู้ + คนขับของตู้นั้นก่อนเสมอ · Timeline ล่าสุดไม่เกิน 3 (ไม่มี = จบที่ข้อมูลตู้ ไม่สร้างสถานะปลอม)
+  // COPY รวมทุกตู้: ทุกตู้เรียงตาม Container Sequence 1 → N · Timeline ทุกสถานะของแต่ละตู้ (ไม่มี = จบที่ข้อมูลตู้ ไม่สร้างสถานะปลอม)
   function hualakCopyAll(job) {
     const cs = hlContainers(job).slice().sort((a, b) => a.no - b.no);
-    const blocks = cs.map((ct) => { const B = [ctBadge(ct.no), `ลูกค้า: ${job.customer_name || '-'}`, `B/L: ${job.bl_no || '-'}`, `เบอร์ตู้: ${ct.container_no || '-'} | เบอร์ซีล: ${ct.seal_no || '-'}`, `กำหนดส่ง: ${hlDMY(ct.factory_date)} | ${ct.factory_time ? T.fmtT(ct.factory_time) + ' น.' : '-'}`,
-        '', `👤 คนขับ: ${ct.driver_name || '-'}`, `🚛 หัว/หาง: ${ct.license_plate || '-'} / ${ct.trailer_plate || '-'}`, `📞 เบอร์โทร: ${ct.driver_phone || '-'}`];
-      const all = hlItems(job, ct); let lastDate = null; all.slice(Math.max(0, all.length - 3)).forEach((t) => { const b = bkk(t.event_at); if (b.date !== lastDate) { B.push('', `📅 วันที่ ${hlDMY(b.date)}`); lastDate = b.date; } B.push(hlItemText(t)); });
-      return B.join('\n'); });
-    return [`🚛 อัปเดตสถานะงานหัวลาก ${cs.length} ตู้`, '', blocks.join('\n\n\n')].join('\n');
+    // local186: ทุกตู้ = รูปแบบเดียวกับ COPY ตู้นี้ (หัวข้อ + ข้อมูลครบ + Timeline ทุกสถานะ) · แยกตู้ด้วยบรรทัดว่าง · ไม่ปนข้อมูลตู้อื่น
+    return cs.map((ct) => hlCopyBlock(job, ct).join('\n')).join('\n\n\n');
   }
   T.hualakCopyAll = hualakCopyAll;
   T.hualakCopyText = hualakCopyText;
