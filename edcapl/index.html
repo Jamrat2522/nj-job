@@ -111,6 +111,7 @@ body {
 .sb-item[data-mode="edc8"].active  { background: rgba(59,130,246,.08);  border-left-color: #60a5fa; color: #93c5fd; }
 .sb-item[data-mode="edc8_ftm"].active  { background: rgba(6,182,212,.08);  border-left-color: #22d3ee; color: #67e8f9; }
 .sb-item[data-mode="kdc"].active   { background: rgba(245,158,11,.08);  border-left-color: #fbbf24; color: #fcd34d; }
+.sb-item[data-mode="edc"].active   { background: rgba(245,158,11,.08);  border-left-color: #fbbf24; color: #fcd34d; }   /* [EDC] = KDC */
 .sb-item[data-mode="edc1fz"].active{ background: rgba(16,185,129,.08);  border-left-color: #34d399; color: #6ee7b7; }
 .sb-item[data-mode="excel_edc1fz"].active{ background: rgba(139,92,246,.08); border-left-color: #a78bfa; color: #c4b5fd; }
 .sb-item[data-mode="master_builder"].active{ background: rgba(14,165,233,.08); border-left-color: #38bdf8; color: #7dd3fc; }
@@ -1104,6 +1105,12 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
     </div>
     <div class="sb-item-desc">ใบขน + Ford (Required)</div>
 
+    <!-- [EDC] ตรวจ EDC = COPY ตรวจ KDC (Panel / Engine / MASTER ชุดเดียวกัน · State แยก — ล้างทุกครั้งที่เข้า/ออก/สลับ KDC↔EDC) -->
+    <div class="sb-item" data-mode="edc" onclick="switchMode(this)">
+      <span>🟠</span> ตรวจ EDC <span class="sb-badge green">LIVE</span>
+    </div>
+    <div class="sb-item-desc">ใบขน + Ford (Required)</div>
+
     <div class="sb-item" data-mode="edc1fz" onclick="switchMode(this)">
       <span>🟢</span> ตรวจ EDC1 FZ <span class="sb-badge green">LIVE</span>
     </div>
@@ -1949,8 +1956,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
             <button class="apl-chip on" data-g="ALL" onclick="aplSetGroup('ALL')">ทั้งหมด<b id="apl-cnt-ALL">–</b></button>
             <button class="apl-chip" data-g="AAT" onclick="aplSetGroup('AAT')">AAT<b id="apl-cnt-AAT">–</b></button>
             <button class="apl-chip" data-g="FTM" onclick="aplSetGroup('FTM')">FTM<b id="apl-cnt-FTM">–</b></button>
-            <button class="apl-chip" data-g="AAT+FTM" onclick="aplSetGroup('AAT+FTM')">AAT-FTM<b id="apl-cnt-BOTH">–</b></button>
-            <button class="apl-chip" data-g="NONE" onclick="aplSetGroup('NONE')" title="AAT/FTM ไม่ใช่ AAT / FTM / AAT-FTM — ไม่ใช้ตรวจทั้ง 2 โหมด">ไม่ใช้ (ค่าอื่น)<b id="apl-cnt-NONE">–</b></button>
+            <button class="apl-chip" data-g="NONE" onclick="aplSetGroup('NONE')" title="AAT/FTM ไม่ใช่ AAT / FTM / AAT-FTM / AAT,FTM">ไม่ใช้ (ค่าอื่น)<b id="apl-cnt-NONE">–</b></button>
           </div>
           <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px">Privilege
             <select id="apl-priv" class="apl-in" onchange="aplSetPriv(this.value)" style="padding:6px 8px"><option value="">ทั้งหมด</option></select></label>
@@ -2079,8 +2085,8 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
         <div class="apl-mo-h"><h3>📥 EXPORT MASTER APL (25 คอลัมน์ · Header เดิม)</h3><button class="apl-mo-x" onclick="aplCloseExport()" title="ปิด">✕</button></div>
         <div class="apl-mo-b" style="display:flex;flex-direction:column;gap:8px">
           <button class="apl-b apl-b-exp" onclick="aplExportMaster('ALL')" style="justify-content:center">📥 ทั้งหมด</button>
-          <button class="apl-b apl-b-up" onclick="aplExportMaster('AAT')" style="justify-content:center">📗 AAT (รวม AAT-FTM)</button>
-          <button class="apl-b apl-b-paste" onclick="aplExportMaster('FTM')" style="justify-content:center">📘 FTM (รวม AAT-FTM)</button>
+          <button class="apl-b apl-b-up" onclick="aplExportMaster('AAT')" style="justify-content:center">📗 AAT (รวม AAT-FTM / AAT,FTM · Privilege ฝั่ง AAT)</button>
+          <button class="apl-b apl-b-paste" onclick="aplExportMaster('FTM')" style="justify-content:center">📘 FTM (รวม AAT-FTM / AAT,FTM · Privilege ฝั่ง FTM)</button>
           <div id="apl-exp-status" style="font-size:12px;font-weight:700"></div>
         </div>
       </div></div>
@@ -2361,6 +2367,12 @@ MODES_CONFIG.edc8_ftm = Object.assign({}, MODES_CONFIG.edc8, {
   exportName: 'EDC8_FTM_Error'
 });
 let currentMode = 'edc8';
+// [EDC] ตรวจ EDC = COPY ตรวจ KDC ทุกค่า (กฎ / rules ชุดเดียวกัน) · เปลี่ยนเฉพาะชื่อโหมด
+MODES_CONFIG.edc = Object.assign({}, MODES_CONFIG.kdc, {
+  title: MODES_CONFIG.kdc.title.replace(/KDC/g, 'EDC'),
+  label: MODES_CONFIG.kdc.label.replace(/KDC/g, 'EDC'),
+  exportName: MODES_CONFIG.kdc.exportName.replace(/KDC/g, 'EDC')
+});
 function getRules(){ return MODES_CONFIG[currentMode].rules; }
 
 function serial2ymd(n){ const d=new Date((n-25569)*86400000); return `${d.getUTCFullYear()}${p2(d.getUTCMonth()+1)}${p2(d.getUTCDate())}`; }
@@ -2500,7 +2512,7 @@ function switchMode(el){
     const pcPanel = document.getElementById('panel-permit_chk');
     if(pcPanel) pcPanel.style.display = isPermitChk ? 'block' : 'none';
     const am = document.getElementById('appMain'); if(am) am.classList.toggle('pmt-light', isPermitChk);   // โทนสว่าง เฉพาะโหมดตรวจใบกำกับ
-    if(am) am.classList.toggle('kdc-light', currentMode === 'kdc');                                        // โทนสว่าง เฉพาะโหมดตรวจ KDC
+    if(am) am.classList.toggle('kdc-light', currentMode === 'kdc' || currentMode === 'edc');   // [EDC] ใช้ UI เดียวกับ KDC                                        // โทนสว่าง เฉพาะโหมดตรวจ KDC
     if(am) am.classList.toggle('fz-light', isEdc1fz);                                                     // โทนสว่าง เฉพาะโหมดตรวจ EDC1 FZ
     if(am) am.classList.toggle('edc8-light', isEdc8);                                                      // โทนสว่าง เฉพาะโหมดตรวจ EDC8 AAT / FTM (panel เดียวกัน)
   }
@@ -2540,9 +2552,10 @@ function switchMode(el){
     clearResult();
   }
   // KDC V.200: ล้าง State KDC ให้ครบ (fordWbKdc, Workbook, Result, ไฟล์, UI) ทั้งตอนเข้าและออกโหมด KDC — Gate เฉพาะ KDC
-  if(currentMode==='kdc' || prevMode==='kdc'){
+  if(currentMode==='kdc' || prevMode==='kdc' || currentMode==='edc' || prevMode==='edc'){   // [EDC] เข้า/ออก/สลับ KDC↔EDC → ล้าง State ทั้งหมด (ข้อมูลไม่ข้ามโหมด)
     if(typeof kdcClearAllState==='function') kdcClearAllState();
   }
+  if(typeof kdcApplyModeName==='function') kdcApplyModeName();
   // ตรวจใบกำกับ: ล้าง State ทั้งตอนเข้าและออก (ห้ามไฟล์/ผล/PASTE ค้าง)
   if(isPermitChk || prevMode==='permit_chk'){
     if(typeof pmtReset==='function') pmtReset();
@@ -3016,7 +3029,7 @@ function kdcClearEntry(){
 // ── HS CODE ใบอนุญาต (MASTER กลาง · ชุดเดียวกับ TYPE 0 / TYPE 1 / TYPE D) — KDC เป็น Consumer ──
 //    โหลดล่าสุดทุกครั้งที่กดตรวจสอบ ผ่าน hspmRefresh() → hspmDataList() (Data Adapter) · ไม่มี MASTER / Cache แยกใน KDC
 async function kdcRunCheck(){
-  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน KDC (DWAK) ก่อนตรวจสอบ'); return; }
+  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน '+kdcModeTag()+' (DWAK) ก่อนตรวจสอบ'); return; }
   if(!fordWbKdc){ alert('⚠ กรุณาอัปโหลดไฟล์ Ford Commercial Invoice ก่อนตรวจสอบ'); return; }
   const btn = document.getElementById('kdcCheckBtnVis'), t0 = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = '⏳ โหลด HS CODE ใบอนุญาต…'; }
@@ -3026,10 +3039,11 @@ async function kdcRunCheck(){
     else PMX.err = 'ไม่พบโมดูล HS CODE ใบอนุญาต';
   }catch(e){ PMX.ok = false; PMX.err = String(e && e.message || e); }
   finally{ if(btn){ btn.disabled = false; btn.textContent = t0; } }
+  if(currentMode === 'edc' && typeof edcRunCheckCore === 'function'){ edcRunCheckCore(PMX); return; }   // [EDC] แยกตาม INVOICE NO. แล้วใช้ kdcRunCheckCore เดิม
   kdcRunCheckCore(PMX);
 }
 function kdcRunCheckCore(PMX){
-  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน KDC (DWAK) ก่อนตรวจสอบ'); return; }
+  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน '+kdcModeTag()+' (DWAK) ก่อนตรวจสอบ'); return; }
   if(!fordWbKdc){ alert('⚠ กรุณาอัปโหลดไฟล์ Ford Commercial Invoice ก่อนตรวจสอบ'); return; }
   clearResult();   // ล้าง Result เก่าเสมอ — ไม่มี Result ค้าง
   try{
@@ -3038,7 +3052,7 @@ function kdcRunCheckCore(PMX){
     const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
     if(!rows.length){ showSysErr('ไฟล์ว่างเปล่า','ไม่พบข้อมูลในชีต'); return; }
     const hdrErrors=kdcValidateHeader(rows[0]);
-    if(hdrErrors.length){ showSysErr('ไฟล์ใบขน KDC ไม่ตรงโครงสร้าง',hdrErrors.map(e=>`<div>${esc(e)}</div>`).join('')); return; }
+    if(hdrErrors.length){ showSysErr('ไฟล์ใบขน '+kdcModeTag()+' ไม่ตรงโครงสร้าง',hdrErrors.map(e=>`<div>${esc(e)}</div>`).join('')); return; }
     const C=kdcFindCols(rows[0]);
 
     // 2) อ่าน INVOICE (Ford Commercial Invoice)
@@ -3104,8 +3118,30 @@ function kdcRunCheckCore(PMX){
       const unitEntry = exc ? exc.qtyEntry : KDC_FZ_FIX.qtyEntry;
       const unit2     = exc ? exc.qty2     : KDC_FZ_FIX.qty2;
 
-      // ── สินค้า: Invoice Item 1 ↔ DWAK Item 1 เท่านั้น ────────────
-      if(isFirst){
+      // ── [KDC] Description / Quantity: ทุก Item ↔ INVOICE รายการเดียวกัน (Item n = รายการที่ n · ห้ามใช้รายการอื่น) — เฉพาะโหมด ตรวจ KDC ──
+      //    โหมด ตรวจ EDC (ใช้ Engine ร่วม) คง Flow เดิมด้านล่าง (Invoice Item 1 ↔ DWAK Item 1)
+      if(currentMode === 'kdc'){
+        const iNo = parseInt(String(item).replace(/\D/g,''),10), invIt = (iNo>=1 && iNo<=inv.items.length) ? inv.items[iNo-1] : (iNo>=1 ? null : inv.items[gi]) || null;
+        const ref = ' · INVOICE รายการที่ '+(iNo||gi+1), noInv = 'ไม่พบรายการ INVOICE ลำดับที่ '+(iNo||gi+1);
+        { // Description: เทียบข้อความจริง (ตัดช่องว่างหัว–ท้าย · ช่องว่างซ้อน = 1 · ไม่สนตัวพิมพ์เล็ก/ใหญ่ เท่านั้น)
+          const d = kdcCell(row,C.desc), e = invIt ? String(invIt.desc==null?'':invIt.desc).trim() : '';
+          const why = !invIt ? noInv : (kdcIsBlank(e) ? 'INVOICE ไม่มี Description'+ref : (kdcIsBlank(d) ? 'ใบขนว่าง'+ref : (!eqText(d,e) ? 'Description ไม่ตรงกับ INVOICE'+ref : '')));
+          push(item,'Description', d, e, !why, '', why);
+        }
+        { // Quantity: เทียบตัวเลข (ไม่สนตัวคั่นหลักพัน) · ข้อยกเว้นเดิม (noQtyCheck) แสดงเหตุผล ไม่นับ
+          const found = kdcCell(row,C.qty);
+          if(exc && exc.noQtyCheck){
+            out.push({ item:String(item), field:'Quantity', found: kdcIsBlank(found)?'(ว่าง)':String(found), expected:'(ไม่ตรวจ Quantity — '+thai+')', unit: unitEntry, ok:null, note:'Exception: '+thai+' — ไม่ตรวจ Quantity (ยกเลิกสูตรแปลงหน่วย) · ตรวจหน่วย QTY ตามเดิม' });
+          } else {
+            const e = invIt ? invIt.partQty : '', a = kdcToNum(found), b = kdcToNum(e), ok = !!invIt && eqNum(found, e);
+            const diff = (a!==null && b!==null) ? Math.round((a-b)*1000)/1000 : null;
+            const why = !invIt ? noInv : (kdcIsBlank(e) ? 'INVOICE ไม่มี Quantity'+ref : (kdcIsBlank(found) ? 'ใบขนว่าง'+ref : (a===null ? 'Quantity ใบขนไม่ใช่ตัวเลข'+ref : (!ok ? 'Quantity ไม่ตรงกับ INVOICE · ผลต่าง '+(diff>0?'+':'')+diff.toLocaleString('en-US',{maximumFractionDigits:3})+ref : ''))));
+            push(item,'Quantity', found, e, ok, unitEntry, why);
+          }
+        }
+      }
+      // ── สินค้า: Invoice Item 1 ↔ DWAK Item 1 เท่านั้น (ตรวจ EDC — Flow เดิม) ────────────
+      else if(isFirst){
         {
           const d=kdcCell(row,C.desc); const same=eqText(d, invFirst.desc);
           // Description: ไม่ FAIL เพราะไม่ตรง — ยึดตาม INVOICE (ว่างฝั่ง DWAK = FAIL)
@@ -3368,13 +3404,24 @@ function kdcRenderResult(res){
 }
 
 // ── ปุ่ม “EXPORT ผลตรวจ” → Excel 1 ไฟล์ / 1 Sheet (ผลตรวจ) จาก kdcResult ชุดเดียว · ตัด Sheet สรุปผลตรวจออก (07/10/2026) ──
+// [EDC] ชื่อโหมดที่แสดง (ตรวจ KDC / ตรวจ EDC ใช้ Engine เดียวกัน · เปลี่ยนเฉพาะชื่อ)
+function kdcModeTag(){ return currentMode === 'edc' ? 'EDC' : 'KDC'; }
+function kdcApplyModeName(){
+  const p = document.getElementById('panel-single'); if(!p) return;
+  const tag = kdcModeTag();
+  p.querySelectorAll('.mode-banner-title, .mode-banner-desc, .mode-banner-tag, #kdcUploadGrid .step-title, #dropZone .drop-label').forEach(el => {
+    if(el.dataset.kdcOrig === undefined) el.dataset.kdcOrig = el.innerHTML;
+    el.innerHTML = tag === 'KDC' ? el.dataset.kdcOrig : el.dataset.kdcOrig.replace(/KDC/g, tag);
+  });
+  if(typeof edcApplyInputs === 'function') edcApplyInputs();   // [EDC] accept .zip + หลายไฟล์ เฉพาะโหมด EDC (KDC คืนค่าเดิม)
+}
 function kdcExport(){
   if(!kdcResult || !kdcResult.rows){ alert('⚠ กรุณากดตรวจสอบก่อน Export (ไม่มีผลตรวจปัจจุบัน)'); return; }
   const res = kdcResult;
   const stamp = kdcStamp(res.meta.checkedAt);
-  const inv = (res.meta.invoiceNo||'KDC').replace(/[^\w\-]/g,'');
+  const inv = (res.meta.invoiceNo||'KDC').replace(/,\s*/g,'_').replace(/[^\w\-]/g,'');   // [EDC] หลาย INVOICE คั่น '_'
   kdcBuildExcel(res).then(buf=>{
-    safeDownload(buf, `KDC_ผลตรวจ_${inv}_${stamp}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    safeDownload(buf, `${kdcModeTag()}_ผลตรวจ_${inv}_${stamp}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }).catch(e=>alert('Export ไม่สำเร็จ: '+(e&&e.message||e)));
 }
 function kdcStamp(d){ d=d||new Date(); return `${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`; }
@@ -3387,7 +3434,7 @@ const KDC_XS={ TITLE:1, SUB:2, LBL:3, VAL:4, OKSUM:5, BADSUM:6, TOTSUM:7, SECOK:
 // Header เอกสาร (ใช้ชุดเดียวกันทั้ง 2 Sheet) — ค่าจาก Field จริงเท่านั้น ไม่มี = ว่าง
 function kdcSheetHeader(put, mg, rowsH, m){
   const S=KDC_XS;
-  put(0,0,'KDC',S.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า',S.SUB); mg(0,2,0,7); rowsH[0]=36;
+  put(0,0,kdcModeTag(),S.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า',S.SUB); mg(0,2,0,7); rowsH[0]=36;
   const hdrRows=[
     ['Job No.',       m.jobNo||'',       'วันที่ตรวจสอบ',          kdcDateTH(m.checkedAt)],
     ['INVOICE NO.',   m.invoiceNo||'',   'ไฟล์ DWAK / ใบขน KDC',  m.dwakFile||''],
@@ -5656,6 +5703,25 @@ function validateEdc8Rights(eRows, eCI, ref1, ref2){
 // Only check fields: INVOICE NO., DESCRIPTION, PART NO., PART QTY, QTY
 // Error format: WRONG = mapping_value / CORRECT = entry_value
 // ════════════════════════════════════════════════════════════════
+// [EDC8 39 หัวข้อ] รายละเอียด Ford Invoice ต้นฉบับที่ Parser เดิมไม่ได้เก็บ — อ่านอย่างเดียว (ไม่แก้ invParseFord / kdcParseInvoiceMeta)
+//   PIECE PRICE + ORIG ต่อรายการ (แถวรายการต้องตรงกับ invParseFord ทุกแถว: PART QTY + EXT PRICE · ไม่ตรง = ไม่มีข้อมูล)
+//   SHIP TO (ผู้รับ + ประเทศ) · SOLD TO (ประเทศ) · SHIP FROM (ผู้ส่งออก) · DELIVERY TERMS · สกุลเงิน
+function edc8InvoiceDetail(wb){
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'', raw:false }).map(r => String(r[0]||'').replace(/\u00a0/g,' '));
+  let d = null; try{ d = invParseFord(wb); }catch(e){ return null; }
+  if(!d || !d.items || !d.items.length || !d.invoiceNo) return null;
+  let m = {}; try{ m = kdcParseInvoiceMeta(wb) || {}; }catch(e){}
+  const col = (l, k) => String(l.split('*')[k]||'').trim();
+  const block = (re, k) => { const i = rows.findIndex(l => re.test(l)); if(i < 0) return []; const out = []; for(let j = i+1; j < rows.length && j <= i+6; j++){ const t = col(rows[j], k); if(!t || /^(ATTN|VAT NO)/i.test(t) || /^[-*]{3,}/.test(rows[j].trim())) break; out.push(t); } return out; };
+  const shipTo = block(/SHIP TO\/WAREN-EMPFANGER/i, 0);
+  const iFrom = rows.findIndex(l => /SHIP FROM\/ABSENDER/i.test(col(l, 1)));
+  const exporter = iFrom >= 0 ? col(rows[iFrom+1]||'', 1) : '';
+  const lines = []; rows.forEach(l => { const x = l.match(/\s([A-Z]{2})\s+\**([\d,]+)\s+([\d.,]+)\s+([A-Z]{1,4})\s+([\d.,]+)\s+([\d.,]+)\s*$/); if(x) lines.push({ origin:x[1], qty:parseFloat(x[2].replace(/,/g,'')), piece:parseFloat(x[5].replace(/,/g,'')), ext:parseFloat(x[6].replace(/,/g,'')) }); });
+  const aligned = lines.length === d.items.length && lines.every((x, i) => Math.abs(x.qty - d.items[i].partQty) < 0.005 && Math.abs(x.ext - d.items[i].extPrice) < 0.005);
+  const items = d.items.map((it, i) => Object.assign({}, it, aligned ? { piece:lines[i].piece, origin:lines[i].origin } : { piece:null, origin:'' }));
+  return { invoiceNo:d.invoiceNo, items, consignee:shipTo[0] || m.consignee || '', destCountry: m.destCountry || (typeof kdcCountryIso === 'function' ? (kdcCountryIso(shipTo.join(' ')) || '') : ''),
+           purCountry:m.purCountry || '', term:m.term || '', currency:m.currency || '', exporter, shippingMark:d.shippingMark || '' };
+}
 function edc8StrictValidate(entryWb, masterWb, mappingWb){
   const errors = [];
   // BUILD MARKER — if user sees INVOICE NO. mismatch on r23 (item 22), check this log in browser console.
@@ -5848,8 +5914,97 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       entryItemSet.add(itemKey);
     }
   }
+  // [EDC8 AAT] จับคู่ INVOICE ด้วย Product Code (ไม่ใช้ ITEM เป็น Key) · FTM คง Flow เดิม (จับคู่ตาม ITEM)
+  const _aatByPart = (typeof currentMode !== 'undefined' && (currentMode === 'edc8' || currentMode === 'edc8_ftm'));   // [EDC8 AAT / FTM] จับคู่ INVOICE ด้วย Product Code
+  const _normInv = v => String(v==null?'':v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase();
+  const _num = v => { const n = parseFloat(String(v==null?'':v).replace(/,/g,'').trim()); return isNaN(n) ? null : n; };
+  const _aatItemLine = new Map();   // ITEM ใบขน → แถว INVOICE ที่จับคู่แล้ว
+  const invLines = [];   // แถว INVOICE ทุกรายการ (ตามลำดับเดิม) · used = จับคู่กับ ITEM ใบขนแล้ว
+  if(_aatByPart){
+    for(let r=1; r<mapRaws.length; r++){
+      const row = mapRaws[r];
+      if(!row || row.every(c=>String(c||'').trim()==='')) continue;
+      const first = String(row[M_ITEM]||'').trim(); if(first.toUpperCase()==='TOTAL') continue;
+      invLines.push({ row, rowNum:r+1, part:_normPart(row[M_PART]), partRaw:String(row[M_PART]||'').trim(), inv:_normInv(row[M_INV]), invRaw:String(row[M_INV]||'').trim(), used:false });
+    }
+  }
+  // ── [EDC8 39 หัวข้อ] ข้อมูลอ้างอิง INVOICE เพิ่ม: รายละเอียดจากไฟล์ Ford Invoice ต้นฉบับ (ไม่แก้ invParseFord) ──
+  const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set() };
+  if(_aatByPart){ try{ ((typeof _mfFiles!=='undefined' && _mfFiles && _mfFiles.fordInvEdc8DZ) || []).forEach(e => { const d = e && e.wb ? edc8InvoiceDetail(e.wb) : null; if(d && d.invoiceNo) _t39.det.set(_normInv(d.invoiceNo), d); }); }catch(e){} }
+  const _mCol = n => _findColExact(mapHdr, [n]);
+  const M_DATE=_mCol('DATE SHIPPED'), M_EXT=_mCol('EXT PRICE (THB)'), M_GES=_mCol('GESAMTRECHNUNGSBETRAG'), M_NET=_mCol('NET/NETTO'), M_GRS=_mCol('GROSS/BRUTTO'), M_TOT=_mCol('TOTAL/SUMME'), M_SM=_mCol('SHIPPING MARK');
+  const _eCol = n => _findColExact(eHdr, [n]);
+  const _t39NoCol = (topic, colName) => { if(_t39.noCol.has(topic)) return; _t39.noCol.add(topic);
+    errors.push({ rowNum:0, item:'-', partNo:'', col:topic, found:'(ใบขนไม่มีคอลัมน์ '+colName+')', expected:colName, errorCode:'T39_NO_COLUMN', severity:'error', source:'entry', type:'missing', compareType:'text' }); };
+  const _dig = v => String(v==null?'':v).replace(/\D/g,''), _alnum = v => String(v==null?'':v).toUpperCase().replace(/[^A-Z0-9\u0E00-\u0E7F]/g,'');
+  const _r2 = v => Math.round(v*100)/100, _fmtN = v => (+v).toLocaleString('en-US',{ maximumFractionDigits:6 });
+  // 1 หัวข้อ: ใบขน (คอลัมน์ c) ↔ ค่าอ้างอิง ref (null = INVOICE ไม่มีข้อมูล → ⚪ ข้อมูลไม่พอ · ไม่นับ PASS)
+  const _t39Chk = (rowNum, itemDisplay, part, topic, colName, row, ref, mode, why) => {
+    const ci = _eCol(colName); if(ci === -1){ _t39NoCol(topic, colName); return; }
+    const ev = String(row[ci]==null?'':row[ci]).trim(), refs = (Array.isArray(ref) ? ref : [ref]).map(x => x==null ? '' : String(x).trim()).filter(Boolean);
+    if(!refs.length){ errors.push({ rowNum, item:itemDisplay, partNo:part, col:topic, found:ev||'(ว่าง)', expected:'ข้อมูลอ้างอิงไม่พอ — '+(why||'INVOICE ไม่มีข้อมูล '+topic)+' (ไม่นับ PASS)', errorCode:'T39_NO_REF', severity:'info', source:'mapping', type:'na', compareType:'text' }); return; }
+    const exp0 = refs[0];
+    if(!ev){ errors.push({ rowNum, item:itemDisplay, partNo:part, col:topic, found:exp0, expected:'(ว่าง)', errorCode:'ENTRY_EMPTY_MAPPING_HAS', severity:'error', source:'mapping', type:'missing', compareType:'text' }); return; }
+    const num = v => { const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n) ? null : n; };
+    let ok, shown = exp0;
+    if(mode === 'date') ok = _dig(ev) === _dig(exp0);
+    else if(mode === 'part') ok = _normPart(ev) === _normPart(exp0);
+    else if(mode === 'num' || mode === 'total'){ const a = num(ev), b = num(exp0); ok = a !== null && b !== null && Math.abs(a-b) < 0.005; if(!ok && a !== null && b !== null) shown = _fmtN(b)+' (ผลต่าง '+(a-b>0?'+':'')+_fmtN(_r2(a-b))+')'; }
+    else if(mode === 'price2'){ const a = num(ev), b = num(exp0); ok = a !== null && b !== null && _r2(a) === _r2(b); shown = _fmtN(b)+' (ปัด 2 ตำแหน่ง = '+(b===null?'-':_r2(b).toFixed(2))+')'; }
+    else if(mode === 'alnum') ok = refs.some(x => _alnum(x) === _alnum(ev));
+    else ok = refs.some(x => _normTxt(x) === _normTxt(ev));
+    if(!ok) errors.push({ rowNum, item:itemDisplay, partNo:part, col:topic, found:shown, expected:ev, errorCode:'FIELD_MISMATCH', severity:'error', source:'mapping', type:'mismatch', compareType:'text' });
+  };
+  function _t39Row(row, rowNum, itemDisplay, part, mapped){
+    const mr = mapped.row, det = _t39.det.get(mapped.inv) || null, raw = det ? 'ไม่มีไฟล์ Ford Invoice ต้นฉบับ ' + mapped.invRaw : '';
+    const noDet = 'ไม่มีไฟล์ Ford Invoice ต้นฉบับของ INVOICE ' + mapped.invRaw;
+    // รายการสินค้าใน INVOICE ต้นฉบับ: Product Code + EXT PRICE ตรงกัน (ไม่มี = Product Code เดียวใน INVOICE นั้น)
+    let it = null; if(det && det.items){ const pn = _normPart(mapped.partRaw), ext = parseFloat(String(mr[M_EXT]).replace(/,/g,''));
+      const c = det.items.filter(x => _normPart(x.partNo) === pn); it = c.find(x => Math.abs(x.extPrice - ext) < 0.005) || (c.length === 1 ? c[0] : null); }
+    const C = (topic, colName, ref, mode, why) => _t39Chk(rowNum, itemDisplay, part, topic, colName, row, ref, mode, why);
+    C('DATE SHIPPED', 'DATE SHIPPED', mr[M_DATE], 'date');
+    C('PART NUMBER/TEILNUMMER', 'PART NUMBER/TEILNUMMER', mapped.partRaw, 'part');
+    C('Unit Price', 'unit price', it && it.piece != null ? it.piece : null, 'price2', det ? 'อ่าน PIECE PRICE ของรายการนี้จาก INVOICE ไม่ได้' : noDet);
+    C('Amount', 'amount', mr[M_EXT], 'num');
+    C('Currency', 'currency', det ? det.currency : null, 'text', det ? 'อ่านสกุลเงินจาก INVOICE ไม่ได้' : noDet);
+    C('Amount THB', 'amount thb', det && det.currency === 'THB' ? mr[M_EXT] : null, 'num', det ? 'INVOICE ไม่ใช่สกุล THB (ไม่มีอัตราแลกเปลี่ยน)' : noDet);
+    C('SHIPPING MARK', 'SHIPPING MARK', mr[M_SM], 'text');
+    C('Term', 'term', det ? det.term : null, 'text', det ? 'อ่าน DELIVERY TERMS จาก INVOICE ไม่ได้' : noDet);
+    C('Consignee', 'consignee', det ? det.consignee : null, 'text', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet);
+    C('Purcountry', 'purcountry', det ? det.purCountry : null, 'text', det ? 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้' : noDet);
+    C('ประเทศปลายทาง', 'ประเทศปลายทาง', det ? det.destCountry : null, 'text', det ? 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้' : noDet);
+    C('Exporter Name', 'exporter name', det ? [det.exporter, det.shippingMark] : null, 'alnum', det ? 'อ่าน SHIP FROM จาก INVOICE ไม่ได้' : noDet);
+    C('Origin', 'origin', it && it.origin ? it.origin : null, 'text', det ? 'อ่าน ORIG ของรายการนี้จาก INVOICE ไม่ได้' : noDet);
+    // ยอดรวม (ระดับเอกสาร): แถวแรกของแต่ละ INVOICE ในใบขน ตรวจครบ 4 หัวข้อ · แถวถัดไปที่มีค่า = ต้องเท่ายอด INVOICE (Amount / N.W / G.W)
+    const first = !_t39.firstInv.has(mapped.inv); _t39.firstInv.add(mapped.inv);
+    const T = (topic, colName, ref, why) => { const ci = _eCol(colName); if(!first && ci !== -1 && !String(row[ci]==null?'':row[ci]).trim()) return; C(topic, colName, ref, 'total', why); };
+    T('Total Amount THB', 'total amountthb', det && det.currency !== 'THB' ? null : mr[M_GES], 'INVOICE ไม่ใช่สกุล THB (ไม่มีอัตราแลกเปลี่ยน)');
+    T('Total N.W', 'total N.W', mr[M_NET]);
+    T('Total G.W', 'total GW.', mr[M_GRS]);
+    if(first) C('Total PACKAGE', 'total PACKAGE', mr[M_TOT], 'total');
+  }
+  // Product Code ใบขน → แถว INVOICE: Part ตรง (ยังไม่ถูกใช้) → ซ้ำ: INVOICE NO. ใบขน → PART QTY ใบขน → ยังต่างกัน = ระบุแถวไม่ได้ (ไม่เดา / ไม่เลือกแถวแรก)
+  const _aatPickInv = (row, rowNum, itemDisplay, entryPartRaw) => {
+    const p = _normPart(entryPartRaw); if(!p) return null;
+    const all = invLines.filter(l => l.part === p); let c = all.filter(l => !l.used);
+    const lineTxt = l => 'INVOICE '+l.invRaw+' · '+(l.partRaw||'-')+' · QTY '+String(l.row[M_PQTY]||'').trim();
+    if(!c.length){
+      errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:'PART NO. (INVOICE)', found: all.length ? '(Product Code นี้ใน INVOICE '+all.length+' รายการ ถูกจับคู่กับ ITEM อื่นครบแล้ว)' : '(ไม่พบใน INVOICE)', expected:entryPartRaw,
+        errorCode:'PART_NOT_IN_INVOICE', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
+      return null;
+    }
+    if(c.length > 1){ const ei = _normInv(row[E_INV]); const ci = c.filter(l => l.inv === ei); if(ci.length) c = ci; }
+    const sig = l => [l.inv, _normTxt(l.row[M_DESC]), _num(l.row[M_PQTY])].join('|');
+    if(c.length > 1 && new Set(c.map(sig)).size > 1){
+      const eq = _num(row[E_PQTY]), cq = c.filter(l => eq !== null && _num(l.row[M_PQTY]) === eq);
+      if(cq.length === 1 || (cq.length > 1 && new Set(cq.map(sig)).size === 1)) c = cq;
+      else { errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:'PART NO. (INVOICE ซ้ำ)', found:'ซ้ำ '+c.length+' รายการ — ระบุรายการไม่ได้ (INVOICE NO. / PART QTY ใบขนไม่ยืนยัน): '+c.slice(0,4).map(lineTxt).join(' | '), expected:entryPartRaw,
+          errorCode:'INVOICE_PART_AMBIGUOUS', severity:'error', source:'mapping', type:'mismatch', compareType:'text' }); return null; }
+    }
+    c[0].used = true; return c[0];
+  };
   // Cross-check — ITEM in Entry must be in Mapping, and vice versa
-  for(const it of entryItemSet){
+  if(!_aatByPart) for(const it of entryItemSet){
     if(!mapByItem.has(it)){
       errors.push({
         rowNum:0, item:it.padStart(5,'0'), partNo:'',
@@ -5858,7 +6013,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       });
     }
   }
-  for(const [it] of mapByItem){
+  if(!_aatByPart) for(const [it] of mapByItem){
     if(!entryItemSet.has(it)){
       errors.push({
         rowNum:0, item:it.padStart(5,'0'), partNo:'',
@@ -5890,7 +6045,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       });
       continue;
     }
-    const mapped = mapByItem.get(itemKey);
+    let mapped = _aatByPart ? null : mapByItem.get(itemKey);   // [EDC8 AAT] จับคู่ INVOICE ด้วย Product Code ที่ STEP 2 (ลำดับการแจ้งเดิม: MASTER → INVOICE)
     // If Mapping row not found → already reported in cross-check; still run Master + Fixed
 
     // ── STEP 1. MASTER LOOKUP (🟢 สีเขียว) ──
@@ -5952,6 +6107,10 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     //   Entry จับชน Mapping Excel — ถ้าแถวไม่ตรง ฟ้องทันที
     //   5 fields: INVOICE NO., DESCRIPTION, PART NO., PART QTY, QTY
     //   WRONG = mapping_value, CORRECT = entry_value
+    if(_aatByPart){   // [EDC8 AAT] Product Code → แถว INVOICE · แถวซ้ำของ ITEM เดียวกัน (เช่นแถวใบอนุญาตเพิ่ม) ใช้แถว INVOICE เดิมของ ITEM นั้น
+      if(_aatItemLine.has(itemKey)) mapped = _aatItemLine.get(itemKey);
+      else { mapped = _aatPickInv(row, rowNum, itemDisplay, entryPartRaw); if(mapped) _aatItemLine.set(itemKey, mapped); }
+    }
     if(mapped){
       const mapRow = mapped.row;
       const fields = [
@@ -5970,7 +6129,11 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
 
         // Mapping empty → error (but skip if Entry is also empty — neither side has a value)
         if(!mVal){
-          if(!eVal) continue;
+          if(!eVal){
+            if(_aatByPart && f.col !== 'QTY') errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:f.col, found:'(ว่าง)', expected:'(ว่าง)',   // [EDC8 AAT] หัวข้อบังคับ ว่างทั้งใบขนและ INVOICE = FAIL
+              errorCode:'BOTH_EMPTY', severity:'error', source:'mapping', type:'missing', compareType:'text' });
+            continue;
+          }
           errors.push({
             rowNum, item:itemDisplay, partNo:entryPartRaw,
             col:f.col, found:'(ว่าง)', expected:eVal,
@@ -6011,6 +6174,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       }
     }
 
+    // ── STEP 2b. [EDC8 39 หัวข้อ] INVOICE เพิ่ม + ยอดรวม (เทียบแถว INVOICE ที่จับคู่ด้วย Product Code · ยึดใบขนเป็นหลัก) ──
+    if(_aatByPart && mapped) _t39Row(row, rowNum, itemDisplay, entryPartRaw, mapped);
     // ── STEP 3. FIXED RULE (🟡 สีเหลือง) ──
     //   general: สิทธิ=T, QTY=C62
     if(E_SIT !== -1 && !(masterWb && masterWb._apl)){   // [MASTER CENTRAL] MASTER APL: สิทธิตรวจจาก MASTER จริงใน STEP 1 (ไม่ใช้ค่าฟิก T)
@@ -6033,6 +6198,10 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
         });
       }
     }
+    // [EDC8 39 หัวข้อ] QTY ใบขน = C62 · QTY 2 = EA (ค่า FIX เดิมของ EDC8: EDC8_QTY_FIXED)
+    if(_aatByPart) EDC8_QTY_FIXED.filter(q => q.col !== 'QTY').forEach(q => { const ci = _findColExact(eHdr, [q.col]); if(ci === -1){ _t39NoCol(q.col + ' (ค่าฟิก)', q.col); return; }
+      const v = String(row[ci]||'').trim().toUpperCase(); if(v !== q.expected) errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:q.col+' (ค่าฟิก)', found: v || '(ว่าง)', expected:q.expected,
+        errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type: v ? 'mismatch' : 'missing', compareType:'text' }); });
 
     // ── STEP 3b. SPECIAL FIXED RULE when Part not in Master (🟡 สีเหลือง) ──
     //   spec: "Part ไหนไม่มีใน Master ให้ยึด สิทธิชดเชย=T และ Import tax=C0102100001021"
@@ -6061,6 +6230,23 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     }
   }
 
+  if(_aatByPart){   /* [EDC8 39 หัวข้อ] FIX ที่มีค่าใน Source (KDC_FIX / KDC_FIX_A — ค่า FIX ใบขนส่งออก Ford ชุดเดียวกัน · ใบขน EDC8 จริงตรงทุกแถว) → ตรวจทุก ITEM */
+    const FIXV = [['Privilege','privilege', KDC_FIX.privilege], ['Tariff','tariff', KDC_FIX.exportTariff], ['Brand','brand', KDC_FIX_A.brand], ['Naturetran','naturetran', KDC_FIX_A.natureTran], ['Prodyear','prodyear', KDC_FIX_A.prodYear]];
+    FIXV.forEach(([topic, colName, fix]) => { const ci = _eCol(colName); if(ci === -1){ _t39NoCol(topic+' (ค่าฟิก)', colName); return; }
+      entryRows.forEach(x => { if(!x.itemKey) return; const v = String(x.row[ci]==null?'':x.row[ci]).trim();
+        if(v.toUpperCase() !== String(fix).toUpperCase()) errors.push({ rowNum:x.rowNum, item:x.itemKey.padStart(5,'0'), partNo:E_PART!==-1?String(x.row[E_PART]||'').trim():'', col:topic+' (ค่าฟิก)', found:v||'(ว่าง)', expected:String(fix),
+          errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type:v?'mismatch':'missing', compareType:'text' }); }); });
+    /* Model version -555 → ตรวจจาก MASTER APL ตาม Product Code (aplEdc8MasterCheck · Part BIS29)
+       Export Tax / ประเภทใบขน → ไม่มีคอลัมน์ใน MASTER APL และไม่มีค่า FIX ของ EDC8 ใน Source → ตรวจด้วยกฎ MASTER APL (📑 ข้อมูลเพิ่มเติม / กรณีพิเศษ) ของบริษัทนี้ที่ SUPER_ADMIN อนุมัติ
+       ยังไม่มีกฎ → แจ้งชื่อหัวข้อ + สาเหตุ (ไม่เดาค่า · ไม่ PASS) */
+    const _mdT = (masterWb && masterWb._mode) || (currentMode==='edc8_ftm' ? 'FTM' : 'AAT');
+    [['Export Tax','Export tax','MASTER APL ไม่มีคอลัมน์ Export Tax และยังไม่มีกฎ "Export tax" ของบริษัท '+_mdT+' ที่อนุมัติใน 📗 MASTER APL → 📑 ข้อมูลเพิ่มเติม / กรณีพิเศษ — ไม่พบค่าอ้างอิง'],['ประเภทใบขน','ประเภทใบขน','ไม่พบค่า FIX ของ EDC8 ใน Source (มีเฉพาะ KDC = '+KDC_FIX_A.declType+') และยังไม่มีกฎ "ประเภทใบขน" ของบริษัท '+_mdT+' ที่อนุมัติใน 📗 MASTER APL → 📑 ข้อมูลเพิ่มเติม / กรณีพิเศษ — ไม่พบค่าอ้างอิง']].forEach(([topic, colName, why]) => {
+      if(typeof aplEdc8RuleCovers === 'function' && aplEdc8RuleCovers(colName)) return;   /* มีกฎอนุมัติแล้ว → ตรวจทุก ITEM ใน aplEdc8RuleErrors */
+      const ci = _eCol(colName), vals = ci === -1 ? [] : [...new Set(entryRows.map(x => String(x.row[ci]==null?'':x.row[ci]).trim()).filter(Boolean))];
+      errors.push({ rowNum:0, item:'-', partNo:'', col:topic, found: ci === -1 ? '(ใบขนไม่มีคอลัมน์ '+colName+')' : (vals.length ? 'ค่าในใบขน: '+vals.slice(0,6).join(', ')+(vals.length>6?' …':'') : '(ว่าง)'),
+        expected: why, errorCode:'T39_NO_REF_SRC', severity:'info', source:'entry', type:'na', compareType:'text' }); }); }
+  if(_aatByPart) invLines.filter(l => !l.used).forEach(l => errors.push({ rowNum:0, item:'-', partNo:l.partRaw, col:'PART NO. (มีเฉพาะใน INVOICE)', found:(l.partRaw||'(ว่าง)')+' · INVOICE '+l.invRaw+' (แถว '+l.rowNum+')', expected:'(ไม่พบ Product Code นี้ในใบขน)',
+    errorCode:'INVOICE_LINE_NOT_IN_ENTRY', severity:'error', source:'mapping', type:'missing', compareType:'text' }));   // [EDC8 AAT]
   // [MASTER CENTRAL] กฎตรวจพิเศษจาก MASTER APL — ใช้เฉพาะกฎที่ SUPER_ADMIN อนุมัติ + เปิดใช้งาน + อยู่ในวันที่มีผล (กฎที่ยังไม่อนุมัติไม่สร้าง FAIL)
   if(masterWb && masterWb._apl && typeof aplEdc8RuleErrors === 'function'){
     let _re = [];
@@ -8285,6 +8471,7 @@ let fzMappingIsSource = false;  // true = uploaded file is SOURCE (needs build);
 // Get Ford Invoice wb for current mode
 function getFordWb(){
   if(currentMode==='kdc')          return fordWbKdc;
+  if(currentMode==='edc')          return fordWbKdc;   // [EDC] ใช้ช่อง Ford ของ KDC (ล้างทุกครั้งที่สลับ KDC↔EDC)
   if(currentMode==='edc8')         return fordWbEdc8;
   if(currentMode==='edc8_ftm')     return fordWbEdc8;   // FTM shares the same Ford slot as AAT
   if(currentMode==='edc1fz')       return fordWbFz;
@@ -9964,6 +10151,240 @@ fordInvSetup('fordInvFzInput',  'fordInvFzDZ',  null);
   kdcFordInput.addEventListener('change',()=>Array.from(kdcFordInput.files).forEach(f=>handleKdcFordFile(f)));
 })();
 
+// ═══════════════════════════════════════════════════════════════
+//  [EDC] ตรวจ EDC — รับไฟล์ (เฉพาะ currentMode==='edc' · โหมด KDC ไม่ผ่านบล็อกนี้)
+//   · ลากวาง / คลิกเลือก ได้ทั้ง 2 ช่อง · หลายไฟล์พร้อมกัน · .xlsx / .xls / .zip (รวมโฟลเดอร์ย่อย / ZIP ซ้อน)
+//   · แยกชนิดไฟล์อัตโนมัติ: Ford Commercial Invoice → ช่อง INVOICE · ใบขน (DWAK KDC / PZAF EDC8 46 คอลัมน์) → ช่องใบขน
+//   · PZAF EDC8 → แปลงชื่อหัวคอลัมน์เป็นชุดที่ Engine KDC อ่าน (ไม่แก้ค่า) · ตรวจด้วย kdcRunCheckCore เดิม แยกตาม INVOICE NO.
+// ═══════════════════════════════════════════════════════════════
+const EDC_ACCEPT = '.xlsx,.xls,.ods,.zip';
+const _edcInpOrig = {};
+function edcApplyInputs(){
+  ['fileInput','fordInvKdcInput'].forEach(id => {
+    const el = document.getElementById(id); if(!el) return;
+    if(!_edcInpOrig[id]) _edcInpOrig[id] = { accept: el.getAttribute('accept'), multiple: el.multiple };
+    const o = _edcInpOrig[id], edc = currentMode === 'edc';
+    el.setAttribute('accept', edc ? EDC_ACCEPT : o.accept);
+    el.multiple = edc ? true : o.multiple;
+  });
+}
+// ชื่อไฟล์ภาษาไทยใน ZIP (Windows ไม่ตั้ง UTF-8 flag) → ลอง UTF-8 ก่อน แล้ว TIS-620 / windows-874
+function edcZipName(bytes){
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  try{ return new TextDecoder('utf-8', { fatal:true }).decode(u8); }catch(e){}
+  try{ return new TextDecoder('windows-874').decode(u8); }catch(e){}
+  return Array.from(u8, b => String.fromCharCode(b)).join('');
+}
+const edcBase = p => String(p).split(/[\\\/]/).pop();
+// File/ZIP → [{name, path, data}] (Excel เท่านั้น) + skipped [{path, why}]
+async function edcExpandFiles(files){
+  const out = [], skipped = [];
+  const isXl = n => /\.(xlsx|xls|ods)$/i.test(n), isZip = n => /\.zip$/i.test(n);
+  const junk = p => /(^|[\\\/])__MACOSX([\\\/]|$)/i.test(p) || /^(\._|~\$)/.test(edcBase(p)) || /^\.DS_Store$/i.test(edcBase(p));
+  async function fromZip(buf, label, depth){
+    if(typeof JSZip === 'undefined'){ skipped.push({ path: label, why: 'โหลดตัวอ่าน ZIP (JSZip) ไม่ได้ — กรุณารีเฟรชหน้า' }); return; }
+    let z; try{ z = await JSZip.loadAsync(buf, { decodeFileName: edcZipName }); }
+    catch(e){ skipped.push({ path: label, why: 'เปิดไฟล์ ZIP ไม่ได้ (ไฟล์เสีย / มีรหัสผ่าน) — ' + (e && e.message || e) }); return; }
+    const ents = Object.values(z.files).filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
+    let n = 0;
+    for(const f of ents){
+      const p = label + ' › ' + f.name;
+      if(junk(f.name)) continue;
+      if(isXl(f.name)){ out.push({ name: edcBase(f.name), path: p, data: await f.async('arraybuffer') }); n++; }
+      else if(isZip(f.name) && depth < 3){ await fromZip(await f.async('arraybuffer'), p, depth + 1); n++; }
+      else skipped.push({ path: p, why: 'ไม่ใช่ไฟล์ Excel (.xlsx / .xls) — ข้าม' });
+    }
+    if(!n) skipped.push({ path: label, why: 'ไม่พบไฟล์ Excel ใน ZIP' });
+  }
+  for(const f of files){
+    if(!f) continue;
+    if(isZip(f.name)) await fromZip(await f.arrayBuffer(), f.name, 1);
+    else if(isXl(f.name)) out.push({ name: f.name, path: f.name, data: await f.arrayBuffer() });
+    else skipped.push({ path: f.name, why: 'ไม่รองรับไฟล์ชนิดนี้ — รองรับ .xlsx / .xls / .zip' });
+  }
+  return { out, skipped };
+}
+// PZAF EDC8 (46 คอลัมน์) → ชื่อหัวคอลัมน์ที่ kdcFindCols อ่าน · คงค่าทุกเซลล์ตามต้นฉบับ (ข้อความตามที่แสดงใน Excel)
+const EDC8_HDR_MAP = {
+  'ITEM': 'Item line', 'PARTNO': 'Product Code', 'PARTNUMBERTEILNUMMER': 'PART NO.',
+  'สิทธิชดเชย': 'ใช้สิทธิ์', 'EXPORTTAX': 'exportincentives', 'IMPORTTAX': 'Importincentives',
+  'QTY': 'QTY inv', 'PARTQTY': 'QTY', 'AMOUNT': 'amount (ต่อรายการ EDC8)', 'TOTALAMOUNTTHB': 'total AMOUNT',
+};
+const EDC8_NEED = ['ITEM','INVOICENO','PARTNUMBERTEILNUMMER','PARTQTY','QTYใบขน'];
+function edcAdaptDecl(wbIn){
+  const rows = XLSX.utils.sheet_to_json(wbIn.Sheets[wbIn.SheetNames[0]], { header:1, defval:'', raw:false });
+  if(!rows.length) return { err: 'ไฟล์ว่างเปล่า (ไม่พบข้อมูลในชีตแรก)' };
+  if(!kdcValidateHeader(rows[0]).length) return { wb: wbIn, layout: 'DWAK KDC', items: rows.length - 1 };
+  const H = rows[0].map(kdcNormHdr), miss = EDC8_NEED.filter(n => !H.includes(n));
+  if(miss.length) return { err: 'ไม่ใช่ไฟล์ใบขน — ' + kdcValidateHeader(rows[0]).join(', ') + ' และไม่ใช่รูปแบบ PZAF EDC8 (ไม่พบคอลัมน์ ' + miss.join(', ') + ')' };
+  const hdr = rows[0].map((h, i) => EDC8_HDR_MAP[H[i]] || h);
+  const add = ['เลขใบอนุญาต','วันที่ออก','tax'].filter(n => kdcResolveCol(hdr, [n]) < 0);   // PZAF EDC8 ไม่มีคอลัมน์ใบอนุญาต → คอลัมน์ว่าง (Engine KDC ตัดสินตามกฎเดิม)
+  const w = Math.max(hdr.length, ...rows.map(r => r.length));
+  const aoa = [hdr.concat(Array(w - hdr.length).fill('')).concat(add)].concat(rows.slice(1).map(r => r.concat(Array(w - r.length).fill('')).concat(add.map(() => ''))));
+  const nb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(nb, XLSX.utils.aoa_to_sheet(aoa), wbIn.SheetNames[0] || 'Sheet');
+  return { wb: nb, layout: 'PZAF EDC8', items: rows.length - 1 };
+}
+const edcIsFordInvoice = rows => rows.slice(0, 40).some(r => /INVOICE NO\.\/RECHNUNG|GESAMTRECHNUNGSBETRAG|C\s*O\s*M\s*M\s*E\s*R\s*C\s*I\s*A\s*L\s+I\s*N\s*V\s*O\s*I\s*C\s*E/i.test(String(r[0] || '')));
+const edcInvKey = v => String(v == null ? '' : v).replace(/\s/g, '').replace(/^0+(?=\d)/, '').toUpperCase();
+function edcShowLoadReport(ok, bad){
+  const li = a => a.map(x => `<div style="font-size:12px;padding:2px 0">${x}</div>`).join('');
+  showSysErr(bad.length ? '⚠ อ่านไฟล์ได้บางส่วน — ' + bad.length + ' ไฟล์ใช้ไม่ได้' : '✅ อ่านไฟล์สำเร็จ',
+    (ok.length ? '<div style="font-weight:600;margin-bottom:4px">อ่านได้</div>' + li(ok.map(x => '✓ ' + esc(x))) : '')
+    + (bad.length ? '<div style="font-weight:600;margin:8px 0 4px;color:var(--error)">ใช้ไม่ได้</div>' + li(bad.map(x => '✗ ' + esc(x.path) + ' — ' + esc(x.why))) : ''));
+  if(!bad.length) _kdcApplyStyle(false);
+}
+let _edcQueue = Promise.resolve();
+function edcIngest(files){ const fs = Array.from(files || []); if(!fs.length) return _edcQueue; _edcQueue = _edcQueue.then(() => edcIngestRun(fs)).catch(e => console.error('[EDC] ingest', e)); return _edcQueue; }
+async function edcIngestRun(files){
+  const fordDZ = document.getElementById('fordInvKdcDZ');
+  progWrap.classList.add('show'); progTxt.classList.add('show'); prog(10, 'กำลังอ่านไฟล์...');
+  clearResult();
+  const ok = [], bad = [];
+  try{
+    const { out, skipped } = await edcExpandFiles(files); bad.push(...skipped);
+    prog(45, 'กำลังอ่าน Excel ' + out.length + ' ไฟล์...');
+    const decls = [], invs = [];
+    for(const f of out){
+      let w; try{ w = XLSX.read(f.data, { type:'array', cellDates:false, raw:true }); }
+      catch(e){ bad.push({ path: f.path, why: 'อ่าน Excel ไม่ได้ (ไฟล์เสีย / มีรหัสผ่าน) — ' + (e && e.message || e) }); continue; }
+      if(!w.SheetNames.length){ bad.push({ path: f.path, why: 'ไม่มีชีตข้อมูล' }); continue; }
+      const rows = XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], { header:1, defval:'', raw:false });
+      if(edcIsFordInvoice(rows)){
+        let p = null; try{ p = invParseFordKdc(w); }catch(e){ bad.push({ path: f.path, why: 'อ่าน Ford Invoice ไม่ได้ — ' + (e && e.message || e) }); continue; }
+        const no = (p && p.invoiceNo) || _mfFordInvoiceNo(w);
+        if(!p || !p.items || !p.items.length){ bad.push({ path: f.path, why: 'Ford Invoice ไม่มีรายการสินค้า (item)' }); continue; }
+        if(!no){ bad.push({ path: f.path, why: 'ไม่พบ INVOICE NO. ในไฟล์ INVOICE' }); continue; }
+        invs.push({ f, wb: w, no, n: p.items.length });
+      } else {
+        const a = edcAdaptDecl(w);
+        if(a.err){ bad.push({ path: f.path, why: a.err }); continue; }
+        decls.push({ f, wb: a.wb, layout: a.layout, n: a.items });
+      }
+    }
+    if(currentMode !== 'edc'){ prog(0, ''); return; }   // สลับโหมดระหว่างอ่านไฟล์ → ไม่ผูกไฟล์เข้าโหมดอื่น
+    // ใบขน: ตรวจได้ครั้งละ 1 ใบขน (ไฟล์ใหม่แทนไฟล์เดิม · ห้ามรวมหลายใบขน)
+    if(decls.length > 1) decls.forEach(d => bad.push({ path: d.f.path, why: 'พบใบขน ' + decls.length + ' ไฟล์ในครั้งเดียว — ตรวจได้ครั้งละ 1 ใบขน (ไม่ได้นำเข้า)' }));
+    else if(decls.length === 1){
+      const d = decls[0];
+      wb = d.wb; dropFnTxt.textContent = d.f.name; dropFn.classList.add('show');
+      dzSuccess(dropZone); dzShowDel('dropZoneDel');
+      ok.push('ใบขน (' + d.layout + '): ' + d.f.path + ' — ' + d.n + ' แถว');
+    }
+    // INVOICE: เพิ่มเข้าช่อง INVOICE · INVOICE NO. ซ้ำ = แทนไฟล์เดิม (ไม่ซ้อน)
+    invs.forEach(v => {
+      const k = edcInvKey(v.no), L = _mfFiles.fordInvKdcDZ;
+      for(let i = L.length - 1; i >= 0; i--) if(edcInvKey(L[i].invoiceNo) === k) L.splice(i, 1);
+      _mfAppend('fordInvKdcDZ', v.wb, v.f.name);
+      fordRawKdc = { name: v.f.name, data: v.f.data };
+      ok.push('INVOICE ' + v.no + ': ' + v.f.path + ' — ' + v.n + ' รายการ');
+    });
+    if(invs.length){
+      const L = _mfFiles.fordInvKdcDZ, fnTxt = fordDZ.querySelector('.drop-fn span'), fnEl = fordDZ.querySelector('.drop-fn');
+      if(fnTxt) fnTxt.textContent = L.length > 1 ? `${L.length} ไฟล์ (${L.map(e => e.invoiceNo).join(', ')})` : L[0].name;
+      if(fnEl) fnEl.classList.add('show');
+      dzSuccess(fordDZ); dzShowDel('fordInvKdcDZDel');
+    }
+    prog(100, ok.length ? 'โหลดสำเร็จ ✓ — ' + ok.length + ' ไฟล์' + (bad.length ? ' · ใช้ไม่ได้ ' + bad.length : '') : 'ไม่มีไฟล์ที่ใช้ได้');
+  }catch(e){
+    bad.push({ path: files.map(f => f && f.name).join(', '), why: 'ข้อผิดพลาด: ' + (e && e.message || e) });
+    prog(0, '');
+  }finally{
+    tryEnableKdcCheck();
+    if(currentMode !== 'edc') return;
+    edcShowLoadReport(ok, bad);
+    if(bad.length && !ok.length){ dzError(dropZone, 'ไฟล์ใช้ไม่ได้ — ดูรายละเอียดด้านล่าง'); }
+  }
+}
+// ผูก Event (capture) — ทำงานเฉพาะโหมด EDC · โหมด KDC ส่งต่อให้ Handler เดิมทันที
+;(function(){
+  const fordDZ = document.getElementById('fordInvKdcDZ'), fordIn = document.getElementById('fordInvKdcInput');
+  if(!dropZone || !fileInput || !fordDZ || !fordIn){ console.error('[EDC] upload elements not found'); return; }
+  [dropZone, fordDZ].forEach(dz => dz.addEventListener('drop', e => {
+    if(currentMode !== 'edc') return;
+    e.preventDefault(); e.stopImmediatePropagation(); dz.classList.remove('drag-over');
+    edcIngest(e.dataTransfer && e.dataTransfer.files);
+  }, true));
+  [fileInput, fordIn].forEach(inp => inp.addEventListener('change', e => {
+    if(currentMode !== 'edc') return;
+    e.stopImmediatePropagation();
+    const fs = Array.from(inp.files || []); inp.value = '';   // เลือกไฟล์เดิมซ้ำได้
+    edcIngest(fs);
+  }, true));
+})();
+// ตรวจ: แยกแถวใบขนตาม INVOICE NO. → จับคู่ไฟล์ INVOICE เลขเดียวกัน → kdcRunCheckCore เดิมทีละ INVOICE → รวมผล
+//   Item ในแต่ละ INVOICE เรียงใหม่ 00001… เพื่อจับคู่รายการ INVOICE ตามลำดับ (กฎ KDC) แล้วคืนเลข Item เดิมของใบขน
+function edcRunCheckCore(PMX){
+  if(!wb){ alert('⚠ กรุณาอัปโหลดไฟล์ ใบขน EDC ก่อนตรวจสอบ'); return; }
+  const L = (_mfFiles && _mfFiles.fordInvKdcDZ) || [];
+  if(!L.length || !fordWbKdc){ alert('⚠ กรุณาอัปโหลดไฟล์ Ford Commercial Invoice ก่อนตรวจสอบ'); return; }
+  clearResult();
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'', raw:false });
+  if(!rows.length){ showSysErr('ไฟล์ว่างเปล่า', 'ไม่พบข้อมูลในชีต'); return; }
+  const C = kdcFindCols(rows[0]);
+  if(C.invoiceNo < 0 || C.itemLine < 0){ showSysErr('ไฟล์ใบขน EDC ไม่ตรงโครงสร้าง', 'ไม่พบคอลัมน์ ' + [C.invoiceNo < 0 ? '"INVOICE NO."' : '', C.itemLine < 0 ? '"Item"' : ''].filter(Boolean).join(' / ')); return; }
+  // Item → INVOICE (แถวที่ INVOICE ว่างใช้ INVOICE ของ Item เดียวกัน)
+  const items = [], byItem = {}, errs = [];
+  rows.forEach((r, i) => { if(!i || !r || r.every(c => String(c == null ? '' : c).trim() === '')) return;
+    const lab = kdcCell(r, C.itemLine) || `แถว ${i + 1}`;
+    if(!byItem[lab]){ byItem[lab] = { lab, rows: [], inv: new Set(), raw: '' }; items.push(byItem[lab]); }
+    const it = byItem[lab], v = kdcCell(r, C.invoiceNo); it.rows.push(r);
+    if(v){ it.inv.add(edcInvKey(v)); if(!it.raw) it.raw = v; } });
+  const groups = [], gIdx = {};
+  items.forEach(it => {
+    if(!it.inv.size){ errs.push('Item ' + it.lab + ' ไม่มี INVOICE NO. ในใบขน'); return; }
+    if(it.inv.size > 1){ errs.push('Item ' + it.lab + ' มี INVOICE NO. มากกว่า 1 เลข (' + [...it.inv].join(', ') + ')'); return; }
+    const k = [...it.inv][0];
+    if(gIdx[k] === undefined){ gIdx[k] = groups.length; groups.push({ k, no: it.raw, items: [] }); }
+    groups[gIdx[k]].items.push(it);
+  });
+  const invMap = new Map(); L.forEach(e => invMap.set(edcInvKey(e.invoiceNo), e));
+  groups.forEach(g => { if(!invMap.has(g.k)) errs.push('ไม่พบไฟล์ INVOICE ' + g.no + ' (ใบขนมี ' + g.items.length + ' Item: ' + kdcFmtItems(g.items.map(x => x.lab)) + ')'); });
+  invMap.forEach((e, k) => { if(!groups.some(g => g.k === k)) errs.push('INVOICE ' + (e.invoiceNo || e.name) + ' (' + e.name + ') ไม่มีในใบขน — กด ✕ ลบไฟล์ INVOICE ที่ไม่เกี่ยวข้อง'); });
+  if(errs.length){ showSysErr('⚠ จับคู่ INVOICE กับใบขนไม่ได้ — ยังไม่ได้ตรวจ', errs.map(x => `<div>• ${esc(x)}</div>`).join('')); return; }
+  // INVOICE เดียว → Flow KDC เดิมทุกประการ (ใช้ไฟล์ INVOICE เลขที่ตรงกัน)
+  if(groups.length === 1){
+    const keep = fordWbKdc; fordWbKdc = invMap.get(groups[0].k).wb;
+    try{ kdcRunCheckCore(PMX); } finally{ fordWbKdc = keep; }
+    return;
+  }
+  const keepWb = wb, keepFord = fordWbKdc, keepRender = kdcRenderResult, keepErr = showSysErr, parts = [];
+  let subErr = null;
+  try{
+    kdcRenderResult = function(){}; showSysErr = function(t, m){ subErr = { t, m }; };
+    for(const g of groups){
+      const back = new Map(), sub = [rows[0]];
+      g.items.forEach((it, i) => { const loc = String(i + 1).padStart(5, '0'); back.set(loc, it.lab);
+        it.rows.forEach(r => { const c = r.slice(); c[C.itemLine] = loc; sub.push(c); }); });
+      const nb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(nb, XLSX.utils.aoa_to_sheet(sub), 'Sheet');
+      wb = nb; fordWbKdc = invMap.get(g.k).wb; kdcResult = null; subErr = null;
+      kdcRunCheckCore(PMX);
+      if(subErr || !kdcResult){ subErr = subErr || { t: 'ตรวจไม่สำเร็จ', m: '' }; subErr.inv = g.no; break; }
+      parts.push({ g, back, res: kdcResult, e: invMap.get(g.k) });
+    }
+  } finally {
+    kdcRenderResult = keepRender; showSysErr = keepErr; wb = keepWb; fordWbKdc = keepFord;
+  }
+  if(subErr){ kdcResult = null; showSysErr(subErr.t + ' (INVOICE ' + subErr.inv + ')', subErr.m); return; }
+  const out = [], pm = [];
+  parts.forEach(p => {
+    p.res.rows.forEach(r => out.push(Object.assign({}, r, { item: p.back.get(r.item) || r.item })));
+    (p.res.permitItems || []).forEach(x => pm.push(Object.assign({}, x, { item: p.back.get(x.item) || x.item })));
+  });
+  const counted = out.filter(r => r.ok !== null), passN = counted.filter(r => r.ok).length, nItems = parts.reduce((s, p) => s + p.res.meta.items, 0);
+  const uniq = a => a.filter((v, i) => v && a.indexOf(v) === i);
+  kdcResult = {
+    rows: out, grouped: kdcGroupRows(out), topics: kdcTopicSummary(out), permitItems: pm,
+    meta: { jobNo: '', customer: '', company: '',
+      invoiceNo: parts.map(p => p.res.meta.invoiceNo || p.g.no).join(', '),
+      shippingMark: uniq(parts.map(p => p.res.meta.shippingMark)).join(' / '),
+      dwakFile: (dropFnTxt && dropFnTxt.textContent) || '', invFile: parts.map(p => p.e.name).join(', '),
+      items: nItems, permit: kdcPermitSummary(pm.map(x => x.cat), nItems),
+      pass: passN, fail: counted.length - passN, total: counted.length, na: out.length - counted.length, checkedAt: new Date() }
+  };
+  kdcRenderResult(kdcResult);
+  const _xb = document.getElementById('kdcExportBtn'); if(_xb) _xb.disabled = false;
+}
+
 
 // ─── EDC1 FZ DISPLAY ──────────────────────────────────
 function fzApplyStyle(box, head, dot, title, isErr){
@@ -11377,7 +11798,15 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   const N=v=>S(v).replace(/[\s ]+/g,' ').trim().toUpperCase();                 /* = edcapl_apl_n */
   const esc=v=>S(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const company=v=>{ const t=S(v).replace(/^[\s\u00a0]+|[\s\u00a0]+$/g,''); return t==='AAT' ? 'AAT' : (t==='FTM' ? 'FTM' : (t==='AAT-FTM' ? 'AAT+FTM' : '')); };   /* = edcapl_apl_company = _mbMatchesGroup (ตรงตัว · ค่าอื่น = ไม่ใช้) */
-  const keyOf=d=>company(d.aat_ftm)+'|'+N(d.cd_plant)+'|'+N(d.cd_supplier)+'|'+N(d.part_no);   /* = edcapl_apl_key (ไม่ใช้ Part No. ช่องเดียว) */
+  const keyOf=d=>company(d.aat_ftm)+'|'+N(d.cd_plant)+'|'+N(d.cd_supplier)+'|'+N(d.part_no);
+  /* [MASTER APL] แยกบริษัท AAT / FTM (แสดงผล / กรอง / นับ / Export เท่านั้น — ไม่แก้ข้อมูล MASTER · ไม่แก้ company / Key ใน DB)
+       AAT → AAT · FTM → FTM · AAT-FTM / AAT,FTM (มีช่องว่างได้ เช่น 'AAT, FTM') → ทั้ง AAT และ FTM · ค่าอื่น / ว่าง → ไม่ใช้ (ค่าอื่น)
+       Privilege ค่าคู่ 'X/Y' → AAT = X · FTM = Y · 'NO' ในค่าคู่ = ว่าง · ค่าเดียว = ใช้กับทั้ง 2 บริษัท */
+  const grpOf=v=>{ const t=S(v).replace(/[\s\u00a0]+/g,''); return t==='AAT' ? 'AAT' : (t==='FTM' ? 'FTM' : ((t==='AAT-FTM' || t==='AAT,FTM') ? 'BOTH' : '')); };
+  const inCo=(r,g)=>{ const k=grpOf(r.aat_ftm); return g==='ALL' || (g==='NONE' ? k==='' : ((g==='AAT' || g==='FTM') && (k===g || k==='BOTH'))); };
+  const pNorm=v=>S(v).replace(/\s/g,'').toUpperCase();   /* = upper(regexp_replace(privilege,'\s','','g')) */
+  const privCo=(r,g)=>{ const raw=S(r.privilege); if((g!=='AAT' && g!=='FTM') || raw.indexOf('/')<0) return raw;
+    const ps=raw.split('/'), v=(g==='AAT' ? ps[0] : ps.slice(1).join('/')).trim(); return pNorm(v)==='NO' ? '' : v; };   /* = edcapl_apl_key (ไม่ใช้ Part No. ช่องเดียว) */
   const looseOf=d=>N(d.part_no)+'|'+N(d.cd_supplier);
   const sigOf=d=>JSON.stringify(COLS.map(c=>S(d[c.k])));
   const pick=d=>{ const o={}; COLS.forEach(c=>{ o[c.k]=S(d[c.k]); }); return o; };
@@ -11459,25 +11888,42 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   }
 
   /* ── ตาราง MASTER APL: ค้นหา / กรอง / Pagination ฝั่ง DB ── */
+  /* [MASTER APL] ข้อมูลทั้งหมดจาก DB (เรียงตาม id เดิม) · โหลดใหม่เมื่อ Draft rev / จำนวนเปลี่ยน (เพิ่ม / แก้ไข / ลบ / นำเข้า โดยใครก็ได้) */
+  const DATA={ key:null, rows:null };
+  async function dataRows(){
+    const ri=await API.relInfo(); const key=ri && ri.success ? S(ri.draft_rev)+'|'+S(ri.draft_rows) : null;
+    if(!DATA.rows || key===null || key!==DATA.key){ DATA.rows=await loadAll(); DATA.key=key; }
+    return DATA.rows;
+  }
   async function loadPage(){
     const my=++seq; const tb=$('apl-table'); if(tb && !ST.rows.length) tb.innerHTML='<div style="padding:14px;font-size:12px">กำลังโหลด…</div>';
-    const j=await API.page({ q:ST.q, g:ST.g, pv:ST.pv, limit:ST.ps, offset:(ST.pg-1)*ST.ps }); if(my!==seq) return;
-    if(!j.success){ ST.rows=[]; ST.total=0; ST.counts=null; render(); say('apl-status','❌ โหลด MASTER APL ไม่ได้: '+errText(j),RED); return false; }
-    ST.total=+j.total||0; ST.all=+j.all_total||0; ST.rows=j.rows||[]; ST.counts=j.counts||null; ST.privs=j.privileges||[];
-    const mx=Math.max(1, Math.ceil(ST.total/ST.ps)); if(ST.pg>mx){ ST.pg=mx; return loadPage(); }
+    let all; try{ all=await dataRows(); }catch(e){ if(my!==seq) return; ST.rows=[]; ST.total=0; ST.counts=null; render(); say('apl-status','❌ โหลด MASTER APL ไม่ได้: '+S(e&&e.message||e),RED); return false; }
+    if(my!==seq) return;
+    const q=S(ST.q).trim().toLowerCase(), d=S(ST.q).replace(/[^0-9]/g,'');   /* ค้นหาเหมือนเดิม: Part / Description / ชื่อไทย / HS / Supplier / CD supplier · HS ตัวเลข ≥ 4 หลักขึ้นต้น */
+    const qOk=r=>!q || ['part_no','description','thainame','hs_code','supplier_name','cd_supplier'].some(k=>S(r[k]).toLowerCase().indexOf(q)>=0) || (d.length>=4 && S(r.hs_code).replace(/[^0-9]/g,'').indexOf(d)===0);
+    const pvOk=(r,g)=>!ST.pv || (ST.pv==='__BLANK__' ? pNorm(privCo(r,g))==='' : pNorm(privCo(r,g))===pNorm(ST.pv));   /* Privilege ตามบริษัทที่เลือก */
+    const base=all.filter(qOk), C={};
+    ['ALL','AAT','FTM','NONE'].forEach(g=>{ C[g]=base.filter(r=>inCo(r,g) && pvOk(r,g)).length; });
+    const list=base.filter(r=>inCo(r,ST.g) && pvOk(r,ST.g));
+    const pm=new Map(); all.filter(r=>inCo(r,ST.g)).forEach(r=>{ const k=pNorm(privCo(r,ST.g)); pm.set(k,(pm.get(k)||0)+1); });
+    ST.privs=[...pm.entries()].map(([p,n])=>({ p, n })).sort((a,b)=>b.n-a.n || (a.p<b.p?-1:(a.p>b.p?1:0)));
+    ST.total=list.length; ST.all=all.length; ST.counts=C;
+    const mx=Math.max(1, Math.ceil(ST.total/ST.ps)); if(ST.pg>mx) ST.pg=mx;
+    ST.rows=list.slice((ST.pg-1)*ST.ps, ST.pg*ST.ps);
     render(); return true;
   }
   function render(){
-    const C=ST.counts||{}; [['ALL','ALL'],['AAT','AAT'],['FTM','FTM'],['BOTH','AAT+FTM'],['NONE','NONE']].forEach(a=>{ const el=$('apl-cnt-'+a[0]); if(el) el.textContent=ST.counts ? fmt(C[a[1]]) : '–'; });
+    const C=ST.counts||{}; [['ALL','ALL'],['AAT','AAT'],['FTM','FTM'],['NONE','NONE']].forEach(a=>{ const el=$('apl-cnt-'+a[0]); if(el) el.textContent=ST.counts ? fmt(C[a[1]]) : '–'; });
     document.querySelectorAll('#apl-chips .apl-chip').forEach(b=>b.classList.toggle('on', b.getAttribute('data-g')===ST.g));
     const sel=$('apl-priv'); if(sel){ const cur=ST.pv; sel.innerHTML='<option value="">ทั้งหมด</option>'+ST.privs.map(x=>{ const v=x.p==='' ? '__BLANK__' : x.p; return '<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+esc(x.p||'(ว่าง)')+' ('+fmt(x.n)+')</option>'; }).join(''); }
     const dl=$('apl-priv-dl'); if(dl) dl.innerHTML=ST.privs.filter(x=>x.p).map(x=>'<option value="'+esc(x.p)+'">').join('');
     const tb=$('apl-table'); if(!tb) return; const o=(ST.pg-1)*ST.ps;
-    const gb=c=>c ? '<span class="apl-bdg apl-g-'+(c==='AAT+FTM'?'BOTH':c)+'">'+esc(c==='AAT+FTM'?'AAT-FTM':c)+'</span>' : '<span class="apl-bdg" style="background:#fee2e2;color:#b91c1c" title="ไม่ใช้ตรวจทั้ง 2 โหมด">ไม่ใช้</span>';
+    const gb=v=>{ const k=grpOf(v); return k ? '<span class="apl-bdg apl-g-'+k+'">'+esc(k==='BOTH' ? S(v).trim() : k)+'</span>' : '<span class="apl-bdg" style="background:#fee2e2;color:#b91c1c" title="ไม่ใช่ AAT / FTM / AAT-FTM / AAT,FTM">ไม่ใช้</span>'; };   /* AAT-FTM / AAT,FTM = ทั้ง 2 บริษัท (แสดงค่าต้นฉบับ) */
+    const cell=(x,c)=>{ if(c.k==='privilege' && (ST.g==='AAT' || ST.g==='FTM')){ const v=privCo(x,ST.g); return '<td title="'+esc(ST.g+': '+(v||'(ว่าง)')+(v!==S(x.privilege)?' · ต้นฉบับ: '+S(x.privilege):''))+'">'+esc(v)+'</td>'; } return '<td title="'+esc(x[c.k])+'">'+esc(x[c.k])+'</td>'; };
     const ce=can('edit'), cd=can('delete');
     tb.innerHTML='<table class="apl-tb"><thead><tr><th class="apl-sk0" style="width:52px;min-width:52px">ลำดับ</th><th class="apl-sk1">จัดการ</th>'+COLS.map(c=>'<th>'+esc(c.l)+'</th>').join('')+'<th>กลุ่ม</th><th>บันทึกโดย</th><th>แก้ไขล่าสุด</th></tr></thead><tbody>'+
       (ST.rows.length ? ST.rows.map((x,i)=>'<tr><td class="apl-sk0" style="text-align:center;width:52px;min-width:52px">'+fmt(o+i+1)+'</td><td class="apl-sk1"><button class="apl-edit" onclick="aplOpenForm('+i+')"'+(ce?'':' disabled title="ไม่มีสิทธิ์แก้ไข"')+'>✏️ แก้ไข</button><button class="apl-del" onclick="aplDelete('+i+',this)"'+(cd?'':' disabled title="ไม่มีสิทธิ์ลบ"')+'>🗑 ลบ</button></td>'+
-          COLS.map(c=>'<td title="'+esc(x[c.k])+'">'+esc(x[c.k])+'</td>').join('')+'<td>'+gb(x.company)+'</td><td>'+esc(x.updated_by||x.created_by||'')+'</td><td>'+esc(fmtD(x.updated_at))+'</td></tr>').join('')
+          COLS.map(c=>cell(x,c)).join('')+'<td>'+gb(x.aat_ftm)+'</td><td>'+esc(x.updated_by||x.created_by||'')+'</td><td>'+esc(fmtD(x.updated_at))+'</td></tr>').join('')
         : '<tr><td colspan="'+(COLS.length+5)+'" style="padding:16px;color:#64748b"><span style="position:sticky;left:16px">ไม่พบข้อมูล</span></td></tr>')+'</tbody></table>';
     const mx=Math.max(1, Math.ceil(ST.total/ST.ps));
     if($('apl-pg-no')) $('apl-pg-no').textContent=ST.pg+' / '+mx;
@@ -11706,11 +12152,12 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   /* ── EXPORT MASTER APL: 25 คอลัมน์ · Header เดิม · โครงไฟล์เดิม (หัวเรื่อง 2 แถว + Header แถว 3) · ทุกช่องเป็น TEXT ── */
   function aplOpenExport(){ if(!can('read')){ say('apl-status','❌ ไม่มีสิทธิ์',RED); return; } say('apl-exp-status',''); openOv('apl-exp-ov'); }
   function aplCloseExport(){ closeOv('apl-exp-ov'); }
-  const inGrp=(r,g)=> g==='ALL' || (g!=='NONE' && (r.company===g || r.company==='AAT+FTM'));   /* AAT = 'AAT' + 'AAT-FTM' · FTM = 'FTM' + 'AAT-FTM' (ตรงตัว) */
+  const inGrp=(r,g)=> inCo(r,g);   /* [MASTER APL] AAT = AAT + AAT-FTM + AAT,FTM · FTM = FTM + AAT-FTM + AAT,FTM */
+  const coRow=(r,g)=> (g==='AAT' || g==='FTM') ? Object.assign({}, r, { privilege:privCo(r,g) }) : r;   /* Privilege ฝั่งบริษัท (ไม่แก้ข้อมูลต้นฉบับ) */
   async function aplExportMaster(g){
     const st='apl-exp-status'; say(st,'กำลังดึง MASTER APL ล่าสุดจาก DB…');
     try{
-      const rows=(await loadAll()).filter(r=>inGrp(r,g));
+      const rows=(await loadAll()).filter(r=>inGrp(r,g)).map(r=>coRow(r,g));
       const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], now=new Date(), p=n=>String(n).padStart(2,'0');
       const aoa=[['','','Master file AAT_FTM '],['','','Today:', now.getDate()+'-'+M[now.getMonth()]+'-'+String(now.getFullYear()).slice(-2)], COLS.map(c=>c.h)].concat(rows.map(r=>COLS.map(c=>S(r[c.k]))));
       const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -11719,7 +12166,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
       const fn='MASTER_APL_'+(g==='ALL'?'ALL':g)+'_'+now.getFullYear()+p(now.getMonth()+1)+p(now.getDate())+'_'+p(now.getHours())+p(now.getMinutes())+'.xlsx';
       safeDownload(XLSX.write(wb, { bookType:'xlsx', type:'array' }), fn);
-      say(st,'✅ Export '+fmt(rows.length)+' แถว → '+fn,GRN); say('apl-status','✅ EXPORT MASTER APL '+(g==='ALL'?'ทั้งหมด':g+' (รวม AAT-FTM)')+' '+fmt(rows.length)+' แถว',GRN);
+      say(st,'✅ Export '+fmt(rows.length)+' แถว → '+fn,GRN); say('apl-status','✅ EXPORT MASTER APL '+(g==='ALL'?'ทั้งหมด':g+' (รวม AAT-FTM / AAT,FTM)')+' '+fmt(rows.length)+' แถว',GRN);
     }catch(e){ say(st,'❌ Export ไม่สำเร็จ: '+S(e&&e.message||e),RED); }
   }
   /* ── EXPORT Master_update AAT / FTM / ZIP จาก MASTER APL ใน DB — แปลงเป็นโครงเดียวกับ _mbParseWorkbook แล้วใช้ _mbBuildFile เดิม ── */
@@ -11733,11 +12180,13 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(!can('read')){ say('apl-status','❌ ไม่มีสิทธิ์',RED); return; }
     say('apl-status','⏳ กำลังดึง MASTER APL จาก DB เพื่อ Export Master_update '+kind+'…');
     try{
-      const parsed=toParsed(await loadAll()); if(!parsed.rows.length){ say('apl-status','⚠ MASTER APL ยังไม่มีข้อมูล',AMB); return; }
+      const all=await loadAll(), parsed=toParsed(all); if(!parsed.rows.length){ say('apl-status','⚠ MASTER APL ยังไม่มีข้อมูล',AMB); return; }
       const date=_mbDateStr();
-      if(kind==='AAT' || kind==='FTM'){ const built=_mbBuildFile(parsed, kind); const fn='Master_update_'+kind+'-'+date+'.xlsx';
+      /* [MASTER APL] แยกบริษัทก่อนสร้างไฟล์ (โครงไฟล์ / _mbBuildFile เดิม): แถวของบริษัท (รวม AAT-FTM / AAT,FTM) · AAT/FTM = บริษัท · Privilege ฝั่งบริษัท */
+      const pc=K=>toParsed(all.filter(r=>inCo(r,K)).map(r=>Object.assign({}, r, { aat_ftm:K, privilege:privCo(r,K) })));
+      if(kind==='AAT' || kind==='FTM'){ const built=_mbBuildFile(pc(kind), kind); const fn='Master_update_'+kind+'-'+date+'.xlsx';
         safeDownload(XLSX.write(built.wb, { bookType:'xlsx', type:'array' }), fn); say('apl-status','✓ Export '+kind+' สำเร็จ — '+fn+' (BOI '+built.boiCount+' · 19bit '+built.bisCount+' parts)',GRN); return; }
-      const aat=_mbBuildFile(parsed,'AAT'), ftm=_mbBuildFile(parsed,'FTM'); const an='Master_update_AAT-'+date+'.xlsx', fnm='Master_update_FTM-'+date+'.xlsx';
+      const aat=_mbBuildFile(pc('AAT'),'AAT'), ftm=_mbBuildFile(pc('FTM'),'FTM'); const an='Master_update_AAT-'+date+'.xlsx', fnm='Master_update_FTM-'+date+'.xlsx';
       const ad=XLSX.write(aat.wb, { bookType:'xlsx', type:'array' }), fd=XLSX.write(ftm.wb, { bookType:'xlsx', type:'array' });
       if(typeof JSZip==='undefined'){ safeDownload(ad, an); setTimeout(()=>{ safeDownload(fd, fnm); say('apl-status','✓ Export สำเร็จทั้ง 2 ไฟล์ (แยกไฟล์)',GRN); }, 1500); return; }
       const zip=new JSZip(); zip.file(an, ad); zip.file(fnm, fd);
@@ -11843,7 +12292,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   Object.assign(window, { aplOpen, aplClose, aplSearchInput, aplSearchNow, aplClearSearch, aplSetGroup, aplSetPriv, aplPageSize, aplGo,
     aplOpenForm, aplCloseForm, aplSaveForm, aplFillCdSupPart, aplDelete, aplOpenImport, aplCloseImport, aplPasteInput, aplUpPick, aplImpFilter, aplImpOpt, aplImportSave,
     aplOpenExport, aplCloseExport, aplExportMaster, aplExportUpdate, aplOpenSpecial, aplCloseSpecial, aplSaveSpecial, aplDeleteSpecial, aplApproveSpecial, aplPublish, aplOpenHistory, aplCloseHistory, aplLoadHistory });
-  window.aplParseTSV=parseTSV; window.aplClassify=classify; window.aplDetectHeader=detectHeader; window.APL_COLS=COLS;   /* ใช้ทดสอบ */
+  window.aplGrpOf=grpOf; window.aplPrivCo=privCo; window.aplParseTSV=parseTSV; window.aplClassify=classify; window.aplDetectHeader=detectHeader; window.APL_COLS=COLS;   /* ใช้ทดสอบ */
 })();
 </script>
 <style>/* [MASTER CENTRAL] EDC8 AAT / FTM ↔ MASTER APL กลาง — ทุก Selector อยู่ใต้ #panel-edc8 */
@@ -11877,6 +12326,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc8 .e8k-grid .e8k-exp{ color:#0f6157 }
 #panel-edc8 .e8k-grid .e8k-fix{ color:#1e3a5f }
 #panel-edc8 .e8k-badge{ display:inline-block; padding:0 7px; border-radius:5px; border:1px solid #f2cdc8; background:#fdf3f2; color:#b42318; font-size:11px; font-weight:600; line-height:1.3 }
+/* [EDC8 AAT × HS CODE ใบอนุญาต] ตาราง 📋 ใบอนุญาต = รูปแบบ ตรวจ EDC (kdcPermitRows / kdcPermitChips) */
+#panel-edc8 .kdc-badge{ display:inline-block; padding:0 7px; border-radius:5px; border:1px solid transparent; font-size:11px; font-weight:600; line-height:1.3; white-space:normal; vertical-align:middle }
+#panel-edc8 .kdc-badge.ok{ background:#eef7f2; border-color:#c3e3d0; color:#1f7a4d } #panel-edc8 .kdc-badge.bad{ background:#fdf3f2; border-color:#f2cdc8; color:#b42318 } #panel-edc8 .kdc-badge.na{ background:#fdf8e8; border-color:#ecdcae; color:#7a5d12 }
+#panel-edc8 .kdc-chips .stat-chip{ min-width:150px; justify-content:center; font-size:12px !important; font-weight:600; padding:5px 12px; border-radius:6px }
 </style>
 <script>
 /* ══════════════════════════════════════════════════════════════
@@ -11898,7 +12351,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   const fmtD=v=>{ if(!v) return ''; const d=new Date(v); if(isNaN(d)) return S(v); return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes()); };
   const MODE=()=> currentMode==='edc8_ftm' ? 'FTM' : (currentMode==='edc8' ? 'AAT' : '');
   const trimWs=v=>S(v).replace(/^[\s ]+|[\s ]+$/g,'');
-  const inMode=(v,md)=>{ const t=trimWs(v); return t===md || t==='AAT-FTM'; };   /* ตรงตัว — ห้ามตีความค่าอื่น (เช่น AAT,FTM / aat) */
+  const inMode=(v,md)=>{ const t=S(v).replace(/[\s\u00a0]+/g,''); return t===md || t==='AAT-FTM' || t==='AAT,FTM'; };   /* [EDC8 ตามบริษัท] AAT-FTM / AAT,FTM (มีช่องว่างได้) = ทั้ง 2 บริษัท · ค่าอื่น (เช่น aat / FTM/AAT) ไม่ใช้ — ตรงกับ 📗 MASTER APL */
   const ERR={ forbidden:'ไม่มีสิทธิ์ / Session หมดอายุ — กรุณา Login ใหม่', no_release:'ยังไม่มี MASTER ที่เผยแพร่ (เผยแพร่ที่ 📗 Master File Builder ก่อน)', bad_mode:'โหมดไม่ถูกต้อง', http_404:'Backend MASTER APL ยังไม่พร้อม (ยังไม่ได้รัน SQL RUN-EDCAPL-APL-01 / 02)' };
   let seq=0, lastErr='';
   function setBox(kind, st, info){
@@ -11909,13 +12362,16 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   /* ── สิทธิตาม Flow เดิม (อ้างอิง Privilege + ค่าจริงในแถว MASTER) ──────────────────────────────────────
      BOI         → สิทธิชดเชย F (Master_update Sheet BOI)   · เลขบัตร BOI = BOI No. · Remark BOI = TaxID
      BIS29/29BIS → สิทธิชดเชย F (Master_update Sheet 19bit) · ตารางโอนสิทธิ 19 / Model- N/A = BIS 29 No. (แยก '/') · เลขประจำตัวภาษี 19ทวิ = TaxID · Import tax = TaxID (คอลัมน์ import tax ของ Sheet 19bit)
-     (Model version -555 ไม่มีใน MASTER APL → ไม่ตรวจ)
+     Model version -555 (BIS29) = จาก BIS 29 No. ของ MASTER APL: ส่วนที่ 2 รูปแบบ ตัวเลข-ตัวเลข (เช่น 680400005 / 00419586-00) = 000 · อื่น ๆ = 555
+       (ตรงกับ Master_update AAT / FTM 17.04.26 ที่ใช้งานจริงครบ 53/53 Part)
      BCTR        → สิทธิชดเชย T · Import tax = TaxID (กฎเดิม T + Import tax ของ Part นอก Master_update = แถว BCTR ใน MASTER APL)
      BCTR/NO     → แถว AAT-FTM: โหมด AAT = BCTR · โหมด FTM = NO
      NO / FZ / ว่าง / อื่น ๆ → ไม่มีกฎใน Flow เดิม → FAIL "ระบุสิทธิไม่ได้" (ไม่เดา) */
   const NV=v=>S(v).trim().replace(/\s+/g,' ').toUpperCase();
   const NORM={ text:v=>NV(v), boi:v=>NV(v).replace(/^BOI\.?\s*/,''), tax:v=>S(v).trim().replace(/\D/g,'').padStart(13,'0') };
-  const effPriv=(r,md)=>{ const P=S(r.privilege).toUpperCase().replace(/\s+/g,''); return P==='BCTR/NO' ? (md==='AAT'?'BCTR':'NO') : P; };
+  const effPriv=(r,md)=>{ const P=S(r.privilege).toUpperCase().replace(/\s+/g,''); if(P.indexOf('/')<0) return P;   /* [EDC8 ตามบริษัท] ค่าคู่ X/Y → AAT = X · FTM = Y · NO ในค่าคู่ = ว่าง (BCTR/NO → AAT BCTR / FTM ว่าง) — ตรงกับ 📗 MASTER APL */
+    const ps=P.split('/'), v=md==='AAT' ? ps[0] : ps.slice(1).join('/'); return v==='NO' ? '' : v; };
+  const mvOf=r=>{ const raw=S(r.bis29_no).trim(); if(!raw.includes('/')) return '555'; const ps=raw.split('/').map(x=>x.trim()).filter(Boolean); return (ps.length>1 && /^\d+-\d+$/.test(ps[1])) ? '000' : '555'; };   /* [EDC8 39 หัวข้อ] Model version -555 ของ Part BIS29 */
   const bisParts=r=>{ const raw=S(r.bis29_no).trim(); if(!raw.includes('/')) return [raw,'N/A']; const ps=raw.split('/').map(x=>x.trim()).filter(Boolean); return [ps[0]||'', ps[1]||'N/A']; };
   const EDC8_APL_RIGHTS={
     'BOI':   r=>[ ['สิทธิชดเชย','F','text'], ['เลขบัตร BOI',S(r.boi_no).trim(),'boi'], ['Remark  BOI',S(r.tax_id).trim(),'tax'] ],
@@ -11982,6 +12438,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       if(!mv){ E('MASTER_FIELD_EMPTY',label,v||'(ว่าง)','(MASTER ไม่มีค่า · Privilege '+e.p+')','missing'); continue; }
       if(NORM[x[2]](v)!==NORM[x[2]](mv)) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mv, v?'mismatch':'missing');
     }
+    /* [EDC8 39 หัวข้อ] Model version -555: Part สิทธิ BIS29 → ใบขนต้องตรงค่าจาก BIS 29 No. ของ MASTER (mvOf) · ไม่มีคอลัมน์ / ว่าง / ไม่ตรง = ❌ */
+    if(e.ex && (e.p==='BIS29' || e.p==='29BIS')){ const v=val('Model version -555'), mvx=mvOf(pick), label='Model version -555 (Master)';
+      if(v===null) E('MASTER_RIGHTS_MISMATCH',label,'(ไม่มีคอลัมน์ในใบขน)',mvx,'missing');
+      else if(NV(v)!==mvx) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mvx, v?'mismatch':'missing'); }
     /* HS Code: ใบขน tariffclas ↔ MASTER hs_code (เทียบตัวเลข · ตัด 0 นำหน้า: 000087089980 = 87089980) · MASTER ว่าง / ใบขนว่าง = ❌ */
     { const v=val('tariffclas'), mh=hsOf(pick.hs_code);
       if(!mh) E('MASTER_FIELD_EMPTY','HS Code (Master)', v||'(ว่าง)', '(MASTER ไม่มี HS Code)','missing');
@@ -11995,6 +12455,12 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       else if(v===null) E('MASTER_STAT_MISMATCH','Stat Code (Master)','(ไม่มีคอลัมน์ stat ในใบขน)',ms,'missing');
       else if(!stOf(v) || stOf(v)==='?') E('MASTER_STAT_MISMATCH','Stat Code (Master)',v||'(ว่าง)',ms, v?'mismatch':'missing');
       else if(stOf(v)!==ms) E('MASTER_STAT_MISMATCH','Stat Code (Master)',v,ms+(S(pick.stat_code).trim()!==ms?' ('+S(pick.stat_code).trim()+')':''),'mismatch'); }
+    /* [EDC8 39 หัวข้อ] คำแปลไทย: ใบขน คำแปลไทย ↔ MASTER thainame (ตัดช่องว่างหัว–ท้าย / ช่องว่างซ้อน) · MASTER ว่าง / ใบขนว่าง = ❌ */
+    { const v=val('คำแปลไทย'), mt=S(pick.thainame).trim();
+      if(!mt) E('MASTER_FIELD_EMPTY','คำแปลไทย (Master)', v||'(ว่าง)', '(MASTER ไม่มีคำแปลไทย)','missing');
+      else if(v===null) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)','(ไม่มีคอลัมน์ คำแปลไทย ในใบขน)',mt,'missing');
+      else if(!v) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)','(ว่าง)',mt,'missing');
+      else if(NV(v)!==NV(mt)) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)',v,mt,'mismatch'); }
     return out;
   }
   function aplEdc8ClearResult(){   /* ล้างผลตรวจบนจอ + Export (ไม่แตะ MASTER / ไฟล์) */
@@ -12029,12 +12495,59 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const live=(j.rules||[]).filter(r=>(!r.start_date || r.start_date<=td) && (!r.end_date || r.end_date>=td));
     setBox('ok','✅ เชื่อมต่อแล้ว · MASTER '+md,
       [ '<b>Version v'+esc(j.version)+'</b> · เผยแพร่ '+esc(fmtD(j.published_at))+' โดย '+esc(j.published_by),
-        'ใช้ตรวจ <b>'+fmt(rows.length)+'</b> รายการ ('+(md==='AAT'?'AAT + AAT-FTM':'FTM + AAT-FTM')+') · Part ซ้ำ <b>'+fmt(bi.dupParts)+'</b> (ข้อมูลต่างกัน '+fmt(bi.ambParts)+') · กฎพิเศษ (มีผลวันนี้) <b>'+fmt(live.length)+'</b>',
+        'ใช้ตรวจ <b>'+fmt(rows.length)+'</b> รายการ ('+(md==='AAT'?'AAT + AAT-FTM / AAT,FTM':'FTM + AAT-FTM / AAT,FTM')+') · Part ซ้ำ <b>'+fmt(bi.dupParts)+'</b> (ข้อมูลต่างกัน '+fmt(bi.ambParts)+') · กฎพิเศษ (มีผลวันนี้) <b>'+fmt(live.length)+'</b>',
         Object.keys(pc).sort((a,b)=>pc[b]-pc[a]).map(k=>esc(k)+' <b>'+fmt(pc[k])+'</b>').join(' · ') ].map(x=>'<div title="'+esc(x.replace(/<[^>]+>/g,''))+'">'+x+'</div>').join(''));
     return true;
   }
   /* ก่อนตรวจทุกครั้ง → โหลด Release ล่าสุดของโหมดปัจจุบันใหม่ (Version / กฎที่อนุมัติ ล่าสุดเสมอ) */
-  function aplEdc8Ensure(){ return aplEdc8Load(); }
+  async function aplEdc8Ensure(){
+    const ok=await aplEdc8Load();
+    if(ok===true && MODE()){ const md=MODE(); await aatPermitLoad(); if(MODE()!==md) return null; }   /* [EDC8 AAT / FTM] + MASTER HS CODE ใบอนุญาต (Logic KDC) */
+    return ok;
+  }
+  /* ── [EDC8 AAT × HS CODE ใบอนุญาต] MASTER กลางชุดเดียวกับ ตรวจ EDC / KDC (hspmRefresh → hspmMatch) · ตรวจด้วย kdcPermitCheck เดิม (ไม่แก้ Engine) ──
+     · โหลดล่าสุดทุกครั้งก่อนตรวจ · ผลโหลดใช้ได้ครั้งเดียว (ห้ามใช้ผลเก่า) · โหลดไม่ได้ = ⚠ ตรวจไม่ได้ ระงับ PASS รวม + EXPORT */
+  let PMX8=null, pmSeq=0;
+  async function aatPermitLoad(){
+    const my=++pmSeq; PMX8=null; const P={ ok:false, err:'' };
+    try{ if(typeof window.hspmRefresh==='function' && typeof window.hspmMatch==='function'){ P.ok=await window.hspmRefresh(); if(!P.ok) P.err=(window.HSPM_MASTER && window.HSPM_MASTER.err) || 'load_fail'; }
+         else P.err='ไม่พบโมดูล HS CODE ใบอนุญาต'; }
+    catch(e){ P.ok=false; P.err=S(e && e.message || e); }
+    if(my===pmSeq) PMX8=P; return P;
+  }
+  /* ใบขน EDC8 → Item (ฐานเดียวกับ metaOf) → kdcPermitCheck(Item, แถวของ Item, คอลัมน์จากชื่อหัวตาราง) · HS = tariffclas · Stat = stat ของ Item เดียวกันเท่านั้น */
+  function aatPermitRun(P){
+    const R={ P, errs:[], ok:[], status:[], items:[], cats:[] };
+    let rows=[]; try{ rows=XLSX.utils.sheet_to_json(edc8Wb.Sheets[edc8Wb.SheetNames[0]], { header:1, defval:'', raw:false }); }catch(_){}
+    const hdr=rows[0]||[], H=hdr.map(h=>NV(h)), iCol=H.findIndex(h=>h==='ITEM' || h==='ITEM LINE'); if(iCol===-1) return R;
+    const C=kdcFindCols(hdr), groups=[], gi={};
+    rows.slice(1).forEach((r,i)=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const k=nkItem(r[iCol]); if(!k) return;
+      if(gi[k]===undefined){ gi[k]=groups.length; groups.push({ item:k, rows:[], rowNum:i+2 }); } groups[gi[k]].rows.push(r); });
+    const tx=v=>S(v).replace(/ใบขน KDC/g,'ใบขน EDC8').replace(/KDC/g,'EDC8 '+MODE());
+    const AG='ใบอนุญาต · ', DFT=/\(กรมการค้าต่างประเทศ\)$/;
+    groups.forEach(g=>{
+      const out=[], info={}; let cat;
+      try{ cat=kdcPermitCheck(g.item, g, C, P, out, info); }
+      catch(e){ cat='unchecked'; out.length=0; out.push({ item:g.item, field:'HS code', found:'-', expected:'-', ok:null, note:'ตรวจใบอนุญาตไม่สำเร็จ: '+S(e && e.message || e) }); }
+      R.cats.push(cat);
+      R.items.push({ item:g.item, hs:info.hs||'', st:info.st||'', cat, agencies: out.filter(r=>r.field.startsWith(AG)).map(r=>{ const ag=r.field.slice(AG.length); return { agency:ag, ok:r.ok, mode:(info.modes||{})[ag]||'' }; }) });
+      const part=C.partNo>=0 ? kdcCell(g.rows[0], C.partNo) : '', key='HS '+(info.hs||'(ว่าง)')+' · Stat '+(info.st||'(ว่าง)');
+      out.forEach(r=>{
+        const note=tx(r.note), msg=tx(r.msg||''); let col=r.field, exp=r.expected; const fix=DFT.test(r.field);
+        if(r.field==='HS code') col='HS CODE (ใบอนุญาต)';
+        else if(r.field.startsWith(AG)){ const ag=r.field.slice(AG.length); col='tax ('+ag+')'; exp=S(r.expected).replace(' · '+ag,''); }
+        const base={ rowNum:g.rowNum, item:g.item, partNo:part, col, found:r.found, expected:exp, source:'permit', compareType:'text', permitNote:note, permitFix:fix };
+        if(r.ok===false){
+          const ty=(r.found==='(ว่าง)' || r.found==='(ไม่มีคอลัมน์)' || /ว่าง|ไม่มีข้อมูล|ไม่มีคอลัมน์/.test(msg)) ? 'missing' : (r.found==='(ไม่พบ)' ? 'not_found' : 'mismatch');
+          R.errs.push(Object.assign(base, { errorCode:'PERMIT_FAIL', severity:'error', type:ty }));
+        } else if(r.ok===true) R.ok.push({ field:col, item:g.item, act:r.found, exp:fix?'-':exp, fix:fix?exp:'-', note });
+        else if(cat==='unchecked' || cat==='keyNa') R.errs.push(Object.assign(base, { col:'ใบอนุญาต (HS CODE + Stat)', found:key, expected:note, errorCode:'PERMIT_NA', severity:'info', type:'na' }));
+        else if(r.field.startsWith(AG) && r.found==='(ไม่ได้ตรวจ)') R.errs.push(Object.assign(base, { found:'(ไม่ได้ตรวจ)', expected:note, errorCode:'PERMIT_NA', severity:'info', type:'na' }));
+        else if(r.field==='HS code' && (cat==='notFound' || cat==='importOnly')) R.status.push({ topic:'ใบอนุญาต (HS CODE + Stat)', item:g.item, val:key, reason:msg||note, note });
+      });
+    });
+    return R;
+  }
   function aplEdc8LastError(){ return esc(lastErr || 'ไม่ทราบสาเหตุ'); }
 
   /* ── กฎตรวจพิเศษ (อนุมัติ + เปิดใช้งาน มาจาก Server · วันที่มีผลตรวจที่นี่) ── */
@@ -12045,6 +12558,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       case 'BLANK': return S(v).trim()===''; case 'NOT_BLANK': return S(v).trim()!==''; default: return true; }
   }
   const opText=(op,val)=> op==='EQUALS' ? S(val) : (op==='BLANK'||op==='NOT_BLANK' ? OPS[op] : OPS[op]+' '+S(val));
+  const T39_SP={ 'EXPORT TAX':'Export Tax', 'ประเภทใบขน':'ประเภทใบขน' };
+  function aplEdc8RuleCovers(field){   /* [EDC8 39 หัวข้อ] มีกฎ MASTER APL (📑 ข้อมูลเพิ่มเติม) ที่อนุมัติ + เปิดใช้ + อยู่ในวันที่มีผล ของบริษัทนี้ สำหรับช่องนี้หรือไม่ */
+    if(!masterWb || !masterWb._apl) return false; const md=masterWb._mode, now=new Date(), td=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate());
+    return (masterWb._rules||[]).some(r=>(r.company==='ALL' || r.company===md || r.company==='AAT+FTM') && !((r.start_date && td<r.start_date) || (r.end_date && td>r.end_date)) && NV(r.edc8_field)===NV(field)); }
   function aplEdc8RuleErrors(entryRows, eHdr, normPart, normItem, E_PART){
     const out=[]; if(!masterWb || !masterWb._apl) return out;
     const md=masterWb._mode, now=new Date(), td=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate());
@@ -12052,7 +12569,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     for(const r of (masterWb._rules||[])){
       if(!(r.company==='ALL' || r.company===md || r.company==='AAT+FTM')) continue;
       if((r.start_date && td<r.start_date) || (r.end_date && td>r.end_date)) continue;   /* นอกวันที่มีผล → ไม่ใช้ */
-      const label='กฎพิเศษ: '+S(r.topic)+' ('+S(r.edc8_field)+')';
+      const label=T39_SP[NV(r.edc8_field)] || ('กฎพิเศษ: '+S(r.topic)+' ('+S(r.edc8_field)+')');   /* [EDC8 39 หัวข้อ] กฎของหัวข้อ Export Tax / ประเภทใบขน → แสดงชื่อหัวข้อตรง ๆ */
       const pset=new Set(S(r.part_ref).split(/[,;\n]+/).map(normPart).filter(Boolean));
       const tg=entryRows.filter(x=>x.itemKey && (!pset.size || (E_PART!==-1 && pset.has(normPart(x.row[E_PART])))));
       if(!tg.length) continue;
@@ -12070,7 +12587,8 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   function toRow(e){
     const it = e.item==='HEADER' ? '-' : S(e.item);
     let act=S(e.found), exp=S(e.expected), fix='-', st='❌ ผิด', note='';
-    if(e.source==='mapping'){ act=S(e.expected); exp=S(e.found); note='เทียบ INVOICE'; if(act==='(ว่าง)'||exp==='(ว่าง)') st='❌ ว่าง'; }
+    if(e.source==='mapping'){ act=S(e.expected); exp=S(e.found); note='เทียบ INVOICE'; if(act==='(ว่าง)'||exp==='(ว่าง)') st='❌ ว่าง';
+      if(e.errorCode==='PART_NOT_IN_INVOICE') st='❌ ไม่พบ'; else if(e.errorCode==='INVOICE_PART_AMBIGUOUS') st='❌ ระบุแถวไม่ได้'; }   /* [EDC8 AAT] จับคู่ Product Code */
     else if(e.source==='fixed'){ exp='-'; fix=S(e.expected); note='ค่าฟิก'; if(act==='(ว่าง)') st='❌ ว่าง'; }
     else if(e.source==='master'){ note='MASTER APL '+(masterWb && masterWb._ver ? 'v'+masterWb._ver : '');
       if(e.errorCode==='MASTER_NOT_FOUND'){ act=S(e.partNo); exp='(ไม่พบใน MASTER '+MODE()+')'; st='❌ ไม่พบ'; }
@@ -12080,6 +12598,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       else if(e.errorCode==='MASTER_FIELD_EMPTY') st='❌ MASTER ว่าง';
       else if(act==='(ว่าง)' || e.type==='missing') st='❌ ว่าง'; }
     else if(e.source==='special'){ note='กฎตรวจพิเศษ (อนุมัติแล้ว)'; if(act==='(ว่าง)') st='❌ ว่าง'; }
+    else if(e.source==='permit'){ note='MASTER HS CODE ใบอนุญาต · '+S(e.permitNote); if(e.permitFix){ fix=exp; exp='-'; } st=e.type==='missing'?'❌ ว่าง':(e.type==='not_found'?'❌ ไม่พบ':'❌ ผิด'); }   /* [EDC8 AAT] */
     else { if(act==='(ว่าง)' || e.type==='missing') st='❌ ว่าง'; note=e.source==='header'?'Header / ไฟล์':'ใบขน EDC8'; }
     return { item:it, field:S(e.col), act, exp, fix, st, note };
   }
@@ -12105,7 +12624,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const naSet=new Set(stopped ? [...base].filter(i=>!failSet.has(i)) : errors.filter(e=>e.severity==='info' && inBase(e) && !failSet.has(nkItem(e.item))).map(e=>nkItem(e.item)));
     const items=iCol===-1 ? totalChecked : base.size;
     const ef=S(($('edc8FnTxt')||{}).textContent);
-    return { items, fail:failSet.size, na:naSet.size, pass:Math.max(0, items-failSet.size-naSet.size), points:errs.length, filePoints:fileErr.length, hdrErr:fileErr.some(e=>e.item==='HEADER'),
+    return { items, fail:failSet.size, na:naSet.size, pass:Math.max(0, items-failSet.size-naSet.size), passItems:[...base].filter(i=>!failSet.has(i) && !naSet.has(i)), points:errs.length, filePoints:fileErr.length, hdrErr:fileErr.some(e=>e.item==='HEADER'),
              invoiceNo:uniq('INVOICE NO.'), customer:uniq('consignee'), company:uniq('exporter name'), shippingMark:uniq('SHIPPING MARK'),
              dwakFile:ef, jobNo:ef.replace(/\.[^.]+$/,''), invFile:S(($('fordInvEdc8FnTxt')||{}).textContent), checkedAt:new Date(),
              masterVer:masterWb && masterWb._ver, masterAt:masterWb && masterWb._publishedAt, mode:MODE() };
@@ -12113,13 +12632,17 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   function naGroup(errors){   /* ⚪ ไม่ตรวจ / ไม่นับ: รวม Item ตาม หัวข้อ + เหตุผล (สิทธิไม่มีกฎ: แยกตาม Privilege) */
     const errSet=new Set(errors.filter(e=>e.severity==='error').map(e=>e.item)), map=new Map();
     errors.filter(e=>e.severity==='info').forEach(e=>{ const nr=e.errorCode==='MASTER_NO_RULE', k=S(e.col)+'\u0001'+(nr?S(e.found):S(e.expected));
-      if(!map.has(k)) map.set(k,{ topic:S(e.col), val:nr?S(e.found):'-', reason:S(e.expected), items:[], parts:[], failToo:[] }); const g=map.get(k);
+      if(!map.has(k)) map.set(k,{ topic:S(e.col), val:(nr || e.errorCode==='T39_NO_REF_SRC')?S(e.found):'-',   /* [EDC8 39 หัวข้อ] หัวข้อที่ยังไม่มีกฎ: แสดงค่าที่พบในใบขน */ reason:S(e.expected), items:[], parts:[], failToo:[] }); const g=map.get(k);
       g.items.push(S(e.item)); if(!g.parts.includes(S(e.partNo))) g.parts.push(S(e.partNo)); if(errSet.has(e.item) && !g.failToo.includes(S(e.item))) g.failToo.push(S(e.item)); });
     return [...map.values()].map(g=>({ topic:g.topic, val:g.val, reason:g.reason, priv:g.val, item:kdcFmtItems(g.items), items:g.items, count:g.items.length, parts:g.parts.join(', '), failToo:g.failToo }));
   }
   function aplEdc8RenderAat(errors, totalChecked){
+    let PM=null;
+    if(MODE()==='AAT' || MODE()==='FTM'){ const P=PMX8; PMX8=null; PM=aatPermitRun(P || { ok:false, err:'ไม่ได้โหลด MASTER HS CODE ใบอนุญาตก่อนตรวจ — กรุณากดตรวจสอบใหม่' }); errors=errors.concat(PM.errs); }   /* [EDC8 AAT] ผลใบอนุญาตรวมใน Error ชุดเดียว (หน้าจอ = EXPORT) */
     const G=group(errors), m=metaOf(errors, totalChecked), isErr=m.points>0, NA=naGroup(errors);
     LAST={ grouped:G, meta:m, na:NA };
+    if(PM){ m.permit=kdcPermitSummary(PM.cats, m.items); m.permitOk=!!PM.P.ok; m.permitErr=S(PM.P.err); LAST.permit=PM; LAST.blocked=!PM.P.ok;
+      return aatRender(G, m, NA, PM); }
     const color=isErr?'var(--error)':'var(--success)', bg=isErr?'var(--error-bg)':'var(--success-bg)', bord=isErr?'var(--error-border)':'var(--success-border)';
     edc8ResultBox.style.display='block'; edc8ResultBox.style.background=bg; edc8ResultBox.style.border='1px solid '+bord;
     edc8RHead.style.background=bg; edc8RHead.style.borderBottom='1px solid '+bord; edc8RDot.style.background=color; edc8RDot.style.boxShadow='0 0 6px '+color; edc8RTitle.style.color=color;
@@ -12186,8 +12709,87 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     XLSX.utils.book_append_sheet(wb, ws2, 'สรุปผลตรวจ');
     return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm, sm2]);
   }
+  /* ── [EDC8 AAT] หน้าจอ = รูปแบบ ตรวจ EDC: ❌ รายการผิด → 📋 ใบอนุญาต → ⚪ ไม่ตรวจ / ไม่นับ ── */
+  function aatRender(G, m, NA, PM){
+    const blocked=!PM.P.ok, isErr=blocked || m.points>0;
+    const color=isErr?'var(--error)':'var(--success)', bg=isErr?'var(--error-bg)':'var(--success-bg)', bord=isErr?'var(--error-border)':'var(--success-border)';
+    edc8ResultBox.style.display='block'; edc8ResultBox.style.background=bg; edc8ResultBox.style.border='1px solid '+bord;
+    edc8RHead.style.background=bg; edc8RHead.style.borderBottom='1px solid '+bord; edc8RDot.style.background=color; edc8RDot.style.boxShadow='0 0 6px '+color; edc8RTitle.style.color=color;
+    const cnt=m.items+' item · ถูกต้อง '+m.pass+' · ผิด '+m.fail+' item'+(m.na?' · ไม่ตรวจ '+m.na+' item':'')+' · '+m.points+' จุด'+(m.filePoints?' (ระดับไฟล์ / Mapping '+m.filePoints+' จุด)':'');
+    edc8RTitle.textContent = blocked ? '⚠ ตรวจไม่ครบ — โหลด MASTER HS CODE ใบอนุญาตไม่ได้ · ระงับ PASS / EXPORT — '+cnt : (isErr?'❌ พบข้อผิดพลาด ':'✅ PASS ')+'— '+cnt;
+    const c=(cls,t)=>'<div class="stat-chip '+cls+'">'+t+'</div>';
+    let html='';
+    if(blocked) html+='<div class="e8k-pm-block" style="padding:10px 16px;margin-bottom:10px;border:1px solid #f2cdc8;border-radius:8px;background:#fdf3f2;color:#b42318;font-weight:600">⚠ โหลด MASTER HS CODE ใบอนุญาตไม่ได้ ('+esc(m.permitErr||'load_fail')+') — ยังไม่ได้ตรวจใบอนุญาต · ไม่แสดง PASS และระงับ EXPORT · กรุณากด ตรวจสอบ ใหม่</div>';
+    html+='<div class="kdc-chips e8k-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+c('warn','⚪ ไม่ตรวจ '+m.na+' item (ไม่นับ)')+(m.filePoints?c('err','❌ ระดับไฟล์ / Mapping '+m.filePoints+' จุด (ไม่นับเป็น ITEM)'):'')+c('warn','❌ '+m.points+' จุด')+
+      c('ok','MASTER APL v'+esc(m.masterVer)+' ('+esc(m.mode)+')')+(m.invoiceNo?c('ok','INVOICE '+esc(m.invoiceNo)):'')+'</div>'+kdcPermitChips(m.permit);
+    html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก / MASTER HS CODE ใบอนุญาต)</span></div>';
+    if(!G.length) html+='<div class="e8k-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด</div>';
+    else html+='<div class="e8k-wrap"><table class="e8k-grid e8k-fail"><colgroup><col style="width:13%"><col style="width:19%"><col style="width:21%"><col style="width:21%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr>'+
+      '<th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>Actual (ใบขน EDC8)</th><th>Expected (FIX/INVOICE/MASTER)</th><th>FIX</th><th>สถานะ</th></tr></thead><tbody>'+
+      G.map(r=>'<tr class="e8k-row"><td class="td-item">'+esc(r.item)+' <span class="e8k-cnt">('+r.count+')</span></td><td class="td-col">'+esc(r.field)+'</td><td class="e8k-act">'+esc(r.act)+'</td><td class="e8k-exp">'+esc(r.exp)+'</td><td class="e8k-fix">'+esc(r.fix)+'</td><td><span class="e8k-badge">'+esc(r.st)+'</span></td></tr>').join('')+'</tbody></table></div>';
+    html+='<div class="e8k-sec-h e8k-pm-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">📋 ใบอนุญาต <span style="font-weight:400;font-size:12px;color:#64748b">(HS CODE + Stat จากใบขน EDC8 → MASTER HS CODE ใบอนุญาต · EXPORT / IMPORT+EXPORT)</span></div>';
+    const pr=kdcPermitRows(PM.items), nUn=PM.items.filter(p=>p.cat==='unchecked').length;
+    if(nUn) html+='<div class="kdc-pm-unchk" style="padding:10px 16px;margin-bottom:8px;border:1px solid #ecdcae;border-radius:8px;background:#fdf8e8;color:#7a5d12;font-weight:600">⚠ โหลด MASTER HS CODE ใบอนุญาตไม่ได้ — ยังไม่ได้ตรวจใบอนุญาต '+nUn+' Item (ไม่นับ)</div>';
+    if(!pr.length) html+='<div class="kdc-nopermit" style="padding:12px 16px;border:1px solid #d9e2ec;border-radius:8px;background:#f8fafc;color:#475569;font-weight:600">ไม่พบ Item ที่ติดใบอนุญาต (EXPORT / IMPORT+EXPORT)</div>';
+    else html+='<div class="e8k-wrap"><table class="e8k-grid e8k-permit"><colgroup><col style="width:16%"><col style="width:16%"><col style="width:9%"><col style="width:24%"><col style="width:35%"></colgroup><thead><tr>'+
+      '<th>Item No.</th><th>HS CODE</th><th>Stat</th><th>สถานะ</th><th>หน่วยงาน</th></tr></thead><tbody>'+
+      pr.map(r=>'<tr class="e8k-row kdc-pm-row"><td class="td-item">'+esc(r.items)+' <span class="e8k-cnt">('+r.count+')</span></td><td>'+esc(r.hs)+'</td><td>'+esc(r.st)+'</td><td class="kdc-st">'+r.badge+'</td><td class="td-col">'+esc(r.agency)+'</td></tr>').join('')+'</tbody></table></div>';
+    if(NA.length) html+='<div class="e8k-sec-h e8k-na-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#5b6170">⚪ ไม่ตรวจ / ไม่นับ <span style="font-weight:400;font-size:12px;color:#64748b">(สิทธิที่ Flow เดิมยังไม่มีกฎ · MASTER ไม่มี HS / Stat · ตรวจใบอนุญาตไม่ได้ — ไม่นับถูก / ผิด)</span></div>'+
+      '<div class="e8k-wrap"><table class="e8k-grid e8k-na"><colgroup><col style="width:16%"><col style="width:20%"><col style="width:20%"><col style="width:30%"><col style="width:14%"></colgroup><thead><tr><th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>ค่า</th><th>เหตุผล</th><th>สถานะ</th></tr></thead><tbody>'+
+      NA.map(r=>'<tr class="e8k-row"><td class="td-item">'+esc(r.item)+' <span class="e8k-cnt">('+r.count+')</span></td><td class="td-col">'+esc(r.topic)+'</td><td>'+esc(r.val)+'</td><td>'+esc(r.reason)+'</td><td>⚪ ไม่ตรวจ / ไม่นับ</td></tr>').join('')+'</tbody></table></div>';
+    edc8RBody.innerHTML=html; edc8ResultBox.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    if(blocked) queueMicrotask(()=>{ try{ if(edc8ExportBtn) edc8ExportBtn.disabled=true; }catch(_){} });   /* Handler เดิมเปิดปุ่มหลัง Render → ปิดซ้ำ (ระงับ EXPORT) */
+  }
+  /* ── [EDC8 AAT] EXPORT = รูปแบบ kdcBuildExcel (ตรวจ EDC): 1 Sheet "ผลตรวจ" · Header · ✓ ถูกต้อง / ✕ ผิด / ○ ไม่นับ · ตาราง 8 คอลัมน์ · Text ทุกช่อง (คง 0 นำหน้า) ── */
+  async function aatBuildExcel(res){
+    const m=res.meta, X=KDC_XS, PM=res.permit; const aoa=[], sm={}, merges=[], rowsH={};
+    const put=(r,c,v,s)=>{ while(aoa.length<=r) aoa.push([]); aoa[r][c]=v; if(s) sm[r+':'+c]=s; };
+    const fillRow=(r,s,from,to)=>{ for(let c=from;c<=to;c++){ if(aoa[r]===undefined||aoa[r][c]===undefined) put(r,c,'',s); else sm[r+':'+c]=s; } };
+    const mg=(r1,c1,r2,c2)=>merges.push({ s:{r:r1,c:c1}, e:{r:r2,c:c2} });
+    put(0,0,'EDC8 '+S(m.mode||'AAT'),X.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า · MASTER APL v'+S(m.masterVer)+' · MASTER HS CODE ใบอนุญาต',X.SUB); mg(0,2,0,7); rowsH[0]=36;
+    const hdr=[['Job No.',m.jobNo,'วันที่ตรวจสอบ',kdcDateTH(m.checkedAt)],['INVOICE NO.',m.invoiceNo,'ไฟล์ใบขน EDC8',m.dwakFile],['Customer',m.customer,'ไฟล์ INVOICE',m.invFile],
+               ['Company',m.company,'จำนวนรายการ',String(m.items)],['Shipping Mark',m.shippingMark,'สรุปผล',null]];
+    hdr.forEach((h,i)=>{ const r=i+1; rowsH[r]=22; put(r,0,h[0],X.LBL); mg(r,0,r,1); put(r,1,'',X.LBL); put(r,2,S(h[1]),X.VAL); mg(r,2,r,3); put(r,3,'',X.VAL); put(r,4,h[2],X.LBL);
+      if(h[3]===null){ put(r,5,'ถูกต้อง  '+m.pass+' item',X.OKSUM); put(r,6,'ผิด  '+m.fail+' item',X.BADSUM); put(r,7,'รวม  '+m.items+' item · '+m.points+' จุด'+(m.na?'  (ไม่นับ '+m.na+')':'')+(m.filePoints?'  (ระดับไฟล์ / Mapping '+m.filePoints+' จุด)':''),X.TOTSUM); }
+      else { put(r,5,S(h[3]),X.VAL); mg(r,5,r,7); put(r,6,'',X.VAL); put(r,7,'',X.VAL); } });
+    /* ✓ ถูกต้อง: Item ที่ผ่านทุกหัวข้อ (ไม่มี ❌ / ⚪) + ผลใบอนุญาตที่ถูกต้อง (รวม Item ตามหัวข้อ + ค่า) */
+    const okG=[]; if((m.passItems||[]).length) okG.push({ field:'ใบขน EDC8 ผ่านทุกหัวข้อตรวจ', item:kdcFmtItems(m.passItems), count:m.passItems.length, act:'-', exp:'INVOICE / MASTER APL / ค่าฟิก / กฎพิเศษ / ใบอนุญาต', note:'ไม่พบข้อผิดพลาดใน Item' });
+    { const mp=new Map(); (PM.ok||[]).forEach(o=>{ const k=[o.field,o.act,o.exp,o.fix].join('\u0001'); if(!mp.has(k)) mp.set(k,Object.assign({},o,{ items:[] })); mp.get(k).items.push(o.item); });
+      mp.forEach(g=>okG.push({ field:g.field, item:kdcFmtItems(g.items), count:g.items.length, act:g.act, exp:g.exp!=='-'?g.exp:g.fix, note:'MASTER HS CODE ใบอนุญาต · '+g.note })); }
+    /* ○ ไม่นับ: ⚪ ไม่ตรวจ (ชุดเดียวกับหน้าจอ) + ⚪ ไม่ติดใบอนุญาต / เฉพาะ IMPORT (= แถบสรุปบนหน้าจอ) */
+    const naG=(res.na||[]).map(x=>({ field:x.topic, item:x.item, count:x.count, act:x.val, exp:x.reason, note:x.failToo.length?'Item ที่ผิดหัวข้ออื่นด้วย: '+kdcFmtItems(x.failToo):'' }));
+    { const mp=new Map(); (PM.status||[]).forEach(o=>{ const k=o.val+'\u0001'+o.reason; if(!mp.has(k)) mp.set(k,Object.assign({},o,{ items:[] })); mp.get(k).items.push(o.item); });
+      mp.forEach(g=>naG.push({ field:g.topic, item:kdcFmtItems(g.items), count:g.items.length, act:g.val, exp:g.reason, note:'MASTER HS CODE ใบอนุญาต · '+g.note })); }
+    const badG=res.grouped.map(x=>({ field:x.field, item:x.item, count:x.count, act:x.act, exp:x.exp!=='-'?x.exp:x.fix, st:x.st.replace(/^❌\s*/,''), note:x.note }));
+    const COLS=['No.','หัวข้อตรวจสอบ','Item No.','Actual (ใบขน EDC8)','Expected (FIX/INVOICE/MASTER)','หน่วย','ผลตรวจ','หมายเหตุ'];
+    let r=7;
+    const section=(title, list, cntTxt, secS, secRS, hdrS, stS, stTxt)=>{
+      put(r,0,title,secS); fillRow(r,secS,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+list.length+' แถว · '+cntTxt,secRS); fillRow(r,secRS,5,7); mg(r,5,r,7); rowsH[r]=28; r++;
+      COLS.forEach((c,i)=>put(r,i,c,hdrS)); rowsH[r]=22; r++;
+      list.forEach((x,i)=>{ put(r,0,i+1,X.CELL_C); put(r,1,x.field,X.CELL_L); put(r,2,x.item,X.CELL_L); put(r,3,S(x.act),X.CELL_L); put(r,4,S(x.exp),X.CELL_L); put(r,5,'',X.CELL_C);
+        put(r,6,x.st||stTxt,stS); put(r,7,S(x.note),X.CELL_L); r++; });
+      r++;
+    };
+    section('✓  1. ข้อมูลที่ถูกต้อง', okG, m.pass+' item', X.SECOK, X.SECOKR, X.HDROK, X.ST_OK, 'ถูกต้อง');
+    section('✕  2. ข้อมูลที่ผิด', badG, m.fail+' item · '+m.points+' จุด', X.SECBAD, X.SECBADR, X.HDRBAD, X.ST_BAD, 'ผิด');
+    if(naG.length) section('○  3. ข้อมูลที่ไม่นับ', naG, m.na+' item ไม่ตรวจ', X.SECNA, X.SECNAR, X.HDRNA, X.ST_NA, 'ไม่นับ');
+    const ws=XLSX.utils.aoa_to_sheet(aoa.map(row=>Array.from(row, v=>v===undefined?'':v)));
+    Object.keys(ws).forEach(a=>{ if(a[0]==='!') return; const cell=ws[a], col=a.replace(/\d+/g,''), rn=parseInt(a.replace(/\D/g,''),10);
+      if(!(col==='A' && rn>8 && typeof cell.v==='number')){ cell.t='s'; cell.v=S(cell.v); } });
+    ws['!merges']=merges; ws['!cols']=[{wch:6},{wch:32},{wch:30},{wch:28},{wch:28},{wch:7},{wch:10},{wch:44}];
+    ws['!rows']=[]; Object.keys(rowsH).forEach(k=>{ ws['!rows'][+k]={ hpt:rowsH[k] }; });
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ผลตรวจ');
+    return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm]);
+  }
   function aplEdc8ExportAat(){
     if(!LAST){ alert('⚠ กรุณากดตรวจสอบก่อน Export (ไม่มีผลตรวจปัจจุบัน)'); return; }
+    if(LAST.permit){   /* [EDC8 AAT] */
+      if(LAST.blocked){ alert('⛔ ระงับ EXPORT — โหลด MASTER HS CODE ใบอนุญาตไม่ได้ ผลตรวจยังไม่ครบ\nกรุณากด ตรวจสอบ ใหม่'); return; }
+      const inv=(S(LAST.meta.invoiceNo).split(',')[0]||'EDC8').replace(/[^\w\-]/g,'') || 'EDC8';
+      aatBuildExcel(LAST).then(buf=>safeDownload(buf, 'EDC8_'+S(LAST.meta.mode||'AAT')+'_ผลตรวจ_'+inv+'_'+kdcStamp(LAST.meta.checkedAt)+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+        .catch(e=>alert('Export ไม่สำเร็จ: '+(e && e.message || e)));
+      return;
+    }
     const inv=(S(LAST.meta.invoiceNo).split(',')[0]||'EDC8').replace(/[^\w\-]/g,'') || 'EDC8';
     aplEdc8BuildExcel(LAST).then(buf=>safeDownload(buf, 'EDC8_'+S(LAST.meta.mode||'AAT')+'_ผลตรวจ_'+inv+'_'+kdcStamp(LAST.meta.checkedAt)+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
       .catch(e=>alert('Export ไม่สำเร็จ: '+(e && e.message || e)));
@@ -12199,7 +12801,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   try{ const am=$('appMain'); if(am && window.MutationObserver){ let shown=am.style.display!=='none';
     new MutationObserver(()=>{ const now=am.style.display!=='none'; if(now===shown) return; shown=now;
       if(now){ if(MODE()) aplEdc8Load(); } else { seq++; masterWb=null; LAST=null; setBox('load','⏳ รอ Login…',''); } }).observe(am, { attributes:true, attributeFilter:['style'] }); } }catch(_){}
-  Object.assign(window, { aplEdc8ClearResult, aplEdc8Load, aplEdc8Ensure, aplEdc8LastError, aplEdc8RuleErrors, aplEdc8RenderAat, aplEdc8ExportAat, aplEdc8BuildExcel, aplEdc8MasterCheck });
+  Object.assign(window, { aplEdc8ClearResult, aplEdc8Load, aplEdc8Ensure, aplEdc8LastError, aplEdc8RuleErrors, aplEdc8RuleCovers, aplEdc8RenderAat, aplEdc8ExportAat, aplEdc8BuildExcel, aplEdc8MasterCheck });
   /* เปลี่ยน / ลบไฟล์ ใบขน EDC8 หรือ Ford Invoice → ล้างผลตรวจเก่า + ปิด Export (ห้ามใช้ผลของไฟล์ก่อนหน้า) */
   const clearOnFile=()=>{ if(!MODE() || !LAST && !edc8Checked) return; LAST=null; try{ edc8Checked=false; edc8AllErrors=[]; if(edc8ExportBtn) edc8ExportBtn.disabled=true; edc8ResultBox.style.display='none'; edc8RTitle.textContent=''; edc8RBody.innerHTML=''; }catch(_){} };
   try{ ['edc8FnTxt','fordInvEdc8FnTxt'].forEach(id=>{ const el=$(id); if(el && window.MutationObserver) new MutationObserver(clearOnFile).observe(el, { childList:true, characterData:true, subtree:true }); }); }catch(_){}
