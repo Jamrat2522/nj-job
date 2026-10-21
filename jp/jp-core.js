@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local120)
+ * J&P LOGISTICS — jp-core.js  (local123)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -451,6 +451,145 @@
   function b64urlDecode(b) { b = b.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; try { return typeof atob === 'function' ? decodeURIComponent(escape(atob(b))) : Buffer.from(b, 'base64').toString('utf8'); } catch (e) { return ''; } }
   function accountObjectName(fileName, ts) { return String(ts || Date.now()) + '-' + b64urlEncode(String(fileName || 'account.pdf').slice(0, 120)) + '.pdf'; }
   function accountFileName(objectName) { const m = /^(\d+)-([A-Za-z0-9_-]+)\.pdf$/.exec(String(objectName || '')); return m ? (b64urlDecode(m[2]) || objectName) : String(objectName || ''); }
+  /* ---------- local121: 💰 วางบิล รวม PDF file name for GOLDEN CRANE = "GOLDEN CRANE , {B/L NO.} , {INVOICE NO.}.pdf"
+     CUSTOMER PO + INVOICE NO. are read from the ③ บัญชี (PDF) file name(s); B/L NO. from the JOB.
+     returns {golden:false} (caller keeps the old name) | {golden:true, name} | {golden:true, error} (caller must warn, no file) */
+  const RE_GOLDEN = /(^|[^A-Z])GOLDEN([^A-Z]|$)/i;
+  const RE_INVOICE_NO = /(?:^|[^A-Z0-9])([A-Z]{1,6}\d{4}-\d{3,6})(?![0-9])/gi;
+  function billInvoiceNos(accNames) {
+    const s = new Set();
+    (accNames || []).forEach(n => { const t = String(n || '').replace(/\.pdf$/i, ''); let m; RE_INVOICE_NO.lastIndex = 0; while ((m = RE_INVOICE_NO.exec(t))) s.add(m[1].toUpperCase()); });
+    return Array.from(s);
+  }
+  function billPdfName(job, accNames) {
+    const names = (accNames || []).map(String);
+    if (!names.some(n => RE_GOLDEN.test(n))) return { golden: false };
+    const bl = cleanCode(job && job.bl_no), inv = billInvoiceNos(names);
+    if (!bl) return { golden: true, error: 'ไม่พบ B/L NO. ของ JOB นี้ — ไม่สามารถตั้งชื่อไฟล์ GOLDEN CRANE ได้' };
+    if (!inv.length) return { golden: true, error: 'ไม่พบ INVOICE NO. ในชื่อไฟล์ ③ บัญชี (PDF) — ไม่สามารถตั้งชื่อไฟล์ GOLDEN CRANE ได้' };
+    if (inv.length > 1) return { golden: true, error: 'พบ INVOICE NO. มากกว่า 1 เลขในไฟล์ ③ บัญชี (' + inv.join(', ') + ') — ไม่สามารถตั้งชื่อไฟล์ได้' };
+    return { golden: true, name: sanitizeFileName('GOLDEN CRANE , ' + bl + ' , ' + inv[0]) + '.pdf' };
+  }
+  /* ---------- local122: 💰 วางบิล — ตั้งชื่อไฟล์ PDF (บริษัท , B/L NO. , INVOICE NO.) + จัดเรียงหน้า ---------- */
+  // default บริษัท = leading words of the first ③ file name, before the first code-like token (B/L / INVOICE)
+  function billCompanyFromName(fileName) {
+    const toks = String(fileName || '').replace(/\.pdf$/i, '').split(/[\s_,]+/).filter(Boolean); const out = [];
+    while (toks.length && /^(บัญชี|ใบแจ้งหนี้|ใบวางบิล|INVOICE|INV|BILL)$/i.test(toks[0])) toks.shift();     // label words, not the company
+    for (const t of toks) { if (/^(?=.*\d{4})[A-Z0-9-]{7,}$/i.test(t) || /^[A-Z]{1,6}\d{4}-\d{3,6}$/i.test(t)) break; out.push(t); }
+    return out.join(' ').replace(/^[-.\s]+|[-.\s]+$/g, '').trim();
+  }
+  function billDefaults(job, accNames) {
+    const names = (accNames || []).map(String);
+    const company = names.map(billCompanyFromName).find(Boolean) || '';
+    const inv = billInvoiceNos(names);
+    return { company: company.toUpperCase(), bl: cleanCode(job && job.bl_no), invoice: inv.length === 1 ? inv[0] : '' };
+  }
+  // "บริษัท , B/L NO. , INVOICE NO..pdf" — every part required (never build a name from missing data)
+  function billFileName(company, bl, invoice) {
+    const parts = [company, bl, invoice].map(s => sanitizeFileName(String(s || '').trim()).replace(/,/g, ' ').replace(/\s+/g, ' ').trim());
+    const lbl = ['บริษัท', 'B/L NO.', 'INVOICE NO.'], missing = lbl.filter((l, i) => !parts[i]);
+    if (missing.length) return { error: 'กรุณากรอก ' + missing.join(' / ') + ' ก่อน EXPORT PDF', missing };
+    return { name: parts.join(' , ') + '.pdf' };
+  }
+  // saved order [{k, p}] vs what exists now {key: pageCount}: drop pages whose file/page is gone,
+  // append ALL pages of files that did not exist when the order was saved (deleted pages stay deleted)
+  function billReconcileOrder(saved, avail, knownKeys, keyOrder) {
+    const known = new Set(knownKeys || []), order = [], seen = new Set(); let dropped = 0;
+    (saved || []).forEach(x => { if (x && avail[x.k] != null && x.p >= 0 && x.p < avail[x.k] && !seen.has(x.k + '#' + x.p)) { seen.add(x.k + '#' + x.p); order.push({ k: x.k, p: x.p }); } else dropped++; });
+    const appended = [];
+    (keyOrder || Object.keys(avail)).forEach(k => { if (!known.has(k) && avail[k] != null) { appended.push(k); for (let p = 0; p < avail[k]; p++) if (!seen.has(k + '#' + p)) order.push({ k, p }); } });
+    return { order, appended, dropped };
+  }
+  // build ONE PDF from page refs [{k, p}] — pages copied as-is (vector, no re-render = same sharpness); rotations {k: [deg per page]}
+  async function buildPdfFromPages(PDFLib, sources, order, title) {
+    const { PDFDocument, degrees } = PDFLib; const out = await PDFDocument.create();
+    if (title) out.setTitle(title); out.setProducer('J&P LOGISTICS');
+    const docs = {};
+    for (const x of order) {
+      const s = sources[x.k]; if (!s) throw new Error('ไม่พบไฟล์ต้นฉบับของหน้า ' + (out.getPageCount() + 1));
+      if (!docs[x.k]) docs[x.k] = await PDFDocument.load(s.bytes.slice ? s.bytes.slice(0) : s.bytes, { ignoreEncryption: true });
+      const [pg] = await out.copyPages(docs[x.k], [x.p]);
+      const extra = s.rotations && s.rotations[x.p] ? s.rotations[x.p] : 0;
+      if (extra) pg.setRotation(degrees(((pg.getRotation().angle || 0) + extra) % 360));
+      out.addPage(pg);
+    }
+    const bytes = await out.save({ useObjectStreams: true });
+    return { bytes, pageCount: out.getPageCount() };
+  }
+  // JPG / PNG -> 1-page PDF at the image's own size (image embedded unchanged, no recompression)
+  async function imageToPdf(PDFLib, bytes, isPng) {
+    const { PDFDocument } = PDFLib; const d = await PDFDocument.create();
+    const img = isPng ? await d.embedPng(bytes) : await d.embedJpg(bytes);
+    const pg = d.addPage([img.width, img.height]); pg.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    return d.save();
+  }
+  // per-JOB settings live in storage (bucket accepts PDF only): tiny PDF whose Subject holds the JSON
+  async function billSettingsToPdf(PDFLib, obj) {
+    const { PDFDocument } = PDFLib; const d = await PDFDocument.create(); d.addPage([10, 10]);
+    d.setTitle('JP BILL SETTINGS'); d.setSubject(JSON.stringify(obj)); d.setProducer('J&P LOGISTICS');
+    return d.save();
+  }
+  async function billSettingsFromPdf(PDFLib, bytes) {
+    const d = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    if (d.getTitle() !== 'JP BILL SETTINGS') return null;
+    try { const o = JSON.parse(d.getSubject() || 'null'); return o && typeof o === 'object' ? o : null; } catch (e) { return null; }
+  }
+  /* ---------- local123: 📋 รายการ JOB → 📄 EXPORT PDF = ONE PDF of every container's EXPORTED PDF:
+     shared documents once (from container 1) + each container's own photo page(s), in container order.
+     Pages are copied as-is (no new layout, no re-render). Shared pages are compared by a deep hash of the page object. */
+  function pageHash(PDFLib, doc, page) {
+    const { PDFDict, PDFArray, PDFRef, PDFRawStream, PDFStream } = PDFLib;
+    let h1 = 0x811c9dc5, h2 = 0x01000193 ^ 0x5bd1e995;
+    const addB = b => { for (let i = 0; i < b.length; i++) { h1 = Math.imul(h1 ^ b[i], 16777619) >>> 0; h2 = Math.imul(h2 ^ b[i], 2246822519) >>> 0; } };
+    const addS = s => { for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ (c & 255), 16777619) >>> 0; h2 = Math.imul(h2 ^ (c >> 8), 2246822519) >>> 0; } };
+    const seen = new Map(); let n = 0;
+    const walk = (o, depth) => {
+      if (depth > 60) return addS('~');
+      if (o instanceof PDFRef) { const t = o.toString(); if (seen.has(t)) return addS('@' + seen.get(t)); seen.set(t, ++n); return walk(doc.context.lookup(o), depth + 1); }
+      if (o instanceof PDFDict) { addS('<<'); const es = o.entries().filter(([k]) => k.toString() !== '/Parent').sort((a, b) => (a[0].toString() < b[0].toString() ? -1 : 1)); es.forEach(([k, v]) => { addS(k.toString()); walk(v, depth + 1); }); return addS('>>'); }
+      if (o instanceof PDFArray) { addS('['); o.asArray().forEach(v => walk(v, depth + 1)); return addS(']'); }
+      if (o instanceof PDFRawStream) { walk(o.dict, depth + 1); addS('stream' + o.contents.length); return addB(o.contents); }
+      if (PDFStream && o instanceof PDFStream) { walk(o.dict, depth + 1); try { const b = o.getContents(); addS('stream' + b.length); addB(b); } catch (e) { addS('stream?'); } return; }
+      addS(o == null ? 'null' : o.toString());
+    };
+    walk(page.node, 0);
+    return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+  }
+  // items [{label, bytes}] in container order; docPages = shared document page count (null = all pages except the last)
+  async function analyzeContainerPdfs(PDFLib, items, docPages) {
+    const out = { items: [], docPages: 0, diff: [], bad: [], multi: [] };
+    for (const it of items) {
+      let d; try { d = await PDFLib.PDFDocument.load(it.bytes, { ignoreEncryption: true }); } catch (e) { out.bad.push(it.label + ' (เปิดไฟล์ไม่ได้)'); continue; }
+      out.items.push({ label: it.label, doc: d, n: d.getPageCount() });
+    }
+    if (!out.items.length) return out;
+    const dp = docPages != null && docPages > 0 ? docPages : out.items[0].n - 1;
+    out.docPages = dp;
+    const ok = [];
+    out.items.forEach(x => { if (x.n <= dp) out.bad.push(x.label + ' (ไม่มีหน้ารูปภาพ)'); else ok.push(x); });
+    out.items = ok;
+    if (!ok.length) return out;
+    const ref = ok[0], refH = ref.doc.getPages().slice(0, dp).map(p => pageHash(PDFLib, ref.doc, p)).join('|');
+    ok.forEach((x, i) => {
+      x.photoIdx = Array.from({ length: x.n - dp }, (_, k) => dp + k);
+      if (x.photoIdx.length !== 1) out.multi.push(x.label + ' (' + x.photoIdx.length + ' หน้า)');
+      x.sameDocs = i === 0 || x.doc.getPages().slice(0, dp).map(p => pageHash(PDFLib, x.doc, p)).join('|') === refH;
+      if (!x.sameDocs) out.diff.push(x.label);
+    });
+    return out;
+  }
+  // shared docs (container 1) -> per container: [its own documents only if they differ] + its photo page(s)
+  async function buildAllContainersPdf(PDFLib, an, title) {
+    const { PDFDocument } = PDFLib; const out = await PDFDocument.create();
+    if (title) out.setTitle(title); out.setProducer('J&P LOGISTICS');
+    const add = async (doc, idx) => { if (!idx.length) return; const pgs = await out.copyPages(doc, idx); pgs.forEach(p => out.addPage(p)); };
+    const dIdx = Array.from({ length: an.docPages }, (_, k) => k);
+    await add(an.items[0].doc, dIdx);
+    const map = [];
+    for (const x of an.items) { if (!x.sameDocs) await add(x.doc, dIdx); map.push({ label: x.label, page: out.getPageCount() + 1, pages: x.photoIdx.length }); await add(x.doc, x.photoIdx); }
+    const bytes = await out.save({ useObjectStreams: true });
+    return { bytes, pageCount: out.getPageCount(), map };
+  }
   // docs [{bytes, rotations}] -> ONE PDF, pages exactly in the given order (no reordering, no extra pages)
   async function mergePdfsInOrder(PDFLib, docs, title) {
     const { PDFDocument, degrees } = PDFLib; const out = await PDFDocument.create();
@@ -1062,7 +1201,9 @@
     resolveContainerOcr, parseSealOcr, resolveSealOcr, ocrAnalyzePhoto,
     consensusFilter, ocrCropRotScale, ocrAdaptiveBin, ocrOpenBin, ocrCleanBin, ocrEstimateSkew, containerAnchors, mergeContainerReads, ocrContainerPhoto, CONTAINER_UNREAD,
     pdfItemsToLines, extractPackingList,
-    accountObjectName, accountFileName, mergePdfsInOrder,
+    accountObjectName, accountFileName, mergePdfsInOrder, billInvoiceNos, billPdfName,
+    billCompanyFromName, billDefaults, billFileName, billReconcileOrder, buildPdfFromPages, imageToPdf, billSettingsToPdf, billSettingsFromPdf,
+    pageHash, analyzeContainerPdfs, buildAllContainersPdf,
     STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));
