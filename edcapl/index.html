@@ -1530,6 +1530,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 #panel-hscode_permit #hspm-overlay>.hspm-mm-modal,#panel-hscode_permit #em-overlay>.hspm-mm-modal{max-width:none!important;width:100%;border:none;border-radius:0;box-shadow:none;max-height:calc(100vh - 110px)!important}
 #panel-hscode_permit #hspm-overlay>.hspm-mm-modal>.hspm-mm-head>.hspm-mm-head-close,#panel-hscode_permit #em-overlay>.hspm-mm-modal>.hspm-mm-head>.hspm-mm-head-close{display:none}
 #panel-hscode_permit .hspm-mm-head h3{font-family:inherit}
+#panel-hscode_permit #hspm-overlay>.hspm-mm-modal>.hspm-mm-head{display:none}   /* ซ่อนแถบหัวข้อ "HS CODE ใบอนุญาต (กลาง · ใช้ร่วม TYPE 0 / TYPE 1 / TYPE D)" ของหน้าหลัก (ปุ่มปิดถูกซ่อนอยู่แล้ว) · Modal ย่อยไม่กระทบ */
 #panel-hscode_permit .hspm-mm-overlay h3{font-weight:700}
 </style>
 <div class="hspm-mm-overlay" id="hspm-overlay"><!-- ★ [local071] MASTER พิกัดติดใบอนุญาต · ★ [local072] UI Overlay เดียว (Toolbar · Search/Filter · ตาราง + Pagination · Modal ย่อย) -->
@@ -1545,7 +1546,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
         <button class="hspm-b hspm-b-paste" id="hspm-btn-paste" onclick="hspmOpenPaste()">📋 PASTE ข้อมูล</button>
         <button class="hspm-b hspm-b-up" id="hspm-btn-upload" onclick="hspmOpenUpload()">⬆️ UPLOAD MASTER</button>
         <button class="hspm-b hspm-b-exp" id="hspm-btn-export" onclick="hspmExportMaster()">📥 EXPORT EXCEL MASTER</button>
-        <span style="font-size:11px;color:var(--text3);flex:1;min-width:240px">รองรับข้อมูลจาก Excel (คอลัมน์อย่างน้อย: Tariff Classification(12 N) · Tariff Statistical Code (3N) · Company Tax Number(17A) · หน่วยงาน · IMPORT · EXPORT หรือ MODE)</span>
+        <span id="hspm-hint" aria-hidden="true" style="display:none;font-size:11px;color:var(--text3);flex:1;min-width:240px">รองรับข้อมูลจาก Excel (คอลัมน์อย่างน้อย: Tariff Classification(12 N) · Tariff Statistical Code (3N) · Company Tax Number(17A) · หน่วยงาน · IMPORT · EXPORT หรือ MODE)</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
         <input id="hspm-q" type="search" placeholder="🔍 ค้นหา Tariff (เช่น 21039013 หรือ 2103.90.13)" oninput="hspmSearchInput()" onkeydown="if(event.key==='Enter')hspmSearchNow()" style="flex:1;min-width:220px;max-width:420px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)">
