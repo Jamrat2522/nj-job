@@ -236,6 +236,63 @@ td{padding:8px 12px;color:var(--t1);white-space:nowrap;}
 .empty-members{text-align:center;padding:60px 20px;color:var(--t3);}
 .empty-members svg{margin:0 auto 14px;opacity:.3;}
 .empty-members p{font-size:14px;}
+/* ══ MEMBER MANAGEMENT · Dashboard + Table (V.300 · UI only) ══ */
+.mm-panel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--rl);padding:18px 20px;}
+.mm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.mm-title{font-size:18px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px;}
+.mm-sub{font-size:12px;color:var(--t2);margin-top:3px;}
+.mm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.mm-stat{border:1px solid var(--bd);border-radius:10px;padding:12px 14px;background:var(--s2);display:flex;flex-direction:column;gap:2px;border-left:3px solid var(--bd);}
+.mm-stat .n{font-size:22px;font-weight:700;line-height:1.1;}
+.mm-stat .l{font-size:10px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
+.mm-stat.b-blue{border-left-color:var(--blue);} .mm-stat.b-blue .n{color:var(--blue);}
+.mm-stat.b-green{border-left-color:#4caf50;} .mm-stat.b-green .n{color:#4caf50;}
+.mm-stat.b-amber{border-left-color:var(--amber);} .mm-stat.b-amber .n{color:var(--amber);}
+.mm-stat.b-red{border-left-color:var(--red);} .mm-stat.b-red .n{color:var(--red);}
+.mm-sec{border:1px solid var(--bd);border-radius:10px;background:var(--s2);margin-bottom:14px;overflow:hidden;}
+.mm-sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;color:var(--t1);background:rgba(255,255,255,.02);}
+.mm-sec-b{padding:12px 14px;}
+.mm-filters{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+.mm-f{display:flex;flex-direction:column;gap:3px;}
+.mm-f label{font-size:10px;color:var(--t2);font-weight:600;letter-spacing:.4px;}
+.mm-f input,.mm-f select{height:32px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);color:var(--t1);font-size:12px;padding:0 9px;font-family:var(--font);outline:none;}
+.mm-f input:focus,.mm-f select:focus{border-color:var(--g);}
+.mm-f input[type=date]{color-scheme:dark;}
+.mm-btn{height:32px;padding:0 14px;border-radius:var(--r);border:1px solid var(--bd);background:none;color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:6px;transition:.12s;white-space:nowrap;}
+.mm-btn:hover{color:var(--t1);border-color:var(--t2);}
+.mm-btn.pri{background:var(--g);border-color:var(--g);color:#fff;} .mm-btn.pri:hover{background:var(--gm);}
+.mm-table-wrap{overflow-x:auto;}
+.mm-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;min-width:980px;}
+.mm-table thead th{position:sticky;top:0;background:#262c34;color:var(--t2);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:9px 10px;border-bottom:1px solid var(--bd);white-space:nowrap;}
+.mm-table tbody td{padding:8px 10px;border-bottom:1px solid var(--bd);color:var(--t1);vertical-align:middle;white-space:nowrap;}
+.mm-table tbody tr:last-child td{border-bottom:none;}
+.mm-table tbody tr:hover td{background:rgba(255,255,255,.03);}
+.mm-table td.num{color:var(--t3);font-family:var(--mono);font-size:11px;}
+.mm-user{display:flex;align-items:center;gap:8px;}
+.mm-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
+.mm-uname{font-weight:600;color:var(--t1);line-height:1.15;} .mm-ulogin{font-size:10.5px;color:var(--t2);font-family:var(--mono);}
+.mm-badge{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:3px 8px;border-radius:10px;border:1px solid transparent;white-space:nowrap;}
+.rb-user{background:rgba(88,166,255,.14);color:var(--blue);border-color:rgba(88,166,255,.25);}
+.rb-account{background:rgba(163,113,247,.14);color:var(--purple);border-color:rgba(163,113,247,.25);}
+.rb-admin{background:rgba(240,128,58,.14);color:#f0803a;border-color:rgba(240,128,58,.3);}
+.rb-super{background:rgba(57,211,83,.14);color:var(--teal);border-color:rgba(57,211,83,.3);}
+.sb-active{background:rgba(0,150,64,.15);color:#4caf50;border-color:rgba(0,150,64,.3);}
+.sb-pending{background:rgba(212,146,34,.15);color:var(--amber);border-color:rgba(212,146,34,.3);}
+.sb-suspended{background:rgba(248,81,73,.12);color:var(--red);border-color:rgba(248,81,73,.3);}
+.mm-act{display:flex;gap:6px;align-items:center;position:relative;}
+.mm-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.45);min-width:190px;z-index:20;display:none;padding:4px;}
+.mm-menu.on{display:block;}
+.mm-menu button{display:flex;width:100%;text-align:left;background:none;border:none;color:var(--t1);font-size:12px;padding:7px 10px;border-radius:6px;cursor:pointer;font-family:var(--font);gap:8px;align-items:center;}
+.mm-menu button:hover{background:rgba(255,255,255,.05);}
+.mm-menu button.danger{color:var(--red);} .mm-menu button.ok{color:#4caf50;}
+.mm-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--bd);font-size:11.5px;color:var(--t2);}
+.mm-pages{display:flex;align-items:center;gap:4px;}
+.mm-pg{min-width:28px;height:28px;padding:0 8px;border-radius:6px;border:1px solid var(--bd);background:none;color:var(--t2);font-size:11.5px;cursor:pointer;font-family:var(--font);}
+.mm-pg:hover:not(:disabled){color:var(--t1);border-color:var(--t2);} .mm-pg.act{background:var(--g);border-color:var(--g);color:#fff;} .mm-pg:disabled{opacity:.35;cursor:default;}
+.mm-pg-dots{color:var(--t3);padding:0 4px;}
+.mm-pager select{height:28px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:11.5px;padding:0 6px;font-family:var(--font);}
+.mm-empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;}
+@media(max-width:1100px){.mm-stats{grid-template-columns:1fr 1fr;}}
 
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8888;display:flex;align-items:center;justify-content:center;display:none;}
@@ -1284,23 +1341,59 @@ input[type=file]{display:none}
 
       <!-- ── MEMBERS PAGE ── -->
 
-      <!-- ── MEMBERS PAGE ── -->
+      <!-- ── MEMBERS PAGE ── (V.300 · Dashboard + Table UI · Logic เดิม: renderMembers/setFilter/openUserModal/approveMember/suspendMember/toggleReportPerm/confirmDelete) -->
       <div class="pview" id="page-members">
-        <div class="page-header">
-          <div><div class="page-title">จัดการสมาชิก</div><div class="page-sub">อนุมัติ ระงับ หรือลบบัญชีสมาชิก</div></div>
-          <div class="filter-bar" style="margin:0;gap:8px">
-            <div class="swrap" style="margin:0"><svg class="si" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" class="sinp" id="m-search" placeholder="ค้นหาสมาชิก…" oninput="renderMembers()" style="width:200px"></div>
-            <button class="btn-primary" onclick="openUserModal(-1)" style="height:34px;white-space:nowrap">➕ เพิ่มผู้ใช้</button>
+        <div class="mm-panel">
+          <div class="mm-head">
+            <div>
+              <div class="mm-title">👥 จัดการสมาชิก</div>
+              <div class="mm-sub">ดูแลผู้ใช้งาน ระบบสิทธิ์ และสถานะการใช้งาน</div>
+            </div>
+            <button class="mm-btn pri" onclick="openUserModal(-1)">➕ เพิ่มผู้ใช้</button>
+          </div>
+
+          <!-- Summary 4 ช่อง (ค่าจาก renderMembers · ห้าม hard-code) -->
+          <div class="mm-stats" id="m-stats"></div>
+
+          <!-- ค้นหา / ตัวกรอง -->
+          <div class="mm-sec">
+            <div class="mm-sec-h"><span>🔎 ค้นหา / ตัวกรอง</span></div>
+            <div class="mm-sec-b">
+              <div class="mm-filters">
+                <div class="mm-f" style="flex:1;min-width:200px"><label>ค้นหา (Username · ชื่อ · Email)</label><input type="text" id="m-search" placeholder="พิมพ์เพื่อค้นหา…" oninput="mmPage=1;renderMembers()"></div>
+                <div class="mm-f"><label>สถานะ</label>
+                  <select id="m-f-status" onchange="setFilter(this.value)"><option value="all">ทั้งหมด</option><option value="active">ใช้งาน</option><option value="pending">รออนุมัติ</option><option value="suspended">ถูกระงับ</option></select></div>
+                <div class="mm-f"><label>บทบาท</label><select id="m-f-role" onchange="mmPage=1;renderMembers()"><option value="">ทั้งหมด</option></select></div>
+                <div class="mm-f"><label>หน่วยงาน</label><select id="m-f-dept" onchange="mmPage=1;renderMembers()"><option value="">ทั้งหมด</option></select></div>
+                <div class="mm-f"><label>วันที่สมัคร จาก</label><input type="date" id="m-f-from" onchange="mmPage=1;renderMembers()"></div>
+                <div class="mm-f"><label>ถึง</label><input type="date" id="m-f-to" onchange="mmPage=1;renderMembers()"></div>
+                <button class="mm-btn" onclick="mmClearFilters()">✕ ล้างตัวกรอง</button>
+                <button class="mm-btn pri" onclick="mmPage=1;renderMembers()">🔎 ค้นหา</button>
+              </div>
+              <!-- ปุ่มสถานะเดิม (ซ่อน · คง id flt-* ให้ setFilter() ทำงานเหมือนเดิม) -->
+              <div class="filter-bar" style="display:none">
+                <button class="flt-btn act" id="flt-all" onclick="setFilter('all')">ทั้งหมด</button>
+                <button class="flt-btn" id="flt-pending" onclick="setFilter('pending')">รออนุมัติ</button>
+                <button class="flt-btn" id="flt-active" onclick="setFilter('active')">ใช้งาน</button>
+                <button class="flt-btn" id="flt-suspended" onclick="setFilter('suspended')">ถูกระงับ</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- รายการสมาชิก -->
+          <div class="mm-sec">
+            <div class="mm-sec-h"><span id="m-list-title">👥 รายการสมาชิก</span><span id="m-list-sub" style="font-weight:500;color:var(--t2)"></span></div>
+            <div class="mm-table-wrap">
+              <table class="mm-table">
+                <thead><tr>
+                  <th style="width:44px">#</th><th>รหัสสมาชิก</th><th>ชื่อผู้ใช้งาน</th><th>อีเมล</th><th>บทบาท</th><th>หน่วยงาน</th><th>สถานะ</th><th>REPORT</th><th>วันที่สมัคร</th><th style="text-align:right">การจัดการ</th>
+                </tr></thead>
+                <tbody id="member-grid"></tbody>
+              </table>
+            </div>
+            <div class="mm-pager" id="m-pager"></div>
           </div>
         </div>
-        <div class="stats-row" id="m-stats"></div>
-        <div class="filter-bar">
-          <button class="flt-btn act" id="flt-all" onclick="setFilter('all')">ทั้งหมด</button>
-          <button class="flt-btn" id="flt-pending" onclick="setFilter('pending')">รออนุมัติ</button>
-          <button class="flt-btn" id="flt-active" onclick="setFilter('active')">ใช้งาน</button>
-          <button class="flt-btn" id="flt-suspended" onclick="setFilter('suspended')">ถูกระงับ</button>
-        </div>
-        <div class="member-grid" id="member-grid"></div>
       </div>
 
       <!-- ── MERGE PAGE ── -->
@@ -2702,60 +2795,134 @@ document.getElementById('iu')?.addEventListener('keydown',e=>{if(e.key==='Enter'
 const AVATAR_COLORS=['#009640','#58a6ff','#a371f7','#f78166','#00838f','#d29922','#f85149','#39d353'];
 function getAvatarColor(s){let h=0;for(let c of s)h=c.charCodeAt(0)+((h<<5)-h);return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length];}
 function setFilter(f){mFilter=f;['all','pending','active','suspended'].forEach(k=>document.getElementById('flt-'+k)?.classList.toggle('act',k===f));renderMembers();}
+// ── V.300 UI: state ของหน้าจัดการสมาชิก (เฉพาะการแสดงผล · mFilter/Logic เดิมคงไว้) ──
+let mmPage=1, mmPerPage=20, mmOpenMenu=null;
+function mmClearFilters(){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.value=v;};
+  set('m-search',''); set('m-f-role',''); set('m-f-dept',''); set('m-f-from',''); set('m-f-to','');
+  const st=document.getElementById('m-f-status'); if(st) st.value='all';
+  mmPage=1; setFilter('all');
+}
+function mmSetPage(p){ mmPage=p; renderMembers(); }
+function mmSetPerPage(v){ mmPerPage=parseInt(v,10)||20; mmPage=1; renderMembers(); }
+function mmToggleMenu(id, ev){
+  if(ev) ev.stopPropagation();
+  document.querySelectorAll('.mm-menu.on').forEach(el=>{ if(el.id!==id) el.classList.remove('on'); });
+  const el=document.getElementById(id); if(el) el.classList.toggle('on');
+}
+document.addEventListener('click', ()=>document.querySelectorAll('.mm-menu.on').forEach(el=>el.classList.remove('on')));
+// 👁 ดูรายละเอียด = เปิด Modal แก้ไขเดิมแบบอ่านอย่างเดียว (ไม่สร้าง Flow ใหม่)
+function mmViewUser(idx){
+  openUserModal(idx);
+  const t=document.getElementById('um-title'); if(t) t.textContent='👁 รายละเอียดผู้ใช้';
+  document.querySelectorAll('#user-modal input, #user-modal select').forEach(e=>{ e.disabled=true; });
+  const sv=document.getElementById('um-save'); if(sv) sv.style.display='none';
+}
+// คืนค่า Modal เมื่อเปิดแบบแก้ไข/เพิ่ม (openUserModal เดิมไม่ได้ปลด disabled ที่ mmViewUser ตั้งไว้)
+(function(){
+  const _orig = openUserModal;
+  openUserModal = function(idx){
+    document.querySelectorAll('#user-modal input, #user-modal select').forEach(e=>{ e.disabled=false; });
+    const sv=document.getElementById('um-save'); if(sv) sv.style.display='';
+    return _orig(idx);
+  };
+})();
+function _mmRoleBadge(m){
+  const raw=String(m.role||'User'); const k=raw.toLowerCase().replace(/[\s_-]+/g,'');
+  const cls = (m.isSuper||k==='superadmin') ? 'rb-super' : k==='admin' ? 'rb-admin' : k==='account' ? 'rb-account' : 'rb-user';
+  const txt = (m.isSuper||k==='superadmin') ? 'SUPER_ADMIN' : raw.toUpperCase();
+  return `<span class="mm-badge ${cls}">${txt}</span>`;
+}
 function renderMembers(){
   const members=getMembers(),q=(document.getElementById('m-search')||{}).value?.toLowerCase()||'';
   const total=members.length,pend=members.filter(m=>m.status==='pending').length;
   const active=members.filter(m=>m.status==='active').length,sus=members.filter(m=>m.status==='suspended').length;
+  // Summary 4 ช่อง — สูตรเดิม (DEFAULT_USERS + สมาชิก)
   document.getElementById('m-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-num" style="color:var(--t1)">${DEFAULT_USERS.length+total}</div><div class="stat-lbl">ผู้ใช้ทั้งหมด</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#4caf50">${DEFAULT_USERS.length+active}</div><div class="stat-lbl">ใช้งานอยู่</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--amber)">${pend}</div><div class="stat-lbl">รออนุมัติ</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--red)">${sus}</div><div class="stat-lbl">ถูกระงับ</div></div>`;
-  const statusLabel={pending:'รออนุมัติ',active:'ใช้งาน',suspended:'ระงับ'};
-  const statusClass={pending:'s-pending',active:'s-active',suspended:'s-suspended'};
-  const cardClass={pending:'pending',active:'active',suspended:'suspended'};
+    <div class="mm-stat b-blue"><div class="n">${DEFAULT_USERS.length+total}</div><div class="l">ทั้งหมด</div></div>
+    <div class="mm-stat b-green"><div class="n">${DEFAULT_USERS.length+active}</div><div class="l">ใช้งาน</div></div>
+    <div class="mm-stat b-amber"><div class="n">${pend}</div><div class="l">รออนุมัติ</div></div>
+    <div class="mm-stat b-red"><div class="n">${sus}</div><div class="l">ถูกระงับ</div></div>`;
+  const stSel=document.getElementById('m-f-status'); if(stSel && stSel.value!==mFilter) stSel.value=mFilter;
+  const statusLabel={pending:'รออนุมัติ',active:'ใช้งาน',suspended:'ถูกระงับ'};
+  const statusClass={pending:'sb-pending',active:'sb-active',suspended:'sb-suspended'};
+  // ตัวเลือก บทบาท / หน่วยงาน จากข้อมูลจริง (คงค่าที่เลือกไว้)
+  const allU=[...DEFAULT_USERS, ...members];
+  const fillSel=(id,vals)=>{ const el=document.getElementById(id); if(!el) return; const cur=el.value;
+    el.innerHTML='<option value="">ทั้งหมด</option>'+vals.map(v=>`<option value="${String(v).replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    if(vals.includes(cur)) el.value=cur; };
+  fillSel('m-f-role', Array.from(new Set(allU.map(m=>m.role||'User'))).sort());
+  fillSel('m-f-dept', Array.from(new Set(allU.map(m=>m.dept||'—'))).sort());
+  const fRole=(document.getElementById('m-f-role')||{}).value||'', fDept=(document.getElementById('m-f-dept')||{}).value||'';
+  const fFrom=(document.getElementById('m-f-from')||{}).value||'', fTo=(document.getElementById('m-f-to')||{}).value||'';
+  const passExtra=m=>{
+    if(fRole && (m.role||'User')!==fRole) return false;
+    if(fDept && (m.dept||'—')!==fDept) return false;
+    if(fFrom||fTo){ if(!m.createdAt) return false; const d=String(new Date(m.createdAt).toISOString()).slice(0,10);
+      if(fFrom && d<fFrom) return false; if(fTo && d>fTo) return false; }
+    return true;
+  };
+  // ตัวกรองสถานะ + ค้นหา — Logic เดิม
   let allDisplay=[];
   if(mFilter==='all'||mFilter==='active'){
-    DEFAULT_USERS.forEach(m=>{if(!q||JSON.stringify(m).toLowerCase().includes(q))allDisplay.push({...m,_isDefault:true,_idx:-1});});
+    DEFAULT_USERS.forEach(m=>{if((!q||JSON.stringify(m).toLowerCase().includes(q))&&passExtra(m))allDisplay.push({...m,_isDefault:true,_idx:-1});});
   }
   members.forEach((m,idx)=>{
     if(mFilter!=='all'&&m.status!==mFilter)return;
     if(q&&!JSON.stringify(m).toLowerCase().includes(q))return;
+    if(!passExtra(m))return;
     allDisplay.push({...m,_isDefault:false,_idx:idx});
   });
-  const grid=document.getElementById('member-grid');
-  if(!allDisplay.length){grid.innerHTML=`<div class="empty-members" style="grid-column:1/-1"><p>ไม่พบผู้ใช้</p></div>`;return;}
-  grid.innerHTML=allDisplay.map(m=>{
+  // Pagination
+  const grid=document.getElementById('member-grid'), pager=document.getElementById('m-pager');
+  const n=allDisplay.length, pages=Math.max(1,Math.ceil(n/mmPerPage)); if(mmPage>pages) mmPage=pages; if(mmPage<1) mmPage=1;
+  const start=(mmPage-1)*mmPerPage, pageRows=allDisplay.slice(start,start+mmPerPage);
+  const lt=document.getElementById('m-list-title'); if(lt) lt.textContent=`👥 รายการสมาชิก (${n})`;
+  const ls=document.getElementById('m-list-sub'); if(ls) ls.textContent = n!==(DEFAULT_USERS.length+total) ? `กรองจากทั้งหมด ${DEFAULT_USERS.length+total} รายการ` : '';
+  if(!n){ grid.innerHTML=`<tr><td colspan="10"><div class="mm-empty">ไม่พบผู้ใช้</div></td></tr>`; if(pager) pager.innerHTML=''; return; }
+  grid.innerHTML=pageRows.map((m,i)=>{
     const color=getAvatarColor(m.username),dt=m.createdAt?new Date(m.createdAt).toLocaleDateString('th-TH'):'—';
-    let actions='';
-    if(m._isDefault){actions=`<span style="font-size:10px;color:var(--t3);padding:3px 8px;border:1px solid var(--bd);border-radius:4px">ผู้ใช้ระบบ</span>`;}
+    const code=(m.initials||m.username[0]?.toUpperCase()||'')+' '+m.username;
+    const stCls=m._isDefault?'sb-active':(statusClass[m.status]||''), stTxt=m._isDefault?'ใช้งาน':(statusLabel[m.status]||m.status);
+    const defBadge=m._isDefault?` <span class="mm-badge rb-user" style="font-size:8.5px">DEFAULT</span>`:'';
+    let act='';
+    if(m._isDefault){ act=`<span style="font-size:10px;color:var(--t3);padding:4px 8px;border:1px solid var(--bd);border-radius:6px">ผู้ใช้ระบบ</span>`; }
     else{
-      actions+=`<button class="btn-sm" onclick="openUserModal(${m._idx})">✏ แก้ไข</button>`;
-      if(m.status==='pending'){actions+=`<button class="btn-sm approve" onclick="approveMember(${m._idx})">✓ อนุมัติ</button><button class="btn-sm suspend" onclick="suspendMember(${m._idx})">⊘ ระงับ</button>`;}
-      else if(m.status==='active'){actions+=`<button class="btn-sm suspend" onclick="suspendMember(${m._idx})">⊘ ระงับ</button>`;}
-      else if(m.status==='suspended'){actions+=`<button class="btn-sm activate" onclick="approveMember(${m._idx})">✓ เปิดใช้</button>`;}
-      actions+=`<button class="btn-sm" onclick="toggleReportPerm(${m._idx})">${m.reportPerm?'🚫 ยกเลิกสิทธิ์ REPORT':'📋 ให้สิทธิ์ REPORT'}</button>`;
-      actions+=`<button class="btn-sm delete" onclick="confirmDelete(${m._idx})">🗑 ลบ</button>`;
+      const mid='mm-menu-'+m._idx; let items='';
+      items+=`<button onclick="openUserModal(${m._idx})">✏ แก้ไข</button>`;
+      if(m.status==='pending'){ items+=`<button class="ok" onclick="approveMember(${m._idx})">✓ อนุมัติ</button><button class="danger" onclick="suspendMember(${m._idx})">⊘ ระงับ</button>`; }
+      else if(m.status==='active'){ items+=`<button class="danger" onclick="suspendMember(${m._idx})">⊘ ระงับ</button>`; }
+      else if(m.status==='suspended'){ items+=`<button class="ok" onclick="approveMember(${m._idx})">✓ เปิดใช้</button>`; }
+      items+=`<button onclick="toggleReportPerm(${m._idx})">${m.reportPerm?'🚫 ยกเลิกสิทธิ์ REPORT':'📋 ให้สิทธิ์ REPORT'}</button>`;
+      items+=`<button class="danger" onclick="confirmDelete(${m._idx})">🗑 ลบ</button>`;
+      act=`<button class="mm-btn" style="height:28px;padding:0 10px" onclick="mmViewUser(${m._idx})">👁 ดูรายละเอียด</button>
+           <button class="mm-btn" style="height:28px;padding:0 10px" onclick="mmToggleMenu('${mid}',event)">⚙ จัดการ ▾</button>
+           <div class="mm-menu" id="${mid}" onclick="event.stopPropagation()">${items}</div>`;
     }
-    const badge=m._isDefault?`<span style="font-size:9px;background:rgba(88,166,255,.12);color:var(--blue);padding:2px 6px;border-radius:8px;font-weight:700;margin-left:4px">DEFAULT</span>`:'';
-    return `<div class="mcard ${cardClass[m.status]||'active'}">
-      <div class="mc-top">
-        <div class="mc-user">
-          <div class="mc-av" style="background:${color}">${m.initials||m.username[0]?.toUpperCase()}</div>
-          <div><div class="mc-name">${m.fullname||m.username}${badge}</div><div class="mc-email">${m.email||'—'}</div></div>
-        </div>
-        <span class="status-badge ${m._isDefault?'s-active':(statusClass[m.status]||'')}">${m._isDefault?'ใช้งาน':(statusLabel[m.status]||m.status)}</span>
-      </div>
-      <div class="mc-info">
-        <div class="mc-info-item"><label>Username</label><span>${m.username}</span></div>
-        <div class="mc-info-item"><label>Role</label><span>${m.role||'User'}</span></div>
-        <div class="mc-info-item"><label>แผนก</label><span>${m.dept||'—'}</span></div>
-        <div class="mc-info-item"><label>REPORT FORMSCH</label><span>${m.reportPerm?'✅ มีสิทธิ์':'❌ ไม่มีสิทธิ์'}</span></div>
-        <div class="mc-info-item"><label>สมัครเมื่อ</label><span>${dt}</span></div>
-      </div>
-      <div class="mc-actions">${actions}</div>
-    </div>`;
+    return `<tr>
+      <td class="num">${start+i+1}</td>
+      <td style="font-family:var(--mono);font-size:11px">${code}</td>
+      <td><div class="mm-user"><div class="mm-av" style="background:${color}">${m.initials||m.username[0]?.toUpperCase()}</div><div><div class="mm-uname">${m.fullname||m.username}${defBadge}</div><div class="mm-ulogin">${m.username}</div></div></div></td>
+      <td style="color:var(--t2)">${m.email||'—'}</td>
+      <td>${_mmRoleBadge(m)}</td>
+      <td>${m.dept||'—'}</td>
+      <td><span class="mm-badge ${stCls}">${stTxt}</span></td>
+      <td style="font-size:11px">${m._isDefault?'—':(m.reportPerm?'✅ มีสิทธิ์':'❌ ไม่มีสิทธิ์')}</td>
+      <td style="color:var(--t2)">${dt}</td>
+      <td><div class="mm-act" style="justify-content:flex-end">${act}</div></td>
+    </tr>`;
   }).join('');
+  if(pager){
+    const end=Math.min(start+mmPerPage,n);
+    const win=[]; const push=x=>{ if(!win.includes(x)) win.push(x); };
+    push(1); for(let p=mmPage-2;p<=mmPage+2;p++){ if(p>1&&p<pages) push(p); } if(pages>1) push(pages);
+    let btns=`<button class="mm-pg" ${mmPage<=1?'disabled':''} onclick="mmSetPage(${mmPage-1})">‹</button>`;
+    let prev=0; win.forEach(p=>{ if(p-prev>1) btns+=`<span class="mm-pg-dots">…</span>`; btns+=`<button class="mm-pg ${p===mmPage?'act':''}" onclick="mmSetPage(${p})">${p}</button>`; prev=p; });
+    btns+=`<button class="mm-pg" ${mmPage>=pages?'disabled':''} onclick="mmSetPage(${mmPage+1})">›</button>`;
+    pager.innerHTML=`<div>แสดง ${start+1}–${end} จาก ${n} รายการ</div>
+      <div style="display:flex;align-items:center;gap:12px"><div class="mm-pages">${btns}</div>
+      <label style="display:flex;align-items:center;gap:6px">แสดง <select onchange="mmSetPerPage(this.value)">${[20,50,100].map(v=>`<option value="${v}" ${v===mmPerPage?'selected':''}>${v}</option>`).join('')}</select> รายการต่อหน้า</label></div>`;
+  }
 }
 function approveMember(idx){
   const m=getMembers(); m[idx].status='active'; setMembers(m);
@@ -9223,7 +9390,9 @@ async function exportMappingCombined(){
     if(cBilling<0 || cQty<0 || cNetVal<0 || !_hasMatSource){
       if(typeof toast==='function') toast('RM ต้องมี Billing Document, (Description หรือ Material - Trim), Invoiced Qty, Net value','error'); return;
     }
-    const getV=(r,c)=>{ if(c<0) return ''; const cell=rmWs[XLSX.utils.encode_cell({r,c})]; return cell==null?'':cell.v; };
+    // FIX เฉพาะ RM 89960996: ไฟล์ RM มีแถวว่างที่จัดรูปแบบไว้ (cell มี style แต่ไม่มีค่า → v=undefined) ทำให้เกิดแถว 'undefined' → ถือเป็นค่าว่าง
+    const _rm899Rm = /89960996/.test(String((mappingRmRefFile&&mappingRmRefFile.name)||'')+'|'+String((mappingState.rmFile&&mappingState.rmFile.name)||''));
+    const getV=(r,c)=>{ if(c<0) return ''; const cell=rmWs[XLSX.utils.encode_cell({r,c})]; return (cell==null || (_rm899Rm && cell.v===undefined))?'':cell.v; };
     const setStr=(r,c,val)=>{ const ref=XLSX.utils.encode_cell({r,c}); const ex=rmWs[ref];
       if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmWs[ref]={t:'s',v:val}; };
 
@@ -9246,8 +9415,13 @@ async function exportMappingCombined(){
     const _rrEnd=(msg)=>{ if(typeof toast==='function') toast(msg,'error'); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; } if(load) load.style.display='none'; };
     const rmRefBuf = await mappingRmRefFile.arrayBuffer();
     const rmRefWb  = XLSX.read(rmRefBuf, {type:'array'});
-    const rmRefWs  = rmRefWb.Sheets[rmRefWb.SheetNames[0]];
+    // ── FIX เฉพาะ RM 89960996 (V.300): COO_RM ชีตแรกเป็น 'SD GEN' (ไม่มี Import Entry) → อ่านชีต 'VL06O'
+    //    (B Billing Document · F Material · W Import Entry · Y รายการ = Import ITEM) · ไฟล์ RM อื่นใช้ชีตแรกเหมือนเดิม
+    const _rm899 = /89960996/.test(String((mappingRmRefFile&&mappingRmRefFile.name)||'')+'|'+String((mappingState.rmFile&&mappingState.rmFile.name)||''));
+    const _rm899Sheet = (_rm899 && rmRefWb.Sheets['VL06O']) ? 'VL06O' : rmRefWb.SheetNames[0];
+    const rmRefWs  = rmRefWb.Sheets[_rm899Sheet];
     const rmRefAoa = XLSX.utils.sheet_to_json(rmRefWs, {header:1, defval:''});
+    if(_rm899) console.log('[RM 89960996] COO_RM ใช้ชีต', _rm899Sheet);
     const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
     const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
     // เลือกตามลำดับความสำคัญของ "ชื่อคอลัมน์" (ไม่ใช่ลำดับคอลัมน์) — รองรับ COO_RM หลาย Schema
@@ -9275,6 +9449,14 @@ async function exportMappingCombined(){
                   matTrim:(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'',
                   deliv:_rmNorm(rrDeliv>=0?row[rrDeliv]:''), batch:_rmNorm(rrBatch>=0?row[rrBatch]:''),
                   dq:(rrDq>=0?row[rrDq]:'') };
+      // FIX เฉพาะ RM 89960996: Import Entry / Import ITEM เป็น #N/A (หรือค่า Error ของ Excel) → ไม่มีข้อมูลอ้างอิง · ห้ามเติมค่า
+      //   SheetJS แปลง cell Error (#N/A) เป็นค่าว่าง → ตรวจชนิด cell จริงในชีต (t='e') แทน
+      if(_rm899){
+        const _rr0=XLSX.utils.decode_range(rmRefWs['!ref']||'A1');
+        const _cw=c=>{ const cl=rmRefWs[XLSX.utils.encode_cell({r:_rr0.s.r+r, c:_rr0.s.c+c})]; return cl ? ((cl.t==='e') ? String(cl.w||'#ERR') : String(cl.v==null?'':cl.v).trim()) : ''; };
+        const _we=_cw(rrEntry), _wi=_cw(rrItemNo);
+        if(/^#/.test(_we) || /^#/.test(_wi)){ rec.na=true; rec.naRaw=(_we||'(ว่าง)')+'/'+(_wi||'(ว่าง)'); rec.entry=''; rec.itemNo=''; }
+      }
       const k1=_rrKey(b,rec.deliv,m), k2=_rrKey2(b,m);
       if(rmRefIdx.has(k1)) rmRefIdx.get(k1).push(rec); else rmRefIdx.set(k1,[rec]);
       if(rmRefIdx2.has(k2)) rmRefIdx2.get(k2).push(rec); else rmRefIdx2.set(k2,[rec]);
@@ -9299,6 +9481,7 @@ async function exportMappingCombined(){
       const arr=_rrCand(billing,deliv,mat,batch,qty);
       const _blank={status:'none', parts:[{entry:'',itemNo:'',share:1}]};
       if(arr.length===0) return _blank;
+      if(_rm899 && arr.some(x=>x.na)) return {status:'na', parts:[{entry:'',itemNo:'',share:1}], cand:arr};   // FIX RM 89960996: #N/A → ไม่เดา
       if(arr.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};
       const uniq=Array.from(new Set(arr.map(x=>x.entry+'\u0000'+x.itemNo)));
       if(uniq.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};   // ทุกแถวให้ค่าเดียวกัน → ไม่ต้องแตก
@@ -9391,7 +9574,17 @@ async function exportMappingCombined(){
       else if(_rr.status==='split'){    _rrSplit++; _rrSplitRows += _rr.parts.length; }
       else if(_rr.status==='ambiguous'){_rrAmbig++;
         const _c=(_rr.cand||[]).map(x=>x.entry+'/'+x.itemNo).join(' | ');
-        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_mapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c});
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_mapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c+
+          (_rm899 ? ' · PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · สาเหตุ: พบ Import ITEM หลายค่าใน VL06O (Delivery+Material+Qty เดียวกัน) — ไม่เลือกอัตโนมัติ' : '')});
+      }
+      else if(_rm899 && _rr.status==='na'){ _rrNotFound++;   // FIX RM 89960996: แจ้ง #N/A (ไม่เติมค่า)
+        const _n=(_rr.cand||[]).map(x=>x.naRaw||'').join(' | ');
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'NO IMPORT REFERENCE (#N/A) — PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · Qty '+_mapNum(invQty)+
+          ' · Import Entry / Import ITEM: '+_n+' · สาเหตุ: COO_RM VL06O ไม่มีข้อมูลอ้างอิง (#N/A)'});
+      }
+      else if(_rm899 && _rr.status==='none'){ _rrNotFound++;
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'NO COO_RM MATCH — PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · Qty '+_mapNum(invQty)+
+          ' · Import Entry / Import ITEM: (ว่าง) · สาเหตุ: ไม่พบ Billing+Delivery+Material ใน VL06O'});
       }
       else                              _rrNotFound++;
       rmParts.push(_rr.parts);
@@ -13756,7 +13949,9 @@ async function benExportMappingCombined(){
     if(cBilling<0 || cQty<0 || cNetVal<0 || !_hasMatSource){
       if(typeof toast==='function') toast('RM ต้องมี Billing Document, (Description หรือ Material - Trim), Invoiced Qty, Net value','error'); return;
     }
-    const getV=(r,c)=>{ if(c<0) return ''; const cell=rmWs[XLSX.utils.encode_cell({r,c})]; return cell==null?'':cell.v; };
+    // FIX เฉพาะ RM 89960996: แถวว่างที่จัดรูปแบบไว้ (v=undefined) → ถือเป็นค่าว่าง
+    const _rm899Rm = /89960996/.test(String((benMappingRmRefFile&&benMappingRmRefFile.name)||'')+'|'+String((benMappingState.rmFile&&benMappingState.rmFile.name)||''));
+    const getV=(r,c)=>{ if(c<0) return ''; const cell=rmWs[XLSX.utils.encode_cell({r,c})]; return (cell==null || (_rm899Rm && cell.v===undefined))?'':cell.v; };
     const setStr=(r,c,val)=>{ const ref=XLSX.utils.encode_cell({r,c}); const ex=rmWs[ref];
       if(ex){ ex.t='s'; ex.v=val; if('w' in ex) delete ex.w; if('f' in ex) delete ex.f; } else rmWs[ref]={t:'s',v:val}; };
 
@@ -13780,7 +13975,11 @@ async function benExportMappingCombined(){
     const _rrEnd=(msg)=>{ if(typeof toast==='function') toast(msg,'error'); if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; } if(load) load.style.display='none'; };
     const rmRefBuf = await benMappingRmRefFile.arrayBuffer();
     const rmRefWb  = XLSX.read(rmRefBuf, {type:'array'});
-    const rmRefWs  = rmRefWb.Sheets[rmRefWb.SheetNames[0]];
+    // ── FIX เฉพาะ RM 89960996 (V.300): COO_RM ชีตแรกเป็น 'SD GEN' → อ่านชีต 'VL06O' · ไฟล์ RM อื่นใช้ชีตแรกเหมือนเดิม
+    const _rm899 = /89960996/.test(String((benMappingRmRefFile&&benMappingRmRefFile.name)||'')+'|'+String((benMappingState.rmFile&&benMappingState.rmFile.name)||''));
+    const _rm899Sheet = (_rm899 && rmRefWb.Sheets['VL06O']) ? 'VL06O' : rmRefWb.SheetNames[0];
+    const rmRefWs  = rmRefWb.Sheets[_rm899Sheet];
+    if(_rm899) console.log('[RM 89960996] COO_RM ใช้ชีต', _rm899Sheet);
     const rmRefAoa = _benSheetAoa(rmRefWs);
     const rrHdr = (rmRefAoa[0]||[]).map(h=>String(h||'').trim().toLowerCase().replace(/\s+/g,' '));
     const rrFind = cands=>{ for(let c=0;c<rrHdr.length;c++){ if(cands.indexOf(rrHdr[c])!==-1) return c; } return -1; };
@@ -13857,6 +14056,14 @@ async function benExportMappingCombined(){
                   matTrim:(_rdesc?_rdesc.replace(/#.*$/s,'').trim():'')||_rmn2||'',
                   deliv:_benRmNorm(rrDeliv>=0?row[rrDeliv]:''), batch:_benRmNorm(rrBatch>=0?row[rrBatch]:''),
                   dq:(rrDq>=0?row[rrDq]:'') };
+      // FIX เฉพาะ RM 89960996: #N/A → ไม่มีข้อมูลอ้างอิง · ห้ามเติมค่า
+      //   SheetJS แปลง cell Error (#N/A) เป็นค่าว่าง → ตรวจชนิด cell จริงในชีต (t='e') แทน
+      if(_rm899){
+        const _rr0=XLSX.utils.decode_range(rmRefWs['!ref']||'A1');
+        const _cw=c=>{ const cl=rmRefWs[XLSX.utils.encode_cell({r:_rr0.s.r+r, c:_rr0.s.c+c})]; return cl ? ((cl.t==='e') ? String(cl.w||'#ERR') : String(cl.v==null?'':cl.v).trim()) : ''; };
+        const _we=_cw(rrEntry), _wi=_cw(rrItemNo);
+        if(/^#/.test(_we) || /^#/.test(_wi)){ rec.na=true; rec.naRaw=(_we||'(ว่าง)')+'/'+(_wi||'(ว่าง)'); rec.entry=''; rec.itemNo=''; }
+      }
       const k1=_rrKey(b,rec.deliv,m), k2=_rrKey2(b,m);
       if(rmRefIdx.has(k1)) rmRefIdx.get(k1).push(rec); else rmRefIdx.set(k1,[rec]);
       if(rmRefIdx2.has(k2)) rmRefIdx2.get(k2).push(rec); else rmRefIdx2.set(k2,[rec]);
@@ -13881,6 +14088,7 @@ async function benExportMappingCombined(){
       const arr=_rrCand(billing,deliv,mat,batch,qty);
       const _blank={status:'none', parts:[{entry:'',itemNo:'',share:1}]};
       if(arr.length===0) return _blank;
+      if(_rm899 && arr.some(x=>x.na)) return {status:'na', parts:[{entry:'',itemNo:'',share:1}], cand:arr};   // FIX RM 89960996: #N/A → ไม่เดา
       if(arr.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};
       const uniq=Array.from(new Set(arr.map(x=>x.entry+'\u0000'+x.itemNo)));
       if(uniq.length===1) return {status:'one', parts:[{entry:arr[0].entry,itemNo:arr[0].itemNo,share:1}]};   // ทุกแถวให้ค่าเดียวกัน → ไม่ต้องแตก
@@ -13985,7 +14193,17 @@ async function benExportMappingCombined(){
       else if(_rr.status==='split'){    _rrSplit++; _rrSplitRows += _rr.parts.length; }
       else if(_rr.status==='ambiguous'){_rrAmbig++;
         const _c=(_rr.cand||[]).map(x=>x.entry+'/'+x.itemNo).join(' | ');
-        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_benMapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c});
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'AMBIGUOUS COO_RM MATCH — Qty '+_benMapNum(invQty)+' · Candidate (Import entry no./Item no.): '+_c+
+          (_rm899 ? ' · PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · สาเหตุ: พบ Import ITEM หลายค่าใน VL06O (Delivery+Material+Qty เดียวกัน) — ไม่เลือกอัตโนมัติ' : '')});
+      }
+      else if(_rm899 && _rr.status==='na'){ _rrNotFound++;
+        const _n=(_rr.cand||[]).map(x=>x.naRaw||'').join(' | ');
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'NO IMPORT REFERENCE (#N/A) — PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · Qty '+_benMapNum(invQty)+
+          ' · Import Entry / Import ITEM: '+_n+' · สาเหตุ: COO_RM VL06O ไม่มีข้อมูลอ้างอิง (#N/A)'});
+      }
+      else if(_rm899 && _rr.status==='none'){ _rrNotFound++;
+        rmUnmatched.push({billing, item:itemNo, matTrim, reason:'NO COO_RM MATCH — PDF '+(pdfSrc||'(ไม่พบ)')+' · ITEM '+itemNo+' · Material '+rmMatFull+' · Qty '+_benMapNum(invQty)+
+          ' · Import Entry / Import ITEM: (ว่าง) · สาเหตุ: ไม่พบ Billing+Delivery+Material ใน VL06O'});
       }
       else                              _rrNotFound++;
       rmParts.push(_rr.parts);
