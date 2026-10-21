@@ -2906,6 +2906,7 @@ const SMY = {
   report:[], bolSheets:{},
   search:'', mapLoading:false, mapErr:'',
   masterRows:[], masterSaved:false,
+  invFiles:[], invItems:[],                          // ⭐ MY-FIX: INVOICE (แหล่ง HS เพียงแหล่งเดียว)
 };
 
 // ── MY Spreadsheet extractor ─────────────────
@@ -2950,8 +2951,6 @@ function extractSS_MY(rows){
         mfgYear:  pickCI(r,['Manufacturing Year','ManufacturingYear','Mfg Year']),
         proforma: pickCI(r,['Proforma Invoice Number','ProformaInvoiceNumber','Proforma Invoice']),
       },
-      // ⭐ MY-FIX: HS จากต้นฉบับ (ถ้ามีคอลัมน์) — ไม่มี = ว่าง + แจ้งเตือน (ห้ามเดา)
-      hs: hsKeepMY(pickCI(r,['HS','HS Code','HSCode','HTS Code','HTS','พิกัด','พิกัดสินค้า'])),
     };
   }).filter(r => r.vin);                     // Rule 13: VIN จำเป็น · BL ว่าง → NO_BOL ตอน makeBOL
 }
@@ -2959,14 +2958,11 @@ function extractSS_MY(rows){
 // ════════════════════════════════════════════
 //  🇲🇾 MY-FIX helpers (ใช้เฉพาะโหมด FORM MY)
 // ════════════════════════════════════════════
-// HS: คงค่าตามต้นฉบับ · ตัวเลขล้วนไม่มี 0 นำหน้า → Number (เหมือนไฟล์แมนนวล) · อื่น ๆ → String
+// HS: คงค่าตาม INVOICE จริง 100% (ไม่ตัดหลัก ไม่ลบจุด) · Number คง Number · Text คง Text
 function hsKeepMY(v){
   if(v===null||v===undefined) return '';
   if(typeof v==='number') return v;
-  const s=String(v).trim();
-  if(!s) return '';
-  if(/^[1-9]\d*$/.test(s)) return Number(s);
-  return s;
+  return String(v).trim();
 }
 function normDescMY(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function dateValMY(v){ const d=excelToDate(v); return d? d.getTime() : 0; }
@@ -2995,15 +2991,67 @@ function wbToRowsRawMY(wb){
   });
   return rows;
 }
-// HS จากใบขน (ถ้ามีคอลัมน์ HS) → Map VIN→HS
-function buildHsIdxMY(baikhonRows){
-  const m=new Map();
-  (baikhonRows||[]).forEach(r=>{
-    const vin=normVinKey(pick(r,['Product Att1.','Product Att1','VIN','VIN TH','VIN 3RD','VIN NO']));
-    const hs=hsKeepMY(pickCI(r,['HS','HS Code','HSCode','HTS Code','HTS','พิกัด','พิกัดสินค้า']));
-    if(vin && hs!=='' && !m.has(vin)) m.set(vin,hs);
+// ── INVOICE (Excel) MY: หา Header อัตโนมัติ · VIN (ถ้ามี) / PCV-Model (ถ้าไม่มี VIN) + HS ──
+//    ไม่พบคอลัมน์ HS → throw (ห้ามเดา) · ค่า HS คงตามเซลล์จริง
+async function parseInvXlsxMY(file){
+  const wb=await readWB(file);
+  const items=[]; let foundHs=false;
+  const H=v=>String(v??'').replace(/[\n\r]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase();
+  const HS_KEYS=['HS CODE','HS','HTS CODE','HTS','HS NO.','HS NO','พิกัด','พิกัดสินค้า','TARIFF CODE','HARMONIZED CODE'];
+  const VIN_KEYS=['VIN','VIN NO','VIN NO.','CHASSIS NO','CHASSIS NO.','CHASSIS NUMBER','PRODUCT ATT1.','PRODUCT ATT1'];
+  const PCV_KEYS=['PCV CODE','PCVCODE','MODEL CODE','PRODUCT CODE','MODEL'];
+  wb.SheetNames.forEach(sn=>{
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    for(let i=0;i<Math.min(aoa.length,30);i++){
+      const hdr=(aoa[i]||[]).map(H);
+      const ih=hdr.findIndex(h=>HS_KEYS.includes(h));
+      if(ih<0) continue;
+      foundHs=true;
+      const iv=hdr.findIndex(h=>VIN_KEYS.includes(h));
+      const ip=hdr.findIndex(h=>PCV_KEYS.includes(h));
+      for(let r=i+1;r<aoa.length;r++){
+        const row=aoa[r]||[];
+        const hs=hsKeepMY(row[ih]);
+        const vin=iv>=0?normVinKey(row[iv]):'';
+        const pcv=ip>=0?String(row[ip]??'').trim().toUpperCase():'';
+        if(!vin && !pcv) continue;
+        items.push({vin, pcv:vin?'':pcv, hs, src:`${file.name} › ${sn} แถว ${r+1}`});
+      }
+      break;
+    }
   });
-  return m;
+  if(!foundHs) throw new Error(`❌ ${file.name}: ไม่พบหัวข้อ HS Code ใน INVOICE (Excel)`);
+  return items;
+}
+// INVOICE index: VIN → [HS…] · PCV → [HS…] (เฉพาะรายการที่ไม่มี VIN)
+function buildInvIdxMY(items){
+  const byVin=new Map(), byPcv=new Map();
+  (items||[]).forEach(it=>{
+    const k=it.vin?['v',it.vin]:(it.pcv?['p',it.pcv]:null); if(!k) return;
+    const m=k[0]==='v'?byVin:byPcv;
+    if(!m.has(k[1])) m.set(k[1],[]);
+    m.get(k[1]).push(it);
+  });
+  return {byVin, byPcv, n:(items||[]).length};
+}
+// HS ต่อคัน: ① VIN ตรง → ② (INVOICE ไม่มี VIN) PCV ตรงชัดเจน → ไม่พบ = HS NOT FOUND · หลายค่าต่างกัน = CONFLICT (ห้ามสุ่มเลือก)
+function resolveHsMY(inv, vin, pcvList){
+  const pick1=(arr,how)=>{
+    const vals=[...new Set(arr.map(x=>String(x.hs)).filter(v=>v!==''))];
+    if(vals.length>1) return {status:'conflict', how, vals, src:arr.map(x=>x.src)};
+    if(!vals.length)  return {status:'notfound', how, reason:'รายการ INVOICE ไม่มีค่า HS', src:arr.map(x=>x.src)};
+    const it=arr.find(x=>String(x.hs)===vals[0]);
+    return {status:'ok', how, hs:it.hs, src:it.src, invNo:it.invNo||''};
+  };
+  if(!inv || !inv.n) return {status:'noinvoice'};
+  const v=inv.byVin.get(normVinKey(vin));
+  if(v && v.length) return pick1(v,'VIN');
+  for(const p of pcvList){
+    const k=String(p||'').trim().toUpperCase(); if(!k) continue;
+    const a=inv.byPcv.get(k)||inv.byPcv.get(mpvToVista(k));
+    if(a && a.length) return pick1(a,'PCV '+k);
+  }
+  return {status:'notfound', reason:'ไม่พบ VIN/PCV นี้ใน INVOICE'};
 }
 // Master index MY: เฉพาะ Market Malaysia (APEM RHD) · ยังไม่หมดอายุ
 function buildMasterIdxMY(masterRows){
@@ -3062,7 +3110,7 @@ function resolveMasterMY(idx, pcv, qad){
 // ── MY makeReport ────────────────────────────
 // Amount TH จาก Thai ใบขน · Total-VehicleInvoice จาก Spreadsheet MY (ไม่แปลง AUD)
 // Validation: VIN ต้อง match Thai ใบขน
-function makeReportMY(ss, thIdx, usd, thb, mIdx, hsIdx){
+function makeReportMY(ss, thIdx, usd, thb, mIdx, invIdx){
   return ss
     .filter(r => r.vin)
     .map(r => {
@@ -3070,7 +3118,9 @@ function makeReportMY(ss, thIdx, usd, thb, mIdx, hsIdx){
       if(!th) return null;                   // Rule 5: VIN ไม่ match → ตัด row (⭐ MY-FIX: นับ + บล็อก Export ใน checkMY)
       // ⭐ MY-FIX: Mapping Master ต่อคัน (VIN) — ห้ามใช้ Master ของคันอื่น
       const mm = mIdx ? resolveMasterMY(mIdx, r.pcvCode, r.qadDesc) : {notFound:true, reason:'ยังไม่ได้อัปโหลด Master'};
-      const hs = (r.hs!=='' && r.hs!=null) ? r.hs : (hsIdx?.get(r.vin) ?? '');
+      // ⭐ MY-FIX: HS จาก INVOICE เท่านั้น (ห้ามใช้ Master / Tariff on C/O / ใบขน)
+      const hsR = resolveHsMY(invIdx, r.vin, [r.pcvCode, mm.notFound?'':mm.pcvOut, mm.notFound?'':mm.mpvFull]);
+      const hs  = hsR.status==='ok' ? hsR.hs : '';
       const amtTh   = (th?.amtTh ?? 0);
       const totalInv= r.totalInv || 0;
       const fobTh   = (usd>0 && amtTh>0)    ? amtTh/usd    : 0;
@@ -3104,6 +3154,7 @@ function makeReportMY(ss, thIdx, usd, thb, mIdx, hsIdx){
         'QAD Description':        mm.notFound ? r.qadDesc : mm.descOut,
         'MPV Code':               mm.notFound ? '' : mm.mpvFull,            // RD_xxx สำหรับชีต BOL
         HS:                       hs,
+        _hs:                      hsR,
         _master:                  mm,
       };
     })
@@ -3206,7 +3257,8 @@ function checkMY(){
   const dupVin = [...vinSeen].filter(([,n])=>n>1).map(([v])=>v);
   const nf  = rep.filter(r=>r._master?.notFound);
   const inc = rep.filter(r=>!r._master?.notFound && (r._master?.missing||[]).length);
-  const noHs = rep.filter(r=>r.HS===''||r.HS==null);
+  const noHs = rep.filter(r=>r._hs?.status!=='ok');
+  const hsConf = rep.filter(r=>r._hs?.status==='conflict');
   const reqMiss = rep.filter(r=>!r._src?.bl || !(toN(r.WeightinKGs)>0) || !(toN(r['Total-VehicleInvoice'])>0) || !(toN(r['Amount TH ( THB )'])>0) || !r['INVOICE NO TH']);
   const sum = (arr,k)=>arr.reduce((s,x)=>s+(Number(x[k])||0),0);
   const tot = {
@@ -3220,7 +3272,8 @@ function checkMY(){
   const eq = (a,b)=>Math.abs(a-b)<1e-6;
   c.info = {vinRead:ss.length, reportRows:rep.length, items:items.length, bolCount:Object.keys(bols).length,
             vinMatchTh:ss.length-noTh.length, masterOk:rep.length-nf.length, masterNF:nf.length,
-            incomplete:inc.length+reqMiss.length, noHs:noHs.length, tot, totB};
+            incomplete:inc.length+reqMiss.length, noHs:noHs.length, hsFound:rep.length-noHs.length,
+            invFiles:(SMY.invFiles||[]).length, invItems:(SMY.invItems||[]).length, hsConflict:hsConf.length, tot, totB};
   if(!ss.length) hard('❌ ยังไม่มีข้อมูลรถจาก Spreadsheet MY');
   if(ss.length && !(SMY.baikhonThaiRows||[]).length) hard('❌ ยังไม่ได้อัปโหลดใบขนไทย');
   else if(noTh.length) hard(`❌ VIN ไม่พบในใบขนไทย ${noTh.length} คัน (จะหายจาก Report): `+noTh.join(', '));
@@ -3229,7 +3282,9 @@ function checkMY(){
   nf.forEach(r=>c.errors.push(`❌ MASTER NOT FOUND — VIN ${r.VIN} | PCV ${r.PCVCode||'—'} | ${r._master?.reason||''} | ขาด: PCV Code (RD_), RVC (%), Cost Structure No., Product Eng Name, Tariff on C/O`));
   inc.forEach(r=>c.warns.push(`⚠️ Master ไม่ครบ — VIN ${r.VIN} | ${r['MPV Code']} | ขาด: ${r._master.missing.join(', ')}`));
   reqMiss.forEach(r=>hard(`❌ ข้อมูลจำเป็นไม่ครบ — VIN ${r.VIN} (BoL / Weight / Total-Vehicle Invoice / Amount TH / Invoice)`));
-  if(noHs.length) c.warns.push(`⚠️ ไม่พบ HS ในไฟล์ต้นทาง ${noHs.length} คัน → คอลัมน์ "HS " เว้นว่าง: `+noHs.map(r=>r.VIN).join(', '));
+  if(rep.length && !(SMY.invItems||[]).length) c.warns.push('⚠️ ยังไม่ได้อัปโหลด INVOICE → HS NOT FOUND ทุกคัน (ระบบไม่ใช้ HS จาก Master / ใบขน แทน)');
+  hsConf.forEach(r=>hard(`❌ HS CONFLICT — VIN ${r.VIN} | ${r._hs.how} | INVOICE มีหลายค่า: ${r._hs.vals.join(' / ')} (ห้ามสุ่มเลือก)`));
+  if((SMY.invItems||[]).length) noHs.filter(r=>r._hs?.status==='notfound').forEach(r=>c.warns.push(`⚠️ HS NOT FOUND — VIN ${r.VIN} | PCV ${r['PCV Code']||'—'} | ${r._hs.reason||''}`));
   if(!(Number(SMY.usd)>0)) hard('❌ ยังไม่ได้กำหนด USD Rate');
   if(rep.length && !(eq(tot.qty,totB.qty)&&eq(tot.wt,totB.wt)&&eq(tot.amt,totB.amt)&&eq(tot.inv,totB.inv)&&eq(tot.fob,totB.fob)))
     hard('❌ ยอดรวมราย ITEM ไม่เท่ากับยอดรวมรายคัน');
@@ -3248,8 +3303,8 @@ function recompute_MY(){
   const tIdx = buildThaiIdx(SMY.baikhonThaiRows);
   // ⭐ MY-FIX: Master index เฉพาะ Malaysia — PCV→MPV / QAD→Description (FORM) · Date Approval ล่าสุด
   const mIdx = buildMasterIdxMY(SMY.masterRows);
-  const hsIdx = buildHsIdxMY(SMY.baikhonRows);
-  SMY.report    = makeReportMY(SMY.ssRows, tIdx, usd, thb, mIdx, hsIdx);
+  const invIdx = buildInvIdxMY(SMY.invItems);
+  SMY.report    = makeReportMY(SMY.ssRows, tIdx, usd, thb, mIdx, invIdx);
   SMY.bolSheets = makeBOL_MY(SMY.report);
 }
 
@@ -3257,6 +3312,28 @@ function recompute_MY(){
 async function procFiles_MY(files, type){
   if(!files||!files.length)return;
   SMY.mapLoading=true;SMY.mapErr='';R();
+  // ⭐ MY-FIX: INVOICE (PDF / Excel) — แหล่ง HS เพียงแหล่งเดียว · เพิ่มได้หลายไฟล์
+  if(type==='invoice_my'){
+    try{
+      const names=new Set(SMY.invFiles.map(f=>f.name));
+      const nf=files.filter(f=>!names.has(f.name));
+      if(!nf.length){toast('ไฟล์นี้อัปโหลดแล้ว','error');SMY.mapLoading=false;R();return}
+      const add=[];
+      for(const f of nf){
+        let its;
+        if(/\.pdf$/i.test(f.name)){
+          its=(await parseInvPdfPH(f)).map(x=>({vin:x.vin, pcv:'', hs:x.hs, invNo:x.invNo, src:f.name+(x.invNo?' › Invoice '+x.invNo:'')}));   // ใช้ตัวอ่าน INV PDF เดิม (อ่านอย่างเดียว ไม่แก้)
+          if(!its.length) throw new Error(`❌ ${f.name}: ไม่พบรายการ VIN + HTS ใน INVOICE PDF`);
+        } else its=await parseInvXlsxMY(f);
+        add.push(...its);
+      }
+      SMY.invFiles=[...SMY.invFiles,...nf];
+      SMY.invItems=[...SMY.invItems,...add];
+      recompute_MY();
+      toast(`INVOICE: ${add.length} รายการ (${add.filter(x=>x.hs!=='').length} มี HS)`,'success');
+    }catch(e){SMY.mapErr=e?.message||'อ่าน INVOICE ไม่สำเร็จ'}
+    SMY.mapLoading=false;R();return;
+  }
   try{
     const books=await Promise.all(files.map(readWB));
     const rows=books.flatMap(wbToRows);
@@ -3344,6 +3421,7 @@ async function procFiles_MY(files, type){
   SMY.mapLoading=false;R();
 }
 
+function clearInvoice_MY(){ SMY.invFiles=[]; SMY.invItems=[]; recompute_MY(); R(); }
 async function removeBaikhon_MY(idx){
   SMY.baikhonFiles=SMY.baikhonFiles.filter((_,i)=>i!==idx);
   if(SMY.baikhonFiles.length){
@@ -3440,14 +3518,14 @@ function doExportXLSX_MY(){
   // ── Modal แจ้งผลตรวจสอบก่อน Export ──
   const overlay=document.createElement('div');overlay.className='modal-overlay';
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
-  const box=d('modal-box');
+  const box=d('modal-box',[], {maxHeight:'92vh',overflowY:'auto'});   // ⭐ ข้อความยาว → เลื่อนได้ ปุ่มไม่หลุดจอ
   box.appendChild(d('modal-title',[ck.block.length?'❌ Export ไม่ได้ — ข้อมูลไม่ครบ':'⚠️ ตรวจสอบก่อน Export BOL MY']));
   const inf=ck.info;
-  [['VIN อ่านได้',inf.vinRead],['จับคู่ใบขนได้',inf.vinMatchTh],['Report (คัน)',inf.reportRows],['ITEM หลังจัดกลุ่ม',inf.items],['Master พบ',inf.masterOk],['MASTER NOT FOUND',inf.masterNF],['ข้อมูลไม่ครบ',inf.incomplete],
+  [['VIN อ่านได้',inf.vinRead],['จับคู่ใบขนได้',inf.vinMatchTh],['Report (คัน)',inf.reportRows],['ITEM หลังจัดกลุ่ม',inf.items],['Master พบ',inf.masterOk],['MASTER NOT FOUND',inf.masterNF],['INVOICE (ไฟล์/รายการ)',inf.invFiles+' / '+inf.invItems],['HS พบใน INVOICE',inf.hsFound],['HS NOT FOUND',inf.noHs],['ข้อมูลไม่ครบ',inf.incomplete],
    ['Σ QTY / Weight',inf.tot.qty+' / '+inf.tot.wt.toLocaleString()],['Σ Amount TH',inf.tot.amt.toLocaleString()],['Σ FOB TH',inf.tot.fob.toFixed(4)]].forEach(([l,v])=>{
     const row=d('modal-row');row.appendChild(d('modal-label',[l]));row.appendChild(d('modal-val',[String(v)]));box.appendChild(row);
   });
-  const lst=d('',[], {marginTop:'12px',background:'rgba(255,255,255,0.04)',borderRadius:'10px',padding:'10px 14px',maxHeight:'220px',overflowY:'auto',fontSize:'11px',lineHeight:'1.6'});
+  const lst=d('',[], {marginTop:'12px',background:'rgba(255,255,255,0.04)',borderRadius:'10px',padding:'10px 14px',maxHeight:'160px',overflowY:'auto',fontSize:'11px',lineHeight:'1.6'});
   [...ck.errors,...ck.warns].forEach(m=>lst.appendChild(t(m,{display:'block',color:m.startsWith('❌')?'#f87171':'#fbbf24'})));
   box.appendChild(lst);
   const btnRow=d('modal-btn-row');
@@ -5919,12 +5997,32 @@ function uploadTabMY(){
   if(hasCost){SMY.cFiles.forEach(f=>ctCard.appendChild(mkPillMY(f.name,()=>{SMY.cFiles=[];SMY.masterRows=[];SMY.masterSaved=false;recompute_MY();R()})));}
   grid3.appendChild(ctCard);
   wrap.appendChild(grid3);
+  // ── ⭐ MY-FIX: Card ④ INVOICE (HS Code) — แถวใหม่ ไม่กระทบ 3 ช่องเดิม ──
+  {
+    const hasInv=SMY.invFiles.length>0;
+    const ivCard=mkCardMY(hasInv); ivCard.style.marginBottom='16px';
+    const ivTR=d('',[], {display:'flex',alignItems:'center',gap:'5px'});
+    ivTR.appendChild(t('🧾',{fontSize:'15px'}));
+    ivTR.appendChild(t('INVOICE — HS Code',{color:hasInv?'#10b981':'#f1f5f9',fontWeight:'700',fontSize:'13px',flex:'1'}));
+    if(hasInv){const badge=d('',[], {background:'rgba(16,185,129,0.2)',borderRadius:'20px',padding:'2px 8px'});badge.appendChild(t(SMY.invItems.length+' รายการ',{color:'#10b981',fontSize:'10px',fontWeight:'600'}));ivTR.appendChild(badge);}
+    ivCard.appendChild(ivTR);
+    ivCard.appendChild(t('HS ดึงจาก INVOICE เท่านั้น · จับคู่ VIN (ไม่มี VIN → PCV Code) · PDF / Excel หลายไฟล์ได้',{color:'#64748b',fontSize:'9px'}));
+    const ivZone=mkZoneMY(hasInv?'✅':'🧾',hasInv?'เพิ่มไฟล์ได้':'วาง INVOICE ที่นี่','.pdf / .xlsx',hasInv);
+    const ivInp=document.createElement('input');ivInp.type='file';ivInp.accept='.pdf,.xlsx,.xls';ivInp.multiple=true;ivInp.style.display='none';
+    ivInp.onchange=e=>procFiles_MY(Array.from(e.target.files),'invoice_my');
+    ivZone.ondragover=e=>{e.preventDefault();ivZone.classList.add('drag')};
+    ivZone.ondragleave=()=>ivZone.classList.remove('drag');
+    ivZone.ondrop=e=>{e.preventDefault();ivZone.classList.remove('drag');procFiles_MY(Array.from(e.dataTransfer.files).filter(f=>/\.(pdf|xlsx|xls)$/i.test(f.name)),'invoice_my')};
+    ivZone.onclick=()=>ivInp.click();ivZone.appendChild(ivInp);ivCard.appendChild(ivZone);
+    if(hasInv){const fl=d('',[], {display:'flex',flexDirection:'column',gap:'4px'});SMY.invFiles.forEach(f=>fl.appendChild(mkPillMY(f.name,()=>clearInvoice_MY())));ivCard.appendChild(fl);}
+    wrap.appendChild(ivCard);
+  }
   // ── ⭐ MY-FIX: ผลตรวจสอบอัตโนมัติ ──
   if(SMY.ssRows.length){
     const ck=checkMY(), inf=ck.info;
     const ok=!ck.errors.length;
     const box=d('',[], {background:ok?'rgba(16,185,129,0.06)':'rgba(239,68,68,0.06)',border:'1px solid '+(ok?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'),borderRadius:'10px',padding:'10px 14px',marginBottom:'14px',fontSize:'11px',color:'#cbd5e1',lineHeight:'1.6'});
-    box.appendChild(t(`🔎 VIN อ่านได้ ${inf.vinRead} | จับคู่ใบขน ${inf.vinMatchTh} | Report ${inf.reportRows} | ITEM ${inf.items} | BOL ${inf.bolCount} | Master พบ ${inf.masterOk} | MASTER NOT FOUND ${inf.masterNF} | HS ว่าง ${inf.noHs}`,{display:'block',fontWeight:'600'}));
+    box.appendChild(t(`🔎 VIN อ่านได้ ${inf.vinRead} | จับคู่ใบขน ${inf.vinMatchTh} | Report ${inf.reportRows} | ITEM ${inf.items} | BOL ${inf.bolCount} | Master พบ ${inf.masterOk} | MASTER NOT FOUND ${inf.masterNF} | INVOICE ${inf.invFiles} ไฟล์/${inf.invItems} รายการ | HS พบ ${inf.hsFound} | HS NOT FOUND ${inf.noHs}`,{display:'block',fontWeight:'600'}));
     box.appendChild(t(`Σ QTY ${inf.tot.qty} | Weight ${inf.tot.wt.toLocaleString()} | Amount TH ${inf.tot.amt.toLocaleString()} | Total-Vehicle Invoice ${inf.tot.inv.toLocaleString()} | FOB TH ${inf.tot.fob.toFixed(4)}`,{display:'block'}));
     [...ck.errors,...ck.warns].slice(0,30).forEach(m=>box.appendChild(t(m,{display:'block',color:m.startsWith('❌')?'#f87171':'#fbbf24'})));
     wrap.appendChild(box);
