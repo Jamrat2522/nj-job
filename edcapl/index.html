@@ -12287,7 +12287,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   const stOf=v=>{ const raw=S(v).trim(); if(!raw) return ''; const d=raw.split('/')[0].replace(/\D/g,''); return (d && d.length<=3) ? d.padStart(3,'0') : '?'; };   /* Stat 3 หลัก · '090/KGM' → 090 · อ่านไม่ได้ = '?' */
   function buildIndex(rows, md, np){
     const idx=new Map(); for(const r of rows){ const k=np(r.part_no); if(!k) continue; if(!idx.has(k)) idx.set(k,[]); idx.get(k).push(r); }
-    let dupParts=0, ambParts=0; for(const [,c] of idx){ if(c.length>1){ dupParts++; if(new Set(c.map(r=>sigOf(r,md)+'|'+hsOf(r.hs_code)+'|'+stOf(r.stat_code)+'|'+S(r.cd_plant).trim().toUpperCase()+'|'+S(r.cd_supplier).trim().toUpperCase())).size>1) ambParts++; } }
+    let dupParts=0, ambParts=0; for(const [,c] of idx){ if(c.length>1){ dupParts++; if(new Set(c.map(r=>sigOf(r,md)+'|'+hsOf(r.hs_code)+'|'+NV(r.thainame)+'|'+S(r.cd_plant).trim().toUpperCase()+'|'+S(r.cd_supplier).trim().toUpperCase())).size>1) ambParts++; } }
     return { idx, dupParts, ambParts };
   }
   const npDefault=v=>S(v).trim().toUpperCase().replace(/[\s\-_]/g,'');   /* = _normPart ของ Validator เดิม */
@@ -12300,7 +12300,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(!cands.length){ E('MASTER_NOT_FOUND','PART NO. (Master)','(ไม่พบใน Master)',part,'not_found'); return out; }
     const fullMatch=r=>{ const e=expOf(r,md); return !!e.ex && e.ex.every(x=>{ const v=val(x[0]); return v!==null && S(x[1]).trim()!=='' && NORM[x[2]](v)===NORM[x[2]](x[1]); }); };
     /* ค่าที่ใช้ตรวจของแถว MASTER = สิทธิ + HS Code + Stat Code → แถวซ้ำที่ค่าเหมือนกันทุกช่อง = ระบุได้ (ผลตรวจเหมือนกัน) */
-    const keyOf=r=>sigOf(r,md)+'|HS='+hsOf(r.hs_code)+'|ST='+stOf(r.stat_code);
+    const keyOf=r=>sigOf(r,md)+'|HS='+hsOf(r.hs_code)+'|TH='+NV(r.thainame);   /* [EDC8] ค่าที่ใช้ตรวจจาก MASTER APL จริง (สิทธิ + HS + คำแปลไทย) · ไม่ใช้ stat_code (Stat ตรวจจาก 📘 พิกัดเท่านั้น) */
     const same=list=>list.length>0 && new Set(list.map(keyOf)).size===1;
     /* ระบุแถวได้ = เหลือ 1 แถว หรือหลายแถวที่ทั้งค่าที่ใช้ตรวจ และ Supplier / Plant เหมือนกันทุกช่อง (ห้ามเลือกแถวแรกเมื่อ Supplier / Plant ต่างกันโดยไม่มีข้อมูลยืนยัน) */
     const spOf=r=>S(r.cd_plant).trim().toUpperCase()+'|'+S(r.cd_supplier).trim().toUpperCase();
@@ -12308,7 +12308,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const spWhy=list=>same(list) && !one(list) ? 'ค่าที่ใช้ตรวจเหมือนกันแต่ Supplier / Plant ต่างกัน — ใบขนไม่มี Supplier / Plant ให้ยืนยันแถว' : '';
     /* Supplier / Plant จากใบขน (ถ้ามีคอลัมน์) → ใช้คัดแถวก่อน */
     const plE=S(val('cd_plant')??val('cd plant')??val('plant')??'').trim().toUpperCase(), suE=S(val('cd_supplier')??val('cd supplier')??val('supplier')??'').trim().toUpperCase();
-    const hsE=hsOf(val('tariffclas')||''), stE=stOf(val('stat')||'');
+    const hsE=hsOf(val('tariffclas')||'');
     let pick=null, why='';
     let pool=cands;
     if(plE) pool=pool.filter(r=>S(r.cd_plant).trim().toUpperCase()===plE);
@@ -12316,18 +12316,15 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(!pool.length){ why='Supplier / Plant ใบขน ('+(suE||'-')+' / '+(plE||'-')+') ไม่ตรงแถวใด'; }
     else if(one(pool)) pick=pool[0];
     else {
-      /* ใบขน EDC8 ไม่มีคอลัมน์ Supplier / CD Plant → คัดด้วยข้อมูลที่ใบขนมีจริง: HS Code → Stat → ข้อมูลสิทธิ · แถวที่ MASTER ไม่มีค่า = ยังเป็นตัวเลือก · ไม่เหลือ / ยังต่างกัน = ระบุไม่ได้ (ไม่เดา · ไม่เลือกแถวแรก) */
+      /* ใบขน EDC8 ไม่มีคอลัมน์ Supplier / CD Plant → คัดด้วยข้อมูลที่ใบขนมีจริง: HS Code → ข้อมูลสิทธิ (ไม่ใช้ Stat ของ MASTER APL) · แถวที่ MASTER ไม่มีค่า = ยังเป็นตัวเลือก · ไม่เหลือ / ยังต่างกัน = ระบุไม่ได้ (ไม่เดา · ไม่เลือกแถวแรก) */
       const narrow=(list, get, ev)=>{ if(!ev) return list; const hit=list.filter(r=>get(r)===ev); return hit.length ? hit : list.filter(r=>!get(r)); };
       const b1=narrow(pool, r=>hsOf(r.hs_code), hsE);
       if(!b1.length) why='HS Code ใบขน '+(hsE||'(ว่าง)')+' ไม่ตรงแถวใด';
       else if(one(b1)) pick=b1[0];
-      else { const b2=narrow(b1, r=>{ const t=stOf(r.stat_code); return t==='?' ? '' : t; }, stE);
-        if(!b2.length) why='Stat ใบขน '+(stE||'(ว่าง)')+' ไม่ตรงแถวใด';
-        else if(one(b2)) pick=b2[0];
-        else { const m=b2.filter(fullMatch); if(one(m)) pick=m[0]; else why = spWhy(m) || spWhy(b2) || (m.length ? 'หลายแถวตรงใบขนแต่ค่าที่ใช้ตรวจต่างกัน' : 'ข้อมูลสิทธิในใบขนไม่ตรงแถวใด'); } }
+      else { const m=b1.filter(fullMatch); if(one(m)) pick=m[0]; else why = spWhy(m) || spWhy(b1) || (m.length ? 'หลายแถวตรงใบขนแต่ค่าที่ใช้ตรวจต่างกัน' : 'ข้อมูลสิทธิในใบขนไม่ตรงแถวใด'); }   /* [EDC8] ไม่คัดแถวด้วย stat_code ของ MASTER APL */
     }
     if(!pick){
-      E('MASTER_AMBIGUOUS','PART NO. (Master ซ้ำ)', part, 'ซ้ำ '+cands.length+' แถว — ระบุแถวไม่ได้ ('+why+'): '+cands.slice(0,4).map(r=>'Plant '+(S(r.cd_plant).trim()||'-')+' / Supplier '+(S(r.cd_supplier).trim()||'-')+' · '+(S(r.privilege).trim()||'(ว่าง)')+' · HS '+(S(r.hs_code).trim()||'-')+' · Stat '+(S(r.stat_code).trim()||'-')).join(' | ')+(cands.length>4?' …':''));
+      E('MASTER_AMBIGUOUS','PART NO. (Master ซ้ำ)', part, 'ซ้ำ '+cands.length+' แถว — ระบุแถวไม่ได้ ('+why+'): '+cands.slice(0,4).map(r=>'Plant '+(S(r.cd_plant).trim()||'-')+' / Supplier '+(S(r.cd_supplier).trim()||'-')+' · '+(S(r.privilege).trim()||'(ว่าง)')+' · HS '+(S(r.hs_code).trim()||'-')).join(' | ')+(cands.length>4?' …':''));
       return out;
     }
     const I=(code,c,found,reason)=>out.push({ rowNum:ctx.rowNum, item:ctx.itemDisplay, partNo:part, col:c, found, expected:reason, errorCode:code, severity:'info', source:'master', type:'na', compareType:'text' });
@@ -12379,7 +12376,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       setBox('bad','❌ โหลด MASTER ไม่ได้ · ระงับการตรวจ', esc(lastErr)); return false; }
     const all=j.rows||[], rows=all.filter(r=>inMode(r.aat_ftm, md));
     /* ข้อมูลที่ Validator ต้องใช้ต้องมาครบจาก RPC (ห้ามตรวจด้วยข้อมูลขาด) — RPC รุ่นเก่าไม่มี hs_code / stat_code → ระงับ */
-    const NEED=['part_no','aat_ftm','cd_plant','cd_supplier','privilege','hs_code','stat_code','boi_no','bis29_no','tax_id'];
+    const NEED=['part_no','aat_ftm','cd_plant','cd_supplier','privilege','hs_code','boi_no','bis29_no','tax_id'];   /* [EDC8] ไม่บังคับ stat_code (Stat ตรวจจาก 📘 พิกัด) */
     const miss=all.length ? NEED.filter(k=>!all.every(r=>Object.prototype.hasOwnProperty.call(r,k))) : [];
     if(miss.length){ lastErr='RPC edcapl_apl_published ส่งข้อมูล MASTER ไม่ครบ (ขาด '+miss.join(', ')+') — ต้องรัน RUN-EDCAPL-APL-03.sql ก่อน · ระงับการตรวจ'; failClear(); setBox('bad','❌ MASTER ไม่ครบ · ระงับการตรวจ', esc(lastErr)); return false; }
     if(rows.length!==all.length || j.mode!==md){ lastErr='ข้อมูล MASTER ข้ามกลุ่ม ('+(all.length-rows.length)+' แถว) — ระงับการตรวจ'; failClear(); setBox('bad','❌ MASTER ไม่ถูกต้อง · ระงับการตรวจ', esc(lastErr)); return false; }
