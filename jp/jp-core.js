@@ -1,5 +1,5 @@
 /* =====================================================================
- * J&P LOGISTICS — jp-core.js  (local123)
+ * J&P LOGISTICS — jp-core.js  (local125)
  * Pure logic shared by the browser app (index.html) and the node test suite.
  * No DOM / no network here: date & file-name rules, PDF field extraction,
  * photo auto-ordering heuristics, EXIF orientation, merged-PDF builder.
@@ -300,7 +300,24 @@
     let tot = 0; for (let i = 0; i < 12; i++) tot += hueHist[i];
     let ent = 0;
     if (tot > 0) for (let i = 0; i < 12; i++) { const p = hueHist[i] / tot; if (p > 0) ent -= p * Math.log2(p); }
+    // local125: the container's OWN paint colour (any colour, not only pink): dominant hue of strongly saturated pixels,
+    // then paint share per left / right half and in the centre (open doors show goods there instead of paint)
+    const sh = new Float32Array(36);
+    for (let i = 0; i < n; i++) { const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, sat = mx ? (mx - mn) / mx : 0;
+      if (sat > 0.45 && l > 50 && l < 235 && mx !== mn) { let hue = mx === r ? ((g - b) / (mx - mn)) % 6 : mx === g ? (b - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; hue = (hue * 60 + 360) % 360; sh[Math.floor(hue / 10) % 36]++; } }
+    let pk = 0, pv = -1; for (let k = 0; k < 36; k++) { const v = sh[(k + 35) % 36] + sh[k] + sh[(k + 1) % 36]; if (v > pv) { pv = v; pk = k; } }
+    const pHue = pk * 10 + 5;
+    let pL = 0, pR = 0, pC = 0, nC = 0, pAll = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, sat = mx ? (mx - mn) / mx : 0;
+      let on = false;
+      if (sat > 0.4 && l > 45 && mx !== mn) { let hue = mx === r ? ((g - b) / (mx - mn)) % 6 : mx === g ? (b - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; hue = (hue * 60 + 360) % 360; const d = Math.abs(hue - pHue); on = Math.min(d, 360 - d) <= 22; }
+      if (on) { pAll++; if (x < halfW) pL++; else pR++; }
+      if (x > w * 0.3 && x < w * 0.7 && y > h * 0.25 && y < h * 0.75) { nC++; if (on) pC++; }
+    }
+    const nh = Math.max(1, (n / 2));
     return {
+      paintRatio: pAll / n, paintL: pL / nh, paintR: pR / nh, paintC: pC / Math.max(1, nC), paintAsym: Math.abs(pL - pR) / Math.max(1, pL + pR),
       texture,                              // overall detail (seal close-up = low)
       vEdgeRatio: gx / Math.max(1, gx + gy),// >0.5 = vertical structures (door bars)
       asym: Math.abs(texL - texR) / Math.max(1, texL + texR), // one door open = strong L/R asymmetry
@@ -317,15 +334,16 @@
   function scorePhotoTypes(f, fileName) {
     const s = { SEAL: 0, CLOSED: 0, OPEN2: 0, OPEN1: 0 };
     if (f) {
-      // SEAL: close-up, little texture, paint-dominant, low colour entropy
-      // close-up of the seal: little texture, almost no dark background (sky / container interior), paint-dominant, few colours
-      s.SEAL = clamp01(1.3 - f.texture / 45) * 0.4 + clamp01(f.pinkRatio * 1.6) * 0.25 + clamp01(1 - f.hueEntropy / 2.2) * 0.15 + clamp01(1 - f.darkRatio * 4) * 0.2;
-      // CLOSED: paint-dominant, vertical bars, low colour entropy, symmetric
-      s.CLOSED = clamp01(f.pinkRatio * 2.2) * 0.4 + clamp01((f.vEdgeRatio - 0.45) * 8) * 0.25 + clamp01(1 - f.hueEntropy / 2.6) * 0.2 + clamp01(1 - f.asym * 3) * 0.15;
-      // OPEN2: colourful goods everywhere, little paint, symmetric, high texture
-      s.OPEN2 = clamp01(f.hueEntropy / 2.6) * 0.4 + clamp01(1 - f.pinkRatio * 3) * 0.3 + clamp01(1 - f.asym * 3) * 0.15 + clamp01(f.texture / 25) * 0.15;
-      // OPEN1: half goods / half paint -> strong asymmetry, medium paint
-      s.OPEN1 = clamp01(f.asym * 3.2) * 0.5 + clamp01(1 - Math.abs(f.pinkRatio - 0.3) * 3) * 0.3 + clamp01(f.hueEntropy / 2.6) * 0.2;
+      // local125: works for ANY container colour — uses the photo's own dominant paint (paintRatio / paintC / paintAsym), not pink only
+      const paint = f.paintRatio != null ? f.paintRatio : f.pinkRatio, pC = f.paintC != null ? f.paintC : f.pinkRatio, pA = f.paintAsym != null ? f.paintAsym : f.asym;
+      // SEAL: close-up of the lock / seal — little texture, few colours, no dark background, paint-dominant
+      s.SEAL = clamp01(1.3 - f.texture / 45) * 0.4 + clamp01(paint * 1.6) * 0.25 + clamp01(1 - f.hueEntropy / 2.2) * 0.15 + clamp01(1 - f.darkRatio * 4) * 0.2;
+      // CLOSED: both doors closed — paint fills the centre, vertical door bars, paint even on left / right
+      s.CLOSED = clamp01(pC * 1.6) * 0.4 + clamp01((f.vEdgeRatio - 0.45) * 8) * 0.25 + clamp01(1 - pA * 1.6) * 0.2 + clamp01(1 - f.hueEntropy / 2.6) * 0.15;
+      // OPEN2: both doors open — goods (no paint) in the centre, little paint overall
+      s.OPEN2 = clamp01(1 - pC * 2.5) * 0.45 + clamp01(1 - paint * 3) * 0.25 + clamp01(f.hueEntropy / 2.6) * 0.15 + clamp01(f.texture / 25) * 0.15;
+      // OPEN1: one door open — paint on one side only (strong left / right paint difference)
+      s.OPEN1 = clamp01((pA - 0.3) * 2.5) * 0.6 + clamp01(1 - Math.abs(paint - 0.25) * 3) * 0.2 + clamp01(f.hueEntropy / 2.6) * 0.2;
     }
     // file-name hints override strongly
     const fn = String(fileName || '').toLowerCase();
@@ -589,6 +607,55 @@
     for (const x of an.items) { if (!x.sameDocs) await add(x.doc, dIdx); map.push({ label: x.label, page: out.getPageCount() + 1, pages: x.photoIdx.length }); await add(x.doc, x.photoIdx); }
     const bytes = await out.save({ useObjectStreams: true });
     return { bytes, pageCount: out.getPageCount(), map };
+  }
+  /* ---------- local124: container photos kept in the JOB's storage (bucket = PDF only):
+     each photo = tiny PDF carrying the ORIGINAL image file as an attachment (restored byte-for-byte) */
+  async function photoToStorePdf(PDFLib, bytes, name, mime) {
+    const { PDFDocument } = PDFLib; const d = await PDFDocument.create(); d.addPage([10, 10]);
+    d.setTitle('JP PHOTO'); d.setProducer('J&P LOGISTICS');
+    await d.attach(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), String(name || 'photo.jpg'), { mimeType: mime || 'image/jpeg' });
+    return d.save();
+  }
+  function photoFromStorePdfDoc(PDFLib, d) {
+    const { PDFName, PDFDict, PDFArray, PDFRawStream, PDFString, PDFHexString, decodePDFRawStream } = PDFLib;
+    const names = d.catalog.lookupMaybe(PDFName.of('Names'), PDFDict); if (!names) return null;
+    const ef = names.lookupMaybe(PDFName.of('EmbeddedFiles'), PDFDict); if (!ef) return null;
+    const arr = ef.lookupMaybe(PDFName.of('Names'), PDFArray); if (!arr || arr.size() < 2) return null;
+    const spec = arr.lookup(1, PDFDict), efd = spec.lookupMaybe(PDFName.of('EF'), PDFDict); if (!efd) return null;
+    const st = efd.lookup(PDFName.of('F'), PDFRawStream);
+    const fn = spec.lookupMaybe(PDFName.of('UF'), PDFString, PDFHexString) || spec.lookupMaybe(PDFName.of('F'), PDFString, PDFHexString);
+    const sub = st.dict.lookupMaybe(PDFName.of('Subtype'), PDFName);
+    return { bytes: decodePDFRawStream(st).decode(), name: fn ? fn.decodeText() : 'photo.jpg', mime: sub ? sub.decodeText().replace('#2F', '/') : '' };
+  }
+  async function photoFromStorePdf(PDFLib, pdfBytes) {
+    const d = await PDFLib.PDFDocument.load(pdfBytes, { ignoreEncryption: true, updateMetadata: false });
+    return photoFromStorePdfDoc(PDFLib, d);
+  }
+  /* ---------- local124: 📥 นำเข้ารูปหลายตู้ — archive entries -> photo SETS (never split by file order) ---------- */
+  const ARCHIVE_LIMITS = { maxEntries: 400, maxImageBytes: 40 * 1024 * 1024, maxTotalBytes: 400 * 1024 * 1024 };
+  // entries [{name, size?}] -> { sets: [{key, folder, names[]}], skipped[] }; one set per folder holding images, else the whole archive
+  function groupArchiveImages(archiveName, entryNames) {
+    const skipped = [], imgs = [];
+    entryNames.forEach(n => {
+      const clean = String(n).replace(/\\/g, '/').replace(/^\/+/, '');
+      if (/(^|\/)(__MACOSX|\.)/.test(clean) || clean.split('/').some(p => p === '..')) { skipped.push(n); return; }
+      if (!/\.(jpe?g|png)$/i.test(clean)) { skipped.push(n); return; }
+      imgs.push({ orig: n, path: clean, folder: clean.includes('/') ? clean.slice(0, clean.lastIndexOf('/')) : '' });
+    });
+    const folders = Array.from(new Set(imgs.map(i => i.folder)));
+    const byNum = (a, b) => a.path.localeCompare(b.path, undefined, { numeric: true });
+    const sets = folders.length > 1
+      ? folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(f => ({ key: archiveName + '/' + f, folder: f, names: imgs.filter(i => i.folder === f).sort(byNum).map(i => i.orig) }))
+      : (imgs.length ? [{ key: archiveName, folder: folders[0] || '', names: imgs.sort(byNum).map(i => i.orig) }] : []);
+    return { sets, skipped };
+  }
+  // Container No. written in a name (archive / folder): ISO pattern only (file numbers like 107819 never match)
+  function containerCodesInText(s) { return Array.from(new Set((String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').match(/\b[A-Z]{4}\s?\d{6}\s?\d\b/g) || []).map(x => x.replace(/\s/g, '')))); }
+  // match codes to JOB rows {id, code}: -> { rowId, codes, conflict }
+  function matchSetToRows(codes, rows) {
+    const hit = new Set(); (codes || []).forEach(c => rows.forEach(r => { if (r.code && r.code === c) hit.add(r.id); }));
+    const ids = Array.from(hit);
+    return { rowId: ids.length === 1 ? ids[0] : null, rows: ids, conflict: ids.length > 1 };
   }
   // docs [{bytes, rotations}] -> ONE PDF, pages exactly in the given order (no reordering, no extra pages)
   async function mergePdfsInOrder(PDFLib, docs, title) {
@@ -1204,6 +1271,7 @@
     accountObjectName, accountFileName, mergePdfsInOrder, billInvoiceNos, billPdfName,
     billCompanyFromName, billDefaults, billFileName, billReconcileOrder, buildPdfFromPages, imageToPdf, billSettingsToPdf, billSettingsFromPdf,
     pageHash, analyzeContainerPdfs, buildAllContainersPdf,
+    photoToStorePdf, photoFromStorePdf, photoFromStorePdfDoc, ARCHIVE_LIMITS, groupArchiveImages, containerCodesInText, matchSetToRows,
     STANDARD_TYPES, ROW_STATUS_LABEL, containerRowStatus, jobStatus, exportPdfName, layoutOptions
   };
 }));
