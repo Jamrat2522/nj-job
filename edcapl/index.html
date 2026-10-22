@@ -5478,6 +5478,15 @@ function validateEdc8WithSut(eRows, eCI, sutMap){
 
 // ── validateEdc8FixedQty: fixed unit codes + required Entry Ford fields ──
 // Runs for ALL rows, ALL tiers — no Ford Invoice upload needed
+// [EDC8 AAT / FTM] ค่า FIX ของ EDC8 (กำหนดโดยผู้ใช้ 21/10/2026) — เทียบใบขนทุก ITEM · Trim + ไม่สนตัวพิมพ์ · ไม่ใช้ KDC_FIX
+//   QTY / QTY ใบขน / QTY 2 = EDC8_QTY_FIXED (C62 / C62 / EA)
+const EDC8_FIX = [
+  { topic:'Privilege',  col:'privilege',  expected:'003' },
+  { topic:'Tariff',     col:'tariff',     expected:'9PART3' },
+  { topic:'Brand',      col:'brand',      expected:'NO BRAND' },
+  { topic:'Naturetran', col:'naturetran', expected:'11' },
+  { topic:'Prodyear',   col:'prodyear',   expected:'2026' },
+];
 const EDC8_QTY_FIXED = [
   { col:'QTY',      expected:'C62' },
   { col:'QTY ใบขน', expected:'C62' },
@@ -6040,6 +6049,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
   // ── [EDC8 39 หัวข้อ] ข้อมูลอ้างอิง INVOICE เพิ่ม: รายละเอียดจากไฟล์ Ford Invoice ต้นฉบับ (ไม่แก้ invParseFord) ──
   const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set() };
   if(_aatByPart) window.EDC8_REF = new Map();   /* [EDC8] ค่าอ้างอิงราย ITEM ทุกแหล่ง (INVOICE / MASTER APL) สำหรับแสดงพร้อมกัน */
+  window.EDC8_PASS = _aatByPart ? [] : null;   /* [EDC8] ผลตรวจที่ถูกต้อง (บันทึก ณ จุดตรวจเดิม · ไม่เปลี่ยนเงื่อนไขถูก / ผิด) → แสดงครบทุกสถานะ หน้าจอ + Excel */
+  const _pass = o => { if(_aatByPart && Array.isArray(window.EDC8_PASS)) window.EDC8_PASS.push(Object.assign({ severity:'pass', type:'pass', compareType:'text' }, o)); };
   /* [EDC8 AAT] Consignee Alias ที่กำหนด: ใบขน EDC8 = [0] ↔ INVOICE = [1] ถือว่าตรงกัน (ใช้เฉพาะโหมด edc8 · ไม่ใช้กับ FTM / KDC) */
   const EDC8_AAT_CONSIGNEE_ALIAS = [['FORD ZA', 'FORD MOTOR CO OF SOUTHERN AFRICA PT']];
   if(_aatByPart){ try{ ((typeof _mfFiles!=='undefined' && _mfFiles && _mfFiles.fordInvEdc8DZ) || []).forEach(e => { const d = e && e.wb ? edc8InvoiceDetail(e.wb) : null; if(d && d.invoiceNo) _t39.det.set(_normInv(d.invoiceNo), d); }); }catch(e){} }
@@ -6068,6 +6079,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       ok = refs.some(x => _normTxt(x) === _normTxt(ev)) || (currentMode === 'edc8' && EDC8_AAT_CONSIGNEE_ALIAS.some(([a, b]) => U(ev) === a && refs.some(x => U(x) === b))); }
     else ok = refs.some(x => _normTxt(x) === _normTxt(ev));
     if(!ok) errors.push({ rowNum, item:itemDisplay, partNo:part, col:topic, found:shown, expected:ev, errorCode:'FIELD_MISMATCH', severity:'error', source:'mapping', type:'mismatch', compareType:'text' });
+    else _pass({ rowNum, item:itemDisplay, partNo:part, col:topic, expected:ev, source:'mapping',   /* [EDC8] ✅ ค่า INVOICE ที่ตรง (alnum / ข้อความ = ค่าอ้างอิงที่ตรงจริง) */
+      found: mode === 'alnum' ? (refs.find(x => _alnum(x) === _alnum(ev)) || exp0) : ((mode === 'text' || mode === 'consignee' || !mode) ? (refs.find(x => _normTxt(x) === _normTxt(ev)) || exp0) : shown) });
   };
   function _t39Row(row, rowNum, itemDisplay, part, mapped){
     const mr = mapped.row, det = _t39.det.get(mapped.inv) || null, raw = det ? 'ไม่มีไฟล์ Ford Invoice ต้นฉบับ ' + mapped.invRaw : '';
@@ -6286,7 +6299,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
             col:f.col, found:mVal, expected:eVal,
             errorCode:'FIELD_MISMATCH',severity:'error',source:'mapping',type:'mismatch',compareType:'text'
           });
-        }
+        } else _pass({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:f.col, found:mVal, expected:eVal, source:'mapping' });   // [EDC8] ✅
       }
     }
 
@@ -6352,8 +6365,12 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     const _mdT = (masterWb && masterWb._mode) || (currentMode==='edc8_ftm' ? 'FTM' : 'AAT');
     const _ruleTxt = f => 'ยังไม่มีกฎ "'+f+'" ของบริษัท '+_mdT+' ที่อนุมัติใน 📗 MASTER APL → 📑 ข้อมูลเพิ่มเติม / กรณีพิเศษ — ตรวจไม่ได้';
     const _kdcTxt = v => 'ไม่พบค่า FIX ของ EDC8 ใน Source (มีเฉพาะ FIX ของ KDC = '+v+' — ไม่นำมาใช้กับ EDC8) และ';
-    [['Privilege','privilege', _kdcTxt(KDC_FIX.privilege)], ['Tariff','tariff', _kdcTxt(KDC_FIX.exportTariff)], ['Brand','brand', _kdcTxt(KDC_FIX_A.brand)], ['Naturetran','naturetran', _kdcTxt(KDC_FIX_A.natureTran)],
-     ['Prodyear','prodyear', _kdcTxt(KDC_FIX_A.prodYear)], ['ประเภทใบขน','ประเภทใบขน', _kdcTxt(KDC_FIX_A.declType)], ['Export Tax','Export tax', 'MASTER APL ไม่มีคอลัมน์ Export Tax และ']].forEach(([topic, colName, why0]) => {
+    /* [EDC8] FIX ที่กำหนดแล้ว (EDC8_FIX): ตรวจทุก ITEM · ตรง = ถูก / ไม่ตรง / ว่าง = ผิด · ไม่มีคอลัมน์ = ❌ ระดับไฟล์ */
+    EDC8_FIX.forEach(f => { const ci = _eCol(f.col); if(ci === -1){ _t39NoCol(f.topic, f.col); return; }
+      entryRows.forEach(x => { if(!x.itemKey) return; const v = String(x.row[ci]==null?'':x.row[ci]).trim();
+        if(v.toUpperCase() !== f.expected.toUpperCase()) errors.push({ rowNum:x.rowNum, item:x.itemKey.padStart(5,'0'), partNo:E_PART!==-1?String(x.row[E_PART]||'').trim():'', col:f.topic, found:v||'(ว่าง)', expected:f.expected,
+          errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type:v?'mismatch':'missing', compareType:'text' }); }); });
+    [['ประเภทใบขน','ประเภทใบขน', _kdcTxt(KDC_FIX_A.declType)]].forEach(([topic, colName, why0]) => {   /* Export Tax ตรวจจาก MASTER APL TaxID ใน aplEdc8MasterCheck */
       if(typeof aplEdc8RuleCovers === 'function' && aplEdc8RuleCovers(colName)) return;   /* มีกฎอนุมัติแล้ว → ตรวจทุก ITEM ใน aplEdc8RuleErrors */
       const why = why0+' '+_ruleTxt(colName);
       const ci = _eCol(colName), vals = ci === -1 ? [] : [...new Set(entryRows.map(x => String(x.row[ci]==null?'':x.row[ci]).trim()).filter(Boolean))];
@@ -6368,7 +6385,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     else if(!(window.TRF_STATE && window.TRF_STATE.map)) F('TRF_NO_MASTER', '-', trfCheck('', '').reason);
     else entryRows.forEach(x => { if(!x.itemKey) return; const r = trfCheck(x.row[cH], x.row[cS]), it = x.itemKey.padStart(5,'0');
       if(r.st === 'bad') errors.push({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat||'(ว่าง)', expected:r.expected, errorCode:'TRF_STAT_MISMATCH', severity:'error', source:'tariff', type:r.stat?'mismatch':'missing', compareType:'text', trfHs:r.hs });
-      else if(r.st === 'nohs' || r.st === 'badhs') errors.push({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat||'(ว่าง)', expected:r.reason, errorCode:'TRF_NO_HS', severity:'info', source:'tariff', type:'na', compareType:'text' }); });
+      else if(r.st === 'nohs' || r.st === 'badhs') errors.push({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat||'(ว่าง)', expected:r.reason, errorCode:'TRF_NO_HS', severity:'info', source:'tariff', type:'na', compareType:'text' });
+      else if(r.st === 'ok') _pass({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat, expected:r.expected, source:'tariff', trfHs:r.hs }); });   /* [EDC8] ✅ */
   }
   if(_aatByPart) invLines.filter(l => !l.used).forEach(l => errors.push({ rowNum:0, item:'-', partNo:l.partRaw, col:'PART NO. (มีเฉพาะใน INVOICE)', found:(l.partRaw||'(ว่าง)')+' · INVOICE '+l.invRaw+' (แถว '+l.rowNum+')', expected:'(ไม่พบ Product Code นี้ในใบขน)',
     errorCode:'INVOICE_LINE_NOT_IN_ENTRY', severity:'error', source:'mapping', type:'missing', compareType:'text' }));   // [EDC8 AAT]
@@ -12336,10 +12354,18 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       return out;
     }
     const I=(code,c,found,reason)=>out.push({ rowNum:ctx.rowNum, item:ctx.itemDisplay, partNo:part, col:c, found, expected:reason, errorCode:code, severity:'info', source:'master', type:'na', compareType:'text' });
+    const P=(c,found,expected)=>{ if(Array.isArray(window.EDC8_PASS)) window.EDC8_PASS.push({ rowNum:ctx.rowNum, item:ctx.itemDisplay, partNo:part, col:c, found, expected, severity:'pass', source:'master', type:'pass', compareType:'text' }); };   /* [EDC8] ✅ ณ จุดตรวจเดิม (ไม่เปลี่ยนเงื่อนไข) */
+    P('PART NO. (Master)', part, S(pick.part_no).trim());
     ref.apl={ part:S(pick.part_no).trim(), desc:S(pick.description).trim() };
+    /* [EDC8] Export Tax: ใบขน Export tax ↔ MASTER APL "TaxID: 13 Digits" (tax_id) ของแถวที่จับคู่ด้วย Product Code (ตามบริษัท) · เทียบเป็นข้อความ (Trim · คงเลข 0)
+       ตรง = ถูก · ไม่ตรง / ใบขนว่าง = ❌ · MASTER TaxID ว่าง = ⚪ ตรวจไม่ได้ (ไม่ PASS) · ไม่มีคอลัมน์ในใบขน = ❌ */
+    { const v=val('Export tax'), mt=S(pick.tax_id).trim(), T=x=>S(x).replace(/\s+/g,'').toUpperCase();
+      if(v===null) E('MASTER_EXPTAX_MISMATCH','Export Tax (Master)','(ไม่มีคอลัมน์ Export tax ในใบขน)', mt||'-', 'missing');
+      else if(!mt) I('MASTER_EXPTAX_EMPTY','Export Tax', v||'(ว่าง)', 'MASTER APL "TaxID: 13 Digits" ของ Part นี้ว่าง — ตรวจ Export Tax ไม่ได้');
+      else if(T(v)!==T(mt)) E('MASTER_EXPTAX_MISMATCH','Export Tax (Master)', v||'(ว่าง)', mt, v?'mismatch':'missing'); else P('Export Tax (Master)', v, mt); }
     /* [EDC8] DESCRIPTION: ใบขน DESCRIPTION/BEZEICHNUNG ↔ MASTER APL Description part (ตรวจคู่กับ INVOICE · แสดงทั้ง 2 แหล่ง) · MASTER ว่าง / ไม่ตรง = ❌ */
     { const v=val('DESCRIPTION/BEZEICHNUNG') ?? val('DESCRIPTION'), mdsc=S(pick.description).trim();
-      if(v!==null){ if(!mdsc) E('MASTER_FIELD_EMPTY','DESCRIPTION (Master)', v||'(ว่าง)', '(MASTER ไม่มี Description part)','missing'); else if(NV(v)!==NV(mdsc)) E('MASTER_DESC_MISMATCH','DESCRIPTION (Master)', v||'(ว่าง)', mdsc, v?'mismatch':'missing'); } }
+      if(v!==null){ if(!mdsc) E('MASTER_FIELD_EMPTY','DESCRIPTION (Master)', v||'(ว่าง)', '(MASTER ไม่มี Description part)','missing'); else if(NV(v)!==NV(mdsc)) E('MASTER_DESC_MISMATCH','DESCRIPTION (Master)', v||'(ว่าง)', mdsc, v?'mismatch':'missing'); else P('DESCRIPTION (Master)', v, mdsc); } }
     const e=expOf(pick,md);
     if(!e.ex){   /* Privilege ที่ Flow เดิมไม่มีกฎ (เช่น NO / FZ / ว่าง) → ไม่ตรวจสิทธิ · ไม่นับ (ไม่ใช่ความผิดของ Item · รอยืนยันกฎ) */
       I('MASTER_NO_RULE','สิทธิ (Privilege ใน MASTER)','Privilege '+(e.p||'(ว่าง)')+(e.p!==S(pick.privilege).toUpperCase().replace(/\s+/g,'')?' ('+S(pick.privilege).trim()+')':''),'ยังไม่มีกฎสิทธิใน Flow เดิม — ไม่ตรวจ / ไม่นับ');
@@ -12347,18 +12373,18 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       const v=val(x[0]), mv=S(x[1]).trim(), label=x[0].replace(/\s+/g,' ')+' (Master)';
       if(v===null){ E('MASTER_RIGHTS_MISMATCH',label,'(ไม่มีคอลัมน์ในใบขน)',mv||'-','missing'); continue; }
       if(!mv){ E('MASTER_FIELD_EMPTY',label,v||'(ว่าง)','(MASTER ไม่มีค่า · Privilege '+e.p+')','missing'); continue; }
-      if(NORM[x[2]](v)!==NORM[x[2]](mv)) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mv, v?'mismatch':'missing');
+      if(NORM[x[2]](v)!==NORM[x[2]](mv)) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mv, v?'mismatch':'missing'); else P(label, v, mv);
     }
     /* [EDC8 39 หัวข้อ] Model version -555: Part สิทธิ BIS29 → ใบขนต้องตรงค่าจาก BIS 29 No. ของ MASTER (mvOf) · ไม่มีคอลัมน์ / ว่าง / ไม่ตรง = ❌ */
     if(e.ex && (e.p==='BIS29' || e.p==='29BIS')){ const v=val('Model version -555'), mvx=mvOf(pick), label='Model version -555 (Master)';
       if(v===null) E('MASTER_RIGHTS_MISMATCH',label,'(ไม่มีคอลัมน์ในใบขน)',mvx,'missing');
-      else if(NV(v)!==mvx) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mvx, v?'mismatch':'missing'); }
+      else if(NV(v)!==mvx) E('MASTER_RIGHTS_MISMATCH',label,v||'(ว่าง)',mvx, v?'mismatch':'missing'); else P(label, v, mvx); }
     /* HS Code: ใบขน tariffclas ↔ MASTER hs_code (เทียบตัวเลข · ตัด 0 นำหน้า: 000087089980 = 87089980) · MASTER ว่าง / ใบขนว่าง = ❌ */
     { const v=val('tariffclas'), mh=hsOf(pick.hs_code);
       if(!mh) E('MASTER_FIELD_EMPTY','HS Code (Master)', v||'(ว่าง)', '(MASTER ไม่มี HS Code)','missing');
       else if(v===null) E('MASTER_HS_MISMATCH','HS Code (Master)','(ไม่มีคอลัมน์ tariffclas ในใบขน)',S(pick.hs_code).trim(),'missing');
       else if(!hsOf(v)) E('MASTER_HS_MISMATCH','HS Code (Master)','(ว่าง)',S(pick.hs_code).trim(),'missing');
-      else if(hsOf(v)!==mh) E('MASTER_HS_MISMATCH','HS Code (Master)',v,S(pick.hs_code).trim(),'mismatch'); }
+      else if(hsOf(v)!==mh) E('MASTER_HS_MISMATCH','HS Code (Master)',v,S(pick.hs_code).trim(),'mismatch'); else P('HS Code (Master)', v, S(pick.hs_code).trim()); }
     /* [EDC8] Stat Code: ตรวจถูก / ผิดจาก MASTER 📘 พิกัดกลางเท่านั้น (edc8StrictValidate · source 'tariff') — ยกเลิกการเทียบ Stat กับ MASTER APL (ไม่ฟ้องซ้ำ 2 แหล่ง)
        stat ของใบขนยังใช้คัดแถว MASTER APL ที่ซ้ำ (narrow) และค้น MASTER HS CODE ใบอนุญาต ตามกลไกเดิม */
     /* [EDC8 39 หัวข้อ] คำแปลไทย: ใบขน คำแปลไทย ↔ MASTER thainame (ตัดช่องว่างหัว–ท้าย / ช่องว่างซ้อน) · MASTER ว่าง / ใบขนว่าง = ❌ */
@@ -12366,7 +12392,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       if(!mt) E('MASTER_FIELD_EMPTY','คำแปลไทย (Master)', v||'(ว่าง)', '(MASTER ไม่มีคำแปลไทย)','missing');
       else if(v===null) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)','(ไม่มีคอลัมน์ คำแปลไทย ในใบขน)',mt,'missing');
       else if(!v) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)','(ว่าง)',mt,'missing');
-      else if(NV(v)!==NV(mt)) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)',v,mt,'mismatch'); }
+      else if(NV(v)!==NV(mt)) E('MASTER_THAI_MISMATCH','คำแปลไทย (Master)',v,mt,'mismatch'); else P('คำแปลไทย (Master)', v, mt); }
     return out;
   }
   function aplEdc8ClearResult(){   /* ล้างผลตรวจบนจอ + Export (ไม่แตะ MASTER / ไฟล์) */
@@ -12472,8 +12498,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const out=[]; if(!masterWb || !masterWb._apl) return out;
     const md=masterWb._mode, now=new Date(), td=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate());
     const H=(eHdr||[]).map(h=>NV(h));
+    const FIXF=new Set((typeof EDC8_FIX!=='undefined' ? EDC8_FIX : []).map(f=>NV(f.col)).concat([NV('Export tax')]));   /* + Export tax ตรวจจาก MASTER APL TaxID แล้ว */
     for(const r of (masterWb._rules||[])){
       if(!(r.company==='ALL' || r.company===md || r.company==='AAT+FTM')) continue;
+      if(FIXF.has(NV(r.edc8_field))) continue;   /* [EDC8] หัวข้อที่มี FIX ของ EDC8 แล้ว → ตรวจด้วย EDC8_FIX ไม่ใช้กฎซ้ำ */
       if((r.start_date && td<r.start_date) || (r.end_date && td>r.end_date)) continue;   /* นอกวันที่มีผล → ไม่ใช้ */
       const label=T39_SP[NV(r.edc8_field)] || ('กฎพิเศษ: '+S(r.topic)+' ('+S(r.edc8_field)+')');   /* [EDC8 39 หัวข้อ] กฎของหัวข้อ Export Tax / ประเภทใบขน → แสดงชื่อหัวข้อตรง ๆ */
       const pset=new Set(S(r.part_ref).split(/[,;\n]+/).map(normPart).filter(Boolean));
@@ -12481,7 +12509,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       if(!tg.length) continue;
       const ci=H.indexOf(NV(r.edc8_field));
       if(ci===-1){ out.push({ rowNum:0, item:'HEADER', partNo:'', col:label, found:'(ไม่มีคอลัมน์ในใบขน)', expected:S(r.edc8_field), errorCode:'SPECIAL_RULE_NO_FIELD', severity:'error', source:'special', type:'missing', compareType:'text' }); continue; }
-      for(const x of tg){ const v=S(x.row[ci]).trim(); if(evalOp(r.op, v, r.value)) continue;
+      for(const x of tg){ const v=S(x.row[ci]).trim(); if(evalOp(r.op, v, r.value)){ if(Array.isArray(window.EDC8_PASS)) window.EDC8_PASS.push({ rowNum:x.rowNum, item:x.itemKey.padStart(5,'0'), partNo:E_PART!==-1?S(x.row[E_PART]).trim():'', col:label, found:v||'(ว่าง)', expected:opText(r.op, r.value), severity:'pass', source:'special', type:'pass', compareType:'text', ruleId:r.id }); continue; }   /* [EDC8] ✅ */
         out.push({ rowNum:x.rowNum, item:x.itemKey.padStart(5,'0'), partNo:E_PART!==-1?S(x.row[E_PART]).trim():'', col:label, found:v||'(ว่าง)', expected:opText(r.op, r.value),
                    errorCode:'SPECIAL_RULE_FAIL', severity:'error', source:'special', type:v?'mismatch':'missing', compareType:'text', ruleId:r.id }); }
     }
@@ -12509,39 +12537,45 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     else { if(act==='(ว่าง)' || e.type==='missing') st='❌ ว่าง'; note=e.source==='header'?'Header / ไฟล์':'ใบขน EDC8'; }
     return { item:it, field:S(e.col).replace(/\s*\(Master\)\s*$/,''), act, exp, fix, st, note, part:S(e.partNo).trim(), src:S(e.source) };   /* [EDC8] ชื่อหัวข้อแสดงผล: ตัด "(Master)" ท้ายชื่อ (กฎ / แหล่งข้อมูลเดิม) */
   }
-  function group(errors){
+  function group(errors, passes){
     const map=new Map(), order=[];
     /* [EDC8] รวม ITEM ได้เฉพาะเมื่อ หัวข้อ + Actual + Expected + FIX + สถานะ + Part No. เหมือนกันทุกค่า · ค่าใดต่างกัน = แยกแถว · ทุก ITEM ที่ผิดยังอยู่ครบ */
     /* [EDC8] 1) รวมผลทุกแหล่งของ ITEM + หัวข้อเดียวกันเป็นแถวเดียว (ใบขน · INVOICE · FIX · พิกัด · MASTER APL) — ไม่ซ่อนค่าแหล่งอื่น
        หัวข้อหลายแหล่ง (PART NO. / DESCRIPTION = INVOICE + MASTER APL): เติมค่าอ้างอิงจริงของแหล่งที่ตรงด้วย (EDC8_REF จาก Validator) · ไม่พบ = ข้อความไม่พบ */
     const REF=window.EDC8_REF instanceof Map ? window.EDC8_REF : new Map(), PRI=['❌ ไม่พบ','❌ ระบุแถวไม่ได้','❌ MASTER ว่าง','❌ ว่าง','❌ ผิด'];
     const MULTI={ 'PART NO.':'part', 'PART NO. (INVOICE)':'part', 'DESCRIPTION':'desc' }, per=new Map(), porder=[];
-    for(const e of errors.filter(x=>x.severity==='error')){ const r=toRow(e);
+    /* [EDC8] แสดงครบทุกสถานะ: ✅ ผลตรวจที่ถูกต้อง (EDC8_PASS — บันทึก ณ จุดตรวจเดิมของ Validator) รวมกับ ❌ ในแถว ITEM + หัวข้อเดียวกัน · ไม่สร้างผลตรวจเพิ่ม */
+    const OKST='✅ ถูก', src=errors.filter(x=>x.severity==='error').concat((passes||[]).filter(x=>x && x.severity==='pass'));
+    for(const e of src){ const r=toRow(e); if(e.severity==='pass') r.st=OKST;
       if(r.src==='permit'){ per.set('P\u0001'+porder.length, r); porder.push('P\u0001'+porder.length); continue; }
       const k=r.item+'\u0001'+r.field, c=col8(r);
       if(!per.has(k)){ per.set(k, Object.assign({}, r, { c8:{ decl:c.decl, inv:DASH, fix:DASH, trf:DASH, apl:DASH }, sts:[] })); porder.push(k); }
       const g=per.get(k); ['inv','fix','trf','apl'].forEach(x=>{ if(c[x]!==DASH) g.c8[x]=c[x]; }); g.sts.push(c.st); }
     porder.forEach(k=>{ const g=per.get(k); if(!g.c8) return;
-      const f=MULTI[g.field], ref=REF.get(g.item);
-      if(f && ref){ if(g.c8.inv===DASH) g.c8.inv=ref.inv ? (S(ref.inv[f]).trim()||'(ว่าง)') : (ref.invNF ? 'ไม่พบใน INVOICE' : DASH);
-                    if(g.c8.apl===DASH) g.c8.apl=ref.apl ? (S(ref.apl[f]).trim()||'(MASTER ว่าง)') : (ref.aplNF || DASH); }
-      g.st=PRI.find(p=>g.sts.includes(p)) || g.sts[0]; });
+      const f=MULTI[g.field], ref=REF.get(g.item), bad=g.sts.filter(x=>x!==OKST);
+      if(f && ref){ if(g.c8.inv===DASH) g.c8.inv=ref.inv ? (S(ref.inv[f]).trim()||'(ว่าง)') : (ref.invNF && bad.length ? 'ไม่พบใน INVOICE' : DASH);
+                    if(g.c8.apl===DASH) g.c8.apl=ref.apl ? (S(ref.apl[f]).trim()||'(MASTER ว่าง)') : (bad.length ? (ref.aplNF || DASH) : DASH); }
+      g.st=PRI.find(p=>bad.includes(p)) || bad[0] || OKST; });   /* มี ❌ แหล่งใด = ❌ (ลำดับเดิม) · ถูกทุกแหล่งที่ตรวจ = ✅ */
     for(const k of porder){ const r=per.get(k);
-      const kk=r.c8 ? [r.field, r.c8.decl, r.c8.inv, r.c8.fix, r.c8.trf, r.c8.apl, r.st, r.part].join('\u0001') : [r.field, r.act, r.exp, r.fix, r.st, r.part, 'P'].join('\u0001');
+      const kk=r.c8 ? [r.item, r.field].join('\u0001') : [r.field, r.act, r.exp, r.fix, r.st, r.part, 'P'].join('\u0001');   /* [EDC8] 1 แถว = 1 ITEM + 1 หัวข้อ (ไม่รวม ITEM ข้ามแถว · ทุก ITEM เห็นหัวข้อครบ) · ใบอนุญาตคงการรวมเดิม */
       if(!map.has(kk)){ map.set(kk, Object.assign({}, r, { items:[] })); order.push(kk); } map.get(kk).items.push(r.item); }
     const fo=[]; order.forEach(k=>{ const f=map.get(k).field; if(!fo.includes(f)) fo.push(f); });
     const itemNo=g=>{ const n=parseInt(S(g.items[0]).replace(/\D/g,''),10); return isNaN(n) ? -1 : n; };   /* ระดับไฟล์ ('-') ขึ้นก่อน · จากนั้นตามลำดับ ITEM ในใบขน */
+    const ex=TOPIC_ORDER.indexOf('Export Tax'), rk=f=>{ const i=TOPIC_ORDER.indexOf(f); return i!==-1 ? i*1000 : ex*1000+1+fo.indexOf(f); };   /* [EDC8] ลำดับหัวข้อคงที่ทุก ITEM (ตามลำดับตรวจ) */
     return order.map((k,i)=>{ const g=map.get(k); const o=Object.assign({}, g, { item:kdcFmtItems(g.items), count:g.items.length, _i:i, _n:itemNo(g) }); return o; })
-      .sort((a,b)=>(a._n-b._n) || (fo.indexOf(a.field)-fo.indexOf(b.field)) || (a._i-b._i)).map(o=>{ delete o._i; delete o._n; return o; });   /* [EDC8] เรียงตามลำดับ ITEM ในใบขนก่อน (กลุ่มที่รวม ITEM วางที่ ITEM แรก) · ITEM เดียวกันเรียงตามลำดับหัวข้อ */
+      .sort((a,b)=>(a._n-b._n) || (rk(a.field)-rk(b.field)) || (a._i-b._i)).map(o=>{ delete o._i; delete o._n; return o; });   /* [EDC8] เรียงตามลำดับ ITEM ในใบขนก่อน (กลุ่มที่รวม ITEM วางที่ ITEM แรก) · ITEM เดียวกันเรียงตามลำดับหัวข้อ */
   }
   /* [EDC8] ตาราง ❌ 8 คอลัมน์: Item No. | หัวข้อตรวจสอบ | ใบขน | INVOICE | FIX | MASTER (พิกัด · MASTER APL) | สถานะ
      ค่าอ้างอิงแสดงเฉพาะคอลัมน์ของแหล่งจริง (ไม่เกี่ยว = —) · ข้อผิดพลาดใบอนุญาต (MASTER HS CODE ใบอนุญาต) แยกไปตารางในส่วน 📋 ใบอนุญาต รูปแบบเดิม */
   const DASH='—';
+  const TOPIC_ORDER=['PART NO.','PART NO. (INVOICE)','PART NO. (INVOICE ซ้ำ)','PART NO. (Master ซ้ำ)','INVOICE NO.','DESCRIPTION','PART QTY','DATE SHIPPED','PART NUMBER/TEILNUMMER','Unit Price','Amount','Currency','Amount THB','SHIPPING MARK','Term','Consignee','Purcountry','ประเทศปลายทาง','Exporter Name','Origin',
+    'Total Amount THB','Total N.W','Total G.W','Total PACKAGE','Export Tax','Model version -555','HS Code','คำแปลไทย','Stat Code'];   /* [EDC8] ลำดับหัวข้อในแต่ละ ITEM (สิทธิ / กฎพิเศษอื่น = หลัง Export Tax ตามลำดับที่พบ) */
   /* [EDC8] FIX 9 หัวข้อ → แสดงด้านบนของตารางหลัก ไม่ระบุ ITEM (—) · 1 แถวต่อหัวข้อต่อค่าใบขน · ✅ ถูก / ❌ ผิด / ⚠️ ตรวจไม่ได้
      ตรวจทุก ITEM เหมือนเดิม (Error ราย ITEM ยังอยู่ใน edc8AllErrors · ใช้นับ PASS / FAIL) · ไม่แสดงซ้ำในส่วน ⚪ */
   const FIX_TOPICS=[ { t:'Privilege', col:'privilege' }, { t:'Tariff', col:'tariff' }, { t:'QTY', col:'QTY', fix:'C62' }, { t:'QTY ใบขน', col:'QTY ใบขน', fix:'C62' }, { t:'QTY 2', col:'QTY 2', fix:'EA' },
     { t:'Brand', col:'brand' }, { t:'Naturetran', col:'naturetran' }, { t:'Prodyear', col:'prodyear' }, { t:'ประเภทใบขน', col:'ประเภทใบขน' } ];
-  (function(){ try{ const q={}; (typeof EDC8_QTY_FIXED!=='undefined' ? EDC8_QTY_FIXED : []).forEach(x=>{ q[x.col]=x.expected; }); FIX_TOPICS.forEach(f=>{ if(f.fix!==undefined && q[f.col]) f.fix=q[f.col]; }); }catch(_){} })();   /* ค่า FIX QTY จาก EDC8_QTY_FIXED เดิม */
+  (function(){ try{ const q={}; (typeof EDC8_QTY_FIXED!=='undefined' ? EDC8_QTY_FIXED : []).forEach(x=>{ q[x.col]=x.expected; }); FIX_TOPICS.forEach(f=>{ if(f.fix!==undefined && q[f.col]) f.fix=q[f.col]; });
+    (typeof EDC8_FIX!=='undefined' ? EDC8_FIX : []).forEach(x=>{ const t=FIX_TOPICS.find(f=>f.t===x.topic); if(t) t.fix=x.expected; }); }catch(_){} })();   /* ค่า FIX จาก EDC8_QTY_FIXED + EDC8_FIX */   /* ค่า FIX QTY จาก EDC8_QTY_FIXED เดิม */
   const fixTopicOf=e=>{ const c=S(e.col).replace(/\s*\(ค่าฟิก\)\s*$/,''); return FIX_TOPICS.find(f=>f.t===c) || null; };
   function ruleFor(field){ if(!masterWb || !masterWb._apl) return null; const md=masterWb._mode, now=new Date(), td=now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate());
     return (masterWb._rules||[]).find(r=>(r.company==='ALL' || r.company===md || r.company==='AAT+FTM') && !((r.start_date && td<r.start_date) || (r.end_date && td>r.end_date)) && NV(r.edc8_field)===NV(field)) || null; }
@@ -12605,8 +12639,9 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     let PM=null;
     if(MODE()==='AAT' || MODE()==='FTM'){ const P=PMX8; PMX8=null; PM=aatPermitRun(P || { ok:false, err:'ไม่ได้โหลด MASTER HS CODE ใบอนุญาตก่อนตรวจ — กรุณากดตรวจสอบใหม่' }); errors=errors.concat(PM.errs); }   /* [EDC8 AAT] ผลใบอนุญาตรวมใน Error ชุดเดียว (หน้าจอ = EXPORT) */
     const FX=fixRows(errors), errsM=errors.filter(e=>!FX.belongs(e));   /* [EDC8] FIX 9 หัวข้อ → แถวด้านบน (ไม่ระบุ ITEM) · ไม่ซ้ำในตาราง ❌ / ⚪ */
-    const G=group(errsM), m=metaOf(errors, totalChecked), isErr=m.points>0, NA=naGroup(errsM);
-    m.failTopics=[...new Set(G.map(x=>x.field).concat(FX.rows.filter(r=>/^❌/.test(r.st)).map(r=>r.field)))]; m.naTopics=[...new Set(NA.map(x=>x.topic).concat(FX.unchecked))];   /* [EDC8 39 หัวข้อ] สรุปหัวข้อ ผิด / ตรวจไม่ได้ (ชุดเดียวกับหน้าจอ + Excel) */
+    const passM=PM && Array.isArray(window.EDC8_PASS) ? window.EDC8_PASS.filter(e=>!FX.belongs(e)) : [];   /* [EDC8] ✅ ผลตรวจที่ถูกต้อง → ตารางหลัก + Excel ชุดเดียวกัน */
+    const G=group(errsM, passM), m=metaOf(errors, totalChecked), isErr=m.points>0, NA=naGroup(errsM);
+    m.failTopics=[...new Set(G.filter(x=>!/^✅/.test(x.st)).map(x=>x.field).concat(FX.rows.filter(r=>/^❌/.test(r.st)).map(r=>r.field)))]; m.naTopics=[...new Set(NA.map(x=>x.topic).concat(FX.unchecked))];   /* [EDC8 39 หัวข้อ] สรุปหัวข้อ ผิด / ตรวจไม่ได้ (ชุดเดียวกับหน้าจอ + Excel) */
     LAST={ grouped:G, meta:m, na:NA, fixRows:FX.rows };
     if(PM){ m.permit=kdcPermitSummary(PM.cats, m.items); m.permitOk=!!PM.P.ok; m.permitErr=S(PM.P.err); LAST.permit=PM; LAST.blocked=!PM.P.ok;
       return aatRender(G, m, NA, PM, FX.rows); }
@@ -12691,7 +12726,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(blocked) html+='<div class="e8k-pm-block" style="padding:10px 16px;margin-bottom:10px;border:1px solid #f2cdc8;border-radius:8px;background:#fdf3f2;color:#b42318;font-weight:600">⚠ โหลด MASTER HS CODE ใบอนุญาตไม่ได้ ('+esc(m.permitErr||'load_fail')+') — ยังไม่ได้ตรวจใบอนุญาต · ไม่แสดง PASS และระงับ EXPORT · กรุณากด ตรวจสอบ ใหม่</div>';
     html+='<div class="kdc-chips e8k-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+c('warn','⚪ ไม่ตรวจ '+m.na+' item (ไม่นับ)')+(m.filePoints?c('err','❌ ระดับไฟล์ / Mapping '+m.filePoints+' จุด (ไม่นับเป็น ITEM)'):'')+c('warn','❌ '+m.points+' จุด')+c('err','❌ ผิด '+m.failTopics.length+' หัวข้อ')+c('warn','⚠️ ตรวจไม่ได้ '+nNa+' หัวข้อ')+
       c('ok','MASTER APL v'+esc(m.masterVer)+' ('+esc(m.mode)+')')+(m.invoiceNo?c('ok','INVOICE '+esc(m.invoiceNo)):'')+'</div>'+kdcPermitChips(m.permit);
-    html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก / MASTER HS CODE ใบอนุญาต)</span></div>';
+    html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก / MASTER HS CODE ใบอนุญาต · แสดงผลตรวจทุกสถานะ ✅ / ❌ / ⚠️)</span></div>';
     const GM=G.filter(x=>x.src!=='permit'), GP=G.filter(x=>x.src==='permit');   /* [EDC8] ❌ หลัก 8 คอลัมน์ · ใบอนุญาตแยกในส่วน 📋 */
     const ROWS8=(FXR||[]).concat(GM.map(col8));   /* FIX ด้านบน (Item —) แล้วตามด้วยรายการผิดราย ITEM */
     if(!ROWS8.length) html+='<div class="e8k-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด'+(nNa?' (ในหัวข้อที่ตรวจได้ · ⚠️ ยังตรวจไม่ได้ '+nNa+' หัวข้อ — ดูตาราง ⚪ ด้านล่าง)':'')+'</div>';
@@ -12748,7 +12783,8 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     };
     section('✓  1. ข้อมูลที่ถูกต้อง', okG, m.pass+' item', X.SECOK, X.SECOKR, X.HDROK, X.ST_OK, 'ถูกต้อง');
     { /* ✕ 2. ข้อมูลที่ผิด — 8 คอลัมน์ (หัว 2 แถว · MASTER ครอบ พิกัด + MASTER APL) */
-      put(r,0,'✕  2. ข้อมูลที่ผิด',X.SECBAD); fillRow(r,X.SECBAD,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+bad8.length+' แถว · '+m.fail+' item · '+m.points+' จุด',X.SECBADR); fillRow(r,X.SECBADR,5,7); mg(r,5,r,7); rowsH[r]=28; r++;
+      const nOk=bad8.filter(x=>/^✅/.test(x.st)).length;   /* [EDC8] ตารางเดียวกับหน้าจอ (✅ / ❌ / ⚠️ ทุกแถว) */
+      put(r,0,'✕  2. ข้อมูลที่ผิด',X.SECBAD); fillRow(r,X.SECBAD,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+bad8.length+' แถว (✅ '+nOk+' · ❌/⚠️ '+(bad8.length-nOk)+') · '+m.fail+' item · '+m.points+' จุด',X.SECBADR); fillRow(r,X.SECBADR,5,7); mg(r,5,r,7); rowsH[r]=28; r++;
       ['Item No.','หัวข้อตรวจสอบ','ใบขน','INVOICE','FIX','MASTER','','สถานะ'].forEach((c,i)=>put(r,i,c,X.HDRBAD)); ['','','','','','พิกัด','MASTER APL',''].forEach((c,i)=>put(r+1,i,c,X.HDRBAD));
       [0,1,2,3,4,7].forEach(c=>mg(r,c,r+1,c)); mg(r,5,r,6); rowsH[r]=22; rowsH[r+1]=22; r+=2;
       bad8.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,S(x.decl),X.CELL_L); put(r,3,S(x.inv),X.CELL_L); put(r,4,S(x.fix),X.CELL_L); put(r,5,S(x.trf),X.CELL_L); put(r,6,S(x.apl),X.CELL_L); put(r,7,S(x.st).replace(/^(❌|✅|⚠️)\s*/,''),/^✅/.test(x.st)?X.ST_OK:(/^⚠️/.test(x.st)?X.ST_NA:X.ST_BAD)); r++; });
