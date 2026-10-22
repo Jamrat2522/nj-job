@@ -140,3 +140,33 @@ h1{font-size:var(--fs-2xl);font-weight:600}h2{font-size:var(--fs-xl);font-weight
 .bl-filter .bl-row .inp[type="date"]{width:112px;min-width:112px;flex:0 0 112px}
 .bl-row .bl-acts518{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;flex-wrap:nowrap;min-width:max-content}
 .bl-row .bl-acts518>.btn{height:30px;min-height:30px;padding:0 8px;font-size:var(--fs-xs);line-height:1;display:inline-flex;align-items:center;flex:0 0 auto}
+/*! V.519 BILLING PDF : หน้าต่าง Preview พอดีกรอบเอกสาร A4 (เฉพาะหน้าจอ · ไม่กระทบการพิมพ์) */
+@media screen{
+.modal-bk.modal-fs.bpd-pv519 .modal.modal-w80.bpd-pv519{position:absolute;inset:12px 0;margin:0 auto;width:min(calc(100% - 24px),calc(297mm + 40px));height:auto;max-width:none;max-height:none}
+.modal.bpd-pv519>.modal-h{padding:8px 12px}
+.modal.bpd-pv519>.modal-b:has(.bpd-fit){padding:6px;justify-content:safe center;overflow:auto;scrollbar-gutter:stable}
+.modal.bpd-pv519>.modal-f{padding:8px 10px;gap:6px 10px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.modal.bpd-pv519>.modal-f>div{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;flex:1 1 auto;width:100%;min-width:0}
+.modal.bpd-pv519>.modal-b:has(.bpd-fit)>div{flex:0 0 auto;width:100%;min-width:0}
+.modal.bpd-pv519>.modal-f .mf-left{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;width:auto;min-width:0;flex:1 1 0;margin:0;justify-content:flex-start}
+.modal.bpd-pv519>.modal-f .mf-right{display:flex;align-items:center;gap:6px;width:auto;flex:0 0 auto;margin-left:auto;flex-wrap:nowrap}
+.modal.bpd-pv519>.modal-f .btn{height:32px;min-height:32px;padding:0 10px;flex:0 0 auto}
+.modal.bpd-pv519 .bpd-zoom{flex:0 0 auto}
+.modal.bpd-pv519 .bpd-zoom .btn{min-width:32px;padding:0 7px}
+.modal.bpd-pv519 .bpd-fname509{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;margin-left:0 !important}
+}
+/*! V.521 QUOTATION PDF : ซ่อนแถว Subtotal ของทุกกลุ่มรายการ (ทั้งแถว · ไม่เหลือแถวว่าง · Preview = Print/PDF) — ข้อมูล/ยอดเงินจริงไม่เปลี่ยน */
+.qtd-tbl tr.qtd-gs{display:none !important}
+/*! V.523 ACCOUNTING — SERVICE / ADVANCE : ช่องชื่อบริษัทต่อจากลูกค้า (รูปแบบเดียวกับ Dropdown เดิม) · จอแคบจัด 2 แถว ไม่ล้น */
+.fbar-grid.fbar-acc523{grid-template-columns:minmax(230px,1.6fr) repeat(5,minmax(110px,1fr)) repeat(2,140px) auto}
+.fbar-grid.fbar-acc523 .inp-search{min-width:0}
+@media (max-width:1540px){.fbar-grid.fbar-acc523{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media (max-width:900px){.fbar-grid.fbar-acc523{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fbar .co523{min-width:0}
+.fbar .co523 .cbx{width:100%}
+.fbar .co523 .cbx-inp{height:36px;width:100%;min-width:0;padding:6px 26px 6px 10px;font-size:var(--fs-sm)}
+.fbar .co523 .cbx-inp::placeholder{color:var(--text-1,#1e293b);opacity:1}
+/*! V.524 QUOTATION : ช่อง No. แก้ไขได้ + ปุ่ม ↕ เรียงใหม่ */
+.qt-lines td .qt-no524{width:46px;min-width:46px;max-width:46px;height:32px;padding:4px 2px;text-align:center;flex:none}
+.qt-lines td .qt-no524.qt-bad{border-color:var(--red-600);background:#FEF2F2}
+.qt-svc-h .qt-reord524{flex:0 0 auto;white-space:nowrap}
