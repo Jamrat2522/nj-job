@@ -1237,7 +1237,8 @@
   }
   const FL_HEAD = ['วันที่กำหนดส่ง', 'ทะเบียน', 'ทะเบียนหาง', 'ผู้ขับ', 'ชื่อบริษัท', 'เบอร์ตู้', 'สถานที่', 'Job/BL', 'ไมล์ก่อน', 'ไมล์หลัง', 'ระยะ(กม.)', 'ลิตร', 'บาท/ลิตร', 'รวม(บาท)', 'กม./ลิตร', 'สถานะ', 'บาท/กม.', 'หมายเหตุ', 'จัดการ'];
   // คอลัมน์ที่ต้นแบบซ่อน (.col-hide{display:none} — ข้อมูลยังอยู่ใน DOM): ลิตร / บาท/ลิตร / บาท/กม. / หมายเหตุ
-  const FL_HIDE = new Set(['บาท/ลิตร', 'บาท/กม.', 'หมายเหตุ']); // ลิตร = แสดง (ข้อมูลน้ำมันตามระบบเดิม)
+  const FL_HIDE = new Set(['ทะเบียนหาง', 'สถานที่', 'บาท/ลิตร', 'บาท/กม.', 'หมายเหตุ']); // local187: ซ่อนทะเบียนหาง / สถานที่ (แสดงผลเท่านั้น · ข้อมูล / Excel คงเดิม)
+  const flCut = (v) => { const a = Array.from(String(v == null ? '' : v)); return a.length > 10 ? a.slice(0, 10).join('') + '...' : a.join(''); }; // local187: แสดงไม่เกิน 10 ตัวอักษร + Tooltip ข้อความเต็ม // ลิตร = แสดง (ข้อมูลน้ำมันตามระบบเดิม)
   const FL_NUMH = new Set(['ไมล์ก่อน', 'ไมล์หลัง', 'ระยะ(กม.)', 'ลิตร', 'บาท/ลิตร', 'รวม(บาท)', 'กม./ลิตร', 'บาท/กม.']);
   async function pageFuel(page) {
     // ⛽ รายงานไมล์ / น้ำมัน — หน้าเดียว · ชุดข้อมูลเดียว = บิลขนส่ง (fuel_logs: key FL:id) + JOB (tnj_mileage_table: key JOB:job_id)
@@ -1355,8 +1356,8 @@
     const rowHtml = (r) => { const c = r.calc; const isJ = r.src === 'JOB';
       const act = isJ ? (canDel ? (r.base.lt > 0 || r.base.tc > 0 ? `<button class="btn btn-sm" data-jed="${h(r.key)}">✏️ แก้ไข</button>` : `<button class="btn btn-sm btn-p" data-jed="${h(r.key)}">✏️ บันทึกน้ำมัน</button>`) : '')
         : `<span class="badge gray">บิล</span>${canAdd ? ` <button class="btn btn-sm" data-eid="${r.id}">✏️ แก้ไข</button>` : ''}${canDel ? ` <button class="btn btn-sm btn-r" data-did="${r.id}">🗑️ ลบ</button>` : ''}`;
-      return `<tr data-key="${h(r.key)}"${isJ ? ` data-job="${h(r.job_id)}"` : ` data-fid="${r.id}"`}><td class="nowrap">${h(r.fuel_date || '-')}</td><td><span class="badge blue">${h(r.plate_no || '-')}</span></td><td class="nowrap">${h(r.trailer_plate || '—')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td>${h(r.company_name || '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td>${h(r.route_location || '—')}</td>
-        <td>${h(r.job_bl || '—')}${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}${prevNote(r)}</td>
+      return `<tr data-key="${h(r.key)}"${isJ ? ` data-job="${h(r.job_id)}"` : ` data-fid="${r.id}"`}><td class="nowrap">${h(r.fuel_date || '-')}</td><td><span class="badge blue">${h(r.plate_no || '-')}</span></td><td class="nowrap fl-col-hide">${h(r.trailer_plate || '—')}</td><td class="nowrap">${h(r.driver_name || '-')}</td><td class="fl-cut"${r.company_name ? ` title="${h(r.company_name)}"` : ''}>${h(r.company_name ? flCut(r.company_name) : '—')}</td><td class="mono" style="color:var(--blue)">${h(r.container_no || '—')}</td><td class="fl-col-hide">${h(r.route_location || '—')}</td>
+        <td><span class="fl-cut"${r.job_bl ? ` title="${h(r.job_bl)}"` : ''}>${h(r.job_bl ? flCut(r.job_bl) : '—')}</span>${r.dupOf ? ' <span class="badge amber" title="Job/BL ตรงกับ JOB ที่มีไมล์/น้ำมันแล้ว — ตรวจสอบ">⚠ อาจซ้ำ JOB</span>' : ''}${prevNote(r)}</td>
         <td class="r">${mi(r.mileage_before)}</td><td class="r">${mi(r.mileage_after)}</td><td class="r b" style="color:var(--navy)">${flFmt(c.dist)}</td><td class="r">${flFmt(c.lt)}</td><td class="r fl-col-hide">${flFmt(c.ppl)}</td><td class="r b" style="color:var(--green)">${flFmt(c.tc, 0)}</td>
         <td class="r" style="${c.state === 'low' ? 'color:var(--red);font-weight:700' : ''}">${dash(c.kpl)}</td>
         <td class="nowrap" data-fsv="${r.fs}">${fsCell(r)}${c.err ? `<div class="xs" style="color:var(--red)">${h(c.err)}</div>` : ''}</td>
