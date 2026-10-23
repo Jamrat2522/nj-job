@@ -578,8 +578,8 @@ table.tbl-charge .acc529-hide,.bl-h529{display:none !important}
 .jm546-acc #bm-doc-body.sf551{padding:0}
 .jm546-acc #bm-doc-body.sf551>.jm546-sec:first-child{margin-top:0}
 .sf551-ro .inp[readonly]{background:var(--surface-2);cursor:default}
-.jm551a #bm-doc-body.sf551{padding:0}
-.jm551a #bm-doc-body.sf551>.jm542-main{margin:0 -1px;border-radius:0 0 12px 12px}
+.jm551a #bm-doc-body.sf551{padding:0!important}
+.jm551a #bm-doc-body.sf551>.jm542-main{margin:0 -1px 12px!important;border-radius:0 0 12px 12px}
 .jm551a .sf551-more{margin:0 0 12px}
 .jm551a .sf551-more>.jm542-more{margin:0}
 .jm551a .jm544-head.jm551-head{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px 10px}
@@ -599,3 +599,31 @@ table.tbl-charge .acc529-hide,.bl-h529{display:none !important}
 .jm551a .jm546-invcard .jm544-ctx>.inp,.jm551a .jm546-datecard .jm544-ctx>.inp{height:28px!important;font-size:14px!important}
 .jm551a .jm546-datecard .bm-pdate-btn{height:28px;padding:0 10px;border-radius:6px}
 .jm551a .jm546-datecard{width:fit-content;max-width:100%}.jm551a .jm546-datecard .jm544-ctx{flex:none}.jm551a .jm546-datecard .jm544-ctx>.inp{width:170px!important;flex:none!important}.jm551a .jm546-datecard .bm-pdate-btn{flex:none}
+
+/*! V.552 ตาราง INVOICE กลาง (SF551.invTable / invView) : โครงเดียวกับหน้าออกวางบิล ACCOUNTING · DOCUMENT แสดงแบบอ่านอย่างเดียว (.sf552-ro) */
+.sf552-inv .tbl.sf552-ro{table-layout:fixed;width:100%!important;min-width:0!important}
+.sf552-inv .tbl.sf552-ro col.c-seq{width:19%!important}.sf552-inv .tbl.sf552-ro col.c-code{width:17%!important}.sf552-inv .tbl.sf552-ro col.c-desc{width:21%!important}.sf552-inv .tbl.sf552-ro col.c-kind{width:11%!important}.sf552-inv .tbl.sf552-ro col.c-cost{width:11%!important}.sf552-inv .tbl.sf552-ro col.c-amount{width:13%!important}.sf552-inv .tbl.sf552-ro col.c-act{width:8%!important}
+.sf552-inv .tbl.sf552-ro thead th{background:#EAF2FE;color:#1E3A8A;font-weight:700}
+.sf552-inv .tbl.sf552-ro td{padding:5px 8px}
+.sf552-inv .tbl.sf552-ro .inp,.sf552-inv .tbl.sf552-ro .sel{height:36px!important;min-height:36px!important;width:100%;min-width:0;background:#fff;color:#334155;-webkit-text-fill-color:#334155;opacity:1}
+.sf552-inv .tbl.sf552-ro .inp.r{text-align:right}.sf552-inv .tbl.sf552-ro .inp.center{text-align:center}
+.sf552-inv .sf552-code{position:relative}.sf552-inv .sf552-code .inp{padding-right:36px}
+.sf552-inv .sf552-sr{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;background:transparent;color:#2563EB;display:inline-flex;align-items:center;justify-content:center;opacity:.8}
+.sf552-inv .tbl.sf552-ro .jm546-del{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:8px;opacity:.75}
+.sf552-inv .tbl-wrap{overflow-x:visible}
+
+/*! V.553 ACCOUNTING — ADVANCE : ยกเลิกแถบ DOCUMENT ชั้นนอก (เฉพาะ .jm551a) */
+.jm551a #bm-doc-tg.sf553-hide{display:none!important}
+.jm551a .jm-sec.jm-doc.sf553-flat{border:0!important;padding:0!important;margin:0 0 12px!important;background:transparent!important;box-shadow:none!important}
+.jm551a .jm-sec.jm-doc.sf553-flat>#bm-doc-body.sf551{padding:0!important;border:0!important}
+.jm551a .jm-sec.jm-doc.sf553-flat>#bm-doc-body.sf551>.jm542-main{margin:0!important;border-radius:12px}
+.jm551a .sf551-more{margin:0 0 12px}
+
+/*! V.554 DOCUMENT : ไม่มีสิทธิ์ดู INVOICE → แจ้งสิทธิ์ในตารางเดิม (โครงตารางคงเดิม) */
+.sf552-inv.sf554-denied .sf554-deny td{padding:14px 12px!important;background:#FFF7ED;color:#9A3412;font-weight:600;font-size:13.5px;text-align:center}
+.sf554-deny5{color:#9A3412!important;background:#FFF7ED!important}
+
+/* V.555 · จัดการแผนก → รายการแผนก : หัวข้อชิดซ้าย · ปุ่ม + เพิ่มแผนก ชิดขวาสุด แถวเดียวกัน (ปุ่มเดิม สี/ขนาดเดิม) */
+.dp532 .dp-sbx>.dp-sh555{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.dp532 .dp-sbx>.dp-sh555>h3{margin:0;font-size:17px;color:#1e3a8a;border-left:4px solid #2563EB;padding-left:10px;min-width:0}
+.dp532 .dp-sbx>.dp-sh555>.dp-addbig{margin:0 0 0 auto;flex:0 0 auto}
