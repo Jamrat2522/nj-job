@@ -72,7 +72,7 @@ import{SF551,AC546}from"./job-form-4IHODUQT.js";import{a as me}from"./chunk-UFHC
       <button class="btn btn-post" id="bm-post"    disabled>\u2B06 <span>POST</span></button>
       <button class="btn btn-save" id="bm-draft"          >\u{1F4BE} <span>\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</span></button>
       <button class="btn btn-gray" data-close             >\u2715 <span>\u0E1B\u0E34\u0E14</span></button>
-    </div>`;let St=t=>t?t.status==="POSTED"?"INVOICE "+(t.invoice_no||"")+" (POSTED)":"\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E1A\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 (\u0E23\u0E48\u0E32\u0E07)":"\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25";Ft({title:St(y),body:l,footer:g,fullscreen:!0,wide:!0,cls:"modal-flow"}),document.querySelector("#nj-modal .modal-f").classList.add("mf-row"),ae(l,{p:"bmd-"}),te(l,{p:"bmd-"}),Zt(l,"bmd-relport");let kt=C("checklist_enabled")?zt(l,rt,{p:"bmd-"}):null;oe(l,{p:"bmd-",charge:w});LY544(l);LY546B(l,w);LY551A(l,w);let it=!1,Dt=()=>{it=!0};l.addEventListener("input",Dt),l.addEventListener("change",Dt),Mt(l.querySelector("#bm-sync"),()=>b,()=>{j(),De({jobId:b,charge:f,onSaved:m}).catch(S)},()=>it),l.querySelectorAll("#bm-doc-body input[type=checkbox]").forEach(t=>{t.addEventListener("click",e=>{t.dataset.ro==="1"&&e.preventDefault()}),t.addEventListener("keydown",e=>{t.dataset.ro==="1"&&e.preventDefault()})}),SF551.pickers(l,"bmd-"),Bt(l);let wt=document.getElementById("nj-modal");wt&&(wt.scrollTop=0);let Ot=document.querySelector("#nj-modal .modal-b");Ot&&(Ot.scrollTop=0);let u=t=>l.querySelector(t),N=u("#bm-tbody"),z=u("#bm-doc-tg"),lt=u("#bm-doc-body");if(z&&lt){let t=e=>{lt.hidden=!e,z.setAttribute("aria-expanded",e?"true":"false");let n=z.querySelector(".jm-cav");n&&(n.textContent=e?"\u25BE":"\u25B8")};t(lt.classList.contains("sf551")),z.addEventListener("click",()=>t(lt.hidden))}function R(t,{reason:e=!1,okLabel:n="\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19",danger:a=!1}={}){return new Promise(c=>{let o=document.createElement("div");o.className="bm-ask"+(a?" bm-ask-danger":""),o.setAttribute("data-enter-skip",""),o.innerHTML=`<div class="bm-ask-msg">${t}</div>
+    </div>`;let St=t=>t?t.status==="POSTED"?"INVOICE "+(t.invoice_no||"")+" (POSTED)":"\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E1A\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 (\u0E23\u0E48\u0E32\u0E07)":"\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25";St=TT560(St,w);Ft({title:St(y),body:l,footer:g,fullscreen:!0,wide:!0,cls:"modal-flow"}),document.querySelector("#nj-modal .modal-f").classList.add("mf-row"),ae(l,{p:"bmd-"}),te(l,{p:"bmd-"}),Zt(l,"bmd-relport");let kt=C("checklist_enabled")?zt(l,rt,{p:"bmd-"}):null;oe(l,{p:"bmd-",charge:w});LY544(l);LY546B(l,w);LY551A(l,w);HB560(l,w,St);let it=!1,Dt=()=>{it=!0};l.addEventListener("input",Dt),l.addEventListener("change",Dt),Mt(l.querySelector("#bm-sync"),()=>b,()=>{j(),De({jobId:b,charge:f,onSaved:m}).catch(S)},()=>it),l.querySelectorAll("#bm-doc-body input[type=checkbox]").forEach(t=>{t.addEventListener("click",e=>{t.dataset.ro==="1"&&e.preventDefault()}),t.addEventListener("keydown",e=>{t.dataset.ro==="1"&&e.preventDefault()})}),SF551.pickers(l,"bmd-"),Bt(l);let wt=document.getElementById("nj-modal");wt&&(wt.scrollTop=0);let Ot=document.querySelector("#nj-modal .modal-b");Ot&&(Ot.scrollTop=0);let u=t=>l.querySelector(t),N=u("#bm-tbody"),z=u("#bm-doc-tg"),lt=u("#bm-doc-body");if(z&&lt){let t=e=>{lt.hidden=!e,z.setAttribute("aria-expanded",e?"true":"false");let n=z.querySelector(".jm-cav");n&&(n.textContent=e?"\u25BE":"\u25B8")};t(lt.classList.contains("sf551")),z.addEventListener("click",()=>t(lt.hidden))}function R(t,{reason:e=!1,okLabel:n="\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19",danger:a=!1}={}){return new Promise(c=>{let o=document.createElement("div");o.className="bm-ask"+(a?" bm-ask-danger":""),o.setAttribute("data-enter-skip",""),o.innerHTML=`<div class="bm-ask-msg">${t}</div>
         ${e?'<input class="inp" id="bm-ask-reason" placeholder="\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25 (\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19)">':""}
         <div class="bm-ask-act">
           <button class="btn btn-gray btn-sm" data-no>\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</button>
@@ -224,6 +224,41 @@ function LY551A(l, w) {
     var pv2 = l.querySelector("#bm-due-pv"); pv2 && A.mo.appendChild(pv2);
     head.classList.add("jm546-head2", "jm551-head");
   } catch (e) { try { console.warn("LY551A", e); } catch (_e) {} }
+}
+
+/* V.560 \u00B7 ACCOUNTING \u2014 SERVICE / ACCOUNTING \u2014 ADVANCE \u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 : \u0E2A\u0E48\u0E27\u0E19\u0E2B\u0E31\u0E27\u0E19\u0E49\u0E33\u0E40\u0E07\u0E34\u0E19\u0E44\u0E25\u0E48\u0E40\u0E09\u0E14 (\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19)
+   TT560 : \u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07 = "ACCOUNTING \u2014 <SERVICE|ADVANCE> (\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25)" \u00B7 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E43\u0E1A (\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E1A\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 (\u0E23\u0E48\u0E32\u0E07) / INVOICE \u2026 (POSTED)) \u0E15\u0E48\u0E2D\u0E17\u0E49\u0E32\u0E22\u0E2B\u0E25\u0E31\u0E07 " \u00B7 " \u0E44\u0E21\u0E48\u0E15\u0E31\u0E14\u0E17\u0E34\u0E49\u0E07 (\u0E15\u0E31\u0E27\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E14\u0E34\u0E21 St \u0E22\u0E31\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E2A\u0E16\u0E32\u0E19\u0E30)
+   HB560 : \u0E22\u0E49\u0E32\u0E22\u0E41\u0E16\u0E1A JOB NJ / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 \u0E40\u0E14\u0E34\u0E21 ([data-bmhead] \u00B7 #bm-jobno \u00B7 #bm-jobdate \u00B7 id / \u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21) \u0E02\u0E36\u0E49\u0E19\u0E44\u0E1B\u0E2D\u0E22\u0E39\u0E48\u0E1A\u0E19\u0E41\u0E16\u0E1A\u0E2B\u0E31\u0E27\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E41\u0E25\u0E30\u0E1B\u0E38\u0E48\u0E21 \u2715 \u2014 \u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E48\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48 \u0E44\u0E21\u0E48\u0E41\u0E15\u0E30\u0E1F\u0E2D\u0E23\u0E4C\u0E21 / \u0E15\u0E32\u0E23\u0E32\u0E07 / Footer \u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07
+   \u0E17\u0E33\u0E07\u0E32\u0E19\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E41\u0E16\u0E1A\u0E40\u0E14\u0E34\u0E21\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14 JOB NJ + \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 (\u0E01\u0E32\u0E23\u0E4C\u0E14 INVOICE / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 \u0E16\u0E39\u0E01 LY546B / LY551A \u0E22\u0E49\u0E32\u0E22\u0E25\u0E07\u0E02\u0E49\u0E2D 5 / \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21\u0E41\u0E25\u0E49\u0E27) \u00B7 \u0E04\u0E25\u0E32\u0E2A .jm560 \u0E21\u0E35\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25\u0E19\u0E35\u0E49 */
+function TT560(St, w) {
+  var base = "\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25", pre = "ACCOUNTING \u2014 " + (w === "ADVANCE" ? "ADVANCE" : "SERVICE") + " (" + base + ")";
+  var fn = function (t) { var o = St(t); fn.last = o === base ? "" : o; ST560(fn.last); return pre; };
+  fn.last = "";
+  return fn;
+}
+/* \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E43\u0E1A (\u0E08\u0E32\u0E01\u0E15\u0E31\u0E27\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E14\u0E34\u0E21) \u2192 \u0E1B\u0E49\u0E32\u0E22\u0E40\u0E25\u0E47\u0E01\u0E02\u0E49\u0E32\u0E07\u0E0A\u0E37\u0E48\u0E2D : \u0E23\u0E48\u0E32\u0E07 / POSTED \u00B7 \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E40\u0E15\u0E47\u0E21\u0E40\u0E14\u0E34\u0E21\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19 title (tooltip) */
+function ST560(o) {
+  var c = document.querySelector("#nj-modal .modal-h>.jm560-st"); if (!c) return;
+  var posted = /POSTED/.test(o), draft = !posted && /\u0E23\u0E48\u0E32\u0E07/.test(o);
+  c.textContent = posted ? "POSTED" : draft ? "\u0E23\u0E48\u0E32\u0E07" : o; c.title = o; c.hidden = !o;
+  c.classList.toggle("is-posted", posted); c.classList.toggle("is-draft", draft);
+}
+function HB560(l, w, St) {
+  try {
+    var md = l.closest(".modal"), mh = md && md.querySelector(":scope>.modal-h"), h3 = mh && mh.querySelector(":scope>h3"), x = mh && mh.querySelector(":scope>[data-close]"), head = l.querySelector("[data-bmhead]");
+    if (!md || !mh || !h3 || !x || !head || md.classList.contains("jm560")) return;
+    var no = head.querySelector("#bm-jobno"), jd = head.querySelector("#bm-jobdate");
+    if (!no || !jd || !head.children.length) return;
+    var only = Array.prototype.every.call(head.children, function (c) { return c.classList.contains("jm544-card") && (c.contains(no) || c.contains(jd)); });
+    if (!only) return;
+    md.classList.add("jm560", w === "ADVANCE" ? "jm560-adv" : "jm560-svc");
+    var ic = document.createElement("span"); ic.className = "jm560-hi"; ic.setAttribute("aria-hidden", "true");
+    ic.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>';
+    mh.insertBefore(ic, h3);
+    var sc = document.createElement("span"); sc.className = "jm560-st"; sc.hidden = true; mh.insertBefore(sc, h3.nextSibling); ST560(St && St.last || "");
+    head.classList.add("jm560-hx");
+    mh.insertBefore(head, x);
+  } catch (e) { try { console.warn("HB560", e); } catch (_e) {} }
 }
 
 export{De as openBillingModal,tt as renumber,pe as sortByLineNo,et as validateLineNos};

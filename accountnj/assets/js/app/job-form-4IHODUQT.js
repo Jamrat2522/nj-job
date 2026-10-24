@@ -392,9 +392,34 @@ function LY543(p, r) {
     var hx = md.querySelector(".modal-h-x"), h3 = md.querySelector(".modal-h h3"), pb = q("#nj-pdf-btn"), pf = q("#nj-pdf-file");
     if (h3 && !h3.querySelector(".jm543-mode")) { var sp = document.createElement("span"); sp.className = "jm543-mode"; sp.textContent = r ? " (\u0E41\u0E01\u0E49\u0E44\u0E02\u0E07\u0E32\u0E19)" : " (\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48)"; h3.appendChild(sp); }
     if (hx && pb) { hx.appendChild(pb); pf && hx.appendChild(pf); }
+    HD558(md, hx, h3);   /* V.558 : \u0E2A\u0E48\u0E27\u0E19\u0E2B\u0E31\u0E27\u0E41\u0E16\u0E27\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 JOB NJ / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 (Element \u0E40\u0E14\u0E34\u0E21) \u0E43\u0E19\u0E01\u0E25\u0E48\u0E2D\u0E07\u0E44\u0E2D\u0E04\u0E2D\u0E19 */
     /* \u0E02\u0E49\u0E2D 1\u20135 : \u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21 ACCOUNTING) */
     SF551.svc(p, "nj-", { au: au, docBox: doc, skip: [pb, pf] });
   } catch (e) { try { console.warn("LY543", e); } catch (_e) {} }
+}
+
+/* V.558 \u00B7 DOCUMENT \u2014 SERVICE (\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 / \u0E41\u0E01\u0E49\u0E44\u0E02\u0E07\u0E32\u0E19) : \u0E2A\u0E48\u0E27\u0E19\u0E2B\u0E31\u0E27\u0E41\u0E16\u0E27\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E44\u0E2D\u0E04\u0E2D\u0E19\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D \u00B7 \u0E01\u0E25\u0E48\u0E2D\u0E07 JOB NJ (\u0E44\u0E2D\u0E04\u0E2D\u0E19 + \u0E1B\u0E49\u0E32\u0E22\u0E40\u0E14\u0E34\u0E21 + #nj-autono \u0E40\u0E14\u0E34\u0E21 + \u0E1B\u0E49\u0E32\u0E22\u0E23\u0E2D POST \u0E02\u0E2D\u0E07 LY546) \u00B7 \u0E01\u0E25\u0E48\u0E2D\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19 (\u0E44\u0E2D\u0E04\u0E2D\u0E19 + \u0E1B\u0E49\u0E32\u0E22\u0E40\u0E14\u0E34\u0E21 + #nj-jobdate \u0E40\u0E14\u0E34\u0E21)
+   \u0E22\u0E49\u0E32\u0E22 Element \u0E40\u0E14\u0E34\u0E21\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 (id / \u0E04\u0E48\u0E32 / Event / Mapping \u0E40\u0E14\u0E34\u0E21) \u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E48\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48 \u00B7 \u0E40\u0E23\u0E35\u0E22\u0E01\u0E08\u0E32\u0E01 LY543 \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 (DOCUMENT \u2014 SERVICE) \u00B7 ADVANCE / ACCOUNTING \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E25\u0E32\u0E2A .jm558 */
+function HD558(md, hx, h3) {
+  try {
+    if (!md || !hx || md.classList.contains("jm558")) return;
+    var no = hx.querySelector("#nj-autono"), jd = hx.querySelector("#nj-jobdate");
+    if (!no || !jd || no.parentNode !== hx || jd.parentNode !== hx) return;
+    var lbs = Array.prototype.filter.call(hx.children, function (x) { return x.classList.contains("jm-auto-lb"); });
+    var el = function (cls) { var d = document.createElement("div"); d.className = cls; return d; },
+      svg = function (d) { return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; },
+      ic = function (cls, html) { var d = document.createElement("span"); d.className = "jm558-ic" + (cls ? " " + cls : ""); d.innerHTML = html; return d; },
+      IC_DOC = svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>'),
+      IC_JOB = svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+      IC_CAL = svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>');
+    md.classList.add("jm558");
+    if (h3 && !h3.querySelector(".jm558-hi")) h3.insertBefore(ic("jm558-hi", IC_DOC), h3.firstChild);
+    var bar = el("jm558-bar"), c1 = el("jm558-card jm558-c-no"), c2 = el("jm558-card jm558-c-dt");
+    c1.appendChild(ic("", IC_JOB)); lbs[0] && c1.appendChild(lbs[0]); c1.appendChild(no);
+    c2.appendChild(ic("", IC_CAL)); lbs[1] && c2.appendChild(lbs[1]); c2.appendChild(jd);
+    bar.appendChild(c1); bar.appendChild(el("jm558-dv")); bar.appendChild(c2);
+    hx.insertBefore(bar, hx.firstChild);
+  } catch (e) { try { console.warn("HD558", e); } catch (_e) {} }
 }
 
 /* V.546 \u00B7 \u0E2A\u0E48\u0E27\u0E19\u0E01\u0E25\u0E32\u0E07 : \u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D\u0E1E\u0E31\u0E1A/\u0E02\u0E22\u0E32\u0E22 (Accordion) \u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21 DOCUMENT \u2014 SERVICE \u0E41\u0E25\u0E30 ACCOUNTING \u2014 SERVICE \u2014 \u0E22\u0E49\u0E32\u0E22 Element \u0E40\u0E14\u0E34\u0E21\u0E40\u0E02\u0E49\u0E32\u0E44\u0E1B\u0E43\u0E19\u0E01\u0E25\u0E48\u0E2D\u0E07 \u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E44\u0E21\u0E48\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07
@@ -470,6 +495,91 @@ var AC546 = (function () {
    SF551.adv(root, P)        : ADVANCE \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E25\u0E31\u0E01 (\u0E1F\u0E34\u0E25\u0E14\u0E4C\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A) + \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 / \u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25
    SF551.r5(root, P, invFld) : \u0E41\u0E16\u0E27\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 INVOICE \u00B7 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 \u00B7 Credit Term \u00B7 Due Date
    \u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E21\u0E48 \u00B7 \u0E22\u0E49\u0E32\u0E22 Element \u0E40\u0E14\u0E34\u0E21 (id / \u0E04\u0E48\u0E32 / Event / Validation / Mapping \u0E40\u0E14\u0E34\u0E21) */
+/* V.559 \u00B7 \u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E01\u0E25\u0E32\u0E07 SF551.svc \u0E02\u0E49\u0E2D 1 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1A\u0E37\u0E49\u0E2D\u0E07\u0E15\u0E49\u0E19 (\u0E42\u0E2B\u0E21\u0E14 \u00B7 \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17 \u00B7 \u0E1C\u0E48\u0E32\u0E19\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E07\u0E32\u0E19 \u00B7 \u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 \u00B7 \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08) \u2014 \u0E40\u0E23\u0E35\u0E22\u0E01\u0E08\u0E32\u0E01 SF551.svc \u0E08\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27 \u2192 DOCUMENT \u2014 SERVICE \u0E41\u0E25\u0E30 ACCOUNTING \u2014 SERVICE \u0E44\u0E14\u0E49\u0E1C\u0E25\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 (ADVANCE \u0E43\u0E0A\u0E49 SF551.adv \u0E44\u0E21\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E08\u0E38\u0E14\u0E19\u0E35\u0E49)
+   1) \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 Dropdown (.njsel-list \u0E40\u0E14\u0E34\u0E21 \u00B7 DOM \u0E40\u0E14\u0E34\u0E21) \u0E41\u0E2A\u0E14\u0E07\u0E41\u0E1A\u0E1A position:fixed \u0E15\u0E32\u0E21\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1B\u0E38\u0E48\u0E21 \u2192 \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01 overflow:hidden \u0E02\u0E2D\u0E07\u0E01\u0E23\u0E2D\u0E1A\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D (.jm546-sec) / \u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E15\u0E31\u0E14
+      \u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E44\u0E21\u0E48\u0E1E\u0E2D \u2192 \u0E40\u0E1B\u0E34\u0E14\u0E02\u0E36\u0E49\u0E19\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 \u00B7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E32\u0E27 \u2192 \u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E20\u0E32\u0E22\u0E43\u0E19 \u00B7 \u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07 \u2192 \u0E1B\u0E34\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19 Select \u0E1B\u0E01\u0E15\u0E34) \u00B7 Esc \u0E1B\u0E34\u0E14 \u00B7 \u0E1B\u0E34\u0E14\u0E41\u0E25\u0E49\u0E27\u0E04\u0E37\u0E19 Style \u0E40\u0E14\u0E34\u0E21
+   2) "\u0E2D\u0E37\u0E48\u0E19 (\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2D\u0E07)" : \u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2D\u0E07\u0E40\u0E14\u0E34\u0E21 (id / \u0E04\u0E48\u0E32 / Mapping \u0E40\u0E14\u0E34\u0E21: agency_via_other \u00B7 permit_name_other) \u0E22\u0E49\u0E32\u0E22\u0E40\u0E02\u0E49\u0E32\u0E44\u0E1B\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E01\u0E23\u0E2D\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01 \u2192 \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E40\u0E14\u0E34\u0E21 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E48\u0E2D\u0E07\u0E41\u0E22\u0E01\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07
+      \u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07/\u0E0B\u0E48\u0E2D\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2D\u0E07 \u0E22\u0E31\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E0E\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E01\u0E25\u0E32\u0E07 (hidden) \u2014 \u0E17\u0E35\u0E48\u0E19\u0E35\u0E48\u0E41\u0E04\u0E48\u0E08\u0E31\u0E14\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07/\u0E04\u0E25\u0E32\u0E2A\u0E15\u0E32\u0E21\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E19\u0E31\u0E49\u0E19 */
+var DD559 = (function () {
+  var OPEN = [];
+  function px(n) { return Math.round(n) + "px"; }
+  function reset(l) { ["position", "left", "top", "right", "bottom", "width", "minWidth", "maxHeight", "overflowY"].forEach(function (k) { l.style[k] = ""; }); l.classList.remove("dd559-up"); }
+  function place(btn, l) {
+    var r = (l.parentElement || btn).getBoundingClientRect(), vw = window.innerWidth || document.documentElement.clientWidth, vh = window.innerHeight || document.documentElement.clientHeight, gap = 4, m = 8;
+    if (l.style.position !== "fixed") { var w0 = l.offsetWidth; l.style.position = "fixed"; l.style.right = "auto"; l.style.bottom = "auto"; l.style.width = px(Math.max(w0, r.width)); l.style.minWidth = "0"; }
+    l.style.maxHeight = "";
+    var cssMax = parseFloat(getComputedStyle(l).maxHeight) || 320, nat = Math.min(l.scrollHeight, cssMax);
+    var below = vh - r.bottom - gap - m, above = r.top - gap - m, up = nat > below && above > below;
+    var mh = Math.max(96, Math.min(cssMax, up ? above : below));
+    l.style.maxHeight = px(mh); l.style.overflowY = "auto";
+    var h = Math.min(l.scrollHeight, mh), w = l.offsetWidth;
+    var right = getComputedStyle(l).getPropertyValue("--dd559-align").trim() === "right" || !!(l.closest && l.closest(".jm-auto-rcp"));
+    var left = right ? r.right - w : r.left;
+    left = Math.max(m, Math.min(left, vw - w - m));
+    var top = up ? r.top - gap - h : r.bottom + gap;
+    top = Math.max(m, Math.min(top, vh - h - m));
+    l.style.left = px(left); l.style.top = px(top);
+    var a = l.getBoundingClientRect(), dx = a.left - left, dy = a.top - top;   /* \u0E01\u0E23\u0E13\u0E35\u0E21\u0E35 Ancestor \u0E17\u0E35\u0E48\u0E40\u0E1B\u0E47\u0E19 containing block \u0E02\u0E2D\u0E07 fixed (transform) \u2192 \u0E0A\u0E14\u0E40\u0E0A\u0E22 */
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) { l.style.left = px(left - dx); l.style.top = px(top - dy); }
+    l.classList.toggle("dd559-up", up);
+  }
+  function close(it) { if (!it.l.hidden) { it.l.hidden = true; it.btn.setAttribute("aria-expanded", "false"); } }
+  function onScroll(e) { OPEN.slice().forEach(function (it) { var t = e.target; if (t === it.l || (t.nodeType === 1 && it.l.contains(t))) return; close(it); }); }
+  function onResize() { OPEN.forEach(function (it) { place(it.btn, it.l); }); }
+  function onKey(e) { if (e.key !== "Escape" && e.key !== "Esc") return; OPEN.slice().forEach(function (it) { close(it); try { it.btn.focus(); } catch (_e) {} }); }
+  function watch(it) {
+    var on = OPEN.indexOf(it) >= 0;
+    if (!it.l.hidden) {
+      place(it.btn, it.l);
+      if (!on) { OPEN.push(it); if (OPEN.length === 1) { document.addEventListener("scroll", onScroll, true); window.addEventListener("resize", onResize); document.addEventListener("keydown", onKey, true); } }
+    } else {
+      reset(it.l);
+      if (on) { OPEN.splice(OPEN.indexOf(it), 1); if (!OPEN.length) { document.removeEventListener("scroll", onScroll, true); window.removeEventListener("resize", onResize); document.removeEventListener("keydown", onKey, true); } }
+    }
+  }
+  function list(w) {
+    var btn = w.querySelector(":scope>.njsel-btn"), l = w.querySelector(":scope>.njsel-list");
+    if (!btn || !l || l.dataset.dd559) return;
+    l.dataset.dd559 = "1";
+    var it = { btn: btn, l: l };
+    try { new MutationObserver(function () { watch(it); }).observe(l, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+    !l.hidden && watch(it);
+  }
+  function other(au, P, k) {
+    var w = au.querySelector("#" + P + k + "-wrap"), inp = au.querySelector("#" + P + k + "-other");
+    if (!w || !inp || w.dataset.dd559o) return;
+    w.dataset.dd559o = "1";
+    var btn = w.querySelector(":scope>.njsel-btn"), l = w.querySelector(":scope>.njsel-list"), car = btn && btn.querySelector(".njsel-car");
+    if (!btn) return;
+    w.insertBefore(inp, btn);
+    var pre = document.createElement("span"); pre.className = "njsel-opre"; btn.insertBefore(pre, car || null);
+    var multi = w.classList.contains("njsel-multi"), first = true;
+    var sync = function () {
+      var on = !inp.hidden;
+      w.classList.toggle("njsel-oth", on);
+      var t = "";
+      if (on && multi) t = Array.prototype.filter.call(w.querySelectorAll(".njsel-ck"), function (c) { return c.checked && c.dataset.v !== Ot; }).map(function (c) { return c.dataset.v; }).join(", ");
+      pre.textContent = t; btn.title = on ? (t ? t + " + " : "") + (inp.value || inp.placeholder || "") : btn.title;
+      if (on && !first && !multi && !inp.disabled && !inp.readOnly) { try { inp.focus(); } catch (e) {} }
+    };
+    try { new MutationObserver(sync).observe(inp, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+    w.addEventListener("change", function (e) { if (e.target !== inp) { first = true; sync(); first = false; } });
+    inp.addEventListener("focus", function () { if (l && !l.hidden) { l.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
+    /* \u0E0A\u0E48\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E14\u0E35\u0E48\u0E22\u0E27 (\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15) : \u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E14\u0E34\u0E21\u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07 change \u2192 \u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01 "\u0E2D\u0E37\u0E48\u0E19" \u00B7 \u0E43\u0E0A\u0E49\u0E01\u0E0E\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E01\u0E25\u0E32\u0E07 (hidden = \u0E04\u0E48\u0E32 \u2260 "\u0E2D\u0E37\u0E48\u0E19") \u0E2B\u0E25\u0E31\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 */
+    if (!multi && l) l.addEventListener("click", function (e) { if (!(e.target.closest && e.target.closest(".njsel-item"))) return; setTimeout(function () { var sel = w.querySelector("#" + P + k); sel && (inp.hidden = sel.value !== Ot); }, 0); });
+    sync(); first = false;
+  }
+  function row(au, P) {
+    try {
+      if (!au || au.dataset.dd559) return;
+      au.dataset.dd559 = "1"; au.classList.add("dd559");
+      ["agency", "permit"].forEach(function (k) { other(au, P, k); });
+      Array.prototype.forEach.call(au.querySelectorAll(".njsel"), list);
+    } catch (e) { try { console.warn("DD559", e); } catch (_e) {} }
+  }
+  return { row: row, place: place };
+})();
+
 var SF551 = (function () {
   var L = {
     s2a: ["comp", "decl", "cust"], s2b: ["cjob", "srcinv"],
@@ -517,6 +627,7 @@ var SF551 = (function () {
     var au = o.au, cb = au && au.querySelector(".jm-auto-cb"); if (!au || !cb) return null;
     au.removeChild(cb);
     AC546.pairAuto(au, o.skip || []);
+    DD559.row(au, P);   /* V.559 : \u0E02\u0E49\u0E2D 1 \u2014 Dropdown \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E01\u0E23\u0E2D\u0E1A\u0E1A\u0E31\u0E07 \u00B7 "\u0E2D\u0E37\u0E48\u0E19 (\u0E23\u0E30\u0E1A\u0E38\u0E40\u0E2D\u0E07)" \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E40\u0E14\u0E34\u0E21 (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21 DOCUMENT / ACCOUNTING) */
     var g1 = el("jm541-g jm543-g1"); g1.appendChild(ttl(1, T[1][0], T[1][1]));
     au.parentNode.insertBefore(g1, au); g1.appendChild(au);
     var g2 = el("jm541-g jm543-g2"); g2.appendChild(ttl(2, T[2][0], T[2][1]));
