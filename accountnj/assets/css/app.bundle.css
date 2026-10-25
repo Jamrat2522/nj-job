@@ -837,18 +837,27 @@ table.tbl-charge .acc529-hide,.bl-h529{display:none !important}
 @media print{body.nj-print-doc>#nj-modal-iv584{display:none!important}}
 /* V.584 · แก้ต่อจาก V.583 (แถบปุ่ม ACCOUNTING .jm544) : จอแคบ 641–1000px กลุ่มซ้ายล้นทับ Print — สาเหตุ .modal-f.mf-row .mf-left{flex:0 0 auto} เดิมทำให้หดตามคอลัมน์ไม่ได้ → ให้หด/ตัดบรรทัดภายในคอลัมน์ซ้าย (จอกว้างไม่เปลี่ยน) */
 .modal.jm544>.modal-f.jm544-f .jm544-fg1>.mf-left{flex:1 1 auto!important;min-width:0!important;width:auto!important;max-width:100%}
-/* V.585 · ACCOUNTING — BILLING PDF → BILLING APL · Preview (#nj-modal.bpd585 · เฉพาะ APL) : ไม่มีกรอบ Popup สีขาว / หัวข้อ / เส้นขอบ / เงา / พื้นเทา · กระดาษกึ่งกลางบน Overlay โปร่งแสง · พื้นที่แสดงกว้างขึ้น 20% จากเดิม (297mm+40px → ×1.2) ไม่เกิน 96vw · Zoom / Print / Download PDF / ปิด เดิม · @media screen เท่านั้น (PDF/พิมพ์จริงไม่เปลี่ยน) */
-@media screen{
-#nj-modal.bpd585{position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;z-index:190!important;padding:0!important;margin:0!important;display:block!important;overflow:hidden!important;background:rgba(15,23,42,.8)!important}
-#nj-modal.bpd585>.modal{position:absolute!important;top:0!important;bottom:0!important;left:0!important;right:0!important;margin:0 auto!important;width:min(96vw,calc((297mm + 40px) * 1.2))!important;height:auto!important;max-width:none!important;max-height:none!important;min-height:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
-#nj-modal.bpd585>.modal>.modal-h{display:none!important}
-#nj-modal.bpd585>.modal>.modal-b{flex:1 1 auto!important;min-height:0!important;margin:0!important;padding:12px 0 0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:auto!important;scrollbar-gutter:stable both-edges}
-#nj-modal.bpd585>.modal>.modal-f{flex:none!important;margin:0!important;padding:10px 0 calc(12px + env(safe-area-inset-bottom,0px))!important;border:0!important;background:transparent!important;box-shadow:none!important}
-#nj-modal.bpd585 .bpd-zoom{background:#FFFFFF;border-radius:10px;padding:4px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-#nj-modal.bpd585 .bpd-fname509{color:#E2E8F0!important}
-#nj-modal.bpd585 .modal-f .btn{box-shadow:0 4px 14px rgba(0,0,0,.25)}
-}
 @media print{body.nj-print-doc>#nj-modal-bpd585{display:none!important}}
 /* V.586 · DOCUMENT PDF ใบงาน : Name Cs "ชื่อจริง (ชื่อเล่น)" ยาว → ย่อขนาดเฉพาะข้อความ (ความกว้างช่องเดิม · ไม่ดันช่อง Name Shipping / Date) */
 .jfd-sign>div:has(>.jfd-cs586){min-width:0}
 .jfd-sign .jfd-fill.jfd-cs586{min-width:0}
+/* V.587 · ACCOUNTING — SERVICE / ADVANCE → BILLING PDF : Preview แบบเดียวกับ DOCUMENT (.jfd-modal) — เต็มจอ พื้นเทาทึบ ไม่เห็นหน้าจอด้านหลัง · แถบเครื่องมือล่างสีขาวแสดงตลอด · ✕ ปิด มุมขวาบน · @media screen เท่านั้น (PDF / พิมพ์จริงไม่เปลี่ยน) */
+@media screen{
+.modal-bk.modal-fs.bpd587{display:block!important;position:fixed!important;inset:0!important;top:0!important;right:0!important;bottom:0!important;left:0!important;z-index:190!important;padding:0!important;margin:0!important;overflow:hidden!important;background:#e9edf2!important}
+.modal-fs .modal.bpd587,.modal-bk .modal.modal-w80.bpd587{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;background:#e9edf2!important}
+.modal.bpd587>.modal-h{flex:none!important;display:flex!important;justify-content:flex-end!important;align-items:center!important;padding:10px 20px 0!important;margin:0!important;border:0!important;box-shadow:none!important;background:#e9edf2!important}
+.modal.bpd587>.modal-h h3,.modal.bpd587>.modal-h .modal-h-x{display:none!important}
+.modal.bpd587>.modal-h .bpd587-x{height:36px;padding:8px 14px;font-size:12.8px;flex:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.modal.bpd587>.modal-b,.modal.bpd587>.modal-b:has(.bpd-fit){flex:1 1 auto!important;min-height:0!important;overflow:auto!important;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 16px 24px!important;margin:0!important;background:#e9edf2!important;border:0!important}
+.modal.bpd587>.modal-f{flex:none!important;position:relative;z-index:2;display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;align-items:center!important;gap:9px!important;padding:12px 20px!important;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;margin:0!important;background:#fff!important;border-top:1px solid var(--line)!important;box-shadow:0 -2px 8px rgba(13,31,60,.06)!important}
+.modal.bpd587>.modal-f>div{display:flex!important;align-items:center!important;gap:9px!important;min-width:0}
+.modal.bpd587>.modal-f .mf-left{flex:1 1 auto!important;width:auto!important;margin-right:auto!important;justify-content:flex-start!important}
+.modal.bpd587>.modal-f .mf-right{flex:0 0 auto!important;width:auto!important;margin-left:0!important;justify-content:flex-end!important;flex-wrap:nowrap!important}
+.modal.bpd587>.modal-f .btn{height:auto!important;min-height:0!important;flex:none!important}
+.modal.bpd587>.modal-f .mf-right .btn{height:36px!important;padding:8px 14px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box}
+.modal.bpd587 .bpd-zoom{display:inline-flex!important;align-items:center;gap:6px!important;flex-wrap:nowrap}
+.modal.bpd587 .bpd-zoom .btn{flex:none!important;min-width:36px!important;height:36px!important;justify-content:center;padding:5px 10px!important}
+.modal.bpd587 .bpd-zoom-v{min-width:48px;text-align:center;font-size:var(--fs-xs);font-weight:700;color:var(--text-2)}
+.modal.bpd587 .bpd-fname509{display:none!important}
+.modal.bpd587 .bpd-fit .bpd{box-shadow:0 2px 14px rgba(13,31,60,.18)}
+}
