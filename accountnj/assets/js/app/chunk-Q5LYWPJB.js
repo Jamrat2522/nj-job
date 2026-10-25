@@ -25,7 +25,7 @@ import{b as M}from"./chunk-66YHA52A.js";import{b as w,c as q,d as L,e as A}from"
         ${i("Master B/L",a(v.master_bl_no))}
         ${i("Invoice Date",l(o.invoice_date))}
         ${i("Due Date",l(o.due_date))}
-        ${i("\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01\u0E43\u0E1A",a(o.created_by_name))}
+        ${i("\u0E1C\u0E39\u0E49\u0E2D\u0E2D\u0E01\u0E43\u0E1A",a(o.created_by_nickname||o.created_by_name))}
       </div>
       ${v.note?`<div class="fld mt-2"><label>NOTE</label><div>${a(v.note)}</div></div>`:""}
     </div>

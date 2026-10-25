@@ -330,7 +330,7 @@ import{a as Mt,b as Wt,c as Ut,d as Ft,e as jt}from"./chunk-ETXG4BWC.js";import{
           <div class="whd-rec-c"><label>\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07</label>
             <span>${M(e.signer_position)}</span></div>
           <div class="whd-rec-c"><label>\u0E1C\u0E39\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25</label>
-            <span>${M(e.created_by_name)}</span></div>
+            <span>${M(e.created_by_nickname||e.created_by_name)}</span></div>
           <div class="whd-rec-c"><label>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07</label>
             <span>${V(e.document_date)}</span></div>
         </div>
