@@ -351,11 +351,11 @@ function IV584(open){var bg=document.getElementById("nj-modal");if(!bg||!bg.quer
   var back=function(){if(bg.id==="nj-modal-iv584")bg.id="nj-modal"};
   try{open()}catch(e){back();throw e}
   var pv=document.getElementById("nj-modal");if(!pv||pv===bg){back();return}
-  pv.classList.add("iv584");
+  pv.classList.add("iv587");TB588(pv);
   var shut=function(){var c=pv.querySelector(".modal-f [data-close]")||pv.querySelector("[data-close]");c?c.click():pv.remove()};
   var kd=function(e){if(e.key==="Escape"&&pv.isConnected){e.preventDefault();e.stopImmediatePropagation();shut()}};
-  pv.addEventListener("click",function(e){var t=e.target;if(!t.closest(".ivd")&&!t.closest("button")&&!t.closest("a,input,select,textarea"))shut()});
   window.addEventListener("keydown",kd,!0);
+  var hx=pv.querySelector(".modal-h .iv587-x");hx&&(hx.onclick=function(e){e.preventDefault();e.stopPropagation();shut()});
   var mo=new MutationObserver(function(){if(pv.isConnected)return;mo.disconnect();window.removeEventListener("keydown",kd,!0);
     try{if(!bg.isConnected)return;
       if(document.getElementById("nj-modal")||location.href!==href){bg.remove();return}
@@ -363,3 +363,8 @@ function IV584(open){var bg=document.getElementById("nj-modal");if(!bg||!bg.quer
       try{var f=bg.querySelector("#bm-print");f&&f.focus({preventScroll:!0})}catch(_e){}
     }catch(e){back();try{console.warn("IV584",e)}catch(_e){}}});
   mo.observe(document.body,{childList:!0})}
+/* V.588 · ACCOUNTING — SERVICE / ADVANCE · Print → INVOICE Preview : แบบเดียวกับ DOCUMENT (เต็มจอ · พื้นเทาทึบ · แถบล่าง − / 100% / + / Fit to Screen / ค่า Zoom · Print / Save PDF / ✕ ปิด · ✕ ปิด มุมขวาบน · ESC)
+   จัดเรียง/เปลี่ยนชื่อปุ่มเดิมของ Preview นี้เท่านั้น (Element / Handler เดิม) · Save PDF = ปุ่ม Print เดิม (ตั้งชื่อไฟล์เดิม) · เนื้อหา INVOICE / PDF ไม่เปลี่ยน */
+function TB588(pv){try{var z=pv.querySelector(".ivd-zoom");if(z){var q=function(k){return z.querySelector('[data-z="'+k+'"]')},v=z.querySelector(".ivd-zoom-v"),f=q("fit");[q("100"),q("in"),f,v].forEach(function(x){x&&z.appendChild(x)});f&&(f.textContent="Fit to Screen")}
+  var pr=pv.querySelector("#ivd-print");if(pr){pr.textContent="\u{1F5A8} Print";var sv=document.createElement("button");sv.type="button";sv.className="btn btn-p";sv.id="ivd-save587";sv.textContent="\u{1F4BE} Save PDF";sv.onclick=function(){pr.click()};pr.insertAdjacentElement("afterend",sv)}
+  var x=pv.querySelector(".modal-h [data-close]");x&&(x.removeAttribute("data-close"),x.className="btn btn-o iv587-x",x.setAttribute("aria-label","\u0E1B\u0E34\u0E14 Preview"),x.textContent="\u2715 \u0E1B\u0E34\u0E14")}catch(e){try{console.warn("TB588",e)}catch(_e){}}}
