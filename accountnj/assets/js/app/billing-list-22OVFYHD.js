@@ -70,7 +70,7 @@ import{e as h}from"./chunk-TKN6STDT.js";import"./chunk-UWAYW6DC.js";import"./chu
     </div>`;let e=t=>y.querySelector(t),d=e("#bl-tb"),S=t=>`<tr data-bid="${o(t.id)}" data-tpl="${o(t.template)}">
       ${CB517(t)}
       <td class="t-b">${o(t.billing_no||"\u2014")}</td>
-      <td><span class="bl-st ${t.status==="POSTED"?"is-posted":"is-draft"}">${t.status==="POSTED"?"Posted":"Draft"}</span></td>
+      <td><span class="bl-st ${t.status==="POSTED"&&!t.unposted_at?"is-posted":"is-draft"}"${t.unposted_at?' title="UNPOST \u0E2D\u0E22\u0E39\u0E48 \u2014 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 JOB \u0E41\u0E25\u0E49\u0E27 POST \u0E43\u0E2B\u0E21\u0E48 (\u0E40\u0E25\u0E02\u0E40\u0E14\u0E34\u0E21)"':""}>${t.status==="POSTED"?t.unposted_at?"Unpost":"Posted":"Draft"}</span></td>
       <td>${r(t.billing_date)||"-"}</td>
       <td>${o(T[t.template]||t.template||"-")}</td>
       <td class="ellip" title="${o(t.customer_names||"")}">${o(t.customer_names||"-")}</td>

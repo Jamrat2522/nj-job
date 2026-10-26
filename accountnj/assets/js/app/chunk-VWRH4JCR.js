@@ -55,7 +55,7 @@ import{c as R}from"./chunk-NG45Y6KB.js";import{l as O,m as T}from"./chunk-L5Z2ND
       <span class="jm-auto-lb">\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15</span>
       ${re(t+"permit",se,te,e&&e.permit_name||"","jm-auto-permit",e&&e.permit_name_other||"","\u0E01\u0E23\u0E2D\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15")}
       ${s?fe(e,{p:t}):""}
-      <div class="jm-cb-row jm-auto-cb">${de(e,{p:t})}</div>`}function qe(e,{p:t="nj-",receiptBox:s=!1}={}){return`
+      <div class="jm-cb-row jm-auto-cb">${de(e,{p:t})}</div>`}var NM605=e=>e?String(e.name||e.code||""):"";/* V.605 : DOCUMENT \u2014 \u0E0A\u0E48\u0E2D\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E2A\u0E14\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E15\u0E47\u0E21\u0E08\u0E32\u0E01 MASTER (\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E14\u0E49\u0E27\u0E22 CODE \u0E44\u0E14\u0E49\u0E15\u0E32\u0E21\u0E40\u0E14\u0E34\u0E21 \u00B7 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 customer_id \u0E40\u0E14\u0E34\u0E21) */var SZ606=["20'","40'","40'HC","45'"],SO606=v=>{v=String(v||"");let o='<option value="">\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 SIZE \u2014</option>'+SZ606.map(x=>`<option value="${d(x)}"${x===v?" selected":""}>${d(x)}</option>`).join("");return v&&!SZ606.includes(v)?o+`<option value="${d(v)}" selected>${d(v)} (\u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E07\u0E32\u0E19)</option>`:o};/* V.606 : DOCUMENT \u0E02\u0E49\u0E2D 3 \u2014 \u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E15\u0E39\u0E49 \u00B7 SIZE \u00B7 \u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 (\u0E01\u0E48\u0E2D\u0E19 Booking No.) \u00B7 ACCOUNTING / billing-modal \u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07 cnt606 = \u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19\u0E40\u0E14\u0E34\u0E21 */function qe(e,{p:t="nj-",receiptBox:s=!1,custName:cn605=!1,cnt606=!1}={}){return`
       <div class="jm-grid jm-grid-5">
         <div class="fld"><label>\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17</label>
           <div class="fld-inline">
@@ -71,7 +71,13 @@ import{c as R}from"./chunk-NG45Y6KB.js";import{l as O,m as T}from"./chunk-L5Z2ND
           <input class="inp" id="${t}mbl" placeholder="\u0E01\u0E23\u0E2D\u0E01 Master B/L No." value="${h(e,"master_bl_no")}"></div>
       </div>
       <div class="jm-grid jm-grid-5">
-        <div class="fld"><label>Booking No.</label>
+        ${cnt606?`<div class="fld"><label>\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E15\u0E39\u0E49 (Container No.)</label>
+          <input class="inp" id="${t}cno" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E15\u0E39\u0E49" value="${h(e,"container_no")}"></div>
+        <div class="fld"><label>SIZE</label>
+          <select class="sel" id="${t}csize">${SO606(e&&e.container_size)}</select></div>
+        <div class="fld"><label>\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 (Export Location)</label>
+          <input class="inp" id="${t}expl" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01" value="${h(e,"export_location")}"></div>
+        `:""}<div class="fld"><label>Booking No.</label>
           <input class="inp" id="${t}book" placeholder="\u0E01\u0E23\u0E2D\u0E01 Booking No." value="${h(e,"booking_no")}"></div>
         <div class="fld"><label>\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49</label>
           <input class="inp" type="number" min="0" id="${t}qtyc" placeholder="\u0E01\u0E23\u0E2D\u0E01\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49" value="${e&&e.qty_container!=null?e.qty_container:""}"></div>
@@ -100,7 +106,7 @@ import{c as R}from"./chunk-NG45Y6KB.js";import{l as O,m as T}from"./chunk-L5Z2ND
             value="${h(e,"storage_charge_note")}"></div>`}
         <div class="fld"><label>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 <span class="req">*</span></label>
           <div class="fld-inline">
-            ${E(t+"cust",O(),e&&e.customer_id||"","\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 \u0E2B\u0E23\u0E37\u0E2D CODE \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32",ae)}
+            ${E(t+"cust",O(),e&&e.customer_id||"","\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 \u0E2B\u0E23\u0E37\u0E2D CODE \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32",cn605?NM605:ae)}
           </div></div>
         <div class="fld"><label>Customer Job No.</label>
           <input class="inp" id="${t}cjob" placeholder="\u0E01\u0E23\u0E2D\u0E01 Customer Job No." value="${h(e,"customer_job_no")}"></div>
