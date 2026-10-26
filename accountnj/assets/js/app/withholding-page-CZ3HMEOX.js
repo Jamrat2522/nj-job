@@ -735,7 +735,7 @@ import{a as Mt,b as Wt,c as Ut,d as Ft,e as jt}from"./chunk-ETXG4BWC.js";import{
       <div class="whp-act">
         <div class="whp-act-l">
           
-          ${t.whtId&&!_&&(he()||fe("issue_receipt"))&&It("REPORT")?'<button class="btn btn-danger" id="wh-del">\u{1F5D1} \u0E25\u0E1A</button>':""}
+          ${t.whtId&&!_&&(he()||fe("issue_receipt"))&&It("FINANCE")?'<button class="btn btn-danger" id="wh-del">\u{1F5D1} \u0E25\u0E1A</button>':""}
           ${g?'<button class="btn btn-unpost" id="wh-unpost">\u21A9 UNPOST</button>':""}
         </div>
         <div class="whp-act-r">
