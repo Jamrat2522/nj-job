@@ -1247,3 +1247,582 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
 @media screen and (max-width:767px){
   .rd-tablebox .table-wrap{max-height:68vh}
 }
+
+/* ============================================================
+   [RUN-192] Dashboard หน้าแรก — ผังใหม่ 8 การ์ด + สองคอลัมน์ 55/45
+   เฉพาะหน้า Dashboard ของ SUPER_ADMIN / HR บนเดสก์ท็อป (.dash-v2)
+   · ทุกกฎอยู่ใน @media min-width:901px และอยู่ใต้ .dash-v2 เท่านั้น
+     จึงไม่กระทบ Dashboard ของ USER/ADMIN (.dash-legacy ไม่มี .dash-v2)
+     ไม่กระทบหน้ามือถือ (.mh) และไม่กระทบรายงาน/หน้าอื่นที่ใช้ .rp-kpi
+   · เป้าหมาย: 1920x1080 Zoom 100% เห็นครบโดยไม่ต้องเลื่อนหน้า
+   ============================================================ */
+@media screen and (min-width:901px){
+
+  /* ---------- กรอบนอก: ใช้พื้นที่ขวาของ Sidebar ให้เต็มขึ้น ---------- */
+  .dash-v2{max-width:1680px}
+  /* ช่องว่างท้ายหน้า 40px เป็นพื้นที่เปล่าล้วน — เฉพาะหน้านี้ลดเหลือ 20px */
+  body:has(.dash-v2) .main-view{padding-bottom:20px}
+
+  /* ---------- การ์ดสรุป 8 ใบ — 2 แถว x 4 คอลัมน์ ---------- */
+  .dash-v2 .dash-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 14px}
+  .dash-v2 .rp-kpi{padding:10px 13px;gap:10px;border-radius:13px}
+  .dash-v2 .rp-kpi-ic{width:38px;height:38px;border-radius:10px}
+  .dash-v2 .rp-kpi-ic .ic{width:19px;height:19px}
+  .dash-v2 .rp-kpi small{font-size:11.5px;line-height:1.35}
+  .dash-v2 .rp-kpi b{font-size:19px;line-height:1.25}
+  .dash-v2 .rp-kpi em{font-size:11px;line-height:1.3;margin-top:1px}
+  /* ลูกศรท้ายการ์ด — ใหม่ในรอบนี้ ถ้าไม่กำหนดจะกินพื้นที่ตามขนาด svg เดิม */
+  .dash-v2 .rp-kpi-go{flex:none;display:flex;align-items:center;color:#cbd5e1}
+  .dash-v2 .rp-kpi-go .ic{width:16px;height:16px}
+  .dash-v2 .rp-kpi:hover .rp-kpi-go{color:#94a3b8}
+
+  /* ---------- สองคอลัมน์ 55% / 45% ---------- */
+  .dash-v2 .dash-cols{grid-template-columns:55fr 45fr;gap:12px;margin-top:0;align-items:stretch}
+  .dash-v2 .dash-cols>.col{gap:12px}
+  /* .card มี margin-bottom:16 อยู่เดิม ซ้อนกับ gap ของคอลัมน์ -> ตัดทิ้งเฉพาะในนี้ */
+  .dash-v2 .dash-cols .card{margin-bottom:0;padding:11px 14px}
+  .dash-v2 .card-head{margin-bottom:7px}
+  .dash-v2 .card-head h3{font-size:16px}
+  .dash-v2 .card-head .link{font-size:13px}
+  .dash-v2 .dash-ntw{display:flex;flex-direction:column;min-width:0}
+
+  /* คอลัมน์ซ้ายเตี้ยกว่าขวาโดยธรรมชาติ -> แบ่งพื้นที่ที่เหลือให้สองกล่องเท่า ๆ กัน
+     ไม่ให้กล่องใดกล่องหนึ่งยืดจนแท่งกราฟห่างผิดสัดส่วน และไม่เหลือช่องว่างใหญ่ท้ายคอลัมน์ */
+  .dash-v2 .col-l .dash-att{flex:1 1 auto;display:flex;flex-direction:column}
+  .dash-v2 .col-l .dash-att .bar-chart{flex:1 1 auto;justify-content:space-evenly;min-height:118px}
+  .dash-v2 .col-l .dash-req{flex:1 1 auto;display:flex;flex-direction:column}
+  .dash-v2 .col-l .dash-req>#dash-lv{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .dash-v2 .col-l .dash-req>#dash-lv>.list{flex:1 1 auto}
+  .dash-v2 .col-l .dash-req>#dash-lv>.list>.list-row{flex:1 1 auto}
+
+  /* ---------- คำขอล่าสุด (5 รายการ) ---------- */
+  .dash-v2 .dash-req .list{display:flex;flex-direction:column;gap:8px}
+  .dash-v2 .dash-req .list-row{padding:8px 11px;gap:10px;border:1px solid #e4e9f2;border-radius:12px;background:#fff}
+  .dash-v2 .dash-req .list-row b{font-size:14.5px;color:#0f172a}
+  .dash-v2 .dash-req .list-row small{display:block;font-size:12.5px;color:#64748b;margin-top:1px}
+
+  /* ---------- สรุปการลงเวลาวันนี้ (กราฟแท่งแนวนอน 4 หัวข้อ) ---------- */
+  .dash-v2 .bar-row{gap:10px}
+  .dash-v2 .bar-label{width:62px;font-size:13px}
+  .dash-v2 .bar-track{height:10px}
+  .dash-v2 .bar-num{flex:none;width:54px;text-align:right;font-size:13.5px;color:#0f172a}
+  .dash-v2 .bar-pct{flex:none;width:38px;text-align:right;font-size:12.5px;font-style:normal;color:#64748b}
+
+  /* ---------- ปฏิทินองค์กร ---------- */
+  .dash-v2 .dash-cal .mcal-bar{margin-bottom:6px}
+  .dash-v2 .dash-cal .mcal-bar b{font-size:14px}
+  .dash-v2 .dash-cal .mcal-bar .btn-icon{width:30px;height:30px}
+  .dash-v2 .dash-cal .mini-cal-head span{font-size:11.5px;padding:2px 0}
+  .dash-v2 .dash-cal .mcal-grid .mcal-d{min-height:24px;padding:2px 0 8px;font-size:12px}
+  .dash-v2 .dash-cal .mcal-dots{bottom:2px}
+  .dash-v2 .dash-cal .mcal-legend{margin-top:4px;gap:3px 10px;font-size:11px}
+
+  /* ---------- ประกาศบริษัท + การแจ้งเตือน ---------- */
+  .dash-v2 .dash-ann .list{gap:5px}
+  .dash-v2 .dash-ann .list-row{padding:5px 11px;gap:10px}
+  .dash-v2 .ann-ic,.dash-v2 .nt-ic{width:34px;height:34px;border-radius:10px}
+  .dash-v2 .ann-ic .ic,.dash-v2 .nt-ic .ic{width:17px;height:17px}
+  .dash-v2 .dash-ann .list-row b,.dash-v2 .dash-nt-grid b{font-size:14px}
+  .dash-v2 .dash-ann .list-row small,.dash-v2 .dash-nt-grid small{font-size:12.5px}
+  .dash-v2 .dash-nt-grid{gap:5px}
+  .dash-v2 .dash-nt-grid .list-row{padding:5px 11px;gap:10px}
+  .dash-v2 .empty-state{padding:16px 12px}
+}
+
+/* จอคอมเตี้ยกว่ามาตรฐาน (เช่น 1366x768 · โน้ตบุ๊ก 13 นิ้ว)
+   บีบระยะเพิ่มอีกเล็กน้อยเพื่อให้เลื่อนหน้าน้อยที่สุด โดยไม่ลดขนาดตัวอักษร
+   ห้ามซ่อนหรือตัดข้อมูลใด ๆ — ลดเฉพาะระยะห่าง */
+@media screen and (min-width:901px) and (max-height:900px){
+  .dash-v2 .dash-kpis{gap:10px;margin-bottom:10px}
+  .dash-v2 .rp-kpi{padding:8px 12px}
+  .dash-v2 .dash-cols,.dash-v2 .dash-cols>.col{gap:10px}
+  .dash-v2 .dash-cols .card{padding:10px 13px}
+  .dash-v2 .dash-req .list{gap:6px}
+  .dash-v2 .dash-req .list-row{padding:6px 10px}
+  .dash-v2 .col-l .dash-att .bar-chart{min-height:104px}
+}
+
+/* ============================================================
+   [RUN-193] หน้าพนักงาน — การ์ดสรุป 6 ช่อง + ตารางรายชื่อแบบใหม่
+   [RUN-194] หน้าเอกสาร HR — การ์ดสรุป 4 ช่อง + แบ่งหน้า
+   ทุกกฎอยู่ใต้ .emp-v2 หรือ .doc-v2 เท่านั้น จึงไม่กระทบหน้าอื่น
+   สีหัวตารางตามแบบ: พื้น #EAF3FF · ตัวอักษร #1E4E9C
+   ============================================================ */
+
+/* ---------- การ์ดสรุป (ใช้ร่วมสองหน้า แต่แยก Selector) ---------- */
+.emp-v2 .emp-kpis,.doc-v2 .doc-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.emp-v2 .emp-kpi,.doc-v2 .doc-kpi{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #e4e9f2;border-radius:14px;padding:11px 13px;min-width:0;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.emp-v2 .emp-kpi-ic,.doc-v2 .doc-kpi-ic{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#eef2f7;color:#475569}
+.emp-v2 .emp-kpi-ic .ic,.doc-v2 .doc-kpi-ic .ic{width:19px;height:19px}
+.emp-v2 .emp-kpi .grow,.doc-v2 .doc-kpi .grow{min-width:0}
+.emp-v2 .emp-kpi small,.doc-v2 .doc-kpi small{display:block;font-size:11.5px;color:#64748b;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emp-v2 .emp-kpi b,.doc-v2 .doc-kpi b{display:inline;font-size:19px;line-height:1.3;color:#0f172a;white-space:nowrap}
+.emp-v2 .emp-kpi em{display:inline;font-style:normal;font-size:12.5px;margin-left:5px;color:#64748b;white-space:nowrap}
+.emp-v2 .emp-kpi em[hidden]{display:none}
+
+/* สีประจำการ์ด — หน้าพนักงาน */
+.emp-v2 .emp-kpi.k-blue .emp-kpi-ic{background:#e3ecfb;color:#1d4ed8}
+.emp-v2 .emp-kpi.k-blue b{color:#1d4ed8}
+.emp-v2 .emp-kpi.k-green .emp-kpi-ic{background:#e7f8ed;color:#16a34a}
+.emp-v2 .emp-kpi.k-green b{color:#16a34a}
+.emp-v2 .emp-kpi.k-amber .emp-kpi-ic{background:#fff3df;color:#ea580c}
+.emp-v2 .emp-kpi.k-amber b{color:#ea580c}
+.emp-v2 .emp-kpi.k-pink .emp-kpi-ic{background:#fde7f1;color:#db2777}
+.emp-v2 .emp-kpi.k-pink b{color:#db2777}
+.emp-v2 .emp-kpi.k-pink em{color:#db2777}
+.emp-v2 .emp-kpi.k-red .emp-kpi-ic{background:#fde7e9;color:#d71920}
+.emp-v2 .emp-kpi.k-red b{color:#d71920}
+
+/* สีประจำการ์ด — หน้าเอกสาร HR (พื้นอ่อนตามประเภทเหมือนแบบ) */
+.doc-v2 .doc-kpi.dk-blue{background:#f3f8ff;border-color:#dbe8fb}
+.doc-v2 .doc-kpi.dk-blue .doc-kpi-ic{background:#e3ecfb;color:#1d4ed8}
+.doc-v2 .doc-kpi.dk-blue b{color:#1d4ed8}
+.doc-v2 .doc-kpi.dk-amber{background:#fffcf3;border-color:#fae7c0}
+.doc-v2 .doc-kpi.dk-amber .doc-kpi-ic{background:#fef3c7;color:#b45309}
+.doc-v2 .doc-kpi.dk-amber b{color:#b45309}
+.doc-v2 .doc-kpi.dk-green{background:#f4fbf6;border-color:#d4efdd}
+.doc-v2 .doc-kpi.dk-green .doc-kpi-ic{background:#dcfce7;color:#15803d}
+.doc-v2 .doc-kpi.dk-green b{color:#15803d}
+.doc-v2 .doc-kpi.dk-red{background:#fff5f5;border-color:#fbd9dc}
+.doc-v2 .doc-kpi.dk-red .doc-kpi-ic{background:#fee2e2;color:#b91c1c}
+.doc-v2 .doc-kpi.dk-red b{color:#b91c1c}
+.doc-v2 .doc-kpi-p{flex:none;font-style:normal;font-size:11.5px;font-weight:600;color:#475569;background:rgba(255,255,255,.75);border-radius:999px;padding:3px 9px}
+.doc-v2 .doc-kpi-p[hidden]{display:none}
+
+/* ---------- หน้าพนักงาน: แถบปุ่ม / แถบตัวกรอง ---------- */
+.emp-v2 .emp-actionbar{margin-bottom:10px}
+.emp-v2 .emp-filters{margin-bottom:12px}
+.emp-v2 .emp-search .ic{flex:none}
+.emp-v2 .emp-tbtn,.emp-v2 .emp-addbtn{white-space:nowrap}
+
+/* ---------- ตารางรายชื่อพนักงาน ---------- */
+.emp-v2 .emp-tblbox{overflow:hidden}
+.emp-v2 .emp-tbl{width:100%;border-collapse:collapse}
+.emp-v2 .emp-tbl thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;text-align:left;padding:10px 12px;border-bottom:1px solid #d8e6fa;white-space:nowrap}
+.emp-v2 .emp-tbl tbody td{padding:8px 12px;font-size:13.5px;vertical-align:middle;border-bottom:1px solid #eef2f7}
+.emp-v2 .emp-tbl tbody tr:nth-child(even)>td{background:#fafbfd}
+.emp-v2 .emp-tbl tbody tr:hover>td{background:#f4f8ff}
+.emp-v2 .emp-tbl tbody tr:last-child>td{border-bottom:0}
+.emp-v2 .emp-tbl .cell-user b{display:block;font-size:14px;color:#0f172a;line-height:1.35}
+.emp-v2 .emp-tbl .cell-user small{display:block;font-size:11.5px;color:#64748b;margin-top:1px}
+.emp-v2 .emp-tbl .e-c-st .badge{font-size:11.5px;padding:3px 10px}
+.emp-v2 .emp-acts{display:inline-flex;align-items:center;gap:2px;justify-content:flex-end;flex-wrap:nowrap}
+.emp-v2 .emp-acts .btn-icon{width:32px;height:32px;border-radius:9px;color:#64748b}
+.emp-v2 .emp-acts .btn-icon .ic{width:17px;height:17px}
+.emp-v2 .emp-acts .btn-icon:hover:not(:disabled){background:#eaf3ff;color:#1e4e9c}
+.emp-v2 .emp-acts .btn-icon.ic-red{color:#d71920}
+.emp-v2 .emp-acts .btn-icon.ic-red:hover:not(:disabled){background:#fde7e9;color:#b91c1c}
+.ic-slate{color:#64748b}
+
+/* ---------- หน้าเอกสาร HR: ตาราง + แบ่งหน้า ---------- */
+/* หมายเหตุ: ของเดิมมีกฎ .main-view #doc-table thead th (ใช้ ID) ซึ่งแรงกว่าคลาส
+   จึงต้องเขียนให้แรงกว่าเดิมหนึ่งขั้น ไม่ใช้ !important */
+.main-view .doc-v2 #doc-table.doc-tbl thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;padding:10px 12px;border-bottom:1px solid #d8e6fa}
+.main-view .doc-v2 #doc-table.doc-tbl thead th.doc-sort:hover{background:#dbeafe;color:#1e4e9c}
+.main-view .doc-v2 #doc-table.doc-tbl tbody td{padding:8px 12px;font-size:13px;vertical-align:middle;border-bottom:1px solid #eef2f7}
+.main-view .doc-v2 #doc-table.doc-tbl tbody tr:nth-child(even)>td{background:#fafbfd}
+.main-view .doc-v2 #doc-table.doc-tbl tbody tr:hover>td{background:#f4f8ff}
+.main-view .doc-v2 #doc-table.doc-tbl tbody tr:last-child>td{border-bottom:0}
+.doc-v2 .doc-pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:#475569}
+.doc-v2 .doc-perbox{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;white-space:nowrap}
+.doc-v2 .doc-perbox select{min-height:32px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:inherit;font-size:13px}
+.doc-v2 .doc-pginfo{color:#64748b;white-space:nowrap}
+.doc-v2 .doc-pgnum{font-weight:600;white-space:nowrap}
+.doc-v2 .doc-pager .btn-icon{width:34px;height:34px}
+
+/* ---------- เดสก์ท็อป: การ์ดเรียงแถวเดียวตามแบบ ---------- */
+@media screen and (min-width:901px){
+  .emp-v2 .emp-kpis{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+  .doc-v2 .doc-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+  .emp-v2 .emp-filters .emp-search{flex:1 1 320px;min-width:260px}
+  .emp-v2 .emp-filters>select{min-width:150px}
+  .emp-v2 .emp-actionbar .emp-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .emp-v2 .emp-tbl .e-c-emp{width:28%}
+  .emp-v2 .emp-tbl .e-c-dept{width:19%}
+  .emp-v2 .emp-tbl .e-c-start{width:11%;white-space:nowrap}
+  .emp-v2 .emp-tbl .e-c-type{width:14%}
+  .emp-v2 .emp-tbl .e-c-st{width:12%}
+  .emp-v2 .emp-tbl .e-c-act{width:16%;white-space:nowrap}
+}
+.doc-v2 .doc-sub{margin:-2px 0 12px;font-size:13px;color:#64748b}
+
+/* ============================================================
+   [RUN-195] ประกาศบริษัท — ตารางรายการ + เมนูจัดการ + แบ่งหน้า
+   ทุกกฎอยู่ใต้ .an-v2 ยกเว้น .an-menu ที่ถูกวางไว้ที่ <body>
+   (ตั้งใจ เพื่อไม่ให้ถูก .table-wrap หรือ Pagination ตัด/บัง)
+   สีหัวตารางตามแบบ: พื้น #EAF3FF · ตัวอักษร #1E4E9C
+   ============================================================ */
+.an-v2 .an-sub{margin:-4px 0 12px;font-size:13px;color:#64748b}
+.an-v2 .an-tblbox{overflow:visible}
+.an-v2 .an-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.an-v2 .an-tbl thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;text-align:left;padding:10px 12px;border-bottom:1px solid #d8e6fa;white-space:nowrap}
+.an-v2 .an-tbl tbody td{padding:9px 12px;font-size:13px;vertical-align:middle;border-bottom:1px solid #eef2f7}
+.an-v2 .an-tbl tbody tr:nth-child(even)>td{background:#fafbfd}
+.an-v2 .an-tbl tbody tr:hover>td{background:#f4f8ff}
+.an-v2 .an-tbl tbody tr:last-child>td{border-bottom:0}
+.an-v2 .an-tbl tbody tr.an-r-closed>td{color:#64748b}
+
+/* ลำดับ + หมุด */
+.an-v2 .an-c-no{white-space:nowrap}
+.an-v2 .an-seq{color:#64748b}
+.an-v2 .an-pin{margin-left:4px;display:inline-flex;vertical-align:middle}
+
+/* วันที่ + เวลา */
+.an-v2 .an-c-date{white-space:nowrap}
+.an-v2 .an-c-date small{display:block;font-size:11.5px;color:#64748b;margin-top:1px}
+.an-v2 .an-c-ann{font-size:12.5px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* หัวข้อประกาศ — ตัวหนา สูงสุด 2 บรรทัด + Tooltip */
+.an-v2 .an-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  width:100%;text-align:left;font:inherit;font-size:13.5px;font-weight:600;color:#0f172a;
+  background:0 0;border:0;padding:0;cursor:pointer;line-height:1.45;max-height:2.9em}
+.an-v2 .an-title:hover{color:#1e4e9c;text-decoration:underline}
+
+/* กลุ่มเป้าหมาย */
+.an-v2 .an-1l{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-v2 .an-c-cat .chip{font-size:11.5px;padding:3px 9px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
+.an-v2 .an-c-st .badge{font-size:11.5px;padding:3px 10px}
+
+/* การรับทราบ + Progress Bar */
+.an-v2 .an-ackn{display:block;font-size:12.5px;color:#475569;white-space:nowrap}
+.an-v2 .an-ackn b{font-size:13.5px;color:#0f172a}
+.an-v2 .an-bar{display:block;height:6px;border-radius:999px;background:#e8edf5;overflow:hidden;margin-top:5px}
+.an-v2 .an-bar>i{display:block;height:100%;border-radius:999px;background:#2563eb;transition:width .3s}
+
+/* ปุ่มจัดการ */
+.an-v2 .an-mbtn{white-space:nowrap;padding:4px 10px;font-size:12.5px}
+.an-v2 .an-tbl .an-c-act{padding-left:6px;padding-right:8px;text-align:center}
+
+/* ───── เมนูจัดการ (อยู่ที่ <body> · position:fixed) ───── */
+.an-menu{position:fixed;z-index:1200;min-width:188px;padding:6px;background:#fff;
+  border:1px solid #e4e9f2;border-radius:12px;box-shadow:0 12px 32px rgba(16,24,40,.16)}
+.an-menu .an-mi{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;
+  border:0;border-radius:9px;background:0 0;font:inherit;font-size:13.5px;color:#0f172a;
+  text-align:left;cursor:pointer;white-space:nowrap}
+.an-menu .an-mi .ic{flex:none;width:17px;height:17px;color:#64748b}
+.an-menu .an-mi:hover{background:#eaf3ff;color:#1e4e9c}
+.an-menu .an-mi:hover .ic{color:#1e4e9c}
+.an-menu .an-mi.an-mi-del{color:#d71920}
+.an-menu .an-mi.an-mi-del .ic{color:#d71920}
+.an-menu .an-mi.an-mi-del:hover{background:#fde7e9;color:#b91c1c}
+
+/* ───── แถบแบ่งหน้า ───── */
+.an-v2 .an-pager{justify-content:flex-start;gap:8px;margin-top:12px;font-size:13px;color:#475569}
+.an-v2 .an-perbox{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+.an-v2 .an-perbox select{min-height:32px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:inherit;font-size:13px}
+.an-v2 .an-pginfo{color:#64748b;white-space:nowrap}
+.an-v2 .an-pgnums{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.an-v2 .an-pgnums .btn{min-width:34px;padding:4px 9px}
+.an-v2 .an-pager .btn-icon{width:34px;height:34px}
+
+@media screen and (min-width:901px){
+  .an-v2 .an-filter .an-search{flex:1 1 300px;min-width:230px}
+  .an-v2 .an-filter>select{flex:0 0 auto;min-width:170px;max-width:220px}
+  .an-v2 .an-tbl .an-c-no{width:5%}
+  .an-v2 .an-tbl .an-c-ann{width:11%}
+  .an-v2 .an-tbl .an-c-date{width:10%}
+  .an-v2 .an-tbl .an-c-title{width:29%}
+  .an-v2 .an-tbl .an-c-cat{width:9%}
+  .an-v2 .an-tbl .an-c-tgt{width:9%}
+  .an-v2 .an-tbl .an-c-ack{width:13%}
+  .an-v2 .an-tbl .an-c-st{width:6%}
+  .an-v2 .an-tbl .an-c-act{width:8%}
+}
+
+/* ============================================================
+   [RUN-196] หน้าเงินเดือน — จัดผังใหม่ + ตาราง + แบ่งหน้า
+   ลำดับ: หัวข้อ -> การ์ด 7 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
+   ทุกกฎอยู่ใต้ .pr-v2 เท่านั้น จึงไม่กระทบหน้าอื่นหรือหน้ารายละเอียดเงินเดือน
+   สีหัวตารางตามแบบ: พื้น #EAF3FF · ตัวอักษร #1E4E9C
+   ============================================================ */
+.pr-v2 .pr-head{display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:12px}
+.pr-v2 .pr-head .grow{min-width:0}
+.pr-v2 .pr-head-ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#e3ecfb;color:#2563eb}
+.pr-v2 .pr-head-ic .ic{width:21px;height:21px}
+.pr-v2 .pr-head h3{margin:0;font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.3}
+.pr-v2 .pr-head small{display:block;font-size:13px;color:#64748b;margin-top:2px}
+
+/* ---------- การ์ดสรุป 7 ช่อง ---------- */
+.pr-v2 .pr-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.pr-v2 .pr-card{display:flex;align-items:center;gap:11px;border-radius:12px;padding:11px 13px;
+  border:1px solid #e8edf5;background:#fff;min-width:0;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.pr-v2 .pr-card .grow{min-width:0}
+.pr-v2 .pr-card-ic{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#eef2f7;color:#475569}
+.pr-v2 .pr-card-ic .ic{width:19px;height:19px}
+.pr-v2 .pr-card small{display:block;font-size:11.5px;color:#64748b;line-height:1.35;margin-bottom:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr-v2 .pr-card b{display:block;font-size:17px;line-height:1.3;color:#0f172a;font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere}
+.pr-v2 .pr-t-blue{background:#f3f8ff;border-color:#dbe8fb}
+.pr-v2 .pr-t-blue .pr-card-ic{background:#e3ecfb;color:#1d4ed8}
+.pr-v2 .pr-t-violet{background:#f7f5ff;border-color:#e4dcfb}
+.pr-v2 .pr-t-violet .pr-card-ic{background:#ede9fe;color:#7c3aed}
+.pr-v2 .pr-t-green{background:#f4fbf6;border-color:#d4efdd}
+.pr-v2 .pr-t-green .pr-card-ic{background:#dcfce7;color:#15803d}
+.pr-v2 .pr-t-green b{color:#16a34a}
+.pr-v2 .pr-t-red{background:#fff5f5;border-color:#fbd9dc}
+.pr-v2 .pr-t-red .pr-card-ic{background:#fee2e2;color:#b91c1c}
+.pr-v2 .pr-t-amber{background:#fffcf3;border-color:#fae7c0}
+.pr-v2 .pr-t-amber .pr-card-ic{background:#fef3c7;color:#b45309}
+
+/* ---------- แถบตัวกรอง + ปุ่มคำสั่ง ---------- */
+.pr-v2 .pr-bar{padding:12px 14px;margin-bottom:12px}
+.pr-v2 .pr-bar .pr-filters{margin-bottom:10px}
+.pr-v2 .pr-bar .pr-actions{margin-bottom:0;gap:10px;flex-wrap:wrap}
+.pr-v2 .pr-filters select,.pr-v2 .pr-filters .search-box,.pr-v2 .pr-filters .btn{min-height:38px}
+.pr-v2 .pr-filters .badge{font-size:12px;padding:5px 12px}
+
+/* ---------- ตาราง ---------- */
+.pr-v2 .pr-tbl thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;
+  padding:10px 12px;border-bottom:1px solid #d8e6fa}
+.pr-v2 .pr-tbl tbody td{padding:8px 12px;font-size:13px;vertical-align:middle;border-bottom:1px solid #eef2f7}
+.pr-v2 .pr-tbl tbody tr:nth-child(even):not(.row-total)>td{background:#fafbfd}
+.pr-v2 .pr-tbl tbody tr:hover:not(.row-total)>td{background:#f4f8ff}
+.pr-v2 .pr-tbl .cell-user b{font-size:13.5px;color:#0f172a}
+.pr-v2 .pr-tbl .cell-user small{display:block;font-size:11.5px;color:#64748b;margin-top:1px}
+.pr-v2 .pr-tbl .pr-c-money{font-variant-numeric:tabular-nums;font-size:12.5px;padding-left:8px;padding-right:8px;white-space:nowrap}
+.pr-v2 .pr-tbl .pr-c-st .badge{font-size:11.5px;padding:3px 10px}
+.pr-v2 .pr-tbl .pr-c-name,.pr-v2 .pr-tbl .pr-c-dept,.pr-v2 .pr-tbl .pr-c-pos{white-space:normal}
+/* ปล่อยให้ข้อความปุ่มตัดบรรทัดได้บนจอแคบ ดีกว่าถูกตัดหายหรือดันตารางล้น */
+.pr-v2 .pr-tbl .pr-detail-btn{white-space:normal;line-height:1.3;border:1px solid #e2e8f0;background:#fff;border-radius:9px;padding:5px 10px;font-size:12.5px}
+.pr-v2 .pr-tbl .pr-detail-btn .ic{color:#2563eb}
+.pr-v2 .pr-tbl .pr-detail-btn:hover{border-color:#bfd6f7;background:#f4f8ff}
+.pr-v2 .pr-tbl .row-total td{background:#f4f7fb;border-top:2px solid #d8e6fa}
+
+/* ---------- แถบแบ่งหน้า ---------- */
+.pr-v2 .pr-pager{gap:8px;flex-wrap:wrap;margin:12px 0 0;font-size:13px;color:#475569}
+.pr-v2 .pr-perbox{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+.pr-v2 .pr-perbox select{min-height:32px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:inherit;font-size:13px}
+.pr-v2 .pr-pginfo{color:#64748b;white-space:nowrap}
+.pr-v2 .pr-pgnums{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pr-v2 .pr-pgnums .btn{min-width:34px;padding:4px 9px}
+.pr-v2 .pr-pager .btn-icon{width:34px;height:34px}
+
+@media screen and (min-width:901px){
+  .pr-v2 .pr-cards{grid-template-columns:repeat(7,minmax(0,1fr));gap:11px}
+  .pr-v2 .pr-filters>select{min-width:150px}
+  .pr-v2 .pr-filters .search-box{flex:1 1 240px;min-width:200px}
+  .pr-v2 .pr-tbl{table-layout:fixed;width:100%}
+  .pr-v2 .pr-tbl .pr-c-no{width:4%}
+  .pr-v2 .pr-tbl .pr-c-code{width:6%}
+  .pr-v2 .pr-tbl .pr-c-name{width:15%}
+  .pr-v2 .pr-tbl .pr-c-dept{width:12%}
+  .pr-v2 .pr-tbl .pr-c-pos{width:12%}
+  .pr-v2 .pr-tbl .pr-c-money{width:10%}
+  .pr-v2 .pr-tbl .pr-c-st{width:8%}
+  .pr-v2 .pr-tbl .pr-c-act{width:13%}
+  /* ของเดิมบังคับ min-width:980px ไว้ — ผังใหม่กว้างยืดหยุ่นแล้วจึงไม่ต้องใช้ */
+  .pr-v2 .pr-table table{min-width:0}
+}
+/* จอแคบกว่า 1200px — ย่อการ์ดเป็น 4 ช่องต่อแถว ไม่ให้ตัวเลขล้นกรอบ */
+@media screen and (min-width:901px) and (max-width:1199px){
+  .pr-v2 .pr-cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+
+/* ============================================================
+   [RUN-197] E-PAYSLIP — จัดผังใหม่ + การ์ด 6 ช่อง + ตาราง + แบ่งหน้า
+   ลำดับ: หัวข้อ -> การ์ด 6 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
+   ทุกกฎอยู่ใต้ .ep-v2 เท่านั้น จึงไม่กระทบสลิป PDF หรือหน้าอื่น
+   สีหัวตารางตามแบบ: พื้น #EAF3FF · ตัวอักษร #1E4E9C
+   ============================================================ */
+.ep-v2 .ep-head{display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:12px}
+.ep-v2 .ep-head .grow{min-width:0}
+.ep-v2 .ep-head-ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#e3ecfb;color:#2563eb}
+.ep-v2 .ep-head-ic .ic{width:21px;height:21px}
+.ep-v2 .ep-head h3{margin:0;font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.3}
+.ep-v2 .ep-head small{display:block;font-size:13px;color:#64748b;margin-top:2px}
+
+/* ---------- การ์ดสรุป 6 ช่อง ---------- */
+.ep-v2 .ep-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.ep-v2 .pr-card{display:flex;align-items:center;gap:11px;border-radius:12px;padding:11px 13px;
+  border:1px solid #e8edf5;background:#fff;min-width:0;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.ep-v2 .pr-card .grow{min-width:0}
+.ep-v2 .pr-card-ic{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#eef2f7;color:#475569}
+.ep-v2 .pr-card-ic .ic{width:19px;height:19px}
+.ep-v2 .pr-card small{display:block;font-size:11.5px;color:#64748b;line-height:1.35;margin-bottom:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep-v2 .pr-card b{display:block;font-size:17px;line-height:1.3;color:#0f172a;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ep-v2 .pr-t-blue{background:#f3f8ff;border-color:#dbe8fb}
+.ep-v2 .pr-t-blue .pr-card-ic{background:#e3ecfb;color:#1d4ed8}
+.ep-v2 .pr-t-amber{background:#fffcf3;border-color:#fae7c0}
+.ep-v2 .pr-t-amber .pr-card-ic{background:#fef3c7;color:#b45309}
+.ep-v2 .pr-t-green{background:#f4fbf6;border-color:#d4efdd}
+.ep-v2 .pr-t-green .pr-card-ic{background:#dcfce7;color:#15803d}
+.ep-v2 .pr-t-green b{color:#16a34a}
+.ep-v2 .pr-t-orange{background:#fff8f2;border-color:#fbdcc2}
+.ep-v2 .pr-t-orange .pr-card-ic{background:#ffedd5;color:#c2410c}
+.ep-v2 .pr-t-red{background:#fff5f5;border-color:#fbd9dc}
+.ep-v2 .pr-t-red .pr-card-ic{background:#fee2e2;color:#b91c1c}
+
+/* ---------- แถบตัวกรอง + ปุ่มคำสั่ง ---------- */
+.ep-v2 .ep-bar{padding:12px 14px;margin-bottom:12px}
+.ep-v2 .ep-bar .ep-filters{margin-bottom:10px;gap:8px;flex-wrap:wrap}
+.ep-v2 .ep-bar .ep-actions{margin-bottom:0;gap:10px;flex-wrap:wrap}
+.ep-v2 .ep-filters select,.ep-v2 .ep-filters .ep-qbox,.ep-v2 .ep-filters .btn{min-height:38px}
+.ep-v2 .ep-bulk{padding:10px 14px;margin-bottom:12px;border-color:#bfd6f7;background:#f4f8ff}
+
+/* ---------- ตาราง ---------- */
+.ep-v2 .ep-tbl-t thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;
+  padding:10px 10px;border-bottom:1px solid #d8e6fa;white-space:nowrap}
+.ep-v2 .ep-tbl-t tbody td{padding:8px 10px;font-size:12.5px;vertical-align:middle;border-bottom:1px solid #eef2f7}
+.ep-v2 .ep-tbl-t tbody tr:nth-child(even)>td{background:#fafbfd}
+.ep-v2 .ep-tbl-t tbody tr:hover>td{background:#f4f8ff}
+.ep-v2 .ep-tbl-t tbody tr:last-child>td{border-bottom:0}
+.ep-v2 .ep-tbl-t .cell-user b{font-size:13px;color:#0f172a}
+.ep-v2 .ep-tbl-t .cell-user small{display:block;font-size:11.5px;color:#64748b;margin-top:1px}
+.ep-v2 .ep-tbl-t .badge{font-size:11px;padding:3px 9px;white-space:nowrap}
+.ep-v2 .ep-tbl-t .ep-acts{display:inline-flex;align-items:center;gap:2px;justify-content:flex-end;flex-wrap:nowrap}
+.ep-v2 .ep-tbl-t .ep-acts .btn-icon{width:30px;height:30px;border-radius:8px}
+.ep-v2 .ep-tbl-t .ep-acts .btn-icon .ic{width:16px;height:16px}
+.ep-v2 .ep-tbl-t .ep-snapv small{display:block;font-size:10.5px}
+.ep-v2 .ep-tbl-t tr.off>td{color:#94a3b8}
+
+/* ---------- แถบแบ่งหน้า ---------- */
+.ep-v2 .ep-pager{gap:8px;flex-wrap:wrap;margin:12px 0 0;font-size:13px;color:#475569}
+.ep-v2 .ep-perbox{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+.ep-v2 .ep-perbox select{min-height:32px;padding:3px 8px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:inherit;font-size:13px}
+.ep-v2 .ep-pginfo{color:#64748b;white-space:nowrap}
+.ep-v2 .ep-pgnums{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ep-v2 .ep-pgnums .btn{min-width:34px;padding:4px 9px}
+.ep-v2 .ep-pager .btn-icon{width:34px;height:34px}
+
+@media screen and (min-width:901px){
+  .ep-v2 .ep-cards{grid-template-columns:repeat(6,minmax(0,1fr));gap:11px}
+  .ep-v2 .ep-filters>select{min-width:150px;max-width:220px}
+  .ep-v2 .ep-filters .ep-qbox{flex:1 1 240px;min-width:200px}
+}
+@media screen and (min-width:901px) and (max-width:1199px){
+  .ep-v2 .ep-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* ============================================================
+   [RUN-198] หน้าลางาน — ปรับดีไซน์ UI ตามแบบ
+   ผัง: หัวข้อ -> การ์ดประเภทการลา 7 ใบ -> กรอบขาว(แถบค้นหา + ตาราง + แบ่งหน้า)
+   ทุกกฎอยู่ใต้ .lv-v2 เท่านั้น จึงไม่กระทบหน้า OT / อนุมัติ / ฟอร์มใบลา / หน้าอื่น
+   ไม่แตะ LEAVE_TYPES[].color ที่ใช้ร่วมกันหลายหน้า — โทนพาสเทล 7 สีผูกกับการ์ดสรุปเท่านั้น
+   สีหัวตารางตามแบบ: พื้น #EAF3FF · ตัวอักษร #1E4E9C
+   ============================================================ */
+.lv-v2 .card{border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 6px 18px rgba(16,24,40,.05)}
+
+/* ---------- หัวข้อหน้า ---------- */
+.lv-v2 .lv-head{display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:14px}
+.lv-v2 .lv-head .grow{min-width:0}
+.lv-v2 .lv-head-ic{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#e3ecfb;color:#2563eb}
+.lv-v2 .lv-head-ic .ic{width:21px;height:21px}
+.lv-v2 .lv-head h3{margin:0;font-size:20px;font-weight:700;color:#1e3a5f;line-height:1.3}
+.lv-v2 .lv-head small{display:block;font-size:13px;color:#64748b;margin-top:2px}
+
+/* ---------- การ์ดสรุปประเภทการลา 7 ใบ ---------- */
+.lv-v2 .lv-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 14px;align-items:stretch}
+.lv-v2 .lv-bcard{display:flex;flex-direction:column;align-items:center;text-align:center;height:100%;min-width:0;
+  padding:14px 10px 13px;border-radius:16px;border:1px solid #e8edf5;background:#fff;
+  box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.lv-v2 .lv-bic{flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#eef2f7;color:#475569;margin-bottom:8px}
+.lv-v2 .lv-bic .ic{width:20px;height:20px}
+.lv-v2 .lv-bl{display:block;font-size:12.5px;color:#475569;line-height:1.35;margin:0 0 2px;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv-v2 .lv-bv{display:block;font-size:26px;font-weight:700;line-height:1.2;color:#0f172a;font-variant-numeric:tabular-nums}
+.lv-v2 .lv-bv i{font-style:normal;font-size:13px;color:#64748b;font-weight:400}
+.lv-v2 .lv-bu{display:block;font-size:12px;color:#94a3b8;margin-top:1px}
+.lv-v2 .bal-rem{display:block;margin-top:auto;padding-top:7px;font-size:12px;color:#16a34a;font-weight:600}
+.lv-v2 .lc-blue{background:#f3f8ff;border-color:#dbe8fb}
+.lv-v2 .lc-blue .lv-bic{background:#e3ecfb;color:#1d4ed8}
+.lv-v2 .lc-violet{background:#f7f5ff;border-color:#e4dcfb}
+.lv-v2 .lc-violet .lv-bic{background:#ede9fe;color:#7c3aed}
+.lv-v2 .lc-green{background:#f4fbf6;border-color:#d4efdd}
+.lv-v2 .lc-green .lv-bic{background:#dcfce7;color:#15803d}
+.lv-v2 .lc-pink{background:#fff5fa;border-color:#fbd9ea}
+.lv-v2 .lc-pink .lv-bic{background:#fce7f3;color:#be1a68}
+.lv-v2 .lc-amber{background:#fffcf3;border-color:#fae7c0}
+.lv-v2 .lc-amber .lv-bic{background:#fef3c7;color:#b45309}
+.lv-v2 .lc-orange{background:#fff8f2;border-color:#fbdcc2}
+.lv-v2 .lc-orange .lv-bic{background:#ffedd5;color:#c2410c}
+.lv-v2 .lc-slate{background:#f8fafc;border-color:#e4e9f0}
+.lv-v2 .lc-slate .lv-bic{background:#eef2f7;color:#475569}
+
+/* ---------- กรอบขาว: แถบค้นหา + ตาราง + แบ่งหน้า อยู่ในใบเดียวกัน ---------- */
+.lv-v2 .lv-box{margin-bottom:14px}
+.lv-v2 .lv-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:13px 16px;border-bottom:1px solid #eef2f7}
+.lv-v2 .lv-bar-t{display:inline-flex;align-items:center;gap:7px;color:#1e3a5f;white-space:nowrap}
+.lv-v2 .lv-bar-t b{font-size:15px;font-weight:600}
+.lv-v2 .lv-bar-t .ic{color:#2563eb}
+.lv-v2 .lv-bar>select,.lv-v2 .lv-bar .search-box,.lv-v2 .lv-bar .btn{min-height:40px}
+.lv-v2 .lv-bar>select{border-radius:12px;min-width:150px}
+.lv-v2 .lv-bar .search-box{border-radius:12px}
+.lv-v2 .lv-bar .btn{border-radius:12px}
+.lv-v2 .lv-bar .lv-count{font-size:13px;color:#64748b;white-space:nowrap}
+.lv-v2 .lv-box .req-list{gap:0}
+.lv-v2 .lv-loading{padding:18px}
+.lv-v2 .lv-empty{padding:8px 16px 18px}
+/* ตารางเดิมห่อด้วย .card มาก่อน — ในกรอบใบนี้ไม่ต้องมีขอบ/เงาซ้อน */
+.lv-v2 .lv-box .lv-tw{border:0;border-radius:0;box-shadow:none;background:transparent;margin:0}
+
+/* ---------- ตารางรายการลา ---------- */
+.lv-v2 .lv-tbl thead th{background:#EAF3FF;color:#1E4E9C;font-weight:600;font-size:12.5px;
+  padding:12px 14px;border-bottom:1px solid #d8e6fa;white-space:nowrap}
+.lv-v2 .lv-tbl tbody td{padding:12px 14px;font-size:13px;vertical-align:middle;border-bottom:1px solid #eef2f7;background:#fff}
+.lv-v2 .lv-tbl tbody tr:last-child>td{border-bottom:0}
+.lv-v2 .lv-tbl tbody tr:hover>td{background:#f4f8ff}
+.lv-v2 .lv-tbl tbody td b{font-size:13px;font-weight:600;color:#0f172a}
+.lv-v2 .lv-tbl .lvt-c-no b{color:#1E4E9C}
+.lv-v2 .lv-tbl .lvt-c-type .chip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px}
+.lv-v2 .lv-tbl .lvt-c-st .badge,.lv-v2 .lv-tbl .lvt-c-st .chip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px}
+.lv-v2 .lv-tbl .lvt-file{font-size:12px;color:#475569}
+.lv-v2 .lv-tbl .lvt-act-h{text-align:center}
+.lv-v2 .lv-tbl .lvt-c-act{text-align:center}
+.lv-v2 .lv-tbl .lvt-acts{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.lv-v2 .lv-tbl .lv-eye{width:34px;height:34px;min-width:34px;min-height:34px;border-radius:10px;
+  background:#eaf2fe;color:#1d4ed8;border:1px solid #dbe8fb}
+.lv-v2 .lv-tbl .lv-eye .ic{width:17px;height:17px}
+.lv-v2 .lv-tbl .lv-eye:hover{background:#dbe8fb}
+.lv-v2 .lv-tbl .ap-miss-line{font-size:11px;margin-top:3px}
+
+/* ---------- แถบแบ่งหน้า ---------- */
+.lv-v2 .lv-pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;
+  padding:12px 16px;border-top:1px solid #eef2f7;background:#fbfdff;font-size:13px;color:#475569}
+.lv-v2 .lv-pginfo{color:#64748b;white-space:nowrap}
+.lv-v2 .lv-pgnums{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.lv-v2 .lv-pgnums .btn{min-width:36px;padding:5px 10px;border-radius:10px}
+.lv-v2 .lv-pgarrow{width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569}
+.lv-v2 .lv-pgarrow:hover:not(:disabled){border-color:#bfd6f7;background:#f4f8ff;color:#1d4ed8}
+.lv-v2 .lv-pgarrow:disabled{opacity:.45}
+.lv-v2 .lv-perbox{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+.lv-v2 .lv-perbox select{min-height:36px;padding:4px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font:inherit;font-size:13px}
+
+@media screen and (min-width:901px){
+  /* พื้นหลังหน้าสีฟ้าอ่อนตามแบบ — ขยายเต็มพื้นที่ .main-view (padding 20px 24px 40px ที่ความกว้างนี้
+     กฎ padding-bottom:20px เป็นของหน้า Dashboard เท่านั้น — body:has(.dash-v2) จึงไม่เกี่ยวกับหน้านี้)
+     #/leave ไม่มีแถบแท็บด้านบน .lv-v2 จึงเป็นบล็อกแรกเสมอ การดึงระยะขอบจึงพอดีไม่ล้น */
+  .lv-v2{background:#F4F8FF;margin:-20px -24px -40px;padding:20px 24px 40px;min-height:calc(100vh - 64px)}
+  .lv-v2 .lv-cards{grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+  .lv-v2 .lv-bar .search-box{flex:1 1 280px;min-width:220px}
+  /* ความกว้างขั้นต่ำของตาราง — ของเดิม 900px ทำให้เลขคำขอและช่วงวันที่ถูกตัดด้วย …
+     ขยายเป็น 1180px ให้ข้อความครบทุกคอลัมน์ ส่วนที่แคบกว่านั้นเลื่อนเฉพาะในตาราง
+     (หน้าไม่มี Horizontal Scroll — พฤติกรรมเดิมของ .lvt-wrap อยู่แล้ว) */
+  .lv-v2 .lv-box .lv-tw{overflow-x:auto}
+  .lv-v2 .lv-tbl{min-width:1180px}
+  /* ปรับสัดส่วนคอลัมน์เฉพาะหน้านี้ — คอลัมน์ "จัดการ" ของเดิม 9% แคบเกินไป
+     แถวที่สถานะ "รออนุมัติ" มีปุ่มยกเลิกคำขอเพิ่มจึงตกบรรทัดและดันแถวสูงผิดปกติ */
+  .lv-v2 .lv-tbl thead th:first-child{width:11%}
+  .lv-v2 .lv-tbl thead th:nth-child(2){width:13%}
+  .lv-v2 .lv-tbl thead th:nth-child(3){width:9%}
+  .lv-v2 .lv-tbl thead th:nth-child(4){width:16%}
+  .lv-v2 .lv-tbl thead th:nth-child(5){width:9%}
+  .lv-v2 .lv-tbl thead th:nth-child(6){width:6%}
+  .lv-v2 .lv-tbl thead th:nth-child(7){width:9%}
+  .lv-v2 .lv-tbl thead th:nth-child(8){width:13%}
+  .lv-v2 .lv-tbl thead th:nth-child(9){width:14%}
+  .lv-v2 .lv-tbl .lvt-c-no b,.lv-v2 .lv-tbl .lvt-c-date b{white-space:nowrap}
+  .lv-v2 .lv-tbl .lvt-acts{flex-wrap:nowrap}
+  .lv-v2 .lv-tbl .lvt-acts .btn{white-space:nowrap;padding:0 10px;min-height:34px;border-radius:10px;font-size:12.5px}
+}
+/* จอแคบกว่า 1300px — ย่อการ์ดให้ยังอ่านง่าย ไม่ให้ตัวเลขล้นกรอบ */
+@media screen and (min-width:901px) and (max-width:1299px){
+  .lv-v2 .lv-bcard{padding:12px 7px 11px}
+  .lv-v2 .lv-bl{font-size:11.5px}
+  .lv-v2 .lv-bv{font-size:22px}
+  .lv-v2 .lv-bic{width:36px;height:36px;margin-bottom:6px}
+  .lv-v2 .lv-bic .ic{width:18px;height:18px}
+  .lv-v2 .lv-tbl thead th,.lv-v2 .lv-tbl tbody td{padding:10px 10px}
+}

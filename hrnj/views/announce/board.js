@@ -32,7 +32,9 @@
   /* [FIX 5] SOURCE ให้แนบ Word/PDF ได้เฉพาะหมวด "ระเบียบบริษัท" */
   var AN_FILE_CAT = "ระเบียบบริษัท";
 
-  var anState = { scope: "BOARD", q: "", status: "", page: 1, per: 10, seq: 0, rows: [], canManage: false, host: null };
+  var anState = { scope: "BOARD", q: "", status: "", cat: "", tgt: "", page: 1, per: 20, seq: 0, rows: [], canManage: false, host: null };
+  /* [RUN-195] per: 10 -> 20 ตามแบบ · cat/tgt = ตัวกรองประเภทและกลุ่มเป้าหมาย (กรองฝั่งหน้าเว็บ
+     จากชุดข้อมูลเดิมที่ anLoad ดึงมาแล้ว ไม่ยิง RPC เพิ่มและไม่แตะ njhr_ea_list) */
   var anReadOk = false, anStart = null, anDepts = [];
   var anDocxFile = null, anPdfFile = null;
   /* [FIX 2] id ของประกาศที่ Readers Modal เปิดค้างอยู่ — ใช้ให้ Realtime refresh ใน Modal ด้วย */
@@ -205,14 +207,22 @@
   function viewAnnDone(el) { anView(el, "DONE"); }
 
   function anPaint(el) {
-    var mng = anState.canManage, list = anState.rows.slice();
-    var total = list.length, per = anState.per;
-    var pages = Math.max(1, Math.ceil(total / per));
-    if (anState.page > pages) anState.page = pages;
-    var page = list.slice((anState.page - 1) * per, anState.page * per);
+    anMenuClose();
+    var mng = anState.canManage;
+    var all = anFiltered();                       /* [RUN-195] หลังกรองประเภท/กลุ่มเป้าหมาย */
+    var total = all.length;
+    var page = anPageRows(all);                   /* เฉพาะหน้าปัจจุบัน */
     var isDone = anState.scope === "DONE";
+    var cats = anOptsOf(anState.rows, function (a) { return a.category || "ข่าวสาร"; });
+    var tgts = anOptsOf(anState.rows, anTgtLabel);
+    var startNo = anState.per > 0 ? (anState.page - 1) * anState.per : 0;
+    var emptyTxt = isDone ? "ยังไม่มีประกาศที่รับทราบแล้ว" : "ยังไม่มีประกาศตามเงื่อนไขที่เลือก";
+    var HEAD = [["ลำดับ", "an-c-no"], ["เลขที่ประกาศ", "an-c-ann"], ["วันที่ประกาศ", "an-c-date"],
+    ["หัวข้อประกาศ", "an-c-title"], ["ประเภท", "an-c-cat"], ["กลุ่มเป้าหมาย", "an-c-tgt"],
+    ["การรับทราบ", "an-c-ack"], ["สถานะ", "an-c-st"], ["จัดการ", "an-c-act"]];
 
     el.innerHTML =
+      '<div class="an-v2">' +
       '<div class="card an-top"><div class="card-head">' +
       "<h3>" + (isDone ? "📚 ประกาศที่รับทราบแล้ว" : "📢 ประกาศบริษัท") + "</h3>" +
       '<span class="grow"></span>' +
@@ -220,30 +230,59 @@
         '<button class="btn btn-ghost btn-sm" id="an-csv">' + icon("download") + " CSV</button>" : "") +
       (mng && !isDone ? '<button class="btn btn-primary btn-sm" id="an-new">' + icon("plus") + " เพิ่มประกาศ</button>" : "") +
       "</div>" +
+      '<p class="an-sub">รายการประกาศ ข่าวสาร ระเบียบ และข้อมูลสำคัญของบริษัท</p>' +
       '<div class="toolbar an-filter">' +
       '<span class="search-box an-search">' + icon("search") +
-      '<input id="an-q" autocomplete="off" placeholder="ค้นหาหัวข้อ / เนื้อหา / หมวด" value="' + esc(anState.q) + '"></span>' +
-      (mng ? '<select id="an-st" style="max-width:170px">' +
+      '<input id="an-q" autocomplete="off" placeholder="ค้นหาหัวข้อ / เนื้อหา / หมวดหมู่" value="' + esc(anState.q) + '"></span>' +
+      '<select id="an-cat" aria-label="ประเภท"><option value="">ทุกประเภท</option>' +
+      cats.map(function (c) { return '<option value="' + esc(c) + '"' + (anState.cat === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") +
+      "</select>" +
+      '<select id="an-tgt" aria-label="กลุ่มเป้าหมาย"><option value="">ทุกกลุ่มเป้าหมาย</option>' +
+      tgts.map(function (t) { return '<option value="' + esc(t) + '"' + (anState.tgt === t ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") +
+      "</select>" +
+      (mng ? '<select id="an-st" aria-label="สถานะ">' +
         ['<option value="">ทุกสถานะ</option>',
         '<option value="OPEN"' + (anState.status === "OPEN" ? " selected" : "") + ">เปิดรับทราบ</option>",
         '<option value="CLOSED"' + (anState.status === "CLOSED" ? " selected" : "") + ">ปิดแล้ว</option>"].join("") +
         "</select>" : "") +
       '<span class="grow"></span><small class="muted">' + total + " รายการ</small></div></div>" +
-      '<div class="req-list an-list">' +
+      /* ตาราง — เดสก์ท็อป */
+      '<div class="card p0 an-tblbox only-desktop"><div class="table-wrap"><table class="an-tbl"><thead><tr>' +
+      HEAD.map(function (h) { return '<th class="' + h[1] + '">' + esc(h[0]) + "</th>"; }).join("") +
+      "</tr></thead><tbody>" +
+      (total ? page.map(function (a, i) { return anRow(a, mng, startNo + i + 1); }).join("")
+        : '<tr><td colspan="9" class="muted" style="padding:18px">' + esc(emptyTxt) + "</td></tr>") +
+      "</tbody></table></div></div>" +
+      /* การ์ด — มือถือ (ของเดิม ไม่เปลี่ยน) */
+      '<div class="req-list an-list only-mobile">' +
       (total ? page.map(function (a) { return anCard(a, mng); }).join("") :
-        '<div class="card">' + emptyState(isDone ? "ยังไม่มีประกาศที่รับทราบแล้ว" : "ยังไม่มีประกาศ") + "</div>") +
-      "</div>" + anPager(pages);
+        '<div class="card">' + emptyState(emptyTxt) + "</div>") +
+      "</div>" + anPager(total) + "</div>";
+
+    var byId = {};
+    page.forEach(function (a) { byId[String(a.id)] = a; });
 
     var q = document.getElementById("an-q");
     if (q) q.oninput = debounce(function () { anState.q = this.value; anState.page = 1; anLoad(el); }, 300);
     var st = document.getElementById("an-st");
     if (st) st.onchange = function () { anState.status = this.value; anState.page = 1; anLoad(el); };
+    /* [RUN-195] ประเภท/กลุ่มเป้าหมาย กรองจากข้อมูลที่โหลดมาแล้ว จึงวาดใหม่ได้ทันทีโดยไม่ยิง RPC */
+    var ct = document.getElementById("an-cat");
+    if (ct) ct.onchange = function () { anState.cat = this.value; anState.page = 1; anPaint(el); };
+    var tg2 = document.getElementById("an-tgt");
+    if (tg2) tg2.onchange = function () { anState.tgt = this.value; anState.page = 1; anPaint(el); };
+    var pr = document.getElementById("an-per");
+    if (pr) pr.onchange = function () { anState.per = Number(this.value) || 0; anState.page = 1; anPaint(el); };
+    var pv = document.getElementById("an-prev");
+    if (pv) pv.onclick = function () { if (anState.page > 1) { anState.page--; anPaint(el); } };
+    var nx = document.getElementById("an-next");
+    if (nx) nx.onclick = function () { if (anState.page < anPageCount(total)) { anState.page++; anPaint(el); } };
     var nw = document.getElementById("an-new");
     if (nw) nw.onclick = function () { anForm(el, null); };
     var xl = document.getElementById("an-xls");
-    if (xl) xl.onclick = function () { anExportXlsx(this, list); };
+    if (xl) xl.onclick = function () { anExportXlsx(this, all); };
     var cs = document.getElementById("an-csv");
-    if (cs) cs.onclick = function () { anExportCsv(list); };
+    if (cs) cs.onclick = function () { anExportCsv(all); };
     el.querySelectorAll("[data-an-open]").forEach(function (b) { b.onclick = function () { anDetail(el, b.dataset.anOpen); }; });
     el.querySelectorAll("[data-an-edit]").forEach(function (b) { b.onclick = function () { anForm(el, b.dataset.anEdit); }; });
     el.querySelectorAll("[data-an-rdr]").forEach(function (b) { b.onclick = function () { anReaders(b.dataset.anRdr); }; });
@@ -251,6 +290,13 @@
     el.querySelectorAll("[data-an-pin]").forEach(function (b) { b.onclick = function () { anPin(el, b.dataset.anPin, b.dataset.anTo === "1"); }; });
     el.querySelectorAll("[data-an-del]").forEach(function (b) { b.onclick = function () { anDelete(el, b.dataset.anDel); }; });
     el.querySelectorAll("[data-an-word]").forEach(function (b) { b.onclick = function () { anExportWord(b, b.dataset.anWord); }; });
+    el.querySelectorAll("[data-an-menu]").forEach(function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var a = byId[String(b.dataset.anMenu)];
+        if (a) anMenuOpen(b, el, a, mng);
+      };
+    });
     el.querySelectorAll("[data-an-pg]").forEach(function (b) { b.onclick = function () { anState.page = Number(b.dataset.anPg) || 1; anPaint(el); }; });
   }
 
@@ -284,14 +330,154 @@
       "</div></div>";
   }
 
-  function anPager(pages) {
-    if (pages <= 1) return "";
-    var out = '<div class="toolbar an-pager">';
-    for (var i = 1; i <= pages; i++) {
-      out += '<button class="btn btn-sm ' + (i === anState.page ? "btn-primary" : "btn-ghost") +
+  /* [RUN-195] ───── ตัวช่วยของตารางประกาศ ───── */
+  function anHM(v) {
+    if (!v) return "";
+    var d = new Date(v); if (isNaN(d.getTime())) return "";
+    return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+  function anTgtLabel(a) { var t = anTargets(a); return t ? t.join(", ") : "ทุกแผนก"; }
+  /* ตัวเลือกของตัวกรอง สร้างจากข้อมูลจริงที่โหลดมา ไม่ได้กำหนดตายตัว */
+  function anOptsOf(rows, fn) {
+    var seen = {}, out = [];
+    (rows || []).forEach(function (a) {
+      var v = String(fn(a) || "").trim();
+      if (!v || seen[v]) return; seen[v] = 1; out.push(v);
+    });
+    return out.sort(function (x, y) { return x.localeCompare(y, "th"); });
+  }
+  /* กรองประเภท/กลุ่มเป้าหมายฝั่งหน้าเว็บ — ค้นหาและสถานะยังกรองที่ RPC เหมือนเดิม */
+  function anFiltered() {
+    return anState.rows.filter(function (a) {
+      if (anState.cat && String(a.category || "ข่าวสาร") !== anState.cat) return false;
+      if (anState.tgt && anTgtLabel(a) !== anState.tgt) return false;
+      return true;
+    });
+  }
+  var AN_PER = [[10, "10"], [20, "20"], [50, "50"], [0, "ทั้งหมด"]];
+  function anPageCount(n) { return anState.per > 0 ? Math.max(1, Math.ceil(n / anState.per)) : 1; }
+  function anPageRows(list) {
+    if (anState.per <= 0) { anState.page = 1; return list; }
+    var pc = anPageCount(list.length);
+    if (anState.page > pc) anState.page = pc;
+    if (anState.page < 1) anState.page = 1;
+    var st = (anState.page - 1) * anState.per;
+    return list.slice(st, st + anState.per);
+  }
+
+  /* ───── แถวตาราง (เดสก์ท็อป) ───── */
+  function anRow(a, mng, no) {
+    var st = anStat(a), closed = a.status !== "OPEN", title = String(a.title || "");
+    return '<tr class="an-r' + (closed ? " an-r-closed" : "") + '">' +
+      '<td class="an-c-no"><span class="an-seq">' + no + "</span>" +
+      (a.pinned ? '<span class="an-pin" title="ปักหมุด">' + icon("pin", "ic-sm ic-red") + "</span>" : "") + "</td>" +
+      '<td class="an-c-ann">' + esc(a.ann_no || "—") + "</td>" +
+      '<td class="an-c-date">' + anDate(a.published_at || a.created_at) +
+      '<small>' + esc(anHM(a.published_at || a.created_at)) + "</small></td>" +
+      '<td class="an-c-title"><button type="button" class="an-title" data-an-open="' + esc(a.id) +
+      '" title="' + esc(title) + '">' + esc(title) + "</button></td>" +
+      '<td class="an-c-cat">' + anCatChip(a.category) + "</td>" +
+      '<td class="an-c-tgt"><span class="an-1l" title="' + esc(anTgtLabel(a)) + '">' +
+      esc(anTgtLabel(a)) + "</span></td>" +
+      '<td class="an-c-ack">' + (mng
+        ? '<span class="an-ackn"><b>' + st.numer + "</b> / " + st.denom + " (" + st.pct + "%)</span>" +
+        '<span class="an-bar"><i style="width:' + st.pct + '%"></i></span>'
+        : (a.mine_read ? '<span class="chip chip-ok">รับทราบแล้ว</span>' : '<span class="chip">ยังไม่รับทราบ</span>')) + "</td>" +
+      '<td class="an-c-st"><span class="badge ' + (closed ? "badge-bad" : "badge-ok") + '">' +
+      (closed ? "ปิด" : "เปิด") + "</span></td>" +
+      '<td class="an-c-act"><button type="button" class="btn btn-ghost btn-sm an-mbtn" data-an-menu="' +
+      esc(a.id) + '" aria-haspopup="menu" aria-expanded="false">จัดการ</button></td>' +
+      "</tr>";
+  }
+
+  /* ───── เมนู "จัดการ" — วางแบบ position:fixed จึงไม่ถูกตารางหรือ Pagination ตัด/บัง ───── */
+  var anMenu = { el: null, btn: null, onDoc: null, onKey: null };
+  function anMenuClose() {
+    if (!anMenu.el) return;
+    document.removeEventListener("mousedown", anMenu.onDoc, true);
+    document.removeEventListener("keydown", anMenu.onKey, true);
+    window.removeEventListener("resize", anMenuClose);
+    window.removeEventListener("scroll", anMenuClose, true);
+    if (anMenu.el.parentNode) anMenu.el.parentNode.removeChild(anMenu.el);
+    if (anMenu.btn) anMenu.btn.setAttribute("aria-expanded", "false");
+    anMenu.el = null; anMenu.btn = null; anMenu.onDoc = null; anMenu.onKey = null;
+  }
+  function anMenuItems(el, a, mng) {
+    var closed = a.status !== "OPEN", items = [];
+    items.push(["fileText", "อ่านประกาศ", function () { anDetail(el, a.id); }, ""]);
+    if (mng) {
+      items.push(["users", "ผู้รับทราบ", function () { anReaders(a.id); }, ""]);
+      items.push(["download", "Export Word", function (b) { anExportWord(b, a.id); }, ""]);
+      items.push(["edit", "แก้ไข", function () { anForm(el, a.id); }, ""]);
+      items.push(["pin", a.pinned ? "เลิกปักหมุด" : "ปักหมุด", function () { anPin(el, a.id, !a.pinned); }, ""]);
+      items.push([closed ? "check" : "ban", closed ? "เปิดรับทราบ" : "ปิดรับทราบ",
+      function () { anToggle(el, a.id, closed ? "OPEN" : "CLOSED"); }, ""]);
+    }
+    if (anIsSuper()) items.push(["trash", "ลบ", function () { anDelete(el, a.id); }, "an-mi-del"]);
+    return items;
+  }
+  function anMenuOpen(btn, el, a, mng) {
+    var same = anMenu.btn === btn;
+    anMenuClose();
+    if (same) return;
+    var items = anMenuItems(el, a, mng);
+    var m = document.createElement("div");
+    m.className = "an-menu"; m.setAttribute("role", "menu");
+    m.innerHTML = items.map(function (it, i) {
+      return '<button type="button" role="menuitem" class="an-mi' + (it[3] ? " " + it[3] : "") +
+        '" data-i="' + i + '">' + icon(it[0], "ic-sm") + "<span>" + esc(it[1]) + "</span></button>";
+    }).join("");
+    document.body.appendChild(m);
+    var r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+    var top = r.bottom + 6, left = r.right - mw;
+    /* ใกล้ขอบล่าง -> พลิกขึ้นด้านบนปุ่ม แล้วบีบให้อยู่ในจอเสมอ ไม่ว่าปุ่มจะอยู่ตรงไหน */
+    if (top + mh > window.innerHeight - 8) top = r.top - mh - 6;
+    if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+    if (top < 8) top = 8;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+    m.style.top = Math.round(top) + "px";
+    m.style.left = Math.round(left) + "px";
+    Array.prototype.forEach.call(m.querySelectorAll(".an-mi"), function (b) {
+      b.onclick = function () {
+        var fn = items[Number(b.getAttribute("data-i"))][2];
+        anMenuClose();
+        fn(btn);
+      };
+    });
+    anMenu.el = m; anMenu.btn = btn;
+    btn.setAttribute("aria-expanded", "true");
+    anMenu.onDoc = function (ev) { if (m.contains(ev.target) || btn.contains(ev.target)) return; anMenuClose(); };
+    anMenu.onKey = function (ev) { if (ev.key === "Escape" || ev.keyCode === 27) anMenuClose(); };
+    document.addEventListener("mousedown", anMenu.onDoc, true);
+    document.addEventListener("keydown", anMenu.onKey, true);
+    window.addEventListener("resize", anMenuClose);
+    window.addEventListener("scroll", anMenuClose, true);
+  }
+
+  /* ───── แถบแบ่งหน้า ───── */
+  function anPager(total) {
+    var pc = anPageCount(total);
+    var from = total ? (anState.per > 0 ? (anState.page - 1) * anState.per + 1 : 1) : 0;
+    var to = anState.per > 0 ? Math.min(total, anState.page * anState.per) : total;
+    var nums = "";
+    for (var i = 1; i <= pc; i++) {
+      nums += '<button type="button" class="btn btn-sm ' + (i === anState.page ? "btn-primary" : "btn-ghost") +
         '" data-an-pg="' + i + '">' + i + "</button>";
     }
-    return out + "</div>";
+    return '<div class="toolbar an-pager">' +
+      '<label class="an-perbox">แสดง <select id="an-per" aria-label="จำนวนต่อหน้า">' +
+      AN_PER.map(function (x) {
+        return '<option value="' + x[0] + '"' + (anState.per === x[0] ? " selected" : "") + ">" + x[1] + "</option>";
+      }).join("") + "</select> รายการ</label>" +
+      '<span class="an-pginfo">แสดง ' + from + "–" + to + " จากทั้งหมด " + total + " รายการ</span>" +
+      '<span class="grow"></span>' +
+      '<button type="button" class="btn-icon" id="an-prev" aria-label="หน้าก่อนหน้า" title="หน้าก่อนหน้า"' +
+      (anState.page <= 1 ? " disabled" : "") + ">" + icon("chevL") + "</button>" +
+      '<span class="an-pgnums">' + nums + "</span>" +
+      '<button type="button" class="btn-icon" id="an-next" aria-label="หน้าถัดไป" title="หน้าถัดไป"' +
+      (anState.page >= pc ? " disabled" : "") + ">" + icon("chevR") + "</button>" +
+      "</div>";
   }
 
   /* ───────── อ่านประกาศ + รับทราบ ───────── */

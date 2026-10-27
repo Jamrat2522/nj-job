@@ -1315,18 +1315,18 @@ function prRowHTML(en,i,pr){
   var m=prEmpMeta(en.empId);
   var ovr=(en.overrideSalary!=null||en.overrideOt!=null||en.overrideShift!=null||en.overrideDiligence!=null);
   return '<tr data-prrow="'+esc(en.empId)+'">'
-    +'<td class="ta-c">'+(i+1)+'</td>'
-    +'<td>'+esc(m.code)+'</td>'
-    +'<td><div class="cell-user">'+avatarHTML(m.name,28)+'<div><b>'+esc(m.name)+'</b>'
+    +'<td class="ta-c pr-c-no">'+(i+1)+'</td>'
+    +'<td class="pr-c-code">'+esc(m.code)+'</td>'
+    +'<td class="pr-c-name"><div class="cell-user">'+avatarHTML(m.name,28)+'<div><b>'+esc(m.name)+'</b>'
       +(m.nickname?'<small>'+esc(m.nickname)+'</small>':'')+'</div></div></td>'
-    +'<td>'+esc(m.dept||"—")+'</td>'
-    +'<td>'+esc(m.pos||"—")+'</td>'
-    +'<td class="ta-r">'+money(en.earnings)+'</td>'
-    +'<td class="ta-r t-red">-'+money(en.deductions)+'</td>'
-    +'<td class="ta-r"><b>'+money(en.net)+'</b></td>'
-    +'<td>'+(ovr?'<span class="badge badge-warn">มีการแก้ไข</span>':'<span class="badge">ปกติ</span>')+'</td>'
-    +'<td class="ta-r"><button class="btn btn-ghost btn-sm" data-prdetail="'+esc(en.empId)+'">'
-      +(prEditable(pr)?"ดูรายละเอียด / แก้ไข":"ดูรายละเอียด")+'</button></td></tr>'
+    +'<td class="pr-c-dept">'+esc(m.dept||"—")+'</td>'
+    +'<td class="pr-c-pos">'+esc(m.pos||"—")+'</td>'
+    +'<td class="ta-r pr-c-money">'+money(en.earnings)+'</td>'
+    +'<td class="ta-r t-red pr-c-money">-'+money(en.deductions)+'</td>'
+    +'<td class="ta-r pr-c-money"><b>'+money(en.net)+'</b></td>'
+    +'<td class="pr-c-st">'+(ovr?'<span class="badge badge-warn">มีการแก้ไข</span>':'<span class="badge badge-ok">ปกติ</span>')+'</td>'
+    +'<td class="ta-r pr-c-act"><button class="btn btn-ghost btn-sm pr-detail-btn" data-prdetail="'+esc(en.empId)+'">'
+      +icon("eye","ic-sm")+' '+(prEditable(pr)?"ดูรายละเอียด / แก้ไข":"ดูรายละเอียด")+'</button></td></tr>'
 }
 function prTableHTML(pr){
   var rows=prVisibleRows(pr);
@@ -1335,12 +1335,16 @@ function prTableHTML(pr){
   if(!rows.length)return emptyState("ไม่พบพนักงานตามตัวกรองที่เลือก");
   var sumE=0,sumD=0,sumN=0;
   rows.forEach(function(en){sumE+=Number(en.earnings)||0;sumD+=Number(en.deductions)||0;sumN+=Number(en.net)||0});
-  return '<div class="table-wrap pr-table"><table><thead><tr>'
-    +'<th class="ta-c">ลำดับ</th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>แผนก</th><th>ตำแหน่ง</th>'
-    +'<th class="ta-r">รายรับรวม</th><th class="ta-r">หักรวม</th><th class="ta-r">เงินสุทธิ</th>'
-    +'<th>สถานะ</th><th class="ta-r">จัดการ</th></tr></thead><tbody>'
-    +rows.map(function(en,i){return prRowHTML(en,i,pr)}).join("")
-    +'<tr class="row-total"><td colspan="5"><b>รวม '+rows.length+' คน</b></td>'
+  /* [RUN-196] แสดงเฉพาะหน้าปัจจุบัน — ยอดรวมท้ายตารางยังคิดจากทุกแถวตามตัวกรองเหมือนเดิม */
+  var pageRows=prPageRows(rows),off=prPage.per>0?(prPage.page-1)*prPage.per:0;
+  return '<div class="table-wrap pr-table"><table class="pr-tbl"><thead><tr>'
+    +'<th class="ta-c pr-c-no">ลำดับ</th><th class="pr-c-code">รหัส</th><th class="pr-c-name">ชื่อ-นามสกุล</th>'
+    +'<th class="pr-c-dept">แผนก</th><th class="pr-c-pos">ตำแหน่ง</th>'
+    +'<th class="ta-r pr-c-money">รายรับรวม</th><th class="ta-r pr-c-money">หักรวม</th>'
+    +'<th class="ta-r pr-c-money">เงินสุทธิ</th>'
+    +'<th class="pr-c-st">สถานะ</th><th class="ta-r pr-c-act">จัดการ</th></tr></thead><tbody>'
+    +pageRows.map(function(en,i){return prRowHTML(en,off+i,pr)}).join("")
+    +'<tr class="row-total"><td colspan="5"><b>รวมทั้งหมดตามตัวกรอง '+rows.length+' คน</b></td>'
     +'<td class="ta-r"><b>'+money(sumE)+'</b></td>'
     +'<td class="ta-r t-red"><b>-'+money(sumD)+'</b></td>'
     +'<td class="ta-r"><b>'+money(sumN)+'</b></td><td></td><td></td></tr>'
@@ -1568,12 +1572,9 @@ function prApplyRpcResult(empId,res,isReset){
   return en
 }
 function prRepaintRow(empId){
-  var pr=db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
-  var el=document.getElementById("pr-view");
-  var box=document.getElementById("pr-table");
-  if(box){box.innerHTML=prTableHTML(pr);prBindTable(el)}
-  var sm=document.getElementById("pr-summary");
-  if(sm)sm.innerHTML=prSummaryHTML(pr)
+  /* [RUN-196] วาดใหม่ผ่าน prRepaint เพื่อให้แถบแบ่งหน้าอัปเดตตามไปด้วย
+     คงหน้าที่กำลังดูอยู่ ไม่เด้งกลับหน้าแรก */
+  prRepaint(document.getElementById("pr-view"))
 }
 function prEditField(empId,f){
   var cf=PR_FIELDS[f]; if(!cf)return;
@@ -1930,19 +1931,78 @@ function prSnapV(pr){
 }
 
 /* ---------- Summary + Toolbar + viewPayroll ---------- */
+/* [RUN-196] ───── แบ่งหน้าตารางเงินเดือน ─────
+   เดิมหน้านี้ไม่มีการแบ่งหน้าเลย — วาดทุกแถวรวดเดียว (117 คน)
+   ตัวเลขในการ์ดสรุปและแถวรวมท้ายตารางยังคิดจาก "ทุกแถวตามตัวกรอง" เหมือนเดิม
+   ไม่ได้แตะสูตรคำนวณหรือข้อมูลใด ๆ เป็นการตัดแบ่งเพื่อแสดงผลล้วน */
+var prPage={page:1,per:10};
+var PR_PER=[[10,"10"],[20,"20"],[50,"50"],[0,"ทั้งหมด"]];
+function prPageCount(n){return prPage.per>0?Math.max(1,Math.ceil(n/prPage.per)):1}
+function prPageRows(list){
+  if(prPage.per<=0){prPage.page=1;return list}
+  var pc=prPageCount(list.length);
+  if(prPage.page>pc)prPage.page=pc;
+  if(prPage.page<1)prPage.page=1;
+  var st=(prPage.page-1)*prPage.per;
+  return list.slice(st,st+prPage.per)
+}
+function prPagerHTML(total){
+  var pc=prPageCount(total);
+  var from=total?(prPage.per>0?(prPage.page-1)*prPage.per+1:1):0;
+  var to=prPage.per>0?Math.min(total,prPage.page*prPage.per):total;
+  var nums="";
+  for(var i=1;i<=pc;i++){
+    nums+='<button type="button" class="btn btn-sm '+(i===prPage.page?"btn-primary":"btn-ghost")
+      +'" data-prpg="'+i+'">'+i+'</button>'}
+  return '<label class="pr-perbox">แสดง <select id="pr-per" aria-label="จำนวนต่อหน้า">'
+    +PR_PER.map(function(x){return '<option value="'+x[0]+'"'+(prPage.per===x[0]?" selected":"")+'>'+x[1]+'</option>'}).join("")
+    +'</select> รายการ</label>'
+    +'<span class="pr-pginfo">แสดง '+from+'–'+to+' จากทั้งหมด '+total+' รายการ</span>'
+    +'<span class="grow"></span>'
+    +'<button type="button" class="btn-icon" id="pr-prev" aria-label="หน้าก่อนหน้า" title="หน้าก่อนหน้า"'
+    +(prPage.page<=1?" disabled":"")+'>'+icon("chevL")+'</button>'
+    +'<span class="pr-pgnums">'+nums+'</span>'
+    +'<button type="button" class="btn-icon" id="pr-next" aria-label="หน้าถัดไป" title="หน้าถัดไป"'
+    +(prPage.page>=pc?" disabled":"")+'>'+icon("chevR")+'</button>'
+}
+/* วาดใหม่ทั้ง ตาราง + การ์ด + แถบแบ่งหน้า พร้อมผูกปุ่มกลับให้ครบ */
+function prRepaint(el,pr){
+  el=el||document.getElementById("pr-view");
+  pr=pr||db.payroll.find(function(p){return p.month===prSel.m&&p.year===prSel.y});
+  var box=document.getElementById("pr-table");
+  if(box){box.innerHTML=prTableHTML(pr);prBindTable(el)}
+  var sm=document.getElementById("pr-summary");
+  if(sm)sm.innerHTML=prSummaryHTML(pr);
+  var pg=document.getElementById("pr-pager");
+  if(pg){pg.innerHTML=prPagerHTML(prVisibleRows(pr).length);prBindPager(el,pr)}
+}
+function prBindPager(el,pr){
+  var total=prVisibleRows(pr).length,pc=prPageCount(total);
+  var sel=document.getElementById("pr-per");
+  if(sel)sel.onchange=function(){prPage.per=Number(this.value)||0;prPage.page=1;prRepaint(el,pr)};
+  var pv=document.getElementById("pr-prev");
+  if(pv)pv.onclick=function(){if(prPage.page>1){prPage.page--;prRepaint(el,pr)}};
+  var nx=document.getElementById("pr-next");
+  if(nx)nx.onclick=function(){if(prPage.page<pc){prPage.page++;prRepaint(el,pr)}};
+  document.querySelectorAll("[data-prpg]").forEach(function(b){
+    b.onclick=function(){prPage.page=Number(b.getAttribute("data-prpg"))||1;prRepaint(el,pr)}})
+}
 function prSummaryHTML(pr){
   var rows=prVisibleRows(pr),all=(pr&&pr.entries||[]).length;
   var sE=0,sD=0,sN=0;
   rows.forEach(function(en){sE+=Number(en.earnings)||0;sD+=Number(en.deductions)||0;sN+=Number(en.net)||0});
-  function card(l,v,cls){return '<div class="pr-card'+(cls?" "+cls:"")+'"><small>'+l+'</small><b>'+v+'</b></div>'}
-  return card("พนักงานที่แสดง",rows.length+" / "+all+" คน")
-    +card("ช่วงวันที่งวด",prRangeText()||"—")
-    +card("รายรับรวม",money(sE))
-    +card("รายการหักรวม",money(sD),"pr-card-red")
-    +card("เงินสุทธิรวม",money(sN),"pr-card-blue")
-    +card("รายการที่ถูกแก้ไข",prOvrCount(pr)+" คน")
+  /* [RUN-196] เพิ่มไอคอนและสีประจำการ์ดตามแบบ — ค่าและสูตรทุกใบเหมือนเดิมทุกประการ */
+  function card(l,v,cls,ic){return '<div class="pr-card'+(cls?" "+cls:"")+'">'
+    +'<span class="pr-card-ic">'+icon(ic||"wallet")+'</span>'
+    +'<span class="grow"><small>'+l+'</small><b>'+v+'</b></span></div>'}
+  return card("พนักงานที่แสดง",rows.length+" / "+all+" คน","pr-t-blue","users")
+    +card("ช่วงวันที่จ่าย",prRangeText()||"—","pr-t-violet","calendar")
+    +card("รายรับรวม",money(sE),"pr-t-green","wallet")
+    +card("รายการหักรวม",money(sD),"pr-card-red pr-t-red","ban")
+    +card("เงินสุทธิรวม",money(sN),"pr-card-blue pr-t-blue","checkSquare")
+    +card("รายการที่ถูกแก้ไข",prOvrCount(pr)+" คน","pr-t-amber","edit")
     /* [RUN-157] §30 สถานะ "ส่งสลิป" เป็นคนละกลุ่มกับสถานะงวด — แสดงแยกชัดเจน */
-    +card("ส่งสลิปแล้ว",(prMeta().sent_count||0)+" คน")
+    +card("ส่งสลิปแล้ว",(prMeta().sent_count||0)+" คน","pr-t-violet","send")
 }
 function prActionsHTML(pr){
   var st=prStatusOf(pr),out="";
@@ -1987,7 +2047,16 @@ function viewPayroll(el){
   var st=prStatusOf(pr),opts=prFilterOptions(pr);
   var months=db.payroll.map(function(p){return{m:p.month,y:p.year}});
   el.id="pr-view";
-  el.innerHTML='<div class="toolbar pr-filters">'
+  /* [RUN-196] ลำดับหน้าใหม่ตามแบบ: หัวข้อ -> การ์ด 7 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
+     เปลี่ยนงวด/ตัวกรอง/คำนวณใหม่ แล้วกลับหน้าแรกเสมอ */
+  prPage.page=1;
+  el.innerHTML='<div class="pr-v2">'
+    +'<div class="card pr-head"><span class="pr-head-ic">'+icon("wallet")+'</span>'
+      +'<span class="grow"><h3>เงินเดือน</h3>'
+      +'<small>จัดการรอบเงินเดือน คำนวณ ตรวจสอบ และจัดการข้อมูลเงินเดือนพนักงาน</small></span></div>'
+    +'<div class="pr-cards" id="pr-summary">'+prSummaryHTML(pr)+'</div>'
+    +'<div class="card pr-bar">'
+    +'<div class="toolbar pr-filters">'
     +'<select id="pr-month" title="งวดเงินเดือน">'+months.map(function(x){
         var k=prPeriodMeta[prPeriodKey(x.y,x.m)]||{};
         return'<option value="'+x.m+"-"+x.y+'"'+(x.m===prSel.m&&x.y===prSel.y?" selected":"")+">"
@@ -2004,15 +2073,17 @@ function viewPayroll(el){
     +'<span class="grow"></span>'
     +'<span class="badge badge-'+(st==="CONFIRMED"||st==="PAID"?"ok":st==="REOPENED"?"warn":"info")+'">'
       +esc(PR_ST_TH[st]||st)+'</span>'
-    +prActionsHTML(pr)
     +'</div>'
-    +'<div class="pr-cards" id="pr-summary">'+prSummaryHTML(pr)+'</div>'
+    +'<div class="toolbar pr-actions">'+prActionsHTML(pr)+'</div>'
+    +'</div>'
     +'<div class="card p0" id="pr-table">'+prTableHTML(pr)+'</div>'
+    +'<div class="toolbar pr-pager" id="pr-pager">'+prPagerHTML(prVisibleRows(pr).length)+'</div>'
     +(st==="CONFIRMED"||st==="PAID"
         ?'<p class="muted note">งวดนี้ยืนยันแล้ว แก้ไขและคำนวณใหม่ไม่ได้ · สลิปใช้ Snapshot ที่บันทึกไว้ตอนยืนยัน</p>'
         :st==="REOPENED"
         ?'<p class="muted note">งวดนี้กำลังแก้ไข · แก้รายคนและคำนวณใหม่ได้ · ยืนยันใหม่แล้วจะได้ Snapshot เวอร์ชันถัดไป</p>'
-        :'<p class="muted note">แก้ได้เฉพาะ เงินเดือน / OT / ค่ากะ / เบี้ยขยัน · รายการอื่นให้แก้จากหน้า "รายการเงินเดือน" แล้วคำนวณใหม่</p>');
+        :'<p class="muted note">แก้ได้เฉพาะ เงินเดือน / OT / ค่ากะ / เบี้ยขยัน · รายการอื่นให้แก้จากหน้า "รายการเงินเดือน" แล้วคำนวณใหม่</p>')
+    +'</div>';
 
   document.getElementById("pr-month").onchange=function(){
     var v=this.value.split("-");prSel={m:parseInt(v[0],10),y:parseInt(v[1],10)};
@@ -2022,9 +2093,8 @@ function viewPayroll(el){
   document.getElementById("pr-clear").onclick=function(){prFilter={dept:"",pos:"",q:""};viewPayroll(el)};
   document.getElementById("pr-q").oninput=debounce(function(){
     prFilter.q=this.value;
-    var box=document.getElementById("pr-table");
-    if(box){box.innerHTML=prTableHTML(pr);prBindTable(el)}
-    var sm=document.getElementById("pr-summary");if(sm)sm.innerHTML=prSummaryHTML(pr);
+    prPage.page=1;                      /* [RUN-196] ค้นหาใหม่ -> กลับหน้าแรก */
+    prRepaint(el,pr);
     var q2=document.getElementById("pr-q");
     if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length)}},250);
   (function(){var rf=document.getElementById("pr-refresh");if(!rf)return;
@@ -2088,7 +2158,8 @@ function viewPayroll(el){
   var sdBtn=document.getElementById("pr-send");
   if(sdBtn)sdBtn.onclick=function(){prSendModal(pr)};
   prBindExport(pr);
-  prBindTable(el)
+  prBindTable(el);
+  prBindPager(el,pr)
 }
 
 /* ---------- Export .xlsx (คงลำดับคอลัมน์ตามที่ตกลงใน RUN-154 ไม่เปลี่ยน) ---------- */
@@ -2146,24 +2217,56 @@ function prBindExport(pr){
     .then(function(){b.disabled=false;b.innerHTML=lb})
   }
 }
-var epMyPeriods={};var epState={year:null,month:null,q:"",dept:"",pos:"",status:"",pay:"",send:"",page:0,per:100,seq:0,autoOpened:false};var epPeriods=[],epRows=[],epFilters={DEPARTMENT:[],POSITION:[]};var epSel={};function epIsAdmin(){return["SUPER_ADMIN","HR"].indexOf(currentUser().role)>=0}
+var epMyPeriods={};var epState={year:null,month:null,q:"",dept:"",pos:"",status:"",pay:"",send:"",page:0,per:20,seq:0,autoOpened:false};
+/* [RUN-197] per: 100 -> 20 ตามแบบ · page เป็นฐาน 0 เหมือนเดิม */
+var EP_PER=[[10,"10"],[20,"20"],[50,"50"],[0,"ทั้งหมด"]];
+function epPageCount(n){return epState.per>0?Math.max(1,Math.ceil(n/epState.per)):1}
+function epPagerHTML(total){
+  var pc=epPageCount(total),pg=epState.page;
+  var from=total?(epState.per>0?pg*epState.per+1:1):0;
+  var to=epState.per>0?Math.min(total,(pg+1)*epState.per):total;
+  var nums="";
+  for(var i=0;i<pc;i++){nums+='<button type="button" class="btn btn-sm '+(i===pg?"btn-primary":"btn-ghost")
+    +'" data-ep-pg="'+i+'">'+(i+1)+"</button>"}
+  return '<label class="ep-perbox">แสดง <select id="ep-per" aria-label="จำนวนต่อหน้า">'
+    +EP_PER.map(function(x){return '<option value="'+x[0]+'"'+(epState.per===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")
+    +"</select> รายการ</label>"
+    +'<span class="ep-pginfo">แสดง '+from+"–"+to+" จากทั้งหมด "+total+' รายการ</span>'
+    +'<span class="grow"></span>'
+    +'<button type="button" class="btn-icon" id="ep-prev" aria-label="หน้าก่อนหน้า" title="หน้าก่อนหน้า"'+(pg<=0?" disabled":"")+">"+icon("chevL")+"</button>"
+    +'<span class="ep-pgnums">'+nums+"</span>"
+    +'<button type="button" class="btn-icon" id="ep-next" aria-label="หน้าถัดไป" title="หน้าถัดไป"'+(pg+1>=pc?" disabled":"")+">"+icon("chevR")+"</button>"
+}var epPeriods=[],epRows=[],epFilters={DEPARTMENT:[],POSITION:[]};var epSel={};function epIsAdmin(){return["SUPER_ADMIN","HR"].indexOf(currentUser().role)>=0}
 /* [RUN-174] เกณฑ์ "มือถือ" ชุดเดียวใช้ร่วมกันทุกจุดของ E-PAYSLIP */
 function epIsMobile(){return!!(window.matchMedia&&window.matchMedia("(max-width:900px)").matches)}
 /* [RUN-174] สิทธิ์ "ส่งสลิป" = SUPER_ADMIN และ HR ตามสิทธิ์เดิมของระบบ
    (RUN-173 เคยจำกัดเหลือ SUPER_ADMIN อย่างเดียว ทำให้ HR เสียสิทธิ์เดิม — คืนค่าแล้ว)
    ADMIN / ACCOUNT / USER ส่งไม่ได้ทุกช่องทาง เพราะ njhr_pay_guard ฝั่ง Server
    อนุญาตเฉพาะ SUPER_ADMIN / HR อยู่แล้ว ไม่ได้อาศัยการซ่อนปุ่มอย่างเดียว */
-function epCanSend(){return["SUPER_ADMIN","HR"].indexOf(String(currentUser().role))>=0}function viewEPayslip(el){var seq=++epState.seq,admin=epIsAdmin();epSel={};el.innerHTML='<div class="card"><div class="card-head"><h3>สลิปเงินเดือน (E-PAYSLIP)'+(admin?"":" ของฉัน")+"</h3></div>"+'<div class="toolbar ep-filters">'+'<select id="ep-period"><option value="">— กำลังโหลดงวดเงินเดือน —</option></select>'+(admin?'<select id="ep-dept"><option value="">ทุกแผนก</option></select>'+'<select id="ep-pos"><option value="">ทุกตำแหน่ง</option></select>'+'<select id="ep-status" title="สถานะสลิป">'+[["","ทุกสถานะสลิป"],["CONFIRMED","พร้อมใช้งาน"],["REOPENED","กำลังแก้ไขงวด"],["UNPAID","ยังไม่ยืนยัน"],["NONE","ไม่มีข้อมูลเงินเดือน"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.status===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"
+function epCanSend(){return["SUPER_ADMIN","HR"].indexOf(String(currentUser().role))>=0}function viewEPayslip(el){var seq=++epState.seq,admin=epIsAdmin();epSel={};el.innerHTML='<div class="ep-v2">'
+/* [RUN-197] ลำดับหน้าใหม่: หัวข้อ -> การ์ด 6 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า */
++'<div class="card ep-head"><span class="ep-head-ic">'+icon("wallet")+'</span>'
++'<span class="grow"><h3>สลิปเงินเดือน (E-PAYSLIP)'+(admin?"":" ของฉัน")+'</h3>'
++'<small>จัดการ ตรวจสอบ และส่งสลิปเงินเดือนพนักงาน</small></span></div>'
++(admin?'<div class="pr-cards ep-cards" id="ep-summary"></div>':"")
++'<div class="card ep-bar">'+'<div class="toolbar ep-filters">'+'<select id="ep-period"><option value="">— กำลังโหลดงวดเงินเดือน —</option></select>'+(admin?'<select id="ep-dept"><option value="">ทุกแผนก</option></select>'+'<select id="ep-pos"><option value="">ทุกตำแหน่ง</option></select>'+'<select id="ep-status" title="สถานะสลิป">'+[["","ทุกสถานะสลิป"],["CONFIRMED","พร้อมใช้งาน"],["REOPENED","กำลังแก้ไขงวด"],["UNPAID","ยังไม่ยืนยัน"],["NONE","ไม่มีข้อมูลเงินเดือน"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.status===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"
 /* [RUN-155] สถานะจ่าย แยกจากสถานะสลิป ตาม §38 ห้ามปนกัน */
 +'<select id="ep-pay" title="สถานะจ่าย">'+[["","ทุกสถานะจ่าย"],["UNPAID","ยังไม่จ่าย"],["PAID","จ่ายแล้ว"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.pay===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"
 /* [RUN-157] §27 ตัวกรอง "สถานะส่ง" เป็นกลุ่มที่ 3 แยกจากสถานะสลิปและสถานะจ่าย
    [RUN-160] เหลือแกนเดียว: เผยแพร่เข้าแอปพนักงาน (ยกเลิกอีเมลทั้งหมด) */
-+'<select id="ep-send" title="สถานะส่งเข้าแอป">'+[["","ทุกสถานะส่ง"],["NOT_SENT","ยังไม่ส่ง"],["PUBLISHED","ส่งแล้ว"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.send===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"+'<span class="ep-qbox">'+icon("search","ic-sm")+'<input id="ep-q" placeholder="ค้นหาชื่อ นามสกุล ชื่อเล่น หรือรหัสพนักงาน..." value="'+esc(epState.q)+'"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-clear">ล้างตัวกรอง</button>':"")+'<span class="grow"></span><span class="muted" id="ep-count"></span>'/* [RUN-170] Export Excel ของ "ทั้งงวด" (ทุกคนตามตัวกรองปัจจุบัน) ไม่ต้องติ๊กเลือกก่อน
++'<select id="ep-send" title="สถานะส่งเข้าแอป">'+[["","ทุกสถานะส่ง"],["NOT_SENT","ยังไม่ส่ง"],["PUBLISHED","ส่งแล้ว"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.send===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"+'<span class="ep-qbox">'+icon("search","ic-sm")+'<input id="ep-q" placeholder="ค้นหาชื่อ นามสกุล ชื่อเล่น หรือรหัสพนักงาน..." value="'+esc(epState.q)+'"></span>'+'<button class="btn btn-ghost btn-sm" id="ep-clear">ล้างตัวกรอง</button>':"")+'<span class="grow"></span><span class="muted" id="ep-count"></span>'
++'</div>'
++'<div class="toolbar ep-actions">'/* [RUN-170] Export Excel ของ "ทั้งงวด" (ทุกคนตามตัวกรองปัจจุบัน) ไม่ต้องติ๊กเลือกก่อน
    ใช้สิทธิ์เดิม (เฉพาะ SUPER_ADMIN/HR) และอ่านยอดผ่าน njhr_slip_get ตัวเดิม
    จึงได้ Final Snapshot ของงวดที่ยืนยันแล้วเหมือนสลิป PDF ทุกตัวเลข */
 +(admin?'<button class="btn btn-ghost btn-sm" id="ep-xls-all">'+icon("download")+" 📊 Export Excel ทั้งงวด</button>":"")
-+'<button class="btn btn-ghost btn-sm" id="ep-reload">'+icon("history")+" โหลดใหม่</button></div>"+"</div>"+(admin?'<div class="card ep-bulk" id="ep-bulk" hidden></div>':"")+(admin?'<div class="pr-cards ep-cards" id="ep-summary"></div>':"")
-    +'<div class="card p0" id="ep-panel"></div>'+'<div class="form-error" id="ep-err" role="alert" style="white-space:pre-line"></div>';document.getElementById("ep-reload").onclick=function(){viewEPayslip(el)};
++'<button class="btn btn-ghost btn-sm" id="ep-reload">'+icon("history")+" โหลดใหม่</button></div>"
++"</div>"
++(admin?'<div class="card ep-bulk" id="ep-bulk" hidden></div>':"")
++'<div class="card p0" id="ep-panel"></div>'
++'<div class="toolbar ep-pager" id="ep-pager"></div>'
++'<div class="form-error" id="ep-err" role="alert" style="white-space:pre-line"></div>'
++'</div>';document.getElementById("ep-reload").onclick=function(){viewEPayslip(el)};
 /* [RUN-170] โหลดทะเบียนหัวข้อรายการเงินเดือนไว้ล่วงหน้า เพื่อให้สลิป/Export ขึ้นหัวข้อครบ */
 payItemsReady();
 var _xa=document.getElementById("ep-xls-all");
@@ -2315,14 +2418,17 @@ function epSummaryHTML(rows){
     if((r.pay_status||(st==="PAID"?"PAID":"UNPAID"))==="PAID")paid++;else unpaid++;
     if(epSendOf(r)==="PUBLISHED")sent++;else notSent++;
     net+=Number(r.net_pay)||0});
-  function card(l,v,cls){return '<div class="pr-card'+(cls?" "+cls:"")+'"><small>'+l+'</small><b>'+v+'</b></div>'}
+  /* [RUN-197] เพิ่มไอคอนและสีประจำการ์ดตามแบบ — ค่าและวิธีนับทุกใบเหมือนเดิมทุกประการ */
+  function card(l,v,cls,ic){return '<div class="pr-card'+(cls?" "+cls:"")+'">'
+    +'<span class="pr-card-ic">'+icon(ic||"wallet")+'</span>'
+    +'<span class="grow"><small>'+l+'</small><b>'+v+'</b></span></div>'}
   /* [RUN-160] เหลือเฉพาะสถานะการส่งเข้าแอป */
-  return card("พนักงานทั้งหมด",rows.length+" คน")
-    +card("ยังไม่ส่ง",notSent+" คน")
-    +card("ส่งแล้ว",sent+" คน")
-    +card("กำลังแก้ไขงวด",reop+" คน",reop?"pr-card-red":"")
-    +card("ยังไม่จ่าย",unpaid+" คน")
-    +card("เงินสุทธิรวม",money(net),"pr-card-blue")
+  return card("พนักงานทั้งหมด",rows.length+" คน","pr-t-blue","users")
+    +card("ยังไม่ส่ง",notSent+" คน","pr-t-amber","clock")
+    +card("ส่งแล้ว",sent+" คน","pr-t-green","send")
+    +card("กำลังแก้ไขงวด",reop+" คน",(reop?"pr-card-red ":"")+"pr-t-orange","history")
+    +card("ยังไม่จ่าย",unpaid+" คน","pr-t-red","ban")
+    +card("เงินสุทธิรวม",money(net),"pr-card-blue pr-t-blue","wallet")
 }
 function epLoadList(el,seq){
   var s=epState,admin=epIsAdmin();
@@ -2364,10 +2470,13 @@ function epLoadList(el,seq){
     epAllRows=rows||[];
     var sm=document.getElementById("ep-summary");
     if(sm)sm.innerHTML=epSummaryHTML(epAllRows);
-    if(!epAllRows.length){epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");epRows=[];epSyncBulk();return}
-    var total=epAllRows.length,pages=Math.max(1,Math.ceil(total/s.per));
+    if(!epAllRows.length){epPanel(emptyState("ไม่พบข้อมูล E-PAYSLIP"));epCount("");epRows=[];
+      var pg0=document.getElementById("ep-pager");if(pg0)pg0.innerHTML="";
+      epSyncBulk();return}
+    /* [RUN-197] รองรับตัวเลือก "ทั้งหมด" (per=0) ด้วย */
+    var total=epAllRows.length,pages=epPageCount(total);
     if(s.page>=pages)s.page=pages-1;if(s.page<0)s.page=0;
-    epRows=epAllRows.slice(s.page*s.per,(s.page+1)*s.per);
+    epRows=s.per>0?epAllRows.slice(s.page*s.per,(s.page+1)*s.per):epAllRows.slice();
 
     /* มือถือ + พนักงานทั่วไป + มีสลิปของตัวเองใบเดียว -> เปิดสลิปให้ทันที ไม่ต้องผ่านรายชื่อ */
     if(!admin&&epRows.length===1&&epRows[0].has_payroll&&epRows[0].payroll_id
@@ -2385,7 +2494,7 @@ function epLoadList(el,seq){
         +(admin?'<button class="btn-icon ep-act" data-ep-send="'+esc(r.payroll_id||"")+'"'+off
           +' aria-label="ส่งสลิปให้พนักงาน" title="ส่งสลิปให้พนักงาน">'+icon("send")+"</button>":"")}
 
-    epPanel('<div class="table-wrap ep-tbl"><table><thead><tr>'
+    epPanel('<div class="table-wrap ep-tbl"><table class="ep-tbl-t"><thead><tr>'
       +'<th class="ta-c">ลำดับ</th>'
       +(admin?'<th class="ta-c"><input type="checkbox" id="ep-all" aria-label="เลือกทั้งหมดที่แสดง"></th>':"")
       +'<th>รหัส</th><th>ชื่อ-นามสกุล</th><th>แผนก</th><th>ตำแหน่ง</th>'
@@ -2416,15 +2525,20 @@ function epLoadList(el,seq){
                  +(r.sent_by?'<small class="muted">'+esc(r.sent_by)+"</small>":""):"—")+'</td>':"")
           +'<td>'+(r.confirmed_at?esc(docTS(r.confirmed_at)):"—")+'</td>'
           +'<td class="ta-r"><div class="ep-acts">'+actions(r)+'</div></td></tr>'}).join("")
-      +'</tbody></table></div>'
-      +(pages>1?'<div class="toolbar ep-pager"><span class="grow"></span>'
-        +'<button class="btn btn-ghost btn-sm" id="ep-prev"'+(s.page===0?" disabled":"")+'>ก่อนหน้า</button>'
-        +'<span class="muted">หน้า '+(s.page+1)+" / "+pages+'</span>'
-        +'<button class="btn btn-ghost btn-sm" id="ep-next"'+(s.page+1>=pages?" disabled":"")+'>ถัดไป</button></div>':""));
+      +'</tbody></table></div>');
+    /* [RUN-197] แถบแบ่งหน้าอยู่นอกกล่องตาราง และแสดงเสมอ (เลือกจำนวนต่อหน้าได้แม้มีหน้าเดียว) */
+    var pgBox=document.getElementById("ep-pager");
+    if(pgBox){
+      pgBox.innerHTML=epPagerHTML(total);
+      var _pp=document.getElementById("ep-per");
+      if(_pp)_pp.onchange=function(){epState.per=Number(this.value)||0;s.page=0;epSel={};epLoadList(el,++epState.seq)};
+      var _pv=document.getElementById("ep-prev");
+      if(_pv)_pv.onclick=function(){if(s.page>0){s.page--;epSel={};epLoadList(el,++epState.seq)}};
+      var _nx=document.getElementById("ep-next");
+      if(_nx)_nx.onclick=function(){if(s.page+1<pages){s.page++;epSel={};epLoadList(el,++epState.seq)}};
+      pgBox.querySelectorAll("[data-ep-pg]").forEach(function(b){
+        b.onclick=function(){s.page=Number(b.getAttribute("data-ep-pg"))||0;epSel={};epLoadList(el,++epState.seq)}})}
     epCount("ทั้งหมด "+total+" คน");
-    if(pages>1){
-      document.getElementById("ep-prev").onclick=function(){s.page--;epSel={};epLoadList(el,++epState.seq)};
-      document.getElementById("ep-next").onclick=function(){s.page++;epSel={};epLoadList(el,++epState.seq)}}
     var panel=document.getElementById("ep-panel");
     panel.onclick=function(ev){
       var t=ev.target;
