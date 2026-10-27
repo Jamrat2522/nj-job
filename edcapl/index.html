@@ -5488,6 +5488,11 @@ const EDC8_FIX = [
   { topic:'Prodyear',   col:'prodyear',   expected:'2026' },
   { topic:'Origin',     col:'origin',     expected:'TH' },   /* [EDC8] FIX Origin = TH (ใบขน EDC8 ทุก ITEM) */
 ];
+/* [EDC8 AAT/FTM] FIX ตามชื่อสินค้าภาษาไทย (คำแปลไทย ตรงตัวหลังตัดช่องว่าง) — ใช้แทน FIX หน่วย QTY ใบขน / QTY 2 เดิม เฉพาะสินค้านี้ (QTY = C62 เดิม) */
+const EDC8_THAI_UNIT_FIX = { 'พรมปูพื้นรถยนต์':'MTK', 'ชุดเพลาหน้า':'SET' };
+/* [EDC8 AAT/FTM] เรดาร์: ใบอนุญาตช่องที่ 2 = แถวที่ 2 ของ ITEM เดียวกัน (ช่องที่ 1 = แถวแรก ไม่แตะ) */
+const EDC8_RADAR_NAME = 'เรดาร์';
+const EDC8_RADAR_FIX = { permit:'EXEMPT99', issueDate:'20171113', tax:'0994000049447', agency:'กสทช.', agencyFull:'สำนักงานคณะกรรมการกิจการกระจายเสียง กิจการโทรทัศน์ และกิจการโทรคมนาคมแห่งชาติ' };
 const EDC8_QTY_FIXED = [
   { col:'QTY',      expected:'C62' },
   { col:'QTY ใบขน', expected:'C62' },
@@ -6017,13 +6022,20 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
   // ── ITEM LEVEL LOCK — unique on Entry; cross-check Entry↔Mapping
   const entryRows = [];
   const entryItemSet = new Set();
+  /* [EDC8 AAT/FTM] ชื่อสินค้าภาษาไทยของ ITEM (แถวแรก) · เรดาร์: แถวที่ 2+ ของ ITEM = แถวใบอนุญาต (ไม่ใช่ ITEM ซ้ำ · ไม่ตรวจหัวข้อสินค้าซ้ำ) */
+  const _e8Mode = (typeof currentMode !== 'undefined' && (currentMode === 'edc8' || currentMode === 'edc8_ftm'));
+  const _thaiOf = v => String(v==null?'':v).trim().replace(/\s+/g,' ');
+  const _E_THAI = _findColExact(eHdr, ['คำแปลไทย']), _firstThai = new Map(), _radarSub = new Set();
+  if(_e8Mode && _E_THAI !== -1) for(let r=1; r<eRaws.length; r++){ const rw = eRaws[r]; if(!rw || rw.every(c=>String(c||'').trim()==='')) continue; const k = _normItemKey(rw[E_ITEM]); if(k && !_firstThai.has(k)) _firstThai.set(k, _thaiOf(rw[_E_THAI])); }
+  const _isRadar = k => _e8Mode && _firstThai.get(k) === EDC8_RADAR_NAME;
   for(let r=1; r<eRaws.length; r++){
     const row = eRaws[r];
     if(!row || row.every(c=>String(c||'').trim()==='')) continue;
     const itemKey = _normItemKey(row[E_ITEM]);
     entryRows.push({row, rowNum:r+1, itemKey});
     if(itemKey){
-      if(entryItemSet.has(itemKey)){
+      if(entryItemSet.has(itemKey) && _isRadar(itemKey)) _radarSub.add(row);   /* [EDC8] เรดาร์: แถวใบอนุญาตช่องที่ 2+ */
+      else if(entryItemSet.has(itemKey)){
         errors.push({
           rowNum:r+1, item:itemKey.padStart(5,'0'), partNo:'',
           col:'ITEM', found:itemKey, expected:'unique',
@@ -6164,6 +6176,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
   /* [EDC8] ประเภทใบขนจริงของ ITEM = ค่าที่ไม่ว่างค่าแรกของแถวใบขน ITEM เดียวกัน (แถวย่อยที่ว่างของ ITEM เดียวกันไม่สร้างผล (ว่าง) ซ้ำ) */
   const _dtByItem = new Map(); { const cd = _findColExact(eHdr, ['ประเภทใบขน']); if(cd !== -1) for(const x of entryRows){ if(!x.itemKey) continue; const v = String(x.row[cd]==null?'':x.row[cd]).trim(); if(!_dtByItem.has(x.itemKey) || (!_dtByItem.get(x.itemKey) && v)) _dtByItem.set(x.itemKey, v); } }
   for(const {row, rowNum, itemKey} of entryRows){
+    if(_radarSub.has(row)) continue;   /* [EDC8] แถวใบอนุญาตช่องที่ 2+ ของเรดาร์ → ตรวจในชุด กสทช. ของ ITEM (ไม่ตรวจหัวข้อสินค้าซ้ำ) */
     const itemDisplay = itemKey ? itemKey.padStart(5,'0') : '(ว่าง)';
     const entryPartRaw = String(row[E_PART]||'').trim();
 
@@ -6341,9 +6354,27 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       }
     }
     // [EDC8 39 หัวข้อ] QTY ใบขน = C62 · QTY 2 = EA (ค่า FIX เดิมของ EDC8: EDC8_QTY_FIXED)
+    const _thai = _firstThai.get(itemKey) || '', _uFix = EDC8_THAI_UNIT_FIX[_thai];   /* [EDC8] พรมปูพื้นรถยนต์ = MTK · ชุดเพลาหน้า = SET (QTY ใบขน + QTY 2) */
     if(_aatByPart) EDC8_QTY_FIXED.forEach(q => {   /* [EDC8] FIX ครบ 3 หัวข้อ QTY / QTY ใบขน / QTY 2 (ค่า FIX ของ EDC8 เอง) */ const ci = _findColExact(eHdr, [q.col]); if(ci === -1){ _t39NoCol(q.col + ' (ค่าฟิก)', q.col); return; }
+      if(_uFix && (q.col === 'QTY ใบขน' || q.col === 'QTY 2')){ const v = String(row[ci]||'').trim(), L = q.col + ' (หน่วยนับ)', X = _uFix + ' (' + _thai + ')';   /* ตรวจราย ITEM · แสดงค่าจริง + ค่าที่กำหนด */
+        if(v.toUpperCase() === _uFix) _pass({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found:v, expected:X, source:'fixed' });
+        else errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found: v || '(ว่าง)', expected:X, errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type: v ? 'mismatch' : 'missing', compareType:'text' });
+        return; }
       const v = String(row[ci]||'').trim().toUpperCase(); if(v !== q.expected) errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:q.col+' (ค่าฟิก)', found: v || '(ว่าง)', expected:q.expected,
         errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type: v ? 'mismatch' : 'missing', compareType:'text' }); });
+    // [EDC8] เรดาร์ → ใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM เดียวกัน) = FIX กสทช. ครบ 4 ค่า · ไม่พบแถว / ไม่มีคอลัมน์ / ว่าง / ไม่ตรง = ผิด · ช่องที่ 1 ไม่แตะ
+    if(_aatByPart && _isRadar(itemKey)){ const RF = EDC8_RADAR_FIX, rs = entryRows.filter(x => x.itemKey === itemKey), r2 = rs.length > 1 ? rs[1].row : null;
+      const cP = _findCol(eHdr, ['เลขใบอนุญาต','เลขที่ใบอนุญาต','Permit']), cD = _findCol(eHdr, ['วันที่ออก','Issue Date']), cT = _findColExact(eHdr, ['tax','TAX','เลขประจำตัวผู้เสียภาษี','Permit Issue Authority']), cA = _findCol(eHdr, ['หน่วยงาน','ชื่อหน่วยงาน','Agency']);
+      const nd = v => String(v).replace(/\D/g,''), nt = v => String(v).trim().toUpperCase().replace(/\s+/g,''), na = v => String(v).trim().replace(/\s+/g,' ').replace(/\.$/,'');
+      const chk = (topic, ci, colName, fixShow, eq) => { const L = topic + ' ช่องที่ 2 (กสทช.)';
+        const why = !r2 ? '(ไม่พบใบอนุญาตช่องที่ 2 — ITEM นี้ไม่มีแถวที่ 2)' : (ci === -1 ? '(ใบขนไม่มีคอลัมน์ ' + colName + ')' : '');
+        const v = why ? '' : String(r2[ci]==null?'':r2[ci]).trim();
+        if(!why && v && eq(v)) _pass({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found:v, expected:fixShow, source:'fixed' });
+        else errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found: why || v || '(ว่าง)', expected:fixShow, errorCode:'RADAR_PERMIT_FAIL', severity:'error', source:'fixed', type: (why || !v) ? 'missing' : 'mismatch', compareType:'text' }); };
+      chk('เลขใบอนุญาต', cP, 'เลขใบอนุญาต', RF.permit, v => nt(v) === RF.permit);
+      chk('วันที่ออก', cD, 'วันที่ออก', RF.issueDate, v => nd(v) === RF.issueDate);
+      chk('TAX', cT, 'tax', RF.tax, v => nd(v) === RF.tax);
+      chk('หน่วยงาน', cA, 'หน่วยงาน', RF.agency + ' (' + RF.agencyFull + ')', v => na(v) === na(RF.agency) || na(v) === na(RF.agencyFull)); }
 
     // ── STEP 3b. SPECIAL FIXED RULE when Part not in Master (🟡 สีเหลือง) ──
     //   spec: "Part ไหนไม่มีใน Master ให้ยึด สิทธิชดเชย=T และ Import tax=C0102100001021"
@@ -6380,7 +6411,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     const _kdcTxt = v => 'ไม่พบค่า FIX ของ EDC8 ใน Source (มีเฉพาะ FIX ของ KDC = '+v+' — ไม่นำมาใช้กับ EDC8) และ';
     /* [EDC8] FIX ที่กำหนดแล้ว (EDC8_FIX): ตรวจทุก ITEM · ตรง = ถูก / ไม่ตรง / ว่าง = ผิด · ไม่มีคอลัมน์ = ❌ ระดับไฟล์ */
     EDC8_FIX.forEach(f => { const ci = _eCol(f.col); if(ci === -1){ _t39NoCol(f.topic, f.col); return; }
-      entryRows.forEach(x => { if(!x.itemKey) return; const v = String(x.row[ci]==null?'':x.row[ci]).trim();
+      entryRows.forEach(x => { if(!x.itemKey || _radarSub.has(x.row)) return; const v = String(x.row[ci]==null?'':x.row[ci]).trim();
         if(v.toUpperCase() !== f.expected.toUpperCase()) errors.push({ rowNum:x.rowNum, item:x.itemKey.padStart(5,'0'), partNo:E_PART!==-1?String(x.row[E_PART]||'').trim():'', col:f.topic, found:v||'(ว่าง)', expected:f.expected,
           errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type:v?'mismatch':'missing', compareType:'text' }); }); });
     /* [EDC8] ประเภทใบขน ตรวจจาก MASTER APL Privilege ตาม Product Code ใน aplEdc8MasterCheck แล้ว → ไม่มีหัวข้อค้าง ⚠️ (ไม่ใช้ค่า KDC) */
@@ -6397,7 +6428,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     const F = (code, found, expected) => errors.push({ rowNum:0, item:'HEADER', partNo:'', col:'Stat Code', found, expected, errorCode:code, severity:'error', source:'tariff', type:'missing', compareType:'text' });
     if(cH === -1 || cS === -1) F('TRF_NO_COLUMN', '(ใบขนไม่มีคอลัมน์ '+[cH===-1?'tariffclas':'', cS===-1?'stat':''].filter(Boolean).join(' / ')+')', 'tariffclas + stat');
     else if(!(window.TRF_STATE && window.TRF_STATE.map)) F('TRF_NO_MASTER', '-', trfCheck('', '').reason);
-    else entryRows.forEach(x => { if(!x.itemKey) return; const r = trfCheck(x.row[cH], x.row[cS]), it = x.itemKey.padStart(5,'0');
+    else entryRows.forEach(x => { if(!x.itemKey || _radarSub.has(x.row)) return; const r = trfCheck(x.row[cH], x.row[cS]), it = x.itemKey.padStart(5,'0');
       if(r.st === 'bad') errors.push({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat||'(ว่าง)', expected:r.expected, errorCode:'TRF_STAT_MISMATCH', severity:'error', source:'tariff', type:r.stat?'mismatch':'missing', compareType:'text', trfHs:r.hs });
       else if(r.st === 'nohs' || r.st === 'badhs') errors.push({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat||'(ว่าง)', expected:r.reason, errorCode:'TRF_NO_HS', severity:'info', source:'tariff', type:'na', compareType:'text' });
       else if(r.st === 'ok') _pass({ rowNum:x.rowNum, item:it, partNo:pn(x), col:'Stat Code', found:r.stat, expected:r.expected, source:'tariff', trfHs:r.hs }); });   /* [EDC8] ✅ */
@@ -6407,7 +6438,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
   // [MASTER CENTRAL] กฎตรวจพิเศษจาก MASTER APL — ใช้เฉพาะกฎที่ SUPER_ADMIN อนุมัติ + เปิดใช้งาน + อยู่ในวันที่มีผล (กฎที่ยังไม่อนุมัติไม่สร้าง FAIL)
   if(masterWb && masterWb._apl && typeof aplEdc8RuleErrors === 'function'){
     let _re = [];
-    try{ _re = aplEdc8RuleErrors(entryRows, eHdr, _normPart, _normItemKey, E_PART); }
+    try{ _re = aplEdc8RuleErrors(entryRows.filter(x => !_radarSub.has(x.row)), eHdr, _normPart, _normItemKey, E_PART); }
     catch(err){ _re = [{ rowNum:0, item:'HEADER', partNo:'', col:'กฎตรวจพิเศษ', found:String(err && err.message || err), expected:'ประมวลผลกฎได้', errorCode:'SPECIAL_RULE_ERROR', severity:'error', source:'special', type:'missing', compareType:'text' }]; }
     _re.forEach(e => errors.push(e));
   }
@@ -6597,6 +6628,91 @@ const FZ_BROWN_MAPPING = [
   {eCol:21, mCol:11, name:'SHIPPING MARK',  norm:'text'},
 ];
 
+/* ── [EDC1 FZ] FIX เพิ่มตาม Excel "EDC8 vs EDC1 FZ" (ข้อ 3–10, 20) — ตรวจเมื่อใบขนมีคอลัมน์จริงเท่านั้น (ค้นจากชื่อหัวตาราง · ไม่มี = ⚠️ ตรวจไม่ได้) ── */
+const EDC1FZ_EXTRA_FIX = [
+  { n:3,  label:'Export Tax',      aliases:['Export tax','exportincentives','Export Tax Incentives','Export TaxIncentives ID'], expected:'F5102180160004', norm:'text' },
+  { n:4,  label:'Privilege',       aliases:['privilege'],                       expected:'003',      norm:'text' },
+  { n:5,  label:'Tariff',          aliases:['tariff','Export tariff'],          expected:'9PART3',   norm:'text' },
+  { n:6,  label:'Brand',           aliases:['brand','BRAND NAME','ยี่ห้อ'],      expected:'NO BRAND', norm:'text' },
+  { n:7,  label:'Naturetran',      aliases:['naturetran'],                      expected:'11',       norm:'text' },
+  { n:8,  label:'Prodyear',        aliases:['prodyear'],                        expected:'2026',     norm:'text' },
+  { n:9,  label:'Origin',          aliases:['origin'],                          expected:'TH',       norm:'text' },
+  { n:10, label:'ประเภทใบขน',      aliases:['ประเภทใบขน'],                      expected:'620',      norm:'text' },
+  { n:20, label:'QTY (รหัสหน่วย)', aliases:['QTY (รหัสหน่วย)','QTY UNIT','QTY CODE','QTY รหัสหน่วย'], expected:'C62', norm:'text' },
+];
+/* [EDC1 FZ] FIX หน่วยนับตามชื่อสินค้าภาษาไทย — ใช้แทน FIX QTY ใบขน / QTY 2 เฉพาะสินค้านี้ (QTY inv = C62 เดิม) */
+const EDC1FZ_THAI_UNIT_FIX = { 'พรมปูพื้นรถยนต์':'MTK', 'ชุดเพลาหน้า':'SET' };
+/* [EDC1 FZ] เรดาร์ → ใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM LINE เดียวกัน) · ช่องที่ 1 = FIX เดิม (FZ_GREEN_FIXED) แยกกัน */
+const EDC1FZ_RADAR_FIX = { thai:'เรดาร์', permit:'EXEMPT99', issueDate:'20171113', tax:'0994000049447', agency:'กสทช.', agencyFull:'สำนักงานคณะกรรมการกิจการกระจายเสียง กิจการโทรทัศน์ และกิจการโทรคมนาคมแห่งชาติ' };
+/* [EDC1 FZ] ลำดับหัวข้อในแต่ละ ITEM = ลำดับใน Excel */
+const EDC1FZ_TOPIC_NO = { 'ใช้สิทธิ์':1, 'Importincentives':2, 'Export Tax':3, 'Privilege':4, 'Tariff':5, 'Brand':6, 'Naturetran':7, 'Prodyear':8, 'Origin':9, 'ประเภทใบขน':10, 'ชื่อสินค้าภาษาไทย':16,
+  'เลขใบอนุญาต':17, 'วันที่ออก':18, 'tax (เลขผู้เสียภาษี)':19, 'เลขใบอนุญาต ช่องที่ 2 (กสทช.)':19.1, 'วันที่ออก ช่องที่ 2 (กสทช.)':19.2, 'TAX ช่องที่ 2 (กสทช.)':19.3, 'หน่วยงาน ช่องที่ 2 (กสทช.)':19.4,
+  'QTY (รหัสหน่วย)':20, 'QTY inv':21, 'QTY ใบขน':22, 'QTY 2':23, 'HS CODE / tariffclas':24, 'Stat Code':25, 'MASTER ไม่พบ PART NO.':26, 'ITEM LINE ซ้ำ':27, 'ค้นหาแถว Invoice':27.5, 'Line enry':28, 'Item':28.5,
+  'PART NO.':29, 'Export entry type D':30, 'DESCRIPTION':31, 'PART QTY':32, 'ค้นหาแถว Mapping':33, 'INVOICE NO.':34, 'DATE SHIPPED':35, 'Amount ราย ITEM':36, 'Currency':37, 'Amount THB ราย ITEM':38,
+  'SHIPPING MARK':40, 'Term':41, 'Consignee':42, 'Purcountry':43, 'ประเทศปลายทาง':44, 'Exporter Name':45, 'AMOUNT':46, 'N.W':47, 'GW.':48, 'PACKAGE':49 };
+/* [EDC1 FZ] รวมผลตรวจ: 1 แถว = 1 ITEM + 1 หัวข้อ (❌ > ⚠️ > ✅) · ระดับไฟล์ (ไฟล์) ขึ้นก่อน · ITEM ตามลำดับ · Invoice Sl.No (orphan) ท้ายสุด */
+function edc1fzBuildFull(errors, passes, nas, totalItems){
+  const rk={ bad:3, na:2, ok:1 }, map=new Map();
+  const add=(st, e)=>{ const field=String(e.field).replace(/ \(หน่วยนับ [^)]*\)$/, m=>m), k=String(e.itemLine)+'\u0001'+field, cur=map.get(k);
+    const row={ item:String(e.itemLine), field, entry:S0(e.entryVal), ref:S0(e.compareVal), source:S0(e.source), msg:S0(e.msg), st };
+    if(!cur || rk[st]>rk[cur.st]) map.set(k, row); };
+  const S0=v=>v==null?'':String(v);
+  (errors||[]).forEach(e=>add('bad', e)); (nas||[]).forEach(e=>add('na', e)); (passes||[]).forEach(e=>add('ok', e));
+  const tno=f=>{ const b=String(f).replace(/ \(หน่วยนับ [^)]*\)$/,''); return EDC1FZ_TOPIC_NO[b]!=null ? EDC1FZ_TOPIC_NO[b] : 90; };
+  const grp=it=>it==='(ไฟล์)' ? 0 : (/^Invoice Sl\.No/.test(it) ? 2 : 1);
+  const rows=[...map.values()].sort((a,b)=>(grp(a.item)-grp(b.item)) || (grp(a.item)===1 ? a.item.localeCompare(b.item, undefined, { numeric:true }) : 0) || (tno(a.field)-tno(b.field)));
+  const items=new Map(); rows.forEach(r=>{ if(grp(r.item)===0) return; const s=items.get(r.item)||'ok'; items.set(r.item, rk[r.st]>rk[s] ? r.st : s); });
+  const cnt=st=>rows.filter(r=>r.st===st).length, itemCnt=st=>[...items.values()].filter(v=>v===st).length;
+  const nBad=cnt('bad'), nNa=cnt('na');
+  return { rows, totalItems, items:items.size, okRows:cnt('ok'), badRows:nBad, naRows:nNa, itemBad:itemCnt('bad'), itemNa:itemCnt('na'), itemOk:itemCnt('ok'),
+           naTopics:[...new Set(rows.filter(r=>r.st==='na').map(r=>r.field))], badTopics:[...new Set(rows.filter(r=>r.st==='bad').map(r=>r.field))],
+           status: nBad ? 'FAIL' : (nNa ? 'PARTIAL' : 'PASS'), checkedAt:new Date() };
+}
+const EDC1FZ_ST_TXT={ ok:'✅ ถูก', bad:'❌ ผิด', na:'⚠️ ตรวจไม่ได้' };
+function edc1fzSummaryText(R){
+  return 'ITEM '+R.totalItems+' · ผิด '+R.itemBad+' item · ตรวจไม่ได้ '+R.itemNa+' item · ถูกครบ '+R.itemOk+' item · หัวข้อ ✅ '+R.okRows+' · ❌ '+R.badRows+' · ⚠️ '+R.naRows;
+}
+/* [EDC1 FZ] หน้าจอ: ตารางเดียว ITEM NO. | หัวข้อที่ตรวจ | ค่าใบขน EDC1 | INVOICE / FIX / MASTER | สถานะ · สรุปด้านล่างครั้งเดียว */
+function renderFzFullResults(R){
+  const isErr=R.status==='FAIL', partial=R.status==='PARTIAL';
+  fzApplyStyle(fzResultBox,fzResultHead,fzRDot,fzRTitle,isErr);
+  if(partial){ fzRTitle.style.color='#b45309'; fzRDot.style.background='#d97706'; fzRDot.style.boxShadow='0 0 6px #d97706'; }
+  fzRTitle.textContent=(isErr ? '❌ FAIL — พบข้อผิดพลาด '+R.badTopics.length+' หัวข้อ' : (partial ? '⚠️ PARTIAL — ไม่พบข้อผิดพลาด แต่ตรวจไม่ครบ' : '✅ PASS — ตรวจครบทุกหัวข้อ'))+(R.naTopics.length ? ' · ⚠️ ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : '')+' · '+R.totalItems+' item';
+  const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const B={ ok:'background:#eef7f2;color:#1f7a4d;border:1px solid #c3e3d0', bad:'background:#fdf3f2;color:#b42318;border:1px solid #f2cdc8', na:'background:#fdf8e8;color:#8a6a12;border:1px solid #ecdcae' };
+  const th='padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:#334155;border-bottom:1px solid #d9e2ec', td='padding:7px 10px;font-size:12.5px;border-bottom:1px solid #eef2f6;vertical-align:top;word-break:break-word';
+  let h='<div class="fz-full-wrap" style="overflow-x:auto;border:1px solid #d9e2ec;border-radius:8px;background:#fff"><table class="fz-full" style="width:100%;min-width:720px;border-collapse:collapse;table-layout:fixed;font-family:var(--sans);color:#1f2937">'+
+    '<colgroup><col style="width:12%"><col style="width:22%"><col style="width:22%"><col style="width:24%"><col style="width:20%"></colgroup><thead><tr style="background:#eaf0f7">'+
+    '<th style="'+th+'">ITEM NO.</th><th style="'+th+'">หัวข้อที่ตรวจ</th><th style="'+th+'">ค่าใบขน EDC1</th><th style="'+th+'">INVOICE / FIX / MASTER</th><th style="'+th+'">สถานะ</th></tr></thead><tbody>';
+  R.rows.forEach(r=>{ h+='<tr class="fz-full-row" data-st="'+r.st+'"><td style="'+td+';font-family:var(--mono)">'+e(r.item)+'</td><td style="'+td+';font-weight:600">'+e(r.field)+'</td><td style="'+td+'">'+e(r.entry||'-')+'</td><td style="'+td+'">'+e(r.ref||'-')+'</td>'+
+    '<td style="'+td+'"><span class="fz-st" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11.5px;font-weight:600;'+B[r.st]+'">'+EDC1FZ_ST_TXT[r.st]+'</span>'+(r.st!=='ok' && r.msg ? '<div class="fz-msg" style="font-size:11px;color:#64748b;margin-top:3px">'+e(r.msg)+'</div>' : '')+'</td></tr>'; });
+  h+='</tbody></table></div>';
+  const c=(cls,t)=>'<div class="stat-chip '+cls+'">'+t+'</div>';
+  h+='<div class="fz-full-sum" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+c('warn','Σ '+R.totalItems+' item')+c('err','❌ ผิด '+R.itemBad+' item')+c('warn','⚠️ ตรวจไม่ได้ '+R.itemNa+' item')+c('ok','✅ ถูกครบ '+R.itemOk+' item')+
+    c('ok','✅ '+R.okRows+' หัวข้อ')+c('err','❌ '+R.badRows+' หัวข้อ')+c('warn','⚠️ '+R.naRows+' หัวข้อ')+c(R.status==='PASS'?'ok':(R.status==='FAIL'?'err':'warn'),'ผลรวม '+R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้' : ''))+'</div>';
+  fzRBody.innerHTML=h; fzResultBox.style.display='block'; fzResultBox.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+/* [EDC1 FZ] EXPORT: แถวเดียวกับหน้าจอ (ทุกสถานะ) + แหล่งข้อมูล + รายละเอียด · สรุปด้านล่างครั้งเดียว */
+async function edc1fzBuildExcel(R){
+  const X=KDC_XS, aoa=[], sm={}, merges=[];
+  const put=(r,c,v,st)=>{ while(aoa.length<=r) aoa.push([]); aoa[r][c]=v; if(st) sm[r+':'+c]=st; };
+  put(0,0,'EDC1 FZ',X.TITLE); put(0,1,'ผลการตรวจสอบใบขนสินค้า EDC1 FZ · '+kdcDateTH(R.checkedAt),X.SUB); merges.push({ s:{r:0,c:1}, e:{r:0,c:6} });
+  ['ITEM NO.','หัวข้อที่ตรวจ','ค่าใบขน EDC1','ค่า INVOICE / FIX / MASTER','แหล่งข้อมูล','สถานะ','รายละเอียดข้อผิดพลาด'].forEach((h,i)=>put(2,i,h,X.HDRBAD));
+  let r=3; R.rows.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,x.entry||'-',X.CELL_L); put(r,3,x.ref||'-',X.CELL_L); put(r,4,x.source,X.CELL_L);
+    put(r,5,EDC1FZ_ST_TXT[x.st].replace(/^(✅|❌|⚠️)\s*/,''), x.st==='ok'?X.ST_OK:(x.st==='bad'?X.ST_BAD:X.ST_NA)); put(r,6,x.st==='ok'?'':x.msg,X.CELL_L); r++; });
+  r++; put(r,0,'สรุปผล',X.LBL); put(r,1,'ผลรวม '+R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : (R.naRows ? ' (ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ)' : '')), R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)); merges.push({ s:{r,c:1}, e:{r,c:6} }); r++;
+  put(r,0,'จำนวน',X.LBL); put(r,1,edc1fzSummaryText(R),X.VAL); merges.push({ s:{r,c:1}, e:{r,c:6} });
+  const ws=XLSX.utils.aoa_to_sheet(aoa.map(row=>Array.from(row, v=>v===undefined?'':v)));
+  Object.keys(ws).forEach(a=>{ if(a[0]==='!') return; ws[a].t='s'; ws[a].v=String(ws[a].v); });
+  ws['!merges']=merges; ws['!cols']=[{wch:14},{wch:30},{wch:28},{wch:34},{wch:22},{wch:14},{wch:52}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ผลตรวจ');
+  return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm]);
+}
+function exportFzFullReport(R){
+  edc1fzBuildExcel(R).then(buf=>safeDownload(buf, 'EDC1FZ_ผลตรวจ_'+new Date().toISOString().slice(0,10)+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+    .catch(e=>alert('Export ไม่สำเร็จ: '+(e && e.message || e)));
+}
+
 // Legacy aliases kept for any lingering references (safe — same content)
 const FZ_YELLOW = FZ_GREEN_FIXED;
 const FZ_BROWN  = FZ_BLUE_INVOICE;
@@ -6770,6 +6886,9 @@ meaning "already counted upstream"), distinct from blank/empty.
 function _edc1fzIsEmpty(v){
   return v === null || v === undefined || String(v).trim() === '';
 }
+/* [EDC1 FZ] รายงานแบบ EDC8: บันทึกผลที่ "ตรง" ณ จุดเปรียบเทียบเดิม (ไม่เปลี่ยนเงื่อนไขถูก / ผิด) · null = ไม่บันทึก */
+let __fzPassLog = null, __fzNaLog = null;
+function _edc1fzPass(itemLine, source, field, actual, expected){ if(__fzPassLog) __fzPassLog.push({ itemLine, field, entryVal:String(actual), compareVal:String(expected), source }); }
 // strictCompare: for text / date / rule fields. Uses optional normFn.
 // Always pushes a mismatch when actual or expected is blank, or when they differ.
 function _edc1fzStrictCompare(errs, itemLine, source, color, field, actual, expected, normFn){
@@ -6797,7 +6916,7 @@ function _edc1fzStrictCompare(errs, itemLine, source, color, field, actual, expe
   if(a !== e){
     _push(String(actual), String(expected),
           `Entry="${actual}" ไม่ตรง source="${expected}"`);
-  }
+  } else _edc1fzPass(itemLine, source, field, actual, expected);
 }
 // strictNumCompare: for numeric fields. Uses numEqual (0.01 tolerance).
 function _edc1fzStrictNumCompare(errs, itemLine, source, color, field, actual, expected){
@@ -6823,16 +6942,18 @@ function _edc1fzStrictNumCompare(errs, itemLine, source, color, field, actual, e
   if(!numEqual(actual, expected)){
     _push(String(actual), String(expected),
           `Entry="${actual}" ไม่ตรง source="${expected}"`);
-  }
+  } else _edc1fzPass(itemLine, source, field, actual, expected);
 }
 
 // ── Compare groups ─────────────────────────────────────────────
 // ── GREEN: Entry vs Fixed rules (ค่าฟิก) ──
 //   Renamed from compareYellowFixedGroup per user spec
-function compareGreenFixedGroup(itemLine, row){
+function compareGreenFixedGroup(itemLine, row, unitFix){
   const errs=[];
   // Every RULE field goes through the strict engine — no per-field skip, no inline compare.
-  for(const rule of FZ_GREEN_FIXED){
+  for(const rule0 of FZ_GREEN_FIXED){
+    /* [EDC1 FZ] พรมปูพื้นรถยนต์ = MTK · ชุดเพลาหน้า = SET → ใช้แทน FIX เฉพาะ QTY ใบขน / QTY 2 ของสินค้านั้น (QTY inv คง C62) */
+    const rule = (unitFix && (rule0.name === 'QTY ใบขน' || rule0.name === 'QTY 2')) ? Object.assign({}, rule0, { expected:unitFix.unit, label:rule0.name + ' (หน่วยนับ ' + unitFix.thai + ')' }) : rule0;
     const raw = String(row[rule.col]||'').trim();
     const displayField = rule.label || rule.name;
     // Use strictCompare with norm function so date/tax normalize the same way before compare.
@@ -6885,8 +7006,11 @@ function compareBlueInvoiceGroup(itemLine, eRow, iRow, iSlNo, iColMap){
     // (match was already confirmed by join — empty field ≠ data error).
     // Special case: if Invoice column was NOT resolved at all (iCol < 0),
     // the field doesn't exist in this Invoice file → skip silently.
-    if(iCol < 0) continue;
-    if(!eRaw || !iRaw) continue;
+    if(iCol < 0){ if(__fzNaLog) __fzNaLog.push({ itemLine, field:map.name, entryVal:eRaw||'(ว่าง)', compareVal:'(ไฟล์ Invoice ไม่มีคอลัมน์ '+map.name+')', source:'ไฟล์ Invoice', msg:'ไม่มีแหล่งข้อมูล — ตรวจไม่ได้' }); continue; }
+    if(!eRaw || !iRaw){   /* [EDC1 FZ] เดิมข้ามโดยไม่แจ้ง → PART NO. (บังคับ) ว่าง = ผิด · หัวข้ออื่นว่าง = ตรวจไม่ได้ (ไม่แสดง PASS) */
+      if(map.name === 'PART NO.'){ _edc1fzStrictCompare(errs, itemLine, 'ไฟล์ Invoice', 'blue', map.name, eRaw, iRaw, v => normVal(map.norm, v)); continue; }
+      if(__fzNaLog) __fzNaLog.push({ itemLine, field:map.name, entryVal:eRaw||'(ว่าง)', compareVal:iRaw||'(ว่าง)', source:'ไฟล์ Invoice', msg:(!eRaw?'ใบขนว่าง':'Invoice ว่าง')+' — ข้อมูลไม่พอ ตรวจไม่ได้' });
+      continue; }
     if(map.norm === 'number'){
       _edc1fzStrictNumCompare(errs, itemLine, 'ไฟล์ Invoice', 'blue', map.name, eRaw, iRaw);
     } else {
@@ -7156,6 +7280,7 @@ function exportFordTotalOnly(){
 // ── State ─────────────────────────────────────────────────────
 let fzLastAllErrors=[];
 let fzLastTotals={};
+let fzLastFull=null;   /* [EDC1 FZ] ผลตรวจครบทุกสถานะ (หน้าจอ = Export) */
 
 // ── fzTryEnable ──────────────────────────────────────────────
 function fzTryEnable(){
@@ -7198,7 +7323,7 @@ function fzReset(){
   }
   // Clear transient "ready" banner from auto-build
   const _rb = document.getElementById('_fzReadyBanner'); if(_rb) _rb.remove();
-  fzLastErrors=[]; fzLastEntryRows=[]; fzLastEntryHeaders=[]; fzLastAllErrors=[]; fzLastTotals={};
+  fzLastErrors=[]; fzLastEntryRows=[]; fzLastEntryHeaders=[]; fzLastAllErrors=[]; fzLastTotals={}; fzLastFull=null;
   [fzEntryInput,fzMasterInput,fzInvoiceInput].forEach(el=>{ if(el) el.value=''; });
   [fzEntryFn,fzMasterFn,fzInvoiceFn].forEach(el=>{ if(el) el.classList.remove('show'); });
   fzSetDZColor(fzEntryDZ, false);
@@ -7694,7 +7819,7 @@ function fzDoCheck(){
   }
 
   fzResultBox.style.display='none'; fzRBody.innerHTML=''; fzRTitle.textContent='';
-  fzExportBtn.disabled=true;
+  fzExportBtn.disabled=true; fzLastFull=null;
 
   // [LOCK 9] runtime assertion — Entry must exist
   if(!fzEntryWb){ fzShowSysErr('ไม่มีไฟล์ ENTRY','กรุณาอัปโหลดไฟล์ ENTRY ก่อนตรวจสอบ'); return; }
@@ -7879,6 +8004,26 @@ function fzDoCheck(){
 
   // Per-item comparison
   const allErrors=[]; let totalItems=0, green=0, blue=0, brown=0;
+  /* ══ [EDC1 FZ] ตรวจตาม Excel 56 หัวข้อ + FIX สินค้า + ใบอนุญาตช่องที่ 2 (เรดาร์) · รายงานทุกสถานะแบบ EDC8 ══
+     กฎเดิมทุกข้อคงไว้ (GREEN / BLUE / BROWN / 📘 พิกัด) · บันทึกผลที่ตรง (✅) ณ จุดเปรียบเทียบเดิม · หัวข้อที่ใบขน / แหล่งอ้างอิงไม่มีข้อมูล = ⚠️ ตรวจไม่ได้ (ไม่เดา · ไม่ใช้ Ford raw / MASTER AAT-FTM แทน) */
+  __fzPassLog = []; __fzNaLog = [];
+  const _fzH = (eRows[0]||[]).map(h=>String(h==null?'':h).replace(/[\s\u00a0]+/g,' ').trim().toUpperCase());
+  const _fzCol = aliases => { for(const a of aliases){ const i=_fzH.indexOf(String(a).replace(/\s+/g,' ').trim().toUpperCase()); if(i!==-1) return i; } return -1; };
+  const _fzNA = (itemLine, field, entryVal, compareVal, source, msg) => __fzNaLog.push({ itemLine, field, entryVal, compareVal, source, msg });
+  const _fzCell = (row, i) => i < 0 ? '' : String(row[i]==null?'':row[i]).trim();
+  const _fzThaiC = _fzCol(['คำแปลไทย','ชื่อสินค้าภาษาไทย','THAI TRANSLATION','THAI DESCRIPTION','ชื่อสินค้า (ไทย)']);
+  const _fzAgencyC = _fzCol(['หน่วยงาน','ชื่อหน่วยงาน','AGENCY','หน่วยงานที่ออกใบอนุญาต']);
+  const _fzThai = v => String(v==null?'':v).trim().replace(/\s+/g,' ');
+  const _fzKey = v => { const t=String(v==null?'':v).replace(/\s+/g,''); return t ? (t.replace(/^0+/,'')||'0') : ''; };
+  /* ชื่อสินค้าภาษาไทยของ ITEM = แถวแรกของ ITEM LINE · เรดาร์: แถวที่ 2+ ของ ITEM LINE เดียวกัน = ใบอนุญาตช่องที่ 2+ (ไม่ตรวจเป็นแถวสินค้า) · สินค้าอื่น ITEM LINE ซ้ำ = ผิด */
+  const _fzFirstThai = new Map(), _fzRowsOf = new Map(), _fzRadarSub = new Set(), _fzDupRow = new Set();
+  for(let r=1;r<eRows.length;r++){ const row=eRows[r]; if(!row || row.every(c=>String(c).trim()==='')) continue; const k=_fzKey(row[FZ_E.ITEM_LINE]); if(!k) continue;
+    if(!_fzRowsOf.has(k)){ _fzRowsOf.set(k, []); _fzFirstThai.set(k, _fzThaiC === -1 ? null : _fzThai(row[_fzThaiC])); }
+    else if(_fzFirstThai.get(k) === EDC1FZ_RADAR_FIX.thai) _fzRadarSub.add(row); else _fzDupRow.add(row);
+    _fzRowsOf.get(k).push(row); }
+  /* FIX เพิ่มตาม Excel (ข้อ 3–10, 20) — ตรวจเมื่อใบขนมีคอลัมน์จริง (ค้นจากชื่อหัวตาราง) · ไม่มีคอลัมน์ = ⚠️ ตรวจไม่ได้ ระดับไฟล์ */
+  const _fzExtra = EDC1FZ_EXTRA_FIX.map(f => Object.assign({}, f, { c:_fzCol(f.aliases) }));
+  const _fzAmtThbC = _fzCol(['AMOUNT THB','AMOUNT (THB)']);
   // [📘 พิกัด] Stat Code: ใช้คอลัมน์ HS CODE + Stat ของ Entry ตามชื่อหัวตารางจริง (Entry EDC1 FZ มาตรฐาน 21 คอลัมน์ไม่มี 2 ช่องนี้ → ตรวจไม่ได้ · แจ้งเตือน · ไม่ PASS)
   const _trfH = (eRows[0]||[]).map(h=>String(h||'').replace(/[\s\u00a0]+/g,' ').trim().toUpperCase());
   const _trfCH = _trfH.findIndex(h=>['TARIFFCLAS','HS CODE','HS','TARIFF CODE','พิกัด','พิกัดศุลกากร'].includes(h)), _trfCS = _trfH.findIndex(h=>h==='STAT'||h==='STAT CODE');
@@ -7888,7 +8033,8 @@ function fzDoCheck(){
   const _trfItem = (itemLine, row) => { if(!_trfOn || _trfCH === -1 || _trfCS === -1 || !(window.TRF_STATE && window.TRF_STATE.map)) return;
     const r = trfCheck(row[_trfCH], row[_trfCS]);
     if(r.st === 'bad'){ allErrors.push({ itemLine, field:'Stat Code', entryVal:r.stat||'(ว่าง)', compareVal:r.expected, source:trfNote(), msg:'Stat Code ไม่ตรง MASTER พิกัด (HS '+r.hs+')' }); }
-    else if(r.st === 'nohs' || r.st === 'badhs') _trfNA.push(itemLine+': '+r.reason); };
+    else if(r.st === 'nohs' || r.st === 'badhs'){ _trfNA.push(itemLine+': '+r.reason); if(__fzNaLog) __fzNaLog.push({ itemLine, field:'Stat Code', entryVal:r.stat||'(ว่าง)', compareVal:'-', source:trfNote(), msg:r.reason }); }
+    else if(r.st === 'ok') _edc1fzPass(itemLine, trfNote(), 'Stat Code', r.stat, r.expected); };   /* [EDC1 FZ] ✅ / ⚠️ ราย ITEM */
 
   // Report orphan invoice rows (rows with product data but no K/L)
   if(invOrphans.length>0){
@@ -7957,8 +8103,10 @@ function fzDoCheck(){
   for(let r=1;r<eRows.length;r++){
     const row=eRows[r];
     if(row.every(c=>String(c).trim()==='')) continue;
+    if(_fzRadarSub.has(row)) continue;   /* [EDC1 FZ] แถวใบอนุญาตช่องที่ 2+ ของเรดาร์ → ตรวจในชุด กสทช. ของ ITEM */
     totalItems++;
     const itemLine=getEntryItemLine(row)||String(r+1);
+    if(_fzDupRow.has(row)) allErrors.push({ itemLine, field:'ITEM LINE ซ้ำ', entryVal:itemLine, compareVal:'ITEM LINE ต้องไม่ซ้ำ (แถว '+(r+1)+')', source:'ใบขน EDC1', msg:'พบ ITEM LINE เดียวกันมากกว่า 1 แถว (สินค้าไม่ใช่เรดาร์)' });
 
     // ── EDC1 FZ FLEXIBLE JOIN (2026-04-29 user spec) ─────────────────
     //   Match strategy ladder:
@@ -7979,7 +8127,7 @@ function fzDoCheck(){
       if(!s) return '';
       return s.replace(/^0+/,'') || '0';
     })();
-    let iRow = null, iSlNo = null;
+    let iRow = null, iSlNo = null, _fzAmb = '';
     if(fzInvoiceWb){
       // Strategy 1 — Item match (with optional D tiebreaker)
       if(eItemO){
@@ -7995,31 +8143,56 @@ function fzDoCheck(){
             );
             if(exact){ iRow = exact.row; iSlNo = exact.slNo; }
           }
-          // No tiebreaker hit — take first match
-          if(!iRow){
-            iRow = candidates[0].row;
-            iSlNo = candidates[0].slNo;
-          }
+          // [EDC1 FZ] No tiebreaker hit → ระบุแถวไม่ได้ (ห้ามเลือกแถวแรก)
+          if(!iRow) _fzAmb = 'Item ' + eItemO + ' ใน Invoice ' + candidates.length + ' แถว (Export entry type D ไม่ยืนยัน)';
         }
       }
-      // Strategy 2 — Sl. No fallback
+      // Strategy 2 — Sl. No fallback (ต้องเหลือแถวเดียว)
       if(!iRow && _eItemLineKey){
         const candidates = invBySlNo[_eItemLineKey] || [];
-        if(candidates.length >= 1){
+        if(candidates.length === 1){
           iRow = candidates[0].row;
           iSlNo = candidates[0].slNo;
-        }
+          _fzAmb = '';
+        } else if(candidates.length > 1 && !_fzAmb) _fzAmb = 'Sl. No ' + _eItemLineKey + ' ใน Invoice ' + candidates.length + ' แถว';
       }
     }
 
-    const ge=compareGreenFixedGroup(itemLine, row);
+    const _k = _fzKey(row[FZ_E.ITEM_LINE]), _thai = _fzThaiC === -1 ? null : _fzThai(row[_fzThaiC]), _uf = _thai ? EDC1FZ_THAI_UNIT_FIX[_thai] : null;
+    const ge=compareGreenFixedGroup(itemLine, row, _uf ? { unit:_uf, thai:_thai } : null);
     green+=ge.length; allErrors.push(...ge);
     _trfItem(itemLine, row);   // [📘 พิกัด] Stat Code ของ ITEM นี้
+    // [EDC1 FZ] FIX เพิ่มตาม Excel (เฉพาะคอลัมน์ที่มีจริง)
+    _fzExtra.forEach(f => { if(f.c !== -1){ const ex=[]; _edc1fzStrictCompare(ex, itemLine, 'กฎตายตัว (ค่าฟิก)', 'green', f.label, _fzCell(row, f.c), f.expected, v => normVal(f.norm, v)); green+=ex.length; allErrors.push(...ex); } });
+    // [EDC1 FZ] ชื่อสินค้าภาษาไทย: มีคอลัมน์แต่ ITEM ว่าง = ผิด (ใช้ตรวจ FIX หน่วยนับ / เรดาร์)
+    if(_fzThaiC !== -1 && !_thai) allErrors.push({ itemLine, field:'ชื่อสินค้าภาษาไทย', entryVal:'(ว่าง)', compareVal:'ต้องมีชื่อสินค้าภาษาไทย', source:'ใบขน EDC1', msg:'ชื่อสินค้าภาษาไทยว่าง — ใช้ตรวจ FIX หน่วยนับ / เรดาร์ไม่ได้' });
+    // [EDC1 FZ] เรดาร์: ใบอนุญาตช่องที่ 2 = แถวที่ 2 ของ ITEM LINE เดียวกัน (ช่องที่ 1 = แถวแรก ตรวจด้วย FIX เดิม) · เลขใบอนุญาต / วันที่ / TAX ตรงทุกตัวอักษร
+    if(_thai === EDC1FZ_RADAR_FIX.thai){ const RF=EDC1FZ_RADAR_FIX, rs=_fzRowsOf.get(_k)||[], r2=rs.length>1 ? rs[1] : null, S2='ใบอนุญาตช่องที่ 2 (กสทช.)';
+      const one = (label, val, fix, eq, colMissing) => { const L=label+' ช่องที่ 2 (กสทช.)';
+        if(!r2){ allErrors.push({ itemLine, field:L, entryVal:'(ไม่พบใบอนุญาตช่องที่ 2)', compareVal:fix, source:S2, msg:'เรดาร์ต้องมีใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM LINE เดียวกัน) — ไม่พบแถว' }); return; }
+        if(colMissing){ _fzNA(itemLine, L, '-', fix, S2, 'ใบขนไม่มีคอลัมน์ '+label+' — อ่านช่องที่ 2 ไม่ได้ ตรวจไม่ได้'); return; }
+        if(!val) allErrors.push({ itemLine, field:L, entryVal:'(ว่าง)', compareVal:fix, source:S2, msg:label+' ช่องที่ 2 ว่าง (ข้อมูลบังคับ)' });
+        else if(!eq(val)) allErrors.push({ itemLine, field:L, entryVal:val, compareVal:fix, source:S2, msg:label+' ช่องที่ 2 ไม่ตรง FIX กสทช.' });
+        else _edc1fzPass(itemLine, S2, L, val, fix); };
+      one('เลขใบอนุญาต', r2 ? _fzCell(r2, FZ_E.LIC_NUM) : '', RF.permit,    v => v === RF.permit, false);
+      one('วันที่ออก',     r2 ? _fzCell(r2, FZ_E.LIC_DATE) : '', RF.issueDate, v => v === RF.issueDate, false);
+      one('TAX',          r2 ? _fzCell(r2, FZ_E.TAX) : '',      RF.tax,       v => v === RF.tax, false);
+      const na2 = v => String(v).trim().replace(/\s+/g,' ').replace(/\.$/,'');
+      one('หน่วยงาน', r2 ? _fzCell(r2, _fzAgencyC) : '', RF.agency+' ('+RF.agencyFull+')', v => na2(v) === na2(RF.agency) || na2(v) === na2(RF.agencyFull), _fzAgencyC === -1); }
 
     if(fzInvoiceWb){
+      if(!iRow && _fzAmb){ allErrors.push({ itemLine, field:'ค้นหาแถว Invoice', entryVal:'Item='+(eItemO||'(ว่าง)')+', ITEM LINE='+(eItemLineRaw||'(ว่าง)'), compareVal:'ระบุแถว Invoice ไม่ได้', source:'ไฟล์ Invoice', msg:_fzAmb+' — ไม่เดาแถวแรก', _color:'blue' }); blue++; }
+      else {
       const be=compareBlueInvoiceGroup(itemLine, row, iRow, iSlNo, _iColMap);
       blue+=be.length; allErrors.push(...be);
-    }
+      // [EDC1 FZ] DESCRIPTION / PART QTY (Excel ข้อ 31–32) ↔ แถว Invoice ที่จับคู่ได้ (คอลัมน์จากหัวตาราง Invoice) · ไม่มีคอลัมน์ = ตรวจไม่ได้
+      if(iRow){ [['DESCRIPTION', FZ_E.DESC, _iColMap && _iColMap.description, 'text'], ['PART QTY', FZ_E.QTY, _iColMap && _iColMap.qty, 'number']].forEach(([fn, ec, ic, nt]) => {
+        if(!(ic >= 0)){ _fzNA(itemLine, fn, _fzCell(row, ec)||'(ว่าง)', '(ไฟล์ Invoice ไม่มีคอลัมน์ '+fn+')', 'ไฟล์ Invoice', 'ไม่มีแหล่งข้อมูล — ตรวจไม่ได้'); return; }
+        const ex=[]; if(nt === 'number') _edc1fzStrictNumCompare(ex, itemLine, 'ไฟล์ Invoice', 'blue', fn, _fzCell(row, ec), _fzCell(iRow, ic));
+        else _edc1fzStrictCompare(ex, itemLine, 'ไฟล์ Invoice', 'blue', fn, _fzCell(row, ec), _fzCell(iRow, ic), normalizeText);
+        blue+=ex.length; allErrors.push(...ex); }); }
+      }
+    } else _fzNA(itemLine, 'PART NO.', _fzCell(row, FZ_E.PART_NO)||'(ว่าง)', '(ไม่มีไฟล์ Invoice)', 'ไฟล์ Invoice', 'ไม่ได้อัปโหลดไฟล์ Invoice — ตรวจไม่ได้');
 
     if(hasMapping){
       // ── EDC1 FZ — BROWN MATCH BY PART NO. ────────────────────────────────
@@ -8045,7 +8218,8 @@ function fzDoCheck(){
       }
       const be=compareBrownMappingGroup(itemLine, row, mRow, mapInvoiceAgg, grandTotals);
       brown+=be.length; allErrors.push(...be);
-    }
+      if(mRow && _fzAmtThbC !== -1){ const ex=[]; _edc1fzStrictNumCompare(ex, itemLine, 'Export Mapping Excel', 'brown', 'Amount THB ราย ITEM', _fzCell(row, _fzAmtThbC), String(mRow[6]||'').trim()); brown+=ex.length; allErrors.push(...ex); }   /* [EDC1 FZ] EXT PRICE (THB) ราย ITEM */
+    } else _fzNA(itemLine, 'INVOICE NO.', _fzCell(row, FZ_E.INVOICE_NO)||'(ว่าง)', '(ไม่มี Export Mapping Excel)', 'Export Mapping Excel', 'ไม่ได้อัปโหลด Mapping — ตรวจ INVOICE NO. / DATE SHIPPED / ยอดรวม ไม่ได้');
   }
 
   fzLastAllErrors=allErrors;
@@ -8053,8 +8227,22 @@ function fzDoCheck(){
   fzLastEntryRows=eRows; fzLastEntryHeaders=eRows[0]||[];
   fzLastErrors=allErrors;
 
-  renderFzErrorOnlyResults(allErrors, fzLastTotals);
-  if(allErrors.length) fzExportBtn.disabled=false;
+  /* [EDC1 FZ] หัวข้อตาม Excel ที่ไม่มีคอลัมน์ / แหล่งอ้างอิงจริง → ⚠️ ตรวจไม่ได้ ระดับไฟล์ (1 แถวต่อหัวข้อ · ไม่เดา) */
+  { const F='(ไฟล์)', noCol = n => 'ใบขน EDC1 FZ ไม่มีคอลัมน์ ' + n;
+    _fzExtra.filter(f => f.c === -1).forEach(f => _fzNA(F, f.label, '-', f.expected, 'กฎตายตัว (ค่าฟิก)', noCol(f.aliases[0]) + ' — ตรวจไม่ได้'));
+    if(_fzThaiC === -1) _fzNA(F, 'ชื่อสินค้าภาษาไทย', '-', 'พรมปูพื้นรถยนต์ = MTK · ชุดเพลาหน้า = SET · เรดาร์ = ใบอนุญาตช่องที่ 2', 'ใบขน EDC1', noCol('คำแปลไทย / ชื่อสินค้าภาษาไทย') + ' — ตรวจ FIX หน่วยนับ / เรดาร์ไม่ได้');
+    if(_trfOn && (_trfCH === -1 || _trfCS === -1)) _fzNA(F, 'Stat Code', '-', 'MASTER 📘 พิกัด', 'MASTER 📘 พิกัด', noCol([_trfCH===-1?'HS CODE (tariffclas)':'', _trfCS===-1?'Stat':''].filter(Boolean).join(' / ')) + ' — ตรวจ Stat Code ไม่ได้');
+    _fzNA(F, 'HS CODE / tariffclas', _trfCH === -1 ? '-' : 'มีคอลัมน์', 'MASTER APL', 'MASTER', 'ไม่มี MASTER สำหรับ EDC1 FZ (MASTER APL เป็นของ AAT / FTM — ไม่นำมาใช้แทน) — ตรวจไม่ได้');
+    _fzNA(F, 'MASTER ไม่พบ PART NO.', '-', 'MASTER', 'MASTER', 'ไม่มี MASTER สำหรับ EDC1 FZ — ตรวจ PART NO. ใน MASTER ไม่ได้');
+    _fzNA(F, 'Amount ราย ITEM', '-', 'INVOICE', 'ไฟล์ Invoice', 'ใบขน EDC1 FZ ไม่มีคอลัมน์ Amount ราย ITEM (คอลัมน์ U AMOUNT = ยอดรวม INVOICE ตรวจในหัวข้อ AMOUNT) — ตรวจไม่ได้');
+    if(_fzAmtThbC === -1) _fzNA(F, 'Amount THB ราย ITEM', '-', 'EXT PRICE (THB)', 'Export Mapping Excel', noCol('amount thb') + ' — ตรวจไม่ได้');
+    [['Currency',['currency']],['Term',['term']],['Consignee',['consignee']],['Purcountry',['purcountry']],['ประเทศปลายทาง',['ประเทศปลายทาง']],['Exporter Name',['exporter name']]].forEach(([n, al]) => {
+      _fzNA(F, n, _fzCol(al) === -1 ? '-' : 'มีคอลัมน์', 'INVOICE', 'ไฟล์ Invoice / Mapping', (_fzCol(al) === -1 ? noCol(al[0]) + ' และ' : '') + 'ไฟล์ Invoice / Export Mapping Excel ไม่มีข้อมูล ' + n + ' (Ford raw ห้ามใช้ตรวจตาม Source Lock) — ตรวจไม่ได้'); });
+  }
+  fzLastFull = edc1fzBuildFull(allErrors, __fzPassLog, __fzNaLog, totalItems);
+  __fzPassLog = null; __fzNaLog = null;
+  renderFzFullResults(fzLastFull);
+  fzExportBtn.disabled=false;   /* [EDC1 FZ] Export ผลตรวจครบทุกสถานะ (ไม่ใช่ ERROR_ONLY) */
 }
 fzCheckBtn.addEventListener('click', fzDoCheck);
 
@@ -8064,6 +8252,7 @@ function fzShowPopup(item){}
 
 // ── Export: Error-only report ─────────────────────────────────
 fzExportBtn.addEventListener('click',()=>{
+  if(fzLastFull){ exportFzFullReport(fzLastFull); return; }   /* [EDC1 FZ] รายงานครบทุกสถานะ */
   if(!fzLastAllErrors||!fzLastAllErrors.length) return;
   exportFzErrorOnlyReport(fzLastAllErrors, fzLastTotals);
 });
@@ -8100,6 +8289,7 @@ function fzRunCheck(){
   fzDoCheck();
 }
 function fzExport(){
+  if(fzLastFull){ exportFzFullReport(fzLastFull); return; }   /* [EDC1 FZ] รายงานครบทุกสถานะ (ไม่ใช่ ERROR_ONLY) */
   if(!fzLastAllErrors||!fzLastAllErrors.length){ alert('⚠ ยังไม่มีผลตรวจ — กรุณากดตรวจสอบก่อน'); return; }
   exportFzErrorOnlyReport(fzLastAllErrors, fzLastTotals);
 }
@@ -12599,7 +12789,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
      ค่าอ้างอิงแสดงเฉพาะคอลัมน์ของแหล่งจริง (ไม่เกี่ยว = —) · ข้อผิดพลาดใบอนุญาต (MASTER HS CODE ใบอนุญาต) แยกไปตารางในส่วน 📋 ใบอนุญาต รูปแบบเดิม */
   const DASH='—';
   const TOPIC_ORDER=['PART NO.','PART NO. (INVOICE)','PART NO. (INVOICE ซ้ำ)','PART NO. (Master ซ้ำ)','INVOICE NO.','DESCRIPTION','PART QTY','DATE SHIPPED','PART NUMBER/TEILNUMMER','Unit Price','Amount','Currency','Amount THB','SHIPPING MARK','Term','Consignee','Purcountry','ประเทศปลายทาง','Exporter Name','Origin',
-    'Total Amount THB','Total N.W','Total G.W','Total PACKAGE','Export Tax','ประเภทใบขน','Model version -555','HS Code','คำแปลไทย','Stat Code'];   /* [EDC8] ลำดับหัวข้อในแต่ละ ITEM (สิทธิ / กฎพิเศษอื่น = หลัง Export Tax ตามลำดับที่พบ) */
+    'Total Amount THB','Total N.W','Total G.W','Total PACKAGE','Export Tax','ประเภทใบขน','Model version -555','HS Code','คำแปลไทย','Stat Code','QTY ใบขน (หน่วยนับ)','QTY 2 (หน่วยนับ)','เลขใบอนุญาต ช่องที่ 2 (กสทช.)','วันที่ออก ช่องที่ 2 (กสทช.)','TAX ช่องที่ 2 (กสทช.)','หน่วยงาน ช่องที่ 2 (กสทช.)'];   /* [EDC8] ลำดับหัวข้อในแต่ละ ITEM (สิทธิ / กฎพิเศษอื่น = หลัง Export Tax ตามลำดับที่พบ) */
   /* [EDC8] FIX 9 หัวข้อ → แสดงด้านบนของตารางหลัก ไม่ระบุ ITEM (—) · 1 แถวต่อหัวข้อต่อค่าใบขน · ✅ ถูก / ❌ ผิด / ⚠️ ตรวจไม่ได้
      ตรวจทุก ITEM เหมือนเดิม (Error ราย ITEM ยังอยู่ใน edc8AllErrors · ใช้นับ PASS / FAIL) · ไม่แสดงซ้ำในส่วน ⚪ */
   const FIX_TOPICS=[ { t:'Privilege', col:'privilege' }, { t:'Tariff', col:'tariff' }, { t:'QTY', col:'QTY', fix:'C62' }, { t:'QTY ใบขน', col:'QTY ใบขน', fix:'C62' }, { t:'QTY 2', col:'QTY 2', fix:'EA' },
@@ -12612,6 +12802,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
   function fixRows(errors){
     const rows=(typeof edc8RawRows!=='undefined' && edc8RawRows) || [], H=(rows[0]||[]).map(h=>NV(h)), iCol=H.findIndex(h=>h==='ITEM' || h==='ITEM LINE');
     const out=[], unchecked=[];
+    /* [EDC8] แถวใบอนุญาตช่องที่ 2+ ของเรดาร์ ไม่ใช่แถวสินค้า · พรมปูพื้นรถยนต์ / ชุดเพลาหน้า: QTY ใบขน / QTY 2 แสดงราย ITEM (หน่วยนับ) ไม่รวมในแถว FIX ด้านบน */
+    const tCol=H.indexOf(NV('คำแปลไทย')), th1=new Map(), skipRow=new Set(), unitItem=new Set(), TU=(typeof EDC8_THAI_UNIT_FIX!=='undefined' ? EDC8_THAI_UNIT_FIX : {}), RN=(typeof EDC8_RADAR_NAME!=='undefined' ? EDC8_RADAR_NAME : null);
+    if(tCol!==-1 && iCol!==-1) rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=nkItem(r[iCol]); if(!it) return; const t=S(r[tCol]).trim().replace(/\s+/g,' ');
+      if(!th1.has(it)){ th1.set(it,t); if(TU[t]) unitItem.add(it); } else if(th1.get(it)===RN) skipRow.add(r); });
     for(const f of FIX_TOPICS){
       const errs=errors.filter(e=>fixTopicOf(e)===f), ci=H.indexOf(NV(f.col));
       const rule=f.fix===undefined ? ruleFor(f.col) : null, fixTxt=f.fix!==undefined ? f.fix : (rule ? opText(rule.op, rule.value) : '');
@@ -12619,7 +12813,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       const R=(decl, fx, st, cnt)=>out.push({ item:DASH, count:cnt||0, field:f.t, decl, inv:DASH, fix:fx, trf:DASH, apl:DASH, st, src:'fixtop' });
       if(ci===-1){ if(noRule){ unchecked.push(f.t); R('(ใบขนไม่มีคอลัมน์ '+f.col+')', 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้'); } else R('(ใบขนไม่มีคอลัมน์ '+f.col+')', fixTxt||DASH, '❌ ผิด'); continue; }
       const vals=new Map(), bad=new Set(errs.filter(e=>e.severity==='error' && e.item!=='-' && e.item!=='HEADER').map(e=>nkItem(e.item)));
-      rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=iCol===-1 ? '' : nkItem(r[iCol]); if(iCol!==-1 && !it) return;
+      rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=iCol===-1 ? '' : nkItem(r[iCol]); if(iCol!==-1 && !it) return; if(skipRow.has(r) || ((f.t==='QTY ใบขน' || f.t==='QTY 2') && unitItem.has(it))) return;
         const v=S(r[ci]).trim()||'(ว่าง)'; if(!vals.has(v)) vals.set(v,{ n:0, bad:0 }); const o=vals.get(v); o.n++; if(bad.has(it)) o.bad++; });
       if(noRule){ unchecked.push(f.t); vals.forEach((o,v)=>R(v, 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้', o.n)); continue; }
       vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else R(v, fixTxt||DASH, '✅ ถูก', o.n); });
