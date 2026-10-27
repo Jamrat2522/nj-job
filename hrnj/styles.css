@@ -1196,3 +1196,35 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
 .layout.collapsed .side-ver .sv-min{display:block;font-size:11px;font-weight:700;color:#8ea0bd}
 .login-brand .login-ver{margin:10px 0 0;font-size:11px;letter-spacing:.3px;
   color:#94A3B8;font-variant-numeric:tabular-nums}
+
+/* ============================================================================
+   RUN-190 · ปุ่ม Export กราฟ + กล่องจับภาพ PNG (Append เท่านั้น)
+   ไม่แตะปุ่ม Export Excel เดิม ไม่แตะ Dashboard เดิม
+   ============================================================================ */
+.rd-exp{display:inline-flex;align-items:center;gap:6px;border:1px solid #15803D;
+  background:#16A34A;color:#fff;border-radius:9px;padding:6px 13px;font-family:inherit;
+  font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.rd-exp:hover:not(:disabled){background:#15803D;border-color:#166534}
+.rd-exp:active:not(:disabled){transform:scale(.97)}
+.rd-exp:focus-visible{outline:2px solid #15803D;outline-offset:2px}
+.rd-exp:disabled{opacity:.7;cursor:default}
+.rd-exp .spinner{width:13px;height:13px;border-width:2px;border-top-color:#fff}
+
+/* กล่องสำหรับจับภาพ — วางนอกจอ ไม่รบกวนผู้ใช้ และไม่ถูกย่อตามขนาดหน้าต่าง */
+#rd-capture{position:fixed;left:-20000px;top:0;z-index:-1;pointer-events:none;
+  width:1400px;background:#fff;padding:26px 28px 30px;box-sizing:border-box;
+  font-family:Prompt,'Segoe UI',Tahoma,sans-serif;color:#0F172A}
+#rd-capture .rd-cap-head{border-bottom:2px solid #E2E8F0;padding-bottom:14px;margin-bottom:18px}
+#rd-capture .rd-cap-co{font-size:13px;font-weight:600;color:#64748B;letter-spacing:.3px}
+#rd-capture .rd-cap-head h2{font-size:23px;font-weight:700;margin:4px 0 6px;color:#0F172A}
+#rd-capture .rd-cap-meta{font-size:13.5px;color:#334155}
+#rd-capture .rd-cap-stamp{font-size:12px;color:#94A3B8;margin-top:3px}
+#rd-capture .rd-cap-body{display:flex;flex-direction:column;gap:16px}
+/* บังคับรูปแบบเดสก์ท็อปเสมอ รูปที่ได้จึงเหมือนกันทุกเครื่อง ทุกขนาดหน้าจอ */
+#rd-capture .rd-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+#rd-capture .rd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px}
+#rd-capture .rd-bar-lb{flex:0 0 200px;max-width:200px;font-size:12.5px}
+#rd-capture .rd-bar-n{flex:0 0 80px;font-size:12.5px}
+#rd-capture .rd-cbody b{font-size:26px}
+#rd-capture .rd-pn-st,#rd-capture .rd-lg{font-size:12.5px}
+#rd-capture .rd-panel{box-shadow:none}
