@@ -71,6 +71,9 @@ const CSS623=`
 .pdfi623 .pdfi623-toast.error{border-left-color:var(--danger)}
 .pdfi623 .pdfi623-toast.success{border-left-color:var(--success)}
 .pdfi623 .hidden{display:none !important}
+.pdfi623 .pdfi626-msg{margin-top:14px;border-radius:10px;padding:12px 14px;font-size:.84rem;line-height:1.5;white-space:pre-line}
+.pdfi623 .pdfi626-msg.err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.pdfi623 .pdfi626-msg.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;margin:0 0 14px}
 `;
 
 const HTML623=`
@@ -95,6 +98,7 @@ const HTML623=`
         </div>
       </div>
       <button class="process-btn" id="processBtn" disabled>\u26A1 \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 PDF \u2192 Excel</button>
+      <div id="parseErr" class="pdfi626-msg err hidden" role="alert"></div>
       <div id="progressWrap" class="hidden">
         <div class="progress-steps">
           <div class="p-step" id="ps1"><span class="p-icon">\uD83D\uDCC4</span> \u0E2D\u0E48\u0E32\u0E19\u0E44\u0E1F\u0E25\u0E4C PDF\u2026</div>
@@ -117,6 +121,7 @@ const HTML623=`
         <tbody id="resultItems"></tbody>
       </table>
       <div class="totals-strip" id="resultTotals"></div>
+      <div id="parseWarn" class="pdfi626-msg warn hidden" role="status"></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <button class="dl-btn" id="dlBtn" style="padding:18px;font-size:1.15rem;border-radius:14px;box-shadow:0 6px 24px rgba(34,197,94,.35);letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:10px;flex:1">
           <span style="font-size:1.4rem">\u2B07\uFE0F</span>
@@ -147,15 +152,20 @@ function csName623(){
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 // \u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19\u0E15\u0E49\u0E19\u0E09\u0E1A\u0E31\u0E1A (\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 Logic)
 // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* V.626 : \u0E2D\u0E48\u0E32\u0E19 PDF \u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A \u2014 \u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A PDF INVOICE \u0E02\u0E2D\u0E07 BILLING NJ (No | Description | Service | Advance | Total) + \u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E40\u0E14\u0E34\u0E21
+   \u0E1B\u0E49\u0E32\u0E22\u0E01\u0E33\u0E01\u0E31\u0E1A\u0E21\u0E35/\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E31\u0E27 "o" (\u0E1F\u0E2D\u0E19\u0E15\u0E4C\u0E1A\u0E32\u0E07\u0E15\u0E31\u0E27 pdf.js \u0E2D\u0E48\u0E32\u0E19\u0E2B\u0E32\u0E22) \u00B7 \u0E44\u0E21\u0E48\u0E40\u0E14\u0E32/\u0E44\u0E21\u0E48\u0E43\u0E2A\u0E48\u0E04\u0E48\u0E32\u0E04\u0E07\u0E17\u0E35\u0E48\u0E41\u0E17\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E23\u0E34\u0E07 \u2014 \u0E2D\u0E48\u0E32\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 = \u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07 + \u0E41\u0E08\u0E49\u0E07\u0E0A\u0E48\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E02\u0E32\u0E14 */
+const ROWS626 = 11;   /* TEMP.xlsx : \u0E41\u0E16\u0E27\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 13\u201323 (\u0E2A\u0E39\u0E15\u0E23 SUM \u0E02\u0E2D\u0E07 Template \u0E04\u0E23\u0E2D\u0E1A 13/9\u201323) */
+const num626 = v => { const t = String(v == null ? '' : v).replace(/,/g, '').trim(); if (!t || t === '-') return 0; const n = parseFloat(t); return Number.isFinite(n) ? n : 0; };
+const r2626 = v => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
 function parsePdfText(text) {
   const lines = text.split(/\n/);
   function get(rx) { const m = text.match(rx); return m ? m[1].trim() : ''; }
   function getNum(rx) { const m = text.match(rx); return m ? parseFloat(m[1].replace(/,/g,'')) : 0; }
 
-  const invoice_no = get(/(NJ\d{4}-\d{5})/);
+  const invoice_no = get(/Invoice\s*N[o0]?\s*\.?\s*:?\s*([A-Z]{1,6}\d{4}-\d{3,6})\b/i) || get(/\b(NJ[A-Z]{0,3}\d{4}-\d{3,6})\b/) || get(/(NJ\d{4}-\d{5})/);
   let date = '';
   for (const line of lines) {
-    if (/date/i.test(line) && !/printed/i.test(line)) {
+    if (/date/i.test(line) && !/printed/i.test(line) && !/due\s*date/i.test(line)) {
       const dm = line.match(/(\d{2}\/\d{2}\/\d{4})/);
       if (dm) { date = dm[1]; break; }
     }
@@ -164,39 +174,120 @@ function parsePdfText(text) {
     const allDates = [...text.matchAll(/(\d{2}\/\d{2}\/20\d{2})/g)];
     if (allDates.length) date = allDates[0][1];
   }
+  const due_date       = get(/Due\s*Date\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i);
 
-  const job_no         = get(/J\s*[o0]\s*b\s*N\s*\.?\s*:?\s*(JOB[\w-]+)/i);
-  const decl_no        = get(/Decl\s*N\s*\.?\s*:?\s*([A-Z0-9]+)/i);
-  const customer_po    = get(/Cust\s*m?er\s*PO\s*:?\s*([A-Z0-9]+)/i);
-  const master         = get(/M\s*a\s*s\s*t\s*e\s*r\s*[:\s]([^\n]+)/i);
-  const house          = get(/H\s*u\s*s\s*e\s*[:\s]([A-Z]{2,}[\w]*)/i);
-  const company_invoice = get(/C\s*m?\s*p\s*a\s*n\s*y\s*I\s*n\s*v\s*i?\s*c\s*e\s*:?\s*(.+?)(?:GRAND|Withholding|\n|$)/i);
+  const job_no         = get(/J\s*[o0]?\s*b\s*N\s*[o0]?\s*\.?\s*:?\s*(JOB[\w-]+)/i);
+  const decl_no        = get(/Decl\s*N\s*[o0]?\s*\.?\s*:?\s*([A-Z0-9]{5,})/i);
+  const customer_po    = get(/Cust\s*[o0]?\s*m?\s*er\s*P\s*[O0]\s*\.?\s*:?\s*([A-Z0-9][A-Z0-9\/\-]*)/i);
+  const master         = get(/M\s*a\s*s\s*t\s*e\s*r\s*:\s*([A-Z0-9][A-Z0-9\/\-]*)/i) || get(/M\s*a\s*s\s*t\s*e\s*r\s*[:\s]([^\n]+)/i);
+  const house          = get(/H\s*[o0]?\s*u\s*s\s*e\s*:?\s*([A-Z]{2,}[A-Z0-9\-]*\d[A-Z0-9\-]*)/i);
+  const company_invoice = get(/C\s*[o0]?\s*m?\s*p\s*a\s*n\s*y\s*I\s*n\s*v\s*[o0]?\s*i?\s*c\s*e\s*:?\s*(.+?)(?:GRAND|Withholding|\n|$)/i);
 
   const subtotal_vat = getNum(/SubTotal\s*7\s*%\s*([\d,]+\.?\d*)/i);
   const vat_7        = getNum(/VAT\s*7\s*%\s*([\d,]+\.?\d*)/i);
-  const total        = getNum(/\bTotal\b\s*([\d,]+\.?\d*)/i);
-  const advance      = getNum(/Advance\s*Re-?imburs\w*\s*([\d,]+\.?\d*)/i);
+  const total        = getNum(/^\s*Total\s+([\d,]+\.\d{2})\s*$/m) || getNum(/\bTotal\b\s*([\d,]+\.?\d*)/i);
+  const advance      = getNum(/Advance\s*(?:Re-?imburs\w*|\(?\s*Non-?\s*VAT\s*\)?)\s*([\d,]+\.?\d*)/i);
   const grand_total  = getNum(/GRAND\s*TOTAL\s*([\d,]+\.?\d*)/i);
+  let wht = 0;
+  for (const w of text.matchAll(/WHT\s*\d+(?:\.\d+)?\s*%[^\n\d]*([\d,]+\.\d{2})/gi)) wht = r2626(wht + num626(w[1]));
+  const tm = text.match(/^\s*TOTAL\s+(-|[\d,]+\.\d{2})\s+(-|[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/m);
+  const table_total = tm ? { service: num626(tm[1]), advance: num626(tm[2]), total: num626(tm[3]) } : null;
+  const cq = text.match(/\b(\d{1,2})\s*[xX\u00D7]\s*(20|40|45)\s*(?:'|FT\b|GP\b|HC\b|HQ\b|DC\b|RF\b|OT\b|FR\b)/);
 
   const items = [];
-  const itemRx = /^(\d+)\s+((?:SERVICE|ADVANCE)[^\n]+?)\s+([\d,]+\.\d{2})(?:\s+([\d,]+\.\d{2}))?$/gim;
   let m;
-  while ((m = itemRx.exec(text)) !== null && items.length < 9) {
-    const svc = parseFloat((m[3]||'0').replace(/,/g,''));
-    const adv = parseFloat((m[4]||'0').replace(/,/g,''));
-    const isAdv = /advance/i.test(m[2]);
-    items.push({
-      no: parseInt(m[1]),
-      description: m[2].trim(),
-      service_charge: isAdv ? 0 : svc,
-      advance_amount: isAdv ? (adv||svc) : 0
-    });
+  /* A) PDF INVOICE \u0E02\u0E2D\u0E07 BILLING NJ : No | Description | Service | Advance | Total ("-" = \u0E27\u0E48\u0E32\u0E07) \u2192 \u0E41\u0E22\u0E01\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E08\u0E32\u0E01\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C\u0E08\u0E23\u0E34\u0E07 */
+  const rxA = /^(\d{1,3})\s+(.*?[A-Za-z\u0E00-\u0E7F].*?)\s+(-|[\d,]+\.\d{2})\s+(-|[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/gm;
+  while ((m = rxA.exec(text)) !== null) {
+    const svc = num626(m[3]), adv = num626(m[4]);
+    if (!(svc > 0 || adv > 0)) continue;
+    items.push({ no: parseInt(m[1]), description: m[2].trim(), service_charge: svc, advance_amount: adv,
+                 type: adv > 0 && !(svc > 0) ? 'advance' : 'service' });
+  }
+  /* B) \u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E40\u0E14\u0E34\u0E21 : No | SERVICE/ADVANCE ... | amount [amount] */
+  if (!items.length) {
+    const itemRx = /^(\d+)\s+((?:SERVICE|ADVANCE)[^\n]+?)\s+([\d,]+\.\d{2})(?:\s+([\d,]+\.\d{2}))?$/gim;
+    while ((m = itemRx.exec(text)) !== null) {
+      const svc = parseFloat((m[3]||'0').replace(/,/g,''));
+      const adv = parseFloat((m[4]||'0').replace(/,/g,''));
+      const isAdv = /advance/i.test(m[2]);
+      items.push({
+        no: parseInt(m[1]),
+        description: m[2].replace(/(\s+(-|[\d,]+\.\d{2}))+\s*$/, '').trim(),
+        service_charge: isAdv ? 0 : svc,
+        advance_amount: isAdv ? (adv||svc) : 0,
+        type: isAdv ? 'advance' : 'service'
+      });
+    }
   }
 
-  return { invoice_no, date, job_no, decl_no, customer_po, master, house,
+  return { invoice_no, date, due_date, job_no, decl_no, customer_po, master, house,
            container: '', house_no: '',
            company_invoice: company_invoice.trim(),
-           subtotal_non_vat: 0, subtotal_vat, vat_7, total, advance, grand_total, items };
+           subtotal_non_vat: 0, subtotal_vat, vat_7, total, advance, grand_total, wht, table_total,
+           cont_qty: cq ? +cq[1] : 0, cont_size: cq ? +cq[2] : 0, items };
+}
+
+/* V.626 : \u0E15\u0E23\u0E27\u0E08\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49\u0E01\u0E48\u0E2D\u0E19 EXPORT \u2014 \u0E02\u0E32\u0E14\u0E0A\u0E48\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01 / \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A = \u0E2B\u0E22\u0E38\u0E14 + \u0E41\u0E08\u0E49\u0E07 \u00B7 \u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E2D\u0E07\u0E02\u0E32\u0E14 = \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19 (\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07 \u0E44\u0E21\u0E48\u0E40\u0E14\u0E32) */
+function check626(data, fname) {
+  const err = [], warn = [], it = data.items || [];
+  if (!data.__chars) err.push('\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E43\u0E19 PDF (\u0E2D\u0E32\u0E08\u0E40\u0E1B\u0E47\u0E19\u0E44\u0E1F\u0E25\u0E4C\u0E2A\u0E41\u0E01\u0E19/\u0E23\u0E39\u0E1B\u0E20\u0E32\u0E1E)');
+  else {
+    if (!data.invoice_no) err.push('Invoice No.');
+    if (!data.date) err.push('Invoice Date');
+    if (!it.length) err.push('\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22 (No. / Description / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19)');
+  }
+  if (it.length > ROWS626) err.push('\u0E21\u0E35 ' + it.length + ' \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E01\u0E34\u0E19\u0E41\u0E16\u0E27\u0E02\u0E2D\u0E07 Template (' + ROWS626 + ' \u0E41\u0E16\u0E27 : 13\u201323)');
+  const svc = r2626(it.reduce((a, x) => a + (x.service_charge || 0), 0)), adv = r2626(it.reduce((a, x) => a + (x.advance_amount || 0), 0));
+  if (data.table_total && it.length) {
+    if (Math.abs(svc - data.table_total.service) > 0.009 || Math.abs(adv - data.table_total.advance) > 0.009)
+      err.push('\u0E22\u0E2D\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49 (Service ' + svc.toFixed(2) + ' / Advance ' + adv.toFixed(2) + ') \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A TOTAL \u0E43\u0E19 PDF (' + data.table_total.service.toFixed(2) + ' / ' + data.table_total.advance.toFixed(2) + ')');
+  }
+  if (data.subtotal_vat && data.vat_7 && data.total && Math.abs(r2626(data.subtotal_vat + data.vat_7) - data.total) > 0.009) warn.push('SubTotal + VAT \u0E44\u0E21\u0E48\u0E40\u0E17\u0E48\u0E32\u0E01\u0E31\u0E1A Total \u0E43\u0E19 PDF');
+  if (data.total && data.grand_total && Math.abs(r2626(data.total + (data.advance || 0) - (data.wht || 0)) - data.grand_total) > 0.009) warn.push('Total + Advance \u2212 WHT \u0E44\u0E21\u0E48\u0E40\u0E17\u0E48\u0E32\u0E01\u0E31\u0E1A GRAND TOTAL \u0E43\u0E19 PDF');
+  const miss = [];
+  if (!data.customer_po) miss.push('Customer PO (R8)');
+  if (!data.due_date) miss.push('Due Date (R7)');
+  if (!(data.company_invoice || '').match(/\w+/)) miss.push('Company Invoice \u2192 \u0E0A\u0E37\u0E48\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 (C)');
+  if (!(data.house_no || data.house)) miss.push('House / Booking (E)');
+  if (!(data.container || data.master)) miss.push('Container / Master (G)');
+  if (!data.cont_size) miss.push('\u0E02\u0E19\u0E32\u0E14\u0E15\u0E39\u0E49 (H)');
+  if (!data.cont_qty) miss.push('\u0E08\u0E33\u0E19\u0E27\u0E19 (I)');
+  if (!data.job_no) miss.push('Job No.');
+  if (!data.decl_no) miss.push('Decl No.');
+  if (miss.length) warn.push('\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E19 PDF (\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07) : ' + miss.join(', '));
+  return { err, warn, fname };
+}
+
+/* V.626 : \u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07 TEMP.xlsx (\u0E43\u0E0A\u0E49\u0E17\u0E31\u0E49\u0E07 1 \u0E44\u0E1F\u0E25\u0E4C / \u0E2B\u0E25\u0E32\u0E22 Sheet) \u00B7 \u0E43\u0E2A\u0E48\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E44\u0E14\u0E49\u0E08\u0E23\u0E34\u0E07 \u00B7 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 = Excel serial (UTC \u0E44\u0E21\u0E48\u0E40\u0E1E\u0E35\u0E49\u0E22\u0E19\u0E15\u0E32\u0E21 Time Zone) */
+function ds626(s) {
+  const m = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return Math.round((Date.UTC(+m[3], +m[2] - 1, +m[1]) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+function writes626(data) {
+  const W = [], d = ds626(data.date), dd = ds626(data.due_date);
+  if (data.invoice_no) W.push(['R5', 's', data.invoice_no]);
+  if (d) W.push(['R6', 'n', d]);
+  if (dd) W.push(['R7', 'n', dd]);
+  if (data.customer_po) W.push(['R8', 's', data.customer_po]);
+  const container = data.container || (data.master || '').replace(/^[A-Z]+\//, '');
+  const custShort = ((data.company_invoice || '').match(/\w+/) || [''])[0];
+  const house = data.house_no || data.house || '';
+  (data.items || []).slice(0, ROWS626).forEach((item, i) => {
+    const r = 13 + i;
+    W.push([`A${r}`, 'n', item.no]);
+    if (d) W.push([`B${r}`, 'n', d]);
+    if (custShort) W.push([`C${r}`, 's', custShort]);
+    W.push([`D${r}`, 's', item.description]);
+    if (house) W.push([`E${r}`, 's', house]);
+    if (container) W.push([`G${r}`, 's', container]);
+    if (data.cont_size) W.push([`H${r}`, 'n', data.cont_size]);
+    if (data.cont_qty) W.push([`I${r}`, 'n', data.cont_qty]);
+    if (item.service_charge > 0) W.push([`N${r}`, 'n', item.service_charge]);
+    if (item.advance_amount > 0) W.push([`R${r}`, 'n', item.advance_amount]);
+  });
+  return W;
 }
 
 async function loadPdfJs623(){
@@ -294,6 +385,7 @@ async function callClaude(pdfB64) {
 
   const cleanText = fullText.replace(/[^\x09\x0a\x0d\x20-\x7e\u0E00-\u0E7F]/g, '');
   const data = parsePdfText(cleanText);
+  data.__chars = cleanText.replace(/\s+/g, '').length;
   if (container) data.container = container;
   if (house)     data.house_no  = house;
   return data;
@@ -352,42 +444,12 @@ async function fillExcel(xlsxArrayBuffer, data) {
     }
   }
 
-  function ds(s) {
-    if (!s) return null;
-    const p = s.split('/');
-    if (p.length !== 3) return null;
-    const dt = new Date(+p[2], +p[1]-1, +p[0]);
-    return Math.floor((dt - new Date(1899,11,30)) / 86400000);
-  }
-
   function clearFormulaCache() {
     sheetRaw = sheetRaw.replace(/(<c[^>]*>)(<f[^>]*>[^<]*<\/f>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
     sheetRaw = sheetRaw.replace(/(<c[^>]*>)(<f[^>]*\/>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
   }
 
-  const container = data.container || (data.master || '').replace(/^[A-Z]+\//, '');
-  const custShort = (data.company_invoice || 'IKANO').match(/\w+/)?.[0] || 'IKANO';
-  const dateNum   = ds(data.date);
-
-  setCellVal('R5', 's', data.invoice_no || '');
-  if (dateNum) setCellVal('R6', 'n', dateNum);
-  setCellVal('R8', 's', 'N/A');
-
-  const items = data.items || [];
-  for (let i = 0; i < Math.min(items.length, 9); i++) {
-    const r    = 13 + i;
-    const item = items[i];
-    setCellVal(`A${r}`, 'n', item.no);
-    if (dateNum) setCellVal(`B${r}`, 'n', dateNum);
-    setCellVal(`C${r}`, 's', custShort);
-    setCellVal(`D${r}`, 's', item.description);
-    setCellVal(`E${r}`, 's', data.house_no || data.house || '');
-    setCellVal(`G${r}`, 's', container);
-    setCellVal(`H${r}`, 'n', 40);
-    setCellVal(`I${r}`, 'n', 1);
-    if (item.service_charge > 0) setCellVal(`N${r}`, 'n', item.service_charge);
-    if (item.advance_amount  > 0) setCellVal(`R${r}`, 'n', item.advance_amount);
-  }
+  for (const [addr, type, val] of writes626(data)) setCellVal(addr, type, val);   /* V.626 */
 
   clearFormulaCache();
 
@@ -464,46 +526,17 @@ async function fillExcelMulti(xlsxTemplateBuf, allExtracted) {
     return sh.substring(0, idx1) + newCell + sh.substring(closeIdx + 4);
   }
 
-  function ds(s) {
-    if (!s) return null;
-    const p = s.split('/');
-    if (p.length !== 3) return null;
-    const dt = new Date(+p[2], +p[1]-1, +p[0]);
-    return Math.floor((dt - new Date(1899,11,30)) / 86400000);
-  }
-
   const sheetXmls  = [];
   const sheetNames = [];
   const n = allExtracted.length;
 
   for (let i = 0; i < n; i++) {
     const { data } = allExtracted[i];
-    const sheetName = (data.invoice_no || `Sheet${i+1}`).substring(0, 31);
+    let sheetName = String(data.invoice_no || `Sheet${i+1}`).replace(/[\\\/?*\[\]:]/g, '-').substring(0, 31);   /* V.626 : \u0E0A\u0E37\u0E48\u0E2D Sheet \u0E2B\u0E49\u0E32\u0E21\u0E0B\u0E49\u0E33 */
+    for (let k = 2; sheetNames.includes(sheetName); k++) sheetName = (String(data.invoice_no || `Sheet${i+1}`).substring(0, 26) + ' (' + k + ')');
     let sh = templateSh;
 
-    const container = data.container || (data.master || '').replace(/^[A-Z]+\//, '');
-    const custShort = (data.company_invoice || 'IKANO').match(/\w+/)?.[0] || 'IKANO';
-    const dateNum   = ds(data.date);
-
-    sh = setCellInSheet(sh, 'R5', 's', data.invoice_no || '');
-    if (dateNum) sh = setCellInSheet(sh, 'R6', 'n', dateNum);
-    sh = setCellInSheet(sh, 'R8', 's', 'N/A');
-
-    const items = data.items || [];
-    for (let j = 0; j < Math.min(items.length, 9); j++) {
-      const r    = 13 + j;
-      const item = items[j];
-      sh = setCellInSheet(sh, `A${r}`, 'n', item.no);
-      if (dateNum) sh = setCellInSheet(sh, `B${r}`, 'n', dateNum);
-      sh = setCellInSheet(sh, `C${r}`, 's', custShort);
-      sh = setCellInSheet(sh, `D${r}`, 's', item.description);
-      sh = setCellInSheet(sh, `E${r}`, 's', data.house_no || data.house || '');
-      sh = setCellInSheet(sh, `G${r}`, 's', container);
-      sh = setCellInSheet(sh, `H${r}`, 'n', 40);
-      sh = setCellInSheet(sh, `I${r}`, 'n', 1);
-      if (item.service_charge > 0) sh = setCellInSheet(sh, `N${r}`, 'n', item.service_charge);
-      if (item.advance_amount  > 0) sh = setCellInSheet(sh, `R${r}`, 'n', item.advance_amount);
-    }
+    for (const [addr, type, val] of writes626(data)) sh = setCellInSheet(sh, addr, type, val);   /* V.626 */
 
     sh = sh.replace(/(<c[^>]*>)(<f[^>]*>[^<]*<\/f>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
     sh = sh.replace(/(<c[^>]*>)(<f[^>]*\/>)<v>[^<]*<\/v>(<\/c>)/g, '$1$2$3');
@@ -517,7 +550,7 @@ async function fillExcelMulti(xlsxTemplateBuf, allExtracted) {
     .replace(/uniqueCount="\d+"/, `uniqueCount="${ssList.length}"`);
 
   const newSheetsXml = '<sheets>' +
-    sheetNames.map((name, i) => `<sheet name="${name}" sheetId="${i+1}" r:id="rId${i+10}"/>`).join('') +
+    sheetNames.map((name, i) => `<sheet name="${name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}" sheetId="${i+1}" r:id="rId${i+10}"/>`).join('') +
     '</sheets>';
   const finalWb = templateWb.replace(/<sheets>[\s\S]*?<\/sheets>/, newSheetsXml);
 
@@ -848,6 +881,7 @@ async function render(container){
       `<div class="tot${t.g?' grand':''}"><div class="tot-label">${t.l}</div><div class="tot-val">${fmt(t.v)}</div></div>`
     ).join('');
     $('resultCard').classList.remove('hidden');
+    if ($('parseWarn').textContent) $('parseWarn').classList.remove('hidden');
     $('dlBtn').style.display = 'block';
   }
 
@@ -855,6 +889,7 @@ async function render(container){
     $('processBtn').disabled = true;
     $('progressWrap').classList.remove('hidden');
     $('resultCard').classList.add('hidden');
+    $('parseErr').classList.add('hidden'); $('parseErr').textContent = ''; $('parseWarn').classList.add('hidden'); $('parseWarn').textContent = '';
     for (let i=1;i<=6;i++){ const el=$('ps'+i); el.classList.remove('active','done','error'); const sp=el.querySelector('.spinner'); if(sp) sp.remove(); const ic=el.querySelector('.p-icon'); if(ic){ ic.style.display=''; ic.textContent=['\uD83D\uDCC4','\uD83D\uDD0D','\uD83D\uDCCA','\u270F\uFE0F','\uD83D\uDCBE','\u2705'][i-1]; } }
     extractedData = null; filledWorkbook = null; filledBlob = null; allExtracted = [];
 
@@ -877,6 +912,16 @@ async function render(container){
         allExtracted.push({ data, file: files[i] });
       }
       extractedData = allExtracted[allExtracted.length - 1]?.data;
+      /* V.626 : \u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32\u0E2D\u0E48\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E14\u0E49\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07 Excel / \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u2014 \u0E02\u0E32\u0E14\u0E0A\u0E48\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01 = \u0E2B\u0E22\u0E38\u0E14 \u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07 Excel \u0E27\u0E48\u0E32\u0E07 */
+      const chk = allExtracted.map(({ data, file }) => check626(data, file && file.name || ''));
+      const bad = chk.filter(c => c.err.length);
+      if (bad.length) {
+        $('parseErr').textContent = '\u26A0 \u0E2D\u0E48\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E32\u0E01 PDF \u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A \u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07 Excel \u0E41\u0E25\u0E30\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\n' + bad.map(c => '\u2022 ' + c.fname + ' : ' + c.err.join(' \u00B7 ')).join('\n');
+        $('parseErr').classList.remove('hidden');
+        throw new Error('\u0E2D\u0E48\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E32\u0E01 PDF \u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A ' + bad.length + ' \u0E44\u0E1F\u0E25\u0E4C (\u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19)');
+      }
+      const warns = chk.filter(c => c.warn.length);
+      $('parseWarn').textContent = warns.length ? '\u26A0 \u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E01\u0E48\u0E2D\u0E19\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\n' + warns.map(c => '\u2022 ' + c.fname + ' : ' + c.warn.join(' \u00B7 ')).join('\n') : '';
       setStep(2,'done');
 
       // Step 3: \u0E42\u0E2B\u0E25\u0E14 Template
