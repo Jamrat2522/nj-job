@@ -7428,15 +7428,19 @@ async function fxLoadAll(){
   }catch(e){ EXCHANGE_MASTER_STATE.err=fxDbErr(e); fxSay(EXCHANGE_MASTER_STATE.err,'var(--red2)'); }
   EXCHANGE_MASTER_STATE.loading=false; EXCHANGE_MASTER_STATE.ready=true; fxRenderList(); fxEmit('');
 }
+/* ★ [local109] Header ไทย/อังกฤษ: รหัสสกุลเงิน = Currency Code · การส่งออก = Export · การนำเข้า = Import · ประเทศ = County/Country · สกุลเงิน = Currency
+   · จับคู่จากชื่อ Header จริง (สลับลำดับคอลัมน์ได้) · ตัดช่องว่างหน้า-หลัง/ZWSP · ไม่สนตัวพิมพ์เล็ก-ใหญ่ · ค่า Rate คงตามไฟล์ (ไม่ปัด) */
+const FX_HDR={ code:['currency code','รหัสสกุลเงิน'], exp:['export','การส่งออก'], imp:['import','การนำเข้า'], country:['county','country','ประเทศ'], cur:['currency','สกุลเงิน'] };
+function fxCol(H,names){ for(const n of names){ const i=H.indexOf(n); if(i>=0) return i; } return -1; }
 function fxParse(buf){
   const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
   for(const sn of wb.SheetNames){
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});
     for(let h=0;h<Math.min(rows.length,20);h++){
-      const H=(rows[h]||[]).map(x=>fxT(x).toLowerCase());
-      const ci=H.indexOf('currency code'), ce=H.indexOf('export'), cm=H.indexOf('import');
+      const H=(rows[h]||[]).map(x=>fxT(String(x==null?'':x).replace(/[\u200b-\u200d\ufeff]/g,'')).toLowerCase());
+      const ci=fxCol(H,FX_HDR.code), ce=fxCol(H,FX_HDR.exp), cm=fxCol(H,FX_HDR.imp);
       if(ci<0||ce<0||cm<0) continue;
-      const cc=H.indexOf('county')>=0?H.indexOf('county'):H.indexOf('country'), cn=H.indexOf('currency');
+      const cc=fxCol(H,FX_HDR.country), cn=fxCol(H,FX_HDR.cur);
       const codes={}, order=[], errs=[];
       for(let i=h+1;i<rows.length;i++){ const r=rows[i]||[];
         if(r.every(x=>fxT(x)==='')) continue;
@@ -7449,7 +7453,7 @@ function fxParse(buf){
       return { sheet:sn, codes, order, errs };
     }
   }
-  return { errs:['ไม่พบ Header: Currency Code / Export / Import'] };
+  return { errs:['ไม่พบ Header: Currency Code (รหัสสกุลเงิน) / Export (การส่งออก) / Import (การนำเข้า)'] };
 }
 async function exchangeMasterUpload(file){
   const nm=document.getElementById('fx-fname'), sv=document.getElementById('fx-btn-save');
