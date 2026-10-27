@@ -18,8 +18,13 @@
 window.NJHR_ENV_NAME = 'production';
 
 /* ---------- 2) Build Version ---------- */
-/* ใช้แสดงในหน้า Diagnostic เท่านั้น ห้ามแสดงบน Sidebar/Header */
-window.NJHR_BUILD_VERSION = 'njhr-v2-5af01f08';
+/* [RUN-189] แสดงบนหน้าจอได้แล้ว (มุมล่างเมนู + หน้าเข้าสู่ระบบ)
+   เพื่อให้ตรวจได้ทันทีหลังอัปโหลดว่าเครื่องนี้รับรุ่นใหม่แล้วหรือยัง
+   ค่าทั้งสองบรรทัดนี้ถูกเขียนโดย _check/rebuild-version.py ห้ามพิมพ์เอง */
+window.NJHR_BUILD_VERSION = 'njhr-v2-6f9aa0c5';
+
+/* ชื่อรุ่นที่ส่งมอบ (ตรงกับชื่อ ZIP) — ใช้สื่อสารกับคนเท่านั้น ไม่มีผลต่อ Force Update */
+window.NJHR_RELEASE = 'local350';
 
 /* ---------- 3) Supabase ---------- */
 window.NJHR_SUPABASE_URL      = 'https://sytgqjglcnsabcszbngg.supabase.co';
@@ -49,6 +54,7 @@ window.NJHR_ALLOW_PRODUCTION = true;
 window.NJHR_CONFIG = {
   env:                 window.NJHR_ENV_NAME,
   build:               window.NJHR_BUILD_VERSION,
+  release:             window.NJHR_RELEASE,
   supabaseUrl:         window.NJHR_SUPABASE_URL,
   supabaseAnonKey:     window.NJHR_SUPABASE_ANON_KEY,
   apiBaseUrl:          window.NJHR_API_BASE_URL,

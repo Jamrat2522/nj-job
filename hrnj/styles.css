@@ -975,3 +975,224 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
   .apr-pn-nm{font-size:12px}
   .apr-pn-st{font-size:11px;padding:1px 7px}
 }
+
+/* ============================================================================
+   RUN-188 · รายงานการลงเวลา — Dashboard (Append เท่านั้น)
+   ขอบเขต: เฉพาะ .rd-* ในหน้ารายงานการลงเวลา
+   ไม่แตะรายงานอื่น ไม่แตะ .rpt-chart เดิม (รายงานมาสายยังใช้ของเดิมทุกบรรทัด)
+   ============================================================================ */
+.rd-wrap{display:flex;flex-direction:column;gap:14px;margin-top:10px}
+
+/* ---- การ์ดสรุป ---- */
+.rd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px}
+.rd-card{display:flex;align-items:center;gap:12px;border:1px solid #E2E8F0;border-radius:14px;
+  padding:14px 16px;background:#F8FAFC;min-width:0}
+.rd-ic{flex:0 0 42px;width:42px;height:42px;border-radius:12px;display:inline-flex;
+  align-items:center;justify-content:center;font-size:20px;background:#fff;
+  border:1px solid rgba(15,23,42,.06)}
+.rd-cbody{min-width:0;display:flex;flex-direction:column;gap:1px}
+.rd-cbody small{font-size:12px;color:#64748B;font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.rd-cbody b{font-size:26px;line-height:1.15;font-weight:700;color:#0F172A;
+  font-variant-numeric:tabular-nums}
+.rd-cbody b i{font-style:normal;font-size:13px;font-weight:600;color:#64748B;margin-left:5px}
+.rd-sub{font-style:normal;font-size:11.5px;color:#64748B}
+.rd-blue{background:#EFF6FF;border-color:#BFDBFE}
+.rd-green{background:#F0FDF4;border-color:#BBF7D0}
+.rd-red{background:#FEF2F2;border-color:#FECACA}
+.rd-gray{background:#F1F5F9;border-color:#E2E8F0}
+.rd-st-NORMAL{background:#F0FDF4;border-color:#BBF7D0}
+.rd-st-LATE{background:#FFFBEB;border-color:#FDE68A}
+.rd-st-ABSENT{background:#FEF2F2;border-color:#FECACA}
+.rd-st-LEAVE{background:#F5F3FF;border-color:#DDD6FE}
+.rd-st-HOLIDAY{background:#F1F5F9;border-color:#E2E8F0}
+.rd-soft{background:#fff}
+
+/* ---- กล่องกราฟซ้าย/ขวา ---- */
+.rd-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+.rd-panel{padding:14px 16px;border:1px solid #E2E8F0;border-radius:14px;background:#fff;min-width:0}
+.rd-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.rd-h b{font-size:14.5px;color:#0F172A}
+.rd-h .grow{flex:1}
+.rd-all{border:0;background:transparent;color:#2563EB;font-size:12.5px;font-weight:600;
+  cursor:pointer;padding:2px 4px;border-radius:6px;white-space:nowrap}
+.rd-all:hover{background:#EFF6FF}
+.rd-all:focus-visible{outline:2px solid #2563EB;outline-offset:1px}
+
+/* ---- กราฟแท่งแนวนอน ---- */
+.rd-bars{display:flex;flex-direction:column;gap:7px}
+.rd-bar-row{display:flex;align-items:center;gap:9px;font-size:12.5px;min-width:0}
+.rd-rank{flex:0 0 22px;text-align:right;color:#64748B;font-variant-numeric:tabular-nums}
+.rd-bar-lb{flex:0 0 190px;max-width:190px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;color:#0F172A}
+.rd-bar{flex:1 1 auto;min-width:40px;height:13px;border-radius:999px;background:#F1F5F9;
+  overflow:hidden;display:block}
+.rd-bar i{display:block;height:100%;border-radius:999px;background:#94A3B8;
+  transition:width .25s ease}
+.rd-bar-n{flex:0 0 76px;text-align:right;font-variant-numeric:tabular-nums;color:#334155;
+  font-size:12.5px;font-weight:600}
+.rd-b-NORMAL i,.rd-d-NORMAL{background:#16A34A}
+.rd-b-LATE i,.rd-d-LATE{background:#F59E0B}
+.rd-b-ABSENT i,.rd-d-ABSENT{background:#DC2626}
+.rd-b-LEAVE i,.rd-d-LEAVE{background:#7C3AED}
+.rd-b-HOLIDAY i,.rd-d-HOLIDAY{background:#64748B}
+.rd-b-ALL i{background:#2563EB}
+.rd-l-g i,.rd-l-g{background:#16A34A}
+.rd-l-y i,.rd-l-y{background:#EAB308}
+.rd-l-o i,.rd-l-o{background:#F97316}
+.rd-l-r i,.rd-l-r{background:#DC2626}
+.rd-n-b1 i,.rd-n-b1{background:#BFDBFE}
+.rd-n-b2 i,.rd-n-b2{background:#60A5FA}
+.rd-n-b3 i,.rd-n-b3{background:#2563EB}
+.rd-n-b4 i,.rd-n-b4{background:#1E3A8A}
+
+/* ---- กราฟวงกลม ---- */
+.rd-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rd-donut{flex:0 0 140px;width:140px;height:140px}
+.rd-seg{transition:stroke-dasharray .3s ease}
+.rd-donut .rd-seg{stroke:#94A3B8}
+.rd-donut .rd-d-NORMAL{stroke:#16A34A}
+.rd-donut .rd-d-LATE{stroke:#F59E0B}
+.rd-donut .rd-d-ABSENT{stroke:#DC2626}
+.rd-donut .rd-d-LEAVE{stroke:#7C3AED}
+.rd-donut .rd-d-HOLIDAY{stroke:#64748B}
+.rd-donut .rd-l-g{stroke:#16A34A}
+.rd-donut .rd-l-y{stroke:#EAB308}
+.rd-donut .rd-l-o{stroke:#F97316}
+.rd-donut .rd-l-r{stroke:#DC2626}
+.rd-donut .rd-n-b1{stroke:#BFDBFE}
+.rd-donut .rd-n-b2{stroke:#60A5FA}
+.rd-donut .rd-n-b3{stroke:#2563EB}
+.rd-donut .rd-n-b4{stroke:#1E3A8A}
+.rd-dn{text-anchor:middle;font-size:26px;font-weight:700;fill:#0F172A}
+.rd-du{text-anchor:middle;font-size:11px;font-weight:600;fill:#64748B}
+.rd-legend{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.rd-lg{display:flex;align-items:center;gap:9px;border:1px solid #E2E8F0;border-radius:10px;
+  padding:7px 10px;background:#F8FAFC;font-size:12.5px;min-width:0}
+.rd-dot{flex:0 0 11px;width:11px;height:11px;border-radius:50%;background:#94A3B8}
+.rd-lgt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.rd-lgt b{font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rd-lgt small{font-size:11px;color:#64748B}
+.rd-lgn{flex:0 0 auto;font-weight:700;color:#0F172A;font-variant-numeric:tabular-nums}
+.rd-lgp{flex:0 0 46px;text-align:right;color:#64748B;font-variant-numeric:tabular-nums}
+
+/* ---- ตารางพนักงาน ---- */
+.rd-tablebox{padding:14px 16px}
+.rd-th{margin-bottom:10px}
+.rd-search{flex:0 1 280px;min-width:170px}
+.rd-search input{width:100%}
+.rd-per{font-size:12.5px;color:#64748B;white-space:nowrap}
+.rd-per select{margin:0 4px}
+.rd-tbl th{background:#EAF3FF;color:#1E3A5F}
+.rd-tbl td,.rd-tbl th{border-bottom:1px solid #E2E8F0}
+.rd-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rd-sortable{cursor:pointer;user-select:none;white-space:nowrap}
+.rd-sortable:hover{background:#DBEAFE}
+.rd-arrow{font-size:10px;color:#2563EB}
+.rd-pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11.5px;
+  font-weight:700;color:#fff;white-space:nowrap}
+.rd-tb{width:220px;min-width:140px}
+.rd-mini{display:block;height:11px;border-radius:999px;background:#F1F5F9;overflow:hidden}
+.rd-mini i{display:block;height:100%;border-radius:999px;background:#94A3B8}
+.rd-pginfo{font-size:12.5px}
+.rd-pgs{display:inline-flex;gap:4px;flex-wrap:wrap}
+.rd-pg{min-width:32px;height:32px;border:1px solid #E2E8F0;background:#fff;border-radius:8px;
+  color:#334155;font-size:12.5px;font-weight:600;cursor:pointer}
+.rd-pg:hover:not(:disabled){border-color:#2563EB;color:#2563EB}
+.rd-pg.on{background:#2563EB;border-color:#2563EB;color:#fff}
+.rd-pg:disabled{opacity:.45;cursor:default}
+.rd-pg:focus-visible{outline:2px solid #2563EB;outline-offset:1px}
+
+/* ---- จอแคบ ---- */
+@media screen and (max-width:1100px){
+  .rd-grid{grid-template-columns:minmax(0,1fr)}
+  .rd-bar-lb{flex-basis:150px;max-width:150px}
+}
+@media screen and (max-width:767px){
+  .rd-cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .rd-card{padding:11px 12px;gap:9px}
+  .rd-ic{flex-basis:34px;width:34px;height:34px;font-size:17px}
+  .rd-cbody b{font-size:21px}
+  .rd-panel{padding:12px}
+  .rd-bar-lb{flex-basis:120px;max-width:120px;font-size:11.5px}
+  .rd-bar-n{flex-basis:62px;font-size:11.5px}
+  .rd-tablebox{padding:10px}
+  .rd-th{gap:8px}
+  .rd-search{flex:1 1 100%}
+}
+
+/* [RUN-188] แก้ลำดับสี — .rd-dot / .rd-mini ถูกประกาศทีหลังจึงทับสีสถานะ
+   ใช้ตัวเลือกสองคลาสเพื่อให้สีสถานะชนะเสมอ ไม่ต้องย้ายบล็อกเดิม */
+.rd-dot.rd-d-NORMAL,.rd-mini.rd-b-NORMAL i{background:#16A34A}
+.rd-dot.rd-d-LATE,.rd-mini.rd-b-LATE i{background:#F59E0B}
+.rd-dot.rd-d-ABSENT,.rd-mini.rd-b-ABSENT i{background:#DC2626}
+.rd-dot.rd-d-LEAVE,.rd-mini.rd-b-LEAVE i{background:#7C3AED}
+.rd-dot.rd-d-HOLIDAY,.rd-mini.rd-b-HOLIDAY i{background:#64748B}
+.rd-mini.rd-b-ALL i{background:#2563EB}
+.rd-dot.rd-l-g,.rd-mini.rd-l-g i{background:#16A34A}
+.rd-dot.rd-l-y,.rd-mini.rd-l-y i{background:#EAB308}
+.rd-dot.rd-l-o,.rd-mini.rd-l-o i{background:#F97316}
+.rd-dot.rd-l-r,.rd-mini.rd-l-r i{background:#DC2626}
+.rd-dot.rd-n-b1,.rd-mini.rd-n-b1 i{background:#BFDBFE}
+.rd-dot.rd-n-b2,.rd-mini.rd-n-b2 i{background:#60A5FA}
+.rd-dot.rd-n-b3,.rd-mini.rd-n-b3 i{background:#2563EB}
+.rd-dot.rd-n-b4,.rd-mini.rd-n-b4 i{background:#1E3A8A}
+/* [RUN-188] ป้ายสถานะในตาราง (คอลัมน์ "สถานะ") */
+.rd-pill.rd-b-NORMAL{background:#16A34A}
+.rd-pill.rd-b-LATE{background:#D97706}
+.rd-pill.rd-b-ABSENT{background:#DC2626}
+.rd-pill.rd-b-LEAVE{background:#7C3AED}
+.rd-pill.rd-b-HOLIDAY{background:#64748B}
+/* [RUN-188] คอลัมน์ตัวเลขชิดขวา · ความกว้างคงที่เป็น % เพื่อให้ตารางพอดีจอเสมอ
+   (auto-layout เดิมยุบคอลัมน์กราฟจนเหลือ 0px และดันคอลัมน์อื่นกว้างเกินจำเป็น) */
+.rd-tbl th.rd-num,.rd-tbl td.rd-num{text-align:right;white-space:nowrap}
+.rd-tbl td,.rd-tbl th{vertical-align:middle}
+.rd-tbl td:nth-child(3),.rd-tbl td:nth-child(4){white-space:normal;word-break:break-word}
+@media screen and (min-width:1000px){
+  .rd-tbl{table-layout:fixed;width:100%}
+  /* ทุกสถานะ: ลำดับ·รหัส·ชื่อ·แผนก + 5 สถานะ + รวม + กราฟ */
+  .rd-tbl-all th:nth-child(1){width:5%}
+  .rd-tbl-all th:nth-child(2){width:9%}
+  .rd-tbl-all th:nth-child(3){width:16%}
+  .rd-tbl-all th:nth-child(4){width:17%}
+  .rd-tbl-all th:nth-child(n+5):nth-child(-n+10){width:6.5%}
+  .rd-tbl-all th:nth-child(11){width:14%}
+  /* มาสาย / ขาดงาน (มีคอลัมน์ระดับ) */
+  .rd-tbl-lv th:nth-child(1){width:5%}
+  .rd-tbl-lv th:nth-child(2){width:9%}
+  .rd-tbl-lv th:nth-child(3){width:19%}
+  .rd-tbl-lv th:nth-child(4){width:19%}
+  .rd-tbl-lv th:nth-child(5){width:10%}
+  .rd-tbl-lv th:nth-child(6){width:13%}
+  .rd-tbl-lv th:nth-child(7){width:9%}
+  .rd-tbl-lv th:nth-child(8){width:16%}
+  /* ปกติ / ลา / วันหยุด (ไม่มีคอลัมน์ระดับ) */
+  .rd-tbl-pick th:nth-child(1){width:5%}
+  .rd-tbl-pick th:nth-child(2){width:9%}
+  .rd-tbl-pick th:nth-child(3){width:21%}
+  .rd-tbl-pick th:nth-child(4){width:21%}
+  .rd-tbl-pick th:nth-child(5){width:11%}
+  .rd-tbl-pick th:nth-child(6){width:14%}
+  .rd-tbl-pick th:nth-child(7){width:19%}
+}
+@media screen and (max-width:999px){
+  .rd-tbl{min-width:860px}
+  .rd-tbl th.rd-tb,.rd-tbl td.rd-tb{min-width:110px}
+}
+
+/* ============================================================================
+   RUN-189 · แสดงเวอร์ชันที่ติดตั้งอยู่จริง (Append เท่านั้น)
+   จุดที่แสดง: มุมล่างของเมนูด้านซ้าย · ใต้โลโก้ในหน้าเข้าสู่ระบบ
+   ============================================================================ */
+.side-ver{padding:0 12px 12px;margin-top:-4px;min-width:0}
+.side-ver .sv-full{display:block;min-width:0}
+.side-ver .sv-full b{display:block;font-size:11.5px;font-weight:600;color:#8ea0bd;
+  letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-ver .sv-full small{display:block;font-size:10px;color:#5b6880;
+  font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-ver .sv-min{display:none}
+.layout.collapsed .side-ver{padding:0 6px 12px;text-align:center}
+.layout.collapsed .side-ver .sv-full{display:none}
+.layout.collapsed .side-ver .sv-min{display:block;font-size:11px;font-weight:700;color:#8ea0bd}
+.login-brand .login-ver{margin:10px 0 0;font-size:11px;letter-spacing:.3px;
+  color:#94A3B8;font-variant-numeric:tabular-nums}

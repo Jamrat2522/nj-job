@@ -288,7 +288,10 @@ function rptComposeDaily(inp){
     var k=empId+"|"+date,r=rows[k];
     if(r)return r;
     var em=empById[empId]||{},sh=shiftByEmp[empId]||null;
-    r={empId:empId,empCode:em.code||"",prefix:em.prefix||"",empName:em.name||"",dept:em.dept||"",
+    /* [RUN-188] พก nickname ติดมาด้วย เพื่อให้ตารางสรุปค้นหาด้วยชื่อเล่นได้
+       เป็นการเพิ่มฟิลด์อย่างเดียว ไม่กระทบการตัดสินสถานะหรือการนับวันใด ๆ */
+    r={empId:empId,empCode:em.code||"",prefix:em.prefix||"",empName:em.name||"",
+       nickname:em.nickname||"",dept:em.dept||"",
        date:date,shiftName:sh&&sh.shiftName?sh.shiftName:"",
        checkIn:null,checkOut:null,workHours:null,lateMin:null,
        attStatus:"",hasAtt:false,
