@@ -595,7 +595,7 @@ function RO620(p) {
 var SF551 = (function () {
   var L = {
     s2a: ["comp", "decl", "cust"], s2b: ["cjob", "srcinv"],
-    s3a: ["hbl", "mbl"].concat(XF619.filter(function (f) { return (f.sec || 3) === 3; }).map(function (f) { return f.id; }), ["book", "qtyc"]), s3b: ["eta", "etd", "rel", "dlv"], s3c: ["port", "relport", "vessel", "note"],
+    s3a: ["hbl", "mbl"].concat(XF619.filter(function (f) { return (f.sec || 3) === 3 && f.grp !== "ADVANCE"; }).map(function (f) { return f.id; }).filter(function (k, i, a) { return a.indexOf(k) === i; }), ["book", "qtyc"]), s3b: ["eta", "etd", "rel", "dlv"], s3c: ["port", "relport", "vessel", "note"],
     s5: ["invdate", "term", "due"], s1x: ["lift-n", "stor-n"],
     a1: ["comp", "cust"], a2: ["decl", "srcinv", "hbl", "mbl"], a3: ["cjob", "note"], aMore: ["invdate", "term", "due"]
   };
@@ -707,8 +707,9 @@ var SF551 = (function () {
     mg.appendChild(grid(root, P, "jm542-r4", L.a2));
     mg.appendChild(grid(root, P, "jm542-r2", L.a3));
     /* V.618 : MASTER FORM \u2014 ADVANCE \u0E41\u0E16\u0E27\u0E17\u0E49\u0E32\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E25\u0E31\u0E01 (\u0E40\u0E14\u0E34\u0E21 V.606 \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19 DOCUMENT \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19) : \u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E15\u0E39\u0E49 \u00B7 SIZE \u00B7 \u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 \u00B7 Booking No. (Element \u0E40\u0E14\u0E34\u0E21) \u2192 DOCUMENT \u2014 ADVANCE + ACCOUNTING \u2014 ADVANCE \u0E43\u0E0A\u0E49\u0E15\u0E31\u0E27\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 */
-    var ids620 = XF619.map(function (f) { return f.id; }).filter(function (k) { return root.querySelector("#" + P + k); });   /* V.620 : ไม่ผูกกับช่อง cno · นับฟิลด์ที่สร้างจริง */
-    if (ids620.length) { var g620 = grid(root, P, "jm542-r4 jm606-adv", ids620.concat(["book"])); g620.style.setProperty("--c619", String(Math.min(4, g620.children.length))); mg.appendChild(g620); }   /* V.619 : id จากทะเบียน MASTER XF619 */
+    var ids620 = XF619.map(function (f) { return f.id; }).filter(function (k, i, a) { return a.indexOf(k) === i && root.querySelector("#" + P + k); });   /* V.637 : id ซ้ำ (SERVICE/ADVANCE) = นับครั้งเดียว */   /* V.620 : ไม่ผูกกับช่อง cno · นับฟิลด์ที่สร้างจริง */
+    var fb637 = F(root, P, "book"); fb637 && fb637.classList.add("jm542-hide");   /* V.637 : ADVANCE — ซ่อน Booking No. (ค่าเดิมคงอยู่ในฟอร์ม · SAVE ค่าเดิม) */
+    if (ids620.length) { var g620 = grid(root, P, "jm542-r4 jm606-adv", ids620); g620.style.setProperty("--c619", String(Math.min(4, g620.children.length))); mg.appendChild(g620); }   /* V.619 : id จากทะเบียน MASTER XF619 */
     var mo = el("jm542-g jm542-more"); mo.appendChild(ttl2(IC_DOC, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 / \u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25"));
     mo.appendChild(grid(root, P, "jm542-r3", ["term", "due", "invdate"]));
     var pv = root.querySelector("#" + P + "due-pv"); pv && mo.appendChild(pv);
