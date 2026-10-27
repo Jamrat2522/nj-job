@@ -6644,14 +6644,27 @@ const EDC1FZ_EXTRA_FIX = [
 const EDC1FZ_THAI_UNIT_FIX = { 'พรมปูพื้นรถยนต์':'MTK', 'ชุดเพลาหน้า':'SET' };
 /* [EDC1 FZ] เรดาร์ → ใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM LINE เดียวกัน) · ช่องที่ 1 = FIX เดิม (FZ_GREEN_FIXED) แยกกัน */
 const EDC1FZ_RADAR_FIX = { thai:'เรดาร์', permit:'EXEMPT99', issueDate:'20171113', tax:'0994000049447', agency:'กสทช.', agencyFull:'สำนักงานคณะกรรมการกิจการกระจายเสียง กิจการโทรทัศน์ และกิจการโทรคมนาคมแห่งชาติ' };
+/* [EDC1 FZ] หัวข้อที่ต้องใช้ไฟล์ Invoice / Mapping (ไม่มีไฟล์ / จับคู่ไม่ได้ → ⚠️ ราย ITEM ทุกหัวข้อ) */
+const EDC1FZ_INV_DEP = ['PART NO.','Product Code','DESCRIPTION','PART QTY'];
+const EDC1FZ_MAP_DEP = ['INVOICE NO.','DATE SHIPPED','SHIPPING MARK','AMOUNT','N.W','GW.','PACKAGE'];
+/* [EDC1 FZ] หัวข้อเทียบ INVOICE ตาม Excel ที่ตรวจได้เมื่อใบขน + แหล่งอ้างอิงมีคอลัมน์จริง (entry = ชื่อหัวตารางใบขน · src = ชื่อหัวตาราง Invoice / Mapping) */
+const EDC1FZ_INV_TOPICS = [
+  { n:36, label:'Amount ราย ITEM', entry:['amount ราย item','item amount','amount (item)','line amount'], src:['amount','ext price','ext price (thb)','line amount'], num:true, note:'คอลัมน์ U AMOUNT = ยอดรวม INVOICE ตรวจในหัวข้อ AMOUNT' },
+  { n:37, label:'Currency',       entry:['currency'],       src:['currency','สกุลเงิน'] },
+  { n:41, label:'Term',           entry:['term'],           src:['term','delivery terms','incoterm'] },
+  { n:42, label:'Consignee',      entry:['consignee'],      src:['consignee','ship to'] },
+  { n:43, label:'Purcountry',     entry:['purcountry'],     src:['purcountry','sold to country'] },
+  { n:44, label:'ประเทศปลายทาง',  entry:['ประเทศปลายทาง'],  src:['ประเทศปลายทาง','destination country','ship to country'] },
+  { n:45, label:'Exporter Name',  entry:['exporter name'],  src:['exporter name','exporter','ship from'] },
+];
 /* [EDC1 FZ] ลำดับหัวข้อในแต่ละ ITEM = ลำดับใน Excel */
 const EDC1FZ_TOPIC_NO = { 'ใช้สิทธิ์':1, 'Importincentives':2, 'Export Tax':3, 'Privilege':4, 'Tariff':5, 'Brand':6, 'Naturetran':7, 'Prodyear':8, 'Origin':9, 'ประเภทใบขน':10, 'ชื่อสินค้าภาษาไทย':16,
   'เลขใบอนุญาต':17, 'วันที่ออก':18, 'tax (เลขผู้เสียภาษี)':19, 'เลขใบอนุญาต ช่องที่ 2 (กสทช.)':19.1, 'วันที่ออก ช่องที่ 2 (กสทช.)':19.2, 'TAX ช่องที่ 2 (กสทช.)':19.3, 'หน่วยงาน ช่องที่ 2 (กสทช.)':19.4,
   'QTY (รหัสหน่วย)':20, 'QTY inv':21, 'QTY ใบขน':22, 'QTY 2':23, 'HS CODE / tariffclas':24, 'Stat Code':25, 'MASTER ไม่พบ PART NO.':26, 'ITEM LINE ซ้ำ':27, 'ค้นหาแถว Invoice':27.5, 'Line enry':28, 'Item':28.5,
-  'PART NO.':29, 'Export entry type D':30, 'DESCRIPTION':31, 'PART QTY':32, 'ค้นหาแถว Mapping':33, 'INVOICE NO.':34, 'DATE SHIPPED':35, 'Amount ราย ITEM':36, 'Currency':37, 'Amount THB ราย ITEM':38,
+  'PART NO.':29, 'Product Code':29.5, 'Export entry type D':30, 'DESCRIPTION':31, 'PART QTY':32, 'ค้นหาแถว Mapping':33, 'INVOICE NO.':34, 'DATE SHIPPED':35, 'Amount ราย ITEM':36, 'Currency':37, 'Amount THB ราย ITEM':38,
   'SHIPPING MARK':40, 'Term':41, 'Consignee':42, 'Purcountry':43, 'ประเทศปลายทาง':44, 'Exporter Name':45, 'AMOUNT':46, 'N.W':47, 'GW.':48, 'PACKAGE':49 };
 /* [EDC1 FZ] รวมผลตรวจ: 1 แถว = 1 ITEM + 1 หัวข้อ (❌ > ⚠️ > ✅) · ระดับไฟล์ (ไฟล์) ขึ้นก่อน · ITEM ตามลำดับ · Invoice Sl.No (orphan) ท้ายสุด */
-function edc1fzBuildFull(errors, passes, nas, totalItems){
+function edc1fzBuildFull(errors, passes, nas, totalItems, meta){
   const rk={ bad:3, na:2, ok:1 }, map=new Map();
   const add=(st, e)=>{ const field=String(e.field).replace(/ \(หน่วยนับ [^)]*\)$/, m=>m), k=String(e.itemLine)+'\u0001'+field, cur=map.get(k);
     const row={ item:String(e.itemLine), field, entry:S0(e.entryVal), ref:S0(e.compareVal), source:S0(e.source), msg:S0(e.msg), st };
@@ -6664,7 +6677,8 @@ function edc1fzBuildFull(errors, passes, nas, totalItems){
   const items=new Map(); rows.forEach(r=>{ if(grp(r.item)===0) return; const s=items.get(r.item)||'ok'; items.set(r.item, rk[r.st]>rk[s] ? r.st : s); });
   const cnt=st=>rows.filter(r=>r.st===st).length, itemCnt=st=>[...items.values()].filter(v=>v===st).length;
   const nBad=cnt('bad'), nNa=cnt('na');
-  return { rows, totalItems, items:items.size, okRows:cnt('ok'), badRows:nBad, naRows:nNa, itemBad:itemCnt('bad'), itemNa:itemCnt('na'), itemOk:itemCnt('ok'),
+  return { rows, totalItems, items:items.size, okRows:cnt('ok'), badRows:nBad, naRows:nNa, itemBad:itemCnt('bad'), itemNa:itemCnt('na'), itemOk:itemCnt('ok'), meta:meta||{},
+           topics:rows.length, checked:cnt('ok')+nBad,   /* [EDC1 FZ] หัวข้อที่ต้องตรวจ = แถวผลตรวจจริง (ไม่รวม Unit Price) · ตรวจแล้ว = ถูก + ผิด (ไม่นับตรวจไม่ได้) */
            naTopics:[...new Set(rows.filter(r=>r.st==='na').map(r=>r.field))], badTopics:[...new Set(rows.filter(r=>r.st==='bad').map(r=>r.field))],
            status: nBad ? 'FAIL' : (nNa ? 'PARTIAL' : 'PASS'), checkedAt:new Date() };
 }
@@ -6672,39 +6686,56 @@ const EDC1FZ_ST_TXT={ ok:'✅ ถูก', bad:'❌ ผิด', na:'⚠️ ตร
 function edc1fzSummaryText(R){
   return 'ITEM '+R.totalItems+' · ผิด '+R.itemBad+' item · ตรวจไม่ได้ '+R.itemNa+' item · ถูกครบ '+R.itemOk+' item · หัวข้อ ✅ '+R.okRows+' · ❌ '+R.badRows+' · ⚠️ '+R.naRows;
 }
-/* [EDC1 FZ] หน้าจอ: ตารางเดียว ITEM NO. | หัวข้อที่ตรวจ | ค่าใบขน EDC1 | INVOICE / FIX / MASTER | สถานะ · สรุปด้านล่างครั้งเดียว */
+/* [EDC1 FZ] สรุปท้ายรายงาน (หน้าจอ = Excel ชุดเดียวกัน) */
+function edc1fzSummaryRows(R){
+  return [['จำนวน ITEM ทั้งหมด', R.totalItems+' item'], ['จำนวนหัวข้อที่ต้องตรวจ', R.topics+' หัวข้อ'], ['จำนวนหัวข้อที่ตรวจแล้ว', R.checked+' หัวข้อ'],
+          ['หัวข้อถูก', R.okRows+' หัวข้อ'], ['หัวข้อผิด', R.badRows+' หัวข้อ'], ['หัวข้อที่ตรวจไม่ได้', R.naRows+' หัวข้อ'],
+          ['สถานะรวม', R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้ '+R.naRows+' หัวข้อ' : (R.status==='PARTIAL' ? ' (ตรวจไม่ครบ)' : ''))]];
+}
+/* [EDC1 FZ] หน้าจอรูปแบบ EDC8: ตาราง e8k-grid · ITEM NO. | หัวข้อตรวจสอบใบขน | INVOICE / FIX / MASTER | ค่าใบขน EDC1 | สถานะ · สรุปด้านล่างครั้งเดียว */
 function renderFzFullResults(R){
   const isErr=R.status==='FAIL', partial=R.status==='PARTIAL';
   fzApplyStyle(fzResultBox,fzResultHead,fzRDot,fzRTitle,isErr);
   if(partial){ fzRTitle.style.color='#b45309'; fzRDot.style.background='#d97706'; fzRDot.style.boxShadow='0 0 6px #d97706'; }
-  fzRTitle.textContent=(isErr ? '❌ FAIL — พบข้อผิดพลาด '+R.badTopics.length+' หัวข้อ' : (partial ? '⚠️ PARTIAL — ไม่พบข้อผิดพลาด แต่ตรวจไม่ครบ' : '✅ PASS — ตรวจครบทุกหัวข้อ'))+(R.naTopics.length ? ' · ⚠️ ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : '')+' · '+R.totalItems+' item';
+  fzRTitle.textContent=(isErr ? '❌ FAIL พบข้อผิดพลาด — '+R.totalItems+' item · ผิด '+R.itemBad+' item · ผิด '+R.badTopics.length+' หัวข้อ' : (partial ? '⚠️ PARTIAL — ไม่พบข้อผิดพลาด แต่ตรวจไม่ครบ · ไม่แสดง PASS — '+R.totalItems+' item' : '✅ PASS — ตรวจครบทุกหัวข้อ — '+R.totalItems+' item'))+(R.naRows ? ' · ⚠️ ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : '');
   const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const B={ ok:'background:#eef7f2;color:#1f7a4d;border:1px solid #c3e3d0', bad:'background:#fdf3f2;color:#b42318;border:1px solid #f2cdc8', na:'background:#fdf8e8;color:#8a6a12;border:1px solid #ecdcae' };
-  const th='padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:#334155;border-bottom:1px solid #d9e2ec', td='padding:7px 10px;font-size:12.5px;border-bottom:1px solid #eef2f6;vertical-align:top;word-break:break-word';
-  let h='<div class="fz-full-wrap" style="overflow-x:auto;border:1px solid #d9e2ec;border-radius:8px;background:#fff"><table class="fz-full" style="width:100%;min-width:720px;border-collapse:collapse;table-layout:fixed;font-family:var(--sans);color:#1f2937">'+
-    '<colgroup><col style="width:12%"><col style="width:22%"><col style="width:22%"><col style="width:24%"><col style="width:20%"></colgroup><thead><tr style="background:#eaf0f7">'+
-    '<th style="'+th+'">ITEM NO.</th><th style="'+th+'">หัวข้อที่ตรวจ</th><th style="'+th+'">ค่าใบขน EDC1</th><th style="'+th+'">INVOICE / FIX / MASTER</th><th style="'+th+'">สถานะ</th></tr></thead><tbody>';
-  R.rows.forEach(r=>{ h+='<tr class="fz-full-row" data-st="'+r.st+'"><td style="'+td+';font-family:var(--mono)">'+e(r.item)+'</td><td style="'+td+';font-weight:600">'+e(r.field)+'</td><td style="'+td+'">'+e(r.entry||'-')+'</td><td style="'+td+'">'+e(r.ref||'-')+'</td>'+
-    '<td style="'+td+'"><span class="fz-st" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11.5px;font-weight:600;'+B[r.st]+'">'+EDC1FZ_ST_TXT[r.st]+'</span>'+(r.st!=='ok' && r.msg ? '<div class="fz-msg" style="font-size:11px;color:#64748b;margin-top:3px">'+e(r.msg)+'</div>' : '')+'</td></tr>'; });
+  const BC={ ok:' e8k-ok', bad:'', na:' e8k-warn' };
+  let h='<div class="e8k-sec-h" style="margin:0 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">📋 ผลตรวจทุกหัวข้อ <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC1 FZ เทียบ INVOICE / FIX / MASTER / Mapping · แสดงทุกสถานะ ✅ / ❌ / ⚠️)</span></div>'+
+    '<div class="e8k-wrap"><table class="e8k-grid fz-full"><colgroup><col style="width:11%"><col style="width:22%"><col style="width:24%"><col style="width:22%"><col style="width:21%"></colgroup><thead><tr>'+
+    '<th>ITEM NO.</th><th>หัวข้อตรวจสอบใบขน</th><th>INVOICE / FIX / MASTER</th><th>ค่าใบขน EDC1</th><th>สถานะ</th></tr></thead><tbody>';
+  R.rows.forEach(r=>{ h+='<tr class="e8k-row fz-full-row" data-st="'+r.st+'"><td class="td-item">'+e(r.item)+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-exp">'+e(r.ref||'-')+'</td><td class="e8k-act">'+e(r.entry||'-')+'</td>'+
+    '<td><span class="e8k-badge fz-st'+BC[r.st]+'">'+EDC1FZ_ST_TXT[r.st]+'</span>'+(r.st!=='ok' && r.msg ? '<div class="fz-msg" style="font-size:11px;color:#64748b;margin-top:3px">'+e(r.msg)+'</div>' : '')+'</td></tr>'; });
   h+='</tbody></table></div>';
-  const c=(cls,t)=>'<div class="stat-chip '+cls+'">'+t+'</div>';
-  h+='<div class="fz-full-sum" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+c('warn','Σ '+R.totalItems+' item')+c('err','❌ ผิด '+R.itemBad+' item')+c('warn','⚠️ ตรวจไม่ได้ '+R.itemNa+' item')+c('ok','✅ ถูกครบ '+R.itemOk+' item')+
-    c('ok','✅ '+R.okRows+' หัวข้อ')+c('err','❌ '+R.badRows+' หัวข้อ')+c('warn','⚠️ '+R.naRows+' หัวข้อ')+c(R.status==='PASS'?'ok':(R.status==='FAIL'?'err':'warn'),'ผลรวม '+R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้' : ''))+'</div>';
+  const SR=edc1fzSummaryRows(R), cls=['warn','warn','warn','ok','err','warn',R.status==='PASS'?'ok':(R.status==='FAIL'?'err':'warn')];
+  h+='<div class="fz-full-sum" style="margin-top:12px"><div style="font-weight:700;font-size:13px;color:#1e3a5f;margin-bottom:6px">สรุปผลตรวจ</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+
+    SR.map((x,i)=>'<div class="stat-chip '+cls[i]+'">'+e(x[0])+' : '+e(x[1])+'</div>').join('')+'</div></div>';
   fzRBody.innerHTML=h; fzResultBox.style.display='block'; fzResultBox.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-/* [EDC1 FZ] EXPORT: แถวเดียวกับหน้าจอ (ทุกสถานะ) + แหล่งข้อมูล + รายละเอียด · สรุปด้านล่างครั้งเดียว */
+/* [EDC1 FZ] EXPORT รูปแบบ EDC8 (kdcInjectStyles + KDC_XS): หัวรายงาน · Header เอกสาร 5 แถว · ตารางผลตรวจทุกสถานะ (ตัวกรอง) · สรุปท้ายครั้งเดียว · แถว = หน้าจอ */
 async function edc1fzBuildExcel(R){
-  const X=KDC_XS, aoa=[], sm={}, merges=[];
+  const X=KDC_XS, m=R.meta||{}, aoa=[], sm={}, merges=[], rowsH={};
   const put=(r,c,v,st)=>{ while(aoa.length<=r) aoa.push([]); aoa[r][c]=v; if(st) sm[r+':'+c]=st; };
-  put(0,0,'EDC1 FZ',X.TITLE); put(0,1,'ผลการตรวจสอบใบขนสินค้า EDC1 FZ · '+kdcDateTH(R.checkedAt),X.SUB); merges.push({ s:{r:0,c:1}, e:{r:0,c:6} });
-  ['ITEM NO.','หัวข้อที่ตรวจ','ค่าใบขน EDC1','ค่า INVOICE / FIX / MASTER','แหล่งข้อมูล','สถานะ','รายละเอียดข้อผิดพลาด'].forEach((h,i)=>put(2,i,h,X.HDRBAD));
-  let r=3; R.rows.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,x.entry||'-',X.CELL_L); put(r,3,x.ref||'-',X.CELL_L); put(r,4,x.source,X.CELL_L);
-    put(r,5,EDC1FZ_ST_TXT[x.st].replace(/^(✅|❌|⚠️)\s*/,''), x.st==='ok'?X.ST_OK:(x.st==='bad'?X.ST_BAD:X.ST_NA)); put(r,6,x.st==='ok'?'':x.msg,X.CELL_L); r++; });
-  r++; put(r,0,'สรุปผล',X.LBL); put(r,1,'ผลรวม '+R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : (R.naRows ? ' (ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ)' : '')), R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)); merges.push({ s:{r,c:1}, e:{r,c:6} }); r++;
-  put(r,0,'จำนวน',X.LBL); put(r,1,edc1fzSummaryText(R),X.VAL); merges.push({ s:{r,c:1}, e:{r,c:6} });
+  const fill=(r,st,a,b)=>{ for(let c=a;c<=b;c++){ if(aoa[r]===undefined || aoa[r][c]===undefined) put(r,c,'',st); else sm[r+':'+c]=st; } };
+  const mg=(r1,c1,r2,c2)=>merges.push({ s:{r:r1,c:c1}, e:{r:r2,c:c2} });
+  put(0,0,'EDC1 FZ',X.TITLE); mg(0,0,0,1); fill(0,X.TITLE,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า EDC1 FZ · INVOICE / FIX / MASTER / Mapping',X.SUB); fill(0,X.SUB,2,5); mg(0,2,0,5); rowsH[0]=36;
+  const hdr=[['Job No.',m.jobNo,'วันที่ตรวจสอบ',kdcDateTH(R.checkedAt)],['INVOICE NO.',m.invoiceNo,'ไฟล์ใบขน EDC1',m.entryFile],['Customer',m.customer,'ไฟล์ INVOICE',m.invFile],
+             ['Company',m.company,'ไฟล์ Mapping',m.mapFile],['Shipping Mark',m.shippingMark,'สรุปผล',null]];
+  hdr.forEach((h,i)=>{ const r=i+1; rowsH[r]=22; put(r,0,h[0],X.LBL); put(r,1,S1(h[1]),X.VAL); put(r,2,'',X.VAL); mg(r,1,r,2); put(r,3,h[2],X.LBL);
+    if(h[3]===null){ put(r,4,'ถูก '+R.okRows+' · ผิด '+R.badRows+' หัวข้อ',R.badRows?X.BADSUM:X.OKSUM); put(r,5,'ผลรวม '+R.status+(R.naRows?' · ตรวจไม่ได้ '+R.naRows:''),R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)); }
+    else { put(r,4,S1(h[3]),X.VAL); put(r,5,'',X.VAL); mg(r,4,r,5); } });
+  function S1(v){ return v==null?'':String(v); }
+  let r=7; put(r,0,'📋  ผลตรวจทุกหัวข้อ (ถูก / ผิด / ตรวจไม่ได้)',X.SECBAD); fill(r,X.SECBAD,0,3); mg(r,0,r,3); put(r,4,'จำนวน '+R.rows.length+' แถว · '+R.totalItems+' item',X.SECBADR); fill(r,X.SECBADR,4,5); mg(r,4,r,5); rowsH[r]=28; r++;
+  const hr=r; ['ITEM NO.','หัวข้อตรวจสอบใบขน','INVOICE / FIX / MASTER','ค่าใบขน EDC1','สถานะ','รายละเอียดข้อผิดพลาด / เหตุผลที่ตรวจไม่ได้'].forEach((h,i)=>put(r,i,h,X.HDRBAD)); rowsH[r]=22; r++;
+  R.rows.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,x.ref||'-',X.CELL_L); put(r,3,x.entry||'-',X.CELL_L);
+    put(r,4,EDC1FZ_ST_TXT[x.st].replace(/^(✅|❌|⚠️)\s*/,''), x.st==='ok'?X.ST_OK:(x.st==='bad'?X.ST_BAD:X.ST_NA)); put(r,5,x.st==='ok'?'':x.msg,X.CELL_L); r++; });
+  const lastData=r-1; r++;
+  put(r,0,'สรุปผลตรวจ',X.SECOK); fill(r,X.SECOK,0,5); mg(r,0,r,5); rowsH[r]=26; r++;
+  edc1fzSummaryRows(R).forEach((x,i,a)=>{ put(r,0,x[0],X.LBL); fill(r,X.LBL,0,1); mg(r,0,r,1); const st=i===a.length-1 ? (R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)) : (i===3?X.OKSUM:(i===4?X.BADSUM:(i===5?X.TOTSUM:X.VAL))); put(r,2,x[1],st); fill(r,st,2,5); mg(r,2,r,5); rowsH[r]=22; r++; });
   const ws=XLSX.utils.aoa_to_sheet(aoa.map(row=>Array.from(row, v=>v===undefined?'':v)));
   Object.keys(ws).forEach(a=>{ if(a[0]==='!') return; ws[a].t='s'; ws[a].v=String(ws[a].v); });
-  ws['!merges']=merges; ws['!cols']=[{wch:14},{wch:30},{wch:28},{wch:34},{wch:22},{wch:14},{wch:52}];
+  ws['!merges']=merges; ws['!cols']=[{wch:14},{wch:34},{wch:34},{wch:30},{wch:14},{wch:56}];
+  ws['!rows']=[]; Object.keys(rowsH).forEach(k=>{ ws['!rows'][+k]={ hpt:rowsH[k] }; });
+  ws['!autofilter']={ ref:XLSX.utils.encode_range({ s:{r:hr,c:0}, e:{r:Math.max(hr,lastData),c:5} }) };   /* ตัวกรองข้อมูล */
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ผลตรวจ');
   return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm]);
 }
@@ -7060,7 +7091,7 @@ If changed, false mismatch will return.
 //   extras passed in (kept for backward compat, not used for NW/GW anymore):
 //     mapInvoiceAgg = { [invoiceNo]: {gesamt, netNetto, grossBrutto, totalSumme, shippingMark} }
 //     grandTotals   = { netNetto, grossBrutto } — legacy, not used
-function compareBrownMappingGroup(itemLine, eRow, mRow, mapInvoiceAgg, grandTotals){
+function compareBrownMappingGroup(itemLine, eRow, mRow, mapInvoiceAgg, grandTotals, smCol){
   const errs=[];
   if(!mRow){
     errs.push({
@@ -7143,13 +7174,17 @@ function compareBrownMappingGroup(itemLine, eRow, mRow, mapInvoiceAgg, grandTota
   //   files (e.g. produced before this fix landed). Keeps backward compat
   //   with old Mapping Excel files in the user's archive.
   {
-    const eRaw = String(eRow[21]||'').trim();
+    /* [EDC1 FZ] ตำแหน่งคอลัมน์ SHIPPING MARK จากหัวตารางใบขนจริง (smCol) · ไม่มีคอลัมน์ = ⚠️ ตรวจไม่ได้ (ไม่อ่านช่องว่างแล้วฟ้องผิด) · ไม่ส่ง smCol = คอลัมน์ V เดิม */
+    const _smc = (typeof smCol === 'number') ? smCol : 21;
     const mRaw = _fzCleanShippingMark(String(mRow[11]||'').trim());
+    if(_smc < 0){ if(__fzNaLog) __fzNaLog.push({ itemLine, field:'SHIPPING MARK', entryVal:'-', compareVal:mRaw||'(ว่าง)', source:SRC, msg:'ใบขน EDC1 FZ ไม่มีคอลัมน์ SHIPPING MARK — ตรวจไม่ได้' }); }
+    else {
+    const eRaw = String(eRow[_smc]||'').trim();
     // Direct strict compare — the helper itself handles all blank/mismatch cases.
     _edc1fzStrictCompare(
       errs, itemLine, SRC, 'brown', 'SHIPPING MARK',
       eRaw, mRaw, normalizeText
-    );
+    ); }
   }
 
   return errs;
@@ -7865,12 +7900,14 @@ function fzDoCheck(){
   //               (used by compareBlueInvoiceGroup to read fields by name)
   let invByItem={}, invBySlNo={}, invOrphans=[];
   let _iColMap=null;
+  let _fzIHdr=null, _fzMHdr=null; const _fzMapRowsByPart=new Map();   /* [EDC1 FZ] หัวตาราง Invoice / Mapping จริง · แถว Mapping ทุกแถวต่อ PART NO. (ไม่ใช้แถวแรก) */
   if(fzInvoiceWb){
     const iSheet=fzInvoiceWb.Sheets[fzInvoiceWb.SheetNames[0]];
     const iRows=XLSX.utils.sheet_to_json(iSheet,{header:1,defval:'',raw:false});
     const vI=validateInvoiceStructure(iRows);
     if(!vI.ok){ fzShowSysErr('Invoice Structure Error',vI.msg.replace(/\n/g,'<br>')); return; }
     _iColMap = vI.colMap;
+    _fzIHdr = iRows[typeof vI.headerRowIdx === 'number' ? vI.headerRowIdx : 1] || null;
     const dataStart = (typeof vI.headerRowIdx === 'number' ? vI.headerRowIdx : 1) + 1;
 
     // Sl. No normalizer — strip whitespace and leading zeros (00001 → 1)
@@ -7949,6 +7986,7 @@ function fzDoCheck(){
       } else {
         // Skip title rows above the header
         if(_mappingHeaderRowIdx > 0) mRows = mRows.slice(_mappingHeaderRowIdx);
+        _fzMHdr = mRows[0] || null;
         const _normItemKey = v => {
           const s = String(v==null?'':v).trim();
           if(!s || s === '-') return '';
@@ -7964,6 +8002,7 @@ function fzDoCheck(){
           // Mapping col 3 = PART NUMBER/TEILNUMMER — used as join key against Entry PART NO.
           const partKey = normalizePartNo(row[3]);
           if(partKey && !mapByPartNo.has(partKey)) mapByPartNo.set(partKey, row);
+          if(partKey){ if(!_fzMapRowsByPart.has(partKey)) _fzMapRowsByPart.set(partKey, []); _fzMapRowsByPart.get(partKey).push(row); }
         }
         hasMapping = mapByItem.size > 0;
 
@@ -8012,7 +8051,11 @@ function fzDoCheck(){
   const _fzNA = (itemLine, field, entryVal, compareVal, source, msg) => __fzNaLog.push({ itemLine, field, entryVal, compareVal, source, msg });
   const _fzCell = (row, i) => i < 0 ? '' : String(row[i]==null?'':row[i]).trim();
   const _fzThaiC = _fzCol(['คำแปลไทย','ชื่อสินค้าภาษาไทย','THAI TRANSLATION','THAI DESCRIPTION','ชื่อสินค้า (ไทย)']);
-  const _fzAgencyC = _fzCol(['หน่วยงาน','ชื่อหน่วยงาน','AGENCY','หน่วยงานที่ออกใบอนุญาต']);
+  /* ใบอนุญาตช่องที่ 2: คอลัมน์ที่ระบุช่องที่ 2 ชัดเจนในหัวตาราง (ไม่ใช้คอลัมน์ช่องที่ 1) */
+  const _fzP2 = { permit:_fzCol(['เลขใบอนุญาต 2','เลขใบอนุญาต2','เลขใบอนุญาตช่องที่ 2','เลขที่ใบอนุญาต 2','เลขที่ใบอนุญาต2','PERMIT 2','PERMIT2']),
+                  date:_fzCol(['วันที่ออก 2','วันที่ออก2','วันที่ออกช่องที่ 2','ISSUE DATE 2']),
+                  tax:_fzCol(['tax 2','tax2','TAX ช่องที่ 2','เลขประจำตัวผู้เสียภาษี 2']),
+                  agency:_fzCol(['หน่วยงาน 2','หน่วยงาน2','หน่วยงานช่องที่ 2','ชื่อหน่วยงาน 2']) };
   const _fzThai = v => String(v==null?'':v).trim().replace(/\s+/g,' ');
   const _fzKey = v => { const t=String(v==null?'':v).replace(/\s+/g,''); return t ? (t.replace(/^0+/,'')||'0') : ''; };
   /* ชื่อสินค้าภาษาไทยของ ITEM = แถวแรกของ ITEM LINE · เรดาร์: แถวที่ 2+ ของ ITEM LINE เดียวกัน = ใบอนุญาตช่องที่ 2+ (ไม่ตรวจเป็นแถวสินค้า) · สินค้าอื่น ITEM LINE ซ้ำ = ผิด */
@@ -8024,6 +8067,26 @@ function fzDoCheck(){
   /* FIX เพิ่มตาม Excel (ข้อ 3–10, 20) — ตรวจเมื่อใบขนมีคอลัมน์จริง (ค้นจากชื่อหัวตาราง) · ไม่มีคอลัมน์ = ⚠️ ตรวจไม่ได้ ระดับไฟล์ */
   const _fzExtra = EDC1FZ_EXTRA_FIX.map(f => Object.assign({}, f, { c:_fzCol(f.aliases) }));
   const _fzAmtThbC = _fzCol(['AMOUNT THB','AMOUNT (THB)']);
+  const _fzSmC = _fzCol(['SHIPPING MARK','SHIPPING MARKS','SHIPPINGMARK','MARK']);   /* [EDC1 FZ] SHIPPING MARK จากหัวตารางจริง */
+  const _fzInvN = v => String(v==null?'':v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase();
+  /* แถว Invoice หลายแถว: คัดด้วยข้อมูลจริง Export entry type D → INVOICE NO. → PART NO. · เหลือแถวเดียวเท่านั้นจึงใช้ */
+  const _fzRefineInv = (cands, eRow) => { if(!cands || !cands.length) return null; if(cands.length === 1) return cands[0]; let c = cands;
+    const eD = String(eRow[FZ_E.ENTRY_TYPE]||'').trim().toUpperCase(), eI = _fzInvN(eRow[FZ_E.INVOICE_NO]), eP = normalizePartNo(eRow[FZ_E.PART_NO]);
+    const narrow = (ok, f) => { if(c.length > 1 && ok){ const x = c.filter(f); if(x.length) c = x; } };
+    narrow(eD && _iColMap && _iColMap.exportType >= 0, k => String(k.row[_iColMap.exportType]||'').trim().toUpperCase() === eD);
+    narrow(eI && _iColMap && _iColMap.invoiceNo >= 0, k => _fzInvN(k.row[_iColMap.invoiceNo]) === eI);
+    narrow(eP && _iColMap && _iColMap.partNo >= 0, k => normalizePartNo(k.row[_iColMap.partNo]) === eP);
+    return c.length === 1 ? c[0] : null; };
+  /* หัวข้อเทียบ INVOICE ตาม Excel (Amount ราย ITEM · Currency · Term · Consignee · Purcountry · ประเทศปลายทาง · Exporter Name): ใบขนมีคอลัมน์ + แหล่งอ้างอิง (Invoice / Mapping) มีคอลัมน์จริง → ตรวจราย ITEM · ไม่มี = ⚠️ (ระดับไฟล์ พร้อมเหตุผล) */
+  const _hdrIdx = (hdr, aliases) => { if(!hdr) return -1; const H = hdr.map(h => String(h==null?'':h).replace(/[\s\u00a0]+/g,' ').trim().toUpperCase()); for(const a of aliases){ const i = H.indexOf(String(a).replace(/\s+/g,' ').trim().toUpperCase()); if(i !== -1) return i; } return -1; };
+  const _fzTopics = EDC1FZ_INV_TOPICS.map(t => Object.assign({}, t, { ec:_fzCol(t.entry) }));
+  const _fzItemTopics = (itemLine, row, srcRow, kind) => { _fzTopics.forEach(t => { if(t.ec === -1) return;
+      const ic = _hdrIdx(_fzIHdr, t.src), mc = _hdrIdx(_fzMHdr, t.src); if(kind === 'map' && ic !== -1 && fzInvoiceWb) return;   /* Invoice มีคอลัมน์ → ใช้ Invoice ก่อน (Excel: เทียบ INVOICE) */
+      const sc = kind === 'inv' ? ic : mc; if(sc === -1) return;
+      const ex=[], SRC = kind === 'inv' ? 'ไฟล์ Invoice' : 'Export Mapping Excel', clr = kind === 'inv' ? 'blue' : 'brown';
+      if(t.num) _edc1fzStrictNumCompare(ex, itemLine, SRC, clr, t.label, _fzCell(row, t.ec), _fzCell(srcRow, sc));
+      else _edc1fzStrictCompare(ex, itemLine, SRC, clr, t.label, _fzCell(row, t.ec), _fzCell(srcRow, sc), normalizeText);
+      if(kind === 'inv') blue+=ex.length; else brown+=ex.length; allErrors.push(...ex); t._hit = true; }); };
   // [📘 พิกัด] Stat Code: ใช้คอลัมน์ HS CODE + Stat ของ Entry ตามชื่อหัวตารางจริง (Entry EDC1 FZ มาตรฐาน 21 คอลัมน์ไม่มี 2 ช่องนี้ → ตรวจไม่ได้ · แจ้งเตือน · ไม่ PASS)
   const _trfH = (eRows[0]||[]).map(h=>String(h||'').replace(/[\s\u00a0]+/g,' ').trim().toUpperCase());
   const _trfCH = _trfH.findIndex(h=>['TARIFFCLAS','HS CODE','HS','TARIFF CODE','พิกัด','พิกัดศุลกากร'].includes(h)), _trfCS = _trfH.findIndex(h=>h==='STAT'||h==='STAT CODE');
@@ -8103,8 +8166,8 @@ function fzDoCheck(){
   for(let r=1;r<eRows.length;r++){
     const row=eRows[r];
     if(row.every(c=>String(c).trim()==='')) continue;
-    if(_fzRadarSub.has(row)) continue;   /* [EDC1 FZ] แถวใบอนุญาตช่องที่ 2+ ของเรดาร์ → ตรวจในชุด กสทช. ของ ITEM */
-    totalItems++;
+    if(_fzRadarSub.has(row)) continue;   /* [EDC1 FZ] แถวเพิ่มของเรดาร์ (ไม่ใช่แถวสินค้า) */
+    if(!_fzDupRow.has(row)) totalItems++;   /* [EDC1 FZ] ITEM LINE ซ้ำ = ITEM เดิม (ยังตรวจและฟ้องซ้ำ) · ไม่เพิ่มยอด ITEM */
     const itemLine=getEntryItemLine(row)||String(r+1);
     if(_fzDupRow.has(row)) allErrors.push({ itemLine, field:'ITEM LINE ซ้ำ', entryVal:itemLine, compareVal:'ITEM LINE ต้องไม่ซ้ำ (แถว '+(r+1)+')', source:'ใบขน EDC1', msg:'พบ ITEM LINE เดียวกันมากกว่า 1 แถว (สินค้าไม่ใช่เรดาร์)' });
 
@@ -8132,29 +8195,16 @@ function fzDoCheck(){
       // Strategy 1 — Item match (with optional D tiebreaker)
       if(eItemO){
         const candidates = invByItem[eItemO] || [];
-        if(candidates.length === 1){
-          iRow = candidates[0].row;
-          iSlNo = candidates[0].slNo;
-        } else if(candidates.length > 1){
-          // Multiple matches — prefer one with matching Export entry type D
-          if(eEntryN && _iColMap && _iColMap.exportType >= 0){
-            const exact = candidates.find(c =>
-              String(c.row[_iColMap.exportType]||'').trim().toUpperCase() === eEntryN
-            );
-            if(exact){ iRow = exact.row; iSlNo = exact.slNo; }
-          }
-          // [EDC1 FZ] No tiebreaker hit → ระบุแถวไม่ได้ (ห้ามเลือกแถวแรก)
-          if(!iRow) _fzAmb = 'Item ' + eItemO + ' ใน Invoice ' + candidates.length + ' แถว (Export entry type D ไม่ยืนยัน)';
-        }
+        const one = _fzRefineInv(candidates, row);   /* [EDC1 FZ] หลายแถว → คัดด้วย Export entry type D → INVOICE NO. → PART NO. · ยังเหลือหลายแถว = ระบุไม่ได้ (ไม่ใช้ .find() / แถวแรก) */
+        if(one){ iRow = one.row; iSlNo = one.slNo; }
+        else if(candidates.length > 1) _fzAmb = 'Item ' + eItemO + ' ใน Invoice ' + candidates.length + ' แถว';
       }
-      // Strategy 2 — Sl. No fallback (ต้องเหลือแถวเดียว)
+      // Strategy 2 — Sl. No fallback (ต้องระบุได้แถวเดียว)
       if(!iRow && _eItemLineKey){
         const candidates = invBySlNo[_eItemLineKey] || [];
-        if(candidates.length === 1){
-          iRow = candidates[0].row;
-          iSlNo = candidates[0].slNo;
-          _fzAmb = '';
-        } else if(candidates.length > 1 && !_fzAmb) _fzAmb = 'Sl. No ' + _eItemLineKey + ' ใน Invoice ' + candidates.length + ' แถว';
+        const one = _fzRefineInv(candidates, row);
+        if(one){ iRow = one.row; iSlNo = one.slNo; _fzAmb = ''; }
+        else if(candidates.length > 1 && !_fzAmb) _fzAmb = 'Sl. No ' + _eItemLineKey + ' ใน Invoice ' + candidates.length + ' แถว';
       }
     }
 
@@ -8167,21 +8217,25 @@ function fzDoCheck(){
     // [EDC1 FZ] ชื่อสินค้าภาษาไทย: มีคอลัมน์แต่ ITEM ว่าง = ผิด (ใช้ตรวจ FIX หน่วยนับ / เรดาร์)
     if(_fzThaiC !== -1 && !_thai) allErrors.push({ itemLine, field:'ชื่อสินค้าภาษาไทย', entryVal:'(ว่าง)', compareVal:'ต้องมีชื่อสินค้าภาษาไทย', source:'ใบขน EDC1', msg:'ชื่อสินค้าภาษาไทยว่าง — ใช้ตรวจ FIX หน่วยนับ / เรดาร์ไม่ได้' });
     // [EDC1 FZ] เรดาร์: ใบอนุญาตช่องที่ 2 = แถวที่ 2 ของ ITEM LINE เดียวกัน (ช่องที่ 1 = แถวแรก ตรวจด้วย FIX เดิม) · เลขใบอนุญาต / วันที่ / TAX ตรงทุกตัวอักษร
-    if(_thai === EDC1FZ_RADAR_FIX.thai){ const RF=EDC1FZ_RADAR_FIX, rs=_fzRowsOf.get(_k)||[], r2=rs.length>1 ? rs[1] : null, S2='ใบอนุญาตช่องที่ 2 (กสทช.)';
-      const one = (label, val, fix, eq, colMissing) => { const L=label+' ช่องที่ 2 (กสทช.)';
-        if(!r2){ allErrors.push({ itemLine, field:L, entryVal:'(ไม่พบใบอนุญาตช่องที่ 2)', compareVal:fix, source:S2, msg:'เรดาร์ต้องมีใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM LINE เดียวกัน) — ไม่พบแถว' }); return; }
-        if(colMissing){ _fzNA(itemLine, L, '-', fix, S2, 'ใบขนไม่มีคอลัมน์ '+label+' — อ่านช่องที่ 2 ไม่ได้ ตรวจไม่ได้'); return; }
-        if(!val) allErrors.push({ itemLine, field:L, entryVal:'(ว่าง)', compareVal:fix, source:S2, msg:label+' ช่องที่ 2 ว่าง (ข้อมูลบังคับ)' });
+    /* [EDC1 FZ] เรดาร์: ใบอนุญาตช่องที่ 2 อ่านจากคอลัมน์ "ช่องที่ 2" ที่โครงสร้างใบขนระบุจริงเท่านั้น (เช่น เลขใบอนุญาต 2 / วันที่ออก 2 / tax 2 / หน่วยงาน 2) บนแถวของ ITEM นั้น
+       ไม่สมมติว่าแถวที่ 2 คือช่องที่ 2 · ไม่มีคอลัมน์ช่องที่ 2 = ⚠️ ตรวจไม่ได้ · มีคอลัมน์แต่ว่าง / ไม่ตรง = ❌ · ใช้ค่าช่องที่ 1 แทนไม่ได้ */
+    if(_thai === EDC1FZ_RADAR_FIX.thai){ const RF=EDC1FZ_RADAR_FIX, S2='ใบอนุญาตช่องที่ 2 (กสทช.)', extra=(_fzRowsOf.get(_k)||[]).length-1;
+      const exNote = extra > 0 ? ' · พบแถวเพิ่มของ ITEM นี้ '+extra+' แถว แต่โครงสร้างไฟล์ไม่ระบุว่าเป็นช่องที่ 2 (ไม่สมมติ)' : '';
+      const one = (label, col, colName, fix, eq) => { const L=label+' ช่องที่ 2 (กสทช.)';
+        if(col === -1){ _fzNA(itemLine, L, '-', fix, S2, 'โครงสร้างใบขน EDC1 FZ ไม่มีคอลัมน์ '+colName+' (ใบอนุญาตช่องที่ 2) — ตรวจไม่ได้'+exNote); return; }
+        const val = _fzCell(row, col);
+        if(!val) allErrors.push({ itemLine, field:L, entryVal:'(ว่าง)', compareVal:fix, source:S2, msg:label+' ช่องที่ 2 ว่าง (ข้อมูลบังคับของเรดาร์)' });
         else if(!eq(val)) allErrors.push({ itemLine, field:L, entryVal:val, compareVal:fix, source:S2, msg:label+' ช่องที่ 2 ไม่ตรง FIX กสทช.' });
         else _edc1fzPass(itemLine, S2, L, val, fix); };
-      one('เลขใบอนุญาต', r2 ? _fzCell(r2, FZ_E.LIC_NUM) : '', RF.permit,    v => v === RF.permit, false);
-      one('วันที่ออก',     r2 ? _fzCell(r2, FZ_E.LIC_DATE) : '', RF.issueDate, v => v === RF.issueDate, false);
-      one('TAX',          r2 ? _fzCell(r2, FZ_E.TAX) : '',      RF.tax,       v => v === RF.tax, false);
       const na2 = v => String(v).trim().replace(/\s+/g,' ').replace(/\.$/,'');
-      one('หน่วยงาน', r2 ? _fzCell(r2, _fzAgencyC) : '', RF.agency+' ('+RF.agencyFull+')', v => na2(v) === na2(RF.agency) || na2(v) === na2(RF.agencyFull), _fzAgencyC === -1); }
+      one('เลขใบอนุญาต', _fzP2.permit, 'เลขใบอนุญาต 2', RF.permit,    v => v === RF.permit);
+      one('วันที่ออก',     _fzP2.date,   'วันที่ออก 2',     RF.issueDate, v => v === RF.issueDate);
+      one('TAX',          _fzP2.tax,    'tax 2',          RF.tax,       v => v === RF.tax);
+      one('หน่วยงาน',     _fzP2.agency, 'หน่วยงาน 2',     RF.agency+' ('+RF.agencyFull+')', v => na2(v) === na2(RF.agency) || na2(v) === na2(RF.agencyFull)); }
 
     if(fzInvoiceWb){
-      if(!iRow && _fzAmb){ allErrors.push({ itemLine, field:'ค้นหาแถว Invoice', entryVal:'Item='+(eItemO||'(ว่าง)')+', ITEM LINE='+(eItemLineRaw||'(ว่าง)'), compareVal:'ระบุแถว Invoice ไม่ได้', source:'ไฟล์ Invoice', msg:_fzAmb+' — ไม่เดาแถวแรก', _color:'blue' }); blue++; }
+      if(!iRow && _fzAmb){ allErrors.push({ itemLine, field:'ค้นหาแถว Invoice', entryVal:'Item='+(eItemO||'(ว่าง)')+', ITEM LINE='+(eItemLineRaw||'(ว่าง)'), compareVal:'ระบุแถว Invoice ไม่ได้', source:'ไฟล์ Invoice', msg:'พบข้อมูลซ้ำ / ไม่สามารถจับคู่รายการได้ — '+_fzAmb+' (Export entry type D / INVOICE NO. / PART NO. ไม่ยืนยัน · ไม่เดาแถวแรก)', _color:'blue' }); blue++;
+        EDC1FZ_INV_DEP.forEach(f => _fzNA(itemLine, f, '-', '(จับคู่แถว Invoice ไม่ได้)', 'ไฟล์ Invoice', 'จับคู่แถว Invoice ไม่ได้ — ตรวจ '+f+' ไม่ได้')); }
       else {
       const be=compareBlueInvoiceGroup(itemLine, row, iRow, iSlNo, _iColMap);
       blue+=be.length; allErrors.push(...be);
@@ -8190,9 +8244,13 @@ function fzDoCheck(){
         if(!(ic >= 0)){ _fzNA(itemLine, fn, _fzCell(row, ec)||'(ว่าง)', '(ไฟล์ Invoice ไม่มีคอลัมน์ '+fn+')', 'ไฟล์ Invoice', 'ไม่มีแหล่งข้อมูล — ตรวจไม่ได้'); return; }
         const ex=[]; if(nt === 'number') _edc1fzStrictNumCompare(ex, itemLine, 'ไฟล์ Invoice', 'blue', fn, _fzCell(row, ec), _fzCell(iRow, ic));
         else _edc1fzStrictCompare(ex, itemLine, 'ไฟล์ Invoice', 'blue', fn, _fzCell(row, ec), _fzCell(iRow, ic), normalizeText);
-        blue+=ex.length; allErrors.push(...ex); }); }
+        blue+=ex.length; allErrors.push(...ex); });
+        // [EDC1 FZ] Product Code (Excel ข้อ 30) ↔ Invoice Product Code ของแถวที่จับคู่ได้
+        if(_iColMap && _iColMap.productCode >= 0){ const ex=[]; _edc1fzStrictCompare(ex, itemLine, 'ไฟล์ Invoice', 'blue', 'Product Code', _fzCell(row, FZ_E.PROD_CODE), _fzCell(iRow, _iColMap.productCode), normalizeCode); blue+=ex.length; allErrors.push(...ex); }
+        else _fzNA(itemLine, 'Product Code', _fzCell(row, FZ_E.PROD_CODE)||'(ว่าง)', '(ไฟล์ Invoice ไม่มีคอลัมน์ Product Code)', 'ไฟล์ Invoice', 'ไม่มีแหล่งข้อมูล — ตรวจไม่ได้');
+        _fzItemTopics(itemLine, row, iRow, 'inv'); }
       }
-    } else _fzNA(itemLine, 'PART NO.', _fzCell(row, FZ_E.PART_NO)||'(ว่าง)', '(ไม่มีไฟล์ Invoice)', 'ไฟล์ Invoice', 'ไม่ได้อัปโหลดไฟล์ Invoice — ตรวจไม่ได้');
+    } else EDC1FZ_INV_DEP.forEach(f => _fzNA(itemLine, f, f === 'PART NO.' ? (_fzCell(row, FZ_E.PART_NO)||'(ว่าง)') : '-', '(ไม่มีไฟล์ Invoice)', 'ไฟล์ Invoice', 'ไม่ได้อัปโหลดไฟล์ Invoice — ตรวจ '+f+' ไม่ได้'));
 
     if(hasMapping){
       // ── EDC1 FZ — BROWN MATCH BY PART NO. ────────────────────────────────
@@ -8210,16 +8268,29 @@ function fzDoCheck(){
         return (s.replace(/\s+/g,'').replace(/^0+/,'')) || '0';
       };
       const ePartKey = normalizePartNo(row[FZ_E.PART_NO]);
-      let mRow = ePartKey ? mapByPartNo.get(ePartKey) : null;
-      if(!mRow){
+      /* [EDC1 FZ] PART NO. ซ้ำใน Mapping → คัดด้วย INVOICE NO. → ITEM · ค่าที่ใช้ตรวจเหมือนกันทุกแถว = ระบุได้ · ยังต่างกัน = พบข้อมูลซ้ำ (ไม่ใช้แถวแรก) */
+      let mRow = null, _mAmb = '';
+      { const cands = ePartKey ? (_fzMapRowsByPart.get(ePartKey) || []) : [];
+        if(cands.length === 1) mRow = cands[0];
+        else if(cands.length > 1){ let c = cands; const eInv = _fzInvN(row[FZ_E.INVOICE_NO]), eIt = _normItemKey(row[FZ_E.ITEM_LINE]);
+          const c1 = c.filter(m => _fzInvN(m[1]) === eInv); if(c1.length) c = c1;
+          if(c.length > 1){ const c2 = c.filter(m => _normItemKey(m[0]) === eIt); if(c2.length) c = c2; }
+          const sig = m => [1,2,7,8,9,10,11].concat(_fzAmtThbC !== -1 ? [6] : []).map(i => String(m[i]==null?'':m[i]).trim()).join('|');
+          if(c.length === 1 || new Set(c.map(sig)).size === 1) mRow = c[0]; else _mAmb = 'PART NO. ' + String(row[FZ_E.PART_NO]||'').trim() + ' ใน Mapping ' + c.length + ' แถว (INVOICE NO. / ITEM ไม่ยืนยัน)'; } }
+      if(!mRow && !_mAmb){
         // Fallback: try Item-line match (legacy)
         const eItemKey = _normItemKey(row[FZ_E.ITEM_LINE]);
         mRow = eItemKey ? mapByItem.get(eItemKey) : null;
       }
-      const be=compareBrownMappingGroup(itemLine, row, mRow, mapInvoiceAgg, grandTotals);
+      if(_mAmb){ allErrors.push({ itemLine, field:'ค้นหาแถว Mapping', entryVal:'PART NO.='+(String(row[FZ_E.PART_NO]||'').trim()||'(ว่าง)'), compareVal:'ระบุแถว Mapping ไม่ได้', source:'Export Mapping Excel', msg:'พบข้อมูลซ้ำ / ไม่สามารถจับคู่รายการได้ — '+_mAmb, _color:'brown' }); brown++;
+        EDC1FZ_MAP_DEP.forEach(f => _fzNA(itemLine, f, '-', '(จับคู่แถว Mapping ไม่ได้)', 'Export Mapping Excel', 'จับคู่แถว Mapping ไม่ได้ — ตรวจ '+f+' ไม่ได้')); }
+      else {
+      const be=compareBrownMappingGroup(itemLine, row, mRow, mapInvoiceAgg, grandTotals, _fzSmC);
       brown+=be.length; allErrors.push(...be);
+      if(mRow) _fzItemTopics(itemLine, row, mRow, 'map');
+      }
       if(mRow && _fzAmtThbC !== -1){ const ex=[]; _edc1fzStrictNumCompare(ex, itemLine, 'Export Mapping Excel', 'brown', 'Amount THB ราย ITEM', _fzCell(row, _fzAmtThbC), String(mRow[6]||'').trim()); brown+=ex.length; allErrors.push(...ex); }   /* [EDC1 FZ] EXT PRICE (THB) ราย ITEM */
-    } else _fzNA(itemLine, 'INVOICE NO.', _fzCell(row, FZ_E.INVOICE_NO)||'(ว่าง)', '(ไม่มี Export Mapping Excel)', 'Export Mapping Excel', 'ไม่ได้อัปโหลด Mapping — ตรวจ INVOICE NO. / DATE SHIPPED / ยอดรวม ไม่ได้');
+    } else EDC1FZ_MAP_DEP.forEach(f => _fzNA(itemLine, f, '-', '(ไม่มี Export Mapping Excel)', 'Export Mapping Excel', 'ไม่ได้อัปโหลด Export Mapping Excel — ตรวจ '+f+' ไม่ได้'));
   }
 
   fzLastAllErrors=allErrors;
@@ -8234,12 +8305,15 @@ function fzDoCheck(){
     if(_trfOn && (_trfCH === -1 || _trfCS === -1)) _fzNA(F, 'Stat Code', '-', 'MASTER 📘 พิกัด', 'MASTER 📘 พิกัด', noCol([_trfCH===-1?'HS CODE (tariffclas)':'', _trfCS===-1?'Stat':''].filter(Boolean).join(' / ')) + ' — ตรวจ Stat Code ไม่ได้');
     _fzNA(F, 'HS CODE / tariffclas', _trfCH === -1 ? '-' : 'มีคอลัมน์', 'MASTER APL', 'MASTER', 'ไม่มี MASTER สำหรับ EDC1 FZ (MASTER APL เป็นของ AAT / FTM — ไม่นำมาใช้แทน) — ตรวจไม่ได้');
     _fzNA(F, 'MASTER ไม่พบ PART NO.', '-', 'MASTER', 'MASTER', 'ไม่มี MASTER สำหรับ EDC1 FZ — ตรวจ PART NO. ใน MASTER ไม่ได้');
-    _fzNA(F, 'Amount ราย ITEM', '-', 'INVOICE', 'ไฟล์ Invoice', 'ใบขน EDC1 FZ ไม่มีคอลัมน์ Amount ราย ITEM (คอลัมน์ U AMOUNT = ยอดรวม INVOICE ตรวจในหัวข้อ AMOUNT) — ตรวจไม่ได้');
     if(_fzAmtThbC === -1) _fzNA(F, 'Amount THB ราย ITEM', '-', 'EXT PRICE (THB)', 'Export Mapping Excel', noCol('amount thb') + ' — ตรวจไม่ได้');
-    [['Currency',['currency']],['Term',['term']],['Consignee',['consignee']],['Purcountry',['purcountry']],['ประเทศปลายทาง',['ประเทศปลายทาง']],['Exporter Name',['exporter name']]].forEach(([n, al]) => {
-      _fzNA(F, n, _fzCol(al) === -1 ? '-' : 'มีคอลัมน์', 'INVOICE', 'ไฟล์ Invoice / Mapping', (_fzCol(al) === -1 ? noCol(al[0]) + ' และ' : '') + 'ไฟล์ Invoice / Export Mapping Excel ไม่มีข้อมูล ' + n + ' (Ford raw ห้ามใช้ตรวจตาม Source Lock) — ตรวจไม่ได้'); });
+    _fzTopics.forEach(t => { if(t._hit) return;   /* ตรวจแล้วอย่างน้อย 1 ITEM → ไม่มีแถวระดับไฟล์ */
+      const inI = _hdrIdx(_fzIHdr, t.src) !== -1, inM = _hdrIdx(_fzMHdr, t.src) !== -1;
+      _fzNA(F, t.label, t.ec === -1 ? '-' : 'มีคอลัมน์', 'INVOICE', 'ไฟล์ Invoice / Mapping', (t.ec === -1 ? noCol(t.entry[0]) + (t.note ? ' ('+t.note+')' : '') : 'ใบขนมีคอลัมน์') + ' · ' + ((inI || inM) ? 'แหล่งอ้างอิงมีคอลัมน์' : 'ไฟล์ Invoice / Export Mapping Excel ไม่มีข้อมูล ' + t.label + ' (Ford raw ห้ามใช้ตรวจตาม Source Lock)') + ' — ตรวจไม่ได้'); });
   }
-  fzLastFull = edc1fzBuildFull(allErrors, __fzPassLog, __fzNaLog, totalItems);
+  const _fzU = idx => { if(idx < 0) return ''; const a=[]; for(let r=1;r<eRows.length;r++){ const row=eRows[r]; if(!row || _fzRadarSub.has(row)) continue; const v=_fzCell(row, idx); if(v && !a.includes(v)) a.push(v); } return a.join(', '); };
+  const _fzFn = id => { const el=document.getElementById(id); return el ? String(el.textContent||'').trim() : ''; };
+  fzLastFull = edc1fzBuildFull(allErrors, __fzPassLog, __fzNaLog, totalItems, { entryFile:_fzFn('fzEntryFnTxt'), jobNo:_fzFn('fzEntryFnTxt').replace(/\.[^.]+$/,''), invFile:_fzFn('fzInvoiceFnTxt'), mapFile:_fzFn('fordInvFzFnTxt'),
+    invoiceNo:_fzU(FZ_E.INVOICE_NO), shippingMark:_fzU(_fzSmC), customer:_fzU(_fzCol(['consignee','customer'])), company:_fzU(_fzCol(['exporter name','company'])) });   /* Header เอกสาร: ค่าจากใบขนจริง ไม่มี = ว่าง */
   __fzPassLog = null; __fzNaLog = null;
   renderFzFullResults(fzLastFull);
   fzExportBtn.disabled=false;   /* [EDC1 FZ] Export ผลตรวจครบทุกสถานะ (ไม่ใช่ ERROR_ONLY) */
@@ -12442,6 +12516,20 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc8 .e8m-info > div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis }   /* 1 บรรทัดต่อข้อมูล → กรอบ AAT / FTM สูงเท่ากัน */
 #panel-edc8 .e8m-reload{ flex:none; font-size:11px; font-weight:700; padding:4px 10px; border-radius:8px; border:1px solid #a7dfc4; background:#e2f6ec; color:#047857; cursor:pointer; font-family:inherit }
 #panel-edc8 .e8k-wrap{ background:#fff; border:1px solid #d9e2ec; border-radius:8px; overflow-x:auto }
+/* [EDC1 FZ] ตารางผลตรวจรูปแบบเดียวกับ EDC8 (ชุดสไตล์แยก · ไม่แตะ CSS ของ EDC8) */
+#panel-edc1fz .e8k-wrap{ background:#fff; border:1px solid #d9e2ec; border-radius:8px; overflow-x:auto }
+#panel-edc1fz .e8k-grid{ table-layout:fixed; width:100%; min-width:720px; border-collapse:collapse; font-family:var(--sans); color:#1f2937; background:#fff }
+#panel-edc1fz .e8k-grid thead tr{ background:#eaf0f7 }
+#panel-edc1fz .e8k-grid th{ color:#334155; font-weight:600; padding:8px 10px; text-align:left; font-size:12px }
+#panel-edc1fz .e8k-grid th, #panel-edc1fz .e8k-grid td{ border:1px solid #d9e2ec; vertical-align:middle; line-height:1.3; overflow-wrap:break-word }
+#panel-edc1fz .e8k-grid td{ padding:6px 10px; font-size:12px }
+#panel-edc1fz .e8k-grid .td-col{ color:#1e3a5f; font-weight:700 }
+#panel-edc1fz .e8k-grid .td-item{ color:#334155; font-weight:600; font-size:11.5px }
+#panel-edc1fz .e8k-grid .e8k-act{ color:#b42318; font-weight:600 }
+#panel-edc1fz .e8k-grid .e8k-exp{ color:#0f6157 }
+#panel-edc1fz .e8k-badge{ display:inline-block; padding:0 7px; border-radius:5px; border:1px solid #f2cdc8; background:#fdf3f2; color:#b42318; font-size:11px; font-weight:600; line-height:1.3 }
+#panel-edc1fz .e8k-badge.e8k-ok{ border-color:#c3e3d0; background:#eef7f2; color:#1f7a4d }
+#panel-edc1fz .e8k-badge.e8k-warn{ border-color:#ecdcae; background:#fdf8e8; color:#7a5d12 }
 #panel-edc8 .e8k-grid{ table-layout:fixed; width:100%; min-width:720px; border-collapse:collapse; font-family:var(--sans); color:#1f2937; background:#fff }
 #panel-edc8 .e8k-grid thead tr{ background:#eaf0f7 }
 #panel-edc8 .e8k-grid th{ color:#334155; font-weight:600; padding:8px 10px; text-align:left; font-size:12px }
