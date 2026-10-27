@@ -1228,3 +1228,22 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
 #rd-capture .rd-cbody b{font-size:26px}
 #rd-capture .rd-pn-st,#rd-capture .rd-lg{font-size:12.5px}
 #rd-capture .rd-panel{box-shadow:none}
+
+/* ============================================================================
+   RUN-191 · ตารางรายชื่อ Dashboard — 20 คน/หน้า + จำกัดความสูง (Append เท่านั้น)
+   วัดจริงบน Chromium: หัวตาราง 39px · แถวละ 42px
+   -> 20 แถวพอดี = 39 + 20x42 = 879px  จึงตั้งเพดานไว้ 880px
+   เลือก 50 หรือ "ทั้งหมด" -> เลื่อนแนวตั้งภายในตาราง หัวตารางติดอยู่ด้านบนเสมอ
+   ไม่แตะกราฟ TOP 10 · การ์ดสรุป · กราฟวงกลม · Export ใด ๆ
+   ============================================================================ */
+.rd-tablebox .table-wrap{max-height:880px;overflow-y:auto}
+.rd-tbl thead th{position:sticky;top:0;z-index:3;background:#EAF3FF;
+  box-shadow:inset 0 -1px 0 #E2E8F0}
+.rd-tbl thead th.rd-sortable:hover{background:#DBEAFE}
+/* จอเตี้ย/มือถือ — ไม่ให้ตารางกินพื้นที่จนต้องเลื่อนทั้งหน้า */
+@media screen and (max-height:900px){
+  .rd-tablebox .table-wrap{max-height:70vh}
+}
+@media screen and (max-width:767px){
+  .rd-tablebox .table-wrap{max-height:68vh}
+}
