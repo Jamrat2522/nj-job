@@ -732,10 +732,10 @@ var SF551 = (function () {
   function money(n) { try { return V551(Number(n || 0)); } catch (e) { return Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } }
   function invTable(o) {
     o = o || {}; var P = o.p || "bm";
-    return '<div class="tbl-wrap bm-wrap"><table class="tbl bm-items' + (o.ro ? " jm546-ro sf552-ro" : "") + '">'
-      + '<colgroup><col class="c-seq"><col class="c-code"><col class="c-desc"><col class="c-kind"><col class="c-cost"><col class="c-amount"><col class="c-act"></colgroup>'
+    return '<div class="tbl-wrap bm-wrap"><table class="tbl bm-items inv630' + (o.ro ? " jm546-ro sf552-ro" : "") + '">'
+      + '<colgroup><col class="c-seq"><col class="c-code"><col class="c-desc"><col class="c-cost"><col class="c-qty630"><col class="c-unit630"><col class="c-price630"><col class="c-amount"><col class="c-act"></colgroup>'
       + '<thead><tr><th class="center bm-th-seq"><span class="bm-seq-h">\u0E25\u0E33\u0E14\u0E31\u0E1A<button type="button" class="btn btn-o btn-sm bm-sort-h" id="' + P + '-sort">\u2195 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E19\u0E49\u0E2D\u0E22 \u2192 \u0E21\u0E32\u0E01</button></span></th><th>CODE</th>'
-      + '<th>DESCRIPTION</th><th>\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17</th><th class="r">COST</th><th class="r" hidden>PRICE</th><th class="r">AMOUNT</th><th class="center">\u0E25\u0E1A</th></tr></thead><tbody id="' + P + '-tbody"></tbody></table></div>'
+      + '<th>DESCRIPTION</th><th hidden>\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17</th><th class="r">COST</th><th class="r">QUANTITY</th><th>UNIT</th><th class="r">UNIT PRICE</th><th class="r">AMOUNT</th><th class="center">\u0E25\u0E1A</th></tr></thead><tbody id="' + P + '-tbody"></tbody></table></div>'
       + '<div class="bm-sum' + (o.ro ? " jm546-sum" : "") + '"><div class="r-line"><span>Subtotal</span><span id="' + P + '-sub">0.00</span></div>'
       + '<div class="r-line"><span>VAT ' + (o.vat == null ? 7 : o.vat) + '%</span><span id="' + P + '-vat">0.00</span></div>'
       + '<div class="r-line"><span>WHT</span><span id="' + P + '-wht">0.00</span></div>'
@@ -743,6 +743,16 @@ var SF551 = (function () {
   }
   /* \u0E01\u0E0E\u0E40\u0E23\u0E35\u0E22\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 : SERVICE \u0E2D\u0E22\u0E39\u0E48\u0E1A\u0E19 RECEIPT \u00B7 \u0E20\u0E32\u0E22\u0E43\u0E19\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A */
   function kindOf(it) { return String(it && it.charge_kind).toUpperCase() === "ADVANCE" ? "ADVANCE" : "SERVICE"; }
+  /* V.630 : \u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D 6 \u0E17\u0E31\u0E49\u0E07 4 \u0E42\u0E2B\u0E21\u0E14 \u2014 UNIT = Dropdown FIX 10 \u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E08\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27 \u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21 DOCUMENT + ACCOUNTING) \u00B7 \u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21\u0E19\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 = \u0E41\u0E2A\u0E14\u0E07\u0E04\u0E07\u0E44\u0E27\u0E49 (\u0E44\u0E21\u0E48\u0E41\u0E01\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34) */
+  var UNITS630 = ["SHIPMENT", "PAGE", "CONTAINER", "INVOICE", "ROUND", "VEHICLE", "SET", "DAY", "TRUCK", "FLAT RATE"];
+  function unitSel(v, a) { v = v == null ? "" : String(v); var old = v !== "" && UNITS630.indexOf(v) < 0;
+    return '<select class="sel u630" ' + (a || "") + '><option value="">\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 UNIT \u2014</option>'
+      + (old ? '<option value="' + esc(v) + '" selected data-old630="1">' + esc(v) + ' (\u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21)</option>' : "")
+      + UNITS630.map(function (u) { return '<option value="' + u + '"' + (u === v ? " selected" : "") + ">" + u + "</option>"; }).join("") + "</select>"; }
+  function qtyFmt(n) { if (n === "" || n == null || !isFinite(Number(n))) return ""; return Number(n).toLocaleString("en-US", { maximumFractionDigits: 4 }); }
+  /* JOB \u0E40\u0E14\u0E34\u0E21\u0E44\u0E21\u0E48\u0E21\u0E35 qty / unit_price = QUANTITY 1 \u00B7 UNIT PRICE = AMOUNT \u0E40\u0E14\u0E34\u0E21 (\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E44\u0E21\u0E48\u0E40\u0E02\u0E35\u0E22\u0E19\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25) */
+  function qpu(it) { it = it || {}; var lg = it.qty == null && it.unit_price == null && it.amount != null && it.amount !== "";
+    return { qty: lg ? 1 : (it.qty == null ? "" : it.qty), price: lg ? it.amount : (it.unit_price == null ? "" : it.unit_price), unit: it.unit == null ? "" : String(it.unit) }; }
   function invView(box, v, o) {
     o = o || {}; var P = o.p, st = box.__sf552 || (box.__sf552 = { asc: true });
     if (!box.querySelector("#" + P + "-tbody")) {
@@ -755,14 +765,17 @@ var SF551 = (function () {
     var row = function (n, it, kind) { return '<tr><td class="center"><input class="inp center" value="' + n + '" readonly disabled></td>'
       + '<td><div class="sf552-code"><input class="inp" value="' + esc(it.code) + '" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 CODE / \u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23" readonly disabled><button type="button" class="sf552-sr" disabled tabindex="-1">' + SRI + '</button></div></td>'
       + '<td><input class="inp" value="' + esc(it.description) + '" placeholder="\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E1A\u0E23\u0E34\u0E01\u0E32\u0E23" readonly disabled></td>'
-      + '<td><select class="sel" disabled><option>' + kind + '</option></select></td>'
-      + '<td><input class="inp r" value="' + money(it.cost) + '" readonly disabled></td><td class="r" hidden></td>'
+      + '<td hidden><select class="sel" disabled><option>' + kind + '</option></select></td>'
+      + '<td><input class="inp r" value="' + money(it.cost) + '" readonly disabled></td>'
+      + (function (x) { return '<td><input class="inp r" value="' + qtyFmt(x.qty) + '" readonly disabled></td>'
+        + '<td>' + unitSel(x.unit, "disabled") + '</td>'
+        + '<td><input class="inp r" value="' + (x.price === "" ? "" : money(x.price)) + '" readonly disabled></td>'; })(qpu(it))
       + '<td><input class="inp r" value="' + money(it.amount) + '" readonly disabled></td>'
       + '<td class="center"><button type="button" class="btn btn-sm jm546-del" disabled title="\u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48 ACCOUNTING">' + TRI + "</button></td></tr>"; };
     var setN = function (k, t) { var e = box.querySelector("#" + P + "-" + k); e && (e.textContent = t); };
     box.classList.toggle("sf554-denied", !!o.denied);
     if (o.denied) {   /* V.554 : \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E14\u0E39 INVOICE (\u0E15\u0E23\u0E27\u0E08\u0E17\u0E35\u0E48 Backend \u0E40\u0E14\u0E34\u0E21) \u2192 \u0E41\u0E08\u0E49\u0E07\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E15\u0E32\u0E23\u0E32\u0E07\u0E27\u0E48\u0E32\u0E07 */
-      box.querySelector("#" + P + "-tbody").innerHTML = '<tr class="sf554-deny"><td colspan="8" class="center">\u{1F512} \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 INVOICE \u2014 \u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C ACCOUNTING (\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A)</td></tr>';
+      box.querySelector("#" + P + "-tbody").innerHTML = '<tr class="sf554-deny"><td colspan="9" class="center">\u{1F512} \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 INVOICE \u2014 \u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C ACCOUNTING (\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A)</td></tr>';
       ["sub", "vat", "wht", "total"].forEach(function (k) { setN(k, "\u2013"); });
       var nt0 = box.querySelector(".jm546-note6"); nt0 && nt0.parentNode.removeChild(nt0); return;
     }
@@ -774,7 +787,7 @@ var SF551 = (function () {
     var nt = box.querySelector(".jm546-note6"); nt && nt.parentNode.removeChild(nt);
     if (o.note) { var d = document.createElement("div"); d.className = "jm546-note6"; d.textContent = o.note; box.appendChild(d); }
   }
-  return { L: L, T: T, invTable: invTable, invView: invView, pickers: pickers, svc: svc, sections: sections, r5: r5, adv: adv, advMore: advMore, grid: grid };
+  return { units630: UNITS630, unitSel: unitSel, qpu: qpu, L: L, T: T, invTable: invTable, invView: invView, pickers: pickers, svc: svc, sections: sections, r5: r5, adv: adv, advMore: advMore, grid: grid };
 })();
 
 /* V.546 + V.547 \u00B7 DOCUMENT \u2014 SERVICE (\u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48 / \u0E41\u0E01\u0E49\u0E44\u0E02\u0E07\u0E32\u0E19) : 6 \u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D\u0E1E\u0E31\u0E1A/\u0E02\u0E22\u0E32\u0E22 \u0E15\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E01\u0E25\u0E38\u0E48\u0E21\u0E02\u0E2D\u0E07 LY543 \u00B7 \u0E41\u0E2A\u0E14\u0E07\u0E15\u0E32\u0E21 Role \u0E40\u0E14\u0E34\u0E21

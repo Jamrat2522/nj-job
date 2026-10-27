@@ -13,12 +13,12 @@ function CO627(e,c){let id=c.company_invoice_id||e.company_invoice_id,ms=ST627&&
    ข้อ 7 L37 = ชื่อผู้ POST ล่าสุด (posted_by_name · RUN-627) · L38 = วันที่ POST จริง (posted_at → เวลาไทย · DD/MM/YYYY) · ยังไม่ POST / ไม่มีข้อมูล = เว้นว่าง */
 function CN628(e,c){let id=c.company_invoice_id||e.company_invoice_id,ms=ST627&&ST627.masters&&Array.isArray(ST627.masters.companies)?ST627.masters.companies:[],co=id?ms.find(z=>z&&z.id===id):null,
   nm=nz627(e.company_invoice)||nz627(c.company_invoice)||nz627(co&&co.name);if(nm===null)return null;nm=String(nm).trim();
-  let m=/^(.*?)\s*\(\s*THAILAND\s*\)/i.exec(nm);return m&&m[1].trim()?m[1].trim():nm}
+  let m=/^(.*?)\s*\(\s*THAILAND\s*\)/i.exec(nm);nm=m&&m[1].trim()?m[1].trim():nm;return Array.from(nm).slice(0,10).join("").trim()||null}/* V.629 : C \u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19 10 \u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23 (\u0E44\u0E21\u0E48\u0E40\u0E15\u0E34\u0E21 ...) */
 function PB628(o,e){let st=String(e&&e.status||"").toUpperCase(),at=e&&e.posted_at?new Date(e.posted_at):null,who=nz627(e&&e.posted_by_name);
   if(st!=="POSTED"||!at||isNaN(at.getTime())){n(o,"L37",null),n(o,"L38",null);return}
   let th=new Date(at.getTime()+7*36e5),dt=new Date(Date.UTC(th.getUTCFullYear(),th.getUTCMonth(),th.getUTCDate()));
   n(o,"L37",who),n(o,"L38",dt);try{o.getCell("L38").numFmt="dd/mm/yyyy"}catch{}}
-function FL627(o,e,c,w,E){let C=CN628(e,c),Bk=nz627(c.house_bl_no)||nz627(e.house_bl_no),Rt=Bk,Cn=nz627(c.master_bl_no)||nz627(e.master_bl_no),
+function FL627(o,e,c,w,E){let C=CN628(e,c),Bk=nz627(c.house_bl_no)||nz627(e.house_bl_no),Rt=null/* V.629 : F \u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07 = \u0E27\u0E48\u0E32\u0E07\u0E17\u0E38\u0E01\u0E41\u0E16\u0E27 */,Cn=nz627(c.master_bl_no)||nz627(e.master_bl_no),
   Sz=nz627(c.container_size),Qc=nz627(c.qty_container),sv=0,ad=0,bad=0;
   Sz!==null&&/^\d+(\.\d+)?$/.test(String(Sz).trim())&&(Sz=Number(Sz));
   w.forEach((t,l)=>{let r=_+l,k=String(t&&t.charge_kind||"").toUpperCase(),am=Number(t&&t.amount);am=Number.isFinite(am)?r2627(am):0;
