@@ -11062,14 +11062,14 @@ Column rename for export only: "KDC" → "Customer jobno."
 
   // ── Build sheet rows for export (apply column rename: KDC → "Customer jobno.") ──
   /* [CUSTOM FEE] EXPORT 13 คอลัมน์ A–M (ทุก Sheet หลัก · Billing + Sheet แยก) · ค่าจากคอลัมน์ต้นทางที่ชื่อตรงกัน (ไม่พบ = ว่าง)
-     J SERVICE: 2621+LOT = 230 → 1190 = 350 → มี LOT = 330 → 2801 = 230 → อื่น = ว่าง · K FZ: สิทธิประโยชน์ = Freezone → 80 · L CUSTOMS FEE = 200 · M OT = ค่า OT จริงจากต้นทาง (ไม่มี = ว่าง) */
+     J SERVICE: 2621+LOT = 230 → 1190 = 350 → มี LOT = 330 → 2801 = 230 → อื่น = ว่าง · K FZ: สิทธิประโยชน์ = Freezone → 80 · L CUSTOMS FEE: ต้นทาง NO → ว่าง · อื่น / ว่าง → 200 · M OT = ค่า OT จริงจากต้นทาง (ไม่มี = ว่าง) */
   const CF_EXPORT_HEADERS = ['Item','Summit date','เลขที่ใบขนฯ','ผู้ส่งออก','Invoice NO.','สถานที่รับบรรทุก','Status 0409','สิทธิประโยชน์','Customer jobno.','SERVICE','FZ','CUSTOMS FEE','OT'];
   const CF_EXPORT_COLS = [{wch:5},{wch:11},{wch:16},{wch:38},{wch:18},{wch:9},{wch:8},{wch:14},{wch:14},{wch:9},{wch:6},{wch:11},{wch:8}];
   function _cfExportSrcIdx(){
     const nk = v => cfNormUC(v).replace(/[.ฯ\s]/g,'');
     const at = names => { for(const n of names){ const i = _cfHeaders.findIndex(h => nk(h) === nk(n)); if(i !== -1) return i; } return -1; };
     return { summit:at(['Summit date']), entry:at(['เลขที่ใบขนฯ']), exp:at(['ผู้ส่งออก']), inv:at(['Invoice NO.']), loc:at(['สถานที่รับบรรทุก']),
-             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']) };
+             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']), fee:at(['CUSTOMS FEE']) };
   }
   function _cfService(loc, job){
     const lot = /LOT/i.test(job);
@@ -11089,7 +11089,8 @@ Column rename for export only: "KDC" → "Customer jobno."
       const fz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE') ? 80 : '';
       const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
       const ot = otRaw === '' ? '' : (/^-?\d+(\.\d+)?$/.test(otNum) ? Number(otNum) : otRaw);
-      out.push([itemN++, val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), _cfService(loc, job), fz, 200, ot]);
+      const fee = cfNormUC(val(r, I.fee)) === 'NO' ? '' : 200;   /* [CUSTOM FEE] L: ต้นทาง CUSTOMS FEE = NO → ว่าง · ว่าง / YES / ค่าอื่น / ไม่มีคอลัมน์ → 200 */
+      out.push([itemN++, val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), _cfService(loc, job), fz, fee, ot]);
     }
     return out;
   }
@@ -11232,7 +11233,7 @@ Column rename for export only: "KDC" → "Customer jobno."
   function _cfBuildStylesXml(){
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-        '<numFmts count="0"/>' +
+        '<numFmts count="1"><numFmt numFmtId="164" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +   /* [CUSTOM FEE] ยอดสรุป #,##0.00 · 0 = - */
         // Fonts: 0=default, 1=Tahoma10Bold(title), 2=Tahoma8Bold(mainHdr),
         //        3=Tahoma7(mainData), 4=Tahoma14Bold(billHdr), 5=Tahoma14(billData)
         '<fonts count="6">' +
@@ -11262,7 +11263,7 @@ Column rename for export only: "KDC" → "Customer jobno."
           '</border>' +
         '</borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        '<cellXfs count="6">' +
+        '<cellXfs count="9">' +
           // 0: default
           '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
           // 1: title (main r1 / billing customer line) — Tahoma 10 bold, white, no border, center
@@ -11275,6 +11276,12 @@ Column rename for export only: "KDC" → "Customer jobno."
           '<xf numFmtId="0" fontId="4" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
           // 5: billing data — Tahoma 14, white fill, thin border, center
           '<xf numFmtId="0" fontId="5" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+          // 6: [CUSTOM FEE] ยอดรวม J–M — Tahoma 7 · #,##0.00 (0 = -) · thin border · right
+          '<xf numFmtId="164" fontId="3" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
+          // 7: [CUSTOM FEE] TOTAL — Tahoma 8 bold · #,##0.00 · thin border · right
+          '<xf numFmtId="164" fontId="2" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
+          // 8: [CUSTOM FEE] ป้ายสรุป (รวม / TOTAL) — Tahoma 8 bold · thin border · center
+          '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
         '</cellXfs>' +
         '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
         '<dxfs count="0"/>' +
@@ -11385,6 +11392,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       wsP1['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
       wsP1['!rows'] = [{hpt:24}, {hpt:30}];
       wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
+      _cfAddSummary(wsP1, billingData.length - 2);   /* [CUSTOM FEE] ยอดสรุปท้าย Sheet */
       XLSX.utils.book_append_sheet(wb, wsP1, 'Billing');
     }
     for(const name of sheetNames){
@@ -11394,6 +11402,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       ws['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
       ws['!rows'] = [{hpt:24}, {hpt:30}];
       ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
+      _cfAddSummary(ws, data.length - 2);   /* [CUSTOM FEE] ยอดสรุปท้าย Sheet */
       const safeName = name.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, safeName);
     }
@@ -11429,16 +11438,33 @@ Column rename for export only: "KDC" → "Customer jobno."
   //   Style indexes (must match _cfBuildStylesXml cellXfs order):
   //     0=default · 1=title · 2=header · 3=data · 4=customer_line
   //
-  function _cfClassifierForMainSheet(){
+  function _cfClassifierForMainSheet(nRows){
     // Match source format (report_day_10_04_2026.xlsx):
     //   r1 = title (style 1 = Tahoma 10 bold, white, no border, center)
     //   r2 = main header (style 2 = Tahoma 8 bold, cadet blue fill, thin border)
     //   r3+ = main data (style 3 = Tahoma 7, white fill, thin border)
-    return (rowIdx) => {
+    //   [CUSTOM FEE] nRows = จำนวนแถวข้อมูล → แถวรวม (nRows+3): I = ป้าย 8 · J–M = 6 · แถว TOTAL (nRows+4): I = 8 · J–M = 7 (ตัวหนา)
+    const sumRow = (typeof nRows === 'number') ? nRows + 3 : -1, totRow = sumRow + 1;
+    return (rowIdx, col) => {
       if(rowIdx === 1) return 1;     // title
       if(rowIdx === 2) return 2;     // main header
+      if(rowIdx === sumRow || rowIdx === totRow){ if(col === 'I') return 8; if(/^[J-M]$/.test(col)) return rowIdx === sumRow ? 6 : 7; return null; }
       return 3;                       // main data
     };
+  }
+  /* [CUSTOM FEE] ยอดสรุปท้ายตาราง (ทุก Sheet หลัก แยกกัน): แถวรวม J–M = SUM(แถว 3 ถึงแถวข้อมูลสุดท้ายของ Sheet นี้) · แถวถัดไป TOTAL = J+K+L+M (รวม J:M) · ค่า cache คำนวณจากข้อมูลจริงชุดเดียวกัน */
+  function _cfAddSummary(ws, nRows){
+    const first = 3, last = nRows + 2, sr = nRows + 2, tr = sr + 1;   /* 0-based row index ของแถวรวม / TOTAL */
+    const enc = (r, c) => XLSX.utils.encode_cell({ r, c }), num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+    const sums = [9,10,11,12].map(c => { let t = 0; for(let r = 2; r < 2 + nRows; r++){ const cell = ws[enc(r, c)]; if(cell && cell.v !== '' && cell.v != null) t += num(cell.v); } return t; });
+    ws[enc(sr, 8)] = { t:'s', v:'รวม' }; ws[enc(tr, 8)] = { t:'s', v:'TOTAL' };
+    [9,10,11,12].forEach((c, i) => { const L = XLSX.utils.encode_col(c);
+      ws[enc(sr, c)] = nRows > 0 ? { t:'n', v:sums[i], f:'SUM('+L+first+':'+L+last+')' } : { t:'n', v:0 }; });
+    ws[enc(tr, 9)] = { t:'n', v:sums.reduce((a, b) => a + b, 0), f:'J'+(sr+1)+'+K'+(sr+1)+'+L'+(sr+1)+'+M'+(sr+1) };
+    [10,11,12].forEach(c => { ws[enc(tr, c)] = { t:'s', v:'' }; });
+    ws['!merges'] = (ws['!merges'] || []).concat([{ s:{ r:tr, c:9 }, e:{ r:tr, c:12 } }]);
+    const rg = XLSX.utils.decode_range(ws['!ref'] || 'A1'); rg.e.r = Math.max(rg.e.r, tr); rg.e.c = Math.max(rg.e.c, 12); ws['!ref'] = XLSX.utils.encode_range(rg);
+    return ws;
   }
   function _cfClassifierForBillingSheet(data){
     // Match source format (AUTO (2) etc):
@@ -11495,8 +11521,9 @@ Column rename for export only: "KDC" → "Customer jobno."
         wsP1['!rows'] = [{hpt:24}, {hpt:30}];
         wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
         wsP1['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
+        _cfAddSummary(wsP1, billingData.length - 2);   /* [CUSTOM FEE] ยอดสรุปท้าย Sheet */
         XLSX.utils.book_append_sheet(wb, wsP1, 'Billing');
-        classifiers['Billing'] = _cfClassifierForMainSheet();
+        classifiers['Billing'] = _cfClassifierForMainSheet(billingData.length - 2);
       }
 
       // Main sheets (landscape, fit-to-width)
@@ -11510,9 +11537,10 @@ Column rename for export only: "KDC" → "Customer jobno."
         // Merge title row across 13 columns (A1:M1) so it centers
         ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
         ws['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
+        _cfAddSummary(ws, data.length - 2);   /* [CUSTOM FEE] ยอดสรุปท้าย Sheet */
         const safeName = name.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
         XLSX.utils.book_append_sheet(wb, ws, safeName);
-        classifiers[safeName] = _cfClassifierForMainSheet();
+        classifiers[safeName] = _cfClassifierForMainSheet(data.length - 2);
       }
       // 7 "(2)" companion sheets (portrait, fit-to-page)
       for(const name of sheetNames){
@@ -11557,11 +11585,11 @@ Column rename for export only: "KDC" → "Customer jobno."
       // File 1 — Billing + main sheets (landscape, fit-to-width for 19 columns)
       const wbMain = _cfBuildMainWorkbook();
       const mainClassifiers = {
-        'Billing': _cfClassifierForMainSheet()
+        'Billing': _cfClassifierForMainSheet(_cfFilterBillingRows(_cfRows).length)
       };
       for(const name of sheetNames){
         const safeName = name.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
-        mainClassifiers[safeName] = _cfClassifierForMainSheet();
+        mainClassifiers[safeName] = _cfClassifierForMainSheet(_cfSheets[name].length);
       }
       let bufMain = XLSX.write(wbMain, {bookType:'xlsx', type:'array'});
       bufMain = await _cfEnhanceXlsxForPrintAndStyle(bufMain, 'landscape', false, mainClassifiers);
