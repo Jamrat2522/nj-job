@@ -10917,6 +10917,9 @@ Column rename for export only: "KDC" → "Customer jobno."
   //
   /* [CUSTOM FEE] SPECIAL: ชื่อยานพาหนะ = BY TRUCK / BY TURCK (ตัดช่องว่างหน้า–หลัง · ไม่แยกตัวพิมพ์) */
   const _cfIsByTruck = v => /^BY (TRUCK|TURCK)$/.test(cfNormUC(v).replace(/\s+/g, ' '));
+  /* [CUSTOM FEE] "เก็บเฉพาะค่าธรรมเนียม" ใน Customer jobno. = เงื่อนไขราคาเท่านั้น → ไม่ใช้ jobno นี้แยก / ตั้งชื่อ Sheet (อยู่ Sheet ผู้ส่งออก + สถานที่เดิม) */
+  const _cfIsFeeOnly = v => /เก็บเฉพาะค่าธรรมเนียม/.test(String(v || '').replace(/\s+/g, ''));
+  const _cfGroupJob = v => _cfIsFeeOnly(v) ? '' : cfNorm(v);
   let _cfSpecialOn = false;   /* [CUSTOM FEE] true = ทั้งไฟล์มี BY TRUCK 1 รายการ → Sheet SPECIAL · ≥ 2 รายการ = Flow เดิม (ตั้งค่าใน _cfProcess) */
   let _cfKdcOwner = {};   /* [CUSTOM FEE] ชื่อ Sheet KDC → กลุ่มเจ้าของ (รีเซ็ตทุกครั้งที่ประมวลผล) */
   function _cfClassifyRow(row, headers){
@@ -10933,7 +10936,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       if(_cfSpecialOn){ const vehCol = _cfFindCol(headers, 'ชื่อยานพาหนะ'); if(vehCol >= 0 && _cfIsByTruck(row[vehCol])) return 'SPECIAL'; }
       /* [CUSTOM FEE] มีค่าใน Customer jobno. → ต่อท้ายชื่อ Sheet ตามค่าจริง (คงช่องว่าง / ตัวอักษรเดิม) เช่น "FORD 2801 KDC  LOT.9 KH" · ว่าง = ผู้ส่งออก + สถานที่ (เดิม) */
       let jobCol = _cfFindCol(headers, 'KDC'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'Customer jobno'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'jobno');
-      const job = jobCol >= 0 ? cfNorm(row[jobCol]) : '';
+      const job = jobCol >= 0 ? _cfGroupJob(row[jobCol]) : '';
       const base = short + (loc ? ' ' + loc : '');
       /* [CUSTOM FEE] กลุ่ม KDC (FORD + Customer jobno. มีค่า) → ชื่อ Sheet = "KDC " + Customer jobno. ตามจริง (ไม่เติม/ตัด KH · ค่าขึ้นต้น KDC อยู่แล้ว = ไม่เติมซ้ำ)
          การแบ่งกลุ่มคงเดิม (ผู้ส่งออก + สถานที่ + jobno) — ถ้าชื่อ KDC เดียวกันถูกใช้โดยสถานที่อื่นแล้ว ต่อท้ายสถานที่ เพื่อไม่ให้กลุ่มรวมกัน */
@@ -11126,7 +11129,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       const isRMA = cfNormUC(val(r, I.exp)).includes('RMA');   /* [CUSTOM FEE] ผู้ส่งออก RMA (ตรวจลำดับแรก) → SERVICE FIX 330 · KEY ว่าง */
       const isFz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE');   /* Freezone ใช้ตรวจราคา SERVICE (ไม่มีคอลัมน์ FZ แล้ว) */
       const key = isRMA ? '' : _cfKey(loc, job);
-      const feeOnly = /เก็บเฉพาะค่าธรรมเนียม/.test(job.replace(/\s+/g, ''));   /* [CUSTOM FEE] Customer jobno. มี "เก็บเฉพาะค่าธรรมเนียม" → ตรวจก่อนกฎราคาอื่น: CUSTOMS FEE 200 · SERVICE / KEY / OT ว่าง */
+      const feeOnly = _cfIsFeeOnly(job);   /* [CUSTOM FEE] Customer jobno. มี "เก็บเฉพาะค่าธรรมเนียม" → ตรวจก่อนกฎราคาอื่น: CUSTOMS FEE 200 · SERVICE / KEY / OT ว่าง */
       if(feeOnly){ out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), '', '', 200, '']); continue; }
       const isSp = _cfIsByTruck(val(r, I.veh));   /* [CUSTOM FEE] SPECIAL (BY TRUCK) — ราคาแยกจากกฎเดิม: Freezone 500 + KEY 250 · ไม่ใช่ Freezone 0 + KEY 230 */
       const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
@@ -11684,7 +11687,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     try{
       const safe = n => n.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
       const _jI = _cfExportSrcIdx().job;   /* จ่ายค่าธรรมเนียม = AUTO / FORD ที่ไม่มี Customer jobno. (ไม่รวม RMA (2) และ KDC LOT (2)) */
-      const feeNames = sheetNames.filter(n => /^(AUTO|FORD)\b/.test(n) && _cfSheets[n].every(r => _jI < 0 || !cfNorm(r[_jI])));
+      const feeNames = sheetNames.filter(n => /^(AUTO|FORD)\b/.test(n) && _cfSheets[n].every(r => _jI < 0 || !_cfGroupJob(r[_jI])));
       const wb1 = _cfBuildMainWorkbook(), wb2 = _cfBuildBillingWorkbook(feeNames);
       /* ── ตรวจก่อนสร้าง ZIP ── */
       const errs = [];
