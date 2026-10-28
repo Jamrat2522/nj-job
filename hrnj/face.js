@@ -2397,6 +2397,36 @@
       return ((tip.x - cx) * dx + (tip.y - cy) * dy) / d2;
     } catch (e) { return null; }
   }
+  /* [RUN-200] เลือก "เฟรมที่ดีที่สุด" จากเฟรมที่ผ่านด่านเดิมมาครบทุกด่านแล้ว
+     แทนการหยิบเฟรมสุดท้ายแบบเดิม (ctx.frames[length-1])
+
+     ทำไม: ลูปเก็บเฟรมสร้าง Descriptor หลายเฟรม แต่ส่งขึ้นเซิร์ฟเวอร์เพียงเฟรมเดียว
+       ของเดิมหยิบ "เฟรมสุดท้าย" ซึ่งอาจเบลอหรือหน้าเอียงกว่าเฟรมอื่นในชุดเดียวกัน
+       ทำให้ระยะห่าง (face_distance) แย่กว่าที่ควรเป็น และเฉียดเกณฑ์โดยไม่จำเป็น
+
+     ⚠ ไม่แตะเกณฑ์ Face Match · ไม่แตะ Liveness · ไม่แตะจำนวนเฟรม · ไม่แตะคุณภาพขั้นต่ำ
+     ⚠ ไม่เรียกโมเดลเพิ่มแม้แต่ครั้งเดียว — ใช้เฉพาะค่าที่ grabFramesLoop เก็บไว้ทุกเฟรมอยู่แล้ว
+     ⚠ ทุกเฟรมในชุดนี้ผ่านด่านเดิมมาแล้วทั้งหมด (1 ใบหน้า · ratio · วงรี · Liveness)
+       จึงเป็นเพียงการ "เลือกใช้" เฟรมที่ถูกต้องอยู่แล้วเฟรมไหน ไม่ใช่การรับเฟรมที่เคยถูกปฏิเสธ
+     ⚠ อ่านค่าไม่ได้เมื่อไหร่ คืนเฟรมสุดท้ายเท่าเดิม = พฤติกรรมเดิมทุกประการ
+
+     เกณฑ์เลือก (ใช้เฉพาะจัดอันดับ ไม่ใช่รับ/ไม่รับ):
+       ความคม (sharpness)  — ตัวหลัก ภาพเบลอทำให้ Descriptor เพี้ยนมากที่สุด
+       ใบหน้าตรง (|yaw|)   — มุมที่ลงทะเบียนไว้เป็นมุมตรง เฟรมตรงกว่าจึงเทียบได้ดีกว่า
+       ขนาดใบหน้า (ratio)  — ใบหน้าใหญ่ในเฟรมให้รายละเอียดมากกว่า */
+  function pickBestFrame(frames) {
+    if (!frames || !frames.length) return null;
+    var best = frames[frames.length - 1], bestScore = -1;
+    for (var i = 0; i < frames.length; i++) {
+      var fr = frames[i], q = fr && fr.q;
+      if (!q || !(q.sharpness > 0)) continue;
+      var ya = Math.abs(Number(fr.yaw) || 0);
+      var score = q.sharpness * (1 / (1 + 4 * ya)) * (1 + (Number(q.ratio) || 0));
+      if (score > bestScore) { bestScore = score; best = fr; }
+    }
+    return best;
+  }
+
   function lmMid(pts) {
     var sx = 0, sy = 0, i;
     for (i = 0; i < pts.length; i++) { sx += pts[i].x; sy += pts[i].y; }
@@ -3815,7 +3845,9 @@
       }))
       .then(function (ctx) {
         if (!mine()) throw AbortAttendanceError();   // [ข้อ 3] ยกเลิกก่อนยิง Punch RPC
-        var best = ctx.frames[ctx.frames.length - 1];
+        /* [RUN-200] เดิม: ctx.frames[ctx.frames.length - 1] (เฟรมสุดท้าย)
+           ใหม่: เฟรมที่คมและตรงที่สุดในชุดเดียวกัน — จำนวนเฟรมและด่านเดิมไม่เปลี่ยน */
+        var best = pickBestFrame(ctx.frames) || ctx.frames[ctx.frames.length - 1];
         perfMark('client_face_ms');
         var tRpcA = perfNow();
         perfBootCount('njhr_att_punch_face_calls');   // [INSTRUMENTATION] นับก่อนยิงจริง
@@ -4803,7 +4835,8 @@
         camLifeLog('FLOW_COMPLETE_CLOSE');
         closeCam('FLOW_COMPLETE_CLOSE');       // ปิดกล้องก่อนยิงเซิร์ฟเวอร์
         panel(stepsHtml(st, 'กำลังยืนยันตัวตน…'));
-        var best = ctx.frames[ctx.frames.length - 1];
+        /* [RUN-200] เดิม: ctx.frames[ctx.frames.length - 1] (เฟรมสุดท้าย) */
+        var best = pickBestFrame(ctx.frames) || ctx.frames[ctx.frames.length - 1];
         if (typeof w.NJHR_faceLogin !== 'function') {
           throw new Error('ระบบเข้าสู่ระบบด้วยใบหน้ายังไม่พร้อมใช้งาน');
         }

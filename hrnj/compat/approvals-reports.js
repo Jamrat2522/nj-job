@@ -2047,13 +2047,13 @@ function viewPayroll(el){
   var st=prStatusOf(pr),opts=prFilterOptions(pr);
   var months=db.payroll.map(function(p){return{m:p.month,y:p.year}});
   el.id="pr-view";
-  /* [RUN-196] ลำดับหน้าใหม่ตามแบบ: หัวข้อ -> การ์ด 7 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
-     เปลี่ยนงวด/ตัวกรอง/คำนวณใหม่ แล้วกลับหน้าแรกเสมอ */
+  /* [RUN-196] ลำดับหน้าใหม่ตามแบบ: การ์ด 7 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
+     เปลี่ยนงวด/ตัวกรอง/คำนวณใหม่ แล้วกลับหน้าแรกเสมอ
+     [RUN-199] เอากรอบหัวข้อในเนื้อหาออก (ซ้ำกับชื่อหน้าบน Header หลักที่มาจาก ROUTES)
+     การ์ดสรุป 7 ช่องจึงขึ้นมาเป็นบล็อกแรก — .pr-cards มี margin-top:0 อยู่แล้ว
+     ระยะห่างจาก Header มาจาก padding ของ .main-view เหมือนหน้าอื่น ไม่เหลือช่องว่างค้าง */
   prPage.page=1;
   el.innerHTML='<div class="pr-v2">'
-    +'<div class="card pr-head"><span class="pr-head-ic">'+icon("wallet")+'</span>'
-      +'<span class="grow"><h3>เงินเดือน</h3>'
-      +'<small>จัดการรอบเงินเดือน คำนวณ ตรวจสอบ และจัดการข้อมูลเงินเดือนพนักงาน</small></span></div>'
     +'<div class="pr-cards" id="pr-summary">'+prSummaryHTML(pr)+'</div>'
     +'<div class="card pr-bar">'
     +'<div class="toolbar pr-filters">'
@@ -2244,10 +2244,12 @@ function epIsMobile(){return!!(window.matchMedia&&window.matchMedia("(max-width:
    ADMIN / ACCOUNT / USER ส่งไม่ได้ทุกช่องทาง เพราะ njhr_pay_guard ฝั่ง Server
    อนุญาตเฉพาะ SUPER_ADMIN / HR อยู่แล้ว ไม่ได้อาศัยการซ่อนปุ่มอย่างเดียว */
 function epCanSend(){return["SUPER_ADMIN","HR"].indexOf(String(currentUser().role))>=0}function viewEPayslip(el){var seq=++epState.seq,admin=epIsAdmin();epSel={};el.innerHTML='<div class="ep-v2">'
-/* [RUN-197] ลำดับหน้าใหม่: หัวข้อ -> การ์ด 6 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า */
-+'<div class="card ep-head"><span class="ep-head-ic">'+icon("wallet")+'</span>'
-+'<span class="grow"><h3>สลิปเงินเดือน (E-PAYSLIP)'+(admin?"":" ของฉัน")+'</h3>'
-+'<small>จัดการ ตรวจสอบ และส่งสลิปเงินเดือนพนักงาน</small></span></div>'
+/* [RUN-197] ลำดับหน้าใหม่: การ์ด 6 ช่อง -> ตัวกรอง -> ปุ่มคำสั่ง -> ตาราง -> แบ่งหน้า
+   [RUN-199] เอากรอบหัวข้อในเนื้อหาออก (ซ้ำกับชื่อหน้าบน Header หลักที่มาจาก ROUTES)
+   การ์ดสรุป 6 ช่องจึงขึ้นมาเป็นบล็อกแรก — .ep-cards มี margin-top:0 อยู่แล้ว
+   หมายเหตุ: กรอบนี้เป็นที่เดียวที่เคยต่อท้ายคำว่า " ของฉัน" ให้พนักงานทั่วไป
+   เมื่อเอากรอบออก ทั้งผู้ดูแลและพนักงานจะเห็นชื่อหน้าเดียวกันจาก Header หลัก
+   ส่วน .ep-head ของหัวกระดาษสลิป PDF เป็นคนละตัว ไม่ถูกแตะ */
 +(admin?'<div class="pr-cards ep-cards" id="ep-summary"></div>':"")
 +'<div class="card ep-bar">'+'<div class="toolbar ep-filters">'+'<select id="ep-period"><option value="">— กำลังโหลดงวดเงินเดือน —</option></select>'+(admin?'<select id="ep-dept"><option value="">ทุกแผนก</option></select>'+'<select id="ep-pos"><option value="">ทุกตำแหน่ง</option></select>'+'<select id="ep-status" title="สถานะสลิป">'+[["","ทุกสถานะสลิป"],["CONFIRMED","พร้อมใช้งาน"],["REOPENED","กำลังแก้ไขงวด"],["UNPAID","ยังไม่ยืนยัน"],["NONE","ไม่มีข้อมูลเงินเดือน"]].map(function(x){return'<option value="'+x[0]+'"'+(epState.status===x[0]?" selected":"")+">"+x[1]+"</option>"}).join("")+"</select>"
 /* [RUN-155] สถานะจ่าย แยกจากสถานะสลิป ตาม §38 ห้ามปนกัน */
