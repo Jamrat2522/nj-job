@@ -11061,7 +11061,39 @@ Column rename for export only: "KDC" → "Customer jobno."
   function _escHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   // ── Build sheet rows for export (apply column rename: KDC → "Customer jobno.") ──
+  /* [CUSTOM FEE] EXPORT 13 คอลัมน์ A–M (ทุก Sheet หลัก · Billing + Sheet แยก) · ค่าจากคอลัมน์ต้นทางที่ชื่อตรงกัน (ไม่พบ = ว่าง)
+     J SERVICE: 2621+LOT = 230 → 1190 = 350 → มี LOT = 330 → 2801 = 230 → อื่น = ว่าง · K FZ: สิทธิประโยชน์ = Freezone → 80 · L CUSTOMS FEE = 200 · M OT = ค่า OT จริงจากต้นทาง (ไม่มี = ว่าง) */
+  const CF_EXPORT_HEADERS = ['Item','Summit date','เลขที่ใบขนฯ','ผู้ส่งออก','Invoice NO.','สถานที่รับบรรทุก','Status 0409','สิทธิประโยชน์','Customer jobno.','SERVICE','FZ','CUSTOMS FEE','OT'];
+  const CF_EXPORT_COLS = [{wch:5},{wch:11},{wch:16},{wch:38},{wch:18},{wch:9},{wch:8},{wch:14},{wch:14},{wch:9},{wch:6},{wch:11},{wch:8}];
+  function _cfExportSrcIdx(){
+    const nk = v => cfNormUC(v).replace(/[.ฯ\s]/g,'');
+    const at = names => { for(const n of names){ const i = _cfHeaders.findIndex(h => nk(h) === nk(n)); if(i !== -1) return i; } return -1; };
+    return { summit:at(['Summit date']), entry:at(['เลขที่ใบขนฯ']), exp:at(['ผู้ส่งออก']), inv:at(['Invoice NO.']), loc:at(['สถานที่รับบรรทุก']),
+             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']) };
+  }
+  function _cfService(loc, job){
+    const lot = /LOT/i.test(job);
+    if(loc === '2621' && lot) return 230;
+    if(loc === '1190') return 350;
+    if(lot) return 330;
+    if(loc === '2801') return 230;
+    return '';
+  }
   function _cfBuildExportRows(rowsForSheet){
+    const I = _cfExportSrcIdx(), val = (r, i) => (i >= 0 && r[i] != null) ? r[i] : '';
+    const titleRow = CF_EXPORT_HEADERS.map((_, i) => i === 0 ? 'รายการตรวจสอบการวางบิล' : '');
+    const out = [titleRow, CF_EXPORT_HEADERS.slice()];
+    let itemN = 1;
+    for(const r of rowsForSheet){
+      const loc = cfNorm(val(r, I.loc)), job = cfNorm(val(r, I.job));
+      const fz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE') ? 80 : '';
+      const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
+      const ot = otRaw === '' ? '' : (/^-?\d+(\.\d+)?$/.test(otNum) ? Number(otNum) : otRaw);
+      out.push([itemN++, val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), _cfService(loc, job), fz, 200, ot]);
+    }
+    return out;
+  }
+  function _cfBuildExportRows_LEGACY(rowsForSheet){   /* รูปแบบเดิม (ทุกคอลัมน์ต้นทาง) — เก็บไว้อ้างอิง ไม่ได้เรียกใช้ */
     const exportHeaders = _cfHeaders.map(h => cfNormUC(h) === 'KDC' ? 'Customer jobno.' : h);
     // Row 1: title "รายการตรวจสอบการวางบิล" (one value in col A, rest blank) — matches expected format
     const titleRow = exportHeaders.map((_, i) => i === 0 ? 'รายการตรวจสอบการวางบิล' : '');
@@ -11349,19 +11381,19 @@ Column rename for export only: "KDC" → "Customer jobno."
     {
       const billingData = _cfBuildExportRows(billingRows);
       const wsP1 = XLSX.utils.aoa_to_sheet(billingData);
-      wsP1['!cols'] = mainCols;
+      wsP1['!cols'] = CF_EXPORT_COLS;
       wsP1['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
       wsP1['!rows'] = [{hpt:24}, {hpt:30}];
-      wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:18}}];
+      wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
       XLSX.utils.book_append_sheet(wb, wsP1, 'Billing');
     }
     for(const name of sheetNames){
       const data = _cfBuildExportRows(_cfSheets[name]);
       const ws = XLSX.utils.aoa_to_sheet(data);
-      ws['!cols'] = mainCols;
+      ws['!cols'] = CF_EXPORT_COLS;
       ws['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
       ws['!rows'] = [{hpt:24}, {hpt:30}];
-      ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:18}}];
+      ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
       const safeName = name.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, safeName);
     }
@@ -11459,13 +11491,9 @@ Column rename for export only: "KDC" → "Customer jobno."
         const billingRows = _cfFilterBillingRows(_cfRows);
         const billingData = _cfBuildExportRows(billingRows);
         const wsP1 = XLSX.utils.aoa_to_sheet(billingData);
-        wsP1['!cols'] = [
-          {wch:5},{wch:11},{wch:14},{wch:16},{wch:15},{wch:7},{wch:38},{wch:18},
-          {wch:14},{wch:16},{wch:8},{wch:8},{wch:17},{wch:12},{wch:8},{wch:14},
-          {wch:8},{wch:14}
-        ];
+        wsP1['!cols'] = CF_EXPORT_COLS;   /* [CUSTOM FEE] 13 คอลัมน์ */
         wsP1['!rows'] = [{hpt:24}, {hpt:30}];
-        wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:18}}];
+        wsP1['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
         wsP1['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
         XLSX.utils.book_append_sheet(wb, wsP1, 'Billing');
         classifiers['Billing'] = _cfClassifierForMainSheet();
@@ -11476,15 +11504,11 @@ Column rename for export only: "KDC" → "Customer jobno."
         const data = _cfBuildExportRows(_cfSheets[name]);
         const ws = XLSX.utils.aoa_to_sheet(data);
         // Column widths for main sheet (matches _cfBuildMainWorkbook)
-        ws['!cols'] = [
-          {wch:5},{wch:11},{wch:14},{wch:16},{wch:15},{wch:7},{wch:38},{wch:18},
-          {wch:14},{wch:16},{wch:8},{wch:8},{wch:17},{wch:12},{wch:8},{wch:14},
-          {wch:8},{wch:14}
-        ];
+        ws['!cols'] = CF_EXPORT_COLS;   /* [CUSTOM FEE] 13 คอลัมน์ A–M */
         // Row 1 (title) tall, row 2 (header) tall
         ws['!rows'] = [{hpt:24}, {hpt:30}];
-        // Merge title row across all 19 columns (A1:S1) so it centers
-        ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:18}}];
+        // Merge title row across 13 columns (A1:M1) so it centers
+        ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:12}}];
         ws['!margins'] = {left:0.3, right:0.3, top:0.4, bottom:0.4, header:0.2, footer:0.2};
         const safeName = name.replace(/[/\\?*[\]:]/g, '_').slice(0, 31);
         XLSX.utils.book_append_sheet(wb, ws, safeName);
