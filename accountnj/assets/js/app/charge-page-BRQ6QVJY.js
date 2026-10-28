@@ -69,7 +69,7 @@ import{a as PB569}from"./chunk-6NADHKLT.js";import{n as PF569}from"./chunk-SGWIB
       <div class="ch-bulk-acts">
         <button class="btn btn-o btn-sm" id="ch-bulk-clear" disabled>\u0E25\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</button>
         ${v.invoice?'<button class="btn btn-p" id="ch-bulk-bill" disabled>\u{1F9FE} \u0E2D\u0E2D\u0E01 INVOICE \u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 (0)</button>':""}
-        <button class="btn btn-green" id="ch-bulk-print" disabled>\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C INVOICE \u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 (0)</button>
+        <button class="btn btn-green" id="ch-bulk-print" disabled>\u{1F5A8} \u0E1E\u0E34\u0E21\u0E1E\u0E4C INVOICE \u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 (0)</button>${e==="SERVICE"?'<button class="btn btn-green" id="ch-bulk-soa" title="EXPORT EXCEL SOA หลาย JOB · 1 ไฟล์ หลาย Sheet">\u{1F4D7} EXCEL SOA</button>':""}
       </div>
     </div>`:""}
     ${o==="accounting"||o==="document"?TB499(d.accq):""}<div class="card mt-2" id="ch-pgn"></div>
