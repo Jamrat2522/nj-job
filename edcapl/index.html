@@ -10915,6 +10915,8 @@ Column rename for export only: "KDC" → "Customer jobno."
   //   2. สถานที่รับบรรทุก   → AUTO becomes AUTO AIR if "1190"
   //   3. Customer jobno.    → FORD splits by KDC LOT.X (dynamic name preserved as-is)
   //
+  /* [CUSTOM FEE] SPECIAL: ชื่อยานพาหนะ = BY TRUCK / BY TURCK (ตัดช่องว่างหน้า–หลัง · ไม่แยกตัวพิมพ์) */
+  const _cfIsByTruck = v => /^BY (TRUCK|TURCK)$/.test(cfNormUC(v).replace(/\s+/g, ' '));
   let _cfKdcOwner = {};   /* [CUSTOM FEE] ชื่อ Sheet KDC → กลุ่มเจ้าของ (รีเซ็ตทุกครั้งที่ประมวลผล) */
   function _cfClassifyRow(row, headers){
     const expCol = _cfFindCol(headers, 'ผู้ส่งออก');
@@ -10926,6 +10928,8 @@ Column rename for export only: "KDC" → "Customer jobno."
     { const locCol = _cfFindCol(headers, 'สถานที่รับบรรทุก'), loc = locCol >= 0 ? cfNorm(row[locCol]) : '';
       const short = exporter.includes('RMA') ? 'RMA' : ((exporter.includes('AUTOALLIANCE') || exporter.includes('AUTO ALLIANCE')) ? 'AUTO' : (exporter.includes('FORD') ? 'FORD' : null));
       if(!short) return null;   /* OTHER → skip (เดิม) */
+      /* [CUSTOM FEE] BY TRUCK / BY TURCK → Sheet "SPECIAL" เดียว (ทุกสถานที่ · ทุกผู้ส่งออกในรายการ) — แยกก่อนเข้ากลุ่มเดิม · ไม่ซ้ำกับ Sheet อื่น */
+      { const vehCol = _cfFindCol(headers, 'ชื่อยานพาหนะ'); if(vehCol >= 0 && _cfIsByTruck(row[vehCol])) return 'SPECIAL'; }
       /* [CUSTOM FEE] มีค่าใน Customer jobno. → ต่อท้ายชื่อ Sheet ตามค่าจริง (คงช่องว่าง / ตัวอักษรเดิม) เช่น "FORD 2801 KDC  LOT.9 KH" · ว่าง = ผู้ส่งออก + สถานที่ (เดิม) */
       let jobCol = _cfFindCol(headers, 'KDC'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'Customer jobno'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'jobno');
       const job = jobCol >= 0 ? cfNorm(row[jobCol]) : '';
@@ -11093,7 +11097,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     const nk = v => cfNormUC(v).replace(/[.ฯ\s]/g,'');
     const at = names => { for(const n of names){ const i = _cfHeaders.findIndex(h => nk(h) === nk(n)); if(i !== -1) return i; } return -1; };
     return { summit:at(['Summit date']), entry:at(['เลขที่ใบขนฯ']), exp:at(['ผู้ส่งออก']), inv:at(['Invoice NO.']), loc:at(['สถานที่รับบรรทุก']),
-             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']), fee:at(['CUSTOMS FEE']), rel:at(['ปล่อย']) };   /* rel = หัวข้อ "ปล่อย" ตรงตัว (ไม่ใช้ สถานที่ตรวจปล่อย / Status 0409) */
+             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']), fee:at(['CUSTOMS FEE']), rel:at(['ปล่อย']), veh:at(['ชื่อยานพาหนะ']) };   /* rel = หัวข้อ "ปล่อย" ตรงตัว (ไม่ใช้ สถานที่ตรวจปล่อย / Status 0409) */
   }
   /* [CUSTOM FEE] SERVICE (ตารางราคาล่าสุด · RMA = 330 ตรวจก่อนใน _cfBuildExportRows):
        1190 → ปล่อย NO 230 · Freezone 430 · ทั่วไป 350
@@ -11117,10 +11121,11 @@ Column rename for export only: "KDC" → "Customer jobno."
       const isRMA = cfNormUC(val(r, I.exp)).includes('RMA');   /* [CUSTOM FEE] ผู้ส่งออก RMA (ตรวจลำดับแรก) → SERVICE FIX 330 · KEY ว่าง */
       const isFz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE');   /* Freezone ใช้ตรวจราคา SERVICE (ไม่มีคอลัมน์ FZ แล้ว) */
       const key = isRMA ? '' : _cfKey(loc, job);
+      const isSp = _cfIsByTruck(val(r, I.veh));   /* [CUSTOM FEE] SPECIAL (BY TRUCK) — ราคาแยกจากกฎเดิม: Freezone 500 + KEY 250 · ไม่ใช่ Freezone 0 + KEY 230 */
       const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
       const ot = otRaw === '' ? '' : (/^-?\d+(\.\d+)?$/.test(otNum) ? Number(otNum) : otRaw);
       const fee = cfNormUC(val(r, I.fee)) === 'NO' ? '' : 200;   /* [CUSTOM FEE] L: ต้นทาง CUSTOMS FEE = NO → ว่าง · ว่าง / YES / ค่าอื่น / ไม่มีคอลัมน์ → 200 */
-      out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), isRMA ? 330 : _cfService(loc, job, val(r, I.rel), isFz), key, fee, ot]);
+      out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), isSp ? (isFz ? 500 : 0) : (isRMA ? 330 : _cfService(loc, job, val(r, I.rel), isFz)), isSp ? (isFz ? 250 : 230) : key, fee, ot]);
     }
     return out;
   }
