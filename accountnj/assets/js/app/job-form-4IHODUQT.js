@@ -595,7 +595,7 @@ function RO620(p) {
 var SF551 = (function () {
   var L = {
     s2a: ["comp", "decl", "cust"], s2b: ["cjob", "srcinv"],
-    s3a: ["hbl", "mbl"].concat(XF619.filter(function (f) { return (f.sec || 3) === 3 && f.grp !== "ADVANCE"; }).map(function (f) { return f.id; }).filter(function (k, i, a) { return a.indexOf(k) === i; }), ["book", "qtyc"]), s3b: ["eta", "etd", "rel", "dlv"], s3c: ["port", "relport", "vessel", "note"],
+    s3a: ["hbl", "mbl"].concat(XF619.filter(function (f) { return (f.sec || 3) === 3 && f.grp !== "ADVANCE" && !f.pos; }).map(function (f) { return f.id; }).filter(function (k, i, a) { return a.indexOf(k) === i; }), ["book", "qtyc"]), s3b: ["eta", "etd", "rel", "dlv"], s3c: ["port", "relport", "vessel"].concat(XF619.filter(function (f) { return f.pos === "vessel" && f.grp !== "ADVANCE"; }).map(function (f) { return f.id; }).filter(function (k, i, a) { return a.indexOf(k) === i; }), ["note"]),   /* V.655 : Summit date · LOT ต่อจาก ชื่อเรือ / Vessel */
     s5: ["invdate", "term", "due"], s1x: ["lift-n", "stor-n"],
     a1: ["comp", "cust"], a2: ["decl", "srcinv", "hbl", "mbl"], a3: ["cjob", "note"], aMore: ["invdate", "term", "due"]
   };

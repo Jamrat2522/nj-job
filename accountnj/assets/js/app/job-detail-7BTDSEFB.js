@@ -20,7 +20,7 @@ import{c as u}from"./chunk-VWRH4JCR.js";import"./chunk-NG45Y6KB.js";import"./chu
         ${o("House B/L",t(e.house_bl_no))}
         ${o("Master B/L",t(e.master_bl_no))}
         ${o("Booking No",t(e.booking_no))}
-        ${o("Vessel",t(e.vessel_name))}
+        ${o("Vessel",t(e.vessel_name))}${String(e.charge_type||"").toUpperCase()==="SERVICE"?o("Summit date",n(e.summit_date))+o("LOT",t(e.lot_no)):""}
         ${o("\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E39\u0E49",e.qty_container)}
         ${o("ETD",n(e.etd))}
         ${o("ETA",n(e.eta))}
