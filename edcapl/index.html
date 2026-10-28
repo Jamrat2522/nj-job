@@ -10917,6 +10917,7 @@ Column rename for export only: "KDC" → "Customer jobno."
   //
   /* [CUSTOM FEE] SPECIAL: ชื่อยานพาหนะ = BY TRUCK / BY TURCK (ตัดช่องว่างหน้า–หลัง · ไม่แยกตัวพิมพ์) */
   const _cfIsByTruck = v => /^BY (TRUCK|TURCK)$/.test(cfNormUC(v).replace(/\s+/g, ' '));
+  let _cfSpecialOn = false;   /* [CUSTOM FEE] true = ทั้งไฟล์มี BY TRUCK 1 รายการ → Sheet SPECIAL · ≥ 2 รายการ = Flow เดิม (ตั้งค่าใน _cfProcess) */
   let _cfKdcOwner = {};   /* [CUSTOM FEE] ชื่อ Sheet KDC → กลุ่มเจ้าของ (รีเซ็ตทุกครั้งที่ประมวลผล) */
   function _cfClassifyRow(row, headers){
     const expCol = _cfFindCol(headers, 'ผู้ส่งออก');
@@ -10928,8 +10929,8 @@ Column rename for export only: "KDC" → "Customer jobno."
     { const locCol = _cfFindCol(headers, 'สถานที่รับบรรทุก'), loc = locCol >= 0 ? cfNorm(row[locCol]) : '';
       const short = exporter.includes('RMA') ? 'RMA' : ((exporter.includes('AUTOALLIANCE') || exporter.includes('AUTO ALLIANCE')) ? 'AUTO' : (exporter.includes('FORD') ? 'FORD' : null));
       if(!short) return null;   /* OTHER → skip (เดิม) */
-      /* [CUSTOM FEE] BY TRUCK / BY TURCK → Sheet "SPECIAL" เดียว (ทุกสถานที่ · ทุกผู้ส่งออกในรายการ) — แยกก่อนเข้ากลุ่มเดิม · ไม่ซ้ำกับ Sheet อื่น */
-      { const vehCol = _cfFindCol(headers, 'ชื่อยานพาหนะ'); if(vehCol >= 0 && _cfIsByTruck(row[vehCol])) return 'SPECIAL'; }
+      /* [CUSTOM FEE] BY TRUCK / BY TURCK → Sheet "SPECIAL" เฉพาะเมื่อทั้งไฟล์มี BY TRUCK 1 รายการ (_cfSpecialOn) · 2 รายการขึ้นไป = ชื่อ Sheet ตาม Flow เดิม (ราคา BY TRUCK ใช้ทุกกรณี) */
+      if(_cfSpecialOn){ const vehCol = _cfFindCol(headers, 'ชื่อยานพาหนะ'); if(vehCol >= 0 && _cfIsByTruck(row[vehCol])) return 'SPECIAL'; }
       /* [CUSTOM FEE] มีค่าใน Customer jobno. → ต่อท้ายชื่อ Sheet ตามค่าจริง (คงช่องว่าง / ตัวอักษรเดิม) เช่น "FORD 2801 KDC  LOT.9 KH" · ว่าง = ผู้ส่งออก + สถานที่ (เดิม) */
       let jobCol = _cfFindCol(headers, 'KDC'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'Customer jobno'); if(jobCol < 0) jobCol = _cfFindCol(headers, 'jobno');
       const job = jobCol >= 0 ? cfNorm(row[jobCol]) : '';
@@ -11007,6 +11008,10 @@ Column rename for export only: "KDC" → "Customer jobno."
       }
 
       // Classify + record discovery order
+      /* [CUSTOM FEE] นับ BY TRUCK ทั้งไฟล์ (เฉพาะแถวที่จัดกลุ่มได้) → 1 รายการ = SPECIAL · อื่น ๆ = Flow เดิม */
+      { const vc = _cfFindCol(headers, 'ชื่อยานพาหนะ'); _cfSpecialOn = true;
+        const nBT = vc < 0 ? 0 : cleaned.filter(r => _cfIsByTruck(r[vc]) && _cfClassifyRow(r, headers) === 'SPECIAL').length;
+        _cfSpecialOn = (nBT === 1); }
       _cfKdcOwner = {};
       const buckets = {};
       const discoveredOrder = [];     // sheet names in order they first appear (for KDC LOTs)
@@ -11121,6 +11126,8 @@ Column rename for export only: "KDC" → "Customer jobno."
       const isRMA = cfNormUC(val(r, I.exp)).includes('RMA');   /* [CUSTOM FEE] ผู้ส่งออก RMA (ตรวจลำดับแรก) → SERVICE FIX 330 · KEY ว่าง */
       const isFz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE');   /* Freezone ใช้ตรวจราคา SERVICE (ไม่มีคอลัมน์ FZ แล้ว) */
       const key = isRMA ? '' : _cfKey(loc, job);
+      const feeOnly = /เก็บเฉพาะค่าธรรมเนียม/.test(job.replace(/\s+/g, ''));   /* [CUSTOM FEE] Customer jobno. มี "เก็บเฉพาะค่าธรรมเนียม" → ตรวจก่อนกฎราคาอื่น: CUSTOMS FEE 200 · SERVICE / KEY / OT ว่าง */
+      if(feeOnly){ out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), '', '', 200, '']); continue; }
       const isSp = _cfIsByTruck(val(r, I.veh));   /* [CUSTOM FEE] SPECIAL (BY TRUCK) — ราคาแยกจากกฎเดิม: Freezone 500 + KEY 250 · ไม่ใช่ Freezone 0 + KEY 230 */
       const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
       const ot = otRaw === '' ? '' : (/^-?\d+(\.\d+)?$/.test(otNum) ? Number(otNum) : otRaw);
