@@ -45,7 +45,7 @@ Klongtoey, Bangkok 10110 Thailand.`,issuerNameMae:"N.J. LOGISTICS & FRUITS CO.,L
       </div>
     </div>`:""}</div>`}).join("")}function Yt(s,p,c){let u=it(s,c),_=u.length,jo=E(p&&p.jobOwner).trim(),cg635=CWM635(s,p,jo);return u.map((pg,y)=>{let w=y===_-1,R=pg.rows.map(a=>`<tr>
     <td class="l">${n(CI519(a.company_invoice,E))}</td>
-    <td class="c"></td>
+    <td class="c">${n(E(a.customer_job_no))}</td>
     <td class="l">${n(E(a.booking_no))}</td>
     <td class="l">${n(E(a.invoice_no))}</td>
     <td class="c">${K(a.invoice_date)}</td>
@@ -606,7 +606,7 @@ function CWG635(rows) {
 }
 function CWM635(rows, p, jo) {
   let H = ["Customer Name", "Kewill No.", "Booking No./BL No.", "Invoice No", "Invoice Date", "Scan Date", "Job Owner Code"];
-  let cells = (rows || []).map((a) => [CI519(a.company_invoice, E), "", E(a.booking_no), E(a.invoice_no), K(a.invoice_date), E(p && p.submitDate), jo]);
+  let cells = (rows || []).map((a) => [CI519(a.company_invoice, E), E(a.customer_job_no), E(a.booking_no),   /* V.689 : Kewill No. = Customer Job No. */ E(a.invoice_no), K(a.invoice_date), E(p && p.submitDate), jo]);
   return CW635(H, cells, [0, 2, 0, 1, 2, 2, 1], [10, 2, 3, 1, 1, 1, 2], 1069.6);
 }
 
