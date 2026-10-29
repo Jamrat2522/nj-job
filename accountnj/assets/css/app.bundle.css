@@ -1122,3 +1122,11 @@ table.tbl-charge .acc529-hide,.bl-h529{display:none !important}
 .ivd .ivd-wl span:last-child{font-size:7.75pt}
 .ivd .ivd-sum .ivd-sl,.ivd .ivd-wl{align-items:baseline}
 .ivd .ivd-sign-by,.ivd .ivd-sign-dt{font-size:7.75pt}
+/* V.674 · BILLING PDF : กรอบ Billing Note no. กว้าง 50% ของเดิม (ช่องว่างแบ่งครึ่ง · ความสูง / ตัวอักษรเดิม) · ซ่อนข้อความแนะนำ (placeholder) ในกรอบ */
+.bpd-head-no::after{content:"";flex:1 1 0;min-width:0}
+.bpd-head-no #bpd-note::placeholder{color:transparent;opacity:0}
+.bpd-head-no #bpd-note::-webkit-input-placeholder{color:transparent;opacity:0}
+/* V.675 · INVOICE PDF (SERVICE / ADVANCE) : หัวตาราง 7 ช่อง 7.75pt (ตัวหนา / สี / พื้น / ความกว้าง / การจัดวางเดิม · line-height 11.87pt = ความสูงหัวตารางเดิมพอดี)
+   แถบสีน้ำเงิน-แดงท้ายเอกสาร (.ivd-edge) : ไม่แสดงทุกกรณี (Preview / Print / PDF) — คงกล่องว่างไว้เพื่อไม่ให้ตาราง / ยอดรวม / ช่องลงนามเลื่อนตำแหน่ง */
+.ivd .ivd-tbl.ivd630 thead th{font-size:7.75pt;line-height:11.87pt}
+.ivd .ivd-edge{background:none!important;border-radius:0}

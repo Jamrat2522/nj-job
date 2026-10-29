@@ -48,7 +48,7 @@ function QU630(b){let lg=b.qty==null&&b.unit_price==null,qv=lg?1:b.qty,qs=qv==="
       ${qu630?`<td class="ivd-desc ivd646"><span class="d646">${$(OL646(b.description),"")}</span></td>`:`<td class="ivd-desc">${$(b.description,"")}</td>`}${qu630?QU630(b):""}
       <td class="r">${q?"-":P(z)}</td>
       <td class="r">${q?P(z):"-"}</td>
-      <td class="r">${P(z)}</td></tr>`}).join(""),M=s=>s<=0?"":Array.from({length:s},()=>'<tr class="ivd-blank" aria-hidden="true"><td class="c ivd-no"></td><td class="ivd-desc"></td>'+(qu630?'<td class="c"></td><td class="c"></td>':"")+'<td class="r"></td><td class="r"></td><td class="r"></td></tr>').join(""),F=tt(m),k=F.map(s=>`<div class="ivd-wl"><span>${s.rate} % ${s.label}</span><span>${E(s.amt)}</span></div>`).join(""),j=F.filter(s=>s.amt>0||r&&s.rate===3).map(s=>`<div class="ivd-sl"><span>WHT ${s.rate} % ${s.label}</span><span>${r?"":"-"}${E(s.amt)}</span></div>`).join(""),R=["eta","etd","release_date","delivery_date","overtime_date","job_date"],V=s=>{if(!s)return"";for(let g of[t,_,c||{}]){if(!g)continue;let b=g[s];if(b!=null&&String(b).trim()!=="")return R.includes(s)?W(b):b}return""},VT653=k=>{if(!k||k==="none")return"";if(k==="invoice_no"){let x=String(v.invNo??"").trim();return/^DRAFT/i.test(x)?"":x}if(!NK653.includes(k))return V(k);for(let g of[c||{},_,t]){if(!g)continue;let b=g[k];if(b==null||String(b).trim()==="")continue;return FV653(k,b,g,ad653)}return""},l=[{label:"Decl No.",value:$(v.declNo)},{label:"Customer PO",value:$(v.cusPo)},{label:"Master",value:$(v.master)},{label:"House",value:$(v.house)}],S=["tl","tr","bl","br"],O=s=>{let b=(i&&i.fields||[]).find(D=>D&&D.key===s);return b?String(ad653&&b.label_adv||b.label||"").trim():""},N=i&&S.every(s=>i[s+"_source"])?S.map((s,g)=>{let x653=VT653(i[s+"_source"]);return{label:O(i[s+"_source"])||String(i[s+"_label"]||"").trim()||l[g].label,value:$(x653),e653:String(x653??"").trim()===""&&!SK662(i,s)}}):l,x=(s,g)=>`<div class="ivd-sign">
+      <td class="r">${P(z)}</td></tr>`}).join(""),M=s=>s<=0?"":Array.from({length:s},()=>'<tr class="ivd-blank" aria-hidden="true"><td class="c ivd-no"></td><td class="ivd-desc"></td>'+(qu630?'<td class="c"></td><td class="c"></td>':"")+'<td class="r"></td><td class="r"></td><td class="r"></td></tr>').join(""),F=tt(m),k=F.map(s=>`<div class="ivd-wl"><span>${s.rate} % ${s.label}</span><span>${E(s.amt)}</span></div>`).join(""),j=F.filter(s=>s.amt>0||r&&s.rate===3).map(s=>`<div class="ivd-sl"><span>WHT ${s.rate} % ${s.label}</span><span>${r?"":"-"}${E(s.amt)}</span></div>`).join(""),R=["eta","etd","release_date","delivery_date","overtime_date","job_date"],V=s=>{if(!s)return"";for(let g of[t,_,c||{}]){if(!g)continue;let b=g[s];if(b!=null&&String(b).trim()!=="")return R.includes(s)?W(b):b}return""},VT653=k=>{if(!k||k==="none")return"";if(k==="invoice_no"){let x=String(v.invNo??"").trim();return/^DRAFT/i.test(x)?"":x}if(!NK653.includes(k))return V(k);for(let g of[c||{},_,t]){if(!g)continue;let b=g[k];if(b==null||String(b).trim()==="")continue;return FV653(k,b,g,ad653)}return""},l=[{label:"Decl No.",value:$(v.declNo)},{label:"Customer PO",value:$(v.cusPo)},{label:"Master",value:$(v.master)},{label:"House",value:$(v.house)}],S=["tl","tr","bl","br"],O=s=>{let b=(i&&i.fields||[]).find(D=>D&&D.key===s);return b?String(ad653&&b.label_adv||b.label||"").trim():""},N=i&&S.every(s=>i[s+"_source"])?S.map((s,g)=>{let x653=VT653(i[s+"_source"]);return{label:O(i[s+"_source"])||String(i[s+"_label"]||"").trim()||l[g].label,value:$(x653,CF677(i,s)?"N/A":"-"),e653:String(x653??"").trim()===""&&!CF677(i,s)}}):l,x=(s,g)=>`<div class="ivd-sign">
       <div class="ivd-sign-t">${s}</div>
       ${g?`<div class="ivd-sign-m">
         <div class="ivd-sign-by">${g.who}</div>
@@ -153,10 +153,10 @@ function QU630(b){let lg=b.qty==null&&b.unit_price==null,qv=lg?1:b.qty,qs=qv==="
           <div class="ivd-ci"><b>Company Invoice :</b> <span class="ivd-ci-v669">${$(v.companyInvoice,"")}</span></div>
         </div>
         <div class="ivd-sum">
-          <div class="ivd-sl"><span>SubTotal ${a.vatRate} %</span><span>${E(a.vatBase)}</span></div>
+${ad653?"":`          <div class="ivd-sl"><span>SubTotal ${a.vatRate} %</span><span>${E(a.vatBase)}</span></div>
           <div class="ivd-sl"><span>VAT ${a.vatRate} %</span><span>${E(a.vat)}</span></div>
           <div class="ivd-sl ivd-sl-m"><span>Total</span><span>${E(a.total)}</span></div>
-          
+`}          
           <div class="ivd-sl"><span>Advance (Non-VAT)</span><span>${E(a.advCol)}</span></div>
           
           ${j}
@@ -167,7 +167,7 @@ function QU630(b){let lg=b.qty==null&&b.unit_price==null,qv=lg?1:b.qty,qs=qv==="
       <section class="ivd-foot3">
         <div class="ivd-wht"><div class="ivd-wht-t">Withholding Tax Detail</div>${k}</div>
         ${x("For The Customer")}
-        ${x("For The "+C(L.nameEn),{who:$(v.createdBy),when:W(new Date().toISOString().slice(0,10))})}
+        ${x("For The "+C(String(L.nameEn==null?"":L.nameEn).replace(/\s*&\s*FRUITS\s+CO\.,?\s*LTD\.?\s*$/i,"")),{who:$(v.createdBy),when:W(new Date().toISOString().slice(0,10))})}
       </section>
       </div>`:""}
 
@@ -197,6 +197,9 @@ function FP625(w,ft,rs){try{let fi=w.querySelector(".ivd-fit-in");if(!fi)return 
   return()=>window.removeEventListener("beforeprint",rf)}catch(e){try{console.warn("FP625",e)}catch{}return null}}
 export{Z as a,et as b,st as c,it as d,bt as e,pt as f};
 
+/* ═══ V.677 INVOICE PDF (SERVICE / ADVANCE · ทุกแบบฟอร์มที่ตั้งค่าหัวข้อพิมพ์) : ตำแหน่ง TL / TR / BL / BR ที่เลือก Field ไว้ (ไม่ใช่ "ไม่แสดงข้อมูล")
+   = แสดงชื่อหัวข้อเสมอ · ไม่มีข้อมูล = "N/A" (แสดงผลเท่านั้น ไม่บันทึก) · ตำแหน่งที่ไม่ได้เลือก Field = ว่างเหมือนเดิม · ไม่มีการตั้งค่า (Default) เดิม ═══ */
+function CF677(i, s) { let k = String(i && i[s + "_source"] || "").trim(); return !!k && k !== "none"; }
 /* \u2550\u2550\u2550 V.662 INVOICE PDF \u00B7 \u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21 APL : \u0E0A\u0E48\u0E2D\u0E07\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1F\u0E34\u0E25\u0E14\u0E4C\u0E44\u0E27\u0E49 (\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48 "\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25") \u0E41\u0E2A\u0E14\u0E07\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D\u0E40\u0E2A\u0E21\u0E2D \u00B7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E27\u0E48\u0E32\u0E07 = "-" \u00B7 \u0E04\u0E23\u0E1A 4 \u0E0A\u0E48\u0E2D\u0E07 (2 \u00D7 2) \u00B7 \u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E2D\u0E37\u0E48\u0E19 / Default \u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19\u0E40\u0E14\u0E34\u0E21 \u2550\u2550\u2550 */
 function SK662(i, s) {
   if (!i || String(i.template_name || "").trim().toUpperCase() !== "APL") return false;
