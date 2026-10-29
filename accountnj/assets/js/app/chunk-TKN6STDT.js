@@ -74,7 +74,7 @@ Klongtoey, Bangkok 10110 Thailand.`,issuerNameMae:"N.J. LOGISTICS & FRUITS CO.,L
       <div class="bpd-mae-co">Maersk Logistics &amp; Services (Thailand) Co., Ltd.</div>
       <div>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48............................................</div>
       <div>\u0E40\u0E0B\u0E47\u0E19\u0E15\u0E4C\u0E23\u0E31\u0E1A\u0E01\u0E25\u0E31\u0E1A................................</div>
-    </div>`:""}</div>`}).join("")}function te(s,p,c){let g647=!!(p&&p.gen647),a=it(s,c,g647?J:JA),u=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"].map(_=>`<td class="r t-b">${M(nj481R(s.reduce((c0,a0)=>c0+nj481Val(a0,_),0)))}</td>`).join(""),cw=CW516(s);return a.map((_,v)=>{let b=_.start,y=v===a.length-1,L=_.rows.map((w,S)=>`<tr>
+    </div>`:""}</div>`}).join("")}function te(s,p,c){ST672();/* V.680 : โหลด CSS ส่วนหัวทุกแบบฟอร์มที่ใช้ te (APL / APL EDC / ทั่วไป) */let g647=!!(p&&p.gen647),a=it(s,c,g647?J:JA),u=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"].map(_=>`<td class="r t-b">${M(nj481R(s.reduce((c0,a0)=>c0+nj481Val(a0,_),0)))}</td>`).join(""),cw=CW516(s);return a.map((_,v)=>{let b=_.start,y=v===a.length-1,L=_.rows.map((w,S)=>`<tr>
     <td class="c">${DT516(w)}</td>
     <td class="c">${b+S+1}</td>
     <td class="l">${n(E(w.invoice_no))}</td>
@@ -690,7 +690,7 @@ async function LL671(rows, tb) {
 function SB671(rows, tpl, pfx) {
   let a = (rows || []).map((w, k) => [w, k]), jn = (x, y) => String(x && x.job_no || "").localeCompare(String(y && y.job_no || ""), "en", { numeric: !0 });
   if (tpl === "apl" && String(pfx || "").toUpperCase() === "W")
-    return SO645(a.sort((x, y) => CJ519(x[0], y[0]) || IC666(x[0], y[0]) || jn(x[0], y[0]) || x[1] - y[1]).map((x) => x[0]), !0);
+    return a.sort((x, y) => CJ519(x[0], y[0]) || IC666(x[0], y[0]) || jn(x[0], y[0]) || x[1] - y[1]).map((x) => x[0]);   /* V.680 : ชุดเลข W = Cust. Job No. เสมอ (ทุกบริษัท) */
   return a.sort((x, y) => IC666(x[0], y[0]) || jn(x[0], y[0]) || x[1] - y[1]).map((x) => x[0]);
 }
 
