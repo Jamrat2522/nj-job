@@ -150,7 +150,7 @@ function QU630(b){let lg=b.qty==null&&b.unit_price==null,qv=lg?1:b.qty,qs=qv==="
           <div class="ivd-rm-t ivd-qty631"><span>${C(x)}</span></div>`).join("")}${$(v.remarks,"")?`
           <div class="ivd-rm-t"><span>${$(v.remarks,"")}</span></div>`:""}`:`<div class="ivd-rm-t">REMARKS : <span>${$(v.remarks,"")}</span></div>`)(mq631?RM652(V,ad653).concat(ap657?AP657(V):[]):[])}
           <div class="ivd-rm-l"></div><div class="ivd-rm-l"></div><div class="ivd-rm-l"></div>
-          <div class="ivd-ci"><b>Company Invoice :</b> ${$(v.companyInvoice,"")}</div>
+          <div class="ivd-ci"><b>Company Invoice :</b> <span class="ivd-ci-v669">${$(v.companyInvoice,"")}</span></div>
         </div>
         <div class="ivd-sum">
           <div class="ivd-sl"><span>SubTotal ${a.vatRate} %</span><span>${E(a.vatBase)}</span></div>
