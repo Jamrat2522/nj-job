@@ -114,10 +114,10 @@ ${g647?"":`      <div class="bpd-apl-bt">Bill To.</div>
       <th class="bpd-y">Date</th><th class="bpd-y">Item</th><th class="bpd-y">Invoice No.</th>
       <th class="bpd-y">Master</th><th class="bpd-y">House</th>
       <th class="bpd-y">Type</th><th class="bpd-y">Company</th>
-      <th class="bpd-y">DCL INV.</th><th class="bpd-y">Cust. Job No.</th>
+      <th class="bpd-y">DCL INV.</th><th class="bpd-y">Job No.</th>
       <th class="bpd-y">Service</th><th class="bpd-y">Advance</th>
-      <th class="bpd-y">VAT</th><th class="bpd-y">Amount</th>
-      <th class="bpd-y">WHT 3%</th><th class="bpd-y">Total Amount</th>
+      <th class="bpd-y">Vat</th><th class="bpd-y">Amount</th>
+      <th class="bpd-y">Wht</th><th class="bpd-y">Amount</th>
     </tr></thead><tbody>${L}${y?`
       <tr class="bpd-apl-tot"><td colspan="9" class="r t-b">TOTAL</td>${u}</tr>`:""}</tbody></table>
     ${y?`<div class="bpd-apl-ft">
@@ -562,11 +562,11 @@ function DT516(w) {
   return d || '<span class="bpd-miss516" title="\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49">\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE</span>';
 }
 function CW516(rows) {   /* V.635 : วัดที่ขนาดตัวอักษรจริงของ PDF (11px / หัว 11.5px ตัวหนา) */
-  let H = ["Date", "Item", "Invoice No.", "Master", "House", "Type", "Company", "DCL INV.", "Cust. Job No.", "Service", "Advance", "VAT", "Amount", "WHT 3%", "Total Amount"];   /* V.672 : ชื่อหัวใหม่ · Company ≤ 10 ตัวอักษร = บรรทัดเดียว */
+  let H = ["Date", "Item", "Invoice No.", "Master", "House", "Type", "Company", "DCL INV.", "Job No.", "Service", "Advance", "Vat", "Amount", "Wht", "Amount"];   /* V.681 : Vat / Wht / Job No. / Amount */   /* V.672 : ชื่อหัวใหม่ · Company ≤ 10 ตัวอักษร = บรรทัดเดียว */
   let NW = [2, 2, 1, 1, 1, 2, 1, 1, 0, 2, 2, 2, 2, 2, 2], BASE = [0, 0, 1, 2, 2, 0, 1, 1, 2, 0, 0, 0, 0, 0, 0];
   let R = rows || [], tot = (k) => M(nj481R(R.reduce((c0, a0) => c0 + nj481Val(a0, k), 0)));
   let cells = R.map((w, i) => [K(w.invoice_date) || "00/00/0000", String(i + 1), E(w.invoice_no), E(w.master_bl_no ?? w.master), E(w.house_bl_no), E(w.data_type), E(C10672(CI585(w.company_invoice))), E(w.customs_declaration_no), E(w.customer_job_no), M(w.service_amount), M(w.advance_amount), M(w.vat_amount), M(nj481Amt(w)), M(w.wht_amount), M(nj481Tot(w))]);
-  let T = ["", "", "", "", "", "", "", "", ""].concat(["service_amount", "advance_amount", "vat_amount", "subtotal", "wht_amount", "net_payable"].map(tot));
+  let T = ["", "", "", "", "", "", "", "", "Job No."].concat(["service_amount", "advance_amount", "vat_amount", "subtotal", "wht_amount", "net_payable"].map(tot));
   return CW635(H, cells, NW, BASE, 1065.8, T);
 }
 /* V.635 · BILLING PDF (ทั่วไป / APL / MAERSK) : ความกว้างคอลัมน์ตามข้อความจริง ที่ขนาดตัวอักษรของ PDF
@@ -732,11 +732,13 @@ function ST672() {
       ".bpd-516 .bpd-hd672{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:0 10mm;align-items:start}",
       ".bpd-516 .bpd-hd672>.bpd-nt672{grid-column:2;grid-row:1;font-weight:700;white-space:nowrap;line-height:1.5;text-align:right}",   /* V.673 : ขวาสุด · แถวเดียวกับ Name / Address */
       ".bpd-516 .bpd-hd672>.bpd-co672{grid-column:1;grid-row:1;min-width:0}",
-      ".bpd-sg672{border:1px solid #000;border-radius:3mm;box-sizing:border-box;min-width:0;font-size:10px;line-height:1.9;font-weight:400;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid;page-break-inside:avoid}",
-      ".bpd-sg672 .bpd-sgt672{text-align:center;font-weight:700;padding:1mm 3.5mm;border-bottom:1px solid #000}",
-      ".bpd-sg672 .bpd-sgc672{padding:1.5mm 3.5mm 2.5mm;text-align:left}",
+      ".bpd-sg672{border:1px solid #000;border-radius:3mm;box-sizing:border-box;min-width:0;font-size:8.75px;line-height:1.6;font-weight:400;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid;page-break-inside:avoid}",
+      ".bpd-sg672 .bpd-sgt672{text-align:center;font-weight:700;padding:.6mm 3mm;border-bottom:1px solid #000}",
+      ".bpd-sg672 .bpd-sgc672{padding:1mm 3mm 1.5mm;text-align:left}",
       ".bpd-sg672 .sl516 .ln{text-align:left;padding-left:1mm;text-overflow:ellipsis;white-space:nowrap}",
-      ".bpd-sg672 .bpd-sgs672{margin-top:5mm}",
+      ".bpd-sg672 .bpd-sgs672{margin-top:3mm}",
+      ".bpd-516 .bpd-apl-ft>.bpd-sg672{width:85%;justify-self:center;align-self:start}",
+      ".bpd.bpd-apl .bpd-sg672,.bpd.bpd-apl .bpd-sg672 *{font-size:10.5px!important}",   /* V.681 : เดิมถูกบังคับ 12px (.bpd.bpd-apl *) → −12.5% เฉพาะกรอบลงนาม */   /* V.681 : ย่อกรอบลงนาม กว้าง −15% · สูง ≈ −30% · ตัวอักษร −12.5% · กึ่งกลาง · 2 กรอบเท่ากัน */
       ".bpd-sg672 .sl516{display:flex;align-items:baseline;gap:2mm;white-space:nowrap;min-width:0}",
       ".bpd-sg672 .sl516>b{flex:none;font-weight:700}",
       ".bpd-sg672 .sl516 .ln{flex:1 1 0;min-width:8mm;border-bottom:1px dotted #000;line-height:1.2;overflow:hidden}"

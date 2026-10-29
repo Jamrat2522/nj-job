@@ -1130,3 +1130,55 @@ table.tbl-charge .acc529-hide,.bl-h529{display:none !important}
    แถบสีน้ำเงิน-แดงท้ายเอกสาร (.ivd-edge) : ไม่แสดงทุกกรณี (Preview / Print / PDF) — คงกล่องว่างไว้เพื่อไม่ให้ตาราง / ยอดรวม / ช่องลงนามเลื่อนตำแหน่ง */
 .ivd .ivd-tbl.ivd630 thead th{font-size:7.75pt;line-height:11.87pt}
 .ivd .ivd-edge{background:none!important;border-radius:0}
+/* V.682 · DOCUMENT — SERVICE / ADVANCE (.modal.jm563 = เฉพาะหน้าต่างงาน DOCUMENT ทุกสถานะ) : Header สีฟ้า กว้างเท่ากรอบหัวข้อที่ 1 / ข้อมูลหลัก
+   เดิม margin ซ้าย-ขวา 8px แต่กรอบข้อมูลอยู่ใน .modal-b (padding ซ้าย-ขวา 20px) → Header ยื่นเกินข้างละ 12px · แก้เฉพาะ margin ซ้าย-ขวา ให้เท่า padding ของ .modal-b
+   (ความสูง / สี / มุมโค้ง / ไอคอน / ปุ่มเดิม · .modal-b ของทั้ง SERVICE / ADVANCE = 20px ทุกความกว้างจอ — วัดจริง 390–1920px) */
+.modal-fs .modal.jm563>.modal-h{margin-left:20px!important;margin-right:20px!important}
+/* V.683 · DOCUMENT → SERVICE / ADVANCE หน้ารายการงาน : ชื่อเมนู + Version เหนือช่องค้นหา (.ch-panel>.dh683) · ซ่อนแถบบนเดิม เฉพาะ #app-shell.doc-hd จอ ≥1101px
+   (จอ ≤1100px แถบบนมีปุ่มเมนู ☰ = คงเดิม · แถว .dh683 ไม่แสดง) · ตัวอักษร = .tb-title เดิม · Version = .tb-ver เดิม (Badge สีเทาอ่อน) */
+.dh683{display:none}
+@media (min-width:1101px){
+#app-shell.doc-hd .tb{display:none}
+#app-shell.doc-hd .ch-panel>.dh683{display:flex;align-items:center;gap:14px;min-width:0;padding:12px 12px 0}
+#app-shell.doc-hd .dh683>.dh683-t{font-weight:600;font-size:var(--fs-lg);white-space:nowrap}
+/* ขณะเปิด Popup (ฉากหลังเริ่มที่ top 56 / 64px เดิม) : พื้นที่แถบบนเดิมคลุมด้วยสีฉากหลังเดียวกัน — ตำแหน่ง Popup / Header สีฟ้าเดิม · คลิกตรงนี้ไม่ปิด Popup (เหมือนแถบบนเดิม) */
+body:has(>.modal-bk.modal-bk-w80) #app-shell.doc-hd .app-main::before{content:"";position:fixed;left:var(--sidebar-w);right:0;top:0;height:var(--topbar-h);background:rgba(13,31,60,.28);z-index:41}
+body:has(>.modal-bk.modal-bk-w80.modal-flow.jm-hd) #app-shell.doc-hd .app-main::before{height:64px}
+}
+/* V.684 · ACCOUNTING → SERVICE / ADVANCE / BILLING PDF (#app-shell.hd684 — เฉพาะ 3 หน้านี้) : ชื่อเมนู + Version เหนือแถวปุ่ม/ค้นหา ในกรอบเดียวกัน · ซ่อนข้อมูลผู้ใช้มุมขวาบน (แสดงผลเท่านั้น)
+   จอ ≥1101px ซ่อนแถบบนเดิม · จอ ≤1100px คงแถบบน (ปุ่มเมนู ☰ + ชื่อเมนูเดิม) ไม่แสดงแถวใหม่ = ไม่ซ้ำ · ตัวอักษร = .tb-title เดิม · Version = .tb-ver เดิม */
+#app-shell.hd684 .tb-user{display:none}
+@media (min-width:1101px){
+#app-shell.hd684 .tb{display:none}
+#app-shell.hd684 .ch-tools>.dh683,#app-shell.hd684 .bl-filter>.dh683{display:flex;align-items:center;gap:14px;min-width:0}
+#app-shell.hd684 .ch-tools>.dh683{flex:0 0 100%;margin:0 0 4px;padding-left:2px;box-sizing:border-box}
+#app-shell.hd684 .bl-filter>.dh683{margin:0 0 10px}
+#app-shell.hd684 .dh683>.dh683-t{font-weight:600;font-size:var(--fs-lg);white-space:nowrap}
+body:has(>.modal-bk.modal-bk-w80) #app-shell.hd684 .app-main::before{content:"";position:fixed;left:var(--sidebar-w);right:0;top:0;height:var(--topbar-h);background:rgba(13,31,60,.28);z-index:41}
+body:has(>.modal-bk.modal-bk-w80.modal-flow.jm-hd) #app-shell.hd684 .app-main::before{height:64px}
+}
+/* V.685 · DOCUMENT → SERVICE / ADVANCE หน้ารายการงาน (#app-shell.doc-hd .ch-panel) : แถวบน .tr685 (สถานะซ้าย / ปุ่มขวา · สูง 44px เท่ากันทั้ง 6 กล่อง) · แถวล่าง #ch-fbar (ค้นหา / ตัวกรอง / ล้างตัวกรอง / Refresh) */
+#app-shell.doc-hd .ch-panel>.tr685{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+#app-shell.doc-hd .tr685>.tr685-l,#app-shell.doc-hd .tr685>.tr685-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+#app-shell.doc-hd .tr685>.tr685-r{margin-left:auto;justify-content:flex-end}
+#app-shell.doc-hd .tr685 .acc499-tabs{display:flex;align-items:center;gap:8px;margin:0!important;padding:0;border:0;flex-wrap:wrap}
+#app-shell.doc-hd .tr685 .acc499-tabs .rep-tab,#app-shell.doc-hd .tr685>.tr685-r>.btn{box-sizing:border-box;height:44px!important;min-height:44px!important;max-height:44px;display:inline-flex!important;align-items:center;justify-content:center;gap:6px;margin:0!important;padding:0 16px!important;border-radius:10px!important;line-height:1.2!important;white-space:nowrap}
+#app-shell.doc-hd .tr685 .acc499-tabs .rep-tab .cj-n{display:inline-flex;align-items:center;justify-content:center;margin-left:2px;align-self:center}
+@media (min-width:1101px){
+#app-shell.doc-hd #ch-fbar.fbar-doc{display:flex!important;flex-wrap:wrap;align-items:center;gap:8px}
+#app-shell.doc-hd #ch-fbar.fbar-doc>*{margin:0;box-sizing:border-box;height:36px;min-height:36px}
+#app-shell.doc-hd #ch-fbar.fbar-doc>.inp-search{flex:1 1 150px;min-width:150px;width:auto}
+#app-shell.doc-hd #ch-fbar.fbar-doc>.sel{flex:1 1 112px;min-width:112px;max-width:220px;width:auto}
+#app-shell.doc-hd #ch-fbar.fbar-doc>.inp[type="date"]{flex:0 0 136px;width:136px;min-width:0}
+#app-shell.doc-hd #ch-fbar.fbar-doc>#ch-clear{flex:0 0 auto}
+#app-shell.doc-hd #ch-fbar.fbar-doc>.fbar-acts{flex:0 0 auto;display:flex;flex-wrap:nowrap;gap:8px;grid-column:auto;height:auto}
+#app-shell.doc-hd #ch-fbar.fbar-doc>.fbar-acts>.btn{height:36px;min-height:36px;box-sizing:border-box;margin:0}
+}
+/* V.686 · ACCOUNTING → SERVICE / ADVANCE หน้ารายการงาน (#app-shell.hd684 · .ch-tools.acc500 / #acc499-tabs) : ปุ่มจัดการที่แสดงอยู่ + กรอบสถานะ 3 กล่อง สูง 48px เท่ากัน
+   ตำแหน่ง / ลำดับ / สี / Disabled / การซ่อนปุ่ม เดิม (ไม่กำหนด display) · ไม่รวมรายการในเมนู MAERSK ▾ (.tool-item) */
+#app-shell.hd684 .ch-tools.acc500 #ch-bulk-clear,#app-shell.hd684 .ch-tools.acc500 #ch-bulk-bill,#app-shell.hd684 .ch-tools.acc500 #ch-bulk-print,#app-shell.hd684 .ch-tools.acc500 #ch-bulk-soa,
+#app-shell.hd684 .ch-tools.acc500 .ch-bulk-acts>button.btn,#app-shell.hd684 .ch-tools.acc500>button.btn,#app-shell.hd684 .ch-tools.acc500>.tool-menu>button.btn,
+#app-shell.hd684 #acc499-tabs.acc499-tabs>.rep-tab{box-sizing:border-box!important;height:48px!important;min-height:48px!important;max-height:48px!important;padding-top:0!important;padding-bottom:0!important;align-items:center!important;justify-content:center!important;white-space:nowrap!important;line-height:1.2!important}
+#app-shell.hd684 #acc499-tabs.acc499-tabs>.rep-tab{display:inline-flex;gap:6px}
+#app-shell.hd684 #acc499-tabs.acc499-tabs>.rep-tab .cj-n{display:inline-flex;align-items:center;justify-content:center;align-self:center;margin-left:2px}
+

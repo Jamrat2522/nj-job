@@ -1,5 +1,5 @@
 import{e as h}from"./chunk-TKN6STDT.js";import"./chunk-UWAYW6DC.js";import"./chunk-EVZDPOX3.js";import"./chunk-IOOV4VJU.js";import{a as q,b as m,c as L}from"./chunk-OPGKUGLK.js";import{a as u}from"./chunk-YM5GFE6V.js";import"./chunk-GDT6F23K.js";import{a as x}from"./chunk-OFOOXWUM.js";import{d as Cf481}from"./chunk-LNP7HEMP.js";import{g as Dl481}from"./chunk-2B2FLIKC.js";import{c as r,e as o}from"./chunk-NQOCXXA2.js";import{g as w,h as E}from"./chunk-6NADHKLT.js";import{m as Rp481}from"./chunk-SGWIBJH6.js";var T={general:"\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B",maersk:"MAERSK",apl:"APL"},l={q:"",template:"",charge_type:"",job_category:"",data_type:"",prefix:"",bdate_from:"",bdate_to:""};l.customer_id="";l.company_id="";l.status="";async function M(y,f={}){let g={charge:f.charge||"SERVICE",group:f.group||"NJ",mode:"accounting",queue:"billing_posted",scope:"all",filters:{}};y.innerHTML=`
-    <div class="card bl-filter">
+    <div class="card bl-filter">${HB684()}
       
       <div class="bl-row">
         <input class="inp" id="bl-q" autocomplete="off"
@@ -153,3 +153,5 @@ function SO517() { return [...SL517.entries()].sort((a, b) => SC517(a[1], b[1]))
 export{M as render};
 /* V.586 · ชื่อเล่น USER เปลี่ยน (Realtime "njacc:nick" → window "njacc:nick-changed") : โหลดรายการหน้าปัจจุบันใหม่เฉพาะเมื่อหน้านี้ยังเปิดอยู่ (ไม่ดึงข้อมูลอื่นเพิ่ม) */
 function NK586(el,ok,fn){try{el.__nk586&&window.removeEventListener("njacc:nick-changed",el.__nk586);let tm=0,h=el.__nk586=()=>{if(!el.isConnected||!ok()){window.removeEventListener("njacc:nick-changed",h);return}clearTimeout(tm);tm=setTimeout(()=>{try{el.isConnected&&ok()&&fn()}catch(e){}},400)};window.addEventListener("njacc:nick-changed",h)}catch(e){}}
+/* V.684 · ACCOUNTING → BILLING PDF : ชื่อเมนู + Version เหนือแถวค้นหา (ในกรอบ .bl-filter) · ใส่ class hd684 ที่ #app-shell (router ล้างทุกครั้งที่เปลี่ยนหน้า) — CSS ซ่อนแถบบน (จอ ≥1101px) / ซ่อนข้อมูลผู้ใช้มุมขวาบน */
+function HB684(){try{let e=x=>String(x==null?"":x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]),s=document.getElementById("app-shell"),t=document.getElementById("tb-title"),v=document.querySelector("#app-shell .tb .tb-ver");s&&s.classList.add("hd684");return'<div class="dh683"><span class="dh683-t">'+e(t&&t.textContent)+"</span>"+(v?'<span class="tb-ver dh683-v" title="'+e(v.getAttribute("title"))+'">'+e(v.textContent)+"</span>":"")+"</div>"}catch(x){return""}}
