@@ -495,11 +495,12 @@ var RPG_HEAD_TONE = [6, 7, 8, 9];          /* หัววัน สลับ �
 var RPG_ST_FILL = { "ปกติ": 10, "มาสาย": 11, "ขาดงาน": 12, "ลา": 13, "วันหยุด": 14 };
 
 function rpgStylesXml() {
-  var fonts = '<fonts count="4">'
+  var fonts = '<fonts count="5">'
     + '<font><sz val="11"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
     + '<font><b/><sz val="11"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
     + '<font><b/><sz val="14"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
     + '<font><sz val="10"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
+    + '<font><sz val="11"/><color rgb="FF374151"/><name val="Tahoma"/></font>'   /* [RUN-203] 4 ช่วงวันที่ เทาเข้ม */
     + '</fonts>';
   var fills = '<fill><patternFill patternType="none"/></fill>'
     + '<fill><patternFill patternType="gray125"/></fill>';
@@ -539,6 +540,7 @@ function rpgStylesXml() {
   add(3, 10, 1, MID); add(3, 11, 1, MID); add(3, 12, 1, MID);
   add(3, 13, 1, MID); add(3, 14, 1, MID);   /* 14-18 สถานะ 5 สี            */
   add(0, 15, 1, MID, 200);                  /* 19 OT ม่วงอ่อน              */
+  add(4, 0, 0, LEF);                        /* 20 [RUN-203] ช่วงวันที่ เทาเข้ม */
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     + nf + fonts + fills + borders
@@ -546,7 +548,7 @@ function rpgStylesXml() {
     + '<cellXfs count="' + xf.length + '">' + xf.join("") + '</cellXfs></styleSheet>';
 }
 var RPG_S = { TXT: 2, CEN: 3, NUM: 4, TXT2: 5, CEN2: 6, NUM2: 7,
-  H_EMP: 8, H_SUM: 9, H_DAY: [10, 11, 12, 13], ST: [14, 15, 16, 17, 18], OT: 19, TITLE: 1 };
+  H_EMP: 8, H_SUM: 9, H_DAY: [10, 11, 12, 13], ST: [14, 15, 16, 17, 18], OT: 19, TITLE: 1, SUB: 20 };
 var RPG_ST_IDX = { "ปกติ": 0, "มาสาย": 1, "ขาดงาน": 2, "ลา": 3, "วันหยุด": 4 };
 
 /* spec = {groups:[{label,from,to,style}], head:[...], rows:[[{v,s}|v,...]],
@@ -554,19 +556,22 @@ var RPG_ST_IDX = { "ปกติ": 0, "มาสาย": 1, "ขาดงาน"
 function rpgSheetXml(spec) {
   var head = spec.head || [], rows = spec.rows || [], N = head.length;
   var top = (spec.titleLines || []).length;
-  var r1 = top + 1, r2 = top + 2, first = top + 3;
+  var ng = !!spec.noGroup;                                  /* [RUN-203] Sheet 2 = หัวตารางแถวเดียว */
+  var r1 = top + 1, r2 = ng ? top + 1 : top + 2, first = r2 + 1;
   function rpgCell(ref, v, s) {
     if (v == null || v === "") return '<c r="' + ref + '" s="' + s + '"/>';
     if (typeof v === "number" && isFinite(v)) return '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
     return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + rptXmlEsc(v) + '</t></is></c>';
   }
-  var xml = "";
+  var xml = "", merges = [], gi = 0;
   (spec.titleLines || []).forEach(function (t, i) {
-    xml += '<row r="' + (i + 1) + '" ht="' + (i === 0 ? 22 : 16) + '" customHeight="1">'
-      + rpgCell("A" + (i + 1), t, i === 0 ? RPG_S.TITLE : 0) + '</row>';
+    xml += '<row r="' + (i + 1) + '" ht="' + (i === 0 ? 22 : 18) + '" customHeight="1">'
+      + rpgCell("A" + (i + 1), t, i === 0 ? RPG_S.TITLE : RPG_S.SUB) + '</row>';
+    if (N > 1) merges.push("A" + (i + 1) + ":" + rptColLetter(N - 1) + (i + 1));   /* [RUN-203] merge เต็มความกว้างตาราง */
   });
   /* แถวที่ 1 ของตาราง = หัวกลุ่ม (merge) */
-  var g1 = "", gi = 0, merges = [];
+  var g1 = "";
+  if (!ng) {
   for (var c1 = 1; c1 <= N; c1++) {
     var g = null;
     for (gi = 0; gi < (spec.groups || []).length; gi++) {
@@ -579,6 +584,7 @@ function rpgSheetXml(spec) {
     if (g.to > g.from) merges.push(rptColLetter(g.from - 1) + r1 + ":" + rptColLetter(g.to - 1) + r1);
   });
   xml += '<row r="' + r1 + '" ht="24" customHeight="1">' + g1 + '</row>';
+  }
   /* แถวที่ 2 = หัวคอลัมน์ */
   var h2 = "";
   for (var c2 = 1; c2 <= N; c2++) {
@@ -604,9 +610,10 @@ function rpgSheetXml(spec) {
     return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>';
   }).join("");
   var fx = spec.freezeX || 0, fy = r2;
-  var pane = '<sheetViews><sheetView tabSelected="1" workbookViewId="0">'
-    + '<pane xSplit="' + fx + '" ySplit="' + fy + '" topLeftCell="'
+  var pane = '<sheetViews><sheetView' + (spec.tabSelected === false ? '' : ' tabSelected="1"') + ' workbookViewId="0">'
+    + (fx ? '<pane xSplit="' + fx + '" ySplit="' + fy + '" topLeftCell="'
     + rptColLetter(fx) + (fy + 1) + '" activePane="bottomRight" state="frozen"/>'
+    : '<pane ySplit="' + fy + '" topLeftCell="A' + (fy + 1) + '" activePane="bottomLeft" state="frozen"/>')   /* [RUN-203] ไม่ตรึงคอลัมน์ */
     + '</sheetView></sheetViews>';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -619,14 +626,16 @@ function rpgSheetXml(spec) {
     + '</worksheet>';
 }
 
-function rptBuildXlsxGrid(sheetName, spec) {
+function rptBuildXlsxGrid(sheetName, spec, spec2) {
   var zip = new window.JSZip;
+  var two = !!spec2;   /* [RUN-203] Sheet 2 รายละเอียดรายวัน */
   zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
     + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
     + '<Default Extension="xml" ContentType="application/xml"/>'
     + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
     + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + (two ? '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' : '')
     + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
     + '</Types>');
   zip.folder("_rels").file(".rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -637,14 +646,17 @@ function rptBuildXlsxGrid(sheetName, spec) {
   xl.file("workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
     + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    + '<sheets><sheet name="' + rptXmlEsc(sheetName) + '" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    + '<sheets><sheet name="' + rptXmlEsc(sheetName) + '" sheetId="1" r:id="rId1"/>'
+    + (two ? '<sheet name="' + rptXmlEsc(spec2.name || "Sheet2") + '" sheetId="2" r:id="rId3"/>' : '') + '</sheets></workbook>');
   xl.folder("_rels").file("workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
     + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    + (two ? '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>' : '')
     + '</Relationships>');
   xl.file("styles.xml", rpgStylesXml());
   xl.folder("worksheets").file("sheet1.xml", rpgSheetXml(spec));
+  if (two) xl.folder("worksheets").file("sheet2.xml", rpgSheetXml(Object.assign({}, spec2, { tabSelected: false })));
   return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
 }
 

@@ -1,11 +1,39 @@
-NJHR V2 — RELEASE local362   (RUN-202)
+NJHR V2 — RELEASE local363   (RUN-203)
 
-BUILD   = ดูที่ config.js -> window.NJHR_BUILD_VERSION
-RELEASE = ดูที่ config.js -> window.NJHR_RELEASE
+BUILD   = ดูที่ config.js -> window.NJHR_BUILD_VERSION   (= njhr-v2-8a844fc7 · เดิม local362 = njhr-v2-faa1362d)
+RELEASE = ดูที่ config.js -> window.NJHR_RELEASE   (= local363)
           ทั้งสองค่าแสดงบนหน้าจอแล้ว: มุมล่างเมนูด้านซ้าย + ใต้โลโก้หน้าเข้าสู่ระบบ
 
-SQL ที่ต้องรัน:  ไม่มี — RUN-187 รันลง Production เรียบร้อยแล้ว 27/10/2569
-                 RUN-188 ถึง RUN-202 ไม่มี SQL
+SQL ที่ต้องรัน:  ไม่มี — RUN-203 แก้ Frontend อย่างเดียว (ไม่แตะฐานข้อมูล / RPC)
+
+================================================================
+RUN-203  รายงานการลงเวลา -> EXPORT EXCEL (ทุกสถานะ) : เวลา 0.00 · หัวรายงาน · กฎสถานะ · Sheet 2
+================================================================
+ขอบเขต    แก้ 2 ไฟล์ (+ ไฟล์เวอร์ชัน asset-manifest.js · config.js · sw.js · index.html)
+            views/attendance/report.js       rptAttRow(เพิ่มฟิลด์ inTs/outTs) · rptFetchAttDaily(เก็บช่วงการจ้างงาน)
+                                             rptSumDayStatus · rptSumDayMap · rptSumGridSpec(1 บรรทัด) · rptExportSummary(1 บรรทัด)
+                                             เพิ่ม rptSumHasScan · rptSumHM · rptSumTimeOf · rptSumLeaveName · rptSumNoRowSt · rptSumDetailSpec
+            runtime/shared/report-export.js  rpgStylesXml(+ฟอนต์/สไตล์ช่วงวันที่) · rpgSheetXml · rptBuildXlsxGrid(+Sheet 2)
+          ไม่แตะ: ตารางบนหน้าจอ · rptSumRows · rptSumPaint · rptComposeDaily · rptBuildXlsx · rptBuildXlsxChart ·
+                  rptStylesXml · รายงาน OT / ลา / สิทธิ์วันลา · โหมดเลือกสถานะเดียว (ไฟล์เดิมพร้อมกราฟ) · ฐานข้อมูล · RPC · สิทธิ์
+
+ต้นเหตุ 0.00   เวลาเข้า-ออกถูกแปลงด้วย toLocaleTimeString("th-TH") ซึ่งผลลัพธ์ขึ้นกับเบราว์เซอร์/เครื่อง
+               ข้อมูลจริง 0412 วันที่ 26/09/2569 (เสาร์) สแกนจริง 00:00:38 / 00:00:49 (work_hours 0.00 · สถานะระบบ NORMAL)
+แก้            Export ใช้เวลาสแกนดิบ (check_in/check_out) แปลงเป็น HH:mm เวลาไทยเอง ไม่ขึ้นกับ Locale
+               ไม่มีสแกน / 0 / Null = ช่องว่าง · สแกนจริง 00:00 = "00:00" (ข้อความ ไม่ใช่ตัวเลข)
+
+หัวรายงาน      2 บรรทัด: "รายงานการลงเวลา — สรุปจำนวนวันรายพนักงาน" (ตัวหนา น้ำเงินเข้ม)
+               "ช่วงวันที่: วว/ดด/ปปปป(พ.ศ.) – ..." (เทาเข้ม) · ชิดซ้าย · Merge เต็มความกว้างตาราง · ต่อด้วยตารางทันที
+
+กฎสถานะ (Export) ลำดับ: วันหยุด(เสาร์–อาทิตย์ / วันหยุดบริษัท) -> ไม่มีสแกนทั้งคู่: ใบลาอนุมัติ = ชื่อประเภทลาจริง / ไม่มี = ขาดงาน
+               -> สแกนด้านเดียว = ขาดงาน -> สแกนครบ: ระบบ LATE (ตามเวลาเริ่มงานของกะ) = มาสาย / อื่น = ปกติ
+               วันที่ไม่มีแถว: เสาร์–อาทิตย์ = วันหยุด เฉพาะในช่วงการจ้างงาน (ก่อนเริ่มงาน/หลังลาออก = ว่าง)
+
+Sheet          1 "REPORT ALL" = ตารางแนวนอนเดิม (RUN-202) · 2 "รายละเอียดรายวัน" = พนักงาน x วันที่
+               ทั้ง 2 Sheet ใช้ลูปวัน / dayMap / otMap ชุดเดียวกัน ยอดสรุปจึงตรงกันทุกคน
+
+ทดสอบ          _check/run203/t203.js + c203.py : ข้อมูลจริง 0412 + กรณีสังเคราะห์ครบทุกกฎ -> สร้าง .xlsx จริง
+               อ่านกลับด้วย openpyxl 30/30 PASS · เปิดด้วย LibreOffice ได้ · ไม่ได้ทดสอบด้วย Microsoft Excel จริง
 
 ================================================================
 RUN-202  รายงานการลงเวลา -> EXPORT EXCEL -> ตารางลงเวลารายวันแนวนอน
