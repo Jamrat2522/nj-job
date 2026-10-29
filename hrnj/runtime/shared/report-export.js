@@ -489,18 +489,21 @@ var RPG_FILL = [
   "FFD9DE",   /* 12 สถานะ ขาดงาน  */
   "D6E9FF",   /* 13 สถานะ ลา      */
   "E7EAEF",   /* 14 สถานะ วันหยุด */
-  "EFE3FB"    /* 15 OT ม่วงอ่อน   */
+  "EFE3FB",   /* 15 OT ม่วงอ่อน   */
+  "FFF4CC"    /* 16 [RUN-204] สถานะ ลงเวลาไม่ครบ — เหลืองอ่อน */
 ];
 var RPG_HEAD_TONE = [6, 7, 8, 9];          /* หัววัน สลับ เขียว ฟ้า ม่วง ส้ม */
-var RPG_ST_FILL = { "ปกติ": 10, "มาสาย": 11, "ขาดงาน": 12, "ลา": 13, "วันหยุด": 14 };
+var RPG_ST_FILL = { "ปกติ": 10, "มาสาย": 11, "ขาดงาน": 12, "ลา": 13, "วันหยุด": 14,
+  "ลงเวลาไม่ครบ": 16 };
 
 function rpgStylesXml() {
   var fonts = '<fonts count="5">'
     + '<font><sz val="11"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
     + '<font><b/><sz val="11"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
-    + '<font><b/><sz val="14"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
+    + '<font><b/><sz val="14"/><color rgb="FF1B3B6F"/><name val="Tahoma"/></font>'
     + '<font><sz val="10"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
-    + '<font><sz val="11"/><color rgb="FF374151"/><name val="Tahoma"/></font>'   /* [RUN-203] 4 ช่วงวันที่ เทาเข้ม */
+    /* [RUN-203] บรรทัดช่วงวันที่ใต้ชื่อรายงาน — เทาเข้ม */
+    + '<font><sz val="11"/><color rgb="FF4B5563"/><name val="Tahoma"/></font>'
     + '</fonts>';
   var fills = '<fill><patternFill patternType="none"/></fill>'
     + '<fill><patternFill patternType="gray125"/></fill>';
@@ -541,6 +544,8 @@ function rpgStylesXml() {
   add(3, 13, 1, MID); add(3, 14, 1, MID);   /* 14-18 สถานะ 5 สี            */
   add(0, 15, 1, MID, 200);                  /* 19 OT ม่วงอ่อน              */
   add(4, 0, 0, LEF);                        /* 20 [RUN-203] ช่วงวันที่ เทาเข้ม */
+  add(3, 16, 1, MID);                       /* 21 [RUN-204] สถานะ ลงเวลาไม่ครบ เหลืองอ่อน
+                                                 ต่อท้ายไว้เพื่อไม่ให้เลขสไตล์เดิมขยับ */
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     + nf + fonts + fills + borders
@@ -548,30 +553,32 @@ function rpgStylesXml() {
     + '<cellXfs count="' + xf.length + '">' + xf.join("") + '</cellXfs></styleSheet>';
 }
 var RPG_S = { TXT: 2, CEN: 3, NUM: 4, TXT2: 5, CEN2: 6, NUM2: 7,
-  H_EMP: 8, H_SUM: 9, H_DAY: [10, 11, 12, 13], ST: [14, 15, 16, 17, 18], OT: 19, TITLE: 1, SUB: 20 };
-var RPG_ST_IDX = { "ปกติ": 0, "มาสาย": 1, "ขาดงาน": 2, "ลา": 3, "วันหยุด": 4 };
+  H_EMP: 8, H_SUM: 9, H_DAY: [10, 11, 12, 13], ST: [14, 15, 16, 17, 18, 21], OT: 19,
+  TITLE: 1, SUB: 20 };
+var RPG_ST_IDX = { "ปกติ": 0, "มาสาย": 1, "ขาดงาน": 2, "ลา": 3, "วันหยุด": 4,
+  "ลงเวลาไม่ครบ": 5 };   /* [RUN-204] */
 
 /* spec = {groups:[{label,from,to,style}], head:[...], rows:[[{v,s}|v,...]],
            widths:[...], titleLines:[...], freezeX:n, freezeY:n} */
-function rpgSheetXml(spec) {
+function rpgSheetXml(spec, isFirst) {
   var head = spec.head || [], rows = spec.rows || [], N = head.length;
   var top = (spec.titleLines || []).length;
-  var ng = !!spec.noGroup;                                  /* [RUN-203] Sheet 2 = หัวตารางแถวเดียว */
-  var r1 = top + 1, r2 = ng ? top + 1 : top + 2, first = r2 + 1;
+  var r1 = top + 1, r2 = top + 2, first = top + 3;
   function rpgCell(ref, v, s) {
     if (v == null || v === "") return '<c r="' + ref + '" s="' + s + '"/>';
     if (typeof v === "number" && isFinite(v)) return '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
     return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + rptXmlEsc(v) + '</t></is></c>';
   }
-  var xml = "", merges = [], gi = 0;
+  var xml = "", merges = [];
+  /* [RUN-203] หัวรายงานชิดซ้าย Merge เต็มความกว้างตาราง และลดระยะห่างกับตาราง
+     บรรทัดแรก = ชื่อรายงาน ตัวหนาสีน้ำเงินเข้ม · บรรทัดถัดไป = ช่วงวันที่ สีเทาเข้ม */
   (spec.titleLines || []).forEach(function (t, i) {
-    xml += '<row r="' + (i + 1) + '" ht="' + (i === 0 ? 22 : 18) + '" customHeight="1">'
+    xml += '<row r="' + (i + 1) + '" ht="' + (i === 0 ? 21 : 15) + '" customHeight="1">'
       + rpgCell("A" + (i + 1), t, i === 0 ? RPG_S.TITLE : RPG_S.SUB) + '</row>';
-    if (N > 1) merges.push("A" + (i + 1) + ":" + rptColLetter(N - 1) + (i + 1));   /* [RUN-203] merge เต็มความกว้างตาราง */
+    if (N > 1) merges.push("A" + (i + 1) + ":" + rptColLetter(Math.min(N, 8) - 1) + (i + 1));
   });
   /* แถวที่ 1 ของตาราง = หัวกลุ่ม (merge) */
-  var g1 = "";
-  if (!ng) {
+  var g1 = "", gi = 0;
   for (var c1 = 1; c1 <= N; c1++) {
     var g = null;
     for (gi = 0; gi < (spec.groups || []).length; gi++) {
@@ -584,7 +591,6 @@ function rpgSheetXml(spec) {
     if (g.to > g.from) merges.push(rptColLetter(g.from - 1) + r1 + ":" + rptColLetter(g.to - 1) + r1);
   });
   xml += '<row r="' + r1 + '" ht="24" customHeight="1">' + g1 + '</row>';
-  }
   /* แถวที่ 2 = หัวคอลัมน์ */
   var h2 = "";
   for (var c2 = 1; c2 <= N; c2++) {
@@ -610,10 +616,9 @@ function rpgSheetXml(spec) {
     return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>';
   }).join("");
   var fx = spec.freezeX || 0, fy = r2;
-  var pane = '<sheetViews><sheetView' + (spec.tabSelected === false ? '' : ' tabSelected="1"') + ' workbookViewId="0">'
-    + (fx ? '<pane xSplit="' + fx + '" ySplit="' + fy + '" topLeftCell="'
+  var pane = '<sheetViews><sheetView' + (isFirst === false ? '' : ' tabSelected="1"') + ' workbookViewId="0">'
+    + '<pane xSplit="' + fx + '" ySplit="' + fy + '" topLeftCell="'
     + rptColLetter(fx) + (fy + 1) + '" activePane="bottomRight" state="frozen"/>'
-    : '<pane ySplit="' + fy + '" topLeftCell="A' + (fy + 1) + '" activePane="bottomLeft" state="frozen"/>')   /* [RUN-203] ไม่ตรึงคอลัมน์ */
     + '</sheetView></sheetViews>';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -626,16 +631,100 @@ function rpgSheetXml(spec) {
     + '</worksheet>';
 }
 
-function rptBuildXlsxGrid(sheetName, spec, spec2) {
+/* [RUN-204] รวม styles.xml สองชุดเข้าด้วยกัน
+   ใช้ styles ของ "ต้นทาง" เป็นฐานเสมอ เลขสไตล์ของต้นทางจึงไม่ขยับแม้แต่ตัวเดียว
+   (รวมถึง dxfs ที่ Conditional Formatting อ้างถึง) แล้วต่อ styles ของตารางรายวัน
+   ไว้ท้ายสุด พร้อมเลื่อนเลข font/fill/border ของฝั่งที่ต่อท้ายให้ตรงกับตำแหน่งใหม่
+   คืน { xml, offset } โดย offset = จำนวน cellXfs ของต้นทาง สำหรับเลื่อนเลขสไตล์ในชีตที่ต่อท้าย */
+function rpgCount(xml, tag) {
+  var m = new RegExp("<" + tag + "[^>]*count=\"(\\d+)\"").exec(xml);
+  return m ? Number(m[1]) : 0;
+}
+function rpgInner(xml, tag) {
+  var i = xml.indexOf("<" + tag);
+  if (i < 0) return "";
+  var selfClose = /^<[^>]*\/>/.exec(xml.slice(i));
+  if (selfClose) return "";
+  var open = xml.indexOf(">", i) + 1, close = xml.indexOf("</" + tag + ">", open);
+  return close < 0 ? "" : xml.slice(open, close);
+}
+function rpgSplit(inner, tag) {
+  var out = [], d = 0, start = -1, i = 0, open = "<" + tag, close = "</" + tag + ">";
+  while (i < inner.length) {
+    if (inner.substr(i, open.length) === open && /[ >\/]/.test(inner.charAt(i + open.length) || ">")) {
+      if (!d) start = i;
+      d++;
+      var gt = inner.indexOf(">", i);
+      if (inner.charAt(gt - 1) === "/") { d--; if (!d) { out.push(inner.slice(start, gt + 1)); } }
+      i = gt + 1; continue;
+    }
+    if (inner.substr(i, close.length) === close) { d--; if (!d) out.push(inner.slice(start, i + close.length)); i += close.length; continue }
+    i++;
+  }
+  return out;
+}
+function rpgShiftXf(xf, dFont, dFill, dBorder) {
+  return xf.replace(/fontId="(\d+)"/g, function (_, v) { return 'fontId="' + (Number(v) + dFont) + '"' })
+    .replace(/fillId="(\d+)"/g, function (_, v) { return 'fillId="' + (Number(v) + dFill) + '"' })
+    .replace(/borderId="(\d+)"/g, function (_, v) { return 'borderId="' + (Number(v) + dBorder) + '"' });
+}
+function rpgMergeStyles(baseXml, addXml) {
+  var nFont = rpgCount(baseXml, "fonts"), nFill = rpgCount(baseXml, "fills"), nBorder = rpgCount(baseXml, "borders");
+  var offset = rpgCount(baseXml, "cellXfs");
+  var fonts = rpgInner(baseXml, "fonts") + rpgInner(addXml, "fonts");
+  var fills = rpgInner(baseXml, "fills") + rpgInner(addXml, "fills");
+  var borders = rpgInner(baseXml, "borders") + rpgInner(addXml, "borders");
+  var numFmts = rpgInner(baseXml, "numFmts") + rpgInner(addXml, "numFmts");
+  var xfs = rpgSplit(rpgInner(baseXml, "cellXfs"), "xf")
+    .concat(rpgSplit(rpgInner(addXml, "cellXfs"), "xf").map(function (x) { return rpgShiftXf(x, nFont, nFill, nBorder) }));
+  var nf = rpgCount(baseXml, "numFmts") + rpgCount(addXml, "numFmts");
+  var dxfs = rpgInner(baseXml, "dxfs"), nDxf = rpgCount(baseXml, "dxfs");
+  var cs = rpgInner(baseXml, "cellStyleXfs") || '<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>';
+  var nCs = rpgCount(baseXml, "cellStyleXfs") || 1;
+  return { offset: offset, xml: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + (nf ? '<numFmts count="' + nf + '">' + numFmts + '</numFmts>' : "")
+    + '<fonts count="' + (nFont + rpgCount(addXml, "fonts")) + '">' + fonts + '</fonts>'
+    + '<fills count="' + (nFill + rpgCount(addXml, "fills")) + '">' + fills + '</fills>'
+    + '<borders count="' + (nBorder + rpgCount(addXml, "borders")) + '">' + borders + '</borders>'
+    + '<cellStyleXfs count="' + nCs + '">' + cs + '</cellStyleXfs>'
+    + '<cellXfs count="' + xfs.length + '">' + xfs.join("") + '</cellXfs>'
+    + (nDxf ? '<dxfs count="' + nDxf + '">' + dxfs + '</dxfs>' : "")
+    + '</styleSheet>' };
+}
+/* เลื่อนเลขสไตล์ของทุกเซลล์ในชีตที่ต่อท้าย — rpgSheetXml ใช้ s="N" เฉพาะใน <c> เท่านั้น */
+function rpgShiftSheet(xml, offset) {
+  if (!offset) return xml;
+  return xml.replace(/(<c r="[A-Z]+\d+" s=")(\d+)(")/g,
+    function (_, a, v, b) { return a + (Number(v) + offset) + b });
+}
+
+/* [RUN-204] ตารางรายวัน 1 Sheet (REPORT ALL) + Sheet "รวม" ที่โคลนมาจากเมนูรายงานทั้งหมด
+   extra = { name, sheetXml, stylesXml } — XML ของชีตต้นทางถูกใช้ทั้งก้อนโดยไม่แก้
+   และ styles ของต้นทางเป็นฐาน เลขสไตล์ต้นทางจึงไม่ขยับ Sheet 2 จึงเหมือนต้นฉบับ 100% */
+function rptBuildXlsxGrid(sheetName, spec, extra) {
+  var gridXml = rpgSheetXml(spec, true), stylesXml = rpgStylesXml();
+  var sheets = [{ name: sheetName, xml: gridXml }];
+  if (extra && extra.sheetXml && extra.stylesXml) {
+    var m = rpgMergeStyles(extra.stylesXml, stylesXml);
+    stylesXml = m.xml;
+    sheets = [{ name: sheetName, xml: rpgShiftSheet(gridXml, m.offset) },
+      { name: extra.name, xml: extra.sheetXml }];
+  }
   var zip = new window.JSZip;
-  var two = !!spec2;   /* [RUN-203] Sheet 2 รายละเอียดรายวัน */
+  var types = "", rels = "", tabs = "";
+  sheets.forEach(function (sh, i) {
+    var n = i + 1;
+    types += '<Override PartName="/xl/worksheets/sheet' + n + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    rels += '<Relationship Id="rId' + n + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + n + '.xml"/>';
+    tabs += '<sheet name="' + rptXmlEsc(sh.name) + '" sheetId="' + n + '" r:id="rId' + n + '"/>';
+  });
   zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
     + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
     + '<Default Extension="xml" ContentType="application/xml"/>'
     + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-    + (two ? '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' : '')
+    + types
     + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
     + '</Types>');
   zip.folder("_rels").file(".rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -646,17 +735,15 @@ function rptBuildXlsxGrid(sheetName, spec, spec2) {
   xl.file("workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
     + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    + '<sheets><sheet name="' + rptXmlEsc(sheetName) + '" sheetId="1" r:id="rId1"/>'
-    + (two ? '<sheet name="' + rptXmlEsc(spec2.name || "Sheet2") + '" sheetId="2" r:id="rId3"/>' : '') + '</sheets></workbook>');
+    + '<sheets>' + tabs + '</sheets></workbook>');
   xl.folder("_rels").file("workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-    + (two ? '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>' : '')
+    + rels
+    + '<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
     + '</Relationships>');
-  xl.file("styles.xml", rpgStylesXml());
-  xl.folder("worksheets").file("sheet1.xml", rpgSheetXml(spec));
-  if (two) xl.folder("worksheets").file("sheet2.xml", rpgSheetXml(Object.assign({}, spec2, { tabSelected: false })));
+  xl.file("styles.xml", stylesXml);
+  var ws = xl.folder("worksheets");
+  sheets.forEach(function (sh, i) { ws.file("sheet" + (i + 1) + ".xml", sh.xml) });
   return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
 }
 

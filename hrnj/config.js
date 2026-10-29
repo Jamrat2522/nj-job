@@ -21,10 +21,10 @@ window.NJHR_ENV_NAME = 'production';
 /* [RUN-189] แสดงบนหน้าจอได้แล้ว (มุมล่างเมนู + หน้าเข้าสู่ระบบ)
    เพื่อให้ตรวจได้ทันทีหลังอัปโหลดว่าเครื่องนี้รับรุ่นใหม่แล้วหรือยัง
    ค่าทั้งสองบรรทัดนี้ถูกเขียนโดย _check/rebuild-version.py ห้ามพิมพ์เอง */
-window.NJHR_BUILD_VERSION = 'njhr-v2-8a844fc7';
+window.NJHR_BUILD_VERSION = 'njhr-v2-bfda7958';
 
 /* ชื่อรุ่นที่ส่งมอบ (ตรงกับชื่อ ZIP) — ใช้สื่อสารกับคนเท่านั้น ไม่มีผลต่อ Force Update */
-window.NJHR_RELEASE = 'local363';
+window.NJHR_RELEASE = 'local364';
 
 /* ---------- 3) Supabase ---------- */
 window.NJHR_SUPABASE_URL      = 'https://sytgqjglcnsabcszbngg.supabase.co';
