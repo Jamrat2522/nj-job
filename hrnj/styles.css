@@ -1826,3 +1826,49 @@ body.printing-payslip #payslip-print-area .payslip-a4-page>.epayslip{transform:n
   .lv-v2 .lv-bic .ic{width:18px;height:18px}
   .lv-v2 .lv-tbl thead th,.lv-v2 .lv-tbl tbody td{padding:10px 10px}
 }
+
+/* ============================================================
+   [RUN-201] REPORT ALL — การ์ดสรุป 8 ใบแถวเดียว เหนือชุดตัวกรอง
+   ทุกกฎอยู่ใต้ .rpa-kpis (คลาสใหม่ของหน้านี้เท่านั้น)
+   จึงไม่กระทบการ์ด .rp-kpi / .rp-kpis ของหน้า Dashboard ที่ใช้คลาสเดิมร่วมกัน
+   ไม่แตะตัวกรอง ปุ่ม Export หรือ Flow ใด ๆ — ปรับเฉพาะการจัดวางและขนาด
+   ============================================================ */
+/* อยู่บนสุดของหน้าแล้ว จึงไม่ต้องเว้นระยะด้านบนซ้ำกับ padding ของ .main-view */
+.rpa-kpis{margin-top:0;margin-bottom:14px}
+
+@media screen and (min-width:901px){
+  /* แถวเดียวจริง — จำนวนคอลัมน์ตามจำนวนการ์ดที่มีจริง (7 ใบเมื่อไม่มีคำเตือน · 8 ใบเมื่อมี)
+     ใช้ minmax(0,1fr) เพื่อให้ทุกใบกว้างเท่ากันและยุบได้โดยไม่ดันตารางให้ล้น */
+  .rp-page .rpa-kpis{display:grid;gap:9px;align-items:stretch;margin-top:0;margin-bottom:14px}
+  .rp-page .rpa-kpis.rpa-n6{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .rp-page .rpa-kpis.rpa-n7{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .rp-page .rpa-kpis.rpa-n8{grid-template-columns:repeat(8,minmax(0,1fr))}
+
+  /* การ์ดเล็กลงพอดีกับ 8 คอลัมน์ — ไอคอนขึ้นบน ข้อความอยู่ล่าง ทำให้ชื่อยาวไม่ถูกบีบ */
+  .rp-page .rpa-kpis .rp-kpi{flex-direction:column;align-items:flex-start;gap:7px;
+    padding:11px 11px 10px;border-radius:12px;height:100%;min-width:0}
+  .rp-page .rpa-kpis .rp-kpi-ic{width:32px;height:32px;border-radius:9px;font-size:15px}
+  .rp-page .rpa-kpis .rp-kpi .grow{width:100%;min-width:0}
+  .rp-page .rpa-kpis .rp-kpi small{font-size:11px;line-height:1.3;color:#64748b}
+  .rp-page .rpa-kpis .rp-kpi b{font-size:18px;line-height:1.25;margin-top:2px;
+    overflow-wrap:anywhere;word-break:break-word}
+  .rp-page .rpa-kpis .rp-kpi em{font-size:10.5px;line-height:1.3;margin-top:3px}
+
+  /* จอแคบกว่า 1500px — ลดขนาดลงอีกขั้นก่อนจะต้องเลื่อน */
+  @media (max-width:1499px){
+    .rp-page .rpa-kpis{gap:7px}
+    .rp-page .rpa-kpis .rp-kpi{padding:9px 9px 8px}
+    .rp-page .rpa-kpis .rp-kpi-ic{width:28px;height:28px;border-radius:8px;font-size:14px}
+    .rp-page .rpa-kpis .rp-kpi small{font-size:10.5px}
+    .rp-page .rpa-kpis .rp-kpi b{font-size:16px}
+    .rp-page .rpa-kpis .rp-kpi em{font-size:10px}
+  }
+
+  /* พื้นที่ไม่พอจริง ๆ ให้เลื่อนเฉพาะแถวการ์ด ไม่ดันทั้งหน้าให้ล้นจอ (ตามสเปกข้อ 7)
+     ขอบเขตล่างคำนวณจากการ์ดที่แคบที่สุดที่ยังอ่านตัวเลขครบ */
+  .rp-page .rpa-kpis{overflow-x:auto;overflow-y:hidden;padding-bottom:2px;
+    scrollbar-width:thin;scroll-snap-type:x proximity}
+  .rp-page .rpa-kpis.rpa-n8{grid-template-columns:repeat(8,minmax(132px,1fr))}
+  .rp-page .rpa-kpis.rpa-n7{grid-template-columns:repeat(7,minmax(132px,1fr))}
+  .rp-page .rpa-kpis .rp-kpi{scroll-snap-align:start}
+}

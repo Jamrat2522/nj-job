@@ -467,4 +467,188 @@ function rptGuardCap(rows,label){
   return rows;
 }
 
+/* ===========================================================================
+   [RUN-202] ตัวสร้าง Excel แบบ "ตารางลงเวลารายวันแนวนอน"
+   ใช้เฉพาะ Export โหมดสรุปของหน้ารายงานการลงเวลา
+   มี styles.xml เป็นของตัวเอง ไม่แตะ rptStylesXml()/rptBuildXlsx()/rptBuildXlsxChart()
+   ที่รายงาน OT / ลา / สิทธิ์วันลา / รายงานลงเวลาแบบรายวัน ใช้ร่วมกันอยู่
+   =========================================================================== */
+
+/* โทนสีพาสเทล — index ตรงกับลำดับใน <fills> ด้านล่าง */
+var RPG_FILL = [
+  "FFFFFF",   /* 2  ขาว            */
+  "F5FAFF",   /* 3  ฟ้าอ่อนมาก (แถบสลับ) */
+  "DCEBFF",   /* 4  หัวข้อมูลพนักงาน — ฟ้าพาสเทล */
+  "FCE4EC",   /* 5  หัวยอดสรุป — ชมพูพาสเทล */
+  "DFF5E3",   /* 6  หัววัน เขียว */
+  "DEEBFF",   /* 7  หัววัน ฟ้า   */
+  "EDE4FB",   /* 8  หัววัน ม่วง  */
+  "FFE8D1",   /* 9  หัววัน ส้ม   */
+  "D9F7DF",   /* 10 สถานะ ปกติ    */
+  "FFE3C2",   /* 11 สถานะ มาสาย   */
+  "FFD9DE",   /* 12 สถานะ ขาดงาน  */
+  "D6E9FF",   /* 13 สถานะ ลา      */
+  "E7EAEF",   /* 14 สถานะ วันหยุด */
+  "EFE3FB"    /* 15 OT ม่วงอ่อน   */
+];
+var RPG_HEAD_TONE = [6, 7, 8, 9];          /* หัววัน สลับ เขียว ฟ้า ม่วง ส้ม */
+var RPG_ST_FILL = { "ปกติ": 10, "มาสาย": 11, "ขาดงาน": 12, "ลา": 13, "วันหยุด": 14 };
+
+function rpgStylesXml() {
+  var fonts = '<fonts count="4">'
+    + '<font><sz val="11"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
+    + '<font><b/><sz val="11"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
+    + '<font><b/><sz val="14"/><color rgb="FF1E3A5F"/><name val="Tahoma"/></font>'
+    + '<font><sz val="10"/><color rgb="FF1F2937"/><name val="Tahoma"/></font>'
+    + '</fonts>';
+  var fills = '<fill><patternFill patternType="none"/></fill>'
+    + '<fill><patternFill patternType="gray125"/></fill>';
+  RPG_FILL.forEach(function (c) {
+    fills += '<fill><patternFill patternType="solid"><fgColor rgb="FF' + c + '"/><bgColor indexed="64"/></patternFill></fill>';
+  });
+  fills = '<fills count="' + (2 + RPG_FILL.length) + '">' + fills + '</fills>';
+  /* ขอบบาง สีเทาอ่อน ครบ 4 ด้านทุกช่อง — ห้ามมีเส้นขาด */
+  var borders = '<borders count="2">'
+    + '<border><left/><right/><top/><bottom/><diagonal/></border>'
+    + '<border><left style="thin"><color rgb="FFBFD3E6"/></left><right style="thin"><color rgb="FFBFD3E6"/></right>'
+    + '<top style="thin"><color rgb="FFBFD3E6"/></top><bottom style="thin"><color rgb="FFBFD3E6"/></bottom><diagonal/></border>'
+    + '</borders>';
+  var nf = '<numFmts count="1"><numFmt numFmtId="200" formatCode="0.00"/></numFmts>';
+  /* ---- cellXfs ---- */
+  var xf = [];
+  function add(font, fill, border, align, num) {
+    xf.push('<xf numFmtId="' + (num || 0) + '" fontId="' + font + '" fillId="' + fill + '" borderId="' + border
+      + '" xfId="0" applyFont="1" applyFill="1" applyBorder="1"'
+      + (align ? ' applyAlignment="1"><alignment ' + align + '/></xf>' : '/>')
+      + (align ? '' : ''));
+  }
+  var CEN = 'horizontal="center" vertical="center" wrapText="1"';
+  var MID = 'horizontal="center" vertical="center"';
+  var LEF = 'horizontal="left" vertical="center"';
+  add(0, 0, 0, null);                       /* 0  ว่าง ไม่มีขอบ            */
+  add(2, 0, 0, LEF);                        /* 1  หัวเรื่องตัวใหญ่          */
+  add(0, 2, 1, LEF);                        /* 2  ข้อความ แถวขาว           */
+  add(0, 2, 1, MID);                        /* 3  กึ่งกลาง แถวขาว          */
+  add(0, 2, 1, MID, 200);                   /* 4  ตัวเลข 2 ตำแหน่ง แถวขาว  */
+  add(0, 3, 1, LEF);                        /* 5  ข้อความ แถวสลับ          */
+  add(0, 3, 1, MID);                        /* 6  กึ่งกลาง แถวสลับ         */
+  add(0, 3, 1, MID, 200);                   /* 7  ตัวเลข แถวสลับ           */
+  add(1, 4, 1, CEN);                        /* 8  หัวข้อมูลพนักงาน ฟ้า      */
+  add(1, 5, 1, CEN);                        /* 9  หัวยอดสรุป ชมพู          */
+  RPG_HEAD_TONE.forEach(function (f) { add(1, f, 1, CEN) });   /* 10-13 หัววัน 4 โทน */
+  add(3, 10, 1, MID); add(3, 11, 1, MID); add(3, 12, 1, MID);
+  add(3, 13, 1, MID); add(3, 14, 1, MID);   /* 14-18 สถานะ 5 สี            */
+  add(0, 15, 1, MID, 200);                  /* 19 OT ม่วงอ่อน              */
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + nf + fonts + fills + borders
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="' + xf.length + '">' + xf.join("") + '</cellXfs></styleSheet>';
+}
+var RPG_S = { TXT: 2, CEN: 3, NUM: 4, TXT2: 5, CEN2: 6, NUM2: 7,
+  H_EMP: 8, H_SUM: 9, H_DAY: [10, 11, 12, 13], ST: [14, 15, 16, 17, 18], OT: 19, TITLE: 1 };
+var RPG_ST_IDX = { "ปกติ": 0, "มาสาย": 1, "ขาดงาน": 2, "ลา": 3, "วันหยุด": 4 };
+
+/* spec = {groups:[{label,from,to,style}], head:[...], rows:[[{v,s}|v,...]],
+           widths:[...], titleLines:[...], freezeX:n, freezeY:n} */
+function rpgSheetXml(spec) {
+  var head = spec.head || [], rows = spec.rows || [], N = head.length;
+  var top = (spec.titleLines || []).length;
+  var r1 = top + 1, r2 = top + 2, first = top + 3;
+  function rpgCell(ref, v, s) {
+    if (v == null || v === "") return '<c r="' + ref + '" s="' + s + '"/>';
+    if (typeof v === "number" && isFinite(v)) return '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
+    return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + rptXmlEsc(v) + '</t></is></c>';
+  }
+  var xml = "";
+  (spec.titleLines || []).forEach(function (t, i) {
+    xml += '<row r="' + (i + 1) + '" ht="' + (i === 0 ? 22 : 16) + '" customHeight="1">'
+      + rpgCell("A" + (i + 1), t, i === 0 ? RPG_S.TITLE : 0) + '</row>';
+  });
+  /* แถวที่ 1 ของตาราง = หัวกลุ่ม (merge) */
+  var g1 = "", gi = 0, merges = [];
+  for (var c1 = 1; c1 <= N; c1++) {
+    var g = null;
+    for (gi = 0; gi < (spec.groups || []).length; gi++) {
+      if (c1 >= spec.groups[gi].from && c1 <= spec.groups[gi].to) { g = spec.groups[gi]; break }
+    }
+    var st = g ? g.style : RPG_S.H_EMP;
+    g1 += rpgCell(rptColLetter(c1 - 1) + r1, (g && c1 === g.from) ? g.label : "", st);
+  }
+  (spec.groups || []).forEach(function (g) {
+    if (g.to > g.from) merges.push(rptColLetter(g.from - 1) + r1 + ":" + rptColLetter(g.to - 1) + r1);
+  });
+  xml += '<row r="' + r1 + '" ht="24" customHeight="1">' + g1 + '</row>';
+  /* แถวที่ 2 = หัวคอลัมน์ */
+  var h2 = "";
+  for (var c2 = 1; c2 <= N; c2++) {
+    var gg = null;
+    for (gi = 0; gi < (spec.groups || []).length; gi++) {
+      if (c2 >= spec.groups[gi].from && c2 <= spec.groups[gi].to) { gg = spec.groups[gi]; break }
+    }
+    h2 += rpgCell(rptColLetter(c2 - 1) + r2, head[c2 - 1], gg ? gg.style : RPG_S.H_EMP);
+  }
+  xml += '<row r="' + r2 + '" ht="30" customHeight="1">' + h2 + '</row>';
+  /* แถวข้อมูล */
+  rows.forEach(function (row, ri) {
+    var rn = first + ri, x = "";
+    for (var c = 1; c <= N; c++) {
+      var it = row[c - 1];
+      if (it && typeof it === "object" && !(it instanceof Date)) x += rpgCell(rptColLetter(c - 1) + rn, it.v, it.s);
+      else x += rpgCell(rptColLetter(c - 1) + rn, it, ri % 2 ? RPG_S.TXT2 : RPG_S.TXT);
+    }
+    xml += '<row r="' + rn + '" ht="19" customHeight="1">' + x + '</row>';
+  });
+  var last = first + rows.length - 1;
+  var cols = (spec.widths || []).map(function (w, i) {
+    return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>';
+  }).join("");
+  var fx = spec.freezeX || 0, fy = r2;
+  var pane = '<sheetViews><sheetView tabSelected="1" workbookViewId="0">'
+    + '<pane xSplit="' + fx + '" ySplit="' + fy + '" topLeftCell="'
+    + rptColLetter(fx) + (fy + 1) + '" activePane="bottomRight" state="frozen"/>'
+    + '</sheetView></sheetViews>';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<dimension ref="A1:' + rptColLetter(N - 1) + (rows.length ? last : r2) + '"/>'
+    + pane + '<sheetFormatPr defaultRowHeight="15"/>'
+    + '<cols>' + cols + '</cols><sheetData>' + xml + '</sheetData>'
+    + '<autoFilter ref="A' + r2 + ':' + rptColLetter(N - 1) + (rows.length ? last : r2) + '"/>'
+    + (merges.length ? '<mergeCells count="' + merges.length + '">'
+      + merges.map(function (m) { return '<mergeCell ref="' + m + '"/>' }).join("") + '</mergeCells>' : '')
+    + '</worksheet>';
+}
+
+function rptBuildXlsxGrid(sheetName, spec) {
+  var zip = new window.JSZip;
+  zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+    + '</Types>');
+  zip.folder("_rels").file(".rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    + '</Relationships>');
+  var xl = zip.folder("xl");
+  xl.file("workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+    + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets><sheet name="' + rptXmlEsc(sheetName) + '" sheetId="1" r:id="rId1"/></sheets></workbook>');
+  xl.folder("_rels").file("workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    + '</Relationships>');
+  xl.file("styles.xml", rpgStylesXml());
+  xl.folder("worksheets").file("sheet1.xml", rpgSheetXml(spec));
+  return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", compression: "DEFLATE" });
+}
+
+NJHR.compat.scope.rptBuildXlsxGrid=rptBuildXlsxGrid;
+NJHR.compat.scope.RPG_S=RPG_S;
+NJHR.compat.scope.RPG_ST_IDX=RPG_ST_IDX;
 NJHR.compat.scope.rptBuildXlsx=rptBuildXlsx;NJHR.compat.scope.rptBuildXlsxChart=rptBuildXlsxChart;NJHR.compat.scope.rptDateBE=rptDateBE;NJHR.compat.scope.rptLoadZip=rptLoadZip;NJHR.compat.scope.rptNorm=rptNorm;NJHR.compat.scope.rptSafeName=rptSafeName;NJHR.compat.scope.rptFetchAllPages=rptFetchAllPages;NJHR.compat.scope.rptComposeDaily=rptComposeDaily;NJHR.compat.scope.rptParseWorkingDays=rptParseWorkingDays;NJHR.compat.scope.rptIsoAdd=rptIsoAdd;NJHR.compat.scope.rptIsoDow=rptIsoDow;NJHR.compat.scope.rptIsoRange=rptIsoRange;NJHR.compat.scope.rptGuardCap=rptGuardCap;NJHR.compat.scope.rptFetchShiftMap=rptFetchShiftMap;NJHR.compat.scope.rptEmpKey=rptEmpKey})();
