@@ -112,7 +112,7 @@ ${g647?"":`      <div class="bpd-apl-bt">Bill To.</div>
     <table class="bpd-tb bpd-tb-apl bpd-tb635"><colgroup>${cw.map(x=>`<col style="width:${x}%">`).join("")}</colgroup>
     <thead><tr>
       <th class="bpd-y">Date</th><th class="bpd-y">Item</th><th class="bpd-y">Invoice No.</th>
-      <th class="bpd-y">${p&&p.sg673?"LOT":"Master"}</th><th class="bpd-y">${p&&p.sg673?"Summit date":p&&p.st707?"STATUS":"House"}</th>
+      <th class="bpd-y">${p&&p.sg673?"LOT":"Master"}</th><th class="bpd-y">${p&&p.sg673?"Summit date":p&&p.st707?"Status:":"House"}</th>
       <th class="bpd-y">Type</th><th class="bpd-y">Company</th>
       <th class="bpd-y">DCL INV.</th><th class="bpd-y">Job No.</th>
       <th class="bpd-y">Service</th><th class="bpd-y">Advance</th>
@@ -564,7 +564,7 @@ function DT516(w) {
 function CW516(rows, edc, st) {   /* V.635 : วัดที่ขนาดตัวอักษรจริงของ PDF (11px / หัว 11.5px ตัวหนา) */
   let H = ["Date", "Item", "Invoice No.", "Master", "House", "Type", "Company", "DCL INV.", "Job No.", "Service", "Advance", "Vat", "Amount", "Wht", "Amount"];   /* V.681 : Vat / Wht / Job No. / Amount */   /* V.672 : ชื่อหัวใหม่ · Company ≤ 10 ตัวอักษร = บรรทัดเดียว */
   if (edc) H[3] = "LOT", H[4] = "Summit date";   /* V.692 : APL EDC เท่านั้น */
-  if (st) H[4] = "STATUS";   /* V.707 : WORD+LEE เท่านั้น */
+  if (st) H[4] = "Status:";   /* V.707 : WORD+LEE เท่านั้น · V.709 : หัวข้อ "Status:" */
   let NW = [2, 2, 1, 1, 1, 2, 1, 1, 0, 2, 2, 2, 2, 2, 2], BASE = [0, 0, 1, 2, 2, 0, 1, 1, 2, 0, 0, 0, 0, 0, 0];
   let R = rows || [], tot = (k) => M(nj481R(R.reduce((c0, a0) => c0 + nj481Val(a0, k), 0)));
   let cells = R.map((w, i) => [K(w.invoice_date) || "00/00/0000", String(i + 1), E(w.invoice_no), E(w.master_bl_no ?? w.master), E(w.house_bl_no), E(w.data_type), E(C10672(CI585(w.company_invoice))), E(w.customs_declaration_no), E(w.customer_job_no), M(w.service_amount), M(w.advance_amount), M(w.vat_amount), M(nj481Amt(w)), M(w.wht_amount), M(nj481Tot(w))]);

@@ -91,7 +91,7 @@ import{n as PF569}from"./chunk-SGWIBJH6.js";import{SF551,AC546,AD698}from"./job-
       
       <td>${a("cost")}</td>
       <td><input class="inp r" data-k="qty" type="number" step="0.01" min="0" value="${t.qty??""}"></td>
-      <td>${SF551.unitSel(t.unit,'data-k="unit"')}</td>
+      <td>${UC713(t.unit)}</td>
       <td>${a("price")}</td>
       <td>${a("amount","data-calc readonly tabindex=\"-1\"")}</td>
       
@@ -377,3 +377,56 @@ function IV584(open){var bg=document.getElementById("nj-modal");if(!bg||!bg.quer
 function TB588(pv){try{var z=pv.querySelector(".ivd-zoom");if(z){var q=function(k){return z.querySelector('[data-z="'+k+'"]')},v=z.querySelector(".ivd-zoom-v"),f=q("fit");[q("100"),q("in"),f,v].forEach(function(x){x&&z.appendChild(x)});f&&(f.textContent="Fit to Screen")}
   var pr=pv.querySelector("#ivd-print");if(pr){pr.textContent="\u{1F5A8} Print";var sv=document.createElement("button");sv.type="button";sv.className="btn btn-p";sv.id="ivd-save587";sv.textContent="\u{1F4BE} Save PDF";sv.onclick=function(){pr.click()};pr.insertAdjacentElement("afterend",sv)}
   var x=pv.querySelector(".modal-h [data-close]");x&&(x.removeAttribute("data-close"),x.className="btn btn-o iv587-x",x.setAttribute("aria-label","\u0E1B\u0E34\u0E14 Preview"),x.textContent="\u2715 \u0E1B\u0E34\u0E14")}catch(e){try{console.warn("TB588",e)}catch(_e){}}}
+
+/* ═══ V.713 · ACCOUNTING → SERVICE / ADVANCE ตาราง INVOICE : UNIT = Combobox (คลิกเลือกจากรายการเดิม 10 ค่า · พิมพ์ค้นหา · "กรอกเอง" พิมพ์ค่าใหม่ ≤ 40 ตัวอักษร)
+   ค่าเดิม / ค่าที่กรอกเองแสดงตามจริง · SAVE ค่าที่เลือก / พิมพ์จริง (data-k="unit" เดิม) · POST แล้ว / VIEW = ช่องถูกปิดตามกลไกเดิม (แก้ไม่ได้) · Backend RUN-713 รับค่ากรอกเอง ═══ */
+var UL713 = ["SHIPMENT", "PAGE", "CONTAINER", "INVOICE", "ROUND", "VEHICLE", "SET", "DAY", "TRUCK", "FLAT RATE"], UO713 = "กรอกเอง";
+function ue713(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function UC713(v) {
+  UI713();
+  return '<div class="u713"><input class="inp u713-i" data-k="unit" value="' + ue713(v == null ? "" : v) + '" placeholder="— เลือก UNIT —" autocomplete="off" spellcheck="false" maxlength="40" role="combobox" aria-expanded="false"><span class="u713-ar" aria-hidden="true">▾</span></div>';
+}
+var UP713 = null, UA713 = null;
+function UI713() {
+  if (UI713.on) return; UI713.on = !0;
+  var st = document.createElement("style"); st.id = "u713-css";
+  st.textContent = ".u713{position:relative}.u713 .u713-i{padding-right:26px;cursor:pointer;text-transform:none}.u713 .u713-i:disabled,.u713 .u713-i[readonly]{cursor:default}.u713-ar{position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;font-size:12px}" +
+    ".u713-p{position:fixed;z-index:10060;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 30px rgba(15,23,42,.18);max-height:min(350px,60vh);overflow:auto;padding:4px;min-width:160px;font-size:13px}" +
+    ".u713-p button{display:block;width:100%;text-align:left;border:0;background:none;padding:7px 10px;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;color:#0f172a}.u713-p button:hover,.u713-p button.on{background:#eff6ff}.u713-p button.sel{font-weight:700;color:#1d4ed8}.u713-p button.own{border-top:1px solid #e2e8f0;margin-top:3px;color:#7c3aed;font-weight:600}.u713-p .e{padding:7px 10px;color:#94a3b8}";
+  document.head.appendChild(st);
+  var ok = function (x) { return x && x.classList && x.classList.contains("u713-i") && !x.disabled && !x.readOnly; };
+  document.addEventListener("focusin", function (e) { if (ok(e.target)) { e.target.__q713 = ""; UO713o(e.target); } }, !0);
+  document.addEventListener("mousedown", function (e) { if (ok(e.target)) { if (UA713 !== e.target) { e.target.__q713 = ""; UO713o(e.target); } return; } if (UP713 && !UP713.contains(e.target)) UC713c(); }, !0);
+  document.addEventListener("input", function (e) { if (ok(e.target) && !e.target.__set713) { e.target.__q713 = e.target.value; UO713o(e.target); } }, !0);
+  document.addEventListener("keydown", function (e) {
+    if (!UP713 || !UA713 || e.target !== UA713) return;
+    var bs = [...UP713.querySelectorAll("button")], i = bs.findIndex(function (b) { return b.classList.contains("on"); });
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); i = e.key === "ArrowDown" ? Math.min(bs.length - 1, i + 1) : Math.max(0, i - 1); bs.forEach(function (b, k) { b.classList.toggle("on", k === i); }); bs[i] && bs[i].scrollIntoView({ block: "nearest" }); }
+    else if (e.key === "Enter") { if (i >= 0 && bs[i]) { e.preventDefault(); bs[i].click(); } else UC713c(); }
+    else if (e.key === "Escape" || e.key === "Tab") UC713c();
+  }, !0);
+  window.addEventListener("scroll", function (e) { if (!UP713 || (e.target && e.target.nodeType === 1 && UP713.contains(e.target))) return; UA713 && UA713.isConnected ? UPOS713(UA713) : UC713c(); }, !0);
+  window.addEventListener("resize", function () { UC713c(); });
+}
+function US713(inp, v) { inp.__set713 = !0; inp.value = v; inp.dispatchEvent(new Event("input", { bubbles: !0 })); inp.dispatchEvent(new Event("change", { bubbles: !0 })); inp.__set713 = !1; }
+function UC713c() { if (UP713) { UP713.remove(); UP713 = null; } if (UA713) { UA713.setAttribute("aria-expanded", "false"); UA713 = null; } }
+function UO713o(inp) {
+  UC713c(); UA713 = inp; inp.setAttribute("aria-expanded", "true");
+  var q = String(inp.__q713 || "").trim().toUpperCase(), cur = String(inp.value || "").trim(), list = UL713.filter(function (u) { return !q || u.indexOf(q) >= 0; });
+  var p = document.createElement("div"); p.className = "u713-p"; p.setAttribute("role", "listbox");
+  p.innerHTML = (list.length ? list.map(function (u) { return '<button type="button" data-u713="' + ue713(u) + '"' + (u === cur ? ' class="sel"' : "") + ">" + ue713(u) + "</button>"; }).join("") : '<div class="e">ไม่พบในรายการ — ใช้ค่าที่พิมพ์ได้เลย</div>') +
+    '<button type="button" class="own" data-own713>✎ ' + UO713 + "</button>";
+  p.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  p.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b || !UA713) return; var x = UA713;
+    if (b.hasAttribute("data-own713")) { UC713c(); US713(x, ""); x.placeholder = "พิมพ์ UNIT เอง"; x.__q713 = ""; try { x.focus(); } catch (er) {} return; }
+    UC713c(); US713(x, b.getAttribute("data-u713") || "");
+  });
+  document.body.appendChild(p); UP713 = p; UPOS713(inp);
+}
+function UPOS713(inp) {
+  var p = UP713; if (!p) return;
+  var r = inp.getBoundingClientRect(), h = p.offsetHeight, below = window.innerHeight - r.bottom;
+  p.style.left = Math.max(4, r.left) + "px"; p.style.minWidth = Math.max(160, r.width) + "px";
+  p.style.top = (below < h + 8 && r.top > h + 8 ? r.top - h - 4 : r.bottom + 4) + "px";
+}

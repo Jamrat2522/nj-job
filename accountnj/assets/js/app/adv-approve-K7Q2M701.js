@@ -97,7 +97,20 @@ function css() {
     ".aq7-warn{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:13px}",
     ".aq7-tl{list-style:none;margin:0;padding:0}.aq7-tl li{display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed #e2e8f0;font-size:13.5px}.aq7-tl small{display:block;color:#64748b}",
     ".aq7-dt{flex:none;width:10px;height:10px;border-radius:50%;margin-top:5px;background:#64748b}.aq7-dt.o{background:#f97316}.aq7-dt.i{background:#2563eb}.aq7-dt.c{background:#16a34a}.aq7-dt.p{background:#7c3aed}.aq7-dt.x{background:#dc2626}",
-    "@media (min-width:761px){.aq7{padding-top:8px}.aq7-sh{align-items:center}.aq7-sb{border-radius:18px;max-height:90vh}}"
+    "@media (min-width:761px){.aq7{padding-top:8px}.aq7-sh{align-items:center}.aq7-sb{border-radius:18px;max-height:90vh}}",
+    /* V.714 · มือถือ Compact : Header / กรอบสรุปสถานะ (สูงลง ~35%) / ค้นหา / การ์ด JOB · Bottom Navigation 4 เมนูเดิม */
+    ".aq7-h{padding:10px 14px 11px;gap:10px;border-radius:0 0 14px 14px}.aq7-h b{font-size:16px}.aq7-h small{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aq7-rf{width:36px;height:36px;border-radius:10px}",
+    ".aq7-c{padding:10px 12px 0}",
+    ".aq7-kp{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}.aq7-k{min-height:54px;padding:7px 9px;border-radius:10px;gap:1px;min-width:0}.aq7-k b{font-size:19px}.aq7-k span{font-size:11.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    ".aq7-s{height:40px;border-radius:10px;margin:0 0 8px}.aq7-s input{height:38px}.aq7-sg{margin:0 0 8px}.aq7-sg button{height:36px;font-size:13px;border-radius:9px}",
+    ".aq7-lt{font-size:14.5px;margin:2px 0 6px}.aq7-em{padding:18px 10px}.aq7-more{height:40px;margin:0 0 10px}",
+    ".aq7-row{padding:9px 10px;gap:9px;margin:0 0 7px;border-radius:11px;box-shadow:none}.aq7-ri{width:34px;height:34px;border-radius:9px}.aq7-ri svg{width:18px;height:18px}",
+    ".aq7-rm b{font-size:14.5px}.aq7-rm small{font-size:12px;line-height:1.35}.aq7-rr{gap:3px}.aq7-rr b{font-size:14.5px}.aq7-rr small{font-size:11px}.aq7-pl{height:20px;font-size:11px}",
+    /* V.714 · AUTO SUMMARY + ปุ่ม COPY (รายละเอียด JOB) */
+    ".aq7-sm{border:1px solid #bfdbfe;border-radius:12px;background:#f8fbff;margin:14px 0 4px;overflow:hidden}",
+    ".aq7-smh{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;border-bottom:1px solid #dbeafe;background:#eff6ff}.aq7-smh span{flex:1;min-width:0;font-weight:700;font-size:13.5px;color:#1e3a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    ".aq7-smh .aq7-cp{flex:none;height:34px;padding:0 12px;gap:5px;background:#1d4ed8;border-color:#1d4ed8;color:#fff}.aq7-smh .aq7-cp:disabled{opacity:.55}",
+    ".aq7-smt{margin:0;padding:10px 12px;font-family:inherit;font-size:13.5px;line-height:1.5;color:#0f172a;white-space:pre-wrap;word-break:break-word}"
   ].join("");
   document.head.appendChild(s);
 }
@@ -224,9 +237,11 @@ async function openJob(jobId) {
     if (!S || S.sheet !== w) return;
     if (!g || !g.req) { sheet("ไม่พบคำขอ", "", '<div class="aq7-em">JOB นี้ยังไม่มีคำขออนุมัติ</div>'); return; }
     var ap = g.req.status === "APPROVED" || g.req.status === "PAID";   /* V.704 : INVOICE ADV + Timeline History (อ่านอย่างเดียว) */
-    var ex = await Promise.all([ap ? rpc("njacc_cash_adv702_get", { p_job: jobId }).catch(function () { return null; }) : null, rpc("njacc_adv698_get", { p_job: jobId }).catch(function () { return null; })]);
+    var ex = await Promise.all([ap ? rpc("njacc_cash_adv702_get", { p_job: jobId }).catch(function () { return null; }) : null, rpc("njacc_adv698_get", { p_job: jobId }).catch(function () { return null; }),
+      import("./job-form-4IHODUQT.js").then(function (m) { return m.AD698; }).catch(function () { return null; })]);   /* V.714 : ฟังก์ชัน AUTO SUMMARY เดิมของ Desktop */
     if (!S || S.sheet !== w) return;
     g.invoices = ap ? (ex[0] ? ex[0].invoices || [] : null) : void 0; g.timeline = ex[1] && ex[1].timeline || [];
+    g.sum714 = sum714(g, ex[1], ex[2]);
     detail(g);
   } catch (e) { if (S && S.sheet === w) sheet("เปิดไม่ได้", "", '<div class="aq7-em">' + esc(errMsg(e)) + "</div>"); }
 }
@@ -236,7 +251,7 @@ function detail(g) {
   if (r.status === "PENDING") h += '<div class="aq7-bar o"><b>🕒 รออนุมัติ</b><small>ส่งโดย ' + esc(r.requested_by || "-") + " · " + esc(d7(r.requested_at)) + "</small></div>";
   if (r.status === "APPROVED") h += '<div class="aq7-bar b"><b>✅ อนุมัติแล้ว — รอจ่ายเงิน</b><small>อนุมัติโดย ' + esc(r.approved_by || "-") + " · " + esc(d7(r.approved_at)) + " · จ่ายแล้ว " + r.paid_count + "/" + r.item_count + " รายการ</small></div>";
   if (r.status === "PAID") h += '<div class="aq7-bar g"><b>✅ อนุมัติแล้ว — จ่ายเงินแล้ว</b><small>ยอดจ่าย ' + fm(r.paid_total) + " บาท · " + esc(d7(r.paid_at)) + "</small></div>";
-  if (r.status === "PAID" && j.operational_status && j.operational_status !== "CLOSE" && j.operational_status !== "CANCELED")   /* V.705 : จ่ายครบแต่ปิดงานอัตโนมัติไม่สำเร็จ → ลองใหม่ (ไม่จ่ายซ้ำ) */
+  if (!1 && r.status === "PAID" && j.operational_status && j.operational_status !== "CLOSE" && j.operational_status !== "CANCELED")   /* V.710 : ยกเลิกปิดงานอัตโนมัติ (RUN-710) · V.705 : จ่ายครบแต่ปิดงานอัตโนมัติไม่สำเร็จ → ลองใหม่ (ไม่จ่ายซ้ำ) */
     h += '<div class="aq7-bar o"><b>⚠ ปิดงาน DOCUMENT อัตโนมัติยังไม่สำเร็จ</b><small>การจ่าย / สลิปบันทึกครบแล้ว</small><div class="aq7-ia"><button type="button" class="aq7-btn p" data-retry7>↻ ลองปิดงานอีกครั้ง</button></div></div>';
   if (r.status === "REJECTED") h += '<div class="aq7-bar r"><b>❌ ไม่อนุมัติ — ยกเลิก JOB</b><small>โดย ' + esc(r.rejected_by || "-") + " · " + esc(d7(r.rejected_at)) + '</small><div style="margin-top:4px;font-weight:600;white-space:pre-wrap">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
   h += '<dl class="aq7-dl"><dt>JOB</dt><dd>' + esc(r.job_no) + "</dd><dt>Company</dt><dd>" + esc(j.company_invoice || "-") + "</dd><dt>Customer</dt><dd>" + esc(j.customer_name || "-") + "</dd><dt>House B/L</dt><dd>" + esc(j.house_bl_no || "-") +
@@ -251,12 +266,13 @@ function detail(g) {
     h += "</div>";
   });
   if (g.invoices !== void 0) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
-  h += '<div class="aq7-h3">Timeline History</div>' + tlHTML(r, g.timeline);
+  h += sumHTML714(g);   /* V.714 : มือถือไม่แสดง Timeline History (ข้อมูล / Audit จริงไม่ถูกแตะ · Desktop แสดงเดิม) · แสดง AUTO SUMMARY + ปุ่ม COPY แทน */
   if (r.status === "PENDING") f = '<button type="button" class="aq7-btn d" data-rej>✕ ไม่อนุมัติ</button><button type="button" class="aq7-btn g" data-apv>✓ อนุมัติ</button>';
   if (r.status === "PAID") f = '<button type="button" class="aq7-btn g" data-cppaid="0">📋 COPY แจ้งจ่ายแล้ว</button>';
   var w = sheet(esc(r.job_no), '<em class="aq7-pl ' + s[1] + '">' + esc(s[0]) + "</em>", h, f);
   w.addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b || !S.cur) return; var R = S.cur.req, J = S.cur.job || {};
+    if (b.hasAttribute("data-cpsum714")) { cp714(S.cur.sum714); return; }
     if (b.hasAttribute("data-cpacc")) { var it = R.items[Number(b.dataset.cpacc) - 1]; it && it.account_no ? copy(String(it.account_no).trim(), "คัดลอกเลขบัญชีแล้ว") : toast("ยังไม่มีเลขบัญชี", "err"); return; }
     if (b.hasAttribute("data-cppaid")) { var nn = Number(b.dataset.cppaid); if (nn ? (R.pays || []).some(function (x) { return Number(x.item_no) === nn; }) : R.status === "PAID") copy(paidText(R, J, nn), "คัดลอกข้อความแจ้งจ่ายแล้วเรียบร้อย"); return; }
     if (b.hasAttribute("data-slipv") || b.hasAttribute("data-slipd")) { slip(R, Number(b.dataset.slipv || b.dataset.slipd), b.hasAttribute("data-slipd"), b); return; }
@@ -407,3 +423,30 @@ async function render(root, args) {
   }, 6e4);
 }
 export{render,badge};
+
+/* ═══ V.714 · CASH ADVANCE มือถือ : AUTO SUMMARY (ข้อความจากฟังก์ชันเดิมของ Desktop · AD698 summary) + ปุ่ม COPY
+   รายการจ่าย = njacc_adv698_get (ชุดเดียวกับ Desktop) · ไม่มี = รายการในคำขอ · COPY อ่านอย่างเดียว ไม่บันทึก / ไม่แก้ข้อมูล · COPY เฉพาะ JOB ที่เปิดอยู่ ═══ */
+function sum714(g, d698, AD) {
+  try {
+    if (!AD || typeof AD.sumText714 !== "function") return null;
+    var r = g.req || {}, j = g.job || {}, it = d698 && Array.isArray(d698.items) && d698.items.length ? d698.items : (r.items || []);
+    return AD.sumText714({ job_no: r.job_no || j.job_no || "", company_invoice: j.company_invoice || "", customer_name: j.customer_name || "", house_bl_no: j.house_bl_no || "", data_type: j.data_type || "" }, it);
+  } catch (e) { return null; }
+}
+function sumHTML714(g) {
+  var t = g.sum714;
+  return '<div class="aq7-sm"><div class="aq7-smh"><span>สรุปข้อมูลอัตโนมัติ (AUTO SUMMARY)</span><button type="button" class="aq7-cp" data-cpsum714' + (t ? "" : " disabled") + ">" + IC.cp + "COPY</button></div>" +
+    (t ? '<pre class="aq7-smt">' + esc(t) + "</pre>" : '<div class="aq7-warn" style="margin:8px">สร้างข้อความ AUTO SUMMARY ไม่สำเร็จ — กรุณาปิดแล้วเปิด JOB ใหม่</div>') + "</div>";
+}
+function cp714(text) {
+  if (!text) { toast("คัดลอกไม่สำเร็จ — ไม่มีข้อความ AUTO SUMMARY", "err"); return; }
+  var ok = function () { toast("คัดลอกสำเร็จ", "ok"); };
+  var fb = function (why) {
+    var t = null, r = !1;
+    try { t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0"; document.body.appendChild(t); t.select(); t.setSelectionRange(0, text.length); r = document.execCommand("copy"); } catch (e) { why = e && e.message || why; }
+    try { t && t.remove(); } catch (e) {}
+    r ? ok() : toast("คัดลอกไม่สำเร็จ — " + (why || "เบราว์เซอร์ไม่อนุญาตให้คัดลอก"), "err");
+  };
+  try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(ok, function (e) { fb(e && e.message); }); return; } } catch (e) {}
+  fb("");
+}
