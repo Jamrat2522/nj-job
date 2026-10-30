@@ -1166,7 +1166,8 @@ var AD698 = (function () {
     ADV698_ITEMS: ["บันทึกรายการจ่าย", "i"], ADVANCE_PAY: ["ยืนยันจ่ายแล้ว (PAY)", "p"], ADVANCE_UNPAY: ["ย้อนกลับ PAY", "x"],
     SAVE_INVOICE_DRAFT: ["บันทึก INVOICE ADV (ร่าง)", "e"], ISSUE_INVOICE_NO_ON_SAVE: ["ออกเลข INVOICE ADV", "p"], POST_DRAFT_INVOICE: ["POST INVOICE ADV", "p"],
     POST_INVOICE: ["POST INVOICE ADV", "p"], UNPOST_INVOICE: ["UNPOST INVOICE ADV", "x"], UNPOST_TO_DRAFT: ["UNPOST INVOICE ADV", "x"], VOID_INVOICE: ["VOID INVOICE ADV", "x"],
-    EDIT_INVOICE_DATE: ["แก้วันที่ INVOICE ADV", "e"], RESET_INVOICE_NO: ["รีเซ็ตเลข INVOICE ADV", "s"]
+    EDIT_INVOICE_DATE: ["แก้วันที่ INVOICE ADV", "e"], RESET_INVOICE_NO: ["รีเซ็ตเลข INVOICE ADV", "s"],
+    ADV705_AUTO_CLOSE: ["ปิดงานอัตโนมัติ (CASH ADVANCE จ่ายครบ) → ส่ง ACCOUNTING", "p"], ADV705_AUTO_CLOSE_FAIL: ["ปิดงานอัตโนมัติไม่สำเร็จ", "x"]   /* V.705 */
   };
   function tlRows(list) {
     var out = [];
@@ -1292,7 +1293,7 @@ var AD698 = (function () {
       if (a === "req7") { sendReq(st, b); return; }
       if (a === "slipv" || a === "slipd") { slip7(st, b.dataset.n7, a === "slipd", b); return; }
       if (a === "cppaid") { var r7 = st.rq && st.rq.req; if (r7 && (b.dataset.n7 ? (r7.pays || []).some(function (x) { return String(x.item_no) === b.dataset.n7; }) : r7.status === "PAID")) copy(paidText(st, b.dataset.n7 ? Number(b.dataset.n7) : 0), "คัดลอกข้อความแจ้งจ่ายแล้วเรียบร้อย"); return; }
-      if (a === "open7") { try { window.open(location.pathname + location.search + "#/advance/approve?job=" + encodeURIComponent(st.jobId), "_blank", "noopener"); } catch (e) {} return; }
+      if (a === "open7") { try { window.open(location.pathname + location.search + "#/cash-advance?job=" + encodeURIComponent(st.jobId), "_blank", "noopener"); } catch (e) {} return; }
       if (st.roNow) return;
       if (a === "add") { st.items.push(norm({})); st.dirty = !0; render(st); var ins = el.querySelectorAll('tbody tr[data-i] [data-f6="payment_type"]'); ins.length && ins[ins.length - 1].focus(); return; }
       var tr = b.closest("tr[data-i]"); if (!tr) return; var i = Number(tr.dataset.i);
@@ -1362,7 +1363,7 @@ var AD698 = (function () {
       (Number(r.paid_count) > 0 ? " · จ่ายแล้ว " + r.paid_count + "/" + r.item_count + " รายการ (" + fm(r.paid_total) + " บาท)" : "") + "</small></div>";
     else if (r.status === "PAID") h = '<div class="ad701-bar g"><b>✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ</b><small>JOB ' + esc(r.job_no) + " · ยอดจ่าย " + fm(r.paid_total) + " บาท · " + d7(r.paid_at) + '</small><span class="ad701-act"><button type="button" class="ad701-b" data-a6="cppaid">📋 COPY แจ้งจ่ายแล้ว</button></span></div>';
     else if (r.status === "REJECTED") h = '<div class="ad701-bar r"><b>❌ ไม่อนุมัติ — ยกเลิก JOB</b><small>โดย ' + esc(r.rejected_by || "-") + " · " + d7(r.rejected_at) + '</small><div class="ad701-why">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
-    if (sup && (r.status === "PENDING" || r.status === "APPROVED") && !st.pv) h += '<button type="button" class="ad701-lk" data-a6="open7">เปิดหน้าอนุมัติ / แนบสลิป (SUPER_ADMIN) ›</button>';
+    if (sup && (r.status === "PENDING" || r.status === "APPROVED") && !st.pv) h += '<button type="button" class="ad701-lk" data-a6="open7">เปิดใน CASH ADVANCE (SUPER_ADMIN) ›</button>';
     return '<div class="ad701-p">' + h + "</div>";
   }
   function slipBox(p, it, n) {
