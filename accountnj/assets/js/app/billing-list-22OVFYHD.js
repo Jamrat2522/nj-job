@@ -73,7 +73,7 @@ import{e as h}from"./chunk-TKN6STDT.js";import"./chunk-UWAYW6DC.js";import"./chu
       <td class="t-b">${o(t.billing_no||"\u2014")}</td>
       <td><span class="bl-st ${t.status==="POSTED"&&!t.unposted_at?"is-posted":"is-draft"}"${t.unposted_at?' title="UNPOST \u0E2D\u0E22\u0E39\u0E48 \u2014 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 JOB \u0E41\u0E25\u0E49\u0E27 POST \u0E43\u0E2B\u0E21\u0E48 (\u0E40\u0E25\u0E02\u0E40\u0E14\u0E34\u0E21)"':""}>${t.status==="POSTED"?t.unposted_at?"Unpost":"Posted":"Draft"}</span></td>
       <td>${r(t.billing_date)||"-"}</td>
-      <td>${o((t.template==="apl"&&t.print_variant==="APL_EDC"?"APL EDC":T[t.template])||t.template||"-")}</td>
+      <td>${o((t.template==="apl"&&t.print_variant==="APL_EDC"?"APL EDC":t.template==="apl"&&t.print_variant==="WORD_LEE"?"WORD+LEE":T[t.template])||t.template||"-")}</td>
       <td class="ellip" title="${o(t.customer_names||"")}">${o(t.customer_names||"-")}</td>
       <td class="ellip" title="${o(t.company_names||"")}">${o(t.company_names||"-")}</td>
       <td class="ellip bl-h529">${o(t.job_category||"-")}</td>
