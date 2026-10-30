@@ -1,8 +1,8 @@
 import{c as u}from"./chunk-VWRH4JCR.js";import"./chunk-NG45Y6KB.js";import"./chunk-L5Z2NDJ3.js";import{j as r}from"./chunk-2B2FLIKC.js";import{b as $}from"./chunk-VS5POHCJ.js";import{c as p,d as v}from"./chunk-Q7FMECGI.js";import"./chunk-IOOV4VJU.js";import"./chunk-GDT6F23K.js";import{c as n,e as t,g}from"./chunk-NQOCXXA2.js";import"./chunk-SGWIBJH6.js";async function j(i,{id:_,from:c}){let e=await $(_),o=(a,m)=>`<div class="fld"><label>${a}</label><div>${m||"-"}</div></div>`;i.innerHTML=`
     <div class="page-head"><div class="page-title"><span class="dot"></span>
-      <h2>\u0E07\u0E32\u0E19 ${t(e.job_no)}</h2>${g(e.operational_status)}</div>
+      <h2>\u0E07\u0E32\u0E19 ${t(e.job_no||(e.charge_type==="ADVANCE"?"\u0E23\u0E2D POST":""))}</h2>${g(e.operational_status)}</div>
       <div class="row">
-        ${r("edit",e.charge_type,e.company_group)&&!e.invoice_id&&e.operational_status!=="CANCELED"?'<button class="btn btn-o" id="jd-edit">\u270F \u0E41\u0E01\u0E49\u0E44\u0E02</button>':""}
+        ${r("edit",e.charge_type,e.company_group)&&!e.invoice_id&&e.operational_status!=="CANCELED"&&!(c!=="accounting"&&e.charge_type==="ADVANCE"&&e.document_status==="POSTED"&&e.job_posted_at)?'<button class="btn btn-o" id="jd-edit">\u270F \u0E41\u0E01\u0E49\u0E44\u0E02</button>':""}
         ${r("invoice",e.charge_type,e.company_group)&&!e.invoice_id&&e.operational_status!=="CANCELED"?'<span class="t-xs t-3">\u0E2D\u0E2D\u0E01 Invoice \u0E44\u0E14\u0E49\u0E17\u0E35\u0E48 ACCOUNTING &gt; \u0E1B\u0E38\u0E48\u0E21 \u201C\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25\u201D</span>':""}
         ${e.invoice_id?'<button class="btn btn-o" id="jd-viewinv">\u0E14\u0E39 INVOICE</button>':""}
         <button class="btn btn-o" id="jd-back">\u2190 \u0E01\u0E25\u0E31\u0E1A</button></div></div>
