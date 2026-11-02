@@ -1,4 +1,4 @@
-import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{html716 as D716}from"./adv-doc-D716.js";
+import{approve725 as A725,slips725 as S725,cell725 as L725,draft725 as F725,css725 as K725}from"./adv-slip-A725.js";import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{html716 as D716}from"./adv-doc-D716.js";
 /* ═══ V.701 · มือถือ SUPER_ADMIN : อนุมัติเบิกเงินสำรองจ่าย ADVANCE (หน้าแรก / รออนุมัติ / อนุมัติแล้ว / ไม่อนุมัติ)
    ข้อมูลจาก RPC ใหม่ RUN-701 เท่านั้น (njacc_adv701_list / get / approve / reject / pay) — สิทธิ์ SUPER_ADMIN ตรวจที่ฐานข้อมูลทุกครั้ง
    สลิป : Storage private njacc-adv-slips (JPG / PNG / PDF ≤ 5 MB · ดู / ดาวน์โหลดด้วย Signed URL อายุ 2 นาที) · โหลดรายการแบบแบ่งหน้า · โหลดสลิปเมื่อกดดูเท่านั้น ═══ */
@@ -240,7 +240,8 @@ async function openJob(jobId) {
     if (!g || !g.req) { sheet("ไม่พบคำขอ", "", '<div class="aq7-em">JOB นี้ยังไม่มีคำขออนุมัติ</div>'); return; }
     var ap = g.req.status === "APPROVED" || g.req.status === "PAID";   /* V.704 : INVOICE ADV + Timeline History (อ่านอย่างเดียว) */
     var ex = await Promise.all([ap ? rpc("njacc_cash_adv702_get", { p_job: jobId }).catch(function () { return null; }) : null, rpc("njacc_adv698_get", { p_job: jobId }).catch(function () { return null; }),
-      import("./job-form-4IHODUQT.js").then(function (m) { return m.AD698; }).catch(function () { return null; })]);   /* V.714 : ฟังก์ชัน AUTO SUMMARY เดิมของ Desktop */
+      import("./job-form-4IHODUQT.js").then(function (m) { return m.AD698; }).catch(function () { return null; }),
+      g.req.status === "PENDING" || g.req.status === "APPROVED" ? S725(g.req.id) : null]);   /* V.725 : สลิปแนบล่วงหน้าแยกรายการ */   /* V.714 : ฟังก์ชัน AUTO SUMMARY เดิมของ Desktop */
     if (!S || S.sheet !== w) return;
     g.invoices = ap ? (ex[0] ? ex[0].invoices || [] : null) : void 0; g.timeline = ex[1] && ex[1].timeline || [];
     g.sum714 = sum714(g, ex[1], ex[2]);
@@ -251,11 +252,14 @@ function detail(g) {
   var r = g.req, j = g.job || {}, s = stInfo(r), h = "", f = "";
   S.cur = g;
   C724();   /* V.724 : มือถือใช้ส่วนแสดงเดียวกับ Desktop (1 คอลัมน์) · Timeline เป็น Accordion พับเริ่มต้น */
-  h += J724(r, j, r.status === "APPROVED" || r.status === "PAID", [[I724.one, "ผู้เปิดงาน", esc(j.created_by || "-")]]) + T724(r) + IT724(r, r.status === "APPROVED");
-  if (g.invoices !== void 0) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
-  h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0 });   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
-  h += sumHTML714(g);   /* V.714 : AUTO SUMMARY + COPY */
-  h += TL724(tlHTML(r, g.timeline || []), '<span class="ca24-chip">DOCUMENT — ADVANCE</span>');   /* V.724 : Timeline ล่างสุด (พับทุกครั้ง) */
+  K725(); ev725();   /* V.725 */
+  css726();   /* V.726 : มือถือ — AUTO SUMMARY บนสุด · ไม่แสดงข้อมูล JOB / แถบสถานะซ้ำ / Timeline · INVOICE ADV เฉพาะที่ออกเลขแล้ว · ไม่อนุมัติ = ข้อมูลคำขอ + เหตุผล */
+  if (r.status === "REJECTED") h += rej726(r, j) + IT724(r, !1, function (n) { return L725(r, n); });
+  else {
+    h += sum726(g) + IT724(r, r.status === "APPROVED", function (n) { return L725(r, n); });
+    if ((g.invoices || []).some(function (x) { return x.status === "POSTED" && x.invoice_no; })) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
+  }
+  h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0, del: !0 });   /* V.725 : ปุ่มลบ (SUPER_ADMIN · JOB ยังไม่ปิด / ยกเลิก) */
   if (r.status === "PENDING") f = '<button type="button" class="aq7-btn d" data-rej>✕ ไม่อนุมัติ</button><button type="button" class="aq7-btn g" data-apv>✓ อนุมัติ</button>';
   if (r.status === "PAID") f = '<button type="button" class="aq7-btn g" data-cppaid="0">📋 COPY แจ้งจ่ายแล้ว</button>';
   var w = sheet(esc(r.job_no), '<em class="aq7-pl ' + s[1] + '">' + esc(s[0]) + "</em>", h, f);
@@ -280,16 +284,18 @@ function ac7(ac) {   /* V.705 : ผลปิดงาน DOCUMENT อัตโ�
 async function retry7(r, b) { if (S.paying) return; S.paying = !0; b.disabled = !0;
   try { var ac = await rpc("njacc_adv705_close", { p: { req_id: r.id } }); S.paying = !1; ac7(ac); load(!0); await openJob(r.job_id); }
   catch (er) { S.paying = !1; b.disabled = !1; toast(errMsg(er), "err"); } }
-async function approve(r, b) {
-  var w = sheet("ยืนยันอนุมัติ", "", '<div class="aq7-bar b"><b>อนุมัติเบิกเงิน JOB ' + esc(r.job_no) + "</b><small>" + r.item_count + " รายการ · ยอด " + fm(r.total_real) + ' บาท</small></div><div class="aq7-hint">การอนุมัติยังไม่ถือว่าจ่ายเงินแล้ว — สถานะจะเป็น “อนุมัติแล้ว — รอจ่ายเงิน” จนกว่าจะแนบสลิปและยืนยันจ่าย</div>',
-    '<button type="button" class="aq7-btn n" data-back>ย้อนกลับ</button><button type="button" class="aq7-btn g" data-go>✓ ยืนยันอนุมัติ</button>');
-  w.addEventListener("click", async function (e) {
-    var x = e.target.closest("button"); if (!x) return;
-    if (x.hasAttribute("data-back")) { openJob(r.job_id); return; }
-    if (!x.hasAttribute("data-go") || x.disabled) return;
-    x.disabled = !0;
-    try { await rpc("njacc_adv701_approve", { p: { req_id: r.id } }); after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); }
-    catch (er) { toast(errMsg(er), "err"); x.disabled = !1; if (/STATE/.test(String(er && er.message))) { load(!0); openJob(r.job_id); } }
+function approve(r, b) {   /* V.725 : หน้าต่าง "ยืนยันการอนุมัติ" (แนบสลิปแยกรายการ · ไม่บังคับ) — ยังไม่กดยืนยัน = คงรออนุมัติ */
+  var g = S && S.cur;
+  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); },
+    close: function (ch) { if (ch && S && S.sheet) openJob(r.job_id); }, stale: function () { load(!0); openJob(r.job_id); } });
+}
+var EV725 = !1;
+function ev725() {   /* V.725 : ลบสลิปใน Detail → แสดงข้อมูลล่าสุด (หน้าต่างยืนยันจัดการเอง) */
+  if (EV725) return; EV725 = !0;
+  window.addEventListener("njacc:slip725", function (e) {
+    var d = e.detail || {};
+    if (d.act === "add" || document.querySelector(".a725-ov") || !S || !S.sheet || !S.cur || !S.cur.req || S.cur.req.id !== d.req_id) return;
+    openJob(d.job_id);
   });
 }
 function rejectForm(r) {
@@ -312,14 +318,15 @@ function rejectForm(r) {
 }
 function rnd() { var a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a); return Array.prototype.map.call(a, function (x) { return (x % 36).toString(36); }).join(""); }
 function payForm(r, j, n) {
-  var it = (r.items || [])[n - 1] || {}, file = null;
+  var it = (r.items || [])[n - 1] || {}, file = null, dr = F725(r.id, n);   /* V.725 : มีสลิปแนบล่วงหน้า = ใช้ไฟล์นั้น */
   var w = sheet("แนบสลิป / ยืนยันจ่ายเงิน", "", '<div class="aq7-it"><div class="aq7-ih"><b>' + (r.item_count > 1 ? "รายการที่ " + n + " : " : "") + esc(it.payment_type || "-") + "</b><strong>฿" + fm(it.real_pay) + '</strong></div><div class="aq7-iv"><div>JOB : <b>' + esc(r.job_no) + "</b></div><div>ธนาคาร : <b>" + esc(it.bank_name || "-") +
     "</b></div><div>ชื่อบัญชี : <b>" + esc(it.account_name || "-") + '</b></div><div class="aq7-acc">เลขบัญชี : <span>' + esc(it.account_no || "-") + '</span><button type="button" class="aq7-cp" data-cpacc>' + IC.cp + "COPY</button></div></div></div>" +
-    '<div class="aq7-fm"><label>สลิปการโอนเงิน <span class="aq7-req">*</span></label><label class="aq7-file">📎 เลือกสลิปจากโทรศัพท์<small style="font-weight:400;color:#64748b">JPG / PNG / PDF ไม่เกิน 5 MB</small><input type="file" data-f accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"></label><div class="aq7-prev" data-pv></div>' +
+    (dr ? '<div class="aq7-fm"><label>สลิปการโอนเงิน (แนบไว้ล่วงหน้า)</label><div class="aq7-hint">📎 ' + esc(dr.name) + ' — ต้องการเปลี่ยนสลิป ให้ลบสลิปเดิมแล้วแนบใหม่</div><input type="file" data-f hidden disabled><div class="aq7-prev" data-pv></div>'
+      : '<div class="aq7-fm"><label>สลิปการโอนเงิน <span class="aq7-req">*</span></label><label class="aq7-file">📎 เลือกสลิปจากโทรศัพท์<small style="font-weight:400;color:#64748b">JPG / PNG / PDF ไม่เกิน 5 MB</small><input type="file" data-f accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"></label><div class="aq7-prev" data-pv></div>') +
     '<label>วันที่จ่ายเงิน <span class="aq7-req">*</span></label><input type="date" data-d value="' + today() + '" max="' + today() + '"><div class="aq7-hint">ตรวจสอบบัญชีและยอดเงินก่อนยืนยัน · ยืนยันแล้วแก้ไข / จ่ายซ้ำไม่ได้</div></div>',
     '<button type="button" class="aq7-btn n" data-back>ย้อนกลับ</button><button type="button" class="aq7-btn g" data-go disabled>✓ ยืนยันจ่ายเงินแล้ว</button>');
   var fi = w.querySelector("[data-f]"), pv = w.querySelector("[data-pv]"), go = w.querySelector("[data-go]"), dd = w.querySelector("[data-d]");
-  var ok = function () { go.disabled = !(file && dd.value); };
+  var ok = function () { go.disabled = !((file || dr) && dd.value); };
   fi.addEventListener("change", function () {
     file = null; pv.innerHTML = ""; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; }
     var f = fi.files && fi.files[0]; if (!f) { ok(); return; }
@@ -331,22 +338,22 @@ function payForm(r, j, n) {
     pv.insertAdjacentHTML("beforeend", '<div class="aq7-hint">' + (ty === "application/pdf" ? "📄 " : "") + esc(f.name) + " · " + Math.max(1, Math.round(f.size / 1024)) + " KB</div>");
     ok();
   });
-  dd.addEventListener("change", ok);
+  dd.addEventListener("change", ok); ok();   /* V.725 : มีสลิปแนบล่วงหน้า = พร้อมยืนยันเมื่อมีวันที่จ่าย */
   w.addEventListener("click", async function (e) {
     var x = e.target.closest("button"); if (!x) return;
     if (x.hasAttribute("data-cpacc")) { it.account_no ? copy(String(it.account_no).trim(), "คัดลอกเลขบัญชีแล้ว") : toast("ยังไม่มีเลขบัญชี", "err"); return; }
     if (x.hasAttribute("data-back")) { openJob(r.job_id); return; }
     if (!x.hasAttribute("data-go") || x.disabled || S.paying) return;
-    if (!file || !dd.value) return;
+    if (!(file || dr) || !dd.value) return;
     if (dd.value > today()) { toast("วันที่จ่ายห้ามเป็นวันในอนาคต", "err"); return; }
-    S.paying = !0; x.disabled = !0; x.textContent = "กำลังอัปโหลดสลิป…";
-    var ty = String(file.type).toLowerCase(), ext = ty === "application/pdf" ? "pdf" : ty === "image/png" ? "png" : "jpg";
-    var path = r.job_id + "/" + r.id + "/" + n + "-" + rnd() + "." + ext;
+    S.paying = !0; x.disabled = !0; x.textContent = dr ? "กำลังบันทึก…" : "กำลังอัปโหลดสลิป…";
+    var ty = dr ? "" : String(file.type).toLowerCase(), ext = ty === "application/pdf" ? "pdf" : ty === "image/png" ? "png" : "jpg";
+    var path = dr ? dr.path : r.job_id + "/" + r.id + "/" + n + "-" + rnd() + "." + ext;
     try {
-      var up = await SB().storage.from(BK).upload(path, file, { contentType: ty, upsert: !1, cacheControl: "3600" });
-      if (up.error) throw up.error;
+      if (!dr) { var up = await SB().storage.from(BK).upload(path, file, { contentType: ty, upsert: !1, cacheControl: "3600" });
+        if (up.error) throw up.error; }
       x.textContent = "กำลังบันทึก…";
-      var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dd.value, slip_path: path, slip_name: String(file.name || "").slice(0, 150) } });   /* V.705 : จ่ายครบ = ปิดงาน DOCUMENT อัตโนมัติ */
+      var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dd.value, slip_path: path, slip_name: String(dr ? dr.name : file.name || "").slice(0, 150) } });   /* V.705 : จ่ายครบ = ปิดงาน DOCUMENT อัตโนมัติ */
       S.paying = !1;
       await after(r.job_id, "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + r.job_no + (r.item_count > 1 ? " รายการที่ " + n : ""));
       pr && ac7(pr.auto_close);
@@ -413,6 +420,67 @@ async function render(root, args) {
   }, 6e4);
 }
 export{render,badge};
+/* ═══ V.726 · CASH ADVANCE มือถือ : AUTO SUMMARY (แสดงแบบมีโครงสร้าง · COPY = ข้อความ AUTO SUMMARY เดิม) · ข้อมูลคำขอ + เหตุผลไม่อนุมัติ (สถานะไม่อนุมัติ) ═══ */
+var DS726 = { OPEN: "เปิดงาน — ยังไม่ปิดงาน", CLOSE: "ปิดงานแล้ว — ส่ง ACCOUNTING แล้ว", CANCELED: "ยกเลิกงานแล้ว" };
+function sum726(g) {
+  var t = g.sum714, r = g.req || {}, j = g.job || {}, its = r.items || [], net = its.reduce(function (a, x) { return a + (Number(x.real_pay) || 0); }, 0);
+  var kv = function (ic, k, v) { return '<div class="s726-r"><i>' + ic + "</i><span>" + k + ":</span><b>" + esc(v || "-") + "</b></div>"; };
+  var h = '<section class="s726"><div class="s726-h"><i>' + I724.coin + '</i><b>สรุปข้อมูลอัตโนมัติ (AUTO SUMMARY)</b><button type="button" class="s726-cp" data-cpsum714' + (t ? "" : " disabled") + ">" + IC.cp + "COPY</button></div>";
+  if (!t) h += '<div class="aq7-warn" style="margin:8px">สร้างข้อความ AUTO SUMMARY ไม่สำเร็จ — กรุณาปิดแล้วเปิด JOB ใหม่</div>';
+  h += '<div class="s726-b">' + kv(I724.bag, "JOB", r.job_no || j.job_no) + kv(I724.bld, "Company", j.company_invoice) + kv(I724.usr, "Customer", j.customer_name) + kv(I724.ship, "House B/L", j.house_bl_no);
+  its.forEach(function (x, i) {
+    h += '<div class="s726-hr"></div>' + (its.length > 1 ? '<div class="s726-n">รายการที่ ' + (i + 1) + " · " + fm(x.real_pay) + " บาท</div>" : "") +
+      kv(I724.coin, "รายการ", x.payment_type) + kv(I724.bank, "ธนาคาร", x.bank_name) + kv(I724.one, "ชื่อบัญชี", x.account_name) + kv(I724.card, "เลขบัญชี", x.account_no);
+  });
+  return h + '<div class="s726-net"><i>✓</i><b>ยอดจ่ายสุทธิ</b><strong>' + fm(net) + " บาท</strong></div></div></section>";
+}
+function rej726(r, j) {
+  var kv = function (ic, k, v) { return '<div class="r726-r"><i>' + ic + "</i><span>" + k + "</span><b>" + v + "</b></div>"; }, tot = Number(r.total_real) || 0;
+  return '<section class="r726"><div class="r726-h"><i>' + I724.file + "</i><b>ข้อมูลคำขอ</b></div>" +
+    kv(I724.tag, "JOB No.", esc(r.job_no || j.job_no || "-")) + kv(I724.bld, "Company", esc(j.company_invoice || "-")) + kv(I724.usr, "Customer", esc(j.customer_name || "-")) +
+    kv(I724.ship, "House B/L", esc(j.house_bl_no || "-")) + kv(I724.one, "ผู้อนุมัติ", esc(r.rejected_by || "-")) + kv(I724.coin, "ยอดจ่ายจริง", tot > 0 ? fm(tot) + " บาท" : "-") +
+    kv(I724.lay, "สถานะ DOCUMENT", esc(DS726[j.operational_status] || j.operational_status || "-")) + "</section>" +
+    '<section class="r726-x"><div class="r726-xr"><i>!</i><span>เหตุผลไม่อนุมัติ</span><b>' + esc(r.reject_reason || "-") + "</b></div>" +
+    '<div class="r726-xm"><div><span>วันที่ไม่อนุมัติ :</span><b>' + esc(d7(r.rejected_at)) + "</b></div><div><span>ผู้ดำเนินการ :</span><b>" + esc(r.rejected_by || "-") + "</b></div></div></section>";
+}
+function css726() {
+  if (document.getElementById("aq726-css")) return;
+  var s = document.createElement("style"); s.id = "aq726-css";
+  s.textContent = [
+    ".s726{border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;margin:0 0 10px;overflow:hidden}",
+    ".s726-h{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;background:linear-gradient(90deg,#dbeafe,#eff6ff);border-bottom:1px solid #bfdbfe}.s726-h>i{display:flex;color:#2563eb}",
+    ".s726-h b{flex:1;min-width:0;color:#1e3a8a;font-size:14px;font-weight:800;overflow-wrap:anywhere}",
+    ".s726-cp{flex:none;display:inline-flex;align-items:center;gap:5px;min-height:38px;padding:0 14px;border-radius:9px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:800;font-size:13.5px;font-family:inherit;cursor:pointer}.s726-cp:disabled{opacity:.55}",
+    ".s726-b{padding:6px 12px 10px;background:#fff}.s726-r{display:grid;grid-template-columns:20px 84px minmax(0,1fr);gap:6px;align-items:start;padding:3px 0;font-size:13px}",
+    ".s726-r i{display:flex;color:#475569;padding-top:1px}.s726-r i svg{width:16px;height:16px}.s726-r span{color:#475569}.s726-r b{color:#0f172a;font-weight:800;overflow-wrap:anywhere;min-width:0}",
+    ".s726-hr{border-top:1px solid #e2e8f0;margin:6px 0}.s726-n{font-weight:800;color:#1e3a8a;font-size:12.5px;margin:2px 0}",
+    ".s726-net{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;border-radius:10px;background:#dcfce7;color:#14532d}.s726-net i{width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;font-style:normal;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none}",
+    ".s726-net b{flex:1;font-size:14px}.s726-net strong{font-size:17px;color:#15803d;white-space:nowrap}",
+    ".r726{border:1px solid #e9ddfb;border-radius:12px;background:#fff;overflow:hidden;margin:0 0 10px}",
+    ".r726-h{display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(90deg,#dbeafe,#eff6ff);border-bottom:1px solid #dbeafe}.r726-h b{color:#1e3a8a;font-size:16px;font-weight:800}",
+    ".r726-h i{width:32px;height:32px;border-radius:9px;background:#3b82f6;color:#fff;display:inline-flex;align-items:center;justify-content:center}.r726-h i svg{width:17px;height:17px}",
+    ".r726-r{display:grid;grid-template-columns:32px 112px minmax(0,1fr);gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid #efe7fd;font-size:13.5px}.r726-r:last-child{border-bottom:0}",
+    ".r726-r i{width:32px;height:32px;border-radius:9px;background:#f1ebff;color:#6d28d9;display:flex;align-items:center;justify-content:center}.r726-r i svg{width:16px;height:16px}",
+    ".r726-r span{color:#475569}.r726-r b{color:#1e1b4b;font-weight:800;overflow-wrap:anywhere;min-width:0}",
+    ".r726-x{border:1px solid #fecdd3;background:#fff1f2;border-radius:12px;padding:10px 12px;margin:0 0 10px;color:#9f1239}",
+    ".r726-xr{display:grid;grid-template-columns:26px auto minmax(0,1fr);gap:8px;align-items:start}.r726-xr i{width:24px;height:24px;border-radius:50%;border:2px solid #dc2626;color:#dc2626;font-style:normal;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}",
+    ".r726-xr span{color:#475569;padding:2px 8px 0 0;border-right:1px solid #fecdd3;white-space:nowrap}.r726-xr b{color:#be123c;font-weight:800;white-space:pre-wrap;overflow-wrap:anywhere;padding-top:2px}",
+    ".r726-xm{display:grid;gap:2px;margin:8px 0 0 34px;font-size:12.5px}.r726-xm span{color:#64748b;margin-right:6px}.r726-xm b{color:#881337}",
+    ".aq7-sc .ca24-ib .c1>div:nth-child(4),.aq7-sc .ca24-pm,.aq7-sc .ca24-pa{display:none}",
+    ".aq7-sc .ca24-ib .c1>div{display:grid;grid-template-columns:18px max-content 8px minmax(0,1fr) auto;align-items:center;gap:6px}.aq7-sc .ca24-ib .c1>div>em{text-align:center}",
+    ".aq7-sc .ca24-it .ca7-cp[data-cpacc]{display:inline-flex;align-items:center;gap:5px;flex:none;min-height:38px;padding:0 14px;margin-left:8px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer}",
+    ".aq7-sc .ca24-it .ca7-cp[data-cpacc] svg{stroke:#fff;color:#fff}",
+    ".aq7-sc .ca24-ib .c2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.3fr);padding:8px 6px;align-items:stretch}",
+    ".aq7-sc .ca24-ib .c2>div{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;padding:2px 4px;margin:0;min-width:0}.aq7-sc .ca24-ib .c2>div+div:not(.net){border-left:1px solid #e2e8f0}",
+    ".aq7-sc .ca24-ib .c2 em{display:none}.aq7-sc .ca24-ib .c2 span{font-size:11.5px;color:#475569;overflow-wrap:anywhere}.aq7-sc .ca24-ib .c2 b{font-size:13.5px;text-align:center}",
+    ".aq7-sc .ca24-ib .c2 .net{background:#e8f1fd;border-radius:10px;margin-left:4px;color:#1e3a8a}.aq7-sc .ca24-ib .c2 .net b{font-size:15.5px}",
+    ".aq7-sc .ca24-ib .ca24-slip{margin:0 10px 10px;border:1px solid #e9d5ff;border-radius:10px}",
+    ".aq7-sc .d716{background:#faf5ff;border-color:#e9d5ff}.aq7-sc .d716-h{color:#6d28d9}.aq7-sc .d716-b{background:#7c3aed;border-color:#7c3aed}.aq7-sc .d716-b.o{background:#fff;color:#6d28d9}",
+    ".aq7-sc .d716-r .a button:not(.x){border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8}"
+  ].join("");
+  document.head.appendChild(s);
+}
+
 
 /* ═══ V.714 · CASH ADVANCE มือถือ : AUTO SUMMARY (ข้อความจากฟังก์ชันเดิมของ Desktop · AD698 summary) + ปุ่ม COPY
    รายการจ่าย = njacc_adv698_get (ชุดเดียวกับ Desktop) · ไม่มี = รายการในคำขอ · COPY อ่านอย่างเดียว ไม่บันทึก / ไม่แก้ข้อมูล · COPY เฉพาะ JOB ที่เปิดอยู่ ═══ */

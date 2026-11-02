@@ -44,13 +44,14 @@ function stBar724(r) {
     (r.status === "PAID" ? '<span class="it">จ่ายรวม : <b>' + fm(r.paid_total) + " บาท</b> · " + esc(dtm(r.paid_at)) + "</span>" : "") +
     (r.status === "REJECTED" ? '<span class="rs">เหตุผล : ' + esc(r.reject_reason || "-") + "</span>" : "") + "</section>";
 }
-function items724(r, canPay) {
+function items724(r, canPay, cell) {   /* V.725 : cell(n) = สลิปแนบล่วงหน้า (adv-slip-A725.js) ของรายการที่ยังไม่จ่าย */
   var it = (r.items || []).map(function (x, i) {
-    var n = i + 1, p = (r.pays || []).find(function (y) { return Number(y.item_no) === n; });
+    var dh = "", n = i + 1, p = (r.pays || []).find(function (y) { return Number(y.item_no) === n; });
     var st = p ? '<span class="ca7-bd g">จ่ายแล้ว ' + esc(dd(p.pay_date)) + "</span>" : r.status === "APPROVED" ? '<span class="ca7-bd o">รอจ่ายเงิน</span>' : '<span class="ca7-bd x">' + (r.status === "PENDING" ? "รออนุมัติ" : r.status === "REJECTED" ? "ไม่อนุมัติ" : esc(r.status || "-")) + "</span>";
     var sl = p ? '<div class="ca24-fr"><i>' + I724.file + "</i><span>" + esc(p.slip_name || "-") + (p.slip_size ? " <small>(" + Math.max(1, Math.round(Number(p.slip_size) / 1024)) + " KB)</small>" : "") + "</span>" +
         '<button type="button" class="ca24-fb v" data-slipv="' + n + '">' + I724.eye + 'ดูไฟล์</button><button type="button" class="ca24-fb d" data-slipd="' + n + '">' + I724.dl + "ดาวน์โหลด</button></div>" +
         '<div class="ca24-pm">จ่ายแล้ว ' + fm(p.amount) + " บาท · วันที่จ่าย " + esc(dd(p.pay_date)) + " · โดย " + esc(p.paid_by || "-") + '</div><div class="ca24-pa"><button type="button" class="ca7-cp" data-cppaid="' + n + '">📋 COPY ข้อความจ่ายแล้ว</button></div>'
+      : (dh = cell ? cell(n) : "") ? dh + (canPay ? '<button type="button" class="ca24-at" data-pay="' + n + '">' + I724.plus + "ยืนยันจ่ายเงิน (ใช้สลิปที่แนบไว้)</button>" : "")
       : '<div class="ca24-no">ยังไม่มีสลิปโอนเงิน</div>' + (canPay ? '<button type="button" class="ca24-at" data-pay="' + n + '">' + I724.plus + "แนบสลิป / ยืนยันจ่ายเงิน</button>" : "");
     return '<article class="ca24-it" data-item="' + n + '"><header><span class="no">' + n + "</span><b>รายการที่ " + n + " : " + esc(x.payment_type || "-") + "</b><strong>" + fm(x.real_pay) + " บาท</strong></header><div class=\"ca24-ib\">" +
       '<div class="c1"><div><i>' + I724.bank + "</i>ธนาคาร<em>:</em><b>" + esc(x.bank_name || "-") + "</b></div><div><i>" + I724.one + "</i>ชื่อบัญชี<em>:</em><b>" + esc(x.account_name || "-") + "</b></div>" +

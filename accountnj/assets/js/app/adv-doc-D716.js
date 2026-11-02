@@ -1,8 +1,9 @@
-import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";
+import{ask725 as ASK,err725 as E725}from"./adv-slip-A725.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";
 /* ═══ V.716 · เอกสารเพิ่มเติม (Supporting Documents) — Component กลาง : DOCUMENT → ADVANCE · ACCOUNTING → ADVANCE · CASH ADVANCE (Desktop + มือถือ)
    แยกจากสลิปการโอนเงิน (Payment Slip เดิม) · ไม่บังคับ · ไม่เป็นเงื่อนไข POST / อนุมัติ / จ่ายเงิน / ปิดงาน · ไม่แก้ยอดเงิน / รายการเบิก / สถานะงาน
    ไฟล์ : Storage private njacc-adv-docs (PDF / JPG / PNG / DOCX / XLSX ≤ 10 MB ต่อไฟล์) · ผูก JOB เดิม (ทุกเมนูเห็นชุดเดียวกัน) · ดู / ดาวน์โหลดด้วย Signed URL อายุ 2 นาที
-   ข้อมูล : RPC njacc_adv716_list / njacc_adv716_add (RUN-716 · ตรวจสิทธิ์ JOB + ไฟล์จริงที่ฐานข้อมูล · บันทึกประวัติ ADV716_DOC_ADD ใน Timeline) · ไม่มีการลบไฟล์ ═══ */
+   ข้อมูล : RPC njacc_adv716_list / njacc_adv716_add (RUN-716 · ตรวจสิทธิ์ JOB + ไฟล์จริงที่ฐานข้อมูล · บันทึกประวัติ ADV716_DOC_ADD ใน Timeline)
+   V.725 : ลบไฟล์ = เฉพาะที่เปิดด้วย o.del (CASH ADVANCE) + SUPER_ADMIN + JOB ยังไม่ปิด / ยกเลิก (can_del จาก Server) · Soft Delete ผ่าน njacc_adv725_doc_del · ไฟล์จริงคงอยู่ ═══ */
 var BK = "njacc-adv-docs", MAX = 10485760, C = new Map(), BUSY = new Map();
 var EXT = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
@@ -48,6 +49,7 @@ function css() {
     ".d716-r .i{flex:none;font-size:18px}.d716-r .m{flex:1 1 auto;min-width:0}.d716-r .m b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
     ".d716-r .m small{display:block;color:#64748b;font-size:11.5px;overflow-wrap:anywhere}.d716-r .a{flex:none;display:flex;gap:5px}",
     ".d716-r .a button{height:28px;padding:0 9px;border-radius:7px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}",
+    ".d716-r .a button.x{border-color:#fecaca;background:#fef2f2;color:#dc2626}",
     ".d716-e{color:#64748b;padding:6px 2px}.d716-w{color:#b45309;padding:6px 2px}.d716-p{color:#4338ca;font-weight:600;padding:4px 2px}",
     ".d716.m{padding:10px 12px;margin:14px 0 4px;border-radius:12px}.d716.m .d716-h{font-size:14px}.d716.m .d716-b{height:36px;font-size:13.5px}",
     ".d716.m .d716-r{flex-wrap:wrap}.d716.m .d716-r .a{width:100%}.d716.m .d716-r .a button{flex:1;height:34px;font-size:13px}",
@@ -58,13 +60,13 @@ function css() {
 async function load(job) {
   if (!uid(job)) return;
   var c = C.get(job) || {}; c.st = c.docs ? "ok" : "loading"; c.err = ""; c.t = Date.now(); C.set(job, c); paint(job);
-  try { var r = await RPC("njacc_adv716_list", { p_job: job }); c.docs = (r && r.docs) || []; c.st = "ok"; }
+  try { var r = await RPC("njacc_adv716_list", { p_job: job }); c.docs = (r && r.docs) || []; c.cd = !!(r && r.can_del); c.st = "ok"; }
   catch (e) { c.st = "err"; c.err = errMsg(e); }
   paint(job);
 }
 function inner(job, el) {
   var c = C.get(job) || { st: "loading" }, m = el && el.classList.contains("m"), cam = m || (window.matchMedia && window.matchMedia("(pointer:coarse)").matches);
-  var busy = BUSY.get(job), n = (c.docs || []).length;
+  var busy = BUSY.get(job), n = (c.docs || []).length, del = !!(el && (el.getAttribute ? el.getAttribute("data-d716del") === "1" : el.del)) && c.cd;   /* V.725 */
   var h = '<div class="d716-h"><span class="t">📎 เอกสารเพิ่มเติม (Supporting Documents)' + (n ? " <small>" + n + " ไฟล์</small>" : "") + "</span>" +
     (cam ? '<button type="button" class="d716-b o" data-d716="cam"' + (busy ? " disabled" : "") + ">📷 ถ่ายรูป</button>" : "") +
     '<button type="button" class="d716-b" data-d716="add"' + (busy ? " disabled" : "") + ">+ แนบไฟล์เพิ่มเติม</button>" +
@@ -77,7 +79,8 @@ function inner(job, el) {
   return h + '<ul class="d716-l">' + c.docs.map(function (d) {
     return '<li class="d716-r"><span class="i">' + icon(d) + '</span><span class="m"><b title="' + esc(d.name) + '">' + esc(d.name) + "</b><small>" + esc(kb(d.size)) +
       " · แนบโดย " + esc(d.uploaded_by || "-") + " · " + esc(dtm(d.uploaded_at)) + (d.item_no ? " · รายการที่ " + esc(d.item_no) : "") + " · " + esc(SRC[d.source] || d.source || "") + '</small></span><span class="a">' +
-      (prev(d) ? '<button type="button" data-d716v="' + esc(d.id) + '">ดูไฟล์</button>' : "") + '<button type="button" data-d716d="' + esc(d.id) + '">ดาวน์โหลด</button></span></li>';
+      (prev(d) ? '<button type="button" data-d716v="' + esc(d.id) + '">ดูไฟล์</button>' : "") + '<button type="button" data-d716d="' + esc(d.id) + '">ดาวน์โหลด</button>' +
+      (del ? '<button type="button" class="x" data-d716x="' + esc(d.id) + '" title="ลบไฟล์" aria-label="ลบไฟล์ ' + esc(d.name) + '">🗑 ลบไฟล์</button>' : "") + "</span></li>";
   }).join("") + "</ul>";
 }
 function paint(job) { document.querySelectorAll('.d716[data-d716j="' + job + '"]').forEach(function (el) { el.innerHTML = inner(job, el); }); }
@@ -125,13 +128,25 @@ async function upload(job, src, files) {
   await load(job);
   try { window.dispatchEvent(new CustomEvent("njacc:adv716", { detail: { job_id: job, added: done } })); } catch (e) {}
 }
+async function delDoc(job, id, b) {   /* V.725 : ลบเฉพาะไฟล์ที่เลือก (ยืนยันก่อน) */
+  var d = doc(job, id); if (!d || BUSY.get(job)) return;
+  var ok = await ASK("ลบเอกสารเพิ่มเติม", "ลบไฟล์ <b>" + esc(d.name) + "</b> ?<small>ลบเฉพาะไฟล์นี้ · ไฟล์อื่น / สลิปโอนเงิน / ข้อมูล JOB ไม่กระทบ" +
+    (d.source === "DOCUMENT" ? " · ไฟล์นี้แนบจาก DOCUMENT → ADVANCE (ระบบเก็บไฟล์ต้นฉบับและประวัติการลบไว้)" : "") + "</small>", "ยืนยันลบ");
+  if (!ok || BUSY.get(job)) return;
+  BUSY.set(job, "กำลังลบ : " + d.name); paint(job);
+  try { await RPC("njacc_adv725_doc_del", { p: { doc_id: d.id } }); BUSY.delete(job); toast("ลบเอกสาร " + d.name + " แล้ว", "ok"); }
+  catch (er) { BUSY.delete(job); toast("ลบไม่สำเร็จ : " + E725(er), "err"); }
+  await load(job);
+  try { window.dispatchEvent(new CustomEvent("njacc:adv716", { detail: { job_id: job, deleted: 1 } })); } catch (e) {}
+}
 var BOUND = !1;
 function bind() {
   if (BOUND) return; BOUND = !0;
   document.addEventListener("click", function (e) {
     var t = e.target, box = t && t.closest && t.closest(".d716[data-d716j]"); if (!box) return;
     var job = box.getAttribute("data-d716j"), b = t.closest("button"); if (!b || b.disabled) return;
-    var a = b.getAttribute("data-d716"), v = b.getAttribute("data-d716v"), d = b.getAttribute("data-d716d");
+    var a = b.getAttribute("data-d716"), v = b.getAttribute("data-d716v"), d = b.getAttribute("data-d716d"), x = b.getAttribute("data-d716x");
+    if (x) { e.preventDefault(); delDoc(job, x, b); return; }
     if (a === "add" || a === "cam") { e.preventDefault(); var inp = box.querySelector(a === "cam" ? "[data-d716c]" : "[data-d716f]"); if (inp) { inp.disabled = !1; inp.value = ""; inp.click(); } return; }
     if (a === "re") { load(job); return; }
     if (v || d) { var x = doc(job, v || d); x && open(x, !!d, b); }
@@ -150,5 +165,5 @@ export function html716(job, o) {
   var c = C.get(job);
   if (!c || o.reload || Date.now() - (c.t || 0) > 15000) { C.set(job, Object.assign(c || {}, { t: Date.now() })); setTimeout(function () { load(job); }, 0); }   /* เปิดใหม่ / ครบ 15 วินาที = โหลดล่าสุด (เห็นไฟล์จากเมนูอื่น) */
   var s = SRC[o.src] ? o.src : "DOCUMENT";
-  return '<div class="d716' + (o.mobile ? " m" : "") + '" data-d716j="' + esc(job) + '" data-d716s="' + s + '">' + inner(job, { classList: { contains: function () { return !!o.mobile; } } }) + "</div>";
+  return '<div class="d716' + (o.mobile ? " m" : "") + '" data-d716j="' + esc(job) + '" data-d716s="' + s + '"' + (o.del ? ' data-d716del="1"' : "") + ">" + inner(job, { del: !!o.del, classList: { contains: function () { return !!o.mobile; } } }) + "</div>";
 }

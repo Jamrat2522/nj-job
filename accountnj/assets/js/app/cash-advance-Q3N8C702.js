@@ -1,4 +1,4 @@
-import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
+import{approve725 as A725,slips725 as S725,cell725 as L725,draft725 as F725,css725 as K725}from"./adv-slip-A725.js";import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
 /* ═══ V.724 · รายละเอียด (Desktop / Tablet) ตามภาพล่าสุด : ข้อมูล JOB บนสุด 2 คอลัมน์ → แถบสถานะ → Card รายการ + สลิปโอนเงินประจำรายการ → INVOICE ADV / เอกสารเพิ่มเติม → Timeline (พับทุกครั้ง)
      Desktop : กว้าง 850 → 1020px (+20%) · สูงสูงสุด 85vh → 110.5vh (+30%) จำกัดไม่เกินหน้าจอ − 32px · หน้าหลักไม่เลื่อนตาม · Component ร่วม ca-detail-D724.js (ใช้กับมือถือด้วย)
    V.722 · List View : คลิกแถวใดก็ได้ = เปิดรายละเอียด (ปุ่มในแถวทำงานเดิม · ไม่เปิดซ้ำ) · Desktop (≥ 1025px) : ซ่อนปุ่ม "ดู" + Hover แถว + รายละเอียดเป็น Modal กลางจอ (850px · 85vh · Overlay)
@@ -354,13 +354,15 @@ async function openView(jobId) {
     var g = { req: g0.req, job: g0.job || {}, invoices: g0.invoices || [] }, r = g.req, j = g.job;
     r.job_canceled705 = j.operational_status === "CANCELED";
     S.cur = g;
+    K725(); ev725();   /* V.725 : สลิปแนบล่วงหน้าแยกรายการ (รออนุมัติ / อนุมัติแล้ว) */
+    if (r.status === "PENDING" || r.status === "APPROVED") { await S725(r.id); if (!me.isConnected) return; }
     var paid = Number(r.paid_total) || 0, wait = (Number(r.total_real) || 0) - paid;
     me.querySelector(".ca7-dh b").textContent = "CASH ADVANCE · " + (r.job_no || "");
     var rt = !1 && S.sup && r.status === "PAID" && j.operational_status !== "CLOSE" && j.operational_status !== "CANCELED"   /* V.710 : ยกเลิกปิดงานอัตโนมัติ */
       ? '<div class="ca7-retry" data-rtw><b>⚠ จ่ายครบแล้ว แต่ปิดงาน DOCUMENT อัตโนมัติยังไม่สำเร็จ — การจ่าย / สลิปบันทึกครบแล้ว</b><button type="button" class="ca7-b p" data-retry>↻ ลองปิดงานอีกครั้ง</button></div>' : "";
-    me.querySelector(".ca7-db").innerHTML = J724(r, j, ap) + T724(r) + rt + IT724(r, r.status === "APPROVED" && S.sup && !r.job_canceled705) +   /* V.724 : ข้อมูล JOB → สถานะ → รายการ + สลิปประจำรายการ */
+    me.querySelector(".ca7-db").innerHTML = J724(r, j, ap) + T724(r) + rt + IT724(r, r.status === "APPROVED" && S.sup && !r.job_canceled705, function (n) { return L725(r, n); }) +   /* V.724 : ข้อมูล JOB → สถานะ → รายการ + สลิปประจำรายการ */
       (ap ? '<div class="ca7-h3">ข้อมูล INVOICE ADV</div>' + (g.invoices ? invHTML(g) : '<div class="ca7-warn">โหลดข้อมูล INVOICE ADV ไม่สำเร็จ</div>') : "") +
-      D716(jobId, { src: "CASH_ADVANCE", reload: !0 }) +   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
+      D716(jobId, { src: "CASH_ADVANCE", reload: !0, del: !0 }) +   /* V.725 : ปุ่มลบ (SUPER_ADMIN · JOB ยังไม่ปิด / ยกเลิก) */   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
       TL724(tlHTML(g, res[1] && res[1].timeline), C708());   /* V.724 : Timeline ล่างสุด · พับทุกครั้งที่เปิด */
     me.querySelector(".ca7-df").innerHTML = footHTML(r);
   } catch (e) { if (me.isConnected) me.querySelector(".ca7-db").innerHTML = '<div class="ca7-em">' + esc(errMsg(e)) + "</div>"; }
@@ -390,17 +392,19 @@ async function retryClose(r, b) {
   try { var ac = await rpc("njacc_adv705_close", { p: { req_id: r.id } }); S.busy = !1; acMsg(ac); load(); await openView(r.job_id); }
   catch (er) { S.busy = !1; b.disabled = !1; toast(errMsg(er), "err"); }
 }
-function approveBox(me, r) {
-  var f = me.querySelector(".ca7-df");
-  f.innerHTML = '<div class="ca7-st b" style="margin:0">ยืนยันอนุมัติเบิกเงิน JOB ' + esc(r.job_no) + "<small>" + r.item_count + " รายการ · ยอด " + fm(r.total_real) + ' บาท · การอนุมัติยังไม่ถือว่าจ่ายเงินแล้ว (สถานะ “อนุมัติแล้ว — รอจ่ายเงิน”)</small></div><div class="ca7-dfa"><button type="button" class="ca7-b" data-back>ย้อนกลับ</button><button type="button" class="ca7-b g" data-go>✓ ยืนยันอนุมัติ</button></div>';
-  f.onclick = async function (e) {
-    var x = e.target.closest("button"); if (!x) return; e.stopPropagation();
-    if (x.hasAttribute("data-back")) { f.onclick = null; f.innerHTML = footHTML(r); return; }
-    if (!x.hasAttribute("data-go") || x.disabled || S.busy) return;
-    S.busy = !0; x.disabled = !0;
-    try { await rpc("njacc_adv701_approve", { p: { req_id: r.id } }); S.busy = !1; after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); }
-    catch (er) { S.busy = !1; toast(errMsg(er), "err"); x.disabled = !1; if (/STATE|CANCELED/.test(String(er && er.message))) { load(); openView(r.job_id); } }
-  };
+function approveBox(me, r) {   /* V.725 : หน้าต่าง "ยืนยันการอนุมัติ" (แนบสลิปแยกรายการ · ไม่บังคับ) — ยังไม่กดยืนยัน = คงรออนุมัติ · ยืนยันสำเร็จเท่านั้นจึงย้ายแท็บ */
+  var g = S && S.cur;
+  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); },
+    close: function (ch) { if (ch && me.isConnected) openView(r.job_id); }, stale: function () { load(); me.isConnected && openView(r.job_id); } });
+}
+var EV725 = !1;
+function ev725() {   /* V.725 : ลบสลิปใน Detail Modal → แสดงข้อมูลล่าสุด (หน้าต่างยืนยันจัดการเอง) */
+  if (EV725) return; EV725 = !0;
+  window.addEventListener("njacc:slip725", function (e) {
+    var d = e.detail || {}, w = document.querySelector(".ca7-dw");
+    if (d.act === "add" || document.querySelector(".a725-ov") || !w || !S || !S.cur || !S.cur.req || S.cur.req.id !== d.req_id) return;
+    openView(w.dataset.job);
+  });
 }
 function rejectBox(me, r) {
   var f = me.querySelector(".ca7-df"), pick = "";
@@ -425,12 +429,13 @@ function rejectBox(me, r) {
 function rnd() { var a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a); return Array.prototype.map.call(a, function (x) { return (x % 36).toString(36); }).join(""); }
 function payBox(me, r, n) {
   me.querySelectorAll("[data-pf]").forEach(function (x) { x.innerHTML = ""; });
-  var box = me.querySelector('[data-item="' + n + '"] [data-pf]'); if (!box) return; var file = null;
-  box.innerHTML = '<div class="ca7-pf"><label>สลิปการโอนเงิน <span class="ca7-req">*</span> <span class="ca7-hint">JPG / PNG / PDF ไม่เกิน 5 MB</span></label><input type="file" data-f accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"><div class="pv" data-pv></div>' +
+  var box = me.querySelector('[data-item="' + n + '"] [data-pf]'); if (!box) return; var file = null, dr = F725(r.id, n);   /* V.725 : มีสลิปแนบล่วงหน้า = ใช้ไฟล์นั้น */
+  box.innerHTML = (dr ? '<div class="ca7-pf"><label>สลิปการโอนเงิน <span class="ca7-hint">ใช้สลิปที่แนบไว้ล่วงหน้า</span></label><div class="ca7-hint">📎 ' + esc(dr.name) + ' — ต้องการเปลี่ยนสลิป ให้ลบสลิปเดิมแล้วแนบใหม่</div><input type="file" data-f hidden disabled><div class="pv" data-pv></div>'
+      : '<div class="ca7-pf"><label>สลิปการโอนเงิน <span class="ca7-req">*</span> <span class="ca7-hint">JPG / PNG / PDF ไม่เกิน 5 MB</span></label><input type="file" data-f accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"><div class="pv" data-pv></div>') +
     '<label>วันที่จ่ายเงิน <span class="ca7-req">*</span></label><input type="date" data-d value="' + today() + '" max="' + today() + '"><div class="ca7-hint">ตรวจสอบบัญชีและยอดเงินก่อนยืนยัน · ยืนยันแล้วแก้ไข / จ่ายซ้ำไม่ได้</div>' +
     '<div class="a"><button type="button" class="ca7-b" data-pcancel>ยกเลิก</button><button type="button" class="ca7-b g" data-pgo disabled>✓ ยืนยันจ่ายเงินแล้ว</button></div></div>';
   var fi = box.querySelector("[data-f]"), pv = box.querySelector("[data-pv]"), go = box.querySelector("[data-pgo]"), dt = box.querySelector("[data-d]");
-  var ok = function () { go.disabled = !(file && dt.value); };
+  var ok = function () { go.disabled = !((file || dr) && dt.value); };
   fi.addEventListener("change", function () {
     file = null; pv.innerHTML = ""; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; }
     var f = fi.files && fi.files[0]; if (!f) { ok(); return; }
@@ -442,21 +447,21 @@ function payBox(me, r, n) {
     pv.insertAdjacentHTML("beforeend", '<div class="ca7-hint">' + (ty === "application/pdf" ? "📄 " : "") + esc(f.name) + " · " + Math.max(1, Math.round(f.size / 1024)) + " KB</div>");
     ok();
   });
-  dt.addEventListener("change", ok);
+  dt.addEventListener("change", ok); ok();   /* V.725 : มีสลิปแนบล่วงหน้า = พร้อมยืนยันเมื่อมีวันที่จ่าย */
   box.onclick = async function (e) {
     var x = e.target.closest("button"); if (!x) return; e.stopPropagation();
     if (x.hasAttribute("data-pcancel")) { box.onclick = null; box.innerHTML = ""; return; }
     if (!x.hasAttribute("data-pgo") || x.disabled || S.busy) return;
-    if (!file || !dt.value) return;
+    if (!(file || dr) || !dt.value) return;
     if (dt.value > today()) { toast("วันที่จ่ายห้ามเป็นวันในอนาคต", "err"); return; }
-    S.busy = !0; x.disabled = !0; x.textContent = "กำลังอัปโหลดสลิป…";
-    var ty = String(file.type).toLowerCase(), ext = ty === "application/pdf" ? "pdf" : ty === "image/png" ? "png" : "jpg";
-    var path = r.job_id + "/" + r.id + "/" + n + "-" + rnd() + "." + ext;
+    S.busy = !0; x.disabled = !0; x.textContent = dr ? "กำลังบันทึก…" : "กำลังอัปโหลดสลิป…";
+    var ty = dr ? "" : String(file.type).toLowerCase(), ext = ty === "application/pdf" ? "pdf" : ty === "image/png" ? "png" : "jpg";
+    var path = dr ? dr.path : r.job_id + "/" + r.id + "/" + n + "-" + rnd() + "." + ext;
     try {
-      var up = await SB().storage.from(BK).upload(path, file, { contentType: ty, upsert: !1, cacheControl: "3600" });
-      if (up.error) throw up.error;
+      if (!dr) { var up = await SB().storage.from(BK).upload(path, file, { contentType: ty, upsert: !1, cacheControl: "3600" });
+        if (up.error) throw up.error; }
       x.textContent = "กำลังบันทึก…";
-      var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dt.value, slip_path: path, slip_name: String(file.name || "").slice(0, 150) } });
+      var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dt.value, slip_path: path, slip_name: String(dr ? dr.name : file.name || "").slice(0, 150) } });
       S.busy = !1;
       await after(r.job_id, "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + r.job_no + (r.item_count > 1 ? " รายการที่ " + n : ""));
       pr && acMsg(pr.auto_close);
@@ -514,7 +519,18 @@ async function exportXls(btn) {
 }
 
 async function quick(b) {   /* V.705 : ปุ่มในคอลัมน์จัดการ → เปิดรายละเอียด + ขั้นตอนเดิม (ยืนยันอนุมัติ / เหตุผลไม่อนุมัติ / แนบสลิปรายการแรกที่ยังไม่จ่าย) */
-  var job = b.dataset.qapv || b.dataset.qrej || b.dataset.qpay; await openView(job);
+  var job = b.dataset.qapv || b.dataset.qrej || b.dataset.qpay;
+  if (b.dataset.qapv) {   /* V.725 : ปุ่มอนุมัติในรายการ → หน้าต่างยืนยันการอนุมัติ (รายการยังอยู่แท็บรออนุมัติจนกว่าจะยืนยันสำเร็จ) */
+    if (b.disabled) return; b.disabled = !0;
+    try {
+      var g0 = await rpc("njacc_cash_adv705_get", { p_job: job }), r0 = g0 && g0.req; b.disabled = !1;
+      if (!r0) return;
+      if (r0.status !== "PENDING") { toast("สถานะคำขอเปลี่ยนไปแล้ว — โหลดข้อมูลล่าสุด", "err"); load(); return; }
+      K725(); A725(r0, { job: g0.job || {}, done: function () { toast("✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r0.job_no, "ok"); load(); }, stale: function () { load(); } });
+    } catch (e) { b.disabled = !1; toast(errMsg(e), "err"); }
+    return;
+  }
+  await openView(job);
   var me = document.querySelector(".ca7-dw"), g = S && S.cur; if (!me || !g || !S.sup) return; var r = g.req;
   if (b.dataset.qapv && r.status === "PENDING") approveBox(me, r);
   else if (b.dataset.qrej && r.status === "PENDING") rejectBox(me, r);
