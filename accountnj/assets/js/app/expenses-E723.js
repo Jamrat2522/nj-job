@@ -92,13 +92,12 @@ function rowHTML(x, i) {
   return '<tr data-i="' + i + '" tabindex="0"><td class="c">' + no + '</td><td class="nw"><a href="#/job/' + esc(x.job_id) + '" data-lk>' + esc(x.job_no) + "</a></td>" +
     '<td><span class="ex7-el">' + esc(x.company || "-") + '</span></td><td><span class="ex7-el">' + esc(x.customer || "-") + '</span></td><td class="nw">' + esc(x.hbl || "-") + "</td>" +
     '<td><span class="ex7-el">' + esc(x.description) + '</span></td><td class="r">' + fm(x.pay_amount) + '</td><td class="r">' + fm(x.collect_amount) + '</td><td class="c">' + badge(x) + '</td><td class="nw c">' + esc(invNo(x) || "-") + "</td>" +
-    '<td><div class="ex7-act"><button type="button" class="ex7-ab v" data-a="v"' + (nf ? "" : " disabled") + ' title="' + (nf ? "ดูไฟล์ (" + nf + ")" : "ไม่มีไฟล์แนบ") + '">' + IC.eye + "ดูไฟล์</button>" +
-    '<button type="button" class="ex7-ab d" data-a="d"' + (nf ? "" : " disabled") + ' title="' + (nf ? "โหลดไฟล์ (" + nf + ")" : "ไม่มีไฟล์แนบ") + '">' + IC.dl + "โหลดไฟล์</button>" +
+    '<td><div class="ex7-act">' +   /* V.727 : List View แสดงเฉพาะปุ่มลบ — ดูไฟล์ / โหลดไฟล์ อยู่ในหน้าต่างรายละเอียด EXPENSES */
     '<button type="button" class="ex7-ab x" data-a="x" title="ลบออกจาก EXPENSES">' + IC.del + "ลบ</button></div></td></tr>";
 }
 function bodyHTML() {
   var H = ["#", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "เก็บลูกค้าแล้ว", "INVOICE NJ", "จัดการ"];
-  var W = [44, 130, 0, 0, 130, 0, 110, 110, 130, 130, 300];
+  var W = [44, 130, 0, 0, 130, 0, 110, 110, 130, 130, 84];   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
   var rows = S.rows.map(rowHTML).join(""), sm = S.sum || {};
   var n = Math.max(1, Math.ceil((S.total || 0) / S.lim)), c = Math.floor(S.off / S.lim) + 1, from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length, pg = [], k;
   for (k = 1; k <= n; k++) if (k === 1 || k === n || Math.abs(k - c) <= 2) pg.push(k); else if (pg[pg.length - 1] !== "…") pg.push("…");
