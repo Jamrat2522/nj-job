@@ -12,7 +12,8 @@ var LB = {
   SAVE_INVOICE_DRAFT: "บันทึก INVOICE ADV (ร่าง)", ISSUE_INVOICE_NO_ON_SAVE: "ออกเลข INVOICE ADV (ตอนบันทึก)", POST_DRAFT_INVOICE: "ออกเลข INVOICE", POST_INVOICE: "ออกเลข INVOICE",
   UNPOST_INVOICE: "UNPOST INVOICE ADV", UNPOST_TO_DRAFT: "UNPOST INVOICE ADV", VOID_INVOICE: "VOID INVOICE ADV", EDIT_INVOICE_DATE: "แก้วันที่ INVOICE ADV", RESET_INVOICE_NO: "รีเซ็ตเลข INVOICE ADV",
   ADV705_AUTO_CLOSE: "ปิดงานอัตโนมัติ (CASH ADVANCE จ่ายครบ) → ส่ง ACCOUNTING", ADV705_AUTO_CLOSE_FAIL: "ปิดงานอัตโนมัติไม่สำเร็จ",
-  ADV716_DOC_ADD: "แนบเอกสารเพิ่มเติม"   /* V.716 */
+  ADV716_DOC_ADD: "แนบเอกสารเพิ่มเติม",   /* V.716 */
+  JOB_NO_REUSE738: "ออกเลข JOB (ใช้เลขที่คืนจากงานที่ลบ)", ADV737_RESUBMIT: "ส่งคำขออนุมัติใหม่ (รอบก่อนไม่อนุมัติ)", ADV737_REOPEN: "เปิดงานกลับ (ส่งคำขออนุมัติใหม่)", ADV737_AUTO_POST: "AUTO POST + ออกเลข JOB AD (หลังอนุมัติ)", ADV739_AUTO_POST: "AUTO POST + ออกเลข JOB AD (หลังจ่ายเงิน + สลิปครบ)"   /* V.737 */
 };
 var ACC = /^(SAVE_INVOICE_DRAFT|ISSUE_INVOICE_NO_ON_SAVE|POST_DRAFT_INVOICE|POST_INVOICE|UNPOST_INVOICE|UNPOST_TO_DRAFT|VOID_INVOICE|EDIT_INVOICE_DATE|RESET_INVOICE_NO|ACC_HANDOFF|ACC_REOPEN|ADVANCE_PAY|ADVANCE_UNPAY)$/;
 var OPEN = new Map();
@@ -66,15 +67,28 @@ function sub(e) {
   }
   return s.join(" · ");
 }
+/* V.737 : คำขอรอบก่อน (ส่งใหม่หลังไม่อนุมัติ) = Audit ADV701_REQUEST / ADV701_REJECT ที่เกิดก่อนรอบปัจจุบัน (> 2 วินาที) · รอบปัจจุบันจากแถวคำขอเหมือนเดิม */
+function past737(tl, r) {
+  if (!r || !r.requested_at) return [];
+  var cut = tms(r.requested_at) - 2000, out = [];
+  tl.forEach(function (e) { var d = e.detail || {}; if (tms(e.at) >= cut) return;
+    if (e.action === "ADV701_REQUEST") out.push({ at: e.at, id: e.id, t: "ส่งคำขอ (รอบก่อน)", c: "b", by: e.by, s: d.total_real != null ? "ยอดขอเบิก " + fm(d.total_real) + " บาท" : "" });
+    else if (e.action === "ADV701_REJECT") out.push({ at: e.at, id: e.id, t: "ไม่อนุมัติ (รอบก่อน)", c: "r", by: e.by, s: "เหตุผล: " + (d.reason || "-") });
+  });
+  return out;
+}
 function asc(a, b) { return tms(a.at) - tms(b.at) || (Number(a.id) || 0) - (Number(b.id) || 0); }
 /* เหตุการณ์หลัก DOCUMENT — ADVANCE */
 function docMain(tl, r) {
   var out = [], ad = null;
   tl.forEach(function (e) { if (!ad && e.action === "POST_JOB") ad = e; });
   if (!ad) tl.forEach(function (e) { var d = e.detail || {}; if (!ad && e.action === "CREATE_JOB" && d.document_status === "POSTED" && String(d.job_no || "").trim()) ad = e; });
-  ad && out.push({ at: ad.at, t: "ออกเลข AD", c: "g", by: ad.by, s: String((ad.detail || {}).job_no || "") });
+  var auto737 = tl.some(function (e) { return e.action === "ADV737_AUTO_POST"; });   /* V.737 : ออกเลขอัตโนมัติหลังอนุมัติ = แสดงหลังเหตุการณ์อนุมัติ */
+  var auto739 = tl.some(function (e) { return e.action === "ADV739_AUTO_POST"; });   /* V.739 : ออกเลขอัตโนมัติหลังจ่ายครบ = แสดงหลังการจ่ายรายการสุดท้าย */
+  ad && out.push({ at: auto739 && r && r.paid_at && tms(r.paid_at) >= tms(ad.at) ? new Date(tms(r.paid_at) + 1).toISOString() : auto737 && r && r.approved_at && tms(r.approved_at) >= tms(ad.at) ? new Date(tms(r.approved_at) + 1).toISOString() : ad.at, t: auto739 || auto737 ? "AUTO POST + ออกเลข JOB AD" : "ออกเลข AD", c: "g", by: ad.by, s: String((ad.detail || {}).job_no || "") });
   tl.forEach(function (e) { if (e.action !== "ADV716_DOC_ADD") return; var d = e.detail || {}; out.push({ at: e.at, id: e.id, t: "แนบเอกสารเพิ่มเติม", c: "b", by: e.by, s: "📎 " + (d.file_name || "-") + (d.item_no ? " (รายการที่ " + d.item_no + ")" : "") }); });   /* V.716 : แสดงใน Timeline หลักโดยตรง */
   if (r) {
+    past737(tl, r).forEach(function (x) { out.push(x); });   /* V.737 */
     r.requested_at && out.push({ at: r.requested_at, t: "ส่งคำขอ", c: "b", by: r.requested_by, s: "ยอดขอเบิก " + fm(r.total_real) + " บาท" });
     r.approved_at && out.push({ at: r.approved_at, t: "อนุมัติ", c: "g", by: r.approved_by, s: "ยอดอนุมัติ " + fm(r.total_real) + " บาท" });
     r.rejected_at && out.push({ at: r.rejected_at, t: "ไม่อนุมัติ", c: "r", by: r.rejected_by, s: "เหตุผล: " + (r.reject_reason || "-") });
@@ -107,13 +121,14 @@ function full(tl, r, doc, payExtra) {
       by: e.by, s: (e.id != null ? "#" + e.id + " · " : "") + a + (s ? " · " + s : "") });
   });
   if (r) {
+    past737(tl, r).forEach(function (x) { out.push(x); });   /* V.737 */
     r.requested_at && out.push({ at: r.requested_at, t: "ส่งคำขออนุมัติ", c: "b", by: r.requested_by, s: "ยอดขอเบิก " + fm(r.total_real) + " บาท · " + (r.item_count || 0) + " รายการ" });
     r.approved_at && out.push({ at: r.approved_at, t: "อนุมัติ", c: "g", by: r.approved_by, s: "ยอดอนุมัติ " + fm(r.total_real) + " บาท" });
     (r.pays || []).forEach(function (p) {
       var it = (r.items || [])[p.item_no - 1] || {};
       out.push({ at: p.paid_at, t: "จ่ายเงินแล้ว — รายการที่ " + p.item_no, c: "g", by: p.paid_by, s: (it.payment_type ? it.payment_type + " · " : "") + "ยอดจ่าย " + fm(p.amount) + " บาท" + (p.slip_name ? " · " + p.slip_name : ""), x: payExtra ? payExtra(p, it) : "" });
     });
-    r.rejected_at && out.push({ at: r.rejected_at, t: "ไม่อนุมัติ — ยกเลิก JOB", c: "r", by: r.rejected_by, s: "เหตุผล: " + (r.reject_reason || "-") });
+    r.rejected_at && out.push({ at: r.rejected_at, t: "ไม่อนุมัติ", c: "r", by: r.rejected_by, s: "เหตุผล: " + (r.reject_reason || "-") });
   }
   return out.sort(asc);
 }

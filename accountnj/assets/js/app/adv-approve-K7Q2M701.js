@@ -3,7 +3,11 @@ import{approve725 as A725,slips725 as S725,cell725 as L725,draft725 as F725,css7
    ข้อมูลจาก RPC ใหม่ RUN-701 เท่านั้น (njacc_adv701_list / get / approve / reject / pay) — สิทธิ์ SUPER_ADMIN ตรวจที่ฐานข้อมูลทุกครั้ง
    สลิป : Storage private njacc-adv-slips (JPG / PNG / PDF ≤ 5 MB · ดู / ดาวน์โหลดด้วย Signed URL อายุ 2 นาที) · โหลดรายการแบบแบ่งหน้า · โหลดสลิปเมื่อกดดูเท่านั้น ═══ */
 var BK = "njacc-adv-slips", LIM = 20, MAXF = 5242880, S = null;
-var ST = { PENDING: ["รออนุมัติ", "o"], APPROVED: ["อนุมัติแล้ว — รอจ่ายเงิน", "b"], PAID: ["อนุมัติแล้ว — จ่ายเงินแล้ว", "g"], REJECTED: ["ไม่อนุมัติ — ยกเลิก JOB", "r"] };
+var ST = { PENDING: ["รออนุมัติ", "o"], APPROVED: ["อนุมัติแล้ว — รอจ่ายเงิน", "b"], PAID: ["อนุมัติแล้ว — จ่ายเงินแล้ว", "g"], REJECTED: ["ไม่อนุมัติ — แก้ไขและส่งใหม่ได้", "r"] };   /* V.737 */
+/* V.737 : คำขอก่อน POST ยังไม่มีเลข JOB AD → แสดง "รอออกเลข JOB" */
+function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d > 3) return v; if (Array.isArray(v)) { v.forEach(function (x) { pend737(x, d + 1); }); return v; }
+  if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
+  ["rows", "req", "job"].forEach(function (k) { v[k] && typeof v[k] === "object" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
 var IC = {
   exp723: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 9.2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V12c0 1.4-3.1 2.6-7 2.6S5 13.4 5 12z"/><path d="M5 15c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v2.8c0 1.4-3.1 2.6-7 2.6s-7-1.2-7-2.6z"/></svg>',
   home: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>',
@@ -115,7 +119,7 @@ function css() {
   ].join("");
   document.head.appendChild(s);
 }
-function rpc(n, a) { return RPC(n, a); }
+function rpc(n, a) { return RPC(n, a).then(pend737); }
 function copy(text, ok) {
   var done = function () { toast(ok, "ok"); };
   try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done, fb); return; } } catch (e) {}
@@ -159,7 +163,7 @@ function tlHTML(r, tl) {
   });
   ev.push({ at: r.requested_at, c: "o", t: "ส่งคำขออนุมัติ โดย " + (r.requested_by || "-"), s: "ยอดขอเบิก " + fm(r.total_real) + " บาท" });
   r.approved_at && ev.push({ at: r.approved_at, c: "i", t: "อนุมัติแล้ว — รอจ่ายเงิน โดย " + (r.approved_by || "-"), s: "ยอดอนุมัติ " + fm(r.total_real) + " บาท" });
-  r.rejected_at && ev.push({ at: r.rejected_at, c: "x", t: "ไม่อนุมัติ — ยกเลิก JOB โดย " + (r.rejected_by || "-"), s: "เหตุผล: " + (r.reject_reason || "-") });
+  r.rejected_at && ev.push({ at: r.rejected_at, c: "x", t: "ไม่อนุมัติ โดย " + (r.rejected_by || "-"), s: "เหตุผล: " + (r.reject_reason || "-") });
   (r.pays || []).forEach(function (p) { ev.push({ at: p.paid_at, c: "c", t: "จ่ายเงินแล้ว — แนบสลิปสำเร็จ โดย " + (p.paid_by || "-"), s: (r.item_count > 1 ? "รายการที่ " + p.item_no + " · " : "") + "ยอดจ่าย " + fm(p.amount) + " บาท" }); });
   r.status === "PAID" && r.paid_at && ev.push({ at: r.paid_at, c: "c", t: "จ่ายครบทุกรายการ (" + r.item_count + " รายการ)", s: "ยอดจ่ายจริงรวม " + fm(r.paid_total) + " บาท" });   /* V.705 */
   ev.sort(function (a, b) { return new Date(b.at) - new Date(a.at); });
@@ -276,6 +280,7 @@ function detail(g) {
   });
 }
 async function after(jobId, msg) { toast(msg, "ok"); load(!0); await openJob(jobId); }
+function AP739(r, pr) { try { if (pr && pr.status === "PAID" && pr.job_no && pr.job_no !== "รอออกเลข JOB" && r && r.job_no === "รอออกเลข JOB") toast("✅ จ่ายเงิน + แนบสลิปครบทุกรายการ — AUTO POST ออกเลข JOB AD " + pr.job_no + " แล้ว · USER ปิดงานเองใน DOCUMENT → ADVANCE", "ok"); } catch (e) {} }   /* V.739 */
 function ac7(ac) {   /* V.705 : ผลปิดงาน DOCUMENT อัตโนมัติ (ระบบกลางเดียวกับคอม) */
   if (!ac) return;
   if (ac.ok) { toast(ac.already_closed ? "จ่ายครบแล้ว — JOB นี้ปิดงาน DOCUMENT อยู่แล้ว" : "✅ จ่ายครบทุกรายการ — ปิดงาน DOCUMENT อัตโนมัติแล้ว → ส่ง ACCOUNTING", "ok"); return; }
@@ -286,7 +291,7 @@ async function retry7(r, b) { if (S.paying) return; S.paying = !0; b.disabled = 
   catch (er) { S.paying = !1; b.disabled = !1; toast(errMsg(er), "err"); } }
 function approve(r, b) {   /* V.725 : หน้าต่าง "ยืนยันการอนุมัติ" (แนบสลิปแยกรายการ · ไม่บังคับ) — ยังไม่กดยืนยัน = คงรออนุมัติ */
   var g = S && S.cur;
-  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); },
+  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · " + (r.job_no === "รอออกเลข JOB" ? "ยังไม่ออกเลข JOB AD (ออกอัตโนมัติเมื่อจ่ายเงิน + แนบสลิปครบ)" : "JOB " + r.job_no)); },
     close: function (ch) { if (ch && S && S.sheet) openJob(r.job_id); }, stale: function () { load(!0); openJob(r.job_id); } });
 }
 var EV725 = !1;
@@ -299,7 +304,7 @@ function ev725() {   /* V.725 : ลบสลิปใน Detail → แสดง
   });
 }
 function rejectForm(r) {
-  var w = sheet("ไม่อนุมัติ — ยกเลิก JOB", "", '<div class="aq7-bar r"><b>JOB ' + esc(r.job_no) + " · ฿" + fm(r.total_real) + '</b><small>เมื่อยืนยัน ระบบจะยกเลิก JOB ผ่าน Flow ยกเลิกงานเดิม (ไม่ลบข้อมูล · เลข JOB / ประวัติคงอยู่)</small></div>' +
+  var w = sheet("ไม่อนุมัติคำขอ", "", '<div class="aq7-bar r"><b>JOB ' + esc(r.job_no) + " · ฿" + fm(r.total_real) + '</b><small>ไม่ยกเลิก JOB · ไม่ POST / ไม่ออกเลข · ผู้ขอแก้ไขข้อมูลแล้วส่งคำขอใหม่ได้</small></div>' +
     '<div class="aq7-fm"><label>เหตุผลที่ไม่อนุมัติ <span class="aq7-req">*</span></label><div class="aq7-rc">' + RS7.map(function (t) { return '<button type="button" data-rk="' + esc(t) + '">' + esc(t) + "</button>"; }).join("") + '<button type="button" data-rk="">เหตุผลอื่น — กรอกเอง</button></div><textarea data-rs maxlength="500" placeholder="ระบุเหตุผล / รายละเอียดเพิ่มเติม"></textarea><div class="aq7-hint">บังคับกรอกทุกครั้ง · พนักงานจะเห็นเหตุผลนี้ในหน้าคอม</div></div>',
     '<button type="button" class="aq7-btn n" data-back>ย้อนกลับ</button><button type="button" class="aq7-btn d" data-go disabled>✕ ยืนยันไม่อนุมัติ</button>');
   var ta = w.querySelector("[data-rs]"), go = w.querySelector("[data-go]"), pk = "";
@@ -312,7 +317,7 @@ function rejectForm(r) {
     if (!x.hasAttribute("data-go") || x.disabled) return;
     var rs = why(); if (!rs) { toast("กรุณาระบุเหตุผลที่ไม่อนุมัติ", "err"); return; }
     x.disabled = !0;
-    try { await rpc("njacc_adv701_reject", { p: { req_id: r.id, reason: rs } }); after(r.job_id, "❌ ไม่อนุมัติ — ยกเลิก JOB " + r.job_no + " แล้ว"); }
+    try { await rpc("njacc_adv701_reject", { p: { req_id: r.id, reason: rs } }); after(r.job_id, "❌ ไม่อนุมัติแล้ว · JOB " + r.job_no + " — ผู้ขอแก้ไขและส่งใหม่ได้"); }
     catch (er) { toast(errMsg(er), "err"); x.disabled = !1; }
   });
 }
@@ -356,7 +361,7 @@ function payForm(r, j, n) {
       var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dd.value, slip_path: path, slip_name: String(dr ? dr.name : file.name || "").slice(0, 150) } });   /* V.705 : จ่ายครบ = ปิดงาน DOCUMENT อัตโนมัติ */
       S.paying = !1;
       await after(r.job_id, "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + r.job_no + (r.item_count > 1 ? " รายการที่ " + n : ""));
-      pr && ac7(pr.auto_close);
+      pr && ac7(pr.auto_close); AP739(r, pr);
     } catch (er) { S.paying = !1; x.disabled = !1; x.textContent = "✓ ยืนยันจ่ายเงินแล้ว"; toast(errMsg(er), "err"); }
   });
 }

@@ -1161,8 +1161,20 @@ var AD698 = (function () {
     var seen = 0, miss = 0;
     st.tk = setInterval(function () {
       if (!st.el.isConnected) { if (seen || ++miss > 40) { clearInterval(st.tk); document.removeEventListener("click", g, !0); document.removeEventListener("keyup", g, !0); } return; }
-      seen = 1; document.hidden || sync(st);
+      seen = 1; document.hidden || sync(st); post737(st);
     }, 500);
+  }
+  /* V.737 : DOCUMENT → ADVANCE มีรายการเบิกเงินสำรองจ่าย = ห้าม POST เอง (ส่งคำขอ → อนุมัติ → AUTO POST) · ไม่มีรายการ = ปุ่ม POST เดิม (Backend ตรวจซ้ำ) */
+  function post737(st) {
+    try {
+      if (st.src !== "document" || st.view || st.pv || !st.loaded) return;
+      var md = (st.root && st.root.closest && st.root.closest(".modal")) || document.getElementById("nj-modal") || st.root, b = md && md.querySelector("#nj-post"); if (!b) return;
+      var has = st.items.filter(used).length > 0;
+      if (!b.__p737) { b.__p737 = 1; b.addEventListener("click", function (e) { if (!b.__h737) return; e.preventDefault(); e.stopImmediatePropagation();
+        try { P("งานนี้มีรายการเบิกเงินสำรองจ่าย — กด ส่งคำขออนุมัติ · ระบบจะ POST และออกเลข JOB AD อัตโนมัติเมื่อ SUPER_ADMIN จ่ายเงิน + แนบสลิปครบ", "err"); } catch (x) {} }, !0); }
+      if (has) { if (!b.__h737) { b.__h737 = 1; b.__d737 = b.disabled; b.__t737 = b.title; b.title = "มีรายการเบิกเงินสำรองจ่าย — ส่งคำขออนุมัติแทน (AUTO POST + ออกเลข JOB AD เมื่อจ่ายเงิน + แนบสลิปครบ)"; } b.disabled = !0; }
+      else if (b.__h737) { b.__h737 = 0; b.disabled = !!b.__d737; b.title = b.__t737 || ""; }
+    } catch (e) {}
   }
   var TL = {
     CREATE_JOB: ["สร้างงาน", "c"], EDIT_JOB: ["แก้ไขงาน", "e"], EDIT_JOB_DOC_FIELDS: ["แก้ไขงาน", "e"], EDIT_JOB_CHECKLIST: ["แก้ไขงาน", "e"],
@@ -1225,7 +1237,7 @@ var AD698 = (function () {
       '</b></div><div class="ad698-sb"><span>รวม VAT</span><b data-s6="v">' + fm(t.v) + '</b></div><div class="ad698-sb g"><span>รวมจ่ายจริงทั้งหมด (<i data-s6="n" style="font-style:normal">' + t.n + "</i> รายการ)</span><b data-s6=\"real\">" + fm(t.real) + "</b></div>" +
       '<div class="ad698-sb p"><span>' + IC718 + 'ยอดรวมเก็บลูกค้า</span><b><i data-s6="col718">' + fm(col718(t)) + '</i> <small>บาท</small></b></div>';   /* V.718 : ยอดรวมเก็บลูกค้า = รวมยอดก่อนหัก + รวม VAT (แสดงผลเท่านั้น · ไม่บันทึก) */
   }
-  function isRo(st) { try { return !!(st.view || st.forceRo || (st.rq && st.rq.req) || (typeof st.ro === "function" && st.ro())); } catch (e) { return false; } }
+  function isRo(st) { try { return !!(st.view || st.forceRo || (st.rq && st.rq.req && st.rq.req.status !== "REJECTED") || (typeof st.ro === "function" && st.ro())); } catch (e) { return false; } }
   function render(st) {
     var el = st.el; if (!el) return;
     st.roNow = isRo(st);
@@ -1323,11 +1335,11 @@ var AD698 = (function () {
   }
   /* ═══ V.701 · ขออนุมัติเบิกเงินสำรองจ่าย (Timeline History) : ปุ่มส่งคำขอ (ต้อง POST มีเลข JOB) · สถานะ รออนุมัติ / อนุมัติแล้ว-รอจ่ายเงิน / จ่ายเงินแล้ว / ไม่อนุมัติ ·
      สลิป (ดู / ดาวน์โหลด ผ่าน Signed URL) · COPY แจ้งจ่ายแล้ว · ตรวจสถานะใหม่อัตโนมัติ (ทุก 45 วินาที เมื่อหน้าจอเปิดอยู่) — สิทธิ์ทั้งหมดตรวจซ้ำที่ฐานข้อมูล (RUN-701) ═══ */
-  var RQ7 = { PENDING: ["รออนุมัติ", "o"], APPROVED: ["อนุมัติแล้ว — รอจ่ายเงิน", "b"], PAID: ["อนุมัติแล้ว — จ่ายเงินแล้ว", "g"], REJECTED: ["ไม่อนุมัติ — ยกเลิก JOB", "r"] };
+  var RQ7 = { PENDING: ["รออนุมัติ", "o"], APPROVED: ["อนุมัติแล้ว — รอจ่ายเงิน", "b"], PAID: ["อนุมัติแล้ว — จ่ายเงินแล้ว", "g"], REJECTED: ["ไม่อนุมัติ — แก้ไขและส่งใหม่ได้", "r"] };   /* V.737 */
   function rqErr(e) {
     var m = String(e && (e.message || e.code) || e || "");
     if (/NJACC_ADV701_NOT_POSTED/.test(m)) return "กรุณา POST เพื่อออกเลข JOB ก่อนส่งคำขออนุมัติ";
-    if (/NJACC_ADV701_EXISTS/.test(m)) return "ส่งคำขออนุมัติของงานนี้ไปแล้ว — ส่งซ้ำไม่ได้";
+    if (/NJACC_ADV701_EXISTS/.test(m)) return "มีคำขออนุมัติที่ยังดำเนินการอยู่ (รออนุมัติ / อนุมัติแล้ว / จ่ายแล้ว) — ส่งซ้ำไม่ได้";   /* V.737 */
     if (/NJACC_ADV701_NO_ITEMS|NJACC_ADV701_ITEMS_INCOMPLETE/.test(m)) return "รายการจ่ายไม่ครบ — ต้องมีประเภท / ธนาคาร / เลขบัญชี / ชื่อบัญชี / ยอดจ่ายจริง ทุกรายการ (และบันทึกแล้ว)";
     if (/NJACC_JOB_CANCELED/.test(m)) return "งานถูกยกเลิกแล้ว — ส่งคำขออนุมัติไม่ได้";
     if (/NJACC_ADV698_CONFLICT/.test(m)) return "รายการจ่ายถูกแก้ไขจากหน้าจออื่น — ปิดแล้วเปิดงานใหม่ก่อนส่งคำขอ";
@@ -1339,10 +1351,9 @@ var AD698 = (function () {
   function dd7(x) { if (!x) return "-"; var p = String(x).slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : String(x); }
   function canReq(st) {
     var j = st.rq && st.rq.job;
-    if (!st.jobId) return "กรุณา POST เพื่อออกเลข JOB ก่อนส่งคำขออนุมัติ";
+    if (!st.jobId) return "กรุณาบันทึก (SAVE) งานก่อนส่งคำขออนุมัติ";   /* V.737 / V.739 : ส่งคำขอก่อน POST ได้ (AUTO POST + ออกเลข JOB AD เมื่อจ่ายเงิน + แนบสลิปครบ) */
     if (!j) return "กำลังตรวจสอบสถานะงาน…";
-    if (j.operational_status === "CANCELED") return "งานถูกยกเลิกแล้ว — ส่งคำขออนุมัติไม่ได้";
-    if (j.document_status !== "POSTED" || !String(j.job_no || "").trim()) return "กรุณา POST เพื่อออกเลข JOB ก่อนส่งคำขออนุมัติ";
+    if (j.operational_status === "CANCELED" && !(st.rq.req && st.rq.req.status === "REJECTED")) return "งานถูกยกเลิกแล้ว — ส่งคำขออนุมัติไม่ได้";
     if (st.dirty) return "กรุณาบันทึก (SAVE) รายการจ่ายก่อนส่งคำขออนุมัติ";
     var its = st.items.filter(used);
     if (!its.length) return "ยังไม่มีรายการจ่าย — เพิ่มและบันทึกรายการจ่ายก่อนส่งคำขอ";
@@ -1360,14 +1371,17 @@ var AD698 = (function () {
     if (!r) {
       var why = canReq(st);
       h = '<button type="button" class="ad701-req" data-a6="req7"' + (why ? " disabled" : "") + ">📤 ส่งคำขออนุมัติ</button>" +
-          '<div class="ad701-note">' + esc(why || "ส่งคำขอเข้ามือถือ SUPER_ADMIN · ส่งได้ครั้งเดียว · หลังส่งแล้วแก้ไขรายการจ่ายไม่ได้") + "</div>";
+          '<div class="ad701-note">' + esc(why || "ส่งคำขอเข้ามือถือ SUPER_ADMIN · อนุมัติ → จ่ายเงิน + แนบสลิปครบแล้ว ระบบจะ POST และออกเลข JOB AD อัตโนมัติ · ระหว่างรออนุมัติแก้ไขรายการจ่ายไม่ได้") + "</div>";
       return '<div class="ad701-p">' + h + "</div>";
     }
     if (r.status === "PENDING") h = '<div class="ad701-bar o"><b>🟠 ส่งคำขอแล้ว — รอ SUPER_ADMIN อนุมัติ</b><small>ส่งโดย ' + esc(r.requested_by || "-") + " · " + d7(r.requested_at) + " · ยอดขอเบิก " + fm(r.total_real) + " บาท</small></div>";
     else if (r.status === "APPROVED") h = '<div class="ad701-bar b"><b>✅ อนุมัติแล้ว — รอจ่ายเงิน</b><small>อนุมัติโดย ' + esc(r.approved_by || "-") + " · " + d7(r.approved_at) + " · ยอดอนุมัติ " + fm(r.total_real) + " บาท" +
       (Number(r.paid_count) > 0 ? " · จ่ายแล้ว " + r.paid_count + "/" + r.item_count + " รายการ (" + fm(r.paid_total) + " บาท)" : "") + "</small></div>";
-    else if (r.status === "PAID") h = '<div class="ad701-bar g"><b>✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ</b><small>JOB ' + esc(r.job_no) + " · ยอดจ่าย " + fm(r.paid_total) + " บาท · " + d7(r.paid_at) + '</small><span class="ad701-act"><button type="button" class="ad701-b" data-a6="cppaid">📋 COPY แจ้งจ่ายแล้ว</button></span></div>';
-    else if (r.status === "REJECTED") h = '<div class="ad701-bar r"><b>❌ ไม่อนุมัติ — ยกเลิก JOB</b><small>โดย ' + esc(r.rejected_by || "-") + " · " + d7(r.rejected_at) + '</small><div class="ad701-why">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
+    else if (r.status === "PAID") h = '<div class="ad701-bar g"><b>✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ</b><small>JOB ' + esc(r.job_no || "รอออกเลข JOB") + " · ยอดจ่าย " + fm(r.paid_total) + " บาท · " + d7(r.paid_at) + '</small><span class="ad701-act"><button type="button" class="ad701-b" data-a6="cppaid">📋 COPY แจ้งจ่ายแล้ว</button></span></div>';
+    else if (r.status === "REJECTED") h = '<div class="ad701-bar r"><b>❌ ไม่อนุมัติ — สามารถแก้ไขและส่งคำขอใหม่ได้</b><small>โดย ' + esc(r.rejected_by || "-") + " · " + d7(r.rejected_at) + '</small><div class="ad701-why">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
+    if (r.status === "REJECTED" && st.src !== "accounting" && !st.pv && !st.view) { var why737 = canReq(st);   /* V.737 : แก้ไขรายการจ่าย (SAVE) แล้วส่งคำขอรอบใหม่ได้ไม่จำกัด · ประวัติรอบก่อนอยู่ใน Timeline */
+      h += '<button type="button" class="ad701-req" data-a6="req7"' + (why737 ? " disabled" : "") + ">📤 ส่งคำขออนุมัติใหม่</button>" +
+        '<div class="ad701-note">' + esc(why737 || "แก้ไขรายการจ่ายแล้วกด SAVE ก่อนส่ง (ถ้ามีการแก้ไข) · ไม่ออกเลข JOB AD จนกว่าจะจ่ายเงิน + แนบสลิปครบ · ประวัติคำขอและเหตุผลเดิมยังอยู่ใน Timeline") + "</div>"; }
     if (sup && (r.status === "PENDING" || r.status === "APPROVED") && !st.pv) h += '<button type="button" class="ad701-lk" data-a6="open7">เปิดใน CASH ADVANCE (SUPER_ADMIN) ›</button>';
     return '<div class="ad701-p">' + h + "</div>";
   }
@@ -1384,9 +1398,9 @@ var AD698 = (function () {
     (r.pays || []).forEach(function (p) {
       var it = (r.items || [])[p.item_no - 1] || {};
       out.push(li(p.paid_at, "c", "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ โดย " + esc(p.paid_by || "-"),
-        "JOB " + esc(r.job_no) + (r.item_count > 1 ? " · รายการที่ " + p.item_no : "") + " : " + esc(it.payment_type || "-") + " · ยอดจ่าย " + fm(p.amount) + " บาท · วันที่จ่าย " + dd7(p.pay_date), slipBox(p, it, p.item_no)));
+        "JOB " + esc(r.job_no || "รอออกเลข JOB") + (r.item_count > 1 ? " · รายการที่ " + p.item_no : "") + " : " + esc(it.payment_type || "-") + " · ยอดจ่าย " + fm(p.amount) + " บาท · วันที่จ่าย " + dd7(p.pay_date), slipBox(p, it, p.item_no)));
     });
-    r.rejected_at && out.push(li(r.rejected_at, "x", "❌ ไม่อนุมัติ — ยกเลิก JOB โดย " + esc(r.rejected_by || "-"), "เหตุผล: " + esc(r.reject_reason || "-")));
+    r.rejected_at && out.push(li(r.rejected_at, "x", "❌ ไม่อนุมัติ โดย " + esc(r.rejected_by || "-"), "เหตุผล: " + esc(r.reject_reason || "-")));
     return out;
   }
   function paidText(st, n) {
@@ -1412,8 +1426,8 @@ var AD698 = (function () {
   function sig7(st) { var r = st.rq && st.rq.req; return r ? r.status + ":" + r.paid_count : "none"; }
   function note7(st) {
     var r = st.rq && st.rq.req; if (!r) return;
-    var m = r.status === "APPROVED" ? (Number(r.paid_count) > 0 ? "✅ จ่ายเงินแล้ว " + r.paid_count + "/" + r.item_count + " รายการ — JOB " + r.job_no : "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no + " (โดย " + (r.approved_by || "-") + ")")
-      : r.status === "PAID" ? "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + r.job_no : r.status === "REJECTED" ? "❌ ไม่อนุมัติ — ยกเลิก JOB " + r.job_no + " · เหตุผล: " + (r.reject_reason || "-") : "";
+    var m = r.status === "APPROVED" ? (Number(r.paid_count) > 0 ? "✅ จ่ายเงินแล้ว " + r.paid_count + "/" + r.item_count + " รายการ — JOB " + (r.job_no || "รอออกเลข JOB") : "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + (r.job_no || "รอออกเลข JOB") + " (โดย " + (r.approved_by || "-") + ")")
+      : r.status === "PAID" ? "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + (r.job_no || "รอออกเลข JOB") : r.status === "REJECTED" ? "❌ ไม่อนุมัติ — แก้ไขและส่งคำขอใหม่ได้ · JOB " + (r.job_no || "รอออกเลข JOB") + " · เหตุผล: " + (r.reject_reason || "-") : "";
     if (m) { try { P(m, r.status === "REJECTED" ? "err" : "ok"); } catch (e) {} }
   }
   async function loadRq(st, quiet) {
@@ -1449,9 +1463,14 @@ var AD698 = (function () {
     });
   }
   async function sendReq(st, btn) {
+    if (st.sending737) return;   /* V.737 : กันกดซ้ำ (Backend ล็อกแถวงาน / คำขอ + ห้ามคำขอซ้ำอีกชั้น) */
     var why = canReq(st); if (why) { try { P(why, "err"); } catch (e) {} return; }
+    st.sending737 = 1; try { await sendReq737(st, btn); } finally { st.sending737 = 0; }
+  }
+  async function sendReq737(st, btn) {
+    var rr = st.rq && st.rq.req;
     var its = st.items.filter(used), t = totals(st.items), c = ctx(st);
-    var ok = await dlg7("📤 ยืนยันส่งคำขออนุมัติ", "<p>ส่งคำขอเบิกเงินสำรองจ่ายของ <b>JOB " + esc((st.rq.job && st.rq.job.job_no) || c.job || "-") + "</b> เข้ามือถือ SUPER_ADMIN</p><p>" + its.length + " รายการ · ยอดจ่ายสุทธิ <b>" + fm(t.real) + " บาท</b></p><p class=\"ad701-warn\">ส่งได้ครั้งเดียว · หลังส่งแล้วแก้ไขรายการจ่ายไม่ได้</p>", "📤 ส่งคำขออนุมัติ");
+    var ok = await dlg7("📤 ยืนยันส่งคำขออนุมัติ", "<p>ส่งคำขอเบิกเงินสำรองจ่ายของ <b>JOB " + esc((st.rq.job && st.rq.job.job_no) || c.job || "รอออกเลข JOB (ออกอัตโนมัติเมื่อจ่ายเงินครบ)") + "</b> เข้ามือถือ SUPER_ADMIN</p><p>" + its.length + " รายการ · ยอดจ่ายสุทธิ <b>" + fm(t.real) + " บาท</b></p><p class=\"ad701-warn\">" + (rr && rr.status === "REJECTED" ? "ส่งคำขอรอบใหม่ (คำขอเดิมไม่อนุมัติ — ประวัติเดิมยังอยู่) · " : "") + "อนุมัติ → จ่ายเงิน + แนบสลิปครบแล้ว ระบบจะ POST และออกเลข JOB AD อัตโนมัติ · ระหว่างรออนุมัติแก้ไขรายการจ่ายไม่ได้</p>", "📤 ส่งคำขออนุมัติ");
     if (!ok) return;
     btn && (btn.disabled = !0);
     try {

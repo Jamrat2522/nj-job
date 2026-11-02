@@ -143,7 +143,7 @@ function css() {
   ].join("");
   document.head.appendChild(s);
 }
-function rpc(n, a) { return RPC(n, a); }
+function rpc(n, a) { return RPC(n, a).then(pend737); }
 async function bill719(rows) {   /* V.719 : { job_id → { collect, billed, match_no } } · โหลดไม่ได้ = null (แสดง "-") */
   var ids = [], seen = {};
   (rows || []).forEach(function (x) { x && x.job_id && !seen[x.job_id] && (seen[x.job_id] = 1, ids.push(x.job_id)); });
@@ -178,6 +178,10 @@ function payBadge(x) {
 }
 function payText(x) { return x.status === "PAID" ? "จ่ายเงินแล้ว" : Number(x.paid_count) > 0 ? "จ่ายแล้ว " + x.paid_count + "/" + x.item_count + " รายการ" : "รอจ่ายเงิน"; }
 function jobSt(x) { return x.job_canceled ? '<span class="ca7-bd r">ยกเลิก JOB แล้ว</span>' : '<span class="ca7-bd x">' + esc(x.job_status || "-") + "</span>"; }
+/* V.737 : คำขอก่อน POST ยังไม่มีเลข JOB AD → แสดง "รอออกเลข JOB" (อ้างอิงภายใน = req id / job id เดิม) */
+function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d > 3) return v; if (Array.isArray(v)) { v.forEach(function (x) { pend737(x, d + 1); }); return v; }
+  if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
+  ["rows", "req", "job", "items"].forEach(function (k) { v[k] && typeof v[k] === "object" && k !== "items" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
 function filt() { return { date_from: S.f.date_from, date_to: S.f.date_to, job_no: S.f.job_no, company: S.f.company, customer: S.f.customer, hbl: S.f.hbl, q: S.f.q }; }
 function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off }, filt()); }   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
 function badgeSet(c) {
@@ -338,7 +342,7 @@ function stBar(r) {
   if (r.status === "PENDING") return '<div class="ca7-st o">🕒 รออนุมัติ<small>ส่งโดย ' + esc(r.requested_by || "-") + " · " + esc(dtm(r.requested_at)) + " · ยอดเบิก " + fm(r.total_real) + " บาท</small></div>";
   if (r.status === "APPROVED") return '<div class="ca7-st b">✅ อนุมัติแล้ว — รอจ่ายเงิน' + (Number(r.paid_count) > 0 ? " (จ่ายแล้ว " + r.paid_count + "/" + r.item_count + ")" : "") + "<small>อนุมัติโดย " + esc(r.approved_by || "-") + " · " + esc(dtm(r.approved_at)) + " · ยอดอนุมัติ " + fm(r.total_real) + " บาท</small></div>";
   if (r.status === "PAID") return '<div class="ca7-st g">✅ อนุมัติแล้ว — จ่ายเงินแล้ว<small>ยอดจ่าย ' + fm(r.paid_total) + " บาท · " + esc(dtm(r.paid_at)) + "</small></div>";
-  return '<div class="ca7-st r">❌ ไม่อนุมัติ — ยกเลิก JOB<small>โดย ' + esc(r.rejected_by || "-") + " · " + esc(dtm(r.rejected_at)) + '</small><div style="margin-top:4px;white-space:pre-wrap">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
+  return '<div class="ca7-st r">❌ ไม่อนุมัติ — ผู้ขอแก้ไขและส่งคำขอใหม่ได้<small>โดย ' + esc(r.rejected_by || "-") + " · " + esc(dtm(r.rejected_at)) + '</small><div style="margin-top:4px;white-space:pre-wrap">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
 }
 function footHTML(r) {
   if (!S.sup) return "";
@@ -392,6 +396,7 @@ function panelClick(e, me) {
   if (b.hasAttribute("data-pay")) { payBox(me, r, Number(b.dataset.pay)); return; }
 }
 async function after(jobId, msg) { toast(msg, "ok"); load(); await openView(jobId); }
+function AP739(r, pr) { try { if (pr && pr.status === "PAID" && pr.job_no && pr.job_no !== "รอออกเลข JOB" && r && r.job_no === "รอออกเลข JOB") toast("✅ จ่ายเงิน + แนบสลิปครบทุกรายการ — AUTO POST ออกเลข JOB AD " + pr.job_no + " แล้ว · USER ปิดงานเองใน DOCUMENT → ADVANCE", "ok"); } catch (e) {} }   /* V.739 */
 function acMsg(ac) {   /* V.705 : ผลปิดงานอัตโนมัติหลังจ่ายครบ */
   if (!ac) return;
   if (ac.ok) { toast(ac.already_closed ? "จ่ายครบแล้ว — JOB นี้ปิดงาน DOCUMENT อยู่แล้ว" : "✅ จ่ายครบทุกรายการ — ปิดงาน DOCUMENT อัตโนมัติแล้ว → ส่ง ACCOUNTING → ADVANCE", "ok"); return; }
@@ -404,7 +409,7 @@ async function retryClose(r, b) {
 }
 function approveBox(me, r) {   /* V.725 : หน้าต่าง "ยืนยันการอนุมัติ" (แนบสลิปแยกรายการ · ไม่บังคับ) — ยังไม่กดยืนยัน = คงรออนุมัติ · ยืนยันสำเร็จเท่านั้นจึงย้ายแท็บ */
   var g = S && S.cur;
-  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r.job_no); },
+  A725(r, { job: g && g.req === r ? g.job : {}, done: function () { after(r.job_id, "✅ อนุมัติแล้ว — รอจ่ายเงิน · " + (r.job_no === "รอออกเลข JOB" ? "ยังไม่ออกเลข JOB AD (ออกอัตโนมัติเมื่อจ่ายเงิน + แนบสลิปครบ)" : "JOB " + r.job_no)); },
     close: function (ch) { if (ch && me.isConnected) openView(r.job_id); }, stale: function () { load(); me.isConnected && openView(r.job_id); } });
 }
 var EV725 = !1;
@@ -418,7 +423,7 @@ function ev725() {   /* V.725 : ลบสลิปใน Detail Modal → แส
 }
 function rejectBox(me, r) {
   var f = me.querySelector(".ca7-df"), pick = "";
-  f.innerHTML = '<div class="ca7-st r" style="margin:0">ไม่อนุมัติ — ยกเลิก JOB ' + esc(r.job_no) + "<small>ระบบจะยกเลิก JOB ผ่าน Flow ยกเลิกงานเดิม (ไม่ลบข้อมูล · เลข JOB / ประวัติคงอยู่)</small></div>" +
+  f.innerHTML = '<div class="ca7-st r" style="margin:0">ไม่อนุมัติ · JOB ' + esc(r.job_no) + "<small>ไม่ยกเลิก JOB · ไม่ POST / ไม่ออกเลข · ผู้ขอแก้ไขข้อมูลแล้วส่งคำขอใหม่ได้</small></div>" +
     '<div><b>เหตุผลที่ไม่อนุมัติ <span class="ca7-req">*</span></b></div><div class="ca7-rc">' + RS.map(function (t) { return '<button type="button" data-rs="' + esc(t) + '">' + esc(t) + "</button>"; }).join("") + '<button type="button" data-rs="">เหตุผลอื่น — กรอกเอง</button></div>' +
     '<textarea data-rt maxlength="500" placeholder="ระบุเหตุผล / รายละเอียดเพิ่มเติม"></textarea><div class="ca7-dfa"><button type="button" class="ca7-b" data-back>ย้อนกลับ</button><button type="button" class="ca7-b d" data-go disabled>✕ ยืนยันไม่อนุมัติ</button></div>';
   var ta = f.querySelector("[data-rt]"), go = f.querySelector("[data-go]");
@@ -432,7 +437,7 @@ function rejectBox(me, r) {
     if (!x.hasAttribute("data-go") || x.disabled || S.busy) return;
     var rs = why(); if (!rs) { toast("กรุณาระบุเหตุผลที่ไม่อนุมัติ", "err"); return; }
     S.busy = !0; x.disabled = !0;
-    try { await rpc("njacc_adv701_reject", { p: { req_id: r.id, reason: rs } }); S.busy = !1; after(r.job_id, "❌ ไม่อนุมัติ — ยกเลิก JOB " + r.job_no + " แล้ว"); }
+    try { await rpc("njacc_adv701_reject", { p: { req_id: r.id, reason: rs } }); S.busy = !1; after(r.job_id, "❌ ไม่อนุมัติแล้ว · JOB " + r.job_no + " — ผู้ขอแก้ไขและส่งใหม่ได้"); }
     catch (er) { S.busy = !1; toast(errMsg(er), "err"); x.disabled = !1; if (/STATE/.test(String(er && er.message))) { load(); openView(r.job_id); } }
   };
 }
@@ -474,7 +479,7 @@ function payBox(me, r, n) {
       var pr = await rpc("njacc_adv705_pay", { p: { req_id: r.id, item_no: n, pay_date: dt.value, slip_path: path, slip_name: String(dr ? dr.name : file.name || "").slice(0, 150) } });
       S.busy = !1;
       await after(r.job_id, "✅ จ่ายเงินแล้ว — แนบสลิปสำเร็จ · JOB " + r.job_no + (r.item_count > 1 ? " รายการที่ " + n : ""));
-      pr && acMsg(pr.auto_close);
+      pr && acMsg(pr.auto_close); AP739(r, pr);
     } catch (er) { S.busy = !1; x.disabled = !1; x.textContent = "✓ ยืนยันจ่ายเงินแล้ว"; toast(errMsg(er), "err"); if (/ITEM_PAID|STATE|NOT_APPROVED|ALL_PAID/.test(String(er && er.message))) { load(); openView(r.job_id); } }
   };
 }
@@ -536,7 +541,7 @@ async function quick(b) {   /* V.705 : ปุ่มในคอลัมน์�
       var g0 = await rpc("njacc_cash_adv705_get", { p_job: job }), r0 = g0 && g0.req; b.disabled = !1;
       if (!r0) return;
       if (r0.status !== "PENDING") { toast("สถานะคำขอเปลี่ยนไปแล้ว — โหลดข้อมูลล่าสุด", "err"); load(); return; }
-      K725(); A725(r0, { job: g0.job || {}, done: function () { toast("✅ อนุมัติแล้ว — รอจ่ายเงิน · JOB " + r0.job_no, "ok"); load(); }, stale: function () { load(); } });
+      K725(); A725(r0, { job: g0.job || {}, done: function () { toast("✅ อนุมัติแล้ว — รอจ่ายเงิน · " + (r0.job_no === "รอออกเลข JOB" ? "ยังไม่ออกเลข JOB AD (ออกอัตโนมัติเมื่อจ่ายเงิน + แนบสลิปครบ)" : "JOB " + r0.job_no), "ok"); load(); }, stale: function () { load(); } });
     } catch (e) { b.disabled = !1; toast(errMsg(e), "err"); }
     return;
   }
