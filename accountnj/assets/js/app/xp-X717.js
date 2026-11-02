@@ -310,4 +310,5 @@ export function view717(container, o) {
     mount717(host, { jobId: o && o.jobId, src: "VIEW", readonly: !0, numbered: !1 });
   } catch (e) {}
 }
+export function files723() { css(); return { preview: preview, download: download, pick: pick717, confirm: confirm717 }; }   /* V.723 : EXPENSES ใช้ตัวช่วยไฟล์เดิม (Storage / สิทธิ์เดิม) */
 export function dirty717(root) { var el = root && root.querySelector(".xp717"), st = el && el.__xp717; return !!(st && st.edit && (st.dirty || st.delItems.length || st.delFiles.length)); }

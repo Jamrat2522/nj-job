@@ -1,5 +1,7 @@
-import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
-/* ═══ V.722 · List View : คลิกแถวใดก็ได้ = เปิดรายละเอียด (ปุ่มในแถวทำงานเดิม · ไม่เปิดซ้ำ) · Desktop (≥ 1025px) : ซ่อนปุ่ม "ดู" + Hover แถว + รายละเอียดเป็น Modal กลางจอ (850px · 85vh · Overlay)
+import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
+/* ═══ V.724 · รายละเอียด (Desktop / Tablet) ตามภาพล่าสุด : ข้อมูล JOB บนสุด 2 คอลัมน์ → แถบสถานะ → Card รายการ + สลิปโอนเงินประจำรายการ → INVOICE ADV / เอกสารเพิ่มเติม → Timeline (พับทุกครั้ง)
+     Desktop : กว้าง 850 → 1020px (+20%) · สูงสูงสุด 85vh → 110.5vh (+30%) จำกัดไม่เกินหน้าจอ − 32px · หน้าหลักไม่เลื่อนตาม · Component ร่วม ca-detail-D724.js (ใช้กับมือถือด้วย)
+   V.722 · List View : คลิกแถวใดก็ได้ = เปิดรายละเอียด (ปุ่มในแถวทำงานเดิม · ไม่เปิดซ้ำ) · Desktop (≥ 1025px) : ซ่อนปุ่ม "ดู" + Hover แถว + รายละเอียดเป็น Modal กลางจอ (850px · 85vh · Overlay)
      Header / Footer อยู่กับที่ · Scroll เฉพาะเนื้อหา · มือถือ (หน้า adv-approve) / Tablet คงเดิม
    V.720 · List View : เส้นตารางครบทุกช่อง (#D9E2EC 1px) · Company / Customer แสดง 10 ตัวอักษรแรก (Tooltip / แตะ = ชื่อเต็ม) · Export Excel = คอลัมน์เดียวกับหน้ารายงาน + Thin Border ทุก Cell (ExcelJS เดิมในระบบ) · ชื่อเต็ม
    V.719 · List View (3 สถานะ) : ซ่อน "ยอดขอเบิก" + "ยอดจ่ายจริง" · เพิ่ม "ยอดรวมเก็บลูกค้า" (DOCUMENT → ADVANCE : ยอดก่อนหัก + VAT) + "เก็บลูกค้าแล้ว"
@@ -135,6 +137,8 @@ function css() {
       ".ca7-dw .ca7-dl{grid-template-columns:170px minmax(0,1fr);gap:6px 16px;font-size:13px}.ca7-dw .ca7-dl dd{overflow-wrap:anywhere}" +
       ".ca7-dw .ca7-it{padding:12px 14px;font-size:13px;max-width:100%;box-sizing:border-box}.ca7-dw .ca7-it .g{gap:4px 20px}.ca7-dw .ca7-it .g>*{min-width:0;overflow-wrap:anywhere}.ca7-dw .ca7-it .h>*{min-width:0;overflow-wrap:anywhere}" +
       ".ca7-dw .ca7-db>*{max-width:100%;box-sizing:border-box}}",
+    ".ca7-dh.ca24-hd{background:linear-gradient(90deg,#dbeafe,#eef4ff 55%,#e0e7ff);gap:10px}.ca7-dh.ca24-hd b{font-size:17px;font-weight:800;color:#0f172a}.ca7-db{overscroll-behavior:contain}",   /* V.724 */
+    "@media (min-width:1025px){.ca7-dw{width:min(1020px,calc(100vw - 32px));max-height:min(110.5vh,calc(100vh - 32px));border-radius:16px}.ca7-dh.ca24-hd{padding:12px 20px}.ca7-dh.ca24-hd b{font-size:19px}html.ca24-lock,html.ca24-lock body{overflow:hidden}}",
     "@media (max-width:900px){.ca7-ft{display:inline-flex}.ca7-f .ca7-more{display:none}.ca7-f.open .ca7-more{display:flex}.ca7-sum{margin-left:0;white-space:normal}}"
   ].join("");
   document.head.appendChild(s);
@@ -267,7 +271,7 @@ async function load() {
 }
 
 /* ── Side Panel : รายละเอียด + ดำเนินการ (RUN-701 เดิม) ── */
-function closeView() { var d = document.querySelector(".ca7-dw"); d && d.remove(); document.querySelectorAll(".ca7-ov").forEach(function (o) { o.remove(); });   /* V.722 */ if (S) { S.cur = null; S.busy = !1; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; } } }
+function closeView() { var d = document.querySelector(".ca7-dw"); d && d.remove(); document.documentElement.classList.remove("ca24-lock");   /* V.724 */ document.querySelectorAll(".ca7-ov").forEach(function (o) { o.remove(); });   /* V.722 */ if (S) { S.cur = null; S.busy = !1; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; } } }
 function itemsHTML(r) {
   return (r.items || []).map(function (it, i) {
     var n = i + 1, p = (r.pays || []).find(function (x) { return Number(x.item_no) === n; });
@@ -335,7 +339,8 @@ function footHTML(r) {
 async function openView(jobId) {
   closeView();
   var d = document.createElement("div"); d.className = "ca7-dw"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "รายละเอียด CASH ADVANCE"); d.dataset.job = jobId;
-  d.innerHTML = '<div class="ca7-dh"><b>รายละเอียด CASH ADVANCE</b><button type="button" class="ca7-dx" data-x aria-label="ปิด">×</button></div><div class="ca7-db"><div class="ca7-em">กำลังโหลด…</div></div><div class="ca7-df"></div>';
+  C724(); document.documentElement.classList.add("ca24-lock");   /* V.724 */
+  d.innerHTML = '<div class="ca7-dh ca24-hd"><span class="ca24-hi">' + I724.hd + '</span><b>รายละเอียด CASH ADVANCE</b><button type="button" class="ca7-dx" data-x aria-label="ปิด">×</button></div><div class="ca7-db"><div class="ca7-em">กำลังโหลด…</div></div><div class="ca7-df"></div>';
   var ov = document.createElement("div"); ov.className = "ca7-ov"; ov.setAttribute("aria-hidden", "true"); document.body.appendChild(ov);   /* V.722 : Overlay (แสดงเฉพาะ Desktop) */
   document.body.appendChild(d);
   var me = d;
@@ -353,18 +358,10 @@ async function openView(jobId) {
     me.querySelector(".ca7-dh b").textContent = "CASH ADVANCE · " + (r.job_no || "");
     var rt = !1 && S.sup && r.status === "PAID" && j.operational_status !== "CLOSE" && j.operational_status !== "CANCELED"   /* V.710 : ยกเลิกปิดงานอัตโนมัติ */
       ? '<div class="ca7-retry" data-rtw><b>⚠ จ่ายครบแล้ว แต่ปิดงาน DOCUMENT อัตโนมัติยังไม่สำเร็จ — การจ่าย / สลิปบันทึกครบแล้ว</b><button type="button" class="ca7-b p" data-retry>↻ ลองปิดงานอีกครั้ง</button></div>' : "";
-    me.querySelector(".ca7-db").innerHTML = stBar(r) + rt +
-      '<div class="ca7-h3">ข้อมูล JOB</div><dl class="ca7-dl"><dt>JOB No.</dt><dd>' + esc(r.job_no) + (j.operational_status === "CANCELED" ? ' <span class="ca7-bd r">JOB ยกเลิก</span>' : "") + "</dd><dt>Company</dt><dd>" + esc(j.company_invoice || "-") +
-      "</dd><dt>Customer</dt><dd>" + esc(j.customer_name || "-") + "</dd><dt>House B/L</dt><dd>" + esc(j.house_bl_no || "-") + "</dd><dt>Mode</dt><dd>" + esc(j.data_type || "-") + "</dd><dt>USER ผู้ส่งคำขอ</dt><dd>" + esc(r.requested_by || "-") +
-      "</dd><dt>วันที่ส่งคำขอ</dt><dd>" + esc(dtm(r.requested_at)) + "</dd>" +
-      (r.approved_at ? "<dt>ผู้อนุมัติ</dt><dd>" + esc(r.approved_by || "-") + "</dd><dt>วันที่อนุมัติ</dt><dd>" + esc(dtm(r.approved_at)) + "</dd>" : "") +
-      (r.status === "PAID" ? "<dt>สถานะ DOCUMENT</dt><dd>" + (j.operational_status === "CLOSE" ? "ปิดงานแล้ว — ส่ง ACCOUNTING แล้ว" : esc(j.operational_status || "-") + " (รอ USER ปิดงานเองใน DOCUMENT → ADVANCE)") + "</dd>" : "") +
-      (r.rejected_at ? "<dt>ผู้ไม่อนุมัติ</dt><dd>" + esc(r.rejected_by || "-") + "</dd><dt>วันที่ไม่อนุมัติ</dt><dd>" + esc(dtm(r.rejected_at)) + "</dd><dt>เหตุผล</dt><dd>" + esc(r.reject_reason || "-") + "</dd><dt>สถานะ JOB</dt><dd>" + esc(j.operational_status || "-") + "</dd>" : "") +
-      "<dt>" + (ap ? "ยอดอนุมัติ" : "ยอดขอเบิก") + "</dt><dd>" + fm(r.total_real) + " บาท</dd>" + (ap ? "<dt>ยอดจ่ายจริง</dt><dd>" + fm(paid) + " บาท</dd><dt>ค้างจ่าย</dt><dd>" + fm(wait) + " บาท</dd>" : "") + "</dl>" +
-      '<div class="ca7-h3">รายการเงินสำรองจ่าย (' + r.item_count + " รายการ)</div>" + itemsHTML(r) +
-      (ap ? '<div class="ca7-h3">ข้อมูล INVOICE ADV</div>' + (g.invoices ? invHTML(g) : '<div class="ca7-warn">โหลดข้อมูล INVOICE ADV ไม่สำเร็จ</div>') + '<div class="ca7-h3">หลักฐานสลิปการโอนเงิน</div>' + slipsHTML(r) : "") +
+    me.querySelector(".ca7-db").innerHTML = J724(r, j, ap) + T724(r) + rt + IT724(r, r.status === "APPROVED" && S.sup && !r.job_canceled705) +   /* V.724 : ข้อมูล JOB → สถานะ → รายการ + สลิปประจำรายการ */
+      (ap ? '<div class="ca7-h3">ข้อมูล INVOICE ADV</div>' + (g.invoices ? invHTML(g) : '<div class="ca7-warn">โหลดข้อมูล INVOICE ADV ไม่สำเร็จ</div>') : "") +
       D716(jobId, { src: "CASH_ADVANCE", reload: !0 }) +   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
-      '<div class="ca7-h3">Timeline History' + C708() + "</div>" + tlHTML(g, res[1] && res[1].timeline);
+      TL724(tlHTML(g, res[1] && res[1].timeline), C708());   /* V.724 : Timeline ล่างสุด · พับทุกครั้งที่เปิด */
     me.querySelector(".ca7-df").innerHTML = footHTML(r);
   } catch (e) { if (me.isConnected) me.querySelector(".ca7-db").innerHTML = '<div class="ca7-em">' + esc(errMsg(e)) + "</div>"; }
 }
@@ -528,7 +525,7 @@ async function quickSlip(b) {
   var job = b.dataset.qsv || b.dataset.qsd; b.disabled = !0;
   try { var g = await rpc("njacc_cash_adv705_get", { p_job: job }), r = g && g.req; b.disabled = !1;
     if (r && (r.pays || []).length === 1) { slip(r, Number(r.pays[0].item_no), !!b.dataset.qsd, b); return; }
-    await openView(job); var s = document.querySelector(".ca7-dw .ca7-sl"); s && s.scrollIntoView({ block: "nearest" }); }
+    await openView(job); var s = document.querySelector(".ca7-dw .ca24-slip.has, .ca7-dw .ca7-sl"); s && s.scrollIntoView({ block: "nearest" }); }
   catch (e) { b.disabled = !1; toast(errMsg(e), "err"); }
 }
 async function render(root, args) {

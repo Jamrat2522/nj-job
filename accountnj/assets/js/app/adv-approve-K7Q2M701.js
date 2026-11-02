@@ -1,10 +1,11 @@
-import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{html716 as D716}from"./adv-doc-D716.js";
+import{css724 as C724,job724 as J724,st724 as T724,items724 as IT724,tl724 as TL724,I724}from"./ca-detail-D724.js";import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{html716 as D716}from"./adv-doc-D716.js";
 /* ═══ V.701 · มือถือ SUPER_ADMIN : อนุมัติเบิกเงินสำรองจ่าย ADVANCE (หน้าแรก / รออนุมัติ / อนุมัติแล้ว / ไม่อนุมัติ)
    ข้อมูลจาก RPC ใหม่ RUN-701 เท่านั้น (njacc_adv701_list / get / approve / reject / pay) — สิทธิ์ SUPER_ADMIN ตรวจที่ฐานข้อมูลทุกครั้ง
    สลิป : Storage private njacc-adv-slips (JPG / PNG / PDF ≤ 5 MB · ดู / ดาวน์โหลดด้วย Signed URL อายุ 2 นาที) · โหลดรายการแบบแบ่งหน้า · โหลดสลิปเมื่อกดดูเท่านั้น ═══ */
 var BK = "njacc-adv-slips", LIM = 20, MAXF = 5242880, S = null;
 var ST = { PENDING: ["รออนุมัติ", "o"], APPROVED: ["อนุมัติแล้ว — รอจ่ายเงิน", "b"], PAID: ["อนุมัติแล้ว — จ่ายเงินแล้ว", "g"], REJECTED: ["ไม่อนุมัติ — ยกเลิก JOB", "r"] };
 var IC = {
+  exp723: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 9.2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V12c0 1.4-3.1 2.6-7 2.6S5 13.4 5 12z"/><path d="M5 15c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v2.8c0 1.4-3.1 2.6-7 2.6s-7-1.2-7-2.6z"/></svg>',
   home: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>',
   wait: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   ok: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="m9 13 2 2 4-4"/></svg>',
@@ -65,7 +66,7 @@ function css() {
     ".aq7-pl.o{background:#ffedd5;color:#c2410c}.aq7-pl.b{background:#dbeafe;color:#1d4ed8}.aq7-pl.g{background:#dcfce7;color:#15803d}.aq7-pl.r{background:#fee2e2;color:#b91c1c}",
     ".aq7-em{padding:28px 10px;text-align:center;color:#64748b}",
     ".aq7-more{width:100%;height:44px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;font-weight:600;font-family:inherit;cursor:pointer;margin:0 0 12px}",
-    ".aq7-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:1px solid #e2e8f0;padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:900;box-shadow:0 -4px 16px rgba(15,23,42,.06)}",
+    ".aq7-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border-top:1px solid #e2e8f0;padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:900;box-shadow:0 -4px 16px rgba(15,23,42,.06)}",
     ".aq7-nav button{position:relative;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;padding:4px 0;font-family:inherit;min-height:52px}",
     ".aq7-nav button.on{color:#1d4ed8}.aq7-nav button.on.r{color:#dc2626}",
     ".aq7-bd{position:absolute;top:0;left:calc(50% + 6px);min-width:18px;height:18px;border-radius:9px;background:#dc2626;color:#fff;font-size:11px;line-height:18px;padding:0 5px}",
@@ -169,7 +170,8 @@ function tlHTML(r, tl) {
 function navHTML() {
   var c = (S && S.counts) || {};
   var b = function (k, ic, lb, n, cls) { return '<button type="button" data-tab="' + k + '" class="' + (S.tab === k ? "on " : "") + (cls || "") + '">' + ic + "<span>" + lb + "</span>" + (n ? '<i class="aq7-bd">' + n + "</i>" : "") + "</button>"; };
-  return b("HOME", IC.home, "หน้าแรก") + b("PENDING", IC.wait, "รออนุมัติ", c.pending) + b("APPROVED", IC.ok, "อนุมัติแล้ว") + b("REJECTED", IC.no, "ไม่อนุมัติ", 0, "r");
+  return b("HOME", IC.home, "หน้าแรก") + b("PENDING", IC.wait, "รออนุมัติ", c.pending) + b("APPROVED", IC.ok, "อนุมัติแล้ว") + b("REJECTED", IC.no, "ไม่อนุมัติ", 0, "r") +
+    '<button type="button" data-exp>' + IC.exp723 + "<span>EXPENSES</span></button>";   /* V.723 : เมนู EXPENSES */
 }
 function rowHTML(x) {
   var j = x.job || {}, s = stInfo(x), ic = x.status === "PENDING" ? IC.wait : x.status === "REJECTED" ? IC.no : IC.ok;
@@ -248,26 +250,12 @@ async function openJob(jobId) {
 function detail(g) {
   var r = g.req, j = g.job || {}, s = stInfo(r), h = "", f = "";
   S.cur = g;
-  if (r.status === "PENDING") h += '<div class="aq7-bar o"><b>🕒 รออนุมัติ</b><small>ส่งโดย ' + esc(r.requested_by || "-") + " · " + esc(d7(r.requested_at)) + "</small></div>";
-  if (r.status === "APPROVED") h += '<div class="aq7-bar b"><b>✅ อนุมัติแล้ว — รอจ่ายเงิน</b><small>อนุมัติโดย ' + esc(r.approved_by || "-") + " · " + esc(d7(r.approved_at)) + " · จ่ายแล้ว " + r.paid_count + "/" + r.item_count + " รายการ</small></div>";
-  if (r.status === "PAID") h += '<div class="aq7-bar g"><b>✅ อนุมัติแล้ว — จ่ายเงินแล้ว</b><small>ยอดจ่าย ' + fm(r.paid_total) + " บาท · " + esc(d7(r.paid_at)) + "</small></div>";
-  if (!1 && r.status === "PAID" && j.operational_status && j.operational_status !== "CLOSE" && j.operational_status !== "CANCELED")   /* V.710 : ยกเลิกปิดงานอัตโนมัติ (RUN-710) · V.705 : จ่ายครบแต่ปิดงานอัตโนมัติไม่สำเร็จ → ลองใหม่ (ไม่จ่ายซ้ำ) */
-    h += '<div class="aq7-bar o"><b>⚠ ปิดงาน DOCUMENT อัตโนมัติยังไม่สำเร็จ</b><small>การจ่าย / สลิปบันทึกครบแล้ว</small><div class="aq7-ia"><button type="button" class="aq7-btn p" data-retry7>↻ ลองปิดงานอีกครั้ง</button></div></div>';
-  if (r.status === "REJECTED") h += '<div class="aq7-bar r"><b>❌ ไม่อนุมัติ — ยกเลิก JOB</b><small>โดย ' + esc(r.rejected_by || "-") + " · " + esc(d7(r.rejected_at)) + '</small><div style="margin-top:4px;font-weight:600;white-space:pre-wrap">เหตุผล: ' + esc(r.reject_reason || "-") + "</div></div>";
-  h += '<dl class="aq7-dl"><dt>JOB</dt><dd>' + esc(r.job_no) + "</dd><dt>Company</dt><dd>" + esc(j.company_invoice || "-") + "</dd><dt>Customer</dt><dd>" + esc(j.customer_name || "-") + "</dd><dt>House B/L</dt><dd>" + esc(j.house_bl_no || "-") +
-    "</dd><dt>ผู้เปิดงาน</dt><dd>" + esc(j.created_by || "-") + "</dd><dt>ผู้ขอเบิก</dt><dd>" + esc(r.requested_by || "-") + " · " + esc(d7(r.requested_at)) + '</dd><dt>ยอดขอเบิก</dt><dd style="color:#166534">฿' + fm(r.total_real) + " (" + r.item_count + " รายการ)</dd></dl>";
-  (r.items || []).forEach(function (it, i) {
-    var n = i + 1, p = (r.pays || []).find(function (x) { return Number(x.item_no) === n; });
-    h += '<div class="aq7-it"><div class="aq7-ih"><b>' + (r.item_count > 1 ? "รายการที่ " + n + " : " : "") + esc(it.payment_type || "-") + "</b><strong>฿" + fm(it.real_pay) + "</strong></div>" +
-      '<div class="aq7-iv"><div>ธนาคาร : <b>' + esc(it.bank_name || "-") + "</b></div><div>ชื่อบัญชี : <b>" + esc(it.account_name || "-") + '</b></div><div class="aq7-acc">เลขบัญชี : <span>' + esc(it.account_no || "-") + '</span><button type="button" class="aq7-cp" data-cpacc="' + n + '">' + IC.cp + "COPY</button></div>" +
-      '<div style="color:#64748b;font-size:13px">ยอดก่อนหัก ' + fm(it.gross) + " · หัก " + esc(String(it.deduct_pct || 0)) + "% · VAT " + esc(String(it.vat_pct || 0)) + "%</div></div>";
-    if (p) h += '<div class="aq7-paid">✅ จ่ายแล้ว ' + fm(p.amount) + " บาท · วันที่จ่าย " + esc(dd7(p.pay_date)) + " · โดย " + esc(p.paid_by || "-") + "<br>🧾 " + esc(p.slip_name || "-") + '</div><div class="aq7-ia"><button type="button" class="aq7-btn n" data-slipv="' + n + '">👁 ดูสลิป</button><button type="button" class="aq7-btn n" data-slipd="' + n + '">⬇ ดาวน์โหลด</button><button type="button" class="aq7-btn n" data-cppaid="' + n + '">📋 COPY แจ้งจ่ายแล้ว</button></div>';
-    else if (r.status === "APPROVED") h += '<div class="aq7-ia"><button type="button" class="aq7-btn g" data-pay="' + n + '">📎 แนบสลิป / ยืนยันจ่ายเงิน</button></div>';
-    h += "</div>";
-  });
+  C724();   /* V.724 : มือถือใช้ส่วนแสดงเดียวกับ Desktop (1 คอลัมน์) · Timeline เป็น Accordion พับเริ่มต้น */
+  h += J724(r, j, r.status === "APPROVED" || r.status === "PAID", [[I724.one, "ผู้เปิดงาน", esc(j.created_by || "-")]]) + T724(r) + IT724(r, r.status === "APPROVED");
   if (g.invoices !== void 0) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
   h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0 });   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
-  h += sumHTML714(g);   /* V.714 : มือถือไม่แสดง Timeline History (ข้อมูล / Audit จริงไม่ถูกแตะ · Desktop แสดงเดิม) · แสดง AUTO SUMMARY + ปุ่ม COPY แทน */
+  h += sumHTML714(g);   /* V.714 : AUTO SUMMARY + COPY */
+  h += TL724(tlHTML(r, g.timeline || []), '<span class="ca24-chip">DOCUMENT — ADVANCE</span>');   /* V.724 : Timeline ล่างสุด (พับทุกครั้ง) */
   if (r.status === "PENDING") f = '<button type="button" class="aq7-btn d" data-rej>✕ ไม่อนุมัติ</button><button type="button" class="aq7-btn g" data-apv>✓ อนุมัติ</button>';
   if (r.status === "PAID") f = '<button type="button" class="aq7-btn g" data-cppaid="0">📋 COPY แจ้งจ่ายแล้ว</button>';
   var w = sheet(esc(r.job_no), '<em class="aq7-pl ' + s[1] + '">' + esc(s[0]) + "</em>", h, f);
@@ -402,6 +390,7 @@ async function render(root, args) {
     var b = e.target.closest("button"); if (!b) return;
     if (b.hasAttribute("data-rf")) { load(!0); return; }
     if (b.hasAttribute("data-lo")) { b.disabled = !0; closeSheet(); import("./logout-OTS2ADOE.js").then(function (m) { m.doLogout(); }, function () { b.disabled = !1; }); return; }
+    if (b.hasAttribute("data-exp")) { location.hash = "#/expenses"; return; }   /* V.723 */
     if (b.dataset.tab) { S.tab = b.dataset.tab; S.sub = "ALL"; load(!0); window.scrollTo(0, 0); return; }
     if (b.dataset.go) { S.tab = b.dataset.go; S.sub = b.dataset.sub || "ALL"; load(!0); return; }
     if (b.dataset.sub && b.closest(".aq7-sg")) { S.sub = b.dataset.sub; load(!0); return; }
