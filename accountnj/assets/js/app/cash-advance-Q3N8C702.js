@@ -1,5 +1,7 @@
 import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
-/* ═══ V.720 · List View : เส้นตารางครบทุกช่อง (#D9E2EC 1px) · Company / Customer แสดง 10 ตัวอักษรแรก (Tooltip / แตะ = ชื่อเต็ม) · Export Excel = คอลัมน์เดียวกับหน้ารายงาน + Thin Border ทุก Cell (ExcelJS เดิมในระบบ) · ชื่อเต็ม
+/* ═══ V.722 · List View : คลิกแถวใดก็ได้ = เปิดรายละเอียด (ปุ่มในแถวทำงานเดิม · ไม่เปิดซ้ำ) · Desktop (≥ 1025px) : ซ่อนปุ่ม "ดู" + Hover แถว + รายละเอียดเป็น Modal กลางจอ (850px · 85vh · Overlay)
+     Header / Footer อยู่กับที่ · Scroll เฉพาะเนื้อหา · มือถือ (หน้า adv-approve) / Tablet คงเดิม
+   V.720 · List View : เส้นตารางครบทุกช่อง (#D9E2EC 1px) · Company / Customer แสดง 10 ตัวอักษรแรก (Tooltip / แตะ = ชื่อเต็ม) · Export Excel = คอลัมน์เดียวกับหน้ารายงาน + Thin Border ทุก Cell (ExcelJS เดิมในระบบ) · ชื่อเต็ม
    V.719 · List View (3 สถานะ) : ซ่อน "ยอดขอเบิก" + "ยอดจ่ายจริง" · เพิ่ม "ยอดรวมเก็บลูกค้า" (DOCUMENT → ADVANCE : ยอดก่อนหัก + VAT) + "เก็บลูกค้าแล้ว"
      (มี AMOUNT รายบรรทัดใน INVOICE ADV ที่ POST แล้วของ JOB เดียวกัน = ยอดรวมเก็บลูกค้า → วางบิลแล้ว · ไม่พบ = ไม่วางบิล) — RPC อ่านอย่างเดียว njacc_cash_adv719_bill (RUN-719) · Export Excel ใช้ชุดเดียวกัน
    V.710 · ยกเลิกปิดงาน DOCUMENT อัตโนมัติ (RUN-710) : จ่ายครบแล้ว JOB ยังอยู่ DOCUMENT → ADVANCE — USER ปิดงานเอง · ไม่มีปุ่ม "ลองปิดงานอีกครั้ง"
@@ -125,6 +127,14 @@ function css() {
     ".ca7-mb{margin-left:auto;min-width:20px;height:20px;border-radius:10px;background:#dc2626;color:#fff;font-size:11.5px;font-weight:700;line-height:20px;text-align:center;padding:0 6px}",
     ".ca7-tab .ic,.ca7-tab .d{display:none}",
     "@media (min-width:901px){.ca7-tabs{display:flex!important;flex-wrap:wrap;gap:8px;width:auto;margin:0 0 4px}.ca7-tab{height:48px;min-height:0;min-width:168px;padding:0 18px;flex-direction:row;gap:7px;border-width:1.5px;border-radius:10px;box-shadow:none}.ca7-tab b{font-size:14.5px;font-weight:700;color:#0f172a}.ca7-tab .m{display:none}.ca7-tab .ic{display:inline-flex;align-items:center}.ca7-tab .ic svg{width:15px;height:15px}.ca7-tab .d{display:inline-flex;font-size:13px;font-weight:600;color:#0f172a}.ca7-tab.o .ic{color:#ea580c}.ca7-tab.i .ic{color:#16a34a}.ca7-tab.x .ic{color:#dc2626}.ca7-tab.on{box-shadow:inset 0 0 0 1px currentColor}.ca7-tab.o.on{color:#f97316}.ca7-tab.i.on{color:#22c55e}.ca7-tab.x.on{color:#ef4444}.ca7-tabs+.ca7-row{margin-top:2px!important;margin-bottom:6px}}",
+    ".ca7-ov{display:none}",
+    "@media (min-width:1025px){.ca7-t tbody tr[data-row]{cursor:pointer}.ca7-t tbody tr[data-row]:hover td{background:#f1f5f9}.ca7-t .ca7-act [data-view]{display:none}" +   /* V.722 : Desktop */
+      ".ca7-ov{display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1199}" +
+      ".ca7-dw{top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(850px,calc(100vw - 80px));max-height:85vh;border-radius:12px;box-shadow:0 18px 48px rgba(15,23,42,.28);overflow:hidden}" +
+      ".ca7-dh{padding:14px 20px}.ca7-dh b{font-size:16px}.ca7-db{min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px 20px 20px}.ca7-df{padding:12px 20px}" +
+      ".ca7-dw .ca7-dl{grid-template-columns:170px minmax(0,1fr);gap:6px 16px;font-size:13px}.ca7-dw .ca7-dl dd{overflow-wrap:anywhere}" +
+      ".ca7-dw .ca7-it{padding:12px 14px;font-size:13px;max-width:100%;box-sizing:border-box}.ca7-dw .ca7-it .g{gap:4px 20px}.ca7-dw .ca7-it .g>*{min-width:0;overflow-wrap:anywhere}.ca7-dw .ca7-it .h>*{min-width:0;overflow-wrap:anywhere}" +
+      ".ca7-dw .ca7-db>*{max-width:100%;box-sizing:border-box}}",
     "@media (max-width:900px){.ca7-ft{display:inline-flex}.ca7-f .ca7-more{display:none}.ca7-f.open .ca7-more{display:flex}.ca7-sum{margin-left:0;white-space:normal}}"
   ].join("");
   document.head.appendChild(s);
@@ -209,9 +219,10 @@ function rowHTML(x, i) {
   var no = '<td class="c">' + (S.off + i + 1) + "</td>", job = '<td><span class="ca7-job">' + esc(x.job_no) + "</span>" + (x.job_canceled && S.tab !== "REJECTED" ? ' <span class="ca7-bd r">JOB ยกเลิก</span>' : "") + "</td>";
   var co = "<td>" + nm720(x.company) + "</td><td>" + nm720(x.customer) + "</td>";   /* V.720 */
   var vw = '<td>' + actHTML(x) + "</td>", hb = '<td style="white-space:nowrap">' + esc(x.hbl || "-") + "</td><td>" + esc(x.requested_by || "-") + "</td>";
-  if (S.tab === "REJECTED") return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
+  var tr722 = '<tr data-row="' + esc(x.job_id) + '">';   /* V.722 : คลิกแถว = ดูรายละเอียด */
+  if (S.tab === "REJECTED") return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
   var pend = x.status === "PENDING", inv = !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).map(function (n) { return '<span class="ca7-inv">' + esc(n) + "</span>"; }).join("<br>") : "—";
-  return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
+  return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
     "<td>" + (pend ? '<span class="ca7-bd b">รออนุมัติ</span>' : payBadge(x)) + "</td><td>" + inv + "</td>" + vw + "</tr>";
 }
 function headHTML() {   /* V.705 : คอลัมน์ตามภาพล่าสุด (ไม่มีคอลัมน์สถานะ DOCUMENT / ปิดงาน) */
@@ -256,7 +267,7 @@ async function load() {
 }
 
 /* ── Side Panel : รายละเอียด + ดำเนินการ (RUN-701 เดิม) ── */
-function closeView() { var d = document.querySelector(".ca7-dw"); d && d.remove(); if (S) { S.cur = null; S.busy = !1; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; } } }
+function closeView() { var d = document.querySelector(".ca7-dw"); d && d.remove(); document.querySelectorAll(".ca7-ov").forEach(function (o) { o.remove(); });   /* V.722 */ if (S) { S.cur = null; S.busy = !1; if (S.purl) { try { URL.revokeObjectURL(S.purl); } catch (e) {} S.purl = null; } } }
 function itemsHTML(r) {
   return (r.items || []).map(function (it, i) {
     var n = i + 1, p = (r.pays || []).find(function (x) { return Number(x.item_no) === n; });
@@ -325,6 +336,7 @@ async function openView(jobId) {
   closeView();
   var d = document.createElement("div"); d.className = "ca7-dw"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "รายละเอียด CASH ADVANCE"); d.dataset.job = jobId;
   d.innerHTML = '<div class="ca7-dh"><b>รายละเอียด CASH ADVANCE</b><button type="button" class="ca7-dx" data-x aria-label="ปิด">×</button></div><div class="ca7-db"><div class="ca7-em">กำลังโหลด…</div></div><div class="ca7-df"></div>';
+  var ov = document.createElement("div"); ov.className = "ca7-ov"; ov.setAttribute("aria-hidden", "true"); document.body.appendChild(ov);   /* V.722 : Overlay (แสดงเฉพาะ Desktop) */
   document.body.appendChild(d);
   var me = d;
   d.addEventListener("click", function (e) { panelClick(e, me); });
@@ -530,8 +542,10 @@ async function render(root, args) {
   var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
   fo.addEventListener("submit", function (e) { e.preventDefault(); if (S !== me) return; S.f = readF(); S.off = 0; load(); });
   root.addEventListener("click", function (e) {
-    if (S !== me) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 */
-    var b = e.target.closest("button"); if (!b || !root.contains(b)) return;
+    if (S !== me) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm) && !(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 : แตะชื่อ (จอสัมผัส) · V.722 : เมาส์ = Tooltip + คลิกแถว */
+    var b = e.target.closest("button");
+    if (!b) { var tr7 = e.target.closest && e.target.closest(".ca7-t tbody tr[data-row]"); if (tr7 && root.contains(tr7) && !e.target.closest("a,input,select,textarea,label") && !(window.getSelection && String(window.getSelection()).trim())) { openView(tr7.dataset.row); } return; }   /* V.722 : คลิกแถว (ไม่รวมปุ่ม / ลิงก์ / การลากเลือกข้อความ) */
+    if (!root.contains(b)) return;
     if (b.dataset.tab) { if (S.tab !== b.dataset.tab) { S.tab = b.dataset.tab; S.off = 0; load(); } return; }
     if (b.hasAttribute("data-rf")) { load(); return; }
     if (b.hasAttribute("data-xl")) { exportXls(b); return; }
