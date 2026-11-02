@@ -222,22 +222,32 @@ function actHTML(x) {   /* V.705 : ปุ่มดำเนินการตา
 function rowHTML(x, i) {
   var no = '<td class="c">' + (S.off + i + 1) + "</td>", job = '<td><span class="ca7-job">' + esc(x.job_no) + "</span>" + (x.job_canceled && S.tab !== "REJECTED" ? ' <span class="ca7-bd r">JOB ยกเลิก</span>' : "") + "</td>";
   var co = "<td>" + nm720(x.company) + "</td><td>" + nm720(x.customer) + "</td>";   /* V.720 */
-  var vw = '<td>' + actHTML(x) + "</td>", hb = '<td style="white-space:nowrap">' + esc(x.hbl || "-") + "</td><td>" + esc(x.requested_by || "-") + "</td>";
+  var vw = '<td>' + actHTML(x) + "</td>", hb = '<td style="white-space:nowrap">' + esc(x.hbl || "-") + "</td><td>" + esc(x.requested_by || "-") + "</td>" + ty735(x);
   var tr722 = '<tr data-row="' + esc(x.job_id) + '">';   /* V.722 : คลิกแถว = ดูรายละเอียด */
   if (S.tab === "REJECTED") return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
   var pend = x.status === "PENDING", inv = !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).map(function (n) { return '<span class="ca7-inv">' + esc(n) + "</span>"; }).join("<br>") : "—";
   return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
     "<td>" + (pend ? '<span class="ca7-bd b">รออนุมัติ</span>' : payBadge(x)) + "</td><td>" + inv + "</td>" + vw + "</tr>";
 }
+function ty735(x) {   /* V.735 : ประเภทจริงของคำขอ (njacc_cash_adv704_list.types = รายการเบิกของ JOB เดียวกัน · จับคู่ด้วย JOB ID ที่ Server) · ไม่ซ้ำ คั่นด้วย , · ไม่มี = - */
+  var seen = {}, t = ((x && x.types) || []).map(function (v) { return String(v == null ? "" : v).trim(); }).filter(function (v) { if (!v || seen[v]) return !1; seen[v] = 1; return !0; }).join(", ");
+  return '<td class="ca7-ty735" title="' + esc(t) + '">' + esc(t || "-") + "</td>";
+}
+function hd735() {   /* V.735 : Desktop เท่านั้น — ซ่อนแถบบนสุด (ชื่อหน้า CASH ADVANCE / เวอร์ชัน / Avatar ชื่อ ตำแหน่ง ผู้ใช้) เฉพาะหน้า CASH ADVANCE · ≤1100px คงเดิม (มีปุ่มเมนู) · ไม่แตะ Sidebar / Session */
+  var on = function () { document.documentElement.classList.toggle("ca735", /^#\/?cash-advance(?:[/?]|$)/.test(location.hash || "")); };
+  on(); if (!hd735.b) { hd735.b = !0; window.addEventListener("hashchange", on); }
+  try { if (!document.getElementById("ca735-css")) { var st = document.createElement("style"); st.id = "ca735-css";
+    st.textContent = "@media (min-width:1101px){html.ca735 .app-main>header.tb{display:none!important}}.ca7-t td.ca7-ty735{white-space:normal;word-break:break-word;min-width:90px}"; document.head.appendChild(st); } } catch (e) {}
+}
 function headHTML() {   /* V.705 : คอลัมน์ตามภาพล่าสุด (ไม่มีคอลัมน์สถานะ DOCUMENT / ปิดงาน) */
-  var A = '<th class="c" style="width:38px">#</th><th style="width:116px">' + TABS[S.tab][1] + '</th><th style="width:140px">JOB No.</th><th class="ca7-nmh">Company</th><th class="ca7-nmh">Customer</th><th style="width:110px">House B/L</th><th style="width:110px">ผู้ส่งคำขอ</th>';
+  var A = '<th class="c" style="width:38px">#</th><th style="width:116px">' + TABS[S.tab][1] + '</th><th style="width:140px">JOB No.</th><th class="ca7-nmh">Company</th><th class="ca7-nmh">Customer</th><th style="width:110px">House B/L</th><th style="width:110px">ผู้ส่งคำขอ</th><th style="width:120px">ประเภท</th>';   /* V.735 : ประเภท (DOCUMENT → ADVANCE → เบิกเงินสำรองจ่าย) ต่อจากผู้ส่งคำขอ */
   var B719 = '<th class="r" style="width:110px">ยอดรวมเก็บลูกค้า</th><th style="width:104px">เก็บลูกค้าแล้ว</th>';   /* V.719 */
   if (S.tab === "REJECTED") return A + B719 + '<th style="width:110px">ผู้ไม่อนุมัติ</th><th>เหตุผล</th><th style="width:110px">สถานะ JOB</th><th style="width:70px">จัดการ</th>';
   return A + '<th class="r" style="width:96px">ยอดอนุมัติ</th>' + B719 + '<th style="width:100px">สถานะจ่ายเงิน</th><th style="width:130px">INVOICE ADV</th><th style="width:' + (S.sup ? 250 : 70) + 'px">จัดการ</th>';
 }
 function bodyHTML() {
   if (S.err) return '<div class="ca7-tw"><div class="ca7-em">' + esc(S.err) + "</div></div>";
-  var cols = 13, rows = S.rows.map(rowHTML).join("");
+  var cols = 14, rows = S.rows.map(rowHTML).join("");   /* V.735 : +ประเภท */
   var from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length;
   return '<div class="ca7-tw"><table class="ca7-t" data-tb="' + S.tab + '"><thead><tr>' + headHTML() + "</tr></thead><tbody>" +
     (rows || '<tr><td colspan="' + cols + '" class="ca7-em">' + (S.loading ? "กำลังโหลด…" : "ไม่มีรายการ") + "</td></tr>") + "</tbody></table></div>" +
@@ -547,7 +557,7 @@ async function quickSlip(b) {
 async function render(root, args) {
   args = args || {};
   if (typeof window !== "undefined" && window.__NJ_MOBILE) { var mm = await import("./adv-approve-K7Q2M701.js"); return mm.render(root, args); }   /* มือถือ = CASH ADVANCE Mobile View (Bottom Navigation 4 เมนู) */
-  css(); closeView();
+  css(); hd735(); closeView();   /* V.735 */
   S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: {}, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
   args.tab === "INV" && (S.tab = "APPROVED");   /* V.706 : ลิงก์เดิม tab=INV → อนุมัติแล้ว */
   root.innerHTML = shell();
