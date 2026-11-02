@@ -254,12 +254,12 @@ function detail(g) {
   C724();   /* V.724 : มือถือใช้ส่วนแสดงเดียวกับ Desktop (1 คอลัมน์) · Timeline เป็น Accordion พับเริ่มต้น */
   K725(); ev725();   /* V.725 */
   css726();   /* V.726 : มือถือ — AUTO SUMMARY บนสุด · ไม่แสดงข้อมูล JOB / แถบสถานะซ้ำ / Timeline · INVOICE ADV เฉพาะที่ออกเลขแล้ว · ไม่อนุมัติ = ข้อมูลคำขอ + เหตุผล */
-  if (r.status === "REJECTED") h += rej726(r, j) + IT724(r, !1, function (n) { return L725(r, n); });
+  if (r.status === "REJECTED") h += J724(r, j, !1) + T724(r);   /* V.732 : ไม่อนุมัติ (มือถือ) = ข้อมูล JOB + กรอบไม่อนุมัติ (เหตุผล) เท่านั้น — ไม่มีรายการ / สลิป / เอกสาร / Timeline / INVOICE / AUTO SUMMARY / Footer */
   else {
     h += sum726(g) + IT724(r, r.status === "APPROVED", function (n) { return L725(r, n); });
     if ((g.invoices || []).some(function (x) { return x.status === "POSTED" && x.invoice_no; })) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
   }
-  h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0, del: !0 });   /* V.725 : ปุ่มลบ (SUPER_ADMIN · JOB ยังไม่ปิด / ยกเลิก) */
+  if (r.status !== "REJECTED") h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0, del: !0 });   /* V.725 : ปุ่มลบ (SUPER_ADMIN · JOB ยังไม่ปิด / ยกเลิก) */
   if (r.status === "PENDING") f = '<button type="button" class="aq7-btn d" data-rej>✕ ไม่อนุมัติ</button><button type="button" class="aq7-btn g" data-apv>✓ อนุมัติ</button>';
   if (r.status === "PAID") f = '<button type="button" class="aq7-btn g" data-cppaid="0">📋 COPY แจ้งจ่ายแล้ว</button>';
   var w = sheet(esc(r.job_no), '<em class="aq7-pl ' + s[1] + '">' + esc(s[0]) + "</em>", h, f);

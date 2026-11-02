@@ -33,6 +33,8 @@ function amt(v) { var n = num(v); return n == null ? "" : isNaN(n) ? String(v) :
 function errMsg(e) {
   var m = String(e && (e.message || e.error || e.code) || e || "");
   if (/NJACC_XP717_(DESC_REQUIRED|PAY_REQUIRED|COLLECT_INVALID|ITEM_NOT_FOUND|READONLY)/.test(m)) return m.replace(/^.*?NJACC_XP717_[A-Z_]+:\s*/, "");
+  if (/NJACC_XP733_NOTE_REQUIRED/.test(m)) return m.replace(/^.*?NJACC_XP733_[A-Z_]+:\s*/, "");   /* V.733 */
+  if (/njacc_xp733_/.test(m) && /(does not exist|Could not find|schema cache|42883|PGRST202)/i.test(m)) return "ระบบนอกราคาขายยังไม่พร้อม (ยังไม่ได้รัน RUN-733)";
   if (/XP717_FILE_TOO_BIG|exceeded the maximum|Payload too large|413/i.test(m)) return "ไฟล์ใหญ่เกิน 10 MB";
   if (/XP717_FILE_TYPE|mime type|not supported/i.test(m)) return "รองรับเฉพาะ PDF, JPG, PNG, DOCX, XLSX";
   if (/XP717_TOO_MANY_FILES/.test(m)) return "แนบได้สูงสุด 20 ไฟล์ต่อรายการ";
@@ -73,6 +75,11 @@ function css() {
     ".xp717-em{text-align:center;color:#475569;padding:14px 8px;font-weight:600}",
     ".xp717-msg{padding:8px 10px;color:#64748b}.xp717-msg.err{color:#b91c1c}.xp717-ro[hidden]{display:none}.xp717-ro{display:inline-flex;height:22px;padding:0 8px;border-radius:999px;background:#e2e8f0;color:#334155;font-size:11.5px;font-weight:700;align-items:center}",
     ".xp717-pend{font-size:11.5px;color:#92400e;margin-top:6px}",
+    /* V.733 : เก็บลูกค้าไม่ได้ (Checkbox กลางคอลัมน์) + หมายเหตุ · Desktop : ตาราง Scroll แนวนอนภายใน Section เมื่อพื้นที่ไม่พอ */
+    "@media (min-width:761px){.xp717-tb{min-width:1240px}}",
+    ".xp717-tb td.cc{text-align:center}.xp717-cc{width:20px;height:20px;margin:0;accent-color:#dc2626;cursor:pointer;vertical-align:middle}.xp717-cc:disabled{cursor:not-allowed}",
+    ".xp717-tb tr.cc733>td{background:#fff7f7}.xp717-tb input.bad+.xp717-nr{display:block}.xp717-nr{display:none;color:#dc2626;font-size:11.5px;font-weight:600;margin-top:3px;white-space:normal}",
+    ".xp717-tb .ro.nt{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}",
     ".xp717-ov{position:fixed;inset:0;z-index:10080;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:14px}",
     ".xp717-dlg{background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(15,23,42,.35);width:min(440px,100%);padding:18px 18px 14px;font-size:14px;color:#0f172a}",
     ".xp717-dlg b{display:block;font-size:16px;margin:0 0 8px}.xp717-dlg .a{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}",
@@ -146,6 +153,7 @@ async function download(f) {
 /* ── สถานะ / แสดงผล ── */
 var K = 0;
 function row(x) { return { key: "k" + (++K), id: x && x.id || null, description: x ? String(x.description || "") : "", pay: x && x.pay_amount != null ? Number(x.pay_amount).toFixed(2) : "", collect: x && x.collect_amount != null ? Number(x.collect_amount).toFixed(2) : "",
+  cc: !!(x && x.cannot_collect), note: x && x.note != null ? String(x.note) : "",   /* V.733 */
   files: ((x && x.files) || []).map(function (f) { return { id: f.id, name: f.name, size: f.size, path: f.path, mime: f.mime }; }), bad: {} }; }
 function totals(st) { var p = 0, c = 0; st.items.forEach(function (it) { var a = num(it.pay), b = num(it.collect); p += a && !isNaN(a) ? a : 0; c += b && !isNaN(b) ? b : 0; }); return { n: st.items.length, p: Math.round(p * 100) / 100, c: Math.round(c * 100) / 100 }; }
 function sumText(st) { var t = totals(st); return "รวม " + t.n + " รายการ · จ่ายทั้งหมด " + fm(t.p) + " บาท · รับวางบิล / เก็บลูกค้าได้ " + fm(t.c) + " บาท"; }
@@ -153,14 +161,16 @@ function bodyHTML(st) {
   if (st.err) return '<div class="xp717-msg err">' + esc(st.err) + "</div>";
   if (!st.loaded) return '<div class="xp717-msg">กำลังโหลด…</div>';
   var ed = st.edit, t = totals(st);
-  var h = '<div class="xp717-tw"><table class="xp717-tb"><thead><tr><th style="width:34px">#</th><th>รายละเอียด <span class="req">*</span></th><th style="width:150px">ยอดจ่าย (บาท) <span class="req">*</span></th><th style="width:150px">เก็บลูกค้าได้ (บาท)</th><th style="width:26%">ไฟล์แนบ</th><th style="width:290px">จัดการ</th></tr></thead><tbody>';
-  if (!st.items.length) h += '<tr><td colspan="6" class="xp717-em">ยังไม่มีรายการ — กด "เพิ่มรายการ" เพื่อเริ่ม</td></tr>';
+  var h = '<div class="xp717-tw"><table class="xp717-tb"><thead><tr><th style="width:34px">#</th><th>รายละเอียด <span class="req">*</span></th><th style="width:150px">ยอดจ่าย (บาท) <span class="req">*</span></th><th style="width:140px">เก็บลูกค้าได้ (บาท)</th><th style="width:96px">เก็บลูกค้าไม่ได้</th><th style="width:220px">หมายเหตุ' + (st.items.some(function (x) { return x.cc; }) ? ' <span class="req">*</span>' : "") + '</th><th style="width:230px">ไฟล์แนบ</th><th style="width:290px">จัดการ</th></tr></thead><tbody>';
+  if (!st.items.length) h += '<tr><td colspan="8" class="xp717-em">ยังไม่มีรายการ — กด "เพิ่มรายการ" เพื่อเริ่ม</td></tr>';
   st.items.forEach(function (it, i) {
     var nf = it.files.length;
-    h += '<tr data-k="' + it.key + '"><td class="c">' + (i + 1) + "</td>" +
+    h += '<tr data-k="' + it.key + '"' + (it.cc ? ' class="cc733"' : "") + '><td class="c">' + (i + 1) + "</td>" +
       '<td data-l="รายละเอียด *">' + (ed ? '<input class="xp717-i' + (it.bad.d ? " bad" : "") + '" data-f="description" maxlength="300" value="' + esc(it.description) + '" placeholder="เช่น ค่ามัดจำตู้">' : '<span class="ro">' + esc(it.description || "-") + "</span>") + "</td>" +
       '<td data-l="ยอดจ่าย (บาท) *">' + (ed ? '<input class="xp717-i r' + (it.bad.p ? " bad" : "") + '" data-f="pay" inputmode="decimal" value="' + esc(it.pay === "" ? "" : fm(it.pay)) + '" placeholder="0.00">' : '<span class="ro r">' + fm(it.pay) + "</span>") + "</td>" +
       '<td data-l="เก็บลูกค้าได้ (บาท)">' + (ed ? '<input class="xp717-i r' + (it.bad.c ? " bad" : "") + '" data-f="collect" inputmode="decimal" value="' + esc(it.collect === "" ? "" : fm(it.collect)) + '" placeholder="0.00">' : '<span class="ro r">' + fm(it.collect) + "</span>") + "</td>" +
+      '<td data-l="เก็บลูกค้าไม่ได้" class="cc"><input type="checkbox" class="xp717-cc" data-f="cc" aria-label="เก็บลูกค้าไม่ได้"' + (it.cc ? " checked" : "") + (ed ? "" : " disabled") + "></td>" +
+      '<td data-l="หมายเหตุ' + (it.cc ? " *" : "") + '">' + (ed ? '<input class="xp717-i' + (it.bad.n ? " bad" : "") + '" data-f="note" maxlength="500" value="' + esc(it.note) + '" placeholder="' + (it.cc ? "ระบุเหตุผลที่ไม่สามารถเก็บเงินจากลูกค้าได้" : "") + '" title="' + esc(it.note) + '"><span class="xp717-nr">กรุณาระบุเหตุผลที่ไม่สามารถเก็บเงินจากลูกค้าได้</span>' : '<span class="ro nt">' + esc(it.note || "-") + "</span>") + "</td>" +
       '<td data-l="ไฟล์แนบ"><div class="xp717-fs">' + it.files.map(function (f, j) {
         return '<div class="xp717-f' + (f.file ? " p" : "") + '" title="' + esc(f.name) + (f.file ? " (รอบันทึก)" : "") + '">' + IC.clip + '<span class="nm">' + esc(f.name) + "</span><small>(" + esc(kb(f.size)) + ")</small>" +
           (ed ? '<button type="button" class="xp717-x" data-xf="' + j + '" aria-label="ลบไฟล์แนบ">×</button>' : "") + "</div>";
@@ -169,7 +179,7 @@ function bodyHTML(st) {
       '<button type="button" class="xp717-b d" data-d' + (nf ? "" : " disabled") + ">" + IC.dl + "โหลดไฟล์</button>" +
       '<button type="button" class="xp717-b x" data-x' + (ed ? "" : " disabled") + ">" + IC.del + "ลบ</button></div></td></tr>";
   });
-  h += "</tbody>" + (st.items.length ? '<tfoot><tr><td></td><td style="text-align:right">รวม</td><td class="r">' + fm(t.p) + '</td><td class="r">' + fm(t.c) + "</td><td></td><td></td></tr></tfoot>" : "") + "</table></div>";
+  h += "</tbody>" + (st.items.length ? '<tfoot><tr><td></td><td style="text-align:right">รวม</td><td class="r">' + fm(t.p) + '</td><td class="r">' + fm(t.c) + "</td><td></td><td></td><td></td><td></td></tr></tfoot>" : "") + "</table></div>";
   var pend = st.items.reduce(function (a, it) { return a + it.files.filter(function (f) { return f.file; }).length; }, 0);
   if (ed && (pend || st.delItems.length || st.delFiles.length)) h += '<div class="xp717-pend">มีการเปลี่ยนแปลงที่ยังไม่บันทึก' + (pend ? " · ไฟล์รออัปโหลด " + pend + " ไฟล์" : "") + " — กด บันทึก เพื่อบันทึก</div>";
   return h;
@@ -189,7 +199,7 @@ async function load(st) {
   st.loaded = !1; st.err = ""; paint(st);
   if (!uid(st.jobId)) { st.items = []; st.edit = !st.ro; st.loaded = !0; paint(st); return; }
   try {
-    var r = await RPC("njacc_xp717_get", { p_job: st.jobId });
+    var r = await RPC("njacc_xp733_get", { p: { job_id: st.jobId, src: st.src } });   /* V.733 : ACCOUNTING ไม่ได้รับรายการเก็บลูกค้าไม่ได้ (กรองที่ฐานข้อมูล) */
     st.items = ((r && r.items) || []).map(row); st.edit = !st.ro && !!(r && r.can_edit); st.delItems = []; st.delFiles = []; st.dirty = !1; st.loaded = !0;
   } catch (e) { st.err = errMsg(e); st.loaded = !0; st.edit = !1; }
   paint(st);
@@ -217,32 +227,52 @@ function wire(st) {
   });
   el.addEventListener("input", function (e) {
     var x = e.target; if (!x.matches || !x.matches("input[data-f]")) return; var it = find(st, x.closest("tr[data-k]")); if (!it) return;
+    if (x.type === "checkbox") { cc733(st, it, x); return; }   /* V.733 */
     var k = x.dataset.f; it[k] = k === "description" ? x.value : x.value.replace(/,/g, ""); it.bad = {}; x.classList.remove("bad"); st.dirty = !0;
     el.querySelector(".xp717-sum").innerHTML = IC.box + "<span>" + esc(sumText(st)) + "</span>";
     var t = totals(st), tf = el.querySelectorAll("tfoot td.r"); tf.length === 2 && (tf[0].textContent = fm(t.p), tf[1].textContent = fm(t.c));
   });
   el.addEventListener("focusout", function (e) { var x = e.target; if (x.matches && x.matches("input.r[data-f]") && x.value !== "") { var n = num(x.value); n != null && !isNaN(n) && (x.value = fm(n)); } });
   el.addEventListener("change", function (e) {
+    var x0 = e.target; if (x0.matches && x0.matches("input.xp717-cc[data-f]")) { var it0 = find(st, x0.closest("tr[data-k]")); it0 && cc733(st, it0, x0); return; }   /* V.733 */
     var x = e.target; if (!x.matches || !x.matches("input[data-in]")) return; var it = find(st, x.closest("tr[data-k]")); if (!it) return;
     var fs = Array.prototype.slice.call(x.files || []), bad = []; x.value = "";
     fs.forEach(function (f) { var ex = extOf(f.name); if (!EXT[ex]) bad.push(f.name + " — รองรับเฉพาะ PDF, JPG, PNG, DOCX, XLSX"); else if (!f.size) bad.push(f.name + " — ไฟล์ว่าง"); else if (f.size > MAX) bad.push(f.name + " — ใหญ่เกิน 10 MB"); else it.files.push({ name: f.name, size: f.size, file: f }); });
     bad.length && toast("แนบไม่ได้ : " + bad.join(" · "), "err"); dirty(st); paint(st);
   });
 }
+/* V.733 : ติ๊ก / ยกเลิก เก็บลูกค้าไม่ได้ (แยกอิสระต่อแถว · ยกเลิกแล้วคงหมายเหตุเดิม ไม่ล้าง) */
+function cc733(st, it, x) {
+  if (!st.edit) { x.checked = it.cc; return; }
+  if (it.cc === !!x.checked) return;
+  it.cc = !!x.checked; it.bad = {}; dirty(st); paint(st);
+  if (it.cc) { var n = st.el.querySelector('tr[data-k="' + it.key + '"] [data-f="note"]'); n && !String(it.note).trim() && n.focus(); }
+}
 function validate(st) {
   if (!st || !st.edit || !st.loaded) return !0;
   var ok = !0, first = null;
-  st.items = st.items.filter(function (it) { return String(it.description).trim() || String(it.pay).trim() || String(it.collect).trim() || it.files.length || it.id; });
+  st.items = st.items.filter(function (it) { return String(it.description).trim() || String(it.pay).trim() || String(it.collect).trim() || it.files.length || it.id || it.cc || String(it.note).trim(); });
   st.items.forEach(function (it) {
     it.bad = {}; var p = num(it.pay), c = num(it.collect);
     if (!String(it.description).trim()) it.bad.d = 1;
     if (p == null || isNaN(p)) it.bad.p = 1;
     if (c != null && isNaN(c)) it.bad.c = 1;
-    if (it.bad.d || it.bad.p || it.bad.c) { ok = !1; first = first || it; }
+    if (it.cc && !String(it.note).trim()) it.bad.n = 1;   /* V.733 : เลือกเก็บลูกค้าไม่ได้ = หมายเหตุบังคับ */
+    if (it.bad.d || it.bad.p || it.bad.c || it.bad.n) { ok = !1; first = first || it; }
   });
   paint(st);
+  if (!ok && first.bad.n && !first.bad.d && !first.bad.p && !first.bad.c) { toast("กรุณาระบุเหตุผลที่ไม่สามารถเก็บเงินจากลูกค้าได้", "err"); var y = st.el.querySelector('tr[data-k="' + first.key + '"] input.bad'); y && (y.scrollIntoView({ block: "center" }), y.focus({ preventScroll: !0 })); return ok; }
   if (!ok) { toast("นอกราคาขาย : กรอกรายละเอียดและยอดจ่ายให้ครบ (ตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง)", "err"); var x = st.el.querySelector('tr[data-k="' + first.key + '"] input.bad'); x && x.focus(); }
   return ok;
+}
+/* V.733 : ปุ่ม POST — ตรวจเฉพาะ "เลือกเก็บลูกค้าไม่ได้ แต่หมายเหตุว่าง" (ไม่เพิ่มเงื่อนไขอื่นให้ Flow เดิม) */
+function vcc733(st) {
+  if (!st || !st.edit || !st.loaded) return !0;
+  var first = null; st.items.forEach(function (it) { if (it.cc && !String(it.note).trim()) { it.bad = { n: 1 }; first = first || it; } });
+  if (!first) return !0;
+  paint(st); toast("กรุณาระบุเหตุผลที่ไม่สามารถเก็บเงินจากลูกค้าได้", "err");
+  var y = st.el.querySelector('tr[data-k="' + first.key + '"] input.bad'); y && (y.scrollIntoView({ block: "center" }), y.focus({ preventScroll: !0 }));
+  return !1;
 }
 /* ── API ── */
 /* root = หน้าต่างงาน (DOCUMENT : .modal-b · ACCOUNTING : billing modal) · o.jobId · o.src = DOCUMENT / ACCOUNTING · o.saveBtns = ปุ่มที่ต้องตรวจก่อนบันทึก · o.before = Element ที่จะวางก่อน */
@@ -264,6 +294,10 @@ export function mount717(root, o) {
       var b = md.querySelector(sel); if (!b || b.__xp717) return; b.__xp717 = 1;
       b.addEventListener("click", function (e) { if (!validate(st)) { e.preventDefault(); e.stopImmediatePropagation(); } }, !0);
     });
+    (o.ccBtns || []).forEach(function (sel) {   /* V.733 */
+      var b = md.querySelector(sel); if (!b || b.__xp733) return; b.__xp733 = 1;
+      b.addEventListener("click", function (e) { if (!vcc733(st)) { e.preventDefault(); e.stopImmediatePropagation(); } }, !0);
+    });
     return st;
   } catch (e) { try { console.warn("XP717", e); } catch (_e) {} return null; }
 }
@@ -277,8 +311,8 @@ export async function after717(root, jobId) {
   if (!st.dirty && !pend && !st.delItems.length && !st.delFiles.length) return !0;
   if (!validate(st)) return !1;
   try {
-    var r = await RPC("njacc_xp717_save", { p: { job_id: jobId, items: st.items.map(function (it) { return { key: it.key, id: it.id, description: String(it.description).trim(), pay_amount: String(num(it.pay) == null ? "" : num(it.pay).toFixed(2)), collect_amount: String(num(it.collect) == null ? "0" : num(it.collect).toFixed(2)) }; }),
-      delete_items: st.delItems, delete_files: st.delFiles } });
+    var r = await RPC("njacc_xp717_save", { p: { job_id: jobId, items: st.items.map(function (it) { return { key: it.key, id: it.id, description: String(it.description).trim(), pay_amount: String(num(it.pay) == null ? "" : num(it.pay).toFixed(2)), collect_amount: String(num(it.collect) == null ? "0" : num(it.collect).toFixed(2)), cannot_collect: !!it.cc, note: String(it.note || "").trim() }; }),
+      delete_items: st.delItems, delete_files: st.delFiles, src: st.src } });
     var map = {}; ((r && r.items) || []).forEach(function (x) { map[x.key] = x.id; });
     st.items.forEach(function (it) { it.id = map[it.key] || it.id; }); st.delItems = []; st.delFiles = [];
   } catch (e) { toast("บันทึกนอกราคาขายไม่สำเร็จ — " + errMsg(e), "err"); return !1; }
@@ -310,5 +344,23 @@ export function view717(container, o) {
     mount717(host, { jobId: o && o.jobId, src: "VIEW", readonly: !0, numbered: !1 });
   } catch (e) {}
 }
-export function files723() { css(); return { preview: preview, download: download, pick: pick717, confirm: confirm717 }; }   /* V.723 : EXPENSES ใช้ตัวช่วยไฟล์เดิม (Storage / สิทธิ์เดิม) */
+async function up729(jobId, itemId, files) {   /* V.729 : EXPENSES แนบไฟล์ = ตัวอัปโหลดเดิม (Storage njacc-job-xp + njacc_xp717_add_file · ล็อก / สิทธิ์เดิม) */
+  var ok = 0, bad = [];
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i], ex = extOf(f.name);
+    if (!EXT[ex]) { bad.push(f.name + " — รองรับเฉพาะ PDF, JPG, PNG, DOCX, XLSX"); continue; }
+    if (!f.size) { bad.push(f.name + " — ไฟล์ว่าง"); continue; }
+    if (f.size > MAX) { bad.push(f.name + " — ใหญ่เกิน 10 MB"); continue; }
+    var stem = String(f.name).replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "file";
+    var path = jobId + "/" + itemId + "/" + uuid() + "-" + stem + "." + ex;
+    try {
+      var up = await SB().storage.from(BK).upload(path, new Blob([f], { type: EXT[ex] }), { contentType: EXT[ex], upsert: !1, cacheControl: "3600" });
+      if (up.error) throw up.error;
+      await RPC("njacc_xp717_add_file", { p: { job_id: jobId, item_id: itemId, path: path, name: String(f.name || "").slice(0, 150) } });
+      ok++;
+    } catch (er) { bad.push(f.name + " — " + errMsg(er)); }
+  }
+  return { ok: ok, bad: bad };
+}
+export function files723() { css(); return { preview: preview, download: download, pick: pick717, confirm: confirm717, upload: up729 }; }   /* V.723 : EXPENSES ใช้ตัวช่วยไฟล์เดิม (Storage / สิทธิ์เดิม) */
 export function dirty717(root) { var el = root && root.querySelector(".xp717"), st = el && el.__xp717; return !!(st && st.edit && (st.dirty || st.delItems.length || st.delFiles.length)); }

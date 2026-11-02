@@ -852,7 +852,7 @@ function LY546(p, r) {
     /* V.548 : DOCUMENT \u2014 SERVICE \u0E41\u0E2A\u0E14\u0E07\u0E02\u0E49\u0E2D 1\u20136 \u0E02\u0E22\u0E32\u0E22\u0E40\u0E15\u0E47\u0E21\u0E40\u0E2A\u0E21\u0E2D \u00B7 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E32\u0E23\u0E1E\u0E31\u0E1A (\u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E04\u0E25\u0E34\u0E01\u0E1E\u0E31\u0E1A/\u0E02\u0E22\u0E32\u0E22) */
     md.classList.add("jm548-flat");
     [1, 2, 3, 4, 5, 6].forEach(function (n) { secs[n] && AC546.setOpen(secs[n].el, true); secs[n] && secs[n].head.setAttribute("tabindex", "-1"); });
-    XP717m(p, { jobId: r && r.id || null, src: "DOCUMENT", saveBtns: ["#nj-save"] });   /* V.717 : 5. นอกราคาขาย · ข้อมูลวางบิล = 6 · รายการ INVOICE = 7 */
+    XP717m(p, { jobId: r && r.id || null, src: "DOCUMENT", saveBtns: ["#nj-save"], ccBtns: ["#nj-post"] });   /* V.717 : 5. นอกราคาขาย · ข้อมูลวางบิล = 6 · รายการ INVOICE = 7 */
   } catch (e) { try { console.warn("LY546", e); } catch (_e) {} }
 }
 
@@ -1346,8 +1346,9 @@ var AD698 = (function () {
     if (st.dirty) return "กรุณาบันทึก (SAVE) รายการจ่ายก่อนส่งคำขออนุมัติ";
     var its = st.items.filter(used);
     if (!its.length) return "ยังไม่มีรายการจ่าย — เพิ่มและบันทึกรายการจ่ายก่อนส่งคำขอ";
-    if (its.some(function (it) { return !String(it.payment_type || "").trim() || !String(it.bank_name || "").trim() || !String(it.account_no || "").trim() || !String(it.account_name || "").trim() || !(calc(it).real > 0); }))
-      return "กรอกรายการจ่ายให้ครบ (ประเภท / ธนาคาร / เลขบัญชี / ชื่อบัญชี / ยอดจ่ายจริง) ก่อนส่งคำขอ";
+    if (its.some(function (it) { var tax = String(it.payment_type || "").trim() === "ค่าภาษี";   /* V.730 : ค่าภาษี ไม่บังคับธนาคาร / เลขบัญชี / ชื่อบัญชี (ตรงกับ RUN-730) · ประเภทอื่นตามเดิม */
+      return !String(it.payment_type || "").trim() || (!tax && (!String(it.bank_name || "").trim() || !String(it.account_no || "").trim() || !String(it.account_name || "").trim())) || !(calc(it).real > 0); }))
+      return "กรอกรายการจ่ายให้ครบ (ประเภท / ธนาคาร / เลขบัญชี / ชื่อบัญชี / ยอดจ่ายจริง) ก่อนส่งคำขอ" + (its.some(function (it) { return String(it.payment_type || "").trim() === "ค่าภาษี"; }) ? " · ค่าภาษี ไม่ต้องกรอกข้อมูลบัญชี" : "");
     return "";
   }
   function chip7(st) { var r = st.rq && st.rq.req; if (!r) return ""; var m = RQ7[r.status] || [r.status, "o"]; return '<span class="ad701-chip ' + m[1] + '">' + esc(m[0]) + "</span>"; }
