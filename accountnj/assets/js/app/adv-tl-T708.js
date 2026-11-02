@@ -11,7 +11,8 @@ var LB = {
   ADV698_ITEMS: "บันทึกรายการจ่าย", ADVANCE_PAY: "ยืนยันจ่ายแล้ว (PAY)", ADVANCE_UNPAY: "ย้อนกลับ PAY",
   SAVE_INVOICE_DRAFT: "บันทึก INVOICE ADV (ร่าง)", ISSUE_INVOICE_NO_ON_SAVE: "ออกเลข INVOICE ADV (ตอนบันทึก)", POST_DRAFT_INVOICE: "ออกเลข INVOICE", POST_INVOICE: "ออกเลข INVOICE",
   UNPOST_INVOICE: "UNPOST INVOICE ADV", UNPOST_TO_DRAFT: "UNPOST INVOICE ADV", VOID_INVOICE: "VOID INVOICE ADV", EDIT_INVOICE_DATE: "แก้วันที่ INVOICE ADV", RESET_INVOICE_NO: "รีเซ็ตเลข INVOICE ADV",
-  ADV705_AUTO_CLOSE: "ปิดงานอัตโนมัติ (CASH ADVANCE จ่ายครบ) → ส่ง ACCOUNTING", ADV705_AUTO_CLOSE_FAIL: "ปิดงานอัตโนมัติไม่สำเร็จ"
+  ADV705_AUTO_CLOSE: "ปิดงานอัตโนมัติ (CASH ADVANCE จ่ายครบ) → ส่ง ACCOUNTING", ADV705_AUTO_CLOSE_FAIL: "ปิดงานอัตโนมัติไม่สำเร็จ",
+  ADV716_DOC_ADD: "แนบเอกสารเพิ่มเติม"   /* V.716 */
 };
 var ACC = /^(SAVE_INVOICE_DRAFT|ISSUE_INVOICE_NO_ON_SAVE|POST_DRAFT_INVOICE|POST_INVOICE|UNPOST_INVOICE|UNPOST_TO_DRAFT|VOID_INVOICE|EDIT_INVOICE_DATE|RESET_INVOICE_NO|ACC_HANDOFF|ACC_REOPEN|ADVANCE_PAY|ADVANCE_UNPAY)$/;
 var OPEN = new Map();
@@ -60,6 +61,7 @@ function sub(e) {
     d.status && s.push("สถานะ " + (d.status_before ? d.status_before + " → " : "") + d.status);
     d.to_status && s.push("สถานะ " + (d.from_status ? d.from_status + " → " : "") + d.to_status);
     real(d.invoice_no) && s.push(d.invoice_no);
+    d.file_name && s.push("📎 " + d.file_name + (d.item_no ? " (รายการที่ " + d.item_no + ")" : ""));   /* V.716 : เอกสารเพิ่มเติม */
     d.reason && s.push("เหตุผล: " + d.reason);
   }
   return s.join(" · ");
@@ -71,6 +73,7 @@ function docMain(tl, r) {
   tl.forEach(function (e) { if (!ad && e.action === "POST_JOB") ad = e; });
   if (!ad) tl.forEach(function (e) { var d = e.detail || {}; if (!ad && e.action === "CREATE_JOB" && d.document_status === "POSTED" && String(d.job_no || "").trim()) ad = e; });
   ad && out.push({ at: ad.at, t: "ออกเลข AD", c: "g", by: ad.by, s: String((ad.detail || {}).job_no || "") });
+  tl.forEach(function (e) { if (e.action !== "ADV716_DOC_ADD") return; var d = e.detail || {}; out.push({ at: e.at, id: e.id, t: "แนบเอกสารเพิ่มเติม", c: "b", by: e.by, s: "📎 " + (d.file_name || "-") + (d.item_no ? " (รายการที่ " + d.item_no + ")" : "") }); });   /* V.716 : แสดงใน Timeline หลักโดยตรง */
   if (r) {
     r.requested_at && out.push({ at: r.requested_at, t: "ส่งคำขอ", c: "b", by: r.requested_by, s: "ยอดขอเบิก " + fm(r.total_real) + " บาท" });
     r.approved_at && out.push({ at: r.approved_at, t: "อนุมัติ", c: "g", by: r.approved_by, s: "ยอดอนุมัติ " + fm(r.total_real) + " บาท" });

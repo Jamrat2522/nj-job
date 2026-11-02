@@ -1,4 +1,4 @@
-import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";
+import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{html716 as D716}from"./adv-doc-D716.js";
 /* ═══ V.701 · มือถือ SUPER_ADMIN : อนุมัติเบิกเงินสำรองจ่าย ADVANCE (หน้าแรก / รออนุมัติ / อนุมัติแล้ว / ไม่อนุมัติ)
    ข้อมูลจาก RPC ใหม่ RUN-701 เท่านั้น (njacc_adv701_list / get / approve / reject / pay) — สิทธิ์ SUPER_ADMIN ตรวจที่ฐานข้อมูลทุกครั้ง
    สลิป : Storage private njacc-adv-slips (JPG / PNG / PDF ≤ 5 MB · ดู / ดาวน์โหลดด้วย Signed URL อายุ 2 นาที) · โหลดรายการแบบแบ่งหน้า · โหลดสลิปเมื่อกดดูเท่านั้น ═══ */
@@ -266,6 +266,7 @@ function detail(g) {
     h += "</div>";
   });
   if (g.invoices !== void 0) h += '<div class="aq7-h3">INVOICE ADV</div>' + invHTML(r, g.invoices);
+  h += D716(r.job_id || j.id, { src: "CASH_ADVANCE", mobile: !0, reload: !0 });   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
   h += sumHTML714(g);   /* V.714 : มือถือไม่แสดง Timeline History (ข้อมูล / Audit จริงไม่ถูกแตะ · Desktop แสดงเดิม) · แสดง AUTO SUMMARY + ปุ่ม COPY แทน */
   if (r.status === "PENDING") f = '<button type="button" class="aq7-btn d" data-rej>✕ ไม่อนุมัติ</button><button type="button" class="aq7-btn g" data-apv>✓ อนุมัติ</button>';
   if (r.status === "PAID") f = '<button type="button" class="aq7-btn g" data-cppaid="0">📋 COPY แจ้งจ่ายแล้ว</button>';

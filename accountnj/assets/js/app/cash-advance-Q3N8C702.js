@@ -1,5 +1,8 @@
-import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";
-/* ═══ V.710 · ยกเลิกปิดงาน DOCUMENT อัตโนมัติ (RUN-710) : จ่ายครบแล้ว JOB ยังอยู่ DOCUMENT → ADVANCE — USER ปิดงานเอง · ไม่มีปุ่ม "ลองปิดงานอีกครั้ง"
+import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk-OFOOXWUM.js";import{a as LX}from"./chunk-LAFWE2EM.js";import{a as AS}from"./chunk-GDT6F23K.js";import{tlHTML708 as T708,chip708 as C708}from"./adv-tl-T708.js";import{html716 as D716}from"./adv-doc-D716.js";
+/* ═══ V.720 · List View : เส้นตารางครบทุกช่อง (#D9E2EC 1px) · Company / Customer แสดง 10 ตัวอักษรแรก (Tooltip / แตะ = ชื่อเต็ม) · Export Excel = คอลัมน์เดียวกับหน้ารายงาน + Thin Border ทุก Cell (ExcelJS เดิมในระบบ) · ชื่อเต็ม
+   V.719 · List View (3 สถานะ) : ซ่อน "ยอดขอเบิก" + "ยอดจ่ายจริง" · เพิ่ม "ยอดรวมเก็บลูกค้า" (DOCUMENT → ADVANCE : ยอดก่อนหัก + VAT) + "เก็บลูกค้าแล้ว"
+     (มี AMOUNT รายบรรทัดใน INVOICE ADV ที่ POST แล้วของ JOB เดียวกัน = ยอดรวมเก็บลูกค้า → วางบิลแล้ว · ไม่พบ = ไม่วางบิล) — RPC อ่านอย่างเดียว njacc_cash_adv719_bill (RUN-719) · Export Excel ใช้ชุดเดียวกัน
+   V.710 · ยกเลิกปิดงาน DOCUMENT อัตโนมัติ (RUN-710) : จ่ายครบแล้ว JOB ยังอยู่ DOCUMENT → ADVANCE — USER ปิดงานเอง · ไม่มีปุ่ม "ลองปิดงานอีกครั้ง"
    V.708 · Desktop (≥ 901px) : ปุ่มสถานะ 3 ช่องแบบ Compact Status Filter Bar (สูง 48px) · มือถือ / จอเล็กคงแบบ V.706 · Timeline History = Component กลาง adv-tl-T708.js (แบบเดียวกับ DOCUMENT / ACCOUNTING → ADVANCE)
    V.706 · ยกเลิกตัวกรอง INVOICE 2 ปุ่ม — จัดกลุ่มตามสถานะคำขอเท่านั้น (PENDING / APPROVED+PAID / REJECTED) · ปุ่มสถานะ 3 กลุ่มแบบการ์ด · Timeline แยก DOCUMENT / ACCOUNTING (ตามภาพ)
    V.705 · Desktop ตามภาพล่าสุด (ปุ่มสถานะ 3 ปุ่ม + ตัวกรอง INVOICE ในแถวเดียว · ปุ่มดำเนินการในคอลัมน์จัดการ) · Role อื่นที่ได้สิทธิ์ CASH_ADVANCE = ดูอย่างเดียว
@@ -8,7 +11,7 @@ import{m as RPC,l as SB}from"./chunk-SGWIBJH6.js";import{a as TOAST}from"./chunk
    รายการ : RPC อ่านอย่างเดียว njacc_cash_adv704_list (RUN-704 · กรอง / นับ / แบ่งหน้าที่ฐานข้อมูล)
    ดำเนินการ : RPC เดิม RUN-701 เท่านั้น (njacc_adv701_get / approve / reject / pay) · INVOICE ADV : njacc_cash_adv702_get (RUN-702) · Timeline : njacc_adv698_get
    มือถือ (window.__NJ_MOBILE) : ใช้หน้า Mobile เดิม (adv-approve · Bottom Navigation 4 เมนู) · สลิป : Storage private (Signed URL อายุ 2 นาที) ═══ */
-var S = null, BK = "njacc-adv-slips", MAXF = 5242880, XURL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+var S = null, BK = "njacc-adv-slips", MAXF = 5242880, XURL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", EXURL720 = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
 var RS = ["เอกสารไม่ครบ", "ยอดเงินไม่ถูกต้อง", "เลขบัญชีไม่ถูกต้อง"];
 var TABS = { PENDING: ["รออนุมัติ", "วันที่ส่งคำขอ", "pending"], APPROVED: ["อนุมัติแล้ว", "วันที่อนุมัติ", "approved"], REJECTED: ["ไม่อนุมัติ", "วันที่ไม่อนุมัติ", "rejected"] };
 var IC = {
@@ -74,13 +77,16 @@ function css() {
     ".ca7-sb{height:28px;padding:0 12px;border-radius:999px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit;border:1px solid #cbd5e1;background:#fff;color:#334155}",
     ".ca7-sb.n.on{background:#f97316;border-color:#f97316;color:#fff}.ca7-sb.v.on{background:#16a34a;border-color:#16a34a;color:#fff}",
     ".ca7-sum{margin-left:auto;font-size:12.5px;color:#334155;white-space:nowrap}.ca7-sum b{color:#0f172a}",
-    ".ca7-tw{overflow:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff;max-width:100%}",
+    ".ca7-tw{overflow:auto;border:1px solid #D9E2EC;border-radius:10px;background:#fff;max-width:100%}",   /* V.720 : กรอบ = สีเส้นตาราง */
     ".ca7-t{width:100%;min-width:980px;border-collapse:collapse;font-size:12.5px}",
     ".ca7-t th{background:#f1f5f9;color:#334155;font-weight:600;text-align:left;padding:6px 8px;white-space:nowrap;border-bottom:1px solid #e2e8f0;position:sticky;top:0}",
     ".ca7-t td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.3}",
+    ".ca7-t th,.ca7-t td{border:1px solid #D9E2EC}.ca7-t tr>:first-child{border-left:0}.ca7-t tr>:last-child{border-right:0}.ca7-t thead th{border-top:0;background:#eef3f8;color:#1e3a8a;font-weight:700;vertical-align:middle}.ca7-t tbody tr:last-child td{border-bottom:0}.ca7-t tbody td{background:#fff}",   /* V.720 : เส้นครบทุกช่อง (ขอบนอก = กรอบ .ca7-tw มุมโค้งเดิม · ไม่ซ้อน) */
+    ".ca7-t .ca7-nm{display:block;white-space:nowrap;cursor:help}.ca7-t th.ca7-nmh{width:96px}",
     ".ca7-t tr:hover td{background:#f8fafc}.ca7-t .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.ca7-t .c{text-align:center}",
     ".ca7-el{display:block;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ca7-job{white-space:nowrap;font-weight:600}",
     ".ca7-bd{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}",
+    ".ca7-b719::before{content:\"\";width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:5px;flex:none}",   /* V.719 */
     ".ca7-bd.g{background:#dcfce7;color:#15803d}.ca7-bd.o{background:#ffedd5;color:#c2410c}.ca7-bd.b{background:#dbeafe;color:#1d4ed8}.ca7-bd.r{background:#fee2e2;color:#b91c1c}.ca7-bd.x{background:#f1f5f9;color:#475569}",
     ".ca7-no{color:#b91c1c;font-weight:600;white-space:nowrap}.ca7-inv{white-space:nowrap;font-weight:600;color:#1d4ed8}",
     ".ca7-ib{width:28px;height:28px;border-radius:7px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}",
@@ -124,6 +130,27 @@ function css() {
   document.head.appendChild(s);
 }
 function rpc(n, a) { return RPC(n, a); }
+async function bill719(rows) {   /* V.719 : { job_id → { collect, billed, match_no } } · โหลดไม่ได้ = null (แสดง "-") */
+  var ids = [], seen = {};
+  (rows || []).forEach(function (x) { x && x.job_id && !seen[x.job_id] && (seen[x.job_id] = 1, ids.push(x.job_id)); });
+  var m = {};
+  for (var i = 0; i < ids.length; i += 500) {
+    var r = await rpc("njacc_cash_adv719_bill", { p_jobs: ids.slice(i, i + 500) });
+    ((r && r.rows) || []).forEach(function (b) { b && b.job_id && (m[b.job_id] = b); });
+  }
+  return m;
+}
+function nm720(v) { var t = String(v == null ? "" : v).trim(); if (!t) return '<span class="ca7-nm">-</span>'; var a = Array.from(t), sh = a.length > 10 ? a.slice(0, 10).join("") : t;   /* V.720 : 10 ตัวอักษรแรก · ไม่เติม … · ชื่อจริงไม่แก้ */
+  return '<span class="ca7-nm" title="' + esc(t) + '" data-full="' + esc(t) + '">' + esc(sh) + "</span>"; }
+function b719(x) { return S && S.bill && x && S.bill[x.job_id] || null; }
+function colTd719(x) { var b = b719(x); return '<td class="r">' + (b ? fm(b.collect) : "-") + "</td>"; }
+function billTd719(x) {
+  var b = b719(x);
+  if (!b) return '<td><span class="ca7-bd x">—</span></td>';
+  return "<td>" + (b.billed ? '<span class="ca7-bd g ca7-b719" title="' + esc("AMOUNT ตรงกับยอดรวมเก็บลูกค้า · " + (b.match_no || "")) + '">วางบิลแล้ว</span>' : '<span class="ca7-bd r ca7-b719">ไม่วางบิล</span>') + "</td>";
+}
+function billText719(m, x) { var b = m && x && m[x.job_id]; return b ? (b.billed ? "วางบิลแล้ว" : "ไม่วางบิล") : ""; }
+function colNum719(m, x) { var b = m && x && m[x.job_id]; return b ? Number(b.collect) || 0 : ""; }
 function copy(text, ok) {
   var done = function () { toast(ok, "ok"); };
   try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done, fb); return; } } catch (e) {}
@@ -180,21 +207,22 @@ function actHTML(x) {   /* V.705 : ปุ่มดำเนินการตา
 }
 function rowHTML(x, i) {
   var no = '<td class="c">' + (S.off + i + 1) + "</td>", job = '<td><span class="ca7-job">' + esc(x.job_no) + "</span>" + (x.job_canceled && S.tab !== "REJECTED" ? ' <span class="ca7-bd r">JOB ยกเลิก</span>' : "") + "</td>";
-  var co = '<td><span class="ca7-el" title="' + esc(x.company || "") + '">' + esc(x.company || "-") + '</span></td><td><span class="ca7-el" title="' + esc(x.customer || "") + '">' + esc(x.customer || "-") + "</span></td>";
+  var co = "<td>" + nm720(x.company) + "</td><td>" + nm720(x.customer) + "</td>";   /* V.720 */
   var vw = '<td>' + actHTML(x) + "</td>", hb = '<td style="white-space:nowrap">' + esc(x.hbl || "-") + "</td><td>" + esc(x.requested_by || "-") + "</td>";
-  if (S.tab === "REJECTED") return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + '<td class="r">' + fm(x.total_real) + "</td><td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
+  if (S.tab === "REJECTED") return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
   var pend = x.status === "PENDING", inv = !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).map(function (n) { return '<span class="ca7-inv">' + esc(n) + "</span>"; }).join("<br>") : "—";
-  return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + fm(x.total_real) + '</td><td class="r">' + (pend ? "-" : fm(x.total_real)) +
-    '</td><td class="r">' + (Number(x.paid_total) > 0 ? fm(x.paid_total) : "-") + "</td><td>" + (pend ? '<span class="ca7-bd b">รออนุมัติ</span>' : payBadge(x)) + "</td><td>" + inv + "</td>" + vw + "</tr>";
+  return "<tr>" + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
+    "<td>" + (pend ? '<span class="ca7-bd b">รออนุมัติ</span>' : payBadge(x)) + "</td><td>" + inv + "</td>" + vw + "</tr>";
 }
 function headHTML() {   /* V.705 : คอลัมน์ตามภาพล่าสุด (ไม่มีคอลัมน์สถานะ DOCUMENT / ปิดงาน) */
-  var A = '<th class="c" style="width:38px">#</th><th style="width:116px">' + TABS[S.tab][1] + '</th><th style="width:140px">JOB No.</th><th>Company</th><th>Customer</th><th style="width:110px">House B/L</th><th style="width:110px">ผู้ส่งคำขอ</th>';
-  if (S.tab === "REJECTED") return A + '<th class="r" style="width:100px">ยอดขอเบิก</th><th style="width:110px">ผู้ไม่อนุมัติ</th><th>เหตุผล</th><th style="width:110px">สถานะ JOB</th><th style="width:70px">จัดการ</th>';
-  return A + '<th class="r" style="width:96px">ยอดขอเบิก</th><th class="r" style="width:96px">ยอดอนุมัติ</th><th class="r" style="width:96px">ยอดจ่ายจริง</th><th style="width:100px">สถานะจ่ายเงิน</th><th style="width:130px">INVOICE ADV</th><th style="width:' + (S.sup ? 250 : 70) + 'px">จัดการ</th>';
+  var A = '<th class="c" style="width:38px">#</th><th style="width:116px">' + TABS[S.tab][1] + '</th><th style="width:140px">JOB No.</th><th class="ca7-nmh">Company</th><th class="ca7-nmh">Customer</th><th style="width:110px">House B/L</th><th style="width:110px">ผู้ส่งคำขอ</th>';
+  var B719 = '<th class="r" style="width:110px">ยอดรวมเก็บลูกค้า</th><th style="width:104px">เก็บลูกค้าแล้ว</th>';   /* V.719 */
+  if (S.tab === "REJECTED") return A + B719 + '<th style="width:110px">ผู้ไม่อนุมัติ</th><th>เหตุผล</th><th style="width:110px">สถานะ JOB</th><th style="width:70px">จัดการ</th>';
+  return A + '<th class="r" style="width:96px">ยอดอนุมัติ</th>' + B719 + '<th style="width:100px">สถานะจ่ายเงิน</th><th style="width:130px">INVOICE ADV</th><th style="width:' + (S.sup ? 250 : 70) + 'px">จัดการ</th>';
 }
 function bodyHTML() {
   if (S.err) return '<div class="ca7-tw"><div class="ca7-em">' + esc(S.err) + "</div></div>";
-  var cols = S.tab === "REJECTED" ? 12 : 13, rows = S.rows.map(rowHTML).join("");
+  var cols = 13, rows = S.rows.map(rowHTML).join("");
   var from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length;
   return '<div class="ca7-tw"><table class="ca7-t" data-tb="' + S.tab + '"><thead><tr>' + headHTML() + "</tr></thead><tbody>" +
     (rows || '<tr><td colspan="' + cols + '" class="ca7-em">' + (S.loading ? "กำลังโหลด…" : "ไม่มีรายการ") + "</td></tr>") + "</tbody></table></div>" +
@@ -218,6 +246,9 @@ async function load() {
     var r = await rpc("njacc_cash_adv704_list", { p: params(S.lim, S.off) });
     if (my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
+    var bm = null; try { bm = S.rows.length ? await bill719(S.rows) : {}; } catch (e7) { bm = null; }   /* V.719 : โหลดไม่ได้ (ยังไม่รัน RUN-719) = แสดง "-" รายการเดิมยังใช้ได้ */
+    if (my !== S.seq) return;
+    S.bill = bm;
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
     S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q) && badgeSet(S.counts);
   } catch (e) { if (my !== S.seq) return; S.rows = []; S.total = 0; S.err = errMsg(e); }
@@ -320,6 +351,7 @@ async function openView(jobId) {
       "<dt>" + (ap ? "ยอดอนุมัติ" : "ยอดขอเบิก") + "</dt><dd>" + fm(r.total_real) + " บาท</dd>" + (ap ? "<dt>ยอดจ่ายจริง</dt><dd>" + fm(paid) + " บาท</dd><dt>ค้างจ่าย</dt><dd>" + fm(wait) + " บาท</dd>" : "") + "</dl>" +
       '<div class="ca7-h3">รายการเงินสำรองจ่าย (' + r.item_count + " รายการ)</div>" + itemsHTML(r) +
       (ap ? '<div class="ca7-h3">ข้อมูล INVOICE ADV</div>' + (g.invoices ? invHTML(g) : '<div class="ca7-warn">โหลดข้อมูล INVOICE ADV ไม่สำเร็จ</div>') + '<div class="ca7-h3">หลักฐานสลิปการโอนเงิน</div>' + slipsHTML(r) : "") +
+      D716(jobId, { src: "CASH_ADVANCE", reload: !0 }) +   /* V.716 : เอกสารเพิ่มเติม (แยกจากสลิป) */
       '<div class="ca7-h3">Timeline History' + C708() + "</div>" + tlHTML(g, res[1] && res[1].timeline);
     me.querySelector(".ca7-df").innerHTML = footHTML(r);
   } catch (e) { if (me.isConnected) me.querySelector(".ca7-db").innerHTML = '<div class="ca7-em">' + esc(errMsg(e)) + "</div>"; }
@@ -443,24 +475,31 @@ async function exportXls(btn) {
       var r = await rpc("njacc_cash_adv704_list", { p: params(500, off) });
       tot = (r && r.total) || 0; all = all.concat((r && r.rows) || []); off += 500; if (!r || !(r.rows || []).length) break;
     }
-    await LX(XURL); var X = window.XLSX; if (!X) throw new Error("โหลดไลบรารี Excel ไม่สำเร็จ");
-    var H, M, nc, W;
-    if (tab === "PENDING") {
-      H = ["วันที่ส่งคำขอ", "JOB No.", "Company", "Customer", "House B/L", "USER", "ประเภทค่าใช้จ่าย", "ยอดเบิก", "สถานะ"]; nc = ["H"]; W = [16, 18, 34, 28, 18, 18, 28, 14, 14];
-      M = function (x) { return [dtm(x.requested_at), x.job_no || "", x.company || "", x.customer || "", x.hbl || "", x.requested_by || "", (x.types || []).join(", "), Number(x.total_real) || 0, "รออนุมัติ"]; };
-    } else if (tab === "REJECTED") {
-      H = ["วันที่ไม่อนุมัติ", "JOB No.", "Company", "Customer", "House B/L", "USER", "ยอดขอเบิก", "ผู้ไม่อนุมัติ", "เหตุผล", "สถานะ JOB"]; nc = ["G"]; W = [16, 18, 34, 28, 18, 18, 14, 16, 36, 14];
-      M = function (x) { return [dtm(x.rejected_at), x.job_no || "", x.company || "", x.customer || "", x.hbl || "", x.requested_by || "", Number(x.total_real) || 0, x.rejected_by || "", x.reject_reason || "", x.job_canceled ? "ยกเลิก JOB แล้ว" : x.job_status || ""]; };
-    } else {
-      H = ["วันที่อนุมัติ", "JOB No.", "Company", "Customer", "House B/L", "USER", "ผู้อนุมัติ", "ประเภทค่าใช้จ่าย", "ยอดอนุมัติ", "ยอดจ่ายจริง", "ยอดรอจ่าย", "สถานะจ่ายเงิน", "INVOICE ADV", "สถานะ INVOICE"]; nc = ["I", "J", "K"]; W = [16, 18, 34, 28, 18, 18, 16, 28, 14, 14, 14, 16, 22, 18];
-      M = function (x) { return [dtm(x.approved_at), x.job_no || "", x.company || "", x.customer || "", x.hbl || "", x.requested_by || "", x.approved_by || "", (x.types || []).join(", "), Number(x.total_real) || 0, Number(x.paid_total) || 0, Number(x.wait_total) || 0, payText(x), (x.inv_nos || []).join(", "), Number(x.inv_count) > 0 ? "ออก INVOICE แล้ว" : "—"]; };
-    }
-    var A = [H].concat(all.map(M)), ws = X.utils.aoa_to_sheet(A); ws["!cols"] = W.map(function (w) { return { wch: w }; });
-    for (var i = 1; i < A.length; i++) nc.forEach(function (c) { var k = c + (i + 1); ws[k] && (ws[k].z = "#,##0.00"); });
+    var bm = null; try { bm = await bill719(all); } catch (e7) { bm = null; }   /* V.719 : ชุดเดียวกับหน้ารายงาน */
+    await LX(EXURL720); var EX = window.ExcelJS; if (!EX) throw new Error("โหลดไลบรารี Excel ไม่สำเร็จ");   /* V.720 : ExcelJS (มีในระบบแล้ว) เพื่อใส่เส้น */
+    var rej = tab === "REJECTED", pend = tab === "PENDING";
+    var H = ["#", TABS[tab][1], "JOB No.", "Company", "Customer", "House B/L", "ผู้ส่งคำขอ"].concat(rej ? ["ยอดรวมเก็บลูกค้า", "เก็บลูกค้าแล้ว", "ผู้ไม่อนุมัติ", "เหตุผล", "สถานะ JOB"] : ["ยอดอนุมัติ", "ยอดรวมเก็บลูกค้า", "เก็บลูกค้าแล้ว", "สถานะจ่ายเงิน", "INVOICE ADV"]);
+    var W = rej ? [6, 17, 18, 34, 28, 18, 18, 16, 14, 16, 36, 16] : [6, 17, 18, 34, 28, 18, 18, 14, 16, 14, 18, 22];
+    var nc = rej ? [8] : [8, 9];   /* คอลัมน์จำนวนเงิน (1-based) */
+    var M = function (x, i) {
+      var head = [i + 1, dtm(rej ? x.rejected_at : pend ? x.requested_at : x.approved_at), x.job_no || "", x.company || "", x.customer || "", x.hbl || "", x.requested_by || ""];   /* Company / Customer = ชื่อเต็ม */
+      if (rej) return head.concat([colNum719(bm, x), billText719(bm, x), x.rejected_by || "", x.reject_reason || "", x.job_canceled ? "ยกเลิก JOB แล้ว" : x.job_status || ""]);
+      return head.concat([pend ? "-" : Number(x.total_real) || 0, colNum719(bm, x), billText719(bm, x), pend ? "รออนุมัติ" : payText(x), !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).join(", ") : "—"]);
+    };
     var nm = tab === "PENDING" ? "รออนุมัติ" : tab === "REJECTED" ? "ไม่อนุมัติ" : "อนุมัติแล้ว";
-    var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, nm.slice(0, 31));
+    var wb = new EX.Workbook(), ws = wb.addWorksheet(nm.slice(0, 31));
+    ws.columns = W.map(function (w) { return { width: w }; });
+    var A = [H].concat(all.map(M)), TH = { style: "thin", color: { argb: "FFD9E2EC" } }, BD = { top: TH, left: TH, bottom: TH, right: TH };
+    A.forEach(function (row, ri) {
+      var rr = ws.getRow(ri + 1);
+      for (var ci = 0; ci < H.length; ci++) { var c = rr.getCell(ci + 1), v = row[ci]; c.value = v === undefined || v === null ? "" : v; c.border = BD;   /* Thin Border ครบทุก Cell */
+        if (ri > 0 && nc.indexOf(ci + 1) >= 0 && typeof v === "number") c.numFmt = "#,##0.00"; }
+      rr.commit && rr.commit();
+    });
     var d = new Date(), fn = "CASH_ADVANCE_" + (tab === "PENDING" ? "PENDING" : tab === "REJECTED" ? "REJECTED" : "APPROVED") + "_" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + ".xlsx";
-    X.writeFile(wb, fn); toast("ส่งออก Excel " + all.length + " รายการแล้ว", "ok");
+    var buf = await wb.xlsx.writeBuffer(), url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })), lk = document.createElement("a");
+    lk.href = url; lk.download = fn; document.body.appendChild(lk); lk.click(); lk.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    toast("ส่งออก Excel " + all.length + " รายการแล้ว", "ok");
   } catch (e) { toast("ส่งออก Excel ไม่สำเร็จ — " + errMsg(e), "err"); }
   btn.disabled = !1; btn.innerHTML = lb;
 }
@@ -491,7 +530,8 @@ async function render(root, args) {
   var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
   fo.addEventListener("submit", function (e) { e.preventDefault(); if (S !== me) return; S.f = readF(); S.off = 0; load(); });
   root.addEventListener("click", function (e) {
-    if (S !== me) return; var b = e.target.closest("button"); if (!b || !root.contains(b)) return;
+    if (S !== me) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 */
+    var b = e.target.closest("button"); if (!b || !root.contains(b)) return;
     if (b.dataset.tab) { if (S.tab !== b.dataset.tab) { S.tab = b.dataset.tab; S.off = 0; load(); } return; }
     if (b.hasAttribute("data-rf")) { load(); return; }
     if (b.hasAttribute("data-xl")) { exportXls(b); return; }
