@@ -5490,6 +5490,8 @@ const EDC8_FIX = [
 ];
 /* [EDC8 AAT/FTM] FIX ตามชื่อสินค้าภาษาไทย (คำแปลไทย ตรงตัวหลังตัดช่องว่าง) — ใช้แทน FIX หน่วย QTY ใบขน / QTY 2 เดิม เฉพาะสินค้านี้ (QTY = C62 เดิม) */
 const EDC8_THAI_UNIT_FIX = { 'พรมปูพื้นรถยนต์':'MTK', 'ชุดเพลาหน้า':'SET' };
+/* [EDC8 AAT / FTM] หน่วยนับ FIX ตามชื่อสินค้าไทย: พรมปูพื้น (ทุกชื่อที่มีคำว่า "พรมปูพื้น" · ไม่สนช่องว่าง) = MTK เท่านั้น · สินค้าอื่นตามตารางเดิม (ตรงตัว) */
+function edc8UnitFixOf(thai){ const t = String(thai==null?'':thai).trim().replace(/\s+/g,' '); if(/พรมปูพื้น/.test(t.replace(/\s+/g,''))) return 'MTK'; return EDC8_THAI_UNIT_FIX[t] || ''; }
 /* [EDC8 AAT/FTM] เรดาร์: ใบอนุญาตช่องที่ 2 = แถวที่ 2 ของ ITEM เดียวกัน (ช่องที่ 1 = แถวแรก ไม่แตะ) */
 const EDC8_RADAR_NAME = 'เรดาร์';
 const EDC8_RADAR_FIX = { permit:'EXEMPT99', issueDate:'20171113', tax:'0994000049447', agency:'กสทช.', agencyFull:'สำนักงานคณะกรรมการกิจการกระจายเสียง กิจการโทรทัศน์ และกิจการโทรคมนาคมแห่งชาติ' };
@@ -6354,7 +6356,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       }
     }
     // [EDC8 39 หัวข้อ] QTY ใบขน = C62 · QTY 2 = EA (ค่า FIX เดิมของ EDC8: EDC8_QTY_FIXED)
-    const _thai = _firstThai.get(itemKey) || '', _uFix = EDC8_THAI_UNIT_FIX[_thai];   /* [EDC8] พรมปูพื้นรถยนต์ = MTK · ชุดเพลาหน้า = SET (QTY ใบขน + QTY 2) */
+    const _thai = _firstThai.get(itemKey) || '', _uFix = edc8UnitFixOf(_thai);   /* [EDC8] พรมปูพื้นรถยนต์ = MTK · ชุดเพลาหน้า = SET (QTY ใบขน + QTY 2) */
     if(_aatByPart) EDC8_QTY_FIXED.forEach(q => {   /* [EDC8] FIX ครบ 3 หัวข้อ QTY / QTY ใบขน / QTY 2 (ค่า FIX ของ EDC8 เอง) */ const ci = _findColExact(eHdr, [q.col]); if(ci === -1){ _t39NoCol(q.col + ' (ค่าฟิก)', q.col); return; }
       if(_uFix && (q.col === 'QTY ใบขน' || q.col === 'QTY 2')){ const v = String(row[ci]||'').trim(), L = q.col + ' (หน่วยนับ)', X = _uFix + ' (' + _thai + ')';   /* ตรวจราย ITEM · แสดงค่าจริง + ค่าที่กำหนด */
         if(v.toUpperCase() === _uFix) _pass({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found:v, expected:X, source:'fixed' });
@@ -13108,18 +13110,24 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     /* [EDC8] แถวใบอนุญาตช่องที่ 2+ ของเรดาร์ ไม่ใช่แถวสินค้า · พรมปูพื้นรถยนต์ / ชุดเพลาหน้า: QTY ใบขน / QTY 2 แสดงราย ITEM (หน่วยนับ) ไม่รวมในแถว FIX ด้านบน */
     const tCol=H.indexOf(NV('คำแปลไทย')), th1=new Map(), skipRow=new Set(), unitItem=new Set(), TU=(typeof EDC8_THAI_UNIT_FIX!=='undefined' ? EDC8_THAI_UNIT_FIX : {}), RN=(typeof EDC8_RADAR_NAME!=='undefined' ? EDC8_RADAR_NAME : null);
     if(tCol!==-1 && iCol!==-1) rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=nkItem(r[iCol]); if(!it) return; const t=S(r[tCol]).trim().replace(/\s+/g,' ');
-      if(!th1.has(it)){ th1.set(it,t); if(TU[t]) unitItem.add(it); } else if(th1.get(it)===RN) skipRow.add(r); });
+      if(!th1.has(it)){ th1.set(it,t); if(typeof edc8UnitFixOf==='function' ? edc8UnitFixOf(t) : TU[t]) unitItem.add(it); } else if(th1.get(it)===RN) skipRow.add(r); });
     for(const f of FIX_TOPICS){
       const errs=errors.filter(e=>fixTopicOf(e)===f), ci=H.indexOf(NV(f.col));
       const rule=f.fix===undefined ? ruleFor(f.col) : null, fixTxt=f.fix!==undefined ? f.fix : (rule ? opText(rule.op, rule.value) : '');
       const noRule=f.fix===undefined && !rule;
       const R=(decl, fx, st, cnt)=>out.push({ item:DASH, count:cnt||0, field:f.t, decl, inv:DASH, fix:fx, trf:DASH, apl:DASH, st, src:'fixtop' });
       if(ci===-1){ if(noRule){ unchecked.push(f.t); R('(ใบขนไม่มีคอลัมน์ '+f.col+')', 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้'); } else R('(ใบขนไม่มีคอลัมน์ '+f.col+')', fixTxt||DASH, '❌ ผิด'); continue; }
-      const vals=new Map(), bad=new Set(errs.filter(e=>e.severity==='error' && e.item!=='-' && e.item!=='HEADER').map(e=>nkItem(e.item)));
+      const vals=new Map(), errI=errs.filter(e=>e.severity==='error' && e.item!=='-' && e.item!=='HEADER'), bad=new Set(errI.map(e=>nkItem(e.item)));
+      /* [EDC8] ค่าฟ้อง: นับผิดเฉพาะแถวที่ค่าใบขนตรงกับค่าที่ฟ้องจริง (found) ของ ITEM นั้น — ค่าที่ถูกของ ITEM เดียวกันไม่ถูกนับเป็นผิด
+         ถ้าค่าที่ฟ้องไม่ตรงกับแถวใดของ ITEM (รูปแบบต่างกัน) → นับทุกแถวของ ITEM นั้นเป็นผิดเหมือนเดิม (ไม่ซ่อนรายการผิดจริง) */
+      const VN=v=>S(v).trim().replace(/\s+/g,' ').toUpperCase(), badVal=new Set(errI.map(e=>nkItem(e.item)+'|'+VN(e.found))), seen=[];
       rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=iCol===-1 ? '' : nkItem(r[iCol]); if(iCol!==-1 && !it) return; if(skipRow.has(r) || ((f.t==='QTY ใบขน' || f.t==='QTY 2') && unitItem.has(it))) return;
-        const v=S(r[ci]).trim()||'(ว่าง)'; if(!vals.has(v)) vals.set(v,{ n:0, bad:0 }); const o=vals.get(v); o.n++; if(bad.has(it)) o.bad++; });
+        seen.push([it, S(r[ci]).trim()||'(ว่าง)']); });
+      const itemHit=new Set(seen.filter(([it,v])=>badVal.has(it+'|'+VN(v))).map(x=>x[0]));
+      seen.forEach(([it,v])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0 }); const o=vals.get(v); o.n++; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)) o.bad++; });
+      const anyBad=[...vals.values()].some(o=>o.bad);
       if(noRule){ unchecked.push(f.t); vals.forEach((o,v)=>R(v, 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้', o.n)); continue; }
-      vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else R(v, fixTxt||DASH, '✅ ถูก', o.n); });
+      vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else if(!anyBad) R(v, fixTxt||DASH, '✅ ถูก', o.n); });   /* ถูกทั้งหมด = แถว ✅ · มีผิด = แสดงเฉพาะค่าที่ผิด (ไม่แสดงค่าที่ถูกปน) */
     }
     return { rows:out, unchecked, belongs:e=>!!fixTopicOf(e) };
   }
