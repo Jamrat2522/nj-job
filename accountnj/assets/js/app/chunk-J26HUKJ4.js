@@ -109,13 +109,12 @@ async function XN506(t) {
 
 export{lt as a,it as b,ct as c,ut as d,$t as e};
 
-/* ═══ V.753 · DOCUMENT → SERVICE : UPLOAD EXCEL (ไฟล์ CALCOMP · SHEET "เปิดจ๊อบ") → 1 แถว = 1 JOB · บันทึกทันทีทีละแถวผ่าน Flow เดิม (njacc_save_document_job)
-   ค่าคงที่ : โหมด EX (SEA) · ประเภท HALF (ปล่อย) · บริษัท CAL-COMP ELECTRONICS (THAILAND) PUBLIC · ลูกค้า Maersk Logistics & Services (Thailand) Co., Ltd.
-              ค่าธรรมเนียม + FCL ติ๊ก · ท่าตรวจปล่อย อื่น : เพชรบุรี · จำนวนตู้ 1 · Customer Job No. N/A
-   จาก Excel : Container NO → เบอร์ตู้ · Code → SIZE · Booking → Booking No. · FACTORY (BONDED = Bonded / FREEZONE = FZ · ค่าอื่น = แถวผิดพลาด)
-              Entry → เลขใบขนสินค้า · Invoice → Invoice No. (ครบทุกเลข · ตัดเฉพาะช่องว่างรอบ "," ให้ตรงรูปแบบเดิมของระบบ) · Loading → วันที่ตรวจปล่อย (Excel Date → วันที่ · ไม่ผ่าน Timezone)
-   สิทธิ์ / ผู้สร้าง / เลข JOB / กันเลขซ้ำ (RUN-87) / ช่องบังคับ = ระบบเดิม · แถวผิดพลาด = ข้ามเฉพาะแถวนั้น · ไม่ส่งซ้ำอัตโนมัติ (ส่งซ้ำ / อัปโหลดไฟล์เดิมซ้ำ = กันเลขซ้ำเดิมปฏิเสธ · ไม่สร้าง JOB ซ้ำ)
-   ไม่ POST / CLOSE / ส่ง ACCOUNTING · ไม่แก้ JOB เดิม ═══ */
+/* ═══ V.753 → V.754 · DOCUMENT → SERVICE : UPLOAD EXCEL (CALCOMP · SHEET "เปิดจ๊อบ")
+   V.754 : รวม JOB ตาม Entry (เลขใบขนสินค้า) · 1 Entry = 1 JOB · อ่าน + จัดกลุ่ม + ตรวจ Entry กับฐานข้อมูล → Preview (ยังไม่บันทึก) → กด "บันทึกข้อมูล" จึงสร้าง JOB
+   กันซ้ำด้วย Entry เท่านั้น (ทุก JOB SERVICE ในระบบ · njacc_upload754_check / njacc_upload754_save ตรวจซ้ำอีกครั้งพร้อมล็อก) · Invoice / Booking / เบอร์ตู้ ซ้ำกับ JOB อื่นได้
+   รวมในกลุ่ม : เบอร์ตู้ / Invoice / Booking / SIZE (Code) = ค่าไม่ซ้ำ คั่น "," ไม่มีช่องว่าง · จำนวนตู้ = จำนวนเบอร์ตู้ไม่ซ้ำ · FACTORY / Loading ต่างกันในกลุ่ม = ข้อมูลไม่ถูกต้อง
+   ค่าคงที่เดิม : EX (SEA) · HALF (ปล่อย) · CAL-COMP · Maersk · ค่าธรรมเนียม · FCL · ท่าตรวจปล่อย อื่น : เพชรบุรี · Customer Job No. N/A
+   ไม่แก้ JOB เดิม · ไม่ POST / CLOSE · Flow เปิดงานปกติ / กันเลขซ้ำเมนูอื่น = เดิม ═══ */
 var UH753 = { factory: "FACTORY", invoice: "INVOICE", booking: "BOOKING", loading: "LOADING", cont: "CONTAINER NO", code: "CODE", entry: "ENTRY" };
 var UB753 = false;
 function UN753(v) { return String(v == null ? "" : v).replace(/[ ​﻿]/g, " ").replace(/\s+/g, " ").trim(); }
@@ -134,20 +133,24 @@ function UD753(v) {
   if (isNaN(t) || t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d || y < 2000 || y > 2100) return { ok: false };
   return { ok: true, v: y + "-" + UP2753(m) + "-" + UP2753(d) };
 }
-function UE753(er) {
-  let m = String(er && er.message || er || ""), i = m.indexOf("NJACC_DUPLICATE");
-  if (i >= 0) { try { let a = JSON.parse(m.slice(i + 15).trim()); return "เลขซ้ำ (กฎเดิม) : " + a.map((x) => x.label + " " + x.value + " → " + (x.jobs || []).join(", ")).join(" · "); } catch (e) { return "เลขซ้ำกับ JOB ที่มีอยู่ (กฎเดิม)"; } }
-  if (!m || /fetch|network|timeout|abort/i.test(m) || !/NJACC_|[\u0E00-\u0E7F]/.test(m)) return "การเชื่อมต่อขัดข้อง — ไม่แน่ใจว่าบันทึกแล้วหรือไม่ กรุณาตรวจในรายงาน (อัปโหลดไฟล์ซ้ำจะไม่สร้าง JOB ซ้ำ)" + (m ? " · " + m : "");
-  return m;
+function UQ754(a) { let o = []; a.forEach((x) => { x = UN753(x); x && o.indexOf(x) < 0 && o.push(x); }); return o; }
+function UL754(a) { return a.length ? a.join(", ") : "-"; }
+function UE754(er) {
+  let m = String(er && er.message || er || ""), i = m.indexOf("NJACC_UPLOAD754_DUP_ENTRY");
+  if (i >= 0) { let j = []; try { j = JSON.parse(m.slice(i + 25).trim()); } catch (e) {} return { dup: !0, msg: j.length ? j.join(", ") : "-" }; }
+  if (/NJACC_UPLOAD754_ENTRY_REQUIRED/.test(m)) return { msg: "ไม่มี Entry" };
+  if (/NJACC_UPLOAD754_INVOICE_REQUIRED/.test(m)) return { msg: "ไม่มี Invoice" };
+  if (!m || /fetch|network|timeout|abort/i.test(m) || !/NJACC_|[฀-๿]/.test(m)) return { msg: "การเชื่อมต่อขัดข้อง — ไม่แน่ใจว่าบันทึกแล้วหรือไม่ กรุณาตรวจในรายงาน (อัปโหลดซ้ำจะไม่สร้าง JOB ซ้ำ)" + (m ? " · " + m : "") };
+  return { msg: m };
 }
 function UP753(t) {
   if (UB753) { c("กำลัง UPLOAD อยู่ — รอให้เสร็จก่อน", "err"); return; }
   let inp = document.createElement("input"); inp.type = "file"; inp.accept = ".xlsx,.xls,.xlsm";
-  inp.addEventListener("change", () => { let f = inp.files && inp.files[0]; f && UR753(t, f); }, { once: !0 });
+  inp.addEventListener("change", () => { let f = inp.files && inp.files[0]; f && UR754(t, f); }, { once: !0 });
   inp.click();
 }
-async function UR753(t, f) {
-  if (UB753) return; UB753 = !0;
+async function UR754(t, f) {
+  if (UB753) return; UB753 = !0; let keep = !1;
   try {
     let X; try { X = await XL753(); } catch (e) { c("โหลดตัวอ่าน Excel ไม่สำเร็จ — ยังไม่สร้าง JOB", "err"); return; }
     let wb; try { wb = X.read(new Uint8Array(await f.arrayBuffer()), { type: "array", cellDates: !1 }); } catch (e) { c("อ่านไฟล์ Excel ไม่ได้ — ยังไม่สร้าง JOB", "err"); return; }
@@ -160,51 +163,72 @@ async function UR753(t, f) {
     let ms = XG506.masters || {}, co = (ms.companies || []).filter((x) => x && x.active !== !1 && /^CAL-?COMP ELECTRONICS \(THAILAND\) PUBLIC\b/i.test(UN753(x.name))),
         cu = (ms.customers || []).filter((x) => x && x.active !== !1 && UN753(x.name).toLowerCase() === "maersk logistics & services (thailand) co., ltd.");
     if (co.length !== 1 || cu.length !== 1) { c("ไม่พบ (หรือพบมากกว่า 1) บริษัท CAL-COMP / ลูกค้า Maersk ในข้อมูลหลัก — ยังไม่สร้าง JOB", "err"); return; }
-    let rows = [];
+    /* ── อ่านแถว → จัดกลุ่มตาม Entry (ลำดับตามแถวแรกของ Entry) ── */
+    let nRow = 0, gs = [], gm = new Map();
     for (let k = 1; k < aoa.length; k++) {
       let r = aoa[k] || [], g = (n) => r[ix[n]];
       if (Object.keys(ix).every((n) => UT753(g(n)) === "" && !(g(n) instanceof Date))) continue;
-      rows.push({ row: rg.s.r + k + 1, factory: UT753(g("factory")).toUpperCase(), invoice: UT753(g("invoice")).replace(/\s*,\s*/g, ","), booking: UT753(g("booking")), loading: UD753(g("loading")),
-        cont: UT753(g("cont")), code: UT753(g("code")), entry: UT753(g("entry")), req: "up753_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12) + "_" + k });
+      nRow++;
+      let x = { row: rg.s.r + k + 1, factory: UT753(g("factory")).toUpperCase(), invoice: UT753(g("invoice")), booking: UT753(g("booking")), loading: UD753(g("loading")), cont: UT753(g("cont")), code: UT753(g("code")), entry: UT753(g("entry")) };
+      let key = x.entry ? x.entry.toLowerCase() : "\u0000row" + x.row, G = gm.get(key);
+      G || (G = { entry: x.entry, rows: [], err: [] }, gm.set(key, G), gs.push(G));
+      G.rows.push(x);
     }
-    if (!rows.length) { c("ไม่มีข้อมูลใน SHEET \"เปิดจ๊อบ\"", "err"); return; }
-    let bd = document.createElement("div"), ft = document.createElement("div"), n = rows.length, ok = 0, bad = 0;
-    bd.innerHTML = `<div class="up753"><div class="t-sm mb-1" id="up753-sum"></div><div class="tbl-wrap" style="max-height:60vh;overflow:auto"><table class="tbl"><thead><tr><th>Excel Row</th><th>Container No.</th><th>ประเภท</th><th>สถานะ</th></tr></thead><tbody>${rows.map((x, i) => `<tr data-up753="${i}"><td class="center">${x.row}</td><td>${s(x.cont)}</td><td>${s(x.factory)}</td><td class="up753-st">รอบันทึก</td></tr>`).join("")}</tbody></table></div></div>`;
-    ft.innerHTML = `<button class="btn btn-o" data-close disabled>✕ ปิด</button>`;
-    k({ title: "UPLOAD CALCOMP — " + s(f.name), body: bd, footer: ft, large: !0 });
-    let sm = () => { let e = bd.querySelector("#up753-sum"); e && (e.innerHTML = `จำนวนข้อมูลทั้งหมด: <b>${n}</b> รายการ · บันทึกสำเร็จ: <b style="color:#15803d">${ok}</b> รายการ · ไม่สำเร็จ: <b style="color:#b91c1c">${bad}</b> รายการ${ok + bad < n ? " · กำลังบันทึก " + (ok + bad + 1) + "/" + n : ""}`); };
-    let st = (i, h, good) => { let e = bd.querySelector(`tr[data-up753="${i}"] .up753-st`); e && (e.innerHTML = h, e.style.color = good ? "#15803d" : "#b91c1c", e.style.fontWeight = "600"); };
-    let td = new Date(), today = td.getFullYear() + "-" + UP2753(td.getMonth() + 1) + "-" + UP2753(td.getDate()), seenE = new Map(), seenI = new Map(), rf = null;
-    let refresh = () => { clearTimeout(rf); rf = setTimeout(() => { try { t.refresh && t.refresh(); } catch (e) {} }, 400); };
-    sm();
-    for (let i = 0; i < n; i++) {
-      let x = rows[i], err = "";
-      if (x.factory !== "BONDED" && x.factory !== "FREEZONE") err = "FACTORY ไม่ถูกต้อง (" + (x.factory || "ว่าง") + ") — ต้องเป็น BONDED หรือ FREEZONE";
-      else if (!x.entry) err = "ไม่มี Entry (เลขใบขนสินค้า)";
-      else if (!x.invoice) err = "ไม่มี Invoice";
-      else if (!x.loading.ok) err = "Loading ไม่ใช่วันที่ที่ถูกต้อง";
-      else if (seenE.has(x.entry.toLowerCase())) err = "เลขใบขนสินค้า " + x.entry + " ซ้ำกับแถว " + seenE.get(x.entry.toLowerCase()) + " ในไฟล์นี้ (กฎเดิม : ห้ามซ้ำ)";
-      else if (seenI.has(x.invoice.toLowerCase())) err = "Invoice No. " + x.invoice + " ซ้ำกับแถว " + seenI.get(x.invoice.toLowerCase()) + " ในไฟล์นี้ (กฎเดิม : ห้ามซ้ำ)";
-      if (err) { bad++; st(i, s(err), !1); sm(); continue; }
-      st(i, "กำลังบันทึก…", !0);
-      let bo = x.factory === "BONDED", p = { job: { charge_type: "SERVICE", company_group: t.group, data_type: "EX (SEA)", reference_date: today, reference_no: null, job_date: today,
-          company_invoice_id: co[0].id, customer_id: cu[0].id, customer_job_no: "N/A", customs_declaration_no: x.entry, source_invoice_no: x.invoice, house_bl_no: null, master_bl_no: null,
-          booking_no: x.booking || null, vessel_name: null, qty_container: 1, etd: null, eta: null, delivery_date: null, note: null, request_id: x.req },
-        doc: { lift_on_wharf_flag: !1, storage_charge_flag: !1, release_port: "อื่น", release_port_other: "เพชรบุรี", doc_exempt: !1, doc_inspect: !1,
-          cargo_fcl: !0, cargo_lcl: !1, cargo_fz: !bo, cargo_fz_fz: !1, cargo_bonded: bo, container_no: x.cont || null, container_size: x.code || null, release_date: x.loading.v,
-          doc_fee: !0, doc_overtime: !1, doc_mass: !1, doc_travel: !1, doc_print: !1, doc_labor: !1, doc_ot_nj: !1, doc_0409_cust: !1, doc_0409_nocollect: !1, job_category: "HALF (ปล่อย)" } };
-      let r = null, e1 = null;
-      try { r = await RPC753("njacc_save_document_job", { p: p }); }   /* ไม่ส่งซ้ำอัตโนมัติ · ส่งซ้ำ / อัปโหลดไฟล์เดิมซ้ำ = กันเลขซ้ำเดิมปฏิเสธ (ไม่สร้าง JOB ซ้ำ) */
-      catch (e) { e1 = e; }
-      if (r && r.id) {
-        ok++; seenE.set(x.entry.toLowerCase(), x.row); seenI.set(x.invoice.toLowerCase(), x.row);
-        st(i, "สำเร็จ · " + s(r.job_no || r.open_no || ("ID " + String(r.id).slice(0, 8))) + (r.job_no || r.open_no ? "" : " (รอ POST ออกเลข JOB)"), !0); refresh();
-      } else { bad++; st(i, s(UE753(e1)), !1); }
-      sm();
-    }
-    let cb = ft.querySelector("[data-close]"); cb && (cb.disabled = !1);
-    try { t.refresh && t.refresh(); } catch (e) {}
-    c("UPLOAD CALCOMP : สำเร็จ " + ok + " / ไม่สำเร็จ " + bad + " จาก " + n + " รายการ", bad ? "err" : "ok");
+    if (!gs.length) { c("ไม่มีข้อมูลใน SHEET \"เปิดจ๊อบ\"", "err"); return; }
+    gs.forEach((G) => {
+      let R = G.rows;
+      G.conts = UQ754(R.map((x) => x.cont)); G.invs = UQ754([].concat(...R.map((x) => x.invoice.split(",")))); G.books = UQ754(R.map((x) => x.booking)); G.codes = UQ754(R.map((x) => x.code));
+      G.facts = UQ754(R.map((x) => x.factory)); G.dates = UQ754(R.filter((x) => x.loading.ok).map((x) => x.loading.v || "")).filter(Boolean);
+      if (!G.entry) G.err.push("ไม่มี Entry (เลขใบขนสินค้า) — ไม่อนุญาตให้นำเข้า");
+      if (G.facts.length > 1) G.err.push("FACTORY ขัดแย้งกันใน Entry เดียว (" + G.facts.join(" / ") + ")");
+      else if (G.facts[0] !== "BONDED" && G.facts[0] !== "FREEZONE") G.err.push("FACTORY ไม่ถูกต้อง (" + (G.facts[0] || "ว่าง") + ") — ต้องเป็น BONDED หรือ FREEZONE");
+      if (R.some((x) => !x.loading.ok)) G.err.push("Loading ไม่ใช่วันที่ที่ถูกต้อง (แถว " + R.filter((x) => !x.loading.ok).map((x) => x.row).join(", ") + ")");
+      else if (G.dates.length > 1 || (G.dates.length === 1 && R.some((x) => !x.loading.v))) G.err.push("Loading ต่างกันใน Entry เดียว");
+      if (!G.invs.length) G.err.push("ไม่มี Invoice");
+      G.st = G.err.length ? "bad" : "ready";
+    });
+    /* ── ตรวจ Entry กับฐานข้อมูล (ทุก JOB SERVICE · อ่านอย่างเดียว) ── */
+    let ent = gs.filter((G) => G.st === "ready").map((G) => G.entry), hit;
+    try { hit = ent.length ? await RPC753("njacc_upload754_check", { p_entries: ent }) : []; } catch (e) { c("ตรวจ Entry กับฐานข้อมูลไม่สำเร็จ — ยังไม่สร้าง JOB · " + String(e && e.message || e || ""), "err"); return; }
+    if (!Array.isArray(hit)) { c("ตรวจ Entry กับฐานข้อมูลไม่สำเร็จ — ยังไม่สร้าง JOB", "err"); return; }
+    let hm = new Map(hit.map((h) => [String(h.entry || "").toLowerCase(), (h.jobs || []).join(", ")]));
+    gs.forEach((G) => { if (G.st === "ready" && hm.has(G.entry.toLowerCase())) { G.st = "dup"; G.dupJobs = hm.get(G.entry.toLowerCase()); } });
+    /* ── Preview (ยังไม่บันทึก) ── */
+    let bd = document.createElement("div"), ft = document.createElement("div"), RED = "#b91c1c", GRN = "#15803d";
+    let stTxt = (G) => G.st === "ready" ? "พร้อมนำเข้า" : G.st === "dup" ? "ข้อมูลซ้ำ (ห้ามนำเข้า) — Entry: " + G.entry + " → JOB เดิม: " + G.dupJobs : "ข้อมูลไม่ถูกต้อง — " + G.err.join(" · ");
+    let stCol = (G) => G.st === "ready" ? "#1d4ed8" : RED;
+    bd.innerHTML = `<div class="up754"><div class="t-sm mb-1" id="up754-sum"></div><div class="tbl-wrap" style="max-height:58vh;overflow:auto"><table class="tbl"><thead><tr><th>Entry</th><th>Excel Row</th><th>Container No.</th><th class="r">จำนวนตู้</th><th>FACTORY</th><th>สถานะ</th></tr></thead><tbody>${gs.map((G, i) => `<tr data-up754="${i}"><td>${s(G.entry || "-")}</td><td class="center">${G.rows.map((x) => x.row).join(", ")}</td><td>${s(G.conts.join(",") || "-")}</td><td class="r">${G.conts.length || "-"}</td><td>${s(G.facts.join(" / ") || "-")}</td><td class="up754-st" style="color:${stCol(G)};font-weight:600">${s(stTxt(G))}</td></tr>`).join("")}</tbody></table></div></div>`;
+    let nReady = gs.filter((G) => G.st === "ready").length, nDup = gs.filter((G) => G.st === "dup").length, nBad = gs.filter((G) => G.st === "bad").length, ok = 0, fail = 0, saving = !1, done = !1;
+    let sm = () => { let e = bd.querySelector("#up754-sum"); e && (e.innerHTML = `แถว Excel ทั้งหมด: <b>${nRow}</b> · JOB หลังรวม Entry: <b>${gs.filter((G) => G.entry).length}</b> · พร้อมนำเข้า: <b style="color:#1d4ed8">${nReady}</b> · ข้อมูลซ้ำ (ห้ามนำเข้า): <b style="color:${RED}">${nDup}</b> · ข้อมูลไม่ถูกต้อง: <b style="color:${RED}">${nBad}</b>${saving || done ? ` · บันทึกสำเร็จ: <b style="color:${GRN}">${ok}</b> · ไม่สำเร็จ: <b style="color:${RED}">${fail}</b>` : ""}${done ? "" : saving ? " · กำลังบันทึก…" : " · <b>ยังไม่บันทึกจนกว่าจะกด \"บันทึกข้อมูล\"</b>"}`); };
+    let st = (i, h, col) => { let e = bd.querySelector(`tr[data-up754="${i}"] .up754-st`); e && (e.textContent = h, e.style.color = col); };
+    ft.innerHTML = `<button class="btn btn-o" data-close>ยกเลิก</button><button class="btn btn-p" id="up754-save"${nReady ? "" : " disabled"}>\u{1F4BE} บันทึกข้อมูล (${nReady} JOB)</button>`;
+    let bk = k({ title: "UPLOAD CALCOMP — " + s(f.name), body: bd, footer: ft, large: !0 }); sm();
+    let sv = ft.querySelector("#up754-save"), cl = ft.querySelector("[data-close]");
+    let td = new Date(), today = td.getFullYear() + "-" + UP2753(td.getMonth() + 1) + "-" + UP2753(td.getDate()), rq = Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+    keep = !0;   /* หน้าต่างยังเปิด : กันเริ่ม UPLOAD ใหม่ซ้อน จนกว่าจะปิด */
+    let rel = () => { UB753 = !1; }, mo = new MutationObserver(() => { if (!bd.isConnected && !saving) { mo.disconnect(); rel(); } });
+    mo.observe(document.body, { childList: !0, subtree: !0 });   /* ปิดหน้าต่าง (ยกเลิก / ✕ / Esc / คลิกนอก) = ไม่บันทึก · ปลดล็อกให้ UPLOAD ใหม่ได้ */
+    sv && sv.addEventListener("click", async () => {
+      if (saving || done) return; saving = !0; sv.disabled = !0; cl.disabled = !0; sm();
+      for (let i = 0; i < gs.length; i++) {
+        let G = gs[i]; if (G.st !== "ready") continue;
+        st(i, "กำลังบันทึก…", "#1d4ed8");
+        let bo = G.facts[0] === "BONDED", p = { job: { charge_type: "SERVICE", company_group: t.group, data_type: "EX (SEA)", reference_date: today, reference_no: null, job_date: today,
+            company_invoice_id: co[0].id, customer_id: cu[0].id, customer_job_no: "N/A", customs_declaration_no: G.entry, source_invoice_no: G.invs.join(","), house_bl_no: null, master_bl_no: null,
+            booking_no: G.books.join(",") || null, vessel_name: null, qty_container: G.conts.length || null, etd: null, eta: null, delivery_date: null, note: null, request_id: "up754_" + rq + "_" + i },
+          doc: { lift_on_wharf_flag: !1, storage_charge_flag: !1, release_port: "อื่น", release_port_other: "เพชรบุรี", doc_exempt: !1, doc_inspect: !1,
+            cargo_fcl: !0, cargo_lcl: !1, cargo_fz: !bo, cargo_fz_fz: !1, cargo_bonded: bo, container_no: G.conts.join(",") || null, container_size: G.codes.join(",") || null, release_date: G.dates[0] || null,
+            doc_fee: !0, doc_overtime: !1, doc_mass: !1, doc_travel: !1, doc_print: !1, doc_labor: !1, doc_ot_nj: !1, doc_0409_cust: !1, doc_0409_nocollect: !1, job_category: "HALF (ปล่อย)" } };
+        let r = null, er = null;
+        try { r = await RPC753("njacc_upload754_save", { p: p }); } catch (e) { er = e; }
+        if (r && r.id) { ok++; st(i, "สำเร็จ · " + (r.job_no || r.open_no || ("ID " + String(r.id).slice(0, 8))) + (r.job_no || r.open_no ? "" : " (รอ POST ออกเลข JOB)"), GRN); }
+        else { fail++; let x = UE754(er); st(i, x.dup ? "ข้อมูลซ้ำ (ห้ามนำเข้า) — Entry: " + G.entry + " → JOB เดิม: " + x.msg : "ไม่สำเร็จ — " + x.msg, RED); }
+        sm();
+      }
+      saving = !1; done = !0; bd.isConnected || (mo.disconnect(), rel()); sm(); cl.disabled = !1; cl.textContent = "✕ ปิด"; sv.style.display = "none";
+      try { t.refresh && t.refresh(); } catch (e) {}
+      c("UPLOAD CALCOMP : สร้าง JOB สำเร็จ " + ok + " / ไม่สำเร็จ " + fail, fail ? "err" : "ok");
+    });
   } catch (e) { c("UPLOAD EXCEL ไม่สำเร็จ : " + String(e && e.message || e || ""), "err"); }
-  finally { UB753 = !1; }
+  finally { keep || (UB753 = !1); }
 }
