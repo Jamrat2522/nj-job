@@ -12329,15 +12329,24 @@ const SP_CLC_SUMMARY = { gw: null, pallet: null };
 async function spReadInvoice(file){
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(buf), { type:'array', cellDates:true });
-  // ใช้ Sheet1 (sheet แรก) — มี header ที่ row 1
-  const sh = wb.Sheets[wb.SheetNames[0]];
-  const aoa = XLSX.utils.sheet_to_json(sh, { header:1, defval:null, raw:false, dateNF:'yyyy-mm-dd' });
-  // header row = แถวที่มี "Billing Document"
-  let hdrIdx = 0;
-  for(let i=0; i<Math.min(5, aoa.length); i++){
-    const joined = (aoa[i]||[]).map(c=>String(c||'').toLowerCase()).join('|');
-    if(joined.includes('billing document')){ hdrIdx = i; break; }
+  /* [SHEET 03/11/2026 · FZ AKO 2 เท่านั้น] เดิมอ่าน "Sheet แรก" เสมอ
+     ไฟล์ CLC บางชุดมี Sheet อื่น (เช่น Pivot ชื่อ "Sheet1") แทรกไว้ก่อน "SD for draft entry"
+     → อ่านไม่เจอ Billing Document → invRows = 0 → "ไม่พบข้อมูลใน INVOICE CLC"
+     จึงเลือก Sheet แรกที่ "มีหัวตาราง Billing Document จริง" (ตรวจ 5 แถวแรกเหมือนเดิม)
+     ★ ไฟล์เดิมที่ Sheet แรกคือ SD อยู่แล้ว → ได้ Sheet เดิม พฤติกรรมไม่เปลี่ยน
+     ★ ไม่พบเลยสัก Sheet → ใช้ Sheet แรกตามเดิม (ข้อความ Error เดิมไม่เปลี่ยน) */
+  const _rd = nm => XLSX.utils.sheet_to_json(wb.Sheets[nm], { header:1, defval:null, raw:false, dateNF:'yyyy-mm-dd' });
+  let aoa = null, hdrIdx = 0, shName = wb.SheetNames[0];
+  for(const nm of wb.SheetNames){
+    const a = _rd(nm);
+    for(let i=0; i<Math.min(5, a.length); i++){
+      const joined = (a[i]||[]).map(c=>String(c||'').toLowerCase()).join('|');
+      if(joined.includes('billing document')){ aoa = a; hdrIdx = i; shName = nm; break; }
+    }
+    if(aoa) break;
   }
+  if(!aoa){ aoa = _rd(wb.SheetNames[0]); hdrIdx = 0; shName = wb.SheetNames[0]; }
+  console.log('[FZ AKO 2] INVOICE CLC sheet =', shName, '· header row =', hdrIdx+1);
   const headers = (aoa[hdrIdx]||[]).map(h => String(h||'').trim());
   const col = {
     billing:  spFindCol(headers, '^Billing Document$'),
