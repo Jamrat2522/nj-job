@@ -36,10 +36,11 @@ var PICK_CSS = [
 
 /* local330: หน้าเปิดงาน / สรุปค่าใช้จ่าย (ของใหม่ทั้งหมด · class ex2-*) */
 var EX2_CSS = "/* ===== 💰 ค่าใช้จ่าย (Expenses) — หน้าเปิดงาน / สรุปค่าใช้จ่าย (ของใหม่ทั้งหมด · ไม่แก้ CSS เดิม) ===== */\n.ex2{color-scheme:light}\n@media (min-width:861px){ .ex-workbody.ex2{min-height:min(620px, calc(100vh - 150px))} }\n.ex2 .req{color:#DC2626}\n.ex2-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}\n.ex2-tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;\n  border:1.5px solid #C7D7F0;background:#F1F6FD;color:#24466B;font:inherit;font-weight:700;font-size:14.5px;cursor:pointer}\n.ex2-tab.on{background:#1E3A8A;border-color:#1E3A8A;color:#fff}\n.ex2-tcnt{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.85);color:#1E3A8A}\n.ex2-tab:not(.on) .ex2-tcnt{background:#DCE7F3}\n.ex2-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-bottom:10px}\n.ex2-head .ex-fld input,.ex2-head .ex-fld select{width:100%;height:40px;padding:0 10px;border:1.5px solid #C3CEDF;border-radius:8px;\n  background:#fff;color:#17233B;font:inherit;font-size:14px;min-width:0;box-sizing:border-box}\n.ex2-head .ex-fld input.ex-ro{background:#F7FAFF;color:#17233B}\n.ex2-head .ex-fld input:disabled,.ex2-head .ex-fld select:disabled{background:#F1F5F9;color:#64748B;cursor:not-allowed}\n.ex2-head .ex2-jobfld{grid-column:span 2}\n.ex2-head .ex2-cofld{grid-column:span 1}\n.ex2-in-money{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}\n.ex2-jobbox{position:relative}\n.ex2-dd{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid #C7D7F0;border-radius:10px;\n  box-shadow:0 14px 32px rgba(15,23,42,.22);max-height:340px;overflow:auto;padding:4px}\n.ex2-dd-sec{font-size:11.5px;font-weight:700;color:#5B6B86;padding:8px 10px 4px;text-transform:none}\n.ex2-dd-it{display:grid;grid-template-columns:auto 1fr;gap:0 10px;width:100%;text-align:left;border:0;background:#fff;border-radius:8px;\n  padding:8px 10px;cursor:pointer;font:inherit;color:#17233B}\n.ex2-dd-it:hover,.ex2-dd-it.on{background:#EAF2FC}\n.ex2-dd-it b{font-size:14px;color:#1E3A8A;white-space:nowrap}\n.ex2-dd-it span{font-size:13px;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.ex2-dd-it small{grid-column:1 / -1;font-size:11.5px;color:#64748B;justify-self:start}\n.ex2-dd-more{padding:10px;font-size:12.5px;color:#64748B;text-align:center}\n.ex2-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 12px}\n.ex2-chips-l{font-size:12.5px;color:#5B6B86;font-weight:600;margin-right:2px}\n.ex2-chip{border:1.5px solid #C7D7F0;background:#fff;color:#1E3A8A;border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}\n.ex2-chip small{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:#DCE7F3;color:#24466B;font-size:11px;text-align:center}\n.ex2-chip.on{background:#1E3A8A;border-color:#1E3A8A;color:#fff}\n.ex2-chip.on small{background:rgba(255,255,255,.85)}\n.ex2-chip.ex2-closed:not(.on){background:#F1F5F9;color:#475569;border-color:#CBD5E1}\n.ex2-jhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}\n.ex2-st{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}\n.ex2-st.ex2-open{background:#FEF3C7;color:#92400E}\n.ex2-st.ex2-closed{background:#DCFCE7;color:#166534}\n.ex2-st.ex2-new{background:#E0E7FF;color:#3730A3}\n.ex2-muted{color:#64748B !important;font-size:12.5px}\n.ex2-empty{padding:28px 14px;text-align:center;color:#475569;background:#F7FAFF;border:1.5px dashed #C7D7F0;border-radius:12px;font-size:14px}\n.ex2-pill{display:inline-block;padding:2px 10px;border-radius:999px;background:#DBEAFE;color:#1E3A8A;font-weight:700;font-size:13px;white-space:nowrap}\n/* ตารางเปิดงาน 7 คอลัมน์ */\n.ex2-wtbl{min-width:820px !important}\n.ex2-wtbl .ex2-c-job{width:150px;text-align:center}\n.ex2-wtbl .ex2-c-desc{min-width:220px}\n.ex2-wtbl .ex2-c-qty{width:90px}\n.ex2-wtbl .ex2-c-amt{width:140px}\n.ex2-wtbl .ex-c-act{width:96px}\n.ex2-wtbl tbody td.ex2-c-desc,.ex2-wtbl tbody td.ex2-c-qty,.ex2-wtbl tbody td.ex2-c-amt,.ex2-wtbl tbody td.ex2-c-job{background:#fff !important}\n.ex2-wtbl tr.ex2-dirty td{background:#FFFBEB !important}\n.ex2-wtbl tr.ex2-ro td{background:#F8FAFC !important}\n.ex2-wtbl tr.ex2-jtot td{background:#DBEAFE !important;color:#1E3A8A !important;font-weight:800;text-align:center}\n.ex2-wtbl tr.ex2-jtot td.ex-money{text-align:right}\n.ex2-tdempty{text-align:center;color:#64748B !important;padding:20px !important}\n.ex2-bar{border-top:0 !important;padding:12px 0 0 !important}\n.ex2-mtot{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:10px;padding:10px 12px;border-radius:10px;background:#DBEAFE;color:#1E3A8A;font-size:13.5px}\n.ex2-mtot b{font-variant-numeric:tabular-nums}\n.ex2-mf3{display:grid;grid-template-columns:.7fr 1fr 1fr;gap:8px}\n.ex-mc.ex2-dirty{border-color:#F59E0B}\n/* สรุปค่าใช้จ่าย */\n.ex2-filters{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}\n.ex2-fb{height:38px;padding:0 16px;border-radius:999px;border:1.5px solid #C7D7F0;background:#fff;color:#24466B;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}\n.ex2-fb.on{background:#1E3A8A;border-color:#1E3A8A;color:#fff}\n.ex2-stbl{min-width:860px}\n.ex2-stbl th{text-align:center}\n.ex2-stbl .ex2-ck{width:42px;text-align:center}\n.ex2-stbl .ex2-ck input{width:18px;height:18px;cursor:pointer;accent-color:#1E3A8A}\n.ex2-stbl .ex2-c{text-align:center}\n.ex2-stbl tbody tr.ex2-on td{background:#EFF6FF !important}\n.ex2-stbl td.ex2-tot{background:#ECFDF5 !important;font-weight:800;color:#065F46 !important}\n.ex2-stbl tr.ex2-selrow td{background:#1E3A8A !important;color:#fff !important;font-weight:800;border-color:#1E3A8A !important}\n.ex2-stbl tr.ex2-selrow td.ex-money{text-align:right}\n.ex2-link{border:0;background:#E0E7FF;color:#3730A3;border-radius:999px;padding:3px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}\n.ex2-link:hover{background:#C7D2FE}\n.ex2-sumacts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}\n.ex2-sumacts .btn{height:42px;padding:0 14px;border-radius:9px;font-weight:700;font-size:13.5px;border:0;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px}\n.ex2-sumacts .btn:disabled{opacity:.6;cursor:wait}\n.ex2-sp{flex:1}\n.ex2-b-ghost{background:#F1F5FC !important;color:#24466B !important;border:1.5px solid #C7D7F0 !important}\n.ex2-b-close{background:#7C3AED}\n.ex2-b-blue{background:#2563EB}\n.ex2-note{font-size:12.5px;color:#5B6B86;margin:10px 0 0;line-height:1.6}\n.ex2 .ex-card-adv .ex-card-bd b{color:#1D4ED8}\n.ex2-tab{white-space:nowrap}\n.ex2-reopen{margin-top:12px}\n.ex2-reopen label{display:block;font-size:12.5px;font-weight:700;color:#5B6B86;margin-bottom:4px}\n.ex2-reopen input{width:100%;height:40px;border:1.5px solid #C3CEDF;border-radius:8px;padding:0 10px;font:inherit;background:#fff;color:#17233B}\n@media (max-width:860px){\n  .ex2-head{grid-template-columns:1fr 1fr}\n  .ex2-head .ex2-jobfld{grid-column:1 / -1}\n  .ex2-head .ex2-cofld{grid-column:1 / -1}\n  .ex2-tab{flex:1;justify-content:center;padding:0 8px;font-size:13px;gap:5px}\n  .ex2-tcnt{font-size:11px;padding:1px 6px}\n  .ex2-sumacts .btn{flex:1 1 calc(50% - 8px);justify-content:center;min-height:46px}\n  .ex2-sp{display:none}\n  .ex2-stbl{min-width:760px}\n  .ex2-chips-l{width:100%}\n}\n@media (max-width:420px){ .ex2-tcnt{display:none} }\n";
+var EX3_CSS = "\n/* ===== local331: EXPENSES Desktop UI — กรอบข้อมูลหลัก · ตาราง 8 คอลัมน์ (มี Tax number) · ปุ่มล่างแถวเดียว ===== */\n#mx-ex-work .modal:has(.ex2){max-width:1320px;width:96vw}\n#mx-ex-work .modal:has(.ex2) .modal-head h2{font-size:22px;line-height:1.3}\n#mx-ex-work .modal:has(.ex2) .modal-head .sub{font-size:14px;margin-top:4px;line-height:1.5}\n.ex2-tab{height:46px;font-size:15px}\n.ex2-tab:not(.on){background:#EAF1FA;border-color:#D3E0F0;color:#1E3A8A}\n.ex2-headbox{border:1px solid #D9E2EC;border-radius:12px;padding:14px 16px 16px;background:#FBFCFE;margin:0 0 12px}\n.ex2-head{gap:12px !important;margin:0 !important}\n.ex2-head .ex-fld{gap:6px}\n.ex2-head .ex-fld label{font-size:13px !important;font-weight:700;color:#334155 !important}\n.ex2-head .ex-fld input,.ex2-head .ex-fld select{height:42px !important;border:1px solid #D9E2EC !important;border-radius:9px !important;font-size:15px !important}\n.ex2-head .ex-fld input.ex-ro{background:#F1F5FA !important;color:#17233B !important}\n.ex2-head #ex-jobq,.ex2-head #ex-co{font-weight:600;color:#0F2A5C !important}\n.ex2-head .ex2-in-money{text-align:right !important;font-variant-numeric:tabular-nums}\n.ex2-statusrow{display:flex !important;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px !important}\n.ex2-statusrow .ex2-chips-l{font-weight:700;color:#334155;width:auto !important}\n.ex2-statusrow .ex2-st{font-size:12px;padding:3px 10px}\n.ex2-chip{white-space:nowrap}\n.ex2-wtbl{table-layout:fixed !important;width:100% !important;min-width:1040px !important;border-collapse:separate !important;border-spacing:0;border:1px solid #D9E2EC !important;border-radius:10px;overflow:hidden}\n.ex2-wtbl col.w-no{width:5%}.ex2-wtbl col.w-job{width:14%}.ex2-wtbl col.w-desc{width:30%}.ex2-wtbl col.w-qty{width:7%}\n.ex2-wtbl col.w-amt{width:12%}.ex2-wtbl col.w-tax{width:12%}.ex2-wtbl col.w-act{width:8%}\n#mx-ex-work .ex2-wtbl thead th{background:#E3EEFA !important;background-image:none !important;color:#1E3A8A !important;height:46px;padding:0 8px !important;\n  vertical-align:middle !important;text-align:center;font-size:13.5px;font-weight:800 !important;border-right:1px solid #D9E2EC !important;border-bottom:1px solid #D9E2EC !important;white-space:nowrap !important;width:auto !important}\n#mx-ex-work .ex2-wtbl thead th:last-child,#mx-ex-work .ex2-wtbl tbody td:last-child{border-right:0 !important}\n#mx-ex-work .ex2-wtbl tbody td{height:54px;padding:8px 10px !important;border-right:1px solid #D9E2EC !important;border-bottom:1px solid #D9E2EC !important;\n  vertical-align:middle;background:#FFFFFF !important;width:auto !important}\n#mx-ex-work .ex2-wtbl tbody tr:nth-child(even) td{background:#F7FAFE !important}\n#mx-ex-work .ex2-wtbl tbody tr.ex2-dirty td{background:#FFFBEB !important}\n#mx-ex-work .ex2-wtbl tbody tr.ex2-jtot td{background:#E3EEFA !important;color:#1E3A8A !important;font-weight:800;border-bottom:0 !important}\n#mx-ex-work .ex2-wtbl tbody td.ex-c-no{text-align:center;color:#334155 !important}\n#mx-ex-work .ex2-wtbl .ex2-c-job{text-align:center}\n.ex2-wtbl .ex2-pill{background:#E0ECFB;color:#123B82;font-weight:800;font-size:13px;padding:4px 10px;white-space:nowrap;overflow:visible}\n#mx-ex-work .ex2-wtbl input{height:38px !important;border:1px solid #CBD5E1 !important;border-radius:8px !important;font-size:14px !important;padding:0 9px !important;width:100%}\n#mx-ex-work .ex2-wtbl input.ex-in-money{text-align:right}\n#mx-ex-work .ex2-wtbl td.ex-c-act{text-align:center;white-space:nowrap;padding:8px 4px !important}\n#mx-ex-work .ex2-wtbl .ex-ib{width:38px;height:38px;margin:0 2px;border-radius:9px}\n#mx-ex-work .ex2-wtbl .ex-ib-save{background:#2563EB !important;border-color:#2563EB !important;color:#fff}\n#mx-ex-work .ex2-wtbl .ex-ib-del{background:#FEE2E2 !important;border-color:#FECACA !important}\n.ex2-wtbl td.ex2-c-tax{word-break:break-all}\n#mx-ex-work .ex2-wtbl thead th.ex2-c-tax{text-transform:none !important;letter-spacing:0}\n.ex2-actbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}\n.ex2-actbar .btn{height:44px !important;padding:0 18px;border-radius:10px;font-weight:700;font-size:14.5px;border:0;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px}\n.ex2-actbar .ex2-b-add{background:#16A34A}\n.ex2-actbar .ex-btn-pdf{background:#DC2626}\n.ex2-actbar .ex-btn-save{background:#1E40AF}\n.ex2-actbar .btn-secondary{background:#F1F5FC !important;color:#334155 !important;border:1px solid #DCE4F2 !important}\n@media (max-width:860px){ .ex2-actbar .btn{flex:1 1 calc(50% - 10px);justify-content:center} .ex2-actbar .ex2-sp{display:none} }\n";
 function _exInjectCss(){
   if(document.getElementById('mx-ex-css')) return;
   var st=document.createElement('style'); st.id='mx-ex-css';
-  st.textContent = EX_CSS + '\n' + PICK_CSS + '\n' + EX2_CSS;
+  st.textContent = EX_CSS + '\n' + PICK_CSS + '\n' + EX2_CSS + '\n' + EX3_CSS;
   document.head.appendChild(st);
 }
 /* Modal ของโหมดนี้เอง (ไม่ใช้ modal-detail ของ WORK เพื่อไม่ชน flow เดิม) */
@@ -302,7 +303,7 @@ function _exCurGroup(groups){
 }
 function _exDirtyKeys(){
   const ks = Object.keys(EX.edit||{});
-  (EX.drafts||[]).forEach(d=>{ if(String(d.description||'').trim() || String(d.cost||'').trim() || String(d.receipt||'').trim() || String(d.qty||'1').trim()!=='1') ks.push(d.key); });
+  (EX.drafts||[]).forEach(d=>{ if(String(d.description||'').trim() || String(d.cost||'').trim() || String(d.receipt||'').trim() || String(d.tax||'').trim() || String(d.qty||'1').trim()!=='1') ks.push(d.key); });
   return ks;
 }
 
@@ -427,9 +428,12 @@ function exWorkRender(){
       </div>
       ${EX.tab==='sum' ? _exSumHtml(groups) : _exWorkHtml(groups, g)}
       <datalist id="ex-desc-list">${EX_DESC_OPTS.map(o=>`<option value="${esc(o)}"></option>`).join('')}</datalist>
-      <div class="ex-workfoot">
-        <button class="btn btn-secondary" onclick="exCloseWork()">✖ ปิด</button>
+      <div class="ex-workfoot ex2-actbar">
+        ${EX.tab==='work' && g && _exGroupEditable(g) ? `<button class="btn ex-btn-add ex2-b-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>` : ''}
+        <span class="ex2-sp"></span>
+        <button class="btn btn-secondary ex2-b-close" onclick="exCloseWork()">✖ ปิด</button>
         ${EX.tab==='work' && g && _exGroupEditable(g) ? `<button class="btn ex-btn-save" data-ex-saveall="1" onclick="exSaveAllDirty()">💾 บันทึกทั้งหมด${dirty?` (${dirty})`:''}</button>` : ''}
+        ${EX.tab==='work' && g ? `<button class="btn ex-btn-pdf" data-ex-jobpdf="1" onclick="exExportJobPdf()">📄 EXPORT PDF — JOB นี้</button>` : ''}
       </div>
     </div>`;
   if(typeof refreshIcons==='function') refreshIcons(m);
@@ -452,10 +456,12 @@ function _exWorkHtml(groups, g){
   const st = _exStatusOf(g);
   const mob = _vpMobile();
 
-  const chips = groups.length ? `<div class="ex2-chips"><span class="ex2-chips-l">JOB ในเอกสารนี้:</span>${groups.map(x=>{
+  const chips = (groups.length || g) ? `<div class="ex2-chips ex2-statusrow"><span class="ex2-chips-l">JOB ในเอกสารนี้ :</span>${groups.map(x=>{
       const s = _exStatusOf(x);
       return `<button type="button" class="ex2-chip ${x.key===EX.cur?'on':''} ex2-${s.cls}" data-ex-chip="${esc(x.key)}" onclick="exPickJob('${esc(x.key)}')"
-        title="${esc(x.company||'')}">${esc(x.job_no||'—')} <small>${x.items.length}</small>${x.status==='CLOSED'?' 🔒':''}</button>`; }).join('')}</div>` : '';
+        title="${esc(x.company||'')}">${esc(x.job_no||'—')} (${x.items.length} รายการ)${x.status==='CLOSED'?' 🔒':''}</button>`; }).join('') || '<span class="ex2-muted">—</span>'}
+      ${g ? `<span class="ex2-st ex2-${st.cls}" data-ex-status="1">${st.label}</span>` : ''}
+      ${g && g.status==='CLOSED' && g.row && g.row.closed_at ? `<small class="ex2-muted">ปิดโดย ${esc(g.row.closed_by_name||'—')} · ${esc(fmtDateTimeEx(g.row.closed_at))}</small>`:''}</div>` : '';
 
   let body;
   if(!g){
@@ -465,28 +471,22 @@ function _exWorkHtml(groups, g){
     g.items.forEach((it,i)=> rows.push(mob ? _exCardItem(it.id, it, null, i+1, editable) : _exRowItem(it.id, it, null, i+1, editable)));
     if(editable) EX.drafts.forEach((dr,i)=> rows.push(mob ? _exCardItem(dr.key, null, dr, g.items.length+i+1, true) : _exRowItem(dr.key, null, dr, g.items.length+i+1, true)));
     const tot = `<tr class="ex2-jtot"><td colspan="3">รวม JOB : ${esc(g.job_no||'')} (${g.items.length} รายการ)</td>
-        <td class="ex-money">${_exQty(g.qty)}</td><td class="ex-money">${_exMoney(g.cost)}</td><td class="ex-money">${_exMoney(g.rcp)}</td><td></td></tr>`;
+        <td class="ex-money">${_exQty(g.qty)}</td><td class="ex-money">${_exMoney(g.cost)}</td><td class="ex-money">${_exMoney(g.rcp)}</td><td></td><td></td></tr>`;
     const table = mob
       ? `<div class="ex-mcards">${rows.join('') || '<div class="ex2-empty">ยังไม่มีรายการ</div>'}</div>
          <div class="ex2-mtot">รวม JOB : <b>${esc(g.job_no||'')}</b> (${g.items.length} รายการ)
            <span>QTY <b>${_exQty(g.qty)}</b></span><span>Cost <b>${_exMoney(g.cost)}</b></span><span>Receipt <b>${_exMoney(g.rcp)}</b></span></div>`
       : `<div class="ex-tblwrap"><table class="tbl ex-tbl ex2-wtbl">
-          <thead><tr><th class="ex-c-no">Item</th><th class="ex2-c-job">Job</th><th class="ex2-c-desc">รายละเอียด</th>
-            <th class="ex2-c-qty">QTY</th><th class="ex2-c-amt">Cost</th><th class="ex2-c-amt">Receipt</th><th class="ex-c-act">จัดการ</th></tr></thead>
-          <tbody>${rows.join('') || `<tr><td colspan="7" class="ex2-tdempty">ยังไม่มีรายการ — กด ➕ เพิ่มรายการ</td></tr>`}${tot}</tbody>
+          <colgroup><col class="w-no"><col class="w-job"><col class="w-desc"><col class="w-qty"><col class="w-amt"><col class="w-amt"><col class="w-tax"><col class="w-act"></colgroup>
+          <thead><tr><th class="ex-c-no">ITEM</th><th class="ex2-c-job">JOB</th><th class="ex2-c-desc">รายละเอียด</th>
+            <th class="ex2-c-qty">QTY</th><th class="ex2-c-amt">COST</th><th class="ex2-c-amt">RECEIPT</th><th class="ex2-c-tax">Tax number</th><th class="ex-c-act">จัดการ</th></tr></thead>
+          <tbody>${rows.join('') || `<tr><td colspan="8" class="ex2-tdempty">ยังไม่มีรายการ — กด ➕ เพิ่มรายการ</td></tr>`}${tot}</tbody>
         </table></div>`;
-    body = `
-      <div class="ex2-jhead"><span class="ex2-st ex2-${st.cls}" data-ex-status="1">${st.label}</span>
-        ${g.status==='CLOSED' && g.row && g.row.closed_at ? `<small class="ex2-muted">ปิดโดย ${esc(g.row.closed_by_name||'—')} · ${esc(fmtDateTimeEx(g.row.closed_at))}</small>`:''}</div>
-      ${table}
-      <div class="ex-bar ex2-bar">
-        ${editable ? `<button class="btn ex-btn-add" onclick="exAddDraft()">➕ เพิ่มรายการ</button>` : '<span></span>'}
-        <button class="btn ex-btn-pdf" data-ex-jobpdf="1" onclick="exExportJobPdf()">📄 EXPORT PDF — JOB นี้</button>
-      </div>`;
+    body = table;
   }
 
   return `
-    <div class="ex2-head">
+    <div class="ex2-headbox"><div class="ex2-head">
       <div class="ex-fld"><label>เลขที่เอกสาร</label><input type="text" value="${esc(d.doc_no||'—')}" readonly class="ex-ro"></div>
       <div class="ex-fld"><label>วันที่เปิดค่าใช้จ่าย</label>
         <input type="date" id="ex-date" value="${esc(d.expense_date||_exToday())}" ${canHead?'':'disabled'} onchange="exSaveHead()"></div>
@@ -503,7 +503,7 @@ function _exWorkHtml(groups, g){
       <div class="ex-fld ex2-advfld"><label>Nj advance (บาท)</label>
         <input type="text" inputmode="decimal" id="ex-jadv" class="ex2-in-money" value="${g?_exMoney(advVal):''}" placeholder="0.00"
                ${editable?'':'disabled'} onfocus="this.select()" onchange="exSaveJobAdv(this.value)"></div>
-    </div>
+    </div></div>
     ${chips}
     ${body}`;
 }
@@ -511,8 +511,9 @@ function _exWorkHtml(groups, g){
 /* แถวตาราง (Desktop) — saved: แก้ได้จนกว่าจะปิดสรุป · draft: ยังไม่บันทึก */
 function _exRowVals(key, it, dr){
   if(dr) return dr;
-  return EX.edit[key] || { description: it.description||'', qty: String(it.qty==null?1:it.qty),
-                           cost: String(it.cost_amount==null?'':it.cost_amount), receipt: String(it.receipt_amount==null?'':it.receipt_amount) };
+  const f2 = v => (v==null || v==='') ? '' : _exNum(v).toFixed(2);
+  return EX.edit[key] || { description: it.description||'', qty: String(it.qty==null?1:_exQty(it.qty).replace(/,/g,'')),
+                           cost: f2(it.cost_amount), receipt: f2(it.receipt_amount), tax: it.wht_no||'' };
 }
 function _exRowItem(key, it, dr, no, editable){
   const g = _exCurGroup();
@@ -522,7 +523,8 @@ function _exRowItem(key, it, dr, no, editable){
       <td class="ex-c-no">${no}</td><td class="ex2-c-job"><span class="ex2-pill">${esc(jobNo)}</span></td>
       <td class="ex2-c-desc">${it.description ? esc(it.description) : '<span class="ex2-muted">—</span>'}</td>
       <td class="ex2-c-qty ex-money">${_exQty(it.qty)}</td><td class="ex2-c-amt ex-money">${_exMoney(it.cost_amount)}</td>
-      <td class="ex2-c-amt ex-money">${_exMoney(it.receipt_amount)}</td><td class="ex-c-act"><span title="ปิดสรุปแล้ว">🔒</span></td></tr>`;
+      <td class="ex2-c-amt ex-money">${_exMoney(it.receipt_amount)}</td><td class="ex2-c-tax">${it.wht_no ? esc(it.wht_no) : '<span class="ex2-muted">—</span>'}</td>
+      <td class="ex-c-act"><span title="ปิดสรุปแล้ว">🔒</span></td></tr>`;
   }
   const v = _exRowVals(key, it, dr);
   const busy = EX.busy.has(key);
@@ -539,6 +541,8 @@ function _exRowItem(key, it, dr, no, editable){
         oninput="exRowSet('${k}','cost',this.value)" onfocus="this.select()"></td>
     <td class="ex2-c-amt"><input type="text" inputmode="decimal" class="ex-in-money" value="${esc(v.receipt||'')}" placeholder="0.00"
         oninput="exRowSet('${k}','receipt',this.value)" onfocus="this.select()"></td>
+    <td class="ex2-c-tax"><input type="text" value="${esc(v.tax||'')}" placeholder="—" maxlength="60" autocomplete="off"
+        oninput="exRowSet('${k}','tax',this.value)"></td>
     <td class="ex-c-act">
       <button class="ex-ib ex-ib-save" title="บันทึก" ${busy?'disabled':''} onclick="exSaveRow('${k}')">${busy?'<span class="spinner"></span>':'💾'}</button>
       <button class="ex-ib ex-ib-del" title="ลบ" ${busy?'disabled':''} onclick="exDeleteRow('${k}')">🗑️</button>
@@ -553,6 +557,7 @@ function _exCardItem(key, it, dr, no, editable){
       <div class="ex-mc-head"><b>Item ${no}</b><span class="ex-mc-badge ok">🔒</span></div>
       <div class="ex-mc-line"><b>${it.description?esc(it.description):'—'}</b></div>
       <div class="ex-mc-row"><span>QTY <b>${_exQty(it.qty)}</b></span><span>Cost <b>${_exMoney(it.cost_amount)}</b></span><span>Receipt <b>${_exMoney(it.receipt_amount)}</b></span></div>
+      <div class="ex-mc-row"><span>Tax number <b>${it.wht_no?esc(it.wht_no):'—'}</b></span></div>
     </div>`;
   }
   const v = _exRowVals(key, it, dr);
@@ -569,6 +574,7 @@ function _exCardItem(key, it, dr, no, editable){
       <label class="ex-mf">Cost<input type="text" inputmode="decimal" class="ex-in-money" value="${esc(v.cost||'')}" placeholder="0.00" oninput="exRowSet('${k}','cost',this.value)"></label>
       <label class="ex-mf">Receipt<input type="text" inputmode="decimal" class="ex-in-money" value="${esc(v.receipt||'')}" placeholder="0.00" oninput="exRowSet('${k}','receipt',this.value)"></label>
     </div>
+    <label class="ex-mf">Tax number<input type="text" value="${esc(v.tax||'')}" placeholder="—" maxlength="60" autocomplete="off" oninput="exRowSet('${k}','tax',this.value)"></label>
     <div class="ex-mc-acts">
       <button class="btn ex-btn-saverow" ${busy?'disabled':''} onclick="exSaveRow('${k}')">${busy?'<span class="spinner"></span> กำลังบันทึก...':'💾 บันทึก'}</button>
       <button class="btn ex-btn-rm" ${busy?'disabled':''} onclick="exDeleteRow('${k}')">🗑️ ลบ</button>
@@ -662,7 +668,7 @@ function exAddDraft(silent){
   const g = _exCurGroup();
   if(!g){ toast('เลือก JOB ก่อนเพิ่มรายการ','error'); const q=$('ex-jobq'); if(q) try{ q.focus(); }catch(_){} return; }
   if(!_exGroupEditable(g)){ toast('JOB นี้ปิดสรุปแล้ว เพิ่มรายการไม่ได้','error'); return; }
-  EX.drafts.push({ key:'d'+(++_exDraftSeq), description:'', qty:'1', cost:'', receipt:'' });
+  EX.drafts.push({ key:'d'+(++_exDraftSeq), description:'', qty:'1', cost:'', receipt:'', tax:'' });
   if(!silent) exWorkRender();
 }
 function exRowSet(key, field, val){
@@ -700,11 +706,21 @@ async function exSaveRow(key, opts){
   try{
     await _exEnsureDoc();
     const hadRow = !!g.row;
-    const row = await _rpc('ms_expense_item_upsert', {
+    const args = {
       p_doc_id: EX.doc.id, p_job_doc_id: g.job_doc_id, p_item_id: dr ? null : key,
       p_description: desc, p_qty: q.val, p_cost: c.val, p_receipt: r.val,
-      p_nj_advance: hadRow ? null : _exNum(EX.adv[g.key])
-    });
+      p_nj_advance: hadRow ? null : _exNum(EX.adv[g.key]),
+      p_wht_no: String(v.tax||'').trim()                         // Tax number (เลขใบหัก · ไม่บังคับ · บันทึกราย ITEM) — RUN-15
+    };
+    let row;
+    try{ row = await _rpc('ms_expense_item_upsert', args); }
+    catch(e1){
+      // ยังไม่ได้รัน RUN-15 → บันทึกแบบเดิม (ไม่มี Tax number) เพื่อไม่ให้การบันทึกรายการหยุดทำงาน
+      if(!/PGRST202|Could not find the function/i.test(String((e1&&e1.message)||'')+' '+String((e1&&e1.code)||''))) throw e1;
+      delete args.p_wht_no;
+      row = await _rpc('ms_expense_item_upsert', args);
+      toast('บันทึกรายการแล้ว แต่ยังบันทึก Tax number ไม่ได้ — ต้องรัน SQL RUN-15 ก่อน','error');
+    }
     if(dr){ EX.items.push(row); EX.drafts = EX.drafts.filter(x=>x.key!==key); }
     else { const i = EX.items.findIndex(x=>x.id===key); if(i>=0) EX.items[i] = row; else EX.items.push(row); delete EX.edit[key]; }
     EX.items.sort((a,b)=>(a.seq||0)-(b.seq||0));
@@ -833,12 +849,14 @@ function _exSumHtml(groups){
     <div class="ex2-sumacts">
       <button type="button" class="btn ex2-b-ghost" onclick="exSumAll(true)">☑ เลือกทั้งหมด</button>
       <button type="button" class="btn ex2-b-ghost" onclick="exSumClear()">ยกเลิกการเลือก</button>
-      ${canEditExpense() ? `<button type="button" class="btn ex2-b-close" data-ex-close="1" onclick="exCloseSelected()">🔒 ปิดสรุปที่เลือก</button>` : ''}
+      <button type="button" class="btn ex2-b-ghost" data-ex-view="1" onclick="exSumView()">🔍 ดูรายละเอียด</button>
       <span class="ex2-sp"></span>
+      <button type="button" class="btn ex-btn-xls" data-ex-xls="1" onclick="exSumExcel()">📊 EXPORT EXCEL</button>
       <button type="button" class="btn ex-btn-pdf" data-ex-pdf="sum" onclick="exExportSel('sum')">📄 Export PDF ใบสรุป</button>
       <button type="button" class="btn ex2-b-blue" data-ex-pdf="jobs" onclick="exExportSel('jobs')">📄 Export PDF รายละเอียด JOB</button>
       <button type="button" class="btn ex-btn-xls" data-ex-pdf="all" onclick="exExportSel('all')">📚 Export PDF รวมชุด</button>
-      <button type="button" class="btn ex2-b-blue" data-ex-pdf="print" onclick="exExportSel('print')">🖨 Print</button>
+      <button type="button" class="btn ex2-b-blue" data-ex-pdf="print" onclick="exExportSel('print')">🖨 PRINT</button>
+      ${canEditExpense() ? `<button type="button" class="btn ex2-b-close" data-ex-close="1" onclick="exCloseSelected()">🔒 ปิดสรุปที่เลือก</button>` : ''}
     </div>
     <div class="ex-sum">
       <div class="ex-card ex-card-adv"><div class="ex-card-ic">💳</div>
@@ -861,6 +879,17 @@ function exSumAll(on){
   exWorkRender();
 }
 function exSumClear(){ EX.sumSel = new Set(); exWorkRender(); }
+/* ดูรายละเอียด = รายการย่อยของ JOB ที่เลือก (เลือก 1 JOB) */
+function exSumView(){
+  const sel = _exGroups().filter(g=>EX.sumSel.has(g.key));
+  if(sel.length !== 1){ toast(sel.length ? 'เลือกครั้งละ 1 JOB เพื่อดูรายละเอียด (หรือกด "n รายการ" ในแถว)' : 'ยังไม่ได้เลือก JOB','error'); return; }
+  exViewGroup(sel[0].key);
+}
+/* EXPORT EXCEL = ไฟล์ Excel เดิมของเอกสาร (รูปแบบเดิม ไม่เปลี่ยน) */
+function exSumExcel(){
+  if(!EX.doc || !EX.doc.id){ toast('ยังไม่มีรายการที่บันทึก','error'); return; }
+  return exExportExcel(EX.doc.id);
+}
 
 async function exCloseSelected(){
   if(!canEditExpense()){ toast('ไม่มีสิทธิ์ปิดสรุป','error'); return; }
@@ -1367,9 +1396,9 @@ function _exPdfSummary(doc, h, sel, all){
     }
   });
 
-  // ---------- เบิกเงิน / ใช้ไป / คงเหลือ + หมายเหตุ + ลายเซ็น 3 ช่อง ----------
+  // ---------- เบิกเงิน / ใช้ไป / คงเหลือ + ลายเซ็น 3 ช่อง ----------
   let y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : M + 30) + 6;
-  if(y + 52 > PH - M){
+  if(y + 42 > PH - M){
     doc.addPage('a4','landscape'); y = M + 24;
     doc.setFont('Sarabun','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
     doc.text('หน้า ' + (doc.internal.getNumberOfPages() - startPage + 1), PW - M, PH - 4, { align:'right' });
@@ -1388,14 +1417,7 @@ function _exPdfSummary(doc, h, sel, all){
     doc.setFont('Sarabun','bold'); doc.setFontSize(11); doc.setTextColor(b.fg[0],b.fg[1],b.fg[2]);
     doc.text(b.v, x+bw-3, y+11, { align:'right' });
   });
-  y += 19;
-  doc.setDrawColor(150,150,150); doc.setLineWidth(0.22);
-  doc.rect(M, y, PW - M*2, 12);
-  doc.setFont('Sarabun','bold'); doc.setFontSize(8); doc.setTextColor(17,17,17);
-  doc.text('หมายเหตุ', M+3, y+5);
-  doc.setFont('Sarabun','normal');
-  doc.text(String(h.note||''), M+22, y+5, { maxWidth: PW - M*2 - 26 });
-  y += 18;
+  y += 22;                                           // ไม่แสดงช่องหมายเหตุ (ตามแบบอนุมัติล่าสุด)
   const sw = (PW - M*2 - 16) / 3;
   [
     { l:'ผู้ปิดค่าใช้จ่าย', n:h.closer_name||'', d:h.expense_date ? fmtDateEx(h.expense_date) : '.............' },
@@ -1474,7 +1496,7 @@ function _exPdfJobForm(doc, g, info){
   const RH = 9.4, top = 49;
   const sums = EX_PDF_ROWS.map(()=>({ n:0, c:0, r:0, t:[] }));
   (g.items||[]).forEach(it=>{ const s = sums[_exPdfRowIdx(it.description)]; s.n++; s.c += _exNum(it.cost_amount); s.r += _exNum(it.receipt_amount);
-    const w = String(it.wht_no||'').trim(); if(w && !s.t.includes(w)) s.t.push(w); });
+    const w = String(it.wht_no||'').trim(); if(w) s.t.push(w); });
   const rows = EX_PDF_ROWS.map((d,i)=>({
     no:String(i+1), d:d[0],
     a: i===0 ? _exMoney(g.adv) : '',
@@ -1483,29 +1505,41 @@ function _exPdfJobForm(doc, g, info){
     t: sums[i].t.join(', ')
   }));
   rows.push({ no:'', d:'Total Amount', a:_exMoney(g.adv), c:_exMoney(g.cost), r:_exMoney(g.rcp), bold:true });
-  const all = [{ head:true }].concat(rows);
-  const bottom = top + RH * all.length;
-  line(L, top, R, top); X.forEach(x=>line(x, top, x, bottom));
-  all.forEach((r,i)=>{
-    const y = top + RH*i, by = y + RH/2 + 1.6;
-    line(L, y + RH, R, y + RH);
-    if(r.head){
-      txt('Item', (X[0]+X[1])/2, by, { align:'center' }, 10.5);
-      txt('Description', X[1]+2.5, by, null, 10.5);
-      txt('Nj advance', (X[2]+X[3])/2, by, { align:'center' }, 10.5);
-      txt('Cost Amount', (X[3]+X[4])/2, by, { align:'center' }, 10.5);
-      txt('Receipt Amount', (X[4]+X[5])/2, by, { align:'center' }, 10.5);
-      txt('Tax number', (X[5]+X[6])/2, by, { align:'center' }, 10.5);
-      return;
+  const TW = X[6]-X[5]-4;
+  const taxLines = (r)=>{ if(!r.t) return []; doc.setFont('Sarabun','normal'); doc.setFontSize(9.5); return doc.splitTextToSize(r.t, TW); };
+  const rowH = (r)=> Math.max(RH, taxLines(r).length * 4.1 + 3.4);
+  const PB = doc.internal.pageSize.getHeight() - 10;
+  const header = (y)=>{
+    line(L, y, R, y); line(L, y+RH, R, y+RH); X.forEach(x=>line(x, y, x, y+RH));
+    const by = y + RH/2 + 1.6;
+    txt('Item', (X[0]+X[1])/2, by, { align:'center' }, 10.5);
+    txt('Description', X[1]+2.5, by, null, 10.5);
+    txt('Nj advance', (X[2]+X[3])/2, by, { align:'center' }, 10.5);
+    txt('Cost Amount', (X[3]+X[4])/2, by, { align:'center' }, 10.5);
+    txt('Receipt Amount', (X[4]+X[5])/2, by, { align:'center' }, 10.5);
+    txt('Tax number', (X[5]+X[6])/2, by, { align:'center' }, 10.5);
+    return y + RH;
+  };
+  let y = header(top);
+  rows.forEach((r,i)=>{
+    const h = rowH(r);
+    const tail = (i === rows.length-1) ? 18 : 0;                    // แถวสุดท้าย + ช่องลงชื่อต้องอยู่หน้าเดียวกัน
+    if(y + h + tail > PB){                                           // ต่อหน้าใหม่อัตโนมัติ (หัวตารางซ้ำ)
+      doc.addPage('a4','landscape');
+      txt('JOB NJ: ' + (info.nj_job_no || g.job_no || '') + '  (ต่อ)', L, 12, null, 9);
+      y = header(16);
     }
+    line(L, y+h, R, y+h); X.forEach(x=>line(x, y, x, y+h));
+    const by = y + Math.min(h, RH)/2 + 1.6;
     if(r.no) txt(r.no, (X[0]+X[1])/2, by, { align:'center' }, 10.5);
     txt(r.d, X[1]+2.5, by, null, 10.5);
     if(r.a) txt(r.a, X[3]-2.5, by, { align:'right' }, 10.5, r.bold);
     if(r.c) txt(r.c, X[4]-2.5, by, { align:'right' }, 10.5, r.bold);
     if(r.r) txt(r.r, X[5]-2.5, by, { align:'right' }, 10.5, r.bold);
-    if(r.t){ doc.setFont('Sarabun','normal'); let f=10; doc.setFontSize(f); while(f>6.5 && doc.getTextWidth(r.t) > X[6]-X[5]-4){ f-=0.5; doc.setFontSize(f); }
-             doc.setTextColor(0,0,0); doc.text(doc.splitTextToSize(r.t, X[6]-X[5]-4)[0], X[5]+2, by); }
+    taxLines(r).forEach((ln,k)=>{ doc.setFont('Sarabun','normal'); doc.setFontSize(9.5); doc.setTextColor(0,0,0); doc.text(ln, X[5]+2, by + k*4.1); });
+    y += h;
   });
+  const bottom = y;
 
   // 4) ลายมือชื่อ
   const sy = bottom + 13;
@@ -1614,7 +1648,7 @@ Object.assign(window, {
   exExportExcel, exExportPDF,
   exOpenDoc, exSetTab, exPickJob, exGoWork, exSetTerminal, exJobDDOpen, exJobDDSearch, exAddDraft, exRowSet, exSaveRow, exSaveAllDirty,
   exDeleteRow, exSaveJobAdv, exSumFilter, exSumToggle, exSumAll, exSumClear, exCloseSelected, exViewGroup, exReopenGroup,
-  exExportSel, exExportJobPdf, exExportGroupPdf,
+  exExportSel, exExportJobPdf, exExportGroupPdf, exSumView, exSumExcel,
   EXL, __EX: EX
 });
 })();
