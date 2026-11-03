@@ -1,4 +1,4 @@
-import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js";import{C as x,D as b,E as J,j as C,p as B,q as j,x as q,b as XJ506,i as XO506,CC751}from"./chunk-FHYZBT2Q.js";import{k as XM506}from"./chunk-L5Z2NDJ3.js";import{a as XG506}from"./chunk-GDT6F23K.js";import{c as L}from"./chunk-Q7FMECGI.js";import{e as f}from"./chunk-OPGKUGLK.js";import{a as N}from"./chunk-YM5GFE6V.js";import{a as c}from"./chunk-OFOOXWUM.js";import{a as k,b as y,d as m}from"./chunk-LNP7HEMP.js";import{c as $,e as s}from"./chunk-NQOCXXA2.js";import{k as _,m as A,n as M,o as D,p as E,q as O}from"./chunk-6NADHKLT.js";var w=[{a:"new-job",t:"+ \u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19",perm:"create",primary:!0},{a:"refresh",t:"\u21BB Refresh"},{a:"upload",t:"\u{1F4C1} Upload",perm:"edit"},{a:"export-excel",t:"\u{1F4D7} Export Excel",perm:"export"},{a:"paste-close",t:"\u{1F4CB} Paste \u0E08\u0E1A\u0E07\u0E32\u0E19",perm:"edit"},{a:"apl-upload",t:"\u2B06 APL Billing",perm:"edit"},{a:"billing-pdf",t:"\u{1F9FE} Billing PDF",perm:"export"},{a:"billing-pdf-apl",t:"\u{1F9FE} Billing PDF APL",perm:"export"},{a:"export-name",t:"\u{1F4E4} EXPORT NAME",perm:"export"}],z=[{a:"export-all",t:"\u{1F4E6} Export \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",perm:"export"},{a:"export-cust",t:"\u{1F464} Export Customer (ZIP)",perm:"export"},{a:"export-csv",t:"\u26A1 Export Fast CSV",perm:"export"},{a:"sum",t:"\u{1F9EE} \u0E04\u0E33\u0E19\u0E27\u0E13\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21"},{a:"upload-19",t:"\u2B06 Upload 1.9",perm:"edit"},{a:"close-upload",t:"\u2705 \u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19 (Upload)",perm:"edit"}],Q=[{a:"export-case",t:"\u{1F4C4} Export Excel CASE",perm:"export"},{a:"export-soa",t:"\u{1F4C4} Export SOA",perm:"export"},{a:"bulk-case",t:"\u{1F5C2} Bulk Case",perm:"edit"},{a:"fill-etd",t:"\u{1F6A2} \u0E40\u0E15\u0E34\u0E21 ETD",perm:"edit"},{a:"contacts",t:"\u{1F4C7} Contact List"},{a:"calcomp",t:"\u{1F4D7} CALCOMP",perm:"export"}],S=(a,t="")=>`<button class="btn ${a.primary?"btn-p":"btn-o"} btn-sm${t?" "+t:""}" data-tool="${a.a}">${a.t}</button>`,Z=a=>`<button class="tool-item" data-tool="${a.a}">${a.t}</button>`,W=["upload","paste-close","apl-upload","billing-pdf","billing-pdf-apl"],X=["new-job","refresh"],tt=["receipt","advance"],et=["new-job","refresh","billing-pdf","billing-pdf-apl"],ot=["export-excel"],rt=["sum"],at=["export-excel","refresh"],HB495=["upload","apl-upload","billing-pdf","billing-pdf-apl"];function lt(a){return at.map(t=>w.find(e=>e.a===t)).filter(t=>t&&(!t.perm||a[t.perm])).map(t=>S(t,"tb-btn tb-"+t.a)).join("")}function it(a){let t=w.find(e=>e.a==="new-job");return t&&(!t.perm||a[t.perm])?S(t):""}function ct(a,t,e,o){let r=o==="document";if(r||o==="closed")return"";o==="accounting"&&XS506();let n=o==="accounting",l=tt.includes(o),d=o==="receipt",i=u=>(!u.perm||e[u.perm])&&!(r&&W.includes(u.a))&&!(n&&X.includes(u.a))&&!(n&&HB495.includes(u.a))&&!(l&&et.includes(u.a))&&!(d&&ot.includes(u.a))&&!(!n&&u.a==="export-name"),h=w.filter(i).map(S).join(""),v=r||n?"":z.filter(i).filter(u=>!(d&&rt.includes(u.a))).map(Z).join(""),p=n||l||t==="MAERSK"?Q.filter(i).filter(u=>u.a!=="calcomp"||n&&String(a||"").toUpperCase()==="SERVICE").map(Z).join(""):"",g=a==="ADVANCE"&&e.edit&&!r&&!n&&!l?`
+import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js";import{C as x,D as b,E as J,j as C,p as B,q as j,x as q,b as XJ506,i as XO506,CC751,a as XL753}from"./chunk-FHYZBT2Q.js";import{k as XM506}from"./chunk-L5Z2NDJ3.js";import{a as XG506}from"./chunk-GDT6F23K.js";import{c as L}from"./chunk-Q7FMECGI.js";import{e as f}from"./chunk-OPGKUGLK.js";import{a as N}from"./chunk-YM5GFE6V.js";import{a as c}from"./chunk-OFOOXWUM.js";import{m as RPC753}from"./chunk-SGWIBJH6.js";import{a as k,b as y,d as m}from"./chunk-LNP7HEMP.js";import{c as $,e as s}from"./chunk-NQOCXXA2.js";import{k as _,m as A,n as M,o as D,p as E,q as O}from"./chunk-6NADHKLT.js";var w=[{a:"new-job",t:"+ \u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19",perm:"create",primary:!0},{a:"refresh",t:"\u21BB Refresh"},{a:"upload",t:"\u{1F4C1} Upload",perm:"edit"},{a:"export-excel",t:"\u{1F4D7} Export Excel",perm:"export"},{a:"paste-close",t:"\u{1F4CB} Paste \u0E08\u0E1A\u0E07\u0E32\u0E19",perm:"edit"},{a:"apl-upload",t:"\u2B06 APL Billing",perm:"edit"},{a:"billing-pdf",t:"\u{1F9FE} Billing PDF",perm:"export"},{a:"billing-pdf-apl",t:"\u{1F9FE} Billing PDF APL",perm:"export"},{a:"export-name",t:"\u{1F4E4} EXPORT NAME",perm:"export"}],z=[{a:"export-all",t:"\u{1F4E6} Export \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",perm:"export"},{a:"export-cust",t:"\u{1F464} Export Customer (ZIP)",perm:"export"},{a:"export-csv",t:"\u26A1 Export Fast CSV",perm:"export"},{a:"sum",t:"\u{1F9EE} \u0E04\u0E33\u0E19\u0E27\u0E13\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21"},{a:"upload-19",t:"\u2B06 Upload 1.9",perm:"edit"},{a:"close-upload",t:"\u2705 \u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19 (Upload)",perm:"edit"}],Q=[{a:"export-case",t:"\u{1F4C4} Export Excel CASE",perm:"export"},{a:"export-soa",t:"\u{1F4C4} Export SOA",perm:"export"},{a:"bulk-case",t:"\u{1F5C2} Bulk Case",perm:"edit"},{a:"fill-etd",t:"\u{1F6A2} \u0E40\u0E15\u0E34\u0E21 ETD",perm:"edit"},{a:"contacts",t:"\u{1F4C7} Contact List"},{a:"calcomp",t:"\u{1F4D7} CALCOMP",perm:"export"}],S=(a,t="")=>`<button class="btn ${a.primary?"btn-p":"btn-o"} btn-sm${t?" "+t:""}" data-tool="${a.a}">${a.t}</button>`,Z=a=>`<button class="tool-item" data-tool="${a.a}">${a.t}</button>`,W=["upload","paste-close","apl-upload","billing-pdf","billing-pdf-apl"],X=["new-job","refresh"],tt=["receipt","advance"],et=["new-job","refresh","billing-pdf","billing-pdf-apl"],ot=["export-excel"],rt=["sum"],at=["export-excel","refresh"],HB495=["upload","apl-upload","billing-pdf","billing-pdf-apl"];function lt(a){return at.map(t=>w.find(e=>e.a===t)).filter(t=>t&&(!t.perm||a[t.perm])).map(t=>S(t,"tb-btn tb-"+t.a)).join("")}function it(a,ch753){let t=w.find(e=>e.a==="new-job");return(t&&(!t.perm||a[t.perm])?S(t):"")+(String(ch753||"").toUpperCase()==="SERVICE"&&a&&a.create?`<button class="btn btn-o btn-sm up753-btn" data-tool="upload753">\u{1F4E5} UPLOAD EXCEL</button>`:"")}function ct(a,t,e,o){let r=o==="document";if(r||o==="closed")return"";o==="accounting"&&XS506();let n=o==="accounting",l=tt.includes(o),d=o==="receipt",i=u=>(!u.perm||e[u.perm])&&!(r&&W.includes(u.a))&&!(n&&X.includes(u.a))&&!(n&&HB495.includes(u.a))&&!(l&&et.includes(u.a))&&!(d&&ot.includes(u.a))&&!(!n&&u.a==="export-name"),h=w.filter(i).map(S).join(""),v=r||n?"":z.filter(i).filter(u=>!(d&&rt.includes(u.a))).map(Z).join(""),p=n||l||t==="MAERSK"?Q.filter(i).filter(u=>u.a!=="calcomp"||n&&String(a||"").toUpperCase()==="SERVICE").map(Z).join(""):"",g=a==="ADVANCE"&&e.edit&&!r&&!n&&!l?`
     <div class="quick-close">
       <input class="inp" id="qc-key" placeholder="\u0E40\u0E25\u0E02 JOB / Invoice" autocomplete="off">
       <button class="btn btn-green btn-sm" data-tool="quick-close">\u2713 \u0E08\u0E1A\u0E07\u0E32\u0E19</button>
@@ -21,7 +21,7 @@ import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js
         <input class="inp w100" id="tk-val" type="${o}"></div>`:""}
       ${n?`<div class="fld"><label>${s(n)}</label>
         <input class="inp w100" id="tk-date" type="date"></div>`:""}`;let h=document.createElement("div");h.innerHTML=`<button class="btn btn-o" data-close>\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</button>
-      <button class="btn btn-p" id="tk-ok">${s(r)}</button>`;let v=k({title:a,body:i,footer:h,large:!0});h.querySelector("#tk-ok").onclick=()=>{let p=i.querySelector("#tk-keys").value.split(/[\r\n\t,;]+/).map(Y=>Y.trim()).filter(Boolean);if(!p.length){c("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E27\u0E32\u0E07\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07","err");return}let g=t?i.querySelector("#tk-val").value.trim():null;if(t&&!g){c("\u0E01\u0E23\u0E2D\u0E01"+e,"err");return}let u=n&&i.querySelector("#tk-date").value||"";y(),d({keys:p,value:g,date:u,raw:i.querySelector("#tk-keys").value})},v.addEventListener("click",p=>{(p.target===v||p.target.closest("[data-close]"))&&d(null)})})}async function $t(a,t){try{switch(a){case"refresh":t.refresh();return;case"new-job":{let{openNewJobModal:e}=await import("./job-form-4IHODUQT.js");await e({charge:t.charge,group:t.group,mode:t.mode,onSaved:t.refresh});return}case"export-excel":return C(t,!1);case"export-name":return XN506(t);case"export-all":return C(t,!0);case"export-csv":return B(t);case"export-cust":return j(t);case"calcomp":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?CC751(t):void 0;case"export-soa":return q(t);case"export-case":return x(t);case"upload":return U(t);case"apl-upload":return P(t);case"billing-pdf":case"billing-pdf-apl":return t.mode!=="accounting"?void 0:(await import("./billing-pdf-HDUV5YLN.js")).openBillingPdf(t,a==="billing-pdf-apl"?"apl":"std");case"upload-19":return K(t);case"sum":{let e=await _({charge:t.charge,group:t.group,queue:t.queue,scope:t.scope,filters:t.filters});J(e,t);return}case"contacts":{let e=await A(t.charge,t.group),o=e.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>
+      <button class="btn btn-p" id="tk-ok">${s(r)}</button>`;let v=k({title:a,body:i,footer:h,large:!0});h.querySelector("#tk-ok").onclick=()=>{let p=i.querySelector("#tk-keys").value.split(/[\r\n\t,;]+/).map(Y=>Y.trim()).filter(Boolean);if(!p.length){c("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E27\u0E32\u0E07\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07","err");return}let g=t?i.querySelector("#tk-val").value.trim():null;if(t&&!g){c("\u0E01\u0E23\u0E2D\u0E01"+e,"err");return}let u=n&&i.querySelector("#tk-date").value||"";y(),d({keys:p,value:g,date:u,raw:i.querySelector("#tk-keys").value})},v.addEventListener("click",p=>{(p.target===v||p.target.closest("[data-close]"))&&d(null)})})}async function $t(a,t){try{switch(a){case"refresh":t.refresh();return;case"new-job":{let{openNewJobModal:e}=await import("./job-form-4IHODUQT.js");await e({charge:t.charge,group:t.group,mode:t.mode,onSaved:t.refresh});return}case"export-excel":return C(t,!1);case"export-name":return XN506(t);case"export-all":return C(t,!0);case"export-csv":return B(t);case"export-cust":return j(t);case"upload753":return t.mode==="document"&&String(t.charge||"").toUpperCase()==="SERVICE"?UP753(t):void 0;case"calcomp":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?CC751(t):void 0;case"export-soa":return q(t);case"export-case":return x(t);case"upload":return U(t);case"apl-upload":return P(t);case"billing-pdf":case"billing-pdf-apl":return t.mode!=="accounting"?void 0:(await import("./billing-pdf-HDUV5YLN.js")).openBillingPdf(t,a==="billing-pdf-apl"?"apl":"std");case"upload-19":return K(t);case"sum":{let e=await _({charge:t.charge,group:t.group,queue:t.queue,scope:t.scope,filters:t.filters});J(e,t);return}case"contacts":{let e=await A(t.charge,t.group),o=e.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>
             <th>Company Invoice</th><th>\u0E23\u0E2B\u0E31\u0E2A</th><th>Contact (LIST NAME)</th><th class="r">\u0E08\u0E33\u0E19\u0E27\u0E19\u0E07\u0E32\u0E19</th>
           </tr></thead><tbody>${e.map(n=>`<tr>
             <td class="t-b">${s(n.company_invoice)}</td><td>${s(n.company_code||"-")}</td>
@@ -108,3 +108,103 @@ async function XN506(t) {
 }
 
 export{lt as a,it as b,ct as c,ut as d,$t as e};
+
+/* ═══ V.753 · DOCUMENT → SERVICE : UPLOAD EXCEL (ไฟล์ CALCOMP · SHEET "เปิดจ๊อบ") → 1 แถว = 1 JOB · บันทึกทันทีทีละแถวผ่าน Flow เดิม (njacc_save_document_job)
+   ค่าคงที่ : โหมด EX (SEA) · ประเภท HALF (ปล่อย) · บริษัท CAL-COMP ELECTRONICS (THAILAND) PUBLIC · ลูกค้า Maersk Logistics & Services (Thailand) Co., Ltd.
+              ค่าธรรมเนียม + FCL ติ๊ก · ท่าตรวจปล่อย อื่น : เพชรบุรี · จำนวนตู้ 1 · Customer Job No. N/A
+   จาก Excel : Container NO → เบอร์ตู้ · Code → SIZE · Booking → Booking No. · FACTORY (BONDED = Bonded / FREEZONE = FZ · ค่าอื่น = แถวผิดพลาด)
+              Entry → เลขใบขนสินค้า · Invoice → Invoice No. (ครบทุกเลข · ตัดเฉพาะช่องว่างรอบ "," ให้ตรงรูปแบบเดิมของระบบ) · Loading → วันที่ตรวจปล่อย (Excel Date → วันที่ · ไม่ผ่าน Timezone)
+   สิทธิ์ / ผู้สร้าง / เลข JOB / กันเลขซ้ำ (RUN-87) / ช่องบังคับ = ระบบเดิม · แถวผิดพลาด = ข้ามเฉพาะแถวนั้น · ไม่ส่งซ้ำอัตโนมัติ (ส่งซ้ำ / อัปโหลดไฟล์เดิมซ้ำ = กันเลขซ้ำเดิมปฏิเสธ · ไม่สร้าง JOB ซ้ำ)
+   ไม่ POST / CLOSE / ส่ง ACCOUNTING · ไม่แก้ JOB เดิม ═══ */
+var UH753 = { factory: "FACTORY", invoice: "INVOICE", booking: "BOOKING", loading: "LOADING", cont: "CONTAINER NO", code: "CODE", entry: "ENTRY" };
+var UB753 = false;
+function UN753(v) { return String(v == null ? "" : v).replace(/[ ​﻿]/g, " ").replace(/\s+/g, " ").trim(); }
+function UT753(v) { if (v == null) return ""; if (typeof v === "number") return isFinite(v) ? String(v) : ""; if (v instanceof Date) return ""; return UN753(v); }
+function UP2753(n) { return String(n).padStart(2, "0"); }
+function UD753(v) {
+  if (v == null || v === "") return { ok: true, v: null };
+  let y, m, d;
+  if (typeof v === "number" && isFinite(v) && v >= 1) { let x = new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 86400000); y = x.getUTCFullYear(); m = x.getUTCMonth() + 1; d = x.getUTCDate(); }
+  else if (v instanceof Date && !isNaN(v)) { y = v.getFullYear(); m = v.getMonth() + 1; d = v.getDate(); }
+  else {
+    let s = UN753(v), a = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(s), b = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+    if (a) { d = +a[1]; m = +a[2]; y = +a[3]; if (y > 2400) y -= 543; } else if (b) { y = +b[1]; m = +b[2]; d = +b[3]; } else return { ok: false };
+  }
+  let t = new Date(Date.UTC(y, m - 1, d));
+  if (isNaN(t) || t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d || y < 2000 || y > 2100) return { ok: false };
+  return { ok: true, v: y + "-" + UP2753(m) + "-" + UP2753(d) };
+}
+function UE753(er) {
+  let m = String(er && er.message || er || ""), i = m.indexOf("NJACC_DUPLICATE");
+  if (i >= 0) { try { let a = JSON.parse(m.slice(i + 15).trim()); return "เลขซ้ำ (กฎเดิม) : " + a.map((x) => x.label + " " + x.value + " → " + (x.jobs || []).join(", ")).join(" · "); } catch (e) { return "เลขซ้ำกับ JOB ที่มีอยู่ (กฎเดิม)"; } }
+  if (!m || /fetch|network|timeout|abort/i.test(m) || !/NJACC_|[\u0E00-\u0E7F]/.test(m)) return "การเชื่อมต่อขัดข้อง — ไม่แน่ใจว่าบันทึกแล้วหรือไม่ กรุณาตรวจในรายงาน (อัปโหลดไฟล์ซ้ำจะไม่สร้าง JOB ซ้ำ)" + (m ? " · " + m : "");
+  return m;
+}
+function UP753(t) {
+  if (UB753) { c("กำลัง UPLOAD อยู่ — รอให้เสร็จก่อน", "err"); return; }
+  let inp = document.createElement("input"); inp.type = "file"; inp.accept = ".xlsx,.xls,.xlsm";
+  inp.addEventListener("change", () => { let f = inp.files && inp.files[0]; f && UR753(t, f); }, { once: !0 });
+  inp.click();
+}
+async function UR753(t, f) {
+  if (UB753) return; UB753 = !0;
+  try {
+    let X; try { X = await XL753(); } catch (e) { c("โหลดตัวอ่าน Excel ไม่สำเร็จ — ยังไม่สร้าง JOB", "err"); return; }
+    let wb; try { wb = X.read(new Uint8Array(await f.arrayBuffer()), { type: "array", cellDates: !1 }); } catch (e) { c("อ่านไฟล์ Excel ไม่ได้ — ยังไม่สร้าง JOB", "err"); return; }
+    let ws = wb.Sheets["เปิดจ๊อบ"];
+    if (!ws) { c('ไม่พบ SHEET "เปิดจ๊อบ" ในไฟล์ — ยังไม่สร้าง JOB', "err"); return; }
+    let rg = X.utils.decode_range(ws["!ref"] || "A1"), aoa = X.utils.sheet_to_json(ws, { header: 1, raw: !0, defval: null, blankrows: !0 });
+    let hd = (aoa[0] || []).map((h) => UN753(h).toUpperCase()), ix = {}, miss = [];
+    Object.keys(UH753).forEach((k) => { let p = hd.indexOf(UH753[k]); p < 0 ? miss.push(UH753[k]) : (ix[k] = p); });
+    if (miss.length) { c("หัวคอลัมน์ไม่ครบ : " + miss.join(", ") + " — ยังไม่สร้าง JOB", "err"); return; }
+    let ms = XG506.masters || {}, co = (ms.companies || []).filter((x) => x && x.active !== !1 && /^CAL-?COMP ELECTRONICS \(THAILAND\) PUBLIC\b/i.test(UN753(x.name))),
+        cu = (ms.customers || []).filter((x) => x && x.active !== !1 && UN753(x.name).toLowerCase() === "maersk logistics & services (thailand) co., ltd.");
+    if (co.length !== 1 || cu.length !== 1) { c("ไม่พบ (หรือพบมากกว่า 1) บริษัท CAL-COMP / ลูกค้า Maersk ในข้อมูลหลัก — ยังไม่สร้าง JOB", "err"); return; }
+    let rows = [];
+    for (let k = 1; k < aoa.length; k++) {
+      let r = aoa[k] || [], g = (n) => r[ix[n]];
+      if (Object.keys(ix).every((n) => UT753(g(n)) === "" && !(g(n) instanceof Date))) continue;
+      rows.push({ row: rg.s.r + k + 1, factory: UT753(g("factory")).toUpperCase(), invoice: UT753(g("invoice")).replace(/\s*,\s*/g, ","), booking: UT753(g("booking")), loading: UD753(g("loading")),
+        cont: UT753(g("cont")), code: UT753(g("code")), entry: UT753(g("entry")), req: "up753_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12) + "_" + k });
+    }
+    if (!rows.length) { c("ไม่มีข้อมูลใน SHEET \"เปิดจ๊อบ\"", "err"); return; }
+    let bd = document.createElement("div"), ft = document.createElement("div"), n = rows.length, ok = 0, bad = 0;
+    bd.innerHTML = `<div class="up753"><div class="t-sm mb-1" id="up753-sum"></div><div class="tbl-wrap" style="max-height:60vh;overflow:auto"><table class="tbl"><thead><tr><th>Excel Row</th><th>Container No.</th><th>ประเภท</th><th>สถานะ</th></tr></thead><tbody>${rows.map((x, i) => `<tr data-up753="${i}"><td class="center">${x.row}</td><td>${s(x.cont)}</td><td>${s(x.factory)}</td><td class="up753-st">รอบันทึก</td></tr>`).join("")}</tbody></table></div></div>`;
+    ft.innerHTML = `<button class="btn btn-o" data-close disabled>✕ ปิด</button>`;
+    k({ title: "UPLOAD CALCOMP — " + s(f.name), body: bd, footer: ft, large: !0 });
+    let sm = () => { let e = bd.querySelector("#up753-sum"); e && (e.innerHTML = `จำนวนข้อมูลทั้งหมด: <b>${n}</b> รายการ · บันทึกสำเร็จ: <b style="color:#15803d">${ok}</b> รายการ · ไม่สำเร็จ: <b style="color:#b91c1c">${bad}</b> รายการ${ok + bad < n ? " · กำลังบันทึก " + (ok + bad + 1) + "/" + n : ""}`); };
+    let st = (i, h, good) => { let e = bd.querySelector(`tr[data-up753="${i}"] .up753-st`); e && (e.innerHTML = h, e.style.color = good ? "#15803d" : "#b91c1c", e.style.fontWeight = "600"); };
+    let td = new Date(), today = td.getFullYear() + "-" + UP2753(td.getMonth() + 1) + "-" + UP2753(td.getDate()), seenE = new Map(), seenI = new Map(), rf = null;
+    let refresh = () => { clearTimeout(rf); rf = setTimeout(() => { try { t.refresh && t.refresh(); } catch (e) {} }, 400); };
+    sm();
+    for (let i = 0; i < n; i++) {
+      let x = rows[i], err = "";
+      if (x.factory !== "BONDED" && x.factory !== "FREEZONE") err = "FACTORY ไม่ถูกต้อง (" + (x.factory || "ว่าง") + ") — ต้องเป็น BONDED หรือ FREEZONE";
+      else if (!x.entry) err = "ไม่มี Entry (เลขใบขนสินค้า)";
+      else if (!x.invoice) err = "ไม่มี Invoice";
+      else if (!x.loading.ok) err = "Loading ไม่ใช่วันที่ที่ถูกต้อง";
+      else if (seenE.has(x.entry.toLowerCase())) err = "เลขใบขนสินค้า " + x.entry + " ซ้ำกับแถว " + seenE.get(x.entry.toLowerCase()) + " ในไฟล์นี้ (กฎเดิม : ห้ามซ้ำ)";
+      else if (seenI.has(x.invoice.toLowerCase())) err = "Invoice No. " + x.invoice + " ซ้ำกับแถว " + seenI.get(x.invoice.toLowerCase()) + " ในไฟล์นี้ (กฎเดิม : ห้ามซ้ำ)";
+      if (err) { bad++; st(i, s(err), !1); sm(); continue; }
+      st(i, "กำลังบันทึก…", !0);
+      let bo = x.factory === "BONDED", p = { job: { charge_type: "SERVICE", company_group: t.group, data_type: "EX (SEA)", reference_date: today, reference_no: null, job_date: today,
+          company_invoice_id: co[0].id, customer_id: cu[0].id, customer_job_no: "N/A", customs_declaration_no: x.entry, source_invoice_no: x.invoice, house_bl_no: null, master_bl_no: null,
+          booking_no: x.booking || null, vessel_name: null, qty_container: 1, etd: null, eta: null, delivery_date: null, note: null, request_id: x.req },
+        doc: { lift_on_wharf_flag: !1, storage_charge_flag: !1, release_port: "อื่น", release_port_other: "เพชรบุรี", doc_exempt: !1, doc_inspect: !1,
+          cargo_fcl: !0, cargo_lcl: !1, cargo_fz: !bo, cargo_fz_fz: !1, cargo_bonded: bo, container_no: x.cont || null, container_size: x.code || null, release_date: x.loading.v,
+          doc_fee: !0, doc_overtime: !1, doc_mass: !1, doc_travel: !1, doc_print: !1, doc_labor: !1, doc_ot_nj: !1, doc_0409_cust: !1, doc_0409_nocollect: !1, job_category: "HALF (ปล่อย)" } };
+      let r = null, e1 = null;
+      try { r = await RPC753("njacc_save_document_job", { p: p }); }   /* ไม่ส่งซ้ำอัตโนมัติ · ส่งซ้ำ / อัปโหลดไฟล์เดิมซ้ำ = กันเลขซ้ำเดิมปฏิเสธ (ไม่สร้าง JOB ซ้ำ) */
+      catch (e) { e1 = e; }
+      if (r && r.id) {
+        ok++; seenE.set(x.entry.toLowerCase(), x.row); seenI.set(x.invoice.toLowerCase(), x.row);
+        st(i, "สำเร็จ · " + s(r.job_no || r.open_no || ("ID " + String(r.id).slice(0, 8))) + (r.job_no || r.open_no ? "" : " (รอ POST ออกเลข JOB)"), !0); refresh();
+      } else { bad++; st(i, s(UE753(e1)), !1); }
+      sm();
+    }
+    let cb = ft.querySelector("[data-close]"); cb && (cb.disabled = !1);
+    try { t.refresh && t.refresh(); } catch (e) {}
+    c("UPLOAD CALCOMP : สำเร็จ " + ok + " / ไม่สำเร็จ " + bad + " จาก " + n + " รายการ", bad ? "err" : "ok");
+  } catch (e) { c("UPLOAD EXCEL ไม่สำเร็จ : " + String(e && e.message || e || ""), "err"); }
+  finally { UB753 = !1; }
+}
