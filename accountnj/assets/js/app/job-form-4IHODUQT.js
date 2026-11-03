@@ -1008,7 +1008,7 @@ var AD698 = (function () {
   }
   function fm(x) { return (Number(x) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fp(x) { var n = Number(x) || 0; return String(Math.round(n * 10000) / 10000); }
-  function used(it) { return !!(String(it.payment_type || "").trim() || String(it.bank_name || "").trim() || String(it.account_no || "").trim() || String(it.account_name || "").trim() || num(it.gross)); }
+  function used(it) { return !!it; }   /* V.741 : ทุกแถวที่เพิ่ม = 1 รายการจ่าย (เว้นว่างทุกช่องได้ · ไม่ตัดแถวว่างตอน SAVE · ไม่เติมข้อมูลสมมติ) — ตรงกับ RUN-741 */
   function col718(t) { return r2((Number(t && t.g) || 0) + (Number(t && t.v) || 0)); }   /* V.718 : ยอดรวมเก็บลูกค้า = ยอดก่อนหัก + VAT (ไม่หัก % · ไม่ใช้ยอดจ่ายจริง) */
   var IC718 = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.66 2.69 3 6 3s6-1.34 6-3V7"/><path d="M9 14v3c0 1.66 2.69 3 6 3s6-1.34 6-3v-4c0-1.66-2.69-3-6-3"/></svg>';
   function totals(items) {
@@ -1357,9 +1357,7 @@ var AD698 = (function () {
     if (st.dirty) return "กรุณาบันทึก (SAVE) รายการจ่ายก่อนส่งคำขออนุมัติ";
     var its = st.items.filter(used);
     if (!its.length) return "ยังไม่มีรายการจ่าย — เพิ่มและบันทึกรายการจ่ายก่อนส่งคำขอ";
-    if (its.some(function (it) { var tax = String(it.payment_type || "").trim() === "ค่าภาษี";   /* V.730 : ค่าภาษี ไม่บังคับธนาคาร / เลขบัญชี / ชื่อบัญชี (ตรงกับ RUN-730) · ประเภทอื่นตามเดิม */
-      return !String(it.payment_type || "").trim() || (!tax && (!String(it.bank_name || "").trim() || !String(it.account_no || "").trim() || !String(it.account_name || "").trim())) || !(calc(it).real > 0); }))
-      return "กรอกรายการจ่ายให้ครบ (ประเภท / ธนาคาร / เลขบัญชี / ชื่อบัญชี / ยอดจ่ายจริง) ก่อนส่งคำขอ" + (its.some(function (it) { return String(it.payment_type || "").trim() === "ค่าภาษี"; }) ? " · ค่าภาษี ไม่ต้องกรอกข้อมูลบัญชี" : "");
+    /* V.741 : ไม่บังคับกรอกช่องรายการจ่าย (ทุกประเภท รวม ค่าภาษี) — ตรงกับ RUN-741 */
     return "";
   }
   function chip7(st) { var r = st.rq && st.rq.req; if (!r) return ""; var m = RQ7[r.status] || [r.status, "o"]; return '<span class="ad701-chip ' + m[1] + '">' + esc(m[0]) + "</span>"; }
