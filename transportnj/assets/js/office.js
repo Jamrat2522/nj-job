@@ -2385,7 +2385,7 @@
         <div class="field"><label>เลขอ้างอิง (เลขที่โอน / เช็ค)</label><input class="inp" id="rcb_ref" maxlength="120"></div><div class="field"><label>ธนาคาร</label><input class="inp" id="rcb_bank" maxlength="120"></div>
         <div class="field cu-full"><label>หมายเหตุ</label><textarea class="inp" id="rcb_note" rows="2" maxlength="1000"></textarea></div></div>
       <div class="xs muted">ขั้นตอน: เลือก Receipt Date → 📄 PREVIEW → ✅ ยืนยันออกใบเสร็จ</div><div class="alert err hidden" id="rcbErr"></div><div class="alert info hidden" id="rcbOk"></div>`,
-      foot: '<button class="btn" data-close>ปิด</button><button class="btn" id="rcbPv">📄 PREVIEW</button><button class="btn" id="rcbPr" hidden>🖨 PRINT</button><button class="btn btn-p" id="rcbGo" disabled>✅ ยืนยันออกใบเสร็จ (1 ใบ · ' + list.length + ' INVOICE)</button>',
+      foot: '<button class="btn" data-close>ปิด</button><button class="btn" id="rcbPv">📄 PREVIEW</button><button class="btn" id="rcbPr" style="display:none">🖨 PRINT</button><button class="btn btn-p" id="rcbGo" disabled>✅ ยืนยันออกใบเสร็จ (1 ใบ · ' + list.length + ' INVOICE)</button>',
       onOpen: (el) => { const err = (t) => { const e = $('#rcbErr', el); e.innerHTML = t ? '⚠ ' + t : ''; e.classList.toggle('hidden', !t); };
         const val = () => { const d = $('#rcb_date', el).value; const bad = [];
           list.forEach((x) => { const cell = $(`[data-rb="${x.id}"] [data-rbr]`, el); let t = '';
@@ -2396,16 +2396,17 @@
         const doc = () => ({ receipt_no: '(ออกเลขเมื่อยืนยัน)', receipt_date: $('#rcb_date', el).value, customer_name: list[0].customer_name, customer_tax_id: list[0].customer_tax_id, customer_branch: list[0].customer_branch, customer_address: list[0].customer_address,
           pay_method: $('#rcb_pm', el).value, pay_ref: $('#rcb_ref', el).value.trim(), bank: $('#rcb_bank', el).value.trim(), note: $('#rcb_note', el).value.trim(),
           lines: list.map((x, i) => { const amt = blR2(x.outstanding), w = rcWht(x, amt); return { line_no: i + 1, invoice_no: x.invoice_no, invoice_date: x.invoice_date, wht_rate: x.wht_rate, grand_total: x.grand_total, invoice_amount: blR2(amt + w), wht_amount: w, amount_received: amt, paid: blR2((Number(x.paid) || 0) + amt), outstanding: blR2(Number(x.grand_total) - (Number(x.paid) || 0) - amt) }; }) });
-        const sync = () => { if (saved) return; const bad = val(); err(bad.join('<br>')); $('#rcbPv', el).disabled = !!bad.length; $('#rcbGo', el).disabled = !!bad.length || !seen; };
+        const sync = () => { if (saved) return; const bad = val(); err(bad.join('<br>')); $('#rcbPv', el).disabled = !!bad.length; $('#rcbGo', el).disabled = !!bad.length; };
         $$('#rcb_date,#rcb_pm,#rcb_ref,#rcb_bank,#rcb_note', el).forEach((x) => { x.addEventListener('input', () => { seen = false; sync(); }); x.addEventListener('change', () => { seen = false; sync(); }); }); sync();
-        $('#rcbPv', el).onclick = async () => { if (saved) return rcOpen(saved.id); if (val().length) return sync(); let co = {}; try { T.loading(true); const c = await T.auth('tnj_inv_company_get', {}, { silent: true }); co = (c && (c.company || c)) || {}; } catch (e) { /* ไม่มีข้อมูลบริษัท = ใช้ค่าเริ่มต้น */ } finally { T.loading(false); }
+        const pvOpen = async () => { let co = {}; try { T.loading(true); const c = await T.auth('tnj_inv_company_get', {}, { silent: true }); co = (c && (c.company || c)) || {}; } catch (e) { /* ไม่มีข้อมูลบริษัท = ใช้ค่าเริ่มต้น */ } finally { T.loading(false); }
           blPreview(rcDoc(doc(), co), 'PREVIEW ใบเสร็จรับเงิน (' + list.length + ' INVOICE)'); seen = true; sync(); };
+        $('#rcbPv', el).onclick = () => { if (saved) return rcOpen(saved.id); if (val().length) return sync(); pvOpen(); };
         $('#rcbPr', el).onclick = () => { if (saved) rcOpen(saved.id, true); };
-        $('#rcbGo', el).onclick = async () => { if (busy || saved) return; const bad = val(); if (bad.length) return sync(); if (!seen) return err('กรุณากด 📄 PREVIEW ตรวจสอบก่อนยืนยัน');
+        $('#rcbGo', el).onclick = async () => { if (busy || saved) return; const bad = val(); if (bad.length) return sync(); if (!seen) { await pvOpen(); const o = $('#rcbOk', el); o.innerHTML = 'ตรวจสอบ PREVIEW แล้ว ปิดหน้าต่าง PREVIEW และกด <b>✅ ยืนยันออกใบเสร็จ</b> อีกครั้ง'; o.classList.remove('hidden'); return; } $('#rcbOk', el).classList.add('hidden');
           busy = true; const bt = $('#rcbGo', el); bt.disabled = true; bt.textContent = '⏳ กำลังออกใบเสร็จ...'; err('');
           try { const r = await T.auth('tnj_rc_save', { p: { invoice_ids: list.map((x) => x.id), receipt_date: $('#rcb_date', el).value, pay_method: $('#rcb_pm', el).value, pay_ref: $('#rcb_ref', el).value, bank: $('#rcb_bank', el).value, note: $('#rcb_note', el).value, request_id: req } }, { silent: true });
             if (!r || !Array.isArray(r.lines)) throw new Error('TNJ_VALIDATION:ต้องติดตั้ง SQL RUN-44 ก่อนใช้งาน ใบเสร็จรวมหลาย INVOICE');
-            saved = r; $$('input,select,textarea', el).forEach((x) => { x.disabled = true; }); bt.textContent = '✅ ออกใบเสร็จแล้ว'; $('#rcbPv', el).disabled = false; $('#rcbPv', el).textContent = '📄 ดูใบเสร็จ'; $('#rcbPr', el).hidden = false;
+            saved = r; $$('input,select,textarea', el).forEach((x) => { x.disabled = true; }); bt.textContent = '✅ ออกใบเสร็จแล้ว'; $('#rcbPv', el).disabled = false; $('#rcbPv', el).textContent = '📄 ดูใบเสร็จ'; $('#rcbPr', el).style.display = '';
             list.forEach((x) => { const cell = $(`[data-rb="${x.id}"] [data-rbr]`, el); if (cell) { cell.className = 'xs rc-bok'; cell.innerHTML = `✅ <b class="mono">${h(r.receipt_no)}</b>`; } });
             const o = $('#rcbOk', el); o.innerHTML = `ออกใบเสร็จ <b class="mono">${h(r.receipt_no)}</b> แล้ว · ${r.lines.length} INVOICE · Receipt Date ${hlDMY(r.receipt_date)} · รับชำระ ${blF(r.amount_received)} · WHT ${blF(r.wht_amount)}`; o.classList.remove('hidden');
             T.toast(`ออกใบเสร็จ ${r.receipt_no} แล้ว (${r.lines.length} INVOICE) ✓`, 'ok', 6000); if (onDone) onDone(r); }
