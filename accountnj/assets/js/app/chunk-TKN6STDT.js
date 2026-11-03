@@ -44,7 +44,7 @@ Klongtoey, Bangkok 10110 Thailand.`,issuerNameMae:"N.J. LOGISTICS & FRUITS CO.,L
         </div>
       </div>
     </div>`:""}</div>`}).join("")}function Yt(s,p,c){let u=it(s,c),_=u.length,jo=E(p&&p.jobOwner).trim(),cg635=CWM635(s,p,jo);return u.map((pg,y)=>{let w=y===_-1,R=pg.rows.map(a=>`<tr>
-    <td class="l">${n(CI519(a.company_invoice,E))}</td>
+    <td class="l">${n(CN750(a.company_invoice))}</td>
     <td class="c">${n(E(a.customer_job_no))}</td>
     <td class="l">${n(BK690(a))}</td>
     <td class="l">${n(E(a.invoice_no))}</td>
@@ -574,10 +574,11 @@ function CW516(rows, edc, st) {   /* V.635 : วัดที่ขนาดต�
 /* V.635 · BILLING PDF (ทั่วไป / APL / MAERSK) : ความกว้างคอลัมน์ตามข้อความจริง ที่ขนาดตัวอักษรของ PDF
    NW=1 : เลขที่ / วันที่ / จำนวนเงิน — ขอความกว้างพอให้อยู่บรรทัดเดียว (ไม่ตัดเลข) · NW=0 : ข้อความยาว — ตัดขึ้นบรรทัดใหม่ในช่อง (ที่ช่องว่าง หรือ "/")
    พื้นที่ไม่พอ (ข้อมูลยาวผิดปกติ) = ย่อสัดส่วน + ตัดบรรทัดภายในช่อง (CSS overflow-wrap) → ข้อความไม่ล้นเส้น ไม่หาย */
-function CW635(H, cells, NW, BASE, PW, T) {
+function CW635(H, cells, NW, BASE, PW, T, FS) {
+  let F749 = FS || [11.5, 11, 9];   /* V.749 : MAERSK ส่งขนาดตัวอักษรของตัวเอง · อื่น ๆ = เดิม */
   let FF = '"Sarabun","TH Sarabun New",Arial,sans-serif', cv = CW635.c || (CW635.c = document.createElement("canvas")), x = cv.getContext("2d");
-  let tw = (t, b) => { x.font = (b ? "700 11.5px " : "400 11px ") + FF; return x.measureText(String(t == null ? "" : t)).width; };
-  let PAD = 9, mn = [], pf = [];
+  let tw = (t, b) => { x.font = (b ? "700 " + F749[0] + "px " : "400 " + F749[1] + "px ") + FF; return x.measureText(String(t == null ? "" : t)).width; };
+  let PAD = F749[2], mn = [], pf = [];
   H.forEach((h, i) => {
     let hw = Math.max(...String(h).split(/\s+/).map((y) => tw(y, 1))), mx = hw, lo = hw;
     cells.forEach((r) => {
@@ -608,8 +609,8 @@ function CWG635(rows) {
 }
 function CWM635(rows, p, jo) {
   let H = ["Customer Name", "Kewill No.", "Booking No./BL No.", "Invoice No", "Invoice Date", "Scan Date", "Job Owner Code"];
-  let cells = (rows || []).map((a) => [CI519(a.company_invoice, E), E(a.customer_job_no), BK690(a),   /* V.689 : Kewill No. = Customer Job No. · V.690 : Booking No. → House B/L No. */ E(a.invoice_no), K(a.invoice_date), E(p && p.submitDate), jo]);
-  return CW635(H, cells, [0, 2, 0, 1, 2, 2, 1], [10, 2, 3, 1, 1, 1, 2], 1069.6);
+  let cells = (rows || []).map((a) => [CN750(a.company_invoice), E(a.customer_job_no), BK690(a),   /* V.689 : Kewill No. = Customer Job No. · V.690 : Booking No. → House B/L No. */ E(a.invoice_no), K(a.invoice_date), E(p && p.submitDate), jo]);
+  return CW635(H, cells, [0, 2, 0, 1, 2, 2, 1], [10, 2, 3, 1, 1, 1, 2], 1069.6, ["", "", "", "", "", "Original Document", E(p && p.submitDate)], [16, 15.333, 18]);   /* V.749 : th 12pt · td 11.5pt · padding 7px×2 + เส้น + เผื่อ 3px · แถว Vendor : "Original Document" / วันที่ส่ง ไม่ตัดกลางคำ */
 }
 
 
@@ -918,3 +919,8 @@ function IC666(a, b) {
 function SI666(rows) {
   return (rows || []).map((w, k) => [w, k]).sort((a, b) => IC666(a[0], b[0]) || String(a[0] && a[0].job_no || "").localeCompare(String(b[0] && b[0].job_no || ""), "en", { numeric: !0 }) || a[1] - b[1]).map((x) => x[0]);
 }
+
+/* ═══ V.750 · BILLING PDF แบบฟอร์ม MAERSK เท่านั้น : Customer Name = ชื่อจริงจากข้อมูล (company_invoice ของ JOB เดิม) แสดง 15 ตัวอักษรแรกเท่านั้น
+   ยกเลิกการตัดที่ (THAILAND) / CO.,LTD. (V.519 / V.749) · ช่องว่างซ้อน = 1 ช่อง (แบบเดียวกับที่หน้าจอแสดง) · ตัวที่ 16 ขึ้นไปซ่อน · สั้นกว่า = ตามจริง · ไม่มีข้อมูล = ว่าง
+   PREVIEW / PRINT / Save PDF ใช้ฟังก์ชันเดียวกัน · แสดงผลเท่านั้น ไม่แก้ข้อมูล · CI519 / CI585 / แบบฟอร์มอื่น = เดิม ═══ */
+function CN750(v) { return Array.from(E(v).replace(/\s+/g, " ").trim()).slice(0, 15).join("").trim(); }
