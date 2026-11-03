@@ -13125,9 +13125,8 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
         seen.push([it, S(r[ci]).trim()||'(ว่าง)']); });
       const itemHit=new Set(seen.filter(([it,v])=>badVal.has(it+'|'+VN(v))).map(x=>x[0]));
       seen.forEach(([it,v])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0 }); const o=vals.get(v); o.n++; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)) o.bad++; });
-      const anyBad=[...vals.values()].some(o=>o.bad);
       if(noRule){ unchecked.push(f.t); vals.forEach((o,v)=>R(v, 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้', o.n)); continue; }
-      vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else if(!anyBad) R(v, fixTxt||DASH, '✅ ถูก', o.n); });   /* ถูกทั้งหมด = แถว ✅ · มีผิด = แสดงเฉพาะค่าที่ผิด (ไม่แสดงค่าที่ถูกปน) */
+      vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else R(v, fixTxt||DASH, '✅ ถูก', o.n); });   /* ค่าที่ถูก = แถว ✅ (หน้าจอรายการผิดกรองออก · EXPORT อยู่ Sheet รายการถูก) · ค่าที่ผิด = ❌ */
     }
     return { rows:out, unchecked, belongs:e=>!!fixTopicOf(e) };
   }
@@ -13253,6 +13252,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm, sm2]);
   }
   /* ── [EDC8 AAT] หน้าจอ = รูปแบบ ตรวจ EDC: ❌ รายการผิด → 📋 ใบอนุญาต → ⚪ ไม่ตรวจ / ไม่นับ ── */
+  function row8(r){ return '<tr class="e8k-row'+(r.src==='fixtop'?' e8k-fixtop':'')+'"><td class="td-item">'+esc(r.item)+(r.src==='fixtop'?'':' <span class="e8k-cnt">('+r.count+')</span>')+'</td><td class="td-col">'+esc(r.field)+'</td><td class="e8k-act">'+esc(r.decl)+'</td><td class="e8k-exp">'+esc(r.inv)+'</td><td class="e8k-fix">'+esc(r.fix)+'</td><td class="e8k-exp">'+esc(r.trf)+'</td><td class="e8k-exp">'+esc(r.apl)+'</td><td><span class="e8k-badge'+(/^✅/.test(r.st)?' e8k-ok':(/^⚠️/.test(r.st)?' e8k-warn':''))+'"'+(r.src==='fixtop' && /^⚠️/.test(r.st)?' title="ยังไม่มีค่า FIX ของ EDC8 — เพิ่มกฎที่ 📗 MASTER APL → 📑 ข้อมูลเพิ่มเติม แล้วอนุมัติ"':'')+'>'+esc(r.st)+'</span></td></tr>'; }   /* [EDC8] แถวตาราง 8 คอลัมน์ (รูปแบบเดิม) */
   function aatRender(G, m, NA, PM, FXR){
     const blocked=!PM.P.ok, isErr=blocked || m.points>0 || (FXR||[]).some(r=>/^❌/.test(r.st)), nNa=(m.naTopics||[]).length, partial=!isErr && nNa>0;   /* [EDC8 39 หัวข้อ] ยังมีหัวข้อตรวจไม่ได้ → ห้าม PASS (PARTIAL) */
     const color=isErr?'var(--error)':(partial?'#b45309':'var(--success)'), bg=isErr?'var(--error-bg)':(partial?'#fdf8e8':'var(--success-bg)'), bord=isErr?'var(--error-border)':(partial?'#ecdcae':'var(--success-border)');
@@ -13267,14 +13267,17 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(blocked) html+='<div class="e8k-pm-block" style="padding:10px 16px;margin-bottom:10px;border:1px solid #f2cdc8;border-radius:8px;background:#fdf3f2;color:#b42318;font-weight:600">⚠ โหลด MASTER HS CODE ใบอนุญาตไม่ได้ ('+esc(m.permitErr||'load_fail')+') — ยังไม่ได้ตรวจใบอนุญาต · ไม่แสดง PASS และระงับ EXPORT · กรุณากด ตรวจสอบ ใหม่</div>';
     html+='<div class="kdc-chips e8k-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+c('warn','⚪ ไม่ตรวจ '+m.na+' item (ไม่นับ)')+(m.filePoints?c('err','❌ ระดับไฟล์ / Mapping '+m.filePoints+' จุด (ไม่นับเป็น ITEM)'):'')+c('warn','❌ '+m.points+' จุด')+c('err','❌ ผิด '+m.failTopics.length+' หัวข้อ')+c('warn','⚠️ ตรวจไม่ได้ '+nNa+' หัวข้อ')+
       c('ok','MASTER APL v'+esc(m.masterVer)+' ('+esc(m.mode)+')')+(m.invoiceNo?c('ok','INVOICE '+esc(m.invoiceNo)):'')+'</div>'+kdcPermitChips(m.permit);
-    html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก / MASTER HS CODE ใบอนุญาต · แสดงผลตรวจทุกสถานะ ✅ / ❌ / ⚠️)</span></div>';
+    html+='<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b42318">❌ รายการผิด <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC8 เทียบ INVOICE / MASTER APL / ค่าฟิก / MASTER HS CODE ใบอนุญาต · แสดงเฉพาะหัวข้อที่ตรวจผิด ❌ · ผลที่ถูก ✅ ดูได้ใน EXPORT Sheet "รายการถูก")</span></div>';
     const GM=G, GP=[];   /* [EDC8] ตารางหลัก 8 คอลัมน์รวมทุกผลตรวจ (รวมใบอนุญาตที่ผิด · ไม่แยกตารางซ้ำ) · ส่วน 📋 คงตาราง ITEM | หน่วยงาน */
-    const ROWS8=(FXR||[]).concat(GM.map(col8));   /* FIX ด้านบน (Item —) แล้วตามด้วยรายการผิดราย ITEM */
-    if(!ROWS8.length) html+='<div class="e8k-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด'+(nNa?' (ในหัวข้อที่ตรวจได้ · ⚠️ ยังตรวจไม่ได้ '+nNa+' หัวข้อ — ดูตาราง ⚪ ด้านล่าง)':'')+'</div>';
+    const ALL8=(FXR||[]).concat(GM.map(col8));   /* FIX ด้านบน (Item —) แล้วตามด้วยผลราย ITEM */
+    const ROWS8=ALL8.filter(r=>!/^✅/.test(r.st) && !/^⚠️/.test(r.st)), WARN8=ALL8.filter(r=>/^⚠️/.test(r.st));   /* [EDC8 AAT/FTM] ตารางรายการผิด = เฉพาะ ❌ (กรองการแสดงผลเท่านั้น · ผลตรวจ / ค่าฟ้อง / การนับ คงเดิม) · ⚠️ แยกตาราง */
+    if(!ROWS8.length) html+='<div class="e8k-nofail" style="padding:12px 16px;border:1px solid #c3e3d0;border-radius:8px;background:#eef7f2;color:#1f7a4d;font-weight:600">✅ ไม่พบข้อผิดพลาด'+(WARN8.length?' (⚠️ ตรวจไม่ได้ '+WARN8.length+' แถว — ดูตารางด้านล่าง)':'')+(nNa?' (ในหัวข้อที่ตรวจได้ · ⚠️ ยังตรวจไม่ได้ '+nNa+' หัวข้อ — ดูตาราง ⚪ ด้านล่าง)':'')+'</div>';
     else html+='<div class="e8k-wrap"><table class="e8k-grid e8k-fail e8k-8c"><colgroup><col style="width:11%"><col style="width:15%"><col style="width:14%"><col style="width:14%"><col style="width:11%"><col style="width:11%"><col style="width:12%"><col style="width:12%"></colgroup><thead>'+
       '<tr><th rowspan="2">Item No.</th><th rowspan="2">หัวข้อตรวจสอบ</th><th rowspan="2">ใบขน</th><th rowspan="2">INVOICE</th><th rowspan="2">FIX</th><th colspan="2" style="text-align:center">MASTER</th><th rowspan="2">สถานะ</th></tr>'+
       '<tr><th>พิกัด</th><th>MASTER APL</th></tr></thead><tbody>'+
-      ROWS8.map(r=>'<tr class="e8k-row'+(r.src==='fixtop'?' e8k-fixtop':'')+'"><td class="td-item">'+esc(r.item)+(r.src==='fixtop'?'':' <span class="e8k-cnt">('+r.count+')</span>')+'</td><td class="td-col">'+esc(r.field)+'</td><td class="e8k-act">'+esc(r.decl)+'</td><td class="e8k-exp">'+esc(r.inv)+'</td><td class="e8k-fix">'+esc(r.fix)+'</td><td class="e8k-exp">'+esc(r.trf)+'</td><td class="e8k-exp">'+esc(r.apl)+'</td><td><span class="e8k-badge'+(/^✅/.test(r.st)?' e8k-ok':(/^⚠️/.test(r.st)?' e8k-warn':''))+'"'+(r.src==='fixtop' && /^⚠️/.test(r.st)?' title="ยังไม่มีค่า FIX ของ EDC8 — เพิ่มกฎที่ 📗 MASTER APL → 📑 ข้อมูลเพิ่มเติม แล้วอนุมัติ"':'')+'>'+esc(r.st)+'</span></td></tr>').join('')+'</tbody></table></div>';
+      ROWS8.map(row8).join('')+'</tbody></table></div>';
+    if(WARN8.length) html+='<div class="e8k-sec-h e8k-warn-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#b45309">⚠️ ตรวจไม่ได้ <span style="font-weight:400;font-size:12px;color:#64748b">(คงสถานะเดิม · ไม่ปะปนกับรายการผิด)</span></div>'+
+      '<div class="e8k-wrap"><table class="e8k-grid e8k-8c e8k-8w"><thead><tr><th rowspan="2">Item No.</th><th rowspan="2">หัวข้อตรวจสอบ</th><th rowspan="2">ใบขน</th><th rowspan="2">INVOICE</th><th rowspan="2">FIX</th><th colspan="2" style="text-align:center">MASTER</th><th rowspan="2">สถานะ</th></tr><tr><th>พิกัด</th><th>MASTER APL</th></tr></thead><tbody>'+WARN8.map(row8).join('')+'</tbody></table></div>';
     html+='<div class="e8k-sec-h e8k-pm-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">📋 ใบอนุญาต <span style="font-weight:400;font-size:12px;color:#64748b">(HS CODE + Stat จากใบขน EDC8 → MASTER HS CODE ใบอนุญาต · EXPORT / IMPORT+EXPORT)</span></div>';
     if(GP.length) html+='<div class="e8k-wrap" style="margin-bottom:8px"><table class="e8k-grid e8k-fail e8k-pmfail"><colgroup><col style="width:13%"><col style="width:19%"><col style="width:21%"><col style="width:21%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr>'+
       '<th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>Actual (ใบขน EDC8)</th><th>Expected (MASTER HS CODE ใบอนุญาต)</th><th>FIX</th><th>สถานะ</th></tr></thead><tbody>'+
@@ -13292,7 +13295,17 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     if(blocked) queueMicrotask(()=>{ try{ if(edc8ExportBtn) edc8ExportBtn.disabled=true; }catch(_){} });   /* Handler เดิมเปิดปุ่มหลัง Render → ปิดซ้ำ (ระงับ EXPORT) */
   }
   /* ── [EDC8 AAT] EXPORT = รูปแบบ kdcBuildExcel (ตรวจ EDC): 1 Sheet "ผลตรวจ" · Header · ✓ ถูกต้อง / ✕ ผิด / ○ ไม่นับ · ตาราง 8 คอลัมน์ · Text ทุกช่อง (คง 0 นำหน้า) ── */
+  /* [EDC8 AAT/FTM] EXPORT = 1 ไฟล์ แยก Sheet ตามสถานะจริงจากระบบตรวจเดิม: "รายการผิด" (❌ เท่านั้น) · "รายการถูก" (✅ เท่านั้น) · "ตรวจไม่ได้" (⚠️ — สร้างเมื่อมีเท่านั้น)
+     หัวรายงาน / คอลัมน์ / ค่าฟ้อง / ข้อมูลอ้างอิง เดิมทุก Sheet · ไม่เปลี่ยนผลตรวจ */
   async function aatBuildExcel(res){
+    const all8=(res.fixRows||[]).concat(res.grouped.map(col8));
+    const P={ bad:all8.filter(x=>!/^✅/.test(x.st) && !/^⚠️/.test(x.st)), ok:all8.filter(x=>/^✅/.test(x.st)), warn:all8.filter(x=>/^⚠️/.test(x.st)) };
+    const kinds=['bad','ok'].concat(P.warn.length ? ['warn'] : []), NAME={ bad:'รายการผิด', ok:'รายการถูก', warn:'ตรวจไม่ได้' };
+    const wb=XLSX.utils.book_new(), sms=[];
+    kinds.forEach(kind=>{ const o=aatSheet(res, kind, P[kind]); XLSX.utils.book_append_sheet(wb, o.ws, NAME[kind]); sms.push(o.sm); });
+    return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), sms);
+  }
+  function aatSheet(res, kind, rows8){
     const m=res.meta, X=KDC_XS, PM=res.permit; const aoa=[], sm={}, merges=[], rowsH={};
     const put=(r,c,v,s)=>{ while(aoa.length<=r) aoa.push([]); aoa[r][c]=v; if(s) sm[r+':'+c]=s; };
     const fillRow=(r,s,from,to)=>{ for(let c=from;c<=to;c++){ if(aoa[r]===undefined||aoa[r][c]===undefined) put(r,c,'',s); else sm[r+':'+c]=s; } };
@@ -13312,7 +13325,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     { const mp=new Map(); (PM.status||[]).forEach(o=>{ const k=o.val+'\u0001'+o.reason; if(!mp.has(k)) mp.set(k,Object.assign({},o,{ items:[] })); mp.get(k).items.push(o.item); });
       mp.forEach(g=>okG.push({ field:g.topic, item:kdcFmtItems(g.items), count:g.items.length, act:g.val, exp:g.reason, note:'MASTER HS CODE ใบอนุญาต · '+g.note })); }
     const naG=[], badG=[];   /* ใบอนุญาตที่ผิดอยู่ในตารางหลัก (ไม่แยก ✕ 2.1 ซ้ำ) */
-    const bad8=(res.fixRows||[]).concat(res.grouped.map(col8));   /* [EDC8] ✕ หลัก 8 คอลัมน์ = หน้าจอ (รวมใบอนุญาต) */
+    const bad8=rows8;   /* [EDC8] ตาราง 8 คอลัมน์ ของ Sheet นี้ (กรองตามสถานะ) */
     const COLS=['No.','หัวข้อตรวจสอบ','Item No.','Actual (ใบขน EDC8)','Expected (FIX/INVOICE/MASTER)','หน่วย','ผลตรวจ','หมายเหตุ'];
     let r=7;
     const section=(title, list, cntTxt, secS, secRS, hdrS, stS, stTxt)=>{
@@ -13322,13 +13335,16 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
         put(r,6,x.st||stTxt,stS); put(r,7,S(x.note),X.CELL_L); r++; });
       r++;
     };
-    section('✓  1. ข้อมูลที่ถูกต้อง', okG, m.pass+' item', X.SECOK, X.SECOKR, X.HDROK, X.ST_OK, 'ถูกต้อง');
-    { /* ✕ 2. ข้อมูลที่ผิด — 8 คอลัมน์ (หัว 2 แถว · MASTER ครอบ พิกัด + MASTER APL) */
-      const nOk=bad8.filter(x=>/^✅/.test(x.st)).length;   /* [EDC8] ตารางเดียวกับหน้าจอ (✅ / ❌ / ⚠️ ทุกแถว) */
-      put(r,0,'✕  2. ข้อมูลที่ผิด',X.SECBAD); fillRow(r,X.SECBAD,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+bad8.length+' แถว (✅ '+nOk+' · ❌/⚠️ '+(bad8.length-nOk)+') · '+m.fail+' item · '+m.points+' จุด',X.SECBADR); fillRow(r,X.SECBADR,5,7); mg(r,5,r,7); rowsH[r]=28; r++;
-      ['Item No.','หัวข้อตรวจสอบ','ใบขน','INVOICE','FIX','MASTER','','สถานะ'].forEach((c,i)=>put(r,i,c,X.HDRBAD)); ['','','','','','พิกัด','MASTER APL',''].forEach((c,i)=>put(r+1,i,c,X.HDRBAD));
+    if(kind==='ok') section('✓  1. ข้อมูลที่ถูกต้อง', okG, m.pass+' item', X.SECOK, X.SECOKR, X.HDROK, X.ST_OK, 'ถูกต้อง');
+    { /* 8 คอลัมน์ (หัว 2 แถว · MASTER ครอบ พิกัด + MASTER APL) · รายการผิด = ✕ · รายการถูก = ✓ ผลรายหัวข้อ · ตรวจไม่ได้ = ⚠ */
+      const T8={ bad:['✕  ข้อมูลที่ผิด', X.SECBAD, X.SECBADR, X.HDRBAD, 'จำนวน '+bad8.length+' แถว (❌ ผิด) · '+m.fail+' item · '+m.points+' จุด'],
+                 ok:['✓  2. ผลตรวจรายหัวข้อที่ถูกต้อง', X.SECOK, X.SECOKR, X.HDROK, 'จำนวน '+bad8.length+' แถว (✅ ถูก)'],
+                 warn:['⚠  ข้อมูลที่ตรวจไม่ได้', X.SECNA, X.SECNAR, X.HDRNA, 'จำนวน '+bad8.length+' แถว (⚠️ ตรวจไม่ได้)'] }[kind];
+      put(r,0,T8[0],T8[1]); fillRow(r,T8[1],0,4); mg(r,0,r,4); put(r,5,T8[4],T8[2]); fillRow(r,T8[2],5,7); mg(r,5,r,7); rowsH[r]=28; r++;
+      ['Item No.','หัวข้อตรวจสอบ','ใบขน','INVOICE','FIX','MASTER','','สถานะ'].forEach((c,i)=>put(r,i,c,T8[3])); ['','','','','','พิกัด','MASTER APL',''].forEach((c,i)=>put(r+1,i,c,T8[3]));
       [0,1,2,3,4,7].forEach(c=>mg(r,c,r+1,c)); mg(r,5,r,6); rowsH[r]=22; rowsH[r+1]=22; r+=2;
       bad8.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,S(x.decl),X.CELL_L); put(r,3,S(x.inv),X.CELL_L); put(r,4,S(x.fix),X.CELL_L); put(r,5,S(x.trf),X.CELL_L); put(r,6,S(x.apl),X.CELL_L); put(r,7,S(x.st).replace(/^(❌|✅|⚠️)\s*/,''),/^✅/.test(x.st)?X.ST_OK:(/^⚠️/.test(x.st)?X.ST_NA:X.ST_BAD)); r++; });
+      if(!bad8.length){ put(r,0,kind==='bad' ? 'ไม่พบข้อผิดพลาด' : (kind==='ok' ? 'ไม่มีหัวข้อที่ตรวจถูก' : '-'),X.CELL_L); fillRow(r,X.CELL_L,0,7); mg(r,0,r,7); r++; }
       r++; }
     if(badG.length) section('✕  2.1 ใบอนุญาตที่ผิด (MASTER HS CODE ใบอนุญาต)', badG, badG.reduce((a,x)=>a+x.count,0)+' จุด', X.SECBAD, X.SECBADR, X.HDRBAD, X.ST_BAD, 'ผิด');
     if(naG.length) section('○  3. ข้อมูลที่ไม่นับ', naG, m.na+' item ไม่ตรวจ', X.SECNA, X.SECNAR, X.HDRNA, X.ST_NA, 'ไม่นับ');
@@ -13337,8 +13353,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
       if(!(col==='A' && rn>8 && typeof cell.v==='number')){ cell.t='s'; cell.v=S(cell.v); } });
     ws['!merges']=merges; ws['!cols']=[{wch:6},{wch:32},{wch:30},{wch:28},{wch:28},{wch:7},{wch:10},{wch:44}];
     ws['!rows']=[]; Object.keys(rowsH).forEach(k=>{ ws['!rows'][+k]={ hpt:rowsH[k] }; });
-    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ผลตรวจ');
-    return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm]);
+    return { ws, sm };
   }
   function aplEdc8ExportAat(){
     if(!LAST){ alert('⚠ กรุณากดตรวจสอบก่อน Export (ไม่มีผลตรวจปัจจุบัน)'); return; }
