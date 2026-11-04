@@ -5832,9 +5832,10 @@ function validateEdc8Rights(eRows, eCI, ref1, ref2){
 // [EDC8 39 หัวข้อ] รายละเอียด Ford Invoice ต้นฉบับที่ Parser เดิมไม่ได้เก็บ — อ่านอย่างเดียว (ไม่แก้ invParseFord / kdcParseInvoiceMeta)
 //   PIECE PRICE + ORIG ต่อรายการ (แถวรายการต้องตรงกับ invParseFord ทุกแถว: PART QTY + EXT PRICE · ไม่ตรง = ไม่มีข้อมูล)
 //   SHIP TO (ผู้รับ + ประเทศ) · SOLD TO (ประเทศ) · SHIP FROM (ผู้ส่งออก) · DELIVERY TERMS · สกุลเงิน
+const edc8ParseFord = wb => invParseFord(wb, { blankPrefix:true });   /* [EDC8 AAT/FTM] ใช้อ่าน Ford Invoice ของ EDC8 ทุกจุด (โหมดอื่นใช้ invParseFord เดิม) */
 function edc8InvoiceDetail(wb){
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'', raw:false }).map(r => String(r[0]||'').replace(/\u00a0/g,' '));
-  let d = null; try{ d = invParseFord(wb); }catch(e){ return null; }
+  let d = null; try{ d = edc8ParseFord(wb); }catch(e){ return null; }
   if(!d || !d.items || !d.items.length || !d.invoiceNo) return null;
   let m = {}; try{ m = kdcParseInvoiceMeta(wb) || {}; }catch(e){}
   const col = (l, k) => String(l.split('*')[k]||'').trim();
@@ -5910,7 +5911,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
           const arr = [];
           for(const e of src){
             if(e && e.wb){
-              const d = invParseFord(e.wb);
+              const d = edc8ParseFord(e.wb);
               if(d && d.items && d.items.length > 0) arr.push(d);
             }
           }
@@ -5924,7 +5925,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
         mapRaws = XLSX.utils.sheet_to_json(convertedSheet, {header:1, defval:'', raw:false});
       } else {
         // Single invoice fallback: parse the merged wb directly
-        const parsed = invParseFord(mappingWb);
+        const parsed = edc8ParseFord(mappingWb);
         if(parsed && parsed.items && parsed.items.length > 0){
           const convertedSheet = buildFordMappingSheet(parsed);
           mapRaws = XLSX.utils.sheet_to_json(convertedSheet, {header:1, defval:'', raw:false});
@@ -6052,6 +6053,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
   const _normInv = v => String(v==null?'':v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase();
   const _num = v => { const n = parseFloat(String(v==null?'':v).replace(/,/g,'').trim()); return isNaN(n) ? null : n; };
   const _aatItemLine = new Map();   // ITEM ใบขน → แถว INVOICE ที่จับคู่แล้ว
+  const _aatDescNM = new Set();     // [EDC8] ITEM ที่แจ้ง DESCRIPTION จับคู่ INVOICE ไม่ได้แล้ว (แจ้งครั้งเดียวต่อ ITEM)
   const invLines = [];   // แถว INVOICE ทุกรายการ (ตามลำดับเดิม) · used = จับคู่กับ ITEM ใบขนแล้ว
   if(_aatByPart){
     for(let r=1; r<mapRaws.length; r++){
@@ -6264,7 +6266,10 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     //   WRONG = mapping_value, CORRECT = entry_value
     if(_aatByPart){   // [EDC8 AAT] Product Code → แถว INVOICE · แถวซ้ำของ ITEM เดียวกัน (เช่นแถวใบอนุญาตเพิ่ม) ใช้แถว INVOICE เดิมของ ITEM นั้น
       if(_aatItemLine.has(itemKey)) mapped = _aatItemLine.get(itemKey);
-      else { mapped = _aatPickInv(row, rowNum, itemDisplay, entryPartRaw); if(mapped) _aatItemLine.set(itemKey, mapped); }
+      else { mapped = _aatPickInv(row, rowNum, itemDisplay, entryPartRaw); if(mapped) _aatItemLine.set(itemKey, mapped);
+        else if(E_DESC !== -1 && !_aatDescNM.has(itemKey)){ _aatDescNM.add(itemKey); const why = (errors.slice().reverse().find(e => e.item === itemDisplay && /^(PART_NOT_IN_INVOICE|INVOICE_PART_AMBIGUOUS)$/.test(e.errorCode)) || {}).found || '(ไม่พบใน INVOICE)';
+          errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:'DESCRIPTION', found:'(จับคู่ INVOICE ไม่ได้ — PART NO. '+(entryPartRaw||'(ว่าง)')+' '+why+')', expected:String(row[E_DESC]==null?'':row[E_DESC]).trim() || '(ว่าง)',
+            errorCode:'DESC_INVOICE_UNMATCHED', severity:'error', source:'mapping', type:'not_found', compareType:'text' }); } }   /* [EDC8] DESCRIPTION ของ ITEM นี้เทียบ INVOICE ไม่ได้ → ❌ พร้อมสาเหตุ (ไม่ใช้ DESCRIPTION ของ ITEM อื่น) */
       { const R=window.EDC8_REF, ref=R.get(itemDisplay) || {}; R.set(itemDisplay, ref);
         if(mapped && mapped.row){ ref.inv={ part:M_PART!==-1 ? String(mapped.row[M_PART]==null?'':mapped.row[M_PART]).trim() : '', desc:M_DESC!==-1 ? String(mapped.row[M_DESC]==null?'':mapped.row[M_DESC]).trim() : '' }; } else ref.invNF=true; }
     }
@@ -9128,7 +9133,7 @@ function tryParseFordAny(wb){
   return parseFordMappingExcel(wb);
 }
 
-function invParseFord(wb){
+function invParseFord(wb, opts){   /* opts.blankPrefix (EDC8 AAT/FTM เท่านั้น): อ่านรายการที่ Prefix ของ PART NUMBER ว่าง เช่น "-  W528029-S300" */
   const sheet   = wb.Sheets[wb.SheetNames[0]];
   const rawRows = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
   const rows    = rawRows.map(r=>String(r[0]||'').trimEnd());
@@ -9238,7 +9243,8 @@ function invParseFord(wb){
     if(!/[\d\.]+\s*$/.test(cell)) continue;
 
     // Skip non-item rows
-    if(isNonItem(cell)) continue;
+    const _bp = !!(opts && opts.blankPrefix) && /^-\s+[A-Z0-9]/i.test(cell);   /* [EDC8] Prefix ว่าง: "-  W528029-S300  DESC  TH ..." = รายการสินค้า */
+    if(!_bp && isNonItem(cell)) continue;
 
     // Skip if it contains INVOICE NO or PAGE/SEITE (page break repeat headers)
     if(cell.includes('INVOICE NO.') || cell.includes('PAGE/SEITE')) continue;
@@ -9257,14 +9263,15 @@ function invParseFord(wb){
     if(!gaps.length) continue;
 
     const lastGap = gaps[gaps.length - 1];
-    const partRaw = leftFull.slice(0, lastGap.index).trim();
+    const partRaw = leftFull.slice(0, lastGap.index).trim().replace(_bp ? /^-\s*/ : /^$/, '');
     const desc    = leftFull.slice(lastGap.index + lastGap[0].length).trim() || 'ตรวจไม่ได้';
     const partNo  = partRaw.replace(/\s+/g, '') || 'ตรวจไม่ได้';
 
     // PART QTY: extract from asterisk-prefixed quantity field (****N or ***NN etc)
     // This pattern is universal across all Ford invoice layouts
     const asteriskM = tail.match(/\*+(\d+)/);
-    const partQty   = asteriskM ? parseInt(asteriskM[1], 10) : 0;
+    const _qNoStar  = (!asteriskM && opts && opts.blankPrefix) ? tail.match(/(?:^|\s)(\d+)\s+[\d.,]+\s+[A-Z]{1,4}\s+[\d.,]+\s+[\d.,]+\s*$/) : null;   /* [EDC8] PART QTY เต็มช่อง (ไม่มี * นำหน้า เช่น 466500) */
+    const partQty   = asteriskM ? parseInt(asteriskM[1], 10) : (_qNoStar ? parseInt(_qNoStar[1], 10) : 0);
 
     // EXT PRICE: last numeric value at far right of row (always the extended price)
     const allNums = [...tail.matchAll(/([\d,\.]+)/g)]
@@ -9688,7 +9695,7 @@ function fordInvLoad(file, dz, btnRow){
     //   (Moreover, FZ rejects Ford raw at drop time above, so this branch wouldn't fire.)
     const _isFirstFile = (_mfFiles[dz.id]||[]).length === 1;
     if(_isFirstFile && dz.id !== 'fordInvFzDZ') try{
-      const d = invParseFord(wb);
+      const d = dz.id === 'fordInvEdc8DZ' ? edc8ParseFord(wb) : invParseFord(wb);   /* [EDC8] อ่านรายการ Prefix ว่างด้วย */
       if(d && d.invoiceNo){
         const toNum = v=>{ const n=parseFloat(v); return isNaN(n)?v:n; };
         const totalQty = d.items.reduce((s,r)=>s+r.partQty,0);
@@ -10417,11 +10424,11 @@ function edc8ExportMapping(){
     const newWb = XLSX.utils.book_new();
     const files = _mfSort(_mfFiles.fordInvEdc8DZ||[]);
     if(files.length>1){
-      const parsed=files.map(e=>invParseFord(e.wb)).filter(d=>d.items.length);
+      const parsed=files.map(e=>edc8ParseFord(e.wb)).filter(d=>d.items.length);
       if(!parsed.length){ alert('⚠ ไม่พบข้อมูลในไฟล์ Ford Invoice'); return; }
       XLSX.utils.book_append_sheet(newWb, buildFordMappingSheetMulti(parsed), 'Mapping');
     } else {
-      const d = invParseFord(fordWbEdc8);
+      const d = edc8ParseFord(fordWbEdc8);
       if(!d.items.length){ alert('⚠ ไม่พบข้อมูลในไฟล์ Ford Invoice'); return; }
       XLSX.utils.book_append_sheet(newWb, buildFordMappingSheet(d), 'Mapping');
     }
@@ -10434,11 +10441,11 @@ function edc8ExportFordTotal(){
     const newWb = XLSX.utils.book_new();
     const files = _mfSort(_mfFiles.fordInvEdc8DZ||[]);
     if(files.length>1){
-      const parsed=files.map(e=>invParseFord(e.wb)).filter(d=>d.items.length);
+      const parsed=files.map(e=>edc8ParseFord(e.wb)).filter(d=>d.items.length);
       if(!parsed.length){ alert('⚠ ไม่พบข้อมูลในไฟล์ Ford Invoice'); return; }
       XLSX.utils.book_append_sheet(newWb, buildFordTotalSheetMulti(parsed), 'TOTAL');
     } else {
-      const d = invParseFord(fordWbEdc8);
+      const d = edc8ParseFord(fordWbEdc8);
       if(!d.items.length){ alert('⚠ ไม่พบข้อมูลในไฟล์ Ford Invoice'); return; }
       XLSX.utils.book_append_sheet(newWb, buildFordTotalSheet(d), 'TOTAL');
     }
@@ -13111,22 +13118,24 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
     const tCol=H.indexOf(NV('คำแปลไทย')), th1=new Map(), skipRow=new Set(), unitItem=new Set(), TU=(typeof EDC8_THAI_UNIT_FIX!=='undefined' ? EDC8_THAI_UNIT_FIX : {}), RN=(typeof EDC8_RADAR_NAME!=='undefined' ? EDC8_RADAR_NAME : null);
     if(tCol!==-1 && iCol!==-1) rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=nkItem(r[iCol]); if(!it) return; const t=S(r[tCol]).trim().replace(/\s+/g,' ');
       if(!th1.has(it)){ th1.set(it,t); if(typeof edc8UnitFixOf==='function' ? edc8UnitFixOf(t) : TU[t]) unitItem.add(it); } else if(th1.get(it)===RN) skipRow.add(r); });
+    const ID=v=>{ const t=S(v).trim(); return /^\d+$/.test(t) ? t.padStart(5,'0') : t; }, FI=a=>(typeof kdcFmtItems==='function' ? kdcFmtItems(a) : a.join(', '));
+    const ALLI=iCol===-1 ? '' : FI([...new Set(rows.slice(1).filter(r=>r && r.some(c=>S(c).trim()!=='') && nkItem(r[iCol]) && !skipRow.has(r)).map(r=>ID(r[iCol])))]);   /* ทุก ITEM ของใบขน (ใช้กับหัวข้อระดับไฟล์ เช่น ไม่มีคอลัมน์) */
     for(const f of FIX_TOPICS){
       const errs=errors.filter(e=>fixTopicOf(e)===f), ci=H.indexOf(NV(f.col));
       const rule=f.fix===undefined ? ruleFor(f.col) : null, fixTxt=f.fix!==undefined ? f.fix : (rule ? opText(rule.op, rule.value) : '');
       const noRule=f.fix===undefined && !rule;
-      const R=(decl, fx, st, cnt)=>out.push({ item:DASH, count:cnt||0, field:f.t, decl, inv:DASH, fix:fx, trf:DASH, apl:DASH, st, src:'fixtop' });
+      const R=(decl, fx, st, cnt, itm)=>out.push({ item:itm||ALLI||DASH, count:cnt||0, field:f.t, decl, inv:DASH, fix:fx, trf:DASH, apl:DASH, st, src:'fixtop' });   /* [EDC8] Item No. จากใบขน (ไม่ใช้ — เมื่อระบุได้) */
       if(ci===-1){ if(noRule){ unchecked.push(f.t); R('(ใบขนไม่มีคอลัมน์ '+f.col+')', 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้'); } else R('(ใบขนไม่มีคอลัมน์ '+f.col+')', fixTxt||DASH, '❌ ผิด'); continue; }
       const vals=new Map(), errI=errs.filter(e=>e.severity==='error' && e.item!=='-' && e.item!=='HEADER'), bad=new Set(errI.map(e=>nkItem(e.item)));
       /* [EDC8] ค่าฟ้อง: นับผิดเฉพาะแถวที่ค่าใบขนตรงกับค่าที่ฟ้องจริง (found) ของ ITEM นั้น — ค่าที่ถูกของ ITEM เดียวกันไม่ถูกนับเป็นผิด
          ถ้าค่าที่ฟ้องไม่ตรงกับแถวใดของ ITEM (รูปแบบต่างกัน) → นับทุกแถวของ ITEM นั้นเป็นผิดเหมือนเดิม (ไม่ซ่อนรายการผิดจริง) */
       const VN=v=>S(v).trim().replace(/\s+/g,' ').toUpperCase(), badVal=new Set(errI.map(e=>nkItem(e.item)+'|'+VN(e.found))), seen=[];
       rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=iCol===-1 ? '' : nkItem(r[iCol]); if(iCol!==-1 && !it) return; if(skipRow.has(r) || ((f.t==='QTY ใบขน' || f.t==='QTY 2') && unitItem.has(it))) return;
-        seen.push([it, S(r[ci]).trim()||'(ว่าง)']); });
+        seen.push([it, S(r[ci]).trim()||'(ว่าง)', ID(r[iCol])]); });
       const itemHit=new Set(seen.filter(([it,v])=>badVal.has(it+'|'+VN(v))).map(x=>x[0]));
-      seen.forEach(([it,v])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0 }); const o=vals.get(v); o.n++; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)) o.bad++; });
+      seen.forEach(([it,v,d])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0, ok:[], badIt:[] }); const o=vals.get(v); o.n++; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)){ o.bad++; if(!o.badIt.includes(d)) o.badIt.push(d); } else if(!o.ok.includes(d)) o.ok.push(d); });
       if(noRule){ unchecked.push(f.t); vals.forEach((o,v)=>R(v, 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้', o.n)); continue; }
-      vals.forEach((o,v)=>{ if(o.bad) R(v, fixTxt||DASH, (o.bad<o.n ? '❌ ผิด ('+o.bad+' จาก '+o.n+' ITEM)' : (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด')), o.n); else R(v, fixTxt||DASH, '✅ ถูก', o.n); });   /* ค่าที่ถูก = แถว ✅ (หน้าจอรายการผิดกรองออก · EXPORT อยู่ Sheet รายการถูก) · ค่าที่ผิด = ❌ */
+      vals.forEach((o,v)=>{ o.badIt.forEach(d=>R(v, fixTxt||DASH, (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด'), 1, d)); if(o.ok.length) R(v, fixTxt||DASH, '✅ ถูก', o.ok.length, FI(o.ok)); });   /* [EDC8] Item No. ใบขน: ค่าผิด = แถวละ ITEM · ค่าถูก = รายการ ITEM */   /* ค่าที่ถูก = แถว ✅ (หน้าจอรายการผิดกรองออก · EXPORT อยู่ Sheet รายการถูก) · ค่าที่ผิด = ❌ */
     }
     return { rows:out, unchecked, belongs:e=>!!fixTopicOf(e) };
   }
