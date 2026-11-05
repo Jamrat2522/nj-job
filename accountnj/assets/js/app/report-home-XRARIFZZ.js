@@ -621,20 +621,40 @@ async function R4pdf(t, e) {
   });
 }
 
-/* ═══ V.757 · REPORT → DOCUMENT → 1.2 ค่าแลกดีโอ ═══════════════════════════════════════════════
-   ข้อมูล : njacc_report_do757 (RUN-757 · อ่านอย่างเดียว) = รายการจ่ายของ JOB ADVANCE ประเภท "ค่าแลก D/O" / "ค่ามัดจำตู้" ทุกสถานะ · Date = วันที่ JOB
-   สิทธิ์ : เมนู / หน้า = RI595("do-exchange") · Server ตรวจซ้ำ (REPORT + สิทธิ์ย่อย + view + ขอบเขตการมองเห็น) — ไม่แก้ / ไม่บันทึกข้อมูลใด ๆ
-   Excel  : รูปแบบตามไฟล์ตัวอย่าง (Sheet "แลกดีโอ" · 14 คอลัมน์ A–N · TH SarabunPSK 16 · หัวสีส้ม FFC000 · เส้นบาง · ตรึงแถว 1 · ความกว้างคอลัมน์เดิม)
-            คอลัมน์ J–N (หมายเหตุ / วันที่รับ-ส่ง เอกสาร / ใบเสร็จตัวจริง CS (Date) / สถานที่ / รายละเอียด) = ช่องว่างให้กรอกเอง */
+/* ═══ V.758 · REPORT → DOCUMENT → 1.2 ค่าแลกดีโอ (แทน V.757 · แหล่งข้อมูล / สิทธิ์ / RPC เดิม) ═══════════════════════════════
+   ข้อมูล : njacc_report_do757 (อ่านอย่างเดียว) = รายการจ่ายของ JOB ADVANCE ประเภท "ค่าแลก D/O" / "ค่ามัดจำตู้" · 1 รายการจ่าย = 1 แถว · ยอด = ยอดจ่ายจริง (real_pay)
+            RUN-758 เพิ่มเฉพาะ company_invoice_id / customer_id ในผลลัพธ์ (ใช้สร้างตัวเลือกจากข้อมูลจริง)
+   หน้าจอ : ตาราง 14 คอลัมน์ตามต้นแบบ · หัวน้ำเงิน · แถวสลับขาว / ฟ้าอ่อน · ยอดรวมจ่ายสุทธิด้านล่าง
+   ตัวกรอง : ค้นหาทั่วไป (ทุก 14 คอลัมน์) · Company Invoice / ลูกค้า = จากชุดข้อมูลรายงานจริงเท่านั้น (ไม่ใช่ Master) · ทำงานร่วมกันแบบ AND
+            ประเภท / วันที่ JOB = ส่งให้ Server เหมือนเดิม
+   Excel  : ตามไฟล์ต้นแบบ "ค่าแลกดีโอ_ออกแบบใหม่" (Sheet รายงานค่าแลกดีโอ · Table DOReportItems · สี / ฟอนต์ / ความกว้าง / ความสูงตามต้นแบบ · SUM ครอบทุกแถว)
+            คอลัมน์ J–N = ช่องว่างให้กรอกเอง (ไม่มีข้อมูลจริงในระบบ · ไม่ใช้ค่าตัวอย่างจากไฟล์ต้นแบบ) */
 var DT757 = ["ค่าแลก D/O", "ค่ามัดจำตู้"];
-var DS757 = { rows: null, sum: 0, page: 1, size: 20 };
+var DS757 = { all: null, rows: [], sum: 0, page: 1, size: 20, t: null };
 var DH757 = ["item", "Job No.", "Date", "Company Invoice", "Customer Name", "เอเยนต์/ชื่อบัญชี", "House B/L No.", "ประเภท", "ยอดจ่ายสุทธิ",
   "หมายเหตุ", "วันที่รับ/ส่ง เอกสาร", "ใบเสร็จตัวจริง CS (Date)", "สถานที่", "รายละเอียด"];
-var DW757 = [8.7265625, 20.7265625, 14.54296875, 43.90625, 39.81640625, 36.6328125, 29.81640625, 20.26953125, 18, 28, 17.90625, 22.453125, 8.26953125, 11.26953125];
+var DW757 = [8, 24, 14, 34, 36, 35, 25, 18, 20, 18, 24, 24, 20, 22];   /* ความกว้างคอลัมน์ต้นแบบ (Excel) — หน้าจอใช้สัดส่วนเดียวกัน */
+var DTOT758 = "ยอดรวมจ่ายสุทธิทั้งหมด";   /* ยอดรวมจ่ายสุทธิทั้งหมด */
 var DJ757 = (r) => r.job_no || r.open_no || "";
+var DN758 = (s) => String(s == null ? "" : s).normalize("NFC").toLowerCase();
+function DC758() {
+  if (document.getElementById("d758-css")) return;
+  let st = document.createElement("style"); st.id = "d758-css";
+  st.textContent = ".d758-wrap{overflow:auto;max-height:70vh;border:1px solid #d7e3f7;border-radius:10px}"
+    + ".d758-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:13px;color:#26374B}"
+    + ".d758-tbl th{position:sticky;top:0;z-index:1;background:#175CD3;color:#fff;font-weight:700;font-size:12.5px;text-align:center;vertical-align:middle;white-space:normal;word-break:break-word;padding:10px 8px;border:1px solid #527ECC;line-height:1.3}"
+    + ".d758-tbl td{padding:8px;vertical-align:middle;white-space:normal;word-break:break-word;line-height:1.35;background:#FFFFFF;border-bottom:1px solid #eef3fb}"
+    + ".d758-tbl tbody tr:nth-child(even) td{background:#F4F8FD}"
+    + ".d758-tbl td.d758-ty{background:#EDF4FF}.d758-tbl tbody tr:nth-child(even) td.d758-ty{background:#E4EFFE}"
+    + ".d758-tbl td.c{text-align:center}.d758-tbl td.d758-m{text-align:right;color:#067647;font-weight:700;white-space:nowrap}"
+    + ".d758-tbl tfoot td{position:sticky;bottom:0;background:#102A4C;color:#fff;font-weight:700;font-size:14px;padding:10px 8px}"
+    + ".d758-tbl tfoot td.d758-m{color:#fff;text-align:right}"
+    + ".d758-q{min-width:240px}";
+  document.head.appendChild(st);
+}
 function DQ757(t) {
   let g = (k) => { let el = t.querySelector(`[data-d757="${k}"]`); return el ? String(el.value || "").trim() : ""; };
-  return { company_group: g("company_group"), company_invoice_id: g("company_invoice_id"), customer_id: g("customer_id"), payment_type: g("payment_type"), from: g("from"), to: g("to") };
+  return { q: g("q"), company_invoice_id: g("company_invoice_id"), customer_id: g("customer_id"), payment_type: g("payment_type"), from: g("from"), to: g("to") };
 }
 function DE757(err) {
   let m = String((err && err.message) || ""), T = {
@@ -647,16 +667,63 @@ function DE757(err) {
   for (let k in T) if (m.includes(k)) return new Error(T[k]);
   return err;
 }
+/* Server : เฉพาะ ประเภท / ช่วงวันที่ JOB (ชุดข้อมูลรายงาน) · บริษัท / ลูกค้า / ค้นหา = กรองจากชุดข้อมูลนี้ (DF758) */
 async function DL757(q) {
   let r;
-  try {
-    r = await RPC757("njacc_report_do757", { p: { company_group: q.company_group || null, company_invoice_id: q.company_invoice_id || null, customer_id: q.customer_id || null, payment_type: q.payment_type || null, from: q.from || null, to: q.to || null } });
-  } catch (e) { throw DE757(e); }
-  return { rows: r && Array.isArray(r.rows) ? r.rows : [], sum: Number((r && r.sum_real_pay) || 0) };
+  try { r = await RPC757("njacc_report_do757", { p: { company_group: null, company_invoice_id: null, customer_id: null, payment_type: q.payment_type || null, from: q.from || null, to: q.to || null } }); }
+  catch (e) { throw DE757(e); }
+  return r && Array.isArray(r.rows) ? r.rows : [];
+}
+function DV757(q) {
+  if (q.from && q.to && q.from > q.to) { h("วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด", "err"); return !1; }
+  return !0;
+}
+/* ตัวเลือก Company Invoice / ลูกค้า จากชุดข้อมูลจริง (อ้างอิงด้วย ID · ตัดค่าว่าง · ไม่ซ้ำ) */
+function DO758(rows, key, name) {
+  let m = new Map();
+  rows.forEach((r) => { let id = r[key], nm = String(r[name] || "").trim(); id && nm && !m.has(id) && m.set(id, nm); });
+  return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "th"));
+}
+function DP758(e) {
+  let all = DS757.all || [], cs = e.querySelector('[data-d757="company_invoice_id"]'), us = e.querySelector('[data-d757="customer_id"]');
+  if (!cs || !us) return;
+  let cv = cs.value, co = DO758(all, "company_invoice_id", "company_invoice");
+  co.some(([id]) => id === cv) || (cv = "");
+  cs.innerHTML = '<option value="">ทั้งหมด</option>' + co.map(([id, nm]) => `<option value="${y(id)}"${id === cv ? " selected" : ""}>${y(nm)}</option>`).join("");
+  cs.value = cv;
+  let uv = us.value, cu = DO758(cv ? all.filter((r) => r.company_invoice_id === cv) : all, "customer_id", "customer_name");
+  cu.some(([id]) => id === uv) || (uv = "");   /* ลูกค้าเดิมไม่อยู่ภายใต้บริษัทที่เลือก = ล้างค่า */
+  us.innerHTML = '<option value="">— เลือกลูกค้า —</option>' + cu.map(([id, nm]) => `<option value="${y(id)}"${id === uv ? " selected" : ""}>${y(nm)}</option>`).join("");
+  us.value = uv;
+}
+/* ค่าที่แสดงของแต่ละคอลัมน์ (ใช้ร่วม : หน้าจอ / ค้นหา) */
+function DX758(r, i) {
+  return [String(i + 1), DJ757(r), r.date ? D(r.date) : "", r.company_invoice || "", r.customer_name || "", r.account_name || "", r.house_bl_no || "", r.payment_type || "", r.real_pay == null ? "" : E(Number(r.real_pay)), "", "", "", "", ""];
+}
+function DF758(all, q) {
+  let a = all.filter((r) => (!q.company_invoice_id || r.company_invoice_id === q.company_invoice_id) && (!q.customer_id || r.customer_id === q.customer_id));
+  let s = DN758(q.q).trim();
+  if (!s) return a;
+  return a.filter((r, i) => { let v = DX758(r, i); v.push(r.date || "", r.real_pay == null ? "" : String(r.real_pay), r.open_no || ""); return DN758(v.join("\u0001")).includes(s); });
+}
+function DA758(e) {
+  let q = DQ757(e), a = DF758(DS757.all || [], q);
+  DS757.rows = a; DS757.sum = Math.round(a.reduce((s, r) => s + (Number(r.real_pay) || 0), 0) * 100) / 100;
+  DR757(e);
+}
+async function DLD758(e, msg) {
+  let b = e.querySelector("#d757-go"), st = e.querySelector("#d757-status"), q = DQ757(e);
+  if (!DV757(q)) return;
+  await O("d757-show", async () => {
+    let t0 = b.textContent; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
+    try { DS757.all = await DL757(q); DS757.page = 1; DP758(e); st.textContent = msg || ""; DA758(e); }
+    catch (a) { st.textContent = ""; C(a, "ดึงรายงานไม่สำเร็จ"); }
+    finally { b.disabled = !1; b.textContent = t0; }
+  });
 }
 function DO757(e, o) {
+  DC758();
   let col = R4C.DOCUMENT, fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
-  let co = ((GS504 && GS504.masters && GS504.masters.companies) || []).filter((x) => x && x.id);
   e.innerHTML = `
     <nav class="r4-crumb" aria-label="breadcrumb"><a href="#/report" class="r4-i" title="Report">${R4IC.home}</a><span class="sep">›</span><a href="#/report">Report</a><span class="sep">›</span><span>${y(o.group)}</span><span class="sep">›</span><b>${y(o.no)} ${y(o.title)}</b></nav>
     <div class="r4-card r4-head" style="--c:${col};--cl:#eff6ff">
@@ -664,9 +731,9 @@ function DO757(e, o) {
       <div><h2><span class="no">${y(o.no)}</span>${y(o.title)}</h2><p class="rpt2-note">${y(o.note || "")}</p></div>
     </div>
     <div class="r4-card r4-filter"><div class="r4-fg">
-      ${fld("บริษัท", `<select class="sel" data-d757="company_group" title="บริษัท"><option value="">ทุกบริษัท</option>${S.map((r) => `<option value="${y(r.key)}">${y(r.label)}</option>`).join("")}</select>`)}
-      ${fld("Company Invoice", `<select class="sel" data-d757="company_invoice_id" title="Company Invoice"><option value="">ทั้งหมด</option>${co.map((r) => `<option value="${y(r.id)}">${y(r.name || r.code || "")}</option>`).join("")}</select>`)}
-      ${fld("ลูกค้า", `<select class="sel" data-d757="customer_id" title="ลูกค้า">${U("")}</select>`)}
+      ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-d757="q" placeholder="ค้นหาข้อมูลทุกหัวข้อ..." title="ค้นหาข้อมูลทุกหัวข้อ" autocomplete="off">`)}
+      ${fld("Company Invoice", `<select class="sel" data-d757="company_invoice_id" title="Company Invoice"><option value="">ทั้งหมด</option></select>`)}
+      ${fld("ลูกค้า", `<select class="sel" data-d757="customer_id" title="ลูกค้า"><option value="">— เลือกลูกค้า —</option></select>`)}
       ${fld("ประเภท", `<select class="sel" data-d757="payment_type" title="ประเภท"><option value="">ค่าแลก D/O + ค่ามัดจำตู้</option>${DT757.map((x) => `<option value="${y(x)}">${y(x)}</option>`).join("")}</select>`)}
       ${fld("วันที่ JOB เริ่มต้น", `<input class="inp" type="date" data-d757="from" title="วันที่ JOB เริ่มต้น">`)}
       ${fld("วันที่ JOB สิ้นสุด", `<input class="inp" type="date" data-d757="to" title="วันที่ JOB สิ้นสุด">`)}
@@ -679,34 +746,26 @@ function DO757(e, o) {
     <div class="r4-card rpt2-res" id="d757-res" hidden>
       <div class="rpt2-res-h">
         <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="d757-res-t"></span></div>
-        <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>ดาวน์โหลด (Excel)</button></div>
+        <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
       </div>
-      <div class="tbl-wrap rpt2-tbl"><table class="tbl">
-        <thead><tr><th class="c">item</th>${DH757.slice(1, 9).map((h, i) => `<th${i === 7 ? ' class="r"' : ""}>${y(h)}</th>`).join("")}</tr></thead>
+      <div class="d758-wrap"><table class="d758-tbl">
+        <colgroup>${DW757.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
+        <thead><tr>${DH757.map((x) => `<th>${y(x)}</th>`).join("")}</tr></thead>
         <tbody id="d757-tb"></tbody><tfoot id="d757-tf"></tfoot></table></div>
       <div id="d757-pgn"></div>
     </div>`;
-  DS757.rows = null; DS757.page = 1;
-  e.querySelector("#d757-go").onclick = () => DG757(e);
+  DS757.all = null; DS757.rows = []; DS757.page = 1;
+  e.querySelector("#d757-go").onclick = () => DLD758(e);
   e.querySelector("#d757-xls").onclick = () => DXB757(e);
+  let cs = e.querySelector('[data-d757="company_invoice_id"]'), us = e.querySelector('[data-d757="customer_id"]'), qi = e.querySelector('[data-d757="q"]');
+  cs.onchange = () => { DS757.page = 1; DP758(e); DS757.all && DA758(e); };
+  us.onchange = () => { DS757.page = 1; DS757.all && DA758(e); };
+  qi.oninput = () => { clearTimeout(DS757.t); DS757.t = setTimeout(() => { DS757.page = 1; DS757.all && DA758(e); }, 200); };
   e.querySelector("#d757-clear").onclick = () => {
     e.querySelectorAll("[data-d757]").forEach((el) => { el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); });
-    let st = e.querySelector("#d757-status"); st && (st.textContent = "ล้างตัวกรองแล้ว — กด “แสดงรายงาน” เพื่อดึงข้อมูลใหม่");
+    DLD758(e, "ล้างตัวกรองแล้ว — แสดงรายการทั้งหมดในขอบเขตรายงาน 1.2");
   };
-}
-function DV757(e, q) {
-  if (q.from && q.to && q.from > q.to) { h("วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด", "err"); return !1; }
-  return !0;
-}
-async function DG757(e) {
-  let b = e.querySelector("#d757-go"), st = e.querySelector("#d757-status"), q = DQ757(e);
-  if (!DV757(e, q)) return;
-  await O("d757-show", async () => {
-    let t0 = b.textContent; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
-    try { let d = await DL757(q); DS757.rows = d.rows; DS757.sum = d.sum; DS757.page = 1; st.textContent = ""; DR757(e); }
-    catch (a) { st.textContent = ""; C(a, "ดึงรายงานไม่สำเร็จ"); }
-    finally { b.disabled = !1; b.textContent = t0; }
-  });
+  DLD758(e);   /* เปิดหน้า = ดึงข้อมูลทันที (สร้างตัวเลือก Company Invoice / ลูกค้า จากข้อมูลจริง) */
 }
 function DR757(e) {
   let res = e.querySelector("#d757-res"), tb = e.querySelector("#d757-tb"), tf = e.querySelector("#d757-tf"), pg = e.querySelector("#d757-pgn"), a = DS757.rows || [];
@@ -714,51 +773,68 @@ function DR757(e) {
   res.hidden = !1;
   e.querySelector("#d757-res-t").textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`;
   e.querySelector("#d757-xls").disabled = !a.length;
-  if (!a.length) { tb.innerHTML = '<tr><td colspan="9" class="center t-3">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>'; tf.innerHTML = ""; pg.innerHTML = ""; return; }
+  if (!a.length) { tb.innerHTML = '<tr><td colspan="14" class="c">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>'; tf.innerHTML = ""; pg.innerHTML = ""; return; }
   let n = Math.max(1, Math.ceil(a.length / DS757.size));
   DS757.page > n && (DS757.page = n);
-  let p0 = (DS757.page - 1) * DS757.size, v = a.slice(p0, p0 + DS757.size), z = (x) => (x == null || x === "" ? "-" : String(x));
-  tb.innerHTML = v.map((r, i) => `<tr><td class="c">${p0 + i + 1}</td><td>${y(z(DJ757(r)))}</td><td>${y(r.date ? D(r.date) : "-")}</td><td>${y(z(r.company_invoice))}</td><td>${y(z(r.customer_name))}</td><td>${y(z(r.account_name))}</td><td>${y(z(r.house_bl_no))}</td><td>${y(z(r.payment_type))}</td><td class="r">${r.real_pay == null ? "-" : y(E(Number(r.real_pay)))}</td></tr>`).join("");
-  tf.innerHTML = `<tr><td colspan="8" class="r"><b>TOTAL</b></td><td class="r"><b>${y(E(DS757.sum))}</b></td></tr>`;
+  let p0 = (DS757.page - 1) * DS757.size;
+  tb.innerHTML = a.slice(p0, p0 + DS757.size).map((r, i) => {
+    let v = DX758(r, p0 + i);
+    return "<tr>" + v.map((x, k) => `<td class="${k === 0 || k === 2 ? "c" : k === 7 ? "d758-ty" : k === 8 ? "d758-m" : ""}">${y(x)}</td>`).join("") + "</tr>";
+  }).join("");
+  tf.innerHTML = `<tr><td colspan="8">${y(DTOT758)}</td><td class="d758-m">${y(E(DS757.sum))}</td><td colspan="5"></td></tr>`;
   q(pg, { page: DS757.page, size: DS757.size, total: a.length }, (d) => { DS757.page = d.page; DS757.size = d.size; DR757(e); });
 }
 async function DXB757(e) {
   let b = e.querySelector("#d757-xls"), st = e.querySelector("#d757-status"), q = DQ757(e);
-  if (!DV757(e, q)) return;
+  if (!DV757(q)) return;
   await O("d757-export", async () => {
     let t0 = b.innerHTML; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…"; st.textContent = "กำลังดึงข้อมูล…";
     try {
-      let d = await DL757(q);   /* ดึงใหม่ตามตัวกรองปัจจุบัน (ข้อมูลล่าสุด · ตรงกับหน้าจอเมื่อกด "แสดงรายงาน" ด้วยตัวกรองเดียวกัน) */
-      DS757.rows = d.rows; DS757.sum = d.sum; DR757(e);
-      if (!d.rows.length) { st.textContent = "ไม่มีข้อมูลตามเงื่อนไขที่เลือก — ไม่ได้สร้างไฟล์"; h("ไม่มีข้อมูลตามเงื่อนไขที่เลือก", "err"); return; }
-      let buf = await DX757(d.rows), dt = new Date(), p2 = (x) => String(x).padStart(2, "0");
+      DS757.all = await DL757(q); DP758(e); DA758(e);   /* ข้อมูลล่าสุด + ตัวกรองที่เลือกอยู่ (ค้นหา / บริษัท / ลูกค้า / ประเภท / วันที่) = ชุดเดียวกับหน้าจอ */
+      let rows = DS757.rows;
+      if (!rows.length) { st.textContent = "ไม่มีข้อมูลตามเงื่อนไขที่เลือก — ไม่ได้สร้างไฟล์"; h("ไม่มีข้อมูลตามเงื่อนไขที่เลือก", "err"); return; }
+      let buf = await DX757(rows), dt = new Date(), p2 = (x) => String(x).padStart(2, "0");
       R4dl(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `แลกดีโอ_${dt.getFullYear()}${p2(dt.getMonth() + 1)}${p2(dt.getDate())}.xlsx`);
-      st.textContent = `ส่งออกแล้ว ${d.rows.length.toLocaleString("th-TH")} แถว`; h(`ส่งออก Excel ${d.rows.length.toLocaleString("th-TH")} แถว`, "ok");
+      st.textContent = `ส่งออกแล้ว ${rows.length.toLocaleString("th-TH")} แถว`; h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} แถว`, "ok");
     } catch (a) { st.textContent = ""; C(a, "สร้างรายงานไม่สำเร็จ"); }
     finally { b.disabled = !(DS757.rows && DS757.rows.length); b.innerHTML = t0; }
   });
 }
-/* Excel ตามไฟล์ตัวอย่าง (ค่ารูปแบบอ่านจากไฟล์ต้นฉบับ : styles.xml / sheet1.xml) */
+/* Excel ตามไฟล์ต้นแบบ "ค่าแลกดีโอ_ออกแบบใหม่" (ค่ารูปแบบอ่านจาก styles.xml / sheet1.xml / table1.xml ของต้นฉบับ) */
 async function DX757(rows) {
-  let X = await XJ504(), wb = new X.Workbook(), ws = wb.addWorksheet("แลกดีโอ", { views: [{ state: "frozen", xSplit: 0, ySplit: 1, topLeftCell: "A2", activeCell: "A2" }] });
+  let X = await XJ504(), wb = new X.Workbook(), n = rows.length, last = n + 1;
+  let ws = wb.addWorksheet("รายงานค่าแลกดีโอ", { views: [{ state: "frozen", xSplit: 0, ySplit: 1, topLeftCell: "A2", activeCell: "A2" }] });
   wb.creator = "NJL Logistic"; wb.created = new Date();
-  let F0 = (o) => Object.assign({ name: "TH SarabunPSK", size: 16, family: 2, charset: 222 }, o);
-  let fT = F0({ color: { theme: 1 } }), fTB = F0({ bold: !0, color: { theme: 1 } }), fJob = F0({ bold: !0, color: { argb: "FF0F172A" } }), fBk = F0({ color: { argb: "FF000000" } }), fTyp = F0({ bold: !0, color: { argb: "FF1E3A8A" } });
-  let bd = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } }, fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFC000" } };
+  let fD = { name: "Aptos", size: 11, color: { argb: "FF26374B" } }, fH = { name: "Aptos", size: 10, bold: !0, color: { argb: "FFFFFFFF" } },
+    fM = { name: "Aptos", size: 11, bold: !0, color: { argb: "FF067647" } }, fT = { name: "Aptos", size: 12, bold: !0, color: { argb: "FFFFFFFF" } };
+  let fill = (c) => ({ type: "pattern", pattern: "solid", fgColor: { argb: c } }), bc = { style: "thin", color: { argb: "FF527ECC" } }, bd = { top: bc, left: bc, bottom: bc, right: bc };
   DW757.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  let hr = ws.getRow(1); hr.height = 22;
-  DH757.forEach((t, i) => { let c = hr.getCell(i + 1); c.value = t; c.font = i === 0 ? fT : fTB; c.fill = fill; c.border = bd; c.alignment = i === 5 ? { horizontal: "center", vertical: "middle", wrapText: !0 } : { horizontal: "center", vertical: "middle" }; });
-  rows.forEach((r, ix) => {
-    let rw = ws.getRow(ix + 2), m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.date || "")), pay = r.real_pay == null || r.real_pay === "" ? null : Number(r.real_pay);
-    let v = [ix + 1, DJ757(r), m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null, r.company_invoice || "", r.customer_name || "", r.account_name || "", r.house_bl_no || "", r.payment_type || "", pay == null || isNaN(pay) ? null : pay, "", "", "", "", ""];
-    rw.height = 17;
-    v.forEach((x, i) => {
-      let c = rw.getCell(i + 1); c.value = x; c.border = bd;
-      c.font = i === 0 ? fT : i === 1 ? fJob : i === 7 ? fTyp : fBk;
-      c.alignment = { horizontal: i === 0 ? "center" : "right", vertical: "middle" };
-      i === 2 && (c.numFmt = "mm-dd-yy"); i === 8 && (c.numFmt = "#,##0.00");
-    });
-  });
+  ws.addTable({ name: "DOReportItems", displayName: "DOReportItems", ref: "A1", headerRow: !0, totalsRow: !1, style: { theme: "TableStyleMedium2", showRowStripes: !0, showColumnStripes: !1, showFirstColumn: !1, showLastColumn: !1 },
+    columns: DH757.map((x) => ({ name: x, filterButton: !0 })),
+    rows: rows.map((r, i) => { let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.date || "")), pay = r.real_pay == null || r.real_pay === "" ? null : Number(r.real_pay);
+      return [i + 1, DJ757(r) || null, m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null, r.company_invoice || null, r.customer_name || null, r.account_name || null, r.house_bl_no || null, r.payment_type || null, pay == null || isNaN(pay) ? null : pay, null, null, null, null, null]; }) });
+  let hr = ws.getRow(1); hr.height = 52;
+  for (let c = 1; c <= 14; c++) { let x = hr.getCell(c); x.font = fH; x.fill = fill("FF175CD3"); x.border = bd; x.alignment = { horizontal: "center", vertical: "middle", wrapText: !0 }; }
+  for (let i = 0; i < n; i++) {
+    let rw = ws.getRow(i + 2), ev = i % 2 === 1, bg = ev ? "FFF4F8FD" : "FFFFFFFF";
+    rw.height = 35;
+    for (let c = 1; c <= 14; c++) {
+      let x = rw.getCell(c);
+      x.font = c === 9 ? fM : fD;
+      x.fill = fill(c === 8 ? (ev ? "FFE4EFFE" : "FFEDF4FF") : bg);
+      x.alignment = c === 1 || c === 3 ? { horizontal: "center", vertical: "middle", wrapText: !0 } : c === 9 ? { horizontal: "right", vertical: "middle", wrapText: !0 } : { vertical: "middle", wrapText: !0 };
+      c === 3 && (x.numFmt = "dd/mm/yyyy"); c === 9 && (x.numFmt = "#,##0.00");
+    }
+  }
+  let blank = (r) => { let rw = ws.getRow(r); rw.height = 25; for (let c = 1; c <= 14; c++) { let x = rw.getCell(c); x.font = fD; x.alignment = { vertical: "middle" }; } };
+  blank(last + 1);
+  let tr = ws.getRow(last + 2), tot = Math.round(rows.reduce((s, r) => s + (Number(r.real_pay) || 0), 0) * 100) / 100;
+  tr.height = 36;
+  for (let c = 1; c <= 14; c++) { let x = tr.getCell(c); x.font = fT; x.fill = fill("FF102A4C"); x.alignment = { vertical: "middle" }; }
+  tr.getCell(1).value = DTOT758;
+  tr.getCell(9).value = { formula: `SUM(I2:I${last})`, result: tot }; tr.getCell(9).numFmt = "#,##0.00";
+  ws.mergeCells(`A${last + 2}:H${last + 2}`);
+  for (let r = last + 3; r <= last + 6; r++) blank(r);
   let buf = await wb.xlsx.writeBuffer();
   if (!buf || !buf.byteLength) throw new Error("สร้างไฟล์ Excel ไม่สำเร็จ (ไฟล์ว่าง)");
   return buf;

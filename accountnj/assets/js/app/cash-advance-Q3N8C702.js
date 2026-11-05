@@ -182,8 +182,8 @@ function jobSt(x) { return x.job_canceled ? '<span class="ca7-bd r">ยกเล
 function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d > 3) return v; if (Array.isArray(v)) { v.forEach(function (x) { pend737(x, d + 1); }); return v; }
   if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
   ["rows", "req", "job", "items"].forEach(function (k) { v[k] && typeof v[k] === "object" && k !== "items" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
-function filt() { return { date_from: S.f.date_from, date_to: S.f.date_to, job_no: S.f.job_no, company: S.f.company, customer: S.f.customer, hbl: S.f.hbl, q: S.f.q }; }
-function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off }, filt()); }   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
+function filt() { return { date_from: S.f.date_from, date_to: S.f.date_to, job_no: S.f.job_no, company: S.f.company, customer: S.f.customer, hbl: S.f.hbl, q: S.f.q, company_x: S.f.company_x, customer_x: S.f.customer_x, ptype: S.f.ptype, inv_no: S.f.inv_no, billed: S.f.billed }; }   /* V.760 */
+function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off, with_options: !S.opt }, filt()); }   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
 function badgeSet(c) {
   try {
     var el = document.querySelector('[data-nav="cash-advance"]'); if (!el || !c) return;
@@ -198,11 +198,10 @@ function shell() {
     '<button type="button" class="ca7-b" data-rf title="โหลดใหม่">' + IC.rf + "REFRESH</button>" +
     '<button type="button" class="ca7-b g" data-xl>' + IC.xl + "Export Excel</button></div>" +
     '<div class="ca7-ro" data-ro hidden>ดูอย่างเดียว — แสดงเฉพาะ JOB ในขอบเขตข้อมูลของคุณ · อนุมัติ / ไม่อนุมัติ / ยืนยันจ่าย ได้เฉพาะ SUPER_ADMIN</div>' +
-    '<form class="ca7-f" data-f autocomplete="off"><label><span data-dlb>วันที่ส่งคำขอ</span><span class="ca7-dt"><input type="date" name="date_from"> – <input type="date" name="date_to"></span></label>' +
-    '<label>JOB No.<input class="w1" name="job_no" placeholder="JOBAD…"></label>' +
-    '<label class="ca7-more">Company<input class="w2" name="company" placeholder="บริษัท"></label>' +
-    '<label class="ca7-more">Customer<input class="w2" name="customer" placeholder="ลูกค้า"></label>' +
-    '<label class="ca7-more">House B/L<input class="w1" name="hbl" placeholder="House B/L"></label>' +
+    '<form class="ca7-f ca760" data-f autocomplete="off"><label><span data-dlb>วันที่ส่งคำขอ</span><span class="ca7-dt"><input type="date" name="date_from" aria-label="ตั้งแต่วันที่"> – <input type="date" name="date_to" aria-label="ถึงวันที่"></span></label>' +   /* V.760 : ลำดับตามภาพ */
+    '<label>JOB No.<input class="w1" name="job_no" placeholder="JOBAD…"></label>' + DH760("company_x", "co", 1) + DH760("customer_x", "cu", 1) +
+    '<label class="ca7-more">House B/L<input class="w1" name="hbl" placeholder="House B/L"></label>' + DH760("ptype", "ty", 1) +
+    '<label class="ca7-more">INVOICE AD<input class="w1" name="inv_no" placeholder="INVOICE AD"></label>' + DH760("billed", "bl", 1) +
     '<button type="submit" class="ca7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="ca7-b" data-clr>ล้างกรอง</button>' +
     '<button type="button" class="ca7-b ca7-ft" data-ft>' + IC.fl + "Filter</button></form>" +
     '<div class="ca7-tabs" data-tabs></div><div class="ca7-row" style="margin-top:8px"><span class="ca7-sum" data-sum></span></div><div data-body></div></div>';
@@ -274,12 +273,12 @@ async function load() {
   try {
     var r = await rpc("njacc_cash_adv704_list", { p: params(S.lim, S.off) });
     if (my !== S.seq) return;
-    S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
+    S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && r.options && (S.opt = r.options, S.root.querySelector("[data-f]") && S.root.querySelector("[data-f]").__ca760s && S.root.querySelector("[data-f]").__ca760s());   /* V.760 */ r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
     var bm = null; try { bm = S.rows.length ? await bill719(S.rows) : {}; } catch (e7) { bm = null; }   /* V.719 : โหลดไม่ได้ (ยังไม่รัน RUN-719) = แสดง "-" รายการเดิมยังใช้ได้ */
     if (my !== S.seq) return;
     S.bill = bm;
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
-    S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q) && badgeSet(S.counts);
+    S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no || S.f.billed) && badgeSet(S.counts);
   } catch (e) { if (my !== S.seq) return; S.rows = []; S.total = 0; S.err = errMsg(e); }
   S.loading = !1; paint();
 }
@@ -566,8 +565,8 @@ async function render(root, args) {
   S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: {}, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
   args.tab === "INV" && (S.tab = "APPROVED");   /* V.706 : ลิงก์เดิม tab=INV → อนุมัติแล้ว */
   root.innerHTML = shell();
-  var me = S, fo = root.querySelector("[data-f]");
-  var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
+  var me = S, fo = root.querySelector("[data-f]"); CA760(fo);   /* V.760 */
+  var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl", "company_x", "customer_x", "ptype", "inv_no", "billed"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
   fo.addEventListener("submit", function (e) { e.preventDefault(); if (S !== me) return; S.f = readF(); S.off = 0; load(); });
   root.addEventListener("click", function (e) {
     if (S !== me) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm) && !(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 : แตะชื่อ (จอสัมผัส) · V.722 : เมาส์ = Tooltip + คลิกแถว */
@@ -602,5 +601,110 @@ async function render(root, args) {
     if (document.hidden || S.loading || S.busy || document.querySelector(".ca7-dw")) return;
     load();
   }, 6e4);
+}
+/* ═══ V.760 · CASH ADVANCE : แถบค้นหาทุกแท็บสถานะ — วันที่ (เงื่อนไขเดิม) / JOB No. / Company / Customer / House B/L / ประเภท / INVOICE AD / เก็บลูกค้าแล้ว
+   Company / Customer / ประเภท = Dropdown ค้นหาได้ (ตัวเลือกจากข้อมูล CASH ADVANCE จริงในสิทธิ์ผู้ใช้ : njacc_cash_adv704_list.options · RUN-760) · เก็บลูกค้าแล้ว = ทั้งหมด / เก็บลูกค้าแล้ว / ไม่วางบิล
+   (กรองที่ Server จากผล njacc_cash_adv719_bill เดียวกับคอลัมน์ "เก็บลูกค้าแล้ว") · INVOICE AD = เลข INVOICE ADV ที่เชื่อมกับรายการจริง (บางส่วน · ไม่แยกพิมพ์เล็ก–ใหญ่)
+   ค่าทั้งหมดอยู่ใน <form data-f> เดิม (hidden input ตามชื่อพารามิเตอร์) → กด "ค้นหา" = submit เดิม (หน้า 1) · "ล้างกรอง" = reset เดิม ═══ */
+var CA760O = null, CA760A = "ทั้งหมด", CA760B = [["billed", "เก็บลูกค้าแล้ว"], ["not", "ไม่วางบิล"]];
+function DH760(nm, k, more) {
+  return '<div class="ca760-l' + (more ? " ca7-more" : "") + '"><span>' + esc({ co: "Company", cu: "Customer", ty: "ประเภท", bl: "เก็บลูกค้าแล้ว" }[k]) + '</span><div class="ca760-dd" data-dd760="' + k + '"><input type="hidden" name="' + nm + '" value="">' +
+    '<button type="button" class="ca760-tg" aria-haspopup="listbox" aria-expanded="false"><span class="ca760-tx">' + CA760A + '</span><span class="ca760-cr" aria-hidden="true"></span></button>' +
+    '<div class="ca760-pan" hidden>' + (k === "bl" ? "" : '<div class="ca760-sw"><input type="text" class="ca760-s" autocomplete="off" placeholder="พิมพ์ค้นหา…" aria-label="ค้นหาตัวเลือก"></div>') + '<div class="ca760-ls" role="listbox"></div></div></div></div>';
+}
+function CS760() {
+  try {
+    if (document.getElementById("ca760-css")) return;
+    var s = document.createElement("style"); s.id = "ca760-css"; var F = ".ca7-f.ca760";
+    s.textContent = [
+      F + "{gap:10px 10px;padding:12px 14px;border-color:#E2E8F0;border-radius:12px;align-items:flex-end}",
+      F + " label," + F + " .ca760-l{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#334155;font-weight:600;min-width:0;flex:0 0 auto}",
+      F + " input{height:36px;border:1px solid #CBD5E1;border-radius:8px;padding:0 10px;font-size:13px;color:#0F172A;background:#fff;outline:none}",
+      F + " input[type=date]{width:136px}" + F + " .w1{width:150px}",
+      F + " input:focus," + F + " .ca760-tg:focus-visible," + F + " .ca760-dd.open .ca760-tg{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.15)}",
+      F + " .ca760-dd{position:relative;height:36px}",
+      F + " [data-dd760=co]," + F + " [data-dd760=cu]{width:200px}" + F + " [data-dd760=ty]{width:170px}" + F + " [data-dd760=bl]{width:150px}",
+      F + " .ca760-tg{display:flex;align-items:center;width:100%;height:36px;margin:0;padding:0 30px 0 10px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;color:#0F172A;font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;outline:none;position:relative}",
+      F + " .ca760-tx{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}",
+      F + " .ca760-dd:not(.on) .ca760-tx{color:#64748B;font-weight:500}",
+      F + " .ca760-cr{position:absolute;right:12px;top:50%;width:7px;height:7px;margin-top:-5px;border-right:2px solid #64748B;border-bottom:2px solid #64748B;transform:rotate(45deg);pointer-events:none}",
+      F + " .ca760-dd.open .ca760-cr{margin-top:-1px;transform:rotate(-135deg)}",
+      F + " .ca760-pan{position:fixed;z-index:3000;display:flex;flex-direction:column;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);overflow:hidden;font-weight:400}",
+      F + " .ca760-pan[hidden]{display:none}",
+      F + " .ca760-sw{padding:8px;border-bottom:1px solid #F1F5F9;flex:0 0 auto}",
+      F + " .ca760-s{width:100%!important;height:34px!important}",
+      F + " .ca760-ls{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:4px 0;overscroll-behavior:contain}",
+      F + " .ca760-it{display:flex;align-items:center;gap:10px;min-height:38px;padding:7px 12px;cursor:pointer;font-size:13px;color:#0F172A;line-height:1.3}",
+      F + " .ca760-it.act{background:#F5F8FF}" + F + " .ca760-it.sel{background:#E0EDFF}",
+      F + " .ca760-rd{position:relative;flex:0 0 18px;width:18px;height:18px;border:1.5px solid #94A3B8;border-radius:50%;background:#fff}",
+      F + " .ca760-it.sel .ca760-rd{border-color:#DC2626}",
+      F + " .ca760-it.sel .ca760-rd::after{content:'';position:absolute;left:3px;top:3px;width:9px;height:9px;border-radius:50%;background:#DC2626}",
+      F + " .ca760-lb{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}",
+      F + " .ca760-it.sel .ca760-lb{font-weight:600}",
+      F + " .ca760-em{padding:10px 12px;color:#64748B;font-size:12.5px}",
+      F + " .ca7-b{height:36px;padding:0 14px;border-radius:8px}",
+      "@media (max-width:900px){" + F + " .ca7-more{display:none}" + F + ".open .ca7-more{display:flex}}"   /* Tablet : ปุ่ม Filter เดิม */
+    ].join("");
+    document.head.appendChild(s);
+  } catch (e) {}
+}
+function CA760(fo) {
+  try {
+    if (!fo || fo.__ca760) return; fo.__ca760 = 1; CS760();
+    var D = [];
+    var items = function (k) {
+      var o = (S && S.opt) || {}, L = k === "bl" ? CA760B.map(function (x) { return { v: x[0], t: x[1] }; }) : ((k === "co" ? o.companies : k === "cu" ? o.customers : o.types) || []).map(function (v) { var t = String(v == null ? "" : v).trim(); return { v: t, t: t }; }).filter(function (x, i, A) { return x.v && A.findIndex(function (y) { return y.v.toLowerCase() === x.v.toLowerCase(); }) === i; });
+      k !== "bl" && L.sort(function (a, b) { return a.t.localeCompare(b.t, "th"); });
+      return [{ v: "", t: CA760A }].concat(L);
+    };
+    fo.querySelectorAll("[data-dd760]").forEach(function (w) {
+      var k = w.getAttribute("data-dd760"), hid = w.querySelector("input[type=hidden]"), tg = w.querySelector(".ca760-tg"), tx = w.querySelector(".ca760-tx"), pan = w.querySelector(".ca760-pan"), s = w.querySelector(".ca760-s"), ls = w.querySelector(".ca760-ls"), vis = [], act = -1;
+      var text = function (v) { if (!v) return CA760A; var f = items(k).find(function (x) { return x.v === v; }); return f ? f.t : v; };
+      var sync = function () { var v = hid.value, t = text(v); tx.textContent = t; tg.title = t; w.classList.toggle("on", !!v); };
+      var mark = function (i) { vis.forEach(function (e, j) { e.classList.toggle("act", j === i); }); act = i; vis[i] && vis[i].scrollIntoView({ block: "nearest" }); };
+      var paint = function () {
+        var q = s ? s.value.trim().toLowerCase() : "", cur = hid.value; ls.innerHTML = ""; vis = []; var n = 0;
+        items(k).forEach(function (o) {
+          if (q && o.v && o.t.toLowerCase().indexOf(q) < 0) return;
+          var e = document.createElement("div"), on = o.v === cur; e.className = "ca760-it" + (on ? " sel" : ""); e.setAttribute("role", "option"); e.setAttribute("aria-selected", on ? "true" : "false"); e.dataset.v = o.v;
+          e.innerHTML = '<span class="ca760-rd" aria-hidden="true"></span><span class="ca760-lb"></span>'; e.lastChild.textContent = o.t; e.lastChild.title = o.t; ls.appendChild(e); vis.push(e); o.v && n++;
+        });
+        if (!n && k !== "bl") { var m = document.createElement("div"); m.className = "ca760-em"; m.textContent = q ? "ไม่พบรายการ" : (S && S.opt ? "ไม่มีข้อมูล" : "กำลังโหลด…"); ls.appendChild(m); }
+        mark(Math.max(0, vis.findIndex(function (e) { return e.classList.contains("sel"); })));
+      };
+      var place = function () {
+        var b = tg.getBoundingClientRect(), W = Math.min(Math.max(b.width, 240), 380, innerWidth - 16), dn = innerHeight - b.bottom - 12, up = b.top - 12, top = dn >= 220 || dn >= up;
+        pan.style.width = W + "px"; pan.style.left = Math.max(8, Math.min(b.left, innerWidth - W - 8)) + "px"; pan.style.maxHeight = Math.max(150, Math.min(380, top ? dn : up)) + "px";
+        if (top) { pan.style.top = b.bottom + 4 + "px"; pan.style.bottom = "auto"; } else { pan.style.top = "auto"; pan.style.bottom = innerHeight - b.top + 4 + "px"; }
+      };
+      var out = function (ev) { w.contains(ev.target) || close(); }, scl = function (ev) { pan.contains(ev.target) || close(); }, rsz = function () { close(); };
+      var close = function (back) {
+        if (pan.hidden) return; pan.hidden = !0; w.classList.remove("open"); tg.setAttribute("aria-expanded", "false"); CA760O === close && (CA760O = null);
+        document.removeEventListener("mousedown", out, !0); removeEventListener("scroll", scl, !0); removeEventListener("resize", rsz); back && tg.focus();
+      };
+      var open = function () {
+        CA760O && CA760O !== close && CA760O(); CA760O = close; s && (s.value = "");
+        place(); pan.hidden = !1; w.classList.add("open"); tg.setAttribute("aria-expanded", "true"); paint();
+        var e = ls.querySelector(".ca760-it.sel"); e && (ls.scrollTop = Math.max(0, e.offsetTop - (ls.clientHeight - e.offsetHeight) / 2));
+        document.addEventListener("mousedown", out, !0); addEventListener("scroll", scl, !0); addEventListener("resize", rsz); (s || tg).focus();
+      };
+      var pick = function (v) { hid.value = v; sync(); close(!0); };
+      var key = function (ev) {
+        var K = ev.key;
+        if (K === "ArrowDown" || K === "ArrowUp") { ev.preventDefault(); if (pan.hidden) return open(); vis.length && mark((act + (K === "ArrowDown" ? 1 : -1) + vis.length) % vis.length); }
+        else if (K === "Enter" && !pan.hidden) { ev.preventDefault(); vis[act] && pick(vis[act].dataset.v); }
+        else if (K === "Escape" && !pan.hidden) { ev.preventDefault(); ev.stopPropagation(); close(!0); }
+        else if (K === "Tab") close();
+      };
+      tg.addEventListener("click", function () { pan.hidden ? open() : close(); });
+      tg.addEventListener("keydown", key); s && s.addEventListener("keydown", key); s && s.addEventListener("input", paint);
+      ls.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
+      ls.addEventListener("click", function (ev) { var e = ev.target.closest(".ca760-it"); e && pick(e.dataset.v); });
+      ls.addEventListener("mousemove", function (ev) { var i = vis.indexOf(ev.target.closest(".ca760-it")); i >= 0 && i !== act && mark(i); });
+      D.push(sync); sync();
+    });
+    fo.addEventListener("reset", function () { CA760O && CA760O(); fo.querySelectorAll("[data-dd760] input[type=hidden]").forEach(function (h) { h.value = ""; h.defaultValue = ""; }); setTimeout(function () { D.forEach(function (f) { f(); }); }, 0); });
+    fo.__ca760s = function () { D.forEach(function (f) { f(); }); };
+  } catch (e) { try { console.warn("CA760", e); } catch (_) {} }
 }
 export{render};
