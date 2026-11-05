@@ -2308,7 +2308,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local270';
+const EDCAPL_VERSION = 'local272';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -2909,6 +2909,9 @@ function kdcParseInvoiceMeta(wbInv){
   }
   const all = rows.join('\n');
   M.term = ((all.match(/DELIVERY TERMS\/LIEFERBEDINGUNGEN\s*:\s*([A-Z]{3})\b/i)||[])[1]||'').toUpperCase();
+  /* [KDC] local272: TERM แยกตาม INVOICE NO. ในไฟล์ INVOICE (หลายฉบับในไฟล์เดียว → ไม่สลับ TERM ข้ามฉบับ) · ฉบับเดียว = เท่ากับ M.term เดิม */
+  M.termByInv = {}; { let cur = ''; rows.forEach(l => { const mi = l.match(/INVOICE NO\.\/RECHNUNG NR\s*:\s*(\d+)/i); if(mi) cur = mi[1].replace(/^0+/,'');
+    const mt = l.match(/DELIVERY TERMS\/LIEFERBEDINGUNGEN\s*:\s*([A-Z]{3})\b/i); if(mt && cur && M.termByInv[cur] === undefined) M.termByInv[cur] = mt[1].toUpperCase(); }); }
   M.currency = ((all.match(/EXT PRICE\s*\(\s*([A-Z]{3})\s*\)|TOTAL INVOICE\s*\(\s*([A-Z]{3})\s*\)|PIECE PRICE\s*\(\s*([A-Z]{3})\s*\)/i)||[]).slice(1).find(Boolean)||'').toUpperCase();
   return M;
 }
@@ -2950,8 +2953,9 @@ function kdcThaiKey(v){
   const rk = c => (c >= '\u0e48' && c <= '\u0e4c') ? 2 : 1;   /* สระ / เครื่องหมายอื่นก่อน · วรรณยุกต์ (่ ้ ๊ ๋ ์) หลัง */
   return t.replace(/[\u0e31\u0e34-\u0e3a\u0e47-\u0e4e]{2,}/g, m => m.split('').sort((a,b)=>rk(a)-rk(b) || (a<b?-1:a>b?1:0)).join(''));
 }
+/* [KDC] local271: พบชื่อสินค้าหลักครบทั้งชื่อ "ภายใน" คำแปลไทย (มีข้อความนำหน้า / ต่อท้าย / วงเล็บ / ตัวเลข ได้) — ไม่แก้ข้อมูลต้นฉบับ · ใช้เฉพาะเลือก FIX ของ QTY INV / QTY ใบขน */
 function kdcUnitExcOf(thai){ const k = kdcThaiKey(thai); if(!k) return null;
-  for(const n of Object.keys(KDC_EXCEPTIONS)) if(kdcThaiKey(n) === k) return KDC_EXCEPTIONS[n]; return null; }
+  for(const n of Object.keys(KDC_EXCEPTIONS)){ const nk = kdcThaiKey(n); if(nk && k.indexOf(nk) !== -1) return KDC_EXCEPTIONS[n]; } return null; }
 const KDC_EXCEPTIONS = {
   'พรมปูพื้นรถยนต์': { qtyInv:'MTK', qtyEntry:'MTK', qty2:'MTK', noQtyCheck:true },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = MTK ตามหน่วยใบขน (เดิม C62) */   // 08/10/2026: ยกเลิกสูตร Quantity ×0.28 — ไม่ตรวจ Quantity (หน่วยยังตรวจ C62 / MTK / MTK)
   'ชุดเพลาหน้า':     { qtyInv:'SET', qtyEntry:'SET', qty2:'SET' },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = SET ตามหน่วยใบขน (เดิม C62) */
@@ -3243,7 +3247,7 @@ function kdcRunCheckCore(PMX){
       const excU = exc || kdcUnitExcOf(thai) || g.rows.reduce((a, r) => a || kdcUnitExcOf(kdcCell(r,C.thai)), null);   /* [KDC] local269: คำแปลไทยจากแถวหลัก · ไม่ตรง/ว่าง → แถวอื่นของ ITEM เดียวกัน (เฉพาะการเลือก FIX หน่วย) */   /* [KDC] 05/11/2026: เลือก FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง (เปลี่ยนเฉพาะค่า FIX) */
       const unitInv   = excU ? excU.qtyInv   : KDC_FZ_FIX.qtyInv;
       const unitEntry = excU ? excU.qtyEntry : KDC_FZ_FIX.qtyEntry;
-      const unit2     = excU ? excU.qty2     : KDC_FZ_FIX.qty2;
+      const unit2     = exc  ? exc.qty2      : KDC_FZ_FIX.qty2;   /* local271: QTY 2 คงเงื่อนไขเดิม (ชื่อตรงตัว) — ตัวค้นหาใหม่ใช้เฉพาะ QTY INV / QTY ใบขน */
 
       // ── [KDC] Description / Quantity: ทุก Item ↔ INVOICE รายการเดียวกัน (Item n = รายการที่ n · ห้ามใช้รายการอื่น) — เฉพาะโหมด ตรวจ KDC ──
       //    โหมด ตรวจ EDC (ใช้ Engine ร่วม) คง Flow เดิมด้านล่าง (Invoice Item 1 ↔ DWAK Item 1)
@@ -3347,7 +3351,8 @@ function kdcRunCheckCore(PMX){
       push(item,'consignee',   kdcCell(row,C.consignee),  invMeta.consignee,    eqText(kdcCell(row,C.consignee),  invMeta.consignee),    '', noCol(C.consignee,'consignee') || invNote(invMeta.consignee,'consignee (SHIP TO)'));
       push(item,'purcountry',  kdcCell(row,C.purCountry), invMeta.purCountry,   eqText(kdcCell(row,C.purCountry), invMeta.purCountry),   '', noCol(C.purCountry,'purcountry') || (invMeta.purCountry ? 'INVOICE SOLD TO: ' + invMeta.purCountryRaw : invNote('', 'ประเทศ SOLD TO')));
       push(item,'ประเทศปลายทาง', kdcCell(row,C.destCountry), invMeta.destCountry, eqText(kdcCell(row,C.destCountry), invMeta.destCountry), '', noCol(C.destCountry,'ประเทศปลายทาง') || (invMeta.destCountry ? 'INVOICE SHIP TO: ' + invMeta.destCountryRaw : invNote('', 'ประเทศ SHIP TO')));
-      push(item,'term',        kdcCell(row,C.term),       invMeta.term,         eqText(kdcCell(row,C.term),       invMeta.term),         '', noCol(C.term,'term') || invNote(invMeta.term,'DELIVERY TERMS'));
+      const invTerm = (()=>{ const k = kdcCell(row,C.invoiceNo).replace(/^0+/,''), m = invMeta.termByInv || {}; return (k && m[k] !== undefined) ? m[k] : invMeta.term; })();   /* [KDC] local272: TERM ของ INVOICE ที่ตรงกับ INVOICE NO. ของ ITEM */
+      push(item,'term',        kdcCell(row,C.term),       invTerm,              eqText(kdcCell(row,C.term),       invTerm),         '', noCol(C.term,'term') || invNote(invTerm,'DELIVERY TERMS'));
       push(item,'currency',    kdcCell(row,C.currency),   invMeta.currency,     eqText(kdcCell(row,C.currency),   invMeta.currency),     '', noCol(C.currency,'currency') || invNote(invMeta.currency,'Currency'));
 
       // ── ชุด FZ (แถวหลัก) ───────────────────────────────────────
@@ -6143,7 +6148,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       else if(!_t39.termItem.has(itemDisplay)){ _t39.termItem.add(itemDisplay);
         const N = v => String(v==null?'':v).trim().toUpperCase(), ev = String(row[ci]==null?'':row[ci]).trim(), iv = det ? String(det.term||'').trim() : '';
         if(!iv) errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:'(ไม่พบ TERM ใน INVOICE '+mapped.invRaw+')', expected:ev||'(ว่าง)', errorCode:'TERM_NOT_FOUND', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
-        else if(N(ev) !== '' && (N(ev) === N(iv) || (N(ev) === 'EXW' && N(iv) === 'FCA'))) _pass({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev, source:'mapping' });   /* ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) · EXW (ใบขน) ↔ FCA (INVOICE) = Mapping เดิม */
+        else if(N(ev) !== '' && N(ev) === N(iv)) _pass({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev, source:'mapping' });   /* ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) · local272: ยกเลิกข้อยกเว้น EXW ↔ FCA */
         else errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev||'(ว่าง)', errorCode:'TERM_MISMATCH', severity:'error', source:'mapping', type: ev ? 'mismatch' : 'missing', compareType:'text' }); } }
     C('Consignee', 'consignee', det ? det.consignee : null, 'consignee', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet);
     C('Purcountry', 'purcountry', det ? det.purCountry : null, 'text', det ? 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้' : noDet);
