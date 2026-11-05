@@ -11183,7 +11183,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     const nk = v => cfNormUC(v).replace(/[.ฯ\s]/g,'');
     const at = names => { for(const n of names){ const i = _cfHeaders.findIndex(h => nk(h) === nk(n)); if(i !== -1) return i; } return -1; };
     return { summit:at(['Summit date']), entry:at(['เลขที่ใบขนฯ']), exp:at(['ผู้ส่งออก']), inv:at(['Invoice NO.']), loc:at(['สถานที่รับบรรทุก']),
-             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']), fee:at(['CUSTOMS FEE']), rel:at(['ปล่อย']), veh:at(['ชื่อยานพาหนะ']) };   /* rel = หัวข้อ "ปล่อย" ตรงตัว (ไม่ใช้ สถานที่ตรวจปล่อย / Status 0409) */
+             status:at(['Status 0409']), priv:at(['สิทธิประโยชน์']), job:at(['Customer jobno.','KDC']), ot:at(['OT']), fee:at(['CUSTOMS FEE','CUSTOM FEE']), rel:at(['ปล่อย']), veh:at(['ชื่อยานพาหนะ']) };   /* [CUSTOM FEE] 05/11/2026: หัวคอลัมน์ต้นทาง CUSTOMS FEE หรือ CUSTOM FEE */   /* rel = หัวข้อ "ปล่อย" ตรงตัว (ไม่ใช้ สถานที่ตรวจปล่อย / Status 0409) */
   }
   /* [CUSTOM FEE] SERVICE (ตารางราคาล่าสุด · RMA = 330 ตรวจก่อนใน _cfBuildExportRows):
        1190 → ปล่อย NO 230 · Freezone 430 · ทั่วไป 350
