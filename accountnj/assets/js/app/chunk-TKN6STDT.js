@@ -82,7 +82,7 @@ Klongtoey, Bangkok 10110 Thailand.`,issuerNameMae:"N.J. LOGISTICS & FRUITS CO.,L
     <td class="l">${p&&p.sg673?WB752(n(E(w.house_bl_no))):n(E(w.house_bl_no))}</td>
     <td class="c">${n(E(p&&p.sg673?w.mode752:w.data_type))}</td>
     <td class="l bpd-ci">${n(C10672(CI585(w.company_invoice)))}</td>
-    ${p&&p.sg673?"":`<td class="l">${n(E(w.customs_declaration_no))}</td>`}
+    ${p&&(p.sg673||p.pro768)?"":`<td class="l">${n(E(w.customs_declaration_no))}</td>`}
     ${p&&p.sg673?`<td class="c">${w.fee752?"\u0E04\u0E48\u0E32\u0E18\u0E23\u0E23\u0E21\u0E40\u0E19\u0E35\u0E22\u0E21":""}</td>`:`<td class="l">${n(E(p&&p.pro768?w.src768:w.customer_job_no))}</td>`}
     <td class="r">${M(w.service_amount)}</td>
     <td class="r">${M(w.advance_amount)}</td>
@@ -109,17 +109,17 @@ ${g647?"":`      <div class="bpd-apl-bt">Bill To.</div>
       <div class="bpd-kv"><span>Address :</span><span class="t-b">${n(F.billToAddr).replace(/\n/g,"<br>")}</span></div>
 `}      </div>
     </div>
-`:HD764(p)}    <table class="bpd-tb bpd-tb-apl bpd-tb635${p&&p.sg673&&cw.f765?` bpd-tb765" style="--f765:${cw.f765}px;--t765:${cw.t765}px`:""}"><colgroup>${cw.map(x=>`<col style="width:${x}%">`).join("")}</colgroup>
+`:HD764(p)}    <table class="bpd-tb bpd-tb-apl bpd-tb635${p&&p.sg673&&cw.f765?` bpd-tb765" style="--f765:${cw.f765}px;--t765:${cw.t765}px`:""}${p&&p.pro768&&cw.f769?` bpd-tb769" style="--f769:${cw.f769}px`:""}"><colgroup>${cw.map(x=>`<col style="width:${x}%">`).join("")}</colgroup>
     <thead><tr>
       <th class="bpd-y">Date</th><th class="bpd-y">Item</th><th class="bpd-y">Invoice No.</th>
       <th class="bpd-y">${p&&p.sg673?"Lot":"Master"}</th><th class="bpd-y">${p&&p.sg673?"Summit date":p&&p.st707?"Status:":"House"}</th>
       <th class="bpd-y">Type</th><th class="bpd-y">Company</th>
-      ${p&&p.sg673?"":`<th class="bpd-y">DCL INV.</th>`}<th class="bpd-y">${p&&p.sg673?"Customs fee":p&&p.pro768?"Invoice":"Job No."}</th>
+      ${p&&(p.sg673||p.pro768)?"":`<th class="bpd-y">DCL INV.</th>`}<th class="bpd-y">${p&&p.sg673?"Customs fee":p&&p.pro768?"Invoice":"Job No."}</th>
       <th class="bpd-y">Service</th><th class="bpd-y">Advance</th>
       <th class="bpd-y">Vat</th><th class="bpd-y">Amount</th>
       <th class="bpd-y">Wht</th><th class="bpd-y">Amount</th>
     </tr></thead><tbody>${L}${y?`
-      <tr class="bpd-apl-tot"><td colspan="${p&&p.sg673?8:9}" class="r t-b">TOTAL</td>${u}</tr>`:""}</tbody></table>
+      <tr class="bpd-apl-tot"><td colspan="${p&&(p.sg673||p.pro768)?8:9}" class="r t-b">TOTAL</td>${u}</tr>`:""}</tbody></table>
     ${y?`<div class="bpd-apl-ft">
 ${g647?"":`      <div class="bpd-sbox bpd-sbox-l">
         <div class="sl516"><b>VENDOR ID :</b><span class="vl">${n(p.vendorId)}</span></div>
@@ -573,6 +573,7 @@ function CW516(rows, edc, st, pro) {   /* V.635 : วัดที่ขนาด
   let T = ["", "", "", "", "", "", "", "", edc ? "" : pro ? "Invoice" : "Job No."].concat(["service_amount", "advance_amount", "vat_amount", "subtotal", "wht_amount", "net_payable"].map(tot));
   if (edc) { [H, NW, BASE, T].forEach((a) => a.splice(7, 1)); cells.forEach((c) => c.splice(7, 1)); }   /* V.763 : APL EDC ลบคอลัมน์ DCL INV. (หัว / ข้อมูล) · ความกว้างที่เหลือกระจายตามสัดส่วนเดิม (BASE) เต็มหน้ากระดาษ */
   if (edc) return FW765(H, cells, NW, BASE, T);   /* V.765 */
+  if (pro) { [H, NW, BASE, T].forEach((a) => a.splice(7, 1)); cells.forEach((c) => c.splice(7, 1)); return FW769(H, cells, NW.map(() => 2), BASE, T); }   /* V.769 : PRO ลบคอลัมน์ DCL INV. · ทุกช่องบรรทัดเดียว */
   return edc ? CW635(H, cells, NW, BASE, 1084.7, T, [14.667, 14.667, 6, FN766, 16]) : CW635(H, cells, NW, BASE, 1065.8, T);   /* V.752 : APL EDC th / td 11pt · TOTAL 12pt · Arial · ขอบ 5 มม. */
 }
 /* V.635 · BILLING PDF (ทั่วไป / APL / MAERSK) : ความกว้างคอลัมน์ตามข้อความจริง ที่ขนาดตัวอักษรของ PDF
@@ -866,6 +867,40 @@ async function SI768(rows) {
     part.forEach((id, x) => { let d = r[x]; if (!d || typeof d !== "object" || !("source_invoice_no" in d)) throw new Error("JOB " + id); mp.set(id, d); });
   }
   return (rows || []).map((w) => { let d = w && mp.get(String(w.id)); return Object.assign({}, w, { src768: d ? E(d.source_invoice_no).trim() : "" }); });
+}
+/* ═══ V.769 BILLING PDF แบบฟอร์ม PRO เท่านั้น : ลบคอลัมน์ DCL INV. (หัว / ข้อมูล) · หัวตาราง + ข้อมูลทุกช่องบรรทัดเดียว (ไม่ตัด / ไม่ซ่อน / ไม่ใช้ …)
+   วัดข้อความเต็มด้วยฟอนต์เอกสาร (V.767) → ขนาดตัวอักษรเดียวทั้งตาราง (หัว / ข้อมูล / TOTAL) ใหญ่สุดที่พอดีหน้ากระดาษ ไม่เกิน 12px ไม่ต่ำกว่า 9px
+   ระยะในเซลล์ 2px · ข้อความชิดซ้าย · ยอดเงินชิดขวา · Item / Type กึ่งกลาง · ความกว้าง = CW635 เดิม · ไม่พอแม้ 9px (ข้อมูลยาวผิดปกติ) = ตัดบรรทัดในช่องแบบเดิม (ข้อความไม่หาย)
+   แบบฟอร์มทั่วไป / MAERSK / APL / APL EDC / WORD+LEE ไม่ผ่านฟังก์ชันนี้ ═══ */
+function FW769(H, cells, NW, BASE, T) {
+  ST769();
+  let PW = 1065.8, PAD = 6, F0 = 12, FMIN = 9;
+  T = H.map((h, i) => (T && T[i]) || (/\s/.test(h) ? h : ""));   /* หัวหลายคำ (Invoice No.) วัดเต็มข้อความตัวหนา */
+  let cv = CW635.c || (CW635.c = document.createElement("canvas")), x = cv.getContext("2d");
+  let need = (fs) => H.reduce((sum, h, i) => {
+    x.font = "700 " + fs + "px " + FN766; let m = x.measureText(String(h)).width;
+    x.font = "400 " + fs + "px " + FN766; cells.forEach((r) => { m = Math.max(m, x.measureText(String(r[i] == null ? "" : r[i])).width); });
+    if (T[i]) { x.font = "700 " + fs + "px " + FN766; m = Math.max(m, x.measureText(String(T[i])).width); }
+    return sum + m + PAD;
+  }, 0);
+  let fs = F0, n0 = need(F0);
+  if (n0 > PW) { fs = Math.floor(F0 * (PW - PAD * H.length) / (n0 - PAD * H.length) * 20) / 20; while (fs > FMIN && need(fs) > PW) fs = Math.round((fs - 0.05) * 100) / 100; }
+  let ok = fs >= FMIN && need(fs) <= PW, f = ok ? fs : FMIN, w = CW635(H, cells, ok ? NW : NW.map((v, i) => (BASE[i] ? 0 : v)), BASE, PW, T, [f, f, PAD, FN766, f]);
+  if (ok) w.f769 = fs;
+  return w;
+}
+function ST769() {
+  try {
+    if (document.getElementById("st769-css")) return;
+    let st = document.createElement("style"); st.id = "st769-css";
+    let q = ".bpd.bpd-gen647 .bpd-tb.bpd-tb635.bpd-tb769";
+    st.textContent = [
+      q + " thead th," + q + " tbody td{font-size:var(--f769,11px)!important;line-height:1.25!important;padding:3px 2px!important;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important}",
+      q + " tr.bpd-apl-tot td{font-size:var(--f769,11px)!important}",
+      q + " tbody tr:not(.bpd-apl-tot) td:nth-child(1){text-align:left!important}"   /* Date = ข้อความชิดซ้าย · Item / Type = class c เดิม (กึ่งกลาง) · ยอดเงิน = class r เดิม */
+    ].join("");
+    document.head.appendChild(st);
+  } catch (e) {}
 }
 export{F as a,le as b,ae as c,oe as d,ke as e,Ie as f};
 /* V.571 · ACCOUNTING — BILLING PDF แถบปุ่มล่าง : ยกเลิก = แดงทึบ · บันทึก = เขียวทึบ (เดิม .btn-s ไม่มีสี) (ขนาด/รูปทรง class .btn เดิม เหมือนปุ่มบันทึก) · ซ่อน EXPORT EXCEL (#bpd-xls) และ REPORT (#bpd-report) เฉพาะการแสดงผล — ปุ่ม/Handler/สถานะเดิมยังอยู่ครบ ไม่มีช่องว่างเหลือ */
