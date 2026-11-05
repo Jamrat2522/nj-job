@@ -75,6 +75,7 @@ body {
 }
 .sb-logo-title { font-size: 12px; font-weight: 700; color: var(--text); }
 .sb-logo-sub { font-size: 9px; color: var(--text-2); }
+.sb-logo-ver { font-size: 9px; color: #34d399; font-family: var(--mono); margin-top: 1px; }   /* [EDCAPL] Version ใต้ชื่อ (Sidebar) */
 
 .sb-user {
   display: flex; align-items: center; gap: 8px;
@@ -1075,6 +1076,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
     <div>
       <div class="sb-logo-title">N.J. Logistics</div>
       <div class="sb-logo-sub">v2.0 · Mapping &amp; Invoice</div>
+      <div class="sb-logo-ver" id="sbAppVersion"></div>
     </div>
   </div>
 
@@ -2305,6 +2307,10 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 </div>
 
 <script>
+/* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
+const EDCAPL_VERSION = 'local268';
+(function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
 function dzClear(dzId, delId, inputId, fnTxtId, fnId){
   const dz  = document.getElementById(dzId);
