@@ -900,7 +900,7 @@ function V773(c, r) {
 }
 var F773 = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 var N773 = (s) => String(s == null ? "" : s).normalize("NFC").toLowerCase();
-function Q773(e) { let g = (k) => { let el = e.querySelector(`[data-r773="${k}"]`); return el ? String(el.value || "").trim() : ""; }; return { q: g("q"), billing_no: g("billing_no"), company_invoice_id: g("company_invoice_id"), customer_id: g("customer_id") }; }
+function Q773(e) { let g = (k) => { let el = e.querySelector(`[data-r773="${k}"]`); return el ? String(el.value || "").trim() : ""; }; return { q: g("q"), billing_no: g("billing_no"), company_invoice_id: g("company_invoice_id"), customer_id: g("customer_id"), from: g("from"), to: g("to") }; }
 function E773(err) {
   let m = String((err && err.message) || ""), T = { NJACC_REPORT_FORBIDDEN: "คุณไม่มีสิทธิ์เปิดรายงาน 2.3 รายงานยอดออกบิลรวม", NJACC_MODULE_FORBIDDEN: "คุณไม่มีสิทธิ์ใช้งาน REPORT", NJACC_FORBIDDEN: "คุณไม่มีสิทธิ์ดูข้อมูล SERVICE ของกลุ่มนี้",
     NJACC_REPORT_TOO_MANY: "ข้อมูลเกิน 20,000 รายการ", njacc_report_rc773: "ระบบฐานข้อมูลยังไม่พร้อมสำหรับรายงานนี้ (RUN-773)" };
@@ -913,7 +913,8 @@ function FL773(all, f) {
   let q = N773(f.q), bn = N773(f.billing_no);
   return all.filter((r) => (!f.company_invoice_id || r.company_invoice_id === f.company_invoice_id) && (!f.customer_id || r.customer_id === f.customer_id)
     && (!q || [r.invoice_no, r.customer_name, r.job_no, r.customer_job_no].some((x) => N773(x).includes(q)))
-    && (!bn || String(r.billing_note_no || "").split(",").some((x) => N773(x.trim()).includes(bn))));
+    && (!bn || String(r.billing_note_no || "").split(",").some((x) => N773(x.trim()).includes(bn)))
+    && (!f.from && !f.to || (Array.isArray(r.billing_note_dates) ? r.billing_note_dates : []).some((d) => (d = String(d || "").slice(0, 10)) && (!f.from || d >= f.from) && (!f.to || d <= f.to))));   /* V.775 : วันที่ใบวางบิล (รวมวันเริ่ม / วันสิ้นสุด) */
 }
 function OP773(e) {
   let all = RS773.all || [], cs = e.querySelector('[data-r773="company_invoice_id"]'), us = e.querySelector('[data-r773="customer_id"]');
@@ -924,21 +925,21 @@ function OP773(e) {
   let uv = us.value, cu = opt(cv ? all.filter((r) => r.company_invoice_id === cv) : all, "customer_id", "customer_name"); cu.some(([id]) => id === uv) || (uv = "");
   us.innerHTML = '<option value="">ทั้งหมด</option>' + cu.map(([id, nm]) => `<option value="${y(id)}"${id === uv ? " selected" : ""}>${y(nm)}</option>`).join(""); us.value = uv;
 }
-function A773(e) { RS773.rows = FL773(RS773.all || [], Q773(e)); R773(e); }
+function A773(e) { let f = Q773(e), st = e.querySelector("#rc773-status"); if (BD775(f)) { st && (st.textContent = BM775); return; } st && st.textContent === BM775 && (st.textContent = ""); RS773.rows = FL773(RS773.all || [], f); R773(e); }
 function R773(e) {
-  let res = e.querySelector("#rc773-res"), tb = e.querySelector("#rc773-tb"), tf = e.querySelector("#rc773-tf"), pg = e.querySelector("#rc773-pgn"), a = RS773.rows || [];
+  let res = e.querySelector("#rc773-res"), tb = e.querySelector("#rc773-tb"), pg = e.querySelector("#rc773-pgn"), a = RS773.rows || [];
   if (!res) return;
   res.hidden = !1; e.querySelector("#rc773-res-t").textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`; e.querySelector("#rc773-xls").disabled = !a.length;
-  if (!a.length) { tb.innerHTML = `<tr><td colspan="${C773.length}" class="c">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>`; tf.innerHTML = ""; pg.innerHTML = ""; return; }
+  if (!a.length) { tb.innerHTML = `<tr><td colspan="${C773.length}" class="c">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>`; pg.innerHTML = ""; return; }
   let n = Math.max(1, Math.ceil(a.length / RS773.size)); RS773.page > n && (RS773.page = n);
   let p0 = (RS773.page - 1) * RS773.size;
   tb.innerHTML = a.slice(p0, p0 + RS773.size).map((r) => "<tr>" + C773.map((c) => { let x = V773(c, r); return x.k === "num" ? `<td class="d758-m">${F773(x.v)}</td>` : `<td class="${x.k === "txt" ? "" : "c"}">${y(x.v)}</td>`; }).join("") + "</tr>").join("");
-  let S = C773.map((c) => (c[2] === "num" ? Math.round(a.reduce((s, r) => { let x = V773(c, r); return s + (x.k === "num" ? x.v : 0); }, 0) * 100) / 100 : null)), i0 = S.findIndex((x) => x != null);
-  tf.innerHTML = `<tr><td colspan="${i0}">ยอดรวม ${a.length.toLocaleString("th-TH")} รายการ</td>` + S.slice(i0).map((x) => (x == null ? "<td></td>" : `<td class="d758-m">${F773(x)}</td>`)).join("") + "</tr>";
+  /* V.775 : ไม่แสดงแถบยอดรวมใต้ตาราง */
   q(pg, { page: RS773.page, size: RS773.size, total: a.length }, (d) => { RS773.page = d.page; RS773.size = d.size; R773(e); });
 }
 async function LD773(e, msg) {
   let b = e.querySelector("#rc773-go"), st = e.querySelector("#rc773-status");
+  if (BD775(Q773(e))) { st.textContent = BM775; h(BM775, "err"); return; }   /* V.775 */
   await O("rc773-show", async () => {
     let t0 = b.textContent; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
     try { RS773.all = await L773(); RS773.page = 1; OP773(e); st.textContent = msg || ""; A773(e); e.__u773 && e.__u773(); }
@@ -948,13 +949,13 @@ async function LD773(e, msg) {
 }
 async function X773(rows) {   /* = XW734 (FINANCE → RECEIPT) : Sheet RECEIPT · หัวตารางสีเดียวกัน · ค่าว่าง = "-" · ตัวเลข #,##0.00 · วันที่ dd/mm/yyyy */
   let EX = await XJ504(), wb = new EX.Workbook(), ws = wb.addWorksheet("RECEIPT", { views: [{ state: "frozen", ySplit: 1 }] });
-  let TH = { style: "thin", color: { argb: "FFD9E2EC" } }, BD = { top: TH, left: TH, bottom: TH, right: TH }, W = C773.map((c) => Math.max(10, String(c[0]).length + 4)), hr = ws.getRow(1);
+  let TH = { style: "thin", color: { argb: "FF808080" } }, BD = { top: TH, left: TH, bottom: TH, right: TH }, W = C773.map((c) => Math.max(10, String(c[0]).length + 4)), hr = ws.getRow(1);   /* V.775 : All Borders สีเทาเข้ม */
   C773.forEach((c, j) => { let x = hr.getCell(j + 1); x.value = c[0]; x.font = { bold: !0, color: { argb: "FFFFFFFF" } }; x.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF17365D" } }; x.border = BD; x.alignment = { vertical: "middle", horizontal: "center", wrapText: !0 }; });
   hr.height = 30;
   rows.forEach((r, i) => { let row = ws.getRow(i + 2); C773.forEach((c, j) => { let x = row.getCell(j + 1), v = V773(c, r), L;
-    if (c[2] === "num") { if (v.k === "num") { x.value = v.v; x.numFmt = "#,##0.00"; x.alignment = { horizontal: "right", vertical: "middle" }; } else { x.value = "-"; x.alignment = { horizontal: "center", vertical: "middle" }; } L = 15; }
+    if (c[2] === "num") { if (v.k === "num") { x.value = v.v; x.numFmt = "#,##0.00"; x.alignment = { horizontal: "right", vertical: "middle" }; } else { x.value = "-"; x.alignment = { horizontal: "center", vertical: "middle" }; } L = Math.max(15, (v.k === "num" ? F773(v.v).length : 1) + 4); }
     else if (c[2] === "date") { if (v.k === "date") { x.value = v.d; x.numFmt = "dd/mm/yyyy"; } else x.value = "-"; x.alignment = { horizontal: "center", vertical: "middle" }; L = 13; }
-    else { x.value = v.v; x.alignment = { vertical: "middle", horizontal: v.k === "txt" ? "left" : "center" }; L = String(x.value).length + 3; }
+    else { x.value = v.v; L = String(x.value).length + 3; x.alignment = { vertical: "middle", horizontal: v.k === "txt" ? "left" : "center", wrapText: L > 60 }; }   /* V.775 : ข้อความยาวเกินคอลัมน์ = ตัดบรรทัด (ไม่ถูกตัด) */
     x.border = BD; W[j] = Math.min(60, Math.max(W[j], L)); }); });
   W.forEach((w, j) => { ws.getColumn(j + 1).width = w; });
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, rows.length + 1), column: C773.length } };
@@ -962,6 +963,7 @@ async function X773(rows) {   /* = XW734 (FINANCE → RECEIPT) : Sheet RECEIPT �
 }
 async function XB773(e) {
   let b = e.querySelector("#rc773-xls"), st = e.querySelector("#rc773-status");
+  if (BD775(Q773(e))) { st.textContent = BM775; h(BM775, "err"); return; }   /* V.775 */
   await O("rc773-export", async () => {
     let t0 = b.innerHTML; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…"; st.textContent = "กำลังดึงข้อมูล…";
     try {
@@ -985,26 +987,24 @@ function RG773(e) {   /* Component กลาง (ui-dd762.js) แบบเดี
       lb.classList.add("u762-f"); s && (s.classList.add("u762-l"), (s.title = t));
       if (!ctl) return;
       if (ctl.tagName === "SELECT") F.push(SL762(ctl, { label: t, all: "ทั้งหมด", after: () => syncAll() }));
-      else { lb.classList.add("u762-w"); F.push(TX762(ctl, t, !1)); }
+      else { let d = ctl.type === "date"; lb.classList.add(d ? "u762-d" : "u762-w"); F.push(TX762(ctl, t, d)); }
     });
     let ch = CH762(fg, () => F, () => {}), rf = () => { syncAll(); ch.refresh(); };
     fg.addEventListener("change", (ev) => { ev.target && ev.target.tagName === "INPUT" || rf(); }); fg.addEventListener("input", rf); e.__u773 = rf;   /* ช่องพิมพ์ = refresh จาก input เท่านั้น (change ตอนออกจากช่องจะสร้างป้ายใหม่ทับปุ่ม × ที่กำลังกด) */
   } catch (x) { try { console.warn("RG773", x); } catch (_) {} }
 }
 function RC773(e, o) {
-  DC758();
+  DC758(); CS775();
   let col = R4C.ACCOUNTING, fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
   e.innerHTML = `
     <nav class="r4-crumb" aria-label="breadcrumb"><a href="#/report" class="r4-i" title="Report">${R4IC.home}</a><span class="sep">›</span><a href="#/report">Report</a><span class="sep">›</span><span>${y(o.group)}</span><span class="sep">›</span><b>${y(o.no)} ${y(o.title)}</b></nav>
-    <div class="r4-card r4-head" style="--c:${col};--cl:#f0fdf4">
-      <div class="r4-hic">${R4IC.doc}</div>
-      <div><h2><span class="no">${y(o.no)}</span>${y(o.title)}</h2><p class="rpt2-note">${y(o.note || "")}</p></div>
-    </div>
     <div class="r4-card r4-filter"><div class="r4-fg">
       ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-r773="q" placeholder="Invoice No. / ลูกค้า / JOB / Customer Job No." title="ค้นหา Invoice No. / ลูกค้า / JOB / Customer Job No." autocomplete="off">`)}
       ${fld("Billing Note No.", `<input class="inp" type="search" data-r773="billing_no" placeholder="พิมพ์เลข Billing Note No. (เต็มหรือบางส่วน)" title="Billing Note No." autocomplete="off">`)}
       ${fld("บริษัท Invoice", `<select class="sel" data-r773="company_invoice_id" title="บริษัท Invoice"><option value="">ทั้งหมด</option></select>`)}
       ${fld("ลูกค้า", `<select class="sel" data-r773="customer_id" title="ลูกค้า"><option value="">ทั้งหมด</option></select>`)}
+      ${fld("วันที่เริ่มต้น", `<input class="inp" type="date" data-r773="from" title="วันที่ใบวางบิล (Billing Note Date) เริ่มต้น">`)}
+      ${fld("วันที่สิ้นสุด", `<input class="inp" type="date" data-r773="to" title="วันที่ใบวางบิล (Billing Note Date) สิ้นสุด">`)}
       <div class="r4-fb">
         <button type="button" class="btn btn-o" id="rc773-clear">⟲ ล้างตัวกรอง</button>
         <button type="button" class="btn btn-p" id="rc773-go">แสดงรายงาน</button>
@@ -1016,10 +1016,10 @@ function RC773(e, o) {
         <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="rc773-res-t"></span></div>
         <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="rc773-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
       </div>
-      <div class="d758-wrap"><table class="d758-tbl">
+      <div class="d758-wrap"><table class="d758-tbl rc775-tbl">
         <colgroup>${W773.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
         <thead><tr>${C773.map((c) => `<th>${y(c[0])}</th>`).join("")}</tr></thead>
-        <tbody id="rc773-tb"></tbody><tfoot id="rc773-tf"></tfoot></table></div>
+        <tbody id="rc773-tb"></tbody></table></div>
       <div id="rc773-pgn"></div>
     </div>`;
   RS773.all = null; RS773.rows = []; RS773.page = 1;
@@ -1035,4 +1035,18 @@ function RC773(e, o) {
   };
   RG773(e);
   LD773(e);   /* เปิดหน้า = ดึงข้อมูลทันที */
+}
+
+/* ═══ V.775 · REPORT → 2.3 : ซ่อนกล่องส่วนหัว · ตัวกรองวันที่ใบวางบิล (Billing Note Date · RUN-775 billing_note_dates) · ไม่แสดงแถบยอดรวม · เส้นขอบครบทุกช่อง (จอ + Excel)
+   วันที่เริ่มต้น / สิ้นสุด : รวมวันทั้งสองฝั่ง · ว่าง = ไม่จำกัด · เริ่ม > สิ้นสุด = แจ้งเตือน ไม่ค้นหา / ไม่ส่งออก · ใช้ร่วมกับตัวกรองเดิมทั้งหมด · Excel = แถวชุดเดียวกับจอ (ทุกหน้า) ═══ */
+var BM775 = "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด";
+function BD775(f) { return !!(f && f.from && f.to && f.from > f.to); }
+function CS775() {
+  try {
+    if (document.getElementById("rc775-css")) return;
+    let st = document.createElement("style"); st.id = "rc775-css"; let T = ".d758-tbl.rc775-tbl", C = "#94A3B8";
+    st.textContent = T + " th," + T + " td{border:0!important;border-right:1px solid " + C + "!important;border-bottom:1px solid " + C + "!important}"
+      + T + " tr>th:first-child," + T + " tr>td:first-child{border-left:1px solid " + C + "!important}" + T + " thead th{border-top:1px solid " + C + "!important}";
+    document.head.appendChild(st);
+  } catch (x) {}
 }
