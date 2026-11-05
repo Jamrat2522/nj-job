@@ -2308,7 +2308,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local272';
+const EDCAPL_VERSION = 'local273';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6130,6 +6130,16 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     else _pass({ rowNum, item:itemDisplay, partNo:part, col:topic, expected:ev, source:'mapping',   /* [EDC8] ✅ ค่า INVOICE ที่ตรง (alnum / ข้อความ = ค่าอ้างอิงที่ตรงจริง) */
       found: mode === 'alnum' ? (refs.find(x => _alnum(x) === _alnum(ev)) || exp0) : ((mode === 'text' || mode === 'consignee' || mode === 'term' || !mode) ? (refs.find(x => _normTxt(x) === _normTxt(ev)) || exp0) : shown) });
   };
+  /* [EDC8 AAT/FTM] local273: TERM ราย ITEM ของใบขน (ทุก ITEM · ใบขนเป็น MASTER) — INVOICE ของ ITEM = INVOICE ที่จับคู่ด้วย Product Code
+     ไม่พบการจับคู่ → INVOICE NO. ของ ITEM ในใบขน · ใช้ TERM ของ INVOICE ฉบับนั้นเท่านั้น (ไม่ข้ามฉบับ) · 1 ITEM = 1 ผลตรวจ */
+  function _t39Term(row, rowNum, itemDisplay, part, invKey, invRaw){
+    { const ci = _eCol('term'), det = invKey ? (_t39.det.get(invKey) || null) : null; if(ci === -1) _t39NoCol('Term', 'term');   /* [EDC8] 05/11/2026 (local270): TERM ราย ITEM ของใบขน ↔ TERM ของ INVOICE ที่จับคู่กับ ITEM นั้นจริง (1 ครั้งต่อ ITEM · ไม่ข้าม INVOICE) */
+      else if(!_t39.termItem.has(itemDisplay)){ _t39.termItem.add(itemDisplay);
+        const N = v => String(v==null?'':v).trim().toUpperCase(), ev = String(row[ci]==null?'':row[ci]).trim(), iv = det ? String(det.term||'').trim() : '';
+        if(!iv) errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:'(ไม่พบ TERM ใน INVOICE '+(invRaw||'-')+')', expected:ev||'(ว่าง)', errorCode:'TERM_NOT_FOUND', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
+        else if(N(ev) !== '' && N(ev) === N(iv)) _pass({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev, source:'mapping' });   /* ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) · local272: ยกเลิกข้อยกเว้น EXW ↔ FCA */
+        else errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev||'(ว่าง)', errorCode:'TERM_MISMATCH', severity:'error', source:'mapping', type: ev ? 'mismatch' : 'missing', compareType:'text' }); } }
+  }
   function _t39Row(row, rowNum, itemDisplay, part, mapped){
     const mr = mapped.row, det = _t39.det.get(mapped.inv) || null, raw = det ? 'ไม่มีไฟล์ Ford Invoice ต้นฉบับ ' + mapped.invRaw : '';
     const noDet = 'ไม่มีไฟล์ Ford Invoice ต้นฉบับของ INVOICE ' + mapped.invRaw;
@@ -6144,12 +6154,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     C('Currency', 'currency', det ? det.currency : null, 'text', det ? 'อ่านสกุลเงินจาก INVOICE ไม่ได้' : noDet);
     C('Amount THB', 'amount thb', det && det.currency === 'THB' ? mr[M_EXT] : null, 'num', det ? 'INVOICE ไม่ใช่สกุล THB (ไม่มีอัตราแลกเปลี่ยน)' : noDet);
     C('SHIPPING MARK', 'SHIPPING MARK', mr[M_SM], 'text');
-    { const ci = _eCol('term'); if(ci === -1) _t39NoCol('Term', 'term');   /* [EDC8] 05/11/2026 (local270): TERM ราย ITEM ของใบขน ↔ TERM ของ INVOICE ที่จับคู่กับ ITEM นั้นจริง (1 ครั้งต่อ ITEM · ไม่ข้าม INVOICE) */
-      else if(!_t39.termItem.has(itemDisplay)){ _t39.termItem.add(itemDisplay);
-        const N = v => String(v==null?'':v).trim().toUpperCase(), ev = String(row[ci]==null?'':row[ci]).trim(), iv = det ? String(det.term||'').trim() : '';
-        if(!iv) errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:'(ไม่พบ TERM ใน INVOICE '+mapped.invRaw+')', expected:ev||'(ว่าง)', errorCode:'TERM_NOT_FOUND', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
-        else if(N(ev) !== '' && N(ev) === N(iv)) _pass({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev, source:'mapping' });   /* ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) · local272: ยกเลิกข้อยกเว้น EXW ↔ FCA */
-        else errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev||'(ว่าง)', errorCode:'TERM_MISMATCH', severity:'error', source:'mapping', type: ev ? 'mismatch' : 'missing', compareType:'text' }); } }
+    /* [EDC8] TERM: ตรวจใน _t39Term (ทุก ITEM ของใบขน · local273) */
     C('Consignee', 'consignee', det ? det.consignee : null, 'consignee', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet);
     C('Purcountry', 'purcountry', det ? det.purCountry : null, 'text', det ? 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้' : noDet);
     C('ประเทศปลายทาง', 'ประเทศปลายทาง', det ? det.destCountry : null, 'text', det ? 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้' : noDet);
@@ -6373,6 +6378,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
 
     // ── STEP 2b. [EDC8 39 หัวข้อ] INVOICE เพิ่ม + ยอดรวม (เทียบแถว INVOICE ที่จับคู่ด้วย Product Code · ยึดใบขนเป็นหลัก) ──
     if(_aatByPart && mapped) _t39Row(row, rowNum, itemDisplay, entryPartRaw, mapped);
+    if(_aatByPart){ const _ir = mapped ? String(mapped.invRaw||'') : (E_INV !== -1 ? String(row[E_INV]==null?'':row[E_INV]).trim() : '');   /* [EDC8] local273: TERM ทุก ITEM */
+      _t39Term(row, rowNum, itemDisplay, entryPartRaw, mapped ? mapped.inv : (_ir ? _normInv(_ir) : ''), _ir); }
     // ── STEP 3. FIXED RULE (🟡 สีเหลือง) ──
     //   general: สิทธิ=T, QTY=C62
     if(E_SIT !== -1 && !(masterWb && masterWb._apl)){   // [MASTER CENTRAL] MASTER APL: สิทธิตรวจจาก MASTER จริงใน STEP 1 (ไม่ใช้ค่าฟิก T)
