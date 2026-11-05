@@ -2308,7 +2308,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local268';
+const EDCAPL_VERSION = 'local270';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -2943,8 +2943,15 @@ const KDC_NBTC_FIX = {
 
 // ── Exception ตาม Thai Translation (ตรงตัวหลัง trim) ───────────────
 /* [KDC] 05/11/2026: หา FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง เช่น "พรมปูพื้น รถยนต์" / "ชุด เพลาหน้า" — ใช้เฉพาะการเลือกค่า FIX หน่วย */
-function kdcUnitExcOf(thai){ const k = String(thai==null?'':thai).replace(/[\s\u00a0\u200b]+/g,''); if(!k) return null;
-  for(const n of Object.keys(KDC_EXCEPTIONS)) if(n.replace(/[\s\u00a0\u200b]+/g,'') === k) return KDC_EXCEPTIONS[n]; return null; }
+/* [KDC] 05/11/2026 (local269): คีย์คำแปลไทยสำหรับเลือก FIX หน่วย — ตัดช่องว่าง / อักขระมองไม่เห็น (Zero-width · NBSP · BOM) ·
+   รวมรูปแบบพิมพ์ไทยที่หน้าตาเหมือนกัน: ํ+า = ำ · เ+เ = แ · ลำดับสระบน/ล่าง กับวรรณยุกต์ที่พิมพ์สลับกัน */
+function kdcThaiKey(v){
+  let t = String(v==null?'':v).normalize('NFC').replace(/[\s\u00a0\u200b-\u200d\u2060\ufeff]+/g,'').replace(/\u0e4d\u0e32/g,'\u0e33').replace(/\u0e40\u0e40/g,'\u0e41');
+  const rk = c => (c >= '\u0e48' && c <= '\u0e4c') ? 2 : 1;   /* สระ / เครื่องหมายอื่นก่อน · วรรณยุกต์ (่ ้ ๊ ๋ ์) หลัง */
+  return t.replace(/[\u0e31\u0e34-\u0e3a\u0e47-\u0e4e]{2,}/g, m => m.split('').sort((a,b)=>rk(a)-rk(b) || (a<b?-1:a>b?1:0)).join(''));
+}
+function kdcUnitExcOf(thai){ const k = kdcThaiKey(thai); if(!k) return null;
+  for(const n of Object.keys(KDC_EXCEPTIONS)) if(kdcThaiKey(n) === k) return KDC_EXCEPTIONS[n]; return null; }
 const KDC_EXCEPTIONS = {
   'พรมปูพื้นรถยนต์': { qtyInv:'MTK', qtyEntry:'MTK', qty2:'MTK', noQtyCheck:true },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = MTK ตามหน่วยใบขน (เดิม C62) */   // 08/10/2026: ยกเลิกสูตร Quantity ×0.28 — ไม่ตรวจ Quantity (หน่วยยังตรวจ C62 / MTK / MTK)
   'ชุดเพลาหน้า':     { qtyInv:'SET', qtyEntry:'SET', qty2:'SET' },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = SET ตามหน่วยใบขน (เดิม C62) */
@@ -3233,7 +3240,7 @@ function kdcRunCheckCore(PMX){
       const thai = kdcCell(row,C.thai);
       const exc  = KDC_EXCEPTIONS[thai] || null;
       const isRadar = thai===KDC_RADAR_NAME;
-      const excU = exc || kdcUnitExcOf(thai);   /* [KDC] 05/11/2026: เลือก FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง (เปลี่ยนเฉพาะค่า FIX) */
+      const excU = exc || kdcUnitExcOf(thai) || g.rows.reduce((a, r) => a || kdcUnitExcOf(kdcCell(r,C.thai)), null);   /* [KDC] local269: คำแปลไทยจากแถวหลัก · ไม่ตรง/ว่าง → แถวอื่นของ ITEM เดียวกัน (เฉพาะการเลือก FIX หน่วย) */   /* [KDC] 05/11/2026: เลือก FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง (เปลี่ยนเฉพาะค่า FIX) */
       const unitInv   = excU ? excU.qtyInv   : KDC_FZ_FIX.qtyInv;
       const unitEntry = excU ? excU.qtyEntry : KDC_FZ_FIX.qtyEntry;
       const unit2     = excU ? excU.qty2     : KDC_FZ_FIX.qty2;
@@ -6081,7 +6088,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     }
   }
   // ── [EDC8 39 หัวข้อ] ข้อมูลอ้างอิง INVOICE เพิ่ม: รายละเอียดจากไฟล์ Ford Invoice ต้นฉบับ (ไม่แก้ invParseFord) ──
-  const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set(), term:[] };   /* term = ผล TERM ราย ITEM (รวบรวม → สรุป 1 ครั้งต่อใบขน) */
+  const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set(), term:[], termItem:new Set() };   /* termItem = ITEM ใบขนที่ตรวจ TERM แล้ว (1 ครั้งต่อ ITEM) */
   if(_aatByPart) window.EDC8_REF = new Map();
   window.EDC8_DT219 = _aatByPart ? { bis:[], skip:[], other:[], nf:[] } : null;   /* [EDC8] ประเภทใบขน 219 → ตรวจ BIS29 ระดับใบขน (1 ครั้งต่อใบขน) */   /* [EDC8] ค่าอ้างอิงราย ITEM ทุกแหล่ง (INVOICE / MASTER APL) สำหรับแสดงพร้อมกัน */
   window.EDC8_PASS = _aatByPart ? [] : null;   /* [EDC8] ผลตรวจที่ถูกต้อง (บันทึก ณ จุดตรวจเดิม · ไม่เปลี่ยนเงื่อนไขถูก / ผิด) → แสดงครบทุกสถานะ หน้าจอ + Excel */
@@ -6132,8 +6139,12 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     C('Currency', 'currency', det ? det.currency : null, 'text', det ? 'อ่านสกุลเงินจาก INVOICE ไม่ได้' : noDet);
     C('Amount THB', 'amount thb', det && det.currency === 'THB' ? mr[M_EXT] : null, 'num', det ? 'INVOICE ไม่ใช่สกุล THB (ไม่มีอัตราแลกเปลี่ยน)' : noDet);
     C('SHIPPING MARK', 'SHIPPING MARK', mr[M_SM], 'text');
-    { const ci = _eCol('term'); if(ci === -1) _t39NoCol('Term', 'term');   /* [EDC8] TERM = ระดับใบขน: เก็บคู่ ใบขน ↔ INVOICE ของ ITEM นี้ (INVOICE ที่จับคู่จริง) → สรุปท้าย Validator 1 ครั้ง */
-      else _t39.term.push({ rowNum, item:itemDisplay, ev:String(row[ci]==null?'':row[ci]).trim(), inv: det ? String(det.term||'').trim() : null, invRaw:mapped.invRaw }); }
+    { const ci = _eCol('term'); if(ci === -1) _t39NoCol('Term', 'term');   /* [EDC8] 05/11/2026 (local270): TERM ราย ITEM ของใบขน ↔ TERM ของ INVOICE ที่จับคู่กับ ITEM นั้นจริง (1 ครั้งต่อ ITEM · ไม่ข้าม INVOICE) */
+      else if(!_t39.termItem.has(itemDisplay)){ _t39.termItem.add(itemDisplay);
+        const N = v => String(v==null?'':v).trim().toUpperCase(), ev = String(row[ci]==null?'':row[ci]).trim(), iv = det ? String(det.term||'').trim() : '';
+        if(!iv) errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:'(ไม่พบ TERM ใน INVOICE '+mapped.invRaw+')', expected:ev||'(ว่าง)', errorCode:'TERM_NOT_FOUND', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
+        else if(N(ev) !== '' && (N(ev) === N(iv) || (N(ev) === 'EXW' && N(iv) === 'FCA'))) _pass({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev, source:'mapping' });   /* ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) · EXW (ใบขน) ↔ FCA (INVOICE) = Mapping เดิม */
+        else errors.push({ rowNum, item:itemDisplay, partNo:part, col:'Term', found:iv, expected:ev||'(ว่าง)', errorCode:'TERM_MISMATCH', severity:'error', source:'mapping', type: ev ? 'mismatch' : 'missing', compareType:'text' }); } }
     C('Consignee', 'consignee', det ? det.consignee : null, 'consignee', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet);
     C('Purcountry', 'purcountry', det ? det.purCountry : null, 'text', det ? 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้' : noDet);
     C('ประเทศปลายทาง', 'ประเทศปลายทาง', det ? det.destCountry : null, 'text', det ? 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้' : noDet);
@@ -6469,18 +6480,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     catch(err){ _re = [{ rowNum:0, item:'HEADER', partNo:'', col:'กฎตรวจพิเศษ', found:String(err && err.message || err), expected:'ประมวลผลกฎได้', errorCode:'SPECIAL_RULE_ERROR', severity:'error', source:'special', type:'missing', compareType:'text' }]; }
     _re.forEach(e => errors.push(e));
   }
-  /* [EDC8 AAT/FTM] TERM (Incoterms) ใบขน ↔ INVOICE ที่จับคู่กับ ITEM ของใบขน: ตรวจ 1 ครั้งต่อใบขน · Item No. = "ทั้งใบขน"
-     ตรงกัน (ตัดช่องว่าง · ไม่สนตัวพิมพ์) = ✅ · ไม่ตรง = ❌ 1 จุด · ไม่พบ TERM ใน INVOICE = ❌ ไม่พบข้อมูล (ไม่สรุปว่าถูก) · ใช้เฉพาะ TERM ของ INVOICE ที่จับคู่ (ไม่ข้าม INVOICE) */
-  if(_aatByPart && _t39.term.length){
-    const N = v => String(v==null?'':v).trim().toUpperCase(), okT = (e, i) => N(e) !== '' && (N(e) === N(i) || (N(e) === 'EXW' && N(i) === 'FCA'));   /* EXW (ใบขน) ↔ FCA (INVOICE) = Mapping เดิม */
-    const pairs = new Map(); _t39.term.forEach(x => { const k = x.invRaw+'\u0001'+N(x.ev)+'\u0001'+(x.inv===null ? '\u0000' : N(x.inv)); if(!pairs.has(k)) pairs.set(k, x); });
-    const P = [...pairs.values()], first = _t39.term[0], invTxt = x => (x.inv===null || x.inv==='') ? '(ไม่พบ TERM ใน INVOICE '+x.invRaw+')' : x.inv, multi = new Set(P.map(x => x.invRaw)).size > 1;
-    const evs = [...new Set(P.map(x => x.ev || '(ว่าง)'))].join(', '), lab = x => invTxt(x)+(multi && x.inv ? ' (INVOICE '+x.invRaw+')' : '');
-    const nf = P.filter(x => x.inv===null || x.inv===''), bad = P.filter(x => !(x.inv===null || x.inv==='') && !okT(x.ev, x.inv));
-    if(bad.length) errors.push({ rowNum:first.rowNum, item:'ทั้งใบขน', partNo:'', col:'Term', found:[...new Set(bad.concat(nf).map(lab))].join(', '), expected:evs, errorCode:'TERM_MISMATCH', severity:'error', source:'mapping', type:'mismatch', compareType:'text' });
-    else if(nf.length) errors.push({ rowNum:first.rowNum, item:'ทั้งใบขน', partNo:'', col:'Term', found:[...new Set(nf.map(lab))].join(', '), expected:evs, errorCode:'TERM_NOT_FOUND', severity:'error', source:'mapping', type:'not_found', compareType:'text' });
-    else _pass({ rowNum:first.rowNum, item:'ทั้งใบขน', partNo:'', col:'Term', found:[...new Set(P.map(lab))].join(', '), expected:evs, source:'mapping' });
-  }
+  /* [EDC8 AAT/FTM] TERM: ตรวจราย ITEM ใน _t39Row แล้ว (local270 · ยกเลิกสรุป 1 ครั้งต่อใบขน "ทั้งใบขน") */
   /* [EDC8 AAT/FTM] ประเภทใบขน 219 ↔ MASTER APL Privilege (BOI/29BIS/FZ): ตรวจ 1 ครั้งต่อใบขน
      พบ BIS29 / 29BIS อย่างน้อย 1 ITEM = ✅ · ตรวจครบทุก ITEM ไม่พบ = ❌ 1 รายการ · ITEM ที่ MASTER จับคู่ไม่ได้ / Privilege ไม่รองรับ และไม่พบ BIS29 = ตรวจไม่ครบ (ไม่สรุปผิด)
      BCTR / BCTR/NO / BOI / FZ / NO = ข้าม (ไม่สร้างแถวราย ITEM) */
