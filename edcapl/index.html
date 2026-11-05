@@ -1825,6 +1825,14 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
             </div>
 
           </div>
+          <!-- EDC1 FZ Action Bar (รูปแบบ EDC8: อยู่ในกรอบฟอร์ม · ปุ่มหลัก ตรวจสอบ + EXPORT) -->
+          <div class="action-bar fz-main-bar" style="margin-top:14px">
+            <button class="btn btn-green" id="fzCheckBtn" onclick="fzRunCheck()">🔍 ตรวจสอบ</button>
+            <button class="btn btn-export ui-btn-blue" id="fzExportMainBtn" onclick="fzExport()">⬇ EXPORT (.xlsx)</button>
+          </div>
+          <!-- ปุ่มตรวจสอบเปิดเมื่อมีไฟล์ที่ Backend บังคับ (fzRunCheck: Entry File) -->
+          <div id="fzBtnHint" style="display:none;font-size:11px;color:var(--text-3);margin-top:6px">⚠ กรุณาอัปโหลดไฟล์ Entry ก่อน — ปุ่มตรวจสอบจะเปิดใช้งานอัตโนมัติ</div>
+
           <div style="margin-top:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-2);line-height:1.7">
             <strong style="color:var(--text)">📋 Field ที่ตรวจ:</strong> INVOICE · DATE SHIPPED · PACKAGE · N.W · GW · AMOUNT · SHIPPING MARK
             — <em>Header ตรวจจาก Export Mapping Excel เท่านั้น / Item ตรวจจาก Invoice File เท่านั้น / Ford raw invoice ไม่ใช้สำหรับ validation</em>
@@ -1832,11 +1840,9 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
         </div>
       </div>
 
-      <!-- EDC1 FZ Action Bar -->
-      <div class="action-bar">
-        <button class="btn btn-green" onclick="fzRunCheck()">🔍 ตรวจสอบ</button>
-        <button class="btn btn-export ui-btn-blue" onclick="fzExport()">⬇ Export (.xlsx)</button>
-        <div class="sep"></div>
+      <!-- EDC1 FZ เครื่องมือเพิ่มเติม (ฟังก์ชันเดิมทั้งหมด — ไม่ลบ) -->
+      <div class="action-bar fz-tools-bar">
+        <span class="fz-tools-lbl">🧰 เครื่องมือเพิ่มเติม</span>
         <button class="btn btn-export ui-btn-indigo" style="background:rgba(168,85,247,.12);color:#c4b5fd;border-color:rgba(168,85,247,.3)" onclick="fzBuildMappingFromSource()" title="ดาวน์โหลดไฟล์ Mapping Excel ที่ระบบสร้าง (optional — ระบบใช้ตรวจอัตโนมัติอยู่แล้ว)">⬇ Download Mapping</button>
         <button class="btn btn-export ui-btn-purple" onclick="fzExportMapping()">📊 Export Mapping</button>
         <button class="btn btn-export ui-btn-teal" style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" onclick="fzExportTotal()">📋 Export TOTAL</button>
@@ -2930,6 +2936,9 @@ const KDC_NBTC_FIX = {
 };
 
 // ── Exception ตาม Thai Translation (ตรงตัวหลัง trim) ───────────────
+/* [KDC] 05/11/2026: หา FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง เช่น "พรมปูพื้น รถยนต์" / "ชุด เพลาหน้า" — ใช้เฉพาะการเลือกค่า FIX หน่วย */
+function kdcUnitExcOf(thai){ const k = String(thai==null?'':thai).replace(/[\s\u00a0\u200b]+/g,''); if(!k) return null;
+  for(const n of Object.keys(KDC_EXCEPTIONS)) if(n.replace(/[\s\u00a0\u200b]+/g,'') === k) return KDC_EXCEPTIONS[n]; return null; }
 const KDC_EXCEPTIONS = {
   'พรมปูพื้นรถยนต์': { qtyInv:'MTK', qtyEntry:'MTK', qty2:'MTK', noQtyCheck:true },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = MTK ตามหน่วยใบขน (เดิม C62) */   // 08/10/2026: ยกเลิกสูตร Quantity ×0.28 — ไม่ตรวจ Quantity (หน่วยยังตรวจ C62 / MTK / MTK)
   'ชุดเพลาหน้า':     { qtyInv:'SET', qtyEntry:'SET', qty2:'SET' },   /* [KDC] 05/11/2026: หน่วย QTY INVOICE (QTY inv) = SET ตามหน่วยใบขน (เดิม C62) */
@@ -3218,9 +3227,10 @@ function kdcRunCheckCore(PMX){
       const thai = kdcCell(row,C.thai);
       const exc  = KDC_EXCEPTIONS[thai] || null;
       const isRadar = thai===KDC_RADAR_NAME;
-      const unitInv   = exc ? exc.qtyInv   : KDC_FZ_FIX.qtyInv;
-      const unitEntry = exc ? exc.qtyEntry : KDC_FZ_FIX.qtyEntry;
-      const unit2     = exc ? exc.qty2     : KDC_FZ_FIX.qty2;
+      const excU = exc || kdcUnitExcOf(thai);   /* [KDC] 05/11/2026: เลือก FIX หน่วย QTY ตามคำแปลไทยโดยไม่สนช่องว่าง (เปลี่ยนเฉพาะค่า FIX) */
+      const unitInv   = excU ? excU.qtyInv   : KDC_FZ_FIX.qtyInv;
+      const unitEntry = excU ? excU.qtyEntry : KDC_FZ_FIX.qtyEntry;
+      const unit2     = excU ? excU.qty2     : KDC_FZ_FIX.qty2;
 
       // ── [KDC] Description / Quantity: ทุก Item ↔ INVOICE รายการเดียวกัน (Item n = รายการที่ n · ห้ามใช้รายการอื่น) — เฉพาะโหมด ตรวจ KDC ──
       //    โหมด ตรวจ EDC (ใช้ Engine ร่วม) คง Flow เดิมด้านล่าง (Invoice Item 1 ↔ DWAK Item 1)
@@ -5491,7 +5501,8 @@ const EDC8_FIX = [
 /* [EDC8 AAT/FTM] FIX ตามชื่อสินค้าภาษาไทย (คำแปลไทย ตรงตัวหลังตัดช่องว่าง) — ใช้แทน FIX หน่วย QTY ใบขน / QTY 2 เดิม เฉพาะสินค้านี้ (QTY = C62 เดิม) */
 const EDC8_THAI_UNIT_FIX = { 'พรมปูพื้นรถยนต์':'MTK', 'ชุดเพลาหน้า':'SET' };
 /* [EDC8 AAT / FTM] หน่วยนับ FIX ตามชื่อสินค้าไทย: พรมปูพื้น (ทุกชื่อที่มีคำว่า "พรมปูพื้น" · ไม่สนช่องว่าง) = MTK เท่านั้น · สินค้าอื่นตามตารางเดิม (ตรงตัว) */
-function edc8UnitFixOf(thai){ const t = String(thai==null?'':thai).trim().replace(/\s+/g,' '); if(/พรมปูพื้น/.test(t.replace(/\s+/g,''))) return 'MTK'; return EDC8_THAI_UNIT_FIX[t] || ''; }
+function edc8UnitFixOf(thai){ const t = String(thai==null?'':thai).trim().replace(/\s+/g,' '); if(/พรมปูพื้น/.test(t.replace(/\s+/g,''))) return 'MTK'; if(EDC8_THAI_UNIT_FIX[t]) return EDC8_THAI_UNIT_FIX[t];
+  const z = t.replace(/[\s\u00a0\u200b]+/g,''); for(const n of Object.keys(EDC8_THAI_UNIT_FIX)) if(n.replace(/\s+/g,'') === z) return EDC8_THAI_UNIT_FIX[n]; return ''; }   /* [EDC8] 05/11/2026: ชุดเพลาหน้า ไม่สนช่องว่างระหว่างคำ */
 /* [EDC8 AAT/FTM] เรดาร์: ใบอนุญาตช่องที่ 2 = แถวที่ 2 ของ ITEM เดียวกัน (ช่องที่ 1 = แถวแรก ไม่แตะ) */
 const EDC8_RADAR_NAME = 'เรดาร์';
 const EDC8_RADAR_FIX = { permit:'EXEMPT99', issueDate:'20171113', tax:'0994000049447', agency:'กสทช.', agencyFull:'สำนักงานคณะกรรมการกิจการกระจายเสียง กิจการโทรทัศน์ และกิจการโทรคมนาคมแห่งชาติ' };
@@ -6353,11 +6364,11 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
       }
     }
     if(E_QTY !== -1){
-      const qty = String(row[E_QTY]||'').trim().toUpperCase();
-      if(qty !== 'C62'){
+      const qty = String(row[E_QTY]||'').trim().toUpperCase(), _qFix = edc8UnitFixOf(_firstThai.get(itemKey) || '') || 'C62';   /* [EDC8] 05/11/2026: QTY FIX = MTK (พรมปูพื้นรถยนต์) / SET (ชุดเพลาหน้า) · สินค้าอื่น C62 เดิม */
+      if(qty !== _qFix){
         errors.push({
           rowNum, item:itemDisplay, partNo:entryPartRaw,
-          col:'QTY (ค่าฟิก)', found: qty || '(ว่าง)', expected:'C62',
+          col:'QTY (ค่าฟิก)', found: qty || '(ว่าง)', expected:_qFix,
           errorCode:'FIXED_RULE_FAIL',severity:'error',source:'fixed',type:'mismatch',compareType:'text'
         });
       }
@@ -6369,7 +6380,8 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
         if(v.toUpperCase() === _uFix) _pass({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found:v, expected:X, source:'fixed' });
         else errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:L, found: v || '(ว่าง)', expected:X, errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type: v ? 'mismatch' : 'missing', compareType:'text' });
         return; }
-      const v = String(row[ci]||'').trim().toUpperCase(); if(v !== q.expected) errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:q.col+' (ค่าฟิก)', found: v || '(ว่าง)', expected:q.expected,
+      const qx = (q.col === 'QTY' && _uFix) ? _uFix : q.expected;   /* [EDC8] 05/11/2026: QTY FIX ตามคำแปลไทย (MTK / SET) · หัวข้อ / รูปแบบเดิม */
+      const v = String(row[ci]||'').trim().toUpperCase(); if(v !== qx) errors.push({ rowNum, item:itemDisplay, partNo:entryPartRaw, col:q.col+' (ค่าฟิก)', found: v || '(ว่าง)', expected:qx,
         errorCode:'FIXED_RULE_FAIL', severity:'error', source:'fixed', type: v ? 'mismatch' : 'missing', compareType:'text' }); });
     // [EDC8] เรดาร์ → ใบอนุญาตช่องที่ 2 (แถวที่ 2 ของ ITEM เดียวกัน) = FIX กสทช. ครบ 4 ค่า · ไม่พบแถว / ไม่มีคอลัมน์ / ว่าง / ไม่ตรง = ผิด · ช่องที่ 1 ไม่แตะ
     if(_aatByPart && _isRadar(itemKey)){ const RF = EDC8_RADAR_FIX, rs = entryRows.filter(x => x.itemKey === itemKey), r2 = rs.length > 1 ? rs[1].row : null;
@@ -6729,28 +6741,51 @@ function edc1fzSummaryRows(R){
           ['หัวข้อถูก', R.okRows+' หัวข้อ'], ['หัวข้อผิด', R.badRows+' หัวข้อ'], ['หัวข้อที่ตรวจไม่ได้', R.naRows+' หัวข้อ'],
           ['สถานะรวม', R.status+(R.status==='FAIL' && R.naRows ? ' + ตรวจไม่ได้ '+R.naRows+' หัวข้อ' : (R.status==='PARTIAL' ? ' (ตรวจไม่ครบ)' : ''))]];
 }
-/* [EDC1 FZ] หน้าจอรูปแบบ EDC8: ตาราง e8k-grid · ITEM NO. | หัวข้อตรวจสอบใบขน | INVOICE / FIX / MASTER | ค่าใบขน EDC1 | สถานะ · สรุปด้านล่างครั้งเดียว */
+/* [EDC1 FZ] Item No. แสดงผล: ระดับไฟล์ "(ไฟล์)" = "ทั้งใบขน" (รูปแบบเดียวกับ EDC8) · ค่าอื่น = Item No. จากใบขน EDC1 */
+const edc1fzItemTxt = it => String(it) === '(ไฟล์)' ? 'ทั้งใบขน' : String(it);
+/* [EDC1 FZ] หน้าต่างรายงานรูปแบบ EDC8: หัวรายงาน (Chips) · แถบสถานะ ทั้งหมด / รายการผิด / รายการถูก / ตรวจสอบไม่ได้ (เริ่มต้น = รายการผิด)
+   ตาราง Item No. | หัวข้อตรวจสอบ | ค่าใบขน EDC1 | ค่าเปรียบเทียบ | สถานะ · ข้อมูลแถว = R.rows เดิม (ไม่เปลี่ยนผลตรวจ) · สรุปด้านล่างครั้งเดียว */
 function renderFzFullResults(R){
   const isErr=R.status==='FAIL', partial=R.status==='PARTIAL';
   fzApplyStyle(fzResultBox,fzResultHead,fzRDot,fzRTitle,isErr);
   if(partial){ fzRTitle.style.color='#b45309'; fzRDot.style.background='#d97706'; fzRDot.style.boxShadow='0 0 6px #d97706'; }
   fzRTitle.textContent=(isErr ? '❌ FAIL พบข้อผิดพลาด — '+R.totalItems+' item · ผิด '+R.itemBad+' item · ผิด '+R.badTopics.length+' หัวข้อ' : (partial ? '⚠️ PARTIAL — ไม่พบข้อผิดพลาด แต่ตรวจไม่ครบ · ไม่แสดง PASS — '+R.totalItems+' item' : '✅ PASS — ตรวจครบทุกหัวข้อ — '+R.totalItems+' item'))+(R.naRows ? ' · ⚠️ ตรวจไม่ได้ '+R.naTopics.length+' หัวข้อ' : '');
   const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const BC={ ok:' e8k-ok', bad:'', na:' e8k-warn' };
-  let h='<div class="e8k-sec-h" style="margin:0 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">📋 ผลตรวจทุกหัวข้อ <span style="font-weight:400;font-size:12px;color:#64748b">(ใบขน EDC1 FZ เทียบ INVOICE / FIX / MASTER / Mapping · แสดงทุกสถานะ ✅ / ❌ / ⚠️)</span></div>'+
-    '<div class="e8k-wrap"><table class="e8k-grid fz-full"><colgroup><col style="width:11%"><col style="width:22%"><col style="width:24%"><col style="width:22%"><col style="width:21%"></colgroup><thead><tr>'+
-    '<th>ITEM NO.</th><th>หัวข้อตรวจสอบใบขน</th><th>INVOICE / FIX / MASTER</th><th>ค่าใบขน EDC1</th><th>สถานะ</th></tr></thead><tbody>';
-  R.rows.forEach(r=>{ h+='<tr class="e8k-row fz-full-row" data-st="'+r.st+'"><td class="td-item">'+e(r.item)+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-exp">'+e(r.ref||'-')+'</td><td class="e8k-act">'+e(r.entry||'-')+'</td>'+
+  const BC={ ok:' e8k-ok', bad:'', na:' e8k-warn' }, m=R.meta||{}, c=(cls,t)=>'<div class="stat-chip '+cls+'">'+t+'</div>';
+  let h='<div class="kdc-chips e8k-chips fz-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+c('warn e8k-chip-tot','EDC1 FZ')+(m.jobNo?c('ok','Job '+e(m.jobNo)):'')+(m.invoiceNo?c('ok','INVOICE '+e(m.invoiceNo)):'')+
+    c('warn','Σ รวม '+R.totalItems+' item')+c('ok','✅ ถูก '+R.okRows+' รายการ')+c('err','❌ ผิด '+R.badRows+' จุด · '+R.itemBad+' item')+c('warn','⚠️ ตรวจสอบไม่ได้ '+R.naRows+' รายการ')+'</div>';
+  const TABS=[['bad','❌ รายการผิด',R.badRows],['ok','✅ รายการถูก',R.okRows],['na','⚠️ ตรวจสอบไม่ได้',R.naRows],['all','ทั้งหมด',R.rows.length]];
+  h+='<div class="fz-tabs" role="tablist">'+TABS.map(t=>'<button type="button" class="fz-tab fz-tab-'+t[0]+(t[0]==='bad'?' active':'')+'" data-f="'+t[0]+'" role="tab" onclick="fzFilterRows(this.dataset.f)">'+t[1]+' <span class="fz-tab-n">'+t[2]+'</span></button>').join('')+'</div>';
+  h+='<div class="e8k-wrap"><table class="e8k-grid fz-full"><colgroup><col style="width:11%"><col style="width:22%"><col style="width:22%"><col style="width:24%"><col style="width:21%"></colgroup><thead><tr>'+
+    '<th>Item No.</th><th>หัวข้อตรวจสอบ</th><th>ค่าใบขน EDC1</th><th>ค่าเปรียบเทียบ<br><span class="fz-th-sub">(INVOICE / EXPORT MAPPING / FIX / MASTER)</span></th><th>สถานะ</th></tr></thead><tbody>';
+  R.rows.forEach(r=>{ h+='<tr class="e8k-row fz-full-row" data-st="'+r.st+'"><td class="td-item">'+e(edc1fzItemTxt(r.item))+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-act">'+e(r.entry||'-')+'</td><td class="e8k-exp">'+e(r.ref||'-')+'</td>'+
     '<td><span class="e8k-badge fz-st'+BC[r.st]+'">'+EDC1FZ_ST_TXT[r.st]+'</span>'+(r.st!=='ok' && r.msg ? '<div class="fz-msg" style="font-size:11px;color:#64748b;margin-top:3px">'+e(r.msg)+'</div>' : '')+'</td></tr>'; });
-  h+='</tbody></table></div>';
+  h+='</tbody></table><div class="fz-empty" style="display:none"></div></div>';
   const SR=edc1fzSummaryRows(R), cls=['warn','warn','warn','ok','err','warn',R.status==='PASS'?'ok':(R.status==='FAIL'?'err':'warn')];
   h+='<div class="fz-full-sum" style="margin-top:12px"><div style="font-weight:700;font-size:13px;color:#1e3a5f;margin-bottom:6px">สรุปผลตรวจ</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+
     SR.map((x,i)=>'<div class="stat-chip '+cls[i]+'">'+e(x[0])+' : '+e(x[1])+'</div>').join('')+'</div></div>';
-  fzRBody.innerHTML=h; fzResultBox.style.display='block'; fzResultBox.scrollIntoView({behavior:'smooth',block:'nearest'});
+  fzRBody.innerHTML=h; fzFilterRows('bad'); fzResultBox.style.display='block'; fzResultBox.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-/* [EDC1 FZ] EXPORT รูปแบบ EDC8 (kdcInjectStyles + KDC_XS): หัวรายงาน · Header เอกสาร 5 แถว · ตารางผลตรวจทุกสถานะ (ตัวกรอง) · สรุปท้ายครั้งเดียว · แถว = หน้าจอ */
+/* [EDC1 FZ] แถบสถานะ: กรองการแสดงผลเท่านั้น (ไม่ลบแถว / ไม่เปลี่ยนผลตรวจ) · รายการถูกไม่ปะปนในรายการผิด */
+function fzFilterRows(f){
+  const box=document.getElementById('fzRBody'); if(!box) return;
+  const rows=[...box.querySelectorAll('tr.fz-full-row')]; let n=0;
+  rows.forEach(tr=>{ const show = f==='all' || tr.dataset.st===f; tr.style.display = show ? '' : 'none'; if(show) n++; });
+  box.querySelectorAll('.fz-tab').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  const em=box.querySelector('.fz-empty'), tb=box.querySelector('table.fz-full');
+  if(em){ em.style.display = n ? 'none' : ''; em.textContent = f==='bad' ? '✅ ไม่พบข้อผิดพลาด' : (f==='ok' ? 'ไม่มีรายการที่ตรวจถูก' : (f==='na' ? 'ไม่มีรายการที่ตรวจสอบไม่ได้' : 'ไม่มีผลตรวจ')); em.className='fz-empty'+(f==='bad'?' fz-empty-ok':''); }
+  if(tb) tb.style.display = n ? '' : 'none';
+}
+/* [EDC1 FZ] EXPORT รูปแบบ EDC8 ล่าสุด: 1 ไฟล์ แยก Sheet ตามสถานะจริง "รายการผิด" (❌) · "รายการถูก" (✅) · "ตรวจไม่ได้" (⚠️ — สร้างเมื่อมี)
+   หัวรายงาน + Header เอกสาร เดิมทุก Sheet · คอลัมน์ Item No. | หัวข้อตรวจสอบ | ค่าใบขน EDC1 | ค่าเปรียบเทียบ | สถานะ | รายละเอียด · แถว = หน้าจอ (R.rows) · สรุปผลท้าย Sheet รายการผิด */
 async function edc1fzBuildExcel(R){
-  const X=KDC_XS, m=R.meta||{}, aoa=[], sm={}, merges=[], rowsH={};
+  const KIND=[['bad','รายการผิด'],['ok','รายการถูก']].concat(R.rows.some(x=>x.st==='na') ? [['na','ตรวจไม่ได้']] : []);
+  const wb=XLSX.utils.book_new(), sms=[];
+  KIND.forEach(([k,name])=>{ const o=edc1fzSheet(R, k); XLSX.utils.book_append_sheet(wb, o.ws, name); sms.push(o.sm); });
+  return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), sms);
+}
+function edc1fzSheet(R, kind){
+  const X=KDC_XS, m=R.meta||{}, aoa=[], sm={}, merges=[], rowsH={}, list=R.rows.filter(x=>x.st===kind);
   const put=(r,c,v,st)=>{ while(aoa.length<=r) aoa.push([]); aoa[r][c]=v; if(st) sm[r+':'+c]=st; };
   const fill=(r,st,a,b)=>{ for(let c=a;c<=b;c++){ if(aoa[r]===undefined || aoa[r][c]===undefined) put(r,c,'',st); else sm[r+':'+c]=st; } };
   const mg=(r1,c1,r2,c2)=>merges.push({ s:{r:r1,c:c1}, e:{r:r2,c:c2} });
@@ -6761,20 +6796,21 @@ async function edc1fzBuildExcel(R){
     if(h[3]===null){ put(r,4,'ถูก '+R.okRows+' · ผิด '+R.badRows+' หัวข้อ',R.badRows?X.BADSUM:X.OKSUM); put(r,5,'ผลรวม '+R.status+(R.naRows?' · ตรวจไม่ได้ '+R.naRows:''),R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)); }
     else { put(r,4,S1(h[3]),X.VAL); put(r,5,'',X.VAL); mg(r,4,r,5); } });
   function S1(v){ return v==null?'':String(v); }
-  let r=7; put(r,0,'📋  ผลตรวจทุกหัวข้อ (ถูก / ผิด / ตรวจไม่ได้)',X.SECBAD); fill(r,X.SECBAD,0,3); mg(r,0,r,3); put(r,4,'จำนวน '+R.rows.length+' แถว · '+R.totalItems+' item',X.SECBADR); fill(r,X.SECBADR,4,5); mg(r,4,r,5); rowsH[r]=28; r++;
-  const hr=r; ['ITEM NO.','หัวข้อตรวจสอบใบขน','INVOICE / FIX / MASTER','ค่าใบขน EDC1','สถานะ','รายละเอียดข้อผิดพลาด / เหตุผลที่ตรวจไม่ได้'].forEach((h,i)=>put(r,i,h,X.HDRBAD)); rowsH[r]=22; r++;
-  R.rows.forEach(x=>{ put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,x.ref||'-',X.CELL_L); put(r,3,x.entry||'-',X.CELL_L);
+  const T={ bad:['✕  รายการผิด', X.SECBAD, X.SECBADR, X.HDRBAD, 'จำนวน '+list.length+' จุด (❌ ผิด) · '+R.itemBad+' item'], ok:['✓  รายการถูก', X.SECOK, X.SECOKR, X.HDROK, 'จำนวน '+list.length+' รายการ (✅ ถูก)'], na:['⚠  ตรวจสอบไม่ได้', X.SECNA, X.SECNAR, X.HDRNA, 'จำนวน '+list.length+' รายการ (⚠️ ตรวจไม่ได้)'] }[kind];
+  let r=7; put(r,0,T[0],T[1]); fill(r,T[1],0,3); mg(r,0,r,3); put(r,4,T[4],T[2]); fill(r,T[2],4,5); mg(r,4,r,5); rowsH[r]=28; r++;
+  const hr=r; ['Item No.','หัวข้อตรวจสอบ','ค่าใบขน EDC1','ค่าเปรียบเทียบ (INVOICE / EXPORT MAPPING / FIX / MASTER)','สถานะ','รายละเอียดข้อผิดพลาด / เหตุผลที่ตรวจไม่ได้'].forEach((h,i)=>put(r,i,h,T[3])); rowsH[r]=30; r++;
+  list.forEach(x=>{ put(r,0,edc1fzItemTxt(x.item),X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,x.entry||'-',X.CELL_L); put(r,3,x.ref||'-',X.CELL_L);
     put(r,4,EDC1FZ_ST_TXT[x.st].replace(/^(✅|❌|⚠️)\s*/,''), x.st==='ok'?X.ST_OK:(x.st==='bad'?X.ST_BAD:X.ST_NA)); put(r,5,x.st==='ok'?'':x.msg,X.CELL_L); r++; });
+  if(!list.length){ put(r,0,kind==='bad' ? 'ไม่พบข้อผิดพลาด' : (kind==='ok' ? 'ไม่มีรายการที่ตรวจถูก' : '-'),X.CELL_L); fill(r,X.CELL_L,0,5); mg(r,0,r,5); r++; }
   const lastData=r-1; r++;
-  put(r,0,'สรุปผลตรวจ',X.SECOK); fill(r,X.SECOK,0,5); mg(r,0,r,5); rowsH[r]=26; r++;
-  edc1fzSummaryRows(R).forEach((x,i,a)=>{ put(r,0,x[0],X.LBL); fill(r,X.LBL,0,1); mg(r,0,r,1); const st=i===a.length-1 ? (R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)) : (i===3?X.OKSUM:(i===4?X.BADSUM:(i===5?X.TOTSUM:X.VAL))); put(r,2,x[1],st); fill(r,st,2,5); mg(r,2,r,5); rowsH[r]=22; r++; });
+  if(kind==='bad'){ put(r,0,'สรุปผลตรวจ',X.SECOK); fill(r,X.SECOK,0,5); mg(r,0,r,5); rowsH[r]=26; r++;
+    edc1fzSummaryRows(R).forEach((x,i,a)=>{ put(r,0,x[0],X.LBL); fill(r,X.LBL,0,1); mg(r,0,r,1); const st=i===a.length-1 ? (R.status==='PASS'?X.OKSUM:(R.status==='FAIL'?X.BADSUM:X.TOTSUM)) : (i===3?X.OKSUM:(i===4?X.BADSUM:(i===5?X.TOTSUM:X.VAL))); put(r,2,x[1],st); fill(r,st,2,5); mg(r,2,r,5); rowsH[r]=22; r++; }); }
   const ws=XLSX.utils.aoa_to_sheet(aoa.map(row=>Array.from(row, v=>v===undefined?'':v)));
   Object.keys(ws).forEach(a=>{ if(a[0]==='!') return; ws[a].t='s'; ws[a].v=String(ws[a].v); });
-  ws['!merges']=merges; ws['!cols']=[{wch:14},{wch:34},{wch:34},{wch:30},{wch:14},{wch:56}];
+  ws['!merges']=merges; ws['!cols']=[{wch:14},{wch:34},{wch:30},{wch:38},{wch:14},{wch:56}];
   ws['!rows']=[]; Object.keys(rowsH).forEach(k=>{ ws['!rows'][+k]={ hpt:rowsH[k] }; });
-  ws['!autofilter']={ ref:XLSX.utils.encode_range({ s:{r:hr,c:0}, e:{r:Math.max(hr,lastData),c:5} }) };   /* ตัวกรองข้อมูล */
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ผลตรวจ');
-  return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), [sm]);
+  if(list.length) ws['!autofilter']={ ref:XLSX.utils.encode_range({ s:{r:hr,c:0}, e:{r:Math.max(hr,lastData),c:5} }) };   /* ตัวกรองข้อมูล */
+  return { ws, sm };
 }
 function exportFzFullReport(R){
   edc1fzBuildExcel(R).then(buf=>safeDownload(buf, 'EDC1FZ_ผลตรวจ_'+new Date().toISOString().slice(0,10)+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
@@ -8379,6 +8415,9 @@ Reject wrong mapping file before compare.
 Never continue after failed source gate.
 ═══════════════════════════════════════════════════════════
 */
+/* [EDC1 FZ] ปุ่มตรวจสอบ: เปิดเมื่อมี Entry File (เงื่อนไขเดียวกับ fzRunCheck) · ซ่อน/แสดงคำแนะนำแบบ EDC8 */
+function fzUpdateCheckBtn(){ const b=document.getElementById('fzCheckBtn'), h=document.getElementById('fzBtnHint'); if(!b) return; const ok=!!fzEntryWb; b.disabled=!ok; b.title=ok?'':'กรุณาอัปโหลดไฟล์ Entry ก่อน'; if(h) h.style.display=ok?'none':''; }
+try{ document.addEventListener('DOMContentLoaded', ()=>{ ['fzEntryFn','fzEntryFnTxt'].forEach(id=>{ const el=document.getElementById(id); if(el && window.MutationObserver) new MutationObserver(()=>queueMicrotask(fzUpdateCheckBtn)).observe(el, { attributes:true, childList:true, characterData:true, subtree:true }); }); fzUpdateCheckBtn(); }); }catch(_){}
 function fzRunCheck(){
   // [LOCK 3] source guard before anything else
   try{
@@ -12784,6 +12823,24 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc1fz .e8k-badge{ display:inline-block; padding:0 7px; border-radius:5px; border:1px solid #f2cdc8; background:#fdf3f2; color:#b42318; font-size:11px; font-weight:600; line-height:1.3 }
 #panel-edc1fz .e8k-badge.e8k-ok{ border-color:#c3e3d0; background:#eef7f2; color:#1f7a4d }
 #panel-edc1fz .e8k-badge.e8k-warn{ border-color:#ecdcae; background:#fdf8e8; color:#7a5d12 }
+/* [EDC1 FZ] หน้าจอรูปแบบ EDC8: Chips · แถบสถานะ · หัวตารางสีอ่อน · เส้น #D9E2EC 1px · เครื่องมือเพิ่มเติม */
+#panel-edc1fz .kdc-chips .stat-chip{ min-width:150px; justify-content:center; font-size:12px !important; font-weight:600; padding:5px 12px; border-radius:6px }
+#panel-edc1fz .fz-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px }
+#panel-edc1fz .fz-tab{ font-family:inherit; font-size:12px; font-weight:600; padding:6px 12px; border-radius:8px; border:1px solid #d9e2ec; background:#fff; color:#334155; cursor:pointer }
+#panel-edc1fz .fz-tab .fz-tab-n{ display:inline-block; min-width:20px; padding:0 6px; margin-left:4px; border-radius:10px; background:#eef2f7; color:#334155; font-size:11px }
+#panel-edc1fz .fz-tab-bad.active{ background:#fdf3f2; border-color:#f2cdc8; color:#b42318 }
+#panel-edc1fz .fz-tab-ok.active{ background:#eef7f2; border-color:#c3e3d0; color:#1f7a4d }
+#panel-edc1fz .fz-tab-na.active{ background:#fdf8e8; border-color:#ecdcae; color:#7a5d12 }
+#panel-edc1fz .fz-tab-all.active{ background:#eaf0f7; border-color:#b9c8da; color:#1e3a5f }
+#panel-edc1fz .e8k-grid.fz-full thead tr{ background:#f1f5f9 }
+#panel-edc1fz .e8k-grid.fz-full th, #panel-edc1fz .e8k-grid.fz-full td{ border:1px solid #D9E2EC }
+#panel-edc1fz .e8k-grid .fz-th-sub{ font-weight:400; font-size:10.5px; color:#64748b }
+#panel-edc1fz .e8k-grid.fz-full .e8k-act, #panel-edc1fz .e8k-grid.fz-full .e8k-exp{ white-space:normal; word-break:break-word }
+#panel-edc1fz .fz-empty{ padding:12px 16px; color:#475569; font-weight:600 }
+#panel-edc1fz .fz-empty.fz-empty-ok{ background:#eef7f2; color:#1f7a4d }
+#panel-edc1fz .fz-tools-bar{ margin-top:10px; padding:8px 12px; border:1px dashed #d9e2ec; border-radius:8px; background:#fafcff; flex-wrap:wrap }
+#panel-edc1fz .fz-tools-lbl{ font-size:11.5px; font-weight:700; color:#64748b; margin-right:4px }
+#panel-edc1fz #fzCheckBtn:disabled{ opacity:.55; cursor:not-allowed }
 #panel-edc8 .e8k-grid{ table-layout:fixed; width:100%; min-width:720px; border-collapse:collapse; font-family:var(--sans); color:#1f2937; background:#fff }
 #panel-edc8 .e8k-grid thead tr{ background:#eaf0f7 }
 #panel-edc8 .e8k-grid th{ color:#334155; font-weight:600; padding:8px 10px; text-align:left; font-size:12px }
@@ -13166,11 +13223,12 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
          ถ้าค่าที่ฟ้องไม่ตรงกับแถวใดของ ITEM (รูปแบบต่างกัน) → นับทุกแถวของ ITEM นั้นเป็นผิดเหมือนเดิม (ไม่ซ่อนรายการผิดจริง) */
       const VN=v=>S(v).trim().replace(/\s+/g,' ').toUpperCase(), badVal=new Set(errI.map(e=>nkItem(e.item)+'|'+VN(e.found))), seen=[];
       rows.slice(1).forEach(r=>{ if(!r || !r.some(c=>S(c).trim()!=='')) return; const it=iCol===-1 ? '' : nkItem(r[iCol]); if(iCol!==-1 && !it) return; if(skipRow.has(r) || ((f.t==='QTY ใบขน' || f.t==='QTY 2') && unitItem.has(it))) return;
-        seen.push([it, S(r[ci]).trim()||'(ว่าง)', ID(r[iCol])]); });
+        seen.push([it, S(r[ci]).trim()||'(ว่าง)', ID(r[iCol]), (f.t==='QTY' && th1.has(it) ? (edc8UnitFixOf(th1.get(it)) || fixTxt) : fixTxt)]); });   /* [EDC8] QTY: ค่า FIX จริงของ ITEM (MTK / SET / C62) */
       const itemHit=new Set(seen.filter(([it,v])=>badVal.has(it+'|'+VN(v))).map(x=>x[0]));
-      seen.forEach(([it,v,d])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0, ok:[], badIt:[] }); const o=vals.get(v); o.n++; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)){ o.bad++; if(!o.badIt.includes(d)) o.badIt.push(d); } else if(!o.ok.includes(d)) o.ok.push(d); });
+      seen.forEach(([it,v,d,fx])=>{ if(!vals.has(v)) vals.set(v,{ n:0, bad:0, ok:[], badIt:[], fxOf:{} }); const o=vals.get(v); o.n++; if(!(d in o.fxOf)) o.fxOf[d]=fx; if(bad.has(it) && (itemHit.has(it) ? badVal.has(it+'|'+VN(v)) : true)){ o.bad++; if(!o.badIt.includes(d)) o.badIt.push(d); } else if(!o.ok.includes(d)) o.ok.push(d); });   /* fxOf = ค่า FIX จริงของ ITEM (QTY: MTK / SET / C62) */
       if(noRule){ unchecked.push(f.t); vals.forEach((o,v)=>R(v, 'ยังไม่กำหนด', '⚠️ ตรวจไม่ได้', o.n)); continue; }
-      vals.forEach((o,v)=>{ o.badIt.forEach(d=>R(v, fixTxt||DASH, (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด'), 1, d)); if(o.ok.length) R(v, fixTxt||DASH, '✅ ถูก', o.ok.length, FI(o.ok)); });   /* [EDC8] Item No. ใบขน: ค่าผิด = แถวละ ITEM · ค่าถูก = รายการ ITEM */   /* ค่าที่ถูก = แถว ✅ (หน้าจอรายการผิดกรองออก · EXPORT อยู่ Sheet รายการถูก) · ค่าที่ผิด = ❌ */
+      vals.forEach((o,v)=>{ const FX=d=>(o.fxOf[d]!==undefined ? o.fxOf[d] : fixTxt); o.badIt.forEach(d=>R(v, FX(d)||DASH, (v==='(ว่าง)' ? '❌ ว่าง' : '❌ ผิด'), 1, d));
+        if(o.ok.length){ const g=new Map(); o.ok.forEach(d=>{ const x=FX(d); if(!g.has(x)) g.set(x,[]); g.get(x).push(d); }); g.forEach((ds,x)=>R(v, x||DASH, '✅ ถูก', ds.length, FI(ds))); } });   /* [EDC8] Item No. ใบขน: ค่าผิด = แถวละ ITEM · ค่าถูก = รายการ ITEM */   /* ค่าที่ถูก = แถว ✅ (หน้าจอรายการผิดกรองออก · EXPORT อยู่ Sheet รายการถูก) · ค่าที่ผิด = ❌ */
     }
     return { rows:out, unchecked, belongs:e=>!!fixTopicOf(e) };
   }
