@@ -595,6 +595,81 @@ function apprApproversPop(el, kind, id, btn) {
   apprPopShow(btn, apprApproversHTML(r), "apr-menu apr-pop", "dialog");
 }
 
+/* ============================ [RUN-207] ============================
+   SUPER_ADMIN คืนรายการที่อนุมัติครบแล้ว ให้พนักงานแก้ไขและยื่นใหม่
+   · ใช้ได้ทั้งคำขอลา (leave) · คำขอ OT (ot) · ลงชื่อย้อนหลัง (fix)
+   · ต้องกรอกเหตุผล และต้องยืนยันอีกชั้นก่อนดำเนินการ
+   · ผลจริงทั้งหมดทำที่ RPC njhr_request_return ฝั่งเซิร์ฟเวอร์
+     (เช็คสิทธิ์ซ้ำ · บล็อกเมื่อปิดงวดเงินเดือน · คืนวันลา · คืนเวลาลงเวลา)
+   =================================================================== */
+var APPR_RETURN_KIND = { leave: "LEAVE", ot: "OT", fix: "ATTC" };
+
+function apprCanReturn(r) {
+  if (!r) return false;
+  if (String((currentUser() || {}).role || "").toUpperCase() !== "SUPER_ADMIN") return false;
+  return String(r.status || "").toUpperCase() === "APPROVED";
+}
+
+function apprReturnOpen(el, kind, id) {
+  var r = apprFind(kind, id);
+  if (!r) return;
+  if (!apprCanReturn(r)) { toast("คืนได้เฉพาะรายการที่อนุมัติครบแล้ว", "error"); return }
+  var who = esc(r.emp_name || r.full_name || "-");
+  var no = esc(r.request_no || r.code || "");
+  var when = r.start_date || r.ot_date || r.work_date || "";
+  openModal("คืนให้พนักงานยื่นใหม่",
+    '<div class="apr-ret">' +
+    '<div class="ap-sum ap-amber"><div class="ap-sum-h">↩️ <b>รายการที่จะส่งคืน</b></div>' +
+    (no ? '<div class="ap-sum-r"><span>เลขที่คำขอ</span><b>' + no + "</b></div>" : "") +
+    '<div class="ap-sum-r"><span>พนักงาน</span><b>' + who + "</b></div>" +
+    (when ? '<div class="ap-sum-r"><span>วันที่</span><b>' + esc(fmtDateDMY(when)) + "</b></div>" : "") +
+    "</div>" +
+    '<label class="field"><span>เหตุผลการคืนรายการ <i class="req">*</i></span>' +
+    '<textarea id="apr-ret-why" rows="3" maxlength="300" ' +
+    'placeholder="ระบุให้พนักงานเข้าใจว่าต้องแก้ไขอะไร"></textarea></label>' +
+    '<p class="note muted">เมื่อส่งคืนแล้ว ผลอนุมัติเดิมทุกขั้นจะถูกยกเลิก ' +
+    'วันลาหรือผลที่เกิดจากการอนุมัติจะถูกคืนให้อัตโนมัติ ' +
+    'และพนักงานต้องแก้ไขแล้วยื่นใหม่โดยเริ่มอนุมัติจากขั้นแรก</p>' +
+    '<p class="form-err" id="apr-ret-err"></p></div>',
+    '<button class="btn btn-ghost" id="apr-ret-cancel">ยกเลิก</button>' +
+    '<button class="btn btn-primary" id="apr-ret-go">ส่งคืน</button>');
+  document.getElementById("apr-ret-cancel").onclick = closeModal;
+  var ta = document.getElementById("apr-ret-why");
+  if (ta) ta.focus();
+  document.getElementById("apr-ret-go").onclick = function () {
+    var btn = this, eb = document.getElementById("apr-ret-err");
+    var why = String((ta && ta.value) || "").trim();
+    eb.textContent = "";
+    if (!why) { eb.textContent = "กรุณากรอกเหตุผลการคืนรายการ"; if (ta) ta.focus(); return }
+    /* ยืนยันอีกชั้นก่อนดำเนินการจริง */
+    confirmDialog("ยืนยันการส่งคืน",
+      "ต้องการส่งคืนรายการของ <b>" + who + "</b> ให้แก้ไขและยื่นใหม่ใช่หรือไม่<br>" +
+      '<span class="muted">เหตุผล: ' + esc(why) + "</span>",
+      "ส่งคืน", function () {
+        return sbRpc("njhr_request_return", {
+          p_token: sbToken(), p_kind: APPR_RETURN_KIND[kind] || "", p_id: id, p_reason: why
+        }).then(function (res) {
+          closeModal();
+          var row = (res && res.data) ? res.data : res;
+          if (Array.isArray(row)) row = row[0];
+          var extra = row && row.note ? " · " + row.note : "";
+          toast("ส่งคืนรายการให้พนักงานแก้ไขแล้ว" + extra, "info");
+          apprLoad(el);
+        })["catch"](function (ex) {
+          closeModal();
+          toast(ex && ex.message || "ส่งคืนรายการไม่สำเร็จ", "error");
+        });
+      }, true);
+    /* กด "ยกเลิก" ในหน้าต่างยืนยัน → กลับมาหน้าเดิมพร้อมเหตุผลที่พิมพ์ไว้ ไม่ต้องพิมพ์ใหม่ */
+    var no = document.getElementById("cf-no");
+    if (no) no.onclick = function () {
+      apprReturnOpen(el, kind, id);
+      var t2 = document.getElementById("apr-ret-why");
+      if (t2) { t2.value = why; t2.focus() }
+    };
+  };
+}
+
 function apprMenuOpen(el, kind, id, btn) {
   var same = apprMenuBtn === btn;
   apprMenuClose();
@@ -606,6 +681,10 @@ function apprMenuOpen(el, kind, id, btn) {
      และต้อง can_act = true */
   var items = [["view", "eye", "ดูรายละเอียด"]];
   if (kind === "leave" && r.can_act === true) items.push(["info", "edit", "ขอข้อมูลเพิ่ม"]);
+  /* [RUN-207] คืนรายการที่อนุมัติครบแล้ว ให้พนักงานแก้ไขและยื่นใหม่
+     เห็นเฉพาะ SUPER_ADMIN และเฉพาะรายการที่อนุมัติครบทุกขั้นตามผังแล้วเท่านั้น
+     สิทธิ์จริงยังถูกบังคับซ้ำที่ RPC ฝั่งเซิร์ฟเวอร์ทุกครั้ง */
+  if (apprCanReturn(r)) items.push(["return", "undo", "คืนให้พนักงานยื่นใหม่"]);
 
   var m = document.createElement("div");
   m.id = "appr-menu";
@@ -631,6 +710,7 @@ function apprMenuOpen(el, kind, id, btn) {
     if (!b || !m.contains(b)) return;
     var mi = b.getAttribute("data-mi");
     apprMenuClose();
+    if (mi === "return") { apprReturnOpen(el, kind, id); return }   /* [RUN-207] */
     apprReview(el, kind, id, mi === "info" ? "info" : "view");
   };
 

@@ -51,6 +51,13 @@ function apStatus(r){
          stepNo:null,stepName:"",stepMode:"",done:0,total:0,missing:[],doneList:[],
          steps:steps,note:"",who:"",whoLabel:"",reason:"",at:""};
   var ev=null;
+  /* [RUN-207] SUPER_ADMIN ส่งคืนรายการที่อนุมัติครบแล้ว ให้พนักงานแก้ไขและยื่นใหม่
+     ต่างจาก "ตีกลับ" ของ RUN-133 ซึ่งยังไม่ปิดคำขอและสถานะยังเป็น PENDING
+     ตัวนี้สถานะในฐานข้อมูลเป็น RETURNED จริง จึงแยกกันได้ชัดเจน */
+  if(raw==="RETURNED"){o.kind="RETURNED_EDIT";o.tone="amber";o.mark="↩️";
+    o.title="ส่งคืนให้แก้ไข";o.badge="badge-warn";
+    ev=apLastEvent(r,["RETURN_EDIT"]);o.whoLabel="ผู้ส่งคืน";
+    if(ev){o.who=apEvWho(ev);o.reason=apEvNote(ev);o.at=apAt(apEvAtRaw(ev))}return o}
   if(raw.indexOf("CANCEL")>=0){o.kind="CANCELLED";o.tone="mut";o.mark="⚪";o.title="ยกเลิกแล้ว";o.badge="badge-mut";return o}
   if(raw.indexOf("REJECT")>=0){o.kind="REJECTED";o.tone="red";o.mark="⛔";o.title="ไม่อนุมัติ";o.badge="badge-bad";ev=apLastEvent(r,["REJECT"]);o.whoLabel="ผู้ไม่อนุมัติ";if(ev){o.who=apEvWho(ev);o.reason=apEvNote(ev);o.at=apAt(apEvAtRaw(ev))}return o}
   if(raw.indexOf("APPROV")>=0||raw==="COMPLETED"){o.kind="APPROVED";o.tone="green";o.mark="🟢";o.title="อนุมัติครบแล้ว";o.badge="badge-ok";ev=apLastEvent(r,["APPROVE","AUTO_APPROVE_EXEMPT"]);o.whoLabel="ผู้อนุมัติ";if(ev){o.who=apEvWho(ev);o.at=apAt(apEvAtRaw(ev))}if(!o.at&&r.approved_at)o.at=apAt(r.approved_at);return o}
