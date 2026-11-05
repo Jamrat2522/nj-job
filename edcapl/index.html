@@ -11208,7 +11208,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       const isFz = cfNorm(val(r, I.priv)).split(/[,\/]/).some(t => cfNormUC(t) === 'FREEZONE');   /* Freezone ใช้ตรวจราคา SERVICE (ไม่มีคอลัมน์ FZ แล้ว) */
       const key = isRMA ? '' : _cfKey(loc, job);
       const feeOnly = _cfIsFeeOnly(job);   /* [CUSTOM FEE] Customer jobno. มี "เก็บเฉพาะค่าธรรมเนียม" → ตรวจก่อนกฎราคาอื่น: CUSTOMS FEE 200 · SERVICE / KEY / OT ว่าง */
-      if(feeOnly){ out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), '', '', 200, '']); continue; }
+      if(feeOnly){ out.push([itemN++, '', val(r, I.summit), val(r, I.entry), val(r, I.exp), val(r, I.inv), val(r, I.loc), val(r, I.status), val(r, I.priv), val(r, I.job), '', '', (cfNormUC(val(r, I.fee)) === 'NO' ? '' : 200), '']); continue; }   /* [CUSTOM FEE] 05/11/2026: ต้นทาง CUSTOMS FEE = NO → ว่าง (กฎเดียวกับรายการปกติ) */
       const isSp = _cfIsByTruck(val(r, I.veh));   /* [CUSTOM FEE] SPECIAL (BY TRUCK) — ราคาแยกจากกฎเดิม: Freezone 500 + KEY 250 · ไม่ใช่ Freezone 0 + KEY 230 */
       const otRaw = cfNorm(val(r, I.ot)), otNum = otRaw.replace(/,/g,'');
       const ot = otRaw === '' ? '' : (/^-?\d+(\.\d+)?$/.test(otNum) ? Number(otNum) : otRaw);
