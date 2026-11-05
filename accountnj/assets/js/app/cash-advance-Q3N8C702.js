@@ -278,7 +278,7 @@ async function load() {
     if (my !== S.seq) return;
     S.bill = bm;
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
-    S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no || S.f.billed) && badgeSet(S.counts);
+    S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no || S.f.billed) && badgeSet(S.counts); BG774();   /* V.774 */
   } catch (e) { if (my !== S.seq) return; S.rows = []; S.total = 0; S.err = errMsg(e); }
   S.loading = !1; paint();
 }
@@ -562,7 +562,7 @@ async function render(root, args) {
   args = args || {};
   if (typeof window !== "undefined" && window.__NJ_MOBILE) { var mm = await import("./adv-approve-K7Q2M701.js"); return mm.render(root, args); }   /* มือถือ = CASH ADVANCE Mobile View (Bottom Navigation 4 เมนู) */
   css(); hd735(); closeView();   /* V.735 */
-  S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: {}, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
+  S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: { billed: CA774D }, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
   args.tab === "INV" && (S.tab = "APPROVED");   /* V.706 : ลิงก์เดิม tab=INV → อนุมัติแล้ว */
   root.innerHTML = shell();
   var me = S, fo = root.querySelector("[data-f]"); CA760(fo);   /* V.760 */
@@ -576,7 +576,7 @@ async function render(root, args) {
     if (b.dataset.tab) { if (S.tab !== b.dataset.tab) { S.tab = b.dataset.tab; S.off = 0; load(); } return; }
     if (b.hasAttribute("data-rf")) { load(); return; }
     if (b.hasAttribute("data-xl")) { exportXls(b); return; }
-    if (b.hasAttribute("data-clr")) { fo.reset(); S.f = {}; S.off = 0; load(); return; }
+    if (b.hasAttribute("data-clr")) { fo.reset(); S.f = { billed: CA774D }; S.off = 0; load(); return; }   /* V.774 */
     if (b.hasAttribute("data-ft")) { fo.classList.toggle("open"); return; }
     if (b.hasAttribute("data-pv")) { S.off = Math.max(0, S.off - S.lim); load(); return; }
     if (b.hasAttribute("data-nx")) { S.off += S.lim; load(); return; }
@@ -608,7 +608,7 @@ async function render(root, args) {
    ค่าทั้งหมดอยู่ใน <form data-f> เดิม (hidden input ตามชื่อพารามิเตอร์) → กด "ค้นหา" = submit เดิม (หน้า 1) · "ล้างกรอง" = reset เดิม ═══ */
 var CA760O = null, CA760A = "ทั้งหมด", CA760B = [["billed", "เก็บลูกค้าแล้ว"], ["not", "ไม่วางบิล"]];
 function DH760(nm, k, more) {
-  return '<div class="ca760-l' + (more ? " ca7-more" : "") + '"><span>' + esc({ co: "Company", cu: "Customer", ty: "ประเภท", bl: "เก็บลูกค้าแล้ว" }[k]) + '</span><div class="ca760-dd" data-dd760="' + k + '"><input type="hidden" name="' + nm + '" value="">' +
+  return '<div class="ca760-l' + (more ? " ca7-more" : "") + '"><span>' + esc({ co: "Company", cu: "Customer", ty: "ประเภท", bl: "เก็บลูกค้าแล้ว" }[k]) + '</span><div class="ca760-dd" data-dd760="' + k + '"><input type="hidden" name="' + nm + '" value="' + (k === "bl" ? CA774D : "") + '">' +
     '<button type="button" class="ca760-tg" aria-haspopup="listbox" aria-expanded="false"><span class="ca760-tx">' + CA760A + '</span><span class="ca760-cr" aria-hidden="true"></span></button>' +
     '<div class="ca760-pan" hidden>' + (k === "bl" ? "" : '<div class="ca760-sw"><input type="text" class="ca760-s" autocomplete="off" placeholder="พิมพ์ค้นหา…" aria-label="ค้นหาตัวเลือก"></div>') + '<div class="ca760-ls" role="listbox"></div></div></div></div>';
 }
@@ -703,8 +703,19 @@ function CA760(fo) {
       ls.addEventListener("mousemove", function (ev) { var i = vis.indexOf(ev.target.closest(".ca760-it")); i >= 0 && i !== act && mark(i); });
       D.push(sync); sync();
     });
-    fo.addEventListener("reset", function () { CA760O && CA760O(); fo.querySelectorAll("[data-dd760] input[type=hidden]").forEach(function (h) { h.value = ""; h.defaultValue = ""; }); setTimeout(function () { D.forEach(function (f) { f(); }); }, 0); });
+    fo.addEventListener("reset", function () { CA760O && CA760O(); fo.querySelectorAll("[data-dd760] input[type=hidden]").forEach(function (h) { var d0 = h.name === "billed" ? CA774D : ""; h.value = d0; h.defaultValue = d0; });   /* V.774 */ setTimeout(function () { D.forEach(function (f) { f(); }); }, 0); });
     fo.__ca760s = function () { D.forEach(function (f) { f(); }); };
   } catch (e) { try { console.warn("CA760", e); } catch (_) {} }
+}
+/* ═══ V.774 · CASH ADVANCE → หน้ารายงาน : ตัวกรอง "เก็บลูกค้าแล้ว" ค่าเริ่มต้น = "ไม่วางบิล" (billed = not)
+   เปิดหน้า / เข้าเมนูอีกครั้ง / รีเฟรชหน้าเว็บ / ล้างกรอง = ไม่วางบิล ทุกครั้ง (ไม่จำค่าครั้งก่อน) · เลือก "เก็บลูกค้าแล้ว" เอง = เฉพาะที่เก็บลูกค้าแล้ว · "ทั้งหมด" ยังเลือกได้
+   กรองที่ Server เดิม (njacc_cash_adv704_list · billed · ผล njacc_cash_adv719_bill) ร่วมกับช่องค้นหา + แท็บสถานะ → จำนวน / ยอดรวม / Export = ชุดเดียวกัน · เงื่อนไขคำนวณสถานะเดิม
+   Badge เมนู (SUPER_ADMIN) = จำนวนรออนุมัติทั้งหมดเหมือนเดิม (ไม่ถูกตัวกรองเริ่มต้นนี้ลดลง) ═══ */
+var CA774D = "not";
+function BG774() {
+  try {
+    if (!S || !S.sup || !S.f.billed || S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no) return;
+    rpc("njacc_cash_adv704_list", { p: { tab: "PENDING", sub: "ALL", invoice_tab: null, limit: 1, offset: 0, with_options: !1 } }).then(function (r) { r && r.counts && badgeSet(r.counts); }, function () {});
+  } catch (e) {}
 }
 export{render};
