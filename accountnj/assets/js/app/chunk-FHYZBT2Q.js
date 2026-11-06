@@ -18,7 +18,7 @@ import{a as k}from"./chunk-LAFWE2EM.js";import{c as j,d as J}from"./chunk-Q7FMEC
       <tr><td class="t-b">Total Amount (Net = Gross \u2212 WHT)</td><td class="r t-b">${x(t.total_amount)}</td></tr>
       <tr><td>\u0E25\u0E39\u0E01\u0E2B\u0E19\u0E35\u0E49\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14</td><td class="r">${(t.total_overdue||0).toLocaleString("th-TH")} \u0E43\u0E1A</td></tr>
       <tr><td>\u0E07\u0E32\u0E19\u0E40\u0E25\u0E22 Due \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INV</td><td class="r">${(t.job_overdue_no_invoice||0).toLocaleString("th-TH")} \u0E07\u0E32\u0E19</td></tr>
-    </table><p class="t-xs t-3 mt-1">* \u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (${J(e.charge)} / ${j(e.group)}) \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C</p>`,footer:Object.assign(document.createElement("div"),{innerHTML:'<button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>'})})}export{K as a,Z as b,T as c,ft as d,_t as e,gt as f,ht as g,Y as h,O as i,Rt as j,wt as k,Ct as l,U as m,yt as n,Et as o,jt as p,Jt as q,vt as r,v as s,Ft as t,Ot as u,rt as v,Nt as w,Vt as x,$t as y,Dt as z,X as A,q as B,Wt as C,zt as D,Ut as E,CC751,SNB777};
+    </table><p class="t-xs t-3 mt-1">* \u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (${J(e.charge)} / ${j(e.group)}) \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C</p>`,footer:Object.assign(document.createElement("div"),{innerHTML:'<button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>'})})}export{K as a,Z as b,T as c,ft as d,_t as e,gt as f,ht as g,Y as h,O as i,Rt as j,wt as k,Ct as l,U as m,yt as n,Et as o,jt as p,Jt as q,vt as r,v as s,Ft as t,Ot as u,rt as v,Nt as w,Vt as x,$t as y,Dt as z,X as A,q as B,Wt as C,zt as D,Ut as E,CC751,SNB777,SER785,ADV786};
 
 /* ═══ V.713 · EXPORT EXCEL หน้ารายการ DOCUMENT → SERVICE / ADVANCE : เรียงเลข JOB น้อย → มาก เสมอ (ปี-เดือน YYMM → เลขลำดับ · ค่าตัวเลขจริง · ไม่มีเลข = ท้าย)
    เรียงเฉพาะข้อมูลที่ส่งออก (แยกจากหน้ารายการที่เรียง มาก → น้อย) · ข้อมูล / ตัวกรอง / สิทธิ์ / คอลัมน์ / รูปแบบ Excel เดิม · Export ประเภทอื่นไม่เปลี่ยน ═══ */
@@ -178,3 +178,243 @@ function CN770(v) {
   return out.join(", ");
 }
 function NT770(v) { return v == null ? "" : String(v).replace(/\r\n?/g, "\n").trim(); }
+/* ═══ V.785 · ACCOUNTING → SERVICE : ปุ่ม "Excel Ser" — Export Excel SER (BKKOI SER / LCHOI SER) จากข้อมูลจริง (อ่านอย่างเดียว · ไม่เขียนฐานข้อมูล · ไม่เปลี่ยนสถานะ)
+   รูปแบบไฟล์ = แม่แบบต้นฉบับ (FastReport : Sheet Page1 · A–R · แถว M/C/O · HDR / INV · สี / ฟอนต์ Tahoma 8 / เส้น / ความกว้าง / ความสูงแถว / Merge H:N / #,##0.00 / แบ่งหน้าทุก Voucher)
+   ส่วนคงที่ของไฟล์ (styles / workbook / rels / docProps / Content_Types) คัดลอกจากแม่แบบตรงตัว · sheet1.xml / sharedStrings.xml สร้างตามโครงเดิมทุกตัวอักษร (ตรวจแล้ว : สร้าง BKKOI SER / LCHOI SER ต้นฉบับซ้ำได้ตรงทุก Byte)
+   ข้อมูล : ผลค้นหาปัจจุบันของ ACCOUNTING → SERVICE (njacc_export_charges เดิม) → เฉพาะ INVOICE ที่ POST แล้ว + ลูกค้า SCHENKER → รายการจาก njacc_invoice_view เดิม
+     HDR : D = Invoice No. · E = วันที่ Invoice (DD.MM.YYYY) · G = Σ Net Amount · I = VAT % · J = Σ VAT · H = G + J − Σ WHT (ตรวจตรงกับยอด INVOICE จริงก่อน Export)
+     INV : B = Customer Job No. ของ JOB · C = ARC · D = ว่าง · E = Amount รายการ · F = W3 (เฉพาะรายการ VAT + WHT 3%) · G = SERI/SERC/SERE → ICP · 128 → ECP · อื่น ๆ → HNDD · H = รายละเอียด
+     สาขา : Customer Job No. ขึ้นต้น BKKOI → SJCBKK / THBKKDPEXS0001 · LCHOI → SJCLCB / THLCHDPEXS0001 · อื่น ๆ / ว่าง = แจ้งข้อผิดพลาด ไม่ Export JOB นั้น · พบทั้ง 2 สาขา = 2 ไฟล์
+     ค่าอื่นตามแม่แบบ : SAP 503579 · THB · THNJ0001 · I · OE · W3 ═══ */
+var SERP785 = {"[Content_Types].xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/xl/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\" /><Override PartName=\"/xl/styles.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\" /><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\" /><Default Extension=\"xml\" ContentType=\"application/xml\" /><Default Extension=\"png\" ContentType=\"image/png\"/><Override PartName=\"/xl/workbook.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\" /><Override PartName=\"/docProps/app.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\" /><Override PartName=\"/xl/worksheets/sheet1.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"  /><Override PartName=\"/xl/drawings/drawing1.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\" /><Override PartName=\"/xl/sharedStrings.xml\"  ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\" /><Override PartName=\"/docProps/core.xml\"  ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\" /></Types>", "_rels/.rels": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\r\n<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\"  Target=\"docProps/app.xml\"  />\r\n<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\"  Target=\"docProps/core.xml\"  />\r\n<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\"  Target=\"xl/workbook.xml\"  />\r\n</Relationships>\r\n", "docProps/app.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">\r\n<DocSecurity>0</DocSecurity>\r\n<ScaleCrop>false</ScaleCrop>\r\n<HeadingPairs>\r\n<vt:vector size=\"2\" baseType=\"variant\">\r\n<vt:variant>\r\n<vt:lpstr>Worksheets</vt:lpstr>\r\n</vt:variant>\r\n<vt:variant>\r\n<vt:i4>2</vt:i4>\r\n</vt:variant>\r\n</vt:vector>\r\n</HeadingPairs>\r\n<TitlesOfParts>\r\n<vt:vector size=\"1\" baseType=\"lpstr\">\r\n<vt:lpstr>\u041b\u0438\u0441\u04421</vt:lpstr>\r\n</vt:vector>\r\n</TitlesOfParts>\r\n<LinksUpToDate>false</LinksUpToDate>\r\n<SharedDoc>false</SharedDoc>\r\n<HyperlinksChanged>false</HyperlinksChanged>\r\n<AppVersion>12.0000</AppVersion>\r\n</Properties>\r\n", "docProps/core.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\r\n<dc:title>form_BillingDB</dc:title>\r\n<dc:creator>FastReport.NET</dc:creator>\r\n</cp:coreProperties>\r\n", "xl/_rels/workbook.xml.rels": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\r\n<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\"  Target=\"styles.xml\"  />\r\n<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme\"  Target=\"theme/theme1.xml\"  />\r\n<Relationship Id=\"rId21\"  Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\"  Target=\"worksheets/sheet1.xml\"  />\r\n<Relationship Id=\"rId6\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings\"  Target=\"sharedStrings.xml\"  />\r\n</Relationships>\r\n", "xl/workbook.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\r\n<fileVersion appName=\"xl\" lastEdited=\"4\" lowestEdited=\"4\" rupBuild=\"4505\" />\r\n<workbookPr defaultThemeVersion=\"124226\" />\r\n<bookViews>\r\n<workbookView xWindow=\"0\" yWindow=\"0\" windowWidth=\"8610\" windowHeight=\"6225\" />\r\n</bookViews>\r\n<sheets>\r\n<sheet name=\"Page1\"  sheetId=\"1\"  r:id=\"rId21\"  />\r\n</sheets>\r\n<calcPr calcId=\"124519\" />\r\n</workbook>\r\n", "xl/styles.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\r\n<numFmts count=\"1\">\r\n<numFmt numFmtId=\"165\" formatCode=\"#,##0.00;-#,##0.00\" />\r\n</numFmts>\r\n<fonts count=\"5\">\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><b/><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n</fonts>\r\n<fills count=\"7\">\r\n<fill><patternFill patternType=\"none\"/></fill>\r\n<fill><patternFill patternType=\"gray125\"/></fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"FFF0F0F0\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n</fills>\r\n\r\n<borders count=\"5\">\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FFFF0000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FFFF0000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FFFF0000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FFFF0000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n</borders>\r\n\r\n<cellStyleXfs count=\"1\">\r\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" />\r\n</cellStyleXfs>\r\n<cellXfs count=\"5\">\r\n<xf numFmtId=\"0\"\r\nfontId=\"0\" \r\nfillId=\"2\" borderId=\"0\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"left\" vertical=\"top\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"1\" \r\nfillId=\"3\" borderId=\"1\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"2\" \r\nfillId=\"4\" borderId=\"2\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"3\" \r\nfillId=\"5\" borderId=\"3\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"165\"\r\nfontId=\"4\" \r\nfillId=\"6\" borderId=\"4\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n</cellXfs>\r\n<cellStyles count=\"1\">\r\n<cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\" />\r\n</cellStyles>\r\n<dxfs count=\"0\" />\r\n<tableStyles count=\"0\" defaultTableStyle=\"TableStyleMedium9\" defaultPivotStyle=\"PivotStyleLight16\" />\r\n</styleSheet>\r\n", "__sheet_head": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\r\n", "__sheet_mid": "\r\n<sheetViews><sheetView tabSelected=\"1\" workbookViewId=\"0\" /></sheetViews>\r\n<sheetFormatPr defaultRowHeight=\"15\" />\r\n<cols><col min=\"1\" max=\"1\" width=\"13.5\" customWidth=\"1\" /><col min=\"2\" max=\"2\" width=\"15\" customWidth=\"1\" /><col min=\"3\" max=\"3\" width=\"15\" customWidth=\"1\" /><col min=\"4\" max=\"4\" width=\"19.5\" customWidth=\"1\" /><col min=\"5\" max=\"5\" width=\"15\" customWidth=\"1\" /><col min=\"6\" max=\"6\" width=\"12\" customWidth=\"1\" /><col min=\"7\" max=\"7\" width=\"18\" customWidth=\"1\" /><col min=\"8\" max=\"8\" width=\"15\" customWidth=\"1\" /><col min=\"9\" max=\"9\" width=\"12\" customWidth=\"1\" /><col min=\"10\" max=\"10\" width=\"12\" customWidth=\"1\" /><col min=\"11\" max=\"11\" width=\"12\" customWidth=\"1\" /><col min=\"12\" max=\"12\" width=\"12\" customWidth=\"1\" /><col min=\"13\" max=\"13\" width=\"16.5\" customWidth=\"1\" /><col min=\"14\" max=\"14\" width=\"18\" customWidth=\"1\" /><col min=\"15\" max=\"15\" width=\"13.5\" customWidth=\"1\" /><col min=\"16\" max=\"16\" width=\"15\" customWidth=\"1\" /><col min=\"17\" max=\"17\" width=\"18\" customWidth=\"1\" /><col min=\"18\" max=\"18\" width=\"15\" customWidth=\"1\" /></cols>\r\n<sheetData>"};
+var SERH785 = ["RECORD ID", "SCHENKER BRANCH CODE", "SAP ACCOUNT NO.", "VOUCHER NO.\n(เลขที่อินวอยซ์)", "VOUCHER DATE\n(วันที่อินวอยซ์)", "VOUCHER \nCURRENCY", "TOTAL NET AMOUNT VOUCHER (ยอดรวมใบแจ้งหนี้ไม่รวมภาษี) ", "TOTAL AMOUNT VOUCHER", "TAX PERCENTAGE", "TAX AMOUNT\n(ยอดภาษี)", "ADDRESS ID", "ODM LINK", "INVOICE REF NO.", "TANGO PARTNER \nID", "VOUCHER \nTYPE", "TRANSPORT \nMODE & DIRECTION", "TANGO RECEIVING \nDEPARTMENT ID", "TAX CODE"];
+var SERI785 = ["RECORD ID", "SHIPMENT REFERENCE NO.\n(เลขจ๊อบ)", "REFERENCE \nTYPE", "PROCARS CHARGE CODE", "NET AMOUNT\n(จำนวนเงิน ไม่รวมภาษีมูลค่าเพิ่ม)", "TAX CODE\n(รหัสภาษี)", "GLOBAL CHARGE \nCODE (รหัสค่าใช้จ่าย)", "Remark (หมายเหตุ)"];
+var SERM785 = ["M", "C", "O", "M", "M", "M", "M", "C", "O", "C", "O", "O", "O", "M", "O", "M", "C", "O"], SERN785 = ["M", "M", "M", "O", "M", "M", "M", "O"];
+var SERB785 = { BKKOI: { b: "SJCBKK", q: "THBKKDPEXS0001" }, LCHOI: { b: "SJCLCB", q: "THLCHDPEXS0001" } };
+var SERC785 = "ABCDEFGHIJKLMNOPQR".split("");
+function SERX785(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "&#10;"); }
+/* vouchers : [{ no, date, G, H, I, J (ข้อความตามแม่แบบ), lines : [{ ref, amt (ตัวเลข), g, rem }] }] · br : SERB785[x] → { sheet, sst } */
+function SERW785(vouchers, br) {
+  var ss = [], si = new Map(), S = function (v) { v = String(v == null ? "" : v); if (!si.has(v)) { si.set(v, ss.length); ss.push(v); } return si.get(v); };
+  var rows = [], merges = [], brks = [], r = 0;
+  var cs = function (c, n, st, v) { return '<c r="' + c + n + '" s="' + st + '" t="s"><v>' + S(v) + "</v></c>"; }, ce = function (c, n, st) { return '<c r="' + c + n + '" s="' + st + '"  />'; };
+  var row = function (n, ht, cells) { rows.push('<row r="' + n + '" ht="' + ht + '" customHeight="1">' + cells + "</row>"); };
+  var mid = function (n, st, vals) { return SERC785.map(function (c, i) { return i < 8 ? cs(c, n, st, vals[i]) : i < 14 ? ce(c, n, st) : cs(c, n, st, ""); }).join(""); };
+  vouchers.forEach(function (v) {
+    r++; row(r, "27.47", SERC785.map(function (c, i) { return cs(c, r, 1, SERH785[i]); }).join(""));
+    r++; row(r, "13.74", SERC785.map(function (c, i) { return cs(c, r, 2, SERM785[i]); }).join(""));
+    r++; var hv = ["HDR", br.b, "503579", v.no, v.date, "THB", v.G, v.H, v.I, v.J, "", "", "", "THNJ0001", "I", "OE", br.q, "W3"];
+    row(r, "13.74", SERC785.map(function (c, i) { return cs(c, r, 3, hv[i]); }).join(""));
+    r++; row(r, "27.47", mid(r, 1, SERI785)); merges.push("H" + r + ":N" + r);
+    r++; row(r, "13.74", mid(r, 2, SERN785)); merges.push("H" + r + ":N" + r);
+    v.lines.forEach(function (l) {
+      r++; var n = r;
+      row(n, "13.74", SERC785.map(function (c, i) { return i === 4 ? '<c r="E' + n + '" s="4"><v>' + Number(l.amt).toFixed(2) + "</v></c>" : i < 8 ? cs(c, n, 3, ["INV", l.ref, "ARC", "", "", "W3", l.g, l.rem][i]) : i < 14 ? ce(c, n, 3) : cs(c, n, 3, ""); }).join(""));
+      merges.push("H" + n + ":N" + n);
+    });
+    brks.push(r);
+  });
+  var NL = "\r\n";   /* แม่แบบใช้ CRLF (ยกเว้นหลัง </sheetData>) */
+  var sheet = SERP785.__sheet_head + '<dimension ref="A1:R' + (r + 1) + '" />' + SERP785.__sheet_mid + NL + rows.join(NL) + NL + "</sheetData>\n" +
+    '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref=' + NL + '"' + m + '"/>'; }).join("") + "</mergeCells>" +
+    '<pageMargins left="0.39" right="0.39" top="0.39" bottom="0.39" header="0" footer="0" />' + NL + '<pageSetup paperSize="9"  orientation="landscape"  horizontalDpi="300"  verticalDpi="300"  />' + NL +
+    '<rowBreaks count="' + (brks.length - 1) + '" manualBreakCount="' + (brks.length - 1) + '">' + brks.map(function (b) { return '<brk id="' + b + '" max="16383" man="1"/>' + NL; }).join("") + "</rowBreaks>" + NL + "</worksheet>";
+  var sst = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + NL + '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="' + ss.length + '" uniqueCount="' + ss.length + '">' + NL +
+    ss.map(function (t) { return "<si><t" + (/^\s|\s$/.test(t) && !/\n$/.test(t) ? ' xml:space="preserve"' : "") + ">" + SERX785(t) + "</t></si>"; }).join("") + NL + "</sst>" + NL;
+  return { sheet: sheet, sst: sst };
+}
+/* SER785(t) : ปุ่ม Excel Ser (ACCOUNTING → SERVICE) — ข้อมูลชุดเดียวกับ EXPORT EXCEL เดิม (ตัวกรอง / การค้นหาปัจจุบัน ผ่าน O())
+   ขอบเขต : INVOICE ที่ POST แล้ว · charge SERVICE · ลูกค้า SCHENKER เท่านั้น (DRAFT / VOID / ลูกค้าอื่น = ข้าม)
+   ข้อมูลจริงต่อ INVOICE จาก njacc_invoice_view (อ่านอย่างเดียว) :
+     HDR  D = invoice_no · E = invoice_date (DD.MM.YYYY) · G = Σ amount รายการ · I = VAT % ของรายการ · J = Σ vat_amount · H = G + J − Σ wht_amount
+     INV  B = Customer Job No. ของ JOB (ค่าจริง ทุกแถวของ JOB) · E = amount · G = SERI/SERC/SERE → ICP · 128 → ECP · อื่น ๆ → HNDD · H = description
+          C = ARC · D = ว่าง · F = W3 (ตามแม่แบบ)
+   สาขา = ตัวหน้าเลข Customer Job No. : BKKOI → BKKOI SER · LCHOI → LCHOI SER · อื่น ๆ = Error
+   ข้อมูลไม่ครบ / เงื่อนไขภาษีไม่ตรงแม่แบบ (VAT % ต่างกัน / VAT 0 / WHT ≠ 3%) / ยอดรวมรายการไม่ตรงหัว INVOICE = แจ้ง Error และไม่ Export INVOICE นั้น (ไม่ใส่ค่าปลอม) */
+var SERB_785 = false;
+function SERN785n(v) { var x = Number(v); return isFinite(x) ? x : NaN; }
+function SERS785(v) { return Math.round(SERN785n(v) * 100); }   /* สตางค์ */
+function SERV785(c) { return String(Math.round(c) / 100); }      /* ข้อความแบบแม่แบบ : 380 / 395.2 / 26.6 */
+function SERD785(d) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d == null ? "" : d)); return m ? m[3] + "." + m[2] + "." + m[1] : ""; }
+function SERG785(code) { var c = String(code == null ? "" : code).trim().toUpperCase(); return c === "SERI" || c === "SERC" || c === "SERE" ? "ICP\n" : c === "128" ? "ECP\n" : "HNDD\n"; }
+function SERE785(t, rows) {
+  var b = document.createElement("div");
+  b.innerHTML = '<div style="max-height:60vh;overflow:auto;font-size:13px;line-height:1.5">' + rows.map(function (r) { return "<div>• " + SERX785(r) + "</div>"; }).join("") + "</div>";
+  L({ title: t, body: b });
+}
+async function SER785(t) {
+  if (SERB_785) return; SERB_785 = true;
+  try {
+    var e = N("Excel Ser"), all, invs = [], errs = [];
+    try {
+      all = await O(t, e.set); if (!all) return;
+      var seen = new Set();
+      all.forEach(function (w) {
+        if (!w || !w.invoice_id || seen.has(String(w.invoice_id))) return;
+        if (String(w.invoice_status || "").toUpperCase() !== "POSTED" || !/SCHENKER/i.test(String(w.customer_name || ""))) return;
+        seen.add(String(w.invoice_id)); invs.push(w);
+      });
+      if (!invs.length) { p("ไม่มี INVOICE ที่ POST แล้วของลูกค้า SCHENKER ตามตัวกรองปัจจุบัน", "err"); return; }
+      var done = 0, got = [];
+      for (var k = 0; k < invs.length; k += 8) {
+        var part = invs.slice(k, k + 8);
+        var r = await Promise.all(part.map(function (w) { return RPC751("njacc_invoice_view", { p_id: w.invoice_id }); }));
+        part.forEach(function (w, x) { got.push({ w: w, v: r[x] }); });
+        done += part.length; e.set(done, invs.length);
+      }
+    } finally { e.close(); }
+    var grp = { BKKOI: [], LCHOI: [] };
+    got.forEach(function (g) {
+      var v = g.v, w = g.w, no = String(v && v.invoice_no || w.invoice_no || "").trim(), jb = v && v.job || {}, jn = String(jb.job_no || w.job_no || "").trim();
+      var tag = "INVOICE " + (no || "-") + (jn ? " · JOB " + jn : "") + " : ";
+      if (!v || typeof v !== "object") { errs.push(tag + "อ่านข้อมูล INVOICE ไม่ได้"); return; }
+      if (String(v.status || "").toUpperCase() !== "POSTED" || String(v.charge_type || "").toUpperCase() !== "SERVICE" || !/SCHENKER/i.test(String(v.customer && v.customer.name || ""))) return;
+      if (!no) { errs.push(tag + "ไม่มีเลขที่ INVOICE"); return; }
+      var dt = SERD785(v.invoice_date); if (!dt) { errs.push(tag + "ไม่มีวันที่ INVOICE"); return; }
+      var ref = String(jb.customer_job_no == null ? "" : jb.customer_job_no).trim();
+      if (!ref || /^(N\/?A|-+)$/i.test(ref)) { errs.push(tag + "ไม่มี Customer Job No. (" + (ref || "ว่าง") + ") — ไม่ Export JOB นี้"); return; }
+      var bk = /^BKKOI/i.test(ref) ? "BKKOI" : /^LCHOI/i.test(ref) ? "LCHOI" : "";
+      if (!bk) { errs.push(tag + "Customer Job No. \"" + ref + "\" ไม่ขึ้นต้นด้วย BKKOI หรือ LCHOI — ระบุสาขาไม่ได้"); return; }
+      var it = Array.isArray(v.items) ? v.items.slice() : [];
+      if (!it.length) { errs.push(tag + "ไม่มีรายการค่าใช้จ่าย"); return; }
+      it.sort(function (a, b) { return (Number(a.line_no) || 0) - (Number(b.line_no) || 0); });
+      var sa = 0, sv = 0, sw = 0, vr = null, bad = "";
+      it.forEach(function (x) {
+        if (bad) return;
+        var a = SERN785n(x.amount), vp = SERN785n(x.vat_rate), wp = SERN785n(x.wht_rate), va = SERN785n(x.vat_amount), wa = SERN785n(x.wht_amount);
+        if ([a, vp, wp, va, wa].some(function (q) { return isNaN(q) || x.amount == null; })) { bad = "รายการ " + (x.line_no || "?") + " ยอดเงิน / ภาษีไม่ครบ"; return; }
+        if (!(vp > 0) || wp !== 3) { bad = "รายการ \"" + String(x.description || x.code || x.line_no || "") + "\" VAT " + vp + "% / WHT " + wp + "% ไม่ตรงเงื่อนไขภาษีของแบบฟอร์ม SER (VAT + W3)"; return; }
+        if (vr !== null && vr !== vp) { bad = "รายการมี VAT % ต่างกัน (" + vr + "% / " + vp + "%)"; return; }
+        vr = vp; sa += SERS785(a); sv += SERS785(va); sw += SERS785(wa);
+      });
+      if (bad) { errs.push(tag + bad); return; }
+      if (sa !== SERS785(v.subtotal) || sv !== SERS785(v.vat_amount) || sw !== SERS785(v.wht_amount)) { errs.push(tag + "ยอดรวมรายการไม่ตรงยอด INVOICE (Net / VAT / WHT)"); return; }
+      grp[bk].push({ no: no, date: dt, G: SERV785(sa), I: String(vr), J: SERV785(sv), H: SERV785(sa + sv - sw),
+        lines: it.map(function (x) { return { ref: ref, amt: SERN785n(x.amount), g: SERG785(x.code), rem: String(x.description == null ? "" : x.description) }; }) });
+    });
+    var JZ = null, dn = new Date(), ds = dn.getFullYear() + "-" + String(dn.getMonth() + 1).padStart(2, "0") + "-" + String(dn.getDate()).padStart(2, "0"), files = [];
+    for (var b of ["BKKOI", "LCHOI"]) {
+      var vs = grp[b]; if (!vs.length) continue;
+      vs.sort(function (x, y) { return x.no < y.no ? -1 : x.no > y.no ? 1 : 0; });
+      JZ = JZ || await G();
+      var o = SERW785(vs, SERB785[b]), z = new JZ();
+      Object.keys(SERP785).forEach(function (n) { if (n.indexOf("__") !== 0) z.file(n, SERP785[n]); });
+      z.file("xl/worksheets/sheet1.xml", o.sheet); z.file("xl/sharedStrings.xml", o.sst);
+      var blob = await z.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      H(blob, b + " SER (" + ds + ").xlsx");
+      files.push(b + " SER " + vs.length + " Voucher · " + vs.reduce(function (q, v) { return q + v.lines.length; }, 0) + " รายการ");
+    }
+    if (files.length) p("ส่งออก Excel Ser : " + files.join(" | ") + (errs.length ? " · ข้าม " + errs.length + " INVOICE (ดูรายการ Error)" : ""), errs.length ? "warn" : "ok");
+    else p("❌ Excel Ser : ไม่มี INVOICE ที่ส่งออกได้" + (errs.length ? " — พบ Error " + errs.length + " รายการ" : ""), "err");
+    if (errs.length) SERE785("Excel Ser — รายการที่ไม่ได้ Export (" + errs.length + ")", errs);
+  } catch (er) { p("Excel Ser ไม่สำเร็จ : " + String(er && er.message || er || ""), "err"); }
+  finally { SERB_785 = false; }
+}
+/* ═══ V.786 · ACCOUNTING → ADVANCE : ปุ่ม "Excel Adv" — Export Excel ADV (BKKOI ADV / LCHOI ADV) จากข้อมูลจริง (อ่านอย่างเดียว · ไม่เขียนฐานข้อมูล · ไม่เปลี่ยนสถานะ)
+   รูปแบบไฟล์ = แม่แบบ ADV ต้นฉบับ (FastReport form_BillingDB_ADV : Sheet Page1 · A–R · แถว M/C/O · HDR / INV · Tahoma 8 · Merge H:N · แบ่งหน้าต่อ Voucher)
+   ส่วนที่เหมือนแม่แบบ SER ทุกไบต์ (Content_Types / rels / app.xml / workbook / หัว Sheet / ความกว้างคอลัมน์) ใช้ SERP785 · ต่างกันเฉพาะ core.xml / styles.xml (ADVP786)
+   ตรวจแล้ว : สร้างจากข้อมูลของแม่แบบเอง → ได้ไฟล์ตรงต้นฉบับ BKKOI ADV / LCHOI ADV ทุกไบต์ ═══ */
+var ADVP786 = {"docProps/core.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\r\n<dc:title>form_BillingDB_ADV</dc:title>\r\n<dc:creator>FastReport.NET</dc:creator>\r\n</cp:coreProperties>\r\n", "xl/styles.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\r\n<numFmts count=\"0\">\r\n\r\n</numFmts>\r\n<fonts count=\"4\">\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><b/><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n<font><sz val=\"8\" />\r\n<color rgb=\"FF000000\" />\r\n<name val=\"Tahoma\" />\r\n</font>\r\n</fonts>\r\n<fills count=\"6\">\r\n<fill><patternFill patternType=\"none\"/></fill>\r\n<fill><patternFill patternType=\"gray125\"/></fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"FFF0F0F0\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n<fill>\r\n<patternFill patternType=\"solid\">\r\n<fgColor rgb=\"00FFFFFF\"/>\r\n</patternFill>\r\n</fill>\r\n</fills>\r\n\r\n<borders count=\"4\">\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FFFF0000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FFFF0000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FFFF0000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FFFF0000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n<border>\r\n<left style=\"thin\"><color rgb=\"FF000000\" /></left>\r\n<right style=\"thin\"><color rgb=\"FF000000\" /></right>\r\n<top style=\"thin\"><color rgb=\"FF000000\" /></top>\r\n<bottom style=\"thin\"><color rgb=\"FF000000\" /></bottom>\r\n<diagonal />\r\n</border>\r\n</borders>\r\n\r\n<cellStyleXfs count=\"1\">\r\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" />\r\n</cellStyleXfs>\r\n<cellXfs count=\"4\">\r\n<xf numFmtId=\"0\"\r\nfontId=\"0\" \r\nfillId=\"2\" borderId=\"0\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"left\" vertical=\"top\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"1\" \r\nfillId=\"3\" borderId=\"1\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"2\" \r\nfillId=\"4\" borderId=\"2\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n<xf numFmtId=\"0\"\r\nfontId=\"3\" \r\nfillId=\"5\" borderId=\"3\" \r\nxfId=\"0\" \r\napplyAlignment=\"1\">\r\n<alignment horizontal=\"center\" vertical=\"center\" textRotation=\"0\" wrapText=\"1\" />\r\n</xf>\r\n</cellXfs>\r\n<cellStyles count=\"1\">\r\n<cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\" />\r\n</cellStyles>\r\n<dxfs count=\"0\" />\r\n<tableStyles count=\"0\" defaultTableStyle=\"TableStyleMedium9\" defaultPivotStyle=\"PivotStyleLight16\" />\r\n</styleSheet>\r\n"};
+var ADVH786 = ["RECORD ID", "SCHENKER BRANCH CODE", "SAP ACCOUNT NO.", "VOUCHER NO.", "VOUCHER DATE", "VOUCHER \nCURRENCY", "TOTAL NET AMOUNT VOUCHER", "TOTAL AMOUNT VOUCHER", "TAX PERCENTAGE", "TAX AMOUNT", "ADDRESS ID", "ODM LINK", "INVOICE REF NO.", "TANGO PARTNER \nID", "VOUCHER \nTYPE", "TRANSPORT \nMODE & DIRECTION", "TANGO RECEIVING \nDEPARTMENT ID", "TAX CODE"], ADVI786 = ["RECORD ID", "SHIPMENT REFERENCE NO.", "REFERENCE TYPE", "PROCARS CHARGE CODE", "NET AMOUNT", "TAX CODE", "GLOBAL CHARGE CODE", "Remark"];
+function ADVW786(vouchers, br) {
+  var ss = [], si = new Map(), S = function (v) { v = String(v == null ? "" : v); if (!si.has(v)) { si.set(v, ss.length); ss.push(v); } return si.get(v); };
+  var rows = [], merges = [], brks = [], r = 0;
+  var cs = function (c, n, st, v) { return '<c r="' + c + n + '" s="' + st + '" t="s"><v>' + S(v) + "</v></c>"; }, ce = function (c, n, st) { return '<c r="' + c + n + '" s="' + st + '"  />'; };
+  var row = function (n, ht, cells) { rows.push('<row r="' + n + '" ht="' + ht + '" customHeight="1">' + cells + "</row>"); };
+  var mid = function (n, st, vals) { return SERC785.map(function (c, i) { return i < 8 ? cs(c, n, st, vals[i]) : i < 14 ? ce(c, n, st) : cs(c, n, st, ""); }).join(""); };
+  vouchers.forEach(function (v) {
+    r++; row(r, "27.47", SERC785.map(function (c, i) { return cs(c, r, 1, ADVH786[i]); }).join(""));
+    r++; row(r, "13.74", SERC785.map(function (c, i) { return cs(c, r, 2, SERM785[i]); }).join(""));
+    r++; var hv = ["HDR", br.b, "596802", v.no, v.date, "", v.G, v.H, "7", "0", "", "", "", "THNJ0001", "", "OE", br.q, "W3"];
+    row(r, "13.74", SERC785.map(function (c, i) { return cs(c, r, 3, hv[i]); }).join(""));
+    r++; row(r, "27.47", mid(r, 1, ADVI786)); merges.push("H" + r + ":N" + r);
+    r++; row(r, "13.74", mid(r, 2, SERN785)); merges.push("H" + r + ":N" + r);
+    v.lines.forEach(function (l) { r++; row(r, "13.74", mid(r, 3, ["INV", l.ref, "ARC", "", l.amt, "O", "FOF", l.rem])); merges.push("H" + r + ":N" + r); });
+    brks.push(r);
+  });
+  var NL = "\r\n";
+  var sheet = SERP785.__sheet_head + '<dimension ref="A1:R' + (r + 1) + '" />' + SERP785.__sheet_mid + NL + rows.join(NL) + NL + "</sheetData>\n" +
+    '<mergeCells count="' + merges.length + '">' + merges.map(function (m) { return '<mergeCell ref=' + NL + '"' + m + '"/>'; }).join("") + "</mergeCells>" +
+    '<pageMargins left="0.39" right="0.39" top="0.39" bottom="0.39" header="0" footer="0" />' + NL + '<pageSetup paperSize="9"  orientation="landscape"  horizontalDpi="300"  verticalDpi="300"  />' + NL +
+    '<rowBreaks count="' + (brks.length - 1) + '" manualBreakCount="' + (brks.length - 1) + '">' + brks.map(function (b) { return '<brk id="' + b + '" max="16383" man="1"/>' + NL; }).join("") + "</rowBreaks>" + NL + "</worksheet>";
+  var sst = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + NL + '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="' + ss.length + '" uniqueCount="' + ss.length + '">' + NL +
+    ss.map(function (t) { return "<si><t" + (/^\s|\s$/.test(t) && !/\n$/.test(t) ? ' xml:space="preserve"' : "") + ">" + SERX785(t) + "</t></si>"; }).join("") + NL + "</sst>" + NL;
+  return { sheet: sheet, sst: sst };
+}
+/* ADV786(t) : ปุ่ม Excel Adv (ACCOUNTING → ADVANCE) — ข้อมูลชุดเดียวกับ EXPORT EXCEL เดิม (ตัวกรอง / การค้นหาปัจจุบัน ผ่าน O())
+   ขอบเขต : INVOICE ADV ที่ POST แล้ว · charge ADVANCE · ลูกค้า SCHENKER (เหมือน Excel Ser) · DRAFT / VOID / ลูกค้าอื่น = ข้าม
+   ข้อมูลจริงต่อ INVOICE จาก njacc_invoice_view (อ่านอย่างเดียว · รายการบัญชี INVOICE ADV ไม่ใช่ยอดขอเบิก / จ่ายของ CASH ADVANCE) :
+     HDR  D = invoice_no ของ INVOICE ADV · E = invoice_date (DD.MM.YYYY) · G = Σ amount รายการ · H = G · I = 7 · J = 0 (ตามแม่แบบ ADV · ไม่ใช้สูตร VAT / WHT ของ SER)
+     INV  B = Customer Job No. ของ JOB ของ INVOICE (ค่าจริง) · E = amount รายการ · H = description รายการ · C = ARC · D = ว่าง · F = O · G = FOF (ตามแม่แบบ)
+   สาขา = ตัวหน้าเลข Customer Job No. : BKKOI → BKKOI ADV · LCHOI → LCHOI ADV · อื่น ๆ = Error
+   FLOW ADV ปัจจุบัน : รายการ VAT 0 / WHT 0 · amount = line_total · Σ amount = subtotal = total_amount (Grand Total) — ไม่ตรง = แจ้ง Error ไม่ Export INVOICE นั้น (ไม่เดาค่า) */
+var ADVB_786 = false;
+async function ADV786(t) {
+  if (ADVB_786) return; ADVB_786 = true;
+  try {
+    var e = N("Excel Adv"), all, invs = [], errs = [], got = [];
+    try {
+      all = await O(t, e.set); if (!all) return;
+      var seen = new Set();
+      all.forEach(function (w) {
+        if (!w || !w.invoice_id || seen.has(String(w.invoice_id))) return;
+        if (String(w.invoice_status || "").toUpperCase() !== "POSTED" || !/SCHENKER/i.test(String(w.customer_name || ""))) return;
+        seen.add(String(w.invoice_id)); invs.push(w);
+      });
+      if (!invs.length) { p("ไม่มี INVOICE ADV ที่ POST แล้วของลูกค้า SCHENKER ตามตัวกรองปัจจุบัน", "err"); return; }
+      var done = 0;
+      for (var k = 0; k < invs.length; k += 8) {
+        var part = invs.slice(k, k + 8);
+        var r = await Promise.all(part.map(function (w) { return RPC751("njacc_invoice_view", { p_id: w.invoice_id }); }));
+        part.forEach(function (w, x) { got.push({ w: w, v: r[x] }); });
+        done += part.length; e.set(done, invs.length);
+      }
+    } finally { e.close(); }
+    var grp = { BKKOI: [], LCHOI: [] };
+    got.forEach(function (g) {
+      var v = g.v, w = g.w, no = String(v && v.invoice_no || w.invoice_no || "").trim(), jb = v && v.job || {}, jn = String(jb.job_no || w.job_no || "").trim();
+      var tag = "INVOICE " + (no || "-") + (jn ? " · JOB " + jn : "") + " : ";
+      if (!v || typeof v !== "object") { errs.push(tag + "อ่านข้อมูล INVOICE ไม่ได้"); return; }
+      if (String(v.status || "").toUpperCase() !== "POSTED" || String(v.charge_type || "").toUpperCase() !== "ADVANCE" || !/SCHENKER/i.test(String(v.customer && v.customer.name || ""))) return;
+      if (!no) { errs.push(tag + "ไม่มีเลขที่ INVOICE ADV"); return; }
+      var dt = SERD785(v.invoice_date); if (!dt) { errs.push(tag + "ไม่มีวันที่ INVOICE ADV"); return; }
+      var ref = String(jb.customer_job_no == null ? "" : jb.customer_job_no).trim();
+      if (!ref || /^(N\/?A|-+)$/i.test(ref)) { errs.push(tag + "ไม่มี Customer Job No. (" + (ref || "ว่าง") + ") — ไม่ Export JOB นี้"); return; }
+      var bk = /^BKKOI/i.test(ref) ? "BKKOI" : /^LCHOI/i.test(ref) ? "LCHOI" : "";
+      if (!bk) { errs.push(tag + "Customer Job No. \"" + ref + "\" ไม่ขึ้นต้นด้วย BKKOI หรือ LCHOI — ระบุสาขาไม่ได้"); return; }
+      var it = Array.isArray(v.items) ? v.items.slice() : [];
+      if (!it.length) { errs.push(tag + "ไม่มีรายการค่าใช้จ่าย"); return; }
+      it.sort(function (a, b) { return (Number(a.line_no) || 0) - (Number(b.line_no) || 0); });
+      var sa = 0, bad = "";
+      it.forEach(function (x) {
+        if (bad) return;
+        var a = SERN785n(x.amount), lt = x.line_total == null ? a : SERN785n(x.line_total);
+        if (x.amount == null || isNaN(a) || isNaN(lt)) { bad = "รายการ " + (x.line_no || "?") + " ยอดเงินไม่ครบ"; return; }
+        if ([x.vat_rate, x.vat_amount, x.wht_rate, x.wht_amount].some(function (q) { return q != null && SERN785n(q) !== 0; })) { bad = "รายการ \"" + String(x.description || x.code || x.line_no || "") + "\" มี VAT / WHT — เงื่อนไขภาษีต่างจากแบบฟอร์ม ADV (ต้องตรวจ FLOW ก่อน)"; return; }
+        if (SERS785(a) !== SERS785(lt)) { bad = "รายการ \"" + String(x.description || x.code || x.line_no || "") + "\" ยอดรายการไม่ตรงยอดรวมบรรทัด"; return; }
+        sa += SERS785(a);
+      });
+      if (bad) { errs.push(tag + bad); return; }
+      if (SERS785(v.vat_amount || 0) !== 0 || SERS785(v.wht_amount || 0) !== 0) { errs.push(tag + "INVOICE มี VAT / WHT — เงื่อนไขภาษีต่างจากแบบฟอร์ม ADV (ต้องตรวจ FLOW ก่อน)"); return; }
+      if (sa !== SERS785(v.subtotal) || sa !== SERS785(v.total_amount)) { errs.push(tag + "ยอดรวมรายการไม่ตรงยอด INVOICE (Subtotal / Grand Total)"); return; }
+      grp[bk].push({ no: no, date: dt, G: SERV785(sa), H: SERV785(sa),
+        lines: it.map(function (x) { return { ref: ref, amt: SERV785(SERS785(x.amount)), rem: String(x.description == null ? "" : x.description) }; }) });
+    });
+    var JZ = null, dn = new Date(), ds = dn.getFullYear() + "-" + String(dn.getMonth() + 1).padStart(2, "0") + "-" + String(dn.getDate()).padStart(2, "0"), files = [];
+    for (var b of ["BKKOI", "LCHOI"]) {
+      var vs = grp[b]; if (!vs.length) continue;
+      vs.sort(function (x, y) { return x.no < y.no ? -1 : x.no > y.no ? 1 : 0; });
+      JZ = JZ || await G();
+      var o = ADVW786(vs, SERB785[b]), z = new JZ();
+      Object.keys(SERP785).forEach(function (n) { if (n.indexOf("__") !== 0) z.file(n, ADVP786[n] != null ? ADVP786[n] : SERP785[n]); });
+      z.file("xl/worksheets/sheet1.xml", o.sheet); z.file("xl/sharedStrings.xml", o.sst);
+      var blob = await z.generateAsync({ type: "blob", compression: "DEFLATE", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      H(blob, b + " ADV (" + ds + ").xlsx");
+      files.push(b + " ADV " + vs.length + " Voucher · " + vs.reduce(function (q, v) { return q + v.lines.length; }, 0) + " รายการ");
+    }
+    if (files.length) p("ส่งออก Excel Adv : " + files.join(" | ") + (errs.length ? " · ข้าม " + errs.length + " INVOICE (ดูรายการ Error)" : ""), errs.length ? "warn" : "ok");
+    else p("❌ Excel Adv : ไม่มี INVOICE ADV ที่ส่งออกได้" + (errs.length ? " — พบ Error " + errs.length + " รายการ" : ""), "err");
+    if (errs.length) SERE785("Excel Adv — รายการที่ไม่ได้ Export (" + errs.length + ")", errs);
+  } catch (er) { p("Excel Adv ไม่สำเร็จ : " + String(er && er.message || er || ""), "err"); }
+  finally { ADVB_786 = false; }
+}
