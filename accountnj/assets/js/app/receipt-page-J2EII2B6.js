@@ -123,7 +123,7 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
       <div class="ch-panel">
       <div class="fbar">
         <input class="inp" data-pf="q" value="${i($.q)}" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19">${FI678($,"pf")}
-        <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button>${XB734("rp-xl734")}</div>
+        <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rp-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button>${XB734("rp-xl734")}</div>
       ${RB795()}<div class="card mt-2" id="rp-pgn"></div>
       <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
         ${RH795()}${RH522}
@@ -139,14 +139,14 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
       <input class="inp" type="date" data-f="from" value="${b.from}">
       <input class="inp" type="date" data-f="to" value="${b.to}">
       ${FI678(b,"f")}
-      <button class="btn btn-o btn-sm" id="rc-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button></div>
+      <button class="btn btn-o btn-sm" id="rc-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rc-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button></div>
     <div class="card mt-2" id="rc-pgn"></div>
     <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
       ${RHL795()}${RH522}${RIH795}
     </tr></thead><tbody id="rc-tbody"><tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
     </div>
-    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp795_list",{p:{company_group:"NJ",customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;let p=t.querySelector("#rc-tbody"),y=n.rows||[];p.innerHTML=y.length?y.map(RI795).join(""):'<tr><td colspan="21" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>M(t)),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>M(t));let d=s&&s.rows||[];e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}">
+    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp795_list",{p:{company_group:"NJ",customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;let p=t.querySelector("#rc-tbody"),y=n.rows||[];p.innerHTML=y.length?y.map(RI795).join(""):'<tr><td colspan="21" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}">
       ${RC795(o)}${RR522(o)}
       ${A()?`<td class="center"><button type="button" class="btn btn-sm un678" data-backacc
             data-inv="${i(o.invoice_id)}" data-job="${i(o.job_id||"")}" data-no="${i(o.invoice_no||"")}"
@@ -188,9 +188,9 @@ function RR522(o) {
 
 /* ═══ V.678 FINANCE — RECEIPT / ADVANCE : หน้ารายงาน (อ่านอย่างเดียว · UNPOST เท่านั้น) + ช่องค้นหา ลูกค้า / บริษัท / INVOICE NO. / Customer Job No. ═══ */
 var FL678 = [["f678_customer", "ลูกค้า"], ["f678_company", "บริษัท"], ["f678_invoice", "INVOICE NO."], ["f678_cjob", "Customer Job No."]];
-function FI678(st, at) { ST678(); return FL678.map(([k, l]) => `<input class="inp inp678" data-${at}="${k}" value="${i((st && st[k]) || "")}" placeholder="${l}" title="ค้นหา ${l} (บางส่วนของข้อความได้)">`).join(""); }
+function FI678(st, at) { ST678(); return FL678.map(([k, l]) => (k === "f678_customer" || k === "f678_company") ? SE797(st, at, k) /* V.797 */ : `<input class="inp inp678" data-${at}="${k}" value="${i((st && st[k]) || "")}" placeholder="${l}" title="ค้นหา ${l} (บางส่วนของข้อความได้)">`).join(""); }
 function FR678(t, at, st) { t.querySelectorAll(`[data-${at}^="f678_"]`).forEach((x) => { st[x.getAttribute("data-" + at)] = x.value.trim(); }); }
-function FP678(st) { let o = {}; FL678.forEach(([k]) => { let v = String((st && st[k]) || "").trim(); v && (o[k] = v); }); return o; }
+function FP678(st) { let o = {}; FL678.forEach(([k]) => { let v = String((st && st[k]) || "").trim(); if (!v) return; if (k === "f678_customer" || k === "f678_company") { let a = v.split(",").map((x) => x.trim()).filter(Boolean); a.length && (o[k === "f678_customer" ? "f797_customer_ids" : "f797_company_ids"] = a); } else o[k] = v; }); return o; }   /* V.797 : Dropdown = id ตรงตัว */
 function FK678(bar, go) { bar && bar.addEventListener("keydown", (e) => { if (e.key !== "Enter" || !e.target.classList.contains("inp678")) return; e.preventDefault(); let b = bar.querySelector(go); b && b.click(); }); }
 function ST678() { try { if (document.getElementById("st678-css")) return; let s = document.createElement("style"); s.id = "st678-css";
   s.textContent = ".fbar .inp678{width:150px;min-width:120px;flex:0 1 150px}.rc502 tbody tr,.rc502 tbody td{cursor:default!important}.btn.un678{background:#DC2626!important;color:#fff!important;border-color:#DC2626!important;font-weight:700}.btn.un678:hover:not(:disabled){background:#B91C1C!important;border-color:#B91C1C!important}"; document.head.appendChild(s); } catch (e) {} }
@@ -666,6 +666,61 @@ function ST795() {
       "#rcp795-print-root{display:none}",
       "@media print{body.rcp795-printing>*:not(#rcp795-print-root){display:none!important}body.rcp795-printing #rcp795-print-root{display:block!important;position:static!important;inset:auto!important}body.rcp795-printing #rcp795-print-root,body.rcp795-printing #rcp795-print-root *{visibility:visible!important}body.rcp795-printing{margin:0!important;padding:0!important;background:#fff!important}body.rcp795-printing .rcp-pg{box-shadow:none;margin:0}}"
     ].join("");
+    document.head.appendChild(s);
+  } catch (e) {}
+}
+
+/* ═══ V.797 · FINANCE → RECEIPT : ช่องค้นหา "ลูกค้า" / "บริษัท" = Dropdown (Component กลาง ui-dd762 : หัวข้อเหนือช่อง · พิมพ์ค้นหาในรายการ · วงกลม / จุดแดง / พื้นฟ้าอ่อน / ✓ · … + ชื่อเต็ม · × ล้างเฉพาะช่อง)
+   ตัวเลือก = ข้อมูลจริงจาก Database (njacc_receipt_opts797 · RUN-797) แยกตามแถบ รอรับชำระ / ใบเสร็จที่ออกแล้ว · ในสิทธิ์ผู้ใช้ · ไม่มีชื่อว่าง · ชื่อซ้ำ = 1 รายการ (ids ทุกตัว)
+   ค่าที่เลือก = id (คั่นด้วย ,) → ส่ง Server เป็น f797_customer_ids / f797_company_ids (ตรงตัว · ไม่ใช่ข้อความบางส่วน) · เลือก = ค้นหาทันที · × = ล้างช่องนั้น · "ล้างค้นหา" = คืนค่าเริ่มต้นทุกช่อง
+   ช่อง INVOICE NO. / Customer Job No. / ค้นหาทั่วไป / ลูกค้า / วันที่ = เดิม · ไม่แตะยอดเงิน / ใบเสร็จ / PDF / EXPORT EXCEL (ใช้ตัวกรองชุดเดียวกับตาราง) ═══ */
+var O797 = null, O797T = 0, NM797 = new Map(), OK797 = { customers: "ลูกค้าทั้งหมด", companies: "บริษัททั้งหมด" };
+function SE797(st, at, k) {   /* <select> ต้นทางของ Dropdown (ค่าเดิมคงไว้เมื่อสร้างหน้าใหม่) */
+  let o = k === "f678_customer" ? "customers" : "companies", v = String((st && st[k]) || ""), nm = NM797.get(v);
+  return `<select class="sel sel797" data-${at}="${k}" data-o797="${o}" title="${k === "f678_customer" ? "ค้นหาลูกค้า" : "ค้นหาบริษัท"}"><option value="">${OK797[o]}</option>${v && nm ? `<option value="${i(v)}" title="${i(nm)}" selected>${i(nm)}</option>` : ""}</select>`;
+}
+async function OP797(t, force) {   /* โหลด / อัปเดตตัวเลือกจาก Database (แคช 15 วินาที · force = หลังออกใบเสร็จ) */
+  let d = O797;
+  if (force || !d || Date.now() - O797T > 15e3) {
+    try { d = await V("njacc_receipt_opts797", { p: { company_group: "NJ" } }); O797 = d; O797T = Date.now(); }
+    catch (e) { try { console.warn("OP797", e); } catch (x) {} if (!O797) return; d = O797; }
+  }
+  if (!t || !t.isConnected) return;
+  [["#rc-pending", "pf", $, "pending"], ["#rc-issued", "f", b, "issued"]].forEach(([sc, at, st, tab]) => {
+    let box = t.querySelector(sc); if (!box) return; let src = (d && d[tab]) || {};
+    box.querySelectorAll("select.sel797").forEach((sel) => {
+      let k = sel.getAttribute("data-" + at), o = sel.dataset.o797, list = Array.isArray(src[o]) ? src[o] : [], cur = String(sel.value || ""), seen = new Set();
+      let h = `<option value="">${OK797[o]}</option>` + list.map((x) => {
+        let v = (Array.isArray(x.ids) ? x.ids : []).map(String).filter(Boolean).join(","), n = String(x && x.name || "").trim();
+        if (!v || !n || seen.has(v)) return ""; seen.add(v); NM797.set(v, n); return `<option value="${i(v)}" title="${i(n)}">${i(n)}</option>`;
+      }).join("");
+      if (sel.__h797 !== h) { sel.__h797 = h; sel.innerHTML = h; }
+      if (cur && seen.has(cur)) sel.value = cur; else { sel.value = ""; cur && st && st[k] === cur && (st[k] = ""); }
+    });
+  });
+}
+function AP797(t) {   /* เลือก = ค้นหาทันที · ล้างค้นหาทั้งหมด · รายการกระชับ */
+  ST797();
+  [["#rc-pending .fbar", "#rp-go", "#rp-clr797"], ["#rc-issued .fbar", "#rc-go", "#rc-clr797"]].forEach(([bs, gs, cs]) => {
+    let bar = t.querySelector(bs), go = t.querySelector(gs), clr = t.querySelector(cs); if (!bar || !go) return;
+    bar.querySelectorAll("select.sel797").forEach((sel) => {
+      let w = sel.closest(".u762-dd") || sel.parentNode; w && w.classList.add("dd797");
+      if (sel.__ap797) return; sel.__ap797 = 1;
+      sel.addEventListener("change", () => { sel.value && !go.disabled && setTimeout(() => go.click(), 0); });   /* × (ค่าว่าง) = ค้นหาใหม่ผ่าน Component เดิมอยู่แล้ว */
+    });
+    clr && !clr.__ap797 && (clr.__ap797 = 1, clr.onclick = (ev) => {
+      ev.preventDefault();
+      bar.querySelectorAll("input,select").forEach((el) => { if (!el.hasAttribute("data-pf") && !el.hasAttribute("data-f")) return; el.value = ""; });
+      go.click();
+    });
+  });
+}
+function ST797() {
+  try {
+    if (document.getElementById("st797-css")) return;
+    let s = document.createElement("style"); s.id = "st797-css";
+    s.textContent = ".dd797 .u762-it{min-height:32px;height:32px;padding:0 10px;gap:8px;font-size:13px;line-height:1.25;box-sizing:border-box}.dd797 .u762-it .u762-lb{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:1.25}"
+      + ".btn.clr797{white-space:nowrap}";
     document.head.appendChild(s);
   } catch (e) {}
 }
