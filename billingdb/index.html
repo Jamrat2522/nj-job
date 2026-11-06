@@ -2,10 +2,9 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>N.J. Logistics — Import System</title>
+<title>N.J. Logistics — Import System (LOCAL)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --sb-bg:#111418; --sb-w:252px; --bg:#0d1117; --card:#161b22; --card-h:#1c2330;
@@ -205,18 +204,14 @@ input[type="file"]{display:none}
     </div>
   </div>
   <div class="sb-sec">
-    <div class="sb-lbl">ฐานข้อมูล</div>
+    <div class="sb-lbl">ข้อมูลภายในเครื่อง</div>
     <div class="nav-item" id="n-hist" onclick="go('hist')">
       <div class="ndot" style="background:#3fb950;box-shadow:0 0 6px rgba(63,185,80,.5)"></div>
-      <div class="nav-txt"><div class="nav-t">ประวัติ Imports</div><div class="nav-d">Saved in Supabase</div></div>
-    </div>
-    <div class="nav-item" id="n-set" onclick="go('set')" style="display:none">
-      <div class="ndot" style="background:#f78166;box-shadow:0 0 6px rgba(247,129,102,.5)"></div>
-      <div class="nav-txt"><div class="nav-t">ตั้งค่า DB</div><div class="nav-d">Supabase + Login</div></div>
+      <div class="nav-txt"><div class="nav-t">ประวัติ Imports</div><div class="nav-d">Saved locally in this browser</div></div>
     </div>
   </div>
   <div style="margin-top:auto;padding:12px 14px;border-top:1px solid var(--border);font-size:11px" id="db-status">
-    <span style="color:var(--text-lo)">● ยังไม่ตั้งค่า Supabase</span>
+    <span style="color:var(--text-lo)">● LOCAL · รอเข้าสู่ระบบ</span>
   </div>
 </nav>
 
@@ -229,11 +224,14 @@ input[type="file"]{display:none}
     <div class="pg-h">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
         <div>
-          <div class="pg-t">ประวัติ Imports — Billing Database</div>
-          <div class="pg-d">ข้อมูลทั้งหมดที่บันทึกลง Supabase (เฉพาะบัญชีของคุณ)</div>
+          <div class="pg-t">ประวัติ Imports — LOCAL Database</div>
+          <div class="pg-d">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น · ไม่ส่งไป Supabase</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="text" id="hist-q" placeholder="ค้นหา filename / voucher..." style="background:var(--card);border:1px solid var(--border-h);color:var(--text-hi);padding:7px 12px;border-radius:6px;font-size:12px;width:240px;outline:none">
+          <button class="btn btn-s" onclick="backupLocalHistory()" title="สำรองข้อมูล LOCAL เป็นไฟล์ JSON">สำรอง JSON</button>
+          <button class="btn btn-s" onclick="document.getElementById('local-restore-input').click()" title="นำเข้าข้อมูลสำรอง JSON">นำคืนข้อมูล</button>
+          <input id="local-restore-input" type="file" accept=".json,application/json" onchange="restoreLocalHistory(this)">
           <button class="btn btn-s" onclick="refreshHistory()">
             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>Refresh
           </button>
@@ -247,199 +245,11 @@ input[type="file"]{display:none}
           <th>วันที่นำเข้า</th><th>ไฟล์</th><th>ประเภท</th>
           <th style="text-align:right">Vouchers</th><th style="text-align:right">Details</th><th style="text-align:right">Actions</th>
         </tr></thead>
-        <tbody><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-mid)">ยังไม่ได้เชื่อมต่อ Supabase — ไปที่ "ตั้งค่า DB"</td></tr></tbody>
+        <tbody><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-mid)">เข้าสู่ระบบ LOCAL เพื่อดูประวัติการนำเข้า</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <div class="page" id="p-set">
-    <div class="pg-h"><div class="pg-t">ตั้งค่าฐานข้อมูล Supabase</div><div class="pg-d">เชื่อม Supabase Project เพื่อบันทึกข้อมูลอัตโนมัติ (ไม่หาย)</div></div>
-    <div class="ucard" style="margin-bottom:16px">
-      <div class="uh">
-        <div class="ui ui-s"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg></div>
-        <div><div class="ut">1. Supabase Project</div><div class="ud">กรอก URL + Anon Key จาก Project Settings → API</div></div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <div style="font-size:11px;color:var(--text-mid);margin-bottom:4px;font-weight:600">Project URL</div>
-          <input type="text" id="cfg-url" placeholder="https://xxxxx.supabase.co" style="width:100%;background:#0d1117;border:1px solid var(--border-h);color:var(--text-hi);padding:8px 12px;border-radius:6px;font-size:12.5px;font-family:var(--mono);outline:none">
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--text-mid);margin-bottom:4px;font-weight:600">Anon / Public Key</div>
-          <input type="password" id="cfg-key" placeholder="eyJhbGciOi..." style="width:100%;background:#0d1117;border:1px solid var(--border-h);color:var(--text-hi);padding:8px 12px;border-radius:6px;font-size:12.5px;font-family:var(--mono);outline:none">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-p" onclick="saveConfig()">
-            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg>
-            บันทึก &amp; เชื่อมต่อ
-          </button>
-          <button class="btn btn-reset" onclick="clearConfig()">ลบการตั้งค่า</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="ucard" id="auth-card" style="margin-bottom:16px">
-      <div class="uh">
-        <div class="ui ui-a"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg></div>
-        <div><div class="ut">2. User Account</div><div class="ud" id="auth-sub">Sign in / Sign up เพื่อให้ข้อมูลผูกกับบัญชีคุณ</div></div>
-      </div>
-      <div id="auth-form" style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <div style="font-size:11px;color:var(--text-mid);margin-bottom:4px;font-weight:600">Email</div>
-          <input type="email" id="au-em" placeholder="you@example.com" style="width:100%;background:#0d1117;border:1px solid var(--border-h);color:var(--text-hi);padding:8px 12px;border-radius:6px;font-size:12.5px;outline:none">
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--text-mid);margin-bottom:4px;font-weight:600">Password (ขั้นต่ำ 6 ตัวอักษร)</div>
-          <input type="password" id="au-pw" placeholder="••••••••" style="width:100%;background:#0d1117;border:1px solid var(--border-h);color:var(--text-hi);padding:8px 12px;border-radius:6px;font-size:12.5px;outline:none">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-e" onclick="doSignIn()">Sign In</button>
-          <button class="btn btn-s" onclick="doSignUp()">Sign Up</button>
-        </div>
-      </div>
-      <div id="auth-logged" style="display:none">
-        <div style="background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.3);border-radius:6px;padding:12px 14px;margin-bottom:10px">
-          <div style="font-size:11px;color:var(--text-mid)">Signed in as</div>
-          <div style="font-family:var(--mono);font-size:13px;color:var(--green);margin-top:2px" id="auth-user-email">—</div>
-        </div>
-        <button class="btn btn-s" onclick="doSignOut()">Sign Out</button>
-      </div>
-    </div>
-
-    <div class="ucard">
-      <div class="uh">
-        <div class="ui ui-m"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg></div>
-        <div><div class="ut">3. สร้างตารางใน Supabase</div><div class="ud">รัน SQL นี้ใน Supabase SQL Editor ครั้งเดียว</div></div>
-      </div>
-      <div style="position:relative">
-        <pre id="sql-code" style="background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:14px;font-family:var(--mono);font-size:11px;line-height:1.55;color:#c9d1d9;overflow-x:auto;max-height:360px;overflow-y:auto;margin:0">-- ═══════════════════════════════════════════════════════
--- N.J. Logistics Billing DB — Schema + Role-based RLS
--- Admin เห็นทุกคน / AC เห็นเฉพาะของตัวเอง
--- รัน 1 ครั้งใน Supabase → SQL Editor → Run
--- ═══════════════════════════════════════════════════════
-
--- 1. TABLES ---------------------------------------------
-create table if not exists public.billing_sessions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  user_email text,
-  filename text not null,
-  file_type text not null check (file_type in ('SER','ADV')),
-  target_sheet text not null,
-  voucher_count int not null default 0,
-  detail_count int not null default 0,
-  imported_at timestamptz not null default now()
-);
-alter table public.billing_sessions add column if not exists user_email text;
-
-create table if not exists public.billing_vouchers (
-  id uuid primary key default gen_random_uuid(),
-  session_id uuid references public.billing_sessions(id) on delete cascade not null,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  voucher_no text not null,
-  voucher_date text,
-  file_type text not null,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.billing_details (
-  id uuid primary key default gen_random_uuid(),
-  voucher_id uuid references public.billing_vouchers(id) on delete cascade not null,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  shipment_ref text, ref_type text, charge_code text,
-  net_amount numeric, tax_code text, global_code text, remark text,
-  row_order int not null default 0,
-  created_at timestamptz not null default now()
-);
-
--- 2. USER PROFILES (role: admin | ac) -------------------
-create table if not exists public.user_profiles (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  email text,
-  role text not null default 'ac' check (role in ('admin','ac')),
-  created_at timestamptz default now()
-);
-
--- auto-create profile เมื่อมี user ใหม่
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into public.user_profiles (user_id, email, role)
-  values (new.id, new.email, 'ac')
-  on conflict (user_id) do nothing;
-  return new;
-end;
-$$;
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- backfill users ที่มีอยู่แล้ว
-insert into public.user_profiles (user_id, email, role)
-select id, email, 'ac' from auth.users
-on conflict (user_id) do nothing;
-
--- 3. is_admin() helper ----------------------------------
-create or replace function public.is_admin()
-returns boolean language sql security definer stable as $$
-  select coalesce((select role='admin' from public.user_profiles where user_id=auth.uid()), false);
-$$;
-
--- 4. RLS ------------------------------------------------
-alter table public.billing_sessions enable row level security;
-alter table public.billing_vouchers enable row level security;
-alter table public.billing_details enable row level security;
-alter table public.user_profiles enable row level security;
-
-drop policy if exists "own sessions" on public.billing_sessions;
-drop policy if exists "own vouchers" on public.billing_vouchers;
-drop policy if exists "own details"  on public.billing_details;
-drop policy if exists "read sessions" on public.billing_sessions;
-drop policy if exists "ins sessions"  on public.billing_sessions;
-drop policy if exists "upd sessions"  on public.billing_sessions;
-drop policy if exists "del sessions"  on public.billing_sessions;
-
-create policy "read sessions" on public.billing_sessions for select using (auth.uid()=user_id or public.is_admin());
-create policy "ins sessions"  on public.billing_sessions for insert with check (auth.uid()=user_id);
-create policy "upd sessions"  on public.billing_sessions for update using (auth.uid()=user_id or public.is_admin());
-create policy "del sessions"  on public.billing_sessions for delete using (auth.uid()=user_id or public.is_admin());
-
-drop policy if exists "read vouchers" on public.billing_vouchers;
-drop policy if exists "ins vouchers"  on public.billing_vouchers;
-drop policy if exists "upd vouchers"  on public.billing_vouchers;
-drop policy if exists "del vouchers"  on public.billing_vouchers;
-create policy "read vouchers" on public.billing_vouchers for select using (auth.uid()=user_id or public.is_admin());
-create policy "ins vouchers"  on public.billing_vouchers for insert with check (auth.uid()=user_id);
-create policy "upd vouchers"  on public.billing_vouchers for update using (auth.uid()=user_id or public.is_admin());
-create policy "del vouchers"  on public.billing_vouchers for delete using (auth.uid()=user_id or public.is_admin());
-
-drop policy if exists "read details" on public.billing_details;
-drop policy if exists "ins details"  on public.billing_details;
-drop policy if exists "upd details"  on public.billing_details;
-drop policy if exists "del details"  on public.billing_details;
-create policy "read details" on public.billing_details for select using (auth.uid()=user_id or public.is_admin());
-create policy "ins details"  on public.billing_details for insert with check (auth.uid()=user_id);
-create policy "upd details"  on public.billing_details for update using (auth.uid()=user_id or public.is_admin());
-create policy "del details"  on public.billing_details for delete using (auth.uid()=user_id or public.is_admin());
-
-drop policy if exists "read profile"   on public.user_profiles;
-drop policy if exists "admin upd role" on public.user_profiles;
-create policy "read profile"   on public.user_profiles for select using (auth.uid()=user_id or public.is_admin());
-create policy "admin upd role" on public.user_profiles for update using (public.is_admin()) with check (public.is_admin());
-
-create index if not exists idx_sessions_user on public.billing_sessions(user_id, imported_at desc);
-create index if not exists idx_vouchers_session on public.billing_vouchers(session_id);
-create index if not exists idx_details_voucher on public.billing_details(voucher_id);
-
--- ═══════════════════════════════════════════════════════
--- 5. สร้าง 3 users ใน Dashboard → Authentication → Users
---    แล้วรัน 1 คำสั่งนี้เพื่อเลื่อน Jamrat เป็น admin:
--- ═══════════════════════════════════════════════════════
--- update public.user_profiles set role='admin' where email='jamrat@nj.local';</pre>
-        <button class="btn btn-s" style="position:absolute;top:8px;right:8px;padding:5px 10px;font-size:11px" onclick="copySql()">Copy SQL</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <div class="mo" id="mo"><div style="position:absolute;inset:0" onclick="cmo()"></div>
@@ -453,7 +263,7 @@ create index if not exists idx_details_voucher on public.billing_details(voucher
 <div class="ov" id="ov"><div class="spin"></div><div class="ov-m" id="ov-m">กำลังประมวลผล...</div></div>
 <div class="tc" id="tc"></div>
 
-<!-- FULL-SCREEN AUTH -->
+<!-- LOCAL LOGIN (no Supabase Auth) -->
 <div class="auth-screen on" id="auth-screen">
   <div class="auth-card">
     <div class="auth-brand">
@@ -464,16 +274,16 @@ create index if not exists idx_details_voucher on public.billing_details(voucher
       </div>
       <div>
         <div class="auth-name">N.J. LOGISTICS</div>
-        <div class="auth-sub">Invoice Management System</div>
+        <div class="auth-sub">Invoice Management System · LOCAL</div>
       </div>
     </div>
 
     <div id="auth-login-panel">
       <div class="auth-title">เข้าสู่ระบบ</div>
-      <div class="auth-desc">กรอกชื่อผู้ใช้และรหัสผ่านเพื่อดำเนินการต่อ</div>
+      <div class="auth-desc">เข้าสู่ระบบภายในเครื่อง — ไม่ต้องใช้บัญชี Supabase</div>
 
       <label class="auth-label">ชื่อผู้ใช้ (USERNAME)</label>
-      <input type="text" id="as-email" class="auth-input" placeholder="เช่น NJ1" autocomplete="username">
+      <input type="text" id="as-email" class="auth-input" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" spellcheck="false">
 
       <label class="auth-label">รหัสผ่าน (PASSWORD)</label>
       <div class="auth-pw-wrap">
@@ -490,29 +300,10 @@ create index if not exists idx_details_voucher on public.billing_details(voucher
 
       <button class="auth-btn" id="as-signin">เข้าสู่ระบบ</button>
 
-      <div class="auth-foot" style="display:none">
-        <a id="as-goto-setup">ตั้งค่า Supabase</a>
-      </div>
+
     </div>
 
-    <div id="auth-setup-panel" style="display:none">
-      <div class="auth-title">ตั้งค่าระบบ</div>
-      <div class="auth-desc">เชื่อม Supabase Project ก่อนเริ่มใช้งาน (ครั้งแรกเท่านั้น)</div>
 
-      <label class="auth-label">Project URL</label>
-      <input type="text" id="as-url" class="auth-input" placeholder="https://xxxxx.supabase.co">
-
-      <label class="auth-label">Anon / Public Key</label>
-      <input type="password" id="as-key" class="auth-input" placeholder="eyJhbGci...">
-
-      <div class="auth-err" id="as-serr"></div>
-
-      <button class="auth-btn" id="as-connect">บันทึก &amp; เชื่อมต่อ</button>
-
-      <div class="auth-foot">
-        <a id="as-goto-login">← กลับหน้าเข้าสู่ระบบ</a>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -1076,348 +867,257 @@ function mkUI(cid,mode){
   });
 }
 
-/* ════════════════════════════════════════
-   SUPABASE — Auto-save Billing Database
-════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   LOCAL MODE — no Supabase login, no cloud write
+   User data is stored only in this browser via IndexedDB.
+   Local password is PBKDF2 hashed. This is a local access check,
+   NOT server-grade authentication. Do not publish sensitive data.
+══════════════════════════════════════════════════════════════ */
+const LOCAL_USER = 'jamrat';
+const LOCAL_AUTH_KEY = 'nj_local_login_v1';
+const LOCAL_PBKDF2_SALT = 'QfjwNQARoqRSn8CgeLBayQ/d';
+const LOCAL_PBKDF2_HASH = 'ILN/xDuDfPPj8A2lm3ns/LotFvl+bqaQwumhlmkD6o8=';
+const LOCAL_PBKDF2_ROUNDS = 310000;
+const LOCAL_DB_NAME = 'nj_billing_history_local_v1';
+let _localUser = null, _histCache = [], _dbPromise = null;
 
-// ═══════════════════════════════════════════════════════
-// 🚀 DEPLOY CONFIG — แก้ 2 ค่านี้ก่อน upload ขึ้น GitHub
-// ═══════════════════════════════════════════════════════
-const DEPLOY_CONFIG = {
-  url: 'https://sytgqjglcnsabcszbngg.supabase.co',
-  key: 'sb_publishable_e2yN3kPpkQ0dzi-K2EBa8g_hlo1gUYp'
-};
-// ═══════════════════════════════════════════════════════
-
-const SB_KEY='nj_sb_cfg';
-let _sb=null,_user=null,_histCache=[];
-
-function loadSbCfg(){
-  // ใช้ DEPLOY_CONFIG ก่อนถ้าถูกใส่ key แล้ว
-  if(DEPLOY_CONFIG&&DEPLOY_CONFIG.url&&DEPLOY_CONFIG.key&&DEPLOY_CONFIG.key!=='PASTE_YOUR_ANON_KEY_HERE')return{url:DEPLOY_CONFIG.url,key:DEPLOY_CONFIG.key};
-  try{return JSON.parse(localStorage.getItem(SB_KEY)||'null')}catch(e){return null}
-}
-function saveSbCfg(url,key){localStorage.setItem(SB_KEY,JSON.stringify({url,key}))}
-
-async function fetchRole(){
-  if(!_user||!_sb)return 'ac';
-  try{
-    const {data}=await _sb.from('user_profiles').select('role').eq('user_id',_user.id).maybeSingle();
-    return data?.role||'ac';
-  }catch(e){return 'ac'}
+function fromBase64(s){return Uint8Array.from(atob(s), c=>c.charCodeAt(0))}
+async function verifyLocalPassword(password){
+  if(!crypto || !crypto.subtle) throw new Error('เบราว์เซอร์นี้ไม่รองรับการตรวจรหัสผ่านแบบปลอดภัย');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2',salt:fromBase64(LOCAL_PBKDF2_SALT),iterations:LOCAL_PBKDF2_ROUNDS,hash:'SHA-256'}, key, 256);
+  const computed=new Uint8Array(bits), expected=fromBase64(LOCAL_PBKDF2_HASH);
+  let diff=computed.length ^ expected.length;
+  for(let i=0;i<Math.min(computed.length, expected.length);i++)diff|=computed[i]^expected[i];
+  return diff===0;
 }
 
-async function initSb(){
-  const cfg=loadSbCfg();
-  const urlEl=document.getElementById('cfg-url'),keyEl=document.getElementById('cfg-key');
-  if(urlEl&&cfg){urlEl.value=cfg.url||'';keyEl.value=cfg.key||''}
-  if(!cfg||!cfg.url||!cfg.key){updateDbStatus();showAuthScreen('setup');return}
-  if(!window.supabase){toast('ไลบรารี Supabase โหลดไม่ได้ (ตรวจอินเตอร์เน็ต)','er');showAuthScreen('setup');return}
-  try{
-    _sb=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:false,autoRefreshToken:true}});
-    const {data:{session}}=await _sb.auth.getSession();
-    _user=session?.user||null;
-    if(_user)_user.role=await fetchRole();
-    _sb.auth.onAuthStateChange(async(evt,sess)=>{
-      _user=sess?.user||null;
-      if(_user)_user.role=await fetchRole();
-      updateDbStatus();updateAuthUI();
-      if(evt==='SIGNED_IN'){hideAuthScreen();refreshHistory();toast('ล็อกอินสำเร็จ'+(_user.role==='admin'?' (ADMIN)':''),'ok')}
-      if(evt==='SIGNED_OUT'){showAuthScreen('login');toast('ออกจากระบบแล้ว','ok')}
-    });
-    updateDbStatus();updateAuthUI();
-    if(_user){hideAuthScreen();refreshHistory()}
-    else showAuthScreen('login');
-  }catch(e){console.error(e);toast('เชื่อม Supabase ไม่ได้: '+e.message,'er',6000);showAuthScreen('setup')}
+function getLocalDb(){
+  if(_dbPromise)return _dbPromise;
+  _dbPromise=new Promise((resolve,reject)=>{
+    if(!window.indexedDB) return reject(new Error('เบราว์เซอร์ไม่รองรับ IndexedDB'));
+    const req=indexedDB.open(LOCAL_DB_NAME,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains('sessions')){
+        const store=db.createObjectStore('sessions',{keyPath:'id'});
+        store.createIndex('imported_at','imported_at',{unique:false});
+      }
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('เปิดฐานข้อมูลในเครื่องไม่ได้'));
+    req.onblocked=()=>reject(new Error('มีแท็บอื่นกำลังใช้งานฐานข้อมูล LOCAL'));
+  }).catch(e=>{_dbPromise=null;throw e});
+  return _dbPromise;
+}
+async function localGetAll(){
+  const db=await getLocalDb();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction('sessions','readonly').objectStore('sessions').getAll();
+    req.onsuccess=()=>resolve(req.result||[]);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function localGet(id){
+  const db=await getLocalDb();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction('sessions','readonly').objectStore('sessions').get(id);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function localPut(row){
+  const db=await getLocalDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('sessions','readwrite');
+    tx.objectStore('sessions').put(row);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error||new Error('บันทึกข้อมูล LOCAL ไม่ได้'));
+  });
+}
+async function localRemove(id){
+  const db=await getLocalDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('sessions','readwrite');
+    tx.objectStore('sessions').delete(id);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error||new Error('ลบข้อมูลไม่ได้'));
+  });
 }
 
-function showAuthScreen(panel){
-  const s=document.getElementById('auth-screen');if(!s)return;
-  s.classList.add('on');
-  if(panel==='setup')showSetupPanel();
-  else showLoginPanel();
+function showAuthScreen(){
+  document.getElementById('auth-screen').classList.add('on');
+  document.getElementById('auth-login-panel').style.display='block';
 }
 function hideAuthScreen(){
-  const s=document.getElementById('auth-screen');if(!s)return;
-  s.classList.remove('on');
-  // clear password field
-  const pw=document.getElementById('as-pw');if(pw)pw.value='';
+  document.getElementById('auth-screen').classList.remove('on');
+  document.getElementById('as-pw').value='';
   hideAuthErr();
 }
-function showLoginPanel(){
-  document.getElementById('auth-login-panel').style.display='block';
-  document.getElementById('auth-setup-panel').style.display='none';
-  hideAuthErr();setTimeout(()=>{const e=document.getElementById('as-email');if(e&&!e.value)e.focus()},100);
-}
-function showSetupPanel(){
-  document.getElementById('auth-login-panel').style.display='none';
-  document.getElementById('auth-setup-panel').style.display='block';
-  const cfg=loadSbCfg();
-  if(cfg){document.getElementById('as-url').value=cfg.url||'';document.getElementById('as-key').value=cfg.key||''}
-  hideAuthErr();
-}
-function showAuthErr(msg,panel){
-  const id=panel==='setup'?'as-serr':'as-err';
-  const el=document.getElementById(id);if(!el)return;
-  el.textContent=msg;el.classList.add('on');
-}
-function hideAuthErr(){
-  document.querySelectorAll('.auth-err').forEach(e=>e.classList.remove('on'));
-}
-
+function showAuthErr(msg){const e=document.getElementById('as-err');e.textContent=msg;e.classList.add('on')}
+function hideAuthErr(){document.getElementById('as-err').classList.remove('on')}
 function updateDbStatus(){
-  const el=document.getElementById('db-status');if(!el)return;
-  const cfg=loadSbCfg();
-  if(!cfg)return el.innerHTML='<span style="color:var(--text-lo)">● ยังไม่ตั้งค่า Supabase</span>';
-  if(!_sb)return el.innerHTML='<span style="color:var(--red)">● เชื่อมต่อไม่ได้</span>';
-  if(!_user)return el.innerHTML='<span style="color:var(--amber)">● ยังไม่ล็อกอิน</span>';
-  const badge=_user.role==='admin'?' <span style="background:var(--amber-g);color:var(--amber);padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;margin-left:4px">ADMIN</span>':'';
-  el.innerHTML='<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
-    +'<span style="color:var(--green)">●</span> <span style="color:var(--text-mid);font-family:var(--mono);font-size:10px">'+(_user.email||'user').slice(0,22)+'</span>'+badge
-    +'</div>'
-    +'<button class="sb-logout-btn" onclick="sidebarSignOut()">'
-    +'<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z"/><path fill-rule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clip-rule="evenodd"/></svg>'
-    +'ออกจากระบบ'
-    +'</button>';
-  // update top sidebar user block
+  const el=document.getElementById('db-status');
   const av=document.querySelector('.sb-av'),un=document.querySelector('.sb-uname'),rl=document.querySelector('.sb-role');
-  if(av&&un&&rl){
-    av.textContent=(_user.email||'U').charAt(0).toUpperCase();
-    un.textContent=(_user.email||'').split('@')[0]||'User';
-    rl.textContent=_user.role==='admin'?'Super Admin':'Accountant';
-    rl.style.color=_user.role==='admin'?'var(--amber)':'var(--blue)';
+  if(_localUser){
+    el.innerHTML='<div style="color:var(--green);font-weight:700">● LOCAL — บันทึกในเครื่อง</div>'
+      +'<button class="sb-logout-btn" onclick="sidebarSignOut()">ออกจากระบบ</button>';
+    if(av)av.textContent='J';
+    if(un)un.textContent=_localUser;
+    if(rl){rl.textContent='LOCAL ADMIN';rl.style.color='var(--amber)'}
+  }else{
+    el.innerHTML='<span style="color:var(--text-mid)">● LOCAL · รอเข้าสู่ระบบ</span>';
   }
 }
+function sidebarSignOut(){
+  if(!confirm('ต้องการออกจากระบบ LOCAL?'))return;
+  _localUser=null;
+  try{sessionStorage.removeItem(LOCAL_AUTH_KEY)}catch(e){}
+  updateDbStatus();showAuthScreen();toast('ออกจากระบบแล้ว','ok');
+}
+window.sidebarSignOut=sidebarSignOut;
 
-window.sidebarSignOut=async()=>{
-  if(!confirm('ต้องการออกจากระบบ?'))return;
-  try{if(_sb)await _sb.auth.signOut()}catch(e){console.error('signOut error:',e)}
-  // Force local state reset แม้ Supabase จะพัง
-  _user=null;
-  try{localStorage.removeItem('sb-auth-token');localStorage.removeItem('supabase.auth.token')}catch(e){}
-  updateDbStatus();updateAuthUI();
-  showAuthScreen('login');
-  toast('ออกจากระบบแล้ว','ok');
-};
-
-function updateAuthUI(){
-  const form=document.getElementById('auth-form'),lg=document.getElementById('auth-logged'),em=document.getElementById('auth-user-email'),sub=document.getElementById('auth-sub');
-  if(!form)return;
-  if(_user){form.style.display='none';lg.style.display='block';em.textContent=_user.email||_user.id;if(sub)sub.textContent='ล็อกอินอยู่ — ข้อมูลจะถูกบันทึกอัตโนมัติ'}
-  else{form.style.display='flex';lg.style.display='none';if(sub)sub.textContent='Sign in / Sign up เพื่อให้ข้อมูลผูกกับบัญชีคุณ'}
+async function localSignIn(){
+  const username=document.getElementById('as-email').value.trim();
+  const pw=document.getElementById('as-pw').value;
+  if(!username||!pw)return showAuthErr('กรอก Username และ Password ให้ครบ');
+  hideAuthErr();
+  const btn=document.getElementById('as-signin');
+  btn.disabled=true;btn.textContent='กำลังตรวจสอบ...';
+  try{
+    const matches=(username===LOCAL_USER) && await verifyLocalPassword(pw);
+    if(!matches){document.getElementById('as-pw').value='';return showAuthErr('Username หรือ Password ไม่ถูกต้อง')}
+    _localUser=LOCAL_USER;
+    sessionStorage.setItem(LOCAL_AUTH_KEY,LOCAL_USER);
+    hideAuthScreen();updateDbStatus();
+    toast('เข้าสู่ระบบ LOCAL สำเร็จ','ok');
+    await refreshHistory();
+  }catch(e){showAuthErr('เข้าสู่ระบบไม่ได้: '+(e?.message||e))}
+  finally{btn.disabled=false;btn.textContent='เข้าสู่ระบบ'}
 }
-
-async function saveConfig(){
-  const url=document.getElementById('cfg-url').value.trim(),key=document.getElementById('cfg-key').value.trim();
-  if(!url||!key)return toast('กรอก URL และ Key ให้ครบ','wn');
-  if(!/^https:\/\/.+\.supabase\.(co|in)$/.test(url))return toast('URL ต้องเป็น https://xxx.supabase.co','wn');
-  saveSbCfg(url,key);toast('บันทึกแล้ว กำลังเชื่อมต่อ...','ok');
-  _sb=null;_user=null;await initSb();
-  if(_sb)toast('✓ เชื่อมต่อ Supabase สำเร็จ','ok');
-}
-function clearConfig(){
-  if(!confirm('ลบการตั้งค่า Supabase? (จะออกจากระบบด้วย)'))return;
-  if(_sb)_sb.auth.signOut().catch(()=>{});
-  localStorage.removeItem(SB_KEY);_sb=null;_user=null;
-  document.getElementById('cfg-url').value='';document.getElementById('cfg-key').value='';
-  updateDbStatus();updateAuthUI();refreshHistory();toast('ลบการตั้งค่าแล้ว','ok');
-}
-
-async function doSignIn(){
-  if(!_sb)return toast('ยังไม่ได้ตั้งค่า Supabase','wn');
-  const email=document.getElementById('au-em').value.trim(),pw=document.getElementById('au-pw').value;
-  if(!email||!pw)return toast('กรอก email และ password','wn');
-  try{showOv('กำลังล็อกอิน...');
-    const {error}=await _sb.auth.signInWithPassword({email,password:pw});
-    hideOv();if(error)throw error;
-    document.getElementById('au-pw').value='';
-  }catch(e){hideOv();toast('ล็อกอินไม่สำเร็จ: '+e.message,'er',5000)}
-}
-async function doSignUp(){
-  if(!_sb)return toast('ยังไม่ได้ตั้งค่า Supabase','wn');
-  const email=document.getElementById('au-em').value.trim(),pw=document.getElementById('au-pw').value;
-  if(!email||!pw)return toast('กรอก email และ password','wn');
-  if(pw.length<6)return toast('password อย่างน้อย 6 ตัวอักษร','wn');
-  try{showOv('กำลังสมัคร...');
-    const {data,error}=await _sb.auth.signUp({email,password:pw});
-    hideOv();if(error)throw error;
-    if(!data.session)toast('สมัครสำเร็จ — ตรวจอีเมลเพื่อยืนยัน แล้วกด Sign In','ok',7000);
-    else toast('สมัคร + ล็อกอินสำเร็จ','ok');
-  }catch(e){hideOv();toast('สมัครไม่สำเร็จ: '+e.message,'er',5000)}
-}
-async function doSignOut(){if(_sb)await _sb.auth.signOut()}
 
 async function saveParsedToDb(parsed){
-  if(!_sb||!_user){toast('ℹ ไม่ได้ล็อกอิน — ข้อมูลไม่ถูกบันทึก','wn',4000);return}
+  if(!_localUser){toast('ต้องเข้าสู่ระบบ LOCAL ก่อนบันทึก','er');return}
   try{
-    showOv('กำลังบันทึกลง Supabase...');
-    let totalSes=0,totalVou=0,totalDet=0;
+    let files=0,vouchers=0,details=0;
     for(const pf of parsed){
-      const vouCount=pf.vouchers.length;
-      const detCount=pf.vouchers.reduce((s,v)=>s+v.details.length,0);
-      const {data:ses,error:e1}=await _sb.from('billing_sessions').insert({
-        user_id:_user.id,user_email:_user.email||null,filename:pf.filename,file_type:pf.type,
-        target_sheet:pf.targetSheet,voucher_count:vouCount,detail_count:detCount
-      }).select().single();
-      if(e1)throw e1;
-      totalSes++;
-      for(const v of pf.vouchers){
-        const {data:vo,error:e2}=await _sb.from('billing_vouchers').insert({
-          session_id:ses.id,user_id:_user.id,
-          voucher_no:v.voucherNo||'(no number)',voucher_date:v.voucherDate||null,file_type:pf.type
-        }).select().single();
-        if(e2)throw e2;
-        totalVou++;
-        if(v.details.length){
-          const rows=v.details.map((d,i)=>({
-            voucher_id:vo.id,user_id:_user.id,row_order:i,
-            shipment_ref:d.shipmentRef||null,ref_type:d.refType||null,charge_code:d.chargeCode||null,
-            net_amount:(d.netAmount===null||d.netAmount===undefined||d.netAmount==='')?null:d.netAmount,
-            tax_code:d.taxCode||null,global_code:d.globalCode||null,remark:d.remark||null
-          }));
-          const {error:e3}=await _sb.from('billing_details').insert(rows);
-          if(e3)throw e3;
-          totalDet+=rows.length;
-        }
-      }
+      const row={
+        id:(crypto.randomUUID?crypto.randomUUID():'local-'+Date.now()+'-'+Math.random().toString(36).slice(2)),
+        filename:pf.filename,file_type:pf.type,target_sheet:pf.targetSheet,
+        voucher_count:pf.vouchers.length,
+        detail_count:pf.vouchers.reduce((n,v)=>n+v.details.length,0),
+        imported_at:new Date().toISOString(),
+        user_email:LOCAL_USER,
+        vouchers:pf.vouchers.map(v=>({voucherNo:v.voucherNo,voucherDate:v.voucherDate,details:v.details.map(d=>({...d}))}))
+      };
+      await localPut(row);
+      files++;vouchers+=row.voucher_count;details+=row.detail_count;
     }
-    hideOv();toast('✓ บันทึก DB: '+totalSes+' ไฟล์ / '+totalVou+' vouchers / '+totalDet+' rows','ok',6000);
-    refreshHistory();
-  }catch(e){hideOv();console.error(e);toast('บันทึก DB ไม่สำเร็จ: '+e.message,'er',8000)}
+    toast('✓ LOCAL บันทึกแล้ว '+files+' ไฟล์ / '+vouchers+' vouchers / '+details+' rows','ok',7000);
+    await refreshHistory();
+  }catch(e){console.error(e);toast('บันทึก LOCAL ไม่สำเร็จ: '+(e?.message||e),'er',8000)}
 }
-
 window.njDb={saveParsed:saveParsedToDb};
 
 async function refreshHistory(){
   const tbody=document.querySelector('#hist-tbl tbody');if(!tbody)return;
-  if(!_sb||!_user){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-mid)">ยังไม่ได้ล็อกอิน — ไปที่ "ตั้งค่า DB"</td></tr>';_histCache=[];return}
-  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-mid)">กำลังโหลด...</td></tr>';
-  const {data,error}=await _sb.from('billing_sessions').select('*').order('imported_at',{ascending:false}).limit(500);
-  if(error){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--red)">โหลดไม่ได้: '+error.message+'</td></tr>';return}
-  _histCache=data||[];renderHistory(_histCache);
+  if(!_localUser){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-mid)">กรุณาเข้าสู่ระบบ LOCAL</td></tr>';return}
+  try{
+    _histCache=(await localGetAll()).sort((a,b)=>String(b.imported_at).localeCompare(String(a.imported_at)));
+    const search=document.getElementById('hist-q')?.value.trim().toLowerCase()||'';
+    renderHistory(search?_histCache.filter(r=>(r.filename||'').toLowerCase().includes(search)||(r.file_type||'').toLowerCase().includes(search)): _histCache);
+  }catch(e){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--red)">อ่านข้อมูล LOCAL ไม่ได้: '+escH(e?.message||e)+'</td></tr>'}
 }
 function renderHistory(rows){
-  const tbody=document.querySelector('#hist-tbl tbody'),head=document.getElementById('hist-head');if(!tbody)return;
-  const isAdmin=_user?.role==='admin';
-  if(head){
-    head.innerHTML='<th>วันที่นำเข้า</th><th>ไฟล์</th>'+(isAdmin?'<th>Owner</th>':'')+'<th>ประเภท</th><th style="text-align:right">Vouchers</th><th style="text-align:right">Details</th><th style="text-align:right">Actions</th>';
-  }
-  const cols=isAdmin?7:6;
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="'+cols+'" style="text-align:center;padding:40px;color:var(--text-mid)">ยังไม่มีข้อมูล — Import แล้วกด Generate จะบันทึกอัตโนมัติ</td></tr>';return}
+  const tbody=document.querySelector('#hist-tbl tbody');if(!tbody)return;
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-mid)">ยังไม่มีข้อมูลในเครื่อง — Import แล้วกด Generate เพื่อบันทึก</td></tr>';return}
   tbody.innerHTML=rows.map(r=>{
-    const dt=new Date(r.imported_at),dtStr=dt.toLocaleString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const ownerCell=isAdmin?'<td class="td-sh" style="font-family:var(--mono);font-size:11px;color:var(--blue)">'+escH((r.user_email||'').split('@')[0]||'—')+'</td>':'';
-    return '<tr><td class="td-sh">'+dtStr+'</td>'
-      +'<td class="td-f"><svg style="width:13px;height:13px;color:var(--text-lo);flex-shrink:0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>'+escH(r.filename)+'</td>'
-      +ownerCell
-      +'<td><span class="badge '+(r.file_type==='SER'?'b-ser':'b-adv')+'">'+r.file_type+'</span></td>'
-      +'<td class="td-n">'+r.voucher_count+'</td><td class="td-n">'+r.detail_count+'</td>'
-      +'<td style="text-align:right"><button class="btn btn-s" style="padding:4px 10px;font-size:11px;margin-right:4px" onclick="viewSes(\''+r.id+'\')">ดู</button>'
-      +'<button class="btn btn-s" style="padding:4px 10px;font-size:11px;border-color:rgba(248,81,73,.3);color:var(--red)" onclick="delSes(\''+r.id+'\')">ลบ</button></td></tr>';
+    const date=new Date(r.imported_at).toLocaleString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return '<tr><td class="td-sh">'+date+'</td>'
+      +'<td class="td-f">'+escH(r.filename)+'</td>'
+      +'<td><span class="badge '+(r.file_type==='SER'?'b-ser':'b-adv')+'">'+escH(r.file_type)+'</span></td>'
+      +'<td class="td-n">'+(r.voucher_count||0)+'</td><td class="td-n">'+(r.detail_count||0)+'</td>'
+      +'<td style="text-align:right"><button class="btn btn-s" style="padding:4px 10px;font-size:11px;margin-right:4px" onclick="viewSes('+JSON.stringify(r.id).replace(/"/g,'&quot;')+')">ดู</button>'
+      +'<button class="btn btn-s" style="padding:4px 10px;font-size:11px;border-color:rgba(248,81,73,.3);color:var(--red)" onclick="delSes('+JSON.stringify(r.id).replace(/"/g,'&quot;')+')">ลบ</button></td></tr>';
   }).join('');
 }
-function escH(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function escH(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 
 window.viewSes=async(id)=>{
-  if(!_sb)return;
-  showOv('กำลังโหลด...');
-  const {data:vs,error}=await _sb.from('billing_vouchers').select('*,billing_details(*)').eq('session_id',id);
-  hideOv();
-  if(error)return toast('โหลดไม่ได้: '+error.message,'er');
-  const ses=_histCache.find(r=>r.id===id);
-  let html='<div style="font-size:12px;color:var(--text-mid);margin-bottom:12px">'+(ses?escH(ses.filename)+' · '+ses.voucher_count+' vouchers · '+ses.detail_count+' rows':'')+'</div>';
-  for(const v of (vs||[])){
-    const dets=(v.billing_details||[]).slice().sort((a,b)=>a.row_order-b.row_order);
-    html+='<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:6px;padding:10px 12px;background:rgba(255,255,255,.02)">'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12.5px">'
-      +'<div><span style="color:var(--text-mid)">Voucher:</span> <strong style="font-family:var(--mono)">'+escH(v.voucher_no)+'</strong></div>'
-      +'<div style="color:var(--text-mid);font-family:var(--mono);font-size:11px">'+escH(v.voucher_date||'-')+'</div></div>'
-      +'<table class="ptbl" style="font-size:11px"><thead><tr><th>Shipment</th><th>Type</th><th>Charge</th><th style="text-align:right">Net</th><th>Tax</th><th>Global</th><th>Remark</th></tr></thead><tbody>'
-      +dets.map(d=>'<tr><td>'+escH(d.shipment_ref)+'</td><td>'+escH(d.ref_type)+'</td><td>'+escH(d.charge_code)+'</td><td class="td-n">'+(d.net_amount==null?'':d.net_amount)+'</td><td>'+escH(d.tax_code)+'</td><td>'+escH(d.global_code)+'</td><td>'+escH(d.remark)+'</td></tr>').join('')
+  try{
+    const ses=await localGet(id);
+    if(!ses)return toast('ไม่พบรายการในเครื่อง','er');
+    let html='<div style="font-size:12px;color:var(--text-mid);margin-bottom:12px">'+escH(ses.filename)+' · '+ses.voucher_count+' vouchers · '+ses.detail_count+' rows</div>';
+    for(const v of(ses.vouchers||[])){
+      html+='<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:6px;padding:10px 12px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:8px"><strong>Voucher: '+escH(v.voucherNo)+'</strong><span>'+escH(v.voucherDate||'-')+'</span></div>'
+      +'<table class="ptbl" style="font-size:11px"><thead><tr><th>Shipment</th><th>Type</th><th>Charge</th><th>Net</th><th>Tax</th><th>Global</th><th>Remark</th></tr></thead><tbody>'
+      +(v.details||[]).map(d=>'<tr><td>'+escH(d.shipmentRef)+'</td><td>'+escH(d.refType)+'</td><td>'+escH(d.chargeCode)+'</td><td class="td-n">'+escH(d.netAmount)+'</td><td>'+escH(d.taxCode)+'</td><td>'+escH(d.globalCode)+'</td><td>'+escH(d.remark)+'</td></tr>').join('')
       +'</tbody></table></div>';
-  }
-  document.getElementById('mo-t').textContent='รายละเอียด Session';
-  document.getElementById('mo-b').innerHTML=html||'<div class="ei">ไม่มีข้อมูล</div>';
-  document.querySelector('#mo .md').style.width='880px';
-  document.getElementById('mo').classList.add('on');
+    }
+    document.getElementById('mo-t').textContent='รายละเอียด Session · LOCAL';
+    document.getElementById('mo-b').innerHTML=html;
+    document.querySelector('#mo .md').style.width='880px';
+    document.getElementById('mo').classList.add('on');
+  }catch(e){toast('ดูข้อมูลไม่ได้: '+e.message,'er')}
 };
 window.delSes=async(id)=>{
-  if(!confirm('ลบ session นี้? (รวม vouchers + details ทั้งหมด)'))return;
-  showOv('กำลังลบ...');
-  const {error}=await _sb.from('billing_sessions').delete().eq('id',id);
-  hideOv();
-  if(error)return toast('ลบไม่สำเร็จ: '+error.message,'er');
-  toast('ลบแล้ว','ok');refreshHistory();
+  if(!confirm('ลบข้อมูล LOCAL ของ Session นี้หรือไม่?'))return;
+  try{await localRemove(id);toast('ลบข้อมูล LOCAL แล้ว','ok');await refreshHistory()}
+  catch(e){toast('ลบไม่ได้: '+e.message,'er')}
 };
-window.copySql=()=>{
-  const txt=document.getElementById('sql-code').textContent;
-  navigator.clipboard.writeText(txt).then(()=>toast('คัดลอก SQL แล้ว','ok')).catch(()=>toast('คัดลอกไม่ได้','er'));
-};
-window.saveConfig=saveConfig;window.clearConfig=clearConfig;
-window.doSignIn=doSignIn;window.doSignUp=doSignUp;window.doSignOut=doSignOut;
 window.refreshHistory=refreshHistory;
+
+window.backupLocalHistory=async()=>{
+  if(!_localUser)return;
+  try{
+    const data=await localGetAll();
+    const text=JSON.stringify({format:'nj-local-history',version:1,exported_at:new Date().toISOString(),sessions:data},null,2);
+    const blob=new Blob([text],{type:'application/json;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');link.href=url;
+    link.download='NJ_LOCAL_BACKUP_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
+    toast('สำรองข้อมูล LOCAL แล้ว '+data.length+' รายการ','ok');
+  }catch(e){toast('สำรองไม่ได้: '+e.message,'er')}
+};
+window.restoreLocalHistory=async(input)=>{
+  const file=input.files?.[0];input.value='';if(!file||!_localUser)return;
+  try{
+    const pack=JSON.parse(await file.text());
+    if(pack.format!=='nj-local-history'||pack.version!==1||!Array.isArray(pack.sessions))throw new Error('ไฟล์นี้ไม่ใช่ไฟล์สำรอง LOCAL ที่รองรับ');
+    if(!confirm('นำคืนข้อมูล '+pack.sessions.length+' รายการ? รายการ ID เดิมจะถูกแทนที่'))return;
+    let done=0;
+    for(const row of pack.sessions){
+      if(!row||typeof row.id!=='string'||!row.id||typeof row.filename!=='string'||!Array.isArray(row.vouchers))throw new Error('ข้อมูลในไฟล์สำรองไม่ครบถ้วน');
+      await localPut(row);done++;
+    }
+    await refreshHistory();toast('นำคืนข้อมูลสำเร็จ '+done+' รายการ','ok');
+  }catch(e){toast('นำคืนไม่สำเร็จ: '+e.message,'er',7000)}
+};
 
 document.addEventListener('DOMContentLoaded',()=>{
   mkUI('u-ser','ser');
   mkUI('u-adv','adv');
   mkUI('u-both','both');
-
-  // AUTH SCREEN bindings
   const $=id=>document.getElementById(id);
-  $('as-eye').addEventListener('click',()=>{
-    const pw=$('as-pw');pw.type=pw.type==='password'?'text':'password';
-  });
-  $('as-goto-setup').addEventListener('click',showSetupPanel);
-  $('as-goto-login').addEventListener('click',showLoginPanel);
-  $('as-signin').addEventListener('click',async()=>{
-    if(!_sb){showAuthErr('ยังไม่ได้ตั้งค่า Supabase','login');return showSetupPanel()}
-    let email=$('as-email').value.trim().toLowerCase();
-    const pw=$('as-pw').value;
-    if(!email||!pw)return showAuthErr('กรอก username และ password ให้ครบ','login');
-    // Username → email mapping (explicit, no guessing)
-    const USER_MAP={'jamrat':'jamrat@nj.co','accountnj':'accountnj@nj.co'};
-    if(USER_MAP[email])email=USER_MAP[email];
-    else if(!email.includes('@'))email=email+'@nj.co';
-    const btn=$('as-signin');btn.disabled=true;btn.textContent='กำลังเข้าสู่ระบบ...';
-    console.log('[Login] Attempting:',email);
-    try{
-      const {data,error}=await _sb.auth.signInWithPassword({email,password:pw});
-      btn.disabled=false;btn.textContent='เข้าสู่ระบบ';
-      if(error){
-        console.error('[Login] Failed:',error);
-        let m=error.message;
-        if(/invalid login|invalid_credentials/i.test(m))m='Username/Password ไม่ตรง (ส่ง: '+email+')';
-        else if(/email not confirmed/i.test(m))m='บัญชียังไม่ยืนยันอีเมล';
-        else m='['+error.status+'] '+m;
-        return showAuthErr(m,'login');
-      }
-      console.log('[Login] Success:',data?.user?.email);
-    }catch(e){btn.disabled=false;btn.textContent='เข้าสู่ระบบ';console.error('[Login] Exception:',e);showAuthErr('Exception: '+e.message,'login')}
-  });
-  $('as-connect').addEventListener('click',async()=>{
-    const url=$('as-url').value.trim(),key=$('as-key').value.trim();
-    if(!url||!key)return showAuthErr('กรอก URL และ Key ให้ครบ','setup');
-    if(!/^https:\/\/.+\.supabase\.(co|in)$/.test(url))return showAuthErr('URL ต้องเป็น https://xxx.supabase.co','setup');
-    saveSbCfg(url,key);
-    const btn=$('as-connect');btn.disabled=true;btn.textContent='กำลังเชื่อมต่อ...';
-    _sb=null;_user=null;
-    await initSb();
-    btn.disabled=false;btn.textContent='บันทึก & เชื่อมต่อ';
-    if(_sb){toast('✓ เชื่อมต่อ Supabase สำเร็จ','ok');showLoginPanel()}
-    else showAuthErr('เชื่อมต่อไม่สำเร็จ — ตรวจ URL/Key อีกครั้ง','setup');
-  });
-  // Enter key submits
-  ['as-email','as-pw'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')$('as-signin').click()}));
-  ['as-url','as-key'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')$('as-connect').click()}));
-
-  initSb();
-  const q=document.getElementById('hist-q');
-  if(q)q.addEventListener('input',e=>{
-    const t=e.target.value.trim().toLowerCase();
-    if(!t)return renderHistory(_histCache);
-    renderHistory(_histCache.filter(r=>(r.filename||'').toLowerCase().includes(t)||(r.file_type||'').toLowerCase().includes(t)||(r.user_email||'').toLowerCase().includes(t)));
+  $('as-eye').addEventListener('click',()=>{const pw=$('as-pw');pw.type=pw.type==='password'?'text':'password'});
+  $('as-signin').addEventListener('click',localSignIn);
+  ['as-email','as-pw'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')localSignIn()}));
+  $('as-email').value=LOCAL_USER;
+  try{if(sessionStorage.getItem(LOCAL_AUTH_KEY)===LOCAL_USER)_localUser=LOCAL_USER}catch(e){}
+  updateDbStatus();
+  if(_localUser){hideAuthScreen();refreshHistory()}
+  else{showAuthScreen();$('as-pw').focus()}
+  const q=$('hist-q');
+  if(q)q.addEventListener('input',()=>{
+    const t=q.value.trim().toLowerCase();
+    renderHistory(_histCache.filter(r=>!t||(r.filename||'').toLowerCase().includes(t)||(r.file_type||'').toLowerCase().includes(t)));
   });
 });
+
 </script>
 <!-- SheetJS for reading source files only -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
