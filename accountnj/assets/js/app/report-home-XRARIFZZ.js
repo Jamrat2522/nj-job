@@ -1,4 +1,4 @@
-import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 as TX762,chips762 as CH762}from"./ui-dd762.js";import{m as RPC757}from"./chunk-SGWIBJH6.js";import{a as G}from"./chunk-Y5EUV7RM.js";import{a as q}from"./chunk-6REVCVGI.js";import{k as j,v as U}from"./chunk-L5Z2NDJ3.js";import{j as M,m as RI595}from"./chunk-2B2FLIKC.js";import{a as x,b as XJ504,c as f,h as N}from"./chunk-FHYZBT2Q.js";import"./chunk-LAFWE2EM.js";import{e as NE697,g as IE697}from"./chunk-IOOV4VJU.js";import{a as S,b as P}from"./chunk-Q7FMECGI.js";import{e as O}from"./chunk-OPGKUGLK.js";import{a as C}from"./chunk-YM5GFE6V.js";import{a as GS504}from"./chunk-GDT6F23K.js";import{a as h}from"./chunk-OFOOXWUM.js";import"./chunk-LNP7HEMP.js";import{a as E,c as D}from"./chunk-NQOCXXA2.js";import{l as H}from"./chunk-6NADHKLT.js";import"./chunk-SGWIBJH6.js";var V=[{group:"DOCUMENT",no:"1.1",key:"open-jobs",title:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19",src:"job",queue:"document",note:"\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A: \u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E01\u0E14 \u201C\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u201D (operational_status \u2260 CLOSE)"},{group:"DOCUMENT",no:"1.2",key:"do-exchange",title:"\u0E04\u0E48\u0E32\u0E41\u0E25\u0E01\u0E14\u0E35\u0E42\u0E2D",src:"do757",note:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E02\u0E2D\u0E07 JOB ADVANCE \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17 \u0E04\u0E48\u0E32\u0E41\u0E25\u0E01 D/O + \u0E04\u0E48\u0E32\u0E21\u0E31\u0E14\u0E08\u0E33\u0E15\u0E39\u0E49 (\u0E17\u0E38\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30) \u00B7 Date = \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 JOB \u00B7 Excel \u0E15\u0E32\u0E21\u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21 \u0E41\u0E25\u0E01\u0E14\u0E35\u0E42\u0E2D"}/* V.757 */,{group:"ACCOUNTING",no:"2.1",key:"no-invoice",title:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49",src:"job",queue:"pending_invoice",note:"\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E04\u0E34\u0E27 ACCOUNTING: \u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E08\u0E32\u0E01 DOCUMENT \u0E41\u0E25\u0E49\u0E27 \u0E41\u0E25\u0E30 INVOICE \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01 POST"},{group:"ACCOUNTING",no:"2.2",key:"invoice-all",lock:{status:"POSTED"},title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19 Invoice \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",src:"inv",note:"INVOICE \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E15\u0E32\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01"},{group:"ACCOUNTING",no:"2.3",key:"billing-total",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E22\u0E2D\u0E14\u0E2D\u0E2D\u0E01\u0E1A\u0E34\u0E25\u0E23\u0E27\u0E21",src:"rc773",note:"ข้อมูลจาก FINANCE → RECEIPT (รายการรอรับชำระ) · คอลัมน์ / ยอดเงินเดียวกับ EXPORT EXCEL ของ FINANCE → RECEIPT · อ่านอย่างเดียว"}/* V.773 */,{group:"FINANCE",no:"3.1",key:"paid",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27",src:"inv",lock:{payment_status:"PAID"},note:"\u0E25\u0E47\u0E2D\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30 = \u0E04\u0E23\u0E1A (PAID) \u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E2B\u0E21\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19"},{group:"FINANCE",no:"3.2",key:"outstanding",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07",src:"inv",post:"outstanding",note:"\u0E43\u0E0A\u0E49\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C outstanding \u0E17\u0E35\u0E48 njacc_report \u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49 (\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21 \u2212 \u0E22\u0E2D\u0E14\u0E15\u0E31\u0E14\u0E0A\u0E33\u0E23\u0E30\u0E17\u0E35\u0E48 POSTED) \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E27\u0E21\u0E1C\u0E25\u0E02\u0E2D\u0E07 Credit Note"},{group:"FINANCE",no:"3.3",key:"overdue",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14",src:"inv",post:"overdue",note:"\u0E43\u0E0A\u0E49\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C overdue \u0E17\u0E35\u0E48 njacc_report \u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49 (\u0E21\u0E35\u0E1C\u0E25\u0E17\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35 \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A \xB7 \u0E40\u0E25\u0E22 Due Date)"},{group:"FINANCE",no:"3.4",key:"paid-status",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A / \u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19",src:"inv",post:"paid-partial",note:"\u0E40\u0E25\u0E37\u0E2D\u0E01 \u201C\u0E04\u0E23\u0E1A\u201D \u0E2B\u0E23\u0E37\u0E2D \u201C\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19\u201D \u0E44\u0E14\u0E49\u0E17\u0E35\u0E48\u0E0A\u0E48\u0E2D\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30 \u2014 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E30\u0E44\u0E14\u0E49\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E2D\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30"}],I=["DOCUMENT","ACCOUNTING","FINANCE"],k=t=>V.find(e=>e.key===t&&RI595(e.key))||null,T=t=>V.filter(e=>e.group===t&&RI595(e.key));/* V.595 : เฉพาะรายงานย่อยที่ได้รับสิทธิ์ */var st=100,z=3e4,at=1e3,it=120,F=()=>new Date().toISOString().slice(0,10),B=t=>String(t||"").replace(/[\\/?*[\]:]/g," ").slice(0,28)||"DATA";async function W(t,e,o){let n=e.charge_type?[e.charge_type]:P.map(r=>r.key),s=e.company_group?[e.company_group]:S.map(r=>r.key),i=[],a=0;for(let r of n)for(let l of s){if(!M("export",r,l))continue;a+=1;let p=1;for(;;){let u=await H({charge:r,group:l,queue:t.queue,filters:{customer:e.customer_id||null,payment_status:e.payment_status||null,from:e.from||null,to:e.to||null},exportPage:p,exportSize:at});if(u&&u.truncated)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E01\u0E34\u0E19 ${(u.hard_limit||1e5).toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48`);let m=u&&u.rows||[];if(i.push(...m),o(i.length),!u||!u.has_more)break;if(p+=1,p>it)throw new Error("\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E21\u0E32\u0E01\u0E40\u0E01\u0E34\u0E19\u0E44\u0E1B \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E2B\u0E23\u0E37\u0E2D\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48")}}if(!a)throw new Error("\u0E04\u0E38\u0E13\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17/\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01");return e.status?i.filter(r=>r.invoice_status===e.status):i}/* V.568 : ส่งออกรายงาน (njacc_report · Server จำกัด 100 แถว/หน้า) — หน้าแรกได้ total → หน้าที่เหลือดึงพร้อมกันสูงสุด 4 คำขอ (เดิมทีละหน้าต่อกัน) · ผลเรียงตามหน้าเดิม · ตัวกรอง/สิทธิ์/เพดาน/ตรวจครบ เหมือนเดิม · total เปลี่ยนระหว่างดึง = ไม่ครบ (ยกเลิก) */async function X(t,e){let Q568=n=>G({charge_type:t.charge_type||null,company_group:t.company_group||null,customer_id:t.customer_id||null,status:t.status||null,payment_status:t.payment_status||null,from:t.from||null,to:t.to||null,report_key:t.report_key||null,...(t.company_ids?{company_invoice_ids:String(t.company_ids).split(",").filter(Boolean)}:{}),page:n,size:st}),a=await Q568(1),s=a&&a.total||0,i=a&&a.kpi||{},ch=!1;if(s>z)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${s.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19 ${z.toLocaleString("th-TH")} \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48`);let r1=a&&a.rows||[],P=[r1],c=r1.length;e(c,s);let N=r1.length?Math.ceil(s/st):1;if(N>1){let nx=2,run=async()=>{for(;;){let p=nx++;if(p>N)return;let b=await Q568(p);(b&&b.total||0)!==s&&(ch=!0);let r=b&&b.rows||[];P[p-1]=r,c+=r.length,e(Math.min(c,s),s)}};await Promise.all(Array.from({length:Math.min(4,N-1)},run))}let o=[];for(let r of P)r&&r.length&&o.push(...r);if(ch||o.length!==s)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A (${o.length}/${s}) \u2014 \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01`);return{rows:o,kpi:i||{}}}var Y=t=>t==="ISSUED"||t==="POSTED";function Q(t,e,o){switch(t.post){case"billed":return e.filter(n=>Y(n.status));case"outstanding":return e.filter(n=>Y(n.status)&&Number(n.outstanding)>.005);case"overdue":return e.filter(n=>n.overdue===!0);case"paid-partial":return o.payment_status?e:e.filter(n=>n.payment_status==="PAID"||n.payment_status==="PARTIAL");default:return e}}var b=[["invoice_date","\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE","date"],["invoice_no","\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE"],["charge_type","\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"],["company_group","\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17"],["job_no","\u0E40\u0E25\u0E02\u0E07\u0E32\u0E19"],["customer_job_no","Customer Job No."],["customer_name","\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32"],["status","\u0E2A\u0E16\u0E32\u0E19\u0E30 INVOICE"],["payment_status","\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30"],["subtotal","\u0E01\u0E48\u0E2D\u0E19 VAT","num"],["vat_amount","VAT","num"],["wht_amount","WHT","num"],["total_amount","\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21","num"],["received","\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27","num"],["outstanding","\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07","num"],["due_date","Due Date","date"],["overdue","\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14","bool"]],A=["subtotal","vat_amount","wht_amount","total_amount","received","outstanding"];function $(t,e){let[o,,n]=e,s=t[o];return n==="bool"?s===!0?"\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14":"":s==null||s===""?"":n==="date"?D(s):n==="num"?Number(s):s}var ct=t=>[b.map(e=>e[1]),...t.map(e=>b.map(o=>$(e,o)))];function J(t,e,o,n){let s=e.map(()=>""),i=e.findIndex(a=>a[0]===n);return s[i>=0?i:0]="TOTAL",e.forEach((a,r)=>{o.includes(a[0])&&(s[r]=t.reduce((l,p)=>l+(Number(p[a[0]])||0),0))}),s}function K(t,e,o,n){let s=t.utils.aoa_to_sheet(e);s["!cols"]=o.map(a=>({wch:Math.max(10,Math.min(30,String(a[1]).length+6))})),s["!freeze"]={xSplit:0,ySplit:1};let i=t.utils.decode_range(s["!ref"]);for(let a=1;a<=i.e.r;a++)for(let r=0;r<=i.e.c;r++){let l=s[t.utils.encode_cell({r:a,c:r})];l&&typeof l.v=="number"&&n.includes(o[r]&&o[r][0])&&(l.t="n",l.z="#,##0.00")}return s}function lt(t,e){return[["\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23","\u0E04\u0E48\u0E32"],["\u0E08\u0E33\u0E19\u0E27\u0E19 INVOICE (\u0E21\u0E35\u0E1C\u0E25\u0E17\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35)",Number(t.total_invoice||0)],["\u0E22\u0E2D\u0E14\u0E2D\u0E2D\u0E01\u0E1A\u0E34\u0E25\u0E23\u0E27\u0E21",Number(t.invoice_amount||0)],["\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27",Number(t.received||0)],["\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07\u0E23\u0E27\u0E21",Number(t.outstanding||0)],["\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14 (\u0E43\u0E1A)",Number(t.overdue||0)],["\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A (\u0E43\u0E1A)",Number(t.paid||0)],["\u0E0A\u0E33\u0E23\u0E30\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19 (\u0E43\u0E1A)",Number(t.partial||0)],[],["\u0E08\u0E33\u0E19\u0E27\u0E19\u0E41\u0E16\u0E27\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C\u0E19\u0E35\u0E49",e.length]]}var ut=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"];async function Z(t,e,o){let n=o||(()=>{});if(t.src==="job")return{rows:await W(t,e,n),kpi:null,cols:f,money:ut,src:"job"};let{rows:s,kpi:i}=await X(e,n);return{rows:Q(t,s,e),kpi:i,cols:b,money:A,src:"inv"}}async function tt(t,e,o){let n=o||(()=>{});if(t.src==="job"){let u=await W(t,e,n);if(!u.length)return{rows:0};let m=await x(),v=N(u,f);v.push([],J(u,f,["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"],"customer_job_no"));let w=m.utils.book_new();return m.utils.book_append_sheet(w,K(m,v,f,["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"]),B(t.no.replace(".","_"))),m.writeFile(w,`REPORT_${t.no}_${t.key}_${F()}.xlsx`),{rows:u.length}}let{rows:s,kpi:i}=await X(e,n),a=Q(t,s,e);if(!a.length)return{rows:0};let r=await x(),l=ct(a);l.push([],J(a,b,A,"customer_name"));let p=r.utils.book_new();if(r.utils.book_append_sheet(p,K(r,l,b,A),B(t.no.replace(".","_"))),t.summary){let u=r.utils.aoa_to_sheet(lt(i,a));u["!cols"]=[{wch:34},{wch:20}],r.utils.book_append_sheet(p,u,"SUMMARY")}return r.writeFile(p,`REPORT_${t.no}_${t.key}_${F()}.xlsx`),{rows:a.length}}var pt=["DRAFT","ISSUED","POSTED","VOID"],y=t=>String(t??"").replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[e]),dt={DOCUMENT:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>',ACCOUNTING:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 12h6M9 16h4"/></svg>',FINANCE:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4"/></svg>'},Mt=I.map(t=>({group:t,items:T(t).map((e,o)=>({key:e.key,no:o+1,title:e.title,desc:e.note||"",ready:!0}))})),c={group:"",key:"",mastersLoaded:!1,data:null,page:1,size:20};async function Dt(t,e){let o=e&&e.key||"",n=k(o);c.group=n?n.group:"",c.key=n?n.key:"",t.innerHTML=`
+import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 as TX762,chips762 as CH762}from"./ui-dd762.js";import{m as RPC757}from"./chunk-SGWIBJH6.js";import{a as G}from"./chunk-Y5EUV7RM.js";import{a as q}from"./chunk-6REVCVGI.js";import{k as j,v as U}from"./chunk-L5Z2NDJ3.js";import{j as M,m as RI595}from"./chunk-2B2FLIKC.js";import{a as x,b as XJ504,c as f,h as N}from"./chunk-FHYZBT2Q.js";import{SNB777}from"./chunk-FHYZBT2Q.js";import"./chunk-LAFWE2EM.js";import{e as NE697,g as IE697}from"./chunk-IOOV4VJU.js";import{a as S,b as P}from"./chunk-Q7FMECGI.js";import{e as O}from"./chunk-OPGKUGLK.js";import{a as C}from"./chunk-YM5GFE6V.js";import{a as GS504}from"./chunk-GDT6F23K.js";import{a as h}from"./chunk-OFOOXWUM.js";import"./chunk-LNP7HEMP.js";import{a as E,c as D}from"./chunk-NQOCXXA2.js";import{l as H}from"./chunk-6NADHKLT.js";import"./chunk-SGWIBJH6.js";var V=[{group:"DOCUMENT",no:"1.1",key:"open-jobs",title:"Report Service",src:"job",queue:"document",note:"\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A: \u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E01\u0E14 \u201C\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u201D (operational_status \u2260 CLOSE)"},{group:"DOCUMENT",no:"1.2",key:"do-exchange",title:"\u0E04\u0E48\u0E32\u0E41\u0E25\u0E01\u0E14\u0E35\u0E42\u0E2D",src:"do757",note:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E02\u0E2D\u0E07 JOB ADVANCE \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17 \u0E04\u0E48\u0E32\u0E41\u0E25\u0E01 D/O + \u0E04\u0E48\u0E32\u0E21\u0E31\u0E14\u0E08\u0E33\u0E15\u0E39\u0E49 (\u0E17\u0E38\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30) \u00B7 Date = \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 JOB \u00B7 Excel \u0E15\u0E32\u0E21\u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21 \u0E41\u0E25\u0E01\u0E14\u0E35\u0E42\u0E2D"}/* V.757 */,{group:"ACCOUNTING",no:"2.1",key:"no-invoice",title:"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49",src:"job",queue:"pending_invoice",note:"\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E04\u0E34\u0E27 ACCOUNTING: \u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19\u0E08\u0E32\u0E01 DOCUMENT \u0E41\u0E25\u0E49\u0E27 \u0E41\u0E25\u0E30 INVOICE \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01 POST"},{group:"ACCOUNTING",no:"2.2",key:"invoice-all",lock:{status:"POSTED"},title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19 Invoice \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",src:"inv",note:"INVOICE \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E15\u0E32\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01"},{group:"ACCOUNTING",no:"2.3",key:"billing-total",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E22\u0E2D\u0E14\u0E2D\u0E2D\u0E01\u0E1A\u0E34\u0E25\u0E23\u0E27\u0E21",src:"rc773",note:"ข้อมูลจาก FINANCE → RECEIPT (รายการรอรับชำระ) · คอลัมน์ / ยอดเงินเดียวกับ EXPORT EXCEL ของ FINANCE → RECEIPT · อ่านอย่างเดียว"}/* V.773 */,{group:"FINANCE",no:"3.1",key:"paid",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27",src:"inv",lock:{payment_status:"PAID"},note:"\u0E25\u0E47\u0E2D\u0E01\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30 = \u0E04\u0E23\u0E1A (PAID) \u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E2B\u0E21\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19"},{group:"FINANCE",no:"3.2",key:"outstanding",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07",src:"inv",post:"outstanding",note:"\u0E43\u0E0A\u0E49\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C outstanding \u0E17\u0E35\u0E48 njacc_report \u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49 (\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21 \u2212 \u0E22\u0E2D\u0E14\u0E15\u0E31\u0E14\u0E0A\u0E33\u0E23\u0E30\u0E17\u0E35\u0E48 POSTED) \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E23\u0E27\u0E21\u0E1C\u0E25\u0E02\u0E2D\u0E07 Credit Note"},{group:"FINANCE",no:"3.3",key:"overdue",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14",src:"inv",post:"overdue",note:"\u0E43\u0E0A\u0E49\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C overdue \u0E17\u0E35\u0E48 njacc_report \u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E49 (\u0E21\u0E35\u0E1C\u0E25\u0E17\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35 \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A \xB7 \u0E40\u0E25\u0E22 Due Date)"},{group:"FINANCE",no:"3.4",key:"paid-status",title:"\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A / \u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19",src:"inv",post:"paid-partial",note:"\u0E40\u0E25\u0E37\u0E2D\u0E01 \u201C\u0E04\u0E23\u0E1A\u201D \u0E2B\u0E23\u0E37\u0E2D \u201C\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19\u201D \u0E44\u0E14\u0E49\u0E17\u0E35\u0E48\u0E0A\u0E48\u0E2D\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30 \u2014 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E30\u0E44\u0E14\u0E49\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E2D\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30"}],I=["DOCUMENT","ACCOUNTING","FINANCE"],k=t=>V.find(e=>e.key===t&&RI595(e.key))||null,T=t=>V.filter(e=>e.group===t&&RI595(e.key));/* V.595 : เฉพาะรายงานย่อยที่ได้รับสิทธิ์ */var st=100,z=3e4,at=1e3,it=120,F=()=>new Date().toISOString().slice(0,10),B=t=>String(t||"").replace(/[\\/?*[\]:]/g," ").slice(0,28)||"DATA";async function W(t,e,o){let n=e.charge_type?[e.charge_type]:P.map(r=>r.key),s=e.company_group?[e.company_group]:S.map(r=>r.key),i=[],a=0;for(let r of n)for(let l of s){if(!M("export",r,l))continue;a+=1;let p=1;for(;;){let u=await H({charge:r,group:l,queue:t.queue,filters:{customer:e.customer_id||null,payment_status:e.payment_status||null,from:e.from||null,to:e.to||null},exportPage:p,exportSize:at});if(u&&u.truncated)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E01\u0E34\u0E19 ${(u.hard_limit||1e5).toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48`);let m=u&&u.rows||[];if(i.push(...m),o(i.length),!u||!u.has_more)break;if(p+=1,p>it)throw new Error("\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E21\u0E32\u0E01\u0E40\u0E01\u0E34\u0E19\u0E44\u0E1B \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E2B\u0E23\u0E37\u0E2D\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48")}}if(!a)throw new Error("\u0E04\u0E38\u0E13\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17/\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01");return e.status?i.filter(r=>r.invoice_status===e.status):i}/* V.568 : ส่งออกรายงาน (njacc_report · Server จำกัด 100 แถว/หน้า) — หน้าแรกได้ total → หน้าที่เหลือดึงพร้อมกันสูงสุด 4 คำขอ (เดิมทีละหน้าต่อกัน) · ผลเรียงตามหน้าเดิม · ตัวกรอง/สิทธิ์/เพดาน/ตรวจครบ เหมือนเดิม · total เปลี่ยนระหว่างดึง = ไม่ครบ (ยกเลิก) */async function X(t,e){let Q568=n=>G({charge_type:t.charge_type||null,company_group:t.company_group||null,customer_id:t.customer_id||null,status:t.status||null,payment_status:t.payment_status||null,from:t.from||null,to:t.to||null,report_key:t.report_key||null,...(t.company_ids?{company_invoice_ids:String(t.company_ids).split(",").filter(Boolean)}:{}),page:n,size:st}),a=await Q568(1),s=a&&a.total||0,i=a&&a.kpi||{},ch=!1;if(s>z)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${s.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E01\u0E34\u0E19\u0E40\u0E1E\u0E14\u0E32\u0E19 ${z.toLocaleString("th-TH")} \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E04\u0E1A\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48`);let r1=a&&a.rows||[],P=[r1],c=r1.length;e(c,s);let N=r1.length?Math.ceil(s/st):1;if(N>1){let nx=2,run=async()=>{for(;;){let p=nx++;if(p>N)return;let b=await Q568(p);(b&&b.total||0)!==s&&(ch=!0);let r=b&&b.rows||[];P[p-1]=r,c+=r.length,e(Math.min(c,s),s)}};await Promise.all(Array.from({length:Math.min(4,N-1)},run))}let o=[];for(let r of P)r&&r.length&&o.push(...r);if(ch||o.length!==s)throw new Error(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A (${o.length}/${s}) \u2014 \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01`);return{rows:o,kpi:i||{}}}var Y=t=>t==="ISSUED"||t==="POSTED";function Q(t,e,o){switch(t.post){case"billed":return e.filter(n=>Y(n.status));case"outstanding":return e.filter(n=>Y(n.status)&&Number(n.outstanding)>.005);case"overdue":return e.filter(n=>n.overdue===!0);case"paid-partial":return o.payment_status?e:e.filter(n=>n.payment_status==="PAID"||n.payment_status==="PARTIAL");default:return e}}var b=[["invoice_date","\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE","date"],["invoice_no","\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE"],["charge_type","\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"],["company_group","\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17"],["job_no","\u0E40\u0E25\u0E02\u0E07\u0E32\u0E19"],["customer_job_no","Customer Job No."],["customer_name","\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32"],["status","\u0E2A\u0E16\u0E32\u0E19\u0E30 INVOICE"],["payment_status","\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30"],["subtotal","\u0E01\u0E48\u0E2D\u0E19 VAT","num"],["vat_amount","VAT","num"],["wht_amount","WHT","num"],["total_amount","\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21","num"],["received","\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27","num"],["outstanding","\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07","num"],["due_date","Due Date","date"],["overdue","\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14","bool"]],A=["subtotal","vat_amount","wht_amount","total_amount","received","outstanding"];function $(t,e){let[o,,n]=e,s=t[o];return n==="bool"?s===!0?"\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14":"":s==null||s===""?"":n==="date"?D(s):n==="num"?Number(s):s}var ct=t=>[b.map(e=>e[1]),...t.map(e=>b.map(o=>$(e,o)))];function J(t,e,o,n){let s=e.map(()=>""),i=e.findIndex(a=>a[0]===n);return s[i>=0?i:0]="TOTAL",e.forEach((a,r)=>{o.includes(a[0])&&(s[r]=t.reduce((l,p)=>l+(Number(p[a[0]])||0),0))}),s}function K(t,e,o,n){let s=t.utils.aoa_to_sheet(e);s["!cols"]=o.map(a=>({wch:Math.max(10,Math.min(30,String(a[1]).length+6))})),s["!freeze"]={xSplit:0,ySplit:1};let i=t.utils.decode_range(s["!ref"]);for(let a=1;a<=i.e.r;a++)for(let r=0;r<=i.e.c;r++){let l=s[t.utils.encode_cell({r:a,c:r})];l&&typeof l.v=="number"&&n.includes(o[r]&&o[r][0])&&(l.t="n",l.z="#,##0.00")}return s}function lt(t,e){return[["\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23","\u0E04\u0E48\u0E32"],["\u0E08\u0E33\u0E19\u0E27\u0E19 INVOICE (\u0E21\u0E35\u0E1C\u0E25\u0E17\u0E32\u0E07\u0E1A\u0E31\u0E0D\u0E0A\u0E35)",Number(t.total_invoice||0)],["\u0E22\u0E2D\u0E14\u0E2D\u0E2D\u0E01\u0E1A\u0E34\u0E25\u0E23\u0E27\u0E21",Number(t.invoice_amount||0)],["\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E25\u0E49\u0E27",Number(t.received||0)],["\u0E04\u0E07\u0E04\u0E49\u0E32\u0E07\u0E23\u0E27\u0E21",Number(t.outstanding||0)],["\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14 (\u0E43\u0E1A)",Number(t.overdue||0)],["\u0E0A\u0E33\u0E23\u0E30\u0E04\u0E23\u0E1A (\u0E43\u0E1A)",Number(t.paid||0)],["\u0E0A\u0E33\u0E23\u0E30\u0E1A\u0E32\u0E07\u0E2A\u0E48\u0E27\u0E19 (\u0E43\u0E1A)",Number(t.partial||0)],[],["\u0E08\u0E33\u0E19\u0E27\u0E19\u0E41\u0E16\u0E27\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C\u0E19\u0E35\u0E49",e.length]]}var ut=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"];async function Z(t,e,o){let n=o||(()=>{});if(t.src==="job")return{rows:await W(t,e,n),kpi:null,cols:f,money:ut,src:"job"};let{rows:s,kpi:i}=await X(e,n);return{rows:Q(t,s,e),kpi:i,cols:b,money:A,src:"inv"}}async function tt(t,e,o){let n=o||(()=>{});if(t.src==="job"){let u=await W(t,e,n);if(!u.length)return{rows:0};let m=await x(),v=N(u,f);v.push([],J(u,f,["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"],"customer_job_no"));let w=m.utils.book_new();return m.utils.book_append_sheet(w,K(m,v,f,["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"]),B(t.no.replace(".","_"))),m.writeFile(w,`REPORT_${t.no}_${t.key}_${F()}.xlsx`),{rows:u.length}}let{rows:s,kpi:i}=await X(e,n),a=Q(t,s,e);if(!a.length)return{rows:0};let r=await x(),l=ct(a);l.push([],J(a,b,A,"customer_name"));let p=r.utils.book_new();if(r.utils.book_append_sheet(p,K(r,l,b,A),B(t.no.replace(".","_"))),t.summary){let u=r.utils.aoa_to_sheet(lt(i,a));u["!cols"]=[{wch:34},{wch:20}],r.utils.book_append_sheet(p,u,"SUMMARY")}return r.writeFile(p,`REPORT_${t.no}_${t.key}_${F()}.xlsx`),{rows:a.length}}var pt=["DRAFT","ISSUED","POSTED","VOID"],y=t=>String(t??"").replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[e]),dt={DOCUMENT:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>',ACCOUNTING:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 12h6M9 16h4"/></svg>',FINANCE:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4"/></svg>'},Mt=I.map(t=>({group:t,items:T(t).map((e,o)=>({key:e.key,no:o+1,title:e.title,desc:e.note||"",ready:!0}))})),c={group:"",key:"",mastersLoaded:!1,data:null,page:1,size:20};async function Dt(t,e){let o=e&&e.key||"",n=k(o);c.group=n?n.group:"",c.key=n?n.key:"",t.innerHTML=`
     <div class="rpt2 rpt2-ws rpt504">
       <aside class="rpt2-menu r4-side" aria-label="\u0E40\u0E21\u0E19\u0E39\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19"><div class="r4-side-h"><span>\u0E40\u0E21\u0E19\u0E39\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19</span><button type="button" class="r4-colbtn">\u00AB</button></div>${I.map(mt).join("")}</aside>
       <div class="r4-main"><button type="button" class="r4-mtog" aria-expanded="false"><span class="r4-i">${R4IC.list}</span><span class="r4-mt-t"></span></button><section id="rpt2-panel" class="rpt2-panel"></section></div>
@@ -13,7 +13,7 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
       <span class="rpt2-caret" aria-hidden="true"></span>
     </button>
     <div class="rpt2-body">${e}</div>
-  </section>`}function yt(t,e){R4tg(e),L(t)}function L(t){t.querySelectorAll(".rpt2-sec").forEach(e=>{let o=R4op(e.dataset.sec);e.classList.toggle("open",o);let n=e.querySelector(".rpt2-h");n&&n.setAttribute("aria-expanded",o?"true":"false")}),t.querySelectorAll(".rpt2-item").forEach(e=>{e.classList.toggle("on",e.dataset.key===c.key)})}async function _t(t,e){let o=k(e);o&&(c.key=e,c.group=o.group,(c.op504||(c.op504=new Set(I))).add(o.group),R4mclose(t),L(t),await et(t))}async function et(t){let e=t.querySelector("#rpt2-panel"),o=k(c.key);if(!e||!o)return;if(!c.mastersLoaded){e.innerHTML='<div class="load-row"><div class="spin"></div><div class="mt-1">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u2026</div></div>';try{await j(),c.mastersLoaded=!0}catch(r){C(r,"\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}}if(o.src==="do757")return DO757(e,o);if(o.src==="rc773")return RC773(e,o);/* V.773 : 2.3 = ข้อมูล FINANCE → RECEIPT (หน้าเฉพาะ) *//* V.757 : 1.2 ค่าแลกดีโอ = หน้าเฉพาะ (รายงานเดิมไม่เปลี่ยน) */let n=o.lock||{},s=r=>Object.prototype.hasOwnProperty.call(n,r),i=r=>s(r)?" disabled":"",a=(r,l)=>n[r]===l?" selected":"";e.innerHTML=R4panel(o,n,i,a),c.data=null,c.page=1,e.querySelector("#rpt2-go").onclick=()=>gt(e,o),e.querySelector("#rpt2-xls").onclick=()=>ht(e,o),R4wire(e,o),RG762(e,o)/* V.762 */}function ot(t,e){let o={charge_type:"",company_group:"",customer_id:"",status:"",payment_status:"",from:"",to:""};return t.querySelectorAll("[data-f]").forEach(n=>{o[n.dataset.f]=n.value||""}),Object.assign(o,e.lock||{}),o.report_key=e.key,o}async function gt(t,e){let o=t.querySelector("#rpt2-go"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E32\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E16\u0E36\u0E07","err");return}await O("rpt2-show",async()=>{o.disabled=!0;let i=o.textContent;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{c.data=await R4z(e,s,(a,r)=>{n.textContent=r?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`}),c.page=1,n.textContent="",nt(t,e)}catch(a){n.textContent="",C(a,"\u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.textContent=i}})}function nt503(t,e){let o=t.querySelector("#rpt2-res"),n=t.querySelector("#rpt2-th"),s=t.querySelector("#rpt2-tb"),i=t.querySelector("#rpt2-pgn");if(!o||!c.data)return;let{rows:a,cols:r,money:l,src:p}=c.data;if(o.hidden=!1,t.querySelector("#rpt2-res-t").textContent=`\u0E1E\u0E1A ${a.length.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`,t.querySelector("#rpt2-xls").disabled=!a.length,n.innerHTML="<tr>"+r.map(d=>`<th${l.includes(d[0])?' class="r"':""}>${y(d[1])}</th>`).join("")+"</tr>",!a.length){s.innerHTML=`<tr><td colspan="${r.length}" class="center t-3">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</td></tr>`,i.innerHTML="";return}let u=a.length,m=Math.max(1,Math.ceil(u/c.size));c.page>m&&(c.page=m);let v=a.slice((c.page-1)*c.size,c.page*c.size),w=(d,g)=>p==="job"?N([d],[g])[1][0]:$(d,g);s.innerHTML=v.map(d=>"<tr>"+r.map(g=>{let _=w(d,g),R=l.includes(g[0]),rt=_==null||_===""?"-":R&&typeof _=="number"?E(_):String(_);return`<td${R?' class="r"':""}>${y(rt)}</td>`}).join("")+"</tr>").join(""),q(i,{page:c.page,size:c.size,total:u},d=>{c.page=d.page,c.size=d.size,nt(t,e)})}async function ht(t,e){let o=t.querySelector("#rpt2-xls"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14","err");return}await O("rpt2-export",async()=>{o.disabled=!0;let i=o.innerHTML;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{let a=await XL504(e,s,R4meta(t,e,s),(r,l)=>{n.textContent=l?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} / ${l.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`});a.rows?(n.textContent=`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,h(`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 Excel ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,"ok")):(n.textContent="\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C",h("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01","err"))}catch(a){n.textContent="",C(a,"\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.innerHTML=i}})}/* \u2550\u2550\u2550 V.504 REPORT REDESIGN : Sidebar \u0E0B\u0E49\u0E32\u0E22 \u00B7 Dashboard \u00B7 \u0E15\u0E32\u0E23\u0E32\u0E07 \u00B7 Export Excel (ExcelJS) / PDF (Preview + \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1B\u0E47\u0E19 PDF) \u2550\u2550\u2550
+  </section>`}function yt(t,e){R4tg(e),L(t)}function L(t){t.querySelectorAll(".rpt2-sec").forEach(e=>{let o=R4op(e.dataset.sec);e.classList.toggle("open",o);let n=e.querySelector(".rpt2-h");n&&n.setAttribute("aria-expanded",o?"true":"false")}),t.querySelectorAll(".rpt2-item").forEach(e=>{e.classList.toggle("on",e.dataset.key===c.key)})}async function _t(t,e){let o=k(e);o&&(c.key=e,c.group=o.group,(c.op504||(c.op504=new Set(I))).add(o.group),R4mclose(t),L(t),await et(t))}async function et(t){let e=t.querySelector("#rpt2-panel"),o=k(c.key);if(!e||!o)return;if(!c.mastersLoaded){e.innerHTML='<div class="load-row"><div class="spin"></div><div class="mt-1">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u2026</div></div>';try{await j(),c.mastersLoaded=!0}catch(r){C(r,"\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}}if(o.src==="do757")return DO757(e,o);if(o.src==="rc773")return RC773(e,o);/* V.773 : 2.3 = ข้อมูล FINANCE → RECEIPT (หน้าเฉพาะ) *//* V.757 : 1.2 ค่าแลกดีโอ = หน้าเฉพาะ (รายงานเดิมไม่เปลี่ยน) */let n=o.lock||{},s=r=>Object.prototype.hasOwnProperty.call(n,r),i=r=>s(r)?" disabled":"",a=(r,l)=>n[r]===l?" selected":"";e.innerHTML=R4panel(o,n,i,a),c.data=null,c.page=1,e.querySelector("#rpt2-go").onclick=()=>gt(e,o),e.querySelector("#rpt2-xls").onclick=()=>ht(e,o),R4wire(e,o),RG762(e,o)/* V.762 */;o.key==="open-jobs"&&RJ777(e,o)/* V.777 : 1.1 Report Service */}function ot(t,e){let o={charge_type:"",company_group:"",customer_id:"",status:"",payment_status:"",from:"",to:""};return t.querySelectorAll("[data-f]").forEach(n=>{o[n.dataset.f]=n.value||""}),Object.assign(o,e.lock||{}),o.report_key=e.key,o}async function gt(t,e){let o=t.querySelector("#rpt2-go"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E32\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E16\u0E36\u0E07","err");return}await O("rpt2-show",async()=>{o.disabled=!0;let i=o.textContent;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{c.data=await R4z(e,s,(a,r)=>{n.textContent=r?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`}),c.page=1,n.textContent="",nt(t,e)}catch(a){n.textContent="",C(a,"\u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.textContent=i}})}function nt503(t,e){let o=t.querySelector("#rpt2-res"),n=t.querySelector("#rpt2-th"),s=t.querySelector("#rpt2-tb"),i=t.querySelector("#rpt2-pgn");if(!o||!c.data)return;let{rows:a,cols:r,money:l,src:p}=c.data;if(o.hidden=!1,t.querySelector("#rpt2-res-t").textContent=`\u0E1E\u0E1A ${a.length.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`,t.querySelector("#rpt2-xls").disabled=!a.length,n.innerHTML="<tr>"+r.map(d=>`<th${l.includes(d[0])?' class="r"':""}>${y(d[1])}</th>`).join("")+"</tr>",!a.length){s.innerHTML=`<tr><td colspan="${r.length}" class="center t-3">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</td></tr>`,i.innerHTML="";return}let u=a.length,m=Math.max(1,Math.ceil(u/c.size));c.page>m&&(c.page=m);let v=a.slice((c.page-1)*c.size,c.page*c.size),w=(d,g)=>p==="job"?N([d],[g])[1][0]:$(d,g);s.innerHTML=v.map(d=>"<tr>"+r.map(g=>{let _=w(d,g),R=l.includes(g[0]),rt=_==null||_===""?"-":R&&typeof _=="number"?E(_):String(_);return`<td${R?' class="r"':""}>${y(rt)}</td>`}).join("")+"</tr>").join(""),q(i,{page:c.page,size:c.size,total:u},d=>{c.page=d.page,c.size=d.size,nt(t,e)})}async function ht(t,e){let o=t.querySelector("#rpt2-xls"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14","err");return}await O("rpt2-export",async()=>{o.disabled=!0;let i=o.innerHTML;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{let a=await XL504(e,s,R4meta(t,e,s),(r,l)=>{n.textContent=l?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} / ${l.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`});a.rows?(n.textContent=`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,h(`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 Excel ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,"ok")):(n.textContent="\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C",h("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01","err"))}catch(a){n.textContent="",C(a,"\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.innerHTML=i}})}/* \u2550\u2550\u2550 V.504 REPORT REDESIGN : Sidebar \u0E0B\u0E49\u0E32\u0E22 \u00B7 Dashboard \u00B7 \u0E15\u0E32\u0E23\u0E32\u0E07 \u00B7 Export Excel (ExcelJS) / PDF (Preview + \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1B\u0E47\u0E19 PDF) \u2550\u2550\u2550
    \u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E40\u0E14\u0E34\u0E21 (Z = \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E40\u0E14\u0E34\u0E21 \u00B7 \u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07/\u0E2A\u0E39\u0E15\u0E23/\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E34\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14) \u2014 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E30\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C */
 var R4C = { DOCUMENT: "#2563eb", ACCOUNTING: "#16a34a", FINANCE: "#7c3aed" };
 var R4IC = {
@@ -669,9 +669,9 @@ function DE757(err) {
   return err;
 }
 /* Server : เฉพาะ ประเภท / ช่วงวันที่ JOB (ชุดข้อมูลรายงาน) · บริษัท / ลูกค้า / ค้นหา = กรองจากชุดข้อมูลนี้ (DF758) */
-async function DL757(q) {
+async function DL757(q) {   /* V.778 : ส่งเงื่อนไข Company Invoice / ลูกค้า ไป Server ด้วย (พารามิเตอร์เดิมของ njacc_report_do757) · ค้นหาทั่วไป = DF758 เดิม */
   let r;
-  try { r = await RPC757("njacc_report_do757", { p: { company_group: null, company_invoice_id: null, customer_id: null, payment_type: q.payment_type || null, from: q.from || null, to: q.to || null } }); }
+  try { r = await RPC757("njacc_report_do757", { p: { company_group: null, company_invoice_id: q.company_invoice_id || null, customer_id: q.customer_id || null, payment_type: q.payment_type || null, from: q.from || null, to: q.to || null } }); }
   catch (e) { throw DE757(e); }
   return r && Array.isArray(r.rows) ? r.rows : [];
 }
@@ -685,17 +685,14 @@ function DO758(rows, key, name) {
   rows.forEach((r) => { let id = r[key], nm = String(r[name] || "").trim(); id && nm && !m.has(id) && m.set(id, nm); });
   return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "th"));
 }
-function DP758(e) {
-  let all = DS757.all || [], cs = e.querySelector('[data-d757="company_invoice_id"]'), us = e.querySelector('[data-d757="customer_id"]');
+async function DP758(e) {   /* V.778 : ตัวเลือก Company Invoice / ลูกค้า จากข้อมูลหลัก (njacc_masters เดิม) — เปิดหน้าไม่ต้องดึงรายการรายงาน */
+  let cs = e.querySelector('[data-d757="company_invoice_id"]'), us = e.querySelector('[data-d757="customer_id"]'), m = null;
   if (!cs || !us) return;
-  let cv = cs.value, co = DO758(all, "company_invoice_id", "company_invoice");
-  co.some(([id]) => id === cv) || (cv = "");
-  cs.innerHTML = '<option value="">ทั้งหมด</option>' + co.map(([id, nm]) => `<option value="${y(id)}"${id === cv ? " selected" : ""}>${y(nm)}</option>`).join("");
-  cs.value = cv;
-  let uv = us.value, cu = DO758(cv ? all.filter((r) => r.company_invoice_id === cv) : all, "customer_id", "customer_name");
-  cu.some(([id]) => id === uv) || (uv = "");   /* ลูกค้าเดิมไม่อยู่ภายใต้บริษัทที่เลือก = ล้างค่า */
-  us.innerHTML = '<option value="">— เลือกลูกค้า —</option>' + cu.map(([id, nm]) => `<option value="${y(id)}"${id === uv ? " selected" : ""}>${y(nm)}</option>`).join("");
-  us.value = uv;
+  try { m = await j(); } catch (x) { m = null; }
+  if (!cs.isConnected) return;
+  let opt = (a) => (Array.isArray(a) ? a : []).filter((r) => r && r.id && String(r.name || "").trim()).map((r) => [String(r.id), String(r.name).trim()]).sort((a, b) => a[1].localeCompare(b[1], "th"));
+  let put = (sel, a, f0) => { let v = sel.value; sel.innerHTML = f0 + a.map(([id, nm]) => `<option value="${y(id)}">${y(nm)}</option>`).join(""); sel.value = a.some(([id]) => id === v) ? v : ""; };
+  put(cs, opt(m && m.companies), '<option value="">ทั้งหมด</option>'); put(us, opt(m && m.customers), '<option value="">— เลือกลูกค้า —</option>');
 }
 /* ค่าที่แสดงของแต่ละคอลัมน์ (ใช้ร่วม : หน้าจอ / ค้นหา) */
 function DX758(r, i) {
@@ -712,26 +709,23 @@ function DA758(e) {
   DS757.rows = a; DS757.sum = Math.round(a.reduce((s, r) => s + (Number(r.real_pay) || 0), 0) * 100) / 100;
   DR757(e);
 }
-async function DLD758(e, msg) {
+async function DLD758(e, ev) {   /* V.778 : แสดงรายงาน = เงื่อนไข ≥ 1 ช่อง · ล้างผลเก่าก่อนดึง · ผลที่ค้าง (ล้าง / เปลี่ยนตัวกรอง / เปลี่ยนเมนู) = ทิ้ง */
+  if (ev && ev.isTrusted === !1) { (D778.on || D778.busy) && HD778(e); return; }   /* คลิกอัตโนมัติจาก Dropdown / ป้ายเงื่อนไข = เปลี่ยนตัวกรอง → ต้องกดแสดงรายงานเอง */
   let b = e.querySelector("#d757-go"), st = e.querySelector("#d757-status"), q = DQ757(e);
-  if (!DV757(q)) return;
-  await O("d757-show", async () => {
-    let t0 = b.textContent; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
-    try { DS757.all = await DL757(q); DS757.page = 1; DP758(e); st.textContent = msg || ""; DA758(e); }
-    catch (a) { st.textContent = ""; C(a, "ดึงรายงานไม่สำเร็จ"); }
-    finally { b.disabled = !1; b.textContent = t0; }
-  });
+  if (!DV757(q)) { st.textContent = "วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด"; return; }
+  if (!Object.values(q).some(Boolean)) { st.textContent = NC778; h(NC778, "err"); return; }
+  HD778(e); let s0 = D778.seq, live = () => s0 === D778.seq && e.isConnected && e.querySelector("#d757-go") === b;
+  D778.busy = !0; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
+  try { let all = await DL757(q); if (!live()) return; DS757.all = all; DS757.page = 1; D778.on = !0; st.textContent = ""; DA758(e); }
+  catch (a) { if (!live()) return; st.textContent = ""; C(a, "ดึงรายงานไม่สำเร็จ"); }
+  finally { live() && ((D778.busy = !1), (b.disabled = !1), (b.textContent = "แสดงรายงาน")); }
 }
-function DO757(e, o) {
-  DC758();
-  let col = R4C.DOCUMENT, fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
+function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (ช่องค้นหา → 1.2 ค่าแลกดีโอ + จำนวน | EXPORT EXCEL → ตาราง) · ไม่มี Breadcrumb / กล่องหัว · เปิดหน้า = ไม่ดึงข้อมูล */
+  DC758(); CS778();
+  let fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
   e.innerHTML = `
-    <nav class="r4-crumb" aria-label="breadcrumb"><a href="#/report" class="r4-i" title="Report">${R4IC.home}</a><span class="sep">›</span><a href="#/report">Report</a><span class="sep">›</span><span>${y(o.group)}</span><span class="sep">›</span><b>${y(o.no)} ${y(o.title)}</b></nav>
-    <div class="r4-card r4-head" style="--c:${col};--cl:#eff6ff">
-      <div class="r4-hic">${R4IC.doc}</div>
-      <div><h2><span class="no">${y(o.no)}</span>${y(o.title)}</h2><p class="rpt2-note">${y(o.note || "")}</p></div>
-    </div>
-    <div class="r4-card r4-filter"><div class="r4-fg">
+    <div class="r4-card r4-filter d778">
+      <div class="r4-fg">
       ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-d757="q" placeholder="ค้นหาข้อมูลทุกหัวข้อ..." title="ค้นหาข้อมูลทุกหัวข้อ" autocomplete="off">`)}
       ${fld("Company Invoice", `<select class="sel" data-d757="company_invoice_id" title="Company Invoice"><option value="">ทั้งหมด</option></select>`)}
       ${fld("ลูกค้า", `<select class="sel" data-d757="customer_id" title="ลูกค้า"><option value="">— เลือกลูกค้า —</option></select>`)}
@@ -742,32 +736,32 @@ function DO757(e, o) {
         <button type="button" class="btn btn-o" id="d757-clear">⟲ ล้างตัวกรอง</button>
         <button type="button" class="btn btn-p" id="d757-go">แสดงรายงาน</button>
       </div>
-    </div></div>
-    <p class="rpt2-status" id="d757-status"></p>
-    <div class="r4-card rpt2-res" id="d757-res" hidden>
-      <div class="rpt2-res-h">
-        <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="d757-res-t"></span></div>
+      </div>
+      <p class="rpt2-status d778-st" id="d757-status"></p>
+      <div class="rpt2-res-h d778-h">
+        <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="d757-res-t" hidden></span></div>
         <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
       </div>
-      <div class="d758-wrap"><table class="d758-tbl">
-        <colgroup>${DW757.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
-        <thead><tr>${DH757.map((x) => `<th>${y(x)}</th>`).join("")}</tr></thead>
-        <tbody id="d757-tb"></tbody><tfoot id="d757-tf"></tfoot></table></div>
-      <div id="d757-pgn"></div>
+      <div id="d757-res" hidden>
+        <div class="d758-wrap"><table class="d758-tbl">
+          <colgroup>${DW757.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
+          <thead><tr>${DH757.map((x) => `<th>${y(x)}</th>`).join("")}</tr></thead>
+          <tbody id="d757-tb"></tbody><tfoot id="d757-tf"></tfoot></table></div>
+        <div id="d757-pgn"></div>
+      </div>
     </div>`;
-  DS757.all = null; DS757.rows = []; DS757.page = 1;
-  e.querySelector("#d757-go").onclick = () => DLD758(e);
+  let go = e.querySelector("#d757-go"), fg = e.querySelector(".d778 .r4-fg");
+  go.onclick = (ev) => DLD758(e, ev);
   e.querySelector("#d757-xls").onclick = () => DXB757(e);
-  let cs = e.querySelector('[data-d757="company_invoice_id"]'), us = e.querySelector('[data-d757="customer_id"]'), qi = e.querySelector('[data-d757="q"]');
-  cs.onchange = () => { DS757.page = 1; DP758(e); DS757.all && DA758(e); };
-  us.onchange = () => { DS757.page = 1; DS757.all && DA758(e); };
-  qi.oninput = () => { clearTimeout(DS757.t); DS757.t = setTimeout(() => { DS757.page = 1; DS757.all && DA758(e); }, 200); };
-  e.querySelector("#d757-clear").onclick = () => {
+  e.querySelector("#d757-clear").onclick = () => {   /* ล้าง = ช่องค่าเริ่มต้น · ซ่อนตาราง / จำนวน · ปิด Export · ไม่ดึงข้อมูล */
     e.querySelectorAll("[data-d757]").forEach((el) => { el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); });
-    DLD758(e, "ล้างตัวกรองแล้ว — แสดงรายการทั้งหมดในขอบเขตรายงาน 1.2");
+    HD778(e);
   };
-  RG762(e, o);   /* V.762 : Component กลาง (ui-dd762.js) — ใช้ <select> เดิมเป็นค่า · change เดิม */
-  DLD758(e);   /* เปิดหน้า = ดึงข้อมูลทันที (สร้างตัวเลือก Company Invoice / ลูกค้า จากข้อมูลจริง) */
+  let chg = (ev) => { ev.target && ev.target.matches && ev.target.matches("[data-d757]") && (D778.on || D778.busy) && HD778(e); };   /* แก้ตัวกรองหลังค้นหา = ซ่อนผล + ปิด Export จนกดแสดงรายงานใหม่ */
+  fg.addEventListener("input", chg); fg.addEventListener("change", chg);
+  RG762(e, o);   /* V.762 : Component กลาง (ui-dd762.js) */
+  HD778(e);   /* เข้าเมนู / Refresh = เริ่มใหม่ ไม่ใช้ผลเดิม */
+  DP758(e);
 }
 /* ═══ V.762 · REPORT (ทุกหน้าที่มีตัวกรองแบบเลือก · รวม 1.2 ค่าแลกดีโอ) : Component กลาง (ui-dd762.js) — Dropdown ค้นหาได้ · × · ป้ายสรุป
    <select data-f> / <select data-d757> เดิมเป็นแหล่งค่า · 2.2 บริษัท / ลูกค้า = รายการเดิม OP697 (ข้อมูลรายงานจริง) · เงื่อนไข / ค่าเริ่มต้น / ปุ่มล้าง / Export เดิม
@@ -804,12 +798,13 @@ function RG762(e, o) {
   } catch (x) { try { console.warn("RG762", x); } catch (_) {} }
 }
 function DR757(e) {
-  let res = e.querySelector("#d757-res"), tb = e.querySelector("#d757-tb"), tf = e.querySelector("#d757-tf"), pg = e.querySelector("#d757-pgn"), a = DS757.rows || [];
+  let res = e.querySelector("#d757-res"), tb = e.querySelector("#d757-tb"), tf = e.querySelector("#d757-tf"), pg = e.querySelector("#d757-pgn"), ct = e.querySelector("#d757-res-t"), a = DS757.rows || [];
   if (!res) return;
-  res.hidden = !1;
-  e.querySelector("#d757-res-t").textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`;
+  if (!D778.on) { res.hidden = !0; ct.hidden = !0; ct.textContent = ""; e.querySelector("#d757-xls").disabled = !0; tb.innerHTML = ""; tf.innerHTML = ""; pg.innerHTML = ""; return; }   /* V.778 : ยังไม่ค้นหา = ไม่มีตาราง / จำนวน / Export */
+  res.hidden = !1; ct.hidden = !1;
+  ct.textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`;
   e.querySelector("#d757-xls").disabled = !a.length;
-  if (!a.length) { tb.innerHTML = '<tr><td colspan="14" class="c">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>'; tf.innerHTML = ""; pg.innerHTML = ""; return; }
+  if (!a.length) { tb.innerHTML = `<tr><td colspan="14" class="c">${NF778}</td></tr>`; tf.innerHTML = ""; pg.innerHTML = ""; return; }
   let n = Math.max(1, Math.ceil(a.length / DS757.size));
   DS757.page > n && (DS757.page = n);
   let p0 = (DS757.page - 1) * DS757.size;
@@ -820,57 +815,58 @@ function DR757(e) {
   tf.innerHTML = `<tr><td colspan="8">${y(DTOT758)}</td><td class="d758-m">${y(E(DS757.sum))}</td><td colspan="5"></td></tr>`;
   q(pg, { page: DS757.page, size: DS757.size, total: a.length }, (d) => { DS757.page = d.page; DS757.size = d.size; DR757(e); });
 }
-async function DXB757(e) {
-  let b = e.querySelector("#d757-xls"), st = e.querySelector("#d757-status"), q = DQ757(e);
-  if (!DV757(q)) return;
+async function DXB757(e) {   /* V.778 : Export = แถวทั้งหมดของผลค้นหาที่แสดงอยู่ (ทุกหน้า) */
+  let b = e.querySelector("#d757-xls"), st = e.querySelector("#d757-status");
+  if (!D778.on || !(DS757.rows && DS757.rows.length)) { h("กรุณากดแสดงรายงานก่อน EXPORT EXCEL", "err"); return; }
   await O("d757-export", async () => {
-    let t0 = b.innerHTML; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…"; st.textContent = "กำลังดึงข้อมูล…";
+    let t0 = b.innerHTML, rows = DS757.rows.slice(); b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…";
     try {
-      DS757.all = await DL757(q); DP758(e); DA758(e);   /* ข้อมูลล่าสุด + ตัวกรองที่เลือกอยู่ (ค้นหา / บริษัท / ลูกค้า / ประเภท / วันที่) = ชุดเดียวกับหน้าจอ */
-      let rows = DS757.rows;
-      if (!rows.length) { st.textContent = "ไม่มีข้อมูลตามเงื่อนไขที่เลือก — ไม่ได้สร้างไฟล์"; h("ไม่มีข้อมูลตามเงื่อนไขที่เลือก", "err"); return; }
       let buf = await DX757(rows), dt = new Date(), p2 = (x) => String(x).padStart(2, "0");
       R4dl(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `แลกดีโอ_${dt.getFullYear()}${p2(dt.getMonth() + 1)}${p2(dt.getDate())}.xlsx`);
-      st.textContent = `ส่งออกแล้ว ${rows.length.toLocaleString("th-TH")} แถว`; h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} แถว`, "ok");
+      h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} แถว`, "ok");
     } catch (a) { st.textContent = ""; C(a, "สร้างรายงานไม่สำเร็จ"); }
-    finally { b.disabled = !(DS757.rows && DS757.rows.length); b.innerHTML = t0; }
+    finally { b.innerHTML = t0; b.disabled = !(D778.on && DS757.rows && DS757.rows.length); }
   });
 }
 /* Excel ตามไฟล์ต้นแบบ "ค่าแลกดีโอ_ออกแบบใหม่" (ค่ารูปแบบอ่านจาก styles.xml / sheet1.xml / table1.xml ของต้นฉบับ) */
-async function DX757(rows) {
+async function DX757(rows) {   /* V.778 : รูปแบบ Excel ใหม่ — Arial 8 · หัวตารางบรรทัดเดียว (น้ำเงินเข้ม / ตัวขาว) · แถวสลับขาว / ฟ้าอ่อน · All Borders (ใน thin เทาเข้ม · นอก medium) · คอลัมน์ / ข้อมูล / ยอดรวม เดิม */
   let X = await XJ504(), wb = new X.Workbook(), n = rows.length, last = n + 1;
-  let ws = wb.addWorksheet("รายงานค่าแลกดีโอ", { views: [{ state: "frozen", xSplit: 0, ySplit: 1, topLeftCell: "A2", activeCell: "A2" }] });
+  let ws = wb.addWorksheet("รายงานค่าแลกดีโอ", { views: [{ state: "frozen", xSplit: 0, ySplit: 1, topLeftCell: "A2", activeCell: "A2" }],
+    pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: !1, horizontalCentered: !0, margins: { left: 0.3, right: 0.3, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 }, printTitlesRow: "1:1" } });
   wb.creator = "NJL Logistic"; wb.created = new Date();
-  let fD = { name: "Aptos", size: 11, color: { argb: "FF26374B" } }, fH = { name: "Aptos", size: 10, bold: !0, color: { argb: "FFFFFFFF" } },
-    fM = { name: "Aptos", size: 11, bold: !0, color: { argb: "FF067647" } }, fT = { name: "Aptos", size: 12, bold: !0, color: { argb: "FFFFFFFF" } };
-  let fill = (c) => ({ type: "pattern", pattern: "solid", fgColor: { argb: c } }), bc = { style: "thin", color: { argb: "FF527ECC" } }, bd = { top: bc, left: bc, bottom: bc, right: bc };
-  DW757.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  let AF = "Arial", fD = { name: AF, size: 8, color: { argb: "FF1F2937" } }, fH = { name: AF, size: 8, bold: !0, color: { argb: "FFFFFFFF" } };
+  let fill = (c) => ({ type: "pattern", pattern: "solid", fgColor: { argb: c } }), NAVY = "FF1F3864", ALT = "FFDDEBF7";
+  let IN = { style: "thin", color: { argb: "FF808080" } }, OUT = { style: "medium", color: { argb: "FF404040" } };
+  let bd = (r, c, r0, r1) => ({ top: r === r0 ? OUT : IN, bottom: r === r1 ? OUT : IN, left: c === 1 ? OUT : IN, right: c === 14 ? OUT : IN });
+  let AL = ["center", "center", "center", "left", "left", "left", "center", "center", "right", "left", "center", "center", "left", "left"];
+  let vals = rows.map((r, i) => { let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.date || "")), pay = r.real_pay == null || r.real_pay === "" ? null : Number(r.real_pay);
+    return [i + 1, DJ757(r) || null, m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null, r.company_invoice || null, r.customer_name || null, r.account_name || null, r.house_bl_no || null, r.payment_type || null, pay == null || isNaN(pay) ? null : pay, null, null, null, null, null]; });
+  let cw = (s) => { let w = 0; for (let ch of String(s)) w += /[ัิ-ฺ็-๎]/.test(ch) ? 0 : /[฀-๿]/.test(ch) ? 0.9 : 1; return w; };
+  let tx = (x, k) => (x == null ? "" : k === 2 ? "00/00/0000" : k === 8 ? Number(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(x));
+  let W = DH757.map((x) => Math.max(6, Math.ceil(cw(x) * 0.95) + 3));   /* หัวข้อบรรทัดเดียวเต็มข้อความ */
+  vals.forEach((v) => v.forEach((x, k) => { let t = tx(x, k); t && (W[k] = Math.max(W[k], Math.min(50, Math.ceil(cw(t) * 0.85) + 3))); }));
+  W.forEach((w, i) => { let col = ws.getColumn(i + 1); col.width = w; col.font = fD; });
   ws.addTable({ name: "DOReportItems", displayName: "DOReportItems", ref: "A1", headerRow: !0, totalsRow: !1, style: { theme: "TableStyleMedium2", showRowStripes: !0, showColumnStripes: !1, showFirstColumn: !1, showLastColumn: !1 },
-    columns: DH757.map((x) => ({ name: x, filterButton: !0 })),
-    rows: rows.map((r, i) => { let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(r.date || "")), pay = r.real_pay == null || r.real_pay === "" ? null : Number(r.real_pay);
-      return [i + 1, DJ757(r) || null, m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null, r.company_invoice || null, r.customer_name || null, r.account_name || null, r.house_bl_no || null, r.payment_type || null, pay == null || isNaN(pay) ? null : pay, null, null, null, null, null]; }) });
-  let hr = ws.getRow(1); hr.height = 52;
-  for (let c = 1; c <= 14; c++) { let x = hr.getCell(c); x.font = fH; x.fill = fill("FF175CD3"); x.border = bd; x.alignment = { horizontal: "center", vertical: "middle", wrapText: !0 }; }
+    columns: DH757.map((x) => ({ name: x, filterButton: !0 })), rows: vals });
+  let hr = ws.getRow(1); hr.height = 25;
+  for (let c = 1; c <= 14; c++) { let x = hr.getCell(c); x.font = fH; x.fill = fill(NAVY); x.border = bd(1, c, 1, last); x.alignment = { horizontal: "center", vertical: "middle", wrapText: !1 }; }
   for (let i = 0; i < n; i++) {
-    let rw = ws.getRow(i + 2), ev = i % 2 === 1, bg = ev ? "FFF4F8FD" : "FFFFFFFF";
-    rw.height = 35;
+    let R = i + 2, rw = ws.getRow(R), lines = 1;
     for (let c = 1; c <= 14; c++) {
-      let x = rw.getCell(c);
-      x.font = c === 9 ? fM : fD;
-      x.fill = fill(c === 8 ? (ev ? "FFE4EFFE" : "FFEDF4FF") : bg);
-      x.alignment = c === 1 || c === 3 ? { horizontal: "center", vertical: "middle", wrapText: !0 } : c === 9 ? { horizontal: "right", vertical: "middle", wrapText: !0 } : { vertical: "middle", wrapText: !0 };
+      let x = rw.getCell(c), t = tx(vals[i][c - 1], c - 1), wrap = AL[c - 1] === "left";
+      x.font = fD; x.fill = fill(i % 2 ? ALT : "FFFFFFFF"); x.border = bd(R, c, 1, last);
+      x.alignment = { horizontal: AL[c - 1], vertical: "middle", wrapText: wrap };
       c === 3 && (x.numFmt = "dd/mm/yyyy"); c === 9 && (x.numFmt = "#,##0.00");
+      if (wrap && t) { let L = Math.ceil((cw(t) * 0.85) / Math.max(1, W[c - 1] - 2)); L > lines && (lines = L); }
     }
+    rw.height = Math.max(15, lines * 11 + 4);
   }
-  let blank = (r) => { let rw = ws.getRow(r); rw.height = 25; for (let c = 1; c <= 14; c++) { let x = rw.getCell(c); x.font = fD; x.alignment = { vertical: "middle" }; } };
-  blank(last + 1);
   let tr = ws.getRow(last + 2), tot = Math.round(rows.reduce((s, r) => s + (Number(r.real_pay) || 0), 0) * 100) / 100;
-  tr.height = 36;
-  for (let c = 1; c <= 14; c++) { let x = tr.getCell(c); x.font = fT; x.fill = fill("FF102A4C"); x.alignment = { vertical: "middle" }; }
+  tr.height = 20;
+  for (let c = 1; c <= 14; c++) { let x = tr.getCell(c); x.font = fH; x.fill = fill(NAVY); x.border = bd(last + 2, c, last + 2, last + 2); x.alignment = { horizontal: c === 9 ? "right" : "left", vertical: "middle", wrapText: !1 }; }
   tr.getCell(1).value = DTOT758;
   tr.getCell(9).value = { formula: `SUM(I2:I${last})`, result: tot }; tr.getCell(9).numFmt = "#,##0.00";
   ws.mergeCells(`A${last + 2}:H${last + 2}`);
-  for (let r = last + 3; r <= last + 6; r++) blank(r);
   let buf = await wb.xlsx.writeBuffer();
   if (!buf || !buf.byteLength) throw new Error("สร้างไฟล์ Excel ไม่สำเร็จ (ไฟล์ว่าง)");
   return buf;
@@ -883,7 +879,7 @@ export{Mt as REPORT_CARDS,Dt as render};
    หน้าจอ + Excel ใช้ตัวกำหนดคอลัมน์ชุดเดียวกัน (C773) → ค่าเหมือนกันทุกช่อง · Excel = ทุกแถวที่ตรงเงื่อนไข (ไม่ขึ้นกับหน้าที่เปิด)
    ตัวกรอง : ค้นหาทั่วไป (Invoice No. / ลูกค้า / JOB / Customer Job No. — เงื่อนไขเดียวกับ FINANCE) · Billing Note No. (เต็ม / บางส่วน) · บริษัท Invoice · ลูกค้า — ใช้ร่วมกันได้ · ล้างช่อง = ตามตัวกรองที่เหลือ
    สิทธิ์ : เมนู / URL = RI595("billing-total") เดิม · API ตรวจซ้ำ (REPORT + สิทธิ์ 2.3 + njacc_can + ขอบเขต REPORT) · ไม่ต้องมี FINANCE / ACCOUNTING / DOCUMENT ═══ */
-var RS773 = { all: null, rows: [], page: 1, size: 20, t: null };
+var RS773 = { all: null, rows: [], page: 1, size: 20, t: null, seq: 0, on: !1 };   /* V.776 : seq = ทิ้งผลค้นหาเก่า · on = ค้นหาแล้ว */
 var KP773 = new Set(["นาย", "นาง", "นางสาว", "น.ส.", "น.ส", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "miss"]);
 function KN773(t) { let e = String(t == null ? "" : t).trim().split(/\s+/).filter(Boolean); for (; e.length > 1 && KP773.has(e[0].toLowerCase()); ) e.shift(); return e[0] || "-"; }   /* = KN522 ของ FINANCE → RECEIPT */
 var C773 = [["เลขที่งาน", (o) => o.job_no], ["Date", (o) => o.date, "date"], ["Invoice No.", (o) => o.invoice_no || "ยังไม่ออก INV"], ["ลูกค้า", (o) => o.customer_name], ["บริษัท Invoice", (o) => o.company_invoice],
@@ -907,7 +903,12 @@ function E773(err) {
   for (let k in T) if (m.includes(k)) return new Error(T[k]);
   return err;
 }
-async function L773() { let r; try { r = await RPC757("njacc_report_rc773", { p: { company_group: "NJ" } }); } catch (x) { throw E773(x); } return r && Array.isArray(r.rows) ? r.rows : []; }
+async function L773(f) {   /* V.776 : ดึงเฉพาะตามเงื่อนไขที่ค้นหา (ตัวกรองเดิมของ njacc_report_rc773 · RUN-773 / RUN-775) */
+  let p = { company_group: "NJ" };
+  f.q && (p.q = f.q); f.billing_no && (p.billing_no = f.billing_no); f.company_invoice_id && (p.company_invoice_id = f.company_invoice_id);
+  f.customer_id && (p.customer_id = f.customer_id); f.from && (p.date_from = f.from); f.to && (p.date_to = f.to);
+  let r; try { r = await RPC757("njacc_report_rc773", { p }); } catch (x) { throw E773(x); } return r && Array.isArray(r.rows) ? r.rows : [];
+}
 /* ตัวกรองจากชุดข้อมูลรายงาน (เงื่อนไขเดียวกับ Server njacc_report_rc773) */
 function FL773(all, f) {
   let q = N773(f.q), bn = N773(f.billing_no);
@@ -916,36 +917,38 @@ function FL773(all, f) {
     && (!bn || String(r.billing_note_no || "").split(",").some((x) => N773(x.trim()).includes(bn)))
     && (!f.from && !f.to || (Array.isArray(r.billing_note_dates) ? r.billing_note_dates : []).some((d) => (d = String(d || "").slice(0, 10)) && (!f.from || d >= f.from) && (!f.to || d <= f.to))));   /* V.775 : วันที่ใบวางบิล (รวมวันเริ่ม / วันสิ้นสุด) */
 }
-function OP773(e) {
-  let all = RS773.all || [], cs = e.querySelector('[data-r773="company_invoice_id"]'), us = e.querySelector('[data-r773="customer_id"]');
+async function OP773(e) {   /* V.776 : ตัวเลือก บริษัท Invoice / ลูกค้า จากข้อมูลหลัก (njacc_masters เดิม · โหลดไว้แล้วก่อนเปิดรายงาน) — ไม่ต้องดึงรายการรายงาน */
+  let cs = e.querySelector('[data-r773="company_invoice_id"]'), us = e.querySelector('[data-r773="customer_id"]'), m = null;
   if (!cs || !us) return;
-  let opt = (rows, k, nm) => { let m = new Map(); rows.forEach((r) => { let id = r[k], t = String(r[nm] || "").trim(); id && t && !m.has(id) && m.set(id, t); }); return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "th")); };
-  let cv = cs.value, co = opt(all, "company_invoice_id", "company_invoice"); co.some(([id]) => id === cv) || (cv = "");
-  cs.innerHTML = '<option value="">ทั้งหมด</option>' + co.map(([id, nm]) => `<option value="${y(id)}"${id === cv ? " selected" : ""}>${y(nm)}</option>`).join(""); cs.value = cv;
-  let uv = us.value, cu = opt(cv ? all.filter((r) => r.company_invoice_id === cv) : all, "customer_id", "customer_name"); cu.some(([id]) => id === uv) || (uv = "");
-  us.innerHTML = '<option value="">ทั้งหมด</option>' + cu.map(([id, nm]) => `<option value="${y(id)}"${id === uv ? " selected" : ""}>${y(nm)}</option>`).join(""); us.value = uv;
+  try { m = await j(); } catch (x) { m = null; }
+  if (!cs.isConnected) return;
+  let opt = (a) => (Array.isArray(a) ? a : []).filter((r) => r && r.id && String(r.name || "").trim()).map((r) => [String(r.id), String(r.name).trim()]).sort((a, b) => a[1].localeCompare(b[1], "th"));
+  let put = (sel, a) => { let v = sel.value; sel.innerHTML = '<option value="">ทั้งหมด</option>' + a.map(([id, nm]) => `<option value="${y(id)}">${y(nm)}</option>`).join(""); sel.value = a.some(([id]) => id === v) ? v : ""; };
+  put(cs, opt(m && m.companies)); put(us, opt(m && m.customers));
+  e.__u773 && e.__u773();
 }
-function A773(e) { let f = Q773(e), st = e.querySelector("#rc773-status"); if (BD775(f)) { st && (st.textContent = BM775); return; } st && st.textContent === BM775 && (st.textContent = ""); RS773.rows = FL773(RS773.all || [], f); R773(e); }
 function R773(e) {
-  let res = e.querySelector("#rc773-res"), tb = e.querySelector("#rc773-tb"), pg = e.querySelector("#rc773-pgn"), a = RS773.rows || [];
+  let res = e.querySelector("#rc773-res"), tb = e.querySelector("#rc773-tb"), pg = e.querySelector("#rc773-pgn"), ct = e.querySelector("#rc773-res-t"), xb = e.querySelector("#rc773-xls"), a = RS773.rows || [];
   if (!res) return;
-  res.hidden = !1; e.querySelector("#rc773-res-t").textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`; e.querySelector("#rc773-xls").disabled = !a.length;
-  if (!a.length) { tb.innerHTML = `<tr><td colspan="${C773.length}" class="c">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td></tr>`; pg.innerHTML = ""; return; }
+  if (!RS773.on) { res.hidden = !0; ct.hidden = !0; ct.textContent = ""; xb.disabled = !0; tb.innerHTML = ""; pg.innerHTML = ""; return; }   /* V.776 : ยังไม่ค้นหา = ไม่มีตาราง / จำนวน / Export */
+  res.hidden = !1; ct.hidden = !1; ct.textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`; xb.disabled = !a.length;
+  if (!a.length) { tb.innerHTML = `<tr><td colspan="${C773.length}" class="c">ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา</td></tr>`; pg.innerHTML = ""; return; }
   let n = Math.max(1, Math.ceil(a.length / RS773.size)); RS773.page > n && (RS773.page = n);
   let p0 = (RS773.page - 1) * RS773.size;
   tb.innerHTML = a.slice(p0, p0 + RS773.size).map((r) => "<tr>" + C773.map((c) => { let x = V773(c, r); return x.k === "num" ? `<td class="d758-m">${F773(x.v)}</td>` : `<td class="${x.k === "txt" ? "" : "c"}">${y(x.v)}</td>`; }).join("") + "</tr>").join("");
   /* V.775 : ไม่แสดงแถบยอดรวมใต้ตาราง */
   q(pg, { page: RS773.page, size: RS773.size, total: a.length }, (d) => { RS773.page = d.page; RS773.size = d.size; R773(e); });
 }
-async function LD773(e, msg) {
-  let b = e.querySelector("#rc773-go"), st = e.querySelector("#rc773-status");
-  if (BD775(Q773(e))) { st.textContent = BM775; h(BM775, "err"); return; }   /* V.775 */
-  await O("rc773-show", async () => {
-    let t0 = b.textContent; b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
-    try { RS773.all = await L773(); RS773.page = 1; OP773(e); st.textContent = msg || ""; A773(e); e.__u773 && e.__u773(); }
-    catch (x) { st.textContent = ""; C(x, "ดึงรายงานไม่สำเร็จ"); }
-    finally { b.disabled = !1; b.textContent = t0; }
-  });
+async function LD773(e) {   /* V.776 : แสดงรายงาน = ต้องมีเงื่อนไขอย่างน้อย 1 ช่อง · ล้างผลเก่าก่อนดึง · ผลที่กลับมาช้า (ล้าง / เปลี่ยนเมนู / ค้นหาใหม่) = ทิ้ง */
+  let b = e.querySelector("#rc773-go"), st = e.querySelector("#rc773-status"), f = Q773(e);
+  if (BD775(f)) { st.textContent = BM775; h(BM775, "err"); return; }
+  if (!Object.values(f).some(Boolean)) { st.textContent = NC776; h(NC776, "err"); return; }
+  let s = ++RS773.seq; RS773.on = !1; RS773.rows = []; RS773.page = 1; R773(e);
+  b.disabled = !0; b.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
+  let live = () => s === RS773.seq && e.isConnected && e.querySelector("#rc773-go") === b;
+  try { let rows = FL773(await L773(f), f); if (!live()) return; RS773.rows = rows; RS773.on = !0; st.textContent = ""; R773(e); }
+  catch (x) { if (!live()) return; st.textContent = ""; C(x, "ดึงรายงานไม่สำเร็จ"); }
+  finally { live() && ((b.disabled = !1), (b.textContent = "แสดงรายงาน")); }
 }
 async function X773(rows) {   /* = XW734 (FINANCE → RECEIPT) : Sheet RECEIPT · หัวตารางสีเดียวกัน · ค่าว่าง = "-" · ตัวเลข #,##0.00 · วันที่ dd/mm/yyyy */
   let EX = await XJ504(), wb = new EX.Workbook(), ws = wb.addWorksheet("RECEIPT", { views: [{ state: "frozen", ySplit: 1 }] });
@@ -961,20 +964,17 @@ async function X773(rows) {   /* = XW734 (FINANCE → RECEIPT) : Sheet RECEIPT �
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, rows.length + 1), column: C773.length } };
   return wb.xlsx.writeBuffer();
 }
-async function XB773(e) {
+async function XB773(e) {   /* V.776 : Export = แถวทั้งหมดของผลค้นหาที่แสดงอยู่ (ทุกหน้า) · รูปแบบ / คอลัมน์ X773 เดิม */
   let b = e.querySelector("#rc773-xls"), st = e.querySelector("#rc773-status");
-  if (BD775(Q773(e))) { st.textContent = BM775; h(BM775, "err"); return; }   /* V.775 */
+  if (!RS773.on || !(RS773.rows && RS773.rows.length)) { h("กรุณากดแสดงรายงานก่อน EXPORT EXCEL", "err"); return; }
   await O("rc773-export", async () => {
-    let t0 = b.innerHTML; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…"; st.textContent = "กำลังดึงข้อมูล…";
+    let t0 = b.innerHTML, rows = RS773.rows.slice(); b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…";
     try {
-      RS773.all = await L773(); OP773(e); A773(e);   /* ข้อมูลล่าสุด + ตัวกรองที่เลือกอยู่ = ชุดเดียวกับตารางบนหน้าจอ (ทุกแถว ไม่ขึ้นกับหน้า) */
-      let rows = RS773.rows;
-      if (!rows.length) { st.textContent = "ไม่มีข้อมูลตามเงื่อนไขที่เลือก — ไม่ได้สร้างไฟล์"; h("ไม่มีข้อมูลตามเงื่อนไขที่เลือก", "err"); return; }
       let buf = await X773(rows);
       R4dl(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `REPORT_2.3_billing-total_${F()}.xlsx`);   /* ชื่อไฟล์รูปแบบเดิมของรายงาน 2.3 */
-      st.textContent = `ส่งออกแล้ว ${rows.length.toLocaleString("th-TH")} รายการ`; h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} รายการ`, "ok");
+      h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} รายการ`, "ok");
     } catch (x) { st.textContent = ""; C(x, "สร้างรายงานไม่สำเร็จ"); }
-    finally { b.disabled = !(RS773.rows && RS773.rows.length); b.innerHTML = t0; }
+    finally { b.innerHTML = t0; b.disabled = !(RS773.on && RS773.rows && RS773.rows.length); }
   });
 }
 function RG773(e) {   /* Component กลาง (ui-dd762.js) แบบเดียวกับ 1.2 : หัวข้อเหนือช่องเสมอ · Dropdown ค้นหาได้ · × · ป้ายสรุป · กรองทันที */
@@ -993,12 +993,12 @@ function RG773(e) {   /* Component กลาง (ui-dd762.js) แบบเดี
     fg.addEventListener("change", (ev) => { ev.target && ev.target.tagName === "INPUT" || rf(); }); fg.addEventListener("input", rf); e.__u773 = rf;   /* ช่องพิมพ์ = refresh จาก input เท่านั้น (change ตอนออกจากช่องจะสร้างป้ายใหม่ทับปุ่ม × ที่กำลังกด) */
   } catch (x) { try { console.warn("RG773", x); } catch (_) {} }
 }
-function RC773(e, o) {
-  DC758(); CS775();
-  let col = R4C.ACCOUNTING, fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
+function RC773(e, o) {   /* V.776 : กรอบสีขาวเดียว = แถวค้นหา → หัวรายงาน + จำนวน | EXPORT EXCEL → ตาราง · ไม่มี Breadcrumb · เปิดหน้า = ไม่ดึงข้อมูล */
+  DC758(); CS775(); CS776();
+  let fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
   e.innerHTML = `
-    <nav class="r4-crumb" aria-label="breadcrumb"><a href="#/report" class="r4-i" title="Report">${R4IC.home}</a><span class="sep">›</span><a href="#/report">Report</a><span class="sep">›</span><span>${y(o.group)}</span><span class="sep">›</span><b>${y(o.no)} ${y(o.title)}</b></nav>
-    <div class="r4-card r4-filter"><div class="r4-fg">
+    <div class="r4-card r4-filter rc776" id="rc776">
+      <div class="r4-fg">
       ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-r773="q" placeholder="Invoice No. / ลูกค้า / JOB / Customer Job No." title="ค้นหา Invoice No. / ลูกค้า / JOB / Customer Job No." autocomplete="off">`)}
       ${fld("Billing Note No.", `<input class="inp" type="search" data-r773="billing_no" placeholder="พิมพ์เลข Billing Note No. (เต็มหรือบางส่วน)" title="Billing Note No." autocomplete="off">`)}
       ${fld("บริษัท Invoice", `<select class="sel" data-r773="company_invoice_id" title="บริษัท Invoice"><option value="">ทั้งหมด</option></select>`)}
@@ -1009,32 +1009,32 @@ function RC773(e, o) {
         <button type="button" class="btn btn-o" id="rc773-clear">⟲ ล้างตัวกรอง</button>
         <button type="button" class="btn btn-p" id="rc773-go">แสดงรายงาน</button>
       </div>
-    </div></div>
-    <p class="rpt2-status" id="rc773-status"></p>
-    <div class="r4-card rpt2-res" id="rc773-res" hidden>
-      <div class="rpt2-res-h">
-        <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="rc773-res-t"></span></div>
+      </div>
+      <p class="rpt2-status rc776-st" id="rc773-status"></p>
+      <div class="rpt2-res-h rc776-h">
+        <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="rc773-res-t" hidden></span></div>
         <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="rc773-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
       </div>
-      <div class="d758-wrap"><table class="d758-tbl rc775-tbl">
-        <colgroup>${W773.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
-        <thead><tr>${C773.map((c) => `<th>${y(c[0])}</th>`).join("")}</tr></thead>
-        <tbody id="rc773-tb"></tbody></table></div>
-      <div id="rc773-pgn"></div>
+      <div id="rc773-res" hidden>
+        <div class="d758-wrap"><table class="d758-tbl rc775-tbl">
+          <colgroup>${W773.map((w) => `<col style="width:${Math.round(w * 8 + 12)}px">`).join("")}</colgroup>
+          <thead><tr>${C773.map((c) => `<th>${y(c[0])}</th>`).join("")}</tr></thead>
+          <tbody id="rc773-tb"></tbody></table></div>
+        <div id="rc773-pgn"></div>
+      </div>
     </div>`;
-  RS773.all = null; RS773.rows = []; RS773.page = 1;
+  RS773.seq++; RS773.on = !1; RS773.rows = []; RS773.page = 1;   /* เข้าเมนู / Refresh = เริ่มใหม่ ไม่ใช้ผลเดิม */
   e.querySelector("#rc773-go").onclick = () => LD773(e);
   e.querySelector("#rc773-xls").onclick = () => XB773(e);
-  let cs = e.querySelector('[data-r773="company_invoice_id"]'), us = e.querySelector('[data-r773="customer_id"]');
-  cs.onchange = () => { RS773.page = 1; OP773(e); RS773.all && A773(e); };
-  us.onchange = () => { RS773.page = 1; RS773.all && A773(e); };
-  e.querySelectorAll('input[data-r773]').forEach((el) => { el.oninput = () => { clearTimeout(RS773.t); RS773.t = setTimeout(() => { RS773.page = 1; RS773.all && A773(e); }, 200); }; });
-  e.querySelector("#rc773-clear").onclick = () => {
+  e.querySelector("#rc773-clear").onclick = () => {   /* ล้าง = ช่องค่าเริ่มต้น · ซ่อนตาราง / จำนวน · ปิด Export · ไม่ดึงข้อมูล · ทิ้งผลที่กำลังโหลด */
     e.querySelectorAll("[data-r773]").forEach((el) => { el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); });
-    LD773(e, "ล้างตัวกรองแล้ว — แสดงรายการทั้งหมดในขอบเขตรายงาน 2.3");
+    RS773.seq++; RS773.on = !1; RS773.rows = []; RS773.page = 1; R773(e);
+    let b = e.querySelector("#rc773-go"); b.disabled = !1; b.textContent = "แสดงรายงาน"; e.querySelector("#rc773-status").textContent = "";
+    e.__u773 && e.__u773();
   };
   RG773(e);
-  LD773(e);   /* เปิดหน้า = ดึงข้อมูลทันที */
+  R773(e);
+  OP773(e);
 }
 
 /* ═══ V.775 · REPORT → 2.3 : ซ่อนกล่องส่วนหัว · ตัวกรองวันที่ใบวางบิล (Billing Note Date · RUN-775 billing_note_dates) · ไม่แสดงแถบยอดรวม · เส้นขอบครบทุกช่อง (จอ + Excel)
@@ -1047,6 +1047,136 @@ function CS775() {
     let st = document.createElement("style"); st.id = "rc775-css"; let T = ".d758-tbl.rc775-tbl", C = "#94A3B8";
     st.textContent = T + " th," + T + " td{border:0!important;border-right:1px solid " + C + "!important;border-bottom:1px solid " + C + "!important}"
       + T + " tr>th:first-child," + T + " tr>td:first-child{border-left:1px solid " + C + "!important}" + T + " thead th{border-top:1px solid " + C + "!important}";
+    document.head.appendChild(st);
+  } catch (x) {}
+}
+
+/* ═══ V.776 · REPORT → 2.3 : Layout กรอบเดียว (ค้นหา → หัวรายงาน | EXPORT → ตาราง) · ไม่มี Breadcrumb · เปิดหน้า / ล้าง / เข้าเมนูใหม่ = ไม่มีข้อมูล ต้องกดแสดงรายงาน (เงื่อนไข ≥ 1 ช่อง)
+   ข้อมูล / คอลัมน์ / ยอดเงิน / Excel / สิทธิ์ เดิม · รายงานอื่นไม่ผ่านโค้ดนี้ ═══ */
+var NC776 = "กรุณากำหนดเงื่อนไขค้นหาอย่างน้อย 1 ช่อง";
+function CS776() {
+  try {
+    if (document.getElementById("rc776-css")) return;
+    let st = document.createElement("style"); st.id = "rc776-css"; let T = ".r4-card.r4-filter.rc776";
+    st.textContent = T + " .rc776-st{margin:8px 0 0;font-size:13px;color:#b45309}" + T + " .rc776-st:empty{display:none}"
+      + T + " .rc776-h{margin:12px 0 8px;padding:12px 0 0!important;border-top:1px solid #e5eaf2}"
+      + T + " .rc776-h .r4-act{margin-left:auto}" + T + " #rc773-res-t[hidden]{display:none!important}"   /* V.777 : จำนวนที่ซ่อนอยู่ไม่แสดงเป็นป้ายว่าง */
+      + T + " .d758-wrap{border:0;border-radius:0}"
+      + T + " #rc773-pgn:not(:empty){margin-top:8px}";
+    document.head.appendChild(st);
+  } catch (x) {}
+}
+
+/* ═══ V.777 · REPORT → DOCUMENT → 1.1 Report Service (ชื่อเดิม รายการยังไม่ปิดงาน) : เงื่อนไข / ตัวกรอง / ข้อมูล (W → njacc_export_charges · สิทธิ์ export เดิม) ไม่เปลี่ยน
+   หน้าจอ : กรอบสีขาวเดียว (หัวข้อ → ช่องค้นหา → จำนวน | EXPORT → ตาราง) · ไม่มี Breadcrumb · ไม่มีกล่อง KPI (กรอบซ้อน)
+   เปิดหน้า / ล้างตัวกรอง / เข้าเมนูใหม่ / Refresh = ไม่ดึงข้อมูล · แสดงรายงาน = ต้องมีเงื่อนไข ≥ 1 ช่อง · แก้ตัวกรองหลังค้นหา = ซ่อนผล + ปิด Export จนกดใหม่ · ผลที่ค้างโหลด = ทิ้ง
+   EXPORT EXCEL = ฟังก์ชันเดียวกับ DOCUMENT → SERVICE (SNB777 · chunk-FHYZBT2Q) จากแถวผลค้นหาปัจจุบันทั้งหมด (ทุกหน้า · ลำดับเดียวกับตาราง) ═══ */
+var RJ777S = { seq: 0, on: !1 };
+var NC777 = "กรุณากำหนดเงื่อนไขค้นหาอย่างน้อย 1 ช่อง", NF777 = "ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา";
+function CS777() {
+  try {
+    if (document.getElementById("rj777-css")) return;
+    let st = document.createElement("style"); st.id = "rj777-css"; let T = ".r4-card.rj777";
+    st.textContent = T + "{padding:14px 18px 16px}"
+      + T + " .rj777-h{padding:0 0 12px;margin:0;border:0;box-shadow:none;background:none}"
+      + T + " .rj777-f{padding:0;margin:0;border:0;box-shadow:none;background:none;overflow:visible}"
+      + T + " #rpt2-status{margin:8px 0 0;font-size:13px;color:#b45309}" + T + " #rpt2-status:empty{display:none}"
+      + T + " .rj777-rh{margin:12px 0 8px;padding:12px 0 0;border-top:1px solid #e5eaf2}"
+      + T + " .rj777-rh .r4-rt>.r4-i," + T + " .rj777-rh .r4-rt>b{display:none}"
+      + T + " .rj777-rh .r4-act{margin-left:auto}" + T + " #rpt2-res-t[hidden]{display:none!important}"
+      + T + " .rj777-r{padding:0;margin:0;border:0;box-shadow:none;background:none}"
+      + T + " .rj777-r .tbl-wrap{border:0;border-radius:0;box-shadow:none}"
+      + T + " #rpt2-pgn:not(:empty){margin-top:8px}"
+      + "#rpt2-kpi.rj777-kpi{display:none!important}";
+    document.head.appendChild(st);
+  } catch (x) {}
+}
+function HJ777(e, msg) {   /* ซ่อนผล + ปิด Export · ทิ้งคำขอที่ค้าง */
+  RJ777S.seq++; RJ777S.on = !1; c.data = null;
+  let rs = e.querySelector("#rpt2-res"), ct = e.querySelector("#rpt2-res-t"), go = e.querySelector("#rpt2-go"), st = e.querySelector("#rpt2-status");
+  rs && (rs.hidden = !0); ct && ((ct.textContent = ""), (ct.hidden = !0));
+  ["#rpt2-xls", "#rpt2-pdf"].forEach((k) => { let b = e.querySelector(k); b && (b.disabled = !0); });
+  let tb = e.querySelector("#rpt2-tb"), tf = e.querySelector("#rpt2-tf"), pg = e.querySelector("#rpt2-pgn"); tb && (tb.innerHTML = ""); tf && (tf.innerHTML = ""); pg && (pg.innerHTML = "");
+  go && ((go.disabled = !1), (go.textContent = "แสดงรายงาน"));
+  st && (st.textContent = msg || "");
+}
+async function LJ777(e, o, ev) {
+  if (ev && ev.isTrusted === !1) { RJ777S.on && HJ777(e); return; }   /* คลิกอัตโนมัติจาก Dropdown / ป้ายเงื่อนไข = เปลี่ยนตัวกรอง → ต้องกดแสดงรายงานเอง */
+  let go = e.querySelector("#rpt2-go"), st = e.querySelector("#rpt2-status"), s = ot(e, o);
+  if (s.from && s.to && s.from > s.to) { st.textContent = "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด"; h("วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด", "err"); return; }
+  if (!["company_group", "customer_id", "status", "payment_status", "from", "to"].some((k) => s[k])) { st.textContent = NC777; h(NC777, "err"); return; }
+  HJ777(e); let q0 = RJ777S.seq, live = () => q0 === RJ777S.seq && e.isConnected && e.querySelector("#rpt2-go") === go;
+  go.disabled = !0; go.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
+  try {
+    let d = await R4z(o, s, (a, r) => { if (!live()) throw new Error("__stale777");   /* ล้าง / เปลี่ยนตัวกรอง / ออกจากเมนู = หยุดดึงหน้าที่เหลือ */
+      st.textContent = r ? `กำลังดึงข้อมูล ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} แถว` : `กำลังดึงข้อมูล ${a.toLocaleString("th-TH")} แถว`; });
+    if (!live()) return;
+    c.data = d; c.page = 1; RJ777S.on = !0; st.textContent = ""; nt(e, o); FJ777(e);
+  } catch (x) { if (!live()) return; st.textContent = ""; C(x, "ดึงรายงานไม่สำเร็จ"); }
+  finally { live() && ((go.disabled = !1), (go.textContent = "แสดงรายงาน")); }
+}
+function FJ777(e) {   /* หลัง nt : จำนวน / ข้อความไม่พบข้อมูล */
+  let ct = e.querySelector("#rpt2-res-t"), a = (c.data && c.data.rows) || [];
+  ct && (ct.hidden = !RJ777S.on);
+  if (RJ777S.on && !a.length) { let tb = e.querySelector("#rpt2-tb"), n = e.querySelectorAll("#rpt2-th th").length || 1; tb && (tb.innerHTML = `<tr><td colspan="${n}" class="center t-3">${NF777}</td></tr>`); }
+}
+async function XJ777(e, o) {   /* EXPORT EXCEL = SERVICE (DOCUMENT) เดิม จากผลค้นหาปัจจุบัน */
+  let b = e.querySelector("#rpt2-xls"), rows = RJ777S.on && c.data && Array.isArray(c.data.rows) ? c.data.rows.slice() : [];
+  if (!rows.length) { h("กรุณากดแสดงรายงานก่อน EXPORT EXCEL", "err"); return; }
+  await O("rj777-export", async () => {
+    let t0 = b.innerHTML; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…";
+    try {
+      let s = ot(e, o), gs = [...new Set(rows.map((r) => String((r && r.company_group) || "").trim()).filter(Boolean))], G = s.company_group || (gs.length === 1 ? gs[0] : "ALL");
+      let buf = await SNB777(rows, G);
+      if (!buf || !buf.byteLength) throw new Error("สร้างไฟล์ Excel ไม่สำเร็จ (ไฟล์ว่าง) — ยกเลิกการส่งออก");
+      R4dl(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `REPORT_${o.no}_${o.key}_${F()}.xlsx`);
+      h(`ส่งออก Excel ${rows.length.toLocaleString("th-TH")} แถว`, "ok");
+    } catch (x) { C(x, "สร้างรายงานไม่สำเร็จ"); }
+    finally { b.innerHTML = t0; b.disabled = !(RJ777S.on && c.data && c.data.rows && c.data.rows.length); }
+  });
+}
+function RJ777(e, o) {
+  try {
+    CS777(); RJ777S.seq++; RJ777S.on = !1;
+    let cr = e.querySelector(".r4-crumb"), hd = e.querySelector(".r4-card.r4-head"), fc = e.querySelector(".r4-card.r4-filter"), st = e.querySelector("#rpt2-status"), kp = e.querySelector("#rpt2-kpi"), rs = e.querySelector("#rpt2-res"), rh = rs && rs.querySelector(".rpt2-res-h");
+    if (!hd || !fc || !rs || !rh) return;
+    cr && cr.remove();
+    let card = document.createElement("div"); card.className = "r4-card rj777"; card.style.cssText = hd.style.cssText; hd.parentNode.insertBefore(card, hd);
+    hd.classList.remove("r4-card"); hd.classList.add("rj777-h"); card.appendChild(hd);
+    let fw = document.createElement("div"); fw.className = "r4-filter rj777-f"; while (fc.firstChild) fw.appendChild(fc.firstChild); card.appendChild(fw); fc.remove();
+    st && card.appendChild(st);
+    rh.classList.add("rj777-rh"); card.appendChild(rh);
+    rs.classList.remove("r4-card"); rs.classList.add("rj777-r"); card.appendChild(rs);
+    kp && kp.classList.add("rj777-kpi");
+    let xb = e.querySelector("#rpt2-xls"); xb && ((xb.innerHTML = `<span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL`), xb.parentNode.appendChild(xb));   /* EXPORT EXCEL ขวาสุด */
+    let go = e.querySelector("#rpt2-go"), cl = e.querySelector("#rpt2-clear");
+    go.onclick = (ev) => LJ777(e, o, ev);
+    xb && (xb.onclick = () => XJ777(e, o));
+    cl && (cl.onclick = () => { e.querySelectorAll("[data-f]").forEach((el) => { if (el.disabled) return; el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); }); HJ777(e); });
+    fw.addEventListener("change", (ev) => { ev.target && ev.target.matches && ev.target.matches("[data-f]") && (RJ777S.on || go.disabled) && HJ777(e); });
+    fw.addEventListener("input", (ev) => { ev.target && ev.target.matches && ev.target.matches("[data-f]") && (RJ777S.on || go.disabled) && HJ777(e); });
+    HJ777(e);
+  } catch (x) { try { console.warn("RJ777", x); } catch (_) {} }
+}
+
+/* ═══ V.778 · REPORT → DOCUMENT → 1.2 ค่าแลกดีโอ : กรอบเดียว · ไม่มี Breadcrumb / กล่องหัว · ค้นหาก่อนแสดง (เงื่อนไข ≥ 1 ช่อง) · แก้ตัวกรอง = ซ่อนผล · ล้าง / เข้าเมนูใหม่ / Refresh = ไม่มีข้อมูล
+   ข้อมูล (njacc_report_do757 · ADVANCE ค่าแลก D/O + ค่ามัดจำตู้ ทุกสถานะ · Date = วันที่ JOB) / การค้นหา DF758 / ยอดรวม / คอลัมน์ เดิม · Excel = รูปแบบใหม่ (DX757) ═══ */
+var D778 = { seq: 0, on: !1, busy: !1 };
+var NC778 = "กรุณากำหนดเงื่อนไขค้นหาอย่างน้อย 1 ช่อง", NF778 = "ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา";
+function HD778(e, msg) {   /* ซ่อนผล + ปิด Export · ทิ้งคำขอที่ค้าง */
+  D778.seq++; D778.on = !1; D778.busy = !1; DS757.all = null; DS757.rows = []; DS757.sum = 0; DS757.page = 1;
+  let b = e.querySelector("#d757-go"), st = e.querySelector("#d757-status");
+  b && ((b.disabled = !1), (b.textContent = "แสดงรายงาน")); st && (st.textContent = msg || "");
+  DR757(e);
+}
+function CS778() {
+  try {
+    if (document.getElementById("d778-css")) return;
+    let st = document.createElement("style"); st.id = "d778-css"; let T = ".r4-card.r4-filter.d778";
+    st.textContent = T + " .d778-st{margin:8px 0 0;font-size:13px;color:#b45309}" + T + " .d778-st:empty{display:none}"
+      + T + " .d778-h{margin:12px 0 8px;padding:12px 0 0!important;border-top:1px solid #e5eaf2}"
+      + T + " .d778-h .r4-act{margin-left:auto}" + T + " #d757-res-t[hidden]{display:none!important}"
+      + T + " .d758-wrap{border:0;border-radius:0}" + T + " #d757-pgn:not(:empty){margin-top:8px}";
     document.head.appendChild(st);
   } catch (x) {}
 }
