@@ -903,7 +903,7 @@ function ST769() {
     document.head.appendChild(st);
   } catch (e) {}
 }
-export{F as a,le as b,ae as c,oe as d,ke as e,Ie as f};
+export{F as a,le as b,ae as c,oe as d,ke as e,Ie as f,FF766};
 /* V.571 · ACCOUNTING — BILLING PDF แถบปุ่มล่าง : ยกเลิก = แดงทึบ · บันทึก = เขียวทึบ (เดิม .btn-s ไม่มีสี) (ขนาด/รูปทรง class .btn เดิม เหมือนปุ่มบันทึก) · ซ่อน EXPORT EXCEL (#bpd-xls) และ REPORT (#bpd-report) เฉพาะการแสดงผล — ปุ่ม/Handler/สถานะเดิมยังอยู่ครบ ไม่มีช่องว่างเหลือ */
 function BF571(k){try{if(!document.getElementById("bf571-css")){var st=document.createElement("style");st.id="bf571-css";st.textContent=".bpd-modal .bpd-foot .mf-right>[data-close].btn{background:#DC2626!important;border:1px solid #DC2626!important;color:#fff!important}.bpd-modal .bpd-foot .mf-right>[data-close].btn:hover:not(:disabled){background:#B91C1C!important;border-color:#B91C1C!important;filter:none}.bpd-modal .bpd-foot .mf-right>#bpd-save.btn{background:#16A34A!important;border:1px solid #16A34A!important;color:#fff!important}.bpd-modal .bpd-foot .mf-right>#bpd-save.btn:hover:not(:disabled){background:#15803D!important;border-color:#15803D!important;filter:none}.bpd-modal .bpd-foot .mf-right>#bpd-save.btn:disabled{opacity:.5;cursor:not-allowed}";document.head.appendChild(st)}["#bpd-xls","#bpd-report"].forEach(function(q){var b=k&&k.querySelector(q);b&&b.style.setProperty("display","none","important")})}catch(e){}}
 
