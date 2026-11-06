@@ -155,7 +155,7 @@ var _chunkP={};
 function _loadChunk(name){
   if(_chunkP[name])return _chunkP[name];
   _chunkP[name]=new Promise(function(res,rej){
-    var sc=document.createElement("script");sc.src="js/heavy-"+name+".js?v="+(name==="expense"?"3.10.1":name==="ot"?"3.9.8":name==="gps"?"3.8.8":name==="cleanup"?"3.6.6":name==="jobs"?"3.8.3":"3.8.0");sc.async=true;
+    var sc=document.createElement("script");sc.src="js/heavy-"+name+".js?v="+(name==="expense"?"3.10.1":name==="ot"?"3.9.8":name==="gps"?"3.11.1":name==="cleanup"?"3.6.6":name==="jobs"?"3.8.3":"3.8.0");sc.async=true;
     sc.onload=function(){res();};
     sc.onerror=function(){_chunkP[name]=null;rej(new Error("chunk "+name+" load failed"));};
     document.head.appendChild(sc);
@@ -228,6 +228,8 @@ function _njGpsPing(force){try{const u=S.user;if(!u||!sb||!_njGpsTracked(u)||_nj
     const p=g.pos;
     return withTimeout(sb.rpc("nj_gps_ping",{p_token:_msTok(),p_lat:p.lat,p_lng:p.lng,p_accuracy:p.accuracy==null?null:p.accuracy}),2e4,"nj_gps_ping").then(function(r){
       if(r&&r.error){if(_msIsSessionErr(r.error))_njGpsSetSt("session");else _njGpsSetSt("rpc",String(r.error.message||"").slice(0,80));try{console.warn("[GPS] nj_gps_ping error",r.error)}catch(_){}return}
+      /* RUN-16: แอปมือถือกำลังเป็นตัวส่งหลัก → Server ไม่บันทึกจากเว็บ (ไม่นับเป็นส่งสำเร็จ) · throttled = ไม่ได้บันทึกจุดใหม่ */
+      const d=r&&r.data;if(d&&d.app_primary){_njGpsSetSt("app");return}if(d&&d.throttled){try{_njGpsChip()}catch(_){}return}
       _njGpsSetSt("ok")
     },function(e){_njGpsSetSt("network");try{console.warn("[GPS] nj_gps_ping network",e&&e.message)}catch(_){}})
   }).catch(function(e){_njGpsSetSt("rpc");try{console.warn("[GPS] ping failed",e&&e.message)}catch(_){}}).finally(function(){_njGpsBusy=false;_njGpsLast=Date.now()})}catch(_){_njGpsBusy=false}}
@@ -244,7 +246,8 @@ function _njGpsChip(){
   else if(st.kind==="timeout"){ico="🔴";txt="หาตำแหน่งไม่ได้ — ลองใหม่";bad=true}
   else if(st.kind==="session"){ico="🔴";txt="ส่งตำแหน่งไม่สำเร็จ (เซสชันหมดอายุ)";bad=true}
   else if(st.kind==="rpc"||st.kind==="network"){ico="🔴";txt="ส่งตำแหน่งไม่สำเร็จ — ลองใหม่";bad=true}
-  if(st.okAt&&!document.hidden&&Date.now()-st.okAt>NJ_GPS_WARN_MS&&st.kind!=="locating"){ico="⚠️";txt="GPS ไม่ได้อัปเดต · ส่งล่าสุด "+t(st.okAt);bad=true}
+  else if(st.kind==="app"){ico="📱";txt="แอป NJ MASS GPS กำลังส่งตำแหน่ง (เว็บไม่ส่งซ้ำ)"}
+  if(st.okAt&&!document.hidden&&Date.now()-st.okAt>NJ_GPS_WARN_MS&&st.kind!=="locating"&&st.kind!=="app"){ico="⚠️";txt="GPS ไม่ได้อัปเดต · ส่งล่าสุด "+t(st.okAt);bad=true}
   if(!el){el=document.createElement("div");el.id="njgp-chip";el.onclick=function(){if(_njGpsSt.kind==="denied"){_njGpsRequest();return}_njGpsPing(true)};(document.getElementById("screen-app")||document.body).appendChild(el)}
   const tb=document.querySelector(".mobile-tabbar");const tbH=tb&&tb.offsetParent!==null?tb.offsetHeight:0;
   el.style.cssText="position:fixed;left:8px;bottom:"+(tbH+8)+"px;z-index:74;max-width:calc(100% - 16px);padding:4px 10px;border-radius:999px;font-size:11px;line-height:1.5;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);"+(bad?"background:#3b1d1d;color:#fecaca;border:1px solid #7f1d1d":"background:#0f2a22;color:#a7f3d0;border:1px solid #065f46");
