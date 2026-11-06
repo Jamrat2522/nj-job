@@ -74,12 +74,12 @@ Klongtoey, Bangkok 10110 Thailand.`,issuerNameMae:"N.J. LOGISTICS & FRUITS CO.,L
       <div class="bpd-mae-co">Maersk Logistics &amp; Services (Thailand) Co., Ltd.</div>
       <div>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48............................................</div>
       <div>\u0E40\u0E0B\u0E47\u0E19\u0E15\u0E4C\u0E23\u0E31\u0E1A\u0E01\u0E25\u0E31\u0E1A................................</div>
-    </div>`:""}</div>`}).join("")}function te(s,p,c){ST672();/* V.680 : โหลด CSS ส่วนหัวทุกแบบฟอร์มที่ใช้ te (APL / APL EDC / ทั่วไป) */let g647=!!(p&&p.gen647),a=it(s,c,g647?J:JA),u=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"].map(_=>`<td class="r t-b">${M(nj481R(s.reduce((c0,a0)=>c0+nj481Val(a0,_),0)))}</td>`).join(""),cw=CW516(s,p&&p.sg673,p&&p.st707,p&&p.pro768);return a.map((_,v)=>{let b=_.start,y=v===a.length-1,L=_.rows.map((w,S)=>`<tr>
+    </div>`:""}</div>`}).join("")}function te(s,p,c){ST672();/* V.680 : โหลด CSS ส่วนหัวทุกแบบฟอร์มที่ใช้ te (APL / APL EDC / ทั่วไป) */let g647=!!(p&&p.gen647),g787=g647&&!(p.pro768||p.sg673||p.st707)/* V.787 : OTHER → ทั่วไป */,a=it(s,c,g647?J:JA),u=["service_amount","advance_amount","vat_amount","subtotal","wht_amount","net_payable"].map(_=>`<td class="r t-b">${M(nj481R(s.reduce((c0,a0)=>c0+nj481Val(a0,_),0)))}</td>`).join(""),cw=CW516(s,p&&p.sg673,p&&p.st707,p&&p.pro768,g787);return a.map((_,v)=>{let b=_.start,y=v===a.length-1,L=_.rows.map((w,S)=>`<tr>
     <td class="c">${p&&p.sg673?WB752(DT516(w)):DT516(w)}</td>
     <td class="c">${b+S+1}</td>
     <td class="l">${p&&p.sg673?n(E(w.invoice_no)).replace(/-/g,"-<wbr>"):n(E(w.invoice_no))}</td>
-    <td class="l">${n(E(w.master_bl_no??w.master))}</td>
-    <td class="l">${p&&p.sg673?WB752(n(E(w.house_bl_no))):n(E(w.house_bl_no))}</td>
+${g787?"":`    <td class="l">${n(E(w.master_bl_no??w.master))}</td>
+`}    <td class="l">${p&&p.sg673?WB752(n(E(w.house_bl_no))):n(E(w.house_bl_no))}</td>
     <td class="c">${n(E(p&&p.sg673?w.mode752:w.data_type))}</td>
     <td class="l bpd-ci">${n(C10672(CI585(w.company_invoice)))}</td>
     ${p&&(p.sg673||p.pro768)?"":`<td class="l">${n(E(w.customs_declaration_no))}</td>`}
@@ -109,17 +109,17 @@ ${g647?"":`      <div class="bpd-apl-bt">Bill To.</div>
       <div class="bpd-kv"><span>Address :</span><span class="t-b">${n(F.billToAddr).replace(/\n/g,"<br>")}</span></div>
 `}      </div>
     </div>
-`:HD764(p)}    <table class="bpd-tb bpd-tb-apl bpd-tb635${p&&p.sg673&&cw.f765?` bpd-tb765" style="--f765:${cw.f765}px;--t765:${cw.t765}px`:""}${p&&p.pro768&&cw.f769?` bpd-tb769" style="--f769:${cw.f769}px`:""}"><colgroup>${cw.map(x=>`<col style="width:${x}%">`).join("")}</colgroup>
+`:HD764(p)}    <table class="bpd-tb bpd-tb-apl bpd-tb635${p&&p.sg673&&cw.f765?` bpd-tb765" style="--f765:${cw.f765}px;--t765:${cw.t765}px`:""}${p&&p.pro768&&cw.f769?` bpd-tb769" style="--f769:${cw.f769}px`:""}${g787&&cw.f769?` bpd-tb787" style="--f769:${cw.f769}px`:""}"><colgroup>${cw.map(x=>`<col style="width:${x}%">`).join("")}</colgroup>
     <thead><tr>
       <th class="bpd-y">Date</th><th class="bpd-y">Item</th><th class="bpd-y">Invoice No.</th>
-      <th class="bpd-y">${p&&p.sg673?"Lot":"Master"}</th><th class="bpd-y">${p&&p.sg673?"Summit date":p&&p.st707?"Status:":"House"}</th>
+      ${g787?"":`<th class="bpd-y">${p&&p.sg673?"Lot":"Master"}</th>`}<th class="bpd-y">${p&&p.sg673?"Summit date":p&&p.st707?"Status:":"House"}</th>
       <th class="bpd-y">Type</th><th class="bpd-y">Company</th>
       ${p&&(p.sg673||p.pro768)?"":`<th class="bpd-y">DCL INV.</th>`}<th class="bpd-y">${p&&p.sg673?"Customs fee":p&&p.pro768?"Invoice":"Job No."}</th>
       <th class="bpd-y">Service</th><th class="bpd-y">Advance</th>
       <th class="bpd-y">Vat</th><th class="bpd-y">Amount</th>
       <th class="bpd-y">Wht</th><th class="bpd-y">Amount</th>
     </tr></thead><tbody>${L}${y?`
-      <tr class="bpd-apl-tot"><td colspan="${p&&(p.sg673||p.pro768)?8:9}" class="r t-b">TOTAL</td>${u}</tr>`:""}</tbody></table>
+      <tr class="bpd-apl-tot"><td colspan="${p&&(p.sg673||p.pro768)||g787?8:9}" class="r t-b">TOTAL</td>${u}</tr>`:""}</tbody></table>
     ${y?`<div class="bpd-apl-ft">
 ${g647?"":`      <div class="bpd-sbox bpd-sbox-l">
         <div class="sl516"><b>VENDOR ID :</b><span class="vl">${n(p.vendorId)}</span></div>
@@ -561,7 +561,7 @@ function DT516(w) {
   let d = K(w && w.invoice_date);
   return d || '<span class="bpd-miss516" title="\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49">\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 INVOICE</span>';
 }
-function CW516(rows, edc, st, pro) {   /* V.635 : วัดที่ขนาดตัวอักษรจริงของ PDF (11px / หัว 11.5px ตัวหนา) */
+function CW516(rows, edc, st, pro, g787) {   /* V.635 : วัดที่ขนาดตัวอักษรจริงของ PDF (11px / หัว 11.5px ตัวหนา) */
   let H = ["Date", "Item", "Invoice No.", "Master", "House", "Type", "Company", "DCL INV.", "Job No.", "Service", "Advance", "Vat", "Amount", "Wht", "Amount"];   /* V.681 : Vat / Wht / Job No. / Amount */   /* V.672 : ชื่อหัวใหม่ · Company ≤ 10 ตัวอักษร = บรรทัดเดียว */
   if (edc) H[3] = "Lot", H[4] = "Summit date", H[8] = "Customs fee";   /* V.763 : APL EDC หัวตาราง Lot / Customs fee */   /* V.752 : APL EDC */   /* V.692 : APL EDC เท่านั้น */
   if (st) H[4] = "Status:";
@@ -573,7 +573,8 @@ function CW516(rows, edc, st, pro) {   /* V.635 : วัดที่ขนาด
   let T = ["", "", "", "", "", "", "", "", edc ? "" : pro ? "Invoice" : "Job No."].concat(["service_amount", "advance_amount", "vat_amount", "subtotal", "wht_amount", "net_payable"].map(tot));
   if (edc) { [H, NW, BASE, T].forEach((a) => a.splice(7, 1)); cells.forEach((c) => c.splice(7, 1)); }   /* V.763 : APL EDC ลบคอลัมน์ DCL INV. (หัว / ข้อมูล) · ความกว้างที่เหลือกระจายตามสัดส่วนเดิม (BASE) เต็มหน้ากระดาษ */
   if (edc) return FW765(H, cells, NW, BASE, T);   /* V.765 */
-  if (pro) { [H, NW, BASE, T].forEach((a) => a.splice(7, 1)); cells.forEach((c) => c.splice(7, 1)); return FW769(H, cells, NW.map(() => 2), BASE, T); }   /* V.769 : PRO ลบคอลัมน์ DCL INV. · ทุกช่องบรรทัดเดียว */
+  if (pro) { [H, NW, BASE, T].forEach((a) => a.splice(7, 1)); cells.forEach((c) => c.splice(7, 1)); return FW769(H, cells, NW.map(() => 2), BASE, T); }
+  if (g787) { ST787(); [H, NW, BASE, T].forEach((a) => a.splice(3, 1)); cells.forEach((c) => c.splice(3, 1)); return FW769(H, cells, NW.map(() => 2), BASE, T); }   /* V.787 : ทั่วไป ลบคอลัมน์ Master · 14 คอลัมน์ · ทุกช่องบรรทัดเดียว */   /* V.769 : PRO ลบคอลัมน์ DCL INV. · ทุกช่องบรรทัดเดียว */
   return edc ? CW635(H, cells, NW, BASE, 1084.7, T, [14.667, 14.667, 6, FN766, 16]) : CW635(H, cells, NW, BASE, 1065.8, T);   /* V.752 : APL EDC th / td 11pt · TOTAL 12pt · Arial · ขอบ 5 มม. */
 }
 /* V.635 · BILLING PDF (ทั่วไป / APL / MAERSK) : ความกว้างคอลัมน์ตามข้อความจริง ที่ขนาดตัวอักษรของ PDF
@@ -1123,6 +1124,24 @@ function ST783() {
       + ".bpd-516 .bpd-ci783 .ci783-k{font-weight:700;white-space:nowrap}"
       + ".bpd-516 .bpd-ci783 .ci783-v{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:break-word}"
       + ".bpd.bpd-apl .bpd-ci783,.bpd.bpd-apl .bpd-ci783 *{font-size:10.5px!important;color:#000!important}";
+    document.head.appendChild(st);
+  } catch (e) {}
+}
+
+/* ═══ V.787 · ACCOUNTING → BILLING PDF → OTHER → แบบฟอร์มทั่วไป : ลบคอลัมน์ Master (หัว / ข้อมูล / ความกว้าง) · 14 คอลัมน์
+   Date · Item · Invoice No. · House · Type · Company · DCL INV. · Job No. · Service · Advance · Vat · Amount · Wht · Amount
+   ความกว้าง = FW769 (วัดข้อความจริงทุกแถว + หัว + TOTAL ด้วยฟอนต์เอกสาร) เต็มพื้นที่กระดาษ · ย่อขนาดตัวอักษรทั้งตารางจนทุกช่องอยู่บรรทัดเดียว (ต่ำสุด 9px)
+   ทุกช่อง nowrap (ไม่ตัดบรรทัด / ไม่ตัดข้อความ) · Date / Item / Type กึ่งกลาง · ยอดเงินชิดขวา · เส้นกรอบเดิม
+   Preview / Download / Print = DOM ชุดเดียวกัน · ไม่กระทบ PRO / APL / APL EDC / WORD+LEE / MAERSK (ธง g787 เฉพาะทั่วไป) ═══ */
+function ST787() {
+  try {
+    if (document.getElementById("st787-css")) return;
+    let st = document.createElement("style"); st.id = "st787-css";
+    let q = ".bpd.bpd-gen647 .bpd-tb.bpd-tb635.bpd-tb787";
+    st.textContent = [
+      q + " thead th," + q + " tbody td{font-size:var(--f769,11px)!important;line-height:1.25!important;padding:3px 2px!important;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;overflow:visible!important;text-overflow:clip!important}",
+      q + " tr.bpd-apl-tot td{font-size:var(--f769,11px)!important}"
+    ].join("");
     document.head.appendChild(st);
   } catch (e) {}
 }
