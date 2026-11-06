@@ -723,12 +723,12 @@ async function DLD758(e, ev) {   /* V.778 : แสดงรายงาน = เ
   finally { live() && ((D778.busy = !1), (b.disabled = !1), (b.textContent = "แสดงรายงาน")); }
 }
 function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (ช่องค้นหา → 1.2 ค่าแลกดีโอ + จำนวน | EXPORT EXCEL → ตาราง) · ไม่มี Breadcrumb / กล่องหัว · เปิดหน้า = ไม่ดึงข้อมูล */
-  DC758(); CS778();
+  DC758(); CS778(); CS793();
   let fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
   e.innerHTML = `
     <div class="r4-card r4-filter d778">
-      <div class="r4-fg">
       <div class="d779-t" title="${y(o.no + " " + o.title)}"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b></div>
+      <div class="r4-fg">
       ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-d757="q" placeholder="ค้นหาข้อมูลทุกหัวข้อ..." title="ค้นหาข้อมูลทุกหัวข้อ" autocomplete="off">`)}
       ${fld("Company Invoice", `<select class="sel" data-d757="company_invoice_id" title="Company Invoice"><option value="">ทั้งหมด</option></select>`)}
       ${fld("ลูกค้า", `<select class="sel" data-d757="customer_id" title="ลูกค้า"><option value="">— เลือกลูกค้า —</option></select>`)}
@@ -743,7 +743,7 @@ function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (
       <p class="rpt2-status d778-st" id="d757-status"></p>
       <div class="rpt2-res-h d778-h">
         <div class="r4-rt"><span class="rpt2-res-t" id="d757-res-t" hidden></span></div>
-        <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
+        <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button><span class="d794-g"><label class="d794-dt" title="วันที่ตั้งเบิก — ใช้ในไฟล์ Excel เบิก"><span>วันที่ตั้งเบิก</span><input class="inp" type="date" id="d794-date" value="${TD794()}" required></label><button type="button" class="btn btn-sm d793-xls" id="d793-xls" disabled title="Excel เบิก — 1 แถวต่อ Job No. · วันที่ตั้งเบิก + ยอดรวมเก็บลูกค้า (DOCUMENT — ADVANCE)"><span class="r4-i">${R4IC.xls}</span>Excel เบิก</button></span></div>
       </div>
       <div id="d757-res" hidden>
         <div class="d758-wrap"><table class="d758-tbl">
@@ -756,6 +756,7 @@ function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (
   let go = e.querySelector("#d757-go"), fg = e.querySelector(".d778 .r4-fg");
   go.onclick = (ev) => DLD758(e, ev);
   e.querySelector("#d757-xls").onclick = () => DXB757(e);
+  e.querySelector("#d793-xls").onclick = () => XB793(e);
   e.querySelector("#d757-clear").onclick = () => {   /* ล้าง = ช่องค่าเริ่มต้น · ซ่อนตาราง / จำนวน · ปิด Export · ไม่ดึงข้อมูล */
     e.querySelectorAll("[data-d757]").forEach((el) => { el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); });
     HD778(e);
@@ -803,10 +804,10 @@ function RG762(e, o) {
 function DR757(e) {
   let res = e.querySelector("#d757-res"), tb = e.querySelector("#d757-tb"), tf = e.querySelector("#d757-tf"), pg = e.querySelector("#d757-pgn"), ct = e.querySelector("#d757-res-t"), a = DS757.rows || [];
   if (!res) return;
-  if (!D778.on) { res.hidden = !0; ct.hidden = !0; ct.textContent = ""; e.querySelector("#d757-xls").disabled = !0; tb.innerHTML = ""; tf.innerHTML = ""; pg.innerHTML = ""; return; }   /* V.778 : ยังไม่ค้นหา = ไม่มีตาราง / จำนวน / Export */
+  if (!D778.on) { res.hidden = !0; ct.hidden = !0; ct.textContent = ""; e.querySelector("#d757-xls").disabled = !0; XS793(e, !0); tb.innerHTML = ""; tf.innerHTML = ""; pg.innerHTML = ""; return; }   /* V.778 : ยังไม่ค้นหา = ไม่มีตาราง / จำนวน / Export */
   res.hidden = !1; ct.hidden = !1;
   ct.textContent = ` ทั้งหมด ${a.length.toLocaleString("th-TH")} รายการ`;
-  e.querySelector("#d757-xls").disabled = !a.length;
+  e.querySelector("#d757-xls").disabled = !a.length; XS793(e, !a.length);
   if (!a.length) { tb.innerHTML = `<tr><td colspan="14" class="c">${NF778}</td></tr>`; tf.innerHTML = ""; pg.innerHTML = ""; return; }
   let n = Math.max(1, Math.ceil(a.length / DS757.size));
   DS757.page > n && (DS757.page = n);
@@ -1256,3 +1257,121 @@ async function WJ780(o, s, cb) {   /* = W เดิม (SERVICE / ADVANCE × ก
   c.snap504 = JSON.stringify(s);
   return { rows, kpi: null, cols: f, money: ut, src: "job" };
 }
+
+/* ═══ V.793 · REPORT → DOCUMENT → 1.2 ค่าแลกดีโอ : ชื่อรายงานเหนือ "ค้นหาทั่วไป" (กล่องเดียวกัน) · ปุ่ม "Excel เบิก" ข้าง EXPORT EXCEL
+   ข้อมูล = ผลรายงานที่ค้นหาล่าสุด (DS757.rows · ทุกหน้า · เงื่อนไขเดียวกับตาราง) → 1 แถวต่อ 1 JOB (ผูกด้วย job_id จริง)
+   Job No. = njacc_jobs.job_no · Date = วันที่ JOB ของรายงาน · Company Invoice / House B/L No. / ประเภท = ค่าที่รายงานแสดง (ประเภทหลายรายการในงานเดียว = รวมไม่ซ้ำ)
+   ยอดรวมเก็บลูกค้า = DOCUMENT — ADVANCE → เบิกเงินสำรองจ่าย (njacc_report_do793_collect · RUN-793 · สิทธิ์ / ขอบเขตเดียวกับรายงาน) · ไม่พบ = "-" (ไม่ใช้ 0)
+   ก่อนค้นหา / ไม่มีผล / ล้างตัวกรอง / แก้ตัวกรอง = ปิดปุ่ม (ตาม EXPORT EXCEL เดิม) · EXPORT EXCEL เดิมไม่เปลี่ยน ═══ */
+function XS793(e, dis) { let b = e && e.querySelector("#d793-xls"); b && !b.__busy && (b.disabled = !!dis); }
+function CS793() {
+  try {
+    if (document.getElementById("d793-css")) return;
+    let st = document.createElement("style"); st.id = "d793-css"; let T = ".r4-card.r4-filter.d778";
+    st.textContent = T + ">.d779-t{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:0 0 10px;border-bottom:1px solid #e5eaf2;white-space:nowrap;min-width:0}"
+      + T + ">.d779-t b{overflow:hidden;text-overflow:ellipsis}"
+      + T + " .d778-h .r4-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}"
+      + ".d794-g{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.d794-dt{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:700;color:#334155;white-space:nowrap}"
+      + ".d794-dt .inp{height:32px;padding:4px 8px;font-size:13px;width:auto;min-width:0}.d794-dt .inp:invalid{border-color:#dc2626}"
+      + ".btn.d793-xls{background:#16a34a!important;border:1px solid #16a34a!important;color:#fff!important;font-weight:700;white-space:nowrap}"
+      + ".btn.d793-xls:hover:not(:disabled){background:#15803d!important;border-color:#15803d!important}.btn.d793-xls:disabled{opacity:.55;cursor:not-allowed}";
+    document.head.appendChild(st);
+  } catch (x) {}
+}
+function GJ793(rows) {   /* 1 แถวต่อ JOB (ลำดับเดียวกับรายงาน) */
+  let m = new Map(), t = (v) => String(v == null ? "" : v).trim();
+  rows.forEach((r, i) => {
+    let k = r && r.job_id ? String(r.job_id) : "row:" + i, j = m.get(k);
+    if (!j) { j = { job_id: r && r.job_id || null, job_no: t(r.job_no), date: t(r.date), company: t(r.company_invoice), hbl: t(r.house_bl_no), types: [], collect: null }; m.set(k, j); }
+    let p = t(r.payment_type); p && !j.types.includes(p) && j.types.push(p);
+    !j.company && t(r.company_invoice) && (j.company = t(r.company_invoice)); !j.hbl && t(r.house_bl_no) && (j.hbl = t(r.house_bl_no));
+  });
+  return [...m.values()];
+}
+function DE793(err) {
+  let m = String((err && err.message) || "");
+  if (/njacc_report_do793_collect|PGRST202|schema cache/i.test(m)) return new Error("ระบบฐานข้อมูลยังไม่พร้อมสำหรับ Excel เบิก (RUN-793)");
+  return DE757(err);
+}
+function SUB793(q) {
+  let d = (s) => { let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || "")); return m ? m[3] + "/" + m[2] + "/" + m[1] : ""; };
+  let a = d(q && q.from), b = d(q && q.to);
+  return "1.2 ค่าแลกดีโอ • " + (a && b ? "วันที่ JOB " + a + " – " + b : a ? "วันที่ JOB ตั้งแต่ " + a : b ? "วันที่ JOB ถึง " + b : "ข้อมูลตามเงื่อนไขค้นหา");
+}
+async function XW793(jobs, q, dW) {   /* V.794 : 8 คอลัมน์ item | วันที่ตั้งเบิก | Job No. | Date | Company Invoice | House B/L No. | ประเภท | ยอดรวมเก็บลูกค้า · หัวรายงาน A:H · แถว 2 = วันที่ตั้งเบิก (ค่าเดียวกับทุกแถว) · Date = วันที่ JOB เดิม */
+  let X = await XJ504(), wb = new X.Workbook(), n = jobs.length, H = ["item", "วันที่ตั้งเบิก", "Job No.", "Date", "Company Invoice", "House B/L No.", "ประเภท", "ยอดรวมเก็บลูกค้า"], NC = H.length, CL = "H";
+  let r0 = 3, r1 = r0 + 1, rN = r0 + n, rT = rN + 1, rNote = rT + 1;
+  let ws = wb.addWorksheet("Excel เบิก", { views: [{ state: "frozen", xSplit: 0, ySplit: r0, topLeftCell: "A" + r1, activeCell: "A" + r1, showGridLines: !1 }],
+    pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: !0, fitToWidth: 1, fitToHeight: 0, horizontalCentered: !0, margins: { left: 0.3, right: 0.3, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 }, printTitlesRow: "3:3" } });
+  wb.creator = "NJL Logistic"; wb.created = new Date();
+  let AF = "Arial", NAVY = "FF1F3864", WH = "FFFFFFFF", ALT = "FFDDEBF7", SUBF = "FFCFE2F3", fill = (c) => ({ type: "pattern", pattern: "solid", fgColor: { argb: c } });
+  let TH = { style: "thin", color: { argb: "FF8EA9DB" } }, MD = { style: "medium", color: { argb: "FF1F3864" } };
+  let AL = ["center", "center", "center", "center", "left", "left", "center", "right"];
+  let ymd = (s) => { let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || "")); return m ? { d: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])), t: m[3] + "/" + m[2] + "/" + m[1] } : null; };
+  let W0 = ymd(dW);
+  /* แถว 1 : ชื่อรายงาน · แถว 2 : วันที่ตั้งเบิก (A:H) */
+  ws.mergeCells(1, 1, 1, NC); ws.mergeCells(2, 1, 2, NC);
+  let c1 = ws.getCell(1, 1); c1.value = "รายงานเบิกเงินสำรองจ่าย"; c1.font = { name: AF, size: 18, bold: !0, color: { argb: WH } }; c1.fill = fill(NAVY); c1.alignment = { horizontal: "center", vertical: "middle" };
+  let c2 = ws.getCell(2, 1); c2.value = "วันที่ตั้งเบิก : " + (W0 ? W0.t : "-"); c2.font = { name: AF, size: 12, bold: !0, color: { argb: NAVY } }; c2.fill = fill(SUBF); c2.alignment = { horizontal: "center", vertical: "middle" };
+  let sb = (o, k) => (k === 1 && (o.left = MD), k === NC && (o.right = MD), o);
+  for (let k = 1; k <= NC; k++) { ws.getCell(1, k).border = sb({ top: MD }, k); ws.getCell(2, k).border = sb({}, k); }
+  ws.getRow(1).height = 34; ws.getRow(2).height = 24;
+  /* หัวตาราง (บรรทัดเดียว) */
+  H.forEach((t, k) => { let c = ws.getCell(r0, k + 1); c.value = t; c.font = { name: AF, size: 8, bold: !0, color: { argb: WH } }; c.fill = fill(NAVY);
+    c.alignment = { horizontal: "center", vertical: "middle", wrapText: !1 }; c.border = { top: MD, bottom: MD, left: k === 0 ? MD : TH, right: k === NC - 1 ? MD : TH }; });
+  ws.getRow(r0).height = 20;
+  /* ข้อมูล */
+  jobs.forEach((j, i) => {
+    let r = r1 + i, J = ymd(j.date);
+    let v = [i + 1, W0 ? W0.d : "-", j.job_no || "-", J ? J.d : "-", j.company || "-", j.hbl || "-", j.types.length ? j.types.join(", ") : "-", j.collect == null ? "-" : j.collect];
+    v.forEach((x, k) => {
+      let c = ws.getCell(r, k + 1); c.value = x;
+      c.font = { name: AF, size: 8, color: { argb: "FF0F172A" } }; i % 2 === 0 && (c.fill = fill(ALT));
+      c.alignment = { horizontal: x === "-" ? (k === NC - 1 ? "right" : "center") : AL[k], vertical: "middle", wrapText: !1 };
+      c.border = { top: TH, bottom: TH, left: k === 0 ? MD : TH, right: k === NC - 1 ? MD : TH };
+      (k === 1 || k === 3) && x instanceof Date && (c.numFmt = "dd/mm/yyyy"); k === NC - 1 && typeof x === "number" && (c.numFmt = "#,##0.00"); k === 0 && (c.numFmt = "0");
+    });
+    ws.getRow(r).height = 16;
+  });
+  /* รวม (A:G + SUM คอลัมน์ H) */
+  ws.mergeCells(rT, 1, rT, NC - 1);
+  let ct = ws.getCell(rT, 1); ct.value = "รวม"; ct.font = { name: AF, size: 10, bold: !0, color: { argb: WH } }; ct.alignment = { horizontal: "center", vertical: "middle" };
+  let sum = Math.round(jobs.reduce((s, j) => s + (j.collect == null ? 0 : Number(j.collect) * 100), 0)) / 100;
+  let cs = ws.getCell(rT, NC); cs.value = n ? { formula: `SUM(${CL}${r1}:${CL}${rN})`, result: sum } : 0; cs.numFmt = "#,##0.00"; cs.font = { name: AF, size: 10, bold: !0, color: { argb: WH } }; cs.alignment = { horizontal: "right", vertical: "middle" };
+  for (let k = 1; k <= NC; k++) { let c = ws.getCell(rT, k); c.fill = fill(NAVY); c.border = { top: MD, bottom: MD, left: k === 1 ? MD : TH, right: k === NC ? MD : TH }; }
+  ws.getRow(rT).height = 22;
+  /* หมายเหตุ */
+  ws.mergeCells(rNote, 1, rNote, NC);
+  let cn = ws.getCell(rNote, 1); cn.value = "ยอดรวมเก็บลูกค้า อ้างอิง DOCUMENT — ADVANCE"; cn.font = { name: AF, size: 8, color: { argb: "FF1F2937" } }; cn.alignment = { horizontal: "left", vertical: "middle" };
+  ws.getRow(rNote).height = 18;
+  /* ความกว้าง : ครบ 8 คอลัมน์ · เห็นเลขงาน / ข้อมูลครบ */
+  let len = (s) => [...String(s == null ? "" : s)].reduce((a, ch) => a + (/[ัิ-ฺ็-๎]/.test(ch) ? 0 : 1), 0);
+  let W = H.map((t, k) => Math.max(len(t) + 2, ...jobs.map((j, i) => len([i + 1, "00/00/0000", j.job_no || "-", "00/00/0000", j.company || "-", j.hbl || "-", j.types.join(", ") || "-", j.collect == null ? "-" : Number(j.collect).toLocaleString("en-US", { minimumFractionDigits: 2 })][k]) + 2)));
+  W[0] = Math.max(W[0], 6); W[1] = Math.max(W[1], 13); W[3] = Math.max(W[3], 12); W[NC - 1] = Math.max(W[NC - 1], 16);
+  ws.columns = W.map((w) => ({ width: Math.min(60, w) }));
+  return wb.xlsx.writeBuffer();
+}
+async function XB793(e) {   /* ส่งออก = ผลค้นหาล่าสุดทั้งหมด (ทุกหน้า) */
+  let b = e.querySelector("#d793-xls"), st = e.querySelector("#d757-status");
+  if (!D778.on || !(DS757.rows && DS757.rows.length)) { h("กรุณากดแสดงรายงานก่อน Excel เบิก", "err"); return; }
+  let di = e.querySelector("#d794-date"), dW = di && /^\d{4}-\d{2}-\d{2}$/.test(di.value || "") ? di.value : "";
+  if (!dW) { h("กรุณาเลือกวันที่ตั้งเบิกก่อน Excel เบิก", "err"); di && di.focus(); return; }
+  let rows = DS757.rows.slice(), q = DQ757(e), s0 = D778.seq;
+  await O("d793-export", async () => {
+    let t0 = b.innerHTML; b.__busy = 1; b.disabled = !0; b.textContent = "กำลังสร้างไฟล์…";
+    try {
+      let jobs = GJ793(rows), ids = jobs.map((j) => j.job_id).filter(Boolean), m = new Map();
+      for (let i = 0; i < ids.length; i += 1000) {
+        let r; try { r = await RPC757("njacc_report_do793_collect", { p_jobs: ids.slice(i, i + 1000) }); } catch (x) { throw DE793(x); }
+        ((r && r.rows) || []).forEach((x) => m.set(String(x.job_id), x));
+      }
+      if (s0 !== D778.seq) { h("เงื่อนไขค้นหาเปลี่ยน — กรุณากดแสดงรายงานใหม่", "err"); return; }
+      jobs.forEach((j) => { let x = j.job_id && m.get(String(j.job_id)), v = x && x.collect; j.collect = v != null && v !== "" && isFinite(Number(v)) ? Math.round(Number(v) * 100) / 100 : null; });
+      let buf = await XW793(jobs, q, dW), dt = new Date(), p2 = (x) => String(x).padStart(2, "0");
+      R4dl(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Excel_เบิก_${dt.getFullYear()}${p2(dt.getMonth() + 1)}${p2(dt.getDate())}.xlsx`);
+      h(`ส่งออก Excel เบิก ${jobs.length.toLocaleString("th-TH")} JOB`, "ok");
+    } catch (a) { st && (st.textContent = ""); C(a, "สร้าง Excel เบิกไม่สำเร็จ"); }
+    finally { b.__busy = 0; b.innerHTML = t0; XS793(e, !(D778.on && DS757.rows && DS757.rows.length)); }
+  });
+}
+function TD794() { let d = new Date(), p = (x) => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }   /* V.794 : วันที่ตั้งเบิกเริ่มต้น = วันนี้ (เวลาเครื่องผู้ใช้) */
