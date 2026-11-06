@@ -13,7 +13,7 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
       <span class="rpt2-caret" aria-hidden="true"></span>
     </button>
     <div class="rpt2-body">${e}</div>
-  </section>`}function yt(t,e){R4tg(e),L(t)}function L(t){t.querySelectorAll(".rpt2-sec").forEach(e=>{let o=R4op(e.dataset.sec);e.classList.toggle("open",o);let n=e.querySelector(".rpt2-h");n&&n.setAttribute("aria-expanded",o?"true":"false")}),t.querySelectorAll(".rpt2-item").forEach(e=>{e.classList.toggle("on",e.dataset.key===c.key)})}async function _t(t,e){let o=k(e);o&&(c.key=e,c.group=o.group,(c.op504||(c.op504=new Set(I))).add(o.group),R4mclose(t),L(t),await et(t))}async function et(t){let e=t.querySelector("#rpt2-panel"),o=k(c.key);if(!e||!o)return;if(!c.mastersLoaded){e.innerHTML='<div class="load-row"><div class="spin"></div><div class="mt-1">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u2026</div></div>';try{await j(),c.mastersLoaded=!0}catch(r){C(r,"\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}}if(o.src==="do757")return DO757(e,o);if(o.src==="rc773")return RC773(e,o);/* V.773 : 2.3 = ข้อมูล FINANCE → RECEIPT (หน้าเฉพาะ) *//* V.757 : 1.2 ค่าแลกดีโอ = หน้าเฉพาะ (รายงานเดิมไม่เปลี่ยน) */let n=o.lock||{},s=r=>Object.prototype.hasOwnProperty.call(n,r),i=r=>s(r)?" disabled":"",a=(r,l)=>n[r]===l?" selected":"";e.innerHTML=R4panel(o,n,i,a),c.data=null,c.page=1,e.querySelector("#rpt2-go").onclick=()=>gt(e,o),e.querySelector("#rpt2-xls").onclick=()=>ht(e,o),R4wire(e,o),RG762(e,o)/* V.762 */;o.key==="open-jobs"&&RJ777(e,o)/* V.777 : 1.1 Report Service */}function ot(t,e){let o={charge_type:"",company_group:"",customer_id:"",status:"",payment_status:"",from:"",to:""};return t.querySelectorAll("[data-f]").forEach(n=>{o[n.dataset.f]=n.value||""}),Object.assign(o,e.lock||{}),o.report_key=e.key,o}async function gt(t,e){let o=t.querySelector("#rpt2-go"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E32\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E16\u0E36\u0E07","err");return}await O("rpt2-show",async()=>{o.disabled=!0;let i=o.textContent;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{c.data=await R4z(e,s,(a,r)=>{n.textContent=r?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`}),c.page=1,n.textContent="",nt(t,e)}catch(a){n.textContent="",C(a,"\u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.textContent=i}})}function nt503(t,e){let o=t.querySelector("#rpt2-res"),n=t.querySelector("#rpt2-th"),s=t.querySelector("#rpt2-tb"),i=t.querySelector("#rpt2-pgn");if(!o||!c.data)return;let{rows:a,cols:r,money:l,src:p}=c.data;if(o.hidden=!1,t.querySelector("#rpt2-res-t").textContent=`\u0E1E\u0E1A ${a.length.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`,t.querySelector("#rpt2-xls").disabled=!a.length,n.innerHTML="<tr>"+r.map(d=>`<th${l.includes(d[0])?' class="r"':""}>${y(d[1])}</th>`).join("")+"</tr>",!a.length){s.innerHTML=`<tr><td colspan="${r.length}" class="center t-3">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</td></tr>`,i.innerHTML="";return}let u=a.length,m=Math.max(1,Math.ceil(u/c.size));c.page>m&&(c.page=m);let v=a.slice((c.page-1)*c.size,c.page*c.size),w=(d,g)=>p==="job"?N([d],[g])[1][0]:$(d,g);s.innerHTML=v.map(d=>"<tr>"+r.map(g=>{let _=w(d,g),R=l.includes(g[0]),rt=_==null||_===""?"-":R&&typeof _=="number"?E(_):String(_);return`<td${R?' class="r"':""}>${y(rt)}</td>`}).join("")+"</tr>").join(""),q(i,{page:c.page,size:c.size,total:u},d=>{c.page=d.page,c.size=d.size,nt(t,e)})}async function ht(t,e){let o=t.querySelector("#rpt2-xls"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14","err");return}await O("rpt2-export",async()=>{o.disabled=!0;let i=o.innerHTML;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{let a=await XL504(e,s,R4meta(t,e,s),(r,l)=>{n.textContent=l?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} / ${l.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`});a.rows?(n.textContent=`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,h(`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 Excel ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,"ok")):(n.textContent="\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C",h("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01","err"))}catch(a){n.textContent="",C(a,"\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.innerHTML=i}})}/* \u2550\u2550\u2550 V.504 REPORT REDESIGN : Sidebar \u0E0B\u0E49\u0E32\u0E22 \u00B7 Dashboard \u00B7 \u0E15\u0E32\u0E23\u0E32\u0E07 \u00B7 Export Excel (ExcelJS) / PDF (Preview + \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1B\u0E47\u0E19 PDF) \u2550\u2550\u2550
+  </section>`}function yt(t,e){R4tg(e),L(t)}function L(t){t.querySelectorAll(".rpt2-sec").forEach(e=>{let o=R4op(e.dataset.sec);e.classList.toggle("open",o);let n=e.querySelector(".rpt2-h");n&&n.setAttribute("aria-expanded",o?"true":"false")}),t.querySelectorAll(".rpt2-item").forEach(e=>{e.classList.toggle("on",e.dataset.key===c.key)})}async function _t(t,e){let o=k(e);o&&(c.key=e,c.group=o.group,(c.op504||(c.op504=new Set(I))).add(o.group),R4mclose(t),L(t),await et(t))}async function et(t){let e=t.querySelector("#rpt2-panel"),o=k(c.key);if(!e||!o)return;if(!c.mastersLoaded){e.innerHTML='<div class="load-row"><div class="spin"></div><div class="mt-1">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u2026</div></div>';try{await j(),c.mastersLoaded=!0}catch(r){C(r,"\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}}if(o.src==="do757")return DO757(e,o);if(o.src==="rc773")return RC773(e,o);/* V.773 : 2.3 = ข้อมูล FINANCE → RECEIPT (หน้าเฉพาะ) *//* V.757 : 1.2 ค่าแลกดีโอ = หน้าเฉพาะ (รายงานเดิมไม่เปลี่ยน) */let n=o.lock||{},s=r=>Object.prototype.hasOwnProperty.call(n,r),i=r=>s(r)?" disabled":"",a=(r,l)=>n[r]===l?" selected":"";e.innerHTML=R4panel(o,n,i,a),c.data=null,c.page=1,e.querySelector("#rpt2-go").onclick=()=>gt(e,o),e.querySelector("#rpt2-xls").onclick=()=>ht(e,o),R4wire(e,o),o.key==="open-jobs"&&FJ780(e,o)/* V.780 : ตัวกรอง 1.1 */,RG762(e,o)/* V.762 */;o.key==="open-jobs"&&RJ777(e,o)/* V.777 : 1.1 Report Service */}function ot(t,e){let o={charge_type:"",company_group:"",customer_id:"",status:"",payment_status:"",from:"",to:""};return t.querySelectorAll("[data-f]").forEach(n=>{o[n.dataset.f]=n.value||""}),Object.assign(o,e.lock||{}),o.report_key=e.key,o}async function gt(t,e){let o=t.querySelector("#rpt2-go"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E32\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E16\u0E36\u0E07","err");return}await O("rpt2-show",async()=>{o.disabled=!0;let i=o.textContent;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{c.data=await R4z(e,s,(a,r)=>{n.textContent=r?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`}),c.page=1,n.textContent="",nt(t,e)}catch(a){n.textContent="",C(a,"\u0E14\u0E36\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.textContent=i}})}function nt503(t,e){let o=t.querySelector("#rpt2-res"),n=t.querySelector("#rpt2-th"),s=t.querySelector("#rpt2-tb"),i=t.querySelector("#rpt2-pgn");if(!o||!c.data)return;let{rows:a,cols:r,money:l,src:p}=c.data;if(o.hidden=!1,t.querySelector("#rpt2-res-t").textContent=`\u0E1E\u0E1A ${a.length.toLocaleString("th-TH")} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`,t.querySelector("#rpt2-xls").disabled=!a.length,n.innerHTML="<tr>"+r.map(d=>`<th${l.includes(d[0])?' class="r"':""}>${y(d[1])}</th>`).join("")+"</tr>",!a.length){s.innerHTML=`<tr><td colspan="${r.length}" class="center t-3">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</td></tr>`,i.innerHTML="";return}let u=a.length,m=Math.max(1,Math.ceil(u/c.size));c.page>m&&(c.page=m);let v=a.slice((c.page-1)*c.size,c.page*c.size),w=(d,g)=>p==="job"?N([d],[g])[1][0]:$(d,g);s.innerHTML=v.map(d=>"<tr>"+r.map(g=>{let _=w(d,g),R=l.includes(g[0]),rt=_==null||_===""?"-":R&&typeof _=="number"?E(_):String(_);return`<td${R?' class="r"':""}>${y(rt)}</td>`}).join("")+"</tr>").join(""),q(i,{page:c.page,size:c.size,total:u},d=>{c.page=d.page,c.size=d.size,nt(t,e)})}async function ht(t,e){let o=t.querySelector("#rpt2-xls"),n=t.querySelector("#rpt2-status"),s=ot(t,e);if(s.from&&s.to&&s.from>s.to){h("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14","err");return}await O("rpt2-export",async()=>{o.disabled=!0;let i=o.innerHTML;o.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u2026",n.textContent="\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u2026";try{let a=await XL504(e,s,R4meta(t,e,s),(r,l)=>{n.textContent=l?`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} / ${l.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`:`\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`});a.rows?(n.textContent=`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,h(`\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 Excel ${a.rows.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`,"ok")):(n.textContent="\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C",h("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01","err"))}catch(a){n.textContent="",C(a,"\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08")}finally{o.disabled=!1,o.innerHTML=i}})}/* \u2550\u2550\u2550 V.504 REPORT REDESIGN : Sidebar \u0E0B\u0E49\u0E32\u0E22 \u00B7 Dashboard \u00B7 \u0E15\u0E32\u0E23\u0E32\u0E07 \u00B7 Export Excel (ExcelJS) / PDF (Preview + \u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E1B\u0E47\u0E19 PDF) \u2550\u2550\u2550
    \u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A\u0E40\u0E14\u0E34\u0E21 (Z = \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E40\u0E14\u0E34\u0E21 \u00B7 \u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07/\u0E2A\u0E39\u0E15\u0E23/\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E40\u0E14\u0E34\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14) \u2014 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E30\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C */
 var R4C = { DOCUMENT: "#2563eb", ACCOUNTING: "#16a34a", FINANCE: "#7c3aed" };
 var R4IC = {
@@ -410,6 +410,7 @@ function R4meta(t, e, s) {
     customer: s.customer_id ? tx("customer_id") : "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",
     status: s.status || "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",
     pay: s.payment_status ? `${tx("payment_status")} (${s.payment_status})` : "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",
+    mem: s.created_by ? tx("created_by") : "ทั้งหมด", mode: s.data_type ? tx("data_type") : "ทั้งหมด", cat: s.job_category ? tx("job_category") : "ทั้งหมด", doc: s.doc_state ? tx("doc_state") : "ทั้งหมด",   /* V.780 : ตัวกรอง 1.1 (หัว PDF) */
     at: `${p2(now.getDate())}/${p2(now.getMonth() + 1)}/${now.getFullYear()} ${p2(now.getHours())}:${p2(now.getMinutes())} \u0E19.`,
     by: pr && pr.full_name ? pr.full_name + (pr.role ? ` (${pr.role})` : "") : ""
   };
@@ -529,6 +530,7 @@ function R4pdfHtml(o, d, meta, name) {
   let tot = '<tr class="tot"><td></td>' + R4tot(a, r, l, p).map((x) => `<td class="${x.m ? "n" : "t"}">${x.m ? E(x.v) : y(x.v)}</td>`).join("") + "</tr>";
   let foot = `NJL Logistic \u00B7 ${o.no} ${o.title}`.replace(/["\\<>]/g, "");
   let fl = [["\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", meta.range], ["\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17", meta.company], ["\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", meta.customer], ["\u0E2A\u0E16\u0E32\u0E19\u0E30 INVOICE", meta.status], ["\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30", meta.pay], ["\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19", meta.at], ["\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E17\u0E33", meta.by || "-"], ["\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", a.length.toLocaleString("th-TH") + " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"]];
+  o.key === "open-jobs" && (fl = [["วันที่ (ช่วง)", meta.range], ["บริษัท", meta.company], ["ลูกค้า", meta.customer], ["สมาชิก", meta.mem], ["โหมด", meta.mode], ["ประเภท", meta.cat], ["สถานะ INVOICE", meta.doc], fl[5], fl[6], fl[7]]);   /* V.780 : ตัวกรอง 1.1 */
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${y(name)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${font}">
 <style>
@@ -612,7 +614,7 @@ async function R4pdf(t, e) {
     let i = o.innerHTML;
     o.textContent = "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 PDF\u2026"; n.textContent = "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 PDF\u2026";
     try {
-      let d = c.data && c.snap504 === JSON.stringify(s) ? c.data : await Z(e, s, (a, r) => { n.textContent = r ? `\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27` : `\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`; });
+      let d = c.data && c.snap504 === JSON.stringify(s) ? c.data : await (e.key === "open-jobs" ? WJ780 : Z)(e, s, (a, r) => { n.textContent = r ? `\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} \u0E41\u0E16\u0E27` : `\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${a.toLocaleString("th-TH")} \u0E41\u0E16\u0E27`; });
       if (!d.rows.length) { n.textContent = "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07 PDF"; h("\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01", "err"); return; }
       let name = `REPORT_${e.no}_${e.key}_${F()}`;
       R4preview(R4pdfHtml(e, d, R4meta(t, e, s), name), name, e);
@@ -726,6 +728,7 @@ function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (
   e.innerHTML = `
     <div class="r4-card r4-filter d778">
       <div class="r4-fg">
+      <div class="d779-t" title="${y(o.no + " " + o.title)}"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b></div>
       ${fld("ค้นหาทั่วไป", `<input class="inp d758-q" type="search" data-d757="q" placeholder="ค้นหาข้อมูลทุกหัวข้อ..." title="ค้นหาข้อมูลทุกหัวข้อ" autocomplete="off">`)}
       ${fld("Company Invoice", `<select class="sel" data-d757="company_invoice_id" title="Company Invoice"><option value="">ทั้งหมด</option></select>`)}
       ${fld("ลูกค้า", `<select class="sel" data-d757="customer_id" title="ลูกค้า"><option value="">— เลือกลูกค้า —</option></select>`)}
@@ -739,7 +742,7 @@ function DO757(e, o) {   /* V.778 : กรอบสีขาวเดียว (
       </div>
       <p class="rpt2-status d778-st" id="d757-status"></p>
       <div class="rpt2-res-h d778-h">
-        <div class="r4-rt"><span class="r4-i">${R4IC.list}</span><b>${y(o.no + " " + o.title)}</b><span class="rpt2-res-t" id="d757-res-t" hidden></span></div>
+        <div class="r4-rt"><span class="rpt2-res-t" id="d757-res-t" hidden></span></div>
         <div class="r4-act"><button type="button" class="btn btn-o btn-sm" id="d757-xls" disabled><span class="r4-i">${R4IC.xls}</span>EXPORT EXCEL</button></div>
       </div>
       <div id="d757-res" hidden>
@@ -1078,7 +1081,7 @@ function CS777() {
     if (document.getElementById("rj777-css")) return;
     let st = document.createElement("style"); st.id = "rj777-css"; let T = ".r4-card.rj777";
     st.textContent = T + "{padding:14px 18px 16px}"
-      + T + " .rj777-h{padding:0 0 12px;margin:0;border:0;box-shadow:none;background:none}"
+      + T + " .rj777-h{padding:0 0 10px;margin:0;border:0;box-shadow:none;background:none}" + T + " .rj777-h p.rpt2-note{display:none!important}"   /* V.779 : ไม่แสดงคำอธิบายใต้ชื่อ 1.1 */
       + T + " .rj777-f{padding:0;margin:0;border:0;box-shadow:none;background:none;overflow:visible}"
       + T + " #rpt2-status{margin:8px 0 0;font-size:13px;color:#b45309}" + T + " #rpt2-status:empty{display:none}"
       + T + " .rj777-rh{margin:12px 0 8px;padding:12px 0 0;border-top:1px solid #e5eaf2}"
@@ -1104,11 +1107,11 @@ async function LJ777(e, o, ev) {
   if (ev && ev.isTrusted === !1) { RJ777S.on && HJ777(e); return; }   /* คลิกอัตโนมัติจาก Dropdown / ป้ายเงื่อนไข = เปลี่ยนตัวกรอง → ต้องกดแสดงรายงานเอง */
   let go = e.querySelector("#rpt2-go"), st = e.querySelector("#rpt2-status"), s = ot(e, o);
   if (s.from && s.to && s.from > s.to) { st.textContent = "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด"; h("วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด", "err"); return; }
-  if (!["company_group", "customer_id", "status", "payment_status", "from", "to"].some((k) => s[k])) { st.textContent = NC777; h(NC777, "err"); return; }
+  if (!K780.some((k) => s[k])) { st.textContent = NC777; h(NC777, "err"); return; }   /* V.780 : ตัวกรองใหม่ · "ทั้งหมด" ไม่นับ */
   HJ777(e); let q0 = RJ777S.seq, live = () => q0 === RJ777S.seq && e.isConnected && e.querySelector("#rpt2-go") === go;
   go.disabled = !0; go.textContent = "กำลังดึงข้อมูล…"; st.textContent = "กำลังดึงข้อมูล…";
   try {
-    let d = await R4z(o, s, (a, r) => { if (!live()) throw new Error("__stale777");   /* ล้าง / เปลี่ยนตัวกรอง / ออกจากเมนู = หยุดดึงหน้าที่เหลือ */
+    let d = await WJ780(o, s, (a, r) => { if (!live()) throw new Error("__stale777");   /* ล้าง / เปลี่ยนตัวกรอง / ออกจากเมนู = หยุดดึงหน้าที่เหลือ */
       st.textContent = r ? `กำลังดึงข้อมูล ${a.toLocaleString("th-TH")} / ${r.toLocaleString("th-TH")} แถว` : `กำลังดึงข้อมูล ${a.toLocaleString("th-TH")} แถว`; });
     if (!live()) return;
     c.data = d; c.page = 1; RJ777S.on = !0; st.textContent = ""; nt(e, o); FJ777(e);
@@ -1152,7 +1155,7 @@ function RJ777(e, o) {
     let go = e.querySelector("#rpt2-go"), cl = e.querySelector("#rpt2-clear");
     go.onclick = (ev) => LJ777(e, o, ev);
     xb && (xb.onclick = () => XJ777(e, o));
-    cl && (cl.onclick = () => { e.querySelectorAll("[data-f]").forEach((el) => { if (el.disabled) return; el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); }); HJ777(e); });
+    cl && (cl.onclick = () => { e.querySelectorAll("[data-f]").forEach((el) => { if (el.disabled) return; el.tagName === "SELECT" ? (el.selectedIndex = 0) : (el.value = ""); }); HJ777(e); e.__f780 && e.__f780(); });
     fw.addEventListener("change", (ev) => { ev.target && ev.target.matches && ev.target.matches("[data-f]") && (RJ777S.on || go.disabled) && HJ777(e); });
     fw.addEventListener("input", (ev) => { ev.target && ev.target.matches && ev.target.matches("[data-f]") && (RJ777S.on || go.disabled) && HJ777(e); });
     HJ777(e);
@@ -1176,7 +1179,80 @@ function CS778() {
     st.textContent = T + " .d778-st{margin:8px 0 0;font-size:13px;color:#b45309}" + T + " .d778-st:empty{display:none}"
       + T + " .d778-h{margin:12px 0 8px;padding:12px 0 0!important;border-top:1px solid #e5eaf2}"
       + T + " .d778-h .r4-act{margin-left:auto}" + T + " #d757-res-t[hidden]{display:none!important}"
-      + T + " .d758-wrap{border:0;border-radius:0}" + T + " #d757-pgn:not(:empty){margin-top:8px}";
+      + T + " .d758-wrap{border:0;border-radius:0}" + T + " #d757-pgn:not(:empty){margin-top:8px}"
+      + T + " .r4-fg>.d779-t{flex:0 0 auto;display:flex;align-items:center;gap:8px;height:40px;padding-right:6px;white-space:nowrap}"
+      + T + " .d779-t .r4-i{width:22px;height:22px;color:#1d4ed8;display:inline-flex}" + T + " .d779-t b{font-size:16px;color:#0f172a;font-weight:700}"
+      + T + " .d778-h{min-height:36px}";   /* V.779 : ชื่อ 1.2 ต้นแถวค้นหา */
     document.head.appendChild(st);
   } catch (x) {}
+}
+
+/* ═══ V.780 · REPORT → DOCUMENT → 1.1 Report Service : ตัวกรองใหม่ — บริษัท (Company Invoice) · ลูกค้า · สมาชิก (ตามแผนก) · โหมด (data_type) · ประเภท (job_category) · สถานะ INVOICE (ทั้งหมด / POST / ไม่ POST = document_status ของ JOB · แถบ รอ POST / POST แล้ว เดิมของ DOCUMENT) · วันที่
+   ตัวเลือกทุกช่อง = ค่าจาก JOB จริงในขอบเขตรายงาน 1.1 (RUN-780 njacc_report_sv780_options · ชุดเดียวกับข้อมูลรายงาน · สิทธิ์เดิม) · ไม่มี "สถานะชำระ"
+   ค้นหา = njacc_export_charges เดิม (queue document · สิทธิ์ export เดิม) + ตัวกรองที่ระบบรองรับอยู่แล้ว (company_ids / customer_ids / created_by / data_type / job_category / doc_state / from / to) — AND ทุกช่อง ═══ */
+var K780 = ["company_ids", "customer_id", "created_by", "data_type", "job_category", "doc_state", "from", "to"];
+function CAT780(v) {   /* = CAT512 (DOCUMENT → SERVICE "ประเภท") : แสดงชื่อเดียวกับหน้า DOCUMENT · ค่าที่ค้นหา = ค่าในฐานข้อมูลเดิม */
+  let m = { "HALF (คีย์ลูกค้า)": "HALF (คีย์โปรแกรมลูกค้า)", "HALF (คีย์NJ)": "HALF (คีย์โปรแกรมNJ)", "FULL (คีย์ลูกค้า+ปล่อย)": "FULL (คีย์โปรแกรมลูกค้า+ปล่อย)", "FULL (คีย์NJ+ปล่อย)": "FULL (คีย์โปรแกรมNJ+ปล่อย)", "COUNTER (คีย์)": "COUNTER (คีย์โปรแกรม)", "COUNTER (คีย์+ปล่อย)": "COUNTER (คีย์โปรแกรม+ปล่อย)" };
+  return v && Object.prototype.hasOwnProperty.call(m, v) ? m[v] : v;
+}
+function FJ780(e, o) {
+  try {
+    let fg = e.querySelector(".r4-filter .r4-fg"), fb = fg && fg.querySelector(":scope > .r4-fb"); if (!fg || !fb) return;
+    let fld = (lb, html) => `<label class="r4-f"><span>${lb}</span>${html}</label>`;
+    [...fg.querySelectorAll(":scope > label.r4-f")].forEach((x) => x.remove());
+    fb.insertAdjacentHTML("beforebegin",
+      fld("บริษัท", `<select class="sel" data-f="company_ids" title="บริษัท"><option value="">ทุกบริษัท</option></select>`)
+      + fld("ลูกค้า", `<select class="sel" data-f="customer_id" title="ลูกค้า"><option value="">ลูกค้าทั้งหมด</option></select>`)
+      + fld("สมาชิก", `<select class="sel" data-f="created_by" title="สมาชิก"><option value="">สมาชิกทั้งหมด</option></select>`)
+      + fld("โหมด", `<select class="sel" data-f="data_type" title="โหมด"><option value="">ทั้งหมด</option></select>`)
+      + fld("ประเภท", `<select class="sel" data-f="job_category" title="ประเภท"><option value="">ทุกประเภท</option></select>`)
+      + fld("สถานะ INVOICE", `<select class="sel" data-f="doc_state" title="สถานะ INVOICE"><option value="">ทั้งหมด</option><option value="posted">POST</option><option value="wait">ไม่ POST</option></select>`)
+      + fld("วันที่เริ่มต้น", `<input class="inp" type="date" data-f="from" title="วันที่เริ่มต้น">`)
+      + fld("วันที่สิ้นสุด", `<input class="inp" type="date" data-f="to" title="วันที่สิ้นสุด">`));
+    OJ780(e);
+  } catch (x) { try { console.warn("FJ780", x); } catch (_) {} }
+}
+async function OJ780(e) {   /* ตัวเลือกจาก JOB จริงในขอบเขตรายงาน 1.1 (ไม่ดึงรายการรายงาน) */
+  let Q = (k) => e.querySelector(`select[data-f="${k}"]`), co = Q("company_ids"), cu = Q("customer_id"), me = Q("created_by"), md = Q("data_type"), jc = Q("job_category"), r;
+  if (!co || !cu || !me || !md || !jc) return;
+  try { r = await RPC757("njacc_report_sv780_options", { p: {} }); }
+  catch (x) {
+    if (!co.isConnected) return;
+    let m = String((x && x.message) || ""), st = e.querySelector("#rpt2-status"), t = /njacc_report_sv780_options/.test(m) ? "ระบบฐานข้อมูลยังไม่พร้อมสำหรับตัวกรองรายงานนี้ (RUN-780)" : /NJACC_REPORT_FORBIDDEN/.test(m) ? "คุณไม่มีสิทธิ์เปิดรายงาน 1.1" : "โหลดตัวเลือกตัวกรองไม่สำเร็จ";
+    st && (st.textContent = t); h(t, "err"); return;
+  }
+  if (!co.isConnected || !r) return;
+  let sp = (x) => String(x == null ? "" : x).replace(/\s+/g, " ").trim(), th = (a, b) => a.localeCompare(b, "th");
+  let merge = (L) => { let mp = new Map(); (Array.isArray(L) ? L : []).forEach((x) => { let n = sp(x && x.name); if (!x || !x.id || !n) return; let k = n.toUpperCase(); mp.has(k) ? mp.get(k).ids.push(String(x.id)) : mp.set(k, { n, ids: [String(x.id)], cos: [] }); (x.company_ids || []).forEach((c) => mp.get(k).cos.push(String(c))); }); return [...mp.values()].sort((a, b) => th(a.n, b.n)); };   /* ชื่อซ้ำ = รายการเดียว */
+  let opt = (v, t, ti) => `<option value="${y(v)}"${ti ? ` title="${y(ti)}"` : ""}>${y(t)}</option>`;
+  let put = (sel, f0, html) => { let v = sel.value; sel.innerHTML = f0 + html; sel.value = [...sel.options].some((op) => op.value === v) ? v : ""; };
+  let CO = merge(r.companies), CU = merge(r.customers);
+  put(co, '<option value="">ทุกบริษัท</option>', CO.map((x) => opt(x.ids.join(","), x.n)).join(""));
+  let fillCu = () => { let ids = String(co.value || "").split(",").filter(Boolean), L = ids.length ? CU.filter((x) => x.cos.some((c) => ids.includes(c))) : CU;
+    put(cu, '<option value="">ลูกค้าทั้งหมด</option>', L.map((x) => opt(x.ids.join(","), x.n)).join("")); };   /* เลือกบริษัท = ลูกค้าที่มี JOB กับบริษัทนั้น */
+  fillCu(); e.__f780 = fillCu; co.addEventListener("change", fillCu);
+  let G = new Map(); (Array.isArray(r.members) ? r.members : []).forEach((x) => { if (!x || !x.id || !sp(x.name)) return; let d = sp(x.department_name) || "ไม่ระบุแผนก"; G.has(d) || G.set(d, new Map()); G.get(d).has(String(x.id)) || G.get(d).set(String(x.id), x); });
+  put(me, '<option value="">สมาชิกทั้งหมด</option>', [...G.keys()].sort((a, b) => (a === "ไม่ระบุแผนก") - (b === "ไม่ระบุแผนก") || th(a, b)).map((d) => `<optgroup label="${y(d)}">` + [...G.get(d).values()].sort((a, b) => th(sp(a.name), sp(b.name))).map((x) => opt(x.id, sp(x.name) + (sp(x.nickname) ? ` (${sp(x.nickname)})` : ""), sp(x.nickname))).join("") + "</optgroup>").join(""));
+  let uniq = (L) => [...new Set((Array.isArray(L) ? L : []).map(sp).filter(Boolean))];
+  put(md, '<option value="">ทั้งหมด</option>', uniq(r.modes).sort(th).map((x) => opt(x, x)).join(""));
+  put(jc, '<option value="">ทุกประเภท</option>', uniq(r.categories).map((x) => [x, CAT780(x) || x]).sort((a, b) => th(a[1], b[1])).map(([v, t]) => opt(v, t)).join(""));
+}
+async function WJ780(o, s, cb) {   /* = W เดิม (SERVICE / ADVANCE × กลุ่มบริษัท ที่มีสิทธิ์ export · queue document · ทีละหน้า) + ตัวกรอง 1.1 ใหม่ */
+  let sp = (v) => String(v || "").split(",").filter(Boolean), F0 = { from: s.from || null, to: s.to || null };
+  sp(s.company_ids).length && (F0.company_ids = sp(s.company_ids)); sp(s.customer_id).length && (F0.customer_ids = sp(s.customer_id));
+  s.created_by && (F0.created_by = s.created_by); s.data_type && (F0.data_type = s.data_type); s.job_category && (F0.job_category = s.job_category); s.doc_state && (F0.doc_state = s.doc_state);
+  let rows = [], n = 0;
+  for (let ch of P.map((x) => x.key)) for (let g of S.map((x) => x.key)) {
+    if (!M("export", ch, g)) continue; n += 1;
+    for (let pg = 1; ; pg++) {
+      let u = await H({ charge: ch, group: g, queue: o.queue, filters: F0, exportPage: pg, exportSize: 1000 });
+      if (u && u.truncated) throw new Error(`ข้อมูลเกิน ${(u.hard_limit || 1e5).toLocaleString("th-TH")} รายการ — กรุณาแคบช่วงวันที่`);
+      rows.push(...((u && u.rows) || [])); cb(rows.length);
+      if (!u || !u.has_more) break;
+      if (pg >= 200) throw new Error("ข้อมูลมากเกินไป — กรุณาแคบตัวกรองหรือช่วงวันที่");
+    }
+  }
+  if (!n) throw new Error("คุณไม่มีสิทธิ์ส่งออกข้อมูลของประเภท/บริษัทที่เลือก");
+  c.snap504 = JSON.stringify(s);
+  return { rows, kpi: null, cols: f, money: ut, src: "job" };
 }

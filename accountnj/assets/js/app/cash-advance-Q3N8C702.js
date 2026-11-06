@@ -149,7 +149,7 @@ async function bill719(rows) {   /* V.719 : { job_id → { collect, billed, matc
   (rows || []).forEach(function (x) { x && x.job_id && !seen[x.job_id] && (seen[x.job_id] = 1, ids.push(x.job_id)); });
   var m = {};
   for (var i = 0; i < ids.length; i += 500) {
-    var r = await rpc("njacc_cash_adv719_bill", { p_jobs: ids.slice(i, i + 500) });
+    var r = await rpc("njacc_cash_adv784_bill", { p_jobs: ids.slice(i, i + 500) });   /* V.784 : + Grand Total / state (RUN-784) */
     ((r && r.rows) || []).forEach(function (b) { b && b.job_id && (m[b.job_id] = b); });
   }
   return m;
@@ -161,9 +161,10 @@ function colTd719(x) { var b = b719(x); return '<td class="r">' + (b ? fm(b.coll
 function billTd719(x) {
   var b = b719(x);
   if (!b) return '<td><span class="ca7-bd x">—</span></td>';
-  return "<td>" + (b.billed ? '<span class="ca7-bd g ca7-b719" title="' + esc("AMOUNT ตรงกับยอดรวมเก็บลูกค้า · " + (b.match_no || "")) + '">วางบิลแล้ว</span>' : '<span class="ca7-bd r ca7-b719">ไม่วางบิล</span>') + "</td>";
+  var s = ST784[b.state] || ST784.check;   /* V.784 */
+  return '<td><span class="ca7-bd ' + s[0] + ' ca7-b719" title="' + esc(s[2]) + '">' + s[1] + "</span></td>";
 }
-function billText719(m, x) { var b = m && x && m[x.job_id]; return b ? (b.billed ? "วางบิลแล้ว" : "ไม่วางบิล") : ""; }
+function billText719(m, x) { var b = m && x && m[x.job_id]; return b ? (ST784[b.state] || ST784.check)[1] : ""; }   /* V.784 */
 function colNum719(m, x) { var b = m && x && m[x.job_id]; return b ? Number(b.collect) || 0 : ""; }
 function copy(text, ok) {
   var done = function () { toast(ok, "ok"); };
@@ -227,9 +228,9 @@ function rowHTML(x, i) {
   var co = "<td>" + nm720(x.company) + "</td><td>" + nm720(x.customer) + "</td>";   /* V.720 */
   var vw = '<td>' + actHTML(x) + "</td>", hb = '<td style="white-space:nowrap">' + esc(x.hbl || "-") + "</td><td>" + esc(x.requested_by || "-") + "</td>" + ty735(x);
   var tr722 = '<tr data-row="' + esc(x.job_id) + '">';   /* V.722 : คลิกแถว = ดูรายละเอียด */
-  if (S.tab === "REJECTED") return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
+  if (S.tab === "REJECTED") return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(x.rejected_at)) + "</td>" + job + co + hb + colTd719(x) + gtTd784(x) + billTd719(x) + "<td>" + esc(x.rejected_by || "-") + '</td><td><span class="ca7-el" title="' + esc(x.reject_reason || "") + '">' + esc(x.reject_reason || "-") + "</span></td><td>" + jobSt(x) + "</td>" + vw + "</tr>";
   var pend = x.status === "PENDING", inv = !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).map(function (n) { return '<span class="ca7-inv">' + esc(n) + "</span>"; }).join("<br>") : "—";
-  return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
+  return tr722 + no + '<td style="white-space:nowrap">' + esc(dtm(pend ? x.requested_at : x.approved_at)) + "</td>" + job + co + hb + '<td class="r">' + (pend ? "-" : fm(x.total_real)) + "</td>" + colTd719(x) + gtTd784(x) + billTd719(x) +   /* V.719 : ซ่อนยอดขอเบิก / ยอดจ่ายจริง */
     "<td>" + (pend ? '<span class="ca7-bd b">รออนุมัติ</span>' : payBadge(x)) + "</td><td>" + inv + "</td>" + vw + "</tr>";
 }
 function ty735(x) {   /* V.735 : ประเภทจริงของคำขอ (njacc_cash_adv704_list.types = รายการเบิกของ JOB เดียวกัน · จับคู่ด้วย JOB ID ที่ Server) · ไม่ซ้ำ คั่นด้วย , · ไม่มี = - */
@@ -244,13 +245,13 @@ function hd735() {   /* V.735 : Desktop เท่านั้น — ซ่อ�
 }
 function headHTML() {   /* V.705 : คอลัมน์ตามภาพล่าสุด (ไม่มีคอลัมน์สถานะ DOCUMENT / ปิดงาน) */
   var A = '<th class="c" style="width:38px">#</th><th style="width:116px">' + TABS[S.tab][1] + '</th><th style="width:140px">JOB No.</th><th class="ca7-nmh">Company</th><th class="ca7-nmh">Customer</th><th style="width:110px">House B/L</th><th style="width:110px">ผู้ส่งคำขอ</th><th style="width:120px">ประเภท</th>';   /* V.735 : ประเภท (DOCUMENT → ADVANCE → เบิกเงินสำรองจ่าย) ต่อจากผู้ส่งคำขอ */
-  var B719 = '<th class="r" style="width:110px">ยอดรวมเก็บลูกค้า</th><th style="width:104px">เก็บลูกค้าแล้ว</th>';   /* V.719 */
+  var B719 = '<th class="r" style="width:110px">ยอดรวมเก็บลูกค้า</th><th class="r" style="width:104px">Grand Total</th><th style="width:118px">เก็บลูกค้าแล้ว</th>';   /* V.784 : + Grand Total */   /* V.719 */
   if (S.tab === "REJECTED") return A + B719 + '<th style="width:110px">ผู้ไม่อนุมัติ</th><th>เหตุผล</th><th style="width:110px">สถานะ JOB</th><th style="width:70px">จัดการ</th>';
   return A + '<th class="r" style="width:96px">ยอดอนุมัติ</th>' + B719 + '<th style="width:100px">สถานะจ่ายเงิน</th><th style="width:130px">INVOICE ADV</th><th style="width:' + (S.sup ? 250 : 70) + 'px">จัดการ</th>';
 }
 function bodyHTML() {
   if (S.err) return '<div class="ca7-tw"><div class="ca7-em">' + esc(S.err) + "</div></div>";
-  var cols = 14, rows = S.rows.map(rowHTML).join("");   /* V.735 : +ประเภท */
+  var cols = 15, rows = S.rows.map(rowHTML).join("");   /* V.735 : +ประเภท */
   var from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length;
   return '<div class="ca7-tw"><table class="ca7-t" data-tb="' + S.tab + '"><thead><tr>' + headHTML() + "</tr></thead><tbody>" +
     (rows || '<tr><td colspan="' + cols + '" class="ca7-em">' + (S.loading ? "กำลังโหลด…" : "ไม่มีรายการ") + "</td></tr>") + "</tbody></table></div>" +
@@ -506,13 +507,13 @@ async function exportXls(btn) {
     var bm = null; try { bm = await bill719(all); } catch (e7) { bm = null; }   /* V.719 : ชุดเดียวกับหน้ารายงาน */
     await LX(EXURL720); var EX = window.ExcelJS; if (!EX) throw new Error("โหลดไลบรารี Excel ไม่สำเร็จ");   /* V.720 : ExcelJS (มีในระบบแล้ว) เพื่อใส่เส้น */
     var rej = tab === "REJECTED", pend = tab === "PENDING";
-    var H = ["#", TABS[tab][1], "JOB No.", "Company", "Customer", "House B/L", "ผู้ส่งคำขอ"].concat(rej ? ["ยอดรวมเก็บลูกค้า", "เก็บลูกค้าแล้ว", "ผู้ไม่อนุมัติ", "เหตุผล", "สถานะ JOB"] : ["ยอดอนุมัติ", "ยอดรวมเก็บลูกค้า", "เก็บลูกค้าแล้ว", "สถานะจ่ายเงิน", "INVOICE ADV"]);
-    var W = rej ? [6, 17, 18, 34, 28, 18, 18, 16, 14, 16, 36, 16] : [6, 17, 18, 34, 28, 18, 18, 14, 16, 14, 18, 22];
-    var nc = rej ? [8] : [8, 9];   /* คอลัมน์จำนวนเงิน (1-based) */
+    var H = ["#", TABS[tab][1], "JOB No.", "Company", "Customer", "House B/L", "ผู้ส่งคำขอ"].concat(rej ? ["ยอดรวมเก็บลูกค้า", "Grand Total", "เก็บลูกค้าแล้ว", "ผู้ไม่อนุมัติ", "เหตุผล", "สถานะ JOB"] : ["ยอดอนุมัติ", "ยอดรวมเก็บลูกค้า", "Grand Total", "เก็บลูกค้าแล้ว", "สถานะจ่ายเงิน", "INVOICE ADV"]);
+    var W = rej ? [6, 17, 18, 34, 28, 18, 18, 16, 16, 18, 16, 36, 16] : [6, 17, 18, 34, 28, 18, 18, 14, 16, 16, 18, 18, 22];   /* V.784 : + Grand Total */
+    var nc = rej ? [8, 9] : [8, 9, 10];   /* คอลัมน์จำนวนเงิน (1-based) */
     var M = function (x, i) {
       var head = [i + 1, dtm(rej ? x.rejected_at : pend ? x.requested_at : x.approved_at), x.job_no || "", x.company || "", x.customer || "", x.hbl || "", x.requested_by || ""];   /* Company / Customer = ชื่อเต็ม */
-      if (rej) return head.concat([colNum719(bm, x), billText719(bm, x), x.rejected_by || "", x.reject_reason || "", x.job_canceled ? "ยกเลิก JOB แล้ว" : x.job_status || ""]);
-      return head.concat([pend ? "-" : Number(x.total_real) || 0, colNum719(bm, x), billText719(bm, x), pend ? "รออนุมัติ" : payText(x), !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).join(", ") : "—"]);
+      if (rej) return head.concat([colNum719(bm, x), gtNum784(bm, x), billText719(bm, x), x.rejected_by || "", x.reject_reason || "", x.job_canceled ? "ยกเลิก JOB แล้ว" : x.job_status || ""]);
+      return head.concat([pend ? "-" : Number(x.total_real) || 0, colNum719(bm, x), gtNum784(bm, x), billText719(bm, x), pend ? "รออนุมัติ" : payText(x), !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).join(", ") : "—"]);
     };
     var nm = tab === "PENDING" ? "รออนุมัติ" : tab === "REJECTED" ? "ไม่อนุมัติ" : "อนุมัติแล้ว";
     var wb = new EX.Workbook(), ws = wb.addWorksheet(nm.slice(0, 31));
@@ -606,7 +607,7 @@ async function render(root, args) {
    Company / Customer / ประเภท = Dropdown ค้นหาได้ (ตัวเลือกจากข้อมูล CASH ADVANCE จริงในสิทธิ์ผู้ใช้ : njacc_cash_adv704_list.options · RUN-760) · เก็บลูกค้าแล้ว = ทั้งหมด / เก็บลูกค้าแล้ว / ไม่วางบิล
    (กรองที่ Server จากผล njacc_cash_adv719_bill เดียวกับคอลัมน์ "เก็บลูกค้าแล้ว") · INVOICE AD = เลข INVOICE ADV ที่เชื่อมกับรายการจริง (บางส่วน · ไม่แยกพิมพ์เล็ก–ใหญ่)
    ค่าทั้งหมดอยู่ใน <form data-f> เดิม (hidden input ตามชื่อพารามิเตอร์) → กด "ค้นหา" = submit เดิม (หน้า 1) · "ล้างกรอง" = reset เดิม ═══ */
-var CA760O = null, CA760A = "ทั้งหมด", CA760B = [["billed", "เก็บลูกค้าแล้ว"], ["not", "ไม่วางบิล"]];
+var CA760O = null, CA760A = "ทั้งหมด", CA760B = [["none", "ไม่วางบิล"], ["match", "วางบิลแล้ว"], ["diff", "ยอดไม่ตรงกัน"], ["check", "รอตรวจสอบข้อมูล"]];   /* V.784 */
 function DH760(nm, k, more) {
   return '<div class="ca760-l' + (more ? " ca7-more" : "") + '"><span>' + esc({ co: "Company", cu: "Customer", ty: "ประเภท", bl: "เก็บลูกค้าแล้ว" }[k]) + '</span><div class="ca760-dd" data-dd760="' + k + '"><input type="hidden" name="' + nm + '" value="' + (k === "bl" ? CA774D : "") + '">' +
     '<button type="button" class="ca760-tg" aria-haspopup="listbox" aria-expanded="false"><span class="ca760-tx">' + CA760A + '</span><span class="ca760-cr" aria-hidden="true"></span></button>' +
@@ -711,7 +712,7 @@ function CA760(fo) {
    เปิดหน้า / เข้าเมนูอีกครั้ง / รีเฟรชหน้าเว็บ / ล้างกรอง = ไม่วางบิล ทุกครั้ง (ไม่จำค่าครั้งก่อน) · เลือก "เก็บลูกค้าแล้ว" เอง = เฉพาะที่เก็บลูกค้าแล้ว · "ทั้งหมด" ยังเลือกได้
    กรองที่ Server เดิม (njacc_cash_adv704_list · billed · ผล njacc_cash_adv719_bill) ร่วมกับช่องค้นหา + แท็บสถานะ → จำนวน / ยอดรวม / Export = ชุดเดียวกัน · เงื่อนไขคำนวณสถานะเดิม
    Badge เมนู (SUPER_ADMIN) = จำนวนรออนุมัติทั้งหมดเหมือนเดิม (ไม่ถูกตัวกรองเริ่มต้นนี้ลดลง) ═══ */
-var CA774D = "not";
+var CA774D = "";   /* V.784 : ค่าเริ่มต้น = ทั้งหมด (เดิม V.774 = ไม่วางบิล) */
 function BG774() {
   try {
     if (!S || !S.sup || !S.f.billed || S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no) return;
@@ -719,3 +720,16 @@ function BG774() {
   } catch (e) {}
 }
 export{render};
+
+/* ═══ V.784 · CASH ADVANCE (Desktop) : Grand Total + สถานะ "เก็บลูกค้าแล้ว" 4 แบบ (njacc_cash_adv784_bill · RUN-784 · เชื่อมด้วย JOB ID)
+   Grand Total = ACCOUNTING → ADVANCE Grand Total (Σ total_amount ของ INVOICE ADV ที่ POST แล้วของ JOB · นับแต่ละใบครั้งเดียว) · ไม่มี / ระบุไม่ได้ = —
+   ไม่วางบิล (แดงอ่อน) · วางบิลแล้ว = วางบิลจริง + ยอดตรง (เขียวอ่อน) · ยอดไม่ตรงกัน (ส้มอ่อน) · รอตรวจสอบข้อมูล (เทา) — เทียบเงินที่ Server เป็นจำนวนสตางค์ ═══ */
+var ST784 = {
+  none: ["r", "ไม่วางบิล", "ยังไม่มี INVOICE ADV ที่ POST แล้วของ JOB นี้"],
+  match: ["g", "วางบิลแล้ว", "วางบิลแล้ว · ยอดรวมเก็บลูกค้า = Grand Total"],
+  diff: ["o", "ยอดไม่ตรงกัน", "วางบิลแล้ว · ยอดรวมเก็บลูกค้า ≠ Grand Total"],
+  check: ["x", "รอตรวจสอบข้อมูล", "วางบิลแล้ว แต่ข้อมูลเบิกเงิน / Grand Total ไม่ครบ"]
+};
+function gt784(b) { return b && b.grand != null && b.grand !== "" && isFinite(Number(b.grand)) ? Number(b.grand) : null; }
+function gtTd784(x) { var g = gt784(b719(x)); return '<td class="r">' + (g == null ? "—" : fm(g)) + "</td>"; }
+function gtNum784(m, x) { var g = gt784(m && x && m[x.job_id]); return g == null ? "—" : g; }
