@@ -392,4 +392,78 @@ function njOpenCenterIfPending(){try{
     if(total>0&&canAccess("#/notifications"))location.hash="#/notifications"
   })["catch"](function(){})
 }catch(e){}}
-function njhrStartAfterSession(){render();refreshPendingAll();refreshNotifyBadge();refreshAnnBadge();refreshAttBadge();refreshApprRole();refreshDocPending();hydrateSettings();ntStartPoll();ntUnlockAudio();njOpenCenterIfPending();if(!location.hash)location.hash=session?"#/dashboard":"#/login"}NJHR.compat.scope=NJHR.compat.scope||{};Object.keys(ROUTES).forEach(function(h){NJHR.router.moduleMap[h.replace("#/","")]=ROUTES[h].mod?[ROUTES[h].mod]:[]});NJHR.core.render=render;NJHR.core.nav=nav;NJHR.core.canAccess=canAccess;NJHR.auth.logout=doLogout;NJHR.auth.currentUser=currentUser;NJHR.ui.toast=toast;NJHR.ui.openModal=openModal;NJHR.ui.closeModal=closeModal;NJHR.layout.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.ALL=ALL;NJHR.compat.scope.NJ_COMPANY_NAME=NJ_COMPANY_NAME;NJHR.compat.scope.P=P;NJHR.compat.scope.ROLE_TH=ROLE_TH;NJHR.compat.scope.SB=SB;NJHR.compat.scope.TH_DAYS=TH_DAYS;NJHR.compat.scope.TH_MONTHS=TH_MONTHS;NJHR.compat.scope.audit=audit;NJHR.compat.scope.avatarHTML=avatarHTML;NJHR.compat.scope.balance=balance;NJHR.compat.scope.businessDays=businessDays;NJHR.compat.scope.canAccess=canAccess;NJHR.compat.scope.closeModal=closeModal;NJHR.compat.scope.confirmDialog=confirmDialog;NJHR.compat.scope.currentEmp=currentEmp;NJHR.compat.scope.currentUser=currentUser;NJHR.compat.scope.cycleCurrent=cycleCurrent;NJHR.compat.scope.cycleLabel=cycleLabel;NJHR.compat.scope.cycleOptions=cycleOptions;NJHR.compat.scope.cycleRange=cycleRange;NJHR.compat.scope.cycleRangeText=cycleRangeText;NJHR.compat.scope.db=db;NJHR.compat.scope.debounce=debounce;NJHR.compat.scope.dept=dept;NJHR.compat.scope.doLogout=doLogout;NJHR.compat.scope.downloadCSV=downloadCSV;NJHR.compat.scope.emp=emp;NJHR.compat.scope.empBE=empBE;NJHR.compat.scope.empName=empName;NJHR.compat.scope.emptyState=emptyState;NJHR.compat.scope.esc=esc;NJHR.compat.scope.fileDownload=fileDownload;NJHR.compat.scope.filePreviewOpen=filePreviewOpen;NJHR.compat.scope.fmtDate=fmtDate;NJHR.compat.scope.fmtDateDMY=fmtDateDMY;NJHR.compat.scope.fmtMonthYear=fmtMonthYear;NJHR.compat.scope.holHas=holHas;NJHR.compat.scope.holInvalidate=holInvalidate;NJHR.compat.scope.holLoad=holLoad;NJHR.compat.scope.holName=holName;NJHR.compat.scope.hoursDiff=hoursDiff;NJHR.compat.scope.icon=icon;NJHR.compat.scope.idx=idx;NJHR.compat.scope.isHoliday=isHoliday;NJHR.compat.scope.isWeekend=isWeekend;NJHR.compat.scope.leaveType=leaveType;NJHR.compat.scope.loadScriptOnce=loadScriptOnce;NJHR.compat.scope.loadStyleOnce=loadStyleOnce;NJHR.compat.scope.lsRemove=lsRemove;NJHR.compat.scope.maskAcc=maskAcc;NJHR.compat.scope.money=money;NJHR.compat.scope.nav=nav;NJHR.compat.scope.njAsset=njAsset;NJHR.compat.scope.njCompanyParts=njCompanyParts;NJHR.compat.scope.njEdgeFail=njEdgeFail;NJHR.compat.scope.njEdgeMark=njEdgeMark;NJHR.compat.scope.njEdgeMissing=njEdgeMissing;NJHR.compat.scope.njEdgeNet=njEdgeNet;NJHR.compat.scope.njExemptCheck=njExemptCheck;NJHR.compat.scope.notify=notify;NJHR.compat.scope.nowStamp=nowStamp;NJHR.compat.scope.openModal=openModal;NJHR.compat.scope.pad=pad;NJHR.compat.scope.refreshFixPending=refreshFixPending;NJHR.compat.scope.refreshLeavePending=refreshLeavePending;NJHR.compat.scope.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.refreshNotifyBadge=refreshNotifyBadge;NJHR.compat.scope.refreshOtPending=refreshOtPending;NJHR.compat.scope.render=render;NJHR.compat.scope.saveDB=saveDB;NJHR.compat.scope.sbDocPdfFn=sbDocPdfFn;NJHR.compat.scope.sbReady=sbReady;NJHR.compat.scope.sbRpc=sbRpc;NJHR.compat.scope.sbRpcList=sbRpcList;NJHR.compat.scope.sbToken=sbToken;NJHR.compat.scope.setFxPending=setFxPending;NJHR.compat.scope.setOtPending=setOtPending;NJHR.compat.scope.shOf=shOf;NJHR.compat.scope.shOfAtt=shOfAtt;NJHR.compat.scope.shTime=shTime;NJHR.compat.scope.startLiveClock=startLiveClock;NJHR.compat.scope.statusBadge=statusBadge;NJHR.compat.scope.toast=toast;NJHR.compat.scope.toastDismiss=toastDismiss;NJHR.compat.scope.todayISO=todayISO;NJHR.compat.scope.uid=uid;NJHR.compat.scope.userOfEmp=userOfEmp;NJHR.compat.scope.withButtonLoading=withButtonLoading})();
+function njhrStartAfterSession(){render();refreshPendingAll();refreshNotifyBadge();refreshAnnBadge();refreshAttBadge();refreshApprRole();refreshDocPending();hydrateSettings();ntStartPoll();ntUnlockAudio();njOpenCenterIfPending();if(!location.hash)location.hash=session?"#/dashboard":"#/login"}NJHR.compat.scope=NJHR.compat.scope||{};Object.keys(ROUTES).forEach(function(h){NJHR.router.moduleMap[h.replace("#/","")]=ROUTES[h].mod?[ROUTES[h].mod]:[]});NJHR.core.render=render;NJHR.core.nav=nav;NJHR.core.canAccess=canAccess;NJHR.auth.logout=doLogout;NJHR.auth.currentUser=currentUser;NJHR.ui.toast=toast;NJHR.ui.openModal=openModal;NJHR.ui.closeModal=closeModal;NJHR.layout.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.ALL=ALL;NJHR.compat.scope.NJ_COMPANY_NAME=NJ_COMPANY_NAME;NJHR.compat.scope.P=P;NJHR.compat.scope.ROLE_TH=ROLE_TH;NJHR.compat.scope.SB=SB;NJHR.compat.scope.TH_DAYS=TH_DAYS;NJHR.compat.scope.TH_MONTHS=TH_MONTHS;NJHR.compat.scope.audit=audit;NJHR.compat.scope.avatarHTML=avatarHTML;NJHR.compat.scope.balance=balance;NJHR.compat.scope.businessDays=businessDays;NJHR.compat.scope.canAccess=canAccess;NJHR.compat.scope.closeModal=closeModal;NJHR.compat.scope.confirmDialog=confirmDialog;NJHR.compat.scope.currentEmp=currentEmp;NJHR.compat.scope.currentUser=currentUser;NJHR.compat.scope.cycleCurrent=cycleCurrent;NJHR.compat.scope.cycleLabel=cycleLabel;NJHR.compat.scope.cycleOptions=cycleOptions;NJHR.compat.scope.cycleRange=cycleRange;NJHR.compat.scope.cycleRangeText=cycleRangeText;NJHR.compat.scope.db=db;NJHR.compat.scope.debounce=debounce;NJHR.compat.scope.dept=dept;NJHR.compat.scope.doLogout=doLogout;NJHR.compat.scope.downloadCSV=downloadCSV;NJHR.compat.scope.emp=emp;NJHR.compat.scope.empBE=empBE;NJHR.compat.scope.empName=empName;NJHR.compat.scope.emptyState=emptyState;NJHR.compat.scope.esc=esc;NJHR.compat.scope.fileDownload=fileDownload;NJHR.compat.scope.filePreviewOpen=filePreviewOpen;NJHR.compat.scope.fmtDate=fmtDate;NJHR.compat.scope.fmtDateDMY=fmtDateDMY;NJHR.compat.scope.fmtMonthYear=fmtMonthYear;NJHR.compat.scope.holHas=holHas;NJHR.compat.scope.holInvalidate=holInvalidate;NJHR.compat.scope.holLoad=holLoad;NJHR.compat.scope.holName=holName;NJHR.compat.scope.hoursDiff=hoursDiff;NJHR.compat.scope.icon=icon;NJHR.compat.scope.idx=idx;NJHR.compat.scope.isHoliday=isHoliday;NJHR.compat.scope.isWeekend=isWeekend;NJHR.compat.scope.leaveType=leaveType;NJHR.compat.scope.loadScriptOnce=loadScriptOnce;NJHR.compat.scope.loadStyleOnce=loadStyleOnce;NJHR.compat.scope.lsRemove=lsRemove;NJHR.compat.scope.maskAcc=maskAcc;NJHR.compat.scope.money=money;NJHR.compat.scope.nav=nav;NJHR.compat.scope.njAsset=njAsset;NJHR.compat.scope.njCompanyParts=njCompanyParts;NJHR.compat.scope.njEdgeFail=njEdgeFail;NJHR.compat.scope.njEdgeMark=njEdgeMark;NJHR.compat.scope.njEdgeMissing=njEdgeMissing;NJHR.compat.scope.njEdgeNet=njEdgeNet;NJHR.compat.scope.njExemptCheck=njExemptCheck;NJHR.compat.scope.notify=notify;NJHR.compat.scope.nowStamp=nowStamp;NJHR.compat.scope.openModal=openModal;NJHR.compat.scope.pad=pad;NJHR.compat.scope.refreshFixPending=refreshFixPending;NJHR.compat.scope.refreshLeavePending=refreshLeavePending;
+/* ══════════ [RUN-209] สรุป 5 หัวข้อของพนักงาน ══════════
+   ลาพักร้อน (สิทธิ/รออนุมัติ/ใช้ไปแล้ว/คงเหลือ) · ลากิจ · ลาอื่น ๆ · มาสาย · ขาดงาน
+   ตัวเลขทุกตัวมาจาก njhr_emp_summary() ตัวเดียว ซึ่งใช้ฟังก์ชันคำนวณชุดเดียว
+   กับหน้ายื่นลา หน้าอนุมัติ และข้อมูลพนักงาน จึงตรงกันทั้งคอมและมือถือแน่นอน
+   วางไว้ใน core เพราะใช้ทั้งหน้าข้อมูลส่วนตัวและหน้าหลัก ซึ่งคนละโมดูลกัน  */
+var NJ_SUM_TH={SICK:"ลาป่วย",PERSONAL:"ลากิจ",VACATION:"ลาพักร้อน",
+  MATERNITY:"ลาคลอด",ORDINATION:"ลาบวช",HALFDAY:"ลาครึ่งวัน",OTHER:"ลาอื่น ๆ"};
+function njSumNum(v){var n=Number(v);return isFinite(n)?Math.round(n*100)/100:0}
+function njSumDay(v){var n=njSumNum(v);
+  return(Math.round(n*100)%100===0?String(Math.round(n)):String(n))+" วัน"}
+function njSumLoad(employeeId,year){
+  return sbRpcList("njhr_emp_summary",{p_token:sbToken(),
+    p_employee:employeeId||null,p_year:year||null})
+    .then(function(rows){return rows&&rows[0]||null})}
+function njSumCell(label,val,cls){
+  return'<span class="njs-c'+(cls?" "+cls:"")+'"><i>'+esc(label)+'</i><b>'+esc(val)+"</b></span>"}
+/* r = แถวจาก njhr_emp_summary · คืน "" ถ้าไม่มีข้อมูล ให้ผู้เรียกจัดการเอง */
+function njSummaryHTML(r){
+  if(!r)return"";
+  var yrTH=(Number(r.year)||0)+543;
+  var left=r.vac_left==null?null:njSumNum(r.vac_left);
+  var others=[];
+  try{var raw=typeof r.other_leaves==="string"?JSON.parse(r.other_leaves):(r.other_leaves||[]);
+    (raw||[]).forEach(function(x){others.push([NJ_SUM_TH[String(x.code).toUpperCase()]||String(x.code),
+      njSumDay(x.days)])})}catch(e){}
+  var noTc=!!r.no_timeclock;
+  var rangeTxt="";
+  if(!noTc&&r.absent_from&&r.absent_to)
+    rangeTxt='<small class="njs-range">ช่วงที่ใช้คำนวณ '+esc(njDMY(r.absent_from))+
+      " – "+esc(njDMY(r.absent_to))+"</small>";
+  return'<div class="njs" data-year="'+esc(String(r.year||""))+'">'
+    +'<div class="njs-head"><b>สรุปปี '+esc(String(yrTH))+"</b>"
+    +(r.emp_code?'<small>'+esc(r.emp_code)+(r.emp_name?" · "+esc(r.emp_name):"")+"</small>":"")+"</div>"
+    +'<div class="njs-sec njs-vac"><div class="njs-t">'+icon("calendar","ic-sm")+" ลาพักร้อน</div>"
+    +'<div class="njs-row">'
+    +njSumCell("สิทธิปีนี้",njSumDay(r.vac_quota))
+    +njSumCell("รออนุมัติ",njSumDay(r.vac_pending))
+    +njSumCell("ใช้ไปแล้ว",njSumDay(r.vac_used))
+    +njSumCell("คงเหลือ",left==null?"—":njSumDay(left),left!=null&&left<0?"njs-neg":"njs-ok")
+    +"</div></div>"
+    +'<div class="njs-sec"><div class="njs-t">'+icon("fileText","ic-sm")+" ลากิจ</div>"
+    +'<div class="njs-row">'+njSumCell("ลาไปแล้ว",njSumDay(r.personal_used))+"</div></div>"
+    +'<div class="njs-sec"><div class="njs-t">'+icon("fileText","ic-sm")+" ลาอื่น ๆ</div>"
+    +'<div class="njs-row">'+(others.length
+      ?others.map(function(o){return njSumCell(o[0],o[1])}).join("")
+      :njSumCell("ไม่มีรายการ","0 วัน"))+"</div></div>"
+    +'<div class="njs-sec"><div class="njs-t">'+icon("clock","ic-sm")+" การลงเวลา</div>"
+    +'<div class="njs-row">'
+    +njSumCell("มาสาย",noTc?"—":njSumDay(r.late_days))
+    +njSumCell("ขาดงาน",noTc?"ไม่ต้องลงเวลา":njSumDay(r.absent_days),
+       noTc?"njs-muted":(njSumNum(r.absent_days)>0?"njs-neg":"njs-ok"))
+    +"</div>"+rangeTxt+"</div></div>"}
+function njDMY(v){var p=String(v||"").slice(0,10).split("-");
+  return p.length===3?p[2]+"/"+p[1]+"/"+(Number(p[0])+543):""}
+/* วาดลงกล่องที่กำหนด พร้อมสถานะกำลังโหลด/ผิดพลาด
+   โหลดไม่สำเร็จต้องแจ้ง ห้ามแสดง 0 แทนข้อมูลที่โหลดไม่ได้ */
+function njSummaryInto(boxId,employeeId,year){
+  var box=document.getElementById(boxId);if(!box)return Promise.resolve(null);
+  box.innerHTML='<div class="njs-load">กำลังโหลดข้อมูลสรุป…</div>';
+  return njSumLoad(employeeId,year).then(function(r){
+    var b=document.getElementById(boxId);if(!b)return null;
+    if(!r){b.innerHTML='<div class="njs-err">ไม่พบข้อมูลสรุปของพนักงานคนนี้</div>';return null}
+    b.innerHTML=njSummaryHTML(r);return r})
+  ["catch"](function(ex){
+    var b=document.getElementById(boxId);
+    if(b)b.innerHTML='<div class="njs-err">โหลดข้อมูลสรุปไม่สำเร็จ: '+
+      esc(ex&&ex.message||String(ex))+"</div>";
+    try{console.error("[SUMMARY] njhr_emp_summary (RUN-209):",ex)}catch(e){}
+    return null})}
+NJHR.compat.scope.njSummaryHTML=njSummaryHTML;
+NJHR.compat.scope.njSummaryInto=njSummaryInto;
+NJHR.compat.scope.njSumLoad=njSumLoad;
+NJHR.compat.scope.njSumDay=njSumDay;
+NJHR.compat.scope.refreshMenuBadge=refreshMenuBadge;NJHR.compat.scope.refreshNotifyBadge=refreshNotifyBadge;NJHR.compat.scope.refreshOtPending=refreshOtPending;NJHR.compat.scope.render=render;NJHR.compat.scope.saveDB=saveDB;NJHR.compat.scope.sbDocPdfFn=sbDocPdfFn;NJHR.compat.scope.sbReady=sbReady;NJHR.compat.scope.sbRpc=sbRpc;NJHR.compat.scope.sbRpcList=sbRpcList;NJHR.compat.scope.sbToken=sbToken;NJHR.compat.scope.setFxPending=setFxPending;NJHR.compat.scope.setOtPending=setOtPending;NJHR.compat.scope.shOf=shOf;NJHR.compat.scope.shOfAtt=shOfAtt;NJHR.compat.scope.shTime=shTime;NJHR.compat.scope.startLiveClock=startLiveClock;NJHR.compat.scope.statusBadge=statusBadge;NJHR.compat.scope.toast=toast;NJHR.compat.scope.toastDismiss=toastDismiss;NJHR.compat.scope.todayISO=todayISO;NJHR.compat.scope.uid=uid;NJHR.compat.scope.userOfEmp=userOfEmp;NJHR.compat.scope.withButtonLoading=withButtonLoading})();

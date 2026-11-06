@@ -42,9 +42,12 @@ function empVacUsed(empId){
     function day(v){var n=Number(v)||0;n=Math.round(n*100)/100;
       return(Math.round(n*100)%100===0?String(Math.round(n)):String(n))+" วัน"}
     var rem=Math.round((Number(b.remaining)||0)*100)/100;
+    /* [RUN-209] ช่องสิทธิเก็บ "สิทธิประจำปีก่อนหัก" ตามที่กำหนด
+       จึงแสดง รออนุมัติ / ใช้ไปแล้ว / คงเหลือที่ยื่นเพิ่มได้ ไว้ใต้ช่อง */
     box.innerHTML='<span class="emp-vac3">'
+      +'<span><i>รออนุมัติ</i><b>'+esc(day(b.pending))+'</b></span>'
       +'<span><i>ใช้ไปแล้ว</i><b>'+esc(day(b.used))+'</b></span>'
-      +'<span class="'+(rem<0?"emp-vneg":"emp-vok")+'"><i>คงเหลือ</i><b>'+esc(day(rem))+'</b></span>'
+      +'<span class="'+(rem<0?"emp-vneg":"emp-vok")+'"><i>คงเหลือที่ยื่นเพิ่มได้</i><b>'+esc(day(rem))+'</b></span>'
       +"</span>";
   })["catch"](function(ex){
     box.textContent="";
