@@ -231,6 +231,7 @@ function apprLoad(el, tab, append) {
       if (tab === "fix") setFxPending(apprCounts.fix);
     }
     apprRender(el);
+    if (tab === "leave") apprVacLoad(el, seq);   /* [RUN-208] */
   })["catch"](function (ex) {
     if (seq !== apprSeq[tab]) return;
     if (apprMissingRpc(ex)) { apprLegacy[tab] = true; return apprLoadLegacy(el, tab, seq); }
@@ -869,6 +870,46 @@ function apprRender(el) {
 
 /* ================= Modal ตรวจสอบก่อนอนุมัติ =================
    เปิดจากข้อมูลที่โหลดมาแล้วทั้งหมด — ไม่ยิง RPC ใด ๆ ตอนเปิด          */
+/* ══════════ [RUN-208] ยอดลาพักร้อนของผู้ยื่น ══════════
+   โหลดครั้งเดียวพร้อมรายการใบลา แล้วกล่องตรวจสอบอ่านจากตรงนี้
+   จึงไม่ขัดกับข้อตกลงเดิมว่า "เปิดกล่องตรวจสอบแล้วห้ามยิง RPC"
+   ตัวเลขมาจาก njhr_leave_balances_of() ซึ่งใช้ njhr_leave_used() ชุดเดียว
+   กับหน้าลางานและมือถือ — แก้สูตรที่เดียวแล้วตรงกันทุกหน้า
+   ถ้าโหลดไม่ได้ (ยังไม่รัน SQL / ไม่มีสิทธิ์) จะไม่แสดงแถวนี้ ไม่ทำให้หน้าพัง */
+var apprVac = {}, apprVacSeq = 0;
+function apprVacLoad(el, seq) {
+  var ids = {}, list = [];
+  (apprRows.leave || []).forEach(function (r) {
+    var k = String(r.employee_id || "");
+    if (k && !ids[k] && String(r.leave_type || "").toUpperCase() === "VACATION") { ids[k] = 1; list.push(k) }
+  });
+  if (!list.length) return;
+  var mySeq = ++apprVacSeq;
+  sbRpcList("njhr_leave_balances_of", {
+    p_token: sbToken(), p_employees: list, p_type: "VACATION", p_year: null
+  }).then(function (rows) {
+    if (mySeq !== apprVacSeq || seq !== apprSeq.leave) return;
+    (rows || []).forEach(function (b) { apprVac[String(b.employee_id)] = b });
+    apprRender(el);
+  })["catch"](function (ex) {
+    try { console.error("[APPROVALS] njhr_leave_balances_of (RUN-208):", ex) } catch (e) {}
+  });
+}
+function apprVacNum(v) { var n = Number(v); return isFinite(n) ? Math.round(n * 100) / 100 : 0 }
+function apprVacDay(v) {
+  var n = apprVacNum(v);
+  return (Math.round(n * 100) % 100 === 0 ? String(Math.round(n)) : String(n)) + " วัน";
+}
+function apprVacRows(r) {
+  if (String(r && r.leave_type || "").toUpperCase() !== "VACATION") return "";
+  var b = apprVac[String(r && r.employee_id || "")];
+  if (!b || b.quota == null) return "";
+  var rem = apprVacNum(b.remaining);
+  return apprRow("สิทธิลาพักร้อนปีนี้", apprVacDay(b.quota)) +
+    apprRow("ใช้ไปแล้ว", apprVacDay(b.used)) +
+    apprRow("คงเหลือ", apprVacDay(rem) + (rem < 0 ? "  (เกินสิทธิ)" : ""));
+}
+
 function apprFind(tab, id) {
   return (apprRows[tab] || []).filter(function (x) { return String(x.id) === String(id) })[0] || null;
 }
@@ -893,7 +934,12 @@ function apprDetailRows(kind, r) {
         String(r.start_time || "").slice(0, 5) + " – " + String(r.end_time || "").slice(0, 5)) : "") +
       apprRow(md === "HOURLY" ? "จำนวนชั่วโมง" : "จำนวนวัน",
         md === "HOURLY" ? lvNum(r.hours) + " ชั่วโมง" : lvNum(r.total_days) + " วัน") +
-      (r.remaining != null ? apprRow("วันลาคงเหลือ", lvNum(r.remaining) + " วัน") : "") +
+      /* [RUN-208] สิทธิปีนี้ / ใช้ไปแล้ว / คงเหลือ ของลาพักร้อน
+         อ่านจาก apprVac ที่โหลดมาพร้อมรายการ (njhr_leave_balances_of)
+         ใช้สูตรชุดเดียวกับหน้าลางานและมือถือ จึงไม่มีทางแสดงต่างกัน
+         ไม่ใช้ r.remaining จาก feed แสดงอีก เพื่อไม่ให้มีสองตัวเลขขัดกัน */
+      apprVacRows(r) +
+
       apprRow("วันที่ยื่น", apprTSDateTime(r.created_at)) +
       apprRow("สถานะ", apprStatusTH(r.ui_status || r.status));
   }
