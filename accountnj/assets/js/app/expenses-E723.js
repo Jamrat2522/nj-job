@@ -56,7 +56,7 @@ function css() {
     ".ex7-t td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.ex7-t td.c{text-align:center}.ex7-t td.nw{white-space:nowrap}",
     ".ex7-t tbody tr[data-i]{cursor:pointer}.ex7-t tbody tr[data-i]:hover td,.ex7-t tbody tr[data-i]:focus-within td,.ex7-t tbody tr[data-i]:focus td{background:#eaf3ff}.ex7-t tbody tr[data-i]:focus{outline:2px solid #1d4ed8;outline-offset:-2px}",
     ".ex7-t tfoot td{background:#e8f1fd;font-weight:800}.ex7-t a{color:#1d4ed8;font-weight:700}",
-    ".ex7-el{display:block;max-width:240px;overflow-wrap:anywhere}.ex7-em{text-align:center;color:#64748b;padding:18px!important}",
+    ".ex7-t td.ex802{white-space:nowrap;overflow:hidden;max-width:128px}"/* V.802 */,".ex7-el{display:block;max-width:240px;overflow-wrap:anywhere}.ex7-em{text-align:center;color:#64748b;padding:18px!important}",
     ".ex7-bd{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:6px;font-size:12px;font-weight:800;white-space:nowrap}.ex7-bd.g{background:#16a34a;color:#fff}.ex7-bd.o{background:#f59e0b;color:#fff}.ex7-bd.r{background:#dc2626;color:#fff}",
     ".ex7-act{display:flex;gap:6px;justify-content:center;flex-wrap:nowrap}.ex7-ab{height:28px;border-radius:6px;padding:0 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-family:inherit;white-space:nowrap;border:1px solid}",
     ".ex7-ab.v{color:#1d4ed8;border-color:#93c5fd;background:#fff}.ex7-ab.d{color:#15803d;border-color:#86efac;background:#fff}.ex7-ab.x{color:#fff;border-color:#dc2626;background:#dc2626}.ex7-ab:disabled{opacity:.4;cursor:not-allowed}",
@@ -91,17 +91,26 @@ function shell() {
     '<button type="button" class="ex7-b" data-rf>' + IC.rf + 'Refresh</button><button type="button" class="ex7-b g" data-xl>' + IC.xl + 'EXPORT EXCEL</button></form></div>' +
     '<div data-body></div></div>';
 }
+/* ═══ V.802 · EXPENSES : ชื่อ Company / Customer ในตารางรายการ = ไม่เกิน 10 ตัวอักษร (นับแบบตัวอักษรที่เห็น · ไม่ตัดสระ / วรรณยุกต์ออกจากตัวหน้า) + "..." · บรรทัดเดียว · Tooltip = ชื่อเต็ม
+   ข้อมูล / ค้นหา / หน้าต่างรายละเอียด / EXPORT EXCEL = ชื่อเต็มเดิม (ตัดเฉพาะข้อความที่แสดงในตาราง) ═══ */
+function t802(v) {
+  var s = String(v == null ? "" : v).trim(), g;
+  if (!s) return "-";
+  try { g = typeof Intl !== "undefined" && Intl.Segmenter ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(s), function (x) { return x.segment; }) : Array.from(s); } catch (e) { g = Array.from(s); }
+  return g.length > 10 ? g.slice(0, 10).join("") + "..." : s;
+}
+function td802(v) { var s = String(v == null ? "" : v).trim(); return '<td class="ex802"' + (s ? ' title="' + esc(s) + '"' : "") + ">" + esc(t802(s)) + "</td>"; }
 function rowHTML(x, i) {
   var nf = (x.files || []).length, no = S.off + i + 1;
   return '<tr data-i="' + i + '" tabindex="0"><td class="c">' + no + '</td><td class="nw"><a href="#/job/' + esc(x.job_id) + '" data-lk>' + esc(x.job_no) + "</a></td>" +
-    '<td><span class="ex7-el">' + esc(x.company || "-") + '</span></td><td><span class="ex7-el">' + esc(x.customer || "-") + '</span></td><td class="nw">' + esc(x.hbl || "-") + "</td>" +
+    td802(x.company) + td802(x.customer) + '<td class="nw">' + esc(x.hbl || "-") + "</td>" +
     '<td><span class="ex7-el">' + esc(x.description) + '</span></td><td class="r">' + fm(x.pay_amount) + '</td><td class="r">' + fm(x.collect_amount) + '</td><td class="c">' + badge(x) + '</td><td class="nw c">' + esc(invNo(x) || "-") + "</td>" +
     '<td><div class="ex7-act">' +   /* V.727 : List View แสดงเฉพาะปุ่มลบ — ดูไฟล์ / โหลดไฟล์ อยู่ในหน้าต่างรายละเอียด EXPENSES */
     '<button type="button" class="ex7-ab x" data-a="x" title="ลบออกจาก EXPENSES">' + IC.del + "ลบ</button></div></td></tr>";
 }
 function bodyHTML() {
   var H = ["#", "JOB No.", "Company", "Customer", "House B/L", "รายละเอียด", "ยอดเงิน", "เก็บลูกค้าได้", "เก็บลูกค้าแล้ว", "INVOICE NJ", "จัดการ"];
-  var W = [44, 130, 0, 0, 130, 0, 110, 110, 130, 130, 84];   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
+  var W = [44, 130, 120, 120, 130, 0, 110, 110, 130, 130, 84];   /* V.802 : Company / Customer = 120px (10 ตัวอักษร + ...) */   /* V.727 : คอลัมน์จัดการ = ปุ่มลบปุ่มเดียว */
   var rows = S.rows.map(rowHTML).join(""), sm = S.sum || {};
   var n = Math.max(1, Math.ceil((S.total || 0) / S.lim)), c = Math.floor(S.off / S.lim) + 1, from = S.total ? S.off + 1 : 0, to = S.off + S.rows.length, pg = [], k;
   for (k = 1; k <= n; k++) if (k === 1 || k === n || Math.abs(k - c) <= 2) pg.push(k); else if (pg[pg.length - 1] !== "…") pg.push("…");
@@ -115,7 +124,7 @@ function bodyHTML() {
     '<button type="button" data-pg="' + (c + 1) + '"' + (c >= n ? " disabled" : "") + ' aria-label="ถัดไป">›</button><button type="button" data-pg="' + n + '"' + (c >= n ? " disabled" : "") + ' aria-label="หน้าสุดท้าย">»</button></span></div>';
 }
 function paint() {
-  if (!S || !S.root.isConnected) return;
+  if (!S || !S.root.isConnected || (S.el && !S.el.isConnected)) return;   /* V.803 */
   var b = S.root.querySelector("[data-body]"), sc = S.root.querySelector(".ex7-tw"), y = sc ? sc.scrollLeft : 0;
   b.innerHTML = bodyHTML(); var t = S.root.querySelector(".ex7-tw"); t && (t.scrollLeft = y);
   var sel = S.root.querySelector('[name="company_id"]');
@@ -123,13 +132,13 @@ function paint() {
 }
 async function load() {
   if (!S) return;
-  var my = ++S.seq; S.loading = !0; S.err = ""; paint();
+  var S0 = S, my = ++S.seq;   /* V.803 : ผลของรอบก่อน (ออก / เข้าหน้าใหม่) ไม่ทับรอบใหม่ */ S.loading = !0; S.err = ""; paint();
   try {
     var r = await rpc("njacc_exp723_list", { p: params(S.lim, S.off) });
-    if (my !== S.seq) return;
+    if (S !== S0 || my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.sum = (r && r.sum) || {}; S.companies = (r && r.companies) || S.companies || [];
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
-  } catch (e) { if (my !== S.seq) return; S.rows = []; S.total = 0; S.sum = {}; S.err = errMsg(e); }
+  } catch (e) { if (S !== S0 || my !== S.seq) return; S.rows = []; S.total = 0; S.sum = {}; S.err = errMsg(e); }
   S.loading = !1; paint();
 }
 async function pickFile(x, title) { var f = x.files || []; if (!f.length) return null; return XF().pick(f, title + " · " + x.job_no + " · " + x.description); }
@@ -282,18 +291,24 @@ function tb731() {   /* V.731 : ติด class เฉพาะตอนอย�
   var on = function () { document.documentElement.classList.toggle("ex731", /^#\/?expenses(?:[/?]|$)/.test(location.hash || "")); };
   on(); if (!tb731.b) { tb731.b = !0; window.addEventListener("hashchange", on); }
 }
+function OFF803(m) { return S !== m || !(m && m.el && m.el.isConnected); }   /* V.803 : หน้าที่ออกไปแล้ว (State เก่า / Element หน้าเดิมไม่อยู่ในจอ) = ไม่รับ Event */
 async function render(root, args) {
   css(); closeDetail(); tb731();
   S = { root: root, f: { company_id: "", date_from: "", date_to: "", status: "ALL", q: "" }, lim: 20, off: 0, rows: [], total: 0, sum: {}, companies: null, seq: 0, loading: !1, err: "" };
   root.innerHTML = shell();
-  var me = S, fo = root.querySelector("[data-f]");
+  var me = S, fo = root.querySelector("[data-f]"); me.el = root.firstElementChild;   /* V.803 */
   var readF = function () { var f = {}; ["company_id", "date_from", "date_to", "status", "q"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
-  fo.addEventListener("submit", function (e) { e.preventDefault(); if (S !== me) return; S.f = readF(); S.off = 0; load(); });
-  fo.addEventListener("change", function (e) { if (S !== me) return; if (e.target.name === "company_id" || e.target.name === "status") { S.f = readF(); S.off = 0; load(); } });
-  root.addEventListener("change", function (e) { if (S !== me) return; if (e.target.matches("[data-lim]")) { S.lim = Number(e.target.value) || 20; S.off = 0; load(); } });
-  root.addEventListener("keydown", function (e) { if (S !== me) return; var tr = e.target.closest && e.target.closest("tr[data-i]"); if (tr && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); S.lastTr = tr; detail(S.rows[Number(tr.dataset.i)]); } });
+  fo.addEventListener("submit", function (e) { e.preventDefault(); if (OFF803(me)) return; S.f = readF(); S.off = 0; load(); });
+  /* V.802 : ค้นหา Real-Time — พิมพ์ / ลบ (Debounce 280 ms) · บริษัท / สถานะ / วันที่ = ทันที → ตัวกรองเดิม (readF) · หน้า 1 · load() เดิม (njacc_exp723_list · กันผลเก่าด้วย S.seq เดิม) · เงื่อนไขไม่เปลี่ยน = ไม่เรียกซ้ำ */
+  var t802r = 0, k802 = ["company_id", "date_from", "date_to", "status", "q"];
+  var go802 = function () { t802r = 0; if (OFF803(me)) return; var f = readF(); if (k802.every(function (k) { return String(f[k] || "") === String((S.f || {})[k] || ""); })) return; S.f = f; S.off = 0; load(); };
+  var on802 = function (e) { if (OFF803(me) || !e.target || !e.target.name || e.isComposing) return; clearTimeout(t802r); t802r = setTimeout(go802, e.target.name === "q" ? 280 : 0); };
+  fo.addEventListener("input", on802); fo.addEventListener("change", on802); fo.addEventListener("compositionend", on802);
+  fo.addEventListener("change", function (e) { if (OFF803(me)) return; if (e.target.name === "company_id" || e.target.name === "status") { S.f = readF(); S.off = 0; load(); } });
+  root.addEventListener("change", function (e) { if (OFF803(me)) return; if (e.target.matches("[data-lim]")) { S.lim = Number(e.target.value) || 20; S.off = 0; load(); } });
+  root.addEventListener("keydown", function (e) { if (OFF803(me)) return; var tr = e.target.closest && e.target.closest("tr[data-i]"); if (tr && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); S.lastTr = tr; detail(S.rows[Number(tr.dataset.i)]); } });
   root.addEventListener("click", function (e) {
-    if (S !== me) return;
+    if (OFF803(me)) return;
     if (e.target.closest("[data-lk]")) return;   /* ลิงก์ JOB No. = ทำงานเดิม */
     var b = e.target.closest("button");
     if (!b) { var tr = e.target.closest("tr[data-i]"); if (tr && root.contains(tr) && !(window.getSelection && String(window.getSelection()).trim())) { S.lastTr = tr; detail(S.rows[Number(tr.dataset.i)]); } return; }
@@ -305,7 +320,7 @@ async function render(root, args) {
     if (!x || b.disabled) return;
     if (a === "v") viewFile(x); else if (a === "d") dlFile(x); else if (a === "x") hide(x);
   });
-  window.addEventListener("hashchange", function hc() { if (S !== me) { window.removeEventListener("hashchange", hc); return; } closeDetail(); });
+  window.addEventListener("hashchange", function hc() { if (OFF803(me)) { window.removeEventListener("hashchange", hc); return; } closeDetail(); });
   await load();
 }
 export{render};

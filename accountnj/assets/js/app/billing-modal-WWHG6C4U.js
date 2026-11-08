@@ -315,7 +315,52 @@ function MG567(l, w) {
   } catch (e) { try { console.warn("MG567", e); } catch (_e) {} }
 }
 
-export{De as openBillingModal,tt as renumber,pe as sortByLineNo,et as validateLineNos,UC713,R630};
+export{De as openBillingModal,tt as renumber,pe as sortByLineNo,et as validateLineNos,UC713,R630,PV800,RW800};
+/* ═══ V.800 · FINANCE → RECEIPT / ADVANCE : คลิกแถว = เปิด INVOICE / ใบแจ้งหนี้ ด้วย Preview เดิมของ ACCOUNTING — SERVICE / ADVANCE (อ่านอย่างเดียว)
+   ใช้ชุดเดียวกับปุ่ม 🖨 Print ใน ACCOUNTING (ke) : njacc_invoice_draft_view (H) + njacc_job_detail_billing (Jt) + njacc_print_templates_for_print (Ut)
+   → openInvoiceDoc(…{draft:false · fixedRows 15 · accFilename · whtPositive}) + แถบ Preview เดิม (TB588 : − / 100% / + / Fit · Print / Save PDF / ✕ ปิด · ESC)
+   แบบฟอร์มพิมพ์ = หน้าต่าง "เลือกแบบฟอร์มพิมพ์" เดิม (PK570 · ค่าเริ่มต้นตาม AT652 : MAERSK / APL / Default) เหมือนกด Print ใน ACCOUNTING · ตรวจ Invoice ID ต้องตรงกับแถว + POSTED ไม่ตรง = "ไม่พบใบแจ้งหนี้" (ไม่แสดงใบอื่น)
+   ไม่บันทึก / ไม่แก้ข้อมูล INVOICE · ไม่มี Template / PDF ใหม่ ═══ */
+var PB800 = 0;
+async function PV800({ jobId, invoiceId } = {}) {
+  if (!jobId || !invoiceId) { p("ไม่พบใบแจ้งหนี้", "err"); return !1; }
+  if (PB800) return !1; PB800 = 1; let bc = document.body.style.cursor; document.body.style.cursor = "progress";
+  try {
+    let [n, j, t] = await Promise.all([H(jobId), Jt(jobId).catch(() => null), Ut().catch(() => null)]);
+    if (!n || String(n.id) !== String(invoiceId) || String(n.status || "").toUpperCase() !== "POSTED") { p("ไม่พบใบแจ้งหนี้", "err"); return !1; }
+    let w = String(n.charge_type || (j && j.charge_type) || "").toUpperCase() === "ADVANCE" ? "ADVANCE" : "SERVICE", x = t && t.templates || [], nt = t && t.fields || [];
+    /* หน้าต่าง "เลือกแบบฟอร์มพิมพ์" เดิม (PK570 + AT652) : ตัวเลือก = Default + แบบฟอร์มทั้งหมด (เหมือน #bm-print-tpl) · ลูกค้า = ลูกค้าของ INVOICE */
+    let g = document.createElement("div");
+    g.innerHTML = '<select id="bm-print-tpl"><option value="">Default</option>' + x.map(q => '<option value="' + h(q.id) + '">' + h(q.template_name) + "</option>").join("") + '</select><input id="bmd-cust" type="hidden">';
+    let ci = g.querySelector("#bmd-cust"); ci.dataset.id = n.customer_id || ""; ci.value = n.customer_name || "";
+    let D584 = await import("./invoice-doc-Z7R3FZTL.js");
+    let go = () => {   /* = ke เดิม : Se() → openInvoiceDoc · แถบ Preview เดิม (IV584 / TB588) */
+      let v = g.querySelector("#bm-print-tpl").value, tp = v ? x.find(q => q.id === v) : null;
+      D584.openInvoiceDoc(n, { draft: !1, kind: w, tpl: tp ? { ...tp, fields: nt } : null, job: j, hideDraft: !0, fixedRows: 15, accFilename: !0, whtPositive: !0 });
+      let pv = document.getElementById("nj-modal");
+      if (pv) { pv.classList.add("iv587", "pv800"); TB588(pv);
+        let shut = () => { let c = pv.querySelector(".modal-f [data-close]") || pv.querySelector("[data-close]"); c ? c.click() : pv.remove(); },
+          kd = e => { if (e.key === "Escape" && pv.isConnected) { e.preventDefault(); e.stopImmediatePropagation(); shut(); } };
+        window.addEventListener("keydown", kd, !0);
+        let hx = pv.querySelector(".modal-h .iv587-x"); hx && (hx.onclick = e => { e.preventDefault(); e.stopPropagation(); shut(); });
+        let mo = new MutationObserver(() => { if (pv.isConnected) return; mo.disconnect(); window.removeEventListener("keydown", kd, !0); }); mo.observe(document.body, { childList: !0 }); }
+    };
+    PK570(g, null, go);
+    return !0;
+  } catch (e) {
+    /MODULE_FORBIDDEN|NJACC_FORBIDDEN/.test(String(e && (e.message || e.code) || e)) ? p("ไม่มีสิทธิ์เปิดใบแจ้งหนี้ (ต้องมีสิทธิ์ ACCOUNTING)", "err") : S(e); return !1;
+  } finally { PB800 = 0; document.body.style.cursor = bc; }
+}
+/* คลิกแถว (ทุกพื้นที่) ยกเว้น Checkbox / ปุ่ม / ลิงก์ / ช่องกรอก / เมนูจัดการ · ลากเลือกข้อความ = ไม่เปิด */
+function RW800(ev, tr) {
+  if (!tr || ev.defaultPrevented || ev.button > 0) return !1;
+  if (ev.target.closest("button, a, input, select, textarea, label, [data-act], [data-rowmenu], .row-menu, .col-sel, .col-act")) return !1;
+  try { let sl = window.getSelection && String(window.getSelection() || ""); if (sl.trim()) return !1; } catch (e) {}
+  let inv = tr.dataset.inv || "", job = tr.dataset.job800 || tr.dataset.row || "";
+  if (!inv) { p("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E19\u0E35\u0E49", "err"); return !0; }
+  PV800({ jobId: job, invoiceId: inv }); return !0;
+}
+
 /* V.570 \u00B7 ACCOUNTING \u2014 SERVICE / ADVANCE \u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E2D\u0E2D\u0E01\u0E27\u0E32\u0E07\u0E1A\u0E34\u0E25 : \u0E01\u0E25\u0E38\u0E48\u0E21 "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A / \u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01"
    HD570 : \u0E0B\u0E48\u0E2D\u0E19\u0E1B\u0E38\u0E48\u0E21 EXCEL EXPORT (#bm-xls \u00B7 \u0E1B\u0E38\u0E48\u0E21/Handler \u0E40\u0E14\u0E34\u0E21\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E04\u0E23\u0E1A \u0E41\u0E04\u0E48\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07) \u0E41\u0E25\u0E30 Dropdown \u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E1B\u0E23\u0E34\u0E49\u0E19 (#bm-print-tpl \u00B7 \u0E43\u0E0A\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E1E\u0E34\u0E21\u0E1E\u0E4C) \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E19\u0E35\u0E49
    PK570 : \u0E01\u0E14 \u{1F5A8} Print \u2192 \u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21 (\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E1A Dropdown \u0E40\u0E14\u0E34\u0E21 = \u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01 njacc_print_templates_for_print)

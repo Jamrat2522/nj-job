@@ -207,23 +207,24 @@ function listHTML() {
   return S.rows.map(rowHTML).join("") + (S.rows.length < S.total ? '<button type="button" class="aq7-more" data-more>โหลดเพิ่ม (' + S.rows.length + "/" + S.total + ")</button>" : "");
 }
 function paint() {
-  if (!S || !S.root.isConnected) return;
+  if (!S || !S.root.isConnected || (S.el && !S.el.isConnected)) return;   /* V.803 */
+  var q802 = S.root.querySelector("[data-q]"), v802 = q802 ? q802.value : null;   /* V.802 : ข้อความในช่องค้นหา (ที่พิมพ์ต่อระหว่างโหลด) คงไว้หลังวาดใหม่ */
   var c = S.root.querySelector(".aq7-c"), n = S.root.querySelector(".aq7-nav"), f = document.activeElement && document.activeElement.matches && document.activeElement.matches("[data-q]");
   if (n) n.innerHTML = navHTML();
-  if (c) { c.innerHTML = bodyHTML(); if (f) { var q = c.querySelector("[data-q]"); q && (q.focus(), q.setSelectionRange(q.value.length, q.value.length)); } }
+  if (c) { c.innerHTML = bodyHTML(); if (v802 != null) { var q8 = c.querySelector("[data-q]"); q8 && q8.value !== v802 && (q8.value = v802); } if (f) { var q = c.querySelector("[data-q]"); q && (q.focus(), q.setSelectionRange(q.value.length, q.value.length)); } }
 }
 async function load(reset) {
   if (!S) return;
-  var my = ++S.seq;
+  var S0 = S, my = ++S.seq;   /* V.803 : ผลของรอบก่อน (ออก / เข้าหน้าใหม่) ไม่ทับรอบใหม่ */
   if (reset) { S.off = 0; S.rows = []; S.total = 0; }
   S.loading = !0; S.err = ""; reset && paint();
   try {
     var r = await rpc("njacc_adv701_list", { p: { tab: S.tab, sub: S.sub, q: S.q, limit: LIM, offset: S.off } });
-    if (my !== S.seq) return;
+    if (S !== S0 || my !== S.seq) return;
     S.counts = r && r.counts || S.counts; S.total = r && r.total || 0;
     S.rows = S.rows.concat((r && r.rows) || []); S.off = S.rows.length;
     badgeSet(S.counts);
-  } catch (e) { if (my !== S.seq) return; S.err = errMsg(e); }
+  } catch (e) { if (S !== S0 || my !== S.seq) return; S.err = errMsg(e); }
   S.loading = !1; paint();
 }
 
@@ -391,14 +392,15 @@ function badge() {
   run(); setInterval(run, 12e4); document.addEventListener("visibilitychange", function () { document.hidden || run(); });
 }
 
+function OFF803(m) { return S !== m || !(m && m.el && m.el.isConnected); }   /* V.803 : หน้าที่ออกไปแล้ว (State เก่า / Element หน้าเดิมไม่อยู่ในจอ) = ไม่รับ Event */
 async function render(root, args) {
   css(); args = args || {};
   closeSheet();
   S = { root: root, tab: /^(HOME|PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "HOME", sub: "ALL", q: "", rows: [], total: 0, off: 0, counts: null, seq: 0, err: "", loading: !1, sheet: null };
   root.innerHTML = '<div class="aq7"><div class="aq7-h"><div class="t"><b>CASH ADVANCE</b><small>อนุมัติ · จ่ายเงิน · INVOICE ADV · SUPER_ADMIN</small></div><button type="button" class="aq7-rf" data-rf aria-label="โหลดใหม่">' + IC.rf + "</button>" + (window.__NJ_MOBILE ? '<button type="button" class="aq7-rf" data-lo aria-label="ออกจากระบบ" title="ออกจากระบบ">' + IC.lo + "</button>" : "") + '</div><div class="aq7-c"></div><nav class="aq7-nav"></nav></div>';
-  var me = S, tq = 0;
+  var me = S, tq = 0; me.el = root.firstElementChild;   /* V.803 */
   root.addEventListener("click", function (e) {
-    if (S !== me) return;
+    if (OFF803(me)) return;
     var b = e.target.closest("button"); if (!b) return;
     if (b.hasAttribute("data-rf")) { load(!0); return; }
     if (b.hasAttribute("data-lo")) { b.disabled = !0; closeSheet(); import("./logout-OTS2ADOE.js").then(function (m) { m.doLogout(); }, function () { b.disabled = !1; }); return; }
@@ -410,16 +412,16 @@ async function render(root, args) {
     if (b.dataset.job) { openJob(b.dataset.job); return; }
   });
   root.addEventListener("input", function (e) {
-    if (S !== me || !e.target.matches("[data-q]")) return;
-    clearTimeout(tq); var v = e.target.value; tq = setTimeout(function () { if (S !== me) return; S.q = v.trim(); load(!0); }, 350);
+    if (OFF803(me) || !e.target.matches("[data-q]")) return;
+    clearTimeout(tq); var v = e.target.value; tq = setTimeout(function () { if (OFF803(me)) return; S.q = v.trim(); load(!0); }, 280);   /* V.802 */
   });
-  window.addEventListener("hashchange", function hc() { if (S !== me) { window.removeEventListener("hashchange", hc); return; } closeSheet(); });
+  window.addEventListener("hashchange", function hc() { if (OFF803(me)) { window.removeEventListener("hashchange", hc); return; } closeSheet(); });
   paint();
   await load(!0);
   args.job && openJob(String(args.job));
   /* ตรวจรายการใหม่ทุก 60 วินาที (เฉพาะเมื่อหน้านี้เปิดอยู่และมองเห็น) */
   var tk = setInterval(function () {
-    if (S !== me || !root.isConnected || !root.querySelector(".aq7")) { clearInterval(tk); if (S === me) closeSheet(); return; }
+    if (OFF803(me) || !root.isConnected || !root.querySelector(".aq7")) { clearInterval(tk); if (S === me) closeSheet(); return; }
     if (document.hidden || S.sheet || S.loading || S.off > LIM) return;
     load(!0);
   }, 6e4);

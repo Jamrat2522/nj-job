@@ -264,23 +264,23 @@ function pages() {   /* V.705 : เลขหน้า */
   return a.map(function (p) { return p === "…" ? "<span>…</span>" : '<button type="button" class="pn' + (p === c ? " on" : "") + '" data-pg="' + p + '">' + p + "</button>"; }).join("");
 }
 function paint() {
-  if (!S || !S.root.isConnected) return;
+  if (!S || !S.root.isConnected || (S.el && !S.el.isConnected)) return;   /* V.803 */
   var t = S.root.querySelector("[data-tabs]"), u = S.root.querySelector("[data-sub]"), b = S.root.querySelector("[data-body]"), l = S.root.querySelector("[data-dlb]"), sm = S.root.querySelector("[data-sum]"), ro = S.root.querySelector("[data-ro]");
   t && (t.innerHTML = tabsHTML()); sm && (sm.innerHTML = sumHTML()); b && (b.innerHTML = bodyHTML()); l && (l.textContent = TABS[S.tab][1]); ro && (ro.hidden = S.sup);
 }
 async function load() {
   if (!S) return;
-  var my = ++S.seq; S.loading = !0; S.err = ""; paint();
+  var S0 = S, my = ++S.seq;   /* V.803 : ผลของรอบก่อน (ออก / เข้าหน้าใหม่) ไม่ทับรอบใหม่ */ S.loading = !0; S.err = ""; paint();
   try {
     var r = await rpc("njacc_cash_adv704_list", { p: params(S.lim, S.off) });
-    if (my !== S.seq) return;
+    if (S !== S0 || my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && r.options && (S.opt = r.options, S.root.querySelector("[data-f]") && S.root.querySelector("[data-f]").__ca760s && S.root.querySelector("[data-f]").__ca760s());   /* V.760 */ r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
     var bm = null; try { bm = S.rows.length ? await bill719(S.rows) : {}; } catch (e7) { bm = null; }   /* V.719 : โหลดไม่ได้ (ยังไม่รัน RUN-719) = แสดง "-" รายการเดิมยังใช้ได้ */
-    if (my !== S.seq) return;
+    if (S !== S0 || my !== S.seq) return;
     S.bill = bm;
     if (!S.rows.length && S.off > 0 && S.total > 0) { S.off = Math.max(0, Math.floor((S.total - 1) / S.lim) * S.lim); S.loading = !1; return load(); }
     S.sup && !(S.f.date_from || S.f.date_to || S.f.job_no || S.f.company || S.f.customer || S.f.hbl || S.f.q || S.f.company_x || S.f.customer_x || S.f.ptype || S.f.inv_no || S.f.billed) && badgeSet(S.counts); BG774();   /* V.774 */
-  } catch (e) { if (my !== S.seq) return; S.rows = []; S.total = 0; S.err = errMsg(e); }
+  } catch (e) { if (S !== S0 || my !== S.seq) return; S.rows = []; S.total = 0; S.err = errMsg(e); }
   S.loading = !1; paint();
 }
 
@@ -559,6 +559,7 @@ async function quickSlip(b) {
     await openView(job); var s = document.querySelector(".ca7-dw .ca24-slip.has, .ca7-dw .ca7-sl"); s && s.scrollIntoView({ block: "nearest" }); }
   catch (e) { b.disabled = !1; toast(errMsg(e), "err"); }
 }
+function OFF803(m) { return S !== m || !(m && m.el && m.el.isConnected); }   /* V.803 : หน้าที่ออกไปแล้ว (State เก่า / Element หน้าเดิมไม่อยู่ในจอ) = ไม่รับ Event */
 async function render(root, args) {
   args = args || {};
   if (typeof window !== "undefined" && window.__NJ_MOBILE) { var mm = await import("./adv-approve-K7Q2M701.js"); return mm.render(root, args); }   /* มือถือ = CASH ADVANCE Mobile View (Bottom Navigation 4 เมนู) */
@@ -566,11 +567,16 @@ async function render(root, args) {
   S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: { billed: CA774D }, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
   args.tab === "INV" && (S.tab = "APPROVED");   /* V.706 : ลิงก์เดิม tab=INV → อนุมัติแล้ว */
   root.innerHTML = shell();
-  var me = S, fo = root.querySelector("[data-f]"); CA760(fo);   /* V.760 */
+  var me = S, fo = root.querySelector("[data-f]"); me.el = root.firstElementChild;   /* V.803 */ CA760(fo);   /* V.760 */
   var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl", "company_x", "customer_x", "ptype", "inv_no", "billed"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
-  fo.addEventListener("submit", function (e) { e.preventDefault(); if (S !== me) return; S.f = readF(); S.off = 0; load(); });
+  fo.addEventListener("submit", function (e) { e.preventDefault(); if (OFF803(me)) return; S.f = readF(); S.off = 0; load(); });
+  /* V.802 : ค้นหา Real-Time — ช่องพิมพ์ (JOB No. / House B/L / INVOICE AD) Debounce 280 ms · Dropdown / วันที่ = ทันที → ตัวกรองเดิม (readF) · หน้า 1 · load() เดิม ภายในแท็บสถานะปัจจุบัน (กันผลเก่าด้วย S.seq เดิม) · เงื่อนไขไม่เปลี่ยน = ไม่เรียกซ้ำ */
+  var t802r = 0, k802 = ["date_from", "date_to", "job_no", "company", "customer", "hbl", "company_x", "customer_x", "ptype", "inv_no", "billed"];
+  var go802 = function () { t802r = 0; if (OFF803(me)) return; var f = readF(); if (k802.every(function (k) { return String(f[k] || "") === String((S.f || {})[k] || ""); })) return; S.f = f; S.off = 0; load(); };
+  var on802 = function (e) { if (OFF803(me) || !e.target || !e.target.name || e.isComposing) return; clearTimeout(t802r); t802r = setTimeout(go802, e.target.type === "text" || e.target.type === "search" || (e.target.tagName === "INPUT" && !e.target.type) ? 280 : 0); };
+  fo.addEventListener("input", on802); fo.addEventListener("change", on802); fo.addEventListener("compositionend", on802);
   root.addEventListener("click", function (e) {
-    if (S !== me) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm) && !(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 : แตะชื่อ (จอสัมผัส) · V.722 : เมาส์ = Tooltip + คลิกแถว */
+    if (OFF803(me)) return; var nm = e.target.closest && e.target.closest(".ca7-nm[data-full]"); if (nm && root.contains(nm) && !(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) { toast(nm.dataset.full, "ok"); return; }   /* V.720 : แตะชื่อ (จอสัมผัส) · V.722 : เมาส์ = Tooltip + คลิกแถว */
     var b = e.target.closest("button");
     if (!b) { var tr7 = e.target.closest && e.target.closest(".ca7-t tbody tr[data-row]"); if (tr7 && root.contains(tr7) && !e.target.closest("a,input,select,textarea,label") && !(window.getSelection && String(window.getSelection()).trim())) { openView(tr7.dataset.row); } return; }   /* V.722 : คลิกแถว (ไม่รวมปุ่ม / ลิงก์ / การลากเลือกข้อความ) */
     if (!root.contains(b)) return;
@@ -586,9 +592,9 @@ async function render(root, args) {
     if (b.dataset.qapv || b.dataset.qrej || b.dataset.qpay) { quick(b); return; }
     if (b.dataset.qsv || b.dataset.qsd) { quickSlip(b); return; }
   });
-  root.addEventListener("change", function (e) { if (S !== me || !e.target.matches("[data-lim]")) return; S.lim = Number(e.target.value) || 20; S.off = 0; load(); });
-  window.addEventListener("hashchange", function hc() { if (S !== me) { window.removeEventListener("hashchange", hc); return; } closeView(); });
-  document.addEventListener("keydown", function kd(e) { if (S !== me) { document.removeEventListener("keydown", kd); return; } if (e.key === "Escape" && !S.busy) closeView(); });
+  root.addEventListener("change", function (e) { if (OFF803(me) || !e.target.matches("[data-lim]")) return; S.lim = Number(e.target.value) || 20; S.off = 0; load(); });
+  window.addEventListener("hashchange", function hc() { if (OFF803(me)) { window.removeEventListener("hashchange", hc); return; } closeView(); });
+  document.addEventListener("keydown", function kd(e) { if (OFF803(me)) { document.removeEventListener("keydown", kd); return; } if (e.key === "Escape" && !S.busy) closeView(); });
   if (args.job) {   /* เปิดจาก DOCUMENT → ADVANCE (#/cash-advance?job=…) : เลือกแท็บตามสถานะจริง แล้วเปิดรายละเอียด JOB */
     try {
       var g = await rpc("njacc_cash_adv705_get", { p_job: String(args.job) }); var st = g && g.req && g.req.status; if (st) S.tab = st === "PAID" ? "APPROVED" : st;
@@ -598,7 +604,7 @@ async function render(root, args) {
   args.job && S === me && openView(String(args.job));
   /* ตรวจรายการใหม่ทุก 60 วินาที (เฉพาะเมื่อหน้านี้เปิดอยู่และมองเห็น · ไม่รบกวนขณะเปิดรายละเอียด) */
   var tk = setInterval(function () {
-    if (S !== me || !root.isConnected || !root.querySelector(".ca7")) { clearInterval(tk); return; }
+    if (OFF803(me) || !root.isConnected || !root.querySelector(".ca7")) { clearInterval(tk); return; }
     if (document.hidden || S.loading || S.busy || document.querySelector(".ca7-dw")) return;
     load();
   }, 6e4);
@@ -689,7 +695,7 @@ function CA760(fo) {
         var e = ls.querySelector(".ca760-it.sel"); e && (ls.scrollTop = Math.max(0, e.offsetTop - (ls.clientHeight - e.offsetHeight) / 2));
         document.addEventListener("mousedown", out, !0); addEventListener("scroll", scl, !0); addEventListener("resize", rsz); (s || tg).focus();
       };
-      var pick = function (v) { hid.value = v; sync(); close(!0); };
+      var pick = function (v) { var o802 = hid.value; hid.value = v; sync(); close(!0); o802 !== v && hid.dispatchEvent(new Event("change", { bubbles: !0 }));   /* V.802 : เลือก = ค้นหาทันที */ };
       var key = function (ev) {
         var K = ev.key;
         if (K === "ArrowDown" || K === "ArrowUp") { ev.preventDefault(); if (pan.hidden) return open(); vis.length && mark((act + (K === "ArrowDown" ? 1 : -1) + vis.length) % vis.length); }
