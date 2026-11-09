@@ -1750,16 +1750,16 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
           <div class="mode-banner-icon">🟢</div>
           <div>
             <div class="mode-banner-title">ตรวจสอบใบขน EDC1 FZ</div>
-            <div class="mode-banner-desc">ตรวจสอบใบขนขาออก EDC1 FZ เทียบใบขน PZAF กับ MAPPING INVOICE และ INVOICE ต้นฉบับ<br>ใบขน PZAF = MASTER หลัก · MAPPING INVOICE = จับคู่ ITEM / ตรวจยอด · INVOICE = ข้อมูลอ้างอิง · MASTER 📘 พิกัด = Stat Code</div>
-            <div class="mode-banner-tag">EDC1 · FREE ZONE · PZAF + MAPPING INVOICE + INVOICE</div>
+            <div class="mode-banner-desc">ตรวจสอบใบขนขาออก EDC1 FZ เทียบใบขน PZAF กับ INVOICE และ ENTRY ก่อนทำ MAPPING (ไม่ต้องทำ MAPPING เอง)<br>ใบขน PZAF = MASTER หลัก · INVOICE = Commercial Invoice · ENTRY ก่อน MAPPING = จับคู่ ITEM / QTY / คำนวณ NW · MASTER 📘 พิกัด = Stat Code</div>
+            <div class="mode-banner-tag">EDC1 · FREE ZONE · PZAF + INVOICE + ENTRY</div>
           </div>
         </div>
         <div class="mode-flow">
           <span class="flow-step">① ใบขน PZAF</span>
           <span class="flow-arrow">›</span>
-          <span class="flow-step">② MAPPING INVOICE</span>
+          <span class="flow-step">② INVOICE</span>
           <span class="flow-arrow">›</span>
-          <span class="flow-step">③ INVOICE</span>
+          <span class="flow-step">③ ENTRY ก่อน MAPPING</span>
           <span class="flow-arrow">›</span>
           <span class="flow-step action">🔍 ตรวจสอบ</span>
         </div>
@@ -1787,28 +1787,10 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
               <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">MASTER หลัก — ยึด Item line ของใบขน PZAF เป็นตัวตั้ง</div>
             </div>
 
-            <!-- 2. INVOICE FILE -->
-            <div class="upload-col dz-opt">
-              <div class="step-header mode-edc1fz">
-                <span class="step-num">2</span>
-                <span class="step-title">MAPPING INVOICE</span>
-                <span class="step-opt">แนะนำ</span>
-              </div>
-              <input type="file" id="fzInvoiceInput" accept=".xlsx,.xls,.ods" multiple style="display:none" />
-              <div class="drop-zone" id="fzInvoiceDZ" style="min-height:126px;">
-                <button class="dz-del-btn" id="fzInvoiceDZDel" onclick="event.stopPropagation();fzClearSlot('invoice');this.classList.remove('show')">✕</button>
-                <div class="drop-icon-box">⬆</div>
-                <div class="drop-label" style="font-size:12px">วางไฟล์ MAPPING INVOICE ที่นี่</div>
-                <div class="drop-hint">.xlsx / .xls / .ods · รองรับหลายไฟล์</div>
-                <div class="drop-fn" id="fzInvoiceFn">📄 <span id="fzInvoiceFnTxt"></span></div>
-              </div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">จับคู่ ITEM (Sl. No · item · Export entry type D · Invoice Out) และตรวจยอด (อัปโหลดได้หลายไฟล์)</div>
-            </div>
-
-            <!-- 3. EXPORT MAPPING EXCEL -->
+            <!-- 2. INVOICE (Commercial Invoice ต้นฉบับ) -->
             <div class="upload-col dz-req">
               <div class="step-header mode-edc1fz">
-                <span class="step-num">3</span>
+                <span class="step-num">2</span>
                 <span class="step-title">INVOICE</span>
                 <span class="step-req">Required</span>
               </div>
@@ -1817,27 +1799,43 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
                 <button class="dz-del-btn" id="fordInvFzDZDel" onclick="event.stopPropagation();fordInvReset('fordInvFzDZ','fordInvFzInput','fordInvFzFn',null);document.getElementById('fordInvFzDZDel').classList.remove('show')">✕</button>
                 <div class="drop-icon-box" style="font-size:18px">📄</div>
                 <div class="drop-label" style="font-size:12px">วางไฟล์ INVOICE ต้นฉบับ ที่นี่</div>
-                <div class="drop-hint">.xlsx / .xls — รองรับหลายไฟล์ (Ford / Invoice / Mapping) → ระบบรวมเป็นไฟล์เดียวผ่าน "🔨 Build Mapping Excel"</div>
+                <div class="drop-hint">.xlsx / .xls · Commercial Invoice ต้นฉบับ (Sheet INVOICE / RACK. / CBM.) · รองรับหลายไฟล์</div>
                 <div class="drop-fn" id="fordInvFzFn">📄 <span id="fordInvFzFnTxt"></span></div>
               </div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">
-ใช้ตรวจ Header fields — INVOICE NO. · DATE SHIPPED · PACKAGE · N.W · GW. · AMOUNT · SHIPPING MARK
-<br><span style="color:#c4b5fd">💡 ถ้าไฟล์เป็น Ford Commercial Invoice → กด "🔨 Build Mapping Excel" เพื่อสร้าง Mapping ก่อน</span>
-</div>
+              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">ข้อมูลอ้างอิง — PART NO. · DESCRIPTION · PART QTY · TERM · Consignee · ยอดรวม PACKAGE / N.W / G.W / AMOUNT</div>
+            </div>
+
+            <!-- 3. ENTRY ก่อนทำ MAPPING -->
+            <div class="upload-col dz-req">
+              <div class="step-header mode-edc1fz">
+                <span class="step-num">3</span>
+                <span class="step-title">ENTRY ก่อน MAPPING</span>
+                <span class="step-req">Required</span>
+              </div>
+              <input type="file" id="fzInvoiceInput" accept=".xlsx,.xls,.ods" multiple style="display:none" />
+              <div class="drop-zone" id="fzInvoiceDZ" style="min-height:126px;">
+                <button class="dz-del-btn" id="fzInvoiceDZDel" onclick="event.stopPropagation();fzClearSlot('invoice');this.classList.remove('show')">✕</button>
+                <div class="drop-icon-box">⬆</div>
+                <div class="drop-label" style="font-size:12px">วางไฟล์ ENTRY ก่อนทำ MAPPING ที่นี่</div>
+                <div class="drop-hint">.xlsx / .xls / .ods · รองรับหลายไฟล์</div>
+                <div class="drop-fn" id="fzInvoiceFn">📄 <span id="fzInvoiceFnTxt"></span></div>
+              </div>
+              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">จับคู่ ITEM (Sl. No · item · Export entry type D · Invoice Out) · ตรวจ QTY · คำนวณ NW = QTY × Weight/Unit (อัปโหลดได้หลายไฟล์)</div>
             </div>
 
           </div>
           <!-- EDC1 FZ Action Bar (รูปแบบ EDC8: อยู่ในกรอบฟอร์ม · ปุ่มหลัก ตรวจสอบ + EXPORT) -->
           <div class="action-bar fz-main-bar" style="margin-top:14px">
             <button class="btn btn-green" id="fzCheckBtn" onclick="fzRunCheck()">🔍 ตรวจสอบ</button>
-            <button class="btn btn-export ui-btn-blue" id="fzExportMainBtn" onclick="fzExport()">⬇ EXPORT (.xlsx)</button>
+            <button class="btn btn-export ui-btn-blue" id="fzExportMainBtn" onclick="fzExport()">⬇ EXPORT EXCEL</button>
+            <button class="btn btn-export ui-btn-teal" id="fzExportNwBtn" onclick="edc1fzV2ExportNw()" title="Excel รูปแบบ MAPPING Invoice (Sheet Invoice) + NW (สูตร ROUND) + สกุลเงิน">⬇ EXPORT NW</button>
           </div>
           <!-- ปุ่มตรวจสอบเปิดเมื่อมีไฟล์ที่ Backend บังคับ (fzRunCheck: Entry File) -->
-          <div id="fzBtnHint" style="display:none;font-size:11px;color:var(--text-3);margin-top:6px">⚠ กรุณาอัปโหลดไฟล์ Entry ก่อน — ปุ่มตรวจสอบจะเปิดใช้งานอัตโนมัติ</div>
+          <div id="fzBtnHint" style="display:none;font-size:11px;color:var(--text-3);margin-top:6px">⚠ กรุณาอัปโหลดให้ครบ 3 ไฟล์ (ใบขน PZAF · INVOICE · ENTRY ก่อน MAPPING) — ปุ่มตรวจสอบจะเปิดใช้งานอัตโนมัติ</div>
 
           <div style="margin-top:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-2);line-height:1.7">
-            <strong style="color:var(--text)">📋 Field ที่ตรวจ:</strong> INVOICE · DATE SHIPPED · PACKAGE · N.W · GW · AMOUNT · SHIPPING MARK
-            — <em>Header ตรวจจาก Export Mapping Excel เท่านั้น / Item ตรวจจาก Invoice File เท่านั้น / Ford raw invoice ไม่ใช้สำหรับ validation</em>
+            <strong style="color:var(--text)">📋 หัวข้อที่ตรวจ:</strong> FIX EDC1 FZ · Stat Code (MASTER 📘 พิกัด) · จับคู่ ITEM / QTY / NW (ENTRY ก่อน MAPPING) · PART NO. · DESCRIPTION · PART QTY · TERM · Consignee · ยอดรวม (INVOICE)
+            — <em>ใบขน PZAF = MASTER · ค่า INVOICE / ENTRY ใช้เปรียบเทียบเท่านั้น (ไม่เขียนทับใบขน)</em>
           </div>
         </div>
       </div>
@@ -2308,7 +2306,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local274';
+const EDCAPL_VERSION = 'local275';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6865,7 +6863,26 @@ const EDC1FZ_V2_COLS = {
   stat:['stat'], term:['term'], consignee:['consignee'], natur:['naturetran'], prodyear:['prodyear'], origin:['origin'], purc:['purcountry'], dest:['ประเทศปลายทาง'], type:['type'],
   dtype:['ประเภทใบขน'], exporter:['exporter name'], brand:['brand'], unitPrice:['unit price'], amount:['amount'], amountThb:['amount thb'], totThb:['total amountthb','total amount thb']
 };
-let edc1fzV2Last = null;
+let edc1fzV2Last = null, edc1fzV2Busy = false;
+/* [EDC1 FZ] local275: NW = ROUND(QTY × Weight/Unit, 2) แบบ ROUND HALF UP ด้วยจำนวนเต็ม (BigInt · ไม่ใช้ทศนิยม JS) · ไม่ปัด Weight/Unit ก่อนคูณ → คืนค่าเป็น "สตางค์" (cents) */
+function edc1fzDec(v){ let s = typeof v === 'number' ? (Number.isFinite(v) ? String(v) : '') : String(v==null?'':v).replace(/,/g,'').trim();
+  if(/e/i.test(s)){ const n = Number(s); if(!Number.isFinite(n)) return null; s = n.toFixed(15).replace(/0+$/,'').replace(/\.$/,''); }
+  if(!/^-?\d+(\.\d+)?$/.test(s)) return null; const neg = s[0] === '-'; if(neg) s = s.slice(1); const parts = s.split('.'), f = parts[1] || '';
+  return { m: BigInt(parts[0] + f) * (neg ? -1n : 1n), sc: f.length }; }
+function edc1fzMulRound2(a, b){ const x = edc1fzDec(a), y = edc1fzDec(b); if(!x || !y) return null; let p = x.m * y.m; const sc = x.sc + y.sc;
+  if(sc <= 2) return p * (10n ** BigInt(2 - sc)); const d = 10n ** BigInt(sc - 2), neg = p < 0n; if(neg) p = -p; let q = p / d; if((p % d) * 2n >= d) q += 1n; return neg ? -q : q; }
+function edc1fzCents(c){ if(c === null || c === undefined) return '-'; const neg = c < 0n, a = neg ? -c : c, i = a / 100n, f = a % 100n;
+  return (neg ? '-' : '') + i.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + f.toString().padStart(2, '0'); }
+/* [EDC1 FZ] local275: SOURCE LOCK ใหม่ — PZAF = MASTER · INVOICE = Commercial Invoice · ENTRY ก่อน MAPPING = จับคู่ / QTY / NW · Engine เดียว = edc1fzV2Run */
+const EDC1FZ_V2_SOURCE_LOCK = Object.freeze({ MASTER:'PZAF', INVOICE:'COMMERCIAL_INVOICE', ENTRY:'ENTRY_BEFORE_MAPPING', ENGINE:'edc1fzV2Run' });
+function assertEdc1FzV2SourceLock(){ const L = EDC1FZ_V2_SOURCE_LOCK;
+  if(L.MASTER !== 'PZAF') throw new Error('EDC1 FZ SOURCE LOCK: MASTER ต้องเป็นใบขน PZAF');
+  if(L.ENGINE !== 'edc1fzV2Run' || typeof edc1fzV2Run !== 'function') throw new Error('EDC1 FZ SOURCE LOCK: Engine ตรวจสอบต้องเป็น edc1fzV2Run ชุดเดียว'); }
+/* เปลี่ยน / ล้างไฟล์ใดไฟล์หนึ่ง → ล้างผลตรวจเดิม (ห้าม EXPORT ผลเก่า) + อัปเดตปุ่มตรวจสอบ */
+function edc1fzV2OnFilesChanged(){ if(edc1fzV2Busy) return; edc1fzV2Last = null;
+  try{ fzLastFull = null; fzLastAllErrors = []; }catch(_){}
+  try{ if(fzResultBox) fzResultBox.style.display = 'none'; if(fzRBody) fzRBody.innerHTML = ''; if(fzRTitle) fzRTitle.textContent = ''; }catch(_){}
+  try{ fzUpdateCheckBtn(); }catch(_){} }
 function edc1fzV2Run(){
   const S = v => String(v==null?'':v), T = v => S(v).replace(/ /g,' ').trim(), U = v => T(v).toUpperCase().replace(/\s+/g,' ');
   const NH = v => T(v).toLowerCase().replace(/\s+/g,' ');
@@ -6893,18 +6910,24 @@ function edc1fzV2Run(){
     .sort((a,b) => (/^\d+$/.test(a.key) && /^\d+$/.test(b.key)) ? (+a.key - +b.key) : S(a.key).localeCompare(S(b.key)));
   /* ── ② MAPPING INVOICE ── */
   const mapFiles = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles && _fzInvoiceFiles.length) ? _fzInvoiceFiles : (fzInvoiceWb ? [{ name:'MAPPING', wb:fzInvoiceWb }] : []);
-  const mapRows = [], mapNames = [];
+  const mapRows = [], mapNames = []; let mapHasCur = false, mapNoWpu = false;
   mapFiles.forEach(f => { if(!f || !f.wb) return; mapNames.push(f.name||'');
     const rows = XLSX.utils.sheet_to_json(f.wb.Sheets[f.wb.SheetNames[0]], { header:1, defval:'', raw:false });
     let hi = -1; for(let r=0; r<Math.min(rows.length,12); r++){ const h = (rows[r]||[]).map(NH); if(h.includes('sl. no') || (h.includes('item') && h.includes('part no.'))){ hi = r; break; } }
     if(hi < 0) return;
     let dShip = ''; for(let r=0; r<hi; r++){ const rr = rows[r]||[]; for(let c=0; c<rr.length; c++){ if(/date\s*shipped/i.test(S(rr[c]))){ const m = S(rr[c]).match(/date\s*shipped(?:\s*:)?\s*([^\s:].*)$/i); dShip = (m && T(m[1])) || T((rr.slice(c+1).find(x => T(x)!=='')) || ''); break; } } if(dShip) break; }
+    const rowsRaw = XLSX.utils.sheet_to_json(f.wb.Sheets[f.wb.SheetNames[0]], { header:1, defval:'', raw:true });   /* ค่าดิบ QTY / Weight/Unit (ไม่ปัดตาม Number Format) */
     const h = (rows[hi]||[]).map(NH), mc = names => { for(const n of names){ const i = h.indexOf(NH(n)); if(i !== -1) return i; } return -1; };
     const M = { sl:mc(['Sl. No','Sl No','Sl.No']), desc:mc(['Description']), part:mc(['PART NO.','PART NO']), qty:mc(['Qty']), unit:mc(['Unit']), price:mc(['Price/Unit']), invNo:mc(['Invoice no.']),
-                item:mc(['item']), entD:mc(['Export entry type D']), invOut:mc(['Invoice Out']), prod:mc(['Product Code']), nw:mc(['NW']), cur:mc(['สกุลเงิน','Currency']) };
+                item:mc(['item']), entD:mc(['Export entry type D']), invOut:mc(['Invoice Out']), prod:mc(['Product Code']), wpu:mc(['Weight/Unit','Weight / Unit']), cur:mc(['สกุลเงิน','Currency']) };
+    if(M.cur !== -1) mapHasCur = true; if(M.wpu === -1) mapNoWpu = true;
     rows.slice(hi+1).forEach((r, j) => { if(!r || r.every(c => T(c)==='')) return; const first = U(r[0]); if(first === 'TOTAL' || /^TOTAL/.test(first)) return;
       const g = k => M[k] === -1 ? '' : T(r[M[k]]); if(!g('part') && !g('prod') && !g('sl')) return;
-      mapRows.push({ file:f.name||'', excelRow:hi+j+2, sl:g('sl'), desc:g('desc'), part:g('part'), qty:g('qty'), price:g('price'), invNo:g('invNo'), item:g('item'), entD:g('entD'), invOut:g('invOut'), prod:g('prod'), nw:g('nw'), cur:g('cur'), date:dShip }); }); });
+      const rr = rowsRaw[hi+1+j] || [], qRaw = M.qty === -1 ? '' : rr[M.qty], wRaw = M.wpu === -1 ? '' : rr[M.wpu];
+      const qD = edc1fzDec(qRaw), wD = edc1fzDec(wRaw), nwC = (qD && wD && qD.m > 0n && wD.m > 0n) ? edc1fzMulRound2(qRaw, wRaw) : null;
+      const nwErr = nwC !== null ? '' : (M.wpu === -1 ? 'ENTRY ไม่มีคอลัมน์ Weight/Unit' : (!qD || qD.m <= 0n ? 'QTY ใน ENTRY ไม่ใช่ตัวเลขที่มากกว่า 0 ('+(S(qRaw)||'ว่าง')+')' : 'Weight/Unit ใน ENTRY ไม่ใช่ตัวเลขที่มากกว่า 0 ('+(S(wRaw)||'ว่าง')+')'));
+      mapRows.push({ file:f.name||'', excelRow:hi+j+2, sl:g('sl'), desc:g('desc'), part:g('part'), qty:g('qty'), price:g('price'), invNo:g('invNo'), item:g('item'), entD:g('entD'), invOut:g('invOut'), prod:g('prod'), cur:g('cur'), date:dShip,
+        qRaw, wRaw, nwC, nwErr }); }); });
   const hasMap = mapRows.length > 0;
   /* ── ③ INVOICE ต้นฉบับ (Ford) ── */
   const det = new Map(), invNames = [];
@@ -6934,7 +6957,7 @@ function edc1fzV2Run(){
     if(good) ok(item, topic, o); else bad(item, topic, o);
   };
   /* ไฟล์อ้างอิง (บังคับก่อน PASS) */
-  if(!hasMap) na(FILE, 'MAPPING INVOICE (ไฟล์)', {}, mapFiles.length ? 'อ่านแถวรายการจากไฟล์ MAPPING INVOICE ไม่ได้' : 'ไม่มีไฟล์ MAPPING INVOICE — ตรวจหัวข้อที่เทียบ MAPPING ไม่ได้');
+  if(!hasMap) na(FILE, 'ENTRY ก่อน MAPPING (ไฟล์)', {}, mapFiles.length ? 'อ่านแถวรายการจากไฟล์ ENTRY ก่อน MAPPING ไม่ได้' : 'ไม่มีไฟล์ ENTRY ก่อน MAPPING — ตรวจ QTY / จับคู่ / คำนวณ NW ไม่ได้');
   if(!hasInv) na(FILE, 'INVOICE (ไฟล์)', {}, invNames.length ? 'อ่านไฟล์ INVOICE ต้นฉบับไม่ได้' : 'ไม่มีไฟล์ INVOICE — ตรวจหัวข้อที่เทียบ INVOICE ไม่ได้');
   na(FILE, 'HS CODE / tariffclas', { apl:DASH }, 'ยังไม่มีกฎ MASTER APL สำหรับ EDC1 FZ (ไม่นำ MASTER AAT / FTM มาใช้แทน)');
   na(FILE, 'MASTER ไม่พบ PART NO.', { apl:DASH }, 'ยังไม่มี MASTER APL สำหรับ EDC1 FZ');
@@ -6982,19 +7005,21 @@ function edc1fzV2Run(){
       else na(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)' }, r.reason); }
     /* MAPPING INVOICE */
     if(hasMap){ const mm = match.get(it.key);
-      if(!mm) bad(I, 'ITEM (จับคู่ MAPPING)', { decl:'Item line '+it.raw }, 'ไม่พบ ITEM ที่ตรงกัน');
-      else if(mm.dup) bad(I, 'ITEM (จับคู่ MAPPING)', { decl:'Item line '+it.raw }, 'พบข้อมูลซ้ำ ไม่สามารถระบุแถวที่ถูกต้อง ('+mm.n+' แถว)');
+      if(!mm) bad(I, 'ITEM (จับคู่ ENTRY)', { decl:'Item line '+it.raw }, 'ไม่พบ ITEM ที่ตรงกัน');
+      else if(mm.dup) bad(I, 'ITEM (จับคู่ ENTRY)', { decl:'Item line '+it.raw }, 'พบข้อมูลซ้ำ ไม่สามารถระบุแถวที่ถูกต้อง ('+mm.n+' แถว)');
       else { const m = mm.m;
         if(nKey(m.sl) === it.key) ok(I, 'ITEM LINE / Sl. No', { decl:it.raw, inv:m.sl }); else bad(I, 'ITEM LINE / Sl. No', { decl:it.raw, inv:m.sl || '(ว่าง)' });
-        if(needCol('line','Line enry')) cmp(I, 'Line enry', cell(row,'line'), m.item, 'inv', 'num', 'MAPPING ไม่มีค่า item');
-        if(needCol('entD','Export entry type D')) cmp(I, 'Export entry type D', cell(row,'entD'), m.entD, 'inv', 'text', 'MAPPING ไม่มีค่า Export entry type D');
-        if(needCol('part','PART NO. (MAPPING)')) cmp(I, 'PART NO. (MAPPING)', cell(row,'part'), m.part, 'inv', 'part', 'MAPPING ไม่มีค่า PART NO.');
-        if(needCol('prod','Product Code (MAPPING)')) cmp(I, 'Product Code (MAPPING)', cell(row,'prod'), m.prod, 'inv', 'part', 'MAPPING ไม่มีค่า Product Code');
-        if(needCol('inv','INVOICE NO. (MAPPING)')) cmp(I, 'INVOICE NO. (MAPPING)', cell(row,'inv'), m.invOut, 'inv', 'text', 'MAPPING ไม่มีค่า Invoice Out');
-        if(needCol('qty','QTY (MAPPING)')) cmp(I, 'QTY (MAPPING)', cell(row,'qty'), m.qty, 'inv', 'num', 'MAPPING ไม่มีค่า Qty');
-        if(needCol('desc','DESCRIPTION (MAPPING)')) cmp(I, 'DESCRIPTION (MAPPING)', cell(row,'desc'), m.desc, 'inv', 'text', 'MAPPING ไม่มีค่า Description');
-        if(needCol('date','DATE SHIPPED (MAPPING)')) cmp(I, 'DATE SHIPPED (MAPPING)', cell(row,'date'), m.date, 'inv', 'date', 'MAPPING ไม่มี Date Shipped');
-        if(needCol('cur','Currency (MAPPING)')) cmp(I, 'Currency (MAPPING)', cell(row,'cur'), m.cur, 'inv', 'text', 'MAPPING ไม่มีค่าสกุลเงิน'); } }
+        if(needCol('line','Line enry')) cmp(I, 'Line enry', cell(row,'line'), m.item, 'inv', 'num', 'ENTRY ไม่มีค่า item');
+        if(needCol('entD','Export entry type D')) cmp(I, 'Export entry type D', cell(row,'entD'), m.entD, 'inv', 'text', 'ENTRY ไม่มีค่า Export entry type D');
+        if(needCol('part','PART NO. (ENTRY)')) cmp(I, 'PART NO. (ENTRY)', cell(row,'part'), m.part, 'inv', 'part', 'ENTRY ไม่มีค่า PART NO.');
+        if(needCol('prod','Product Code (ENTRY)')) cmp(I, 'Product Code (ENTRY)', cell(row,'prod'), m.prod, 'inv', 'part', 'ENTRY ไม่มีค่า Product Code');
+        if(needCol('inv','INVOICE NO. (ENTRY)')) cmp(I, 'INVOICE NO. (ENTRY)', cell(row,'inv'), m.invOut, 'inv', 'text', 'ENTRY ไม่มีค่า Invoice Out');
+        if(needCol('qty','QTY (ENTRY)')) cmp(I, 'QTY (ENTRY)', cell(row,'qty'), m.qty, 'inv', 'num', 'ENTRY ไม่มีค่า Qty');
+        if(needCol('desc','DESCRIPTION (ENTRY)')) cmp(I, 'DESCRIPTION (ENTRY)', cell(row,'desc'), m.desc, 'inv', 'text', 'ENTRY ไม่มีค่า Description');
+        if(needCol('date','DATE SHIPPED (ENTRY)')) cmp(I, 'DATE SHIPPED (ENTRY)', cell(row,'date'), m.date, 'inv', 'date', 'ENTRY ไม่มี Date Shipped');
+        if(mapHasCur && needCol('cur','Currency (ENTRY)')) cmp(I, 'Currency (ENTRY)', cell(row,'cur'), m.cur, 'inv', 'text', 'ENTRY ไม่มีค่าสกุลเงิน');
+        /* NW ราย ITEM = ผลคำนวณจาก ENTRY (ใบขนมีเฉพาะ total N.W → ยืนยันกับใบขนที่ระดับ TOTAL เท่านั้น · ไม่เทียบยอดรวมกับ ITEM ทีละแถว) */
+        if(m.nwC !== null) ok(I, 'NW (คำนวณ ENTRY)', { decl:DASH, inv:S(m.qRaw)+' × '+S(m.wRaw)+' = '+edc1fzCents(m.nwC) }); else bad(I, 'NW (คำนวณ ENTRY)', { decl:DASH, inv:S(m.qRaw||'(ว่าง)')+' × '+S(m.wRaw||'(ว่าง)') }, m.nwErr); } }
     /* INVOICE ต้นฉบับ */
     if(hasInv){ const ivRaw = cell(row,'inv'), d = det.get(nInv(ivRaw));
       if(!d) bad(I, 'INVOICE (ไฟล์)', { decl:ivRaw || '(ว่าง)', inv:'INVOICE ที่อัปโหลด: '+[...det.values()].map(x => x.invoiceNo).join(', ') }, 'ไม่พบไฟล์ INVOICE เลขที่นี้');
@@ -7009,7 +7034,7 @@ function edc1fzV2Run(){
             else { /* ผิด: ฟ้อง ITEM ที่ QTY ต่างจาก MAPPING (ระบุได้) · ระบุไม่ได้ → ทุก ITEM ของ PART นี้ */
               const qOff = x => { const mm = match.get(x.key); return !!(mm && mm.m && num(mm.m.qty) !== null && Math.abs((num(cell(x.row,'qty')) || 0) - num(mm.m.qty)) >= 0.005); };
               const culprits = ps ? ps.its.filter(qOff) : [];
-              if(!culprits.length || culprits.indexOf(it) !== -1) bad(I, 'PART QTY (INVOICE)', o, 'ผลรวม QTY ของ PART ในใบขนไม่ตรง PART QTY ใน INVOICE'+(culprits.length ? ' (QTY ITEM นี้ต่างจาก MAPPING)' : '')); } } }
+              if(!culprits.length || culprits.indexOf(it) !== -1) bad(I, 'PART QTY (INVOICE)', o, 'ผลรวม QTY ของ PART ในใบขนไม่ตรง PART QTY ใน INVOICE'+(culprits.length ? ' (QTY ITEM นี้ต่างจาก ENTRY)' : '')); } } }
         if(needCol('date','DATE SHIPPED (INVOICE)')) cmp(I, 'DATE SHIPPED (INVOICE)', cell(row,'date'), (d.meta && d.meta.dateShipped) || null, 'inv', 'date', 'อ่าน DATE SHIPPED จาก INVOICE ไม่ได้');
         if(needCol('cur','Currency (INVOICE)')) cmp(I, 'Currency (INVOICE)', cell(row,'cur'), d.currency || null, 'inv', 'text', 'อ่านสกุลเงินจาก INVOICE ไม่ได้');
         if(needCol('mark','SHIPPING MARK')) cmp(I, 'SHIPPING MARK', cell(row,'mark'), d.shippingMark || (d.meta && d.meta.shippingMark) || null, 'inv', 'text', 'อ่าน SHIPPING MARK จาก INVOICE ไม่ได้');
@@ -7030,9 +7055,14 @@ function edc1fzV2Run(){
       const o = { decl:fmtN(ev)+' ('+list+')', inv: ref==null ? DASH : fmtN(ref) }; if(ref == null){ na(L, topic, o, why); return; }
       if(Math.abs(ev - ref) < 0.005) ok(L, topic, o); else { o.inv = fmtN(ref)+' (ผลต่าง '+(ev-ref>0?'+':'')+fmtN(r2(ev-ref))+')'; bad(L, topic, o); } };
     if(hasMap){ const mr = mapRows.filter(m => nInv(m.invOut) === k);
-      if(!mr.length) bad(L, 'INVOICE NO. (MAPPING)', { decl:g.raw || '(ว่าง)', inv:'(ไม่พบ Invoice Out นี้ใน MAPPING)' }, 'ไม่พบ INVOICE ใน MAPPING');
-      else { totNum('QTY รวม (MAPPING)', sumQty, r2(mr.reduce((a,m) => a + (num(m.qty) || 0), 0)));
-        totNum('Total N.W (MAPPING)', tNw, mr.some(m => num(m.nw) !== null) ? r2(mr.reduce((a,m) => a + (num(m.nw) || 0), 0)) : null, 'MAPPING ไม่มีค่า NW'); } }
+      if(!mr.length) bad(L, 'INVOICE NO. (ENTRY)', { decl:g.raw || '(ว่าง)', inv:'(ไม่พบ Invoice Out นี้ใน ENTRY ก่อน MAPPING)' }, 'ไม่พบ INVOICE ใน ENTRY');
+      else { totNum('QTY รวม (ENTRY)', sumQty, r2(mr.reduce((a,m) => a + (num(m.qty) || 0), 0)));
+        /* Total N.W: Σ NW ราย ITEM ที่ปัดแล้ว (ENTRY คำนวณ) ↔ total N.W ของใบขน (ไม่บวกซ้ำ) */
+        const badNw = mr.filter(m => m.nwC === null), nwSum = badNw.length ? null : mr.reduce((a,m) => a + m.nwC, 0n);
+        if(tNw === null) na(L, 'Total N.W (ENTRY คำนวณ)', { decl:'(ใบขนไม่มีข้อมูล)', inv: nwSum === null ? DASH : edc1fzCents(nwSum) }, 'ใบขนไม่มีคอลัมน์ / ค่า total N.W');
+        else if(nwSum === null) na(L, 'Total N.W (ENTRY คำนวณ)', { decl:fmtN(tNw)+' ('+list+')' }, 'คำนวณ NW ไม่ได้ '+badNw.length+' แถว (Sl. No '+badNw.map(m => m.sl || '-').join(', ')+')');
+        else { const pzC = edc1fzMulRound2(String(tNw), '1'), o = { decl:edc1fzCents(pzC)+' ('+list+')', inv:edc1fzCents(nwSum)+' (Σ NW '+mr.length+' แถว)' };
+          if(pzC === nwSum) ok(L, 'Total N.W (ENTRY คำนวณ)', o); else { o.inv += ' · ผลต่าง '+edc1fzCents(pzC - nwSum); bad(L, 'Total N.W (ENTRY คำนวณ)', o, 'total N.W ใบขนไม่ตรงผลรวม NW ที่คำนวณจาก ENTRY'); } } } }
     if(hasInv){ const d = det.get(k);
       if(d){ const mt = d.meta || {};
         totNum('QTY รวม (INVOICE)', sumQty, r2((d.items||[]).reduce((a,x) => a + (+x.partQty||0), 0)));
@@ -7058,11 +7088,14 @@ function edc1fzV2Run(){
     shippingMark: cell(firstRow,'mark'), dwakFile: T(pzName), invFile: invNames.join(', '), mapFile: mapNames.join(', '), checkedAt: new Date(), items: items.length, pass: passItems.length,
     fail: failItems.size, na: 0, naItems: naItems.size, points: badRows.length, filePoints: badRows.filter(r => !itemOrder.has(r.item)).length, passItems, status,
     failTopics: [...new Set(badRows.map(r => r.field))], naTopics: [...new Set(naRows.map(r => r.field))], matched: [...match.values()].filter(x => x.m).length };
-  edc1fzV2Last = { rows:R, meta, bad:badRows, ok:okRows, warn:naRows };
+  const curByInv = {}; items.forEach(it => { const k = nInv(cell(it.row,'inv')); if(k && !curByInv[k] && cell(it.row,'cur')) curByInv[k] = cell(it.row,'cur'); });
+  const nwTable = mapRows.map(m => ({ file:m.file, sl:m.sl, invOut:m.invOut, qRaw:m.qRaw, wRaw:m.wRaw, nwC:m.nwC, nwErr:m.nwErr, item:(items.find(it => { const mm = match.get(it.key); return mm && mm.m === m; }) || {}).disp || '' }));
+  edc1fzV2Last = { rows:R, meta, bad:badRows, ok:okRows, warn:naRows, curByInv, nwTable };
   fzLastFull = null; fzLastAllErrors = badRows;
   edc1fzV2Render(edc1fzV2Last);
 }
 function edc1fzV2Render(res){
+  const fmtNw = v => (+v).toLocaleString('en-US', { maximumFractionDigits:6 });
   const m = res.meta, e = v => String(v==null?'':v).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   const isErr = m.status === 'FAIL', partial = m.status === 'PARTIAL';
   fzApplyStyle(fzResultBox, fzResultHead, fzRDot, fzRTitle, isErr);
@@ -7073,7 +7106,7 @@ function edc1fzV2Render(res){
   const c = (cls, t) => '<div class="stat-chip '+cls+'">'+t+'</div>';
   let h = '<div class="kdc-chips e8k-chips fz-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','EDC1 FZ · Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+
     (m.filePoints ? c('err','❌ ระดับไฟล์ / INVOICE '+m.filePoints+' จุด (ไม่นับเป็น ITEM)') : '')+c('warn','❌ '+m.points+' จุด')+c('err','❌ ผิด '+m.failTopics.length+' หัวข้อ')+c('warn','⚠️ ตรวจไม่ได้ '+m.naTopics.length+' หัวข้อ')+
-    (m.invoiceNo ? c('ok','INVOICE '+e(m.invoiceNo)) : '')+c('ok','จับคู่ MAPPING '+m.matched+' / '+m.items+' item')+'</div>';
+    (m.invoiceNo ? c('ok','INVOICE '+e(m.invoiceNo)) : '')+c('ok','จับคู่ ENTRY '+m.matched+' / '+m.items+' item')+'</div>';
   const TABS = [['bad','❌ รายการผิด',res.bad.length],['ok','✅ รายการถูก',res.ok.length],['na','⚠️ ตรวจไม่ได้',res.warn.length],['all','ทั้งหมด',res.rows.length]];
   h += '<div class="fz-tabs" role="tablist">'+TABS.map(t => '<button type="button" class="fz-tab fz-tab-'+t[0]+(t[0]==='bad' ? ' active' : '')+'" data-f="'+t[0]+'" role="tab" onclick="fzFilterRows(this.dataset.f)">'+t[1]+' <span class="fz-tab-n">'+t[2]+'</span></button>').join('')+'</div>';
   h += '<div class="e8k-wrap"><table class="e8k-grid fz-full e8k-8c"><colgroup><col style="width:11%"><col style="width:15%"><col style="width:14%"><col style="width:14%"><col style="width:11%"><col style="width:11%"><col style="width:12%"><col style="width:12%"></colgroup><thead>'+
@@ -7083,7 +7116,12 @@ function edc1fzV2Render(res){
     h += '<tr class="e8k-row fz-full-row" data-st="'+st+'"><td class="td-item">'+e(r.item)+(/^\d{5}$/.test(r.item) ? ' <span class="e8k-cnt">('+r.count+')</span>' : '')+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-act'+(st==='ok' ? ' fz-v-ok' : '')+'">'+e(r.decl)+'</td><td class="e8k-exp">'+e(r.inv)+'</td><td class="e8k-fix">'+e(r.fix)+'</td><td class="e8k-exp">'+e(r.trf)+'</td><td class="e8k-exp">'+e(r.apl)+'</td>'+
       '<td><span class="e8k-badge'+(st==='ok' ? ' e8k-ok' : (st==='na' ? ' e8k-warn' : ''))+'">'+e(r.st)+'</span></td></tr>'; });
   h += '</tbody></table><div class="fz-empty" style="display:none"></div></div>';
-  h += '<div style="margin-top:8px;font-size:11.5px;color:#64748b">ใบขน PZAF '+e(m.dwakFile||'-')+' (MASTER) · MAPPING INVOICE '+e(m.mapFile||'-')+' · INVOICE '+e(m.invFile||'-')+'</div>';
+  { const nt = (res.nwTable||[]); if(nt.length){ let tot = 0n, okAll = true; nt.forEach(x => { if(x.nwC === null) okAll = false; else tot += x.nwC; });
+    h += '<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">⚖️ NW คำนวณจาก ENTRY ก่อน MAPPING <span style="font-weight:400;font-size:12px;color:#64748b">(NW = ROUND(QTY × Weight/Unit, 2) · ROUND HALF UP · รวมจาก NW ราย ITEM ที่ปัดแล้ว)</span></div>'+
+      '<div class="e8k-wrap"><table class="e8k-grid fz-nw"><colgroup><col style="width:14%"><col style="width:10%"><col style="width:20%"><col style="width:16%"><col style="width:16%"><col style="width:24%"></colgroup><thead><tr><th>Item No. (PZAF)</th><th>Sl. No</th><th>Invoice Out</th><th>QTY</th><th>Weight/Unit</th><th>NW (KG)</th></tr></thead><tbody>'+
+      nt.map(x => '<tr class="e8k-row"><td class="td-item">'+e(x.item || '(ไม่จับคู่)')+'</td><td>'+e(x.sl)+'</td><td>'+e(x.invOut)+'</td><td>'+e(x.qRaw)+'</td><td>'+e(x.wRaw)+'</td><td class="'+(x.nwC === null ? 'e8k-act' : 'e8k-exp')+'">'+(x.nwC === null ? '❌ '+e(x.nwErr) : e(edc1fzCents(x.nwC)))+'</td></tr>').join('')+
+      '<tr class="e8k-row" style="font-weight:700"><td class="td-col" colspan="3">TOTAL</td><td>'+e(fmtNw(nt.reduce((a,x) => a + (parseFloat(String(x.qRaw).replace(/,/g,'')) || 0), 0)))+'</td><td></td><td class="td-col">'+(okAll ? e(edc1fzCents(tot)) : '⚠️ คำนวณไม่ครบ')+'</td></tr></tbody></table></div>'; } }
+  h += '<div style="margin-top:8px;font-size:11.5px;color:#64748b">ใบขน PZAF '+e(m.dwakFile||'-')+' (MASTER) · INVOICE '+e(m.invFile||'-')+' · ENTRY ก่อน MAPPING '+e(m.mapFile||'-')+'</div>';
   fzRBody.innerHTML = h; fzFilterRows('bad'); fzResultBox.style.display = 'block';
   try{ fzExportBtn.disabled = false; }catch(_){}
   try{ fzResultBox.scrollIntoView({ behavior:'smooth', block:'nearest' }); }catch(_){}
@@ -7098,14 +7136,14 @@ async function edc1fzV2BuildExcel(res){
     const put = (r,c,v,s) => { while(aoa.length <= r) aoa.push([]); aoa[r][c] = v; if(s) sm[r+':'+c] = s; };
     const fillRow = (r,s,from,to) => { for(let c=from; c<=to; c++){ if(aoa[r]===undefined || aoa[r][c]===undefined) put(r,c,'',s); else sm[r+':'+c] = s; } };
     const mg = (r1,c1,r2,c2) => merges.push({ s:{ r:r1, c:c1 }, e:{ r:r2, c:c2 } });
-    put(0,0,'EDC1 FZ',X.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า · ใบขน PZAF (MASTER) · INVOICE · MAPPING INVOICE · MASTER 📘 พิกัด',X.SUB); mg(0,2,0,7); rowsH[0] = 36;
+    put(0,0,'EDC1 FZ',X.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า · ใบขน PZAF (MASTER) · INVOICE · ENTRY ก่อน MAPPING · MASTER 📘 พิกัด',X.SUB); mg(0,2,0,7); rowsH[0] = 36;
     const hdr = [['Job No.',m.jobNo,'วันที่ตรวจสอบ',kdcDateTH(m.checkedAt)],['INVOICE NO.',m.invoiceNo,'ไฟล์ใบขน PZAF',m.dwakFile],['Customer',m.customer,'ไฟล์ INVOICE',m.invFile],
-                 ['Company',m.company,'ไฟล์ MAPPING INVOICE',m.mapFile],['Shipping Mark',m.shippingMark,'จำนวนรายการ',String(m.items)],['','','สรุปผล',null]];
+                 ['Company',m.company,'ไฟล์ ENTRY ก่อน MAPPING',m.mapFile],['Shipping Mark',m.shippingMark,'จำนวนรายการ',String(m.items)],['','','สรุปผล',null]];
     hdr.forEach((hh,i) => { const r = i+1; rowsH[r] = 22; put(r,0,hh[0],X.LBL); mg(r,0,r,1); put(r,1,'',X.LBL); put(r,2,S(hh[1]),X.VAL); mg(r,2,r,3); put(r,3,'',X.VAL); put(r,4,hh[2],X.LBL);
       if(hh[3] === null){ put(r,5,'ถูกต้อง  '+m.pass+' item',X.OKSUM); put(r,6,'ผิด  '+m.fail+' item',X.BADSUM); put(r,7,'รวม  '+m.items+' item · '+m.points+' จุด'+(m.filePoints ? '  (ระดับไฟล์ / INVOICE '+m.filePoints+' จุด)' : '')+'  · ผลรวม '+S(m.status)+(m.naTopics.length ? ' (ตรวจไม่ได้ '+m.naTopics.length+' หัวข้อ)' : ''),X.TOTSUM); }
       else { put(r,5,S(hh[3]),X.VAL); mg(r,5,r,7); put(r,6,'',X.VAL); put(r,7,'',X.VAL); } });
     let r = 8;
-    if(kind === 'ok'){ const okG = m.passItems.length ? [{ field:'ใบขน EDC1 FZ ผ่านทุกหัวข้อตรวจ', item:kdcFmtItems(m.passItems), act:'-', exp:'INVOICE / MAPPING INVOICE / ค่าฟิก / MASTER พิกัด', note:'ไม่พบข้อผิดพลาดใน Item' }] : [];
+    if(kind === 'ok'){ const okG = m.passItems.length ? [{ field:'ใบขน EDC1 FZ ผ่านทุกหัวข้อตรวจ', item:kdcFmtItems(m.passItems), act:'-', exp:'INVOICE / ENTRY ก่อน MAPPING / ค่าฟิก / MASTER พิกัด', note:'ไม่พบข้อผิดพลาดใน Item' }] : [];
       put(r,0,'✓  1. ข้อมูลที่ถูกต้อง',X.SECOK); fillRow(r,X.SECOK,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+okG.length+' แถว · '+m.pass+' item',X.SECOKR); fillRow(r,X.SECOKR,5,7); mg(r,5,r,7); rowsH[r] = 28; r++;
       ['No.','หัวข้อตรวจสอบ','Item No.','Actual (ใบขน PZAF)','Expected (FIX/INVOICE/MASTER)','หน่วย','ผลตรวจ','หมายเหตุ'].forEach((cc,i) => put(r,i,cc,X.HDROK)); rowsH[r] = 22; r++;
       okG.forEach((x,i) => { put(r,0,i+1,X.CELL_C); put(r,1,x.field,X.CELL_L); put(r,2,x.item,X.CELL_L); put(r,3,x.act,X.CELL_L); put(r,4,x.exp,X.CELL_L); put(r,5,'',X.CELL_C); put(r,6,'ถูกต้อง',X.ST_OK); put(r,7,x.note,X.CELL_L); r++; });
@@ -7132,6 +7170,55 @@ function edc1fzV2Export(){
     .catch(err => alert('Export ไม่สำเร็จ: '+(err && err.message || err)));
 }
 
+
+/* [EDC1 FZ] local275: EXPORT NW — รูปแบบ "MAPPING Invoice_xxx.xlsx" (Sheet Invoice) จากไฟล์ ENTRY ก่อน MAPPING ต้นฉบับ (คงคอลัมน์ B–N + รูปแบบเดิม)
+   + O = NW (สูตร =ROUND(Qty×Weight/Unit,2) พร้อมค่าผลลัพธ์) · P = สกุลเงิน (จากใบขน PZAF ตาม INVOICE NO.) · แถว TOTAL = ROUND(SUM(..),2) · #,##0.00
+   ใช้ผลตรวจล่าสุดเท่านั้น (เปลี่ยนไฟล์ → ผลถูกล้าง) · ค่าที่คำนวณในไฟล์ต้องตรงกับผลบนหน้าจอทุกแถว ไม่ตรง = ยกเลิก EXPORT */
+async function edc1fzV2ExportNw(){
+  const res = edc1fzV2Last; if(!res){ alert('⚠ ยังไม่มีผลตรวจล่าสุด — กรุณากดตรวจสอบก่อน EXPORT NW'); return; }
+  const files = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles) ? _fzInvoiceFiles.filter(f => f && f.file) : [];
+  if(!files.length){ alert('⚠ ไม่พบไฟล์ ENTRY ก่อน MAPPING ต้นฉบับ — กรุณาอัปโหลดใหม่'); return; }
+  if(!(await hspmEnsureExcel()) || !window.ExcelJS){ alert('⚠ โหลดตัวสร้าง Excel ไม่ได้ — ลองใหม่อีกครั้ง'); return; }
+  const S = v => String(v==null?'':v).trim(), nInv = v => S(v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase(), cv = c => { const v = c && c.value; return v && typeof v === 'object' ? (v.result !== undefined ? v.result : (v.richText ? v.richText.map(t => t.text).join('') : (v.text || ''))) : v; };
+  for(const f of files){
+    try{
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await f.file.arrayBuffer());
+      const ws = wb.getWorksheet('Invoice') || wb.worksheets[0]; if(!ws) throw new Error('ไม่พบ Sheet');
+      let hr = 0; ws.eachRow((row, rn) => { if(!hr){ let hit = false; row.eachCell(c => { if(/^sl\.?\s*no\.?$/i.test(S(cv(c)))) hit = true; }); if(hit) hr = rn; } });
+      if(!hr) throw new Error('ไม่พบหัวตาราง "Sl. No"');
+      const H = {}; let lastCol = 0; ws.getRow(hr).eachCell((c, cn) => { const t = S(cv(c)).toLowerCase(); if(t){ H[t] = cn; lastCol = Math.max(lastCol, cn); } });
+      const cQty = H['qty'], cWpu = H['weight/unit'], cOut = H['invoice out'], cSl = H['sl. no'] || H['sl no'] || H['sl.no'];
+      if(!cQty || !cWpu) throw new Error('ไม่พบคอลัมน์ Qty / Weight/Unit');
+      const cNw = lastCol + 1, cCur = lastCol + 2, L = n => ws.getColumn(n).letter;
+      const hdrStyle = JSON.parse(JSON.stringify(ws.getCell(hr, lastCol).style || {}));
+      ws.getCell(hr, cNw).value = 'NW'; ws.getCell(hr, cNw).style = JSON.parse(JSON.stringify(hdrStyle));
+      ws.getCell(hr, cCur).value = 'สกุลเงิน'; ws.getCell(hr, cCur).style = JSON.parse(JSON.stringify(hdrStyle));
+      let first = 0, last = 0, totRow = 0; const firstCol = Math.min(...Object.values(H)), mine = (res.nwTable || []).filter(x => x.file === f.name);
+      let invNo = '';
+      for(let r = hr + 1; r <= ws.rowCount; r++){
+        const label = S(cv(ws.getCell(r, firstCol))); if(/^total/i.test(label)){ totRow = r; break; }
+        const q = cv(ws.getCell(r, cQty)), w = cv(ws.getCell(r, cWpu)); if(S(q) === '' && S(w) === '' && S(label) === '') continue;
+        const cents = edc1fzMulRound2(q, w), sl = cSl ? S(cv(ws.getCell(r, cSl))) : '';
+        const ref = mine.find(x => S(x.sl) === sl);
+        if(cents === null) throw new Error('แถว '+r+' (Sl. No '+sl+'): QTY / Weight/Unit ไม่ถูกต้อง — คำนวณ NW ไม่ได้');
+        if(!ref || ref.nwC !== cents) throw new Error('แถว '+r+' (Sl. No '+sl+'): ผลคำนวณไม่ตรงกับผลตรวจล่าสุด — กรุณากดตรวจสอบใหม่');
+        const out = cOut ? S(cv(ws.getCell(r, cOut))) : ''; if(!invNo && out) invNo = out;
+        const base = JSON.parse(JSON.stringify(ws.getCell(r, lastCol).style || {}));
+        const nc = ws.getCell(r, cNw); nc.value = { formula:'ROUND('+L(cQty)+r+'*'+L(cWpu)+r+',2)', result: Number(cents) / 100 }; nc.style = Object.assign({}, base, { numFmt:'#,##0.00' });
+        const cc = ws.getCell(r, cCur); cc.value = (res.curByInv || {})[nInv(out)] || ''; cc.style = JSON.parse(JSON.stringify(base));
+        if(!first) first = r; last = r;
+      }
+      if(!first) throw new Error('ไม่พบแถวรายการ');
+      if(!totRow){ totRow = last + 1; ws.getCell(totRow, firstCol).value = 'Total'; }
+      const total = mine.reduce((a, x) => a + (x.nwC === null ? 0n : x.nwC), 0n);
+      const tc = ws.getCell(totRow, cNw); tc.value = { formula:'ROUND(SUM('+L(cNw)+first+':'+L(cNw)+last+'),2)', result: Number(total) / 100 }; tc.style = Object.assign({}, JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {})), { numFmt:'#,##0.00' });
+      ws.getColumn(cNw).width = 12; ws.getColumn(cCur).width = 10;
+      if(!invNo){ const t = S(cv(ws.getCell(1, firstCol))).match(/(\d{6,})/); invNo = t ? t[1] : 'NW'; }
+      const buf = await wb.xlsx.writeBuffer();
+      safeDownload(buf, 'NW_Invoice_'+invNo+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }catch(err){ alert('EXPORT NW ไม่สำเร็จ ('+(f.name||'')+'): '+(err && err.message || err)); }
+  }
+}
 // Legacy aliases kept for any lingering references (safe — same content)
 const FZ_YELLOW = FZ_GREEN_FIXED;
 const FZ_BROWN  = FZ_BLUE_INVOICE;
@@ -8032,7 +8119,7 @@ function fzLoadInvoiceFiles(fileList){
             errors.push({name: f.name, msg: 'ข้อมูลไม่สมบูรณ์ — ' + fieldSummary});
           } else {
             // attach the resolved colMap so BLUE compare can use shifted column positions
-            loaded.push({name: f.name, wb, colMap: vStruct.colMap || null});
+            loaded.push({name: f.name, wb, colMap: vStruct.colMap || null, file: f});   /* [EDC1 FZ] local275: เก็บไฟล์ต้นฉบับ (EXPORT NW คงรูปแบบเดิม) */
           }
         }
       }
@@ -8731,28 +8818,25 @@ Never continue after failed source gate.
 ═══════════════════════════════════════════════════════════
 */
 /* [EDC1 FZ] ปุ่มตรวจสอบ: เปิดเมื่อมี Entry File (เงื่อนไขเดียวกับ fzRunCheck) · ซ่อน/แสดงคำแนะนำแบบ EDC8 */
-function fzUpdateCheckBtn(){ const b=document.getElementById('fzCheckBtn'), h=document.getElementById('fzBtnHint'); if(!b) return; const ok=!!fzEntryWb; b.disabled=!ok; b.title=ok?'':'กรุณาอัปโหลดไฟล์ Entry ก่อน'; if(h) h.style.display=ok?'none':''; }
-try{ document.addEventListener('DOMContentLoaded', ()=>{ ['fzEntryFn','fzEntryFnTxt'].forEach(id=>{ const el=document.getElementById(id); if(el && window.MutationObserver) new MutationObserver(()=>queueMicrotask(fzUpdateCheckBtn)).observe(el, { attributes:true, childList:true, characterData:true, subtree:true }); }); fzUpdateCheckBtn(); }); }catch(_){}
+function fzUpdateCheckBtn(){ const b=document.getElementById('fzCheckBtn'), h=document.getElementById('fzBtnHint'); if(!b) return;   /* [EDC1 FZ] local275: บังคับครบ 3 ไฟล์ */
+  const hasEntry = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles && _fzInvoiceFiles.length > 0) || !!fzInvoiceWb, hasInv = ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).length > 0;
+  const ok = !!fzEntryWb && hasInv && hasEntry; b.disabled = !ok || edc1fzV2Busy;
+  b.title = ok ? '' : 'กรุณาอัปโหลดให้ครบ: '+[!fzEntryWb?'ใบขน PZAF':'', !hasInv?'INVOICE':'', !hasEntry?'ENTRY ก่อน MAPPING':''].filter(Boolean).join(' · '); if(h) h.style.display = ok ? 'none' : ''; }
+try{ document.addEventListener('DOMContentLoaded', ()=>{ ['fzEntryInput','fzInvoiceInput','fordInvFzInput'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', edc1fzV2OnFilesChanged, true); }); ['fzEntryDZ','fzInvoiceDZ','fordInvFzDZ'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('drop', edc1fzV2OnFilesChanged, true); });   /* [EDC1 FZ] local275: เลือก / วางไฟล์ใหม่ (แม้ชื่อเดิม) → ล้างผลตรวจเดิมทันที */
+  ['fzEntryFn','fzEntryFnTxt','fzInvoiceFn','fzInvoiceFnTxt','fordInvFzFn','fordInvFzFnTxt'].forEach(id=>{ const el=document.getElementById(id); if(el && window.MutationObserver) new MutationObserver(()=>queueMicrotask(edc1fzV2OnFilesChanged)).observe(el, { attributes:true, childList:true, characterData:true, subtree:true }); }); fzUpdateCheckBtn(); }); }catch(_){}
 function fzRunCheck(){
-  // [LOCK 3] source guard before anything else
-  try{
-    assertEdc1FzSourceLock({
-      headerSource:          EDC1FZ_SOURCE_LOCK.HEADER,
-      itemSource:            EDC1FZ_SOURCE_LOCK.ITEM,
-      ruleSource:            EDC1FZ_SOURCE_LOCK.RULE,
-      hasFordValidationPath: false,
-      allowOrLogic:          false,
-      allowFallbackSource:   false
-    });
-  }catch(lockErr){
-    alert('⚠ ' + lockErr.message);
-    return;
-  }
-  if(!fzEntryWb){ alert('⚠ กรุณาอัปโหลดไฟล์ Entry ก่อนตรวจสอบ'); return; }
+  /* [EDC1 FZ] local275: SOURCE LOCK ใหม่ (PZAF = MASTER) · Engine เดียว edc1fzV2Run · กันกดซ้ำระหว่างตรวจ */
+  if(edc1fzV2Busy) return;
+  try{ assertEdc1FzV2SourceLock(); }catch(lockErr){ alert('⚠ ' + lockErr.message); return; }
+  if(!fzEntryWb){ alert('⚠ กรุณาอัปโหลดไฟล์ใบขน PZAF ก่อนตรวจสอบ'); return; }
+  const _hasInv = ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).length > 0, _hasEntry = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles && _fzInvoiceFiles.length > 0) || !!fzInvoiceWb;
+  if(!_hasInv || !_hasEntry){ alert('⚠ กรุณาอัปโหลดให้ครบ 3 ไฟล์: '+[!_hasInv?'INVOICE':'', !_hasEntry?'ENTRY ก่อน MAPPING':''].filter(Boolean).join(' · ')); return; }
+  edc1fzV2Busy = true; try{ fzUpdateCheckBtn(); }catch(_){}
+  const _done = () => { edc1fzV2Busy = false; try{ fzUpdateCheckBtn(); }catch(_){} };
+  const _go = () => { try{ edc1fzV2Run(); } finally { _done(); } };
+  if(typeof trfEnsure === 'function') return trfEnsure().catch(()=>false).then(_go, _go);
+  _go(); return;
   // [📘 พิกัด] โหลด MASTER พิกัดกลาง (Release ล่าสุด) ก่อนตรวจ Stat Code · ผลโหลดไม่ได้ → ระงับเฉพาะ Stat Code (ไม่ PASS)
-  /* [EDC1 FZ] local274: Engine ใหม่ (PZAF = MASTER · รายงาน / EXPORT รูปแบบ EDC8 AAT) */
-  if(typeof trfEnsure === 'function') return trfEnsure().catch(()=>false).then(()=>edc1fzV2Run());
-  edc1fzV2Run();
 }
 function fzExport(){
   if(edc1fzV2Last){ edc1fzV2Export(); return; }   /* [EDC1 FZ] local274 */
@@ -9228,7 +9312,7 @@ function _fzShowReadyMessage(msg, stats){
   const fnTxt = document.getElementById('fordInvFzFnTxt');
   if(fnTxt){
     const _n = (typeof _mfFiles !== 'undefined' && _mfFiles.fordInvFzDZ) ? _mfFiles.fordInvFzDZ.length : 0;
-    fnTxt.textContent = '✅ Mapping พร้อมใช้ (' + _n + ' ไฟล์ → ' + (stats ? stats.rowCount + ' rows, ' + stats.invoiceCount + ' invoice' : 'built') + ')';
+    fnTxt.textContent = '✅ INVOICE พร้อมใช้ (' + _n + ' ไฟล์ · ' + (stats ? stats.rowCount + ' รายการ · ' + stats.invoiceCount + ' invoice' : 'อ่านแล้ว') + ')';   /* [EDC1 FZ] local275: ไม่ต้องทำ MAPPING เอง */
   }
   if(fnEl) fnEl.classList.add('show');
   // 2) Inject a transient banner below the drop zone
@@ -9243,10 +9327,9 @@ function _fzShowReadyMessage(msg, stats){
     }
     banner.innerHTML = '✅ <strong>' + msg + '</strong>' +
       (stats ? '<br><span style="color:var(--text-3);font-size:10px">' +
-        'รวมไฟล์: ' + stats.filesProcessed + ' · Mapping: ' + stats.mappingFiles +
-        ' · Ford: ' + stats.fordFiles +
+        'ไฟล์: ' + stats.filesProcessed + ' · Commercial Invoice: ' + stats.fordFiles +
         (stats.unknownFiles > 0 ? ' · ข้าม: ' + stats.unknownFiles : '') +
-        ' · Invoice: ' + stats.invoiceCount + ' · Rows: ' + stats.rowCount +
+        ' · INVOICE: ' + stats.invoiceCount + ' · รายการ: ' + stats.rowCount +
         (stats.conflicts > 0 ? ' · ⚠ conflicts: ' + stats.conflicts : '') +
         '</span>' : '');
   }
@@ -10026,7 +10109,7 @@ function fordInvLoad(file, dz, btnRow){
               fzMappingIsSource = false;  // cleared — Mapping is now ready
               // Show transient ready message
               _fzShowReadyMessage(
-                'ระบบสร้าง Mapping ให้แล้วและพร้อมใช้ตรวจทันที',
+                'อ่าน INVOICE เรียบร้อย — พร้อมตรวจ',
                 built.stats
               );
             } else {
