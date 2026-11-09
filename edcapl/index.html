@@ -1840,15 +1840,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
         </div>
       </div>
 
-      <!-- EDC1 FZ เครื่องมือเพิ่มเติม (ฟังก์ชันเดิมทั้งหมด — ไม่ลบ) -->
-      <div class="action-bar fz-tools-bar">
-        <span class="fz-tools-lbl">🧰 เครื่องมือเพิ่มเติม</span>
-        <button class="btn btn-export ui-btn-indigo" style="background:rgba(168,85,247,.12);color:#c4b5fd;border-color:rgba(168,85,247,.3)" onclick="fzBuildMappingFromSource()" title="ดาวน์โหลดไฟล์ Mapping Excel ที่ระบบสร้าง (optional — ระบบใช้ตรวจอัตโนมัติอยู่แล้ว)">⬇ Download Mapping</button>
-        <button class="btn btn-export ui-btn-purple" onclick="fzExportMapping()">📊 Export Mapping</button>
-        <button class="btn btn-export ui-btn-teal" style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" onclick="fzExportTotal()">📋 Export TOTAL</button>
-        <button class="btn-reset" onclick="fzReset()">↺ รีเซ็ต</button>
-      </div>
-
+      <!-- [EDC1 FZ] local276: นำแถบเครื่องมือเพิ่มเติมออก (Download Mapping / Export Mapping / Export TOTAL / รีเซ็ต) · ฟังก์ชันภายในคงเดิม -->
       <!-- Result Box -->
       <div id="fzResultBox" style="display:none;border-radius:10px;overflow:hidden;animation:pop .3s cubic-bezier(.34,1.4,.64,1) both">
         <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.04)" id="fzResultHead">
@@ -2306,7 +2298,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local275';
+const EDCAPL_VERSION = 'local276';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6853,6 +6845,8 @@ const EDC1FZ_V2_FIX = [
   { t:'วันที่ออกใบอนุญาต',  k:'issue',    v:'20241114', m:'date' },
   { t:'Tax ID',             k:'tax',      v:'0994000163011', m:'digit' },
 ];
+/* [EDC1 FZ] local276: Consignee Alias (ชื่อบริษัทเดียวกัน · เทียบแบบไม่สนตัวพิมพ์ / ช่องว่างเกิน · เฉพาะคู่ที่กำหนด) */
+const EDC1FZ_V2_CONSIGNEE_ALIAS = [ ['FORD VN', 'FORD VIETNAM LTD'] ];
 const EDC1FZ_V2_RADAR = { name:'เรดาร์', permit:'EXEMPT99', issue:'20171113', tax:'0994000049447' };
 const EDC1FZ_V2_UNIT = [ ['พรมปูพื้นรถยนต์','MTK'], ['ชุดเพลาหน้า','SET'] ];   /* QTY inv / QTY ใบขน · สินค้าอื่น C62 · QTY 2 = EA */
 const EDC1FZ_V2_COLS = {
@@ -6952,6 +6946,7 @@ function edc1fzV2Run(){
     else if(mode === 'digit') good = dig(ev) === dig(ref);
     else if(mode === 'num'){ const a = num(ev), b = num(ref); good = a !== null && b !== null && Math.abs(a-b) < 0.005; if(!good && a !== null && b !== null) o[place] = fmtN(b)+' (ผลต่าง '+(a-b>0?'+':'')+fmtN(r2(a-b))+')'; }
     else if(mode === 'part') good = strictPart(ev) === strictPart(ref);
+    else if(mode === 'consignee') good = U(ev) === U(ref) || EDC1FZ_V2_CONSIGNEE_ALIAS.some(([a, b]) => U(ev) === U(a) && U(ref) === U(b));
     else if(mode === 'alnum'){ const refs = Array.isArray(ref) ? ref : [ref]; const hit = refs.find(x => x && alnum(x) === alnum(ev)); good = !!hit; o[place] = S(hit || refs.filter(Boolean)[0] || DASH); }
     else good = U(ev) === U(ref);
     if(good) ok(item, topic, o); else bad(item, topic, o);
@@ -7039,7 +7034,7 @@ function edc1fzV2Run(){
         if(needCol('cur','Currency (INVOICE)')) cmp(I, 'Currency (INVOICE)', cell(row,'cur'), d.currency || null, 'inv', 'text', 'อ่านสกุลเงินจาก INVOICE ไม่ได้');
         if(needCol('mark','SHIPPING MARK')) cmp(I, 'SHIPPING MARK', cell(row,'mark'), d.shippingMark || (d.meta && d.meta.shippingMark) || null, 'inv', 'text', 'อ่าน SHIPPING MARK จาก INVOICE ไม่ได้');
         if(needCol('term','Term')) cmp(I, 'Term', cell(row,'term'), d.term || null, 'inv', 'text', 'ไม่พบ TERM ใน INVOICE '+d.invoiceNo);
-        if(needCol('consignee','Consignee')) cmp(I, 'Consignee', cell(row,'consignee'), d.consignee || null, 'inv', 'text', 'อ่าน SHIP TO จาก INVOICE ไม่ได้');
+        if(needCol('consignee','Consignee')) cmp(I, 'Consignee', cell(row,'consignee'), d.consignee || null, 'inv', 'consignee', 'อ่าน SHIP TO จาก INVOICE ไม่ได้');
         if(needCol('purc','Purcountry')) cmp(I, 'Purcountry', cell(row,'purc'), d.purCountry || null, 'inv', 'text', 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้');
         if(needCol('dest','ประเทศปลายทาง')) cmp(I, 'ประเทศปลายทาง', cell(row,'dest'), d.destCountry || null, 'inv', 'text', 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้');
         if(needCol('exporter','Exporter Name')) cmp(I, 'Exporter Name', cell(row,'exporter'), (d.exporter || d.shippingMark) ? [d.exporter, d.shippingMark] : null, 'inv', 'alnum', 'อ่าน SHIP FROM จาก INVOICE ไม่ได้'); } }
@@ -7095,7 +7090,6 @@ function edc1fzV2Run(){
   edc1fzV2Render(edc1fzV2Last);
 }
 function edc1fzV2Render(res){
-  const fmtNw = v => (+v).toLocaleString('en-US', { maximumFractionDigits:6 });
   const m = res.meta, e = v => String(v==null?'':v).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   const isErr = m.status === 'FAIL', partial = m.status === 'PARTIAL';
   fzApplyStyle(fzResultBox, fzResultHead, fzRDot, fzRTitle, isErr);
@@ -7116,11 +7110,7 @@ function edc1fzV2Render(res){
     h += '<tr class="e8k-row fz-full-row" data-st="'+st+'"><td class="td-item">'+e(r.item)+(/^\d{5}$/.test(r.item) ? ' <span class="e8k-cnt">('+r.count+')</span>' : '')+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-act'+(st==='ok' ? ' fz-v-ok' : '')+'">'+e(r.decl)+'</td><td class="e8k-exp">'+e(r.inv)+'</td><td class="e8k-fix">'+e(r.fix)+'</td><td class="e8k-exp">'+e(r.trf)+'</td><td class="e8k-exp">'+e(r.apl)+'</td>'+
       '<td><span class="e8k-badge'+(st==='ok' ? ' e8k-ok' : (st==='na' ? ' e8k-warn' : ''))+'">'+e(r.st)+'</span></td></tr>'; });
   h += '</tbody></table><div class="fz-empty" style="display:none"></div></div>';
-  { const nt = (res.nwTable||[]); if(nt.length){ let tot = 0n, okAll = true; nt.forEach(x => { if(x.nwC === null) okAll = false; else tot += x.nwC; });
-    h += '<div class="e8k-sec-h" style="margin:14px 0 8px;font-weight:700;font-size:14px;color:#1e3a5f">⚖️ NW คำนวณจาก ENTRY ก่อน MAPPING <span style="font-weight:400;font-size:12px;color:#64748b">(NW = ROUND(QTY × Weight/Unit, 2) · ROUND HALF UP · รวมจาก NW ราย ITEM ที่ปัดแล้ว)</span></div>'+
-      '<div class="e8k-wrap"><table class="e8k-grid fz-nw"><colgroup><col style="width:14%"><col style="width:10%"><col style="width:20%"><col style="width:16%"><col style="width:16%"><col style="width:24%"></colgroup><thead><tr><th>Item No. (PZAF)</th><th>Sl. No</th><th>Invoice Out</th><th>QTY</th><th>Weight/Unit</th><th>NW (KG)</th></tr></thead><tbody>'+
-      nt.map(x => '<tr class="e8k-row"><td class="td-item">'+e(x.item || '(ไม่จับคู่)')+'</td><td>'+e(x.sl)+'</td><td>'+e(x.invOut)+'</td><td>'+e(x.qRaw)+'</td><td>'+e(x.wRaw)+'</td><td class="'+(x.nwC === null ? 'e8k-act' : 'e8k-exp')+'">'+(x.nwC === null ? '❌ '+e(x.nwErr) : e(edc1fzCents(x.nwC)))+'</td></tr>').join('')+
-      '<tr class="e8k-row" style="font-weight:700"><td class="td-col" colspan="3">TOTAL</td><td>'+e(fmtNw(nt.reduce((a,x) => a + (parseFloat(String(x.qRaw).replace(/,/g,'')) || 0), 0)))+'</td><td></td><td class="td-col">'+(okAll ? e(edc1fzCents(tot)) : '⚠️ คำนวณไม่ครบ')+'</td></tr></tbody></table></div>'; } }
+  /* [EDC1 FZ] local276: ไม่แสดงตารางคำนวณ NW บนหน้าจอ — ดูรายละเอียด NW ผ่านปุ่ม EXPORT NW (ผลคำนวณยังอยู่ใน res.nwTable · ตรวจ Total N.W ตามเดิม) */
   h += '<div style="margin-top:8px;font-size:11.5px;color:#64748b">ใบขน PZAF '+e(m.dwakFile||'-')+' (MASTER) · INVOICE '+e(m.invFile||'-')+' · ENTRY ก่อน MAPPING '+e(m.mapFile||'-')+'</div>';
   fzRBody.innerHTML = h; fzFilterRows('bad'); fzResultBox.style.display = 'block';
   try{ fzExportBtn.disabled = false; }catch(_){}
@@ -13244,6 +13234,10 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc1fz .fz-tools-bar{ margin-top:10px; padding:8px 12px; border:1px dashed #d9e2ec; border-radius:8px; background:#fafcff; flex-wrap:wrap }
 #panel-edc1fz .fz-tools-lbl{ font-size:11.5px; font-weight:700; color:#64748b; margin-right:4px }
 #panel-edc1fz #fzCheckBtn:disabled{ opacity:.55; cursor:not-allowed }
+#panel-edc1fz .fz-main-bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }   /* [EDC1 FZ] local276: 3 ปุ่มหลัก ตรวจสอบ | EXPORT EXCEL | EXPORT NW */
+#panel-edc1fz .fz-main-bar .btn{ min-width:150px; justify-content:center }
+@media (max-width:640px){ #panel-edc1fz .fz-main-bar .btn{ flex:1 1 100%; min-width:0 } }
+#panel-edc1fz #fzResultBox{ margin-top:14px }
 #panel-edc8 .e8k-grid{ table-layout:fixed; width:100%; min-width:720px; border-collapse:collapse; font-family:var(--sans); color:#1f2937; background:#fff }
 #panel-edc8 .e8k-grid thead tr{ background:#eaf0f7 }
 #panel-edc8 .e8k-grid th{ color:#334155; font-weight:600; padding:8px 10px; text-align:left; font-size:12px }
