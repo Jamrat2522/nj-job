@@ -2298,7 +2298,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local276';
+const EDCAPL_VERSION = 'local277';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6858,6 +6858,23 @@ const EDC1FZ_V2_COLS = {
   dtype:['ประเภทใบขน'], exporter:['exporter name'], brand:['brand'], unitPrice:['unit price'], amount:['amount'], amountThb:['amount thb'], totThb:['total amountthb','total amount thb']
 };
 let edc1fzV2Last = null, edc1fzV2Busy = false;
+/* [EDC1 FZ] local277: MASTER APL จาก MASTER FILE (Release ที่เผยแพร่ล่าสุด) ผ่าน RPC เดิม edcapl_apl_published — อ่านทุกกลุ่ม (AAT + FTM + AAT-FTM) รวมเป็นชุดเดียว
+   ใช้ค้นรายการตาม PART NO. / Product Code ของใบขน EDC1 FZ (ไม่จำกัดกลุ่ม AAT หรือ FTM) · โหลดไม่ได้ = ok:false (⚠️ ระบบขัดข้อง) */
+let edc1fzAplState = { ok:false, err:'ยังไม่ได้โหลด' };
+async function edc1fzAplLoad(){
+  const ses = (()=>{ try{ return sessionStorage.getItem('njSession'); }catch(_){ return null; } })();
+  if(!ses){ edc1fzAplState = { ok:false, err:'ไม่มี Session (กรุณาเข้าสู่ระบบใหม่)' }; return false; }
+  try{
+    const res = await Promise.all(['AAT','FTM'].map(md => njRpc('edcapl_apl_published', { p_session:ses, p_mode:md }).catch(e => ({ success:false, error:String(e && e.message || e) }))));
+    const bad = res.find(j => !j || j.success !== true);
+    if(bad){ edc1fzAplState = { ok:false, err:'โหลด MASTER APL ไม่ได้ ('+String((bad && bad.error) || 'empty')+')' }; return false; }
+    if(res[0].version !== res[1].version){ edc1fzAplState = { ok:false, err:'MASTER APL คนละ Release ระหว่างโหลด — กรุณาตรวจใหม่' }; return false; }
+    const seen = new Set(), rows = [];
+    res.forEach(j => (j.rows || []).forEach(r => { const k = r.id != null ? 'id:'+r.id : JSON.stringify(r); if(seen.has(k)) return; seen.add(k); rows.push(r); }));
+    if(!rows.length){ edc1fzAplState = { ok:false, err:'MASTER APL v'+res[0].version+' ไม่มีรายการ' }; return false; }
+    edc1fzAplState = { ok:true, ver:res[0].version, rows, at:res[0].published_at }; return true;
+  }catch(e){ edc1fzAplState = { ok:false, err:'เชื่อมต่อ MASTER APL ไม่ได้ ('+String(e && e.message || e)+')' }; return false; }
+}
 /* [EDC1 FZ] local275: NW = ROUND(QTY × Weight/Unit, 2) แบบ ROUND HALF UP ด้วยจำนวนเต็ม (BigInt · ไม่ใช้ทศนิยม JS) · ไม่ปัด Weight/Unit ก่อนคูณ → คืนค่าเป็น "สตางค์" (cents) */
 function edc1fzDec(v){ let s = typeof v === 'number' ? (Number.isFinite(v) ? String(v) : '') : String(v==null?'':v).replace(/,/g,'').trim();
   if(/e/i.test(s)){ const n = Number(s); if(!Number.isFinite(n)) return null; s = n.toFixed(15).replace(/0+$/,'').replace(/\.$/,''); }
@@ -6939,8 +6956,11 @@ function edc1fzV2Run(){
   const needCol = (k, topic) => { if(C[k] !== -1) return true; if(!noCol.has(topic)){ noCol.add(topic); bad(FILE, topic, { decl:'(ใบขนไม่มีคอลัมน์)' }, 'ไม่พบคอลัมน์ "'+EDC1FZ_V2_COLS[k][0]+'" ในใบขน PZAF'); } return false; };
   const cmp = (item, topic, ev, ref, place, mode, why) => {   /* ใบขน ev ↔ อ้างอิง ref (place = inv / fix / trf) */
     const o = { decl: ev || '(ว่าง)' }; o[place] = (ref==null || ref==='') ? DASH : S(ref);
-    if(ref == null || T(ref) === ''){ na(item, topic, o, why || 'ไม่มีข้อมูลอ้างอิง'); return; }
-    if(!T(ev)){ bad(item, topic, o, 'ใบขนว่าง'); return; }
+    /* [EDC1 FZ] local277: ข้อมูลว่างฝั่งใดฝั่งหนึ่ง = ❌ ผิดทันที (ว่างทั้งสองฝั่ง = ข้อมูลไม่ครบ · ไม่ถือว่าตรงกัน) */
+    const refEmpty = ref == null || (Array.isArray(ref) ? !ref.some(x => T(x) && T(x) !== DASH) : (T(ref) === '' || T(ref) === DASH)), evEmpty = !T(ev) || T(ev) === DASH;
+    if(refEmpty && evEmpty){ bad(item, topic, o, 'ข้อมูลไม่ครบ — ว่างทั้งใบขนและข้อมูลเปรียบเทียบ'+(why ? ' ('+why+')' : '')); return; }
+    if(refEmpty){ bad(item, topic, o, 'ข้อมูลเปรียบเทียบว่าง — '+(why || 'ไม่มีข้อมูลอ้างอิง')); return; }
+    if(evEmpty){ bad(item, topic, o, 'ใบขนว่าง'); return; }
     let good;
     if(mode === 'date') good = dig(ev).slice(0,8) === dig(ref).slice(0,8);
     else if(mode === 'digit') good = dig(ev) === dig(ref);
@@ -6954,10 +6974,12 @@ function edc1fzV2Run(){
   /* ไฟล์อ้างอิง (บังคับก่อน PASS) */
   if(!hasMap) na(FILE, 'ENTRY ก่อน MAPPING (ไฟล์)', {}, mapFiles.length ? 'อ่านแถวรายการจากไฟล์ ENTRY ก่อน MAPPING ไม่ได้' : 'ไม่มีไฟล์ ENTRY ก่อน MAPPING — ตรวจ QTY / จับคู่ / คำนวณ NW ไม่ได้');
   if(!hasInv) na(FILE, 'INVOICE (ไฟล์)', {}, invNames.length ? 'อ่านไฟล์ INVOICE ต้นฉบับไม่ได้' : 'ไม่มีไฟล์ INVOICE — ตรวจหัวข้อที่เทียบ INVOICE ไม่ได้');
-  na(FILE, 'HS CODE / tariffclas', { apl:DASH }, 'ยังไม่มีกฎ MASTER APL สำหรับ EDC1 FZ (ไม่นำ MASTER AAT / FTM มาใช้แทน)');
-  na(FILE, 'MASTER ไม่พบ PART NO.', { apl:DASH }, 'ยังไม่มี MASTER APL สำหรับ EDC1 FZ');
-  if(C.unitPrice === -1) na(FILE, 'Unit Price', {}, 'ใบขน PZAF ไม่มีคอลัมน์ unit price');
-  if(C.amount === -1) na(FILE, 'Amount ราย ITEM', {}, 'ใบขน PZAF ไม่มีคอลัมน์ amount ราย ITEM');
+  /* [EDC1 FZ] local277: MASTER APL (MASTER FILE → Release ที่เผยแพร่ล่าสุด · ทุกกลุ่ม) · เชื่อมไม่ได้ = ⚠️ ระบบขัดข้อง (ไม่สรุป PASS · ไม่ฟ้องข้อมูลสินค้าที่ยังไม่ได้อ่าน) */
+  const APL = (typeof edc1fzAplState !== 'undefined' && edc1fzAplState) || { ok:false, err:'ยังไม่ได้โหลด' }, aplOk = !!(APL.ok && APL.rows);
+  if(!aplOk) na(FILE, 'MASTER APL', { apl:'(ไม่พร้อมใช้งาน)' }, 'MASTER APL ไม่พร้อมใช้งาน — '+(APL.err || 'เชื่อมต่อไม่ได้')+' · ยังไม่ได้ตรวจ HS Code / คำแปลไทย / Product Code / สิทธิ กับ MASTER APL');
+  const aplIdx = new Map(); if(aplOk) APL.rows.forEach(r => { const k = nPart(r.part_no); if(!k) return; if(!aplIdx.has(k)) aplIdx.set(k, []); aplIdx.get(k).push(r); });
+  const nHs = v => { if(typeof trfNormHs === 'function') return trfNormHs(v); const d = S(v).replace(/\D/g,''); return d.length === 12 && d.slice(0,4) === '0000' ? d.slice(4) : (d.length === 8 ? d : ''); };
+  /* Unit Price / Amount ราย ITEM: ใบขน PZAF ไม่มีหัวข้อนี้ → ไม่เทียบ / ไม่แสดง (แนวเดียวกับ EDC8 ที่ยกเลิก Unit Price) */
   const trfOn = typeof trfCheck === 'function', trfLoaded = !!(window.TRF_STATE && window.TRF_STATE.map);
   if(!trfOn || !trfLoaded) na(FILE, 'Stat Code', {}, trfOn ? trfCheck('','').reason : 'ไม่มี MASTER 📘 พิกัด');
   /* จับคู่ MAPPING: คะแนนรวม → จับคู่แบบไม่ซ้ำแถว · เท่ากันแยกไม่ได้ = ซ้ำ */
@@ -6997,7 +7019,28 @@ function edc1fzV2Run(){
     if(trfOn && trfLoaded && needCol('stat','Stat Code')){ const r = trfCheck(cell(row,'hs'), cell(row,'stat'));
       if(r.st === 'ok') ok(I, 'Stat Code', { decl:cell(row,'stat'), trf:r.expected });
       else if(r.st === 'bad') bad(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)', trf:r.expected }, 'ไม่ตรง MASTER พิกัด (HS '+r.hs+')');
-      else na(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)' }, r.reason); }
+      else bad(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)', trf:'(ไม่พบใน MASTER พิกัด)' }, r.reason); }   /* local277: ไม่พบพิกัด / HS ผิดรูปแบบ = ❌ */
+    /* MASTER APL (local277) — ค้นด้วย PART NO. / Product Code (ตัดเครื่องหมาย) · ซ้ำ → เลือก Privilege FZ · ยังกำกวม = ❌ ไม่เดา */
+    if(aplOk){ const keys = [nPart(cell(row,'part')), nPart(cell(row,'prod'))].filter(Boolean); let cands = []; keys.forEach(k => (aplIdx.get(k) || []).forEach(r => { if(cands.indexOf(r) === -1) cands.push(r); }));
+      const fzC = cands.filter(r => /\bFZ\b/i.test(S(r.privilege))), pool = fzC.length ? fzC : cands;
+      const sig = r => [nHs(r.hs_code), U(r.thainame), U(r.description), T(r.stat_code)].join('|'), uniq = [...new Set(pool.map(sig))];
+      const pd = cell(row,'part') || cell(row,'prod') || '(ว่าง)';
+      if(!cands.length) bad(I, 'MASTER ไม่พบ PART NO.', { decl:pd, apl:'(ไม่พบใน MASTER APL)' }, 'ไม่พบข้อมูลใน MASTER APL');
+      else if(uniq.length > 1) bad(I, 'MASTER ไม่พบ PART NO.', { decl:pd, apl:'พบ '+pool.length+' รายการที่ข้อมูลต่างกัน' }, 'พบหลายรายการใน MASTER APL — ระบุรายการไม่ได้');
+      else { const a = pool[0];
+        ok(I, 'MASTER ไม่พบ PART NO.', { decl:pd, apl:S(a.part_no)+' (MASTER APL v'+S(APL.ver)+')' });
+        const aCmp = (topic, ev, ref, mode, why) => cmp(I, topic, ev, ref, 'apl', mode, why);
+        if(needCol('hs','HS Code (MASTER APL)')){ const e = cell(row,'hs'), eh = nHs(e), mh = nHs(a.hs_code);
+          const o = { decl:e || '(ว่าง)', apl:S(a.hs_code) || DASH };
+          if(!e && !T(a.hs_code)) bad(I, 'HS Code (MASTER APL)', o, 'ข้อมูลไม่ครบ — ว่างทั้งใบขนและ MASTER APL');
+          else if(!e) bad(I, 'HS Code (MASTER APL)', o, 'ใบขนว่าง'); else if(!T(a.hs_code)) bad(I, 'HS Code (MASTER APL)', o, 'MASTER APL ไม่มี HS Code');
+          else if(eh && mh && eh === mh) ok(I, 'HS Code (MASTER APL)', o); else bad(I, 'HS Code (MASTER APL)', o, !eh ? 'HS Code ใบขนไม่ใช่พิกัด 8 หลัก' : 'ไม่ตรง MASTER APL'); }
+        if(needCol('stat','Stat Code (MASTER APL)')) aCmp('Stat Code (MASTER APL)', cell(row,'stat'), a.stat_code, 'text', 'MASTER APL ไม่มี Stat Code');
+        if(needCol('thai','คำแปลไทย (MASTER APL)')) aCmp('คำแปลไทย (MASTER APL)', cell(row,'thai'), a.thainame, 'text', 'MASTER APL ไม่มีคำแปลไทย');
+        if(needCol('desc','DESCRIPTION (MASTER APL)')) aCmp('DESCRIPTION (MASTER APL)', cell(row,'desc'), a.description, 'text', 'MASTER APL ไม่มี Description');
+        if(needCol('prod','Product Code (MASTER APL)')) aCmp('Product Code (MASTER APL)', cell(row,'prod'), a.part_no, 'part', 'MASTER APL ไม่มี PART NO.');
+        { const o = { decl:'ใช้สิทธิ์ '+(cell(row,'fz') || '(ว่าง)')+' · ประเภทใบขน '+(cell(row,'dtype') || '(ว่าง)'), apl:S(a.privilege) || DASH };
+          if(!T(a.privilege)) bad(I, 'สิทธิ (Privilege ใน MASTER APL)', o, 'MASTER APL ไม่มีสิทธิ'); else if(/\bFZ\b/i.test(S(a.privilege))) ok(I, 'สิทธิ (Privilege ใน MASTER APL)', o); else bad(I, 'สิทธิ (Privilege ใน MASTER APL)', o, 'PART นี้ไม่ได้ลงทะเบียนสิทธิ FZ ใน MASTER APL'); } } }
     /* MAPPING INVOICE */
     if(hasMap){ const mm = match.get(it.key);
       if(!mm) bad(I, 'ITEM (จับคู่ ENTRY)', { decl:'Item line '+it.raw }, 'ไม่พบ ITEM ที่ตรงกัน');
@@ -7045,17 +7088,16 @@ function edc1fzV2Run(){
   const invGroups = new Map(); items.forEach(it => { const k = nInv(cell(it.row,'inv')); if(!invGroups.has(k)) invGroups.set(k, { raw:cell(it.row,'inv'), items:[] }); invGroups.get(k).items.push(it); });
   invGroups.forEach((g, k) => { const L = 'INVOICE '+(g.raw || '(ว่าง)'), rows = g.items.map(it => it.row), list = 'ITEM '+g.items[0].disp+(g.items.length > 1 ? '–'+g.items[g.items.length-1].disp : '');
     const sumQty = r2(rows.reduce((a,r) => a + (num(cell(r,'qty')) || 0), 0)), tNw = agg(rows.map(r => cell(r,'nw'))), tGw = agg(rows.map(r => cell(r,'gw'))), tPk = agg(rows.map(r => cell(r,'pkg'))), tAm = agg(rows.map(r => cell(r,'amt')));
-    const tot = (topic, ev, ref, why) => { if(ev === null){ na(L, topic, { decl:'(ใบขนไม่มีข้อมูล)' }, 'ใบขนไม่มีคอลัมน์ / ค่า'); return; } cmp(L, topic, fmtN(ev)+' ('+list+')', ref, 'inv', 'num', why); };
-    const totNum = (topic, ev, ref, why) => { if(ev === null){ na(L, topic, { decl:'(ใบขนไม่มีข้อมูล)' }, 'ใบขนไม่มีคอลัมน์ / ค่า'); return; }
-      const o = { decl:fmtN(ev)+' ('+list+')', inv: ref==null ? DASH : fmtN(ref) }; if(ref == null){ na(L, topic, o, why); return; }
+    const totNum = (topic, ev, ref, why) => { if(ev === null){ bad(L, topic, { decl:'(ว่าง)', inv: ref==null ? DASH : fmtN(ref) }, ref==null ? 'ข้อมูลไม่ครบ — ว่างทั้งใบขนและข้อมูลเปรียบเทียบ' : 'ใบขนว่าง'); return; }   /* local277: ว่าง = ❌ */
+      const o = { decl:fmtN(ev)+' ('+list+')', inv: ref==null ? DASH : fmtN(ref) }; if(ref == null){ bad(L, topic, o, 'ข้อมูลเปรียบเทียบว่าง — '+(why || 'ไม่มีข้อมูลอ้างอิง')); return; }
       if(Math.abs(ev - ref) < 0.005) ok(L, topic, o); else { o.inv = fmtN(ref)+' (ผลต่าง '+(ev-ref>0?'+':'')+fmtN(r2(ev-ref))+')'; bad(L, topic, o); } };
     if(hasMap){ const mr = mapRows.filter(m => nInv(m.invOut) === k);
       if(!mr.length) bad(L, 'INVOICE NO. (ENTRY)', { decl:g.raw || '(ว่าง)', inv:'(ไม่พบ Invoice Out นี้ใน ENTRY ก่อน MAPPING)' }, 'ไม่พบ INVOICE ใน ENTRY');
       else { totNum('QTY รวม (ENTRY)', sumQty, r2(mr.reduce((a,m) => a + (num(m.qty) || 0), 0)));
         /* Total N.W: Σ NW ราย ITEM ที่ปัดแล้ว (ENTRY คำนวณ) ↔ total N.W ของใบขน (ไม่บวกซ้ำ) */
         const badNw = mr.filter(m => m.nwC === null), nwSum = badNw.length ? null : mr.reduce((a,m) => a + m.nwC, 0n);
-        if(tNw === null) na(L, 'Total N.W (ENTRY คำนวณ)', { decl:'(ใบขนไม่มีข้อมูล)', inv: nwSum === null ? DASH : edc1fzCents(nwSum) }, 'ใบขนไม่มีคอลัมน์ / ค่า total N.W');
-        else if(nwSum === null) na(L, 'Total N.W (ENTRY คำนวณ)', { decl:fmtN(tNw)+' ('+list+')' }, 'คำนวณ NW ไม่ได้ '+badNw.length+' แถว (Sl. No '+badNw.map(m => m.sl || '-').join(', ')+')');
+        if(tNw === null) bad(L, 'Total N.W (ENTRY คำนวณ)', { decl:'(ใบขนไม่มีข้อมูล)', inv: nwSum === null ? DASH : edc1fzCents(nwSum) }, 'ใบขนไม่มีคอลัมน์ / ค่า total N.W');
+        else if(nwSum === null) bad(L, 'Total N.W (ENTRY คำนวณ)', { decl:fmtN(tNw)+' ('+list+')' }, 'คำนวณ NW ไม่ได้ '+badNw.length+' แถว (Sl. No '+badNw.map(m => m.sl || '-').join(', ')+')');
         else { const pzC = edc1fzMulRound2(String(tNw), '1'), o = { decl:edc1fzCents(pzC)+' ('+list+')', inv:edc1fzCents(nwSum)+' (Σ NW '+mr.length+' แถว)' };
           if(pzC === nwSum) ok(L, 'Total N.W (ENTRY คำนวณ)', o); else { o.inv += ' · ผลต่าง '+edc1fzCents(pzC - nwSum); bad(L, 'Total N.W (ENTRY คำนวณ)', o, 'total N.W ใบขนไม่ตรงผลรวม NW ที่คำนวณจาก ENTRY'); } } } }
     if(hasInv){ const d = det.get(k);
@@ -8824,8 +8866,8 @@ function fzRunCheck(){
   edc1fzV2Busy = true; try{ fzUpdateCheckBtn(); }catch(_){}
   const _done = () => { edc1fzV2Busy = false; try{ fzUpdateCheckBtn(); }catch(_){} };
   const _go = () => { try{ edc1fzV2Run(); } finally { _done(); } };
-  if(typeof trfEnsure === 'function') return trfEnsure().catch(()=>false).then(_go, _go);
-  _go(); return;
+  /* local277: โหลด MASTER 📘 พิกัด + MASTER APL ก่อนตรวจ (เชื่อมไม่ได้ = ⚠️ · ไม่ PASS) */
+  return Promise.all([ typeof trfEnsure === 'function' ? trfEnsure().catch(()=>false) : Promise.resolve(false), edc1fzAplLoad().catch(()=>false) ]).then(_go, _go);
   // [📘 พิกัด] โหลด MASTER พิกัดกลาง (Release ล่าสุด) ก่อนตรวจ Stat Code · ผลโหลดไม่ได้ → ระงับเฉพาะ Stat Code (ไม่ PASS)
 }
 function fzExport(){
