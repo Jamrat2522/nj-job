@@ -202,7 +202,7 @@ function shell() {
     '<form class="ca7-f ca760" data-f autocomplete="off"><label><span data-dlb>วันที่ส่งคำขอ</span><span class="ca7-dt"><input type="date" name="date_from" aria-label="ตั้งแต่วันที่"> – <input type="date" name="date_to" aria-label="ถึงวันที่"></span></label>' +   /* V.760 : ลำดับตามภาพ */
     '<label>JOB No.<input class="w1" name="job_no" placeholder="JOBAD…"></label>' + DH760("company_x", "co", 1) + DH760("customer_x", "cu", 1) +
     '<label class="ca7-more">House B/L<input class="w1" name="hbl" placeholder="House B/L"></label>' + DH760("ptype", "ty", 1) +
-    '<label class="ca7-more">INVOICE AD<input class="w1" name="inv_no" placeholder="INVOICE AD"></label>' + DH760("billed", "bl", 1) +
+    /* V.805 : ซ่อนช่องค้นหา INVOICE AD */ DH760("billed", "bl", 1) +
     '<button type="submit" class="ca7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="ca7-b" data-clr>ล้างกรอง</button>' +
     '<button type="button" class="ca7-b ca7-ft" data-ft>' + IC.fl + "Filter</button></form>" +
     '<div class="ca7-tabs" data-tabs></div><div class="ca7-row" style="margin-top:8px"><span class="ca7-sum" data-sum></span></div><div data-body></div></div>';

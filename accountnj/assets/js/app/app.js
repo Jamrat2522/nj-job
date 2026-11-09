@@ -92,12 +92,15 @@ function RG536(L, P) {
     document.addEventListener("click", function (ev) {
       /* V.799 : คลิกโหมดย่อย REPORT → เปิดรายงาน (Router เดิม) + พับหัวข้อหลักที่ครอบโหมดย่อยนั้นทันที · แถบ REPORT หลักยังเปิดอยู่ · ไฮไลต์โหมดย่อยเดิมคงอยู่ */
       var ri = ev.target.closest && ev.target.closest("#sb .sb-ri536[data-nav]");
-      if (ri) { RC799(ri); return; }
+      if (ri) return;   /* V.805 : คลิกรายการย่อย = เปิดรายงาน (Router เดิม) · ไม่พับหัวข้อหลัก (แทน V.799) */
       var b = ev.target.closest && ev.target.closest("[data-rgtoggle]");
       if (!b) return;
       ev.preventDefault();
       var g = b.closest(".sb-rg536"), on = g.classList.toggle("open"), k = g.dataset.rg, c = RG536cl().filter(function (x) { return x !== k; });
       on || c.push(k);
+      on && g.parentElement && Array.prototype.forEach.call(g.parentElement.querySelectorAll(".sb-rg536.open"), function (o2) {   /* V.805 : เปิดหัวข้อนี้ = พับหัวข้ออื่น (ครั้งละ 1 หัวข้อ) */
+        if (o2 === g) return; o2.classList.remove("open"); var b2 = o2.querySelector("[data-rgtoggle]"); b2 && b2.setAttribute("aria-expanded", "false"); c.indexOf(o2.dataset.rg) < 0 && c.push(o2.dataset.rg);
+      });
       b.setAttribute("aria-expanded", on ? "true" : "false");
       try { localStorage.setItem("nj.rg536.closed", JSON.stringify(c)); } catch (_e) {}
     });
@@ -109,7 +112,7 @@ function RG536(L, P) {
     dic = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>';
   return '<div class="sb-group sb-rpt536"><button class="sb-sec" data-toggle><span class="sb-ic">' + L.REPORT + '</span><span>REPORT</span>' + L.CARET + '</button><div class="sb-children">' +
     GL.map(function (g) {
-      var o = cl.indexOf(g[0]) < 0;
+      var o = g[0] === (GL.filter(function (z) { return cl.indexOf(z[0]) < 0; })[0] || [])[0];   /* V.805 : เปิดได้ครั้งละ 1 หัวข้อ (หัวข้อแรกที่เปิดไว้) */
       return '<div class="sb-rg536' + (o ? " open" : "") + '" data-rg="' + g[0] + '"><button type="button" class="sb-rgh536" data-rgtoggle="' + g[0] + '" aria-expanded="' + (o ? "true" : "false") + '"><span class="sb-ic">' + (ic[g[0]] || "") + '</span><span class="t">' + g[0] + '</span><span class="sb-rgc536" aria-hidden="true"></span></button><div class="sb-rgb536">' +
         g[1].map(function (x) { return '<button class="sb-item sb-sub sb-ri536" data-nav="report/' + x[0] + '" title="' + P(x[1] + " " + x[2]) + '"><span class="sb-ic">' + dic + '</span><span class="t"><b>' + x[1] + '</b> ' + P(x[2]) + '</span></button>'; }).join("") + '</div></div>';
     }).join("") + '</div></div>';
