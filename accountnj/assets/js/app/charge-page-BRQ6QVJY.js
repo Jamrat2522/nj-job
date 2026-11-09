@@ -324,11 +324,18 @@ function NN586(r){let k=r&&r.created_by_nickname!=null?String(r.created_by_nickn
    ส่ง created_by_ids (สมาชิกที่เลือก) + department_ids (แผนกที่เลือกครบ) \u2192 njacc_build_charge_set (RUN-696) รวมแบบ OR ภายในขอบเขตสิทธิ์เดิม \u00B7 ว่าง = สมาชิกทั้งหมด \u00B7 Key = User ID / Department ID \u2550\u2550\u2550 */
 function ST696() { try { if (document.getElementById("st696-css")) return; let s = document.createElement("style"); s.id = "st696-css";
   s.textContent = "#ch-fbar.fbar-doc>.co523{flex:1 1 150px;min-width:130px;max-width:240px}#ch-fbar.fbar-doc>.ms696{flex:1 1 150px;min-width:130px;max-width:220px}.ms696{position:relative;min-width:0}.ms696-btn{width:100%;height:36px;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}.ms696-btn.ms696-on{font-weight:700}.ms696-pan{position:fixed;z-index:3000;background:var(--card,#fff);color:var(--text-1,#1e293b);border:1px solid var(--line,#E2E8F0);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.18);overflow:auto;padding:10px 12px;box-sizing:border-box}.ms696-pan[hidden]{display:none}.ms696-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 0 8px;margin-bottom:6px;border-bottom:1px solid var(--line,#E2E8F0)}.ms696-pan label{display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;font-size:var(--fs-sm,13px);line-height:1.3;margin:0}.ms696-pan .ms696-u{padding-left:26px}.ms696-pan input[type=checkbox]{width:16px;height:16px;flex:0 0 16px;margin:0}.ms696-o{font-weight:700;padding:6px 2px}.ms696-e{padding:8px 2px;opacity:.7}"; document.head.appendChild(s); } catch (e) {} }
+/* ═══ V.822 DOCUMENT — SERVICE : รายชื่อสมาชิก = users เดิม (ผู้เปิดงาน) + members822 (RUN-822 : สมาชิกทุกคน active ในแผนกที่อยู่ในขอบเขต njacc_view_scope · แม้ยังไม่มี JOB)
+   รวมไม่ซ้ำตาม User ID · ตัวกรองเท่านั้น (ขอบเขตงานจริงตรวจที่ njacc_build_charge_set เดิม) · ไม่มี members822 (DOCUMENT — ADVANCE / DB เดิม) = เดิม ═══ */
+function UM822(e) {
+  let A = Array.isArray(e && e.users) ? e.users : [];
+  try { let M = MD810 && Array.isArray(e && e.members822) ? e.members822 : []; if (!M.length) return A;
+    let s = new Set(A.map((u) => String(u && u.id))); return A.concat(M.filter((u) => u && u.id && !s.has(String(u.id)) && s.add(String(u.id)))); } catch (e7) { return A; }
+}
 function MS696(t, e) {
   let s = e && e.scope593, lv = s && s.level;
   if (!(lv === "HEAD" || lv === "ADMIN" || lv === "SUPER")) return MO810(t, e);   /* V.810 : USER = สมาชิกในแผนก */
   ST696();
-  let dp = Array.isArray(e.departments) ? e.departments : [], us = Array.isArray(e.users) ? e.users : [], seen = new Set(), dn = {}, g = {}, order = [];
+  let dp = Array.isArray(e.departments) ? e.departments : [], us = UM822(e)/* V.822 */, seen = new Set(), dn = {}, g = {}, order = [];
   dp.forEach((x) => { dn[x.id] = x.name; });
   us.filter((u) => u && u.id && !seen.has(u.id) && seen.add(u.id)).forEach((u) => { let k = dn[u.department_id] ? String(u.department_id) : ""; if (!g[k]) { g[k] = []; order.push(k); } g[k].push(u); });
   let byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), "th");
@@ -1600,7 +1607,7 @@ function MO810(t, e) {
   try {
     let s = e && e.scope593, me = ME810();
     if (!MD810 || !s || s.level !== "OWN" || s.mode !== "DEPT" || !me) return "";
-    let seen = new Set(), us = (Array.isArray(e.users) ? e.users : []).filter((u) => u && u.id && !seen.has(String(u.id)) && seen.add(String(u.id)));
+    let seen = new Set(), us = UM822(e)/* V.822 */.filter((u) => u && u.id && !seen.has(String(u.id)) && seen.add(String(u.id)));
     if (!us.length) return "";
     ST696();
     let su = new Set(String(t.who_u || "").split(",").filter(Boolean)), cnt = 0;
