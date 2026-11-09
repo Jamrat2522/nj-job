@@ -117,6 +117,7 @@ body {
 .sb-item[data-mode="master_builder"].active{ background: rgba(14,165,233,.08); border-left-color: #38bdf8; color: #7dd3fc; }
 .sb-item[data-mode="permit_chk"].active{ background: rgba(20,184,166,.08); border-left-color: #2dd4bf; color: #5eead4; }
 .sb-item[data-mode="custom_fee"].active{ background: rgba(236,72,153,.08); border-left-color: #ec4899; color: #f9a8d4; }
+.sb-item[data-mode="rack"].active{ background: rgba(249,115,22,.08); border-left-color: #f97316; color: #fdba74; }   /* [RACK] โหมดใหม่ */
 .sb-item[data-mode="hscode_permit"].active{ background: rgba(16,185,129,.08); border-left-color: #10b981; color: #6ee7b7; }
 /* [HS CODE ใบอนุญาต] พื้นหน้า = --bg ของ local106 · Content เต็มความกว้าง (เฉพาะโหมดนี้) */
 body:has(#appMain.hspm-light) { background: #f4f6f9; }
@@ -1125,6 +1126,11 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
       <span>💸</span> CUSTOM FEE <span class="sb-badge" style="background:#ec4899">NEW</span>
     </div>
     <div class="sb-item-desc">แยกไฟล์ตาม "ผู้ส่งออก" + แตก KDC ตาม LOT</div>
+
+    <div class="sb-item" data-mode="rack" onclick="switchMode(this)">
+      <span>🧱</span> RACK <span class="sb-badge" style="background:#f97316">NEW</span>
+    </div>
+    <div class="sb-item-desc">INVOICE หลาย Sheet → Mapping Excel</div>
 
     <div class="sb-section-label" style="margin-top:8px">Master</div>
     <div class="sb-item" data-mode="hscode_permit" onclick="switchMode(this)">
@@ -2275,6 +2281,53 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
       <div id="customFeeResult" style="margin-top:14px;display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"></div>
     </div><!-- /panel-custom_fee -->
 
+    <!--
+    ═══════════════════════════════════════════════════════════
+    PANEL: RACK — รวม INVOICE หลาย Sheet → EXPORT EXCEL (mapping Space)
+    Independent module (namespace rack*). Does NOT touch any other mode.
+    ═══════════════════════════════════════════════════════════
+    -->
+    <div id="panel-rack" style="display:none">
+      <div class="mode-banner" style="background:rgba(249,115,22,.06);border-color:rgba(249,115,22,.22)">
+        <div class="mode-banner-left">
+          <div class="mode-banner-icon" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.25)">🧱</div>
+          <div>
+            <div class="mode-banner-title" style="color:#fdba74">RACK — รวม INVOICE หลาย Sheet</div>
+            <div class="mode-banner-desc">อัปโหลด INVOICE 1 ไฟล์ (หลาย Sheet ได้) → รวมทุก ITEM เรียงเลข INVOICE จากน้อยไปมาก → EXPORT EXCEL</div>
+            <div class="mode-banner-tag" style="background:rgba(249,115,22,.12);color:#fdba74;border-color:rgba(249,115,22,.25)">RACK · MAPPING ALL INVOICE</div>
+          </div>
+        </div>
+        <div class="mode-flow">
+          <span class="flow-step">① Upload INVOICE</span>
+          <span class="flow-arrow">›</span>
+          <span class="flow-step action">⬇ Export Excel</span>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <div class="upload-row">
+          <div class="upload-col dz-req" style="max-width:480px">
+            <div class="step-header">
+              <span class="step-num" style="background:rgba(249,115,22,.15);color:#fdba74;border-color:rgba(249,115,22,.3)">1</span>
+              <span class="step-title">UPLOAD INVOICE</span>
+              <span class="step-req">Required</span>
+            </div>
+            <input type="file" id="rackInput" accept=".xls,.xlsx,.xlsm" style="display:none" />
+            <div class="drop-zone" id="rackDZ" style="min-height:160px" onclick="document.getElementById('rackInput').click()">
+              <button class="dz-del-btn" id="rackDZDel" onclick="event.stopPropagation();rackReset()">✕</button>
+              <div class="drop-icon-box" style="font-size:18px">🧱</div>
+              <div class="drop-label" style="font-size:12px">วางไฟล์ INVOICE ที่นี่</div>
+              <div class="drop-hint">.xls / .xlsx — 1 ไฟล์ (หลาย Sheet ได้)</div>
+              <div class="drop-fn" id="rackFn">📄 <span id="rackFnTxt"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-export" id="rackExportBtn" onclick="rackExport()" disabled style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" title="RACK_MAPPING_ALL_INVOICE.xlsx (1 Workbook / 1 Sheet)">📊 EXPORT EXCEL</button>
+      </div>
+      <div id="rackResult" style="margin-top:14px;display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"></div>
+    </div><!-- /panel-rack -->
+
   
   <!-- Hidden buttons required by JS — do not remove -->
   <div style="display:none" aria-hidden="true">
@@ -2298,7 +2351,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local279';
+const EDCAPL_VERSION = 'local280';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -2462,6 +2515,13 @@ const MODES_CONFIG = {
     label: 'อัปโหลด report_day.xlsx → ระบบแยกข้อมูลตามผู้ส่งออก + แตก KDC ตาม LOT',
     exportName: 'CustomFee_Split',
     rules: []
+  },
+  rack: {
+    title: 'RACK — รวม INVOICE หลาย Sheet',
+    badge: 'RACK MAPPING',
+    label: 'อัปโหลด INVOICE 1 ไฟล์ → EXPORT EXCEL รวมทุก ITEM (เรียง INVOICE น้อย → มาก)',
+    exportName: 'RACK_MAPPING_ALL_INVOICE',
+    rules: []
   }
 };
 // ── EDC8 FTM — identical rules + behaviour as EDC8 AAT ──
@@ -2596,8 +2656,9 @@ function switchMode(el){
   const isPermitChk= currentMode === 'permit_chk';   // ตรวจใบกำกับ — panel แยก
   const isHscode   = currentMode === 'hscode_permit'; // HS CODE ใบอนุญาต — panel แยก (Clone local106)
   const isTrf      = currentMode === 'tariff_master'; // [📘 พิกัด] MASTER พิกัดกลาง — panel แยก
+  const isRack     = currentMode === 'rack';          // [RACK] รวม INVOICE หลาย Sheet → EXPORT EXCEL — panel แยก
 
-  const isSingle   = !isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf;
+  const isSingle   = !isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf && !isRack;
 
   document.getElementById('panel-single').style.display        = isSingle  ? 'block' : 'none';
   document.getElementById('panel-edc8').style.display          = isEdc8    ? 'block' : 'none';
@@ -2611,6 +2672,12 @@ function switchMode(el){
     const cfPanel = document.getElementById('panel-custom_fee');
     if(cfPanel) cfPanel.style.display = isCustomFee ? 'block' : 'none';
   }
+  {
+    const rkPanel = document.getElementById('panel-rack');
+    if(rkPanel) rkPanel.style.display = isRack ? 'block' : 'none';
+  }
+  if((isRack || prevMode==='rack') && typeof rackReset==='function') rackReset();   // [RACK] เข้า/ออก → ล้าง State (ไฟล์ไม่ข้ามโหมด)
+  if(isRack && typeof hspmEnsureExcel==='function') hspmEnsureExcel();               // [RACK] เตรียม ExcelJS ล่วงหน้า
   {
     const pcPanel = document.getElementById('panel-permit_chk');
     if(pcPanel) pcPanel.style.display = isPermitChk ? 'block' : 'none';
@@ -2644,10 +2711,10 @@ function switchMode(el){
     }
   }catch(e){}
 
-  if(!isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf) renderRules();
+  if(!isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf && !isRack) renderRules();
 
   // reset single-mode (only if applicable)
-  if(!isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf){
+  if(!isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf && !isRack){
     wb=null; if(fileInput) fileInput.value='';
     lastErrList=[]; lastHeaders=[]; lastRows=[];
     if(dropFn) dropFn.classList.remove('show');
@@ -11165,7 +11232,8 @@ function fzShowSysErr(title,msg){
     excel_edc1fz:  { badge:'#2e1a4f', text:'#a78bfa', border:'rgba(139,92,246,.35)' },
     master_builder:{ badge:'#0c3a52', text:'#38bdf8', border:'rgba(14,165,233,.35)' },
     permit_chk:    { badge:'#0b3b37', text:'#2dd4bf', border:'rgba(20,184,166,.35)' },
-    hscode_permit: { badge:'#064e3b', text:'#34d399', border:'rgba(16,185,129,.35)' }
+    hscode_permit: { badge:'#064e3b', text:'#34d399', border:'rgba(16,185,129,.35)' },
+    rack:          { badge:'#4a2306', text:'#fb923c', border:'rgba(249,115,22,.35)' }
   };
   const topBar   = document.getElementById('topBar');
   const topBadge = document.getElementById('topBadge');
@@ -11178,7 +11246,8 @@ function fzShowSysErr(title,msg){
     excel_edc1fz:  'Invoice Mapping',
     master_builder:'Master File Builder',
     permit_chk:    'ตรวจใบกำกับ',
-    hscode_permit: 'HS CODE ใบอนุญาต'
+    hscode_permit: 'HS CODE ใบอนุญาต',
+    rack:          'RACK — รวม INVOICE หลาย Sheet'
   };
   function applyTopBarMode(mode){
     const c = TOPBAR_COLORS[mode] || TOPBAR_COLORS.edc8;
@@ -12408,6 +12477,272 @@ Column rename for export only: "KDC" → "Customer jobno."
   } else {
     _cfInit();
   }
+})();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   [RACK] โหมด RACK — รวม INVOICE หลาย Sheet → EXPORT EXCEL (โคลนรูปแบบ "mapping Space ตัวอย่าง.xlsx" A–S)
+   · Namespace rack* แยกจากโหมดอื่นทั้งหมด (ไม่แตะ EDC1 FZ / EDC8 AAT / EDC8 FTM / KDC / CUSTOM FEE)
+   · อ่านทุก Sheet ที่มีหัวตาราง ITEM + PART NAME + RACK CODE → ดึงเฉพาะแถวที่ ITEM เป็นตัวเลข (ไม่เอาหัวตาราง / หัวข้อย่อย / TOTAL)
+   · ตำแหน่งข้อมูลตามแถวตัวอย่างของต้นแบบ (= ตำแหน่งเดียวกับ INVOICE): A ITEM · B PART NAME · E RACK CODE · F เลขชุด (ใต้หัว RACK CODE ที่ Merge E:F)
+     · G DIMENSION · H QUANTITY · I UNIT · J TOTAL N/W · M UNIT PRICE · O =+H*M (สูตรเดียวกับต้นแบบ) · Q INVOICE NO. · R DATE · S ข้อความ FIX
+   · หัวตารางแถว 1 = ต้นแบบทุกตัวอักษร (ไม่เปลี่ยน) · ค่าจาก INVOICE ไม่แก้ไข (ข้อความคงเป็นข้อความ · ตัวเลขคงเป็นตัวเลข)
+   · เรียง INVOICE ASC แบบตัวเลขจริง (SSTV2611-009 < SSTV2611-055 < SSTV2611-100) · INVOICE เดียวกันคงลำดับ ITEM เดิม (Stable)
+   · Sheet ซ้ำ (INVOICE + รายการเหมือนกันทุกช่อง) นับครั้งเดียว · ข้อมูลขาด / ยอดไม่ตรง Footer → แจ้งเตือน (ไม่สร้างข้อมูลแทน)
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  const RACK_TH_FIX = 'ภาชนะบรรจุสินค้าทำด้วยเหล็ก';
+  const RACK_FILE_NAME = 'RACK_MAPPING_ALL_INVOICE.xlsx';
+  const RACK_SHEET_NAME = 'Sheet2';   // ชื่อ Sheet ของต้นแบบ
+  // หัวตารางแถว 1 ของต้นแบบ (ตรงตัวอักษร รวมช่องว่าง) — คอลัมน์ C D K L N P ว่างตามต้นแบบ
+  const RACK_HEAD = ['ITEM','PART NAME',null,null,'RACK CODE','DIMENSION (MM.)','QUANTITY','QTY','UNIT ','TOTAL N/W (KG)',null,null,'  UNIT PRICE (THB) ',null,'TOTAL FOB LEAM CHABANG',null,'INVOICE','INVOICE DATE','คำแปลภาษาไทย'];
+  // ความกว้างคอลัมน์ตามต้นแบบ (คอลัมน์ที่ต้นแบบไม่กำหนด = ค่า Default) · Q = 9 (ExcelJS ตัดค่า 9 พอดีทิ้ง → ใส่ 9.000000001 ให้เขียนลงไฟล์)
+  const RACK_WIDTH = { 1:3.6328125, 2:7.7265625, 5:6.54296875, 6:9.26953125, 7:16.1796875, 8:2.7265625, 9:3.26953125, 13:9.90625, 15:14.7265625, 17:9.000000001, 18:9.1796875, 19:18.6328125 };
+  let rackRes = null, rackBusy = false;
+
+  const T = v => String(v == null ? '' : v).replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+  const U = v => T(v).toUpperCase();
+  const esc = v => T(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const isBlank = v => v == null || T(v) === '';
+  const num = v => { if(typeof v === 'number') return isFinite(v) ? v : null; const t = T(v).replace(/,/g, ''); return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null; };
+
+  /* เลข INVOICE → เทียบแบบตัวเลขจริง (ทุกช่วงตัวเลขเทียบค่า) */
+  function rackInvCmp(a, b){
+    const A = U(a), B = U(b);
+    if(A === B) return 0;
+    if(!A) return 1; if(!B) return -1;
+    return A.localeCompare(B, 'en', { numeric:true, sensitivity:'base' });
+  }
+
+  /* วันที่ INVOICE → Date (UTC เที่ยงคืน) · รองรับ Serial / Date / dd/mm/yyyy / yyyy-mm-dd / dd-MMM-yy · อ่านไม่ได้ → null (แจ้งเตือน) */
+  const MON = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+  function rackDate(v){
+    const mk = (y, m, d) => { if(y < 100) y += 2000; if(m < 1 || m > 12 || d < 1 || d > 31) return null; const D = new Date(Date.UTC(y, m - 1, d)); return (D.getUTCMonth() === m - 1 && D.getUTCDate() === d) ? D : null; };
+    if(v instanceof Date && !isNaN(v)) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
+    if(typeof v === 'number' && v > 59 && v < 2958466){ const D = new Date(Math.round((v - 25569) * 86400000)); return new Date(Date.UTC(D.getUTCFullYear(), D.getUTCMonth(), D.getUTCDate())); }
+    const t = T(v); let m;
+    if((m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/))) return mk(+m[1], +m[2], +m[3]);
+    if((m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2}|\d{4})$/))) return mk(+m[3], +m[2], +m[1]);   // INVOICE ใช้ วัน/เดือน/ปี
+    if((m = t.match(/^(\d{1,2})[-\s\/.]([A-Za-z]{3})[A-Za-z]*[-\s\/.,]*(\d{2}|\d{4})$/)) && MON[m[2].toUpperCase()]) return mk(+m[3], MON[m[2].toUpperCase()], +m[1]);
+    return null;
+  }
+
+  /* ค่าแรกที่ไม่ว่างทางขวาของ Label ในแถวเดียวกัน */
+  function rightOf(row, c){ for(let j = c + 1; j < row.length; j++) if(!isBlank(row[j])) return row[j]; return null; }
+
+  /* อ่าน 1 Sheet → { inv, invDate, items[], warn[] } หรือ null (ไม่ใช่ Sheet รายการ RACK) */
+  function rackParseSheet(ws, sheetName){
+    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:null, blankrows:true });
+    let h = -1;
+    for(let r = 0; r < aoa.length && h < 0; r++){
+      const row = aoa[r] || [], us = row.map(U);
+      if(us.includes('ITEM') && us.some(x => x === 'PART NAME') && us.some(x => x.startsWith('RACK CODE'))) h = r;
+    }
+    if(h < 0) return null;
+    const hr = (aoa[h] || []).map(U);
+    const find = re => hr.findIndex(x => re.test(x));
+    const C = {
+      item: hr.indexOf('ITEM'), name: find(/^PART NAME$/), code: find(/^RACK CODE/),
+      dim: find(/^DIMENSION/), qty: find(/^(QUANTITY|QTY)$/), unit: find(/^UNIT$/),
+      nw: find(/N\/W|NET WEIGHT/), price: find(/UNIT PRICE/), fob: find(/^TOTAL FOB/)
+    };
+    // เลขชุด RACK = คอลัมน์ถัดจาก RACK CODE (หัวตาราง Merge ครอบ / หัวว่าง) และไม่ใช่คอลัมน์ DIMENSION
+    const mg = (ws['!merges'] || []).find(m => m.s.r === h && m.s.c === C.code);
+    C.serial = (C.code >= 0 && C.code + 1 !== C.dim && ((mg && mg.e.c >= C.code + 1) || isBlank(aoa[h][C.code + 1]))) ? C.code + 1 : -1;
+    const warn = [];
+    const need = { item:'ITEM', name:'PART NAME', code:'RACK CODE', dim:'DIMENSION', qty:'QUANTITY', unit:'UNIT', nw:'TOTAL N/W', price:'UNIT PRICE' };
+    Object.keys(need).forEach(k => { if(C[k] < 0) warn.push(`Sheet "${sheetName}": ไม่พบหัวคอลัมน์ ${need[k]}`); });
+    // INVOICE NO. / DATE / Footer ยอดรวม
+    let inv = null, invDateRaw = null, fPack = null, fNw = null, fGrand = null;
+    for(let r = 0; r < aoa.length; r++){
+      const row = aoa[r] || [];
+      for(let c = 0; c < row.length; c++){
+        const u = U(row[c]).replace(/\s*:\s*$/, '');
+        if(!u) continue;
+        if(r < h && inv == null && /^INVOICE\s*NO\.?$/.test(u)) inv = rightOf(row, c);
+        else if(r < h && invDateRaw == null && /^(INVOICE\s+)?DATE$/.test(u)) invDateRaw = rightOf(row, c);
+        else if(r > h && fPack == null && /^PACKING\b/.test(u)) fPack = num(rightOf(row, c));
+        else if(r > h && fNw == null && /^NET WEIGHT/.test(u)) fNw = num(rightOf(row, c));
+        else if(r > h && fGrand == null && /^GRAND TOTAL/.test(u)) fGrand = num(rightOf(row, c));
+      }
+    }
+    const invNo = T(inv);
+    if(!invNo) warn.push(`Sheet "${sheetName}": ไม่พบเลข INVOICE NO.`);
+    const invDate = rackDate(invDateRaw);
+    if(isBlank(invDateRaw)) warn.push(`Sheet "${sheetName}": ไม่พบ INVOICE DATE`);
+    else if(!invDate) warn.push(`Sheet "${sheetName}": อ่าน INVOICE DATE "${T(invDateRaw)}" ไม่ได้ — ใส่ค่าตามต้นฉบับ`);
+    // รายการ: เฉพาะแถวที่ ITEM เป็นตัวเลข และมี PART NAME หรือ RACK CODE (ไม่เอาหัวตาราง / หัวข้อย่อย / TOTAL / Remark)
+    const g = (row, c) => (c >= 0 && row) ? row[c] : null;
+    const items = [];
+    for(let r = h + 1; r < aoa.length; r++){
+      const row = aoa[r] || [];
+      const it = g(row, C.item);
+      if(num(it) == null) continue;
+      if(isBlank(g(row, C.name)) && isBlank(g(row, C.code))) continue;
+      if(/TOTAL/.test(U(g(row, C.name)))) continue;
+      const o = {
+        sheet: sheetName, row: r + 1,
+        A: typeof it === 'number' ? it : num(it), B: g(row, C.name), E: g(row, C.code), F: g(row, C.serial),
+        G: g(row, C.dim), H: g(row, C.qty), I: g(row, C.unit), J: g(row, C.nw), M: g(row, C.price), Osrc: g(row, C.fob)
+      };
+      const lab = { B:'PART NAME', E:'RACK CODE', F:'เลขชุด RACK (F)', G:'DIMENSION', H:'QUANTITY', I:'UNIT', J:'TOTAL N/W', M:'UNIT PRICE' };
+      const miss = Object.keys(lab).filter(k => isBlank(o[k])).map(k => lab[k]);
+      if(miss.length) warn.push(`Sheet "${sheetName}" แถว ${r + 1} (ITEM ${o.A}): ข้อมูลขาด ${miss.join(', ')}`);
+      const qn = num(o.H), pn = num(o.M), on = num(o.Osrc);
+      o.O = (qn != null && pn != null) ? Math.round(qn * pn * 100) / 100 : null;
+      if(o.O != null && on != null && Math.abs(o.O - on) > 0.005) warn.push(`Sheet "${sheetName}" แถว ${r + 1}: TOTAL FOB ต้นฉบับ ${on} ≠ QTY × UNIT PRICE ${o.O}`);
+      items.push(o);
+    }
+    if(!items.length) return null;
+    // Cross-check กับ Footer ของ Sheet (ถ้ามี)
+    const sum = k => items.reduce((a, o) => a + (num(o[k]) || 0), 0);
+    const near = (a, b) => Math.abs(a - b) < 0.005;
+    if(fPack != null && !near(sum('H'), fPack)) warn.push(`Sheet "${sheetName}": รวม QUANTITY ${sum('H')} ≠ PACKING ${fPack}`);
+    if(fNw != null && !near(sum('J'), fNw)) warn.push(`Sheet "${sheetName}": รวม N/W ${sum('J')} ≠ NET WEIGHT ${fNw}`);
+    if(fGrand != null && !near(sum('O'), fGrand)) warn.push(`Sheet "${sheetName}": รวม TOTAL FOB ${sum('O')} ≠ GRAND TOTAL ${fGrand}`);
+    items.forEach(o => { o.Q = invNo || null; o.R = invDate || (isBlank(invDateRaw) ? null : T(invDateRaw)); });
+    return { sheet: sheetName, inv: invNo, invDate, items, warn };
+  }
+
+  /* อ่านทั้ง Workbook → รวม + ตัด Sheet ซ้ำ + เรียง INVOICE ASC */
+  function rackParseWorkbook(wbk){
+    const sheets = [], skipped = [], dup = [], warn = [];
+    const hiddenOf = n => { const m = ((wbk.Workbook || {}).Sheets || []).find(s => s.name === n); return !!(m && m.Hidden); };
+    const seen = new Map();
+    wbk.SheetNames.forEach((n, idx) => {
+      const p = rackParseSheet(wbk.Sheets[n], n);
+      if(!p){ skipped.push(n); return; }
+      const sig = JSON.stringify([U(p.inv), p.items.map(o => [o.A, o.B, o.E, o.F, o.G, o.H, o.I, o.J, o.M])]);
+      if(seen.has(sig)){ dup.push(`${n} (ซ้ำกับ ${seen.get(sig)})`); return; }
+      seen.set(sig, n);
+      if(hiddenOf(n)) warn.push(`Sheet "${n}" เป็น Sheet ซ่อน — นำมารวมด้วย`);
+      p.order = idx; sheets.push(p); warn.push(...p.warn);
+    });
+    const invCount = {}; sheets.forEach(p => { const k = U(p.inv); if(k) invCount[k] = (invCount[k] || 0) + 1; });
+    Object.keys(invCount).filter(k => invCount[k] > 1).forEach(k => warn.push(`INVOICE ${k} พบในหลาย Sheet (รายการต่างกัน) — รวมทุกรายการ ไม่ตัดทิ้ง`));
+    const rows = [];
+    sheets.forEach(p => p.items.forEach((o, i) => rows.push(Object.assign(o, { _s: p.order, _i: i }))));
+    rows.sort((a, b) => rackInvCmp(a.Q, b.Q) || (a._s - b._s) || (a._i - b._i));
+    return { rows, sheets, skipped, dup, warn };
+  }
+
+  function rackRender(){
+    const box = document.getElementById('rackResult');
+    if(!box) return;
+    if(!rackRes){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    const R = rackRes, invs = [];
+    R.rows.forEach(o => { if(!invs.includes(o.Q)) invs.push(o.Q); });
+    const fmtD = d => d instanceof Date ? `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}` : esc(d);
+    const fmtN = v => typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits:2 }) : esc(v);
+    const td = 'style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap"';
+    let h = `<div style="font-weight:700;margin-bottom:6px">✅ อ่าน INVOICE สำเร็จ — ${R.rows.length} ITEM · ${invs.length} INVOICE · ${R.sheets.length} Sheet</div>`;
+    h += `<div style="font-size:12px;opacity:.85;margin-bottom:8px">ลำดับ INVOICE: ${invs.map(esc).join(' → ')}</div>`;
+    if(R.dup.length) h += `<div style="font-size:12px;color:#fbbf24;margin-bottom:4px">ตัด Sheet ซ้ำ: ${R.dup.map(esc).join(', ')}</div>`;
+    if(R.skipped.length) h += `<div style="font-size:12px;opacity:.7;margin-bottom:4px">Sheet ที่ไม่มีรายการ RACK: ${R.skipped.map(esc).join(', ')}</div>`;
+    if(R.warn.length) h += `<div style="font-size:12px;color:#f87171;margin:6px 0">⚠ แจ้งเตือน ${R.warn.length} รายการ:<br>${R.warn.map(w => '• ' + esc(w)).join('<br>')}</div>`;
+    h += `<div style="overflow:auto;max-height:360px;margin-top:8px"><table style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr>${['ITEM','PART NAME','RACK CODE','','DIMENSION','QTY','UNIT','N/W','UNIT PRICE','TOTAL FOB','INVOICE','INVOICE DATE','คำแปลภาษาไทย'].map(x => `<th ${td}>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
+    h += R.rows.map(o => `<tr>${[fmtN(o.A), esc(o.B), esc(o.E), esc(o.F), esc(o.G), fmtN(o.H), esc(o.I), fmtN(o.J), fmtN(o.M), fmtN(o.O), esc(o.Q), fmtD(o.R), esc(RACK_TH_FIX)].map(x => `<td ${td}>${x}</td>`).join('')}</tr>`).join('');
+    h += `</tbody></table></div>`;
+    box.innerHTML = h; box.style.display = 'block';
+  }
+
+  function rackReset(){
+    rackRes = null;
+    const inp = document.getElementById('rackInput'); if(inp) inp.value = '';
+    const fn = document.getElementById('rackFn'); if(fn) fn.classList.remove('show');
+    const fnTxt = document.getElementById('rackFnTxt'); if(fnTxt) fnTxt.textContent = '';
+    const dz = document.getElementById('rackDZ'); if(dz) dz.style.borderColor = '';
+    const del = document.getElementById('rackDZDel'); if(del) del.classList.remove('show');
+    const btn = document.getElementById('rackExportBtn'); if(btn) btn.disabled = true;
+    rackRender();
+  }
+
+  function rackFail(msg){ rackReset(); const box = document.getElementById('rackResult'); if(box){ box.innerHTML = `<div style="color:#f87171;font-weight:600">❌ ${esc(msg)}</div>`; box.style.display = 'block'; } }
+
+  function rackLoadFile(file){
+    if(!file) return;
+    rackReset();
+    if(!/\.(xls|xlsx|xlsm)$/i.test(file.name)){ rackFail('รองรับเฉพาะไฟล์ INVOICE .xls / .xlsx'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const wbk = XLSX.read(ev.target.result, { type:'array', cellDates:false, raw:true });
+        const res = rackParseWorkbook(wbk);
+        if(!res.rows.length){ rackFail(`ไม่พบรายการ RACK ในไฟล์ ${file.name} (ต้องมีหัวตาราง ITEM / PART NAME / RACK CODE)`); return; }
+        rackRes = Object.assign(res, { fileName: file.name });
+        const fn = document.getElementById('rackFn'), fnTxt = document.getElementById('rackFnTxt');
+        if(fnTxt) fnTxt.textContent = file.name; if(fn) fn.classList.add('show');
+        const dz = document.getElementById('rackDZ'); if(dz) dz.style.borderColor = 'var(--success)';
+        const del = document.getElementById('rackDZDel'); if(del) del.classList.add('show');
+        const btn = document.getElementById('rackExportBtn'); if(btn) btn.disabled = false;
+        rackRender();
+      }catch(e){ rackFail('อ่านไฟล์ไม่ได้: ' + (e && e.message || e)); }
+    };
+    reader.onerror = () => rackFail('อ่านไฟล์ไม่ได้');
+    reader.readAsArrayBuffer(file);
+  }
+
+  /* สร้าง Excel ตามต้นแบบ (Style ทุกคอลัมน์ตาม "mapping Space ตัวอย่าง.xlsx") */
+  async function rackBuildExcel(R){
+    const wbx = new ExcelJS.Workbook();
+    const ws = wbx.addWorksheet(RACK_SHEET_NAME, { properties:{ defaultRowHeight:14.5 }, views:[{ state:'normal', activeCell:'S1' }] });
+    Object.keys(RACK_WIDTH).forEach(c => { ws.getColumn(+c).width = RACK_WIDTH[c]; });
+    const thin = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+    const fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF8CBAD' }, bgColor:{ indexed:64 } };   // Orange Accent 2 · Lighter 60% (ตามต้นแบบ)
+    const fCal = { name:'Calibri', size:8, family:2, scheme:'minor', color:{ theme:1 }, charset:222 };
+    const fAng = { name:'AngsanaUPC', size:8, bold:true, family:1, color:{ argb:'FF000080' }, charset:222 };
+    const fDat = { name:'Calibri', size:8, family:2, scheme:'minor' };
+    const hr = ws.getRow(1);
+    for(let c = 1; c <= 19; c++){
+      const cell = hr.getCell(c), angs = c >= 5 && c <= 16;
+      if(RACK_HEAD[c - 1] != null) cell.value = RACK_HEAD[c - 1];
+      cell.font = angs ? fAng : fCal; cell.fill = fill; cell.border = thin;
+      cell.alignment = angs ? { horizontal:'center', vertical:'middle' } : { horizontal:'center' };
+    }
+    R.rows.forEach((o, i) => {
+      const r = i + 2, row = ws.getRow(r);
+      const put = (c, v) => { if(v != null && !(typeof v === 'string' && v === '')) row.getCell(c).value = v; };
+      put(1, o.A); put(2, o.B); put(5, o.E); put(6, o.F); put(7, o.G); put(8, o.H); put(9, o.I); put(10, o.J); put(13, o.M);
+      row.getCell(15).value = { formula:`+H${r}*M${r}`, result: o.O == null ? undefined : o.O };
+      put(17, o.Q); put(18, o.R); row.getCell(19).value = RACK_TH_FIX;
+      for(let c = 1; c <= 19; c++){
+        const cell = row.getCell(c);
+        cell.border = thin;
+        if(c <= 17){ cell.font = fDat; cell.alignment = { horizontal:'center', vertical:'middle' }; }
+        else { cell.font = fCal; cell.alignment = { horizontal:'center' }; }
+        if(c === 9) cell.numFmt = '@';
+        else if(c >= 13 && c <= 17) cell.numFmt = '#,##0';
+        else if(c === 18) cell.numFmt = 'mm-dd-yy';
+      }
+    });
+    return wbx.xlsx.writeBuffer();
+  }
+
+  async function rackExport(){
+    if(rackBusy) return;
+    if(!rackRes || !rackRes.rows.length){ alert('⚠ กรุณาอัปโหลด INVOICE ก่อน'); return; }
+    const btn = document.getElementById('rackExportBtn');
+    rackBusy = true; if(btn) btn.disabled = true;
+    try{
+      const ok = await hspmEnsureExcel();
+      if(!ok || !window.ExcelJS) throw new Error('โหลด ExcelJS ไม่สำเร็จ');
+      const buf = await rackBuildExcel(rackRes);
+      safeDownload(buf, RACK_FILE_NAME, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }catch(e){ alert('EXPORT EXCEL ไม่สำเร็จ: ' + (e && e.message || e)); }
+    finally{ rackBusy = false; if(btn) btn.disabled = !rackRes; }
+  }
+
+  function rackInit(){
+    const dz = document.getElementById('rackDZ'), inp = document.getElementById('rackInput');
+    if(!dz || !inp) return;
+    inp.addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) rackLoadFile(f); });
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#f97316'; });
+    dz.addEventListener('dragleave', e => { e.preventDefault(); dz.style.borderColor = rackRes ? 'var(--success)' : ''; });
+    dz.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) rackLoadFile(f); });
+  }
+  window.rackReset = rackReset;
+  window.rackExport = rackExport;
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rackInit); else rackInit();
 })();
 </script>
 <script>
