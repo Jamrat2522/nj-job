@@ -1838,6 +1838,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
           </div>
           <!-- ปุ่มตรวจสอบเปิดเมื่อมีไฟล์ที่ Backend บังคับ (fzRunCheck: Entry File) -->
           <div id="fzBtnHint" style="display:none;font-size:11px;color:var(--text-3);margin-top:6px">⚠ กรุณาอัปโหลดให้ครบ 3 ไฟล์ (ใบขน PZAF · INVOICE · ENTRY ก่อน MAPPING) — ปุ่มตรวจสอบจะเปิดใช้งานอัตโนมัติ</div>
+          <div id="fzNwInfo" style="display:none;font-size:12px;margin-top:8px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;line-height:1.7"></div>
 
           <div style="margin-top:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-2);line-height:1.7">
             <strong style="color:var(--text)">📋 หัวข้อที่ตรวจ:</strong> FIX EDC1 FZ · Stat Code (MASTER 📘 พิกัด) · จับคู่ ITEM / QTY / NW (ENTRY ก่อน MAPPING) · PART NO. · DESCRIPTION · PART QTY · TERM · Consignee · ยอดรวม (INVOICE)
@@ -2351,7 +2352,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local280';
+const EDCAPL_VERSION = 'local281';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6951,6 +6952,31 @@ function edc1fzMulRound2(a, b){ const x = edc1fzDec(a), y = edc1fzDec(b); if(!x 
   if(sc <= 2) return p * (10n ** BigInt(2 - sc)); const d = 10n ** BigInt(sc - 2), neg = p < 0n; if(neg) p = -p; let q = p / d; if((p % d) * 2n >= d) q += 1n; return neg ? -q : q; }
 function edc1fzCents(c){ if(c === null || c === undefined) return '-'; const neg = c < 0n, a = neg ? -c : c, i = a / 100n, f = a % 100n;
   return (neg ? '-' : '') + i.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + f.toString().padStart(2, '0'); }
+/* [NW MASTER] local281: ค้นหายอด NET จากเนื้อหาจริงของ INVOICE ต้นฉบับ — ทุก Sheet · ข้อความยาว/หลายบรรทัดในเซลล์เดียว · คั่นหลักพัน (,) และช่องว่าง
+   · ค่าอยู่ในเซลล์เดียวกับ Label ("NET/NETTO : 1,776.20") หรือเซลล์ถัดไปทางขวาในแถวเดียวกัน · Label เฉพาะ NET (ไม่ใช้ GROSS/BRUTTO · TARE/TARA)
+   · คืน { cents (BigInt, ROUND HALF UP 2 ตำแหน่ง), hits[], err:'' | 'notfound' | 'ambiguous' (พบหลายค่าไม่ตรงกัน) } — ไม่พบ = ไม่สร้างยอดเอง */
+function edcNetFind(wb, labelRe){
+  const re = labelRe || /\bNET\s*\/\s*NETTO\b/i, NUM = /^(\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/, hits = [];
+  const strip = t => t.replace(/^\s*(\([^)]*\)\s*)?[:=]?\s*/, '');
+  ((wb && wb.SheetNames) || []).forEach(sn => { const ws = wb.Sheets[sn]; if(!ws || !ws['!ref']) return; const rg = XLSX.utils.decode_range(ws['!ref']);
+    for(let r = rg.s.r; r <= rg.e.r; r++) for(let c = rg.s.c; c <= rg.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({ r, c })]; if(!cell || cell.v == null || typeof cell.v !== 'string') continue;
+      const txt = cell.v.replace(/\u00a0/g, ' '), g = new RegExp(re.source, re.flags.replace('g', '') + 'g'); let m;
+      while((m = g.exec(txt))){
+        const lines = txt.slice(m.index + m[0].length).split(/\r?\n/); let rest = strip(lines[0]);
+        if(!rest.trim()){ const nx = lines.slice(1).find(l => l.trim()); if(nx !== undefined && NUM.test(strip(nx))) rest = strip(nx); }   /* ค่าอยู่บรรทัดถัดไปในเซลล์เดียวกัน */
+        let raw = null; const mm = rest.match(NUM);
+        if(mm) raw = mm[1];
+        else if(!rest.trim()){ for(let c2 = c + 1; c2 <= rg.e.c; c2++){ const x = ws[XLSX.utils.encode_cell({ r, c:c2 })]; const t = x && x.v != null ? String(x.v).trim() : '';
+          if(!t || /^[:=]$/.test(t)) continue; const m2 = strip(t).match(NUM); if(m2) raw = m2[1]; break; } }
+        if(raw != null){ const cents = edc1fzMulRound2(raw.replace(/[,\s]/g, ''), '1'); if(cents !== null) hits.push({ sheet:sn, cell:XLSX.utils.encode_cell({ r, c }), raw:raw.trim(), cents }); }
+      }
+    } });
+  if(!hits.length) return { cents:null, hits, err:'notfound' };
+  if(new Set(hits.map(h => h.cents.toString())).size > 1) return { cents:null, hits, err:'ambiguous' };
+  return { cents:hits[0].cents, hits, err:'' };
+}
+window.edcNetFind = edcNetFind;
 /* [EDC1 FZ] local275: SOURCE LOCK ใหม่ — PZAF = MASTER · INVOICE = Commercial Invoice · ENTRY ก่อน MAPPING = จับคู่ / QTY / NW · Engine เดียว = edc1fzV2Run */
 const EDC1FZ_V2_SOURCE_LOCK = Object.freeze({ MASTER:'PZAF', INVOICE:'COMMERCIAL_INVOICE', ENTRY:'ENTRY_BEFORE_MAPPING', ENGINE:'edc1fzV2Run' });
 function assertEdc1FzV2SourceLock(){ const L = EDC1FZ_V2_SOURCE_LOCK;
@@ -6960,6 +6986,7 @@ function assertEdc1FzV2SourceLock(){ const L = EDC1FZ_V2_SOURCE_LOCK;
 function edc1fzV2OnFilesChanged(){ if(edc1fzV2Busy) return; edc1fzV2Last = null;
   try{ fzLastFull = null; fzLastAllErrors = []; }catch(_){}
   try{ if(fzResultBox) fzResultBox.style.display = 'none'; if(fzRBody) fzRBody.innerHTML = ''; if(fzRTitle) fzRTitle.textContent = ''; }catch(_){}
+  try{ const ni = document.getElementById('fzNwInfo'); if(ni){ ni.style.display = 'none'; ni.innerHTML = ''; } }catch(_){}   /* [NW MASTER] local281 */
   try{ fzUpdateCheckBtn(); }catch(_){} }
 function edc1fzV2Run(){
   const S = v => String(v==null?'':v), T = v => S(v).replace(/ /g,' ').trim(), U = v => T(v).toUpperCase().replace(/\s+/g,' ');
@@ -7281,6 +7308,13 @@ function edc1fzInvDetails(){ const out = new Map();
     if(d === undefined){ try{ d = edc8InvoiceDetail(e.wb) || null; }catch(_){ d = null; } _edc1fzInvDetCache.set(e.wb, d); }
     if(d && d.invoiceNo) out.set(String(d.invoiceNo).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase(), d); });
   return out; }
+/* [NW MASTER] local281: ยอด NET/NETTO ต่อ INVOICE (จาก INVOICE ต้นฉบับที่แนบ) — key = เลข INVOICE แบบเดียวกับ edc1fzInvDetails */
+const _edc1fzInvNetCache = new WeakMap();
+function edc1fzInvNets(){ const out = new Map(); edc1fzInvDetails();
+  ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).forEach(e => { if(!e || !e.wb) return; const d = _edc1fzInvDetCache.get(e.wb); if(!d || !d.invoiceNo) return;
+    let n = _edc1fzInvNetCache.get(e.wb); if(n === undefined){ try{ n = edcNetFind(e.wb); }catch(_){ n = { cents:null, hits:[], err:'notfound' }; } _edc1fzInvNetCache.set(e.wb, n); }
+    out.set(String(d.invoiceNo).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase(), Object.assign({ invoiceNo:d.invoiceNo }, n)); });
+  return out; }
 async function edc1fzV2ExportNw(){
   const files = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles) ? _fzInvoiceFiles.filter(f => f && f.file) : [];
   if(!files.length){ alert('⚠ กรุณาแนบไฟล์ ENTRY ก่อนทำ MAPPING'); return; }
@@ -7304,7 +7338,7 @@ async function edc1fzV2ExportNw(){
       ws.getCell(hr, cAmt).value = 'Amount'; ws.getCell(hr, cAmt).style = JSON.parse(JSON.stringify(hdrStyle));
       let first = 0, last = 0, totRow = 0, total = 0n; const firstCol = Math.min(...Object.values(H)), amtByCur = new Map();
       if(!cOut) throw new Error('ไม่พบคอลัมน์ Invoice Out ใน ENTRY — จับคู่สกุลเงินกับ INVOICE ไม่ได้');
-      let invNo = '';
+      let invNo = ''; const nwRows = [];
       for(let r = hr + 1; r <= ws.rowCount; r++){
         const label = S(cv(ws.getCell(r, firstCol))); if(/^total/i.test(label)){ totRow = r; break; }
         const q = cv(ws.getCell(r, cQty)), w = cv(ws.getCell(r, cWpu)); if(S(q) === '' && S(w) === '' && S(label) === '') continue;
@@ -7313,9 +7347,8 @@ async function edc1fzV2ExportNw(){
         const out = S(cv(ws.getCell(r, cOut))); if(!invNo && out) invNo = out;
         const d = invDet.get(nInv(out)); if(!d) throw new Error('แถว '+r+' (Sl. No '+sl+'): ไม่พบ INVOICE เลขที่ '+(out || '(ว่าง)')+' ในไฟล์ INVOICE ที่แนบ — ไม่พบสกุลเงินใน INVOICE');
         const cur = S(d.currency).toUpperCase(); if(!cur) throw new Error('INVOICE '+d.invoiceNo+': ไม่พบสกุลเงินใน INVOICE');
-        total += cents;
         const base = JSON.parse(JSON.stringify(ws.getCell(r, lastCol).style || {}));
-        const nc = ws.getCell(r, cNw); nc.value = { formula:'ROUND('+L(cQty)+r+'*'+L(cWpu)+r+',2)', result: Number(cents) / 100 }; nc.style = Object.assign({}, base, { numFmt:'#,##0.00' });
+        nwRows.push({ r, cents, key:nInv(out), sl, base });   /* [NW MASTER] local281: เขียน NW หลังเทียบยอด NET/NETTO ต่อ INVOICE */
         const cc = ws.getCell(r, cCur); cc.value = cur; cc.style = JSON.parse(JSON.stringify(base));
         /* Amount = ROUND(Qty × Price/Unit, 2) · ROUND HALF UP (จำนวนเต็ม) · ไม่ปัด Price/Unit ก่อนคูณ · ไม่แก้ Qty / Price/Unit ต้นฉบับ */
         const pr = cv(ws.getCell(r, cPrice)), prD = edc1fzDec(pr), aC = edc1fzMulRound2(q, pr);
@@ -7325,6 +7358,29 @@ async function edc1fzV2ExportNw(){
         if(!first) first = r; last = r;
       }
       if(!first) throw new Error('ไม่พบแถวรายการ');
+      /* [NW MASTER] local281: ยึด NET/NETTO จาก INVOICE ต้นฉบับเป็นยอด NW หลัก (แยกต่อ INVOICE)
+         DIFF = NET/NETTO − SUM(NW ราย ITEM ที่ปัดแล้ว) · ≠ 0 → ปรับเฉพาะ ITEM แรกของ INVOICE นั้น (Decimal/BigInt) · คำนวณใหม่จาก ENTRY ทุกครั้ง (ไม่ปรับซ้ำ)
+         ส่วนต่างเกินขอบเขตการปัดเศษ (0.005 × (จำนวน ITEM + 1)) หรือ ITEM แรก ≤ 0 → แจ้งข้อผิดพลาด ไม่ EXPORT · ไม่พบ NET/NETTO → แจ้งข้อผิดพลาด ไม่สร้างยอดเอง */
+      const nets = edc1fzInvNets(), groups = new Map(), adjLog = []; let netTotal = 0n;
+      nwRows.forEach(x => { if(!groups.has(x.key)) groups.set(x.key, []); groups.get(x.key).push(x); });
+      for(const [k, g] of groups){
+        const n = nets.get(k), invL = (n && n.invoiceNo) || k || '(ว่าง)';
+        if(!n || n.err === 'notfound' || n.cents === null && n.err !== 'ambiguous') throw new Error('INVOICE '+invL+': ไม่พบยอด NET/NETTO ใน INVOICE ต้นฉบับ — ไม่สร้างยอด NW เอง');
+        if(n.err === 'ambiguous') throw new Error('INVOICE '+invL+': พบยอด NET/NETTO หลายค่าไม่ตรงกัน ('+n.hits.map(h => h.raw).join(' / ')+') — ยืนยันยอดต้นฉบับไม่ได้');
+        const sum = g.reduce((a, x) => a + x.cents, 0n), diff = n.cents - sum, ad = diff < 0n ? -diff : diff, lim = BigInt(Math.floor((g.length + 1) / 2));
+        if(ad > lim) throw new Error('INVOICE '+invL+': ส่วนต่าง NW ผิดปกติ — NET/NETTO '+edc1fzCents(n.cents)+' · รวม NW ราย ITEM '+edc1fzCents(sum)+' · DIFF '+edc1fzCents(diff)+' (เกินส่วนต่างจากการปัดเศษ ±'+edc1fzCents(lim)+') — ตรวจ QTY / Weight/Unit ก่อน EXPORT');
+        if(diff !== 0n){ const f0 = g[0], after = f0.cents + diff;
+          if(after <= 0n) throw new Error('INVOICE '+invL+': ปรับส่วนต่าง '+edc1fzCents(diff)+' แล้ว NW ITEM แรก (Sl. No '+f0.sl+') ≤ 0 — ไม่ปรับ / ไม่ EXPORT');
+          f0.adj = { before:f0.cents, diff, net:n.cents }; adjLog.push({ invoice:invL, net:n.cents, sum, diff, row:f0.r, sl:f0.sl, before:f0.cents, after }); f0.cents = after; }
+        else adjLog.push({ invoice:invL, net:n.cents, sum, diff:0n });
+        netTotal += n.cents;
+      }
+      nwRows.forEach(x => { const a = x.adj, ad = a ? (a.diff < 0n ? -a.diff : a.diff) : 0n;
+        const nc = ws.getCell(x.r, cNw); nc.value = { formula:'ROUND('+L(cQty)+x.r+'*'+L(cWpu)+x.r+',2)'+(a ? (a.diff < 0n ? '-' : '+')+edc1fzCents(ad).replace(/,/g,'') : ''), result: Number(x.cents) / 100 };
+        nc.style = Object.assign({}, x.base, { numFmt:'#,##0.00' });
+        if(a) nc.note = 'ปรับส่วนต่างให้ตรง NET/NETTO ของ INVOICE\nNW ก่อนปรับ: '+edc1fzCents(a.before)+'\nDIFF: '+(a.diff > 0n ? '+' : '')+edc1fzCents(a.diff)+'\nNW หลังปรับ: '+edc1fzCents(x.cents)+'\nNET/NETTO INVOICE: '+edc1fzCents(a.net);
+        total += x.cents; });
+      if(total !== netTotal) throw new Error('TOTAL NW '+edc1fzCents(total)+' ≠ NET/NETTO '+edc1fzCents(netTotal)+' — ยกเลิก EXPORT');
       if(!totRow){ totRow = last + 1; ws.getCell(totRow, firstCol).value = 'Total'; }
       const tc = ws.getCell(totRow, cNw); tc.value = { formula:'ROUND(SUM('+L(cNw)+first+':'+L(cNw)+last+'),2)', result: Number(total) / 100 }; tc.style = Object.assign({}, JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {})), { numFmt:'#,##0.00' });
       /* TOTAL Amount: สกุลเงินเดียว = แถว Total · หลายสกุลเงิน = แยกแถวตามสกุลเงิน (SUMIF · ไม่รวมข้ามสกุลเงิน) */
@@ -7337,6 +7393,11 @@ async function edc1fzV2ExportNw(){
       if(!invNo){ const t = S(cv(ws.getCell(1, firstCol))).match(/(\d{6,})/); invNo = t ? t[1] : 'NW'; }
       const buf = await wb.xlsx.writeBuffer();
       safeDownload(buf, 'NW_Invoice_'+invNo+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      /* [NW MASTER] local281: เก็บค่าก่อนปรับ / ส่วนต่าง ไว้ตรวจสอบย้อนหลัง (หน้าจอ + window.edc1fzNwAdjLog · ในไฟล์ = สูตร ROUND(..)±DIFF + Note ที่เซลล์) */
+      try{ window.edc1fzNwAdjLog = (window.edc1fzNwAdjLog || []).concat(adjLog.map(x => Object.assign({ file:f.name || '', at:new Date().toISOString() }, x, { net:edc1fzCents(x.net), sum:edc1fzCents(x.sum), diff:edc1fzCents(x.diff), before:x.before !== undefined ? edc1fzCents(x.before) : undefined, after:x.after !== undefined ? edc1fzCents(x.after) : undefined })));
+        const ni = document.getElementById('fzNwInfo'); if(ni){ const e = v => String(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+          ni.innerHTML = '<b>EXPORT NW ('+e(f.name || '')+')</b> · TOTAL NW = '+edc1fzCents(total)+' KG ตรง NET/NETTO<br>'+adjLog.map(x => '• INVOICE '+e(x.invoice)+': NET/NETTO '+edc1fzCents(x.net)+' · รวม NW ราย ITEM '+edc1fzCents(x.sum)+(x.diff === 0n ? ' · ไม่มีส่วนต่าง' : ' · DIFF '+(x.diff > 0n ? '+' : '')+edc1fzCents(x.diff)+' → ปรับ ITEM แรก (Sl. No '+e(x.sl)+') '+edc1fzCents(x.before)+' → '+edc1fzCents(x.after))).join('<br>');
+          ni.style.display = ''; } }catch(_){}
     }catch(err){ alert('EXPORT NW ไม่สำเร็จ ('+(f.name||'')+'): '+(err && err.message || err)); }
   }
 }
@@ -12553,7 +12614,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     const need = { item:'ITEM', name:'PART NAME', code:'RACK CODE', dim:'DIMENSION', qty:'QUANTITY', unit:'UNIT', nw:'TOTAL N/W', price:'UNIT PRICE' };
     Object.keys(need).forEach(k => { if(C[k] < 0) warn.push(`Sheet "${sheetName}": ไม่พบหัวคอลัมน์ ${need[k]}`); });
     // INVOICE NO. / DATE / Footer ยอดรวม
-    let inv = null, invDateRaw = null, fPack = null, fNw = null, fGrand = null;
+    let inv = null, invDateRaw = null, fPack = null, fGrand = null;
     for(let r = 0; r < aoa.length; r++){
       const row = aoa[r] || [];
       for(let c = 0; c < row.length; c++){
@@ -12562,7 +12623,6 @@ Column rename for export only: "KDC" → "Customer jobno."
         if(r < h && inv == null && /^INVOICE\s*NO\.?$/.test(u)) inv = rightOf(row, c);
         else if(r < h && invDateRaw == null && /^(INVOICE\s+)?DATE$/.test(u)) invDateRaw = rightOf(row, c);
         else if(r > h && fPack == null && /^PACKING\b/.test(u)) fPack = num(rightOf(row, c));
-        else if(r > h && fNw == null && /^NET WEIGHT/.test(u)) fNw = num(rightOf(row, c));
         else if(r > h && fGrand == null && /^GRAND TOTAL/.test(u)) fGrand = num(rightOf(row, c));
       }
     }
@@ -12598,10 +12658,12 @@ Column rename for export only: "KDC" → "Customer jobno."
     const sum = k => items.reduce((a, o) => a + (num(o[k]) || 0), 0);
     const near = (a, b) => Math.abs(a - b) < 0.005;
     if(fPack != null && !near(sum('H'), fPack)) warn.push(`Sheet "${sheetName}": รวม QUANTITY ${sum('H')} ≠ PACKING ${fPack}`);
-    if(fNw != null && !near(sum('J'), fNw)) warn.push(`Sheet "${sheetName}": รวม N/W ${sum('J')} ≠ NET WEIGHT ${fNw}`);
+    /* [NW MASTER] local281: ยอด NET ต้นฉบับของ Sheet — NET/NETTO ก่อน · ไม่มี → NET WEIGHT (Footer ของ INVOICE RACK) · ไม่ใช้ GROSS / TARE */
+    const one = { SheetNames:[sheetName], Sheets:{ [sheetName]:ws } };
+    let net = edcNetFind(one); if(net.err === 'notfound') net = Object.assign(edcNetFind(one, /\bNET\s*WEIGHT\b/i), { label:'NET WEIGHT' }); else net.label = 'NET/NETTO';
     if(fGrand != null && !near(sum('O'), fGrand)) warn.push(`Sheet "${sheetName}": รวม TOTAL FOB ${sum('O')} ≠ GRAND TOTAL ${fGrand}`);
     items.forEach(o => { o.Q = invNo || null; o.R = invDate || (isBlank(invDateRaw) ? null : T(invDateRaw)); });
-    return { sheet: sheetName, inv: invNo, invDate, items, warn };
+    return { sheet: sheetName, inv: invNo, invDate, items, warn, net };
   }
 
   /* อ่านทั้ง Workbook → รวม + ตัด Sheet ซ้ำ + เรียง INVOICE ASC */
@@ -12620,10 +12682,32 @@ Column rename for export only: "KDC" → "Customer jobno."
     });
     const invCount = {}; sheets.forEach(p => { const k = U(p.inv); if(k) invCount[k] = (invCount[k] || 0) + 1; });
     Object.keys(invCount).filter(k => invCount[k] > 1).forEach(k => warn.push(`INVOICE ${k} พบในหลาย Sheet (รายการต่างกัน) — รวมทุกรายการ ไม่ตัดทิ้ง`));
+    /* [NW MASTER] local281: NW ราย ITEM = TOTAL N/W ตามข้อมูล RACK เดิม · เทียบ NET ต้นฉบับต่อ INVOICE (Decimal/BigInt)
+       DIFF = NET − SUM(N/W) · ≠ 0 → ปรับเฉพาะ ITEM แรกของ INVOICE นั้น · ผิดปกติ / ไม่พบ NET / ITEM แรก ≤ 0 → ข้อผิดพลาด (ไม่ EXPORT) */
+    const errors = [], adj = [], byInv = new Map(), C2 = v => edc1fzMulRound2(typeof v === 'number' ? v : T(v).replace(/,/g, ''), '1');
+    sheets.forEach(p => { const k = U(p.inv) || ('#' + p.sheet); if(!byInv.has(k)) byInv.set(k, []); byInv.get(k).push(p); });
+    byInv.forEach((ps, k) => {
+      const invL = ps[0].inv || ('(ไม่มีเลข INVOICE · Sheet ' + ps[0].sheet + ')'), items = [].concat(...ps.map(p => p.items));
+      const bad = ps.find(p => p.net.err === 'ambiguous'), miss = ps.find(p => p.net.err === 'notfound');
+      if(bad){ errors.push(`INVOICE ${invL}: พบยอด ${bad.net.label} หลายค่าไม่ตรงกัน (${bad.net.hits.map(h => h.raw).join(' / ')}) — ยืนยันยอดต้นฉบับไม่ได้`); return; }
+      if(miss){ errors.push(`INVOICE ${invL} (Sheet "${miss.sheet}"): ไม่พบยอด NET/NETTO หรือ NET WEIGHT ใน INVOICE ต้นฉบับ — ไม่สร้างยอด NW เอง`); return; }
+      const nv = [...new Set(ps.map(p => p.net.cents.toString()))];
+      if(nv.length > 1){ errors.push(`INVOICE ${invL}: อยู่หลาย Sheet และยอด NET ไม่ตรงกัน (${ps.map(p => edc1fzCents(p.net.cents)).join(' / ')}) — ยืนยันยอดต้นฉบับไม่ได้`); return; }
+      const net = ps[0].net.cents, cs = items.map(o => C2(o.J)), nb = items.findIndex((o, i) => cs[i] === null);
+      if(nb >= 0){ errors.push(`INVOICE ${invL} (Sheet "${items[nb].sheet}" แถว ${items[nb].row}): TOTAL N/W ว่าง/ไม่ใช่ตัวเลข — เทียบยอด NET ไม่ได้`); return; }
+      const sum = cs.reduce((a, c) => a + c, 0n), diff = net - sum, ad = diff < 0n ? -diff : diff, lim = BigInt(Math.floor((items.length + 1) / 2));
+      if(ad > lim){ errors.push(`INVOICE ${invL}: ส่วนต่าง NW ผิดปกติ — ${ps[0].net.label} ${edc1fzCents(net)} · รวม N/W ราย ITEM ${edc1fzCents(sum)} · DIFF ${edc1fzCents(diff)} (เกินส่วนต่างจากการปัดเศษ ±${edc1fzCents(lim)})`); return; }
+      if(diff === 0n){ adj.push({ invoice:invL, net, sum, diff }); return; }
+      const after = cs[0] + diff;
+      if(after <= 0n){ errors.push(`INVOICE ${invL}: ปรับส่วนต่าง ${edc1fzCents(diff)} แล้ว N/W ITEM แรก ≤ 0 — ไม่ปรับ / ไม่ EXPORT`); return; }
+      const o = items[0]; o.nwAdj = { before:o.J, beforeC:cs[0], diff, net, label:ps[0].net.label }; o.J = Number(after) / 100;
+      adj.push({ invoice:invL, net, sum, diff, item:o.A, sheet:o.sheet, row:o.row, before:cs[0], after });
+    });
     const rows = [];
     sheets.forEach(p => p.items.forEach((o, i) => rows.push(Object.assign(o, { _s: p.order, _i: i }))));
     rows.sort((a, b) => rackInvCmp(a.Q, b.Q) || (a._s - b._s) || (a._i - b._i));
-    return { rows, sheets, skipped, dup, warn };
+    adj.sort((a, b) => rackInvCmp(a.invoice, b.invoice));
+    return { rows, sheets, skipped, dup, warn, errors, adj };
   }
 
   function rackRender(){
@@ -12639,6 +12723,8 @@ Column rename for export only: "KDC" → "Customer jobno."
     h += `<div style="font-size:12px;opacity:.85;margin-bottom:8px">ลำดับ INVOICE: ${invs.map(esc).join(' → ')}</div>`;
     if(R.dup.length) h += `<div style="font-size:12px;color:#fbbf24;margin-bottom:4px">ตัด Sheet ซ้ำ: ${R.dup.map(esc).join(', ')}</div>`;
     if(R.skipped.length) h += `<div style="font-size:12px;opacity:.7;margin-bottom:4px">Sheet ที่ไม่มีรายการ RACK: ${R.skipped.map(esc).join(', ')}</div>`;
+    if(R.errors.length) h += `<div style="font-size:12px;color:#f87171;font-weight:700;margin:6px 0">❌ ข้อผิดพลาด ${R.errors.length} รายการ — EXPORT ไม่ได้จนกว่าจะแก้ไข INVOICE:<br>${R.errors.map(w => '• ' + esc(w)).join('<br>')}</div>`;
+    if(R.adj.length) h += `<div style="font-size:12px;color:#93c5fd;margin:6px 0">NW เทียบยอด NET ต้นฉบับ (ต่อ INVOICE):<br>${R.adj.map(x => '• INVOICE ' + esc(x.invoice) + ': NET ' + edc1fzCents(x.net) + ' · รวม N/W ' + edc1fzCents(x.sum) + (x.diff === 0n ? ' · ไม่มีส่วนต่าง' : ' · DIFF ' + (x.diff > 0n ? '+' : '') + edc1fzCents(x.diff) + ' → ปรับ ITEM แรก (ITEM ' + esc(x.item) + ') ' + edc1fzCents(x.before) + ' → ' + edc1fzCents(x.after))).join('<br>')}</div>`;
     if(R.warn.length) h += `<div style="font-size:12px;color:#f87171;margin:6px 0">⚠ แจ้งเตือน ${R.warn.length} รายการ:<br>${R.warn.map(w => '• ' + esc(w)).join('<br>')}</div>`;
     h += `<div style="overflow:auto;max-height:360px;margin-top:8px"><table style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr>${['ITEM','PART NAME','RACK CODE','','DIMENSION','QTY','UNIT','N/W','UNIT PRICE','TOTAL FOB','INVOICE','INVOICE DATE','คำแปลภาษาไทย'].map(x => `<th ${td}>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
     h += R.rows.map(o => `<tr>${[fmtN(o.A), esc(o.B), esc(o.E), esc(o.F), esc(o.G), fmtN(o.H), esc(o.I), fmtN(o.J), fmtN(o.M), fmtN(o.O), esc(o.Q), fmtD(o.R), esc(RACK_TH_FIX)].map(x => `<td ${td}>${x}</td>`).join('')}</tr>`).join('');
@@ -12674,7 +12760,7 @@ Column rename for export only: "KDC" → "Customer jobno."
         if(fnTxt) fnTxt.textContent = file.name; if(fn) fn.classList.add('show');
         const dz = document.getElementById('rackDZ'); if(dz) dz.style.borderColor = 'var(--success)';
         const del = document.getElementById('rackDZDel'); if(del) del.classList.add('show');
-        const btn = document.getElementById('rackExportBtn'); if(btn) btn.disabled = false;
+        const btn = document.getElementById('rackExportBtn'); if(btn) btn.disabled = res.errors.length > 0;   /* [NW MASTER] local281: มีข้อผิดพลาด NW → ไม่ EXPORT */
         rackRender();
       }catch(e){ rackFail('อ่านไฟล์ไม่ได้: ' + (e && e.message || e)); }
     };
@@ -12705,6 +12791,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       put(1, o.A); put(2, o.B); put(5, o.E); put(6, o.F); put(7, o.G); put(8, o.H); put(9, o.I); put(10, o.J); put(13, o.M);
       row.getCell(15).value = { formula:`+H${r}*M${r}`, result: o.O == null ? undefined : o.O };
       put(17, o.Q); put(18, o.R); row.getCell(19).value = RACK_TH_FIX;
+      if(o.nwAdj){ const a = o.nwAdj; row.getCell(10).note = `ปรับส่วนต่างให้ตรง ${a.label} ของ INVOICE\nN/W ก่อนปรับ: ${edc1fzCents(a.beforeC)}\nDIFF: ${a.diff > 0n ? '+' : ''}${edc1fzCents(a.diff)}\nN/W หลังปรับ: ${edc1fzCents(a.beforeC + a.diff)}\n${a.label} INVOICE: ${edc1fzCents(a.net)}`; }
       for(let c = 1; c <= 19; c++){
         const cell = row.getCell(c);
         cell.border = thin;
@@ -12721,6 +12808,7 @@ Column rename for export only: "KDC" → "Customer jobno."
   async function rackExport(){
     if(rackBusy) return;
     if(!rackRes || !rackRes.rows.length){ alert('⚠ กรุณาอัปโหลด INVOICE ก่อน'); return; }
+    if(rackRes.errors && rackRes.errors.length){ alert('❌ EXPORT ไม่ได้ — ' + rackRes.errors.join(' | ')); return; }
     const btn = document.getElementById('rackExportBtn');
     rackBusy = true; if(btn) btn.disabled = true;
     try{
@@ -12729,7 +12817,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       const buf = await rackBuildExcel(rackRes);
       safeDownload(buf, RACK_FILE_NAME, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }catch(e){ alert('EXPORT EXCEL ไม่สำเร็จ: ' + (e && e.message || e)); }
-    finally{ rackBusy = false; if(btn) btn.disabled = !rackRes; }
+    finally{ rackBusy = false; if(btn) btn.disabled = !rackRes || !!(rackRes.errors && rackRes.errors.length); }
   }
 
   function rackInit(){
