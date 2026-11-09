@@ -31,7 +31,7 @@ function jobCard724(r, j, ap, extra) {
   if (r.approved_at) { L.push([I724.one, "ผู้อนุมัติ", esc(r.approved_by || "-")]); R.push([I724.cal, "วันที่อนุมัติ", esc(dtm(r.approved_at))]); }
   if (ap) { L.push([I724.coin, "ยอดจ่ายจริง", fm(paid) + " บาท"]); R.push([I724.coin, "ค้างจ่าย", fm(wait) + " บาท"]); }
   (extra || []).forEach(function (x, k) { (k % 2 ? R : L).push(x); });
-  if (r.status === "PAID") L.push([I724.lay, "สถานะ DOCUMENT", j.operational_status === "CLOSE" ? "ปิดงานแล้ว — ส่ง ACCOUNTING แล้ว" : esc(j.operational_status || "-") + " (รอ USER ปิดงานเองใน DOCUMENT → ADVANCE)"]);
+  if (r.status === "PAID") L.push([I724.lay, "สถานะ DOCUMENT", j.operational_status === "CLOSE" ? (j.dep808 ? "ปิดงานแล้ว — CASH ADVANCE → มัดจำตู้ (Customer NJ · ไม่ส่ง ACCOUNTING)" : "ปิดงานแล้ว — ส่ง ACCOUNTING แล้ว")   /* V.808 */ : esc(j.operational_status || "-") + " (รอ USER ปิดงานเองใน DOCUMENT → ADVANCE)"]);
   if (r.rejected_at) { L.push([I724.one, "ผู้ไม่อนุมัติ", esc(r.rejected_by || "-")]); R.push([I724.cal, "วันที่ไม่อนุมัติ", esc(dtm(r.rejected_at))]); L.push([I724.lay, "เหตุผล", esc(r.reject_reason || "-")]); R.push([I724.lay, "สถานะ JOB", esc(j.operational_status || "-")]); }
   var cell = function (x, o) { return x ? '<div class="ca24-kv" style="--o:' + o + '"><i>' + x[0] + "</i><span>" + x[1] + "</span><b>" + x[2] + "</b></div>" : '<div class="ca24-kv e"></div>'; }, h = "";
   for (var k = 0; k < Math.max(L.length, R.length); k++) h += cell(L[k], k) + cell(R[k], 100 + k);   /* Desktop 2 คอลัมน์ · มือถือ = คอลัมน์ซ้ายก่อนแล้วตามด้วยขวา */

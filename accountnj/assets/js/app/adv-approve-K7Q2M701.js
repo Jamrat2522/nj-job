@@ -449,7 +449,7 @@ function rej726(r, j) {
   return '<section class="r726"><div class="r726-h"><i>' + I724.file + "</i><b>ข้อมูลคำขอ</b></div>" +
     kv(I724.tag, "JOB No.", esc(r.job_no || j.job_no || "-")) + kv(I724.bld, "Company", esc(j.company_invoice || "-")) + kv(I724.usr, "Customer", esc(j.customer_name || "-")) +
     kv(I724.ship, "House B/L", esc(j.house_bl_no || "-")) + kv(I724.one, "ผู้อนุมัติ", esc(r.rejected_by || "-")) + kv(I724.coin, "ยอดจ่ายจริง", tot > 0 ? fm(tot) + " บาท" : "-") +
-    kv(I724.lay, "สถานะ DOCUMENT", esc(DS726[j.operational_status] || j.operational_status || "-")) + "</section>" +
+    kv(I724.lay, "สถานะ DOCUMENT", esc((j.operational_status === "CLOSE" && j.dep808 ? "ปิดงานแล้ว — CASH ADVANCE → มัดจำตู้ (Customer NJ · ไม่ส่ง ACCOUNTING)" : DS726[j.operational_status]) || j.operational_status || "-")   /* V.808 */) + "</section>" +
     '<section class="r726-x"><div class="r726-xr"><i>!</i><span>เหตุผลไม่อนุมัติ</span><b>' + esc(r.reject_reason || "-") + "</b></div>" +
     '<div class="r726-xm"><div><span>วันที่ไม่อนุมัติ :</span><b>' + esc(d7(r.rejected_at)) + "</b></div><div><span>ผู้ดำเนินการ :</span><b>" + esc(r.rejected_by || "-") + "</b></div></div></section>";
 }

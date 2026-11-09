@@ -598,7 +598,7 @@ async function render(root, args) {
   document.addEventListener("keydown", function kd(e) { if (OFF803(me)) { document.removeEventListener("keydown", kd); return; } if (e.key === "Escape" && !S.busy) closeView(); });
   if (args.job) {   /* เปิดจาก DOCUMENT → ADVANCE (#/cash-advance?job=…) : เลือกแท็บตามสถานะจริง แล้วเปิดรายละเอียด JOB */
     try {
-      var g = await rpc("njacc_cash_adv705_get", { p_job: String(args.job) }); var st = g && g.req && g.req.status; if (st) S.tab = st === "PAID" || st === "APPROVED" ? (DP807(g.req.items) ? "DEPOSIT" : "APPROVED") : st === "REJECTED" && !S.sup ? "PENDING" : st; RB807(fo);   /* V.807 */
+      var g = await rpc("njacc_cash_adv705_get", { p_job: String(args.job) }); var st = g && g.req && g.req.status; if (st) S.tab = st === "PAID" || st === "APPROVED" ? ((await DQ808(g.req)) ? "DEPOSIT" : "APPROVED") : st === "REJECTED" && !S.sup ? "PENDING" : st; RB807(fo);   /* V.807 */
     } catch (e) {}
   }
   await load();
@@ -760,3 +760,10 @@ function RJ807() { return S && S.sup ? '<button type="button" class="ca7-b rj807
     "@media (min-width:901px){.ca7-tab.dp807 .ic{color:#2563eb}.ca7-tab.dp807.on{color:#3b82f6}}" +
     ".ca7-b.rj807{height:30px;padding:0 10px;font-size:12px;font-weight:600;color:#b91c1c;border-color:#fecaca;background:#fff}.ca7-b.rj807 svg{width:13px;height:13px}.ca7-b.rj807.on{background:#fef2f2;border-color:#ef4444}";
   document.head.appendChild(s); } catch (e) {} })();
+
+/* ═══ V.808 · CASH ADVANCE มัดจำตู้ = DOCUMENT — ADVANCE ปิดงาน (CLOSE) สำเร็จ + Customer NJ (Customer ID) + ค่ามัดจำตู้ (njacc_dep808 · RUN-808 · ตรวจที่ Database)
+   ไม่ใช้การกดอนุมัติ / ชื่อประเภทอย่างเดียว · Customer อื่น = ACCOUNTING — ADVANCE เดิม + คงอยู่ในแท็บอนุมัติแล้ว (ตัวกรองติดตามวางบิลเดิม) · งานเก่าที่ส่ง ACCOUNTING แล้วไม่ย้ายย้อนหลัง ═══ */
+async function DQ808(r) {   /* ลิงก์ JOB : อยู่ในแท็บมัดจำตู้จริงหรือไม่ (ถามรายการเดิม · อ่านอย่างเดียว) */
+  try { if (!r || !r.job_no || r.job_no === "รอออกเลข JOB") return !1; var x = await rpc("njacc_cash_adv807_list", { p: { tab: "DEPOSIT", job_no: r.job_no, limit: 20, offset: 0, bil_dp: "", bil_ap: "follow" } });
+    return ((x && x.rows) || []).some(function (y) { return y.job_id === r.job_id; }); } catch (e) { return !1; }
+}
