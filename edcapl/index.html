@@ -1750,16 +1750,16 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
           <div class="mode-banner-icon">🟢</div>
           <div>
             <div class="mode-banner-title">ตรวจสอบใบขน EDC1 FZ</div>
-            <div class="mode-banner-desc">ตรวจสอบใบขนขาออก EDC1 FZ เทียบ Entry กับ Invoice File และ Export Mapping Excel<br>Entry = Master หลัก · Item = Invoice File · Header = Export Mapping Excel · Ford raw invoice ไม่ใช้ตรวจ</div>
-            <div class="mode-banner-tag">EDC1 · FREE ZONE · ENTRY + INVOICE + MAPPING</div>
+            <div class="mode-banner-desc">ตรวจสอบใบขนขาออก EDC1 FZ เทียบใบขน PZAF กับ MAPPING INVOICE และ INVOICE ต้นฉบับ<br>ใบขน PZAF = MASTER หลัก · MAPPING INVOICE = จับคู่ ITEM / ตรวจยอด · INVOICE = ข้อมูลอ้างอิง · MASTER 📘 พิกัด = Stat Code</div>
+            <div class="mode-banner-tag">EDC1 · FREE ZONE · PZAF + MAPPING INVOICE + INVOICE</div>
           </div>
         </div>
         <div class="mode-flow">
-          <span class="flow-step">① Entry</span>
+          <span class="flow-step">① ใบขน PZAF</span>
           <span class="flow-arrow">›</span>
-          <span class="flow-step">② Invoice</span>
+          <span class="flow-step">② MAPPING INVOICE</span>
           <span class="flow-arrow">›</span>
-          <span class="flow-step">③ Export Mapping</span>
+          <span class="flow-step">③ INVOICE</span>
           <span class="flow-arrow">›</span>
           <span class="flow-step action">🔍 ตรวจสอบ</span>
         </div>
@@ -1773,50 +1773,50 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
             <div class="upload-col dz-req">
               <div class="step-header mode-edc1fz">
                 <span class="step-num">1</span>
-                <span class="step-title">Entry File</span>
+                <span class="step-title">ใบขน PZAF</span>
                 <span class="step-req">Required</span>
               </div>
               <input type="file" id="fzEntryInput" accept=".xlsx,.xls,.ods" style="display:none" />
               <div class="drop-zone" id="fzEntryDZ" style="border-color:var(--error);min-height:126px;">
                 <button class="dz-del-btn" id="fzEntryDZDel" onclick="event.stopPropagation();fzClearSlot('entry');this.classList.remove('show')">✕</button>
                 <div class="drop-icon-box">⬆</div>
-                <div class="drop-label" style="font-size:12px">วางไฟล์ ENTRY ที่นี่</div>
+                <div class="drop-label" style="font-size:12px">วางไฟล์ใบขน PZAF ที่นี่</div>
                 <div class="drop-hint">.xlsx / .xls / .ods</div>
                 <div class="drop-fn" id="fzEntryFn">📄 <span id="fzEntryFnTxt"></span></div>
               </div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">Master หลัก — ยึด Item ของ Entry เป็นตัวตั้ง</div>
+              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">MASTER หลัก — ยึด Item line ของใบขน PZAF เป็นตัวตั้ง</div>
             </div>
 
             <!-- 2. INVOICE FILE -->
             <div class="upload-col dz-opt">
               <div class="step-header mode-edc1fz">
                 <span class="step-num">2</span>
-                <span class="step-title">Invoice File</span>
+                <span class="step-title">MAPPING INVOICE</span>
                 <span class="step-opt">แนะนำ</span>
               </div>
               <input type="file" id="fzInvoiceInput" accept=".xlsx,.xls,.ods" multiple style="display:none" />
               <div class="drop-zone" id="fzInvoiceDZ" style="min-height:126px;">
                 <button class="dz-del-btn" id="fzInvoiceDZDel" onclick="event.stopPropagation();fzClearSlot('invoice');this.classList.remove('show')">✕</button>
                 <div class="drop-icon-box">⬆</div>
-                <div class="drop-label" style="font-size:12px">วางไฟล์ Invoice ที่นี่</div>
+                <div class="drop-label" style="font-size:12px">วางไฟล์ MAPPING INVOICE ที่นี่</div>
                 <div class="drop-hint">.xlsx / .xls / .ods · รองรับหลายไฟล์</div>
                 <div class="drop-fn" id="fzInvoiceFn">📄 <span id="fzInvoiceFnTxt"></span></div>
               </div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">แหล่งอ้างอิง 1 — เทียบ field รายใบขน (อัปโหลดได้หลายไฟล์)</div>
+              <div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">จับคู่ ITEM (Sl. No · item · Export entry type D · Invoice Out) และตรวจยอด (อัปโหลดได้หลายไฟล์)</div>
             </div>
 
             <!-- 3. EXPORT MAPPING EXCEL -->
             <div class="upload-col dz-req">
               <div class="step-header mode-edc1fz">
                 <span class="step-num">3</span>
-                <span class="step-title">Export Mapping Excel</span>
+                <span class="step-title">INVOICE</span>
                 <span class="step-req">Required</span>
               </div>
               <input type="file" id="fordInvFzInput" accept=".xlsx,.xls,.ods" multiple style="display:none" />
               <div class="drop-zone" id="fordInvFzDZ" style="min-height:126px;">
                 <button class="dz-del-btn" id="fordInvFzDZDel" onclick="event.stopPropagation();fordInvReset('fordInvFzDZ','fordInvFzInput','fordInvFzFn',null);document.getElementById('fordInvFzDZDel').classList.remove('show')">✕</button>
                 <div class="drop-icon-box" style="font-size:18px">📄</div>
-                <div class="drop-label" style="font-size:12px">วางไฟล์ Export Mapping Excel ที่นี่</div>
+                <div class="drop-label" style="font-size:12px">วางไฟล์ INVOICE ต้นฉบับ ที่นี่</div>
                 <div class="drop-hint">.xlsx / .xls — รองรับหลายไฟล์ (Ford / Invoice / Mapping) → ระบบรวมเป็นไฟล์เดียวผ่าน "🔨 Build Mapping Excel"</div>
                 <div class="drop-fn" id="fordInvFzFn">📄 <span id="fordInvFzFnTxt"></span></div>
               </div>
@@ -2308,7 +2308,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local273';
+const EDCAPL_VERSION = 'local274';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -6835,6 +6835,303 @@ function exportFzFullReport(R){
     .catch(e=>alert('Export ไม่สำเร็จ: '+(e && e.message || e)));
 }
 
+/* ═══════════════ [EDC1 FZ] local274 — Engine ใหม่: ใบขน PZAF = MASTER · รายงาน / EXPORT รูปแบบ EDC8 AAT (8 คอลัมน์) ═══════════════
+   แหล่งข้อมูล: ① PZAF (fzEntryWb · MASTER) ② MAPPING INVOICE (_fzInvoiceFiles) ③ INVOICE ต้นฉบับ Ford (_mfFiles.fordInvFzDZ)
+   จับคู่ ITEM: Item line ↔ Sl. No · Line enry ↔ item · Export entry type D · PART NO. · Product Code · INVOICE NO. ↔ Invoice Out · QTY ↔ Qty
+   (คะแนนรวม · ไม่เลือกแถวแรก · ซ้ำแยกไม่ได้ = ❌) · ค่าต้นฉบับตรวจแยกทุกหัวข้อ (Normalize ใช้ค้นหาเท่านั้น) · ไม่แก้ข้อมูลต้นฉบับ */
+const EDC1FZ_V2_FIX = [
+  { t:'ใช้สิทธิ์',          k:'fz',       v:'T' },
+  { t:'Importincentives',   k:'imp',      v:'F5102180160004' },
+  { t:'exportincentives',   k:'exp',      v:'F5102180160004' },
+  { t:'Privilege',          k:'priv',     v:'003' },
+  { t:'Tariff',             k:'tariff',   v:'9PART3' },
+  { t:'Brand',              k:'brand',    v:'NO BRAND' },
+  { t:'Naturetran',         k:'natur',    v:'11' },
+  { t:'Prodyear',           k:'prodyear', v:'2026' },
+  { t:'Origin',             k:'origin',   v:'TH' },
+  { t:'type',               k:'type',     v:'1' },
+  { t:'ประเภทใบขน',         k:'dtype',    v:'620' },
+  { t:'เลขใบอนุญาต',        k:'permit',   v:'ที่201/2567' },
+  { t:'วันที่ออกใบอนุญาต',  k:'issue',    v:'20241114', m:'date' },
+  { t:'Tax ID',             k:'tax',      v:'0994000163011', m:'digit' },
+];
+const EDC1FZ_V2_RADAR = { name:'เรดาร์', permit:'EXEMPT99', issue:'20171113', tax:'0994000049447' };
+const EDC1FZ_V2_UNIT = [ ['พรมปูพื้นรถยนต์','MTK'], ['ชุดเพลาหน้า','SET'] ];   /* QTY inv / QTY ใบขน · สินค้าอื่น C62 · QTY 2 = EA */
+const EDC1FZ_V2_COLS = {
+  item:['Item line','Item'], fz:['ใช้สิทธิ์'], exp:['exportincentives'], imp:['Importincentives'], permit:['เลขใบอนุญาต'], issue:['วันที่ออก','วันที่ออกใบอนุญาต'], tax:['tax'],
+  qtyInv:['QTY inv'], qtyEntry:['QTY ใบขน'], qty2:['QTY 2'], desc:['Description','DESCRIPTION/BEZEICHNUNG'], qty:['QTY'], prod:['Product Code'], part:['PART NO.','PART NO'],
+  entD:['Export entry type D'], line:['Line enry','Line entry'], inv:['INVOICE NO.','INVOICE NO'], date:['DATE SHIPPED'], pkg:['total PACKAGE'], nw:['total N.W','total NW'],
+  gw:['total GW.','total G.W','total GW'], amt:['total AMOUNT'], cur:['currency'], mark:['SHIPPING MARK'], thai:['คำแปลไทย'], priv:['privilege'], tariff:['tariff'], hs:['tariffclas'],
+  stat:['stat'], term:['term'], consignee:['consignee'], natur:['naturetran'], prodyear:['prodyear'], origin:['origin'], purc:['purcountry'], dest:['ประเทศปลายทาง'], type:['type'],
+  dtype:['ประเภทใบขน'], exporter:['exporter name'], brand:['brand'], unitPrice:['unit price'], amount:['amount'], amountThb:['amount thb'], totThb:['total amountthb','total amount thb']
+};
+let edc1fzV2Last = null;
+function edc1fzV2Run(){
+  const S = v => String(v==null?'':v), T = v => S(v).replace(/ /g,' ').trim(), U = v => T(v).toUpperCase().replace(/\s+/g,' ');
+  const NH = v => T(v).toLowerCase().replace(/\s+/g,' ');
+  const dig = v => S(v).replace(/\D/g,''), alnum = v => S(v).toUpperCase().replace(/[^A-Z0-9฀-๿]/g,'');
+  const num = v => { const t = S(v).replace(/,/g,'').trim(); if(t==='') return null; const n = parseFloat(t); return isNaN(n) ? null : n; };
+  const r2 = v => Math.round(v*100)/100, fmtN = v => (+v).toLocaleString('en-US', { maximumFractionDigits:6 });
+  const nInv = v => T(v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase();
+  const nKey = v => { const t = T(v).replace(/\s+/g,''); if(!t) return ''; const k = t.replace(/^0+/,'') || '0'; return k; };
+  const nPart = v => S(v).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const strictPart = v => T(v).toUpperCase().replace(/\s+/g,'');   /* ตรวจค่าจริง: ตัดเฉพาะช่องว่าง · คงเครื่องหมาย - */
+  const thaiKey = v => S(v).replace(/[\s ​-‍﻿]+/g,'');
+  const DASH = '—';
+  if(!fzEntryWb){ fzShowSysErr('ไม่มีไฟล์ใบขน PZAF','กรุณาอัปโหลดไฟล์ใบขน (PZAF) ก่อนตรวจสอบ'); return; }
+  /* ── ① PZAF ── */
+  const eRows = XLSX.utils.sheet_to_json(fzEntryWb.Sheets[fzEntryWb.SheetNames[0]], { header:1, defval:'', raw:false });
+  const eHdr = (eRows[0]||[]).map(NH);
+  const col = k => { for(const a of (EDC1FZ_V2_COLS[k]||[])){ const i = eHdr.indexOf(NH(a)); if(i !== -1) return i; } return -1; };
+  const C = {}; Object.keys(EDC1FZ_V2_COLS).forEach(k => C[k] = col(k));
+  if(C.item === -1){ fzShowSysErr('โครงสร้างใบขนไม่ถูกต้อง','ไม่พบคอลัมน์ "Item line" ในแถวแรกของไฟล์ใบขน PZAF'); return; }
+  const cell = (row, k) => C[k] === -1 ? '' : T(row[C[k]]);
+  const groups = new Map();   /* Item line → แถวทั้งหมด (เรดาร์มีหลายแถว) */
+  eRows.slice(1).forEach((row, i) => { if(!row || row.every(c => T(c)==='')) return; const raw = T(row[C.item]); const k = nKey(raw); const key = k || ('(ว่าง)#'+i);
+    if(!groups.has(key)) groups.set(key, { key, raw: raw || '(ว่าง)', rows:[], rowNums:[] }); const g = groups.get(key); g.rows.push(row); g.rowNums.push(i+2); });
+  const items = [...groups.values()].map(g => Object.assign(g, { disp: /^\d+$/.test(g.key) ? g.key.padStart(5,'0') : g.raw, row:g.rows[0] }))
+    .sort((a,b) => (/^\d+$/.test(a.key) && /^\d+$/.test(b.key)) ? (+a.key - +b.key) : S(a.key).localeCompare(S(b.key)));
+  /* ── ② MAPPING INVOICE ── */
+  const mapFiles = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles && _fzInvoiceFiles.length) ? _fzInvoiceFiles : (fzInvoiceWb ? [{ name:'MAPPING', wb:fzInvoiceWb }] : []);
+  const mapRows = [], mapNames = [];
+  mapFiles.forEach(f => { if(!f || !f.wb) return; mapNames.push(f.name||'');
+    const rows = XLSX.utils.sheet_to_json(f.wb.Sheets[f.wb.SheetNames[0]], { header:1, defval:'', raw:false });
+    let hi = -1; for(let r=0; r<Math.min(rows.length,12); r++){ const h = (rows[r]||[]).map(NH); if(h.includes('sl. no') || (h.includes('item') && h.includes('part no.'))){ hi = r; break; } }
+    if(hi < 0) return;
+    let dShip = ''; for(let r=0; r<hi; r++){ const rr = rows[r]||[]; for(let c=0; c<rr.length; c++){ if(/date\s*shipped/i.test(S(rr[c]))){ const m = S(rr[c]).match(/date\s*shipped(?:\s*:)?\s*([^\s:].*)$/i); dShip = (m && T(m[1])) || T((rr.slice(c+1).find(x => T(x)!=='')) || ''); break; } } if(dShip) break; }
+    const h = (rows[hi]||[]).map(NH), mc = names => { for(const n of names){ const i = h.indexOf(NH(n)); if(i !== -1) return i; } return -1; };
+    const M = { sl:mc(['Sl. No','Sl No','Sl.No']), desc:mc(['Description']), part:mc(['PART NO.','PART NO']), qty:mc(['Qty']), unit:mc(['Unit']), price:mc(['Price/Unit']), invNo:mc(['Invoice no.']),
+                item:mc(['item']), entD:mc(['Export entry type D']), invOut:mc(['Invoice Out']), prod:mc(['Product Code']), nw:mc(['NW']), cur:mc(['สกุลเงิน','Currency']) };
+    rows.slice(hi+1).forEach((r, j) => { if(!r || r.every(c => T(c)==='')) return; const first = U(r[0]); if(first === 'TOTAL' || /^TOTAL/.test(first)) return;
+      const g = k => M[k] === -1 ? '' : T(r[M[k]]); if(!g('part') && !g('prod') && !g('sl')) return;
+      mapRows.push({ file:f.name||'', excelRow:hi+j+2, sl:g('sl'), desc:g('desc'), part:g('part'), qty:g('qty'), price:g('price'), invNo:g('invNo'), item:g('item'), entD:g('entD'), invOut:g('invOut'), prod:g('prod'), nw:g('nw'), cur:g('cur'), date:dShip }); }); });
+  const hasMap = mapRows.length > 0;
+  /* ── ③ INVOICE ต้นฉบับ (Ford) ── */
+  const det = new Map(), invNames = [];
+  ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).forEach(e => { if(!e || !e.wb) return; invNames.push(e.name||'');
+    let d = null, f = null; try{ d = edc8InvoiceDetail(e.wb); }catch(_){} try{ f = invParseFord(e.wb); }catch(_){}
+    if(d && d.invoiceNo) det.set(nInv(d.invoiceNo), Object.assign({}, d, { meta:f || {} })); });
+  const hasInv = det.size > 0;
+  /* ── ผลตรวจ ── */
+  const R = [], ord = { n:0 };
+  const add = (item, field, o) => R.push(Object.assign({ item, field, decl:DASH, inv:DASH, fix:DASH, trf:DASH, apl:DASH, st:'✅ ถูก', count:1, _o:ord.n++ }, o));
+  const ok = (item, field, o) => add(item, field, Object.assign({ st:'✅ ถูก' }, o));
+  const bad = (item, field, o, why) => add(item, field, Object.assign({}, o, { st:'❌ ผิด'+(why ? ' — '+why : '') }));
+  const na = (item, field, o, why) => add(item, field, Object.assign({}, o, { st:'⚠️ ตรวจไม่ได้'+(why ? ' — '+why : '') }));
+  const FILE = '—', noCol = new Set();
+  const needCol = (k, topic) => { if(C[k] !== -1) return true; if(!noCol.has(topic)){ noCol.add(topic); bad(FILE, topic, { decl:'(ใบขนไม่มีคอลัมน์)' }, 'ไม่พบคอลัมน์ "'+EDC1FZ_V2_COLS[k][0]+'" ในใบขน PZAF'); } return false; };
+  const cmp = (item, topic, ev, ref, place, mode, why) => {   /* ใบขน ev ↔ อ้างอิง ref (place = inv / fix / trf) */
+    const o = { decl: ev || '(ว่าง)' }; o[place] = (ref==null || ref==='') ? DASH : S(ref);
+    if(ref == null || T(ref) === ''){ na(item, topic, o, why || 'ไม่มีข้อมูลอ้างอิง'); return; }
+    if(!T(ev)){ bad(item, topic, o, 'ใบขนว่าง'); return; }
+    let good;
+    if(mode === 'date') good = dig(ev).slice(0,8) === dig(ref).slice(0,8);
+    else if(mode === 'digit') good = dig(ev) === dig(ref);
+    else if(mode === 'num'){ const a = num(ev), b = num(ref); good = a !== null && b !== null && Math.abs(a-b) < 0.005; if(!good && a !== null && b !== null) o[place] = fmtN(b)+' (ผลต่าง '+(a-b>0?'+':'')+fmtN(r2(a-b))+')'; }
+    else if(mode === 'part') good = strictPart(ev) === strictPart(ref);
+    else if(mode === 'alnum'){ const refs = Array.isArray(ref) ? ref : [ref]; const hit = refs.find(x => x && alnum(x) === alnum(ev)); good = !!hit; o[place] = S(hit || refs.filter(Boolean)[0] || DASH); }
+    else good = U(ev) === U(ref);
+    if(good) ok(item, topic, o); else bad(item, topic, o);
+  };
+  /* ไฟล์อ้างอิง (บังคับก่อน PASS) */
+  if(!hasMap) na(FILE, 'MAPPING INVOICE (ไฟล์)', {}, mapFiles.length ? 'อ่านแถวรายการจากไฟล์ MAPPING INVOICE ไม่ได้' : 'ไม่มีไฟล์ MAPPING INVOICE — ตรวจหัวข้อที่เทียบ MAPPING ไม่ได้');
+  if(!hasInv) na(FILE, 'INVOICE (ไฟล์)', {}, invNames.length ? 'อ่านไฟล์ INVOICE ต้นฉบับไม่ได้' : 'ไม่มีไฟล์ INVOICE — ตรวจหัวข้อที่เทียบ INVOICE ไม่ได้');
+  na(FILE, 'HS CODE / tariffclas', { apl:DASH }, 'ยังไม่มีกฎ MASTER APL สำหรับ EDC1 FZ (ไม่นำ MASTER AAT / FTM มาใช้แทน)');
+  na(FILE, 'MASTER ไม่พบ PART NO.', { apl:DASH }, 'ยังไม่มี MASTER APL สำหรับ EDC1 FZ');
+  if(C.unitPrice === -1) na(FILE, 'Unit Price', {}, 'ใบขน PZAF ไม่มีคอลัมน์ unit price');
+  if(C.amount === -1) na(FILE, 'Amount ราย ITEM', {}, 'ใบขน PZAF ไม่มีคอลัมน์ amount ราย ITEM');
+  const trfOn = typeof trfCheck === 'function', trfLoaded = !!(window.TRF_STATE && window.TRF_STATE.map);
+  if(!trfOn || !trfLoaded) na(FILE, 'Stat Code', {}, trfOn ? trfCheck('','').reason : 'ไม่มี MASTER 📘 พิกัด');
+  /* จับคู่ MAPPING: คะแนนรวม → จับคู่แบบไม่ซ้ำแถว · เท่ากันแยกไม่ได้ = ซ้ำ */
+  const match = new Map();
+  if(hasMap){
+    const cand = [];
+    items.forEach(it => { const row = it.row; const v = { sl:it.key, line:nKey(cell(row,'line')), entD:U(cell(row,'entD')), prod:nPart(cell(row,'prod')), part:nPart(cell(row,'part')), inv:nInv(cell(row,'inv')), qty:num(cell(row,'qty')) };
+      mapRows.forEach((m, mi) => { let s = 0;
+        if(v.sl && nKey(m.sl) === v.sl) s += 8; if(v.line && nKey(m.item) === v.line) s += 4; if(v.entD && U(m.entD) === v.entD) s += 4;
+        if(v.prod && nPart(m.prod) === v.prod) s += 3; if(v.part && nPart(m.part) === v.part) s += 3; if(v.inv && nInv(m.invOut) === v.inv) s += 2; if(v.qty !== null && num(m.qty) !== null && Math.abs(num(m.qty)-v.qty) < 0.005) s += 2;
+        if(s >= 9) cand.push({ it, mi, s }); }); });
+    const usedM = new Set(), done = new Set();
+    cand.sort((a,b) => b.s - a.s);
+    for(const c of cand){ if(done.has(c.it.key) || usedM.has(c.mi)) continue;
+      const rivals = cand.filter(x => x.it.key === c.it.key && x.s === c.s && x.mi !== c.mi && !usedM.has(x.mi));
+      const rivalItems = cand.filter(x => x.mi === c.mi && x.s === c.s && x.it.key !== c.it.key && !done.has(x.it.key));
+      if(rivals.length || rivalItems.length){ match.set(c.it.key, { dup:true, n:rivals.length + 1 }); done.add(c.it.key); continue; }
+      match.set(c.it.key, { m:mapRows[c.mi], s:c.s }); usedM.add(c.mi); done.add(c.it.key); }
+  }
+  /* ผลรวม PART QTY ของใบขน ต่อ INVOICE + PART (เทียบ PART QTY ใน INVOICE ที่รวมต่อ PART) */
+  const partSum = new Map();
+  items.forEach(it => { const k = nInv(cell(it.row,'inv'))+'|'+nPart(cell(it.row,'part')); if(!partSum.has(k)) partSum.set(k, { q:0, items:[] }); const o = partSum.get(k); o.q += num(cell(it.row,'qty')) || 0; o.items.push(it.disp); (o.its = o.its || []).push(it); });
+  /* ── ราย ITEM ── */
+  items.forEach(it => { const I = it.disp, row = it.row, thai = cell(row,'thai'), tk = thaiKey(thai), isRadar = tk.indexOf(EDC1FZ_V2_RADAR.name) !== -1;
+    if(it.rows.length > 1 && !isRadar) bad(I, 'ITEM LINE ซ้ำ', { decl:'พบ '+it.rows.length+' แถว (แถว Excel '+it.rowNums.join(', ')+')' }, 'Item line ซ้ำในใบขน');
+    /* FIX */
+    EDC1FZ_V2_FIX.forEach(f => { if(!needCol(f.k, f.t)) return; cmp(I, f.t, cell(row,f.k), f.v, 'fix', f.m || 'text'); });
+    const uf = (EDC1FZ_V2_UNIT.find(([n]) => tk.indexOf(thaiKey(n)) !== -1) || [])[1] || '';
+    if(needCol('qtyInv','QTY inv')) cmp(I, 'QTY inv', cell(row,'qtyInv'), uf || 'C62', 'fix');
+    if(needCol('qtyEntry','QTY ใบขน')) cmp(I, 'QTY ใบขน', cell(row,'qtyEntry'), uf || 'C62', 'fix');
+    if(needCol('qty2','QTY 2')) cmp(I, 'QTY 2', cell(row,'qty2'), 'EA', 'fix');
+    if(needCol('thai','คำแปลไทย')){ if(!thai) bad(I, 'คำแปลไทย', { decl:'(ว่าง)' }, 'ใบขนว่าง'); else ok(I, 'คำแปลไทย', { decl:thai, fix: uf ? 'หน่วย '+uf : (isRadar ? 'เรดาร์ (กสทช.)' : DASH) }); }
+    if(isRadar){ const r2row = it.rows[1];
+      if(!r2row) bad(I, 'เลขใบอนุญาต ช่องที่ 2 (กสทช.)', { decl:'(ไม่มีแถวที่ 2)', fix:EDC1FZ_V2_RADAR.permit }, 'เรดาร์ต้องมีใบอนุญาตช่องที่ 2');
+      else { cmp(I, 'เลขใบอนุญาต ช่องที่ 2 (กสทช.)', T(r2row[C.permit]), EDC1FZ_V2_RADAR.permit, 'fix'); cmp(I, 'วันที่ออก ช่องที่ 2 (กสทช.)', T(r2row[C.issue]), EDC1FZ_V2_RADAR.issue, 'fix', 'date'); cmp(I, 'Tax ID ช่องที่ 2 (กสทช.)', T(r2row[C.tax]), EDC1FZ_V2_RADAR.tax, 'fix', 'digit'); } }
+    /* MASTER 📘 พิกัด */
+    if(trfOn && trfLoaded && needCol('stat','Stat Code')){ const r = trfCheck(cell(row,'hs'), cell(row,'stat'));
+      if(r.st === 'ok') ok(I, 'Stat Code', { decl:cell(row,'stat'), trf:r.expected });
+      else if(r.st === 'bad') bad(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)', trf:r.expected }, 'ไม่ตรง MASTER พิกัด (HS '+r.hs+')');
+      else na(I, 'Stat Code', { decl:cell(row,'stat') || '(ว่าง)' }, r.reason); }
+    /* MAPPING INVOICE */
+    if(hasMap){ const mm = match.get(it.key);
+      if(!mm) bad(I, 'ITEM (จับคู่ MAPPING)', { decl:'Item line '+it.raw }, 'ไม่พบ ITEM ที่ตรงกัน');
+      else if(mm.dup) bad(I, 'ITEM (จับคู่ MAPPING)', { decl:'Item line '+it.raw }, 'พบข้อมูลซ้ำ ไม่สามารถระบุแถวที่ถูกต้อง ('+mm.n+' แถว)');
+      else { const m = mm.m;
+        if(nKey(m.sl) === it.key) ok(I, 'ITEM LINE / Sl. No', { decl:it.raw, inv:m.sl }); else bad(I, 'ITEM LINE / Sl. No', { decl:it.raw, inv:m.sl || '(ว่าง)' });
+        if(needCol('line','Line enry')) cmp(I, 'Line enry', cell(row,'line'), m.item, 'inv', 'num', 'MAPPING ไม่มีค่า item');
+        if(needCol('entD','Export entry type D')) cmp(I, 'Export entry type D', cell(row,'entD'), m.entD, 'inv', 'text', 'MAPPING ไม่มีค่า Export entry type D');
+        if(needCol('part','PART NO. (MAPPING)')) cmp(I, 'PART NO. (MAPPING)', cell(row,'part'), m.part, 'inv', 'part', 'MAPPING ไม่มีค่า PART NO.');
+        if(needCol('prod','Product Code (MAPPING)')) cmp(I, 'Product Code (MAPPING)', cell(row,'prod'), m.prod, 'inv', 'part', 'MAPPING ไม่มีค่า Product Code');
+        if(needCol('inv','INVOICE NO. (MAPPING)')) cmp(I, 'INVOICE NO. (MAPPING)', cell(row,'inv'), m.invOut, 'inv', 'text', 'MAPPING ไม่มีค่า Invoice Out');
+        if(needCol('qty','QTY (MAPPING)')) cmp(I, 'QTY (MAPPING)', cell(row,'qty'), m.qty, 'inv', 'num', 'MAPPING ไม่มีค่า Qty');
+        if(needCol('desc','DESCRIPTION (MAPPING)')) cmp(I, 'DESCRIPTION (MAPPING)', cell(row,'desc'), m.desc, 'inv', 'text', 'MAPPING ไม่มีค่า Description');
+        if(needCol('date','DATE SHIPPED (MAPPING)')) cmp(I, 'DATE SHIPPED (MAPPING)', cell(row,'date'), m.date, 'inv', 'date', 'MAPPING ไม่มี Date Shipped');
+        if(needCol('cur','Currency (MAPPING)')) cmp(I, 'Currency (MAPPING)', cell(row,'cur'), m.cur, 'inv', 'text', 'MAPPING ไม่มีค่าสกุลเงิน'); } }
+    /* INVOICE ต้นฉบับ */
+    if(hasInv){ const ivRaw = cell(row,'inv'), d = det.get(nInv(ivRaw));
+      if(!d) bad(I, 'INVOICE (ไฟล์)', { decl:ivRaw || '(ว่าง)', inv:'INVOICE ที่อัปโหลด: '+[...det.values()].map(x => x.invoiceNo).join(', ') }, 'ไม่พบไฟล์ INVOICE เลขที่นี้');
+      else { const pn = nPart(cell(row,'part')), lines = (d.items||[]).filter(x => nPart(x.partNo) === pn);
+        if(needCol('part','PART NO. (INVOICE)')){ if(!lines.length) bad(I, 'PART NO. (INVOICE)', { decl:cell(row,'part') || '(ว่าง)', inv:'(ไม่พบใน INVOICE '+d.invoiceNo+')' }, 'ไม่พบ PART NO. ใน INVOICE');
+          else cmp(I, 'PART NO. (INVOICE)', cell(row,'part'), lines[0].partNo, 'inv', 'part'); }
+        if(lines.length){
+          if(needCol('desc','DESCRIPTION (INVOICE)')) cmp(I, 'DESCRIPTION (INVOICE)', cell(row,'desc'), lines[0].desc, 'inv', 'text');
+          if(needCol('qty','PART QTY (INVOICE)')){ const ps = partSum.get(nInv(ivRaw)+'|'+pn), q = lines.reduce((a,x) => a + (+x.partQty||0), 0);
+            const dv = ps && ps.items.length > 1 ? fmtN(r2(ps.q))+' (Σ ITEM '+ps.items.join(', ')+')' : (cell(row,'qty') || '(ว่าง)');
+            const o = { decl:dv, inv:fmtN(q) }; if(ps && Math.abs(ps.q - q) < 0.005) ok(I, 'PART QTY (INVOICE)', o);
+            else { /* ผิด: ฟ้อง ITEM ที่ QTY ต่างจาก MAPPING (ระบุได้) · ระบุไม่ได้ → ทุก ITEM ของ PART นี้ */
+              const qOff = x => { const mm = match.get(x.key); return !!(mm && mm.m && num(mm.m.qty) !== null && Math.abs((num(cell(x.row,'qty')) || 0) - num(mm.m.qty)) >= 0.005); };
+              const culprits = ps ? ps.its.filter(qOff) : [];
+              if(!culprits.length || culprits.indexOf(it) !== -1) bad(I, 'PART QTY (INVOICE)', o, 'ผลรวม QTY ของ PART ในใบขนไม่ตรง PART QTY ใน INVOICE'+(culprits.length ? ' (QTY ITEM นี้ต่างจาก MAPPING)' : '')); } } }
+        if(needCol('date','DATE SHIPPED (INVOICE)')) cmp(I, 'DATE SHIPPED (INVOICE)', cell(row,'date'), (d.meta && d.meta.dateShipped) || null, 'inv', 'date', 'อ่าน DATE SHIPPED จาก INVOICE ไม่ได้');
+        if(needCol('cur','Currency (INVOICE)')) cmp(I, 'Currency (INVOICE)', cell(row,'cur'), d.currency || null, 'inv', 'text', 'อ่านสกุลเงินจาก INVOICE ไม่ได้');
+        if(needCol('mark','SHIPPING MARK')) cmp(I, 'SHIPPING MARK', cell(row,'mark'), d.shippingMark || (d.meta && d.meta.shippingMark) || null, 'inv', 'text', 'อ่าน SHIPPING MARK จาก INVOICE ไม่ได้');
+        if(needCol('term','Term')) cmp(I, 'Term', cell(row,'term'), d.term || null, 'inv', 'text', 'ไม่พบ TERM ใน INVOICE '+d.invoiceNo);
+        if(needCol('consignee','Consignee')) cmp(I, 'Consignee', cell(row,'consignee'), d.consignee || null, 'inv', 'text', 'อ่าน SHIP TO จาก INVOICE ไม่ได้');
+        if(needCol('purc','Purcountry')) cmp(I, 'Purcountry', cell(row,'purc'), d.purCountry || null, 'inv', 'text', 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้');
+        if(needCol('dest','ประเทศปลายทาง')) cmp(I, 'ประเทศปลายทาง', cell(row,'dest'), d.destCountry || null, 'inv', 'text', 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้');
+        if(needCol('exporter','Exporter Name')) cmp(I, 'Exporter Name', cell(row,'exporter'), (d.exporter || d.shippingMark) ? [d.exporter, d.shippingMark] : null, 'inv', 'alnum', 'อ่าน SHIP FROM จาก INVOICE ไม่ได้'); } }
+  });
+  /* ── ระดับ INVOICE (ยอดรวม · ไม่นับซ้ำตามจำนวน ITEM) ── */
+  const agg = vals => { const v = vals.map(num).filter(x => x !== null), nz = v.filter(x => x !== 0); if(!nz.length) return v.length ? 0 : null; if(nz.length === 1) return nz[0];
+    if(nz.length === vals.length && nz.every(x => Math.abs(x - nz[0]) < 0.005)) return nz[0]; return r2(nz.reduce((a,b) => a+b, 0)); };
+  const invGroups = new Map(); items.forEach(it => { const k = nInv(cell(it.row,'inv')); if(!invGroups.has(k)) invGroups.set(k, { raw:cell(it.row,'inv'), items:[] }); invGroups.get(k).items.push(it); });
+  invGroups.forEach((g, k) => { const L = 'INVOICE '+(g.raw || '(ว่าง)'), rows = g.items.map(it => it.row), list = 'ITEM '+g.items[0].disp+(g.items.length > 1 ? '–'+g.items[g.items.length-1].disp : '');
+    const sumQty = r2(rows.reduce((a,r) => a + (num(cell(r,'qty')) || 0), 0)), tNw = agg(rows.map(r => cell(r,'nw'))), tGw = agg(rows.map(r => cell(r,'gw'))), tPk = agg(rows.map(r => cell(r,'pkg'))), tAm = agg(rows.map(r => cell(r,'amt')));
+    const tot = (topic, ev, ref, why) => { if(ev === null){ na(L, topic, { decl:'(ใบขนไม่มีข้อมูล)' }, 'ใบขนไม่มีคอลัมน์ / ค่า'); return; } cmp(L, topic, fmtN(ev)+' ('+list+')', ref, 'inv', 'num', why); };
+    const totNum = (topic, ev, ref, why) => { if(ev === null){ na(L, topic, { decl:'(ใบขนไม่มีข้อมูล)' }, 'ใบขนไม่มีคอลัมน์ / ค่า'); return; }
+      const o = { decl:fmtN(ev)+' ('+list+')', inv: ref==null ? DASH : fmtN(ref) }; if(ref == null){ na(L, topic, o, why); return; }
+      if(Math.abs(ev - ref) < 0.005) ok(L, topic, o); else { o.inv = fmtN(ref)+' (ผลต่าง '+(ev-ref>0?'+':'')+fmtN(r2(ev-ref))+')'; bad(L, topic, o); } };
+    if(hasMap){ const mr = mapRows.filter(m => nInv(m.invOut) === k);
+      if(!mr.length) bad(L, 'INVOICE NO. (MAPPING)', { decl:g.raw || '(ว่าง)', inv:'(ไม่พบ Invoice Out นี้ใน MAPPING)' }, 'ไม่พบ INVOICE ใน MAPPING');
+      else { totNum('QTY รวม (MAPPING)', sumQty, r2(mr.reduce((a,m) => a + (num(m.qty) || 0), 0)));
+        totNum('Total N.W (MAPPING)', tNw, mr.some(m => num(m.nw) !== null) ? r2(mr.reduce((a,m) => a + (num(m.nw) || 0), 0)) : null, 'MAPPING ไม่มีค่า NW'); } }
+    if(hasInv){ const d = det.get(k);
+      if(d){ const mt = d.meta || {};
+        totNum('QTY รวม (INVOICE)', sumQty, r2((d.items||[]).reduce((a,x) => a + (+x.partQty||0), 0)));
+        totNum('Total N.W (INVOICE)', tNw, num(mt.netNetto), 'อ่าน NET จาก INVOICE ไม่ได้');
+        totNum('Total G.W (INVOICE)', tGw, num(mt.grossBrutto), 'อ่าน GROSS จาก INVOICE ไม่ได้');
+        totNum('Total PACKAGE (INVOICE)', tPk, num(mt.totalSumme), 'อ่าน TOTAL/SUMME จาก INVOICE ไม่ได้');
+        totNum('Total AMOUNT (INVOICE)', tAm, num(mt.gesamtBetrag), 'อ่านยอดรวม INVOICE ไม่ได้'); } }
+  });
+  /* ── เรียง: ระดับไฟล์ → ITEM (เลข PZAF) → ระดับ INVOICE ── */
+  const itemOrder = new Map(items.map((it, i) => [it.disp, i]));
+  const rank = r => r.item === FILE ? -1 : (itemOrder.has(r.item) ? itemOrder.get(r.item) : 1e6);
+  R.sort((a,b) => rank(a) - rank(b) || (a.item < b.item ? -1 : a.item > b.item ? 1 : 0) || a._o - b._o);
+  /* ── สรุป ── */
+  const badRows = R.filter(r => /^❌/.test(r.st)), okRows = R.filter(r => /^✅/.test(r.st)), naRows = R.filter(r => /^⚠️/.test(r.st));
+  const failItems = new Set(badRows.filter(r => itemOrder.has(r.item)).map(r => r.item)), naItems = new Set(naRows.filter(r => itemOrder.has(r.item)).map(r => r.item));
+  const passItems = items.map(it => it.disp).filter(d => !failItems.has(d) && !naItems.has(d));
+  const status = badRows.length ? 'FAIL' : (naRows.length ? 'PARTIAL' : 'PASS');
+  const pzName = (typeof fzEntryFnTxt !== 'undefined' && fzEntryFnTxt && fzEntryFnTxt.textContent) || '';
+  const firstRow = items[0] ? items[0].row : [];
+  const invList = [...invGroups.values()].map(g => g.raw).filter(Boolean);
+  const anyDet = [...det.values()][0] || {};
+  const meta = { jobNo: T(pzName).replace(/\.[^.]+$/,'') || '-', invoiceNo: invList.join(', '), customer: anyDet.consignee || cell(firstRow,'consignee'), company: cell(firstRow,'exporter'),
+    shippingMark: cell(firstRow,'mark'), dwakFile: T(pzName), invFile: invNames.join(', '), mapFile: mapNames.join(', '), checkedAt: new Date(), items: items.length, pass: passItems.length,
+    fail: failItems.size, na: 0, naItems: naItems.size, points: badRows.length, filePoints: badRows.filter(r => !itemOrder.has(r.item)).length, passItems, status,
+    failTopics: [...new Set(badRows.map(r => r.field))], naTopics: [...new Set(naRows.map(r => r.field))], matched: [...match.values()].filter(x => x.m).length };
+  edc1fzV2Last = { rows:R, meta, bad:badRows, ok:okRows, warn:naRows };
+  fzLastFull = null; fzLastAllErrors = badRows;
+  edc1fzV2Render(edc1fzV2Last);
+}
+function edc1fzV2Render(res){
+  const m = res.meta, e = v => String(v==null?'':v).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const isErr = m.status === 'FAIL', partial = m.status === 'PARTIAL';
+  fzApplyStyle(fzResultBox, fzResultHead, fzRDot, fzRTitle, isErr);
+  if(partial){ fzRTitle.style.color = '#b45309'; fzRDot.style.background = '#d97706'; fzRDot.style.boxShadow = '0 0 6px #d97706'; fzResultBox.style.background = '#fdf8e8'; fzResultBox.style.border = '1px solid #ecdcae'; fzResultHead.style.background = '#fdf8e8'; }
+  const cnt = m.items+' item · ถูกต้อง '+m.pass+' · ผิด '+m.fail+' item · '+m.points+' จุด'+(m.filePoints ? ' (ระดับไฟล์ / INVOICE '+m.filePoints+' จุด)' : '');
+  fzRTitle.textContent = isErr ? '❌ FAIL พบข้อผิดพลาด — '+cnt+' · ผิด '+m.failTopics.length+' หัวข้อ'+(m.naTopics.length ? ' · ⚠️ ตรวจไม่ได้ '+m.naTopics.length+' หัวข้อ' : '')
+    : (partial ? '⚠️ PARTIAL — ไม่พบข้อผิดพลาด แต่ตรวจไม่ครบ ('+m.naTopics.length+' หัวข้อตรวจไม่ได้) · ไม่แสดง PASS — '+cnt : '✅ PASS — ตรวจครบทุกหัวข้อ — '+cnt);
+  const c = (cls, t) => '<div class="stat-chip '+cls+'">'+t+'</div>';
+  let h = '<div class="kdc-chips e8k-chips fz-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+c('warn e8k-chip-tot','EDC1 FZ · Σ รวม '+m.items+' item')+c('ok','✅ ถูกต้อง '+m.pass+' item')+c('err','❌ ผิด '+m.fail+' item')+
+    (m.filePoints ? c('err','❌ ระดับไฟล์ / INVOICE '+m.filePoints+' จุด (ไม่นับเป็น ITEM)') : '')+c('warn','❌ '+m.points+' จุด')+c('err','❌ ผิด '+m.failTopics.length+' หัวข้อ')+c('warn','⚠️ ตรวจไม่ได้ '+m.naTopics.length+' หัวข้อ')+
+    (m.invoiceNo ? c('ok','INVOICE '+e(m.invoiceNo)) : '')+c('ok','จับคู่ MAPPING '+m.matched+' / '+m.items+' item')+'</div>';
+  const TABS = [['bad','❌ รายการผิด',res.bad.length],['ok','✅ รายการถูก',res.ok.length],['na','⚠️ ตรวจไม่ได้',res.warn.length],['all','ทั้งหมด',res.rows.length]];
+  h += '<div class="fz-tabs" role="tablist">'+TABS.map(t => '<button type="button" class="fz-tab fz-tab-'+t[0]+(t[0]==='bad' ? ' active' : '')+'" data-f="'+t[0]+'" role="tab" onclick="fzFilterRows(this.dataset.f)">'+t[1]+' <span class="fz-tab-n">'+t[2]+'</span></button>').join('')+'</div>';
+  h += '<div class="e8k-wrap"><table class="e8k-grid fz-full e8k-8c"><colgroup><col style="width:11%"><col style="width:15%"><col style="width:14%"><col style="width:14%"><col style="width:11%"><col style="width:11%"><col style="width:12%"><col style="width:12%"></colgroup><thead>'+
+    '<tr><th rowspan="2">Item No.</th><th rowspan="2">หัวข้อตรวจสอบ</th><th rowspan="2">ใบขน</th><th rowspan="2">INVOICE</th><th rowspan="2">FIX</th><th colspan="2" style="text-align:center">MASTER</th><th rowspan="2">สถานะ</th></tr>'+
+    '<tr><th>พิกัด</th><th>MASTER APL</th></tr></thead><tbody>';
+  res.rows.forEach(r => { const st = /^✅/.test(r.st) ? 'ok' : (/^⚠️/.test(r.st) ? 'na' : 'bad');
+    h += '<tr class="e8k-row fz-full-row" data-st="'+st+'"><td class="td-item">'+e(r.item)+(/^\d{5}$/.test(r.item) ? ' <span class="e8k-cnt">('+r.count+')</span>' : '')+'</td><td class="td-col">'+e(r.field)+'</td><td class="e8k-act'+(st==='ok' ? ' fz-v-ok' : '')+'">'+e(r.decl)+'</td><td class="e8k-exp">'+e(r.inv)+'</td><td class="e8k-fix">'+e(r.fix)+'</td><td class="e8k-exp">'+e(r.trf)+'</td><td class="e8k-exp">'+e(r.apl)+'</td>'+
+      '<td><span class="e8k-badge'+(st==='ok' ? ' e8k-ok' : (st==='na' ? ' e8k-warn' : ''))+'">'+e(r.st)+'</span></td></tr>'; });
+  h += '</tbody></table><div class="fz-empty" style="display:none"></div></div>';
+  h += '<div style="margin-top:8px;font-size:11.5px;color:#64748b">ใบขน PZAF '+e(m.dwakFile||'-')+' (MASTER) · MAPPING INVOICE '+e(m.mapFile||'-')+' · INVOICE '+e(m.invFile||'-')+'</div>';
+  fzRBody.innerHTML = h; fzFilterRows('bad'); fzResultBox.style.display = 'block';
+  try{ fzExportBtn.disabled = false; }catch(_){}
+  try{ fzResultBox.scrollIntoView({ behavior:'smooth', block:'nearest' }); }catch(_){}
+}
+/* [EDC1 FZ] EXPORT = โคลน EDC8 AAT (aatSheet): Sheet รายการผิด / รายการถูก / ตรวจไม่ได้ (เมื่อมี) · หัวรายงาน · 8 คอลัมน์ · MASTER 2 ชั้น · ใช้ผลชุดเดียวกับหน้าจอ */
+async function edc1fzV2BuildExcel(res){
+  const S = v => String(v==null?'':v), m = res.meta, X = KDC_XS;
+  const kinds = ['bad','ok'].concat(res.warn.length ? ['warn'] : []), NAME = { bad:'รายการผิด', ok:'รายการถูก', warn:'ตรวจไม่ได้' }, LIST = { bad:res.bad, ok:res.ok, warn:res.warn };
+  const wb = XLSX.utils.book_new(), sms = [];
+  kinds.forEach(kind => {
+    const aoa = [], sm = {}, merges = [], rowsH = {}, rows8 = LIST[kind];
+    const put = (r,c,v,s) => { while(aoa.length <= r) aoa.push([]); aoa[r][c] = v; if(s) sm[r+':'+c] = s; };
+    const fillRow = (r,s,from,to) => { for(let c=from; c<=to; c++){ if(aoa[r]===undefined || aoa[r][c]===undefined) put(r,c,'',s); else sm[r+':'+c] = s; } };
+    const mg = (r1,c1,r2,c2) => merges.push({ s:{ r:r1, c:c1 }, e:{ r:r2, c:c2 } });
+    put(0,0,'EDC1 FZ',X.TITLE); mg(0,0,0,1); put(0,2,'ผลการตรวจสอบใบขนสินค้า · ใบขน PZAF (MASTER) · INVOICE · MAPPING INVOICE · MASTER 📘 พิกัด',X.SUB); mg(0,2,0,7); rowsH[0] = 36;
+    const hdr = [['Job No.',m.jobNo,'วันที่ตรวจสอบ',kdcDateTH(m.checkedAt)],['INVOICE NO.',m.invoiceNo,'ไฟล์ใบขน PZAF',m.dwakFile],['Customer',m.customer,'ไฟล์ INVOICE',m.invFile],
+                 ['Company',m.company,'ไฟล์ MAPPING INVOICE',m.mapFile],['Shipping Mark',m.shippingMark,'จำนวนรายการ',String(m.items)],['','','สรุปผล',null]];
+    hdr.forEach((hh,i) => { const r = i+1; rowsH[r] = 22; put(r,0,hh[0],X.LBL); mg(r,0,r,1); put(r,1,'',X.LBL); put(r,2,S(hh[1]),X.VAL); mg(r,2,r,3); put(r,3,'',X.VAL); put(r,4,hh[2],X.LBL);
+      if(hh[3] === null){ put(r,5,'ถูกต้อง  '+m.pass+' item',X.OKSUM); put(r,6,'ผิด  '+m.fail+' item',X.BADSUM); put(r,7,'รวม  '+m.items+' item · '+m.points+' จุด'+(m.filePoints ? '  (ระดับไฟล์ / INVOICE '+m.filePoints+' จุด)' : '')+'  · ผลรวม '+S(m.status)+(m.naTopics.length ? ' (ตรวจไม่ได้ '+m.naTopics.length+' หัวข้อ)' : ''),X.TOTSUM); }
+      else { put(r,5,S(hh[3]),X.VAL); mg(r,5,r,7); put(r,6,'',X.VAL); put(r,7,'',X.VAL); } });
+    let r = 8;
+    if(kind === 'ok'){ const okG = m.passItems.length ? [{ field:'ใบขน EDC1 FZ ผ่านทุกหัวข้อตรวจ', item:kdcFmtItems(m.passItems), act:'-', exp:'INVOICE / MAPPING INVOICE / ค่าฟิก / MASTER พิกัด', note:'ไม่พบข้อผิดพลาดใน Item' }] : [];
+      put(r,0,'✓  1. ข้อมูลที่ถูกต้อง',X.SECOK); fillRow(r,X.SECOK,0,4); mg(r,0,r,4); put(r,5,'จำนวน '+okG.length+' แถว · '+m.pass+' item',X.SECOKR); fillRow(r,X.SECOKR,5,7); mg(r,5,r,7); rowsH[r] = 28; r++;
+      ['No.','หัวข้อตรวจสอบ','Item No.','Actual (ใบขน PZAF)','Expected (FIX/INVOICE/MASTER)','หน่วย','ผลตรวจ','หมายเหตุ'].forEach((cc,i) => put(r,i,cc,X.HDROK)); rowsH[r] = 22; r++;
+      okG.forEach((x,i) => { put(r,0,i+1,X.CELL_C); put(r,1,x.field,X.CELL_L); put(r,2,x.item,X.CELL_L); put(r,3,x.act,X.CELL_L); put(r,4,x.exp,X.CELL_L); put(r,5,'',X.CELL_C); put(r,6,'ถูกต้อง',X.ST_OK); put(r,7,x.note,X.CELL_L); r++; });
+      r++; }
+    const T8 = { bad:['✕  ข้อมูลที่ผิด', X.SECBAD, X.SECBADR, X.HDRBAD, 'จำนวน '+rows8.length+' แถว (❌ ผิด) · '+m.fail+' item · '+m.points+' จุด'],
+                 ok:['✓  2. ผลตรวจรายหัวข้อที่ถูกต้อง', X.SECOK, X.SECOKR, X.HDROK, 'จำนวน '+rows8.length+' แถว (✅ ถูก)'],
+                 warn:['⚠  ข้อมูลที่ตรวจไม่ได้', X.SECNA, X.SECNAR, X.HDRNA, 'จำนวน '+rows8.length+' แถว (⚠️ ตรวจไม่ได้)'] }[kind];
+    put(r,0,T8[0],T8[1]); fillRow(r,T8[1],0,4); mg(r,0,r,4); put(r,5,T8[4],T8[2]); fillRow(r,T8[2],5,7); mg(r,5,r,7); rowsH[r] = 28; r++;
+    ['Item No.','หัวข้อตรวจสอบ','ใบขน','INVOICE','FIX','MASTER','','สถานะ'].forEach((cc,i) => put(r,i,cc,T8[3])); ['','','','','','พิกัด','MASTER APL',''].forEach((cc,i) => put(r+1,i,cc,T8[3]));
+    [0,1,2,3,4,7].forEach(cc => mg(r,cc,r+1,cc)); mg(r,5,r,6); rowsH[r] = 22; rowsH[r+1] = 22; r += 2;
+    rows8.forEach(x => { put(r,0,x.item,X.CELL_L); put(r,1,x.field,X.CELL_L); put(r,2,S(x.decl),X.CELL_L); put(r,3,S(x.inv),X.CELL_L); put(r,4,S(x.fix),X.CELL_L); put(r,5,S(x.trf),X.CELL_L); put(r,6,S(x.apl),X.CELL_L);
+      put(r,7,S(x.st).replace(/^(❌|✅|⚠️)\s*/,''), /^✅/.test(x.st) ? X.ST_OK : (/^⚠️/.test(x.st) ? X.ST_NA : X.ST_BAD)); r++; });
+    if(!rows8.length){ put(r,0,kind==='bad' ? 'ไม่พบข้อผิดพลาด' : (kind==='ok' ? 'ไม่มีหัวข้อที่ตรวจถูก' : '-'),X.CELL_L); fillRow(r,X.CELL_L,0,7); mg(r,0,r,7); r++; }
+    const ws = XLSX.utils.aoa_to_sheet(aoa.map(row => Array.from(row, v => v===undefined ? '' : v)));
+    Object.keys(ws).forEach(a => { if(a[0]==='!') return; const cl = ws[a], cc = a.replace(/\d+/g,''), rn = parseInt(a.replace(/\D/g,''),10); if(!(cc==='A' && rn > 9 && typeof cl.v === 'number')){ cl.t = 's'; cl.v = S(cl.v); } });
+    ws['!merges'] = merges; ws['!cols'] = [{wch:16},{wch:30},{wch:30},{wch:30},{wch:20},{wch:16},{wch:18},{wch:44}];
+    ws['!rows'] = []; Object.keys(rowsH).forEach(k => { ws['!rows'][+k] = { hpt:rowsH[k] }; });
+    XLSX.utils.book_append_sheet(wb, ws, NAME[kind]); sms.push(sm); });
+  return kdcInjectStyles(XLSX.write(wb, { bookType:'xlsx', type:'array' }), sms);
+}
+function edc1fzV2Export(){
+  if(!edc1fzV2Last){ alert('⚠ ยังไม่มีผลตรวจ — กรุณากดตรวจสอบก่อน'); return; }
+  edc1fzV2BuildExcel(edc1fzV2Last).then(buf => safeDownload(buf, 'EDC1FZ_ผลตรวจ_'+(edc1fzV2Last.meta.jobNo||'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+    .catch(err => alert('Export ไม่สำเร็จ: '+(err && err.message || err)));
+}
+
 // Legacy aliases kept for any lingering references (safe — same content)
 const FZ_YELLOW = FZ_GREEN_FIXED;
 const FZ_BROWN  = FZ_BLUE_INVOICE;
@@ -7449,7 +7746,7 @@ function fzReset(){
   }
   // Clear transient "ready" banner from auto-build
   const _rb = document.getElementById('_fzReadyBanner'); if(_rb) _rb.remove();
-  fzLastErrors=[]; fzLastEntryRows=[]; fzLastEntryHeaders=[]; fzLastAllErrors=[]; fzLastTotals={}; fzLastFull=null;
+  fzLastErrors=[]; fzLastEntryRows=[]; fzLastEntryHeaders=[]; fzLastAllErrors=[]; fzLastTotals={}; fzLastFull=null; edc1fzV2Last=null;
   [fzEntryInput,fzMasterInput,fzInvoiceInput].forEach(el=>{ if(el) el.value=''; });
   [fzEntryFn,fzMasterFn,fzInvoiceFn].forEach(el=>{ if(el) el.classList.remove('show'); });
   fzSetDZColor(fzEntryDZ, false);
@@ -8453,10 +8750,12 @@ function fzRunCheck(){
   }
   if(!fzEntryWb){ alert('⚠ กรุณาอัปโหลดไฟล์ Entry ก่อนตรวจสอบ'); return; }
   // [📘 พิกัด] โหลด MASTER พิกัดกลาง (Release ล่าสุด) ก่อนตรวจ Stat Code · ผลโหลดไม่ได้ → ระงับเฉพาะ Stat Code (ไม่ PASS)
-  if(typeof trfEnsure === 'function') return trfEnsure().catch(()=>false).then(()=>fzDoCheck());
-  fzDoCheck();
+  /* [EDC1 FZ] local274: Engine ใหม่ (PZAF = MASTER · รายงาน / EXPORT รูปแบบ EDC8 AAT) */
+  if(typeof trfEnsure === 'function') return trfEnsure().catch(()=>false).then(()=>edc1fzV2Run());
+  edc1fzV2Run();
 }
 function fzExport(){
+  if(edc1fzV2Last){ edc1fzV2Export(); return; }   /* [EDC1 FZ] local274 */
   if(fzLastFull){ exportFzFullReport(fzLastFull); return; }   /* [EDC1 FZ] รายงานครบทุกสถานะ (ไม่ใช่ ERROR_ONLY) */
   if(!fzLastAllErrors||!fzLastAllErrors.length){ alert('⚠ ยังไม่มีผลตรวจ — กรุณากดตรวจสอบก่อน'); return; }
   exportFzErrorOnlyReport(fzLastAllErrors, fzLastTotals);
@@ -12855,6 +13154,9 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc1fz .e8k-grid .fz-th-sub{ font-weight:400; font-size:10.5px; color:#64748b }
 #panel-edc1fz .e8k-grid.fz-full .e8k-act, #panel-edc1fz .e8k-grid.fz-full .e8k-exp{ white-space:normal; word-break:break-word }
 #panel-edc1fz .fz-empty{ padding:12px 16px; color:#475569; font-weight:600 }
+#panel-edc1fz .e8k-grid .e8k-cnt{ color:#64748b; font-weight:400 }
+#panel-edc1fz .e8k-grid .e8k-fix{ color:#1e3a5f }
+#panel-edc1fz .e8k-grid.e8k-8c .fz-v-ok{ color:#1f7a4d }   /* [EDC1 FZ] local274: ค่าใบขนที่ถูก = สีเขียว · ผิด = สีแดง */
 #panel-edc1fz .fz-empty.fz-empty-ok{ background:#eef7f2; color:#1f7a4d }
 #panel-edc1fz .fz-tools-bar{ margin-top:10px; padding:8px 12px; border:1px dashed #d9e2ec; border-radius:8px; background:#fafcff; flex-wrap:wrap }
 #panel-edc1fz .fz-tools-lbl{ font-size:11.5px; font-weight:700; color:#64748b; margin-right:4px }
