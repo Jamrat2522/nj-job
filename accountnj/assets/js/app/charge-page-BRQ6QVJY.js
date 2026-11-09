@@ -1819,3 +1819,4 @@ function ST813() {
     document.head.appendChild(s);
   } catch (e) {}
 }
+export{RF788 as RF814, RL788 as RL814, ST788 as ST814};   /* V.814 (RUN-818) : ให้ FINANCE → RECEIPT ใช้ Template / Loader RECEIPT ADVANCE เดิม (อ่านอย่างเดียว) */

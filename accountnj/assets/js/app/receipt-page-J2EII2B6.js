@@ -1,4 +1,4 @@
-import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 as TX762,chips762 as CH762}from"./ui-dd762.js";import{c as at,d as ot,e as rt}from"./chunk-J26HUKJ4.js";import"./chunk-IIDKIKVM.js";import{a as ct,b as F}from"./chunk-IOEZHYTZ.js";import{a as j,e as z}from"./chunk-ETXG4BWC.js";import{a as B}from"./chunk-6REVCVGI.js";import{k as it}from"./chunk-JXQJ6337.js";import{a as nt}from"./chunk-OWSY2KDQ.js";import{k as tt,v as st}from"./chunk-L5Z2NDJ3.js";import{j as E,k as X,f as MA660}from"./chunk-2B2FLIKC.js";import"./chunk-FHYZBT2Q.js";import"./chunk-LAFWE2EM.js";import"./chunk-Q7FMECGI.js";import{a as x}from"./chunk-UWAYW6DC.js";import{a as P,b as q,e as U,f as H}from"./chunk-OPGKUGLK.js";import{a as R}from"./chunk-YM5GFE6V.js";import{a as L}from"./chunk-GDT6F23K.js";import{a as k}from"./chunk-OFOOXWUM.js";import{b as XLJ734}from"./chunk-FHYZBT2Q.js";import{a as Q,d as Y,e as Z}from"./chunk-LNP7HEMP.js";import{a as u,c as N,e as i}from"./chunk-NQOCXXA2.js";import{G as et}from"./chunk-6NADHKLT.js";import{m as V}from"./chunk-SGWIBJH6.js";var dt=t=>V("njacc_list_receipts",t),lt=(t,e,r)=>V("njacc_void_receipt",{p_id:t,p_reason:e,p_request_id:r});var T=(t,e="-")=>{let r=t==null?"":String(t).trim();return i(r||e)},v=t=>{let e=Number(t);return Number.isFinite(e)?e:0},f=t=>Math.round((v(t)+Number.EPSILON)*100)/100,ut={user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',tax:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.8" y="5" width="18.4" height="14" rx="2"/><circle cx="8.4" cy="11" r="2"/><path d="M5 16.4c.5-1.5 1.8-2.3 3.4-2.3s2.9.8 3.4 2.3M14.6 10h4.2M14.6 13.4h4.2"/></svg>',pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s6.4-6 6.4-10.4A6.4 6.4 0 0 0 5.6 10.6C5.6 15 12 21 12 21z"/><circle cx="12" cy="10.4" r="2.4"/></svg>',tel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3.8h3.6l1.6 4-2.2 1.4a12 12 0 0 0 5.8 5.8l1.4-2.2 4 1.6V18a2 2 0 0 1-2.2 2A16.4 16.4 0 0 1 3 6a2 2 0 0 1 2-2.2z"/></svg>',rc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></svg>',cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.4" y="5" width="17.2" height="16" rx="2"/><path d="M3.4 10h17.2M8 3v4M16 3v4"/></svg>',ref:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>',abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="2.4"/><path d="M8.6 15.4 12 8.6l3.4 6.8M9.8 13.2h4.4"/></svg>'},w=t=>`<span class="rcd-ic">${ut[t]||""}</span>`;function bt(t){let e=[],r=[];for(let s of t||[])String(s.charge_type||"SERVICE").toUpperCase()==="ADVANCE"?r.push(s):e.push(s);return{shown:e,excluded:r}}function pt(t){let e=v(t.total_amount);if(e<=0||t.subtotal===void 0||t.subtotal===null)return null;let r=f(e-v(t.wht_amount));return r<=0?null:{ratio:v(t.amount)/r,net:r}}function ht(t){let e=0,r=0,s=0,d=0,o=0,h=!1,m=new Set,c=new Map;for(let a of t){let S=v(a.amount);e=f(e+S);let _=pt(a);if(!_)continue;h=!0,o=f(o+v(a.total_amount)*_.ratio),r=f(r+v(a.subtotal)*_.ratio),s=f(s+v(a.vat_amount)*_.ratio);let O=f(v(a.wht_amount)*_.ratio);d=f(d+O),v(a.vat_rate)>0&&m.add(v(a.vat_rate));let D=Array.isArray(a.wht_breakdown)?a.wht_breakdown:null;if(D&&D.length)for(let C of D){let W=f(v(C.amount)*_.ratio);if(W===0)continue;let K=C.rate===null||C.rate===void 0||C.rate===""?null:v(C.rate);c.set(K,f((c.get(K)||0)+W))}else if(O!==0){let C=a.wht_rate===null||a.wht_rate===void 0||a.wht_rate===""?null:v(a.wht_rate);c.set(C,f((c.get(C)||0)+O))}}let n=m.size===1?[...m][0]:m.size===0?0:null,p=[...c.keys()],y=p.length===1&&p[0]!==null?p[0]:null;return{total:e,sub:r,vat:s,wht:d,hasTax:h,vatRate:n,whtRate:y,whtBy:c,grossTotal:h?o:e,received:e}}function mt(t){let{shown:e,excluded:r}=bt(t.invoices),s=ht(e),d=String(t.status||"").toUpperCase()==="VOID",o=e.length===0?"-":e.length===1?i(e[0].invoice_no||"-"):"Multiple (See Below) / \u0E2B\u0E25\u0E32\u0E22\u0E43\u0E1A (\u0E14\u0E39\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07)",h=e.map((a,S)=>`<tr>
+import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 as TX762,chips762 as CH762}from"./ui-dd762.js";import{c as at,d as ot,e as rt}from"./chunk-J26HUKJ4.js";import"./chunk-IIDKIKVM.js";import{a as ct,b as F}from"./chunk-IOEZHYTZ.js";import{a as j,e as z}from"./chunk-ETXG4BWC.js";import{a as B}from"./chunk-6REVCVGI.js";import{k as it}from"./chunk-JXQJ6337.js";import{a as nt}from"./chunk-OWSY2KDQ.js";import{k as tt,v as st}from"./chunk-L5Z2NDJ3.js";import{j as E,k as X,f as MA660}from"./chunk-2B2FLIKC.js";import"./chunk-FHYZBT2Q.js";import"./chunk-LAFWE2EM.js";import"./chunk-Q7FMECGI.js";import{a as x}from"./chunk-UWAYW6DC.js";import{a as P,b as q,e as U,f as H}from"./chunk-OPGKUGLK.js";import{a as R}from"./chunk-YM5GFE6V.js";import{a as L}from"./chunk-GDT6F23K.js";import{a as k}from"./chunk-OFOOXWUM.js";import{b as XLJ734}from"./chunk-FHYZBT2Q.js";import{a as Q,d as Y,e as Z}from"./chunk-LNP7HEMP.js";import{a as u,c as N,e as i}from"./chunk-NQOCXXA2.js";import{G as et}from"./chunk-6NADHKLT.js";import{m as V}from"./chunk-SGWIBJH6.js";var dt=t=>V("njacc_list_receipts",t),lt=(t,e,r)=>V("njacc_void_receipt",{p_id:t,p_reason:e,p_request_id:r});var T=(t,e="-")=>{let r=t==null?"":String(t).trim();return i(r||e)},v=t=>{let e=Number(t);return Number.isFinite(e)?e:0},f=t=>Math.round((v(t)+Number.EPSILON)*100)/100,ut={user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.4"/><path d="M4.8 20c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6"/></svg>',tax:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.8" y="5" width="18.4" height="14" rx="2"/><circle cx="8.4" cy="11" r="2"/><path d="M5 16.4c.5-1.5 1.8-2.3 3.4-2.3s2.9.8 3.4 2.3M14.6 10h4.2M14.6 13.4h4.2"/></svg>',pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s6.4-6 6.4-10.4A6.4 6.4 0 0 0 5.6 10.6C5.6 15 12 21 12 21z"/><circle cx="12" cy="10.4" r="2.4"/></svg>',tel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3.8h3.6l1.6 4-2.2 1.4a12 12 0 0 0 5.8 5.8l1.4-2.2 4 1.6V18a2 2 0 0 1-2.2 2A16.4 16.4 0 0 1 3 6a2 2 0 0 1 2-2.2z"/></svg>',rc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></svg>',cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.4" y="5" width="17.2" height="16" rx="2"/><path d="M3.4 10h17.2M8 3v4M16 3v4"/></svg>',ref:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>',abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="2.4"/><path d="M8.6 15.4 12 8.6l3.4 6.8M9.8 13.2h4.4"/></svg>'},w=t=>`<span class="rcd-ic">${ut[t]||""}</span>`;function bt(t){let e=[],r=[];for(let s of t||[])String(s.charge_type||"SERVICE").toUpperCase()==="ADVANCE"?r.push(s):e.push(s);return{shown:e,excluded:r}}function pt(t){let e=v(t.total_amount);if(e<=0||t.subtotal===void 0||t.subtotal===null)return null;let r=f(e-v(t.wht_amount));return r<=0?null:{ratio:v(t.amount)/r,net:r}}function ht(t){let e=0,r=0,s=0,d=0,o=0,h=!1,m=new Set,c=new Map;for(let a of t){let S=v(a.amount);e=f(e+S);let _=pt(a);if(!_)continue;h=!0,o=f(o+v(a.total_amount)*_.ratio),r=f(r+v(a.subtotal)*_.ratio),s=f(s+v(a.vat_amount)*_.ratio);let O=f(v(a.wht_amount)*_.ratio);d=f(d+O),v(a.vat_rate)>0&&m.add(v(a.vat_rate));let D=Array.isArray(a.wht_breakdown)?a.wht_breakdown:null;if(D&&D.length)for(let C of D){let W=f(v(C.amount)*_.ratio);if(W===0)continue;let K=C.rate===null||C.rate===void 0||C.rate===""?null:v(C.rate);c.set(K,f((c.get(K)||0)+W))}else if(O!==0){let C=a.wht_rate===null||a.wht_rate===void 0||a.wht_rate===""?null:v(a.wht_rate);c.set(C,f((c.get(C)||0)+O))}}let n=m.size===1?[...m][0]:m.size===0?0:null,p=[...c.keys()],y=p.length===1&&p[0]!==null?p[0]:null;return{total:e,sub:r,vat:s,wht:d,hasTax:h,vatRate:n,whtRate:y,whtBy:c,grossTotal:h?o:e,received:e}}function mt(t){let{shown:e,excluded:r}=bt(t.invoices),s=ht(e),d=String(t.status||"").toUpperCase()==="VOID",o=e.length===0?"-":e.length===1?i(e[0].invoice_no||"-"):"Multiple (See Below) / \u0E2B\u0E25\u0E32\u0E22\u0E43\u0E1A (\u0E14\u0E39\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07)",h=e.map((a,S)=>`<tr>
       <td class="rcd-no">${S+1}</td>
       <td class="rcd-inv">${T(a.invoice_no)}</td>
       <td class="rcd-dt">${a.invoice_date?N(a.invoice_date):"-"}</td>
@@ -146,7 +146,7 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
     </tr></thead><tbody id="rc-tbody"><tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
     </div>
-    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp811_list",{p:{company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map(RI811).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED811",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
+    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp818_list",{p:{company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map(RI811).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED811",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
       ${RC795(o)}${RR522(o)}
       ${A()?`<td class="center"><button type="button" class="btn btn-sm un678" data-backacc
             data-inv="${i(o.invoice_id)}" data-job="${i(o.job_id||"")}" data-no="${i(o.invoice_no||"")}"
@@ -419,12 +419,15 @@ function RE795(e) {   /* ข้อความ Error จาก Server → ภา
   if (/NJACC_RCP_NOT_FOUND/.test(m)) return "ไม่พบใบเสร็จ";
   if (/NJACC_RCP_TOO_MANY/.test(m)) return "เลือกได้สูงสุด 3,000 Invoice ต่อครั้ง";
   if (/NJACC_(MODULE_)?FORBIDDEN/.test(m)) return "ไม่มีสิทธิ์";
+  if (/NJACC_RADV_DUPLICATE_NO|NJACC_RCP_DUPLICATE_NO/.test(m)) return "เลขเอกสารชน (" + m.replace(/^.*DUPLICATE_NO:\s*/, "") + ") — ยังไม่ได้บันทึก กรุณาลองใหม่";
+  if (/NJACC_RADV_SEQ_FULL|NJACC_RCP_SEQ_FULL/.test(m)) return "เลขเอกสารเดือนนี้เต็มแล้ว";
+  if (/njacc_rcp818/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-818)";   /* V.814 */
   if (/njacc_rcp795|PGRST202|schema cache/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-795)";
   return m;
 }
 function RQ795() { try { return "rcp795-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)); } catch (e) { return "rcp795-" + Date.now() + "-" + Math.random().toString(36).slice(2); } }
-async function RO795(t) {   /* หน้าต่างออกใบเสร็จ */
-  let ids = [...SEL795.keys()]; if (!ids.length) return;
+async function RO795(t) {   /* หน้าต่างออกใบเสร็จ · V.814 (RUN-818) : ต่อลูกค้า RCP (SERVICE) + ADV (ADVANCE) — PREVIEW / SAVE / PRINT ทีเดียวทั้ง 2 ใบ */
+  let ids = [...SEL795.keys()]; if (!ids.length) return; ST814();
   if (ids.length > 3000) { k("เลือกได้สูงสุด 3,000 Invoice ต่อครั้ง — กรุณาค้นหาให้แคบลง", "err"); return; }
   let st = { pv: null, seen: !1, req: RQ795(), busy: !1, done: null };
   let body = document.createElement("div"); body.className = "rcp795-m";
@@ -444,6 +447,7 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
     box.querySelectorAll("[data-ask]").forEach((x) => { x.onclick = () => { box.remove(); res(x.dataset.ask === "1"); }; });
   });
   let showDocs = async (docs, o) => { pf.hidden = !0; pd.hidden = !1; pd.innerHTML = '<div class="load-row"><div class="spin"></div></div>'; await RW795(docs, Object.assign({ back }, o), pd); };
+  let nR = () => st.pv ? st.pv.groups.filter((g) => Number(g.count) > 0).length : 0, nA = () => st.pv ? st.pv.groups.filter((g) => g.adv).length : 0;
   let sync = () => {
     let ok = st.pv && !st.pv.errors.length && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value && !st.done;
     q("#rcp795-pv").disabled = !(st.pv && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value) || st.busy || !!st.done;
@@ -452,63 +456,97 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
   };
   let draw = () => {
     let p = st.pv; if (!p) return;
-    let tot = p.groups.reduce((s, g) => s + C795(g.total), 0);
+    let tot = p.groups.reduce((s, g) => s + C795(g.total), 0), atot = p.groups.reduce((s, g) => s + C795(g.adv && g.adv.total), 0);
     sum.innerHTML = (p.errors.length ? `<div class="rcp795-err"><b>⚠ รายการที่ออกใบเสร็จไม่ได้ (${p.errors.length}) — ระงับการยืนยัน</b><ul>${p.errors.map((e) => `<li>${i(e.invoice_no || "-")}${e.job_no ? " · " + i(e.job_no) : ""} — ${i(e.reason)}</li>`).join("")}</ul><button class="btn btn-sm btn-o" id="rcp795-drop">นำรายการที่มีปัญหาออกจากรายการที่เลือก</button></div>` : "")
-      + `<div class="rcp795-hd">ใบเสร็จที่จะออก ${p.groups.length} ฉบับ (1 ฉบับต่อลูกค้า) · ${p.groups.reduce((s, g) => s + Number(g.count || 0), 0)} รายการ · Payment Received รวม <b>${M795(tot / 100)}</b></div>`
-      + p.groups.map((g, k) => `<div class="rcp795-g"><div class="rcp795-gh"><span>ฉบับที่ ${k + 1} · <b>${i(g.customer_name)}</b></span><span>${Number(g.count)} รายการ · <b>${M795(g.total)}</b></span></div>
-          <table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Invoice Amount</th><th class="r">Withholding Tax (7%)</th><th class="r">Payment Received</th></tr></thead><tbody>${(g.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.invoice_amount)}</td><td class="r">${M795(x.wht_amount)}</td><td class="r">${M795(x.received)}</td></tr>`).join("")}</tbody></table></div>`).join("");
+      + `<div class="rcp795-hd">ใบเสร็จที่จะออก : SERVICE (RCP) <b>${nR()}</b> ฉบับ · ADVANCE (ADV) <b>${nA()}</b> ฉบับ (ต่อลูกค้า 1 RCP + 1 ADV) · Payment Received รวม <b>${M795(tot / 100)}</b>${atot ? ` · Advance รวม <b>${M795(atot / 100)}</b>` : ""}</div>`
+      + p.groups.map((g, k) => `<div class="rcp795-g"><div class="rcp795-gh"><span>ลูกค้าที่ ${k + 1} · <b>${i(g.customer_name)}</b></span><span>${Number(g.count) ? `RCP ${Number(g.count)} รายการ · <b>${M795(g.total)}</b>` : "ไม่มี SERVICE"}${g.adv ? ` · ADV ${Number(g.adv.count)} รายการ · <b>${M795(g.adv.total)}</b>` : ""}</span></div>`
+          + (Number(g.count) ? `<div class="rcp814-cap">ใบที่ 1 · SERVICE — RECEIPT (RCP)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Invoice Amount</th><th class="r">Withholding Tax (7%)</th><th class="r">Payment Received</th></tr></thead><tbody>${(g.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.invoice_amount)}</td><td class="r">${M795(x.wht_amount)}</td><td class="r">${M795(x.received)}</td></tr>`).join("")}</tbody></table>` : "")
+          + (g.adv ? `<div class="rcp814-cap rcp814-a">ใบที่ ${Number(g.count) ? 2 : 1} · ADVANCE — RECEIPT ADVANCE (ADV)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Advance Amount</th></tr></thead><tbody>${(g.adv.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.amount)}</td></tr>`).join("")}</tbody></table>` : "")
+          + `</div>`).join("");
     let dr = q("#rcp795-drop"); dr && (dr.onclick = () => { p.errors.forEach((e) => SEL795.delete(String(e.invoice_id))); RS795(t); t.querySelectorAll(".rcp795-cb[data-rcp]").forEach((c) => { c.checked = SEL795.has(c.dataset.rcp); }); ids = [...SEL795.keys()]; ids.length ? load() : (sum.innerHTML = '<div class="empty">ไม่มีรายการที่เลือก</div>', st.pv = null, sync()); });
     sync();
   };
   let load = async () => {
     st.pv = null; st.seen = !1; sync(); sum.innerHTML = '<div class="load-row"><div class="spin"></div><div class="mt-1">กำลังตรวจข้อมูลล่าสุดจาก Server…</div></div>';
-    try { let r = await V("njacc_rcp795_preview", { p: { invoice_ids: ids } }); st.pv = { errors: r && r.errors || [], groups: r && r.groups || [] }; draw(); }
+    try { let r = await V("njacc_rcp818_preview", { p: { invoice_ids: ids } }); st.pv = { errors: r && r.errors || [], groups: r && r.groups || [] }; draw(); }
     catch (e) { sum.innerHTML = `<div class="rcp795-err">${i(RE795(e))}</div>`; sync(); }
+  };
+  let keys = (pairs) => (pairs || []).map((z) => [z.rcp && z.rcp.id, z.adv && "adv:" + z.adv.id].filter(Boolean).join(",")).filter(Boolean);
+  let issue = async (confirmFn) => {   /* SAVE จริง (RCP + ADV ธุรกรรมเดียว) · กดซ้ำ = request_id เดิม → เอกสารเดิม ไม่ออกเลขใหม่ */
+    if (st.done) return st.done;
+    if (st.busy || !st.pv || st.pv.errors.length) return null;
+    let d = q("#rcp795-date").value, m = q("#rcp795-method").value, cnt = st.pv.groups.reduce((s, g) => s + Number(g.count || 0) + Number(g.adv && g.adv.count || 0), 0);
+    if (!d || !m) { k("กรุณาเลือกวันที่ใบเสร็จและวิธีรับชำระ", "err"); return null; }
+    if (!(await confirmFn(`ออกใบเสร็จ SERVICE (RCP) <b>${nR()} ฉบับ</b> + ADVANCE (ADV) <b>${nA()} ฉบับ</b> · ${cnt} รายการ · วันที่ ${D795(d)} · ${i(PML795(m))}<br>เมื่อยืนยันแล้ว ระบบจะออกเลข RCP / ADV จริงพร้อมกัน เปลี่ยนรายการเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกข้อมูลทันที (แก้ไข / ลบ / UNPOST ไม่ได้)`))) return null;
+    st.busy = !0; sync(); let ok = q("#rcp795-ok"); ok.textContent = "กำลังบันทึก…";
+    try {
+      let exp = st.pv.groups.flatMap((g) => (g.all || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, customer_id: g.customer_id, invoice_no: z.invoice_no })));
+      let r = await V("njacc_rcp818_issue", { p: { request_id: st.req, invoice_ids: exp.map((z) => z.invoice_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } });
+      st.done = r && r.pairs || []; st.req = RQ795();
+      SEL795.clear(); RS795(t);
+      let all = [].concat(r && r.receipts || [], r && r.advs || []);
+      sum.innerHTML = `<div class="rcp795-okbox"><b>✅ ออกใบเสร็จสำเร็จ RCP ${(r && r.receipts || []).length} ฉบับ · ADV ${(r && r.advs || []).length} ฉบับ</b> — รายการเปลี่ยนเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกแล้ว</div>`
+        + `<table class="tbl rcp795-t"><thead><tr><th>ลูกค้า</th><th>RECEIPT (RCP)</th><th class="r">Payment Received</th><th>RECEIPT ADVANCE (ADV)</th><th class="r">Advance Amount</th><th></th></tr></thead><tbody>${st.done.map((z, j) => `<tr><td>${i(z.customer_name || "")}</td><td class="t-b">${i(z.rcp ? z.rcp.receipt_no : "-")}</td><td class="r">${z.rcp ? M795(z.rcp.total) : "-"}</td><td class="t-b">${i(z.adv ? z.adv.receipt_no : "-")}</td><td class="r">${z.adv ? M795(z.adv.total) : "-"}</td><td class="r"><button class="btn btn-sm btn-p" data-rcp-open="${i(keys([z])[0] || "")}">ดู / ดาวน์โหลด / พิมพ์</button></td></tr>`).join("")}</tbody></table>`;
+      sum.querySelectorAll("[data-rcp-open]").forEach((b) => { b.onclick = () => open([b.dataset.rcpOpen]); });
+      foot.insertAdjacentHTML("beforeend", `<button class="btn btn-green" id="rcp795-all-docs">📄 ดู / ดาวน์โหลด / พิมพ์ (${all.length} ฉบับ)</button>`);
+      q("#rcp795-all-docs").onclick = () => open(keys(st.done));
+      ok.textContent = "✅ ออกแล้ว"; k("ออกใบเสร็จ " + all.map((z) => z.receipt_no).join(", ") + " แล้ว", "ok");
+      try { CTX795 && CTX795.refresh && CTX795.refresh(); } catch (e) {}
+      return st.done;
+    } catch (e) {
+      let msg = RE795(e); k("ออกใบเสร็จไม่สำเร็จ — " + msg, "err"); ok.textContent = "✅ ยืนยันออกใบเสร็จ";
+      if (/NJACC_RCP_(CHANGED|INVALID)/.test(String(e && e.message || e))) { await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
+      return null;
+    } finally { st.busy = !1; sync(); }
+  };
+  let open = async (ks, pr) => {   /* เอกสารที่บันทึก (เลขจริง · สำเนา ณ เวลาออก) — ดู / PRINT / SAVE PDF ซ้ำได้ ไม่ออกเลขใหม่ */
+    try {
+      let docs = await RL795(ks); await showDocs(docs, { sample: !1 });
+      pr && RX795(docs.map((d) => RF795(d, !1)).join(""), FX814(docs));
+    } catch (e) { back(); k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e) + " (ดาวน์โหลดภายหลังได้จากแถบใบเสร็จที่ออกแล้ว)", "err"); }
   };
   q("#rcp795-date").onchange = () => { st.seen = !1; sync(); };
   q("#rcp795-method").onchange = () => { st.seen = !1; sync(); };
   q("#rcp795-pv").onclick = async () => {
     let d = q("#rcp795-date").value, m = q("#rcp795-method").value; if (!st.pv || !d || !m) return;
-    let I = IS795(x);
-    let docs = st.pv.groups.map((g) => ({ receipt_no: "SAMPLE", receipt_date: d, payment_method: m, issuer: I, credit: g.credit,
-      customer: { name: g.customer_name, tax_id: g.customer_tax_id, branch_code: g.customer_branch, address: g.customer_address },
-      items: (g.items || []).map((z, j) => ({ no: j + 1, invoice_no: z.invoice_no, invoice_date: z.invoice_date, description: "SERVICE CHARGE", invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received })),
-      invoice_amount: g.invoice_amount, wht_amount: g.wht_amount, total: g.total }));
+    let I = IS795(x), docs = [];
+    st.pv.groups.forEach((g, n) => {
+      let C = { name: g.customer_name, tax_id: g.customer_tax_id, branch_code: g.customer_branch, address: g.customer_address };
+      Number(g.count) && docs.push({ pk: "S" + n, receipt_no: "SAMPLE", receipt_date: d, payment_method: m, issuer: I, credit: g.credit, customer: C,
+        items: (g.items || []).map((z, j) => ({ no: j + 1, invoice_no: z.invoice_no, invoice_date: z.invoice_date, description: "SERVICE CHARGE", invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received })),
+        invoice_amount: g.invoice_amount, wht_amount: g.wht_amount, total: g.total });
+      g.adv && docs.push({ kind: "ADV", pk: "S" + n, receipt_no: "SAMPLE", receipt_date: d, payment_method: m, issuer: I, credit: g.adv.credit, customer: C, status: "ACTIVE",
+        items: (g.adv.items || []).map((z, j) => ({ no: j + 1, invoice_no: z.invoice_no, invoice_date: z.invoice_date, description: "Advance Charge", amount: z.amount })), total: g.adv.total });
+    });
     st.seen = !0; sync();
-    await showDocs(docs, { sample: !0 });
+    let after = async (pr) => { let r = await issue(ASK814); if (!r) return; await open(keys(r), pr); };
+    await showDocs(docs, { sample: !st.done, commit: st.done ? null : () => after(!1), printX: st.done ? null : () => after(!0) });
   };
   q("#rcp795-ok").onclick = async () => {
     if (st.busy || !st.pv || st.pv.errors.length || !st.seen) return;
-    let d = q("#rcp795-date").value, m = q("#rcp795-method").value, ng = st.pv.groups.length, cnt = st.pv.groups.reduce((s, g) => s + Number(g.count || 0), 0);
     back();
-    if (!(await ask(`ออกใบเสร็จ <b>${ng} ฉบับ</b> · ${cnt} รายการ · วันที่ ${D795(d)} · ${i(PML795(m))}<br>เมื่อยืนยันแล้ว ระบบจะออกเลข RCP จริง เปลี่ยนรายการเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกข้อมูลทันที (แก้ไข / ลบ / UNPOST ไม่ได้)`))) return;
-    st.busy = !0; sync(); let ok = q("#rcp795-ok"); ok.textContent = "กำลังบันทึก…";
-    try {
-      let exp = st.pv.groups.flatMap((g) => (g.items || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, customer_id: g.customer_id, invoice_no: z.invoice_no })));
-      let r = await V("njacc_rcp795_issue", { p: { request_id: st.req, invoice_ids: exp.map((z) => z.invoice_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } });
-      st.done = r && r.receipts || []; st.req = RQ795();
-      SEL795.clear(); RS795(t);
-      sum.innerHTML = `<div class="rcp795-okbox"><b>✅ ออกใบเสร็จสำเร็จ ${st.done.length} ฉบับ</b> — รายการเปลี่ยนเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกแล้ว</div>`
-        + `<table class="tbl rcp795-t"><thead><tr><th>Receipt No.</th><th>ลูกค้า</th><th class="r">รายการ</th><th class="r">Payment Received</th><th></th></tr></thead><tbody>${st.done.map((z) => `<tr><td class="t-b">${i(z.receipt_no)}</td><td>${i(z.customer_name)}</td><td class="r">${Number(z.count)}</td><td class="r">${M795(z.total)}</td><td class="r"><button class="btn btn-sm btn-p" data-rcp-open="${i(z.id)}">ดู / ดาวน์โหลด / พิมพ์</button></td></tr>`).join("")}</tbody></table>`;
-      let open = async (ids2) => { try { await showDocs(await RL795(ids2), { sample: !1 }); } catch (e) { back(); k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e) + " (ดาวน์โหลดภายหลังได้จากแถบใบเสร็จที่ออกแล้ว)", "err"); } };
-      sum.querySelectorAll("[data-rcp-open]").forEach((b) => { b.onclick = () => open([b.dataset.rcpOpen]); });
-      foot.insertAdjacentHTML("beforeend", `<button class="btn btn-green" id="rcp795-all-docs">📄 ดู / ดาวน์โหลด / พิมพ์ (${st.done.length} ฉบับ)</button>`);
-      q("#rcp795-all-docs").onclick = () => open(st.done.map((z) => z.id));
-      ok.textContent = "✅ ออกแล้ว"; k("ออกใบเสร็จ " + st.done.map((z) => z.receipt_no).join(", ") + " แล้ว", "ok");
-      try { CTX795 && CTX795.refresh && CTX795.refresh(); } catch (e) {}
-      await open(st.done.map((z) => z.id));
-    } catch (e) {
-      let msg = RE795(e); k("ออกใบเสร็จไม่สำเร็จ — " + msg, "err"); ok.textContent = "✅ ยืนยันออกใบเสร็จ";
-      if (/NJACC_RCP_(CHANGED|INVALID)/.test(String(e && e.message || e))) { await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
-    } finally { st.busy = !1; sync(); }
+    let r = await issue(ask); r && (await open(keys(r)));
   };
   await load();
 }
+function ASK814(html) {   /* ยืนยันบนหน้าจอ PREVIEW เต็มจอ (อยู่เหนือ PV813) */
+  return new Promise((res) => {
+    ST814(); let w = document.createElement("div"); w.className = "ask814";
+    w.innerHTML = `<div class="ask814-b"><div class="ask814-t">${html}</div><div class="ask814-f"><button type="button" class="btn btn-o" data-a814="0">ยกเลิก</button><button type="button" class="btn btn-p" data-a814="1">ยืนยัน SAVE (ออกเลขจริง)</button></div></div>`;
+    document.body.appendChild(w);
+    let done = (v) => { document.removeEventListener("keydown", key, !0); w.remove(); res(v); };
+    let key = (ev) => { ev.key === "Escape" && (ev.preventDefault(), ev.stopPropagation(), done(!1)); };
+    document.addEventListener("keydown", key, !0);
+    w.querySelectorAll("[data-a814]").forEach((b) => { b.onclick = () => done(b.dataset.a814 === "1"); });
+  });
+}
+
 async function RL795(ids) {   /* ใบเสร็จที่บันทึก (สำเนาข้อมูล ณ เวลาออก) — ไม่ออกเลขใหม่ · ไม่ตัดรับชำระซ้ำ */
   let docs = [];
-  for (let id of [].concat(ids || []).filter(Boolean)) {
+  for (let key of [].concat(ids || []).filter(Boolean)) for (let id of String(key).split(",").filter(Boolean)) {   /* V.814 : คีย์ = RCP[,adv:ID] (ชุดเดียวกัน) · adv:ID = RECEIPT ADVANCE */
+    if (/^adv:/.test(id)) { let M = await AD814(), a = (await M.RL814([id.slice(4)]))[0]; a && docs.push(Object.assign(a, { kind: "ADV", id: id.slice(4), pk: String(key) })); continue; }
     let r = await V("njacc_rcp795_get", { p_id: id }), s = r && r.snapshot || {};
-    docs.push({ id: r.id, receipt_no: r.receipt_no, receipt_date: r.receipt_date, payment_method: s.payment_method || r.payment_method, issuer: s.issuer || {}, customer: s.customer || {}, items: s.items || [],
+    docs.push({ pk: String(key), id: r.id, receipt_no: r.receipt_no, receipt_date: r.receipt_date, payment_method: s.payment_method || r.payment_method, issuer: s.issuer || {}, customer: s.customer || {}, items: s.items || [],
       invoice_amount: s.invoice_amount != null ? s.invoice_amount : r.invoice_amount, wht_amount: s.wht_amount != null ? s.wht_amount : r.wht_amount, total: s.total != null ? s.total : r.total, credit: s.credit });
   }
   return docs;
@@ -516,15 +554,15 @@ async function RL795(ids) {   /* ใบเสร็จที่บันทึ�
 async function RG795(ids) { try { let docs = await RL795(ids); docs.length && (await RW795(docs, { sample: !1, title: "RECEIPT " + docs.map((d) => d.receipt_no).join(", ") })); } catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } }
 async function RPR795(id, b) {   /* PRINT จากแถว : เอกสารที่บันทึก (เลขเดิม) */
   if (!id || (b && b.disabled)) return; b && (b.disabled = !0);
-  try { let d = (await RL795([id]))[0]; if (!d) throw new Error("ไม่พบใบเสร็จ"); await FN795(); await IM795(d); RX795(RF795(d, !1), "RECEIPT_" + d.receipt_no); }
+  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); await FN795(); for (let d of ds) await IM795(d); RX795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds)); }   /* V.814 : RCP + ADV = พิมพ์ครั้งเดียว */
   catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } finally { b && (b.disabled = !1); }
 }
 async function SV795(id, b) {   /* SAVE PDF จากแถว : เอกสารที่บันทึก (เลขเดิม) */
   if (!id || (b && b.disabled)) return;
-  try { let d = (await RL795([id]))[0]; if (!d) throw new Error("ไม่พบใบเสร็จ"); await SVH795(RF795(d, !1), "RECEIPT_" + d.receipt_no, b); }
+  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); await SVH795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds), b); }   /* V.814 : RCP + ADV = 1 ไฟล์ */
   catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); }
 }
-async function FN795() { ST795(); try { let m = await import("./chunk-TKN6STDT.js"); m.FF766 && (await m.FF766()); } catch (e) {} }
+async function FN795() { ST795(); try { await AD814(); } catch (e) {} try { let m = await import("./chunk-TKN6STDT.js"); m.FF766 && (await m.FF766()); } catch (e) {} }
 async function IM795(d) { let src = d && d.issuer && d.issuer.logo; src && (await Promise.race([new Promise((r) => { let im = new Image(); im.onload = im.onerror = r; im.src = src; }), new Promise((r) => setTimeout(r, 3000))])); }
 /* ── PDF (A4 แนวตั้ง) ── */
 function RP795(doc, counts, sample) {
@@ -575,6 +613,7 @@ function RP795(doc, counts, sample) {
   return pages.join("");
 }
 function RF795(doc, sample) {   /* แบ่งหน้าตามพื้นที่จริง : แถวไม่ข้ามหน้า · TOTAL / ตัวอักษร / สรุป / ลงนาม อยู่หน้าสุดท้าย */
+  if (doc && doc.kind === "ADV" && A814) { ST814(); A814.ST814 && A814.ST814(); return A814.RF814(doc, sample); }   /* V.814 : RECEIPT ADVANCE = Template เดิม (RF788) */
   ST795(); let items = doc.items || [], c = [Math.max(1, items.length)];
   if (!document.body) return RP795(doc, c, sample);
   let box = document.createElement("div"); box.className = "rcp795-doc"; box.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden"; document.body.appendChild(box);
@@ -591,17 +630,22 @@ function RF795(doc, sample) {   /* แบ่งหน้าตามพื้น
     return RP795(doc, c, sample);
   } finally { box.remove(); }
 }
-async function RW795(docs, o, host) {   /* Preview = DOM เดียวกับ PDF / Print · V.813 : แสดงเต็มหน้าจอ (PV813 · ไม่ใช้กรอบ Modal) · ปิด = o.back (กลับหน้าเดิม) */
+async function RW795(docs, o, host) {   /* Preview = DOM เดียวกับ PDF / Print · V.813 : แสดงเต็มหน้าจอ (PV813 · ไม่ใช้กรอบ Modal) · ปิด = o.back (กลับหน้าเดิม)
+   V.814 : RCP + ADV ของลูกค้าเดียวกัน = ชุดเดียว (หน้า SERVICE ก่อน แล้ว ADVANCE) · PRINT = พิมพ์ทุกหน้าในครั้งเดียว · SAVE PDF = 1 ไฟล์ต่อชุด
+           ตัวอย่าง : SAVE = ออกเลขจริง (o.commit) · PRINT = SAVE จริงก่อนแล้วพิมพ์ (o.printX) */
   await FN795(); for (let d of docs) await IM795(d);
-  let parts = docs.map((d) => RF795(d, o.sample)), html = parts.join(""), nos = docs.map((d) => d.receipt_no);
+  let html = docs.map((d) => RF795(d, o.sample)).join(""), nos = docs.map((d) => d.receipt_no), g = [];
+  docs.forEach((d, j) => { let pk = d.pk || "d" + j, z = g.find((y) => y.pk === pk); z ? z.d.push(d) : g.push({ pk, d: [d] }); });
+  let parts = g.map((z) => z.d.map((d) => RF795(d, o.sample)).join("")), names = g.map((z) => FX814(z.d)), adv = docs.some((d) => d.kind === "ADV");
   host && (host.innerHTML = "");
-  PV813({ title: o.sample ? "RECEIPT — ตัวอย่าง " + docs.length + " ฉบับ" : (o.title || "RECEIPT " + nos.join(", ")), note: o.sample ? "ยังไม่ออกเลข · ยังไม่ตัดรับชำระ · ยังไม่ล็อก (1 ฉบับต่อลูกค้า)" : "",
-    html, parts, names: nos.map((x) => "RECEIPT_" + x), save: o.sample ? null : SVH795,
-    print: () => RX795(html, o.sample ? "RECEIPT_SAMPLE" : "RECEIPT_" + nos.join("_")), onClose: o.back });
+  PV813({ title: o.sample ? (adv ? "RECEIPT + RECEIPT ADVANCE" : "RECEIPT") + " — ตัวอย่าง " + docs.length + " ฉบับ" : (o.title || "RECEIPT " + nos.join(", ")),
+    note: o.sample ? "ยังไม่ออกเลข · ยังไม่ตัดรับชำระ · ยังไม่ล็อก (ต่อลูกค้า : RCP SERVICE + ADV ADVANCE)" + (o.commit ? " · SAVE / PRINT = ออกเลขจริงก่อน" : "") : "",
+    html, parts, names, save: o.sample ? null : SVH795, commit: o.sample ? o.commit : null,
+    print: o.sample && o.printX ? o.printX : () => RX795(html, o.sample ? "RECEIPT_SAMPLE" : FX814(docs)), onClose: o.back });
 }
 function RX795(html, fname) {   /* พิมพ์ / บันทึก PDF (A4 แนวตั้ง · ชื่อไฟล์ = ชื่อเอกสาร) */
   ST795(); let old = document.getElementById("rcp795-print-root"); old && old.remove();
-  let root = document.createElement("div"); root.id = "rcp795-print-root"; root.className = "rcp795-doc"; root.innerHTML = html; document.body.appendChild(root);
+  let root = document.createElement("div"); root.id = "rcp795-print-root"; root.className = "rcp795-doc radv788-doc"; ST814(); root.innerHTML = html; document.body.appendChild(root);
   let ps = document.createElement("style"); ps.id = "rcp795-page"; ps.textContent = "@page{size:A4 portrait;margin:0}"; document.head.appendChild(ps);
   let t0 = document.title; document.title = fname; document.body.classList.add("rcp795-printing");
   let done = () => { document.body.classList.remove("rcp795-printing"); document.title = t0; ps.remove(); root.remove(); };
@@ -617,10 +661,10 @@ async function SVH795(html, fname, b) {   /* ดาวน์โหลด PDF (RE
     await FN795();
     await Promise.all([LS795("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js", () => typeof window.html2canvas === "function"),
                        LS795("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js", () => !!(window.jspdf && window.jspdf.jsPDF))]);
-    box.className = "rcp795-doc rcp795-off"; box.innerHTML = html; document.body.appendChild(box);
+    box.className = "rcp795-doc radv788-doc rcp795-off"; box.innerHTML = html; document.body.appendChild(box);
     await Promise.all([...box.querySelectorAll("img")].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; setTimeout(r, 3000); })));
     try { document.fonts && (await document.fonts.ready); } catch (e) {}
-    let pdf = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: !0 }), pgs = [...box.querySelectorAll(".rcp-pg")];
+    let pdf = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: !0 }), pgs = [...box.querySelectorAll(".rcp-pg,.radv-pg")];
     if (!pgs.length) throw new Error("ไม่พบหน้าเอกสาร");
     for (let j = 0; j < pgs.length; j++) {
       let cv = await window.html2canvas(pgs[j], { scale: 2, backgroundColor: "#ffffff", useCORS: !0, logging: !1 });
@@ -758,24 +802,26 @@ function FB809(inv, reason, req) { return V("njacc_fin809_back", { p: { invoice_
    จำนวน / ยอดสรุป / EXPORT EXCEL = ต่อใบเสร็จ (ไม่รวมยอดซ้ำ) · ไม่แตะการออกใบเสร็จ / เลข / สูตร / POST / UNPOST / แถบรอรับชำระ ═══ */
 var RH811 = '<th>เลขที่ใบเสร็จ</th><th>วันที่ออก</th><th>Customer</th><th class="center">จำนวน JOB</th><th class="center">จำนวน INVOICE</th><th class="r">ยอดรวม</th><th>สถานะ</th><th class="center col-act">จัดการ</th>';
 function N811(v) { let x = Number(v); return isFinite(x) ? x.toLocaleString("th-TH") : "0"; }
+function K814(o) { return o.kind === "ADV" ? "adv:" + (o.receipt_id || "") : String(o.receipt_id || "") + (o.adv_id ? ",adv:" + o.adv_id : ""); }   /* V.814 : คีย์เอกสารของแถว = RCP [+ ADV คู่] · ADV อย่างเดียว = adv:<id> */
 function RI811(o) {
-  ST811(); let id = i(o.receipt_id || ""), no = i(o.receipt_no || "");
-  return `<tr class="r811" data-r811="${id}" tabindex="0" title="คลิกเพื่อดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${no}">`
-    + `<td class="nowrap" data-l="เลขที่ใบเสร็จ"><b class="no811">${no}</b></td>`
+  ST811(); ST814(); let id = i(K814(o)), no = i(o.receipt_no || ""), adv = o.kind === "ADV", an = i(o.adv_no || ""), lab = no + (o.adv_no && !adv ? " + " + an : "");
+  return `<tr class="r811" data-r811="${id}" tabindex="0" title="คลิกเพื่อดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">`
+    + `<td class="nowrap" data-l="เลขที่ใบเสร็จ"><b class="no811">${no}</b>${o.adv_no && !adv ? `<span class="adv814">+ ${an}</span>` : ""}${adv ? '<span class="adv814">RECEIPT ADVANCE</span>' : ""}</td>`
     + `<td class="nowrap" data-l="วันที่ออก">${D795(o.receipt_date) || "-"}</td>`
     + `<td class="c811" data-l="Customer" title="${i(o.customer_name || "")}">${i(o.customer_name || "-")}</td>`
     + `<td class="center" data-l="จำนวน JOB">${N811(o.job_count)}</td>`
     + `<td class="center" data-l="จำนวน INVOICE">${N811(o.invoice_count)}</td>`
-    + `<td class="r t-b" data-l="ยอดรวม">${M795(o.total)}</td>`
+    + `<td class="r t-b" data-l="ยอดรวม">${adv ? `<span class="adv814">ADV ${M795(o.adv_total)}</span>` : M795(o.total) + (o.adv_no ? `<span class="adv814">ADV ${M795(o.adv_total)}</span>` : "")}</td>`
     + `<td class="nowrap" data-l="สถานะ"><span class="bdg795">ออกใบเสร็จแล้ว</span></td>`
-    + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${no}">รายการ</button>`
-    + `<button type="button" class="btn btn-sm rcp795-b rcp795-pv" data-rcp-pv="${id}" title="PREVIEW — ${no}">PREVIEW</button>`
-    + `<button type="button" class="btn btn-sm rcp795-b rcp795-pr" data-rcp-pr="${id}" title="PRINT — ${no} (เลขเดิม)">PRINT</button>`
-    + `<button type="button" class="btn btn-sm rcp795-b rcp795-sv" data-rcp-sv="${id}" title="SAVE PDF — RECEIPT_${no}.pdf">SAVE PDF</button></td></tr>`;
+    + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">รายการ</button>`
+    + `<button type="button" class="btn btn-sm rcp795-b rcp795-pv" data-rcp-pv="${id}" title="PREVIEW — ${lab}">PREVIEW</button>`
+    + `<button type="button" class="btn btn-sm rcp795-b rcp795-pr" data-rcp-pr="${id}" title="PRINT — ${lab} (เลขเดิม)">PRINT</button>`
+    + `<button type="button" class="btn btn-sm rcp795-b rcp795-sv" data-rcp-sv="${id}" title="SAVE PDF — ${lab}">SAVE PDF</button></td></tr>`;
 }
-function SM811(t, r) {   /* สรุปตามตัวกรองปัจจุบัน (Server · นับ Receipt ID ไม่ซ้ำ · ยอดหัวใบเสร็จ) */
+function SM811(t, r) {   /* สรุปตามตัวกรองปัจจุบัน (Server · นับ Receipt ID ไม่ซ้ำ · ยอดหัวใบเสร็จ) · V.814 : + ADV */
   let el = t && t.querySelector("#rc-sum811"); if (!el) return; let k = (r && r.kpi) || {};
-  el.innerHTML = `<span>ใบเสร็จ <b>${N811(k.receipts != null ? k.receipts : r && r.total)}</b> ใบ</span><span>JOB <b>${N811(k.jobs)}</b></span><span>INVOICE <b>${N811(k.invoices)}</b></span><span>ยอดรวม <b>${M795(k.amount || 0)}</b></span>`;
+  el.innerHTML = `<span>ใบเสร็จ <b>${N811(k.receipts != null ? k.receipts : r && r.total)}</b> ใบ</span><span>JOB <b>${N811(k.jobs)}</b></span><span>INVOICE <b>${N811(k.invoices)}</b></span><span>ยอดรวม <b>${M795(k.amount || 0)}</b></span>`
+    + (Number(k.adv_receipts) ? `<span>RECEIPT ADVANCE <b>${N811(k.adv_receipts)}</b> ใบ</span><span>ยอด ADVANCE <b>${M795(k.adv_amount || 0)}</b></span>` : "");
 }
 function DH811(d, lab) {   /* เนื้อหาหน้าต่างรายละเอียด (ใช้ร่วม RECEIPT / ADVANCE) */
   let it = (d && d.items) || [], st = d && d.status === "VOID_RESET" ? "ยกเลิก" : "ออกใบเสร็จแล้ว";
@@ -787,22 +833,24 @@ function DH811(d, lab) {   /* เนื้อหาหน้าต่างร�
       : '<tr><td colspan="6" class="empty">ไม่พบรายการ</td></tr>')
     + `</tbody><tfoot><tr class="tot811"><td colspan="5" class="r">ยอดรวม (${N811(it.length)} รายการ)</td><td class="r" data-l="ยอดรวม">${M795(d.total)}</td></tr></tfoot></table></div>`;
 }
-async function DT811(id) {   /* หน้าต่างรายละเอียดใบเสร็จ */
-  if (!id) return; let d;
-  try { d = await V("njacc_rcp811_items", { p_id: id }); } catch (e) { k("เปิดรายละเอียดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); return; }
-  ST811(); ST795();
+async function DT811(key) {   /* หน้าต่างรายละเอียดใบเสร็จ · V.814 : RCP + ADV คู่ (หรือ ADV อย่างเดียว) */
+  if (!key) return; let ks = String(key).split(",").filter(Boolean), ds = [];
+  try { for (let z of ks) ds.push(/^adv:/.test(z) ? Object.assign(await V("njacc_radv811_items", { p_id: z.slice(4) }), { __adv: 1 }) : await V("njacc_rcp811_items", { p_id: z })); }
+  catch (e) { k("เปิดรายละเอียดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); return; }
+  ST811(); ST795(); ST814();
   let body = document.createElement("div"), foot = document.createElement("div"); body.className = "d811";
   foot.className = "f811"; foot.innerHTML = '<button type="button" class="btn rcp795-b rcp795-pv" data-x811="pv">PREVIEW</button><button type="button" class="btn rcp795-b rcp795-pr" data-x811="pr">PRINT</button>'
     + '<button type="button" class="btn rcp795-b rcp795-sv" data-x811="sv">SAVE PDF</button><button type="button" class="btn btn-o" data-close>ปิด</button>';
-  let show = () => { body.innerHTML = DH811(d, "INVOICE NJ"); };
-  show(); Q({ title: "ใบเสร็จ " + (d.receipt_no || ""), body, footer: foot, fullscreen: !0, wide: !0 });
-  foot.querySelector('[data-x811="pv"]').onclick = async (ev) => {   /* PREVIEW = RW795 เดิม (แสดงในหน้าต่างนี้ · ← กลับ = รายละเอียด) */
+  let show = () => { body.innerHTML = ds.map((d, j) => (ds.length > 1 || d.__adv ? `<div class="h814">${d.__adv ? "RECEIPT ADVANCE (ADV)" : "RECEIPT (RCP)"}</div>` : "") + DH811(d, "INVOICE NJ")).join(""); };
+  show(); Q({ title: "ใบเสร็จ " + ds.map((d) => d.receipt_no || "").join(" + "), body, footer: foot, fullscreen: !0, wide: !0 });
+  foot.querySelector('[data-x811="pv"]').onclick = async (ev) => {   /* PREVIEW = RW795 (แสดงในหน้าต่างนี้ · ปิด = รายละเอียด) */
     let b2 = ev.currentTarget; if (b2.disabled) return; b2.disabled = !0;
-    try { let docs = await RL795([id]); docs.length && (await RW795(docs, { sample: !1, back: show }, body)); } catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } finally { b2.disabled = !1; }
+    try { let docs = await RL795([key]); docs.length && (await RW795(docs, { sample: !1, back: show }, body)); } catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } finally { b2.disabled = !1; }
   };
-  foot.querySelector('[data-x811="pr"]').onclick = (ev) => RPR795(id, ev.currentTarget);
-  foot.querySelector('[data-x811="sv"]').onclick = (ev) => SV795(id, ev.currentTarget);
+  foot.querySelector('[data-x811="pr"]').onclick = (ev) => RPR795(key, ev.currentTarget);
+  foot.querySelector('[data-x811="sv"]').onclick = (ev) => SV795(key, ev.currentTarget);
 }
+
 function RB811(t) {   /* คลิกแถว / Enter / ปุ่มรายการ → รายละเอียด (ผูกครั้งเดียวต่อหน้า) */
   if (!t || t.__rb811) return; t.__rb811 = 1;
   t.addEventListener("click", (ev) => {
@@ -818,8 +866,8 @@ function XR811(t) {   /* EXPORT EXCEL แถบใบเสร็จที่อ
     if (bt.disabled) return; bt.disabled = !0; let lb = bt.innerHTML; bt.textContent = "กำลังส่งออก…";
     try {
       let f = { company_group: "NJ", q: b.q || null, customer_id: b.customer || null, from: b.from || null, to: b.to || null, ...FP678(b) };
-      let r = await XF734(async (pg, sz) => { let x = await V("njacc_rcp811_list", { p: Object.assign({}, f, { page: pg, size: sz }) }); ((x && x.rows) || []).forEach((o) => { o.__k734 = o.receipt_id || null; }); return x; }, 200);
-      let fn = await XW734("FINANCE_RECEIPT_ISSUED", CX811("INVOICE NJ"), r.rows);
+      let r = await XF734(async (pg, sz) => { let x = await V("njacc_rcp818_list", { p: Object.assign({}, f, { page: pg, size: sz }) }); ((x && x.rows) || []).forEach((o) => { o.__k734 = K814(o) || null; }); return x; }, 200);
+      let fn = await XW734("FINANCE_RECEIPT_ISSUED", CX811("INVOICE NJ").concat([["RECEIPT ADVANCE No.", (o) => o.adv_no || ""], ["ยอด ADVANCE", (o) => o.adv_total, "num"]]), r.rows);   /* V.814 */
       k("ส่งออก Excel " + r.rows.length.toLocaleString("th-TH") + " ใบเสร็จแล้ว (" + fn + ")", "ok");
     } catch (e) { k("ส่งออก Excel ไม่สำเร็จ — " + (e && e.message || e), "err"); }
     bt.disabled = !1; bt.innerHTML = lb;
@@ -859,8 +907,8 @@ function PV813(o) {
   ST813V(); let old = document.getElementById("pv813"); old && old.remove();
   let w = document.createElement("div"); w.id = "pv813"; w.className = "pv813"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
   w.innerHTML = `<div class="pv813-bar"><div class="pv813-t"><b>${i(o.title || "")}</b>${o.note ? `<span class="pv813-n">${i(o.note)}</span>` : ""}${o.warn ? `<span class="pv813-w">${i(o.warn)}</span>` : ""}</div>`
-    + `<div class="pv813-b"><button type="button" class="btn pv813-pr" data-pv813="pr">PRINT</button>${o.save ? '<button type="button" class="btn pv813-sv" data-pv813="sv">SAVE PDF</button>' : ""}<button type="button" class="btn pv813-x" data-pv813="x">ปิด</button></div></div>`
-    + `<div class="pv813-st"><div class="pv813-z"><div class="rcp795-doc pv813-doc">${o.html}</div></div></div>`;
+    + `<div class="pv813-b"><button type="button" class="btn pv813-pr" data-pv813="pr">PRINT</button>${o.commit ? '<button type="button" class="btn pv813-ok" data-pv813="ok">SAVE</button>' : ""}${o.save ? '<button type="button" class="btn pv813-sv" data-pv813="sv">SAVE PDF</button>' : ""}<button type="button" class="btn pv813-x" data-pv813="x">ปิด</button></div></div>`
+    + `<div class="pv813-st"><div class="pv813-z"><div class="rcp795-doc radv788-doc pv813-doc">${o.html}</div></div></div>`;
   document.body.appendChild(w);
   let ov0 = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden";
   let st = w.querySelector(".pv813-st"), z = w.querySelector(".pv813-z");
@@ -870,7 +918,8 @@ function PV813(o) {
   let key = (ev) => { ev.key === "Escape" && !document.body.classList.contains("rcp795-printing") && (ev.preventDefault(), ev.stopPropagation(), close()); };
   document.addEventListener("keydown", key, !0);
   w.querySelector('[data-pv813="x"]').onclick = close;
-  w.querySelector('[data-pv813="pr"]').onclick = () => o.print();
+  let pb = w.querySelector('[data-pv813="pr"]'); pb.onclick = async () => { if (pb.disabled) return; pb.disabled = !0; try { await o.print(); } finally { pb.disabled = !1; } };   /* V.814 */
+  let cb = w.querySelector('[data-pv813="ok"]'); cb && (cb.onclick = async () => { if (cb.disabled) return; cb.disabled = !0; try { await o.commit(); } finally { cb.disabled = !1; } });
   let sv = w.querySelector('[data-pv813="sv"]'); sv && (sv.onclick = async () => { if (sv.disabled) return; for (let j = 0; j < o.parts.length; j++) await o.save(o.parts[j], o.names[j], sv); });
   return { close, el: w };
 }
@@ -911,6 +960,247 @@ function ST813() {
       ".rcp-pg .rcp-amt{padding:0}.rcp-pg .rcp-a1{padding:2.1mm 3.4mm;font-size:8.8pt}.rcp-pg .rcp-a2{padding:2.6mm 3.4mm;font-size:9.6pt;font-weight:700}",
       ".rcp-pg .rcp-sign{gap:3.5mm;margin-top:4.2mm}.rcp-pg .rcp-sign .rcp-box{padding:3mm 3.4mm;font-size:8pt;min-height:35mm}.rcp-pg .rcp-st{font-size:8pt}.rcp-pg .rcp-for{font-size:8pt}",
       ".rcp-pg .rcp-sp{height:12.5mm}.rcp-pg .rcp-sp2{height:8.5mm}.rcp-pg .rcp-sc{margin:1mm 0 2.2mm}"
+    ].join("");
+    document.head.appendChild(s);
+  } catch (e) {}
+}
+
+/* ═══ V.814 (RUN-818) · FINANCE → RECEIPT : ต่อลูกค้า RCP (SERVICE) + ADV (ADVANCE) — PREVIEW / SAVE / PRINT ทีเดียว · เอกสาร ADV ใช้ Template / Loader เดิมของ FINANCE — ADVANCE ═══ */
+function FX814(docs) { let d = docs || []; return d.length === 1 && d[0].kind === "ADV" ? "RECEIPT_ADVANCE_" + d[0].receipt_no : "RECEIPT_" + d.map((z) => z.receipt_no).join("_"); }   /* ชื่อไฟล์ : RECEIPT_<RCP>[_<ADV>] · ADV อย่างเดียว = RECEIPT_ADVANCE_<ADV> */
+var A814 = null;
+async function AD814() {   /* V.814 : เอกสาร RECEIPT ADVANCE (ADV) = Template / Loader เดิมของ FINANCE — ADVANCE (charge-page · RF788 / RL788) */
+  if (!A814) { let m = await import("./charge-page-BRQ6QVJY.js"); A814 = m; }
+  try { A814.ST814 && A814.ST814(); } catch (e) {}
+  ST814(); return A814;
+}
+function ST814() {
+  try {
+    if (document.getElementById("st814-css")) return;
+    let s = document.createElement("style"); s.id = "st814-css";
+    s.textContent = [
+      ".pv813-doc .radv-pg{margin:0 auto 8px;box-shadow:0 1px 6px rgba(15,23,42,.18)}",
+      "@media print{body.rcp795-printing .radv-pg{box-shadow:none;margin:0}}",
+      ".rcp814-cap{margin:8px 0 4px;font-size:12.5px;font-weight:800;color:#0f2a4d}.rcp814-cap.rcp814-a{color:#9a3412}",
+      ".adv814{display:block;margin-top:2px;font-size:12px;font-weight:700;color:#9a3412;white-space:nowrap}",
+      ".btn.pv813-ok{background:#16a34a!important;border:1px solid #16a34a!important;color:#fff!important}",
+      ".ask814{position:fixed;inset:0;z-index:3200;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}",
+      ".ask814-b{background:#fff;border-radius:12px;max-width:560px;width:100%;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:14px;line-height:1.55;color:#0f172a}",
+      ".ask814-f{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}.ask814-f .btn{min-width:120px}",
+      ".h814{margin:16px 0 8px;font-size:14px;font-weight:800;color:#9a3412}"
+    ].join("");
+    document.head.appendChild(s);
+  } catch (e) {}
+}
+
+/* ═══ V.815 (RUN-820) · FINANCE → RECEIPT (รอรับชำระ) : UPLOAD EXCEL — Billing Note no. จาก APL Billing / CASE · ตรวจซ้ำ 3 กรณี · ยึดไฟล์ล่าสุด
+   อ่านหัวคอลัมน์จากชื่อจริง (ไม่ยึดตำแหน่ง) · ข้ามแถว TOTAL · Name CS / Status / Contact ห้ามนำเข้า · คอลัมน์อื่นที่ไม่มีฟิลด์รองรับ = ข้าม · ไม่สร้าง INVOICE
+   ตรวจ (njacc_bn820_check · อ่านอย่างเดียว) → Preview → ยืนยัน → บันทึก (njacc_bn820_save · ธุรกรรมเดียว · เฉพาะค่าที่เปลี่ยน) · ค่าว่างไม่ลบค่าเดิม ═══ */
+var BK820 = { namecs: "Name CS", status: "Status", contact: "Contact" };
+function NH820(h) { return String(h == null ? "" : h).toLowerCase().replace(/[\s._\-\/()#:]+/g, ""); }
+function TX820(v) { return v == null ? "" : String(v).replace(/ /g, " ").trim(); }
+function DT820(d) { try { let p = (n) => String(n).padStart(2, "0"); d = new Date(d); return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()); } catch (e) { return ""; } }
+function UPB820(t) {   /* ปุ่ม UPLOAD EXCEL (สีส้ม) ต่อจากปุ่มคอลัมน์ */
+  try {
+    if (!t || !CAN795()) return; let bar = t.querySelector("#rc-pending .fbar"); if (!bar || bar.querySelector("#rp-up820")) return; ST820();
+    let b = document.createElement("button"); b.type = "button"; b.className = "btn btn-sm up820"; b.id = "rp-up820"; b.textContent = "⬆ UPLOAD EXCEL"; b.title = "นำเข้า Billing Note no. (APL Billing / CASE) จาก Excel .xlsx / .xls — เลือกได้หลายไฟล์";
+    let inp = document.createElement("input"); inp.type = "file"; inp.id = "rp-up820-f"; inp.multiple = !0; inp.hidden = !0;
+    inp.accept = ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
+    let colOf = () => [...bar.children].find((x) => x !== b && x.tagName === "BUTTON" && /คอลัมน์/.test(x.textContent));
+    let place = () => { let c = colOf(), ref = c || bar.querySelector("#rp-xl734"); ref ? ref.after(b) : bar.appendChild(b); b.after(inp); return !!c; };
+    if (!place()) { let mo = new MutationObserver(() => { colOf() && (place(), mo.disconnect()); }); mo.observe(bar, { childList: !0 }); setTimeout(() => mo.disconnect(), 2e4); }
+    b.onclick = () => { if (b.disabled) return; inp.value = ""; inp.click(); };
+    inp.onchange = () => { let fs = [...(inp.files || [])]; inp.value = ""; fs.length && UP820(t, fs, b); };
+  } catch (e) { try { console.warn("UPB820", e); } catch (z) {} }
+}
+async function SH820(buf) {   /* SHA-256 ของไฟล์ (ตรวจไฟล์เดิมซ้ำ) */
+  try { let h = await crypto.subtle.digest("SHA-256", buf); return [...new Uint8Array(h)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
+  catch (e) { let a = new Uint8Array(buf), h1 = 2166136261, h2 = 0; for (let j = 0; j < a.length; j++) { h1 = Math.imul(h1 ^ a[j], 16777619) >>> 0; h2 = (h2 * 31 + a[j]) >>> 0; } return "fnv" + h1.toString(16) + h2.toString(16) + a.length; }
+}
+async function RD820(f, seq, at, XL) {   /* อ่านไฟล์ → แถว (หัวคอลัมน์ตามชื่อจริง) */
+  let buf = await f.arrayBuffer(), hash = await SH820(buf), o = { seq, name: f.name, size: f.size, at, hash, sheet: "", rows: [], used: [], skipped: [], total: 0, blank: 0, err: "" };
+  let wb; try { wb = XL.read(new Uint8Array(buf), { type: "array", cellDates: !1, cellNF: !0, cellText: !0 }); } catch (e) { o.err = "อ่านไฟล์ไม่ได้ (ไม่ใช่ Excel .xlsx / .xls)"; return o; }
+  for (let sn of wb.SheetNames || []) {
+    let A = XL.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: !1, defval: "", blankrows: !1 }), hi = -1;
+    for (let j = 0; j < Math.min(A.length, 40); j++) if ((A[j] || []).some((c) => NH820(c) === "invoiceno")) { hi = j; break; }
+    if (hi < 0) continue;
+    let H = A[hi].map((c) => TX820(c)), ix = { inv: -1, apl: -1, cs: -1 };
+    H.forEach((h, j) => { let n = NH820(h); if (!h) return;
+      if (n === "invoiceno" && ix.inv < 0) { ix.inv = j; o.used.push(h + " → จับคู่ INVOICE"); }
+      else if (n === "aplbilling" && ix.apl < 0) { ix.apl = j; o.used.push(h + " → Billing Note no."); }
+      else if (n === "case" && ix.cs < 0) { ix.cs = j; o.used.push(h + " → Billing Note no."); }
+      else o.skipped.push(h + (BK820[n] ? " (ห้ามนำเข้า)" : " (ไม่มีฟิลด์รองรับ)")); });
+    o.sheet = sn;
+    for (let j = hi + 1; j < A.length; j++) {
+      let r = A[j] || []; if (r.some((c) => TX820(c).toUpperCase() === "TOTAL")) { o.total++; continue; }
+      let inv = TX820(r[ix.inv]), apl = ix.apl >= 0 ? TX820(r[ix.apl]) : "", cs = ix.cs >= 0 ? TX820(r[ix.cs]) : "";
+      if (!inv) { r.some((c) => TX820(c)) ? o.rows.push({ seq, r: j + 1, inv: "", key: "", apl, cs, v: "", bad: "ไม่มี Invoice No." }) : o.blank++; continue; }
+      let x = { seq, r: j + 1, inv, key: inv.toUpperCase(), apl, cs, v: "", cf: !1 };
+      if (apl && cs && apl !== cs) x.cf = !0; else x.v = apl || cs;   /* APL อย่างเดียว / CASE อย่างเดียว / ทั้งคู่เหมือนกัน · ต่างกัน = ให้ผู้ใช้เลือก */
+      o.rows.push(x);
+    }
+    return o;
+  }
+  o.err = "ไม่พบหัวคอลัมน์ Invoice No."; return o;
+}
+function MG820(files, found, prior, pick) {   /* รวมทุกไฟล์ : ยึดไฟล์ที่ระบบรับล่าสุด · ตรวจซ้ำ 3 กรณี */
+  let M = new Map(), out = [], bad = [];
+  files.forEach((f) => f.rows.forEach((x) => { if (!x.key) { bad.push(Object.assign({ st: "ERR", why: x.bad, file: f }, x)); return; } let g = M.get(x.key); g || M.set(x.key, (g = { key: x.key, occ: [] })); g.occ.push(Object.assign({ file: f }, x)); }));
+  let ph = new Set(prior.map((p) => p.file_hash)), F = new Map(); found.forEach((z) => { let a = F.get(z.key) || []; a.push(z); F.set(z.key, a); });
+  M.forEach((g) => {
+    let occ = g.occ.slice().sort((a, b) => b.seq - a.seq || b.r - a.r), seqs = [...new Set(occ.map((o) => o.seq))], inF = [], cfIn = !1;
+    seqs.forEach((s) => { let a = occ.filter((o) => o.seq === s); if (a.length > 1) { inF.push(s); let vs = new Set(a.map((o) => (o.cf ? "\u0001" + o.apl + "\u0002" + o.cs : o.v)).filter((v) => v)); vs.size > 1 && (cfIn = !0); } });
+    let ch = occ.find((o) => o.v || o.cf) || occ[0], fz = F.get(g.key) || [], fi = fz[0], sel = pick.get(g.key), v = ch.cf ? (sel === "apl" ? ch.apl : sel === "cs" ? ch.cs : "") : ch.v;
+    let row = { key: g.key, inv: ch.inv, seq: ch.seq, r: ch.r, file: ch.file, apl: ch.apl, cs: ch.cs, cf: ch.cf, v, n: occ.length, files: seqs.slice().sort((a, b) => a - b), inFile: inF.length > 0, cross: seqs.length > 1,
+      prior: occ.some((o) => ph.has(o.file.hash)), id: fi && fi.invoice_id, ino: fi && fi.invoice_no, cur: fi ? fi.current : null, curFile: fi && fi.current_file, sys: fi && fi.sys };
+    if (fz.length > 1) { row.st = "ERR"; row.why = "Invoice No. ตรงกับหลาย INVOICE ในระบบ"; }
+    else if (cfIn) { row.st = "ERR"; row.why = "INVOICE ซ้ำในไฟล์เดียวกัน ค่าขัดแย้ง — กรุณาตรวจไฟล์"; }
+    else if (!fi) { row.st = "NF"; row.why = "ไม่พบ INVOICE ในระบบ"; }
+    else if (ch.cf && !sel) { row.st = "ERR"; row.why = "APL Billing ≠ CASE — กรุณาเลือกค่าที่ใช้"; row.need = !0; }
+    else if (!v) { row.st = "SAME"; row.why = row.cur ? "ค่าว่างในไฟล์ — คงค่าเดิม (ไม่ลบ)" : "ไม่มีค่า APL Billing / CASE"; }
+    else if (row.cur == null) { row.st = "NEW"; row.why = "ข้อมูลใหม่ที่จับคู่ได้"; }
+    else if (row.cur === v) { row.st = "SAME"; row.why = "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง"; }
+    else { row.st = "CHG"; row.why = "ข้อมูลซ้ำ มีการเปลี่ยนแปลง"; }
+    row.dup = row.cur != null || row.cross || row.inFile || row.prior;
+    out.push(row);
+  });
+  return out.concat(bad);
+}
+async function UP820(t, fs, btn) {   /* เลือกไฟล์ → อ่าน → ตรวจ Server → Preview */
+  ST820(); let at0 = Date.now(), files = [], XL;
+  btn && (btn.disabled = !0); let lb = btn && btn.textContent; btn && (btn.textContent = "กำลังอ่านไฟล์…");
+  try {
+    XL = await XLS820();
+    for (let j = 0; j < fs.length; j++) {   /* ลำดับที่ระบบรับ = ลำดับไฟล์ที่เลือก / เวลารับจริง */
+      let f = fs[j]; if (!/\.(xlsx|xls)$/i.test(f.name)) { files.push({ seq: j + 1, name: f.name, size: f.size, at: new Date(at0 + j).toISOString(), hash: "", rows: [], used: [], skipped: [], total: 0, err: "รองรับเฉพาะ .xlsx / .xls" }); continue; }
+      files.push(await RD820(f, j + 1, new Date(Date.now()).toISOString(), XL)); files[j].raw = f;
+    }
+  } catch (e) { k("อ่านไฟล์ Excel ไม่สำเร็จ — " + (e && e.message || e), "err"); return; }
+  finally { btn && (btn.disabled = !1, btn.textContent = lb); }
+  await PV820(t, files);
+}
+async function CK820(files) {   /* ตรวจที่ Server (อ่านอย่างเดียว · แบ่งชุด) */
+  let keys = [...new Set(files.flatMap((f) => f.rows.map((x) => x.key)).filter(Boolean))], found = [], prior = [];
+  let hs = files.map((f) => f.hash).filter(Boolean);
+  for (let j = 0; j < Math.max(1, keys.length); j += 5000) {
+    let r = await V("njacc_bn820_check", { p: { invoice_nos: keys.slice(j, j + 5000), hashes: j ? [] : hs } });
+    j || (prior = r && r.prior || []); found = found.concat(r && r.found || []);
+  }
+  return { found, prior };
+}
+function RE820(e) {
+  let m = String(e && e.message || e || "");
+  if (/NJACC_BN820_CHANGED/.test(m)) return "มีผู้ใช้อื่นแก้ Billing Note no. ระหว่างตรวจ — ระบบตรวจใหม่แล้ว กรุณาตรวจสอบและยืนยันอีกครั้ง (ยังไม่ได้บันทึก)";
+  if (/NJACC_BN820_INVALID/.test(m)) return "มีรายการที่บันทึกไม่ได้ — " + m.replace(/^.*NJACC_BN820_INVALID:\s*/, "").slice(0, 300);
+  if (/NJACC_(MODULE_)?FORBIDDEN/.test(m)) return "ไม่มีสิทธิ์";
+  if (/njacc_bn820|PGRST202|schema cache/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-820)";
+  return m;
+}
+async function PV820(t, files) {   /* หน้าต่าง Preview */
+  let body = document.createElement("div"), foot = document.createElement("div"), st = { ck: null, rows: [], pick: new Map(), f: "ALL", busy: !1, req: "bn820-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)), done: !1 };
+  body.className = "up820-m"; foot.className = "up820-foot";
+  foot.innerHTML = '<button type="button" class="btn btn-o" data-close>ยกเลิก</button><button type="button" class="btn btn-o" id="up820-xl">EXPORT EXCEL รายการซ้ำ / ผิดพลาด</button><button type="button" class="btn btn-o" id="up820-dup">ดูรายการซ้ำ</button><button type="button" class="btn up820-ok" id="up820-ok" disabled>ยืนยันใช้ไฟล์ล่าสุด</button>';
+  Q({ title: "UPLOAD EXCEL — ตรวจสอบก่อนบันทึก (Billing Note no.)", body, footer: foot, fullscreen: !0, wide: !0 });
+  body.innerHTML = '<div class="load-row"><div class="spin"></div><div class="mt-1">กำลังตรวจข้อมูลกับระบบ…</div></div>';
+  let q = (s) => body.querySelector(s) || foot.querySelector(s), ok = q("#up820-ok");
+  let L = { NEW: "ข้อมูลใหม่ที่จับคู่ได้", SAME: "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง", CHG: "ข้อมูลซ้ำ มีการเปลี่ยนแปลง", NF: "ไม่พบ INVOICE", ERR: "ข้อมูลผิดพลาด" };
+  let cnt = () => { let R = st.rows, c = (fn) => R.filter(fn).length; return { all: R.length, nw: c((r) => r.st === "NEW"), dup: c((r) => r.dup && r.key), chg: c((r) => r.st === "CHG"), same: c((r) => r.st === "SAME"), nf: c((r) => r.st === "NF"), err: c((r) => r.st === "ERR"), need: c((r) => r.need), cross: c((r) => r.cross), inF: c((r) => r.inFile) }; };
+  let flt = (f) => st.rows.filter((r) => f === "ALL" || (f === "DUP" ? r.dup && r.key : r.st === f));
+  let draw = () => {
+    let C = cnt(), fl = flt(st.f), show = fl.slice(0, 300);
+    body.innerHTML = `<div class="up820-files"><table class="tbl up820-t"><thead><tr><th>ลำดับรับ</th><th>ชื่อไฟล์</th><th>วันที่ / เวลาที่ระบบรับ</th><th>Sheet</th><th class="r">แถว INVOICE</th><th>คอลัมน์ที่ใช้</th><th>คอลัมน์ที่ข้าม</th><th>สถานะไฟล์</th></tr></thead><tbody>`
+      + files.map((f) => { let pr = (st.ck ? st.ck.prior : []).filter((p) => p.file_hash && p.file_hash === f.hash), nd = st.rows.filter((r) => r.key && r.files.includes(f.seq) && r.dup).length;
+          return `<tr><td class="center" data-l="ลำดับรับ">${f.seq}</td><td data-l="ชื่อไฟล์"><b>${i(f.name)}</b></td><td class="nowrap" data-l="เวลาที่ระบบรับ">${DT820(f.at)}</td><td data-l="Sheet">${i(f.sheet || "-")}</td><td class="r" data-l="แถว INVOICE">${f.rows.length.toLocaleString("th-TH")}${f.total ? ` <small>(ข้าม TOTAL ${f.total})</small>` : ""}</td>`
+            + `<td data-l="คอลัมน์ที่ใช้"><small>${i(f.used.join(" · ") || "-")}</small></td><td data-l="คอลัมน์ที่ข้าม"><small>${i(f.skipped.join(" · ") || "-")}</small></td>`
+            + `<td data-l="สถานะไฟล์">${f.err ? `<span class="up820-e">${i(f.err)}</span>` : pr.length ? `<span class="up820-w">⚠️ เคยอัปโหลดแล้ว : ${pr.map((p) => i(p.file_name) + " · " + DT820(p.uploaded_at) + (p.uploaded_by_name ? " · " + i(p.uploaded_by_name) : "")).join(" / ")} · INVOICE ซ้ำ ${nd.toLocaleString("th-TH")}</span>` : nd ? `<span class="up820-w">INVOICE ซ้ำ ${nd.toLocaleString("th-TH")}</span>` : "ไฟล์ใหม่"}</td></tr>`; }).join("")
+      + `</tbody></table></div>`
+      + `<div class="up820-sum">${[["ALL", "รายการทั้งหมด", C.all], ["NEW", "รายการใหม่", C.nw], ["DUP", "INVOICE ซ้ำ", C.dup], ["CHG", "ข้อมูลเปลี่ยน", C.chg], ["SAME", "ไม่เปลี่ยน", C.same], ["NF", "ไม่พบในระบบ", C.nf], ["ERR", "ผิดพลาด", C.err]]
+          .map((z) => `<button type="button" class="up820-c${st.f === z[0] ? " on" : ""}" data-f820="${z[0]}"><span>${z[1]}</span><b>${z[2].toLocaleString("th-TH")}</b></button>`).join("")}</div>`
+      + `<div class="up820-note">ซ้ำข้ามไฟล์ ${C.cross.toLocaleString("th-TH")} · ซ้ำในไฟล์เดียวกัน ${C.inF.toLocaleString("th-TH")} · ระบบใช้ข้อมูลจากไฟล์ที่ระบบรับล่าสุด เฉพาะ Billing Note no. (APL Billing / CASE) · ค่าว่างไม่ลบค่าเดิม · ไม่สร้าง INVOICE / ไม่เปลี่ยนสถานะรับชำระ</div>`
+      + (C.need ? `<div class="up820-e">มี ${C.need.toLocaleString("th-TH")} รายการที่ APL Billing ≠ CASE — กรุณาเลือกค่าที่ใช้ก่อนบันทึก (ตัวกรอง "ผิดพลาด")</div>` : "")
+      + `<div class="tbl-wrap up820-w2"><table class="tbl up820-t up820-r"><thead><tr><th>#</th><th>Invoice No.</th><th>ไฟล์ (ลำดับ) · แถว</th><th>APL Billing</th><th>CASE</th><th>Billing Note no. ใหม่</th><th>ค่าเดิม (Excel)</th><th>สถานะ</th></tr></thead><tbody>`
+      + (show.length ? show.map((r, j) => `<tr class="s820-${r.st}"><td class="center" data-l="#">${j + 1}</td><td class="nowrap" data-l="Invoice No."><b>${i(r.ino || r.inv || "-")}</b></td>`
+          + `<td data-l="ไฟล์ · แถว"><small>${i(r.file ? r.file.name : "-")} (${r.seq || "-"}) · แถว ${r.r || "-"}${r.cross ? " · พบในไฟล์ " + r.files.join(", ") : ""}${r.inFile ? " · ซ้ำในไฟล์" : ""}</small></td>`
+          + `<td data-l="APL Billing">${i(r.apl || "")}</td><td data-l="CASE">${i(r.cs || "")}</td>`
+          + `<td data-l="ใหม่">${r.cf && r.st !== "NF" && !/หลาย INVOICE|ขัดแย้ง/.test(r.why) ? `<label class="up820-p"><input type="radio" name="p820-${i(r.key)}" data-p820="${i(r.key)}" value="apl"${st.pick.get(r.key) === "apl" ? " checked" : ""}> APL : ${i(r.apl)}</label><label class="up820-p"><input type="radio" name="p820-${i(r.key)}" data-p820="${i(r.key)}" value="cs"${st.pick.get(r.key) === "cs" ? " checked" : ""}> CASE : ${i(r.cs)}</label>` : `<b>${i(r.v || "")}</b>`}</td>`
+          + `<td data-l="ค่าเดิม">${i(r.cur == null ? "-" : r.cur)}${r.sys ? `<small class="t-3"> (BILLING : ${i(r.sys)})</small>` : ""}</td><td data-l="สถานะ"><span class="b820 b820-${r.st}">${L[r.st]}</span><small class="t-3"> ${i(r.why || "")}</small></td></tr>`).join("")
+        : '<tr><td colspan="8" class="empty">ไม่มีรายการ</td></tr>') + `</tbody></table></div>`
+      + (fl.length > show.length ? `<div class="up820-note">แสดง ${show.length.toLocaleString("th-TH")} จาก ${fl.length.toLocaleString("th-TH")} รายการ — ดูทั้งหมดได้จาก EXPORT EXCEL</div>` : "");
+    body.querySelectorAll("[data-f820]").forEach((b) => { b.onclick = () => { st.f = b.dataset.f820; draw(); }; });
+    body.querySelectorAll("[data-p820]").forEach((x) => { x.onchange = () => { st.pick.set(x.dataset.p820, x.value); recalc(); }; });
+    ok.disabled = st.busy || st.done || !files.some((f) => !f.err);
+  };
+  let recalc = () => { st.rows = MG820(files.filter((f) => !f.err), st.ck.found, st.ck.prior, st.pick); draw(); };
+  let load = async () => { try { st.ck = await CK820(files.filter((f) => !f.err)); recalc(); } catch (e) { body.innerHTML = `<div class="up820-e">${i(RE820(e))}</div>`; } };
+  q("#up820-dup").onclick = () => { if (!st.ck) return; st.f = "DUP"; draw(); };
+  q("#up820-xl").onclick = async (ev) => {
+    let b = ev.currentTarget; if (b.disabled || !st.ck) return; b.disabled = !0;
+    try { let rows = st.rows.filter((r) => (r.dup && r.key) || r.st === "ERR" || r.st === "NF");
+      let fn = await XW734("FINANCE_RECEIPT_UPLOAD_CHECK", [["Invoice No.", (r) => r.inv], ["ไฟล์", (r) => r.file && r.file.name], ["ลำดับไฟล์", (r) => r.seq, "int"], ["แถว", (r) => r.r, "int"], ["APL Billing", (r) => r.apl], ["CASE", (r) => r.cs],
+        ["Billing Note no. ใหม่", (r) => r.v], ["ค่าเดิม (Excel)", (r) => r.cur], ["Billing Note (BILLING จริง)", (r) => r.sys], ["สถานะ", (r) => L[r.st]], ["รายละเอียด", (r) => r.why], ["ซ้ำข้ามไฟล์", (r) => (r.cross ? "ใช่ (" + r.files.join(", ") + ")" : "")], ["ซ้ำในไฟล์", (r) => (r.inFile ? "ใช่" : "")]], rows);
+      k("ส่งออก Excel " + rows.length.toLocaleString("th-TH") + " รายการแล้ว (" + fn + ")", "ok"); }
+    catch (e) { k("ส่งออก Excel ไม่สำเร็จ — " + (e && e.message || e), "err"); } finally { b.disabled = !1; }
+  };
+  ok.onclick = async () => {
+    if (st.busy || st.done || !st.ck) return; let C = cnt();
+    if (C.need) { st.f = "ERR"; draw(); k("กรุณาเลือกค่า APL Billing / CASE ที่ไม่ตรงกันก่อนบันทึก (" + C.need + " รายการ)", "err"); return; }
+    let a = await AK820(files, C); if (a === "dup") { st.f = "DUP"; draw(); return; } if (a !== "ok") return;
+    st.busy = !0; ok.disabled = !0; ok.textContent = "กำลังบันทึก…";
+    try {
+      let items = st.rows.filter((r) => (r.st === "NEW" || r.st === "CHG") && r.id && r.v).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.v, old: r.cur, file_seq: r.seq }));
+      let fz = files.filter((f) => !f.err).map((f) => ({ seq: f.seq, name: f.name, hash: f.hash, size: f.size, sheet: f.sheet, received_at: f.at, columns_used: f.used, columns_skipped: f.skipped,
+        stats: { rows: f.rows.length, total_rows_skipped: f.total, new: st.rows.filter((r) => r.seq === f.seq && r.st === "NEW").length, changed: st.rows.filter((r) => r.seq === f.seq && r.st === "CHG").length,
+                 unchanged: st.rows.filter((r) => r.seq === f.seq && r.st === "SAME").length, not_found: st.rows.filter((r) => r.seq === f.seq && r.st === "NF").length, errors: st.rows.filter((r) => r.seq === f.seq && r.st === "ERR").length } }));
+      let r = await V("njacc_bn820_save", { p: { request_id: st.req, files: fz, items } });
+      st.done = !0; ok.textContent = "✅ บันทึกแล้ว";
+      k("บันทึก Billing Note no. จาก Excel แล้ว — อัปเดต " + Number(r && r.updated || 0).toLocaleString("th-TH") + " รายการ · ไม่เปลี่ยน " + Number(r && r.unchanged || 0).toLocaleString("th-TH") + " รายการ", "ok");
+      for (let u of (r && r.uploads) || []) { let f = files.find((z) => z.seq === u.seq); if (!f || !f.raw || f.raw.size > 10e6) continue;   /* เก็บไฟล์ต้นทาง (หลังบันทึกสำเร็จ) */
+        try { let b64 = await new Promise((res, rej) => { let fr = new FileReader(); fr.onload = () => res(String(fr.result).replace(/^data:[^,]*,/, "")); fr.onerror = rej; fr.readAsDataURL(f.raw); }); await V("njacc_bn820_file", { p_upload: u.id, p_b64: b64 }); }
+        catch (e) { try { console.warn("BN820 file", e); } catch (z) {} } }
+      body.insertAdjacentHTML("afterbegin", `<div class="up820-okb">✅ บันทึกสำเร็จ — อัปเดต ${Number(r && r.updated || 0).toLocaleString("th-TH")} รายการ · ไม่เปลี่ยน ${Number(r && r.unchanged || 0).toLocaleString("th-TH")} รายการ · บันทึกประวัติไฟล์ ${((r && r.uploads) || []).length} ไฟล์</div>`);
+      try { let g = t.querySelector("#rp-go"); g && g.click(); } catch (e) {}
+    } catch (e) {
+      ok.textContent = "ยืนยันใช้ไฟล์ล่าสุด"; k("บันทึกไม่สำเร็จ — " + RE820(e), "err");
+      if (/NJACC_BN820_CHANGED/.test(String(e && e.message || e))) { st.req = "bn820-" + Date.now() + "-" + Math.random().toString(36).slice(2); await load(); body.insertAdjacentHTML("afterbegin", `<div class="up820-e">${i(RE820(e))}</div>`); }
+    } finally { st.busy = !1; ok.disabled = st.done; }
+  };
+  await load();
+}
+function AK820(files, C) {   /* Popup ยืนยันก่อนบันทึก (ปิด / ยกเลิก = ไม่บันทึก) */
+  return new Promise((res) => {
+    ST820(); let w = document.createElement("div"); w.className = "ak820";
+    let dup = C.dup > 0;
+    w.innerHTML = `<div class="ak820-b" role="dialog" aria-modal="true"><div class="ak820-h">${dup ? "⚠️ ตรวจพบข้อมูลซ้ำในการอัปโหลด Excel" : "ยืนยันบันทึกข้อมูลจาก Excel"}</div>`
+      + `<div class="ak820-t">ไฟล์ : ${files.filter((f) => !f.err).map((f) => `<b>${i(f.name)}</b> <small>(ลำดับ ${f.seq} · ${DT820(f.at)})</small>`).join(", ")}<ul>`
+      + `<li>รายการทั้งหมด : <b>${C.all.toLocaleString("th-TH")}</b> INVOICE</li><li>รายการซ้ำ : <b>${C.dup.toLocaleString("th-TH")}</b> INVOICE</li><li>รายการใหม่ : <b>${C.nw.toLocaleString("th-TH")}</b> INVOICE</li>`
+      + `<li>รายการข้อมูลเปลี่ยนแปลง : <b>${C.chg.toLocaleString("th-TH")}</b></li><li>ไม่เปลี่ยน : ${C.same.toLocaleString("th-TH")} · ไม่พบในระบบ : ${C.nf.toLocaleString("th-TH")} · ผิดพลาด : ${C.err.toLocaleString("th-TH")} (ไม่บันทึก)</li></ul>`
+      + `<b>ระบบจะใช้ข้อมูลจากไฟล์ที่อัปโหลดล่าสุดแทนข้อมูลเดิม เฉพาะรายการและฟิลด์ที่อนุญาต (Billing Note no.)</b></div>`
+      + `<div class="ak820-f"><button type="button" class="btn btn-o" data-a820="no">ยกเลิก</button><button type="button" class="btn btn-o" data-a820="dup">ดูรายการซ้ำ</button><button type="button" class="btn up820-ok" data-a820="ok">ยืนยันใช้ไฟล์ล่าสุด</button></div></div>`;
+    document.body.appendChild(w);
+    let done = (v) => { document.removeEventListener("keydown", key, !0); w.remove(); res(v); };
+    let key = (ev) => { ev.key === "Escape" && (ev.preventDefault(), ev.stopPropagation(), done("no")); };
+    document.addEventListener("keydown", key, !0);
+    w.querySelectorAll("[data-a820]").forEach((b) => { b.onclick = () => done(b.dataset.a820); });
+  });
+}
+function ST820() {
+  try {
+    if (document.getElementById("st820-css")) return;
+    let s = document.createElement("style"); s.id = "st820-css";
+    s.textContent = [
+      ".btn.up820,.btn.up820-ok{background:#f97316!important;border:1px solid #f97316!important;color:#fff!important;font-weight:700}.btn.up820:hover,.btn.up820-ok:hover{background:#ea580c!important;border-color:#ea580c!important}.btn.up820-ok:disabled{opacity:.6}",
+      ".up820-m{display:flex;flex-direction:column;gap:10px}.up820-files{overflow-x:auto}.up820-t td,.up820-t th{vertical-align:top}.up820-t small{color:#475569}",
+      ".up820-sum{display:flex;flex-wrap:wrap;gap:8px}.up820-c{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:118px;padding:8px 12px;border:1px solid #dbe4f0;border-radius:10px;background:#fff;cursor:pointer;text-align:left}",
+      ".up820-c span{font-size:12px;color:#64748b}.up820-c b{font-size:18px;color:#0f2a4d}.up820-c.on{border-color:#f97316;box-shadow:0 0 0 2px rgba(249,115,22,.25)}",
+      ".up820-note{font-size:12.5px;color:#475569}.up820-e{padding:8px 12px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:8px;font-weight:600}.up820-w{color:#b45309;font-weight:700}",
+      ".up820-okb{padding:10px 12px;border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;border-radius:8px;font-weight:700}.up820-w2{max-height:58vh;overflow:auto}",
+      ".b820{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}.b820-NEW{background:#dcfce7;color:#166534}.b820-SAME{background:#e2e8f0;color:#334155}.b820-CHG{background:#ffedd5;color:#9a3412}.b820-NF{background:#f1f5f9;color:#64748b}.b820-ERR{background:#fee2e2;color:#b91c1c}",
+      ".up820-p{display:block;white-space:nowrap;font-size:12.5px}.up820-foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;width:100%}",
+      ".ak820{position:fixed;inset:0;z-index:3300;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}",
+      ".ak820-b{background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow:auto;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:14px;line-height:1.55;color:#0f172a}",
+      ".ak820-h{font-size:16px;font-weight:800;color:#b45309;margin-bottom:8px}.ak820-t ul{margin:6px 0 8px 18px;padding:0}.ak820-f{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}",
+      "@media (max-width:640px){.up820-t thead{display:none}.up820-t,.up820-t tbody{display:block;width:100%}.up820-t tr{display:block;border:1px solid #e2e8f0;border-radius:8px;margin:0 0 8px;padding:4px 8px}",
+      ".up820-t td{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border:0!important;padding:4px 0!important;text-align:right;white-space:normal!important;height:auto!important;max-height:none!important;line-height:1.4!important;overflow:visible!important}.up820-t td>*{flex:1 1 60%;min-width:0;overflow-wrap:anywhere;text-align:right}.up820-t td>label{flex:1 1 100%}.up820-t td::before{content:attr(data-l);color:#64748b;font-size:12px;font-weight:600;text-align:left;flex:none}",
+      ".up820-c{min-width:0;flex:1 1 30%}.up820-foot .btn{flex:1 1 45%}.ak820-f .btn{flex:1 1 100%}}"
     ].join("");
     document.head.appendChild(s);
   } catch (e) {}
