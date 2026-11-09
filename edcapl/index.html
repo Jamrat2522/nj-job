@@ -2298,7 +2298,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local277';
+const EDCAPL_VERSION = 'local278';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -7155,7 +7155,7 @@ function edc1fzV2Render(res){
   /* [EDC1 FZ] local276: ไม่แสดงตารางคำนวณ NW บนหน้าจอ — ดูรายละเอียด NW ผ่านปุ่ม EXPORT NW (ผลคำนวณยังอยู่ใน res.nwTable · ตรวจ Total N.W ตามเดิม) */
   h += '<div style="margin-top:8px;font-size:11.5px;color:#64748b">ใบขน PZAF '+e(m.dwakFile||'-')+' (MASTER) · INVOICE '+e(m.invFile||'-')+' · ENTRY ก่อน MAPPING '+e(m.mapFile||'-')+'</div>';
   fzRBody.innerHTML = h; fzFilterRows('bad'); fzResultBox.style.display = 'block';
-  try{ fzExportBtn.disabled = false; }catch(_){}
+  try{ fzExportBtn.disabled = false; fzUpdateCheckBtn(); }catch(_){}
   try{ fzResultBox.scrollIntoView({ behavior:'smooth', block:'nearest' }); }catch(_){}
 }
 /* [EDC1 FZ] EXPORT = โคลน EDC8 AAT (aatSheet): Sheet รายการผิด / รายการถูก / ตรวจไม่ได้ (เมื่อมี) · หัวรายงาน · 8 คอลัมน์ · MASTER 2 ชั้น · ใช้ผลชุดเดียวกับหน้าจอ */
@@ -7206,10 +7206,18 @@ function edc1fzV2Export(){
 /* [EDC1 FZ] local275: EXPORT NW — รูปแบบ "MAPPING Invoice_xxx.xlsx" (Sheet Invoice) จากไฟล์ ENTRY ก่อน MAPPING ต้นฉบับ (คงคอลัมน์ B–N + รูปแบบเดิม)
    + O = NW (สูตร =ROUND(Qty×Weight/Unit,2) พร้อมค่าผลลัพธ์) · P = สกุลเงิน (จากใบขน PZAF ตาม INVOICE NO.) · แถว TOTAL = ROUND(SUM(..),2) · #,##0.00
    ใช้ผลตรวจล่าสุดเท่านั้น (เปลี่ยนไฟล์ → ผลถูกล้าง) · ค่าที่คำนวณในไฟล์ต้องตรงกับผลบนหน้าจอทุกแถว ไม่ตรง = ยกเลิก EXPORT */
+/* [EDC1 FZ] local278: EXPORT NW ใช้ 2 ไฟล์ (INVOICE ต้นฉบับ + ENTRY ก่อน MAPPING) · ไม่ต้องมี PZAF · ไม่ต้องกดตรวจสอบก่อน
+   NW คำนวณจาก ENTRY ล่าสุดตอนกด · สกุลเงินจาก INVOICE ต้นฉบับตาม Invoice No. (Invoice Out) เท่านั้น · ไม่พบ = แจ้ง "ไม่พบสกุลเงินใน INVOICE" และไม่สร้างค่าเอง */
+const _edc1fzInvDetCache = new WeakMap();
+function edc1fzInvDetails(){ const out = new Map();
+  ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).forEach(e => { if(!e || !e.wb) return; let d = _edc1fzInvDetCache.get(e.wb);
+    if(d === undefined){ try{ d = edc8InvoiceDetail(e.wb) || null; }catch(_){ d = null; } _edc1fzInvDetCache.set(e.wb, d); }
+    if(d && d.invoiceNo) out.set(String(d.invoiceNo).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase(), d); });
+  return out; }
 async function edc1fzV2ExportNw(){
-  const res = edc1fzV2Last; if(!res){ alert('⚠ ยังไม่มีผลตรวจล่าสุด — กรุณากดตรวจสอบก่อน EXPORT NW'); return; }
   const files = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles) ? _fzInvoiceFiles.filter(f => f && f.file) : [];
-  if(!files.length){ alert('⚠ ไม่พบไฟล์ ENTRY ก่อน MAPPING ต้นฉบับ — กรุณาอัปโหลดใหม่'); return; }
+  if(!files.length){ alert('⚠ กรุณาแนบไฟล์ ENTRY ก่อนทำ MAPPING'); return; }
+  const invDet = edc1fzInvDetails(); if(!invDet.size){ alert('⚠ กรุณาแนบไฟล์ INVOICE ต้นฉบับ (อ่าน INVOICE ไม่ได้)'); return; }
   if(!(await hspmEnsureExcel()) || !window.ExcelJS){ alert('⚠ โหลดตัวสร้าง Excel ไม่ได้ — ลองใหม่อีกครั้ง'); return; }
   const S = v => String(v==null?'':v).trim(), nInv = v => S(v).replace(/\s/g,'').replace(/^0+(?=\d)/,'').toUpperCase(), cv = c => { const v = c && c.value; return v && typeof v === 'object' ? (v.result !== undefined ? v.result : (v.richText ? v.richText.map(t => t.text).join('') : (v.text || ''))) : v; };
   for(const f of files){
@@ -7225,24 +7233,25 @@ async function edc1fzV2ExportNw(){
       const hdrStyle = JSON.parse(JSON.stringify(ws.getCell(hr, lastCol).style || {}));
       ws.getCell(hr, cNw).value = 'NW'; ws.getCell(hr, cNw).style = JSON.parse(JSON.stringify(hdrStyle));
       ws.getCell(hr, cCur).value = 'สกุลเงิน'; ws.getCell(hr, cCur).style = JSON.parse(JSON.stringify(hdrStyle));
-      let first = 0, last = 0, totRow = 0; const firstCol = Math.min(...Object.values(H)), mine = (res.nwTable || []).filter(x => x.file === f.name);
+      let first = 0, last = 0, totRow = 0, total = 0n; const firstCol = Math.min(...Object.values(H));
+      if(!cOut) throw new Error('ไม่พบคอลัมน์ Invoice Out ใน ENTRY — จับคู่สกุลเงินกับ INVOICE ไม่ได้');
       let invNo = '';
       for(let r = hr + 1; r <= ws.rowCount; r++){
         const label = S(cv(ws.getCell(r, firstCol))); if(/^total/i.test(label)){ totRow = r; break; }
         const q = cv(ws.getCell(r, cQty)), w = cv(ws.getCell(r, cWpu)); if(S(q) === '' && S(w) === '' && S(label) === '') continue;
         const cents = edc1fzMulRound2(q, w), sl = cSl ? S(cv(ws.getCell(r, cSl))) : '';
-        const ref = mine.find(x => S(x.sl) === sl);
-        if(cents === null) throw new Error('แถว '+r+' (Sl. No '+sl+'): QTY / Weight/Unit ไม่ถูกต้อง — คำนวณ NW ไม่ได้');
-        if(!ref || ref.nwC !== cents) throw new Error('แถว '+r+' (Sl. No '+sl+'): ผลคำนวณไม่ตรงกับผลตรวจล่าสุด — กรุณากดตรวจสอบใหม่');
-        const out = cOut ? S(cv(ws.getCell(r, cOut))) : ''; if(!invNo && out) invNo = out;
+        { const qd = edc1fzDec(q), wd = edc1fzDec(w); if(cents === null || !qd || !wd || qd.m <= 0n || wd.m <= 0n) throw new Error('แถว '+r+' (Sl. No '+sl+'): QTY / Weight/Unit ไม่ถูกต้อง (ต้องเป็นตัวเลขมากกว่า 0) — คำนวณ NW ไม่ได้'); }
+        const out = S(cv(ws.getCell(r, cOut))); if(!invNo && out) invNo = out;
+        const d = invDet.get(nInv(out)); if(!d) throw new Error('แถว '+r+' (Sl. No '+sl+'): ไม่พบ INVOICE เลขที่ '+(out || '(ว่าง)')+' ในไฟล์ INVOICE ที่แนบ — ไม่พบสกุลเงินใน INVOICE');
+        const cur = S(d.currency).toUpperCase(); if(!cur) throw new Error('INVOICE '+d.invoiceNo+': ไม่พบสกุลเงินใน INVOICE');
+        total += cents;
         const base = JSON.parse(JSON.stringify(ws.getCell(r, lastCol).style || {}));
         const nc = ws.getCell(r, cNw); nc.value = { formula:'ROUND('+L(cQty)+r+'*'+L(cWpu)+r+',2)', result: Number(cents) / 100 }; nc.style = Object.assign({}, base, { numFmt:'#,##0.00' });
-        const cc = ws.getCell(r, cCur); cc.value = (res.curByInv || {})[nInv(out)] || ''; cc.style = JSON.parse(JSON.stringify(base));
+        const cc = ws.getCell(r, cCur); cc.value = cur; cc.style = JSON.parse(JSON.stringify(base));
         if(!first) first = r; last = r;
       }
       if(!first) throw new Error('ไม่พบแถวรายการ');
       if(!totRow){ totRow = last + 1; ws.getCell(totRow, firstCol).value = 'Total'; }
-      const total = mine.reduce((a, x) => a + (x.nwC === null ? 0n : x.nwC), 0n);
       const tc = ws.getCell(totRow, cNw); tc.value = { formula:'ROUND(SUM('+L(cNw)+first+':'+L(cNw)+last+'),2)', result: Number(total) / 100 }; tc.style = Object.assign({}, JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {})), { numFmt:'#,##0.00' });
       ws.getColumn(cNw).width = 12; ws.getColumn(cCur).width = 10;
       if(!invNo){ const t = S(cv(ws.getCell(1, firstCol))).match(/(\d{6,})/); invNo = t ? t[1] : 'NW'; }
@@ -8853,6 +8862,11 @@ Never continue after failed source gate.
 function fzUpdateCheckBtn(){ const b=document.getElementById('fzCheckBtn'), h=document.getElementById('fzBtnHint'); if(!b) return;   /* [EDC1 FZ] local275: บังคับครบ 3 ไฟล์ */
   const hasEntry = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles && _fzInvoiceFiles.length > 0) || !!fzInvoiceWb, hasInv = ((typeof _mfFiles !== 'undefined' && _mfFiles && _mfFiles.fordInvFzDZ) || []).length > 0;
   const ok = !!fzEntryWb && hasInv && hasEntry; b.disabled = !ok || edc1fzV2Busy;
+  /* [EDC1 FZ] local278: EXPORT EXCEL เปิดหลังตรวจสอบ (มีผลล่าสุด) · EXPORT NW เปิดเมื่อมี INVOICE (อ่านได้) + ENTRY (มีไฟล์ต้นฉบับ) — ไม่ต้องมี PZAF */
+  const bx = document.getElementById('fzExportMainBtn'), bn = document.getElementById('fzExportNwBtn');
+  if(bx){ bx.disabled = !edc1fzV2Last || edc1fzV2Busy; bx.title = bx.disabled ? 'กดตรวจสอบก่อน EXPORT EXCEL' : ''; }
+  if(bn){ const entOk = (typeof _fzInvoiceFiles !== 'undefined' && _fzInvoiceFiles || []).some(f => f && f.file), invOk = hasInv && edc1fzInvDetails().size > 0;
+    bn.disabled = !(entOk && invOk); bn.title = bn.disabled ? 'กรุณาแนบ '+[!invOk?'INVOICE ต้นฉบับ':'', !entOk?'ENTRY ก่อนทำ MAPPING':''].filter(Boolean).join(' + ') : ''; }
   b.title = ok ? '' : 'กรุณาอัปโหลดให้ครบ: '+[!fzEntryWb?'ใบขน PZAF':'', !hasInv?'INVOICE':'', !hasEntry?'ENTRY ก่อน MAPPING':''].filter(Boolean).join(' · '); if(h) h.style.display = ok ? 'none' : ''; }
 try{ document.addEventListener('DOMContentLoaded', ()=>{ ['fzEntryInput','fzInvoiceInput','fordInvFzInput'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', edc1fzV2OnFilesChanged, true); }); ['fzEntryDZ','fzInvoiceDZ','fordInvFzDZ'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('drop', edc1fzV2OnFilesChanged, true); });   /* [EDC1 FZ] local275: เลือก / วางไฟล์ใหม่ (แม้ชื่อเดิม) → ล้างผลตรวจเดิมทันที */
   ['fzEntryFn','fzEntryFnTxt','fzInvoiceFn','fzInvoiceFnTxt','fordInvFzFn','fordInvFzFnTxt'].forEach(id=>{ const el=document.getElementById(id); if(el && window.MutationObserver) new MutationObserver(()=>queueMicrotask(edc1fzV2OnFilesChanged)).observe(el, { attributes:true, childList:true, characterData:true, subtree:true }); }); fzUpdateCheckBtn(); }); }catch(_){}
@@ -13275,7 +13289,7 @@ function hspmPageShow(){ const ov = document.getElementById('hspm-overlay'); if(
 #panel-edc1fz .fz-empty.fz-empty-ok{ background:#eef7f2; color:#1f7a4d }
 #panel-edc1fz .fz-tools-bar{ margin-top:10px; padding:8px 12px; border:1px dashed #d9e2ec; border-radius:8px; background:#fafcff; flex-wrap:wrap }
 #panel-edc1fz .fz-tools-lbl{ font-size:11.5px; font-weight:700; color:#64748b; margin-right:4px }
-#panel-edc1fz #fzCheckBtn:disabled{ opacity:.55; cursor:not-allowed }
+#panel-edc1fz #fzCheckBtn:disabled, #panel-edc1fz #fzExportMainBtn:disabled, #panel-edc1fz #fzExportNwBtn:disabled{ opacity:.55; cursor:not-allowed }
 #panel-edc1fz .fz-main-bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }   /* [EDC1 FZ] local276: 3 ปุ่มหลัก ตรวจสอบ | EXPORT EXCEL | EXPORT NW */
 #panel-edc1fz .fz-main-bar .btn{ min-width:150px; justify-content:center }
 @media (max-width:640px){ #panel-edc1fz .fz-main-bar .btn{ flex:1 1 100%; min-width:0 } }
