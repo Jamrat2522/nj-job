@@ -2298,7 +2298,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local278';
+const EDCAPL_VERSION = 'local279';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -7227,13 +7227,15 @@ async function edc1fzV2ExportNw(){
       let hr = 0; ws.eachRow((row, rn) => { if(!hr){ let hit = false; row.eachCell(c => { if(/^sl\.?\s*no\.?$/i.test(S(cv(c)))) hit = true; }); if(hit) hr = rn; } });
       if(!hr) throw new Error('ไม่พบหัวตาราง "Sl. No"');
       const H = {}; let lastCol = 0; ws.getRow(hr).eachCell((c, cn) => { const t = S(cv(c)).toLowerCase(); if(t){ H[t] = cn; lastCol = Math.max(lastCol, cn); } });
-      const cQty = H['qty'], cWpu = H['weight/unit'], cOut = H['invoice out'], cSl = H['sl. no'] || H['sl no'] || H['sl.no'];
+      const cQty = H['qty'], cWpu = H['weight/unit'], cOut = H['invoice out'], cSl = H['sl. no'] || H['sl no'] || H['sl.no'], cPrice = H['price/unit'] || H['price / unit'];
       if(!cQty || !cWpu) throw new Error('ไม่พบคอลัมน์ Qty / Weight/Unit');
-      const cNw = lastCol + 1, cCur = lastCol + 2, L = n => ws.getColumn(n).letter;
+      if(!cPrice) throw new Error('ไม่พบคอลัมน์ Price/Unit — คำนวณ Amount ไม่ได้');
+      const cNw = lastCol + 1, cCur = lastCol + 2, cAmt = lastCol + 3, L = n => ws.getColumn(n).letter;   /* local279: Product Code → NW → สกุลเงิน → Amount */
       const hdrStyle = JSON.parse(JSON.stringify(ws.getCell(hr, lastCol).style || {}));
       ws.getCell(hr, cNw).value = 'NW'; ws.getCell(hr, cNw).style = JSON.parse(JSON.stringify(hdrStyle));
       ws.getCell(hr, cCur).value = 'สกุลเงิน'; ws.getCell(hr, cCur).style = JSON.parse(JSON.stringify(hdrStyle));
-      let first = 0, last = 0, totRow = 0, total = 0n; const firstCol = Math.min(...Object.values(H));
+      ws.getCell(hr, cAmt).value = 'Amount'; ws.getCell(hr, cAmt).style = JSON.parse(JSON.stringify(hdrStyle));
+      let first = 0, last = 0, totRow = 0, total = 0n; const firstCol = Math.min(...Object.values(H)), amtByCur = new Map();
       if(!cOut) throw new Error('ไม่พบคอลัมน์ Invoice Out ใน ENTRY — จับคู่สกุลเงินกับ INVOICE ไม่ได้');
       let invNo = '';
       for(let r = hr + 1; r <= ws.rowCount; r++){
@@ -7248,12 +7250,23 @@ async function edc1fzV2ExportNw(){
         const base = JSON.parse(JSON.stringify(ws.getCell(r, lastCol).style || {}));
         const nc = ws.getCell(r, cNw); nc.value = { formula:'ROUND('+L(cQty)+r+'*'+L(cWpu)+r+',2)', result: Number(cents) / 100 }; nc.style = Object.assign({}, base, { numFmt:'#,##0.00' });
         const cc = ws.getCell(r, cCur); cc.value = cur; cc.style = JSON.parse(JSON.stringify(base));
+        /* Amount = ROUND(Qty × Price/Unit, 2) · ROUND HALF UP (จำนวนเต็ม) · ไม่ปัด Price/Unit ก่อนคูณ · ไม่แก้ Qty / Price/Unit ต้นฉบับ */
+        const pr = cv(ws.getCell(r, cPrice)), prD = edc1fzDec(pr), aC = edc1fzMulRound2(q, pr);
+        if(aC === null || !prD || prD.m < 0n) throw new Error('แถว '+r+' (Sl. No '+sl+'): Price/Unit ไม่ถูกต้อง ('+(S(pr) || 'ว่าง')+') — คำนวณ Amount ไม่ได้');
+        amtByCur.set(cur, (amtByCur.get(cur) || 0n) + aC);
+        const ac = ws.getCell(r, cAmt); ac.value = { formula:'ROUND('+L(cQty)+r+'*'+L(cPrice)+r+',2)', result: Number(aC) / 100 }; ac.style = Object.assign({}, base, { numFmt:'#,##0.00' });
         if(!first) first = r; last = r;
       }
       if(!first) throw new Error('ไม่พบแถวรายการ');
       if(!totRow){ totRow = last + 1; ws.getCell(totRow, firstCol).value = 'Total'; }
       const tc = ws.getCell(totRow, cNw); tc.value = { formula:'ROUND(SUM('+L(cNw)+first+':'+L(cNw)+last+'),2)', result: Number(total) / 100 }; tc.style = Object.assign({}, JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {})), { numFmt:'#,##0.00' });
-      ws.getColumn(cNw).width = 12; ws.getColumn(cCur).width = 10;
+      /* TOTAL Amount: สกุลเงินเดียว = แถว Total · หลายสกุลเงิน = แยกแถวตามสกุลเงิน (SUMIF · ไม่รวมข้ามสกุลเงิน) */
+      const totStyle = Object.assign({}, JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {})), { numFmt:'#,##0.00' }), aR = L(cAmt)+first+':'+L(cAmt)+last, cR = L(cCur)+first+':'+L(cCur)+last;
+      if(amtByCur.size === 1){ const [cur1, v1] = [...amtByCur.entries()][0]; const t = ws.getCell(totRow, cAmt); t.value = { formula:'ROUND(SUM('+aR+'),2)', result: Number(v1) / 100 }; t.style = totStyle; }
+      else { let rr = totRow; [...amtByCur.entries()].forEach(([cur1, v1]) => { rr++; ws.getCell(rr, cCur).value = cur1; ws.getCell(rr, cCur).style = JSON.parse(JSON.stringify(ws.getCell(totRow, cQty).style || {}));
+        if(!S(cv(ws.getCell(rr, firstCol)))) ws.getCell(rr, firstCol).value = 'Total Amount '+cur1;
+        const t = ws.getCell(rr, cAmt); t.value = { formula:'ROUND(SUMIF('+cR+',"'+cur1+'",'+aR+'),2)', result: Number(v1) / 100 }; t.style = totStyle; }); }
+      ws.getColumn(cNw).width = 12; ws.getColumn(cCur).width = 10; ws.getColumn(cAmt).width = 14;
       if(!invNo){ const t = S(cv(ws.getCell(1, firstCol))).match(/(\d{6,})/); invNo = t ? t[1] : 'NW'; }
       const buf = await wb.xlsx.writeBuffer();
       safeDownload(buf, 'NW_Invoice_'+invNo+'.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
