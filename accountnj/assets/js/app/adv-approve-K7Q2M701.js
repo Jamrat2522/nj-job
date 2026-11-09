@@ -9,6 +9,7 @@ function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d 
   if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
   ["rows", "req", "job"].forEach(function (k) { v[k] && typeof v[k] === "object" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
 var IC = {
+  box807: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="m7.5 5.5 9 5"/></svg>',   /* V.807 */
   exp723: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 9.2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V12c0 1.4-3.1 2.6-7 2.6S5 13.4 5 12z"/><path d="M5 15c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v2.8c0 1.4-3.1 2.6-7 2.6s-7-1.2-7-2.6z"/></svg>',
   home: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>',
   wait: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
@@ -37,7 +38,7 @@ function errMsg(e) {
   if (/NJACC_ADV701_SLIP_NOT_FOUND|NJACC_ADV701_SLIP_INVALID/.test(m)) return "ไฟล์สลิปไม่ถูกต้อง / อัปโหลดไม่สำเร็จ — กรุณาเลือกไฟล์ใหม่";
   if (/NJACC_ADV701_PAY_DATE/.test(m)) return "วันที่จ่ายไม่ถูกต้อง (ห้ามเป็นวันในอนาคต)";
   if (/NJACC_JOB_CANCELED/.test(m)) return "JOB ถูกยกเลิกแล้ว";
-  if (/njacc_adv701_|njacc_adv705_|PGRST202|42883|schema cache/i.test(m) && /(does not exist|Could not find|schema cache|42883|PGRST202)/i.test(m)) return "ระบบขออนุมัติยังไม่พร้อม (ต้องรัน RUN-701 ก่อน)";
+  if (/njacc_adv701_|njacc_adv705_|njacc_adv807_|njacc_cash_adv807_|PGRST202|42883|schema cache/i.test(m) && /(does not exist|Could not find|schema cache|42883|PGRST202)/i.test(m)) return "ระบบขออนุมัติยังไม่พร้อม (ต้องรัน RUN-701 ก่อน)";
   if (/row-level security|Unauthorized|403/i.test(m)) return "ไม่มีสิทธิ์อัปโหลด / เปิดไฟล์สลิปนี้";
   return m || "ทำรายการไม่สำเร็จ";
 }
@@ -174,7 +175,7 @@ function tlHTML(r, tl) {
 function navHTML() {
   var c = (S && S.counts) || {};
   var b = function (k, ic, lb, n, cls) { return '<button type="button" data-tab="' + k + '" class="' + (S.tab === k ? "on " : "") + (cls || "") + '">' + ic + "<span>" + lb + "</span>" + (n ? '<i class="aq7-bd">' + n + "</i>" : "") + "</button>"; };
-  return b("HOME", IC.home, "หน้าแรก") + b("PENDING", IC.wait, "รออนุมัติ", c.pending) + b("APPROVED", IC.ok, "อนุมัติแล้ว") + b("REJECTED", IC.no, "ไม่อนุมัติ", 0, "r") +
+  return b("HOME", IC.home, "หน้าแรก") + b("PENDING", IC.wait, "รออนุมัติ", c.pending) + b("APPROVED", IC.ok, "อนุมัติแล้ว") + b("DEPOSIT", IC.box807, "มัดจำตู้")   /* V.807 : ไม่อนุมัติ = การ์ดหน้าแรก */ +
     '<button type="button" data-exp>' + IC.exp723 + "<span>EXPENSES</span></button>";   /* V.723 : เมนู EXPENSES */
 }
 function rowHTML(x) {
@@ -189,14 +190,15 @@ function bodyHTML() {
   if (S.tab === "HOME") {
     var k = function (cls, n, lb, go, sub) { return '<button type="button" class="aq7-k ' + cls + '" data-go="' + go + '"' + (sub ? ' data-sub="' + sub + '"' : "") + "><b>" + (n || 0) + "</b><span>" + lb + "</span></button>"; };
     h += '<div class="aq7-kp">' + k("o", c.pending, "รออนุมัติ", "PENDING") + k("b", c.approved, "อนุมัติแล้ว", "APPROVED", "ALL") + k("w", c.wait, "รอจ่ายเงิน", "APPROVED", "WAIT") + k("g", c.paid, "จ่ายเงินแล้ว", "APPROVED", "PAID") +
-      k("r", c.rejected, "ไม่อนุมัติ", "REJECTED") + k("a", c.total, "คำขอทั้งหมด", "HOME") + "</div>";
+      k("d", c.deposit, "มัดจำตู้", "DEPOSIT") + k("r", c.rejected, "ไม่อนุมัติ", "REJECTED") + k("a", c.total, "คำขอทั้งหมด", "HOME") + "</div>";
   }
-  if (S.tab === "APPROVED") {
+  if (S.tab === "APPROVED" || S.tab === "DEPOSIT") {   /* V.807 */
+    var dp807 = S.tab === "DEPOSIT"; c = dp807 ? { approved: c.deposit, wait: c.dwait, paid: c.dpaid } : c;
     var sg = function (k, lb, n) { return '<button type="button" data-sub="' + k + '" class="' + (S.sub === k ? "on" : "") + '">' + lb + " (" + (n || 0) + ")</button>"; };
-    h += '<div class="aq7-sg">' + sg("ALL", "ทั้งหมด", c.approved) + sg("WAIT", "รอจ่าย", c.wait) + sg("PAID", "จ่ายแล้ว", c.paid) + "</div>";
+    h += '<div class="aq7-sg">' + sg("ALL", "ทั้งหมด", c.approved) + sg("WAIT", "รอจ่าย", c.wait) + sg("PAID", "จ่ายแล้ว", c.paid) + "</div>" + BS807M();
   }
   h += '<label class="aq7-s">' + IC.q + '<input type="search" data-q placeholder="ค้นหา JOB, Company, Customer, House B/L, ผู้เปิดงาน" value="' + esc(S.q) + '" enterkeyhint="search"></label>';
-  h += '<div class="aq7-lt">' + (S.tab === "HOME" ? "รายการล่าสุด" : S.tab === "PENDING" ? "รออนุมัติ" : S.tab === "APPROVED" ? "อนุมัติแล้ว" : "ไม่อนุมัติ") + (S.total ? " (" + S.total + ")" : "") + "</div>";
+  h += '<div class="aq7-lt">' + (S.tab === "HOME" ? "รายการล่าสุด" : S.tab === "PENDING" ? "รออนุมัติ" : S.tab === "APPROVED" ? "อนุมัติแล้ว" : S.tab === "DEPOSIT" ? "มัดจำตู้" : "ไม่อนุมัติ") + (S.total ? " (" + S.total + ")" : "") + "</div>";
   h += '<div data-list>' + listHTML() + "</div>";
   return h;
 }
@@ -219,7 +221,7 @@ async function load(reset) {
   if (reset) { S.off = 0; S.rows = []; S.total = 0; }
   S.loading = !0; S.err = ""; reset && paint();
   try {
-    var r = await rpc("njacc_adv701_list", { p: { tab: S.tab, sub: S.sub, q: S.q, limit: LIM, offset: S.off } });
+    var r = await rpc("njacc_adv807_mlist", { p: { tab: S.tab, sub: S.sub, q: S.q, limit: LIM, offset: S.off, bil_ap: S.tab === "APPROVED" ? S.bil || "" : BD807M("APPROVED"), bil_dp: S.tab === "DEPOSIT" ? S.bil || "" : "" } })   /* V.807 */;
     if (S !== S0 || my !== S.seq) return;
     S.counts = r && r.counts || S.counts; S.total = r && r.total || 0;
     S.rows = S.rows.concat((r && r.rows) || []); S.off = S.rows.length;
@@ -396,7 +398,7 @@ function OFF803(m) { return S !== m || !(m && m.el && m.el.isConnected); }   /* 
 async function render(root, args) {
   css(); args = args || {};
   closeSheet();
-  S = { root: root, tab: /^(HOME|PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "HOME", sub: "ALL", q: "", rows: [], total: 0, off: 0, counts: null, seq: 0, err: "", loading: !1, sheet: null };
+  S = { root: root, tab: /^(HOME|PENDING|APPROVED|DEPOSIT|REJECTED)$/.test(args.tab || "") ? args.tab : "HOME", sub: "ALL", bil: args.tab === "APPROVED" ? "follow" : "", q: "", rows: [], total: 0, off: 0, counts: null, seq: 0, err: "", loading: !1, sheet: null };
   root.innerHTML = '<div class="aq7"><div class="aq7-h"><div class="t"><b>CASH ADVANCE</b><small>อนุมัติ · จ่ายเงิน · INVOICE ADV · SUPER_ADMIN</small></div><button type="button" class="aq7-rf" data-rf aria-label="โหลดใหม่">' + IC.rf + "</button>" + (window.__NJ_MOBILE ? '<button type="button" class="aq7-rf" data-lo aria-label="ออกจากระบบ" title="ออกจากระบบ">' + IC.lo + "</button>" : "") + '</div><div class="aq7-c"></div><nav class="aq7-nav"></nav></div>';
   var me = S, tq = 0; me.el = root.firstElementChild;   /* V.803 */
   root.addEventListener("click", function (e) {
@@ -405,12 +407,13 @@ async function render(root, args) {
     if (b.hasAttribute("data-rf")) { load(!0); return; }
     if (b.hasAttribute("data-lo")) { b.disabled = !0; closeSheet(); import("./logout-OTS2ADOE.js").then(function (m) { m.doLogout(); }, function () { b.disabled = !1; }); return; }
     if (b.hasAttribute("data-exp")) { location.hash = "#/expenses"; return; }   /* V.723 */
-    if (b.dataset.tab) { S.tab = b.dataset.tab; S.sub = "ALL"; load(!0); window.scrollTo(0, 0); return; }
-    if (b.dataset.go) { S.tab = b.dataset.go; S.sub = b.dataset.sub || "ALL"; load(!0); return; }
+    if (b.dataset.tab) { S.tab = b.dataset.tab; S.sub = "ALL"; S.bil = BD807M(S.tab); load(!0); window.scrollTo(0, 0); return; }
+    if (b.dataset.go) { S.tab = b.dataset.go; S.sub = b.dataset.sub || "ALL"; S.bil = BD807M(S.tab); load(!0); return; }
     if (b.dataset.sub && b.closest(".aq7-sg")) { S.sub = b.dataset.sub; load(!0); return; }
     if (b.hasAttribute("data-more")) { b.disabled = !0; load(!1); return; }
     if (b.dataset.job) { openJob(b.dataset.job); return; }
   });
+  root.addEventListener("change", function (e) { if (OFF803(me) || !e.target.matches("[data-bil807]")) return; S.bil = e.target.value; load(!0); });   /* V.807 */
   root.addEventListener("input", function (e) {
     if (OFF803(me) || !e.target.matches("[data-q]")) return;
     clearTimeout(tq); var v = e.target.value; tq = setTimeout(function () { if (OFF803(me)) return; S.q = v.trim(); load(!0); }, 280);   /* V.802 */
@@ -515,3 +518,15 @@ function cp714(text) {
   try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(ok, function (e) { fb(e && e.message); }); return; } } catch (e) {}
   fb("");
 }
+
+/* ═══ V.807 · CASH ADVANCE มือถือ : เมนูล่าง ไม่อนุมัติ → มัดจำตู้ (ไม่อนุมัติดูย้อนหลังได้จากการ์ดหน้าแรก · SUPER_ADMIN เท่านั้นเหมือนเดิม)
+   อนุมัติแล้ว = งานทั่วไป · ค่าเริ่มต้น "รายการที่ต้องติดตาม" · มัดจำตู้ = ทั้งหมดไม่ซ่อน · รายการ = njacc_adv807_mlist (RUN-807 · อ่านอย่างเดียว) ═══ */
+var BL807M = [["follow", "รายการที่ต้องติดตาม"], ["none", "ไม่วางบิล"], ["match", "วางบิลแล้ว"], ["diff", "ยอดไม่ตรงกัน"], ["check", "รอตรวจสอบข้อมูล"], ["", "ทั้งหมด"]];
+function BD807M(t) { return t === "APPROVED" ? "follow" : ""; }
+function BS807M() {
+  var L = S.tab === "APPROVED" ? BL807M : [["", "ทั้งหมด"]].concat(BL807M.slice(1, 5));
+  return '<label class="aq7-bl807"><span>เก็บลูกค้าแล้ว</span><select data-bil807>' + L.map(function (x) { return '<option value="' + x[0] + '"' + ((S.bil || "") === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select></label>";
+}
+(function () { try { if (typeof document === "undefined" || document.getElementById("aq807-css")) return; var s = document.createElement("style"); s.id = "aq807-css";
+  s.textContent = ".aq7-k.d{background:#e8eefb;color:#1d4ed8}.aq7-bl807{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:600;color:#334155}.aq7-bl807 select{flex:1;min-width:0;height:38px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;font:inherit;font-weight:600;background:#fff;color:#0f172a}";
+  document.head.appendChild(s); } catch (e) {} })();

@@ -17,7 +17,7 @@ import{approve725 as A725,slips725 as S725,cell725 as L725,draft725 as F725,css7
    มือถือ (window.__NJ_MOBILE) : ใช้หน้า Mobile เดิม (adv-approve · Bottom Navigation 4 เมนู) · สลิป : Storage private (Signed URL อายุ 2 นาที) ═══ */
 var S = null, BK = "njacc-adv-slips", MAXF = 5242880, XURL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", EXURL720 = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
 var RS = ["เอกสารไม่ครบ", "ยอดเงินไม่ถูกต้อง", "เลขบัญชีไม่ถูกต้อง"];
-var TABS = { PENDING: ["รออนุมัติ", "วันที่ส่งคำขอ", "pending"], APPROVED: ["อนุมัติแล้ว", "วันที่อนุมัติ", "approved"], REJECTED: ["ไม่อนุมัติ", "วันที่ไม่อนุมัติ", "rejected"] };
+var TABS = { PENDING: ["รออนุมัติ", "วันที่ส่งคำขอ", "pending"], APPROVED: ["อนุมัติแล้ว", "วันที่อนุมัติ", "approved"], REJECTED: ["ไม่อนุมัติ", "วันที่ไม่อนุมัติ", "rejected"], DEPOSIT: ["มัดจำตู้", "วันที่อนุมัติ", "deposit"] };   /* V.807 */
 var IC = {
   wal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><path d="M16 14h.01"/></svg>',
   eye: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -47,7 +47,7 @@ function errMsg(e) {
   if (/NJACC_ADV701_SLIP_NOT_FOUND|NJACC_ADV701_SLIP_INVALID/.test(m)) return "ไฟล์สลิปไม่ถูกต้อง / อัปโหลดไม่สำเร็จ — กรุณาเลือกไฟล์ใหม่";
   if (/NJACC_ADV701_PAY_DATE/.test(m)) return "วันที่จ่ายไม่ถูกต้อง (ห้ามเป็นวันในอนาคต)";
   if (/NJACC_JOB_CANCELED/.test(m)) return "JOB ถูกยกเลิกแล้ว — อนุมัติ / จ่ายเงินต่อไม่ได้";
-  if (/njacc_cash_adv704_|njacc_cash_adv705_|njacc_adv705_|PGRST202|42883|schema cache/i.test(m) && /(does not exist|Could not find|schema cache|42883|PGRST202)/i.test(m)) return "CASH ADVANCE ยังไม่พร้อม (ต้องรัน RUN-704 + RUN-705 ก่อน)";
+  if (/njacc_cash_adv704_|njacc_cash_adv705_|njacc_adv705_|njacc_cash_adv807_|njacc_adv807_|PGRST202|42883|schema cache/i.test(m) && /(does not exist|Could not find|schema cache|42883|PGRST202)/i.test(m)) return "CASH ADVANCE ยังไม่พร้อม (ต้องรัน RUN-704 + RUN-705 ก่อน)";
   if (/row-level security|Unauthorized|403/i.test(m)) return "ไม่มีสิทธิ์อัปโหลด / เปิดไฟล์สลิปนี้";
   return m || "ทำรายการไม่สำเร็จ";
 }
@@ -184,7 +184,7 @@ function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d 
   if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
   ["rows", "req", "job", "items"].forEach(function (k) { v[k] && typeof v[k] === "object" && k !== "items" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
 function filt() { return { date_from: S.f.date_from, date_to: S.f.date_to, job_no: S.f.job_no, company: S.f.company, customer: S.f.customer, hbl: S.f.hbl, q: S.f.q, company_x: S.f.company_x, customer_x: S.f.customer_x, ptype: S.f.ptype, inv_no: S.f.inv_no, billed: S.f.billed }; }   /* V.760 */
-function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off, with_options: !S.opt }, filt()); }   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
+function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off, with_options: !S.opt }, filt(), BP807()); }   /* V.807 : ตัวกรองแยกแท็บ */   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
 function badgeSet(c) {
   try {
     var el = document.querySelector('[data-nav="cash-advance"]'); if (!el || !c) return;
@@ -205,16 +205,17 @@ function shell() {
     /* V.805 : ซ่อนช่องค้นหา INVOICE AD */ DH760("billed", "bl", 1) +
     '<button type="submit" class="ca7-b p">' + IC.q + 'ค้นหา</button><button type="button" class="ca7-b" data-clr>ล้างกรอง</button>' +
     '<button type="button" class="ca7-b ca7-ft" data-ft>' + IC.fl + "Filter</button></form>" +
-    '<div class="ca7-tabs" data-tabs></div><div class="ca7-row" style="margin-top:8px"><span class="ca7-sum" data-sum></span></div><div data-body></div></div>';
+    '<div class="ca7-tabs" data-tabs></div><div class="ca7-row" style="margin-top:8px"><span class="ca7-sum" data-sum></span><span class="ca7-sp"></span><span data-rj807></span></div><div data-body></div></div>';
 }
 var SI706 = { PENDING: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   APPROVED: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
+  DEPOSIT: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="m7.5 5.5 9 5"/></svg>',   /* V.807 */
   REJECTED: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>' };
 function tabsHTML() {   /* V.706 : ปุ่มสถานะหลัก 3 กลุ่มเท่านั้น (จำนวนจริงจากระบบ) */
   var c = S.counts || {}, t = function (k, cls) { return '<button type="button" class="ca7-tab ' + cls + (S.tab === k ? " on" : "") + '" data-tab="' + k + '"><i class="ic">' + SI706[k] + "</i><b>" + TABS[k][0] + '</b><span class="m">' + SI706[k] + (c[TABS[k][2]] || 0) + ' รายการ</span><span class="d">(' + (c[TABS[k][2]] || 0) + ")</span></button>"; };   /* V.708 : .m = มือถือ (เดิม) · .ic + .d = Desktop */
-  return t("PENDING", "o") + t("APPROVED", "i") + t("REJECTED", "x");
+  return t("PENDING", "o") + t("APPROVED", "i") + t("DEPOSIT", "dp807");   /* V.807 : ไม่อนุมัติ = ปุ่มประวัติ (SUPER_ADMIN) */
 }
-function sumHTML() { var s = S.sum || {}; return (S.total || 0) + " รายการ · " + (S.tab === "APPROVED" ? "ยอดอนุมัติ <b>" + fm(s.requested) + "</b> · จ่ายจริง <b>" + fm(s.paid) + "</b> · รอจ่าย <b>" + fm(s.wait) + "</b>" : "ยอดขอเบิก <b>" + fm(s.requested) + "</b>"); }
+function sumHTML() { var s = S.sum || {}; return (S.total || 0) + " รายการ · " + ((S.tab === "APPROVED" || S.tab === "DEPOSIT") ? "ยอดอนุมัติ <b>" + fm(s.requested) + "</b> · จ่ายจริง <b>" + fm(s.paid) + "</b> · รอจ่าย <b>" + fm(s.wait) + "</b>" : "ยอดขอเบิก <b>" + fm(s.requested) + "</b>"); }
 function actHTML(x) {   /* V.705 : ปุ่มดำเนินการตามสถานะรายการ (SUPER_ADMIN) · Role อื่น = ดูรายละเอียดเท่านั้น */
   var v = '<button type="button" class="ca7-ib" data-view="' + esc(x.job_id) + '" title="ดูรายละเอียด">' + IC.eye + "</button>", j = esc(x.job_id);
   if (!S.sup || x.job_canceled && x.status !== "PAID") return '<div class="ca7-act">' + v + "</div>";
@@ -266,13 +267,13 @@ function pages() {   /* V.705 : เลขหน้า */
 function paint() {
   if (!S || !S.root.isConnected || (S.el && !S.el.isConnected)) return;   /* V.803 */
   var t = S.root.querySelector("[data-tabs]"), u = S.root.querySelector("[data-sub]"), b = S.root.querySelector("[data-body]"), l = S.root.querySelector("[data-dlb]"), sm = S.root.querySelector("[data-sum]"), ro = S.root.querySelector("[data-ro]");
-  t && (t.innerHTML = tabsHTML()); sm && (sm.innerHTML = sumHTML()); b && (b.innerHTML = bodyHTML()); l && (l.textContent = TABS[S.tab][1]); ro && (ro.hidden = S.sup);
+  t && (t.innerHTML = tabsHTML()); sm && (sm.innerHTML = sumHTML()); b && (b.innerHTML = bodyHTML()); l && (l.textContent = TABS[S.tab][1]); ro && (ro.hidden = S.sup); var rj = S.root.querySelector("[data-rj807]"); rj && (rj.innerHTML = RJ807());   /* V.807 */
 }
 async function load() {
   if (!S) return;
   var S0 = S, my = ++S.seq;   /* V.803 : ผลของรอบก่อน (ออก / เข้าหน้าใหม่) ไม่ทับรอบใหม่ */ S.loading = !0; S.err = ""; paint();
   try {
-    var r = await rpc("njacc_cash_adv704_list", { p: params(S.lim, S.off) });
+    var r = await rpc("njacc_cash_adv807_list", { p: params(S.lim, S.off) });   /* V.807 */
     if (S !== S0 || my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && r.options && (S.opt = r.options, S.root.querySelector("[data-f]") && S.root.querySelector("[data-f]").__ca760s && S.root.querySelector("[data-f]").__ca760s());   /* V.760 */ r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
     var bm = null; try { bm = S.rows.length ? await bill719(S.rows) : {}; } catch (e7) { bm = null; }   /* V.719 : โหลดไม่ได้ (ยังไม่รัน RUN-719) = แสดง "-" รายการเดิมยังใช้ได้ */
@@ -501,7 +502,7 @@ async function exportXls(btn) {
   try {
     var all = [], off = 0, tot = 1, tab = S.tab;
     while (off < tot && off < 20000) {
-      var r = await rpc("njacc_cash_adv704_list", { p: params(500, off) });
+      var r = await rpc("njacc_cash_adv807_list", { p: params(500, off) });   /* V.807 : ตรงกับตัวกรองปัจจุบัน */
       tot = (r && r.total) || 0; all = all.concat((r && r.rows) || []); off += 500; if (!r || !(r.rows || []).length) break;
     }
     var bm = null; try { bm = await bill719(all); } catch (e7) { bm = null; }   /* V.719 : ชุดเดียวกับหน้ารายงาน */
@@ -515,7 +516,7 @@ async function exportXls(btn) {
       if (rej) return head.concat([colNum719(bm, x), gtNum784(bm, x), billText719(bm, x), x.rejected_by || "", x.reject_reason || "", x.job_canceled ? "ยกเลิก JOB แล้ว" : x.job_status || ""]);
       return head.concat([pend ? "-" : Number(x.total_real) || 0, colNum719(bm, x), gtNum784(bm, x), billText719(bm, x), pend ? "รออนุมัติ" : payText(x), !pend && Number(x.inv_count) > 0 ? (x.inv_nos || []).join(", ") : "—"]);
     };
-    var nm = tab === "PENDING" ? "รออนุมัติ" : tab === "REJECTED" ? "ไม่อนุมัติ" : "อนุมัติแล้ว";
+    var nm = tab === "PENDING" ? "รออนุมัติ" : tab === "REJECTED" ? "ไม่อนุมัติ" : tab === "DEPOSIT" ? "มัดจำตู้" : "อนุมัติแล้ว";
     var wb = new EX.Workbook(), ws = wb.addWorksheet(nm.slice(0, 31));
     ws.columns = W.map(function (w) { return { width: w }; });
     var A = [H].concat(all.map(M)), TH = { style: "thin", color: { argb: "FFD9E2EC" } }, BD = { top: TH, left: TH, bottom: TH, right: TH };
@@ -525,7 +526,7 @@ async function exportXls(btn) {
         if (ri > 0 && nc.indexOf(ci + 1) >= 0 && typeof v === "number") c.numFmt = "#,##0.00"; }
       rr.commit && rr.commit();
     });
-    var d = new Date(), fn = "CASH_ADVANCE_" + (tab === "PENDING" ? "PENDING" : tab === "REJECTED" ? "REJECTED" : "APPROVED") + "_" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + ".xlsx";
+    var d = new Date(), fn = "CASH_ADVANCE_" + (tab === "PENDING" ? "PENDING" : tab === "REJECTED" ? "REJECTED" : tab === "DEPOSIT" ? "DEPOSIT" : "APPROVED") + "_" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + ".xlsx";
     var buf = await wb.xlsx.writeBuffer(), url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })), lk = document.createElement("a");
     lk.href = url; lk.download = fn; document.body.appendChild(lk); lk.click(); lk.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
     toast("ส่งออก Excel " + all.length + " รายการแล้ว", "ok");
@@ -564,10 +565,10 @@ async function render(root, args) {
   args = args || {};
   if (typeof window !== "undefined" && window.__NJ_MOBILE) { var mm = await import("./adv-approve-K7Q2M701.js"); return mm.render(root, args); }   /* มือถือ = CASH ADVANCE Mobile View (Bottom Navigation 4 เมนู) */
   css(); hd735(); closeView();   /* V.735 */
-  S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: { billed: CA774D }, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
+  S = { sup: ((AS && AS.profile) || {}).role === "SUPER_ADMIN", root: root, tab: /^(PENDING|APPROVED|DEPOSIT|REJECTED)$/.test(args.tab || "") ? args.tab : "PENDING", f: { billed: CA774D }, lim: 20, off: 0, rows: [], total: 0, counts: {}, sum: {}, seq: 0, err: "", loading: !1, cur: null, busy: !1 };
   args.tab === "INV" && (S.tab = "APPROVED");   /* V.706 : ลิงก์เดิม tab=INV → อนุมัติแล้ว */
   root.innerHTML = shell();
-  var me = S, fo = root.querySelector("[data-f]"); me.el = root.firstElementChild;   /* V.803 */ CA760(fo);   /* V.760 */
+  var me = S, fo = root.querySelector("[data-f]"); me.el = root.firstElementChild;   /* V.803 */ CA760(fo);   /* V.760 */ S.tab === "REJECTED" && !S.sup && (S.tab = "PENDING"); RB807(fo);   /* V.807 */
   var readF = function () { var f = {}; ["date_from", "date_to", "job_no", "company", "customer", "hbl", "company_x", "customer_x", "ptype", "inv_no", "billed"].forEach(function (k) { var el = fo.elements[k]; f[k] = el ? String(el.value || "").trim() : ""; }); return f; };
   fo.addEventListener("submit", function (e) { e.preventDefault(); if (OFF803(me)) return; S.f = readF(); S.off = 0; load(); });
   /* V.802 : ค้นหา Real-Time — ช่องพิมพ์ (JOB No. / House B/L / INVOICE AD) Debounce 280 ms · Dropdown / วันที่ = ทันที → ตัวกรองเดิม (readF) · หน้า 1 · load() เดิม ภายในแท็บสถานะปัจจุบัน (กันผลเก่าด้วย S.seq เดิม) · เงื่อนไขไม่เปลี่ยน = ไม่เรียกซ้ำ */
@@ -580,10 +581,10 @@ async function render(root, args) {
     var b = e.target.closest("button");
     if (!b) { var tr7 = e.target.closest && e.target.closest(".ca7-t tbody tr[data-row]"); if (tr7 && root.contains(tr7) && !e.target.closest("a,input,select,textarea,label") && !(window.getSelection && String(window.getSelection()).trim())) { openView(tr7.dataset.row); } return; }   /* V.722 : คลิกแถว (ไม่รวมปุ่ม / ลิงก์ / การลากเลือกข้อความ) */
     if (!root.contains(b)) return;
-    if (b.dataset.tab) { if (S.tab !== b.dataset.tab) { S.tab = b.dataset.tab; S.off = 0; load(); } return; }
+    if (b.dataset.tab) { if (S.tab !== b.dataset.tab && (b.dataset.tab !== "REJECTED" || S.sup)) { S.tab = b.dataset.tab; S.off = 0; RB807(fo); load(); }   /* V.807 */ return; }
     if (b.hasAttribute("data-rf")) { load(); return; }
     if (b.hasAttribute("data-xl")) { exportXls(b); return; }
-    if (b.hasAttribute("data-clr")) { fo.reset(); S.f = { billed: CA774D }; S.off = 0; load(); return; }   /* V.774 */
+    if (b.hasAttribute("data-clr")) { fo.reset(); S.f = { billed: BD807(S.tab) }; S.off = 0; load(); return;   /* V.807 */ }   /* V.774 */
     if (b.hasAttribute("data-ft")) { fo.classList.toggle("open"); return; }
     if (b.hasAttribute("data-pv")) { S.off = Math.max(0, S.off - S.lim); load(); return; }
     if (b.hasAttribute("data-nx")) { S.off += S.lim; load(); return; }
@@ -597,7 +598,7 @@ async function render(root, args) {
   document.addEventListener("keydown", function kd(e) { if (OFF803(me)) { document.removeEventListener("keydown", kd); return; } if (e.key === "Escape" && !S.busy) closeView(); });
   if (args.job) {   /* เปิดจาก DOCUMENT → ADVANCE (#/cash-advance?job=…) : เลือกแท็บตามสถานะจริง แล้วเปิดรายละเอียด JOB */
     try {
-      var g = await rpc("njacc_cash_adv705_get", { p_job: String(args.job) }); var st = g && g.req && g.req.status; if (st) S.tab = st === "PAID" ? "APPROVED" : st;
+      var g = await rpc("njacc_cash_adv705_get", { p_job: String(args.job) }); var st = g && g.req && g.req.status; if (st) S.tab = st === "PAID" || st === "APPROVED" ? (DP807(g.req.items) ? "DEPOSIT" : "APPROVED") : st === "REJECTED" && !S.sup ? "PENDING" : st; RB807(fo);   /* V.807 */
     } catch (e) {}
   }
   await load();
@@ -662,6 +663,7 @@ function CA760(fo) {
     var items = function (k) {
       var o = (S && S.opt) || {}, L = k === "bl" ? CA760B.map(function (x) { return { v: x[0], t: x[1] }; }) : ((k === "co" ? o.companies : k === "cu" ? o.customers : o.types) || []).map(function (v) { var t = String(v == null ? "" : v).trim(); return { v: t, t: t }; }).filter(function (x, i, A) { return x.v && A.findIndex(function (y) { return y.v.toLowerCase() === x.v.toLowerCase(); }) === i; });
       k !== "bl" && L.sort(function (a, b) { return a.t.localeCompare(b.t, "th"); });
+      if (k === "bl" && S && S.tab === "APPROVED") return BL807.map(function (x) { return { v: x[0], t: x[1] }; }).concat([{ v: "", t: CA760A }]);   /* V.807 */
       return [{ v: "", t: CA760A }].concat(L);
     };
     fo.querySelectorAll("[data-dd760]").forEach(function (w) {
@@ -710,7 +712,7 @@ function CA760(fo) {
       ls.addEventListener("mousemove", function (ev) { var i = vis.indexOf(ev.target.closest(".ca760-it")); i >= 0 && i !== act && mark(i); });
       D.push(sync); sync();
     });
-    fo.addEventListener("reset", function () { CA760O && CA760O(); fo.querySelectorAll("[data-dd760] input[type=hidden]").forEach(function (h) { var d0 = h.name === "billed" ? CA774D : ""; h.value = d0; h.defaultValue = d0; });   /* V.774 */ setTimeout(function () { D.forEach(function (f) { f(); }); }, 0); });
+    fo.addEventListener("reset", function () { CA760O && CA760O(); fo.querySelectorAll("[data-dd760] input[type=hidden]").forEach(function (h) { var d0 = h.name === "billed" ? BD807(S && S.tab) : "";   /* V.807 */ h.value = d0; h.defaultValue = d0; });   /* V.774 */ setTimeout(function () { D.forEach(function (f) { f(); }); }, 0); });
     fo.__ca760s = function () { D.forEach(function (f) { f(); }); };
   } catch (e) { try { console.warn("CA760", e); } catch (_) {} }
 }
@@ -739,3 +741,22 @@ var ST784 = {
 function gt784(b) { return b && b.grand != null && b.grand !== "" && isFinite(Number(b.grand)) ? Number(b.grand) : null; }
 function gtTd784(x) { var g = gt784(b719(x)); return '<td class="r">' + (g == null ? "—" : fm(g)) + "</td>"; }
 function gtNum784(m, x) { var g = gt784(m && x && m[x.job_id]); return g == null ? "—" : g; }
+
+/* ═══ V.807 · CASH ADVANCE : แท็บหลัก 3 แท็บ = รออนุมัติ / อนุมัติแล้ว / มัดจำตู้ (สถานะจริงในฐานข้อมูลเดิม · ไม่สร้างสถานะใหม่)
+   มัดจำตู้ = คำขอที่อนุมัติแล้ว (APPROVED / PAID) และมีรายการประเภท "ค่ามัดจำตู้" / "มัดจำตู้" (njacc_adv807_dep · RUN-807) → ไม่แสดงซ้ำในแท็บอนุมัติแล้ว
+   ไม่อนุมัติ : ซ่อนจากแท็บปกติ · SUPER_ADMIN ดูย้อนหลังได้จากปุ่ม "ประวัติไม่อนุมัติ" (ข้อมูล / เหตุผล / ปุ่มไม่อนุมัติเดิม)
+   เก็บลูกค้าแล้ว : ตัวกรองแยกตามแท็บ — อนุมัติแล้ว ค่าเริ่มต้น "รายการที่ต้องติดตาม" (ไม่วางบิล / ยอดไม่ตรงกัน / รอตรวจสอบข้อมูล) · แท็บอื่นค่าเริ่มต้น "ทั้งหมด"
+   เปลี่ยนแท็บ / เข้าหน้าใหม่ / ล้างกรอง = คืนค่าเริ่มต้นของแท็บนั้น · สถานะวางบิลจาก njacc_cash_adv784_bill เดิม (ทศนิยม 2 ตำแหน่ง) · รายการ = njacc_cash_adv807_list (RUN-807 · อ่านอย่างเดียว) ═══ */
+var BL807 = [["follow", "รายการที่ต้องติดตาม"], ["none", "ไม่วางบิล"], ["match", "วางบิลแล้ว"], ["diff", "ยอดไม่ตรงกัน"], ["check", "รอตรวจสอบข้อมูล"]];
+function BD807(t) { return t === "APPROVED" ? "follow" : ""; }
+function RB807(fo) {   /* ค่าเริ่มต้นตัวกรอง "เก็บลูกค้าแล้ว" ของแท็บปัจจุบัน */
+  try { if (!S) return; var v = BD807(S.tab), h = fo && fo.elements && fo.elements.billed; h && (h.value = v, h.defaultValue = v); S.f = Object.assign({}, S.f || {}, { billed: v }); fo && fo.__ca760s && fo.__ca760s(); } catch (e) {}
+}
+function BP807() { var t = S.tab, f = (S.f && S.f.billed) || ""; return { bil_pd: t === "PENDING" ? f : "", bil_ap: t === "APPROVED" ? f : BD807("APPROVED"), bil_dp: t === "DEPOSIT" ? f : "", bil_rj: t === "REJECTED" ? f : "" }; }
+function DP807(items) { return (Array.isArray(items) ? items : []).some(function (it) { var t = String(it && it.payment_type || "").replace(/\s+/g, ""); return t === "ค่ามัดจำตู้" || t === "มัดจำตู้"; }); }
+function RJ807() { return S && S.sup ? '<button type="button" class="ca7-b rj807' + (S.tab === "REJECTED" ? " on" : "") + '" data-tab="REJECTED" title="SUPER_ADMIN : ตรวจสอบรายการไม่อนุมัติย้อนหลัง">' + SI706.REJECTED + "ประวัติไม่อนุมัติ" + (S.counts && S.counts.rejected ? " (" + S.counts.rejected + ")" : "") + "</button>" : ""; }
+(function () { try { if (typeof document === "undefined" || document.getElementById("ca807-css")) return; var s = document.createElement("style"); s.id = "ca807-css";
+  s.textContent = ".ca7-tab.dp807{background:#e8eefb}.ca7-tab.dp807 span{color:#2563eb}.ca7-tab.dp807.on{border-color:#3b82f6;background:#dbe5fb}" +
+    "@media (min-width:901px){.ca7-tab.dp807 .ic{color:#2563eb}.ca7-tab.dp807.on{color:#3b82f6}}" +
+    ".ca7-b.rj807{height:30px;padding:0 10px;font-size:12px;font-weight:600;color:#b91c1c;border-color:#fecaca;background:#fff}.ca7-b.rj807 svg{width:13px;height:13px}.ca7-b.rj807.on{background:#fef2f2;border-color:#ef4444}";
+  document.head.appendChild(s); } catch (e) {} })();

@@ -653,7 +653,7 @@ function DPCSS740() {
     ".dp740-cb input,.dp740-hcb{width:16px;height:16px;margin:0;cursor:pointer;accent-color:#7c3aed;vertical-align:middle}" +
     "th[data-dp740-h] .dp740-hcb{margin-right:8px}" +
     ".dp740-bar{display:inline-flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-right:4px}" +
-    ".dp740-n{font-size:13px;font-weight:600;color:#6d28d9;white-space:nowrap}.dp740-n.z{color:#94a3b8;font-weight:500}" +
+    ".dp740-n{font-size:13px;font-weight:600;color:#6d28d9;white-space:nowrap}.dp740-n.z{color:#94a3b8;font-weight:500;display:none}/* V.806 : ซ่อนข้อความ ยังไม่เลือก JOB (ตัวแปร / การตรวจเลือก JOB เดิม) */" +
     ".btn.dp740-print{background:#7c3aed;border-color:#7c3aed;color:#fff;font-weight:600;white-space:nowrap}" +
     ".btn.dp740-print:not(:disabled):hover{background:#6d28d9;border-color:#6d28d9;color:#fff}" +
     ".btn.dp740-print:disabled{background:#c4b5fd;border-color:#c4b5fd;color:#fff;opacity:1;cursor:not-allowed}" +
