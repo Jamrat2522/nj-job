@@ -1316,7 +1316,8 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
           <div class="pmt-modal-head"><span id="pmtPasteModalTitle">📋 PASTE ข้อมูล</span></div>
           <div class="pmt-modal-body">
             <div class="pmt-modal-hint">Copy ตารางจาก Excel รวมแถวหัวตาราง แล้ววางในช่องด้านล่าง — รองรับหลาย Column / หลาย Row<br>
-              หัวคอลัมน์ที่รองรับ: NO. · BOOKING NO. · PORT OF DISCHARGE · INVOICE NO. · CONTAINER NO. · SEAL NO. · CONTAINER SIZE · CONTAINER TARE WEIGHT</div>
+              หัวคอลัมน์ที่รองรับ: NO. · BOOKING NO. · PORT OF DISCHARGE · INVOICE NO. · CONTAINER NO. · SEAL NO. · CONTAINER SIZE · CONTAINER TARE WEIGHT<br>
+              หรือ Copy ข้อความจากอีเมล / Excel แบบ "หัวข้อ + ค่า" (คนละบรรทัด หรือบรรทัดเดียวกัน) ได้ทันที — รองรับ ท่าขนถ่ายสินค้า · ประเภทรถ · ทะเบียนรถหัวลาก</div>
             <textarea id="pmtPasteInput" rows="10" spellcheck="false" placeholder="วางข้อมูลจาก Excel ที่นี่..."></textarea>
             <div class="pmt-modal-live" id="pmtPasteLive"></div>
           </div>
@@ -2352,7 +2353,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local281';
+const EDCAPL_VERSION = 'local282';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -4178,12 +4179,79 @@ function pmtParsePaste(text){
   const key = h => String(h||'').toUpperCase().replace(/[^A-Z0-9ก-๙]/g,'');
   const colOf = h => { const k = key(h); const f = PMT_PASTE_COLS.find(([,al]) => al.some(a => key(a) === k)); return f ? f[0] : null; };
   const hIdx = rows.findIndex(r => r.filter(colOf).length >= 2);
-  if(hIdx < 0) return { rows: [], cols: [], error: 'ไม่พบหัวคอลัมน์ (เช่น BOOKING NO. / INVOICE NO. / CONTAINER NO.) — กรุณา Copy รวมแถวหัวตาราง' };
+  if(hIdx < 0){ const K = pmtParsePasteKV(text); if(K) return K;   /* [PASTE KV] local282: ไม่ใช่ตาราง → อ่านแบบ หัวข้อ/ค่า (อีเมล / Excel 1–2 คอลัมน์) */
+    return { rows: [], cols: [], error: 'ไม่พบหัวคอลัมน์ (เช่น BOOKING NO. / INVOICE NO. / CONTAINER NO.) — กรุณา Copy รวมแถวหัวตาราง' }; }
   const map = rows[hIdx].map(colOf);
   const out = rows.slice(hIdx+1).filter(r => colOf(r[0]) === null || r.filter(colOf).length < 2).map((r, i) => {
     const o = { _line: i+1 }; map.forEach((k, j) => { if(k && o[k] === undefined) o[k] = r[j] || ''; }); return o; })
     .filter(o => PMT_PASTE_COLS.some(([k]) => k !== 'no' && o[k]));
+  if(!out.length){ const K = pmtParsePasteKV(text); if(K && K.rows.length) return K; }   /* [PASTE KV] local282: หัวข้อ/ค่า แนวนอนในแถวเดียว → อ่านแบบ หัวข้อ/ค่า */
   return { rows: out, cols: [...new Set(map.filter(Boolean))], error: out.length ? '' : 'มีแต่หัวคอลัมน์ ไม่มีข้อมูล' };
+}
+/* ══ [PASTE KV] local282 — อ่านข้อมูลแบบ "หัวข้อ + ค่า" (ไม่ต้องมีหัวคอลัมน์ Excel) ══
+   รูปแบบ 1: หัวข้อ / ค่า คนละบรรทัด (มีบรรทัดว่าง / ข้อความเกริ่นอีเมล / เซลล์ว่างจาก Excel ได้)
+   รูปแบบ 2: หัวข้อ + ค่า บรรทัดเดียวกัน (คั่นด้วยช่องว่าง / Tab)
+   · หัวข้อต้องขึ้นต้นบรรทัด/เซลล์ · ไม่สนใจตัวพิมพ์ / ช่องว่างเกิน / จุด / : · ข้อความที่ไม่ใช่หัวข้อและไม่ใช่ค่าของหัวข้อ = ข้าม (ข้อความเกริ่นอีเมล)
+   · หัวข้อ BOOKING ซ้ำ (รายการเดิมมี BOOKING แล้ว) = เริ่มรายการใหม่ · หัวข้อเดิมซ้ำในรายการเดียวกันแต่ค่าต่างกัน = ข้อผิดพลาด (ห้ามบันทึก)
+   · ไม่สร้างค่าเอง: หัวข้อที่ไม่มีค่า = ว่าง (แจ้งเฉพาะช่องที่ขาด)
+   · คืน null เมื่อไม่พบหัวข้อเลย (ให้ใช้ข้อความผิดพลาดเดิมของตาราง) */
+const PMT_KV_FIELDS = [   // [key, label แสดงผล, Regex หัวข้อ (ต้นข้อความ)]
+  ['booking',   'Booking No.',           /^BOOKING\s*(?:NO|NUMBER|#)\s*\.?(?:\s*[A-Z]{2,6}\s*\([^)]*\))?/i],
+  ['pod',       'Port of Discharge',     /^(?:ท่าขนถ่ายสินค้า|PORT\s*OF\s*DISCHARGE?\b|POD\b)/i],
+  ['invoice',   'Invoice No.',           /^INVOICE\s*(?:NO|NUMBER|#)\s*\.?/i],
+  ['container', 'Container No.',         /^CONTAINER\s*(?:NO|NUMBER|#)\s*\.?/i],
+  ['seal',      'Seal No.',              /^SEAL\s*(?:NO|NUMBER|#)\s*\.?/i],
+  ['size',      'Container Size',        /^CONTAINER\s*SIZE\b/i],
+  ['tare',      'Container Tare Weight', /^(?:CONTAINER\s*)?TARE\s*WEIGHT\b/i],
+  ['truck',     'ประเภทรถ',               /^ประเภทรถ/],
+  ['plate',     'ทะเบียนรถหัวลาก',         /^ทะเบียนรถหัวลาก/],
+];
+const PMT_KV_MAIN = ['booking','pod','invoice','container','seal','size','tare'];   // ช่องสำคัญที่ใช้ตรวจ (FLOW เดิม)
+function pmtKvLabel(cell){
+  const t = String(cell||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  for(const [k,, re] of PMT_KV_FIELDS){ const m = t.match(re); if(m){ const rest = t.slice(m[0].length);
+    if(rest && /^[A-Za-z]/.test(rest) && /[A-Za-z]$/.test(m[0])) continue;   // เช่น "BOOKING NOTE" ไม่ใช่หัวข้อ
+    return { k, val: rest.replace(/^\s*[:.\-=]*\s*/, '').trim() }; } }
+  return null;
+}
+function pmtKvValue(k, v){
+  let t = String(v||'').replace(/[\u2018\u2019\u201B\u2032`´]/g, "'").replace(/\s+/g,' ').trim();
+  if(k === 'tare'){ const m = t.match(/^(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\s*[A-Za-z.]*)$/); if(m) t = m[1].replace(/,/g,'').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (m[2]||'') + (m[3] ? ' ' + m[3].trim() : ''); }   // 3700 KGS → 3,700 KGS (ค่าเดิม แสดงคั่นหลักพัน)
+  return t;
+}
+function pmtParsePasteKV(text){
+  const lines = String(text||'').replace(/\r\n?/g,'\n').split('\n');
+  const cells = [];   // ลำดับเซลล์ที่ไม่ว่าง (บรรทัด → Tab)
+  lines.forEach((ln, li) => ln.split('\t').forEach(c => { const t = c.replace(/\u00a0/g,' ').trim().replace(/^"(.*)"$/s, '$1').trim(); if(t) t.split(/\n/).forEach(x => { if(x.trim()) cells.push({ t:x.trim(), li }); }); }));
+  const recs = [], conflicts = []; let cur = null, pend = null, hits = 0, hdrLine = false;
+  const put = (k, raw, li) => {
+    const v = pmtKvValue(k, raw); if(!v) return;
+    if(k === 'booking' && cur && cur.booking){ cur = null; }                    // BOOKING ใหม่ = รายการใหม่
+    if(!cur){ cur = { _line: recs.length + 1, _src: {} }; recs.push(cur); }
+    if(cur[k] === undefined || cur[k] === ''){ cur[k] = v; cur._src[k] = li + 1; }
+    else if(pmtCode(cur[k]) !== pmtCode(v)) conflicts.push((PMT_KV_FIELDS.find(f => f[0] === k)||[])[1] + ' (รายการ ' + cur._line + '): "' + cur[k] + '" (บรรทัด ' + cur._src[k] + ') ≠ "' + v + '" (บรรทัด ' + (li + 1) + ')');
+  };
+  const open = k => { if(k === 'booking' && cur && cur.booking){ cur = null; } if(!cur){ cur = { _line: recs.length + 1, _src: {} }; recs.push(cur); } };
+  cells.forEach(c => {
+    const L = pmtKvLabel(c.t);
+    if(L && L.val && pmtKvLabel(L.val)){ hdrLine = true; return; }                // หัวข้อหลายตัวในข้อความเดียว (หัวตารางคั่นช่องว่าง) = ไม่ใช่รูปแบบ หัวข้อ/ค่า
+    if(L){ hits++; if(L.val){ pend = null; put(L.k, L.val, c.li); } else { open(L.k); pend = L.k; } return; }
+    if(pend){ put(pend, c.t, c.li); pend = null; }                                // ค่าของหัวข้อก่อนหน้า (บรรทัด/เซลล์ถัดไป)
+  });
+  if(!hits || hdrLine) return null;
+  const rows = recs.filter(r => PMT_KV_FIELDS.some(([k]) => r[k])).map((r, i) => { r._line = i + 1; r.no = ''; return r; });
+  const allK = PMT_KV_FIELDS.map(f => f[0]);
+  const cols = allK.filter(k => rows.some(r => r[k]));
+  rows.forEach(r => { r._missing = PMT_KV_MAIN.filter(k => !r[k]); delete r._src; });
+  const error = conflicts.length ? 'พบค่าไม่ตรงกันในหัวข้อเดียวกัน — กรุณาตรวจสอบก่อนบันทึก: ' + conflicts.join(' · ')
+              : (rows.length ? '' : 'พบหัวข้อแต่ไม่มีค่าข้อมูล');
+  return { rows, cols, error, mode: 'kv', conflicts };
+}
+function pmtKvTable(rows){   // ตารางแนวตั้ง หัวข้อ | ข้อมูล (ต่อรายการ)
+  return rows.map((r, i) => '<div class="err-table-wrap" style="margin-top:' + (i ? 10 : 4) + 'px">' + (rows.length > 1 ? '<div style="font-weight:700;font-size:12px;margin:2px 0 4px">รายการที่ ' + (i+1) + (r.booking ? ' · ' + esc(r.booking) : '') + '</div>' : '')
+    + '<table class="err-table" style="width:100%;min-width:0;table-layout:fixed"><thead><tr><th style="width:42%">หัวข้อ</th><th>ข้อมูล</th></tr></thead><tbody>'
+    + PMT_KV_FIELDS.filter(([k]) => r[k] || PMT_KV_MAIN.includes(k)).map(([k, lb]) => '<tr><td style="white-space:normal">' + esc(lb) + '</td><td style="white-space:normal;word-break:break-word">' + (r[k] ? esc(r[k]) : '<span style="color:#b42318">(ขาดข้อมูล)</span>') + '</td></tr>').join('')
+    + '</tbody></table>' + (r._missing && r._missing.length ? '<div style="font-size:12px;color:#b42318;margin-top:4px">⚠ ขาด: ' + r._missing.map(k => esc(PMT_KV_FIELDS.find(f => f[0] === k)[1])).join(' · ') + '</div>' : '') + '</div>').join('');
 }
 // CONTAINER SIZE — ถอดรหัส ISO 6346 (ตัวที่ 1 = ความยาว, ตัวที่ 2 = ความสูง/HC, ตัวที่ 3 = ประเภท)
 function pmtIsoSize(code){
@@ -4393,6 +4461,8 @@ function pmtPasteLive(){
   if(!ta.value.trim()){ lv.className = 'pmt-modal-live'; lv.textContent = 'ยังไม่มีข้อมูลในช่อง'; return; }
   const Q = pmtParsePaste(ta.value);
   lv.className = 'pmt-modal-live' + (Q.error ? ' err' : '');
+  if(Q.mode === 'kv'){   /* [PASTE KV] local282: แสดงผลที่แยกได้ก่อนบันทึก */
+    lv.innerHTML = (Q.error ? '⚠ ' + esc(Q.error) : 'ตรวจพบ ' + Q.rows.length + ' รายการ (หัวข้อ / ค่า) · อ่านได้ ' + Q.cols.length + '/' + PMT_KV_FIELDS.length + ' ช่อง (ยังไม่บันทึก)') + (Q.rows.length ? pmtKvTable(Q.rows) : ''); return; }
   lv.textContent = Q.error ? '⚠ ' + Q.error : 'ตรวจพบ ' + Q.rows.length + ' แถว · อ่านได้ ' + Q.cols.length + '/8 คอลัมน์ (ยังไม่บันทึก)';
 }
 function pmtPasteOpen(){
@@ -4422,9 +4492,12 @@ function pmtRenderPastePreview(){
   const Q = pmtState.parsedPaste;
   if(!Q || !Q.rows || !Q.rows.length){ st.className = 'pmt-paste-status'; st.textContent = 'ยังไม่ได้บันทึกข้อมูล PASTE';
     if(vb) vb.style.display = 'none'; if(eb) eb.style.display = 'none'; box.innerHTML = ''; box.style.display = 'none'; return; }
-  st.className = 'pmt-paste-status ok'; st.textContent = '✅ บันทึกแล้ว ' + Q.rows.length + ' แถว · อ่านได้ ' + Q.cols.length + '/8 คอลัมน์';
+  st.className = 'pmt-paste-status ok'; st.textContent = Q.mode === 'kv'
+    ? '✅ บันทึกแล้ว ' + Q.rows.length + ' รายการ (หัวข้อ / ค่า) · อ่านได้ ' + Q.cols.length + '/' + PMT_KV_FIELDS.length + ' ช่อง' + (Q.rows.some(r => r._missing && r._missing.length) ? ' · ⚠ มีช่องที่ขาด' : '')   /* [PASTE KV] local282 */
+    : '✅ บันทึกแล้ว ' + Q.rows.length + ' แถว · อ่านได้ ' + Q.cols.length + '/8 คอลัมน์';
   if(vb){ vb.style.display = ''; vb.textContent = pmtPasteViewOpen ? 'ซ่อนข้อมูล' : 'ดูข้อมูล'; } if(eb) eb.style.display = '';
   if(!pmtPasteViewOpen){ box.innerHTML = ''; box.style.display = 'none'; return; }
+  if(Q.mode === 'kv'){ box.style.display = 'block'; box.innerHTML = pmtKvTable(Q.rows); return; }
   const keys = PMT_PASTE_COLS.map(c=>c[0]);
   box.style.display = 'block';
   box.innerHTML = '<div class="err-table-wrap"><table class="err-table"><thead><tr>' + keys.map(k=>'<th>' + PMT_PASTE_LABEL[k] + '</th>').join('') + '</tr></thead><tbody>'
