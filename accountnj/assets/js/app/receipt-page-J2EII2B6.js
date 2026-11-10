@@ -1168,7 +1168,7 @@ function RE820(e) {
   return m;
 }
 async function PV820(t, files) {   /* หน้าต่าง Preview */
-  ST823();
+  ST823(); ST829();
   let body = document.createElement("div"), foot = document.createElement("div"), st = { ck: null, rows: [], pick: new Map(), f: "ALL", busy: !1, req: "bn820-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)), done: !1 };
   body.className = "up820-m"; foot.className = "up820-foot";
   foot.innerHTML = '<button type="button" class="btn btn-o" data-close>ยกเลิก</button><button type="button" class="btn btn-o" id="up820-xl">EXPORT EXCEL รายการซ้ำ / ผิดพลาด</button><button type="button" class="btn btn-o" id="up820-dup">ดูรายการซ้ำ</button><button type="button" class="btn up820-ok" id="up820-ok" disabled>ยืนยันใช้ไฟล์ล่าสุด</button>';
@@ -1205,6 +1205,7 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
       + (fl.length > show.length ? `<div class="up820-note">แสดง ${show.length.toLocaleString("th-TH")} จาก ${fl.length.toLocaleString("th-TH")} รายการ — ดูทั้งหมดได้จาก EXPORT EXCEL</div>` : "");
     body.querySelectorAll("[data-f820]").forEach((b) => { b.onclick = () => { st.f = b.dataset.f820; draw(); }; });
     body.querySelectorAll("[data-p820]").forEach((x) => { x.onchange = () => { st.pick.set(x.dataset.p820, x.value); recalc(); }; });
+    if (st.rcEl && !st.job) body.prepend(st.rcEl); if (st.pgEl) body.prepend(st.pgEl);   /* V.823 : คงแถบสถานะการบันทึกเมื่อวาดใหม่ */
     ok.disabled = st.busy || st.done || !files.some((f) => !f.err);
   };
   let recalc = () => { st.rows = MG820(files.filter((f) => !f.err), st.ck.found, st.ck.prior, st.pick, st.ck.imported, st.ck.rx); draw(); };
@@ -1223,33 +1224,124 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
   };
   ok.onclick = async () => {
     if (st.busy || st.done || !st.ck) return; let C = cnt();
+    if (st.job && st.q828) { await SV828(); return; }   /* V.823 : ดำเนินการต่อ (เฉพาะ BATCH ที่ยังไม่สำเร็จ) */
     if (C.need) { st.f = "ERR"; draw(); k("กรุณาเลือกค่า APL Billing / CASE ที่ไม่ตรงกันก่อนบันทึก (" + C.need + " รายการ)", "err"); return; }
     if (!C.save) { k("ไม่มีรายการที่ต้องบันทึก — ข้อมูลเหมือนเดิมทั้งหมด", "ok"); return; }
     let a = await AK820(files, C); if (a === "dup") { st.f = "DUP"; draw(); return; } if (a !== "ok") return;
-    st.busy = !0; ok.disabled = !0; ok.textContent = "กำลังบันทึก…";
-    try {
-      let items = st.rows.filter((r) => !r.imp && (r.st === "NEW" || r.st === "CHG") && r.id && r.v).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.v, old: r.cur, file_seq: r.seq }));
-      let imports = st.rows.filter((r) => r.imp && (r.st === "IMP" || r.st === "CHG")).map((r) => Object.assign({ invoice_no: r.inv, ver: r.ex ? r.ex.ver : null, file_seq: r.seq, row_no: r.r, billing_note: r.v || null }, r.d));
-      let fz = files.filter((f) => !f.err).map((f) => ({ seq: f.seq, name: f.name, hash: f.hash, size: f.size, sheet: f.sheet, received_at: f.at, columns_used: f.used, columns_skipped: f.skipped,
-        stats: { rows: f.rows.length, total_rows_skipped: f.total, new: st.rows.filter((r) => r.seq === f.seq && r.st === "NEW").length, imported_new: st.rows.filter((r) => r.seq === f.seq && r.st === "IMP").length, changed: st.rows.filter((r) => r.seq === f.seq && r.st === "CHG").length,
-                 unchanged: st.rows.filter((r) => r.seq === f.seq && r.st === "SAME").length, review: st.rows.filter((r) => r.seq === f.seq && r.imp && r.rv && r.st !== "ERR").length, errors: st.rows.filter((r) => r.seq === f.seq && r.st === "ERR").length } }));
-      let r = await V("njacc_bn820_save", { p: { request_id: st.req, files: fz, items, imports } });
-      if (imports.length && !(r && r.rx823) && !(r && r.idempotent)) throw new Error("ระบบฐานข้อมูลยังไม่พร้อมนำเข้า (ต้องรัน RUN-823) — รายการนำเข้าจาก Excel ยังไม่ได้บันทึก");
-      let x = (r && r.rx823) || {}, n = (v) => Number(v || 0).toLocaleString("th-TH");
-      st.done = !0; ok.textContent = "✅ บันทึกแล้ว";
-      let msg = r && r.idempotent ? "บันทึกไว้แล้ว (คำขอเดิม)" : "Billing Note (INVOICE ในระบบ) อัปเดต " + n(r && r.updated) + " · นำเข้าใหม่ " + n(x.inserted) + " · อัปเดตรายการนำเข้า " + n(x.updated) + " · ไม่เปลี่ยน " + n(Number(r && r.unchanged || 0) + Number(x.unchanged || 0)) + (x.review ? " · รอตรวจสอบ " + n(x.review) : "");
-      k("บันทึกลงฐานข้อมูลแล้ว — " + msg, "ok");
-      for (let u of (r && r.uploads) || []) { let f = files.find((z) => z.seq === u.seq); if (!f || !f.raw || f.raw.size > 10e6) continue;   /* เก็บไฟล์ต้นทาง (หลังบันทึกสำเร็จ) */
+    let items = st.rows.filter((r) => !r.imp && (r.st === "NEW" || r.st === "CHG") && r.id && r.v).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.v, old: r.cur, file_seq: r.seq }));
+    let imports = st.rows.filter((r) => r.imp && (r.st === "IMP" || r.st === "CHG")).map((r) => Object.assign({ invoice_no: r.inv, ver: r.ex ? r.ex.ver : null, file_seq: r.seq, row_no: r.r, billing_note: r.v || null }, r.d));
+    let fz = files.filter((f) => !f.err).map((f) => ({ seq: f.seq, name: f.name, hash: f.hash, size: f.size, sheet: f.sheet, received_at: f.at, columns_used: f.used, columns_skipped: f.skipped,
+      stats: { rows: f.rows.length, total_rows_skipped: f.total, new: st.rows.filter((r) => r.seq === f.seq && r.st === "NEW").length, imported_new: st.rows.filter((r) => r.seq === f.seq && r.st === "IMP").length, changed: st.rows.filter((r) => r.seq === f.seq && r.st === "CHG").length,
+               unchanged: st.rows.filter((r) => r.seq === f.seq && r.st === "SAME").length, review: st.rows.filter((r) => r.seq === f.seq && r.imp && r.rv && r.st !== "ERR").length, errors: st.rows.filter((r) => r.seq === f.seq && r.st === "ERR").length } }));
+    st.busy = !0; ok.disabled = !0; ok.textContent = "กำลังเริ่มบันทึก…";
+    try {   /* V.823 (RUN-828) : เริ่ม Import (Import ID + ประวัติไฟล์ · ยังไม่บันทึกรายการ) → บันทึกทีละ BATCH */
+      st.job = await V("njacc_rx828_begin", { p: { request_id: st.req, files: fz, total_items: items.length, total_imports: imports.length } });
+      if (!st.job || !st.job.job_id) throw new Error("NJACC_RX828_NO_JOB");
+    } catch (e) {
+      st.busy = !1; ok.disabled = !1; ok.textContent = "ยืนยันใช้ไฟล์ล่าสุด";
+      st.job = null; if (/njacc_rx828|PGRST202|Could not find the function|NJACC_RX828_NO_JOB/i.test(String(e && e.message || e))) { k("ระบบฐานข้อมูลยังไม่พร้อมบันทึกแบบ BATCH (ต้องรัน RUN-828) — ยังไม่ได้บันทึก", "err"); return; }
+      k("เริ่มบันทึกไม่สำเร็จ — " + RE820(e), "err"); return;
+    }
+    let units = items.map((o) => ({ i: o })).concat(imports.map((o) => ({ m: o })));
+    st.sz828 = 500; st.seq828 = 0; st.q828 = [];
+    for (let j = 0; j < units.length; j += st.sz828) st.q828.push({ seq: ++st.seq828, u: units.slice(j, j + st.sz828), done: !1, err: "" });
+    st.tot828 = units.length; st.busy = !1;
+    await SV828();
+  };
+  /* ═══ V.823 (RUN-828) · บันทึกทีละ BATCH (ธุรกรรมของตัวเอง · ทีละชุดตามลำดับ · ไม่ส่งพร้อมกัน)
+     BATCH เริ่มต้น 500 รายการ (วัดจริง ≈ 130 ms / BATCH) · Timeout = ตรวจสถานะใน Database ก่อน → แบ่ง BATCH เล็กลง (ต่ำสุด 50) · Network / 5xx = ลองใหม่สูงสุด 3 ครั้ง (1 / 2 / 4 วินาที)
+     ข้อมูลผิดเงื่อนไข (INVALID / CHANGED) = บันทึกสาเหตุ แล้วทำ BATCH ถัดไป (รายการอื่นไม่หาย) · จบ = ตรวจจำนวนจริงจาก Database (njacc_rx828_finish) ═══ */
+  let SV828 = async () => {
+    if (st.busy) return; st.busy = !0; ok.disabled = !0; ok.textContent = "กำลังบันทึก…";
+    if (st.rcEl) { st.rcEl.remove(); st.rcEl = null; }   /* เริ่ม Import ใหม่แล้ว = ซ่อนแจ้งเตือน Import ค้าง */
+    let em = (e) => { let m = String(e && e.message || e || ""); return /NJACC_BN820_CHANGED/.test(m) ? "ข้อมูลรายการนี้ถูกบันทึก / แก้ไขไปแล้วหลังการตรวจ (ไม่บันทึกทับ) — Refresh แล้วอัปโหลดไฟล์เดิมเพื่อตรวจใหม่" : RE820(e); };
+    let biz = (m) => /NJACC_BN820_(INVALID|CHANGED|TOO_MANY)|NJACC_(MODULE_)?FORBIDDEN|NJACC_NO_PROFILE|NJACC_RX828_(NO_JOB|BAD_SEQ|EMPTY|BATCH_TOO_BIG)/.test(m);
+    let tmo = (m) => /statement timeout|57014|canceling statement/i.test(m);
+    let wait = (ms) => new Promise((z) => setTimeout(z, ms));
+    let stop = null;
+    PG828("run");
+    for (let n = 0; n < st.q828.length; n++) {
+      let b = st.q828[n]; if (b.done || b.skip) continue;
+      for (let at = 0; ; at++) {
+        let p = { job_id: st.job.job_id, seq: b.seq, items: b.u.filter((x) => x.i).map((x) => x.i), imports: b.u.filter((x) => x.m).map((x) => x.m) };
+        try { let r = await V("njacc_rx828_run", { p }); b.done = !0; b.err = ""; b.biz = !1; b.res = r && r.result; PG828("run"); break; }
+        catch (e) {
+          let m = String(e && e.message || e || "") + (e && e.code ? " [" + e.code + "]" : "");
+          if (biz(m)) {   /* ข้อมูลผิดเงื่อนไข = BATCH นี้ไม่ถูกบันทึก (Rollback ทั้งชุด) → แยกครึ่งเพื่อหารายการที่ผิดจริง · รายการอื่นบันทึกต่อได้ · สิทธิ์ / Import ไม่ถูกต้อง = หยุด */
+            let fatal = /FORBIDDEN|NO_PROFILE|NJACC_RX828_/.test(m);
+            try { await V("njacc_rx828_fail", { p: { job_id: st.job.job_id, seq: b.seq, units: b.u.length, error: m.slice(0, 1800) } }); } catch (x) {}
+            if (!fatal && b.u.length > 1) { let h = Math.ceil(b.u.length / 2); b.skip = !0; b.err = "แยกตรวจรายการที่ผิดพลาด";
+              st.q828.splice(n + 1, 0, { seq: ++st.seq828, u: b.u.slice(0, h), done: !1, err: "" }, { seq: ++st.seq828, u: b.u.slice(h), done: !1, err: "" }); PG828("run"); break; }
+            b.err = em(e) + (b.u.length === 1 ? " — INVOICE " + ((b.u[0].i || b.u[0].m || {}).invoice_no || "-") : ""); b.biz = !0; if (fatal) stop = b; PG828("run"); break;
+          }
+          let s = null; try { s = await V("njacc_rx828_status", { p: { job_id: st.job.job_id } }); } catch (x) {}   /* ตรวจใน Database ก่อน Retry (คำขอเดิมอาจสำเร็จแล้วแต่ผลตอบกลับหาย) */
+          let db = s && (s.batches || []).find((z) => z.seq === b.seq);
+          if (db && db.status === "DONE") { b.done = !0; b.err = ""; PG828("run"); break; }
+          if (tmo(m) && b.u.length > 50) {   /* Timeout = แบ่ง BATCH เล็กลง (เฉพาะชุดนี้และชุดถัดไป) */
+            try { await V("njacc_rx828_fail", { p: { job_id: st.job.job_id, seq: b.seq, units: b.u.length, error: m.slice(0, 1800) } }); } catch (x) {}
+            st.sz828 = Math.max(50, Math.floor(b.u.length / 2)); b.skip = !0; b.err = "แบ่งเป็น BATCH ย่อย (" + st.sz828 + " รายการ)";
+            let parts = []; for (let j = 0; j < b.u.length; j += st.sz828) parts.push({ seq: ++st.seq828, u: b.u.slice(j, j + st.sz828), done: !1, err: "" });
+            st.q828.splice(n + 1, 0, ...parts); PG828("run"); break;
+          }
+          if (at < 3) { b.err = "ลองใหม่ครั้งที่ " + (at + 1) + " — " + m.slice(0, 120); PG828("run"); await wait(1000 * Math.pow(2, at)); continue; }
+          b.err = em(e); try { await V("njacc_rx828_fail", { p: { job_id: st.job.job_id, seq: b.seq, units: b.u.length, error: m.slice(0, 1800) } }); } catch (x) {}
+          stop = b; break;
+        }
+      }
+      if (stop) break;
+    }
+    let fin = null; try { fin = await V("njacc_rx828_finish", { p: { job_id: st.job.job_id } }); st.fin828 = fin; } catch (e) { st.fin828 = null; }
+    if (!st.file828 && st.job && st.job.uploads) {   /* เก็บไฟล์ต้นทาง (ครั้งเดียว) */
+      st.file828 = !0;
+      for (let u of st.job.uploads || []) { let f = files.find((z) => z.seq === u.seq); if (!f || !f.raw || f.raw.size > 10e6) continue;
         try { let b64 = await new Promise((res, rej) => { let fr = new FileReader(); fr.onload = () => res(String(fr.result).replace(/^data:[^,]*,/, "")); fr.onerror = rej; fr.readAsDataURL(f.raw); }); await V("njacc_bn820_file", { p_upload: u.id, p_b64: b64 }); }
         catch (e) { try { console.warn("BN820 file", e); } catch (z) {} } }
-      body.insertAdjacentHTML("afterbegin", `<div class="up820-okb">✅ บันทึกลงฐานข้อมูลสำเร็จ — ${i(msg)} · บันทึกประวัติไฟล์ ${((r && r.uploads) || []).length} ไฟล์ · รายการแสดงในแถบรอรับชำระแล้ว</div>`);
-      try { let g = t.querySelector("#rp-go"); g && g.click(); } catch (e) {}
-    } catch (e) {
-      ok.textContent = "ยืนยันใช้ไฟล์ล่าสุด"; k("บันทึกไม่สำเร็จ — " + RE820(e), "err");
-      if (/NJACC_BN820_CHANGED/.test(String(e && e.message || e))) { st.req = "bn820-" + Date.now() + "-" + Math.random().toString(36).slice(2); await load(); body.insertAdjacentHTML("afterbegin", `<div class="up820-e">${i(RE820(e))}</div>`); }
-    } finally { st.busy = !1; ok.disabled = st.done; }
+    }
+    let left = st.q828.filter((b) => !b.done && !b.skip), all = !!fin && fin.status === "DONE" && !left.length;
+    st.busy = !1; st.done = all; ok.disabled = all; ok.textContent = all ? "✅ บันทึกแล้ว" : "ดำเนินการต่อ";
+    PG828(all ? "ok" : "part", stop);
+    let n0 = (v) => Number(v || 0).toLocaleString("th-TH");
+    if (all) k("บันทึกลงฐานข้อมูลสำเร็จ " + n0(fin.saved) + " / " + n0(fin.total) + " รายการ (ตรวจใน Database : นำเข้า " + n0(fin.db_imported) + " · Billing Note " + n0(fin.db_billing) + ")", "ok");
+    else k("บันทึกสำเร็จบางส่วน — สำเร็จ " + n0(fin ? fin.saved : st.q828.filter((b) => b.done).reduce((s, b) => s + b.u.length, 0)) + " / " + n0(st.tot828) + " · คงเหลือ " + n0(left.reduce((s, b) => s + b.u.length, 0)) + " รายการ — กด \"ดำเนินการต่อ\" เพื่อบันทึกเฉพาะส่วนที่เหลือ", "err");
+    try { let g = t.querySelector("#rp-go"); g && g.click(); } catch (e) {}
   };
-  await load();
+  /* แถบความคืบหน้า (จำนวนจาก BATCH ที่ Database ยืนยันแล้ว · จบ = จำนวนจาก njacc_rx828_finish) */
+  let PG828 = (mode, stop) => {
+    let el = st.pgEl || (st.pgEl = document.createElement("div")); el.className = "up828-pg" + (mode === "ok" ? " ok" : mode === "part" ? " part" : "");
+    let ok8 = st.q828.filter((b) => b.done).reduce((s, b) => s + b.u.length, 0), bad = st.q828.filter((b) => !b.done && !b.skip && b.biz), badN = bad.reduce((s, b) => s + b.u.length, 0);
+    let F = st.fin828, tot = st.tot828 || 0, sv = mode !== "run" && F ? Number(F.saved || 0) : ok8, rem = Math.max(0, tot - sv), pc = tot ? Math.floor((sv / tot) * 1000) / 10 : 0, n0 = (v) => Number(v || 0).toLocaleString("th-TH");
+    let ttl = mode === "ok" ? "✅ UPLOAD EXCEL — บันทึกสำเร็จ (ตรวจจำนวนใน Database แล้ว)" : mode === "part" ? "⚠️ UPLOAD EXCEL — บันทึกสำเร็จบางส่วน" : "UPLOAD EXCEL — กำลังบันทึกข้อมูล";
+    el.innerHTML = `<div class="up828-h">${ttl}${st.job ? ` <small>Import ID : ${i(String(st.job.job_id).slice(0, 8))}</small>` : ""}</div>`
+      + `<div class="up828-g"><span>รายการทั้งหมด <b>${n0(tot)}</b></span><span>บันทึกสำเร็จ <b>${n0(sv)}</b></span><span>คงเหลือ <b>${n0(rem)}</b></span><span>รายการผิดพลาด <b class="${badN ? "e" : ""}">${n0(badN)}</b></span><span>ความคืบหน้า <b>${pc.toFixed(1)}%</b></span></div>`
+      + `<div class="up828-bar"><i style="width:${pc}%"></i></div>`
+      + `<div class="up828-s">BATCH ${st.q828.filter((b) => b.done).length} / ${st.q828.filter((b) => !b.skip).length} สำเร็จ${F && mode !== "run" ? ` · ตรวจใน Database : รายการนำเข้า ${n0(F.db_imported)} · Billing Note ${n0(F.db_billing)} · นำเข้าใหม่ ${n0(F.inserted)} · อัปเดต ${n0(F.updated)} · Billing Note อัปเดต ${n0(F.bn_updated)} · ไม่เปลี่ยน ${n0(F.unchanged)}${F.review ? " · รอตรวจสอบ " + n0(F.review) : ""}` : ""}</div>`
+      + (bad.length || stop ? `<div class="up820-e">${(stop && !bad.includes(stop) ? [stop] : []).concat(bad).map((b) => `BATCH ${b.seq} (${n0(b.u.length)} รายการ) : ${i(b.err || "")}`).join("<br>")}</div>` : "")
+      + (mode === "part" ? `<div class="up828-s">รายการที่บันทึกแล้วคงอยู่ใน Database · กด <b>ดำเนินการต่อ</b> เพื่อบันทึกเฉพาะ BATCH ที่ยังไม่สำเร็จ (ไม่บันทึกซ้ำ) · หรือ Refresh แล้วอัปโหลดไฟล์เดิม — รายการที่บันทึกแล้วจะแสดงเป็น "ไม่เปลี่ยน"</div>` : "");
+    if (mode === "run") ok.textContent = "กำลังบันทึก… " + pc.toFixed(1) + "%";
+    body.firstChild !== el && body.prepend(el);
+  };
+  /* V.823 (RUN-828) : แจ้งการนำเข้าที่ยังไม่ครบ (หลัง Refresh / เน็ตหลุด) — ตรวจจาก Database จริง */
+  let RC828 = async () => {
+    try { let L8 = await V("njacc_rx828_recent", { p: {} }); if (!Array.isArray(L8) || !L8.length || st.job) return; let n0 = (v) => Number(v || 0).toLocaleString("th-TH");
+      let el = st.rcEl = document.createElement("div"); el.className = "up828-rc";
+      el.innerHTML = `<b>⚠️ พบการนำเข้าที่ยังบันทึกไม่ครบ (ข้อมูลจาก Database)</b>` + L8.map((j) => `<div>Import ID ${i(String(j.job_id).slice(0, 8))} · ${DT820(j.created_at)}${j.created_by_name ? " · " + i(j.created_by_name) : ""} · ${i((j.files || []).map((f) => f.name).join(", "))} · บันทึกแล้ว <b>${n0(j.saved)}</b> / ${n0(j.total)} · คงเหลือ <b>${n0(Math.max(0, Number(j.total || 0) - Number(j.saved || 0)))}</b></div>`).join("")
+        + `<div class="up828-s">รายการที่บันทึกแล้วยังอยู่ใน Database · อัปโหลดไฟล์เดิมได้ — ระบบตรวจกับ Database ก่อนบันทึก รายการที่บันทึกแล้วจะแสดงเป็น "ไม่เปลี่ยน" และบันทึกเฉพาะส่วนที่เหลือ (ไม่บันทึกซ้ำ)</div>`;
+      st.pgEl || body.prepend(el); } catch (e) {}
+  };
+  await load(); RC828();
+}
+/* V.823 (RUN-828) : CSS แถบความคืบหน้า UPLOAD EXCEL */
+function ST829() {
+  try {
+    if (document.getElementById("st829-css")) return;
+    let s = document.createElement("style"); s.id = "st829-css";
+    s.textContent = ".up828-pg{padding:10px 12px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:8px;margin-bottom:10px;display:grid;gap:6px}.up828-pg.ok{border-color:#bbf7d0;background:#f0fdf4}.up828-pg.part{border-color:#fde68a;background:#fffbeb}"
+      + ".up828-h{font-weight:800;color:#1e3a8a}.up828-pg.ok .up828-h{color:#15803d}.up828-pg.part .up828-h{color:#b45309}.up828-h small{font-weight:600;color:#64748b;margin-left:6px}"
+      + ".up828-g{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:#334155}.up828-g b{font-size:14px;color:#0f172a}.up828-g b.e{color:#b91c1c}"
+      + ".up828-bar{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.up828-bar i{display:block;height:100%;background:#2563eb;transition:width .25s}.up828-pg.ok .up828-bar i{background:#16a34a}.up828-pg.part .up828-bar i{background:#f59e0b}"
+      + ".up828-s{font-size:12.5px;color:#475569}.up828-rc{padding:10px 12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:8px;margin-bottom:10px;display:grid;gap:4px;font-size:13px}";
+    document.head.appendChild(s);
+  } catch (e) {}
 }
 function AK820(files, C) {   /* Popup ยืนยันก่อนบันทึก (ปิด / ยกเลิก = ไม่บันทึก) */
   return new Promise((res) => {

@@ -33,7 +33,7 @@ import{css762 as CS762,dd762 as DD762,sel762 as SL762,field762 as FD762,txt762 a
          <button class="btn-dots" data-rowmenu aria-label="\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23">\u22EE</button>
          <div class="row-drop">${Rt(t,a,o)}</div>
        </div></td>`:`<td class="col-act"><div class="ch-act">${Rt(t,a,o)}</div></td>`;if(o==="document")return`<tr data-row="${t.id}" data-status="${n(t.operational_status)}" data-inv="${n(t.invoice_id||"")}"${t.returned_at&&String(t.operational_status||"")!=="CLOSE"&&String(t.invoice_status||"").toUpperCase()!=="POSTED"?' data-ret="1"':""}>${zt(e).map(w=>w.c(t)).join("")+j(!1)}</tr>`;let V=Gt(t)+`<td>${vt(t.due_date,t)}</td>
-     <td class="nowrap">${S(t.date)}</td>`+(o==="accounting"?IV499(t)+(e==="SERVICE"?XB742(t):""):ke(t))+`<td>${n(t.case_no||"-")}</td>
+     <td class="nowrap">${S(t.date)}</td>`+(o==="accounting"?IV499(t)+(e==="SERVICE"?XB742(t)+XC829(t):""):ke(t))+`<td>${n(t.case_no||"-")}</td>
      <td class="ellip" style="max-width:140px" title="${n(t.contact||"")}">${n(t.contact||"-")}</td>`,C=`<td class="r">${f(t.service_amount)}</td>
       <td class="r">${f(t.advance_amount)}</td>
       <td class="r">${f(t.vat_amount)}</td>
@@ -816,6 +816,11 @@ function ok742(id) { return /^[0-9a-f-]{36}$/i.test(String(id || "")); }
 function V742(id) { id = String(id || ""); if (!X742.has(id)) return "…"; var v = X742.get(id); return v == null ? "-" : f(Number(v) || 0); }
 function XC742(e) { var id = e && e.id, k = ok742(id); k && (Q742.add(String(id)), clearTimeout(T742), T742 = setTimeout(F742, 0)); return '<td class="r nowrap" data-x742="' + (k ? n(id) : "") + '">' + (k ? V742(id) : "-") + "</td>"; }
 function XB742(t) { var d = t && t.invoice_id && t.invoice_date ? S(t.invoice_date) : ""; return '<td class="nowrap">' + (d && d !== "-" ? d : "–") + "</td>"; }
+/* ═══ V.824 (RUN-829) ACCOUNTING → SERVICE : คอลัมน์ "วันที่ปิดงาน" ต่อจาก "วันที่วางบิล" (หน้ารายงาน + EXPORT EXCEL)
+   ค่า = doc_closed_date จาก njacc_build_charge_set (วันที่ CLOSE สำเร็จใน DOCUMENT — SERVICE ของ JOB เดียวกัน · JOB เก่า = ประวัติ CLOSE ใน Audit Log) · ยังไม่ CLOSE / ไม่มีข้อมูล = "-"
+   EXPORT = data-col-key "doc_closed_date" (ลำดับตามหัวตาราง) · ADVANCE / DOCUMENT / FINANCE ไม่มีคอลัมน์นี้ ═══ */
+function XH829() { return '<th class="nowrap" data-col-key="doc_closed_date">วันที่ปิดงาน</th>'; }
+function XC829(t) { var d = t && t.doc_closed_date ? S(t.doc_closed_date) : ""; return '<td class="nowrap" data-l="วันที่ปิดงาน">' + (d && d !== "-" ? d : "-") + "</td>"; }
 function XD742(t, cols) {   /* DOCUMENT → SERVICE */
   if (t !== "SERVICE") return cols;
   var i = cols.findIndex(function (c) { return c.l === "Master B/L No."; });
@@ -823,7 +828,7 @@ function XD742(t, cols) {   /* DOCUMENT → SERVICE */
   return cols;
 }
 function XH742a() { var a = F.map(Wt), i = F.indexOf("Master B/L No."); a.splice(i + 1, 0, '<th class="r" data-col-export="no">' + L742 + "</th>"); return a.join(""); }   /* ACCOUNTING → SERVICE */
-function XH742b() { return he.replace(le, le + '<th data-col-export="no">' + B742 + "</th>"); }
+function XH742b() { return he.replace(le, le + '<th data-col-export="no">' + B742 + "</th>" + XH829()); }   /* V.824 (RUN-829) : + วันที่ปิดงาน ต่อจากวันที่วางบิล */
 function XK742(k, t) { var a = k.slice(), i = F.indexOf("Master B/L No."); a.splice(i + 1, 0, XC742(t)); return a; }
 async function F742() {
   var ids = [...Q742]; Q742.clear(); if (!ids.length) return;
