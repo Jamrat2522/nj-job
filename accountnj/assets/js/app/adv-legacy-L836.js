@@ -1,4 +1,4 @@
-/* ═══ V.836 (RUN-836) · FLOW B — ข้อมูลระบบเก่า (UPLOAD EXCEL)
+/* ═══ V.836 (RUN-836) · V.837 (RUN-837) · FLOW B — ข้อมูลระบบเก่า (UPLOAD EXCEL)
    (1) FINANCE → ADVANCE แถบย่อย "ระบบเก่า (UPLOAD EXCEL)" : UPLOAD EXCEL (SUPER_ADMIN) · รอรับชำระ · ออก RECEIPT ADVANCE (ADV) · ใบเสร็จที่ออกแล้ว · PDF (Template RECEIPT ADVANCE เดิม)
    (2) หน้าต่าง "ตรวจสอบ / แก้ไข CUSTOMER" (ใช้ร่วม FINANCE → RECEIPT SERVICE และ FINANCE → ADVANCE) — ยืนยันต่อชื่อลูกค้าใน Excel · ไม่สร้าง / ไม่แก้ Customer Master
    FLOW A (ACCOUNTING) ไม่ผ่านไฟล์นี้ · ทุกการบันทึกตรวจสิทธิ์ / ข้อมูลซ้ำที่ Server (RUN-836) ═══ */
@@ -20,7 +20,7 @@ const SA = () => String(APP.profile && APP.profile.role) === "SUPER_ADMIN";
 const RQ = (p) => { try { return p + "-" + crypto.randomUUID(); } catch (e) { return p + "-" + Date.now() + "-" + Math.random().toString(36).slice(2); } };
 const TD = () => { let d = new Date(), p = (x) => String(x).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); };
 
-export function RE836(e) {   /* ข้อความ Error จาก Server → ภาษาไทย */
+export function RE836(e) {   /* V.837 : + ข้อความแก้ไขใบเสร็จ (R837) */   /* ข้อความ Error จาก Server → ภาษาไทย */
   let m = String((e && (e.message || e.error_description || e.details)) || e || "");
   if (/PGRST202|schema cache|Could not find the function/i.test(m) && /836/.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-836)";
   if (/NJACC_MODULE_FORBIDDEN|NJACC_FORBIDDEN/.test(m)) return "ไม่มีสิทธิ์ทำรายการนี้";
@@ -202,7 +202,7 @@ function HP() {
     + `<label class="fl836"><span>ลูกค้า (Excel)</span><select class="sel" data-a836="customer_key"><option value="">ทั้งหมด</option></select></label>`
     + `<label class="fl836"><span>Date invoice ตั้งแต่</span><input class="inp" type="date" data-a836="from" value="${n(S.from)}"></label>`
     + `<label class="fl836"><span>ถึง</span><input class="inp" type="date" data-a836="to" value="${n(S.to)}"></label>`
-    + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button>${UB("l836-up")}`
+    + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button>${UB("l836-up")}${SA() ? '<button type="button" class="btn btn-sm hd837" id="l836-hd" title="INVOICE ที่นำออกจากใบเสร็จ — ตรวจสอบการรับชำระก่อนคืนเข้ารอรับชำระ (SUPER_ADMIN)">รอตรวจสอบการรับชำระ</button>' : ""}`   /* V.837 */
     + `<button type="button" class="btn btn-sm xl734" data-xl836>⬇ EXPORT EXCEL</button>`
     + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 RECEIPT ADVANCE PDF</button>`
     + `<button type="button" class="btn btn-sm cu836" id="l836-cu" title="ตรวจสอบ / แก้ไข CUSTOMER ของรายการที่เลือก (หรือของลูกค้าที่กรอง)">ตรวจสอบ / แก้ไข CUSTOMER</button>`
@@ -256,6 +256,7 @@ async function LP(host) {
     tb.innerHTML = host.__rows836.length ? host.__rows836.map(RW).join("") : '<tr><td colspan="12" class="empty">ไม่มีรายการ — กด “⬆ UPLOAD EXCEL” เพื่อนำเข้าข้อมูล ADVANCE ระบบเก่า</td></tr>';
     PGN(host.querySelector("#l836-pgn"), { page: S.page, size: S.size, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.page = a; S.size = z; LP(host); }, { lp: !0 });
     sync(host);
+    let hb = host.querySelector("#l836-hd"); hb && hcount837("ADV").then((c) => { hb.isConnected && (hb.textContent = "รอตรวจสอบการรับชำระ (" + N(c) + ")"); });   /* V.837 */
   } catch (e) {
     if (tk !== TK || !host.isConnected) return;
     tb.innerHTML = `<tr><td colspan="12" class="empty">โหลดรายการไม่สำเร็จ — ${n(RE836(e))} <button type="button" class="btn btn-sm btn-o" data-rt836>ลองใหม่</button></td></tr>`;
@@ -272,11 +273,12 @@ function AP(host) {
     on(ev);
   });
   host.addEventListener("click", (ev) => {
-    let b = ev.target.closest && ev.target.closest("[data-clr836],[data-xl836],#l836-rp,#l836-cu,#l836-clr"); if (!b) return;
+    let b = ev.target.closest && ev.target.closest("[data-clr836],[data-xl836],#l836-rp,#l836-cu,#l836-clr,#l836-hd"); if (!b) return;
     ev.preventDefault();
     if (b.hasAttribute("data-clr836")) { host.querySelectorAll("[data-a836]").forEach((e) => { e.value = ""; }); Object.assign(S, { q: "", view: "all", customer_key: "", from: "", to: "", page: 1 }); LP(host); }
     else if (b.hasAttribute("data-xl836")) XP(b);
     else if (b.id === "l836-rp") RO(host);
+    else if (b.id === "l836-hd") holds837("ADV", { onDone: () => LP(host) });   /* V.837 */
     else if (b.id === "l836-clr") { SEL.clear(); host.querySelectorAll(".l836-cb").forEach((x) => { x.checked = !1; }); sync(host); }
     else if (b.id === "l836-cu") {
       let ks = [...new Set([...SEL.values()].map((r) => r.customer_key).filter(Boolean))];
@@ -294,10 +296,11 @@ async function LI(host) {
     let k = r && r.kpi || {};
     host.querySelector("#l836-isum").innerHTML = `<span>ใบเสร็จ (ระบบเก่า) <b>${N(k.receipts)}</b> ใบ</span><span>INVOICE <b>${N(k.invoices)}</b></span><span>ยอดรวม <b>${M(k.amount)}</b></span>`;
     let rows = r && r.rows || [];
+    ST837();   /* V.837 */
     tb.innerHTML = rows.length ? rows.map((o) => { let id = n(o.receipt_id), no = n(o.receipt_no);
-      return `<tr><td class="nowrap" data-l="เลขที่ใบเสร็จ"><b>${no}</b><span class="adv814" style="display:block;font-size:11px;color:#9a3412">UPLOAD EXCEL</span></td><td class="nowrap" data-l="วันที่ออก">${D(o.receipt_date)}</td><td data-l="Customer">${n(o.customer_name)}</td>`
+      return `<tr><td class="nowrap" data-l="เลขที่ใบเสร็จ"><b>${no}</b><span class="adv814" style="display:block;font-size:11px;color:#9a3412">UPLOAD EXCEL</span>${o.replaces_no ? `<span class="rp837">แทน ${n(o.replaces_no)} (VOID)</span>` : ""}</td><td class="nowrap" data-l="วันที่ออก">${D(o.receipt_date)}</td><td data-l="Customer">${n(o.customer_name)}</td>`
         + `<td class="center" data-l="จำนวน INVOICE">${N(o.invoice_count)}</td><td class="r" data-l="ยอดรวม"><b>${M(o.total)}</b></td><td data-l="สถานะ"><span class="bdg789 bd836 ok">ออกใบเสร็จแล้ว</span></td>`
-        + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm" data-it836="${id}">รายการ</button> <button type="button" class="btn btn-sm" data-pv836="${id}">PREVIEW</button> <button type="button" class="btn btn-sm" data-pr836="${id}">PRINT</button> <button type="button" class="btn btn-sm" data-sv836="${id}">SAVE PDF</button></td></tr>`; }).join("")
+        + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm" data-it836="${id}">รายการ</button> ${SA() ? `<button type="button" class="btn btn-sm ed837" data-ed836="${id}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button> ` : ""}<button type="button" class="btn btn-sm" data-pv836="${id}">PREVIEW</button> <button type="button" class="btn btn-sm" data-pr836="${id}">PRINT</button> <button type="button" class="btn btn-sm" data-sv836="${id}">SAVE PDF</button></td></tr>`; }).join("")
       : '<tr><td colspan="7" class="empty">ยังไม่มีใบเสร็จ (ระบบเก่า)</td></tr>';
     PGN(host.querySelector("#l836-ipgn"), { page: S.ipage, size: S.isize, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.ipage = a; S.isize = z; LI(host); }, { lp: !0 });
   } catch (e) {
@@ -310,11 +313,12 @@ function AI(host) {
   let on = (ev) => { let e = ev.target; if (!e || !e.dataset || !e.dataset.i836) return; clearTimeout(tm); tm = setTimeout(run, e.type === "date" ? 0 : 300); };
   host.addEventListener("input", on); host.addEventListener("change", on);
   host.addEventListener("click", async (ev) => {
-    let b = ev.target.closest && ev.target.closest("[data-iclr836],[data-ixl836],[data-it836],[data-pv836],[data-pr836],[data-sv836]"); if (!b) return;
+    let b = ev.target.closest && ev.target.closest("[data-iclr836],[data-ixl836],[data-it836],[data-ed836],[data-pv836],[data-pr836],[data-sv836]"); if (!b) return;
     ev.preventDefault();
     if (b.hasAttribute("data-iclr836")) { host.querySelectorAll("[data-i836]").forEach((e) => { e.value = ""; }); Object.assign(S, { iq: "", ifrom: "", ito: "", ipage: 1 }); LI(host); return; }
     if (b.hasAttribute("data-ixl836")) { XI(b); return; }
     if (b.dataset.it836) { DT(b.dataset.it836); return; }
+    if (b.dataset.ed836) { let dp = CTX.deps; edit837({ src: "ADV", id: b.dataset.ed836, pv: (docs, o, h) => dp.RW788(docs, o, h), load: (i) => LD([i]), onDone: () => LI(host) }); return; }   /* V.837 */
     let id = b.dataset.pv836 || b.dataset.pr836 || b.dataset.sv836; if (b.disabled) return; b.disabled = !0;
     try {
       let docs = await LD([id]), dp = CTX.deps;
@@ -662,3 +666,278 @@ async function SAVE2(job, seq0, rest, body, foot, opts, done0, total) {   /* ท
   st.innerHTML += fin ? ` · สถานะ ${n(fin.status)} · อยู่ใน Database จริง ${N(fin.db_rows)}` : "";
   reload836();
 }
+
+/* ══════════ V.837 (RUN-837) · แก้ไขใบเสร็จที่ออกแล้ว (FLOW B — UPLOAD EXCEL · SERVICE RCP / ADVANCE ADV) ══════════
+   แก้ไข → เพิ่ม / นำออก INVOICE บางรายการ · ตรวจ CUSTOMER → ยอดเดิม / ใหม่ → PREVIEW ฉบับใหม่ → ยืนยัน (SUPER_ADMIN · Server ตรวจซ้ำทุกครั้ง)
+   → VOID ใบเดิม + ออกใบใหม่เลขถัดไป (RCP / ADV ตัวนับส่วนกลางเดิม · ธุรกรรมเดียว) · INVOICE ที่นำออก = รอตรวจสอบการรับชำระ (ไม่ลบ · ไม่คืนรอรับชำระอัตโนมัติ)
+   ใบเดิม / PDF เดิม / ประวัติ เปิดดูได้ · FLOW A (ACCOUNTING) ไม่ผ่านส่วนนี้ ═══ */
+function ST837() {
+  if (document.getElementById("st837")) return;
+  let s = document.createElement("style"); s.id = "st837";
+  s.textContent = [
+    ".btn.ed837{background:#fff!important;border:1px solid #b45309!important;color:#b45309!important;font-weight:700;margin-right:4px}.btn.ed837:hover{background:#fffbeb!important}",
+    ".rp837{display:block;font-size:11px;color:#64748b;font-weight:600}",
+    ".btn.hd837{background:#fff!important;border:1px solid #7c3aed!important;color:#6d28d9!important;font-weight:700;white-space:nowrap}",
+    ".e837{font-size:13px;color:#0f172a}.e837 h4{margin:14px 0 6px;font-size:14px;color:#0f2a4d}",
+    ".e837-hd{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;padding:10px 12px;border:1px solid #dbe4f0;border-radius:10px;background:#f8fafc}",
+    ".e837-hd>div{display:flex;flex-direction:column;gap:2px;min-width:0}.e837-hd span{font-size:12px;color:#64748b}.e837-hd b{overflow-wrap:anywhere}",
+    ".e837-cu{display:grid;grid-template-columns:1fr 1fr;gap:10px}.e837-cu>div{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px}",
+    ".e837-cu .cb836{margin:6px 0 0}.e837-tb td,.e837-tb th{font-size:12.5px;vertical-align:top}.e837-tb .r{text-align:right}",
+    ".e837-tb tr.rm837 td{background:#fef2f2;color:#991b1b;text-decoration:line-through}.e837-tb tr.rm837 td.keep837{text-decoration:none}",
+    ".e837-tb tr.ad837 td{background:#f0fdf4}.bd837{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}",
+    ".bd837.k{background:#e2e8f0;color:#334155}.bd837.a{background:#dcfce7;color:#15803d}.bd837.r{background:#fee2e2;color:#b91c1c}.bd837.v{background:#fee2e2;color:#b91c1c}.bd837.h{background:#ede9fe;color:#6d28d9}",
+    ".e837-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}",
+    ".e837-sum{width:100%;border-collapse:collapse;margin:6px 0}.e837-sum th,.e837-sum td{border:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:13px}.e837-sum th{background:#f1f5f9;font-size:12px}",
+    ".e837-sum td.n{font-weight:800}.e837-sum td.neg{color:#b91c1c;font-weight:800}.e837-sum td.pos{color:#15803d;font-weight:800}",
+    ".e837-f{display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:start}.e837-f label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#475569;font-weight:700}",
+    ".e837-f textarea{min-height:56px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;width:100%;box-sizing:border-box}",
+    ".e837-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:8px 10px;font-size:12.5px;margin:8px 0}",
+    ".e837-h table{width:100%;border-collapse:collapse}.e837-h td,.e837-h th{border-top:1px solid #e2e8f0;padding:4px 6px;font-size:12px;text-align:left;vertical-align:top}",
+    ".c837-list{max-height:55vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px}.c837-list table{width:100%;border-collapse:collapse}.c837-list td,.c837-list th{border-top:1px solid #f1f5f9;padding:4px 6px;font-size:12.5px;text-align:left}",
+    ".c837-list tr.dis td{color:#94a3b8}.c837-list .r{text-align:right}",
+    "@media (max-width:760px){.e837-cu,.e837-f{grid-template-columns:1fr}.e837-sum th,.e837-sum td{font-size:11.5px;padding:4px}.e837 .tbl-wrap{overflow:auto}}"
+  ].join("");
+  document.head.appendChild(s);
+}
+const R837 = (e) => {
+  let m = String((e && (e.message || e.error_description || e.details)) || e || "");
+  if (/NJACC_R837_INVALID/.test(m)) { try { return "ตรวจไม่ผ่าน : " + JSON.parse(m.replace(/^.*NJACC_R837_INVALID:\s*/, "")).join(" · "); } catch (x) {} }
+  if (/NJACC_R837_CHANGED/.test(m)) return "ข้อมูลเปลี่ยนแปลงหลัง PREVIEW (รายการ / ยอด / CUSTOMER) — โหลดข้อมูลล่าสุดแล้ว กรุณา PREVIEW ใหม่";
+  if (/NJACC_R837_NOT_ACTIVE/.test(m)) return "ใบเสร็จนี้ถูกยกเลิก (VOID) แล้ว — แก้ไขได้เฉพาะใบที่มีผล";
+  if (/NJACC_R837_NOCHANGE/.test(m)) return "ยังไม่มีรายการที่เพิ่ม / นำออก หรือ CUSTOMER ที่เปลี่ยน";
+  if (/PGRST202|schema cache|Could not find the function/i.test(m) && /837/.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-837)";
+  return RE836(e);
+};
+const MONEY = (v) => { let x = Number(v); return isFinite(x) ? x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"; };
+function CUB(c) {   /* กล่อง CUSTOMER */
+  c = c || {};
+  return `<div class="cb836"><span>CUSTOMER NAME</span><b>${n(c.name || "-")}</b><span>ADDRESS</span><b>${n(c.address || "-")}</b><span>TAX ID / BRANCH</span><b>${n(c.tax_id || "-")} / ${n(c.branch_code || "-")}</b>`
+    + (c.excel_names ? `<span>ชื่อใน Excel</span><b>${n([].concat(c.excel_names).join(", "))}</b>` : "") + `</div>`;
+}
+function DOC837(src, pv, g, date) {   /* ข้อมูล PREVIEW ฉบับใหม่ → รูปแบบ Template เดิม (ยังไม่ออกเลข) */
+  let cu = pv.customer_new || {}, items = (pv.items || []).map((x, i) => src === "RCP"
+    ? { no: i + 1, invoice_no: x.invoice_no, invoice_date: x.invoice_date, description: "SERVICE CHARGE", invoice_amount: x.invoice_amount, wht_amount: x.wht_amount, received: x.amount }
+    : { no: i + 1, invoice_no: x.invoice_no, invoice_date: x.invoice_date, description: "Advance Charge", amount: x.amount });
+  let d = { receipt_no: "SAMPLE", receipt_date: date, payment_method: g.payment_method, issuer: g.issuer || {}, items, total: pv.new.amount, credit: { days: null, mixed: !1 },
+            customer: { name: cu.name, tax_id: cu.tax_id, branch_code: cu.branch_code, address: cu.address } };
+  if (src === "RCP") Object.assign(d, { invoice_amount: pv.new.invoice_amount, wht_amount: pv.new.wht_amount });
+  else d.status = "ACTIVE";
+  return [d];
+}
+export async function edit837(o) {
+  ST836(); ST837(); o = o || {};
+  let src = o.src === "ADV" ? "ADV" : "RCP", id = o.id, st = { g: null, add: new Map(), rem: new Set(), pv: null, seen: !1, busy: !1, req: RQ("r837"), done: null, tm: 0, tk: 0 };
+  let lab = src === "RCP" ? "RECEIPT (SERVICE)" : "RECEIPT ADVANCE";
+  let body = document.createElement("div"); body.className = "e837";
+  body.innerHTML = '<div id="e837-form"><div class="load-row"><div class="spin"></div></div></div><div id="e837-doc" hidden></div>';
+  let foot = document.createElement("div"); foot.className = "radv788-foot";
+  foot.innerHTML = '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁 PREVIEW ฉบับใหม่</button><button class="btn btn-p" id="e837-ok" disabled>✅ ยืนยัน : VOID ใบเดิม + ออกใบใหม่</button>';
+  MODAL({ title: "แก้ไข " + lab + " — UPLOAD EXCEL (ระบบเก่า)", body, footer: foot, fullscreen: !0, wide: !0 });
+  let q = (s) => body.querySelector(s) || foot.querySelector(s), F = q("#e837-form"), PD = q("#e837-doc");
+  let back = () => { PD.hidden = !0; PD.innerHTML = ""; F.hidden = !1; };
+  let showDocs = async (docs, opt) => { F.hidden = !0; PD.hidden = !1; PD.innerHTML = '<div class="load-row"><div class="spin"></div></div>'; await o.pv(docs, Object.assign({ back }, opt), PD); };
+  let changed = () => st.add.size > 0 || st.rem.size > 0 || !!(st.pv && st.pv.customer_changed);
+  let sc = () => {
+    let g = st.g, act = g && g.status === "ACTIVE" && !st.done, why = q("#e837-why"), rs = why ? why.value.trim() : "", e = st.pv && (st.pv.errors || []).length;
+    q("#e837-pv").disabled = !act || !st.pv || !!e || !changed() || st.busy;
+    q("#e837-ok").disabled = !act || !st.pv || !!e || !changed() || !st.seen || rs.length < 5 || st.busy;
+    q("#e837-ok").title = !changed() ? "ยังไม่มีรายการที่เพิ่ม / นำออก" : e ? "แก้ไขข้อผิดพลาดก่อน" : !st.seen ? "กรุณากด PREVIEW ฉบับใหม่ก่อนยืนยัน" : rs.length < 5 ? "กรุณาระบุเหตุผล (อย่างน้อย 5 ตัวอักษร)" : "";
+  };
+  let SUM = () => {
+    let p = st.pv, g = st.g; if (!p) return '<div class="load-row"><div class="spin"></div></div>';
+    let d = Number(p.diff || 0);
+    return `<table class="e837-sum"><thead><tr><th>จำนวน INVOICE เดิม</th><th>เพิ่ม</th><th>นำออก</th><th>จำนวนใหม่</th><th>ยอดเดิม</th><th>ผลต่าง</th><th>ยอดใหม่</th></tr></thead><tbody><tr>`
+      + `<td>${N(p.old.count)}</td><td class="pos">+${N(p.add_count)}</td><td class="neg">−${N(p.rem_count)}</td><td class="n">${N(p.new.count)}</td>`
+      + `<td>${MONEY(p.old.amount)}</td><td class="${d < 0 ? "neg" : d > 0 ? "pos" : ""}">${d > 0 ? "+" : ""}${MONEY(d)}</td><td class="n">${MONEY(p.new.amount)}</td></tr></tbody></table>`
+      + (src === "RCP" ? `<div style="font-size:12px;color:#475569">ใบใหม่ : Invoice Amount ${MONEY(p.new.invoice_amount)} · WHT 7% ${MONEY(p.new.wht_amount)} · Payment Received ${MONEY(p.new.amount)} (สูตรเดิม · WHT ต่อ INVOICE ปัด 2 ตำแหน่ง · ไม่รวม ADVANCE)</div>`
+                     : '<div style="font-size:12px;color:#475569">ยอด = ADVANCE ที่ตรวจแล้วเท่านั้น (ไม่หัก WHT · ไม่ใช้ Total Amount แทน)</div>')
+      + ((p.errors || []).length ? `<div class="radv788-err"><b>⚠ ยืนยันไม่ได้ :</b><ul>${p.errors.map((e) => `<li>${n(e)}</li>`).join("")}</ul></div>` : "")
+      + (changed() && !(p.errors || []).length ? `<div class="e837-note">เมื่อยืนยัน : <b>VOID ${n(g.receipt_no)}</b> (เก็บเลข / รายการ / ยอด / PDF เดิมไว้ครบ) → ออกใบใหม่เลขถัดไป <b>${n(p.next_no || g.next_no)}</b> (ตัวนับส่วนกลาง · ออกเลขจริงเมื่อยืนยัน)`
+        + (p.rem_count ? ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>รอตรวจสอบการรับชำระ</b> (ไม่ลบ · ไม่คืนรอรับชำระจนกว่าจะตรวจสอบเงินจริง)` : "") + `</div>` : "");
+  };
+  let ROWS = () => {
+    let g = st.g, cur = g.items || [], act = g.status === "ACTIVE" && !st.done;
+    let money = (x) => src === "RCP" ? `<td class="r">${MONEY(x.invoice_amount)}</td><td class="r">${MONEY(x.wht_amount)}</td><td class="r"><b>${MONEY(x.amount)}</b></td>` : `<td class="r"><b>${MONEY(x.amount)}</b></td>`;
+    let row = (x, k, i) => `<tr class="${k === "r" ? "rm837" : k === "a" ? "ad837" : ""}"><td class="center keep837">${act ? (k === "a" ? `<button type="button" class="btn btn-sm btn-o" data-un837="${n(x.item_id)}" title="ไม่เพิ่มรายการนี้">✕</button>`
+        : k === "r" ? `<button type="button" class="btn btn-sm btn-o" data-back837="${n(x.item_id)}" title="ไม่นำออก">คืน</button>` : `<input type="checkbox" class="e837-cb" data-it="${n(x.item_id)}" aria-label="เลือก ${n(x.invoice_no)}">`) : ""}</td>`
+      + `<td>${i}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${money(x)}`
+      + `<td class="keep837"><span class="bd837 ${k}">${k === "a" ? "เพิ่ม" : k === "r" ? "นำออก" : "เดิม"}</span></td></tr>`;
+    let i = 0, h = cur.map((x) => row(x, st.rem.has(x.item_id) ? "r" : "k", ++i)).join("") + [...st.add.values()].map((x) => row(x, "a", ++i)).join("");
+    return `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th class="center">${act ? '<input type="checkbox" id="e837-all" aria-label="เลือกทั้งหมด">' : ""}</th><th>No.</th><th>INVOICE</th><th>วันที่ INVOICE</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>`
+      + (src === "RCP" ? '<th class="r">Invoice Amount</th><th class="r">WHT 7%</th><th class="r">Amount Charge</th>' : '<th class="r">Advance Amount</th>') + `<th>สถานะ</th></tr></thead><tbody>${h || '<tr><td colspan="12" class="empty">ไม่มีรายการ</td></tr>'}</tbody></table></div>`;
+  };
+  let HIST = () => {
+    let g = st.g, ch = g.chain || [], lg = g.log || [], hd = g.holds || [];
+    return `<div class="e837-h"><h4>ประวัติเอกสาร</h4><div class="tbl-wrap"><table><thead><tr><th>เลขที่ใบเสร็จ</th><th>สถานะ</th><th>วันที่</th><th class="r">จำนวน</th><th class="r">ยอด</th><th>ผู้ออก / ผู้ VOID · เหตุผล</th><th></th></tr></thead><tbody>`
+      + ch.map((c) => `<tr><td><b>${n(c.receipt_no)}</b>${c.current ? ' <span class="bd837 k">ใบนี้</span>' : ""}</td><td>${c.status === "VOID" ? '<span class="bd837 v">VOID</span>' : '<span class="bd837 a">มีผล</span>'}</td><td>${D(c.receipt_date)}</td>`
+        + `<td class="r">${N(c.count)}</td><td class="r">${MONEY(c.amount)}</td><td>${n(c.issued_by_name || "")}${c.status === "VOID" ? `<br><small>VOID ${n(String(c.voided_at || "").slice(0, 16).replace("T", " "))} · ${n(c.voided_by_name || "")} · ${n(c.void_reason || "")}</small>` : ""}</td>`
+        + `<td><button type="button" class="btn btn-sm" data-old837="${n(c.id)}" data-st="${n(c.status)}">PDF</button></td></tr>`).join("") + `</tbody></table></div>`
+      + (hd.length ? `<h4>INVOICE ที่นำออก (${N(hd.length)})</h4><div class="tbl-wrap"><table><thead><tr><th>INVOICE</th><th class="r">ยอด</th><th>นำออกจาก</th><th>สถานะ</th><th>ผลตรวจสอบ</th></tr></thead><tbody>`
+        + hd.map((h) => `<tr><td>${n(h.invoice_no)}</td><td class="r">${MONEY(h.amount)}</td><td>${n(h.from_receipt_no)} → ${n(h.new_receipt_no || "")}</td><td>${h.status === "HOLD" ? '<span class="bd837 h">รอตรวจสอบการรับชำระ</span>' : h.status === "RELEASED" ? '<span class="bd837 a">คืนรอรับชำระแล้ว</span>' : '<span class="bd837 k">ปิด (รับเงินแล้ว)</span>'}</td><td>${n(h.resolved_by_name || "")} ${n(h.resolve_note || "")}</td></tr>`).join("") + `</tbody></table></div>` : "")
+      + (lg.length ? `<h4>บันทึกการแก้ไข (Audit)</h4><div class="tbl-wrap"><table><thead><tr><th>เวลา</th><th>รายการ</th><th>เดิม → ใหม่</th><th>จำนวน</th><th class="r">ยอด</th><th>เหตุผล</th><th>ผู้ทำ</th></tr></thead><tbody>`
+        + lg.map((l) => `<tr><td>${n(String(l.at || "").slice(0, 16).replace("T", " "))}</td><td>${n(l.action === "VOID_REISSUE" ? "VOID + ออกใหม่" : l.action === "HOLD_RELEASE" ? "คืนรอรับชำระ" : l.action === "HOLD_CLOSE" ? "ปิดรายการ" : l.action)}`
+          + `${(l.added || []).length ? `<br><small>เพิ่ม : ${n(l.added.map((z) => z.invoice_no).join(", "))}</small>` : ""}${(l.removed || []).length ? `<br><small>นำออก : ${n(l.removed.map((z) => z.invoice_no).join(", "))}</small>` : ""}</td>`
+          + `<td>${n(l.old_receipt_no || "")}${l.new_receipt_no ? " → " + n(l.new_receipt_no) : ""}</td><td>${l.count_new != null ? N(l.count_old) + " → " + N(l.count_new) : N(l.count_old)}</td>`
+          + `<td class="r">${l.amount_new != null ? MONEY(l.amount_old) + " → " + MONEY(l.amount_new) : MONEY(l.amount_old)}</td><td>${n(l.reason || "")}</td><td>${n(l.by_name || "")}</td></tr>`).join("") + `</tbody></table></div>` : "") + `</div>`;
+  };
+  let CUN = () => {
+    let g = st.g, pv = st.pv, cn = pv && pv.customer_new, conf = (g.customers || []).filter((c) => c.ok);
+    let cm = cn || (!pv && conf[0] ? { name: conf[0].name, tax_id: conf[0].tax_id, branch_code: conf[0].branch_code, address: conf[0].address, excel_names: g.keys } : null);
+    return (cm ? CUB(cm) : '<div class="radv788-err">ยังไม่ได้ตรวจสอบ / ยืนยัน CUSTOMER ของ INVOICE ในใบใหม่</div>')
+      + (pv && pv.customer_changed ? '<div class="e837-note" style="margin:6px 0 0">CUSTOMER ต่างจากใบเดิม — ใบใหม่จะใช้ข้อมูลที่ยืนยันนี้</div>' : "");
+  };
+  let draw = () => {
+    let g = st.g, act = g.status === "ACTIVE" && !st.done;
+    F.innerHTML = `<div class="e837-hd"><div><span>เลขที่ใบเสร็จ (เดิม)</span><b>${n(g.receipt_no)}</b></div><div><span>สถานะ</span><b>${g.status === "VOID" ? '<span class="bd837 v">VOID</span>' : '<span class="bd837 a">มีผล</span>'}</b></div>`
+      + `<div><span>วันที่ใบเสร็จ</span><b>${D(g.receipt_date)}</b></div><div><span>จำนวน INVOICE</span><b>${N(g.count)}</b></div><div><span>ยอดรวม (Receipt Amount)</span><b>${MONEY(g.amount)}</b></div>`
+      + `<div><span>วิธีรับชำระ</span><b>${n(g.payment_method || "-")}</b></div><div><span>COMPANY INVOICE</span><b>${n((g.company_invoices || []).join(", ") || "-")}</b></div>`
+      + ((g.prev_nos || []).length ? `<div><span>แทนใบเดิม (VOID)</span><b>${n(g.prev_nos.join(", "))}</b></div>` : "") + `</div>`
+      + (g.status === "VOID" ? `<div class="e837-note">ใบนี้ถูกยกเลิก (VOID) แล้ว${g.void_reason ? " — " + n(g.void_reason) : ""} · แก้ไขได้เฉพาะใบที่มีผล (ดูประวัติด้านล่าง)</div>` : "")
+      + `<h4>ข้อมูล CUSTOMER</h4><div class="e837-cu"><div><b>ในใบเสร็จเดิม</b>${CUB(g.customer)}</div><div><b>ที่จะใช้ในใบใหม่ (ข้อมูลที่ยืนยันแล้ว)</b><div id="e837-cunew">${CUN()}</div>`
+      + (act ? `<div style="margin-top:6px"><button type="button" class="btn btn-sm cu836" id="e837-cu">ตรวจสอบ / แก้ไข CUSTOMER</button> <small style="color:#64748b">เลือกจาก Customer Master หรือกรอกเอง · ไม่แก้ Customer Master · เก็บประวัติ</small></div>` : "") + `</div></div>`
+      + `<h4>รายการ INVOICE ภายในใบเสร็จ</h4>`
+      + (act ? `<div class="e837-bar"><button type="button" class="btn btn-sm btn-p" id="e837-add">+ เพิ่ม INVOICE</button><button type="button" class="btn btn-sm" id="e837-rm" style="border:1px solid #b91c1c;color:#b91c1c;background:#fff;font-weight:700" disabled>นำรายการที่เลือกออก</button><span id="e837-sel" style="color:#475569"></span></div>` : "")
+      + ROWS() + `<div id="e837-sum">${act ? SUM() : ""}</div>`
+      + (act ? `<div class="e837-f"><label>วันที่ใบเสร็จฉบับใหม่<input type="date" class="inp" id="e837-date" min="2026-11-01" value="${n(st.date || String(g.receipt_date || "").slice(0, 10))}"></label>`
+        + `<label>เหตุผลการแก้ไข <span class="req">*</span><textarea id="e837-why" maxlength="500" placeholder="เช่น นำ INVOICE ที่ลูกค้ายังไม่ชำระออก / เพิ่ม INVOICE ที่ชำระพร้อมกัน">${n(st.why || "")}</textarea></label></div>` : "")
+      + HIST();
+    let all = F.querySelector("#e837-all"), cbs = () => [...F.querySelectorAll(".e837-cb")], rm = F.querySelector("#e837-rm"), sel = F.querySelector("#e837-sel");
+    let syncSel = () => { let k = cbs().filter((c) => c.checked).length; rm && (rm.disabled = !k); sel && (sel.textContent = k ? "เลือก " + N(k) + " รายการ" : ""); all && (all.checked = k > 0 && k === cbs().length); };
+    all && (all.onchange = () => { cbs().forEach((c) => { c.checked = all.checked; }); syncSel(); });
+    F.querySelectorAll(".e837-cb").forEach((c) => { c.onchange = syncSel; });
+    rm && (rm.onclick = () => { cbs().filter((c) => c.checked).forEach((c) => st.rem.add(c.dataset.it)); recalc(); });
+    F.querySelectorAll("[data-back837]").forEach((b) => { b.onclick = () => { st.rem.delete(b.dataset.back837); recalc(); }; });
+    F.querySelectorAll("[data-un837]").forEach((b) => { b.onclick = () => { st.add.delete(b.dataset.un837); recalc(); }; });
+    let ad = F.querySelector("#e837-add"); ad && (ad.onclick = () => pick());
+    let cu = F.querySelector("#e837-cu"); cu && (cu.onclick = async () => { let ks = [...new Set((g.keys || []).concat([...st.add.values()].map((x) => x.customer_key)))].filter(Boolean); if (await cust836(ks, { closeOnSave: !1 })) { await load(); } });
+    let why = F.querySelector("#e837-why"); why && (why.oninput = () => { st.why = why.value; sc(); });
+    let dt = F.querySelector("#e837-date"); dt && (dt.onchange = () => { st.date = dt.value; st.seen = !1; upd(); });
+    F.querySelectorAll("[data-old837]").forEach((b) => { b.onclick = async () => {
+      if (b.disabled) return; b.disabled = !0;
+      try { let docs = await o.load(b.dataset.old837); if (b.dataset.st === "VOID") docs.forEach((d) => { d.receipt_no = d.receipt_no + " (VOID)"; }); await showDocs(docs, { sample: !1, title: lab + " " + docs.map((d) => d.receipt_no).join(", ") }); }
+      catch (e) { TOAST("เปิด PDF ไม่สำเร็จ — " + R837(e), "err"); } finally { b.disabled = !1; } }; });
+    sc();
+  };
+  let paint = () => { let s = q("#e837-sum"); s && (s.innerHTML = SUM()); let c = q("#e837-cunew"); c && (c.innerHTML = CUN()); sc(); };
+  let recalc = () => { st.seen = !1; st.pv = null; draw(); upd(); };   /* รายการเปลี่ยน = วาดตารางใหม่ + ยอดใหม่จาก Server */
+  let upd = () => {   /* ยอดใหม่จาก Server (อ่านอย่างเดียว · ไม่ออกเลข) */
+    st.seen = !1; st.pv = null; paint();
+    clearTimeout(st.tm); let tk = ++st.tk;
+    st.tm = setTimeout(async () => {
+      try {
+        let dt = q("#e837-date");
+        let r = await RPC("njacc_r837_preview", { p: { src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt ? dt.value || null : null } }); if (tk !== st.tk) return;
+        st.pv = r; paint();
+      } catch (e) { if (tk !== st.tk) return; let s2 = q("#e837-sum"); s2 && (s2.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`); sc(); }
+    }, 120);
+  };
+  let load = async () => {
+    try { st.g = await RPC("njacc_r837_get", { p: { src, id } }); } catch (e) { F.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; return; }
+    if (st.g.status === "ACTIVE" && !st.done) recalc(); else draw();
+  };
+  let pick = () => {   /* + เพิ่ม INVOICE : รอรับชำระ FLOW B ประเภทเดียวกัน · ลูกค้าเดียวกัน (ชื่อใน Excel หรือ TAX ID + BRANCH + ที่อยู่ที่ยืนยันตรงกัน) */
+    let ov = document.createElement("div"); ov.className = "c836-ov"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true");
+    ov.innerHTML = `<div class="c836-b" style="max-width:980px"><div class="c836-h"><h3>+ เพิ่ม INVOICE (รอรับชำระ · UPLOAD EXCEL · ${src === "RCP" ? "SERVICE" : "ADVANCE"})</h3><button type="button" class="btn-icon" data-x837 aria-label="ปิด">✕</button></div>`
+      + `<div class="c836-c"><input class="inp" id="c837-q" placeholder="ค้นหา INVOICE / บริษัท / Customer Job No. / ลูกค้า" autocomplete="off"><div id="c837-k" style="font-size:12px;color:#475569"></div><div class="c837-list" id="c837-l"><div class="load-row"><div class="spin"></div></div></div></div>`
+      + `<div class="c836-f"><span id="c837-n" style="margin-right:auto;color:#475569"></span><button type="button" class="btn btn-o" data-x837>ยกเลิก</button><button type="button" class="btn btn-p" id="c837-ok" disabled>เพิ่มรายการที่เลือก</button></div></div>`;
+    document.body.appendChild(ov);
+    let rows = [], pickd = new Map(), L = ov.querySelector("#c837-l"), ok = ov.querySelector("#c837-ok"), cn = ov.querySelector("#c837-n");
+    let close = () => { document.removeEventListener("keydown", key, !0); ov.remove(); };
+    let key = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
+    document.addEventListener("keydown", key, !0);
+    ov.addEventListener("click", (ev) => { if (ev.target === ov || (ev.target.closest && ev.target.closest("[data-x837]"))) close(); });
+    let sync = () => { let s = 0; pickd.forEach((x) => { s += Math.round(Number(x.amount || 0) * 100); }); ok.disabled = !pickd.size; ok.textContent = "เพิ่มรายการที่เลือก" + (pickd.size ? " (" + pickd.size + ")" : ""); cn.textContent = pickd.size ? "เลือก " + N(pickd.size) + " รายการ · ยอดที่เพิ่ม " + MONEY(s / 100) : ""; };
+    let render = () => {
+      let have = new Set([...(st.g.items || []).map((x) => x.item_id), ...st.add.keys()]);
+      let list = rows.filter((x) => !have.has(x.item_id));
+      L.innerHTML = list.length ? `<table><thead><tr><th></th><th>INVOICE</th><th>วันที่</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th><th class="r">${src === "RCP" ? "Amount Charge" : "Advance"}</th><th>สถานะ</th></tr></thead><tbody>`
+        + list.map((x) => `<tr class="${x.reason ? "dis" : ""}"><td>${x.reason ? "–" : `<input type="checkbox" data-c837="${n(x.item_id)}"${pickd.has(x.item_id) ? " checked" : ""}>`}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td><td class="r">${MONEY(x.amount)}</td><td>${x.reason ? n(x.reason) : '<span class="bd837 a">เพิ่มได้</span>'}</td></tr>`).join("") + "</tbody></table>"
+        : '<div class="empty" style="padding:12px">ไม่พบ INVOICE รอรับชำระของลูกค้าเดียวกัน</div>';
+      L.querySelectorAll("[data-c837]").forEach((c) => { c.onchange = () => { let r = rows.find((x) => x.item_id === c.dataset.c837); c.checked && r ? pickd.set(r.item_id, r) : pickd.delete(c.dataset.c837); sync(); }; });
+      sync();
+    };
+    let tm = 0, get = async (qq) => {
+      L.innerHTML = '<div class="load-row"><div class="spin"></div></div>';
+      try { let r = await RPC("njacc_r837_cands", { p: { src, id, q: qq || null } }); rows = r.rows || []; ov.querySelector("#c837-k").textContent = "ลูกค้า (ชื่อใน Excel / TAX ID + BRANCH ที่ยืนยันตรงกัน) : " + (r.keys || []).join(", "); render(); }
+      catch (e) { L.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; }
+    };
+    ov.querySelector("#c837-q").oninput = (ev) => { clearTimeout(tm); tm = setTimeout(() => get(ev.target.value.trim()), 300); };
+    ok.onclick = () => { pickd.forEach((x, k) => st.add.set(k, x)); close(); recalc(); };
+    get("");
+  };
+  q("#e837-pv").onclick = async () => {
+    if (!st.pv || (st.pv.errors || []).length) return;
+    let dt = q("#e837-date"); st.seen = !0; sc();
+    try { await showDocs(DOC837(src, st.pv, st.g, (dt && dt.value) || st.g.receipt_date), { sample: !0, title: lab + " — ตัวอย่างฉบับใหม่" }); } catch (e) { back(); TOAST("PREVIEW ไม่สำเร็จ — " + R837(e), "err"); }
+  };
+  q("#e837-ok").onclick = async () => {
+    if (st.busy || q("#e837-ok").disabled) return;
+    let g = st.g, p = st.pv, why = q("#e837-why").value.trim(), dt = q("#e837-date").value || null;
+    back();
+    let yes = await new Promise((res) => { let old = F.querySelector(".radv788-ask"); old && old.remove();
+      F.insertAdjacentHTML("afterbegin", `<div class="radv788-ask"><div>ยืนยัน <b>VOID ${n(g.receipt_no)}</b> และออกใบใหม่ (${N(p.new.count)} INVOICE · ${MONEY(p.new.amount)}) วันที่ ${D(dt || g.receipt_date)}<br>ระบบจะตรวจสิทธิ์ / ข้อมูลจาก Database อีกครั้ง · ออกเลขจริงจากตัวนับส่วนกลาง · ทำทั้งหมดในธุรกรรมเดียว (ล้มเหลว = ไม่เปลี่ยนอะไร)</div><div class="radv788-ask-b"><button class="btn btn-o" data-ask="0">ยกเลิก</button><button class="btn btn-p" data-ask="1">ยืนยัน</button></div></div>`);
+      F.querySelectorAll("[data-ask]").forEach((x) => { x.onclick = () => { F.querySelector(".radv788-ask").remove(); res(x.dataset.ask === "1"); }; });
+      F.scrollIntoView && F.scrollIntoView({ block: "start" }); });
+    if (!yes) return;
+    st.busy = !0; sc(); let ok = q("#e837-ok"), lb = ok.textContent; ok.textContent = "กำลังบันทึก…";
+    try {
+      let r = await RPC("njacc_r837_commit", { p: { request_id: st.req, src, id, add: [...st.add.keys()], remove: [...st.rem], receipt_date: dt, reason: why,
+        expected: { count: p.new.count, amount: p.new.amount, idk: p.customer_new && p.customer_new.idk || "", item_ids: (p.items || []).map((x) => x.item_id) } } });
+      st.done = r; st.req = RQ("r837"); ok.textContent = "✅ บันทึกแล้ว";
+      TOAST("VOID " + (r.old && r.old.receipt_no) + " · ออกใบใหม่ " + (r.new && r.new.receipt_no) + " แล้ว", "ok");
+      o.onDone && o.onDone(r);
+      id = r.new.id; st.add.clear(); st.rem.clear(); st.done = null; st.why = ""; st.date = ""; await load();
+      F.insertAdjacentHTML("afterbegin", `<div class="radv788-okbox"><b>✅ VOID ${n(r.old.receipt_no)} · ออกใบใหม่ ${n(r.new.receipt_no)}</b> — ${N(r.new.count)} INVOICE · ${MONEY(r.new.amount)}${r.removed ? " · นำออก " + N(r.removed) + " รายการ = รอตรวจสอบการรับชำระ" : ""}`
+        + ` <button type="button" class="btn btn-sm btn-p" id="e837-open">ดู / PRINT / SAVE PDF ฉบับใหม่</button></div>`);
+      let op = F.querySelector("#e837-open"); op && (op.onclick = async () => { try { await showDocs(await o.load(r.new.id), { sample: !1, title: lab + " " + r.new.receipt_no }); } catch (e) { TOAST(R837(e), "err"); } });
+    } catch (e) {
+      ok.textContent = lb; TOAST("บันทึกไม่สำเร็จ — " + R837(e), "err");
+      if (/R837_(CHANGED|INVALID|NOT_ACTIVE)|CUST836/.test(String(e && e.message || e))) { await load(); F.insertAdjacentHTML("afterbegin", `<div class="radv788-err">${n(R837(e))}</div>`); }
+    } finally { st.busy = !1; sc(); }
+  };
+  await load();
+}
+
+/* INVOICE ที่นำออกจากใบเสร็จ : รอตรวจสอบการรับชำระ → คืนรอรับชำระ (ตรวจแล้ว ยังไม่ได้รับเงิน) | ปิด (รับเงินแล้ว / ปรับปรุงแล้ว) · SUPER_ADMIN */
+export async function holds837(src, o) {
+  ST836(); ST837(); o = o || {}; src = src === "ADV" ? "ADV" : "RCP";
+  let st = { all: !1, q: "", sel: new Set(), rows: [] }, did = !1;
+  let body = document.createElement("div"); body.className = "e837";
+  body.innerHTML = `<div class="e837-bar"><label class="sel836"><input type="checkbox" id="h837-all"> แสดงที่ดำเนินการแล้วด้วย</label><input class="inp" id="h837-q" placeholder="ค้นหา INVOICE / เลขใบเสร็จ / ลูกค้า" style="min-width:220px"></div>`
+    + `<div id="h837-l"><div class="load-row"><div class="spin"></div></div></div>`
+    + `<div class="e837-f" style="margin-top:10px"><label>คืนเข้ารอรับชำระ<span style="font-weight:600;color:#0f172a"><input type="checkbox" id="h837-ok"> ตรวจสอบเงินจริงแล้ว — ยังไม่ได้รับเงิน</span></label>`
+    + `<label>หมายเหตุ (จำเป็นเมื่อปิดรายการ)<textarea id="h837-note" maxlength="500" placeholder="เช่น รับเงินแล้ว ตามใบเสร็จ RCP… / ปรับปรุงกับลูกค้าแล้ว"></textarea></label></div>`;
+  let foot = document.createElement("div"); foot.className = "radv788-foot";
+  foot.innerHTML = '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="h837-close" disabled>ปิดรายการ (รับเงินแล้ว)</button><button class="btn btn-p" id="h837-rel" disabled>คืนเข้ารอรับชำระ</button>';
+  MODAL({ title: "INVOICE รอตรวจสอบการรับชำระ — " + (src === "RCP" ? "SERVICE (RCP)" : "ADVANCE (ADV)") + " · UPLOAD EXCEL", body, footer: foot, wide: !0 });
+  let q = (s) => body.querySelector(s) || foot.querySelector(s), L = q("#h837-l");
+  let sc = () => { let k = st.sel.size; q("#h837-rel").disabled = !k || !q("#h837-ok").checked; q("#h837-close").disabled = !k || q("#h837-note").value.trim().length < 5;
+    q("#h837-rel").textContent = "คืนเข้ารอรับชำระ" + (k ? " (" + k + ")" : ""); q("#h837-close").textContent = "ปิดรายการ (รับเงินแล้ว)" + (k ? " (" + k + ")" : ""); };
+  let load = async () => {
+    L.innerHTML = '<div class="load-row"><div class="spin"></div></div>';
+    try {
+      let r = await RPC("njacc_r837_holds", { p: { src, status: st.all ? "ALL" : "HOLD", q: st.q || null } }); st.rows = r.rows || []; st.sel.clear();
+      L.innerHTML = st.rows.length ? `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th></th><th>INVOICE</th><th>วันที่ INVOICE</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th class="r">ยอด</th><th>นำออกจาก → ใบใหม่</th><th>นำออกเมื่อ / โดย · เหตุผล</th><th>สถานะ</th></tr></thead><tbody>`
+        + st.rows.map((h) => `<tr><td>${h.status === "HOLD" ? `<input type="checkbox" data-h837="${n(h.id)}">` : ""}</td><td><b>${n(h.invoice_no)}</b></td><td>${D(h.invoice_date)}</td><td>${n(h.excel_name || "-")}</td><td>${n(h.company_invoice || "-")}</td>`
+          + `<td class="r">${MONEY(h.amount)}</td><td>${n(h.from_receipt_no)} → ${n(h.new_receipt_no || "-")}</td><td>${n(String(h.created_at || "").slice(0, 16).replace("T", " "))} · ${n(h.created_by_name || "")}<br><small>${n(h.reason || "")}</small></td>`
+          + `<td>${h.status === "HOLD" ? '<span class="bd837 h">รอตรวจสอบ</span>' : h.status === "RELEASED" ? '<span class="bd837 a">คืนรอรับชำระแล้ว</span>' : '<span class="bd837 k">ปิดแล้ว</span>'}${h.resolve_note ? `<br><small>${n(h.resolve_note)}</small>` : ""}</td></tr>`).join("") + "</tbody></table></div>"
+        : '<div class="empty" style="padding:12px">ไม่มีรายการรอตรวจสอบการรับชำระ</div>';
+      L.querySelectorAll("[data-h837]").forEach((c) => { c.onchange = () => { c.checked ? st.sel.add(c.dataset.h837) : st.sel.delete(c.dataset.h837); sc(); }; });
+    } catch (e) { L.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; }
+    sc();
+  };
+  let act = async (a, b) => {
+    if (b.disabled) return; b.disabled = !0;
+    try {
+      await RPC("njacc_r837_hold_act", { p: { src, ids: [...st.sel].map(Number), action: a, note: q("#h837-note").value.trim(), confirm_unpaid: a === "RELEASE" ? q("#h837-ok").checked : !1 } });
+      did = !0; o.onDone && o.onDone(); TOAST(a === "RELEASE" ? "คืนเข้ารอรับชำระแล้ว" : "ปิดรายการแล้ว", "ok"); q("#h837-ok").checked = !1; q("#h837-note").value = ""; await load();
+    } catch (e) { TOAST(R837(e), "err"); await load(); }
+  };
+  q("#h837-all").onchange = (ev) => { st.all = ev.target.checked; load(); };
+  let tm = 0; q("#h837-q").oninput = (ev) => { clearTimeout(tm); tm = setTimeout(() => { st.q = ev.target.value.trim(); load(); }, 300); };
+  q("#h837-ok").onchange = sc; q("#h837-note").oninput = sc;
+  q("#h837-rel").onclick = (ev) => act("RELEASE", ev.currentTarget);
+  q("#h837-close").onclick = (ev) => act("CLOSE", ev.currentTarget);
+  await load();
+}
+export async function hcount837(src) { try { let r = await RPC("njacc_r837_holds", { p: { src, status: "HOLD" } }); return Number(r && r.count || 0); } catch (e) { return 0; } }
