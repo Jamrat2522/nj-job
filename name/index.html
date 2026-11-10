@@ -616,7 +616,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
         <div class="page-header">
           <div>
             <div class="page-title">รวมไฟล์ CAT</div>
-            <div class="page-desc">โยนเอกสารที่ปะปนกัน → อ่านใบขน → ดึงเลข INVOICE / B/L → จับเข้าชุดของใบขน → EXPORT ZIP ครั้งเดียว</div>
+            <div class="page-desc">โยนเอกสารที่ปะปนกัน → อ่านใบขน → ดึงเลข INVOICE / B/L → จับเข้าชุดของใบขน → รวมเป็น PDF เดียวต่อใบขน (เรียง 01–07) → EXPORT ZIP ครั้งเดียว</div>
           </div>
           <div class="flex-row gap8">
             <button class="btn btn-secondary btn-sm" onclick="catClear()" id="btn-cat-clear" style="display:none">✕ ล้างทั้งหมด</button>
@@ -2523,6 +2523,19 @@ var CATEngine = (function () {
     return '07';
   }
 
+  /* เอกสารที่กำหนดให้ "ตัดออก" — ตรวจจากเนื้อหาจริงของเอกสาร (ไม่ดูชื่อไฟล์) ไม่นำไปรวมหรือแนบ */
+  var CUT_RULES = [
+    { label: 'Proforma Invoice & Packing List (For Customs Declaration)', test: function (U) { return /PRO[\s-]?FORMA\s+INVOICE\s*&\s*PACKING\s+LIST/.test(U) && /FOR\s+CUSTOMS\s+DECLARATION/.test(U); } },
+    { label: 'BIRTIMP (รายการ BOI Import)', test: function (U) { return /PROJ_CODE/.test(U) && /IMP_ENTRY/.test(U) && /DOC_NO/.test(U); } },
+    { label: 'PO LIST', test: function (U) { return /SHIPMENT\s+NUMBER/.test(U) && /CHINA_HS_CODE/.test(U) && /OUTBOUND\s+NUMBER/.test(U); } },
+    { label: 'ใบแจ้งหนี้ค่าระวางสายเรือ (CMA CGM Invoice)', test: function (U) { return /CMA\s+CGM/.test(U) && /INVOICE\s+TO\s*:/.test(U) && /CHARGE\s+DESCRIPTION/.test(U); } },
+    { label: 'Export Booking + Picking Letters', test: function (U) { return /EXPORT\s+BOOKING/.test(U) && /PICKING\s+LETTERS/.test(U); } }
+  ];
+  function cutRule(U) {
+    for (var i = 0; i < CUT_RULES.length; i++) if (CUT_RULES[i].test(U)) return CUT_RULES[i].label;
+    return null;
+  }
+
   function pagesLabel(pages) {
     var out = [], i = 0;
     while (i < pages.length) {
@@ -2642,7 +2655,7 @@ var CATEngine = (function () {
       var u = {
         key: src.id + (pages ? '#' + pagesLabel(pages) : ''), srcId: src.id, name: src.name, pages: pages,
         type: o.type, sets: o.sets || [], evidence: o.evidence || '', reason: o.reason || '', note: o.note || '',
-        hint: o.hint || null, amb: o.amb || [], multi: (o.sets || []).length > 1
+        hint: o.hint || null, amb: o.amb || [], multi: (o.sets || []).length > 1, cut: o.cut || null
       };
       units.push(u); return u;
     }
@@ -2687,6 +2700,8 @@ var CATEngine = (function () {
         });
         return;
       }
+      var cut = cutRule(U);
+      if (cut) { mkUnit(src, null, { type: type, sets: [], cut: cut }); return; }
       res = resolve(U);
       if (res.sets.length >= 2 && src.kind === 'pdf' && src.pages.length > 1) {
         /* อ้างถึงหลายใบขน → ตรวจระดับหน้า แยกเฉพาะหน้าที่ระบุชุดได้ชัดเจน */
@@ -2750,52 +2765,39 @@ var CATEngine = (function () {
   }
   function natCmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
-  /* ตั้งชื่อไฟล์ใน ZIP ย่อย: เรียง 01–07, หลายไฟล์ในประเภทเดียวกัน → NN_KK_ */
-  function planNames(set, unitsIn, textOf) {
-    var out = [], used = {};
+  /* ลำดับเอกสารภายใน PDF รวมของแต่ละใบขน: 01→07 แล้วเรียงตามชื่อไฟล์ */
+  function planOrder(unitsIn) {
+    var out = [];
     TYPES.forEach(function (T) {
-      var list = unitsIn.filter(function (u) { return u.type === T.code; })
-        .sort(function (a, b) { return natCmp(a.name, b.name) || natCmp(a.key, b.key); });
-      list.forEach(function (u, idx) {
-        var sn = splitName(u.name), ext = u.pages ? '.pdf' : sn.ext, nm;
-        var base = sanitize(sn.base) + (u.pages ? '_p' + pagesLabel(u.pages).replace(/,/g, '_') : '');
-        if (list.length === 1) nm = T.code + '_' + T.fname + ext;
-        else {
-          var kk = (idx + 1 < 10 ? '0' : '') + (idx + 1), tail;
-          if (T.code === '03') {
-            var inv = set.invoices.filter(function (k) { return keyHits(textOf(u), k) > 0; });
-            tail = 'Invoice_' + (inv.length === 1 ? sanitize(inv[0]) : base);
-          } else tail = T.fname + '_' + base;
-          nm = T.code + '_' + kk + '_' + tail + ext;
-        }
-        var n0 = nm, c = 2;
-        while (used[nm.toLowerCase()]) { var s2 = splitName(n0); nm = s2.base + '_' + (c++) + s2.ext; }
-        used[nm.toLowerCase()] = 1;
-        out.push({ unit: u, name: nm, type: T.code });
-      });
+      unitsIn.filter(function (u) { return u.type === T.code; })
+        .sort(function (a, b) { return natCmp(a.name, b.name) || natCmp(a.key, b.key); })
+        .forEach(function (u) { out.push({ unit: u, type: T.code }); });
     });
     return out;
   }
 
   return {
     TYPES: TYPES, analyze: analyze, parseDeclPage: parseDeclPage, classify: classify, keyHits: keyHits,
-    findDeclNos: findDeclNos, setStatus: setStatus, planNames: planNames, pagesLabel: pagesLabel,
+    findDeclNos: findDeclNos, setStatus: setStatus, planOrder: planOrder, cutRule: cutRule, pagesLabel: pagesLabel,
     sanitize: sanitize, splitName: splitName, natCmp: natCmp, up: up
   };
 })();
 /*CAT-ENGINE-END*/
 
 /* ============================================================
-   MODE CAT — รวมไฟล์ CAT (ส่วนหน้าจอ / อ่านไฟล์ / EXPORT)
+   MODE CAT — รวมไฟล์ CAT (ส่วนหน้าจอ / อ่านไฟล์ / รวม PDF / EXPORT)
    ============================================================ */
 const CAT_XLSX_URL  = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const CAT_CMAP_URL  = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/';
 const CAT_SKIP_RE   = /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$|desktop\.ini$|~\$)/i;
-let catSrc = [];            // ไฟล์ต้นฉบับทั้งหมด {id,name,bytes,kind,pages,text,error}
+const CAT_FONT      = '"Sarabun","Leelawadee UI","Tahoma","Noto Sans Thai","Loma","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+let catSrc = [];            // ไฟล์ที่อัปโหลดรอบปัจจุบัน {id,name,bytes,kind,pages,text,error}
 let catSets = [];           // ชุดใบขนจาก CATEngine
 let catUnits = [];          // หน่วยเอกสารหลังจับคู่
 let catManual = {};         // unit.key → {sets,type} ที่ผู้ใช้ย้ายเอง
 let catOpenSets = {};       // ชุดที่กางรายละเอียดอยู่
+let catDup = 0;             // จำนวนไฟล์ซ้ำ (เนื้อหาเหมือนกันทุกไบต์) ที่ข้ามไปในรอบนี้
+let catLastExport = null;   // สรุปผล EXPORT ล่าสุด (ใช้ตรวจสอบ)
 let catBusy = false, catSeq = 0, catXlsxP = null, catRarP = null;
 
 function catSrcById(id) { return catSrc.find(s => s.id === id); }
@@ -2887,6 +2889,12 @@ function catZipName(bytes) {
   try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
   catch (_) { try { return new TextDecoder('windows-874').decode(bytes); } catch (__) { return Array.from(bytes).map(c => String.fromCharCode(c)).join(''); } }
 }
+/* ลายนิ้วมือเนื้อหาไฟล์ ใช้ตัดไฟล์ซ้ำ (เหมือนกันทุกไบต์) ในรอบเดียวกัน */
+function catHash(b) {
+  let h1 = 0x811c9dc5, h2 = 0x1b873593;
+  for (let i = 0; i < b.length; i++) { h1 = Math.imul(h1 ^ b[i], 16777619); h2 = Math.imul(h2 + b[i], 0x85ebca6b) ^ (h2 >>> 13); }
+  return b.length + ':' + (h1 >>> 0).toString(16) + ':' + (h2 >>> 0).toString(16);
+}
 /* แตก ZIP / RAR (ซ้อนกันได้) → รายการไฟล์จริง */
 async function catExpand(name, bytes, out, depth) {
   if (CAT_SKIP_RE.test(name)) return;
@@ -2913,6 +2921,10 @@ async function catExpand(name, bytes, out, depth) {
   }
   out.push({ name: name, bytes: bytes });
 }
+function catIsSheetExt(ext) { return ext === 'xlsx' || ext === 'xls' || ext === 'xlsm' || ext === 'xlsb' || ext === 'csv'; }
+function catIsImageExt(ext) { return ext === 'jpg' || ext === 'jpeg' || ext === 'png'; }
+/* ไฟล์ที่นำไปต่อใน PDF รวมได้: PDF, Excel/CSV (แปลงเป็นหน้า PDF), รูป JPG/PNG */
+function catMergeable(u) { const e = catExt(u.name); return !!u.pages || e === 'pdf' || catIsSheetExt(e) || catIsImageExt(e); }
 
 /* อ่านเนื้อหาจริงภายในไฟล์ */
 async function catReadDoc(src) {
@@ -2935,7 +2947,7 @@ async function catReadDoc(src) {
         if (i % 8 === 0) await tick();
       }
       try { await task.destroy(); } catch (_) {}
-    } else if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm' || ext === 'xlsb') {
+    } else if (catIsSheetExt(ext)) {
       src.kind = 'sheet';
       await catLoadXlsx();
       const wb = XLSX.read(src.bytes, { type: 'array' });
@@ -2957,8 +2969,8 @@ async function catReadDoc(src) {
         }
       }
       src.text = parts.join('\n');
-    } else if (ext === 'csv' || ext === 'txt') {
-      src.kind = 'sheet';
+    } else if (ext === 'txt') {
+      src.kind = 'other';
       src.text = catZipName(src.bytes);
     } else { src.kind = 'other'; src.text = ''; }
   } catch (e) {
@@ -2972,7 +2984,7 @@ async function catAddFiles(list) {
   if (!list || !list.length) return;
   if (catBusy) { toast('กำลังประมวลผลอยู่ กรุณารอสักครู่', 'warning'); return; }
   /* รอบใหม่ = ใช้เฉพาะไฟล์ที่อัปโหลดครั้งนี้ — ล้างไฟล์/ผลจับคู่ของรอบก่อนทั้งหมด ไม่ดึงไฟล์เก่ามาแนบ */
-  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {};
+  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null;
   catBusy = true; catUpdateButtons(); catRender();
   const t0 = Date.now();
   try {
@@ -2985,8 +2997,12 @@ async function catAddFiles(list) {
       } catch (e) { toast('เปิดไฟล์ ' + list[i].path + ' ไม่ได้: ' + ((e && e.message) || e), 'error'); }
       await tick();
     }
+    const seen = {};
     for (let i = 0; i < raw.length; i++) {
       catProgress('กำลังอ่านเอกสาร ' + (i + 1) + '/' + raw.length + ' : ' + raw[i].name.split('/').pop(), 10 + 85 * (i + 1) / raw.length);
+      const hk = catHash(raw[i].bytes);
+      if (seen[hk]) { catDup++; continue; }           // ไฟล์ซ้ำทุกไบต์ → ไม่นำเข้าซ้ำ
+      seen[hk] = 1;
       const src = { id: 'c' + (++catSeq), name: raw[i].name, bytes: raw[i].bytes, kind: 'other', pages: null, text: '', error: null };
       await catReadDoc(src);
       catSrc.push(src);
@@ -2997,8 +3013,8 @@ async function catAddFiles(list) {
     catAnalyze();
     if (raw.length) {
       logAudit('upload_pdf', 'CAT: ' + raw.length + ' ไฟล์', null, true, 'รวมไฟล์ CAT');
-      const pend = catUnits.filter(u => !u.sets.length).length;
-      toast('อ่านเอกสาร ' + raw.length + ' ไฟล์ · พบ ' + catSets.length + ' ใบขน' + (pend ? ' · รอตรวจสอบ ' + pend : '') + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + ' วินาที)', pend ? 'warning' : 'success');
+      const pend = catPending().length, cut = catCut().length;
+      toast('อ่านเอกสาร ' + catSrc.length + ' ไฟล์ · พบ ' + catSets.length + ' ใบขน' + (cut ? ' · ตัดออก ' + cut : '') + (catDup ? ' · ไฟล์ซ้ำ ' + catDup : '') + (pend ? ' · รอตรวจสอบ ' + pend : '') + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + ' วินาที)', pend ? 'warning' : 'success');
     }
   } catch (e) {
     toast('ประมวลผลล้มเหลว: ' + ((e && e.message) || e), 'error');
@@ -3013,17 +3029,33 @@ function catAnalyze() {
   catSets = r.sets; catUnits = r.units;
   const valid = {}; catSets.forEach(s => valid[s.declNo] = 1);
   catUnits.forEach(u => {
-    const m = catManual[u.key]; if (!m) return;
+    const m = catManual[u.key]; if (!m || u.cut) return;
     u.manual = true; u.type = m.type || u.type;
     if (m.sets) { u.sets = m.sets.filter(n => valid[n]); u.multi = u.sets.length > 1; }
   });
+  /* จับคู่ได้แต่ไฟล์ประเภทนี้ต่อเป็น PDF ไม่ได้ → รอตรวจสอบ (ไม่แนบแยกในชุด) */
+  catUnits.forEach(u => {
+    if (!u.cut && u.sets.length && !catMergeable(u)) {
+      u.reason = 'จับคู่ได้กับใบขน ' + u.sets.join(', ') + ' แต่ไฟล์ประเภทนี้รวมเป็น PDF ไม่ได้ (รองรับ PDF, Excel, JPG, PNG)';
+      u.sets = []; u.multi = false;
+    }
+  });
 }
-function catUnitsOf(declNo) { return catUnits.filter(u => u.sets.indexOf(declNo) >= 0); }
-function catPending() { return catUnits.filter(u => !u.sets.length); }
+function catUnitsOf(declNo) { return catUnits.filter(u => !u.cut && u.sets.indexOf(declNo) >= 0); }
+function catPending() { return catUnits.filter(u => !u.cut && !u.sets.length); }
+function catCut() { return catUnits.filter(u => u.cut); }
 function catUpdateButtons() {
   const ex = document.getElementById('btn-cat-export'), cl = document.getElementById('btn-cat-clear');
-  if (ex) ex.disabled = catBusy || !catUnits.length;
+  if (ex) ex.disabled = catBusy || !(catSets.length || catPending().length);
   if (cl) cl.style.display = catSrc.length ? '' : 'none';
+}
+function catUnitPagesTxt(u) {
+  const s = catSrcById(u.srcId);
+  if (u.pages) return u.pages.length + ' หน้า';
+  if (s && s.kind === 'pdf' && s.pages) return s.pages.length + ' หน้า';
+  if (catIsSheetExt(catExt(u.name))) return 'Excel → แปลงเป็นหน้า PDF';
+  if (catIsImageExt(catExt(u.name))) return 'รูป → 1 หน้า';
+  return 'รวมเป็น PDF ไม่ได้';
 }
 
 /* ---------- หน้าต่างรายงาน ---------- */
@@ -3032,14 +3064,15 @@ function catRender() {
   const sum = document.getElementById('cat-summary'), rep = document.getElementById('cat-report'), pen = document.getElementById('cat-pending');
   if (!sum) return;
   if (!catSrc.length) { sum.innerHTML = ''; rep.innerHTML = ''; pen.innerHTML = ''; return; }
-  const pending = catPending();
+  const pending = catPending(), nCut = catCut().length;
   const stats = catSets.map(s => CATEngine.setStatus(s, catUnitsOf(s.declNo), pending, catTextOf));
   const nOk = stats.filter(x => x.status === 'ครบ').length;
   sum.innerHTML =
     '<div class="cat-stats">' +
-    '<div class="cat-stat"><b>' + catSrc.length + '</b><span>ไฟล์ที่อ่าน</span></div>' +
+    '<div class="cat-stat"><b>' + catSrc.length + '</b><span>ไฟล์ที่อัปโหลดรอบนี้</span></div>' +
     '<div class="cat-stat"><b>' + catSets.length + '</b><span>ใบขน (ชุด)</span></div>' +
     '<div class="cat-stat"><b class="text-grn">' + nOk + '</b><span>ชุดที่ครบ</span></div>' +
+    '<div class="cat-stat"><b>' + nCut + '</b><span>ตัดออกตามกฎ</span></div>' +
     '<div class="cat-stat"><b class="' + (pending.length ? 'text-red' : '') + '">' + pending.length + '</b><span>รอตรวจสอบ</span></div>' +
     '</div>';
 
@@ -3052,7 +3085,7 @@ function catRender() {
     let why = '';
     if (st.noInvoice) why = 'อ่านเลข INVOICE ในใบขนไม่ได้';
     else if (st.waiting) why = 'มีเอกสารรอยืนยัน ' + st.waiting + ' ไฟล์';
-    if (st.missing.length) why += (why ? ' · ' : '') + 'ขาด: ' + st.missing.join(', ');
+    if (st.missing.length) why += (why ? ' · ' : '') + 'ไม่มี: ' + st.missing.join(', ') + ' (รวมเฉพาะเอกสารที่มีจริง)';
     h += '<tr class="cat-set-row" onclick="catToggle(\'' + s.declNo + '\')">' +
       '<td data-l="เลขใบขน"><span class="cat-caret">' + (open ? '▼' : '▶') + '</span> <b class="text-gold">' + esc(s.declNo) + '</b></td>' +
       '<td data-l="INVOICE">' + (s.invoices.length ? esc(s.invoices.join(', ')) : '<span class="text-red">อ่านไม่ได้</span>') + '</td>' +
@@ -3060,12 +3093,12 @@ function catRender() {
       '<td data-l="จำนวนเอกสาร">' + us.length + ' ไฟล์</td>' +
       '<td data-l="สถานะ"><span class="badge ' + cls + '">' + st.status + '</span>' + (why ? '<div class="cat-why">' + esc(why) + '</div>' : '') + '</td></tr>';
     if (open) {
-      const plan = CATEngine.planNames(s, us, catTextOf);
+      const plan = CATEngine.planOrder(us);
       h += '<tr class="cat-detail-row"><td colspan="5"><div class="cat-detail">' +
-        '<div class="cat-detail-hd">📦 ' + esc(s.declNo) + '.zip — ' + plan.length + ' ไฟล์' +
+        '<div class="cat-detail-hd">📦 ' + esc(s.declNo) + '.zip → ' + esc(s.declNo) + '.pdf (PDF เดียวต่อเนื่อง เรียงตามลำดับด้านล่าง ' + plan.length + ' เอกสาร)' +
         (s.permits.length ? ' · ใบอนุญาตในใบขน: ' + esc(s.permits.join(', ')) : '') +
         (s.refs.length ? ' · เลขอ้างอิง: ' + esc(s.refs.join(', ')) : '') + '</div>' +
-        plan.map(p => catUnitRow(p.unit, p.name, s.declNo)).join('') +
+        plan.map((p, k) => catUnitRow(p.unit, (k + 1) + '. ' + p.type + ' ' + catTypeLabel(p.type) + ' — ' + catUnitPagesTxt(p.unit), s.declNo)).join('') +
         (plan.length ? '' : '<div class="text-muted text-xs">ไม่มีเอกสารในชุดนี้</div>') + '</div></td></tr>';
     }
   });
@@ -3073,16 +3106,16 @@ function catRender() {
   rep.innerHTML = h;
 
   if (!pending.length) { pen.innerHTML = ''; return; }
-  pen.innerHTML = '<div class="card cat-pending-card"><div class="card-hdr"><div class="card-title">⚠ รอตรวจสอบ — ' + pending.length + ' ไฟล์ (จะถูกแยกไว้ใน _รอตรวจสอบ.zip)</div></div>' +
+  pen.innerHTML = '<div class="card cat-pending-card"><div class="card-hdr"><div class="card-title">⚠ รอตรวจสอบ — ' + pending.length + ' ไฟล์ (ไม่ถูกรวมใน PDF ของใบขนใด · แยกไว้ใน _รอตรวจสอบ.zip)</div></div>' +
     '<div class="cat-detail">' + pending.slice().sort((a, b) => CATEngine.natCmp(a.name, b.name)).map(u => catUnitRow(u, null, null)).join('') + '</div></div>';
 }
-function catUnitRow(u, outName, declNo) {
+function catUnitRow(u, head, declNo) {
   const k = esc(u.key), base = u.name.split('/').pop() + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '');
   let h = '<div class="cat-unit' + (u.sets.length ? '' : ' cat-unit-pend') + '">';
   h += '<div class="cat-unit-main">';
-  if (outName) h += '<div class="cat-out">' + esc(outName) + '</div>';
+  if (head) h += '<div class="cat-out">' + esc(head) + '</div>';
   h += '<div class="cat-orig"><a href="#" onclick="catOpenUnit(\'' + k + '\');return false" title="เปิดดูเอกสาร">📄 ' + esc(base) + '</a>' +
-    (u.manual ? ' <span class="badge b-blu">ย้ายเอง</span>' : '') + (u.multi ? ' <span class="badge b-gold">สำเนาหลายชุด</span>' : '') + '</div>';
+    (u.manual ? ' <span class="badge b-blu">ย้ายเอง</span>' : '') + (u.multi ? ' <span class="badge b-gold">เกี่ยวข้องหลายใบขน</span>' : '') + '</div>';
   if (u.sets.length && u.evidence) h += '<div class="cat-ev">หลักฐาน: ' + esc(u.evidence) + '</div>';
   if (!u.sets.length && u.reason) h += '<div class="cat-ev text-red">เหตุผล: ' + esc(u.reason) + '</div>';
   if (u.note) h += '<div class="cat-ev" style="color:var(--org)">หมายเหตุ: ' + esc(u.note) + '</div>';
@@ -3097,7 +3130,8 @@ function catUnitRow(u, outName, declNo) {
 }
 function catToggle(n) { catOpenSets[n] = !catOpenSets[n]; catRender(); }
 function catMove(key, declNo) {
-  const u = catUnitByKey(key); if (!u) return;
+  const u = catUnitByKey(key); if (!u || u.cut) return;
+  if (declNo && !catMergeable(u)) { toast('ไฟล์ประเภทนี้รวมเป็น PDF ไม่ได้ (รองรับ PDF, Excel, JPG, PNG)', 'error'); catRender(); return; }
   const m = catManual[key] || (catManual[key] = {});
   m.sets = declNo ? [declNo] : []; m.type = u.type;
   u.sets = m.sets.slice(); u.manual = true; u.multi = false;
@@ -3106,12 +3140,12 @@ function catMove(key, declNo) {
   catRender();
 }
 function catSetType(key, type) {
-  const u = catUnitByKey(key); if (!u) return;
+  const u = catUnitByKey(key); if (!u || u.cut) return;
   const m = catManual[key] || (catManual[key] = { sets: u.sets.slice() });
   m.type = type; u.type = type; u.manual = true;
   catRender();
 }
-/* ไบต์ของเอกสาร: ทั้งไฟล์ = ต้นฉบับเดิมทุกไบต์ / แยกหน้า = คัดลอกหน้าด้วย pdf-lib ไม่แก้เนื้อหา */
+/* ไบต์ของเอกสาร (ใช้เปิดดู / ใส่ _รอตรวจสอบ.zip): ทั้งไฟล์ = ต้นฉบับเดิมทุกไบต์ */
 async function catUnitBytes(u) {
   const s = catSrcById(u.srcId);
   if (!u.pages) return s.bytes;
@@ -3131,19 +3165,205 @@ async function catOpenUnit(key) {
 }
 function catClear() {
   if (catBusy) return;
-  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {};
+  catSrc = []; catSets = []; catUnits = []; catManual = {}; catOpenSets = {}; catDup = 0; catLastExport = null;
   catRender(); toast('ล้างไฟล์ทั้งหมดแล้ว', 'info');
 }
 
+/* ---------- Excel → หน้า PDF (วาดตารางลงหน้ากระดาษ A4 ข้อมูลครบทุกเซลล์) ---------- */
+function catWrap(ctx, text, maxW) {
+  const out = [];
+  String(text).split(/\r?\n/).forEach(par => {
+    if (ctx.measureText(par).width <= maxW) { out.push(par); return; }
+    let line = '';
+    const toks = par.split(/(\s+)/);
+    for (let t = 0; t < toks.length; t++) {
+      const tok = toks[t];
+      if (ctx.measureText(line + tok).width <= maxW) { line += tok; continue; }
+      if (line.trim()) { out.push(line.replace(/\s+$/, '')); line = ''; }
+      if (/^\s+$/.test(tok)) continue;
+      if (ctx.measureText(tok).width <= maxW) { line = tok; continue; }
+      let cur = '';
+      for (const ch of tok) {                              // คำยาว/ภาษาไทยไม่มีวรรค → ตัดตามตัวอักษร
+        if (cur && ctx.measureText(cur + ch).width > maxW) { out.push(cur); cur = ch; } else cur += ch;
+      }
+      line = cur;
+    }
+    if (line.trim() || !out.length) out.push(line.replace(/\s+$/, ''));
+  });
+  return out;
+}
+/* ภาพหน้า Excel → ระดับเทา 8 บิต (เล็กกว่า PNG/JPEG มากสำหรับหน้าตาราง และคมชัดไม่มี artifact) */
+function catCanvasGray(cv) {
+  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, g = new Uint8Array(cv.width * cv.height);
+  for (let i = 0, k = 0; i < d.length; i += 4, k++) g[k] = (d[i] * 77 + d[i + 1] * 151 + d[i + 2] * 28) >> 8;
+  return { gray: g, pw: cv.width, ph: cv.height };
+}
+/* คืนรายการหน้า [{gray,pw,ph,w,h}] (w,h = ขนาดหน้า PDF หน่วย pt) */
+async function catSheetPages(src) {
+  await catLoadXlsx();
+  const wb = XLSX.read(src.bytes, { type: 'array' });
+  const FS = 18, LH = 23, PADX = 6, PADY = 4, M = 42, MINS = 0.75, MAXCOL = 400, MINCOL = 28;   // หน้า A4 ที่ 150 dpi, ตัวอักษร ≥ 6.5pt
+  const meta = (wb.Workbook && wb.Workbook.Sheets) || [];
+  const pages = [];
+  const mc = document.createElement('canvas').getContext('2d');
+  mc.font = FS + 'px ' + CAT_FONT;
+  for (let si = 0; si < wb.SheetNames.length; si++) {
+    if (meta[si] && meta[si].Hidden) continue;
+    const ws = wb.Sheets[wb.SheetNames[si]]; if (!ws || !ws['!ref']) continue;
+    const rg = XLSX.utils.decode_range(ws['!ref']);
+    /* ตารางข้อความ (ใช้ค่าที่จัดรูปแบบแล้วตามที่ Excel แสดง) */
+    let grid = [], r, c;
+    for (r = rg.s.r; r <= rg.e.r; r++) {
+      const row = [];
+      for (c = rg.s.c; c <= rg.e.c; c++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: r, c: c })];
+        row.push(cell == null || cell.v == null ? '' : String(cell.w != null ? cell.w : cell.v));
+      }
+      grid.push(row);
+    }
+    const span = {}, covered = {};
+    (ws['!merges'] || []).forEach(m => {
+      const r0 = m.s.r - rg.s.r, c0 = m.s.c - rg.s.c;
+      span[r0 + ',' + c0] = { cs: m.e.c - m.s.c + 1, rs: m.e.r - m.s.r + 1 };
+      for (let rr = m.s.r; rr <= m.e.r; rr++) for (let cc = m.s.c; cc <= m.e.c; cc++) if (rr !== m.s.r || cc !== m.s.c) covered[(rr - rg.s.r) + ',' + (cc - rg.s.c)] = 1;
+    });
+    /* ตัดแถว/คอลัมน์ว่างท้ายตาราง */
+    let lastR = -1, lastC = -1;
+    grid.forEach((row, ri) => row.forEach((v, ci) => { if (v.trim()) { if (ri > lastR) lastR = ri; if (ci > lastC) lastC = ci; } }));
+    if (lastR < 0) continue;
+    const NR = lastR + 1, NC = lastC + 1;
+    /* ความกว้างคอลัมน์จากเนื้อหาจริง */
+    const cw = [];
+    for (c = 0; c < NC; c++) {
+      let w = MINCOL;
+      for (r = 0; r < NR; r++) {
+        const v = grid[r][c]; if (!v || covered[r + ',' + c]) continue;
+        const sp = span[r + ',' + c]; if (sp && sp.cs > 1) continue;
+        v.split(/\r?\n/).forEach(l => { const x = mc.measureText(l).width + PADX * 2 + 2; if (x > w) w = x; });
+        if (w >= MAXCOL) { w = MAXCOL; break; }
+      }
+      cw.push(Math.ceil(w));
+    }
+    const total = cw.reduce((a, b) => a + b, 0);
+    const land = total > (1240 - 2 * M);
+    const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, availW = PW - 2 * M, availH = PH - 2 * M;
+    /* แบ่งคอลัมน์เป็นช่วง ถ้ากว้างเกินหน้ากระดาษ (ย่อไม่ต่ำกว่า 55% เพื่อให้อ่านได้) */
+    const bands = []; let b0 = 0, acc = 0;
+    for (c = 0; c < NC; c++) {
+      if (c > b0 && (acc + cw[c]) * MINS > availW) { bands.push([b0, c - 1]); b0 = c; acc = 0; }
+      acc += cw[c];
+    }
+    bands.push([b0, NC - 1]);
+    for (const band of bands) {
+      const bw = cw.slice(band[0], band[1] + 1), bsum = bw.reduce((a, b) => a + b, 0);
+      const sc = Math.min(1, availW / bsum);
+      /* จัดบรรทัดและความสูงแถว */
+      const cells = [], rh = [];
+      for (r = 0; r < NR; r++) {
+        let maxL = 1; const rowCells = [];
+        for (c = band[0]; c <= band[1]; c++) {
+          const v = grid[r][c]; if (!v || covered[r + ',' + c]) continue;
+          const sp = span[r + ',' + c]; let w = cw[c];
+          if (sp && sp.cs > 1) for (let k = 1; k < sp.cs && c + k <= band[1]; k++) w += cw[c + k];
+          const lines = catWrap(mc, v, w - PADX * 2);
+          if (lines.length > maxL && !(sp && sp.rs > 1)) maxL = lines.length;
+          let x = 0; for (let k = band[0]; k < c; k++) x += cw[k];
+          rowCells.push({ x: x, w: w, lines: lines });
+        }
+        cells.push(rowCells); rh.push(maxL * LH + PADY * 2);
+      }
+      /* แบ่งหน้าแนวตั้ง */
+      const maxH = availH / sc; let start = 0;
+      while (start < NR) {
+        let end = start, hsum = 0;
+        while (end < NR && (hsum + rh[end] <= maxH || end === start)) { hsum += rh[end]; end++; }
+        const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH);
+        ctx.translate(M, M); ctx.scale(sc, sc);
+        ctx.font = FS + 'px ' + CAT_FONT; ctx.textBaseline = 'top'; ctx.lineWidth = 1;
+        let y = 0;
+        for (r = start; r < end; r++) {
+          ctx.strokeStyle = '#c9ced6';
+          let x = 0;
+          for (c = 0; c < bw.length; c++) { ctx.strokeRect(x + 0.5, y + 0.5, bw[c], rh[r]); x += bw[c]; }
+          ctx.fillStyle = '#000';
+          for (const cell of cells[r]) {
+            ctx.save(); ctx.beginPath(); ctx.rect(cell.x, y, cell.w, Math.max(rh[r], cell.lines.length * LH + PADY * 2)); ctx.clip();
+            ctx.fillStyle = '#fff'; ctx.fillRect(cell.x + 1, y + 1, cell.w - 1, rh[r] - 1); ctx.fillStyle = '#000';   // เซลล์ผสาน: ลบเส้นแบ่งภายใน
+            cell.lines.forEach((l, li) => ctx.fillText(l, cell.x + PADX, y + PADY + li * LH + 3));
+            ctx.restore();
+          }
+          y += rh[r];
+        }
+        pages.push({ img: catCanvasGray(cv), w: land ? 841.89 : 595.28, h: land ? 595.28 : 841.89 });
+        cv.width = cv.height = 1;
+        start = end; await tick();
+      }
+    }
+  }
+  return pages;
+}
+
+/* ---------- รวมเอกสารของหนึ่งใบขนเป็น PDF เดียวต่อเนื่อง (01→07) ---------- */
+async function catBuildSetPdf(set, onStep) {
+  const plan = CATEngine.planOrder(catUnitsOf(set.declNo));
+  const out = await PDFLib.PDFDocument.create();
+  const parts = []; let total = 0;
+  for (let i = 0; i < plan.length; i++) {
+    const u = plan[i].unit, s = catSrcById(u.srcId), ext = catExt(u.name), base = u.name.split('/').pop();
+    if (onStep) onStep(base);
+    let n = 0;
+    if (u.pages || ext === 'pdf') {
+      let from;
+      try { from = await PDFLib.PDFDocument.load(s.bytes, { ignoreEncryption: true }); }
+      catch (e) { throw new Error('เปิด PDF "' + base + '" เพื่อรวมไม่ได้ (' + e.message + ') — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่'); }
+      if (from.isEncrypted) throw new Error('PDF "' + base + '" ถูกเข้ารหัส รวมไม่ได้ — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่');
+      const idx = u.pages ? u.pages.slice() : from.getPageIndices();
+      if (!u.pages && s.pages && s.pages.length && idx.length !== s.pages.length) throw new Error('จำนวนหน้า PDF "' + base + '" ไม่ตรงกับที่อ่านได้ (' + idx.length + ' / ' + s.pages.length + ')');
+      (await out.copyPages(from, idx)).forEach(p => out.addPage(p));
+      n = idx.length;
+    } else if (catIsSheetExt(ext)) {
+      const pgs = await catSheetPages(s);
+      if (!pgs.length) throw new Error('Excel "' + base + '" ไม่มีข้อมูลให้แปลงเป็น PDF');
+      for (const pg of pgs) {
+        const ref = out.context.register(out.context.flateStream(pg.img.gray, { Type: 'XObject', Subtype: 'Image', Width: pg.img.pw, Height: pg.img.ph, ColorSpace: 'DeviceGray', BitsPerComponent: 8 }));
+        const page = out.addPage([pg.w, pg.h]), nm = page.node.newXObject('CatImg', ref);
+        page.pushOperators(PDFLib.pushGraphicsState(), PDFLib.concatTransformationMatrix(pg.w, 0, 0, pg.h, 0, 0), PDFLib.drawObject(nm), PDFLib.popGraphicsState());
+        pg.img = null;
+      }
+      n = pgs.length;
+    } else if (catIsImageExt(ext)) {
+      let img;
+      try { img = ext === 'png' ? await out.embedPng(s.bytes) : await out.embedJpg(s.bytes); }
+      catch (e) { throw new Error('รูป "' + base + '" เสียหายหรืออ่านไม่ได้ — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่'); }
+      const land = img.width > img.height, pw = land ? 841.89 : 595.28, ph = land ? 595.28 : 841.89;
+      const k = Math.min(pw / img.width, ph / img.height), w = img.width * k, h = img.height * k;
+      out.addPage([pw, ph]).drawImage(img, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+      n = 1;
+    } else throw new Error('ไฟล์ "' + base + '" รวมเป็น PDF ไม่ได้ — ย้ายไปรอตรวจสอบแล้ว EXPORT ใหม่');
+    parts.push({ type: plan[i].type, name: u.name, srcPages: u.pages ? u.pages.slice() : null, pages: n, from: total + 1, to: total + n });
+    total += n;
+    await tick();
+  }
+  const bytes = await out.save();
+  /* ตรวจสอบ: PDF ที่รวมต้องเปิดได้ และจำนวนหน้าครบตามเอกสารต้นทาง */
+  const task = pdfjsLib.getDocument({ data: bytes.slice(0) });
+  const chk = await task.promise, got = chk.numPages;
+  await chk.getPage(1); await chk.getPage(got);
+  try { await task.destroy(); } catch (_) {}
+  if (got !== total) throw new Error('PDF รวมของ ' + set.declNo + ' หน้าไม่ครบ (' + got + ' / ' + total + ')');
+  return { bytes: bytes, parts: parts, total: total };
+}
+
 /* ---------- EXPORT ZIP FILE (ครั้งเดียว ได้ทุกใบขน) ---------- */
-function catCsv(v) { v = String(v == null ? '' : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 async function catExport(force) {
   if (catBusy) return;
-  if (!catUnits.length) { toast('ยังไม่มีเอกสารให้ EXPORT', 'error'); return; }
   const pending = catPending().sort((a, b) => CATEngine.natCmp(a.name, b.name));
+  if (!catSets.length && !pending.length) { toast('ยังไม่มีเอกสารให้ EXPORT', 'error'); return; }
   if (pending.length && !force) {
     showModal('⚠ มีเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์',
-      'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ และจะถูกแยกไว้ใน <b>_รอตรวจสอบ.zip</b> พร้อมรายงานเหตุผล (ไม่ถูกนำเข้าชุดใดโดยอัตโนมัติ)' +
+      'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ จึง<b>ไม่ถูกรวมใน PDF ของใบขนใด</b> และจะถูกแยกไว้ใน <b>_รอตรวจสอบ.zip</b> พร้อมรายงานเหตุผล' +
       '<div class="cat-modal-list">' + pending.slice(0, 30).map(u => '• ' + esc(u.name.split('/').pop()) + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '')).join('<br>') +
       (pending.length > 30 ? '<br>… และอีก ' + (pending.length - 30) + ' ไฟล์' : '') + '</div>ต้องการ EXPORT ต่อหรือไม่?',
       [{ label: 'กลับไปตรวจสอบ', cls: 'btn-secondary', action: 'closeModal()' },
@@ -3154,24 +3374,21 @@ async function catExport(force) {
   const btn = document.getElementById('btn-cat-export'), oldTxt = btn.textContent;
   btn.textContent = '⏳ กำลัง EXPORT...';
   try {
-    const big = new JSZip(), stamp = new Date();
-    const rows = [['ชุดใบขน', 'ลำดับ', 'ประเภท', 'ชื่อไฟล์ใน ZIP', 'ไฟล์ต้นฉบับ', 'หน้า', 'หลักฐาน / เหตุผล', 'หมายเหตุ']];
+    const big = new JSZip(), stamp = new Date(), summary = [];
     const sets = catSets.slice().sort((a, b) => CATEngine.natCmp(a.declNo, b.declNo));
-    let nFiles = 0;
+    let nPages = 0;
     for (let i = 0; i < sets.length; i++) {
-      const s = sets[i], plan = CATEngine.planNames(s, catUnitsOf(s.declNo), catTextOf);
-      catProgress('กำลังสร้าง ' + s.declNo + '.zip (' + (i + 1) + '/' + sets.length + ')', 100 * i / (sets.length + 1));
+      const s = sets[i];
+      const r = await catBuildSetPdf(s, nm => catProgress('กำลังรวม ' + s.declNo + '.pdf (' + (i + 1) + '/' + sets.length + ') : ' + nm, 100 * i / (sets.length + 1)));
       const sub = new JSZip();
-      for (const p of plan) {
-        sub.file(p.name, await catUnitBytes(p.unit), { date: stamp });
-        rows.push([s.declNo, p.type, catTypeLabel(p.type), p.name, p.unit.name, p.unit.pages ? CATEngine.pagesLabel(p.unit.pages) : 'ทั้งไฟล์', (p.unit.manual ? '[ย้ายด้วยตนเอง] ' : '') + p.unit.evidence, p.unit.note]);
-        nFiles++;
-      }
+      sub.file(s.declNo + '.pdf', r.bytes, { date: stamp });
       big.file(s.declNo + '.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
+      summary.push({ declNo: s.declNo, total: r.total, parts: r.parts });
+      nPages += r.total;
       await tick();
     }
     if (pending.length) {
-      const sub = new JSZip(), used = {}, lines = ['รายงานเอกสารรอตรวจสอบ — ' + stamp.toLocaleString('th-TH'), 'จำนวน ' + pending.length + ' ไฟล์', ''];
+      const sub = new JSZip(), used = {}, lines = ['รายงานเอกสารรอตรวจสอบ — ' + stamp.toLocaleString('th-TH'), 'จำนวน ' + pending.length + ' ไฟล์ (ไม่ถูกรวมใน PDF ของใบขนใด)', ''];
       for (const u of pending) {
         const sn = CATEngine.splitName(u.name);
         let nm = CATEngine.sanitize(sn.base) + (u.pages ? '_p' + CATEngine.pagesLabel(u.pages).replace(/,/g, '_') + '.pdf' : sn.ext), n0 = nm, c = 2;
@@ -3179,29 +3396,16 @@ async function catExport(force) {
         used[nm.toLowerCase()] = 1;
         sub.file(nm, await catUnitBytes(u), { date: stamp });
         lines.push(nm, '   ต้นฉบับ : ' + u.name + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : ''), '   เหตุผล  : ' + (u.reason || (u.manual ? 'ผู้ใช้ย้ายมาไว้รอตรวจสอบ' : '-')), '');
-        rows.push(['_รอตรวจสอบ', '', catTypeLabel(u.type), nm, u.name, u.pages ? CATEngine.pagesLabel(u.pages) : 'ทั้งไฟล์', u.reason || (u.manual ? 'ผู้ใช้ย้ายมาไว้รอตรวจสอบ' : ''), u.note]);
       }
       sub.file('_เหตุผล_รอตรวจสอบ.txt', '﻿' + lines.join('\r\n'), { date: stamp });
       big.file('_รอตรวจสอบ.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
     }
-    /* ไฟล์ที่ถูกแยกระดับหน้า → เก็บต้นฉบับเดิมทั้งไฟล์ไว้ด้วย */
-    const splitIds = []; catUnits.forEach(u => { if (u.pages && splitIds.indexOf(u.srcId) < 0) splitIds.push(u.srcId); });
-    if (splitIds.length) {
-      const sub = new JSZip(), used = {};
-      splitIds.forEach(id => {
-        const s = catSrcById(id), sn = CATEngine.splitName(s.name);
-        let nm = CATEngine.sanitize(sn.base) + sn.ext, n0 = nm, c = 2;
-        while (used[nm.toLowerCase()]) { const s2 = CATEngine.splitName(n0); nm = s2.base + '_' + (c++) + s2.ext; }
-        used[nm.toLowerCase()] = 1; sub.file(nm, s.bytes, { date: stamp });
-      });
-      big.file('_ต้นฉบับไฟล์ที่ถูกแยกหน้า.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
-    }
-    big.file('_รายงานการจับคู่.csv', '﻿' + rows.map(r => r.map(catCsv).join(',')).join('\r\n'), { date: stamp });
     catProgress('กำลังบีบอัด CAT_ALL.zip ...', 96);
     const blob = await big.generateAsync({ type: 'blob', compression: 'STORE' });
+    catLastExport = summary;
     dlBlob(blob, 'CAT_ALL.zip');
-    logAudit('rename_pdf', 'CAT: ' + sets.length + ' ใบขน / ' + nFiles + ' ไฟล์', 'CAT_ALL.zip', true, 'EXPORT ZIP รวมไฟล์ CAT' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''));
-    toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nFiles + ' ไฟล์' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''), 'success');
+    logAudit('rename_pdf', 'CAT: ' + sets.length + ' ใบขน / ' + nPages + ' หน้า', 'CAT_ALL.zip', true, 'EXPORT ZIP รวมไฟล์ CAT' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''));
+    toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nPages + ' หน้า' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''), 'success');
   } catch (e) {
     toast('EXPORT ล้มเหลว: ' + ((e && e.message) || e), 'error');
   } finally {
