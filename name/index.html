@@ -396,30 +396,146 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .cat-pending-card{margin-top:16px;border-color:rgba(239,68,68,.35)}
 .cat-modal-list{max-height:180px;overflow-y:auto;margin:10px 0;padding:8px 10px;background:var(--bg1);border:1px solid var(--bd0);border-radius:var(--r);font-size:11px;font-family:var(--mono);word-break:break-all}
 
-/* Mobile (≤768px) — จัดโครงหน้าให้ใช้งานบนมือถือได้ ไม่กระทบ Desktop */
+/* ============================================================ */
+/* LIGHT MODE — BILLING PDF (เฉพาะหน้าจอหลังเข้าสู่ระบบ / Modal / Toast) */
+/* ============================================================ */
+#screen-app,#modal-ov,#toast-ct{
+  --bg0:#F8FAFC;--bg1:#FFFFFF;--bg2:#FFFFFF;--bg3:#EAF2FC;--bg4:#DBEAFE;
+  --gold:#EA580C;--gold2:#F97316;--gold-bg:#EFF6FF;--gold-bd:#93C5FD;
+  --txt0:#0F172A;--txt1:#1E293B;--txt2:#475569;--txt3:#475569;
+  --bd0:#CBD5E1;--bd1:#CBD5E1;
+  --grn:#15803D;--red:#B91C1C;--blu:#1D4ED8;--org:#B45309;
+  --orange:#B45309;--green:#15803D;--border:#CBD5E1;
+  color:#0F172A;
+}
+#screen-app{background:#F8FAFC}
+#screen-app ::-webkit-scrollbar-track{background:#F1F5F9}
+#screen-app ::-webkit-scrollbar-thumb{background:#CBD5E1}
+#screen-app ::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+/* Header */
+#screen-app #topbar{background:#FFFFFF;border-bottom:1px solid #CBD5E1;height:54px}
+#screen-app .tb-logo{color:#0F172A}
+#screen-app .tb-logo-icon{background:#FFB900;color:#0F172A}
+#screen-app .tb-mode{font-size:13px;font-weight:700;color:#0F172A;font-family:var(--sans)}
+#screen-app .status-ind{color:#15803D;font-weight:700}
+#screen-app .status-dot{background:#16A34A}
+#screen-app .user-chip{background:#F8FAFC;border-color:#CBD5E1}
+#screen-app .role-admin{background:#FEF3C7;color:#B45309}
+#screen-app .role-user{background:#DBEAFE;color:#1D4ED8}
+#screen-app #btn-logout{border-color:#CBD5E1;color:#334155;font-weight:700;background:#FFFFFF}
+#screen-app #btn-logout:hover{border-color:#DC2626;color:#B91C1C;background:#FEF2F2}
+#nav-toggle{display:none;width:38px;height:38px;border:1px solid #CBD5E1;border-radius:8px;background:#FFFFFF;color:#0F172A;font-size:18px;align-items:center;justify-content:center;flex-shrink:0}
+#nav-backdrop{display:none}
+/* Sidebar */
+#screen-app #sidebar{background:#FFFFFF;border-right:1px solid #CBD5E1}
+#screen-app .sb-header{border-bottom:1px solid #E2E8F0}
+#screen-app .sb-app-name{color:#0F172A}
+#screen-app .sb-app-sub{color:#475569}
+#screen-app .sb-user-card{background:#F8FAFC;border-bottom:1px solid #E2E8F0}
+#screen-app .sb-user-name{color:#0F172A}
+#screen-app .sb-user-role{color:#C2410C}
+#screen-app .sb-section+.sb-section{border-top:1px solid #E2E8F0}
+#screen-app .sb-label{color:#475569;font-size:10px}
+#screen-app .nav-item{border-left:4px solid transparent}
+#screen-app .nav-item:hover{background:#F1F5F9;border-left-color:#CBD5E1}
+#screen-app .nav-item.active{background:#EAF2FC;border-left-color:#2563EB}
+#screen-app .nav-title{color:#1E293B;font-size:13px}
+#screen-app .nav-item.active .nav-title{color:#1D4ED8}
+#screen-app .nav-sub,#screen-app .nav-item.active .nav-sub{color:#475569;font-size:11px}
+#screen-app .sb-footer2{border-top:1px solid #E2E8F0}
+#screen-app .sb-online{color:#475569;font-size:11px}
+#screen-app .sb-dot-grn{box-shadow:none;background:#16A34A}
+#screen-app .sb-logout-btn{background:#FEF2F2;border-color:#FCA5A5;color:#B91C1C}
+#screen-app .sb-logout-btn:hover{background:#FEE2E2}
+/* Components */
+#screen-app .page-title{font-size:22px;color:#0F172A}
+#screen-app .page-desc{font-size:12.5px;color:#475569;font-family:var(--sans)}
+#screen-app .card,#screen-app .dt-wrap{background:#FFFFFF;border:1px solid #CBD5E1;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+#screen-app .card-badge{background:#F1F5F9;color:#334155}
+#screen-app .btn-primary{background:#FFB900;color:#0F172A}
+#screen-app .btn-primary:not(:disabled):hover{background:#F5A800}
+#screen-app .btn-secondary{background:#FFFFFF;color:#1E293B;border:1px solid #CBD5E1}
+#screen-app .btn-secondary:not(:disabled):hover{background:#F1F5F9;color:#0F172A}
+#modal-ov .btn-primary{background:#FFB900;color:#0F172A}
+#modal-ov .btn-secondary{background:#FFFFFF;color:#1E293B;border:1px solid #CBD5E1}
+#screen-app .upload-zone{background:#EFF6FF;border:2px dashed #93C5FD}
+#screen-app .upload-zone:hover,#screen-app .upload-zone.drag{border-color:#2563EB;background:#DBEAFE}
+#screen-app .uz-label{color:#0F172A;font-weight:600}
+#screen-app .uz-sub{color:#475569;font-family:var(--sans);font-size:12px}
+#screen-app .form-input,#screen-app .tbl-search{background-color:#FFFFFF;border-color:#CBD5E1;color:#0F172A}
+#screen-app .form-input:focus,#screen-app .tbl-search:focus{border-color:#2563EB}
+#screen-app .data-tbl th{background:#EAF2FC;color:#1E3A8A;font-size:11px;letter-spacing:.5px;border-bottom:1px solid #CBD5E1}
+#screen-app .data-tbl td{background:#FFFFFF;color:#1E293B;border-bottom:1px solid #E2E8F0}
+#screen-app .data-tbl tr:hover td{background:#F8FAFC}
+#screen-app .badge{font-size:11px;padding:3px 10px;border-radius:999px}
+#screen-app .b-grn{background:#DCFCE7;color:#15803D}
+#screen-app .b-red{background:#FEE2E2;color:#B91C1C}
+#screen-app .b-gold{background:#FEF3C7;color:#B45309}
+#screen-app .b-blu{background:#DBEAFE;color:#1D4ED8}
+#screen-app .b-gray{background:#F1F5F9;color:#475569}
+#screen-app .fl-clear{color:#475569}
+#toast-ct .toast{background:#FFFFFF;border:1px solid #CBD5E1;color:#0F172A;box-shadow:0 8px 24px rgba(15,23,42,.14);font-family:var(--sans)}
+#modal-ov{background:rgba(15,23,42,.45)}
+#modal-ov .modal-box{background:#FFFFFF;border:1px solid #CBD5E1;border-top:3px solid #FFB900;box-shadow:0 24px 60px rgba(15,23,42,.25)}
+/* CAT view */
+#view-cat .page-header{align-items:flex-start}
+#view-cat #cat-zone{padding:44px 20px!important}
+#view-cat #cat-zone .uz-icon{font-size:34px!important}
+#view-cat #cat-zone .uz-label{font-size:15px!important}
+.cat-bar{background:#E2E8F0}
+#cat-progress-bar{background:#2563EB}
+#cat-progress-txt{color:#1E293B}
+.cat-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}
+.cat-stat{display:flex;align-items:center;gap:14px;background:#FFFFFF;border:1px solid #CBD5E1;border-radius:12px;padding:16px 18px;min-width:0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.cat-stat-ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.cat-stat b{display:block;font-size:28px;line-height:1.1;font-family:var(--sans);font-weight:800;color:#0F172A}
+.cat-stat span{font-size:13px;color:#334155;font-weight:600}
+.cat-tbl td{font-size:13px}
+.cat-tbl b.text-gold{color:#EA580C;font-size:14px}
+.cat-why{color:#475569}
+.cat-detail-row td{background:#F8FAFC!important}
+.cat-detail-hd{color:#334155;font-family:var(--sans);font-size:12px}
+.cat-unit{background:#FFFFFF;border:1px solid #CBD5E1;border-left:4px solid #16A34A}
+.cat-unit-pend{border-left-color:#DC2626}
+.cat-out{color:#0F172A;font-family:var(--sans)}
+.cat-ev{color:#475569}
+.cat-pending-card{background:#FEF2F2!important;border:1px solid #FCA5A5!important}
+.cat-pending-card .card-title{color:#991B1B;font-size:15px}
+.cat-modal-list{background:#F8FAFC;border-color:#CBD5E1;color:#0F172A}
+
+.cat-cut{margin-top:16px;background:#FFFFFF;border:1px solid #CBD5E1;border-radius:10px;padding:10px 14px;font-size:13px;color:#1E293B}
+.cat-cut summary{cursor:pointer;font-weight:700;color:#334155}
+.cat-cut-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #E2E8F0;margin-top:6px;word-break:break-all}
+.cat-cut-row em{font-style:normal;color:#B45309;flex-shrink:0;max-width:50%;text-align:right;word-break:break-word}
+.cat-cut+.cat-pending-card{margin-top:12px}
+
+/* Mobile (≤768px) — Sidebar เป็นเมนูพับ, Card 2 คอลัมน์, ตารางเลื่อนแนวนอน */
 @media (max-width:768px){
-  .app-body{flex-direction:column}
-  #sidebar{width:100%;min-width:0;flex-direction:row;flex-wrap:wrap;align-items:center;overflow:visible;border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}
-  #sidebar .sb-header,#sidebar .sb-user-card,#sidebar .sb-label,#sidebar .sb-gap,#sidebar .nav-sub{display:none}
-  #sidebar .sb-section{padding:0;display:flex;flex-wrap:wrap;border-top:none}
-  #sidebar .sb-section.hidden{display:none}
-  #sidebar .nav-item{padding:9px 12px}
-  #sidebar .sb-footer2{display:none}
-  #topbar{padding:0 10px;gap:8px}
-  #topbar .tb-mode,#topbar .tb-div,#topbar .status-ind,#topbar .uc-role{display:none}
-  #topbar .tb-logo{letter-spacing:1px}
-  #topbar .tb-status{gap:8px}
-  .view{padding:12px}
-  .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+  #nav-toggle{display:inline-flex}
+  #screen-app #topbar{padding:0 10px;gap:8px}
+  #topbar .tb-div,#topbar .status-ind,#topbar .uc-role{display:none}
+  #topbar .tb-logo{letter-spacing:0;font-size:0;gap:0}
+  #topbar .tb-mode{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:12px!important}
+  #topbar .tb-status{gap:6px;flex-shrink:0}
+  #topbar .user-chip{padding:3px 8px}
+  #screen-app #sidebar{position:fixed;top:54px;left:0;bottom:0;width:260px;min-width:0;z-index:300;transform:translateX(-105%);transition:transform .2s;box-shadow:8px 0 24px rgba(15,23,42,.18)}
+  #screen-app #sidebar.open{transform:translateX(0)}
+  #nav-backdrop.open{display:block;position:fixed;inset:54px 0 0 0;background:rgba(15,23,42,.35);z-index:290}
+  .view{padding:14px}
+  .page-header{flex-direction:column;align-items:stretch!important;gap:12px}
+  #view-cat .page-header .flex-row{justify-content:flex-end;flex-wrap:wrap}
+  #view-cat .page-header .btn{min-height:44px}
+  #view-cat #cat-zone{padding:30px 14px!important}
+  .cat-stats{grid-template-columns:repeat(2,1fr);gap:10px}
+  .cat-stat{padding:12px}
+  .cat-stat-ic{width:38px;height:38px;font-size:18px}
+  .cat-stat b{font-size:22px}
+  .cat-tbl{min-width:640px}
   .cat-unit{flex-direction:column}
   .cat-unit-ctl{width:100%;flex-wrap:wrap}
-  .cat-sel{flex:1 1 130px;min-width:0;width:0;max-width:none;font-size:12px}
+  .cat-sel{flex:1 1 130px;min-width:0;width:0;max-width:none;font-size:13px;min-height:40px}
   .cat-detail-row td{padding:8px!important}
-  .cat-tbl thead{display:none}
-  .cat-tbl,.cat-tbl tbody,.cat-tbl tr,.cat-tbl td{display:block;width:100%}
-  .cat-tbl tr.cat-set-row{border-bottom:1px solid var(--bd1);padding:6px 0}
-  .cat-tbl tr.cat-set-row td{border:none;padding:3px 12px}
-  .cat-tbl tr.cat-set-row td::before{content:attr(data-l) ': ';color:var(--txt3);font-size:10px}
+  .cat-detail{max-width:calc(100vw - 46px);position:sticky;left:8px}
 }
 </style>
 </head>
@@ -478,6 +594,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 
   <!-- TOP BAR -->
   <div id="topbar">
+    <button id="nav-toggle" type="button" onclick="toggleSidebar()" aria-label="เมนู">☰</button>
     <div class="tb-logo">
       <div class="tb-logo-icon">B</div>
       BILLING PDF
@@ -499,6 +616,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   </div>
 
   <div class="app-body">
+    <div id="nav-backdrop" onclick="toggleSidebar(false)"></div>
 
     <!-- SIDEBAR -->
     <div id="sidebar">
@@ -631,7 +749,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
                ondrop="catDrop(event)">
             <input type="file" multiple id="cat-file-input" onchange="catPick(this)"
                    accept=".pdf,.xls,.xlsx,.xlsm,.csv,.zip,.rar,application/pdf,application/zip,application/x-zip-compressed,application/vnd.rar,application/x-rar-compressed,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="uz-icon" style="font-size:22px;margin-bottom:6px">🗂️</div>
+            <div class="uz-icon" style="font-size:22px;margin-bottom:6px">📥</div>
             <div class="uz-label" style="font-size:13px">ลากวางเอกสารทั้งหมด (หรือทั้งโฟลเดอร์) หรือ คลิกเลือกไฟล์</div>
             <div class="uz-sub">PDF · Excel · ZIP · RAR · หลายไฟล์พร้อมกัน · ใช้เฉพาะไฟล์ที่อัปโหลดรอบนี้ (อัปโหลดใหม่ = เริ่มรอบใหม่)</div>
           </div>
@@ -933,7 +1051,7 @@ function clearLoginErr() { const e=qs('#login-err'); e.style.display='none'; e.t
    ============================================================ */
 const viewMeta = {
   mode3:     { label:'MODE 3 — เปลี่ยนชื่อไฟล์',        admin:false },
-  cat:       { label:'MODE CAT — รวมไฟล์ CAT',          admin:false },
+  cat:       { label:'CAT – รวมไฟล์ CAT',               admin:false },
   users:     { label:'USER MANAGEMENT',               admin:true  },
   logs:      { label:'AUDIT LOGS',                    admin:true  },
 };
@@ -2523,18 +2641,31 @@ var CATEngine = (function () {
     return '07';
   }
 
-  /* เอกสารที่กำหนดให้ "ตัดออก" — ตรวจจากเนื้อหาจริงของเอกสาร (ไม่ดูชื่อไฟล์) ไม่นำไปรวมหรือแนบ */
+  /* ---------- เอกสารต้องห้าม: ตัดออกก่อน MERGE เสมอ (ตรวจทั้งชื่อไฟล์และเนื้อหา) ---------- */
   var CUT_RULES = [
-    { label: 'Proforma Invoice & Packing List (For Customs Declaration)', test: function (U) { return /PRO[\s-]?FORMA\s+INVOICE\s*&\s*PACKING\s+LIST/.test(U) && /FOR\s+CUSTOMS\s+DECLARATION/.test(U); } },
+    { label: 'Proforma Invoice & Packing List', test: function (U) { return /PRO[\s\-_]*FORMA[\s_]*INVOICE[\s_]*(?:&AMP;|&|＆|\+|\/|AND|และ)?[\s_]*PACKING[\s_]*LIST/.test(U); } },
     { label: 'BIRTIMP (รายการ BOI Import)', test: function (U) { return /PROJ_CODE/.test(U) && /IMP_ENTRY/.test(U) && /DOC_NO/.test(U); } },
     { label: 'PO LIST', test: function (U) { return /SHIPMENT\s+NUMBER/.test(U) && /CHINA_HS_CODE/.test(U) && /OUTBOUND\s+NUMBER/.test(U); } },
-    { label: 'ใบแจ้งหนี้ค่าระวางสายเรือ (CMA CGM Invoice)', test: function (U) { return /CMA\s+CGM/.test(U) && /INVOICE\s+TO\s*:/.test(U) && /CHARGE\s+DESCRIPTION/.test(U); } },
+    { label: 'ใบแจ้งหนี้ค่าระวางสายเรือ (THCI)', test: function (U) { return /CMA\s+CGM/.test(U) && /INVOICE\s+TO\s*:/.test(U) && /CHARGE\s+DESCRIPTION/.test(U); } },
+    { label: 'TAX INVOICE', test: function (U) { return /TAX\s+INVOICE/.test(U); } },
     { label: 'Export Booking + Picking Letters', test: function (U) { return /EXPORT\s+BOOKING/.test(U) && /PICKING\s+LETTERS/.test(U); } }
   ];
-  function cutRule(U) {
+  var CUT_OTHER = 'หมวด 07 เอกสารอื่นๆ (ห้ามแนบ)';
+  /* ตรวจจากเนื้อหา (ใช้ได้ทั้งเอกสารทั้งไฟล์ และข้อความรายหน้าของ PDF ที่รวมแล้ว) */
+  function cutByText(U) {
     for (var i = 0; i < CUT_RULES.length; i++) if (CUT_RULES[i].test(U)) return CUT_RULES[i].label;
     return null;
   }
+  /* ตรวจจากชื่อไฟล์: BIRTIMP1 / THCI / TAX_INVOICE / Proforma Invoice & Packing List */
+  function cutByName(name) {
+    var N = up(String(name || '').split(/[\\\/]/).pop()).replace(/[\s_\-]+/g, '_');
+    if (N.indexOf('BIRTIMP1') >= 0) return 'ชื่อไฟล์มีคำว่า BIRTIMP1';
+    if (N.indexOf('THCI') >= 0) return 'ชื่อไฟล์มีคำว่า THCI';
+    if (N.indexOf('TAX_INVOICE') >= 0) return 'ชื่อไฟล์มีคำว่า TAX_INVOICE';
+    if (/PRO_?FORMA_INVOICE_?(?:&|AND)?_?PACKING_LIST/.test(N)) return 'ชื่อไฟล์เป็น Proforma Invoice & Packing List';
+    return null;
+  }
+  function cutRule(U, name) { return cutByName(name) || cutByText(U || ''); }
 
   function pagesLabel(pages) {
     var out = [], i = 0;
@@ -2655,7 +2786,7 @@ var CATEngine = (function () {
       var u = {
         key: src.id + (pages ? '#' + pagesLabel(pages) : ''), srcId: src.id, name: src.name, pages: pages,
         type: o.type, sets: o.sets || [], evidence: o.evidence || '', reason: o.reason || '', note: o.note || '',
-        hint: o.hint || null, amb: o.amb || [], multi: (o.sets || []).length > 1, cut: o.cut || null
+        hint: o.hint || null, amb: o.amb || [], multi: (o.sets || []).length > 1, cut: o.cut || null, unread: !!o.unread
       };
       units.push(u); return u;
     }
@@ -2665,14 +2796,27 @@ var CATEngine = (function () {
       var nameU = up(src.name), di = declInfo[src.id], i, U, res, pg;
       if (di) {
         if (di.nos.length === 1) {
-          mkUnit(src, null, { type: '01', sets: [di.nos[0]], evidence: 'ใบขนสินค้า เลขที่ ' + di.nos[0] });
+          /* ไฟล์ใบขนที่มีหน้าเอกสารต้องห้ามแนบท้ายมา → ตัดหน้าดังกล่าวออก ไม่รวมไปกับใบขน */
+          var keep = [], drop = [], why1 = '';
+          for (i = 0; i < di.per.length; i++) {
+            var w1 = di.per[i].isDecl ? null : cutByText(up(src.pages[i].text));
+            if (w1) { drop.push(i); why1 = w1; } else keep.push(i);
+          }
+          if (!drop.length) mkUnit(src, null, { type: '01', sets: [di.nos[0]], evidence: 'ใบขนสินค้า เลขที่ ' + di.nos[0] });
+          else {
+            mkUnit(src, keep, { type: '01', sets: [di.nos[0]], evidence: 'ใบขนสินค้า เลขที่ ' + di.nos[0] + ' (เฉพาะหน้า ' + pagesLabel(keep) + ')' });
+            mkUnit(src, drop, { type: '07', sets: [], cut: why1 });
+          }
           return;
         }
         /* PDF เดียวมีหลายใบขน → แยกระดับหน้า */
-        var byDecl = {}, others = {}, lost = [];
+        var byDecl = {}, others = {}, lost = [], cutPg = {};
         for (i = 0; i < di.per.length; i++) {
           if (di.per[i].isDecl) { (byDecl[di.per[i].declNo] = byDecl[di.per[i].declNo] || []).push(i); continue; }
-          pg = src.pages[i]; U = up(pg.text); res = resolve(U);
+          pg = src.pages[i]; U = up(pg.text);
+          var w2 = cutByText(U);
+          if (w2) { (cutPg[w2] = cutPg[w2] || []).push(i); continue; }
+          res = resolve(U);
           if (res.sets.length === 1) {
             var tk = res.sets[0] + '|' + classify(U, nameU);
             (others[tk] = others[tk] || { pages: [], ev: res.evidence }).pages.push(i);
@@ -2685,6 +2829,7 @@ var CATEngine = (function () {
           var p = tk.split('|');
           mkUnit(src, others[tk].pages, { type: p[1], sets: [p[0]], evidence: others[tk].ev + ' (แยกหน้า ' + pagesLabel(others[tk].pages) + ' จากไฟล์รวม)' });
         });
+        Object.keys(cutPg).forEach(function (w) { mkUnit(src, cutPg[w], { type: '07', sets: [], cut: w }); });
         if (lost.length) mkUnit(src, lost, { type: '07', sets: [], reason: 'หน้า ' + pagesLabel(lost) + ' ของไฟล์รวมหลายใบขน ไม่มีเลขอ้างอิงที่ระบุได้ว่าเป็นของใบขนใด' });
         return;
       }
@@ -2694,13 +2839,13 @@ var CATEngine = (function () {
       if (!U.replace(/\s+/g, '')) {
         var h0 = nameHint(nameU);
         mkUnit(src, null, {
-          type: type, sets: [], hint: h0,
+          type: type, sets: [], hint: h0, unread: true,
           reason: (src.error ? 'เปิดไฟล์ไม่ได้: ' + src.error : src.kind === 'other' ? 'ไฟล์ประเภทนี้อ่านเนื้อหาอัตโนมัติไม่ได้' : 'ไม่มีข้อความให้อ่าน (ไฟล์สแกน/รูปภาพ)') +
             (h0 ? ' — ชื่อไฟล์ใกล้เคียงใบขน ' + h0 + ' (ต้องยืนยันด้วยตนเอง)' : '')
         });
         return;
       }
-      var cut = cutRule(U);
+      var cut = cutRule(U, src.name);
       if (cut) { mkUnit(src, null, { type: type, sets: [], cut: cut }); return; }
       res = resolve(U);
       if (res.sets.length >= 2 && src.kind === 'pdf' && src.pages.length > 1) {
@@ -2730,6 +2875,14 @@ var CATEngine = (function () {
         var h1 = res.amb.length ? null : nameHint(nameU);
         mkUnit(src, null, { type: type, sets: [], reason: res.reason + (h1 ? ' — ชื่อไฟล์ใกล้เคียงใบขน ' + h1 + ' (ต้องยืนยันด้วยตนเอง)' : ''), hint: h1, amb: res.amb });
       }
+    });
+    /* ---------- คัดกรองขั้นสุดท้าย: หมวด 07 ตัดออกทั้งหมด แม้จับคู่เลข INVOICE / B/L ได้ ---------- */
+    units.forEach(function (u) {
+      if (u.cut || u.type === '01') return;
+      var byName = cutByName(u.name);
+      if (byName) { u.cut = byName; }
+      else if (u.type === '07' && !u.unread) { u.cut = CUT_OTHER; }
+      if (u.cut) { u.sets = []; u.multi = false; u.hint = null; u.amb = []; }
     });
     return { sets: order.map(function (n) { return sets[n]; }), units: units };
   }
@@ -2778,7 +2931,7 @@ var CATEngine = (function () {
 
   return {
     TYPES: TYPES, analyze: analyze, parseDeclPage: parseDeclPage, classify: classify, keyHits: keyHits,
-    findDeclNos: findDeclNos, setStatus: setStatus, planOrder: planOrder, cutRule: cutRule, pagesLabel: pagesLabel,
+    findDeclNos: findDeclNos, setStatus: setStatus, planOrder: planOrder, cutRule: cutRule, cutByText: cutByText, cutByName: cutByName, pagesLabel: pagesLabel,
     sanitize: sanitize, splitName: splitName, natCmp: natCmp, up: up
   };
 })();
@@ -3032,6 +3185,7 @@ function catAnalyze() {
     const m = catManual[u.key]; if (!m || u.cut) return;
     u.manual = true; u.type = m.type || u.type;
     if (m.sets) { u.sets = m.sets.filter(n => valid[n]); u.multi = u.sets.length > 1; }
+    if (u.type === '07') { u.sets = []; u.multi = false; }
   });
   /* จับคู่ได้แต่ไฟล์ประเภทนี้ต่อเป็น PDF ไม่ได้ → รอตรวจสอบ (ไม่แนบแยกในชุด) */
   catUnits.forEach(u => {
@@ -3046,8 +3200,12 @@ function catPending() { return catUnits.filter(u => !u.cut && !u.sets.length); }
 function catCut() { return catUnits.filter(u => u.cut); }
 function catUpdateButtons() {
   const ex = document.getElementById('btn-cat-export'), cl = document.getElementById('btn-cat-clear');
-  if (ex) ex.disabled = catBusy || !(catSets.length || catPending().length);
+  if (ex) ex.disabled = catBusy || !catSets.length;
   if (cl) cl.style.display = catSrc.length ? '' : 'none';
+}
+function catCutPages(u) {
+  const s = catSrcById(u.srcId), n = u.pages ? u.pages.length : (s && s.kind === 'pdf' && s.pages ? s.pages.length : 0);
+  return n ? 'ตัดออก ' + n + ' หน้า · นำไปรวม 0 หน้า' : 'ตัดออกทั้งไฟล์';
 }
 function catUnitPagesTxt(u) {
   const s = catSrcById(u.srcId);
@@ -3064,16 +3222,15 @@ function catRender() {
   const sum = document.getElementById('cat-summary'), rep = document.getElementById('cat-report'), pen = document.getElementById('cat-pending');
   if (!sum) return;
   if (!catSrc.length) { sum.innerHTML = ''; rep.innerHTML = ''; pen.innerHTML = ''; return; }
-  const pending = catPending(), nCut = catCut().length;
+  const pending = catPending();
   const stats = catSets.map(s => CATEngine.setStatus(s, catUnitsOf(s.declNo), pending, catTextOf));
   const nOk = stats.filter(x => x.status === 'ครบ').length;
-  sum.innerHTML =
-    '<div class="cat-stats">' +
-    '<div class="cat-stat"><b>' + catSrc.length + '</b><span>ไฟล์ที่อัปโหลดรอบนี้</span></div>' +
-    '<div class="cat-stat"><b>' + catSets.length + '</b><span>ใบขน (ชุด)</span></div>' +
-    '<div class="cat-stat"><b class="text-grn">' + nOk + '</b><span>ชุดที่ครบ</span></div>' +
-    '<div class="cat-stat"><b>' + nCut + '</b><span>ตัดออกตามกฎ</span></div>' +
-    '<div class="cat-stat"><b class="' + (pending.length ? 'text-red' : '') + '">' + pending.length + '</b><span>รอตรวจสอบ</span></div>' +
+  const card = (ic, bg, val, cls, label) => '<div class="cat-stat"><div class="cat-stat-ic" style="background:' + bg + '">' + ic + '</div><div><b' + (cls ? ' class="' + cls + '"' : '') + '>' + val + '</b><span>' + label + '</span></div></div>';
+  sum.innerHTML = '<div class="cat-stats">' +
+    card('📄', '#EFF6FF', catSrc.length, '', 'ไฟล์ที่อ่าน') +
+    card('🗂️', '#FEF3C7', catSets.length, '', 'ใบขน (ชุด)') +
+    card('✅', '#DCFCE7', nOk, '', 'ชุดที่ครบ') +
+    card('⚠️', '#FEE2E2', pending.length, pending.length ? 'text-red' : '', 'รอตรวจสอบ') +
     '</div>';
 
   let h = '<div class="dt-wrap"><div class="cat-tbl-scroll"><table class="data-tbl cat-tbl"><thead><tr>' +
@@ -3105,8 +3262,11 @@ function catRender() {
   h += '</tbody></table></div></div>';
   rep.innerHTML = h;
 
-  if (!pending.length) { pen.innerHTML = ''; return; }
-  pen.innerHTML = '<div class="card cat-pending-card"><div class="card-hdr"><div class="card-title">⚠ รอตรวจสอบ — ' + pending.length + ' ไฟล์ (ไม่ถูกรวมใน PDF ของใบขนใด · แยกไว้ใน _รอตรวจสอบ.zip)</div></div>' +
+  const cutList = catCut().slice().sort((a, b) => CATEngine.natCmp(a.name, b.name));
+  const cutHtml = cutList.length ? '<details class="cat-cut"><summary>ตัดออกตามกฎ — ' + cutList.length + ' ไฟล์ (ไม่นำมารวม PDF / ไม่อยู่ใน EXPORT ZIP)</summary>' +
+    cutList.map(u => '<div class="cat-cut-row"><span>' + esc(u.name.split('/').pop() + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '')) + ' — ' + catCutPages(u) + '</span><em>' + esc(u.cut) + '</em></div>').join('') + '</details>' : '';
+  if (!pending.length) { pen.innerHTML = cutHtml; return; }
+  pen.innerHTML = cutHtml + '<div class="card cat-pending-card"><div class="card-hdr"><div class="card-title">รอตรวจสอบ — ' + pending.length + ' ไฟล์</div></div>' +
     '<div class="cat-detail">' + pending.slice().sort((a, b) => CATEngine.natCmp(a.name, b.name)).map(u => catUnitRow(u, null, null)).join('') + '</div></div>';
 }
 function catUnitRow(u, head, declNo) {
@@ -3121,7 +3281,8 @@ function catUnitRow(u, head, declNo) {
   if (u.note) h += '<div class="cat-ev" style="color:var(--org)">หมายเหตุ: ' + esc(u.note) + '</div>';
   h += '</div><div class="cat-unit-ctl">';
   h += '<select class="form-input cat-sel" title="ประเภทเอกสาร" onchange="catSetType(\'' + k + '\',this.value)">' +
-    CATEngine.TYPES.map(t => '<option value="' + t.code + '"' + (t.code === u.type ? ' selected' : '') + '>' + t.code + ' ' + esc(t.label) + '</option>').join('') + '</select>';
+    (u.type === '07' ? '<option value="07" selected>— ระบุประเภท —</option>' : '') +
+    CATEngine.TYPES.filter(t => t.code !== '07').map(t => '<option value="' + t.code + '"' + (t.code === u.type ? ' selected' : '') + '>' + t.code + ' ' + esc(t.label) + '</option>').join('') + '</select>';
   h += '<select class="form-input cat-sel" title="ย้ายเข้าชุดใบขน" onchange="catMove(\'' + k + '\',this.value)">' +
     '<option value=""' + (u.sets.length ? '' : ' selected') + '>— รอตรวจสอบ —</option>' +
     catSets.map(s => '<option value="' + s.declNo + '"' + ((declNo ? s.declNo === declNo : false) ? ' selected' : '') + '>→ ' + esc(s.declNo) + (u.hint === s.declNo ? ' (แนะนำ)' : '') + '</option>').join('') + '</select>';
@@ -3131,6 +3292,7 @@ function catUnitRow(u, head, declNo) {
 function catToggle(n) { catOpenSets[n] = !catOpenSets[n]; catRender(); }
 function catMove(key, declNo) {
   const u = catUnitByKey(key); if (!u || u.cut) return;
+  if (declNo && u.type === '07') { toast('ระบุประเภทเอกสาร 01–06 ก่อนย้ายเข้าชุด (หมวด 07 เอกสารอื่นๆ ห้ามแนบ)', 'error'); catRender(); return; }
   if (declNo && !catMergeable(u)) { toast('ไฟล์ประเภทนี้รวมเป็น PDF ไม่ได้ (รองรับ PDF, Excel, JPG, PNG)', 'error'); catRender(); return; }
   const m = catManual[key] || (catManual[key] = {});
   m.sets = declNo ? [declNo] : []; m.type = u.type;
@@ -3140,12 +3302,12 @@ function catMove(key, declNo) {
   catRender();
 }
 function catSetType(key, type) {
-  const u = catUnitByKey(key); if (!u || u.cut) return;
+  const u = catUnitByKey(key); if (!u || u.cut || type === '07') return;
   const m = catManual[key] || (catManual[key] = { sets: u.sets.slice() });
   m.type = type; u.type = type; u.manual = true;
   catRender();
 }
-/* ไบต์ของเอกสาร (ใช้เปิดดู / ใส่ _รอตรวจสอบ.zip): ทั้งไฟล์ = ต้นฉบับเดิมทุกไบต์ */
+/* ไบต์ของเอกสาร (ใช้เปิดดูบนหน้าจอ): ทั้งไฟล์ = ต้นฉบับเดิมทุกไบต์ */
 async function catUnitBytes(u) {
   const s = catSrcById(u.srcId);
   if (!u.pages) return s.bytes;
@@ -3308,6 +3470,11 @@ async function catSheetPages(src) {
 /* ---------- รวมเอกสารของหนึ่งใบขนเป็น PDF เดียวต่อเนื่อง (01→07) ---------- */
 async function catBuildSetPdf(set, onStep) {
   const plan = CATEngine.planOrder(catUnitsOf(set.declNo));
+  /* ด่านสุดท้ายก่อน MERGE: ห้ามมีหมวด 07 / เอกสารต้องห้ามหลุดเข้ามา */
+  for (const p of plan) {
+    const bad = p.unit.cut || (p.type === '07' ? 'หมวด 07' : null) || (p.type !== '01' ? CATEngine.cutRule(catTextOf(p.unit), p.unit.name) : null);
+    if (bad) throw new Error('พบเอกสารต้องห้ามในชุด ' + set.declNo + ': ' + p.unit.name.split('/').pop() + ' (' + bad + ')');
+  }
   const out = await PDFLib.PDFDocument.create();
   const parts = []; let total = 0;
   for (let i = 0; i < plan.length; i++) {
@@ -3350,9 +3517,20 @@ async function catBuildSetPdf(set, onStep) {
   /* ตรวจสอบ: PDF ที่รวมต้องเปิดได้ และจำนวนหน้าครบตามเอกสารต้นทาง */
   const task = pdfjsLib.getDocument({ data: bytes.slice(0) });
   const chk = await task.promise, got = chk.numPages;
-  await chk.getPage(1); await chk.getPage(got);
+  /* เปิด PDF ที่รวมแล้วอ่านทุกหน้า: ต้องไม่มีหน้าของเอกสารต้องห้าม (ยกเว้นหน้าใบขนซึ่งเป็น MASTER) */
+  let badPage = 0, badWhy = '';
+  for (let i = 1; i <= got && !badPage; i++) {
+    const pg = await chk.getPage(i);
+    const tc = await pg.getTextContent(), ptxt = tc.items.map(x => x.str).join(' ');
+    if (ptxt.indexOf('ใบขนสินค้า') < 0) {                      // หน้าใบขน (MASTER) ไม่ต้องตรวจ
+      const why = CATEngine.cutByText(CATEngine.up(ptxt));
+      if (why) { badPage = i; badWhy = why; }
+    }
+    pg.cleanup(); if (i % 10 === 0) await tick();
+  }
   try { await task.destroy(); } catch (_) {}
   if (got !== total) throw new Error('PDF รวมของ ' + set.declNo + ' หน้าไม่ครบ (' + got + ' / ' + total + ')');
+  if (badPage) throw new Error('พบเอกสารต้องห้ามใน PDF รวมของ ' + set.declNo + ' หน้า ' + badPage + ' (' + badWhy + ') — ยกเลิกการ EXPORT');
   return { bytes: bytes, parts: parts, total: total };
 }
 
@@ -3360,10 +3538,10 @@ async function catBuildSetPdf(set, onStep) {
 async function catExport(force) {
   if (catBusy) return;
   const pending = catPending().sort((a, b) => CATEngine.natCmp(a.name, b.name));
-  if (!catSets.length && !pending.length) { toast('ยังไม่มีเอกสารให้ EXPORT', 'error'); return; }
+  if (!catSets.length) { toast('ยังไม่มีใบขนให้ EXPORT', 'error'); return; }
   if (pending.length && !force) {
     showModal('⚠ มีเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์',
-      'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ จึง<b>ไม่ถูกรวมใน PDF ของใบขนใด</b> และจะถูกแยกไว้ใน <b>_รอตรวจสอบ.zip</b> พร้อมรายงานเหตุผล' +
+      'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ จึง<b>ไม่ถูกรวมใน EXPORT ZIP</b> จนกว่าจะกำหนดชุดใบขนให้ถูกต้อง' +
       '<div class="cat-modal-list">' + pending.slice(0, 30).map(u => '• ' + esc(u.name.split('/').pop()) + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '')).join('<br>') +
       (pending.length > 30 ? '<br>… และอีก ' + (pending.length - 30) + ' ไฟล์' : '') + '</div>ต้องการ EXPORT ต่อหรือไม่?',
       [{ label: 'กลับไปตรวจสอบ', cls: 'btn-secondary', action: 'closeModal()' },
@@ -3387,31 +3565,27 @@ async function catExport(force) {
       nPages += r.total;
       await tick();
     }
-    if (pending.length) {
-      const sub = new JSZip(), used = {}, lines = ['รายงานเอกสารรอตรวจสอบ — ' + stamp.toLocaleString('th-TH'), 'จำนวน ' + pending.length + ' ไฟล์ (ไม่ถูกรวมใน PDF ของใบขนใด)', ''];
-      for (const u of pending) {
-        const sn = CATEngine.splitName(u.name);
-        let nm = CATEngine.sanitize(sn.base) + (u.pages ? '_p' + CATEngine.pagesLabel(u.pages).replace(/,/g, '_') + '.pdf' : sn.ext), n0 = nm, c = 2;
-        while (used[nm.toLowerCase()]) { const s2 = CATEngine.splitName(n0); nm = s2.base + '_' + (c++) + s2.ext; }
-        used[nm.toLowerCase()] = 1;
-        sub.file(nm, await catUnitBytes(u), { date: stamp });
-        lines.push(nm, '   ต้นฉบับ : ' + u.name + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : ''), '   เหตุผล  : ' + (u.reason || (u.manual ? 'ผู้ใช้ย้ายมาไว้รอตรวจสอบ' : '-')), '');
-      }
-      sub.file('_เหตุผล_รอตรวจสอบ.txt', '﻿' + lines.join('\r\n'), { date: stamp });
-      big.file('_รอตรวจสอบ.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
-    }
+    /* เอกสารรอตรวจสอบ: แสดงเฉพาะหน้าจอ ไม่ใส่ใน ZIP — ZIP ใหญ่มีเฉพาะ ZIP ย่อยตามเลขใบขน */
     catProgress('กำลังบีบอัด CAT_ALL.zip ...', 96);
     const blob = await big.generateAsync({ type: 'blob', compression: 'STORE' });
     catLastExport = summary;
     dlBlob(blob, 'CAT_ALL.zip');
     logAudit('rename_pdf', 'CAT: ' + sets.length + ' ใบขน / ' + nPages + ' หน้า', 'CAT_ALL.zip', true, 'EXPORT ZIP รวมไฟล์ CAT' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''));
-    toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nPages + ' หน้า' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''), 'success');
+    toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nPages + ' หน้า' + (pending.length ? ' · ไม่รวมเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์' : ''), 'success');
   } catch (e) {
     toast('EXPORT ล้มเหลว: ' + ((e && e.message) || e), 'error');
   } finally {
     catBusy = false; catProgress(null); btn.textContent = oldTxt; catUpdateButtons();
   }
 }
+
+/* เมนูพับบนมือถือ */
+function toggleSidebar(force) {
+  const sb = document.getElementById('sidebar'), bd = document.getElementById('nav-backdrop'); if (!sb) return;
+  const on = force == null ? !sb.classList.contains('open') : !!force;
+  sb.classList.toggle('open', on); if (bd) bd.classList.toggle('open', on);
+}
+document.getElementById('sidebar')?.addEventListener('click', e => { if (e.target.closest('.nav-item')) toggleSidebar(false); });
 
 </script>
 
