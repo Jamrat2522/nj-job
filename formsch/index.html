@@ -6,7 +6,7 @@
 <title>N.J. Logistics — System</title>
 <script>
 // ══ APP VERSION — ค่ากลางจุดเดียวของทั้งเว็บไซต์ (Sidebar · TOP BAR · หน้าแจ้งเตือนอุปกรณ์) · เปลี่ยนทุก Release ══
-const APP_VERSION='local309';
+const APP_VERSION='local312';
 function _applyAppVersion(){ document.querySelectorAll('[data-app-ver]').forEach(el=>{ el.textContent=APP_VERSION; }); }
 document.addEventListener('DOMContentLoaded',_applyAppVersion);
 </script>
@@ -2263,7 +2263,7 @@ input[type=file]{display:none}
         </div>
         <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด PL Excel + EXPORT ENTRY → กด EXPORT ครั้งเดียว → ได้ ZIP ที่มี Excel 2 ไฟล์ (ชื่อไฟล์ตาม Invoice No. จาก EXPORT ENTRY) · จับคู่ด้วย Product Code</div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;margin-bottom:14px">
           <div class="hl-upload-card pdf-card" id="tic-pl-card" onclick="document.getElementById('tic-pl-inp').click()">
             <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
             <div class="hl-dz-title">① PL Excel</div>
@@ -10570,7 +10570,7 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
         // กฎเดียวกับ Bulk: กดได้เฉพาะ "อนุมัติจากระบบ + ยังไม่ปิดงาน"
         +(_cl
             ? `<button class="rpt-act close done" data-act="close" data-id="${_esc(r.id)}" title="ปิดงานแล้ว" disabled>🔒 ปิดงานแล้ว</button>`
-            : `<button class="rpt-act close"      data-act="close" data-id="${_esc(r.id)}" title="${_canC?'ปิดงาน':_esc(_rptWhyNoClose(r))}"${_canC?'':' disabled'}>🔒</button>`)
+            : (()=>{ const _c1=_rptCanCloseOne(r); return `<button class="rpt-act close"      data-act="close" data-id="${_esc(r.id)}" title="${_c1?'ปิดงาน':_esc(_rptWhyNoClose(r))}"${_c1?'':' disabled'}>🔒</button>`; })())
         +`<button class="rpt-act del"   data-act="del"   data-id="${_esc(r.id)}" title="ลบ">🗑</button>`
         +`</td>`;
       (window.rptFormMode?[]:RPT_CHK).forEach(c=>{
@@ -10914,14 +10914,19 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
   // ── กฎการปิดงาน (ใช้ร่วมกันทั้งปิดเดี่ยวและปิดหลายรายการ — ห้ามมีกฎคนละแบบ) ──
   // ปิดได้เฉพาะ "อนุมัติจากระบบ" (system_approval_status ผ่าน _rptSS) และยังไม่ปิดงาน
   function _rptCanClose(r){ return !!r && !r.is_closed && _rptSS(r)==='APPROVED'; }
+  // 🔒 ปุ่มปิดงาน "รายรายการ" (คอลัมน์จัดการ) — ปลดล็อคเพิ่มเฉพาะเมื่อครบ 2 เงื่อนไขพร้อมกัน:
+  //    ① สถานะติดปัญหา (remark) มีข้อมูล  ② สถานะรายการ = ยกเลิก (CANCELLED) · และยังไม่ปิดงาน
+  //    ผู้ใช้กดเอง + ยืนยันก่อนเท่านั้น · ไม่เปลี่ยนกฎ ☑/🔒 ปิดงานที่เลือก (Bulk) · ไม่แก้ system_approval_status
+  function _rptCanCloseCancelled(r){ return !!r && !r.is_closed && _rptSS(r)==='CANCELLED' && String(r.remark==null?'':r.remark).trim()!==''; }
+  function _rptCanCloseOne(r){ return _rptCanClose(r) || _rptCanCloseCancelled(r); }
   function _rptWhyNoClose(r){                              // เหตุผลที่ปิดไม่ได้ (ใช้แจ้งผู้ใช้)
     if(!r) return 'ไม่พบรายการ';
     if(r.is_closed) return 'รายการนี้ปิดงานแล้ว';
     return 'ปิดงานได้เฉพาะรายการที่มีสถานะอนุมัติจากระบบเท่านั้น';
   }
-  async function _rptCloseOne(id){                        // เขียนลง DB จริง 1 record · โยน error ถ้าไม่สำเร็จ
+  async function _rptCloseOne(id, single){                // เขียนลง DB จริง 1 record · โยน error ถ้าไม่สำเร็จ · single=ปุ่มรายรายการ
     const row=_byId(id); if(!row) throw new Error('ไม่พบรายการ');
-    if(!_rptCanClose(row)) throw new Error(_rptWhyNoClose(row));   // ตรวจซ้ำก่อน Save เสมอ (กัน stale/selection เก่า/เรียกตรง)
+    if(!(single ? _rptCanCloseOne(row) : _rptCanClose(row))) throw new Error(_rptWhyNoClose(row));   // ตรวจซ้ำก่อน Save เสมอ (กัน stale/selection เก่า/เรียกตรง)
     const at=new Date().toISOString();
     const who=(typeof me!=='undefined' && me && me.username) ? me.username : '';
     await _rptFetch('report_formsch?id=eq.'+encodeURIComponent(id),'PATCH',
@@ -10932,10 +10937,11 @@ function schwBind(){ schwBindDrop('schwDrop',files=>schwAddFiles(files)); schwRe
   }
   function _rptCloseTask(id){
     const row=_byId(id);
-    if(!_rptCanClose(row)){ toast(_rptWhyNoClose(row),'error'); return; }   // กฎเดียวกับ Bulk
-    _rptConfirm('ยืนยันปิดงานรายการนี้หรือไม่?\nเมื่อปิดงานแล้วจะไม่สามารถแก้ไขรายการนี้ได้', async ()=>{
+    if(!_rptCanCloseOne(row)){ toast(_rptWhyNoClose(row),'error'); return; }   // อนุมัติจากระบบ · หรือ ยกเลิก + มีสถานะติดปัญหา
+    const _isCan=_rptCanCloseCancelled(row);
+    _rptConfirm('ยืนยันปิดงานรายการนี้หรือไม่?'+(_isCan?'\nสถานะปัจจุบัน: ยกเลิก (สถานะเดิมจะถูกเก็บไว้)':'')+'\nเมื่อปิดงานแล้วจะไม่สามารถแก้ไขรายการนี้ได้', async ()=>{
       try{
-        await _rptCloseOne(id);
+        await _rptCloseOne(id, true);
         _rptApplyView(); _rptRender();
         toast('ปิดงานแล้ว','success');
       }catch(e){
@@ -12287,7 +12293,7 @@ function _ticBind(){
 }
 function _ticClear(){
   ticState.pl=null; ticState.ee=null;
-  ticState.plFiles=[]; ticState.eeFiles=[]; ticState.pairs=new Map();
+  ticState.plFiles=[]; ticState.eeFiles=[]; ticState.pairs=new Map(); ticState.results=[];
   ['tic-pl-inp','tic-ee-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   [['tic-pl-name','① PL Excel'],['tic-ee-name','② EXPORT ENTRY']].forEach(([id])=>{
     const n=document.getElementById(id); if(n){ n.textContent='ยังไม่ได้เลือก'; n.style.color=''; } });
@@ -12621,6 +12627,10 @@ function _ticDownload(blob,name){
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
+function _ticDownloadResult(i){   // ดาวน์โหลด ZIP ของงานเดียว (ผู้ใช้กดเอง)
+  const x=(ticState.results||[])[i]; if(!x) return;
+  _ticDownload(x.blob, x.zipName); _ticLog('⬇ ดาวน์โหลด '+_ticEsc(x.zipName),'ok');
+}
 async function _ticExport(){
   const btn=document.getElementById('tic-export-btn');
   if(ticState.busy) return;                                     // ป้องกันกดซ้ำ
@@ -12659,7 +12669,9 @@ async function _ticExport(){
     const ready=rows.filter(r=>r.ready), skipped=rows.filter(r=>!r.ready);
     skipped.forEach(r=>_ticLog('⏭ ข้าม '+_ticEsc(r.ee.name)+(r.ee.info&&r.ee.info.inv?' (Invoice '+_ticEsc(r.ee.info.inv)+')':'')+' — '+r.status+(r.note?': '+_ticEsc(r.note):''),'warn'));
     if(!ready.length) return fail('ไม่มี Invoice ที่พร้อม EXPORT — ตรวจสอบตารางจับคู่');
-    const zip=new JSZip(), names=new Set(), okList=[], errList=skipped.map(r=>({name:r.ee.name, why:r.status}));
+    // ZIP แยกต่องาน: 1 Invoice (รหัสงาน USA จาก EXPORT ENTRY ของคู่ที่จับจริง) = 1 ZIP = Excel 2 ไฟล์ · ไม่ดาวน์โหลดอัตโนมัติ (กันเบราว์เซอร์บล็อก)
+    ticState.results=[];
+    const zipNames=new Set(), okList=[], errList=skipped.map(r=>({name:r.ee.name, why:r.status}));
     for(const r of ready){
       const tag='['+r.ee.info.inv+'] ';
       _ticLog('▶ '+tag+'PL: '+_ticEsc(r.pl.name)+' · ENTRY: '+_ticEsc(r.ee.name));
@@ -12667,24 +12679,31 @@ async function _ticExport(){
         const R=await _ticProcessPair(r.pl.file, r.ee.file, (m,t)=>_ticLog(tag+m,t));
         if(R.err){ _ticLog('✕ '+tag+R.err,'err'); errList.push({name:r.ee.name, why:R.err}); continue; }
         const n1=R.EE.inv+' - MAPPING FORM CO.xlsx', n2=R.EE.inv+' - MAPPING 2.xlsx';
-        if(names.has(n1)||names.has(n2)){ _ticLog('✕ '+tag+'ชื่อไฟล์ซ้ำใน ZIP — ไม่เขียนทับ','err'); errList.push({name:r.ee.name, why:'ชื่อไฟล์ซ้ำ'}); continue; }
-        names.add(n1); names.add(n2);
-        zip.file(n1,R.coBuf); zip.file(n2,R.m2Buf);
+        const base=String(R.EE.inv).replace(/[\\/:*?"<>|]+/g,'_').trim()||'INVOICE';
+        let zipName=base+'.zip', k=2; while(zipNames.has(zipName)){ zipName=base+' ('+(k++)+').zip'; }   // กันชื่อซ้ำ/เขียนทับ
+        zipNames.add(zipName);
+        const zip=new JSZip(); zip.file(n1,R.coBuf); zip.file(n2,R.m2Buf);
+        const blob=await zip.generateAsync({type:'blob'});
+        ticState.results.push({inv:R.EE.inv, zipName, blob, files:[n1,n2], pl:r.pl.name, ee:r.ee.name});
         _ticLog('✓ '+tag+'สร้าง '+n1+' ('+R.recs.length+' รายการ)','ok');
         _ticLog('✓ '+tag+'สร้าง '+n2+' ('+R.recs.length+' รายการ + แถวรวม)','ok');
+        _ticLog('✓ '+tag+'ZIP: '+_ticEsc(zipName),'ok');
         okList.push({EE:R.EE, recs:R.recs, notFound:R.notFound});
       }catch(err){ console.error('[THAI INABA CO]',err); _ticLog('✕ '+tag+'เกิดข้อผิดพลาด: '+err.message,'err'); errList.push({name:r.ee.name, why:err.message}); }
     }
     if(!okList.length) return fail('ไม่มี Invoice ที่สร้างไฟล์สำเร็จ');
-    const zipName = okList.length===1 ? okList[0].EE.inv+' - THAI INABA CO.zip' : 'THAI INABA CO - BATCH.zip';
-    const blob=await zip.generateAsync({type:'blob'});
-    _ticDownload(blob, zipName);
-    _ticLog('✓ ZIP: '+zipName+' · Invoice สำเร็จ '+okList.length+' · ไม่สำเร็จ/ข้าม '+errList.length+' · Excel '+(okList.length*2)+' ไฟล์','ok');
-    if(sm) sm.innerHTML='<div style="font-size:12px;color:var(--t1);margin-bottom:6px"><b>BATCH</b> · Invoice สำเร็จ <b style="color:#2ea043">'+okList.length+
-      '</b> · ไม่สำเร็จ/ข้าม <b style="color:'+(errList.length?'#f85149':'var(--t2)')+'">'+errList.length+'</b> · Excel '+(okList.length*2)+' ไฟล์ · '+_ticEsc(zipName)+'</div>'+
+    _ticLog('✓ สร้าง ZIP แยกงาน '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์ · ไม่สำเร็จ/ข้าม '+errList.length+' — กดปุ่ม DOWNLOAD ของแต่ละงาน','ok');
+    if(sm) sm.innerHTML='<div style="font-size:12px;color:var(--t1);margin-bottom:6px"><b>EXPORT แยกงาน</b> · สำเร็จ <b style="color:#2ea043">'+okList.length+
+      '</b> งาน · ไม่สำเร็จ/ข้าม <b style="color:'+(errList.length?'#f85149':'var(--t2)')+'">'+errList.length+'</b> · ZIP '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์</div>'+
+      '<div id="tic-results" style="border:1px solid var(--bd);border-radius:8px;background:var(--s2);margin-bottom:8px">'+
+      ticState.results.map((x,i)=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;'+(i?'border-top:1px solid var(--bd)':'')+'">'+
+        '<div style="flex:1;min-width:220px"><div style="font-size:13px;font-weight:700;color:var(--t1)">📦 '+_ticEsc(x.zipName)+'</div>'+
+        '<div style="font-size:11px;color:var(--t2)">'+x.files.map(_ticEsc).join(' · ')+'</div>'+
+        '<div style="font-size:10.5px;color:var(--t3)">PL: '+_ticEsc(x.pl)+' · ENTRY: '+_ticEsc(x.ee)+'</div></div>'+
+        '<button class="tic-dl-btn" onclick="_ticDownloadResult('+i+')" style="padding:7px 14px;border-radius:6px;background:#1f6feb;color:#fff;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">⬇ DOWNLOAD ZIP</button></div>').join('')+'</div>'+
       okList.map(o=>_ticSummaryHtml(o.EE,o.recs,o.notFound)).join('<div style="height:6px"></div>')+
       (errList.length?'<div style="margin-top:6px;font-size:11.5px;color:#f85149">'+errList.map(e=>'✕ '+_ticEsc(e.name)+' — '+_ticEsc(e.why)).join('<br>')+'</div>':'');
-    if(typeof toast==='function') toast('Export สำเร็จ — '+zipName+' · '+okList.length+' Invoice / '+(okList.length*2)+' Excel'+(errList.length?' · ไม่สำเร็จ '+errList.length:''), errList.length?'warning':'success');
+    if(typeof toast==='function') toast('สร้าง ZIP แยกงานสำเร็จ '+ticState.results.length+' ไฟล์ — กด DOWNLOAD ของแต่ละงาน'+(errList.length?' · ไม่สำเร็จ '+errList.length:''), errList.length?'warning':'success');
   }catch(err){ console.error('[THAI INABA CO]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
   finally{ ticState.busy=false; if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
 }
