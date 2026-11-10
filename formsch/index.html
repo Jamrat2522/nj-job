@@ -6,7 +6,7 @@
 <title>N.J. Logistics — System</title>
 <script>
 // ══ APP VERSION — ค่ากลางจุดเดียวของทั้งเว็บไซต์ (Sidebar · TOP BAR · หน้าแจ้งเตือนอุปกรณ์) · เปลี่ยนทุก Release ══
-const APP_VERSION='local312';
+const APP_VERSION='local309';
 function _applyAppVersion(){ document.querySelectorAll('[data-app-ver]').forEach(el=>{ el.textContent=APP_VERSION; }); }
 document.addEventListener('DOMContentLoaded',_applyAppVersion);
 </script>
@@ -12627,10 +12627,6 @@ function _ticDownload(blob,name){
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
-function _ticDownloadResult(i){   // ดาวน์โหลด ZIP ของงานเดียว (ผู้ใช้กดเอง)
-  const x=(ticState.results||[])[i]; if(!x) return;
-  _ticDownload(x.blob, x.zipName); _ticLog('⬇ ดาวน์โหลด '+_ticEsc(x.zipName),'ok');
-}
 async function _ticExport(){
   const btn=document.getElementById('tic-export-btn');
   if(ticState.busy) return;                                     // ป้องกันกดซ้ำ
@@ -12669,7 +12665,7 @@ async function _ticExport(){
     const ready=rows.filter(r=>r.ready), skipped=rows.filter(r=>!r.ready);
     skipped.forEach(r=>_ticLog('⏭ ข้าม '+_ticEsc(r.ee.name)+(r.ee.info&&r.ee.info.inv?' (Invoice '+_ticEsc(r.ee.info.inv)+')':'')+' — '+r.status+(r.note?': '+_ticEsc(r.note):''),'warn'));
     if(!ready.length) return fail('ไม่มี Invoice ที่พร้อม EXPORT — ตรวจสอบตารางจับคู่');
-    // ZIP แยกต่องาน: 1 Invoice (รหัสงาน USA จาก EXPORT ENTRY ของคู่ที่จับจริง) = 1 ZIP = Excel 2 ไฟล์ · ไม่ดาวน์โหลดอัตโนมัติ (กันเบราว์เซอร์บล็อก)
+    // ZIP ซ้อน ZIP: 1 งาน (รหัสงานจาก EXPORT ENTRY ของคู่ที่จับจริง) = 1 ZIP ย่อย = Excel 2 ไฟล์ → รวม ZIP ย่อยทั้งหมดใน THAI_INABA_ALL.zip · ดาวน์โหลดครั้งเดียว
     ticState.results=[];
     const zipNames=new Set(), okList=[], errList=skipped.map(r=>({name:r.ee.name, why:r.status}));
     for(const r of ready){
@@ -12692,18 +12688,22 @@ async function _ticExport(){
       }catch(err){ console.error('[THAI INABA CO]',err); _ticLog('✕ '+tag+'เกิดข้อผิดพลาด: '+err.message,'err'); errList.push({name:r.ee.name, why:err.message}); }
     }
     if(!okList.length) return fail('ไม่มี Invoice ที่สร้างไฟล์สำเร็จ');
-    _ticLog('✓ สร้าง ZIP แยกงาน '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์ · ไม่สำเร็จ/ข้าม '+errList.length+' — กดปุ่ม DOWNLOAD ของแต่ละงาน','ok');
-    if(sm) sm.innerHTML='<div style="font-size:12px;color:var(--t1);margin-bottom:6px"><b>EXPORT แยกงาน</b> · สำเร็จ <b style="color:#2ea043">'+okList.length+
-      '</b> งาน · ไม่สำเร็จ/ข้าม <b style="color:'+(errList.length?'#f85149':'var(--t2)')+'">'+errList.length+'</b> · ZIP '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์</div>'+
+    // ZIP ใหญ่ — สร้างหลัง ZIP ย่อยทุกงานเสร็จแล้วเท่านั้น (await ครบในลูปด้านบน)
+    const allName='THAI_INABA_ALL.zip';
+    const big=new JSZip(); ticState.results.forEach(x=>big.file(x.zipName, x.blob));
+    const bigBlob=await big.generateAsync({type:'blob'});
+    _ticDownload(bigBlob, allName);                                    // ดาวน์โหลดครั้งเดียว
+    _ticLog('✓ ZIP ใหญ่: '+allName+' · ZIP ย่อย '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์ · ไม่สำเร็จ/ข้าม '+errList.length,'ok');
+    if(sm) sm.innerHTML='<div style="font-size:12px;color:var(--t1);margin-bottom:6px"><b>📦 '+allName+'</b> · สำเร็จ <b style="color:#2ea043">'+okList.length+
+      '</b> งาน · ไม่สำเร็จ/ข้าม <b style="color:'+(errList.length?'#f85149':'var(--t2)')+'">'+errList.length+'</b> · ZIP ย่อย '+ticState.results.length+' ไฟล์ · Excel '+(okList.length*2)+' ไฟล์</div>'+
       '<div id="tic-results" style="border:1px solid var(--bd);border-radius:8px;background:var(--s2);margin-bottom:8px">'+
       ticState.results.map((x,i)=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;'+(i?'border-top:1px solid var(--bd)':'')+'">'+
-        '<div style="flex:1;min-width:220px"><div style="font-size:13px;font-weight:700;color:var(--t1)">📦 '+_ticEsc(x.zipName)+'</div>'+
+        '<div style="flex:1;min-width:220px"><div style="font-size:13px;font-weight:700;color:var(--t1)">📁 '+_ticEsc(allName)+' / '+_ticEsc(x.zipName)+'</div>'+
         '<div style="font-size:11px;color:var(--t2)">'+x.files.map(_ticEsc).join(' · ')+'</div>'+
-        '<div style="font-size:10.5px;color:var(--t3)">PL: '+_ticEsc(x.pl)+' · ENTRY: '+_ticEsc(x.ee)+'</div></div>'+
-        '<button class="tic-dl-btn" onclick="_ticDownloadResult('+i+')" style="padding:7px 14px;border-radius:6px;background:#1f6feb;color:#fff;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">⬇ DOWNLOAD ZIP</button></div>').join('')+'</div>'+
+        '<div style="font-size:10.5px;color:var(--t3)">PL: '+_ticEsc(x.pl)+' · ENTRY: '+_ticEsc(x.ee)+'</div></div></div>').join('')+'</div>'+
       okList.map(o=>_ticSummaryHtml(o.EE,o.recs,o.notFound)).join('<div style="height:6px"></div>')+
       (errList.length?'<div style="margin-top:6px;font-size:11.5px;color:#f85149">'+errList.map(e=>'✕ '+_ticEsc(e.name)+' — '+_ticEsc(e.why)).join('<br>')+'</div>':'');
-    if(typeof toast==='function') toast('สร้าง ZIP แยกงานสำเร็จ '+ticState.results.length+' ไฟล์ — กด DOWNLOAD ของแต่ละงาน'+(errList.length?' · ไม่สำเร็จ '+errList.length:''), errList.length?'warning':'success');
+    if(typeof toast==='function') toast('Export สำเร็จ — '+allName+' · ZIP ย่อย '+ticState.results.length+' งาน / '+(okList.length*2)+' Excel'+(errList.length?' · ไม่สำเร็จ '+errList.length:''), errList.length?'warning':'success');
   }catch(err){ console.error('[THAI INABA CO]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
   finally{ ticState.busy=false; if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
 }
