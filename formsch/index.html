@@ -6,7 +6,7 @@
 <title>N.J. Logistics — System</title>
 <script>
 // ══ APP VERSION — ค่ากลางจุดเดียวของทั้งเว็บไซต์ (Sidebar · TOP BAR · หน้าแจ้งเตือนอุปกรณ์) · เปลี่ยนทุก Release ══
-const APP_VERSION='v2.1.0';
+const APP_VERSION='local309';
 function _applyAppVersion(){ document.querySelectorAll('[data-app-ver]').forEach(el=>{ el.textContent=APP_VERSION; }); }
 document.addEventListener('DOMContentLoaded',_applyAppVersion);
 </script>
@@ -2263,7 +2263,7 @@ input[type=file]{display:none}
         </div>
         <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด PL Excel + EXPORT ENTRY → กด EXPORT ครั้งเดียว → ได้ ZIP ที่มี Excel 2 ไฟล์ (ชื่อไฟล์ตาม Invoice No. จาก EXPORT ENTRY) · จับคู่ด้วย Product Code</div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:900px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin-bottom:14px">
           <div class="hl-upload-card pdf-card" id="tic-pl-card" onclick="document.getElementById('tic-pl-inp').click()">
             <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
             <div class="hl-dz-title">① PL Excel</div>
@@ -2277,13 +2277,6 @@ input[type=file]{display:none}
             <div class="hl-dz-sub">.xls / .xlsx (ใบขน · Product Code · Tariff · FOB)</div>
             <div class="hl-dz-fname" id="tic-ee-name">ยังไม่ได้เลือก</div>
             <input type="file" id="tic-ee-inp" accept=".xls,.xlsx" multiple style="display:none" onclick="event.stopPropagation()">
-          </div>
-          <div class="hl-upload-card pdf-card" id="tic-zip-card" onclick="document.getElementById('tic-zip-inp').click()">
-            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
-            <div class="hl-dz-title">③ ZIP หลายคู่ (ทางเลือก)</div>
-            <div class="hl-dz-sub">.zip · แต่ละโฟลเดอร์ = PL Excel + EXPORT ENTRY</div>
-            <div class="hl-dz-fname" id="tic-zip-name">ยังไม่ได้เลือก</div>
-            <input type="file" id="tic-zip-inp" accept=".zip" multiple style="display:none" onclick="event.stopPropagation()">
           </div>
         </div>
 
@@ -12290,22 +12283,13 @@ function _ticBind(){
         const fs=[...((e.dataTransfer&&e.dataTransfer.files)||[])]; if(fs.length) _ticAddFiles(key,fs); });
     }
   });
-  const zi=document.getElementById('tic-zip-inp');
-  if(zi && !zi.dataset.ticBound){ zi.dataset.ticBound='1';
-    zi.addEventListener('change',e=>{ const fs=[...(e.target.files||[])]; e.target.value=''; if(fs.length) _ticAddZips(fs); }); }
-  const zc=document.getElementById('tic-zip-card');
-  if(zc && !zc.dataset.ticDnd){ zc.dataset.ticDnd='1';
-    zc.addEventListener('dragover',e=>{ e.preventDefault(); zc.style.borderColor='#a371f7'; });
-    zc.addEventListener('dragleave',()=>{ zc.style.borderColor=''; });
-    zc.addEventListener('drop',e=>{ e.preventDefault(); e.stopPropagation(); zc.style.borderColor='';
-      const fs=[...((e.dataTransfer&&e.dataTransfer.files)||[])]; if(fs.length) _ticAddZips(fs); }); }
   _ticRenderFiles(); _ticRenderPairs();
 }
 function _ticClear(){
   ticState.pl=null; ticState.ee=null;
-  ticState.plFiles=[]; ticState.eeFiles=[]; ticState.pairs=new Map(); ticState.zips=[];
-  ['tic-pl-inp','tic-ee-inp','tic-zip-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  [['tic-pl-name','① PL Excel'],['tic-ee-name','② EXPORT ENTRY'],['tic-zip-name','③ ZIP']].forEach(([id])=>{
+  ticState.plFiles=[]; ticState.eeFiles=[]; ticState.pairs=new Map();
+  ['tic-pl-inp','tic-ee-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  [['tic-pl-name','① PL Excel'],['tic-ee-name','② EXPORT ENTRY']].forEach(([id])=>{
     const n=document.getElementById(id); if(n){ n.textContent='ยังไม่ได้เลือก'; n.style.color=''; } });
   const lg=document.getElementById('tic-log'); if(lg) lg.innerHTML='';
   const sm=document.getElementById('tic-summary'); if(sm) sm.innerHTML='';
@@ -12346,38 +12330,6 @@ async function _ticAddFiles(key,files){
   await Promise.all(added.map(it=>_ticParseOne(key,it)));
   _ticRenderFiles(); _ticRenderPairs();
 }
-// ── ③ ZIP หลายคู่: อ่านด้วย JSZip · จำแนกจาก "เนื้อหา" (PL = หัว Total Net/Total gross · ENTRY = Invoice No. + Product Code) ──
-async function _ticAddZips(files){
-  if(typeof JSZip==='undefined'){ _ticLog('✕ JSZip ยังไม่โหลด — refresh หน้าใหม่','err'); return; }
-  ticState.zips = ticState.zips || [];
-  for(const zf of files){
-    if(!/\.zip$/i.test(zf.name)){ _ticLog('⚠ ข้ามไฟล์ที่ไม่ใช่ .zip: '+_ticEsc(zf.name),'warn'); continue; }
-    let zip; try{ zip=await JSZip.loadAsync(await zf.arrayBuffer()); }catch(err){ _ticLog('✕ เปิด ZIP ไม่ได้: '+_ticEsc(zf.name)+' — '+_ticEsc(err.message),'err'); continue; }
-    ticState.zips.push(zf.name);
-    const ents=[]; zip.forEach((path,ent)=>{ if(ent.dir) return; const base=path.split('/').pop();
-      if(/(^|\/)__MACOSX\//.test(path) || /^\.|^~\$/.test(base) || !/\.(xls|xlsx)$/i.test(base)) return; ents.push({path,ent,base}); });
-    _ticLog('ZIP '+_ticEsc(zf.name)+' · พบ Excel '+ents.length+' ไฟล์');
-    let nPL=0,nEE=0,nX=0;
-    for(const {path,ent,base} of ents){
-      const u8=await ent.async('uint8array');
-      const f=new File([u8], base, {lastModified:(ent.date&&ent.date.getTime())||0});
-      const folder=zf.name+'::'+path.split('/').slice(0,-1).join('/');
-      let kind='';
-      try{ const wb=XLSX.read(u8,{type:'array'});
-        if(_ticReadPL(wb)) kind='pl';
-        else { const E=_ticReadEE(wb); if(E.rows.length && E.inv) kind='ee'; } }catch(err){}
-      if(!kind){ nX++; _ticLog('⚠ '+_ticEsc(path)+' — ไม่ใช่ PL Excel หรือ EXPORT ENTRY (ข้าม)','warn'); continue; }
-      const list = kind==='pl' ? ticState.plFiles : ticState.eeFiles;
-      if(list.some(x=>x.name===f.name && x.file.size===f.size && x.folder===folder)){ _ticLog('⚠ ไฟล์ซ้ำ (เลือกไว้แล้ว): '+_ticEsc(path),'warn'); continue; }
-      const item={id:'t'+(++ticState._seq), file:f, name:f.name, info:null, parsing:true, folder, path};
-      list.push(item); await _ticParseOne(kind,item);
-      if(kind==='pl') nPL++; else nEE++;
-    }
-    _ticLog('ZIP '+_ticEsc(zf.name)+' → PL Excel '+nPL+' · EXPORT ENTRY '+nEE+(nX?' · ข้าม '+nX:''), nPL&&nEE?'ok':'warn');
-  }
-  const zn=document.getElementById('tic-zip-name'); if(zn && ticState.zips.length){ zn.textContent = ticState.zips.length===1 ? ticState.zips[0] : (ticState.zips.length+' ไฟล์'); zn.style.color='#a371f7'; }
-  _ticSyncLegacy(); _ticRenderFiles(); _ticRenderPairs();
-}
 function _ticRemoveFile(key,id){
   if(key==='pl'){ ticState.plFiles=ticState.plFiles.filter(x=>x.id!==id);
     ticState.pairs.forEach((v,k)=>{ if(v.plId===id) ticState.pairs.delete(k); }); }
@@ -12405,7 +12357,7 @@ function _ticRenderFiles(){
         : key==='ee' ? '<span style="color:#2ea043">Invoice '+_ticEsc(inf.inv)+' · '+inf.codes.length+' Product Code</span>'
         : '<span style="color:#2ea043">'+inf.codes.length+' Product Code</span>';
       return '<div style="display:flex;align-items:flex-start;gap:6px;font-size:11.5px;padding:3px 0;border-top:1px solid var(--bd)">'+
-        '<div style="flex:1;min-width:0;word-break:break-all"><div style="color:var(--t1)">'+_ticEsc(it.path||it.name)+'</div><div style="font-size:10.5px">'+st+'</div></div>'+
+        '<div style="flex:1;min-width:0;word-break:break-all"><div style="color:var(--t1)">'+_ticEsc(it.name)+'</div><div style="font-size:10.5px">'+st+'</div></div>'+
         '<button title="ลบไฟล์นี้" onclick="_ticRemoveFile(\''+key+'\',\''+it.id+'\')" style="background:none;border:1px solid var(--bd);color:#f85149;border-radius:5px;font-size:11px;padding:1px 7px;cursor:pointer">✕</button></div>'; }).join('')
       : '<div style="font-size:11px;color:var(--t3)">ยังไม่มีไฟล์</div>')+'</div>';
   box.innerHTML = (ticState.plFiles.length||ticState.eeFiles.length) ? blk('① PL Excel','pl',ticState.plFiles)+blk('② EXPORT ENTRY','ee',ticState.eeFiles) : '';
@@ -12422,14 +12374,10 @@ function _ticComputePairs(){
   ees.forEach(ee=>{
     const cur=ticState.pairs.get(ee.id);
     if(cur && cur.mode==='manual') return;                         // ผู้ใช้เลือกเองแล้ว → ไม่เปลี่ยน
-    let pick='', via='';
-    if(single && ticState.plFiles[0].info){ pick=ticState.plFiles[0].id; via='single'; }
-    else if(ee.folder){   // ZIP: โฟลเดอร์เดียวกัน มี PL 1 + ENTRY 1 เท่านั้น → จับคู่ · มากกว่านั้น = กำกวม → ให้ผู้ใช้เลือก
-      const fp=pls.filter(p=>p.folder===ee.folder), fe=ees.filter(e=>e.folder===ee.folder);
-      if(fp.length===1 && fe.length===1){ pick=fp[0].id; via='folder'; }
-    }
-    if(!pick && !ee.folder){ const ex=exactOf.get(ee.id)||[]; if(ex.length===1 && exactCount.get(ex[0])===1){ pick=ex[0]; via='exact'; } }
-    ticState.pairs.set(ee.id,{plId:pick, mode:'auto', via});
+    let pick='';
+    if(single && ticState.plFiles[0].info) pick=ticState.plFiles[0].id;
+    else { const ex=exactOf.get(ee.id)||[]; if(ex.length===1 && exactCount.get(ex[0])===1) pick=ex[0]; }
+    ticState.pairs.set(ee.id,{plId:pick, mode:'auto'});
   });
   // คำนวณสถานะต่อ Invoice
   const invCnt=new Map(); ees.forEach(e=>invCnt.set(e.info.inv,(invCnt.get(e.info.inv)||0)+1));
@@ -12476,7 +12424,7 @@ function _ticRenderPairs(){
       return '<tr data-ee="'+r.ee.id+'" style="border-bottom:1px solid var(--bd)">'+
         '<td style="padding:6px 10px;white-space:nowrap;color:var(--t1)">'+_ticEsc(inv)+'</td>'+
         '<td style="padding:6px 10px"><select class="tic-pl-sel" onchange="_ticSetPair(\''+r.ee.id+'\',this.value)" style="max-width:240px;background:var(--s1);color:var(--t1);border:1px solid var(--bd);border-radius:5px;font-size:11.5px;padding:3px 5px">'+plOpts(pr.plId||'')+'</select>'+
-          (pr.mode==='auto'&&pr.plId?'<div style="font-size:10px;color:var(--t3)">จับคู่อัตโนมัติ ('+(pr.via==='folder'?'โฟลเดอร์เดียวกันใน ZIP':pr.via==='single'?'1 คู่':'Product Code ตรงทั้งชุด')+')</div>':'')+'</td>'+
+          (pr.mode==='auto'&&pr.plId?'<div style="font-size:10px;color:var(--t3)">จับคู่อัตโนมัติ (Product Code ตรงทั้งชุด)</div>':'')+'</td>'+
         '<td style="padding:6px 10px;word-break:break-all">'+_ticEsc(r.ee.name)+'</td>'+
         '<td style="padding:6px 10px;white-space:nowrap">'+pct+'</td>'+
         '<td style="padding:6px 10px"><b style="color:'+(col[r.status]||'var(--t2)')+'">'+r.status+'</b>'+(r.note?'<div style="font-size:10.5px;color:var(--t2)">'+_ticEsc(r.note)+'</div>':'')+'</td></tr>'; }).join('')+
