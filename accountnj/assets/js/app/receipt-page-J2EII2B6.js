@@ -128,7 +128,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
         ${RH795()}${RH522}
         ${A()?'<th class="center">\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23</th>':""}
-      </tr></thead><tbody id="rp-tbody"><tr><td colspan="${A()?21:20}" class="load-row"><div class="spin"></div></td></tr></tbody>
+      </tr></thead><tbody id="rp-tbody"><tr><td colspan="${A()?20:19}" class="load-row"><div class="spin"></div></td></tr></tbody>
       </table></div>
       </div>
     </div>
@@ -146,13 +146,13 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
     </tr></thead><tbody id="rc-tbody"><tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr></tbody>
     </table></div>
     </div>
-    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp818_list",{p:{company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map(RI811).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED811",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
+    </div>`,ct(t);let e=t.querySelector(".ch-tools");e&&ot(e);(()=>{if(!document.getElementById("rc502-css")){let s=document.createElement("style");s.id="rc502-css";s.textContent=".rc502-hide{display:none!important}.rep-tabs.rc502-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}.rep-tabs.rc502-tabs>#rc-new{margin-left:auto}.rc502 [data-colmg]{display:none!important}";document.head.appendChild(s)}let ph=t.querySelector(".page-head"),tb=t.querySelector(".rep-tabs"),nb=t.querySelector("#rc-new");e&&e.classList.add("rc502-hide");ph&&ph.classList.add("rc502-hide");tb&&(tb.classList.add("rc502-tabs"),nb&&tb.appendChild(nb));t.querySelectorAll("#rc-pending,#rc-issued").forEach(x=>x.classList.add("rc502"))})();let r={...g,scope:null,mode:"receipt",importMode:"accounting",filters:{},refresh:()=>{I==="pending"?M(t):o()}};t.dataset.chPage="finance-receipt",NK586(t,()=>t.dataset.chPage==="finance-receipt",()=>r.refresh()),t.__njToolClick&&t.removeEventListener("click",t.__njToolClick),t.__njToolClick=c=>{if(t.dataset.chPage!=="finance-receipt")return;let n=c.target.closest("[data-tool]");n&&rt(n.dataset.tool,r)},t.addEventListener("click",t.__njToolClick),t.querySelector(".rep-tabs").addEventListener("click",c=>{let n=c.target.closest("[data-rtab]");!n||n.dataset.rtab===I||(I=n.dataset.rtab,SEL795.clear(),BAD795.clear(),gt(t))});let s=t.querySelector('[data-pf="q"]');s&&(t.querySelector("#rp-go").onclick=()=>{$.q=s.value.trim(),FR678(t,"pf",$),$.page=1,M(t)},XR734(t),UPB820(t),FK678(t.querySelector("#rc-pending .fbar"),"#rp-go")),I==="pending"&&M(t);RT830(t,()=>M(t),()=>I)/* V.826 */;let d=t.querySelector("#rc-new");d&&d.remove();async function o(){let c=P("receipts");try{let n=await V("njacc_rcp818_list",{p:{company_group:"NJ",q:b.q||null,customer_id:b.customer||null,from:b.from||null,to:b.to||null,page:b.page,size:b.size,...FP678(b)}});if(!q("receipts",c))return;BV800(t);let p=t.querySelector("#rc-tbody"),y=n.rows||[];SM811(t,n),p.innerHTML=y.length?y.map(RI811).join(""):'<tr><td colspan="8" class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</td></tr>',B(t.querySelector("#rc-pgn"),{page:b.page,size:b.size,total:n.total||0},({page:l,size:a})=>{b.page=l,b.size=a,o()},{lp:!0}),F(),t.__njCols&&t.__njCols.issued()}catch(n){if(!q("receipts",c))return;R(n);let p=t.querySelector("#rc-tbody");p&&p.querySelector(".spin")&&(p.innerHTML='<tr><td colspan="21" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>',p.querySelector("[data-ld-retry]").onclick=()=>{p.innerHTML='<tr><td colspan="21" class="load-row"><div class="spin"></div></td></tr>',o()})}}RC762(t)/* V.762 */,AP797(t),OP797(t)/* V.797 */,LS801(t)/* V.801 */,RB811(t),XR811(t)/* V.811 */,FK678(t.querySelector("#rc-issued .fbar"),"#rc-go"),t.querySelector("#rc-go").onclick=()=>{t.querySelectorAll("[data-f]").forEach(c=>b[c.dataset.f]=c.value),b.page=1,o()};function h(){let c=t.querySelector("#rp-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_PENDING",host:t.querySelector("#rc-pending .fbar")})}function m(){let c=t.querySelector("#rc-tbody");z({table:c&&c.closest("table"),modeKey:"FINANCE_RECEIPT_ISSUED811",host:t.querySelector("#rc-issued .fbar")})}RA795(t,()=>(M(t),OP797(t,!0))),t.__njCols={pending:h,issued:m},h(),m(),t.querySelector("#rc-tbody").addEventListener("click",async c=>{let n=c.target.closest("[data-print]");if(n){G(JSON.parse(n.dataset.print));return}let p=c.target.closest("[data-void]");if(p){let y=await Z("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 "+p.dataset.no+" (\u0E08\u0E30 Void \u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E14\u0E49\u0E27\u0E22)");if(!y)return;try{await U("void-rc-"+p.dataset.void,()=>lt(p.dataset.void,y,H())),k("Void \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E16\u0E32\u0E19\u0E30\u0E0A\u0E33\u0E23\u0E30\u0E02\u0E2D\u0E07 INVOICE \u0E16\u0E39\u0E01\u0E04\u0E33\u0E19\u0E27\u0E13\u0E43\u0E2B\u0E21\u0E48","ok"),o()}catch(l){R(l)}}}),o()}async function M(t){let e=t.querySelector("#rp-tbody");if(!e)return;J=t;let r=P("rc-pending");try{let s=await et({company_group:"NJ",q:$.q||null,customer_id:$.customer||null,page:$.page,size:$.size,...FP678($)});if(!q("rc-pending",r))return;KP530(t,s);RA795(t,()=>(M(t),OP797(t,!0)));let d=s&&s.rows||[];BV800(t),e.innerHTML=d.map(o=>`<tr data-inv="${i(o.invoice_id)}" data-job800="${i(o.job_id||"")}">
       ${RC795(o)}${RR522(o)}
       ${A()?(o.src823?'<td class="center"><span class="t-3">-</span></td>':`<td class="center"><button type="button" class="btn btn-sm un678" data-backacc
             data-inv="${i(o.invoice_id)}" data-job="${i(o.job_id||"")}" data-no="${i(o.invoice_no||"")}"
             title="\u0E22\u0E49\u0E2D\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B ACCOUNTING &gt; SERVICE \u0E42\u0E14\u0E22\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E02 INVOICE \u0E40\u0E14\u0E34\u0E21"
             >UNPOST</button></td>`):""}
-    </tr>`).join("")||`<tr><td colspan="${A()?21:20}" class="empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</td></tr>`,e.addEventListener("click",wt),RS795(t),B(t.querySelector("#rp-pgn"),{page:s.page,size:s.size,total:s.total},({page:o,size:h})=>{$.page=o,$.size=h,M(t)},{lp:!0}),F(),t.__njCols&&t.__njCols.pending()}catch(s){if(!q("rc-pending",r))return;R(s);let d=t.querySelector("#rp-tbody");if(d&&d.querySelector(".spin")){let o=d.querySelector("td")?d.querySelector("td").colSpan:8;d.innerHTML=`<tr><td colspan="${o}" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>`,d.querySelector("[data-ld-retry]").onclick=()=>{d.innerHTML=`<tr><td colspan="${o}" class="load-row"><div class="spin"></div></td></tr>`,M(t)}}}}async function wt(t){let e=t.target.closest("[data-backacc]");if(!e)return;if(t.preventDefault(),t.stopPropagation(),!A()){k("\u0E40\u0E09\u0E1E\u0E32\u0E30 SUPER_ADMIN \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19","err");return}let r=e.dataset.inv;if(!r){k("\u0E44\u0E21\u0E48\u0E1E\u0E1A INVOICE \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49","err");return}let s=e.dataset.no||"";if(await Y("\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A ACCOUNTING","\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E22\u0E49\u0E2D\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B ACCOUNTING \u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?"+(s?"<br>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE <b>"+i(s)+"</b> \u0E08\u0E30\u0E16\u0E39\u0E01\u0E43\u0E0A\u0E49\u0E15\u0E48\u0E2D <b>\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E2B\u0E21\u0E48</b>":"")+"<br>\u0E1B\u0E25\u0E32\u0E22\u0E17\u0E32\u0E07 : <b>ACCOUNTING &gt; SERVICE</b>"+"<br><span class=\"t-xs t-3\">INVOICE คงสถานะ POST — ต้องการแก้ไขให้กด UNPOST ใน ACCOUNTING — SERVICE</span>","\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A"))try{await U("backacc-"+r,()=>FB809(r,"\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E08\u0E32\u0E01 FINANCE \u0E44\u0E1B ACCOUNTING \u0E42\u0E14\u0E22 SUPER_ADMIN",H())),k("ย้อนกลับ ACCOUNTING — SERVICE แล้ว — INVOICE เลขเดิม คงสถานะ POST · แก้ไขให้กด UNPOST ใน ACCOUNTING — SERVICE","ok"),J&&M(J)}catch(o){R(o)}}
+    </tr>`).join("")||`<tr><td colspan="${A()?20:19}" class="empty">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30</td></tr>`,e.addEventListener("click",wt),RS795(t),B(t.querySelector("#rp-pgn"),{page:s.page,size:s.size,total:s.total},({page:o,size:h})=>{$.page=o,$.size=h,M(t)},{lp:!0}),F(),t.__njCols&&t.__njCols.pending()}catch(s){if(!q("rc-pending",r))return;R(s);let d=t.querySelector("#rp-tbody");if(d&&d.querySelector(".spin")){let o=d.querySelector("td")?d.querySelector("td").colSpan:8;d.innerHTML=`<tr><td colspan="${o}" class="empty">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 <button type="button" class="btn btn-sm btn-o" data-ld-retry>\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48</button></td></tr>`,d.querySelector("[data-ld-retry]").onclick=()=>{d.innerHTML=`<tr><td colspan="${o}" class="load-row"><div class="spin"></div></td></tr>`,M(t)}}}}async function wt(t){let e=t.target.closest("[data-backacc]");if(!e)return;if(t.preventDefault(),t.stopPropagation(),!A()){k("\u0E40\u0E09\u0E1E\u0E32\u0E30 SUPER_ADMIN \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19","err");return}let r=e.dataset.inv;if(!r){k("\u0E44\u0E21\u0E48\u0E1E\u0E1A INVOICE \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49","err");return}let s=e.dataset.no||"";if(await Y("\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A ACCOUNTING","\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E22\u0E49\u0E2D\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E1B ACCOUNTING \u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?"+(s?"<br>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 INVOICE <b>"+i(s)+"</b> \u0E08\u0E30\u0E16\u0E39\u0E01\u0E43\u0E0A\u0E49\u0E15\u0E48\u0E2D <b>\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E2B\u0E21\u0E48</b>":"")+"<br>\u0E1B\u0E25\u0E32\u0E22\u0E17\u0E32\u0E07 : <b>ACCOUNTING &gt; SERVICE</b>"+"<br><span class=\"t-xs t-3\">INVOICE คงสถานะ POST — ต้องการแก้ไขให้กด UNPOST ใน ACCOUNTING — SERVICE</span>","\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A"))try{await U("backacc-"+r,()=>FB809(r,"\u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E08\u0E32\u0E01 FINANCE \u0E44\u0E1B ACCOUNTING \u0E42\u0E14\u0E22 SUPER_ADMIN",H())),k("ย้อนกลับ ACCOUNTING — SERVICE แล้ว — INVOICE เลขเดิม คงสถานะ POST · แก้ไขให้กด UNPOST ใน ACCOUNTING — SERVICE","ok"),J&&M(J)}catch(o){R(o)}}
 /* \u2550\u2550\u2550 V.522 FINANCE \u2014 RECEIPT (\u0E23\u0E2D\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30) : \u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D/\u0E25\u0E33\u0E14\u0E31\u0E1A/\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19 ACCOUNTING \u2014 SERVICE (\u0E15\u0E32\u0E21\u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C\u0E17\u0E35\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E08\u0E23\u0E34\u0E07) + Due Date / \u0E04\u0E07\u0E04\u0E49\u0E32\u0E07 \u0E02\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30 \u00B7 \u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2550\u2550\u2550 */
 var KP522 = new Set(["\u0E19\u0E32\u0E22", "\u0E19\u0E32\u0E07", "\u0E19\u0E32\u0E07\u0E2A\u0E32\u0E27", "\u0E19.\u0E2A.", "\u0E19.\u0E2A", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "miss"]);
 function KN522(t) {
@@ -161,7 +161,7 @@ function KN522(t) {
   return e[0] || "-";
 }
 var RH522 =
-  '<th>\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19</th><th>Date</th><th>Invoice No.</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 Invoice</th><th>Customer Job No.</th>' +
+  '<th>INVOICE NJ</th><th>DATE</th><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 INVOICE</th><th>Customer Job No.</th>' +   /* V.828 : Checkbox → INVOICE NJ → DATE → ลูกค้า → บริษัท INVOICE → คอลัมน์อื่นตามเดิม · ซ่อนเลขที่งาน (แสดงผลเท่านั้น) */
   '<th>\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E02\u0E19\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32</th><th>Invoice \u0E15\u0E49\u0E19\u0E17\u0E32\u0E07 (Source)</th><th>House B/L No.</th><th>Master B/L No.</th>' +
   '<th class="r">Service charge</th><th class="r">Advance</th><th class="r">VAT 7%</th><th class="r">Amount</th><th class="r">WHT 3%</th>' +
   '<th class="r" title="Net Payable = Gross \u2212 WHT">Total Amount</th><th>\u0E0A\u0E37\u0E48\u0E2D USER</th><th>Billing Note no.</th><th class="nowrap">Case\u200B</th>';   /* V.826 (RUN-830) : + Case ต่อจาก Billing Note no. */   /* V.678 : ไม่แสดง Due Date / คงค้าง (FINANCE — RECEIPT) */
@@ -189,9 +189,8 @@ function RT830(t, reload, tab) {
 function RR522(o) {
   let net = o.net_payable != null ? o.net_payable : Number(o.total_amount) - Number(o.wht_amount);
   return (
-    `<td class="nowrap">${o.src823 ? BG823(o) : `<b>${i(o.job_no || "-")}</b>`}</td>` +   /* V.818 (RUN-823) */
-    `<td class="nowrap">${N(o.date)}</td>` +
-    `<td class="nowrap col-inv">${o.invoice_no ? `<span class="t-b">${i(o.invoice_no)}</span>` : '<span class="t-3">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INV</span>'}${o.source_invoice_no ? `<div class="inv-src" title="\u0E40\u0E25\u0E02 Invoice \u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E14\u0E34\u0E21/\u0E15\u0E49\u0E19\u0E17\u0E32\u0E07">SRC: ${i(o.source_invoice_no)}</div>` : ""}</td>` +
+    `<td class="nowrap col-inv">${o.invoice_no ? `<span class="t-b">${i(o.invoice_no)}</span>` : '<span class="t-3">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INV</span>'}${o.source_invoice_no ? `<div class="inv-src" title="\u0E40\u0E25\u0E02 Invoice \u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E14\u0E34\u0E21/\u0E15\u0E49\u0E19\u0E17\u0E32\u0E07">SRC: ${i(o.source_invoice_no)}</div>` : ""}${o.src823 ? `<div>${BG823(o)}</div>` : ""}</td>` +   /* V.828 : INVOICE NJ (ป้าย EXCEL / รอตรวจสอบ ย้ายจากคอลัมน์เลขที่งาน) */
+    `<td class="nowrap">${o.invoice_date ? N(o.invoice_date) : ""}</td>` +   /* V.828 : DATE = วันที่ INVOICE NJ (INVOICE ในระบบ = invoice_date · นำเข้า Excel = คอลัมน์ Date) · ไม่มี = ว่าง */
     RE522(o.customer_name, 180) + RE522(o.company_invoice, 130) + RE522(o.customer_job_no, 120) +
     RE522(o.customs_declaration_no, 130) + RE522(o.source_invoice_no, 120) + RE522(o.house_bl_no, 130) + RE522(o.master_bl_no, 130) +
     `<td class="r">${u(o.service_amount)}</td><td class="r">${u(o.advance_amount)}</td><td class="r">${u(o.vat_amount)}</td>` +
@@ -271,10 +270,10 @@ function XR734(t) {   /* RECEIPT (รอรับชำระ) : คอลัม
     try {
       let f = { company_group: "NJ", q: $.q || null, customer_id: $.customer || null, ...FP678($) };
       let r = await XF734(async (pg, sz) => { let x = await et(Object.assign({}, f, { page: pg, size: sz })); ((x && x.rows) || []).forEach((o) => { o.__k734 = o.invoice_id || o.rx823_id || null; });   /* V.818 */ return x; }, 200);
-      let cols = [["เลขที่งาน", (o) => o.job_no || (o.src823 ? "UPLOAD EXCEL" + (o.rx823_reason ? " (รอตรวจสอบ)" : "") : "")], ["Date", (o) => o.date, "date"], ["Invoice No.", (o) => o.invoice_no || "ยังไม่ออก INV"], ["ลูกค้า", (o) => o.customer_name], ["บริษัท Invoice", (o) => o.company_invoice],
+      let cols = [["INVOICE NJ", (o) => o.invoice_no || "ยังไม่ออก INV"], ["DATE", (o) => o.invoice_date, "date"], ["ลูกค้า", (o) => o.customer_name], ["บริษัท INVOICE", (o) => o.company_invoice],   /* V.828 : ลำดับเดียวกับรายงาน · ไม่ส่งออกเลขที่งาน · DATE = วันที่ INVOICE NJ */
         ["Customer Job No.", (o) => o.customer_job_no], ["เลขใบขนสินค้า", (o) => o.customs_declaration_no], ["Invoice ต้นทาง (Source)", (o) => o.source_invoice_no], ["House B/L No.", (o) => o.house_bl_no], ["Master B/L No.", (o) => o.master_bl_no],
         ["Service charge", (o) => o.service_amount, "num"], ["Advance", (o) => o.advance_amount, "num"], ["VAT 7%", (o) => o.vat_amount, "num"], ["Amount", (o) => o.subtotal, "num"], ["WHT 3%", (o) => o.wht_amount, "num"],
-        ["Total Amount", (o) => (o.net_payable != null ? o.net_payable : Number(o.total_amount) - Number(o.wht_amount)), "num"], ["ชื่อ USER", (o) => (o.created_by_nickname && String(o.created_by_nickname).trim()) || KN522(o.created_by_name)], ["Billing Note no.", (o) => o.billing_note_no]];
+        ["Total Amount", (o) => (o.net_payable != null ? o.net_payable : Number(o.total_amount) - Number(o.wht_amount)), "num"], ["ชื่อ USER", (o) => (o.created_by_nickname && String(o.created_by_nickname).trim()) || KN522(o.created_by_name)], ["Billing Note no.", (o) => o.billing_note_no], ["Case", (o) => o.case_no]];   /* V.828 (RUN-832) : + Case */
       let fn = await XW734("FINANCE_RECEIPT", cols, r.rows);
       k("ส่งออก Excel " + r.rows.length.toLocaleString("th-TH") + " รายการแล้ว (" + fn + ")", "ok");
     } catch (e) { k("ส่งออก Excel ไม่สำเร็จ — " + (e && e.message || e), "err"); }
@@ -310,7 +309,7 @@ function RC762(t) {
    PDF : A4 แนวตั้ง · ฟอนต์ฝัง "NJ PDF" (V.766)
    V.796 : ตาราง 5 คอลัมน์ No. / Invoice / Invoice Date / Description (SERVICE CHARGE) / Amount Charge (= Payment Received) + TOTAL · Withholding Tax (7%) = round(Invoice Amount × 7%, 2) ราย INVOICE
            กล่องสรุป Invoice Amount / Withholding Tax (7%) / Payment Received · "เลือกทั้งหมด" = ทุกหน้าตามผลค้นหาปัจจุบัน (ไม่ใช่เฉพาะหน้าที่แสดง) · สูงสุด 3,000 Invoice ต่อครั้ง ═══ */
-var SEL795 = new Map(), ROW795 = new Map(), CTX795 = null;
+var SEL795 = new Map(), ROW795 = new Map(), CTX795 = null, BAD795 = new Map();   /* V.828 : BAD795 = เลือกแล้วแต่ยังไม่พร้อมออกใบเสร็จ (key → {no, why}) */
 var PM795 = [["TRANSFER", "โอนเงิน", "Bank Transfer"], ["CASH", "เงินสด", "Cash"], ["CHEQUE", "เช็ค", "Cheque"], ["OTHER", "อื่น ๆ", "Other"]];
 function PML795(k) { let r = PM795.find((x) => x[0] === k); return r ? r[2] : String(k || ""); }
 function M795(v) { let x = Number(v); return isFinite(x) ? x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"; }
@@ -351,19 +350,19 @@ function OK795(o) {
 }
 function RH795() { ST795(); return '<th class="center col-sel rcp795-th" data-col-req="1" data-col-key="_rcp795" data-col-export="no" title="เลือกทั้งหมด — ทุกหน้าตามผลค้นหาปัจจุบัน (ยกเลิก = ล้างรายการที่เลือกทั้งหมด)"><input type="checkbox" class="rcp795-cb" id="rcp795-all" aria-label="เลือกทั้งหมดทุกหน้าตามผลค้นหา"></th>'; }
 function RC795(o) {
-  let id = String(o && o.invoice_id || ""); id && ROW795.set(id, o);
+  let id = String(o && o.invoice_id || "") || (o && o.rx823_id ? "rx:" + o.rx823_id : ""); id && ROW795.set(id, o);   /* V.828 : รายการ UPLOAD EXCEL = key rx:<id> */
   let why = OK795(o);
-  if (why) { SEL795.delete(id); return `<td class="center col-sel rcp795-td"><span class="rcp795-x" title="${i(why)}">–</span></td>`; }
-  return `<td class="center col-sel rcp795-td"><input type="checkbox" class="rcp795-cb" data-rcp="${i(id)}"${SEL795.has(id) ? " checked" : ""} aria-label="เลือก ${i(o.invoice_no || "")}"></td>`;
+  why ? SEL795.delete(id) : BAD795.delete(id);
+  return `<td class="center col-sel rcp795-td"><input type="checkbox" class="rcp795-cb${why ? " rcp795-nr" : ""}" data-rcp="${i(id)}"${SEL795.has(id) || BAD795.has(id) ? " checked" : ""}${why ? ` title="ยังไม่พร้อมออกใบเสร็จ — ${i(why)}"` : ""} aria-label="เลือก ${i(o.invoice_no || "")}"></td>`;   /* V.828 : Checkbox ทุกรายการ (ไม่แสดง – แทน) */
 }
 function RB795() { ST795(); return `<div class="rcp795-bar" id="rcp795-bar"${CAN795() ? "" : " hidden"}><button type="button" class="btn btn-sm rcp795-btn" id="rcp795-btn" disabled title="ออกใบเสร็จ RECEIPT จากรายการที่เลือก">🧾 ออกใบเสร็จ RECEIPT PDF</button><span class="rcp795-info" id="rcp795-info">ยังไม่ได้เลือกรายการ</span><button type="button" class="btn btn-sm btn-o" id="rcp795-allp" title="เลือก Invoice ที่ออกใบเสร็จได้ครบทุกหน้าตามผลค้นหาปัจจุบัน">☑ เลือกทั้งหมด (ทุกหน้า)</button><button type="button" class="btn btn-sm btn-o" id="rcp795-clear" disabled>ล้างรายการที่เลือก</button></div>`; }
 function RS795(t) {   /* sync แถบสรุป + หัวตาราง */
   if (!t) return;
-  let btn = t.querySelector("#rcp795-btn"), info = t.querySelector("#rcp795-info"), clr = t.querySelector("#rcp795-clear"), cnt = SEL795.size, sum = 0;
+  let btn = t.querySelector("#rcp795-btn"), info = t.querySelector("#rcp795-info"), clr = t.querySelector("#rcp795-clear"), cnt = SEL795.size, bad = BAD795.size, all8 = cnt + bad, sum = 0;
   SEL795.forEach((r) => { sum += AM795(r).rcv; });
-  if (btn) { btn.disabled = !cnt; btn.textContent = "🧾 ออกใบเสร็จ RECEIPT PDF" + (cnt ? " (" + cnt + ")" : ""); }
-  if (clr) clr.disabled = !cnt;
-  if (info && !t.__rcpBusy) info.textContent = cnt ? "เลือก " + cnt.toLocaleString("th-TH") + " Invoice · Payment Received รวม " + M795(sum / 100) : "ยังไม่ได้เลือกรายการ";
+  if (btn) { btn.disabled = !all8; btn.textContent = "🧾 ออกใบเสร็จ RECEIPT PDF" + (all8 ? " (" + all8 + ")" : ""); }
+  if (clr) clr.disabled = !all8;
+  if (info && !t.__rcpBusy) info.textContent = !all8 ? "ยังไม่ได้เลือกรายการ" : bad ? "เลือก " + all8.toLocaleString("th-TH") + " รายการ (ออกใบเสร็จได้ " + cnt.toLocaleString("th-TH") + " · ยังไม่พร้อม " + bad.toLocaleString("th-TH") + ") · Payment Received รวม " + M795(sum / 100) : "เลือก " + cnt.toLocaleString("th-TH") + " Invoice · Payment Received รวม " + M795(sum / 100);   /* V.828 */
   let all = t.querySelector("#rcp795-all"), cbs = [...t.querySelectorAll("#rp-tbody .rcp795-cb[data-rcp]")];
   if (all) { let k = cbs.filter((c) => c.checked).length; all.disabled = !cbs.length || !CAN795(); all.checked = !!cbs.length && k === cbs.length; all.indeterminate = k > 0 && k < cbs.length; }
 }
@@ -373,19 +372,23 @@ function RA795(t, refresh) {   /* ผูก event ครั้งเดียว
   t.__rcp795 = 1;
   t.addEventListener("change", (ev) => {
     let c = ev.target; if (!c || !c.classList || !c.classList.contains("rcp795-cb")) return;
-    if (c.id === "rcp795-all") {   /* V.796 : เลือกทั้งหมดทุกหน้าตามผลค้นหา · ยกเลิก = ล้างทั้งหมด */
-      if (c.checked) { SAL795(t, c); return; }
-      SEL795.clear(); t.querySelectorAll("#rp-tbody .rcp795-cb[data-rcp]").forEach((x) => { x.checked = !1; });
-    } else if (c.dataset.rcp) {
-      let r = ROW795.get(c.dataset.rcp);
-      if (c.checked && r && !OK795(r)) SEL795.set(c.dataset.rcp, r); else { SEL795.delete(c.dataset.rcp); c.checked = !1; }
+    if (c.id === "rcp795-all") {   /* V.828 : เลือก / ยกเลิกทั้งหมดในหน้าปัจจุบัน (ทุกหน้า = ปุ่ม "เลือกทั้งหมด (ทุกหน้า)" เดิม) */
+      let nb = 0;
+      t.querySelectorAll("#rp-tbody .rcp795-cb[data-rcp]").forEach((x) => { let key = x.dataset.rcp, r = ROW795.get(key); x.checked = c.checked;
+        if (!c.checked) { SEL795.delete(key); BAD795.delete(key); return; }
+        let why = r ? OK795(r) : "ไม่พบข้อมูลรายการ"; if (!why) SEL795.set(key, r); else { BAD795.set(key, { no: (r && r.invoice_no) || "", why }); nb++; } });
+      nb && k("เลือกรายการที่ยังไม่พร้อมออกใบเสร็จ " + nb.toLocaleString("th-TH") + " รายการ — ออกใบเสร็จไม่ได้จนกว่าจะยกเลิกการเลือก (ชี้ที่ช่องเลือกเพื่อดูสาเหตุ)", "err");
+    } else if (c.dataset.rcp) {   /* V.828 : เลือกได้ทุกรายการ · ยังไม่พร้อม = แจ้งสาเหตุ + ห้ามออกใบเสร็จ (ไม่เปลี่ยนสถานะชำระ) */
+      let key = c.dataset.rcp, r = ROW795.get(key);
+      if (!c.checked) { SEL795.delete(key); BAD795.delete(key); }
+      else { let why = r ? OK795(r) : "ไม่พบข้อมูลรายการ"; if (!why) SEL795.set(key, r); else { BAD795.set(key, { no: (r && r.invoice_no) || "", why }); k("INVOICE " + ((r && r.invoice_no) || "-") + " ยังไม่พร้อมออกใบเสร็จ — " + why, "err"); } }
     }
     RS795(t);
   });
   t.addEventListener("click", (ev) => {
     let b = ev.target.closest && ev.target.closest("#rcp795-btn,#rcp795-clear,#rcp795-allp,[data-rcp-pv],[data-rcp-pr],[data-rcp-sv]"); if (!b || !t.contains(b)) return;
     ev.preventDefault(); ev.stopPropagation();
-    if (b.id === "rcp795-clear") { SEL795.clear(); t.querySelectorAll(".rcp795-cb").forEach((x) => { x.checked = !1; x.indeterminate = !1; }); RS795(t); return; }
+    if (b.id === "rcp795-clear") { SEL795.clear(); BAD795.clear(); t.querySelectorAll(".rcp795-cb").forEach((x) => { x.checked = !1; x.indeterminate = !1; }); RS795(t); return; }
     if (b.id === "rcp795-btn") { b.disabled || RO795(t); return; }
     if (b.id === "rcp795-allp") { b.disabled || SAL795(t, b); return; }
     if (b.dataset.rcpPv) { RG795([b.dataset.rcpPv]); return; }
@@ -447,6 +450,7 @@ function RE795(e) {   /* ข้อความ Error จาก Server → ภา
 }
 function RQ795() { try { return "rcp795-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)); } catch (e) { return "rcp795-" + Date.now() + "-" + Math.random().toString(36).slice(2); } }
 async function RO795(t) {   /* หน้าต่างออกใบเสร็จ · V.814 (RUN-818) : ต่อลูกค้า RCP (SERVICE) + ADV (ADVANCE) — PREVIEW / SAVE / PRINT ทีเดียวทั้ง 2 ใบ */
+  if (BAD795.size) { let a = [...BAD795.values()]; k("ออกใบเสร็จไม่ได้ — เลือกรายการที่ยังไม่พร้อม " + a.length.toLocaleString("th-TH") + " รายการ : " + a.slice(0, 5).map((x) => (x.no || "-") + " (" + x.why + ")").join(" · ") + (a.length > 5 ? " …" : "") + " — กรุณายกเลิกการเลือกรายการเหล่านี้", "err"); return; }   /* V.828 */
   let ids = [...SEL795.keys()]; if (!ids.length) return; ST814();
   if (ids.length > 3000) { k("เลือกได้สูงสุด 3,000 Invoice ต่อครั้ง — กรุณาค้นหาให้แคบลง", "err"); return; }
   let st = { pv: null, seen: !1, req: RQ795(), busy: !1, done: null };
@@ -503,7 +507,7 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       let exp = st.pv.groups.flatMap((g) => (g.all || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, customer_id: g.customer_id, invoice_no: z.invoice_no })));
       let r = await V("njacc_rcp818_issue", { p: { request_id: st.req, invoice_ids: exp.map((z) => z.invoice_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } });
       st.done = r && r.pairs || []; st.req = RQ795();
-      SEL795.clear(); RS795(t);
+      SEL795.clear(); BAD795.clear(); RS795(t);
       let all = [].concat(r && r.receipts || [], r && r.advs || []);
       sum.innerHTML = `<div class="rcp795-okbox"><b>✅ ออกใบเสร็จสำเร็จ RCP ${(r && r.receipts || []).length} ฉบับ · ADV ${(r && r.advs || []).length} ฉบับ</b> — รายการเปลี่ยนเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกแล้ว</div>`
         + `<table class="tbl rcp795-t"><thead><tr><th>ลูกค้า</th><th>RECEIPT (RCP)</th><th class="r">Payment Received</th><th>RECEIPT ADVANCE (ADV)</th><th class="r">Advance Amount</th><th></th></tr></thead><tbody>${st.done.map((z, j) => `<tr><td>${i(z.customer_name || "")}</td><td class="t-b">${i(z.rcp ? z.rcp.receipt_no : "-")}</td><td class="r">${z.rcp ? M795(z.rcp.total) : "-"}</td><td class="t-b">${i(z.adv ? z.adv.receipt_no : "-")}</td><td class="r">${z.adv ? M795(z.adv.total) : "-"}</td><td class="r"><button class="btn btn-sm btn-p" data-rcp-open="${i(keys([z])[0] || "")}">ดู / ดาวน์โหลด / พิมพ์</button></td></tr>`).join("")}</tbody></table>`;
@@ -703,7 +707,7 @@ function ST795() {
     s.textContent = [
       ".rcp795-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0}.rcp795-bar[hidden]{display:none!important}",
       ".btn.rcp795-btn{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important;font-weight:700;white-space:nowrap}.btn.rcp795-btn:disabled{opacity:.55;cursor:not-allowed}",
-      ".rcp795-info{font-size:12.5px;font-weight:700;color:#1e3a8a;white-space:nowrap}.rcp795-x{color:#94a3b8}.rcp795-td,.rcp795-th{width:34px}.rcp795-cb{width:16px;height:16px;cursor:pointer}",
+      ".rcp795-info{font-size:12.5px;font-weight:700;color:#1e3a8a;white-space:nowrap}.rcp795-x{color:#94a3b8}.rcp795-td,.rcp795-th{width:34px}.rcp795-cb{width:16px;height:16px;cursor:pointer}.rcp795-cb.rcp795-nr{accent-color:#f59e0b}",
       ".bdg795{display:inline-block;padding:2px 10px;border-radius:999px;background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:12px;font-weight:700;line-height:18px;white-space:nowrap}.rcp795-no{font-size:11.5px;font-weight:700;color:#1e3a8a;margin-top:2px;white-space:nowrap}",
       ".btn.rcp795-b{font-weight:700;white-space:nowrap;margin-left:4px}.btn.rcp795-b:disabled{opacity:.55;cursor:wait}.btn.rcp795-pv{background:#eff4fb!important;border:1px solid #1e3a8a!important;color:#1e3a8a!important}.btn.rcp795-pr{background:#1e3a8a!important;border:1px solid #1e3a8a!important;color:#fff!important}.btn.rcp795-sv{background:#16a34a!important;border:1px solid #16a34a!important;color:#fff!important}",
       ".rcp795-f{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}.rcp795-f label{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px;min-width:220px}",
@@ -1012,7 +1016,7 @@ function ST814() {
   } catch (e) {}
 }
 
-/* ═══ V.815 (RUN-820) · FINANCE → RECEIPT (รอรับชำระ) : UPLOAD EXCEL — Billing Note no. จาก APL Billing / CASE · ตรวจซ้ำ 3 กรณี · ยึดไฟล์ล่าสุด
+/* ═══ V.815 (RUN-820) · FINANCE → RECEIPT (รอรับชำระ) : UPLOAD EXCEL — Billing Note no. จาก APL Billing · CASE → Case (V.828 · RUN-832) · ตรวจซ้ำ 3 กรณี · ยึดไฟล์ล่าสุด
    อ่านหัวคอลัมน์จากชื่อจริง (ไม่ยึดตำแหน่ง) · ข้ามแถว TOTAL · Name CS / Status / Contact ห้ามนำเข้า · คอลัมน์อื่นที่ไม่มีฟิลด์รองรับ = ข้าม · ไม่สร้าง INVOICE
    ตรวจ (njacc_bn820_check · อ่านอย่างเดียว) → Preview → ยืนยัน → บันทึก (njacc_bn820_save · ธุรกรรมเดียว · เฉพาะค่าที่เปลี่ยน) · ค่าว่างไม่ลบค่าเดิม ═══ */
 var BK820 = { namecs: "Name CS", status: "Status", contact: "Contact" };
@@ -1021,8 +1025,8 @@ function TX820(v) { return v == null ? "" : String(v).replace(/ /g, " ").trim()
 function DT820(d) { try { let p = (n) => String(n).padStart(2, "0"); d = new Date(d); return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()); } catch (e) { return ""; } }
 function UPB820(t) {   /* ปุ่ม UPLOAD EXCEL (สีส้ม) ต่อจากปุ่มคอลัมน์ */
   try {
-    if (!t || !CAN795()) return; let bar = t.querySelector("#rc-pending .fbar"); if (!bar || bar.querySelector("#rp-up820")) return; ST820();
-    let b = document.createElement("button"); b.type = "button"; b.className = "btn btn-sm up820"; b.id = "rp-up820"; b.textContent = "⬆ UPLOAD EXCEL"; b.title = "นำเข้าข้อมูลรอรับชำระจาก Excel .xlsx / .xls ทุกคอลัมน์ที่หน้ารายงานรองรับ + Billing Note no. (APL Billing / CASE) — เลือกได้หลายไฟล์";
+    if (!t || !A()) return; let bar = t.querySelector("#rc-pending .fbar"); if (!bar || bar.querySelector("#rp-up820")) return; ST820();   /* V.828 : UPLOAD / ยืนยันบันทึก = SUPER_ADMIN เท่านั้น (Server ตรวจซ้ำ RUN-832) */
+    let b = document.createElement("button"); b.type = "button"; b.className = "btn btn-sm up820"; b.id = "rp-up820"; b.textContent = "⬆ UPLOAD EXCEL"; b.title = "นำเข้าข้อมูลรอรับชำระจาก Excel .xlsx / .xls ทุกคอลัมน์ที่หน้ารายงานรองรับ · APL Billing → Billing Note no. · CASE → Case — เลือกได้หลายไฟล์ (SUPER_ADMIN)";
     let inp = document.createElement("input"); inp.type = "file"; inp.id = "rp-up820-f"; inp.multiple = !0; inp.hidden = !0;
     inp.accept = ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
     let colOf = () => [...bar.children].find((x) => x !== b && x.tagName === "BUTTON" && /คอลัมน์/.test(x.textContent));
@@ -1057,7 +1061,7 @@ var MP823 = [   /* [หัว Excel (normalize), ฟิลด์, หัวข�
   [["customername"], "customer_name", "ลูกค้า", "text"],
   [["companyinvoice"], "company_invoice", "บริษัท Invoice", "text"],
   [["customerjobno"], "customer_job_no", "Customer Job No.", "text"],
-  [["dclinv", "dclinvoice"], "source_invoice_no", "Invoice ต้นทาง (Source) · Invoice No. *", "text"],
+  [["dclinv", "dclinvoice"], "source_invoice_no", "Invoice No. * (คอลัมน์ Invoice ต้นทาง (Source))", "text"],
   [["houseblno", "housebl"], "house_bl_no", "House B/L No.", "text"],
   [["master", "masterbl", "masterblno"], "master_bl_no", "Master B/L No.", "text"],
   [["servicecharge"], "service_amount", "Service charge", "num"],
@@ -1065,7 +1069,8 @@ var MP823 = [   /* [หัว Excel (normalize), ฟิลด์, หัวข�
   [["vat7%", "vat", "vat7"], "vat_amount", "VAT 7%", "num"],
   [["amount"], "subtotal", "Amount", "num"],
   [["wht3%", "wht", "wht3"], "wht_amount", "WHT 3%", "num"],
-  [["totalamout", "totalamount"], "net_payable", "Total Amount", "num"]
+  [["totalamout", "totalamount"], "net_payable", "Total Amount", "num"],
+  [["case"], "case_no", "CASE", "text"]   /* V.828 (RUN-832) : Excel CASE → CASE เท่านั้น (ไม่ใช่ Billing Note no.) */
 ];
 var NUMK823 = MP823.filter((m) => m[3] === "num").map((m) => m[1]), FLD823 = MP823.map((m) => m[1]);
 function NUM823(v) { if (typeof v === "number") return isFinite(v) ? Math.round(v * 100) / 100 : NaN; let s = TX820(v).replace(/[,\s฿]/g, ""); if (!s || s === "-") return null; let ng = /^\(.*\)$/.test(s); s = s.replace(/[()]/g, ""); if (!/^-?\d+(\.\d+)?$/.test(s)) return NaN; let n = Math.round(Number(s) * 100) / 100; return ng ? -n : n; }
@@ -1095,9 +1100,9 @@ async function RD820(f, seq, at, XL) {   /* อ่านไฟล์ → แถ�
     if (hi < 0) continue;
     let H = A[hi].map((c) => TX820(c)), ix = { inv: -1, apl: -1, cs: -1 }, fx = {};
     H.forEach((h, j) => { let n = NH820(h); if (!h) return;
-      if (n === "invoiceno" && ix.inv < 0) { ix.inv = j; o.used.push(h + " → Invoice No. (จับคู่ / ตรวจซ้ำ)"); return; }
+      if (n === "invoiceno" && ix.inv < 0) { ix.inv = j; o.used.push(h + " → INVOICE NJ (คอลัมน์ Invoice No. · จับคู่ / ตรวจซ้ำ)"); return; }
       if (n === "aplbilling" && ix.apl < 0) { ix.apl = j; o.used.push(h + " → Billing Note no."); return; }
-      if (n === "case" && ix.cs < 0) { ix.cs = j; o.used.push(h + " → Billing Note no."); return; }
+      if (n === "billingnoteno") { o.skipped.push(h + " (ไม่อยู่ใน Mapping — Billing Note no. รับจาก APL Billing เท่านั้น)"); return; }   /* V.828 */
       if (BK820[n]) { o.skipped.push(h + " (ห้ามนำเข้า)"); return; }
       let m = MP823.find((z) => z[0].includes(n));
       if (m && fx[m[1]] == null) { fx[m[1]] = j; o.used.push(h + " → " + m[2]); return; }
@@ -1107,15 +1112,14 @@ async function RD820(f, seq, at, XL) {   /* อ่านไฟล์ → แถ�
       let r = A[j] || [], w = W[j] || [];
       if (!r.some((c) => TX820(c))) { o.blank++; continue; }
       if (r.some((c) => TX820(c).toUpperCase() === "TOTAL")) { o.total++; continue; }
-      let inv = TX820(r[ix.inv]), apl = ix.apl >= 0 ? TX820(r[ix.apl]) : "", cs = ix.cs >= 0 ? TX820(r[ix.cs]) : "", rn = r0 + j + 1;
-      if (!inv) { o.rows.push({ seq, r: rn, inv: "", key: "", apl, cs, v: "", bad: "ไม่มี Invoice No." }); continue; }
+      let inv = TX820(r[ix.inv]), apl = ix.apl >= 0 ? TX820(r[ix.apl]) : "", rn = r0 + j + 1;
+      if (!inv) { o.rows.push({ seq, r: rn, inv: "", key: "", apl, cs: fx.case_no != null ? TX820(r[fx.case_no]) : "", v: "", bad: "ไม่มี Invoice No." }); continue; }
       let d = {}, warn = [];
       MP823.forEach((m) => { let c = fx[m[1]]; if (c == null) return; let t = TX820(r[c]);
         if (m[3] === "num") { let x = NUM823(w[c] !== "" ? w[c] : t); if (Number.isNaN(x)) { warn.push(m[2] + " ไม่ใช่ตัวเลข (" + t + ")"); d[m[1]] = null; } else if (x != null) d[m[1]] = x; }
         else if (m[3] === "date") { if (t) { let x = DT823(w[c], t, XL); x ? (d[m[1]] = x) : warn.push(m[2] + " อ่านวันที่ไม่ได้ (" + t + ")"); } }
         else if (t) d[m[1]] = t.slice(0, 300); });
-      let x = { seq, r: rn, inv, key: inv.toUpperCase(), apl, cs, v: "", cf: !1, d, warn };
-      if (apl && cs && apl !== cs) x.cf = !0; else x.v = apl || cs;   /* APL อย่างเดียว / CASE อย่างเดียว / ทั้งคู่เหมือนกัน · ต่างกัน = ให้ผู้ใช้เลือก */
+      let x = { seq, r: rn, inv, key: inv.toUpperCase(), apl, cs: d.case_no || "", v: apl, cf: !1, d, warn };   /* V.828 (RUN-832) : Billing Note no. = APL Billing เท่านั้น · CASE = d.case_no (แยกกัน 100%) */
       o.rows.push(x);
     }
     return o;
@@ -1148,11 +1152,14 @@ function MG820(files, found, prior, pick, imported, rx) {   /* รวมทุ�
     if (fz.length > 1) { row.st = "ERR"; row.why = "Invoice No. ตรงกับหลาย INVOICE ในระบบ"; }
     else if (cfIn) { row.st = "ERR"; row.why = "INVOICE ซ้ำในไฟล์เดียวกัน ข้อมูลขัดแย้ง — กรุณาตรวจไฟล์"; }
     else if (ch.cf && !sel) { row.st = "ERR"; row.why = "APL Billing ≠ CASE — กรุณาเลือกค่าที่ใช้"; row.need = !0; }
-    else if (fi) {   /* INVOICE ในระบบ : อัปเดตเฉพาะ Billing Note no. (ยอด / คอลัมน์อื่น = ข้อมูลจาก ACCOUNTING เดิม) */
-      if (!v) { row.st = "SAME"; row.why = row.cur ? "ค่าว่างในไฟล์ — คงค่าเดิม (ไม่ลบ)" : "INVOICE ในระบบ · ไม่มีค่า APL Billing / CASE"; }
-      else if (row.cur == null) { row.st = "NEW"; row.why = "INVOICE ในระบบ · Billing Note no. ใหม่"; }
-      else if (row.cur === v) { row.st = "SAME"; row.why = "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง"; }
-      else { row.st = "CHG"; row.why = "ข้อมูลซ้ำ มีการเปลี่ยนแปลง"; row.diff = [["billing_note", row.cur, v]]; }
+    else if (fi) {   /* INVOICE ในระบบ : อัปเดตเฉพาะ Billing Note no. (จาก APL Billing) และ CASE (จาก CASE) แยกกัน · ยอด / คอลัมน์อื่น = ข้อมูลจาก ACCOUNTING เดิม · V.828 (RUN-832) */
+      let cs = d.case_no || "", cc = fi.case_cur == null ? null : fi.case_cur, cd = cc != null ? cc : fi.job_case || null;   /* CASE ที่แสดงอยู่ = CASE จาก UPLOAD (FINANCE) หรือ Case ของ JOB */
+      let bn = !v ? 0 : row.cur == null ? 1 : row.cur === v ? 0 : 2, cn = !cs ? 0 : cd == null ? 1 : cd === cs ? 0 : 2;
+      row.ccur = cd; row.cold = cc; row.bnS = bn > 0; row.csS = cn > 0;
+      bn === 2 && row.diff.push(["billing_note", row.cur, v]); cn === 2 && row.diff.push(["case_no", cd, cs]);
+      if (!bn && !cn) { row.st = "SAME"; row.why = !v && !cs ? (row.cur || cd ? "ค่าว่างในไฟล์ — คงค่าเดิม (ไม่ลบ)" : "INVOICE ในระบบ · ไม่มีค่า APL Billing / CASE") : "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง"; }
+      else if (bn === 2 || cn === 2) { row.st = "CHG"; row.why = "ข้อมูลซ้ำ มีการเปลี่ยนแปลง"; }
+      else { row.st = "NEW"; row.why = "INVOICE ในระบบ · " + [bn ? "Billing Note no. ใหม่" : "", cn ? "CASE ใหม่" : ""].filter(Boolean).join(" · "); }
     } else if (!rx) { row.st = "ERR"; row.why = "ไม่พบ INVOICE ในระบบ — ระบบฐานข้อมูลยังไม่พร้อมนำเข้า (ต้องรัน RUN-823)"; }
     else {   /* ไม่มี INVOICE ในระบบ = รายการนำเข้าจาก Excel */
       let ex = row.ex, nv = Object.assign({}, d); v && (nv.billing_note = v);
@@ -1163,7 +1170,7 @@ function MG820(files, found, prior, pick, imported, rx) {   /* รวมทุ�
         if (row.diff.length) { row.st = "CHG"; row.why = "ข้อมูลซ้ำ (รายการนำเข้าเดิม) มีการเปลี่ยนแปลง " + row.diff.length + " ช่อง"; } else { row.st = "SAME"; row.why = "ข้อมูลซ้ำ (รายการนำเข้าเดิม) ไม่เปลี่ยนแปลง"; }
       }
     }
-    row.dup = row.cur != null || !!row.ex || row.cross || row.inFile || row.prior;
+    row.dup = !!fi || row.cur != null || !!row.ex || row.cross || row.inFile || row.prior;   /* V.828 : INVOICE ที่มีอยู่แล้ว (ในระบบ / นำเข้าเดิม) = ซ้ำ → เตือนก่อนบันทึก */
     out.push(row);
   });
   return out.concat(bad);
@@ -1194,7 +1201,7 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
   Q({ title: "UPLOAD EXCEL — ตรวจสอบก่อนบันทึก (รอรับชำระ)", body, footer: foot, fullscreen: !0, wide: !0 });
   body.innerHTML = '<div class="load-row"><div class="spin"></div><div class="mt-1">กำลังตรวจข้อมูลกับระบบ…</div></div>';
   let q = (s) => body.querySelector(s) || foot.querySelector(s), ok = q("#up820-ok");
-  let L = { NEW: "Billing Note ใหม่ (INVOICE ในระบบ)", IMP: "เพิ่มใหม่ (นำเข้า Excel)", SAME: "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง", CHG: "ข้อมูลซ้ำ มีการเปลี่ยนแปลง", ERR: "ข้อมูลผิดพลาด" };
+  let L = { NEW: "ค่าใหม่ (INVOICE ในระบบ)", IMP: "เพิ่มใหม่ (นำเข้า Excel)", SAME: "ข้อมูลซ้ำ ไม่เปลี่ยนแปลง", CHG: "ข้อมูลซ้ำ มีการเปลี่ยนแปลง", ERR: "ข้อมูลผิดพลาด" };
   let cnt = () => { let R = st.rows, c = (fn) => R.filter(fn).length; return { all: R.length, okk: c((r) => r.st !== "ERR"), nw: c((r) => r.st === "NEW"), imp: c((r) => r.st === "IMP"), dup: c((r) => r.dup && r.key), chg: c((r) => r.st === "CHG"), same: c((r) => r.st === "SAME"),
     sys: c((r) => r.key && !r.imp && r.st !== "ERR"), rv: c((r) => r.imp && r.st !== "ERR" && r.rv), err: c((r) => r.st === "ERR"), need: c((r) => r.need), cross: c((r) => r.cross), inF: c((r) => r.inFile), save: c((r) => r.st === "NEW" || r.st === "IMP" || r.st === "CHG") }; };
   let flt = (f) => st.rows.filter((r) => f === "ALL" || (f === "DUP" ? r.dup && r.key : f === "OK" ? r.st !== "ERR" : f === "SYS" ? r.key && !r.imp && r.st !== "ERR" : f === "REV" ? r.imp && r.st !== "ERR" && r.rv : r.st === f));
@@ -1207,20 +1214,21 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
             + `<td data-l="คอลัมน์ที่นำเข้าได้"><small class="u823-ok">${i(f.used.join(" · ") || "-")}</small></td><td data-l="คอลัมน์ที่ข้าม"><small>${i(f.skipped.join(" · ") || "-")}</small></td>`
             + `<td data-l="สถานะไฟล์">${f.err ? `<span class="up820-e">${i(f.err)}</span>` : pr.length ? `<span class="up820-w">⚠️ เคยอัปโหลดแล้ว : ${pr.map((p) => i(p.file_name) + " · " + DT820(p.uploaded_at) + (p.uploaded_by_name ? " · " + i(p.uploaded_by_name) : "")).join(" / ")} · INVOICE ซ้ำ ${nd.toLocaleString("th-TH")}</span>` : nd ? `<span class="up820-w">INVOICE ซ้ำ ${nd.toLocaleString("th-TH")}</span>` : "ไฟล์ใหม่"}</td></tr>`; }).join("")
       + `</tbody></table></div>`
-      + `<div class="up820-sum">${[["ALL", "รายการทั้งหมด", C.all], ["OK", "INVOICE ที่นำเข้าได้", C.okk], ["DUP", "INVOICE ซ้ำ", C.dup], ["IMP", "INVOICE เพิ่มใหม่", C.imp], ["SYS", "INVOICE ในระบบ (Billing Note)", C.sys], ["CHG", "ข้อมูลเปลี่ยน", C.chg], ["SAME", "ไม่เปลี่ยน", C.same], ["REV", "รอตรวจสอบ (ยอดไม่ครบ)", C.rv], ["ERR", "ผิดพลาด", C.err]]
+      + `<div class="up820-sum">${[["ALL", "รายการทั้งหมด", C.all], ["OK", "INVOICE ที่นำเข้าได้", C.okk], ["DUP", "INVOICE ซ้ำ", C.dup], ["IMP", "INVOICE เพิ่มใหม่", C.imp], ["SYS", "INVOICE ในระบบ (Billing Note / CASE)", C.sys], ["CHG", "ข้อมูลเปลี่ยน", C.chg], ["SAME", "ไม่เปลี่ยน", C.same], ["REV", "รอตรวจสอบ (ยอดไม่ครบ)", C.rv], ["ERR", "ผิดพลาด", C.err]]
           .map((z) => `<button type="button" class="up820-c${st.f === z[0] ? " on" : ""}${z[0] === "ERR" && z[2] ? " u823-bad" : ""}" data-f820="${z[0]}"><span>${z[1]}</span><b>${z[2].toLocaleString("th-TH")}</b></button>`).join("")}</div>`
-      + `<div class="up820-note">ซ้ำข้ามไฟล์ ${C.cross.toLocaleString("th-TH")} · ซ้ำในไฟล์เดียวกัน ${C.inF.toLocaleString("th-TH")} · ยึดข้อมูลจากไฟล์ที่ระบบรับล่าสุด (ทีละช่อง · ช่องว่างไม่เขียนทับ) · INVOICE ที่มีในระบบ = อัปเดตเฉพาะ Billing Note no. · INVOICE ที่ไม่มีในระบบ = เพิ่มเป็นรายการนำเข้าจาก Excel ในแถบรอรับชำระ (ไม่สร้าง INVOICE / ไม่ออกเลข RECEIPT / ออกใบเสร็จไม่ได้) · ไม่นำเข้า Status / Name CS / Contact</div>`
+      + `<div class="up820-note">ซ้ำข้ามไฟล์ ${C.cross.toLocaleString("th-TH")} · ซ้ำในไฟล์เดียวกัน ${C.inF.toLocaleString("th-TH")} · ยึดข้อมูลจากไฟล์ที่ระบบรับล่าสุด (ทีละช่อง · ช่องว่างไม่เขียนทับ) · <b>APL Billing → Billing Note no. · CASE → Case (แยกกัน ไม่รวม / ไม่สลับ)</b> · INVOICE ที่มีในระบบ = อัปเดตเฉพาะ Billing Note no. และ CASE · INVOICE ที่ไม่มีในระบบ = เพิ่มเป็นรายการนำเข้าจาก Excel ในแถบรอรับชำระ (ไม่สร้าง INVOICE / ไม่ออกเลข RECEIPT / ออกใบเสร็จไม่ได้) · ไม่นำเข้า Status / Name CS / Contact</div>`
+      + AN828(st.rows)   /* V.828 : ข้อสังเกต Billing Note no. ซ้ำผิดปกติ (ไม่ตัดข้อมูล) */
       + (C.need ? `<div class="up820-e">มี ${C.need.toLocaleString("th-TH")} รายการที่ APL Billing ≠ CASE — กรุณาเลือกค่าที่ใช้ก่อนบันทึก (ตัวกรอง "ผิดพลาด")</div>` : "")
-      + `<div class="tbl-wrap up820-w2"><table class="tbl up820-t up820-r"><thead><tr><th>#</th><th>Invoice No.</th><th>ไฟล์ (ลำดับ) · แถว</th><th>ลูกค้า</th><th class="r">Service</th><th class="r">Advance</th><th class="r">VAT 7%</th><th class="r">Amount</th><th class="r">WHT 3%</th><th class="r">Total Amount</th><th>APL Billing</th><th>CASE</th><th>Billing Note no. ใหม่</th><th>ค่าเดิม → ค่าใหม่</th><th>สถานะ</th></tr></thead><tbody>`
-      + (show.length ? show.map((r, j) => { let d = am(r), mn = (k) => `<td class="r" data-l="${LB823(k)}">${d[k] == null || d[k] === "" ? "-" : FV823(k, d[k])}</td>`;
-          return `<tr class="s820-${r.st}"><td class="center" data-l="#">${j + 1}</td><td class="nowrap" data-l="Invoice No."><b>${i(r.ino || r.inv || "-")}</b>${r.key ? `<div><small class="b823s ${r.imp ? "b823s-x" : "b823s-s"}">${r.imp ? "นำเข้า Excel" : "INVOICE ในระบบ"}</small></div>` : ""}</td>`
+      + `<div class="tbl-wrap up820-w2"><table class="tbl up820-t up820-r"><thead><tr><th>#</th><th>INVOICE NJ</th><th>DATE</th><th>ลูกค้า</th><th>บริษัท INVOICE</th><th>Invoice No. *</th><th class="r">SERVICE CHARGE</th><th class="r">ADVANCE</th><th class="r">VAT 7%</th><th class="r">AMOUNT</th><th class="r">WHT 3%</th><th class="r">TOTAL AMOUNT</th><th>Billing Note no. (APL Billing)</th><th>CASE</th><th>ค่าเดิม → ค่าใหม่</th><th>ไฟล์ (ลำดับ) · แถว</th><th>ผลการตรวจสอบ</th></tr></thead><tbody>`
+      + (show.length ? show.map((r, j) => { let d = am(r), mn = (k) => `<td class="r" data-l="${LB823(k)}">${d[k] == null || d[k] === "" ? "-" : FV823(k, d[k])}</td>`, sv = (k) => (r.imp && d[k] != null && d[k] !== "" ? i(FV823(k, d[k])) : "-");   /* V.828 (RUN-832) : ลำดับตามสเปก — INVOICE NJ · DATE · ลูกค้า · บริษัท INVOICE · ยอด · Billing Note no. · CASE · ผลการตรวจสอบ */
+          return `<tr class="s820-${r.st}"><td class="center" data-l="#">${j + 1}</td><td class="nowrap" data-l="INVOICE NJ"><b>${i(r.ino || r.inv || "-")}</b>${r.key ? `<div><small class="b823s ${r.imp ? "b823s-x" : "b823s-s"}">${r.imp ? "นำเข้า Excel" : "INVOICE ในระบบ"}</small></div>` : ""}</td>`
+          + `<td class="nowrap" data-l="DATE">${sv("doc_date")}</td><td data-l="ลูกค้า">${r.imp ? i(d.customer_name || "-") : "(INVOICE ในระบบ)"}</td><td data-l="บริษัท INVOICE">${sv("company_invoice")}</td><td data-l="Invoice No. *">${sv("source_invoice_no")}</td>`
+          + (r.imp ? NUMK823.map(mn).join("") : `<td colspan="6" class="t-3 center" data-l="ยอด"><small>ยอดตาม INVOICE ในระบบ (ไม่เปลี่ยน)</small></td>`)
+          + `<td data-l="Billing Note no. (APL Billing)"><b>${i(r.v || "-")}</b></td><td data-l="CASE"><b>${i(r.cs || "-")}</b></td>`
+          + `<td data-l="ค่าเดิม → ค่าใหม่">${r.diff.length ? r.diff.map((z) => `<div class="u823-df"><small>${i(LB823(z[0]))} :</small> <s>${i(FV823(z[0], z[1]))}</s> → <b>${i(FV823(z[0], z[2]))}</b></div>`).join("") : r.imp ? (r.ex ? '<small class="t-3">เหมือนเดิม</small>' : '<small class="t-3">-</small>') : `<small>Billing Note : ${i(r.cur == null ? "-" : r.cur)}${r.sys ? ` (BILLING : ${i(r.sys)})` : ""} · CASE : ${i(r.ccur == null ? "-" : r.ccur)}</small>`}</td>`
           + `<td data-l="ไฟล์ · แถว"><small>${i(r.file ? r.file.name : "-")} (${r.seq || "-"}) · แถว ${r.r || "-"}${r.cross ? " · พบในไฟล์ " + r.files.join(", ") : ""}${r.inFile ? " · ซ้ำในไฟล์" : ""}</small></td>`
-          + `<td data-l="ลูกค้า">${i(r.imp ? d.customer_name || "-" : "(INVOICE ในระบบ)")}</td>` + (r.imp ? NUMK823.map(mn).join("") : `<td colspan="6" class="t-3 center" data-l="ยอด"><small>ยอดตาม INVOICE ในระบบ (ไม่เปลี่ยน)</small></td>`)
-          + `<td data-l="APL Billing">${i(r.apl || "")}</td><td data-l="CASE">${i(r.cs || "")}</td>`
-          + `<td data-l="ใหม่">${r.cf && !/หลาย INVOICE|ขัดแย้ง/.test(r.why) ? `<label class="up820-p"><input type="radio" name="p820-${i(r.key)}" data-p820="${i(r.key)}" value="apl"${st.pick.get(r.key) === "apl" ? " checked" : ""}> APL : ${i(r.apl)}</label><label class="up820-p"><input type="radio" name="p820-${i(r.key)}" data-p820="${i(r.key)}" value="cs"${st.pick.get(r.key) === "cs" ? " checked" : ""}> CASE : ${i(r.cs)}</label>` : `<b>${i(r.v || "")}</b>`}</td>`
-          + `<td data-l="ค่าเดิม → ค่าใหม่">${r.diff.length ? r.diff.map((z) => `<div class="u823-df"><small>${i(LB823(z[0]))} :</small> <s>${i(FV823(z[0], z[1]))}</s> → <b>${i(FV823(z[0], z[2]))}</b></div>`).join("") : r.imp ? (r.ex ? '<small class="t-3">เหมือนเดิม</small>' : '<small class="t-3">-</small>') : `${i(r.cur == null ? "-" : r.cur)}${r.sys ? `<small class="t-3"> (BILLING : ${i(r.sys)})</small>` : ""}`}</td>`
-          + `<td data-l="สถานะ"><span class="b820 b820-${r.st === "IMP" ? "NEW" : r.st}">${L[r.st]}</span><small class="t-3"> ${i(r.why || "")}</small>${r.imp && r.st !== "ERR" && r.rv ? `<div><span class="b823r">รอตรวจสอบ</span> <small>${i(r.rv)}</small></div>` : ""}${(r.warn || []).length ? `<div><small class="up820-w">${i(r.warn.join(" · "))}</small></div>` : ""}</td></tr>`; }).join("")
-        : '<tr><td colspan="15" class="empty">ไม่มีรายการ</td></tr>') + `</tbody></table></div>`
+          + `<td data-l="ผลการตรวจสอบ"><span class="b820 b820-${r.st === "IMP" ? "NEW" : r.st}">${L[r.st]}</span><small class="t-3"> ${i(r.why || "")}</small>${r.imp && r.st !== "ERR" && r.rv ? `<div><span class="b823r">รอตรวจสอบ</span> <small>${i(r.rv)}</small></div>` : ""}${(r.warn || []).length ? `<div><small class="up820-w">${i(r.warn.join(" · "))}</small></div>` : ""}</td></tr>`; }).join("")
+        : '<tr><td colspan="17" class="empty">ไม่มีรายการ</td></tr>') + `</tbody></table></div>`
       + (fl.length > show.length ? `<div class="up820-note">แสดง ${show.length.toLocaleString("th-TH")} จาก ${fl.length.toLocaleString("th-TH")} รายการ — ดูทั้งหมดได้จาก EXPORT EXCEL</div>` : "");
     body.querySelectorAll("[data-f820]").forEach((b) => { b.onclick = () => { st.f = b.dataset.f820; draw(); }; });
     body.querySelectorAll("[data-p820]").forEach((x) => { x.onchange = () => { st.pick.set(x.dataset.p820, x.value); recalc(); }; });
@@ -1233,9 +1241,9 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
   q("#up820-xl").onclick = async (ev) => {
     let b = ev.currentTarget; if (b.disabled || !st.ck) return; b.disabled = !0;
     try { let rows = st.rows.filter((r) => (r.dup && r.key) || r.st === "ERR" || (r.imp && r.rv));
-      let fn = await XW734("FINANCE_RECEIPT_UPLOAD_CHECK", [["Invoice No.", (r) => r.inv], ["แหล่งข้อมูล", (r) => (r.key ? (r.imp ? "นำเข้า Excel" : "INVOICE ในระบบ") : "")], ["ไฟล์", (r) => r.file && r.file.name], ["ลำดับไฟล์", (r) => r.seq, "int"], ["แถว", (r) => r.r, "int"],
+      let fn = await XW734("FINANCE_RECEIPT_UPLOAD_CHECK", [["INVOICE NJ", (r) => r.inv], ["DATE", (r) => (r.imp ? am(r).doc_date : null), "date"], ["บริษัท INVOICE", (r) => (r.imp ? am(r).company_invoice : null)], ["Invoice No. *", (r) => (r.d || {}).source_invoice_no], ["แหล่งข้อมูล", (r) => (r.key ? (r.imp ? "นำเข้า Excel" : "INVOICE ในระบบ") : "")], ["ไฟล์", (r) => r.file && r.file.name], ["ลำดับไฟล์", (r) => r.seq, "int"], ["แถว", (r) => r.r, "int"],
         ["ลูกค้า", (r) => am(r).customer_name], ["Service charge", (r) => am(r).service_amount, "num"], ["Advance", (r) => am(r).advance_amount, "num"], ["VAT 7%", (r) => am(r).vat_amount, "num"], ["Amount", (r) => am(r).subtotal, "num"], ["WHT 3%", (r) => am(r).wht_amount, "num"], ["Total Amount", (r) => am(r).net_payable, "num"],
-        ["APL Billing", (r) => r.apl], ["CASE", (r) => r.cs], ["Billing Note no. ใหม่", (r) => r.v], ["ค่าเดิม (Billing Note)", (r) => r.cur], ["Billing Note (BILLING จริง)", (r) => r.sys],
+        ["APL Billing → Billing Note no.", (r) => r.v], ["CASE → Case", (r) => r.cs], ["ค่าเดิม (Billing Note)", (r) => r.cur], ["Billing Note (BILLING จริง)", (r) => r.sys], ["ค่าเดิม (CASE)", (r) => r.ccur],
         ["ค่าเดิม → ค่าใหม่", (r) => (r.diff || []).map((z) => LB823(z[0]) + " : " + FV823(z[0], z[1]) + " → " + FV823(z[0], z[2])).join(" | ")], ["สถานะ", (r) => L[r.st]], ["รายละเอียด", (r) => r.why], ["รอตรวจสอบ", (r) => r.rv || ""],
         ["ซ้ำข้ามไฟล์", (r) => (r.cross ? "ใช่ (" + r.files.join(", ") + ")" : "")], ["ซ้ำในไฟล์", (r) => (r.inFile ? "ใช่" : "")]], rows);
       k("ส่งออก Excel " + rows.length.toLocaleString("th-TH") + " รายการแล้ว (" + fn + ")", "ok"); }
@@ -1247,21 +1255,23 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
     if (C.need) { st.f = "ERR"; draw(); k("กรุณาเลือกค่า APL Billing / CASE ที่ไม่ตรงกันก่อนบันทึก (" + C.need + " รายการ)", "err"); return; }
     if (!C.save) { k("ไม่มีรายการที่ต้องบันทึก — ข้อมูลเหมือนเดิมทั้งหมด", "ok"); return; }
     let a = await AK820(files, C); if (a === "dup") { st.f = "DUP"; draw(); return; } if (a !== "ok") return;
-    let items = st.rows.filter((r) => !r.imp && (r.st === "NEW" || r.st === "CHG") && r.id && r.v).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.v, old: r.cur, file_seq: r.seq }));
+    let items = st.rows.filter((r) => !r.imp && (r.st === "NEW" || r.st === "CHG") && r.id && r.v && r.bnS).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.v, old: r.cur, file_seq: r.seq }));
+    let cases = st.rows.filter((r) => !r.imp && (r.st === "NEW" || r.st === "CHG") && r.id && r.csS && r.d && r.d.case_no).map((r) => ({ invoice_id: r.id, invoice_no: r.ino, value: r.d.case_no, old: r.cold, file_seq: r.seq }));   /* V.828 (RUN-832) */
     let imports = st.rows.filter((r) => r.imp && (r.st === "IMP" || r.st === "CHG")).map((r) => Object.assign({ invoice_no: r.inv, ver: r.ex ? r.ex.ver : null, file_seq: r.seq, row_no: r.r, billing_note: r.v || null }, r.d));
     let fz = files.filter((f) => !f.err).map((f) => ({ seq: f.seq, name: f.name, hash: f.hash, size: f.size, sheet: f.sheet, received_at: f.at, columns_used: f.used, columns_skipped: f.skipped,
       stats: { rows: f.rows.length, total_rows_skipped: f.total, new: st.rows.filter((r) => r.seq === f.seq && r.st === "NEW").length, imported_new: st.rows.filter((r) => r.seq === f.seq && r.st === "IMP").length, changed: st.rows.filter((r) => r.seq === f.seq && r.st === "CHG").length,
                unchanged: st.rows.filter((r) => r.seq === f.seq && r.st === "SAME").length, review: st.rows.filter((r) => r.seq === f.seq && r.imp && r.rv && r.st !== "ERR").length, errors: st.rows.filter((r) => r.seq === f.seq && r.st === "ERR").length } }));
     st.busy = !0; ok.disabled = !0; ok.textContent = "กำลังเริ่มบันทึก…";
     try {   /* V.823 (RUN-828) : เริ่ม Import (Import ID + ประวัติไฟล์ · ยังไม่บันทึกรายการ) → บันทึกทีละ BATCH */
-      st.job = await V("njacc_rx828_begin", { p: { request_id: st.req, files: fz, total_items: items.length, total_imports: imports.length } });
+      st.job = await V("njacc_rx828_begin", { p: { request_id: st.req, files: fz, total_items: items.length + cases.length, total_imports: imports.length } });
       if (!st.job || !st.job.job_id) throw new Error("NJACC_RX828_NO_JOB");
     } catch (e) {
       st.busy = !1; ok.disabled = !1; ok.textContent = "ยืนยันใช้ไฟล์ล่าสุด";
       st.job = null; if (/njacc_rx828|PGRST202|Could not find the function|NJACC_RX828_NO_JOB/i.test(String(e && e.message || e))) { k("ระบบฐานข้อมูลยังไม่พร้อมบันทึกแบบ BATCH (ต้องรัน RUN-828) — ยังไม่ได้บันทึก", "err"); return; }
       k("เริ่มบันทึกไม่สำเร็จ — " + RE820(e), "err"); return;
     }
-    let units = items.map((o) => ({ i: o })).concat(imports.map((o) => ({ m: o })));
+    let units = items.map((o) => ({ i: o })).concat(cases.map((o) => ({ c: o })), imports.map((o) => ({ m: o })));
+    st.same828 = C.same;   /* V.828 : รายการซ้ำที่ไม่เปลี่ยน = ข้าม (ไม่ส่งบันทึก) */
     st.sz828 = 500; st.seq828 = 0; st.q828 = [];
     for (let j = 0; j < units.length; j += st.sz828) st.q828.push({ seq: ++st.seq828, u: units.slice(j, j + st.sz828), done: !1, err: "" });
     st.tot828 = units.length; st.busy = !1;
@@ -1282,7 +1292,7 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
     for (let n = 0; n < st.q828.length; n++) {
       let b = st.q828[n]; if (b.done || b.skip) continue;
       for (let at = 0; ; at++) {
-        let p = { job_id: st.job.job_id, seq: b.seq, items: b.u.filter((x) => x.i).map((x) => x.i), imports: b.u.filter((x) => x.m).map((x) => x.m) };
+        st.cur828 = b.seq; let p = { job_id: st.job.job_id, seq: b.seq, items: b.u.filter((x) => x.i).map((x) => x.i), cases: b.u.filter((x) => x.c).map((x) => x.c), imports: b.u.filter((x) => x.m).map((x) => x.m) };
         try { let r = await V("njacc_rx828_run", { p }); b.done = !0; b.err = ""; b.biz = !1; b.res = r && r.result; PG828("run"); break; }
         catch (e) {
           let m = String(e && e.message || e || "") + (e && e.code ? " [" + e.code + "]" : "");
@@ -1291,7 +1301,7 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
             try { await V("njacc_rx828_fail", { p: { job_id: st.job.job_id, seq: b.seq, units: b.u.length, error: m.slice(0, 1800) } }); } catch (x) {}
             if (!fatal && b.u.length > 1) { let h = Math.ceil(b.u.length / 2); b.skip = !0; b.err = "แยกตรวจรายการที่ผิดพลาด";
               st.q828.splice(n + 1, 0, { seq: ++st.seq828, u: b.u.slice(0, h), done: !1, err: "" }, { seq: ++st.seq828, u: b.u.slice(h), done: !1, err: "" }); PG828("run"); break; }
-            b.err = em(e) + (b.u.length === 1 ? " — INVOICE " + ((b.u[0].i || b.u[0].m || {}).invoice_no || "-") : ""); b.biz = !0; if (fatal) stop = b; PG828("run"); break;
+            b.err = em(e) + (b.u.length === 1 ? " — INVOICE " + ((b.u[0].i || b.u[0].c || b.u[0].m || {}).invoice_no || "-") : ""); b.biz = !0; if (fatal) stop = b; PG828("run"); break;
           }
           let s = null; try { s = await V("njacc_rx828_status", { p: { job_id: st.job.job_id } }); } catch (x) {}   /* ตรวจใน Database ก่อน Retry (คำขอเดิมอาจสำเร็จแล้วแต่ผลตอบกลับหาย) */
           let db = s && (s.batches || []).find((z) => z.seq === b.seq);
@@ -1331,9 +1341,9 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
     let F = st.fin828, tot = st.tot828 || 0, sv = mode !== "run" && F ? Number(F.saved || 0) : ok8, rem = Math.max(0, tot - sv), pc = tot ? Math.floor((sv / tot) * 1000) / 10 : 0, n0 = (v) => Number(v || 0).toLocaleString("th-TH");
     let ttl = mode === "ok" ? "✅ UPLOAD EXCEL — บันทึกสำเร็จ (ตรวจจำนวนใน Database แล้ว)" : mode === "part" ? "⚠️ UPLOAD EXCEL — บันทึกสำเร็จบางส่วน" : "UPLOAD EXCEL — กำลังบันทึกข้อมูล";
     el.innerHTML = `<div class="up828-h">${ttl}${st.job ? ` <small>Import ID : ${i(String(st.job.job_id).slice(0, 8))}</small>` : ""}</div>`
-      + `<div class="up828-g"><span>รายการทั้งหมด <b>${n0(tot)}</b></span><span>บันทึกสำเร็จ <b>${n0(sv)}</b></span><span>คงเหลือ <b>${n0(rem)}</b></span><span>รายการผิดพลาด <b class="${badN ? "e" : ""}">${n0(badN)}</b></span><span>ความคืบหน้า <b>${pc.toFixed(1)}%</b></span></div>`
+      + `<div class="up828-g"><span>รายการทั้งหมด <b>${n0(tot)}</b></span><span>บันทึกสำเร็จ <b>${n0(sv)}</b></span><span>รายการซ้ำที่ข้าม (ไม่เปลี่ยน) <b>${n0(st.same828 || 0)}</b></span><span>คงเหลือ <b>${n0(rem)}</b></span><span>รายการผิดพลาด <b class="${badN ? "e" : ""}">${n0(badN)}</b></span><span>ความคืบหน้า <b>${pc.toFixed(1)}%</b></span>${mode === "run" && st.cur828 ? `<span>BATCH ปัจจุบัน <b>${st.cur828}</b></span>` : ""}</div>`
       + `<div class="up828-bar"><i style="width:${pc}%"></i></div>`
-      + `<div class="up828-s">BATCH ${st.q828.filter((b) => b.done).length} / ${st.q828.filter((b) => !b.skip).length} สำเร็จ${F && mode !== "run" ? ` · ตรวจใน Database : รายการนำเข้า ${n0(F.db_imported)} · Billing Note ${n0(F.db_billing)} · นำเข้าใหม่ ${n0(F.inserted)} · อัปเดต ${n0(F.updated)} · Billing Note อัปเดต ${n0(F.bn_updated)} · ไม่เปลี่ยน ${n0(F.unchanged)}${F.review ? " · รอตรวจสอบ " + n0(F.review) : ""}` : ""}</div>`
+      + `<div class="up828-s">BATCH ${st.q828.filter((b) => b.done).length} / ${st.q828.filter((b) => !b.skip).length} สำเร็จ${F && mode !== "run" ? ` · ตรวจใน Database : รายการนำเข้า ${n0(F.db_imported)} · Billing Note ${n0(F.db_billing)}${F.db_case != null ? " · CASE " + n0(F.db_case) : ""} · นำเข้าใหม่ ${n0(F.inserted)} · อัปเดต ${n0(F.updated)} · Billing Note อัปเดต ${n0(F.bn_updated)} · ไม่เปลี่ยน ${n0(F.unchanged)}${F.review ? " · รอตรวจสอบ " + n0(F.review) : ""}` : ""}</div>`
       + (bad.length || stop ? `<div class="up820-e">${(stop && !bad.includes(stop) ? [stop] : []).concat(bad).map((b) => `BATCH ${b.seq} (${n0(b.u.length)} รายการ) : ${i(b.err || "")}`).join("<br>")}</div>` : "")
       + (mode === "part" ? `<div class="up828-s">รายการที่บันทึกแล้วคงอยู่ใน Database · กด <b>ดำเนินการต่อ</b> เพื่อบันทึกเฉพาะ BATCH ที่ยังไม่สำเร็จ (ไม่บันทึกซ้ำ) · หรือ Refresh แล้วอัปโหลดไฟล์เดิม — รายการที่บันทึกแล้วจะแสดงเป็น "ไม่เปลี่ยน"</div>` : "");
     if (mode === "run") ok.textContent = "กำลังบันทึก… " + pc.toFixed(1) + "%";
@@ -1348,6 +1358,13 @@ async function PV820(t, files) {   /* หน้าต่าง Preview */
       st.pgEl || body.prepend(el); } catch (e) {}
   };
   await load(); RC828();
+}
+/* V.828 (RUN-832) : ข้อสังเกตใน Preview — Billing Note no. (APL Billing) ค่าเดียวกันใช้กับ INVOICE จำนวนมาก (≥ 20) · แจ้งให้ตรวจสอบเท่านั้น ไม่ตัด / ไม่แก้ข้อมูล */
+function AN828(rows) {
+  try { let m = new Map(); (rows || []).forEach((r) => { if (r.key && r.st !== "ERR" && r.v) m.set(r.v, (m.get(r.v) || 0) + 1); });
+    let a = [...m.entries()].filter((z) => z[1] >= 20).sort((x, y) => y[1] - x[1]); if (!a.length) return "";
+    return `<div class="up820-note an828">ℹ️ ข้อสังเกต : Billing Note no. ค่าเดียวกันใช้กับหลาย INVOICE (≥ 20) — ${a.slice(0, 8).map((z) => `<b>${i(z[0])}</b> (${z[1].toLocaleString("th-TH")})`).join(" · ")}${a.length > 8 ? ` · และอีก ${a.length - 8} ค่า` : ""} — กรุณาตรวจสอบก่อนยืนยัน (ระบบไม่ตัดข้อมูล)</div>`; }
+  catch (e) { return ""; }
 }
 /* V.823 (RUN-828) : CSS แถบความคืบหน้า UPLOAD EXCEL */
 function ST829() {
@@ -1368,9 +1385,9 @@ function AK820(files, C) {   /* Popup ยืนยันก่อนบันท
     let dup = C.dup > 0, n = (v) => v.toLocaleString("th-TH");
     w.innerHTML = `<div class="ak820-b" role="dialog" aria-modal="true"><div class="ak820-h">${dup ? "⚠️ ตรวจพบข้อมูลซ้ำในการอัปโหลด Excel" : "ยืนยันบันทึกข้อมูลจาก Excel"}</div>`
       + `<div class="ak820-t">ไฟล์ : ${files.filter((f) => !f.err).map((f) => `<b>${i(f.name)}</b> <small>(ลำดับ ${f.seq} · ${DT820(f.at)})</small>`).join(", ")}<ul>`
-      + `<li>รายการทั้งหมด : <b>${n(C.all)}</b> INVOICE · นำเข้าได้ <b>${n(C.okk)}</b></li><li>INVOICE ซ้ำ : <b>${n(C.dup)}</b></li><li>INVOICE เพิ่มใหม่ (นำเข้า Excel) : <b>${n(C.imp)}</b> · Billing Note ใหม่ (INVOICE ในระบบ) : <b>${n(C.nw)}</b></li>`
+      + `<li>รายการทั้งหมด : <b>${n(C.all)}</b> INVOICE · นำเข้าได้ <b>${n(C.okk)}</b></li><li>INVOICE ที่มีอยู่แล้ว (ซ้ำ) : <b>${n(C.dup)}</b></li><li>INVOICE เพิ่มใหม่ (นำเข้า Excel) : <b>${n(C.imp)}</b> · Billing Note ใหม่ (INVOICE ในระบบ) : <b>${n(C.nw)}</b></li>`
       + `<li>ข้อมูลเปลี่ยนแปลง : <b>${n(C.chg)}</b> · ไม่เปลี่ยน : ${n(C.same)}</li>${C.rv ? `<li>รอตรวจสอบ (ยอดไม่ครบ / ไม่สอดคล้อง) : <b>${n(C.rv)}</b> — บันทึกได้ แต่ออกใบเสร็จไม่ได้</li>` : ""}<li>ผิดพลาด : ${n(C.err)} (ไม่บันทึก)</li></ul>`
-      + `<b>ระบบจะใช้ข้อมูลจากไฟล์ที่อัปโหลดล่าสุดแทนข้อมูลเดิม เฉพาะคอลัมน์ที่หน้ารายงานรองรับ (ช่องว่างไม่เขียนทับ) · INVOICE ในระบบ = เฉพาะ Billing Note no.</b></div>`
+      + `<b>ระบบจะยึดข้อมูลจากไฟล์ล่าสุดเฉพาะหัวข้อที่อนุญาต หลังได้รับการยืนยัน</b><div><small>ช่องว่างไม่เขียนทับ · APL Billing → Billing Note no. · CASE → Case · INVOICE ในระบบ = เฉพาะ Billing Note no. และ CASE</small></div></div>`
       + `<div class="ak820-f"><button type="button" class="btn btn-o" data-a820="no">ยกเลิก</button><button type="button" class="btn btn-o" data-a820="dup">ดูรายการซ้ำ</button><button type="button" class="btn up820-ok" data-a820="ok">ยืนยันใช้ไฟล์ล่าสุด</button></div></div>`;
     document.body.appendChild(w);
     let done = (v) => { document.removeEventListener("keydown", key, !0); w.remove(); res(v); };
