@@ -453,6 +453,7 @@ function RE795(e) {   /* ข้อความ Error จาก Server → ภา
   if (/NJACC_(MODULE_)?FORBIDDEN/.test(m)) return "ไม่มีสิทธิ์";
   if (/NJACC_RADV_DUPLICATE_NO|NJACC_RCP_DUPLICATE_NO/.test(m)) return "เลขเอกสารชน (" + m.replace(/^.*DUPLICATE_NO:\s*/, "") + ") — ยังไม่ได้บันทึก กรุณาลองใหม่";
   if (/NJACC_RADV_SEQ_FULL|NJACC_RCP_SEQ_FULL/.test(m)) return "เลขเอกสารเดือนนี้เต็มแล้ว";
+  if (/NJACC_CUST836_REQUIRED/.test(m)) return "ยังไม่ได้ตรวจสอบ / ยืนยัน CUSTOMER ของรายการ UPLOAD EXCEL — กด “ตรวจสอบ / แก้ไข CUSTOMER” ก่อนออกใบเสร็จ";   /* V.836 */
   if (/njacc_rcp835/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-835)";   /* V.830 */
   if (/njacc_rcp818/i.test(m) && /PGRST202|schema cache|Could not find/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-818)";   /* V.814 */
   if (/njacc_rcp795|PGRST202|schema cache/i.test(m)) return "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-795)";
@@ -484,10 +485,10 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
   let showDocs = async (docs, o) => { pf.hidden = !0; pd.hidden = !1; pd.innerHTML = '<div class="load-row"><div class="spin"></div></div>'; await RW795(docs, Object.assign({ back }, o), pd); };
   let nR = () => st.pv ? st.pv.groups.filter((g) => Number(g.count) > 0).length : 0, nA = () => st.pv ? st.pv.groups.filter((g) => g.adv).length : 0;
   let sync = () => {
-    let ok = st.pv && !st.pv.errors.length && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value && !st.done;
+    let ok = st.pv && !st.pv.errors.length && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value && !st.done && !NC836(st.pv);   /* V.836 : CUSTOMER (Excel) ต้องยืนยันครบ */
     q("#rcp795-pv").disabled = !(st.pv && st.pv.groups.length && q("#rcp795-date").value && q("#rcp795-method").value) || st.busy || !!st.done;
     q("#rcp795-ok").disabled = !ok || !st.seen || st.busy;
-    q("#rcp795-ok").title = ok && !st.seen ? "กรุณากดดูตัวอย่างก่อนยืนยัน" : "";
+    q("#rcp795-ok").title = NC836(st.pv) ? "กรุณาตรวจสอบ / ยืนยัน CUSTOMER ของรายการ UPLOAD EXCEL ก่อน" : ok && !st.seen ? "กรุณากดดูตัวอย่างก่อนยืนยัน" : "";
   };
   let draw = () => {
     let p = st.pv; if (!p) return;
@@ -495,9 +496,11 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
     sum.innerHTML = (p.errors.length ? `<div class="rcp795-err"><b>⚠ รายการที่ออกใบเสร็จไม่ได้ (${p.errors.length}) — ระงับการยืนยัน</b><ul>${p.errors.map((e) => `<li>${i(e.invoice_no || "-")}${e.job_no ? " · " + i(e.job_no) : ""} — ${i(e.reason)}</li>`).join("")}</ul><button class="btn btn-sm btn-o" id="rcp795-drop">นำรายการที่มีปัญหาออกจากรายการที่เลือก</button></div>` : "")
       + `<div class="rcp795-hd">ใบเสร็จที่จะออก : SERVICE (RCP) <b>${nR()}</b> ฉบับ · ADVANCE (ADV) <b>${nA()}</b> ฉบับ (ต่อลูกค้า 1 RCP + 1 ADV) · Payment Received รวม <b>${M795(tot / 100)}</b>${atot ? ` · Advance รวม <b>${M795(atot / 100)}</b>` : ""}</div>`
       + p.groups.map((g, k) => `<div class="rcp795-g"><div class="rcp795-gh"><span>ลูกค้าที่ ${k + 1} · <b>${i(g.customer_name)}</b></span><span>${Number(g.count) ? `RCP ${Number(g.count)} รายการ · <b>${M795(g.total)}</b>` : "ไม่มี SERVICE"}${g.adv ? ` · ADV ${Number(g.adv.count)} รายการ · <b>${M795(g.adv.total)}</b>` : ""}</span></div>`
+          + (g.src === "EXCEL" ? CB836(g) : "")   /* V.836 */
           + (Number(g.count) ? `<div class="rcp814-cap">ใบที่ 1 · SERVICE — RECEIPT (RCP)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Invoice Amount</th><th class="r">Withholding Tax (7%)</th><th class="r">Payment Received</th></tr></thead><tbody>${(g.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.invoice_amount)}</td><td class="r">${M795(x.wht_amount)}</td><td class="r">${M795(x.received)}</td></tr>`).join("")}</tbody></table>` : "")
           + (g.adv ? `<div class="rcp814-cap rcp814-a">ใบที่ ${Number(g.count) ? 2 : 1} · ADVANCE — RECEIPT ADVANCE (ADV)</div><table class="tbl rcp795-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>เลขที่งาน</th><th class="r">Advance Amount</th></tr></thead><tbody>${(g.adv.items || []).map((x, j) => `<tr><td class="center">${j + 1}</td><td>${i(x.invoice_no)}</td><td>${D795(x.invoice_date)}</td><td class="t-3">${i(x.job_no || "")}</td><td class="r">${M795(x.amount)}</td></tr>`).join("")}</tbody></table>` : "")
           + `</div>`).join("");
+    sum.querySelectorAll("[data-c836]").forEach((b) => { b.onclick = async () => { try { let m = await import("./adv-legacy-L836.js"); (await m.cust836(JSON.parse(b.dataset.c836), {})) && load(); } catch (e) { k("เปิดหน้าต่าง CUSTOMER ไม่สำเร็จ — " + (e && e.message || e), "err"); } }; });   /* V.836 */
     let dr = q("#rcp795-drop"); dr && (dr.onclick = () => { p.errors.forEach((e) => SEL795.delete(e.rx823_id ? "rx:" + e.rx823_id : String(e.invoice_id))); RS795(t); t.querySelectorAll(".rcp795-cb[data-rcp]").forEach((c) => { c.checked = SEL795.has(c.dataset.rcp); }); ids = [...SEL795.keys()]; ids.length ? load() : (sum.innerHTML = '<div class="empty">ไม่มีรายการที่เลือก</div>', st.pv = null, sync()); });
     sync();
   };
@@ -510,12 +513,13 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
   let issue = async (confirmFn) => {   /* SAVE จริง (RCP + ADV ธุรกรรมเดียว) · กดซ้ำ = request_id เดิม → เอกสารเดิม ไม่ออกเลขใหม่ */
     if (st.done) return st.done;
     if (st.busy || !st.pv || st.pv.errors.length) return null;
+    if (NC836(st.pv)) { k("กรุณาตรวจสอบ / ยืนยัน CUSTOMER ของรายการ UPLOAD EXCEL ก่อนออกใบเสร็จ", "err"); return null; }   /* V.836 */
     let d = q("#rcp795-date").value, m = q("#rcp795-method").value, cnt = st.pv.groups.reduce((s, g) => s + Number(g.count || 0) + Number(g.adv && g.adv.count || 0), 0);
     if (!d || !m) { k("กรุณาเลือกวันที่ใบเสร็จและวิธีรับชำระ", "err"); return null; }
     if (!(await confirmFn(`ออกใบเสร็จ SERVICE (RCP) <b>${nR()} ฉบับ</b> + ADVANCE (ADV) <b>${nA()} ฉบับ</b> · ${cnt} รายการ · วันที่ ${D795(d)} · ${i(PML795(m))}<br>เมื่อยืนยันแล้ว ระบบจะออกเลข RCP / ADV จริงพร้อมกัน เปลี่ยนรายการเป็น PAID ย้ายไปแถบ “ใบเสร็จที่ออกแล้ว” และล็อกข้อมูลทันที (แก้ไข / ลบ / UNPOST ไม่ได้)`))) return null;
     st.busy = !0; sync(); let ok = q("#rcp795-ok"); ok.textContent = "กำลังบันทึก…";
     try {
-      let exp = st.pv.groups.flatMap((g) => (g.all || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, customer_id: g.customer_id, invoice_no: z.invoice_no, rx823_id: z.rx823_id, customer_key: g.customer_key })));
+      let exp = st.pv.groups.flatMap((g) => (g.all || []).map((z) => ({ invoice_id: z.invoice_id, invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, customer_id: g.customer_id, invoice_no: z.invoice_no, rx823_id: z.rx823_id, customer_key: z.customer_key || g.customer_key, cust_ver: z.cust_ver })));   /* V.836 : ชื่อลูกค้าใน Excel ต่อรายการ + ver ของ CUSTOMER ที่ยืนยัน */
       let xb = exp.filter((z) => z.rx823_id);   /* V.830 : มีรายการ Excel = njacc_rcp835_issue (FLOW B + FLOW A เดิมในธุรกรรมเดียว) · ไม่มี = njacc_rcp818_issue เดิม */
       let r = xb.length ? await V("njacc_rcp835_issue", { p: { request_id: st.req, invoice_ids: exp.filter((z) => z.invoice_id).map((z) => z.invoice_id), rx_ids: xb.map((z) => z.rx823_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } })
         : await V("njacc_rcp818_issue", { p: { request_id: st.req, invoice_ids: exp.map((z) => z.invoice_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp } });
@@ -532,7 +536,7 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       return st.done;
     } catch (e) {
       let msg = RE795(e); k("ออกใบเสร็จไม่สำเร็จ — " + msg, "err"); ok.textContent = "✅ ยืนยันออกใบเสร็จ";
-      if (/NJACC_RCP_(CHANGED|INVALID)/.test(String(e && e.message || e))) { await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
+      if (/NJACC_RCP_(CHANGED|INVALID)|NJACC_CUST836/.test(String(e && e.message || e))) { await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
       return null;
     } finally { st.busy = !1; sync(); }
   };
@@ -565,6 +569,17 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
     let r = await issue(ask); r && (await open(keys(r)));
   };
   await load();
+}
+/* ═══ V.836 (RUN-836) · FLOW B (UPLOAD EXCEL) : CUSTOMER ต้องยืนยันก่อนออกใบเสร็จ — กล่องข้อมูลลูกค้าในหน้าต่างออกใบเสร็จ (ACCOUNTING = เดิม ไม่แสดงกล่องนี้) ═══ */
+function NC836(p) { return !!(p && (p.groups || []).some((g) => g.src === "EXCEL" && g.customer_status !== "OK")); }
+function CB836(g) {
+  let ok = g.customer_status === "OK", e = (v) => i(v == null || v === "" ? "-" : String(v));
+  return `<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;margin:8px 0">`
+    + `<span style="color:#64748b">CUSTOMER</span><b>${ok ? e(g.customer_name) : "-"} ${ok ? '<span style="background:#dcfce7;color:#15803d;border-radius:999px;padding:1px 8px;font-size:11px">ยืนยันแล้ว</span>' : '<span style="background:#fef3c7;color:#b45309;border-radius:999px;padding:1px 8px;font-size:11px">ยังไม่ยืนยัน CUSTOMER — ออกใบเสร็จไม่ได้</span>'}</b>`
+    + `<span style="color:#64748b">ADDRESS</span><b>${e(g.customer_address)}</b><span style="color:#64748b">TAX ID / BRANCH</span><b>${e(g.customer_tax_id)} / ${e(g.customer_branch)}</b>`
+    + `<span style="color:#64748b">ชื่อใน Excel</span><b>${e((g.customer_keys || [g.customer_key]).join(", "))}</b><span style="color:#64748b">COMPANY INVOICE</span><b>${e((g.company_invoices || []).filter(Boolean).join(", "))}</b>`
+    + (!ok && (g.customer_problems || []).length ? `<span style="color:#64748b">ต้องแก้</span><b style="color:#b91c1c">${e(g.customer_problems.join(" · "))}</b>` : "")
+    + `</div><button type="button" class="btn btn-sm" style="background:#fff;border:1px solid #0f766e;color:#0f766e;font-weight:700" data-c836='${i(JSON.stringify(g.customer_keys || [g.customer_key]))}'>ตรวจสอบ / แก้ไข CUSTOMER</button>`;
 }
 function ASK814(html) {   /* ยืนยันบนหน้าจอ PREVIEW เต็มจอ (อยู่เหนือ PV813) */
   return new Promise((res) => {
