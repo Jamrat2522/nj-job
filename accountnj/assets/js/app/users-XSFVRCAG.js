@@ -147,7 +147,7 @@ function mLabel595(m, rs) { return m === "REPORT" && rs && rs.length < RK595.len
    เมนูหลัก = allowed_modules (เลือก / ยกเลิกเมนูย่อยทั้งหมด · เลือกบางส่วน = Indeterminate) · เมนูย่อย = menu_items (NULL เดิม = เห็นครบ) · REPORT ย่อย = report_items เดิม (V.595)
    CASH ADVANCE = สิทธิ์เข้าเมนูอิสระ (ดูอย่างเดียว) · อนุมัติ / จ่าย = Role SUPER_ADMIN เท่านั้น · JOB_CONTROL เดิมคงไว้ตามเดิม (mList595) ════ */
 function iSel705(u, ms) { var a = u && Array.isArray(u.menu_items) ? u.menu_items : null; if (a) return MK705.filter(function (k) { return a.indexOf(k) >= 0; });
-  var o = []; MENU705.forEach(function (g) { ms.has(g.mod) && g.items.forEach(function (x) { o.push(x[0]); }); }); return o; }
+  var o = []; MENU705.forEach(function (g) { ms.has(g.mod) && g.items.forEach(function (x) { x[2] || o.push(x[0]); }); }); return o; }   /* V.821 : menu_items NULL = เดิม — เมนูย่อยสิทธิ์แยก (Amend) ไม่ได้รับอัตโนมัติ */
 function css705() { if (document.getElementById("u705-css")) return; var s = document.createElement("style"); s.id = "u705-css";
   s.textContent = ".u705{min-width:300px}.u705 .u705-sr{padding:10px 4px 6px;margin-top:-6px;position:sticky;top:-6px;background:#fff;z-index:1}.u705 .u705-sr input{width:100%;height:34px;border:1px solid #CBD5E1;border-radius:8px;padding:0 10px;font:inherit}"
     + ".u705 .u705-g{border-bottom:1px solid #F1F5F9;padding:2px 0}.u705 label.u705-gh{font-weight:700}.u705 .u705-c{margin:0 0 4px 22px;padding:2px 0 4px 8px;border-left:2px solid #E2E8F0}"
@@ -159,12 +159,12 @@ function tHtml705(MS, RS, IS, sup) { css705();
       + '<label class="u705-gh"><input type="checkbox" class="u577-cb" value="' + g.mod + '" data-m705="' + g.mod + '"' + (MS.has(g.mod) ? " checked" : "") + (sup && g.mod === "CASH_ADVANCE" ? " disabled" : "") + "><span>" + d(g.label) + "</span>"
       + (sup && g.mod === "CASH_ADVANCE" ? '<span class="u705-n">SUPER_ADMIN ได้อัตโนมัติ</span>' : g.mod === "CASH_ADVANCE" ? '<span class="u705-n">ดูอย่างเดียว · อนุมัติ / จ่าย = SUPER_ADMIN</span>' : g.items.length ? '<span class="u705-n" data-n705="' + g.mod + '"></span>' : "") + "</label>";
     if (g.rep) h += rHtml595(RS);
-    else if (g.items.length) h += '<div class="u705-c">' + g.items.map(function (x) { return '<label class="u705-it" data-nm="' + d(B(g.label + " " + x[1])) + '"><input type="checkbox" class="u577-cb" data-i705="' + x[0] + '" data-p705="' + g.mod + '"' + (IS.has(x[0]) && MS.has(g.mod) ? " checked" : "") + "><span>" + d(x[1]) + "</span></label>"; }).join("") + "</div>";
+    else if (g.items.length) h += '<div class="u705-c">' + g.items.map(function (x) { return '<label class="u705-it" data-nm="' + d(B(g.label + " " + x[1])) + '"><input type="checkbox" class="u577-cb" data-i705="' + x[0] + '" data-p705="' + g.mod + '"' + (IS.has(x[0]) && (x[2] || MS.has(g.mod)) ? " checked" : "") + "><span>" + d(x[1]) + "</span></label>"; }).join("") + "</div>";
     return h + "</div>"; }).join("") + '<div class="u705-em" data-t705e hidden>ไม่พบเมนู</div><div class="ft">ติ๊กเมนูหลัก = เลือก / ยกเลิกเมนูย่อยทั้งหมด · เลือกเมนูย่อยแยกได้' + (sup ? " · SUPER_ADMIN เห็นเมนูย่อยทั้งหมดอัตโนมัติ" : "") + "</div></div>"; }
 function tSync705(el, MS, RS, IS) {
   MENU705.forEach(function (g) { if (g.rep || !g.items.length) { var c0 = el.querySelector('[data-m705="' + g.mod + '"]'); c0 && !g.rep && (c0.checked = MS.has(g.mod) || c0.disabled); return; }
     var n = g.items.filter(function (x) { return IS.has(x[0]); }).length, c = el.querySelector('[data-m705="' + g.mod + '"]'), t = el.querySelector('[data-n705="' + g.mod + '"]');
-    if (n === 0) MS.delete(g.mod); else MS.add(g.mod);
+    if (g.items.filter(function (x) { return !x[2] && IS.has(x[0]); }).length === 0) MS.delete(g.mod); else MS.add(g.mod);   /* V.821 : สิทธิ์โมดูล (ใบเสนอราคา) มาจากเมนูย่อยปกติเท่านั้น — เปิด Amend อย่างเดียวไม่ให้สิทธิ์ QUOTATION */
     if (c) { c.checked = n === g.items.length; c.indeterminate = n > 0 && n < g.items.length; }
     t && (t.textContent = n + "/" + g.items.length);
     g.items.forEach(function (x) { var cb = el.querySelector('[data-i705="' + x[0] + '"]'); cb && (cb.checked = IS.has(x[0])); }); });
@@ -173,7 +173,7 @@ function tChange705(c, MS, RS, IS) { if (!c) return false;
   if (rChange595(c, RS)) { RS.size ? MS.add("REPORT") : MS.delete("REPORT"); return true; }
   if (c.dataset.i705) { c.checked ? IS.add(c.dataset.i705) : IS.delete(c.dataset.i705); return true; }
   if (c.dataset.m705) { var g = MENU705.filter(function (x) { return x.mod === c.dataset.m705; })[0]; if (!g) return false;
-    if (g.items.length) g.items.forEach(function (x) { c.checked ? IS.add(x[0]) : IS.delete(x[0]); });
+    if (g.items.length) g.items.forEach(function (x) { c.checked ? (x[2] || IS.add(x[0])) : IS.delete(x[0]); });   /* V.821 : ติ๊กเมนูหลัก ไม่เปิดเมนูย่อยสิทธิ์แยก (Amend) อัตโนมัติ */
     c.checked ? MS.add(g.mod) : MS.delete(g.mod); return true; }
   return false; }
 function tSearch705(el, q0) { var any = false; el.querySelectorAll("[data-g705]").forEach(function (g) { var hit = !q0 || g.dataset.nm.indexOf(q0) >= 0; g.hidden = !hit; any = any || hit;
@@ -721,7 +721,7 @@ function edit577(t, S, done, X) {
   ps.addEventListener("change", function () { posTouched = true; }); e.querySelector("#ue7-dept").addEventListener("change", posDraw); posDraw();
   /* V.592 : \u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E01\u0E32\u0E23\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E40\u0E21\u0E19\u0E39 (\u0E0A\u0E48\u0E2D\u0E07\u0E40\u0E14\u0E34\u0E21 allowed_modules \u00B7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E21\u0E19\u0E39\u0E40\u0E14\u0E34\u0E21 M577) */
   var MC = X.mods(t), MS = new Set(MC), RC = rSel595(t, MS.has("REPORT")), RS = new Set(RC), IC705 = iSel705(t, MS), IS = new Set(IC705), msb = e.querySelector("#ue7-msb"), msp = e.querySelector("#ue7-msp");
-  var msDraw = function () { var a = M595.filter(function (m) { return MS.has(m); }), rl = RK595.filter(function (k) { return RS.has(k); }); msb.innerHTML = a.length ? a.map(function (m) { return '<span class="u592-tag">' + (iLabel705(m, IS) || mLabel595(m, rl)) + "</span>"; }).join("") : '<span class="u592-k">ไม่มีเมนู</span>'; msb.title = a.length + " เมนู"; };
+  var msDraw = function () { var a = M595.filter(function (m) { return MS.has(m); }), rl = RK595.filter(function (k) { return RS.has(k); }); msb.innerHTML = a.length ? a.map(function (m) { return '<span class="u592-tag">' + (iLabel705(m, IS) || mLabel595(m, rl)) + "</span>"; }).join("") : '<span class="u592-k">ไม่มีเมนู</span>'; msb.title = a.length + " เมนู"; IS.has("quotation/amend") && !MS.has("QUOTATION") && (msb.innerHTML = (a.length ? msb.innerHTML : "") + '<span class="u592-tag">QUOTATION · Amend</span>'); };
   msp.innerHTML = tHtml705(MS, RS, IS, t.role === "SUPER_ADMIN");   /* V.705 : Tree Checkbox จาก Central Menu Configuration */
   msp.querySelector("[data-t705q]").addEventListener("input", function (ev2) { tSearch705(msp, B(ev2.target.value)); });
   /* \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E21\u0E19\u0E39\u0E25\u0E2D\u0E22\u0E40\u0E2B\u0E19\u0E37\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07 (position:fixed) \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E02\u0E2D\u0E1A Modal \u0E1A\u0E31\u0E07 \u00B7 \u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E44\u0E21\u0E48\u0E1E\u0E2D = \u0E40\u0E1B\u0E34\u0E14\u0E02\u0E36\u0E49\u0E19\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 */

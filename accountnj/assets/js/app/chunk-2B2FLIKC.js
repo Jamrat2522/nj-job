@@ -6,11 +6,13 @@ var MENU705=[{mod:"DOCUMENT",label:"DOCUMENT",items:[["document/service","SERVIC
  {mod:"FINANCE",label:"FINANCE",items:[["finance/receipt","RECEIPT"],["finance/advance","ADVANCE"],["finance/credit-note","CREDIT NOTE"]]},
  {mod:"CASH_ADVANCE",label:"CASH ADVANCE",items:[]},
  {mod:"REPORT",label:"REPORT",items:[],rep:1},
- {mod:"QUOTATION",label:"QUOTATION",items:[["quotation","\u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32"]]},
+ {mod:"QUOTATION",label:"QUOTATION",items:[["quotation","\u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32"],["quotation/amend","Amend",1]/* V.821 (RUN-827) : Amend = สิทธิ์แยก (x[2]=1 : ต้องติ๊กเอง · ไม่ได้มาจากสิทธิ์ QUOTATION / ใบเสนอราคา) */]},
  {mod:"SYSTEM",label:"SYSTEM",items:[["settings/customers","\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32"],["users","\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19"],["backup","Backup"]]}];
 var MK705=[].concat.apply([],MENU705.map(function(g){return g.items.map(function(x){return x[0]})}));
 /* V.705 : สิทธิ์เมนูย่อย (menu_items NULL = ค่าเดิม → เห็นทุกเมนูย่อยของโมดูลที่มีสิทธิ์ · SUPER_ADMIN = ทุกเมนูย่อย เหมือน REPORT RI595) */
-function MI705(k){let r=t();if(!r)return!1;if(r==="SUPER_ADMIN"||MK705.indexOf(k)<0)return!0;let e=n.profile,i=e&&e.menu_items;return!Array.isArray(i)||i.includes(k)}
+/* V.821 : เมนูย่อยสิทธิ์แยก (MX827) — SUPER_ADMIN เสมอ · ผู้ใช้อื่นต้องมีใน menu_items จริง (NULL = ไม่มีสิทธิ์) · ตรงกับ Server njacc_amend827_ok */
+var MX827=["quotation/amend"];
+function MI705(k){let r=t();if(!r)return!1;if(r==="SUPER_ADMIN")return!0;if(MX827.indexOf(k)>=0){let i8=n.profile&&n.profile.menu_items;return Array.isArray(i8)&&i8.includes(k)}if(MK705.indexOf(k)<0)return!0;let e=n.profile,i=e&&e.menu_items;return!Array.isArray(i)||i.includes(k)}
 /* V.705 : สิทธิ์เข้าเมนู CASH ADVANCE = SUPER_ADMIN เสมอ หรือ ได้รับสิทธิ์ CASH_ADVANCE (ดูอย่างเดียว · อนุมัติ / จ่าย = SUPER_ADMIN ตรวจที่ Backend) */
 function CA705(){let r=t();return r==="SUPER_ADMIN"||(!!r&&O("CASH_ADVANCE"))}
-export{t as a,s as b,f as c,M as d,p as e,O as f,_ as g,E as h,T as i,d as j,U as k,C as l,RI595 as m,MENU705,MK705,MI705,CA705};
+export{t as a,s as b,f as c,M as d,p as e,O as f,_ as g,E as h,T as i,d as j,U as k,C as l,RI595 as m,MENU705,MK705,MI705,CA705,MX827};
