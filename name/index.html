@@ -2487,7 +2487,7 @@ var CATEngine = (function () {
 
   /* เลขใบขนทั้งหมดที่ปรากฏในข้อความ (รองรับรูปแบบ A009-0-6911-13065) */
   function findDeclNos(U) {
-    var out = [], re = /A\d{3}[- ]?\d[- ]?\d{4}[- ]?\d{5}/g, m;
+    var out = [], re = /A\d{3}[- ]?[0-9A-Z][- ]?\d{4}[- ]?\d{5}/g, m;
     while ((m = re.exec(U))) {
       var b = m.index > 0 ? U[m.index - 1] : ' ';
       var a = m.index + m[0].length < U.length ? U[m.index + m[0].length] : ' ';
@@ -2545,9 +2545,9 @@ var CATEngine = (function () {
     items = items || []; text = String(text || '');
     for (i = 0; i < items.length; i++) {
       s = up(items[i].s).trim();
-      m = /^\*\s*(A\d{13})\s*\*$/.exec(s);
+      m = /^\*\s*(A\d{3}[0-9A-Z]\d{9})\s*\*$/.exec(s);
       if (m) { cand.push({ n: m[1], w: 3, x: items[i].x, y: items[i].y }); continue; }
-      m = /^(A\d{3}[- ]?\d[- ]?\d{4}[- ]?\d{5})$/.exec(s);
+      m = /^(A\d{3}[- ]?[0-9A-Z][- ]?\d{4}[- ]?\d{5})$/.exec(s);
       if (m) cand.push({ n: normDecl(m[1]), w: 1, x: items[i].x, y: items[i].y });
     }
     if (!cand.length) return r;
@@ -2624,31 +2624,57 @@ var CATEngine = (function () {
 
   function firstIdx(U, re) { var m = re.exec(U); return m ? m.index : -1; }
 
-  /* จำแนกประเภทเอกสาร 01–07 จากเนื้อหา (ชื่อไฟล์ใช้เฉพาะเมื่ออ่านเนื้อหาไม่ได้) */
-  function nameU0(nameU) { return up(String(nameU || '').split(/[\\\/]/).pop()).replace(/^[\s_\-\(\)\[\]]+/, ''); }
+  /* จำแนกประเภทเอกสาร 00–07 จากเนื้อหาจริง (ชื่อไฟล์ใช้เป็นข้อมูลประกอบเมื่อเนื้อหาไม่ชี้ชัด) */
   function classify(U, nameU) {
     U = U || '';
-    if (!U.replace(/\s+/g, '')) {
-      var N = ' ' + String(nameU || '').replace(/[_\-.()]+/g, ' ') + ' ';
+    var N = ' ' + up(String(nameU || '').split(/[\\\/]/).pop()).replace(/[_\-.()\[\]]+/g, ' ') + ' ';
+    if (!U.replace(/\s+/g, '')) {                       // อ่านเนื้อหาไม่ได้ (ไฟล์สแกน) → ใช้ชื่อไฟล์
+      if (/^ CARGO/.test(N) || /CARGO RECEIPT/.test(N)) return '00';
       if (/COMMERCIAL INVOICE|PROFORMA| INVOICE | INV | IV | CI /.test(N)) return '03';
       if (/PACKING| PK | PL | PKL /.test(N)) return '04';
       if (/ B\/?L | BL | AWB | HBL | MBL |WAYBILL|BILL OF LADING/.test(N)) return '02';
       if (/ใบอนุญาต|PERMIT|LICEN[SC]E|TISI|BOI/.test(N)) return '05';
-      if (/^ CARGO/.test(N) || /CARGO RECEIPT/.test(N)) return '00';
       if (/ใบงานรถ|TRUCK|CARGO/.test(N)) return '06';
       return '07';
     }
+    /* C = ข้อความที่ตัดช่องว่างออกทั้งหมด — รองรับเอกสารที่พิมพ์เว้นวรรคทีละตัวอักษร เช่น "P A C K I N G  L I S T" */
+    var C = U.replace(/\s+/g, '');
+    /* --- 07 เอกสารอื่นๆ ที่ระบุได้ชัดเจน --- */
     if (/TAX INVOICE|ใบกำกับภาษี|ใบแจ้งหนี้|ใบเสร็จรับเงิน|DEBIT NOTE|CREDIT NOTE|COPY INVOICE|FREIGHT INVOICE/.test(U)) return '07';
-    var combo = /INVOICE\s*(?:&|AND|\/)\s*PACKING/.test(U);
-    var ci = firstIdx(U, /COMMERCIAL\s+INVOICE|PRO[\s-]?FORMA\s+INVOICE|INVOICE\s*(?:&|AND|\/)\s*PACKING|ใบกำกับสินค้า/);
-    var pl = firstIdx(U, /PACKING\s+LIST|PACKING\s+NOTE|PACKING\s+DETAIL|WEIGHT\s+LIST/);
+    if (/ARRIVALNOTICE|PRE-?ALERT/.test(C)) return '07';
+    /* --- 00 CARGO RECEIPT --- */
+    if (/CARGORECEIPT/.test(C)) return '00';
+    /* --- 03 Commercial Invoice / 04 Packing List (ดูจากหัวเอกสาร) --- */
+    var combo = /INVOICE(?:&AMP;|&|AND|\/|\+)?PACKINGLIST/.test(C);
+    var ci = C.search(/COMMERCIALINVOICE|PRO-?FORMAINVOICE|ใบกำกับสินค้า|INVOICE(?:&AMP;|&|AND|\/|\+)?PACKINGLIST/);
+    var pl = C.search(/PACKINGLIST|PACKINGNOTE|PACKINGDETAIL|WEIGHTLIST/);
     if (ci >= 0 && (pl < 0 || combo || ci <= pl)) return '03';
     if (pl >= 0) return '04';
-    if (/BILL OF LADING|WAYBILL|ใบตราส่ง/.test(U) && /SHIPPER/.test(U) && /CONSIGNEE/.test(U)) return '02';
-    if (/BOIRELEASEORDER|PERMIT\s*(?:NUMBER|NO)|IMPORT\s+PERMIT|IMPORT\s+LICEN[SC]E|LICEN[SC]E\s*(?:NUMBER|NO)|ใบอนุญาต|หนังสืออนุญาต|หนังสืออนุมัติ|หลักฐานการรับแจ้ง|สั่งปล่อย/.test(U)) return '05';
-    if (/CARGO\s+RECEIPT/.test(U)) return '00';
+    /* --- 02 B/L (หัวเอกสารไม่ใช่ INVOICE) --- */
+    var invHead = /INVOICE/.test(C.slice(0, 700));
+    var blTitle = /BILLOFLADING|WAYBILL|ใบตราส่ง|B\/LNO/.test(C);
+    var ship = /SHIPPER/.test(C), cons = /CONSIGNEE/.test(C);
+    var ports = /PORTOFLOADING|PORTOFDISCHARGE|PLACEOFRECEIPT|PLACEOFDELIVERY|OCEANVESSEL|VESSEL/.test(C);
+    if (blTitle && (ship || cons) && !invHead) return '02';
+    /* --- INVOICE ทั่วไป: เป็น Commercial Invoice เมื่อมีข้อมูลสินค้าประกอบตั้งแต่ 2 อย่างขึ้นไป --- */
+    if (/INVOICE/.test(C)) {
+      var m = 0;
+      if (/UNITPRICE/.test(C)) m++;
+      if (/COUNTRYOFORIGIN/.test(C)) m++;
+      if (/PARTNUMBER|PARTNO/.test(C)) m++;
+      if (/INCOTERM|\bFCA\b|\bFOB\b|\bCIF\b|\bEXW\b|\bCFR\b|\bCIP\b/.test(U)) m++;
+      if (/HSCODE|TARIFFCODE|VTSZ/.test(C)) m++;
+      if (/NETWEIGHT|GROSSWEIGHT/.test(C)) m++;
+      if (/QUANTITY|\bQTY\b|\bUOM\b/.test(U)) m++;
+      if (m >= 2) return '03';
+      /* ใบแจ้งหนี้ของผู้รับจัดการขนส่ง/สายเรือ → เอกสารอื่นๆ */
+      if (/DHLGLOBALFORWARDING|CONTAINERLINES|CROSSDOCK|D\/NNO|CHARGEDESCRIPTION|DEBTOR|FREIGHTCHARGES/.test(C)) return '07';
+    }
+    if (ship && cons && ports && !invHead) return '02';
+    /* --- 05 ใบอนุญาต / 06 ใบงานรถ --- */
+    if (/BOIRELEASEORDER|PERMIT\s*(?:NUMBER|NO)|IMPORT\s+PERMIT|IMPORT\s+LICEN[SC]E|LICEN[SC]E\s*(?:NUMBER|NO)|ใบอนุญาต|หนังสืออนุญาต|หนังสืออนุมัติ|หลักฐานการรับแจ้ง|สั่งปล่อย|หนังสือรับรอง|เขตประกอบการเสรี|เขตปลอดอากร|การนิคมอุตสาหกรรม/.test(U) || /IEAT-E-\d/.test(C)) return '05';
     if (/ใบงานรถ|ใบสั่งงานรถ|ใบปล่อยรถ|ใบกำกับการขนส่ง|ทะเบียนรถ|พนักงานขับรถ/.test(U)) return '06';
-    if (/^CARGO/.test(nameU0(nameU))) return '00';           // ชื่อไฟล์ขึ้นต้น CARGO และเนื้อหาไม่ชี้ประเภทอื่น
+    if (/^ CARGO/.test(N)) return '00';                 // ชื่อไฟล์ขึ้นต้น CARGO และเนื้อหาไม่ชี้ประเภทอื่น
     return '07';
   }
 
@@ -2930,12 +2956,18 @@ var CATEngine = (function () {
   function natCmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
 
   /* ลำดับเอกสารภายใน PDF รวมของแต่ละใบขน: 01→07 แล้วเรียงตามชื่อไฟล์ */
-  function planOrder(unitsIn) {
-    var out = [];
+  function planOrder(unitsIn, textOf) {
+    var out = [], seen = {};
     TYPES.forEach(function (T) {
       unitsIn.filter(function (u) { return u.type === T.code; })
         .sort(function (a, b) { return natCmp(a.name, b.name) || natCmp(a.key, b.key); })
-        .forEach(function (u) { out.push({ unit: u, type: T.code }); });
+        .forEach(function (u) {
+          if (textOf) {                                  // เอกสารเดียวกันที่อัปโหลดซ้ำ (เช่น อยู่ทั้งในโฟลเดอร์และใน ZIP) นับครั้งเดียว
+            var t = String(textOf(u) || '').replace(/\s+/g, '');
+            if (t.length > 40) { var kk = T.code + '|' + t.length + '|' + t.slice(0, 400) + t.slice(-200); if (seen[kk]) return; seen[kk] = 1; }
+          }
+          out.push({ unit: u, type: T.code });
+        });
     });
     return out;
   }
@@ -3211,7 +3243,7 @@ function catPending() { return catUnits.filter(u => !u.cut && !u.sets.length); }
 function catCut() { return catUnits.filter(u => u.cut); }
 function catUpdateButtons() {
   const ex = document.getElementById('btn-cat-export'), cl = document.getElementById('btn-cat-clear');
-  if (ex) ex.disabled = catBusy || !catSets.length;
+  if (ex) ex.disabled = catBusy || !catUnits.length;
   if (cl) cl.style.display = catSrc.length ? '' : 'none';
 }
 function catCutPages(u) {
@@ -3261,7 +3293,7 @@ function catRender() {
       '<td data-l="จำนวนเอกสาร">' + us.length + ' ไฟล์</td>' +
       '<td data-l="สถานะ"><span class="badge ' + cls + '">' + st.status + '</span>' + (why ? '<div class="cat-why">' + esc(why) + '</div>' : '') + '</td></tr>';
     if (open) {
-      const plan = CATEngine.planOrder(us);
+      const plan = CATEngine.planOrder(us, catTextOf);
       h += '<tr class="cat-detail-row"><td colspan="5"><div class="cat-detail">' +
         '<div class="cat-detail-hd">📦 ' + esc(s.declNo) + '.zip → ' + esc(s.declNo) + '.pdf (PDF เดียวต่อเนื่อง เรียงตามลำดับด้านล่าง ' + plan.length + ' เอกสาร)' +
         (s.permits.length ? ' · ใบอนุญาตในใบขน: ' + esc(s.permits.join(', ')) : '') +
@@ -3356,7 +3388,7 @@ function catClear() {
 
 /* ---------- รวมเอกสารของหนึ่งใบขนเป็น PDF เดียวต่อเนื่อง (01→07) ---------- */
 async function catBuildSetPdf(set, onStep) {
-  const plan = CATEngine.planOrder(catUnitsOf(set.declNo));
+  const plan = CATEngine.planOrder(catUnitsOf(set.declNo), catTextOf);
   /* ด่านสุดท้ายก่อน MERGE: ห้ามมีหมวด 07 / เอกสารต้องห้ามหลุดเข้ามา */
   for (const p of plan) {
     const bad = p.unit.cut || (p.type === '07' ? 'หมวด 07' : null) || (p.type !== '01' ? CATEngine.cutRule(catTextOf(p.unit), p.unit.name) : null);
@@ -3424,7 +3456,11 @@ async function catBuildSetPdf(set, onStep) {
 async function catExport(force) {
   if (catBusy) return;
   const pending = catPending().sort((a, b) => CATEngine.natCmp(a.name, b.name));
-  if (!catSets.length) { toast('ยังไม่มีใบขนให้ EXPORT', 'error'); return; }
+  if (!catSets.length) {
+    showModal('ไม่พบใบขนในไฟล์ที่อัปโหลด', 'ระบบใช้<b>ใบขนสินค้า</b>เป็นตัวหลักในการจับคู่เอกสาร จึงต้องมีไฟล์ใบขนอย่างน้อย 1 ใบในรอบนี้จึงจะ EXPORT ได้<br><br>อัปโหลดแล้ว ' + catSrc.length + ' ไฟล์ แต่ไม่มีไฟล์ใดที่อ่านเป็นใบขนได้ — ถ้าใบขนเป็นไฟล์สแกน (ไม่มีข้อความ) ระบบจะอ่านเลขใบขนไม่ได้',
+      [{ label: 'ปิด', cls: 'btn-primary', action: 'closeModal()' }]);
+    return;
+  }
   if (pending.length && !force) {
     showModal('⚠ มีเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์',
       'เอกสารต่อไปนี้ยังจับคู่กับใบขนไม่ได้ จึง<b>ไม่ถูกรวมใน EXPORT ZIP</b> จนกว่าจะกำหนดชุดใบขนให้ถูกต้อง' +
