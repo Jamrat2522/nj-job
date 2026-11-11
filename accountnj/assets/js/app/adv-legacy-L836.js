@@ -731,7 +731,7 @@ export async function edit837(o) {
   let body = document.createElement("div"); body.className = "e837";
   body.innerHTML = '<div id="e837-form"><div class="load-row"><div class="spin"></div></div></div><div id="e837-doc" hidden></div>';
   let foot = document.createElement("div"); foot.className = "radv788-foot";
-  foot.innerHTML = '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁 PREVIEW ฉบับใหม่</button><button class="btn btn-green" id="e837-ok" disabled>💾 บันทึกการแก้ไข</button>';   /* V.845 */
+  foot.innerHTML = '<button class="btn btn-o" data-close>ปิด</button><button class="btn btn-o" id="e837-pv" disabled>👁 PREVIEW ฉบับแก้ไข</button><button class="btn btn-green" id="e837-ok" disabled>💾 บันทึกการแก้ไข</button>';   /* V.845 */
   let M845 = MODAL({ title: "แก้ไข " + lab + " — UPLOAD EXCEL (ระบบเก่า)", body, footer: foot, fullscreen: !0, wide: !0 });
   let q = (s) => body.querySelector(s) || foot.querySelector(s), F = q("#e837-form"), PD = q("#e837-doc");
   let back = () => { PD.hidden = !0; PD.innerHTML = ""; F.hidden = !1; };
@@ -755,7 +755,8 @@ export async function edit837(o) {
                      : '<div style="font-size:12px;color:#475569">ยอด = ADVANCE ที่ตรวจแล้วเท่านั้น (ไม่หัก WHT · ไม่ใช้ Total Amount แทน)</div>')
       + ((p.errors || []).length ? `<div class="radv788-err"><b>⚠ ยืนยันไม่ได้ :</b><ul>${p.errors.map((e) => `<li>${n(e)}</li>`).join("")}</ul></div>` : "")
       + (changed() && !(p.errors || []).length && p.void_only ? `<div class="radv788-err" id="e845-vo"><b>⚠ นำ INVOICE ออกทั้งหมด (${N(p.rem_count)} รายการ)</b> — เมื่อบันทึก : <b>VOID ${n(g.receipt_no)}</b> อย่างเดียว · ไม่ออกใบเสร็จใหม่ (ไม่มีใบยอดศูนย์ · ไม่ใช้เลขใหม่) · INVOICE ทั้งหมดกลับไป <b>รอรับชำระ</b> · ไม่ลบ INVOICE · เก็บประวัติ / Audit ครบ</div>` : "")
-      + (changed() && !(p.errors || []).length && !p.void_only ? `<div class="e837-note">เมื่อบันทึก : <b>VOID ${n(g.receipt_no)}</b> (เก็บเลข / รายการ / ยอด / PDF เดิมไว้ครบ) → ออกใบใหม่เลขถัดไป <b>${n(p.next_no || g.next_no)}</b> (ตัวนับส่วนกลาง · ออกเลขจริงเมื่อยืนยัน)`
+      + (changed() && !(p.errors || []).length && !p.void_only ? `<div class="e837-note">` + (p.v849 ? `เมื่อบันทึก : แก้ไขใบเสร็จ<b>เลขเดิม ${n(g.receipt_no)}</b> (ไม่ออกเลขใหม่ · ไม่ใช้ตัวนับ · เก็บฉบับก่อนแก้ไข + Audit Log)` + (p.adv849 && ((p.adv849.add || []).length || (p.adv849.rem || []).length) ? `<br>ADVANCE คู่ : ` + (p.adv849.target ? `<b>${n(p.adv849.target.receipt_no)}</b> (เลขเดิม) ` : "") + ((p.adv849.add || []).length ? (p.adv849.target ? `เพิ่ม ${N(p.adv849.add.length)} INVOICE · ${MONEY(p.adv849.add_amount)}` : `<b>ยังไม่มีใบ ADV ของชุดนี้</b> — INVOICE ที่เพิ่ม ${N(p.adv849.add.length)} รายการมี ADVANCE ${MONEY(p.adv849.add_amount)} ต้องออกใบ ADV ใหม่ (ปุ่ม ออก ADV)`) : "") + ((p.adv849.rem || []).length ? ` · นำออก ${N(p.adv849.rem.length)} INVOICE · ${MONEY(p.adv849.rem_amount)} (กลับรอรับชำระ)` : "") : "") + ``
+        : `เมื่อบันทึก : <b>VOID ${n(g.receipt_no)}</b> (เก็บเลข / รายการ / ยอด / PDF เดิมไว้ครบ) → ออกใบใหม่เลขถัดไป <b>${n(p.next_no || g.next_no)}</b> (ตัวนับส่วนกลาง · ออกเลขจริงเมื่อยืนยัน)`)
         + (p.rem_count ? (p.v845 ? ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>กลับไปรอรับชำระ</b> ` + (src === "ADV" ? "(FINANCE → ADVANCE → รอรับชำระ · ไม่ลบ INVOICE / JOB ต้นทาง · ไม่ต้อง UPLOAD EXCEL ใหม่ · ใบ RCP / SERVICE ไม่เปลี่ยน)" : "(FINANCE → RECEIPT → รอรับชำระ · ไม่ลบ INVOICE · ไม่ต้อง UPLOAD EXCEL ใหม่ · ADVANCE ไม่เปลี่ยน)")
           : ` · INVOICE ที่นำออก ${N(p.rem_count)} รายการ = <b>รอตรวจสอบการรับชำระ</b> (ไม่ลบ · ไม่คืนรอรับชำระจนกว่าจะตรวจสอบเงินจริง)`) : "") + `</div>` : "");
   };
@@ -779,7 +780,7 @@ export async function edit837(o) {
       + (hd.length ? `<h4>INVOICE ที่นำออก (${N(hd.length)})</h4><div class="tbl-wrap"><table><thead><tr><th>INVOICE</th><th class="r">ยอด</th><th>นำออกจาก</th><th>สถานะ</th><th>ผลตรวจสอบ</th></tr></thead><tbody>`
         + hd.map((h) => `<tr><td>${n(h.invoice_no)}</td><td class="r">${MONEY(h.amount)}</td><td>${n(h.from_receipt_no)}${h.new_receipt_no ? " → " + n(h.new_receipt_no) : " (VOID)"}</td><td>${h.status === "HOLD" ? '<span class="bd837 h">รอตรวจสอบการรับชำระ</span>' : h.status === "RELEASED" ? '<span class="bd837 a">คืนรอรับชำระแล้ว</span>' : '<span class="bd837 k">ปิด (รับเงินแล้ว)</span>'}</td><td>${n(h.resolved_by_name || "")} ${n(h.resolve_note || "")}</td></tr>`).join("") + `</tbody></table></div>` : "")
       + (lg.length ? `<h4>บันทึกการแก้ไข (Audit)</h4><div class="tbl-wrap"><table><thead><tr><th>เวลา</th><th>รายการ</th><th>เดิม → ใหม่</th><th>จำนวน</th><th class="r">ยอด</th><th>เหตุผล</th><th>ผู้ทำ</th></tr></thead><tbody>`
-        + lg.map((l) => `<tr><td>${n(String(l.at || "").slice(0, 16).replace("T", " "))}</td><td>${n(l.action === "VOID_REISSUE" ? "VOID + ออกใหม่" : l.action === "VOID_ONLY" ? "VOID (นำ INVOICE ออกทั้งหมด)" : l.action === "HOLD_RELEASE" ? "คืนรอรับชำระ" : l.action === "HOLD_CLOSE" ? "ปิดรายการ" : l.action === "CUSTOMER_EDIT" ? "แก้ไข CUSTOMER (เลขเดิม)" : l.action)}`
+        + lg.map((l) => `<tr><td>${n(String(l.at || "").slice(0, 16).replace("T", " "))}</td><td>${n(l.action === "VOID_REISSUE" ? "VOID + ออกใหม่" : l.action === "VOID_ONLY" ? "VOID (นำ INVOICE ออกทั้งหมด)" : l.action === "EDIT_INPLACE" ? "แก้ไข (เลขเดิม)" : l.action === "EDIT_INPLACE_SYNC" ? "ADVANCE ปรับตาม SERVICE (เลขเดิม)" : l.action === "HOLD_RELEASE" ? "คืนรอรับชำระ" : l.action === "HOLD_CLOSE" ? "ปิดรายการ" : l.action === "CUSTOMER_EDIT" ? "แก้ไข CUSTOMER (เลขเดิม)" : l.action)}`
           + `${(l.added || []).length ? `<br><small>เพิ่ม : ${n(l.added.map((z) => z.invoice_no).join(", "))}</small>` : ""}${(l.removed || []).length ? `<br><small>นำออก : ${n(l.removed.map((z) => z.invoice_no).join(", "))}</small>` : ""}</td>`
           + `<td>${n(l.old_receipt_no || "")}${l.new_receipt_no ? " → " + n(l.new_receipt_no) : ""}</td><td>${l.count_new != null ? N(l.count_old) + " → " + N(l.count_new) : N(l.count_old)}</td>`
           + `<td class="r">${l.amount_new != null ? MONEY(l.amount_old) + " → " + MONEY(l.amount_new) : MONEY(l.amount_old)}</td><td>${n(l.reason || "")}</td><td>${n(l.by_name || "")}</td></tr>`).join("") + `</tbody></table></div>` : "") + `</div>`;
@@ -890,8 +891,9 @@ export async function edit837(o) {
     if (why.length < 5) { TOAST("กรุณาระบุเหตุผลการแก้ไข (อย่างน้อย 5 ตัวอักษร) ก่อนบันทึก", "err"); if (wy) { wy.scrollIntoView && wy.scrollIntoView({ block: "center" }); wy.focus(); } return; }   /* V.845 */
     let yes = await new Promise((res) => { let old = F.querySelector(".radv788-ask"); old && old.remove();
       F.insertAdjacentHTML("afterbegin", `<div class="radv788-ask"><div>` + (vo ? `<b>⚠ นำ INVOICE ออกทั้งหมด</b> — ยืนยัน <b>VOID ${n(g.receipt_no)}</b> โดย<b>ไม่ออกใบเสร็จใหม่</b> · INVOICE ${N(p.rem_count)} รายการกลับไปรอรับชำระ<br>`
-        : `บันทึกการแก้ไข : <b>VOID ${n(g.receipt_no)}</b> และออกใบใหม่ (${N(p.new.count)} INVOICE · ${MONEY(p.new.amount)}) วันที่ ${D(dt || g.receipt_date)}`
-          + (p.add_count ? ` · เพิ่ม ${N(p.add_count)}` : "") + (p.rem_count ? ` · นำออก ${N(p.rem_count)}` + (p.v845 ? " (กลับรอรับชำระ)" : "") : "") + `<br>`) + `ระบบจะตรวจสิทธิ์ / ข้อมูลจาก Database อีกครั้ง · ออกเลขจริงจากตัวนับส่วนกลาง · ทำทั้งหมดในธุรกรรมเดียว (ล้มเหลว = ไม่เปลี่ยนอะไร)</div><div class="radv788-ask-b"><button class="btn btn-o" data-ask="0">ยกเลิก</button><button class="btn btn-p" data-ask="1">ยืนยัน</button></div></div>`);
+        : (p.v849 ? `บันทึกการแก้ไข <b>${n(g.receipt_no)}</b> — <b>ใช้เลขเดิม</b> (${N(p.new.count)} INVOICE · ${MONEY(p.new.amount)}) วันที่ ${D(dt || g.receipt_date)}`
+          : `บันทึกการแก้ไข : <b>VOID ${n(g.receipt_no)}</b> และออกใบใหม่ (${N(p.new.count)} INVOICE · ${MONEY(p.new.amount)}) วันที่ ${D(dt || g.receipt_date)}`)
+          + (p.add_count ? ` · เพิ่ม ${N(p.add_count)}` : "") + (p.rem_count ? ` · นำออก ${N(p.rem_count)}` + (p.v845 ? " (กลับรอรับชำระ)" : "") : "") + `<br>`) + `` + (p.v849 && !vo ? "ระบบจะตรวจสิทธิ์ / ข้อมูลจาก Database อีกครั้ง · ไม่ออกเลขใหม่ · SERVICE และ ADVANCE คู่บันทึกในธุรกรรมเดียว (ล้มเหลว = ไม่เปลี่ยนอะไร)" : "ระบบจะตรวจสิทธิ์ / ข้อมูลจาก Database อีกครั้ง · ออกเลขจริงจากตัวนับส่วนกลาง · ทำทั้งหมดในธุรกรรมเดียว (ล้มเหลว = ไม่เปลี่ยนอะไร)") + `</div><div class="radv788-ask-b"><button class="btn btn-o" data-ask="0">ยกเลิก</button><button class="btn btn-p" data-ask="1">ยืนยัน</button></div></div>`);
       F.querySelectorAll("[data-ask]").forEach((x) => { x.onclick = () => { F.querySelector(".radv788-ask").remove(); res(x.dataset.ask === "1"); }; });
       F.scrollIntoView && F.scrollIntoView({ block: "start" }); });
     if (!yes) return;
@@ -906,6 +908,16 @@ export async function edit837(o) {
         o.onDone && o.onDone(r);
         st.add.clear(); st.rem.clear(); st.done = null; st.why = ""; st.date = ""; await load(); ok.textContent = lb;
         F.insertAdjacentHTML("afterbegin", `<div class="radv788-okbox"><b>✅ ${src === "ADV" ? "บันทึกการแก้ไขใบเสร็จ ADVANCE สำเร็จ" : "บันทึกการแก้ไขแล้ว"} — VOID ${n(ono)}</b> (ไม่ออกใบเสร็จใหม่)${n(rt)}</div>`);
+        return;
+      }
+      if (r.inplace) {   /* V.849 (RUN-849) : แก้ไขใบเดิม — เลขเดิม · ADVANCE คู่ปรับพร้อมกัน */
+        let a9 = r.adv || {}, at9 = (a9.added ? " · ADVANCE " + (a9.target_no || "") + " เพิ่ม " + N(a9.added) : "") + (a9.removed ? " · ADVANCE นำออก " + N(a9.removed) : "") + ((a9.voided || []).length ? " · VOID " + a9.voided.join(", ") + " (ไม่เหลือรายการ)" : "") + (a9.need ? " · มี ADVANCE ที่ยังไม่มีใบ ADV " + N(a9.need) + " INVOICE (ออกใบ ADV ใหม่)" : "");
+        TOAST("บันทึกการแก้ไขสำเร็จ — ใช้เลขใบเสร็จเดิม", "ok");
+        o.onDone && o.onDone(r);
+        st.add.clear(); st.rem.clear(); st.done = null; st.why = ""; st.date = ""; await load(); ok.textContent = lb;
+        F.insertAdjacentHTML("afterbegin", `<div class="radv788-okbox" id="e849-ok"><b>✅ บันทึกการแก้ไขสำเร็จ — ใช้เลขใบเสร็จเดิม ${n(r.new.receipt_no)}</b> — ${N(r.new.count)} INVOICE · ${MONEY(r.new.amount)}${n(rt)}${n(at9)}`
+          + ` <button type="button" class="btn btn-sm btn-p" id="e837-open">ดู / PRINT / SAVE PDF ฉบับแก้ไข</button></div>`);
+        let op9 = F.querySelector("#e837-open"); op9 && (op9.onclick = async () => { try { await showDocs(await o.load(r.new.id), { sample: !1, title: lab + " " + r.new.receipt_no }); } catch (e) { TOAST(R837(e), "err"); } });
         return;
       }
       TOAST((src === "ADV" ? "บันทึกการแก้ไขใบเสร็จ ADVANCE สำเร็จ" : "บันทึกการแก้ไขแล้ว") + " — VOID " + ono + " · ออกใบใหม่ " + r.new.receipt_no, "ok");   /* V.846 */
