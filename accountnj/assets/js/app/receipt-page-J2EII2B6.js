@@ -216,6 +216,51 @@ var KP530=(t,s)=>{let g=t.querySelector("#rp-kpi");if(!g)return;if(!A()||!(s&&s.
 /* ═══ V.803 · RESET SEARCH เมื่อสลับโหมด (FINANCE — RECEIPT) : เข้าจากโหมดอื่น = ค่าค้นหา / Dropdown / วันที่ ทุกช่องของทั้ง 2 แถบ = ค่าเริ่มต้น + หน้า 1 (ไม่แตะจำนวนต่อหน้า / แถบ / รายการที่เลือก) · สลับแถบในหน้าเดิม = gt() เดิม ไม่ล้าง ═══ */
 function RN803(t) { try { if (L.rs803) [$, b].forEach((st) => Object.keys(st).forEach((k) => { k !== "size" && (st[k] = k === "page" ? 1 : ""); })); } catch (e) {} return gt(t); }
 export{RN803 as render};
+/* ═══ V.843 · ใบเสร็จที่ออกแล้ว : ยอดของใบเสร็จแถวนั้น — Service ก่อน VAT / Advance / Vat 7% / Total Amount / Tax (3%) / Payment Received
+   ใบ ADVANCE ที่คู่กับ RCP จะไม่มีแถวของตัวเอง (V.841) → รวมยอดในแถว RCP ครั้งเดียว ไม่นับซ้ำ ═══ */
+function VL843(o, adv) {
+  o = o || {};
+  let num = (x) => (x == null || x === "" || !isFinite(Number(x)) ? null : Number(x));
+  let advv = num(o.adv_total) || 0;
+  if (adv) return { svc: null, advv, vat: null, tot: advv, tax: 0, pay: advv };
+  let inv = num(o.invoice_amount) || 0, tax = num(o.wht_amount) || 0, svc = num(o.service_amount);
+  let vat = svc == null ? null : Math.round((inv - svc) * 100) / 100;
+  return { svc, advv, vat, tot: Math.round((inv + advv) * 100) / 100, tax, pay: Math.round(((num(o.total) != null ? num(o.total) : inv - tax) + advv) * 100) / 100 };
+}
+function A843(v) { return v == null ? "-" : M795(v); }
+function ST843() {
+  if (document.getElementById("st843-css")) return;
+  let s = document.createElement("style"); s.id = "st843-css";
+  s.textContent = "@media (min-width:641px){table:has(>#rc-tbody) thead th{text-align:center!important}table:has(>#rc-tbody) thead th.col-act{text-align:center!important}"
+    + "#rc-tbody td.r,#rc-tbody td.m843{text-align:right!important;font-variant-numeric:tabular-nums;white-space:nowrap}#rc-tbody td.c811{text-align:left!important}}"
+    + "@media (max-width:640px){tr.r811 td.m843{display:none!important}}";   /* Mobile : การ์ดเดิม (ไม่เพิ่มบรรทัดยอด) */
+  document.head.appendChild(s);
+}
+
+/* ═══ V.842 · ใบเสร็จที่ออกแล้ว : ปุ่มคอลัมน์จัดการ (รายการ / แก้ไข / PREVIEW / PRINT / SAVE PDF) เท่ากัน 92 × 36 · เฉพาะ Desktop (≥ 641px) ═══ */
+function ST842() {
+  if (document.getElementById("st842-css")) return;
+  let s = document.createElement("style"); s.id = "st842-css";
+  s.textContent = "@media (min-width:641px){#rc-tbody td.col-act{white-space:nowrap!important}"
+    + "#rc-tbody td.col-act>.btn{display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;width:92px!important;min-width:92px!important;max-width:92px!important;height:36px!important;min-height:36px!important;"
+    + "padding:0!important;margin:0 6px 0 0!important;font-size:12px!important;font-weight:600!important;line-height:1!important;border-radius:6px!important;vertical-align:middle;white-space:nowrap;overflow:hidden}"
+    + "#rc-tbody td.col-act>.btn:last-child{margin-right:0!important}"
+    + "#rc-tbody td,table:has(>#rc-tbody) thead th{padding-left:7px!important;padding-right:7px!important}table:has(>#rc-tbody) thead th{white-space:normal!important;line-height:1.25}}";   /* ให้ปุ่ม 5 ปุ่มอยู่ครบในจอ 1600px โดยไม่ต้องเลื่อน */
+  document.head.appendChild(s);
+}
+
+/* ═══ V.841 (RUN-841) · ใบเสร็จที่ออกแล้ว : สถานะเอกสาร SERVICE (RCP) / ADVANCE (ADV) ═══ */
+function SS841(o, adv) {
+  ST842();
+  let b = (t, c, tt) => `<span class="bdg795" style="${c}" title="${i(tt || t)}">${t}</span>`, need = Number(o.adv_need) || 0, an = String(o.adv_no || "");
+  let s = adv ? b("ออก ADVANCE แล้ว", "background:#dcfce7;color:#166534", "RECEIPT ADVANCE " + (o.receipt_no || ""))
+    : an && !need ? b("ออกครบ 2 ประเภท", "background:#dcfce7;color:#166534", "SERVICE " + (o.receipt_no || "") + " · ADVANCE " + an)
+    : need ? b("ค้าง ADVANCE", "background:#ffedd5;color:#9a3412", "ยังไม่ออกใบรับเงินสำรองจ่าย " + need.toLocaleString("th-TH") + " INVOICE — ออกได้ที่แท็บ รอรับชำระ")
+    : b("ออกใบเสร็จแล้ว", "", "SERVICE " + (o.receipt_no || ""));
+  if (!adv && (an || need)) s += `<div style="font-size:11px;color:#475569;margin-top:2px;white-space:normal">SERVICE ${i(o.receipt_no || "")} · ADVANCE ${an ? i(an) : "ยังไม่ออก"}${an && need ? " · ค้าง " + need.toLocaleString("th-TH") + " INVOICE" : need ? " (" + need.toLocaleString("th-TH") + " INVOICE)" : ""}</div>`;
+  return s;
+}
+
 /* ═══ V.838 (RUN-838) · ระบบเก่า : ป้ายสถานะ SERVICE / ADVANCE ต่อแถว (เฉพาะกรณีออกไปแล้วบางส่วน / ADVANCE อย่างเดียว) ═══ */
 function BS838(o) {
   let z = o && o.rx838; if (!z) return "";
@@ -923,23 +968,29 @@ function FB809(inv, reason, req) { return V("njacc_fin809_back", { p: { invoice_
    คลิกแถว / ปุ่ม "รายการ" → หน้าต่างรายละเอียด (njacc_rcp811_items) : ลำดับ | JOB No. | INVOICE No. (INVOICE NJ) | วันที่ INVOICE | Customer | Amount + ยอดรวม
    PREVIEW / PRINT / SAVE PDF = ฟังก์ชัน / PDF Template เดิม (RL795 + RW795 / RPR795 / SV795 · เลขเดิม · สำเนาที่บันทึก) · ค้นหา Real-Time เดิม (LS801) + ช่องค้นหา เลขใบเสร็จ / JOB / INVOICE / Customer / วันที่
    จำนวน / ยอดสรุป / EXPORT EXCEL = ต่อใบเสร็จ (ไม่รวมยอดซ้ำ) · ไม่แตะการออกใบเสร็จ / เลข / สูตร / POST / UNPOST / แถบรอรับชำระ ═══ */
-var RH811 = '<th>เลขที่ใบเสร็จ</th><th>วันที่ออก</th><th>Customer</th><th class="center">จำนวน JOB</th><th class="center">จำนวน INVOICE</th><th class="r">ยอดรวม</th><th>สถานะ</th><th class="center col-act">จัดการ</th>';
+var RH811 = '<th>Receipt No</th><th>Receipt Date</th><th>Customer</th><th class="center">Qty Invoice</th><th class="r">Service</th><th class="r">Advance</th><th class="r">Vat 7%</th><th class="r">Total Amount</th><th class="r">Tax (3%)</th><th class="r">Payment Received</th><th>สถานะ</th><th class="center col-act">จัดการ</th>';   /* V.843 */
 function N811(v) { let x = Number(v); return isFinite(x) ? x.toLocaleString("th-TH") : "0"; }
-function K814(o) { return o.kind === "XLS" ? "xl:" + (o.receipt_id || "") + (o.adv_id ? ",xadv:" + o.adv_id : "") : o.kind === "XADV" ? "xadv:" + (o.receipt_id || "") : o.kind === "ADV" ? "adv:" + (o.receipt_id || "") : String(o.receipt_id || "") + (o.adv_id ? ",adv:" + o.adv_id : ""); }   /* V.830 : XLS = ใบเสร็จ Excel */
+function K814(o) { let A8 = Array.isArray(o.adv_ids) && o.adv_ids.length ? o.adv_ids : o.adv_id ? [o.adv_id] : [];   /* V.841 : ADV ทุกใบที่ผูกกับ INVOICE ชุดเดียวกัน */
+  return o.kind === "XLS" ? "xl:" + (o.receipt_id || "") + A8.map((x) => ",xadv:" + x).join("") : o.kind === "XADV" ? "xadv:" + (o.receipt_id || "") : o.kind === "ADV" ? "adv:" + (o.receipt_id || "") : String(o.receipt_id || "") + A8.map((x) => ",adv:" + x).join(""); }   /* V.830 : XLS = ใบเสร็จ Excel */
 async function L835(p) {   /* V.830 (RUN-835) : รายการใบเสร็จที่ออกแล้ว = njacc_rcp835_list (ACCOUNTING เดิม + Excel) · ยังไม่รัน RUN-835 = njacc_rcp818_list เดิม */
   p = Object.assign({}, p, { src837: SRC837 });   /* V.837 : แท็บย่อย */
   try { return await V("njacc_rcp835_list", { p }); } catch (e) { if (/PGRST202|schema cache|Could not find/i.test(String(e && e.message || e))) return V("njacc_rcp818_list", { p }); throw e; }
 }   /* V.814 : คีย์เอกสารของแถว = RCP [+ ADV คู่] · ADV อย่างเดียว = adv:<id> */
 function RI811(o) {
-  ST811(); ST814(); let id = i(K814(o)), no = i(o.receipt_no || ""), adv = o.kind === "ADV" || o.kind === "XADV",   /* V.838 */ an = i(o.adv_no || ""), lab = no + (o.adv_no && !adv ? " + " + an : "");
+  ST811(); ST814(); ST843(); let id = i(K814(o)), no = i(o.receipt_no || ""), adv = o.kind === "ADV" || o.kind === "XADV",   /* V.838 */ an = i(o.adv_no || ""), lab = no + (o.adv_no && !adv ? " + " + an : "");
+  let v = VL843(o, adv);   /* V.843 : ยอดของใบเสร็จแถวนี้ (ไม่รวมใบอื่น) */
   return `<tr class="r811" data-r811="${id}" tabindex="0" title="คลิกเพื่อดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">`
     + `<td class="nowrap" data-l="เลขที่ใบเสร็จ"><b class="no811">${no}</b>${o.adv_no && !adv ? `<span class="adv814">+ ${an}</span>` : ""}${adv ? '<span class="adv814">RECEIPT ADVANCE</span>' : ""}${o.kind === "XADV" ? '<span class="adv814">UPLOAD EXCEL</span>' : ""}${o.kind === "XLS" ? '<span class="adv814">UPLOAD EXCEL</span>' + (o.replaces_no ? `<span class="rp837">แทน ${i(o.replaces_no)} (VOID)</span>` : "") : ""}</td>`
     + `<td class="nowrap" data-l="วันที่ออก">${D795(o.receipt_date) || "-"}</td>`
     + `<td class="c811" data-l="Customer" title="${i(o.customer_name || "")}">${i(o.customer_name || "-")}</td>`
-    + `<td class="center" data-l="จำนวน JOB">${N811(o.job_count)}</td>`
-    + `<td class="center" data-l="จำนวน INVOICE">${N811(o.invoice_count)}</td>`
-    + `<td class="r t-b" data-l="ยอดรวม">${adv ? `<span class="adv814">ADV ${M795(o.adv_total)}</span>` : M795(o.total) + (o.adv_no ? `<span class="adv814">ADV ${M795(o.adv_total)}</span>` : "")}</td>`
-    + `<td class="nowrap" data-l="สถานะ"><span class="bdg795">ออกใบเสร็จแล้ว</span></td>`
+    + `<td class="center" data-l="Qty Invoice">${N811(o.invoice_count)}</td>`
+    + `<td class="r m843" data-l="Service">${A843(v.svc)}</td>`
+    + `<td class="r m843" data-l="Advance">${adv || o.adv_no ? M795(v.advv) : "-"}</td>`
+    + `<td class="r m843" data-l="Vat 7%">${A843(v.vat)}</td>`
+    + `<td class="r m843" data-l="Total Amount">${M795(v.tot)}</td>`
+    + `<td class="r m843" data-l="Tax (3%)">${v.tax ? "-" + M795(v.tax) : M795(0)}</td>`
+    + `<td class="r t-b" data-l="Payment Received">${M795(v.pay)}${adv ? '<span class="adv814">ADV</span>' : o.adv_no ? `<span class="adv814">รวม ADV ${M795(v.advv)}</span>` : ""}</td>`
+    + `<td class="nowrap" data-l="สถานะ">${SS841(o, adv)}</td>`   /* V.841 */
     + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">รายการ</button>${o.kind === "XLS" && A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button>` : ""}`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-pv" data-rcp-pv="${id}" title="PREVIEW — ${lab}">PREVIEW</button>`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-pr" data-rcp-pr="${id}" title="PRINT — ${lab} (เลขเดิม)">PRINT</button>`
@@ -995,14 +1046,17 @@ function XR811(t) {   /* EXPORT EXCEL แถบใบเสร็จที่อ
     try {
       let f = { company_group: "NJ", q: b.q || null, customer_id: b.customer || null, from: b.from || null, to: b.to || null, ...FP678(b) };
       let r = await XF734(async (pg, sz) => { let x = await L835(Object.assign({}, f, { page: pg, size: sz }));   /* V.830 */ ((x && x.rows) || []).forEach((o) => { o.__k734 = K814(o) || null; }); return x; }, 200);
-      let fn = await XW734("FINANCE_RECEIPT_ISSUED", CX811("INVOICE NJ").concat([["RECEIPT ADVANCE No.", (o) => o.adv_no || ""], ["ยอด ADVANCE", (o) => o.adv_total, "num"]]), r.rows);   /* V.814 */
+      let fn = await XW734("FINANCE_RECEIPT_ISSUED", CX811("INVOICE NJ").concat([["RECEIPT ADVANCE No.", (o) => o.adv_no || ""]]), r.rows);   /* V.814 */
       k("ส่งออก Excel " + r.rows.length.toLocaleString("th-TH") + " ใบเสร็จแล้ว (" + fn + ")", "ok");
     } catch (e) { k("ส่งออก Excel ไม่สำเร็จ — " + (e && e.message || e), "err"); }
     bt.disabled = !1; bt.innerHTML = lb;
   };
 }
-function CX811(lab) { return [["เลขที่ใบเสร็จ", (o) => o.receipt_no], ["วันที่ออก", (o) => o.receipt_date, "date"], ["Customer", (o) => o.customer_name], ["จำนวน JOB", (o) => o.job_count, "int"], ["จำนวน INVOICE", (o) => o.invoice_count, "int"],
-  ["ยอดรวม", (o) => o.total, "num"], ["สถานะ", (o) => (o.status === "VOID_RESET" ? "ยกเลิก" : "ออกใบเสร็จแล้ว")], ["JOB No.", (o) => o.job_nos], [lab, (o) => o.invoice_nos]]; }
+function CX811(lab) { let V = (o) => VL843(o, o.kind === "ADV" || o.kind === "XADV");   /* V.843 : คอลัมน์เดียวกับหน้ารายงาน */
+  return [["Receipt No", (o) => o.receipt_no], ["Receipt Date", (o) => o.receipt_date, "date"], ["Customer", (o) => o.customer_name], ["Qty Invoice", (o) => o.invoice_count, "int"],
+  ["Service", (o) => V(o).svc, "num"], ["Advance", (o) => V(o).advv, "num"], ["Vat 7%", (o) => V(o).vat, "num"], ["Total Amount", (o) => V(o).tot, "num"],
+  ["Tax (3%)", (o) => V(o).tax, "num"], ["Payment Received", (o) => V(o).pay, "num"],
+  ["สถานะ", (o) => (o.status === "VOID_RESET" ? "ยกเลิก" : "ออกใบเสร็จแล้ว")], ["JOB No.", (o) => o.job_nos], [lab, (o) => o.invoice_nos]]; }
 function ST811() {
   try {
     if (document.getElementById("st811-css")) return;
