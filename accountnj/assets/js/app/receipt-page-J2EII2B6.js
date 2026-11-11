@@ -216,13 +216,129 @@ var KP530=(t,s)=>{let g=t.querySelector("#rp-kpi");if(!g)return;if(!A()||!(s&&s.
 /* ═══ V.803 · RESET SEARCH เมื่อสลับโหมด (FINANCE — RECEIPT) : เข้าจากโหมดอื่น = ค่าค้นหา / Dropdown / วันที่ ทุกช่องของทั้ง 2 แถบ = ค่าเริ่มต้น + หน้า 1 (ไม่แตะจำนวนต่อหน้า / แถบ / รายการที่เลือก) · สลับแถบในหน้าเดิม = gt() เดิม ไม่ล้าง ═══ */
 function RN803(t) { try { if (L.rs803) [$, b].forEach((st) => Object.keys(st).forEach((k) => { k !== "size" && (st[k] = k === "page" ? 1 : ""); })); } catch (e) {} return gt(t); }
 export{RN803 as render};
+/* ═══ V.844 (RUN-844) · เลือกเอกสาร SERVICE / ADVANCE / ทั้งคู่ + ออก ADVANCE ที่ค้างจากใบ RCP เดิม ═══ */
+function MD844(docs, m) { let a = (docs || []).some((d) => d.kind === "ADV"), s = (docs || []).some((d) => d.kind !== "ADV"); return a && s && (m === "S" || m === "A") ? m : "B"; }
+function FD844(docs, m) { return m === "S" ? docs.filter((d) => d.kind !== "ADV") : m === "A" ? docs.filter((d) => d.kind === "ADV") : docs; }
+function ST844() {
+  if (document.getElementById("st844-css")) return;
+  let s = document.createElement("style"); s.id = "st844-css";
+  s.textContent = ".sw844{display:inline-flex;gap:0;margin-left:12px;border:1px solid #fff;border-radius:6px;overflow:hidden;vertical-align:middle}.sw844 button{border:0;background:transparent;color:#fff;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer}"
+    + ".sw844 button.on{background:#fff;color:#12305f}.ch844{position:fixed;z-index:3400;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:4px;display:grid;gap:2px;min-width:170px}"
+    + ".ch844 button{border:0;background:#fff;text-align:left;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer}.ch844 button:hover{background:#eff6ff}"
+    + ".btn.ia844{display:block;margin-top:4px;background:#ea580c!important;border:1px solid #ea580c!important;color:#fff!important;font-weight:700;font-size:12px;height:28px;padding:0 10px;border-radius:6px}"
+    + ".ia844-t td,.ia844-t th{font-size:12.5px}.ia844-k{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px}.ia844-k>div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px}"
+    + ".ia844-k span{display:block;font-size:11.5px;color:#64748b;font-weight:600}.ia844-k b{font-size:14px;color:#0f172a}@media (max-width:640px){.btn.ia844{display:none!important}.ia844-k{grid-template-columns:1fr 1fr}}";
+  document.head.appendChild(s);
+}
+function SW844(all, md, go) {   /* แถบเลือกเอกสารในหน้า PREVIEW (เฉพาะเมื่อมีทั้ง SERVICE และ ADVANCE) */
+  let w = document.getElementById("pv813"); if (!w || !(all.some((d) => d.kind === "ADV") && all.some((d) => d.kind !== "ADV"))) return; ST844();
+  let t = w.querySelector(".pv813-t"); if (!t) return;
+  let b = document.createElement("span"); b.className = "sw844"; b.setAttribute("role", "group"); b.setAttribute("aria-label", "เลือกเอกสาร");
+  b.innerHTML = [["B", "SERVICE + ADVANCE"], ["S", "เฉพาะ SERVICE"], ["A", "เฉพาะ ADVANCE"]].map(([v, l]) => `<button type="button" data-m844="${v}" class="${v === md ? "on" : ""}">${l}</button>`).join("");
+  b.onclick = (ev) => { let x8 = ev.target.closest && ev.target.closest("[data-m844]"); x8 && x8.dataset.m844 !== md && go(x8.dataset.m844); };
+  t.appendChild(b);
+}
+function CH844(b, key, fn) {   /* ปุ่ม PRINT / SAVE PDF ในแถว : มีทั้ง RCP + ADV = เลือกก่อน */
+  let ps = String(key || "").split(",").filter(Boolean), A8 = ps.filter((z) => /^x?adv:/.test(z)), S8 = ps.filter((z) => !/^x?adv:/.test(z));
+  if (!A8.length || !S8.length) { fn(key); return; }
+  ST844(); let old = document.querySelector(".ch844"); old && old.remove();
+  let m = document.createElement("div"); m.className = "ch844"; m.setAttribute("role", "menu");
+  m.innerHTML = '<button type="button" data-c844="B">SERVICE + ADVANCE</button><button type="button" data-c844="S">เฉพาะ SERVICE</button><button type="button" data-c844="A">เฉพาะ ADVANCE</button>';
+  document.body.appendChild(m); let r = b.getBoundingClientRect(); m.style.top = Math.min(window.innerHeight - 130, r.bottom + 4) + "px"; m.style.left = Math.max(8, Math.min(window.innerWidth - 190, r.left)) + "px";
+  let close = () => { m.remove(); document.removeEventListener("mousedown", out, !0); document.removeEventListener("keydown", esc, !0); };
+  let out = (ev) => { m.contains(ev.target) || close(); }, esc = (ev) => { ev.key === "Escape" && close(); };
+  setTimeout(() => { document.addEventListener("mousedown", out, !0); document.addEventListener("keydown", esc, !0); }, 0);
+  m.onclick = (ev) => { let c = ev.target.closest && ev.target.closest("[data-c844]"); if (!c) return; let v = c.dataset.c844; close(); fn(v === "S" ? S8.join(",") : v === "A" ? A8.join(",") : key); };
+}
+async function IA844(t, rid) {   /* ออก ADVANCE ที่ค้างของใบ RCP เดิม (ระบบเก่า) — ยืนยันครั้งเดียว = ADV ต่อลูกค้า 1 ใบ · ไม่ออก SERVICE ซ้ำ · Server ตรวจ / ล็อก / กันซ้ำ */
+  ST844(); ST814();
+  let st = { h: null, pv: null, busy: !1, req: RQ795(), done: null };
+  let body = document.createElement("div"); body.className = "rcp795-m";
+  body.innerHTML = `<div id="ia844-form"><div class="rcp795-f"><label>วันที่ใบรับเงินสำรองจ่าย <span class="req">*</span><input type="date" class="inp" id="ia844-date" value="${TD795()}" min="2026-11-01"></label>`
+    + `<label>วิธีรับชำระ <span class="req">*</span><select class="sel" id="ia844-method">${PM795.map((p) => `<option value="${p[0]}">${i(p[1])} (${i(p[2])})</option>`).join("")}</select></label></div>`
+    + `<div id="ia844-sum" class="rcp795-sum"><div class="load-row"><div class="spin"></div></div></div></div><div id="ia844-doc" hidden></div>`;
+  let foot = document.createElement("div"); foot.className = "rcp795-foot";
+  foot.innerHTML = '<button class="btn btn-o" data-close>ยกเลิก</button><button class="btn btn-o" id="ia844-pv" disabled>👁 PREVIEW ADVANCE</button><button class="btn btn-p" id="ia844-ok" disabled>✅ ยืนยันออก ADVANCE</button>';
+  Q({ title: "ออก ADVANCE ที่ค้าง — ใบรับเงินสำรองจ่าย (ADV)", body, footer: foot, fullscreen: !0, wide: !0 });
+  let q = (s) => body.querySelector(s) || foot.querySelector(s), sum = q("#ia844-sum"), pf = q("#ia844-form"), pd = q("#ia844-doc");
+  let back = () => { pd.hidden = !0; pd.innerHTML = ""; pf.hidden = !1; };
+  let showDocs = async (docs, o) => { pf.hidden = !0; pd.hidden = !1; pd.innerHTML = '<div class="load-row"><div class="spin"></div></div>'; await RW795(docs, Object.assign({ back }, o), pd); };
+  let G = () => (st.pv && st.pv.groups || []).filter((g) => g.adv), bad = () => G().some((g) => g.customer_status && g.customer_status !== "OK");
+  let nI = () => G().reduce((s, g) => s + Number(g.adv.count || 0), 0), tot = () => G().reduce((s, g) => s + C795(g.adv.total), 0) / 100;
+  let sync = () => { let ok = !!st.pv && G().length > 0 && !st.busy && !st.done; q("#ia844-pv").disabled = !ok; q("#ia844-ok").disabled = !ok || bad() || !q("#ia844-date").value || !q("#ia844-method").value; };
+  let draw = () => {
+    let h = st.h, er = (st.pv && st.pv.errors) || [], gs = G();
+    sum.innerHTML = `<div class="ia844-k"><div><span>SERVICE RECEIPT (เดิม · ไม่เปลี่ยน)</span><b>${i(h.receipt_no)}</b></div><div><span>CUSTOMER</span><b>${i(h.customer_name || "-")}</b></div>`
+      + `<div><span>INVOICE ที่พร้อมออก ADVANCE</span><b>${N811(nI())} รายการ</b></div><div><span>ยอด ADVANCE รวม</span><b>${M795(tot())}</b></div></div>`
+      + `<div class="rcp795-hd">ใบรับเงินสำรองจ่ายที่จะออก : ADVANCE (ADV) <b>${gs.length}</b> ฉบับ (ต่อลูกค้า 1 ใบ) · INVOICE ใน ${i(h.receipt_no)} ทั้งหมด ${N811(h.item_count)} · ไม่มียอด ADVANCE ${N811(h.no_adv)}`
+      + ((h.adv_done || []).length ? ` · ออก ADV ไปแล้ว : ${i(h.adv_done.join(", "))}` : "") + `</div>`
+      + (er.length ? `<div class="rcp795-err"><b>ออกไม่ได้ ${er.length} รายการ :</b><ul>${er.map((e) => `<li>${i(e.invoice_no || "")} — ${i(e.reason || "")}</li>`).join("")}</ul></div>` : "")
+      + (!gs.length ? '<div class="rcp795-err">ไม่มี ADVANCE ที่ค้างออกสำหรับใบเสร็จนี้</div>' : "")
+      + gs.map((g, n) => `<div class="rcp795-g"><div class="rcp795-gh"><b>${i(g.customer_name || "-")}</b>${g.customer_status && g.customer_status !== "OK" ? ` <span class="rcp795-err" style="display:inline-block;padding:2px 8px">ยังไม่ได้ยืนยัน CUSTOMER</span> <button type="button" class="btn btn-sm cu836" data-c844u='${i(JSON.stringify(g.customer_keys || [g.customer_key]))}'>ตรวจสอบ / แก้ไข CUSTOMER</button>` : ""}</div>`
+        + `<table class="tbl rcp795-t ia844-t"><thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th class="r">Advance Amount</th></tr></thead><tbody>`
+        + (g.adv.items || []).map((z, j) => `<tr><td>${j + 1}</td><td>${i(z.invoice_no)}</td><td>${D795(z.invoice_date)}</td><td class="r">${M795(z.amount)}</td></tr>`).join("")
+        + `<tr class="t-b"><td colspan="3" class="r">รวม ${N811(g.adv.count)} INVOICE</td><td class="r">${M795(g.adv.total)}</td></tr></tbody></table></div>`).join("");
+    sum.querySelectorAll("[data-c844u]").forEach((b) => { b.onclick = async () => { try { let m = await import("./adv-legacy-L836.js"); (await m.cust836(JSON.parse(b.dataset.c844u), {})) && load(); } catch (e) { k("เปิดหน้าต่าง CUSTOMER ไม่สำเร็จ — " + (e && e.message || e), "err"); } }; });
+    sync();
+  };
+  let load = async () => {
+    try {
+      st.h = await V("njacc_rcp844_adv_ids", { p: { id: rid } });
+      let ids = st.h.rx_ids || [];
+      st.pv = ids.length ? await V("njacc_rcp835_preview", { p: { rx_ids: ids } }) : { errors: [], groups: [] };
+      let pm = q("#ia844-method"); pm && st.h.payment_method && !pm.dataset.set && (pm.value = st.h.payment_method, pm.dataset.set = "1");
+      draw();
+    } catch (e) { sum.innerHTML = `<div class="rcp795-err">${i(/PGRST202|schema cache|Could not find the function/i.test(String(e && e.message || e)) ? "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-844)" : RE795(e))}</div>`; sync(); }
+  };
+  let docsS = (d, m) => { let I = IS795(x); return G().map((g, n) => ({ kind: "ADV", pk: "A" + n, receipt_no: "SAMPLE", receipt_date: d, payment_method: m, issuer: I, credit: g.adv.credit, status: "ACTIVE",
+    customer: { name: g.customer_name, tax_id: g.customer_tax_id, branch_code: g.customer_branch, address: g.customer_address },
+    items: (g.adv.items || []).map((z, j) => ({ no: j + 1, invoice_no: z.invoice_no, invoice_date: z.invoice_date, description: "Advance Charge", amount: z.amount })), total: g.adv.total })); };
+  let issue = async () => {
+    if (st.busy || st.done) return null; let d = q("#ia844-date").value, m = q("#ia844-method").value;
+    if (!d || !m) { k("กรุณาเลือกวันที่และวิธีรับชำระ", "err"); return null; }
+    if (bad()) { k("กรุณาตรวจสอบ / ยืนยัน CUSTOMER ก่อนออก ADVANCE", "err"); return null; }
+    st.busy = !0; sync(); let ok = q("#ia844-ok"); ok.textContent = "กำลังบันทึก…";
+    try {
+      let exp = (st.pv.groups || []).flatMap((g) => (g.all || []).map((z) => ({ invoice_amount: z.invoice_amount, wht_amount: z.wht_amount, received: z.received, adv_amount: z.adv_amount, invoice_no: z.invoice_no, rx823_id: z.rx823_id, customer_key: z.customer_key || g.customer_key, cust_ver: z.cust_ver })));
+      if (exp.some((z) => Number(z.received) || Number(z.invoice_amount))) throw new Error("พบยอด SERVICE ที่ยังไม่ออกในรายการ — กรุณาออกจากแท็บ รอรับชำระ");   /* ปุ่มนี้ออกเฉพาะ ADVANCE */
+      let r = await V("njacc_rcp835_issue", { p: { request_id: st.req, invoice_ids: [], rx_ids: exp.map((z) => z.rx823_id), receipt_date: d, payment_method: m, issuer: IS795(x), expected: exp, link_rcp: { id: rid } } });
+      let advs = (r && r.advs) || []; if (!advs.length || (r.receipts || []).length) throw new Error("Database ไม่ยืนยันผลการออก ADVANCE");
+      st.done = advs; ok.textContent = "✅ ออกแล้ว";
+      sum.innerHTML = `<div class="rcp795-okbox" id="ia844-done"><b>✅ ออก ADVANCE สำเร็จ ${advs.length} ฉบับ</b> — ${advs.map((a) => `<b>${i(a.receipt_no)}</b> (${N811(a.count)} INVOICE · ${M795(a.total)})`).join(" · ")} · คู่กับ ${i(st.h.receipt_no)} (SERVICE ไม่เปลี่ยน)</div>`
+        + `<div style="margin-top:8px"><button type="button" class="btn btn-p" id="ia844-open">📄 ดู / พิมพ์ / ดาวน์โหลด (เลือก SERVICE / ADVANCE / ทั้งคู่)</button></div>`;
+      q("#ia844-open").onclick = () => openD();
+      k("ออก ADVANCE " + advs.map((a) => a.receipt_no).join(", ") + " แล้ว", "ok");
+      try { t.isConnected && t.__ld811 && t.__ld811(); OP797(t, !0); } catch (e) {}
+      return advs;
+    } catch (e) {
+      let msg = RE795(e); k("ออก ADVANCE ไม่สำเร็จ — " + msg, "err"); ok.textContent = "✅ ยืนยันออก ADVANCE"; st.busy = !1;
+      if (/NJACC_RCP_(CHANGED|INVALID)|NJACC_CUST836/.test(String(e && e.message || e))) { st.req = RQ795(); await load(); sum.insertAdjacentHTML("afterbegin", `<div class="rcp795-err">${i(msg)}</div>`); }
+      return null;
+    } finally { st.busy = !1; sync(); }
+  };
+  let openD = async (pr, md) => { try { let docs = await RL795(["xl:" + rid + st.done.map((a) => ",xadv:" + a.id).join("")]); await showDocs(docs, { sample: !1, m844: md || "A" });
+      if (pr) { let dd = FD844(docs, MD844(docs, md || "A")); RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); } }
+    catch (e) { back(); k("เปิดเอกสารไม่สำเร็จ — " + RE795(e), "err"); } };
+  q("#ia844-date").onchange = sync; q("#ia844-method").onchange = sync;
+  q("#ia844-pv").onclick = async () => { let d = q("#ia844-date").value, m = q("#ia844-method").value; if (!st.pv || !d || !m) { k("กรุณาเลือกวันที่และวิธีรับชำระ", "err"); return; }
+    let after = async (pr) => { if (!(await ASK814(`ออกใบรับเงินสำรองจ่าย ADVANCE (ADV) <b>${G().length} ฉบับ</b> · ${N811(nI())} INVOICE · ${M795(tot())}<br>ออกเลข ADV จริงจากตัวนับกลาง และล็อกข้อมูลทันที · SERVICE ${i(st.h.receipt_no)} ไม่เปลี่ยน`))) return; let r = await issue(); r && (await openD(pr, "A")); };
+    await showDocs(docsS(d, m), { sample: !0, commit: () => after(!1), printX: () => after(!0) }); };
+  q("#ia844-ok").onclick = async () => {
+    let yes = await new Promise((res) => { let old = pf.querySelector(".rcp795-ask"); old && old.remove(); let a = document.createElement("div"); a.className = "rcp795-ask";
+      a.innerHTML = `<div>ออกใบรับเงินสำรองจ่าย ADVANCE (ADV) <b>${G().length} ฉบับ</b> · ${N811(nI())} INVOICE · ยอดรวม <b>${M795(tot())}</b><br>ระบบจะออกเลข ADV จริงจากตัวนับกลาง และล็อกข้อมูลทันที · SERVICE ${i(st.h.receipt_no)} ไม่ออกซ้ำ / ไม่เปลี่ยน</div><div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-o" data-n>ยกเลิก</button><button type="button" class="btn btn-p" data-y id="ia844-yes">ยืนยัน</button></div>`;
+      sum.insertAdjacentElement("beforebegin", a); a.querySelector("[data-n]").onclick = () => { a.remove(); res(!1); }; a.querySelector("[data-y]").onclick = () => { a.remove(); res(!0); }; });
+    yes && (await issue());
+  };
+  await load();
+}
+
 /* ═══ V.843 · ใบเสร็จที่ออกแล้ว : ยอดของใบเสร็จแถวนั้น — Service ก่อน VAT / Advance / Vat 7% / Total Amount / Tax (3%) / Payment Received
    ใบ ADVANCE ที่คู่กับ RCP จะไม่มีแถวของตัวเอง (V.841) → รวมยอดในแถว RCP ครั้งเดียว ไม่นับซ้ำ ═══ */
 function VL843(o, adv) {
   o = o || {};
   let num = (x) => (x == null || x === "" || !isFinite(Number(x)) ? null : Number(x));
-  let advv = num(o.adv_total) || 0;
-  if (adv) return { svc: null, advv, vat: null, tot: advv, tax: 0, pay: advv };
+  let advv = adv ? num(o.adv_total) || 0 : 0;   /* V.844 : แถว RCP ไม่รวมยอดของใบ ADV (ใบ ADV มีแถวของตัวเอง) */
+  if (adv) return { svc: 0, advv, vat: 0, tot: advv, tax: 0, pay: advv };
   let inv = num(o.invoice_amount) || 0, tax = num(o.wht_amount) || 0, svc = num(o.service_amount);
   let vat = svc == null ? null : Math.round((inv - svc) * 100) / 100;
   return { svc, advv, vat, tot: Math.round((inv + advv) * 100) / 100, tax, pay: Math.round(((num(o.total) != null ? num(o.total) : inv - tax) + advv) * 100) / 100 };
@@ -257,6 +373,7 @@ function SS841(o, adv) {
     : an && !need ? b("ออกครบ 2 ประเภท", "background:#dcfce7;color:#166534", "SERVICE " + (o.receipt_no || "") + " · ADVANCE " + an)
     : need ? b("ค้าง ADVANCE", "background:#ffedd5;color:#9a3412", "ยังไม่ออกใบรับเงินสำรองจ่าย " + need.toLocaleString("th-TH") + " INVOICE — ออกได้ที่แท็บ รอรับชำระ")
     : b("ออกใบเสร็จแล้ว", "", "SERVICE " + (o.receipt_no || ""));
+  if (!adv && need && o.kind === "XLS" && CAN795()) s += `<button type="button" class="btn btn-sm ia844" data-ia844="${i(o.receipt_id || "")}" title="ออกใบรับเงินสำรองจ่าย (ADV) ที่ค้างของ ${i(o.receipt_no || "")} — ไม่ออก SERVICE ซ้ำ">ออก ADVANCE</button>`;   /* V.844 */
   if (!adv && (an || need)) s += `<div style="font-size:11px;color:#475569;margin-top:2px;white-space:normal">SERVICE ${i(o.receipt_no || "")} · ADVANCE ${an ? i(an) : "ยังไม่ออก"}${an && need ? " · ค้าง " + need.toLocaleString("th-TH") + " INVOICE" : need ? " (" + need.toLocaleString("th-TH") + " INVOICE)" : ""}</div>`;
   return s;
 }
@@ -513,8 +630,8 @@ function RA795(t, refresh) {   /* ผูก event ครั้งเดียว
     if (b.id === "rcp795-btn") { b.disabled || RO795(t); return; }
     if (b.id === "rcp795-allp") { b.disabled || SAL795(t, b); return; }
     if (b.dataset.rcpPv) { RG795([b.dataset.rcpPv]); return; }
-    if (b.dataset.rcpPr) { RPR795(b.dataset.rcpPr, b); return; }
-    if (b.dataset.rcpSv) SV795(b.dataset.rcpSv, b);
+    if (b.dataset.rcpPr) { CH844(b, b.dataset.rcpPr, (kk) => RPR795(kk, b)); return; }   /* V.844 */
+    if (b.dataset.rcpSv) CH844(b, b.dataset.rcpSv, (kk) => SV795(kk, b));
   });
   RS795(t);
 }
@@ -652,10 +769,10 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
       return null;
     } finally { st.busy = !1; sync(); }
   };
-  let open = async (ks, pr) => {   /* เอกสารที่บันทึก (เลขจริง · สำเนา ณ เวลาออก) — ดู / PRINT / SAVE PDF ซ้ำได้ ไม่ออกเลขใหม่ */
+  let open = async (ks, pr, md) => {   /* เอกสารที่บันทึก (เลขจริง · สำเนา ณ เวลาออก) — ดู / PRINT / SAVE PDF ซ้ำได้ ไม่ออกเลขใหม่ */
     try {
-      let docs = await RL795(ks); await showDocs(docs, { sample: !1 });
-      pr && RX795(docs.map((d) => RF795(d, !1)).join(""), FX814(docs));
+      let docs = await RL795(ks); await showDocs(docs, { sample: !1, m844: md });
+      if (pr) { let dd = FD844(docs, MD844(docs, md)); RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); }
     } catch (e) { back(); k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e) + " (ดาวน์โหลดภายหลังได้จากแถบใบเสร็จที่ออกแล้ว)", "err"); }
   };
   q("#rcp795-date").onchange = () => { st.seen = !1; sync(); };
@@ -672,8 +789,8 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
         items: (g.adv.items || []).map((z, j) => ({ no: j + 1, invoice_no: z.invoice_no, invoice_date: z.invoice_date, description: "Advance Charge", amount: z.amount })), total: g.adv.total });
     });
     st.seen = !0; sync();
-    let after = async (pr) => { let r = await issue(ASK814); if (!r) return; await open(keys(r), pr); };
-    await showDocs(docs, { sample: !st.done, commit: st.done ? null : () => after(!1), printX: st.done ? null : () => after(!0) });
+    let after = async (pr, md) => { let r = await issue(ASK814); if (!r) return; await open(keys(r), pr, md); };   /* V.844 : md = ตัวเลือกเอกสาร */
+    await showDocs(docs, { sample: !st.done, commit: st.done ? null : (md) => after(!1, md), printX: st.done ? null : (md) => after(!0, md) });
   };
   q("#rcp795-ok").onclick = async () => {
     if (st.busy || !st.pv || st.pv.errors.length || !st.seen) return;
@@ -801,14 +918,16 @@ async function RW795(docs, o, host) {   /* Preview = DOM เดียวกั�
    V.814 : RCP + ADV ของลูกค้าเดียวกัน = ชุดเดียว (หน้า SERVICE ก่อน แล้ว ADVANCE) · PRINT = พิมพ์ทุกหน้าในครั้งเดียว · SAVE PDF = 1 ไฟล์ต่อชุด
            ตัวอย่าง : SAVE = ออกเลขจริง (o.commit) · PRINT = SAVE จริงก่อนแล้วพิมพ์ (o.printX) */
   await FN795(); for (let d of docs) await IM795(d);
+  let all844 = docs, md844 = MD844(docs, o.m844); docs = FD844(docs, md844);   /* V.844 : เลือกดู / พิมพ์ / ดาวน์โหลด เฉพาะ SERVICE / เฉพาะ ADVANCE / ทั้งคู่ */
   let html = docs.map((d) => RF795(d, o.sample)).join(""), nos = docs.map((d) => d.receipt_no), g = [];
   docs.forEach((d, j) => { let pk = d.pk || "d" + j, z = g.find((y) => y.pk === pk); z ? z.d.push(d) : g.push({ pk, d: [d] }); });
   let parts = g.map((z) => z.d.map((d) => RF795(d, o.sample)).join("")), names = g.map((z) => FX814(z.d)), adv = docs.some((d) => d.kind === "ADV");
   host && (host.innerHTML = "");
   PV813({ title: o.sample ? (adv ? "RECEIPT + RECEIPT ADVANCE" : "RECEIPT") + " — ตัวอย่าง " + docs.length + " ฉบับ" : (o.title || "RECEIPT " + nos.join(", ")),
     note: o.sample ? "ยังไม่ออกเลข · ยังไม่ตัดรับชำระ · ยังไม่ล็อก (ต่อลูกค้า : RCP SERVICE + ADV ADVANCE)" + (o.commit ? " · SAVE / PRINT = ออกเลขจริงก่อน" : "") : "",
-    html, parts, names, save: o.sample ? null : SVH795, commit: o.sample ? o.commit : null,
-    print: o.sample && o.printX ? o.printX : () => RX795(html, o.sample ? "RECEIPT_SAMPLE" : FX814(docs)), onClose: o.back });
+    html, parts, names, save: o.sample ? null : SVH795, commit: o.sample && o.commit ? () => o.commit(md844) : null,
+    print: o.sample && o.printX ? () => o.printX(md844) : () => RX795(html, o.sample ? "RECEIPT_SAMPLE" : FX814(docs)), onClose: o.back });
+  SW844(all844, md844, (m) => RW795(all844, Object.assign({}, o, { m844: m }), host));
 }
 function RX795(html, fname) {   /* พิมพ์ / บันทึก PDF (A4 แนวตั้ง · ชื่อไฟล์ = ชื่อเอกสาร) */
   ST795(); let old = document.getElementById("rcp795-print-root"); old && old.remove();
@@ -980,16 +1099,16 @@ function RI811(o) {
   ST811(); ST814(); ST843(); let id = i(K814(o)), no = i(o.receipt_no || ""), adv = o.kind === "ADV" || o.kind === "XADV",   /* V.838 */ an = i(o.adv_no || ""), lab = no + (o.adv_no && !adv ? " + " + an : "");
   let v = VL843(o, adv);   /* V.843 : ยอดของใบเสร็จแถวนี้ (ไม่รวมใบอื่น) */
   return `<tr class="r811" data-r811="${id}" tabindex="0" title="คลิกเพื่อดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">`
-    + `<td class="nowrap" data-l="เลขที่ใบเสร็จ"><b class="no811">${no}</b>${o.adv_no && !adv ? `<span class="adv814">+ ${an}</span>` : ""}${adv ? '<span class="adv814">RECEIPT ADVANCE</span>' : ""}${o.kind === "XADV" ? '<span class="adv814">UPLOAD EXCEL</span>' : ""}${o.kind === "XLS" ? '<span class="adv814">UPLOAD EXCEL</span>' + (o.replaces_no ? `<span class="rp837">แทน ${i(o.replaces_no)} (VOID)</span>` : "") : ""}</td>`
+    + `<td class="nowrap" data-l="เลขที่ใบเสร็จ"><b class="no811">${no}</b>${adv ? '<span class="adv814">RECEIPT ADVANCE</span>' : ""}${o.kind === "XADV" ? '<span class="adv814">UPLOAD EXCEL</span>' : ""}${o.kind === "XLS" ? '<span class="adv814">UPLOAD EXCEL</span>' + (o.replaces_no ? `<span class="rp837">แทน ${i(o.replaces_no)} (VOID)</span>` : "") : ""}</td>`
     + `<td class="nowrap" data-l="วันที่ออก">${D795(o.receipt_date) || "-"}</td>`
     + `<td class="c811" data-l="Customer" title="${i(o.customer_name || "")}">${i(o.customer_name || "-")}</td>`
     + `<td class="center" data-l="Qty Invoice">${N811(o.invoice_count)}</td>`
     + `<td class="r m843" data-l="Service">${A843(v.svc)}</td>`
-    + `<td class="r m843" data-l="Advance">${adv || o.adv_no ? M795(v.advv) : "-"}</td>`
+    + `<td class="r m843" data-l="Advance">${M795(v.advv)}</td>`
     + `<td class="r m843" data-l="Vat 7%">${A843(v.vat)}</td>`
     + `<td class="r m843" data-l="Total Amount">${M795(v.tot)}</td>`
     + `<td class="r m843" data-l="Tax (3%)">${v.tax ? "-" + M795(v.tax) : M795(0)}</td>`
-    + `<td class="r t-b" data-l="Payment Received">${M795(v.pay)}${adv ? '<span class="adv814">ADV</span>' : o.adv_no ? `<span class="adv814">รวม ADV ${M795(v.advv)}</span>` : ""}</td>`
+    + `<td class="r t-b" data-l="Payment Received">${M795(v.pay)}</td>`
     + `<td class="nowrap" data-l="สถานะ">${SS841(o, adv)}</td>`   /* V.841 */
     + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b811" data-d811="${id}" title="ดู JOB / INVOICE ทั้งหมดในใบเสร็จ ${lab}">รายการ</button>${o.kind === "XLS" && A() ? `<button type="button" class="btn btn-sm ed837" data-e837="${i(o.receipt_id || "")}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button>` : ""}`
     + `<button type="button" class="btn btn-sm rcp795-b rcp795-pv" data-rcp-pv="${id}" title="PREVIEW — ${lab}">PREVIEW</button>`
@@ -1033,6 +1152,7 @@ function RB811(t) {   /* คลิกแถว / Enter / ปุ่มราย�
   if (!t || t.__rb811) return; t.__rb811 = 1;
   t.addEventListener("click", (ev) => {
     let e8 = ev.target.closest && ev.target.closest("[data-e837]"); if (e8 && t.contains(e8)) { ev.preventDefault(); ED837(t, e8.dataset.e837); return; }   /* V.837 */
+    let a8 = ev.target.closest && ev.target.closest("[data-ia844]"); if (a8 && t.contains(a8)) { ev.preventDefault(); IA844(t, a8.dataset.ia844); return; }   /* V.844 */
     let g = ev.target.closest && ev.target.closest("[data-d811]"); if (g && t.contains(g)) { ev.preventDefault(); DT811(g.dataset.d811); return; }
     if (ev.target.closest && ev.target.closest("button,a,input,select,label")) return;
     let tr = ev.target.closest && ev.target.closest("#rc-tbody tr[data-r811]"); tr && t.contains(tr) && DT811(tr.dataset.r811);
