@@ -391,7 +391,9 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 .cat-orig a{color:var(--blu);text-decoration:none}
 .cat-orig a:hover{text-decoration:underline}
 .cat-ev{font-size:11px;color:var(--txt2);margin-top:2px;font-family:var(--sans);word-break:break-word}
-.cat-unit-ctl{display:flex;gap:6px;flex-shrink:0}
+.cat-unit-ctl{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.cat-ok{white-space:nowrap;padding:6px 14px;font-size:12px}
+.cat-ok:disabled{opacity:.45;cursor:not-allowed}
 .cat-sel{width:auto;max-width:190px;padding:5px 28px 5px 8px;font-size:11px}
 .cat-pending-card{margin-top:16px;border-color:rgba(239,68,68,.35)}
 .cat-modal-list{max-height:180px;overflow-y:auto;margin:10px 0;padding:8px 10px;background:var(--bg1);border:1px solid var(--bd0);border-radius:var(--r);font-size:11px;font-family:var(--mono);word-break:break-all}
@@ -426,27 +428,30 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
 #screen-app #btn-logout:hover{border-color:#DC2626;color:#B91C1C;background:#FEF2F2}
 #nav-toggle{display:none;width:38px;height:38px;border:1px solid #CBD5E1;border-radius:8px;background:#FFFFFF;color:#0F172A;font-size:18px;align-items:center;justify-content:center;flex-shrink:0}
 #nav-backdrop{display:none}
-/* Sidebar */
-#screen-app #sidebar{background:#FFFFFF;border-right:1px solid #CBD5E1}
-#screen-app .sb-header{border-bottom:1px solid #E2E8F0}
-#screen-app .sb-app-name{color:#0F172A}
-#screen-app .sb-app-sub{color:#475569}
-#screen-app .sb-user-card{background:#F8FAFC;border-bottom:1px solid #E2E8F0}
-#screen-app .sb-user-name{color:#0F172A}
-#screen-app .sb-user-role{color:#C2410C}
-#screen-app .sb-section+.sb-section{border-top:1px solid #E2E8F0}
-#screen-app .sb-label{color:#475569;font-size:10px}
+/* Sidebar — สีกรมท่าอมเทา */
+#screen-app #sidebar{background:#243449;border-right:1px solid #1B2838}
+#screen-app .sb-header{background:#243449;border-bottom:1px solid #475569}
+#screen-app .sb-app-name{color:#FFFFFF}
+#screen-app .sb-app-sub{color:#CBD5E1}
+#screen-app .sb-user-card{background:#2D4057;border-bottom:1px solid #475569}
+#screen-app .sb-user-name{color:#FFFFFF}
+#screen-app .sb-user-role{color:#FDBA74}
+#screen-app .sb-section+.sb-section{border-top:1px solid #475569}
+#screen-app .sb-label{color:#CBD5E1;font-size:10px}
 #screen-app .nav-item{border-left:4px solid transparent}
-#screen-app .nav-item:hover{background:#F1F5F9;border-left-color:#CBD5E1}
-#screen-app .nav-item.active{background:#EAF2FC;border-left-color:#2563EB}
-#screen-app .nav-title{color:#1E293B;font-size:13px}
-#screen-app .nav-item.active .nav-title{color:#1D4ED8}
-#screen-app .nav-sub,#screen-app .nav-item.active .nav-sub{color:#475569;font-size:11px}
-#screen-app .sb-footer2{border-top:1px solid #E2E8F0}
-#screen-app .sb-online{color:#475569;font-size:11px}
-#screen-app .sb-dot-grn{box-shadow:none;background:#16A34A}
-#screen-app .sb-logout-btn{background:#FEF2F2;border-color:#FCA5A5;color:#B91C1C}
-#screen-app .sb-logout-btn:hover{background:#FEE2E2}
+#screen-app .nav-item:hover{background:#354B64;border-left-color:#64748B}
+#screen-app .nav-item.active{background:#34577D;border-left-color:#38BDF8}
+#screen-app .nav-title{color:#FFFFFF;font-size:13px}
+#screen-app .nav-item.active .nav-title{color:#FFFFFF}
+#screen-app .nav-sub,#screen-app .nav-item.active .nav-sub{color:#CBD5E1;font-size:11px}
+#screen-app .sb-footer2{background:#243449;border-top:1px solid #475569}
+#screen-app .sb-online{color:#CBD5E1;font-size:11px}
+#screen-app .sb-online #idle-cd{color:#FFFFFF}
+#screen-app .sb-dot-grn{box-shadow:0 0 6px #22c55e;background:#22c55e}
+#screen-app .sb-logout-btn{background:#DC2626;border-color:#EF4444;color:#FFFFFF;font-size:13px;font-weight:700}
+#screen-app .sb-logout-btn:hover{background:#B91C1C}
+#screen-app #sidebar::-webkit-scrollbar-track{background:#243449}
+#screen-app #sidebar::-webkit-scrollbar-thumb{background:#475569}
 /* Components */
 #screen-app .page-title{font-size:22px;color:#0F172A}
 #screen-app .page-desc{font-size:12.5px;color:#475569;font-family:var(--sans)}
@@ -534,6 +539,7 @@ select.form-input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://
   .cat-unit{flex-direction:column}
   .cat-unit-ctl{width:100%;flex-wrap:wrap}
   .cat-sel{flex:1 1 130px;min-width:0;width:0;max-width:none;font-size:13px;min-height:40px}
+  .cat-ok{flex:1 1 120px;min-height:40px}
   .cat-detail-row td{padding:8px!important}
   .cat-detail{max-width:calc(100vw - 46px);position:sticky;left:8px}
 }
@@ -3211,7 +3217,7 @@ function catUnitPagesTxt(u) {
   const s = catSrcById(u.srcId);
   if (u.pages) return u.pages.length + ' หน้า';
   if (s && s.kind === 'pdf' && s.pages) return s.pages.length + ' หน้า';
-  if (catIsSheetExt(catExt(u.name))) return 'Excel → แปลงเป็นหน้า PDF';
+  if (catIsSheetExt(catExt(u.name))) return 'Excel → PDF A4 แนวตั้ง';
   if (catIsImageExt(catExt(u.name))) return 'รูป → 1 หน้า';
   return 'รวมเป็น PDF ไม่ได้';
 }
@@ -3271,42 +3277,54 @@ function catRender() {
 }
 function catUnitRow(u, head, declNo) {
   const k = esc(u.key), base = u.name.split('/').pop() + (u.pages ? ' (หน้า ' + CATEngine.pagesLabel(u.pages) + ')' : '');
-  let h = '<div class="cat-unit' + (u.sets.length ? '' : ' cat-unit-pend') + '">';
+  const known = u.type !== '07', pend = !u.sets.length;
+  let h = '<div class="cat-unit' + (pend ? ' cat-unit-pend' : '') + '">';
   h += '<div class="cat-unit-main">';
   if (head) h += '<div class="cat-out">' + esc(head) + '</div>';
   h += '<div class="cat-orig"><a href="#" onclick="catOpenUnit(\'' + k + '\');return false" title="เปิดดูเอกสาร">📄 ' + esc(base) + '</a>' +
-    (u.manual ? ' <span class="badge b-blu">ย้ายเอง</span>' : '') + (u.multi ? ' <span class="badge b-gold">เกี่ยวข้องหลายใบขน</span>' : '') + '</div>';
+    (u.manual ? ' <span class="badge b-blu">จับคู่เอง</span>' : '') + (u.multi ? ' <span class="badge b-gold">เกี่ยวข้องหลายใบขน</span>' : '') + '</div>';
+  if (pend) h += '<div class="cat-ev">ประเภทที่ระบบตรวจพบ: ' + (known
+    ? '<b class="text-blu">' + u.type + ' ' + esc(catTypeLabel(u.type)) + '</b>'
+    : '<b class="text-red">ไม่สามารถระบุประเภท</b> — ต้องตรวจสอบเอกสารเพิ่มเติม (ระบบไม่เดาประเภท)') + '</div>';
   if (u.sets.length && u.evidence) h += '<div class="cat-ev">หลักฐาน: ' + esc(u.evidence) + '</div>';
-  if (!u.sets.length && u.reason) h += '<div class="cat-ev text-red">เหตุผล: ' + esc(u.reason) + '</div>';
+  if (pend && u.reason) h += '<div class="cat-ev text-red">เหตุผล: ' + esc(u.reason) + '</div>';
   if (u.note) h += '<div class="cat-ev" style="color:var(--org)">หมายเหตุ: ' + esc(u.note) + '</div>';
   h += '</div><div class="cat-unit-ctl">';
-  h += '<select class="form-input cat-sel" title="ประเภทเอกสาร" onchange="catSetType(\'' + k + '\',this.value)">' +
-    (u.type === '07' ? '<option value="07" selected>— ระบุประเภท —</option>' : '') +
-    CATEngine.TYPES.filter(t => t.code !== '07').map(t => '<option value="' + t.code + '"' + (t.code === u.type ? ' selected' : '') + '>' + t.code + ' ' + esc(t.label) + '</option>').join('') + '</select>';
-  h += '<select class="form-input cat-sel" title="ย้ายเข้าชุดใบขน" onchange="catMove(\'' + k + '\',this.value)">' +
-    '<option value=""' + (u.sets.length ? '' : ' selected') + '>— รอตรวจสอบ —</option>' +
-    catSets.map(s => '<option value="' + s.declNo + '"' + ((declNo ? s.declNo === declNo : false) ? ' selected' : '') + '>→ ' + esc(s.declNo) + (u.hint === s.declNo ? ' (แนะนำ)' : '') + '</option>').join('') + '</select>';
+  if (pend) {
+    h += '<select class="form-input cat-sel" id="catsel-' + k + '" title="เลือกเลขใบขน"' + (known ? '' : ' disabled') + '>' +
+      '<option value="">— เลือกเลขใบขน —</option>' +
+      catSets.map(s => '<option value="' + s.declNo + '"' + (u.hint === s.declNo ? ' selected' : '') + '>' + esc(s.declNo) + (u.hint === s.declNo ? ' (แนะนำ)' : '') + '</option>').join('') + '</select>';
+    h += '<button class="btn btn-primary btn-sm cat-ok" onclick="catConfirm(\'' + k + '\')"' + (known ? '' : ' disabled title="ระบบระบุประเภทเอกสารไม่ได้ จึงยืนยันจับคู่ไม่ได้"') + '>ยืนยันจับคู่</button>';
+  } else {
+    h += '<select class="form-input cat-sel" title="ย้ายเข้าชุดใบขนอื่น" onchange="catMove(\'' + k + '\',this.value)">' +
+      '<option value="">— นำออกไปรอตรวจสอบ —</option>' +
+      catSets.map(s => '<option value="' + s.declNo + '"' + (s.declNo === declNo ? ' selected' : '') + '>' + esc(s.declNo) + '</option>').join('') + '</select>';
+  }
   h += '</div></div>';
   return h;
+}
+/* ยืนยันจับคู่: ใช้ประเภทที่ระบบตรวจพบอัตโนมัติ ผู้ใช้เลือกเฉพาะเลขใบขน */
+function catConfirm(key) {
+  const u = catUnitByKey(key); if (!u) return;
+  const sel = document.getElementById('catsel-' + key);
+  const declNo = sel ? sel.value : '';
+  if (!declNo) { toast('เลือกเลขใบขนก่อนกดยืนยันจับคู่', 'warning'); return; }
+  catMove(key, declNo);
 }
 function catToggle(n) { catOpenSets[n] = !catOpenSets[n]; catRender(); }
 function catMove(key, declNo) {
   const u = catUnitByKey(key); if (!u || u.cut) return;
-  if (declNo && u.type === '07') { toast('ระบุประเภทเอกสาร 01–06 ก่อนย้ายเข้าชุด (หมวด 07 เอกสารอื่นๆ ห้ามแนบ)', 'error'); catRender(); return; }
+  if (declNo && u.type === '07') { toast('ระบบระบุประเภทเอกสารนี้ไม่ได้ จึงนำเข้าชุดไม่ได้ (ไม่เดาประเภท) — ตรวจสอบเอกสารเพิ่มเติม', 'error'); catRender(); return; }
   if (declNo && !catMergeable(u)) { toast('ไฟล์ประเภทนี้รวมเป็น PDF ไม่ได้ (รองรับ PDF, Excel, JPG, PNG)', 'error'); catRender(); return; }
   const m = catManual[key] || (catManual[key] = {});
   m.sets = declNo ? [declNo] : []; m.type = u.type;
   u.sets = m.sets.slice(); u.manual = true; u.multi = false;
   if (declNo) catOpenSets[declNo] = true;
-  logAudit('rename_pdf', u.name, declNo || '_รอตรวจสอบ', true, 'CAT: ย้ายเอกสารด้วยตนเอง');
+  logAudit('rename_pdf', u.name, declNo || '_รอตรวจสอบ', true, 'CAT: ยืนยันจับคู่ด้วยตนเอง (ประเภท ' + u.type + ' ' + catTypeLabel(u.type) + ')');
   catRender();
+  if (declNo) toast('จับคู่ ' + u.name.split('/').pop() + ' เข้าชุด ' + declNo + ' แล้ว (' + u.type + ' ' + catTypeLabel(u.type) + ')', 'success');
 }
-function catSetType(key, type) {
-  const u = catUnitByKey(key); if (!u || u.cut || type === '07') return;
-  const m = catManual[key] || (catManual[key] = { sets: u.sets.slice() });
-  m.type = type; u.type = type; u.manual = true;
-  catRender();
-}
+/* ประเภทเอกสารมาจากการตรวจจับอัตโนมัติเท่านั้น (ไม่มี Dropdown ให้ผู้ใช้เลือกแล้ว) */
 /* ไบต์ของเอกสาร (ใช้เปิดดูบนหน้าจอ): ทั้งไฟล์ = ต้นฉบับเดิมทุกไบต์ */
 async function catUnitBytes(u) {
   const s = catSrcById(u.srcId);
@@ -3331,142 +3349,6 @@ function catClear() {
   catRender(); toast('ล้างไฟล์ทั้งหมดแล้ว', 'info');
 }
 
-/* ---------- Excel → หน้า PDF (วาดตารางลงหน้ากระดาษ A4 ข้อมูลครบทุกเซลล์) ---------- */
-function catWrap(ctx, text, maxW) {
-  const out = [];
-  String(text).split(/\r?\n/).forEach(par => {
-    if (ctx.measureText(par).width <= maxW) { out.push(par); return; }
-    let line = '';
-    const toks = par.split(/(\s+)/);
-    for (let t = 0; t < toks.length; t++) {
-      const tok = toks[t];
-      if (ctx.measureText(line + tok).width <= maxW) { line += tok; continue; }
-      if (line.trim()) { out.push(line.replace(/\s+$/, '')); line = ''; }
-      if (/^\s+$/.test(tok)) continue;
-      if (ctx.measureText(tok).width <= maxW) { line = tok; continue; }
-      let cur = '';
-      for (const ch of tok) {                              // คำยาว/ภาษาไทยไม่มีวรรค → ตัดตามตัวอักษร
-        if (cur && ctx.measureText(cur + ch).width > maxW) { out.push(cur); cur = ch; } else cur += ch;
-      }
-      line = cur;
-    }
-    if (line.trim() || !out.length) out.push(line.replace(/\s+$/, ''));
-  });
-  return out;
-}
-/* ภาพหน้า Excel → ระดับเทา 8 บิต (เล็กกว่า PNG/JPEG มากสำหรับหน้าตาราง และคมชัดไม่มี artifact) */
-function catCanvasGray(cv) {
-  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, g = new Uint8Array(cv.width * cv.height);
-  for (let i = 0, k = 0; i < d.length; i += 4, k++) g[k] = (d[i] * 77 + d[i + 1] * 151 + d[i + 2] * 28) >> 8;
-  return { gray: g, pw: cv.width, ph: cv.height };
-}
-/* คืนรายการหน้า [{gray,pw,ph,w,h}] (w,h = ขนาดหน้า PDF หน่วย pt) */
-async function catSheetPages(src) {
-  await catLoadXlsx();
-  const wb = XLSX.read(src.bytes, { type: 'array' });
-  const FS = 18, LH = 23, PADX = 6, PADY = 4, M = 42, MINS = 0.75, MAXCOL = 400, MINCOL = 28;   // หน้า A4 ที่ 150 dpi, ตัวอักษร ≥ 6.5pt
-  const meta = (wb.Workbook && wb.Workbook.Sheets) || [];
-  const pages = [];
-  const mc = document.createElement('canvas').getContext('2d');
-  mc.font = FS + 'px ' + CAT_FONT;
-  for (let si = 0; si < wb.SheetNames.length; si++) {
-    if (meta[si] && meta[si].Hidden) continue;
-    const ws = wb.Sheets[wb.SheetNames[si]]; if (!ws || !ws['!ref']) continue;
-    const rg = XLSX.utils.decode_range(ws['!ref']);
-    /* ตารางข้อความ (ใช้ค่าที่จัดรูปแบบแล้วตามที่ Excel แสดง) */
-    let grid = [], r, c;
-    for (r = rg.s.r; r <= rg.e.r; r++) {
-      const row = [];
-      for (c = rg.s.c; c <= rg.e.c; c++) {
-        const cell = ws[XLSX.utils.encode_cell({ r: r, c: c })];
-        row.push(cell == null || cell.v == null ? '' : String(cell.w != null ? cell.w : cell.v));
-      }
-      grid.push(row);
-    }
-    const span = {}, covered = {};
-    (ws['!merges'] || []).forEach(m => {
-      const r0 = m.s.r - rg.s.r, c0 = m.s.c - rg.s.c;
-      span[r0 + ',' + c0] = { cs: m.e.c - m.s.c + 1, rs: m.e.r - m.s.r + 1 };
-      for (let rr = m.s.r; rr <= m.e.r; rr++) for (let cc = m.s.c; cc <= m.e.c; cc++) if (rr !== m.s.r || cc !== m.s.c) covered[(rr - rg.s.r) + ',' + (cc - rg.s.c)] = 1;
-    });
-    /* ตัดแถว/คอลัมน์ว่างท้ายตาราง */
-    let lastR = -1, lastC = -1;
-    grid.forEach((row, ri) => row.forEach((v, ci) => { if (v.trim()) { if (ri > lastR) lastR = ri; if (ci > lastC) lastC = ci; } }));
-    if (lastR < 0) continue;
-    const NR = lastR + 1, NC = lastC + 1;
-    /* ความกว้างคอลัมน์จากเนื้อหาจริง */
-    const cw = [];
-    for (c = 0; c < NC; c++) {
-      let w = MINCOL;
-      for (r = 0; r < NR; r++) {
-        const v = grid[r][c]; if (!v || covered[r + ',' + c]) continue;
-        const sp = span[r + ',' + c]; if (sp && sp.cs > 1) continue;
-        v.split(/\r?\n/).forEach(l => { const x = mc.measureText(l).width + PADX * 2 + 2; if (x > w) w = x; });
-        if (w >= MAXCOL) { w = MAXCOL; break; }
-      }
-      cw.push(Math.ceil(w));
-    }
-    const total = cw.reduce((a, b) => a + b, 0);
-    const land = total > (1240 - 2 * M);
-    const PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, availW = PW - 2 * M, availH = PH - 2 * M;
-    /* แบ่งคอลัมน์เป็นช่วง ถ้ากว้างเกินหน้ากระดาษ (ย่อไม่ต่ำกว่า 55% เพื่อให้อ่านได้) */
-    const bands = []; let b0 = 0, acc = 0;
-    for (c = 0; c < NC; c++) {
-      if (c > b0 && (acc + cw[c]) * MINS > availW) { bands.push([b0, c - 1]); b0 = c; acc = 0; }
-      acc += cw[c];
-    }
-    bands.push([b0, NC - 1]);
-    for (const band of bands) {
-      const bw = cw.slice(band[0], band[1] + 1), bsum = bw.reduce((a, b) => a + b, 0);
-      const sc = Math.min(1, availW / bsum);
-      /* จัดบรรทัดและความสูงแถว */
-      const cells = [], rh = [];
-      for (r = 0; r < NR; r++) {
-        let maxL = 1; const rowCells = [];
-        for (c = band[0]; c <= band[1]; c++) {
-          const v = grid[r][c]; if (!v || covered[r + ',' + c]) continue;
-          const sp = span[r + ',' + c]; let w = cw[c];
-          if (sp && sp.cs > 1) for (let k = 1; k < sp.cs && c + k <= band[1]; k++) w += cw[c + k];
-          const lines = catWrap(mc, v, w - PADX * 2);
-          if (lines.length > maxL && !(sp && sp.rs > 1)) maxL = lines.length;
-          let x = 0; for (let k = band[0]; k < c; k++) x += cw[k];
-          rowCells.push({ x: x, w: w, lines: lines });
-        }
-        cells.push(rowCells); rh.push(maxL * LH + PADY * 2);
-      }
-      /* แบ่งหน้าแนวตั้ง */
-      const maxH = availH / sc; let start = 0;
-      while (start < NR) {
-        let end = start, hsum = 0;
-        while (end < NR && (hsum + rh[end] <= maxH || end === start)) { hsum += rh[end]; end++; }
-        const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH;
-        const ctx = cv.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, PW, PH);
-        ctx.translate(M, M); ctx.scale(sc, sc);
-        ctx.font = FS + 'px ' + CAT_FONT; ctx.textBaseline = 'top'; ctx.lineWidth = 1;
-        let y = 0;
-        for (r = start; r < end; r++) {
-          ctx.strokeStyle = '#c9ced6';
-          let x = 0;
-          for (c = 0; c < bw.length; c++) { ctx.strokeRect(x + 0.5, y + 0.5, bw[c], rh[r]); x += bw[c]; }
-          ctx.fillStyle = '#000';
-          for (const cell of cells[r]) {
-            ctx.save(); ctx.beginPath(); ctx.rect(cell.x, y, cell.w, Math.max(rh[r], cell.lines.length * LH + PADY * 2)); ctx.clip();
-            ctx.fillStyle = '#fff'; ctx.fillRect(cell.x + 1, y + 1, cell.w - 1, rh[r] - 1); ctx.fillStyle = '#000';   // เซลล์ผสาน: ลบเส้นแบ่งภายใน
-            cell.lines.forEach((l, li) => ctx.fillText(l, cell.x + PADX, y + PADY + li * LH + 3));
-            ctx.restore();
-          }
-          y += rh[r];
-        }
-        pages.push({ img: catCanvasGray(cv), w: land ? 841.89 : 595.28, h: land ? 595.28 : 841.89 });
-        cv.width = cv.height = 1;
-        start = end; await tick();
-      }
-    }
-  }
-  return pages;
-}
-
 /* ---------- รวมเอกสารของหนึ่งใบขนเป็น PDF เดียวต่อเนื่อง (01→07) ---------- */
 async function catBuildSetPdf(set, onStep) {
   const plan = CATEngine.planOrder(catUnitsOf(set.declNo));
@@ -3476,7 +3358,7 @@ async function catBuildSetPdf(set, onStep) {
     if (bad) throw new Error('พบเอกสารต้องห้ามในชุด ' + set.declNo + ': ' + p.unit.name.split('/').pop() + ' (' + bad + ')');
   }
   const out = await PDFLib.PDFDocument.create();
-  const parts = []; let total = 0;
+  const parts = [], notes = []; let total = 0;
   for (let i = 0; i < plan.length; i++) {
     const u = plan[i].unit, s = catSrcById(u.srcId), ext = catExt(u.name), base = u.name.split('/').pop();
     if (onStep) onStep(base);
@@ -3488,23 +3370,19 @@ async function catBuildSetPdf(set, onStep) {
       if (from.isEncrypted) throw new Error('PDF "' + base + '" ถูกเข้ารหัส รวมไม่ได้ — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่');
       const idx = u.pages ? u.pages.slice() : from.getPageIndices();
       if (!u.pages && s.pages && s.pages.length && idx.length !== s.pages.length) throw new Error('จำนวนหน้า PDF "' + base + '" ไม่ตรงกับที่อ่านได้ (' + idx.length + ' / ' + s.pages.length + ')');
-      (await out.copyPages(from, idx)).forEach(p => out.addPage(p));
+      const fitted = await catAppendPdfPages(out, from, idx);
+      if (fitted) notes.push(base + ': ' + fitted + ' หน้าไม่ใช่ A4 แนวตั้ง จึงวางหน้าเดิมลงบน A4 แนวตั้งโดยคงสัดส่วน');
       n = idx.length;
     } else if (catIsSheetExt(ext)) {
-      const pgs = await catSheetPages(s);
-      if (!pgs.length) throw new Error('Excel "' + base + '" ไม่มีข้อมูลให้แปลงเป็น PDF');
-      for (const pg of pgs) {
-        const ref = out.context.register(out.context.flateStream(pg.img.gray, { Type: 'XObject', Subtype: 'Image', Width: pg.img.pw, Height: pg.img.ph, ColorSpace: 'DeviceGray', BitsPerComponent: 8 }));
-        const page = out.addPage([pg.w, pg.h]), nm = page.node.newXObject('CatImg', ref);
-        page.pushOperators(PDFLib.pushGraphicsState(), PDFLib.concatTransformationMatrix(pg.w, 0, 0, pg.h, 0, 0), PDFLib.drawObject(nm), PDFLib.popGraphicsState());
-        pg.img = null;
-      }
-      n = pgs.length;
+      const r = await catAppendSheetPdf(out, s);
+      if (!r.pages) throw new Error('Excel "' + base + '" ไม่มีข้อมูลให้แปลงเป็น PDF');
+      r.notes.forEach(x => notes.push(x));
+      n = r.pages;
     } else if (catIsImageExt(ext)) {
       let img;
       try { img = ext === 'png' ? await out.embedPng(s.bytes) : await out.embedJpg(s.bytes); }
       catch (e) { throw new Error('รูป "' + base + '" เสียหายหรืออ่านไม่ได้ — ย้ายไฟล์นี้ไปรอตรวจสอบแล้ว EXPORT ใหม่'); }
-      const land = img.width > img.height, pw = land ? 841.89 : 595.28, ph = land ? 595.28 : 841.89;
+      const pw = CAT_A4.w, ph = CAT_A4.h;
       const k = Math.min(pw / img.width, ph / img.height), w = img.width * k, h = img.height * k;
       out.addPage([pw, ph]).drawImage(img, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
       n = 1;
@@ -3518,9 +3396,11 @@ async function catBuildSetPdf(set, onStep) {
   const task = pdfjsLib.getDocument({ data: bytes.slice(0) });
   const chk = await task.promise, got = chk.numPages;
   /* เปิด PDF ที่รวมแล้วอ่านทุกหน้า: ต้องไม่มีหน้าของเอกสารต้องห้าม (ยกเว้นหน้าใบขนซึ่งเป็น MASTER) */
-  let badPage = 0, badWhy = '';
+  let badPage = 0, badWhy = '', notA4 = 0;
   for (let i = 1; i <= got && !badPage; i++) {
     const pg = await chk.getPage(i);
+    const vp = pg.getViewport({ scale: 1 });
+    if (Math.abs(vp.width - CAT_A4.w) > 3 || Math.abs(vp.height - CAT_A4.h) > 3) notA4 = notA4 || i;
     const tc = await pg.getTextContent(), ptxt = tc.items.map(x => x.str).join(' ');
     if (ptxt.indexOf('ใบขนสินค้า') < 0) {                      // หน้าใบขน (MASTER) ไม่ต้องตรวจ
       const why = CATEngine.cutByText(CATEngine.up(ptxt));
@@ -3531,7 +3411,8 @@ async function catBuildSetPdf(set, onStep) {
   try { await task.destroy(); } catch (_) {}
   if (got !== total) throw new Error('PDF รวมของ ' + set.declNo + ' หน้าไม่ครบ (' + got + ' / ' + total + ')');
   if (badPage) throw new Error('พบเอกสารต้องห้ามใน PDF รวมของ ' + set.declNo + ' หน้า ' + badPage + ' (' + badWhy + ') — ยกเลิกการ EXPORT');
-  return { bytes: bytes, parts: parts, total: total };
+  if (notA4) throw new Error('PDF รวมของ ' + set.declNo + ' หน้า ' + notA4 + ' ไม่ใช่ A4 แนวตั้ง — ยกเลิกการ EXPORT');
+  return { bytes: bytes, parts: parts, total: total, notes: notes };
 }
 
 /* ---------- EXPORT ZIP FILE (ครั้งเดียว ได้ทุกใบขน) ---------- */
@@ -3561,7 +3442,7 @@ async function catExport(force) {
       const sub = new JSZip();
       sub.file(s.declNo + '.pdf', r.bytes, { date: stamp });
       big.file(s.declNo + '.zip', await sub.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 4 } }), { date: stamp, compression: 'STORE' });
-      summary.push({ declNo: s.declNo, total: r.total, parts: r.parts });
+      summary.push({ declNo: s.declNo, total: r.total, parts: r.parts, notes: r.notes });
       nPages += r.total;
       await tick();
     }
@@ -3570,6 +3451,8 @@ async function catExport(force) {
     const blob = await big.generateAsync({ type: 'blob', compression: 'STORE' });
     catLastExport = summary;
     dlBlob(blob, 'CAT_ALL.zip');
+    const allNotes = []; summary.forEach(x => (x.notes || []).forEach(n => { if (allNotes.indexOf(n) < 0) allNotes.push(n); }));
+    if (allNotes.length) showModal('ℹ ข้อจำกัดที่พบระหว่างแปลงเอกสาร (' + allNotes.length + ')', 'EXPORT สำเร็จ ข้อมูลครบทุกหน้า แต่มีจุดที่ควรทราบ:<div class="cat-modal-list">' + allNotes.map(n => '• ' + esc(n)).join('<br>') + '</div>', [{ label: 'รับทราบ', cls: 'btn-primary', action: 'closeModal()' }]);
     logAudit('rename_pdf', 'CAT: ' + sets.length + ' ใบขน / ' + nPages + ' หน้า', 'CAT_ALL.zip', true, 'EXPORT ZIP รวมไฟล์ CAT' + (pending.length ? ' · รอตรวจสอบ ' + pending.length : ''));
     toast('✅ EXPORT CAT_ALL.zip — ' + sets.length + ' ใบขน / ' + nPages + ' หน้า' + (pending.length ? ' · ไม่รวมเอกสารรอตรวจสอบ ' + pending.length + ' ไฟล์' : ''), 'success');
   } catch (e) {
@@ -3586,6 +3469,435 @@ function toggleSidebar(force) {
   sb.classList.toggle('open', on); if (bd) bd.classList.toggle('open', on);
 }
 document.getElementById('sidebar')?.addEventListener('click', e => { if (e.target.closest('.nav-item')) toggleSidebar(false); });
+
+/* ---------- Excel → PDF : A4 Portrait · Fit to Width 1 หน้า · คงรูปแบบต้นฉบับ ----------
+   อ่านไฟล์ Excel แบบ "อ่านอย่างเดียว" (ไม่แก้/ไม่บันทึกทับต้นฉบับ) แล้ววาดลงหน้า A4 แนวตั้ง
+   โดยใช้ความกว้างคอลัมน์ ความสูงแถว ฟอนต์ สี เส้นขอบ Merge Cells และรูปภาพจากไฟล์จริง */
+const CAT_A4 = { w: 595.28, h: 841.89 };
+const CAT_EXCELJS_URLS = ['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'];
+const CAT_IDX_COLORS = ['000000','FFFFFF','FF0000','00FF00','0000FF','FFFF00','FF00FF','00FFFF','000000','FFFFFF','FF0000','00FF00','0000FF','FFFF00','FF00FF','00FFFF','800000','008000','000080','808000','800080','008080','C0C0C0','808080','9999FF','993366','FFFFCC','CCFFFF','660066','FF8080','0066CC','CCCCFF','000080','FF00FF','FFFF00','00FFFF','800080','800000','008080','0000FF','00CCFF','CCFFFF','CCFFCC','FFFF99','99CCFF','FF99CC','CC99FF','FFCC99','3366FF','33CCCC','99CC00','FFCC00','FF9900','FF6600','666699','969696','003366','339966','003300','333300','993300','993366','333399','333333'];
+const CAT_THEME_DEFAULT = ['FFFFFF','000000','E7E6E6','44546A','4472C4','ED7D31','A5A5A5','FFC000','5B9BD5','70AD47'];
+let catExcelP = null;
+function catLoadExcelJS() {
+  if (typeof ExcelJS !== 'undefined') return Promise.resolve(true);
+  if (!catExcelP) catExcelP = (async () => {
+    for (const u of CAT_EXCELJS_URLS) {
+      try {
+        await new Promise((res, rej) => { const s = document.createElement('script'); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+        if (typeof ExcelJS !== 'undefined') return true;
+      } catch (_) {}
+    }
+    catExcelP = null; return false;
+  })();
+  return catExcelP;
+}
+function catThemeColors(xml) {
+  const out = CAT_THEME_DEFAULT.slice(); if (!xml) return out;
+  const order = ['lt1', 'dk1', 'lt2', 'dk2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6'];
+  order.forEach((k, i) => {
+    const m = new RegExp('<a:' + k + '>([\\s\\S]*?)</a:' + k + '>').exec(xml); if (!m) return;
+    const v = /srgbClr val="([0-9A-Fa-f]{6})"/.exec(m[1]) || /lastClr="([0-9A-Fa-f]{6})"/.exec(m[1]);
+    if (v) out[i] = v[1].toUpperCase();
+  });
+  return out;
+}
+function catHexRgb(hex) { return [parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255]; }
+function catXColor(c, theme, dflt) {
+  if (!c) return dflt;
+  let hex = null;
+  if (c.argb) hex = String(c.argb).slice(-6);
+  else if (c.theme != null) hex = theme[c.theme] || null;
+  else if (c.indexed != null) hex = c.indexed < 64 ? CAT_IDX_COLORS[c.indexed] : null;
+  if (!hex || !/^[0-9A-Fa-f]{6}$/.test(hex)) return dflt;
+  let rgb = catHexRgb(hex);
+  if (c.tint) rgb = rgb.map(v => c.tint < 0 ? v * (1 + c.tint) : v + (1 - v) * c.tint);
+  return rgb;
+}
+/* สร้างแบบจำลองแผ่นงานจากไฟล์จริง: [{name,colW,rowH,rowFixed,cells,merges,images,grid,margins,titleRows,styled}] (หน่วย pt) */
+async function catSheetModels(src) {
+  await catLoadXlsx();
+  const ext = catExt(src.name);
+  const xw = XLSX.read(src.bytes, { type: 'array' });
+  let wb = null;
+  if ((ext === 'xlsx' || ext === 'xlsm') && await catLoadExcelJS()) {
+    try { wb = new ExcelJS.Workbook(); await wb.xlsx.load(src.bytes.buffer.slice(src.bytes.byteOffset, src.bytes.byteOffset + src.bytes.byteLength)); }
+    catch (_) { wb = null; }
+  }
+  const models = [];
+  const textOf = (xs, r, c) => { const x = xs && xs[XLSX.utils.encode_cell({ r: r, c: c })]; return !x || x.v == null ? { t: '', num: false } : { t: String(x.w != null ? x.w : x.v), num: x.t === 'n' }; };
+  if (wb) {
+    const theme = catThemeColors(wb._themes && wb._themes.theme1);
+    for (const ws of wb.worksheets) {
+      if (ws.state && ws.state !== 'visible') continue;
+      const xs = xw.Sheets[ws.name], ps = ws.pageSetup || {};
+      const merges = (ws.model.merges || []).map(a => XLSX.utils.decode_range(a)).map(m => ({ r0: m.s.r, c0: m.s.c, r1: m.e.r, c1: m.e.c }));
+      /* ขอบเขตพิมพ์: Print Area ถ้ามี มิฉะนั้นใช้ช่วงที่มีข้อมูล/สี/เส้นขอบ/Merge/รูป */
+      let R0 = 0, C0 = 0, R1 = -1, C1 = -1;
+      const pa = ps.printArea ? String(ps.printArea).split('&&')[0].replace(/\$/g, '') : '';
+      if (/^[A-Z]+\d+:[A-Z]+\d+$/i.test(pa)) { const d = XLSX.utils.decode_range(pa); R0 = d.s.r; C0 = d.s.c; R1 = d.e.r; C1 = d.e.c; }
+      else {
+        ws.eachRow({ includeEmpty: false }, (row, rn) => row.eachCell({ includeEmpty: false }, (cell, cn) => {
+          const hasV = cell.value != null && cell.value !== '';
+          const hasF = cell.fill && cell.fill.type === 'pattern' && cell.fill.pattern === 'solid' && cell.fill.fgColor && !(cell.fill.fgColor.theme === 0 && !cell.fill.fgColor.tint) && String(cell.fill.fgColor.argb || '').slice(-6).toUpperCase() !== 'FFFFFF';
+          const hasB = cell.border && (cell.border.left || cell.border.right || cell.border.top || cell.border.bottom);
+          if (hasV || hasF || hasB) { if (rn - 1 > R1) R1 = rn - 1; if (cn - 1 > C1) C1 = cn - 1; }
+        }));
+        merges.forEach(m => { if (m.r1 > R1) R1 = m.r1; if (m.c1 > C1) C1 = m.c1; });
+      }
+      const imgs = [];
+      try {
+        ws.getImages().forEach(im => {
+          const media = wb.getImage(im.imageId); if (!media || !media.buffer) return;
+          const e = String(media.extension || '').toLowerCase(); if (e !== 'png' && e !== 'jpg' && e !== 'jpeg') return;
+          imgs.push({ bytes: new Uint8Array(media.buffer), ext: e, tl: im.range.tl, br: im.range.br, extSz: im.range.ext });
+          if (!pa && im.range.br) { if (im.range.br.nativeRow > R1) R1 = im.range.br.nativeRow; if (im.range.br.nativeCol - 1 > C1) C1 = Math.max(C1, im.range.br.nativeCol - (im.range.br.nativeColOff ? 0 : 1)); }
+        });
+      } catch (_) {}
+      if (R1 < R0 || C1 < C0) continue;
+      const defW = ws.properties.defaultColWidth || 9.14, defH = ws.properties.defaultRowHeight || 15;
+      const colW = [], rowH = [], rowFixed = [];
+      for (let c = C0; c <= C1; c++) { const col = ws.getColumn(c + 1); colW.push(col.hidden ? 0 : (col.width != null ? col.width : defW) * 7 * 0.75); }
+      for (let r = R0; r <= R1; r++) { const row = ws.getRow(r + 1); rowH.push(row.hidden ? 0 : (row.height || defH)); rowFixed.push(!!row.height); }
+      const cells = {};
+      for (let r = R0; r <= R1; r++) for (let c = C0; c <= C1; c++) {
+        const cell = ws.findCell(r + 1, c + 1); if (!cell) continue;
+        const st = cell.style || {}, f = st.font || {}, al = st.alignment || {}, b = st.border || {}, fl = st.fill;
+        const side = s => s && s.style ? { style: s.style, color: catXColor(s.color, theme, [0, 0, 0]) } : null;
+        const tx = textOf(xs, r, c);
+        const o = {
+          t: tx.t, num: tx.num,
+          font: { name: f.name || 'Calibri', size: f.size || 11, bold: !!f.bold, italic: !!f.italic, underline: !!f.underline, strike: !!f.strike, color: catXColor(f.color, theme, [0, 0, 0]) },
+          fill: fl && fl.type === 'pattern' && fl.pattern === 'solid' ? catXColor(fl.fgColor, theme, null) : null,
+          h: al.horizontal || null, v: al.vertical || null, wrap: !!al.wrapText, shrink: !!al.shrinkToFit, indent: al.indent || 0,
+          bl: side(b.left), br: side(b.right), bt: side(b.top), bb: side(b.bottom)
+        };
+        if (o.fill && o.fill[0] === 1 && o.fill[1] === 1 && o.fill[2] === 1) o.fill = null;
+        if (o.t || o.fill || o.bl || o.br || o.bt || o.bb) cells[(r - R0) + ',' + (c - C0)] = o;
+      }
+      const mg = ps.margins || {};
+      const titles = /^(\d+):(\d+)$/.exec(String(ps.printTitlesRow || ''));
+      models.push({
+        name: ws.name, styled: true, colW: colW, rowH: rowH, rowFixed: rowFixed, cells: cells,
+        merges: merges.map(m => ({ r0: m.r0 - R0, c0: m.c0 - C0, r1: m.r1 - R0, c1: m.c1 - C0 })).filter(m => m.r0 >= 0 && m.c0 >= 0 && m.r1 <= R1 - R0 && m.c1 <= C1 - C0),
+        images: imgs.map(im => ({ bytes: im.bytes, ext: im.ext, tl: im.tl, br: im.br, extSz: im.extSz, R0: R0, C0: C0 })),
+        grid: ps.showGridLines === true,
+        margins: { l: Math.max(12, (mg.left || 0) * 72), r: Math.max(12, (mg.right || 0) * 72), t: Math.max(14, (mg.top || 0) * 72), b: Math.max(18, (mg.bottom || 0) * 72) },
+        titleRows: titles ? [Math.max(0, +titles[1] - 1 - R0), Math.max(0, +titles[2] - 1 - R0)] : null
+      });
+    }
+    return models;
+  }
+  /* ไฟล์ .xls / .csv หรือโหลดตัวอ่านรูปแบบไม่ได้ → ตารางข้อมูลครบทุกเซลล์ รูปแบบพื้นฐาน */
+  const meta = (xw.Workbook && xw.Workbook.Sheets) || [];
+  xw.SheetNames.forEach((sn, si) => {
+    if (meta[si] && meta[si].Hidden) return;
+    const xs = xw.Sheets[sn]; if (!xs || !xs['!ref']) return;
+    const rg = XLSX.utils.decode_range(xs['!ref']); let R1 = -1, C1 = -1; const cells = {};
+    for (let r = rg.s.r; r <= rg.e.r; r++) for (let c = rg.s.c; c <= rg.e.c; c++) {
+      const tx = textOf(xs, r, c); if (!tx.t.trim()) continue;
+      if (r - rg.s.r > R1) R1 = r - rg.s.r; if (c - rg.s.c > C1) C1 = c - rg.s.c;
+      cells[(r - rg.s.r) + ',' + (c - rg.s.c)] = { t: tx.t, num: tx.num, font: { name: 'Arial', size: 10, bold: false, italic: false, color: [0, 0, 0] }, fill: null, h: null, v: 'top', wrap: true, bl: null, br: null, bt: null, bb: null };
+    }
+    if (R1 < 0) return;
+    const colW = [];
+    for (let c = 0; c <= C1; c++) { let w = 24; for (let r = 0; r <= R1; r++) { const o = cells[r + ',' + c]; if (o) o.t.split(/\r?\n/).forEach(l => { w = Math.max(w, Math.min(260, l.length * 5.4 + 8)); }); } colW.push(w); }
+    models.push({
+      name: sn, styled: false, colW: colW, rowH: new Array(R1 + 1).fill(13), rowFixed: new Array(R1 + 1).fill(false), cells: cells,
+      merges: (xs['!merges'] || []).map(m => ({ r0: m.s.r - rg.s.r, c0: m.s.c - rg.s.c, r1: m.e.r - rg.s.r, c1: m.e.c - rg.s.c })).filter(m => m.r1 <= R1 && m.c1 <= C1),
+      images: [], grid: true, margins: { l: 20, r: 20, t: 24, b: 24 }, titleRows: null
+    });
+  });
+  return models;
+}
+function catWrapLines(measure, text, maxW) {
+  const out = [];
+  String(text).split(/\r?\n/).forEach(par => {
+    if (measure(par) <= maxW) { out.push(par); return; }
+    let line = '';
+    const toks = par.split(/(\s+)/);
+    for (let t = 0; t < toks.length; t++) {
+      const tok = toks[t];
+      if (measure(line + tok) <= maxW) { line += tok; continue; }
+      if (line.trim()) { out.push(line.replace(/\s+$/, '')); line = ''; }
+      if (/^\s+$/.test(tok)) continue;
+      if (measure(tok) <= maxW) { line = tok; continue; }
+      let cur = '';
+      for (const ch of tok) { if (cur && measure(cur + ch) > maxW) { out.push(cur); cur = ch; } else cur += ch; }
+      line = cur;
+    }
+    if (line.trim() || !out.length) out.push(line.replace(/\s+$/, ''));
+  });
+  return out;
+}
+const CAT_BORDER_W = { hair: 0.25, thin: 0.6, medium: 1.3, thick: 2, double: 1.3, dotted: 0.6, dashed: 0.6, dashDot: 0.6, dashDotDot: 0.6, mediumDashed: 1.3, mediumDashDot: 1.3, mediumDashDotDot: 1.3, slantDashDot: 1.3 };
+/* ฟอนต์ที่แคบกว่า Helvetica/Arial → บีบความกว้างตัวอักษรให้ใกล้เคียงต้นฉบับ เพื่อให้ข้อความพอดีคอลัมน์เหมือนใน Excel */
+function catSqueeze(name) {
+  const n = String(name || '').toLowerCase();
+  if (/calibri|carlito|segoe|tahoma|aptos/.test(n)) return 0.9;
+  if (/narrow|condensed/.test(n)) return 0.82;
+  if (/times|cambria|garamond|georgia/.test(n)) return 0.92;
+  return 1;
+}
+/* ตัววาดลงหน้า PDF แบบเวกเตอร์ (คมชัดทุกระดับการซูม) ; ข้อความที่ฟอนต์มาตรฐาน PDF ไม่รองรับ (ไทย/จีน ฯลฯ)
+   จะถูกวาดเป็นภาพข้อความความละเอียดสูงเฉพาะข้อความนั้น */
+async function catVecBackend(out) {
+  if (!out.__catFonts) {
+    const F = PDFLib.StandardFonts;
+    out.__catFonts = { r: await out.embedFont(F.Helvetica), b: await out.embedFont(F.HelveticaBold), i: await out.embedFont(F.HelveticaOblique), bi: await out.embedFont(F.HelveticaBoldOblique) };
+    out.__catSnip = new Map();
+  }
+  const fonts = out.__catFonts, snips = out.__catSnip, imgCache = new Map(), canMemo = new Map();
+  const pick = f => f.bold ? (f.italic ? fonts.bi : fonts.b) : (f.italic ? fonts.i : fonts.r);
+  const col = c => PDFLib.rgb(c[0], c[1], c[2]);
+  const can = s => { let v = canMemo.get(s); if (v == null) { try { fonts.r.encodeText(s); v = true; } catch (_) { v = false; } canMemo.set(s, v); } return v; };
+  const mctx = document.createElement('canvas').getContext('2d');
+  const css = (f, px) => (f.italic ? 'italic ' : '') + (f.bold ? 'bold ' : '') + px + 'px "' + String(f.name || 'Arial').replace(/"/g, '') + '",' + CAT_FONT;
+  let page = null, snipCount = 0;
+  const clipOps = clip => [PDFLib.moveTo(clip.x, CAT_A4.h - clip.y), PDFLib.lineTo(clip.x + clip.w, CAT_A4.h - clip.y), PDFLib.lineTo(clip.x + clip.w, CAT_A4.h - clip.y - clip.h), PDFLib.lineTo(clip.x, CAT_A4.h - clip.y - clip.h), PDFLib.closePath(), PDFLib.clip(), PDFLib.endPath()];
+  return {
+    kind: 'vector', snipCount: () => snipCount,
+    measure: (s, size, f) => {
+      if (can(s)) return pick(f).widthOfTextAtSize(s, size) * catSqueeze(f.name);
+      mctx.font = css(f, 100); return mctx.measureText(s).width * size / 100;
+    },
+    newPage: () => { page = out.addPage([CAT_A4.w, CAT_A4.h]); },
+    rect: (x, y, w, h, c) => page.drawRectangle({ x: x, y: CAT_A4.h - y - h, width: w, height: h, color: col(c) }),
+    line: (x1, y1, x2, y2, w, c, dash) => page.drawLine({ start: { x: x1, y: CAT_A4.h - y1 }, end: { x: x2, y: CAT_A4.h - y2 }, thickness: w, color: col(c), dashArray: dash || undefined }),
+    text: async (s, x, base, size, f, c, clip) => {
+      if (can(s)) {
+        const sq = catSqueeze(f.name);
+        page.pushOperators(PDFLib.pushGraphicsState());
+        if (clip) page.pushOperators.apply(page, clipOps(clip));
+        if (sq !== 1) page.pushOperators(PDFLib.setCharacterSqueeze(sq * 100));
+        page.drawText(s, { x: x, y: CAT_A4.h - base, size: size, font: pick(f), color: col(c) });
+        if (sq !== 1) page.pushOperators(PDFLib.setCharacterSqueeze(100));
+        page.pushOperators(PDFLib.popGraphicsState());
+        return;
+      }
+      /* ภาพข้อความ (300 dpi) สำหรับอักษรที่ฟอนต์มาตรฐานไม่รองรับ — ใช้ซ้ำเมื่อข้อความเดียวกัน */
+      const K = 300 / 72, px = Math.max(6, size * K), key = s + '|' + px.toFixed(1) + '|' + (f.bold ? 1 : 0) + (f.italic ? 1 : 0) + '|' + f.name + '|' + c.join(',');
+      let sn = snips.get(key);
+      if (!sn) {
+        mctx.font = css(f, px);
+        const w = Math.ceil(mctx.measureText(s).width) + 4, h = Math.ceil(px * 1.7), cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d'); cx.font = css(f, px); cx.textBaseline = 'alphabetic';
+        cx.fillStyle = 'rgb(' + c.map(v => Math.round(v * 255)).join(',') + ')'; cx.fillText(s, 2, Math.round(px * 1.2));
+        const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+        sn = { img: await out.embedPng(new Uint8Array(await blob.arrayBuffer())), w: w / K, h: h / K, bx: 2 / K, by: Math.round(px * 1.2) / K };
+        snips.set(key, sn); snipCount++; cv.width = cv.height = 1;
+      }
+      page.pushOperators(PDFLib.pushGraphicsState());
+      if (clip) page.pushOperators.apply(page, clipOps(clip));
+      page.drawImage(sn.img, { x: x - sn.bx, y: CAT_A4.h - base - (sn.h - sn.by), width: sn.w, height: sn.h });
+      page.pushOperators(PDFLib.popGraphicsState());
+    },
+    image: async (im, x, y, w, h) => {
+      let e = imgCache.get(im); if (!e) { e = im.ext === 'png' ? await out.embedPng(im.bytes) : await out.embedJpg(im.bytes); imgCache.set(im, e); }
+      page.drawImage(e, { x: x, y: CAT_A4.h - y - h, width: w, height: h });
+    },
+    endPage: async () => {}
+  };
+}
+/* วาดแผ่นงานลง PDF: คืน {pages, notes[]} */
+async function catRenderModel(out, M, fileLabel) {
+  const notes = [];
+  const NR = M.rowH.length, NC = M.colW.length, PAD = 1.5, MIN_SCALE = 0.45;
+  const G = await catVecBackend(out);
+  if (!M.styled) notes.push(fileLabel + ' › ' + M.name + ': ไฟล์ชนิดนี้อ่านรูปแบบ (สี/ฟอนต์/เส้นขอบ) ไม่ได้ จึงแสดงเป็นตารางข้อมูลครบทุกเซลล์');
+  /* Merge map */
+  const mOf = {}; M.merges.forEach((m, i) => { for (let r = m.r0; r <= m.r1; r++) for (let c = m.c0; c <= m.c1; c++) mOf[r + ',' + c] = i; });
+  const colX = [0]; for (let c = 0; c < NC; c++) colX.push(colX[c] + M.colW[c]);
+  const cellOf = (r, c) => M.cells[r + ',' + c];
+  const isEmpty = (r, c) => { const o = cellOf(r, c); return (!o || !o.t) && mOf[r + ',' + c] == null; };
+  const fontOf = o => o.font;
+  /* ปรับความสูงแถวอัตโนมัติสำหรับแถวที่ Excel ไม่ได้กำหนดความสูงตายตัว */
+  const rowH = M.rowH.slice();
+  for (let r = 0; r < NR; r++) {
+    if (M.rowFixed[r] || rowH[r] === 0) continue;
+    let need = rowH[r];
+    for (let c = 0; c < NC; c++) {
+      const o = cellOf(r, c); if (!o || !o.t || mOf[r + ',' + c] != null) continue;
+      const lh = o.font.size * 1.22;
+      const n = (o.wrap || /\n/.test(o.t)) ? catWrapLines(s => G.measure(s, o.font.size, o.font), o.t.replace(/[\u0000-\u0009\u000b-\u001f]/g, ' '), Math.max(4, M.colW[c] - 2 * PAD)).length : 1;
+      need = Math.max(need, n * lh + 2);
+    }
+    rowH[r] = need;
+  }
+  const rowY = [0]; for (let r = 0; r < NR; r++) rowY.push(rowY[r] + rowH[r]);
+  /* Fit to Width = 1 หน้า (A4 แนวตั้ง) ; ถ้าต้องย่อจนอ่านไม่ได้ (<45%) จึงแบ่งคอลัมน์เป็นหลายหน้าแนวตั้ง */
+  const availW = CAT_A4.w - M.margins.l - M.margins.r, availH = CAT_A4.h - M.margins.t - M.margins.b;
+  const bands = [];
+  if (colX[NC] * MIN_SCALE <= availW) bands.push([0, NC - 1]);
+  else {
+    let b0 = 0;
+    for (let c = 0; c < NC; c++) if (c > b0 && (colX[c + 1] - colX[b0]) * MIN_SCALE > availW) { bands.push([b0, c - 1]); b0 = c; }
+    bands.push([b0, NC - 1]);
+    notes.push(fileLabel + ' › ' + M.name + ': ตารางกว้างเกินกว่าจะย่อลง A4 แนวตั้ง 1 หน้ากว้างให้อ่านได้ จึงแบ่งคอลัมน์เป็น ' + bands.length + ' ช่วง (ข้อมูลครบทุกคอลัมน์ ไม่ตัดออก)');
+  }
+  const tR = M.titleRows && M.titleRows[1] < NR ? M.titleRows : null;
+  let nPages = 0;
+  for (const band of bands) {
+    const bx0 = colX[band[0]], bw = colX[band[1] + 1] - bx0;
+    const sc = Math.min(1, availW / bw);
+    const titleH = tR ? rowY[tR[1] + 1] - rowY[tR[0]] : 0;
+    let start = 0, first = true;
+    while (start < NR) {
+      const room = availH / sc - (first || !tR ? 0 : titleH);
+      let end = start;
+      while (end < NR && (rowY[end + 1] - rowY[start] <= room || end === start)) end++;
+      if (end < NR) {                                    // ไม่ตัดหน้ากลาง Merge แนวตั้ง
+        let moved = true;
+        while (moved) { moved = false; for (const m of M.merges) if (m.r0 < end && m.r1 >= end && m.r0 > start) { end = m.r0; moved = true; } }
+      }
+      const segs = (!first && tR && start > tR[1]) ? [[tR[0], tR[1] + 1], [start, end]] : [[start, end]];
+      G.newPage(); nPages++;
+      let offY = M.margins.t;
+      for (const seg of segs) {
+        const r0 = seg[0], r1 = seg[1] - 1, y0 = rowY[r0];
+        const X = x => M.margins.l + (x - bx0) * sc, Y = y => offY + (y - y0) * sc;
+        const inSeg = (r, c) => r >= r0 && r <= r1 && c >= band[0] && c <= band[1];
+        const box = (r, c) => {                              // กรอบเซลล์ (รวม Merge) ตัดให้อยู่ในช่วงที่วาด
+          const mi = mOf[r + ',' + c], m = mi != null ? M.merges[mi] : { r0: r, c0: c, r1: r, c1: c };
+          const a = Math.max(m.c0, band[0]), b = Math.min(m.c1, band[1]), t = Math.max(m.r0, r0), u = Math.min(m.r1, r1);
+          return { x: X(colX[a]), y: Y(rowY[t]), w: (colX[b + 1] - colX[a]) * sc, h: (rowY[u + 1] - rowY[t]) * sc, m: m, merged: mi != null };
+        };
+        /* 1) สีพื้น */
+        for (let r = r0; r <= r1; r++) for (let c = band[0]; c <= band[1]; c++) {
+          const mi = mOf[r + ',' + c], src = mi != null ? cellOf(M.merges[mi].r0, M.merges[mi].c0) : cellOf(r, c);
+          if (src && src.fill && rowH[r] > 0 && M.colW[c] > 0) G.rect(X(colX[c]), Y(rowY[r]), M.colW[c] * sc + 0.3, rowH[r] * sc + 0.3, src.fill);
+        }
+        /* 2) เส้นตาราง (เฉพาะเมื่อไฟล์ตั้งให้พิมพ์เส้นตาราง) */
+        if (M.grid) for (let r = r0; r <= r1; r++) for (let c = band[0]; c <= band[1]; c++) {
+          if (!rowH[r] || !M.colW[c]) continue;
+          const x = X(colX[c]), y = Y(rowY[r]), w = M.colW[c] * sc, h = rowH[r] * sc, mi = mOf[r + ',' + c], g = [0.78, 0.8, 0.84];
+          if (mi == null || mOf[(r + 1) + ',' + c] !== mi) G.line(x, y + h, x + w, y + h, 0.3, g);
+          if (mi == null || mOf[r + ',' + (c + 1)] !== mi) G.line(x + w, y, x + w, y + h, 0.3, g);
+          if (r === r0) G.line(x, y, x + w, y, 0.3, g);
+          if (c === band[0]) G.line(x, y, x, y + h, 0.3, g);
+        }
+        /* 3) ข้อความ */
+        for (let r = r0; r <= r1; r++) for (let c = band[0]; c <= band[1]; c++) {
+          const mi = mOf[r + ',' + c];
+          let o, anchorR = r, anchorC = c;
+          if (mi != null) {
+            const m = M.merges[mi]; anchorR = Math.max(m.r0, r0); anchorC = Math.max(m.c0, band[0]);
+            if (r !== anchorR || c !== anchorC) continue;
+            o = cellOf(m.r0, m.c0);
+          } else o = cellOf(r, c);
+          if (!o || !o.t) continue;
+          const bxx = box(r, c); if (bxx.w <= 0 || bxx.h <= 0) continue;
+          const f = fontOf(o), txt = o.t.replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ');
+          let size = f.size * sc; const pad = PAD * sc, ind = (o.indent || 0) * 6 * sc;
+          const meas = s => G.measure(s, size, f);
+          const multi = o.wrap || /\n/.test(txt);
+          let lines, clip = { x: bxx.x, y: bxx.y, w: bxx.w, h: bxx.h }, ha = o.h || (o.num ? 'right' : 'left');
+          if (ha === 'general') ha = o.num ? 'right' : 'left';
+          if (ha === 'centerContinuous' || ha === 'distributed' || ha === 'justify' || ha === 'fill') ha = ha === 'centerContinuous' ? 'center' : 'left';
+          if (multi) {
+            const maxW = Math.max(4, bxx.w - 2 * pad - ind);
+            let longest = 0; txt.split(/\s+/).forEach(wd => { const ww = meas(wd); if (ww > longest) longest = ww; });
+            if (longest > maxW && longest <= maxW * 1.45) size *= maxW / longest * 0.995;   // คำยาวเกินช่องเล็กน้อย → ย่อ ไม่ตัดกลางคำ
+            lines = catWrapLines(s => G.measure(s, size, f), txt, maxW);
+            const need = lines.length * size * 1.22;
+            if (need > bxx.h + 0.5 && bxx.h > 0) {             // เนื้อหาสูงเกินกรอบ → ย่อตัวอักษรให้พอดี ไม่ให้ทับแถวอื่น
+              const k = Math.max(0.55, Math.sqrt(bxx.h / need)); size *= k;
+              lines = catWrapLines(s => G.measure(s, size, f), txt, Math.max(4, bxx.w - 2 * pad - ind));
+            }
+          } else {
+            lines = [txt];
+            let avail = bxx.w - 2 * pad - ind; const tw = meas(txt);
+            if (tw > avail && !bxx.merged && !o.num) {         // ข้อความยาวล้นไปเซลล์ว่างข้างเคียง (เหมือน Excel)
+              let cl = c, cr = c;
+              if (ha !== 'right') while (cr + 1 <= band[1] && isEmpty(r, cr + 1) && (colX[cr + 1] - colX[c]) * sc < tw + 2 * pad) cr++;
+              if (ha !== 'left') while (cl - 1 >= band[0] && isEmpty(r, cl - 1) && (colX[c + 1] - colX[cl]) * sc < tw + 2 * pad) cl--;
+              clip = { x: X(colX[cl]), y: bxx.y, w: (colX[cr + 1] - colX[cl]) * sc, h: bxx.h };
+              avail = clip.w - 2 * pad - ind;
+              if (ha === 'center') { const half = Math.min(X(colX[c]) + bxx.w / 2 - clip.x, clip.x + clip.w - (X(colX[c]) + bxx.w / 2)); avail = 2 * half - 2 * pad; }
+            }
+            if (tw > avail && avail > 0) size = size * Math.max(0.5, avail / tw);   // ยังยาวเกิน → ย่อตัวอักษร ไม่ตัดข้อความ
+          }
+          const lh = size * 1.22, total = lines.length * lh, va = o.v || 'bottom';
+          let ty = va === 'top' ? bxx.y + pad * 0.6 : (va === 'middle' || va === 'center') ? bxx.y + (bxx.h - total) / 2 : bxx.y + bxx.h - total - pad * 0.4;
+          if (ty < bxx.y) ty = bxx.y;
+          const ms = s => G.measure(s, size, f);
+          for (let li = 0; li < lines.length; li++) {
+            const s = lines[li]; if (!s) continue;
+            const w = ms(s);
+            let tx;
+            if (multi || bxx.merged || clip.w === bxx.w) tx = ha === 'right' ? bxx.x + bxx.w - pad - w : ha === 'center' ? bxx.x + (bxx.w - w) / 2 : bxx.x + pad + ind;
+            else tx = ha === 'right' ? bxx.x + bxx.w - pad - w : ha === 'center' ? bxx.x + (bxx.w - w) / 2 : bxx.x + pad + ind;
+            const base = ty + li * lh + size * 0.92;
+            await G.text(s, tx, base, size, f, f.color, { x: clip.x - 0.5, y: clip.y - 0.5, w: clip.w + 1, h: clip.h + 1 });
+            if (f.underline) G.line(tx, base + size * 0.12, tx + w, base + size * 0.12, Math.max(0.3, size * 0.06), f.color);
+            if (f.strike) G.line(tx, base - size * 0.3, tx + w, base - size * 0.3, Math.max(0.3, size * 0.06), f.color);
+          }
+        }
+        /* 4) เส้นขอบ */
+        const edge = (s, x1, y1, x2, y2, horiz) => {
+          if (!s) return;
+          const w = Math.max(0.3, (CAT_BORDER_W[s.style] || 0.6) * Math.max(sc, 0.7));
+          const dash = /dash/i.test(s.style) ? [3 * sc, 2 * sc] : s.style === 'dotted' ? [1 * sc, 1.2 * sc] : null;
+          if (s.style === 'double') { const d = 0.9 * sc; if (horiz) { G.line(x1, y1 - d, x2, y2 - d, 0.4, s.color); G.line(x1, y1 + d, x2, y2 + d, 0.4, s.color); } else { G.line(x1 - d, y1, x2 - d, y2, 0.4, s.color); G.line(x1 + d, y1, x2 + d, y2, 0.4, s.color); } }
+          else G.line(x1, y1, x2, y2, w, s.color, dash);
+        };
+        for (let r = r0; r <= r1; r++) for (let c = band[0]; c <= band[1]; c++) {
+          const o = cellOf(r, c); if (!o || !rowH[r] || !M.colW[c]) continue;
+          const x = X(colX[c]), y = Y(rowY[r]), w = M.colW[c] * sc, h = rowH[r] * sc, mi = mOf[r + ',' + c];
+          if (o.bt && !(mi != null && mOf[(r - 1) + ',' + c] === mi)) edge(o.bt, x, y, x + w, y, true);
+          if (o.bb && !(mi != null && mOf[(r + 1) + ',' + c] === mi)) edge(o.bb, x, y + h, x + w, y + h, true);
+          if (o.bl && !(mi != null && mOf[r + ',' + (c - 1)] === mi)) edge(o.bl, x, y, x, y + h, false);
+          if (o.br && !(mi != null && mOf[r + ',' + (c + 1)] === mi)) edge(o.br, x + w, y, x + w, y + h, false);
+        }
+        /* 5) รูปภาพ / โลโก้ */
+        for (const im of M.images) {
+          const tr = im.tl.nativeRow - im.R0, tc = im.tl.nativeCol - im.C0;
+          if (tr < r0 || tr > r1 || tc < band[0] || tc > band[1]) continue;
+          const ix = colX[Math.min(tc, NC)] + (im.tl.nativeColOff || 0) / 12700, iy = rowY[Math.min(tr, NR)] + (im.tl.nativeRowOff || 0) / 12700;
+          let iw, ih;
+          if (im.br) { const brr = Math.min(Math.max(im.br.nativeRow - im.R0, 0), NR), brc = Math.min(Math.max(im.br.nativeCol - im.C0, 0), NC); iw = colX[brc] + (im.br.nativeColOff || 0) / 12700 - ix; ih = rowY[brr] + (im.br.nativeRowOff || 0) / 12700 - iy; }
+          else if (im.extSz) { iw = im.extSz.width * 0.75; ih = im.extSz.height * 0.75; }
+          if (iw > 0 && ih > 0) { try { await G.image(im, X(ix), Y(iy), iw * sc, ih * sc); } catch (_) { notes.push(fileLabel + ' › ' + M.name + ': แสดงรูปภาพ 1 รูปไม่ได้'); } }
+        }
+        offY += (rowY[r1 + 1] - y0) * sc;
+      }
+      await G.endPage();
+      start = end; first = false;
+      if (nPages % 4 === 0) await tick();
+    }
+  }
+  if (G.snipCount()) notes.push(fileLabel + ' › ' + M.name + ': ข้อความที่มีอักษรไทย/อักษรพิเศษถูกวาดเป็นภาพข้อความ (อ่านได้ครบ แต่ค้นหา/คัดลอกข้อความส่วนนั้นไม่ได้)');
+  return { pages: nPages, notes: notes, kind: G.kind };
+}
+/* แปลง Excel ทั้งไฟล์ต่อท้าย PDF รวม: คืน {pages, notes} */
+async function catAppendSheetPdf(out, src) {
+  const label = src.name.split('/').pop();
+  const models = await catSheetModels(src);
+  let pages = 0, notes = [];
+  for (const M of models) { const r = await catRenderModel(out, M, label); pages += r.pages; notes = notes.concat(r.notes); }
+  return { pages: pages, notes: notes };
+}
+/* นำหน้า PDF ต้นฉบับมาต่อจริง: หน้า A4 แนวตั้งอยู่แล้ว = คัดลอกหน้าเดิมทั้งหน้า ;
+   ขนาด/แนวอื่น = วางหน้าเดิม (ไม่วาดใหม่) ลงบน A4 แนวตั้ง คงสัดส่วน ไม่ตัด ไม่หมุนข้อความ */
+async function catAppendPdfPages(out, from, idx) {
+  let fitted = 0;
+  for (const i of idx) {
+    const sp = from.getPage(i), sz = sp.getSize(), rot = ((sp.getRotation().angle % 360) + 360) % 360;
+    const ew = rot === 90 || rot === 270 ? sz.height : sz.width, eh = rot === 90 || rot === 270 ? sz.width : sz.height;
+    if (rot === 0 && Math.abs(ew - CAT_A4.w) <= 3 && Math.abs(eh - CAT_A4.h) <= 3) { const [cp] = await out.copyPages(from, [i]); out.addPage(cp); continue; }
+    const emb = await out.embedPage(sp);
+    const k = Math.min(CAT_A4.w / ew, CAT_A4.h / eh, 1), w = sz.width * k, h = sz.height * k, dw = ew * k, dh = eh * k;
+    const ox = (CAT_A4.w - dw) / 2, oy = (CAT_A4.h - dh) / 2;
+    const page = out.addPage([CAT_A4.w, CAT_A4.h]);
+    /* ชดเชยค่า /Rotate ของหน้าเดิม เพื่อให้ข้อความตั้งตรงเหมือนที่เห็นในโปรแกรมอ่าน PDF */
+    if (rot === 0) page.drawPage(emb, { x: ox, y: oy, width: w, height: h });
+    else if (rot === 90) page.drawPage(emb, { x: ox, y: oy + dh, width: w, height: h, rotate: PDFLib.degrees(-90) });
+    else if (rot === 180) page.drawPage(emb, { x: ox + dw, y: oy + dh, width: w, height: h, rotate: PDFLib.degrees(180) });
+    else page.drawPage(emb, { x: ox + dw, y: oy, width: w, height: h, rotate: PDFLib.degrees(90) });
+    fitted++;
+  }
+  return fitted;
+}
 
 </script>
 
