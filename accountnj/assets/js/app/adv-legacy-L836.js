@@ -749,7 +749,7 @@ export async function edit837(o) {
     return `<table class="e837-sum"><thead><tr><th>จำนวน INVOICE เดิม</th><th>เพิ่ม</th><th>นำออก</th><th>จำนวนใหม่</th><th>ยอดเดิม</th><th>ผลต่าง</th><th>ยอดใหม่</th></tr></thead><tbody><tr>`
       + `<td>${N(p.old.count)}</td><td class="pos">+${N(p.add_count)}</td><td class="neg">−${N(p.rem_count)}</td><td class="n">${N(p.new.count)}</td>`
       + `<td>${MONEY(p.old.amount)}</td><td class="${d < 0 ? "neg" : d > 0 ? "pos" : ""}">${d > 0 ? "+" : ""}${MONEY(d)}</td><td class="n">${MONEY(p.new.amount)}</td></tr></tbody></table>`
-      + (src === "RCP" ? `<div style="font-size:12px;color:#475569">ใบใหม่ : Invoice Amount ${MONEY(p.new.invoice_amount)} · WHT 7% ${MONEY(p.new.wht_amount)} · Payment Received ${MONEY(p.new.amount)} (สูตรเดิม · WHT ต่อ INVOICE ปัด 2 ตำแหน่ง · ไม่รวม ADVANCE)</div>`
+      + (src === "RCP" ? `<div style="font-size:12px;color:#475569">ใบใหม่ : Invoice Amount ${MONEY(p.new.invoice_amount)} · WHT 3% ${MONEY(p.new.wht_amount)} · Payment Received ${MONEY(p.new.amount)} (สูตรเดิม · WHT ต่อ INVOICE ปัด 2 ตำแหน่ง · ไม่รวม ADVANCE)</div>`
                      : '<div style="font-size:12px;color:#475569">ยอด = ADVANCE ที่ตรวจแล้วเท่านั้น (ไม่หัก WHT · ไม่ใช้ Total Amount แทน)</div>')
       + ((p.errors || []).length ? `<div class="radv788-err"><b>⚠ ยืนยันไม่ได้ :</b><ul>${p.errors.map((e) => `<li>${n(e)}</li>`).join("")}</ul></div>` : "")
       + (changed() && !(p.errors || []).length ? `<div class="e837-note">เมื่อยืนยัน : <b>VOID ${n(g.receipt_no)}</b> (เก็บเลข / รายการ / ยอด / PDF เดิมไว้ครบ) → ออกใบใหม่เลขถัดไป <b>${n(p.next_no || g.next_no)}</b> (ตัวนับส่วนกลาง · ออกเลขจริงเมื่อยืนยัน)`

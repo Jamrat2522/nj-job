@@ -1656,3 +1656,14 @@ function RT745(r) {
     return !!(r && pf && r.returned_at && String(r.operational_status || "") === "OPEN" && r.returned_by && String(r.returned_by) === String(pf.id) && MA575("DOCUMENT"));
   } catch (e) { return !1; }
 }
+
+/* V.840 : ช่องหมายเหตุ (textarea id ลงท้าย note) — Enter = ขึ้นบรรทัดใหม่ · ขยายความสูงตามจำนวนบรรทัด (เปิด / แก้ไข / พิมพ์) · ข้อความ / การเว้นบรรทัดไม่ถูกแก้ */
+(function () { try {
+  var NT840 = function (x) { if (!x || x.tagName !== "TEXTAREA" || !/note$/.test(x.id || "")) return; x.style.whiteSpace = "pre-wrap"; x.style.overflowY = "hidden"; x.style.height = "auto";
+    var h = x.scrollHeight + 2; x.style.height = Math.max(36, Math.min(h, 240)) + "px"; x.style.overflowY = h > 240 ? "auto" : "hidden"; };
+  document.addEventListener("input", function (e) { NT840(e.target); }, true);
+  document.addEventListener("focusin", function (e) { NT840(e.target); }, true);
+  new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var a = ms[i].addedNodes; for (var j = 0; j < a.length; j++) { var n = a[j]; if (n.nodeType !== 1) continue;
+    if (n.tagName === "TEXTAREA") NT840(n); else if (n.getElementsByTagName) { var t = n.getElementsByTagName("textarea"); for (var k = 0; k < t.length; k++) NT840(t[k]); } } } })
+    .observe(document.documentElement, { childList: true, subtree: true });
+} catch (e) {} })();

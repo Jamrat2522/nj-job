@@ -106,7 +106,7 @@ import{a as x}from"./chunk-OWSY2KDQ.js";import{a as p}from"./chunk-UWAYW6DC.js";
             ${u("pen")}
             <div class="apd-mini-b">
               <div class="apd-mini-t apd-mini-t2">NOTE / \u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</div>
-              <div class="apd-mini-n">${t(g)}</div>
+              <div class="apd-mini-n" style="white-space:pre-line">${t(g)}</div>
             </div>
           </div>`:""}
         </div>

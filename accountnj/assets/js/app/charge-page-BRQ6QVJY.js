@@ -1334,10 +1334,9 @@ function RP788(doc, counts, sample) {
         <div class="radv-kv3"><b>Customer Name</b><b>:</b><span>${n(NM790(C.name) || "-")}</span></div>
         <div class="radv-kv3"><b>Tax ID</b><b>:</b><span class="radv-tx"><span>${n(C.tax_id || "-")}</span><span class="radv-brn"><b>Branch :</b> ${n(BR790(C.branch_code))}</span></span></div>
         <div class="radv-kv3"><b>Address</b><b>:</b><span class="radv-addr">${n(C.address || "-")}</span></div></section>
-      <section class="radv-box radv-box-r"><span class="radv-tag">RECEIPT DETAILS</span>
+      <section class="radv-box radv-box-r" style="display:flex;flex-direction:column;justify-content:center"><span class="radv-tag">RECEIPT DETAILS</span>
         <div class="radv-kv3"><b>Receipt No.</b><b>:</b><span class="radv-no">${n(doc.receipt_no)}</span></div>
-        <div class="radv-kv3"><b>Receipt Date</b><b>:</b><span>${D788(doc.receipt_date)}</span></div>
-        <div class="radv-kv3"><b>Credit</b><b>:</b><span>${n(CR790(doc.credit))}</span></div></section>
+        <div class="radv-kv3"><b>Receipt Date</b><b>:</b><span>${D788(doc.receipt_date)}</span></div></section>
     </div>
     <table class="radv-tb"><colgroup><col style="width:9%"><col style="width:22%"><col style="width:17%"><col style="width:27%"><col style="width:25%"></colgroup>
       <thead><tr><th>No.</th><th>INVOICE NO.</th><th>Invoice Date</th><th class="l">Description</th><th class="r">Advance Amount</th></tr></thead>

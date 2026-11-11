@@ -23,7 +23,7 @@ import{b as u}from"./chunk-VS5POHCJ.js";import{a as j}from"./chunk-YM5GFE6V.js";
 
     <div class="jfd-line">${m(t.cargo_fcl)}<span class="lb">FCL \u0E08\u0E33\u0E19\u0E27\u0E19:</span>${r(t.qty_container,"g2")}
       <span class="lb">\u0E15\u0E39\u0E49</span>${m(t.cargo_lcl)}<span class="lb">LCL</span>
-      <span class="lb">MODE:</span>${r(t.note,"g1")}</div>
+      <span class="lb">MODE:</span><span class="jfd-fill g1" style="white-space:pre-line">${t.note==null||t.note===""?"":i(String(t.note))}</span></div>
 
     
     <div class="jfd-line">${L(t.lift_on_wharf_flag,t.lift_on_wharf_note)}<span class="lb">\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E04\u0E48\u0E32 Lift On / Wharf \u0E40\u0E1B\u0E47\u0E19:</span>${r(RC612(t.lift_on_wharf_note,t),"g1 jfd-rc613")}</div>
