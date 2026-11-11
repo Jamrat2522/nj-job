@@ -2466,6 +2466,7 @@ var CATEngine = (function () {
   'use strict';
 
   var TYPES = [
+    { code: '00', label: 'CARGO RECEIPT',      fname: 'CARGO' },
     { code: '01', label: 'ใบขน',               fname: 'ใบขน' },
     { code: '02', label: 'B/L',                fname: 'BL' },
     { code: '03', label: 'Commercial Invoice', fname: 'Commercial_Invoice' },
@@ -2624,6 +2625,7 @@ var CATEngine = (function () {
   function firstIdx(U, re) { var m = re.exec(U); return m ? m.index : -1; }
 
   /* จำแนกประเภทเอกสาร 01–07 จากเนื้อหา (ชื่อไฟล์ใช้เฉพาะเมื่ออ่านเนื้อหาไม่ได้) */
+  function nameU0(nameU) { return up(String(nameU || '').split(/[\\\/]/).pop()).replace(/^[\s_\-\(\)\[\]]+/, ''); }
   function classify(U, nameU) {
     U = U || '';
     if (!U.replace(/\s+/g, '')) {
@@ -2632,7 +2634,8 @@ var CATEngine = (function () {
       if (/PACKING| PK | PL | PKL /.test(N)) return '04';
       if (/ B\/?L | BL | AWB | HBL | MBL |WAYBILL|BILL OF LADING/.test(N)) return '02';
       if (/ใบอนุญาต|PERMIT|LICEN[SC]E|TISI|BOI/.test(N)) return '05';
-      if (/ใบงานรถ|CARGO|TRUCK/.test(N)) return '06';
+      if (/^ CARGO/.test(N) || /CARGO RECEIPT/.test(N)) return '00';
+      if (/ใบงานรถ|TRUCK|CARGO/.test(N)) return '06';
       return '07';
     }
     if (/TAX INVOICE|ใบกำกับภาษี|ใบแจ้งหนี้|ใบเสร็จรับเงิน|DEBIT NOTE|CREDIT NOTE|COPY INVOICE|FREIGHT INVOICE/.test(U)) return '07';
@@ -2643,7 +2646,9 @@ var CATEngine = (function () {
     if (pl >= 0) return '04';
     if (/BILL OF LADING|WAYBILL|ใบตราส่ง/.test(U) && /SHIPPER/.test(U) && /CONSIGNEE/.test(U)) return '02';
     if (/BOIRELEASEORDER|PERMIT\s*(?:NUMBER|NO)|IMPORT\s+PERMIT|IMPORT\s+LICEN[SC]E|LICEN[SC]E\s*(?:NUMBER|NO)|ใบอนุญาต|หนังสืออนุญาต|หนังสืออนุมัติ|หลักฐานการรับแจ้ง|สั่งปล่อย/.test(U)) return '05';
-    if (/CARGO RECEIPT|ใบงานรถ|ใบสั่งงานรถ|ใบปล่อยรถ|ใบกำกับการขนส่ง|ทะเบียนรถ|พนักงานขับรถ/.test(U)) return '06';
+    if (/CARGO\s+RECEIPT/.test(U)) return '00';
+    if (/ใบงานรถ|ใบสั่งงานรถ|ใบปล่อยรถ|ใบกำกับการขนส่ง|ทะเบียนรถ|พนักงานขับรถ/.test(U)) return '06';
+    if (/^CARGO/.test(nameU0(nameU))) return '00';           // ชื่อไฟล์ขึ้นต้น CARGO และเนื้อหาไม่ชี้ประเภทอื่น
     return '07';
   }
 
