@@ -2353,7 +2353,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local285';
+const EDCAPL_VERSION = 'local286';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -3407,7 +3407,7 @@ function kdcRunCheckCore(PMX){
         if(msg) out[out.length-1].msg = msg; }
       // ── B. เทียบ INVOICE (ห้ามฟิก) ──
       const invNote = (v, what) => kdcIsBlank(v) ? 'อ่าน ' + what + ' จาก INVOICE ไม่ได้' : '';
-      push(item,'consignee',   kdcCell(row,C.consignee),  invMeta.consignee,    eqText(kdcCell(row,C.consignee),  invMeta.consignee),    '', noCol(C.consignee,'consignee') || invNote(invMeta.consignee,'consignee (SHIP TO)'));
+      if(isFirst) push(item,'consignee',   kdcCell(row,C.consignee),  invMeta.consignee,    eqText(kdcCell(row,C.consignee),  invMeta.consignee),    '', noCol(C.consignee,'consignee') || invNote(invMeta.consignee,'consignee (SHIP TO)'));   /* [KDC] local286: consignee ตรวจ / แสดงเฉพาะรายการแรก (1 ครั้งต่อชุดเอกสาร) */
       push(item,'purcountry',  kdcCell(row,C.purCountry), invMeta.purCountry,   eqText(kdcCell(row,C.purCountry), invMeta.purCountry),   '', noCol(C.purCountry,'purcountry') || (invMeta.purCountry ? 'INVOICE SOLD TO: ' + invMeta.purCountryRaw : invNote('', 'ประเทศ SOLD TO')));
       push(item,'ประเทศปลายทาง', kdcCell(row,C.destCountry), invMeta.destCountry, eqText(kdcCell(row,C.destCountry), invMeta.destCountry), '', noCol(C.destCountry,'ประเทศปลายทาง') || (invMeta.destCountry ? 'INVOICE SHIP TO: ' + invMeta.destCountryRaw : invNote('', 'ประเทศ SHIP TO')));
       const invTerm = (()=>{ const k = kdcCell(row,C.invoiceNo).replace(/^0+/,''), m = invMeta.termByInv || {}; return (k && m[k] !== undefined) ? m[k] : invMeta.term; })();   /* [KDC] local272: TERM ของ INVOICE ที่ตรงกับ INVOICE NO. ของ ITEM */
@@ -6224,7 +6224,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     }
   }
   // ── [EDC8 39 หัวข้อ] ข้อมูลอ้างอิง INVOICE เพิ่ม: รายละเอียดจากไฟล์ Ford Invoice ต้นฉบับ (ไม่แก้ invParseFord) ──
-  const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set(), term:[], termItem:new Set() };   /* termItem = ITEM ใบขนที่ตรวจ TERM แล้ว (1 ครั้งต่อ ITEM) */
+  const _t39 = { det:new Map(), noCol:new Set(), firstInv:new Set(), term:[], termItem:new Set(), consDone:false };   /* consDone: local286 Consignee ตรวจเฉพาะรายการแรกของใบขน */   /* termItem = ITEM ใบขนที่ตรวจ TERM แล้ว (1 ครั้งต่อ ITEM) */
   if(_aatByPart) window.EDC8_REF = new Map();
   window.EDC8_DT219 = _aatByPart ? { bis:[], skip:[], other:[], nf:[] } : null;   /* [EDC8] ประเภทใบขน 219 → ตรวจ BIS29 ระดับใบขน (1 ครั้งต่อใบขน) */   /* [EDC8] ค่าอ้างอิงราย ITEM ทุกแหล่ง (INVOICE / MASTER APL) สำหรับแสดงพร้อมกัน */
   window.EDC8_PASS = _aatByPart ? [] : null;   /* [EDC8] ผลตรวจที่ถูกต้อง (บันทึก ณ จุดตรวจเดิม · ไม่เปลี่ยนเงื่อนไขถูก / ผิด) → แสดงครบทุกสถานะ หน้าจอ + Excel */
@@ -6286,7 +6286,7 @@ function edc8StrictValidate(entryWb, masterWb, mappingWb){
     C('Amount THB', 'amount thb', det && det.currency === 'THB' ? mr[M_EXT] : null, 'num', det ? 'INVOICE ไม่ใช่สกุล THB (ไม่มีอัตราแลกเปลี่ยน)' : noDet);
     C('SHIPPING MARK', 'SHIPPING MARK', mr[M_SM], 'text');
     /* [EDC8] TERM: ตรวจใน _t39Term (ทุก ITEM ของใบขน · local273) */
-    C('Consignee', 'consignee', det ? det.consignee : null, 'consignee', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet);
+    if(!_t39.consDone){ _t39.consDone = true; C('Consignee', 'consignee', det ? det.consignee : null, 'consignee', det ? 'อ่าน SHIP TO จาก INVOICE ไม่ได้' : noDet); }   /* [EDC8] local286: Consignee ตรวจ / แสดงเฉพาะรายการแรกของใบขน (1 ครั้งต่อชุดเอกสาร) · เงื่อนไขเทียบเดิม */
     C('Purcountry', 'purcountry', det ? det.purCountry : null, 'text', det ? 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้' : noDet);
     C('ประเทศปลายทาง', 'ประเทศปลายทาง', det ? det.destCountry : null, 'text', det ? 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้' : noDet);
     C('Exporter Name', 'exporter name', det ? [det.exporter, det.shippingMark] : null, 'alnum', det ? 'อ่าน SHIP FROM จาก INVOICE ไม่ได้' : noDet);
@@ -7175,7 +7175,7 @@ function edc1fzV2Run(){
   const partSum = new Map();
   items.forEach(it => { const k = nInv(cell(it.row,'inv'))+'|'+nPart(cell(it.row,'part')); if(!partSum.has(k)) partSum.set(k, { q:0, items:[] }); const o = partSum.get(k); o.q += num(cell(it.row,'qty')) || 0; o.items.push(it.disp); (o.its = o.its || []).push(it); });
   /* ── ราย ITEM ── */
-  let consRow = null; const consBad = [];   /* [EDC1 FZ] local283: Consignee แสดงเฉพาะรายการที่ 1 */
+  let consRow = null;   /* [EDC1 FZ] local286: Consignee ตรวจเฉพาะรายการแรก */
   items.forEach(it => { const I = it.disp, row = it.row, thai = cell(row,'thai'), tk = thaiKey(thai), isRadar = tk.indexOf(EDC1FZ_V2_RADAR.name) !== -1;
     if(it.rows.length > 1 && !isRadar) bad(I, 'ITEM LINE ซ้ำ', { decl:'พบ '+it.rows.length+' แถว (แถว Excel '+it.rowNums.join(', ')+')' }, 'Item line ซ้ำในใบขน');
     /* FIX */
@@ -7251,16 +7251,12 @@ function edc1fzV2Run(){
         if(needCol('mark','SHIPPING MARK')){ const mk = markOf(d.shippingMark) || markOf(d.meta && d.meta.shippingMark) || null;   /* local283: ว่างทั้งใบขนและ INVOICE = "-" (ไม่มีผลตรวจ) · มีฝั่งเดียว / ไม่ตรง = ❌ ตามเดิม */
           if(mk || T(cell(row,'mark'))) cmp(I, 'SHIPPING MARK', cell(row,'mark'), mk, 'inv', 'text', 'อ่าน SHIPPING MARK จาก INVOICE ไม่ได้'); }
         if(needCol('term','Term')) cmp(I, 'Term', cell(row,'term'), d.term || null, 'inv', 'text', 'ไม่พบ TERM ใน INVOICE '+d.invoiceNo);
-        if(needCol('consignee','Consignee')){ cmp(I, 'Consignee', cell(row,'consignee'), d.consignee || null, 'inv', 'consignee', 'อ่าน SHIP TO จาก INVOICE ไม่ได้');   /* local283: ตรวจทุกรายการ · แสดงเฉพาะรายการที่ 1 */
-          const cr = R.pop(); if(!consRow){ consRow = cr; R.push(cr); } else if(!/^✅/.test(cr.st)) consBad.push(cr); }
+        if(needCol('consignee','Consignee') && !consRow){ cmp(I, 'Consignee', cell(row,'consignee'), d.consignee || null, 'inv', 'consignee', 'อ่าน SHIP TO จาก INVOICE ไม่ได้'); consRow = R[R.length-1]; }   /* local286: ตรวจ / แสดงเฉพาะรายการแรก (ITEM 00002+ ไม่สร้างผลตรวจ Consignee) */
         if(needCol('purc','Purcountry')) cmp(I, 'Purcountry', cell(row,'purc'), d.purCountry || null, 'inv', 'text', 'อ่านประเทศ SOLD TO จาก INVOICE ไม่ได้');
         if(needCol('dest','ประเทศปลายทาง')) cmp(I, 'ประเทศปลายทาง', cell(row,'dest'), d.destCountry || null, 'inv', 'text', 'อ่านประเทศ SHIP TO จาก INVOICE ไม่ได้');
         if(needCol('exporter','Exporter Name')) cmp(I, 'Exporter Name', cell(row,'exporter'), (d.exporter || d.shippingMark) ? [d.exporter, d.shippingMark] : null, 'inv', 'company', 'อ่าน SHIP FROM จาก INVOICE ไม่ได้'); } }
   });
-  /* [EDC1 FZ] local283: Consignee — ผิดในรายการหลัง → สรุปผิดที่แถวรายการที่ 1 (ไม่ซ่อนข้อผิดพลาด · รูปแบบแถวเดิม) */
-  if(consRow && consBad.length){ const its = consBad.map(x => x.item).filter((x, i, a) => a.indexOf(x) === i);
-    if(/^✅/.test(consRow.st)){ const b = consBad[0]; consRow.decl = b.decl+' (ITEM '+its.join(', ')+')'; consRow.inv = b.inv; consRow.st = b.st; }
-    else consRow.decl = consRow.decl+' (ITEM '+[consRow.item].concat(its.filter(x => x !== consRow.item)).join(', ')+')'; }
+
   /* ── ระดับ INVOICE (ยอดรวม · ไม่นับซ้ำตามจำนวน ITEM) ── */
   const agg = vals => { const v = vals.map(num).filter(x => x !== null), nz = v.filter(x => x !== 0); if(!nz.length) return v.length ? 0 : null; if(nz.length === 1) return nz[0];
     if(nz.length === vals.length && nz.every(x => Math.abs(x - nz[0]) < 0.005)) return nz[0]; return r2(nz.reduce((a,b) => a+b, 0)); };
