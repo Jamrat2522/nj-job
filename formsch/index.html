@@ -2303,7 +2303,7 @@ input[type=file]{display:none}
         </div>
         <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด INVOICE EXCEL + EXCEL ต้นทุน → กด EXPORT EXCEL ครั้งเดียว → Download ZIP ทันที · จับต้นทุนจาก Prefix ของ Material Desc. · เลข INVOICE อ่านจาก INVOICE EXCEL โดยตรง</div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;margin-bottom:12px">
           <div class="hl-upload-card pdf-card" id="mcf-inv-card" onclick="document.getElementById('mcf-inv-inp').click()">
             <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
             <div class="hl-dz-title">① INVOICE EXCEL</div>
@@ -2320,7 +2320,7 @@ input[type=file]{display:none}
           </div>
         </div>
 
-        <div style="max-width:620px;margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2)">
+        <div style="width:100%;box-sizing:border-box;margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2)">
           <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">💱 อัตราแลกเปลี่ยน (ใช้คำนวณคอลัมน์ usd ของ MAPPING)</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--t2)">
             <span>FOB</span><span style="font-weight:700;color:#2ea043">×</span>
@@ -12852,6 +12852,19 @@ async function _mcfBuildMapping(recs){
   return await wb.xlsx.writeBuffer();
 }
 // ── FORM 2: MAPPING FORM CO (Template 48 คอลัมน์ · Arial 10 · ตรงตัวอย่าง 100%) ──
+// ── ดึง usd จากไฟล์ MAPPING (EXPORT Excel ใน ZIP เดียวกัน) · อ่านหัวคอลัมน์ "No." + "usd" (ไม่ยึดตำแหน่ง) ──
+//    คืน Map(No. → usd) · ตรวจ No. ว่าง/ซ้ำ · ไม่แปลงค่า (ปัดตอนเขียน FORM CO เท่านั้น)
+function _mcfUsdFromMapping(buf){
+  const wb=XLSX.read(buf,{type:'array'}); const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:true});
+  const hdr=(aoa[0]||[]).map(h=>_mcfS(h).toLowerCase());
+  const cNo=hdr.indexOf('no.'), cUsd=hdr.indexOf('usd');
+  if(cNo<0||cUsd<0) return {err:'ไฟล์ MAPPING ไม่พบคอลัมน์ '+[cNo<0?'No.':'',cUsd<0?'usd':''].filter(Boolean).join(' · ')};
+  const map=new Map(), dup=new Set();
+  for(let r=1;r<aoa.length;r++){ const rw=aoa[r]||[]; const no=_mcfS(rw[cNo]); if(no==='') continue;
+    if(map.has(no)) dup.add(no); map.set(no,_mcfN(rw[cUsd])); }
+  return {map,dup};
+}
+const _mcfR2 = v => Math.round((v+(v>=0?1:-1)*Number.EPSILON)*100)/100;
 async function _mcfBuildFormCO(inv,recs){
   const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet Excel');
   ws.properties.defaultColWidth=12.5546875; ws.properties.defaultRowHeight=15.75;
@@ -12869,12 +12882,13 @@ async function _mcfBuildFormCO(inv,recs){
     if(x.hsNum!=null) ws.getCell(r,11).value=x.hsNum;              // K  พิกัดสินค้า ← HS Code
     ws.getCell(r,14).value = x.costNo;                             // N  เลขที่ต้นทุน ← Cost
     ws.getCell(r,22).value = x.nameU;                              // V  ชื่อสินค้าที่แสดงในคำขอ
+    ws.getCell(r,23).value = x.nameU;                              // W  ชื่อสินค้าภาษาอังกฤษ / FIX ← ค่าเดียวกับ V
     ws.getCell(r,24).value = x.descU;                              // X  รายละเอียดสินค้า ← Material Desc.
     if(x.nw!=null) ws.getCell(r,30).value=x.nw;                    // AD Net Weight
     ws.getCell(r,31).value = 'KGM';                                // AE หน่วย
     if(x.gw!=null) ws.getCell(r,32).value=x.gw;                    // AF Gross Weight
     ws.getCell(r,33).value = 'KGM';                                // AG หน่วย
-    if(x.fob!=null) ws.getCell(r,36).value=x.fob;                  // AJ มูลค่า FOB ← FOB จาก Invoice
+    if(x.fobUsd!=null){ ws.getCell(r,36).value=x.fobUsd; ws.getCell(r,36).numFmt='0.00'; }   // AJ มูลค่า FOB ← usd ของไฟล์ MAPPING (INVOICE + No.) ปัด 2 ตำแหน่ง
     ws.getCell(r,40).value = 'RVC';                                // AN กฏว่าด้วยถิ่นกำเนิดสินค้า
     if(x.rvc!=null) ws.getCell(r,41).value=x.rvc;                  // AO % ของกฏ
   });
@@ -12926,6 +12940,22 @@ async function _mcfExport(){
     }
 
     const m1=await _mcfBuildMapping(recs);
+    // ── มูลค่า FOB (FORM CO) ← usd ของไฟล์ MAPPING ที่จะอยู่ใน ZIP เดียวกัน · จับคู่ INVOICE + No. · ไม่จับจากชื่อสินค้า ──
+    //    ไฟล์ MAPPING สร้างจาก INVOICE เดียวกัน (INV.inv) → จับคู่ด้วย No. · ไม่พบ/ว่าง/ซ้ำ → แจ้งเลขรายการ และไม่ Export (ไม่แทนด้วย FOB เดิมหรือ 0)
+    const UM=_mcfUsdFromMapping(m1);
+    if(UM.err) return fail(UM.err);
+    const usdBad=[];
+    recs.forEach(x=>{ const k=_mcfS(x.no);
+      if(k===''){ usdBad.push('แถว '+x.excelRow+' (ไม่มี No.)'); return; }
+      if(UM.dup.has(k)){ usdBad.push('No.'+k+' (No. ซ้ำ — จับคู่ไม่ได้)'); return; }
+      if(!UM.map.has(k)){ usdBad.push('No.'+k+' (ไม่พบในไฟล์ MAPPING)'); return; }
+      const u=UM.map.get(k); if(u==null){ usdBad.push('No.'+k+' (usd ว่าง)'); return; }
+      x.fobUsd=_mcfR2(u); });
+    if(usdBad.length){
+      const ub=[...new Set(usdBad)];
+      ub.forEach(t=>_mcfLog('✕ มูลค่า FOB (usd): '+t,'err'));
+      return fail('ดึง usd มาใส่มูลค่า FOB ไม่ได้ '+ub.length+' รายการ — ไม่ Export');
+    }
     const m2=await _mcfBuildFormCO(INV.inv,recs);
     const zip=new JSZip();
     zip.file(INV.inv+'.xlsx',m1);                        // MAPPING = เลข INVOICE โดยตรง
