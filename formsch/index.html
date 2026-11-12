@@ -13271,7 +13271,7 @@ async function _neoBuildMapping(D,recs){
     ws.getCell(r,3).value  = x.invSeq;                              // C  ลำดับรายการตาม INVOICE (ลำดับจริงใน Invoice)
     ws.getCell(r,4).value  = D.tr.no;                               // D  เลขที่ INVOICE ต่างประเทศ
     if(D.tr.date) ws.getCell(r,5).value = D.tr.date;                // E  วันที่
-    ws.getCell(r,6).value  = x.trSeq;                               // F  ลำดับรายการตาม INVOICE ต่างประเทศ (ลำดับจริงใน Invoice Tr)
+    ws.getCell(r,6).value  = x.trItemNo!=null?x.trItemNo:x.trItem;  // F  ลำดับรายการตาม INVOICE ต่างประเทศ ← Item จริงจาก Invoice Tr (10,20,…)
     if(x.hsNum!=null) ws.getCell(r,11).value = x.hsNum;             // K  พิกัดสินค้า
     ws.getCell(r,14).value = x.costNo;                              // N  เลขที่ต้นทุน
     if(x.costDate) ws.getCell(r,17).value = x.costDate;             // Q  วันที่ออกต้นทุน
@@ -13309,7 +13309,7 @@ async function _neoBuildExcel(D,recs){
   const last=recs.length+1, tr=recs.length+2; const K=['nw','gw','amtThb','amt3rd','usdThb','usd3rd'];
   for(let c=1;c<=11;c++){ if(c>=3&&c<=8) style(ws.getCell(tr,c),c); else ws.getCell(tr,c).font={name:'Times New Roman',size:10,color:{argb:'FF000000'}}; }
   for(let c=3;c<=8;c++){ const cell=ws.getCell(tr,c); const L=String.fromCharCode(64+c);
-    cell.value={formula:'SUM('+L+'2:'+L+last+')',result:_neoR2(recs.reduce((s,x)=>s+(x[K[c-3]]||0),0))}; }
+    cell.value={formula:'SUM('+L+'2:'+L+last+')',result:recs.reduce((s,x)=>s+(x[K[c-3]]||0),0)}; }   // ยอดรวม = ผลรวมของค่าความละเอียดเต็ม
   return await wb.xlsx.writeBuffer();
 }
 
@@ -13394,9 +13394,10 @@ async function _neoExport(){
       if(!c.d1) W.push(tag+': ต้นทุน '+c.no+' อ่านวันที่อนุมัติไม่ได้ — เว้นว่าง');
       const ruleOk=c.rule!=='' && c.rule!=='ไม่ระบุ'; const pctOk=(typeof c.pct==='number' && Number.isFinite(c.pct));
       if(!ruleOk) W.push(tag+': ต้นทุน '+c.no+' ไม่ระบุกฎถิ่นกำเนิด — เว้นว่าง');
-      recs.push({ item:recs.length+1, trSeq:t.pos, trItem:t.item, invSeq:v.seq, po:v.po, code:v.code, desc:v.desc,
+      const tn=_neoN(t.item);
+      recs.push({ item:recs.length+1, trSeq:t.pos, trItem:t.item, trItemNo:(tn!=null&&/^\d+$/.test(_neoS(t.item)))?tn:null, invSeq:v.seq, po:v.po, code:v.code, desc:v.desc,
         nw:sh.nw, gw:sh.gw, plItem:sh.item, amtThb:v.amt, amt3rd:t.amt,
-        usdThb:_neoR2(v.amt*RT.thb/RT.usd), usd3rd:_neoR2(t.amt*RT.oth/RT.usd),      // คำนวณเต็มความละเอียดก่อนปัด 2 ตำแหน่ง
+        usdThb:v.amt*RT.thb/RT.usd, usd3rd:t.amt*RT.oth/RT.usd,                     // เก็บความละเอียดเต็ม · ปัดเฉพาะการแสดงผล (numFmt 0.00) · ยอดรวมรวมจากค่าเต็ม
         reqName:cf.alias, costNo:c.no, costDate:c.d1, agr:c.agr, hsNum:hsD?Number(hsD):null,
         rule:ruleOk?c.rule:'', pct:(ruleOk&&pctOk)?_neoT2(c.pct):null, rvc:(_neoU(c.rule)==='RVC'&&pctOk)?_neoT2(c.pct):null, how:cf.how });
     });
