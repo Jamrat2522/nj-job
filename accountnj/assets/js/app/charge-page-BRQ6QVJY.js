@@ -1356,25 +1356,88 @@ function RP788(doc, counts, sample) {
   });
   return pages.join("");
 }
-/* ═══ V.856 · PDF ใบเสร็จ (RECEIPT / RECEIPT ADVANCE · ระบบใหม่ + ระบบเก่า · รวมใบที่ออกแล้ว) : หน้าละไม่เกิน 25 INVOICE
-   PG856(n) = แบ่ง 25 ต่อหน้า · MV856(c, i) = ย้าย 1 แถวสุดท้ายของหน้า i ไปหน้าถัดไป (ไม่มี = เพิ่มหน้า) แล้วเลื่อนส่วนเกิน 25 ต่อไปจนครบ ═══ */
-var PP856 = 25;
+/* ═══ V.860 · PDF ใบเสร็จ (RECEIPT / RECEIPT ADVANCE · ระบบใหม่ + ระบบเก่า · รวมใบที่ออกแล้วทั้งหมด) : แบ่งหน้าตามพื้นที่จริงของเอกสารแต่ละใบ
+   สาเหตุเดิม (V.856) ได้ 25 + 15 + 1 : เริ่มที่หน้าละ 25 แล้ว "ย้ายแถวท้ายหน้าไปหน้าถัดไปทีละแถว" — เมื่อหน้าสุดท้ายพื้นที่ไม่พอ
+   (หัวเอกสารสูงขึ้นตามที่อยู่ลูกค้า + ส่วนท้าย TOTAL / สรุป / ลงนาม) จึงเกิดหน้าใหม่ที่มีแถวเดียว แทนการกระจายรายการใหม่ทั้งเอกสาร
+   V.860 : วัดพื้นที่จริงจากเอกสารที่ Render แล้ว (ขอบบนแถวแรก · ความสูงแถว · ขอบล่างเหนือ Footer · ส่วนท้าย) → เพดานจำนวนแถวของหน้าทั่วไป / หน้าสุดท้าย
+           → ใช้จำนวนหน้าน้อยที่สุดที่ใส่ได้ แล้วกระจายรายการให้ใกล้เคียงกันทุกหน้า (ไม่เกิน 25 · ไม่มีหน้าที่เหลือรายการเดียวโดยไม่จำเป็น)
+           → ตรวจซ้ำหลัง Render จริง ถ้ายังล้น = ลดเพดานแล้วแบ่งใหม่ · ท้ายสุดกันไว้ด้วยการย้ายแถวทีละแถว (ไม่มีหน้าใดทับ Footer) ═══ */
+var PP856 = 25;   /* MAX_INVOICE_PER_PAGE */
 function PG856(n) { let c = []; n = Math.max(0, n | 0); if (!n) return [1]; for (let i = 0; i < n; i += PP856) c.push(Math.min(PP856, n - i)); return c; }
 function MV856(c, i) { c[i] -= 1; i + 1 < c.length ? (c[i + 1] += 1) : c.push(1); for (let j = i + 1; j < c.length; j++) if (c[j] > PP856) { let e = c[j] - PP856; c[j] = PP856; j + 1 < c.length ? (c[j + 1] += e) : c.push(e); } return c; }
-function RF788(doc, sample) {   /* V.856 : หน้าละไม่เกิน 25 INVOICE · แถวไม่ข้ามหน้า / ไม่ทับ Footer · TOTAL / สรุป / ลงนาม ต่อจากรายการสุดท้าย (ไม่พอ = เพิ่มหน้า) */
-  let items = doc.items || [], c = PG856(items.length);
-  if (!document.body) return RP788(doc, c, sample);
-  let box = document.createElement("div"); box.className = "radv788-doc"; box.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden"; document.body.appendChild(box);
-  let over = (pg) => { let ft = pg.querySelector(".radv-ft").getBoundingClientRect().top, b = 0; pg.querySelectorAll(".radv-in > *:not(.radv-stamp)").forEach((x) => { b = Math.max(b, x.getBoundingClientRect().bottom); }); return b > ft - 4; };
+function EV860(n, P, cN, cL) {   /* กระจาย n รายการลง P หน้าให้ใกล้เคียงกัน (หน้าสุดท้าย ≤ cL · หน้าอื่น ≤ cN · ทุกหน้า ≥ 1) */
+  if (P < 1 || n < P || (P - 1) * cN + cL < n) return null;
+  let c = [], b = Math.floor(n / P), r = n % P, i, j, q;
+  for (i = 0; i < P; i++) c.push(b + (i < r ? 1 : 0));
+  for (let g = 0, lim = 4 * P + 20; g < lim; g++) {
+    for (i = -1, q = 0; q < P; q++) if (c[q] > (q === P - 1 ? cL : cN)) { i = q; break; }
+    if (i < 0) break;
+    for (j = -1, q = 0; q < P; q++) { let m = q === P - 1 ? cL : cN; if (q !== i && c[q] < m && (j < 0 || c[q] < c[j])) j = q; }
+    if (j < 0) return null;
+    c[i] -= 1; c[j] += 1;
+  }
+  for (q = 0; q < P; q++) if (c[q] < 1 || c[q] > (q === P - 1 ? cL : cN)) return null;
+  return c;
+}
+function CT860(n, cN, cL) {   /* จำนวนหน้าน้อยที่สุดที่ใส่ได้ แล้วกระจายให้ใกล้เคียงกัน */
+  n = Math.max(0, n | 0); if (!n) return [1];
+  cN = Math.max(1, Math.min(PP856, cN | 0)); cL = Math.max(1, Math.min(cN, cL | 0));
+  for (let P = 1; P <= n; P++) { let c = EV860(n, P, cN, cL); if (c) return c; }
+  return PG856(n);
+}
+function MX860(box, px) {   /* วัดพื้นที่จริง → เพดานจำนวนแถว : หน้าทั่วไป (cN) / หน้าสุดท้าย (cL · เผื่อ TOTAL + สรุป + ลงนาม) */
+  let ps = [...box.querySelectorAll("." + px + "-pg")]; if (!ps.length) return null;
+  let ft = ps[0].querySelector("." + px + "-ft"); if (!ft) return null;
+  let lim = ft.getBoundingClientRect().top - 4;
+  let rs = (p) => [...p.querySelectorAll("table." + px + "-tb tbody tr")].filter((r) => !r.classList.contains(px + "-tot"));
+  let f = rs(ps[0]); if (!f.length) return null;
+  let y0 = f[0].getBoundingClientRect().top, hm = 0;
+  ps.forEach((p) => rs(p).forEach((r) => { let h = r.getBoundingClientRect().height; h > hm && (hm = h); }));
+  if (!(hm > 0.5) || !(lim - y0 > hm)) return null;
+  let lp = ps[ps.length - 1], lr = rs(lp), tail = 0;
+  if (lr.length) { let b = 0; lp.querySelectorAll("." + px + "-in > *:not(." + px + "-stamp)").forEach((z) => { let q = z.getBoundingClientRect().bottom; q > b && (b = q); });
+    tail = Math.max(0, b - lr[lr.length - 1].getBoundingClientRect().bottom); }
+  return { cN: Math.max(1, Math.min(PP856, Math.floor((lim - y0) / hm))), cL: Math.max(1, Math.min(PP856, Math.floor((lim - y0 - tail) / hm))) };
+}
+function ST860(px) {   /* บีบส่วนท้าย (ระยะห่าง / พื้นที่ลงนาม) เล็กน้อย — ใช้เฉพาะใบที่บีบแล้ว "ลดจำนวนหน้า" ได้ · ใบอื่นคงรูปแบบเดิมทุกจุด */
+  let id = "st860-" + px; if (document.getElementById(id)) return;
+  let s = document.createElement("style"); s.id = id;
+  s.textContent = "." + px + "-tight ." + px + "-sum,." + px + "-tight ." + px + "-sign{margin-top:2.4mm!important}"
+    + "." + px + "-tight ." + px + "-sign ." + px + "-box{min-height:30mm!important}"
+    + "." + px + "-tight ." + px + "-sp{height:10mm!important}." + px + "-tight ." + px + "-sp2{height:7mm!important}";
+  document.head.appendChild(s);
+}
+function PG860(n, cls, px, render) {   /* แบ่งหน้า + คืน HTML ที่ตรวจแล้ว (ใช้ร่วม RECEIPT / RECEIPT ADVANCE) */
+  let tg = 0, R = (cc, t) => { let h = render(cc); return t ? h.split('class="' + px + '-pg"').join('class="' + px + '-pg ' + px + '-tight"') : h; };
+  let c = PG856(n);
+  if (!document.body || n < 1) return R(c, 0);
+  ST860(px);
+  let box = document.createElement("div"); box.className = cls; box.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden"; document.body.appendChild(box);
+  let over = (p) => { let ft = p.querySelector("." + px + "-ft"); if (!ft) return !1; let t = ft.getBoundingClientRect().top, b = 0;
+    p.querySelectorAll("." + px + "-in > *:not(." + px + "-stamp)").forEach((z) => { let q = z.getBoundingClientRect().bottom; q > b && (b = q); }); return b > t - 4; };
+  let bad = () => [...box.querySelectorAll("." + px + "-pg")].findIndex((p, j) => over(p) && c[j] > 1);
   try {
-    for (let k = 0, lim = 3 * items.length + 20; k < lim; k++) {   /* เดิมจำกัด items + 2 รอบ (ย้ายทีละแถว) → เอกสารยาวล้นทับ Footer */
-      box.innerHTML = RP788(doc, c, sample);
-      let bad = [...box.querySelectorAll(".radv-pg")].findIndex((pg, i) => over(pg) && c[i] > 1);
-      if (bad < 0) break;
-      MV856(c, bad);
+    box.innerHTML = R(c, 0);   /* รอบวัด */
+    let m = MX860(box, px), c0 = m ? CT860(n, m.cN, m.cL) : null;
+    if (m && c0 && c0.length > 1) {   /* บีบส่วนท้าย : ใช้ต่อเมื่อจำนวนหน้าลดลงจริง */
+      box.innerHTML = R(c0, 1); let m2 = MX860(box, px), c1 = m2 ? CT860(n, m2.cN, m2.cL) : null;
+      if (c1 && c1.length < c0.length) { tg = 1; m = m2; c0 = c1; }
     }
-    return RP788(doc, c, sample);
+    c0 && (c = c0);
+    box.innerHTML = R(c, tg);
+    for (let r = 0; m && r < 8; r++) {   /* ตรวจหลัง Render จริง : ยังล้น = ลดเพดานแล้วแบ่งใหม่ */
+      let j = bad(); if (j < 0) break;
+      if (j === c.length - 1) m.cL = Math.max(1, Math.min(m.cL, c[j]) - 1); else { m.cN = Math.max(1, Math.min(m.cN, c[j]) - 1); m.cL > m.cN && (m.cL = m.cN); }
+      let c2 = CT860(n, m.cN, m.cL); if (!c2 || c2.join() === c.join()) break;
+      c = c2; box.innerHTML = R(c, tg);
+    }
+    for (let k = 0, lim = 3 * n + 20; k < lim; k++) { let j = bad(); if (j < 0) break; MV856(c, j); box.innerHTML = R(c, tg); }   /* กันไว้ท้ายสุด */
+    return R(c, tg);
   } finally { box.remove(); }
+}
+
+function RF788(doc, sample) {   /* V.860 : แบ่งหน้าตามพื้นที่จริง · หน้าละไม่เกิน 25 INVOICE · แถวไม่ข้ามหน้า / ไม่ทับ Footer · TOTAL / สรุป / ลงนาม ต่อจากรายการสุดท้าย */
+  return PG860((doc.items || []).length, "radv788-doc", "radv", (c) => RP788(doc, c, sample));
 }
 async function RW788(docs, o, host) {   /* Preview = DOM เดียวกับ PDF / Print · V.813 : แสดงเต็มหน้าจอ (PV813 · ไม่ใช้กรอบ Modal) · ปิด = o.back (กลับหน้าเดิม) */
   ST788();
