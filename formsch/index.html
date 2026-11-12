@@ -1064,6 +1064,11 @@ input[type=file]{display:none}
         🧾 MCI FORM
       </button>
 
+      <button class="sbi" id="nav-neo" onclick="navTo('neo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+        🧴 NEO
+      </button>
+
       <button class="sbi" id="nav-sch-weight" onclick="navTo('sch-weight')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z"/></svg>
         ⚖️ ตรวจน้ำหนัก SCH
@@ -2349,6 +2354,75 @@ input[type=file]{display:none}
         </div>
       </div>
 
+      <!-- ════════ 🧴 NEO (Invoice + PL + Invoice Tr PDF + EXCEL ต้นทุน → Mapping Form + สร้าง Excel → ZIP) ════════ -->
+      <div class="pview" id="page-neo" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <span>🧴</span> NEO — Mapping Form + สร้าง Excel
+        </div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px">อัปโหลด Invoice + PL + Invoice Tr + ต้นทุน → กด EXPORT ZIP ครั้งเดียว · เรียงรายการตาม Invoice Tr · จับคู่ด้วย PO / รหัสสินค้า / จำนวน (ไม่จับตามลำดับแถว) · ต้นทุนกรอบ AKFTA · ไม่บันทึกลงฐานข้อมูล</div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;width:100%;margin-bottom:12px">
+          <div class="hl-upload-card pdf-card" id="neo-inv-card" onclick="document.getElementById('neo-inv-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ea043" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 8h5"/></svg></div>
+            <div class="hl-dz-title">① Invoice</div>
+            <div class="hl-dz-sub">.pdf (Invoice ไทย · สกุล THB)</div>
+            <div class="hl-dz-fname" id="neo-inv-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="neo-inv-inp" accept=".pdf" style="display:none">
+          </div>
+          <div class="hl-upload-card pdf-card" id="neo-pl-card" onclick="document.getElementById('neo-pl-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#388bfd" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+            <div class="hl-dz-title">② PL (Packing List)</div>
+            <div class="hl-dz-sub">.pdf (น้ำหนักจาก SHIPMENT DETAILS)</div>
+            <div class="hl-dz-fname" id="neo-pl-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="neo-pl-inp" accept=".pdf" style="display:none">
+          </div>
+          <div class="hl-upload-card pdf-card" id="neo-tr-card" onclick="document.getElementById('neo-tr-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a371f7" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg></div>
+            <div class="hl-dz-title">③ Invoice Tr (Third Party)</div>
+            <div class="hl-dz-sub">.pdf (ลำดับหลักของการ Export)</div>
+            <div class="hl-dz-fname" id="neo-tr-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="neo-tr-inp" accept=".pdf" style="display:none">
+          </div>
+          <div class="hl-upload-card pdf-card" id="neo-cost-card" onclick="document.getElementById('neo-cost-inp').click()">
+            <div class="hl-dz-icon pdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d29922" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M16 3v18M3 16h13"/></svg></div>
+            <div class="hl-dz-title">④ ต้นทุน</div>
+            <div class="hl-dz-sub">.xls / .xlsx (รวมข้อมูลต้นทุน)</div>
+            <div class="hl-dz-fname" id="neo-cost-name">ยังไม่ได้เลือก</div>
+            <input type="file" id="neo-cost-inp" accept=".xls,.xlsx" style="display:none">
+          </div>
+        </div>
+
+        <div style="width:100%;box-sizing:border-box;margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--s2)">
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">💱 อัตราแลกเปลี่ยน (บาทต่อ 1 หน่วยสกุลเงิน)</div>
+          <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--t2)">
+            <label style="display:inline-flex;align-items:center;gap:8px"><b style="color:#2ea043">THB</b>
+              <input type="number" step="any" min="0" id="neo-rate-thb" value="1.000" oninput="_neoPreview()"
+                     style="width:120px;padding:6px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s1);color:var(--t1);font-family:inherit;font-size:12px"></label>
+            <label style="display:inline-flex;align-items:center;gap:8px"><b style="color:#388bfd">USD</b>
+              <input type="number" step="any" min="0" id="neo-rate-usd" value="33.0188" oninput="_neoPreview()"
+                     style="width:120px;padding:6px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s1);color:var(--t1);font-family:inherit;font-size:12px"></label>
+            <label style="display:inline-flex;align-items:center;gap:8px"><b style="color:#a371f7">Other <span id="neo-oth-cur" style="font-weight:600"></span></b>
+              <input type="number" step="any" min="0" id="neo-rate-oth" value="0.0241" oninput="_neoPreview()"
+                     style="width:120px;padding:6px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s1);color:var(--t1);font-family:inherit;font-size:12px"></label>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:6px">
+            FOB USD INV.THB = มูลค่า THB × อัตรา THB ÷ อัตรา USD · FOB USD INV.3RD = มูลค่า Invoice Tr × อัตรา Other ÷ อัตรา USD · Other = สกุลเงินของ Invoice Tr
+          </div>
+          <div id="neo-rate-eg" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <button id="neo-export-btn" onclick="_neoExport()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:6px;background:#1f6feb;color:#fff;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">📦 EXPORT ZIP</button>
+          <button onclick="_neoClear()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;background:none;border:1px solid var(--bd);color:var(--t2);font-family:inherit;font-size:13px;cursor:pointer">✕ ล้างไฟล์</button>
+        </div>
+
+        <div id="neo-summary" style="width:100%;margin-bottom:12px"></div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📜 LOG</div>
+          <div id="neo-log" style="max-height:260px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
+        </div>
+      </div>
+
       <!-- ════════ REPORT FORMSCH MANAGEMENT ════════ -->
       <!-- ════════ ⚖️ ตรวจน้ำหนัก SCH (ย้ายจาก Source เดิม · browser-only · prefix schw) ════════ -->
       <div class="pview" id="page-sch-weight" style="font-family:'IBM Plex Sans','Noto Sans Thai',sans-serif;font-size:14px;line-height:1.5">
@@ -3056,7 +3130,7 @@ function navTo(page){
   }
   const shownPage = (page==='report-form') ? 'report' : page;   // REPORT FORM = ใช้หน้า/ข้อมูล (page-report · RPT_DATA · report_formsch) ชุดเดียวกับ REPORT FORMSCH — ไม่แยกระบบ/ตาราง/state
   window.rptFormMode = (page==='report-form');                  // REPORT FORM: ซ่อนลูกค้า SCH ทุกจุด (แสดงผลเท่านั้น) · REPORT FORMSCH: แสดงครบ
-  ['mapping','mapping-ben','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','thai-inaba','mci-form','sch-weight','report'].forEach(p=>{
+  ['mapping','mapping-ben','members','merge','sc-mapping','sc-highlight','xpdf','letter','imp','pmerge','mci','prename','pdf2img','thaiglico','thai-inaba','mci-form','neo','sch-weight','report'].forEach(p=>{
     document.getElementById('page-'+p)?.classList.toggle('on',p===shownPage);
     document.getElementById('nav-'+p)?.classList.toggle('act',p===page);
   });
@@ -3072,14 +3146,15 @@ function navTo(page){
     'thaiglico':'🇹🇭 Thai Glico',
     'thai-inaba':'🇹🇭 Thai Inaba CO',
     'mci-form':'🧾 MCI FORM',
+    'neo':'🧴 NEO',
     'sch-weight':'ตรวจน้ำหนัก SCH',
     'report':'REPORT FORMSCH MANAGEMENT',
     'report-form':'REPORT FORM'
   };
-  const tags={mapping:'SCHAEFFLER','mapping-ben':'BEN',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','thai-inaba':'INABA','mci-form':'MCI','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
+  const tags={mapping:'SCHAEFFLER','mapping-ben':'BEN',members:'ADMIN',merge:'MERGE','sc-mapping':'SCHAEFFLER','sc-highlight':'PDF TOOL','xpdf':'EXCEL→PDF','letter':'DOCX','imp':'MATCH','pmerge':'PDF MERGE','mci':'MCI','prename':'PDF RENAME','pdf2img':'PDF→IMG','thaiglico':'GLICO','thai-inaba':'INABA','mci-form':'MCI','neo':'NEO','sch-weight':'SCH','report':'REPORT','report-form':'REPORT'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   const tagEl=document.getElementById('tb-tag');
-  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='mapping-ben'?'#6e40c9':page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='thai-inaba'?'#1f6feb':page==='mci-form'?'#d29922':(page==='report'||page==='report-form')?'#8a6d3b':'';}
+  if(tagEl){tagEl.textContent=tags[page]||'';tagEl.style.background=page==='mapping-ben'?'#6e40c9':page==='sc-highlight'?'#388bfd':page==='xpdf'?'#a371f7':page==='letter'?'#388bfd':page==='imp'?'#f0883e':page==='pmerge'?'#388bfd':page==='mci'?'#d29922':page==='prename'?'#2ea043':page==='pdf2img'?'#e0679a':page==='thaiglico'?'#d0342c':page==='thai-inaba'?'#1f6feb':page==='mci-form'?'#d29922':page==='neo'?'#a371f7':(page==='report'||page==='report-form')?'#8a6d3b':'';}
   if(page==='sch-weight' && typeof schwBind==='function') schwBind();   // ⚖️ ตรวจน้ำหนัก SCH — ผูก Drag&Drop + วาดรายการไฟล์
   if(page==='pmerge' && typeof _pmBind==='function') _pmBind();
   if(page==='mci' && typeof _mciBind==='function') _mciBind();
@@ -3088,6 +3163,7 @@ function navTo(page){
   if(page==='thaiglico' && typeof _tgBind==='function') _tgBind();
   if(page==='thai-inaba' && typeof _ticBind==='function') _ticBind();
   if(page==='mci-form' && typeof _mcfBind==='function') _mcfBind();
+  if(page==='neo' && typeof _neoBind==='function') _neoBind();
   if((page==='report'||page==='report-form') && typeof _rptBind==='function') _rptBind();
   if(page==='members'){
     syncMembersFromSupabase();   // pull latest from Supabase before render
@@ -12977,6 +13053,393 @@ async function _mcfExport(){
     if(typeof toast==='function') toast('Export สำเร็จ — '+INV.inv+'.zip','success');
   }catch(err){ console.error('[MCI FORM]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
   finally{ if(btn){ btn.disabled=false; btn.style.opacity='1'; } }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  🧴 NEO — Invoice + PL + Invoice Tr (PDF) + EXCEL ต้นทุน → Mapping Form.xlsx + สร้าง Excel.xlsx → ZIP
+//  prefix: _neo  ·  โหมดใหม่แยกอิสระ · ไม่แตะ MCI FORM / โหมดอื่น · ไม่แตะ Supabase
+//  ลำดับหลัก = Invoice Tr · จับคู่ Tr↔Invoice ด้วย PO(FPA ID)+รหัสสินค้า+จำนวน · Invoice↔PL ด้วย PO+รหัส+จำนวน → SHIPMENT DETAILS ด้วยชื่อ+จำนวน Case
+//  ต้นทุน: กรอบ AKFTA เท่านั้น · ชื่อตรงตัวก่อน → คำครบเรียงลำดับ · หลายรายการ/ไม่พบ = แจ้ง ไม่ Export
+// ══════════════════════════════════════════════════════════════════════════════
+const neoState={ inv:null, pl:null, tr:null, cost:null };
+const NEO_AGREEMENT='AKFTA';
+const _neoS  = v => String(v==null?'':v).replace(/\s+/g,' ').trim();
+const _neoU  = v => _neoS(v).toUpperCase();
+const _neoN  = v => { if(v==null||v==='') return null;
+  const n=Number(String(v).replace(/,/g,'').trim()); return Number.isFinite(n)?n:null; };
+const _neoR2 = v => Math.round((v+(v>=0?1:-1)*Number.EPSILON)*100)/100;   // ปัด 2 ตำแหน่ง (มูลค่า FOB)
+const _neoT2 = v => Math.floor(v*100+1e-7)/100;                            // ตัด 2 ตำแหน่ง (RVC ตามไฟล์ตัวอย่าง)
+const _neoEsc= v => String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const _neoFmt= (v,d) => (v==null?'':Number(v).toLocaleString('en-US',{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d}));
+
+function _neoLog(msg,type){ const box=document.getElementById('neo-log'); if(!box) return;
+  const c=type==='err'?'#f85149':type==='warn'?'#d29922':type==='ok'?'#2ea043':'var(--t3)';
+  box.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:'+c+';padding:1px 0">'+_neoEsc(msg)+'</div>');
+  box.scrollTop=box.scrollHeight; }
+
+function _neoBind(){
+  [['neo-inv-inp','inv','neo-inv-name'],['neo-pl-inp','pl','neo-pl-name'],['neo-tr-inp','tr','neo-tr-name'],['neo-cost-inp','cost','neo-cost-name']].forEach(([id,key,lbl])=>{
+    const el=document.getElementById(id); if(!el||el.dataset.neoBound) return; el.dataset.neoBound='1';
+    el.addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return;
+      neoState[key]=f; const n=document.getElementById(lbl); if(n){ n.textContent=f.name; n.style.color='#2ea043'; }
+      if(key==='tr'){ try{ const T=_neoParseTr(await _neoPdfLines(f)); _neoSetOtherCur(T.cur); }catch(_){ _neoSetOtherCur(''); } } });
+  });
+  _neoPreview();
+}
+function _neoSetOtherCur(cur){ const el=document.getElementById('neo-oth-cur'); if(el) el.textContent=cur?('('+cur+')'):''; }
+function _neoRates(){
+  const g=id=>_neoN((document.getElementById(id)||{}).value);
+  return { thb:g('neo-rate-thb'), usd:g('neo-rate-usd'), oth:g('neo-rate-oth') };
+}
+function _neoRateErr(RT){
+  const bad=[]; [['THB',RT.thb],['USD',RT.usd],['Other',RT.oth]].forEach(([k,v])=>{ if(v==null||!(v>0)) bad.push(k); });
+  return bad.length?('อัตราแลกเปลี่ยน '+bad.join(' · ')+' ต้องเป็นตัวเลขมากกว่า 0'):'';
+}
+function _neoPreview(){
+  const el=document.getElementById('neo-rate-eg'); if(!el) return;
+  const RT=_neoRates(); const e=_neoRateErr(RT);
+  if(e){ el.innerHTML='<span style="color:#d29922">'+_neoEsc(e)+'</span>'; return; }
+  el.innerHTML='ตัวอย่าง: 1,000.00 THB → <b style="color:var(--t1)">'+_neoFmt(_neoR2(1000*RT.thb/RT.usd))+'</b> USD · 1,000,000 Other → <b style="color:var(--t1)">'+_neoFmt(_neoR2(1000000*RT.oth/RT.usd))+'</b> USD';
+}
+function _neoClear(){
+  neoState.inv=null; neoState.pl=null; neoState.tr=null; neoState.cost=null;
+  [['neo-rate-thb','1.000'],['neo-rate-usd','33.0188'],['neo-rate-oth','0.0241']].forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
+  ['neo-inv-inp','neo-pl-inp','neo-tr-inp','neo-cost-inp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['neo-inv-name','neo-pl-name','neo-tr-name','neo-cost-name'].forEach(id=>{ const n=document.getElementById(id); if(n){ n.textContent='ยังไม่ได้เลือก'; n.style.color=''; } });
+  _neoSetOtherCur(''); _neoPreview();
+  const lg=document.getElementById('neo-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('neo-summary'); if(sm) sm.innerHTML='';
+}
+
+// ── PDF → บรรทัดข้อความ (รวม text item ที่อยู่ระดับ y เดียวกัน · เรียงซ้าย→ขวา · เก็บตำแหน่ง x ไว้หาค่าที่อยู่ใต้หัวข้อ) ──
+async function _neoPdfLines(file){
+  const lib=(typeof getPdfJs==='function')?getPdfJs():window.pdfjsLib;
+  if(!lib) throw new Error('pdf.js ยังไม่โหลด — refresh หน้าใหม่');
+  const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const out=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const page=await doc.getPage(p); const tc=await page.getTextContent();
+    const its=tc.items.filter(i=>i.str&&i.str.trim()!=='').map(i=>({x:i.transform[4],y:i.transform[5],s:i.str.replace(/\s+/g,' ').trim()}));
+    its.sort((a,b)=>(b.y-a.y)||(a.x-b.x));
+    const rows=[]; let cur=null;
+    its.forEach(i=>{ if(!cur||Math.abs(cur.y-i.y)>2.5){ cur={y:i.y,it:[]}; rows.push(cur); } cur.it.push(i); });
+    rows.forEach(r=>{ r.it.sort((a,b)=>a.x-b.x); out.push({page:p,y:r.y,it:r.it,text:r.it.map(i=>i.s).join(' ').replace(/\s+/g,' ').trim()}); });
+  }
+  return out;
+}
+// ค่าที่อยู่ใต้หัวข้อ (คอลัมน์ x เดียวกัน · หน้าเดียวกัน · ภายใน 4 บรรทัดถัดไป)
+function _neoBelow(L,idx,x){
+  for(let k=idx+1;k<L.length && k<=idx+4;k++){ if(L[k].page!==L[idx].page) break;
+    const hit=L[k].it.filter(i=>Math.abs(i.x-x)<=30).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0];
+    if(hit) return hit.s; }
+  return '';
+}
+const NEO_MON={JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+// "OCTOBER 19, 2026" · "19-OCT-2026" · "19 OCT 2026" → Date (UTC เที่ยงคืน) · อ่านไม่ได้ = null
+function _neoDate(s){
+  const t=_neoU(s); let m=t.match(/^([A-Z]{3})[A-Z]*\.?\s+(\d{1,2})\s*,?\s*(\d{4})$/);
+  let d,mo,y;
+  if(m){ mo=NEO_MON[m[1]]; d=+m[2]; y=+m[3]; }
+  else if((m=t.match(/^(\d{1,2})[-\s\/]([A-Z]{3})[A-Z]*[-\s\/,]+(\d{4})$/))){ d=+m[1]; mo=NEO_MON[m[2]]; y=+m[3]; }
+  else return null;
+  if(mo==null||!(d>=1&&d<=31)) return null;
+  const dt=new Date(Date.UTC(y,mo,d)); return (dt.getUTCDate()===d)?dt:null;
+}
+const _neoDstr = d => d?(String(d.getUTCDate()).padStart(2,'0')+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+d.getUTCFullYear()):'';
+
+// ── ① Invoice (ไทย) : เลขที่ · วันที่ · สกุลเงิน · รายการ (รหัส · PO · ชื่อ · จำนวน · มูลค่า) ──
+function _neoParseInvoice(L){
+  const o={no:'',date:null,cur:'',rows:[],total:null};
+  for(let i=0;i<L.length;i++){ const t=L[i].text;
+    if(!o.no){ const h=L[i].it.find(x=>/^INVOICE\s*NO\.?\s*:?$/i.test(x.s));
+      if(h) o.no=_neoS(_neoBelow(L,i,h.x));
+      else { const m=t.match(/INVOICE\s*NO\.?\s*:\s*(\S.*)$/i); if(m) o.no=_neoS(m[1]); } }
+    if(!o.date){ const m=t.replace(/LOADING\s+DATE\s*:?/ig,' ').match(/(?:^|\s)DATE\s*:\s*([A-Za-z]{3,9}\.?\s+\d{1,2}\s*,?\s*\d{4}|\d{1,2}[-\s\/][A-Za-z]{3,9}[-\s\/]\d{4})/i);
+      if(m) o.date=_neoDate(m[1]); }
+    if(!o.cur){ const m=t.match(/CURRENCY\s*\(\s*([A-Z]{3})\s*\)/i); if(m) o.cur=m[1].toUpperCase(); }
+    const m=t.match(/^(\d{5,9})\s+(\d{10,})\s+(\d{8,12})\s+(.+?)\s+([\d,]+)\s+([\d,]+\.\d+)\s+([\d,]+\.\d{2})$/);
+    if(m){ o.rows.push({seq:o.rows.length+1,code:m[1],cust:m[2],po:m[3],desc:_neoS(m[4]),qty:_neoN(m[5]),price:_neoN(m[6]),amt:_neoN(m[7])}); continue; }
+    if(o.total==null && o.rows.length){ const tm=t.match(/^(?:FCA|FOB|CIF|CFR|EXW|TOTAL)\b[^\d]*([\d,]+\.\d{2})$/i); if(tm) o.total=_neoN(tm[1]); }
+  }
+  return o;
+}
+// ── ② PL : รายการ Pallet แยกตาม PO# + ตาราง "SHIPMENT DETAILS" (Item · ชื่อ · Case · Net · Gross) ──
+function _neoParsePL(L){
+  const o={groups:{},ship:[],total:null,unit:'',hasShip:false};
+  let po='', inShip=false;
+  for(let i=0;i<L.length;i++){ const t=L[i].text;
+    if(/SHIPMENT\s+DETAILS/i.test(t)){ inShip=true; o.hasShip=true; continue; }
+    if(!inShip){
+      const pm=t.match(/PO\s*#\s*(\d{6,})/i); if(pm){ po=pm[1]; continue; }
+      const m=t.match(/^(\d+)\s+(\d{5,9})\s+(.+?)\s+(\d{6})\s+(\d{6})\s+(\d{6})\s+([\d,]+)\s+(\d+)\s+(\d+)$/);
+      if(m && po){ const k=po+'|'+m[2]; const g=o.groups[k]||(o.groups[k]={po,code:m[2],desc:_neoS(m[3]),pcs:0,cases:0,pallets:0});
+        g.pcs+=_neoN(m[7]); g.cases+=_neoN(m[8]); g.pallets++; }
+      continue;
+    }
+    if(!o.unit && /\(\s*KGS?\.?\s*\)/i.test(t)) o.unit='KGM';
+    const tm=t.match(/^TOTAL\s*:?\s*([\d,]+)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)$/i);
+    if(tm){ o.total={cases:_neoN(tm[1]),nw:_neoN(tm[2]),gw:_neoN(tm[3])}; continue; }
+    const m=t.match(/^(\d+)\s+(.+?)\s+([\d,]+)\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)$/);
+    if(m && !o.total) o.ship.push({item:_neoN(m[1]),desc:_neoS(m[2]),cases:_neoN(m[3]),nw:_neoN(m[4]),gw:_neoN(m[5]),used:false});
+  }
+  return o;
+}
+// ── ③ Invoice Tr : เลขที่ · วันที่ · สกุลเงิน · รายการ (Item · Customer item Code · FPA ID · จำนวน · มูลค่า) ──
+function _neoParseTr(L){
+  const o={no:'',date:null,cur:'',rows:[],total:null}; let cur=null;
+  for(let i=0;i<L.length;i++){ const t=L[i].text;
+    if(!o.no){ const h=L[i].it.find(x=>/^Invoice\s*No\.?\s*:?$/i.test(x.s)); if(h) o.no=_neoS(_neoBelow(L,i,h.x)); }
+    if(!o.date){ const h=L[i].it.find(x=>/^Invoice\s*Date\s*:?$/i.test(x.s)); if(h) o.date=_neoDate(_neoBelow(L,i,h.x)); }
+    if(!o.cur){ const m=t.match(/Amount\s*\(\s*([A-Z]{3})\s*\)/i); if(m) o.cur=m[1].toUpperCase(); }
+    const m=t.match(/^(\d{1,5})\s+Supplier\s+Item\s+Code\s*:\s*(\d+)\b(.*)$/i);
+    if(m){ const n=m[3].match(/([\d,]+)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)$/);
+      cur={pos:o.rows.length+1,item:m[1],sup:m[2],qty:n?_neoN(n[1]):null,price:n?_neoN(n[2]):null,amt:n?_neoN(n[3]):null,cust:'',po:''};
+      o.rows.push(cur); continue; }
+    if(cur){ let x=t.match(/Customer\s+item\s+Code\s*:\s*(\S+)/i); if(x && !cur.cust) cur.cust=x[1];
+      x=t.match(/FPA\s*ID\s*:\s*(\d+)/i); if(x && !cur.po) cur.po=x[1]; }
+    if(o.total==null){ const tm=t.match(/Invoice\s+Total\s+[A-Z]{3}\s+([\d,]+(?:\.\d+)?)/i); if(tm) o.total=_neoN(tm[1]); }
+  }
+  return o;
+}
+// ── ④ ต้นทุน (Excel "รวมข้อมูลต้นทุน") : อ่านจากหัวคอลัมน์ ไม่ยึดตำแหน่ง ──
+function _neoXlDate(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number' && Number.isFinite(v)) return new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);
+  const m=_neoS(v).match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if(m){ let y=+m[3]; if(y>2400) y-=543; const d=new Date(Date.UTC(y,+m[2]-1,+m[1])); return d.getUTCDate()===+m[1]?d:null; }
+  return null;
+}
+function _neoReadCost(wb){
+  const H={agr:'กรอบความตกลงทางการค้า',name:'ชื่อสินค้าภาษาอังกฤษ',hs:'พิกัดศุลกากร',no:'เลขที่อนุมัติ',d1:'วันที่อนุมัติ',d2:'วันหมดอายุ',rule:'กฎถิ่นกำเนิดสินค้า',pct:'กฎถิ่นกำเนิดสินค้า%'};
+  for(const sn of wb.SheetNames){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    for(let r=0;r<Math.min(aoa.length,30);r++){
+      const hd=(aoa[r]||[]).map(h=>_neoS(h).replace(/\s+/g,''));
+      if(hd.indexOf(H.no)<0||hd.indexOf(H.name)<0) continue;
+      const C={}; const miss=[]; Object.keys(H).forEach(k=>{ C[k]=hd.indexOf(H[k]); if(C[k]<0) miss.push(H[k]); });
+      if(miss.length) return {err:'ไฟล์ต้นทุน: ไม่พบคอลัมน์ '+miss.join(' · ')};
+      const list=[];
+      for(let rr=r+1;rr<aoa.length;rr++){ const rw=aoa[rr]||[]; const nm=_neoS(rw[C.name]); const no=_neoS(rw[C.no]); if(nm===''&&no==='') continue;
+        const pct=(typeof rw[C.pct]==='number')?rw[C.pct]:_neoN(rw[C.pct]);
+        list.push({ excelRow:rr+1, agr:_neoU(rw[C.agr]), aliases:nm.split(/\s+or\s+/i).map(_neoS).filter(Boolean), hs:_neoS(rw[C.hs]), no,
+          d1:_neoXlDate(rw[C.d1]), d2:_neoXlDate(rw[C.d2]), d2raw:_neoS(rw[C.d2]), rule:_neoS(rw[C.rule]), pct }); }
+      return {sheet:sn,list};
+    }
+  }
+  return {err:'ไฟล์ต้นทุน: ไม่พบหัวคอลัมน์ "เลขที่อนุมัติ" / "ชื่อสินค้าภาษาอังกฤษ"'};
+}
+// ชื่อสินค้า Invoice → key จับคู่ต้นทุน (ตัดขนาดบรรจุท้ายชื่อ เช่น "1X100G" · "100G")
+const _neoKey = d => _neoU(d).replace(/\s+\d+\s*X\s*\d+(?:\.\d+)?\s*(?:G|GM|ML|KG|L)?\.?$/,'').replace(/\s+\d+(?:\.\d+)?\s*(?:G|GM|ML|KG|L)\.?$/,'').trim();
+function _neoSubseq(need,have){ let j=0; for(let i=0;i<have.length && j<need.length;i++){ if(have[i]===need[j]) j++; } return j===need.length; }
+// คืน {hit, alias, how} หรือ {err}
+function _neoFindCost(list,desc,invDate){
+  const key=_neoKey(desc); if(key==='') return {err:'ชื่อสินค้าว่าง'};
+  const pool=list.filter(c=>c.agr===NEO_AGREEMENT);
+  const pick=fn=>{ const seen={}; const out=[];
+    pool.forEach(c=>{ const al=c.aliases.find(a=>fn(_neoU(a))); if(al && !seen[c.no]){ seen[c.no]=1; out.push({c,alias:al}); } }); return out; };
+  let how='ตรงตัว', cand=pick(a=>a===key);
+  if(!cand.length){ how='คำครบเรียงลำดับ'; const need=key.split(' '); cand=pick(a=>_neoSubseq(need,a.split(' '))); }
+  if(!cand.length) return {err:'ไม่พบต้นทุนกรอบ '+NEO_AGREEMENT+' สำหรับ "'+key+'"'};
+  if(cand.length>1 && invDate){
+    const ok=cand.filter(x=>(!x.c.d1||x.c.d1<=invDate) && (!x.c.d2||x.c.d2>=invDate));
+    if(ok.length===1){ how+=' · เลือกฉบับที่ยังไม่หมดอายุ ณ วันที่ Invoice'; cand=ok; }
+  }
+  if(cand.length>1) return {err:'พบต้นทุนที่เป็นไปได้ '+cand.length+' รายการสำหรับ "'+key+'": '+cand.map(x=>x.c.no+' ('+x.alias+')').join(' , ')};
+  return {hit:cand[0].c, alias:cand[0].alias, how};
+}
+
+// ── FILE 1: Mapping Form.xlsx (Template 48 คอลัมน์ตาม "MAPPING FORM AK-กรมการค้า") ──
+const NEO_MF_HDR=TIC_CO_HDR.map((h,i)=>i===21?'ชื่อสินค้าที่แสดงในคำขอ':i===22?'ชื่อสินค้าภาษาอังกฤษ':h);
+const NEO_MF_W={3:22.33203125,4:45.44140625,6:31.6640625,7:22.44140625,9:20.88671875,10:14.109375,12:20.109375,13:15.33203125,14:14.0,
+ 15:18.109375,16:23.44140625,19:51.44140625,20:13.44140625,21:18.33203125,22:59.33203125,24:42.44140625,25:21.0,26:24.33203125,27:25.6640625,
+ 30:12.5546875,31:17.6640625,32:12.5546875,36:17.109375,37:18.33203125,38:25.33203125,39:26.0,40:19.88671875,42:24.33203125,43:12.0,44:13.33203125,45:18.0,46:23.0};
+async function _neoBuildMapping(D,recs){
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet Excel');
+  ws.properties.defaultColWidth=12.5546875; ws.properties.defaultRowHeight=15.75;
+  for(let c=1;c<=48;c++){ if(NEO_MF_W[c]!=null) ws.getColumn(c).width=NEO_MF_W[c]; }
+  for(let c=1;c<=48;c++){ const cell=ws.getCell(1,c); cell.value=NEO_MF_HDR[c-1];
+    cell.font=(c>=45?{name:'Calibri',size:11}:{name:'Arial',size:10}); if(c>=45) cell.numFmt='@'; }
+  recs.forEach((x,i)=>{ const r=i+2;
+    for(let c=1;c<=48;c++){ const cell=ws.getCell(r,c); cell.font={name:'Arial',size:(c===1?8:10)};
+      if(c===2||c===4||c===5) cell.numFmt='mm-dd-yy';
+      else if(c===11) cell.numFmt='0';
+      else if(c===17) cell.numFmt='[$-1070000]d/m/yy;@';
+      else if(c===30||c===32) cell.numFmt=TIC_ACC2;
+      else if(c===36||c===38) cell.numFmt='0.00'; }
+    ws.getCell(r,14).alignment={horizontal:'left'};
+    ws.getCell(r,1).value  = D.inv.no;                              // A  เลขที่ INVOICE
+    if(D.inv.date) ws.getCell(r,2).value = D.inv.date;              // B  วันที่
+    ws.getCell(r,3).value  = x.invSeq;                              // C  ลำดับรายการตาม INVOICE (ลำดับจริงใน Invoice)
+    ws.getCell(r,4).value  = D.tr.no;                               // D  เลขที่ INVOICE ต่างประเทศ
+    if(D.tr.date) ws.getCell(r,5).value = D.tr.date;                // E  วันที่
+    ws.getCell(r,6).value  = x.trSeq;                               // F  ลำดับรายการตาม INVOICE ต่างประเทศ (ลำดับจริงใน Invoice Tr)
+    if(x.hsNum!=null) ws.getCell(r,11).value = x.hsNum;             // K  พิกัดสินค้า
+    ws.getCell(r,14).value = x.costNo;                              // N  เลขที่ต้นทุน
+    if(x.costDate) ws.getCell(r,17).value = x.costDate;             // Q  วันที่ออกต้นทุน
+    ws.getCell(r,18).value = x.agr;                                 // R  ความตกลง
+    ws.getCell(r,22).value = x.reqName;                             // V  ชื่อสินค้าที่แสดงในคำขอ
+    ws.getCell(r,23).value = x.desc;                                // W  ชื่อสินค้าภาษาอังกฤษ ← DESCRIPTION OF GOODS (Invoice)
+    ws.getCell(r,30).value = x.nw;  ws.getCell(r,31).value = D.pl.unit;   // AD/AE Net Weight + หน่วย
+    ws.getCell(r,32).value = x.gw;  ws.getCell(r,33).value = D.pl.unit;   // AF/AG Gross Weight + หน่วย
+    ws.getCell(r,36).value = x.usdThb;                              // AJ มูลค่า FOB ← FOB USD INV.THB
+    ws.getCell(r,38).value = x.usd3rd;                              // AL มูลค่า FOB Invoice ต่างประเทศ ← FOB USD INV.3RD
+    if(x.rule) ws.getCell(r,40).value = x.rule;                     // AN กฏว่าด้วยถิ่นกำเนิดสินค้า
+    if(x.pct!=null) ws.getCell(r,41).value = x.pct;                 // AO % ของกฏ
+  });
+  return await wb.xlsx.writeBuffer();
+}
+// ── FILE 2: สร้าง Excel.xlsx (ตาม "KMSTEML…-สร้าง excel" · Times New Roman 10 · 11 คอลัมน์ + แถวรวม) ──
+const NEO_BX_W=[7.69921875,42.796875,11.09765625,10.09765625,17.796875,14.796875,20.0,12.09765625,36.19921875,18.0,15.59765625];
+async function _neoBuildExcel(D,recs){
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Sheet1');
+  ws.properties.defaultRowHeight=13;
+  NEO_BX_W.forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+  const HDR=['ITEM','DESCRIPTION OF GOODS','N.W','G.W','CURRENCY ('+D.inv.cur+')','CURRENCY ('+D.tr.cur+')','FOB USD INV.THB','FOB USD INV.3RD','คำขอ','ต้นทุน','RVC'];
+  const style=(cell,c)=>{ cell.font={name:'Times New Roman',size:10,color:{argb:'FF000000'}}; cell.alignment={horizontal:'left',vertical:'top'};
+    if(c>=3&&c<=6) cell.numFmt=TIC_ACC2; else if(c===7||c===8){ cell.numFmt='0.00'; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}}; } };
+  for(let c=1;c<=11;c++){ const cell=ws.getCell(1,c); cell.value=HDR[c-1]; style(cell,c); }
+  recs.forEach((x,i)=>{ const r=i+2;
+    for(let c=1;c<=11;c++) style(ws.getCell(r,c),c);
+    ws.getCell(r,1).value=x.item; ws.getCell(r,2).value=x.desc;
+    ws.getCell(r,3).value=x.nw; ws.getCell(r,4).value=x.gw;
+    ws.getCell(r,5).value=x.amtThb; ws.getCell(r,6).value=x.amt3rd;
+    ws.getCell(r,7).value=x.usdThb; ws.getCell(r,8).value=x.usd3rd;
+    ws.getCell(r,9).value=x.reqName; ws.getCell(r,10).value=x.costNo;
+    if(x.rvc!=null) ws.getCell(r,11).value=x.rvc;
+  });
+  const last=recs.length+1, tr=recs.length+2; const K=['nw','gw','amtThb','amt3rd','usdThb','usd3rd'];
+  for(let c=1;c<=11;c++){ if(c>=3&&c<=8) style(ws.getCell(tr,c),c); else ws.getCell(tr,c).font={name:'Times New Roman',size:10,color:{argb:'FF000000'}}; }
+  for(let c=3;c<=8;c++){ const cell=ws.getCell(tr,c); const L=String.fromCharCode(64+c);
+    cell.value={formula:'SUM('+L+'2:'+L+last+')',result:_neoR2(recs.reduce((s,x)=>s+(x[K[c-3]]||0),0))}; }
+  return await wb.xlsx.writeBuffer();
+}
+
+async function _neoExport(){
+  const btn=document.getElementById('neo-export-btn');
+  const lg=document.getElementById('neo-log'); if(lg) lg.innerHTML='';
+  const sm=document.getElementById('neo-summary'); if(sm) sm.innerHTML='';
+  const fail=m=>{ _neoLog('✕ '+m,'err'); if(typeof toast==='function') toast(m,'error');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; } };
+  if(typeof XLSX==='undefined')    return fail('SheetJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof ExcelJS==='undefined') return fail('ExcelJS ยังไม่โหลด — refresh หน้าใหม่');
+  if(typeof JSZip==='undefined')   return fail('JSZip ยังไม่โหลด — refresh หน้าใหม่');
+  if(!neoState.inv)  return fail('ยังไม่ได้เลือกไฟล์ ① Invoice');
+  if(!neoState.pl)   return fail('ยังไม่ได้เลือกไฟล์ ② PL (Packing List)');
+  if(!neoState.tr)   return fail('ยังไม่ได้เลือกไฟล์ ③ Invoice Tr (Third Party)');
+  if(!neoState.cost) return fail('ยังไม่ได้เลือกไฟล์ ④ ต้นทุน');
+  const RT=_neoRates(); const re=_neoRateErr(RT); if(re) return fail(re);     // ใช้อัตราล่าสุด ณ ตอนกด Export
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; }
+  try{
+    const INV=_neoParseInvoice(await _neoPdfLines(neoState.inv));
+    const PL =_neoParsePL(await _neoPdfLines(neoState.pl));
+    const TR =_neoParseTr(await _neoPdfLines(neoState.tr));
+    const COST=_neoReadCost(XLSX.read(await neoState.cost.arrayBuffer(),{type:'array'}));
+    _neoSetOtherCur(TR.cur);
+    const P=[];   // ปัญหาที่ต้องตรวจ — มีแม้ 1 รายการ = ไม่ Export
+    const W=[];   // แจ้งเตือน (ไม่บล็อก)
+    const near=(a,b)=>Math.abs(a-b)<0.005;
+
+    // ── ตรวจข้อมูลหัวเอกสาร ──
+    if(!INV.rows.length) P.push('Invoice: อ่านรายการสินค้าไม่ได้ (ตรวจว่าเป็น PDF Invoice ที่มีข้อความ ไม่ใช่ภาพสแกน)');
+    if(!INV.no)   P.push('Invoice: ไม่พบเลขที่ INVOICE');
+    if(!INV.date) P.push('Invoice: ไม่พบ/อ่านวันที่ไม่ได้');
+    if(INV.rows.length && INV.cur!=='THB') P.push('Invoice: สกุลเงินต้องเป็น THB (อ่านได้ "'+(INV.cur||'ไม่พบ')+'")');
+    if(!TR.rows.length) P.push('Invoice Tr: อ่านรายการสินค้าไม่ได้');
+    if(!TR.no)   P.push('Invoice Tr: ไม่พบเลขที่ Invoice');
+    if(!TR.date) P.push('Invoice Tr: ไม่พบ/อ่านวันที่ไม่ได้');
+    if(TR.rows.length && !TR.cur) P.push('Invoice Tr: ไม่พบสกุลเงิน (Amount (XXX))');
+    if(!PL.hasShip) P.push('PL: ไม่พบหัวข้อ "SHIPMENT DETAILS"');
+    else if(!PL.ship.length) P.push('PL: อ่านตาราง SHIPMENT DETAILS ไม่ได้');
+    if(PL.ship.length && !PL.unit) P.push('PL: ไม่พบหน่วยน้ำหนักในตาราง SHIPMENT DETAILS');
+    if(!Object.keys(PL.groups).length) P.push('PL: อ่านรายการ Pallet แยกตาม PO# ไม่ได้');
+    if(COST.err) P.push(COST.err);
+    if(P.length){ P.forEach(t=>_neoLog('✕ '+t,'err')); return fail('ข้อมูลเอกสารไม่ครบ '+P.length+' รายการ — ไม่ Export'); }
+
+    _neoLog('Invoice '+INV.no+' · '+_neoDstr(INV.date)+' · '+INV.rows.length+' รายการ · '+INV.cur);
+    _neoLog('Invoice Tr '+TR.no+' · '+_neoDstr(TR.date)+' · '+TR.rows.length+' รายการ · '+TR.cur);
+    _neoLog('PL: PO# '+Object.keys(PL.groups).length+' กลุ่ม · SHIPMENT DETAILS '+PL.ship.length+' รายการ · หน่วย '+PL.unit);
+    _neoLog('ต้นทุน sheet "'+COST.sheet+'" · '+COST.list.length+' รายการ · ใช้กรอบ '+NEO_AGREEMENT+' '+COST.list.filter(c=>c.agr===NEO_AGREEMENT).length+' รายการ');
+    _neoLog('อัตรา: THB '+RT.thb+' · USD '+RT.usd+' · Other('+TR.cur+') '+RT.oth);
+
+    // ── ตรวจยอดรวมในเอกสาร (กันอ่านรายการตกหล่น) ──
+    const sInv=INV.rows.reduce((s,r)=>s+(r.amt||0),0), sTr=TR.rows.reduce((s,r)=>s+(r.amt||0),0);
+    if(INV.total!=null && !near(sInv,INV.total)) P.push('Invoice: ผลรวมรายการ '+_neoFmt(sInv)+' ไม่ตรงยอดรวมในเอกสาร '+_neoFmt(INV.total));
+    if(TR.total!=null && !near(sTr,TR.total))   P.push('Invoice Tr: ผลรวมรายการ '+_neoFmt(sTr)+' ไม่ตรง Invoice Total '+_neoFmt(TR.total));
+    if(PL.total){ const sn=PL.ship.reduce((s,r)=>s+r.nw,0), sg=PL.ship.reduce((s,r)=>s+r.gw,0), sc=PL.ship.reduce((s,r)=>s+r.cases,0);
+      if(!near(sn,PL.total.nw)||!near(sg,PL.total.gw)||sc!==PL.total.cases) P.push('PL: ผลรวม SHIPMENT DETAILS (Case '+sc+' · N.W '+_neoFmt(sn)+' · G.W '+_neoFmt(sg)+') ไม่ตรงบรรทัด TOTAL'); }
+
+    // ── จับคู่ตามลำดับ Invoice Tr : Tr ↔ Invoice (PO + รหัสสินค้า + จำนวน) → PL (PO + รหัส + จำนวน → SHIPMENT DETAILS ชื่อ + Case) → ต้นทุน ──
+    const invUsed=new Set(); const recs=[];
+    TR.rows.forEach(t=>{ const tag='Invoice Tr ลำดับ '+t.pos+' (Item '+t.item+')';
+      if(!t.po||!t.cust||t.qty==null||t.amt==null){ P.push(tag+': ข้อมูลไม่ครบ ('+[!t.po?'FPA ID':'',!t.cust?'Customer item Code':'',t.qty==null?'Quantity':'',t.amt==null?'Amount':''].filter(Boolean).join(' · ')+')'); return; }
+      const ci=INV.rows.filter(r=>r.po===t.po && r.code===t.cust);
+      if(!ci.length){ P.push(tag+': ไม่พบรายการใน Invoice ที่ PO '+t.po+' / รหัส '+t.cust); return; }
+      if(ci.length>1){ P.push(tag+': พบรายการใน Invoice '+ci.length+' บรรทัดที่ PO '+t.po+' / รหัส '+t.cust+' (บรรทัด '+ci.map(r=>r.seq).join(', ')+')'); return; }
+      const v=ci[0];
+      if(invUsed.has(v.seq)){ P.push(tag+': Invoice บรรทัด '+v.seq+' ถูกจับคู่ไปแล้ว'); return; }
+      if(v.qty!==t.qty){ P.push(tag+': จำนวนไม่ตรง Invoice บรรทัด '+v.seq+' ('+t.qty+' ≠ '+v.qty+')'); return; }
+      invUsed.add(v.seq);
+      const g=PL.groups[v.po+'|'+v.code];
+      if(!g){ P.push(tag+': ไม่พบ PO# '+v.po+' / รหัส '+v.code+' ในรายการ Pallet ของ PL'); return; }
+      if(g.pcs!==v.qty){ P.push(tag+': จำนวนชิ้นใน PL ('+g.pcs+') ไม่ตรง Invoice บรรทัด '+v.seq+' ('+v.qty+')'); return; }
+      const cs=PL.ship.filter(s=>!s.used && _neoU(s.desc)===_neoU(v.desc) && s.cases===g.cases);
+      if(!cs.length){ P.push(tag+': ไม่พบแถวใน SHIPMENT DETAILS ที่ชื่อ "'+v.desc+'" และ '+g.cases+' Case'); return; }
+      if(cs.length>1 && !cs.every(s=>s.nw===cs[0].nw && s.gw===cs[0].gw)){ P.push(tag+': พบแถวใน SHIPMENT DETAILS ที่เป็นไปได้ '+cs.length+' แถว (Item '+cs.map(s=>s.item).join(', ')+') น้ำหนักต่างกัน'); return; }
+      const sh=cs[0]; sh.used=true;
+      const cf=_neoFindCost(COST.list,v.desc,INV.date);
+      if(cf.err){ P.push(tag+' "'+v.desc+'": '+cf.err); return; }
+      const c=cf.hit;
+      if(!c.d2){ W.push(tag+': ต้นทุน '+c.no+' ไม่ระบุวันหมดอายุ'+(c.d2raw&&c.d2raw!=='ไม่ระบุ'?' (อ่านค่า "'+c.d2raw+'" ไม่ได้)':'')); }
+      else if(c.d2<INV.date){ W.push(tag+': ต้นทุน '+c.no+' หมดอายุ '+_neoDstr(c.d2)+' ก่อนวันที่ Invoice '+_neoDstr(INV.date)); }
+      const hsD=c.hs.replace(/\D/g,''); if(!hsD) W.push(tag+': ต้นทุน '+c.no+' ไม่มีพิกัดศุลกากร — เว้นว่าง');
+      if(!c.d1) W.push(tag+': ต้นทุน '+c.no+' อ่านวันที่อนุมัติไม่ได้ — เว้นว่าง');
+      const ruleOk=c.rule!=='' && c.rule!=='ไม่ระบุ'; const pctOk=(typeof c.pct==='number' && Number.isFinite(c.pct));
+      if(!ruleOk) W.push(tag+': ต้นทุน '+c.no+' ไม่ระบุกฎถิ่นกำเนิด — เว้นว่าง');
+      recs.push({ item:recs.length+1, trSeq:t.pos, trItem:t.item, invSeq:v.seq, po:v.po, code:v.code, desc:v.desc,
+        nw:sh.nw, gw:sh.gw, plItem:sh.item, amtThb:v.amt, amt3rd:t.amt,
+        usdThb:_neoR2(v.amt*RT.thb/RT.usd), usd3rd:_neoR2(t.amt*RT.oth/RT.usd),      // คำนวณเต็มความละเอียดก่อนปัด 2 ตำแหน่ง
+        reqName:cf.alias, costNo:c.no, costDate:c.d1, agr:c.agr, hsNum:hsD?Number(hsD):null,
+        rule:ruleOk?c.rule:'', pct:(ruleOk&&pctOk)?_neoT2(c.pct):null, rvc:(_neoU(c.rule)==='RVC'&&pctOk)?_neoT2(c.pct):null, how:cf.how });
+    });
+    INV.rows.forEach(r=>{ if(!invUsed.has(r.seq)) P.push('Invoice บรรทัด '+r.seq+' (PO '+r.po+' · '+r.desc+'): ไม่มีรายการคู่ใน Invoice Tr'); });
+    if(!P.length) PL.ship.forEach(s=>{ if(!s.used) P.push('PL SHIPMENT DETAILS Item '+s.item+' ('+s.desc+' · '+s.cases+' Case): ไม่ถูกจับคู่กับรายการใด'); });
+    if(!P.length && PL.total){ const sn=recs.reduce((s,x)=>s+x.nw,0), sg=recs.reduce((s,x)=>s+x.gw,0);
+      if(!near(sn,PL.total.nw)||!near(sg,PL.total.gw)) P.push('น้ำหนักรวมหลังจับคู่ (N.W '+_neoFmt(sn)+' · G.W '+_neoFmt(sg)+') ไม่ตรง TOTAL ของ PL'); }
+    if(P.length){
+      [...new Set(P)].forEach(t=>_neoLog('✕ '+t,'err'));
+      return fail('พบรายการที่ต้องตรวจสอบ '+new Set(P).size+' รายการ — ไม่ Export');
+    }
+    W.forEach(t=>_neoLog('⚠ '+t,'warn'));
+
+    const D={inv:INV,tr:TR,pl:PL};
+    const m1=await _neoBuildMapping(D,recs);
+    const m2=await _neoBuildExcel(D,recs);
+    const zip=new JSZip();
+    zip.file('Mapping Form.xlsx',m1);
+    zip.file('สร้าง Excel.xlsx',m2);
+    const blob=await zip.generateAsync({type:'blob'});
+    const zname='NEO '+INV.no.replace(/[\\\/:*?"<>|]+/g,'-').trim()+'.zip';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=zname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+    recs.forEach(x=>_neoLog('ITEM '+x.item+' ← Tr Item '+x.trItem+' · Invoice บรรทัด '+x.invSeq+' · PL Item '+x.plItem+' · ต้นทุน '+x.costNo+' ('+x.how+')'));
+    _neoLog('✓ Mapping Form.xlsx ('+recs.length+' รายการ)','ok');
+    _neoLog('✓ สร้าง Excel.xlsx ('+recs.length+' รายการ)','ok');
+    _neoLog('✓ ZIP: '+zname,'ok');
+    if(sm){
+      const td='padding:4px 8px;border-bottom:1px solid var(--bd);white-space:nowrap';
+      sm.innerHTML='<div style="border:1px solid #2ea043;border-radius:8px;padding:10px 12px;background:rgba(46,160,67,.08);overflow:auto">'
+        +'<div style="font-size:12px;font-weight:700;color:#2ea043;margin-bottom:6px">✓ Export สำเร็จ — '+_neoEsc(zname)+' · '+recs.length+' รายการ'+(W.length?' · <span style="color:#d29922">แจ้งเตือน '+W.length+' รายการ (ดู LOG)</span>':'')+'</div>'
+        +'<table style="border-collapse:collapse;font-size:11px;color:var(--t2);width:100%"><tr style="color:var(--t3);text-align:left">'
+        +['ITEM','Tr','Inv','DESCRIPTION OF GOODS','N.W','G.W',INV.cur,TR.cur,'FOB USD INV.THB','FOB USD INV.3RD','ต้นทุน','RVC'].map(h=>'<th style="'+td+'">'+_neoEsc(h)+'</th>').join('')+'</tr>'
+        +recs.map(x=>'<tr>'+[x.item,x.trItem,x.invSeq,x.desc,_neoFmt(x.nw),_neoFmt(x.gw),_neoFmt(x.amtThb),_neoFmt(x.amt3rd,0),_neoFmt(x.usdThb),_neoFmt(x.usd3rd),x.costNo,x.rvc==null?'':x.rvc].map(v=>'<td style="'+td+'">'+_neoEsc(v)+'</td>').join('')+'</tr>').join('')
+        +'</table></div>';
+    }
+    if(typeof toast==='function') toast('Export สำเร็จ: '+zname,'success');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+  }catch(err){ console.error('[NEO]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
 }
 </script>
 <script>
