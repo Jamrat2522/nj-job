@@ -880,7 +880,7 @@ function RP795(doc, counts, sample) {
     </div>
     <table class="rcp-tb"><colgroup><col style="width:8%"><col style="width:24%"><col style="width:18%"><col style="width:26%"><col style="width:24%"></colgroup>
       <thead><tr><th>No.</th><th>Invoice</th><th>Invoice Date</th><th>Description</th><th class="r">Amount Charge</th></tr></thead>
-      <tbody>${rows.map((z) => `<tr><td class="c">${i(z.no)}</td><td class="c">${i(z.invoice_no)}</td><td class="c">${D795(z.invoice_date)}</td><td class="c" style="vertical-align:middle">${i(z.description || "SERVICE CHARGE")}</td><td class="r">${M795(n7 ? z.service_amount : z.received)}</td></tr>`).join("")}
+      <tbody>${rows.map((z, j8) => `<tr><td class="c">${a - rows.length + j8 + 1}</td><td class="c">${i(z.invoice_no)}</td><td class="c">${D795(z.invoice_date)}</td><td class="c" style="vertical-align:middle">${i(z.description || "SERVICE CHARGE")}</td><td class="r">${M795(n7 ? z.service_amount : z.received)}</td></tr>`).join("")}
       ${last ? `<tr class="rcp-tot"><td colspan="4" class="c">TOTAL</td><td class="r">${M795(n7 ? cS / 100 : sR)}</td></tr>` : ""}</tbody></table>
     ${last ? `<div class="rcp-sum">
       <div class="rcp-box rcp-pay"><div><b>Payment Method :</b> ${i(PML795(doc.payment_method))}</div><div><b>Amount in Words :</b> ${i(W795(sR))}</div></div>
@@ -896,21 +896,24 @@ function RP795(doc, counts, sample) {
   });
   return pages.join("");
 }
-function RF795(doc, sample) {   /* แบ่งหน้าตามพื้นที่จริง : แถวไม่ข้ามหน้า · TOTAL / ตัวอักษร / สรุป / ลงนาม อยู่หน้าสุดท้าย */
+/* ═══ V.856 · PDF ใบเสร็จ (RECEIPT / RECEIPT ADVANCE · ระบบใหม่ + ระบบเก่า · รวมใบที่ออกแล้ว) : หน้าละไม่เกิน 25 INVOICE
+   PG856(n) = แบ่ง 25 ต่อหน้า · MV856(c, i) = ย้าย 1 แถวสุดท้ายของหน้า i ไปหน้าถัดไป (ไม่มี = เพิ่มหน้า) แล้วเลื่อนส่วนเกิน 25 ต่อไปจนครบ ═══ */
+var PP856 = 25;
+function PG856(n) { let c = []; n = Math.max(0, n | 0); if (!n) return [1]; for (let i = 0; i < n; i += PP856) c.push(Math.min(PP856, n - i)); return c; }
+function MV856(c, i) { c[i] -= 1; i + 1 < c.length ? (c[i + 1] += 1) : c.push(1); for (let j = i + 1; j < c.length; j++) if (c[j] > PP856) { let e = c[j] - PP856; c[j] = PP856; j + 1 < c.length ? (c[j + 1] += e) : c.push(e); } return c; }
+function RF795(doc, sample) {   /* V.856 : หน้าละไม่เกิน 25 INVOICE · แถวไม่ข้ามหน้า / ไม่ทับ Footer · TOTAL / สรุป / ลงนาม ต่อจากรายการสุดท้าย (ไม่พอ = เพิ่มหน้า) */
   if (doc && doc.kind === "ADV" && A814) { ST814(); A814.ST814 && A814.ST814(); return A814.RF814(doc, sample); }   /* V.814 : RECEIPT ADVANCE = Template เดิม (RF788) */
-  ST795(); let items = doc.items || [], c = [Math.max(1, items.length)];
+  ST795(); let items = doc.items || [], c = PG856(items.length);
   if (!document.body) return RP795(doc, c, sample);
   let box = document.createElement("div"); box.className = "rcp795-doc"; box.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden"; document.body.appendChild(box);
   let over = (pg) => { let ft = pg.querySelector(".rcp-ft").getBoundingClientRect().top, b = 0; pg.querySelectorAll(".rcp-in > *:not(.rcp-stamp)").forEach((z) => { b = Math.max(b, z.getBoundingClientRect().bottom); }); return b > ft - 4; };
   try {
-    for (let n = 0; n < items.length + 2; n++) {
+    for (let k = 0, lim = 3 * items.length + 20; k < lim; k++) {   /* เดิมจำกัด items + 2 รอบ (ย้ายทีละแถว) → เอกสารยาวล้นทับ Footer */
       box.innerHTML = RP795(doc, c, sample);
       let bad = [...box.querySelectorAll(".rcp-pg")].findIndex((pg, j) => over(pg) && c[j] > 1);
       if (bad < 0) break;
-      c[bad] -= 1; bad + 1 < c.length ? (c[bad + 1] += 1) : c.push(1);
+      MV856(c, bad);
     }
-    let lp = [...box.querySelectorAll(".rcp-pg")].pop();
-    if (lp && over(lp) && c[c.length - 1] > 1) { c[c.length - 1] -= 1; c.push(1); }
     return RP795(doc, c, sample);
   } finally { box.remove(); }
 }

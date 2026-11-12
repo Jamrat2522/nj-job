@@ -128,9 +128,10 @@ async function upload(job, src, files) {
   await load(job);
   try { window.dispatchEvent(new CustomEvent("njacc:adv716", { detail: { job_id: job, added: done } })); } catch (e) {}
 }
-async function delDoc(job, id, b) {   /* V.725 : ลบเฉพาะไฟล์ที่เลือก (ยืนยันก่อน) */
-  var d = doc(job, id); if (!d || BUSY.get(job)) return;
-  var ok = await ASK("ลบเอกสารเพิ่มเติม", "ลบไฟล์ <b>" + esc(d.name) + "</b> ?<small>ลบเฉพาะไฟล์นี้ · ไฟล์อื่น / สลิปโอนเงิน / ข้อมูล JOB ไม่กระทบ" +
+async function delDoc(job, id, b, src) {   /* V.725 : ลบเฉพาะไฟล์ที่เลือก (ยืนยันก่อน) */
+  var d = doc(job, id); if (!d || BUSY.get(job)) return;   /* ระบุด้วย Attachment ID ในรายการของ JOB นี้เท่านั้น (ไม่ใช้ชื่อไฟล์) */
+  var ok = src === "DOCUMENT" ? await ASK("ลบไฟล์แนบ", "คุณต้องการลบไฟล์แนบนี้ใช่หรือไม่?<small><b>" + esc(d.name) + "</b> · " + esc(kb(d.size)) + " · แนบโดย " + esc(d.uploaded_by || "-") + " · " + esc(dtm(d.uploaded_at)) +
+    "<br>ลบเฉพาะไฟล์นี้ · ไฟล์อื่น / ข้อมูล JOB ไม่กระทบ</small>", "ยืนยันลบ") : await ASK("ลบเอกสารเพิ่มเติม", "ลบไฟล์ <b>" + esc(d.name) + "</b> ?<small>ลบเฉพาะไฟล์นี้ · ไฟล์อื่น / สลิปโอนเงิน / ข้อมูล JOB ไม่กระทบ" +
     (d.source === "DOCUMENT" ? " · ไฟล์นี้แนบจาก DOCUMENT → ADVANCE (ระบบเก็บไฟล์ต้นฉบับและประวัติการลบไว้)" : "") + "</small>", "ยืนยันลบ");
   if (!ok || BUSY.get(job)) return;
   BUSY.set(job, "กำลังลบ : " + d.name); paint(job);
@@ -146,7 +147,7 @@ function bind() {
     var t = e.target, box = t && t.closest && t.closest(".d716[data-d716j]"); if (!box) return;
     var job = box.getAttribute("data-d716j"), b = t.closest("button"); if (!b || b.disabled) return;
     var a = b.getAttribute("data-d716"), v = b.getAttribute("data-d716v"), d = b.getAttribute("data-d716d"), x = b.getAttribute("data-d716x");
-    if (x) { e.preventDefault(); delDoc(job, x, b); return; }
+    if (x) { e.preventDefault(); delDoc(job, x, b, box.getAttribute("data-d716s")); return; }   /* V.854 */
     if (a === "add" || a === "cam") { e.preventDefault(); var inp = box.querySelector(a === "cam" ? "[data-d716c]" : "[data-d716f]"); if (inp) { inp.disabled = !1; inp.value = ""; inp.click(); } return; }
     if (a === "re") { load(job); return; }
     if (v || d) { var x = doc(job, v || d); x && open(x, !!d, b); }

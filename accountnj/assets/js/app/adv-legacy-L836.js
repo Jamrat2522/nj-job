@@ -178,7 +178,7 @@ function CAND(a, cid) {
 }
 
 /* ══════════ (1) FINANCE → ADVANCE : ระบบเก่า (UPLOAD EXCEL) ══════════ */
-const S = { q: "", view: "all", customer_key: "", from: "", to: "", page: 1, size: 50, iq: "", ifrom: "", ito: "", ipage: 1, isize: 20 };
+const S = { q: "", view: "all", customer_key: "", from: "", to: "", page: 1, size: 50, iq: "", ifrom: "", ito: "", cust850: "", comp850: "", ipage: 1, isize: 20 };   /* V.850 */
 const SEL = new Map();
 let CTX = null, PERM = { issue: !1, upload: !1 }, TK = 0;
 
@@ -187,8 +187,10 @@ export function mount836(host, ctx) {
   let tab = CTX.tab === "issued" ? "issued" : "pending";
   if (host.__tab836 !== tab || !host.__b836) {
     host.__tab836 = tab; host.__b836 = 1;
-    host.innerHTML = tab === "issued" ? HI() : HP();
+    let dk = tab === "issued" && CTX.deps && CTX.deps.MQ850 && !CTX.deps.MQ850();   /* V.850 : Desktop */
+    host.innerHTML = tab === "issued" ? (dk ? HI850() : HI()) : HP();
     tab === "issued" ? AI(host) : AP(host);
+    dk && OP850(host);
   }
   return tab === "issued" ? LI(host) : LP(host);
 }
@@ -220,6 +222,35 @@ function HI() {
     + `<div class="sum836" id="l836-isum"></div><div class="card mt-2" id="l836-ipgn"></div>`
     + `<div class="tbl-wrap lp-scroll"><table class="tbl t836"><thead><tr><th>เลขที่ใบเสร็จ</th><th>วันที่ออก</th><th>Customer</th><th class="center">จำนวน INVOICE</th><th class="r">ยอดรวม</th><th>สถานะ</th><th class="center col-act">จัดการ</th></tr></thead>`
     + `<tbody id="l836-itb"><tr><td colspan="7" class="load-row"><div class="spin"></div></td></tr></tbody></table></div></div>`;
+}
+function HI850() {   /* V.850 (RUN-850) : แถบใบเสร็จที่ออกแล้ว (ระบบเก่า · Desktop) */
+  let dp = CTX.deps; dp.ST850();
+  return `<div class="ch-panel p836-in">` + dp.FB850("data-i836", { iq: S.iq, ifrom: S.ifrom, ito: S.ito }, ["iq", "ifrom", "ito"], `<button type="button" class="btn btn-sm go850" data-igo850>ค้นหา</button><button type="button" class="btn btn-sm clr850" data-iclr836>ล้างค้นหา</button><button type="button" class="btn btn-sm xl734" data-ixl836>⬇ EXPORT EXCEL</button>${UB("")}`)
+    + `<div class="sum850" id="l836-isum"></div><div class="card mt-2" id="l836-ipgn"></div>`
+    + `<div class="tbl-wrap lp-scroll"><table class="tbl t836 t850"><thead><tr>${dp.RH850}</tr></thead><tbody id="l836-itb"><tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr></tbody></table></div></div>`;
+}
+async function OP850(host) {   /* V.850 : Dropdown ลูกค้า / บริษัท (ยังไม่รัน RUN-850 = ทั้งหมดเท่านั้น) */
+  let r = null; try { r = await RPC("njacc_adv850_opts", { p: { src: "xls" } }); } catch (e) { r = null; }
+  [["cust850", "ลูกค้าทั้งหมด", "customers"], ["comp850", "บริษัททั้งหมด", "companies"]].forEach(([k, ph, f]) => {
+    let s = host.querySelector('[data-i836="' + k + '"]'); if (!s) return;
+    s.innerHTML = `<option value="">${ph}</option>` + ((r && r[f]) || []).map((v) => `<option value="${n(v)}"${v === S[k] ? " selected" : ""}>${n(v)}</option>`).join(""); });
+}
+function IR850(o, i) {   /* V.850 : 1 Receipt ID = 1 แถว (9 คอลัมน์) */
+  let id = n(o.receipt_id), no = n(o.receipt_no), off = (S.ipage - 1) * S.isize;
+  return `<tr class="r850"><td class="center">${N(off + i + 1)}</td><td class="nowrap"><button type="button" class="an850" data-it836="${id}" title="เปิดรายละเอียด ${no}">${no}</button><span class="tg850">UPLOAD EXCEL</span></td>`
+    + `<td class="center nowrap">${D(o.receipt_date)}</td><td class="c850" title="${n(o.customer_name)}">${n(o.customer_name)}</td><td class="center">${N(o.job_count || 0)}</td><td class="center">${N(o.invoice_count)}</td>`
+    + `<td class="r">${M(o.total)}</td><td class="r pay850">${M(o.total)}</td>`
+    + `<td class="center nowrap col-act"><button type="button" class="btn btn-sm b850" data-it836="${id}">รายการ</button><button type="button" class="btn btn-sm p850" data-ipm850="${id}" aria-haspopup="menu" title="PREVIEW / PRINT / SAVE PDF — ${no} (เลขเดิม)">พิมพ์ ▼</button>`
+    + (SA() ? `<button type="button" class="btn btn-sm e850" data-ed836="${id}" title="แก้ไข — เพิ่ม / นำออก INVOICE ADV · ใช้เลขเดิม (SUPER_ADMIN)">แก้ไข</button>` : "") + `</td></tr>`;
+}
+async function DOC850(k, id, b) {   /* V.850 : PREVIEW / PRINT / SAVE PDF = เอกสารที่บันทึก (เลขเดิม · ไม่ออกเลขใหม่) */
+  if (!id || (b && b.disabled)) return; b && (b.disabled = !0);
+  try { let docs = await LD([id]), dp = CTX.deps;
+    if (k === "pv") await dp.RW788(docs, { sample: !1, title: "RECEIPT ADVANCE " + docs[0].receipt_no + " (UPLOAD EXCEL)" }, null);
+    else if (k === "pr") { dp.ST788(); dp.RX788(dp.RF788(docs[0], !1), "RECEIPT_ADVANCE_" + docs[0].receipt_no); }
+    else await dp.SVH791(dp.RF788(docs[0], !1), "RECEIPT_ADVANCE_" + docs[0].receipt_no, null);
+  } catch (e) { TOAST("เปิด RECEIPT ADVANCE ไม่สำเร็จ — " + RE836(e), "err"); }
+  finally { b && (b.disabled = !1); }
 }
 function filt() { return { q: S.q || null, view: S.view, customer_key: S.customer_key || null, from: S.from || null, to: S.to || null }; }
 function sync(host) {
@@ -292,15 +323,22 @@ function AP(host) {
 async function LI(host) {
   let tk = ++TK, tb = host.querySelector("#l836-itb"); if (!tb) return;
   try {
-    let r = await RPC("njacc_radv836_list", { p: { q: S.iq || null, from: S.ifrom || null, to: S.ito || null, page: S.ipage, size: S.isize } }); if (tk !== TK || !host.isConnected) return;
+    let r = await RPC("njacc_radv836_list", { p: { q: S.iq || null, from: S.ifrom || null, to: S.ito || null, cust850: S.cust850 || null, comp850: S.comp850 || null, page: S.ipage, size: S.isize } }); if (tk !== TK || !host.isConnected) return;   /* V.850 */
     let k = r && r.kpi || {};
+    if (host.querySelector("table.t850")) {   /* V.850 : Desktop */
+      host.querySelector("#l836-isum").innerHTML = `<span>ใบเสร็จ <b>${N(k.receipts)}</b> ใบ</span><span>JOB <b>0</b></span><span>INVOICE <b>${N(k.invoices)}</b></span><span>ยอดรวม ADVANCE <b>${M(k.amount)}</b></span>`;
+      let rw = r && r.rows || []; tb.innerHTML = rw.length ? rw.map(IR850).join("") : '<tr><td colspan="9" class="empty">ยังไม่มีใบเสร็จ (ระบบเก่า)</td></tr>';
+      PGN(host.querySelector("#l836-ipgn"), { page: S.ipage, size: S.isize, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.ipage = a; S.isize = z; LI(host); }, { lp: !0 });
+      return;
+    }
     host.querySelector("#l836-isum").innerHTML = `<span>ใบเสร็จ (ระบบเก่า) <b>${N(k.receipts)}</b> ใบ</span><span>INVOICE <b>${N(k.invoices)}</b></span><span>ยอดรวม <b>${M(k.amount)}</b></span>`;
     let rows = r && r.rows || [];
     ST837();   /* V.837 */
+    try { CTX.deps.ST850 && CTX.deps.ST850(); } catch (e8) {}   /* V.857 : สไตล์ปุ่ม Mobile */
     tb.innerHTML = rows.length ? rows.map((o) => { let id = n(o.receipt_id), no = n(o.receipt_no);
       return `<tr><td class="nowrap" data-l="เลขที่ใบเสร็จ"><b>${no}</b><span class="adv814" style="display:block;font-size:11px;color:#9a3412">UPLOAD EXCEL</span>${o.replaces_no ? `<span class="rp837">แทน ${n(o.replaces_no)} (VOID)</span>` : ""}</td><td class="nowrap" data-l="วันที่ออก">${D(o.receipt_date)}</td><td data-l="Customer">${n(o.customer_name)}</td>`
         + `<td class="center" data-l="จำนวน INVOICE">${N(o.invoice_count)}</td><td class="r" data-l="ยอดรวม"><b>${M(o.total)}</b></td><td data-l="สถานะ"><span class="bdg789 bd836 ok">ออกใบเสร็จแล้ว</span></td>`
-        + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm" data-it836="${id}">รายการ</button> ${SA() ? `<button type="button" class="btn btn-sm ed837" data-ed836="${id}" title="แก้ไข — เพิ่ม / นำออก INVOICE · VOID ใบเดิม + ออกใบใหม่ (SUPER_ADMIN)">แก้ไข</button> ` : ""}<button type="button" class="btn btn-sm" data-pv836="${id}">PREVIEW</button> <button type="button" class="btn btn-sm" data-pr836="${id}">PRINT</button> <button type="button" class="btn btn-sm" data-sv836="${id}">SAVE PDF</button></td></tr>`; }).join("")
+        + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b850" data-it836="${id}">รายการ</button><button type="button" class="btn btn-sm p850" data-ipm850="${id}" aria-haspopup="menu" title="PREVIEW / PRINT / SAVE PDF — ${no} (เลขเดิม)">พิมพ์ ▼</button>${SA() ? `<button type="button" class="btn btn-sm e850" data-ed836="${id}" title="แก้ไข — เพิ่ม / นำออก INVOICE ADV · ใช้เลขเดิม (SUPER_ADMIN)">แก้ไข</button>` : ""}</td></tr>`;   /* V.857 : Mobile = ปุ่มเดียวกับ Desktop */ }).join("")
       : '<tr><td colspan="7" class="empty">ยังไม่มีใบเสร็จ (ระบบเก่า)</td></tr>';
     PGN(host.querySelector("#l836-ipgn"), { page: S.ipage, size: S.isize, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.ipage = a; S.isize = z; LI(host); }, { lp: !0 });
   } catch (e) {
@@ -313,9 +351,11 @@ function AI(host) {
   let on = (ev) => { let e = ev.target; if (!e || !e.dataset || !e.dataset.i836) return; clearTimeout(tm); tm = setTimeout(run, e.type === "date" ? 0 : 300); };
   host.addEventListener("input", on); host.addEventListener("change", on);
   host.addEventListener("click", async (ev) => {
-    let b = ev.target.closest && ev.target.closest("[data-iclr836],[data-ixl836],[data-it836],[data-ed836],[data-pv836],[data-pr836],[data-sv836]"); if (!b) return;
+    let b = ev.target.closest && ev.target.closest("[data-iclr836],[data-ixl836],[data-it836],[data-ed836],[data-pv836],[data-pr836],[data-sv836],[data-igo850],[data-ipm850]"); if (!b) return;
     ev.preventDefault();
-    if (b.hasAttribute("data-iclr836")) { host.querySelectorAll("[data-i836]").forEach((e) => { e.value = ""; }); Object.assign(S, { iq: "", ifrom: "", ito: "", ipage: 1 }); LI(host); return; }
+    if (b.hasAttribute("data-igo850")) { clearTimeout(tm); run(); return; }   /* V.850 */
+    if (b.dataset.ipm850) { let id = b.dataset.ipm850; CTX.deps.P850(b, [["📄", "PREVIEW", () => DOC850("pv", id, null)], ["🖨", "PRINT", () => DOC850("pr", id, null)], ["⬇", "SAVE PDF", () => DOC850("sv", id, null)]]); return; }   /* V.850 */
+    if (b.hasAttribute("data-iclr836")) { host.querySelectorAll("[data-i836]").forEach((e) => { e.value = ""; }); Object.assign(S, { iq: "", ifrom: "", ito: "", cust850: "", comp850: "", ipage: 1 }); LI(host); return; }
     if (b.hasAttribute("data-ixl836")) { XI(b); return; }
     if (b.dataset.it836) { DT(b.dataset.it836); return; }
     if (b.dataset.ed836) { let dp = CTX.deps; edit837({ src: "ADV", id: b.dataset.ed836, pv: (docs, o, h) => dp.RW788(docs, o, h), load: (i) => LD([i]), onDone: () => LI(host) }); return; }   /* V.837 */
@@ -346,7 +386,9 @@ async function DT(id) {
       + `<div class="tbl-wrap"><table><thead><tr><th>ลำดับ</th><th>INVOICE ADV ระบบเก่า</th><th>Date invoice</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th><th class="r">Amount</th></tr></thead><tbody>`
       + it.map((z, j) => `<tr><td>${j + 1}</td><td>${n(z.invoice_no)}</td><td>${D(z.invoice_date)}</td><td>${n(z.customer_name || "-")}</td><td>${n(z.company_invoice || "-")}</td><td>${n(z.customer_job_no || "-")}</td><td class="r">${M(z.amount)}</td></tr>`).join("")
       + `</tbody><tfoot><tr><td colspan="6" class="r"><b>ยอดรวม (${N(it.length)} รายการ)</b></td><td class="r"><b>${M(d.total)}</b></td></tr></tfoot></table></div></div>`;
-    let f = document.createElement("div"); f.innerHTML = '<button class="btn btn-o" data-close>ปิด</button>';
+    let f = document.createElement("div"), dk = CTX.deps && CTX.deps.MQ850 && !CTX.deps.MQ850();   /* V.850 : Desktop = PREVIEW / PRINT / SAVE PDF ในหน้าต่างรายละเอียด */
+    f.innerHTML = (dk ? '<button class="btn btn-sm b850" data-dt850="pv">PREVIEW</button><button class="btn btn-sm b850" data-dt850="pr">PRINT</button><button class="btn btn-sm b850" data-dt850="sv">SAVE PDF</button>' : "") + '<button class="btn btn-o" data-close>ปิด</button>';
+    dk && f.querySelectorAll("[data-dt850]").forEach((x) => { x.onclick = () => DOC850(x.dataset.dt850, id, x); });
     MODAL({ title: "RECEIPT ADVANCE " + d.receipt_no + " — รายการ (UPLOAD EXCEL)", body, footer: f, wide: !0 });
   } catch (e) { TOAST("เปิดรายละเอียดใบเสร็จไม่สำเร็จ — " + RE836(e), "err"); }
 }
@@ -451,9 +493,9 @@ async function XI(b) {
   if (b.disabled) return; b.disabled = !0;
   try {
     let rows = [], pg = 1, t = 0;
-    do { let r = await RPC("njacc_radv836_list", { p: { q: S.iq || null, from: S.ifrom || null, to: S.ito || null, page: pg, size: 200 } }); rows = rows.concat(r.rows || []); t = r.total || 0; pg++; } while (rows.length < t && pg < 400);
-    let XL = await XLSX836(), A = [["เลขที่ใบเสร็จ", "วันที่ออก", "Customer", "ชื่อใน Excel", "จำนวน INVOICE", "ยอดรวม", "INVOICE", "วิธีรับชำระ", "ผู้ออก"]]
-      .concat(rows.map((r) => [r.receipt_no, D(r.receipt_date), r.customer_name, r.customer_key, r.invoice_count, Number(r.total || 0), r.invoice_nos || "", r.payment_method || "", r.issued_by_name || ""]));
+    do { let r = await RPC("njacc_radv836_list", { p: { q: S.iq || null, from: S.ifrom || null, to: S.ito || null, cust850: S.cust850 || null, comp850: S.comp850 || null, page: pg, size: 200 } }); rows = rows.concat(r.rows || []); t = r.total || 0; pg++; } while (rows.length < t && pg < 400);   /* V.850 */
+    let XL = await XLSX836(), A = [["Receipt (ADV)", "Receipt Date", "Customer", "Qty Job", "Qty Ad", "Advance", "Payment Received"]]   /* V.850 : หัวข้อเดียวกับหน้ารายงาน */
+      .concat(rows.map((r) => [r.receipt_no, D(r.receipt_date), r.customer_name, Number(r.job_count || 0), Number(r.invoice_count || 0), Number(r.total || 0), Number(r.total || 0)]));
     let wb = XL.utils.book_new(); XL.utils.book_append_sheet(wb, XL.utils.aoa_to_sheet(A), "RECEIPT ADVANCE ระบบเก่า"); XL.writeFile(wb, "RECEIPT_ADVANCE_UPLOAD_EXCEL_" + TD() + ".xlsx");
   } catch (e) { TOAST("ส่งออก Excel ไม่สำเร็จ — " + RE836(e), "err"); }
   finally { b.disabled = !1; }
