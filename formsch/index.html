@@ -2416,11 +2416,8 @@ input[type=file]{display:none}
           <button onclick="_neoClear()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:6px;background:none;border:1px solid var(--bd);color:var(--t2);font-family:inherit;font-size:13px;cursor:pointer">✕ ล้างไฟล์</button>
         </div>
 
-        <div id="neo-summary" style="width:100%;margin-bottom:12px"></div>
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px">📜 LOG</div>
-          <div id="neo-log" style="max-height:260px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:var(--s2)"></div>
-        </div>
+        <div id="neo-summary" style="width:100%"></div>
+        <div id="neo-log" style="display:none"></div>
       </div>
 
       <!-- ════════ REPORT FORMSCH MANAGEMENT ════════ -->
@@ -13075,7 +13072,9 @@ const _neoFmt= (v,d) => (v==null?'':Number(v).toLocaleString('en-US',{minimumFra
 function _neoLog(msg,type){ const box=document.getElementById('neo-log'); if(!box) return;
   const c=type==='err'?'#f85149':type==='warn'?'#d29922':type==='ok'?'#2ea043':'var(--t3)';
   box.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:'+c+';padding:1px 0">'+_neoEsc(msg)+'</div>');
-  box.scrollTop=box.scrollHeight; }
+  // หน้าจอ: LOG ถูกซ่อน — แสดงเฉพาะข้อความผิดพลาด/แจ้งเตือนที่จำเป็นต่อการแก้ไข
+  if(type==='err'||type==='warn'){ const sm=document.getElementById('neo-summary');
+    if(sm) sm.insertAdjacentHTML('beforeend','<div style="font-size:12px;color:'+c+';padding:2px 0">'+_neoEsc(msg)+'</div>'); } }
 
 function _neoBind(){
   [['neo-inv-inp','inv','neo-inv-name'],['neo-pl-inp','pl','neo-pl-name'],['neo-tr-inp','tr','neo-tr-name'],['neo-cost-inp','cost','neo-cost-name']].forEach(([id,key,lbl])=>{
@@ -13428,16 +13427,8 @@ async function _neoExport(){
     _neoLog('✓ Mapping Form.xlsx ('+recs.length+' รายการ)','ok');
     _neoLog('✓ สร้าง Excel.xlsx ('+recs.length+' รายการ)','ok');
     _neoLog('✓ ZIP: '+zname,'ok');
-    if(sm){
-      const td='padding:4px 8px;border-bottom:1px solid var(--bd);white-space:nowrap';
-      sm.innerHTML='<div style="border:1px solid #2ea043;border-radius:8px;padding:10px 12px;background:rgba(46,160,67,.08);overflow:auto">'
-        +'<div style="font-size:12px;font-weight:700;color:#2ea043;margin-bottom:6px">✓ Export สำเร็จ — '+_neoEsc(zname)+' · '+recs.length+' รายการ'+(W.length?' · <span style="color:#d29922">แจ้งเตือน '+W.length+' รายการ (ดู LOG)</span>':'')+'</div>'
-        +'<table style="border-collapse:collapse;font-size:11px;color:var(--t2);width:100%"><tr style="color:var(--t3);text-align:left">'
-        +['ITEM','Tr','Inv','DESCRIPTION OF GOODS','N.W','G.W',INV.cur,TR.cur,'FOB USD INV.THB','FOB USD INV.3RD','ต้นทุน','RVC'].map(h=>'<th style="'+td+'">'+_neoEsc(h)+'</th>').join('')+'</tr>'
-        +recs.map(x=>'<tr>'+[x.item,x.trItem,x.invSeq,x.desc,_neoFmt(x.nw),_neoFmt(x.gw),_neoFmt(x.amtThb),_neoFmt(x.amt3rd,0),_neoFmt(x.usdThb),_neoFmt(x.usd3rd),x.costNo,x.rvc==null?'':x.rvc].map(v=>'<td style="'+td+'">'+_neoEsc(v)+'</td>').join('')+'</tr>').join('')
-        +'</table></div>';
-    }
-    if(typeof toast==='function') toast('Export สำเร็จ: '+zname,'success');
+    if(sm) sm.insertAdjacentHTML('afterbegin','<div style="font-size:13px;font-weight:700;color:#2ea043;padding:2px 0">✓ Export สำเร็จ</div>');
+    if(typeof toast==='function') toast('Export สำเร็จ','success');
     if(btn){ btn.disabled=false; btn.style.opacity='1'; }
   }catch(err){ console.error('[NEO]',err); fail('เกิดข้อผิดพลาด: '+err.message); }
 }
