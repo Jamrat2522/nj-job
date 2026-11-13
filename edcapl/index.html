@@ -2364,6 +2364,9 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-head-r{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-lbl{ font-size:13px; font-weight:600; color:var(--text-2); white-space:nowrap; }
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-ctl{ height:38px; box-sizing:border-box; border-radius:8px; font-size:14px; padding:0 14px; border:1px solid var(--border); background:var(--surface-2,rgba(255,255,255,.04)); color:inherit; font-family:inherit; }
+    /* [local304] รายการในช่องเลือก: พื้นเข้ม + ตัวอักษรสว่าง (เดิมตัวอักษรสีอ่อนบนพื้นขาวของ Browser จึงมองไม่เห็น) */
+    :is(#panel-pdf_excel,#panel-kdc_convert) select.pdfx-ctl{ color-scheme:dark; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) select.pdfx-ctl option{ background-color:#0f172a; color:#e2e8f0; }
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export{ cursor:pointer; font-weight:700; background:rgba(16,185,129,.16); color:#34d399; border-color:rgba(16,185,129,.45); white-space:nowrap; }
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export:hover:not(:disabled){ background:rgba(16,185,129,.26); }
     :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export:disabled{ opacity:.45; cursor:not-allowed; }
@@ -2528,7 +2531,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local303';
+const EDCAPL_VERSION = 'local304';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
