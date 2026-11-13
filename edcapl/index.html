@@ -2519,7 +2519,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local292';
+const EDCAPL_VERSION = 'local293';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -12941,23 +12941,36 @@ Column rename for export only: "KDC" → "Customer jobno."
     const rePart = new RegExp('^\\W{0,2}([A-Za-z0-9$§&]{2,10})(?:\\s*' + SEP + ')+\\s*([A-Za-z0-9$§&]{3,12})(?:\\s*' + SEP + ')+\\s*([A-Za-z0-9$§&]{1,10})(?=\\s|$)');
     const parse = tx => { const m = tx.match(rePart); if(!m) return null;
       const part = m[1] + '-' + m[2] + '-' + m[3], tk = tx.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2').split(/\s+/).map(t => t.replace(/^(\d+),(\d{6})$/, '$1.$2'));
-      let price = null, ext = null, qty = null;
-      for(let i = tk.length - 1; i >= 1 && price == null; i--) if(/^\d[\d,]*\.\d{6}$/.test(tk[i])){ price = num(tk[i]); for(let j = tk.length - 1; j > i; j--) if(/^\d[\d,]*\.\d{2}$/.test(tk[j])){ ext = num(tk[j]); break; } }
+      let price = null, ext = null, qty = null, wt = null, uom = null, pi = -1;
+      for(let i = tk.length - 1; i >= 1 && price == null; i--) if(/^\d[\d,]*\.\d{6}$/.test(tk[i])){ price = num(tk[i]); pi = i; for(let j = tk.length - 1; j > i; j--) if(/^\d[\d,]*\.\d{2}$/.test(tk[j])){ ext = num(tk[j]); break; } }
       if(price && ext && Number(price) > 0){ const q = Math.round(Number(ext) / Number(price)); if(q >= 1 && absB(cents(q, price) - cents(ext)) <= 1n) qty = q; }
-      return { t:'it', part, price, ext, qty, page:pageIdx + 1, raw:tx }; };
-    /* ไฟล์สแกน: บรรทัดที่อ่านรอบแรกได้ไม่ครบ (มักเป็นแถวแรกใต้หัวตาราง) → ขยายเฉพาะแถวนั้น 2 เท่าแล้วอ่านซ้ำ */
+      if(pi > 0) for(let j = pi - 1; j >= Math.max(1, pi - 3); j--){ if(wt == null && /^\d{1,5}\.\d{4}$/.test(tk[j])){ wt = num(tk[j]); break; } if(uom == null && /^[A-Z]{2,3}$/.test(tk[j])) uom = tk[j]; }   // PIECE WT (ทศนิยม 4) อยู่หน้า UOM / PRICE
+      const rest = tx.slice(m[0].length), d = rest.match(/^\s*(.+?)\s+([A-Z]{2})\s+CT[A-Za-z0-9]{4,}/) || rest.match(/^\s*(.+?)\s+([A-Z]{2})\s+(?=[*\d])/);
+      return { t:'it', part, price, ext, qty, wt, uom, desc:d ? d[1].trim() : '', coo:d ? d[2] : '', page:pageIdx + 1, raw:tx }; };
+    /* ไฟล์สแกน: ขยายเฉพาะแถวนั้นแล้วอ่านซ้ำ (รอบ 2) — ใช้ยืนยันค่าที่อ่านรอบแรก และกู้แถวที่รอบแรกอ่านเพี้ยน (มักเป็นแถวแรกใต้หัวตาราง) */
     const reLine = async (l, sc) => { const ws = l.words, x0 = Math.max(0, Math.min.apply(null, ws.map(w => w.x0)) - 14), x1 = Math.min(pg.canvas.width, Math.max.apply(null, ws.map(w => w.x1)) + 14), med = a => { const b = a.slice().sort((p, q) => p - q); return b[b.length >> 1]; }, y0 = Math.max(0, med(ws.map(w => w.y0)) - 7), y1 = Math.min(pg.canvas.height, med(ws.map(w => w.y1)) + 7), W = x1 - x0, H = y1 - y0; if(W < 20 || H < 6) return null;   /* แถบแนวตั้ง = ค่ากลางของคำในแถว (กรอบบรรทัดของ OCR อาจคร่อมแถวข้างเคียง) */
       const c = document.createElement('canvas'); c.width = (W + 40) * sc; c.height = (H + 40) * sc; const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height); cc.imageSmoothingEnabled = true; cc.imageSmoothingQuality = 'high'; cc.drawImage(pg.canvas, x0, y0, W, H, 20 * sc, 20 * sc, W * sc, H * sc);
-      const d = await ocr(c, 7), tx = String(d.text || '').replace(/\n/g, ' ').trim(); if(window.__PDFX_DEBUG) window.__PDFX_DEBUG.push({ page:0, ocr:true, text:'KX-REOCR p' + (pageIdx + 1) + ' → ' + tx }); return tx; };
+      const d = await ocr(c, 7), tx = String(d.text || '').replace(/\n/g, ' ').trim(); if(window.__PDFX_DEBUG) window.__PDFX_DEBUG.push({ page:0, ocr:true, text:'KX-REOCR p' + (pageIdx + 1) + ' x' + sc + ' → ' + tx }); return tx; };
+    const scan = !!(pg.ocr && pg.canvas);
     const out = await Promise.all(L.map(async (l, li) => { const tx = String(l.text || ''); let m;
       if((m = tx.match(reInv))){ const g = tx.match(rePg); return { t:'inv', no:m[1], pg:g ? +g[1] : null }; }
-      if(/PART\s*NUMBER/i.test(tx) || /CONTAINERS\s*&/i.test(tx)) return null;
-      let it = parse(tx); const sure = /\bT[HR]\s+CT[A-Za-z0-9]{4,}/.test(tx),   // ORIG + CONTAINER = เป็นแถวรายการแน่นอน
+      if(/PART\s*NUMBER|CONTAINERS\s*&|GESAMTRECH|SHIPPING\s*MARK|JIRISTIC|TAX\s*ID|TOTAL\s*INVOICE|PAYMENT\s*TERM|CONVEYANCE\s*NO|NET\s*\/\s*NETTO|GROSS\s*\//i.test(tx)) return null;   // หัวตาราง / บรรทัดสรุปท้ายเอกสาร ไม่ใช่รายการ
+      const a = parse(tx), sure = /\bT[HR]\s+CT[A-Za-z0-9]{4,}/.test(tx),   // ORIG + CONTAINER = เป็นแถวรายการแน่นอน
         rowish = sure || (/\d\.\d{2}$/.test(tx.trim()) && tx.trim().split(/\s+/).length >= 6 && li > 0 && L.slice(Math.max(0, li - 2), li).some(p => /PART\s*NUMBER/i.test(p.text)));   // แถวแรกใต้หัวตาราง (OCR รอบแรกมักเพี้ยน)
-      if(it && it.price != null) return it;
-      if(!it && !rowish) return null;
-      if(pg.ocr && pg.canvas && l.y0 != null) for(const sc of [2, 3]){ const t2 = await reLine(l, sc), i2 = t2 ? parse(t2) : null; if(i2 && (i2.price != null || !it || !it.re)){ i2.re = true; it = i2; } if(it && it.price != null) break; }
-      return it || { t:'it', part:'', price:null, ext:null, qty:null, page:pageIdx + 1, raw:tx, bad:true }; }));   // อ่าน PART NO. ไม่ได้ → ไม่ข้ามเงียบ (แจ้งเป็นบรรทัดที่จับคู่ไม่ได้)
+      if(!a && !rowish) return null;
+      if(!scan || l.y0 == null){ if(a){ a.wtOk = a.wt != null; return a; } return { t:'it', part:'', price:null, ext:null, qty:null, wt:null, page:pageIdx + 1, raw:tx, bad:true }; }
+      let b = null; const ws = [a ? a.wt : null], done = new Set();
+      for(const sc of [2, 3]){ const t2 = await reLine(l, sc), i2 = t2 ? parse(t2) : null; done.add(sc); if(i2) ws.push(i2.wt); if(i2 && (!b || i2.qty != null)) b = i2; if(b && b.qty != null) break; if(a && a.qty != null && b) break; }
+      if(!(ws[0] != null && ws[0] === ws[1]) && !done.has(3)){ const t3 = await reLine(l, 3), i3 = t3 ? parse(t3) : null; if(i3) ws.push(i3.wt); }   // PIECE WT 2 รอบไม่ตรงกัน → อ่านรอบ 3 (ขยาย 3 เท่า) แล้วใช้ค่าที่ตรงกันอย่างน้อย 2 รอบ
+      const c = [a, b].filter(Boolean); if(!c.length) return { t:'it', part:'', price:null, ext:null, qty:null, wt:null, page:pageIdx + 1, raw:tx, bad:true };   // อ่าน PART NO. ไม่ได้ → ไม่ข้ามเงียบ
+      const it = c.find(x => x.qty != null) || c.find(x => x.price != null) || c[0], o = c.find(x => x !== it) || null;
+      it.alt = o ? o.part : null;                                         // PART NO. จากการอ่านอีกรอบ (ใช้ช่วยจับคู่)
+      it.numOk = !!(o && it.qty != null && o.price === it.price && o.ext === it.ext);   // PRICE / EXT อ่าน 2 รอบได้ตรงกัน
+      { const vote = () => { const cn = new Map(); ws.filter(w => w != null).forEach(w => cn.set(w, (cn.get(w) || 0) + 1)); const top = [...cn.entries()].sort((p, q) => q[1] - p[1]); return top.length && top[0][1] >= 2 && (top.length < 2 || top[1][1] < top[0][1]); };
+        if(!vote()) for(const sc of [4, 2.5]){ const t4 = await reLine(l, sc), i4 = t4 ? parse(t4) : null; if(i4) ws.push(i4.wt); if(vote()) break; } }   // ยังไม่ได้ 2 รอบที่ตรงกัน → อ่านเพิ่ม (ขยาย 4 และ 2.5 เท่า)
+      { const cn = new Map(); ws.filter(w => w != null).forEach(w => cn.set(w, (cn.get(w) || 0) + 1)); const top = [...cn.entries()].sort((p, q) => q[1] - p[1]); it.wtOk = !!(top.length && top[0][1] >= 2 && (top.length < 2 || top[1][1] < top[0][1])); it.wt = it.wtOk ? top[0][0] : (ws.slice().reverse().find(w => w != null) || null); it.wtAll = ws.filter(w => w != null); }   // PIECE WT: ยืนยันเมื่ออ่านได้ตรงกันอย่างน้อย 2 รอบ
+      if(!it.desc && o) it.desc = o.desc; if(!it.coo && o) it.coo = o.coo; if(!it.uom && o) it.uom = o.uom;
+      return it; }));
     return out.filter(Boolean); }
 
   /* ── หน้า Invoice → { invNo, date, cur, net, total, pageNo, pageOf, items[], warn[] } ── */
@@ -13277,21 +13290,19 @@ Column rename for export only: "KDC" → "Customer jobno."
       const iv = m[0].iv, T = 'Invoice ' + iv.invNo + ': ';
       [['date','วันที่ (DATE SHIPPED)'],['pkg','PKG (TOTAL/SUMME)'],['net','NW (NET/NETTO)'],['gross','GW (GROSS)'],['mark','Mark (SHIPPING MARK)']].forEach(([k, lb]) => { if(iv[k] == null) warn.push(T + 'อ่าน ' + lb + ' จาก PDF ไม่ได้ — เว้นว่าง'); });
       if(!(iv.cur2 || iv.cur)) warn.push(T + 'อ่านสกุลเงินจาก PDF ไม่ได้ — เว้นว่าง');
-      const amt = x.items.filter(r => isNum(r.v[8])).map(r => String(r.v[8]));
-      if(iv.total && amt.length){ const s = decSum(amt); if(cents(s) !== cents(iv.total)) warn.push(T + 'รวม AMT จาก Excel ' + edc1fzCents(cents(s)) + ' ≠ ยอดรวมใน PDF ' + edc1fzCents(cents(iv.total)) + ' (ต่าง ' + edc1fzCents(absB(cents(s) - cents(iv.total))) + ') — ใช้ค่าจาก Excel ตามเดิม โปรดตรวจทาน'); }
-      else if(!iv.total) warn.push(T + 'อ่านยอดรวม INVOICE จาก PDF ไม่ได้ — เทียบยอด AMT ไม่ได้');
       if(iv.net && iv.gross && cents(iv.net) > cents(iv.gross)) warn.push(T + 'NW ' + iv.net + ' มากกว่า GW ' + iv.gross + ' — โปรดตรวจทาน');
       blocks.push({ x, iv, pf:m[0].f }); });
     const dupX = {}; okX.forEach(x => { (dupX[x.key] = dupX[x.key] || []).push(x.name); });
     Object.keys(dupX).filter(k => dupX[k].length > 1).forEach(k => warn.push('Invoice ' + k + ' มี Excel มากกว่า 1 ไฟล์: ' + dupX[k].join(' , ') + ' — รายการอยู่ครบทุกไฟล์ (ไม่ลบ / ไม่รวม)'));
     pinv.filter(p => !okX.some(x => x.key === p.key)).forEach(p => pend.push('PDF ' + p.f.name + ' (Invoice ' + p.iv.invNo + ') — ยังไม่มี INVOICE EXCEL ที่เลขตรงกัน'));
     blocks.sort((a, b) => invCmp(a.iv.invNo, b.iv.invNo));
-    /* [แปลง KDC] local292: ลำดับรายการ = ลำดับใน INVOICE PDF (หน้าแรก → หน้าสุดท้าย · บน → ล่าง) · ค่าข้อมูล = Excel · รัน No ใหม่หลังจัดลำดับ · PKG/NW/GW/Mark = แถวแรกหลังจัดลำดับ */
+    /* [แปลง KDC] local293: INVOICE PDF = Master · 1 บรรทัด PDF = 1 แถว · No 1,2,3… ตามลำดับใน PDF · PKG/NW/GW/Mark = แถวแรกของ Invoice */
     const rows = [], ordIssue = []; let ordOk = 0;
     blocks.forEach(b => { const od = kxOrder(b.x, b.iv); b.ord = od; ordOk += od.placed; ordIssue.push(...od.issues); warn.push(...od.notes);
-      od.list.forEach((e, k) => rows.push({ r:e.r, b, first:k === 0, un:e.un, pg:e.pg })); });
-    const qty = rows.filter(o => isNum(o.r.v[4])).map(o => String(o.r.v[4])), byCur = new Map();
-    rows.forEach(o => { if(!isNum(o.r.v[8])) return; const c = o.b.iv.cur2 || o.b.iv.cur || '(ไม่ระบุ)'; if(!byCur.has(c)) byCur.set(c, []); byCur.get(c).push(String(o.r.v[8])); });
+      od.list.forEach((e, k) => rows.push({ r:e.r, it:e.it, b, first:k === 0, un:e.un, pg:e.pg })); });
+    rows.forEach((o, i) => { o.vals = kxVals(o, i); });
+    const qty = rows.filter(o => o.it.qty != null).map(o => String(o.it.qty)), byCur = new Map();
+    rows.forEach(o => { if(o.it.ext == null) return; const c = o.b.iv.cur2 || o.b.iv.cur || '(ไม่ระบุ)'; if(!byCur.has(c)) byCur.set(c, []); byCur.get(c).push(String(o.it.ext)); });
     const B = { rows, blocks, warn, pend, ordIssue, ordOk, tot:{ qty:qty.length ? decSum(qty) : null, amt:[...byCur.entries()].map(([k, l]) => ({ k, sum:decSum(l) })) } };
     KX.cache = { ver:KX.ver, B }; return B; }
   /* ── จัดลำดับรายการ Excel ตามตำแหน่งใน PDF (ภายใน Invoice เดียวกัน) ──
@@ -13305,7 +13316,8 @@ Column rename for export only: "KDC" → "Customer jobno."
   const lev = (a, b) => { const n = b.length; let pr = Array.from({ length:n + 1 }, (_, i) => i); for(let i = 1; i <= a.length; i++){ const cu = [i]; for(let j = 1; j <= n; j++) cu[j] = Math.min(pr[j] + 1, cu[j - 1] + 1, pr[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); pr = cu; } return pr[n]; };
   function kxOrder(x, iv){
     const T = 'Invoice ' + iv.invNo + ': ', P = iv.items || [], X = x.items, mt = new Array(P.length).fill(-1), how = new Array(P.length).fill(''), amb = new Set(), issues = [], notes = [];
-    const xk = X.map(r => pkey(r.v[0])), pk = P.map(it => pkey(String(it.part).replace(/[$§&]/g, 'S'))), xf = xk.map(fkey), pf = pk.map(fkey);
+    const nk = v => pkey(String(v == null ? '' : v).replace(/[$§&]/g, 'S')), xk = X.map(r => pkey(r.v[0])), gx0 = new Set(xk);
+    const pk = P.map(it => { const a = nk(it.part), b = it.alt ? nk(it.alt) : ''; return gx0.has(a) ? a : (b && gx0.has(b)) ? b : a; }), xf = xk.map(fkey), pf = pk.map(fkey);   // PART NO. ที่อ่านได้ 2 รอบ: ใช้รอบที่ตรงกับ Excel
     const eqP = (it, r) => it.price != null && isNum(r.v[7]) && Math.abs(Number(it.price) - r.v[7]) < 5e-7;
     const agree = (it, r) => { let n = 0;   // true = QTY/AMT ที่อ่านได้จาก PDF ตรงกับ Excel · false = ขัดกัน · null = ไม่มีข้อมูลประกอบ
       if(it.ext != null){ if(!isNum(r.v[8]) || cents(it.ext) !== cents(r.v[8])) return false; n++; }
@@ -13316,7 +13328,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     // 1) PART NO. ตรงกัน
     const gx = idx(xk), gp = idx(pk);
     gp.forEach((pis, k) => { const xis = gx.get(k); if(!xis) return;
-      if(xis.length === 1){ pis.forEach(p => { mt[p] = xis[0]; }); return; }                          // Excel แถวเดียว → ทุกบรรทัดของ PART นี้ใน PDF ชี้แถวเดียวกัน (ตำแหน่ง = บรรทัดแรก)
+      if(xis.length === 1){ pis.forEach(p => { mt[p] = xis[0]; }); return; }                          // Excel แถวเดียว → ทุกบรรทัดของ PART นี้ใน PDF ใช้ข้อความจากแถวเดียวกัน
       const used = new Set(), set = (p, i) => { mt[p] = i; used.add(i); };
       if(pis.length === xis.length && xis.every(i => sig(X[i]) === sig(X[xis[0]]))){ pis.forEach((p, j) => set(p, xis[j])); return; }   // แถว Excel เหมือนกันทุกช่อง → ตามลำดับการปรากฏ
       pis.forEach(p => { const c = xis.filter(i => !used.has(i) && agree(P[p], X[i]) === true); if(c.length && c.every(i => dat(X[i]) === dat(X[c[0]]))) set(p, c[0]); });   // QTY / AMT ตรง → แถวแรกที่ยังไม่ถูกใช้
@@ -13330,25 +13342,38 @@ Column rename for export only: "KDC" → "Customer jobno."
     P.forEach((it, p) => { if(mt[p] >= 0 || amb.has(p) || !pf[p] || it.price == null) return;
       const c = X.map((r, i) => eqP(it, r) ? { i, d:lev(pf[p], xf[i]) } : null).filter(Boolean).sort((a, b) => a.d - b.d);
       if(c.length && c[0].d <= 3 && (c.length === 1 || c[1].d >= c[0].d + 2)){ mt[p] = c[0].i; how[p] = 'p'; } });
-    const pos = new Map(); P.forEach((it, p) => { if(mt[p] >= 0 && !pos.has(mt[p])) pos.set(mt[p], p); });
-    const list = [...pos.entries()].sort((a, b) => a[1] - b[1]).map(([i, p]) => ({ r:X[i], pg:P[p].page, un:false })), placed = list.length;
-    P.forEach((it, p) => { if(mt[p] < 0) issues.push(T + 'หน้า PDF ' + it.page + ' · PART NO. ' + (it.part || '(อ่านไม่ได้: "' + String(it.raw).slice(0, 40) + '")') + (amb.has(p) ? ' — PART NO. ซ้ำ แยกคู่ด้วย QTY / AMT ไม่ชัดเจน (ไม่เดาคู่)' : ' — จับคู่กับ Excel ไม่ได้')); });
-    X.forEach((r, i) => { if(pos.has(i)) return; list.push({ r, pg:null, un:true }); issues.push(T + 'Excel แถว ' + r.row + ' · PART NO. ' + r.v[0] + ' — หาตำแหน่งใน PDF ไม่ได้ (วางต่อท้าย Invoice ตามลำดับ Excel)'); });
-    if(!P.length) issues.unshift(T + 'อ่านรายการสินค้าจาก PDF ไม่ได้ — ใช้ลำดับ Excel เดิมทั้งหมด');
+    /* [แปลง KDC] local293: INVOICE PDF = Master — 1 บรรทัดใน PDF = 1 แถว (ไม่รวม PART NO. ซ้ำ) ตามลำดับ หน้าแรก → หน้าสุดท้าย · บน → ล่าง */
+    const LB = it => 'หน้า PDF ' + it.page + ' · PART NO. ' + (it.part || '(อ่านไม่ได้: "' + String(it.raw).slice(0, 40) + '")');
+    const list = P.map((it, p) => ({ it, r:mt[p] >= 0 ? X[mt[p]] : null, un:mt[p] < 0 || it.qty == null || it.ext == null, pg:it.page })), placed = list.filter(e => !e.un).length;
+    P.forEach((it, p) => { if(mt[p] < 0) issues.push(T + LB(it) + (amb.has(p) ? ' — PART NO. ซ้ำใน Excel แยกคู่ด้วย QTY / AMT ไม่ชัดเจน (ไม่เดาคู่)' : ' — ยืนยัน PART NO. กับ Excel ไม่ได้ (แสดงค่าที่ OCR อ่านได้ โปรดตรวจทาน)'));
+      if(it.ext == null) issues.push(T + LB(it) + ' — อ่าน AMT (EXT PRICE) จาก PDF ไม่ได้ — เว้นว่าง');
+      else if(it.qty == null) issues.push(T + LB(it) + ' — QTY ตรวจไม่ผ่าน (AMT ÷ ราคาต่อหน่วย ไม่ลงตัว) — เว้นว่าง');
+      else if(mt[p] >= 0 && isNum(X[mt[p]].v[7]) && !eqP(it, X[mt[p]])) issues.push(T + LB(it) + ' — ราคาต่อหน่วยใน PDF ' + it.price + ' ≠ Excel ' + X[mt[p]].v[7] + ' โปรดตรวจทาน'); });
+    const hit = new Set(mt.filter(i => i >= 0));
+    X.forEach((r, i) => { if(!hit.has(i)) issues.push(T + 'Excel แถว ' + r.row + ' · PART NO. ' + r.v[0] + ' — ไม่พบใน PDF (ไม่อยู่ใน EXPORT เพราะยึดรายการตาม PDF)'); });
+    if(!P.length) issues.unshift(T + 'อ่านรายการสินค้าจาก PDF ไม่ได้');
     const fz = P.map((it, p) => how[p] ? 'หน้า ' + it.page + ' "' + it.part + '" → ' + X[mt[p]].v[0] : null).filter(Boolean);
-    if(fz.length) notes.push(T + 'OCR อ่าน PART NO. เพี้ยน ' + fz.length + ' บรรทัด — จับคู่ได้คู่เดียวจากอักขระที่คล้ายกัน / ราคาต่อหน่วยตรงกัน โปรดตรวจทานลำดับ: ' + fz.slice(0, 15).join(' , ') + (fz.length > 15 ? ' …' : ''));
-    // ตรวจทาน: รวม QTY ของทุกบรรทัดใน PDF = QTY ใน Excel (เมื่ออ่าน QTY ได้ครบทุกบรรทัดของ PART นั้น)
+    if(fz.length) notes.push(T + 'OCR อ่าน PART NO. เพี้ยน ' + fz.length + ' บรรทัด — ยืนยันได้คู่เดียวจากอักขระที่คล้ายกัน / ราคาต่อหน่วยตรงกัน (ใช้ตัวอักษรจาก Excel) โปรดตรวจทาน: ' + fz.slice(0, 15).join(' , ') + (fz.length > 15 ? ' …' : ''));
+    // PIECE WT ของ PART NO. เดียวกัน (หลายบรรทัด / หลาย Container) ต้องเท่ากัน → บรรทัดที่ยังไม่ยืนยัน ใช้ค่าที่ยืนยันแล้วของ PART เดียวกัน
+    { const byX = new Map(); P.forEach((it, p) => { if(mt[p] < 0) return; if(!byX.has(mt[p])) byX.set(mt[p], []); byX.get(mt[p]).push(it); });
+      byX.forEach(g => { const ok = [...new Set(g.filter(it => it.wtOk && it.wt != null).map(it => it.wt))]; if(ok.length === 1) g.forEach(it => { if(!it.wtOk){ it.wt = ok[0]; it.wtOk = true; } }); else if(ok.length > 1) g.forEach(it => { it.wtOk = false; }); }); }
+    const wb = P.filter(it => it.wt == null), wd = P.filter(it => it.wt != null && !it.wtOk);
+    let nwOk = null; if(iv.net && P.length && P.every(it => it.qty != null && it.wt != null)){ const sw = P.reduce((a, it) => a + cents(it.qty, it.wt), 0n), df = absB(sw - cents(iv.net)); nwOk = df <= BigInt(P.length + 1);
+      if(!nwOk) notes.push(T + 'รวม QTY × น้ำหนักต่อชิ้น = ' + edc1fzCents(sw) + ' ต่างจาก NW (NET/NETTO) ' + edc1fzCents(cents(iv.net)) + ' อยู่ ' + edc1fzCents(df) + ' — อาจมีน้ำหนักต่อชิ้นที่ OCR อ่านเพี้ยน โปรดตรวจทานคอลัมน์ J'); }
+    if(wb.length) notes.push(T + 'อ่านน้ำหนักต่อชิ้น (PIECE WT) ไม่ได้ ' + wb.length + ' บรรทัด — เว้นว่าง: ' + wb.slice(0, 10).map(it => 'หน้า ' + it.page + ' ' + it.part).join(' , ') + (wb.length > 10 ? ' …' : ''));
+    if(wd.length) notes.push(T + 'น้ำหนักต่อชิ้น (PIECE WT) ยังยืนยันไม่ได้ ' + wd.length + ' บรรทัด (อ่านหลายรอบได้ไม่ตรงกัน) — โปรดตรวจทาน: ' + wd.slice(0, 10).map(it => 'หน้า ' + it.page + ' ' + it.part + ' = ' + it.wt + ' (' + (it.wtAll || []).join(' / ') + ')').join(' , ') + (wd.length > 10 ? ' …' : ''));
+    // ตรวจทาน: รวม QTY ของทุกบรรทัดใน PDF = QTY ใน Excel (ต่อ PART NO.)
     const sum = new Map(); P.forEach((it, p) => { if(mt[p] < 0) return; const s = sum.get(mt[p]) || { q:0, ok:true }; if(it.qty == null) s.ok = false; else s.q += it.qty; sum.set(mt[p], s); });
     const bad = []; sum.forEach((s, i) => { if(s.ok && isNum(X[i].v[4]) && s.q !== X[i].v[4]) bad.push(X[i].v[0] + ' (PDF ' + s.q + ' / Excel ' + X[i].v[4] + ')'); });
-    if(bad.length) notes.push(T + 'QTY รวมใน PDF ไม่เท่ากับ Excel ' + bad.length + ' รายการ — โปรดตรวจทาน: ' + bad.slice(0, 12).join(' , ') + (bad.length > 12 ? ' …' : ''));
-    if(iv.pageOf && iv.pages && iv.pages.length && iv.pages.length !== iv.pageOf && issues.length) notes.push(T + 'อ่านเลขหน้าใน PDF ได้ ' + iv.pages.length + ' จาก ' + iv.pageOf + ' หน้า — ลำดับอาจไม่ครบ');
-    // ตรวจความครบของบรรทัด PDF: รวม EXT PRICE ทุกบรรทัดที่อ่านได้ = ยอดรวม INVOICE ใน PDF → อ่านรายการครบทุกบรรทัด
-    let full = null; if(iv.total && P.length){ if(P.every(it => it.ext != null)){ const sx = P.reduce((a, it) => a + cents(it.ext), 0n); full = sx === cents(iv.total); if(!full) notes.push(T + 'รวม EXT PRICE ของ ' + P.length + ' บรรทัดที่อ่านได้จาก PDF = ' + edc1fzCents(sx) + ' ≠ ยอดรวมใน PDF ' + edc1fzCents(cents(iv.total)) + ' — อาจอ่านรายการใน PDF ไม่ครบทุกบรรทัด โปรดตรวจทานลำดับ'); }
-      else notes.push(T + 'อ่าน EXT PRICE ใน PDF ไม่ได้ ' + P.filter(it => it.ext == null).length + ' บรรทัด — ยืนยันจำนวนบรรทัด PDF ด้วยยอดรวมไม่ได้ โปรดตรวจทานลำดับ'); }
-    return { list, issues, notes, placed, nPdf:P.length, full };
+    if(bad.length) issues.push(T + 'QTY รวมใน PDF ไม่เท่ากับ Excel ' + bad.length + ' รายการ — โปรดตรวจทาน: ' + bad.slice(0, 12).join(' , ') + (bad.length > 12 ? ' …' : ''));
+    // ตรวจความครบ: รวม EXT PRICE ทุกบรรทัด = ยอดรวม INVOICE ใน PDF
+    let full = null; if(iv.total && P.length && P.every(it => it.ext != null)){ const sx = P.reduce((a, it) => a + cents(it.ext), 0n); full = sx === cents(iv.total); if(!full) issues.push(T + 'รวม AMT ของ ' + P.length + ' บรรทัดที่อ่านได้ = ' + edc1fzCents(sx) + ' ≠ ยอดรวมใน PDF ' + edc1fzCents(cents(iv.total)) + ' — อาจอ่านรายการไม่ครบ / อ่านตัวเลขเพี้ยน โปรดตรวจทาน'); }
+    else if(P.length && !iv.total) notes.push(T + 'อ่านยอดรวม INVOICE จาก PDF ไม่ได้ — ยืนยันความครบของรายการด้วยยอดรวมไม่ได้');
+    return { list, issues, notes, placed, nPdf:P.length, full, nwOk };
   }
-  const kxVals = (o, i) => { const v = o.r.v, iv = o.b.iv, F1 = x => o.first ? x : null;
-    return [i + 1, String(iv.invNo), iv.date || null, String(v[0]).replace(/[-\s]/g, ''), v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], iv.cur2 || iv.cur || null, F1(iv.pkg), F1(iv.net), F1(iv.gross), F1(iv.mark)]; };
+  /* 1 แถว = 1 บรรทัดใน PDF · QTY / น้ำหนักต่อชิ้น / ราคาต่อหน่วย / AMT = ค่าใน PDF ของบรรทัดนั้น · PART NO. / Description / COO / หน่วย = ตัวอักษรจาก Excel ที่ยืนยันคู่แล้ว (จับคู่ไม่ได้ = ค่าที่ OCR อ่านได้) */
+  const kxVals = (o, i) => { const it = o.it, v = o.r ? o.r.v : null, iv = o.b.iv, F1 = x => o.first ? x : null, part = v ? v[0] : it.part, q = it.qty, N = x => x == null ? null : Number(x);
+    return [i + 1, String(iv.invNo), iv.date || null, String(part).replace(/[-\s]/g, ''), part, v ? v[1] : (it.desc || null), v ? v[2] : (it.coo || null), q == null ? null : '*'.repeat(Math.max(0, 6 - String(q).length)) + q, q, N(it.wt), v ? v[6] : (it.uom || null), N(it.price != null ? it.price : (v && isNum(v[7]) ? v[7] : null)), N(it.ext), iv.cur2 || iv.cur || null, F1(iv.pkg), F1(iv.net), F1(iv.gross), F1(iv.mark)]; };
   const thou = v => { if(v == null) return ''; const t = String(v).split('.'); return t[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (t[1] ? '.' + t[1] : ''); };
 
   function kxRender(){
@@ -13360,16 +13385,16 @@ Column rename for export only: "KDC" → "Customer jobno."
     const B = kxBuild(), reading = KX.busy > 0, btn = $('kxExportBtn'), setT = (id, v) => { const e = $(id); if(e) e.textContent = v; };
     if(btn){ btn.disabled = reading || !B.rows.length || KX.exporting; btn.textContent = KX.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; }
     setT('kxNInv', B.blocks.length); setT('kxNRow', B.rows.length); setT('kxTQty', B.tot.qty == null ? '—' : thou(B.tot.qty)); setT('kxTAmt', B.tot.amt.length ? B.tot.amt.map(a => edc1fzCents(cents(a.sum)) + ' ' + a.k).join(' · ') : '—');
-    setT('kxHint', reading ? '⏳ กำลังอ่านไฟล์…' : B.rows.length ? (B.ordIssue.length ? '⚠ ยังจัดลำดับตาม PDF ไม่ครบ — วางตำแหน่งได้ ' + B.ordOk + '/' + B.rows.length + ' รายการ' : 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.blocks.length + ' Invoice · เรียงตาม PDF ครบ') : (!KX.xls.length && !KX.pdf.length) ? '⚠ กรุณาอัปโหลด INVOICE EXCEL และ INVOICE PDF' : !KX.xls.some(f => f.state === 'ok') ? '⚠ รอ INVOICE EXCEL' : !KX.pdf.some(f => f.state === 'ok') ? '⚠ รอ INVOICE PDF' : '⚠ ยังจับคู่ Invoice ไม่ได้');
+    setT('kxHint', reading ? '⏳ กำลังอ่านไฟล์…' : B.rows.length ? (B.ordIssue.length ? '⚠ ยังยืนยันรายการตาม PDF ไม่ครบ — ผ่าน ' + B.ordOk + '/' + B.rows.length + ' บรรทัด' : 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.blocks.length + ' Invoice · ตรงตาม PDF ทุกบรรทัด') : (!KX.xls.length && !KX.pdf.length) ? '⚠ กรุณาอัปโหลด INVOICE EXCEL และ INVOICE PDF' : !KX.xls.some(f => f.state === 'ok') ? '⚠ รอ INVOICE EXCEL' : !KX.pdf.some(f => f.state === 'ok') ? '⚠ รอ INVOICE PDF' : '⚠ ยังจับคู่ Invoice ไม่ได้');
     const res = $('kxResult'); if(!res) return;
     if(!KX.xls.length && !KX.pdf.length){ res.style.display = 'none'; res.innerHTML = ''; return; }
     const all = KX.xls.concat(KX.pdf), errF = all.filter(f => f.state === 'err'), fw = [].concat(...all.filter(f => f.state === 'ok').map(f => (f.warn || []).map(w => f.name + ' — ' + w))), warns = B.warn.concat(fw);
     let h = '';
-    if(B.blocks.length) h += '<div class="pdfx-msg" style="color:var(--text-2)">จับคู่แล้ว: ' + B.blocks.map(b => 'Invoice <b>' + esc(b.iv.invNo) + '</b> ← ' + esc(b.x.name) + ' (ชีต "' + esc(b.x.sheet) + '" · ' + b.x.items.length + ' รายการ) + ' + esc(b.pf.name)).join(' · ') + '</div>';
-    if(B.blocks.length && !B.ordIssue.length) h += '<div class="pdfx-msg" id="kxOrdOk" style="color:#34d399">✅ เรียงรายการตาม INVOICE PDF ครบ ' + B.ordOk + '/' + B.rows.length + ' รายการ (' + B.blocks.map(b => 'Invoice ' + esc(b.iv.invNo) + ': PDF ' + b.ord.nPdf + ' บรรทัด → ' + b.ord.placed + ' รายการ' + (b.ord.full ? ' · ยอดรวมทุกบรรทัดตรงกับยอดรวม INVOICE ใน PDF ✓' : '')).join(' · ') + ') · PART NO. เดียวกันหลายบรรทัดใน PDF วางตามตำแหน่งแรกที่พบ</div>';
-    if(B.ordIssue.length) h += '<div class="pdfx-msg" id="kxOrdBad" style="color:#f87171;font-weight:700;max-height:170px;overflow-y:auto;border:1px solid rgba(248,113,113,.5);border-radius:8px;padding:8px 12px">⛔ ยังจัดลำดับตาม INVOICE PDF ไม่ครบ — วางตำแหน่งได้ ' + B.ordOk + '/' + B.rows.length + ' รายการ · ค้าง ' + B.ordIssue.length + ' จุด (แถวพื้นแดงในตาราง = ยังไม่ได้ตำแหน่งจาก PDF):<br><span style="font-weight:400">' + B.ordIssue.map(x => '• ' + esc(x)).join('<br>') + '</span></div>';
+    if(B.blocks.length) h += '<div class="pdfx-msg" style="color:var(--text-2)">จับคู่แล้ว: ' + B.blocks.map(b => 'Invoice <b>' + esc(b.iv.invNo) + '</b> ← ' + esc(b.x.name) + ' (ชีต "' + esc(b.x.sheet) + '" · ' + b.x.items.length + ' รายการ) + ' + esc(b.pf.name) + ' (' + b.ord.nPdf + ' บรรทัด)').join(' · ') + '</div>';
+    if(B.blocks.length && !B.ordIssue.length) h += '<div class="pdfx-msg" id="kxOrdOk" style="color:#34d399">✅ รายการตาม INVOICE PDF ครบ ' + B.ordOk + '/' + B.rows.length + ' บรรทัด (' + B.blocks.map(b => 'Invoice ' + esc(b.iv.invNo) + ': ' + b.ord.nPdf + ' บรรทัด' + (b.ord.full ? ' · รวม AMT ตรงกับยอดรวม INVOICE ใน PDF ✓' : '') + (b.ord.nwOk ? ' · รวมน้ำหนักตรงกับ NW ✓' : '')).join(' · ') + ') · No เรียงตามลำดับใน PDF · PART NO. ทุกบรรทัดยืนยันกับ Excel แล้ว</div>';
+    if(B.ordIssue.length) h += '<div class="pdfx-msg" id="kxOrdBad" style="color:#f87171;font-weight:700;max-height:170px;overflow-y:auto;border:1px solid rgba(248,113,113,.5);border-radius:8px;padding:8px 12px">⛔ ยังยืนยันรายการตาม INVOICE PDF ไม่ครบ — ผ่าน ' + B.ordOk + '/' + B.rows.length + ' บรรทัด · ค้าง ' + B.ordIssue.length + ' จุด (แถวพื้นแดงในตาราง = ต้องตรวจทานกับ PDF):<br><span style="font-weight:400">' + B.ordIssue.map(x => '• ' + esc(x)).join('<br>') + '</span></div>';
     if(!reading && B.pend.length) h += '<div class="pdfx-msg" style="color:#fbbf24">⏳ ยังไม่ครบคู่:<br>' + B.pend.map(x => '• ' + esc(x)).join('<br>') + '</div>';
-    if(KX.pdf.some(f => f.state === 'ok' && f.ocr)) h += '<div class="pdfx-msg" style="color:#fbbf24">⚠ PDF เป็นไฟล์สแกน — ส่วนหัว / ยอดสรุป (วันที่ · สกุลเงิน · PKG · NW · GW · Mark) และลำดับรายการ อ่านด้วย OCR โปรดตรวจทานกับเอกสาร · ค่าข้อมูลสินค้ามาจาก Excel</div>';
+    if(KX.pdf.some(f => f.state === 'ok' && f.ocr)) h += '<div class="pdfx-msg" style="color:#fbbf24">⚠ PDF เป็นไฟล์สแกน — ส่วนหัว / ยอดสรุป (วันที่ · สกุลเงิน · PKG · NW · GW · Mark) และรายการ (ลำดับ · QTY · น้ำหนักต่อชิ้น · ราคา · AMT) อ่านด้วย OCR โปรดตรวจทานกับเอกสาร · ตัวอักษร PART NO. / Description ยืนยันกับ Excel</div>';
     if(errF.length) h += '<div class="pdfx-msg" style="color:#f87171;font-weight:700">❌ อ่านไม่สำเร็จ ' + errF.length + ' ไฟล์:<br>' + errF.map(f => '• ' + esc(f.name) + ' — ' + esc(f.status)).join('<br>') + '</div>';
     if(warns.length) h += '<div class="pdfx-msg" style="color:#f87171;max-height:150px;overflow-y:auto;border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:8px 12px">⚠ แจ้งเตือน ' + warns.length + ' รายการ:<br>' + warns.map(w => '• ' + esc(w)).join('<br>') + '</div>';
     if(B.rows.length){ const R = { 0:1, 8:1, 9:1, 11:1, 12:1, 14:1, 15:1, 16:1 };
@@ -13377,7 +13402,7 @@ Column rename for export only: "KDC" → "Customer jobno."
       const n = Math.max(1, B.tot.amt.length); let foot = '<tfoot>';
       for(let i = 0; i < n; i++){ const a = B.tot.amt[i]; foot += '<tr>' + (i === 0 ? '<td colspan="8" rowspan="' + n + '" style="text-align:right">TOTAL</td><td class="r" data-t="qty" rowspan="' + n + '">' + thou(B.tot.qty) + '</td>' : '') + '<td></td><td></td><td></td><td class="r" data-t="amt">' + (a ? edc1fzCents(cents(a.sum)) : '') + '</td><td data-t="cur">' + (a ? esc(a.k) : '') + '</td>' + (i === 0 ? '<td colspan="4" rowspan="' + n + '"></td>' : '') + '</tr>'; }
       h += '<div class="pdfx-sheet"><table><thead><tr>' + KHEAD.map((x, k) => '<th class="' + KGRP(k) + '">' + esc(x) + '</th>').join('') + '</tr></thead><tbody>'
-        + B.rows.map((o, i) => '<tr' + (o.un ? ' data-un="1" style="background:#fecaca" title="ยังไม่ได้ตำแหน่งจาก PDF"' : ' data-pg="' + o.pg + '"') + '>' + kxVals(o, i).map((v, k) => '<td' + (R[k] ? ' class="r"' : (k === 5 || k === 17) ? ' class="w"' : '') + '>' + sh(v, k) + '</td>').join('') + '</tr>').join('') + '</tbody>' + foot + '</tfoot></table></div>'
+        + B.rows.map((o, i) => '<tr' + (o.un ? ' data-un="1" style="background:#fecaca" title="ต้องตรวจทานกับ PDF"' : ' data-pg="' + o.pg + '"') + '>' + o.vals.map((v, k) => '<td' + (R[k] ? ' class="r"' : (k === 5 || k === 17) ? ' class="w"' : '') + '>' + sh(v, k) + '</td>').join('') + '</tr>').join('') + '</tbody>' + foot + '</tfoot></table></div>'
         + '<div style="font-size:12px;color:var(--text-3);margin-top:8px">ตัวอย่างชีต <b>Invoice</b> ตามที่จะ EXPORT (' + B.rows.length + ' รายการ + แถว TOTAL)</div>'; }
     res.innerHTML = h; res.style.display = h ? 'block' : 'none';
   }
@@ -13402,17 +13427,17 @@ Column rename for export only: "KDC" → "Customer jobno."
     const CAL = b => ({ name:'Calibri', size:11, bold:!!b, color:{ argb:'FF000000' } }), TAH = { name:'Tahoma', size:11, color:{ theme:1 } }, calCol = k => k <= 2 || k >= 15;
     KHEAD.forEach((h, k) => { const c = ws.getCell(1, k + 1); c.value = h; c.font = CAL(true); c.fill = FILL[KGRP(k)]; c.border = thin; c.alignment = { horizontal:'center' }; });
     const D = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; };
-    B.rows.forEach((o, i) => { const vals = kxVals(o, i), row = ws.getRow(i + 2);
+    B.rows.forEach((o, i) => { const vals = o.vals, row = ws.getRow(i + 2);
       vals.forEach((v, k) => { const c = row.getCell(k + 1); let x = v; if(k === 2) x = D(v); else if((k >= 14 && k <= 16) && v != null) x = Number(v);
-        if(x != null && x !== '') c.value = x; c.font = calCol(k) ? CAL(false) : TAH; c.fill = FILL[KGRP(k)]; c.border = thin; if(k === 2) c.numFmt = 'mm-dd-yy'; if(k === 15) c.numFmt = '0.00'; if(k === 8) c.alignment = { horizontal:'center' }; }); });
-    const last = B.rows.length + 1, tr = last + 1, sty = c => { c.font = TAH; c.fill = FILL.p; c.border = thin; };   // แถว TOTAL ตามแม่แบบ: SUM ครอบคลุมรายการจริงทั้งหมด
+        if(x != null && x !== '') c.value = x; c.font = calCol(k) ? CAL(false) : TAH; c.border = thin;   /* local293: แถวข้อมูลไม่มีสีพื้น (สีเฉพาะหัวตาราง) */ if(k === 2) c.numFmt = 'mm-dd-yy'; if(k === 15) c.numFmt = '0.00'; if(k === 8) c.alignment = { horizontal:'center' }; }); });
+    const last = B.rows.length + 1, tr = last + 1, sty = c => { c.font = TAH; c.border = thin; };   // แถว TOTAL ตามแม่แบบ: SUM ครอบคลุมรายการจริงทั้งหมด
     const qc = ws.getCell(tr, 9); qc.value = { formula:'SUM(I2:I' + last + ')', result:B.tot.qty == null ? 0 : Number(B.tot.qty) }; sty(qc);
     if(B.tot.amt.length <= 1){ const mc = ws.getCell(tr, 13); mc.value = { formula:'SUM(M2:M' + last + ')', result:B.tot.amt.length ? Number(B.tot.amt[0].sum) : 0 }; sty(mc); }
     else B.tot.amt.forEach((a, i) => { const mc = ws.getCell(tr + i, 13); mc.value = { formula:'SUMIF(N2:N' + last + ',"' + a.k + '",M2:M' + last + ')', result:Number(a.sum) }; sty(mc); const nc = ws.getCell(tr + i, 14); nc.value = a.k; nc.font = TAH; });   // หลายสกุลเงิน: แยกยอดต่อสกุล
     return wb.xlsx.writeBuffer();
   }
   async function kxExport(){ if(KX.exporting || KX.busy > 0) return; const B = kxBuild(); if(!B.rows.length){ alert('⚠ ยังไม่มีข้อมูลที่จับคู่สำเร็จ'); return; }
-    if(B.ordIssue.length && !confirm('⛔ ยังจัดลำดับตาม INVOICE PDF ไม่ครบ\nวางตำแหน่งได้ ' + B.ordOk + '/' + B.rows.length + ' รายการ · ค้าง ' + B.ordIssue.length + ' จุด\n\n' + B.ordIssue.slice(0, 8).join('\n') + (B.ordIssue.length > 8 ? '\n…' : '') + '\n\nต้องการ EXPORT ทั้งที่ลำดับยังไม่ครบหรือไม่?')) return;
+    if(B.ordIssue.length && !confirm('⛔ ยังยืนยันรายการตาม INVOICE PDF ไม่ครบ\nผ่าน ' + B.ordOk + '/' + B.rows.length + ' บรรทัด · ค้าง ' + B.ordIssue.length + ' จุด\n\n' + B.ordIssue.slice(0, 8).join('\n') + (B.ordIssue.length > 8 ? '\n…' : '') + '\n\nต้องการ EXPORT ทั้งที่ยังตรวจทานไม่ครบหรือไม่?')) return;
     KX.exporting = true; kxRender();
     try{ const ok = await hspmEnsureExcel(); if(!ok || !window.ExcelJS) throw new Error('โหลด ExcelJS ไม่สำเร็จ');
       const t0 = now(), buf = await kxBuildExcel(B); PERF.kxExcel = now() - t0;   /* สร้างจากข้อมูลที่อ่านไว้ — ไม่อ่าน PDF / OCR ซ้ำ */
