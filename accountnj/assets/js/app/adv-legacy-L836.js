@@ -927,9 +927,11 @@ export async function edit837(o) {
     document.body.appendChild(ov);
     let rows = [], pickd = new Map(), L = ov.querySelector("#c837-l"), ok = ov.querySelector("#c837-ok"), cn = ov.querySelector("#c837-n");
     let P871 = { page: 1, size: 300, total: 0, q: "" };   /* V.871 : แบ่งหน้า — ไม่ตัดรายการเก่าทิ้ง */
+    let HID874 = 0;   /* V.874 */
     let PG871 = ov.querySelector("#c837-pg"), BP871 = ov.querySelector("#c837-pv871"), BN871 = ov.querySelector("#c837-nx871");
     let pager871 = () => { let np = Math.max(1, Math.ceil(P871.total / P871.size));
-      PG871.textContent = "ทั้งหมด " + N(P871.total) + " รายการ · หน้า " + P871.page + " / " + np;
+      PG871.textContent = "ทั้งหมด " + N(P871.total) + " รายการ"
+        + (HID874 > 0 ? " (อยู่ในใบเสร็จนี้แล้ว " + N(HID874) + ")" : "") + " · หน้า " + P871.page + " / " + np;   /* V.874 */
       BP871.disabled = P871.page <= 1; BN871.disabled = P871.page >= np; };
     let close = () => { document.removeEventListener("keydown", key, !0); ov.remove(); };
     let key = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
@@ -939,9 +941,12 @@ export async function edit837(o) {
     let render = () => {
       let have = new Set([...(st.g.items || []).map((x) => x.item_id), ...st.add.keys()]);
       let list = rows.filter((x) => !have.has(x.item_id));
+      HID874 = rows.length - list.length;   /* V.874 : จำนวนที่ซ่อนเพราะอยู่ในใบเสร็จนี้แล้ว */
       L.innerHTML = list.length ? `<table><thead><tr><th></th><th>INVOICE</th><th>วันที่</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th><th class="r">${src === "RCP" ? "Amount Charge" : "Advance"}</th><th>สถานะ</th></tr></thead><tbody>`
         + list.map((x) => `<tr class="${x.reason ? "dis" : ""}"><td>${x.reason ? "–" : `<input type="checkbox" data-c837="${n(x.item_id)}"${pickd.has(x.item_id) ? " checked" : ""}>`}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td><td class="r">${MONEY(x.amount)}</td><td>${x.reason ? n(x.reason) : '<span class="bd837 a">เพิ่มได้</span>'}</td></tr>`).join("") + "</tbody></table>"
-        : '<div class="empty" style="padding:12px">ไม่พบ INVOICE รอรับชำระของลูกค้าเดียวกัน</div>';
+        : '<div class="empty" style="padding:12px">' + (HID874 > 0
+            ? "รายการที่พบ (" + N(HID874) + ") อยู่ในใบเสร็จนี้แล้ว — เพิ่มซ้ำไม่ได้"
+            : "ไม่พบ INVOICE รอรับชำระของลูกค้าเดียวกัน") + '</div>';   /* V.874 */
       L.querySelectorAll("[data-c837]").forEach((c) => { c.onchange = () => { let r = rows.find((x) => x.item_id === c.dataset.c837); c.checked && r ? pickd.set(r.item_id, r) : pickd.delete(c.dataset.c837); sync(); }; });
       sync();
     };
