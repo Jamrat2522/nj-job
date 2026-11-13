@@ -2409,7 +2409,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local287';
+const EDCAPL_VERSION = 'local288';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -12923,8 +12923,22 @@ Column rename for export only: "KDC" → "Customer jobno."
     if(ST.files.some(f => f.state === 'ok' && f.ocr)) h += '<div style="font-size:12px;color:#fbbf24;margin:6px 0">⚠ มีไฟล์สแกน (ภาพ) — อ่านด้วย OCR: ' + ST.files.filter(f => f.state === 'ok' && f.ocr).map(f => esc(f.name)).join(' , ') + ' · โปรดตรวจทานตัวอักษร PART NO. / Description กับเอกสารก่อนใช้งาน</div>';
     if(errF.length) h += '<div style="font-size:12px;color:#f87171;font-weight:700;margin:6px 0">❌ อ่านไม่สำเร็จ ' + errF.length + ' ไฟล์ (ไม่อยู่ใน EXPORT):<br>' + errF.map(f => '• ' + esc(f.name) + ' — ' + esc(f.status)).join('<br>') + '</div>';
     if(warns.length) h += '<div style="font-size:12px;color:#f87171;margin:6px 0">⚠ แจ้งเตือน ' + warns.length + ' รายการ:<br>' + warns.map(w => '• ' + esc(w)).join('<br>') + '</div>';
-    if(B.rows.length){ h += '<div style="overflow:auto;max-height:420px;margin-top:8px"><table style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr>' + HEAD.concat(['ไฟล์']).map(x => '<th ' + td + '>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>'
-      + B.rows.map((r, i) => { const it = r.it, iv = r.iv, F1 = v => r.first ? f6(v) : ''; return '<tr>' + [i + 1, f6(iv.invNo), f6(iv.date), f6(it.part.replace(/[^A-Z0-9]/gi, '')), f6(it.part), f6(it.desc), f6(it.qty), f6(it.uom), f6(it.price), f6(iv.cur), f6(it.ext), f6(iv.cur2), F1(iv.pkg), F1(iv.net), F1(iv.gross), F1(iv.mark), f6(r.f.name)].map(x => '<td ' + td + '>' + x + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table></div>'; }
+    /* [PDF→EXCEL] local288: ตารางบนหน้าจอ = หน้าตาเดียวกับ Excel ที่จะ EXPORT (แม่แบบ MAPPING EDC Invoice: A–P · หัวตัวหนากึ่งกลาง · เส้นตาราง · ฟอนต์ · ความกว้างคอลัมน์ · รูปแบบวันที่ mm-dd-yy / ทศนิยม) */
+    if(B.rows.length){
+      const PXW = [78, 120, 96, 128, 132, 236, 54, 62, 111, 64, 96, 64, 64, 76, 76, 240];                       // ความกว้างตามแม่แบบ (อักขระ × 7px + 5) · Mark กว้างพอดีข้อความ
+      const AL = ['right','left','right','left','left','left','right','left','right','left','right','left','right','right','right','left'];
+      const FN = { 3:"font-family:Aptos,Calibri,Arial,sans-serif;", 5:"font-family:Aptos,Calibri,Arial,sans-serif;font-size:12px;", 10:"font-family:Aptos,Calibri,Arial,sans-serif;" };
+      const dmy = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + '-' + m[3] + '-' + m[1].slice(2) : ''; };                 // mm-dd-yy
+      const fx = (v, d) => v == null ? '' : Number(v).toFixed(d), gen = v => v == null ? '' : String(Number(v));
+      const amt = v => v == null ? '' : edc1fzCents(cents(v));
+      const cell = 'border:1px solid #000;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:20px;';
+      h += '<div class="pdfx-sheet" style="overflow:auto;max-height:460px;margin-top:10px;background:#fff;border:1px solid #9aa4b2;border-radius:4px;padding:0">'
+        + '<table style="border-collapse:collapse;table-layout:fixed;background:#fff;color:#000;font-family:Calibri,Carlito,Arial,sans-serif;font-size:14.5px;width:' + PXW.reduce((a, b) => a + b, 0) + 'px"><colgroup>' + PXW.map(w => '<col style="width:' + w + 'px">').join('') + '</colgroup><thead><tr>'
+        + HEAD.map(x => '<th style="' + cell + 'font-weight:700;text-align:center;background:#fff;color:#000;position:sticky;top:0">' + esc(x) + '</th>').join('') + '</tr></thead><tbody>'
+        + B.rows.map((r, i) => { const it = r.it, iv = r.iv, F1 = v => r.first ? v : null;
+            const v = [i + 1, esc(iv.invNo), dmy(iv.date), esc(it.part.replace(/[^A-Z0-9]/gi, '')), esc(it.part), esc(it.desc), gen(it.qty), esc(it.uom || ''), fx(it.price, 6), esc(iv.cur || ''), amt(it.ext), esc(iv.cur2 || ''), gen(F1(iv.pkg)), fx(F1(iv.net), 2), gen(F1(iv.gross)), esc(F1(iv.mark) || '')];
+            return '<tr title="' + esc(r.f.name) + '">' + v.map((x, k) => '<td style="' + cell + 'text-align:' + AL[k] + ';' + (FN[k] || '') + '">' + x + '</td>').join('') + '</tr>'; }).join('')
+        + '</tbody></table></div><div style="font-size:11px;color:var(--text-3);margin-top:6px">ตัวอย่างชีต <b>Invoice</b> ตามที่จะ EXPORT (' + B.rows.length + ' แถว) · ชี้ที่แถวเพื่อดูชื่อไฟล์ต้นทาง</div>'; }
     res.innerHTML = h; res.style.display = h ? 'block' : 'none';
   }
 
