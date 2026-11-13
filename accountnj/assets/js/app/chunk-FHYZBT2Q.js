@@ -302,7 +302,7 @@ async function USV866(plan, set) {
       }
       return { o: o, did: did, er: er };
     }));
-    rr.forEach(function (x) { x.o.rs = x.er.length ? (x.did.length ? "part" : "fail") : "ok"; x.o.rsx = x.er.join(" · "); (x.er.length ? fail : ok).push(x); });   /* V.868 */
+    rr.forEach(function (x) { x.o.rs = x.er.length ? (x.did.length ? "part" : "fail") : "ok"; x.o.rsx = x.er.join(" · "); x.o.rsd = x.did.join(" · ");   /* V.877 */ (x.er.length ? fail : ok).push(x); });   /* V.868 */
     done += part.length; set && set(done, plan.length);
   }
   return { ok: ok, fail: fail };
@@ -334,8 +334,8 @@ function UCSS868() {   /* V.868 : เฉพาะ Desktop (>=1025px) · Mobile /
 }
 function UES868(m, bad) {   /* สถานะจริงของแถว : {s:ข้อความ, ok:อยู่ชีต "สำเร็จ"} */
   if (m.sv === "ok") return { s: "สำเร็จ", ok: true };
-  if (m.sv === "part") return { s: "สำเร็จบางส่วน : " + (m.sve || ""), ok: false };
-  if (m.sv === "fail") return { s: "บันทึกล้มเหลว : " + (m.sve || ""), ok: false };
+  if (m.sv === "part") return { s: "สำเร็จบางส่วน — สำเร็จ : " + (m.svd || "-") + " · ล้มเหลว : " + (m.sve || "-"), ok: false };   /* V.877 */
+  if (m.sv === "fail") return { s: "บันทึกล้มเหลว : " + (m.sve || "-"), ok: false };
   if (m.sv === "nochg") return { s: "ไม่เปลี่ยนแปลง", ok: true };
   var k = UST866(m, bad || UG866([m])).k;
   if (k === "nochg") return { s: "ไม่เปลี่ยนแปลง (ค่าเหมือนเดิม)", ok: true };
@@ -477,7 +477,7 @@ function UMK868(mdl, plan, bad) {   /* ผลจริงต่อ "งาน" �
   mdl.forEach(function (m) {
     if (!m.pick) return;
     var o = mp.get(String(m.pick));
-    if (o && (o.rows || []).indexOf(m.no) >= 0) { m.sv = o.rs || "ok"; m.sve = o.rsx || ""; return; }   /* V.873 : เฉพาะแถวที่ส่งข้อมูลเข้าไปจริง */
+    if (o && (o.rows || []).indexOf(m.no) >= 0) { m.sv = o.rs || "ok"; m.sve = o.rsx || ""; m.svd = o.rsd || "";   /* V.877 */ return; }   /* V.873 : เฉพาะแถวที่ส่งข้อมูลเข้าไปจริง */
     if (m.st !== "empty" && m.st !== "nf" && !bad.has(m.pick) && UST866(m, bad).k === "nochg") m.sv = "nochg";
   });
 }
@@ -493,8 +493,8 @@ function URP866(res, mdl, bad, meta) {
     '<div style="color:#b42318">ไม่พบงาน ' + c.nf + " แถว</div>" +
     '<div style="color:#b42318">ข้อมูลขัดแย้ง ' + c.conf + " แถว</div>" +
     '<div style="color:#b54708">ไม่ได้เลือกงาน ' + c.pend + " แถว</div>" +
-    '<div style="color:#b42318">บันทึกล้มเหลว ' + res.fail.length + " งาน</div></div>" +
-    (res.fail.length ? "<b style='color:#b42318'>รายละเอียดที่ล้มเหลว</b>" + li(res.fail.map(function (x) { return "<li>" + B(x.o.job_no) + " : " + B(x.er.join(" · ")) + "</li>"; })) : "") +
+    '<div style="color:#b42318">บันทึกล้มเหลว / สำเร็จบางส่วน ' + res.fail.length + " งาน</div></div>" +   /* V.877 */
+    (res.fail.length ? "<b style='color:#b42318'>รายละเอียดที่ล้มเหลว</b>" + li(res.fail.map(function (x) { return "<li>" + B(x.o.job_no) + " : " + (x.did.length ? "<span style='color:#067647'>สำเร็จ " + B(x.did.join(" · ")) + "</span> · " : "") + "<span style='color:#b42318'>ล้มเหลว " + B(x.er.join(" · ")) + "</span></li>";   /* V.877 */ })) : "") +
     (res.ok.length ? "<b>รายการที่บันทึกแล้ว</b>" + li(res.ok.map(function (x) { return "<li>" + B(x.o.job_no) + " : " + B(x.did.join(" · ")) + "</li>"; })) : "") +
     (c.nf ? "<b style='color:#b42318'>ไม่พบงาน</b>" + li(mdl.filter(function (m) { return m.st === "nf"; }).map(function (m) { return "<li>แถว " + m.no + " : BK# " + B(m.bk || "-") + " / Cont# " + B(m.ct || "-") + "</li>"; })) : "") +
     (c.conf ? "<b style='color:#b42318'>ข้อมูลขัดแย้ง</b>" + li(mdl.filter(function (m) { return UST866(m, bad).k === "conf"; }).map(function (m) { return "<li>แถว " + m.no + " : " + B(m.why || "หลายแถวชี้งานเดียวกันแต่ข้อมูลไม่ตรงกัน") + "</li>"; })) : "");

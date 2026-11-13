@@ -1407,35 +1407,28 @@ function ST860(px) {   /* บีบส่วนท้าย (ระยะห่�
     + "." + px + "-tight ." + px + "-sp{height:10mm!important}." + px + "-tight ." + px + "-sp2{height:7mm!important}";
   document.head.appendChild(s);
 }
-function PG860(n, cls, px, render) {   /* แบ่งหน้า + คืน HTML ที่ตรวจแล้ว (ใช้ร่วม RECEIPT / RECEIPT ADVANCE) */
-  let tg = 0, R = (cc, t) => { let h = render(cc); return t ? h.split('class="' + px + '-pg"').join('class="' + px + '-pg ' + px + '-tight"') : h; };
+var CSS876 = ".{P}-pg.{P}-f876 .{P}-hd{padding-bottom:2.2mm!important}\n.{P}-pg.{P}-f876 .{P}-logo{width:17mm!important;flex:0 0 17mm!important}\n.{P}-pg.{P}-f876 .{P}-conm{font-size:10pt!important}\n.{P}-pg.{P}-f876 .{P}-cosub{font-size:7.8pt!important;line-height:1.3!important;margin-top:.35mm!important}\n.{P}-pg.{P}-f876 .{P}-t1,.{P}-pg.{P}-f876 .{P}-t2{font-size:12pt!important}\n.{P}-pg.{P}-f876 .{P}-t3{font-size:9pt!important;margin-top:1.6mm!important;padding:.8mm 2.6mm!important}\n.{P}-pg.{P}-f876 .{P}-boxes{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-f876 .{P}-box{padding:3mm 3mm 2mm!important}\n.{P}-pg.{P}-f876 .{P}-tag{font-size:7.6pt!important;top:-2.2mm!important}\n.{P}-pg.{P}-f876 .{P}-kv{margin-top:.7mm!important;font-size:8pt!important;line-height:1.25!important}\n.{P}-pg.{P}-f876 .{P}-boxes>.{P}-box:first-child .{P}-kv{font-size:7.8pt!important}\n.{P}-pg.{P}-f876 .{P}-addr{font-size:7.2pt!important;line-height:1.2!important}\n.{P}-pg.{P}-f876 .{P}-tb{margin-top:3mm!important}\n.{P}-pg.{P}-f876 .{P}-tb th{padding:1.2mm 1.5mm!important;font-size:7.7pt!important;line-height:1.18!important}\n.{P}-pg.{P}-f876 .{P}-tb td{padding:1.0mm 1.5mm!important;font-size:7.5pt!important;line-height:1.18!important}\n.{P}-pg.{P}-f876 .{P}-tot td{font-size:8.1pt!important;padding:1.2mm 1.5mm!important}\n.{P}-pg.{P}-f876 .{P}-sum{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-f876 .{P}-pay{padding:2.0mm 3mm!important;font-size:7.8pt!important;line-height:1.4!important}\n.{P}-pg.{P}-f876 .{P}-a1{padding:1.1mm 3mm!important;font-size:8pt!important}\n.{P}-pg.{P}-f876 .{P}-a2{padding:1.5mm 3mm!important;font-size:9pt!important}\n.{P}-pg.{P}-f876 .{P}-sign{margin-top:2mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-f876 .{P}-sign .{P}-box{padding:2.2mm 3mm!important;min-height:19mm!important;font-size:7.4pt!important}\n.{P}-pg.{P}-f876 .{P}-sp{height:4mm!important}\n.{P}-pg.{P}-f876 .{P}-sp2{height:3.5mm!important}\n.{P}-pg.{P}-f876 .{P}-sc{margin:.6mm 0 1.2mm!important}\n.{P}-pg.{P}-f876 .{P}-st{font-size:8pt!important}\n.{P}-pg.{P}-f876 .{P}-for{font-size:7.4pt!important}\n.{P}-pg.{P}-x876 .{P}-hd{padding-bottom:2.2mm!important}\n.{P}-pg.{P}-x876 .{P}-logo{width:17mm!important;flex:0 0 17mm!important}\n.{P}-pg.{P}-x876 .{P}-conm{font-size:10pt!important}\n.{P}-pg.{P}-x876 .{P}-cosub{font-size:7.8pt!important;line-height:1.3!important;margin-top:.35mm!important}\n.{P}-pg.{P}-x876 .{P}-t1,.{P}-pg.{P}-x876 .{P}-t2{font-size:12pt!important}\n.{P}-pg.{P}-x876 .{P}-t3{font-size:9pt!important;margin-top:1.6mm!important;padding:.8mm 2.6mm!important}\n.{P}-pg.{P}-x876 .{P}-boxes{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-x876 .{P}-box{padding:3mm 3mm 2mm!important}\n.{P}-pg.{P}-x876 .{P}-tag{font-size:7.6pt!important;top:-2.2mm!important}\n.{P}-pg.{P}-x876 .{P}-kv{margin-top:.7mm!important;font-size:7.4pt!important;line-height:1.2!important}\n.{P}-pg.{P}-x876 .{P}-boxes>.{P}-box:first-child .{P}-kv{font-size:7.8pt!important}\n.{P}-pg.{P}-x876 .{P}-addr{font-size:6.9pt!important;line-height:1.15!important}\n.{P}-pg.{P}-x876 .{P}-tb{margin-top:3mm!important}\n.{P}-pg.{P}-x876 .{P}-tb th{padding:1.0mm 1.4mm!important;font-size:7.2pt!important;line-height:1.18!important}\n.{P}-pg.{P}-x876 .{P}-tb td{padding:.8mm 1.4mm!important;font-size:7.0pt!important;line-height:1.18!important}\n.{P}-pg.{P}-x876 .{P}-tot td{font-size:7.6pt!important;padding:1.0mm 1.4mm!important}\n.{P}-pg.{P}-x876 .{P}-sum{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-x876 .{P}-pay{padding:2.0mm 3mm!important;font-size:7.8pt!important;line-height:1.4!important}\n.{P}-pg.{P}-x876 .{P}-a1{padding:1.1mm 3mm!important;font-size:8pt!important}\n.{P}-pg.{P}-x876 .{P}-a2{padding:1.5mm 3mm!important;font-size:9pt!important}\n.{P}-pg.{P}-x876 .{P}-sign{margin-top:2mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-x876 .{P}-sign .{P}-box{padding:2.2mm 3mm!important;min-height:16mm!important;font-size:7.4pt!important}\n.{P}-pg.{P}-x876 .{P}-sp{height:3.2mm!important}\n.{P}-pg.{P}-x876 .{P}-sp2{height:2.8mm!important}\n.{P}-pg.{P}-x876 .{P}-sc{margin:.6mm 0 1.2mm!important}\n.{P}-pg.{P}-x876 .{P}-st{font-size:8pt!important}\n.{P}-pg.{P}-x876 .{P}-for{font-size:7.4pt!important}\n.{P}-pg.{P}-xx876 .{P}-hd{padding-bottom:2.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-logo{width:17mm!important;flex:0 0 17mm!important}\n.{P}-pg.{P}-xx876 .{P}-conm{font-size:10pt!important}\n.{P}-pg.{P}-xx876 .{P}-cosub{font-size:7.8pt!important;line-height:1.3!important;margin-top:.35mm!important}\n.{P}-pg.{P}-xx876 .{P}-t1,.{P}-pg.{P}-xx876 .{P}-t2{font-size:12pt!important}\n.{P}-pg.{P}-xx876 .{P}-t3{font-size:9pt!important;margin-top:1.6mm!important;padding:.8mm 2.6mm!important}\n.{P}-pg.{P}-xx876 .{P}-boxes{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-box{padding:3mm 3mm 2mm!important}\n.{P}-pg.{P}-xx876 .{P}-tag{font-size:7.6pt!important;top:-2.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-kv{margin-top:.7mm!important;font-size:6.5pt!important;line-height:1.12!important}\n.{P}-pg.{P}-xx876 .{P}-boxes>.{P}-box:first-child .{P}-kv{font-size:7.8pt!important}\n.{P}-pg.{P}-xx876 .{P}-addr{font-size:6.5pt!important;line-height:1.12!important}\n.{P}-pg.{P}-xx876 .{P}-tb{margin-top:3mm!important}\n.{P}-pg.{P}-xx876 .{P}-tb th{padding:.8mm 1.2mm!important;font-size:6.7pt!important;line-height:1.18!important}\n.{P}-pg.{P}-xx876 .{P}-tb td{padding:.6mm 1.2mm!important;font-size:6.5pt!important;line-height:1.18!important}\n.{P}-pg.{P}-xx876 .{P}-tot td{font-size:7.1pt!important;padding:.8mm 1.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-sum{margin-top:3mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-pay{padding:2.0mm 3mm!important;font-size:7.8pt!important;line-height:1.4!important}\n.{P}-pg.{P}-xx876 .{P}-a1{padding:1.1mm 3mm!important;font-size:8pt!important}\n.{P}-pg.{P}-xx876 .{P}-a2{padding:1.5mm 3mm!important;font-size:9pt!important}\n.{P}-pg.{P}-xx876 .{P}-sign{margin-top:2mm!important;gap:3.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-sign .{P}-box{padding:2.2mm 3mm!important;min-height:14mm!important;font-size:7.4pt!important}\n.{P}-pg.{P}-xx876 .{P}-sp{height:2.6mm!important}\n.{P}-pg.{P}-xx876 .{P}-sp2{height:2.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-sc{margin:.6mm 0 1.2mm!important}\n.{P}-pg.{P}-xx876 .{P}-st{font-size:8pt!important}\n.{P}-pg.{P}-xx876 .{P}-for{font-size:7.4pt!important}";   /* V.876 : ย่อขนาด/ระยะ 3 ระดับ ให้ 25 รายการอยู่ครบในหน้าเดียว (ไม่ลดจำนวนแถว) */
+function ST876(px) {
+  let id = "st876-" + px; if (document.getElementById(id)) return;
+  let s = document.createElement("style"); s.id = id;
+  s.textContent = CSS876.split("{P}").join(px);
+  document.head.appendChild(s);
+}
+function PG860(n, cls, px, render) {   /* V.876 : 25 รายการ/หน้าเสมอ (1-25 / 26-50 / ...) เลือกระดับย่อที่น้อยที่สุดที่ไม่ล้น */
   let c = PG856(n);
-  if (!document.body || n < 1) return R(c, 0);
-  ST860(px);
+  let R = (lv) => { let h = render(c); if (!lv) return h;
+    let a = px + "-tight " + px + "-f876" + (lv > 1 ? " " + px + "-x876" : "") + (lv > 2 ? " " + px + "-xx876" : "");
+    return h.split('class="' + px + '-pg"').join('class="' + px + '-pg ' + a + '"'); };
+  ST860(px); ST876(px);
+  if (!document.body || n < 1) return R(0);
   let box = document.createElement("div"); box.className = cls; box.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden"; document.body.appendChild(box);
   let over = (p) => { let ft = p.querySelector("." + px + "-ft"); if (!ft) return !1; let t = ft.getBoundingClientRect().top, b = 0;
-    p.querySelectorAll("." + px + "-in > *:not(." + px + "-stamp)").forEach((z) => { let q = z.getBoundingClientRect().bottom; q > b && (b = q); }); return b > t - 4; };
-  let bad = () => [...box.querySelectorAll("." + px + "-pg")].findIndex((p, j) => over(p) && c[j] > 1);
+    p.querySelectorAll("." + px + "-in > *:not(." + px + "-stamp)").forEach((z) => { let q = z.getBoundingClientRect().bottom; q > b && (b = q); }); return b > t - 2; };
   try {
-    box.innerHTML = R(c, 0);   /* รอบวัด */
-    let m = MX860(box, px), c0 = m ? CT860(n, m.cN, m.cL) : null;
-    if (m && c0 && c0.length > 1) {   /* บีบส่วนท้าย : ใช้ต่อเมื่อจำนวนหน้าลดลงจริง */
-      box.innerHTML = R(c0, 1); let m2 = MX860(box, px), c1 = m2 ? CT860(n, m2.cN, m2.cL) : null;
-      if (c1 && c1.length < c0.length) { tg = 1; m = m2; c0 = c1; }
-    }
-    c0 && (c = c0);
-    box.innerHTML = R(c, tg);
-    for (let r = 0; m && r < 8; r++) {   /* ตรวจหลัง Render จริง : ยังล้น = ลดเพดานแล้วแบ่งใหม่ */
-      let j = bad(); if (j < 0) break;
-      if (j === c.length - 1) m.cL = Math.max(1, Math.min(m.cL, c[j]) - 1); else { m.cN = Math.max(1, Math.min(m.cN, c[j]) - 1); m.cL > m.cN && (m.cL = m.cN); }
-      let c2 = CT860(n, m.cN, m.cL); if (!c2 || c2.join() === c.join()) break;
-      c = c2; box.innerHTML = R(c, tg);
-    }
-    for (let k = 0, lim = 3 * n + 20; k < lim; k++) { let j = bad(); if (j < 0) break; MV856(c, j); box.innerHTML = R(c, tg); }   /* กันไว้ท้ายสุด */
-    return R(c, tg);
+    for (let lv = 0; lv <= 3; lv++) { box.innerHTML = R(lv); if (![...box.querySelectorAll("." + px + "-pg")].some(over)) return R(lv); }
+    return R(3);   /* lv0 = รูปแบบเดิมทุกจุด (ใบที่พอดีอยู่แล้ว) · lv1-3 = ย่อเท่าที่จำเป็นเพื่อให้ครบ 25 แถว */
   } finally { box.remove(); }
 }
-
 function RF788(doc, sample) {   /* V.860 : แบ่งหน้าตามพื้นที่จริง · หน้าละไม่เกิน 25 INVOICE · แถวไม่ข้ามหน้า / ไม่ทับ Footer · TOTAL / สรุป / ลงนาม ต่อจากรายการสุดท้าย */
   return PG860((doc.items || []).length, "radv788-doc", "radv", (c) => RP788(doc, c, sample));
 }
