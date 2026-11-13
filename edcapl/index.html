@@ -2388,6 +2388,8 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
     #panel-pdf_excel .pdfx-sheet th{ position:sticky; top:0; z-index:1; background:#eef2f7; color:#000; font-weight:700; text-align:center; border-top:1px solid #000; }
     #panel-pdf_excel .pdfx-sheet tbody tr:nth-child(even) td{ background:#f4f7fb; }
     #panel-pdf_excel .pdfx-sheet tbody tr:hover td{ background:#dbeafe; }
+    #panel-pdf_excel .pdfx-sheet tfoot td{ position:sticky; bottom:0; background:#fff7d6 !important; font-weight:700; border-top:2px solid #000; }
+    #panel-pdf_excel .pdfx-sheet tfoot tr + tr td{ bottom:auto; position:static; }
     #panel-pdf_excel .pdfx-sheet td.r{ text-align:right; font-variant-numeric:tabular-nums; }
     #panel-pdf_excel .pdfx-sheet td.w{ white-space:normal; min-width:200px; overflow-wrap:anywhere; }
     @media (max-width: 760px){ #panel-pdf_excel .pdfx-file{ grid-template-columns:minmax(0,1fr) auto; } #panel-pdf_excel .pdfx-st{ max-width:none; white-space:normal; } }
@@ -2453,7 +2455,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local289';
+const EDCAPL_VERSION = 'local290';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -12972,6 +12974,16 @@ Column rename for export only: "KDC" → "Customer jobno."
   }
 
   /* ── รวม + เรียง INVOICE ASC (คงลำดับรายการเดิม) ── */
+  /* [TOTAL] local290: ยอดรวมบนหน้าจอก่อน EXPORT — คำนวณจากข้อมูลที่อ่านไว้ (ไม่อ่าน PDF / OCR ซ้ำ) · บวกด้วยทศนิยมจริง (BigInt) ไม่ปัดระหว่างทาง
+     · Qty แยกตาม Unit · AMT แยกตามสกุลเงิน (ไม่บวกข้ามสกุล) · PKG / NW / GW เป็นยอดระดับ INVOICE → นับ 1 ครั้งต่อ INVOICE (แถวแรกของ INVOICE เท่านั้น ตรงกับคอลัมน์ใน Excel) */
+  function decSum(list){ let m = 0n, sc = 0; list.forEach(v => { const d = edc1fzDec(String(v)); if(!d) return; if(d.sc > sc){ m *= 10n ** BigInt(d.sc - sc); sc = d.sc; } m += d.m * 10n ** BigInt(sc - d.sc); });
+    const neg = m < 0n, a = (neg ? -m : m).toString().padStart(sc + 1, '0'); return (neg ? '-' : '') + (sc ? a.slice(0, -sc) + '.' + a.slice(-sc) : a); }
+  function totals(rows, blocks){
+    const grp = (keyOf, valOf) => { const mp = new Map(); rows.forEach(r => { const v = valOf(r); if(v == null) return; const k = keyOf(r) || '(ไม่ระบุ)'; if(!mp.has(k)) mp.set(k, []); mp.get(k).push(v); }); return [...mp.entries()].map(([k, l]) => ({ k, sum:decSum(l), n:l.length })); };
+    const lvl = key => { const l = blocks.filter(b => b.iv.items.length && b.iv[key] != null).map(b => b.iv[key]); return { sum:l.length ? decSum(l) : null, n:l.length, miss:blocks.filter(b => b.iv.items.length && b.iv[key] == null).map(b => b.iv.invNo) }; };
+    return { qty:grp(r => r.it.uom, r => r.it.qty), amt:grp(r => r.iv.cur2 || r.iv.cur, r => r.it.ext), pkg:lvl('pkg'), nw:lvl('net'), gw:lvl('gross'),
+      missQty:rows.filter(r => r.it.qty == null).length, missAmt:rows.filter(r => r.it.ext == null).length, nInv:blocks.filter(b => b.iv.items.length).length };
+  }
   /* [SPEED] local289: ข้อมูลพร้อมส่งออกเตรียมไว้หลังอ่านเสร็จ · คำนวณใหม่เฉพาะเมื่อเพิ่ม / ลบไฟล์ หรืออ่านไฟล์เสร็จ (ST.ver เปลี่ยน) */
   function build(){ if(ST.cache && ST.cache.ver === ST.ver) return ST.cache.B; const B = build0(); ST.cache = { ver:ST.ver, B }; return B; }
   function build0(){
@@ -12981,7 +12993,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     const rows = []; blocks.forEach(b => b.iv.items.forEach((it, k) => rows.push({ it, iv:b.iv, f:b.f, first:k === 0 })));
     const byNo = {}; blocks.forEach(b => { (byNo[b.iv.invNo] = byNo[b.iv.invNo] || []).push(b.f.name); });
     const dup = Object.keys(byNo).filter(k => byNo[k].length > 1).map(k => 'เลข INVOICE ' + k + ' ซ้ำ ' + byNo[k].length + ' ไฟล์: ' + byNo[k].join(' , ') + ' — ไม่ลบ / ไม่รวม (อยู่ครบทุกไฟล์)');
-    return { rows, blocks, dup, order:[...new Set(blocks.map(b => b.iv.invNo))] };
+    return { rows, blocks, dup, order:[...new Set(blocks.map(b => b.iv.invNo))], tot:totals(rows, blocks) };
   }
 
   /* ── หน้าจอ ── */
@@ -13011,9 +13023,33 @@ Column rename for export only: "KDC" → "Customer jobno."
         + B.rows.map((r, i) => { const it = r.it, iv = r.iv, F1 = v => r.first ? v : null;
             const v = [i + 1, esc(iv.invNo), dmy(iv.date), esc(it.part.replace(/[^A-Z0-9]/gi, '')), esc(it.part), esc(it.desc), gen(it.qty), esc(it.uom || ''), fx(it.price, 6), esc(iv.cur || ''), amt(it.ext), esc(iv.cur2 || ''), gen(F1(iv.pkg)), fx(F1(iv.net), 2), gen(F1(iv.gross)), esc(F1(iv.mark) || '')];
             return '<tr title="' + esc(r.f.name) + '">' + v.map((x, k) => '<td' + (R[k] ? ' class="r"' : (k === 5 || k === 15) ? ' class="w"' : '') + '>' + x + '</td>').join('') + '</tr>'; }).join('')
-        + '</tbody></table></div><div style="font-size:12px;color:var(--text-3);margin-top:8px">ตัวอย่างชีต <b>Invoice</b> ตามที่จะ EXPORT (' + B.rows.length + ' แถว) · ชี้ที่แถวเพื่อดูชื่อไฟล์ต้นทาง</div>'; }
+        + '</tbody>' + totalFoot(B.tot) + '</table></div>' + totalNote(B)
+        + '<div style="font-size:12px;color:var(--text-3);margin-top:6px">ตัวอย่างชีต <b>Invoice</b> ตามที่จะ EXPORT (' + B.rows.length + ' แถว) · แถว TOTAL แสดงบนหน้าจอเท่านั้น ไม่อยู่ในไฟล์ Excel · ชี้ที่แถวเพื่อดูชื่อไฟล์ต้นทาง</div>'; }
     res.innerHTML = h; res.style.display = h ? 'block' : 'none';
   }
+
+  /* [TOTAL] local290: แถว TOTAL ท้ายตาราง (หลายหน่วย / หลายสกุลเงิน = เพิ่มแถว · ไม่บวกข้ามกัน) */
+  function totalFoot(T){
+    const gen = v => { if(v == null) return ''; const t = String(v).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '').split('.'); return t[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (t[1] ? '.' + t[1] : ''); }, m2 = v => v == null ? '' : edc1fzCents(cents(v)), n = Math.max(1, T.qty.length, T.amt.length);
+    let h = '<tfoot>';
+    for(let i = 0; i < n; i++){ const q = T.qty[i], a = T.amt[i], f = i === 0;
+      h += '<tr class="pdfx-tot">' + (f ? '<td colspan="6" rowspan="' + n + '" style="text-align:right">TOTAL</td>' : '')
+        + '<td class="r" data-t="qty">' + (q ? gen(q.sum) : '') + '</td><td data-t="unit">' + (q ? esc(q.k) : '') + '</td><td></td><td></td>'
+        + '<td class="r" data-t="amt">' + (a ? m2(a.sum) : '') + '</td><td data-t="cur">' + (a ? esc(a.k) : '') + '</td>'
+        + (f ? '<td class="r" data-t="pkg" rowspan="' + n + '">' + gen(T.pkg.sum) + '</td><td class="r" data-t="nw" rowspan="' + n + '">' + m2(T.nw.sum) + '</td><td class="r" data-t="gw" rowspan="' + n + '">' + gen(T.gw.sum) + '</td><td rowspan="' + n + '"></td>' : '') + '</tr>'; }
+    return h + '</tfoot>';
+  }
+  function totalNote(B){ const T = B.tot, okF = ST.files.filter(f => f.state === 'ok'), badF = ST.files.filter(f => f.state !== 'ok'), part = okF.filter(f => f.partial), L = [];
+    L.push('TOTAL สรุปจาก ' + okF.length + '/' + ST.files.length + ' ไฟล์ · ' + T.nInv + ' Invoice · ' + B.rows.length + ' รายการ' + (badF.length ? ' — <b style="color:#f87171">ไม่รวม ' + badF.length + ' ไฟล์: ' + badF.map(f => esc(f.name)).join(' , ') + '</b>' : '') + (badF.length ? '<br>ไฟล์ที่รวม: ' + okF.map(f => esc(f.name)).join(' , ') : ''));
+    const miss = [];
+    if(part.length) miss.push('มีหน้าที่อ่านเลข INVOICE ไม่ได้ (ไม่อยู่ในยอดรวม): ' + part.map(f => esc(f.name)).join(' , '));
+    if(T.missQty) miss.push('Qty ว่าง ' + T.missQty + ' รายการ (ไม่อยู่ในยอดรวม Qty)');
+    if(T.missAmt) miss.push('AMT ว่าง ' + T.missAmt + ' รายการ (ไม่อยู่ในยอดรวม AMT)');
+    [['pkg','PKG'],['nw','NW'],['gw','GW']].forEach(([k, lb]) => { if(T[k].miss.length) miss.push(lb + ' ไม่มีข้อมูล ' + T[k].miss.length + ' Invoice: ' + T[k].miss.map(esc).join(' , ')); });
+    if(B.dup.length) miss.push('มีเลข INVOICE ซ้ำข้ามไฟล์ — ยอดรวมนับทุกชุดตามแถวที่แสดง (ตรงกับไฟล์ Excel)');
+    if(T.qty.length > 1) miss.push('Qty มีหลายหน่วย — แยกรวมตาม Unit');
+    if(T.amt.length > 1) miss.push('AMT มีหลายสกุลเงิน — แยกรวมตามสกุลเงิน ไม่บวกรวมกัน');
+    return '<div class="pdfx-msg" id="pdfxTotNote" style="margin:8px 0 0;color:var(--text-2)">' + L.join('') + (miss.length ? '<div style="color:#fbbf24;margin-top:2px">⚠ ยอดรวมยังไม่ครบ / ข้อสังเกต:<br>' + miss.map(x => '• ' + x).join('<br>') + '</div>' : '') + '</div>'; }
 
   function addFiles(fl){
     const arr = [...(fl || [])]; if(!arr.length) return;
