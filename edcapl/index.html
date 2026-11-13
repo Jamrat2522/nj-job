@@ -2528,7 +2528,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local302';
+const EDCAPL_VERSION = 'local303';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -12889,11 +12889,11 @@ Column rename for export only: "KDC" → "Customer jobno."
       const cnt = f.state === 'ok' ? f.invoices.length + ' Invoice · ' + f.invoices.reduce((a, iv) => a + iv.items.length, 0) + ' รายการ' : '—';
       return '<div class="pdfx-file"><span class="pdfx-fn" title="' + esc(f.name) + '">📄 ' + esc(f.name) + '</span><span class="pdfx-st" style="color:' + col + '" title="' + esc(f.status) + '">' + ic + ' ' + esc(f.status) + '</span><span class="pdfx-cnt">' + (f.state === 'ready' || f.state === 'wait' ? esc(aiPlan(f)) : cnt) + (f.state === 'ok' && f.ai ? ' · ' + esc(aiInfo(f)) : '') + '</span>' + (f.state === 'err' && f.retry ? '<button class="pdfx-del" data-retry="1" title="ส่งให้ AI อ่านอีกครั้ง — อาจมีค่า API" onclick="pdfxRetry(' + f.id + ')">↻ ลองใหม่</button>' : '') + '<button class="pdfx-del" title="ลบไฟล์นี้" onclick="pdfxRemove(' + f.id + ')">✕ ลบ</button></div>'; }).join('');
     const B = build(), reading = ST.busy > 0, okN = ST.files.filter(f => f.state === 'ok').length, doneN = ST.files.filter(f => f.state === 'ok' || f.state === 'err').length;
-    const readyN = ST.files.filter(f => f.state === 'ready').length, runN = ST.files.filter(f => f.state !== 'ready').length;
-    if(btn){ btn.disabled = reading || readyN > 0 || !B.rows.length || ST.exporting; btn.textContent = ST.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; }   /* เปิดเมื่อตรวจสอบครบทุกไฟล์และมีข้อมูลสำเร็จ */
-    { const cb = $('pdfxCheckBtn'); if(cb){ cb.disabled = !readyN || ST.exporting; cb.textContent = '🔍 ตรวจสอบ' + (readyN ? ' (' + readyN + ')' : ''); } }
+    const readyN = ST.files.filter(f => f.state === 'ready').length, prepN = ST.files.filter(f => f.state === 'preparing').length, runN = ST.files.filter(f => f.state !== 'ready' && f.state !== 'preparing').length;
+    if(btn){ btn.disabled = reading || readyN > 0 || prepN > 0 || !B.rows.length || ST.exporting; btn.textContent = ST.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; }   /* เปิดเมื่อตรวจสอบครบทุกไฟล์และมีข้อมูลสำเร็จ */
+    { const cb = $('pdfxCheckBtn'); if(cb){ cb.disabled = !readyN || prepN > 0 || ST.exporting; cb.textContent = prepN ? '⏳ กำลังเตรียม ' + prepN + ' ไฟล์…' : '🔍 ตรวจสอบ' + (readyN ? ' (' + readyN + ')' : ''); } }
     const setT = (id, v) => { const e = $(id); if(e) e.textContent = v; }; setT('pdfxNFile', okN + (ST.files.length !== okN ? '/' + ST.files.length : '')); setT('pdfxNInv', B.order.length); setT('pdfxNRow', B.rows.length);
-    const hint = $('pdfxHint'); if(hint) hint.textContent = reading ? '⏳ AI อ่านแล้ว ' + doneN + '/' + runN + ' ไฟล์…' : readyN ? 'รอตรวจสอบ ' + readyN + ' ไฟล์ — กด "ตรวจสอบ"' : (B.rows.length ? 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.order.length + ' INVOICE' : (ST.files.length ? '⚠ ยังไม่มีไฟล์ที่อ่านสำเร็จ' : '⚠ กรุณาอัปโหลด PDF Invoice'));
+    const hint = $('pdfxHint'); if(hint) hint.textContent = reading ? '⏳ AI อ่านแล้ว ' + doneN + '/' + runN + ' ไฟล์…' : prepN ? '⏳ กำลังตรวจลักษณะ PDF ' + prepN + ' ไฟล์ — ยังกดตรวจสอบไม่ได้' : readyN ? 'รอตรวจสอบ ' + readyN + ' ไฟล์ — กด "ตรวจสอบ"' : (B.rows.length ? 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.order.length + ' INVOICE' : (ST.files.length ? '⚠ ยังไม่มีไฟล์ที่อ่านสำเร็จ' : '⚠ กรุณาอัปโหลด PDF Invoice'));
     if(!res) return;
     if(!ST.files.length){ const c = aiSummary(); res.innerHTML = c; res.style.display = c ? 'block' : 'none'; return; }
     const errF = ST.files.filter(f => f.state === 'err'), warns = [].concat(B.dup, ...ST.files.filter(f => f.state === 'ok').map(f => (f.warn || []).map(w => f.name + ' — ' + w)));
@@ -12942,13 +12942,13 @@ Column rename for export only: "KDC" → "Customer jobno."
   /* [local300] Upload = ยังไม่เรียก Claude (สถานะ "รอตรวจสอบ") → กด "ตรวจสอบ" จึงส่งไป nj-invoice-ai (พร้อมกันไม่เกิน 2 ไฟล์) · ไฟล์ที่อ่านแล้วไม่อ่านซ้ำ */
   function addFiles(fl){
     const arr = [...(fl || [])]; if(!arr.length) return;
-    arr.forEach(file => { const f = { id:++ST.seq, name:file.name, file, state:'ready', status:'รอตรวจสอบ', invoices:[], warn:[] };
+    arr.forEach(file => { const f = { id:++ST.seq, name:file.name, file, state:'preparing', status:'กำลังตรวจลักษณะ PDF…', invoices:[], warn:[] };
       ST.files.push(f); ST.ver++;
       if(!/\.pdf$/i.test(file.name) || (file.type && file.type !== 'application/pdf')){ f.state = 'err'; f.status = 'ไฟล์ผิดประเภท — รับเฉพาะ .pdf'; }
       else aiPrep(f, 'pdfxQuality').then(render); });
     render();
   }
-  function pdfxCheck(){ const l = ST.files.filter(f => f.state === 'ready'); if(!l.length) return;
+  function pdfxCheck(){ if(ST.files.some(f => f.state === 'preparing')) return; const l = ST.files.filter(f => f.state === 'ready' && f.model && f.info); if(!l.length) return;
     l.forEach(f => { f.state = 'wait'; f.status = 'รอคิว'; if(!ST.busy) ST.tStart = now(); ST.busy++;
       fileGate(async () => { if(!ST.files.includes(f)) return; const t0 = now();
         try{ f.status = 'AI กำลังอ่าน…'; render(); await pdfxReadAI(f); if(!ST.files.includes(f)) return; f.state = 'ok'; f.ms = now() - t0; f.status = 'อ่านสำเร็จ (AI' + (f.ai && f.ai.cached ? ' · ใช้ผลเดิม' : '') + ')' + (f.warn.length ? ' · เตือน ' + f.warn.length : '') + ' · ' + (f.ms / 1000).toFixed(1) + ' วิ'; }
@@ -12994,7 +12994,7 @@ Column rename for export only: "KDC" → "Customer jobno."
   async function pdfxExport(){
     if(ST.exporting || ST.busy > 0) return; const B = build();
     if(!B.rows.length){ alert('⚠ ยังไม่มีข้อมูลที่อ่านสำเร็จ'); return; }
-    if(ST.files.some(f => f.state === 'ready')) return;
+    if(ST.files.some(f => f.state === 'ready' || f.state === 'preparing')) return;
     { const w = [].concat(B.dup, ...ST.files.filter(f => f.state === 'ok').map(f => (f.warn || []).map(x => f.name + ' — ' + x)));   /* เตือนก่อน Export — ไม่แก้ตัวเลขให้ */
       if(w.length && !confirm('⚠ มี ' + w.length + ' จุดที่ต้องตรวจกับ PDF (ช่องอ่านไม่ชัด / ยอดไม่ตรง)\n\n' + w.slice(0, 8).join('\n') + (w.length > 8 ? '\n…' : '') + '\n\nต้องการ EXPORT ต่อหรือไม่? (ระบบไม่แก้ตัวเลขให้)')) return; }
     ST.exporting = true; render();
@@ -13050,14 +13050,20 @@ Column rename for export only: "KDC" → "Customer jobno."
     if(info.scan) r.push('ภาพสแกน'); if(info.dpi != null && info.dpi <= 210) r.push('ภาพประมาณ ' + info.dpi + ' DPI (≤ 200)');
     return r.length ? { model:M_SONNET, why:r.join(' + ') } : { model:M_HAIKU, why:'มี Text Layer และ ' + info.pages + ' หน้า (ไม่เกิน 10)' }; }
   const aiQ = id => { const e = $(id); return e ? e.value : 'auto'; };
-  async function aiPrep(f, qid){ try{ const buf = new Uint8Array(await f.file.arrayBuffer()); f.info = pdfInspect(buf); f.pages = f.info.pages; }catch(_){ f.info = { pages:null, text:null, scan:null, dpi:null }; } const r = aiRoute(f.info, aiQ(qid)); f.model = r.model; f.why = r.why; }
+  /* [local303] ปิด Race Condition: ไฟล์ใหม่ = state 'preparing' จนกว่า aiPrep จะได้ f.info / f.model / f.why ครบ จึงเป็น 'ready' · ตรวจไม่ได้ = Sonnet (ปลอดภัยกว่า) */
+  const AI_PREP_FAIL = 'ตรวจลักษณะ PDF ไม่ได้ — เลือกคุณภาพสูง';
+  async function aiPrep(f, qid){
+    try{ const buf = new Uint8Array(await f.file.arrayBuffer()); const info = pdfInspect(buf); if(!info) throw new Error('inspect'); const r = aiRoute(info, aiQ(qid)); if(!r || !r.model || !r.why) throw new Error('route'); f.info = info; f.pages = info.pages; f.model = r.model; f.why = r.why; f.prepFail = false; }
+    catch(_){ f.info = { pages:null, text:null, scan:null, dpi:null }; f.pages = null; f.model = M_SONNET; f.why = AI_PREP_FAIL; f.prepFail = true; }
+    if(f.state === 'preparing'){ f.state = 'ready'; f.status = 'รอตรวจสอบ'; } }
   const aiPlan = f => !f.info ? 'กำลังตรวจไฟล์…' : (f.info.pages != null ? f.info.pages + ' หน้า' : 'จำนวนหน้า ?') + ' · Text Layer: ' + (f.info.text === true ? 'มี' : f.info.text === false ? 'ไม่มี' : 'ตรวจไม่ได้') + ' · ' + (f.info.scan ? 'ภาพสแกน' : f.info.scan === false ? 'PDF ข้อความ' : 'ชนิดไม่ทราบ') + (f.info.dpi ? ' ~' + f.info.dpi + ' DPI' : '') + ' → จะใช้ ' + M_NAME[f.model] + ' (' + f.why + ')';
-  function aiQuality(){ ST.files.forEach(f => { if(f.state === 'ready' && f.info){ const r = aiRoute(f.info, aiQ('pdfxQuality')); f.model = r.model; f.why = r.why; } }); KX.pdf.forEach(f => { if(f.state === 'ready' && f.info){ const r = aiRoute(f.info, aiQ('kxQuality')); f.model = r.model; f.why = r.why; } }); render(); kxRender(); }
+  function aiQuality(){ const re = (f, qid) => { if(f.state !== 'ready' || !f.info) return; const q = aiQ(qid), r = f.prepFail && q === 'auto' ? { model:M_SONNET, why:AI_PREP_FAIL } : aiRoute(f.info, q); f.model = r.model; f.why = r.why; }; ST.files.forEach(f => re(f, 'pdfxQuality')); KX.pdf.forEach(f => re(f, 'kxQuality')); render(); kxRender(); }
   const aiSes = () => { try{ return sessionStorage.getItem('njSession'); }catch(_){ return null; } };
   const aiPost = async body => { const r = await fetch(NJ_API.url + '/functions/v1/' + KX_AI_FN, { method:'POST', headers:{ 'apikey':NJ_API.key, 'Authorization':'Bearer ' + NJ_API.key, 'Content-Type':'application/json' }, body:JSON.stringify(body) }); let j = null; try{ j = await r.json(); }catch(_){} return { r, j }; };
   async function aiRead(f, onStart){
+    if(!f.model || !f.info || f.state === 'preparing') throw new Error('ยังตรวจลักษณะ PDF ไม่เสร็จ กรุณารอสักครู่');   /* [local303] ไม่มี Model ที่เลือกแล้ว = ไม่ส่ง API · ไม่ใช้ Haiku เป็นค่าเริ่มต้น */
     if(f.file.size > KX_MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 8 MB (ข้อจำกัดของ Backend)');
-    const buf = new Uint8Array(await f.file.arrayBuffer()), hash = hex(await crypto.subtle.digest('SHA-256', buf)); f.hash = hash; if(!f.info){ f.info = pdfInspect(buf); f.pages = f.info.pages; } if(!f.model){ f.model = M_HAIKU; f.why = ''; }
+    const buf = new Uint8Array(await f.file.arrayBuffer()), hash = hex(await crypto.subtle.digest('SHA-256', buf)); f.hash = hash;
     const model = f.model, ckey = hash + '|' + model + '|' + KX_PROMPT_VER;   /* Cache Key = SHA256 | Model | PROMPT_VERSION */
     let p = KX.aiCache.get(ckey);                                   // SHA-256 Cache กลาง ใช้ร่วมทั้งสองโหมด: ไฟล์ที่อ่านสำเร็จแล้ว / กำลังอ่าน → ใช้ผลเดิม ไม่เรียก AI ซ้ำ
     if(!p){ const ses = aiSes(); if(!ses) throw new Error('ไม่พบ Session — กรุณาเข้าสู่ระบบใหม่');
@@ -13158,11 +13164,11 @@ ok.forEach(f => f.invoices.forEach(iv => blocks.push({ f, iv, fi:KX.pdf.indexOf(
       const cnt = f.state !== 'ok' ? '—' : f.invoices.map(iv => 'Invoice ' + iv.invNo + ' · ' + iv.items.filter(it => !it.del).length + ' รายการ').join(' , ');
       return '<div class="pdfx-file"><span class="pdfx-fn" title="' + esc(f.name) + '"><b style="color:#7dd3fc">ลำดับ ' + (i + 1) + '</b> · 📄 ' + esc(f.name) + '</span><span class="pdfx-st" style="color:' + col + '" title="' + esc(f.status) + '">' + ic + ' ' + esc(f.status) + '</span><span class="pdfx-cnt">' + esc(f.state === 'ready' || f.state === 'wait' ? aiPlan(f) : cnt) + (f.state === 'ok' && f.ai ? ' · ' + esc(aiInfo(f)) : '') + '</span>' + (f.state === 'err' && f.retry ? '<button class="pdfx-del" data-retry="1" title="ส่งให้ AI อ่านอีกครั้ง — อาจมีค่า API" onclick="kxRetry(' + f.id + ')">↻ ลองใหม่</button>' : '') + '<button class="pdfx-del" title="ลบไฟล์นี้" onclick="kxRemove(' + f.id + ')">✕ ลบ</button></div>'; }).join('');
     const B = kxBuild(), reading = KX.busy > 0, btn = $('kxExportBtn'), setT = (id, v) => { const e = $(id); if(e) e.textContent = v; }, nIss = B.issues.length;
-    if(btn){ btn.disabled = reading || !B.rows.length || KX.exporting || KX.pdf.some(f => f.state === 'ready'); btn.textContent = KX.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; btn.title = nIss ? 'มี ' + nIss + ' จุดที่ต้องตรวจ — Export ได้ โดย Excel จะมีข้อความแจ้งเตือน' : 'KDC_MAPPING_*.xlsx (1 Workbook / 1 Sheet)'; }
-    { const rb = $('kxReadBtn'), nR = KX.pdf.filter(f => f.state === 'ready').length; if(rb){ rb.disabled = !nR; rb.textContent = '🔍 ตรวจสอบ' + (nR ? ' (' + nR + ')' : ''); } }
+    if(btn){ btn.disabled = reading || !B.rows.length || KX.exporting || KX.pdf.some(f => f.state === 'ready' || f.state === 'preparing'); btn.textContent = KX.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; btn.title = nIss ? 'มี ' + nIss + ' จุดที่ต้องตรวจ — Export ได้ โดย Excel จะมีข้อความแจ้งเตือน' : 'KDC_MAPPING_*.xlsx (1 Workbook / 1 Sheet)'; }
+    { const rb = $('kxReadBtn'), nR = KX.pdf.filter(f => f.state === 'ready').length, nP = KX.pdf.filter(f => f.state === 'preparing').length; if(rb){ rb.disabled = !nR || nP > 0; rb.textContent = nP ? '⏳ กำลังเตรียม ' + nP + ' ไฟล์…' : '🔍 ตรวจสอบ' + (nR ? ' (' + nR + ')' : ''); } }
     setT('kxNInv', B.blocks.length); setT('kxNRow', B.rows.length); setT('kxTQty', B.tot.qty.length ? B.tot.qty.map(a => thou(a.sum) + (B.tot.qty.length > 1 ? ' ' + a.k : '')).join(' · ') : '—'); setT('kxTAmt', B.tot.amt.length ? B.tot.amt.map(a => edc1fzCents(cents(a.sum)) + ' ' + a.k).join(' · ') : '—');
-    { const tot = KX.pdf.filter(f => f.state !== 'ready').length, done = KX.pdf.filter(f => f.state === 'ok' || f.state === 'err').length, nR = KX.pdf.filter(f => f.state === 'ready').length;
-      setT('kxHint', reading ? '⏳ AI กำลังอ่าน ' + done + '/' + tot + ' ไฟล์…' : !KX.pdf.length ? '⚠ กรุณาเลือกไฟล์ INVOICE PDF' : nR ? 'รอตรวจสอบ ' + nR + ' ไฟล์ — กด "ตรวจสอบ"' : !B.rows.length ? '⚠ ยังไม่มีรายการที่อ่านได้' : nIss ? '⚠ มี ' + nIss + ' จุดต้องตรวจกับ PDF (Export ได้ — Excel จะมีข้อความแจ้ง)' : '✅ ผ่านการตรวจด้วยโค้ด — พร้อม EXPORT ' + B.rows.length + ' รายการ'); }
+    { const nP = KX.pdf.filter(f => f.state === 'preparing').length, tot = KX.pdf.filter(f => f.state !== 'ready' && f.state !== 'preparing').length, done = KX.pdf.filter(f => f.state === 'ok' || f.state === 'err').length, nR = KX.pdf.filter(f => f.state === 'ready').length;
+      setT('kxHint', reading ? '⏳ AI กำลังอ่าน ' + done + '/' + tot + ' ไฟล์…' : !KX.pdf.length ? '⚠ กรุณาเลือกไฟล์ INVOICE PDF' : nP ? '⏳ กำลังตรวจลักษณะ PDF ' + nP + ' ไฟล์ — ยังกดตรวจสอบไม่ได้' : nR ? 'รอตรวจสอบ ' + nR + ' ไฟล์ — กด "ตรวจสอบ"' : !B.rows.length ? '⚠ ยังไม่มีรายการที่อ่านได้' : nIss ? '⚠ มี ' + nIss + ' จุดต้องตรวจกับ PDF (Export ได้ — Excel จะมีข้อความแจ้ง)' : '✅ ผ่านการตรวจด้วยโค้ด — พร้อม EXPORT ' + B.rows.length + ' รายการ'); }
     const res = $('kxResult'); if(!res) return;
     if(!KX.pdf.length){ const c = aiSummary(); res.innerHTML = c; res.style.display = c ? 'block' : 'none'; return; }
     const errF = KX.pdf.filter(f => f.state === 'err'), fw = [].concat(...KX.pdf.filter(f => f.state === 'ok').map(f => (f.warn || []).map(w => f.name + ' — ' + w))), warns = B.warn.concat(fw);
@@ -13232,12 +13238,12 @@ ok.forEach(f => f.invoices.forEach(iv => blocks.push({ f, iv, fi:KX.pdf.indexOf(
       try{ f.status = 'กำลังอ่าน…'; kxRender(); await kxReadPdf(f); f.state = 'ok'; f.status = 'อ่านสำเร็จ (AI' + (f.ai && f.ai.cached ? ' · ใช้ผลเดิม' : '') + ') · ' + ((now() - t0) / 1000).toFixed(1) + ' วิ'; }
       catch(e){ f.state = 'err'; f.retry = true; f.status = 'อ่านไม่สำเร็จ: ' + (e && e.message || e); f.invoices = []; } }).catch(() => {}).then(() => { KX.busy--; KX.ver++; kxRender(); }); }
   function kxAdd(fl){ const arr = [...(fl || [])]; if(!arr.length) return;
-    arr.forEach(file => { const f = { id:++KX.seq, name:file.name, file, state:'ready', status:'รอตรวจสอบ', warn:[], invoices:[] }; KX.pdf.push(f); KX.ver++;
+    arr.forEach(file => { const f = { id:++KX.seq, name:file.name, file, state:'preparing', status:'กำลังตรวจลักษณะ PDF…', warn:[], invoices:[] }; KX.pdf.push(f); KX.ver++;
       if(!/\.pdf$/i.test(file.name) || (file.type && file.type !== 'application/pdf')){ f.state = 'err'; f.status = 'ไฟล์ผิดประเภท — รับเฉพาะ .pdf'; }
       else if(file.size > KX_MAX_BYTES){ f.state = 'err'; f.status = 'ไฟล์ใหญ่เกิน 8 MB'; }
       else aiPrep(f, 'kxQuality').then(kxRender); });
     kxRender(); }
-  function kxReadAll(){ const l = KX.pdf.filter(f => f.state === 'ready'); if(!l.length) return; l.forEach(kxRun); kxRender(); }   // เรียก AI เฉพาะเมื่อผู้ใช้กด "ตรวจสอบ"
+  function kxReadAll(){ if(KX.pdf.some(f => f.state === 'preparing')) return; const l = KX.pdf.filter(f => f.state === 'ready' && f.model && f.info); if(!l.length) return; l.forEach(kxRun); kxRender(); }   // เรียก AI เฉพาะเมื่อผู้ใช้กด "ตรวจสอบ"
   function kxRetry(id){ const f = KX.pdf.find(x => x.id === id); if(!f || !(f.state === 'err' && f.retry)) return; if(!confirm('ลองส่งไฟล์ ' + f.name + ' ให้ AI อ่านอีกครั้ง?\nการลองใหม่อาจมีค่า API เพิ่ม')) return; f.invoices = []; KX.ver++; kxRun(f); kxRender(); }   // ลองใหม่ = ผู้ใช้สั่งเองเท่านั้น · ไฟล์ที่อ่านสำเร็จแล้วไม่มีปุ่มอ่านซ้ำ   // ผู้ใช้สั่งเองเท่านั้น
   function kxRemove(id){ KX.pdf = KX.pdf.filter(f => f.id !== id); KX.ver++; kxRender(); }
   function kxReset(){ KX.pdf = []; KX.ver++; const e = $('kxPdfInput'); if(e) e.value = ''; kxRender(); }
@@ -13267,7 +13273,7 @@ ok.forEach(f => f.invoices.forEach(iv => blocks.push({ f, iv, fi:KX.pdf.indexOf(
       L.forEach((t, i) => { const c = ws.getCell(n0 + i, 1); c.value = t; c.font = FONT(i === 0); }); }
     return wb.xlsx.writeBuffer();
   }
-  async function kxExport(){ if(KX.exporting || KX.busy > 0 || KX.pdf.some(f => f.state === 'ready')) return; const B = kxBuild(); if(!B.rows.length){ alert('⚠ ยังไม่มีรายการ'); return; }
+  async function kxExport(){ if(KX.exporting || KX.busy > 0 || KX.pdf.some(f => f.state === 'ready' || f.state === 'preparing')) return; const B = kxBuild(); if(!B.rows.length){ alert('⚠ ยังไม่มีรายการ'); return; }
     if(B.issues.length && !confirm('⚠ มี ' + B.issues.length + ' จุดที่ต้องตรวจกับ PDF (ช่องอ่านไม่ชัด ' + B.tot.unclear + ' · QTY × ราคา ≠ AMT ' + B.tot.calc + ' รายการ · TOTAL ไม่ตรง ' + B.blocks.filter(b => b.docBad.includes('amt')).length + ' Invoice)\n\nต้องการ EXPORT ต่อหรือไม่? (Excel จะมีข้อความแจ้ง · ระบบไม่แก้ตัวเลขให้)')) return;
     KX.exporting = true; kxRender();
     try{ const ok = await hspmEnsureExcel(); if(!ok || !window.ExcelJS) throw new Error('โหลด ExcelJS ไม่สำเร็จ');
