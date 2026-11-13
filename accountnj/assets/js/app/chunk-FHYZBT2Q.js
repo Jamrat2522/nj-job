@@ -67,7 +67,350 @@ async function Rt(t,e=!1){if(!e&&t&&t.mode==="document"&&t.charge==="SERVICE")re
       <tr><td class="t-b">Total Amount (Net = Gross \u2212 WHT)</td><td class="r t-b">${x(t.total_amount)}</td></tr>
       <tr><td>\u0E25\u0E39\u0E01\u0E2B\u0E19\u0E35\u0E49\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14</td><td class="r">${(t.total_overdue||0).toLocaleString("th-TH")} \u0E43\u0E1A</td></tr>
       <tr><td>\u0E07\u0E32\u0E19\u0E40\u0E25\u0E22 Due \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2D\u0E2D\u0E01 INV</td><td class="r">${(t.job_overdue_no_invoice||0).toLocaleString("th-TH")} \u0E07\u0E32\u0E19</td></tr>
-    </table><p class="t-xs t-3 mt-1">* \u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (${J(e.charge)} / ${j(e.group)}) \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C</p>`,footer:Object.assign(document.createElement("div"),{innerHTML:'<button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>'})})}export{K as a,Z as b,T as c,ft as d,_t as e,gt as f,ht as g,Y as h,O as i,Rt as j,wt as k,Ct as l,U as m,yt as n,Et as o,jt as p,Jt as q,vt as r,v as s,Ft as t,Ot as u,rt as v,Nt as w,Vt as x,$t as y,Dt as z,X as A,q as B,Wt as C,zt as D,Ut as E,CC751,SNB777,SER785,ADV786};
+    </table><p class="t-xs t-3 mt-1">* \u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (${J(e.charge)} / ${j(e.group)}) \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E27\u0E21\u0E1D\u0E31\u0E48\u0E07\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C</p>`,footer:Object.assign(document.createElement("div"),{innerHTML:'<button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>'})})}/* ═══ V.866 · ACCOUNTING → SERVICE → เมนู MAERSK → ปุ่ม "Upload Calcom" (ต่อจาก CALCOM)
+   อ่าน Excel ตาม "ชื่อหัวคอลัมน์" BK# / Cont# / PO NO. / วันที่วางบิล (ไม่ยึดตำแหน่งคอลัมน์)
+   จับคู่งาน : BK# หรือ Cont# (OR) เทียบ Booking No. / House B/L No. / เบอร์ตู้ — เต็มค่า · ตัดช่องว่างหัวท้าย · ไม่แยกพิมพ์เล็ก-ใหญ่ · คงศูนย์นำหน้า · หลายเลขในช่องเดียวเทียบแยกกัน
+   นำเข้า : PO NO. → Customer Job No. (njacc_save_job_doc_fields) · วันที่วางบิล → invoice_date (njacc_invoice_set_date)
+   ค่าว่าง/สูตรคืน "" = ไม่เขียนทับ · ต้องกด "บันทึก" ในตารางตรวจสอบก่อนเสมอ
+   ไม่แตะ : Booking No. · House B/L No. · Container No. · เลข INVOICE · เลข JOB · ยอดเงิน · สถานะ POST/CLOSE · สิทธิ์ · ไม่สร้างงานใหม่ · ไม่แก้โครงสร้างฐานข้อมูล ═══ */
+var UCB866 = false, UCS866 = false;
+var UCH866 = {
+  bk: ["BK#", "BK", "BKNO", "BKNO#", "BOOKING", "BOOKINGNO", "BOOKINGNO#"],
+  ct: ["CONT#", "CONT", "CONTNO", "CONTNO#", "CONTAINER", "CONTAINERNO", "CONTAINERNO#", "เบอร์ตู้"],
+  po: ["PONO", "PONO#", "PO", "PO#", "PONUMBER"],
+  dt: ["วันที่วางบิล", "วางบิล", "BILLINGDATE", "BILLDATE"]
+};
+var UCF866 = [["booking_no", "Booking No."], ["house_bl_no", "House B/L No."], ["container_no", "เบอร์ตู้"]];
+function UN866(v) { return String(v == null ? "" : v).replace(/[\s​ .]/g, "").toUpperCase(); }
+function UK866(v) { return String(v == null ? "" : v).replace(/[​ ]/g, " ").trim().toUpperCase(); }
+function UV866(c) {   /* ค่าในเซลล์จริง (รองรับสูตร · rich text · hyperlink · error) */
+  var v = c == null ? null : c.value, g;
+  for (g = 0; g < 5; g++) {
+    if (v == null || v instanceof Date || typeof v === "string" || typeof v === "number" || typeof v === "boolean") break;
+    if (typeof v !== "object") { v = null; break; }
+    if (v.richText) { v = v.richText.map(function (x) { return x && x.text != null ? x.text : ""; }).join(""); break; }
+    if (v.error !== undefined) { v = null; break; }
+    if ("result" in v) { v = v.result; continue; }
+    if ("text" in v) { v = v.text; continue; }
+    v = null; break;
+  }
+  return v == null ? "" : v;
+}
+function UT866(v) {   /* ข้อความล้วน (ตัดช่องว่างหัวท้าย) · วันที่ = ไม่ใช่ข้อความอ้างอิง */
+  if (v == null || v === "") return "";
+  if (v instanceof Date) return "";
+  if (typeof v === "number") return isFinite(v) ? String(v) : "";
+  if (typeof v === "boolean") return "";
+  return String(v).replace(/[​ ]/g, " ").trim();
+}
+function UY866(y) { return y >= 2400 ? y - 543 : y < 100 ? y >= 70 ? 1900 + y : 2000 + y : y; }
+function UI2866(y, m, d) {
+  if (!(y >= 1900 && y <= 2999) || !(m >= 1 && m <= 12) || !(d >= 1 && d <= 31)) return null;
+  var t = new Date(Date.UTC(y, m - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null;
+  return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");   /* ไม่เลื่อน timezone : ใช้ส่วน UTC เท่านั้น */
+}
+function UD866(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : UI2866(v.getUTCFullYear(), v.getUTCMonth() + 1, v.getUTCDate());
+  if (typeof v === "number") {
+    if (!isFinite(v) || v <= 0 || v > 2958465) return null;
+    var t = new Date(Math.round((v - 25569) * 864e5));
+    return isNaN(t.getTime()) ? null : UI2866(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+  }
+  var s = String(v == null ? "" : v).trim(); if (!s) return null;
+  var m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(s);
+  if (m) return UI2866(UY866(+m[1]), +m[2], +m[3]);
+  m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/.exec(s);
+  if (m) return UI2866(UY866(+m[3]), +m[2], +m[1]);   /* วว/ดด/ปปปป (รองรับ พ.ศ.) */
+  return null;
+}
+function UKS866(v) {   /* คีย์เทียบของช่องในระบบ : ค่าเต็ม + แยกแต่ละเลข */
+  var out = [], full = UK866(v);
+  if (full) out.push(full);
+  CT751(v).forEach(function (x) { var k = UK866(x); if (k && out.indexOf(k) < 0) out.push(k); });
+  return out;
+}
+function UHD866(row) {
+  var h = { bk: -1, ct: -1, po: -1, dt: -1 }, hit = 0;
+  row.eachCell({ includeEmpty: false }, function (c, i) {
+    var k = UN866(UV866(c)); if (!k) return;
+    ["bk", "ct", "po", "dt"].forEach(function (f) { if (h[f] < 0 && UCH866[f].indexOf(k) >= 0) { h[f] = i; hit++; } });
+  });
+  return hit ? h : null;
+}
+function UR866(wb) {
+  var ws = null, hdr = null, hrow = 0, best = null;
+  (wb.worksheets || []).forEach(function (s) {
+    if (ws) return;
+    var lim = Math.min(s.rowCount || 0, 30), i, h;
+    for (i = 1; i <= lim; i++) {
+      h = UHD866(s.getRow(i)); if (!h) continue;
+      if ((h.bk >= 0 || h.ct >= 0) && (h.po >= 0 || h.dt >= 0)) { ws = s; hdr = h; hrow = i; return; }
+      if (!best && (h.bk >= 0 || h.ct >= 0)) best = { s: s, h: h, i: i };
+    }
+  });
+  if (!ws && best) { ws = best.s; hdr = best.h; hrow = best.i; }
+  if (!ws) return { err: 'ไม่พบหัวคอลัมน์ "BK#" หรือ "Cont#" ในไฟล์ — ยังไม่เปลี่ยนข้อมูลใด' };
+  if (hdr.po < 0 && hdr.dt < 0) return { err: 'ไม่พบหัวคอลัมน์ "PO NO." และ "วันที่วางบิล" ในไฟล์ — ไม่มีข้อมูลให้นำเข้า' };
+  var out = [], n = ws.rowCount || 0, r, row, bk, ct, po, dv, ds;
+  for (r = hrow + 1; r <= n; r++) {
+    row = ws.getRow(r);
+    bk = hdr.bk >= 0 ? UT866(UV866(row.getCell(hdr.bk))) : "";
+    ct = hdr.ct >= 0 ? UT866(UV866(row.getCell(hdr.ct))) : "";
+    po = hdr.po >= 0 ? UT866(UV866(row.getCell(hdr.po))) : "";
+    dv = hdr.dt >= 0 ? UV866(row.getCell(hdr.dt)) : "";
+    ds = dv instanceof Date ? "" : UT866(dv);
+    if (!bk && !ct && !po && !(dv instanceof Date) && !ds) continue;   /* แถวว่างทั้งแถว = ไม่นับ */
+    out.push({ xr: r, bk: bk, ct: ct, po: po, dv: dv, ds: ds, de: hdr.dt < 0 || (!(dv instanceof Date) && ds === "") });
+  }
+  return { hdr: hdr, rows: out, sheet: ws.name, hrow: hrow };
+}
+async function UJ866(t, set) {   /* คลังงานสำหรับจับคู่ : คิวหน้าปัจจุบัน + DOCUMENT (ทุกงานที่ยังไม่ปิด) + ปิดงานแล้ว · ไม่ใช้ตัวกรองหน้าจอ */
+  var qs = [], sn = {}, got = 0, mp = new Map(), i, rs;
+  [String(t.queue || ""), "document", "acc_done"].forEach(function (q) { if (q && !sn[q]) { sn[q] = 1; qs.push(q); } });
+  for (i = 0; i < qs.length; i++) {
+    rs = null;
+    try {
+      rs = await O({ charge: t.charge, group: t.group, queue: qs[i], scope: t.scope, filters: {} },
+        function (a) { set && set(got + a, got + a); });
+    } catch (e) { rs = null; }
+    (rs || []).forEach(function (w) { if (w && w.id && !mp.has(String(w.id))) mp.set(String(w.id), w); });
+    got = mp.size; set && set(got, got);
+  }
+  return Array.from(mp.values());
+}
+function UIX866(jobs) {
+  var mp = new Map();
+  jobs.forEach(function (w) {
+    UCF866.forEach(function (fd) {
+      UKS866(w[fd[0]]).forEach(function (k) {
+        var a = mp.get(k); if (!a) { a = []; mp.set(k, a); }
+        if (!a.some(function (x) { return x.id === String(w.id) && x.f === fd[1]; })) a.push({ id: String(w.id), w: w, f: fd[1] });
+      });
+    });
+  });
+  return mp;
+}
+function UM866(r, k, idx, hdr) {
+  var m = { no: k + 1, xr: r.xr, bk: r.bk, ct: r.ct, po: r.po, dt: null, draw: "", dbad: "", de: r.de, cands: [], pick: "", st: "", why: "" };
+  if (!r.de) {
+    m.draw = r.dv instanceof Date ? "" : r.ds;
+    m.dt = UD866(r.dv instanceof Date ? r.dv : r.ds !== "" ? r.ds : r.dv);
+    if (!m.dt) m.dbad = m.draw || String(r.dv);
+    else if (!m.draw) m.draw = m.dt;
+  }
+  var hits = [], sb = new Set(), sc = new Set(), byJob = new Map();
+  [["BK#", r.bk], ["Cont#", r.ct]].forEach(function (s) {
+    var kk = UK866(s[1]); if (!kk) return;
+    (idx.get(kk) || []).forEach(function (c) { hits.push({ src: s[0], id: c.id, w: c.w, f: c.f }); (s[0] === "BK#" ? sb : sc).add(c.id); });
+  });
+  hits.forEach(function (h) {
+    var o = byJob.get(h.id);
+    if (!o) { o = { id: h.id, w: h.w, f: [], s: [] }; byJob.set(h.id, o); }
+    if (o.f.indexOf(h.f) < 0) o.f.push(h.f);
+    if (o.s.indexOf(h.src) < 0) o.s.push(h.src);
+  });
+  m.cands = Array.from(byJob.values());
+  var inter = Array.from(sb).filter(function (x) { return sc.has(x); });
+  if (!m.cands.length) { m.st = "nf"; m.why = "ไม่พบงานที่ Booking No. / House B/L No. / เบอร์ตู้ ตรงกับ BK# หรือ Cont#"; }
+  else if (m.cands.length === 1) { m.st = "ok"; m.pick = m.cands[0].id; }
+  else if (sb.size && sc.size && !inter.length) { m.st = "conf"; m.why = "BK# และ Cont# ชี้ไปคนละงาน — ต้องเลือกงานให้ชัดเจนก่อนบันทึก"; }
+  else { m.st = "multi"; m.why = "พบหลายงาน — ต้องเลือกงานก่อนบันทึก"; }
+  if (!m.po && !m.dt) {
+    m.st = "empty";
+    m.why = hdr.dt < 0 ? 'PO NO. ว่าง (ไฟล์ไม่มีคอลัมน์ "วันที่วางบิล")' : r.de ? "PO NO. และ วันที่วางบิล ว่างทั้งสองช่อง" : "PO NO. ว่าง และวันที่วางบิลไม่ถูกต้อง : " + m.dbad;
+  }
+  return m;
+}
+function UJB866(m) { return m.pick ? m.cands.filter(function (x) { return x.id === m.pick; })[0] || null : null; }
+function UCG866(m, job) {   /* ค่าเดิม / ค่าใหม่ แยกอิสระต่อช่อง — ว่าง = คงค่าเดิมเสมอ */
+  var o = { cjOld: "", dtOld: "", cj: null, dt: null, derr: "" };
+  if (!job) return o;
+  var w = job.w, stt = String(w.invoice_status || "").toUpperCase();
+  o.cjOld = String(w.customer_job_no == null ? "" : w.customer_job_no).trim();
+  o.dtOld = String(w.invoice_date == null ? "" : w.invoice_date).slice(0, 10);
+  if (m.po && m.po !== o.cjOld) o.cj = m.po;
+  if (m.dt && m.dt !== o.dtOld) {
+    if (!w.invoice_id) o.derr = "งานนี้ยังไม่มี INVOICE";
+    else if (stt !== "POSTED" && stt !== "ISSUED") o.derr = "INVOICE สถานะ " + (stt || "-") + " (แก้วันที่ได้เฉพาะใบที่ POST แล้ว)";
+    else o.dt = m.dt;
+  }
+  return o;
+}
+function UG866(mdl) {   /* หลายแถวชี้งานเดียวกันแต่ข้อมูลขัดแย้ง → ข้ามงานนั้น */
+  var mp = new Map(), bad = new Set();
+  mdl.forEach(function (m) {
+    if (m.st === "empty" || m.st === "nf" || !m.pick) return;
+    var a = mp.get(m.pick); if (!a) { a = []; mp.set(m.pick, a); } a.push(m);
+  });
+  mp.forEach(function (a, id) {
+    var cj = null, dt = null, b = false;
+    a.forEach(function (m) {
+      if (m.po) { if (cj === null) cj = m.po; else if (cj !== m.po) b = true; }
+      if (m.dt) { if (dt === null) dt = m.dt; else if (dt !== m.dt) b = true; }
+    });
+    if (b) bad.add(id);
+  });
+  return bad;
+}
+function UST866(m, bad) {
+  if (m.st === "empty") return { k: "empty", t: "ข้าม — ข้อมูลว่าง", c: "#8a6d1f" };
+  if (m.st === "nf") return { k: "nf", t: "ไม่พบงาน", c: "#b42318" };
+  if (!m.pick) return m.st === "conf" ? { k: "conf", t: "ขัดแย้ง — เลือกงาน", c: "#b42318" } : { k: "pend", t: "รอเลือกงาน", c: "#b54708" };
+  if (bad.has(m.pick)) return { k: "conf", t: "ขัดแย้ง — ข้ามงานนี้", c: "#b42318" };
+  var ch = UCG866(m, UJB866(m));
+  if (!ch.cj && !ch.dt) return { k: "nochg", t: "ไม่เปลี่ยนแปลง", c: "#667085" };
+  return { k: "ok", t: "จะบันทึก", c: "#067647" };
+}
+function UPL866(mdl, bad) {
+  var mp = new Map();
+  mdl.forEach(function (m) {
+    if (m.st === "empty" || m.st === "nf" || !m.pick || bad.has(m.pick)) return;
+    var job = UJB866(m); if (!job) return;
+    var ch = UCG866(m, job); if (!ch.cj && !ch.dt) return;
+    var o = mp.get(m.pick);
+    if (!o) { o = { id: m.pick, w: job.w, job_no: job.w.job_no || "-", cj: null, dt: null, rows: [] }; mp.set(m.pick, o); }
+    if (ch.cj) o.cj = ch.cj;
+    if (ch.dt) o.dt = ch.dt;
+    o.rows.push(m.no);
+  });
+  return Array.from(mp.values());
+}
+async function USV866(plan, set) {
+  var ok = [], fail = [], done = 0, k, part, rr;
+  for (k = 0; k < plan.length; k += 4) {
+    part = plan.slice(k, k + 4);
+    rr = await Promise.all(part.map(async function (o) {
+      var did = [], er = [];
+      if (o.cj != null) {
+        try { await RPC751("njacc_save_job_doc_fields", { p: { id: o.id, customer_job_no: o.cj } }); did.push("Customer Job No. = " + o.cj); }
+        catch (e) { er.push("Customer Job No. : " + (e && e.message ? e.message : e)); }
+      }
+      if (o.dt != null) {
+        try { await RPC751("njacc_invoice_set_date", { p: { invoice_id: o.w.invoice_id, invoice_date: o.dt } }); did.push("วันที่วางบิล = " + V(o.dt)); }
+        catch (e) { er.push("วันที่วางบิล : " + (e && e.message ? e.message : e)); }
+      }
+      return { o: o, did: did, er: er };
+    }));
+    rr.forEach(function (x) { (x.er.length ? fail : ok).push(x); });
+    done += part.length; set && set(done, plan.length);
+  }
+  return { ok: ok, fail: fail };
+}
+function UOD866(o, nw, skip) {   /* เซลล์ "ค่าเดิม → ค่าใหม่" */
+  if (skip) return '<span style="color:#8a6d1f">ข้าม — คงค่าเดิม</span>' + (o ? ' <span style="color:#667085">(' + B(o) + ")</span>" : "");
+  if (!nw) return '<span style="color:#667085">' + B(o || "-") + " <b>→</b> ไม่เปลี่ยนแปลง</span>";
+  return '<span style="color:#667085">' + B(o || "-") + '</span> <b>→</b> <b style="color:#067647">' + B(nw) + "</b>";
+}
+function UW866(t, mdl, hdr, nj, info) {
+  var body = document.createElement("div");
+  body.innerHTML =
+    (hdr.dt < 0 ? '<div style="margin:0 0 8px;padding:8px 10px;border:1px solid #f0c36d;background:#fffaeb;border-radius:6px;color:#8a6d1f">⚠ ไฟล์นี้ไม่มีคอลัมน์ "วันที่วางบิล" — จะนำเข้าเฉพาะ PO NO. เท่านั้น (ไม่ใช้ Loading date หรือวันที่อื่นแทน)</div>' : "") +
+    '<div style="margin:0 0 8px;color:#475467;font-size:12px">' + B(info) + "</div>" +
+    '<div id="uc866-sum" style="margin:0 0 8px;font-size:12px"></div>' +
+    '<div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr>' +
+    '<th class="nowrap">แถว</th><th class="nowrap">BK#</th><th class="nowrap">Cont#</th><th class="nowrap">JOB NJ ที่พบ</th><th class="nowrap">ช่องที่จับคู่</th>' +
+    "<th>Customer Job No. (เดิม → ใหม่)</th><th>วันที่วางบิล (เดิม → ใหม่)</th><th>สถานะ / เหตุผล</th>" +
+    '</tr></thead><tbody id="uc866-tb"></tbody></table></div>';
+  var ft = document.createElement("div");
+  ft.innerHTML = '<button class="btn btn-o" data-close>ยกเลิก</button> <button class="btn btn-p" id="uc866-ok">บันทึก</button>';
+  L({ title: "Upload Calcom — ตรวจสอบก่อนบันทึก", body: body, footer: ft, wide: true });
+  var TB = body.querySelector("#uc866-tb"), SM = body.querySelector("#uc866-sum");
+  function draw() {
+    var bad = UG866(mdl), c = { ok: 0, nochg: 0, empty: 0, nf: 0, conf: 0, pend: 0 };
+    TB.innerHTML = mdl.map(function (m, i) {
+      var st = UST866(m, bad); c[st.k]++;
+      var job = UJB866(m), ch = UCG866(m, job);
+      var jc = m.cands.length > 1
+        ? '<select class="inp uc866-pk" data-i="' + i + '" style="min-width:160px"><option value="">— เลือกงาน —</option>' +
+          m.cands.map(function (x) { return '<option value="' + B(x.id) + '"' + (x.id === m.pick ? " selected" : "") + ">" + B((x.w.job_no || "-") + " · " + x.f.join("/")) + "</option>"; }).join("") + "</select>"
+        : job ? B(job.w.job_no || "-") : '<span style="color:#b42318">-</span>';
+      var fd = job ? B(job.f.join(", ")) + ' <span style="color:#667085">(' + B(job.s.join("+")) + ")</span>" : "-";
+      var dcell = hdr.dt < 0 ? '<span style="color:#8a6d1f">ข้าม — ไม่มีคอลัมน์วันที่วางบิล</span>'
+        : m.de ? UOD866(job ? V(ch.dtOld) : "", "", true)
+        : !m.dt ? '<span style="color:#b42318">ข้าม — วันที่ไม่ถูกต้อง (' + B(m.dbad) + ") คงค่าเดิม</span>"
+        : ch.derr ? '<span style="color:#b42318">ข้าม — ' + B(ch.derr) + " คงค่าเดิม</span>"
+        : UOD866(job ? V(ch.dtOld) : "", ch.dt ? V(ch.dt) : "", false);
+      return '<tr><td class="nowrap">' + m.no + '</td><td class="nowrap">' + B(m.bk || "-") + '</td><td class="nowrap">' + B(m.ct || "-") + "</td><td>" + jc + "</td><td>" + fd + "</td><td>" +
+        (m.po ? UOD866(job ? ch.cjOld : "", ch.cj, false) : UOD866(job ? ch.cjOld : "", "", true)) + "</td><td>" + dcell +
+        '</td><td><span style="color:' + st.c + '">' + B(st.t) + "</span>" + (m.why ? '<div style="color:#667085;font-size:11px">' + B(m.why) + "</div>" : "") + "</td></tr>";
+    }).join("");
+    SM.innerHTML = "อ่านได้ " + mdl.length + " แถว · เทียบกับงาน " + nj.toLocaleString("th-TH") + " รายการ &nbsp;|&nbsp; " +
+      '<b style="color:#067647">จะบันทึก ' + c.ok + "</b> · ไม่เปลี่ยนแปลง " + c.nochg + ' · <span style="color:#8a6d1f">ข้ามเพราะว่าง ' + c.empty +
+      '</span> · <span style="color:#b42318">ไม่พบงาน ' + c.nf + "</span> · " + '<span style="color:#b42318">ขัดแย้ง ' + c.conf + '</span> · <span style="color:#b54708">รอเลือกงาน ' + c.pend + "</span>";
+  }
+  draw();
+  body.addEventListener("change", function (ev) {
+    var s = ev.target && ev.target.closest ? ev.target.closest(".uc866-pk") : null;
+    if (!s) return;
+    mdl[+s.dataset.i].pick = s.value; draw();
+  });
+  ft.querySelector("#uc866-ok").onclick = async function () {
+    if (UCS866) return; UCS866 = true; this.disabled = true;
+    try {
+      var bad = UG866(mdl), plan = UPL866(mdl, bad);
+      if (!plan.length) { p("ไม่มีรายการที่ต้องบันทึก — ยังไม่เปลี่ยนข้อมูลใด", "err"); return; }
+      var pg = N("Upload Calcom — กำลังบันทึก"), res;
+      try { res = await USV866(plan, pg.set); } finally { pg.close(); }
+      try { t.refresh && t.refresh(); } catch (e2) {}
+      URP866(res, mdl, bad);
+    } catch (e) { p("บันทึกไม่สำเร็จ : " + (e && e.message ? e.message : e), "err"); }
+    finally { UCS866 = false; }
+  };
+}
+function URP866(res, mdl, bad) {
+  var c = { nochg: 0, empty: 0, nf: 0, conf: 0, pend: 0 };
+  mdl.forEach(function (m) { var k = UST866(m, bad).k; if (k !== "ok") c[k]++; });
+  var body = document.createElement("div"), li = function (a) { return a.length ? "<ul style='margin:4px 0 10px 18px'>" + a.join("") + "</ul>" : ""; };
+  body.innerHTML =
+    '<div style="margin-bottom:10px;font-size:13px">' +
+    '<div><b style="color:#067647">สำเร็จ ' + res.ok.length + " งาน</b></div>" +
+    "<div>ไม่เปลี่ยนแปลง " + c.nochg + " แถว</div>" +
+    '<div style="color:#8a6d1f">ข้ามเพราะข้อมูลว่าง ' + c.empty + " แถว</div>" +
+    '<div style="color:#b42318">ไม่พบงาน ' + c.nf + " แถว</div>" +
+    '<div style="color:#b42318">ข้อมูลขัดแย้ง ' + c.conf + " แถว</div>" +
+    '<div style="color:#b54708">ไม่ได้เลือกงาน ' + c.pend + " แถว</div>" +
+    '<div style="color:#b42318">บันทึกล้มเหลว ' + res.fail.length + " งาน</div></div>" +
+    (res.fail.length ? "<b style='color:#b42318'>รายละเอียดที่ล้มเหลว</b>" + li(res.fail.map(function (x) { return "<li>" + B(x.o.job_no) + " : " + B(x.er.join(" · ")) + "</li>"; })) : "") +
+    (res.ok.length ? "<b>รายการที่บันทึกแล้ว</b>" + li(res.ok.map(function (x) { return "<li>" + B(x.o.job_no) + " : " + B(x.did.join(" · ")) + "</li>"; })) : "") +
+    (c.nf ? "<b style='color:#b42318'>ไม่พบงาน</b>" + li(mdl.filter(function (m) { return m.st === "nf"; }).map(function (m) { return "<li>แถว " + m.no + " : BK# " + B(m.bk || "-") + " / Cont# " + B(m.ct || "-") + "</li>"; })) : "") +
+    (c.conf ? "<b style='color:#b42318'>ข้อมูลขัดแย้ง</b>" + li(mdl.filter(function (m) { return UST866(m, bad).k === "conf"; }).map(function (m) { return "<li>แถว " + m.no + " : " + B(m.why || "หลายแถวชี้งานเดียวกันแต่ข้อมูลไม่ตรงกัน") + "</li>"; })) : "");
+  var ft = document.createElement("div");
+  ft.innerHTML = '<button class="btn btn-p" data-close>ปิด</button>';
+  L({ title: "Upload Calcom — สรุปผล", body: body, footer: ft, wide: true });
+  p(res.fail.length ? "บันทึกเสร็จ (มีบางงานล้มเหลว)" : "บันทึก Upload Calcom สำเร็จ " + res.ok.length + " งาน", res.fail.length ? "err" : "ok");
+}
+function UFP866() {
+  return new Promise(function (res) {
+    var el = document.createElement("input");
+    el.type = "file"; el.accept = ".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    el.onchange = function () { res(el.files && el.files[0] ? el.files[0] : null); };
+    el.oncancel = function () { res(null); };
+    el.click();
+  });
+}
+async function UC866(t) {
+  if (!t || t.mode !== "accounting" || String(t.charge || "").toUpperCase() !== "SERVICE") return;
+  var file = await UFP866(); if (!file) return;
+  if (UCB866) return; UCB866 = true;
+  try {
+    var rd, jobs, pg = N("Upload Calcom");
+    try {
+      var X = await Z(), wb = new X.Workbook();
+      await wb.xlsx.load(await file.arrayBuffer());
+      rd = UR866(wb);
+      if (rd.err) { p(rd.err, "err"); return; }
+      if (!rd.rows.length) { p("ไม่พบข้อมูลใต้หัวคอลัมน์ในไฟล์ — ยังไม่เปลี่ยนข้อมูลใด", "err"); return; }
+      jobs = await UJ866(t, pg.set);
+      if (!jobs || !jobs.length) { p("อ่านรายการงานไม่สำเร็จ — ยังไม่เปลี่ยนข้อมูลใด", "err"); return; }
+    } finally { pg.close(); }
+    var idx = UIX866(jobs);
+    var mdl = rd.rows.map(function (r, k) { return UM866(r, k, idx, rd.hdr); });
+    UW866(t, mdl, rd.hdr, jobs.length, "ไฟล์ : " + file.name + " · ชีท : " + rd.sheet + " · หัวคอลัมน์แถวที่ " + rd.hrow);
+  } catch (e) { p("Upload Calcom ไม่สำเร็จ : " + (e && e.message ? e.message : e), "err"); }
+  finally { UCB866 = false; }
+}
+export{K as a,Z as b,T as c,ft as d,_t as e,gt as f,ht as g,Y as h,O as i,Rt as j,wt as k,Ct as l,U as m,yt as n,Et as o,jt as p,Jt as q,vt as r,v as s,Ft as t,Ot as u,rt as v,Nt as w,Vt as x,$t as y,Dt as z,X as A,q as B,Wt as C,zt as D,Ut as E,CC751,SNB777,SER785,ADV786,UC866};
 
 /* ═══ V.713 · EXPORT EXCEL หน้ารายการ DOCUMENT → SERVICE / ADVANCE : เรียงเลข JOB น้อย → มาก เสมอ (ปี-เดือน YYMM → เลขลำดับ · ค่าตัวเลขจริง · ไม่มีเลข = ท้าย)
    เรียงเฉพาะข้อมูลที่ส่งออก (แยกจากหน้ารายการที่เรียง มาก → น้อย) · ข้อมูล / ตัวกรอง / สิทธิ์ / คอลัมน์ / รูปแบบ Excel เดิม · Export ประเภทอื่นไม่เปลี่ยน ═══ */
@@ -95,9 +438,9 @@ function RV748(v) { var x = v == null ? "" : String(v).trim(); return x && !/^DR
    หลายตู้ (เบอร์ตู้คั่นด้วย , ; / ช่องว่าง) = แยกแถวต่อตู้ : Customs Clearance แยกตามตู้เฉพาะเมื่อ INVOICE ระบุแยกตู้ชัดเจน (จำนวนรายการ / จำนวน CONTAINER = จำนวนตู้)
      และผลรวมทุกแถวตรงกับ INVOICE · ไม่เช่นนั้น = ยอดทั้ง JOB อยู่แถวตู้แรก แถวตู้อื่นเว้นว่าง (ไม่เฉลี่ย · ไม่คัดลอกซ้ำ)
    PO NO. / Status = ว่างเสมอ · ไม่แก้ข้อมูลใด ๆ · ไม่ออกเลข INVOICE ═══ */
-var CCH751 = ["No", "Loading date", "Factory", "BK#", "Cont#", "Customs Clearance", "Handling Charge", "Customs fee", "Total (THB)", "VAT 7%", "Total Amount", "Invoice No", "PO NO.", "Status"];
-var CCW751 = [5.36, 10.36, 10.36, 17.63, 14.63, 17.63, 13.91, 16, 10.91, 7.09, 11.91, 14.91, 13, 13];
-var CCF751 = ["FF92D050", "FF92D050", "FF92D050", "FF92D050", "FF92D050", "FFFFFF00", "FFFFFF00", "FF92D050", "FF92D050", "FF92D050", "FF92D050", "FFFFFF00", "FFFFC000", "FFFFC000"];
+var CCH751 = ["No", "Loading date", "Factory", "BK#", "Cont#", "Customs Clearance", "Handling Charge", "Customs fee", "Total (THB)", "VAT 7%", "Total Amount", "Invoice No", "PO NO.", "Status", "House B/L No.", "JOB NJ"];   /* V.865 : + House B/L No. / JOB NJ (ต่อจาก Status) */
+var CCW751 = [5.36, 10.36, 10.36, 17.63, 14.63, 17.63, 13.91, 16, 10.91, 7.09, 11.91, 14.91, 13, 13, 20, 18];   /* V.865 */
+var CCF751 = ["FF92D050", "FF92D050", "FF92D050", "FF92D050", "FF92D050", "FFFFFF00", "FFFFFF00", "FF92D050", "FF92D050", "FF92D050", "FF92D050", "FFFFFF00", "FFFFC000", "FFFFC000", "FF92D050", "FF92D050"];   /* V.865 */
 var CCK751 = { SERC: "F", BOND: "F", "124": "F", HANDLING: "G", HND: "G", "001": "H" };
 var CCD751 = { "SERVICE CHARGE CUSTOMS CLEARANCE": "F", "SERVICE CHARGE CUSTOMS CLEARANCE BONDED": "F", "CUSTOMS CLEARANCE (2ND CONTAINER)": "F", "CUSTOMS CLEARANCE": "F",
   "SERVICE CHARGE HANDLING CHARGE": "G", "HANDLING CHARGES": "G", "HANDLING CHARGE": "G", "ADVANCE CUSTOMS FEE": "H", "CUSTOMS FEE": "H" };
@@ -182,18 +525,20 @@ async function CC751(t) {
       for (var i = 0; i < n; i++) {
         var a = al.rows[i];
         if (a) { sum.I += a.I; sum.J += a.J; sum.K += a.K; }
-        out.push([out.length + 1, DT751(d.release_date), f.v, String(d.booking_no == null ? "" : d.booking_no).trim(), ct[i] || "", a ? a.F : null, a ? a.G : null, a ? a.H : null, a ? a.I : null, a ? a.J : null, a ? a.K : null, inv ? RV748(inv.invoice_no) : "", "", ""]);
+        var hb865 = String((d && d.house_bl_no != null ? d.house_bl_no : w.house_bl_no == null ? "" : w.house_bl_no) || "").trim();   /* V.865 : ข้อมูลจริงของงานนั้น (ล่าสุดจาก njacc_job_detail_billing) */
+        var jb865 = String((d && d.job_no != null ? d.job_no : w.job_no == null ? "" : w.job_no) || "").trim();
+        out.push([out.length + 1, DT751(d.release_date), f.v, String(d.booking_no == null ? "" : d.booking_no).trim(), ct[i] || "", a ? a.F : null, a ? a.G : null, a ? a.H : null, a ? a.I : null, a ? a.J : null, a ? a.K : null, inv ? RV748(inv.invoice_no) : "", "", "", hb865 || "-", jb865 || "-"]);
       }
     });
     if (!EQ751(sum.I, inv0.I) || !EQ751(sum.J, inv0.J) || !EQ751(sum.K, inv0.K)) { p("❌ Export CALCOMP Failed : ยอดรวมไม่ตรง INVOICE — ไม่ดาวน์โหลดไฟล์", "err"); return; }
     var NF = "#,##0.00;\\(#,##0.00\\)", wd = CCW751.slice();
     out.forEach(function (v, k) {
       var r = ws.getRow(2 + k);
-      for (var j = 0; j < 14; j++) {
+      for (var j = 0; j < 16; j++) {   /* V.865 : 14 คอลัมน์เดิม + House B/L No. / JOB NJ */
         var c = r.getCell(j + 1), val = v[j];
         if (val !== null && val !== "") c.value = val;
         c.font = { name: F0, size: 10, color: { argb: "FF000000" } }; c.alignment = { horizontal: "center", vertical: "middle" }; c.border = bd;
-        if (j === 1) c.numFmt = "dd/mm/yyyy"; else if (j === 3 || j === 4 || j === 11) c.numFmt = "@"; else if (j >= 5 && j <= 10) c.numFmt = NF;
+        if (j === 1) c.numFmt = "dd/mm/yyyy"; else if (j === 3 || j === 4 || j === 11 || j === 14 || j === 15) c.numFmt = "@";   /* V.865 */ else if (j >= 5 && j <= 10) c.numFmt = NF;
         var len = val == null ? 0 : j === 1 ? 10 : j >= 5 && j <= 10 ? (typeof val === "number" ? val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).length : 0) : String(val).length;
         wd[j] = Math.max(wd[j], Math.min(45, len + 3));
       }

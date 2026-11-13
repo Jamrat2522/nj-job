@@ -1,4 +1,4 @@
-import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js";import{C as x,D as b,E as J,j as C,p as B,q as j,x as q,b as XJ506,i as XO506,CC751,a as XL753,SER785,ADV786}from"./chunk-FHYZBT2Q.js";import{k as XM506}from"./chunk-L5Z2NDJ3.js";import{a as XG506}from"./chunk-GDT6F23K.js";import{c as L}from"./chunk-Q7FMECGI.js";import{e as f}from"./chunk-OPGKUGLK.js";import{a as N}from"./chunk-YM5GFE6V.js";import{a as c}from"./chunk-OFOOXWUM.js";import{m as RPC753}from"./chunk-SGWIBJH6.js";import{a as k,b as y,d as m}from"./chunk-LNP7HEMP.js";import{c as $,e as s}from"./chunk-NQOCXXA2.js";import{k as _,m as A,n as M,o as D,p as E,q as O}from"./chunk-6NADHKLT.js";var w=[{a:"new-job",t:"+ \u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19",perm:"create",primary:!0},{a:"refresh",t:"\u21BB Refresh"},{a:"upload",t:"\u{1F4C1} Upload",perm:"edit"},{a:"export-excel",t:"\u{1F4D7} Export Excel",perm:"export"},{a:"export-ser785",t:"\u{1F4D7} Excel Ser",perm:"export"},{a:"export-adv786",t:"\u{1F4D7} Excel Adv",perm:"export"},{a:"paste-close",t:"\u{1F4CB} Paste \u0E08\u0E1A\u0E07\u0E32\u0E19",perm:"edit"},{a:"apl-upload",t:"\u2B06 APL Billing",perm:"edit"},{a:"billing-pdf",t:"\u{1F9FE} Billing PDF",perm:"export"},{a:"billing-pdf-apl",t:"\u{1F9FE} Billing PDF APL",perm:"export"},{a:"export-name",t:"\u{1F4E4} EXPORT NAME",perm:"export"}],z=[{a:"export-all",t:"\u{1F4E6} Export \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",perm:"export"},{a:"export-cust",t:"\u{1F464} Export Customer (ZIP)",perm:"export"},{a:"export-csv",t:"\u26A1 Export Fast CSV",perm:"export"},{a:"sum",t:"\u{1F9EE} \u0E04\u0E33\u0E19\u0E27\u0E13\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21"},{a:"upload-19",t:"\u2B06 Upload 1.9",perm:"edit"},{a:"close-upload",t:"\u2705 \u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19 (Upload)",perm:"edit"}],Q=[{a:"export-case",t:"\u{1F4C4} Export Excel CASE",perm:"export"},{a:"export-soa",t:"\u{1F4C4} Export SOA",perm:"export"},{a:"bulk-case",t:"\u{1F5C2} Bulk Case",perm:"edit"},{a:"fill-etd",t:"\u{1F6A2} \u0E40\u0E15\u0E34\u0E21 ETD",perm:"edit"},{a:"contacts",t:"\u{1F4C7} Contact List"},{a:"calcomp",t:"\u{1F4D7} CALCOMP",perm:"export"}],S=(a,t="")=>`<button class="btn ${a.primary?"btn-p":"btn-o"} btn-sm${t?" "+t:""}" data-tool="${a.a}">${a.t}</button>`,Z=a=>`<button class="tool-item" data-tool="${a.a}">${a.t}</button>`,W=["upload","paste-close","apl-upload","billing-pdf","billing-pdf-apl"],X=["new-job","refresh"],tt=["receipt","advance"],et=["new-job","refresh","billing-pdf","billing-pdf-apl"],ot=["export-excel"],rt=["sum"],at=["export-excel","refresh"],HB495=["upload","apl-upload","billing-pdf","billing-pdf-apl"];function lt(a){return at.map(t=>w.find(e=>e.a===t)).filter(t=>t&&(!t.perm||a[t.perm])).map(t=>S(t,"tb-btn tb-"+t.a)).join("")}function it(a,ch753){let t=w.find(e=>e.a==="new-job");return(t&&(!t.perm||a[t.perm])?S(t):"")+(String(ch753||"").toUpperCase()==="SERVICE"&&a&&a.create?`<button class="btn btn-o btn-sm up753-btn" data-tool="upload753"><svg class="up806-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>UPLOAD EXCEL</button>`:"")}function ct(a,t,e,o){let r=o==="document";if(r||o==="closed")return"";o==="accounting"&&XS506();let n=o==="accounting",l=tt.includes(o),d=o==="receipt",i=u=>(!u.perm||e[u.perm])&&!(r&&W.includes(u.a))&&!(n&&X.includes(u.a))&&!(n&&HB495.includes(u.a))&&!(l&&et.includes(u.a))&&!(d&&ot.includes(u.a))&&!(!n&&u.a==="export-name")&&!(u.a==="export-ser785"&&!(n&&String(a||"").toUpperCase()==="SERVICE"))&&!(u.a==="export-adv786"&&!(n&&String(a||"").toUpperCase()==="ADVANCE")),h=w.filter(i).map(S).join(""),v=r||n?"":z.filter(i).filter(u=>!(d&&rt.includes(u.a))).map(Z).join(""),p=n||l||t==="MAERSK"?Q.filter(i).filter(u=>u.a!=="calcomp"||n&&String(a||"").toUpperCase()==="SERVICE").map(Z).join(""):"",g=a==="ADVANCE"&&e.edit&&!r&&!n&&!l?`
+import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js";import{C as x,D as b,E as J,j as C,p as B,q as j,x as q,b as XJ506,i as XO506,CC751,a as XL753,SER785,ADV786,UC866}from"./chunk-FHYZBT2Q.js";import{k as XM506}from"./chunk-L5Z2NDJ3.js";import{a as XG506}from"./chunk-GDT6F23K.js";import{c as L}from"./chunk-Q7FMECGI.js";import{e as f}from"./chunk-OPGKUGLK.js";import{a as N}from"./chunk-YM5GFE6V.js";import{a as c}from"./chunk-OFOOXWUM.js";import{m as RPC753}from"./chunk-SGWIBJH6.js";import{a as k,b as y,d as m}from"./chunk-LNP7HEMP.js";import{c as $,e as s}from"./chunk-NQOCXXA2.js";import{k as _,m as A,n as M,o as D,p as E,q as O}from"./chunk-6NADHKLT.js";var w=[{a:"new-job",t:"+ \u0E40\u0E1B\u0E34\u0E14\u0E07\u0E32\u0E19",perm:"create",primary:!0},{a:"refresh",t:"\u21BB Refresh"},{a:"upload",t:"\u{1F4C1} Upload",perm:"edit"},{a:"export-excel",t:"\u{1F4D7} Export Excel",perm:"export"},{a:"export-ser785",t:"\u{1F4D7} Excel Ser",perm:"export"},{a:"export-adv786",t:"\u{1F4D7} Excel Adv",perm:"export"},{a:"paste-close",t:"\u{1F4CB} Paste \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25",perm:"edit"},{a:"apl-upload",t:"\u2B06 APL Billing",perm:"edit"},{a:"billing-pdf",t:"\u{1F9FE} Billing PDF",perm:"export"},{a:"billing-pdf-apl",t:"\u{1F9FE} Billing PDF APL",perm:"export"},{a:"export-name",t:"\u{1F4E4} EXPORT NAME",perm:"export"}],z=[{a:"export-all",t:"\u{1F4E6} Export \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14",perm:"export"},{a:"export-cust",t:"\u{1F464} Export Customer (ZIP)",perm:"export"},{a:"export-csv",t:"\u26A1 Export Fast CSV",perm:"export"},{a:"sum",t:"\u{1F9EE} \u0E04\u0E33\u0E19\u0E27\u0E13\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21"},{a:"upload-19",t:"\u2B06 Upload 1.9",perm:"edit"},{a:"close-upload",t:"\u2705 \u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19 (Upload)",perm:"edit"}],Q=[{a:"export-case",t:"\u{1F4C4} Export Excel CASE",perm:"export"},{a:"export-soa",t:"\u{1F4C4} Export SOA",perm:"export"},{a:"bulk-case",t:"\u{1F5C2} Bulk Case",perm:"edit"},{a:"fill-etd",t:"\u{1F6A2} \u0E40\u0E15\u0E34\u0E21 ETD",perm:"edit"},{a:"contacts",t:"\u{1F4C7} Contact List"},{a:"calcomp",t:"\u{1F4D7} CALCOMP",perm:"export"},{a:"upload-calcom",t:"\u{1F4E5} Upload Calcom",perm:"edit"}],S=(a,t="")=>`<button class="btn ${a.primary?"btn-p":"btn-o"} btn-sm${t?" "+t:""}" data-tool="${a.a}">${a.t}</button>`,Z=a=>`<button class="tool-item" data-tool="${a.a}">${a.t}</button>`,W=["upload","paste-close","apl-upload","billing-pdf","billing-pdf-apl"],X=["new-job","refresh"],tt=["receipt","advance"],et=["new-job","refresh","billing-pdf","billing-pdf-apl"],ot=["export-excel"],rt=["sum"],at=["export-excel","refresh"],HB495=["upload","apl-upload","billing-pdf","billing-pdf-apl"];function lt(a){return at.map(t=>w.find(e=>e.a===t)).filter(t=>t&&(!t.perm||a[t.perm])).map(t=>S(t,"tb-btn tb-"+t.a)).join("")}function it(a,ch753){let t=w.find(e=>e.a==="new-job");return(t&&(!t.perm||a[t.perm])?S(t):"")+(String(ch753||"").toUpperCase()==="SERVICE"&&a&&a.create?`<button class="btn btn-o btn-sm up753-btn" data-tool="upload753"><svg class="up806-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>UPLOAD EXCEL</button>`:"")}function ct(a,t,e,o){let r=o==="document";if(r||o==="closed")return"";o==="accounting"&&XS506();let n=o==="accounting",l=tt.includes(o),d=o==="receipt",i=u=>(!u.perm||e[u.perm])&&!(r&&W.includes(u.a))&&!(n&&X.includes(u.a))&&!(n&&HB495.includes(u.a))&&!(l&&et.includes(u.a))&&!(d&&ot.includes(u.a))&&!(!n&&u.a==="export-name")&&!(u.a==="export-ser785"&&!(n&&String(a||"").toUpperCase()==="SERVICE"))&&!(u.a==="export-adv786"&&!(n&&String(a||"").toUpperCase()==="ADVANCE")),h=w.filter(i).map(S).join(""),v=r||n?"":z.filter(i).filter(u=>!(d&&rt.includes(u.a))).map(Z).join(""),p=n||l||t==="MAERSK"?Q.filter(i).filter(u=>u.a!=="calcomp"&&u.a!=="upload-calcom"||n&&String(a||"").toUpperCase()==="SERVICE").map(Z).join(""):"",g=a==="ADVANCE"&&e.edit&&!r&&!n&&!l?`
     <div class="quick-close">
       <input class="inp" id="qc-key" placeholder="\u0E40\u0E25\u0E02 JOB / Invoice" autocomplete="off">
       <button class="btn btn-green btn-sm" data-tool="quick-close">\u2713 \u0E08\u0E1A\u0E07\u0E32\u0E19</button>
@@ -21,14 +21,14 @@ import{a as R,b as H,c as U,d as P,e as F,f as K,g as G}from"./chunk-IIDKIKVM.js
         <input class="inp w100" id="tk-val" type="${o}"></div>`:""}
       ${n?`<div class="fld"><label>${s(n)}</label>
         <input class="inp w100" id="tk-date" type="date"></div>`:""}`;let h=document.createElement("div");h.innerHTML=`<button class="btn btn-o" data-close>\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01</button>
-      <button class="btn btn-p" id="tk-ok">${s(r)}</button>`;let v=k({title:a,body:i,footer:h,large:!0});h.querySelector("#tk-ok").onclick=()=>{let p=i.querySelector("#tk-keys").value.split(/[\r\n\t,;]+/).map(Y=>Y.trim()).filter(Boolean);if(!p.length){c("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E27\u0E32\u0E07\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07","err");return}let g=t?i.querySelector("#tk-val").value.trim():null;if(t&&!g){c("\u0E01\u0E23\u0E2D\u0E01"+e,"err");return}let u=n&&i.querySelector("#tk-date").value||"";y(),d({keys:p,value:g,date:u,raw:i.querySelector("#tk-keys").value})},v.addEventListener("click",p=>{(p.target===v||p.target.closest("[data-close]"))&&d(null)})})}async function $t(a,t){try{switch(a){case"refresh":t.refresh();return;case"new-job":{let{openNewJobModal:e}=await import("./job-form-4IHODUQT.js");await e({charge:t.charge,group:t.group,mode:t.mode,onSaved:t.refresh});return}case"export-excel":return C(t,!1);case"export-ser785":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?SER785(t):void 0;case"export-adv786":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="ADVANCE"?ADV786(t):void 0;case"export-name":return XN506(t);case"export-all":return C(t,!0);case"export-csv":return B(t);case"export-cust":return j(t);case"upload753":return t.mode==="document"&&String(t.charge||"").toUpperCase()==="SERVICE"?UP753(t):void 0;case"calcomp":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?CC751(t):void 0;case"export-soa":return q(t);case"export-case":return x(t);case"upload":return U(t);case"apl-upload":return P(t);case"billing-pdf":case"billing-pdf-apl":return t.mode!=="accounting"?void 0:(await import("./billing-pdf-HDUV5YLN.js")).openBillingPdf(t,a==="billing-pdf-apl"?"apl":"std");case"upload-19":return K(t);case"sum":{let e=await _({charge:t.charge,group:t.group,queue:t.queue,scope:t.scope,filters:t.filters});J(e,t);return}case"contacts":{let e=await A(t.charge,t.group),o=e.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>
+      <button class="btn btn-p" id="tk-ok">${s(r)}</button>`;let v=k({title:a,body:i,footer:h,large:!0});h.querySelector("#tk-ok").onclick=()=>{let p=i.querySelector("#tk-keys").value.split(/[\r\n\t,;]+/).map(Y=>Y.trim()).filter(Boolean);if(!p.length){c("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E27\u0E32\u0E07\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07","err");return}let g=t?i.querySelector("#tk-val").value.trim():null;if(t&&!g){c("\u0E01\u0E23\u0E2D\u0E01"+e,"err");return}let u=n&&i.querySelector("#tk-date").value||"";y(),d({keys:p,value:g,date:u,raw:i.querySelector("#tk-keys").value})},v.addEventListener("click",p=>{(p.target===v||p.target.closest("[data-close]"))&&d(null)})})}async function $t(a,t){try{switch(a){case"refresh":t.refresh();return;case"new-job":{let{openNewJobModal:e}=await import("./job-form-4IHODUQT.js");await e({charge:t.charge,group:t.group,mode:t.mode,onSaved:t.refresh});return}case"export-excel":return C(t,!1);case"export-ser785":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?SER785(t):void 0;case"export-adv786":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="ADVANCE"?ADV786(t):void 0;case"export-name":return XN506(t);case"export-all":return C(t,!0);case"export-csv":return B(t);case"export-cust":return j(t);case"upload753":return t.mode==="document"&&String(t.charge||"").toUpperCase()==="SERVICE"?UP753(t):void 0;case"calcomp":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?CC751(t):void 0;case"upload-calcom":return t.mode==="accounting"&&String(t.charge||"").toUpperCase()==="SERVICE"?UC866(t):void 0;case"export-soa":return q(t);case"export-case":return x(t);case"upload":return U(t);case"apl-upload":return P(t);case"billing-pdf":case"billing-pdf-apl":return t.mode!=="accounting"?void 0:(await import("./billing-pdf-HDUV5YLN.js")).openBillingPdf(t,a==="billing-pdf-apl"?"apl":"std");case"upload-19":return K(t);case"sum":{let e=await _({charge:t.charge,group:t.group,queue:t.queue,scope:t.scope,filters:t.filters});J(e,t);return}case"contacts":{let e=await A(t.charge,t.group),o=e.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr>
             <th>Company Invoice</th><th>\u0E23\u0E2B\u0E31\u0E2A</th><th>Contact (LIST NAME)</th><th class="r">\u0E08\u0E33\u0E19\u0E27\u0E19\u0E07\u0E32\u0E19</th>
           </tr></thead><tbody>${e.map(n=>`<tr>
             <td class="t-b">${s(n.company_invoice)}</td><td>${s(n.company_code||"-")}</td>
             <td>${s(n.master_contact||"-")}</td><td class="r">${n.job_count??""}</td>
           </tr>`).join("")}</tbody></table></div>
           <p class="t-xs t-3 mt-1">Contact \u0E17\u0E35\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E43\u0E19\u0E15\u0E32\u0E23\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 = Contact \u0E02\u0E2D\u0E07\u0E07\u0E32\u0E19 (\u0E16\u0E49\u0E32\u0E21\u0E35) \u0E21\u0E34\u0E09\u0E30\u0E19\u0E31\u0E49\u0E19\u0E43\u0E0A\u0E49\u0E04\u0E48\u0E32\u0E08\u0E32\u0E01 LIST NAME \u0E19\u0E35\u0E49</p>`:'<div class="empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 Invoice \u0E17\u0E35\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49</div>',r=document.createElement("div");r.innerHTML=`<button class="btn btn-o" id="ct-up">\u{1F4C1} \u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14 LIST NAME</button>
-          <button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>`,k({title:"Contact List \u2014 "+L(t.group),body:o,footer:r,large:!0}),r.querySelector("#ct-up").onclick=async()=>{y(),await G()};return}case"paste-close":{let e=await I("Paste \u0E08\u0E1A\u0E07\u0E32\u0E19 (\u0E15\u0E31\u0E49\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30 CLOSE)",{okLabel:"\u0E08\u0E1A\u0E07\u0E32\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"});if(!e||!await m("\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E08\u0E1A\u0E07\u0E32\u0E19",`\u0E08\u0E30\u0E15\u0E31\u0E49\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30 CLOSE \u0E43\u0E2B\u0E49 ${e.keys.length} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01)`))return;let o=await f("bulk-close",()=>E(t.charge,t.group,e.keys.map(nt).filter(Boolean),"CLOSE"));b("\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E08\u0E1A\u0E07\u0E32\u0E19",o),t.refresh();return}case"close-upload":{let e=await R();if(!e)return;let o=await H(e),r=F(o);if(!r.keys.length){c("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C","err");return}if(!await m("\u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19\u0E08\u0E32\u0E01\u0E44\u0E1F\u0E25\u0E4C",`${r.usedHeader?`\u0E2D\u0E48\u0E32\u0E19\u0E15\u0E32\u0E21\u0E2B\u0E31\u0E27\u0E15\u0E32\u0E23\u0E32\u0E07 (\u0E41\u0E16\u0E27 ${r.headerRow+1})`+(r.invCol>=0?" \xB7 Invoice No.":"")+(r.jobCol>=0?" \xB7 Customer Job No.":""):"\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E2B\u0E31\u0E27\u0E15\u0E32\u0E23\u0E32\u0E07 \u2014 \u0E2D\u0E48\u0E32\u0E19\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E2D\u0E07\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C"}<br>
+          <button class="btn btn-p" data-close>\u0E1B\u0E34\u0E14</button>`,k({title:"Contact List \u2014 "+L(t.group),body:o,footer:r,large:!0}),r.querySelector("#ct-up").onclick=async()=>{y(),await G()};return}case"paste-close":{await PB867(t);return}case"close-upload":{let e=await R();if(!e)return;let o=await H(e),r=F(o);if(!r.keys.length){c("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C","err");return}if(!await m("\u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19\u0E08\u0E32\u0E01\u0E44\u0E1F\u0E25\u0E4C",`${r.usedHeader?`\u0E2D\u0E48\u0E32\u0E19\u0E15\u0E32\u0E21\u0E2B\u0E31\u0E27\u0E15\u0E32\u0E23\u0E32\u0E07 (\u0E41\u0E16\u0E27 ${r.headerRow+1})`+(r.invCol>=0?" \xB7 Invoice No.":"")+(r.jobCol>=0?" \xB7 Customer Job No.":""):"\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E2B\u0E31\u0E27\u0E15\u0E32\u0E23\u0E32\u0E07 \u2014 \u0E2D\u0E48\u0E32\u0E19\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E2D\u0E07\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C"}<br>
            \u0E1E\u0E1A ${r.keys.length} \u0E40\u0E25\u0E02\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C ${s(e.name)} \u2014 \u0E15\u0E31\u0E49\u0E07\u0E2A\u0E16\u0E32\u0E19\u0E30 CLOSE?<br>
            <span class="t-xs t-3">\u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E08\u0E1A\u0E41\u0E25\u0E49\u0E27/\u0E16\u0E39\u0E01\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01 \u0E08\u0E30\u0E16\u0E39\u0E01\u0E02\u0E49\u0E32\u0E21 \xB7 \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E2B\u0E25\u0E32\u0E22\u0E07\u0E32\u0E19\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E40\u0E14\u0E32</span>`))return;let n=await f("close-upload",()=>E(t.charge,t.group,r.keys,"CLOSE"));b("\u0E1C\u0E25\u0E15\u0E31\u0E14\u0E08\u0E1A\u0E07\u0E32\u0E19\u0E08\u0E32\u0E01\u0E44\u0E1F\u0E25\u0E4C",n),t.refresh();return}case"bulk-case":{let e=await I("Bulk Case",{withValue:!0,valueLabel:"Case",okLabel:"\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15 Case",extraDate:"ETA (\u0E16\u0E49\u0E32\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E40\u0E15\u0E34\u0E21\u0E14\u0E49\u0E27\u0E22)",hint:"\u0E14\u0E36\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30 token \u0E17\u0E35\u0E48\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 NJ \xB7 \u0E02\u0E49\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E25\u0E30\u0E23\u0E2B\u0E31\u0E2A\u0E2D\u0E37\u0E48\u0E19 (AIR/FZ)"});if(!e)return;let o=V(e.raw);if(!o.keys.length){c("\u0E44\u0E21\u0E48\u0E1E\u0E1A Invoice No. \u0E17\u0E35\u0E48\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 NJ","err");return}if(!await m("\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19 Bulk Case",`Case: <b>${s(e.value)}</b>${e.date?` \xB7 ETA: <b>${s(e.date)}</b>`:""}<br>
            Invoice (NJ) \u0E17\u0E35\u0E48\u0E14\u0E36\u0E07\u0E44\u0E14\u0E49 ${o.nj} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E44\u0E21\u0E48\u0E0B\u0E49\u0E33 ${o.keys.length})<br>
@@ -379,3 +379,193 @@ async function UR806(t, f, X, wb) {
   e.textContent = ".btn.up753-btn{background:#7C3AED;color:#FFFFFF;border-color:#6D28D9;font-weight:600;border-radius:10px}.btn.up753-btn:hover,.btn.up753-btn:focus-visible{background:#6D28D9;border-color:#6D28D9;color:#FFFFFF}.btn.up753-btn .up806-i{width:15px;height:15px;flex:none;display:inline-block;vertical-align:-2px}";
   document.head.appendChild(e);
 } catch (_) {} })();
+/* ═══ V.867 · ACCOUNTING → SERVICE → ปุ่ม "Paste บันทึกข้อมูล" (เดิม "Paste จบงาน")
+   วางตารางจาก Excel หลายแถว (คั่น Tab) อ่านตามชื่อหัวคอลัมน์ — Supplier Inv no. / Kevin Job no. (Execution Date / Booking no./Job no. / Remark ไม่ใช้แก้ข้อมูล)
+   จับคู่ Supplier Inv no. ↔ INVOICE NJ จริง (invoice_no) เท่านั้น — ห้ามจับกับเลข JOB / Source Invoice / Customer Job No.
+   บันทึก : Kevin Job no. → Customer Job No. (njacc_save_job_doc_fields) · วันที่ที่เลือก → วันที่วางบิล (njacc_invoice_set_date)
+   ไม่จบงาน ไม่ตั้งสถานะ CLOSE ไม่เปลี่ยนสถานะใด ๆ · ตรวจสอบก่อนยืนยันเสมอ · ทั้งสองช่องต้องสำเร็จครบ (ล้มเหลว = ย้อนค่าเดิมกลับ) ═══ */
+var PBB867 = false, PBS867 = false;
+var PBH867 = {
+  inv: ["SUPPLIERINVNO", "SUPPLIERINVOICENO", "SUPPLIERINV", "SUPPLIERINVOICE"],
+  kev: ["KEVINJOBNO", "KEVINJOB", "KEVINJOBNUMBER"],
+  exd: ["EXECUTIONDATE"],
+  bkj: ["BOOKINGNOJOBNO", "BOOKINGJOBNO", "BOOKINGNO"],
+  rmk: ["REMARK", "REMARKS"]
+};
+function PN867(v) { return String(v == null ? "" : v).replace(/[\s.\/#​ ]/g, "").toUpperCase(); }
+function PT867(v) { return String(v == null ? "" : v).replace(/[​ ]/g, " ").trim(); }
+function PU867(v) { return PT867(v).toUpperCase(); }
+function PD867(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || "")); return m ? m[3] + "/" + m[2] + "/" + m[1] : "-"; }
+function PP867(txt) {   /* แยกหัวตารางออกจากข้อมูล · ไม่ยึดตำแหน่งคอลัมน์ · ช่องว่างท้ายแถวไม่ทำให้ข้อมูลเลื่อน */
+  var raw = String(txt == null ? "" : txt).replace(/\r\n?/g, "\n").split("\n");
+  var cells = raw.map(function (l) { return (l.indexOf("\t") >= 0 ? l.split("\t") : l.split(/ {2,}/)).map(PT867); })
+    .filter(function (a) { return a.some(function (x) { return x !== ""; }); });
+  var hi = -1, map = null, i, k;
+  for (i = 0; i < cells.length && i < 10; i++) {
+    var m2 = { inv: -1, kev: -1, exd: -1, bkj: -1, rmk: -1 };
+    cells[i].forEach(function (c, j) {
+      var n = PN867(c); if (!n) return;
+      ["inv", "kev", "exd", "bkj", "rmk"].forEach(function (f) { if (m2[f] < 0 && PBH867[f].indexOf(n) >= 0) m2[f] = j; });
+    });
+    if (m2.inv >= 0) { hi = i; map = m2; break; }
+  }
+  var out = [];
+  if (map) {
+    for (k = hi + 1; k < cells.length; k++) {
+      var a = cells[k];
+      var inv = map.inv >= 0 ? PT867(a[map.inv]) : "", kev = map.kev >= 0 ? PT867(a[map.kev]) : "";
+      if (!inv && !kev) continue;
+      out.push({ inv: inv, kev: kev });
+    }
+    return { rows: out, hdr: true, hrow: hi + 1, hasKev: map.kev >= 0 };
+  }
+  /* ไม่มีหัวตาราง = อ่านเลขอ้างอิงแบบเดิม (บรรทัดละ 1 รายการ · ข้ามค่าที่เป็นวันที่) */
+  cells.forEach(function (a) { var v = nt(a.join(" ")); if (v) out.push({ inv: v, kev: "" }); });
+  return { rows: out, hdr: false, hrow: 0, hasKev: false };
+}
+function PI867(rows) {   /* ดัชนี INVOICE NJ จริง → งาน (ไม่ใช้ job_no / source_invoice_no / customer_job_no) */
+  var mp = new Map();
+  rows.forEach(function (w) {
+    var k = PU867(w.invoice_no); if (!k) return;
+    var a = mp.get(k); if (!a) { a = []; mp.set(k, a); }
+    if (!a.some(function (x) { return String(x.id) === String(w.id); })) a.push(w);
+  });
+  return mp;
+}
+function PM867(src, idx) {
+  var mdl = src.map(function (r, i) {
+    var m = { no: i + 1, inv: r.inv, kev: r.kev, w: null, st: "", why: "" };
+    if (!m.inv) { m.st = "bad"; m.why = "ไม่มี Supplier Inv no."; return m; }
+    var a = idx.get(PU867(m.inv)) || [];
+    if (!a.length) { m.st = "bad"; m.why = "ไม่พบ INVOICE NJ นี้ใน ACCOUNTING → SERVICE"; return m; }
+    if (a.length > 1) { m.st = "bad"; m.why = "INVOICE นี้เชื่อมหลายงาน (" + a.map(function (x) { return x.job_no; }).join(", ") + ") — ระบุปลายทางไม่ได้"; return m; }
+    m.w = a[0];
+    if (!m.kev) { m.st = "bad"; m.why = "Kevin Job no. ว่าง"; return m; }
+    var stt = PU867(m.w.invoice_status);
+    if (stt !== "POSTED" && stt !== "ISSUED") { m.st = "bad"; m.why = "INVOICE สถานะ " + (stt || "-") + " — บันทึกวันที่วางบิลไม่ได้"; return m; }
+    m.st = "ok"; return m;
+  });
+  var seen = new Map();   /* ซ้ำ : ค่าเหมือนกัน = บันทึกครั้งเดียว · ขัดแย้ง = ไม่บันทึกทั้งคู่ */
+  mdl.forEach(function (m) { if (m.st !== "ok") return; var a = seen.get(String(m.w.id)); if (!a) { a = []; seen.set(String(m.w.id), a); } a.push(m); });
+  seen.forEach(function (a) {
+    var v = a[0].kev, conf = a.some(function (m) { return m.kev !== v; });
+    if (conf) a.forEach(function (m) { m.st = "bad"; m.why = "ข้อมูลซ้ำแต่ Kevin Job no. ขัดแย้งกัน"; });
+    else a.forEach(function (m, i) { if (i) { m.st = "dup"; m.why = "ซ้ำกับแถว " + a[0].no + " — บันทึกครั้งเดียว"; } });
+  });
+  return mdl;
+}
+async function PS867(plan, date, set) {
+  var ok = [], fail = [], done = 0, k, part, rr;
+  for (k = 0; k < plan.length; k += 4) {
+    part = plan.slice(k, k + 4);
+    rr = await Promise.all(part.map(async function (o) {
+      var old = o.w.customer_job_no == null ? null : String(o.w.customer_job_no);
+      try { await RPC753("njacc_save_job_doc_fields", { p: { id: o.w.id, customer_job_no: o.kev } }); }
+      catch (e) { return { o: o, er: "Customer Job No. : " + (e && e.message ? e.message : e) }; }
+      try { await RPC753("njacc_invoice_set_date", { p: { invoice_id: o.w.invoice_id, invoice_date: date } }); }
+      catch (e) {
+        var rb = "";
+        try { await RPC753("njacc_save_job_doc_fields", { p: { id: o.w.id, customer_job_no: old } }); rb = " (ย้อน Customer Job No. กลับค่าเดิมแล้ว)"; }
+        catch (e2) { rb = " (⚠ ย้อนค่าเดิมไม่สำเร็จ : " + (e2 && e2.message ? e2.message : e2) + ")"; }
+        return { o: o, er: "วันที่วางบิล : " + (e && e.message ? e.message : e) + rb };
+      }
+      return { o: o, er: "" };
+    }));
+    rr.forEach(function (x) { (x.er ? fail : ok).push(x); });
+    done += part.length; set && set(done, plan.length);
+  }
+  return { ok: ok, fail: fail };
+}
+async function PB867(t) {
+  if (PBB867) return; PBB867 = true;
+  var body = document.createElement("div"), ft = document.createElement("div");
+  body.innerHTML =
+    '<div class="fld"><label>วันที่วางบิล <span class="req">*</span></label>' +
+    '<input class="inp" id="pb867-dt" type="date" style="max-width:220px"> <span id="pb867-dtx" style="margin-left:8px;color:#475467"></span></div>' +
+    '<p class="t-sm t-2 mb-1">วางตารางจาก Excel ได้หลายแถว (อ่านตามชื่อหัวคอลัมน์ : Supplier Inv no. / Kevin Job no.) · หรือวางเลขอ้างอิงบรรทัดละ 1 รายการแบบเดิม</p>' +
+    '<div class="fld"><textarea class="inp w100" id="pb867-tx" rows="6" style="min-height:120px"></textarea></div>' +
+    '<div id="pb867-sum" style="margin:6px 0;font-size:12px"></div>' +
+    '<div class="tbl-wrap" style="max-height:42vh;overflow:auto"><table class="tbl"><thead><tr>' +
+    '<th class="nowrap">Supplier Inv no.</th><th class="nowrap">INVOICE NJ ที่พบ</th><th class="nowrap">เลขที่งาน</th>' +
+    "<th>Customer Job No. เดิม</th><th>Kevin Job no. ใหม่</th><th class=\"nowrap\">วันที่วางบิลเดิม</th><th class=\"nowrap\">วันที่วางบิลใหม่</th><th>ผลตรวจสอบ</th>" +
+    '</tr></thead><tbody id="pb867-tb"></tbody></table></div>';
+  ft.innerHTML = '<button class="btn btn-o" data-close>ยกเลิก</button> <button class="btn btn-p" id="pb867-ok" disabled>บันทึกข้อมูล</button>';
+  k({ title: "Paste บันทึกข้อมูล", body: body, footer: ft, large: !0 });
+  var TX = body.querySelector("#pb867-tx"), DT = body.querySelector("#pb867-dt"), DX = body.querySelector("#pb867-dtx"),
+    TB = body.querySelector("#pb867-tb"), SM = body.querySelector("#pb867-sum"), OK = ft.querySelector("#pb867-ok");
+  var idx = null, mdl = [], loading = false;
+  async function load() {
+    if (idx || loading) return; loading = true;
+    SM.innerHTML = "กำลังอ่านรายการ INVOICE NJ …";
+    try {
+      var rs = await XO506({ charge: t.charge, group: t.group, queue: t.queue, scope: t.scope, filters: {} }) || [];
+      var ex = [];
+      try { ex = await XO506({ charge: t.charge, group: t.group, queue: "acc_done", scope: t.scope, filters: {} }) || []; } catch (e) { ex = []; }
+      idx = PI867(rs.concat(ex));
+    } catch (e) { idx = new Map(); c("อ่านรายการ INVOICE ไม่สำเร็จ : " + (e && e.message ? e.message : e), "err"); }
+    loading = false; draw();
+  }
+  function draw() {
+    var d = DT.value || "";
+    DX.textContent = d ? PD867(d) : "— ยังไม่เลือกวันที่ —";
+    if (!idx) { SM.innerHTML = loading ? "กำลังอ่านรายการ INVOICE NJ …" : ""; TB.innerHTML = ""; OK.disabled = true; return; }
+    var src = PP867(TX.value);
+    mdl = PM867(src.rows, idx);
+    var nok = mdl.filter(function (m) { return m.st === "ok"; }).length,
+      ndup = mdl.filter(function (m) { return m.st === "dup"; }).length,
+      nbad = mdl.filter(function (m) { return m.st === "bad"; }).length;
+    TB.innerHTML = mdl.map(function (m) {
+      var w = m.w, cj = w ? PT867(w.customer_job_no) : "", od = w ? String(w.invoice_date || "").slice(0, 10) : "";
+      var chg = m.st !== "bad" && m.kev && cj && cj !== m.kev;
+      var stx = m.st === "ok" ? '<span style="color:#067647">จับคู่สำเร็จ — จะบันทึก</span>'
+        : m.st === "dup" ? '<span style="color:#667085">' + s(m.why) + "</span>"
+        : '<span style="color:#b42318">' + s(m.why) + "</span>";
+      return "<tr><td class=\"nowrap\">" + s(m.inv || "-") + '</td><td class="nowrap">' + s(w ? w.invoice_no || "-" : "-") +
+        '</td><td class="nowrap">' + s(w ? w.job_no || "-" : "-") + "</td><td>" + (cj ? s(cj) : '<span style="color:#667085">-</span>') +
+        (chg ? ' <span style="color:#b54708;font-size:11px">(จะถูกแทนที่)</span>' : "") + "</td><td>" +
+        (m.kev ? '<b style="color:' + (m.st === "bad" ? "#b42318" : "#067647") + '">' + s(m.kev) + "</b>" : '<span style="color:#b42318">-</span>') +
+        '</td><td class="nowrap">' + (od ? s(PD867(od)) : '<span style="color:#667085">-</span>') + '</td><td class="nowrap">' +
+        (m.st === "ok" && d ? '<b style="color:#067647">' + s(PD867(d)) + "</b>" : '<span style="color:#667085">-</span>') +
+        "</td><td>" + stx + "</td></tr>";
+    }).join("");
+    SM.innerHTML = "ทั้งหมด <b>" + mdl.length + "</b> แถว &nbsp;·&nbsp; <b style='color:#067647'>จับคู่สำเร็จ " + nok + "</b>" +
+      (ndup ? " <span style='color:#667085'>(ซ้ำ " + ndup + ")</span>" : "") + " &nbsp;·&nbsp; <b style='color:#b42318'>พบปัญหา " + nbad + "</b>" +
+      (src.hdr ? " &nbsp;·&nbsp; <span style='color:#667085'>อ่านตามหัวตาราง (แถว " + src.hrow + ")</span>" : src.rows.length ? " &nbsp;·&nbsp; <span style='color:#b54708'>ไม่พบหัวตาราง — อ่านเป็นเลขอ้างอิงแบบเดิม (ไม่มี Kevin Job no. จึงบันทึกไม่ได้)</span>" : "");
+    OK.disabled = !(d && nok > 0);
+  }
+  DT.addEventListener("change", draw); DT.addEventListener("input", draw);
+  TX.addEventListener("input", draw);
+  TX.addEventListener("paste", function () { setTimeout(draw, 0); });
+  OK.onclick = async function () {
+    if (PBS867) return; PBS867 = true; OK.disabled = true;
+    try {
+      var d = DT.value || "";
+      if (!d) { c("กรุณาเลือกวันที่วางบิล", "err"); return; }
+      var plan = mdl.filter(function (m) { return m.st === "ok"; });
+      if (!plan.length) { c("ไม่มีรายการที่ตรวจสอบผ่าน", "err"); return; }
+      var res = await PS867(plan, d, null);
+      try { t.refresh && t.refresh(); } catch (e2) {}
+      PR867(res, mdl, d);
+    } catch (e) { c("บันทึกไม่สำเร็จ : " + (e && e.message ? e.message : e), "err"); }
+    finally { PBS867 = false; OK.disabled = false; }
+  };
+  draw(); load();
+  PBB867 = false;
+}
+function PR867(res, mdl, d) {
+  var bad = mdl.filter(function (m) { return m.st === "bad"; }), dup = mdl.filter(function (m) { return m.st === "dup"; });
+  var li = function (a) { return a.length ? "<ul style='margin:4px 0 10px 18px'>" + a.join("") + "</ul>" : ""; };
+  var body = document.createElement("div");
+  body.innerHTML = '<div style="margin-bottom:10px;font-size:13px">' +
+    '<div><b style="color:#067647">บันทึกสำเร็จ ' + res.ok.length + " รายการ</b> (Customer Job No. + วันที่วางบิล " + s(PD867(d)) + ")</div>" +
+    '<div style="color:#b42318">บันทึกไม่สำเร็จ ' + res.fail.length + " รายการ</div>" +
+    '<div style="color:#b42318">พบปัญหา (ไม่บันทึก) ' + bad.length + " แถว</div>" +
+    "<div style='color:#667085'>ซ้ำ (บันทึกครั้งเดียว) " + dup.length + " แถว</div>" +
+    "<div style='color:#667085'>ไม่มีการจบงานหรือเปลี่ยนสถานะใด ๆ</div></div>" +
+    (res.fail.length ? "<b style='color:#b42318'>รายการที่ล้มเหลว</b>" + li(res.fail.map(function (x) { return "<li>" + s(x.o.inv) + " · " + s(x.o.w.job_no) + " : " + s(x.er) + "</li>"; })) : "") +
+    (res.ok.length ? "<b>รายการที่บันทึกแล้ว</b>" + li(res.ok.map(function (x) { return "<li>" + s(x.o.inv) + " · " + s(x.o.w.job_no) + " → " + s(x.o.kev) + "</li>"; })) : "") +
+    (bad.length ? "<b style='color:#b42318'>แถวที่มีปัญหา</b>" + li(bad.map(function (m) { return "<li>แถว " + m.no + " · " + s(m.inv || "-") + " : " + s(m.why) + "</li>"; })) : "");
+  var ft = document.createElement("div"); ft.innerHTML = '<button class="btn btn-p" data-close>ปิด</button>';
+  k({ title: "ผลการบันทึกข้อมูล", body: body, footer: ft, large: !0 });
+  c(res.fail.length ? "บันทึกเสร็จ (มีบางรายการล้มเหลว)" : "บันทึกข้อมูลสำเร็จ " + res.ok.length + " รายการ", res.fail.length ? "err" : "ok");
+}

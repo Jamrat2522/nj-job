@@ -723,6 +723,8 @@ function ST837() {
     ".e837{font-size:13px;color:#0f172a}.e837 h4{margin:14px 0 6px;font-size:14px;color:#0f2a4d}",
     ".e837-hd{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;padding:10px 12px;border:1px solid #dbe4f0;border-radius:10px;background:#f8fafc}",
     ".e837-hd>div{display:flex;flex-direction:column;gap:2px;min-width:0}.e837-hd span{font-size:12px;color:#64748b}.e837-hd b{overflow-wrap:anywhere}",
+    ".e863-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 8px}.e863-bar .e863-i{height:30px;font-size:12.5px;padding:2px 8px;min-width:140px;max-width:200px}.e863-n{font-size:12px;color:#475569;font-weight:600}",   /* V.863 */
+    "@media (min-width:1025px){.e837 .e837-hd{display:none!important}.e837 .e837-hd+h4,.e837 .e837-hd+.e837-note{margin-top:0}}",   /* V.863 : Desktop ซ่อนกรอบสรุปบน (Mobile / Tablet แสดงเหมือนเดิม) */
     ".e837-cu{display:grid;grid-template-columns:1fr 1fr;gap:10px}.e837-cu>div{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px}",
     ".e837-cu .cb836{margin:6px 0 0}.e837-tb td,.e837-tb th{font-size:12.5px;vertical-align:top}.e837-tb .r{text-align:right}",
     ".e837-tb tr.rm837 td{background:#fef2f2;color:#991b1b;text-decoration:line-through}.e837-tb tr.rm837 td.keep837{text-decoration:none}",
@@ -766,9 +768,26 @@ function DOC837(src, pv, g, date) {   /* ข้อมูล PREVIEW ฉบับ
   else d.status = "ACTIVE";
   return [d];
 }
+/* ═══ V.863 · หน้าแก้ไขใบเสร็จ (UPLOAD EXCEL · SERVICE RCP / ADVANCE ADV) : ค้นหาภายในใบเสร็จ + เรียงเลข INVOICE น้อย → มาก
+   กรอง / เรียง = การแสดงผลเท่านั้น · รายการที่บันทึก (st.add / st.rem) และยอดรวมไม่เปลี่ยน ═══ */
+function NK863(v) { return String(v == null ? "" : v).trim().toUpperCase().replace(/\d+/g, (d) => d.padStart(20, "0")); }   /* คีย์เรียง : 2 มาก่อน 10 */
+function CM863(a, b) { let x = NK863(a), y = NK863(b); return x < y ? -1 : x > y ? 1 : 0; }
+function MT863(x, f) {   /* ตรงทุกเงื่อนไขที่กรอก (บางส่วน · ไม่แยกตัวพิมพ์) */
+  let h = (v, q) => { q = String(q == null ? "" : q).trim().toLowerCase(); return !q || String(v == null ? "" : v).toLowerCase().includes(q); };
+  return h(x.invoice_no, f.inv) && h(x.company_invoice, f.comp) && h(x.customer_job_no, f.cjn);
+}
+function ON863(f) { return !!(String(f.inv || "").trim() || String(f.comp || "").trim() || String(f.cjn || "").trim()); }
+function SB863(f, nn, shown, all) {   /* แถบค้นหาเหนือรายการ INVOICE */
+  return `<div class="e863-bar"><input type="search" class="inp e863-i" id="e863-inv" placeholder="INVOICE" value="${nn(f.inv || "")}" aria-label="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE">`
+    + `<input type="search" class="inp e863-i" id="e863-comp" placeholder="\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 INVOICE" value="${nn(f.comp || "")}" aria-label="\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17 INVOICE">`
+    + `<input type="search" class="inp e863-i" id="e863-cjn" placeholder="Customer Job No." value="${nn(f.cjn || "")}" aria-label="\u0E04\u0E49\u0E19\u0E2B\u0E32 Customer Job No.">`
+    + `<button type="button" class="btn btn-sm btn-p" id="e863-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-sm" id="e863-clr">\u0E25\u0E49\u0E32\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32</button>`
+    + (ON863(f) ? `<span class="e863-n" id="e863-n">\u0E41\u0E2A\u0E14\u0E07 <b>${shown.toLocaleString("th-TH")}</b> \u0E08\u0E32\u0E01 <b>${all.toLocaleString("th-TH")}</b> \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E01\u0E23\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19)</span>` : "")
+    + `</div>`;
+}
 export async function edit837(o) {
   ST836(); ST837(); o = o || {};
-  let src = o.src === "ADV" ? "ADV" : "RCP", id = o.id, st = { g: null, add: new Map(), rem: new Set(), pv: null, seen: !1, busy: !1, req: RQ("r837"), done: null, tm: 0, tk: 0 };
+  let src = o.src === "ADV" ? "ADV" : "RCP", id = o.id, st = { g: null, add: new Map(), rem: new Set(), pv: null, seen: !1, busy: !1, req: RQ("r837"), done: null, tm: 0, tk: 0, f863: { inv: "", comp: "", cjn: "" }, d863: { inv: "", comp: "", cjn: "" } };   /* V.863 */
   let lab = src === "RCP" ? "RECEIPT (SERVICE)" : "RECEIPT ADVANCE";
   let body = document.createElement("div"); body.className = "e837";
   body.innerHTML = '<div id="e837-form"><div class="load-row"><div class="spin"></div></div></div><div id="e837-doc" hidden></div>';
@@ -809,9 +828,11 @@ export async function edit837(o) {
         : k === "r" ? `<button type="button" class="btn btn-sm btn-o" data-back837="${n(x.item_id)}" title="ไม่นำออก">คืน</button>` : `<input type="checkbox" class="e837-cb" data-it="${n(x.item_id)}" aria-label="เลือก ${n(x.invoice_no)}">`) : ""}</td>`
       + `<td>${i}</td><td><b>${n(x.invoice_no)}</b></td><td>${D(x.invoice_date)}</td><td>${n(x.excel_name || "-")}</td><td>${n(x.company_invoice || "-")}</td><td>${n(x.customer_job_no || "-")}</td>${money(x)}`
       + `<td class="keep837"><span class="bd837 ${k}">${k === "a" ? "เพิ่ม" : k === "r" ? "นำออก" : "เดิม"}</span></td></tr>`;
-    let i = 0, h = cur.map((x) => row(x, st.rem.has(x.item_id) ? "r" : "k", ++i)).join("") + [...st.add.values()].map((x) => row(x, "a", ++i)).join("");
-    return `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th class="center">${act ? '<input type="checkbox" id="e837-all" aria-label="เลือกทั้งหมด">' : ""}</th><th>No.</th><th>INVOICE</th><th>วันที่ INVOICE</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>`
-      + (src === "RCP" ? '<th class="r">Invoice Amount</th><th class="r">WHT 7%</th><th class="r">Amount Charge</th>' : '<th class="r">Advance Amount</th>') + `<th>สถานะ</th></tr></thead><tbody>${h || '<tr><td colspan="12" class="empty">ไม่มีรายการ</td></tr>'}</tbody></table></div>`;
+    let L8 = (cur.map((x) => ({ x, k: st.rem.has(x.item_id) ? "r" : "k" })).concat([...st.add.values()].map((x) => ({ x, k: "a" }))));   /* V.863 : รายการทั้งหมดในใบเสร็จ */
+    let f8 = st.f863, U8 = (ON863(f8) ? L8.filter((z) => MT863(z.x, f8)) : L8).slice().sort((p8, q8) => CM863(p8.x.invoice_no, q8.x.invoice_no));   /* V.863 : กรองคำค้น → เรียงเลข INVOICE น้อย → มาก (ทั้งชุด) */
+    let i = 0, h = U8.map((z) => row(z.x, z.k, ++i)).join("");
+    return SB863(st.d863, n, U8.length, L8.length) + `<div class="tbl-wrap"><table class="tbl e837-tb"><thead><tr><th class="center">${act ? '<input type="checkbox" id="e837-all" aria-label="เลือกทั้งหมด">' : ""}</th><th>No.</th><th>INVOICE</th><th>วันที่ INVOICE</th><th>ลูกค้า (Excel)</th><th>บริษัท INVOICE</th><th>Customer Job No.</th>`
+      + (src === "RCP" ? '<th class="r">Invoice Amount</th><th class="r">WHT 7%</th><th class="r">Amount Charge</th>' : '<th class="r">Advance Amount</th>') + `<th>สถานะ</th></tr></thead><tbody>${h || (ON863(st.f863) ? '<tr><td colspan="12" class="empty">ไม่พบรายการตามคำค้น · กด “ล้างค้นหา” เพื่อแสดงทั้งหมด</td></tr>' : '<tr><td colspan="12" class="empty">ไม่มีรายการ</td></tr>')}</tbody></table></div>`;
   };
   let HIST = () => {
     let g = st.g, ch = g.chain || [], lg = g.log || [], hd = g.holds || [];
@@ -866,6 +887,13 @@ export async function edit837(o) {
         F.insertAdjacentHTML("afterbegin", `<div class="radv788-okbox" id="e842-ok"><b>✅ บันทึกข้อมูล CUSTOMER สำเร็จ</b> — ${n(r.receipt_no)} · ${n((r.customer || {}).name || "")} (เลขเดิม · ยอด / รายการไม่เปลี่ยน)</div>`);
       } catch (e) { st.busy = !1; cs.textContent = lb; sc(); TOAST("บันทึกข้อมูล CUSTOMER ไม่สำเร็จ — " + (/PGRST202|schema cache|Could not find the function/i.test(String(e && e.message || e)) ? "ระบบฐานข้อมูลยังไม่พร้อม (ต้องรัน RUN-842)" : R837(e)), "err"); }
     });
+    let V8 = (s8) => { let e8 = F.querySelector(s8); return e8 ? e8.value : ""; };   /* V.863 : ค้นหา / ล้างค้นหา (กรองการแสดงผลเท่านั้น) */
+    let GO8 = () => { st.d863 = { inv: V8("#e863-inv"), comp: V8("#e863-comp"), cjn: V8("#e863-cjn") }; st.f863 = Object.assign({}, st.d863); draw(); };
+    ["#e863-inv", "#e863-comp", "#e863-cjn"].forEach((s8) => { let e8 = F.querySelector(s8); if (!e8) return;
+      e8.oninput = () => { st.d863 = { inv: V8("#e863-inv"), comp: V8("#e863-comp"), cjn: V8("#e863-cjn") }; };
+      e8.onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); GO8(); } }; });
+    let gb8 = F.querySelector("#e863-go"); gb8 && (gb8.onclick = GO8);
+    let cb8 = F.querySelector("#e863-clr"); cb8 && (cb8.onclick = () => { st.d863 = { inv: "", comp: "", cjn: "" }; st.f863 = { inv: "", comp: "", cjn: "" }; draw(); });
     let why = F.querySelector("#e837-why"); why && (why.oninput = () => { st.why = why.value; sc(); });
     let dt = F.querySelector("#e837-date"); dt && (dt.onchange = () => { st.date = dt.value; st.seen = !1; upd(); });
     F.querySelectorAll("[data-old837]").forEach((b) => { b.onclick = async () => {

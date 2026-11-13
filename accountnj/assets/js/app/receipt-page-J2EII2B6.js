@@ -108,7 +108,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       <div class="rcd-edge"></div>
     </div>`}function vt(t,{print:e=!1}={}){let r=document.createElement("div");r.innerHTML=mt(t);let s=document.createElement("div");s.innerHTML=`<div class="mf-left"></div><div class="mf-right">
       <button class="btn btn-print" id="rcd-print">\u{1F5A8} Print Receipt</button>
-      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`,Q({title:"\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 "+(t.receipt_no||""),body:r,footer:s,fullscreen:!0,wide:!0}),s.querySelector("#rcd-print").onclick=()=>window.print(),e&&setTimeout(()=>window.print(),60)}function G(t){vt(t)}var b={customer:"",from:"",to:"",page:1,size:20},I="pending",A=()=>String(L.profile&&L.profile.role)==="SUPER_ADMIN",J=null,$={customer:"",q:"",page:1,size:20},g={charge:"SERVICE",group:"NJ",queue:"receipt_active"},ft=()=>({view:E("view",g.charge,g.group),create:E("create",g.charge,g.group),edit:E("edit",g.charge,g.group),export:E("export",g.charge,g.group)});async function gt(t){await tt(),t.innerHTML=`
+      <button class="btn btn-o" data-close>\u2715 \u0E1B\u0E34\u0E14</button></div>`,Q({title:"\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 "+(t.receipt_no||""),body:r,footer:s,fullscreen:!0,wide:!0}),s.querySelector("#rcd-print").onclick=()=>window.print(),e&&setTimeout(()=>window.print(),60)}function G(t){vt(t)}var b={customer:"",from:"",to:"",page:1,size:20},I="pending",A=()=>String(L.profile&&L.profile.role)==="SUPER_ADMIN",J=null,$={customer:"",q:"",page:1,size:20},g={charge:"SERVICE",group:"NJ",queue:"receipt_active"},ft=()=>({view:E("view",g.charge,g.group),create:E("create",g.charge,g.group),edit:E("edit",g.charge,g.group),export:E("export",g.charge,g.group)});async function gt(t){await tt(),t.classList.add("nsv864")/* V.864 */,t.innerHTML=`
     <div class="page-head"><div class="page-title"><span class="dot"></span><h2>\u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30 / \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08</h2></div>
       ${E("receive_payment")?'<button class="btn btn-p" id="rc-new">+ \u0E23\u0E31\u0E1A\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19</button>':""}</div>
     
@@ -1957,7 +1957,8 @@ function ST823() {
   try {
     if (document.getElementById("st823-css")) return;
     let s = document.createElement("style"); s.id = "st823-css";
-    s.textContent = ".b823{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;background:#ede9fe;color:#5b21b6;letter-spacing:.3px}"
+    s.textContent = ".nsv864 .inv-src,.nsv864 .b823{display:none!important}"   /* V.864 */
+      + ".b823{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;background:#ede9fe;color:#5b21b6;letter-spacing:.3px}"
       + ".b823r{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:800;background:#fef3c7;color:#92400e}"
       + ".b823s{display:inline-block;padding:0 6px;border-radius:6px;font-weight:700}.b823s-x{background:#ede9fe;color:#5b21b6}.b823s-s{background:#e0f2fe;color:#075985}"
       + ".u823-df{white-space:nowrap}.u823-df s{color:#94a3b8}.u823-ok{color:#166534!important}.up820-c.u823-bad b{color:#b91c1c}";

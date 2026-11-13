@@ -1518,6 +1518,7 @@ function TB789(d) {
 }
 function GS789() { ST789(); return '<td class="col-status"><span class="bdg789">ออกใบเสร็จแล้ว</span></td>'; }
 function RA789(t, ctx) {   /* ผูก event ครั้งเดียวต่อหน้า · ctx ล่าสุด (State / โหลดใหม่) เก็บที่ t */
+  t.classList.add("nsv864");   /* V.864 : INVOICE NJ = เฉพาะเลข INVOICE (ซ่อน SRC: ... / ป้าย EXCEL) เฉพาะหน้า FINANCE → ADVANCE */
   t.__ctx789 = ctx || t.__ctx789;
   if (t.__radv789) return; t.__radv789 = 1;
   t.addEventListener("click", (ev) => {
@@ -1550,6 +1551,7 @@ function ST789() {
     if (document.getElementById("st789-css")) return;
     let s = document.createElement("style"); s.id = "st789-css";
     s.textContent = [
+      ".nsv864 .inv-src,.nsv864 .b823{display:none!important}",   /* V.864 */
       ".radv789-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 2px}",
       ".radv789-tab{appearance:none;cursor:pointer;font:inherit;font-size:15px;font-weight:700;line-height:1.2;padding:11px 18px;border-radius:10px;border:1px solid transparent;transition:background .15s,color .15s,box-shadow .15s}",
       ".radv789-pending{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.radv789-pending.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 2px 6px rgba(37,99,235,.35)}",
