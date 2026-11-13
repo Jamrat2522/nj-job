@@ -118,7 +118,7 @@ body {
 .sb-item[data-mode="permit_chk"].active{ background: rgba(20,184,166,.08); border-left-color: #2dd4bf; color: #5eead4; }
 .sb-item[data-mode="custom_fee"].active{ background: rgba(236,72,153,.08); border-left-color: #ec4899; color: #f9a8d4; }
 .sb-item[data-mode="rack"].active{ background: rgba(249,115,22,.08); border-left-color: #f97316; color: #fdba74; }   /* [RACK] โหมดใหม่ */
-.sb-item[data-mode="pdf_excel"].active{ background: rgba(14,165,233,.08); border-left-color: #0ea5e9; color: #7dd3fc; }   /* [PDF→EXCEL] local287 */
+.sb-item[data-mode="pdf_excel"].active, .sb-item[data-mode="kdc_convert"].active{ background: rgba(14,165,233,.08); border-left-color: #0ea5e9; color: #7dd3fc; }   /* [PDF→EXCEL] local287 */
 .sb-item[data-mode="hscode_permit"].active{ background: rgba(16,185,129,.08); border-left-color: #10b981; color: #6ee7b7; }
 /* [HS CODE ใบอนุญาต] พื้นหน้า = --bg ของ local106 · Content เต็มความกว้าง (เฉพาะโหมดนี้) */
 body:has(#appMain.hspm-light) { background: #f4f6f9; }
@@ -1137,6 +1137,11 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
       <span>📑</span> แปลงไฟล์ PDF → Excel <span class="sb-badge" style="background:#0ea5e9">NEW</span>
     </div>
     <div class="sb-item-desc">PDF Invoice หลายไฟล์ → Excel (เรียง INVOICE)</div>
+
+    <div class="sb-item" data-mode="kdc_convert" onclick="switchMode(this)">
+      <span>🧩</span> แปลง KDC <span class="sb-badge" style="background:#0ea5e9">NEW</span>
+    </div>
+    <div class="sb-item-desc">INVOICE EXCEL + PDF → MAPPING KDC</div>
 
     <div class="sb-section-label" style="margin-top:8px">Master</div>
     <div class="sb-item" data-mode="hscode_permit" onclick="switchMode(this)">
@@ -2347,52 +2352,58 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
     #appMain.pdfx-wide .content{ max-width:none; width:100%; box-sizing:border-box; padding:20px 22px; gap:14px; min-width:0; }
     #appMain.pdfx-wide{ min-width:0; }
     #appMain.pdfx-wide #sectionLabel{ display:none; }
-    #panel-pdf_excel{ min-width:0; max-width:100%; font-size:14px; }
-    #panel-pdf_excel .pdfx-wrap{ display:flex; flex-direction:column; gap:14px; min-width:0; }
-    #panel-pdf_excel .pdfx-card{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; min-width:0; box-sizing:border-box; }
-    #panel-pdf_excel .pdfx-head{ display:flex; align-items:center; justify-content:space-between; gap:14px 20px; flex-wrap:wrap; border-color:rgba(14,165,233,.28); background:linear-gradient(0deg,rgba(14,165,233,.05),rgba(14,165,233,.05)),var(--surface); }
-    #panel-pdf_excel .pdfx-head-l{ display:flex; align-items:center; gap:12px; min-width:0; flex:1 1 320px; }
-    #panel-pdf_excel .pdfx-ico{ width:40px; height:40px; flex:0 0 40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:19px; background:rgba(14,165,233,.12); border:1px solid rgba(14,165,233,.28); }
-    #panel-pdf_excel .pdfx-title{ font-size:19px; font-weight:700; color:#7dd3fc; line-height:1.25; }
-    #panel-pdf_excel .pdfx-desc{ font-size:13px; color:var(--text-2); margin-top:2px; }
-    #panel-pdf_excel .pdfx-head-r{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    #panel-pdf_excel .pdfx-lbl{ font-size:13px; font-weight:600; color:var(--text-2); white-space:nowrap; }
-    #panel-pdf_excel .pdfx-ctl{ height:38px; box-sizing:border-box; border-radius:8px; font-size:14px; padding:0 14px; border:1px solid var(--border); background:var(--surface-2,rgba(255,255,255,.04)); color:inherit; font-family:inherit; }
-    #panel-pdf_excel .pdfx-export{ cursor:pointer; font-weight:700; background:rgba(16,185,129,.16); color:#34d399; border-color:rgba(16,185,129,.45); white-space:nowrap; }
-    #panel-pdf_excel .pdfx-export:hover:not(:disabled){ background:rgba(16,185,129,.26); }
-    #panel-pdf_excel .pdfx-export:disabled{ opacity:.45; cursor:not-allowed; }
-    #panel-pdf_excel .pdfx-btn2{ cursor:pointer; white-space:nowrap; }
-    #panel-pdf_excel .pdfx-btn2:hover{ border-color:#0ea5e9; color:#7dd3fc; }
-    #panel-pdf_excel .pdfx-dz{ height:132px; box-sizing:border-box; border:1.5px dashed var(--border2,var(--border)); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-align:center; padding:10px; transition:border-color .15s, background .15s; }
-    #panel-pdf_excel .pdfx-dz:hover, #panel-pdf_excel .pdfx-dz.over{ border-color:#0ea5e9; background:rgba(14,165,233,.06); }
-    #panel-pdf_excel .pdfx-dz-t{ font-size:14px; font-weight:600; }
-    #panel-pdf_excel .pdfx-dz-h{ font-size:12px; color:var(--text-3); }
-    #panel-pdf_excel .pdfx-list{ max-height:228px; overflow-y:auto; overflow-x:hidden; margin-top:10px; display:flex; flex-direction:column; gap:6px; }
-    #panel-pdf_excel .pdfx-list:empty{ display:none; }
-    #panel-pdf_excel .pdfx-file{ display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; align-items:center; gap:8px 14px; padding:6px 8px 6px 12px; min-height:38px; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; font-size:13px; }
-    #panel-pdf_excel .pdfx-fn{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-    #panel-pdf_excel .pdfx-st{ white-space:nowrap; max-width:46vw; overflow:hidden; text-overflow:ellipsis; }
-    #panel-pdf_excel .pdfx-cnt{ white-space:nowrap; color:var(--text-2); font-variant-numeric:tabular-nums; }
-    #panel-pdf_excel .pdfx-del{ height:28px; padding:0 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-2); cursor:pointer; font-size:12px; white-space:nowrap; font-family:inherit; }
-    #panel-pdf_excel .pdfx-del:hover{ border-color:#f87171; color:#f87171; }
-    #panel-pdf_excel .pdfx-sum{ display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; padding:10px 16px; }
-    #panel-pdf_excel .pdfx-chips{ display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; min-width:0; }
-    #panel-pdf_excel .pdfx-chip{ display:inline-flex; align-items:baseline; gap:6px; height:30px; padding:0 12px; border-radius:15px; border:1px solid var(--border); font-size:13px; color:var(--text-2); line-height:28px; white-space:nowrap; }
-    #panel-pdf_excel .pdfx-chip b{ font-size:15px; color:#7dd3fc; font-variant-numeric:tabular-nums; }
-    #panel-pdf_excel #pdfxHint{ font-size:13px; color:var(--text-3); }
-    #panel-pdf_excel .pdfx-msg{ font-size:13px; line-height:1.6; margin:0 0 8px; overflow-wrap:anywhere; word-break:break-word; }
-    #panel-pdf_excel .pdfx-sheet{ overflow:auto; max-height:min(62vh,640px); background:#fff; border:1px solid #9aa4b2; border-radius:6px; max-width:100%; }
-    #panel-pdf_excel .pdfx-sheet table{ border-collapse:separate; border-spacing:0; width:100%; background:#fff; color:#000; font-family:Calibri,Carlito,Arial,sans-serif; font-size:14.5px; }
-    #panel-pdf_excel .pdfx-sheet th, #panel-pdf_excel .pdfx-sheet td{ border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 7px; white-space:nowrap; }
-    #panel-pdf_excel .pdfx-sheet th:first-child, #panel-pdf_excel .pdfx-sheet td:first-child{ border-left:1px solid #000; }
-    #panel-pdf_excel .pdfx-sheet th{ position:sticky; top:0; z-index:1; background:#eef2f7; color:#000; font-weight:700; text-align:center; border-top:1px solid #000; }
-    #panel-pdf_excel .pdfx-sheet tbody tr:nth-child(even) td{ background:#f4f7fb; }
-    #panel-pdf_excel .pdfx-sheet tbody tr:hover td{ background:#dbeafe; }
-    #panel-pdf_excel .pdfx-sheet tfoot td{ position:sticky; bottom:0; background:#fff7d6 !important; font-weight:700; border-top:2px solid #000; }
-    #panel-pdf_excel .pdfx-sheet tfoot tr + tr td{ bottom:auto; position:static; }
-    #panel-pdf_excel .pdfx-sheet td.r{ text-align:right; font-variant-numeric:tabular-nums; }
-    #panel-pdf_excel .pdfx-sheet td.w{ white-space:normal; min-width:200px; overflow-wrap:anywhere; }
-    @media (max-width: 760px){ #panel-pdf_excel .pdfx-file{ grid-template-columns:minmax(0,1fr) auto; } #panel-pdf_excel .pdfx-st{ max-width:none; white-space:normal; } }
+    #panel-pdf_excel, #panel-kdc_convert{ min-width:0; max-width:100%; font-size:14px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-wrap{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-card{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; min-width:0; box-sizing:border-box; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-head{ display:flex; align-items:center; justify-content:space-between; gap:14px 20px; flex-wrap:wrap; border-color:rgba(14,165,233,.28); background:linear-gradient(0deg,rgba(14,165,233,.05),rgba(14,165,233,.05)),var(--surface); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-head-l{ display:flex; align-items:center; gap:12px; min-width:0; flex:1 1 320px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-ico{ width:40px; height:40px; flex:0 0 40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:19px; background:rgba(14,165,233,.12); border:1px solid rgba(14,165,233,.28); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-title{ font-size:19px; font-weight:700; color:#7dd3fc; line-height:1.25; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-desc{ font-size:13px; color:var(--text-2); margin-top:2px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-head-r{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-lbl{ font-size:13px; font-weight:600; color:var(--text-2); white-space:nowrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-ctl{ height:38px; box-sizing:border-box; border-radius:8px; font-size:14px; padding:0 14px; border:1px solid var(--border); background:var(--surface-2,rgba(255,255,255,.04)); color:inherit; font-family:inherit; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export{ cursor:pointer; font-weight:700; background:rgba(16,185,129,.16); color:#34d399; border-color:rgba(16,185,129,.45); white-space:nowrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export:hover:not(:disabled){ background:rgba(16,185,129,.26); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-export:disabled{ opacity:.45; cursor:not-allowed; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-btn2{ cursor:pointer; white-space:nowrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-btn2:hover{ border-color:#0ea5e9; color:#7dd3fc; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-dz{ height:132px; box-sizing:border-box; border:1.5px dashed var(--border2,var(--border)); border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-align:center; padding:10px; transition:border-color .15s, background .15s; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-dz:hover, :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-dz.over{ border-color:#0ea5e9; background:rgba(14,165,233,.06); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-dz-t{ font-size:14px; font-weight:600; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-dz-h{ font-size:12px; color:var(--text-3); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-list{ max-height:228px; overflow-y:auto; overflow-x:hidden; margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-list:empty{ display:none; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-file{ display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; align-items:center; gap:8px 14px; padding:6px 8px 6px 12px; min-height:38px; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; font-size:13px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-fn{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-st{ white-space:nowrap; max-width:46vw; overflow:hidden; text-overflow:ellipsis; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-cnt{ white-space:nowrap; color:var(--text-2); font-variant-numeric:tabular-nums; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-del{ height:28px; padding:0 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-2); cursor:pointer; font-size:12px; white-space:nowrap; font-family:inherit; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-del:hover{ border-color:#f87171; color:#f87171; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sum{ display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; padding:10px 16px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-chips{ display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; min-width:0; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-chip{ display:inline-flex; align-items:baseline; gap:6px; height:30px; padding:0 12px; border-radius:15px; border:1px solid var(--border); font-size:13px; color:var(--text-2); line-height:28px; white-space:nowrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-chip b{ font-size:15px; color:#7dd3fc; font-variant-numeric:tabular-nums; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-hint{ font-size:13px; color:var(--text-3); }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-msg{ font-size:13px; line-height:1.6; margin:0 0 8px; overflow-wrap:anywhere; word-break:break-word; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet{ overflow:auto; max-height:min(62vh,640px); background:#fff; border:1px solid #9aa4b2; border-radius:6px; max-width:100%; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet table{ border-collapse:separate; border-spacing:0; width:100%; background:#fff; color:#000; font-family:Calibri,Carlito,Arial,sans-serif; font-size:14.5px; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet th, :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet td{ border-right:1px solid #000; border-bottom:1px solid #000; padding:3px 7px; white-space:nowrap; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet th:first-child, :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet td:first-child{ border-left:1px solid #000; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet th{ position:sticky; top:0; z-index:1; background:#eef2f7; color:#000; font-weight:700; text-align:center; border-top:1px solid #000; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet tbody tr:nth-child(even) td{ background:#f4f7fb; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet tbody tr:hover td{ background:#dbeafe; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet tfoot td{ position:sticky; bottom:0; background:#fff7d6 !important; font-weight:700; border-top:2px solid #000; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet tfoot tr + tr td{ bottom:auto; position:static; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet td.r{ text-align:right; font-variant-numeric:tabular-nums; }
+    :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-sheet td.w{ white-space:normal; min-width:200px; overflow-wrap:anywhere; }
+    @media (max-width: 760px){ :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-file{ grid-template-columns:minmax(0,1fr) auto; } :is(#panel-pdf_excel,#panel-kdc_convert) .pdfx-st{ max-width:none; white-space:normal; } }
+    #panel-kdc_convert .kx-up{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    #panel-kdc_convert .kx-slot-t{ font-size:13px; font-weight:700; color:#7dd3fc; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    #panel-kdc_convert .kx-num{ width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; background:rgba(14,165,233,.15); border:1px solid rgba(14,165,233,.3); }
+    #panel-kdc_convert .pdfx-list{ max-height:132px; }
+    #panel-kdc_convert .pdfx-sheet th.y{ background:#ffff00; } #panel-kdc_convert .pdfx-sheet th.o{ background:#ffc000; } #panel-kdc_convert .pdfx-sheet th.p{ background:#f4b183; }
+    @media (max-width: 760px){ #panel-kdc_convert .kx-up{ grid-template-columns:minmax(0,1fr); } }
     </style>
     <div id="panel-pdf_excel" style="display:none">
       <div class="pdfx-wrap">
@@ -2424,13 +2435,66 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
             <span class="pdfx-chip">ไฟล์ <b id="pdfxNFile">0</b></span>
             <span class="pdfx-chip">Invoice <b id="pdfxNInv">0</b></span>
             <span class="pdfx-chip">รายการ <b id="pdfxNRow">0</b></span>
-            <span id="pdfxHint">⚠ กรุณาอัปโหลด PDF Invoice</span>
+            <span id="pdfxHint" class="pdfx-hint">⚠ กรุณาอัปโหลด PDF Invoice</span>
           </div>
           <button class="pdfx-ctl pdfx-btn2" onclick="pdfxReset()">↺ รีเซ็ต</button>
         </div>
         <div id="pdfxResult" class="pdfx-card" style="display:none"></div>
       </div>
     </div><!-- /panel-pdf_excel -->
+
+    <!-- PANEL: แปลงไฟล์ → KDC (INVOICE EXCEL + INVOICE PDF → MAPPING KDC) — local291 · namespace kx* · ไม่แตะโหมดอื่น -->
+    <div id="panel-kdc_convert" style="display:none">
+      <div class="pdfx-wrap">
+        <div class="pdfx-card pdfx-head">
+          <div class="pdfx-head-l">
+            <div class="pdfx-ico">🧩</div>
+            <div style="min-width:0">
+              <div class="pdfx-title">แปลงไฟล์ → KDC</div>
+              <div class="pdfx-desc">INVOICE EXCEL (รายการสินค้า) + INVOICE PDF (ส่วนหัว / ยอดสรุป) → จับคู่ด้วยเลข Invoice → EXPORT ตามแม่แบบ MAPPING KDC</div>
+            </div>
+          </div>
+          <div class="pdfx-head-r">
+            <button class="pdfx-ctl pdfx-export" id="kxExportBtn" onclick="kxExport()" disabled title="KDC_MAPPING_*.xlsx (1 Workbook / 1 Sheet)">📊 EXPORT EXCEL</button>
+          </div>
+        </div>
+        <div class="pdfx-card">
+          <div class="kx-up">
+            <div>
+              <div class="kx-slot-t"><span class="kx-num">1</span> INVOICE EXCEL <span style="font-weight:400;color:var(--text-3)">— รายการสินค้า</span></div>
+              <input type="file" id="kxXlsInput" accept=".xlsx,.xls,.xlsm" multiple style="display:none" />
+              <div class="pdfx-dz" id="kxXlsDZ" onclick="document.getElementById('kxXlsInput').click()">
+                <div style="font-size:22px;line-height:1">📗</div>
+                <div class="pdfx-dz-t">วางไฟล์ INVOICE EXCEL ที่นี่ หรือคลิกเพื่อเลือก</div>
+                <div class="pdfx-dz-h">.xlsx / .xls — เช่น 1.00000009948.xlsx</div>
+              </div>
+              <div id="kxXlsList" class="pdfx-list"></div>
+            </div>
+            <div>
+              <div class="kx-slot-t"><span class="kx-num">2</span> INVOICE PDF <span style="font-weight:400;color:var(--text-3)">— เลข Invoice · วันที่ · สกุลเงิน · PKG · NW · GW · Mark</span></div>
+              <input type="file" id="kxPdfInput" accept=".pdf,application/pdf" multiple style="display:none" />
+              <div class="pdfx-dz" id="kxPdfDZ" onclick="document.getElementById('kxPdfInput').click()">
+                <div style="font-size:22px;line-height:1">📑</div>
+                <div class="pdfx-dz-t">วางไฟล์ INVOICE PDF ที่นี่ หรือคลิกเพื่อเลือก</div>
+                <div class="pdfx-dz-h">.pdf — เช่น 1.00000213230_DG.pdf (PDF สแกนใช้ OCR)</div>
+              </div>
+              <div id="kxPdfList" class="pdfx-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="pdfx-card pdfx-sum">
+          <div class="pdfx-chips">
+            <span class="pdfx-chip">Invoice <b id="kxNInv">0</b></span>
+            <span class="pdfx-chip">รายการ <b id="kxNRow">0</b></span>
+            <span class="pdfx-chip">TOTAL QTY <b id="kxTQty">—</b></span>
+            <span class="pdfx-chip">TOTAL AMT <b id="kxTAmt">—</b></span>
+            <span id="kxHint" class="pdfx-hint">⚠ กรุณาอัปโหลด INVOICE EXCEL และ INVOICE PDF</span>
+          </div>
+          <button class="pdfx-ctl pdfx-btn2" onclick="kxReset()">↺ รีเซ็ต</button>
+        </div>
+        <div id="kxResult" class="pdfx-card" style="display:none"></div>
+      </div>
+    </div><!-- /panel-kdc_convert -->
 
   
   <!-- Hidden buttons required by JS — do not remove -->
@@ -2455,7 +2519,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local290';
+const EDCAPL_VERSION = 'local291';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -2633,6 +2697,13 @@ const MODES_CONFIG = {
     label: 'อัปโหลด PDF Invoice หลายไฟล์ → EXPORT EXCEL รวมทุก INVOICE (เรียง INVOICE น้อย → มาก)',
     exportName: 'INVOICE_PDF_MAPPING',
     rules: []
+  },
+  kdc_convert: {
+    title: 'แปลงไฟล์ → KDC',
+    badge: 'KDC MAPPING',
+    label: 'INVOICE EXCEL + INVOICE PDF → EXPORT EXCEL ตามแม่แบบ MAPPING KDC',
+    exportName: 'KDC_MAPPING',
+    rules: []
   }
 };
 // ── EDC8 FTM — identical rules + behaviour as EDC8 AAT ──
@@ -2767,7 +2838,7 @@ function switchMode(el){
   const isPermitChk= currentMode === 'permit_chk';   // ตรวจใบกำกับ — panel แยก
   const isHscode   = currentMode === 'hscode_permit'; // HS CODE ใบอนุญาต — panel แยก (Clone local106)
   const isTrf      = currentMode === 'tariff_master'; // [📘 พิกัด] MASTER พิกัดกลาง — panel แยก
-  const isRack     = currentMode === 'rack' || currentMode === 'pdf_excel';   // [RACK] / [PDF→EXCEL] local287 — panel แยก (ไม่ใช้ Flow ตรวจใบขน)
+  const isRack     = currentMode === 'rack' || currentMode === 'pdf_excel' || currentMode === 'kdc_convert';   // [RACK] / [PDF→EXCEL] local287 — panel แยก (ไม่ใช้ Flow ตรวจใบขน)
 
   const isSingle   = !isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf && !isRack;
 
@@ -2788,8 +2859,9 @@ function switchMode(el){
     if(rkPanel) rkPanel.style.display = currentMode === 'rack' ? 'block' : 'none';
     const pxPanel = document.getElementById('panel-pdf_excel');   /* [PDF→EXCEL] local287 */
     if(pxPanel) pxPanel.style.display = currentMode === 'pdf_excel' ? 'block' : 'none';
-    { const am = document.getElementById('appMain'); if(am) am.classList.toggle('pdfx-wide', currentMode === 'pdf_excel'); }   /* local289: Layout เต็มความกว้าง เฉพาะโหมดนี้ */
-    if(currentMode === 'pdf_excel' && typeof pdfxWarm === 'function') pdfxWarm();                                              /* local289: เตรียม Library ล่วงหน้า */
+    { const kxPanel = document.getElementById('panel-kdc_convert'); if(kxPanel) kxPanel.style.display = currentMode === 'kdc_convert' ? 'block' : 'none'; }   /* [แปลง KDC] local291 */
+    { const am = document.getElementById('appMain'); if(am) am.classList.toggle('pdfx-wide', currentMode === 'pdf_excel' || currentMode === 'kdc_convert'); }   /* local289: Layout เต็มความกว้าง เฉพาะโหมดนี้ */
+    if((currentMode === 'pdf_excel' || currentMode === 'kdc_convert') && typeof pdfxWarm === 'function') pdfxWarm();                                              /* local289: เตรียม Library ล่วงหน้า */
   }
   if((currentMode==='rack' || prevMode==='rack') && typeof rackReset==='function') rackReset();   // [RACK] เข้า/ออก → ล้าง State (ไฟล์ไม่ข้ามโหมด)
   if(isRack && typeof hspmEnsureExcel==='function') hspmEnsureExcel();               // [RACK] เตรียม ExcelJS ล่วงหน้า
@@ -11496,7 +11568,8 @@ function fzShowSysErr(title,msg){
     permit_chk:    { badge:'#0b3b37', text:'#2dd4bf', border:'rgba(20,184,166,.35)' },
     hscode_permit: { badge:'#064e3b', text:'#34d399', border:'rgba(16,185,129,.35)' },
     rack:          { badge:'#4a2306', text:'#fb923c', border:'rgba(249,115,22,.35)' },
-    pdf_excel:     { badge:'#082f49', text:'#38bdf8', border:'rgba(14,165,233,.35)' }
+    pdf_excel:     { badge:'#082f49', text:'#38bdf8', border:'rgba(14,165,233,.35)' },
+    kdc_convert:   { badge:'#082f49', text:'#38bdf8', border:'rgba(14,165,233,.35)' }
   };
   const topBar   = document.getElementById('topBar');
   const topBadge = document.getElementById('topBadge');
@@ -11511,7 +11584,8 @@ function fzShowSysErr(title,msg){
     permit_chk:    'ตรวจใบกำกับ',
     hscode_permit: 'HS CODE ใบอนุญาต',
     rack:          'RACK — รวม INVOICE หลาย Sheet',
-    pdf_excel:     'แปลงไฟล์ PDF → Excel'
+    pdf_excel:     'แปลงไฟล์ PDF → Excel',
+    kdc_convert:   'แปลงไฟล์ → KDC'
   };
   function applyTopBarMode(mode){
     const c = TOPBAR_COLORS[mode] || TOPBAR_COLORS.edc8;
@@ -12860,13 +12934,13 @@ Column rename for export only: "KDC" → "Customer jobno."
   }
 
   /* ── หน้า Invoice → { invNo, date, cur, net, total, pageNo, pageOf, items[], warn[] } ── */
-  async function parseInvoicePage(pg, pageIdx){
+  async function parseInvoicePage(pg, pageIdx, opt){
     const L = pg.lines, all = L.map(l => l.text).join('\n'), warn = [], P = 'หน้า ' + (pageIdx + 1) + ': ';
     const mInv = all.match(/RECHNUNG\s*NR[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?([0-9]{6,})\b/i) || all.match(/INVOICE\s*NO\.?\s*[:;]\s*([0-9]{6,})\b/i);   /* ตัวคั่น ":" ที่ OCR อ่านเป็นอักขระเดี่ยว 1 ตัว ยอมรับได้ · เลข INVOICE ต้องเป็นตัวเลขล้วน */
     const o = { invNo:mInv ? mInv[1] : null, date:null, cur:null, cur2:null, net:null, gross:null, pkg:null, mark:null, total:null, pageNo:null, pageOf:null, items:[], warn, ocr:pg.ocr };
     let m;
     if((m = all.match(/DATE\s*SHIPPED\s*\/?\s*VERSANDDATUM[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/i))){ const mo = +m[2], d = +m[3]; if(mo >= 1 && mo <= 12 && d >= 1 && d <= 31) o.date = m[1] + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
-    if((m = all.match(/PAGE\s*\/?\s*SEITE\W{0,3}\s*(\d{1,3})\s*\/\s*(\d{1,3})/i))){ o.pageNo = +m[1]; o.pageOf = +m[2]; }
+    if((m = all.match(/PAGE\s*\/?\s*SEITE\W{0,3}\s*(\d{1,3})\s*\/\s*(\d{1,3})/i))){ o.pageNo = +m[1]; o.pageOf = +m[2]; o.pageNos = [...all.matchAll(/PAGE\s*\/?\s*SEITE\W{0,3}\s*(\d{1,3})\s*\/\s*(\d{1,3})/gi)].map(x => +x[1]); }   /* 1 หน้าสแกนอาจมีหลายหน้าเอกสาร */
     if((m = all.match(/PIECE\s*PRICE\s*[\(C]?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur = m[1].toUpperCase();
     else if((m = all.match(/TOTAL\s*INVOICE\s*\(?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur = m[1].toUpperCase();
     if((m = all.match(/EXT\s*PRICE\s*[\(C]?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur2 = m[1].toUpperCase();
@@ -12877,6 +12951,7 @@ Column rename for export only: "KDC" → "Customer jobno."
     if((m = all.match(/NET\s*\/\s*NETTO[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d[\d,]*\.\d{1,3})\b/i))) o.net = num(m[1]);
     if((m = all.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2').match(/GESAMTRECH\w*BETRAG\W{0,3}\s*(\d[\d,]*\.\d{2})/i))) o.total = num(m[1]);
     // ช่วงรายการ: ใต้หัวตาราง PART NUMBER … DESCRIPTION → ก่อนบรรทัดสรุป
+    if(opt && opt.noItems) return o;   /* [แปลง KDC] ใช้เฉพาะส่วนหัว / ยอดสรุป — ไม่อ่านรายการจาก PDF (ไม่ OCR ซ้ำรายแถว) */
     const hi = L.findIndex(l => /PART\s*NUMBER/i.test(l.text) && /DESCRIPTION/i.test(l.text));
     if(hi < 0){ warn.push(P + 'ไม่พบหัวตารางรายการ (PART NUMBER / DESCRIPTION)'); return o; }
     const hw = L[hi].words, wDesc = hw.find(w => /^DESCRIPTION/i.test(w.t)), wOrig = hw.find(w => /^ORIG/i.test(w.t));
@@ -12926,32 +13001,47 @@ Column rename for export only: "KDC" → "Customer jobno."
   }
 
   /* ── อ่าน 1 ไฟล์ ── */
-  async function readFile(f){
+  async function readFile(f, opt){
     await ensurePdf();
     const t0 = now(), buf = await f.file.arrayBuffer(), doc = await window.pdfjsLib.getDocument({ data:new Uint8Array(buf) }).promise; PERF.open += now() - t0;
     const invs = new Map(), cases = {}, warn = []; let usedOcr = false, done = 0; const NP = doc.numPages;
     f.status = 'กำลังอ่าน 0/' + NP + ' หน้า'; render();
     /* [SPEED] local289: อ่านทุกหน้าพร้อมกันแบบจำกัดจำนวน (หน้า Text = อ่านตรง ไม่ OCR · หน้าสแกน = OCR ครั้งเดียว) → ประกอบผลตามลำดับหน้าเดิม */
-    const pages = await Promise.all(Array.from({ length:NP }, (_, k) => pageGate(async () => { const p = k + 1;
+    const procPage = k => pageGate(async () => { const p = k + 1;
       const pg = await pageLines(await doc.getPage(p)), all = pg.lines.map(l => l.text).join('\n'), out = { p, ocr:pg.ocr, kind:'other', all };
       if(window.__PDFX_DEBUG) window.__PDFX_DEBUG.push({ file:f.name, page:p, ocr:pg.ocr, text:all });
       if(/CASE\s*SUMMARY/i.test(all)){ out.kind = 'case'; if(/PART\s*DETAIL/i.test(all)) out.c = parseCasePage(pg); }
-      else if(/PART\s*NUMBER\s*\/?\s*TEILNUMMER/i.test(all) || /RECHNUNG\s*NR/i.test(all)){ out.kind = 'inv'; out.r = await parseInvoicePage(pg, k); }
+      else if(/PART\s*NUMBER\s*\/?\s*TEILNUMMER/i.test(all) || /RECHNUNG\s*NR/i.test(all)){ out.kind = 'inv'; out.r = await parseInvoicePage(pg, k, opt); }
       if(pg.canvas){ pg.canvas.width = 0; pg.canvas = null; }
-      done++; if(ST.files.includes(f)){ f.status = 'กำลังอ่าน ' + done + '/' + NP + ' หน้า'; render(); }
-      return out; })));
+      done++; if(f.onProg) f.onProg(done, NP); else if(ST.files.includes(f)){ f.status = 'กำลังอ่าน ' + done + '/' + NP + ' หน้า'; render(); }
+      return out; });
+    let pages;
+    if(opt && opt.fast && NP > 2){
+      /* [แปลง KDC] local291: อ่านเฉพาะหน้าที่จำเป็น — หน้าแรก (เลข Invoice / วันที่ / สกุลเงิน) + ไล่จากหน้าสุดท้ายย้อนขึ้น (ยอดสรุป / Mark) จนข้อมูลส่วนหัวครบ
+         · ถ้าหน้าแรกกับหน้าสุดท้ายเป็นคนละ Invoice (PDF มีหลาย Invoice) → อ่านทุกหน้า */
+      const got = new Map(), run = async ks => { (await Promise.all(ks.map(procPage))).forEach(x => got.set(x.p, x)); };
+      const metaOk = () => { const m = {}; got.forEach(x => { if(x.kind === 'inv' && x.r) ['invNo','date','cur','cur2','pkg','net','gross','mark','total'].forEach(k => { if(m[k] == null && x.r[k] != null) m[k] = x.r[k]; }); });
+        return m.invNo && m.date && (m.cur || m.cur2) && m.pkg && m.net && m.gross && m.mark && m.total; };
+      await run([0, NP - 1]);
+      const ids = new Set([...got.values()].filter(x => x.kind === 'inv' && x.r && x.r.invNo).map(x => x.r.invNo));
+      if(ids.size > 1) await run(Array.from({ length:NP - 2 }, (_, i) => i + 1));
+      else { let k = NP - 2; while(k >= 1 && !metaOk()){ const b = [k]; if(k - 1 >= 1 && poolMax() > 1) b.push(k - 1); await run(b); k -= b.length; } }
+      pages = [...got.values()].sort((a, b) => a.p - b.p); f.pagesRead = pages.length; f.pagesAll = NP;
+    } else pages = await Promise.all(Array.from({ length:NP }, (_, k) => procPage(k)));
     pages.forEach(x => { const p = x.p; if(x.ocr) usedOcr = true;
       if(x.kind === 'case'){ const c = x.c; if(c && c.shipper){ const t = cases[c.shipper] || (cases[c.shipper] = {}); Object.keys(c.map).forEach(k => { t[k] = (t[k] || 0) + c.map[k]; }); } return; }
       if(x.kind !== 'inv'){ if(x.all.replace(/\s/g, '').length > 30) warn.push('หน้า ' + p + ': ไม่ใช่หน้า Invoice — ข้าม'); return; }
       const r = x.r; warn.push(...r.warn);
+      if(!r.invNo && opt && opt.noItems) return;
       if(!r.invNo){ warn.push('หน้า ' + p + ': อ่านเลข INVOICE ไม่ได้ — ไม่นำรายการของหน้านี้มารวม (' + r.items.length + ' รายการ)'); f.partial = true; return; }
       let iv = invs.get(r.invNo); if(!iv){ iv = { invNo:r.invNo, date:null, cur:null, cur2:null, net:null, gross:null, pkg:null, mark:null, total:null, pageOf:null, pages:[], items:[], ocr:false }; invs.set(r.invNo, iv); }
       ['date','cur','cur2','net','gross','pkg','mark','total','pageOf'].forEach(k => { if(iv[k] == null && r[k] != null) iv[k] = r[k]; });
-      iv.pages.push(r.pageNo || iv.pages.length + 1); iv.ocr = iv.ocr || r.ocr; r.items.forEach(it => iv.items.push(it));
+      (r.pageNos && r.pageNos.length ? r.pageNos : [iv.pages.length + 1]).forEach(n => { if(!iv.pages.includes(n)) iv.pages.push(n); }); iv.ocr = iv.ocr || r.ocr; r.items.forEach(it => iv.items.push(it));
     });
     try{ doc.destroy(); }catch(_){}
     // ตรวจทานต่อ INVOICE
     invs.forEach(iv => { const T = 'INVOICE ' + iv.invNo + ': ';
+      if(opt && opt.noItems) return;
       if(!iv.items.length) warn.push(T + 'ไม่พบรายการสินค้า');
       if(!iv.date) warn.push(T + 'อ่าน DATE SHIPPED ไม่ได้ — เว้นว่าง');
       if(!iv.cur) warn.push(T + 'อ่านสกุลเงินของ Price/Unit ไม่ได้ — เว้นว่าง');
@@ -13094,7 +13184,153 @@ Column rename for export only: "KDC" → "Customer jobno."
     finally{ ST.exporting = false; render(); }
   }
 
+
+  /* ══════════════════════════════════════════════════════════════
+     [แปลง KDC] local291 — INVOICE EXCEL + INVOICE PDF → MAPPING KDC (Sheet "Invoice" · A1:R · TOTAL QTY / AMT)
+     · รายการสินค้า = จาก Excel เท่านั้น (คอลัมน์ C–K ของชีตรายการ · ไม่ล็อกชื่อชีต) · ไม่นำรายการ PDF มาต่อ / ไม่เขียนทับด้วย OCR
+     · PDF = ส่วนหัว / ยอดสรุป: เลข Invoice · วันที่ · สกุลเงิน · PKG · NW · GW · Mark (OCR เฉพาะระดับหน้า ไม่อ่านรายแถว)
+     · จับคู่ด้วยเลข Invoice จากเนื้อหา (213230 = 00000213230) · แสดง / Export ตามเลขของ PDF (คงศูนย์นำหน้า)
+     · ข้อมูลขัดแย้ง / อ่านไม่ได้ = แจ้งเตือน ไม่เดา · PKG / NW / GW / Mark เฉพาะแถวแรกของ Invoice
+     ══════════════════════════════════════════════════════════════ */
+  const KHEAD = ['No','Invoice Out','Date','Product Code','PART NO.','Description','COO','QTY/ไม่นำเข้า','QTY','U/P  /ไม่นำเข้า','U/P QTY  /ไม่นำเข้า','u/p amt ไม่นำเข้า','AMT','สกุลเงิน','PKG','NW','GW','Mark'];
+  const KWIDTH = { 1:10.5, 2:16.3984375, 3:12.8984375, 4:17.5, 5:21.5, 6:18.59765625, 7:6.8984375, 8:11.8984375, 9:15.09765625, 10:8.796875, 11:11.19921875, 12:8.796875, 14:7.796875, 15:8.796875 };
+  const KGRP = k => k === 3 ? 'o' : (k >= 4 && k <= 12) ? 'p' : 'y';   // สีหัวตาราง/คอลัมน์ตามแม่แบบ: เหลือง / ส้ม / ส้มอ่อน
+  const KX = { xls:[], pdf:[], seq:0, busy:0, exporting:false, ver:0, cache:null };
+  const invKey = v => String(v == null ? '' : v).replace(/\D/g, '').replace(/^0+/, '');
+  const isNum = v => typeof v === 'number' && isFinite(v);
+
+  async function kxReadXls(f){
+    const wb = XLSX.read(await f.file.arrayBuffer(), { type:'array', raw:true, cellDates:false }), warn = [];
+    const AOA = n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, raw:true, defval:null });
+    let sumSheet = null, invs = [];
+    wb.SheetNames.forEach(n => { const a = AOA(n);
+      for(let r = 0; r < Math.min(a.length, 15); r++){ const c = (a[r] || []).findIndex(x => /^INVOICE\s*NO\.?$/i.test(String(x == null ? '' : x).trim()));
+        if(c >= 0){ if(!sumSheet) sumSheet = n; for(let k = r + 1; k < a.length; k++){ const v = a[k] && a[k][c]; if(v != null && String(v).trim() !== '') invs.push(String(v).trim()); } break; } } });
+    invs = [...new Set(invs)];
+    if(!invs.length) throw new Error('ไม่พบเลข INVOICE NO. ในชีตสรุป (Sum table)');
+    if(invs.length > 1) throw new Error('พบหลายเลข INVOICE ในชีตสรุป (' + invs.join(' , ') + ') — รองรับ 1 Invoice ต่อไฟล์');
+    if(!invKey(invs[0])) throw new Error('เลข INVOICE NO. ในชีตสรุปไม่ใช่ตัวเลข: "' + invs[0] + '"');
+    // ชีตรายการ: ชีตอื่นที่คอลัมน์ C เป็น PART NO. (มี "-") — เลือกชีตที่มีรายการมากที่สุด
+    let best = null; const others = [];
+    wb.SheetNames.forEach(n => { if(n === sumSheet) return; const a = AOA(n), rows = [], skip = [];
+      a.forEach((r, i) => { if(!r) return; const C = r[2] == null ? '' : String(r[2]).trim();
+        if(C && /[A-Z0-9]-[A-Z0-9]/i.test(C) && !/PART\s*N/i.test(C)) rows.push({ row:i + 1, v:r.slice(2, 11).concat(Array(9)).slice(0, 9) });
+        else if(C || isNum(r[6]) || isNum(r[10])) skip.push(i + 1); });
+      if(rows.length){ others.push(n + ' (' + rows.length + ')'); if(!best || rows.length > best.rows.length) best = { n, rows, skip }; } });
+    if(!best) throw new Error('ไม่พบชีตรายการสินค้า (คอลัมน์ C ต้องเป็น PART NO.)');
+    if(others.length > 1) warn.push('พบรายการสินค้าหลายชีต: ' + others.join(' , ') + ' — ใช้ชีต "' + best.n + '" เท่านั้น');
+    if(best.skip.length) warn.push('ชีต "' + best.n + '": ข้าม ' + best.skip.length + ' แถวที่ไม่ใช่รายการ (แถว ' + best.skip.slice(0, 8).join(', ') + (best.skip.length > 8 ? ' …' : '') + ')');
+    best.rows.forEach(x => { const [C, D, E, F, G, H, I, J, K] = x.v, W = 'แถว ' + x.row + ' (' + C + '): ', miss = [];
+      if(D == null || D === '') miss.push('Description'); if(!isNum(G)) miss.push('QTY'); if(!isNum(K)) miss.push('AMT');
+      if(miss.length) warn.push(W + 'ข้อมูลขาด / ไม่ใช่ตัวเลข: ' + miss.join(', '));
+      if(isNum(G) && F != null && String(F).replace(/\D/g, '') !== '' && String(F).replace(/\D/g, '') !== String(G)) warn.push(W + 'QTY คอลัมน์ F "' + F + '" ไม่ตรงกับคอลัมน์ G ' + G);
+      if(isNum(G) && isNum(J) && isNum(K) && absB(cents(G, J) - cents(K)) > 1n) warn.push(W + 'QTY × ราคา (' + G + ' × ' + J + ') ≠ AMT ' + K); });
+    f.inv = invs[0]; f.key = invKey(invs[0]); f.sheet = best.n; f.items = best.rows; f.warn = warn;
+  }
+  async function kxReadPdf(f){ const t = { file:f.file, name:f.name, onProg:(d, n) => { f.status = 'กำลังอ่าน ' + d + '/' + n + ' หน้า'; kxRender(); } };
+    await readFile(t, { noItems:true, fast:true }); f.invoices = t.invoices; f.ocr = t.ocr; f.warn = t.warn || []; f.pagesRead = t.pagesRead; f.pagesAll = t.pagesAll; }
+
+  function kxBuild(){ if(KX.cache && KX.cache.ver === KX.ver) return KX.cache.B;
+    const okX = KX.xls.filter(f => f.state === 'ok'), okP = KX.pdf.filter(f => f.state === 'ok'), warn = [], pend = [], blocks = [];
+    const pinv = []; okP.forEach(f => f.invoices.forEach(iv => pinv.push({ iv, f, key:invKey(iv.invNo) })));
+    okX.forEach(x => { const m = pinv.filter(p => p.key === x.key);
+      if(!m.length){ pend.push('Excel ' + x.name + ' (Invoice ' + x.inv + ') — ยังไม่มี INVOICE PDF ที่เลขตรงกัน'); return; }
+      if(m.length > 1){ warn.push('Invoice ' + x.inv + ': พบใน PDF มากกว่า 1 ไฟล์ (' + m.map(p => p.f.name).join(' , ') + ') — ไม่จับคู่ กรุณาลบไฟล์ที่ซ้ำ'); return; }
+      const iv = m[0].iv, T = 'Invoice ' + iv.invNo + ': ';
+      [['date','วันที่ (DATE SHIPPED)'],['pkg','PKG (TOTAL/SUMME)'],['net','NW (NET/NETTO)'],['gross','GW (GROSS)'],['mark','Mark (SHIPPING MARK)']].forEach(([k, lb]) => { if(iv[k] == null) warn.push(T + 'อ่าน ' + lb + ' จาก PDF ไม่ได้ — เว้นว่าง'); });
+      if(!(iv.cur2 || iv.cur)) warn.push(T + 'อ่านสกุลเงินจาก PDF ไม่ได้ — เว้นว่าง');
+      const amt = x.items.filter(r => isNum(r.v[8])).map(r => String(r.v[8]));
+      if(iv.total && amt.length){ const s = decSum(amt); if(cents(s) !== cents(iv.total)) warn.push(T + 'รวม AMT จาก Excel ' + edc1fzCents(cents(s)) + ' ≠ ยอดรวมใน PDF ' + edc1fzCents(cents(iv.total)) + ' (ต่าง ' + edc1fzCents(absB(cents(s) - cents(iv.total))) + ') — ใช้ค่าจาก Excel ตามเดิม โปรดตรวจทาน'); }
+      else if(!iv.total) warn.push(T + 'อ่านยอดรวม INVOICE จาก PDF ไม่ได้ — เทียบยอด AMT ไม่ได้');
+      if(iv.net && iv.gross && cents(iv.net) > cents(iv.gross)) warn.push(T + 'NW ' + iv.net + ' มากกว่า GW ' + iv.gross + ' — โปรดตรวจทาน');
+      blocks.push({ x, iv, pf:m[0].f }); });
+    const dupX = {}; okX.forEach(x => { (dupX[x.key] = dupX[x.key] || []).push(x.name); });
+    Object.keys(dupX).filter(k => dupX[k].length > 1).forEach(k => warn.push('Invoice ' + k + ' มี Excel มากกว่า 1 ไฟล์: ' + dupX[k].join(' , ') + ' — รายการอยู่ครบทุกไฟล์ (ไม่ลบ / ไม่รวม)'));
+    pinv.filter(p => !okX.some(x => x.key === p.key)).forEach(p => pend.push('PDF ' + p.f.name + ' (Invoice ' + p.iv.invNo + ') — ยังไม่มี INVOICE EXCEL ที่เลขตรงกัน'));
+    blocks.sort((a, b) => invCmp(a.iv.invNo, b.iv.invNo));
+    const rows = []; blocks.forEach(b => b.x.items.forEach((r, k) => rows.push({ r, b, first:k === 0 })));
+    const qty = rows.filter(o => isNum(o.r.v[4])).map(o => String(o.r.v[4])), byCur = new Map();
+    rows.forEach(o => { if(!isNum(o.r.v[8])) return; const c = o.b.iv.cur2 || o.b.iv.cur || '(ไม่ระบุ)'; if(!byCur.has(c)) byCur.set(c, []); byCur.get(c).push(String(o.r.v[8])); });
+    const B = { rows, blocks, warn, pend, tot:{ qty:qty.length ? decSum(qty) : null, amt:[...byCur.entries()].map(([k, l]) => ({ k, sum:decSum(l) })) } };
+    KX.cache = { ver:KX.ver, B }; return B; }
+  const kxVals = (o, i) => { const v = o.r.v, iv = o.b.iv, F1 = x => o.first ? x : null;
+    return [i + 1, String(iv.invNo), iv.date || null, String(v[0]).replace(/[-\s]/g, ''), v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], iv.cur2 || iv.cur || null, F1(iv.pkg), F1(iv.net), F1(iv.gross), F1(iv.mark)]; };
+  const thou = v => { if(v == null) return ''; const t = String(v).split('.'); return t[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (t[1] ? '.' + t[1] : ''); };
+
+  function kxRender(){
+    const fileRow = (f, kind) => { const ic = f.state === 'ok' ? (f.warn && f.warn.length ? '⚠️' : '✅') : f.state === 'err' ? '❌' : '⏳', col = f.state === 'err' ? '#f87171' : f.state === 'ok' ? (ic === '⚠️' ? '#fbbf24' : '#34d399') : 'var(--text-3)';
+      const cnt = f.state !== 'ok' ? '—' : kind === 'x' ? 'Invoice ' + f.inv + ' · ' + f.items.length + ' รายการ' : f.invoices.map(iv => 'Invoice ' + iv.invNo).join(' , ');
+      return '<div class="pdfx-file"><span class="pdfx-fn" title="' + esc(f.name) + '">' + (kind === 'x' ? '📗 ' : '📄 ') + esc(f.name) + '</span><span class="pdfx-st" style="color:' + col + '" title="' + esc(f.status) + '">' + ic + ' ' + esc(f.status) + '</span><span class="pdfx-cnt">' + esc(cnt) + '</span><button class="pdfx-del" title="ลบไฟล์นี้" onclick="kxRemove(\'' + kind + '\',' + f.id + ')">✕ ลบ</button></div>'; };
+    const lx = $('kxXlsList'), lp = $('kxPdfList'); if(!lx || !lp) return;
+    lx.innerHTML = KX.xls.map(f => fileRow(f, 'x')).join(''); lp.innerHTML = KX.pdf.map(f => fileRow(f, 'p')).join('');
+    const B = kxBuild(), reading = KX.busy > 0, btn = $('kxExportBtn'), setT = (id, v) => { const e = $(id); if(e) e.textContent = v; };
+    if(btn){ btn.disabled = reading || !B.rows.length || KX.exporting; btn.textContent = KX.exporting ? '⏳ กำลังสร้าง Excel…' : '📊 EXPORT EXCEL'; }
+    setT('kxNInv', B.blocks.length); setT('kxNRow', B.rows.length); setT('kxTQty', B.tot.qty == null ? '—' : thou(B.tot.qty)); setT('kxTAmt', B.tot.amt.length ? B.tot.amt.map(a => edc1fzCents(cents(a.sum)) + ' ' + a.k).join(' · ') : '—');
+    setT('kxHint', reading ? '⏳ กำลังอ่านไฟล์…' : B.rows.length ? 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.blocks.length + ' Invoice' : (!KX.xls.length && !KX.pdf.length) ? '⚠ กรุณาอัปโหลด INVOICE EXCEL และ INVOICE PDF' : !KX.xls.some(f => f.state === 'ok') ? '⚠ รอ INVOICE EXCEL' : !KX.pdf.some(f => f.state === 'ok') ? '⚠ รอ INVOICE PDF' : '⚠ ยังจับคู่ Invoice ไม่ได้');
+    const res = $('kxResult'); if(!res) return;
+    if(!KX.xls.length && !KX.pdf.length){ res.style.display = 'none'; res.innerHTML = ''; return; }
+    const all = KX.xls.concat(KX.pdf), errF = all.filter(f => f.state === 'err'), fw = [].concat(...all.filter(f => f.state === 'ok').map(f => (f.warn || []).map(w => f.name + ' — ' + w))), warns = B.warn.concat(fw);
+    let h = '';
+    if(B.blocks.length) h += '<div class="pdfx-msg" style="color:var(--text-2)">จับคู่แล้ว: ' + B.blocks.map(b => 'Invoice <b>' + esc(b.iv.invNo) + '</b> ← ' + esc(b.x.name) + ' (ชีต "' + esc(b.x.sheet) + '" · ' + b.x.items.length + ' รายการ) + ' + esc(b.pf.name)).join(' · ') + '</div>';
+    if(!reading && B.pend.length) h += '<div class="pdfx-msg" style="color:#fbbf24">⏳ ยังไม่ครบคู่:<br>' + B.pend.map(x => '• ' + esc(x)).join('<br>') + '</div>';
+    if(KX.pdf.some(f => f.state === 'ok' && f.ocr)) h += '<div class="pdfx-msg" style="color:#fbbf24">⚠ PDF เป็นไฟล์สแกน — ส่วนหัว / ยอดสรุป (วันที่ · สกุลเงิน · PKG · NW · GW · Mark) อ่านด้วย OCR โปรดตรวจทานกับเอกสาร · รายการสินค้ามาจาก Excel</div>';
+    if(errF.length) h += '<div class="pdfx-msg" style="color:#f87171;font-weight:700">❌ อ่านไม่สำเร็จ ' + errF.length + ' ไฟล์:<br>' + errF.map(f => '• ' + esc(f.name) + ' — ' + esc(f.status)).join('<br>') + '</div>';
+    if(warns.length) h += '<div class="pdfx-msg" style="color:#f87171;max-height:150px;overflow-y:auto;border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:8px 12px">⚠ แจ้งเตือน ' + warns.length + ' รายการ:<br>' + warns.map(w => '• ' + esc(w)).join('<br>') + '</div>';
+    if(B.rows.length){ const R = { 0:1, 8:1, 9:1, 11:1, 12:1, 14:1, 15:1, 16:1 };
+      const dmy = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + '-' + m[3] + '-' + m[1].slice(2) : ''; }, sh = (v, k) => v == null ? '' : k === 2 ? dmy(v) : k === 15 ? Number(v).toFixed(2) : esc(v);
+      const n = Math.max(1, B.tot.amt.length); let foot = '<tfoot>';
+      for(let i = 0; i < n; i++){ const a = B.tot.amt[i]; foot += '<tr>' + (i === 0 ? '<td colspan="8" rowspan="' + n + '" style="text-align:right">TOTAL</td><td class="r" data-t="qty" rowspan="' + n + '">' + thou(B.tot.qty) + '</td>' : '') + '<td></td><td></td><td></td><td class="r" data-t="amt">' + (a ? edc1fzCents(cents(a.sum)) : '') + '</td><td data-t="cur">' + (a ? esc(a.k) : '') + '</td>' + (i === 0 ? '<td colspan="4" rowspan="' + n + '"></td>' : '') + '</tr>'; }
+      h += '<div class="pdfx-sheet"><table><thead><tr>' + KHEAD.map((x, k) => '<th class="' + KGRP(k) + '">' + esc(x) + '</th>').join('') + '</tr></thead><tbody>'
+        + B.rows.map((o, i) => '<tr>' + kxVals(o, i).map((v, k) => '<td' + (R[k] ? ' class="r"' : (k === 5 || k === 17) ? ' class="w"' : '') + '>' + sh(v, k) + '</td>').join('') + '</tr>').join('') + '</tbody>' + foot + '</tfoot></table></div>'
+        + '<div style="font-size:12px;color:var(--text-3);margin-top:8px">ตัวอย่างชีต <b>Invoice</b> ตามที่จะ EXPORT (' + B.rows.length + ' รายการ + แถว TOTAL)</div>'; }
+    res.innerHTML = h; res.style.display = h ? 'block' : 'none';
+  }
+  const kxGate = limiter(() => 2);
+  function kxAdd(kind, fl){ const arr = [...(fl || [])]; if(!arr.length) return; const list = kind === 'x' ? KX.xls : KX.pdf;
+    arr.forEach(file => { const f = { id:++KX.seq, name:file.name, file, state:'wait', status:'รออ่าน', warn:[], items:[], invoices:[] }; list.push(f); KX.ver++;
+      const okExt = kind === 'x' ? /\.(xlsx|xlsm|xls)$/i.test(file.name) : (/\.pdf$/i.test(file.name) || file.type === 'application/pdf');
+      if(!okExt){ f.state = 'err'; f.status = kind === 'x' ? 'ไม่ใช่ไฟล์ Excel (.xlsx / .xls)' : 'ไม่ใช่ไฟล์ PDF'; return; }
+      KX.busy++;
+      kxGate(async () => { if(!list.includes(f)) return; const t0 = now();
+        try{ f.status = 'กำลังอ่าน…'; kxRender(); if(kind === 'x') await kxReadXls(f); else await kxReadPdf(f); f.state = 'ok'; f.status = 'อ่านสำเร็จ' + (f.ocr ? ' (OCR' + (f.pagesAll ? ' ' + f.pagesRead + '/' + f.pagesAll + ' หน้า' : '') + ')' : '') + (f.warn.length ? ' · เตือน ' + f.warn.length : '') + ' · ' + ((now() - t0) / 1000).toFixed(1) + ' วิ'; }
+        catch(e){ f.state = 'err'; f.status = 'อ่านไม่สำเร็จ: ' + (e && e.message || e); } }).catch(() => {}).then(() => { KX.busy--; KX.ver++; kxRender(); }); });
+    kxRender(); }
+  function kxRemove(kind, id){ if(kind === 'x') KX.xls = KX.xls.filter(f => f.id !== id); else KX.pdf = KX.pdf.filter(f => f.id !== id); KX.ver++; kxRender(); }
+  function kxReset(){ KX.xls = []; KX.pdf = []; KX.ver++; ['kxXlsInput','kxPdfInput'].forEach(i => { const e = $(i); if(e) e.value = ''; }); kxRender(); }
+
+  async function kxBuildExcel(B){
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(SHEET, { properties:{ defaultRowHeight:14.5 } });
+    Object.keys(KWIDTH).forEach(c => { ws.getColumn(+c).width = KWIDTH[c]; });
+    const thin = { top:{ style:'thin' }, left:{ style:'thin' }, bottom:{ style:'thin' }, right:{ style:'thin' } };
+    const FILL = { y:{ type:'pattern', pattern:'solid', fgColor:{ argb:'FFFFFF00' } }, o:{ type:'pattern', pattern:'solid', fgColor:{ argb:'FFFFC000' } }, p:{ type:'pattern', pattern:'solid', fgColor:{ theme:5, tint:0.3999755851924192 } } };
+    const CAL = b => ({ name:'Calibri', size:11, bold:!!b, color:{ argb:'FF000000' } }), TAH = { name:'Tahoma', size:11, color:{ theme:1 } }, calCol = k => k <= 2 || k >= 15;
+    KHEAD.forEach((h, k) => { const c = ws.getCell(1, k + 1); c.value = h; c.font = CAL(true); c.fill = FILL[KGRP(k)]; c.border = thin; c.alignment = { horizontal:'center' }; });
+    const D = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; };
+    B.rows.forEach((o, i) => { const vals = kxVals(o, i), row = ws.getRow(i + 2);
+      vals.forEach((v, k) => { const c = row.getCell(k + 1); let x = v; if(k === 2) x = D(v); else if((k >= 14 && k <= 16) && v != null) x = Number(v);
+        if(x != null && x !== '') c.value = x; c.font = calCol(k) ? CAL(false) : TAH; c.fill = FILL[KGRP(k)]; c.border = thin; if(k === 2) c.numFmt = 'mm-dd-yy'; if(k === 15) c.numFmt = '0.00'; if(k === 8) c.alignment = { horizontal:'center' }; }); });
+    const last = B.rows.length + 1, tr = last + 1, sty = c => { c.font = TAH; c.fill = FILL.p; c.border = thin; };   // แถว TOTAL ตามแม่แบบ: SUM ครอบคลุมรายการจริงทั้งหมด
+    const qc = ws.getCell(tr, 9); qc.value = { formula:'SUM(I2:I' + last + ')', result:B.tot.qty == null ? 0 : Number(B.tot.qty) }; sty(qc);
+    if(B.tot.amt.length <= 1){ const mc = ws.getCell(tr, 13); mc.value = { formula:'SUM(M2:M' + last + ')', result:B.tot.amt.length ? Number(B.tot.amt[0].sum) : 0 }; sty(mc); }
+    else B.tot.amt.forEach((a, i) => { const mc = ws.getCell(tr + i, 13); mc.value = { formula:'SUMIF(N2:N' + last + ',"' + a.k + '",M2:M' + last + ')', result:Number(a.sum) }; sty(mc); const nc = ws.getCell(tr + i, 14); nc.value = a.k; nc.font = TAH; });   // หลายสกุลเงิน: แยกยอดต่อสกุล
+    return wb.xlsx.writeBuffer();
+  }
+  async function kxExport(){ if(KX.exporting || KX.busy > 0) return; const B = kxBuild(); if(!B.rows.length){ alert('⚠ ยังไม่มีข้อมูลที่จับคู่สำเร็จ'); return; }
+    KX.exporting = true; kxRender();
+    try{ const ok = await hspmEnsureExcel(); if(!ok || !window.ExcelJS) throw new Error('โหลด ExcelJS ไม่สำเร็จ');
+      const t0 = now(), buf = await kxBuildExcel(B); PERF.kxExcel = now() - t0;   /* สร้างจากข้อมูลที่อ่านไว้ — ไม่อ่าน PDF / OCR ซ้ำ */
+      safeDownload(buf, 'KDC_MAPPING_' + (B.blocks.length === 1 ? B.blocks[0].iv.invNo : 'ALL_INVOICE') + '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }
+    catch(e){ alert('EXPORT EXCEL ไม่สำเร็จ: ' + (e && e.message || e)); }
+    finally{ KX.exporting = false; kxRender(); } }
+  function kxInit(){ [['kxXlsDZ','kxXlsInput','x'],['kxPdfDZ','kxPdfInput','p']].forEach(([dzId, inId, kind]) => { const dz = $(dzId), inp = $(inId); if(!dz || !inp) return;
+      inp.addEventListener('change', e => { kxAdd(kind, e.target.files); e.target.value = ''; });
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', e => { e.preventDefault(); dz.classList.remove('over'); });
+      dz.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); kxAdd(kind, e.dataTransfer.files); }); }); }
+  window.kxRemove = kxRemove; window.kxReset = kxReset; window.kxExport = kxExport;
+
   function init(){
+    kxInit();
     const dz = $('pdfxDZ'), inp = $('pdfxInput'); if(!dz || !inp) return;
     inp.addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
