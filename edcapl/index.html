@@ -118,6 +118,7 @@ body {
 .sb-item[data-mode="permit_chk"].active{ background: rgba(20,184,166,.08); border-left-color: #2dd4bf; color: #5eead4; }
 .sb-item[data-mode="custom_fee"].active{ background: rgba(236,72,153,.08); border-left-color: #ec4899; color: #f9a8d4; }
 .sb-item[data-mode="rack"].active{ background: rgba(249,115,22,.08); border-left-color: #f97316; color: #fdba74; }   /* [RACK] โหมดใหม่ */
+.sb-item[data-mode="pdf_excel"].active{ background: rgba(14,165,233,.08); border-left-color: #0ea5e9; color: #7dd3fc; }   /* [PDF→EXCEL] local287 */
 .sb-item[data-mode="hscode_permit"].active{ background: rgba(16,185,129,.08); border-left-color: #10b981; color: #6ee7b7; }
 /* [HS CODE ใบอนุญาต] พื้นหน้า = --bg ของ local106 · Content เต็มความกว้าง (เฉพาะโหมดนี้) */
 body:has(#appMain.hspm-light) { background: #f4f6f9; }
@@ -1131,6 +1132,11 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
       <span>🧱</span> RACK <span class="sb-badge" style="background:#f97316">NEW</span>
     </div>
     <div class="sb-item-desc">INVOICE หลาย Sheet → Mapping Excel</div>
+
+    <div class="sb-item" data-mode="pdf_excel" onclick="switchMode(this)">
+      <span>📑</span> แปลงไฟล์ PDF → Excel <span class="sb-badge" style="background:#0ea5e9">NEW</span>
+    </div>
+    <div class="sb-item-desc">PDF Invoice หลายไฟล์ → Excel (เรียง INVOICE)</div>
 
     <div class="sb-section-label" style="margin-top:8px">Master</div>
     <div class="sb-item" data-mode="hscode_permit" onclick="switchMode(this)">
@@ -2330,6 +2336,56 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
       <div id="rackResult" style="margin-top:14px;display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"></div>
     </div><!-- /panel-rack -->
 
+    <!--
+    ═══════════════════════════════════════════════════════════
+    PANEL: แปลงไฟล์ PDF → Excel (ประเภท Invoice) — local287
+    Independent module (namespace pdfx*). Does NOT touch any other mode.
+    ═══════════════════════════════════════════════════════════
+    -->
+    <div id="panel-pdf_excel" style="display:none">
+      <div class="mode-banner" style="background:rgba(14,165,233,.06);border-color:rgba(14,165,233,.22)">
+        <div class="mode-banner-left">
+          <div class="mode-banner-icon" style="background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.25)">📑</div>
+          <div>
+            <div class="mode-banner-title" style="color:#7dd3fc">แปลงไฟล์ PDF → Excel</div>
+            <div class="mode-banner-desc">อัปโหลด PDF Invoice ได้หลายไฟล์ → รวมข้อมูล เรียงเลข INVOICE จากน้อยไปมาก → EXPORT EXCEL ตามแม่แบบ MAPPING</div>
+            <div class="mode-banner-tag" style="background:rgba(14,165,233,.12);color:#7dd3fc;border-color:rgba(14,165,233,.25)">PDF → EXCEL · INVOICE</div>
+          </div>
+        </div>
+        <div class="mode-flow">
+          <span class="flow-step">① Upload PDF</span>
+          <span class="flow-arrow">›</span>
+          <span class="flow-step action">⬇ Export Excel</span>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:12px">
+          <span style="font-weight:700;color:var(--text-2)">ประเภทเอกสาร</span>
+          <select id="pdfxType" style="padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2,transparent);color:inherit;font-size:12px"><option value="invoice" selected>Invoice</option></select>
+        </div>
+        <div class="upload-col dz-req" style="max-width:560px">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(14,165,233,.15);color:#7dd3fc;border-color:rgba(14,165,233,.3)">1</span>
+            <span class="step-title">UPLOAD PDF INVOICE</span>
+            <span class="step-req">หลายไฟล์ได้</span>
+          </div>
+          <input type="file" id="pdfxInput" accept=".pdf,application/pdf" multiple style="display:none" />
+          <div class="drop-zone" id="pdfxDZ" style="min-height:130px" onclick="document.getElementById('pdfxInput').click()">
+            <div class="drop-icon-box" style="font-size:18px">📑</div>
+            <div class="drop-label" style="font-size:12px">วางไฟล์ PDF Invoice ที่นี่ (เลือกได้หลายไฟล์ · เพิ่มไฟล์ภายหลังได้)</div>
+            <div class="drop-hint">.pdf — รองรับ PDF ข้อความ และ PDF สแกน (OCR)</div>
+          </div>
+          <div id="pdfxList"></div>
+        </div>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-export" id="pdfxExportBtn" onclick="pdfxExport()" disabled style="background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)" title="INVOICE_PDF_MAPPING.xlsx (1 Workbook / 1 Sheet)">📊 EXPORT EXCEL</button>
+        <div id="pdfxHint" style="font-size:11px;color:var(--text-3)">⚠ กรุณาอัปโหลด PDF Invoice</div>
+        <button class="btn-reset" onclick="pdfxReset()">↺ รีเซ็ต</button>
+      </div>
+      <div id="pdfxResult" style="margin-top:14px;display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px"></div>
+    </div><!-- /panel-pdf_excel -->
+
   
   <!-- Hidden buttons required by JS — do not remove -->
   <div style="display:none" aria-hidden="true">
@@ -2353,7 +2409,7 @@ body:has(#appMain.edc8-light), body:has(#appMain.kdc-light), body:has(#appMain.f
 
 <script>
 /* [EDCAPL] Deployment Version กลาง (แก้ที่เดียวทุกครั้งที่ออก Release) — แสดงใต้ชื่อใน Sidebar */
-const EDCAPL_VERSION = 'local286';
+const EDCAPL_VERSION = 'local287';
 (function(){ const put = () => { const el = document.getElementById('sbAppVersion'); if(el){ el.textContent = 'Version ' + EDCAPL_VERSION; el.title = 'Version ' + EDCAPL_VERSION; } };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put(); })();
 // ── Delete (✕) button on drop-zone ────────────────────────
@@ -2524,6 +2580,13 @@ const MODES_CONFIG = {
     label: 'อัปโหลด INVOICE 1 ไฟล์ → EXPORT EXCEL รวมทุก ITEM (เรียง INVOICE น้อย → มาก)',
     exportName: 'RACK_MAPPING_ALL_INVOICE',
     rules: []
+  },
+  pdf_excel: {
+    title: 'แปลงไฟล์ PDF → Excel',
+    badge: 'PDF → EXCEL',
+    label: 'อัปโหลด PDF Invoice หลายไฟล์ → EXPORT EXCEL รวมทุก INVOICE (เรียง INVOICE น้อย → มาก)',
+    exportName: 'INVOICE_PDF_MAPPING',
+    rules: []
   }
 };
 // ── EDC8 FTM — identical rules + behaviour as EDC8 AAT ──
@@ -2658,7 +2721,7 @@ function switchMode(el){
   const isPermitChk= currentMode === 'permit_chk';   // ตรวจใบกำกับ — panel แยก
   const isHscode   = currentMode === 'hscode_permit'; // HS CODE ใบอนุญาต — panel แยก (Clone local106)
   const isTrf      = currentMode === 'tariff_master'; // [📘 พิกัด] MASTER พิกัดกลาง — panel แยก
-  const isRack     = currentMode === 'rack';          // [RACK] รวม INVOICE หลาย Sheet → EXPORT EXCEL — panel แยก
+  const isRack     = currentMode === 'rack' || currentMode === 'pdf_excel';   // [RACK] / [PDF→EXCEL] local287 — panel แยก (ไม่ใช้ Flow ตรวจใบขน)
 
   const isSingle   = !isEdc8 && !isEdc1fz && !isInvMap && !isMasterB && !isCustomFee && !isPermitChk && !isHscode && !isTrf && !isRack;
 
@@ -2676,9 +2739,11 @@ function switchMode(el){
   }
   {
     const rkPanel = document.getElementById('panel-rack');
-    if(rkPanel) rkPanel.style.display = isRack ? 'block' : 'none';
+    if(rkPanel) rkPanel.style.display = currentMode === 'rack' ? 'block' : 'none';
+    const pxPanel = document.getElementById('panel-pdf_excel');   /* [PDF→EXCEL] local287 */
+    if(pxPanel) pxPanel.style.display = currentMode === 'pdf_excel' ? 'block' : 'none';
   }
-  if((isRack || prevMode==='rack') && typeof rackReset==='function') rackReset();   // [RACK] เข้า/ออก → ล้าง State (ไฟล์ไม่ข้ามโหมด)
+  if((currentMode==='rack' || prevMode==='rack') && typeof rackReset==='function') rackReset();   // [RACK] เข้า/ออก → ล้าง State (ไฟล์ไม่ข้ามโหมด)
   if(isRack && typeof hspmEnsureExcel==='function') hspmEnsureExcel();               // [RACK] เตรียม ExcelJS ล่วงหน้า
   {
     const pcPanel = document.getElementById('panel-permit_chk');
@@ -11382,7 +11447,8 @@ function fzShowSysErr(title,msg){
     master_builder:{ badge:'#0c3a52', text:'#38bdf8', border:'rgba(14,165,233,.35)' },
     permit_chk:    { badge:'#0b3b37', text:'#2dd4bf', border:'rgba(20,184,166,.35)' },
     hscode_permit: { badge:'#064e3b', text:'#34d399', border:'rgba(16,185,129,.35)' },
-    rack:          { badge:'#4a2306', text:'#fb923c', border:'rgba(249,115,22,.35)' }
+    rack:          { badge:'#4a2306', text:'#fb923c', border:'rgba(249,115,22,.35)' },
+    pdf_excel:     { badge:'#082f49', text:'#38bdf8', border:'rgba(14,165,233,.35)' }
   };
   const topBar   = document.getElementById('topBar');
   const topBadge = document.getElementById('topBadge');
@@ -11396,7 +11462,8 @@ function fzShowSysErr(title,msg){
     master_builder:'Master File Builder',
     permit_chk:    'ตรวจใบกำกับ',
     hscode_permit: 'HS CODE ใบอนุญาต',
-    rack:          'RACK — รวม INVOICE หลาย Sheet'
+    rack:          'RACK — รวม INVOICE หลาย Sheet',
+    pdf_excel:     'แปลงไฟล์ PDF → Excel'
   };
   function applyTopBarMode(mode){
     const c = TOPBAR_COLORS[mode] || TOPBAR_COLORS.edc8;
@@ -12626,6 +12693,290 @@ Column rename for export only: "KDC" → "Customer jobno."
   } else {
     _cfInit();
   }
+})();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   [PDF→EXCEL] local287 — โหมด แปลงไฟล์ PDF → Excel · ประเภท Invoice (Ford Commercial Invoice)
+   · Namespace pdfx* แยกจากโหมดอื่นทั้งหมด · ไม่บันทึกฐานข้อมูล · ไม่แตะ State ของโหมดอื่น
+   · อ่านเนื้อหา PDF จริง: มี Text Layer → อ่านข้อความตรง ๆ (pdf.js) · เป็นไฟล์สแกน (ภาพ) → OCR (tesseract.js) — โหลด Library เมื่อใช้โหมดนี้เท่านั้น
+   · 1 ไฟล์ มีได้หลาย Invoice / Invoice เดียวต่อเนื่องหลายหน้า (รวมรายการตามเลข INVOICE · หัวตารางซ้ำไม่นับเป็นรายการ)
+   · ทุกรายการตรวจ QTY × PRICE = EXT PRICE · ไฟล์สแกน: QTY ที่มี * นำหน้าอ่านซ้ำแบบลบ * ออก แล้วรับค่าเฉพาะที่ตรวจเลขผ่าน
+   · อ่านไม่ได้ = เว้นว่าง + แจ้งเตือน (ไม่เดา) · เลข INVOICE ซ้ำข้ามไฟล์ = แจ้งชื่อไฟล์ (ไม่ลบ / ไม่รวม)
+   · เรียง INVOICE น้อย → มาก (ตัวเลขจริง) · ภายใน INVOICE คงลำดับเดิม · EXPORT ตามแม่แบบ MAPPING EDC Invoice ล่าสุด (Sheet "Invoice" · A1:P · ไม่มีแถวสรุป)
+   · PKG / NW / GW / Mark เป็นยอดระดับ INVOICE (TOTAL/SUMME · NET/NETTO · GROSS · SHIPPING MARK) → ลงที่รายการแรกของ INVOICE นั้นแถวเดียว (ไม่ซ้ำทุกแถว)
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  const CDN_PDF  = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  const CDN_PDFW = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const CDN_OCR  = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  const CDN_OCRW = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js';
+  const CDN_OCRC = 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1';
+  const CDN_LANG = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0';
+  const FILE_NAME = 'INVOICE_PDF_MAPPING.xlsx', SHEET = 'Invoice';
+  // แม่แบบ MAPPING: หัวคอลัมน์ B2:P2 (ตรงตัวอักษร) + ความกว้างคอลัมน์
+  // แม่แบบล่าสุด "MAPPING EDC Invoice 834304-7(1).xlsx": Sheet Invoice · หัวตาราง A1:P1 (ตรงตัวอักษร · สกุลเงิน มี 2 คอลัมน์ J และ L) · ข้อมูลเริ่มแถว 2 · ไม่มีแถวสรุป
+  const HEAD = ['Sl. No','Invoice Out','Date','Product Code','PART NO.','Description','Qty','Unit','Price/Unit','สกุลเงิน','AMT','สกุลเงิน','PKG','NW','GW','Mark'];
+  const WIDTH = { 1:10.453125, 2:16.36328125, 3:12.90625, 4:17.54296875, 6:18.6328125, 7:6.90625, 8:8.08984375, 9:15.08984375, 11:11.1796875 };
+  const CUR = ['USD','THB','EUR','JPY','AUD','GBP','CNY','SGD','MYR','VND','INR','ZAR','NZD','CAD','CHF','HKD','KRW','IDR','PHP','ARS','BRL','MXN'];
+  const ST = { files:[], seq:0, chain:Promise.resolve(), busy:0, exporting:false };
+
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const $ = id => document.getElementById(id);
+  const num = s => { const t = String(s == null ? '' : s).replace(/,/g, ''); return /^\d+(\.\d+)?$/.test(t) ? t : null; };   // คืนข้อความตัวเลข (ไม่แปลง float)
+  const cents = (a, b) => edc1fzMulRound2(String(a), String(b == null ? '1' : b));                                        // ROUND HALF UP 2 ตำแหน่ง (BigInt)
+  const absB = x => x < 0n ? -x : x;
+  const invCmp = (a, b) => String(a).localeCompare(String(b), 'en', { numeric:true, sensitivity:'base' });
+
+  /* ── Library (โหลดเมื่อใช้) ── */
+  const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = () => ok(); s.onerror = () => no(new Error('โหลด Library ไม่สำเร็จ (' + src.split('/').pop() + ') — ตรวจการเชื่อมต่ออินเทอร์เน็ต')); document.head.appendChild(s); });
+  let pdfP = null, ocrP = null;
+  function ensurePdf(){ if(!pdfP) pdfP = (window.pdfjsLib ? Promise.resolve() : loadScript(CDN_PDF)).then(() => { if(!window.pdfjsLib) throw new Error('โหลด pdf.js ไม่สำเร็จ'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_PDFW; }).catch(e => { pdfP = null; throw e; }); return pdfP; }
+  function ensureOcr(){ if(!ocrP) ocrP = (window.Tesseract ? Promise.resolve() : loadScript(CDN_OCR)).then(() => window.Tesseract.createWorker('eng', 1, { workerPath:CDN_OCRW, corePath:CDN_OCRC, langPath:CDN_LANG }))
+      .then(async w => { await w.setParameters({ preserve_interword_spaces:'1' }); return w; }).catch(e => { ocrP = null; throw new Error('เตรียม OCR ไม่สำเร็จ: ' + (e && e.message || e)); }); return ocrP; }
+  async function ocr(canvas, psm){ const w = await ensureOcr(); await w.setParameters({ tessedit_pageseg_mode:String(psm) }); const r = await w.recognize(canvas); return r.data; }
+
+  /* ── หน้า PDF → บรรทัด [{ text, words:[{t,x0,x1}], y0, y1 }] ── */
+  async function pageLines(page){
+    const vp = page.getViewport({ scale:1 }), tc = await page.getTextContent();
+    const nChar = tc.items.reduce((n, i) => n + String(i.str || '').replace(/\s/g, '').length, 0);
+    if(nChar >= 40){   // มี Text Layer
+      const ws = [];
+      tc.items.forEach(it => { const s = String(it.str || ''); if(!s.trim()) return; const p = window.pdfjsLib.Util.transform(vp.transform, it.transform), x = p[4], y = p[5], cw = (it.width || 0) / (s.length || 1), h = Math.abs(it.height || p[3] || 8);
+        const re = /\S+/g; let m; while((m = re.exec(s))) ws.push({ t:m[0], x0:x + m.index * cw, x1:x + (m.index + m[0].length) * cw, y, h }); });
+      ws.sort((a, b) => a.y - b.y || a.x0 - b.x0);
+      const lines = []; let cur = null;
+      ws.forEach(w => { if(!cur || Math.abs(w.y - cur.y) > Math.max(2, w.h * 0.45)){ cur = { y:w.y, words:[] }; lines.push(cur); } cur.words.push(w); });
+      lines.forEach(l => { l.words.sort((a, b) => a.x0 - b.x0); l.text = l.words.map(w => w.t).join(' '); });
+      return { lines, ocr:false, canvas:null };
+    }
+    // ไฟล์สแกน → Render 200 dpi → OCR
+    const v2 = page.getViewport({ scale:200 / 72 }), canvas = document.createElement('canvas'); canvas.width = Math.ceil(v2.width); canvas.height = Math.ceil(v2.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently:true }); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext:ctx, viewport:v2 }).promise;
+    const d = await ocr(canvas, 6);
+    const lines = (d.lines || []).map(l => ({ y0:l.bbox.y0, y1:l.bbox.y1, words:(l.words || []).filter(w => String(w.text).trim()).map(w => ({ t:String(w.text).trim(), x0:w.bbox.x0, x1:w.bbox.x1, y0:w.bbox.y0, y1:w.bbox.y1 })) })).filter(l => l.words.length);
+    lines.forEach(l => { l.text = l.words.map(w => w.t).join(' '); });
+    return { lines, ocr:true, canvas };
+  }
+
+  /* ── ท้ายแถวรายการ: … QTY  PIECE WT  UOM  PIECE PRICE  EXT PRICE ── */
+  function parseTail(text){
+    const t = String(text || '').replace(/(\d)\s*\.\s*(\d)/g, '$1.$2').replace(/\s+/g, ' ').trim();
+    const m = t.match(/(\S+) (\d[\d,]*\.\d{1,4}) ([A-Z]{2,3}) (\d[\d,]*\.\d{4,6}) (\d[\d,]*\.\d{2})$/);
+    if(!m) return null;
+    const q = m[1].match(/^\**(\d[\d,]*)$/), o = { qtyRaw:m[1], qty:q ? num(q[1]) : null, wt:num(m[2]), uom:m[3], price:num(m[4]), ext:num(m[5]) };
+    o.valid = !!(o.qty && o.price && o.ext) && absB(cents(o.qty, o.price) - cents(o.ext)) <= 1n;   // QTY × PRICE = EXT (± 0.01)
+    return o;
+  }
+
+  /* ── ไฟล์สแกน: ลบ * นำหน้า QTY (ตัวอักษรเตี้ยกว่าตัวเลข) แล้วอ่านแถวนั้นซ้ำ ── */
+  async function reOcrLine(canvas, line, needTail){
+    const ws = line.words; let qi = -1;
+    for(let i = ws.length - 1; i > 0; i--) if(/^\d[\d,]*\.\d{3,4}$/.test(ws[i].t) && ws[i + 1] && /^[A-Z]{2,3}$/.test(ws[i + 1].t)){ qi = i - 1; break; }
+    if(qi < 0) return { tails:[], texts:[] };
+    const qw = ws[qi], pad = 5, x0 = Math.max(0, ws[0].x0 - 12), x1 = Math.min(canvas.width, ws[ws.length - 1].x1 + 12), ref = ws.slice(qi + 1, qi + 3), y0 = Math.max(0, Math.min.apply(null, ref.map(w => w.y0)) - pad), y1 = Math.min(canvas.height, Math.max.apply(null, ref.map(w => w.y1)) + pad),   /* ความสูงแถว = คำตัวเลขข้างเคียง (PIECE WT / UOM) — กรอบบรรทัดของ OCR อาจคร่อมหลายแถว */ W = x1 - x0, H = y1 - y0;
+    const base = document.createElement('canvas'); base.width = W; base.height = H; const bc = base.getContext('2d', { willReadFrequently:true }); bc.drawImage(canvas, x0, y0, W, H, 0, 0, W, H);
+    const rx = Math.max(0, qw.x0 - x0 - 3), rw = Math.min(W - rx, qw.x1 - qw.x0 + 6), img = bc.getImageData(rx, 0, rw, H), D = img.data;
+    const ink = (x, y) => { const k = (y * rw + x) * 4; return (D[k] * 0.299 + D[k + 1] * 0.587 + D[k + 2] * 0.114) < 128; };
+    const segs = []; let s = -1;
+    for(let x = 0; x <= rw; x++){ let any = false; if(x < rw) for(let y = pad; y < H - pad; y++) if(ink(x, y)){ any = true; break; }
+      if(any && s < 0) s = x; if(!any && s >= 0){ let a = H, b = -1; for(let xx = s; xx < x; xx++) for(let y = pad; y < H - pad; y++) if(ink(xx, y))   /* วัดเฉพาะแถบของแถวนี้ (ไม่รวมขอบบน/ล่างที่อาจติดแถวข้างเคียง) */{ if(y < a) a = y; if(y > b) b = y; } segs.push({ s, e:x, h:b - a + 1 }); s = -1; } }
+    const mh = segs.length ? Math.max.apply(null, segs.map(g => g.h)) : 0, short = segs.filter(g => g.h < 0.8 * mh), star = short.length && short.length < segs.length;
+    if(star){ bc.fillStyle = '#fff'; short.forEach(g => bc.fillRect(rx + g.s - 1, 0, g.e - g.s + 2, H)); }   // ลบ * (เตี้ยกว่าตัวเลข) ออกก่อนอ่านซ้ำ
+    const out = { tails:[], texts:[] };
+    for(const sc of [2, 1]){ const c = document.createElement('canvas'); c.width = (W + 40) * sc; c.height = (H + 40) * sc; const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height); cc.imageSmoothingEnabled = true; cc.imageSmoothingQuality = 'high'; cc.drawImage(base, 0, 0, W, H, 20 * sc, 20 * sc, W * sc, H * sc);
+      const d = await ocr(c, 7), tx = String(d.text || '').replace(/\n/g, ' ').trim(), t = parseTail(tx); out.texts.push(tx);
+      if(window.__PDFX_DEBUG) window.__PDFX_DEBUG.push({ page:0, ocr:true, text:'REOCR x' + sc + ' → ' + tx });
+      if(t) out.tails.push(t); if(needTail ? (t && t.valid) : true) break; }
+    return out;
+  }
+
+  /* ── หน้า Invoice → { invNo, date, cur, net, total, pageNo, pageOf, items[], warn[] } ── */
+  async function parseInvoicePage(pg, pageIdx){
+    const L = pg.lines, all = L.map(l => l.text).join('\n'), warn = [], P = 'หน้า ' + (pageIdx + 1) + ': ';
+    const mInv = all.match(/RECHNUNG\s*NR[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?([0-9]{6,})\b/i) || all.match(/INVOICE\s*NO\.?\s*[:;]\s*([0-9]{6,})\b/i);   /* ตัวคั่น ":" ที่ OCR อ่านเป็นอักขระเดี่ยว 1 ตัว ยอมรับได้ · เลข INVOICE ต้องเป็นตัวเลขล้วน */
+    const o = { invNo:mInv ? mInv[1] : null, date:null, cur:null, cur2:null, net:null, gross:null, pkg:null, mark:null, total:null, pageNo:null, pageOf:null, items:[], warn, ocr:pg.ocr };
+    let m;
+    if((m = all.match(/DATE\s*SHIPPED\s*\/?\s*VERSANDDATUM[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/i))){ const mo = +m[2], d = +m[3]; if(mo >= 1 && mo <= 12 && d >= 1 && d <= 31) o.date = m[1] + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+    if((m = all.match(/PAGE\s*\/?\s*SEITE\W{0,3}\s*(\d{1,3})\s*\/\s*(\d{1,3})/i))){ o.pageNo = +m[1]; o.pageOf = +m[2]; }
+    if((m = all.match(/PIECE\s*PRICE\s*[\(C]?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur = m[1].toUpperCase();
+    else if((m = all.match(/TOTAL\s*INVOICE\s*\(?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur = m[1].toUpperCase();
+    if((m = all.match(/EXT\s*PRICE\s*[\(C]?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur2 = m[1].toUpperCase();
+    else if((m = all.match(/TOTAL\s*INVOICE\s*\(?\s*([A-Z]{3})\s*\)/i)) && CUR.includes(m[1].toUpperCase())) o.cur2 = m[1].toUpperCase();
+    if((m = all.match(/GROSS\s*\/\s*B\w{4,6}[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d[\d,]*\.\d{1,3})\b/i))) o.gross = num(m[1]);
+    if((m = all.match(/TOTAL\s*\/\s*SUMME[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d{1,6})\s*$/im))) o.pkg = m[1];
+    { const ml = L.find(l => /SHIPPING\s*MARK/i.test(l.text)); if(ml){ const t = ml.text.replace(/^.*?SHIPPING\s*MARK\s*:?/i, '').replace(/\s*(GESAMTRECH|TOTAL\s*INVOICE).*$/i, '').trim(); if(t) o.mark = t; } }
+    if((m = all.match(/NET\s*\/\s*NETTO[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?(\d[\d,]*\.\d{1,3})\b/i))) o.net = num(m[1]);
+    if((m = all.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2').match(/GESAMTRECH\w*BETRAG\W{0,3}\s*(\d[\d,]*\.\d{2})/i))) o.total = num(m[1]);
+    // ช่วงรายการ: ใต้หัวตาราง PART NUMBER … DESCRIPTION → ก่อนบรรทัดสรุป
+    const hi = L.findIndex(l => /PART\s*NUMBER/i.test(l.text) && /DESCRIPTION/i.test(l.text));
+    if(hi < 0){ warn.push(P + 'ไม่พบหัวตารางรายการ (PART NUMBER / DESCRIPTION)'); return o; }
+    const hw = L[hi].words, wDesc = hw.find(w => /^DESCRIPTION/i.test(w.t)), wOrig = hw.find(w => /^ORIG/i.test(w.t));
+    const cw = wDesc ? (wDesc.x1 - wDesc.x0) / wDesc.t.length : 8, tol = cw * 1.5;
+    for(let i = hi + 1; i < L.length; i++){
+      const ln = L[i], tx = ln.text;
+      if(/GESAMTRECH|SHIPPING\s*MARK|JIRISTIC|TAX\s*ID|TOTAL\s*INVOICE|CONTAINERS\s*&|PAYMENT\s*TERM|CONVEYANCE\s*NO/i.test(tx)) break;
+      if(/PART\s*NUMBER/i.test(tx) && /DESCRIPTION/i.test(tx)) continue;                 // หัวตารางซ้ำ
+      if(!/[A-Za-z0-9]{3}/.test(tx.replace(/[-_=~.*\s]/g, ''))) continue;                // เส้นคั่น / บรรทัดว่าง
+      let tail = parseTail(tx), reread = false;
+      let second = null;   // ไฟล์สแกน: อ่านแถวซ้ำอีกรอบ (ขยาย 2 เท่า) — ใช้ยืนยัน PART NO. และหา QTY ที่ตรวจเลขผ่าน
+      if(pg.ocr){ const need = !tail || !tail.valid, alt = await reOcrLine(pg.canvas, ln, need); second = alt.texts[0] || null;
+        if(need){ const ok = alt.tails.find(a => a.valid); if(ok){ tail = ok; reread = true; } else if(!tail && alt.tails.length) tail = alt.tails[0]; } }
+      const left = ln.words.filter(w => wOrig ? w.x0 < wOrig.x0 - tol : true);
+      let partW, descW;
+      if(wDesc){ partW = left.filter(w => w.x0 < wDesc.x0 - tol); descW = left.filter(w => w.x0 >= wDesc.x0 - tol); }
+      else { let k = 0; while(k < left.length - 1 && /-$/.test(left[k].t)) k++; partW = left.slice(0, k + 1); descW = left.slice(k + 1); }
+      const part = partW.map(w => w.t).join('').replace(/\s+/g, ''), desc = descW.map(w => w.t).join(' ').trim();
+      if(!tail && !/[A-Z0-9]{2,}-[A-Z0-9]/i.test(part)){ warn.push(P + 'ข้ามบรรทัดที่ไม่ใช่รายการ: "' + tx.slice(0, 70) + '"'); continue; }
+      const it = { part, desc, qty:null, wt:null, uom:null, price:null, ext:null, ok:false, reread, page:pageIdx + 1, raw:tx };
+      const W = 'รายการ ' + (part || '(ไม่มี PART NO.)') + ': ';
+      if(!tail){ warn.push(P + W + 'อ่าน QTY / WEIGHT / PRICE ไม่ได้ — เว้นว่าง'); }
+      else { it.wt = tail.wt; it.uom = tail.uom; it.price = tail.price; it.ext = tail.ext; it.ok = tail.valid;
+        if(tail.valid) it.qty = tail.qty;
+        else if(tail.qty && !pg.ocr){ it.qty = tail.qty; warn.push(P + W + 'QTY × PRICE (' + tail.qty + ' × ' + tail.price + ') ≠ EXT PRICE ' + tail.ext + ' — โปรดตรวจทาน'); }
+        else warn.push(P + W + 'อ่าน QTY ไม่ได้ / ตรวจ QTY × PRICE = EXT PRICE ไม่ผ่าน ("' + tail.qtyRaw + '") — เว้นว่าง'); }
+      if(!part) warn.push(P + W + 'อ่าน PART NO. ไม่ได้ — เว้นว่าง');
+      else if(pg.ocr){ const k = part.replace(/[^A-Z0-9]/gi, '').toUpperCase(), s2 = second == null ? null : second.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if(s2 == null || s2.indexOf(k) !== 0){ it.partDoubt = true; warn.push(P + W + 'PART NO. อ่าน 2 รอบได้ไม่ตรงกัน' + (second ? ' (รอบ 2: "' + second.split(/\s{2,}/)[0].slice(0, 30) + '")' : '') + ' — โปรดตรวจทานกับเอกสาร'); } }
+      if(!desc) warn.push(P + W + 'อ่าน Description ไม่ได้ — เว้นว่าง');
+      o.items.push(it);
+    }
+    return o;
+  }
+
+  /* ── หน้า CASE SUMMARY - PART DETAIL (ถ้ามี) → ใช้ตรวจทาน PART NO. / QTY ── */
+  function parseCasePage(pg){
+    const all = pg.lines.map(l => l.text).join('\n'), m = all.match(/SHIPPER\s*NO[^0-9A-Za-z]{0,4}(?:[A-Za-z0-9|]\s+)?([0-9]{6,})\b/i), map = {};
+    pg.lines.forEach(l => { const x = l.text.match(/^\S+\s+(\S+?)[-~–—]\s*(\S+-\S+)\s+.*?\s(\d+)$/); if(x){ const k = (x[1] + x[2]).replace(/[^A-Z0-9]/gi, '').toUpperCase(); map[k] = (map[k] || 0) + (+x[3]); } });
+    return { shipper:m ? m[1] : null, map };
+  }
+
+  /* ── อ่าน 1 ไฟล์ ── */
+  async function readFile(f){
+    await ensurePdf();
+    const buf = await f.file.arrayBuffer(), doc = await window.pdfjsLib.getDocument({ data:new Uint8Array(buf) }).promise;
+    const invs = new Map(), cases = {}, warn = []; let usedOcr = false;
+    for(let p = 1; p <= doc.numPages; p++){
+      f.status = 'กำลังอ่าน หน้า ' + p + '/' + doc.numPages; render();
+      const pg = await pageLines(await doc.getPage(p)), all = pg.lines.map(l => l.text).join('\n'); if(pg.ocr) usedOcr = true;
+      if(window.__PDFX_DEBUG) window.__PDFX_DEBUG.push({ file:f.name, page:p, ocr:pg.ocr, text:all });
+      if(/CASE\s*SUMMARY/i.test(all)){ if(/PART\s*DETAIL/i.test(all)){ const c = parseCasePage(pg); if(c.shipper){ const t = cases[c.shipper] || (cases[c.shipper] = {}); Object.keys(c.map).forEach(k => { t[k] = (t[k] || 0) + c.map[k]; }); } } continue; }
+      const isInv = /PART\s*NUMBER\s*\/?\s*TEILNUMMER/i.test(all) || /RECHNUNG\s*NR/i.test(all);
+      if(!isInv){ if(all.replace(/\s/g, '').length > 30) warn.push('หน้า ' + p + ': ไม่ใช่หน้า Invoice — ข้าม'); continue; }
+      const r = await parseInvoicePage(pg, p - 1); warn.push(...r.warn);
+      if(!r.invNo){ warn.push('หน้า ' + p + ': อ่านเลข INVOICE ไม่ได้ — ไม่นำรายการของหน้านี้มารวม (' + r.items.length + ' รายการ)'); f.partial = true; continue; }
+      let iv = invs.get(r.invNo); if(!iv){ iv = { invNo:r.invNo, date:null, cur:null, cur2:null, net:null, gross:null, pkg:null, mark:null, total:null, pageOf:null, pages:[], items:[], ocr:false }; invs.set(r.invNo, iv); }
+      ['date','cur','cur2','net','gross','pkg','mark','total','pageOf'].forEach(k => { if(iv[k] == null && r[k] != null) iv[k] = r[k]; });
+      iv.pages.push(r.pageNo || iv.pages.length + 1); iv.ocr = iv.ocr || r.ocr; r.items.forEach(it => iv.items.push(it));
+      if(pg.canvas){ pg.canvas.width = 0; pg.canvas = null; }
+    }
+    try{ doc.destroy(); }catch(_){}
+    // ตรวจทานต่อ INVOICE
+    invs.forEach(iv => { const T = 'INVOICE ' + iv.invNo + ': ';
+      if(!iv.items.length) warn.push(T + 'ไม่พบรายการสินค้า');
+      if(!iv.date) warn.push(T + 'อ่าน DATE SHIPPED ไม่ได้ — เว้นว่าง');
+      if(!iv.cur) warn.push(T + 'อ่านสกุลเงินของ Price/Unit ไม่ได้ — เว้นว่าง');
+      if(!iv.cur2) warn.push(T + 'อ่านสกุลเงินของ AMT ไม่ได้ — เว้นว่าง');
+      const full = !iv.pageOf || iv.pages.length === iv.pageOf;
+      if(full && !iv.pkg) warn.push(T + 'อ่าน PKG (TOTAL/SUMME) ไม่ได้ — เว้นว่าง');
+      if(full && !iv.net) warn.push(T + 'อ่าน NW (NET/NETTO) ไม่ได้ — เว้นว่าง');
+      if(full && !iv.gross) warn.push(T + 'อ่าน GW (GROSS) ไม่ได้ — เว้นว่าง');
+      if(iv.net && iv.gross && cents(iv.net) > cents(iv.gross)) warn.push(T + 'NW ' + iv.net + ' มากกว่า GW ' + iv.gross + ' — โปรดตรวจทาน');
+      if(iv.pageOf && iv.pages.length !== iv.pageOf) warn.push(T + 'พบ ' + iv.pages.length + ' หน้า จากทั้งหมด ' + iv.pageOf + ' หน้า — รายการอาจไม่ครบ');
+      if(iv.total && iv.items.every(i => i.ext)){ const s = iv.items.reduce((a, i) => a + cents(i.ext), 0n); if(s !== cents(iv.total)) warn.push(T + 'รวม EXT PRICE ' + edc1fzCents(s) + ' ≠ ยอดรวม INVOICE ' + edc1fzCents(cents(iv.total)) + ' — โปรดตรวจทาน'); }
+      else if(!iv.total && (!iv.pageOf || iv.pages.length === iv.pageOf)) warn.push(T + 'อ่านยอดรวม INVOICE ไม่ได้ — ตรวจยอดรวมไม่ได้');
+      if(iv.net && iv.items.length && iv.items.every(i => i.qty && i.wt)){ const s = iv.items.reduce((a, i) => a + cents(i.qty, i.wt), 0n); if(absB(s - cents(iv.net)) > BigInt(iv.items.length + 1)) warn.push(T + 'QTY × PIECE WT รวม ' + edc1fzCents(s) + ' ต่างจาก NET/NETTO ' + edc1fzCents(cents(iv.net)) + ' — โปรดตรวจทาน NW'); }   /* ตรวจทานเท่านั้น (ยอมส่วนต่างปัดเศษ) · NW ใน Excel = NET/NETTO ของเอกสาร */
+      const cs = cases[iv.invNo]; if(cs && Object.keys(cs).length) iv.items.forEach(i => { const k = i.part.replace(/[^A-Z0-9]/gi, '').toUpperCase(); if(!k) return;
+        if(!(k in cs)) warn.push(T + 'PART NO. ' + i.part + ' ไม่พบในหน้า CASE SUMMARY ของไฟล์เดียวกัน — โปรดตรวจทานตัวอักษร');
+        else if(i.qty && String(cs[k]) !== String(i.qty)) warn.push(T + 'PART NO. ' + i.part + ': QTY ' + i.qty + ' ≠ รวม CASE SUMMARY ' + cs[k] + ' — โปรดตรวจทาน'); });
+    });
+    f.invoices = [...invs.values()]; f.warn = warn; f.ocr = usedOcr;
+    if(!f.invoices.length) throw new Error('ไม่พบ Invoice ในไฟล์ (ต้องมีเลข INVOICE NO./RECHNUNG NR และตาราง PART NUMBER)');
+  }
+
+  /* ── รวม + เรียง INVOICE ASC (คงลำดับรายการเดิม) ── */
+  function build(){
+    const okF = ST.files.filter(f => f.state === 'ok'), blocks = [];
+    okF.forEach((f, fi) => f.invoices.forEach((iv, ii) => blocks.push({ f, iv, fi, ii })));
+    blocks.sort((a, b) => invCmp(a.iv.invNo, b.iv.invNo) || a.fi - b.fi || a.ii - b.ii);
+    const rows = []; blocks.forEach(b => b.iv.items.forEach((it, k) => rows.push({ it, iv:b.iv, f:b.f, first:k === 0 })));
+    const byNo = {}; blocks.forEach(b => { (byNo[b.iv.invNo] = byNo[b.iv.invNo] || []).push(b.f.name); });
+    const dup = Object.keys(byNo).filter(k => byNo[k].length > 1).map(k => 'เลข INVOICE ' + k + ' ซ้ำ ' + byNo[k].length + ' ไฟล์: ' + byNo[k].join(' , ') + ' — ไม่ลบ / ไม่รวม (อยู่ครบทุกไฟล์)');
+    return { rows, blocks, dup, order:[...new Set(blocks.map(b => b.iv.invNo))] };
+  }
+
+  /* ── หน้าจอ ── */
+  function render(){
+    const list = $('pdfxList'), res = $('pdfxResult'), btn = $('pdfxExportBtn'); if(!list) return;
+    list.innerHTML = ST.files.map(f => { const ic = f.state === 'ok' ? (f.partial || (f.warn && f.warn.length) ? '⚠️' : '✅') : f.state === 'err' ? '❌' : '⏳', col = f.state === 'err' ? '#f87171' : f.state === 'ok' ? (ic === '⚠️' ? '#fbbf24' : '#34d399') : 'var(--text-3)';
+      return '<div class="pdfx-file" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;margin-top:6px;font-size:12px"><span>📄</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">' + esc(f.name) + '</span><span class="pdfx-st" style="color:' + col + ';white-space:nowrap">' + ic + ' ' + esc(f.status) + '</span><button class="btn-reset" style="padding:2px 9px" title="ลบไฟล์นี้" onclick="pdfxRemove(' + f.id + ')">✕ ลบ</button></div>'; }).join('');
+    const B = build(), reading = ST.busy > 0;
+    if(btn) btn.disabled = reading || !B.rows.length || ST.exporting;
+    const hint = $('pdfxHint'); if(hint) hint.textContent = reading ? '⏳ กำลังอ่านไฟล์…' : (B.rows.length ? 'พร้อม EXPORT — ' + B.rows.length + ' รายการ · ' + B.order.length + ' INVOICE' : (ST.files.length ? '⚠ ยังไม่มีไฟล์ที่อ่านสำเร็จ' : '⚠ กรุณาอัปโหลด PDF Invoice'));
+    if(!res) return;
+    if(!ST.files.length){ res.style.display = 'none'; res.innerHTML = ''; return; }
+    const errF = ST.files.filter(f => f.state === 'err'), warns = [].concat(B.dup, ...ST.files.filter(f => f.state === 'ok').map(f => (f.warn || []).map(w => f.name + ' — ' + w)));
+    const td = 'style="padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap"', f6 = v => v == null ? '' : esc(v);
+    let h = '';
+    if(B.rows.length) h += '<div style="font-weight:700;margin-bottom:6px">อ่านได้ ' + B.rows.length + ' รายการ · ' + B.order.length + ' INVOICE · ' + ST.files.filter(f => f.state === 'ok').length + ' ไฟล์</div><div style="font-size:12px;opacity:.85;margin-bottom:8px">ลำดับ INVOICE: ' + B.order.map(esc).join(' → ') + '</div>';
+    if(ST.files.some(f => f.state === 'ok' && f.ocr)) h += '<div style="font-size:12px;color:#fbbf24;margin:6px 0">⚠ มีไฟล์สแกน (ภาพ) — อ่านด้วย OCR: ' + ST.files.filter(f => f.state === 'ok' && f.ocr).map(f => esc(f.name)).join(' , ') + ' · โปรดตรวจทานตัวอักษร PART NO. / Description กับเอกสารก่อนใช้งาน</div>';
+    if(errF.length) h += '<div style="font-size:12px;color:#f87171;font-weight:700;margin:6px 0">❌ อ่านไม่สำเร็จ ' + errF.length + ' ไฟล์ (ไม่อยู่ใน EXPORT):<br>' + errF.map(f => '• ' + esc(f.name) + ' — ' + esc(f.status)).join('<br>') + '</div>';
+    if(warns.length) h += '<div style="font-size:12px;color:#f87171;margin:6px 0">⚠ แจ้งเตือน ' + warns.length + ' รายการ:<br>' + warns.map(w => '• ' + esc(w)).join('<br>') + '</div>';
+    if(B.rows.length){ h += '<div style="overflow:auto;max-height:420px;margin-top:8px"><table style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr>' + HEAD.concat(['ไฟล์']).map(x => '<th ' + td + '>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>'
+      + B.rows.map((r, i) => { const it = r.it, iv = r.iv, F1 = v => r.first ? f6(v) : ''; return '<tr>' + [i + 1, f6(iv.invNo), f6(iv.date), f6(it.part.replace(/[^A-Z0-9]/gi, '')), f6(it.part), f6(it.desc), f6(it.qty), f6(it.uom), f6(it.price), f6(iv.cur), f6(it.ext), f6(iv.cur2), F1(iv.pkg), F1(iv.net), F1(iv.gross), F1(iv.mark), f6(r.f.name)].map(x => '<td ' + td + '>' + x + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table></div>'; }
+    res.innerHTML = h; res.style.display = h ? 'block' : 'none';
+  }
+
+  function addFiles(fl){
+    const arr = [...(fl || [])]; if(!arr.length) return;
+    arr.forEach(file => { const f = { id:++ST.seq, name:file.name, file, state:'wait', status:'รออ่าน', invoices:[], warn:[] };
+      ST.files.push(f);
+      if(!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf'){ f.state = 'err'; f.status = 'ไม่ใช่ไฟล์ PDF'; return; }
+      ST.busy++;
+      ST.chain = ST.chain.then(async () => { if(!ST.files.includes(f)) return; try{ f.status = 'กำลังอ่าน…'; render(); await readFile(f); if(!ST.files.includes(f)) return; f.state = 'ok'; const n = f.invoices.reduce((a, iv) => a + iv.items.length, 0); f.status = 'อ่านสำเร็จ ' + f.invoices.length + ' INVOICE · ' + n + ' รายการ' + (f.ocr ? ' (OCR)' : '') + (f.warn.length ? ' · เตือน ' + f.warn.length : ''); }
+        catch(e){ f.state = 'err'; f.status = 'อ่านไม่สำเร็จ: ' + (e && e.message || e); } }).then(() => { ST.busy--; render(); });
+    });
+    render();
+  }
+  function pdfxRemove(id){ ST.files = ST.files.filter(f => f.id !== id); render(); }
+  function pdfxReset(){ ST.files = []; const inp = $('pdfxInput'); if(inp) inp.value = ''; render(); }
+
+  /* ── EXPORT ตามแม่แบบ MAPPING ── */
+  async function buildExcel(B){
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(SHEET, { properties:{ defaultRowHeight:14.5 } });
+    Object.keys(WIDTH).forEach(c => { ws.getColumn(+c).width = WIDTH[c]; });
+    const thin = { top:{ style:'thin' }, left:{ style:'thin' }, bottom:{ style:'thin' }, right:{ style:'thin' } }, CAL = b => ({ name:'Calibri', size:11, bold:!!b, color:{ argb:'FF000000' } });
+    const FMT = { 2:'mm-dd-yy', 8:'0.000000', 10:'#,##0.00', 13:'0.00' };                                  // C I K N ตามแม่แบบ
+    const FONT = { 3:{ name:'Aptos', size:11 }, 5:{ name:'Aptos', size:9 }, 10:{ name:'Aptos', size:11 } };   // D F K ตามแม่แบบ
+    HEAD.forEach((h, i) => { const c = ws.getCell(1, i + 1); c.value = h; c.font = CAL(true); c.border = thin; c.alignment = { horizontal:'center' }; });
+    const N = v => v == null ? null : Number(v), D = v => { const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; };
+    B.rows.forEach((x, i) => { const it = x.it, iv = x.iv, F1 = v => x.first ? v : null, row = ws.getRow(i + 2);
+      //            A      B                 C           D                                                        E                F                G          H               I            J               K          L                M              N              O                P
+      const vals = [i + 1, String(iv.invNo), D(iv.date), it.part ? it.part.replace(/[^A-Z0-9]/gi, '') : null, it.part || null, it.desc || null, N(it.qty), it.uom || null, N(it.price), iv.cur || null, N(it.ext), iv.cur2 || null, F1(N(iv.pkg)), F1(N(iv.net)), F1(N(iv.gross)), F1(iv.mark || null)];
+      vals.forEach((v, k) => { const c = row.getCell(k + 1); if(v != null && v !== '') c.value = v; c.font = FONT[k] || CAL(false); c.border = thin; if(FMT[k]) c.numFmt = FMT[k]; }); });
+    return wb.xlsx.writeBuffer();
+  }
+  async function pdfxExport(){
+    if(ST.exporting || ST.busy > 0) return; const B = build();
+    if(!B.rows.length){ alert('⚠ ยังไม่มีข้อมูลที่อ่านสำเร็จ'); return; }
+    ST.exporting = true; render();
+    try{ const ok = await hspmEnsureExcel(); if(!ok || !window.ExcelJS) throw new Error('โหลด ExcelJS ไม่สำเร็จ');
+      safeDownload(await buildExcel(B), FILE_NAME, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); }
+    catch(e){ alert('EXPORT EXCEL ไม่สำเร็จ: ' + (e && e.message || e)); }
+    finally{ ST.exporting = false; render(); }
+  }
+
+  function init(){
+    const dz = $('pdfxDZ'), inp = $('pdfxInput'); if(!dz || !inp) return;
+    inp.addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#0ea5e9'; });
+    dz.addEventListener('dragleave', e => { e.preventDefault(); dz.style.borderColor = ''; });
+    dz.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dz.style.borderColor = ''; addFiles(e.dataTransfer.files); });
+    render();
+  }
+  window.pdfxRemove = pdfxRemove; window.pdfxReset = pdfxReset; window.pdfxExport = pdfxExport;
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 <script>
