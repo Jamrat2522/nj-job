@@ -923,14 +923,19 @@ export async function edit837(o) {
     let ov = document.createElement("div"); ov.className = "c836-ov"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true");
     ov.innerHTML = `<div class="c836-b" style="max-width:980px"><div class="c836-h"><h3>+ เพิ่ม INVOICE (รอรับชำระ · UPLOAD EXCEL · ${src === "RCP" ? "SERVICE" : "ADVANCE"})</h3><button type="button" class="btn-icon" data-x837 aria-label="ปิด">✕</button></div>`
       + `<div class="c836-c"><input class="inp" id="c837-q" placeholder="ค้นหา INVOICE / บริษัท / Customer Job No. / ลูกค้า" autocomplete="off"><div id="c837-k" style="font-size:12px;color:#475569"></div><div class="c837-list" id="c837-l"><div class="load-row"><div class="spin"></div></div></div></div>`
-      + `<div class="c836-f"><span id="c837-n" style="margin-right:auto;color:#475569"></span><button type="button" class="btn btn-o" data-x837>ยกเลิก</button><button type="button" class="btn btn-p" id="c837-ok" disabled>เพิ่มรายการที่เลือก</button></div></div>`;
+      + `<div class="c836-f"><span id="c837-n" style="margin-right:auto;color:#475569"></span><span id="c837-pg" style="color:#475569;margin-right:10px;white-space:nowrap"></span><button type="button" class="btn btn-sm" id="c837-pv871" disabled>‹ ก่อนหน้า</button><button type="button" class="btn btn-sm" id="c837-nx871" style="margin-right:8px" disabled>ถัดไป ›</button><button type="button" class="btn btn-o" data-x837>ยกเลิก</button><button type="button" class="btn btn-p" id="c837-ok" disabled>เพิ่มรายการที่เลือก</button></div></div>`;
     document.body.appendChild(ov);
     let rows = [], pickd = new Map(), L = ov.querySelector("#c837-l"), ok = ov.querySelector("#c837-ok"), cn = ov.querySelector("#c837-n");
+    let P871 = { page: 1, size: 300, total: 0, q: "" };   /* V.871 : แบ่งหน้า — ไม่ตัดรายการเก่าทิ้ง */
+    let PG871 = ov.querySelector("#c837-pg"), BP871 = ov.querySelector("#c837-pv871"), BN871 = ov.querySelector("#c837-nx871");
+    let pager871 = () => { let np = Math.max(1, Math.ceil(P871.total / P871.size));
+      PG871.textContent = "ทั้งหมด " + N(P871.total) + " รายการ · หน้า " + P871.page + " / " + np;
+      BP871.disabled = P871.page <= 1; BN871.disabled = P871.page >= np; };
     let close = () => { document.removeEventListener("keydown", key, !0); ov.remove(); };
     let key = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(); } };
     document.addEventListener("keydown", key, !0);
     ov.addEventListener("click", (ev) => { if (ev.target === ov || (ev.target.closest && ev.target.closest("[data-x837]"))) close(); });
-    let sync = () => { let s = 0; pickd.forEach((x) => { s += Math.round(Number(x.amount || 0) * 100); }); ok.disabled = !pickd.size; ok.textContent = "เพิ่มรายการที่เลือก" + (pickd.size ? " (" + pickd.size + ")" : ""); cn.textContent = pickd.size ? "เลือก " + N(pickd.size) + " รายการ · ยอดที่เพิ่ม " + MONEY(s / 100) : ""; };
+    let sync = () => { let s = 0; pickd.forEach((x) => { s += Math.round(Number(x.amount || 0) * 100); }); ok.disabled = !pickd.size; ok.textContent = "เพิ่มรายการที่เลือก" + (pickd.size ? " (" + pickd.size + ")" : ""); cn.textContent = pickd.size ? "เลือก " + N(pickd.size) + " รายการ (คงไว้ข้ามหน้า) · ยอดที่เพิ่ม " + MONEY(s / 100) : "ยังไม่ได้เลือกรายการ"; };   /* V.871 */
     let render = () => {
       let have = new Set([...(st.g.items || []).map((x) => x.item_id), ...st.add.keys()]);
       let list = rows.filter((x) => !have.has(x.item_id));
@@ -940,14 +945,23 @@ export async function edit837(o) {
       L.querySelectorAll("[data-c837]").forEach((c) => { c.onchange = () => { let r = rows.find((x) => x.item_id === c.dataset.c837); c.checked && r ? pickd.set(r.item_id, r) : pickd.delete(c.dataset.c837); sync(); }; });
       sync();
     };
-    let tm = 0, get = async (qq) => {
+    let tm = 0, get = async (qq, pno) => {
+      P871.q = qq || ""; P871.page = Math.max(1, pno || 1);
       L.innerHTML = '<div class="load-row"><div class="spin"></div></div>';
-      try { let r = await RPC("njacc_r837_cands", { p: { src, id, q: qq || null } }); rows = r.rows || []; ov.querySelector("#c837-k").textContent = "ลูกค้า (ชื่อใน Excel / TAX ID + BRANCH ที่ยืนยันตรงกัน) : " + (r.keys || []).join(", "); render(); }
+      try { let r = await RPC("njacc_r837_cands", { p: { src, id, q: qq || null, page: P871.page, size: P871.size } });   /* V.871 : แบ่งหน้า (ค้นหาบนฐานข้อมูลทั้งหมด) */
+        rows = r.rows || []; P871.total = Number(r.total != null ? r.total : rows.length);
+        let kk = (r.keys || []);
+        ov.querySelector("#c837-k").textContent = kk.length
+          ? "ลูกค้า (ชื่อใน Excel / TAX ID + BRANCH ที่ยืนยันตรงกัน) : " + kk.join(", ")
+          : "⚠ ยังจับคู่ลูกค้าไม่ได้ — ตรวจ Customer Master / TAX ID / BRANCH ของใบเสร็จนี้";
+        render(); pager871(); }
       catch (e) { L.innerHTML = `<div class="radv788-err">${n(R837(e))}</div>`; }
     };
-    ov.querySelector("#c837-q").oninput = (ev) => { clearTimeout(tm); tm = setTimeout(() => get(ev.target.value.trim()), 300); };
+    BP871.onclick = () => { if (P871.page > 1) get(P871.q, P871.page - 1); };
+    BN871.onclick = () => get(P871.q, P871.page + 1);
+    ov.querySelector("#c837-q").oninput = (ev) => { clearTimeout(tm); tm = setTimeout(() => get(ev.target.value.trim(), 1), 300); };
     ok.onclick = () => { pickd.forEach((x, k) => st.add.set(k, x)); close(); recalc(); };
-    get("");
+    get("", 1);
   };
   q("#e837-pv").onclick = async () => {
     if (!st.pv || (st.pv.errors || []).length) return;

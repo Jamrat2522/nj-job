@@ -200,7 +200,7 @@ function UIX866(jobs) {
   return mp;
 }
 function UM866(r, k, idx, hdr) {
-  var m = { no: k + 1, xr: r.xr, bk: r.bk, ct: r.ct, po: r.po, dt: null, draw: "", dbad: "", de: r.de, cands: [], pick: "", st: "", why: "", all: r.all || [], fmt: r.fmt || [], sv: "", sve: "" };   /* V.868 */
+  var m = { no: k + 1, xr: r.xr, bk: r.bk, ct: r.ct, po: r.po, dt: null, draw: "", dbad: "", de: r.de, cands: [], pick: "", st: "", why: "", all: r.all || [], fmt: r.fmt || [], sv: "", sve: "", dov: "" };   /* V.868 · V.873 : dov = วันที่ที่ผู้ใช้กดใช้ */
   if (!r.de) {
     m.draw = r.dv instanceof Date ? "" : r.ds;
     m.dt = UD866(r.dv instanceof Date ? r.dv : r.ds !== "" ? r.ds : r.dv);
@@ -238,10 +238,11 @@ function UCG866(m, job) {   /* ค่าเดิม / ค่าใหม่ แ
   o.cjOld = String(w.customer_job_no == null ? "" : w.customer_job_no).trim();
   o.dtOld = String(w.invoice_date == null ? "" : w.invoice_date).slice(0, 10);
   if (m.po && m.po !== o.cjOld) o.cj = m.po;
-  if (m.dt && m.dt !== o.dtOld) {
+  var nd = m.dov || m.dt;   /* V.873 : วันที่ที่ผู้ใช้เลือกและกด "ใช้วันที่" แทนวันที่จาก Excel · ไม่กด = ใช้ของ Excel ตามเดิม */
+  if (nd && nd !== o.dtOld) {
     if (!w.invoice_id) o.derr = "งานนี้ยังไม่มี INVOICE";
     else if (stt !== "POSTED" && stt !== "ISSUED") o.derr = "INVOICE สถานะ " + (stt || "-") + " (แก้วันที่ได้เฉพาะใบที่ POST แล้ว)";
-    else o.dt = m.dt;
+    else o.dt = nd;
   }
   return o;
 }
@@ -255,7 +256,8 @@ function UG866(mdl) {   /* หลายแถวชี้งานเดีย�
     var cj = null, dt = null, b = false;
     a.forEach(function (m) {
       if (m.po) { if (cj === null) cj = m.po; else if (cj !== m.po) b = true; }
-      if (m.dt) { if (dt === null) dt = m.dt; else if (dt !== m.dt) b = true; }
+      var nd = m.dov || m.dt;   /* V.873 */
+      if (nd) { if (dt === null) dt = nd; else if (dt !== nd) b = true; }
     });
     if (b) bad.add(id);
   });
@@ -336,9 +338,9 @@ function UES868(m, bad) {   /* สถานะจริงของแถว : {
   if (m.sv === "fail") return { s: "บันทึกล้มเหลว : " + (m.sve || ""), ok: false };
   if (m.sv === "nochg") return { s: "ไม่เปลี่ยนแปลง", ok: true };
   var k = UST866(m, bad || UG866([m])).k;
-  if (k === "nochg") return { s: "ไม่เปลี่ยนแปลง", ok: true };
-  if (k === "ok") return { s: "ยังไม่บันทึก", ok: false };
-  if (k === "empty") return { s: "ข้อมูลว่าง", ok: false };
+  if (k === "nochg") return { s: "ไม่เปลี่ยนแปลง (ค่าเหมือนเดิม)", ok: true };
+  if (k === "ok") return { s: "ตรวจสอบสำเร็จ — ยังไม่บันทึก", ok: true };   /* V.873 */
+  if (k === "empty") return { s: "ไม่มีข้อมูลสำหรับอัปเดต", ok: false };
   if (k === "nf") return { s: "ไม่พบงาน", ok: false };
   if (k === "conf") return { s: "ข้อมูลขัดแย้ง", ok: false };
   return { s: "รอเลือกงาน", ok: false };
@@ -391,7 +393,15 @@ function UW866(t, mdl, hdr, nj, info, meta) {
   body.innerHTML =
     (hdr.dt < 0 ? '<div style="margin:0 0 8px;padding:8px 10px;border:1px solid #f0c36d;background:#fffaeb;border-radius:6px;color:#8a6d1f">⚠ ไฟล์นี้ไม่มีคอลัมน์ "วันที่วางบิล" — จะนำเข้าเฉพาะ PO NO. เท่านั้น (ไม่ใช้ Loading date หรือวันที่อื่นแทน)</div>' : "") +
     '<div style="margin:0 0 8px;color:#475467;font-size:12px">' + B(info) + "</div>" +
+    '<div style="margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+      '<label style="font-weight:600">วันที่วางบิล</label>' +
+      '<input class="inp" id="uc873-dt" type="date" style="max-width:190px">' +
+      '<button class="btn btn-o" id="uc873-ap" type="button">ใช้วันที่กับรายการสำเร็จทั้งหมด</button>' +
+      '<span id="uc873-hint" style="color:#667085;font-size:12px">ไม่กดใช้ = ใช้วันที่จากไฟล์ Excel ตามเดิม (Excel ว่าง = คงวันที่เดิมในระบบ)</span></div>' +
     '<div id="uc866-sum" style="margin:0 0 8px;font-size:12px"></div>' +
+    '<div style="margin:0 0 6px;display:flex;gap:6px">' +
+      '<button class="btn btn-sm" type="button" data-tab873="ok" id="uc873-t1"></button>' +
+      '<button class="btn btn-sm" type="button" data-tab873="ng" id="uc873-t2"></button></div>' +
     '<div class="tbl-wrap uc868-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr>' +
     '<th class="nowrap">แถว</th><th class="nowrap">BK#</th><th class="nowrap">Cont#</th><th class="nowrap">JOB NJ ที่พบ</th><th class="nowrap">ช่องที่จับคู่</th>' +
     "<th>Customer Job No. (เดิม → ใหม่)</th><th>วันที่วางบิล (เดิม → ใหม่)</th><th>สถานะ / เหตุผล</th>" +
@@ -401,29 +411,46 @@ function UW866(t, mdl, hdr, nj, info, meta) {
   L({ title: "Upload Calcom — ตรวจสอบก่อนบันทึก", body: body, footer: ft, wide: true, cls: "uc868" });
   ft.querySelector("#uc868-xl").onclick = function () { UX868(mdl, meta); };
   var TB = body.querySelector("#uc866-tb"), SM = body.querySelector("#uc866-sum");
+  var DT873 = body.querySelector("#uc873-dt"), AP873 = body.querySelector("#uc873-ap"),
+      T1873 = body.querySelector("#uc873-t1"), T2873 = body.querySelector("#uc873-t2"), TAB873 = "ok";   /* V.873 */
   function draw() {
-    var bad = UG866(mdl), c = { ok: 0, nochg: 0, empty: 0, nf: 0, conf: 0, pend: 0 };
+    var bad = UG866(mdl), c = { ok: 0, nochg: 0, empty: 0, nf: 0, conf: 0, pend: 0 }, nOK = 0, nNG = 0;
+    mdl.forEach(function (m) { (UES868(m, bad).ok ? nOK++ : nNG++); });   /* V.873 : เกณฑ์เดียวกับ EXPORT */
+    T1873.textContent = "สำเร็จ (" + nOK + ")"; T2873.textContent = "ไม่สำเร็จ (" + nNG + ")";
+    T1873.className = "btn btn-sm" + (TAB873 === "ok" ? " btn-p" : " btn-o");
+    T2873.className = "btn btn-sm" + (TAB873 === "ng" ? " btn-p" : " btn-o");
     TB.innerHTML = mdl.map(function (m, i) {
       var st = UST866(m, bad); c[st.k]++;
+      if ((UES868(m, bad).ok ? "ok" : "ng") !== TAB873) return "";
       var job = UJB866(m), ch = UCG866(m, job);
       var jc = m.cands.length > 1
         ? '<select class="inp uc866-pk" data-i="' + i + '" style="min-width:160px"><option value="">— เลือกงาน —</option>' +
           m.cands.map(function (x) { return '<option value="' + B(x.id) + '"' + (x.id === m.pick ? " selected" : "") + ">" + B((x.w.job_no || "-") + " · " + x.f.join("/")) + "</option>"; }).join("") + "</select>"
         : job ? B(job.w.job_no || "-") : '<span style="color:#b42318">-</span>';
       var fd = job ? B(job.f.join(", ")) + ' <span style="color:#667085">(' + B(job.s.join("+")) + ")</span>" : "-";
-      var dcell = hdr.dt < 0 ? '<span style="color:#8a6d1f">ข้าม — ไม่มีคอลัมน์วันที่วางบิล</span>'
-        : m.de ? UOD866(job ? V(ch.dtOld) : "", "", true)
-        : !m.dt ? '<span style="color:#b42318">ข้าม — วันที่ไม่ถูกต้อง (' + B(m.dbad) + ") คงค่าเดิม</span>"
+      var nd873 = m.dov || m.dt;   /* V.873 */
+      var dcell = !nd873 ? (hdr.dt < 0 ? '<span style="color:#8a6d1f">ข้าม — ไม่มีคอลัมน์วันที่วางบิล</span>'
+          : m.de ? UOD866(job ? V(ch.dtOld) : "", "", true)
+          : '<span style="color:#b42318">ข้าม — วันที่ไม่ถูกต้อง (' + B(m.dbad) + ") คงค่าเดิม</span>")
         : ch.derr ? '<span style="color:#b42318">ข้าม — ' + B(ch.derr) + " คงค่าเดิม</span>"
-        : UOD866(job ? V(ch.dtOld) : "", ch.dt ? V(ch.dt) : "", false);
+        : UOD866(job ? V(ch.dtOld) : "", V(nd873), false) + (m.dov ? ' <span style="color:#667085;font-size:11px">(วันที่ที่เลือก)</span>' : "");
       return '<tr><td class="nowrap">' + m.no + '</td><td class="nowrap">' + B(m.bk || "-") + '</td><td class="nowrap">' + B(m.ct || "-") + "</td><td>" + jc + "</td><td>" + fd + "</td><td>" +
         (m.po ? UOD866(job ? ch.cjOld : "", ch.cj, false) : UOD866(job ? ch.cjOld : "", "", true)) + "</td><td>" + dcell +
-        '</td><td><span style="color:' + st.c + '">' + B(st.t) + "</span>" + (m.why ? '<div style="color:#667085;font-size:11px">' + B(m.why) + "</div>" : "") + "</td></tr>";
+        '</td><td><span style="color:' + st.c + '">' + B(UES868(m, bad).s) + "</span>" + (m.why && !UES868(m, bad).ok ? '<div style="color:#667085;font-size:11px">' + B(m.why) + "</div>" : "") + "</td></tr>";
     }).join("");
     SM.innerHTML = "อ่านได้ " + mdl.length + " แถว · เทียบกับงาน " + nj.toLocaleString("th-TH") + " รายการ &nbsp;|&nbsp; " +
       '<b style="color:#067647">จะบันทึก ' + c.ok + "</b> · ไม่เปลี่ยนแปลง " + c.nochg + ' · <span style="color:#8a6d1f">ข้ามเพราะว่าง ' + c.empty +
       '</span> · <span style="color:#b42318">ไม่พบงาน ' + c.nf + "</span> · " + '<span style="color:#b42318">ขัดแย้ง ' + c.conf + '</span> · <span style="color:#b54708">รอเลือกงาน ' + c.pend + "</span>";
   }
+  AP873.onclick = function () {   /* V.873 : ใช้กับรายการที่ตรวจสอบสำเร็จทั้งหมด (รวมรายการนอกหน้าที่มองเห็น) */
+    var d = DT873.value || "";
+    if (!d) { p("กรุณาเลือกวันที่วางบิลก่อน", "err"); return; }
+    var bad = UG866(mdl), n = 0;
+    mdl.forEach(function (m) { if (m.pick && UES868(m, bad).ok) { m.dov = d; n++; } });
+    draw();
+    p(n ? "ใช้วันที่ " + V(d) + " กับ " + n + " รายการที่ตรวจสอบสำเร็จ (ยังไม่บันทึก)" : "ไม่มีรายการที่ตรวจสอบสำเร็จ", n ? "ok" : "err");
+  };
+  [T1873, T2873].forEach(function (b) { b.onclick = function () { TAB873 = b.getAttribute("data-tab873"); draw(); }; });
   draw();
   body.addEventListener("change", function (ev) {
     var s = ev.target && ev.target.closest ? ev.target.closest(".uc866-pk") : null;
@@ -450,7 +477,7 @@ function UMK868(mdl, plan, bad) {   /* ผลจริงต่อ "งาน" �
   mdl.forEach(function (m) {
     if (!m.pick) return;
     var o = mp.get(String(m.pick));
-    if (o) { m.sv = o.rs || "ok"; m.sve = o.rsx || ""; return; }
+    if (o && (o.rows || []).indexOf(m.no) >= 0) { m.sv = o.rs || "ok"; m.sve = o.rsx || ""; return; }   /* V.873 : เฉพาะแถวที่ส่งข้อมูลเข้าไปจริง */
     if (m.st !== "empty" && m.st !== "nf" && !bad.has(m.pick) && UST866(m, bad).k === "nochg") m.sv = "nochg";
   });
 }

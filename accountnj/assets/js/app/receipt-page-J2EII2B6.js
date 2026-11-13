@@ -317,7 +317,7 @@ async function IA844(t, rid) {   /* ออก ADVANCE ที่ค้างข�
     } finally { st.busy = !1; sync(); }
   };
   let openD = async (pr, md) => { try { let docs = await RL795(["xl:" + rid + st.done.map((a) => ",xadv:" + a.id).join("")]); await showDocs(docs, { sample: !1, m844: md || "A" });
-      if (pr) { let dd = FD844(docs, MD844(docs, md || "A")); RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); } }
+      if (pr) { let dd = FD844(docs, MD844(docs, md || "A")); (await PX869(dd, FX814(dd), null, !1)) || RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); } }   /* V.870 */
     catch (e) { back(); k("เปิดเอกสารไม่สำเร็จ — " + RE795(e), "err"); } };
   q("#ia844-date").onchange = sync; q("#ia844-method").onchange = sync;
   q("#ia844-pv").onclick = async () => { let d = q("#ia844-date").value, m = q("#ia844-method").value; if (!st.pv || !d || !m) { k("กรุณาเลือกวันที่และวิธีรับชำระ", "err"); return; }
@@ -772,7 +772,7 @@ async function RO795(t) {   /* หน้าต่างออกใบเสร�
   let open = async (ks, pr, md) => {   /* เอกสารที่บันทึก (เลขจริง · สำเนา ณ เวลาออก) — ดู / PRINT / SAVE PDF ซ้ำได้ ไม่ออกเลขใหม่ */
     try {
       let docs = await RL795(ks); await showDocs(docs, { sample: !1, m844: md });
-      if (pr) { let dd = FD844(docs, MD844(docs, md)); RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); }
+      if (pr) { let dd = FD844(docs, MD844(docs, md)); (await PX869(dd, FX814(dd), null, !1)) || RX795(dd.map((d) => RF795(d, !1)).join(""), FX814(dd)); }   /* V.870 */
     } catch (e) { back(); k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e) + " (ดาวน์โหลดภายหลังได้จากแถบใบเสร็จที่ออกแล้ว)", "err"); }
   };
   q("#rcp795-date").onchange = () => { st.seen = !1; sync(); };
@@ -836,12 +836,12 @@ async function RL795(ids) {   /* ใบเสร็จที่บันทึ�
 async function RG795(ids) { try { let docs = await RL795(ids); docs.length && (await RW795(docs, { sample: !1, title: "RECEIPT " + docs.map((d) => d.receipt_no).join(", ") })); } catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } }
 async function RPR795(id, b) {   /* PRINT จากแถว : เอกสารที่บันทึก (เลขเดิม) */
   if (!id || (b && b.disabled)) return; b && (b.disabled = !0);
-  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); await FN795(); for (let d of ds) await IM795(d); RX795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds)); }   /* V.814 : RCP + ADV = พิมพ์ครั้งเดียว */
+  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); await FN795(); for (let d of ds) await IM795(d); (await PX869(ds, FX814(ds), b, !1)) || RX795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds)); }   /* V.870 : RCP = PDF ชุดเดียวกัน · V.814 : RCP + ADV = พิมพ์ครั้งเดียว */
   catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); } finally { b && (b.disabled = !1); }
 }
 async function SV795(id, b) {   /* SAVE PDF จากแถว : เอกสารที่บันทึก (เลขเดิม) */
   if (!id || (b && b.disabled)) return;
-  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); await SVH795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds), b); }   /* V.814 : RCP + ADV = 1 ไฟล์ */
+  try { let ds = await RL795([id]); if (!ds.length) throw new Error("ไม่พบใบเสร็จ"); (await PX869(ds, FX814(ds), b, !0)) || (await SVH795(ds.map((d) => RF795(d, !1)).join(""), FX814(ds), b)); }   /* V.870 : RCP = PDF ชุดเดียวกัน · V.814 : RCP + ADV = 1 ไฟล์ */
   catch (e) { k("เปิดใบเสร็จไม่สำเร็จ — " + RE795(e), "err"); }
 }
 async function FN795() { ST795(); try { await AD814(); } catch (e) {} try { let m = await import("./chunk-TKN6STDT.js"); m.FF766 && (await m.FF766()); } catch (e) {} }
@@ -867,7 +867,7 @@ function RP795(doc, counts, sample) {
         <div class="rcp-cot"><div class="rcp-conm">${i(CO795(I))}</div><div class="rcp-cosub">${i(String(I.address || "").replace(HO795, "").trim())}</div>
         <div class="rcp-cosub">Tax ID: ${i(I.taxId || "-")}&nbsp;&nbsp;Branch : ${i(BR795(I.branch || "0000"))}</div>
         <div class="rcp-cosub">Tel. ${i(I.tel || "-")} | Fax. ${i(I.fax || "-")}</div></div></div>
-      <div class="rcp-tt"><div class="rcp-t1">RECEIPT</div><div class="rcp-t2">ใบเสร็จรับเงิน</div></div>
+      <div class="rcp-tt"><div class="rcp-t1">ใบเสร็จรับเงิน / ใบกำกับภาษี</div><div class="rcp-t2">RECEIPT / TAX INVOICE</div><div class="rcp-t3">ต้นฉบับ / ORIGINAL</div></div>
     </header>
     <div class="rcp-boxes">
       <section class="rcp-box"><span class="rcp-tag">CUSTOMER</span>
@@ -1536,7 +1536,12 @@ function ST813() {
       ".rcp-pg .rcp-sum{gap:3.5mm;margin-top:4.2mm}.rcp-pg .rcp-pay{padding:3mm 3.4mm;font-size:8.3pt;line-height:1.5}",
       ".rcp-pg .rcp-amt{padding:0}.rcp-pg .rcp-a1{padding:2.1mm 3.4mm;font-size:8.8pt}.rcp-pg .rcp-a2{padding:2.6mm 3.4mm;font-size:9.6pt;font-weight:700}",
       ".rcp-pg .rcp-sign{gap:3.5mm;margin-top:4.2mm}.rcp-pg .rcp-sign .rcp-box{padding:3mm 3.4mm;font-size:8pt;min-height:35mm}.rcp-pg .rcp-st{font-size:8pt}.rcp-pg .rcp-for{font-size:8pt}",
-      ".rcp-pg .rcp-sp{height:12.5mm}.rcp-pg .rcp-sp2{height:8.5mm}.rcp-pg .rcp-sc{margin:1mm 0 2.2mm}"
+      ".rcp-pg .rcp-sp{height:12.5mm}.rcp-pg .rcp-sp2{height:8.5mm}.rcp-pg .rcp-sc{margin:1mm 0 2.2mm}",
+      /* V.870 : หัวเอกสาร 3 บรรทัด + แถบเขียว (ตรงกับ PDF V.869) */
+      ".rcp-pg .rcp-tt{max-width:84mm}",
+      ".rcp-pg .rcp-t1{font-size:13.5pt;line-height:1.2;border-bottom:0;padding-bottom:0;white-space:nowrap}",
+      ".rcp-pg .rcp-t2{font-size:13.5pt;line-height:1.2;margin-top:.6mm;border-bottom:2.4pt solid #ef4444;padding-bottom:1mm;white-space:nowrap}",
+      ".rcp-pg .rcp-t3{display:inline-block;margin-top:2.2mm;background:#12305f;color:#fff;font-weight:700;font-size:10pt;line-height:1.25;padding:.9mm 3mm;border-radius:1.2mm;white-space:nowrap}"
     ].join("");
     document.head.appendChild(s);
   } catch (e) {}
@@ -2078,7 +2083,7 @@ function HD869(d, I, lg) {   /* หัวเอกสาร — คืนค่�
   var uw = Math.max(WD869(d, t1, p1, !0), WD869(d, t2, p2, !0));
   d.line(R - uw, y2 + 1.4, R, y2 + 1.4);
   var bh = LH869(p3, 1.1) + 2.6, bw = WD869(d, t3, p3, !0) + 8, by = y2 + 3.4;
-  d.setFillColor("#16a34a"); d.roundedRect(R - bw, by, bw, bh, 1.2, 1.2, "F");
+  d.setFillColor("#12305f"); d.roundedRect(R - bw, by, bw, bh, 1.2, 1.2, "F");   /* V.872 : น้ำเงินเข้มเดียวกับป้าย CUSTOMER */
   TX869(d, t3, R - bw / 2, by + bh / 2 + LH869(p3, 1) * 0.35, { sz: p3, b: !0, c: "#ffffff", a: "center" });
   var hb = Math.max(top + coH, by + bh) + 3;
   d.setDrawColor("#12305f"); d.setLineWidth(1.2 * PT869); d.line(L, hb, R, hb);
@@ -2291,4 +2296,15 @@ async function PV869(opt, docs, groups, o) {   /* PREVIEW / PRINT / SAVE — PDF
   PV813(opt);
   try { await CV869(u.url, document.getElementById("rcp869-host")); }
   catch (e) { try { console.warn("CV869", e); } catch (z) {} k("แสดงตัวอย่างไม่สำเร็จ — กด SAVE PDF เพื่อเปิดไฟล์", "err"); }
+}
+async function PX869(ds, fname, b, save) {   /* ปุ่มพิมพ์ / SAVE PDF ในรายการ + หลังออกใบเสร็จ : ใช้ตัวสร้าง PDF ชุดเดียวกัน (RCP เท่านั้น) */
+  var adv = (ds || []).some(function (d) { return d && d.kind === "ADV"; });
+  if (adv || !ds || !ds.length) return !1;
+  try {
+    var d = await MK869(ds);
+    if (save) { d.save(String(fname || "RECEIPT") + ".pdf"); return !0; }
+    var u = UR869(d); await PR869(u.url);
+    setTimeout(function () { try { URL.revokeObjectURL(u.url); } catch (e) {} }, 60000);
+    return !0;
+  } catch (e) { try { console.warn("PX869", e); } catch (z) {} return !1; }
 }
