@@ -204,7 +204,7 @@ function HP() {
     + `<label class="fl836"><span>ลูกค้า (Excel)</span><select class="sel" data-a836="customer_key"><option value="">ทั้งหมด</option></select></label>`
     + `<label class="fl836"><span>Date invoice ตั้งแต่</span><input class="inp" type="date" data-a836="from" value="${n(S.from)}"></label>`
     + `<label class="fl836"><span>ถึง</span><input class="inp" type="date" data-a836="to" value="${n(S.to)}"></label>`
-    + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button>${UB("l836-up")}${SA() ? '<button type="button" class="btn btn-sm hd837" id="l836-hd" title="INVOICE ที่นำออกจากใบเสร็จ — ตรวจสอบการรับชำระก่อนคืนเข้ารอรับชำระ (SUPER_ADMIN)">รอตรวจสอบการรับชำระ</button>' : ""}`   /* V.837 */
+    + `<button type="button" class="btn btn-o btn-sm" data-clr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf884" data-rf884 title="โหลดข้อมูลล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${UB("l836-up")}${SA() ? '<button type="button" class="btn btn-sm hd837" id="l836-hd" title="INVOICE ที่นำออกจากใบเสร็จ — ตรวจสอบการรับชำระก่อนคืนเข้ารอรับชำระ (SUPER_ADMIN)">รอตรวจสอบการรับชำระ</button>' : ""}`   /* V.837 */
     + `<button type="button" class="btn btn-sm xl734" data-xl836>⬇ EXPORT EXCEL</button>`
     + `<button type="button" class="btn btn-sm rp836" id="l836-rp" disabled hidden>🧾 RECEIPT ADVANCE PDF</button>`
     + `<button type="button" class="btn btn-sm cu836" id="l836-cu" title="ตรวจสอบ / แก้ไข CUSTOMER ของรายการที่เลือก (หรือของลูกค้าที่กรอง)">ตรวจสอบ / แก้ไข CUSTOMER</button>`
@@ -218,14 +218,14 @@ function HI() {
     + `<label class="fl836 fl836-q"><span>ค้นหา</span><input class="inp" data-i836="iq" value="${n(S.iq)}" placeholder="เลขใบเสร็จ / INVOICE ADV / ลูกค้า / บริษัท / Customer Job No. / วันที่" autocomplete="off"></label>`
     + `<label class="fl836"><span>วันที่ออก ตั้งแต่</span><input class="inp" type="date" data-i836="ifrom" value="${n(S.ifrom)}"></label>`
     + `<label class="fl836"><span>ถึง</span><input class="inp" type="date" data-i836="ito" value="${n(S.ito)}"></label>`
-    + `<button type="button" class="btn btn-o btn-sm" data-iclr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" data-irf881 title="โหลดรายการใบเสร็จล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ เดิม)">⟳ รีเฟรช</button><button type="button" class="btn btn-sm xl734" data-ixl836>⬇ EXPORT EXCEL</button></div>`
+    + `<button type="button" class="btn btn-o btn-sm" data-iclr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" data-irf881 title="โหลดรายการใบเสร็จล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ เดิม)">⟳ รีเฟรช</button><button type="button" class="btn btn-sm xl734" data-ixl836>⬇ EXPORT EXCEL</button>${UB("")}</div>`
     + `<div class="sum836" id="l836-isum"></div><div class="card mt-2" id="l836-ipgn"></div>`
     + `<div class="tbl-wrap lp-scroll"><table class="tbl t836"><thead><tr><th>เลขที่ใบเสร็จ</th><th>วันที่ออก</th><th>Customer</th><th class="center">จำนวน INVOICE</th><th class="r">ยอดรวม</th><th>สถานะ</th><th class="center col-act">จัดการ</th></tr></thead>`
     + `<tbody id="l836-itb"><tr><td colspan="7" class="load-row"><div class="spin"></div></td></tr></tbody></table></div></div>`;
 }
 function HI850() {   /* V.850 (RUN-850) : แถบใบเสร็จที่ออกแล้ว (ระบบเก่า · Desktop) */
   let dp = CTX.deps; dp.ST850();
-  return `<div class="ch-panel p836-in">` + dp.FB850("data-i836", { iq: S.iq, ifrom: S.ifrom, ito: S.ito }, ["iq", "ifrom", "ito"], `<button type="button" class="btn btn-sm go850" data-igo850>ค้นหา</button><button type="button" class="btn btn-sm clr850" data-iclr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" data-irf881 title="โหลดรายการใบเสร็จล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ เดิม)">⟳ รีเฟรช</button><button type="button" class="btn btn-sm xl734" data-ixl836>⬇ EXPORT EXCEL</button>`)
+  return `<div class="ch-panel p836-in">` + dp.FB850("data-i836", { iq: S.iq, ifrom: S.ifrom, ito: S.ito }, ["iq", "ifrom", "ito"], `<button type="button" class="btn btn-sm go850" data-igo850>ค้นหา</button><button type="button" class="btn btn-sm clr850" data-iclr836>ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" data-irf881 title="โหลดรายการใบเสร็จล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ เดิม)">⟳ รีเฟรช</button><button type="button" class="btn btn-sm xl734" data-ixl836>⬇ EXPORT EXCEL</button>${UB("")}`)
     + `<div class="sum850" id="l836-isum"></div><div class="card mt-2" id="l836-ipgn"></div>`
     + `<div class="tbl-wrap lp-scroll"><table class="tbl t836 t850"><thead><tr>${dp.RH850}</tr></thead><tbody id="l836-itb"><tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr></tbody></table></div></div>`;
 }
@@ -246,7 +246,7 @@ async function OP850(host) {   /* V.850 : Dropdown ลูกค้า / บร�
 }
 function IR850(o, i) {   /* V.850 : 1 Receipt ID = 1 แถว (9 คอลัมน์) */
   let id = n(o.receipt_id), no = n(o.receipt_no), off = (S.ipage - 1) * S.isize;
-  return `<tr class="r850"><td class="center">${N(off + i + 1)}</td><td class="nowrap"><button type="button" class="an850" data-it836="${id}" title="เปิดรายละเอียด ${no}">${no}</button><span class="tg850">UPLOAD EXCEL</span></td>`
+  return `<tr class="r850"><td class="center">${N(off + i + 1)}</td><td class="nowrap"><button type="button" class="an850" data-it836="${id}" title="เปิดรายละเอียด ${no}">${no}</button></td>`
     + `<td class="center nowrap">${D(o.receipt_date)}</td><td class="c850" title="${n(o.customer_name)}">${n(o.customer_name)}</td><td class="center">${N(o.job_count || 0)}</td><td class="center">${N(o.invoice_count)}</td>`
     + `<td class="r">${M(o.total)}</td><td class="r pay850">${M(o.total)}</td>`
     + `<td class="center nowrap col-act"><button type="button" class="btn btn-sm b850" data-it836="${id}">รายการ</button><button type="button" class="btn btn-sm p850" data-ipm850="${id}" aria-haspopup="menu" title="PREVIEW / PRINT / SAVE PDF — ${no} (เลขเดิม)">พิมพ์ ▼</button>`
@@ -284,7 +284,7 @@ function RW(r) {
     + `<td data-l="Billing Note no.">${n(r.billing_note || "-")}</td><td data-l="CASE">${n(r.case_no || "-")}</td>`
     + `<td data-l="สถานะ">${r.reason ? `<span class="bd836 need">รอตรวจสอบ</span><span class="why836">${n(r.reason)}</span>` : '<span class="bd836 ok">พร้อมออกใบเสร็จ</span>'}</td></tr>`;
 }
-async function LP(host) {
+async function LP(host, rf) {   /* V.884 : rf = กดรีเฟรช */
   let tk = ++TK, tb = host.querySelector("#l836-tb"); if (!tb) return;
   try {
     let r = await RPC("njacc_ax836_pending", { p: Object.assign(filt(), { page: S.page, size: S.size }) }); if (tk !== TK || !host.isConnected) return;
@@ -297,8 +297,10 @@ async function LP(host) {
     PGN(host.querySelector("#l836-pgn"), { page: S.page, size: S.size, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.page = a; S.size = z; LP(host); }, { lp: !0 });
     sync(host);
     let hb = host.querySelector("#l836-hd"); hb && hcount837("ADV").then((c) => { hb.isConnected && (hb.textContent = "รอตรวจสอบการรับชำระ (" + N(c) + ")"); });   /* V.837 */
+    return !0;
   } catch (e) {
     if (tk !== TK || !host.isConnected) return;
+    if (rf) { TOAST("รีเฟรชไม่สำเร็จ — " + RE836(e) + " (ยังแสดงข้อมูลเดิม)", "err"); return !1; }   /* V.884 */
     tb.innerHTML = `<tr><td colspan="12" class="empty">โหลดรายการไม่สำเร็จ — ${n(RE836(e))} <button type="button" class="btn btn-sm btn-o" data-rt836>ลองใหม่</button></td></tr>`;
     let b = tb.querySelector("[data-rt836]"); b && (b.onclick = () => LP(host));
   }
@@ -313,8 +315,9 @@ function AP(host) {
     on(ev);
   });
   host.addEventListener("click", (ev) => {
-    let b = ev.target.closest && ev.target.closest("[data-clr836],[data-xl836],#l836-rp,#l836-cu,#l836-clr,#l836-hd"); if (!b) return;
+    let b = ev.target.closest && ev.target.closest("[data-clr836],[data-xl836],#l836-rp,#l836-cu,#l836-clr,#l836-hd,[data-rf884]"); if (!b) return;
     ev.preventDefault();
+    if (b.hasAttribute("data-rf884")) { clearTimeout(tm); RF884(host, b); return; }   /* V.884 */
     if (b.hasAttribute("data-clr836")) { host.querySelectorAll("[data-a836]").forEach((e) => { e.value = ""; }); Object.assign(S, { q: "", view: "all", customer_key: "", from: "", to: "", page: 1 }); LP(host); }
     else if (b.hasAttribute("data-xl836")) XP(b);
     else if (b.id === "l836-rp") RO(host);
@@ -336,7 +339,7 @@ async function LI(host, rf) {   /* V.881 : rf = กดรีเฟรช */
     let k = r && r.kpi || {};
     if (host.querySelector("table.t850")) {   /* V.850 : Desktop */
       host.querySelector("#l836-isum").innerHTML = `<span>ใบเสร็จ <b>${N(k.receipts)}</b> ใบ</span><span>JOB <b>0</b></span><span>INVOICE <b>${N(k.invoices)}</b></span><span>ยอดรวม ADVANCE <b>${M(k.amount)}</b></span>`;
-      let rw = r && r.rows || []; tb.innerHTML = rw.length ? rw.map(IR850).join("") : '<tr><td colspan="9" class="empty">ยังไม่มีใบเสร็จ (ระบบเก่า)</td></tr>';
+      let rw = r && r.rows || []; tb.innerHTML = rw.length ? rw.map(IR850).join("") : '<tr><td colspan="9" class="empty">ไม่พบรายการ</td></tr>';
       PGN(host.querySelector("#l836-ipgn"), { page: S.ipage, size: S.isize, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.ipage = a; S.isize = z; LI(host); }, { lp: !0 });
       return !0;
     }
@@ -345,16 +348,17 @@ async function LI(host, rf) {   /* V.881 : rf = กดรีเฟรช */
     ST837();   /* V.837 */
     try { CTX.deps.ST850 && CTX.deps.ST850(); } catch (e8) {}   /* V.857 : สไตล์ปุ่ม Mobile */
     tb.innerHTML = rows.length ? rows.map((o) => { let id = n(o.receipt_id), no = n(o.receipt_no);
-      return `<tr><td class="nowrap" data-l="เลขที่ใบเสร็จ"><b>${no}</b><span class="adv814" style="display:block;font-size:11px;color:#9a3412">UPLOAD EXCEL</span>${o.replaces_no ? `<span class="rp837">แทน ${n(o.replaces_no)} (VOID)</span>` : ""}</td><td class="nowrap" data-l="วันที่ออก">${D(o.receipt_date)}</td><td data-l="Customer">${n(o.customer_name)}</td>`
+      return `<tr><td class="nowrap" data-l="เลขที่ใบเสร็จ"><b>${no}</b>${o.replaces_no ? `<span class="rp837">แทน ${n(o.replaces_no)} (VOID)</span>` : ""}</td><td class="nowrap" data-l="วันที่ออก">${D(o.receipt_date)}</td><td data-l="Customer">${n(o.customer_name)}</td>`
         + `<td class="center" data-l="จำนวน INVOICE">${N(o.invoice_count)}</td><td class="r" data-l="ยอดรวม"><b>${M(o.total)}</b></td><td data-l="สถานะ"><span class="bdg789 bd836 ok">ออกใบเสร็จแล้ว</span></td>`
         + `<td class="center nowrap col-act" data-l="จัดการ"><button type="button" class="btn btn-sm b850" data-it836="${id}">รายการ</button><button type="button" class="btn btn-sm p850" data-ipm850="${id}" aria-haspopup="menu" title="PREVIEW / PRINT / SAVE PDF — ${no} (เลขเดิม)">พิมพ์ ▼</button>${SA() ? `<button type="button" class="btn btn-sm e850" data-ed836="${id}" title="แก้ไข — เพิ่ม / นำออก INVOICE ADV · ใช้เลขเดิม (SUPER_ADMIN)">แก้ไข</button>` : ""}</td></tr>`;   /* V.857 : Mobile = ปุ่มเดียวกับ Desktop */ }).join("")
-      : '<tr><td colspan="7" class="empty">ยังไม่มีใบเสร็จ (ระบบเก่า)</td></tr>';
+      : '<tr><td colspan="7" class="empty">ไม่พบรายการ</td></tr>';
     PGN(host.querySelector("#l836-ipgn"), { page: S.ipage, size: S.isize, total: r && r.total || 0 }, ({ page: a, size: z }) => { S.ipage = a; S.isize = z; LI(host); }, { lp: !0 });
     return !0;
   } catch (e) {
     if (tk !== TK || !host.isConnected) return;
     if (rf) { TOAST("รีเฟรชไม่สำเร็จ — " + RE836(e) + " (ยังแสดงข้อมูลเดิม)", "err"); return !1; }   /* V.881 : ไม่ล้างข้อมูลเดิม */
-    tb.innerHTML = `<tr><td colspan="7" class="empty">โหลดรายการไม่สำเร็จ — ${n(RE836(e))}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9" class="empty">โหลดรายการไม่สำเร็จ — ${n(RE836(e))} <button type="button" class="btn btn-sm btn-o" data-rt885>ลองใหม่</button></td></tr>`;
+    let rb885 = tb.querySelector("[data-rt885]"); rb885 && (rb885.onclick = (ev) => { ev.stopPropagation(); tb.innerHTML = '<tr><td colspan="9" class="load-row"><div class="spin"></div></td></tr>'; LI(host); });   /* V.885 */
   }
 }
 /* ═══ V.881 · FINANCE → ADVANCE · ใบเสร็จที่ออกแล้ว · ระบบเก่า (UPLOAD EXCEL) : ปุ่ม "⟳ รีเฟรช" (สีน้ำเงิน · ต่อจาก ล้างค้นหา ก่อน EXPORT EXCEL)
@@ -1101,3 +1105,13 @@ export async function holds837(src, o) {
   await load();
 }
 export async function hcount837(src) { try { let r = await RPC("njacc_r837_holds", { p: { src, status: "HOLD" } }); return Number(r && r.count || 0); } catch (e) { return 0; } }
+/* ═══ V.884 · ระบบเก่า (รอรับชำระ) : ปุ่ม ⟳ รีเฟรช · รีเซ็ตตัวกรองทุกช่องของระบบเก่าเมื่อสลับแถบ / ระบบ / เข้าหน้าใหม่ (เรียกจาก charge-page) ═══ */
+async function RF884(host, b) {
+  if (!b || b.disabled) return; let t0 = b.textContent; b.disabled = !0; b.setAttribute("aria-busy", "true"); b.textContent = "กำลังรีเฟรช…";
+  try { await LP(host, !0); } catch (e) { try { TOAST("รีเฟรชไม่สำเร็จ — " + RE836(e), "err"); } catch (_) {} }
+  finally { b.disabled = !1; b.removeAttribute("aria-busy"); b.textContent = t0; }
+}
+export function reset884() {
+  Object.assign(S, { q: "", view: "all", customer_key: "", from: "", to: "", page: 1, iq: "", ifrom: "", ito: "", cust850: "", comp850: "", ipage: 1 });
+  try { let h = CTX && CTX.host; if (h && h.isConnected) { h.querySelectorAll("[data-a836],[data-i836]").forEach((e) => { e.value = e.dataset.a836 === "view" ? "all" : ""; }); h.querySelector('[data-i836="cust850"]') && OP850(h).catch(() => {}); } } catch (e) {}
+}
