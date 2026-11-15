@@ -184,7 +184,7 @@ function pend737(v, d) { try { d = d || 0; if (!v || typeof v !== "object" || d 
   if ("job_no" in v && !String(v.job_no || "").trim() && ("req_id" in v || "status" in v || "operational_status" in v || "job_id" in v)) v.job_no = "รอออกเลข JOB";
   ["rows", "req", "job", "items"].forEach(function (k) { v[k] && typeof v[k] === "object" && k !== "items" && pend737(v[k], d + 1); }); } catch (e) {} return v; }
 function filt() { return { date_from: S.f.date_from, date_to: S.f.date_to, job_no: S.f.job_no, company: S.f.company, customer: S.f.customer, hbl: S.f.hbl, q: S.f.q, company_x: S.f.company_x, customer_x: S.f.customer_x, ptype: S.f.ptype, inv_no: S.f.inv_no, billed: S.f.billed }; }   /* V.760 */
-function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off, with_options: !S.opt }, filt(), BP807()); }   /* V.807 : ตัวกรองแยกแท็บ */   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
+function params(lim, off) { return Object.assign({ tab: S.tab, sub: "ALL", invoice_tab: null, limit: lim, offset: off, with_options: !0 /* V.880 : ตัวเลือกของแท็บ + เงื่อนไขปัจจุบัน ทุกครั้งที่โหลด */ }, filt(), BP807()); }   /* V.807 : ตัวกรองแยกแท็บ */   /* V.706 : ไม่กรองตาม INVOICE (สถานะคำขอเท่านั้น) */
 function badgeSet(c) {
   try {
     var el = document.querySelector('[data-nav="cash-advance"]'); if (!el || !c) return;
@@ -276,6 +276,7 @@ async function load() {
     var r = await rpc("njacc_cash_adv807_list", { p: params(S.lim, S.off) });   /* V.807 */
     if (S !== S0 || my !== S.seq) return;
     S.rows = (r && r.rows) || []; S.total = (r && r.total) || 0; S.counts = (r && r.counts) || {}; S.sum = (r && r.sum) || {}; r && r.options && (S.opt = r.options, S.root.querySelector("[data-f]") && S.root.querySelector("[data-f]").__ca760s && S.root.querySelector("[data-f]").__ca760s());   /* V.760 */ r && typeof r.is_super === "boolean" && (S.sup = r.is_super);
+    if (FV880(r)) { S.off = 0; S.loading = !1; return load(); }   /* V.880 : ตัวกรองเดิมที่ไม่มีรายการรองรับในแท็บนี้ = ล้างแล้วค้นหาใหม่ */
     var bm = null; try { bm = S.rows.length ? await bill719(S.rows) : {}; } catch (e7) { bm = null; }   /* V.719 : โหลดไม่ได้ (ยังไม่รัน RUN-719) = แสดง "-" รายการเดิมยังใช้ได้ */
     if (S !== S0 || my !== S.seq) return;
     S.bill = bm;
@@ -502,7 +503,7 @@ async function exportXls(btn) {
   try {
     var all = [], off = 0, tot = 1, tab = S.tab;
     while (off < tot && off < 20000) {
-      var r = await rpc("njacc_cash_adv807_list", { p: params(500, off) });   /* V.807 : ตรงกับตัวกรองปัจจุบัน */
+      var r = await rpc("njacc_cash_adv807_list", { p: Object.assign(params(500, off), { with_options: !1 }) });   /* V.807 : ตรงกับตัวกรองปัจจุบัน */
       tot = (r && r.total) || 0; all = all.concat((r && r.rows) || []); off += 500; if (!r || !(r.rows || []).length) break;
     }
     var bm = null; try { bm = await bill719(all); } catch (e7) { bm = null; }   /* V.719 : ชุดเดียวกับหน้ารายงาน */
@@ -766,4 +767,18 @@ function RJ807() { return S && S.sup ? '<button type="button" class="ca7-b rj807
 async function DQ808(r) {   /* ลิงก์ JOB : อยู่ในแท็บมัดจำตู้จริงหรือไม่ (ถามรายการเดิม · อ่านอย่างเดียว) */
   try { if (!r || !r.job_no || r.job_no === "รอออกเลข JOB") return !1; var x = await rpc("njacc_cash_adv807_list", { p: { tab: "DEPOSIT", job_no: r.job_no, limit: 20, offset: 0, bil_dp: "", bil_ap: "follow" } });
     return ((x && x.rows) || []).some(function (y) { return y.job_id === r.job_id; }); } catch (e) { return !1; }
+}
+/* ═══ V.880 · CASH ADVANCE : ตัวเลือก บริษัท / ลูกค้า / ประเภท = รายการจริงของ "แท็บปัจจุบัน" และสัมพันธ์กัน (Server : RUN-880)
+   สลับแท็บแล้วค่าที่เลือกไว้ไม่มีรายการรองรับ (0 รายการ และค่านั้นไม่อยู่ในตัวเลือก) → ล้างทีละช่อง ประเภท → ลูกค้า → บริษัท แล้วค้นหาใหม่
+   ค้นหาด้วยข้อความ / วันที่ แล้วไม่พบ = 0 รายการตามจริง (ไม่ล้างตัวกรอง) ═══ */
+function FV880(r) {
+  try {
+    if (!S || !r || !r.options || (r.total || 0) > 0) return !1;
+    var o = r.options, f = S.f || {}, has = function (L, v) { v = String(v).trim().toLowerCase(); return (Array.isArray(L) ? L : []).some(function (x) { return String(x == null ? "" : x).trim().toLowerCase() === v; }); };
+    var k = f.ptype && !has(o.types, f.ptype) ? "ptype" : f.customer_x && !has(o.customers, f.customer_x) ? "customer_x" : f.company_x && !has(o.companies, f.company_x) ? "company_x" : "";
+    if (!k) return !1;
+    S.f = Object.assign({}, f); S.f[k] = "";
+    var fo = S.root.querySelector("[data-f]"), el = fo && fo.elements && fo.elements[k]; el && (el.value = ""); fo && fo.__ca760s && fo.__ca760s();
+    return !0;
+  } catch (e) { return !1; }
 }

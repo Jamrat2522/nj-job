@@ -123,7 +123,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       <div class="ch-panel">
       <div class="fbar">
         <input class="inp" data-pf="q" value="${i($.q)}" placeholder="\u0E04\u0E49\u0E19\u0E2B\u0E32 INVOICE / \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E07\u0E32\u0E19">${FI678($,"pf")}
-        <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rp-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button>${XB734("rp-xl734")}</div>
+        <button class="btn btn-o btn-sm" id="rp-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rp-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" id="rp-rf881" title="โหลดรายการล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${XB734("rp-xl734")}</div>
       ${RB795()}<div class="card mt-2" id="rp-pgn"></div>
       <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
         ${RH795()}${RH522}
@@ -139,7 +139,7 @@ import{a as XLS820}from"./chunk-FHYZBT2Q.js";import{css762 as CS762,dd762 as DD7
       <input class="inp" type="date" data-f="from" value="${b.from}">
       <input class="inp" type="date" data-f="to" value="${b.to}">
       ${FI678(b,"f")}
-      <button class="btn btn-o btn-sm" id="rc-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rc-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button>${XB734("rc-xl811")}${XB857()}</div>
+      <button class="btn btn-o btn-sm" id="rc-go">\u0E04\u0E49\u0E19\u0E2B\u0E32</button><button type="button" class="btn btn-o btn-sm clr797" id="rc-clr797" title="คืนค่าตัวกรองทั้งหมดเป็นค่าเริ่มต้น">ล้างค้นหา</button><button type="button" class="btn btn-sm rf881" id="rc-rf881" title="โหลดรายการล่าสุดจากฐานข้อมูล (คงตัวกรอง / หน้า / แท็บ / ระบบ เดิม)">⟳ รีเฟรช</button>${XB734("rc-xl811")}${XB857()}</div>
     <div id="rc-sum811" class="sum811"></div><div class="card mt-2" id="rc-pgn"></div>
     <div class="tbl-wrap lp-scroll"><table class="tbl"><thead><tr>
       ${MQ849() ? RH811 : RH849}
@@ -1083,9 +1083,9 @@ async function OP797(t, force) {   /* โหลด / อัปเดตตัว
   }
   if (!t || !t.isConnected) return;
   [["#rc-pending", "pf", $, "pending"], ["#rc-issued", "f", b, "issued"]].forEach(([sc, at, st, tab]) => {
-    let box = t.querySelector(sc); if (!box) return; let src = (d && d[tab]) || {};
+    let box = t.querySelector(sc); if (!box) return; let src = (d && d[tab]) || {}, A880 = FP880(box, src, d, tab);   /* V.880 */
     box.querySelectorAll("select.sel797").forEach((sel) => {
-      let k = sel.getAttribute("data-" + at), o = sel.dataset.o797, list = Array.isArray(src[o]) ? src[o] : [], cur = String(sel.value || ""), seen = new Set();
+      let k = sel.getAttribute("data-" + at), o = sel.dataset.o797, list = (Array.isArray(src[o]) ? src[o] : []).filter((x) => !A880[o] || !x || x.key == null || A880[o].has(String(x.key)))/* V.880 */, cur = String(sel.value || ""), seen = new Set();
       let h = `<option value="">${OK797[o]}</option>` + list.map((x) => {
         let v = (tab === "pending" || SRC837 === "XLS") && x && x.key ? "n:" + String(x.key) : (Array.isArray(x.ids) ? x.ids : []).map(String).filter(Boolean).join(","), n = String(x && x.name || "").trim();   /* V.829 (RUN-833) : รอรับชำระ = ชื่อ (รวมรายการ UPLOAD EXCEL ที่ไม่มี id) */
         if (!v || !n || seen.has(v)) return ""; seen.add(v); NM797.set(v, n); return `<option value="${i(v)}" title="${i(n)}">${i(n)}</option>`;
@@ -1096,17 +1096,18 @@ async function OP797(t, force) {   /* โหลด / อัปเดตตัว
   });
 }
 function AP797(t) {   /* เลือก = ค้นหาทันที · ล้างค้นหาทั้งหมด · รายการกระชับ */
-  ST797();
+  ST797(); RF881(t);   /* V.881 */
   [["#rc-pending .fbar", "#rp-go", "#rp-clr797"], ["#rc-issued .fbar", "#rc-go", "#rc-clr797"]].forEach(([bs, gs, cs]) => {
     let bar = t.querySelector(bs), go = t.querySelector(gs), clr = t.querySelector(cs); if (!bar || !go) return;
     bar.querySelectorAll("select.sel797").forEach((sel) => {
       let w = sel.closest(".u762-dd") || sel.parentNode; w && w.classList.add("dd797");
       if (sel.__ap797) return; sel.__ap797 = 1;
-      sel.addEventListener("change", () => { sel.value && !go.disabled && setTimeout(() => go.click(), 0); });   /* × (ค่าว่าง) = ค้นหาใหม่ผ่าน Component เดิมอยู่แล้ว */
+      sel.addEventListener("change", () => { try { O797 && O797S === SRC837 && OP797(t); } catch (e8) {}   /* V.880 : อีกช่อง = เฉพาะคู่ที่มีรายการจริง */ sel.value && !go.disabled && setTimeout(() => go.click(), 0); });   /* × (ค่าว่าง) = ค้นหาใหม่ผ่าน Component เดิมอยู่แล้ว */
     });
     clr && !clr.__ap797 && (clr.__ap797 = 1, clr.onclick = (ev) => {
       ev.preventDefault();
       bar.querySelectorAll("input,select").forEach((el) => { if (!el.hasAttribute("data-pf") && !el.hasAttribute("data-f")) return; el.value = ""; });
+      try { O797 && O797S === SRC837 && OP797(t); } catch (e8) {}   /* V.880 : ล้างค้นหา = ตัวเลือกกลับเป็นทั้งหมดของแท็บ */
       go.click();
     });
   });
@@ -2312,4 +2313,35 @@ async function PX869(ds, fname, b, save) {   /* ปุ่มพิมพ์ / SA
     setTimeout(function () { try { URL.revokeObjectURL(u.url); } catch (e) {} }, 60000);
     return !0;
   } catch (e) { try { console.warn("PX869", e); } catch (z) {} return !1; }
+}
+/* ═══ V.880 · FINANCE → RECEIPT : ลูกค้า ↔ บริษัท สัมพันธ์กัน (แยกแท็บ รอรับชำระ / ใบเสร็จที่ออกแล้ว · แยกระบบใหม่ / ระบบเก่า)
+   ข้อมูล = pairs880 ของ njacc_receipt_opts797 (RUN-880 · คู่ที่มีรายการจริง) · เลือกบริษัท → ลูกค้าเฉพาะที่มีรายการของบริษัทนั้น · เลือกลูกค้า → บริษัทเฉพาะของลูกค้านั้น
+   ค่าที่เลือกไว้แต่ไม่มีรายการรองรับ = ล้าง (กลไก OP797 เดิม) · ยังไม่รัน RUN-880 = รายชื่อเดิมทั้งหมด ═══ */
+function FP880(box, src, d, tab) {
+  try {
+    let P = d && d.pairs880 && d.pairs880[tab]; if (!Array.isArray(P)) return {};
+    let val = (x) => (tab === "pending" || SRC837 === "XLS") && x && x.key ? "n:" + String(x.key) : (Array.isArray(x && x.ids) ? x.ids : []).map(String).filter(Boolean).join(",");
+    let keyOf = (o) => { let s = box.querySelector('select.sel797[data-o797="' + o + '"]'), v = s ? String(s.value || "") : ""; if (!v) return ""; let x = (Array.isArray(src[o]) ? src[o] : []).find((x) => x && val(x) === v); return x && x.key != null ? String(x.key) : ""; };
+    let kk = keyOf("companies"), ck = keyOf("customers"), R = {};
+    if (kk) { R.customers = new Set(P.filter((p) => String(p[1]) === kk).map((p) => String(p[0]))); ck && !R.customers.has(ck) && (ck = ""); }
+    if (ck) R.companies = new Set(P.filter((p) => String(p[0]) === ck).map((p) => String(p[1])));
+    return R;
+  } catch (e) { return {}; }
+}
+/* ═══ V.881 · FINANCE → RECEIPT : ปุ่ม "⟳ รีเฟรช" (รอรับชำระ / ใบเสร็จที่ออกแล้ว × ระบบใหม่ / ระบบเก่า) — สีน้ำเงิน · ต่อจาก ล้างค้นหา ก่อน EXPORT EXCEL
+   โหลดรายการ / จำนวน / ยอดรวม / Pagination ใหม่จากฐานข้อมูลด้วยตัวโหลดเดิม (M / t.__ld811 · RPC เดิม) + ตัวเลือก Dropdown ใหม่ (OP797 force) · คงตัวกรอง / หน้า / แท็บ / ระบบ ที่ใช้อยู่
+   ระหว่างโหลด = "กำลังรีเฟรช…" + กดซ้ำไม่ได้ · โหลดไม่สำเร็จ = ตัวโหลดเดิมแจ้งข้อผิดพลาดและคงรายการเดิม (ไม่ล้างตาราง) ═══ */
+function RF881(t) {
+  try {
+    if (!document.getElementById("st881")) { let s = document.createElement("style"); s.id = "st881";
+      s.textContent = ".btn.rf881{background:#2563eb!important;border:1px solid #2563eb!important;color:#fff!important;font-weight:700;white-space:nowrap}.btn.rf881:hover:not(:disabled){background:#1d4ed8!important;border-color:#1d4ed8!important}.btn.rf881:disabled{opacity:.65;cursor:wait}"; document.head.appendChild(s); }
+    [["#rp-rf881", () => M(t)], ["#rc-rf881", () => t.__ld811 && t.__ld811()]].forEach(([id, ld]) => {
+      let b = t.querySelector(id); if (!b || b.__rf881) return; b.__rf881 = 1;
+      b.onclick = async (ev) => {
+        ev.preventDefault(); if (b.disabled) return; let t0 = b.textContent; b.disabled = !0; b.setAttribute("aria-busy", "true"); b.textContent = "กำลังรีเฟรช…";
+        try { await Promise.all([ld(), OP797(t, !0)]); } catch (e) { try { R(e); } catch (_) {} }
+        finally { b.disabled = !1; b.removeAttribute("aria-busy"); b.textContent = t0; }
+      };
+    });
+  } catch (e) {}
 }
