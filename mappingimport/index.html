@@ -11153,6 +11153,8 @@ const TX_AI_FN    = 'nj-invoice-ai-tx';
 const TX_AI_MODEL = 'claude-sonnet-5-5';
 const TX_AI_MAXMS = 7 * 60 * 1000;          // เพดานรอผลต่อไฟล์
 let   _txSess     = null;                    // { token, exp } — เก็บในหน่วยความจำเท่านั้น
+let   _txSessReady = false;                  // true = ขอ Session สำเร็จแล้ว (ใช้คุมปุ่มตรวจสอบ)
+const TX_NO_SESS   = 'ยังเชื่อมต่อ AI สำหรับ TEXAS DB12 ไม่สำเร็จ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
 
 /* รับ Session จาก RPC nj_tx_login (เรียกตอนเข้าสู่ระบบ) — ไม่เก็บรหัสผ่านไว้ที่ใด */
 async function txIssueSession(username, password){
@@ -11163,9 +11165,16 @@ async function txIssueSession(username, password){
       body: JSON.stringify({ p_username: username, p_password: password })
     });
     const j = await r.json().catch(()=>null);
-    if(j && j.success && j.session){ _txSess = { token:j.session, exp: Date.parse(j.expires_at||'') || 0 }; return true; }
-  }catch(e){ try{ console.debug('[TX] session', e && e.message); }catch(_){} }
-  _txSess = null; return false;
+    if(j && j.success && j.session){
+      _txSess = { token:j.session, exp: Date.parse(j.expires_at||'') || 0 };
+      _txSessReady = true;
+      try{ txCheckReady(); }catch(_){}
+      return true;
+    }
+  }catch(e){ try{ console.error('[TX] ออก Session ไม่สำเร็จ', e); }catch(_){} }
+  _txSess = null; _txSessReady = false;
+  try{ txCheckReady(); }catch(_){}
+  return false;
 }
 function txHasSession(){ return !!(_txSess && _txSess.token && (!_txSess.exp || _txSess.exp > Date.now() + 5000)); }
 
@@ -11323,7 +11332,7 @@ async function txRun(){
   _txRunning = true; if(bRun) bRun.disabled = true; if(bExp) bExp.disabled = true;
   txState.res = null; txState.list = null; txRenderResult();
   try{
-    if(!txHasSession()) throw new Error('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้ AI ในโหมดนี้ — กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่');
+    if(!txHasSession()) throw new Error(TX_NO_SESS);
     const map = new Map(), unclear = [];
     let cost = 0, inTok = 0, outTok = 0, reqs = 0, allCached = true, modelUsed = '';
     for(let i = 0; i < txState.pdfs.length; i++){
@@ -11394,9 +11403,9 @@ function txRenderLists(){
           ps.className = 'tx-fstat' + (txState.pdfs.length ? ' on' : ''); }
 }
 function txHint(){
-  return txState.pdfs.length
-    ? ('✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ" เพื่อให้ AI อ่าน')
-    : 'รอไฟล์ INVOICE PDF';
+  if(!txState.pdfs.length) return 'รอไฟล์ INVOICE PDF';
+  if(!txHasSession())      return '⚠ ' + TX_NO_SESS;      // ไม่มี Session = ปุ่มตรวจสอบถูกปิด
+  return '✓ แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ" เพื่อให้ AI อ่าน';
 }
 /* แนบ/ลบไฟล์ = ผลตรวจเดิมใช้ไม่ได้แล้ว ต้องตรวจสอบใหม่ก่อน Export */
 function txInvalidate(){ txState.res = null; txState.list = null; txRenderResult(); }
@@ -11421,7 +11430,17 @@ function txAddPdfFiles(files){
 function txCheckReady(){
   const r = document.getElementById('tx-btn-run');
   const b = document.getElementById('tx-btn-export');
-  if(r) r.disabled = !txState.pdfs.length || _txRunning;
+  /* เปิดปุ่ม "ตรวจสอบ" เมื่อครบทุกข้อ:
+     1) มี PDF อย่างน้อย 1 ไฟล์  2) ไม่มีไฟล์อยู่ระหว่างเตรียม
+     3) มี _txSess.token         4) Session ยังไม่หมดอายุ
+     5) ไม่มีงาน AI กำลังประมวลผล
+     ไม่มี Session = ปิดปุ่ม · ห้ามส่ง PDF · ห้ามเรียก Edge Function · ห้าม fallback ไปของ KDC */
+  const preparing = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
+  const okSess = txHasSession();
+  if(r) r.disabled = !txState.pdfs.length || _txRunning || preparing || !okSess;
+  const el = document.getElementById('tx-status');
+  if(!okSess && txState.pdfs.length && el && !_txRunning && el.textContent.indexOf('✗') !== 0)
+    txSetStatus(txHint(), 'err');
   /* Export เปิดเมื่อ: ตรวจสอบเสร็จ · ไม่มีไฟล์ค้าง preparing/processing · สร้าง Preview แล้ว */
   const busy = txState.pdfs.some(f => txState.stat[f.name] === 'processing');
   const bad  = txState.pdfs.some(f => String(txState.stat[f.name] || '').indexOf('error') === 0);
@@ -25001,9 +25020,17 @@ async function doLogin(){
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
       /* [AI 16/11/2026] ขอ Session ฝั่ง Server สำหรับโหมด TEXAS DB12 (RPC nj_tx_login)
-         ★ เพิ่มอย่างเดียว — ไม่เปลี่ยนวิธีเข้าสู่ระบบ/สิทธิ์เดิม · ล้มเหลวก็เข้าระบบได้ตามปกติ
-         ★ เก็บเฉพาะ Token ในหน่วยความจำ · ไม่เก็บรหัสผ่านไว้ที่ใด */
-      try{ if(typeof txIssueSession === 'function') txIssueSession(ulocal, pass); }catch(_){}
+         ★ ต้อง await ให้เสร็จก่อน เพื่อไม่ให้ปุ่ม AI เปิดก่อนได้ Session (แก้ Session Race)
+         ★ ล้มเหลว = ยังเข้าสู่ระบบและใช้โหมดอื่นได้ตามปกติ · ปิดเฉพาะปุ่มตรวจสอบของ TEXAS DB12
+         ★ เก็บเฉพาะ Token ในหน่วยความจำ · ไม่เก็บรหัสผ่านใน localStorage / sessionStorage / ตัวแปรถาวร */
+      let txSessionReady = false;
+      try{
+        if(typeof txIssueSession === 'function') txSessionReady = await txIssueSession(ulocal, pass);
+      }catch(error){
+        console.error('[TX] ออก Session ไม่สำเร็จ', error);
+        txSessionReady = false;
+      }
+      if(!txSessionReady) try{ console.warn('[TX]', TX_NO_SESS); }catch(_){}
       authMsg('เข้าสู่ระบบ (Local) ✓', 'ok');
       await onAuthSuccess(fakeSession);
       return;
