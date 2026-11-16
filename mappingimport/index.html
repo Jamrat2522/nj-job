@@ -2396,7 +2396,36 @@ body.legacy-active .content-area { display: none !important; }
 <!-- ══════════ Texas db12 ══════════ -->
 <div class="doa-view" id="tx-view">
   <style>
-    #tx-view .tx-uploads{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:6px;align-items:stretch}
+    /* [441] Desktop = 2 กรอบแถวเดียวกัน 50/50 · Mobile (<768px) = เรียงบนล่าง 100% */
+    #tx-view .tx-uploads{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;align-items:stretch}
+    #tx-view .tx-mbox{border:1px dashed var(--line,#cbd5e1);border-radius:12px;padding:12px;display:flex;
+      flex-direction:column;gap:6px;min-width:0}
+    #tx-view .tx-mbox .tx-mhead{font-size:12.5px;font-weight:700;color:var(--text)}
+    #tx-view .tx-mbox .tx-msub{font-size:10px;color:var(--text3)}
+    #tx-view .tx-mpick{border:1px dashed var(--line,#cbd5e1);border-radius:9px;padding:8px;text-align:center;
+      font-size:11px;cursor:pointer;color:var(--text2);background:rgba(148,163,184,.08)}
+    #tx-view .tx-mbtns{display:flex;gap:6px;flex-wrap:wrap}
+    #tx-view .tx-mbtns .btn{font-size:11.5px;padding:5px 9px}
+    #tx-view .tx-minfo{font-size:11px;line-height:1.6;color:var(--text2);word-break:break-word}
+    #tx-view .tx-minfo b{color:var(--text)}
+    #tx-view .tx-mbadge{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px}
+    #tx-view .tx-mhist{max-height:132px;overflow:auto;font-size:10.5px;border-top:1px dashed var(--line,#cbd5e1);padding-top:5px}
+    #tx-view .tx-mhist .hrow{display:flex;gap:6px;align-items:center;padding:2px 0;border-bottom:1px dotted rgba(148,163,184,.3)}
+    #tx-view .tx-mhist .hrow > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #tx-view .tx-mhist button{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid var(--line,#cbd5e1);
+      background:transparent;color:inherit;cursor:pointer;white-space:nowrap}
+    /* กรอบและปุ่มต้องยืดหดตามพื้นที่จริง — ห้ามล้นจอแม้พื้นที่เนื้อหาจะแคบ */
+    #tx-view .tx-uploads > *{min-width:0}
+    #tx-view .tx-actions .btn,#tx-view .tx-actions select,#tx-view .tx-mbtns .btn{max-width:100%;min-width:0}
+    #tx-view .tx-actions .btn,#tx-view .tx-mbtns .btn{white-space:normal;overflow-wrap:anywhere}
+    #tx-view .tx-mpick,#tx-view .tx-minfo,#tx-view .tx-mhead,#tx-view .tx-msub{overflow-wrap:anywhere}
+    @media (max-width:768px){
+      #tx-view .tx-uploads{grid-template-columns:1fr}
+      #tx-view .tx-actions{gap:6px}
+      #tx-view .tx-actions .btn,#tx-view .tx-actions select{flex:1 1 auto}
+      #tx-view .tx-mhist{max-height:160px}
+      #tx-view .tx-mhist .hrow{flex-wrap:wrap}
+    }
     #tx-view .tx-uploads > .doa-drop{min-height:120px;justify-content:flex-start;padding:12px 12px 10px}
     #tx-view .doa-drop-title{font-size:12.5px;font-weight:700;color:var(--text)}
     #tx-view .doa-drop-sub{font-size:10px;color:var(--text3);margin-top:2px}
@@ -2416,14 +2445,32 @@ body.legacy-active .content-area { display: none !important; }
   </style>
   <div class="doa-panel">
     <div class="tx-uploads">
+      <!-- ══ กรอบซ้าย: INVOICE PDF ══ -->
       <div class="doa-drop" id="tx-pdf-drop" onclick="txOpenInput(event,'pdf')" style="cursor:pointer">
         <div class="doa-drop-title">📄 INVOICE PDF (เลือกได้หลายไฟล์)</div>
         <div class="doa-drop-sub">TEXAS INSTRUMENTS Commercial Invoice · 1 ไฟล์มีได้หลาย Invoice</div>
         <div class="tx-fstat" id="tx-pdf-stat">ยังไม่ได้แนบไฟล์</div>
         <div class="doa-file-list" id="tx-pdf-list"></div>
       </div>
+      <!-- ══ กรอบขวา: MASTER TEXAS DB12 ══ -->
+      <div class="tx-mbox" id="tx-mst-box">
+        <div class="tx-mhead">🗂️ MASTER TEXAS DB12</div>
+        <div class="tx-msub">เก็บบน Server · ใช้ร่วมกันทุกเครื่อง · เปลี่ยนได้โดยไม่ต้อง Deploy ใหม่</div>
+        <div class="tx-mpick" id="tx-mst-pick" onclick="txOpenInput(event,'mst')">
+          คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)
+        </div>
+        <div class="tx-mbtns">
+          <button class="btn" id="tx-mst-read" onclick="txMstRead()" disabled>🔍 อ่านและตรวจสอบ MASTER</button>
+          <button class="btn btn-success" id="tx-mst-save" onclick="txMstSave()" disabled>💾 SAVE MASTER</button>
+          <button class="btn" id="tx-mst-cancel" onclick="txMstCancel()" disabled>✕ ยกเลิกไฟล์ที่เลือก</button>
+        </div>
+        <div class="tx-minfo" id="tx-mst-info">กำลังโหลดข้อมูล MASTER …</div>
+        <div class="tx-mhist" id="tx-mst-hist"></div>
+      </div>
     </div>
     <input type="file" id="tx-pdf-input" accept=".pdf" multiple style="display:none"/>
+    <input type="file" id="tx-mst-input" accept=".xlsx,.xls" style="display:none"/>
+    <!-- ══ แถบควบคุม Invoice เดียวเต็มความกว้าง (ห้ามมีปุ่มเหล่านี้ซ้ำที่อื่น) ══ -->
     <div class="tx-actions">
       <select id="tx-model" title="คุณภาพการอ่านของ AI" style="height:34px;border:1px solid var(--line,#cbd5e1);border-radius:8px;padding:0 8px;font-size:12px">
         <option value="">อัตโนมัติ — แนะนำ</option>
@@ -2432,8 +2479,9 @@ body.legacy-active .content-area { display: none !important; }
       </select>
       <button class="btn btn-primary" id="tx-btn-run" onclick="txRun()" disabled>🔎 ตรวจสอบ</button>
       <button class="btn btn-success" id="tx-btn-export" onclick="txDownload()" disabled>📊 EXPORT EXCEL</button>
-      <button class="btn" onclick="txReset()">♻ ล้าง</button>
+      <button class="btn" id="tx-btn-clear" onclick="txReset()">♻ ล้าง PDF</button>
       <div class="tx-status" id="tx-status">รอไฟล์ INVOICE PDF</div>
+      <div class="tx-status" id="tx-mst-bar" style="margin-left:0;width:100%">MASTER: กำลังตรวจ…</div>
     </div>
     <div id="tx-result" style="display:none;margin-top:10px"></div>
   </div>
@@ -11282,6 +11330,7 @@ async function txBootSession(username){
   _txSessReady = false; _txSessVerified = false; _txSessChecking = true;
   try{ txCheckReady(); txSetStatus(TX_CONNECTING); }catch(_){}
   const ok = await txSessionCheck();
+  if(ok) try{ await txMstLoadActive(); }catch(_){}    // [441] โหลด MASTER ACTIVE ทันทีที่ AI พร้อม
   _txSessChecking = false;
   try{ txCheckReady(); txSetStatus(txHint(), ok ? 'ok' : 'err'); }catch(_){}
   return ok;
@@ -11462,9 +11511,13 @@ function txRenderResult(){
          warn.slice(0, 50).join('<br>') + (warn.length > 50 ? '<br>… รวม ' + warn.length + ' รายการ' : '') +
          '<div style="margin-top:6px;font-weight:700">ปุ่ม EXPORT EXCEL ถูกปิดไว้จนกว่าจะพบข้อมูลครบทุก Product Code</div></div>';
   }
-  h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">MASTER: ' + esc(TX_MST_FILE) +
-       ' · ชีท ' + esc(TX_MST_SHEET) + ' · ' + TX_MST_ROWS + ' แถว (ไม่ซ้ำ ' + TX_MST_UNIQ + ')' +
-       ' · SHA-256 ' + esc(TX_MST_SHA.slice(0, 16)) + '…</div>';
+  const A = _txMstActive;
+  h += '<div style="font-size:10.5px;color:#64748b;margin-bottom:8px">MASTER ที่ใช้: ' +
+       (A ? ('<b>Version ' + esc(A.version) + '</b> · ' + esc(A.file_name) + ' · ชีท ' + esc(A.sheet_name) +
+             ' · ' + esc(A.rows_total) + ' แถว (ไม่ซ้ำ ' + esc(A.codes_uniq) + ')' +
+             ' · บันทึกโดย ' + esc(A.saved_by_name || A.saved_by) + ' ' + esc(txMstDate(A.saved_at)) +
+             ' · SHA-256 ' + esc(String(A.file_sha256).slice(0, 16)) + '…')
+          : esc(TX_MST_MSG_NONE)) + '</div>';
   h += '<div style="font-size:11.5px;margin-bottom:8px;color:' + (okMath ? '#16a34a' : '#b91c1c') + '">' +
        (okMath ? '✅ ตรวจเลขคณิตผ่าน — ผลรวม Quantity และ Subtotal ตรงกับ Total ที่พิมพ์ใน PDF ทุก Invoice'
                : '⚠ ตรวจเลขคณิตไม่ผ่าน ' + R.errs.length + ' Invoice (ยัง Export ได้ แต่โปรดตรวจกับ PDF ต้นฉบับ)') + '</div>';
@@ -11547,13 +11600,23 @@ async function txRun(){
     /* ── [440] จับคู่ MASTER — Lookup ภายในล้วน ไม่เรียก Claude เพิ่มแม้แต่ครั้งเดียว ── */
     _txMatching = true; txCheckReady();
     txSetStatus('กำลังจับคู่ Product Code กับ MASTER …');
-    const mst = { found: 0, miss: 0, blur: 0, dup: 0, pages: 0, missList: [] };
+    if(!_txMstActive) await txMstLoadActive();
+    if(!_txMstActive) throw new Error(TX_MST_MSG_NONE);
+    const mst = { found: 0, miss: 0, blur: 0, dup: 0, pages: 0, missList: [],
+                  version: _txMstActive.version, file: _txMstActive.file_name };
     const seenPC = new Set(), seenPG = new Set();
+    /* รอบแรก: เก็บคีย์ทั้งหมด → ถาม Server ครั้งเดียว (ไม่เรียก AI) */
+    const keys = [];
     for(const r of list) for(const it of r.items){
       const raw = it.cust || it.ti || '';
       it._pcode = raw;                       // เก็บ Product Code เดิมจาก PDF ไว้แสดงใน Preview
       it._mkey  = txMstNorm(raw);            // ค่าที่ใช้ค้นหาจริง (Normalize แล้ว)
-      it._m     = raw ? txMstFind(raw) : null;
+      if(it._mkey) keys.push(it._mkey);
+    }
+    const found = await txMstLookup(keys);
+    for(const r of list) for(const it of r.items){
+      const raw = it._pcode;
+      it._m = it._mkey ? (found.get(it._mkey) || null) : null;
       if(!raw){ it._mstat = 'blur'; mst.blur++; }
       else if(it._m){ it._mstat = 'ok'; mst.found++; }
       else { it._mstat = 'miss'; mst.miss++; if(mst.missList.indexOf(raw) < 0) mst.missList.push(raw); }
@@ -11610,6 +11673,7 @@ function txRenderLists(){
 function txHint(){
   if(_txSessChecking)      return TX_CONNECTING;          // [439] กำลังเชื่อมต่อ AI — ปิดปุ่มไว้ก่อน
   if(!txHasSession())      return '⚠ ' + TX_NO_SESS;      // ไม่มี Session = ปุ่มตรวจสอบถูกปิด
+  if(!_txMstActive)        return '⚠ ' + TX_MST_MSG_NONE;  // [441] ไม่มี MASTER ACTIVE = Export ไม่ได้
   if(!txState.pdfs.length) return '✓ ' + TX_READY + ' — รอไฟล์ INVOICE PDF';
   return '✓ ' + TX_READY_PDF + ' · แนบแล้ว ' + txState.pdfs.length + ' ไฟล์ — กด "ตรวจสอบ"';
 }
@@ -11655,7 +11719,7 @@ function txCheckReady(){
   const M = txState.res && txState.res.mst;
   const mstOK = !!M && M.miss === 0 && M.blur === 0;
   if(b) b.disabled = !(txState.res && txState.res.list && txState.res.list.length)
-                     || busy || bad || _txRunning || _txMatching || !mstOK;
+                     || busy || bad || _txRunning || _txMatching || !mstOK || !_txMstActive;
 }
 function txReset(){
   txState.pdfs = []; txState.stat = {}; txState.res = null; txState.list = null;
@@ -11682,61 +11746,275 @@ function txMapDesc(v){
   return s;
 }
 /* ══════════════════════════════════════════════════════════════════════════
-   [MASTER 16/11/2026] ตาราง MASTER ของโหมด TEXAS DB12 — ฝังไว้ในระบบแล้ว
-   ไฟล์ต้นฉบับ : 0.master dbs12 imp mapping16.11.2026.xlsx
-   ชีท         : master dbs12 imp 30.09.2026
-   SHA-256     : 313d74bf5009396e19f0a28552ed647a0590eeb9012bf516fefdf54d6b3d33b2
-   ข้อมูล       : 1179 แถว · Product Code ไม่ซ้ำ 1174 · ซ้ำ 5 ค่า (Mapping ตรงกันทุกค่า จึงยุบเหลือค่าเดียว)
-   ★ ผู้ใช้ไม่ต้องอัปโหลด MASTER · ค้นหาได้ทันทีตั้งแต่เปิดเว็บ
-   ★ เติมข้อมูลจาก MASTER ด้วย Lookup ภายในล้วน — ไม่เรียก Claude เพิ่มแม้แต่ครั้งเดียว
+   [MASTER 441 · 16/11/2026] MASTER ของโหมด TEXAS DB12 — เก็บบน Server (Supabase)
+   ★ ใช้ร่วมกันทุกเครื่อง · มี Version / ACTIVE / Audit Log / Rollback
+   ★ เปลี่ยน MASTER ได้โดยไม่แก้ Source และไม่ต้อง Deploy ใหม่
+   ★ ตรวจสิทธิ์ที่ Server ทุกครั้งด้วย p_token (RPC nj_tx_master_*) — ซ่อนปุ่มอย่างเดียวไม่พอ
+   ★ การค้นหา MASTER ไม่เรียก Claude API แม้แต่ครั้งเดียว
    ══════════════════════════════════════════════════════════════════════════ */
-const TX_MST_FILE  = "0.master dbs12 imp mapping16.11.2026.xlsx";
-const TX_MST_SHEET = "master dbs12 imp 30.09.2026";
-const TX_MST_SHA   = "313d74bf5009396e19f0a28552ed647a0590eeb9012bf516fefdf54d6b3d33b2";
-const TX_MST_ROWS  = 1179, TX_MST_UNIQ = 1174, TX_MST_DUP = 5;
-/* กลุ่ม Mapping: [ DESCRIPTIONS THAI 3, Tariff Code (8 หลัก), Stat (3), Traff Seq (5), Privilege (3) ] */
-const TX_MST_G = [
-  ["วงจรรวมที่ใช้ในทางอิเล็กทรอนิกส์, อื่น ๆ", "85423900", "000", "65004", "000"],
-  ["วงจรรวมที่ใช้ในทางอิเล็กทรอนิกส์, วงจรขยาย", "85423300", "000", "65004", "000"],
-  ["วงจรรวมที่ใช้ในทางอิเล็กทรอนิกส์, วงจรรวมที่ใช้ในทางอิเล็กทรอนิกส์, ตัวประมวลผลและตัวควบคุม จะประกอบเข้ากับ วงจรความจำ วงจรกลับกระแสไฟฟ้า วงจรตรรกะ วงจรขยาย วงจรนาฬิกาและวงจรเวลา หรือวงจรอื่น ๆ หรือไม่ก็ตาม", "85423100", "000", "65004", "000"],
-  ["อุปกรณ์กึ่งตัวนำ (เช่น ไดโอด ทรานซิสเตอร์ ทรานสดิวเซอร์แบบกึ่งตัวนำ) ทรานซิสเตอร์ นอกจากทรานซิสเตอร์ไวแสง, มีอัตราการสูญเสียน้อยกว่า 1 วัตต์", "85412100", "000", "65004", "000"],
-  ["ไดโอด นอกจากไดโอดไวแสงหรือไดโอดเปล่งแสง (แอลอีดี)", "85411000", "000", "65004", "000"],
-  ["ทรานซิสเตอร์ชนิดอื่น ๆ", "85412900", "000", "65004", "000"],
-];
-/* Product Code (Normalize แล้ว) → ดัชนีกลุ่มด้านบน · คั่นด้วยช่องว่างเพื่อลดขนาดไฟล์ */
-const TX_MST_IDX = [
-  "AL000101015 AL000102022 AL000708001 AL1G0008004 AL170200001 AL000221007 AL000393K00 6019B2539101 AL024800001 AL220602T03 AL000522003 AL051285003 AL000075061 AL000244009SEL1 AL000304K02 AL000411009 AL000502015 AL000548006 AL000803028 AL001080000 AL001104K02 AL001540000SEL1 6019B2723401 6019B2684701 6019B2690901 6019B2709301 6019B2655901 6019B2675301 6019B2686701 6019B2636601 6019B2630401 6019B2631201 6019B2534001 6019B2534301 6019B2510001 6019B2479601 6019B2475001 6019B2474901 6019B2453801 6019B2412001 6019B2368101 6019B2333701 6019B2266001 6019B2239401 6019B2234501 6019B2209101 6019B2641101 6019B2165501 6019B2493301 6019B2301901 6019B1988901 6019B1799501 6019B1574101 6019B1484001 6019B1254601 6019B0397401 6019B1035901 6019B0964001 6019B0915401 6019B2611701 6019B2529101 6019B2505401 6019B1990501 AL0000750E3 AL095420002 AL005518003SEL1 AL003700000 AL001800002 AL001G07032 AL001G08031 AL001G32045 AL001T45018 AL002T45K02 AL022916U00 AL02G132K00 AL051396007 AL071501001 AL190901T00 AL1G0373T00 AL259827001 AL001G08006 AL003253C02 AL404025013 AL000216006 AL001G74K00SEL1 AL003257C00 AL003G34000 AL1G0009003 AL000411000 AL002553000 AL009511K02 AL009539002 AL009546003 AL079318004 AL259525000 AL016373K04 AL74LVC1T01 ALTMP421000 AL002G14002 AL003357K00 AL000245K03SEL1 AL01G126004SEL1 AL001112002 ALLV595AK00 AL003257V01 AL1G0008004SEL1 AL000293002 AL002062005 AL009517009SEL1 AL000245K03 AL3Q3257V03 ALLV0164K09 AL000502005 AL000102012 AL000431039 AL000774001 AL063802000 AL003880006 AL005060K02 6019B2565201 6019B2331401 6019B2110701 6019B1949501 6019B0933901 6019B2457601 6019B2880501 6019B2821201 6019B2786501 6019B2760301 6019B2759301 6019B2555801 6019B2555701 6019B2545001 6019B2220101 6019B0008101 6019B0288101 6019B1102801 6019B1102901 6019B1605301 6019B1643101 6019B1783701 6019B1794001 6019B1899401 6019B1937501 6019B1938201 6019B1943301 6019B1954701 6019B1960901 6019B2063201 6019B2152901 6019B2204001 6019B2204101 6019B2204201 6019B2206901 6019B2216201 6019B2274701 6019B2278501 6019B2312701 6019B2327801 6019B2344001 6019B2453201 6019B2479901 6019B2515001 6019B2520301 6019B2520401 6019B2533401 6019B2549001 6019B2554101 6019B2580101 6019B2580201 6019B2580901 6019B2583701 6019B2615601 6019B2761301 6019B2761901 6019B2773401 6019B2774501 6019B2788201 6019B2789801 6019B2793501 6019B2861901 AL000159004 AL000221028 AL001574001 AL001G07012 AL001T34003 AL001T34014 AL001T97T06 AL002544001 AL005223000 AL007021000 AL022913U02 AL022914T01 AL022915T01 AL022950T00 AL024780001 AL075511000 AL171002000 AL025720000 AL000103U00 AL001808K00 6019B2853401 6019B2088301 6019B2783101 6019B2724701 6019B2110001 6019B2921001 6019B2522601 6019B2586701 AL000451018 AL001075003 AL003861W02 AL007012001 AL009555K20 AL259525002 AL404025016 AL000774009 AL003232C18 AL009554K17 AL1G3157021 AL001309K00 AL095420001 2600124308M 2600257308M 2600366208M AL1G0007040 AL000555014 AL005066K03 AL259261002 AL1G0008034 AL074801012 AL259822001 AL01G126033 AL000548023 AL002G07018 AL003257K19 AL003808034 AL009546007 AL036503001 AL1G0017018 AL1G0097000 AL380833004 AL02G125K06 AL809K33000 AL001G07019 AL1G0009002SEL1 AL000104007SEL1 AL000102017 AL003257W50 AL022954002 AL004000T00 AL000774006 AL54JB20001 AL54J061003 AL062822000 AL001204017 AL001210002 AL001075K00 AL051488000 AL009802K00 AL2G0006001 AL005907018 AL004718K00 AL001G08009 AL009617K06 AL009548K09 AL009554K05 AL001108002 AL009554K12 AL3Q3257C03 AL000102U01 AL000104T02 AL005066K01 AL001075000 AL000204003SEL1 AL001G32022 AL001051008 AL002029003 6019B2831001 AL009536K07 AL000315001 6019B0000801 6019B0001901 6019B0113804 6019B0161301 6019B0267201 6019B0306701 6019B0558001 6019B0803201 6019B0921101 6019B0988502 6019B1029404 6019B1145802 6019B1280602 6019B1670801 6019B1715201 6019B1730601 6019B1894401 6019B1896701 6019B2037501 6019B2073001 6019B2100001 6019B2145701 6019B2174002 6019B2186301 6019B2257502 6019B2398001 6019B2431501 6019B2442501 6019B2448101 6019B2467501 6019B2469001 6019B2477601 6019B2616401 6019B2628301 6019B2662901 6019B2722801 6Y19B2374102 6Y19B2421801 6019B0267301 6019B0504101 6019B2501801 6019B2601601 6019B2655401 6019B2690301 6019B2703001 6019B2714602 6Y19B2282501 6Y19B2505901 6019A0173602 6Y19B1387801 6Y19B1444001 6019B0123301 6019B0315101 6019B0509805 6Y19B1670601 6019B1848002 6Y19B0587901 6019B1899101 6019B2027204 6019B2027302 6019B2041901 6019B2095101 6Y19B1129901 6019B2499901 6019B2847901 6019B2766001 6Y19B2664801 6Y19B0587801 6Y19B0590602 6Y19B1390601 6Y19B1398004 6Y19B1915601 6Y19B2449001 6Y19B2584202 6Y19B2739301 6019B1518801 6019B1100901 6019B0607402 6019B0555501 6Y19B0586302 6019B1420502 6019B2646501 6Y19B1296701 6Y19B0907801 6Y19B1825401 6019B1726202 6019B2060501 6Y19B1857002 6019B0191602 6019B0453801 6019B0902101 6019BA064901 6019BA063701 6019BA063101 6019BA076401 6019BA076301 6019BA075501 6019BA052901 6019BA080601 6019BA052801 6019BA079601 6019BA079501 6019BA077701 6019BA076801 6019BA076601 6019BA074701 6019BA073401 6019BA068801 6019BA066501 6019BA066301 6019BA056501 6019BA054801 6019BA054301 6019BA073301 6019BA070401 6019BA069301 6019BA043401 6019BA043301 6019BA050803 6019BA043201 6019BA044901 6019BA044801 6019BA052701 6019BA052001 6019BA051301 6019BA051901 6019BA051201 6019BA051101 6019BA040601 6019BA040501 6019BA040101 6019BA043101 6019BA043001 6019BA042901 6019BA039801 6019BA039701 6019BA039401 6019BA044701 6019BA044601 6019BA043501 6019BA042801 6019BA042601 6019BA042101 6019BA027101 6019BA026901 6019BA026601 6019BA004501 6019BA004401 6019BA004301 6019BA019101 6019BA018801 6019BA017701 6019BA025501 6019BA025001 6019BA024701 6019BA024401 6019BA024201 6019BA020602 6019BA062201 6019BA061301 6019BA059201 6019BA038701 6019BA037901 6019BA029401 6019BA027601 6019BA027401 6019BA027301 6019BA012901 6019BA011801 6019BA011601 6019BA016001 6019BA013302 6019BA028901 6019BA028801 6019BA028501 6019BA004201 6019BA003901 6019BA003601 6019BA003501 6019BA003301 6019BA003201 6019BA003101 6019BA003001 6019BA002901 6019BA002801 6019BA002701 6019BA002601 6019BA001802 6019BA001201 6019BA000902 AL022964U00SEL1 AL000708004 ALLVC032K06SEL1 AL027421T00 AL059116000 AL1G32DB000 AL009535006 AL009406K00SEL1 AL1G0007016 AL1G0007024SEL1 AL005880C00 AL025974001 AL000136001 AL025974000 AL000431065 AL026620000 AL004052004 AL005017003 AL008401006 AL002863000 AL002066K00 AL004020H00 AL053830002 AL01G125030 AL01G126027 AL000226K00 AL005912003 AL003701003 AL08T245002 AL009548008 AL012110K00 AL062460000 AL04T245007 AL003808030 AL009090006 AL004075003 AL628132000 AL004052K07 AL001G32015 AL009803K00 AL062743T00 ALLVC574K01SEL1 AL003257010 AL000104T02SEL1 AL000714001 AL009201000 AL000548007SEL1 AL004718K02 AL000125007 AL002557000 AL010224003 AL000422003 ALLVC126K01 AL040322000 AL025150T00 AL000234T01 AL001601003 AL74LV1T001 AL04T774000 6019B2728801 AL039306K01 AL563211000 AL074501000 AL259474000 AL001204K00 AL552872001 AL001G32007 AL02G125K00 AL002116002 AL000103U04 AL060151001 AL005816002 AL001T32000 AL000411003 AL000432000 AL000204003 AL001015K00SEL1 AL000136000 AL000128K00 AL000075018 AL000393021 AL000548015 AL000302007 AL000451000 AL074722000 AL630250T00 AL001T86001 AL000548006SEL1 AL004053006 AL000548007 AL000230001 AL000555009 AL003431001 AL01G126004 AL000175K00 AL000075021 AL02T245000 AL000108T07 AL025944000 AL000102K00 AL000112001 AL021366000 AL000212010 AL009554K07 AL062568001 AL003232K01 AL003243K01 AL009536001 ALLV0541K00 AL003710000 AL009543001 ALLV0244K00 AL062873003 AL003126K04 AL003232K12SEL1 AL007001002 AL000221000 AL001G38002 AL002G17009 AL062441000 AL001112K00 ALLVC1G0000 AL003808002 AL009548K02 AL065132T04 AL003257K28 AL009509K01 AL002014K02 AL001G17001 AL006408011 AL007031001 AL002553017 AL002066000 AL004718K03 BF732226006 AL003808011 AL003700001 AL074333001 AL061253T00 AL003253K14 AL000548014 AL001108K00 AL04S311T01 AL001102K02 AL009517K04 ALLVC1G7K00 AL025720001 AL74LV1T002 AL009517K01 AL001G00022 AL000136009 AL009511K02SEL1 2510237814M 6019B1232401 6019B0945001 AL003808005 AL003126C01 AL074910001 AL05S115T00 AL001G08033 AL000774002 AL022919000 AL003701002 AL02G241000 AL1G0002002 AL006408K02 AL061377001 AL061099T00 AL001G14004 AL001T45037 AL002G07000 ALVC2G66K01 AL1G3157017 6019B2881801 AL053219002 AL000221015 AL000328003 AJ002500T00 AL003232C08SEL1 AL001G04021 AL000221001 AL054202000 AL628112000 AL002985003 AL007830K00 AL074700007 AL009534K00 AL004040012 AL1G0008033 AL001G14017 AL053219003 AL022965000 AL074801010 AL001044007 AL1G3157001 AL1G0066021SEL1 AL000809032 AL002G53K00 AL022976000 AL053312000 AL006424000 AL002G07000SEL1 AL074310000SEL1 AL0DSI84T01 AL1G0008002SEL1 AL001002017 AL001G04011 AL027518000SEL1 2540809408M 2510474414M 2500630014M AL022965003 AL003160005 ALLVC008K08SEL1 AL1G0009002 AL140104001 AL004612007 AL2G0066C00 AL1G0017003 AL1G0007032 AL096497000 AL059957000 AL002G07006 AL000125K01SEL1 ALLVC1G1000 AL1G3157004 AL003430005 AL003221C09 AL563219003 AL259824005 AL009535K02 AL020285000 AL000700T00 AL009306C00SEL1 AL009548K01SEL1 AL259251000 AL003808005SEL1 2540722708M AL007828K01 AL003221006 AL000296001 AL009617K01 AL03L501000SEL1 AL389001001 AL259824002SEL1 AL001G32015SEL1 AL009535009 AL111750000 AL000461001 AL1G0007024 AL1G0007035 AL04T774K00 AL051200000 AL051200000SEL1 AL009548005SEL1 6019B2919201 AJ001600T03 AL009306C00 AL002066C00 AL259240001 AL04T774K04 AL1G0009008 AL1G0008031 AL1G0008012 AL025066002 AL061022000 AL000238K01 AL002G17026 AL009539K04 AL259814002 AL009509005 AL000226001 AL095410003 AL009306U00 AL025810000 AL022908T00 AL000103U01 AL077401K00SEL1 ALLV4052K00 AL259824002 AL062569003 AL009617K03 AL000102K00SEL1 AL002065008 AL004718K01 AL074310001 AL380833000SEL1 AL025728000 AL061169000 AL259571001 AL000234T02 AL56C215000 AL062084004 ALLV4052K01 AL074312001 AL000008000 AL54J061000SEL1 AL54J061000 AL001102010 AL096497002 AL54J060000 AL259840000 AL022965002 AL002200008 AL009617K08 AL000104U00 AL1G0007016SEL1 AL01G126001 AL160700001 AL059958000 2510780214M AL259240000SEL1 AL007031002 AL001G04011SEL1 AL1G0008012SEL1 AL070950000 AL54J060001 AL001T45020SEL1 AL053513002 AL001G32003 AL023157000 AL001112004 AL000104007 AL009406T00SEL1 AL002066005 AL06S300002 AL051388000 AL073701000 ALLVC007K08 AL009539K09 AL09546AK04 AL54J060000SEL1 AL000224001 6019B2699901 6019B2314301 AL043610000 AL074318001 AL026631000 AL051396000 AL009555K08 AL009416001 AL003880003 AL074328000 AL025619001 AL563201000 AL000233K01 AL053219001 AL000548015SEL1 AL54JA20000 AL003897004 AL3Q3125K02 AL02G126K08 AL003125K67SEL1 AL3Q3257000 AL001309K01 2500301414M 6019B2489001 AL023159000SEL1 AL053317001 AL259261000 AL022997000 AL563210003 AL09546AK01 AL003126K04SEL1 AL074801000SEL1 AL02G125C02 2500301714M AL003245K00SEL1 AL01G125009 AL01G125059 6019B2549201 AL54JB20000 AL008042000 AL1G0126001 AL053219000 AL009617K03SEL1 AL009546K10 AL002G17001 2510668514M AL008812K01 AL009545K01 AL140104000SEL1 AL009538K08 AL000202004 AL051603000 AL1G3157022 AJ020000A00 AL1G0017003SEL1 AL001G07T01 6019B1858801 AL003159000 AL3Q3257K03 AL002003003 AL070450001 AL000002000 AL002G34007 6019B2883801 AL000555018 AL90LV01001 AL001T34010 AL071718001 AL054302000 AL022971T00 AL051200013 2540722608M AL001G08083 AL070950004 AL003223C02 AL000803009 2500235514 AL054308000 2513023214M AL002G07006SEL1 AL002G07010 2540715608M AL001574K00 AL006408012 AL009543K01 AL1G0373001SEL1 AL01G125041 AL000104034 2540457208 AL000221030 AL000160011 AL005018012 AL006416000SEL1 AL002G17001SEL1 AL005066K04 AL000809029 AL259520000 AL01G125036 ALLVC126K07 AL2G0074K01SEL1 AL009536K05 AL002062004 2540394008 2510155414 2500614514M 2540732108 2510252314 2510154306 2500675014 AL1G0066021 2510042314 2600348108 2540916008 2522055214M AL051372000 AL039306K00 AL009517K02 AL1G0032002 AL1G0126002 AL000104K04 AL001G07001 AL009548K02SEL1 AL01G126005 AL001T45010 2540600708 2510129814 2520269014 AL009617K01SEL1 AL002553001 2540577608 AL009536K00 AL90LV01000 AL000331026SEL1 AL039416001 2510789114M AL016851000 AL000331033 2513018914 2510737014 AL009555K18 2540536208M AL000300002 AL009539K13 AL009546K04 AL002556001 AL380815000 AL002G07024 AL000108020SEL1 AL259804000 2540536408 AL025066001 AL001080001 AL002546005 AL003808003SEL1 AL000304000 2500453314 2510045614M AL74LVC1T01SEL1 AL095410004 AL001G32T00 AL054526001 AL3Q3125K00SEL1 AL02G126K07 AL001T08000 AL027518000 AL111733013 AL000331010 AL001G14009SEL1 AL001G14009 AL009539K04SEL1 2500420414 6019B2668701 AL074601007 AL008833K01 AL000230004 AL003125K67 AL009535010 AL004533002 AL001T17000 AL000431085 AL001104004 6019BA071901 6019BA083101 6019B000191 2500050811 AL04T774011 AL001G34001 AL009545K00 AL000102K08 AL001015K00 6019B2722301 AL1G3157001SEL1 AL259540000 ALLDVS2D001 AL1G0017015 6019B1342703 6019B1272401 AL1G0007031 AL061256U00 AL074318000 AL003808038 2500301111 2540793308 2500374011 2500575914 2500714014 AL54J061004 AL000160K01 AL000293K00 AL056120000 AL1G08QD001 AL051200014 6019BA051801 AL016890000 AL1G0008002 AL002G74K02 AL000216004SEL1 AJ073400000 AL000555008 AL000231T03 AL000236001 AL004040013 AL074501005 AL033630004 AL062816002 2540616608 2500459814 2540749308 6019BA054002 AL022954003 2540723308 AL000604002 AL007031007 AL001051009 AL008401007 2600124208M AL027518001 AL562201000 AL003760006 2522019014 AL54J061002 AL001G07039 AL005880C01 2510069814M 2541507508 6019B2680301 AL000030000 6019B2679701 6Y19B2191301 AL001G14020 AL000548026 AL053317004 AL002501003 AL002029004 AL000320024 6019BA100301 2513016114 2500172114 6019BA101201 6019B2156204",
-  "6019B2667801 6019B2096801 AL000190004 AL000190006 AL000190008 AL000190009 AL009051000 AL012776T04 AL000183000SEL1 AL005825009 6019B2171001 6019B2303101 AL000213007 AL000333011 6019B2794301 6019B1031501 AL000197K00 AL000183001 AL002403K01 AL000081007 AL002012U00 2520108114M 2522010414M AL008801003 AL0199A3002 AL000321054 AL000210030 AL002011T00 2520108014M 2520008111 2520171414 2520036614 2520108114 AL005770T06 2521501614 6019B3008301 AL000181011 AL000181009 2522032614 AL006001006 AL000333006 2522018814 2521510614 2520201114 AL009004K02 2522027014 AL002403K02 AL002904K06 AL009002K02 AL000186008",
-  "6019B2502501 6019B2736701 6019B2736601 AL220502006 6019B2736501 6019B2736801 6019B2794601 6019B2795201 6019B2824201 6019B2931001 AL230602004 6019B2783801 AL230602003 AL220502003 AL001228001 AL230602005 AL230602001 AL230602002 AL220502004 AL230602000 AL220502005 AL066994015 2610944308 2610819308 2610889108 AL003507B00 AL031790A00 2611375808 2611388708",
-  "6015B0337601 6015B0337401",
-  "BC01DRLRZ00 BC04DPLRZ00 BC06DPLRZ00 AL2EUSB3000 AL2EUSB3002 6011B0157116 6011B0367702 6011B0354401 BC1E0B04Z01 BC06DPYRZ02 BCEUSB30Z00 BC01DBVR000 AL2EUSB3003 BC2E2U06Z01 AL2EUSB3007 BC04DQARZ01 BC1E10B0Z00 BC000030Z03 BC000030Z02",
-  "BAM17570000 BAM19530002 BAM13200000 BAM16340001 BAM87310001SEL1 BAM54020001 BAM58870000 BAM87350004 BAM17570005 BAM54020002",
-];
-
-let _txMstMap = null;
-/* Normalize: ตัดช่องว่างทุกชนิด (space/tab/newline/NBSP/zero-width) + ไม่แยกพิมพ์เล็กใหญ่
-   ★ ห้ามตัดอักขระสำคัญ  -  /  .  ออก */
+/* หัวข้อคอลัมน์ที่รับได้ในไฟล์ MASTER (Normalize = ตัดช่องว่าง/ขึ้นบรรทัด + ตัวพิมพ์เล็ก) */
+const TX_MST_COL = {
+  code:   ['productcode/localcmpartnumber', 'productcode', 'localcmpartnumber'],
+  eng:    ['eng.desc1/productdescriptionsinenglish', 'eng.desc1', 'productdescriptionsinenglish'],
+  thai:   ['thai.desc3/goodsdescriptionsinlocalland', 'thai.desc3', 'goodsdescriptionsinlocalland'],
+  tariff: ['tariffclas/cmhscode', 'tariffclas', 'cmhscode'],
+  stat:   ['stat'], tseq: ['traffseq'], priv: ['privilege']
+};
+/* Normalize Product Code: ตัดช่องว่างทุกชนิด + ไม่แยกพิมพ์เล็กใหญ่ · ห้ามตัด - / . */
 function txMstNorm(v){
-  return String(v == null ? '' : v).replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '').toUpperCase();
+  return String(v == null ? '' : v).replace(/[\s ​‌‍﻿]+/g, '').toUpperCase();
 }
-function txMstMap(){
-  if(_txMstMap) return _txMstMap;
-  _txMstMap = new Map();
-  for(let g = 0; g < TX_MST_IDX.length; g++){
-    const codes = TX_MST_IDX[g].split(' ');
-    for(let i = 0; i < codes.length; i++) if(codes[i]) _txMstMap.set(codes[i], TX_MST_G[g]);
-  }
-  return _txMstMap;
-}
-/* Exact Match หลัง Normalize เท่านั้น — ห้ามค้นแบบบางส่วน · ไม่พบ = คืน null (ห้ามเดา) */
-function txMstFind(code){ const k = txMstNorm(code); return k ? (txMstMap().get(k) || null) : null; }
-txMstMap();                       // สร้างดัชนีทันทีที่โหลดหน้าเว็บ — พร้อมค้นหาตั้งแต่เปิดเว็บ
+const txMstHdr = v => String(v == null ? '' : v).replace(/[\s ​﻿]+/g, '').toLowerCase();
 
-/* ── ข้อความแจ้งเตือนภาษาไทย (ข้อ 7) ── */
+let _txMstActive  = null;    // ข้อมูล MASTER Version ที่ ACTIVE อยู่ (จาก Server)
+let _txMstCanMng  = false;   // Server ยืนยันว่าบัญชีนี้จัดการ MASTER ได้
+let _txMstStaged  = null;    // ไฟล์ MASTER ที่เลือกไว้แต่ยังไม่ SAVE (อยู่ในหน่วยความจำเท่านั้น)
+let _txMstBusy    = false;   // กำลังอ่าน/บันทึก MASTER
+const _txMstFound = new Map();   // cache ผลค้นหาต่อ Version (ล้างเมื่อ Version เปลี่ยน)
+
+/* ── ข้อความแจ้งเตือนภาษาไทย ── */
 const TX_MST_MSG_OK   = 'ตรวจสอบสำเร็จ: พบข้อมูลใน MASTER ครบทุก Product Code พร้อม EXPORT EXCEL';
 const TX_MST_MSG_NG   = n => 'พบ Product Code ที่ไม่มีใน MASTER จำนวน ' + n + ' รายการ กรุณาตรวจสอบก่อน EXPORT EXCEL';
 const TX_MST_MSG_ROW  = c => 'ไม่พบ Product Code [' + c + '] ใน MASTER — ระบบไม่เติม DESCRIPTIONS THAI 3, Tariff Code, Stat, Traff Seq และ Privilege';
 const TX_MST_MSG_BLUR = 'AI อ่าน Product Code ไม่ชัด กรุณาตรวจสอบจากเอกสารต้นฉบับ';
+const TX_MST_MSG_NONE = 'ยังไม่มี MASTER TEXAS DB12 ที่พร้อมใช้งาน กรุณาให้ SUPER_ADMIN อัปโหลดและบันทึก MASTER';
+
+/* ── เรียก RPC ของ MASTER (ส่ง Session ทุกครั้ง · Server เป็นผู้ตัดสินสิทธิ์) ── */
+async function txMstRpc(fn, body){
+  const tk = _txSess && _txSess.token;
+  if(!tk) throw new Error(TX_NO_SESS);
+  const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method:'POST',
+    headers:{ 'apikey':SUPABASE_KEY, 'Authorization':'Bearer '+SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({ p_session: tk }, body || {}))
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!j) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง (HTTP ' + r.status + ')');
+  if(j.success === false) throw new Error(j.msg || 'ทำรายการ MASTER ไม่สำเร็จ');
+  return j;
+}
+/* ── โหลด MASTER ACTIVE + ประวัติ Version ── */
+async function txMstLoadActive(){
+  try{
+    const j = await txMstRpc('nj_tx_master_active', {});
+    const prev = _txMstActive && _txMstActive.version;
+    _txMstActive = j.active || null;
+    _txMstCanMng = !!j.can_manage;
+    if(!_txMstActive || _txMstActive.version !== prev) _txMstFound.clear();
+  }catch(e){ _txMstActive = null; _txMstCanMng = false; }
+  txMstRender(); try{ txCheckReady(); }catch(_){}
+  txMstHistory();
+  return _txMstActive;
+}
+async function txMstHistory(){
+  const box = document.getElementById('tx-mst-hist'); if(!box) return;
+  try{
+    const j = await txMstRpc('nj_tx_master_list', { p_limit: 20 });
+    const vs = j.versions || [];
+    if(!vs.length){ box.innerHTML = '<div style="color:var(--text3)">ยังไม่มีประวัติ Version</div>'; return; }
+    box.innerHTML = '<div style="font-weight:700;margin-bottom:2px">ประวัติ Version</div>' + vs.map(v =>
+      '<div class="hrow"><span style="flex:0 0 auto;font-weight:700">v' + txEscHtml(v.version) + '</span>' +
+      '<span style="flex:1 1 auto">' + txEscHtml(v.file_name) + '</span>' +
+      '<span style="flex:0 0 auto;color:var(--text3)">' + txEscHtml(txMstDate(v.saved_at)) + ' · ' + txEscHtml(v.saved_by_name || v.saved_by) + '</span>' +
+      (v.is_active ? '<span class="tx-mbadge" style="background:#dcfce7;color:#166534">ACTIVE</span>'
+                   : (_txMstCanMng ? '<button onclick="txMstRollback(' + Number(v.version) + ')">คืนค่า Version นี้</button>' : '')) +
+      '</div>').join('');
+  }catch(e){ box.innerHTML = '<div style="color:#b91c1c">อ่านประวัติ Version ไม่สำเร็จ</div>'; }
+}
+const txMstDate = v => { try{ const d = new Date(v);
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() +
+         ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }catch(_){ return String(v||''); } };
+
+/* ── แสดงผลกรอบ MASTER + แถบสถานะด้านล่าง ── */
+function txMstRender(){
+  const info = document.getElementById('tx-mst-info');
+  const pick = document.getElementById('tx-mst-pick');
+  const bar  = document.getElementById('tx-mst-bar');
+  const A = _txMstActive, St = _txMstStaged, esc = txEscHtml;
+  if(pick) pick.innerHTML = St ? ('📘 ' + esc(St.name) + ' <span style="color:var(--text3)">(' + St.rows.length + ' แถว · ยังไม่ได้ SAVE)</span>')
+                               : 'คลิกเพื่อเลือกไฟล์ MASTER (.xlsx)';
+  if(info){
+    let h = '';
+    if(A){
+      h += '<div><span class="tx-mbadge" style="background:#dcfce7;color:#166534">MASTER ACTIVE</span> ' +
+           '<b>Version ' + esc(A.version) + '</b></div>' +
+           '<div>ไฟล์: <b>' + esc(A.file_name) + '</b></div>' +
+           '<div>อัปเดต: <b>' + esc(txMstDate(A.saved_at)) + '</b> · ผู้บันทึก: <b>' + esc(A.saved_by_name || A.saved_by) + '</b></div>' +
+           '<div>แถว: <b>' + esc(A.rows_total) + '</b> · ไม่ซ้ำ: <b>' + esc(A.codes_uniq) + '</b> · ซ้ำ: <b>' + esc(A.codes_dup) + '</b>' +
+           ' · ข้อผิดพลาด: <b style="color:' + (A.errors ? '#b91c1c' : 'inherit') + '">' + esc(A.errors) + '</b></div>' +
+           '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(A.file_sha256).slice(0,16)) + '…</div>';
+    } else {
+      h += '<div><span class="tx-mbadge" style="background:#fee2e2;color:#b91c1c">ยังไม่มี MASTER ACTIVE</span></div>' +
+           '<div style="color:#b91c1c">' + esc(TX_MST_MSG_NONE) + '</div>';
+    }
+    if(St) h += '<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line,#cbd5e1)">' +
+      '<span class="tx-mbadge" style="background:#fef3c7;color:#b45309">ไฟล์ใหม่ที่ยังไม่ SAVE</span> ' +
+      '<b>' + esc(St.name) + '</b><div>ชีท: ' + esc(St.sheet) + ' · แถว: <b>' + St.stats.rows_total + '</b>' +
+      ' · ไม่ซ้ำ: <b>' + St.stats.codes_uniq + '</b> · ซ้ำ: <b>' + St.stats.codes_dup + '</b>' +
+      ' · ข้อผิดพลาด: <b style="color:' + (St.stats.errors ? '#b91c1c' : 'inherit') + '">' + St.stats.errors + '</b></div>' +
+      (St.errList.length ? '<div style="color:#b91c1c">' + St.errList.slice(0,5).map(esc).join('<br>') +
+        (St.errList.length > 5 ? '<br>… รวม ' + St.errList.length + ' รายการ' : '') + '</div>' : '') +
+      '<div style="color:var(--text3);font-size:10px">SHA-256 ' + esc(String(St.sha).slice(0,16)) + '…</div></div>';
+    info.innerHTML = h;
+  }
+  if(bar){
+    /* ข้อความล่าสุดจากการกระทำ (อ่าน/SAVE/คืนค่า) ต้องอยู่ต่อ ไม่ถูกสรุปสถานะเขียนทับ */
+    if(_txMstMsg){ bar.textContent = 'MASTER: ' + _txMstMsg; bar.className = 'tx-status' + (_txMstMsgCls ? ' ' + _txMstMsgCls : ''); }
+    else {
+      bar.textContent = 'MASTER: ' + (A ? ('Version ' + A.version + ' · ' + A.file_name + ' · ไม่ซ้ำ ' + A.codes_uniq + ' รหัส')
+                                        : 'ยังไม่มี Version ที่พร้อมใช้งาน') +
+        (txState.res && txState.res.mst ? (' · พบ ' + txState.res.mst.found + ' · ไม่พบ ' + txState.res.mst.miss) : '');
+      bar.className = 'tx-status';
+    }
+  }
+  const en = (id, on) => { const e = document.getElementById(id); if(e) e.disabled = !on; };
+  en('tx-mst-read',   !!_txMstStagedFile && !_txMstBusy);
+  en('tx-mst-save',   !!(_txMstStaged && _txMstStaged.rows.length) && !_txMstBusy && _txMstCanMng);
+  en('tx-mst-cancel', (!!_txMstStagedFile || !!_txMstStaged) && !_txMstBusy);
+}
+let _txMstStagedFile = null;      // ไฟล์ที่เลือกไว้ (ยังไม่ได้อ่าน)
+
+/* ── เลือกไฟล์ MASTER — ห้ามกระทบ PDF และห้ามกระทบ MASTER ACTIVE ── */
+function txMstPick(files){
+  const f = (files || [])[0];
+  if(!f) return;
+  if(!/\.(xlsx|xls)$/i.test(f.name)){ toast && toast('รับเฉพาะไฟล์ .xlsx', 'warn'); return; }
+  _txMstStagedFile = f; _txMstStaged = null;
+  txMstRender();
+  txMstSetBar('เลือกไฟล์ "' + f.name + '" แล้ว — กด "อ่านและตรวจสอบ MASTER"');
+}
+let _txMstMsg = null, _txMstMsgCls = '';
+function txMstSetBar(msg, cls){
+  _txMstMsg = msg || null; _txMstMsgCls = cls || '';
+  const bar = document.getElementById('tx-mst-bar'); if(!bar) return;
+  if(_txMstMsg){ bar.textContent = 'MASTER: ' + _txMstMsg; bar.className = 'tx-status' + (_txMstMsgCls ? ' ' + _txMstMsgCls : ''); }
+  else txMstRender();
+}
+/* ── ยกเลิกเฉพาะไฟล์ใหม่ที่ยังไม่ SAVE — ห้ามแตะ MASTER ACTIVE และห้ามล้าง PDF ── */
+function txMstCancel(){
+  _txMstStagedFile = null; _txMstStaged = null;
+  const el = document.getElementById('tx-mst-input'); if(el) el.value = '';
+  txMstRender(); txMstSetBar('ยกเลิกไฟล์ที่เลือกแล้ว — MASTER ACTIVE เดิมไม่เปลี่ยนแปลง');
+}
+const txMstSha = async (buf) => {
+  const d = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join('');
+};
+const txMstB64 = (buf) => { const u = new Uint8Array(buf); let s = ''; const CH = 0x8000;
+  for(let i = 0; i < u.length; i += CH) s += String.fromCharCode.apply(null, u.subarray(i, i + CH));
+  return btoa(s); };
+
+/* ── อ่านและตรวจสอบไฟล์ MASTER (ฝั่งเบราว์เซอร์ · ยังไม่เขียนลง Server) ── */
+async function txMstRead(){
+  if(!_txMstStagedFile || _txMstBusy) return;
+  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังอ่านไฟล์ …');
+  try{
+    const buf = await _txMstStagedFile.arrayBuffer();
+    const wb  = XLSX.read(new Uint8Array(buf), { type:'array' });
+    let sheet = null, hdrRow = null, map = null;
+    for(const nm of wb.SheetNames){
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nm], { header:1, defval:null, raw:false });
+      if(!aoa.length) continue;
+      const hdr = (aoa[0] || []).map(txMstHdr);
+      const m = {};
+      for(const k in TX_MST_COL){
+        for(const want of TX_MST_COL[k]){ const i = hdr.indexOf(want); if(i >= 0){ m[k] = i; break; } }
+      }
+      if(m.code !== undefined && m.tariff !== undefined && m.stat !== undefined){ sheet = nm; hdrRow = aoa; map = m; break; }
+    }
+    if(!sheet) throw new Error('ไม่พบหัวคอลัมน์ "productcode/Local CM Part Number" และ "tariff clas/CM HS Code" ในไฟล์นี้');
+
+    const get = (r, k) => (map[k] === undefined ? '' : String(r[map[k]] == null ? '' : r[map[k]]).trim());
+    const seen = new Map(), rows = [], errList = [];
+    let total = 0, dup = 0;
+    for(let i = 1; i < hdrRow.length; i++){
+      const r = hdrRow[i] || [];
+      if(r.every(v => v == null || String(v).trim() === '')) continue;
+      total++;
+      const raw = get(r, 'code'), key = txMstNorm(raw);
+      const rec = [key, raw, get(r,'eng'), get(r,'thai'), get(r,'tariff'), get(r,'stat'), get(r,'tseq'), get(r,'priv')];
+      if(!key){ errList.push('แถว ' + (i+1) + ': ไม่มี Product Code'); continue; }
+      if(!/^\d{8}$/.test(rec[4])) errList.push('แถว ' + (i+1) + ' [' + raw + ']: Tariff Code ต้องเป็นตัวเลข 8 หลัก (พบ "' + rec[4] + '")');
+      if(!/^\d{3}$/.test(rec[5])) errList.push('แถว ' + (i+1) + ' [' + raw + ']: Stat ต้องเป็นตัวเลข 3 หลัก (พบ "' + rec[5] + '")');
+      if(seen.has(key)){
+        dup++;
+        const a = seen.get(key);
+        if(a.slice(2).join('\u0001') !== rec.slice(2).join('\u0001'))
+          errList.push('แถว ' + (i+1) + ' [' + raw + ']: Product Code ซ้ำแต่ข้อมูลไม่ตรงกับแถวก่อนหน้า');
+        continue;
+      }
+      seen.set(key, rec); rows.push(rec);
+    }
+    const sha = await txMstSha(buf);
+    _txMstStaged = { name:_txMstStagedFile.name, sheet, sha, b64: txMstB64(buf), rows, errList,
+      stats: { rows_total: total, codes_uniq: rows.length, codes_dup: dup, errors: errList.length,
+               saved_by_name: (_txSess && _txSess.username) || '' } };
+    txMstSetBar('อ่านไฟล์เสร็จ · ' + total + ' แถว · ไม่ซ้ำ ' + rows.length + ' · ซ้ำ ' + dup +
+                ' · ข้อผิดพลาด ' + errList.length + (errList.length ? ' — ตรวจก่อน SAVE' : ' — พร้อม SAVE'),
+                errList.length ? 'err' : 'ok');
+  }catch(e){
+    _txMstStaged = null;
+    txMstSetBar('อ่านไฟล์ไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err');
+  }finally{
+    _txMstBusy = false; txMstRender();
+  }
+}
+/* ── SAVE MASTER → Version ใหม่เป็น ACTIVE ทันทีสำหรับทุกบัญชี ── */
+async function txMstSave(){
+  if(!_txMstStaged || _txMstBusy) return;
+  const S = _txMstStaged;
+  const warn = S.stats.errors ? ('\n\n⚠ พบข้อผิดพลาด ' + S.stats.errors + ' รายการในไฟล์นี้') : '';
+  if(!confirm('บันทึก MASTER ใหม่เป็น Version ที่ใช้งานจริงสำหรับทุกบัญชี?\n\nไฟล์: ' + S.name +
+              '\nแถว: ' + S.stats.rows_total + ' · ไม่ซ้ำ: ' + S.stats.codes_uniq + ' · ซ้ำ: ' + S.stats.codes_dup + warn +
+              '\n\nMASTER เดิมจะถูกเก็บไว้เป็นประวัติและคืนค่าได้')) return;
+  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังบันทึกขึ้น Server …');
+  try{
+    const j = await txMstRpc('nj_tx_master_save', {
+      p_file_name: S.name, p_sha256: S.sha, p_file_b64: S.b64, p_sheet: S.sheet,
+      p_rows: S.rows, p_stats: S.stats, p_note: '' });
+    _txMstStagedFile = null; _txMstStaged = null;
+    const el = document.getElementById('tx-mst-input'); if(el) el.value = '';
+    await txMstLoadActive();
+    txMstSetBar('บันทึกสำเร็จ · Version ' + j.version + ' · ' + j.rows + ' รหัส — ทุกเครื่องจะเห็น Version นี้', 'ok');
+    txMstInvalidate();
+  }catch(e){
+    txMstSetBar('บันทึกไม่สำเร็จ — ' + (e && e.message ? e.message : e) + ' · MASTER เดิมยังใช้งานได้ตามปกติ', 'err');
+  }finally{
+    _txMstBusy = false; txMstRender();
+  }
+}
+/* ── คืนค่า Version เดิม ── */
+async function txMstRollback(ver){
+  if(_txMstBusy) return;
+  if(!confirm('คืนค่า MASTER กลับไปเป็น Version ' + ver + ' สำหรับทุกบัญชี?')) return;
+  _txMstMsg = null; _txMstBusy = true; txMstRender(); txMstSetBar('กำลังคืนค่า Version ' + ver + ' …');
+  try{
+    await txMstRpc('nj_tx_master_rollback', { p_version: ver });
+    await txMstLoadActive();
+    txMstSetBar('คืนค่าเป็น Version ' + ver + ' สำเร็จ', 'ok');
+    txMstInvalidate();
+  }catch(e){
+    txMstSetBar('คืนค่าไม่สำเร็จ — ' + (e && e.message ? e.message : e), 'err');
+  }finally{
+    _txMstBusy = false; txMstRender();
+  }
+}
+/* MASTER เปลี่ยน = ผลจับคู่เดิมใช้ไม่ได้ ต้องกด "ตรวจสอบ" ใหม่ (แต่ไม่ล้างไฟล์ PDF) */
+function txMstInvalidate(){
+  _txMstFound.clear();
+  if(txState.res){ txState.res = null; txState.list = null; txRenderResult(); }
+  try{ txCheckReady(); }catch(_){}
+}
+/* ── ค้นหา Mapping จาก MASTER ACTIVE บน Server (ไม่เรียก AI) ── */
+async function txMstLookup(keys){
+  const need = [...new Set(keys.filter(k => k && !_txMstFound.has(k)))];
+  for(let i = 0; i < need.length; i += 1000){
+    const j = await txMstRpc('nj_tx_master_lookup', { p_keys: need.slice(i, i + 1000) });
+    const f = j.found || {};
+    for(const k of need.slice(i, i + 1000)) _txMstFound.set(k, f[k] || null);
+  }
+  return _txMstFound;
+}
 
 /* ── ค่าคงที่ที่ต้องมีครบทุกแถว (ข้อ 4) ── */
 const TX_FIX = {
@@ -12009,6 +12287,7 @@ async function txDownload(){
     if(_txMatching) throw new Error('ระบบกำลังจับคู่ MASTER กรุณารอสักครู่');
     /* [440] ข้อ 6 — ไม่พบ Product Code ใน MASTER = ห้าม Export (ห้ามเดาค่า ห้ามเติมเลขเอง) */
     const M = (txState.res && txState.res.mst) || null;
+    if(!_txMstActive) throw new Error(TX_MST_MSG_NONE);
     if(!M) throw new Error('กรุณากด "ตรวจสอบ" ก่อน');
     if(M.blur) throw new Error(TX_MST_MSG_BLUR);
     if(M.miss) throw new Error(TX_MST_MSG_NG(M.miss) + '\n' +
@@ -12037,6 +12316,8 @@ async function txDownload(){
 document.addEventListener('DOMContentLoaded', function(){
   const pi = document.getElementById('tx-pdf-input');
   if(pi) pi.addEventListener('change', e => txAddPdfFiles(e.target.files));
+  const mi = document.getElementById('tx-mst-input');
+  if(mi) mi.addEventListener('change', e => txMstPick(e.target.files));
   const wire = (id, fn) => {
     const dz = document.getElementById(id); if(!dz) return;
     dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag'); });
@@ -24911,6 +25192,7 @@ async function doLogin(){
       _currentUser = fakeSession.user;
       try{ localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(fakeSession.user)); }catch(_){}
       authMsg('เข้าสู่ระบบ (Local) ✓ · ' + TX_READY, 'ok');
+      try{ await txMstLoadActive(); }catch(_){}        // [441] โหลด MASTER ACTIVE ทันทีหลัง Login
       await onAuthSuccess(fakeSession);
       try{ txCheckReady(); txSetStatus(txHint(), 'ok'); }catch(_){}
       return;
@@ -24959,7 +25241,7 @@ async function doLogin(){
    [VERSION 16/11/2026] รุ่นที่ Deploy — แก้ที่เดียวพอ · ป้ายมุมขวาบนอ่านค่าจากตัวนี้
    ★ เปลี่ยนเลขให้ตรงกับไฟล์ Deploy github local<XXX>.zip ทุกครั้งที่ปล่อยรุ่นใหม่
    ══════════════════════════════════════════════════════════════════════════ */
-const DEPLOY_VERSION = 'local440';
+const DEPLOY_VERSION = 'local441';
 /* Mobile: แตะเพื่อดูชื่อเต็ม แล้วย่อกลับเองใน 3 วินาที — ไม่ค้างทับวันที่/ปุ่ม */
 let _njVerT = null;
 function njVerTap(el){
